@@ -1,6 +1,4 @@
-// node tests/board-max.e2e.js  (Playwright + Chromium; no network)
-// The arrow button at the top right of the note board and the whiteboard makes the board fill the whole app window, on a computer and a phone.
-// The same button, Esc, or leaving Notes goes back. Notes still open, drag and draw while it's full screen.
+// node tests/board-max.e2e.js
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -35,7 +33,6 @@ const SHOTS = process.env.SHOTS || "";
       await page.evaluate(() => { const b = document.querySelector('nav.tabs [data-tab="notes"]'); b && b.click(); });
       await page.waitForSelector("#nbBoard .note"); await page.waitForTimeout(400);
 
-      // the note board
       const bm = await page.evaluate(() => { const b = document.querySelector(".nb-max").getBoundingClientRect(), s = document.getElementById("nbScroll").getBoundingClientRect(), z = document.querySelector(".nb-zoom").getBoundingClientRect();
         const t = [...document.querySelectorAll(".nb-target")].map(x => x.getBoundingClientRect()), apart = (p, q) => p.right <= q.left || q.right <= p.left || p.bottom <= q.top || q.bottom <= p.top;
         const covers = [...document.querySelectorAll("nav.tabs, .fab")].filter(e => getComputedStyle(e).position === "fixed" && getComputedStyle(e).opacity !== "0").map(e => e.getBoundingClientRect());
@@ -49,7 +46,6 @@ const SHOTS = process.env.SHOTS || "";
       ok(await page.evaluate(() => { const s = document.getElementById("nbScroll").getBoundingClientRect(); return s.height > innerHeight * 0.6; }), `${label}: the board itself grows to fill it`);
       ok(await page.getAttribute(".nb-max", "aria-pressed") === "true" && /Exit/.test(await page.getAttribute(".nb-max", "aria-label")), `${label}: the button now offers going back`);
       if (SHOTS) await page.screenshot({path: path.join(SHOTS, `notes-${label}.png`)});
-      // a note still drags while full screen
       const before = await page.evaluate(() => { const r = document.querySelector('.note[data-note="n1"]').getBoundingClientRect(); return {x: r.left, y: r.top}; });
       if (label === "computer") {
         await page.mouse.move(before.x + 30, before.y + 30); await page.mouse.down(); await page.mouse.move(before.x + 90, before.y + 80, {steps: 6}); await page.mouse.move(before.x + 130, before.y + 110, {steps: 6}); await page.mouse.up(); await page.waitForTimeout(400);
@@ -61,7 +57,6 @@ const SHOTS = process.env.SHOTS || "";
       await page.click(".nb-max"); await page.waitForTimeout(200); await page.keyboard.press("Escape"); await page.waitForTimeout(300);
       ok(!(await isMax(page)), `${label}: Esc goes back`);
 
-      // the whiteboard
       await page.evaluate(() => { const b = document.querySelector('[data-act="nv-view"][data-id="wb"]'); b && b.click(); }); await page.waitForTimeout(400);
       await page.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
       if (!(await page.locator(".wb-frame").count())) { await page.evaluate(() => { const b = document.querySelector('[data-act="wb-quick"][data-id="blank"], [data-act="wb-quick"]'); b && b.click(); }); await page.waitForTimeout(600); }
@@ -77,7 +72,6 @@ const SHOTS = process.env.SHOTS || "";
       ok(Math.abs(w1.cw - Math.round(w1.w * w1.dpr)) < 3 && Math.abs(w1.ch - Math.round(w1.h * w1.dpr)) < 3, `${label}: the drawing surface is resized to match`);
       ok(await page.getAttribute(".wb-max", "aria-pressed") === "true", `${label}: the whiteboard's button now offers going back`);
       if (SHOTS) await page.screenshot({path: path.join(SHOTS, `wb-${label}.png`)});
-      // drawing still works full screen (and pressing the button didn't draw)
       const inkN = () => page.evaluate(() => { const s = JSON.parse(localStorage.getItem("coursework:v2")); const l = Array.isArray(s.notes) ? s.notes : Object.values(s.notes); const b = l.find(x => x.wb); return b ? (b.wbInk || []).length : -1; });
       await page.evaluate(() => { const b = document.querySelector('[data-wb="tool"][data-id="pen"]'); b && b.click(); });
       const f = await page.evaluate(() => { const r = document.querySelector(".wb-frame").getBoundingClientRect(); return {x: r.left, y: r.top, w: r.width, h: r.height}; });
@@ -86,7 +80,6 @@ const SHOTS = process.env.SHOTS || "";
       ok(!(await isMax(page)), `${label}: Esc leaves the full screen whiteboard`);
       await page.evaluate(() => { const b = document.querySelector('nav.tabs [data-tab="board"], nav.tabs [data-tab]'); b && b.click(); }); await page.waitForTimeout(400);
       ok(await inkN() >= 1, `${label}: a line drawn while full screen is kept`);
-      // leaving Notes while full screen goes back too
       await page.evaluate(() => { const b = document.querySelector('nav.tabs [data-tab="notes"]'); b && b.click(); }); await page.waitForTimeout(400);
       await page.click(".wb-max"); await page.waitForTimeout(300);
       await page.evaluate(() => { const b = [...document.querySelectorAll("nav.tabs [data-tab]")].find(x => x.dataset.tab !== "notes"); b.click(); }); await page.waitForTimeout(400);

@@ -1,37 +1,29 @@
 /* ===== module: 101-phone-v2.css ===== */
-/* Saving is automatic, so the header says nothing about it unless there's a problem. Guests save to an account from Settings. */
+/* Saving is automatic, so the header says nothing about it unless there's a problem */
 #guestBadge,#guestBadgeSide{display:none!important}
-.sync:is([data-state="ok"],[data-state="busy"]){display:none!important}   /* (the desktop side bar keeps its green Saved dot, .nav-sync) */
-/* The page area takes focus after a page change (so screen readers start there); it is not a control, so no outline around the whole page */
+.sync:is([data-state="ok"],[data-state="busy"]){display:none!important}
+/* The page area takes focus after a page change (so screen readers start there) */
 #view:focus,#view:focus-visible,main[tabindex="-1"]:focus{outline:none!important;box-shadow:none!important}
-/* Phones and tablets: the page itself never slides sideways or rubber-bands (iOS lets a touch drag the whole page around when anything
-   is a hair wider than the screen); it scrolls up and down, and the parts that scroll sideways (board columns, chips) still do, inside themselves. */
+/* Phones and tablets */
 @media (max-width:979px){
-  header.top .today{font-size:.78rem!important;line-height:1.2}   /* the date under the logo (tablets; phones show it small over the page title) */
+  header.top .today{font-size:.78rem!important;line-height:1.2}
   html{overflow-x:hidden;overscroll-behavior:none}
   body{overflow-x:clip;overscroll-behavior:none;max-width:100vw}
 }
-/* Phones (under 640 px wide): laid out as a phone app, not the desktop rearranged. Tablets and computers are unchanged.
-   - The top bar names the page you are on (with the date over Today) and keeps three round tools: Focus, Search and Settings.
-   - Seven tabs at the bottom, the companion's round seat in the middle: Board, Calendar, Review | companion | Notes, Courses, Groups.
-     Small labels (icons only on the narrowest phones). The companion stands in its seat (dockSpot in 98-companion.js); tapping it
-     opens its page.
-   - The Add button is a round + in the corner above the bar (its name stays for screen readers).
-   - Each page's switcher sits right under the title, full width; a heading that only repeats it or the title is hidden. */
+/* Phones (under 640 px wide) */
 .ph-title{display:none}
 @media (max-width:639px){
   /* Top bar */
-  /* the logo with the date under it (the bottom bar already says which page this is) */
   .top-row > div:first-child{justify-content:flex-end;min-width:0!important}
   header.top .brand{margin:0;line-height:0;min-width:0}
   header.top .brand img.logo{width:min(172px,44vw);height:auto;max-width:100%}
-  /* the logo block hugs the logo so the date centres under it; the saved dot and buttons sit to the right */
+  /* the logo block hugs the logo so the date centres under it */
   header.top .top-row > div:first-child{flex:0 1 auto!important;align-items:center!important;padding-top:6px}
   header.top .top-row > .sync{margin-left:auto}
   header.top .top-row{align-items:center!important}
   header.top .top-row > .head-actions{align-self:center!important;margin-top:0!important;margin-bottom:0!important}
-  header.top .today{text-align:center;margin-top:1px!important}   /* snug under the logo */
-  html header.top .today{background:none!important;padding-inline:0!important;border-radius:0!important;text-shadow:none!important}   /* no backing pill behind the date (the header is frosted already) */
+  header.top .today{text-align:center;margin-top:1px!important}
+  html header.top .today{background:none!important;padding-inline:0!important;border-radius:0!important;text-shadow:none!important}
   header.top .top-row > div:first-child{gap:0!important}
   /* a sync problem shows as a small amber dot (tap Settings for details) */
   header.top .top-row .sync:not([data-state="ok"]){margin-right:4px}
@@ -47,7 +39,6 @@
   .head-actions > .pomo-btn.run{height:40px;padding:0 12px}
   .sync-guest{align-self:center;padding:7px 11px;font-size:.74rem}
   /* Bottom tabs: five, with the companion's seat in the middle */
-  /* the bar sits low, partly in the home-indicator area; the plus keeps the same gap above it */
   :root{--ph-bar-b:max(6px,calc(var(--sb-sai-bottom,env(safe-area-inset-bottom,0px)) - 8px))}
   nav.tabs{left:10px;right:10px;padding:6px 4px;bottom:var(--ph-bar-b)}
   nav.tabs .in > :is(.nav-focus,.nav-more){display:none!important}
@@ -64,30 +55,28 @@
   nav.tabs .in button svg{width:22px;height:22px}
   html[data-ts="l"] nav.tabs .in button{font-size:.56rem!important}
   html[data-ts="xl"] nav.tabs .in button{font-size:.52rem!important}
-  /* the companion's seat speaks for itself: its name stays for screen readers, not on the bar */
+  /* the companion's seat speaks for itself */
   nav.tabs .in [data-tab="companion"]{position:relative;overflow:visible;justify-content:flex-end;font-size:0!important;line-height:0!important}
   html[data-ts] nav.tabs .in [data-tab="companion"]{font-size:0!important;line-height:0!important}
-  nav.tabs .in [data-tab="companion"]::after{content:"";position:absolute;left:50%;top:-16px;width:56px;height:56px;margin-left:-28px;border-radius:50%;background:color-mix(in srgb,var(--accent-band,var(--accent)) 14%,#fff);box-shadow:0 0 0 3px var(--accent-band,var(--accent)),0 0 0 6px color-mix(in srgb,var(--spine-bg,var(--spine)) 94%,transparent),0 8px 18px rgba(8,20,50,.28);z-index:-1;pointer-events:none}   /* the same ringed circle as on the Companion page */
-  nav.tabs .in [data-tab="companion"] svg{position:absolute;left:50%;top:-3px;margin-left:-14px;width:28px;height:28px;color:var(--accent)}   /* the centre of the seat (top -16px, 56px across) */
+  nav.tabs .in [data-tab="companion"]::after{content:"";position:absolute;left:50%;top:-16px;width:56px;height:56px;margin-left:-28px;border-radius:50%;background:color-mix(in srgb,var(--accent-band,var(--accent)) 14%,#fff);box-shadow:0 0 0 3px var(--accent-band,var(--accent)),0 0 0 6px color-mix(in srgb,var(--spine-bg,var(--spine)) 94%,transparent),0 8px 18px rgba(8,20,50,.28);z-index:-1;pointer-events:none}
+  nav.tabs .in [data-tab="companion"] svg{position:absolute;left:50%;top:-3px;margin-left:-14px;width:28px;height:28px;color:var(--accent)}
   nav.tabs .in [data-tab="companion"][aria-current="page"]{background:transparent}
-  nav.tabs,nav.tabs *{-webkit-tap-highlight-color:transparent}   /* no grey tap box from iOS (it flashed over the companion's old tab spot); the selected state shows the tap */
-  /* the tabs either side of the seat: their "selected" box curves around the seat instead of running over it
-     (seat centre: half a tab past the box's edge, 12px down; 34px across with its ring, plus a small gap) */
-  /* shapes: seatCut() in 101-phone-v2.js, kept on the bar so a freshly drawn button has its shape from the first frame */
+  nav.tabs,nav.tabs *{-webkit-tap-highlight-color:transparent}
+  /* the tabs either side of the seat */
   nav.tabs.ph-seatcut .in [data-tab="flashcards"][aria-current="page"]{border-radius:0;-webkit-mask:var(--ph-selm-l) 0 0/100% 100% no-repeat;mask:var(--ph-selm-l) 0 0/100% 100% no-repeat}
   nav.tabs.ph-seatcut .in [data-tab="notes"][aria-current="page"]{border-radius:0;-webkit-mask:var(--ph-selm-r) 0 0/100% 100% no-repeat;mask:var(--ph-selm-r) 0 0/100% 100% no-repeat}
   nav.tabs .in [data-tab="companion"][aria-current="page"]::after{box-shadow:0 0 0 4px var(--accent-band,var(--accent)),0 0 0 7px color-mix(in srgb,var(--spine-bg,var(--spine)) 94%,transparent),0 8px 18px rgba(8,20,50,.28)}
   body.cp-docked nav.tabs .in [data-tab="companion"] svg{visibility:hidden}
-  /* The Add button: a round + above the bar */
-  .fab{width:56px;height:56px;padding:0!important;border-radius:50%!important;justify-content:center;right:16px;bottom:calc(var(--ph-bar-b) + 74px)}   /* round in every theme (some give it square-ish corners) */
+  /* The Add button */
+  .fab{width:56px;height:56px;padding:0!important;border-radius:50%!important;justify-content:center;right:16px;bottom:calc(var(--ph-bar-b) + 74px)}
   .fab span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   .fab svg{width:26px;height:26px}
-  /* Page switchers: full width, right under the title */
+  /* Page switchers */
   #view > .pview-tabs,#view > .bview-row .bview-tabs{max-width:none;width:100%;margin:2px 0 12px}
   #view > .pview-tabs button,#view > .bview-row .bview-tabs button{padding:8px 6px;font-size:1.04rem;min-height:42px;white-space:nowrap}
   #view > .bview-row{margin-top:0}
   .ph-dup{display:none!important}
-  #view .view-head:not(:has(> :not(h2.ph-dup))){display:none}   /* a header with nothing left in it */
+  #view .view-head:not(:has(> :not(h2.ph-dup))){display:none}
   #view > .view-head:has(> h2.ph-dup){justify-content:flex-end;min-height:0;margin-top:0}
   #view > .tl-controls:has(> h2.ph-dup){margin-top:0}
   /* Notices: one compact card, actions on one line */
@@ -100,9 +89,9 @@
   dialog#dlg .sheet-foot{flex-wrap:wrap;gap:8px}
   dialog#dlg .sheet-foot > .btn.primary:last-child,dialog#dlg .sheet-foot > [data-submit].primary{flex:1 1 140px}
 }
-@media (min-width:640px){#view .cf-row{display:none!important}}   /* the course and board dropdowns are for phones; wide screens keep the chips */
+@media (min-width:640px){#view .cf-row{display:none!important}}
 @media (max-width:639px){
-  /* Course filter: one button that opens the list of courses; on the Board, Group By sits at the other end of the same line */
+  /* Course filter */
   .cf-chips{display:none!important}
   .cf-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0 12px;padding:0!important;border:0!important;background:none!important;box-shadow:none!important}
   .cf-pick{position:relative;display:inline-flex;align-items:center;gap:8px;min-height:40px;flex:0 1 auto;min-width:0;max-width:62%;padding:0 12px;border-radius:999px;background:var(--navy,var(--ink));color:#fff;font:600 .92rem var(--display);cursor:pointer}
@@ -125,7 +114,7 @@
   .ph-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:8;display:grid;gap:4px;min-width:200px;padding:6px;border:1px solid var(--line);border-radius:14px;background:var(--ph-surf,var(--surface));box-shadow:0 12px 28px rgba(8,20,50,.22)}
   .ph-menu .btn{justify-content:flex-start;width:100%;min-height:44px;border:0;box-shadow:none;background:transparent;border-radius:10px;text-align:left}
   .ph-menu .btn:hover,.ph-menu .btn:focus-visible{background:var(--soft)}
-  /* Companion page: everything on one screen (a compact header, the AI notice on one line, three suggestions in a row) */
+  /* Companion page */
   .cpt-head.cpt3{padding-bottom:10px}
   .cpt3-band{height:58px!important;min-height:0!important}
   .cpt3-band .cpt3-acts .btn{min-height:34px;padding:4px 14px;font-size:.86rem}
@@ -133,7 +122,7 @@
   .cpt3-ring .cpt-face{width:82px!important;height:82px!important}
   .cpt-id{margin-top:4px!important}
   .cpt-id h2{font-size:1.35rem!important;line-height:1.15!important;margin:0!important}
-  .cpt-id .cpt-bio{font-size:.82rem!important;line-height:1.3!important;margin:2px 12px 0!important}   /* the whole description shows, however long */
+  .cpt-id .cpt-bio{font-size:.82rem!important;line-height:1.3!important;margin:2px 12px 0!important}
   .cpt3-tabs{margin-top:8px!important;gap:4px!important}
   .cpt3-tabs button{min-height:34px!important;padding:4px 14px!important;font-size:.9rem!important}
   .cpt-pane{gap:8px!important}
@@ -148,7 +137,7 @@
   .cpt-empty .cpt-chips .chip:nth-child(n+4){display:none}
   .cpt-priv{font-size:.7rem!important;line-height:1.3;margin-top:4px!important}
   .cf-acts{display:flex;gap:6px;flex:none}
-  /* Review's buttons above the course dropdown: they share the full width, each as wide as its words allow */
+  /* Review's buttons above the course dropdown */
   #view > .view-head.ph-fill{display:flex!important;flex-wrap:wrap;gap:8px;width:100%;justify-content:stretch}
   #view > .view-head.ph-fill > :not(h2){flex:1 1 auto;min-width:0;justify-content:center;white-space:nowrap;margin:0!important}
   #view > .view-head.ph-fill + .cf-chips + .cf-row,#view > .view-head.ph-fill + .cf-row{margin-top:12px}
@@ -168,36 +157,32 @@
 }
 @media (max-width:639px) and (prefers-reduced-motion:no-preference){nav.tabs .in button{transition:background .15s,color .15s}}
 @media (max-width:639px){
-  /* Calendar and Notes controls: one row that scrolls sideways instead of wrapping onto two or three */
+  /* Calendar and Notes controls */
   #view > .tl-controls{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding:2px 16px;gap:8px}
   #view > .tl-controls::-webkit-scrollbar{display:none}
   #view > .tl-controls > *{flex:none}
   #view > .tl-controls .segb button,#view > .tl-controls > .btn.small{min-height:40px;padding-block:5px;font-size:.98rem}
-  /* with only its switchers left (Today moved down beside the course list), they share the width */
+  /* with only its switchers left (Today moved down beside the course list) */
   #view > .tl-controls:not(:has(> :not(h2,.segb))){overflow:visible;margin-inline:0;padding:0}
   #view > .tl-controls:not(:has(> :not(h2,.segb))) > .segb{flex:2 1 0;min-width:0}
   #view > .tl-controls:not(:has(> :not(h2,.segb))) > .segb + .segb{flex-grow:3}
   #view > .tl-controls:not(:has(> :not(h2,.segb))) > .segb button{flex:1 1 0;min-width:0;padding-inline:2px;font-size:.94rem}
   /* Today's Plan: the four numbers as one strip */
-  .plan .pt-stats{display:flex;flex-wrap:wrap;gap:6px}   /* tiles share the row, whether 3 or 4 are shown; each is at least as wide as what it shows, and when they can't all fit they wrap to a second row instead of cutting anything off */
+  .plan .pt-stats{display:flex;flex-wrap:wrap;gap:6px}
   .plan .pt-stat{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:64px;padding:8px 6px;border-radius:12px;text-align:center;min-width:min-content;flex:1 1 0}
   .plan .pt-stats.pt-2x2 > .pt-stat{flex:1 1 calc(50% - 3px)}
   .plan .pt-stat b{display:block;font-size:.98rem;line-height:1.1;white-space:nowrap;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-  .plan .pt-stat span{display:block;font-size:.64rem;line-height:1.15;white-space:normal;overflow-wrap:normal;word-break:normal;overflow:visible;margin:0}   /* a long label goes onto two lines, never "..." */
+  .plan .pt-stat span{display:block;font-size:.64rem;line-height:1.15;white-space:normal;overflow-wrap:normal;word-break:normal;overflow:visible;margin:0}
   .plan .fh-ctl .hours-ctl{min-height:0;padding:4px 10px}
-  /* A page's own buttons whose heading was hidden (Review's Archive and Recently Deleted) sit beside its switcher */
-  /* a header left with only its buttons (its heading repeats the page): the buttons on their own line under the switcher, at the right */
+  /* A page's own buttons whose heading was hidden */
   #view > .view-head.ph-btns,#view > section > .view-head.ph-btns{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:4px 0 14px!important;padding:0!important;min-height:0;height:auto;position:static!important;transform:none!important}
   #view > .view-head.ph-btns + *,#view > section > .view-head.ph-btns + *{margin-top:0!important}
   /* breathing room between the header and the page's first row (the switcher or title pill) */
-  /* frosted header: the theme shows through it, blurred (it was nearly solid) */
-  /* its top edge is solid --paper, the same colour iOS paints behind the clock and battery (theme-color, set in 101-phone-v2.js),
-     so the two read as one bar; it turns to frosted glass further down. Sits a little higher too. */
   header.top,body.sb-scrolled header.top{padding-top:4px!important;padding-bottom:6px!important;background:linear-gradient(to bottom,var(--paper) 0,color-mix(in srgb,var(--paper) 50%,transparent) 70%)!important;-webkit-backdrop-filter:blur(16px) saturate(1.5)!important;backdrop-filter:blur(16px) saturate(1.5)!important}
-  #view{padding-top:6px!important}   /* 10px below the header in all */
+  #view{padding-top:6px!important}
   #view > .pview-tabs:first-child{margin-top:0!important}
-  #view > .grp-grid{margin-top:16px}   /* same gap under the Groups pill as other pages */
-  /* Companion chat: the page is fixed and only the conversation scrolls (#view's height is set by fitChat in 101-phone-v2.js) */
+  #view > .grp-grid{margin-top:16px}
+  /* Companion chat */
   html.ph-lock,html.ph-lock body{overflow:hidden!important;overscroll-behavior:none}
   html.ph-lock .wrap{padding-bottom:0!important;min-height:0!important}
   html.ph-lock #view{display:flex;flex-direction:column;overflow:hidden;padding-bottom:0!important;margin-bottom:0!important;min-height:0!important}
@@ -207,24 +192,24 @@
   html.ph-lock #view .cpt-pane > *{flex:none}
   html.ph-lock #view .cpt-pane > .cpt-log{flex:1 1 auto;min-height:0!important;max-height:none!important;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
   html.ph-lock #view .cpt-form{position:static!important}
-  @media (max-height:700px){html.ph-lock #view .cpt-priv{display:none}}   /* short phones: room for the conversation instead */
-  /* Notes / Groups: the page name in a switcher-style pill (101-phone-v2.js) */
+  @media (max-height:700px){html.ph-lock #view .cpt-priv{display:none}}
+  /* Notes / Groups */
   #view > .pview-tabs.ph-solo .ph-solo-t{flex:1;display:flex;align-items:center;justify-content:center;min-height:42px;color:var(--ink);font:800 1.3rem var(--display);letter-spacing:-.01em}
   #view > .pview-tabs.ph-solo{justify-content:center}
-  #view > .pview-tabs.ph-solo .ph-solo-t{flex:1 1 auto;min-width:0;padding:0 26px;border-radius:999px;background:var(--surface);box-shadow:var(--shadow)}   /* a selected-style pill sized to the name, like the chosen tab in a switcher */
-  :is(#view > .view-head,#view > section > .view-head).ph-btns .btn.small{min-height:40px;margin:0!important}   /* (an older rule pulls header buttons up with a negative margin) */
+  #view > .pview-tabs.ph-solo .ph-solo-t{flex:1 1 auto;min-width:0;padding:0 26px;border-radius:999px;background:var(--surface);box-shadow:var(--shadow)}
+  :is(#view > .view-head,#view > section > .view-head).ph-btns .btn.small{min-height:40px;margin:0!important}
   /* Task Board: Group By as a small control */
   .bview-row .board-ctl .segb button{min-height:34px;padding-block:4px;font-size:.84rem}
   .bview-row .board-ctl .mini{font-size:.78rem}
-  /* Sheets with a colour band: a smaller ring and no empty strip under the band when there is no name to show */
+  /* Sheets with a colour band */
   .g2-sheet-head:not(.sh-big):not(:has(.sh-t .mini)){min-height:84px!important}
   .g2-sheet-head .sh-ring{width:56px!important;height:56px!important;left:16px!important;top:16px!important}
   .g2-sheet-head:not(.sh-big) .sh-t h2,.sh-big .sh-kick{left:86px!important}
   .g2-sheet-head{padding-left:86px!important}
-  /* A course's page: its tabs on one line each */
+  /* A course's page */
   .c2-head .cd-tabs button{font-size:.84rem;padding-inline:4px;white-space:nowrap}
 }
-/* the narrowest phones: icons only (each tab keeps its name for screen readers) */
+/* the narrowest phones */
 @media (max-width:379px){.plan .pt-stat b{font-size:.8rem}.plan .pt-stat span{font-size:.6rem;white-space:normal;overflow:visible}}
 @media (max-width:359px){header.top .today{font-size:.68rem!important}}
 @media (max-width:359px){nav.tabs .in button,html[data-ts] nav.tabs .in button{font-size:0!important;line-height:0!important;gap:0;min-height:48px;justify-content:center}}

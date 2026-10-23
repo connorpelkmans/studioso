@@ -1,4 +1,4 @@
-/* Theme Collection, world theme: morocco */
+/* Theme Collection, world theme */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2), S15 = SOw(1.6);

@@ -1,6 +1,4 @@
-// node tests/whiteboard.e2e.js  (Playwright + Chromium; no network)
-// Notes > Whiteboard: boards are notes with n.wb (never shown as sticky notes); marker, highlighter, shapes, held-still snapping, text in the
-// Neat style, the eraser (parts and whole strokes), select / move / resize / delete, undo and redo, zoom, export, saving and Recently Deleted.
+// node tests/whiteboard.e2e.js (Playwright + Chromium; no network) Notes > Whiteboard
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -42,7 +40,6 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     await page.click('.nv-tabs [data-id="wb"]'); await page.waitForTimeout(300);
     ok(await page.locator('.wb-empty [data-act="wb-quick"][data-id="blank"]').count() === 1 && await page.locator(".wb-empty .wb-tile").count() === 9 && /Add Board/.test(await page.locator("#fab").textContent()) && await page.locator("#fab").isVisible(), "with no boards yet, the Whiteboard offers a Blank Board or one of 9 templates, and the + button is Add Board");
 
-    // a new board from the sheet: name, template, course
     await act("wb-new"); await page.waitForSelector("dialog[open] .wb-start");
     await page.fill('dialog[open] input[name="name"]', "Cell Biology");
     ok(await page.isChecked('dialog[open] input[name="start"][value="blank"]') && await page.locator("dialog[open] .wb-tpl-pick").isHidden(), "New Whiteboard asks: Blank Board (picked) or A Template (templates hidden until chosen)");
@@ -60,14 +57,12 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     await frameBox();
     const z0 = (await page.evaluate(() => SBWB.cam())).z;
     ok(z0 < 0.4, "a new board opens showing the whole board: " + z0);
-    // the board's own colour: light or dark whatever the app uses
     const bg = () => page.evaluate(() => getComputedStyle(document.querySelector(".wb-back")).backgroundColor);
     const light0 = await bg();
     await page.click('.wb-zoom [data-wb="theme"]'); await page.waitForTimeout(150);
     ok(await page.evaluate(() => document.querySelector(".wb-stage").classList.contains("wb-dk")) && await bg() !== light0 && !(await page.evaluate(() => document.documentElement.getAttribute("data-theme") === "dark")), "the moon button makes the board dark while the app stays light");
     await page.click('.wb-zoom [data-wb="theme"]'); await page.waitForTimeout(150);
     ok(!(await page.evaluate(() => document.querySelector(".wb-stage").classList.contains("wb-dk"))) && await bg() === light0, "the sun button puts the light board back");
-    // Options: picking a template previews it on the board; Cancel puts the board's own back
     await act("wb-opts"); await page.waitForSelector('dialog[open] input[name="tpl"]');
     ok(await page.locator('dialog[open] input[name="wbTheme"]').count() === 0, "Options has no Board Color (the sun/moon on the board sets it)");
     await page.click('dialog[open] .wb-tile:has(input[value="cornell"])'); await page.waitForTimeout(80);
@@ -77,7 +72,6 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     await page.click('.wb-zoom [data-wb="zoom-reset"]'); await page.waitForTimeout(100);
     ok((await page.evaluate(() => SBWB.cam())).z === 1 && /100%/.test(await page.locator(".wbz-pct").textContent()), "100% zooms to full size");
 
-    // marker
     await wb("tool", "pen"); await wb("pen", "blue"); await wb("pw", 1);
     const p1 = []; for (let i = 0; i <= 30; i++) p1.push([F.x + 100 + i * 10, F.y + 120 + Math.sin(i / 3) * 40]);
     await stroke(p1);
@@ -89,7 +83,6 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     b = await saved();
     ok((b[0].wbInk || []).length === 1, "a moment after drawing, the stroke is saved with the board");
 
-    // highlighter, shape tool, hold-still snapping
     await wb("tool", "hl"); await stroke([[F.x + 100, F.y + 260], [F.x + 400, F.y + 262]]);
     await wb("tool", "shape"); await wb("shape", "ellipse"); await stroke([[F.x + 500, F.y + 100], [F.x + 700, F.y + 220]]);
     await wb("tool", "pen");
@@ -108,12 +101,10 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     L = await live(); const line = await decode(L.strokes[L.strokes.length - 1].d);
     ok(line.length === 2 && Math.abs(line[0][1] - line[1][1]) < 1, "a shaky line held still becomes straight (and level): " + JSON.stringify(line));
 
-    // undo / redo
     await page.keyboard.press("Control+z"); await page.waitForTimeout(60);
     ok((await live()).strokes.length === 4, "Ctrl+Z takes the last stroke away");
     await wb("redo"); ok((await live()).strokes.length === 5, "Redo puts it back");
 
-    // text, in the Neat style by default
     await wb("tool", "text"); await wb("pen", "red");
     await page.mouse.click(F.x + 150, F.y + 520); await page.waitForTimeout(80);
     ok(await page.locator(".wb-ta").count() === 1, "the Text tool opens a text box where you click");
@@ -128,7 +119,6 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     await page.keyboard.press("End"); await page.keyboard.type("!"); await page.keyboard.press("Escape"); await page.waitForTimeout(80);
     ok((await live()).items[0].s === "Mitosis\nPMAT!", "and the edit is kept");
 
-    // writing styles
     await page.keyboard.press("Escape");
     await page.click('.wb-tray .wb-fontpick[data-id="font"]'); await page.waitForTimeout(60);
     ok(await page.locator('.wb-fontmenu [data-wb="font"]').count() === 5 && await page.locator('.wb-tray .wb-fontpick[data-id="font"][aria-expanded=true]').count() === 1, "the Text tool's writing style dropdown lists 5 styles");
@@ -144,7 +134,6 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     await page.evaluate(() => { const it = SBWB.board().items.find(i => i.s === "Quick"); SBWB.change(set => set("i", it.id, null)); });
     await page.evaluate(() => SBWB.select([SBWB.board().items[0]].map(i => "i" + i.id))); await page.click('.wb-tray .wb-fontpick[data-id="font"]'); await page.click('.wb-fontmenu [data-id="neat"]'); await page.waitForTimeout(60);
     ok((await live()).items[0].ff === "neat", "and Neat puts it back");
-    // text size dropdown: resizes the selected text
     await page.evaluate(() => SBWB.select([SBWB.board().items[0]].map(i => "i" + i.id)));
     const f0 = (await live()).items[0].f;
     await page.click('.wb-tray .wb-fontpick[data-id="size"]'); await page.waitForTimeout(40);
@@ -153,7 +142,6 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     const f1 = (await live()).items[0].f;
     ok(f1 > f0 * 1.8 && /Huge/.test(await page.locator('.wb-tray .wb-fontpick[data-id="size"]').textContent()), "Huge makes the selected text bigger: " + f0 + " to " + f1);
     await page.evaluate(() => SBWB.undo()); await page.click('.wb-tray .wb-fontpick[data-id="size"]'); await page.click('.wb-fontmenu [data-wb="tsize"][data-id="1"]'); await page.evaluate(() => SBWB.undo()); await page.waitForTimeout(40);
-    // the rainbow marker is Pro
     ok(await page.locator('.wb-tray [data-wb="pen-any"] .wb-pro').count() === 1, "the rainbow (any color) marker shows a Pro badge on a free plan");
     await page.click('.wb-tray [data-wb="pen-any"]'); await page.waitForTimeout(250);
     ok(/any color/i.test(await page.locator("dialog[open]").textContent()), "and opens the Pro sheet");
@@ -161,7 +149,6 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     await page.keyboard.press("Escape"); await page.waitForTimeout(40);
     await page.evaluate(() => SBWB.select([SBWB.board().items[0]].map(i => "i" + i.id)));
 
-    // moving without switching to Select
     const tBB = () => page.evaluate(() => { const it = SBWB.board().items[0], b = SBWB.itemBB(it), c = SBWB.cam(), r = document.querySelector(".wb-frame").getBoundingClientRect(); return {x: r.left + (b[0] + b[2]) / 2 * c.z + c.x, y: r.top + (b[1] + b[3]) / 2 * c.z + c.y, ix: it.x, iy: it.y}; });
     ok(await page.locator(".wb-selbar:not([hidden])").count() === 1, "text you've just written stays picked up (its box shows), ready to drag");
     let tb = await tBB();
@@ -182,7 +169,6 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       const sel = await page.evaluate(() => { const t = document.querySelector(".wb-ta"); return t && document.activeElement === t ? t.value.slice(t.selectionStart, t.selectionEnd) : null; });
       ok(sel === "Mitosis", "double-clicking a word in the open text selects it, and it stays selected: " + JSON.stringify(sel)); }
     await page.keyboard.press("Escape"); await page.keyboard.press("Escape"); await page.waitForTimeout(60);
-    // the marker: press and hold on a stroke to pick it up and move it
     await wb("tool", "pen");
     const nS0 = (await live()).strokes.length, s1 = (await live()).strokes[0], p1d = await decode(s1.d);
     const [hx, hy] = await toScreen(p1d[5][0], p1d[5][1]);
@@ -196,7 +182,6 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     ok((await live()).strokes.length === nS0 + 1, "drawing straight away (no hold) still just draws");
     await page.keyboard.press("Control+z");
 
-    // select: click a stroke, drag it, resize it, delete
     await wb("tool", "select");
     const s0 = (await live()).strokes[0], before = await decode(s0.d);
     const [sx, sy] = await toScreen(before[8][0], before[8][1]);
@@ -211,7 +196,6 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     ok(!(await live()).strokes.some(s => s.id === s0.id), "Delete removes the selection");
     await page.keyboard.press("Control+z");
     ok((await live()).strokes.some(s => s.id === s0.id), "and Undo brings it back");
-    // marquee select everything, duplicate
     await page.keyboard.press("Control+a"); await page.waitForTimeout(40);
     const cnt = (await live()).strokes.length + (await live()).items.length;
     await page.keyboard.press("Control+d"); await page.waitForTimeout(60);
@@ -219,7 +203,6 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     ok(L.strokes.length + L.items.length === cnt * 2, "Ctrl+A then Ctrl+D duplicates everything: " + cnt + " to " + (L.strokes.length + L.items.length));
     await page.keyboard.press("Control+z"); await page.keyboard.press("Escape");
 
-    // the eraser: parts splits a stroke in two, whole strokes removes it
     await wb("tool", "pen"); await wb("pw", 2);
     await stroke([[F.x + 300, F.y + 450], [F.x + 700, F.y + 450]]);
     L = await live(); const longId = L.strokes[L.strokes.length - 1].id, nS = L.strokes.length;
@@ -239,7 +222,6 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     ok((await live()).strokes.length === nW - 1, "Whole Strokes removes the whole piece it touches");
     await page.keyboard.press("Control+z"); await page.keyboard.press("Control+z");
     ok((await live()).strokes.some(s => s.id === longId), "two undos bring the uncut line back");
-    // a soft eraser fades the line where it's rubbed, without splitting it
     await wb("erase", "part"); await wb("eh", 0);
     ok(await page.locator('.wb-tray [data-wb="eh"]').count() === 3, "Erase Parts has Soft, Medium and Hard");
     const nS2 = (await live()).strokes.length;
@@ -256,7 +238,6 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     const am = await inkAt([F.x + 600, F.y + 450]);
     ok(am < a0 - 40 && am > 20, "medium takes more than soft, but not all of it: " + am);
     await page.keyboard.press("Control+z"); await wb("eh", 2);
-    // the eraser on typed text: Erase Parts takes only the letters it passes over
     await wb("tool", "text"); await page.mouse.click(F.x + 150, F.y + 330); await page.waitForTimeout(60);
     await page.keyboard.type("ABCDEFGH"); await page.keyboard.press("Escape"); await page.keyboard.press("Escape"); await page.waitForTimeout(60);
     const tx = (await live()).items.find(i => i.s === "ABCDEFGH");
@@ -270,7 +251,6 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     ok((await live()).items.some(i => i.s === "ABCDEFGH"), "Undo puts the whole text back");
     await page.evaluate(id => SBWB.change(set => set("i", id, null)), tx.id);
 
-    // zoom with Ctrl + scroll around the pointer
     await page.mouse.move(F.x + 400, F.y + 300);
     const wBefore = await page.evaluate(([x, y]) => SBWB.toWorld(x, y), [F.x + 400, F.y + 300]);
     await page.keyboard.down("Control"); await page.mouse.wheel(0, 300); await page.keyboard.up("Control"); await page.waitForTimeout(100);
@@ -282,7 +262,6 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     ok(Math.abs(wz - Math.round(70 / zc)) <= 1, "zoomed out, a Medium marker is still Medium on screen (thicker on the board): " + wz);
     await page.keyboard.press("Control+z");
 
-    // saved, survives a reload, two boards and the picker
     await flush(); await page.waitForTimeout(200);
     const keep = (await live());
     await page.reload(); await page.waitForTimeout(1500);
@@ -296,21 +275,17 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     await page.click(`.wb-boards [data-act="wb-go"][data-id="${(await saved()).find(x => x.text === "Cell Biology").id}"]`); await page.waitForTimeout(300);
     ok((await live()).strokes.length === keep.strokes.length, "picking the first board in the dropdown opens it again");
 
-    // export a picture
     const [dl] = await Promise.all([page.waitForEvent("download"), (async () => { await act("wb-export"); await page.click('dialog[open] [data-wbx="png"]'); })()]);
     const file = await dl.path(), buf = fs.readFileSync(file);
     ok(dl.suggestedFilename() === "Cell Biology.png" && buf.slice(1, 4).toString() === "PNG" && buf.length > 5000, "Export > Save as Picture downloads a PNG of the board: " + buf.length + " bytes");
-    // All Boards
     await act("wb-all"); await page.waitForSelector("dialog[open] .wb-card img");
     ok(await page.locator("dialog[open] .wb-card[data-wbopen]").count() === 2, "All Boards shows both boards with pictures of them");
     await page.keyboard.press("Escape");
 
-    // delete: Recently Deleted, and undo
     await act("wb-opts"); await page.click('dialog[open] [data-wbo="del"]'); await page.click("dialog[open] [data-submit]"); await page.waitForTimeout(400);
     await page.waitForTimeout(300); await act("trash-open"); await page.waitForSelector("dialog[open]"); await page.waitForTimeout(400);
     ok((await saved()).length === 1 && (await page.locator("dialog[open]").textContent()).includes("Whiteboard: Cell Biology"), "Delete Board sends it to Recently Deleted as “Whiteboard: Cell Biology”");
     await page.keyboard.press("Escape"); await page.waitForTimeout(150);
-    // the last board deleted: someone who has made boards gets the New Whiteboard sheet, not the first-time start screen
     await act("wb-opts"); await page.click('dialog[open] [data-wbo="del"]'); await page.click("dialog[open] [data-submit]"); await page.waitForTimeout(500);
     ok((await saved()).length === 0 && await page.locator(".wb-empty:not(.wb-none)").count() === 0 && await page.locator(".wb-none").count() === 1, "with every board deleted, the start screen doesn't come back (just a New Whiteboard button)");
     await page.click('.nv-tabs [data-id="board"]'); await page.waitForTimeout(200); await page.click('.nv-tabs [data-id="wb"]'); await page.waitForTimeout(300);

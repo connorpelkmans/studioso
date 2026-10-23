@@ -1,14 +1,4 @@
-// Studyboard: error-ingest (Supabase Edge Function), the optional self-hosted path for anonymous crash reports (ERROR-REPORTING.md).
-// The page POSTs {v: 1, event: {...}} (the same scrubbed event it would send to Sentry). This function checks it again, strictly, and stores one row
-// in client_errors (supabase-error-reports.sql). Nothing in the request is trusted: unknown fields are dropped, text is capped and re-scrubbed.
-//
-// Deploy with "Verify JWT" turned OFF (the app sends reports signed out too; the public key in the "apikey" header is enough for the gateway).
-// Secrets: none to add. Supabase supplies SUPABASE_URL and the service key itself. Optional: ERROR_INGEST_SALT (any random text) as the secret
-// for the address hash. Without it the service key is that secret, so the hash is never a plain hash of a guessable address.
-//
-// Limits: body at most 24 KB (counted while it arrives, so a huge or endless body is cut off early), 30 reports an hour per anonymous id,
-// 60 per network address (hashed with a daily salt, never stored raw), 500 an hour overall, and no new rows once the table holds 20000
-// (client_errors_allow in supabase-error-reports.sql; the 30-day clean-up makes room again).
+// Studyboard: error-ingest (Supabase Edge Function)
 
 type Env = (k: string) => string;
 type Deps = { env: Env; fetch: typeof fetch; now: () => number; log: (...a: unknown[]) => void };
@@ -30,7 +20,7 @@ export type Row = {
   release: string; build: string; environment: string; platform: string; pro: boolean; theme: string; sw: string; anon_id: string | null;
   frames: unknown[]; crumbs: unknown[]; tags: Record<string, string>;
 };
-// The schema check: returns the row to store, or a reason it was refused.
+// The schema check
 export function validate(body: unknown, now: number): { ok: true; row: Row } | { ok: false; why: string } {
   const b = isObj(body) && isObj(body.event) ? body.event : body;
   if (!isObj(b)) return { ok: false, why: "not an object" };
@@ -61,7 +51,7 @@ export function validate(body: unknown, now: number): { ok: true; row: Row } | {
   } };
 }
 
-// Reads the body but stops as soon as it passes max bytes (null = too big). Content-Length alone can't be trusted (or may be missing).
+// Reads the body but stops as soon as it passes max bytes (null = too big)
 export async function readLimited(req: Request, max: number): Promise<string | null> {
   const cl = Number(req.headers.get("content-length") || 0);
   if (cl > max) return null;
@@ -72,7 +62,7 @@ export async function readLimited(req: Request, max: number): Promise<string | n
     const { done, value } = await reader.read();
     if (done) break;
     n += value.byteLength;
-    if (n > max) { try { await reader.cancel(); } catch (_e) { /* ignore */ } return null; }
+    if (n > max) { try { await reader.cancel(); } catch (_e) { } return null; }
     chunks.push(value);
   }
   const all = new Uint8Array(n); let o = 0;
@@ -80,9 +70,7 @@ export async function readLimited(req: Request, max: number): Promise<string | n
   return new TextDecoder().decode(all);
 }
 
-// The caller's address for the per-address limit. cf-connecting-ip is set by the edge in front of Supabase; otherwise the RIGHT-most
-// X-Forwarded-For entry (the one the last proxy added). The left-most entries are whatever the client sent, so they can't be trusted.
-// No address at all shares one "unknown" bucket, so reports without an anonymous id still meet a per-address limit.
+// The caller's address for the per-address limit
 export function clientIp(h: Headers): string {
   const cf = (h.get("cf-connecting-ip") || "").trim();
   if (cf) return cf.slice(0, 64);
@@ -90,8 +78,7 @@ export function clientIp(h: Headers): string {
   return (xff[xff.length - 1] || "unknown").slice(0, 64);
 }
 
-// A network address is a small space (every IPv4 address can be tried in minutes), so a plain hash of it, even with the date mixed in,
-// could be reversed. It is keyed instead (HMAC-SHA-256) with a server-only secret and the day, so it can't be reversed or matched across days.
+// A network address is a small space (every IPv4 address can be tried in minutes)
 async function ipMac(secret: string, s: string): Promise<string> {
   const enc = new TextEncoder();
   const k = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
@@ -100,7 +87,7 @@ async function ipMac(secret: string, s: string): Promise<string> {
 }
 function serviceKey(d: Deps): string {
   let key = d.env("SUPABASE_SERVICE_ROLE_KEY");
-  if (!key) { try { const k = JSON.parse(d.env("SUPABASE_SECRET_KEYS") || "{}"); key = String(k.default || Object.values(k)[0] || ""); } catch (_e) { /* newer projects only */ } }
+  if (!key) { try { const k = JSON.parse(d.env("SUPABASE_SECRET_KEYS") || "{}"); key = String(k.default || Object.values(k)[0] || ""); } catch (_e) { } }
   return key;
 }
 
@@ -117,7 +104,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     const day = new Date(d.now()).toISOString().slice(0, 10);
     const key = serviceKey(d), base = d.env("SUPABASE_URL").replace(/\/+$/, "");
     const secret = d.env("ERROR_INGEST_SALT") || key;
-    const ipHash = secret ? await ipMac(secret, `${day}|${ip}`) : null;   // no secret at all: no address kept (the per-id and overall limits still apply)
+    const ipHash = secret ? await ipMac(secret, `${day}|${ip}`) : null;
     const h = { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
     const rl = await d.fetch(`${base}/rest/v1/rpc/client_errors_allow`, { method: "POST", headers: h, body: JSON.stringify({ p_anon: v.row.anon_id, p_ip: ipHash }) });
     if (!rl.ok) throw new Error("rate check " + rl.status);

@@ -1,8 +1,4 @@
-// "What's Inside" on the home page: each feature card shows a still of the feature (the finished moment) and plays a short loop of it
-// working while the pointer is over it (or it has keyboard focus). On a touch screen, a tap plays it; scrolling it away stops it.
-// A card's data-ms lists how long each step is held. Step n adds the class sN to its stage (assets/features.css says what each step looks like),
-// [data-type] text is typed out on step 1, and after the last step the stage fades and starts over.
-// With "reduce motion", or without JavaScript, the still is all there is.
+// "What's Inside" on the home page
 (function () {
   "use strict";
   var cards = [].slice.call(document.querySelectorAll(".fx[data-fx]"));
@@ -29,7 +25,6 @@
         if (j < text.length) typing = setTimeout(next, per);
       })();
     }
-    // jump to a step at once (no transitions), after a short fade
     function jump(i, then) {
       clearTimeout(timer); clearTimeout(typing);
       st.classList.add("fx-out");
@@ -52,12 +47,11 @@
     return {
       on: function () { return on; },
       start: function () { if (on) return; on = true; card.classList.add("fx-playing"); st.classList.remove("paused"); jump(0, function () { timer = setTimeout(tick, ms[0]); }); },
-      stop: function () { if (!on) return; on = false; card.classList.remove("fx-playing"); st.classList.add("paused"); jump(n - 1); }   // back to the still
+      stop: function () { if (!on) return; on = false; card.classList.remove("fx-playing"); st.classList.add("paused"); jump(n - 1); }
     };
   }
 
-  // The little round faces (study room, study group): each is a companion's face, cropped from its drawing the way the app makes them.
-  // The art comes with assets/companions.js (loaded when a companion nears the screen); the letters show until it is here.
+  // The little round faces (study room, study group)
   function heads() {
     var W = window.SBCOMPW; if (!W) return false;
     [].slice.call(document.querySelectorAll(".fx [data-head]")).forEach(function (el) {
@@ -71,8 +65,8 @@
   }
   if (!heads()) {
     var tries = 0, wait = setInterval(function () { if (heads() || ++tries > 120) clearInterval(wait); }, 500);
-    // nothing brings the art in until a companion is near the screen: ask for it when the cards with faces are
-    setTimeout(function () { if (!("IntersectionObserver" in window) || !window.SBWebComp) return;   // (companions.js loads after this file)
+    // nothing brings the art in until a companion is near the screen
+    setTimeout(function () { if (!("IntersectionObserver" in window) || !window.SBWebComp) return;
       var probe = document.querySelector('.fx [data-companion]');
       new IntersectionObserver(function (es, o) { if (es.some(function (x) { return x.isIntersecting; })) { o.disconnect(); if (probe) window.SBWebComp.mount(probe); } }, {rootMargin: "300px 0px"})
         .observe(document.querySelector('.fx[data-fx="focus"]') || document.body);
@@ -88,7 +82,7 @@
     card.addEventListener("focusout", function (e) { if (!card.contains(e.relatedTarget)) l.stop(); });
     if (touch) {
       card.addEventListener("click", function (e) {
-        if (e.target.closest && e.target.closest("a")) return;   // the deck library link
+        if (e.target.closest && e.target.closest("a")) return;
         if (l.on()) l.stop(); else { cards.forEach(function (c) { if (c !== card) c.dispatchEvent(new CustomEvent("fx-stop")); }); l.start(); }
       });
       card.addEventListener("fx-stop", function () { l.stop(); });

@@ -1,11 +1,9 @@
 /* ===== module: 30-search.js ===== */
-/* Search Everywhere (1.11.0, module 30-search)
-   A command-palette search over everything, with text from inside files and an optional AI "search by meaning".
-   Per-device caches live in this module's own IndexedDB database ("studyboard-search"): file text and embeddings. */
+/* Search Everywhere (1.11.0, module 30-search) A command-palette search over everything */
 (() => {
   const DB_NAME = "studyboard-search", DIMS = 512, BATCH = 100;
   const LS_RECENT = "studyboard:search:recent", LS_EMB = "studyboard:search:emb";
-  // Current Gemini embedding models, newest first. gemini-embedding-2 takes task prefixes in the text; 001 takes taskType.
+  // Current Gemini embedding models, newest first
   const EMB_MODELS = ["gemini-embedding-2", "gemini-embedding-001"];
   const MAC = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || "");
   const KEYS = MAC ? "⌘K" : "Ctrl+K";
@@ -16,14 +14,13 @@
   const idle = () => new Promise(r => { if (window.requestIdleCallback) requestIdleCallback(() => r(), {timeout: 300}); else setTimeout(r, 16); });
   const now = () => (window.performance ? performance.now() : Date.now());
 
-  /* ---------- Text helpers ---------- */
+  /* Text helpers */
   const fold = s => String(s == null ? "" : s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
   const TOKRE = /[a-z0-9]+/g;
   const toks = s => (fold(s).match(TOKRE) || []).filter(t => t.length <= 40);
   const STOP = new Set("a an the and or of in on at to for from by with about into over is are was were be been am it its this that these those my me i we you your our what whats which where when who whom how why did do does done can could should would will just any some there here than then also as not no please".split(" "));
   const FILLER = new Set("slide slides page pages file files thing things something stuff find show remember remembered said says talked mentioned mention one ones".split(" "));
-  // A small synonym list for keyword search (used when AI search by meaning isn't available, and as a gentle boost otherwise).
-  // "*pril" means any word ending in "pril".
+  // A small synonym list for keyword search
   const SYN = {
     bp: ["blood pressure"], hr: ["heart rate", "pulse"], rr: ["respiratory rate"], htn: ["hypertension"], hypertension: ["htn", "blood pressure"],
     mi: ["myocardial infarction", "heart attack"], chf: ["heart failure"], hf: ["heart failure"], copd: ["chronic obstructive"],
@@ -46,7 +43,7 @@
     for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); a = Math.imul(a ^ c, 16777619); b = Math.imul(b ^ c, 0x5bd1e995); b ^= b >>> 15; }
     return (a >>> 0).toString(36) + (b >>> 0).toString(36);
   }
-  // Optimal string alignment distance, stopping early once it's over k.
+  // Optimal string alignment distance, stopping early once it's over k
   const R0 = new Int32Array(64), R1 = new Int32Array(64), R2 = new Int32Array(64);
   function editDist(a, b, k){
     const la = a.length, lb = b.length;
@@ -70,14 +67,14 @@
     return p[lb];
   }
 
-  /* ---------- Our own IndexedDB (separate from the app's) ---------- */
+  /* Our own IndexedDB (separate from the app's) */
   let dbP = null;
   function sxDb(){
     if (!dbP) dbP = new Promise((res, rej) => {
       if (!window.indexedDB) { rej(new Error("no indexedDB")); return; }
       const r = indexedDB.open(DB_NAME, 1);
       r.onupgradeneeded = () => { const d = r.result; ["text", "vec"].forEach(s => { if (!d.objectStoreNames.contains(s)) d.createObjectStore(s); }); };
-      r.onsuccess = () => { const d = r.result; d.onversionchange = () => { try { d.close(); } catch(e) {} dbP = null; }; res(d); };   // another tab deleting it (sign-out): let go, reopen next time
+      r.onsuccess = () => { const d = r.result; d.onversionchange = () => { try { d.close(); } catch(e) {} dbP = null; }; res(d); };
       r.onerror = () => rej(r.error || new Error("indexedDB"));
       r.onblocked = () => rej(new Error("indexedDB blocked"));
     }).catch(e => { dbP = null; throw e; });
@@ -97,7 +94,7 @@
   const dbPutMany = (store, list) => dbDo(store, "readwrite", s => { list.forEach(([k, v]) => s.put(v, k)); }).catch(() => {});
   const dbDelMany = (store, keys) => dbDo(store, "readwrite", s => { keys.forEach(k => s.delete(k)); }).catch(() => {});
 
-  /* ---------- Inverted index ---------- */
+  /* Inverted index */
   const newIx = () => ({docs: [], post: new Map(), dead: 0});
   const IX = {items: newIx(), itemsDirty: true, sem: [], chunks: newIx(), byAsset: new Map(), ver: 0, vocab: null, vocabVer: -1, vocabAt: 0, exp: new Map(), expVer: -1, semList: null, semVer: -1};
   function addDoc(ix, doc, title, body){
@@ -109,7 +106,7 @@
     IX.ver++;
     return i;
   }
-  // Every word we know, sorted (for prefixes) and by length (for typos). Rebuilt lazily.
+  // Every word we know, sorted (for prefixes) and by length (for typos)
   function vocab(){
     if (IX.vocab && (IX.vocabVer === IX.ver || now() - IX.vocabAt < 1500)) return IX.vocab;
     const set = new Set(IX.items.post.keys()); for (const k of IX.chunks.post.keys()) set.add(k);
@@ -121,7 +118,7 @@
   const df = t => (IX.items.post.get(t) || []).length + (IX.chunks.post.get(t) || []).length;
   const known = t => IX.items.post.has(t) || IX.chunks.post.has(t);
   function lowerBound(arr, s){ let lo = 0, hi = arr.length; while (lo < hi) { const m = (lo + hi) >> 1; if (arr[m] < s) lo = m + 1; else hi = m; } return lo; }
-  // One query word, turned into the words it could match, each with a quality from 0 to 1.
+  // One query word, turned into the words it could match, each with a quality from 0 to 1
   function expand(term, prefix, loose){
     const V = vocab(), ck = term + (prefix ? "|p" : "") + (loose ? "|l" : "");
     if (IX.exp.has(ck)) return IX.exp.get(ck);
@@ -143,7 +140,6 @@
           if (d <= k) put(t, d === 1 ? 0.72 : 0.5);
         }
       }
-      // Typo inside a word that's still being typed ("pharmacl" -> pharmacology)
       if (prefix && L >= 5) {
         const lo = lowerBound(V.sorted, term[0]), hi = lowerBound(V.sorted, String.fromCharCode(term.charCodeAt(0) + 1));
         for (let i = lo; i < hi && out.size < 120; i++) {
@@ -153,7 +149,7 @@
       }
     }
     (SYN[term] || []).forEach(s => {
-      if (!loose && s[0] !== "*" && /\s/.test(s)) return;   // phrases only in the looser Ask search
+      if (!loose && s[0] !== "*" && /\s/.test(s)) return;
       if (s[0] === "*") { const suf = s.slice(1); for (const t of V.sorted) if (t.length > suf.length + 2 && t.endsWith(suf)) put(t, 0.62); }
       else toks(s).filter(t => !STOP.has(t)).forEach(t => { if (known(t)) put(t, 0.58); });
     });
@@ -170,7 +166,7 @@
     const hl = new Set(); exps.forEach(m => m.forEach((v, t) => hl.add(t)));
     return {q, terms, exps, hl, loose};
   }
-  // Sum of the best match for each query word, per document. Typed arrays keep this fast with tens of thousands of passages.
+  // Sum of the best match for each query word, per document
   function scoreIx(ix, P, need){
     const N = ix.docs.length; if (!N || !P.exps.length) return [];
     if (!ix.acc || ix.acc.length < N) { const L = N + 4096; ix.acc = new Float32Array(L); ix.cnt = new Uint8Array(L); ix.best = new Float32Array(L); }
@@ -197,7 +193,7 @@
     return out;
   }
 
-  /* ---------- Everything that isn't a file's contents ---------- */
+  /* Everything that isn't a file's contents */
   const GROUPS = [["tasks", "Tasks"], ["courses", "Courses"], ["cards", "Flashcards"], ["notes", "Notes"], ["schedule", "Events and Classes"], ["files", "Files"], ["study", "Study Sets and Quizzes"], ["actions", "Actions"]];
   const GLABEL = Object.fromEntries(GROUPS);
   const CHIP = {all: "All", tasks: "Tasks", courses: "Courses", cards: "Flashcards", notes: "Notes", schedule: "Schedule", files: "Files", study: "Study Sets", actions: "Actions"};
@@ -220,7 +216,7 @@
     add("Import a Calendar", "From Apple Calendar, Google Calendar or Outlook", tabAct("schedule", "sch-ics"), "ics");
     add("Review Due Flashcards", "Study every card that's due today", act("fc-review-all"), "study spaced");
     add("Focus Timer", "Pomodoro timer for a study session", act("pomo-open"), "pomodoro study");
-    if (!inClaude()) {
+    if (!inPreview()) {
       add("Create Flashcards with AI", "Make cards and practice questions from your slides or notes", tabAct("flashcards", "fc-ai"), "study set quiz generate");
       add("Photo to Note", "Turn a photo of the board or a slide into a note", tabAct("notes", "note-photo"), "camera picture");
       add("Set Up AI", "Add your free Google Gemini key, or another AI", act("ai-setup"), "gemini key api settings");
@@ -241,10 +237,9 @@
     add("Import from a Backup File", "Replace your data with a backup file", act("import"), "upload");
     add("Import From Another App", "Bring in Anki decks, Quizlet sets, Todoist tasks or Notion pages", act("ia-open"), "anki apkg colpkg quizlet todoist notion csv import");
     if (Object.values(state.files).some(f => f.kind === "file")) add("Export Backup with Files", "Your data plus every uploaded file", act("export-full"), "download zip");
-    if (!inClaude()) add(sbConfig() || SB_HOSTED ? (sbUser ? "Studyboard Account" : "Sign In or Create Account") : "Sync Across Devices", "Sync your data and files across devices", act(sbConfig() && !sbUser ? "sb-signin" : sbUser ? "menu" : "sb-connect"), "sync account cloud login sign in");
+    if (!inPreview()) add(sbConfig() || SB_HOSTED ? (sbUser ? "Studyboard Account" : "Sign In or Create Account") : "Sync Across Devices", "Sync your data and files across devices", act(sbConfig() && !sbUser ? "sb-signin" : sbUser ? "menu" : "sb-connect"), "sync account cloud login sign in");
     [["board", "Board"], ["timeline", "Timeline"], ["schedule", "Schedule"], ["crunch", "Crunch Forecast"], ["flashcards", "Review"], ["notes", "Notes"], ["files", "Files"], ["courses", "Courses"]]
       .forEach(([t, n]) => add(`Go to ${n}`, "Open the " + n + " page", () => { go(t); if (t === "flashcards") { ui.fc = null; ui.deckId = null; } render(); window.scrollTo(0, 0); }, "page open" + (t === "crunch" ? " workload heatmap heavy busy week exams crunch forecast" : "")));
-    // Pages and settings rows added by other 1.11 modules
     const seen = new Set(A.map(a => a.title));
     $$("nav.tabs [data-tab]").forEach(b => { const t = b.dataset.tab, n = (b.textContent || "").trim(); if (n && !seen.has(`Go to ${n}`) && VIEWS[t]) { seen.add(`Go to ${n}`); add(`Go to ${n}`, "Open the " + n + " page", () => { go(t); render(); window.scrollTo(0, 0); }, "page"); } });
     try {
@@ -262,7 +257,6 @@
   }
   function buildItems(){
     const ix = newIx(), sem = [];
-    // Already-stored school text can still hold tags or entities (<p>, &amp;), so it's cleaned before it's indexed or shown.
     const put = (doc, title, text, extra) => { title = scrubText(title, true); text = scrubText(text, false); extra = scrubText(extra, false); doc.title = title; doc.text = text || ""; addDoc(ix, doc, title, (text || "") + " " + (extra || "")); return doc; };
     const semAdd = (doc, title, text) => {
       text = String(text || "").trim(); if (!text) return;
@@ -320,7 +314,6 @@
       const doc = put({g: "files", type: "file", id: f.id, cid: f.courseId || "", boost: 1, date: ""}, f.name, [f.desc, s && s.overview].filter(Boolean).join(" · "), `${cName(f.courseId)} ${host} ${sum} ${f.kind === "link" ? "link" : "file"}`);
       if (sum.trim()) semAdd(doc, f.name, sum);
       else if (f.desc) semAdd(doc, f.name, f.desc);
-      // A recorded lecture's transcript (tidied by AI if it was), in parts, so Ask can find and cite what was said in class
       const lt = lecText(f);
       if (lt) chunkText(lt, 1100, 1700).slice(0, 240).forEach((t, i) => { const d = put({g: "files", type: "lecture", id: f.id + "#" + (i + 1), fid: f.id, cid: f.courseId || "", part: i + 1, boost: 0.95}, f.name, t, `${cName(f.courseId)} lecture transcript class`); semAdd(d, f.name, t); });
     });
@@ -329,9 +322,9 @@
   }
   function ensureItems(){ if (IX.itemsDirty) { try { buildItems(); } catch(e) { console.warn("search index", e); IX.itemsDirty = false; } } }
 
-  /* ---------- Text inside files ---------- */
+  /* Text inside files */
   const FT = {loaded: false, loading: null, recs: new Map(), queue: [], busy: false, fails: new Map(), total: 0, done: 0, cur: ""};
-  const UPC = [];   // files just uploaded on this device, so we can read them without downloading again
+  const UPC = [];
   function extKind(f){
     if (!f || f.kind !== "file") return "";
     const r = curRev(f); if (!r) return "";
@@ -342,7 +335,7 @@
     if (/^(txt|md|markdown|csv|tsv|json|html?|xml)$/.test(ext) || /^text\//.test(t)) return "text";
     return "";
   }
-  const canFetch = () => typeof window.__sxBytes === "function" || !!DESK || inClaude() || sbActive();
+  const canFetch = () => typeof window.__sxBytes === "function" || !!DESK || inPreview() || sbActive();
   function currentAssets(){ const m = new Map(); Object.values(state.files).forEach(f => { const r = f.kind === "file" && curRev(f); if (r && r.assetId) m.set(r.assetId, f); }); return m; }
   async function getBytes(r){
     const hit = UPC.find(u => u.name === r.name && u.size === r.size);
@@ -404,7 +397,6 @@
         if (/\.html?$/i.test(r.name || f.name) || /html/.test(r.type || "")) t = t.replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
       }
       if (t.length > MAX_FILE_CHARS) t = t.slice(0, MAX_FILE_CHARS);
-      // Long documents are cut into pieces at line breaks so no single step blocks the page for long.
       for (let i = 0; i < t.length;) {
         let j = Math.min(t.length, i + 40000);
         if (j < t.length) { const nl = t.lastIndexOf("\n", j); if (nl > i + 10000) j = nl; }
@@ -503,8 +495,7 @@
       drawFoot();
     }
   }
-  // Lean sync: the text read from a file is saved next to it in your account (gzipped, a few % of the file's size),
-  // so your other devices can search it without downloading the whole file again.
+  // Lean sync: the text read from a file is saved next to it in your account
   const textPath = a => sbUser && !/^local:/.test(a) && a.indexOf(sbUser.id + "/") === 0 ? `${sbUser.id}/_text/${a.slice(sbUser.id.length + 1).replace(/[^\w.\-]+/g, "_")}.json.gz` : "";
   const gz = async (bytes, dir) => { const S = dir ? window.CompressionStream : window.DecompressionStream; return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new S("gzip"))).arrayBuffer()); };
   async function sharedTextGet(assetId){
@@ -525,7 +516,7 @@
       await sb.storage.from(SB_BUCKET).upload(path, new Blob([body], {type: "application/gzip"}), {contentType: "application/gzip", upsert: true});
     } catch(e) {}
   }
-  // When a file is really deleted from your account, its saved text goes with it.
+  // When a file is really deleted from your account, its saved text goes with it
   if (typeof sbAssets === "object" && sbAssets.delete) {
     const del0 = sbAssets.delete;
     sbAssets.delete = async id => { const out = await del0(id); try { const p = textPath(id); if (p) sb.storage.from(SB_BUCKET).remove([p]).catch(() => {}); } catch(e) {} return out; };
@@ -533,15 +524,14 @@
   function syncFiles(){
     const cur = currentAssets(), any = new Set(Object.values(state.files).flatMap(f => (f.revs || []).map(r => r.assetId))), gone = [];
     [...IX.byAsset.keys()].forEach(a => { if (!cur.has(a)) { removeAsset(a); if (!any.has(a)) gone.push(a); } });
-    if (gone.length) { gone.forEach(a => FT.recs.delete(a)); dbDelMany("text", gone); }    // deleted files: forget their text on this device too
-    // a file renamed or moved keeps its text; its chunks look up the file by id when shown
+    if (gone.length) { gone.forEach(a => FT.recs.delete(a)); dbDelMany("text", gone); }
   }
 
-  /* ---------- Search by meaning (Gemini embeddings) ---------- */
+  /* Search by meaning (Gemini embeddings) */
   const SEM = {vecs: new Map(), loaded: false, loading: null, running: false, err: "", timer: 0, left: 0, total: 0};
   const embState = () => { try { return JSON.parse(localStorage.getItem(LS_EMB) || "{}") || {}; } catch(e) { return {}; } };
   const embSet = p => { const s = Object.assign(embState(), p); try { localStorage.setItem(LS_EMB, JSON.stringify(s)); } catch(e) {} return s; };
-  const embKey = () => inClaude() || !aiConsented("gemini") ? "" : (aiCfg().keys.gemini || "");
+  const embKey = () => inPreview() || !aiConsented("gemini") ? "" : (aiCfg().keys.gemini || "");
   const semOn = () => !!embKey() && sxCfg().meaning !== false;
   const embModel = () => embState().model || EMB_MODELS[0];
   const fmtDoc = (m, title, text) => m === "gemini-embedding-001" ? text : `title: ${String(title || "none").replace(/\s+/g, " ").slice(0, 120)} | text: ${text}`;
@@ -556,7 +546,7 @@
     for (let i = 0; i < DIMS; i++) q[i] = Math.round(f[i] * k);
     return {q, s: mx / 127, f};
   }
-  // texts: [{title, text}]. Returns quantized vectors in the same order.
+  // texts: [{title, text}]
   async function embed(texts, isQuery){
     const key = embKey(); if (!key) throw aiErr("nokey", "Add a free Gemini key to search by meaning.");
     const st = embState();
@@ -617,7 +607,7 @@
   function semKick(delay){
     if (!SEM.loaded || !semOn()) return;
     const at = Date.now() + (delay == null ? 4000 : delay);
-    if (SEM.timer && SEM.due && SEM.due <= at) return;      // an earlier run is already planned
+    if (SEM.timer && SEM.due && SEM.due <= at) return;
     clearTimeout(SEM.timer); SEM.due = at;
     SEM.timer = setTimeout(() => { SEM.timer = 0; SEM.due = 0; semRun(); }, at - Date.now());
   }
@@ -664,9 +654,9 @@
     return out.slice(0, 40);
   }
 
-  /* ---------- Queries ---------- */
+  /* Queries */
   const S = {open: false, q: "", mode: "find", type: "all", course: "", active: 0, rows: [], ask: null, seq: 0, P: null, used: false, prevFocus: null,
-    thread: [], threadCourse: "", tutor: null, scopeSet: false, autoScope: ""};   // Ask: the conversation so far, Quiz Me, and who chose the course
+    thread: [], threadCourse: "", tutor: null, scopeSet: false, autoScope: ""};
   function pass(doc){
     if (S.type !== "all" && doc.g !== S.type) return false;
     if (S.course) {
@@ -717,7 +707,7 @@
     ch = ch.filter(h => pass(h.doc) && state.files[h.doc.fid]);
     const rows = [];
     const files = new Map();
-    const lecBest = new Map();   // one row per lecture: its best-matching part
+    const lecBest = new Map();
     hits.forEach(h => { if (h.doc.type === "lecture") { const b = lecBest.get(h.doc.fid); if (!b || h.s > b.s) lecBest.set(h.doc.fid, h); } });
     hits.forEach(h => { if (h.doc.type === "file") files.set(h.doc.id, {s: h.s, doc: h.doc, chunks: []}); else if (h.doc.type !== "lecture" || lecBest.get(h.doc.fid) === h) rows.push(h); });
     ch.forEach(h => { let e = files.get(h.doc.fid); if (!e) { e = {s: 0, doc: null, chunks: []}; files.set(h.doc.fid, e); } e.chunks.push(h); });
@@ -730,7 +720,6 @@
     rows.forEach(r => { const g = r.doc.g; if (!groups.has(g)) groups.set(g, []); groups.get(g).push(r); });
     groups.forEach(list => list.sort((a, b) => b.s - a.s));
     const out = [...groups].map(([g, list]) => ({g, list, best: list[0].s}));
-    // "Filter the Board", and the AI search, always available as actions
     if (S.type === "all" || S.type === "actions") {
       let ag = out.find(x => x.g === "actions");
       if (!ag && !S.course) { ag = {g: "actions", list: [], best: 0}; out.push(ag); }
@@ -746,7 +735,7 @@
     out.sort((a, b) => (b.best - a.best) || (ord[a.g] - ord[b.g]));
     return {P, groups: out.filter(x => x.list.length)};
   }
-  // Passages for Ask With AI: keyword side (loose, with synonyms) plus meaning side, fused by rank.
+  // Passages for Ask With AI
   function keywordPassages(P, pf = pass){
     const hits = scoreIx(IX.items, P, 1).filter(h => h.doc.type !== "action" && pf(h.doc)).map(h => ({key: h.doc.type + ":" + h.doc.id, doc: h.doc, s: h.s * (h.doc.boost || 1)}));
     const ch = (sxCfg().files ? scoreIx(IX.chunks, P, 1) : []).filter(h => pf(h.doc) && state.files[h.doc.fid]).map(h => ({key: "c:" + h.doc.assetId + ":" + h.doc.page + ":" + h.doc.part, doc: h.doc, s: h.s}));
@@ -763,8 +752,7 @@
     }
     return out;
   }
-  // The same retrieval Ask With AI uses (tasks, cards, notes, files and what's inside them), for the companion's questions. No UI state, no filters.
-  // Returns {rows, text, src}: text is numbered sources ready to put in a prompt, src short labels of what was used.
+  // The same retrieval Ask With AI uses (tasks, cards, notes, files and what's inside them)
   async function retrieve(q, o){
     o = o || {};
     const out = {rows: [], text: "", src: []};
@@ -773,7 +761,6 @@
       ensureItems();
       if (sxCfg().files && !FT.loaded) { try { await Promise.race([loadTexts(), wait(o.wait || 2500)]); } catch(e) {} }
       const P = prepQuery(q, true); if (!P.terms.length) return out;
-      // Files that haven't been read yet (Search Everywhere hasn't been used, or they're new): read the ones the question is about now, and everything else in the background
       if (sxCfg().files && canFetch()) {
         try {
           const ts = new Set(P.terms), mine = Object.values(state.files).filter(f => extKind(f) && curRev(f) && !FT.recs.has(curRev(f).assetId) && toks(`${f.name} ${(state.courses[f.courseId] || {}).name || ""} ${f.desc || ""}`).some(t => ts.has(t))).map(f => f.id).slice(0, 6);
@@ -808,14 +795,10 @@
     return `${{task: "Task", note: "Sticky note", card: "Flashcard", question: "Practice question", file: "File", course: "Course", event: "Event", deck: "Deck", quiz: "Practice quiz", class: "Class"}[d.type] || "Item"}: ${String(d.title).slice(0, 80)}`;
   }
 
-  /* ---------- What the assistant knows: a dated snapshot of the planner, plus exact answers for common questions ----------
-     The model used to see only a few search hits, so "when is my next exam" had nothing to work from. Now every answer gets a snapshot
-     (today's date and time, upcoming exams sorted with days away, deadlines, classes, grades), and the questions that have one right
-     answer (next exam, due today, grades, classes) are worked out here with real date math, no AI needed. D is the planner's data:
-     {now, today, tz, tasks, courses, course(id), standing(cid), occ(from, to)}. */
+  /* What the assistant knows */
   const EXAM_RE = /\b(mid-?terms?|exams?|tests?|examinations?|finals?(?!\s+(?:project|paper|essay|presentation|report|draft|assignment|portfolio|submission|reflection|care|grade|mark)))\b/i;
   const NOT_EXAM_RE = /\b(study|studying|review|prep|prepare|practice|plan|session|flashcards?|notes?)\b/i;
-  // "exam", "quiz" or "" for a task. Study sessions made for an exam are never the exam itself.
+  // "exam", "quiz" or "" for a task
   function examKind(t){
     if (!t || t.prepFor) return "";
     if (t.type === "Exam") return "exam";
@@ -829,7 +812,7 @@
   const rel = n => n === 0 ? "today" : n === 1 ? "tomorrow" : n === -1 ? "yesterday" : n > 0 ? `in ${n} days` : `${-n} days ago`;
   const clock = t => /^\d{1,2}:\d{2}/.test(t || "") ? fmtTime(t) : "";
   const courseTag = (D, t) => { const c = t.courseId ? D.course(t.courseId) : null; return c ? courseLabel(c) : ""; };
-  // Every exam or quiz with how far away it is. passed: already happened (earlier date, or earlier today by its time). done: marked Taken.
+  // Every exam or quiz with how far away it is
   function examsOf(D, kinds){
     const out = [];
     D.tasks.forEach(t => {
@@ -846,9 +829,9 @@
     if (extra && t.notes) s += `. Covers: ${String(t.notes).replace(/\s+/g, " ").slice(0, 200)}`;
     return s;
   }
-  // Tasks still to do between two dates (inclusive). Study sessions are listed apart from real deadlines.
+  // Tasks still to do between two dates (inclusive)
   function dueBetween(D, from, to){
-    const gone = new Set(examsOf(D, ["exam", "quiz"]).filter(x => x.passed).map(x => x.t));   // an exam earlier today is over
+    const gone = new Set(examsOf(D, ["exam", "quiz"]).filter(x => x.passed).map(x => x.t));
     return D.tasks.filter(t => isDate(t.due) && t.status !== "done" && t.due >= from && t.due <= to && !gone.has(t))
       .sort((a, b) => (a.due + (a.time || "99:99")).localeCompare(b.due + (b.time || "99:99")));
   }
@@ -858,7 +841,7 @@
     return [t.title, [kind ? (kind === "quiz" ? "Quiz" : "Exam") : t.type, courseTag(D, t)].filter(Boolean).join(", "), `due ${rel(n)}${clock(t.time) ? " at " + clock(t.time) : ""}`, hasWeight(t) ? `${t.weight}%` : "", t.prepFor ? "study session" : ""].filter(Boolean).join(" | ");
   }
   const GENERIC_NAME = new Set("introduction intro principles fundamentals course studies applied advanced general topics".split(" "));
-  // Which courses the question names (by code like "bio 101" or by a word from the name). Ties are kept.
+  // Which courses the question names (by code like "bio 101" or by a word from the name)
   function coursesInQ(D, q){
     const qt = toks(q).filter(x => !STOP.has(x)), qs = new Set(qt), flat = fold(q).replace(/[^a-z0-9]/g, "");
     const pre = w => w.length >= 3 && qt.some(x => x.length >= 3 && (x.startsWith(w) || w.startsWith(x)));
@@ -878,7 +861,7 @@
     return top >= 1.5 ? best : [];
   }
   const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-  // A day the question points at: today, tomorrow or a weekday name (the next one). Returns {date, name} or null.
+  // A day the question points at
   function dayInQ(D, ql){
     if (/\btoday\b|\btonight\b/.test(ql)) return {date: D.today, name: "today"};
     if (/\btomorrow\b/.test(ql)) return {date: addDays(D.today, 1), name: "tomorrow"};
@@ -893,21 +876,19 @@
   }
   const askItems = ts => ts.slice(0, 6).map(t => ({id: t.id, title: t.title}));
   const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
-  /* The exact answer for a question, or null when it needs reading (then the model gets the snapshot). Returns {text, items, kind}. */
+  /* The exact answer for a question, or null when it needs reading */
   function exactAnswer(D, q){
     const ql = fold(q).replace(/[^a-z0-9' ]+/g, " ").replace(/\s+/g, " ").trim();
     if (!ql) return null;
     if (/\b(study|studying|prepare|preparing|prep|tips?|advice|explain|why|plan|how (do|should|can|would|to) i?)\b/.test(ql)) return null;
     const cs = coursesInQ(D, q), only = cs.length ? t => cs.some(c => c.id === t.courseId) : () => true, forC = cs.length ? ` for ${cs.map(courseLabel).join(" and ")}` : "";
     const when = /\b(when|next|upcoming|soon|soonest|first|date|dates|how long|how many|how soon|coming up|any|which|list|all|remaining|left|away|until|till|what (exams?|tests?|quizz?es)|do i have|am i having|is there)\b/.test(ql);
-    // Grades
     if (/\b(grades?|marks?|gpa|standing|standings|passing|average|how am i doing|how'?s my)\b/.test(ql) && !/\b(due|when|date)\b/.test(ql)) {
       const list = (cs.length ? cs : D.courses).map(c => ({c, line: gradeLine(D, c)}));
       const have = list.filter(x => x.line);
       if (!have.length) return {kind: "grades", text: cs.length ? `No marks are entered for ${cs.map(courseLabel).join(" or ")} yet, so there's no grade to work out.` : "No marks are entered in any course yet, so there's no grade to work out.", items: []};
       return {kind: "grades", text: (have.length > 1 ? "Your standing so far:\n" : "") + have.map(x => (have.length > 1 ? "• " : "") + x.line + ".").join("\n"), items: []};
     }
-    // Exams and quizzes: next one, or the list
     const wantExam = /\b(exams?|mid-?terms?|finals?|tests?|examinations?)\b/.test(ql), wantQuiz = /\b(quiz|quizz?es)\b/.test(ql);
     if ((wantExam || wantQuiz) && when) {
       const kinds = wantExam && wantQuiz ? ["exam", "quiz"] : wantQuiz ? ["quiz"] : /\btests?\b/.test(ql) ? ["exam", "quiz"] : ["exam"];
@@ -925,7 +906,6 @@
       const n = up[0], nx = up[1];
       return {kind: "exam", items: askItems(up.slice(0, 2).map(x => x.t)), text: `Your next ${noun} is ${examLine(D, n, true)}.${nx ? ` After that: ${examLine(D, nx)}.` : ""}`};
     }
-    // "When is X due?" for one named task
     if (/\b(when|due date|what day|what date)\b/.test(ql) && !/\b(today|tomorrow|tonight|this week|next week)\b/.test(ql)) {
       const qt = new Set(toks(q)), scored = D.tasks.filter(t => isDate(t.due) && !t.prepFor && only(t)).map(t => {
         const tt = [...new Set(toks(t.title))].filter(x => !STOP.has(x)); if (!tt.length) return {t, s: 0};
@@ -937,12 +917,10 @@
         return {kind: "task", items: askItems([t]), text: `${t.title}${courseTag(D, t) ? " (" + courseTag(D, t) + ")" : ""} is due ${longDate(t.due)}${clock(t.time) ? " at " + clock(t.time) : ""}, which is ${rel(n)}${t.status === "done" ? ". You've marked it complete" : n < 0 ? ". It's past due" : ""}.`};
       }
     }
-    // Overdue
     if (/\b(overdue|late|behind|missed|past due)\b/.test(ql) && /\b(what|which|any|do i|have|list|how many)\b/.test(ql)) {
       const od = overdueOf(D).filter(only);
       return {kind: "due", items: askItems(od), text: od.length ? `${plural(od.length, "task")} overdue${forC}:\n` + od.slice(0, 12).map(t => "• " + taskLine(D, t)).join("\n") : `Nothing is overdue${forC}.`};
     }
-    // What's due (a day, this week, or the next stretch)
     if (/\b(due|deadlines?|to ?do|homework|assignments?|tasks?|coming up|on my plate|hand in|submit)\b/.test(ql) && /\b(what|which|any|do i|list|how many|anything|show|have|due)\b/.test(ql) && !/\b(classes|class|lectures?|clinical)\b/.test(ql)) {
       const dq = dayInQ(D, ql);
       let from = D.today, to = addDays(D.today, 7), label = "in the next 7 days";
@@ -959,14 +937,12 @@
       if (od.length) text += `\nOverdue: ` + od.slice(0, 6).map(t => `${t.title} (${rel(dayDiff(D.today, t.due))})`).join("; ") + ".";
       return {kind: "due", items: askItems(real.concat(od)), text};
     }
-    // Classes on a day
     if (/\b(classes|class|lectures?|labs?|clinicals?|schedule|what time|where)\b/.test(ql) && /\b(what|which|do i|when|where|schedule|have|any)\b/.test(ql) && dayInQ(D, ql)) {
       const dq = dayInQ(D, ql), occ = D.occ(dq.date, dq.date).filter(o => !cs.length || (o.c && cs.some(c => c.id === o.c.id)) || (o.course && cs.some(c => c.id === o.course.id)))
         .sort((a, b) => String(a.start || "").localeCompare(String(b.start || "")));
       if (!occ.length) return {kind: "classes", items: [], text: `Nothing is scheduled ${dq.name === "today" || dq.name === "tomorrow" ? dq.name : "on " + dq.name}${forC}.`};
       return {kind: "classes", items: [], text: `Scheduled ${dq.name === "today" || dq.name === "tomorrow" ? dq.name : "on " + dq.name}${forC}:\n` + occ.slice(0, 12).map(o => `• ${o.start ? fmtTime(o.start) + (o.end ? "–" + fmtTime(o.end) : "") + ": " : "All day: "}${o.title}${o.label ? " " + o.label : ""}${o.where ? ", " + o.where : ""}`).join("\n")};
     }
-    // Who teaches a course, office hours, room: straight from the course page
     if (cs.length && cs.length <= 3) {
       const ask = /\b(who (teaches|is teaching|taught|is the|is my)|professors?|profs?|instructors?|teachers?|lecturers?)\b/.test(ql) ? "instructor" : /\boffice( hours?)?\b/.test(ql) ? "office" : /\b(room|classroom|building)\b|\bwhere (is|are|do|does)\b/.test(ql) ? "room" : "";
       if (ask) {
@@ -977,7 +953,7 @@
     }
     return null;
   }
-  /* The snapshot the model reads with every question. Dates come pre-computed so the model never has to do date math. */
+  /* The snapshot the model reads with every question */
   function snapshotText(D){
     const L = [], tz = D.tz ? ` (${D.tz})` : "";
     L.push(`NOW: ${D.now.toLocaleDateString("en-US", {weekday: "long", month: "long", day: "numeric", year: "numeric"})} (${D.today}), ${hhmm(D.now)}${tz}. "Days away" below counts from this date; 0 means today.`);
@@ -1005,13 +981,7 @@
       occ: (a, b) => { try { return schOccurrences(a, b).filter(o => !o.skipped && !(o.type === "meet" && o.m && o.m.kind === "Office Hours")); } catch(e) { return []; } }};
   }
 
-  /* ---------- Ask With AI (Ask Your Course) ----------
-     A short chat over the student's own material, like a tutor that only knows their course. Every question searches again (scoped to
-     one course when "Ask About" names one, or the question names its code), and the model sees only the best few passages, numbered,
-     plus a dated snapshot of the planner: never the whole library. Answers cite [n]; a source chip opens the exact note, card, file page
-     or lecture. When the material doesn't cover it, the answer says so plainly, and Answer From General Knowledge is a separate answer,
-     clearly labelled. Under an answer: suggested follow-ups, Make Flashcards and Save as Note (free, like Create with AI), and Quiz Me,
-     a one-question-at-a-time tutor (Studyboard Pro). */
+  /* Ask With AI (Ask Your Course) A short chat over the student's own material */
   const ANSWER_SCHEMA = {type: "OBJECT", properties: {
     answer: {type: "STRING", description: "A direct, concise answer (1 to 4 short sentences, up to 6 when asked to explain, or a short list for several items) using only the planner snapshot and the numbered sources. Every sentence that uses a numbered source ends with its citation, like [2] or [1][3]; facts from the snapshot need no number."},
     sources: {type: "ARRAY", items: {type: "INTEGER"}, description: "Numbers of the numbered sources the answer used (empty if it came only from the snapshot)"},
@@ -1044,14 +1014,14 @@ Return JSON only.`;
   const planOk = p => !!p && !(p.kind === "paid" && !p.ok);
   const callPlan = (plan, args) => plan.kind === "gemini" ? geminiCall(plan.cfg, Object.assign({ms: args.timeout || 90000}, args)) : aiCall(args);
   const proLocked = () => !!(window.SBPRO && SBPRO.locked && SBPRO.locked());
-  const SENT = 8;   // numbered passages the model sees, each at most 1500 characters
+  const SENT = 8;
   const bodyOf = x => { const d = x.doc; return x.text || (d.type === "chunk" ? d.text : [d.title, d.text].filter(Boolean).join("\n")); };
   const srcText = (rows, nums) => rows.slice(0, SENT).map((x, i) => nums && !nums.includes(i + 1) ? "" : `[${i + 1}] ${citeOf(x)}\n${String(bodyOf(x)).slice(0, 1500)}`).filter(Boolean).join("\n\n");
   const scopeC = () => S.course && S.course !== "_none" ? courseOf(S.course) : null;
   const turnIx = T => S.thread.indexOf(T);
   const turnOf = b => b.dataset.turn != null && b.dataset.turn !== "" ? S.thread[Number(b.dataset.turn)] : S.ask;
   function resetThread(){ S.thread = []; S.ask = null; S.tutor = null; S.seq++; }
-  // The last few questions and answers before this one, so "explain that more simply" has something to refer to
+  // The last few questions and answers before this one
   function histText(T){
     const i = turnIx(T), prev = (i > 0 ? S.thread.slice(0, i) : []).filter(t => t.answer && t.answer.state === "done").slice(-3);
     return prev.length ? `CONVERSATION SO FAR (earlier in this chat)\n${prev.map(t => `Student: ${t.q}\nAnswer: ${String(t.answer.text).replace(/\s?\[\d{1,2}\]/g, "")}`).join("\n\n")}\n\n` : "";
@@ -1060,18 +1030,15 @@ Return JSON only.`;
     const q = S.q.trim(); if (!q) return;
     const seq = ++S.seq;
     S.tutor = null;
-    // The question names one course ("bio 101", "my chem lab"): ask about that course, unless the student picked the scope themselves
     if (!S.scopeSet || (S.autoScope && S.autoScope === S.course)) {
       let cs = []; try { cs = coursesInQ(askData(), q); } catch(e) {}
       if (cs.length === 1 && cs[0].id !== S.course) { S.course = cs[0].id; S.autoScope = cs[0].id; }
     }
-    // One short conversation per scope. A question that was still searching when this one came is dropped; the same question again is asked afresh.
     while (S.thread.length && S.thread[S.thread.length - 1].state !== "done") S.thread.pop();
     if (S.threadCourse !== S.course) S.thread = [];
     else if (S.thread.length && S.thread[S.thread.length - 1].q === q) S.thread.pop();
     S.threadCourse = S.course;
     const prev = S.thread[S.thread.length - 1] || null;
-    // Questions with one right answer (next exam, what's due, grades, classes) are worked out exactly, with no AI and before the search finishes
     let det = null; try { det = exactAnswer(askData(), q); } catch(e) { console.warn(e); }
     const detAns = det ? {state: "done", text: det.text, found: true, used: [], items: det.items || [], det: true, model: ""} : null;
     const A = {q, course: S.course, state: "search", rows: [], note: "", answer: detAns, det: detAns};
@@ -1094,7 +1061,6 @@ Return JSON only.`;
     }
     if (seq !== S.seq) return;
     let rows = fuse(kw, sm);
-    // A follow-up keeps the sources the last answer used, ahead of what this question finds on its own
     if (prev && prev.rows.length) {
       const used = prev.answer && prev.answer.used && prev.answer.used.length ? prev.answer.used.map(n => prev.rows[n - 1]) : prev.rows.slice(0, 3);
       const carry = used.filter(Boolean).slice(0, 4), seen = new Set(carry.map(x => x.key));
@@ -1110,7 +1076,6 @@ Return JSON only.`;
     const plan = answerPlan(); if (!plan) return;
     const prior = A.det, n = Math.min(SENT, A.rows.length), c = A.course && A.course !== "_none" ? courseOf(A.course) : null;
     A.answer = {state: "loading"}; draw();
-    // The strongest model (task "ask": smartest first, thinking on) reads a dated snapshot of the planner plus the search hits
     let snap = ""; try { snap = snapshotText(askData()); } catch(e) { console.warn(e); }
     const scope = c ? `COURSE: ${courseLabel(c)}${c.name && c.name !== courseLabel(c) ? " (" + c.name + ")" : ""}. The student is asking about this course; the numbered sources come only from its material.\n\n` : "";
     const args = {task: "ask", schema: ANSWER_SCHEMA, maxTokens: 8000, temperature: 0.1, timeout: 90000, system: ASK_SYSTEM,
@@ -1139,7 +1104,7 @@ Return JSON only.`;
     draw();
   }
 
-  /* ---------- Turning an answer into study material ---------- */
+  /* Turning an answer into study material */
   const rowCid = x => x.doc.type === "chunk" ? ((state.files[x.doc.fid] || {}).courseId || "") : (x.doc.cid || "");
   const usedRows = T => { const u = T.answer && T.answer.used && T.answer.used.length ? T.answer.used : T.rows.slice(0, 4).map((x, i) => i + 1); return u.map(k => T.rows[k - 1]).filter(Boolean); };
   function studyCid(T){
@@ -1148,7 +1113,7 @@ Return JSON only.`;
     return ([...cnt].sort((a, b) => b[1] - a[1])[0] || [""])[0];
   }
   const srcNames = T => [...new Set(usedRows(T).map(x => citeOf(x).slice(0, 60)))].slice(0, 6);
-  // The material behind an answer, as one text source: the question, the answer and the passages it used (with their numbers)
+  // The material behind an answer, as one text source
   function studyText(T){
     const used = usedRows(T).map(x => T.rows.indexOf(x) + 1);
     return `Question: ${T.q}\nAnswer: ${String(T.answer.text).replace(/\s?\[\d{1,2}\]/g, "")}\n\nNUMBERED SOURCES\n${srcText(T.rows, used)}`;
@@ -1171,7 +1136,7 @@ Return JSON only.`;
     } catch(e) { T.study = {err: e.message || "Couldn't make flashcards right now. Try again."}; draw(); }
   }
   const ln = s => window.SBPRO && SBPRO.linkName ? SBPRO.linkName(s) : String(s || "").replace(/[[\]\n]/g, "").replace(/\s+/g, " ").trim();
-  // A source as a [[link]] for a note (a PDF page as [[File#p3]]), or its plain name when it can't be linked
+  // A source as a [[link]] for a note (a PDF page as [[File#p3]])
   function linkFor(x){
     const d = x.doc;
     if (d.type === "chunk") { const f = state.files[d.fid]; if (!f) return citeOf(x); return `[[${ln(f.name)}${d.label === "Page" && d.page ? "#p" + d.page : ""}]]${d.label && d.label !== "Page" && d.page ? `, ${d.label.toLowerCase()} ${d.page}` : ""}`; }
@@ -1189,7 +1154,7 @@ Return JSON only.`;
     const nt = addNoteText(text.slice(0, 8000), studyCid(T), "green");
     T.saved = nt && nt.id; draw();
   }
-  // Quiz Me: questions from the answer's sources (the AI quiz writer), asked one at a time here, each checked and explained with its source
+  // Quiz Me: questions from the answer's sources (the AI quiz writer)
   async function startTutor(T){
     if (!T) return;
     if (proLocked()) { close(); if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Quiz Me is part of Studyboard Pro: it asks you one question at a time from your course material, checks your answer and explains it with the source."); return; }
@@ -1212,7 +1177,6 @@ Return JSON only.`;
     const txt = String(given || "").trim(); if (!txt) return;
     const g = gradeWritten(txt, q.answer), plan = answerPlan(), T = S.thread[tu.ti];
     if (g.correct || !planOk(plan)) { tu.ans[i] = {given: txt, correct: !!g.correct}; draw(); focusNext(); return; }
-    // Not the same words: the AI checks whether it means the same thing, and says why
     tu.ans[i] = {given: txt, checking: true}; draw();
     try {
       const r = await callPlan(plan, {task: "tutor", fast: true, schema: JUDGE_SCHEMA, maxTokens: 2000, temperature: 0.1, timeout: 45000, system: JUDGE_SYSTEM,
@@ -1235,7 +1199,7 @@ Return JSON only.`;
     open("", {mode: "ask", course: cid || "", fresh: true});
   }
 
-  /* ---------- Opening things ---------- */
+  /* Opening things */
   function go(tab){ ui.tab = tab; if (tab !== "courses") ui.courseId = null; }
   function runAct(act, data){
     const b = document.createElement("button"); b.type = "button"; b.hidden = true; b.dataset.act = act;
@@ -1258,7 +1222,6 @@ Return JSON only.`;
       try { sc.scrollTo({left: Math.max(0, n.x * nbZ() - sc.clientWidth / 2 + el.offsetWidth * nbZ() / 2), top: Math.max(0, n.y * nbZ() - 50), behavior: "smooth"}); } catch(e) { sc.scrollLeft = n.x; sc.scrollTop = n.y; }
       el.classList.add("sx-flash"); setTimeout(() => el.classList.remove("sx-flash"), 2200);
       try { el.focus({preventScroll: true}); } catch(e) {}
-      // a redraw that was already on its way replaces the note element: put the focus back on the new one
       const refocus = () => { const n2 = $(`.note[data-note="${CSS.escape(id)}"]`); if (n2 && n2 !== document.activeElement && ui.tab === "notes" && (!document.activeElement || document.activeElement === document.body || !document.activeElement.isConnected)) { try { n2.focus({preventScroll: true}); } catch(e) {} } };
       requestAnimationFrame(refocus); [250, 700, 1600].forEach(ms => setTimeout(refocus, ms));
     }
@@ -1283,13 +1246,12 @@ Return JSON only.`;
   }
   function fileLink(f, page){
     let href = fileHref(f);
-    if (page && inClaude() && fileKind(f) === "pdf" && href && href !== "#") href += "#page=" + page;
+    if (page && inPreview() && fileKind(f) === "pdf" && href && href !== "#") href += "#page=" + page;
     return `href="${esc(href)}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer"`;
   }
   function filePreview(fid, chunks, hs){
     const f = state.files[fid]; if (!f) return;
     const list = chunks.slice(0, 12).map(h => h.doc || h);
-    // A PDF page: open it right there in the reader (Studyboard Pro), as a [[file#p3]] link in a note does
     const readPg = list[0] && list[0].label === "Page" && list[0].page && fileKind(f) === "pdf" && window.SBPRO && SBPRO.openReader && !proLocked() ? list[0].page : 0;
     openSheet(`<div class="sheet sx-prev">${head(f.name)}<div class="sheet-body">
       <p class="mini" style="margin:0">${list.length === 1 ? "One place in this file matches." : `${chunks.length} places in this file match${chunks.length > 12 ? ", showing the best 12" : ""}.`}</p>
@@ -1320,7 +1282,7 @@ Return JSON only.`;
     }
   }
 
-  /* ---------- The overlay ---------- */
+  /* The overlay */
   const D = () => $("#sxDlg");
   const ICONS = {
     tasks: '<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/>',
@@ -1393,11 +1355,11 @@ Return JSON only.`;
     }
     return {rows, html: html.join("")};
   }
-  // [2] in an answer becomes a button that opens source 2 of that question (ti: its place in the conversation)
+  // [2] in an answer becomes a button that opens source 2 of that question
   const citeHtml = (T, text, ti) => esc(text).replace(/\[(\d+)\]/g, (m, n) => Number(n) >= 1 && Number(n) <= T.rows.length ? `<button type="button" class="sx-cite" data-sx="cite" data-turn="${ti}" data-id="${Number(n) - 1}" aria-label="Open source ${n}">${n}</button>` : m);
   const srcChip = (T, ti, n) => `<button type="button" class="sx-src" data-sx="cite" data-turn="${ti}" data-id="${n - 1}"><span>${n}</span>${esc(citeOf(T.rows[n - 1]))}</button>`;
   const dots = `<span class="sx-dots" aria-hidden="true"><i></i><i></i><i></i></span>`;
-  // The answer card: cited numbered sources for model answers, the planner items used for exact ones. past: an earlier answer in the chat.
+  // The answer card
   function ansBox(A, an, ti, past){
     const txt = citeHtml(A, an.text, ti), miss = !an.found, c = A.course && A.course !== "_none" ? courseOf(A.course) : null;
     const from = (an.used || []).filter(n => A.rows[n - 1]).map(n => srcChip(A, ti, n))
@@ -1405,7 +1367,7 @@ Return JSON only.`;
     const lead = miss ? `<p class="sx-miss-l"><b>${c ? `Your ${esc(courseLabel(c))} material doesn't cover this.` : "Your notes, files and cards don't cover this."}</b></p>` : "";
     return `<div class="sx-ans${miss ? " miss" : ""}"><div class="sx-ans-h">${AI_ICON}<b>${miss ? "Not in Your Material" : "Answer"}</b></div>${lead}<p class="${miss ? "mini " : ""}sx-ans-t">${txt}</p>${from.length ? `<p class="sx-from">From ${from.join("")}</p>` : ""}${past ? "" : `<p class="mini">${an.det ? "Worked out from your planner, so no AI guessing." : `Answered by ${esc(an.model)} from your own material. AI can make mistakes; check the source. <button type="button" class="link-btn" data-ai-report="search-ask" data-ai-text="${esc(String(an.text || "").slice(0, 1400))}">Report Response</button>`}</p>`}</div>`;
   }
-  // An answer from general knowledge, only when asked for, and never mixed up with the student's own material
+  // An answer from general knowledge, only when asked for
   function genBox(T, ti){
     const g = T.general; if (!g) return "";
     if (g.state === "loading") return `<div class="sx-ans sx-gen busy">${AI_ICON}${dots}Answering from general knowledge…</div>`;
@@ -1469,11 +1431,11 @@ Return JSON only.`;
   }
   function drawAskArea(){
     const A = S.ask, box = $("#sxAnswer"), q = S.q.trim(), ask = S.mode === "ask";
-    const fresh = A && A.q === q, live = ask && !!A && (fresh || A.state === "done");   // the chat stays up while a follow-up is typed
+    const fresh = A && A.q === q, live = ask && !!A && (fresh || A.state === "done");
     const ti = A ? turnIx(A) : -1;
     let h = "";
     if (ask) {
-      if (inClaude()) h += `<div class="sx-callout">${AI_ICON}<span>Ask With AI works in the Studyboard app and on your website. Here it matches the words you type.</span></div>`;
+      if (inPreview()) h += `<div class="sx-callout">${AI_ICON}<span>Ask With AI works in the Studyboard app and on your website. Here it matches the words you type.</span></div>`;
       else if (!aiReady() && !semOn()) h += `<div class="sx-callout">${AI_ICON}<span>Set up AI to search by meaning and get short answers from your own notes and files. It's free with a Google Gemini key. For now, this finds related words.</span><button type="button" class="btn small ai-btn" data-sx="setup">Set Up AI</button></div>`;
       else if (!semOn() && aiReady()) h += `<div class="sx-callout">${AI_ICON}<span>Search by meaning needs a free Gemini key. Your current AI can still answer from what word search finds.</span><button type="button" class="btn small" data-sx="setup">Add a Gemini Key</button></div>`;
       h += scopeBar();
@@ -1506,7 +1468,6 @@ Return JSON only.`;
         else if (!an.det && an.found) h += `<p class="sx-hint">No notes, files or cards matched, so this came from your planner.</p>`;
       }
     }
-    // A redraw (files still being read in the background) keeps what's being typed into Quiz Me
     const tin = $("#sxTutorIn"), keep = tin ? {v: tin.value, f: document.activeElement === tin} : null;
     box.innerHTML = h;
     const tin2 = $("#sxTutorIn"); if (keep && tin2) { tin2.value = keep.v; if (keep.f) try { tin2.focus({preventScroll: true}); } catch(e) {} }
@@ -1575,7 +1536,6 @@ Return JSON only.`;
   function openRow(i){
     const run = S.rows[i]; if (!run) return;
     const q = S.q.trim();
-    // Recent searches only fill the box; everything else closes search first
     if (!q && S.type === "all" && i < recent().length) { run(); return; }
     if (q) pushRecent(q);
     close();
@@ -1601,7 +1561,7 @@ Return JSON only.`;
     if (opts.mode === "ask" || opts.mode === "find") S.mode = opts.mode;
     if (opts.type && CHIP[opts.type]) S.type = opts.type;
     if (opts.course !== undefined) { const c = opts.course || ""; if (c !== S.course || opts.fresh) resetThread(); S.course = c; S.scopeSet = true; S.autoScope = ""; }
-    else if (S.autoScope && S.autoScope === S.course) { S.course = ""; S.autoScope = ""; S.scopeSet = false; }   // a course picked from the last question's words doesn't stick
+    else if (S.autoScope && S.autoScope === S.course) { S.course = ""; S.autoScope = ""; S.scopeSet = false; }
     else if (!S.course) S.scopeSet = false;
     const inp = $("#sxQ");
     if (typeof q === "string") inp.value = q;
@@ -1617,7 +1577,7 @@ Return JSON only.`;
     const c = sxCfg(), files = Object.values(state.files).filter(f => extKind(f));
     const read = files.filter(f => { const r = FT.recs.get(curRev(f).assetId); return r && r.status === "ok"; }).length;
     const row = (key, title, sub, on) => `<div class="cap-row"><span style="flex:1;font-weight:600">${title}<span class="sub">${sub}</span></span><label class="anim-tog"><input type="checkbox" data-sxopt="${key}" ${on ? "checked" : ""}> On</label></div>`;
-    const semSub = inClaude() ? "Works in the Studyboard app and on your website." : !embKey() ? "Needs a free Google Gemini key (Settings, then AI Features). Without one, Ask With AI uses word search and a list of common synonyms." : `Uses your free Gemini key to understand what your things are about, so you can describe them in your own words.${SEM.loaded ? ` ${SEM.total ? Math.round((SEM.total - SEM.left) / SEM.total * 100) + "% ready." : ""}` : ""}`;
+    const semSub = inPreview() ? "Works in the Studyboard app and on your website." : !embKey() ? "Needs a free Google Gemini key (Settings, then AI Features). Without one, Ask With AI uses word search and a list of common synonyms." : `Uses your free Gemini key to understand what your things are about, so you can describe them in your own words.${SEM.loaded ? ` ${SEM.total ? Math.round((SEM.total - SEM.left) / SEM.total * 100) + "% ready." : ""}` : ""}`;
     openSheet(`<div class="sheet">${head("Search Settings")}<div class="sheet-body"><div class="menu-list">
       <button type="button" data-act="search"><span>Open Search<span class="sub">Press ${KEYS} anywhere, or the search button.</span></span></button>
       ${row("files", "Search Inside Files", `Reads the text of your PDFs, Word and PowerPoint files in the background and keeps it on this device. ${S.used ? `${read} of ${files.length} readable file${files.length === 1 ? "" : "s"} read.` : `${files.length} readable file${files.length === 1 ? "" : "s"}.`}`, c.files)}
@@ -1639,7 +1599,7 @@ Return JSON only.`;
     });
   }
 
-  /* ---------- Events ---------- */
+  /* Events */
   function wire(){
     const d = D(); if (!d || d.dataset.wired) return; d.dataset.wired = "1";
     const inp = $("#sxQ");
@@ -1674,7 +1634,6 @@ Return JSON only.`;
         else if (k === "paid-yes") { const cb = $("#sxPaidOk"), p = answerPlan(); if (!cb || !cb.checked || !p) return; sxSave({paidOk: p.sig}); getAnswer(S.seq); }
         else if (k === "task") { const t = state.tasks[b.dataset.id]; if (t) { close(); setTimeout(() => openDoc({type: "task", id: t.id}), 0); } }
         else if (k === "cite") { const T = turnOf(b), x = T && T.rows[Number(b.dataset.id)]; if (x) { close(); setTimeout(() => openDoc(x.doc), 0); } }
-        // Ask Your Course
         else if (k === "scope") { S.course = b.dataset.id || ""; S.scopeSet = true; S.autoScope = ""; resetThread(); S.active = 0; syncModeUi(); if (S.q.trim()) runAsk(); else draw(); inp.focus(); }
         else if (k === "restart") { resetThread(); setQuery(""); }
         else if (k === "fu") { setQuery(b.dataset.q || ""); runAsk(); }
@@ -1706,10 +1665,9 @@ Return JSON only.`;
     }
   }, true);
 
-  /* ---------- Hooks ---------- */
+  /* Hooks */
   hook("act", (act, el, id) => {
     if (act === "search") { if (dlg.open && dlg.querySelector("#sxRebuild")) dlg.close(); open(); return true; }
-    // Ask About This Course (the course page): Ask With AI, scoped to that course. Files' "Ask About These Files" still reads whole files.
     if (act === "sx-ask-course" || (act === "ask-course" && el && el.dataset && el.dataset.sxAsk)) { if (dlg.open) dlg.close(); askCourse(id || ""); return true; }
     if (act === "sx-settings") { if (dlg.open) dlg.close(); setTimeout(settingsSheet, 30); return true; }
     return false;
@@ -1722,7 +1680,7 @@ Return JSON only.`;
     if (fids.length) {
       if (FT.loaded) syncFiles();
       const fresh = fids.filter(id => { const f = state.files[id], r = f && curRev(f); return r && !FT.recs.has(r.assetId); });
-      if (fresh.length && canFetch()) queueFiles(fresh);    // read new uploads in the background
+      if (fresh.length && canFetch()) queueFiles(fresh);
     }
     semKick();
     drawSoon();
@@ -1742,12 +1700,12 @@ Return JSON only.`;
       return orig.apply(this, arguments);
     };
   });
-  // The text inside one file (from this device's cache, or read now if it's small and readable), for the companion's Ask About This
-  const cloudText = new Map();   // a Google Drive or OneDrive file's text, read when asked (never in the background), for this session
+  // The text inside one file
+  const cloudText = new Map();
   window.SBFILETEXT = async (fid, max) => {
     const f0 = state.files[fid];
     if (f0 && f0.kind === "cloud" && f0.cloud) {
-      if (!cloudAiOk(f0)) return "";   // they didn't allow AI to read their cloud files
+      if (!cloudAiOk(f0)) return "";
       const n = String(f0.cloud.name || f0.name), ext = (n.split(".").pop() || "").toLowerCase();
       const kind = ext === "pdf" ? "pdf" : ext === "docx" ? "docx" : ext === "pptx" ? "pptx" : /^(txt|md|markdown|csv|tsv|json|html?|xml)$/.test(ext) ? "text" : "";
       if (!kind || (f0.cloud.size || 0) > MAX_FILE_BYTES) return "";

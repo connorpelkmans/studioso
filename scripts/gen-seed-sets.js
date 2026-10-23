@@ -1,12 +1,8 @@
-// Studyboard's own sample flashcard sets (seed-sets/*.json) -> supabase-seed-sets.sql (split into parts the SQL Editor accepts).
-// Run: node scripts/gen-seed-sets.js
-// Each set: {school_key, course_code, course_name, source_url, name, look: {color, icon}, cards: [{front, back}]}.
-// The cards are original, written for the topics in each course's published outline (source_url); no exam questions, slides or
-// course files are copied. They are published under the official @studyboard account and say so on their pages.
+// Studyboard's own sample flashcard sets (seed-sets/*.json) -> supabase-seed-sets.sql
 const fs = require("fs"), path = require("path");
 const root = path.join(__dirname, ".."), dir = path.join(root, "seed-sets"), LIMIT = 760000;
 const COLORS = ["#3B6FE0","#1E9E74","#E0673B","#9A4FD1","#D6386F","#1D9BB8","#C79A12","#5E6B7E","#DC2626","#16A34A","#65A30D","#0D9488","#4F46E5","#C026D3","#EA580C","#92400E","#334155"];
-// The app's built-in course icons (cloudflare/site/course-icons.js): every set is published with one of them and one of COLORS
+// The app's built-in course icons (cloudflare/site/course-icons.js)
 const ICONS = Object.keys(JSON.parse(fs.readFileSync(path.join(root, "cloudflare", "site", "course-icons.js"), "utf8").match(/export const ICONS = (\{.*\});/)[1]));
 const clean = s => String(s == null ? "" : s).replace(/[—]/g, " - ").replace(/\s+/g, " ").trim();
 const slug = s => clean(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");

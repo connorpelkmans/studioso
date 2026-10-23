@@ -1,6 +1,4 @@
-// Offline checks for the Studyboard Edge Functions (Pro, account deletion, calendar-feed, lms-feed, send-reminders; no network, no Supabase). Run from the repo root:
-//   node --experimental-strip-types supabase-functions/tools/test-functions.mjs
-// (Node 22.6 or newer.) It loads the real function files with fake network calls and checks the rules.
+// Offline checks for the Studyboard Edge Functions
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { webcrypto as crypto } from "node:crypto";
@@ -13,7 +11,7 @@ const load = (p) => import(pathToFileURL(path.resolve(root, p)).href);
 let passed = 0;
 const test = async (name, fn) => { try { await fn(); passed++; console.log("ok   " + name); } catch (e) { console.error("FAIL " + name + "\n" + (e.stack || e)); process.exitCode = 1; } };
 
-// ---- keys from the real generator script
+// -- keys from the real generator script
 const out = execFileSync(process.execPath, [path.join(here, "gen-ent-key.mjs")], { encoding: "utf8" });
 const PRIV = out.match(/ENT_SIGNING_KEY=(\S+)/)[1];
 const PUB = out.match(/ENT_PUBKEY=(\S+)/)[1];
@@ -30,7 +28,7 @@ const sr = await load("supabase-functions/send-reminders/index.ts");
 
 const UID = "11111111-2222-4333-8444-555555555555";
 const OTHER = "99999999-2222-4333-8444-555555555555";
-const NOW = 1_800_000_000_000;   // fixed clock (ms)
+const NOW = 1_800_000_000_000;
 const S = NOW / 1000;
 const log = () => {};
 
@@ -39,7 +37,7 @@ await test("public key is 32 raw bytes, private key imports", async () => {
   assert.match(PUB, /^[A-Za-z0-9_-]{43}$/); assert.match(PRIV, /^[A-Za-z0-9_-]+$/);
 });
 
-// ---- entitlement-token
+// -- entitlement-token
 function tokenDeps(row, opts = {}) {
   const calls = [];
   const env = (k) => ({ SUPABASE_URL: "https://x.supabase.co", SUPABASE_ANON_KEY: "anon", SUPABASE_SERVICE_ROLE_KEY: "svc", ENT_SIGNING_KEY: PRIV }[k] ?? "");
@@ -68,7 +66,6 @@ await test("token: free user gets a 1-day signed free token that verifies", asyn
   assert.deepEqual(Object.keys(t).sort(), ["exp", "iat", "sig", "tier", "uid"]);
   assert.equal(t.tier, "free"); assert.equal(t.uid, UID); assert.equal(t.iat, S); assert.equal(t.exp, S + 86400);
   assert.equal(await verify(t), true);
-  // tampering breaks it
   assert.equal(await verify({ ...t, tier: "pro" }), false);
   assert.equal(await verify({ ...t, exp: t.exp + 1 }), false);
   assert.equal(await verify({ ...t, uid: OTHER }), false);
@@ -115,7 +112,7 @@ await test("token: needs sign-in, honours the rate limit, hides internals on err
   assert.equal((await ent.handle(new Request("https://x/", { method: "OPTIONS" }), tokenDeps(null).deps)).status, 204);
 });
 
-// ---- billing webhook
+// -- billing webhook
 const WH_SECRET = "whsec_test_secret";
 async function sign(body, t = S, secret = WH_SECRET) {
   const k = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
@@ -142,7 +139,6 @@ await test("stripe: bad / missing / old / future / wrong-secret signature is ref
     const r = await wh.handle(await stripeReq(ev, opts), deps);
     assert.equal(r.status, 400); assert.equal(applied.length, 0);
   }
-  // tampered body with a valid-looking header for another body
   const { deps, applied } = whDeps();
   const good = await sign(JSON.stringify(ev));
   const r = await wh.handle(new Request("https://x/billing-webhook/stripe", { method: "POST", headers: { "stripe-signature": good }, body: JSON.stringify({ ...ev, id: "evt_2" }) }), deps);
@@ -179,7 +175,6 @@ await test("stripe: checkout.session.completed needs client_reference_id == meta
     const r = await wh.handle(await stripeReq(mk(o)), deps);
     assert.equal(r.status, 200); assert.equal(applied.length, 0, JSON.stringify(o));
   }
-  // customer on the subscription differs from the session's customer
   ({ deps, applied } = whDeps({ stripe: () => ({ ...sub, customer: "cus_other" }) }));
   await wh.handle(await stripeReq(mk({ client_reference_id: UID, metadata: { uid: UID } })), deps);
   assert.equal(applied.length, 0);
@@ -228,7 +223,6 @@ await test("stripe: the body is capped while it arrives (chunked, no Content-Len
   const big = new ReadableStream({ start(c) { for (let i = 0; i < 1100; i++) c.enqueue(new TextEncoder().encode("x".repeat(1000))); c.close(); } });
   const r = await wh.handle(new Request("https://x/functions/v1/billing-webhook/stripe", { method: "POST", headers: { "stripe-signature": "t=1,v1=a" }, body: big, duplex: "half" }), deps);
   assert.equal(r.status, 413); assert.equal(applied.length, 0);
-  // non-ASCII text in the event still verifies (the raw text is decoded exactly like req.text())
   const ev = { id: "evt_u", type: "customer.subscription.updated", created: S, data: { object: { customer: "cus_1", status: "active", current_period_end: S + 86400, metadata: { note: "café ✓" } } } };
   assert.equal((await wh.handle(await stripeReq(ev), deps)).status, 200); assert.equal(applied.length, 1);
 });
@@ -276,7 +270,7 @@ await test("revenuecat: authorization is checked (constant time), sandbox ignore
   assert.deepEqual(applied.map(a => a.state), ["revoke", "renew_off", "ended"]);
 });
 
-// ---- create-checkout / create-portal-session
+// -- create-checkout / create-portal-session
 const SITE = "https://studyboard.example";
 function coDeps(extra = {}) {
   const stripeBodies = []; const rest = [];
@@ -324,7 +318,7 @@ await test("checkout: monthly creates a customer + a server-priced session with 
   assert.equal(s.client_reference_id, UID); assert.equal(s["metadata[uid]"], UID); assert.equal(s["subscription_data[metadata][uid]"], UID);
   assert.equal(s["subscription_data[trial_period_days]"], "7");
   assert.equal(s.success_url, SITE + "/success.html?session_id={CHECKOUT_SESSION_ID}");
-  assert.equal(s.cancel_url, SITE + "/cancel.html");   // the evil origin was replaced
+  assert.equal(s.cancel_url, SITE + "/cancel.html");
   assert.ok(!JSON.stringify(s).includes("EVIL") && !JSON.stringify(s).includes(OTHER));
 });
 await test("checkout: yearly price, no second trial, reuses the stored customer", async () => {
@@ -410,7 +404,7 @@ await test("portal: only the caller's own customer; none gives 404", async () =>
   assert.equal((await pt.handle(new Request("https://x/", { method: "POST", body: "{}" }), coDeps().deps)).status, 401);
 });
 
-// ---- delete-account
+// -- delete-account
 function delDeps(o = {}) {
   const calls = [];
   const env = (k) => ({ SUPABASE_URL: "https://x.supabase.co", SUPABASE_ANON_KEY: "anon", SUPABASE_SERVICE_ROLE_KEY: "svc", STRIPE_SECRET_KEY: "sk_test_x", SITE_ORIGINS: SITE, ...(o.env || {}) }[k] ?? "");
@@ -488,7 +482,7 @@ await test("delete-account: rate limit, Stripe failure stops everything, Apple s
   }
 });
 
-// ---- calendar-feed (looked up by token hash, ICS values cleaned, generic errors)
+// -- calendar-feed (looked up by token hash, ICS values cleaned, generic errors)
 const sha256hex = async (t) => Buffer.from(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t))).toString("hex");
 const CAL_TOKEN = "Tok_abcdefghijklmnopqrstuvwxyz0123456789";
 function calEnv(o = {}) {
@@ -528,7 +522,6 @@ await test("calendar-feed: looks the link up by SHA-256 of the token; the token 
   assert.equal(await cf.tokenHash(CAL_TOKEN), await sha256hex(CAL_TOKEN));
   assert.equal((await cf.handle(calReq("Tok_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"))).status, 404);
   assert.equal((await cf.handle(calReq("short"))).status, 404);
-  // a project that hasn't run the new SQL yet still works (older lookup by token)
   calEnv({ noHashCol: true });
   assert.equal((await cf.handle(calReq())).status, 200);
 });
@@ -559,7 +552,6 @@ await test("calendar-feed: a cached calendar is checked like a fresh one, and th
     const res = await cf.handle(calReq());
     return { res, text: await res.text(), calls };
   };
-  // learn the current change key from a first build, then plant a poisoned cache under it
   const first = await run({});
   const key = (first.res.headers.get("ETag") || "").replace(/"/g, "");
   assert.ok(key);
@@ -584,14 +576,13 @@ await test("calendar-feed: errors are generic (no setup details)", async () => {
   globalThis.fetch = realFetch; delete globalThis.Deno;
 });
 
-// ---- error-ingest: the address used for the per-address limit
+// -- error-ingest
 const ei = await load("supabase-functions/error-ingest/index.ts");
 await test("error-ingest: the limiter's address is cf-connecting-ip or the right-most X-Forwarded-For entry, never the client's own", async () => {
   assert.equal(ei.clientIp(new Headers({ "x-forwarded-for": "1.1.1.1, 2.2.2.2, 203.0.113.9" })), "203.0.113.9");
   assert.equal(ei.clientIp(new Headers({ "x-forwarded-for": "1.1.1.1", "cf-connecting-ip": "198.51.100.4" })), "198.51.100.4");
   assert.equal(ei.clientIp(new Headers({ "x-forwarded-for": " 203.0.113.9 ," })), "203.0.113.9");
   assert.equal(ei.clientIp(new Headers()), "unknown", "no address: one shared bucket, so there is still a per-address limit");
-  // a changing left-most entry gives the same address hash
   const seen = [];
   const d = { env: (k) => ({ SUPABASE_URL: "https://x.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "k" })[k] || "", now: () => NOW, log,
     fetch: async (url, init) => { if (/client_errors_allow/.test(url)) { seen.push(JSON.parse(init.body)); return new Response("true"); } return new Response("", { status: 201 }); } };
@@ -602,7 +593,7 @@ await test("error-ingest: the limiter's address is cf-connecting-ip or the right
   assert.ok(seen[2].p_ip, "no address header: still limited per address");
 });
 
-// ---- lms-feed (sign-in checked, public addresses only on every hop, size cap, generic errors, limiter fails closed)
+// -- lms-feed
 const FEED = "https://school.example.com/d2l/le/calendar/feed/user/feed.ics?token=abc";
 const ICS = "BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n";
 function lmsDeps(o = {}) {
@@ -627,7 +618,6 @@ await test("lms-feed: sign-in is checked inside the function, and the limiter fa
   assert.equal(r.status, 200); assert.equal((await r.json()).ics, ICS);
   assert.equal(l.fetched[0][1], "manual", "redirects are never followed automatically");
   assert.equal((await lf.handle(lmsReq(), lmsDeps({ limited: true }).deps)).status, 429);
-  // the real helpers: no env, an error or a non-true answer all mean "no"
   globalThis.Deno = { env: { get: (k) => ({ SUPABASE_URL: "https://x.supabase.co", SUPABASE_ANON_KEY: "anon" })[k] } };
   assert.equal(await lf.rateOk(lmsReq(), async () => { throw new Error("down"); }), false);
   assert.equal(await lf.rateOk(lmsReq(), async () => new Response("null")), false);
@@ -690,7 +680,7 @@ await test("lms-feed: the body is capped while it streams, and errors carry no u
   assert.equal((await (await lf.handle(lmsReq(), lmsDeps({ respond: () => new Response("<html>") }).deps)).json()).error, "not-calendar");
 });
 
-// ---- send-reminders (schedule secret, push endpoint allowlist)
+// -- send-reminders (schedule secret, push endpoint allowlist)
 function remStore(o = {}) {
   const log = { dropped: [], released: [] };
   const rows = [{ user_id: UID, id: "r:1", title: "T", body: "B", url: "", task_id: "t1", tok: "tok1", tries: 0 }];
@@ -723,15 +713,12 @@ await test("send-reminders: sending needs the schedule secret", async () => {
   assert.equal((await sr.handle(remReq({ action: "send" }, { "x-studyboard-cron": "c".repeat(64) }), remStore().store, p, remOpts())).status, 200);
   assert.equal((await sr.handle(remReq({ action: "send" }, { "x-studyboard-cron": "d".repeat(64) }), remStore().store, fakePush(), remOpts({ cronSecret: "d".repeat(64) }))).status, 200);
   assert.equal((await sr.handle(remReq({ action: "nope" }), remStore().store, p, remOpts())).status, 400);
-  // the body is read with a cap before anything else (a chunked body without Content-Length too)
   const chunked = new ReadableStream({ start(c) { for (let i = 0; i < 40; i++) c.enqueue(new TextEncoder().encode("x".repeat(1000))); c.close(); } });
   assert.equal((await sr.handle(new Request("https://x/functions/v1/send-reminders", { method: "POST", body: chunked, duplex: "half" }), remStore().store, p, remOpts())).status, 413);
-  // Snooze from a notification still works with only the reminder's own code
   const s = remStore();
   assert.equal((await sr.handle(remReq({ action: "snooze", id: "r:1", tok: "tok1" }), s.store, p, remOpts())).status, 200);
   assert.equal(s.log.snoozed, true);
   assert.equal((await sr.handle(remReq({ action: "snooze", id: "r:1", tok: "bad" }), remStore().store, p, remOpts())).status, 404);
-  // the real store asks the database (service role) and treats errors as "no"
   const db = (ans) => ({ rpc: async (fn, args) => { db.last = [fn, args]; return ans; } });
   const d1 = db({ data: true, error: null });
   assert.equal(await sr.supabaseStore(d1).cronOk("c".repeat(64)), true);
@@ -748,14 +735,12 @@ await test("send-reminders: pushes only go to the real push services", async () 
   assert.deepEqual(p.sent.sort(), ["https://fcm.googleapis.com/fcm/send/abc", "https://web.push.apple.com/xyz"]);
   assert.deepEqual(s.log.dropped, ["s2"], "a non-push address is removed, never contacted");
   assert.equal(out.sent, 1);
-  // the real store filters too
   const db = { from: () => ({ select: () => ({ in: async () => ({ data: remStore().store && [
     { id: "a", user_id: UID, endpoint: "https://fcm.googleapis.com/fcm/send/1" }, { id: "b", user_id: UID, endpoint: "https://10.0.0.1/x" }], error: null }) }) }) };
   assert.deepEqual((await sr.supabaseStore(db).subsFor([UID])).map(x => x.id), ["a"]);
 });
 
 await test("send-reminders: due reminders are claimed in bounded batches, oldest first, never all at once", async () => {
-  // 450 due rows: claimed 200, 200, 50 (each batch sent before the next is claimed); a failed one is released after the batches
   const due = Array.from({ length: 450 }, (_, i) => ({ user_id: i % 2 ? UID : OTHER, id: "r:" + i, title: "T", body: "B", url: "", task_id: "", tok: "t" + i, tries: 0 }));
   const claims = [], released = [];
   const store = { ...remStore().store, claimDue: async (now, limit) => { claims.push(limit); return due.splice(0, limit); },
@@ -766,11 +751,9 @@ await test("send-reminders: due reminders are claimed in bounded batches, oldest
   const out = await sr.sendDue(store, p, NOW, "https://x/api", "anon");
   assert.deepEqual(claims, [200, 200, 200]);
   assert.equal(out.due, 450); assert.equal(out.sent, 449); assert.equal(out.failed, 1); assert.equal(released.length, 1);
-  // a huge backlog stops after a few batches (the rest stays unsent for the next run)
   const big = Array.from({ length: 5000 }, (_, i) => ({ user_id: UID, id: "r:" + i, title: "T", body: "B", url: "", task_id: "", tok: "t", tries: 0 }));
   const out2 = await sr.sendDue({ ...store, claimDue: async (now, limit) => big.splice(0, limit) }, fakePush(), NOW, "https://x/api", "anon");
   assert.ok(out2.due <= 1000 && big.length >= 4000, "one run claims at most 5 batches");
-  // the real store claims through studyboard_reminders_claim with a limit, and falls back to a bounded pick on an older reminders.sql
   const calls = [];
   const db1 = { rpc: async (fn, args) => { calls.push([fn, args]); return { data: [due[0] || { id: "x" }], error: null }; } };
   await sr.supabaseStore(db1).claimDue(NOW, 200);
@@ -785,7 +768,7 @@ await test("send-reminders: due reminders are claimed in bounded batches, oldest
   await assert.rejects(sr.supabaseStore({ rpc: async () => ({ data: null, error: { code: "57014", message: "timeout" } }) }).claimDue(NOW, 50));
 });
 
-// ---- send-reminders: phone apps (FCM HTTP v1 for Android, APNs for iPhone)
+// -- send-reminders
 import { generateKeyPairSync, createPublicKey, verify as nodeVerify } from "node:crypto";
 const rsa = generateKeyPairSync("rsa", { modulusLength: 2048 });
 const ec = generateKeyPairSync("ec", { namedCurve: "P-256" });
@@ -830,7 +813,6 @@ await test("send-reminders: FCM mints an OAuth token (RS256 JWT grant), caches i
   assert.deepEqual(body.message.data, { taskId: "t1", rid: "r:1", url: MSG.url, tok: "tok1", api: MSG.api, k: "anon" });
   assert.ok(Object.values(body.message.data).every(v => typeof v === "string"), "FCM data values are all strings");
   assert.deepEqual(body.message.android, { priority: "HIGH", ttl: "21600s" });
-  // FIREBASE_PROJECT_ID wins over the JSON's project
   const n2 = nativeDeps({ env: { FIREBASE_PROJECT_ID: "other-proj" } });
   await sr.nativeSender(n2.deps).fcm({ id: "f1", user_id: UID, endpoint: FCM_TOKEN, kind: "fcm" }, MSG);
   assert.ok(n2.calls.some(c => c.u === "https://fcm.googleapis.com/v1/projects/other-proj/messages:send"));
@@ -843,7 +825,6 @@ await test("send-reminders: dead FCM tokens (404 UNREGISTERED, 400 INVALID_ARGUM
   assert.equal(await sr.nativeSender(nativeDeps({ fcm: r404 }).deps).fcm(sub, MSG), "gone");
   assert.equal(await sr.nativeSender(nativeDeps({ fcm: r400 }).deps).fcm(sub, MSG), "gone");
   assert.equal(await sr.nativeSender(nativeDeps({ fcm: r500 }).deps).fcm(sub, MSG), "fail");
-  // through sendDue: the dead token's row is dropped
   const st = remStore({ subs: [sub] });
   const out = await sr.sendDue(st.store, fakePush(), NOW, MSG.api, "anon", sr.nativeSender(nativeDeps({ fcm: r404 }).deps));
   assert.deepEqual(st.log.dropped, ["f1"]); assert.equal(out.removed, 1);
@@ -865,11 +846,9 @@ await test("send-reminders: APNs uses an ES256 JWT (kid, iss, iat; cached), the 
   assert.equal(j.sig.length, 64, "JOSE r||s signature");
   assert.equal(nodeVerify("SHA256", Buffer.from(j.input), { key: createPublicKey(ec.privateKey), dsaEncoding: "ieee-p1363" }, j.sig), true);
   assert.deepEqual(JSON.parse(c[0].init.body), { aps: { alert: { title: "Due soon", body: "Essay at 5 pm" }, sound: "default" }, taskId: "t1", rid: "r:1", url: MSG.url, tok: "tok1", api: MSG.api, k: "anon" });
-  // APNS_TOPIC secret, sandbox rows
   const n2 = nativeDeps({ env: { APNS_TOPIC: "com.example.other" } });
   await sr.nativeSender(n2.deps).apns({ ...sub, apns_env: "sandbox" }, MSG);
   assert.ok(n2.calls[0].u.startsWith("https://api.sandbox.push.apple.com/3/device/")); assert.equal(n2.calls[0].init.headers["apns-topic"], "com.example.other");
-  // unknown environment: production first, then sandbox on BadDeviceToken
   const bad = () => new Response(JSON.stringify({ reason: "BadDeviceToken" }), { status: 400 });
   const n3 = nativeDeps({ apns: (u) => u.includes("sandbox") ? new Response("", { status: 200 }) : bad() });
   assert.equal(await sr.nativeSender(n3.deps).apns(sub, MSG), "ok");
@@ -893,12 +872,10 @@ await test("send-reminders: phone kinds are skipped (rows kept) when their secre
   assert.deepEqual(st.log.dropped.sort(), ["x1", "x2"], "malformed rows are removed; skipped ones stay");
   assert.equal(out.sent, 1);
   for (const [sub, ok] of [[subs[0], true], [subs[1], true], [subs[3], false], [subs[4], false], [{ endpoint: "apns:" + "zz".repeat(32), kind: "apns" }, false]]) assert.equal(sr.subOk(sub), ok, sub.endpoint);
-  // no VAPID keys but FCM set up: sending still works for the phone app, browsers are skipped
   const st2 = remStore({ subs: [subs[0], subs[2]] }), p2 = fakePush(), n2 = nativeDeps();
   const r2 = await sr.handle(remReq({ action: "send" }, { "x-studyboard-cron": "c".repeat(64) }), st2.store, p2, remOpts({ vapidOk: false, native: sr.nativeSender(n2.deps) }));
   assert.equal(r2.status, 200); assert.equal(p2.sent.length, 0); assert.ok(n2.calls.some(c => c.u.startsWith("https://fcm.googleapis.com/v1/")));
   assert.equal((await sr.handle(remReq({ action: "send" }, { "x-studyboard-cron": "c".repeat(64) }), st2.store, p2, remOpts({ vapidOk: false, native: ns }))).status, 500, "nothing set up at all: the setup message");
-  // the real store reads kind/apns_env, and falls back on a project without those columns
   let asked = [];
   const db = { from: () => ({ select: (cols) => ({ in: async () => { asked.push(cols); return cols.includes("kind") ? { data: null, error: { code: "42703", message: "column push_subscriptions.kind does not exist" } } : { data: [{ id: "w", user_id: UID, endpoint: "https://fcm.googleapis.com/fcm/send/1" }], error: null }; } }) }) };
   assert.deepEqual((await sr.supabaseStore(db).subsFor([UID])).map(x => x.id), ["w"]); assert.equal(asked.length, 2);

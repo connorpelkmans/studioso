@@ -1,7 +1,4 @@
-// Unit tests for Studyboard's free AI trial Worker (cloudflare/ai-trial/src/trial.js), with an in-memory stand-in for Durable Object
-// storage, Supabase and Workers AI. The money rules come first: the daily neuron ceiling can't be raised past HARD_CEILING, only free-plan
-// models are used, the worst case is reserved before the model runs, and nothing runs once the day's pool is spent.
-// Run: node tests/ai-trial.test.js
+// Unit tests for Studyboard's free AI trial Worker (cloudflare/ai-trial/src/trial.js)
 const path = require("path"), assert = require("assert"), {pathToFileURL} = require("url");
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
@@ -12,7 +9,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
     get: async k => m.get(k), put: async (k, v) => { if (typeof k === "object") Object.entries(k).forEach(([x, y]) => m.set(x, y)); else m.set(k, v); },
     delete: async k => m.delete(k), deleteAll: async () => m.clear(), getAlarm: async () => alarm, setAlarm: async t => { alarm = t; }, deleteAlarm: async () => { alarm = null; }}; };
 
-  // ---- never billed: limits that no setting can lift
+  // never billed
   eq(T.HARD_CEILING, 9000, "hard ceiling sits under the free 10,000 neurons a day");
   eq(T.config({DAILY_NEURONS: "50000"}).dailyNeurons, 9000, "DAILY_NEURONS can't go past the hard ceiling");
   eq(T.config({DAILY_NEURONS: "abc"}).dailyNeurons, 8000, "a bad value falls back to 8,000");
@@ -22,12 +19,11 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   ok(Object.keys(T.MODELS).every(k => !/kimi-k2\.[67]|glm-5|deepseek-v4/.test(k)), "the free list has none of the paid-billing models");
   eq(T.config({MAX_OUTPUT_TOKENS: "999999", MAX_CHARS: "999999"}).maxOut, 4000, "output cap can't be raised past 4,000 tokens");
   eq(T.config({MAX_CHARS: "999999"}).maxChars, 40000, "input cap can't be raised past 40,000 characters");
-  // the worst single request at the highest caps still fits many times inside the margin to 10,000
   const worst = Math.max(...Object.values(T.MODELS).map(r => T.neurons(r, T.estTokens(40000 + 9000), 4000)));
   ok(worst < 1000, `worst single request at the highest caps reserves ${worst} neurons (under the 1,000 margin)`);
   ok(T.estTokens(4000) >= 4000 / 2, "token estimate is deliberately high (2 characters a token)");
 
-  // ---- per-student tries
+  // per-student tries
   let now = Date.UTC(2026, 9, 8, 12);
   const cfg = T.config({TRIAL_USES: "3", DAILY_USES: "2"});
   const st = new T.Student(mem(), () => now);
@@ -41,7 +37,6 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq((await st.take(cfg)).reason, "used_up", "then used up for good");
   await st.refund(t3.day);
   eq((await st.status(cfg)).left, 1, "a failed try is given back");
-  // capped refunds (the model ran): MAX_REFUNDS a day, then none until the next day; uncapped ones always
   const st2 = new T.Student(mem(), () => now), big = T.config({TRIAL_USES: "50", DAILY_USES: "50"});
   for (let i = 0; i < T.MAX_REFUNDS; i++) { const t = await st2.take(big); ok(await st2.refund(t.day, true), "capped refund " + (i + 1)); }
   const tx = await st2.take(big);
@@ -51,7 +46,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   now += 86400000; const tz = await st2.take(big); ok(await st2.refund(tz.day, true), "the cap starts again the next day");
   now -= 86400000;
 
-  // ---- the day pool
+  // the day pool
   const pool = new T.Pool(mem());
   ok(await pool.reserve(5000, 8000), "reserve under the ceiling");
   ok(!(await pool.reserve(3001, 8000)), "a reservation that would pass the ceiling is refused");
@@ -60,7 +55,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq(await pool.spent(), 6200, "settling replaces the reservation with what was used");
   ok(!(await pool.reserve(1801, 8000)) && await pool.reserve(1800, 8000), "the freed neurons can be used again, never more");
 
-  // ---- Supabase sign-in check
+  // Supabase sign-in check
   let calls = 0;
   const fakeFetch = async (url, o) => { calls++; const tok = o.headers.Authorization.slice(7);
     if (tok === "good") return new Response(JSON.stringify({id: "u1", email_confirmed_at: "2026-10-01"}));
@@ -75,7 +70,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq(await T.verifyUser("bad", env0, fakeFetch), null, "a refused token");
   eq(await T.verifyUser("good", {}, fakeFetch), null, "no Supabase settings, nobody gets in");
 
-  // ---- answers
+  // answers
   eq(T.readAnswer({choices: [{message: {content: '```json\n{"a":1}\n```'}}]}), {a: 1}, "fenced JSON");
   eq(T.readAnswer({response: {a: 2}}), {a: 2}, "object answer");
   eq(T.readAnswer({choices: [{message: {content: 'Sure! {"a":3} done'}}]}), {a: 3}, "JSON inside text");
@@ -83,7 +78,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   const msgs = T.messagesFor("Be helpful.", "hi", {type: "object", properties: {a: {type: "string"}}});
   ok(/JSON Schema/.test(msgs[0].content) && msgs[1].content === "hi", "schema goes into the instructions");
 
-  // ---- the whole request
+  // the whole request
   T._forgetUsers();
   const students = new Map(), pools = new Map(), runs = [];
   let aiReply = {choices: [{message: {content: '{"ok": true}'}, finish_reason: "stop"}], usage: {prompt_tokens: 400, completion_tokens: 50}};
@@ -108,13 +103,11 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   ok(runs[0].input.max_completion_tokens <= 1500 && runs[0].input.response_format.type === "json_object", "output capped, JSON mode");
   const dayPool = pools.get(T.dayOf(now));
   eq(await dayPool.spent(), T.neurons(T.MODELS[T.DEFAULT_MODEL], 400, 50), "the pool counts what the model reported using");
-  // the model failing gives the try back but keeps the neurons counted
   aiReply = new Error("model down");
   const before = await dayPool.spent();
   r = await ask("Again?"); j = await r.json();
   eq([r.status, j.error, j.left], [502, "ai_failed", 3], "a failed answer isn't counted against the student");
   ok(await dayPool.spent() > before, "but its reservation stays counted (never under-count)");
-  // no usage reported: the whole reservation stays counted
   aiReply = {choices: [{message: {content: '{"ok": 1}'}}]};
   const b2 = await dayPool.spent(); await ask("Short one");
   ok(await dayPool.spent() - b2 >= T.neurons(T.MODELS[T.DEFAULT_MODEL], T.estTokens(10), 50), "missing usage keeps the reservation");
@@ -126,13 +119,11 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   r = await ask("Next day"); ok(r.status === 200, "next day works");
   r = await ask("Used up?"); j = await r.json();
   eq([r.status, j.error, j.left], [429, "used_up", 0], "used up after the total");
-  // too long, bad input
   T._forgetUsers();
   const fresh = Object.assign({}, env);
   eq((await ask("x".repeat(20000), null, "good", fresh)).status, 413, "too long for the trial");
   eq((await call("POST", "/v1/ai", "not json")).status, 400, "not JSON");
   eq((await ask("   ")).status, 400, "nothing to answer");
-  // a schema is input too: over MAX_SCHEMA characters it's refused before the model runs
   students.clear(); runs.length = 0;
   const huge = {type: "object", description: "d".repeat(T.MAX_SCHEMA), properties: {}};
   r = await ask("hi", {schema: huge}); j = await r.json();
@@ -140,7 +131,6 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq((await students.get("u1").status(T.config(env))).left, 4, "and no try was used");
   r = await ask("hi", {schema: {type: "object", description: "d".repeat(3000), properties: {a: {type: "string"}}}});
   eq(r.status, 200, "a normal-sized schema still works");
-  // a garbled answer (the model ran) gives the try back at most MAX_REFUNDS times a day
   students.clear(); runs.length = 0;
   const many = Object.assign({}, env, {TRIAL_USES: "50", DAILY_USES: "50"});
   aiReply = {choices: [{message: {content: "not json at all"}}], usage: {prompt_tokens: 100, completion_tokens: 2}};
@@ -151,27 +141,23 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   aiReply = new Error("model down");
   j = await (await ask("hi", null, "good", many)).json();
   eq([j.error, j.refunded, j.left], ["ai_failed", true, 48], "a call that made no answer is still given back past the cap");
-  // the pool running dry stops everyone, before the model runs
   students.clear(); pools.clear(); runs.length = 0;
   const tight = Object.assign({}, env, {DAILY_NEURONS: "100", TRIAL_USES: "50", DAILY_USES: "50"});
-  aiReply = {choices: [{message: {content: '{"ok": true}'}}], usage: {prompt_tokens: 1500, completion_tokens: 400}};   // about 25 neurons a try
+  aiReply = {choices: [{message: {content: '{"ok": true}'}}], usage: {prompt_tokens: 1500, completion_tokens: 400}};
   let served = 0, busy = 0;
   for (let i = 0; i < 20; i++) { const x = await ask("y".repeat(3000), null, "good", tight); if (x.status === 200) served++; else if ((await x.json()).error === "busy") busy++; }
   ok(busy > 0 && served < 20, `a spent pool answers busy (${served} served, ${busy} busy)`);
   eq(runs.length, served, "the model never ran for a busy answer");
   ok(await pools.get(T.dayOf(now)).spent() <= 100, "and the day never went past its ceiling");
   eq((await students.get("u1").status(T.config(tight))).left, 50 - served, "busy answers don't use the student's tries");
-  // off switch
   r = await ask("hi", null, "good", Object.assign({}, env, {TRIAL_OFF: "1"}));
   eq([r.status, (await r.json()).error], [429, "busy"], "TRIAL_OFF stops every try");
   eq((await call("OPTIONS", "/v1/ai")).headers.get("Access-Control-Allow-Headers"), "Authorization, Content-Type", "CORS preflight");
-  // Delete My Account: the student's record goes, only theirs, only when signed in (even with the trial switched off)
   ok((await students.get("u1").read()).used > 0, "u1 has a count before forgetting");
   eq((await call("DELETE", "/v1/trial", null, "nobody")).status, 401, "forgetting needs a sign-in");
   r = await call("DELETE", "/v1/trial", null, "good", Object.assign({}, env, {TRIAL_OFF: "1"}));
   eq([r.status, (await r.json()).ok], [200, true], "forgetting works even with the trial off");
   eq([...students.get("u1").s.m.keys()], ["gone"], "nothing about the student is left but the closed-id flag");
-  // ...and DELETE can't be used as a reset: the id stays closed, so looping DELETE + tries can't drain the shared pool
   eq((await (await call("GET", "/v1/trial", null, "good")).json()).left, 0, "after forgetting, no tries are left on that id");
   const runsBefore = runs.length;
   r = await ask("hi", null, "good"); j = await r.json();
@@ -180,7 +166,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   await call("DELETE", "/v1/trial", null, "good");
   eq((await (await call("GET", "/v1/trial", null, "good")).json()).left, 0, "a second DELETE gives nothing back either");
   ok(/DELETE/.test((await call("OPTIONS", "/v1/trial")).headers.get("Access-Control-Allow-Methods")), "CORS allows DELETE");
-  // ---- Turnstile: one check per student before the first try
+  // Turnstile: one check per student before the first try
   T._forgetUsers(); students.clear(); pools.clear();
   const secret = "s3cret", tenv = Object.assign({}, env, {TURNSTILE_SITE_KEY: "0x4AAA", TURNSTILE_SECRET: secret});
   let sv = [];
@@ -210,7 +196,6 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq((await call("POST", "/v1/verify/start", null, "good", env)).status, 404, "nor a check page link");
   const page = await call("GET", "/verify", null, "good", tenv), phtml = await page.text();
   ok(phtml.includes('data-sitekey="0x4AAA"') && /frame-src https:\/\/challenges\.cloudflare\.com/.test(page.headers.get("Content-Security-Policy")), "check page: site key and a CSP that allows only Turnstile");
-  // the real siteverify call shape
   let req = null;
   ok(await T.siteverify({TURNSTILE_SECRET: "k"}, "tok", "1.2.3.4", async (u, o) => { req = {u, b: JSON.parse(o.body)}; return new Response(JSON.stringify({success: true, action: "trial"})); }), "siteverify success");
   eq([req.u, req.b], ["https://challenges.cloudflare.com/turnstile/v0/siteverify", {secret: "k", response: "tok", remoteip: "1.2.3.4"}], "siteverify request");

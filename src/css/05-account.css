@@ -3,7 +3,7 @@
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}
 .sb-acct .status-msg:empty{display:none}
 .sb-acct .mini .link-btn{font-size:inherit}
-/* On phones there's no room beside the logo for words, so a sync problem shows as a small amber dot (tap Settings for details) */
+/* On phones there's no room beside the logo for words */
 @media (max-width:600px){
   .top-row .sync:not([data-state="ok"]){font-size:0;width:9px;height:9px;flex:none;border-radius:50%;background:#E0A030;box-shadow:0 0 0 3px color-mix(in srgb,#E0A030 22%,transparent);align-self:center}
 }

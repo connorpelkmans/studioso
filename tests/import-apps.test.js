@@ -1,5 +1,5 @@
 // Unit tests for Import From Another App (the pure block between /*IMPORTAPPS-START*/ and /*IMPORTAPPS-END*/ in index.html):
-// the read-only SQLite reader, Anki collections to Studyboard cards, CSV, Todoist, Notion pages and databases.  Run: node tests/import-apps.test.js
+// the read-only SQLite reader, Anki collections to Studyboard cards, CSV, Todoist
 "use strict";
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const {ankiCollection, local} = require("./anki-fixture");
@@ -10,7 +10,7 @@ const FSRS = new Function(between("/*FSRS-START*/", "/*FSRS-END*/") + ";return F
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
 
-// ---- small pieces
+// small pieces
 ok([0, 0.5, 1, 2, 3, 5, 8, 9, 15, 20, 21, 400].every(d => IA.boxFor(d) === FSRS.boxFor(d)), "levels from intervals match Smart scheduling's");
 eq(IA.htmlText("Line one<br>Line two<div>Three</div><div>Four</div>"), "Line one\nLine two\nThree\nFour", "line breaks from <br> and <div>");
 const pc = {pics: 0, sounds: 0};
@@ -23,12 +23,12 @@ eq(IA.clozeCard("{{c1::a}} and {{c1::b}}", 1), {front: "_____ and _____", back: 
 ok(IA.clozeCard("{{c1::a}}", 3) === null, "a cloze number that isn't there");
 ok(IA.pbKind(new Uint8Array([8, 1, 26, 2, 97, 98])) === 1 && IA.pbKind(new Uint8Array([26, 2, 97, 98])) === 0 && IA.pbKind(null) === 0, "note type kind from protobuf");
 
-// ---- zstd frames (newer Anki): the test frame decodes with the vendored fzstd
+// zstd frames (newer Anki)
 const fz = require("../vendor/fzstd-0.1.1.umd.js");
 const big = new Uint8Array(300000).map((x, i) => i * 7 % 251);
 ok(Buffer.from(fz.decompress(IA.zstdRaw(big))).equals(Buffer.from(big)) && IA.isZstd(IA.zstdRaw(big)), "raw zstd frame round trip (several blocks)");
 
-// ---- SQLite + Anki (needs python3 to write the collections)
+// SQLite + Anki (needs python3 to write the collections)
 const c11 = ankiCollection("11", {filler: 400});
 if (!c11) console.log("python3 with sqlite3 not found: SQLite and Anki checks skipped");
 else {
@@ -70,7 +70,7 @@ else {
   ok(capped.total === 100 && capped.capped && capped.found === 408, "a card cap");
   ok(D("Big").cards[0].front === "Filler 0" && D("Big").cards[7].front.length <= 4000, "cards in the order they were written, long sides clipped");
 
-  // the new schema (collection.anki21b): decks and notetypes tables
+  // the new schema (collection.anki21b)
   const c18 = ankiCollection("18");
   const b = IA.readAnki(IA.sqlite(c18));
   eq(b.decks.map(d => d.name).sort(), ["Biology › Cells", "Chem › Cells", "Spanish"], "deck names from the decks table (\\x1f paths)");
@@ -83,19 +83,19 @@ else {
   ok(threw, "a cut-off database throws instead of hanging");
 }
 
-// ---- CSV
+// CSV
 eq(IA.parseCSV('a,b,c\r\n"x, y","say ""hi""",\n"multi\nline",2,3'), [["a", "b", "c"], ["x, y", 'say "hi"', ""], ["multi\nline", "2", "3"]], "quotes, commas, CRLF and line breaks in a field");
 eq(IA.parseCSV("﻿Term\tDefinition\nA\tB"), [["Term", "Definition"], ["A", "B"]], "tabs and a byte order mark");
 
-// ---- dates
-const T = "2026-10-21";   // a Wednesday
+// dates
+const T = "2026-10-21";
 const d = x => { const r = IA.looseDate(x, T); return r ? r.date + (r.time ? " " + r.time : "") : ""; };
 eq([d("2026-10-22"), d("Oct 22 2026"), d("22 Oct 2026"), d("October 22, 2026 5:30 PM"), d("Oct 2"), d("Oct 25"), d("today"), d("tomorrow at 9am")],
   ["2026-10-22", "2026-10-22", "2026-10-22", "2026-10-22 17:30", "2027-10-02", "2026-10-25", T, "2026-10-22 09:00"], "concrete dates");
 eq([d("every monday"), d("every wed"), d("every day"), d("every 3 months starting Nov 3"), d("10/30/2026"), d("someday"), d("Feb 30 2026")],
   ["2026-10-26", "2026-10-21", T, "2026-11-03", "2026-10-30", "", ""], "recurring dates keep the next date; nonsense gives none");
 
-// ---- Todoist
+// Todoist
 const td = IA.todoist([
   "TYPE,CONTENT,DESCRIPTION,PRIORITY,INDENT,AUTHOR,RESPONSIBLE,DATE,DATE_LANG,TIMEZONE,DURATION,DURATION_UNIT,DEADLINE,DEADLINE_LANG",
   "section,Readings,,1,1,,,,,,,,,",
@@ -112,7 +112,7 @@ ok(td.tasks[1].title === "Lab report (https://example.com/lab)" && td.tasks[1].d
 ok(td.tasks[2].due === "" && td.tasks[2].notes === "Section: Readings", "no date stays undated");
 ok(IA.todoist("Name,Date\nx,y", "a.csv", T) === null, "not a Todoist file");
 
-// ---- Notion
+// Notion
 eq(IA.notionTitle("Export/My Notes/Lecture 3 0123456789abcdef0123456789abcdef.md"), "Lecture 3", "Notion's id leaves the title");
 eq(IA.notionTitle("Tasks 0123456789abcdef0123456789abcdef_all.csv"), "Tasks", "and the _all of a database");
 const md = "# Cell Biology\n\n## Organelles\n\n- **Nucleus**: holds DNA\n    - nested item\n- [ ] review\n- [x] read\n1. first\n\n> a quote\n\n![diagram](Cell%20Biology/diagram.png)\n\nSee [Lecture 2](Lecture%202%200123456789abcdef0123456789abcdef.md) and [the site](https://example.com).\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\n```\ncode line\n```";
@@ -139,7 +139,7 @@ const p = IA.plan(files, T);
 eq(p.groups.map(g => g.kind + ":" + g.name + ":" + g.items.length), ["tasks:Tasks:2", "deck:Vocab:1", "notes:Pages:2"], "a Notion export: database rows aren't notes too, the _all view wins, empty pages skipped");
 ok(p.groups[2].items[0].text === "Home\n\nWelcome page" && p.groups[2].items[1].text.length <= 8000 && p.notesCut === 1, "notes text, long pages shortened");
 
-// ---- courses
+// courses
 const courses = [{id: "c1", name: "Biology", code: "BIO 101"}, {id: "c2", name: "Chemistry", code: "CHEM 2"}, {id: "c3", name: "Art", code: ""}];
 eq([IA.matchCourse("BIO 101 [123].csv", courses), IA.matchCourse("bio101 homework", courses), IA.matchCourse("Chemistry notes", courses), IA.matchCourse("Party", courses)], ["c1", "c1", "c2", ""], "a course from the file name");
 console.log(`import-apps.test: ${n} checks passed`);

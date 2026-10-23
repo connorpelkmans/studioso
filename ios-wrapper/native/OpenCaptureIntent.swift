@@ -1,6 +1,4 @@
-// UNTESTED: written without compiler access. App Target only. iOS 16+.
-// "Take a photo for Studyboard": opens the app straight into photo capture. It hands the route to the web layer through the same App Group
-// queue (kind "route"); native-bridge.js drains it on resume and calls SBCAPTURE.handleUrl("studyboard://capture?photo=1").
+// UNTESTED: written without compiler access
 import AppIntents
 import Foundation
 

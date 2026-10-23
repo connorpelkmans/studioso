@@ -1,6 +1,4 @@
-// A brand-new account gets the welcome setup and then the app tour, even on a device that already showed both. Run: node tests/apptour-new-account.e2e.js
-// (The tour used to be remembered per device only, so a new account on a browser that had seen it never got it.)
-// Uses the real sign-in library against a stand-in Supabase, like sync-reauth.e2e.js.
+// A brand-new account gets the welcome setup and then the app tour
 const fs = require("fs"), path = require("path"), http = require("http"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const ROOT = path.join(__dirname, "..");
@@ -15,11 +13,11 @@ const web = http.createServer((req, res) => {
   fs.readFile(f, (e, b) => { if (e) { res.writeHead(404); res.end(); return; } res.writeHead(200, {"content-type": /\.html$/.test(p) ? "text/html" : /\.m?js$/.test(p) ? "text/javascript" : /\.css$/.test(p) ? "text/css" : "application/octet-stream"}); res.end(b); });
 });
 
-/* ---------- stand-in Supabase ---------- */
+/* stand-in Supabase */
 const b64 = o => Buffer.from(JSON.stringify(o)).toString("base64url");
 const USER = {id: "11111111-1111-1111-1111-111111111111", aud: "authenticated", role: "authenticated", email: "me@example.com", app_metadata: {provider: "email"}, user_metadata: {}, created_at: new Date().toISOString()};
 const S = {skew: 0, badSig: new Set(), refresh: new Set(), serial: 0, log: [], hang: false};
-const srvNow = () => Date.now() + S.skew;   // the server's clock; the browser keeps the real one
+const srvNow = () => Date.now() + S.skew;
 function mint(){
   const iat = Math.floor(srvNow() / 1000), exp = iat + 3600, k = ++S.serial;
   const s = {access_token: b64({alg: "HS256", typ: "JWT"}) + "." + b64({sub: USER.id, exp, iat, role: "authenticated", aud: "authenticated", k}) + ".sig",
@@ -48,7 +46,7 @@ async function handle(route){
   if (u.pathname === "/auth/v1/user") return tokenState(req.headers()["authorization"]) === "ok" ? send(200, USER) : send(403, {code: "bad_jwt", msg: "invalid JWT"});
   if (u.pathname === "/auth/v1/logout") return send(204);
   if (u.pathname.startsWith("/rest/v1/")) {
-    if (S.hang && m === "GET") return;   // the server never answers
+    if (S.hang && m === "GET") return;
     const t = tokenState(req.headers()["authorization"]);
     if (t === "expired") return send(401, {code: "PGRST303", details: null, hint: null, message: "JWT expired"});
     if (t === "bad") return send(401, {code: "PGRST301", details: null, hint: null, message: "JWSError JWSInvalidSignature"});

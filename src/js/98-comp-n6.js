@@ -1,5 +1,5 @@
 /* ===== module: 98-comp-n6.js ===== */
-/* Study Companions, batch n6: film, culinary, marinebio */
+/* Study Companions, batch n6 */
 (() => {
   const {INK, O, OW, LG, RG, LINE} = COMP_KIT;
   const O2 = OW(2.2);

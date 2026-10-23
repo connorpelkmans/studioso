@@ -1,7 +1,4 @@
-// node tests/ipad-pen.e2e.js   (Playwright + Chromium; see tests/pw.js)
-// Pen ink (module 99-ink): handwriting with Apple Pencil on PDF pages in the reader and on a note's drawing page. iPad app only: the tools must
-// not appear without the iPad check (the test turns it on with localStorage "studyboard:ink-test"). Pen strokes are dispatched PointerEvents
-// with pointerType "pen"; a finger ("touch") must not draw while Draw with Finger is off.
+// node tests/ipad-pen.e2e.js (Playwright + Chromium; see tests/pw.js) Pen ink
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const csp = require("../scripts/csp");
@@ -50,7 +47,7 @@ const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleW
         if (dark) localStorage.setItem("studioso:theme", "dark");
       } catch (e) {}
     }, [SEED(), !!pen, !!free, !!dark]);
-    if (touch) await ctx.addInitScript(() => { Object.defineProperty(Navigator.prototype, "maxTouchPoints", {get: () => 5, configurable: true}); });   // an iPad's touch screen
+    if (touch) await ctx.addInitScript(() => { Object.defineProperty(Navigator.prototype, "maxTouchPoints", {get: () => 5, configurable: true}); });
     return ctx;
   };
   const open = async (ctx, page) => {
@@ -61,7 +58,6 @@ const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleW
     await page.waitForTimeout(700); return page;
   };
   const act = (page, a, id) => page.evaluate(([a, id]) => { const b = document.createElement("button"); b.dataset.act = a; if (id) b.dataset.id = id; b.style.display = "none"; document.body.appendChild(b); b.click(); b.remove(); }, [a, id || ""]);
-  // A stroke: points as fractions of the element, dispatched as Pointer Events
   const stroke = (page, sel, pts, type) => page.evaluate(([sel, pts, type]) => {
     const el = document.querySelector(sel); if (!el) return false;
     const r = el.getBoundingClientRect(), id = type === "pen" ? 7 : type === "touch" ? 9 : 1;
@@ -82,7 +78,7 @@ const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleW
   };
   const P1 = '.pdr-page[data-p="1"] .ink-layer';
   try {
-    /* ---------- Only in the iPad app ---------- */
+    /* Only in the iPad app */
     const web = await open(await mkCtx());
     ok(await web.evaluate(() => window.__sbInk.available()) === false, "the website (no iPad app): the pen is off");
     await openReader(web);
@@ -94,7 +90,6 @@ const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleW
     ok(web.errs.length === 0, "no console errors (website): " + web.errs.join(" | "));
     await web.context().close();
 
-    // The check itself: the native iOS app on an iPad, and nothing else
     const fakeApp = (page, idiom) => page.evaluate(idiom => {
       const keep = window.Capacitor, keepD = window.StudyboardDevice;
       window.Capacitor = {isNativePlatform: () => true, getPlatform: () => "ios"};
@@ -117,10 +112,9 @@ const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleW
     ok(await fakeApp(iphone, "pad") === true, "the app shell saying iPad: on");
     await iphone.context().close();
 
-    /* ---------- On a PDF ---------- */
+    /* On a PDF */
     const ctx = await mkCtx({pen: true});
     let page = await open(ctx);
-    // the point code
     const rt = await page.evaluate(() => { const I = window.__sbInk, pts = [[0.1, 0.2, 0.5], [0.1003, 0.2004, 0.6], [0.9, 0.95, 1], [0, 1, 0]], d = I.encode(pts), back = I.decode(d);
       return {d, ok: back.length === 4 && back.every((p, i) => Math.abs(p[0] - pts[i][0]) < 1e-4 && Math.abs(p[1] - pts[i][1]) < 1e-4 && Math.abs(p[2] - pts[i][2]) < 0.02)}; });
     ok(rt.ok && /^[A-Za-z0-9_-]+$/.test(rt.d) && rt.d.length < 30, "points pack small and come back the same: " + rt.d);
@@ -136,56 +130,47 @@ const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleW
     let ink = await pageInk(page);
     ok(ink.length === 1 && ink[0].t === "pen" && ink[0].a === "a-read4" && ink[0].p === 1 && /^[A-Za-z0-9_-]+$/.test(ink[0].d), "a Pencil stroke is kept on page 1 of this revision");
     ok(await inked(page, P1 + " .ink-pen") > 50, "and drawn on the page");
-    // a finger scrolls, it doesn't draw
     await stroke(page, P1, line(0.2, 0.6, 0.6, 0.62), "touch"); await page.waitForTimeout(100);
     ok((await pageInk(page)).length === 1, "a finger doesn't draw while Draw with Finger is off");
     ok(await page.evaluate(() => getComputedStyle(document.querySelector('.pdr-page[data-p="1"] .ink-layer')).touchAction) === "manipulation", "fingers can still scroll and zoom the page (touch-action)");
-    // highlighter
     await page.click('[data-act="ink-tool"][data-id="hl"]'); await page.waitForTimeout(80);
     ok(await page.locator("#inkBar .ink-col").count() === 4, "the highlighter has its four colours");
     await stroke(page, P1, line(0.15, 0.45, 0.6, 0.45)); await page.waitForTimeout(100);
     ink = await pageInk(page);
     ok(ink.length === 2 && ink.filter(s => s.t === "hl").length === 1 && ink.find(s => s.t === "hl").w > ink.find(s => s.t === "pen").w, "a highlighter stroke, wider, on its own layer");
     ok(await inked(page, P1 + " .ink-hlc") > 50 && await page.evaluate(() => getComputedStyle(document.querySelector('.pdr-page[data-p="1"] .ink-hlc')).mixBlendMode) === "multiply", "the highlighter sits under the ink and lets the page show through");
-    // the saved file
     await page.evaluate(() => window.__sbInk.flush()); await page.waitForTimeout(100);
     ok(await page.evaluate(() => (state.files.f1.ink || []).length === 2 && (state.files.f1.hl || []).length === 0), "the strokes are saved on the file (beside highlights)");
-    // eraser
     await page.click('[data-act="ink-tool"][data-id="erase"]'); await page.waitForTimeout(80);
     await stroke(page, P1, line(0.4, 0.25, 0.4, 0.36, 6)); await page.waitForTimeout(100);
     ink = await pageInk(page);
     ok(ink.length === 1 && ink[0].t === "hl", "the eraser removes the stroke it touches, and only that one");
-    // undo and redo
     await page.click('[data-act="ink-undo"]'); await page.waitForTimeout(80);
     ok((await pageInk(page)).length === 2 && await alphaAt(page, P1 + " .ink-pen", 0.4, 0.31) > 0, "Undo brings the erased stroke back");
     await page.click('[data-act="ink-redo"]'); await page.waitForTimeout(80);
     ok((await pageInk(page)).length === 1, "Redo erases it again");
     await page.click('[data-act="ink-undo"]'); await page.waitForTimeout(80);
-    // clear the page, with a question first
     await page.click('[data-act="ink-clear"]'); await page.waitForTimeout(80);
     ok(await page.locator(".ink-ask").count() === 1 && /Clear all ink on page 1/.test(await page.locator(".ink-ask").textContent()) && await page.evaluate(() => dlg.open && !!dlg.querySelector(".pdr-sheet")), "Clear Page asks first, inside the reader");
     await page.click(".ink-ask [data-ink-yes]"); await page.waitForTimeout(80);
     ok((await pageInk(page)).length === 0 && await inked(page, P1 + " .ink-pen") === 0, "Clear Page clears it");
     await page.click('[data-act="ink-undo"]'); await page.waitForTimeout(80);
     ok((await pageInk(page)).length === 2, "and Undo brings it all back");
-    // zoom: the ink stays where it was written
     const w0 = await page.evaluate(sel => document.querySelector(sel + " .ink-pen").width, P1);
     await page.click('[data-act="pdr-zoom"][data-id="1"]'); await page.waitForTimeout(900);
     const w1 = await page.evaluate(sel => { const c = document.querySelector(sel + " .ink-pen"); return c ? c.width : 0; }, P1);
     ok(w1 > w0 && await alphaAt(page, P1 + " .ink-pen", 0.4, 0.31) > 0, `after zooming in the ink is redrawn at the new size, in the same place (${w0} -> ${w1})`);
-    // Pen off: the page is a page again
     await page.click('[data-act="ink-mode"]'); await page.waitForTimeout(80);
     ok(await page.locator("#inkBar").count() === 0 && await page.evaluate(sel => getComputedStyle(document.querySelector(sel)).pointerEvents, P1) === "none", "Pen off: the tools go and the text can be selected again");
     await page.evaluate(() => dlg.close()); await page.waitForTimeout(200);
     ok(await page.evaluate(() => (state.files.f1.ink || []).length === 2), "closing the reader saves");
-    // reload
     await page.reload(); page = await open(ctx, page);
     ok(await page.evaluate(() => (state.files.f1.ink || []).length === 2), "the ink survives a reload");
     await openReader(page);
     ok(await inked(page, P1 + " .ink-pen") > 50 && await inked(page, P1 + " .ink-hlc") > 50, "and is drawn when the PDF opens again");
     await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
 
-    /* ---------- On a note ---------- */
+    /* On a note */
     await page.evaluate(() => { ui.tab = "notes"; render(); }); await page.waitForTimeout(250);
     await page.locator('.note[data-note="n1"] .note-body').click(); await page.waitForTimeout(250);
     ok(await page.locator('.note.editing [data-act="ink-note"]').count() === 1 && /Draw/.test(await page.locator('.note.editing [data-act="ink-note"]').textContent()), "an open note has Draw");
@@ -216,7 +201,7 @@ const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleW
     ok(page.errs.length === 0, "no console errors (pen): " + page.errs.join(" | "));
     await ctx.close();
 
-    /* ---------- Dark mode ---------- */
+    /* Dark mode */
     const dctx = await mkCtx({pen: true, dark: true});
     const dk = await open(dctx);
     await dk.evaluate(() => { ui.tab = "notes"; render(); }); await dk.waitForTimeout(250);
@@ -238,7 +223,7 @@ const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleW
     ok(dk.errs.length === 0, "no console errors (dark): " + dk.errs.join(" | "));
     await dctx.close();
 
-    /* ---------- Turn Into Typed Notes (the Photo to Note AI, given the drawing as a PNG) ---------- */
+    /* Turn Into Typed Notes (the Photo to Note AI, given the drawing as a PNG) */
     const actx = await mkCtx({pen: true});
     const bodies = [];
     await actx.route(/generativelanguage\.googleapis\.com/, route => { bodies.push(route.request().postData() || "");
@@ -257,7 +242,7 @@ const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleW
     ok(ai.errs.length === 0, "no console errors (typed notes): " + ai.errs.join(" | "));
     await actx.close();
 
-    /* ---------- Free plan ---------- */
+    /* Free plan */
     const fseed = SEED(); fseed.notes[0].ink = [{id: "s1", t: "pen", c: "blue", w: 35, d: "w-Bw-BgBw7Fw-BAg6HnfG", at: 1}];
     const fctx = await browser.newContext({viewport: {width: 1100, height: 900}, serviceWorkers: "block"});
     await fctx.addInitScript(seed => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); }

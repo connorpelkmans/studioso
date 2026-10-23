@@ -1,7 +1,4 @@
-// Browser test for the sign-in link and AI key safety checks (October 2026). Run: node tests/link-safety.e2e.js
-//  1. a session in the address (#access_token=...) is only taken when this browser asked for an email, or when nothing on the device
-//     could be lost or shared (no account here, nothing saved); otherwise it is refused and taken off the address. Error links still pass.
-//  2. AI keys left on a device belong to the account that added them: a different account signing in there gets none of them.
+// Browser test for the sign-in link and AI key safety checks (October 2026)
 const path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const FILE = "file://" + path.join(__dirname, "..", "index.html");
@@ -35,7 +32,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); };
     }, [setup, params]);
     const TOK = {access_token: "a", refresh_token: "r", token_type: "bearer"};
 
-    // 1. Sessions in the address
     let r = await check({}, TOK);
     ok(r.took === true, "a fresh device with nothing on it takes the link (opening a sign-up link on another device still works)");
     r = await check({task: true}, TOK);
@@ -53,7 +49,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); };
     r = await check({}, {});
     ok(r.took === false, "an address with nothing in it isn't a sign-in link");
 
-    // 2. AI keys belong to the account that added them
     const keys = await page.evaluate(async () => {
       const P = window.__sbPrivacy;
       P.setState({courses: {}, tasks: {}, files: {}, notes: {}, decks: {}, events: {}, trash: {}, settings: {capacity: 15}, updated: 0});

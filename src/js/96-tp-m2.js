@@ -1,5 +1,5 @@
 /* ===== module: 96-tp-m2.js ===== */
-/* Theme Collections, batch m2: compsci, engineering, education, comms */
+/* Theme Collections, batch m2 */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2), S16 = SOw(1.6);
@@ -10,7 +10,7 @@
   const star = (cx, cy, R, r, n) => { let d = ""; for (let i = 0; i < n * 2; i++) { const a = -Math.PI / 2 + i * Math.PI / n, q = i % 2 ? r : R; d += (i ? "L" : "M") + (cx + q * Math.cos(a)).toFixed(1) + " " + (cy + q * Math.sin(a)).toFixed(1); } return d + "z"; };
   const spark = (x, y, s, c) => `<path d="M${x} ${y - s}Q${x} ${y} ${x + s} ${y}Q${x} ${y} ${x} ${y + s}Q${x} ${y} ${x - s} ${y}Q${x} ${y} ${x} ${y - s}z" fill="${c}"/>`;
   const scal = (cx, cy, r, n, b) => { let d = ""; for (let i = 0; i < n; i++) { const a0 = i / n * Math.PI * 2, a1 = (i + 1) / n * Math.PI * 2, am = (a0 + a1) / 2, p = a => [cx + r * Math.cos(a), cy + r * Math.sin(a)].map(v => v.toFixed(1)), c = [cx + (r + b) * Math.cos(am), cy + (r + b) * Math.sin(am)].map(v => v.toFixed(1)); d += (i ? "" : `M${p(a0)}`) + `Q${c} ${p(a1)}`; } return d + "z"; };
-  // a gear outline: n teeth between radius r (root) and R (tip)
+  // a gear outline
   const gear = (cx, cy, R, r, n, off = 0) => { const st = Math.PI * 2 / n, pts = []; for (let i = 0; i < n; i++) { const a = i * st - Math.PI / 2 + off; [[-.29, r], [-.15, R], [.15, R], [.29, r]].forEach(([f, q]) => pts.push((cx + q * Math.cos(a + f * st)).toFixed(1) + " " + (cy + q * Math.sin(a + f * st)).toFixed(1))); } return "M" + pts.join("L") + "z"; };
   // a thick outlined stroke (dark under, colour over)
   const tube = (d, w, c) => `<path d="${d}" fill="none" stroke="${O}" stroke-width="${w + 2.6}" stroke-linecap="round" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;

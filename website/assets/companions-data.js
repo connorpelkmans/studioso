@@ -1,19 +1,16 @@
 /* Studyboard companion art, copied unchanged from the app (modules 98-comp-*). Do not edit by hand: run tools/make-website-assets.py. */
 /* ===== module: 98-comp-00.js ===== */
-/* Study Companions: shared data list, art helpers, and the reference art (plain colour themes, Winter, Cozy Café).
-   COMP_DATA and COMP_KIT are shared on purpose (not wrapped) so the batch files 98-comp-b*.js can reach them.
-   98-companion.js (which loads after every 98-comp-* file) reads COMP_DATA and draws and animates the companions.
-   The format is documented in COMP_ART_BRIEF.md. */
+/* Study Companions */
 var COMP_DATA = [];
 var COMP_KIT = (() => {
   const INK = "#2B2233";
   const O = `stroke="${INK}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"`;
   const OW = w => `stroke="${INK}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"`;
   const stops = s => s.map(([o, c, a]) => `<stop offset="${o}" stop-color="${c}"${a != null ? ` stop-opacity="${a}"` : ""}/>`).join("");
-  // Linear gradient in the shape's own box (0..1). Vertical by default.
+  // Linear gradient in the shape's own box (0..1)
   const LG = (id, s, x1 = 0, y1 = 0, x2 = 0, y2 = 1) => `<defs><linearGradient id="${id}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}">${stops(s)}</linearGradient></defs>`;
   const RG = (id, s, cx = 0.5, cy = 0.5, r = 0.5) => `<defs><radialGradient id="${id}" cx="${cx}" cy="${cy}" r="${r}">${stops(s)}</radialGradient></defs>`;
-  // A soft, bumpy cloud or fluff outline: n bumps around a circle.
+  // A soft, bumpy cloud or fluff outline
   const puff = (cx, cy, r, n, bump = 1.15) => {
     const p = i => { const a = -Math.PI / 2 + i * 2 * Math.PI / n; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; };
     const chord = 2 * r * Math.sin(Math.PI / n), br = (chord / 2) * bump, f = v => Math.round(v * 100) / 100;
@@ -21,17 +18,16 @@ var COMP_KIT = (() => {
     for (let i = 1; i <= n; i++) { const q = p(i); d += `A${f(br)} ${f(br)} 0 0 1 ${f(q[0])} ${f(q[1])}`; }
     return d + "Z";
   };
-  // An outlined line (a dark stroke under a coloured one), for steam, stems and wisps.
+  // An outlined line (a dark stroke under a coloured one), for steam, stems and wisps
   const LINE = (d, color, w = 3) => `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${w + 2.6}" stroke-linecap="round" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
   return {INK, O, OW, LG, RG, puff, LINE};
 })();
 
-/* ---------- Reference art ---------- */
+/* Reference art */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
 
-  /* Plain colour themes (all 14 share these six) */
   COMP_DATA.push({
     theme: "plain",
     companions: [
@@ -203,7 +199,6 @@ var COMP_KIT = (() => {
     ]
   });
 
-  /* Winter */
   COMP_DATA.push({
     theme: "winter", spot: {x: 0.84, y: 0.985},
     companions: [
@@ -320,7 +315,6 @@ var COMP_KIT = (() => {
     ]
   });
 
-  /* Cozy Café */
   COMP_DATA.push({
     theme: "cafe", spot: {x: 0.84, y: 0.985},
     companions: [
@@ -432,7 +426,7 @@ var COMP_KIT = (() => {
 
 
 /* ===== module: 98-comp-b1.js ===== */
-/* Study Companions, batch 1: spring, summer, autumn, ocean, sakura */
+/* Study Companions, batch 1 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
@@ -986,7 +980,7 @@ var COMP_KIT = (() => {
 
 
 /* ===== module: 98-comp-b2.js ===== */
-/* Study Companions, batch 2: forest, galaxy, arctic, lemonade, xmas */
+/* Study Companions, batch 2 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
@@ -1555,7 +1549,7 @@ var COMP_KIT = (() => {
 
 
 /* ===== module: 98-comp-b3.js ===== */
-/* Study Companions, batch 3: sunset, mint, bokeh, neon, candy, arcade */
+/* Study Companions, batch 3 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
@@ -2194,7 +2188,7 @@ var COMP_KIT = (() => {
 
 
 /* ===== module: 98-comp-b4.js ===== */
-/* Study Companions, batch 4: cats, music, reading, knitting, painting, baking */
+/* Study Companions, batch 4 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
@@ -2852,7 +2846,7 @@ var COMP_KIT = (() => {
 
 
 /* ===== module: 98-comp-b5.js ===== */
-/* Study Companions, batch 5: gardening, gaming, photography, newyear, lunarnewyear, valentines */
+/* Study Companions, batch 5 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
@@ -3522,17 +3516,16 @@ var COMP_KIT = (() => {
 
 
 /* ===== module: 98-comp-b6.js ===== */
-/* Study Companions, batch 6: stpatricks, easter, july4, halloween, thanksgiving, hanukkah */
+/* Study Companions, batch 6 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
   const f1 = v => Math.round(v * 10) / 10;
-  // Points of a five-pointed star (outer radius R, inner radius r), top point up.
+  // Points of a five-pointed star (outer radius R, inner radius r), top point up
   const starPts = (cx, cy, R, r) => Array.from({length: 10}, (_, i) => { const a = -Math.PI / 2 + i * Math.PI / 5, d = i % 2 ? r : R; return f1(cx + d * Math.cos(a)) + "," + f1(cy + d * Math.sin(a)); }).join(" ");
-  // A heart leaf with its tip at 0,0 and its lobes pointing up (for shamrock leaves).
+  // A heart leaf with its tip at 0,0 and its lobes pointing up (for shamrock leaves)
   const LEAF = "M0 0C-9 -6 -15 -14 -14.5 -22C-14 -29 -8 -32 -3.5 -30C-1.6 -29 -.4 -27.5 0 -26C.4 -27.5 1.6 -29 3.5 -30C8 -32 14 -29 14.5 -22C15 -14 9 -6 0 0Z";
 
-  /* St. Patrick's Day */
   COMP_DATA.push({
     theme: "stpatricks",
     companions: [
@@ -4176,7 +4169,7 @@ var COMP_KIT = (() => {
 
 
 /* ===== module: 98-comp-b7.js ===== */
-/* Study Companions, batch 7: diwali, balloons, koi, rain, alpine */
+/* Study Companions, batch 7 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
@@ -4764,7 +4757,7 @@ var COMP_KIT = (() => {
 
 
 /* ===== module: 98-comp-b8.js ===== */
-/* Study Companions, batch 8: dunes, jelly, bamboo, lavenderfields, rooftops */
+/* Study Companions, batch 8 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
@@ -5364,12 +5357,12 @@ var COMP_KIT = (() => {
 
 
 /* ===== module: 98-comp-m1.js ===== */
-/* Study Companions, Study Fields batch m1: business, nursing, psych, biology */
+/* Study Companions, Study Fields batch m1 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
   const O16 = OW(1.6);
-  // A bumpy outline around an ellipse (puff() is round only): n bumps, each bulging by `bump`.
+  // A bumpy outline around an ellipse (puff() is round only)
   const ellPuff = (cx, cy, rx, ry, n, bump = 1.15) => {
     const f = v => Math.round(v * 100) / 100;
     const p = i => { const a = -Math.PI / 2 + i * 2 * Math.PI / n; return [cx + rx * Math.cos(a), cy + ry * Math.sin(a)]; };
@@ -5380,7 +5373,7 @@ var COMP_KIT = (() => {
     }
     return d + "Z";
   };
-  // A small heart shape, top dip at (x, y), half width s.
+  // A small heart shape, top dip at (x, y), half width s
   const heart = (x, y, s, fill, stroke) => `<path d="M${x} ${y + s * 0.35}C${x} ${y - s * 0.25} ${x - s} ${y - s * 0.3} ${x - s} ${y + s * 0.2}C${x - s} ${y + s * 0.65} ${x - s * 0.3} ${y + s * 0.95} ${x} ${y + s * 1.25}C${x + s * 0.3} ${y + s * 0.95} ${x + s} ${y + s * 0.65} ${x + s} ${y + s * 0.2}C${x + s} ${y - s * 0.3} ${x} ${y - s * 0.25} ${x} ${y + s * 0.35}Z" fill="${fill}"${stroke ? " " + stroke : ""}/>`;
 
   /* Market District */
@@ -5843,12 +5836,12 @@ var COMP_KIT = (() => {
 })();
 
 /* ===== module: 98-comp-m2.js ===== */
-/* Study Companions, Study Fields batch m2: compsci, engineering, education, comms */
+/* Study Companions, Study Fields batch m2 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
   const r2 = v => Math.round(v * 100) / 100;
-  // A gear outline: n teeth between radius ri (root) and ro (tip).
+  // A gear outline
   const gear = (cx, cy, ro, ri, n) => {
     const pt = (r, a) => `${r2(cx + r * Math.cos(a))} ${r2(cy + r * Math.sin(a))}`;
     const step = 2 * Math.PI / n, h = step / 4;
@@ -5860,7 +5853,7 @@ var COMP_KIT = (() => {
     }
     return d + "Z";
   };
-  // A thick outlined segment (robot arm links, mic arms).
+  // A thick outlined segment (robot arm links, mic arms)
   const SEG = (d, color, w) => `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${w + 6}" stroke-linecap="round" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
 
   /* Code Night */
@@ -6348,12 +6341,12 @@ var COMP_KIT = (() => {
 })();
 
 /* ===== module: 98-comp-m3.js ===== */
-/* Study Companions, Study Fields batch m3: civics, justice, writing */
+/* Study Companions, Study Fields batch m3 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
   const f = v => Math.round(v * 100) / 100;
-  // A frilly oval (tutus, ruffles): n bumps around an ellipse.
+  // A frilly oval (tutus, ruffles)
   const puffE = (cx, cy, rx, ry, n, bump = 1.1) => {
     const p = i => { const a = -Math.PI / 2 + i * 2 * Math.PI / n; return [cx + rx * Math.cos(a), cy + ry * Math.sin(a)]; };
     let d = `M${f(p(0)[0])} ${f(p(0)[1])}`;
@@ -6364,7 +6357,7 @@ var COMP_KIT = (() => {
     return d + "Z";
   };
 
-  /* ---------- Civic Square ---------- */
+  /* Civic Square */
   COMP_DATA.push({
     theme: "civics",
     companions: [
@@ -6482,7 +6475,7 @@ var COMP_KIT = (() => {
     ]
   });
 
-  /* ---------- Case Room ---------- */
+  /* Case Room */
   COMP_DATA.push({
     theme: "justice",
     companions: [
@@ -6599,7 +6592,7 @@ var COMP_KIT = (() => {
     ]
   });
 
-  /* ---------- Writer's Retreat ---------- */
+  /* Writer's Retreat */
   COMP_DATA.push({
     theme: "writing",
     companions: [
@@ -6722,13 +6715,13 @@ var COMP_KIT = (() => {
 })();
 
 /* ===== module: 98-comp-m4.js ===== */
-/* Study Companions, Study Fields batch m4: concert, track, math, chem */
+/* Study Companions, Study Fields batch m4 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
   const f = v => Math.round(v * 100) / 100;
 
-  // A golden (logarithmic) spiral, from the centre outwards, for Fibo's shell.
+  // A golden (logarithmic) spiral, from the centre outwards, for Fibo's shell
   const spiral = (cx, cy, r0, r1, turns, rot) => {
     const T = turns * 2 * Math.PI, b = Math.log(r1 / r0) / T;
     let d = "";
@@ -7189,7 +7182,7 @@ var COMP_KIT = (() => {
 })();
 
 /* ===== module: 98-comp-m5.js ===== */
-/* Study Companions, batch m5: observatory, ruins, valley, sketchcity */
+/* Study Companions, batch m5 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
@@ -7714,7 +7707,7 @@ var COMP_KIT = (() => {
 
 
 /* ===== module: 98-comp-n1.js ===== */
-/* Study Companions, new theme ideas batch n1: onsen, rainforest, tidepool, volcano, savanna */
+/* Study Companions, new theme ideas batch n1 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
@@ -8275,7 +8268,7 @@ var COMP_KIT = (() => {
 
 
 /* ===== module: 98-comp-n5.js ===== */
-/* Study Companions, batch n5: pride, graduation, birthday, geology */
+/* Study Companions, batch n5 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
@@ -8691,7 +8684,7 @@ var COMP_KIT = (() => {
 
 
 /* ===== module: 98-comp-n6.js ===== */
-/* Study Companions, batch n6: film, culinary, marinebio */
+/* Study Companions, batch n6 */
 (() => {
   const {INK, O, OW, LG, RG, LINE} = COMP_KIT;
   const O2 = OW(2.2);
@@ -9021,7 +9014,7 @@ var COMP_KIT = (() => {
 
 
 /* ===== module: 98-comp-n2.js ===== */
-/* Study Companions, new theme ideas batch n2: mushrooms, sunflowers, nighttrain, ramen */
+/* Study Companions, new theme ideas batch n2 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
@@ -9473,7 +9466,7 @@ var COMP_KIT = (() => {
 
 
 /* ===== module: 98-comp-n3.js ===== */
-/* Study Companions, New Theme Ideas batch n3 (Cozy Spots): greenhouse, pottery, campfire, aquarium */
+/* Study Companions, New Theme Ideas batch n3 (Cozy Spots) */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
@@ -9504,8 +9497,7 @@ var COMP_KIT = (() => {
             <path d="M30 88H90L84 112H36Z" fill="url(#greenhouse-prickles-greenhouse-prickles-p)" ${O}/>
             <rect x="26" y="81" width="68" height="12" rx="5" fill="#F6B892" ${O}/>
             <path d="M38 101H82" fill="none" stroke="#FFD2B8" stroke-width="2.2" stroke-linecap="round" opacity=".6"/>`,
-          // the cactus's arms already point up, so they are side lobes tucked behind the body (wings in the rig), not arms the
-          // app's wave and stretch would swing across its face
+          // the cactus's arms already point up, so they are side lobes tucked behind the body
           wingL: {svg: `<path d="M40 70H30Q24 70 24 64V52Q24 46 29.5 46Q35 46 35 52V61H40Z" fill="#7CC872" ${O}/><path d="M27 52l-2.6-1.2M27 60l-2.6-1.2" stroke="#FFF6D6" stroke-width="1.5" stroke-linecap="round"/>`, pivot: [37, 66]},
           wingR: {svg: `<path d="M80 64H90Q96 64 96 58V48Q96 42 90.5 42Q85 42 85 48V55H80Z" fill="#62B464" ${O}/><path d="M93 48l2.6-1.2M93 56l2.6-1.2" stroke="#FFF6D6" stroke-width="1.5" stroke-linecap="round"/>`, pivot: [83, 60]},
           top: {svg: `<path d="${petals(60, 27, 6, 11, 4.8, -90)}" fill="#FF8FB0" ${OW(1.8)}/><circle cx="60" cy="27" r="3.6" fill="#FFE27A" ${OW(1.6)}/>`, pivot: [60, 31]}
@@ -9538,7 +9530,7 @@ var COMP_KIT = (() => {
             <path d="M38 90H82L77 108H43Z" fill="url(#greenhouse-monty-greenhouse-monty-p)" ${O}/>
             <rect x="34" y="84" width="52" height="10" rx="4.5" fill="#F6B892" ${O}/>
             <ellipse cx="60" cy="85.5" rx="20" ry="2.4" fill="#6E5442"/>`,
-          // little leaf hands on short stems from the pot rim's corners: they hang beside the pot and wave up beside the leaf
+          // little leaf hands on short stems from the pot rim's corners
           armL: {svg: `${LINE("M37 89Q31 93 29 99", "#4E9A58", 3)}<path d="M29 98C23 99 21 105 24 109C29 108 32 103 29 98Z" fill="#7CC872" ${O2}/>`, pivot: [37, 89]},
           armR: {svg: `${LINE("M83 89Q89 93 91 99", "#4E9A58", 3)}<path d="M91 98C97 99 99 105 96 109C91 108 88 103 91 98Z" fill="#62B464" ${O2}/>`, pivot: [83, 89]},
           head: `${LG("greenhouse-monty-greenhouse-monty-h", [[0, "#A6E894"], [0.5, "#52B262"], [1, "#2E8A52"]], 0.2, 0, 0.8, 1)}
@@ -9681,7 +9673,7 @@ var COMP_KIT = (() => {
             <path d="M31 88Q60 103 89 88" fill="none" stroke="#FFF6E6" stroke-width="5" stroke-linecap="round"/>
             <path d="M33 80Q60 93 87 80" fill="none" stroke="#FFF6E6" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="2 4" opacity=".7"/>
             <ellipse cx="42" cy="68" rx="6" ry="3.4" transform="rotate(-30 42 68)" fill="#fff" opacity=".6"/>`,
-          // the spout and handle are part of the pot (tucked behind it), not arms that wave and stretch
+          // the spout and handle are part of the pot (tucked behind it)
           back: `${LINE("M36 82Q20 76 17 62", "#4CB8A8", 6)}<ellipse cx="17" cy="60" rx="5" ry="3" transform="rotate(-20 17 60)" fill="#6ACCBC" ${O2}/>${LINE("M86 66Q103 63 103 77Q103 92 86 94", "#4CB8A8", 5)}`,
           top: {svg: `<path d="M38 58Q60 40 82 58Z" fill="#7AD2C4" ${O}/><circle cx="60" cy="45" r="4.6" fill="#F2C84A" ${O2}/>${LINE("M70 38Q66 32 70 27", "#E8F2F0", 2)}${LINE("M78 40Q74 34 78 29", "#E8F2F0", 2)}`, pivot: [60, 56]}
         },
@@ -9862,7 +9854,7 @@ var COMP_KIT = (() => {
             <path d="M33 78Q58 96 83 78Q80 96 58 98Q36 96 33 78Z" fill="#FFF8DC" opacity=".9"/>
             <g fill="#C88A2A" opacity=".5"><circle cx="46" cy="52" r="1.8"/><circle cx="58" cy="47" r="1.8"/><circle cx="70" cy="52" r="1.8"/><circle cx="52" cy="58" r="1.4"/><circle cx="64" cy="58" r="1.4"/></g>
             <ellipse cx="44" cy="56" rx="5" ry="3" transform="rotate(-35 44 56)" fill="#fff" opacity=".65"/>`,
-          // pectoral fins tucked behind the round body (wings in the rig), so a wiggle never lays them over the face
+          // pectoral fins tucked behind the round body (wings in the rig)
           wingL: {svg: `<ellipse cx="26" cy="83" rx="8.5" ry="4.6" transform="rotate(30 26 83)" fill="#F7C04A" ${O}/>`, pivot: [32, 80]},
           wingR: {svg: `<ellipse cx="86" cy="93" rx="8.5" ry="4.6" transform="rotate(-32 86 93)" fill="#F7C04A" ${O}/>`, pivot: [80, 89]},
           top: {svg: `<path d="M48 44L52 33L57 41L61 30L65 42L69 36L70 46Z" fill="#F2A23A" ${O2}/>`, pivot: [58, 44]}
@@ -9926,7 +9918,7 @@ var COMP_KIT = (() => {
 
 
 /* ===== module: 98-comp-n4.js ===== */
-/* Study Companions, batch n4: diadelosmuertos, holi, ramadan, midautumn */
+/* Study Companions, batch n4 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
@@ -10390,7 +10382,7 @@ var COMP_KIT = (() => {
 
 
 /* ===== module: 98-comp-france.js ===== */
-/* Study Companions, around the world: france (Paris) */
+/* Study Companions, around the world */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
@@ -10527,7 +10519,7 @@ var COMP_KIT = (() => {
 
 
 /* ===== module: 98-comp-japan.js ===== */
-/* Study Companions, Around the World: japan */
+/* Study Companions, Around the World */
 (() => {
   const {O, OW, LG, RG} = COMP_KIT;
   const f1 = v => Math.round(v * 10) / 10;
@@ -10654,7 +10646,7 @@ var COMP_KIT = (() => {
 
 
 /* ===== module: 98-comp-morocco.js ===== */
-/* Study Companions, world theme: morocco */
+/* Study Companions, world theme */
 (() => {
   const {O, OW, LG, RG, LINE} = COMP_KIT;
   const O2 = OW(2.2);
@@ -10789,7 +10781,7 @@ var COMP_KIT = (() => {
 
 
 /* ===== module: 98-comp-thailand.js ===== */
-/* Study Companions, Around the World: thailand */
+/* Study Companions, Around the World */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
@@ -10927,7 +10919,7 @@ var COMP_KIT = (() => {
 
 
 /* ===== module: 98-comp-italy.js ===== */
-/* Study Companions, Around the World: italy (Amalfi Coast) */
+/* Study Companions, Around the World */
 (() => {
   const {O, OW, LG, RG, LINE} = COMP_KIT;
   const O2 = OW(2.2);
@@ -11050,7 +11042,7 @@ var COMP_KIT = (() => {
 
 
 /* ===== module: 98-comp-greece.js ===== */
-/* Study Companions, Around the World: greece (Santorini) */
+/* Study Companions, Around the World */
 (() => {
   const {INK, O, OW, LG, RG, LINE} = COMP_KIT;
   const O2 = OW(2.2);
@@ -11193,13 +11185,13 @@ var COMP_KIT = (() => {
 
 
 /* ===== module: 98-comp-egypt.js ===== */
-/* Study Companions, Around the World: Egypt (Kheper the scarab, Jamal the camel calf, Miu the Mau kitten) */
+/* Study Companions, Around the World */
 (() => {
   const {O, OW, LG, RG, LINE} = COMP_KIT;
   const O2 = OW(2.2);
   const f1 = v => Math.round(v * 10) / 10;
   const ring = (cx, cy, n, r, fn) => Array.from({length: n}, (_, i) => { const a = i / n * Math.PI * 2; return fn(f1(cx + Math.cos(a) * r), f1(cy + Math.sin(a) * r), a * 180 / Math.PI, i); }).join("");
-  // a broad bead collar along an arc under the chin: alternating gold and lapis beads
+  // a broad bead collar along an arc under the chin
   const collar = (cx, cy, rx, ry, n, r) => Array.from({length: n}, (_, i) => { const a = Math.PI * (0.15 + 0.7 * i / (n - 1)), x = f1(cx + Math.cos(a) * rx), y = f1(cy + Math.sin(a) * ry); return `<circle cx="${x}" cy="${y}" r="${r}" fill="${i % 2 ? "#2E5FA8" : "#F2C24A"}" ${OW(1.2)}/>`; }).join("");
 
   COMP_DATA.push({
@@ -11333,7 +11325,7 @@ var COMP_KIT = (() => {
 
 
 /* ===== module: 98-comp-canada.js ===== */
-/* Study Companions, Around the World: Canada */
+/* Study Companions, Around the World */
 (() => {
   const {INK, O, OW, LG, RG} = COMP_KIT;
   const O2 = OW(2.2);
@@ -11341,7 +11333,7 @@ var COMP_KIT = (() => {
   // a sugar maple leaf pointing up, centred on (x, y), s its half-size
   const LEAF = [[0, -1], [.14, -.6], [.4, -.76], [.32, -.36], [.82, -.5], [.64, -.16], [.94, .02], [.5, .2], [.56, .46], [.12, .3], [.05, .78], [-.05, .78], [-.12, .3], [-.56, .46], [-.5, .2], [-.94, .02], [-.64, -.16], [-.82, -.5], [-.32, -.36], [-.4, -.76], [-.14, -.6]];
   const leafD = (x, y, s) => "M" + LEAF.map(([u, v]) => `${f1(x + u * s)} ${f1(y + v * s)}`).join("L") + "Z";
-  // the beaver's mouth: a little smile over two big front teeth
+  // the beaver's mouth
   const teeth = (y, h) => `<path d="M56.4 ${y}H63.6V${f1(y + h - 1.4)}Q63.6 ${f1(y + h)} 62.2 ${f1(y + h)}H57.8Q56.4 ${f1(y + h)} 56.4 ${f1(y + h - 1.4)}Z" fill="#FFFDF4" ${OW(1.6)}/><path d="M60 ${y}V${f1(y + h)}" stroke="${INK}" stroke-width="1.1"/>`;
 
   COMP_DATA.push({
@@ -11474,7 +11466,7 @@ var COMP_KIT = (() => {
 
 
 /* ===== module: 98-comp-venice.js ===== */
-/* Study Companions, around the world: venice (Venice) */
+/* Study Companions, around the world */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
@@ -11618,7 +11610,7 @@ var COMP_KIT = (() => {
 
 
 /* ===== module: 98-comp-mexico.js ===== */
-/* Study Companions, world theme: mexico */
+/* Study Companions, world theme */
 (() => {
   const {O, OW, LG, RG, LINE} = COMP_KIT;
   const O2 = OW(2.2);
@@ -11755,14 +11747,14 @@ var COMP_KIT = (() => {
 
 
 /* ===== module: 98-comp-brazil.js ===== */
-/* Study Companions, Around the World: brazil */
+/* Study Companions, Around the World */
 (() => {
   const {O, OW, LG, RG} = COMP_KIT;
   const f1 = v => Math.round(v * 10) / 10;
   const ring = (cx, cy, n, r, fn) => Array.from({length: n}, (_, i) => { const a = i / n * Math.PI * 2; return fn(f1(cx + Math.cos(a) * r), f1(cy + Math.sin(a) * r), a * 180 / Math.PI, i); }).join("");
-  // a little hibiscus: five round petals and a stamen
+  // a little hibiscus
   const hibiscus = (x, y, r, c = "#FF5A6A", mid = "#FFD23A") => `<g>${ring(x, y, 5, r * 0.52, (px, py, a) => `<ellipse cx="${px}" cy="${py}" rx="${f1(r * 0.55)}" ry="${f1(r * 0.42)}" transform="rotate(${f1(a)} ${px} ${py})" fill="${c}" ${OW(1)}/>`)}<circle cx="${x}" cy="${y}" r="${f1(r * 0.22)}" fill="${mid}"/></g>`;
-  // the shaggy edge of the tamarin's golden mane: n tufts round an ellipse
+  // the shaggy edge of the tamarin's golden mane
   const mane = (cx, cy, rx, ry, n) => { let d = ""; for (let i = 0; i <= n; i++) { const a = i / n * Math.PI * 2, b = (i + 0.5) / n * Math.PI * 2, k = 1.16 + (i % 2) * 0.05;
     d += `${i ? "Q" : "M"}${i ? `${f1(cx + Math.cos(b - Math.PI / n) * rx * k)} ${f1(cy + Math.sin(b - Math.PI / n) * ry * k)} ` : ""}${f1(cx + Math.cos(a) * rx)} ${f1(cy + Math.sin(a) * ry)}`; } return d + "Z"; };
 

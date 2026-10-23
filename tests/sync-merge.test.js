@@ -1,4 +1,4 @@
-// Unit tests for the sync conflict policy (the SYNC-MERGE block in index.html). Run: node tests/sync-merge.test.js
+// Unit tests for the sync conflict policy (the SYNC-MERGE block in index.html)
 const fs = require("fs"), path = require("path"), vm = require("vm"), assert = require("assert");
 const src = require("../scripts/app-files").source();
 const a = src.indexOf("/* SYNC-MERGE-START"), b = src.indexOf("/* SYNC-MERGE-END */");
@@ -9,7 +9,7 @@ const t = (name, fn) => { n++; try { fn(); } catch (e) { fail++; console.log("FA
 const J = x => JSON.parse(JSON.stringify(x));
 const T0 = Date.parse("2026-10-12T15:00:00Z");
 
-/* ---- diff3 and text ---- */
+/* -- diff3 and text */
 t("text: only mine changed", () => assert.strictEqual(SM.mergeText("a\nb", "a\nB", "a\nb").text, "a\nB"));
 t("text: only theirs changed", () => assert.strictEqual(SM.mergeText("a\nb", "a\nb", "A\nb").text, "A\nb"));
 t("text: different lines merge cleanly", () => { const r = SM.mergeText("one\ntwo\nthree", "ONE\ntwo\nthree", "one\ntwo\nTHREE"); assert.strictEqual(r.text, "ONE\ntwo\nTHREE"); assert.strictEqual(r.conflicts, 0); });
@@ -35,7 +35,6 @@ t("text: no line is ever lost (random)", () => {
     const base = Array.from({length: 1 + Math.floor(rnd() * 8)}, (_, i) => "b" + i);
     const edit = tag => { const x = base.slice(); for (let e = 0; e < 3; e++) { const r = rnd(), i = Math.floor(rnd() * (x.length + 1)); if (r < .4) x.splice(i, 0, tag + e + k); else if (r < .7 && x.length) x[Math.min(i, x.length - 1)] = tag + "mod" + e + k; } return x; };
     const A = edit("m"), B = edit("t"), r = SM.mergeText(base.join("\n"), A.join("\n"), B.join("\n"));
-    // every line mine or theirs ADDED/CHANGED (not in base) must survive; this is the "never lose typed text" property
     [...A, ...B].filter(l => !base.includes(l)).forEach(l => assert(r.text.split("\n").includes(l), "lost " + l + " in " + JSON.stringify({base, A, B, out: r.text})));
   }
 });
@@ -51,9 +50,9 @@ t("resolveText: two blocks resolved together; plain text untouched", () => {
   assert.strictEqual(SM.resolveText("just text", "mine"), "just text");
 });
 
-/* ---- notes ---- */
+/* -- notes */
 const note = o => Object.assign({id: "n1", text: "", color: "yellow", x: 40, y: 40, z: 1, rot: 0, archived: false, stickers: []}, o);
-/* ---- pen ink (module 99-ink): strokes merge by id ---- */
+/* -- pen ink (module 99-ink) */
 const stk = (id, extra) => Object.assign({id, t: "pen", c: "ink", w: 35, d: "w-Bw-BgBw7Fw-BAg6HnfG", at: 1}, extra || {});
 t("ink: strokes drawn on two devices are all kept, with no conflict", () => {
   const base = note({ink: [stk("a")]}), r = SM.mergeItem("note", base, note({ink: [stk("a"), stk("m")]}), note({ink: [stk("a"), stk("t")]}), {now: T0});
@@ -93,7 +92,7 @@ t("note: stale conflict flag clears once the markers are gone", () => {
   assert(!r.merged.conflict); assert.strictEqual(r.merged.color, "blue");
 });
 
-/* ---- tasks / fields ---- */
+/* -- tasks / fields */
 const task = o => Object.assign({id: "t1", title: "Essay", due: "2026-10-20", status: "todo", priority: "med", notes: "", checklist: [], dependsOn: [], history: [], pct: 0}, o);
 t("task: scenario 2 due date on A, done on B -> both", () => {
   const base = task(), mine = task({due: "2026-10-25"}), theirs = task({status: "done", pct: 100});
@@ -108,13 +107,12 @@ t("task: explicit reopen (one-sided) beats an old done", () => {
   const r = SM.mergeItem("task", task({status: "done"}), task({status: "todo"}), task({status: "done", title: "Essay v2"}), {now: T0}); assert.strictEqual(r.merged.status, "todo"); assert.strictEqual(r.merged.title, "Essay v2");
 });
 t("task: same field both sides -> newer by device clock wins, loser logged", () => {
-  const o = {now: T0, mineAt: T0 - 60 * 6e4, theirsAt: T0 - 5e3};     // mine edited an hour before theirs was saved
+  const o = {now: T0, mineAt: T0 - 60 * 6e4, theirsAt: T0 - 5e3};
   const r = SM.mergeItem("task", task(), task({due: "2026-11-01"}), task({due: "2026-12-01"}), o);
   assert.strictEqual(r.merged.due, "2026-12-01"); assert.strictEqual(r.merged.syncLog[0].lost, "2026-11-01"); assert(r.merged.history.some(h => /Sync:/.test(h.text)));
 });
 t("clock skew: device clock 1h ahead, corrected by skew, does not win by lying", () => {
-  // device clock is 1h ahead: its edit at real 10:00 is stamped 11:00; server saw the other version at 10:30 (real)
-  const skew = -36e5;                                               // server clock minus device clock
+  const skew = -36e5;
   const base = {mineAt: Date.parse("2026-10-12T11:00:00Z"), theirsAt: Date.parse("2026-10-12T10:30:00Z"), now: T0};
   const wrong = SM.mergeItem("task", task(), task({due: "2026-11-01"}), task({due: "2026-12-01"}), Object.assign({skew: 0}, base));
   assert.strictEqual(wrong.merged.due, "2026-11-01", "uncorrected, the fast clock looks newer (this is the bug skew correction prevents)");
@@ -152,7 +150,7 @@ t("generic arrays: dependsOn set merge honours removals and additions", () => {
   assert.deepStrictEqual(r.merged.dependsOn.sort(), ["a", "c"]);
 });
 
-/* ---- decks / cards ---- */
+/* -- decks / cards */
 const card = (id, front, back, extra) => Object.assign({id, front, back, box: 0, due: "", seen: 0, right: 0, wrong: 0}, extra);
 const deck = (cards, o) => Object.assign({id: "d1", name: "Bio", courseId: "", cards, quizzes: []}, o);
 t("deck: union of cards added on both sides", () => {
@@ -193,7 +191,7 @@ t("deck: srcNote added to an older card on one device is kept next to the other 
   assert.strictEqual(r.merged.cards[0].srcNote, "n9"); assert.strictEqual(r.merged.cards[0].back, "a2");
 });
 
-/* ---- deletions ---- */
+/* -- deletions */
 t("tombstone: deleted here, edited there -> edit wins (restored)", () => {
   const base = deck([card("c1", "q", "a")]), mine = Object.assign(J(base), {deletedAt: T0 - 1e3}), theirs = deck([card("c1", "q", "a2")]);
   const r = SM.mergeItem("deck", base, mine, theirs, {now: T0, theirsAt: T0 - 5e3, mineAt: T0 - 1e3}); assert.strictEqual(r.state, "restored"); assert.strictEqual(r.merged.cards[0].back, "a2"); assert(!r.merged.deletedAt);
@@ -218,7 +216,7 @@ t("tombstone: a soft deletion much newer than the edit (past the margin) wins; t
 });
 t("tombstone helpers", () => { assert(SM.isTomb(null)); assert(SM.isTomb({deleted: true})); assert(SM.isTomb({trashedAt: "2026-10-01T00:00:00Z"})); assert(!SM.isTomb({deleted: false, text: "x"})); });
 
-/* ---- settings (kind meta) ---- */
+/* -- settings (kind meta) */
 t("settings: different keys on both devices both survive; same key newest wins", () => {
   const base = {schema: 2, settings: {capacity: 15, theme: "light", daily: 3}};
   const r = SM.mergeItem("meta", base, {schema: 2, settings: {capacity: 20, theme: "light", daily: 3}}, {schema: 2, settings: {capacity: 15, theme: "dark", daily: 3}}, {now: T0});
@@ -241,7 +239,7 @@ t("settings: availability blocks (settings.avail) merge by id, not as one blob",
   assert.deepStrictEqual(a.blocks.map(x => x.id).sort(), ["mine", "theirs", "w1", "w2"]); assert.deepStrictEqual(a.blocks.find(x => x.id === "w1").days, [4]); assert.strictEqual(a.cfg.buf, 15);
 });
 
-/* ---- schema differences / unknown fields / compatibility ---- */
+/* -- schema differences / unknown fields / compatibility */
 t("schema: fields only one version knows are kept (unknown keys are never dropped)", () => {
   const r = SM.mergeItem("task", task(), task({future: {a: 1}}), task({otherNew: "x", status: "doing"}), {now: T0}); assert.deepStrictEqual(r.merged.future, {a: 1}); assert.strictEqual(r.merged.otherNew, "x"); assert.strictEqual(r.merged.status, "doing");
 });

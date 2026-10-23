@@ -1,9 +1,9 @@
-// Shared by every page: the light/dark switch and the filled-in support address. No data leaves the browser here.
+// Shared by every page
 (function () {
   "use strict";
   var KEY = "studyboard-site-theme";
   function read() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
-  function write(v) { try { localStorage.setItem(KEY, v); } catch (e) { /* private mode: it just won't be remembered */ } }
+  function write(v) { try { localStorage.setItem(KEY, v); } catch (e) { } }
   var root = document.documentElement;
   var saved = read();
   if (saved === "light" || saved === "dark") root.setAttribute("data-theme", saved);
@@ -20,7 +20,7 @@
     sync();
   }
 
-  // Put the owner's support address (config.js) into every .support-email element, as plain text and a mailto link.
+  // Put the owner's support address (config.js) into every .support-email element
   var cfg = window.STUDYBOARD_SITE || {};
   var mail = typeof cfg.SUPPORT_EMAIL === "string" && /^[^\s@<>"]+@[^\s@<>"]+$/.test(cfg.SUPPORT_EMAIL) ? cfg.SUPPORT_EMAIL : "support@studyboardapp.com";
   var els = document.querySelectorAll(".support-email");
@@ -35,6 +35,6 @@
   for (var z = 0; z < vers.length; z++) if (typeof cfg.VERSION === "string" && /^[0-9][0-9A-Za-z.\-]*$/.test(cfg.VERSION)) vers[z].textContent = cfg.VERSION;
   var app = document.querySelectorAll("a.app-link");
   for (var j = 0; j < app.length; j++) {
-    try { var u = new URL(cfg.APP_URL); if (u.protocol === "https:" && !/YOUR-APP/.test(u.hostname)) app[j].setAttribute("href", u.href); } catch (e) { /* keep the placeholder link */ }
+    try { var u = new URL(cfg.APP_URL); if (u.protocol === "https:" && !/YOUR-APP/.test(u.hostname)) app[j].setAttribute("href", u.href); } catch (e) { }
   }
 })();

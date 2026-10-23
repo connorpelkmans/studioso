@@ -1,18 +1,13 @@
 /* ===== module: 01-ai.js: the app's core, AI: providers, keys, the free trial, consent, study sets, quizzes, syllabus reading, settings ===== */
-/* ---------- AI: Google Gemini (free) by default, or paid Gemini, Claude or ChatGPT with your own key ---------- */
-// Keys are stored in your settings on this device only (never sent to your account, left out of exported backups).
-// Requests go straight from this app to the AI company. Nothing here works in the Claude preview, which can't reach them.
+/* AI: Google Gemini (free) by default, or paid Gemini, Claude or ChatGPT with your own key */
 const AI_ICON = '<svg class="ai-ic" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M11 2.5l1.6 4.4a3 3 0 0 0 1.8 1.8L18.8 10.3l-4.4 1.6a3 3 0 0 0-1.8 1.8L11 18.1l-1.6-4.4a3 3 0 0 0-1.8-1.8L3.2 10.3l4.4-1.6a3 3 0 0 0 1.8-1.8z"/><path d="M18.5 14.5l.8 2.1a1.5 1.5 0 0 0 .9.9l2.1.8-2.1.8a1.5 1.5 0 0 0-.9.9l-.8 2.1-.8-2.1a1.5 1.5 0 0 0-.9-.9l-2.1-.8 2.1-.8a1.5 1.5 0 0 0 .9-.9z"/></svg>';
-// 1.11.1: with a study companion out, AI work is presented as the companion's ("Mochi's Pick", "Ask Mochi")
+// 1.11.1: with a study companion out, AI work is presented as the companion's
 const aiWho = (fb) => { try { const n = window.SBCOMP && SBCOMP.aiName ? SBCOMP.aiName() : ""; return n || fb || ""; } catch(e) { return fb || ""; } };
-// Free Gemini models, best first. "Auto" moves down this list silently when one is busy or out of free requests.
+// Free Gemini models, best first
 const AI_MODELS = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"];
-// Paid Gemini models (billing needed). Only tried first for hard "reason" jobs, and only for "Smartest First" or when picked by name.
+// Paid Gemini models (billing needed)
 const AI_PRO_MODELS = ["gemini-3.1-pro-preview"];
-/* Task routing: every AI call names its job and the job decides which models are tried, smartest to cheapest.
-   reason: Q&A over your data, exam plans, quizzes and study sets from documents. mid: explanations, summaries, topic lists.
-   lite: quick add, grading, tagging, short rewrites. Free models spread over the tiers so one daily limit isn't used up by small jobs.
-   Each job is [tier, thinking level]. A paid model is never used unless the picker is on a paid choice (see geminiOrder). */
+/* Task routing: every AI call names its job and the job decides which models are tried */
 const AI_TIERS = {
   reason: ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"],
   mid: ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"],
@@ -21,7 +16,7 @@ const AI_TIERS = {
 const AI_TASKS = {
   ask: ["reason", "high"], tutor: ["reason", "medium"], cards: ["reason", "medium"], quiz: ["reason", "medium"], cases: ["reason", "medium"],
   syllabus: ["reason", "medium"], examplan: ["reason", "medium"], plan: ["reason", "medium"], practice: ["reason", "medium"],
-  transcribe: ["lite", "low"],   // speech to text: the fast models, little thinking (a lecture part comes back in seconds)
+  transcribe: ["lite", "low"],
   topics: ["mid", "medium"], explain: ["mid", "medium"], summary: ["mid", "medium"], photo: ["mid", "medium"], capture: ["mid", "low"], tune: ["mid", "low"], estimate: ["mid", "low"], breakdown: ["mid", "high"],
   school: ["mid", "low"], quickadd: ["lite", "low"], grade: ["lite", "low"], news: ["lite", "low"], triage: ["lite", "low"], annintel: ["lite", "low"], coach: ["mid", "low"], weekly: ["mid", "low"], remote: ["lite", "low"], classify: ["lite", "low"], tag: ["lite", "low"], rewrite: ["lite", "low"], ping: ["lite", "low"]
 };
@@ -35,17 +30,13 @@ const AI_PROVIDERS = {
     models: [["gpt-6-sol", "GPT-6 Sol (paid)", "paid"], ["gpt-6-luna", "GPT-6 Luna (paid, cheapest)", "paid"], ["gpt-6-astra", "GPT-6 Astra (paid, most capable)", "paid"]]}
 };
 const AI_LIMIT_BYTES = 18 * 1024 * 1024;
-/* ----- Where AI keys are kept -----
-   On this device only, never in the settings that sync to the account (the synced copy is also stripped in saveSettings):
-   one namespaced key in this browser (AI_KEYS_LS) or, in the desktop app, the system keychain (safeStorage). Wiped at sign-out and
-   Turn Off, never in backup files (exportArrays), scrubbed from bug-report diagnostics. */
+/* Where AI keys are kept On this device only, never in the settings that sync to the account */
 const AI_KEYS_LS = "studyboard:aiKeys", AI_SECRET = "ai-keys";
 let aiLocalKeys = (() => { try { const k = JSON.parse(localStorage.getItem(AI_KEYS_LS) || "null"); return k && typeof k === "object" && !Array.isArray(k) ? k : {}; } catch(e) { return {}; } })();
 let aiKeychain = false;
-// The system keychain: safeStorage in the desktop app, the iOS Keychain / Android Keystore in the store apps (native-bridge.js).
+// The system keychain
 const AI_SECRETS = (DESK && DESK.secrets) || window.StudyboardSecrets || null;
-// Other device-only secrets (a Canvas access token): the system keychain when there is one; otherwise (the website) encrypted with AES-GCM under
-// a non-extractable key that lives only in this browser's IndexedDB, so the plain value is never written to storage, never synced, never exported.
+// Other device-only secrets (a Canvas access token)
 const DEVSECRET = (() => {
   const DB = "studyboard-secrets", NAME = /^[a-z0-9-]{1,40}$/;
   let chain = null;
@@ -74,7 +65,6 @@ const DEVSECRET = (() => {
       try { if (AI_SECRETS) await AI_SECRETS.remove(name); } catch (e) {}
       try { await tx("readwrite", st => st.delete(name)); } catch (e) {}
     },
-    // Everything, key included (sign-out of a different person, Clear All Data, Delete My Account)
     async wipe(names){ for (const n of names || []) await this.remove(n); try { await new Promise(ok => { const r = indexedDB.deleteDatabase(DB); r.onsuccess = r.onerror = r.onblocked = () => ok(); }); } catch (e) {} }
   };
 })();
@@ -86,10 +76,7 @@ function aiKeysPersist(){
   } else { try { if (has) localStorage.setItem(AI_KEYS_LS, JSON.stringify(aiLocalKeys)); else localStorage.removeItem(AI_KEYS_LS); } catch(e) {} }
 }
 function aiKeysSetLocal(keys){ aiLocalKeys = {}; Object.entries(keys || {}).forEach(([p, k]) => { if (k && AI_PROVIDERS[p]) aiLocalKeys[p] = String(k); }); aiKeysPersist(); }
-// Sign-out, "Turn Off" and switching servers: nothing of the last person's AI setup stays on this device.
-// Signing out (keepKeys) leaves the person's own API keys and AI choices on this device, where they were already kept: in the system keychain
-// in the apps, in this browser's storage on the web. They are never sent to the account, never in an export or backup and never in a bug report,
-// so signing out and back in doesn't mean pasting them again. Only the cached model lists are cleared.
+// Sign-out, "Turn Off" and switching servers
 const AI_PREFS_LS = "studyboard:aiPrefs";
 function aiWipeLocal(keepKeys){
   if (keepKeys) {
@@ -111,17 +98,14 @@ if (AI_SECRETS) (async () => {
     aiKeychain = true;
     const raw = await AI_SECRETS.get(AI_SECRET);
     if (raw) aiLocalKeys = Object.assign({}, JSON.parse(raw), aiLocalKeys);
-    if (localStorage.getItem(AI_KEYS_LS)) aiKeysPersist();        // move an older plain-text copy into the keychain
+    if (localStorage.getItem(AI_KEYS_LS)) aiKeysPersist();
     scheduleRender();
   } catch(e) {}
 })();
 
 /*QR-START*/
-/* ----- QR codes (byte mode, error correction M, versions 1 to 10: up to 213 bytes) -----
-   Small enough to keep in the page, so showing a code needs no library and works offline. Returns {size, dark(x, y)} or null when the text
-   is too long; QR.svg() draws it with a 4-module quiet zone, always black on white so every camera can read it in either theme. */
+/* QR codes */
 const QR = (() => {
-  // Per version (index = version): [error correction bytes per block, blocks in group 1, data bytes each, blocks in group 2, data bytes each]
   const M = [null, [10, 1, 16, 0, 0], [16, 1, 28, 0, 0], [26, 1, 44, 0, 0], [18, 2, 32, 0, 0], [24, 2, 43, 0, 0], [16, 4, 27, 0, 0], [18, 4, 31, 0, 0],
     [22, 2, 38, 2, 39], [22, 3, 36, 2, 37], [26, 4, 43, 1, 44]];
   const ALIGN = [null, [], [6, 18], [6, 22], [6, 26], [6, 30], [6, 34], [6, 22, 38], [6, 24, 42], [6, 26, 46], [6, 28, 50]];
@@ -135,20 +119,17 @@ const QR = (() => {
     const bytes = [...new TextEncoder().encode(String(text))];
     let v = 1; while (v <= 10 && 4 + (v < 10 ? 8 : 16) + bytes.length * 8 > dataCap(v) * 8) v++;
     if (v > 10) return null;
-    // Data bits: byte mode, length, the bytes, terminator, then pad bytes.
     const bits = [], put = (val, n) => { for (let i = n - 1; i >= 0; i--) bits.push((val >>> i) & 1); };
     put(4, 4); put(bytes.length, v < 10 ? 8 : 16); bytes.forEach(b => put(b, 8));
     const capBits = dataCap(v) * 8;
     put(0, Math.min(4, capBits - bits.length)); put(0, (8 - bits.length % 8) % 8);
     for (let p = 0xEC; bits.length < capBits; p ^= 0xEC ^ 0x11) put(p, 8);
     const data = []; for (let i = 0; i < bits.length; i += 8) data.push(parseInt(bits.slice(i, i + 8).join(""), 2));
-    // Split into blocks, add error correction, interleave.
     const [ecLen, n1, d1, n2, d2] = M[v], div = rsDivisor(ecLen), blocks = [];
     let k = 0; for (let b = 0; b < n1 + n2; b++) { const len = b < n1 ? d1 : d2, d = data.slice(k, k + len); k += len; blocks.push({d, e: rsRemainder(d, div)}); }
     const all = [];
     for (let i = 0; i < Math.max(d1, d2); i++) blocks.forEach(b => { if (i < b.d.length) all.push(b.d[i]); });
     for (let i = 0; i < ecLen; i++) blocks.forEach(b => all.push(b.e[i]));
-    // The grid: function patterns first, then the data in the zigzag, then the mask with the lowest penalty.
     const size = v * 4 + 17, mod = [], fn = [];
     for (let y = 0; y < size; y++) { mod.push(new Array(size).fill(false)); fn.push(new Array(size).fill(false)); }
     const setF = (x, y, d) => { mod[y][x] = d; fn[y][x] = true; };
@@ -191,7 +172,6 @@ const QR = (() => {
     apply(mask); format(mask);
     return {size, version: v, mask, dark: (x, y) => mod[y][x]};
   }
-  // Each dark module as one square in a single path; crispEdges keeps the modules sharp at any size.
   function svg(text, label){
     const q = encode(text); if (!q) return "";
     const n = q.size + 8; let d = "";
@@ -202,36 +182,28 @@ const QR = (() => {
 })();
 /*QR-END*/
 /*KEYHO-START*/
-/* ----- Moving AI keys to another device: the code, the encryption and the clipboard checks -----
-   A code is 12 random characters (Crockford base32, 60 bits), shown as XXXX-XXXX-XXXX. Both the relay's mailbox id and the AES-GCM key come from
-   the code through PBKDF2, so the relay (KEY_RELAY) only ever holds an id and ciphertext: it never sees the code or a key. The code travels in the
-   QR link's #fragment (never sent to any server) or is typed. */
+/* Moving AI keys to another device */
 const KEYHO = (() => {
   const ABC = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
   const fmt = c => c.slice(0, 4) + "-" + c.slice(4, 8) + "-" + c.slice(8, 12);
-  // rand(n) returns n random bytes (crypto.getRandomValues). 256 is a multiple of 32, so & 31 keeps every character equally likely.
   const newCode = rand => fmt([...rand(12)].map(b => ABC[b & 31]).join(""));
-  // Forgiving input: any case, spaces or dashes, O read as 0 and I or L as 1 (Crockford). "" when it isn't a whole code.
   function normCode(s){
     const c = String(s || "").toUpperCase().replace(/[\s-]/g, "").replace(/O/g, "0").replace(/[IL]/g, "1");
     return c.length === 12 && [...c].every(ch => ABC.includes(ch)) ? fmt(c) : "";
   }
-  const GEMINI_RE = /AIza[0-9A-Za-z_-]{35}(?![0-9A-Za-z_-])/;   // Google API keys are exactly 39 characters
+  const GEMINI_RE = /AIza[0-9A-Za-z_-]{35}(?![0-9A-Za-z_-])/;
   const geminiKeyIn = text => { const m = String(text || "").match(GEMINI_RE); return m ? m[0] : ""; };
-  // A code on its own (what the relay page's Copy Code button copies) or inside a link (#sbkey=...).
   function codeIn(text){
     const t = String(text || "").trim().slice(0, 600);
     const m = t.match(/[#&?]sbkey=([0-9A-Za-z-]{12,16})/); if (m) return normCode(m[1]);
     return /^[0-9A-Za-z]{4}[\s-]?[0-9A-Za-z]{4}[\s-]?[0-9A-Za-z]{4}$/.test(t) ? normCode(t) : "";
   }
-  // Only keys that look like keys travel or are accepted: one per provider, no spaces, sensible length.
   const KEY_RE = {gemini: /^[\w.-]{20,300}$/, anthropic: /^sk-ant-[\w-]{20,300}$/, openai: /^sk-[\w-]{20,300}$/};
   function cleanKeys(o){ const out = {}; if (o && typeof o === "object") Object.keys(KEY_RE).forEach(p => { const k = typeof o[p] === "string" ? o[p].trim() : ""; if (k && KEY_RE[p].test(k)) out[p] = k; }); return out; }
   const b64u = u8 => { let s = ""; u8.forEach(b => { s += String.fromCharCode(b); }); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); };
   const unb64u = s => Uint8Array.from(atob(String(s).replace(/-/g, "+").replace(/_/g, "/")), ch => ch.charCodeAt(0));
   const hex = u8 => [...u8].map(b => b.toString(16).padStart(2, "0")).join("");
   const ITER = 150000, SALT = "studyboard-key-handoff-v1";
-  // {id: 64 hex characters for the relay, key: AES-GCM CryptoKey}. The same code always gives the same pair.
   async function derive(code, subtle){
     const c = normCode(code); if (!c) throw new Error("bad code");
     const te = new TextEncoder(), base = await subtle.importKey("raw", te.encode(c), "PBKDF2", false, ["deriveBits"]);
@@ -242,7 +214,6 @@ const KEYHO = (() => {
     const iv = rand(12), ct = new Uint8Array(await subtle.encrypt({name: "AES-GCM", iv}, key, new TextEncoder().encode(JSON.stringify(payload))));
     const out = new Uint8Array(12 + ct.length); out.set(iv); out.set(ct, 12); return b64u(out);
   }
-  // Throws when the box was made with a different code or was changed on the way.
   async function open(key, box, subtle){
     const u8 = unb64u(box); if (u8.length < 29) throw new Error("bad box");
     return JSON.parse(new TextDecoder().decode(await subtle.decrypt({name: "AES-GCM", iv: u8.slice(0, 12)}, key, u8.slice(12))));
@@ -250,47 +221,38 @@ const KEYHO = (() => {
   return {newCode, normCode, geminiKeyIn, codeIn, cleanKeys, derive, seal, open, TTL_MIN: 10};
 })();
 /*KEYHO-END*/
-// The key relay (cloudflare/key-relay, a free Cloudflare Worker) behind Add AI to Another Device. REPLACE with your Worker's address
-// (https, no trailing slash) after deploying it; while it is empty that button and the code box stay hidden and nothing else changes.
+// The key relay
 const KEY_RELAY = "";
-// Email to Studyboard (Pro): the domain that receives mail for students' private addresses (<key>@this domain), set up with Cloudflare Email
-// Routing and cloudflare/email-capture (see its README). REPLACE with your domain, for example "in.studyboardapp.com"; while it is empty the
-// address is hidden in Settings > Quick Capture and nothing else changes.
+// Email to Studyboard (Pro)
 const CAPTURE_EMAIL_DOMAIN = "";
-/* ----- Studyboard's free AI trial -----
-   cloudflare/ai-trial, a Worker on Cloudflare's FREE plan: a few AI tries for a signed-in student with no key on this device, so they can see
-   what AI does before adding their own free Gemini key. Only jobs the student starts use it (never Automatic AI), text only, and the Worker
-   counts the tries and keeps the whole trial inside Cloudflare's free daily allowance. REPLACE with the Worker's address after deploying it
-   (https, no trailing slash); while it is empty there is no trial and nothing else changes. */
+/* Studyboard's free AI trial cloudflare/ai-trial, a Worker on Cloudflare's FREE plan */
 const AI_TRIAL = "";
 const AI_TRIAL_LS = "studyboard:aiTrial";
-const aiToday = () => new Date().toISOString().slice(0, 10);            // the trial's days are UTC days, like the Worker's
-// The last count the trial server sent for the signed-in student: {uid, left, total, todayLeft, daily, day}. The server decides; this only
-// lets the app say how many are left and stop offering the trial once it is used up.
+const aiToday = () => new Date().toISOString().slice(0, 10);
+// The last count the trial server sent for the signed-in student
 function aiTrialGet(){ try { const t = JSON.parse(localStorage.getItem(AI_TRIAL_LS) || "null"); return t && sbUser && t.uid === sbUser.id ? t : null; } catch(e) { return null; } }
 function aiTrialSet(j){
   if (!sbUser || !j || typeof j.left !== "number") return;
   try { localStorage.setItem(AI_TRIAL_LS, JSON.stringify({uid: sbUser.id, left: j.left, total: j.total, todayLeft: j.todayLeft, daily: j.daily, verify: !!j.verify, day: aiToday()})); } catch(e) {}
 }
 const aiTrialAvail = () => { if (!AI_TRIAL || !sbUser || sbUser.is_anonymous) return false; const t = aiTrialGet(); return !t || t.left > 0; };
-// Tries left today (null before the first count), and in all.
+// Tries left today (null before the first count), and in all
 function aiTrialLeft(){ const t = aiTrialGet(); if (!t) return {left: null, today: null, total: null}; return {left: t.left, total: t.total, today: t.day === aiToday() ? t.todayLeft : Math.min(t.left, t.daily || t.left)}; }
 async function aiTrialToken(){ try { const {data} = await sb.auth.getSession(); return (data && data.session && data.session.access_token) || ""; } catch(e) { return ""; } }
-// Refreshes the count from the server (after sign-in, and when AI Features opens).
+// Refreshes the count from the server (after sign-in, and when AI Features opens)
 async function aiTrialRefresh(){
   if (!AI_TRIAL || !sbUser) return null;
   const tok = await aiTrialToken(); if (!tok) return null;
   try { const res = await fetchT(`${AI_TRIAL}/v1/trial`, {headers: {Authorization: "Bearer " + tok}, cache: "no-store"}, 15000); if (!res.ok) return null; const j = await res.json(); aiTrialSet(j); return j; } catch(e) { return null; }
 }
-// Delete My Account: the trial server forgets this student's count (it is keyed by the account id). Sent while the sign-in still works.
+// Delete My Account
 async function aiTrialForget(){
   if (!AI_TRIAL || !sbUser) return;
   const tok = await aiTrialToken(); if (!tok) return;
   try { await fetchT(`${AI_TRIAL}/v1/trial`, {method: "DELETE", headers: {Authorization: "Bearer " + tok}, cache: "no-store"}, 8000); } catch(e) {}
   try { localStorage.removeItem(AI_TRIAL_LS); } catch(e) {}
 }
-// A scanned code opens the app as <app>#sbkey=XXXX-XXXX-XXXX. Taken off the address straight away (so a reload or a shared link can't
-// reuse it) and offered once the page is ready; nothing is fetched until the person says yes.
+// A scanned code opens the app as <app>#sbkey=XXXX-XXXX-XXXX
 const KEYHO_LINK = (() => {
   try {
     const m = location.hash.match(/(?:^#|&)sbkey=([0-9A-Za-z-]{12,16})/); if (!m) return "";
@@ -299,10 +261,7 @@ const KEYHO_LINK = (() => {
   } catch (e) { return ""; }
 })();
 
-/* ----- Consent before anything is sent to an AI company (Apple App Review guideline 5.1.1(i) and 5.1.2) -----
-   Studyboard has no AI servers of its own: with the person's own key, the text and files for a job go straight from this device to the
-   provider they chose. Before the first job for each provider, a window says who gets what and asks for a clear yes.
-   Automatic (background) AI never asks: it stays off until the person has said yes. Saying no changes nothing else in the app. */
+/* Consent before anything is sent to an AI company */
 const AI_CONSENT_LS = "studyboard:aiConsent", AI_CONSENT_V = 1;
 const AI_WHO = {
   gemini: {company: "Google", product: "Gemini", host: "generativelanguage.googleapis.com", policy: "https://policies.google.com/privacy"},
@@ -338,7 +297,7 @@ function aiConsentAsk(provider){
   document.body.appendChild(d); d.showModal();
   return promise;
 }
-// Keys an older version kept inside the settings (or that came down from an older sync) move to the device-only store, once.
+// Keys an older version kept inside the settings
 function aiAdoptLegacyKeys(){
   const raw = state.settings && state.settings.ai;
   if (!raw || typeof raw !== "object" || !((raw.keys && Object.values(raw.keys).some(Boolean)) || raw.key)) return;
@@ -351,17 +310,15 @@ function aiCfg(){
   aiAdoptLegacyKeys();
   const raw = (state.settings && state.settings.ai) || {};
   const keys = Object.assign({gemini: "", anthropic: "", openai: ""}, raw.keys || {}, aiLocalKeys);
-  if (raw.key && !keys.gemini) keys.gemini = raw.key;                 // settings from version 1.2
+  if (raw.key && !keys.gemini) keys.gemini = raw.key;
   let provider = AI_PROVIDERS[raw.provider] ? raw.provider : "gemini";
   let model = raw.model || (provider === "gemini" ? "auto" : AI_PROVIDERS[provider].models[0][0]);
   if (!keys[provider]) { const p = ["gemini", "anthropic", "openai"].find(x => keys[x]); if (p) { provider = p; model = p === "gemini" ? "auto" : AI_PROVIDERS[p].models[0][0]; } }
-  // No key on this device: a signed-in student gets the free trial until it is used up. "trial" stands in for a key so features open.
   if (!keys[provider] && aiTrialAvail()) return {provider: "trial", model: "trial", keys, key: "trial"};
   return {provider, model, keys, key: keys[provider]};
 }
-const aiReady = () => !inClaude() && !!aiCfg().key;
-// On the free trial, AI runs only when the student taps for it: windows that would start AI on their own (as they open, or when a file
-// is added) wait for a tap instead, so no try is used without the student asking.
+const aiReady = () => !inPreview() && !!aiCfg().key;
+// On the free trial, AI runs only when the student taps for it
 const aiTrialing = () => { try { return aiCfg().provider === "trial"; } catch (e) { return false; } };
 const aiErr = (code, message) => Object.assign(new Error(message), {code});
 function aiModelName(provider, model){
@@ -372,7 +329,6 @@ function aiModelName(provider, model){
 }
 function aiSaveCfg(patch){
   const c = aiCfg(), raw = (state.settings && state.settings.ai) || {};
-  // Only what's already in the synced settings is written back: keys kept on this device only never get copied into them.
   const next = {provider: patch.provider || c.provider, model: patch.model || c.model, keys: Object.assign({}, raw.keys || {}, patch.keys || {})};
   if (patch.provider && !patch.model) next.model = patch.provider === "gemini" ? "auto" : AI_PROVIDERS[patch.provider].models[0][0];
   state.settings = Object.assign({}, state.settings, {ai: next}); saveSettings();
@@ -386,7 +342,7 @@ function aiParseJson(text){
   return aiRepairJson(t);
 }
 /* AI-QUALITY-START: pure helpers (no app globals) that check and repair what the AI sends back. Unit-tested in tests/ai-quality.test.js. */
-// Cut-off or slightly broken JSON: keep every complete item and close what was left open.
+// Cut-off or slightly broken JSON
 function aiRepairJson(text){
   let t = String(text || "").trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "");
   const st = t.search(/[\[{]/); if (st < 0) return null; t = t.slice(st);
@@ -407,7 +363,7 @@ function aiRepairJson(text){
 const AI_SUP = {"0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹", "+": "⁺", "-": "⁻", "n": "ⁿ"};
 const AI_SUB = {"0": "₀", "1": "₁", "2": "₂", "3": "₃", "4": "₄", "5": "₅", "6": "₆", "7": "₇", "8": "₈", "9": "₉", "+": "₊", "-": "₋"};
 const AI_TEX = {rightarrow: "→", to: "→", leftarrow: "←", leftrightarrow: "↔", rightleftharpoons: "⇌", times: "×", cdot: "·", pm: "±", leq: "≤", geq: "≥", le: "≤", ge: "≥", neq: "≠", approx: "≈", degree: "°", circ: "°", Delta: "Δ", delta: "δ", alpha: "α", beta: "β", gamma: "γ", mu: "μ", lambda: "λ", sigma: "σ", pi: "π", theta: "θ", omega: "ω", Omega: "Ω", rho: "ρ", tau: "τ", infty: "∞", sum: "Σ", propto: "∝", uparrow: "↑", downarrow: "↓"};
-// Cards and questions are shown as plain text, so strip markdown, HTML and LaTeX the model sometimes adds, and write simple math and chemistry (CO_2, x^2) with real sub- and superscripts.
+// Cards and questions are shown as plain text, so strip markdown
 function aiTidyText(s){
   s = String(s == null ? "" : s);
   s = s.replace(/<br\s*\/?>/gi, "\n").replace(/<\/?(?:p|div|span|b|i|u|em|strong|li|ul|ol|sup|sub|code|pre|h[1-6]|table|tr|td|th)\b[^>]*>/gi, "")
@@ -422,12 +378,12 @@ function aiTidyText(s){
 const AI_FILLER = new Set("what which who whom whose is are was were the a an of to in on for and or does do did define definition explain describe state name list give how why when this that these those with by as at from be it its into".split(" "));
 function aiKeyTokens(s){ return [...new Set(String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9%.]+/g, " ").split(" ").map(w => w.replace(/^\.+|\.+$/g, "")).filter(w => w && !AI_FILLER.has(w)).map(w => w.length > 4 ? w.replace(/(ies|es|s)$/, "") : w))]; }
 function aiJaccard(a, b){ if (!a.length || !b.length) return 0; const B = new Set(b); let n = 0; a.forEach(x => { if (B.has(x)) n++; }); return n / (a.length + b.length - n); }
-// What the student's own material contains, for checking that a card's facts really come from it.
+// What the student's own material contains
 function aiCorpus(texts){
   const t = texts.join("\n").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
   return {words: new Set(t.match(/[a-z]{5,}/g) || []), nums: new Set((t.replace(/(\d),(\d{3})/g, "$1$2").match(/\d+(?:\.\d+)?/g) || []))};
 }
-// A short reason when a card says something the material doesn't (a number that never appears, or mostly words the material never uses). "" when it looks grounded.
+// A short reason when a card says something the material doesn't
 function aiGroundNote(text, corpus){
   if (!corpus) return "";
   const t = String(text || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -438,7 +394,7 @@ function aiGroundNote(text, corpus){
   if (words.length >= 4 && words.filter(w => corpus.words.has(w) || corpus.words.has(w.replace(/(ies|es|s|ed|ing)$/, ""))).length / words.length < 0.4) return "Mostly not in your material";
   return "";
 }
-// Flashcard quality gate: plain text, one idea per card, no empty, repeated or oversized cards, capped at the number asked for. Cards that don't match the material are marked (check), not hidden.
+// Flashcard quality gate
 function aiGateCards(list, opts){
   opts = opts || {}; const max = opts.max > 0 ? opts.max : 60, seen = [], keys = new Set(), out = [], dropped = {dup: 0, long: 0, empty: 0};
   (Array.isArray(list) ? list : []).forEach(c => {
@@ -454,7 +410,7 @@ function aiGateCards(list, opts){
   });
   return {cards: out.slice(0, max), dropped};
 }
-// Question gate (after aiCleanQuestions): repeated stems, options that repeat each other, and more questions than were asked for.
+// Question gate (after aiCleanQuestions)
 function aiGateQuestions(qs, opts){
   opts = opts || {}; const max = opts.max > 0 ? opts.max : 60, seen = [], out = []; let dup = 0, bad = 0;
   qs.forEach(q => {
@@ -469,7 +425,7 @@ function aiGateQuestions(qs, opts){
   return {questions: out.slice(0, max), dropped: {dup, bad}};
 }
 const aiDayNum = s => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ""); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) / 864e5 : NaN; };
-// Syllabus items: drop repeats, and blank any date that is far from all the others (usually a wrong year), so the student fills it in instead of trusting it.
+// Syllabus items
 function aiGateSyllabus(items, today){
   const seen = new Set(), out = []; let dups = 0, fixed = 0;
   items.forEach(i => { const k = String(i.title).toLowerCase().replace(/[^a-z0-9]/g, "") + "|" + i.due; if (seen.has(k)) { dups++; return; } seen.add(k); out.push(i); });
@@ -482,9 +438,9 @@ function aiGateSyllabus(items, today){
   });
   return {items: out, dups, fixed};
 }
-// Answers cite sources like [2]. Remove citations that point at a source that doesn't exist.
+// Answers cite sources like [2]
 function aiCleanCites(text, n){ return String(text || "").replace(/\s?\[(\d{1,2})\]/g, (m, k) => Number(k) >= 1 && Number(k) <= n ? m : "").trim(); }
-// Quick add: true when reading the sentence on this device is enough (one task, nothing left over that looks like a date or a second task), so the AI isn't needed.
+// Quick add: true when reading the sentence on this device is enough
 function qaConfident(text, t){
   const s = String(text || "");
   if (s.length > 140 || /[;\n]|\balso\b|\bthen\b|\band\b.*\b(due|by|on)\b/i.test(s)) return false;
@@ -494,7 +450,7 @@ function qaConfident(text, t){
   return true;
 }
 /* AI-QUALITY-END */
-// Schemas are written in Gemini's format; Claude and ChatGPT take standard JSON Schema.
+// Schemas are written in Gemini's format; Claude and ChatGPT take standard JSON Schema
 function toJsonSchema(s){
   if (Array.isArray(s)) return s.map(toJsonSchema);
   if (!s || typeof s !== "object") return s;
@@ -507,12 +463,11 @@ function toJsonSchema(s){
   });
   return o;
 }
-// Remembers which free model answered last and which ones were busy, so the next request goes straight to one that works.
+// Remembers which free model answered last and which ones were busy
 const AI_MEM = "studyboard:aiModels";
 function aiMem(){ try { return JSON.parse(localStorage.getItem(AI_MEM) || "{}") || {}; } catch(e) { return {}; } }
 function aiMemSet(fn){ try { const m = aiMem(); fn(m); localStorage.setItem(AI_MEM, JSON.stringify(m)); } catch(e) {} }
-// Models to try, in order, for a job. "auto" follows the job's tier, "auto-pro" puts the paid Pro model first for hard jobs only,
-// and a model picked by name goes first (except for quick jobs, which stay on the fast models so they come back sooner and cost less).
+// Models to try, in order, for a job
 function geminiOrder(pinned, tier = "reason"){
   const m = aiMem(), now = Date.now();
   const cool = x => (m.cool && m.cool[x] || 0) > now;
@@ -531,17 +486,14 @@ function fetchT(url, opts, ms, signal){
 const offlineErr = who => aiErr("offline", navigator.onLine === false ? "You're offline. AI features need an internet connection." : `Couldn't reach ${who}. Check your connection and try again.`);
 async function errMsg(res){ try { const e = await res.json(); return (e.error && (e.error.message || e.error.type)) || e.message || ""; } catch(e) { return ""; } }
 
-/* One call, any provider. parts are Gemini-style: {text} or {inline_data: {mime_type, data}}.
-   fast: quick jobs (grading, quick add, explanations) ask for less thinking so they come back sooner.
-   task: the job's name in AI_TASKS, which picks the model tier (smartest for hard jobs, lite for quick ones) and the thinking level. */
-async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0.4, onStatus, fast = false, timeout, auto = false, task = "", signal, search = false}){   // search: let the model look things up on the web; the answer then also has sources [{url, title}]
+/* One call, any provider */
+async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0.4, onStatus, fast = false, timeout, auto = false, task = "", signal, search = false}){
   let cfg = aiCfg();
   try { if (window.SBAREA) system = SBAREA.aiSystem(system); } catch (e) {}
-  if (auto) { const a = autoState(); if (!a.on) throw aiErr("auto-off", "Automatic AI is off."); cfg = a.cfg; }   // never a paid model unless confirmed
-  if (inClaude()) throw aiErr("preview", "AI features work in the Studyboard app and on your website, not in this preview.");
+  if (auto) { const a = autoState(); if (!a.on) throw aiErr("auto-off", "Automatic AI is off."); cfg = a.cfg; }
+  if (inPreview()) throw aiErr("preview", "AI features work in the Studyboard app and on your website, not in this preview.");
   if (!cfg.key) throw aiErr("nokey", "Set up AI in Settings first.");
   if (cfg.provider === "trial") {
-    // Before asking to send anything: the trial reads text only, can't search the web, and stops for the day once today's tries are gone.
     const why = parts.some(x => x.text == null) ? "files" : search ? "search" : aiTrialLeft().today === 0 ? "today" : "";
     if (why) { aiTrialPrompt(why); throw aiErr("trial-" + why, AI_TRIAL_WORDS[why].err); }
   }
@@ -550,7 +502,6 @@ async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0
     if (!(await aiConsentAsk(cfg.provider))) throw aiErr("no-consent", `AI is off until you agree to send content to ${(AI_WHO[cfg.provider] || {}).company || "the AI company"}. You can agree the next time you use an AI feature.`);
   }
   const ms = timeout || (fast ? 60000 : 180000);
-  // Only reassure after a while; never announce retries.
   const slow = onStatus ? setTimeout(() => onStatus(fast ? "Still thinking…" : "Still working. Big files can take up to a minute…"), fast ? 9000 : 20000) : null;
   try {
     if (cfg.provider === "trial") return await trialCall({system, parts, schema, maxTokens, temperature, ms, task, signal});
@@ -564,7 +515,7 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
   let thinking = true, lastErr = null;
   const bodyFor = () => {
     const gc = {temperature, maxOutputTokens: maxTokens};
-    if (!search) { gc.responseMimeType = "application/json"; if (schema) gc.responseSchema = schema; }       // Google can't combine web search with a forced JSON format: the prompt asks for JSON and it is read from the text
+    if (!search) { gc.responseMimeType = "application/json"; if (schema) gc.responseSchema = schema; }
     if (thinking) gc.thinkingConfig = {thinkingLevel: T.think};
     const body = {contents: [{role: "user", parts}], systemInstruction: {parts: [{text: system}]}, generationConfig: gc};
     if (search) body.tools = [{google_search: {}}];
@@ -596,8 +547,7 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
       continue;
     }
     const msg = await errMsg(res);
-    if (res.status === 400 && thinking && /thinking/i.test(msg)) { thinking = false; i--; continue; }   // older model without thinking settings
-    // Pro needs billing on the Google account: if it's refused, drop to the free models instead of failing the job
+    if (res.status === 400 && thinking && /thinking/i.test(msg)) { thinking = false; i--; continue; }
     if (AI_PRO_MODELS.includes(m) && i < models.length - 1 && res.status !== 401 && !/api[ _-]?key/i.test(msg)) { aiMemSet(x => { x.cool = x.cool || {}; x.cool[m] = Date.now() + 30 * 60000; }); lastErr = lastErr || aiErr("model", `The model ${m} isn't available on your key.`); continue; }
     if (res.status === 401 || res.status === 403 || (res.status === 400 && /api[ _-]?key/i.test(msg))) throw aiErr("key", "Google didn't accept your Gemini key. Check it in Settings, then AI Features.");
     if (res.status === 413 || /too large|payload size|exceeds.*(size|limit)/i.test(msg)) throw aiErr("big", "Those files are too big to send at once. Try fewer or smaller files (PDF works best).");
@@ -608,7 +558,7 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
   }
   throw lastErr || aiErr("http", "The AI couldn't do that right now.");
 }
-// The free trial (AI_TRIAL). The Worker decides whether a try is left; each answer brings the new count back.
+// The free trial (AI_TRIAL)
 const AI_TRIAL_WORDS = {
   used_up: {title: "You've Used Your Free AI Tries", body: "That was the last of your free tries. Studyboard's AI stays free with your own Google Gemini key, and it takes about a minute.", err: "Your free AI tries are used up. Add your free Gemini key to keep using AI."},
   today: {title: "That's Today's Free Tries", body: "More free tries come tomorrow. Or add your own free Google Gemini key now (it takes about a minute) and use AI as much as you like.", err: "You've used today's free AI tries. More tomorrow, or add your free Gemini key."},
@@ -619,7 +569,6 @@ const AI_TRIAL_WORDS = {
   unconfirmed: {title: "Confirm Your Email First", body: "The free AI trial starts once you've confirmed your email address. Or add your own free Google Gemini key, which works without an account.", err: "Confirm your email to try AI."}
 };
 async function trialCall({system, parts, schema, maxTokens, temperature, ms, task, signal}, again){
-  // A one-time "not a robot" check comes first, if the trial server asks for it.
   if ((aiTrialGet() || {}).verify && !(await aiTrialVerify())) throw aiErr("trial-verify", "Finish the quick check to start your free AI tries.");
   const tok = await aiTrialToken();
   if (!tok) throw aiErr("nokey", "Sign in again to try AI, or add your free Gemini key in Settings.");
@@ -650,9 +599,7 @@ async function trialCall({system, parts, schema, maxTokens, temperature, ms, tas
   if (res.status === 502) throw aiErr("bad", j.refunded === false ? "The AI's answer came back garbled. Try again." : "The AI's answer came back garbled. Try again (that try wasn't counted).");
   throw aiErr("http", "The free AI trial couldn't do that right now. Try again in a minute.");
 }
-// The one-time "not a robot" check (Cloudflare Turnstile). Turnstile only runs on real web addresses, so the check is a page on the
-// trial server, opened in the browser (from the website, the desktop app and the phone apps alike); this window waits until the server
-// says it's done. Resolves true when it is, false if the student closes the window.
+// The one-time "not a robot" check (Cloudflare Turnstile)
 let aiVerifying = null;
 function aiTrialVerify(){
   if (aiVerifying) return aiVerifying;
@@ -667,7 +614,6 @@ function aiTrialVerify(){
     const finish = ok => { if (done) return; done = true; clearInterval(timer); aiVerifying = null; try { d.close(); } catch(e) {} d.remove(); if (ok) toast("Thanks! Your free AI tries are ready. Tap any AI button, like Explain This or Break It Down."); resolve(ok); };
     d.addEventListener("cancel", e => { e.preventDefault(); finish(false); });
     d.querySelector("[data-no]").addEventListener("click", () => finish(false));
-    // Opened straight from the tap, so browsers don't block it.
     go.addEventListener("click", () => {
       if (!url) return;
       try { window.open(url, "_blank", "noopener"); } catch(e) {}
@@ -681,7 +627,7 @@ function aiTrialVerify(){
       go.disabled = true;
       const tok = await aiTrialToken();
       try { const res = await fetchT(`${AI_TRIAL}/v1/verify/start`, {method: "POST", headers: {Authorization: "Bearer " + tok}}, 15000); const j = await res.json().catch(() => ({}));
-        if (res.status === 404) { finish(true); return; }          // the trial server doesn't ask for a check
+        if (res.status === 404) { finish(true); return; }
         if (res.ok && /^https:\/\//.test(j.url || "")) { url = j.url; go.disabled = false; } else msg.textContent = "Couldn't start the check. Try again in a minute.";
       } catch(e) { msg.textContent = "Couldn't reach Studyboard. Check your internet connection and try again."; }
     };
@@ -689,7 +635,7 @@ function aiTrialVerify(){
   });
   return aiVerifying;
 }
-// Why the trial stopped, with the way on: the student's own free Gemini key. Its own window, over whatever was open.
+// Why the trial stopped, with the way on
 let aiTrialAsking = null;
 function aiTrialPrompt(why){
   const W = AI_TRIAL_WORDS[why]; if (!W || aiTrialAsking) return;
@@ -707,10 +653,10 @@ function aiTrialPrompt(why){
   aiTrialAsking = d;
   document.body.appendChild(d); d.showModal();
 }
-// Once per student on this device, after they sign in without an AI key here: the two ways to start.
+// Once per student on this device, after they sign in without an AI key here
 const AI_WELCOME_LS = "studyboard:aiWelcome";
 async function aiTrialSignedIn(){
-  if (!AI_TRIAL || !sbUser || inClaude()) return;
+  if (!AI_TRIAL || !sbUser || inPreview()) return;
   const uid = sbUser.id;
   await aiTrialRefresh();
   const k = aiCfg().keys;
@@ -734,7 +680,7 @@ async function aiTrialSignedIn(){
     $("#aiwKey").addEventListener("click", () => aiSetupSheet(false));
     const tryBtn = $("#aiwTry"); if (tryBtn) tryBtn.addEventListener("click", async () => {
       dlg.close();
-      if ((aiTrialGet() || {}).verify) { await aiTrialVerify(); scheduleRender(); return; }      // the one-time check now (it says when it's done), so the first try just works
+      if ((aiTrialGet() || {}).verify) { await aiTrialVerify(); scheduleRender(); return; }
       toast("Your free AI tries are on. Tap any AI button, like Explain This or Break It Down."); scheduleRender(); });
   };
   setTimeout(show, 800);
@@ -751,7 +697,7 @@ function claudeBlocks(parts){
 async function claudeCall(cfg, {system, parts, schema, maxTokens, ms, signal, search}){
   const body = {model: cfg.model, max_tokens: Math.min(maxTokens, 16000), system, messages: [{role: "user", content: claudeBlocks(parts)}]};
   if (schema && !search) { body.tools = [{name: "answer", description: "Give your answer in this exact structure.", input_schema: toJsonSchema(schema)}]; body.tool_choice = {type: "tool", name: "answer"}; }
-  if (search) body.tools = [{type: "web_search_20250305", name: "web_search", max_uses: 4}];      // the answer is then read from the text
+  if (search) body.tools = [{type: "web_search_20250305", name: "web_search", max_uses: 4}];
   for (let attempt = 0; attempt < 2; attempt++) {
     let res;
     try { res = await fetchT("https://api.anthropic.com/v1/messages", {method: "POST", headers: {"content-type": "application/json", "x-api-key": cfg.key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true"}, body: JSON.stringify(body)}, ms, signal); }
@@ -790,9 +736,9 @@ function openaiContent(parts){
   });
 }
 async function openaiCall(cfg, {system, parts, schema, maxTokens, ms, signal, search}){
-  const body = {model: cfg.model, instructions: system, input: [{role: "user", content: openaiContent(parts)}], max_output_tokens: Math.max(1024, maxTokens), store: false};   // not kept in the key owner's OpenAI logs
+  const body = {model: cfg.model, instructions: system, input: [{role: "user", content: openaiContent(parts)}], max_output_tokens: Math.max(1024, maxTokens), store: false};
   if (schema && !search) body.text = {format: {type: "json_schema", name: "answer", schema: toJsonSchema(schema), strict: false}};
-  if (search) body.tools = [{type: "web_search"}];                // the answer is then read from the text
+  if (search) body.tools = [{type: "web_search"}];
   for (let attempt = 0; attempt < 2; attempt++) {
     let res;
     try { res = await fetchT("https://api.openai.com/v1/responses", {method: "POST", headers: {"Content-Type": "application/json", "Authorization": "Bearer " + cfg.key}, body: JSON.stringify(body)}, ms, signal); }
@@ -818,7 +764,7 @@ async function openaiCall(cfg, {system, parts, schema, maxTokens, ms, signal, se
     throw aiErr("http", msg ? "ChatGPT couldn't do that: " + msg.slice(0, 180) : "ChatGPT couldn't do that right now (error " + res.status + ").");
   }
 }
-// The model picker shown in every AI sheet. Changing it changes your default.
+// The model picker shown in every AI sheet
 function aiModelBar(){
   const c = aiCfg();
   if (c.provider === "trial") { const t = aiTrialLeft(); return `<label class="ai-model-bar">${AI_ICON}<span class="mini">Free AI trial${t.left != null ? `: ${t.left} ${t.left === 1 ? "try" : "tries"} left` : ""}</span><button type="button" class="link-btn" data-act="ai-setup">Add My Free Gemini Key</button></label>`; }
@@ -833,11 +779,10 @@ document.addEventListener("change", e => {
   scheduleRender();
 });
 
-/* Reading files for the AI: PDFs and images go as they are; PowerPoint and Word files are turned into text here. */
+/* Reading files for the AI */
 function bytesToB64(u8){ let s = ""; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
 const xmlDecode = s => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#(\d+);/g, (m, n) => String.fromCharCode(Number(n))).replace(/&#x([0-9a-f]+);/gi, (m, n) => String.fromCharCode(parseInt(n, 16))).replace(/&amp;/g, "&");
-// Reading a PowerPoint or Word file is limited so a booby-trapped file (a zip bomb: tiny, but it unpacks to gigabytes) can't hang or crash the app:
-// at most ZIP_MAX_IN bytes in, ZIP_MAX_ENTRIES entries, and ZIP_MAX_OUT bytes unpacked per part, checked while unpacking, not just from the header.
+// Reading a PowerPoint or Word file is limited so a booby-trapped file
 const ZIP_MAX_IN = 60 * 1024 * 1024, ZIP_MAX_ENTRIES = 5000, ZIP_MAX_OUT = 40 * 1024 * 1024;
 async function inflateBytes(data, max){
   const rd = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw")).getReader(), parts = []; let n = 0;
@@ -849,10 +794,7 @@ async function inflateBytes(data, max){
   }
   return new Uint8Array(await new Blob(parts).arrayBuffer());
 }
-// The parts of a zip whose names want() accepts, as bytes: {name: Uint8Array}. src is an ArrayBuffer, a typed array or a Blob (a File):
-// only the zip's directory and the parts asked for are read, so a big export full of pictures never has to fit in memory at once.
-// opts.max: the most one part may unpack to (default ZIP_MAX_OUT); opts.entries: how many directory entries are looked at (default ZIP_MAX_ENTRIES).
-// A part that claims to unpack to more than max is left out (its name goes in opts.big when that's an array), and so is an encrypted one.
+// The parts of a zip whose names want() accepts, as bytes
 async function unzipBytes(src, want, opts){
   opts = opts || {};
   const max = opts.max || ZIP_MAX_OUT, blob = src instanceof Blob ? src : new Blob([src]), size = blob.size;
@@ -870,12 +812,12 @@ async function unzipBytes(src, want, opts){
     const nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), off = dv.getUint32(p + 42, true);
     const name = dec.decode(u.subarray(p + 46, p + 46 + nl)); p += 46 + nl + xl + cl;
     if (!want(name) || (flags & 1)) continue;
-    if (usize > max || (method === 0 && csize > max)) { if (Array.isArray(opts.big)) opts.big.push(name); continue; }      // claims to unpack too big
+    if (usize > max || (method === 0 && csize > max)) { if (Array.isArray(opts.big)) opts.big.push(name); continue; }
     if (off + 30 > size) continue;
     const lh = await read(off, off + 30), lv = new DataView(lh.buffer);
     if (lv.getUint32(0, true) !== 0x04034b50) continue;
     const start = off + 30 + lv.getUint16(26, true) + lv.getUint16(28, true);
-    if (start + csize > size) continue;      // out of bounds
+    if (start + csize > size) continue;
     if (method === 0) out[name] = await read(start, start + csize);
     else if (method === 8 && typeof DecompressionStream === "function") out[name] = await inflateBytes(await read(start, start + csize), max);
   }
@@ -904,7 +846,7 @@ async function docxText(buf){
   return files["word/document.xml"] ? paraText(files["word/document.xml"], "w:p", "w:t").join("\n") : "";
 }
 const AI_IMG = {png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", heic: "image/heic", heif: "image/heif"};
-// Returns {name, kind, size, part} where part is a Gemini content part.
+// Returns {name, kind, size, part} where part is a Gemini content part
 async function aiSourceFromFile(file){
   const ext = (file.name.split(".").pop() || "").toLowerCase();
   if (file.size > 100 * 1024 * 1024) throw aiErr("big", `${file.name} is too big (over 100 MB).`);
@@ -923,10 +865,7 @@ async function aiSourceFromFile(file){
 }
 const aiSourceBytes = s => s.part.inline_data ? s.part.inline_data.data.length : s.part.text.length;
 
-/* ----- Study sets: flashcards and quizzes from your material ----- */
-// Ready-made styles, shown as quick-pick chips. [label, instructions for the AI, group]. More than one can be picked, and the student's own
-// text (the free-text box) always comes first and wins. Questions can only be one answer, select all, put in order, true/false or short answer,
-// so formats like matrix or bow-tie items are described in terms of those.
+/* Study sets: flashcards and quizzes from your material */
 const AI_STYLE_GROUPS = ["General exam styles", "Question formats", "Focus", "Healthcare / nursing exams (NCLEX-style)", "Other standardized exams"];
 const AI_STYLES = [
   ["Mixed (multiple choice, true/false, short answer)", "A deliberate mix of question types: about 45% single best answer, 15% true/false, 15% select all that apply, 15% short answer and 10% put-in-order.", 0],
@@ -956,7 +895,7 @@ const AI_STYLES = [
   ["ACT", "ACT style: single best answer multiple choice with exactly 4 options per question (the real test labels them A, B, C, D on English, Reading and Science and alternates A, B, C, D with F, G, H, J on Math; the app adds the letters, so never type letters in the option text). English: a passage with an underlined portion, then options that rewrite it, where the first option is 'NO CHANGE', testing grammar, usage, punctuation, rhetorical skills, organization and style. Reading: a 150 to 250 word passage (prose fiction, social science, humanities or natural science) followed by detail, inference, main idea, vocabulary and author's purpose questions. Science: a described experiment, data table or pair of conflicting viewpoints, then data interpretation, investigation design and evaluation of models. Math: pre-algebra through trigonometry with the numbers in the stem and worked steps in the rationale. Use the mix of these sections that fits the material.", 4],
   ["Engineering FE", "FE (Fundamentals of Engineering) exam style: concise problem-solving questions with 4 options, numerical answers with units, standard formulas and reference-handbook style data given in the stem. Rationales show the worked solution and common unit or sign errors.", 4]
 ];
-// Builds the style text sent to the AI: the student's own words first (they win), then each picked preset's instructions.
+// Builds the style text sent to the AI
 function aiComposeStyle(custom, picks){
   custom = String(custom || "").trim();
   const ps = (picks || []).map(i => AI_STYLES[i]).filter(Boolean);
@@ -1013,7 +952,7 @@ function aiCleanQuestions(list){
 }
 const AI_RULES = "Use only the provided course material (and standard facts that agree with it). If the material is thin on a topic, skip it rather than invent details. Match the student's requested style exactly. Write clearly for a university student. Return JSON only.";
 const AI_QUIZ_SYSTEM = "You write high-quality practice exam questions. Question types: 'single' (one best answer, usually 4 options), 'multiple' (select all that apply: 5 or 6 options, 2 or more correct; start or end the stem with 'Select all that apply.'), 'order' (4 to 6 steps listed in scrambled order; 'correct' lists the option indexes in the right order), 'truefalse' (options exactly ['True','False']), and 'short' (a brief typed answer in 'answer'). 'correct' holds zero-based option indexes. Every question gets a rationale explaining why the answer is right and why the others are wrong, and 'optionNotes' with one short note per option. The student's style instructions decide the mix of question types, the stem length and format (passages, vignettes, case data, calculations) and the difficulty, so follow them exactly, including a custom format they describe in their own words. If they name an exam (AP, MCAT, USMLE, NCLEX, HESI, bar exam, CPA, FE, a professor's midterm and so on), follow that exam's conventions; for example, NCLEX style uses client-centered stems about what the nurse should do, with priority, first-action, safety and delegation questions and select-all-that-apply items. When no style is given, mix types sensibly. Avoid trivia and 'all of the above' or 'none of the above'. Spread questions across the whole material. Put the slide or page in 'source'. " + AI_RULES;
-// One more try when the answer came back garbled or cut off to nothing; never retries a cancel, a bad key or a quota error.
+// One more try when the answer came back garbled or cut off to nothing
 async function aiRetry(fn){ try { return await fn(); } catch(e) { if (e && (e.code === "bad" || e.code === "long")) return await fn(); throw e; } }
 const AI_GROUND = "Ground every item in the material above: use its own terms, numbers, names and wording. Never add a fact, number, date, example or definition that is not in the material, and skip a topic rather than guess. Write in the same language as the material. Plain text only (no markdown, HTML or LaTeX); write chemistry and math directly, like H₂O, CO₂, x², Δ, →. The 'source' field is required: the slide number or page (like 'Slide 12' or 'p. 4'), or the section heading when the material has no pages.";
 async function aiMakeStudySet(opts, onStatus){
@@ -1021,7 +960,6 @@ async function aiMakeStudySet(opts, onStatus){
   const diff = difficulty === "easier" ? "Keep it approachable: core facts and main ideas." : difficulty === "harder" ? "Make it challenging: application, analysis and tricky distinctions." : "Mix easier recall with harder application.";
   const ctx = `Course: ${courseName || "not given"}. Student's style and instructions (follow them exactly; if they name an exam or describe a professor's format, imitate that exam's wording, structure and difficulty; where they conflict with your defaults, they win): ${style || "Clear, exam-focused study material."} Difficulty: ${diff}`;
   const parts = sources.map(s => s.part);
-  // Only text sources can be checked word for word; a PDF or photo is read by the AI alone, so those sets are not checked.
   const corpus = sources.every(s => s.part && typeof s.part.text === "string") ? aiCorpus(sources.map(s => s.part.text)) : null;
   const nCards = cardCount === "auto" ? 0 : Number(cardCount) || 0, nQuiz = Number(quizCount) || 10;
   const jobs = [];
@@ -1044,7 +982,7 @@ async function aiMakeStudySet(opts, onStatus){
 }
 
 function aiStudySheet(deckId, mode){
-  if (inClaude()) { toast("AI features work in the Studyboard app and on your website, not in this preview"); return; }
+  if (inPreview()) { toast("AI features work in the Studyboard app and on your website, not in this preview"); return; }
   if (!aiCfg().key) { aiSetupSheet(true); return; }
   const deck = deckId ? state.decks[deckId] : null;
   const job = {sources: [], busy: false};
@@ -1078,7 +1016,7 @@ function aiStudySheet(deckId, mode){
     </div>
     <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="aiGo">${AI_ICON} Create</button></div>
   </form>`);
-  if (mode === "cards" || mode === "quiz") {   // only the half this tab is for
+  if (mode === "cards" || mode === "quiz") {
     const row = id => $(id) && $(id).closest(".ai-make");
     if (mode === "cards") { [row("#aiQuiz"), row("#aiCase")].forEach(r => { if (r) r.hidden = true; }); $("#aiQuiz").checked = false; $("#aiCase").checked = false; }
     else { const r = row("#aiCards"); if (r) r.hidden = true; $("#aiCards").checked = false; $("#aiQuiz").checked = true; }
@@ -1107,7 +1045,7 @@ function aiStudySheet(deckId, mode){
   if (fromFiles) fromFiles.addEventListener("change", async () => {
     const f = state.files[fromFiles.value]; fromFiles.value = ""; if (!f) return;
     status.textContent = `Getting ${f.name}…`;
-    try { const bytes = await fileBytes(f), n0 = job.sources.length; await addFiles([new File([bytes], fileNameOf(f), {type: fileTypeOf(f)})]); if (job.sources.length > n0) job.sources[job.sources.length - 1].origin = {k: "file", id: f.id}; }   // remembered as where the cards came from (SBLINKED)
+    try { const bytes = await fileBytes(f), n0 = job.sources.length; await addFiles([new File([bytes], fileNameOf(f), {type: fileTypeOf(f)})]); if (job.sources.length > n0) job.sources[job.sources.length - 1].origin = {k: "file", id: f.id}; }
     catch(e) { status.textContent = `Couldn't get ${f.name}${navigator.onLine === false ? " while offline" : ""}.`; }
   });
   srcList.addEventListener("click", e => { const b = e.target.closest("[data-rm]"); if (b) { job.sources.splice(Number(b.dataset.rm), 1); drawSrcs(); status.textContent = ""; } });
@@ -1137,7 +1075,7 @@ function aiStudySheet(deckId, mode){
     const {style, name: styleName} = aiComposeStyle(custom, picks), cId = deck ? deck.courseId : ($("#aiCourse") ? $("#aiCourse").value : "");
     job.busy = true; const go = $("#aiGo"); go.disabled = true; go.classList.add("busy");
     const ac = typeof AbortController === "function" ? new AbortController() : null;
-    if (ac) dlg.addEventListener("close", () => ac.abort(), {once: true});   // closing the window stops the request
+    if (ac) dlg.addEventListener("close", () => ac.abort(), {once: true});
     status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(aiModelName(aiCfg().provider, aiCfg().model))} is reading your material and writing ${[wantCards && "flashcards", wantQuiz && "a quiz", wantCase && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")}. This usually takes 20 to 60 seconds…`;
     try {
       const r = await aiMakeStudySet({sources, style, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10", courseName: courseOf(cId) ? courseOf(cId).name : "", signal: ac && ac.signal}, m => { status.textContent = m; });
@@ -1155,7 +1093,7 @@ function aiStudySheet(deckId, mode){
 function aiReviewSheet(r, ctx){
   const cards = r.cards.slice(), qs = r.questions.slice(), cs = (r.cases || []).slice();
   const decks = deckListArr();
-  const quizOnly = !ctx.deck && !cards.length;   // only a quiz or case studies: saved as a quiz on its own, no deck needed
+  const quizOnly = !ctx.deck && !cards.length;
   const defName = ctx.deck ? ctx.deck.name : (r.title || (ctx.sources[0] || "AI Study Set").replace(/\.[^.]+$/, "")).slice(0, 80);
   const typeLabel = {single: "One answer", multiple: "Select all that apply", order: "Put in order", truefalse: "True or false", short: "Short answer"};
   const nCheck = cards.filter(c => c.check).length + qs.filter(q => q.check).length;
@@ -1204,13 +1142,13 @@ function aiReviewSheet(r, ctx){
     if (window.SBLINKED && ctx.origins && ctx.origins.length) SBLINKED.stamp(d, ctx.origins.map(o => SBLINKED.origin(o.k, o.id)), d.cards.slice(d.cards.length - keepC.length));
     d.updated = Date.now();
     dlg.close(); ui.tab = "flashcards"; ui.fc = null;
-    if (!keepC.length) { ui.deckId = null; rvSet("quizzes"); } else { ui.deckId = d.id; rvSet("cards"); }   // a quiz goes to Quizzes; new cards open their deck
+    if (!keepC.length) { ui.deckId = null; rvSet("quizzes"); } else { ui.deckId = d.id; rvSet("cards"); }
     saveDeck(d, `Saved ${keepC.length ? keepC.length + " card" + (keepC.length === 1 ? "" : "s") : ""}${keepC.length && keepQ.length ? " and " : ""}${keepQ.length ? "a " + keepQ.length + "-question quiz" : ""}${(keepC.length || keepQ.length) && keepCs.length ? " and " : ""}${keepCs.length ? keepCs.length + " case stud" + (keepCs.length === 1 ? "y" : "ies") : ""} to ${d.name}`);
     window.scrollTo(0, 0);
   });
 }
 
-/* ----- Taking an AI quiz ----- */
+/* Taking an AI quiz */
 function startAiQuiz(deckId, quizId, onlyIds){
   const d = state.decks[deckId], qz = d && (d.aiQuizzes || []).find(x => x.id === quizId); if (!qz) return;
   let qs = qz.questions.filter(q => !onlyIds || onlyIds.includes(q.id)).map(q => Object.assign({}, q));
@@ -1346,17 +1284,17 @@ document.addEventListener("keydown", e => {
   if (k >= 0 && k < q.options.length && (q.type === "single" || q.type === "truefalse")) { e.preventDefault(); e.stopPropagation(); aiAnswer([k]); }
   else if (k >= 0 && k < q.options.length && q.type === "multiple") { e.preventDefault(); e.stopPropagation(); aiQuizAction("ai-toggle", {dataset: {i: String(k)}}); }
 }, true);
-// A deck's page: Weak Spots, and Create with AI for more flashcards. Its quizzes are listed under Review, Quizzes.
+// A deck's page
 function deckAiBar(d){
   const w = weakSpots([d.id]), nq = (d.aiQuizzes || []).filter(q => q && q.questions && q.questions.length).length;
-  if (inClaude() && !w.n && !nq) return "";
-  const btns = `<span class="aiq-btns">${w.n ? `<button class="btn small" data-act="fc-weak" data-id="${esc(d.id)}">Weak Spots <span class="n-badge">${w.n}</span></button>` : ""}${inClaude() ? "" : `<button class="btn small ai-btn" data-act="fc-ai-cards" data-id="${esc(d.id)}">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</span>`;
-  return `<section class="aiq-sec"><div class="ai-callout">${AI_ICON}<span>${inClaude() ? "" : `Upload lecture slides or notes and let ${esc(aiWho("AI"))} write flashcards for this deck.`}${nq ? ` ${nq === 1 ? "Its quiz is" : `Its ${nq} quizzes are`} in <button class="link-btn" data-act="rv-view" data-id="quizzes">Quizzes</button>.` : ""}</span>${btns}</div></section>`;
+  if (inPreview() && !w.n && !nq) return "";
+  const btns = `<span class="aiq-btns">${w.n ? `<button class="btn small" data-act="fc-weak" data-id="${esc(d.id)}">Weak Spots <span class="n-badge">${w.n}</span></button>` : ""}${inPreview() ? "" : `<button class="btn small ai-btn" data-act="fc-ai-cards" data-id="${esc(d.id)}">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</span>`;
+  return `<section class="aiq-sec"><div class="ai-callout">${AI_ICON}<span>${inPreview() ? "" : `Upload lecture slides or notes and let ${esc(aiWho("AI"))} write flashcards for this deck.`}${nq ? ` ${nq === 1 ? "Its quiz is" : `Its ${nq} quizzes are`} in <button class="link-btn" data-act="rv-view" data-id="quizzes">Quizzes</button>.` : ""}</span>${btns}</div></section>`;
 }
 function aiQuizzesHtml(d){
   const list = d.aiQuizzes || [];
   const w = weakSpots([d.id]);
-  const btn = `<span class="aiq-btns">${w.n ? `<button class="btn small" data-act="fc-weak" data-id="${esc(d.id)}">Weak Spots <span class="n-badge">${w.n}</span></button>` : ""}${d.cards.length >= 3 && !inClaude() ? `<button class="btn small" data-act="fc-case" data-id="${esc(d.id)}">Case Study from Cards</button>` : ""}<button class="btn small ai-btn" data-act="fc-ai" data-id="${esc(d.id)}">${AI_ICON} Create with ${esc(aiWho("AI"))}</button></span>`;
+  const btn = `<span class="aiq-btns">${w.n ? `<button class="btn small" data-act="fc-weak" data-id="${esc(d.id)}">Weak Spots <span class="n-badge">${w.n}</span></button>` : ""}${d.cards.length >= 3 && !inPreview() ? `<button class="btn small" data-act="fc-case" data-id="${esc(d.id)}">Case Study from Cards</button>` : ""}<button class="btn small ai-btn" data-act="fc-ai" data-id="${esc(d.id)}">${AI_ICON} Create with ${esc(aiWho("AI"))}</button></span>`;
   if (!list.length) return `<div class="ai-callout">${AI_ICON}<span>Upload lecture slides or notes and let ${esc(aiWho("AI"))} write flashcards and practice questions in the style you want, like an AP exam or your professor's midterm, with rationales.</span>${btn}</div>`;
   return `<h3 class="fsec">${AI_ICON}Practice Quizzes<span class="n">${list.length}</span><span class="spacer"></span>${btn}</h3>
     <ul class="aiq-list">${list.slice().reverse().map(qz => { const last = (qz.results || [])[qz.results.length - 1];
@@ -1364,7 +1302,7 @@ function aiQuizzesHtml(d){
         <button class="btn small primary" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Start</button><button class="x-btn" data-act="ai-quiz-del" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}" aria-label="Delete ${esc(qz.title)}">${CLOSE}</button></li>`; }).join("")}</ul>`;
 }
 
-/* ----- AI syllabus reading ----- */
+/* AI syllabus reading */
 const SYL_SCHEMA = {type: "OBJECT", properties: {
   course: {type: "OBJECT", properties: {
     name: {type: "STRING"}, code: {type: "STRING"}, instructor: {type: "STRING"}, term: {type: "STRING"},
@@ -1411,14 +1349,14 @@ Return JSON only.`});
   return {course, items, term: c.term ? {label: String(c.term)} : null, weightsFound: items.some(i => i.weight != null), ai: true, gateNote};
 }
 
-/* ----- Settings: turning AI on and choosing a model ----- */
+/* Settings: turning AI on and choosing a model */
 function aiRow(){
   const on = aiReady(), c = aiCfg();
   if (on && c.provider === "trial") { const t = aiTrialLeft();
     return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">Trying AI for free${t.left != null ? `: ${t.left} of ${t.total} ${t.total === 1 ? "try" : "tries"} left${t.today != null && t.today < t.left ? `, ${t.today} today` : ""}` : ""}. Add your own free Gemini key to use AI as much as you like, with your files too.</span></span><button class="btn small primary" data-act="ai-setup">Set Up</button></div>`; }
-  return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">${inClaude() ? "Available in the Studyboard app and on your website." : on ? `On, using ${esc(aiModelName(c.provider, c.model))}${c.provider === "gemini" && c.model !== "gemini-3.1-pro-preview" ? " (free)" : " (paid)"}.` : "Off. Free with a Google Gemini key: study sets from your slides, quick add, explanations, exam plans and more."}${on ? (a => a.on ? " Automatic AI is on." : a.reason === "confirm" ? " Automatic AI is paused until you confirm paid use." : " Automatic AI is off.")(autoState()) : ""}</span></span>${inClaude() ? "" : `<button class="btn small ${on ? "" : "primary"}" data-act="ai-setup">${on ? "Manage" : "Set Up"}</button>`}</div>`;
+  return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">${inPreview() ? "Available in the Studyboard app and on your website." : on ? `On, using ${esc(aiModelName(c.provider, c.model))}${c.provider === "gemini" && c.model !== "gemini-3.1-pro-preview" ? " (free)" : " (paid)"}.` : "Off. Free with a Google Gemini key: study sets from your slides, quick add, explanations, exam plans and more."}${on ? (a => a.on ? " Automatic AI is on." : a.reason === "confirm" ? " Automatic AI is paused until you confirm paid use." : " Automatic AI is off.")(autoState()) : ""}</span></span>${inPreview() ? "" : `<button class="btn small ${on ? "" : "primary"}" data-act="ai-setup">${on ? "Manage" : "Set Up"}</button>`}</div>`;
 }
-// opts.code: a code from another device (a scanned link) to offer at the top; nothing is fetched until the person taps Add.
+// opts.code: a code from another device (a scanned link) to offer at the top
 function aiSetupSheet(fromFeature, opts){
   opts = opts || {};
   const c = aiCfg(), hasKey = !!(c.keys.gemini || c.keys.anthropic || c.keys.openai);
@@ -1466,11 +1404,9 @@ function aiSetupSheet(fromFeature, opts){
     <div class="sheet-foot">${c.keys.gemini || c.keys.anthropic || c.keys.openai ? `<button type="button" class="btn danger" id="aiRemove">Turn Off</button>` : ""}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="aiSave">Save</button></div>
   </form>`);
   const keysNow = () => { const k = {}; $$("[data-key]", dlg).forEach(i => { k[i.dataset.key] = i.value.trim(); }); return k; };
-  // Which model automatic AI would use with the choices on screen.
   const autoEngine = () => { const k = keysNow(), [p, m] = ($("#aiDefault").value || "gemini|auto").split("|"); return $("#aiAutoModel").value === "free" && k.gemini ? {provider: "gemini", model: "auto"} : {provider: k[p] ? p : "gemini", model: k[p] ? m : "auto"}; };
   const autoWarn = () => { if (!$("#aiAutoWarn") || !$("#aiDefault")) return; const w = $("#aiAutoWarn"), e = autoEngine(), paid = !isFreeModel(e.provider, e.model); w.hidden = !($("#aiAuto").checked && paid);
     w.innerHTML = `<b>This would use a paid model (${esc(aiModelName(e.provider, e.model))}) in the background and may cost money.</b> You'll be asked to confirm before it's turned on.${keysNow().gemini ? "" : " Add a free Gemini key to run it at no cost."}`; };
-  // Until the person ticks or unticks it, automatic AI follows the default: on for free Gemini, off for anything paid.
   let autoTouched = ((state.settings && state.settings.ai) || {}).auto !== undefined;
   $("#aiAuto").addEventListener("change", () => { autoTouched = true; });
   const autoDefault = () => { if (autoTouched || !$("#aiDefault") || !$("#aiAuto")) return; const [p, m] = ($("#aiDefault").value || "gemini|auto").split("|"); $("#aiAuto").checked = !!keysNow()[p] && isFreeModel(p, m); };
@@ -1481,12 +1417,11 @@ function aiSetupSheet(fromFeature, opts){
   const refreshModels = () => { const sel = $("#aiDefault"), v = sel.value; sel.innerHTML = modelOpts(true); if ([...sel.options].some(o => o.value === v)) sel.value = v; };
   $$("[data-key]", dlg).forEach(i => i.addEventListener("change", refreshModels));
   $$("[data-show]", dlg).forEach(b => b.addEventListener("click", () => { const i = dlg.querySelector(`[data-key="${b.dataset.show}"]`); i.type = i.type === "password" ? "text" : "password"; b.textContent = i.type === "password" ? "Show" : "Hide"; }));
-  // {ok, model} or {ok: false, err}: one small request with this key, without saving anything.
   const testKey = async (p, key) => {
     const sel = $("#aiDefault").value.split("|");
     const model = sel[0] === p ? sel[1] : (p === "gemini" ? "auto" : AI_PROVIDERS[p].models[0][0]);
     const prev = state.settings.ai, prevKeys = aiLocalKeys;
-    aiLocalKeys = Object.assign({}, aiCfg().keys, {[p]: key});            // only for the test: nothing is saved until Save
+    aiLocalKeys = Object.assign({}, aiCfg().keys, {[p]: key});
     state.settings = Object.assign({}, state.settings, {ai: {provider: p, model, keys: {}}});
     let out;
     try { const r = await aiCall({task: "ping", fast: true, maxTokens: 400, temperature: 0, parts: [{text: "Reply with {\"ok\": true}"}], system: "Reply with JSON only.", schema: {type: "OBJECT", properties: {ok: {type: "BOOLEAN"}}, required: ["ok"]}}); out = {ok: true, model: r.model}; }
@@ -1501,7 +1436,6 @@ function aiSetupSheet(fromFeature, opts){
     const r = await testKey(p, key);
     msg.textContent = r.ok ? `It works. Connected to ${r.model}.` : r.err; b.disabled = false;
   }));
-  // okMsg: the toast after a save that Paste My Key or a code from another device started.
   const save = okMsg => {
     const k = keysNow();
     if (!k.gemini && !k.anthropic && !k.openai) { const m = dlg.querySelector('[data-msg="gemini"]'); m.textContent = "Paste your Gemini key first."; dlg.querySelector('[data-key="gemini"]').focus(); return; }
@@ -1521,7 +1455,7 @@ function aiSetupSheet(fromFeature, opts){
     finish(okMsg || "AI settings saved");
   };
   $("#aiSave").addEventListener("click", () => save());
-  // ----- A Gemini key on the clipboard (the desktop app picks it up on its own) is checked and saved in one step; a code from another device fetches the keys instead.
+  // A Gemini key on the clipboard
   const pasteMsg = $("#aiPasteMsg"), gIn = dlg.querySelector('[data-key="gemini"]'), sheetEl = dlg.querySelector("form.sheet");
   const pasteSay = t => { if (pasteMsg) { pasteMsg.hidden = !t; pasteMsg.textContent = t; } };
   const live = () => dlg.open && sheetEl.isConnected;
@@ -1553,20 +1487,19 @@ function aiSetupSheet(fromFeature, opts){
     if (keys.anthropic || keys.openai) { const d = dlg.querySelector("details.ai-paid:not(#aiHoIn)"); if (d) d.open = true; }
     const n = Object.keys(keys).length;
     m.textContent = n === 1 ? "Got your key." : `Got ${n} keys.`;
-    setTimeout(() => { if (live()) save(`AI is on. ${n === 1 ? "Your key" : "Your keys"} came from your other device.`); }, 0);   // after the model list has caught up
+    setTimeout(() => { if (live()) save(`AI is on. ${n === 1 ? "Your key" : "Your keys"} came from your other device.`); }, 0);
   };
   const useText = text => {
     const k = KEYHO.geminiKeyIn(text); if (k) { useKey(k); return true; }
     const code = KEY_RELAY ? KEYHO.codeIn(text) : ""; if (code) { getKeys(code); return true; }
     return false;
   };
-  // Desktop: the main process returns only a Gemini key or a code found on the clipboard, never other clipboard text.
   const readClip = async () => DESK && DESK.aiClipboard ? String(await DESK.aiClipboard() || "") : navigator.clipboard && navigator.clipboard.readText ? await navigator.clipboard.readText() : null;
   const pasteBtn = $("#aiPaste"); if (pasteBtn) pasteBtn.addEventListener("click", async () => {
     let t = null;
     try { t = await readClip(); } catch (e) { t = null; }
     if (t === null) { pasteSay("Studyboard wasn't allowed to read the clipboard here. Paste the key into the box below instead."); gIn.focus(); return; }
-    lastTried = "";   // a tap tries again, even with the same key
+    lastTried = "";
     if (!useText(t)) pasteSay("There's no Gemini key on the clipboard yet. In Google AI Studio, click Copy next to your key, then paste it again.");
   });
   gIn.addEventListener("paste", e => {
@@ -1574,8 +1507,6 @@ function aiSetupSheet(fromFeature, opts){
     if (k) setTimeout(() => { lastTried = ""; useKey(k); }, 0);
     else if (code) { e.preventDefault(); getKeys(code); }
   });
-  // Coming back from Google AI Studio with a key copied is enough: on desktop always (only while this window is open and the box is
-  // empty), on the web only when the person has already allowed Studyboard to read the clipboard.
   if (DESK && DESK.aiClipboard) {
     let timer = 0;
     const poll = async () => {
@@ -1592,7 +1523,7 @@ function aiSetupSheet(fromFeature, opts){
     };
     window.addEventListener("focus", onFocus);
   }
-  // ----- Keys from another device: a typed code, a scanned link (opts.code, asked first), or the button to show a code here.
+  // Keys from another device
   const yes = $("#aiHoYes");
   if (yes) { yes.addEventListener("click", () => { $("#aiHoAsk").remove(); getKeys(opts.code); }); $("#aiHoNo").addEventListener("click", () => $("#aiHoAsk").remove()); }
   const hoGet = $("#aiHoGet");
@@ -1601,14 +1532,10 @@ function aiSetupSheet(fromFeature, opts){
     $("#aiHoCode").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); hoGet.click(); } });
   }
   const hoSend = $("#aiHoSend"); if (hoSend) hoSend.addEventListener("click", () => keyHandoffSend(aiCfg().keys));
-  // The trial count shown above comes from the last answer; refresh it quietly (the next render shows the new number).
   if (AI_TRIAL && sbUser && !hasKey) aiTrialRefresh().then(j => { if (j) try { scheduleRender(); } catch(e) {} });
   const rm = $("#aiRemove"); if (rm) rm.addEventListener("click", () => { aiWipeLocal(); state.settings = Object.assign({}, state.settings, {ai: null}); saveSettings(); dlg.close(); toast("AI features turned off. Your keys were removed."); scheduleRender(); });
 }
-/* ----- Add AI to Another Device -----
-   This device locks its saved keys with a new code (KEYHO) and leaves the locked box with the key relay (KEY_RELAY, cloudflare/key-relay)
-   for up to 10 minutes. The other device scans the QR code (the relay's /k page, code in the #fragment) or types the code, fetches the box
-   once and unlocks it. The relay only ever sees an id and ciphertext. */
+/* Add AI to Another Device This device locks its saved keys with a new code */
 const khoUrl = (id, tail) => `${KEY_RELAY}/v1/h/${id}${tail || ""}`;
 async function keyHandoffFetch(code){
   if (!window.crypto || !crypto.subtle) throw new Error("This browser can't unlock the keys here. Open Studyboard from its https address and try again.");
@@ -1630,7 +1557,6 @@ function keyHandoffSend(keys){
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button></div></div>`);
   const box = $("#kho"), live = () => dlg.open && box.isConnected, rand = n => crypto.getRandomValues(new Uint8Array(n));
   let id = "", timer = 0;
-  // Closing the window before the other device took the box deletes it from the relay straight away.
   const stop = () => { clearInterval(timer); if (id) fetch(khoUrl(id), {method: "DELETE", keepalive: true}).catch(() => {}); id = ""; };
   dlg.addEventListener("close", stop, {once: true});
   const again = msg => { box.innerHTML = `<p role="status" style="margin:0">${msg}</p><button type="button" class="btn primary" id="khoAgain">Make a New Code</button>`; $("#khoAgain").addEventListener("click", () => keyHandoffSend(keys)); };
@@ -1656,17 +1582,16 @@ function keyHandoffSend(keys){
           if (j.state === "taken" && live()) { clearInterval(timer); id = ""; box.innerHTML = `<p role="status" style="margin:0"><b>Done.</b> Your other device has your AI keys now.</p>`; }
           else if (j.state === "none" && live()) { stop(); again("This code isn't working any more."); }
         } catch (e) {}
-      }, 5000);   // at most about 120 checks if the code is never used
+      }, 5000);
     } catch (e) { if (live()) again("Couldn't make a code just now. Check your internet connection and try again."); }
   })();
 }
-// A scanned code opened the app (KEYHO_LINK): offer it in AI Features once nothing else is on screen.
+// A scanned code opened the app (KEYHO_LINK)
 if (KEYHO_LINK && KEY_RELAY) {
   let tries = 0;
-  const offer = () => { if (inClaude()) return; if (dlg.open && tries++ < 120) { setTimeout(offer, 1000); return; } aiSetupSheet(false, {code: KEYHO_LINK}); };
+  const offer = () => { if (inPreview()) return; if (dlg.open && tries++ < 120) { setTimeout(offer, 1000); return; } aiSetupSheet(false, {code: KEYHO_LINK}); };
   setTimeout(offer, 1200);
 }
-// Exported backup files never include your AI keys.
-// Backup files never carry secrets: no AI keys and no private school calendar links.
+// Exported backup files never include your AI keys
 function exportArrays(){ const a = clone(toArrays()); if (a.settings && a.settings.ai) delete a.settings.ai; if (a.settings) dropFeeds(a.settings); return a; }
 

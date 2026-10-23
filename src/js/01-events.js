@@ -1,6 +1,5 @@
 /* ===== module: 01-events.js: the app's core, events and dragging ===== */
-/* ---------- Events ---------- */
-// Pro features where they belong (only shown to Pro, or to everyone while Studyboard is in early access): see SBPRO.tabBtns in 99-pro
+/* Events */
 const proBtns = where => { try { return window.SBPRO && SBPRO.tabBtns ? SBPRO.tabBtns(where) : ""; } catch (e) { return ""; } };
 let suppressClick = false;
 document.addEventListener("click", e => {
@@ -10,7 +9,7 @@ document.addEventListener("click", e => {
     if (tab.dataset.tab === "flashcards" && ui.tab === "flashcards") { ui.fc = null; ui.deckId = null; }
     let want = tab.dataset.tab;
     if (want === "plan" || want === "calendar") want = isPlanTab(ui.tab) ? ui.tab : ui.planView;
-    if (want === "courses" && (ui.tab === "files" || ui.tab === "emails")) want = ui.tab;   // the Courses tab also holds Files: stay on the sub-tab already open
+    if (want === "courses" && (ui.tab === "files" || ui.tab === "emails")) want = ui.tab;
     if (want === "timeline" && ui.tab !== "timeline") ui.tlJump = true;
     if (want === ui.tab && ui.tab === "courses") ui.courseId = null;
     ui.tab = want; if (ui.tab !== "courses") ui.courseId = null;
@@ -86,7 +85,7 @@ document.addEventListener("click", e => {
     case "new-term": if (dlg.open) dlg.close(); setTimeout(newTermSheet, 30); break;
     case "sch-prev": case "sch-next": ui.schWeek = addDays(ui.schWeek || mondayOf(todayISO()), act === "sch-prev" ? -7 : 7); render(); break;
     case "sch-notices": openSheet(`<div class="sheet">${head("Notices")}<div class="sheet-body sch-ntc-body">${schNoticeHtml}</div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`); break;
-    case "sch-today": ui.schWeek = mondayOf(todayISO()); ui.schDay = null; render(); break;   // disabled while already on this week with today selected
+    case "sch-today": ui.schWeek = mondayOf(todayISO()); ui.schDay = null; render(); break;
     case "sch-day": ui.schDay = Number(id); render(); break;
     case "sch-occ": occView(el.dataset.type, id, el.dataset.key); break;
     case "sch-add": { const wk = ui.schWeek || mondayOf(todayISO()); eventForm(null, {date: wk === mondayOf(todayISO()) ? todayISO() : wk}); break; }
@@ -137,9 +136,9 @@ document.addEventListener("click", e => {
     case "f-upload": if (dlg.open) dlg.close(); $("#fUploadIn").click(); break;
     case "fab-course": fabMenu("Add Course", [["new-course", "Add Course", "Name, code, color and class times", "course"], ["import-syllabus", "Import a Syllabus", "Upload a PDF to add the course and its deadlines", "syllabus"]]); break;
     case "fab-file": fabMenu("Add File", [...(caps.assets ? [["f-upload", "Upload File", "PDFs, slides, documents and images", "upload"], ["f-quick", "Quick Add", "Drop files and let " + aiWho("Studyboard") + " sort them into the right course and folder", "", true]] : []), ["f-link", "Add Link", "For files kept in OneDrive, Google Drive or Canvas", "link"]]); break;
-    case "fab-note": fabMenu("Add Note", [["note-new", "New Note", "Pin a quick note to your board", "note"], ...(inClaude() ? [] : [["note-photo", "Photo to Note", "Turn a photo of a board or slide into a note", "", true]])]); break;
-    case "fab-deck": fabMenu("Add Deck", [["fc-new", "New Deck", "Add cards yourself or paste a list", "deck"], ...(inClaude() ? [] : [["fc-ai-cards", "Create with " + aiWho("AI"), "Upload slides or notes and get flashcards", "", true]]), ["ia-open", "Import From Another App", "Anki, Quizlet or Notion decks, read on this device", "upload"]]); break;
-    case "qz-add": fabMenu("New Quiz", [...(inClaude() ? [] : [["qz-ai", "From Slides or Notes", "Upload slides, notes or readings and get a practice quiz or case studies. No flashcards needed.", "", true]]), ["qz-from-deck", "From a Deck", aiReady() ? `${aiWho("AI")} writes questions from your flashcards` : "Questions from your flashcards", "deck"]]); break;
+    case "fab-note": fabMenu("Add Note", [["note-new", "New Note", "Pin a quick note to your board", "note"], ...(inPreview() ? [] : [["note-photo", "Photo to Note", "Turn a photo of a board or slide into a note", "", true]])]); break;
+    case "fab-deck": fabMenu("Add Deck", [["fc-new", "New Deck", "Add cards yourself or paste a list", "deck"], ...(inPreview() ? [] : [["fc-ai-cards", "Create with " + aiWho("AI"), "Upload slides or notes and get flashcards", "", true]]), ["ia-open", "Import From Another App", "Anki, Quizlet or Notion decks, read on this device", "upload"]]); break;
+    case "qz-add": fabMenu("New Quiz", [...(inPreview() ? [] : [["qz-ai", "From Slides or Notes", "Upload slides, notes or readings and get a practice quiz or case studies. No flashcards needed.", "", true]]), ["qz-from-deck", "From a Deck", aiReady() ? `${aiWho("AI")} writes questions from your flashcards` : "Questions from your flashcards", "deck"]]); break;
     case "qz-from-deck": quizSheet(ui.filter !== "all" ? decksArr().filter(d => d.courseId === ui.filter && d.cards.length).slice(0, 1).map(d => d.id) : []); break;
     case "qz-ai": aiStudySheet(null, "quiz"); break;
     case "fc-ai-cards": aiStudySheet(id || null, "cards"); break;
@@ -149,7 +148,6 @@ document.addEventListener("click", e => {
     case "qz-archive": qzSetArchived(id, true); break;
     case "qz-unarchive": qzSetArchived(id, false); if (dlg.open) archivedQuizzesSheet(); break;
     case "qz-arch-open": archivedQuizzesSheet(); break;
-    // (the study groups module answers these when groups are available; without them, say where sharing lives)
     case "fc-share": case "qz-share": toast(`Sharing ${act === "fc-share" ? "decks" : "quizzes"} is done through a study group. Open Groups to start or join one.`, null, {label: "Groups", fn: () => { const b = document.querySelector('nav [data-tab="groups"]'); if (b) b.click(); }}); break;
     case "fab-group": fabMenu("Add Group", [["grp-new", "Create Group", "Start a study group or a group project", "group"], ["grp-code", "Enter a Code", "Join a group a classmate invited you to", "code"]]); break;
     case "f-link": linkSheet(); break;
@@ -163,7 +161,7 @@ document.addEventListener("click", e => {
       const m = parse(ui.calMonth); m.setMonth(m.getMonth() + (act === "cal-prev" ? -1 : 1));
       ui.calMonth = iso(m); render(); break;
     }
-    case "cal-today": ui.calDay = todayISO(); ui.calMonth = ui.calDay.slice(0, 7) + "-01"; render(); requestAnimationFrame(() => { const d = document.querySelector("#view .cal .today, #view .cal [aria-current]"); if (d && d.scrollIntoView) d.scrollIntoView({block: "nearest", behavior: "smooth"}); }); break;   // back to this month with today picked (disabled while that is already what you see)
+    case "cal-today": ui.calDay = todayISO(); ui.calMonth = ui.calDay.slice(0, 7) + "-01"; render(); requestAnimationFrame(() => { const d = document.querySelector("#view .cal .today, #view .cal [aria-current]"); if (d && d.scrollIntoView) d.scrollIntoView({block: "nearest", behavior: "smooth"}); }); break;
     case "import-syllabus": importSheet(el.dataset.course || (ui.tab === "courses" ? ui.courseId : "") || ""); break;
     case "cal-export": calExportSheet(); break;
     case "backup-now":
@@ -183,7 +181,7 @@ document.addEventListener("click", e => {
       break;
   }
 });
-// Note board: press and hold an empty spot to pin a new note there (a mouse can also double-click; a double tap does nothing, so taps never make stray notes)
+// Note board: press and hold an empty spot to pin a new note there
 let nbHold = null, nbLastTouch = 0;
 document.addEventListener("pointerdown", e => {
   if (e.pointerType !== "mouse") nbLastTouch = Date.now();
@@ -252,10 +250,9 @@ let qT;
 $("#searchInput").addEventListener("input", e => { clearTimeout(qT); qT = setTimeout(() => { ui.q = e.target.value; render(); }, 120); });
 $("#searchInput").addEventListener("keydown", e => { if (e.key === "Escape") toggleSearch(false); });
 
-/* ---------- Drag: board cards and timeline bars (mouse, pen and touch) ---------- */
+/* Drag: board cards and timeline bars (mouse, pen and touch) */
 let drag = null;
-// Task Board: double-click (or double-tap) a card to pick it up; it follows the pointer, and the next click or tap puts it down there.
-// Escape puts it back. One click still opens the task, a moment later (so a double-click can win).
+// Task Board: double-click (or double-tap) a card to pick it up; it follows the pointer
 let cardClickT = 0, cardPass = false;
 document.addEventListener("click", e => {
   if (cardPass || drag) return;
@@ -275,7 +272,7 @@ document.addEventListener("click", e => {
   }
 }, true);
 document.addEventListener("pointerdown", e => {
-  if (drag && drag.carry && drag.started) {   // a card picked up with a double-click: put it down here
+  if (drag && drag.carry && drag.started) {
     e.preventDefault(); e.stopPropagation();
     drag.x = e.clientX; drag.y = e.clientY;
     if (e.button === 0) { try { placeAt(drag.x, drag.y); } catch (x) {} endDrag(true); } else endDrag(false);
@@ -300,7 +297,6 @@ document.addEventListener("pointerdown", e => {
     drag.isMs = barEl.classList.contains("ms");
     drag.mode = drag.isMs ? (barEl.dataset.dueonly ? "end" : "move") : e.clientX - r.left < edge ? "start" : r.right - e.clientX < edge ? "end" : "move";
   }
-  // On a touch screen the grip on a task card picks it up at once; anywhere else on the card a short hold does (a swipe still scrolls)
   if (drag.touch && cardEl && e.target.closest(".card-grip")) { e.preventDefault(); startDrag(); return; }
   if (drag.touch && drag.kind !== "note") drag.timer = setTimeout(() => { if (drag && !drag.started) startDrag(); }, drag.kind === "card" ? 200 : 320);
 });
@@ -321,7 +317,7 @@ document.addEventListener("pointermove", e => {
   e.preventDefault();
 }, {passive: false});
 document.addEventListener("pointerup", e => { if (!drag || e.pointerId !== drag.pid) return; clearTimeout(drag.timer); if (drag.started) endDrag(true); else drag = null; });
-// On phones the browser can cancel a long-press drag part way; treat that as dropping where the card was last shown.
+// On phones the browser can cancel a long-press drag part way
 document.addEventListener("pointercancel", e => { if (!drag || e.pointerId !== drag.pid) return; clearTimeout(drag.timer); if (drag.started) endDrag(drag.kind === "card" && drag.touch); else drag = null; });
 document.addEventListener("touchend", () => { if (drag && drag.started && drag.touch && drag.kind === "card") { clearTimeout(drag.timer); endDrag(true); } });
 document.addEventListener("touchmove", e => { if (drag && drag.started) e.preventDefault(); }, {passive: false});
@@ -352,7 +348,7 @@ function startDrag(){
     const g = el.cloneNode(true);
     g.classList.add("ghost"); g.removeAttribute("tabindex"); g.setAttribute("aria-hidden", "true");
     g.style.width = r.width + "px"; g.style.left = r.left + "px"; g.style.top = r.top + "px";
-    drag.gl = r.left; drag.gt = r.top;   // the ghost then moves with `translate` (no layout per frame)
+    drag.gl = r.left; drag.gt = r.top;
     document.body.appendChild(g); drag.ghost = g;
     const ph = document.createElement("div"); ph.className = "placeholder"; ph.style.height = r.height + "px";
     el.after(ph); el.style.display = "none"; drag.ph = ph;
@@ -374,7 +370,7 @@ function tick(){
   if (drag.kind === "rot") {
     let r = drag.rot0 + (Math.atan2(drag.y - drag.cy, drag.x - drag.cx) - drag.a0) * 180 / Math.PI;
     r = ((r + 540) % 360) - 180;
-    if (Math.abs(r) < 4) r = 0;                       // easy to set it straight again
+    if (Math.abs(r) < 4) r = 0;
     else if (Math.abs(Math.abs(r) - 90) < 3) r = Math.sign(r) * 90;
     drag.rot = Math.round(r);
     drag.el.style.setProperty("--rot", drag.rot + "deg");
@@ -383,7 +379,6 @@ function tick(){
   }
   if (drag.kind === "note") {
     const sc = $("#nbScroll"), board = $("#nbBoard");
-    // Over Archive, Trash or a board tab: no edge scrolling and no growing the board (those targets sit at its edges)
     const overT = (() => { const u = document.elementFromPoint(drag.x, drag.y); return !!(u && u.closest("[data-drop-note]")) || $$(".nb-target").some(t => { const q = t.getBoundingClientRect(); return drag.x >= q.left - 8 && drag.x <= q.right + 8 && drag.y >= q.top - 8 && drag.y <= q.bottom + 8; }); })();
     if (sc && board) {
       const r = sc.getBoundingClientRect();
@@ -394,7 +389,6 @@ function tick(){
       const br = board.getBoundingClientRect();
       drag.nx = Math.max(0, Math.min(6000, Math.round((drag.x - br.left) / nbZ() - drag.dx)));
       drag.ny = Math.max(0, Math.min(6000, Math.round((drag.y - br.top) / nbZ() - drag.dy)));
-      // Dragged past the edge: the board grows under the note, and scroll bars appear
       const needW = drag.nx + drag.el.offsetWidth + 28, needH = drag.ny + drag.el.offsetHeight + 28;
       let grew = false;
       if (!overT && needW > board.offsetWidth) { board.style.width = needW + "px"; grew = true; }
@@ -413,7 +407,6 @@ function tick(){
   if (drag.kind === "card") {
     const pm = drag.x !== drag.lx || drag.y !== drag.ly, moved = pm || window.scrollY !== drag.sy; drag.lx = drag.x; drag.ly = drag.y; drag.sy = window.scrollY;
     if (pm) drag.ghost.style.translate = (drag.x - drag.dx - drag.gl) + "px " + (drag.y - drag.dy - drag.gt) + "px";
-    // Pointer at rest and no edge scrolling: nothing under it changed, so skip the hit test and the card scan
     const edge = drag.y < 110 || drag.y > window.innerHeight - 120;
     if (!moved && !edge && !drag.hs) { drag.raf = requestAnimationFrame(tick); return; }
     const under = document.elementFromPoint(drag.x, drag.y);
@@ -439,8 +432,7 @@ function tick(){
   }
   drag.raf = requestAnimationFrame(tick);
 }
-/* Runs step() at a steady 60 steps a second whatever the screen's refresh rate (a 120 Hz screen no longer plays the
-   effect at double speed, a slow frame catches up). step() returns true to keep going. */
+/* Runs step() at a steady 60 steps a second whatever the screen's refresh rate */
 function loop60(step){
   let last = 0, acc = 0;
   const run = now => {
@@ -592,7 +584,7 @@ function endDrag(ok){
   d.ghost.remove();
   if (d.board) d.board.classList.remove("dragging");
   $$(".col.over").forEach(c => c.classList.remove("over"));
-  if (d.el && d.el.dataset && d.el.dataset.gt) {   // a group project task: only its status can change here
+  if (d.el && d.el.dataset && d.el.dataset.gt) {
     const colEl = ok && d.ph && d.ph.parentNode ? d.ph.closest(".col") : null;
     if (colEl && window.SBGROUPTASKS) {
       const status = colEl.dataset.status, gid = d.el.dataset.gt;
@@ -616,7 +608,6 @@ function endDrag(ok){
   let order;
   const gNeighbour = (seq[i - 1] && seq[i - 1].dataset.gt) || (seq[i + 1] && seq[i + 1].dataset.gt);
   if (gNeighbour || (prev && !num(prev)) || (next && !num(next)) || (num(prev) && num(next) && Math.abs(next.order - prev.order) < 1e-6)) {
-    // Renumber the whole column so every card has a clean position.
     const colTasks = tasksArr().filter(x => x.status === status && x.id !== t.id).sort(boardOrder);
     const ids = seq.map(n => n === d.ph ? t.id : n.dataset.id);
     const rest = colTasks.filter(x => !ids.includes(x.id)).map(x => x.id).concat(groupBoardRows(status).filter(r => !ids.includes(r.id)).map(r => r.id)), gOrd = {};
@@ -631,7 +622,7 @@ function endDrag(ok){
   else if (num(next)) order = next.order - 10;
   else order = 10;
   const n = Object.assign(clone(t), {status, order});
-  if (t.status === status) setBoardManual(status, true);   // rearranged within its own column: keep the order you chose
+  if (t.status === status) setBoardManual(status, true);
   if (status === "done" && t.status !== "done") { n.doneAt = Date.now(); n.pct = 100; }
   if (status !== "done") n.doneAt = null;
   if (!MILESTONE(t.type) && status !== t.status) { if (status === "todo") n.pct = 0; else if (status === "doing" && n.pct >= 100) n.pct = 90; }

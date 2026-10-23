@@ -1,6 +1,5 @@
 /* ===== module: 96-tp-zreg.js ===== */
-/* Theme Collections: adds every batch's stickers, pins and flashcard styles to the app, and shows them in the
-   Style Shop, the sticker envelope and the note pin menu, grouped by theme. */
+/* Theme Collections */
 (() => {
   const PIN_BOX = {
     badge: "top:-6px;left:50%;width:28px;height:28px;margin-left:-14px",
@@ -15,7 +14,7 @@
     const rec = byTheme[t.theme] = {theme: t.theme, pack: "", pins: [], card: ""};
     if (t.pack && t.pack.items) {
       const pid = "tp-" + t.theme;
-      STICKER_PACKS.push({id: pid, name: t.pack.name, tier: themeTier(t.theme), theme: t.theme, items: t.pack.items});   // a collection has the tier of its theme
+      STICKER_PACKS.push({id: pid, name: t.pack.name, tier: themeTier(t.theme), theme: t.theme, items: t.pack.items});
       Object.entries(t.pack.items).forEach(([k, svg]) => { STICKERS[k] = {svg, pack: pid}; });
       rec.pack = pid;
     }
@@ -30,14 +29,14 @@
     if (t.card && t.card.id) { CARD_STYLES.push({id: t.card.id, name: t.card.name, tier: themeTier(t.theme), desc: t.card.desc || "", theme: t.theme}); rec.card = t.card.id; }
   });
   if (css.length) { const st = document.createElement("style"); st.id = "tpPins"; st.textContent = css.join("\n"); document.head.appendChild(st); }
-  // Read live: hidden themes (20-scenes-visible.js) are out of SKINS, and come back when the account may see them
+  // Read live: hidden themes (20-scenes-visible.js) are out of SKINS
   const tpOrder = () => SKINS.filter(s => byTheme[s.id]).map(s => s.id);
   const curTheme = () => document.documentElement.dataset.skin || effSkinId() || "";
   // The theme you're using comes first, then the rest in Style Shop order
   const ordered = () => { const c = curTheme(); return byTheme[c] ? [c].concat(tpOrder().filter(x => x !== c)) : tpOrder().slice(); };
   const isTP = x => !!(x && x.theme);
 
-  // Run a function with the theme items taken out of a list (so the app's own sections only show the originals)
+  // Run a function with the theme items taken out of a list
   function without(list, fn, keep){
     const saved = list.slice();
     const kept = saved.filter(x => !isTP(x) || (keep && keep(x)));
@@ -45,14 +44,13 @@
     try { return fn(); } finally { list.length = 0; saved.forEach(x => list.push(x)); }
   }
 
-  /* ---------- Style Shop: a Theme Collections section on the Flashcards, Pins and Stickers tabs ---------- */
+  /* Style Shop: a Theme Collections section on the Flashcards, Pins and Stickers tabs */
   const origShop = styleShop;
   styleShop = function(tab){
     const t = tab || ui.shopTab || "themes";
     const kind = t === "cards" ? "card" : t === "pins" ? "pin" : t === "stickers" ? "sticker" : "";
     if (!kind) return origShop.apply(this, arguments);
     const list = kind === "card" ? CARD_STYLES : kind === "pin" ? PINS : STICKER_PACKS;
-    // A collection's own flashcard or pin that is in use stays in the list, so the tab shows what is really in use (not the fallback Index Card or Red Pin).
     const nowId = kind === "card" ? cardStyleOf(null) : kind === "pin" ? notePinOf(null) : "";
     const r = without(list, () => origShop.apply(this, arguments), nowId ? x => x.id === nowId : null);
     try { addCollections(kind); } catch(e) { console.warn("theme collections", e); }
@@ -75,10 +73,9 @@
     return ordered().filter(th => byTheme[th].pack).map(th => { const p = STICKER_PACKS.find(x => x.id === byTheme[th].pack);
       return `<div class="shop-pack tp-pack" data-theme="${th}">${eyebrow(th)}<div class="shop-name"><b>${esc(p.name)}</b><span class="mini">${Object.keys(p.items).length} stickers</span>${owns("sticker", p.id) ? "" : `<button type="button" class="btn small" data-act="shop-unlock" data-kind="sticker" data-id="${p.id}">🔒 Unlock</button>`}</div>${window.SBUI && SBUI.stkGrid ? SBUI.stkGrid(Object.keys(p.items)) : `<div class="pack-grid">${Object.keys(p.items).map(stkCell).join("")}</div>`}</div>`; }).join("");
   }
-  // A sticker in the shop: a cached image from the shop layout module when it's there (much faster to scroll)
+  // A sticker in the shop
   const stkCell = k => window.SBUI && SBUI.stkCell ? SBUI.stkCell(k) : `<span class="stk-cell">${stickerSvg(k)}</span>`;
-  // Adds the Theme Collections section. When the shop layout module is loaded (window.SBUI.lazyShop), the items are
-  // only drawn when the section is opened (sec.tpFill), which keeps the shop quick.
+  // Adds the Theme Collections section
   function addCollections(kind){
     const body = dlg.querySelector(".shop .sheet-body"); if (!body) return;
     const what = kind === "card" ? "a flashcard style" : kind === "pin" ? "two pins" : "a sticker pack";
@@ -94,24 +91,22 @@
     if (!(window.SBUI && window.SBUI.lazyShop)) sec.tpFill();
   }
 
-  /* ---------- Sticker envelope: the usual packs, plus a theme pack picker ---------- */
+  /* Sticker envelope */
   const origEnv = envelopeHtml;
   envelopeHtml = function(){
     if (!ui.stkPack) { const c = curTheme(); if (byTheme[c] && byTheme[c].pack) ui.stkPack = byTheme[c].pack; }
     const cur = STICKER_PACKS.find(p => p.id === ui.stkPack);
     let html = without(STICKER_PACKS, () => origEnv.apply(this, arguments), p => p === cur);
-    // A picker in the app's own style (not the system's): a button, and a list of every theme's pack with its colour, opened above the envelope
     const chosen = cur && isTP(cur) ? cur : null, chev = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`;
     const dot = th => { const sk = SKINS.find(x => x.id === th), c = sk && sk.light ? sk.light[8] : (sk && sk.swatch) || "#C9975A"; return `<i class="env-tp-dot" style="background:${esc(String(c))}"></i>`; };
     const opts = ordered().filter(th => byTheme[th].pack).map(th => { const p = STICKER_PACKS.find(x => x.id === byTheme[th].pack); if (!p) return "";
       return `<button type="button" role="option" class="env-tp-opt${p === cur ? " on" : ""}" data-id="${esc(p.id)}" aria-selected="${p === cur}">${dot(th)}<span class="env-tp-tx"><b>${esc(themeName(th))}</b><small>${esc(p.name)}</small></span>${p === cur ? `<svg class="env-tp-ck" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>` : ""}</button>`; }).join("");
     const chosenTh = chosen ? ordered().find(th => byTheme[th].pack === chosen.id) : "";
     const pick = `<div class="env-tp"><span id="envTpLbl">Theme Packs</span><button type="button" class="env-tp-btn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="envTpLbl envTpCur">${chosenTh ? dot(chosenTh) : ""}<span id="envTpCur" class="env-tp-cur">${chosen ? esc(themeName(chosenTh)) : "Choose a theme…"}</span>${chev}</button><div class="env-tp-list" role="listbox" aria-label="Theme sticker packs" hidden>${opts}</div></div>`;
-    // the current theme pack (if chosen) shouldn't also appear as a tab
     if (cur && isTP(cur)) html = html.replace(new RegExp(`<button type="button" data-act="stk-pack" data-id="${cur.id}"[\\s\\S]*?</button>`), "");
     return html.replace(`<div class="env-name">`, pick + `<div class="env-name">`);
   };
-  // The theme pack list floats over everything (fixed, so the envelope's edges never cut it off) and closes on a pick, a click elsewhere, Esc or scroll
+  // The theme pack list floats over everything
   const tpClose = () => { $$(".env-tp-list").forEach(l => { if (!l.hidden) { l.hidden = true; const b = l.parentNode && l.parentNode.querySelector(".env-tp-btn"); if (b) b.setAttribute("aria-expanded", "false"); } }); };
   const tpOpen = btn => {
     const list = btn.parentNode.querySelector(".env-tp-list"); if (!list) return;
@@ -137,7 +132,7 @@
   addEventListener("resize", tpClose);
   document.addEventListener("scroll", e => { if (!(e.target && e.target.closest && e.target.closest(".env-tp-list"))) tpClose(); }, true);
 
-  /* ---------- Note editor: pins grouped by theme ---------- */
+  /* Note editor: pins grouped by theme */
   hook("render", () => {
     $$("select.note-pin").forEach(sel => {
       if (sel.dataset.tp) return; sel.dataset.tp = "1";
@@ -149,7 +144,7 @@
     });
   });
 
-  // For previews and tests: every theme's items side by side
+  // For previews and tests
   window.SBTP = {
     themes: () => tpOrder().slice(), pinHtml, shopRows: rowsHtml, pinIds: () => PINS.map(x => x.id),
     ordered,

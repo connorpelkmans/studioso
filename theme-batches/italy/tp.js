@@ -1,4 +1,4 @@
-/* Theme Collections, Around the World: italy (Amalfi Coast) */
+/* Theme Collections, Around the World */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2);

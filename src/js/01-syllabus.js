@@ -1,5 +1,5 @@
 /* ===== module: 01-syllabus.js: the app's core, syllabus parsing and import ===== */
-/* ---------- Syllabus parsing (rule-based, no AI) ---------- */
+/* Syllabus parsing (rule-based, no AI) */
 const SY = (() => {
   const MONTH_RE = "(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\\.?";
   const MIDX = m => ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"].indexOf(m.toLowerCase().slice(0, 3));
@@ -36,10 +36,7 @@ const SY = (() => {
     };
   }
 
-  // Find all dates in a line. Returns [{index, end, iso, isoEnd}]
-  // Handles month names (Oct 5, 5 Oct, October the 5th, 5th of October, Oct-5, 5-Oct-26, Oct.5), numeric dates
-  // (10/5, 10/5/26, 10-05-2026, 10.5.2026, 2026-10-05, 2026/10/05), day-first dates when the syllabus uses them
-  // (25/10), ranges (Oct 5-9, Oct 30 - Nov 2, 5-9 Oct, 10/5-10/9), lists (Oct 5 & 7) and weekday forms (Tue 9-30).
+  // Find all dates in a line
   let DAY_FIRST = false;
   const WDAY = "(?:mon|tue|tues|wed|weds|thu|thur|thurs|fri|sat|sun)(?:day|sday|nesday|rsday|urday)?\\.?";
   const YR = "(?:,?\\s*(?:(20\\d{2})|['’](\\d{2})))";
@@ -50,36 +47,31 @@ const SY = (() => {
     const out = [], used = [];
     const overlap = (a, b) => used.some(([x, y]) => a < y && b > x);
     const push = (idx, end, iso, isoEnd) => { if (!iso || overlap(idx, end)) return false; used.push([idx, end]); out.push({index: idx, end, iso, isoEnd: isoEnd || ""}); return true; };
-    const md = (a, b) => { // numeric month/day order
+    const md = (a, b) => {
       a = Number(a); b = Number(b);
       if (a > 12 && b <= 12) return [b - 1, a];
       if (DAY_FIRST && b <= 12) return [b - 1, a];
       return [a - 1, b];
     };
     let m;
-    // ISO and year-first numeric: 2026-10-05, 2026/10/05, 2026.10.05
     const reISO = /\b(20\d{2})([-/.])(\d{1,2})\2(\d{1,2})\b/g;
     while ((m = reISO.exec(line))) push(m.index, m.index + m[0].length, isoOf(Number(m[1]), Number(m[3]) - 1, Number(m[4])));
-    // Day-month-year joined by dashes, slashes or dots: 5-Oct-26, 05/Oct/2026
     const reDMY = new RegExp("\\b(\\d{1,2})[-/.]" + MONTH_RE + "[-/.](20\\d{2}|\\d{2})(?![\\d:])", "gi");
     while ((m = reDMY.exec(line))) push(m.index, m.index + m[0].length, isoOf(yNum(m[3]), MIDX(m[2]), Number(m[1])));
-    // Month name first: Oct 5, October 5th, Oct. 5, 2026, Oct the 5th, Oct-5, Oct.5, with optional range to another day or month
     const reA = new RegExp("\\b" + MONTH_RE + "(?:\\s*[-/]\\s*|\\s+the\\s+|\\s*)(\\d{1,2})" + ORD + "(?!\\d)(?!:\\d)" + YR + "?(?:" + RANGE + "(?:" + MONTH_RE + "\\s*[-/]?\\s*)?(\\d{1,2})" + ORD + "(?!\\d)(?!:\\d)(?!\\s*(?:am|pm|a\\.m|p\\.m))" + YR + "?)?", "gi");
     while ((m = reA.exec(line))) {
       const mo = MIDX(m[1]), d = Number(m[2]);
       if (d < 1 || d > 31) continue;
-      if (/^(may|mar)$/.test(m[1])) continue; // lowercase "may" and "mar" are ordinary words
+      if (/^(may|mar)$/.test(m[1])) continue;
       const y = y2(m[3], m[4]) || yearFor(mo);
       let isoEnd = "";
       if (m[6]) { const mo2 = m[5] ? MIDX(m[5]) : mo; const yy = y2(m[7], m[8]) || (mo2 < mo ? y + 1 : y); isoEnd = isoOf(yy, mo2, Number(m[6])); }
       if (push(m.index, m.index + m[0].length, isoOf(y, mo, d), isoEnd)) {
-        // "Oct 5 & 7", "Oct 5 and 12", "Oct 5, 7"
         const rest = line.slice(m.index + m[0].length);
         const more = /^(\s*(?:&|and|,|\/)\s*(\d{1,2})(?:st|nd|rd|th)?)(?![\d:%]|\s*(?:am|pm|a\.m|p\.m|points?|pts|%))/i.exec(rest);
         if (more && Number(more[2]) >= 1 && Number(more[2]) <= 31) push(m.index + m[0].length, m.index + m[0].length + more[1].length, isoOf(y, mo, Number(more[2])));
       }
     }
-    // Day first: 5 Oct, 5th October, 5th of October, 5-Oct, 5-Oct-26, 5/Oct/2026, 5-9 Oct, 5th-9th of October
     const reB = new RegExp("\\b(\\d{1,2})" + ORD + "(?:" + RANGE + "(\\d{1,2})" + ORD + ")?(?:\\s+of\\s+|\\s*[-/.]\\s*|\\s+)" + MONTH_RE + "(?:\\s*[-/]\\s*(\\d{2}|20\\d{2})(?![\\d:])|,?\\s+(20\\d{2})(?![\\d:]))?", "gi");
     while ((m = reB.exec(line))) {
       const mo = MIDX(m[3]), d = Number(m[1]);
@@ -87,20 +79,17 @@ const SY = (() => {
       const y = yNum(m[4]) || yNum(m[5]) || yearFor(mo);
       push(m.index, m.index + m[0].length, isoOf(y, mo, d), m[2] ? isoOf(y, mo, Number(m[2])) : "");
     }
-    // Numeric with a year, dashes or dots: 10-05-2026, 10.5.26, 25.10.2026
     const reN = /(^|[^\d.\-/])(\d{1,2})([-.])(\d{1,2})\3(20\d{2}|\d{2})(?![\d.\-/])/g;
     while ((m = reN.exec(line))) {
       const [mo, d] = md(m[2], m[4]);
       if (mo < 0 || mo > 11 || d < 1 || d > 31) continue;
       push(m.index + m[1].length, m.index + m[0].length, isoOf(yNum(m[5]), mo, d));
     }
-    // Weekday then month-day with dash or dot: Tue 9-30, Thu 10.1 (needs the weekday so section numbers aren't mistaken for dates)
     const reG = new RegExp("\\b" + WDAY + ",?\\s*\\(?\\s*(\\d{1,2})[-.](\\d{1,2})\\)?(?![\\d.])", "gi");
     while ((m = reG.exec(line))) {
       const [mo, d] = md(m[1], m[2]);
       if (mo >= 0 && mo < 12) push(m.index, m.index + m[0].length, isoOf(yearFor(mo), mo, d));
     }
-    // Slashes: 10/5, 10/05/26, 10/5/2026, 10/5-10/9, 10/5 - 9, 25/10 (day first)
     const reC = /(^|[^\d/.])(\d{1,2})\/(\d{1,2})(?:\/(\d{4}|\d{2}))?(?:\s*(?:-|–|—|to|through|thru)\s*(\d{1,2})(?:\/(\d{1,2}))?(?:\/(\d{4}|\d{2}))?(?![\d:])(?!\s*(?:am|pm|a\.m|p\.m)))?(?![\d/])(?!\s*(?:of\b|pts?\b|points?\b|%|marks?\b))/g;
     while ((m = reC.exec(line))) {
       const [mo, d] = md(m[2], m[3]);
@@ -116,7 +105,7 @@ const SY = (() => {
     return out.sort((a, b) => a.index - b.index);
   }
 
-  // Due times: 11:59 pm, 11:59pm, 11:59 PM, 11:59p, 5pm, 5 p.m., 11.59pm, 23:59, noon, midnight, end of day, 8:30-10:20 am
+  // Due times: 11:59 pm, 11:59pm, 11:59 PM, 11:59p, 5pm, 5 p.m., 11.59pm, 23:59, noon
   function findTime(s, preferStart){
     const AP = "(a\\.?m\\.?|p\\.?m\\.?|(?<=\\d)[ap](?![a-z]))";
     let r = s.match(new RegExp("\\b(\\d{1,2})(?:[:.](\\d{2}))?\\s*" + AP + "?\\s*(?:-|–|—|to)\\s*(\\d{1,2})(?:[:.](\\d{2}))?\\s*" + AP + "(?![a-z])", "i"));
@@ -198,7 +187,7 @@ const SY = (() => {
     return t ? cap(t) : type;
   }
 
-  // Split a row into item segments on strong separators, then on keyword starts.
+  // Split a row into item segments on strong separators, then on keyword starts
   const KW_START = /\b(?=(?:homework|hw\s*#?\s*\d|problem set|pset|quiz|mid-?term|exam|final exam|test\s*#?\s*\d|lab\s*(?:#?\s*\d|report)|pre-?lab|project|proposal|presentation|essay|paper|assignment|read(?:ing)?s?\b)(?![a-z]))/gi;
   function segments(line){
     const parts = line.split(/\t|\s[|•·]\s|;\s*/).map(s => s.trim()).filter(Boolean);
@@ -218,7 +207,6 @@ const SY = (() => {
   function courseInfo(lines, text){
     const top = lines.slice(0, 60);
     const info = {name:"", code:"", instructor:"", schedule:"", room:"", office:"", links:[]};
-    // Course code: most frequent pattern like ME 201 / CHEM-101L
     const counts = {};
     const codeRe = /\b([A-Z]{2,5})\s?-?\s?(\d{3,4}[A-Z]?)\b/g;
     let m;
@@ -229,7 +217,6 @@ const SY = (() => {
     const clean = s => s.replace(/\S+@\S+/g, "").replace(/\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}/g, "").replace(/\s{2,}/g, " ").replace(/^[\s,:;\-–]+|[\s,:;\-–|]+$/g, "").trim().slice(0, 120);
     info.instructor = clean(field(/^\s*(?:course\s+)?(?:instructors?|professors?|lecturers?|faculty|taught by|teacher)\s*(?:name)?\s*[:\-–]\s*(.+)/i)).split(/[;,]/)[0].trim();
     if (!info.instructor) {
-      // A heading like "Instructors and Contact Information" followed by "Dr. Som B. Ale, email; …"
       const hi = top.findIndex(l => /^(?:course\s+)?(?:instructors?|professors?|teaching staff|faculty)\b/i.test(l) && l.length < 60);
       if (hi >= 0 && top[hi + 1]) { const nm = top[hi + 1].split(/[;,(]|\s[-–]\s|\S+@\S+/)[0].trim(); if (/^[A-Z][A-Za-z.'’\- ]{2,50}$/.test(nm) && nm.split(/\s+/).length <= 6) info.instructor = nm; }
     }
@@ -242,7 +229,6 @@ const SY = (() => {
     if (!sched || !(dayTime.test(sched) || hasDays(sched))) { sched = ""; for (const l of top) { if (/office|drop-?in|help hours|student hours/i.test(l)) continue; const x = l.match(dayTime); if (x) { sched = x[0]; break; } } }
     info.schedule = clean(sched || "");
     if (!info.room) { const x = (info.schedule + " " + top.join(" ")).match(/\b(?:in|room|rm\.?)\s+([A-Z][A-Za-z]*\s*\d{1,4}[A-Z]?)\b/); if (x) info.room = x[1]; }
-    // Name: text next to the code, or a title-like line near the top
     const skipName = /syllabus|course (outline|information|description)|^(fall|spring|summer|winter)|university|college|department|school of|instructor|professor|office|email|phone|room|location|page \d/i;
     if (info.code) {
       const [pre, num] = info.code.split(" ");
@@ -257,7 +243,6 @@ const SY = (() => {
         if (t.length >= 4 && t.length <= 70 && !skipName.test(t) && !/\d{2,}/.test(t) && /^[A-Z]/.test(t) && t.split(/\s+/).length <= 9) { info.name = t.replace(/[\s:,\-–]+$/, ""); break; }
       }
     }
-    // Links
     const urlRe = /\b((?:https?:\/\/|www\.)[^\s<>()"']+[^\s<>()"'.,;:!?])/gi;
     const found = [];
     while ((m = urlRe.exec(text))) { let u = m[1]; if (!/^https?:/i.test(u)) u = "https://" + u; try { found.push({u, host: new URL(u).hostname.replace(/^www\./, "")}); } catch(e) {} }
@@ -267,7 +252,7 @@ const SY = (() => {
     const hosts = new Set();
     found.forEach(f => {
       if (hosts.has(f.host) || info.links.length >= 6) return;
-      if (!TOOLS.test(f.host) && hostCount[f.host] < 2) return; // skip one-off policy and resource pages
+      if (!TOOLS.test(f.host) && hostCount[f.host] < 2) return;
       hosts.add(f.host);
       info.links.push({label: labelOf(f.host), url: /skyepack|canvas|instructure|blackboard|gradescope|piazza|edstem|moodle/.test(f.host) ? f.u.replace(/^(https?:\/\/[^/]+).*$/, "$1") : f.u});
     });
@@ -282,19 +267,18 @@ const SY = (() => {
     if (m) return {n: WEEK_WORDS[m[1].toLowerCase()], index: m.index, end: m.index + m[0].length};
     return null;
   }
-  // Which weekdays a class meets, from text like "MWF 10:30", "TTh", "TuTh", "Mon/Wed", "Tuesdays and Thursdays"
+  // Which weekdays a class meets, from text like "MWF 10:30", "TTh", "TuTh", "Mon/Wed"
   function meetingDays(sched){
     let s = String(sched || "");
     const days = new Set(), NAMES = ["sun","mon","tue","wed","thu","fri","sat"];
-    // A range of days ("Mon-Fri", "Monday through Thursday", "M-F") means every day in it
     const span = (a, b) => { if (a < 0 || b < 0 || a === b) return; for (let d = a; ; d = (d + 1) % 7) { days.add(d); if (d === b) break; } };
     s = s.replace(/\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?\s*(?:-|–|—|to|through|thru)\s*(mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?/gi, (all, a, b) => { span(NAMES.indexOf(a.toLowerCase()), NAMES.indexOf(b.toLowerCase())); return " "; });
     s = s.replace(/\b(M|Tu|W|Th|F)\s*(?:-|–|—)\s*(Tu|W|Th|R|F)\b(?=\s*[\d(,]|\s*$)/g, (all, a, b) => { const C = {M: 1, Tu: 2, W: 3, Th: 4, R: 4, F: 5}; span(C[a], C[b]); return " "; });
     const words = s.match(/\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*/gi);
     if (words) words.forEach(w => days.add(NAMES.indexOf(w.slice(0, 3).toLowerCase())));
     else if (!days.size) {
-      s = s.replace(/\b(M|Tu|W|Th|R|F|Sa|Su)\s*[/,&]\s*(?=(?:M|Tu|W|Th|R|F|Sa|Su)\b)/g, "$1").replace(/\b(M|Tu|W|Th|R|F|Sa|Su)\s*[/,&]\s*(?=(?:M|Tu|W|Th|R|F|Sa|Su)\b)/g, "$1");   // "Tu/Th", "M, W, F"
-      const code = (s.match(/\b([MTWRFSU]|Th|Tu|Sa|Su){2,5}\b/) || s.match(/\b(Th|Tu|Sa|Su|[MWRF])\b(?=\s*\d)/) || [""])[0];   // also one day on its own before a time ("Lab Th 2-4:50pm")
+      s = s.replace(/\b(M|Tu|W|Th|R|F|Sa|Su)\s*[/,&]\s*(?=(?:M|Tu|W|Th|R|F|Sa|Su)\b)/g, "$1").replace(/\b(M|Tu|W|Th|R|F|Sa|Su)\s*[/,&]\s*(?=(?:M|Tu|W|Th|R|F|Sa|Su)\b)/g, "$1");
+      const code = (s.match(/\b([MTWRFSU]|Th|Tu|Sa|Su){2,5}\b/) || s.match(/\b(Th|Tu|Sa|Su|[MWRF])\b(?=\s*\d)/) || [""])[0];
       code.replace(/Th|Tu|Sa|Su|[MTWRFSU]/g, t => { days.add({M:1, T:2, Tu:2, W:3, R:4, Th:4, F:5, S:6, Sa:6, Su:0, U:0}[t]); return t; });
     }
     days.delete(-1); days.delete(undefined);
@@ -338,7 +322,6 @@ const SY = (() => {
   function parse(text, today){
     text = String(text || "").replace(/\r/g, "").replace(/\u00a0/g, " ");
     let lines = text.split("\n").map(l => l.replace(/[ \u2002\u2003\u2009]+/g, " ").replace(/ *\t */g, "\t").trim()).filter(l => l.length);
-    // Page headers and footers ("3 of 9", "Page 4", a title repeated on every page) sit between schedule rows, so remove them.
     const freq = {};
     lines.forEach(l => { freq[l] = (freq[l] || 0) + 1; });
     const firstIdx = {};
@@ -349,14 +332,12 @@ const SY = (() => {
     });
     const term = termInfo(text);
     const yearFor = makeYearFor(term, today);
-    // Decide whether numeric dates are day-first (25/10) for this syllabus.
     DAY_FIRST = false;
     { let df = 0, mf = 0, mm; const re = /(?:^|[^\d/.\-])(\d{1,2})[/.\-](\d{1,2})(?:[/.\-](?:20\d{2}|\d{2}))?(?![\d/.\-])/g;
       while ((mm = re.exec(text))) { const a = Number(mm[1]), b = Number(mm[2]); if (a > 12 && a <= 31 && b <= 12) df++; else if (b > 12 && b <= 31 && a <= 12) mf++; }
       DAY_FIRST = df > 0 && df > mf; }
     const course = courseInfo(lines, text);
 
-    // Week number -> Monday, learned from lines that have both "Week N" and a date, or from a term start line.
     const weekMon = {};
     const monday = iso => { const d = new Date(iso + "T00:00:00"); const wd = (d.getDay() + 6) % 7; d.setDate(d.getDate() - wd); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
     const addD = (iso, n) => { const d = new Date(iso + "T00:00:00"); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
@@ -373,7 +354,6 @@ const SY = (() => {
     const known = Object.keys(weekMon).map(Number).sort((a, b) => a - b);
     if (!week1 && known.length) week1 = addD(weekMon[known[0]], -7 * (known[0] - 1));
     const weekDue = n => weekMon[n] ? addD(weekMon[n], 4) : week1 ? addD(week1, 7 * (n - 1) + 4) : "";
-    // "Class 12", "Lecture 12", "Session 12": count class meetings from the first week
     const mdays = meetingDays(course.schedule);
     const sessionDate = n => {
       if (!week1 || !mdays.length || n < 1 || n > 80) return "";
@@ -431,9 +411,8 @@ const SY = (() => {
         if (POLICY.test(seg) && !/\bdue\b/i.test(seg) && seg.length > 60) return;
         if (source === "none") {
           if (!/\b(homework|hw\s*\d|quiz\s*\d|exam|midterm|final exam|project|lab\s*\d)\b/i.test(seg)) return;
-          if (POLICY.test(line) || /\t/.test(line) || bare.length >= 1) return; // grading tables and policy text, not tasks
-          if (!/\d/.test(canonicalTitle(seg, type, yearFor)) && !/\b(final|midterm)\b/i.test(seg)) return; // "Homework" with no number or date
-          // Sentences from policy or description paragraphs aren't tasks.
+          if (POLICY.test(line) || /\t/.test(line) || bare.length >= 1) return;
+          if (!/\d/.test(canonicalTitle(seg, type, yearFor)) && !/\b(final|midterm)\b/i.test(seg)) return;
           if (seg.length > 45 || /[.!?]\s+[A-Z]|\b(is|are|will|may|can|must|should|there|if|when|however|available|allowed|policy)\b/i.test(line)) return;
         }
         const title = canonicalTitle(seg, type, yearFor);
@@ -445,7 +424,6 @@ const SY = (() => {
       });
     });
 
-    // Merge duplicates: same title and date, or numbered titles repeated elsewhere (prefer the one marked "due").
     const out = [];
     const byKey = {};
     items.forEach(it => {
@@ -467,7 +445,6 @@ const SY = (() => {
       return x;
     });
     final.sort((a, b) => (a.due || "9999") < (b.due || "9999") ? -1 : (a.due || "9999") > (b.due || "9999") ? 1 : 0);
-    // Grade weights from the grading breakdown ("Homework 20%", "Midterm exams 40% (20% each)", or a points table with a Total row)
     const weights = gradeWeights(lines);
     const countOf = type => final.filter(x => x.type === type && !(type === "Exam" && /final/i.test(x.title) && weights.Final)).length;
     final.forEach(x => {
@@ -482,13 +459,13 @@ const SY = (() => {
   return {parse, findDates, termInfo, findTime, meetingDays};
 })();
 
-/* ---------- Syllabus import (PDF or text, parsed on this device) ---------- */
-const PDFJS_URL = "vendor/pdfjs/pdf.min.mjs";          // PDF.js 6.4.299 (legacy ES-module build), served from this site; prepare.js stages the same files in the desktop app
+/* Syllabus import (PDF or text, parsed on this device) */
+const PDFJS_URL = "vendor/pdfjs/pdf.min.mjs";
 const PDFW_URL = "vendor/pdfjs/pdf.worker.min.mjs";
 function loadScript(src, integrity){
   return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; if (integrity) { s.integrity = integrity; s.crossOrigin = "anonymous"; } s.onload = res; s.onerror = () => rej(new Error("Couldn't load " + src)); document.head.appendChild(s); });
 }
-// Same-origin vendored copy first, then the CDN; both must match the pinned hash. Fails with a clear message if neither does.
+// Same-origin vendored copy first, then the CDN; both must match the pinned hash
 async function loadSupabaseLib(){
   const tried = [];
   for (const src of [SBJS_LOCAL, SBJS]) {
@@ -497,13 +474,12 @@ async function loadSupabaseLib(){
   }
   throw new Error("Couldn't load the sign-in library from any source (" + tried.join(", ") + "). Offline, blocked by a network filter, or the file failed its integrity check.");
 }
-// One set of options for every PDF opened: no eval'd font code (CVE-2024-4367), no XFA forms, no scripting, no wasm or remote font/cmap fetches.
+// One set of options for every PDF opened
 const PDF_OPTS = {isEvalSupported: false, disableFontFace: true, enableXfa: false, useWasm: false, useSystemFonts: false, stopAtErrors: false, maxImageSize: 16777216, verbosity: 0};
 let pdfReady = null;
 function loadPdfJs(){
   if (!pdfReady) pdfReady = (async () => {
     const mod = await import(new URL(PDFJS_URL, document.baseURI).href);
-    // If the worker can't start (some embedded browsers), pdf.js imports this same file and runs on the page itself.
     mod.GlobalWorkerOptions.workerSrc = new URL(PDFW_URL, document.baseURI).href;
     window.pdfjsLib = mod;
   })().catch(e => { pdfReady = null; throw e; });
@@ -555,7 +531,7 @@ function importSheet(courseId, file){
         <button type="button" class="btn primary" id="impPick">Choose a PDF</button>
         <input type="file" id="impFile" accept=".pdf,.txt,application/pdf,text/plain,image/*" class="sr" tabindex="-1">
       </div>
-      ${aiReady() ? `<label class="mi-check ai-toggle"><input type="checkbox" id="impAI" checked> ${AI_ICON}<span><b>Read with AI</b><span class="mini" style="display:block">Smarter at dates, weights and class times, and reads scanned PDFs and photos. Uses ${esc(aiModelName(aiCfg().provider, aiCfg().model))}; turn off to read it only on this device.</span></span></label>` : inClaude() ? "" : `<p class="mini" style="margin:0">${AI_ICON} Want smarter reading that also handles scanned PDFs? <button type="button" class="link-btn" data-act="ai-setup">Turn on AI Features</button></p>`}
+      ${aiReady() ? `<label class="mi-check ai-toggle"><input type="checkbox" id="impAI" checked> ${AI_ICON}<span><b>Read with AI</b><span class="mini" style="display:block">Smarter at dates, weights and class times, and reads scanned PDFs and photos. Uses ${esc(aiModelName(aiCfg().provider, aiCfg().model))}; turn off to read it only on this device.</span></span></label>` : inPreview() ? "" : `<p class="mini" style="margin:0">${AI_ICON} Want smarter reading that also handles scanned PDFs? <button type="button" class="link-btn" data-act="ai-setup">Turn on AI Features</button></p>`}
       <details id="impPaste"><summary>Or Paste the Text Instead</summary>
         <textarea id="impText" style="min-height:150px;margin-top:8px" placeholder="Paste the syllabus or just its schedule…" data-noenter></textarea>
         <button type="button" class="btn small" id="impRead" style="margin-top:8px">Read Pasted Text</button>
@@ -567,7 +543,7 @@ function importSheet(courseId, file){
   </form>`);
   const status = $("#impStatus"), fileIn = $("#impFile");
   let result = null, srcFile = null;
-  if (file) setTimeout(() => readFile(file), 0);   // a screenshot handed over from Quick Capture is read right away
+  if (file) setTimeout(() => readFile(file), 0);
   $("#impPick").addEventListener("click", () => fileIn.click());
   fileIn.addEventListener("change", () => { const f = fileIn.files && fileIn.files[0]; fileIn.value = ""; if (f) readFile(f); });
   const drop = $("#impDrop");
@@ -743,7 +719,7 @@ function importSheet(courseId, file){
         status: "todo", priority: i.type === "Exam" ? "high" : "med", weight: isNum(i.weight) && Number(i.weight) > 0 ? Number(i.weight) : null, location: i.location || "", reading: i.reading || "", hours: !MILESTONE(i.type) && isNum(i.hours) && Number(i.hours) > 0 ? Number(i.hours) : null, notes: "From syllabus: " + String(i.note || "").replace(/\t+/g, " | ")});
       order += 10;
       let kids = [];
-      if (i.bd && window.SBBREAK) { const x = SBBREAK.expandNew(t); if (x) { t = x.parent; kids = x.kids; } }   // ticked "Break down": template milestones, no AI, instant
+      if (i.bd && window.SBBREAK) { const x = SBBREAK.expandNew(t); if (x) { t = x.parent; kids = x.kids; } }
       changes.push({kind:"task", id: t.id, after: t});
       kids.forEach(k => changes.push({kind:"task", id: k.id, after: k}));
     });

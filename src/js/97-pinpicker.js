@@ -1,10 +1,7 @@
 /* ===== module: 97-pinpicker.js ===== */
-/* A pin picker for notes. The pin list is long (a dozen basics plus a few pins for every scene theme), so instead of a long drop-down each
-   note gets a button that opens a searchable gallery: a search box, quick filters (All, Basic, Your Theme, Free) and the pins grouped by theme
-   (your theme first, the rest folded away until you search or open them). The note's real <select class="note-pin"> stays in the page (hidden)
-   and still does the saving, so locks, Undo and sync all behave exactly as before. */
+/* A pin picker for notes */
 (() => {
-  let S = null;   // {id: note id, q, chip, open: {theme: true}}
+  let S = null;
   const themeName = id => { const s = SKINS.find(x => x.id === id); return s ? s.name : id; };
   const defId = () => (PINS.find(x => x.id === styleCfg().pin) || PINS[0]).id;
   const curTheme = () => { try { return document.documentElement.dataset.skin || effSkinId() || ""; } catch (e) { return ""; } };
@@ -59,7 +56,6 @@
     const q = dlg.querySelector("#ppQ"); if (q) q.addEventListener("input", () => { S.q = q.value; draw(); });
     dlg.querySelector("#ppRes").addEventListener("click", e => { const sm = e.target.closest("summary"); if (!sm || !sm.parentElement.dataset.theme) return; S.open[sm.parentElement.dataset.theme] = !sm.parentElement.open; });
     draw();
-    // the current pin's group is already open: bring its tile into view
     setTimeout(() => { const on = dlg.querySelector(".pp-tile.on"); if (on && on.scrollIntoView) on.scrollIntoView({block: "center"}); if (q && !(window.matchMedia && matchMedia("(pointer:coarse)").matches)) q.focus(); }, 30);
   }
   function pick(pid){
@@ -70,7 +66,7 @@
     if (dlg.open) dlg.close();
     setTimeout(() => { const b = document.querySelector(`.pp-btn[data-id="${CSS.escape(noteId)}"]`); if (b) b.focus(); }, 80);
   }
-  // Every note's pin drop-down becomes a button showing its pin; the drop-down stays (hidden) as the thing that saves
+  // Every note's pin drop-down becomes a button showing its pin; the drop-down stays
   function enhance(){
     document.querySelectorAll("select.note-pin").forEach(sel => {
       const id = sel.dataset.id, p = PINS.find(x => x.id === chosen(id)) || PINS[0], isDef = p.id === defId();
@@ -90,6 +86,6 @@
     if (a === "pp-chip") { if (S) { S.chip = el.dataset.id; draw(); } return true; }
     return false;
   });
-  window.SBPINPICK = {open, enhance, state: () => state, ui, render, pins: () => PINS};   // the last four are for tests, like the other modules
+  window.SBPINPICK = {open, enhance, state: () => state, ui, render, pins: () => PINS};
 })();
 

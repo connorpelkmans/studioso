@@ -1,7 +1,4 @@
-// node tests/import-apps.e2e.js  (Playwright + Chromium; python3 builds the Anki collections, see tests/anki-fixture.js)
-// Import From Another App, end to end: a real .apkg (old schema, with a new card, a review card with history and a cloze note),
-// a newer .apkg whose real collection is zstd-compressed (collection.anki21b, read with the vendored fzstd), a Todoist CSV,
-// a Notion export with a ZIP inside the ZIP, a file dropped on the sheet, Quizlet's Paste Cards, the entry points, Undo, and a phone-width check.
+// node tests/import-apps.e2e.js
 "use strict";
 const http = require("http"), fs = require("fs"), os = require("os"), path = require("path"), zlib = require("zlib"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
@@ -37,7 +34,6 @@ function zip(entries){
   const c11 = ankiCollection("11"), c18 = ankiCollection("18"), dummy = ankiCollection("dummy");
   if (!c11) { console.log("python3 with sqlite3 not found: skipped"); return; }
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sb-import-"));
-  // the zstd frame for collection.anki21b, built with the page's own helper (raw blocks: valid zstd any decoder reads)
   const html = require("../scripts/app-files").source();
   const IA = new Function(html.slice(html.indexOf("/*IMPORTAPPS-START*/"), html.indexOf("/*IMPORTAPPS-END*/")) + ";return IA;")();
   const files = {
@@ -74,7 +70,7 @@ function zip(entries){
     const clickAct = act => page.evaluate(a => { const b = document.createElement("button"); b.dataset.act = a; b.hidden = true; document.body.appendChild(b); b.click(); b.remove(); }, act);
     const pick = async f => { await page.setInputFiles("#iaFile", f); await page.waitForSelector("#iaSum", {timeout: 20000}); return (await page.textContent("#iaSum")).trim(); };
 
-    // ---- entry points: Settings, next to Import from a Backup File, and the Flashcards Add Deck menu
+    // entry points
     await page.locator('[data-act="menu"]:visible').first().click(); await page.waitForSelector(".us-cat"); await page.click('.us-cat[data-us="data"]');
     await page.evaluate(() => { const t = [...document.querySelectorAll(".us-pane.on .us-sub-tab")].find(x => /Export/.test(x.textContent)); if (t) t.click(); });
     await page.waitForSelector('dialog[open] [data-act="ia-open"]');
@@ -88,7 +84,7 @@ function zip(entries){
     ok(true, "the Add Deck menu offers Import From Another App");
     await page.click('dialog[open] .fab-menu [data-act="ia-open"]'); await page.waitForSelector("dialog[open] .ia-sheet");
 
-    // ---- Anki, old schema: collection.anki21 next to the placeholder collection.anki2
+    // Anki, old schema
     let sum = await pick(files.apkg);
     ok(sum === "Found 3 decks, 8 cards (5 already learned, history kept).", "Anki preview: " + sum);
     const body = await page.textContent("dialog[open] .sheet-body");
@@ -113,7 +109,7 @@ function zip(entries){
     ok((await S()).decks.length === 0, "one Undo takes the whole import back out");
     ok(!served.some(p => /fzstd/.test(p)), "the zstd decoder isn't loaded for an old-style file");
 
-    // ---- Anki, newer schema: the placeholder collection.anki2 is skipped and collection.anki21b is unpacked
+    // Anki, newer schema
     await clickAct("ia-open"); await page.waitForSelector("dialog[open] .ia-sheet");
     sum = await pick(files.apkg21b);
     ok(sum === "Found 3 decks, 8 cards (5 already learned, history kept).", "anki21b preview: " + sum);
@@ -123,7 +119,7 @@ function zip(entries){
     ok(st.decks.length === 3 && st.decks.some(d => d.cards.some(c => c.front === "The capital of France is _____ (city).")), "decks and cloze cards from collection.anki21b");
     ok(await page.evaluate(() => document.body.textContent.includes("Spanish") && document.body.textContent.includes("Chem › Cells")), "the Flashcards page shows the imported decks");
 
-    // ---- Todoist CSV: the course comes from the file name
+    // Todoist CSV
     await clickAct("ia-open"); await page.waitForSelector("dialog[open] .ia-sheet");
     sum = await pick(files.todoist);
     ok(sum === "Found 2 tasks.", "Todoist preview: " + sum);
@@ -135,7 +131,7 @@ function zip(entries){
     ok(lab && lab.courseId === "bio" && lab.due === "2026-10-30" && lab.priority === "urgent" && lab.checklist.length === 1 && lab.checklist[0].text === "Graph the data" && /Section: Labs/.test(lab.notes), "a Todoist task: " + JSON.stringify(lab && {d: lab.due, p: lab.priority, c: lab.checklist, n: lab.notes}));
     ok(quiz && quiz.due && new Date(quiz.due + "T12:00").getDay() === 5, "a repeating task gets its next date: " + (quiz && quiz.due));
 
-    // ---- Notion: a ZIP inside the ZIP
+    // Notion: a ZIP inside the ZIP
     await clickAct("ia-open"); await page.waitForSelector("dialog[open] .ia-sheet");
     sum = await pick(files.notion);
     ok(sum === "Found 1 task, 2 cards in 1 deck, 1 note.", "Notion preview: " + sum);
@@ -150,7 +146,7 @@ function zip(entries){
     ok(st.decks.some(d => d.name === "Vocab" && d.cards.length === 2), "the Term/Definition database became a deck");
     ok(/Imported 1 deck \(2 cards\), 1 task, 1 note/.test(await toastTxt()), "the message sums it up");
 
-    // ---- a file dropped on the sheet
+    // a file dropped on the sheet
     await clickAct("ia-open"); await page.waitForSelector("dialog[open] .ia-sheet");
     await page.evaluate(() => {
       const dt = new DataTransfer(); dt.items.add(new File(["TYPE,CONTENT,DESCRIPTION,PRIORITY,INDENT,AUTHOR,RESPONSIBLE,DATE\ntask,Dropped task,,1,1,,,tomorrow\n"], "Inbox.csv", {type: "text/csv"}));
@@ -161,7 +157,7 @@ function zip(entries){
     await page.click("#iaGo"); await page.waitForTimeout(200);
     ok((await S()).tasks.some(x => x.title === "Dropped task"), "and imported");
 
-    // ---- something that isn't an export
+    // something that isn't an export
     await clickAct("ia-open"); await page.waitForSelector("dialog[open] .ia-sheet");
     await page.setInputFiles("#iaFile", {name: "photo.jpg", mimeType: "image/jpeg", buffer: Buffer.alloc(100, 7)});
     await page.waitForFunction(() => (document.querySelector("#iaMsg") || {}).textContent.length > 20);
@@ -170,12 +166,12 @@ function zip(entries){
     await page.waitForFunction(() => /couldn't read/.test((document.querySelector("#iaMsg") || {}).textContent));
     ok(true, "a broken file says it couldn't be read");
 
-    // ---- Quizlet: Paste Cards
+    // Quizlet: Paste Cards
     await page.click('dialog[open] [data-act="ia-quizlet"]'); await page.waitForTimeout(200);
     ok(/Paste Cards/.test(await page.textContent("dialog[open] .sheet-head")), "Quizlet opens Paste Cards");
     await page.evaluate(() => document.querySelector("dialog[open]").close());
 
-    // ---- a 390px phone: the sheets fit
+    // a 390px phone
     await page.setViewportSize({width: 390, height: 800});
     await clickAct("ia-open"); await page.waitForSelector("dialog[open] .ia-sheet");
     await pick(files.apkg);

@@ -1,12 +1,4 @@
--- Studyboard voice capture: security self-test
--- Run this in Supabase: SQL Editor > New query > paste everything > Run. Run it AFTER supabase-capture.sql.
---
--- It plays an attacker with two throw-away accounts: read someone else's capture tokens or inbox, write into the inbox directly,
--- call the service-only capture_add(), make a 6th token, get a token hash back, use a revoked token, ignore the rate limits, and the same
--- for Email to Studyboard: read or choose an address, send to a replaced or turned-off one, call capture_add_email() directly.
--- Every attempt must FAIL. If one works the test stops with  ERROR: EXPLOIT SUCCEEDED: <what worked>.
--- When all holds you see "ALL n CAPTURE CHECKS PASSED". Everything runs in one transaction that ends with ROLLBACK
--- (accounts and data disappear), so it is safe on your live project and safe to run again. If you stop it half way, run: rollback;
+-- Studyboard voice capture
 
 begin;
 
@@ -42,7 +34,7 @@ begin
     values (ua, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'selftest-a-' || ua || '@example.invalid', now(), now()),
            (ub, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'selftest-b-' || ub || '@example.invalid', now(), now());
 
-  -- ===== 0. Signed out =====
+  -- 0. Signed out
   perform set_config('request.jwt.claims', '', true); perform set_config('request.jwt.claim.sub', '', true);
   execute 'set local role anon';
   r := public.sbc_try('select public.capture_create_token(''x'')');
@@ -60,7 +52,7 @@ begin
   r := public.sbc_try('select public.capture_create_token(''x'')');
   execute 'reset role'; perform public.sbc_blocked(r, 'a token was made without a signed-in user id');
 
-  -- ===== 1. Victim B makes a token and has a waiting capture =====
+  -- 1. Victim B makes a token and has a waiting capture
   perform set_config('request.jwt.claims', jsonb_build_object('sub', ub, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
   j := public.capture_create_token('Victim Siri');
@@ -72,7 +64,7 @@ begin
   j := public.capture_add(hB, 'VICTIM SECRET TASK', null, null, null, 'siri');
   perform public.sbc_ok((j->>'ok')::boolean, 'a valid token adds to the inbox');
 
-  -- ===== 2. Attacker A =====
+  -- 2. Attacker A
   perform set_config('request.jwt.claims', jsonb_build_object('sub', ua, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
   n := public.sbc_count('select 1 from public.capture_inbox');
@@ -103,7 +95,6 @@ begin
   r := public.sbc_try('select public.capture_purge()');
   execute 'reset role'; perform public.sbc_blocked(r, 'a signed-in user ran capture_purge'); execute 'set local role authenticated';
 
-  -- A can't see B's stuff through the functions
   n := public.sbc_count('select 1 from public.capture_pull_inbox(100)');
   execute 'reset role'; perform public.sbc_ok(n = 0, 'A pulled someone else''s inbox (saw ' || n || ')'); execute 'set local role authenticated';
   n := public.sbc_count('select 1 from public.capture_list_tokens()');
@@ -118,7 +109,6 @@ begin
   r := public.sbc_try(format('select public.capture_set_allow_get(%L, true)', idB));
   execute 'reset role'; perform public.sbc_ok(not (select allow_get from public.capture_tokens where id = idB), 'A turned on GET for B''s token');
 
-  -- label handling and the 5 token cap
   execute 'set local role authenticated';
   r := public.sbc_try('select public.capture_create_token(''   '')');
   execute 'reset role'; perform public.sbc_blocked(r, 'an empty label was accepted'); execute 'set local role authenticated';
@@ -135,13 +125,12 @@ begin
   j := public.capture_create_token('after revoke');
   tokA2 := j->>'token'; idA2 := (j->>'id')::uuid;
   perform public.sbc_ok(tokA2 is not null, 'revoking frees a slot');
-  -- list shape: never the hash or the token
   perform public.sbc_ok(not exists (select 1 from jsonb_each_text(to_jsonb((select l from public.capture_list_tokens() l limit 1))) e where e.key ilike '%hash%' or e.value like 'sbc_%' or e.value like repeat('a', 20) || '%'), 'the token list never returns the hash or token');
   perform public.sbc_ok(not exists (select 1 from (select to_jsonb(l)::text t from public.capture_list_tokens() l) x where t ~ '[0-9a-f]{64}'), 'no 64-hex value appears in the token list');
   execute 'reset role';
   hA := encode(sha256(convert_to(tokA, 'UTF8')), 'hex'); hA2 := encode(sha256(convert_to(tokA2, 'UTF8')), 'hex');
 
-  -- ===== 3. The service side (as the Edge Function would call it) =====
+  -- 3. The service side (as the Edge Function would call it)
   j := public.capture_add(repeat('0', 64), 'hello');
   perform public.sbc_ok(j->>'error' = 'invalid_token', 'an unknown token is rejected');
   j := public.capture_add('not-a-hash', 'hello');
@@ -165,7 +154,6 @@ begin
   perform public.sbc_ok(j->>'error' = 'bad_input', 'a course hint over 60 characters is refused');
   j := public.capture_add(hA, 'natural due', null, null, null, 'x', null, 'friday 5pm');
   perform public.sbc_ok((j->>'ok')::boolean and (select due_text = 'friday 5pm' and due_date is null from public.capture_inbox where id = (j->>'id')::uuid), 'natural-language due text is stored raw, not parsed');
-  -- idempotency
   j := public.capture_add(hA, 'Retry me', null, null, null, 'siri', 'idem-1');
   perform public.sbc_ok((j->>'ok')::boolean and not (j->>'dup')::boolean, 'first call with an idempotency key adds');
   j := public.capture_add(hA, 'Retry me', null, null, null, 'siri', 'idem-1');
@@ -181,14 +169,13 @@ begin
   j := public.capture_add(hA, 'Retry me', null, null, null, 'siri', 'idem-1');
   perform public.sbc_ok(not (j->>'dup')::boolean, 'an idempotency key older than 7 days adds again');
   perform public.sbc_ok(not has_table_privilege('authenticated', 'public.capture_idem', 'select') and not has_table_privilege('anon', 'public.capture_idem', 'select'), 'the app can not read idempotency keys');
-  -- GET flag
   j := public.capture_add(hA, 'via url', null, null, null, 'x', null, null, 'get');
   perform public.sbc_ok(j->>'error' = 'get_disabled', 'GET is refused unless the token allows it');
   update public.capture_tokens set allow_get = true where id = idA;
   j := public.capture_add(hA, 'via url', null, null, null, 'x', null, null, 'get');
   perform public.sbc_ok((j->>'ok')::boolean, 'GET works when the owner switched it on');
   update public.capture_tokens set allow_get = false where id = idA;
-  -- ===== 4. Pull and acknowledge (as A) =====
+  -- 4. Pull and acknowledge (as A)
   perform set_config('request.jwt.claims', jsonb_build_object('sub', ua, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
   n := (select count(*) from public.capture_pull_inbox(100));
@@ -200,7 +187,7 @@ begin
   perform public.sbc_ok(not exists (select 1 from public.capture_pull_inbox(100) p where p.id = any(ids)), 'processed rows are not pulled again');
   execute 'reset role';
 
-  -- ===== 5. Revoked token =====
+  -- 5. Revoked token
   perform set_config('request.jwt.claims', jsonb_build_object('sub', ua, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
   perform public.sbc_ok(public.capture_revoke_token(idA2), 'owner can revoke');
@@ -209,7 +196,7 @@ begin
   j := public.capture_add(hA2, 'after revoke');
   perform public.sbc_ok(j->>'error' = 'invalid_token' and j->>'error' is not distinct from (public.capture_add(repeat('0', 64), 'x'))->>'error', 'a revoked token is rejected with the same answer as an unknown one');
 
-  -- ===== 6. Rate limits =====
+  -- 6. Rate limits
   delete from public.capture_inbox where token_id = idA;
   for i in 1..30 loop j := public.capture_add(hA, 'rate ' || i); perform public.sbc_ok((j->>'ok')::boolean, 'rate fill ' || i); end loop;
   delete from public.sbc_log where name like 'rate fill %';
@@ -218,24 +205,21 @@ begin
   update public.capture_inbox set created_at = now() - interval '2 hours' where token_id = idA;
   j := public.capture_add(hA, 'after the hour');
   perform public.sbc_ok((j->>'ok')::boolean, 'the hourly limit resets');
-  -- daily per token: 200 in the last day
   insert into public.capture_inbox (user_id, token_id, text, created_at, processed_at) select ua, idA, 'old ' || g, now() - interval '3 hours', now() from generate_series(1, 200) g;
   j := public.capture_add(hA, 'daily');
   perform public.sbc_ok(j->>'error' = 'rate_limited', '200 per day per token is enforced');
-  -- daily per user: 300 across tokens
   delete from public.capture_inbox where user_id = ua;
   insert into public.capture_inbox (user_id, token_id, text, created_at, processed_at) select ua, idA, 'u' || g, now() - interval '3 hours', now() from generate_series(1, 150) g;
   insert into public.capture_inbox (user_id, token_id, text, created_at, processed_at) select ua, (select id from public.capture_tokens where user_id = ua and label = 't2'), 'v' || g, now() - interval '3 hours', now() from generate_series(1, 150) g;
   j := public.capture_add(hA, 'user daily');
   perform public.sbc_ok(j->>'error' = 'rate_limited', '300 per day per person across all tokens is enforced');
-  -- inbox cap: 200 waiting, older than a day so the rate limits are not what stops it
   delete from public.capture_inbox where user_id = ua;
   insert into public.capture_inbox (user_id, token_id, text, created_at) select ua, idA, 'w' || g, now() - interval '2 days' from generate_series(1, 200) g;
   j := public.capture_add(hA, 'full');
   perform public.sbc_ok(j->>'error' = 'inbox_full', 'a full inbox (200 waiting) refuses more');
   perform public.sbc_ok((select count(*) from public.capture_inbox where user_id = ub) = 1, 'B''s inbox was never touched by A''s token');
 
-  -- ===== 7. Email to Studyboard =====
+  -- 7. Email to Studyboard
   perform set_config('request.jwt.claims', '', true); perform set_config('request.jwt.claim.sub', '', true);
   execute 'set local role anon';
   r := public.sbc_try('select public.capture_email_new()');
@@ -260,7 +244,6 @@ begin
   perform public.sbc_ok(public.capture_email_get() is null, 'A doesn''t see B''s address');
   perform public.sbc_ok(not public.capture_email_off(), 'A can''t turn off B''s address');
   execute 'reset role';
-  -- mail arrives
   delete from public.capture_inbox where user_id = ub;
   j := public.capture_add_email(hx, 'Prof.Smith@School.EDU', 'Fwd: Lab 4 moved' || chr(7), E'Lab 4 is now due Friday Oct 16 at 5pm.\r\n\n\n\n\nBring your goggles.' || chr(8238), '<abc123@mail.school.edu>');
   perform public.sbc_ok((j->>'ok')::boolean and not (j->>'dup')::boolean, 'a forwarded email lands in the owner''s inbox');
@@ -274,13 +257,11 @@ begin
   execute 'set local role authenticated';
   perform public.sbc_ok(exists (select 1 from public.capture_pull_inbox(50) p where p.source = 'email' and p.body like 'Lab 4 is now due%' and p.sender = 'prof.smith@school.edu'), 'the owner pulls the email with its body and sender');
   execute 'reset role';
-  -- rate limit: 15 an hour per account
   delete from public.capture_inbox where user_id = ub;
   for i in 1..15 loop j := public.capture_add_email(hx, 'x@y.z', 'mail ' || i, 'body'); perform public.sbc_ok((j->>'ok')::boolean, 'mail fill ' || i); end loop;
   delete from public.sbc_log where name like 'mail fill %';
   perform public.sbc_ok((public.capture_add_email(hx, 'x@y.z', 'mail 16', 'body'))->>'error' = 'rate_limited', 'the 16th email in an hour is refused');
   delete from public.capture_inbox where user_id = ub;
-  -- a new address replaces the old one; off turns it off
   execute 'set local role authenticated';
   j := public.capture_email_new();
   execute 'reset role';
@@ -289,7 +270,6 @@ begin
   perform public.sbc_ok(public.capture_email_off(), 'the owner can turn the address off');
   execute 'reset role';
   perform public.sbc_ok((public.capture_add_email(j->>'key', 'x@y.z', 'gone', 'gone'))->>'error' = 'unknown', 'a turned-off address is refused like an unknown one');
-  -- Pro only once the paywall is on (when supabase-plans.sql is installed)
   if to_regclass('public.studyboard_config') is not null then
     insert into public.studyboard_config (key, value) values ('paywall', 'true'::jsonb) on conflict (key) do update set value = 'true'::jsonb;
     execute 'set local role authenticated';
@@ -301,7 +281,7 @@ begin
   end if;
   insert into public.capture_email (user_id, addr_key) values (ub, 'qqqqqqqqqqqq') on conflict (user_id) do update set addr_key = excluded.addr_key;
 
-  -- ===== 8. Clean-up and account deletion =====
+  -- 8. Clean-up and account deletion
   update public.capture_inbox set created_at = now() - interval '31 days' where user_id = ua;
   perform public.capture_purge();
   perform public.sbc_ok(exists (select 1 from public.capture_inbox where user_id = ua and processed_at is null), 'a capture the app hasn''t picked up yet is kept past 30 days');

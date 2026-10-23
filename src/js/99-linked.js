@@ -1,24 +1,14 @@
 /* ===== module: 99-linked.js ===== */
-/* Linked items: one compact row of chips on a task (its edit sheet) and on a deck page, listing what is already tied to it. Nothing new is
-   asked of the student and nothing shows when nothing is linked (no heading, no empty state, no button).
-   A task shows: the sticky notes attached to it (note.taskId), the notes whose [[link]] opens it (the same resolving as module 99-pro, so
-   a chip appears exactly when clicking that link would open this task), the files attached to it (file.taskIds), the decks and files the
-   [[links]] in its attached notes open, and the material its Exam Prep plan links per topic (task.prep.topics[].links) or a prep session
-   opens (task.matKind/matId, task.studyDecks). No name guessing: a deck that only sounds like the task is not shown.
-   A deck shows where its cards came from and the notes that [[link]] it. Origins are read from the shared format
-   (deck.origins = [{k: "lecture" | "note" | "file", id, at: "YYYY-MM-DD"}], up to 20; card.from = {k, id, at}) and from the older fields
-   (card.srcNote from Notes to Flashcards, card.src = {f: file id, p: page} from PDF highlights). stamp() writes the shared format when cards
-   are made from known material (AI from a file in Files, Notes to Flashcards).
-   Indexes are built once per state.updated and only when a row is drawn, so thousands of notes cost one pass. window.SBLINKED is the way in. */
+/* Linked items: one compact row of chips on a task (its edit sheet) and on a deck page */
 (() => {
   const MAX = 5, KS = ["lecture", "note", "file"];
-  const keyOf = s => String(s || "").toLowerCase().replace(/[[\]]/g, "").replace(/\s+/g, " ").trim();   // as in 99-pro's linked notes
+  const keyOf = s => String(s || "").toLowerCase().replace(/[[\]]/g, "").replace(/\s+/g, " ").trim();
   const pro = () => window.SBPRO && SBPRO.parseLinks && SBPRO.linkIndex ? SBPRO : null;
   const isLec = f => !!f && f.folderId === "lectures";
   const isPdf = f => !!f && f.kind === "file" && Array.isArray(f.revs) && f.revs.length && /\.pdf$/i.test((curRev(f) || {}).name || f.name || "");
   const noteName = n => { const p = pro(); const t = p && p.noteTitle ? p.noteTitle(n.text) : String(n.text || "").split("\n").map(l => l.trim()).find(Boolean) || ""; return t || "Untitled note"; };
 
-  /* ---------- Indexes, once per change ---------- */
+  /* Indexes, once per change */
   let C = null;
   function idx(){
     if (C && C.at === state.updated && C.st === state) return C;
@@ -35,7 +25,7 @@
     return C;
   }
 
-  /* ---------- Items: {k: note | deck | quiz | file | lecture, id, deck (a quiz's deck), why} ---------- */
+  /* Items: {k: note | deck | quiz | file | lecture, id, deck (a quiz's deck), why} */
   function item(k, id, extra){
     if (k === "note") { const n = state.notes[id]; return n ? {k, id, name: noteName(n)} : null; }
     if (k === "deck") { const d = state.decks[id]; return d ? {k, id, name: d.name || "Untitled Deck"} : null; }
@@ -82,7 +72,7 @@
     return collect(from.concat((I.into.get("deck:" + d.id) || []).map(id => { const x = item("note", id); return x ? Object.assign(x, {why: "mentions"}) : null; })));
   }
 
-  /* ---------- The row ---------- */
+  /* The row */
   const SV = p => `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${p}</svg>`;
   const IC = {
     note: SV('<path d="M4 4h16v10l-6 6H4z"/><path d="M14 20v-6h6"/>'),
@@ -106,7 +96,7 @@
   const taskHtml = t => { try { return row(forTask(t), "task", "Linked"); } catch (e) { console.warn("linked items", e); return ""; } };
   const deckHtml = d => { try { const l = forDeck(d); return row(l, "deck", l.every(x => x.why === "from") ? "Made From" : "Linked"); } catch (e) { console.warn("linked items", e); return ""; } };
 
-  /* ---------- Opening a chip ---------- */
+  /* Opening a chip */
   function openItem(k, id, deck){
     const p = window.SBPRO;
     if (k === "quiz") { if (dlg.open) dlg.close(); if (state.decks[deck]) startAiQuiz(deck, id); return; }
@@ -130,14 +120,13 @@
     return false;
   });
 
-  /* ---------- Recording where new cards came from (the shared origin format) ---------- */
-  // origin(k, id): {k, id, at}; a lecture's at is the day it was recorded, anything else the day the cards were made
+  /* Recording where new cards came from (the shared origin format) */
   function origin(k, id){
     const f = (k === "file" || k === "lecture") && state.files[id];
     if (f) return {k: isLec(f) ? "lecture" : "file", id, at: isLec(f) && f.created ? iso(new Date(f.created)) : todayISO()};
     return k === "note" && state.notes[id] ? {k, id, at: todayISO()} : null;
   }
-  // Adds origins to deck d (deduplicated, the last 20) and, when the cards came from one source, card.from on the new cards
+  // Adds origins to deck d (deduplicated, the last 20) and
   function stamp(d, list, cards){
     const add = (list || []).filter(o => o && KS.includes(o.k) && o.id).map(o => ({k: o.k, id: String(o.id).slice(0, 64), at: isDate(o.at) ? o.at : todayISO()}));
     if (!d || !add.length) return d;

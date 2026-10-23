@@ -1,6 +1,4 @@
-// node tests/lms-status.e2e.js  (Playwright + Chromium)
-// Once the student sets a task's status by hand (drags it to another column, ticks it off or unticks it), no school sync changes it again.
-// Only Start Fresh (which removes what came from the school site and brings it back) starts over.
+// node tests/lms-status.e2e.js
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -22,7 +20,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     const page = await ctx.newPage(); const errs = []; page.on("pageerror", e => errs.push(e.message));
     await page.goto(base);
     await page.waitForFunction(() => window.SBLMS && SBLMS.brightspace && SBLMS.brightspace.fromApi, null, {timeout: 40000});
-    // One read of the school site: three assignments, each submitted or not
     const read = sub => page.evaluate(sub => {
       const due = n => new Date(Date.now() + n * 864e5).toISOString();
       const L = SBLMS.brightspace, d = L.fromApi({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [], courses: [{ou: "7", code: "BIOL1200", name: "BIOL 1200 - Biology",
@@ -38,11 +35,9 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     let st = await status();
     ok(st["Lab Report 1"] === "todo" && st["Lab Report 2"] === "todo" && st["Lab Report 3"] === "done", "first read: unsubmitted work is To Do, submitted work is Complete: " + JSON.stringify(st));
 
-    // The student sets statuses by hand
-    await setStatus("Lab Report 1", "doing");   // dragged to In Work
-    await setStatus("Lab Report 2", "done");    // ticked off before handing it in
-    await setStatus("Lab Report 3", "todo");    // moved back out of Complete
-    // The next reads say the opposite
+    await setStatus("Lab Report 1", "doing");
+    await setStatus("Lab Report 2", "done");
+    await setStatus("Lab Report 3", "todo");
     await read([true, false, true]);
     st = await status();
     ok(st["Lab Report 1"] === "doing", "a task dragged to In Work stays there when a sync says it was submitted");
@@ -52,12 +47,10 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     st = await status();
     ok(st["Lab Report 1"] === "doing" && st["Lab Report 2"] === "done" && st["Lab Report 3"] === "todo", "and later syncs leave them all alone: " + JSON.stringify(st));
 
-    // Even moved back to the status sync had given it, it stays the student's (it's never changed by a sync again)
     await setStatus("Lab Report 1", "todo");
     await read([true, true, true]);
     ok((await status())["Lab Report 1"] === "todo", "once the student has set a status, a sync never changes it again, even after they move it back");
 
-    // A task the student hasn't touched still follows the school site
     await page.evaluate(() => { const L = SBLMS.brightspace, due = new Date(Date.now() + 9 * 864e5).toISOString();
       const mk = sub => L.fromApi({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [], courses: [{ou: "7", code: "BIOL1200", name: "BIOL 1200 - Biology", folders: [{id: "4", name: "Lab Report 4", due, end: null, sub, files: []}], quizzes: [], grades: [], news: [], events: [], discussions: [], staff: []}]});
       let d = mk(false); L.applyPlan(d, L.plan(d), "grab", true); d = mk(true); L.applyPlan(d, L.plan(d), "grab", true); });

@@ -1,7 +1,4 @@
-// Offline checks for the cloud-files Edge Function (Google Drive and OneDrive). No network, no Supabase. Run from the repo root:
-//   node --experimental-strip-types supabase-functions/tools/test-cloud-files.mjs
-// It loads the real function with in-memory stand-ins for Supabase (Auth and the cloud_* functions of supabase-cloud.sql), Google and
-// Microsoft sign-in, and walks connect, the access token (and its reuse), reauth, throttling and disconnect.
+// Offline checks for the cloud-files Edge Function (Google Drive and OneDrive)
 import assert from "node:assert/strict";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";

@@ -14,7 +14,7 @@ A batch folder can hold any of these files (all optional):
 import json, os, re, sys
 
 ROOT = "theme-batches"
-# The app is split into files (index.html, css/, js/; scripts/app-files.js): work on it as one page, then split it back.
+# The app is split into files (index.html, css/, js/; scripts/app-files.js)
 import subprocess, tempfile
 _tmp = tempfile.NamedTemporaryFile(suffix=".html", delete=False).name
 subprocess.run(["node", "scripts/app-files.js", "--bundle", _tmp], check=True, stdout=subprocess.DEVNULL)
@@ -25,8 +25,7 @@ def find(pred, start=0, what=""):
         if pred(src[i]): return i
     sys.exit("not found: " + what)
 
-# Each inserted part sits between its head line and a matching end line, so a rerun takes out exactly that part,
-# whatever comment lines the batch file itself contains.
+# Each inserted part sits between its head line and a matching end line
 def remove_block(head, end):
     global src
     while head in src:

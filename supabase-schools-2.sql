@@ -1,4 +1,4 @@
--- Studyboard: universities and colleges, part 2 of 2. Run supabase-schools.sql first. Safe to run again.
+-- Studyboard: universities and colleges, part 2 of 2
 -- From the open "university-domains-list" by Hipo, MIT License. See THIRD-PARTY-NOTICES.md.
 
 insert into public.schools (key, name, country, code, region, domains, web)

@@ -1,5 +1,4 @@
-// node tests/refresh-place.e2e.js  (Playwright + Chromium)
-// Refreshing keeps your place (tab, course, board view) for that browser tab; opening the app fresh starts on Today's Plan.
+// node tests/refresh-place.e2e.js (Playwright + Chromium) Refreshing keeps your place
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const csp = require("../scripts/csp.js"), root = path.join(__dirname, "..");

@@ -1,9 +1,4 @@
-// node tests/lecture-chain.e2e.js   (Playwright + Chromium; see tests/pw.js. The AI is stubbed by routing generativelanguage.googleapis.com.)
-// The lecture to exam chain (module 99-lecture-chain): a lecture's transcript becomes study notes (linked and dated), the notes become draft
-// cards in the course's deck (c.from, d.origins), the drafts are checked, and an exam added later pulls them in by lecture date while
-// a lecture before the previous exam or after this one stays out. Each next-step prompt works and can be skipped, Undo reverses each
-// step, the no-AI path keeps the transcript as a note and makes cards on the device, the free plan follows the existing gating, the
-// recorder's Saved view offers the chain, and it all fits a 390px phone with no console errors.
+// node tests/lecture-chain.e2e.js
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const csp = require("../scripts/csp");
@@ -13,7 +8,7 @@ const server = http.createServer((req, res) => {
   const f = path.join(root, p); if (!f.startsWith(root) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); res.end("no"); return; }
   const ext = path.extname(f), mime = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".css": "text/css", ".webmanifest": "application/manifest+json"};
   res.writeHead(200, {"content-type": mime[ext] || "application/octet-stream"});
-  if (p === "/index.html" || /^\/bundle\/[^/]+\.js$/.test(p)) { res.end((/\.html$/.test(p) ? csp.apply : String)(fs.readFileSync(f, "utf8").replace("const PRO_ENFORCED = true;", "const PRO_ENFORCED = false;"))); return; }   // Pro features on (the free plan is forced with studyboard:paywall-test)
+  if (p === "/index.html" || /^\/bundle\/[^/]+\.js$/.test(p)) { res.end((/\.html$/.test(p) ? csp.apply : String)(fs.readFileSync(f, "utf8").replace("const PRO_ENFORCED = true;", "const PRO_ENFORCED = false;"))); return; }
   fs.createReadStream(f).pipe(res);
 });
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
@@ -40,7 +35,6 @@ function SEED(){
   files[0].lec.att = [{k: "note", id: "nSlides"}];
   const notes = [{id: "nSlides", text: "Lecture 5 slides\nOsmosis, semipermeable membranes, tonicity (hypertonic, hypotonic).", color: "yellow", x: 40, y: 40, z: 1, courseId: "c1", created: ms(-12)},
     {id: "nPlain", text: "Cell membranes\nPhospholipid bilayer: two layers of lipids with heads facing out.\nCholesterol: keeps the membrane fluid.", color: "pink", x: 300, y: 40, z: 2, courseId: "c1", created: ms(-3)}];
-  // Midterm 1 (done) was 20 days ago: lectures before it belong to it, not to the next exam
   const tasks = [{id: "mt1", title: "Midterm 1", courseId: "c1", type: "Exam", due: day(-20), start: day(-20), status: "done", priority: "high", created: ms(-40)}];
   return {v: 2, updated: 1, decks: [], notes, tasks, files, settings: {capacity: 15}, courses: [{id: "c1", name: "Biology", code: "BIO101", color: "#3B6FE0"}]};
 }
@@ -89,7 +83,7 @@ function SEED(){
   try {
     const page = await open(await mkCtx({ai: true}));
 
-    /* ---------- 1. Lecture to study notes ---------- */
+    /* 1. Lecture to study notes */
     await lectureSheet(page, "L1");
     ok(/From Lecture to Exam/.test(await page.textContent(".lc-chain")) && await page.locator('.lc-chain [data-act="lc-notes"]').count() === 1, "a transcribed lecture offers Make Study Notes, on the lecture itself");
     await page.click('.lc-chain [data-act="lc-notes"]');
@@ -102,14 +96,13 @@ function SEED(){
     ok(/^Osmosis and Membranes/.test(note1.text) && /\[\[BIO101 Lecture, Osmosis\]\]/.test(note1.text) && /• Osmosis: Water moving across a membrane/.test(note1.text), "the note has a title, a link back to the lecture and the terms: " + JSON.stringify(note1.text.slice(0, 120)));
     ok(/Next: Make Cards/.test(await barText(page)), "the next step is offered: Next: Make Cards");
     ok(await page.locator('.lc-chain .lc-step.done').count() === 1 && await page.locator('.lc-chain [data-act="lc-cards"]').count() === 1, "the lecture's chain shows the notes done and offers Make Cards for the course's deck");
-    // Undo the notes step from the prompt
     await page.click('#lcNext [data-act="lc-undo"]'); await page.waitForTimeout(300);
     st = await S(page);
     ok(!Object.values(st.notes).some(n => n.lec === "L1") && !st.files.L1.lec.note && await page.locator("#lcNext").count() === 0, "Undo removes the note and the lecture's link to it");
     await page.click('.lc-chain [data-act="lc-notes"]');
     await page.waitForFunction(() => Object.values(window.__sbSync.state.notes).some(n => n.lec === "L1"), null, {timeout: 8000});
 
-    /* ---------- 2. Notes to draft cards ---------- */
+    /* 2. Notes to draft cards */
     await page.click('#lcNext [data-act="lc-go"]');
     await page.waitForFunction(() => Object.values(window.__sbSync.state.decks).some(d => d.cards.some(c => c.draft)), null, {timeout: 8000});
     st = await S(page); let deck = Object.values(st.decks)[0];
@@ -119,9 +112,7 @@ function SEED(){
     ok(/3 draft cards ready to check/.test(await barText(page)) && await page.locator('#lcNext [data-act="lc-go"]').textContent() === "Check Now", "the prompt says 3 draft cards ready to check, with Check Now");
     const sentCards = page.context().ai.find(b => /lecture study notes into flashcards/.test(b));
     ok(sentCards && /Osmosis and Membranes/.test(sentCards) && !/Today we talk about osmosis/.test(sentCards), "only the note's text goes to the AI for cards");
-    // the deck page says so too, and drafts stay out of reviews
     ok(await page.evaluate(() => { const d = Object.values(window.__sbSync.state.decks)[0]; return d.cards.filter(c => c.seen === 0 && !c.draft).length === 0; }), "drafts aren't studied yet");
-    // Check them: untick one, fix one
     await page.click('#lcNext [data-act="lc-go"]'); await page.waitForSelector(".lc-check .lc-card");
     ok(await page.locator(".lc-check .lc-card").count() === 3, "Check Now lists the drafts");
     await page.locator(".lc-check .lc-card").nth(2).locator("[data-lc-keep]").uncheck();
@@ -134,7 +125,6 @@ function SEED(){
     await page.click('#lcNext [data-act="lc-skip"]'); await page.waitForTimeout(150);
     ok(await page.locator("#lcNext").count() === 0, "Skip leaves it quietly waiting");
 
-    // The second lecture, through the notes on the board: Make Cards for the course's deck on the note itself
     await page.evaluate(() => window.SBLC.makeNotes("L2"));
     await page.waitForFunction(() => Object.values(window.__sbSync.state.notes).some(n => n.lec === "L2"), null, {timeout: 8000});
     await page.click('#lcNext [data-act="lc-skip"]'); await page.waitForTimeout(100);
@@ -148,7 +138,6 @@ function SEED(){
     st = await S(page); deck = Object.values(st.decks)[0];
     ok(Object.keys(st.decks).length === 1 && deck.cards.filter(c => c.draft).length === 3 && deck.cards.filter(c => c.from.id === "L2").every(c => c.from.at === day(-6)), "the second lecture's drafts join the same deck, dated by their lecture");
     ok(deck.origins.length === 2 && deck.origins[0].id === "L2" && deck.origins[1].id === "L1", "origins: one per lecture, newest first");
-    // Undo the cards step
     await page.click('#lcNext [data-act="lc-undo"]'); await page.waitForTimeout(300);
     ok((await S(page)).decks[deck.id].cards.length === 2, "Undo takes the drafts back out");
     await page.evaluate(id => window.SBLC.makeCards(id), note2.id);
@@ -160,13 +149,11 @@ function SEED(){
     ok((await S(page)).decks[deck.id].cards.every(c => !c.draft) && await page.locator(".lc-drafts").count() === 0, "checking them from the deck page keeps them");
     await page.evaluate(() => { const b = document.querySelector('#lcNext [data-act="lc-skip"]'); if (b) b.click(); });
 
-    /* ---------- 3. An exam added later pulls the cards in by lecture date ---------- */
-    // A lecture before Midterm 1 and one after the new exam, with cards: neither belongs to Midterm 2
+    /* 3. An exam added later pulls the cards in by lecture date */
     await page.evaluate(([a, b]) => { const T = window.__sbSync, d = T.clone(Object.values(T.state.decks)[0]);
       d.cards.push({id: "old1", front: "Old", back: "From before Midterm 1", box: 0, due: "", seen: 0, right: 0, wrong: 0, from: {k: "lecture", id: "L0", at: a}});
       d.cards.push({id: "late1", front: "Late", back: "After Midterm 2", box: 0, due: "", seen: 0, right: 0, wrong: 0, from: {k: "lecture", id: "L9", at: b}});
       T.applyChanges([{kind: "deck", id: d.id, after: d}], ""); }, [day(-25), day(6)]);
-    // Add the Exam, from the lecture's chain
     await lectureSheet(page, "L1");
     ok(await page.locator('.lc-chain [data-act="lc-add-exam"]').count() === 1, "the lecture's chain offers Add the Exam");
     await page.click('.lc-chain [data-act="lc-add-exam"]'); await page.waitForSelector("#dlg select[name=type]");
@@ -182,12 +169,10 @@ function SEED(){
     ok(ex.prep.topics.length === 1 && ex.prep.topics[0].name === "Membrane Transport" && ex.prep.topics[0].links.filter(l => l.k === "note").length === 2, "the AI sorts the lectures into the exam's topics, with their notes linked");
     ok(page.context().ai.some(b => /sort a student's lectures into the topics/.test(b) && /BIO101 Lecture, Osmosis/.test(b) && /Osmosis and Membranes/.test(b) && !/Today we talk about osmosis/.test(b)), "sorting sends titles and note headings, not transcripts");
     ok(/Pulled in 2 lectures \(5 cards\)/.test(await barText(page)), "Exam Prep says Pulled in 2 lectures (5 cards): " + await barText(page));
-    // The planner shows where they came from, and the plan uses them
     await page.click('#lcNext [data-act="lc-go"]'); await page.waitForSelector("#ppBody .lc-prep");
     ok(/Pulled in 2 lectures \(5 cards\) by lecture date/.test(await page.textContent("#ppBody .lc-prep")) && /Membrane Transport/.test(await page.inputValue("#ppBody [data-pn]")), "Exam Prep lists the topic and says what it pulled in");
     ok(/BIO101 Lectures/.test(await page.textContent("#ppBody .pp-topic")), "the topic's linked material is the lecture deck");
     await page.evaluate(() => window.__sbSync.dlg.close());
-    // Undo the pull-in, then pull it in again from the lecture's chain
     await page.evaluate(() => window.SBLC.pullIn(Object.values(window.__sbSync.state.tasks).find(x => x.title === "Midterm 2").id, {show: true}));
     ok(/already in Midterm 2 prep/.test(await page.evaluate(() => window.__sbSync.toastText())), "pulling in twice adds nothing twice");
     await lectureSheet(page, "L1");
@@ -200,7 +185,7 @@ function SEED(){
     await page.click('#lcNext [data-act="lc-undo"]'); await page.waitForTimeout(300);
     ok(!((await S(page)).tasks[ex.id].prep || {}).topics, "Undo takes the pulled-in topics back out");
 
-    /* ---------- The recorder's Saved view offers the chain right where the transcript lands ---------- */
+    /* The recorder's Saved view offers the chain right where the transcript lands */
     await page.evaluate(() => { const T = window.__sbSync; if (T.dlg.open) T.dlg.close(); }); await page.waitForTimeout(100);
     await page.evaluate(() => window.SBPRO.openRecorder("c1"));
     await page.waitForSelector('[data-act="lec-start"]'); if (await page.locator("#lecCap").count()) await page.uncheck("#lecCap");
@@ -217,7 +202,7 @@ function SEED(){
     ok(page.errs.length === 0, "no console errors: " + page.errs.join(" | "));
     await page.context().close();
 
-    /* ---------- Without AI ---------- */
+    /* Without AI */
     const p2 = await open(await mkCtx({}));
     await lectureSheet(p2, "L1");
     const row = await p2.textContent(".lc-chain");
@@ -236,12 +221,11 @@ function SEED(){
     ok(p2.errs.length === 0, "no console errors without AI: " + p2.errs.join(" | "));
     await p2.context().close();
 
-    /* ---------- The free plan ---------- */
+    /* The free plan */
     const p3 = await open(await mkCtx({ai: true, free: true}));
     await p3.evaluate(() => window.SBLC.makeNotes("L1")); await p3.waitForTimeout(400);
     ok(!Object.values((await S(p3)).notes).some(n => n.lec) && await p3.evaluate(() => window.__sbSync.dlg.open && /Pro/.test(window.__sbSync.dlg.textContent)), "free: study notes from a lecture are Pro, like Record a Lecture");
     await p3.evaluate(() => window.__sbSync.dlg.close()); await p3.waitForTimeout(100);
-    // An ordinary note to cards to exam prep follows card making from notes, which is free
     await p3.evaluate(() => window.SBNC.open("nPlain")); await p3.waitForSelector(".nc-sheet");
     await p3.click("#ncSave"); await p3.waitForTimeout(300);
     const dk3 = Object.values((await S(p3)).decks)[0];
@@ -254,7 +238,7 @@ function SEED(){
     ok(p3.errs.length === 0, "no console errors on the free plan: " + p3.errs.join(" | "));
     await p3.context().close();
 
-    /* ---------- A 390px phone, dark theme ---------- */
+    /* A 390px phone, dark theme */
     const p4 = await open(await mkCtx({ai: true, phone: true, dark: true}));
     await lectureSheet(p4, "L1");
     await p4.click('.lc-chain [data-act="lc-notes"]');

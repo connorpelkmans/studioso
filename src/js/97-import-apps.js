@@ -1,14 +1,5 @@
 /* ===== module: 97-import-apps.js ===== */
-/* Import From Another App: one sheet for bringing in what lives in another app, read entirely on this device (nothing is uploaded).
-   - Anki (.apkg or .colpkg): every deck with cards becomes a Studyboard deck, and each card keeps its schedule (due date, level, how often
-     it was right and wrong, its last review from the review log, and Anki's own FSRS memory state when it has one). The collection inside the
-     zip is plain SQLite (read by the small read-only reader below, no wasm), or zstd-compressed SQLite from newer Anki (collection.anki21b,
-     unpacked by the vendored fzstd, loaded only for those files).
-   - Quizlet: no file to read, so the sheet explains the export and opens Paste Cards.
-   - Todoist: a project's CSV, or the backup ZIP (one CSV per project). Sub-tasks become checklist steps, sections and comments go in the notes.
-   - Notion: the "Markdown & CSV" export (a ZIP, sometimes a ZIP inside a ZIP). Pages become notes; a database that looks like tasks or like
-     flashcards is offered as tasks or as a deck.
-   A preview comes first, and the whole import is one change with one Undo. The pure part (between the markers) is run by tests/import-apps.test.js. */
+/* Import From Another App */
 (() => {
 /*IMPORTAPPS-START*/
 const IA = (() => {
@@ -17,11 +8,11 @@ const IA = (() => {
   const isoLocal = ms => { const d = new Date(ms); return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); };
   const okDate = (y, m, d) => { const t = new Date(y, m - 1, d); return t.getFullYear() === y && t.getMonth() === m - 1 && t.getDate() === d ? y + "-" + pad2(m) + "-" + pad2(d) : ""; };
   const addDaysISO = (s, n) => { const [y, m, d] = s.split("-").map(Number); return isoLocal(new Date(y, m - 1, d + n).getTime()); };
-  // the level (0..5) that matches an interval in days: the same steps as Smart scheduling's FSRS.boxFor
+  // the level (0..5) that matches an interval in days
   const boxFor = n => n <= 0 ? 0 : n <= 1 ? 1 : n <= 3 ? 2 : n <= 8 ? 3 : n <= 20 ? 4 : 5;
   const clip = (s, n) => s.length > n ? s.slice(0, n - 1).trimEnd() + "…" : s;
 
-  /* ---------- SQLite, read only: the file header, table b-trees (interior and leaf pages), records, overflow pages, sqlite_master ---------- */
+  /* SQLite, read only */
   function sqlite(bytes){
     const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
     const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
@@ -66,7 +57,6 @@ const IA = (() => {
       }
       return out;
     }
-    // every row of the table whose b-tree starts at page root, in rowid order: fn(values, rowid)
     function walk(root, fn){
       const stack = [root], seen = new Set();
       while (stack.length) {
@@ -85,7 +75,6 @@ const IA = (() => {
         } else throw new Error("not a table page");
       }
     }
-    // column names from CREATE TABLE, and which one is the rowid (INTEGER PRIMARY KEY, stored as NULL in the record)
     function columns(sql){
       const body = sql.slice(sql.indexOf("(") + 1, sql.lastIndexOf(")")), parts = []; let depth = 0, q = "", cur = "";
       for (const ch of body) {
@@ -105,7 +94,6 @@ const IA = (() => {
     const tables = {};
     walk(1, v => { if (v[0] === "table" && typeof v[4] === "string") tables[String(v[1]).toLowerCase()] = {root: v[3], cols: columns(v[4])}; });
     const has = name => !!tables[name];
-    // fn(row object) for each row; pick limits the columns read into the object
     function each(name, fn, pick){
       const t = tables[name]; if (!t) return;
       const idx = t.cols.map((c, i) => [c.name, i, c.ipk]).filter(c => !pick || pick.includes(c[0]));
@@ -116,7 +104,7 @@ const IA = (() => {
     return {has, each, all, count, tables: () => Object.keys(tables)};
   }
 
-  /* ---------- Text from Anki's HTML fields ---------- */
+  /* Text from Anki's HTML fields */
   const ENT = {amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", ndash: "–", mdash: "—", hellip: "…", rsquo: "’", lsquo: "‘", rdquo: "”", ldquo: "“",
     times: "×", divide: "÷", deg: "°", middot: "·", bull: "•", copy: "©", reg: "®", trade: "™", euro: "€", pound: "£", cent: "¢", yen: "¥", sect: "§", para: "¶",
     plusmn: "±", micro: "µ", laquo: "«", raquo: "»", shy: "", larr: "←", rarr: "→", uarr: "↑", darr: "↓", harr: "↔", le: "≤", ge: "≥", ne: "≠", asymp: "≈", minus: "−", alpha: "α",
@@ -138,13 +126,13 @@ const IA = (() => {
   }
   const CLOZE = /\{\{c(\d+)::([\s\S]*?)(?:::([\s\S]*?))?\}\}/g;
   const hasCloze = s => /\{\{c\d+::/.test(s);
-  // One cloze card the way Studyboard writes fill-in-the-blank cards: the sentence with a blank on the front, the hidden words on the back
+  // One cloze card the way Studyboard writes fill-in-the-blank cards
   function clozeCard(text, n){
     const ans = [];
     const front = text.replace(CLOZE, (m, k, a, hint) => { if (Number(k) !== n) return a; ans.push(a); return hint ? `_____ (${hint})` : "_____"; });
     return ans.length ? {front, back: ans.join(", ")} : null;
   }
-  // NotetypeConfig (protobuf, newer Anki): field 1 is the kind, 1 = cloze
+  // NotetypeConfig (protobuf, newer Anki)
   function pbKind(b){
     if (!(b instanceof Uint8Array)) return 0;
     let p = 0;
@@ -158,8 +146,7 @@ const IA = (() => {
     return 0;
   }
 
-  /* ---------- Anki collection -> decks of Studyboard cards ---------- */
-  // A collection whose only note is Anki's "please update to the latest Anki" placeholder (written for old versions next to collection.anki21b)
+  /* Anki collection -> decks of Studyboard cards */
   const isPlaceholder = db => db.has("notes") && db.count("notes") <= 1;
   function readAnki(db, opts){
     opts = opts || {};
@@ -168,8 +155,8 @@ const IA = (() => {
     const crt = Number(col.crt) || 0;
     const deckName = {}, cloze = {};
     if (db.has("decks")) db.each("decks", r => { deckName[r.id] = String(r.name || "").split("\u001f").join("::"); }, ["id", "name"]);
-    if (typeof col.decks === "string" && col.decks.length > 2) { try { Object.values(JSON.parse(col.decks)).forEach(d => { if (d && d.id != null && !deckName[d.id]) deckName[d.id] = String(d.name || ""); }); } catch (e) { /* not JSON */ } }
-    if (typeof col.models === "string" && col.models.length > 2) { try { Object.values(JSON.parse(col.models)).forEach(m => { if (m && m.id != null) cloze[m.id] = m.type === 1; }); } catch (e) { /* not JSON */ } }
+    if (typeof col.decks === "string" && col.decks.length > 2) { try { Object.values(JSON.parse(col.decks)).forEach(d => { if (d && d.id != null && !deckName[d.id]) deckName[d.id] = String(d.name || ""); }); } catch (e) { } }
+    if (typeof col.models === "string" && col.models.length > 2) { try { Object.values(JSON.parse(col.models)).forEach(m => { if (m && m.id != null) cloze[m.id] = m.type === 1; }); } catch (e) { } }
     if (db.has("notetypes")) db.each("notetypes", r => { cloze[r.id] = pbKind(r.config) === 1; }, ["id", "config"]);
     const notes = new Map();
     db.each("notes", r => { notes.set(r.id, {mid: r.mid, flds: String(r.flds == null ? "" : r.flds).split("\u001f"), used: false}); }, ["id", "mid", "flds"]);
@@ -180,7 +167,7 @@ const IA = (() => {
     const dayDate = due => isoLocal((crt + due * 86400) * 1000);
     const count = {pics: 0, sounds: 0}, groups = new Map();
     let skipped = 0;
-    raw.sort((a, b) => a.nid - b.nid || a.ord - b.ord);   // the order the notes were written in, a note's cards together
+    raw.sort((a, b) => a.nid - b.nid || a.ord - b.ord);
     for (const c of raw) {
       const n = notes.get(c.nid); if (!n) { skipped++; continue; }
       const did = c.odid ? c.odid : c.did, dueRaw = c.odid && c.odue ? c.odue : c.due;
@@ -199,7 +186,6 @@ const IA = (() => {
       if (c.type !== 0) {
         let data = null; try { data = c.data && String(c.data).trim().startsWith("{") ? JSON.parse(c.data) : null; } catch (e) { data = null; }
         const ivl = c.ivl > 0 ? c.ivl : 0;
-        // a day number counts from the collection's creation day; a learning step is a time in seconds
         const due = Number(dueRaw) > 1e8 ? isoLocal(Number(dueRaw) * 1000) : dayDate(Number(dueRaw) || 0);
         card.seen = Math.max(1, reps); card.wrong = Math.min(lapses, card.seen); card.right = Math.max(0, card.seen - card.wrong);
         card.due = due; card.box = boxFor(ivl);
@@ -214,7 +200,6 @@ const IA = (() => {
       if (!groups.has(did)) groups.set(did, []);
       groups.get(did).push(card);
     }
-    // one deck per Anki deck that has cards, named by its last part (the full path when two would share a name)
     const paths = [...groups.keys()].map(did => ({did, path: deckName[did] || "Anki Deck"})).sort((a, b) => a.path.localeCompare(b.path));
     const short = p => p.split("::").pop().trim() || p;
     const clash = new Map(); paths.forEach(x => clash.set(short(x.path).toLowerCase(), (clash.get(short(x.path).toLowerCase()) || 0) + 1));
@@ -231,7 +216,7 @@ const IA = (() => {
     return {decks, total, found, capped: found > total, learned: decks.reduce((a, d) => a + d.learned, 0), pics: count.pics, sounds: count.sounds, skipped};
   }
 
-  /* ---------- CSV ---------- */
+  /* CSV */
   function parseCSV(text){
     text = String(text || "").replace(/^﻿/, "");
     const first = text.slice(0, text.indexOf("\n") < 0 ? text.length : text.indexOf("\n"));
@@ -249,11 +234,11 @@ const IA = (() => {
     return rows;
   }
 
-  /* ---------- Dates written the way people type them (Todoist, Notion) ---------- */
+  /* Dates written the way people type them (Todoist, Notion) */
   const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
   const DAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
   const MON = "(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?";
-  // -> {date: "YYYY-MM-DD", time: "HH:MM" or ""} or null. Recurring dates keep only the next date when it can be worked out.
+  // -> {date: "YYYY-MM-DD", time: "HH:MM" or ""} or null
   function looseDate(s, today){
     s = String(s || "").toLowerCase().trim(); if (!s) return null;
     const [ty, tm, td] = today.split("-").map(Number);
@@ -275,9 +260,9 @@ const IA = (() => {
     return null;
   }
 
-  /* ---------- Todoist ---------- */
+  /* Todoist */
   const tdName = n => String(n || "").split("/").pop().replace(/\.csv$/i, "").replace(/\s*\[\d+\]\s*$/, "").replace(/_/g, " ").trim() || "Todoist";
-  // markdown in a task's title: links and bold go, the words stay
+  // markdown in a task's title
   const mdInline = s => String(s || "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, "$1 ($2)").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
     .replace(/(\*\*|__)(.+?)\1/g, "$2").replace(/(^|[\s(])[*_]([^*_\n]+)[*_](?=$|[\s).,!?:;])/g, "$1$2").replace(/~~(.+?)~~/g, "$1").replace(/`([^`]+)`/g, "$1");
   const TD_PRIO = {4: "urgent", 3: "high", 2: "med", 1: "med"};
@@ -305,18 +290,18 @@ const IA = (() => {
     return {name: tdName(fileName), tasks, steps};
   }
 
-  /* ---------- Notion ---------- */
+  /* Notion */
   const ID32 = /\s+[0-9a-f]{32}$/i;
   const notionTitle = n => { let b = String(n || "").split("/").pop().replace(/\.(md|csv)$/i, "").replace(/_all$/, ""); b = b.replace(ID32, ""); return b.trim() || "Untitled"; };
   const notionDir = n => String(n || "").split("/").slice(0, -1).map(p => p.replace(ID32, "").trim()).join("/");
-  // A Notion page in Markdown -> note text (notes are plain text: headings, lists and checkboxes stay readable, the markup goes)
+  // A Notion page in Markdown -> note text
   function mdText(md, count){
     const lines = String(md || "").replace(/^﻿/, "").replace(/\r\n?/g, "\n").split("\n"), out = [];
     let fence = false;
     for (let l of lines) {
       if (/^\s*(```|~~~)/.test(l)) { fence = !fence; continue; }
       if (fence) { out.push(l); continue; }
-      if (/^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/.test(l) && l.indexOf("-") >= 0 && l.indexOf("|") >= 0) continue;   // a table's |---| line
+      if (/^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/.test(l) && l.indexOf("-") >= 0 && l.indexOf("|") >= 0) continue;
       if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(l)) { out.push(""); continue; }
       l = l.replace(/!\[[^\]]*\]\([^)]*\)/g, () => { if (count) count.pics++; return ""; }).replace(/<img\b[^>]*>/gi, () => { if (count) count.pics++; return ""; });
       l = l.replace(/<\/?(aside|details|summary|div|span|u|mark)\b[^>]*>/gi, "").replace(/<br\s*\/?>/gi, " ");
@@ -331,7 +316,7 @@ const IA = (() => {
   const HEAD = s => String(s || "").trim().toLowerCase().replace(/^﻿/, "");
   const PAIRS = [["term", "definition"], ["front", "back"], ["question", "answer"], ["word", "meaning"], ["word", "definition"], ["term", "meaning"], ["concept", "definition"], ["prompt", "answer"], ["q", "a"], ["english", "translation"], ["vocab", "definition"], ["vocabulary", "definition"], ["card front", "card back"]];
   const DONE = /^(yes|done|complete|completed|finished|true|✅|☑|x)$/i;
-  // A Notion database: tasks (a name and a date column), flashcards (two text columns like Term and Definition), or nothing we use
+  // A Notion database
   function notionTable(text, fileName, today){
     const rows = parseCSV(text).filter(r => r.some(x => String(x).trim())); if (rows.length < 2) return null;
     const H = rows[0].map(HEAD), name = notionTitle(fileName), body = rows.slice(1);
@@ -359,16 +344,14 @@ const IA = (() => {
     return null;
   }
 
-  /* ---------- Files (text) -> what the preview offers ---------- */
-  // files: [{name, text}] from one pick (a CSV, a Markdown page, or everything readable in a ZIP). -> {groups, skipped, pics, notesCut}
-  // group: {kind: "deck" | "tasks" | "notes", app, name, items}
+  /* Files (text) -> what the preview offers */
   function plan(files, today){
     const groups = [], count = {pics: 0, sounds: 0}; let skipped = 0, notesCut = 0, done = 0;
     const csv = files.filter(f => /\.csv$/i.test(f.name)), md = files.filter(f => /\.(md|markdown)$/i.test(f.name));
     const names = new Set(csv.map(f => f.name));
     const dbDirs = new Set();
     csv.forEach(f => {
-      if (!/_all\.csv$/i.test(f.name) && names.has(f.name.replace(/\.csv$/i, "_all.csv"))) return;   // Notion writes a view and _all; _all has every row
+      if (!/_all\.csv$/i.test(f.name) && names.has(f.name.replace(/\.csv$/i, "_all.csv"))) return;
       const td = todoist(f.text, f.name, today);
       if (td) { if (td.tasks.length) groups.push({kind: "tasks", app: "todoist", name: td.name, items: td.tasks, steps: td.steps}); return; }
       const nt = notionTable(f.text, f.name, today);
@@ -381,12 +364,12 @@ const IA = (() => {
     const pages = [];
     md.forEach(f => {
       const dir = notionDir(f.name);
-      if ([...dbDirs].some(d => dir === d || dir.startsWith(d + "/"))) return;   // the rows of a database brought in above
+      if ([...dbDirs].some(d => dir === d || dir.startsWith(d + "/"))) return;
       const title = notionTitle(f.name), pc = {pics: 0, sounds: 0};
       let text = mdText(f.text, pc);
       const firstLine = text.split("\n")[0].trim();
       if (firstLine !== title) text = title + "\n\n" + text;
-      if (!text.slice(title.length).trim()) return;   // a page with nothing but its title (usually a parent of other pages)
+      if (!text.slice(title.length).trim()) return;
       count.pics += pc.pics;
       if (text.length > NOTE_TEXT) { text = clip(text, NOTE_TEXT); notesCut++; }
       pages.push({title, text: text.trim(), dir});
@@ -398,22 +381,21 @@ const IA = (() => {
     return {groups, skipped, pics: count.pics, notesCut, done};
   }
 
-  // The course a file belongs to, when its name has a course's code or name in it ("BIO 101 Homework.csv")
+  // The course a file belongs to, when its name has a course's code or name in it
   function matchCourse(name, courses){
     const words = s => " " + (String(s || "").toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).join(" ") + " ", flat = s => words(s).replace(/ /g, "");
     const n = words(name), nf = flat(name); if (!nf) return "";
     let best = "", len = 0;
     (courses || []).forEach(c => [c.code, c.name].forEach(x => {
       const w = words(x), f = flat(x);
-      // whole words ("Biology"), or a code written without its space ("bio101")
       if (f.length >= 3 && (n.includes(w) || (/\d/.test(f) && /\p{L}/u.test(f) && nf.includes(f))) && f.length > len) { best = c.id; len = f.length; }
     }));
     return best;
   }
 
-  /* ---------- zstd: a plain frame of raw blocks (for tests; Anki's real files are unpacked by fzstd) ---------- */
+  /* zstd: a plain frame of raw blocks (for tests; Anki's real files are unpacked by fzstd) */
   function zstdRaw(data){
-    const parts = [new Uint8Array([0x28, 0xb5, 0x2f, 0xfd, 0x00, 0x58])], B = 131072;   // window 1<<(10+11) = 2 MB
+    const parts = [new Uint8Array([0x28, 0xb5, 0x2f, 0xfd, 0x00, 0x58])], B = 131072;
     for (let i = 0; i < data.length || i === 0; i += B) {
       const c = data.subarray(i, i + B), last = i + B >= data.length ? 1 : 0, h = c.length * 8 + last;
       parts.push(new Uint8Array([h & 255, (h >> 8) & 255, (h >> 16) & 255]), c);
@@ -430,8 +412,8 @@ const IA = (() => {
 })();
 /*IMPORTAPPS-END*/
 
-  /* ---------- Reading the picked file ---------- */
-  const FZSTD_URL = "vendor/fzstd-0.1.1.umd.js", FZSTD_SRI = "sha384-j11FJIL1HatEZOwEloCeZcNzDESMGs1ncTc2Kt0LgG0QpBU7lZHgyGU0Mif1OHeH";   // fzstd 0.1.1 (MIT), see THIRD-PARTY-NOTICES.md
+  /* Reading the picked file */
+  const FZSTD_URL = "vendor/fzstd-0.1.1.umd.js", FZSTD_SRI = "sha384-j11FJIL1HatEZOwEloCeZcNzDESMGs1ncTc2Kt0LgG0QpBU7lZHgyGU0Mif1OHeH";
   const ANKI_MAX = 300 * 1024 * 1024, NESTED_MAX = 300 * 1024 * 1024, TEXT_TOTAL = 80 * 1024 * 1024;
   let zstdReady = null;
   const loadZstd = () => zstdReady || (zstdReady = (window.fzstd ? Promise.resolve() : loadScript(FZSTD_URL, FZSTD_SRI)).then(() => { if (!window.fzstd) throw new Error("no fzstd"); }).catch(e => { zstdReady = null; throw e; }));
@@ -457,7 +439,7 @@ const IA = (() => {
     if (!db) throw oops(tr("ia.err.anki", "That doesn't look like an Anki deck file. In Anki, choose File, then Export, and pick Anki Deck Package."));
     return IA.readAnki(db, {cap: IA.CARD_CAP});
   }
-  // Every CSV and Markdown file in a ZIP, and in a ZIP inside it (Notion does that), as [{name, text}]
+  // Every CSV and Markdown file in a ZIP, and in a ZIP inside it (Notion does that), as [{name
   async function zipTexts(src, depth, out, budget){
     const files = await unzipBytes(src, n => /\.(csv|md|markdown|zip)$/i.test(n) && !/(^|\/)__MACOSX\//.test(n), {max: NESTED_MAX, entries: 60000});
     const dec = new TextDecoder();
@@ -473,7 +455,6 @@ const IA = (() => {
     const head = new Uint8Array(await file.slice(0, 8).arrayBuffer()), today = todayISO();
     if (/\.(apkg|colpkg)$/i.test(file.name) || (IA.isZip(head) && /\.anki/i.test(file.name))) return {app: "anki", anki: await readAnkiFile(file)};
     if (IA.isZip(head)) {
-      // an Anki file renamed to .zip still has its collection inside
       const names = []; await unzipBytes(file, n => { names.push(n); return false; }, {entries: 60000});
       if (names.some(n => /^collection\.anki(2|21|21b)$/.test(n))) return {app: "anki", anki: await readAnkiFile(file)};
       const texts = await zipTexts(file, 0, [], {left: TEXT_TOTAL});
@@ -484,8 +465,8 @@ const IA = (() => {
     throw oops(tr("ia.err.type", "Studyboard can read Anki files (.apkg, .colpkg), Todoist CSV or backup files, and Notion exports (.zip). Choose one of those."));
   }
 
-  /* ---------- The sheets ---------- */
-  let PV = null;   // the preview: {app, groups: [{kind, name, items, on, courseId, ...}], notes: [...]}
+  /* The sheets */
+  let PV = null;
   const n0 = n => trn("ia.n", n, "{n}|{n}");
   const cardsW = n => trn("ia.cards", n, "{n} card|{n} cards"), decksW = n => trn("ia.decks", n, "{n} deck|{n} decks"), tasksW = n => trn("ia.tasks", n, "{n} task|{n} tasks"), notesW = n => trn("ia.notes", n, "{n} note|{n} notes");
   const APPS = () => [
@@ -577,7 +558,7 @@ const IA = (() => {
   }
   const matchCourseFor = (name, courses) => IA.matchCourse(name, courses);
 
-  // The whole import as one applyChanges: one toast, one Undo
+  // The whole import as one applyChanges
   function commit(){
     if (!PV) return;
     const now = Date.now(), changes = [], made = {deck: 0, card: 0, task: 0, note: 0}, ids = new Set();
@@ -605,11 +586,10 @@ const IA = (() => {
       }
     });
     if (!changes.length) return;
-    // everything lives on this device too: don't start an import the device can't hold
     try {
       const have = (localStorage.getItem(LS2) || "").length, adding = JSON.stringify(changes.map(c => c.after)).length;
       if (have + adding > 4.6e6) { const m = $("#iaMsg"); if (m) m.textContent = tr("ia.err.space", "That's more than Studyboard can keep on this device at once. Untick a few decks and import the rest afterwards."); return; }
-    } catch (e) { /* storage not readable: let saveLocal report it */ }
+    } catch (e) { }
     const what = [made.deck ? decksW(made.deck) + " (" + cardsW(made.card) + ")" : "", made.task ? tasksW(made.task) : "", made.note ? notesW(made.note) : ""].filter(Boolean).join(", ");
     dlg.close();
     const tab = made.deck ? "flashcards" : made.task ? "board" : "notes";
@@ -621,7 +601,7 @@ const IA = (() => {
   }
   const clipNotes = s => { s = String(s || ""); return s.length > 5000 ? s.slice(0, 4999) + "…" : s; };
 
-  // Quizlet has no file: open Paste Cards on the deck in view, or on a new deck
+  // Quizlet has no file
   function quizlet(){
     const cur = ui.deckId && state.decks[ui.deckId];
     if (cur) { bulkSheet(cur); return; }
@@ -651,6 +631,6 @@ const IA = (() => {
     if (a === "ia-go") { commit(); return true; }
     return false;
   });
-  window.SBIMPORT = {open, readFile, preview: () => PV, IA, state: () => state};   // the last three are for tests, like the other modules
+  window.SBIMPORT = {open, readFile, preview: () => PV, IA, state: () => state};
 })();
 

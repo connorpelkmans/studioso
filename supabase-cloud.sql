@@ -1,20 +1,4 @@
--- Studyboard: Google Drive and OneDrive (free for every signed-in account)
--- Run this once in Supabase: SQL Editor > New query > paste everything > Run. Run it after supabase-lean.sql (and supabase-plans.sql if
--- you use plans), then run supabase-lean.sql again so account deletion includes it. It is safe to run again. Then deploy the
--- cloud-files Edge Function (Verify JWT OFF) and set its secrets; the steps are in SETUP-GUIDE.md, "Google Drive and OneDrive".
---
--- How it works:
---   The app asks the cloud-files function to connect. The person allows access at Google or Microsoft, which sends them back to the
---   function; it keeps the account's refresh token ENCRYPTED (AES-GCM, with a key that lives only in the function's secrets, bound to the
---   account and provider). When the app needs to save or read a file, it asks for a short-lived access token (about an hour) and talks to
---   Google Drive or Microsoft Graph itself, so big files never pass through Supabase.
---   Which files Studyboard knows about lives in the person's own synced data (like every other file record), not here.
---
--- Security model:
---   * The table has Row Level Security on and NO grants: only the Edge Function (service role) can read or write it, through the
---     functions below. The app never sees a refresh token, encrypted or not.
---   * Disconnecting deletes the row (and the function revokes the token at Google). Deleting the Studyboard account deletes it too.
---   * cloud_touch allows at most 120 access-token requests per account and provider per hour.
+-- Studyboard: Google Drive and OneDrive
 
 create table if not exists public.cloud_accounts (
   user_id     uuid not null references auth.users(id) on delete cascade,
@@ -32,7 +16,7 @@ create table if not exists public.cloud_accounts (
 alter table public.cloud_accounts enable row level security;
 revoke all on public.cloud_accounts from public, anon, authenticated;
 
--- Free on every plan (Google Drive and OneDrive use the person's own storage): any signed-in account that isn't a guest
+-- Free on every plan (Google Drive and OneDrive use the person's own storage)
 create or replace function public.cloud_allowed(p_uid uuid) returns boolean
 language sql stable security definer set search_path = pg_catalog, public as $$
   select exists (select 1 from auth.users u where u.id = p_uid and not coalesce((to_jsonb(u) ->> 'is_anonymous')::boolean, false));
@@ -42,7 +26,7 @@ create or replace function public.cloud_account(p_uid uuid, p_provider text) ret
 language sql stable security definer set search_path = pg_catalog, public as $$
   select * from public.cloud_accounts where user_id = p_uid and provider = p_provider;
 $$;
--- What the app may see: no tokens
+-- What the app may see
 create or replace function public.cloud_status(p_uid uuid) returns jsonb
 language sql stable security definer set search_path = pg_catalog, public as $$
   select coalesce(jsonb_agg(jsonb_build_object('provider', a.provider, 'account', a.account, 'status', a.status, 'connected_at', a.created_at) order by a.created_at), '[]'::jsonb)
@@ -61,7 +45,7 @@ language sql volatile security definer set search_path = pg_catalog, public as $
     access_exp = case when p_status = 'reauth' then null else coalesce(p_access_exp, access_exp) end
   where user_id = p_uid and provider = p_provider;
 $$;
--- Counts token requests: false once there have been 120 in the last hour
+-- Counts token requests
 create or replace function public.cloud_touch(p_uid uuid, p_provider text) returns boolean
 language plpgsql volatile security definer set search_path = pg_catalog, public as $$
 declare n integer;
@@ -76,7 +60,7 @@ language sql volatile security definer set search_path = pg_catalog, public as $
   delete from public.cloud_accounts where user_id = p_uid and provider = p_provider;
 $$;
 
--- ---------- Who may call what: the service role only ----------
+-- Who may call what
 revoke all on function public.cloud_allowed(uuid), public.cloud_account(uuid, text), public.cloud_status(uuid), public.cloud_connect(uuid, text, text, text),
   public.cloud_update(uuid, text, text, text, text, timestamptz), public.cloud_touch(uuid, text), public.cloud_disconnect(uuid, text) from public, anon, authenticated;
 do $$ begin

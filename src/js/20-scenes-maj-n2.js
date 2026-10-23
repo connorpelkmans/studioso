@@ -1,5 +1,5 @@
 /* ===== module: 20-scenes-maj-n2.js ===== */
-/* New theme ideas, batch n2: mushrooms (Mushroom Hollow), sunflowers (Sunflower Field), nighttrain (Night Train), ramen (Ramen Shop) */
+/* New theme ideas, batch n2 */
 (() => {
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const r1 = n => Math.round(n * 100) / 100;

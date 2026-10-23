@@ -1,7 +1,4 @@
-// node tests/notecards.e2e.js  (Playwright + Chromium; the AI network call is stubbed)
-// Notes to Flashcards: selection -> Make Cards (in the note's More menu, no floating button) -> review sheet -> save -> cards in the deck (with srcNote), one Undo removes them, the whole-note path
-// (toolbar button and keyboard shortcut, no selection), editing / deleting / adding / reordering / unticking cards, dedupe against an existing deck, the AI path
-// (stubbed reply with an ungrounded card that must be dropped, the "text was sent" notice, failure falls back, no consent sends nothing), AI off, the
+// node tests/notecards.e2e.js
 // links in both directions, sync merge of the new card field, phone width, dark theme, no page errors. Screenshots go to $SHOTS.
 /* global clone, SyncMerge -- clone is copied onto window from __sbNotecards in open() below; SyncMerge is only probed with typeof */
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
@@ -45,7 +42,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await page.waitForTimeout(400); return page;
   };
   const goNotes = async page => { await page.evaluate(() => { ui.tab = "notes"; ui.noteBoard = ""; render(); }); await page.waitForSelector(".note[data-note]"); };
-  const openMore = page => page.evaluate(() => { const d = document.querySelector(".note.editing .note-moredd"); if (d) d.open = true; });   // Make Cards sits in the note's More menu
+  const openMore = page => page.evaluate(() => { const d = document.querySelector(".note.editing .note-moredd"); if (d) d.open = true; });
   const editNote = async (page, id) => { await page.click(`.note[data-note="${id}"] .note-body`); await page.waitForSelector(`.note.editing[data-note="${id}"] #noteText`); await page.waitForTimeout(120); await openMore(page); };
   const select = async (page, from, to) => page.evaluate(([a, b]) => { const t = document.querySelector("#noteText"); const v = t.value; const i = typeof a === "string" ? v.indexOf(a) : a; const j = typeof b === "string" ? v.indexOf(b) + b.length : b; t.focus(); t.setSelectionRange(i, j); t.dispatchEvent(new Event("select", {bubbles: true})); document.dispatchEvent(new Event("selectionchange")); }, [from, to]);
   const deck = (page, id) => page.evaluate(id => JSON.parse(JSON.stringify(state.decks[id] || null)), id);
@@ -55,7 +52,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   const noOverflow = async (page, what) => { const o = await page.evaluate(() => { const d = document.querySelector("#dlg"); const b = document.querySelector("#dlg .sheet-body"); return {page: document.documentElement.scrollWidth - document.documentElement.clientWidth, dlg: d.scrollWidth - d.clientWidth, body: b ? b.scrollWidth - b.clientWidth : 0}; }); ok(o.page <= 0 && o.dlg <= 0 && o.body <= 0, `no horizontal overflow ${what} (${JSON.stringify(o)})`); };
   const targets = async (page, what) => { const small = await page.evaluate(() => [...document.querySelectorAll("#dlg .nc-sheet button, #dlg .nc-sheet select, #dlg .nc-sheet .nc-tick")].filter(e => e.offsetParent).map(e => { const r = e.getBoundingClientRect(); return {t: (e.getAttribute("aria-label") || e.textContent || e.id).trim().slice(0, 30), h: Math.round(r.height), w: Math.round(r.width)}; }).filter(x => x.h < 43.5 || x.w < 43.5 && !/^(Cancel|Close)/.test(x.t) && x.t.length < 3)); ok(small.length === 0, `touch targets are 44px ${what} ${JSON.stringify(small.slice(0, 4))}`); };
   try {
-    // ---- selection -> Make Cards -> sheet -> edit -> save -> one Undo (AI is off: no key at all)
+    // selection -> Make Cards -> sheet -> edit -> save -> one Undo
     {
       const ctx = await mkCtx(); const page = await open(ctx);
       await goNotes(page);
@@ -73,19 +70,16 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(await page.getAttribute('[data-nc="scope"][data-v="sel"]', "aria-pressed") === "true" && await page.getAttribute('[data-nc="scope"][data-v="note"]', "aria-pressed") === "false", "the sheet shows Selection is in use, with a switch to the whole note");
       ok(await page.evaluate(() => document.activeElement && document.activeElement.closest("#dlg") && document.activeElement.matches("input[data-nc-on]")), "focus moves into the sheet, to the first card");
       ok(!(await page.$('#dlg [data-nc="ai"]')) && /AI is off/.test(await page.textContent("#dlg .nc-aioff")), "AI off: no AI button, and the sheet explains the cards were made on this device");
-      // switch to the whole note
       await page.click('[data-nc="scope"][data-v="note"]'); await page.waitForFunction(() => document.querySelectorAll("#dlg .nc-card").length >= 5);
       cs = await cardsIn(page);
       ok(cs.some(c => c.front === "Diffusion") && cs.some(c => /^What are Mitochondria\?$/.test(c.front)) && cs.some(c => c.front === "What are the stages of mitosis?") && cs.some(c => c.front === "What is exocytosis?" && c.kind === "Question"), "whole note: terms, definitions, list and Q&A: " + cs.map(c => c.front).join(" | "));
       ok(await page.evaluate(() => document.getElementById("ncCount").getAttribute("aria-live") === "polite") && /^\d+ of \d+ cards ticked$/.test(await page.textContent("#ncCount")), "an aria-live count says how many cards are ticked");
-      // dedupe against the chosen deck: osmosis is already in Bio basics
       await page.selectOption("#ncDeck", "d1");
       cs = await cardsIn(page); const osm = cs.find(c => c.front === "Osmosis");
       ok(osm && osm.on === false && await page.isVisible("#dlg .nc-dup"), "a card the deck already has is flagged and not ticked");
       ok(await page.isHidden("#ncNameWrap"), "no deck name field for an existing deck");
       await page.selectOption("#ncDeck", "new"); ok(await page.isVisible("#ncName") && (await page.inputValue("#ncName")) === "BIO210 Notes", "new deck is named after the course");
       cs = await cardsIn(page); ok(cs.find(c => c.front === "Osmosis").on === true, "switching to a new deck ticks it again");
-      // edit, untick, delete, add, reorder
       const nBefore = cs.length;
       await page.fill('.nc-card:nth-child(2) [data-nc-f]', "Diffusion (edited)");
       await page.uncheck('.nc-card:nth-child(3) [data-nc-on]');
@@ -116,7 +110,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(await page.isVisible("#toastUndo") && await page.isVisible("#toastExtra"), "the toast offers Undo and Open deck");
       ok(await page.evaluate(() => document.activeElement && document.activeElement.id === "noteText"), "focus returns to the note: " + await page.evaluate(() => document.activeElement.tagName + "." + document.activeElement.className));
       ok((await page.evaluate(() => document.getElementById("noteText").value)) === NOTE1, "the note text is untouched");
-      // the note shows how many cards were made from it
       ok(/^\d+ cards made from this note$/.test(await page.textContent(".note.editing .nc-made")), "the open note says how many cards were made from it");
       await page.click("#toastUndo"); await page.waitForTimeout(300);
       ok(!(await decks(page)).some(d => d.name === "BIO210 Notes"), "ONE Undo removes the new deck and all its cards");
@@ -124,7 +117,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(page.errs.length === 0, "no page errors: " + page.errs.join("; "));
       await page.close(); await ctx.close();
     }
-    // ---- whole note, no selection: shortcut and button; existing deck; Undo restores the deck; both links
+    // whole note, no selection
     {
       const ctx = await mkCtx(); const page = await open(ctx);
       await goNotes(page); await editNote(page, "n1");
@@ -147,7 +140,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(!d1.cards.some((c, i) => i > 0 && c.front === "Osmosis"), "the repeated osmosis card was not added again");
       await page.click("#toastUndo"); await page.waitForTimeout(300);
       d1 = await deck(page, "d1"); ok(d1.cards.length === 1 && d1.cards[0].id === "k1", "ONE Undo takes the new cards back out of the existing deck");
-      // make again and keep, then follow the links
       await editNote(page, "n1"); await page.click(".note.editing .nc-btn"); await page.waitForSelector("#dlg .nc-sheet"); await page.selectOption("#ncDeck", "d1"); await page.click("#ncSave"); await page.waitForTimeout(300);
       await page.click("#toastExtra"); await page.waitForSelector(".fc-list .fc-row");
       ok(await page.evaluate(() => ui.tab === "flashcards" && ui.deckId === "d1"), "Open deck in the toast opens the deck");
@@ -155,14 +147,13 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(await page.evaluate(() => { const b = document.querySelector(".nc-from"); return b.tagName === "BUTTON" && /Open the note this card came from/.test(b.getAttribute("aria-label")); }), "the link is a labelled button");
       await page.screenshot({path: path.join(SHOTS, "deck-links.png")});
       await page.click(".fc-row .nc-from"); await page.waitForSelector(".note.editing, .note[data-note=n1]");
-      await page.waitForFunction(() => document.activeElement && document.activeElement.dataset.note === "n1", null, {timeout: 3000}).catch(() => {});   // focus lands once the note has scrolled into view
+      await page.waitForFunction(() => document.activeElement && document.activeElement.dataset.note === "n1", null, {timeout: 3000}).catch(() => {});
       ok(await page.evaluate(() => ui.tab === "notes" && document.activeElement && document.activeElement.dataset.note === "n1"), "from note takes you to that note");
       ok(/^\d+ cards$/.test(await page.textContent('.note[data-note="n1"] .nc-chip')), "a resting note shows a count chip: " + await page.textContent('.note[data-note="n1"] .nc-chip'));
       ok(!(await page.$('.note[data-note="n2"] .nc-chip')), "notes with no cards show no chip");
       await page.click('.note[data-note="n1"] .nc-chip'); await page.waitForSelector(".fc-list");
       ok(await page.evaluate(() => ui.tab === "flashcards" && ui.deckId === "d1"), "the chip opens the deck without putting the note into edit mode");
       ok(await page.evaluate(() => !state.notes.n1.archived && document.querySelector(".note.editing") === null), "note is not in edit mode");
-      // search everywhere and export still work with the new field
       const sx = await page.evaluate(() => JSON.stringify({deck: JSON.parse(JSON.stringify(state.decks.d1))}));
       ok(/srcNote/.test(sx), "state keeps srcNote");
       ok(await page.evaluate(() => { const c = state.decks.d1.cards.find(x => x.srcNote); const s = JSON.stringify(clone(state)); return s.includes('"srcNote":"n1"') && !!c; }), "srcNote survives clone/save");
@@ -172,7 +163,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(page.errs.length === 0, "no page errors: " + page.errs.join("; "));
       await page.close(); await ctx.close();
     }
-    // ---- nothing to make cards from
+    // nothing to make cards from
     {
       const ctx = await mkCtx({seed: s => { s.notes[1].text = "hi"; return s; }}); const page = await open(ctx);
       await goNotes(page); await editNote(page, "n2"); await page.click(".note.editing .nc-btn");
@@ -186,7 +177,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(page.errs.length === 0, "no page errors: " + page.errs.join("; "));
       await page.close(); await ctx.close();
     }
-    // ---- AI path: consent already given, stubbed reply including an ungrounded card
+    // AI path: consent already given, stubbed reply including an ungrounded card
     {
       const ctx = await mkCtx({ai: true}); const page = await open(ctx);
       ctx.aiReply = {cards: [
@@ -216,7 +207,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       const nd = (await decks(page)).find(d => d.id !== "d1");
       ok(nd.cards.length === 3 && nd.cards.every(c => c.ai === true && c.srcNote === "n3" && !("src" in c)), "AI cards are saved with ai and srcNote, never src");
       await page.click("#toastUndo"); await page.waitForTimeout(250); ok((await decks(page)).length === 1, "one Undo removes AI cards too");
-      // failure falls back
       ctx.aiStatus = 500; await editNote(page, "n3"); await page.click(".note.editing .nc-btn"); await page.waitForSelector("#dlg .nc-sheet");
       const before = (await cardsIn(page)).length; await page.click('#dlg [data-nc="ai"]'); await page.waitForFunction(() => /could not help/.test(document.getElementById("ncAiMsg").textContent), null, {timeout: 20000});
       ok((await cardsIn(page)).length === before && before >= 1, "AI failure keeps the cards made on this device");
@@ -226,7 +216,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(page.errs.filter(e => !/500|nope|Failed to load resource/.test(e)).length === 0, "no page errors: " + page.errs.join("; "));
       await page.close(); await ctx.close();
     }
-    // ---- AI on but consent not given: nothing is sent until agreed
+    // AI on but consent not given
     {
       const ctx = await mkCtx({ai: true, consent: false}); const page = await open(ctx);
       await goNotes(page); await editNote(page, "n3"); await page.click(".note.editing .nc-btn"); await page.waitForSelector("#dlg .nc-sheet");
@@ -238,7 +228,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(page.errs.length === 0, "no page errors: " + page.errs.join("; "));
       await page.close(); await ctx.close();
     }
-    // ---- phone width, touch, dark theme
+    // phone width, touch, dark theme
     {
       const ctx = await mkCtx({w: 390, h: 800, touch: true, dark: true}); const page = await open(ctx);
       await goNotes(page); await page.tap(`.note[data-note="n1"] .note-body`); await page.waitForSelector("#noteText"); await page.waitForTimeout(150);
@@ -257,7 +247,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(page.errs.length === 0, "no page errors: " + page.errs.join("; "));
       await page.close(); await ctx.close();
     }
-    // ---- reduced motion + sync merge keeps the new field
+    // reduced motion + sync merge keeps the new field
     {
       const ctx = await mkCtx(); const page = await open(ctx);
       await page.emulateMedia({reducedMotion: "reduce"}); await goNotes(page); await editNote(page, "n1"); await page.click(".note.editing .nc-btn"); await page.waitForSelector("#dlg .nc-sheet");

@@ -1,12 +1,5 @@
 #!/usr/bin/env node
-// Release gate: fails while anything that ships still holds an owner placeholder (YOUR-DOMAIN, REPLACE_WITH_..., studyboard.example, ...).
-// The store-readiness test checks the wording is right; this checks the blanks have been filled in. Run it before every store or web release.
-//
-//   node scripts/check-release.js              every target
-//   node scripts/check-release.js web desktop  only these (web, desktop, msstore, ios, android)
-//   node scripts/check-release.js msstore      the Microsoft Store (MSIX) build: index.html, package.json build.appx and the tile images
-//
-// Exit code 0 = nothing left to fill in for the chosen targets; 1 = placeholders listed with file:line.
+// Release gate: fails while anything that ships still holds an owner placeholder
 "use strict";
 const fs = require("fs"), path = require("path");
 const ROOT = path.join(__dirname, "..");
@@ -15,7 +8,7 @@ const COMMON = [
   /YOUR-DOMAIN/, /YOUR-PROJECT/, /YOUR-ANON-OR-PUBLISHABLE-KEY/, /YOUR-APP-ADDRESS/, /YOUR NAME OR COMPANY/, /YOUR EMAIL PROVIDER/,
   /YOUR REGION/, /YOUR COUNTRY OR STATE/, /REPLACE_WITH_[A-Z0-9_]+/, /studyboard\.example/,
 ];
-// Files that ship, per target. Docs and tests are not checked (they explain the placeholders on purpose).
+// Files that ship, per target
 const TARGETS = {
   web: {files: ["index.html", "website/config.js", "website/index.html", "website/privacy.html", "website/terms.html", "website/account/index.html",
     "website/success.html", "website/cancel.html", "website/assets/site.js", "manifest.webmanifest", "today.webmanifest"],
@@ -23,7 +16,7 @@ const TARGETS = {
   desktop: {files: ["index.html", "package.json", "build-resources/entitlements.mas.plist", "build-resources/entitlements.mas-dev.plist",
     "build-resources/entitlements.mas.inherit.plist"], extra: [[/\bTEAM_ID\b/, "Apple Team ID"]],
     need: ["build-resources/Studyboard_MAS.provisionprofile"]},
-  // Microsoft Store: only package.json's "appx" section (the rest of package.json holds the Apple placeholders, which this build doesn't need).
+  // Microsoft Store
   msstore: {files: ["index.html", "build-resources/appx-extensions.xml", {file: "package.json", label: "package.json build.appx", pick: s => JSON.stringify(JSON.parse(s).build.appx, null, 2)}],
     need: ["build-resources/appx/StoreLogo.scale-100.png", "build-resources/appx/Square44x44Logo.scale-100.png", "build-resources/appx/Square150x150Logo.scale-100.png",
       "build-resources/appx/Wide310x150Logo.scale-100.png"]},
@@ -42,7 +35,7 @@ const seen = new Set(), problems = [];
 for (const t of chosen) {
   const T = TARGETS[t];
   for (const rel of T.need || []) if (!fs.existsSync(path.join(ROOT, rel))) problems.push(`[${t}] ${rel}: missing (needed to build this target)`);
-  // index.html stands for the whole app page: the page and every code and style file it's built from (src/; scripts/app-files.js)
+  // index.html stands for the whole app page
   const pageFiles = () => { try { return ["index.html"].concat(require("./app-files").srcFiles()); } catch (e) { return ["index.html"]; } };
   for (const entry of T.files.flatMap(e => e === "index.html" ? pageFiles() : [e])) {
     const rel = typeof entry === "string" ? entry : entry.label, file = path.join(ROOT, typeof entry === "string" ? entry : entry.file);

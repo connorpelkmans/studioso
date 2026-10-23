@@ -1,4 +1,4 @@
-/* Theme Collections, batch n5: pride, graduation, birthday, geology */
+/* Theme Collections, batch n5 */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2), S15 = SOw(1.6);

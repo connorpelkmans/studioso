@@ -1,17 +1,8 @@
 // @ts-nocheck
-// Studyboard calendar feed (Supabase Edge Function "calendar-feed").
-// Calendar apps (Apple Calendar, Google Calendar, Outlook) fetch
-//   https://<your-project>.supabase.co/functions/v1/calendar-feed?token=<private token>
-// and get your deadlines, exams, class times and events as an iCalendar (.ics) feed.
-// Setup: see "Calendar Sync" in the setup guide. "Verify JWT" must be OFF for this function,
-// because calendar apps can't sign in. The private token in the link is what protects your calendar.
-// It uses SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, which Supabase provides to every Edge Function.
-// The link is looked up by the SHA-256 of its token (calendar_feeds.token_hash, see supabase-calendar-feed.sql), and the
-// token itself never goes into a database query. Errors shown to calendar apps are short and never describe the setup.
+// Studyboard calendar feed (Supabase Edge Function "calendar-feed")
 
 // ==== STUDYBOARD ICS CORE START ====
-// Shared by the app (download) and the calendar-feed Edge Function (live link). Plain JavaScript, no imports.
-// Keep both copies identical: test/calfeed.test.js checks that they match.
+// Shared by the app (download) and the calendar-feed Edge Function (live link)
 const SBICS = (() => {
   const DAY = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
   const PRIO = {low: "Low", med: "Medium", high: "High", urgent: "Urgent"};
@@ -27,7 +18,7 @@ const SBICS = (() => {
   const tMin = t => +t.slice(0, 2) * 60 + +t.slice(3, 5);
   const minT = m => p2(Math.floor(m / 60)) + ":" + p2(m % 60);
 
-  /* ----- time zones (Intl only, so it works the same in browsers, Node and Deno) ----- */
+  /* time zones (Intl only, so it works the same in browsers, Node and Deno) */
   const fmts = {};
   const parts = (tz, ms) => {
     const f = fmts[tz] || (fmts[tz] = new Intl.DateTimeFormat("en-US", {timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit"}));
@@ -75,14 +66,12 @@ const SBICS = (() => {
       const o = offset(tz, Date.UTC(y0, 6, 1));
       comp(o, o, "19700101T000000", [], Date.UTC(y0, 6, 1));
     } else if (a.length === 2 && b.length === 2 && a[0].key === b[0].key && a[1].key === b[1].key) {
-      // Same rule every year: write it as a yearly rule, the way calendar apps export their own zones.
       a.forEach(t => {
         let d1970 = t.nth > 0 ? 1 + ((t.wd - new Date(Date.UTC(1970, t.month - 1, 1)).getUTCDay() + 7) % 7) + (t.nth - 1) * 7 : 0;
         if (t.nth < 0) { const last = new Date(Date.UTC(1970, t.month, 0)); d1970 = last.getUTCDate() - ((last.getUTCDay() - t.wd + 7) % 7); }
         comp(t.from, t.to, "1970" + p2(t.month) + p2(d1970) + "T" + t.time, ["RRULE:FREQ=YEARLY;BYMONTH=" + t.month + ";BYDAY=" + (t.nth < 0 ? "-1" : t.nth) + DAY[t.wd]], t.at + 3600e3);
       });
     } else {
-      // Rules change between years (or no clean pattern): list each change.
       const first = a[0] || b[0];
       comp(first.from, first.from, "19700101T000000", [], first.at - 864e5);
       for (let y = y0; y <= y1; y++) transitions(tz, y).map(info).forEach(t => comp(t.from, t.to, t.date.replace(/-/g, "") + "T" + t.time, [], t.at + 3600e3));
@@ -91,10 +80,10 @@ const SBICS = (() => {
     return L;
   }
 
-  /* ----- text ----- */
+  /* text */
   const clean = s => String(s == null ? "" : s).replace(/\r\n?/g, "\n").replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "");
   const esc = s => clean(s).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
-  // Lines longer than 75 bytes are split with CRLF + space, never inside a character.
+  // Lines longer than 75 bytes are split with CRLF + space, never inside a character
   function fold(line){
     const out = []; let cur = "", n = 0;
     for (const ch of line) {
@@ -108,7 +97,7 @@ const SBICS = (() => {
   const dur = (m, sign) => { const d = Math.floor(m / 1440), h = Math.floor(m % 1440 / 60), mi = m % 60; return (sign || "") + "P" + (d ? d + "D" : "") + (h || mi || !d ? "T" + (h ? h + "H" : "") + (mi || (!h && !d) ? mi + "M" : "") : ""); };
   const safeUrl = u => typeof u === "string" && /^https?:\/\/[^\s"<>]+$/i.test(u) && u.length < 1000 ? u : "";
 
-  /* ----- the app's data, read the same way the app reads it ----- */
+  /* the app's data, read the same way the app reads it */
   function meetingDays(s){
     s = String(s || ""); const days = new Set();
     const words = s.match(/\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*/gi);
@@ -155,7 +144,7 @@ const SBICS = (() => {
     if (!e.moved || typeof e.moved !== "object" || Array.isArray(e.moved)) e.moved = {};
     return e;
   }
-  // Studyboard's own reminder settings (settings.reminders, from the Reminders feature). Same defaults as the app.
+  // Studyboard's own reminder settings (settings.reminders, from the Reminders feature)
   const REM_DEF = {tasks: true, dayBefore: true, dayTime: "18:00", hoursBefore: true, hours: 2, exams: true, events: true, eventLead: 15, classes: false, morningTime: "07:30"};
   const OVR_MIN = {"0": 0, "15m": 15, "1h": 60, "2h": 120}, OVR_DAY = {"1d": 1, "2d": 2, "3d": 3, "1w": 7};
   function remCfgOf(settings, appHasReminders){
@@ -167,7 +156,7 @@ const SBICS = (() => {
     c.eventLead = Math.max(0, Math.min(240, Number(c.eventLead) || 0));
     return c;
   }
-  // Reminder times for a task, in minutes from the start of its calendar entry (negative = before).
+  // Reminder times for a task, in minutes from the start of its calendar entry
   function taskAlarms(t, opt, cfg){
     const timed = isTime(t.time), base = timed ? tMin(t.time) : 0, exam = t.type === "Exam" || t.type === "Quiz";
     const dayAt = (n, time) => -n * 1440 + tMin(time) - base;
@@ -177,7 +166,7 @@ const SBICS = (() => {
       if (timed) return [-m];
       return m >= 1440 ? [dayAt(Math.floor(m / 1440), "09:00")] : [tMin("09:00")];
     }
-    if (!cfg) return timed ? [-1440] : [dayAt(1, "09:00")]; // no reminder settings: 1 day before
+    if (!cfg) return timed ? [-1440] : [dayAt(1, "09:00")];
     const o = t.remind;
     if (o === "off") return [];
     if (o != null && Object.prototype.hasOwnProperty.call(OVR_DAY, String(o))) return [dayAt(OVR_DAY[o], cfg.dayTime)];
@@ -197,8 +186,7 @@ const SBICS = (() => {
       classesFrom: isDate(o.classesFrom) ? o.classesFrom : "", classesUntil: isDate(o.classesUntil) ? o.classesUntil : "", tz: validTz(o.tz) ? o.tz : "America/Vancouver", appUrl: safeUrl(o.appUrl), pastDays: Math.max(0, Math.min(3650, Number(o.pastDays) >= 0 ? Number(o.pastDays) : 60))};
   }
 
-  /* ----- build ----- */
-  // data: {tasks, courses, events, settings} as arrays/objects from the app. opts: see normOptions. now: ms. feed: true for the live link.
+  /* build */
   function build(data, rawOpts, now, feed){
     const o = normOptions(rawOpts), tz = o.tz;
     now = typeof now === "number" ? now : Date.now();
@@ -217,7 +205,6 @@ const SBICS = (() => {
     const add = (k, v) => L.push(fold(k + ":" + v));
     const addText = (k, v) => { if (clean(v).trim()) add(k, esc(v)); };
     const remCfg = remCfgOf(settings, o.appReminders);
-    // Classes and events get reminders only when following Studyboard's reminder settings.
     const evAlarm = (desc, isClass) => { if (o.remind !== "app" || !remCfg || !remCfg.events || (isClass && !remCfg.classes)) return; L.push("BEGIN:VALARM", "ACTION:DISPLAY"); add("DESCRIPTION", esc(desc)); add("TRIGGER", trigger(-remCfg.eventLead)); L.push("END:VALARM"); };
     const ev = (uid, fields) => {
       L.push("BEGIN:VEVENT"); add("UID", uid); add("DTSTAMP", stamp);
@@ -227,7 +214,6 @@ const SBICS = (() => {
     const timed = (d, s, e) => { years.push(+d.slice(0, 4)); let ed = d, em = tMin(e); if (em >= 1440) { ed = addD(d, Math.floor(em / 1440)); em %= 1440; } add("DTSTART" + tzp, local(d, s)); add("DTEND" + tzp, local(ed, minT(em))); };
     const allDay = (d, endExcl) => { add("DTSTART;VALUE=DATE", d.replace(/-/g, "")); add("DTEND;VALUE=DATE", endExcl.replace(/-/g, "")); };
 
-    // Tasks with due dates
     const from = addD(today, -o.pastDays);
     list(data && data.tasks).forEach(t => {
       if (!t || !t.id || !isDate(t.due) || t.due < from || t.archivedTerm || t.deleted) return;
@@ -254,7 +240,6 @@ const SBICS = (() => {
       });
     });
 
-    // Weekly class times
     if (o.classes) {
       const until = o.classesUntil || addD(today, 112);
       Object.values(courses).forEach(c => {
@@ -278,7 +263,6 @@ const SBICS = (() => {
             addText("LOCATION", where); addText("DESCRIPTION", desc);
             add("CATEGORIES", esc(m.kind)); add("TRANSP", "OPAQUE"); evAlarm(title, true);
           });
-          // One week moved: a replacement for that week
           moves.filter(x => !x.v.skip).forEach(x => {
             const d = isDate(x.v.date) ? x.v.date : x.d, s = isTime(x.v.start) ? x.v.start : m.start, e = isTime(x.v.end) && x.v.end > s ? x.v.end : minT(Math.min(1439, tMin(s) + tMin(m.end) - tMin(m.start)));
             ev(uid, () => {
@@ -290,7 +274,6 @@ const SBICS = (() => {
       });
     }
 
-    // Your own events
     if (o.events) list(data && data.events).forEach(raw => {
       if (!raw || !raw.id || raw.deleted) return;
       const e = normEvent(Object.assign({}, raw)); if (!e) return;
@@ -343,7 +326,6 @@ const SBICS = (() => {
       });
     });
 
-    // Study sessions, if a study plan saved any
     if (o.study) {
       const sp = settings.studyPlan && typeof settings.studyPlan === "object" ? settings.studyPlan.sessions : settings.studySessions;
       list(sp).forEach((s, i) => {
@@ -383,14 +365,14 @@ function textResponse(status, body, extra){
   return new Response(body, {status, headers: Object.assign({"Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store"}, CORS, extra || {})});
 }
 
-// Talk to the database through its REST API with the service role key (no extra libraries needed).
+// Talk to the database through its REST API with the service role key
 function dbClient(){
   const url = (Deno.env.get("SUPABASE_URL") || "").replace(/\/+$/, "");
   let key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-  if (!key) { try { const k = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}"); key = String(k.default || Object.values(k)[0] || ""); } catch (e) { /* newer projects only */ } }
+  if (!key) { try { const k = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}"); key = String(k.default || Object.values(k)[0] || ""); } catch (e) { } }
   if (!url || !key) throw new Error("missing_env");
   const headers = {apikey: key, "Content-Type": "application/json"};
-  if (/^eyJ/.test(key)) headers.Authorization = "Bearer " + key; // older JWT-style keys also go in Authorization
+  if (/^eyJ/.test(key)) headers.Authorization = "Bearer " + key;
   const rest = async (path, init) => {
     const r = await fetch(url + "/rest/v1/" + path, Object.assign({}, init || {}, {headers: Object.assign({}, headers, (init && init.headers) || {})}));
     if (!r.ok) { const t = await r.text().catch(() => ""); const e = new Error("db " + r.status + " " + t.slice(0, 300)); e.status = r.status; e.body = t; throw e; }
@@ -404,8 +386,7 @@ export async function tokenHash(token){
   return Array.from(h, b => b.toString(16).padStart(2, "0")).join("");
 }
 
-// Finds the link by the hash of its token. (A project that hasn't run the newer calendar-feed.sql has no token_hash column
-// yet; then the older lookup is used until it does.)
+// Finds the link by the hash of its token
 async function loadFeed(db, token, hash){
   const by = "token_hash=eq." + hash;
   let rows;
@@ -419,9 +400,7 @@ async function loadFeed(db, token, hash){
   return rows && rows[0] ? Object.assign(rows[0], {_by: by}) : null;
 }
 
-// Every text value from the stored data and options loses control characters (CR, LF, tabs and the rest) before it goes
-// near the calendar, so nothing can start a new line in the file (UID, URL, RRULE, DTSTART and DTEND are written as-is).
-// Multi-line notes keep their line breaks; the core escapes those as \n.
+// Every text value from the stored data and options loses control characters
 const MULTI = new Set(["notes", "desc", "description", "body", "text"]);
 export function cleanDeep(v, key, depth){
   depth = depth || 0;
@@ -432,13 +411,12 @@ export function cleanDeep(v, key, depth){
   for (const k of Object.keys(v)) o[k] = cleanDeep(v[k], k, depth + 1);
   return o;
 }
-// The finished file is checked once more: every line must be a property line (NAME: or NAME;) or a folded continuation.
+// The finished file is checked once more
 export function icsSafe(text){
   return String(text).split("\r\n").every(l => l === "" || l[0] === " " || /^[A-Z][A-Z0-9-]*[;:]/.test(l));
 }
 
-// Lean: a short fingerprint of "what changed and when". The same fingerprint means the same calendar, so it isn't rebuilt.
-// It covers the newest change to your tasks, courses and events, the newest deletion, your feed options and today's date.
+// Lean: a short fingerprint of "what changed and when"
 async function changeKey(db, feed){
   if (!("cache_key" in feed)) return "";
   try {
@@ -450,8 +428,7 @@ async function changeKey(db, feed){
     return Array.from(h.slice(0, 12), b => b.toString(16).padStart(2, "0")).join("");
   } catch (e) { return ""; }
 }
-// Fails closed: a limiter that errors says no. The one exception is a project that never ran lean.sql (the function doesn't
-// exist: PostgREST answers 404 / PGRST202), which keeps working without a limit as before.
+// Fails closed: a limiter that errors says no
 async function rateOk(db, key, max, windowSec){
   try { const r = await db.rest("rpc/studyboard_rate_hit", {method: "POST", body: JSON.stringify({p_key: key, p_max: max, p_window: windowSec})}); return r !== false; }
   catch (e) { return e.status === 404 || /PGRST202|42883/.test(String(e.body || "")); }
@@ -490,21 +467,20 @@ export async function handle(req){
   let feed;
   try { feed = await loadFeed(db, token, hash); }
   catch (e) {
-    // The details (for example "run calendar-feed.sql") go to the function's logs only, never to whoever has the link.
+    // The details (for example "run calendar-feed.sql") go to the function's logs only
     console.error("feed lookup failed", String(e.status || ""), String(e.body || e.message || e).slice(0, 300));
     return textResponse(503, "This calendar isn't available right now. Try again in a few minutes.", {"Retry-After": "300"});
   }
   if (!feed) return textResponse(404, "This calendar link was turned off or reset. Get the current link in Studyboard > Settings > Calendar Sync.");
-  // Lean: a calendar app asking too often gets told to come back later (needs lean.sql; skipped without it).
-  // The limiter keeps a fingerprint of the link, never the link itself.
+  // Lean: a calendar app asking too often gets told to come back later
   const fp = hash.slice(0, 24);
   if (!(await rateOk(db, "cal:" + fp, 120, 3600))) return textResponse(429, "Too many requests for this calendar. Try again in an hour.", {"Retry-After": "3600"});
-  // Lean: reuse the calendar built last time when nothing changed (needs lean.sql's cache columns; skipped without it).
+  // Lean: reuse the calendar built last time when nothing changed
   const ckey = await changeKey(db, feed);
   const etag = ckey ? '"' + ckey + '"' : "";
   if (etag && (req.headers.get("If-None-Match") || "") === etag) return new Response(null, {status: 304, headers: Object.assign({ETag: etag, "Cache-Control": "private, max-age=900"}, CORS)});
   let out;
-  // The cached copy is checked like a fresh build (the cache column is just text in the database); an unsafe one is rebuilt.
+  // The cached copy is checked like a fresh build
   if (ckey && feed.cache_key === ckey && feed.cache_text && icsSafe(feed.cache_text)) out = {text: feed.cache_text};
   else {
     let data;
@@ -513,16 +489,16 @@ export async function handle(req){
     try { out = SBICS.build(cleanDeep(data), cleanDeep(feed.options || {}), Date.now(), true); }
     catch (e) { console.error("build failed", e); return textResponse(500, "Couldn't build your calendar. Try again later."); }
     if (!icsSafe(out.text)) { console.error("build produced an unsafe line"); return textResponse(500, "Couldn't build your calendar. Try again later."); }
-    if (ckey) { try { await db.rest("calendar_feeds?" + feed._by, {method: "PATCH", headers: {Prefer: "return=minimal"}, body: JSON.stringify({cache_key: ckey, cache_text: out.text})}); } catch (e) { /* cache is optional */ } }
+    if (ckey) { try { await db.rest("calendar_feeds?" + feed._by, {method: "PATCH", headers: {Prefer: "return=minimal"}, body: JSON.stringify({cache_key: ckey, cache_text: out.text})}); } catch (e) { } }
   }
-  // Note when a calendar app last checked, so the app can show it (at most every 10 minutes).
+  // Note when a calendar app last checked, so the app can show it (at most every 10 minutes)
   const last = feed.last_fetched_at ? Date.parse(feed.last_fetched_at) : 0;
   if (!last || Date.now() - last > 6e5) {
-    try { await db.rest("calendar_feeds?" + feed._by, {method: "PATCH", headers: {Prefer: "return=minimal"}, body: JSON.stringify({last_fetched_at: new Date().toISOString()})}); } catch (e) { /* not important */ }
+    try { await db.rest("calendar_feeds?" + feed._by, {method: "PATCH", headers: {Prefer: "return=minimal"}, body: JSON.stringify({last_fetched_at: new Date().toISOString()})}); } catch (e) { }
   }
   const headers = Object.assign({"Content-Type": "text/calendar; charset=utf-8", "Content-Disposition": "inline; filename=\"studyboard.ics\"", "Cache-Control": "private, max-age=900", "X-Robots-Tag": "noindex"}, CORS, etag ? {ETag: etag} : {});
   return new Response(req.method === "HEAD" ? null : out.text, {status: 200, headers});
 }
 
-// Only in Supabase, not when the offline tests load this file.
+// Only in Supabase, not when the offline tests load this file
 if (typeof Deno !== "undefined" && Deno && typeof Deno.serve === "function") Deno.serve(handle);

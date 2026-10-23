@@ -1,7 +1,7 @@
 /* ===== module: 96-tp-b3.js ===== */
-/* Theme Collections, batch 3: sunset, mint, bokeh, neon, candy, arcade */
+/* Theme Collections, batch 3 */
 (() => {
-  /* ---- small local helpers (kept inside this batch) ---- */
+  /* -- small local helpers (kept inside this batch) */
   const f = n => +n.toFixed(1);
   const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
   // rounded polygon through points (t = how much of each edge is rounded)
@@ -13,7 +13,7 @@
   const RG = (id, stops, cx = .38, cy = .32, r = .72) => `<radialGradient id="${id}" cx="${cx}" cy="${cy}" r="${r}">${stops.map((c, i) => `<stop offset="${f(i / (stops.length - 1))}" stop-color="${c}"/>`).join("")}</radialGradient>`;
   const D = s => `<defs>${s}</defs>`;
   const OL = 'stroke="#2B2233" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"';
-  // union outline: every part stroked thick first, then filled on top, so the outline wraps the whole silhouette
+  // union outline
   const U = parts => parts.map(([t]) => `<${t} fill="#2B2233" ${OL}/>`).join("") + parts.map(([t, c]) => `<${t} fill="${c}"/>`).join("");
   const SH = (x, y, rx = 5, ry = 3, rot = -30, o = .6) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#fff" opacity="${o}" transform="rotate(${rot} ${x} ${y})"/>`;
   const W = (t, y, sz, c, sc, sw = 3.2, extra = "") => `<text x="32" y="${y}" text-anchor="middle" font-family="Lexend,Arial Rounded MT Bold,Arial,sans-serif" font-weight="800" font-size="${sz}" fill="${c}" stroke="${sc}" stroke-width="${sw}" stroke-linejoin="round" paint-order="stroke" ${extra}>${t}</text>`;

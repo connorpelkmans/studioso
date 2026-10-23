@@ -1,12 +1,7 @@
 /* ===== module: 80-groups.js ===== */
-/* Studyboard 1.11: Share Decks and Study Groups (module 80-groups)
-   - Share a deck with a link (?deck=CODE) or a short code; others preview it and add their own copy.
-   - Study Groups: members, shared decks, shared deadlines and a message board, live through Supabase.
-   - Share as File (.studyboard-deck.json) works everywhere, including local-only mode.
-   The Supabase side is supabase/groups.sql. All network calls go through `api` below. */
+/* Studyboard 1.11 */
 (() => {
-  /* ---------- Connection ---------- */
-  // Tests can set window.__sbGroupsStub = {client, user} to exercise the UI without Supabase.
+  /* Connection */
   const stub = () => window.__sbGroupsStub || null;
   const cli = () => { const s = stub(); return s ? s.client : (sbActive() ? sb : null); };
   const me = () => { const s = stub(); return s ? s.user : sbUser; };
@@ -29,7 +24,7 @@
   const q = async p => { let r; try { r = await p; } catch(e) { throw gErr(e); } if (r && r.error) throw gErr(r.error); return r ? r.data : null; };
   const first = r => (Array.isArray(r) ? r[0] : r) || null;
 
-  // The whole data layer. Every read is limited by the rules in groups.sql, whatever the app asks for.
+  // The whole data layer
   const api = {
     profile: () => q(cli().from("study_profiles").select("display_name").eq("user_id", myId()).maybeSingle()),
     setProfile: name => q(cli().from("study_profiles").upsert({user_id: myId(), display_name: name}, {onConflict: "user_id"})),
@@ -43,10 +38,9 @@
     items: gid => q(cli().from("group_items").select("*").eq("group_id", gid).order("created_at", {ascending: false})),
     messages: gid => q(cli().from("group_messages").select("*").eq("group_id", gid).order("created_at", {ascending: false}).limit(150)),
     group: gid => q(cli().from("study_groups").select("*").eq("id", gid).maybeSingle()),
-    // A group's icon is one small shared item (a hidden "link" row titled __icon__), so it needs no new database column
+    // A group's icon is one small shared item (a hidden "link" row titled __icon__)
     icons: ids => q(cli().from("group_items").select("id,group_id,data").eq("kind", "link").eq("title", "__icon__").in("group_id", ids)),
-    // 1.12 extras (quiz scores, study sessions, weekly challenge, check-ins, reactions). They only exist once the newer groups.sql has been run.
-    // Through group_quiz_board, which leaves out who took a quiz anonymously (an older groups.sql: the table, named scores only)
+    // 1.12 extras (quiz scores, study sessions, weekly challenge, check-ins, reactions)
     scores: async gid => { try { return await q(cli().rpc("group_quiz_board", {p_group: gid})); } catch(e) { if (!e.setup) throw e; return q(cli().from("group_quiz_scores").select("*").eq("group_id", gid)); } },
     rsvps: gid => q(cli().from("group_rsvps").select("*").eq("group_id", gid)),
     stats: (gid, since) => q(cli().from("group_stats").select("*").eq("group_id", gid).gte("week", since)),
@@ -72,7 +66,7 @@
     newCode: gid => q(cli().rpc("new_group_code", {p_group: gid})),
     updateGroup: (gid, patch) => q(cli().from("study_groups").update(patch).eq("id", gid)),
     deleteGroup: gid => q(cli().from("study_groups").delete().eq("id", gid)),
-    // A deleted group is kept for 30 days on the server (groups.sql), and its owner can bring it back
+    // A deleted group is kept for 30 days on the server (groups.sql)
     deletedGroups: () => q(cli().rpc("my_deleted_groups")),
     restoreGroup: gid => q(cli().rpc("restore_group", {p_group: gid})),
     removeMember: (gid, uidv) => q(cli().from("group_members").delete().eq("group_id", gid).eq("user_id", uidv)),
@@ -81,7 +75,7 @@
     removeItem: id => q(cli().from("group_items").delete().eq("id", id)),
     post: (gid, body) => q(cli().from("group_messages").insert({group_id: gid, body}).select().single()),
     unpost: id => q(cli().from("group_messages").delete().eq("id", id)),
-    // Safety (supabase-moderation.sql): reports go to the app's owner only (nobody can read them back), blocks are private to the blocker.
+    // Safety (supabase-moderation.sql)
     fileReport: row => q(cli().from("group_reports").insert(row)),
     blocks: () => q(cli().from("group_blocks").select("blocked_id").eq("blocker_id", myId())),
     block: id => q(cli().from("group_blocks").insert({blocked_id: id})),
@@ -91,14 +85,12 @@
       const ch = c.channel("sbg-" + gid + "-" + uid());
       ["group_items", "group_messages", "group_members"].forEach(t => {
         ch.on("postgres_changes", {event: "*", schema: "public", table: t, filter: "group_id=eq." + gid}, p => cb(t, p));
-        // Deletes can't be filtered by group, so check them against what's on screen.
         ch.on("postgres_changes", {event: "DELETE", schema: "public", table: t}, p => cb(t, p, true));
       });
       ch.on("postgres_changes", {event: "*", schema: "public", table: "study_groups", filter: "id=eq." + gid}, p => cb("study_groups", p));
       try { ch.subscribe(); } catch(e) {}
       return () => { try { c.removeChannel(ch); } catch(e) {} };
     },
-    // 1.13 Project Tasks (group_task_lists and group_tasks exist once the newer groups.sql has been run). Writes only go through these functions.
     ptLists: gid => q(cli().from("group_task_lists").select("*").eq("group_id", gid).order("created_at")),
     ptTasks: gid => q(cli().from("group_tasks").select("*").eq("group_id", gid).eq("deleted", false).order("position").limit(3000)),
     ptMine: () => q(cli().from("group_tasks").select("*").eq("assignee_id", myId()).eq("deleted", false).or("status.neq.done,completed_at.gte." + new Date(Date.now() - 14 * 864e5).toISOString()).limit(500)),
@@ -110,15 +102,15 @@
     ptUpd: (id, patch) => q(cli().rpc("update_group_task", {p_task: id, p_patch: patch})),
     ptMove: (id, dir) => q(cli().rpc("move_group_task", {p_task: id, p_dir: dir})),
     ptDel: id => q(cli().rpc("delete_group_task", {p_task: id})),
-    // 1.15 contribution check-in (group_peer_ratings: you can only read your own rows; the owner reads averages through peer_summary)
+    // 1.15 contribution check-in
     peerMine: gid => q(cli().from("group_peer_ratings").select("to_user,score,note,updated_at").eq("group_id", gid).eq("from_user", myId())),
     peerSubmit: (gid, to, score, note) => q(cli().rpc("submit_peer", {p_group: gid, p_to: to, p_score: score, p_note: note})),
     peerSummary: gid => q(cli().rpc("peer_summary", {p_group: gid})),
-    // 1.15 most missed (anonymous): you can only send your own totals and read per-card totals, never who missed what
+    // 1.15 most missed (anonymous)
     reportMisses: (gid, rows) => q(cli().rpc("report_misses", {p_group: gid, p_rows: rows})),
     forgetMisses: gid => q(cli().rpc("forget_misses", {p_group: gid})),
     topMisses: gid => q(cli().rpc("top_misses", {p_group: gid, p_limit: 10})),
-    // A third channel for the Project Task tables, opened only once they are known to exist.
+    // A third channel for the Project Task tables, opened only once they are known to exist
     listenTasks(gid, cb){
       const c = cli(); if (!c || typeof c.channel !== "function") return () => {};
       const ch = c.channel("sbt-" + gid + "-" + uid());
@@ -127,7 +119,7 @@
       try { ch.subscribe(); } catch(e) {}
       return () => { try { c.removeChannel(ch); } catch(e) {} };
     },
-    // A second channel for the 1.12 tables, only opened once they are known to exist (a missing table would break the whole channel).
+    // A second channel for the 1.12 tables, only opened once they are known to exist
     listenExtras(gid, cb){
       const c = cli(); if (!c || typeof c.channel !== "function") return () => {};
       const ch = c.channel("sbx-" + gid + "-" + uid());
@@ -140,9 +132,7 @@
     }
   };
 
-  /* ---------- Project Tasks: pure logic (no DOM, no network; unit-tested in tests/grouptasks.test.js) ----------
-     Dates are plain "YYYY-MM-DD" strings (the due_at column is a SQL date), compared as whole days with UTC maths, so
-     daylight-saving changes and time zones can never shift a due date by a day. */
+  /* Project Tasks */
   /*GT-START*/
   const GTL = (() => {
     const LIM = {lists: 20, listsAll: 40, tasks: 200, title: 200, listTitle: 80, notes: 1000, course: 40};
@@ -152,13 +142,11 @@
     const addDays = (s, n) => new Date((dayNum(s) + n) * 864e5).toISOString().slice(0, 10);
     const localISO = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     const open = t => t && !t.deleted && t.status !== "done";
-    // How a due date relates to today: none / overdue / today / tomorrow / soon (within 3 days) / later.
     function due(d, today){
       if (!isDay(d)) return {k: "none", n: null, soon: false, late: false};
       const n = diff(today, d);
       return {k: n < 0 ? "overdue" : n === 0 ? "today" : n === 1 ? "tomorrow" : n <= 3 ? "soon" : "later", n, soon: n >= 0 && n <= 3, late: n < 0};
     }
-    // wd(d) and md(d) format a date as a short weekday ("Fri") and as month and day ("Oct 12").
     function dueLabel(d, today, wd, md){
       const c = due(d, today);
       if (c.k === "none") return "No date";
@@ -168,7 +156,6 @@
       return c.n <= 6 ? `Due ${wd(d)}` : `Due ${md(d)}`;
     }
     const byPos = (a, b) => (a.position - b.position) || String(a.created_at || "").localeCompare(String(b.created_at || "")) || String(a.id).localeCompare(String(b.id));
-    // Open tasks in list order, then finished ones (most recently finished first).
     const order = tasks => {
       const live = tasks.filter(t => !t.deleted);
       return live.filter(t => t.status !== "done").sort(byPos).concat(live.filter(t => t.status === "done").sort((a, b) => String(b.completed_at || "").localeCompare(String(a.completed_at || "")) || byPos(a, b)));
@@ -188,7 +175,6 @@
       const live = tasks.filter(t => !t.deleted), done = live.filter(t => t.status === "done").length;
       return {done, total: live.length, pct: live.length ? Math.round(done / live.length * 100) : 0};
     }
-    // Open tasks per member (and how many nobody has claimed), to spot an uneven split. members: [{user_id, display_name}].
     function workload(tasks, members, today){
       const live = tasks.filter(t => !t.deleted), ids = new Set(members.map(m => m.user_id));
       const rows = members.map(m => {
@@ -198,18 +184,15 @@
       }).sort((a, b) => (b.open - a.open) || a.name.localeCompare(b.name));
       const unassigned = live.filter(t => t.status !== "done" && (!t.assignee_id || !ids.has(t.assignee_id))).length;
       const hi = rows[0], lo = rows[rows.length - 1];
-      // "Uneven" only when there is real work and the gap is 3 or more tasks.
       const uneven = rows.length > 1 && hi.open - lo.open >= 3 ? {hi: hi.name, lo: lo.name, gap: hi.open - lo.open} : null;
       return {rows, unassigned, uneven};
     }
-    // Who may do what (the server enforces the same rules; these decide which buttons to show).
     const canReassign = (t, me, owner) => !t.assignee_id || t.assignee_id === me || !!owner;
     const canDeleteTask = (t, me, owner) => !!owner || (!!t.created_by && t.created_by === me);
     const canDeleteList = (l, me, owner) => !!owner || (!!l.created_by && l.created_by === me);
     const canAddTask = (tasks, listId) => tasks.filter(t => !t.deleted && t.list_id === listId).length < LIM.tasks;
     const canAddList = lists => lists.filter(l => !l.archived).length < LIM.lists && lists.length < LIM.listsAll;
     const clamp = (s, n) => String(s == null ? "" : s).replace(/\s+/g, " ").trim().slice(0, n);
-    // Apply a patch to a task the way the server will, so the screen can update before the answer arrives.
     function applyPatch(t, patch, me, nowIso){
       const n = Object.assign({}, t);
       ["title", "notes", "status", "assignee_id", "due_at", "priority", "reviewer_id"].forEach(k => { if (k in patch) n[k] = patch[k]; });
@@ -218,36 +201,30 @@
       n.updated_at = nowIso; n.updated_by = me;
       return n;
     }
-    // Merge a fresh server copy with what is on screen: rows being saved right now (pending: has(id)) keep their on-screen version.
     function reconcile(local, server, pending){
       const keep = new Map(local.filter(t => pending.has(t.id)).map(t => [t.id, t]));
       const out = server.map(t => keep.get(t.id) || t);
       local.forEach(t => { if (t._tmp && pending.has(t.id) && !out.some(x => x.id === t.id)) out.push(t); });
       return out;
     }
-    // My open tasks in a group, in the shape the planner reads. Tasks on archived lists don't count.
     function deriveMine(tasks, lists, groupName, gid, me, withDone){
       const L = new Map(lists.map(l => [l.id, l])), cut = Date.now() - 14 * 864e5;
-      const recentDone = t => withDone && t && !t.deleted && t.status === "done" && Date.parse(t.completed_at) >= cut;   // done in the last two weeks: the Complete column of the Task Board
+      const recentDone = t => withDone && t && !t.deleted && t.status === "done" && Date.parse(t.completed_at) >= cut;
       return tasks.filter(t => (open(t) || recentDone(t)) && t.assignee_id === me && !t._tmp && L.has(t.list_id) && !L.get(t.list_id).archived).map(t => {
         const l = L.get(t.list_id);
         return {id: t.id, gid, listId: t.list_id, title: t.title, due: isDay(t.due_at) ? String(t.due_at).slice(0, 10) : "", status: t.status, hours: 1, priority: t.priority || "",
           courseCode: l.course_code || "", listTitle: l.title, groupName: groupName || "", badge: "Group: " + (l.title || groupName || "Study group"), notes: t.notes || "", by: t.updated_by || t.created_by || ""};
       }).sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999") || a.title.localeCompare(b.title));
     }
-    // Tasks that were not assigned to me before and are now, by someone else, and that I haven't been told about.
     function newlyAssigned(prev, next, me, seen){
       const had = new Set(prev.filter(t => t.assignee_id === me).map(t => t.id));
       return next.filter(t => open(t) && t.assignee_id === me && !had.has(t.id) && !seen.has(t.id) && t.updated_by && t.updated_by !== me && !t._tmp);
     }
-    // How many of my rows are due in the next 7 days (today included) and how many are overdue.
     function weekDue(rows, today){
       let week = 0, late = 0, tomorrow = 0;
       rows.forEach(r => { const c = due(r.due, today); if (c.k === "overdue") late++; else if (c.k !== "none" && c.n <= 6) week++; if (c.k === "tomorrow") tomorrow++; });
       return {week, late, tomorrow};
     }
-    // Move a task up (-1) or down (1) among the tasks of its list that are in the same state (open or done), exactly as move_group_task does.
-    // Returns {taskId: newPosition} for the rows that change.
     function move(tasks, id, dir){
       const live = tasks.filter(t => !t.deleted).sort(byPos), me = live.find(t => t.id === id); if (!me) return {};
       const pos = new Map(live.map((t, i) => [t.id, i + 1]));
@@ -266,8 +243,7 @@
   })();
   /*GT-END*/
 
-  /* ---------- Group kinds (1.15): pure logic for the study group and group project pages (no DOM, no network; unit-tested in tests/groupkinds.test.js) ----------
-     A group is a "study" group or a "project". Each has its own tabs. Needs GTL (above) for dates. */
+  /* Group kinds (1.15) */
   /*GK-START*/
   const GK = (() => {
     const TABS = {
@@ -280,7 +256,6 @@
     const tabsFor = kind => TABS[kind === "project" ? "project" : "study"];
     const tabIds = kind => tabsFor(kind).map(t => t[0]);
     const roleLabel = key => (ROLES.find(r => r[0] === key) || [0, ""])[1];
-    // How long until a project is due: none / overdue / today / left (n days).
     function countdown(due, today){
       if (!GTL.isDay(due)) return {k: "none", n: null, label: "No due date yet"};
       const n = GTL.diff(today, due);
@@ -288,7 +263,6 @@
       if (n === 0) return {k: "today", n, label: "Due today"};
       return {k: "left", n, label: n === 1 ? "1 day left" : `${n} days left`};
     }
-    // A starter plan worked backward from the due date: milestones spread over the days left, the last one on the due date. Never dated before today.
     const STEPS = [["Agree on the topic and who does what", 0.06], ["Research and collect sources", 0.28], ["Outline it and split the sections", 0.42], ["Write a first draft of every section", 0.66], ["Put it together and review it as a team", 0.84], ["Final polish and hand it in", 1]];
     function planFromDue(due, today){
       if (!GTL.isDay(due) || GTL.diff(today, due) < 0) return [];
@@ -302,21 +276,17 @@
         return {title, due: d};
       });
     }
-    // Everything that tells how a project is going. tasks: the project's task rows on active lists. members: [{user_id, display_name}].
     function overview(tasks, members, today){
       const live = tasks.filter(t => !t.deleted), pr = GTL.progress(live), wl = GTL.workload(live, members, today);
       const behind = wl.rows.filter(r => r.overdue > 0).sort((a, b) => b.overdue - a.overdue || a.name.localeCompare(b.name));
       return {progress: pr, open: live.filter(t => t.status !== "done").length, behind, unassigned: wl.unassigned, uneven: wl.uneven};
     }
-    // My open tasks in a project, soonest first (no date last).
     const myTasks = (tasks, me) => tasks.filter(t => !t.deleted && t.status !== "done" && t.assignee_id === me)
       .sort((a, b) => (a.due_at || "9999").localeCompare(b.due_at || "9999") || String(a.title).localeCompare(String(b.title)));
-    // Board columns: To Do, In Progress, Done (finished tasks newest first).
     function board(tasks){
       const live = GTL.order(tasks.filter(t => !t.deleted));
-      return {todo: live.filter(t => t.status === "todo"), doing: live.filter(t => t.status === "doing" || t.status === "review"), done: live.filter(t => t.status === "done")};   // In Review (Pro groups) waits with In Progress
+      return {todo: live.filter(t => t.status === "todo"), doing: live.filter(t => t.status === "doing" || t.status === "review"), done: live.filter(t => t.status === "done")};
     }
-    // Quiz battle: every member's average of their best scores across the group's shared quizzes. scores: rows of group_quiz_scores.
     function battle(scores, members){
       const rows = members.map(m => {
         const mine = scores.filter(s => s.user_id === m.user_id && s.best_total > 0);
@@ -326,15 +296,12 @@
       });
       return rows.sort((a, b) => (b.taken > 0) - (a.taken > 0) || b.pct - a.pct || b.taken - a.taken || a.name.localeCompare(b.name));
     }
-    // The text of a quiz question's right answer, for showing it next to the question.
     function answerText(q){
       if (!q) return "";
       if (q.type === "short") return String(q.answer || "");
       const o = Array.isArray(q.options) ? q.options : [], c = Array.isArray(q.correct) ? q.correct : [];
       return q.type === "order" ? c.map(i => o[i]).filter(Boolean).join(" \u2192 ") : c.map(i => o[i]).filter(Boolean).join("; ");
     }
-    // Most missed: join the anonymous totals from the server (rows: {item_id, mkey, members_missed, total_misses, members_tried}) with the shared decks and quizzes they point at.
-    // items: the group's items. Keys are "c:<card id>" for a card in a shared deck and "q:<question id>" for a question in a shared quiz. Anything that no longer exists is skipped.
     function topMisses(rows, items){
       const by = new Map(items.map(it => [it.id, it])), out = [];
       (rows || []).forEach(r => {
@@ -346,13 +313,10 @@
       });
       return out.sort((a, b) => b.missed - a.missed || b.total - a.total || a.text.localeCompare(b.text));
     }
-    // Q&A: the answers to a question, best answer first, then oldest first.
     function answersOf(items, qid, bestId){
       return items.filter(x => x.kind === "answer" && x.ref_id === qid).sort((a, b) => (b.id === bestId) - (a.id === bestId) || String(a.created_at).localeCompare(String(b.created_at)));
     }
-    // Unsolved questions first, then newest first.
     const questionsOf = items => items.filter(x => x.kind === "qa").sort((a, b) => ((a.data && a.data.solved) ? 1 : 0) - ((b.data && b.data.solved) ? 1 : 0) || String(b.created_at).localeCompare(String(a.created_at)));
-    // Meeting action items, one per line. "Sam: book the room" assigns it to the member whose name starts with Sam. Bullets and numbers are dropped.
     function parseActions(text, members){
       return String(text || "").split(/\r?\n/).map(l => l.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, "").trim()).filter(Boolean).slice(0, LIM.actions).map(l => {
         const m = /^([^:]{1,40}):\s*(.+)$/.exec(l);
@@ -363,7 +327,6 @@
         return {text: l.slice(0, 200), who: ""};
       });
     }
-    // The check-in opens two weeks before the due date and stays open after it (or always, when no date was set).
     const peerOpen = (due, today) => !GTL.isDay(due) || GTL.diff(today, due) <= 14;
     const peerLabels = [[1, "Hardly helped"], [2, "Did a little"], [3, "Did their share"], [4, "Did more than their share"], [5, "Carried a lot"]];
     const hostOf = url => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch(e) { return ""; } };
@@ -371,7 +334,7 @@
   })();
   /*GK-END*/
 
-  /* ---------- Small helpers ---------- */
+  /* Small helpers */
   const S = {groups: null, members: {}, items: {}, msgs: {}, busy: false, err: "", setup: false, loadingG: {}, errG: {},
     name: undefined, shares: null, sharesBusy: false, unsub: null, subGid: null, drafts: {}, changed: {}, pushQ: new Set(), pushT: 0, linkChecked: {}, linkNew: {},
     ext: {}, lb: {}, rep: {}, repT: 0, extT: 0, unsubX: null, subX: null, pick: "", blocked: new Set(), blocksFor: "",
@@ -382,8 +345,7 @@
   const ts = x => new Date(x || 0).getTime() || 0;
   const initials = n => { const w = String(n || "?").trim().split(/\s+/).filter(Boolean); return ((w[0] || "?")[0] + (w.length > 1 ? w[w.length - 1][0] : "")).toUpperCase(); };
   const hueOf = s => COLORS[parseInt(hashOf(String(s || "x")), 36) % COLORS.length];
-  // My own picture is a headshot of the companion I have selected (the others show their initials).
-  // Another member's companion (the id they share with their groups, drawn here), cached per companion
+  // My own picture is a headshot of the companion I have selected
   const faceCache = {};
   function faceOfMember(uid2){
     if (!uid2) return "";
@@ -403,7 +365,7 @@
       return typeof h === "string" && h && h.length < 60000 && !/<\s*script|\son\w+=/i.test(h) ? h : "";
     } catch(e) { return ""; }
   }
-  // The group's icon: a sticker key chosen by the owner (kept in a hidden shared item, so every member sees it)
+  // The group's icon
   const iconItem = g => (S.items[g.id] || []).find(x => x.kind === "link" && x.title === "__icon__" && x.data && STICKERS[x.data.icon]);
   const iconKey = g => { const it = iconItem(g); return it ? it.data.icon : (S.icons && S.icons[g.id] && STICKERS[S.icons[g.id].key] ? S.icons[g.id].key : ""); };
   async function setGroupIcon(g, key){
@@ -414,12 +376,11 @@
     (S.icons = S.icons || {})[g.id] = {id: id || (S.icons[g.id] || {}).id, key};
   }
   const iconTile = g => { const k = iconKey(g); return k ? `<span class="grp-ic" aria-hidden="true">${stickerSvg(k)}</span>` : ""; };
-  // The round icon on a group's card and header: its sticker, or the study group / project symbol when it has none
+  // The round icon on a group's card and header
   const ringIcon = g => { const k = iconKey(g); return k ? stickerSvg(k) : `<span class="g2-sym">${isProj(g) ? I_CUBE : ICON_GROUP}</span>`; };
-  // Each member's colour in a group (picked when they join; Members tab to change). Without one, a colour from their id.
+  // Each member's colour in a group (picked when they join; Members tab to change)
   const MEMBER_COLORS = ["#E5484D", "#F76B15", "#E2A50B", "#30A46C", "#12A594", "#0090FF", "#3E63DD", "#8E4EC6", "#D6409F", "#6E5240"];
-  // A member's colour: the one they picked or, until they pick, one of the colours nobody in the group has (in joining order, so
-  // every device agrees and nobody looks like someone else)
+  // A member's colour
   const okColor = c => /^#[0-9A-F]{6}$/i.test(c || "");
   const memberHue = (gid, id, name) => {
     const ms = gid ? S.members[gid] || [] : [], m = id ? ms.find(x => x.user_id === id) : null;
@@ -432,24 +393,21 @@
     }
     return hueOf(id || name);
   };
-  // A member's picture (their companion, or initials) in their colour; data-mc lets the row it sits in take the colour too (paintRows)
-  // Text that reads on a colour: dark on light colours (any colour can be picked in Pro groups), white otherwise
+  // A member's picture (their companion, or initials) in their colour
   const inkOn = c => { if (!okColor(c)) return "#fff"; const [r, g, b] = [1, 3, 5].map(i => parseInt(c.substr(i, 2), 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4); return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.45 ? "#1F2430" : "#fff"; };
   const av = (name, id, gid) => { const f = id && id === myId() ? myFace() : faceOfMember(id), raw = memberHue(gid != null ? gid : (ui.tab === "groups" ? ui.grp : ""), id, name), c = esc(raw);
     return f ? `<span class="grp-av is-comp" style="--c:${c}" data-mc="${c}" aria-hidden="true">${f}</span>` : `<span class="grp-av" style="--c:${c};color:${inkOn(raw)}" data-mc="${c}" aria-hidden="true">${esc(initials(name))}</span>`; };
-  // Rows that belong to one person learn that person's colour (--mc): leaderboard bars are drawn in it. People are told apart by the
-  // coloured ring around their picture; rows get no stripe.
+  // Rows that belong to one person learn that person's colour (--mc)
   function paintRows(root){
     (root || document).querySelectorAll("#grpDetail .grp-av[data-mc]").forEach(a => {
-      const row = a.closest(".grp-msg, li"); if (!row || row.classList.contains("kb-card") || row.closest(".grp-avs, .kb-band, .pt-who, .grp-members, .grp-checks")) return;   // the members list keeps just the coloured ring
+      const row = a.closest(".grp-msg, li"); if (!row || row.classList.contains("kb-card") || row.closest(".grp-avs, .kb-band, .pt-who, .grp-members, .grp-checks")) return;
       const avs = [...row.querySelectorAll(".grp-av[data-mc]")].filter(x => x.closest(".grp-msg, li") === row);
       if (new Set(avs.map(x => x.dataset.mc)).size !== 1) return;
       if (row.style.getPropertyValue("--mc") !== a.dataset.mc) row.style.setProperty("--mc", a.dataset.mc);
       row.classList.add("mc-row");
     });
-    // Shared items (decks, quizzes, questions, links, notes...) carry the colour of whoever shared them
     (root || document).querySelectorAll("#grpDetail li.grp-item:not(.mc-row)").forEach(li => {
-      if (li.closest("#grpSessions")) return;   // study sessions and meetings stay plain
+      if (li.closest("#grpSessions")) return;
       const idEl = li.querySelector("[data-id]"), it = idEl && typeof itemOf === "function" ? itemOf(idEl.dataset.id) : null;
       if (!it || !it.user_id || !(S.members[it.group_id] || []).some(m => m.user_id === it.user_id)) return;
       li.style.setProperty("--mc", memberHue(it.group_id, it.user_id)); li.classList.add("mc-row");
@@ -467,32 +425,28 @@
     const m = s.match(/[?&](deck|group)=([A-Za-z0-9-]+)/);
     const kind = m ? m[1] : "";
     let x = (m ? m[2] : s).toUpperCase().replace(/[^A-Z0-9]/g, "");
-    // Pasted with other text around it ("Join my group: K7P4-QD9X"): use the code-shaped part
     if (!m && x.length !== 8) { const t = s.match(/(?:^|[^A-Za-z0-9])([A-Za-z0-9]{4}-?[A-Za-z0-9]{4})(?![A-Za-z0-9-])/); if (t) x = t[1].toUpperCase().replace(/[^A-Z0-9]/g, ""); }
-    // Codes are 8 characters (K7P4-QD9X); the server gave every older code a new one like this
     return {kind, code: x.length === 8 ? x.slice(0, 4) + "-" + x.slice(4) : ""};
   };
   const webBase = () => /^https?:$/.test(location.protocol) ? location.origin + location.pathname : ((state.settings || {}).webUrl || "");
   const linkFor = (kind, code) => { const b = webBase(); return b ? `${b}?${kind}=${encodeURIComponent(code)}` : ""; };
-  // Remember the website address so links made in the desktop app point to it.
+  // Remember the website address so links made in the desktop app point to it
   function rememberWebUrl(){
     if (!/^https:$/.test(location.protocol) || /^(localhost|127\.)/.test(location.hostname)) return;
     const w = location.origin + location.pathname;
     if ((state.settings || {}).webUrl !== w) { state.settings = Object.assign({}, state.settings, {webUrl: w}); saveSettings(); }
   }
-  // One of your courses for a course code or name from someone else. Codes match however they're written: BIOL1000, BIOL 1000,
-  // biol-1000 and "BIOL 1000 - Intro Biology" are all the same course.
-  // A course code as a key, lower case ("BIOL 201" -> biol201). Same rules as courseKey in cloudflare/site/public-pages.js and public.sbs_course_key.
+  // One of your courses for a course code or name from someone else
   const NOT_CODE = /^(GRADE|GR|YEAR|YR|UNIT|WEEK|WK|CHAPTER|CH|LAB|ROOM|PAGE|PART|LESSON|TERM|SEM|CLASS|PERIOD|QUIZ|TEST|EXAM|MIDTERM|FINAL|LECTURE|LEC|MODULE|TOPIC|SECTION|SEC|GROUP|TEAM|DAY|SET|DECK|LEVEL|NOTE|NOTES|VERSION|STEP|ROUND|BOOK|VOL|NO|NUMBER|COVID)$/;
   const codeKey = s => {
     s = String(s || ""); let m;
-    if ((m = s.match(/(?:^|[^0-9])([0-9]{2})[:. -]([0-9]{3})[:. -]([0-9]{3})(?![0-9])/))) return m[1] + m[2] + m[3];   // Rutgers' 01:119:115
-    if ((m = s.match(/(?:^|[^A-Za-z])([A-Z]{2,8})-([A-Z]{2})\s*([0-9]{1,4}[A-Z]?)(?![A-Za-z0-9])/))) return (m[1] + m[2] + m[3]).toLowerCase();   // NYU's PSYCH-UA 1
+    if ((m = s.match(/(?:^|[^0-9])([0-9]{2})[:. -]([0-9]{3})[:. -]([0-9]{3})(?![0-9])/))) return m[1] + m[2] + m[3];
+    if ((m = s.match(/(?:^|[^A-Za-z])([A-Z]{2,8})-([A-Z]{2})\s*([0-9]{1,4}[A-Z]?)(?![A-Za-z0-9])/))) return (m[1] + m[2] + m[3]).toLowerCase();
     if ((m = s.match(/(?:^|[^A-Za-z])([A-Za-z]{2,8})[\s._-]*([0-9][A-Za-z][0-9]{2}|[0-9]{2,5}[A-Za-z]{0,2})/)) && (/^[0-9]{3}/.test(m[2]) || !NOT_CODE.test(m[1].toUpperCase()))) return (m[1] + m[2]).toLowerCase();
-    if ((m = s.match(/(?:^|[^A-Za-z])([A-Za-z]{9,12})\s+([0-9]{4}[A-Za-z]?)(?![0-9])/))) return (m[1] + m[2]).toLowerCase();   // Western's Psychology 1002A
-    if ((m = s.match(/(?:^|[^A-Za-z0-9])([A-Z]{2,8})[\s._-]?([0-9][A-Z]?)(?![A-Za-z0-9])/)) && !NOT_CODE.test(m[1])) return (m[1] + m[2]).toLowerCase();   // ECON 1, CHEM 1A, SBI4U
-    if ((m = s.match(/(?:^|[^A-Za-z0-9])([A-Z])\s?([0-9]{3}[A-Z]?)(?![A-Za-z0-9])/))) return (m[1] + m[2]).toLowerCase();   // UT Austin's M 408C
-    const h = s.match(/\b([a-z]{3})[\s-]?([1-4])([a-z][a-z0-9]?)\b/i); return h ? (h[1] + h[2] + h[3]).toLowerCase() : "";   // high school codes like SBI4U
+    if ((m = s.match(/(?:^|[^A-Za-z])([A-Za-z]{9,12})\s+([0-9]{4}[A-Za-z]?)(?![0-9])/))) return (m[1] + m[2]).toLowerCase();
+    if ((m = s.match(/(?:^|[^A-Za-z0-9])([A-Z]{2,8})[\s._-]?([0-9][A-Z]?)(?![A-Za-z0-9])/)) && !NOT_CODE.test(m[1])) return (m[1] + m[2]).toLowerCase();
+    if ((m = s.match(/(?:^|[^A-Za-z0-9])([A-Z])\s?([0-9]{3}[A-Z]?)(?![A-Za-z0-9])/))) return (m[1] + m[2]).toLowerCase();
+    const h = s.match(/\b([a-z]{3})[\s-]?([1-4])([a-z][a-z0-9]?)\b/i); return h ? (h[1] + h[2] + h[3]).toLowerCase() : "";
   };
   const matchCourse = pc => {
     if (!pc) return "";
@@ -501,8 +455,7 @@
     const c = coursesArr().find(c => (pc.code && same(c.code, pc.code)) || (pc.name && n(c.name) && n(c.name) === n(pc.name)) || (typeof pc === "string" && (same(c.code, pc) || (n(c.name) && n(c.name) === n(pc)))));
     return c ? c.id : "";
   };
-  // Is a shared deadline (its payload's course) for this group's course? A group with a course only shows, counts and accepts deadlines
-  // from that course; one without a course takes any (strict: none at all, for the exam countdown).
+  // Is a shared deadline (its payload's course) for this group's course
   const nkey = v => String(v || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
   function forGroupCourse(g, data, strict){
     const gc = String((g && g.course) || "").trim();
@@ -511,10 +464,7 @@
     const gk = codeKey(gc);
     return (!!gk && (codeKey(c.code) === gk || codeKey(c.name) === gk)) || (!!nkey(gc) && (nkey(c.code) === nkey(gc) || nkey(c.name) === nkey(gc)));
   }
-  // A group's colour, on this device: your own course's colour when you have one with the same code; otherwise the colour its owner
-  // picked (groups.sql: study_groups.color); otherwise one from its id
-  // A group you own whose course is one of yours keeps your course's colour as its saved colour, so members without the course
-  // see it too (also after you change the course's colour in your planner)
+  // A group's colour, on this device
   const colorSynced = {};
   hook("render", tab => {
     if (tab !== "groups" || !online() || !Array.isArray(S.groups)) return;
@@ -540,7 +490,7 @@
   const ICON_GROUP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19.5c0-3.2 2.7-5.5 6-5.5s6 2.3 6 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16.5 14.1c2.6.2 4.5 2.2 4.5 4.9"/></svg>';
   const ICON_SHARE = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px;margin-right:4px"><circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="M8.2 10.8l7.6-4.1M8.2 13.2l7.6 4.1"/></svg>';
 
-  /* ---------- Deck payloads (what gets shared: cards and quizzes, never your progress) ---------- */
+  /* Deck payloads */
   function cleanQuiz(qz){
     const o = {id: str(qz.id, 60) || uid(), title: str(qz.title, 200) || "Practice Quiz", style: str(qz.style, 500),
       questions: (qz.questions || []).map(x => { const c = clone(x); delete c.tries; delete c.miss; return c; })};
@@ -552,11 +502,11 @@
     const cards = d.cards.filter(x => String(x.front || "").trim() || String(x.back || "").trim()).map(x => ({id: x.id, front: x.front, back: x.back}));
     const quizzes = withQ ? (d.aiQuizzes || []).map(cleanQuiz) : [];
     const p = {v: 1, app: "studyboard", type: "deck", name: d.name, course: c ? {code: c.code || "", name: c.name || ""} : null, cards, quizzes};
-    if (d.pubLook && d.pubLook.color && d.pubLook.icon) p.look = {color: d.pubLook.color, icon: d.pubLook.icon};   // the colour and icon picked for its public page
+    if (d.pubLook && d.pubLook.color && d.pubLook.icon) p.look = {color: d.pubLook.color, icon: d.pubLook.icon};
     p.hash = hashOf(JSON.stringify(p.look ? [p.name, cards, quizzes, p.look] : [p.name, cards, quizzes]));
     return p;
   }
-  // Anything that comes from someone else (the server or a file) is cleaned before it touches your data.
+  // Anything that comes from someone else
   function cleanPayload(p){
     if (!p || typeof p !== "object" || !Array.isArray(p.cards)) return null;
     const cards = p.cards.slice(0, 5000).map(c => c && typeof c === "object" ? {id: str(c.id, 60) || uid(), front: str(c.front, 5000), back: str(c.back, 5000)} : null).filter(c => c && (c.front.trim() || c.back.trim()));
@@ -571,7 +521,7 @@
     const course = p.course && typeof p.course === "object" ? {code: str(p.course.code, 40), name: str(p.course.name, 120)} : null;
     return {name: str(p.name, 120).trim() || "Shared Deck", course, cards, quizzes, sharedBy: str(p.sharedBy, 40), hash: str(p.hash, 40)};
   }
-  // sh remembers the text as shared, so a later update can tell a card you edited (kept as you wrote it) from one you never touched (updated)
+  // sh remembers the text as shared, so a later update can tell a card you edited
   const shOf = c => (c.front || "") + "\u0001" + (c.back || "");
   const localCard = c => ({id: uid(), sid: c.id, front: c.front, back: c.back, sh: shOf(c), box: 0, due: "", seen: 0, right: 0, wrong: 0});
   const localQuiz = qz => Object.assign(clone(qz), {id: uid(), sid: qz.id, sh: JSON.stringify(qz.questions || null), results: [], sources: ["Shared deck"], created: Date.now()});
@@ -586,10 +536,10 @@
     const nd = clone(local);
     const bySid = new Map(nd.cards.filter(c => c.sid).map(c => [c.sid, c]));
     let added = 0, changed = 0, addedQ = 0;
-    p.cards.forEach(c => { const x = bySid.get(c.id); if (!x) { nd.cards.push(localCard(c)); added++; } else if ((x.front !== c.front || x.back !== c.back) && x.sh === shOf(x)) { x.front = c.front; x.back = c.back; x.sh = shOf(c); changed++; } /* a card you edited keeps your wording */ });
+    p.cards.forEach(c => { const x = bySid.get(c.id); if (!x) { nd.cards.push(localCard(c)); added++; } else if ((x.front !== c.front || x.back !== c.back) && x.sh === shOf(x)) { x.front = c.front; x.back = c.back; x.sh = shOf(c); changed++; } });
     p.quizzes.forEach(qz => {
       const i = (nd.aiQuizzes || []).findIndex(x => x.sid === qz.id), nq = localQuiz(qz);
-      if (i >= 0) { const old = nd.aiQuizzes[i], shq = JSON.stringify(qz.questions || null); if (old.sh !== undefined && old.sh === JSON.stringify(old.questions || null)) { nq.id = old.id; nq.results = old.results || []; nq.sh = shq; nd.aiQuizzes[i] = nq; } /* a quiz you changed is left as it is */ } else { nd.aiQuizzes = (nd.aiQuizzes || []).concat(nq); addedQ++; }
+      if (i >= 0) { const old = nd.aiQuizzes[i], shq = JSON.stringify(qz.questions || null); if (old.sh !== undefined && old.sh === JSON.stringify(old.questions || null)) { nq.id = old.id; nq.results = old.results || []; nq.sh = shq; nd.aiQuizzes[i] = nq; } } else { nd.aiQuizzes = (nd.aiQuizzes || []).concat(nq); addedQ++; }
     });
     nd.sharedFrom = Object.assign({}, nd.sharedFrom, meta);
     return {nd, added, changed, addedQ};
@@ -598,7 +548,7 @@
   const copyOfItem = itemId => decksArr().find(d => d.sharedFrom && d.sharedFrom.i === itemId);
   const copyOfCode = code => decksArr().find(d => d.sharedFrom && d.sharedFrom.code === code);
 
-  /* ---------- Task payloads (shared deadlines) ---------- */
+  /* Task payloads (shared deadlines) */
   function taskPayload(t){
     const c = courseOf(t.courseId);
     const p = {v: 1, title: t.title, type: t.type, due: t.due || "", time: t.time || "", start: t.start || "", notes: str(t.notes, 4000), location: t.location || "", link: t.link || "", reading: t.reading || "",
@@ -624,7 +574,7 @@
     if (f.notes !== (t.notes || "")) out.push("notes changed");
     return out;
   }
-  // Which of my tasks are shared to which group items, so edits I make update the group's copy.
+  // Which of my tasks are shared to which group items, so edits I make update the group's copy
   const IDX = () => "sb:grpShared:" + myId();
   const readIdx = () => { try { return JSON.parse(localStorage.getItem(IDX()) || "{}") || {}; } catch(e) { return {}; } };
   const writeIdx = x => { try { localStorage.setItem(IDX(), JSON.stringify(x)); } catch(e) {} };
@@ -655,7 +605,7 @@
     if (n && ui.tab === "groups" && ui.grp) patch(ui.grp);
   }
 
-  /* ---------- Your name in groups ---------- */
+  /* Your name in groups */
   const NAMEK = () => "sb:grpName:" + myId();
   function guessName(){
     const u = me() || {}, md = u.user_metadata || {};
@@ -690,7 +640,7 @@
     });
   }
 
-  /* ---------- Loading group data ---------- */
+  /* Loading group data */
   async function loadGroups(quiet){
     if (S.busy || !online()) return;
     S.busy = true; if (!quiet) { S.err = ""; }
@@ -703,14 +653,14 @@
       S.groups = gs; S.members = members; S.err = ""; S.setup = false;
       if (S.name === undefined) { try { const r = await api.profile(); S.name = (r && r.display_name) || null; if (S.name) localStorage.setItem(NAMEK(), S.name); } catch(e) {} }
       if (ids.length) { try { markChanges(await api.stamps(ids) || []); } catch(e) {} }
-      try { S.binned = await api.deletedGroups() || []; } catch(e) { S.binned = []; }   // (older servers don't have it: nothing to show)
+      try { S.binned = await api.deletedGroups() || []; } catch(e) { S.binned = []; }
     } catch(e) { S.err = e.message; S.setup = !!e.setup; if (!S.groups) S.groups = null; }
     S.busy = false;
     if (ui.tab === "groups") render();
     updateNavBadge();
     reportStats();
   }
-  // Count shared items that changed since you copied them, per group.
+  // Count shared items that changed since you copied them, per group
   function markChanges(stamps){
     const ch = {};
     stamps.forEach(s => {
@@ -773,16 +723,16 @@
     b.setAttribute("aria-label", `Groups, ${n} update${n === 1 ? "" : "s"}`);
   }
 
-  /* ---------- Pages ---------- */
+  /* Pages */
   const groupOf = gid => (S.groups || []).find(g => g.id === gid);
   const isOwner = g => g && g.owner_id === myId();
 
   function offlineView(){
-    const local = !sbConfig(), claude = inClaude();
+    const local = !sbConfig(), preview = inPreview();
     return `<div class="view-head"><h2>Study Groups</h2></div>
-      <div class="empty grp-offline"><strong>${claude ? "Sharing Isn't Available Here" : "Sharing Needs a Studyboard Account"}</strong>
-        ${claude ? "Study groups and share links work on the Studyboard website and in the desktop app, where you sign in to your Studyboard account." : "Sign in to make or join study groups and share decks."}
-        ${claude ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="${local ? "sb-connect" : "sb-signin"}">${local && !SB_HOSTED ? "Set Up Sync" : "Sign In"}</button></div>`}</div>
+      <div class="empty grp-offline"><strong>${preview ? "Sharing Isn't Available Here" : "Sharing Needs a Studyboard Account"}</strong>
+        ${preview ? "Study groups and share links work on the Studyboard website and in the desktop app, where you sign in to your Studyboard account." : "Sign in to make or join study groups and share decks."}
+        ${preview ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="${local ? "sb-connect" : "sb-signin"}">${local && !SB_HOSTED ? "Set Up Sync" : "Sign In"}</button></div>`}</div>
       <section class="grp-file"><h3 class="fsec">Share Without an Account</h3>
         <p>No account? Share a deck as a file: open it, tap <b>Share</b>, then <b>Share as File</b>. Others use <b>Import a Deck File</b>.</p>
         <div class="row-actions"><button class="btn" data-act="grp-import">Import a Deck File</button><button class="btn" data-act="grp-to-decks">Go to Flashcards</button></div></section>`;
@@ -792,12 +742,10 @@
   }
   const isProj = g => !!g && g.kind === "project";
   function listView(){
-    // Your own order for the group cards (dragged), kept on this device; new groups go after the ones you've placed
     const gOrd = (() => { try { return JSON.parse(localStorage.getItem("studyboard:grpOrder") || "[]"); } catch (e) { return []; } })();
     const gs = S.groups ? S.groups.slice().sort((a, b) => { const ia = gOrd.indexOf(a.id), ib = gOrd.indexOf(b.id); return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib); }) : S.groups;
     const cards = (gs || []).map(g => {
       const ms = S.members[g.id] || [], ch = S.changed[g.id] || 0;
-      // Direction 1: a band in the course colour, the group's icon in a ring on its edge, one plain meta line, avatars and one status pill
       const meta = [isProj(g) ? "Group Project" : "Study Group", plural(ms.length, "Member"), isOwner(g) ? "You Own It" : ""].filter(Boolean).join(" · ");
       const pill = isProj(g) && g.project_due ? `<span class="g2-pill due">Due ${esc(fmtShort(g.project_due))}</span>` : ch ? `<span class="g2-pill grp-upd">${plural(ch, "Update")} for Your Copies</span>` : "";
       return `<article class="grp-card g2-card k-${isProj(g) ? "project" : "study"}${iconKey(g) ? " has-ic" : ""}" data-sort-id="${esc(g.id)}" style="--c:${esc(grpColor(g))}">
@@ -848,25 +796,23 @@
       ${setupNote(g)}
       ${panesHtml(g)}</div>`;
   }
-  // Each kind of group has its own sections, one tab at a time, so the page isn't one long scroll. Every section stays in the page (just hidden) so updates still land.
-  // Parts of a group the owner can turn off (Edit Group > Features). Hidden only: nothing is deleted. Members and the first tab always stay.
+  // Each kind of group has its own sections, one tab at a time
   const GFEAT = {
     study: [["decks", "Shared Decks"], ["quizzes", "Practice Quizzes"], ["qa", "Questions and Answers"], ["deadlines", "Deadlines"],
             ["sessions", "Sessions"], ["findtime", "Find a Time"], ["boards", "Whiteboards"], ["chat", "Chat"]],
     project: [["tasks", "Tasks"], ["files", "Files and Links"], ["meetings", "Meetings"], ["findtime", "Find a Time"], ["boards", "Whiteboards"], ["chat", "Chat"]]
   };
-  // Pro group features, in the same list with a PRO badge: a Pro group's owner can turn them off like the rest; in a free group
-  // they show greyed out and can't be ticked (and whatever was chosen for them before is kept).
+  // Pro group features, in the same list with a PRO badge
   const GXFEAT = {
     study: [["weak", "Most-Missed Cards"], ["challenge", "Weekly Challenge"], ["topics", "Split Exam Topics"], ["livequiz", "Live Quiz"]],
     project: [["split", "Split the Work"], ["rubric", "Rubric Checklist"], ["report", "Contribution Report"], ["uploads", "File Uploads"]]
   };
   const hiddenOf = g => new Set(g && Array.isArray(g.hidden_features) ? g.hidden_features.filter(x => typeof x === "string") : []);
-  // Most-Missed Cards and Weekly Challenge moved to Pro: they show only in a Pro group (or while Pro isn't switched on)
+  // Most-Missed Cards and Weekly Challenge moved to Pro
   const PROSEC = new Set(["weak", "challenge"]);
-  const proSecOk = g => { try { return gxOn(g); } catch (e) { return true; } };   // (gxOn is defined further down this module)
+  const proSecOk = g => { try { return gxOn(g); } catch (e) { return true; } };
   const featOn = (g, k) => !hiddenOf(g).has(k) && (!PROSEC.has(k) || proSecOk(g));
-  // Whiteboards tab: the group's shared boards (99-whiteboard-share fills it in after the page draws)
+  // Whiteboards tab
   const wbPaneHtml = g => fire("grp-boards", g).filter(Boolean).join("") || `<section class="card grp-sec"><h3 class="fsec">Whiteboards</h3><p class="empty mini">Shared whiteboards show up here.</p></section>`;
   function panesHtml(g){
     const P = (k, html) => `<div class="grp-pane" data-pane="${k}"${paneOn(g, k)}>${html}</div>`, on = k => featOn(g, k);
@@ -882,7 +828,6 @@
   const BACK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>';
   function headHtml(g){
     const ms = S.members[g.id] || [], its = S.items[g.id] || [], proj = isProj(g), n = k => its.filter(x => x.kind === k && (k !== "task" || forGroupCourse(g, x.data))).length;
-    // one plain line of what the group holds; counts of zero are left out
     const bits = [plural(ms.length, "Member")].concat(proj ? (GTL.isDay(g.project_due) ? ["Due " + fmtShort(g.project_due)] : [])
       : [[n("deck"), "Deck", "Decks"], [n("quiz"), "Quiz", "Quizzes"], [n("qa"), "Question", "Questions"], [n("task"), "Deadline", "Deadlines"]].filter(x => x[0]).map(x => plural(x[0], x[1], x[2])));
     return `<div class="deck-head grp-head g2-head k-${proj ? "project" : "study"}${iconKey(g) ? " has-ic" : ""}" id="grpHead" style="--c:${esc(grpColor(g))}">
@@ -936,7 +881,7 @@
     return `<section class="grp-sec" id="grpTasks"><h3 class="fsec"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>Shared Deadlines<span class="n">${its.length - nPast}${nPast ? ` upcoming, ${nPast} past` : ""}</span><span class="spacer"></span><button class="btn small" data-act="grp-share-tasks" data-id="${esc(g.id)}">Share Deadlines</button></h3>
       ${loadingLine(g.id) || (its.length ? `<ul class="grp-list">${rows}</ul>` : `<p class="grp-none">No deadlines yet. Share a course's upcoming tasks so nobody misses one.</p>`)}</section>`;
   }
-  /* ---------- 1.12: message reactions, pins, check-ins, challenge, quizzes and study sessions ---------- */
+  /* 1.12: message reactions, pins, check-ins, challenge, quizzes and study sessions */
   const REACTS = [["like", "\u{1F44D}", "Like"], ["love", "\u2764\uFE0F", "Love"], ["laugh", "\u{1F602}", "Funny"], ["party", "\u{1F389}", "Celebrate"], ["fire", "\u{1F525}", "Fire"], ["think", "\u{1F914}", "Hmm"]];
   const gi = d => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
   const I_PIN = gi('<path d="M9 4h6l-1 6 3 3H7l3-3z"/><path d="M12 13v7"/>');
@@ -953,7 +898,7 @@
   const relDays = n => n <= 0 ? "today" : n === 1 ? "tomorrow" : `in ${n} days`;
   const canPin = (g, m) => isOwner(g) || m.user_id === myId();
 
-  // Your own totals for this week, from this device's data.
+  // Your own totals for this week, from this device's data
   function myWeek(){
     const wk = wkStart(); let focus = 0, quizzes = 0;
     try { focus = SBSTATS.focusMinutes(wk, todayISO()); } catch(e) {}
@@ -964,7 +909,7 @@
     });
     return {wk, focus: Math.max(0, Math.round(focus)), quizzes};
   }
-  // Tell every group your totals for the week (the server keeps the higher number, so devices never undo each other).
+  // Tell every group your totals for the week
   function reportStats(){
     if (!online() || !S.groups || !S.groups.length) return;
     const w = myWeek(), key = `${w.wk}|${w.focus}|${w.quizzes}`;
@@ -992,7 +937,7 @@
     if (S.ext[gid].ok) reportStats();
     if (ui.tab === "groups" && ui.grp === gid && $("#grpDetail")) patch(gid);
   }
-  // Owners see a note until the newer groups.sql has been run (everyone else just doesn't see the new sections).
+  // Owners see a note until the newer groups.sql has been run
   function setupNote(g){
     const x = S.ext[g.id];
     if (!x || x.ok || !x.setup || !isOwner(g)) return `<div id="grpSetup"></div>`;
@@ -1027,7 +972,6 @@
   /* Exam countdown and next study session in the group header */
   function nextUpHtml(g){
     const its = S.items[g.id] || [], today = todayISO(), chips = [];
-    // only an exam for the group's own course (a deadline shared from another course isn't this group's exam); no course, no countdown
     const ex = its.filter(x => x.kind === "task" && forGroupCourse(g, x.data, true)).map(x => ({it: x, f: taskFields(x.data)})).filter(x => MILESTONE(x.f.type) && x.f.due && x.f.due >= today)
       .sort((a, b) => a.f.due.localeCompare(b.f.due) || (a.f.time || "").localeCompare(b.f.time || ""))[0];
     if (ex) { const n = dayDiff(today, ex.f.due); chips.push(`<span class="grp-chip${n <= 3 ? " soon" : ""}"><small>Next ${esc(ex.f.type.toLowerCase())}</small><b>${esc(ex.f.title)}</b><em>${n <= 0 ? "Today" : n === 1 ? "Tomorrow" : `${n} days away`} · ${esc(fmtShort(ex.f.due))}</em></span>`); }
@@ -1123,7 +1067,7 @@
       return false;
     });
   }
-  // Take a group quiz: members get a copy in their Flashcards (so retakes, rationales and review work as usual) and the score is posted to the group.
+  // Take a group quiz
   function takeQuiz(it){
     const cq = cleanQuizPayload(it.data); if (!cq) { toast("That quiz couldn't be read."); return; }
     const g = groupOf(it.group_id), src = it.user_id === myId() ? quizSource(it) : null;
@@ -1143,13 +1087,12 @@
     }
     run(ex);
   }
-  // Your choice for a shared quiz's score, kept on this device: {shown: "private", c, t} holds a score you kept to yourself (your best),
-  // so it can still be shared later from Scores. "name" and "anon" live on the server with the score itself.
+  // Your choice for a shared quiz's score, kept on this device
   const gqKey = itemId => "studyboard:gqshare:" + myId() + ":" + itemId;
   const gqPref = itemId => { try { return JSON.parse(localStorage.getItem(gqKey(itemId)) || "null"); } catch(e) { return null; } };
   const gqSetPref = (itemId, v) => { try { if (v) localStorage.setItem(gqKey(itemId), JSON.stringify(v)); else localStorage.removeItem(gqKey(itemId)); } catch(e) {} };
   const gqKeep = (itemId, right, total) => { const p = gqPref(itemId), better = !p || !p.t || right * p.t > p.c * total; gqSetPref(itemId, {shown: "private", c: better ? right : p.c, t: better ? total : p.t}); };
-  // Ask how a finished group quiz's score is shared (once per quiz: retakes keep the choice, and Scores changes it)
+  // Ask how a finished group quiz's score is shared
   function shareScoreSheet(itemId, right, total, gid){
     const it = itemOf(itemId), g = groupOf(gid);
     openSheet(`<div class="sheet">${head("Share Your Score?")}<div class="sheet-body">
@@ -1212,11 +1155,11 @@
     } catch(e) { toast(e.message); }
   }
 
-  /* Study sessions: propose a time, everyone answers yes / maybe / no */
+  /* Study sessions */
   function sessionsHtml(g){
     const ext = extOf(g.id); if (!ext) return `<div id="grpSessions"></div>`;
     const now = Date.now(), all = (S.items[g.id] || []).filter(x => x.kind === "event" && x.data && ts(x.data.start)), owner = isOwner(g);
-    const at = it => typeof occStart === "function" ? (occStart(it) || ts(it.data.start)) : ts(it.data.start);   // weekly sessions: the next one
+    const at = it => typeof occStart === "function" ? (occStart(it) || ts(it.data.start)) : ts(it.data.start);
     const up = all.filter(x => at(x) >= now - 72e5).sort((a, b) => at(a) - at(b)), past = all.filter(x => at(x) < now - 72e5).sort((a, b) => at(b) - at(a)).slice(0, 3);
     const row = (it, isPast) => {
       const d = new Date(at(it)), rs = ext.rsvps.filter(r => r.item_id === it.id), my = rs.find(r => r.user_id === myId()), mine = it.user_id === myId(), wk = !!(it.data.repeat && it.data.repeat.weekly);
@@ -1269,12 +1212,6 @@
     });
   }
 
-  /* ---------- 1.15: what makes a study group and a group project different ----------
-     A study group is about learning together: Study (shared decks, quizzes, weak spots, Q&A), Sessions, Challenge, Chat, Members.
-     A group project is about finishing something: Overview, Tasks (list or board), Files, Meetings (with notes), Chat, Members (roles).
-     The pure logic is GK (above). Everything here is stored as shared items (kinds qa, answer, link, minutes, role, weak) except the
-     contribution check-in, which has its own private table. Needs the 1.15 section of groups.sql; without it the page still works and says so. */
-  // Redraw a section in place. A progress bar that changes slides from where it was to where it is now, instead of jumping.
   function replaceKeep(el, html, id){
     const prev = new Map([...el.querySelectorAll(".score-bar")].map(b => [b.getAttribute("aria-label") || "", b.firstElementChild ? b.firstElementChild.style.width : ""]));
     el.outerHTML = html;
@@ -1296,11 +1233,10 @@
   const I_NOTE = gi('<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/>');
   const I_ASK = gi('<path d="M4 5h16v11H9l-5 4z"/><path d="M9.5 9.5a2.5 2.5 0 114 2c-.8.5-1.5 1-1.5 1.8M12 15v.1"/>');
   const I_WEAK = gi('<path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17v.1"/>');
-  const I_CUBE = gi(TYPE_ICONS.Project);   // the same cube that marks projects in the Crunch tab
+  const I_CUBE = gi(TYPE_ICONS.Project);
   const noSetup = (what, g) => isOwner(g) ? `<div class="grp-note">${esc(what)} need the latest <b>groups.sql</b>. ${esc(srvSetup("This", "groups.sql"))}</div>` : "";
 
   /* Roles: one per member, chosen by that member (a "role" item whose ref_id is the member) */
-  // A role is one of the presets, or a title the person typed (stored as role "custom" with its own label).
   const roleOf = (gid, uid2) => { const it = kindItems(gid, "role").find(x => x.user_id === uid2); return it && it.data && (GK.ROLES.some(r => r[0] === it.data.role) || (it.data.role === "custom" && str(it.data.label, 30).trim())) ? it.data.role : ""; };
   const roleName = (gid, uid2) => { const k = roleOf(gid, uid2); if (!k) return ""; if (k !== "custom") return GK.roleLabel(k); const it = kindItems(gid, "role").find(x => x.user_id === uid2); return str(it.data.label, 30).trim(); };
   async function setRole(g, key, label){
@@ -1323,7 +1259,7 @@
     const preset = GK.ROLES.find(x => x[1].toLowerCase() === v.toLowerCase());
     setRole(g, preset ? preset[0] : "custom", v);
   });
-  /* Overview (group projects): how long is left, how far along, who needs help, and what is mine */
+  /* Overview (group projects) */
   function overviewHtml(g){
     if (!isProj(g)) return `<div id="grpOverview"></div>`;
     const x = ptX(g.id), today = todayISO(), cd = GK.countdown(g.project_due, today), me = myId(), ms = (S.members[g.id] || []).filter(m => m.user_id === me || !S.blocked.has(m.user_id));
@@ -1345,7 +1281,6 @@
   }
 
   /* Files and links (group projects) */
-  // A web address that is safe to open: http or https with a real-looking site name (so "not a link" and "javascript:..." never pass). Links from other members are checked again before they are shown.
   const webLink = v => { const u = safeUrl(v); if (!u) return ""; try { const h = new URL(u).hostname; return /^([a-z0-9-]+\.)+[a-z][a-z0-9-]+$/i.test(h) || h === "localhost" ? u : ""; } catch(e) { return ""; } };
   function linksHtml(g){
     if (!isProj(g)) return `<div id="grpFiles"></div>`;
@@ -1356,14 +1291,12 @@
       ${loadingLine(g.id) || (its.length ? `<ul class="grp-list">${rows}</ul>` : `<p class="grp-none">Keep the shared doc, slides, data and sources in one place. Tap Add File at the bottom right to upload a file or add a link.</p>`)}
       <p class="mini">Links open in a new tab. For files that change a lot, share a link so everyone always sees the latest version.</p></section>`;
   }
-  // An uploaded file is kept inside the shared item itself (small files only), so it needs nothing beyond the group's own storage.
+  // An uploaded file is kept inside the shared item itself (small files only)
   const FILE_MAX = 1500000;
   const fileSize = n => n >= 1e6 ? (n / 1e6).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1e3)) + " KB";
   function fileOf(it){
     const f = it && it.data && it.data.file; if (!f || typeof f.url !== "string" || typeof f.name !== "string") return null;
     const m = /^data:[a-z0-9.+\/-]*;base64,([A-Za-z0-9+\/=]+)$/i.exec(f.url); if (!m) return null;
-    /* SECURITY: the type and name come from whichever member uploaded it. Always hand it over as a plain download (never rendered),
-       and don't offer programs, scripts or shortcuts at all: this is for documents, images and PDFs. */
     const name = str(f.name, 120).replace(/[\\/:*?"<>|\u0000-\u001f‪-‮⁦-⁩]/g, "_").replace(/[.\s]+$/, "") || "file";
     if (/\.(exe|msi|msix|appx|bat|cmd|com|scr|pif|cpl|lnk|url|reg|vbs|vbe|js|jse|wsf|wsh|hta|ps1|psm1|jar|jnlp|app|command|tool|pkg|dmg|sh|py|apk|ipa|desktop|scpt|workflow|iso|img|vhd|vhdx|html?|svg|xhtml|mht|xml|xsl)$/i.test(name)) return null;
     return {name, url: "data:application/octet-stream;base64," + m[1], size: Number(f.size) || Math.round(m[1].length * .75)};
@@ -1412,7 +1345,7 @@
     });
   }
 
-  /* Meeting notes (group projects): agenda, decisions and action items that can become tasks */
+  /* Meeting notes (group projects) */
   function minutesHtml(g){
     if (!isProj(g)) return `<div id="grpMinutes"></div>`;
     const its = kindItems(g.id, "minutes").sort((a, b) => String((b.data || {}).date || "").localeCompare(String((a.data || {}).date || "")) || ts(b.created_at) - ts(a.created_at));
@@ -1457,7 +1390,7 @@
     });
     wireTranscript(g);
   }
-  // "Fill From a Transcript": the AI reads a meeting transcript and fills the agenda, decisions and action items boxes of the open sheet.
+  // "Fill From a Transcript"
   const TR_SCHEMA = {type: "OBJECT", properties: {title: {type: "STRING", description: "Short meeting title"}, agenda: {type: "STRING", description: "What was covered, one item per line"}, decisions: {type: "STRING", description: "What the team agreed on, one per line"}, actions: {type: "STRING", description: "One action item per line, as 'Name: task' when a person was named"}}, required: ["agenda", "decisions", "actions"]};
   function wireTranscript(g){
     const open = $("#gkTrOpen"), box = $("#gkTrBox"); if (!open || !box) return;
@@ -1491,19 +1424,18 @@
       go.disabled = false;
     });
   }
-  // Put action items into the project's first open task list (made if there isn't one). Returns how many were added.
+  // Put action items into the project's first open task list (made if there isn't one)
   async function addActionTasks(g, acts){
     const x = ptX(g.id); if (!x) { toast("Tasks need the latest groups.sql, so the action items were saved in the notes only."); return 0; }
     let list = x.lists.find(l => !l.archived);
     if (!list) list = await api.ptNewList(g.id, "Meeting actions", "");
     let n = 0;
-    // A task title stays short: a long action item is cut at a word and kept in full in the task's notes.
     const short = t => { t = String(t || "").replace(/\s+/g, " ").trim(); if (t.length <= 60) return t; const cut = t.slice(0, 60), sp = cut.lastIndexOf(" "); return (sp > 30 ? cut.slice(0, sp) : cut).replace(/[,;:\s-]+$/, "") + "…"; };
     for (const a of acts) { try { await api.ptAdd(list.id, short(a.text), a.who || null, null, a.text.length > 60 ? str(a.text, GTL.LIM.notes) : "", null); n++; } catch(e) { toast(e.message); break; } }
     loadPT(g.id); return n;
   }
 
-  /* Starter plan (group projects): describe the project and the AI companion suggests the tasks */
+  /* Starter plan (group projects) */
   const PLAN_SCHEMA = {type: "OBJECT", properties: {tasks: {type: "ARRAY", items: {type: "OBJECT", properties: {title: {type: "STRING", description: "A concrete task starting with a verb, under 70 characters"}, due: {type: "STRING", description: "YYYY-MM-DD, or empty"}}, required: ["title"]}}}, required: ["tasks"]};
   function planSheet(g){
     const x = ptX(g.id);
@@ -1550,13 +1482,12 @@
     };
   }
 
-  /* Task board (group projects): To Do, In Progress and Done side by side */
+  /* Task board (group projects) */
   function ptWhoChip(g, t){
     const who = t.assignee_id && (S.members[g.id] || []).some(m => m.user_id === t.assignee_id) ? t.assignee_id : "";
     return who ? `<span class="pt-who">${av(mName(g.id, who), who)}<span>${esc(who === myId() ? "You" : mName(g.id, who))}</span></span>` : `<span class="pt-who none">Unassigned</span>`;
   }
-  // Laid out like the Task Board: a coloured dot, the column name and a count; each card has a band in its owner's colour (their avatar
-  // and name, or Unassigned), then the title and its due date, priority and review buttons.
+  // Laid out like the Task Board
   function ptBoard(g, tasks, today){
     const cols = GK.board(tasks), ms = S.members[g.id] || [];
     const card = t => { const late = t.status !== "done" && GTL.due(t.due_at, today).late;
@@ -1571,7 +1502,7 @@
     return `<div class="kb" role="group" aria-label="Task board. Drag a card to another column to change its status.">${col("todo", "To Do", cols.todo, "Nothing waiting")}${col("doing", "In Progress", cols.doing, "Nobody is working on anything")}${col("done", "Done", cols.done, "Nothing finished yet")}</div>`;
   }
 
-  /* Q&A board (study groups): ask, answer, and mark the best answer */
+  /* Q&A board (study groups) */
   function qaHtml(g){
     if (isProj(g)) return `<div id="grpQA"></div>`;
     const qs = GK.questionsOf(kindItems(g.id, "qa")), all = S.items[g.id] || [], open = qs.filter(q => !(q.data || {}).solved).length;
@@ -1618,13 +1549,11 @@
   }
   const saveQ = async (q, data) => { const row = await api.updateItem(q.id, {data}); Object.assign(q, row || {data}); };
 
-  /* Most missed (study groups): the cards and quiz questions in the group's shared decks and quizzes that members miss most, with nobody named.
-     Taking part is a choice you make per group. Your own numbers go to the server as totals per card or question (groups.sql: group_misses, which nobody can read);
-     what comes back is only "how many members miss this one", and only once at least 3 members take part and at least 2 miss the same one. */
+  /* Most missed (study groups) */
   const missKey = gid => "sb:grpMiss:" + myId() + ":" + gid;
   const missOn = gid => { try { return localStorage.getItem(missKey(gid)) === "1"; } catch(e) { return false; } };
   const missSet = (gid, on) => { try { if (on) localStorage.setItem(missKey(gid), "1"); else localStorage.removeItem(missKey(gid)); } catch(e) {} };
-  // My misses on this group's shared decks and quizzes, wherever my copy lives (my own deck, or the copy I added from the group).
+  // My misses on this group's shared decks and quizzes, wherever my copy lives
   function collectMisses(gid){
     const out = [];
     (S.items[gid] || []).forEach(it => {
@@ -1673,13 +1602,12 @@
     saveDeck(nd, `Made a deck of ${plural(nd.cards.length, "card")} the group misses most`);
   }
 
-  /* Quiz battle (study groups): everyone's average best score across the group's quizzes */
+  /* Quiz battle (study groups) */
   function battleHtml(g){
     if (isProj(g)) return `<div id="grpBattle"></div>`;
     const ext = extOf(g.id); if (!ext) return `<div id="grpBattle"></div>`;
     const quizzes = kindItems(g.id, "quiz"), ms = (S.members[g.id] || []).filter(m => m.user_id === myId() || !S.blocked.has(m.user_id));
     if (!quizzes.length) return `<section class="grp-sec" id="grpBattle">${secHead(I_QUIZ, "Quiz Battle")}<p class="grp-none">Share a practice quiz in <button class="link-btn" data-act="grp-tab" data-t="study">Study</button> and see who scores highest.</p></section>`;
-    // Opt-in: only members who joined are on the board (one 'battle' item each)
     const joined = new Set(kindItems(g.id, "battle").filter(x => x.data && x.data.on).map(x => x.user_id)), inIt = joined.has(myId());
     const players = ms.filter(m => joined.has(m.user_id));
     const join = inIt ? `<button type="button" class="link-btn" data-act="grp-battle" data-on="0" data-g="${esc(g.id)}">Leave the Battle</button>` : `<button type="button" class="btn small primary" data-act="grp-battle" data-on="1" data-g="${esc(g.id)}">Join the Battle</button>`;
@@ -1695,16 +1623,13 @@
     const cur = myItem(g.id, "battle");
     try {
       if (on && !cur) { const rows = await api.addItems([{group_id: g.id, kind: "battle", ref_id: "", title: "battle", data: {v: 1, on: true}}]); addRows(g.id, rows); toast("You're in the Quiz Battle"); }
-      else if (on && cur && !(cur.data || {}).on) { await saveBattleData(cur, Object.assign({}, cur.data, {v: 1, on: true})); toast("You're in the Quiz Battle"); }   // the item already holds your Match times
+      else if (on && cur && !(cur.data || {}).on) { await saveBattleData(cur, Object.assign({}, cur.data, {v: 1, on: true})); toast("You're in the Quiz Battle"); }
       else if (!on && cur && matchHas(cur)) { await saveBattleData(cur, Object.assign({}, cur.data, {on: false})); toast("You left the Quiz Battle. Your scores aren't shown any more."); }
       else if (!on && cur) { await api.removeItem(cur.id); S.items[g.id] = (S.items[g.id] || []).filter(x => x.id !== cur.id); indexItems(g.id, S.items[g.id]); toast("You left the Quiz Battle. Your scores aren't shown any more."); }
       patch(g.id);
     } catch(e) { toast(/kind_check|battle/i.test(e.message) ? srvSetup("Joining the Quiz Battle", "groups.sql") : e.message); }
   }
-  /* Match times on shared decks (the game is 97-match.js). Posting is your choice, per deck, after a round: with your name or anonymously, and
-     Remove My Time takes it back. The times live in your one 'battle' item (no new item kind, so no groups.sql change):
-     data.match[deck item id] = {ms, at, anon}. Its data.on still says only whether you joined the Quiz Battle; leaving the battle keeps your times.
-     Anonymous hides your name on the board (members of the group can still see the item is yours, like anything else you post). */
+  /* Match times on shared decks (the game is 97-match.js) */
   const MT_MAX = 40;
   const matchHas = it => !!(it && it.data && it.data.match && Object.keys(it.data.match).length);
   async function saveBattleData(cur, data){
@@ -1716,12 +1641,12 @@
   async function setMatchTime(gid, itemId, entry){
     const cur = myItem(gid, "battle"), data = Object.assign({v: 1, on: false}, cur && cur.data);
     const m = Object.assign({}, data.match); if (entry) m[itemId] = entry; else delete m[itemId];
-    data.match = Object.fromEntries(Object.entries(m).sort((a, b) => String(b[1].at).localeCompare(String(a[1].at))).slice(0, MT_MAX));   // newest kept
+    data.match = Object.fromEntries(Object.entries(m).sort((a, b) => String(b[1].at).localeCompare(String(a[1].at))).slice(0, MT_MAX));
     if (!cur) { if (entry) addRows(gid, await api.addItems([{group_id: gid, kind: "battle", ref_id: "", title: "battle", data}])); }
     else if (!data.on && !Object.keys(data.match).length) { await api.removeItem(cur.id); S.items[gid] = (S.items[gid] || []).filter(x => x.id !== cur.id); }
     else await saveBattleData(cur, data);
   }
-  let MT = null;   // the last round played on a group deck: {it, ms}
+  let MT = null;
   function matchPanel(){
     if (!MT) return "";
     const it = MT.it, gid = it.group_id, g = groupOf(gid), rows = matchBoard(gid, it.id), mine = rows.find(r => r.me), clk = window.SBMATCH.clock;
@@ -1737,7 +1662,7 @@
   const drawMatchPanel = () => { const b = $("#mtAfter"); if (b) b.innerHTML = matchPanel(); };
   function playGroupMatch(it){
     const p = itemDeck(it); if (!p || !window.SBMATCH) return;
-    const mineDeck = it.user_id === myId() ? state.decks[it.ref_id] : copyOfItem(it.id);   // your own deck, or the copy you added, keeps your best time too
+    const mineDeck = it.user_id === myId() ? state.decks[it.ref_id] : copyOfItem(it.id);
     if (dlg.open) dlg.close();
     window.SBMATCH.start({name: str(it.title, 120) || p.name, cards: p.cards, deckId: mineDeck ? mineDeck.id : ""}, {after: (res, box) => { MT = {it, ms: res.ms}; if (box) box.innerHTML = matchPanel(); }});
   }
@@ -1793,14 +1718,7 @@
     });
   });
 
-  /* ---------- Project Tasks (groups.sql 1.13): shared task lists with assignees and due dates ----------
-     Data: group_task_lists and group_tasks, written only through the RPCs in api.pt* (the server checks membership and the rules).
-     Screen: the "Project Tasks" section of the group page (optimistic updates, rolled back with a message if the server says no).
-     Planner: tasks assigned to ME are read through (never copied into state.tasks, so there are no duplicates or sync conflicts).
-       window.SBGROUPTASKS.mine() returns them for the Today card, and other planner code may use it like this (always guarded):
-         const g = (typeof window !== "undefined" && window.SBGROUPTASKS) ? window.SBGROUPTASKS.mine() : [];
-       Each row: {id, gid, listId, title, due ("YYYY-MM-DD" or ""), status, hours (default 1), priority, courseCode, listTitle, groupName, badge, notes}.
-       The cache is kept in memory and in localStorage (sb:gtmine:<user>) so the rows are there offline. */
+  /* Project Tasks (groups.sql 1.13) */
   const PT_ICON = gi('<rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M7.5 9.5l1.5 1.5 2.5-3M7.5 15.5l1.5 1.5 2.5-3M14 10h3.5M14 16h3.5"/>');
   const PT_FILTERS = [["all", "All"], ["mine", "Mine"], ["unassigned", "Unassigned"], ["overdue", "Overdue"], ["done", "Done"]];
   const PT_PRIO = [["", "None"], ["low", "Low"], ["med", "Medium"], ["high", "High"], ["urgent", "Urgent"]];
@@ -1834,7 +1752,7 @@
   }
   function ptHtml(g){
     const x = S.pt[g.id], owner = isOwner(g), proj = isProj(g), head2 = `<h3 class="fsec">${PT_ICON}${proj ? "Tasks" : "Project Tasks"}`;
-    if (!proj && !(x && x.ok && x.lists.length)) return `<div id="grpPT"></div>`;   // a study group only shows task lists it already has
+    if (!proj && !(x && x.ok && x.lists.length)) return `<div id="grpPT"></div>`;
     if (!x || (!x.ok && !x.setup && !x.err)) return S.items[g.id] ? `<section class="grp-sec" id="grpPT">${head2}</h3><p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Loading…</p></section>` : `<div id="grpPT"></div>`;
     if (!x.ok) {
       if (x.setup) return owner ? `<section class="grp-sec" id="grpPT">${head2}</h3><div class="grp-note">Project Tasks need the latest <b>groups.sql</b>. ${esc(srvSetup("This", "groups.sql"))}</div></section>` : `<div id="grpPT"></div>`;
@@ -1878,7 +1796,7 @@
       ${proj && (x.view || "list") === "board" ? ptBoard(g, tasks, today) : `<div class="pt-filters" role="group" aria-label="Filter tasks">${PT_FILTERS.map(([k, l]) => `<button type="button" class="pt-f${x.filter === k ? " on" : ""}" data-act="grp-pt-filter" data-f="${k}" aria-pressed="${x.filter === k}">${l}${k === "all" ? "" : ` <small>${cnt[k]}</small>`}</button>`).join("")}</div>
       ${shown.length ? `<ul class="pt-tasks" aria-label="Tasks in ${esc(cur.title)}">${shown.map(t => ptRow(g, t, today)).join("")}</ul>` : empty}`}</section>`;
   }
-  // A group project has just tasks: every task of the project in one pile (the lists behind them are never shown). Adding is the big button at the bottom right.
+  // A group project has just tasks
   function ptProjHtml(g, x, top, err, activeIds){
     const me = myId(), today = todayISO(), ms = (S.members[g.id] || []).filter(m => m.user_id === me || !S.blocked.has(m.user_id));
     const tasks = x.tasks.filter(t => activeIds.has(t.list_id) && !t.deleted), pr = GTL.progress(tasks), wl = ms.length > 1 ? GTL.workload(tasks, ms, today) : null;
@@ -1890,7 +1808,7 @@
       ${wlHtml}${tasks.length ? "" : empty}
       ${ptBoard(g, tasks, today)}</section>`;
   }
-  // The one list a project's tasks go on: the first one that isn't archived, made the first time it is needed.
+  // The one list a project's tasks go on
   async function ptDefaultList(g){
     const x = ptX(g.id); if (!x) return null;
     let list = x.lists.find(l => !l.archived);
@@ -1917,10 +1835,10 @@
       return false;
     });
   }
-  // Redraw the section in place and keep the cursor where it was (a live update must never eat what someone is typing).
+  // Redraw the section in place and keep the cursor where it was
   function swapPT(g){
     const el = $("#grpPT"); if (!el || !g) return;
-    if (kbDrag && !kbDrag.justDragged) { kbDrag.dirty = true; return; }   // never redraw under a card that is being pressed or dragged
+    if (kbDrag && !kbDrag.justDragged) { kbDrag.dirty = true; return; }
     const a = document.activeElement, inside = a && el.contains(a), key = inside ? a.id || "" : "", sel = inside && "selectionStart" in a ? [a.selectionStart, a.selectionEnd] : null;
     const act = inside && !key && a.dataset ? {act: a.dataset.act, id: a.dataset.id, f: a.dataset.f} : null;
     replaceKeep(el, ptHtml(g), "grpPT");
@@ -1964,7 +1882,7 @@
     } catch(e) { if (e && e.setup) S.mineOff = true; S.mineAt = Date.now() - 240000; }
     S.mineBusy = false; decorateBoard(); boardRefresh();
   }
-  // Change one of my group tasks from the Task Board: through the open group page when it is loaded (so both stay in step), else straight to the server.
+  // Change one of my group tasks from the Task Board
   function setMineStatus(id, status){
     if (!PT_STATUS.some(k => k[0] === status)) return Promise.resolve();
     const r = mineRows({all: true}).find(k => k.id === id); if (!r || (r.status || "todo") === status) return Promise.resolve();
@@ -1975,13 +1893,13 @@
     return api.ptUpd(id, {status}).then(() => { if (status === "done") toast(`Done: ${str(r.title, 50)}`); if (S.pt[r.gid]) loadPT(r.gid); })
       .catch(e => { S.mine[r.gid] = rows; persistMine(); decorateBoard(); boardRefresh(); toast(e.message); });
   }
-  // Where I dragged my group tasks on the Task Board (this device only; the group itself has no such order)
+  // Where I dragged my group tasks on the Task Board
   const ORDK = () => "sb:gtorder:" + myId();
   const readOrders = () => { try { const o = JSON.parse(localStorage.getItem(ORDK()) || "null"); return o && typeof o === "object" && !Array.isArray(o) ? o : {}; } catch(e) { return {}; } };
   const SEENK = () => "sb:gtseen:" + myId();
   function readSeen(){ try { const a = JSON.parse(localStorage.getItem(SEENK()) || "null"); return Array.isArray(a) ? new Set(a) : null; } catch(e) { return null; } }
   function markSeen(ids){ try { const s = readSeen() || new Set(); ids.forEach(i => s.add(i)); localStorage.setItem(SEENK(), JSON.stringify([...s].slice(-400))); } catch(e) {} }
-  // A task someone else just gave me, and one that is due tomorrow: an in-app notice the next time the app is open (no push).
+  // A task someone else just gave me, and one that is due tomorrow
   function announceAssigned(list){
     markSeen(list.map(t => t.id));
     const t = list[0], by = t.by && t.by !== myId() ? mName(t.gid, t.by) : "Someone";
@@ -2000,7 +1918,7 @@
     const x = ptInit(r.gid); x.list = r.listId || x.list; S.tab[r.gid] = "tasks";
     openGroup(r.gid); setTimeout(() => { const s = $("#grpPT"); if (s) s.scrollIntoView({block: "start"}); }, 500);
   }
-  // The card under Today's Plan on the Board tab: tasks assigned to me, with a group badge, due date and a checkbox.
+  // The card under Today's Plan on the Board tab
   function decorateBoard(){
     if (ui.tab !== "board") return;
     const v = $("#view"), pane = v && $(".bpane-plan", v); if (!pane) return;
@@ -2047,7 +1965,7 @@
     S.unsubT = api.listenTasks(gid, () => { clearTimeout(S.ptT); S.ptT = setTimeout(() => loadPT(gid), 400); });
   }
 
-  /* Changing things: show the change at once, ask the server, and put it back with a message if the server says no. */
+  /* Changing things */
   function ptMutate(gid, id, patch){
     const x = ptX(gid), i = x ? x.tasks.findIndex(t => t.id === id) : -1; if (i < 0) return Promise.resolve();
     const snap = x.tasks[i], was = snap.status;
@@ -2106,7 +2024,6 @@
   async function ptToggle(id, gid){
     const x = ptX(gid), t = x && x.tasks.find(k => k.id === id);
     if (t) { if (t._tmp) return; return ptMutate(gid, id, {status: t.status === "done" ? "todo" : "done"}); }
-    // The group isn't open: finish the task straight from the planner's list.
     const rows = S.mine[gid] || [], r = rows.find(k => k.id === id); if (!r) return;
     S.mine[gid] = rows.map(k => k.id === id ? Object.assign({}, k, {status: "done"}) : k); persistMine(); decorateBoard(); boardRefresh();
     try { await api.ptUpd(id, {status: "done"}); toast(`Done: ${str(r.title, 50)}`); if (S.pt[gid]) loadPT(gid); }
@@ -2213,7 +2130,7 @@
     }
     return false;
   });
-  // The add row of a study group's task list (a group project adds from the big button instead). Without this the form submitted itself and reloaded the page.
+  // The add row of a study group's task list
   document.addEventListener("submit", e => {
     const f = e.target; if (!f || f.id !== "grpPTAdd") return;
     e.preventDefault();
@@ -2221,12 +2138,12 @@
     if (!title.trim()) { const i = $("#ptTitle"); if (i) i.focus(); return; }
     ptAddTask(gid, f.dataset.list, title, String(fd.get("who") || ""), String(fd.get("due") || "")).then(ok => { if (ok) { const i = $("#ptTitle"); if (i) i.focus(); } });
   });
-  // What is typed there is kept, so a live update that redraws the list doesn't lose it.
+  // What is typed there is kept, so a live update that redraws the list doesn't lose it
   document.addEventListener("input", e => {
     const t = e.target; if (!t || !ui.grp || !["ptTitle", "ptWho", "ptDue"].includes(t.id)) return;
     const x = ptInit(ui.grp); x.draft = Object.assign({title: "", who: "", due: ""}, x.draft, {[t.id === "ptTitle" ? "title" : t.id === "ptWho" ? "who" : "due"]: t.value});
   });
-  /* Drag a card on the project board to another column (mouse, pen or a long press on touch). The same change shows on the Task Board. */
+  /* Drag a card on the project board to another column (mouse, pen or a long press on touch) */
   let kbDrag = null;
   const kbSuppress = e => { if (kbDrag && kbDrag.justDragged) { e.stopPropagation(); e.preventDefault(); } };
   document.addEventListener("click", kbSuppress, true);
@@ -2238,7 +2155,6 @@
   });
   function kbStart(){
     const d = kbDrag; if (!d) return;
-    // The card may have been redrawn (a live update) since the press, which leaves d.el detached with no size: find the card again, or don't drag.
     if (!d.el.isConnected) { const again = d.id && $(`#grpPT .kb-card[data-id="${CSS.escape(d.id)}"]`); if (again) d.el = again; }
     if (!d.el.isConnected || d.el.getBoundingClientRect().width < 20) { clearTimeout(d.timer); kbDrag = null; return; }
     d.started = true;
@@ -2287,7 +2203,7 @@
   document.addEventListener("touchmove", e => { if (kbDrag && kbDrag.started) e.preventDefault(); }, {passive: false});
   document.addEventListener("contextmenu", e => { if (kbDrag && kbDrag.started) e.preventDefault(); });
   window.addEventListener("keydown", e => { if (e.key === "Escape" && kbDrag && kbDrag.started) kbEnd(false); });
-  // The planner reads group tasks through this (documented above). complete() finishes one from anywhere.
+  // The planner reads group tasks through this (documented above)
   window.SBGROUPTASKS = {
     version: 1,
     mine: opts => mineRows(opts).map(r => Object.assign({}, r)),
@@ -2305,25 +2221,20 @@
     if (online() && Date.now() - S.mineAt > 300000) loadMine();
   });
 
-  /* ---------- Safety: report and block (Apple App Review guideline 1.2) ----------
-     Anyone in a group can report a message, a shared item or a member, and block a member. Reports are written to group_reports, which only
-     the app's owner can read (supabase-moderation.sql); the person reporting never sees them again. Blocking hides everything that person
-     posts or shares from you: the server filters it out when supabase-moderation.sql has been run, and this page hides it either way
-     (the block list is also kept on this device, so it works before the server side is set up). */
   const blkKey = () => "sb:blocked:" + myId();
   const localBlocks = () => { try { const a = JSON.parse(localStorage.getItem(blkKey()) || "[]"); return Array.isArray(a) ? a.filter(x => typeof x === "string") : []; } catch(e) { return []; } };
   const saveBlocks = () => { try { localStorage.setItem(blkKey(), JSON.stringify([...S.blocked].slice(0, 500))); } catch(e) {} };
   async function loadBlocks(){
     if (S.blocksFor === myId()) return;
     S.blocksFor = myId(); S.blocked = new Set(localBlocks());
-    try { (await api.blocks() || []).forEach(r => { if (r && r.blocked_id) S.blocked.add(r.blocked_id); }); saveBlocks(); } catch(e) { /* the table may not exist yet: the local list still works */ }
+    try { (await api.blocks() || []).forEach(r => { if (r && r.blocked_id) S.blocked.add(r.blocked_id); }); saveBlocks(); } catch(e) { }
   }
   const dropBlocked = gid => { S.msgs[gid] = (S.msgs[gid] || []).filter(x => !S.blocked.has(x.user_id)); S.items[gid] = (S.items[gid] || []).filter(x => !S.blocked.has(x.user_id)); };
   async function blockUser(id, name){
     if (!id || id === myId()) return;
     S.blocked.add(id); saveBlocks();
     Object.keys(S.msgs).concat(Object.keys(S.items)).forEach(gid => dropBlocked(gid));
-    try { await api.block(id); } catch(e) { if (!(e && (e.setup || /duplicate|23505/i.test(String(e.message))))) { /* kept on this device only */ } }
+    try { await api.block(id); } catch(e) { if (!(e && (e.setup || /duplicate|23505/i.test(String(e.message))))) { } }
     if (ui.grp) patch(ui.grp);
   }
   async function unblockUser(id){
@@ -2393,14 +2304,13 @@
       <ul class="grp-msgs" id="grpMsgList" aria-live="polite">${msgsHtml(g)}</ul>
       ${days ? `<p class="mini" style="margin:8px 0 0">Messages are kept ${days} days in Free groups. <button class="link-btn" data-act="grp-upgrade" data-r="Pro keeps your group's message history for good.">Go Pro</button> to keep them all.</p>` : ""}</section>`;
   }
-  // Pick a colour: one per member of the group (colours others have are shown with their initials and can't be picked)
-  // Two colours people can't tell apart (same formula as sbg_color_near in groups.sql)
+  // Pick a colour
   const rgbOf = c => [1, 3, 5].map(i => parseInt(String(c).substr(i, 2), 16));
   const colorNear = (a, b) => { if (!okColor(a) || !okColor(b)) return false; const [r1, g1, b1] = rgbOf(a), [r2, g2, b2] = rgbOf(b), rm = (r1 + r2) / 2;
     return Math.sqrt((2 + rm / 256) * (r1 - r2) ** 2 + 4 * (g1 - g2) ** 2 + (2 + (255 - rm) / 256) * (b1 - b2) ** 2) < 60; };
   function colorSheet(g, first){
     const ms = S.members[g.id] || [], me = ms.find(m => m.user_id === myId()); if (!me) return;
-    const others = ms.filter(m => m.user_id !== myId() && okColor(m.color)), pro = (typeof gxOn === "function" && gxOn(g)) || (typeof PLAN !== "undefined" && !!PLAN && PLAN.isPro());   // a Pro group, or you have Pro
+    const others = ms.filter(m => m.user_id !== myId() && okColor(m.color)), pro = (typeof gxOn === "function" && gxOn(g)) || (typeof PLAN !== "undefined" && !!PLAN && PLAN.isPro());
     const nearWho = c => { const m = others.find(o => colorNear(o.color, c)); return m ? m.display_name || "A member" : ""; };
     const taken = new Map(MEMBER_COLORS.map(c => [c, nearWho(c)]).filter(x => x[1]));
     const mine = okColor(me.color) ? String(me.color).toUpperCase() : "", custom = mine && !MEMBER_COLORS.includes(mine);
@@ -2413,7 +2323,6 @@
           <p class="mini mc-msg" id="mcMsg" role="status">${custom ? "You're using your own color." : "Pick any shade. Colors very close to someone else's can't be used."}</p></div>`
         : `<div class="mc-any is-locked" aria-disabled="true"><span class="mc-any-h"><b>Any Color</b><span class="pro-badge">PRO</span></span><p class="mini" style="margin:0">Pick any shade you like with Studyboard Pro (or in a Pro group).</p></div>`}</div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">${first ? "Later" : "Close"}</button></div></div>`);
-    // Any colour (Pro groups): the picker and the code box stay in step, with a live preview and a check against everyone else's
     const any = dlg.querySelector("#mcAny"), hex = dlg.querySelector("#mcHex"), prev = dlg.querySelector("#mcPrev"), use = dlg.querySelector("#mcUse"), msg = dlg.querySelector("#mcMsg");
     const show = c => { const who = nearWho(c); if (prev) { prev.style.setProperty("--c", c); prev.style.color = inkOn(c); } if (use) use.disabled = !!who || c === mine;
       if (msg) msg.textContent = who ? `Too close to ${who}'s color. Pick another shade.` : c === mine ? "That's your color now." : "Looks good. Use This Color to save it."; };
@@ -2430,7 +2339,7 @@
         toast(/set_member_color|function/i.test(msg) ? "Colors need the latest supabase-groups.sql on your server." : msg); }
     }
   }
-  // After joining or making a group project: ask once for a colour (when the members have loaded)
+  // After joining or making a group project
   function askColorSoon(gid){
     let n = 0;
     const tick = () => { const g = groupOf(gid), me = (S.members[gid] || []).find(m => m.user_id === myId());
@@ -2450,11 +2359,11 @@
         return `<li>${av(m.display_name, m.user_id)}<span class="nm">${esc(m.display_name || "Member")}${m.badge && typeof GX_STAR === "string" ? GX_STAR : ""}${me2 ? ` <span class="mini">(You)</span>` : ""}${bd.length ? `<span class="grp-badges">${bd.map(b => `<span class="grp-badge ${b[0]}" title="${esc(b[2])}">${esc(b[1])}</span>`).join("")}</span>` : ""}${st >= 2 && !bd.some(b => b[0] === "streak") ? `<span class="mini">${st}-day streak</span>` : ""}</span>${isProj(g) && roleOf(g.id, m.user_id) ? `<span class="pill gk-role">${esc(GK.roleLabel(roleOf(g.id, m.user_id)))}</span>` : ""}${m.role === "owner" ? `<span class="pill">Owner</span>` : ""}${me2 ? "" : `<details class="grp-more g2-mm"><summary class="g2-dots" aria-label="More for ${esc(m.display_name || "this member")}">⋯</summary><div class="grp-menu"><button class="btn" data-act="grp-report" data-kind="member" data-id="${esc(m.user_id)}">Report or Block</button>${owner ? `<button class="btn" data-act="grp-member-del" data-id="${esc(m.user_id)}">Remove from Group</button>` : ""}</div></details>`}</li>`; }).join("")}</ul>
       ${isOwner(g) && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !(PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro()) ? `<p class="mini" style="margin:8px 0 0">Free groups hold up to ${PLAN.limits().groupMembers} members (${ms.length} now). <button class="link-btn" data-act="grp-upgrade" data-r="Pro groups hold up to 100 members.">Go Pro</button> for up to 100.</p>` : ""}</section>`;
   }
-  // Update parts of the open group page in place, so a message you're typing isn't lost.
+  // Update parts of the open group page in place, so a message you're typing isn't lost
   function patch(gid){
     const g = groupOf(gid), root = $("#grpDetail");
     if (!g || !root || root.dataset.gid !== gid) { if (ui.tab === "groups") render(); return; }
-    if (root.dataset.feat !== [...hiddenOf(g)].sort().join()) { render(); return; }   // the owner turned features on or off: the sections themselves change
+    if (root.dataset.feat !== [...hiddenOf(g)].sort().join()) { render(); return; }
     swapEl("grpHead", headHtml(g));
     if (isProj(g)) { swapEl("grpOverview", overviewHtml(g)); swapEl("grpFiles", linksHtml(g)); swapEl("grpMinutes", minutesHtml(g)); }
     else { swapEl("grpChallenge", challengeHtml(g)); swapEl("grpBattle", battleHtml(g)); swapEl("grpDecks", decksHtml(g)); swapEl("grpQuizzes", quizzesHtml(g)); swapEl("grpWeak", weakHtml(g)); swapEl("grpQA", qaHtml(g)); swapEl("grpCheckin", checkinHtml(g)); }
@@ -2464,7 +2373,7 @@
     refreshFab();
   }
 
-  // Signed in as someone else now: forget the last account's group data.
+  // Signed in as someone else now
   function checkUser(){
     const id = online() ? myId() : "";
     if (S.uid === id) return;
@@ -2472,12 +2381,11 @@
     Object.assign(S, {uid: id, groups: null, members: {}, items: {}, msgs: {}, err: "", setup: false, errG: {}, name: undefined, shares: null, drafts: {}, changed: {}, linkChecked: {}, linkNew: {}, ext: {}, lb: {}, rep: {}, pick: "", blocked: new Set(), blocksFor: "", pt: {}, peer: {}, miss: {}, ptPend: new Map(), mine: {}, mineFor: "", mineAt: 0, mineOff: false});
     ui.grp = null; checked = false; updateNavBadge();
   }
-  // The app tour's example (see tourDemo): two groups to show what the page looks like, for someone with none of their own yet.
-  // Only drawn: the store is put back straight away, and nothing is fetched or saved.
+  // The app tour's example (see tourDemo)
   function demoGroupsView(){
     const keep = {groups: S.groups, members: S.members, changed: S.changed, err: S.err, binned: S.binned, icons: S.icons, items: S.items}, me = myId() || "you";
     const day = n => addDays(todayISO(), n);
-    Object.assign(S, {err: "", binned: [], changed: {"demo-g1": 2}, items: {}, icons: {"demo-g1": {key: "bone"}, "demo-g2": {key: "brain"}},   /* (real stickers, as chosen in the group icon picker) */
+    Object.assign(S, {err: "", binned: [], changed: {"demo-g1": 2}, items: {}, icons: {"demo-g1": {key: "bone"}, "demo-g2": {key: "brain"}},
       groups: [{id: "demo-g1", name: "Anatomy Study Squad", kind: "study", course: "BIOL 1200", color: "#1E9E74", owner_id: me},
         {id: "demo-g2", name: "Psych Presentation Team", kind: "project", course: "PSYC 1010", color: "#3B6FE0", project_due: day(16), owner_id: "demo-x"}],
       members: {"demo-g1": [{user_id: me, display_name: "You"}, {user_id: "d1", display_name: "Maya"}, {user_id: "d2", display_name: "Jordan"}, {user_id: "d3", display_name: "Priya"}],
@@ -2491,19 +2399,19 @@
     return ui.grp ? detailView(ui.grp) : listView();
   };
 
-  /* ---------- Sheets ---------- */
+  /* Sheets */
   const loadingSheet = title => openSheet(`<div class="sheet">${head(title)}<div class="sheet-body"><p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> One moment…</p></div></div>`);
   function needOnline(){
     if (online()) return true;
     const local = !sbConfig();
     openSheet(`<div class="sheet">${head("Sharing Needs a Studyboard Account")}<div class="sheet-body">
-      <p style="margin:0">${inClaude() ? "Share links and study groups work on the Studyboard website and in the desktop app." : "Sign in to your free Studyboard account, then try again."}</p>
+      <p style="margin:0">${inPreview() ? "Share links and study groups work on the Studyboard website and in the desktop app." : "Sign in to your free Studyboard account, then try again."}</p>
       <p class="mini" style="margin:0">No account? Share a deck as a file from its Share menu.</p></div>
-      <div class="sheet-foot"><button type="button" class="btn" data-act="grp-import">Import a Deck File</button><span class="spacer"></span>${inClaude() ? "" : `<button type="button" class="btn primary" data-act="${local ? "sb-connect" : "sb-signin"}">${local && !SB_HOSTED ? "Set Up Sync" : "Sign In"}</button>`}</div></div>`);
+      <div class="sheet-foot"><button type="button" class="btn" data-act="grp-import">Import a Deck File</button><span class="spacer"></span>${inPreview() ? "" : `<button type="button" class="btn primary" data-act="${local ? "sb-connect" : "sb-signin"}">${local && !SB_HOSTED ? "Set Up Sync" : "Sign In"}</button>`}</div></div>`);
     return false;
   }
 
-  // Share one deck with a link and code, or as a file.
+  // Share one deck with a link and code, or as a file
   function deckShareSheet(d){
     if (!online()) { deckFileSheet(d); return; }
     rememberWebUrl();
@@ -2570,13 +2478,13 @@
       toast("Stopped sharing. The link and code no longer work.");
     } catch(e) { toast(e.message); }
   }
-  // Local-only: a deck file that works between anyone.
+  // Local-only: a deck file that works between anyone
   function deckFileSheet(d){
     const nq = (d.aiQuizzes || []).length;
     openSheet(`<form class="sheet">${head("Share " + d.name)}<div class="sheet-body">
       <p style="margin:0">Save this deck as a file and send it by email, a chat app or a USB stick. Anyone with Studyboard can tap <b>Import a Deck File</b> on the Flashcards page to add their own copy.</p>
       ${nq ? `<label class="mi-check"><input type="checkbox" id="grpFileQ" checked> Include my ${plural(nq, "practice quiz", "practice quizzes")}</label>` : ""}
-      ${online() || inClaude() ? "" : `<p class="mini" style="margin:0">When you're signed in to Studyboard, you can also share with a link or a short code, and use study groups.</p>`}</div>
+      ${online() || inPreview() ? "" : `<p class="mini" style="margin:0">When you're signed in to Studyboard, you can also share with a link or a short code, and use study groups.</p>`}</div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Share as File</button></div></form>`, () => { exportDeckFile(d, !!($("#grpFileQ") || {}).checked); });
   }
   async function exportDeckFile(d, withQ){
@@ -2586,7 +2494,7 @@
     const fn = (d.name.replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-").slice(0, 60) || "deck") + ".studyboard-deck.json";
     try { const dl = caps.downloads || await useCap("downloads"); if (dl) { await dl.save({filename: fn, data}); toast("Deck file saved. Send it to a classmate."); return; } }
     catch(e) { if (e && e.code === "declined") return; }
-    if (!inClaude()) { saveBlob(fn, data, "application/json"); toast("Deck file saved. Send it to a classmate."); return; }
+    if (!inPreview()) { saveBlob(fn, data, "application/json"); toast("Deck file saved. Send it to a classmate."); return; }
     try { await navigator.clipboard.writeText(data); toast("Deck copied to clipboard"); } catch(e) { toast("Saving files isn't available here"); }
   }
   let fileIn = null;
@@ -2608,7 +2516,7 @@
     fileIn.click();
   }
 
-  // Preview a shared deck (from a code, a link, a file or a group) before adding a copy.
+  // Preview a shared deck (from a code, a link, a file or a group) before adding a copy
   function previewSheet({p, sharer, meta, isMine, code, item}){
     const nq = p.quizzes.length, cid = matchCourse(p.course), c = courseOf(cid);
     const existing = code ? copyOfCode(code) : item ? copyOfItem(item.id) : null;
@@ -2623,7 +2531,6 @@
       <div class="sheet-foot">${existing ? `<button type="button" class="btn" id="grpOpenExisting">Open My Copy</button>` : ""}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Add to My Flashcards</button></div></form>`, fd => {
       addDeckCopy(p, meta, String(fd.get("courseId") || ""));
     });
-    // The deck takes the colour and icon of the course you put it in
     const sel = $('select[name="courseId"]', dlg), tile = $("#grpPrevTile");
     if (sel && tile) sel.addEventListener("change", () => { const c2 = courseOf(sel.value);
       tile.style.setProperty("--c", c2 ? colorOf(c2.id) : "#8A94A6");
@@ -2687,7 +2594,7 @@
       return false;
     });
     const inp = $(".grp-code-in", dlg);
-    if (inp) inp.addEventListener("input", () => { const raw = inp.value; if (/[?&=/:\s]/.test(raw.trim())) return; const x = raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8); const v = x.length > 4 ? x.slice(0, 4) + "-" + x.slice(4) : x; if (v !== raw) inp.value = v; });   // typed or pasted: XXXX-XXXX (a pasted link or message is left as it is and read when opened)
+    if (inp) inp.addEventListener("input", () => { const raw = inp.value; if (/[?&=/:\s]/.test(raw.trim())) return; const x = raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8); const v = x.length > 4 ? x.slice(0, 4) + "-" + x.slice(4) : x; if (v !== raw) inp.value = v; });
   }
   function openDeckCodeRow(r){
     const p = cleanPayload(r.data);
@@ -2696,7 +2603,7 @@
     previewSheet({p, sharer: r.sharer_name, isMine: r.is_mine, code: r.code, meta: {code: r.code, by: r.sharer_name, v: r.updated_at}});
   }
 
-  // What each kind of group comes with, shown when you choose one so the difference is clear.
+  // What each kind of group comes with, shown when you choose one so the difference is clear
   const KIND_INFO = {
     study: {lead: "Learn together. Share what you study and keep each other going.", feats: ["Share decks and quizzes, and see who scores highest in a Quiz Battle", "Propose study sessions and see who is coming", "A weekly challenge with daily check-ins", "Ask questions and mark the answer that helped", "Share the cards you keep missing and see which ones trip up the group"]},
     project: {lead: "Get a piece of work finished as a team, on time, with a fair split.", feats: ["A countdown to the due date, a progress bar and what is behind", "A task board with owners and due dates, or a plan worked back from the due date", "Pick your part: Lead, Researcher, Editor, Presenter, Designer or a role of your own", "Shared files and links, and meeting notes whose action items become tasks"]}
@@ -2746,13 +2653,13 @@ ${kindPreview("study")}${kindPreview("project")}`;
         const patchG = {name, course};
         if (gcolor && gcolor !== String(g.color || "").toUpperCase()) patchG.color = gcolor;
         const shown = new Set(fd.getAll("feat").map(String)), hidden = GFEAT[proj ? "project" : "study"].map(x => x[0]).filter(k => !shown.has(k))
-          .concat(GXFEAT[proj ? "project" : "study"].map(x => x[0]).filter(k => typeof gxOn === "function" && gxOn(g) ? !shown.has(k) : hiddenOf(g).has(k)));   // a free group keeps its earlier choices for Pro features
+          .concat(GXFEAT[proj ? "project" : "study"].map(x => x[0]).filter(k => typeof gxOn === "function" && gxOn(g) ? !shown.has(k) : hiddenOf(g).has(k)));
         if (hidden.join() !== [...hiddenOf(g)].filter(k => GFEAT[proj ? "project" : "study"].some(x => x[0] === k)).join()) patchG.hidden_features = hidden;
         if (proj) { if (due !== (g.project_due || "")) patchG.project_due = due || null; }
         else if (goal !== (Number(g.weekly_goal) || 0)) patchG.weekly_goal = goal;
         (async () => { try {
           try { await api.updateGroup(g.id, patchG); }
-          catch(e1) { const m1 = String(e1 && e1.message || ""); if (!(("hidden_features" in patchG && /hidden_features/i.test(m1)) || ("color" in patchG && /color/i.test(m1)))) throw e1;   // an older server: save the rest and say why
+          catch(e1) { const m1 = String(e1 && e1.message || ""); if (!(("hidden_features" in patchG && /hidden_features/i.test(m1)) || ("color" in patchG && /color/i.test(m1)))) throw e1;
             delete patchG.hidden_features; delete patchG.color; await api.updateGroup(g.id, patchG); toast("Saved. Some settings need the latest supabase-groups.sql on your server."); }
           Object.assign(g, patchG);
           if (icon !== iconKey(g)) { try { await setGroupIcon(g, icon); } catch(e2) { toast(`Saved, but the icon couldn't be saved. ${e2.message}`); } }
@@ -2761,7 +2668,6 @@ ${kindPreview("study")}${kindPreview("project")}`;
         try {
           const gid = await api.createGroup(name, course); let note = "";
           if (kind === "project") {
-            // Make it a project and check it really is one. If it can't be, never leave a study group behind under the project's name.
             try { await api.setGroupKind(gid, "project", due); const chk = await api.group(gid); if (!chk || chk.kind !== "project") throw new Error("The group didn't become a project."); }
             catch(e) {
               let gone = false; try { await api.deleteGroup(gid); gone = true; } catch(e2) {}
@@ -2782,9 +2688,8 @@ ${kindPreview("study")}${kindPreview("project")}`;
       });
       return false;
     });
-    {   // the icon picker: one sticker from the packs you can use
-    { // Group colour. With a course of yours in the Course field, it's that course's colour (and can't be changed here); with no course,
-      // or one you don't have, you pick any colour: the palette or the colour picker.
+    {
+    {
       const gin = dlg.querySelector('input[name="gcolor"]'), cin = dlg.querySelector('input[name="course"]');
       const auto = dlg.querySelector(".gc-auto"), free = dlg.querySelector(".gc-free"), anyIn = dlg.querySelector(".gc-any-in"), anyL = dlg.querySelector(".gc-any");
       let chosen = edit && g && /^#[0-9A-F]{6}$/i.test(g.color || "") ? g.color.toUpperCase() : "";
@@ -2813,7 +2718,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
       grid.addEventListener("click", e => { const b = e.target.closest("[data-k]"); if (b) { set(b.dataset.k); panel.hidden = true; open.setAttribute("aria-expanded", "false"); } });
       clear.addEventListener("click", () => set(""));
     }
-    if (!edit && TPL.length) {   // Start From: a saved template fills in the type, course, icon and weekly goal (the name stays yours to type)
+    if (!edit && TPL.length) {
       dlg.querySelectorAll(".grp-tpls [data-tpl]").forEach(b => b.addEventListener("click", () => {
         dlg.querySelectorAll(".grp-tpls [data-tpl]").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
         const t = TPL.find(x => x.id === b.dataset.tpl), f = dlg.querySelector("form");
@@ -2922,8 +2827,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     $("#grpTL").addEventListener("change", upd); upd();
   }
 
-  /* ---------- Actions ---------- */
-  // The big button at the bottom right: Add Task on a project's Tasks tab, Add File on its Files tab.
+  /* Actions */
   window.SBGRPFAB = () => {
     const g = ui.grp ? groupOf(ui.grp) : null; if (!g || !isProj(g) || !$("#grpDetail")) return null;
     const t = curTab(g);
@@ -2955,7 +2859,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
   function openTask(t){ if (!t) return; if (dlg.open) dlg.close(); taskForm(state.tasks[t.id]); }
 
   hook("act", (act, el, id) => {
-    if (!act.startsWith("grp-") && act !== "fc-share" && act !== "qz-share" && act !== "qz-share-to") return false;   // the Share buttons on decks and quizzes too
+    if (!act.startsWith("grp-") && act !== "fc-share" && act !== "qz-share" && act !== "qz-share-to") return false;
     const g = groupOf(ui.grp);
     switch (act) {
       case "grp-page": openGroup(null); return true;
@@ -3019,13 +2923,12 @@ ${kindPreview("study")}${kindPreview("project")}`;
           try { await api.unpost(m.id); S.msgs[g.id] = (S.msgs[g.id] || []).filter(x => x.id !== m.id); patch(g.id); } catch(e) { toast(e.message); } });
         return true; }
       case "grp-share-quiz": if (g) shareQuizSheet(g); return true;
-      case "fc-share": case "qz-share": {   // Review: share one deck or quiz with a group (picked here when you're in more than one)
+      case "fc-share": case "qz-share": {
         const deck = act === "fc-share", ref = deck ? el.dataset.id : el.dataset.deck + ":" + el.dataset.id, gs = S.groups || [];
         const send = gg => deck ? shareDeckToGroupSheet(gg, ref) : shareQuizSheet(gg, ref);
-        // Anyone with the link (97-sharing.js), or one of your groups
         const linkRow = `<button type="button" data-act="share-link" data-kind="${deck ? "deck" : "quiz"}" data-ref="${esc(ref)}"><span><b>Anyone With the Link</b><span class="sub">A link that opens in any browser, no account needed</span></span></button>`;
         if (!online()) { if (window.SBSHARE) SBSHARE.shareRef(deck ? "deck" : "quiz", ref); else toast(`Sign in to share ${deck ? "decks" : "quizzes"}`); return true; }
-        if (S.groups == null && !el.dataset.tried) { el.dataset.tried = "1"; loadGroups(true).then(() => { if (el.isConnected) el.click(); }).catch(() => {}); return true; }   // groups not read yet this visit
+        if (S.groups == null && !el.dataset.tried) { el.dataset.tried = "1"; loadGroups(true).then(() => { if (el.isConnected) el.click(); }).catch(() => {}); return true; }
         if (!gs.length) { if (window.SBSHARE) SBSHARE.shareRef(deck ? "deck" : "quiz", ref); else toast(`Join or start a study group to share ${deck ? "decks" : "quizzes"}`, null, {label: "Study Groups", fn: () => openGroup(null)}); return true; }
         openSheet(`<div class="sheet">${head(deck ? "Share Deck" : "Share Quiz")}<div class="sheet-body"><div class="menu-list">${window.SBSHARE ? linkRow : ""}${gs.map(x => `<button type="button" data-act="qz-share-to" data-id="${esc(x.id)}" data-ref="${esc(ref)}" data-kind="${deck ? "deck" : "quiz"}"><span><b>${esc(x.name)}</b>${x.course ? `<span class="sub">${esc(x.course)}</span>` : ""}</span></button>`).join("")}</div></div></div>`);
         return true;
@@ -3118,9 +3021,9 @@ ${kindPreview("study")}${kindPreview("project")}`;
     if (e.target && e.target.id === "grpMsgIn" && e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); const f = $("#grpPost"); if (f) f.requestSubmit ? f.requestSubmit() : f.dispatchEvent(new Event("submit", {cancelable: true, bubbles: true})); }
   });
 
-  /* ---------- Hooks into the rest of the app ---------- */
+  /* Hooks into the rest of the app */
   hook("menu", () => `<button data-act="grp-page"><span>Study Groups<span class="sub">Share decks, quizzes and deadlines, plan sessions, and compete on a weekly challenge</span></span></button>`);
-  // Your focus time and quiz results feed the weekly challenge; a finished group quiz posts its score.
+  // Your focus time and quiz results feed the weekly challenge
   hook("stats-focus", reportSoon);
   hook("ai-quiz-done", e => {
     reportSoon();
@@ -3130,10 +3033,9 @@ ${kindPreview("study")}${kindPreview("project")}`;
     if (d.sharedFrom && d.sharedFrom.q && d.sharedFrom.i) itemId = d.sharedFrom.i;
     else { const ref = e.deckId + ":" + e.quizId; for (const k in S.items) { const it = (S.items[k] || []).find(x => x.kind === "quiz" && x.user_id === myId() && x.ref_id === ref); if (it) { itemId = it.id; break; } } }
     if (!itemId) return;
-    // Nothing is posted until you choose: with your name, anonymously, or not at all. A score already shared keeps its choice.
     const it = itemOf(itemId), gid = (it && it.group_id) || (d.sharedFrom && d.sharedFrom.g);
     const posted = gid && scoresOf(gid, itemId).find(s => s.user_id === myId()), pref = gqPref(itemId);
-    if (posted) { postScore(itemId, e.right, e.total, gid, posted.shown === "anon" ? "anon" : "name"); return; }   // always the choice on record, so a stale copy can never post it with a name
+    if (posted) { postScore(itemId, e.right, e.total, gid, posted.shown === "anon" ? "anon" : "name"); return; }
     if (pref && pref.shown === "private") { gqKeep(itemId, e.right, e.total); return; }
     const ask = () => { if (dlg.open) { dlg.addEventListener("close", () => setTimeout(ask, 350), {once: true}); return; } shareScoreSheet(itemId, e.right, e.total, gid); };
     ask();
@@ -3150,7 +3052,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     } else unsubscribe();
     if (tab === "flashcards") decorateFlashcards();
   });
-  // Extra buttons on the Flashcards pages, added after the app draws them.
+  // Extra buttons on the Flashcards pages, added after the app draws them
   function decorateFlashcards(){
     if (ui.fc) return;
     const v = $("#view"); if (!v) return;
@@ -3165,7 +3067,6 @@ ${kindPreview("study")}${kindPreview("project")}`;
         if (d.shared) bits.push(`Shared with code <span class="grp-code-sm">${esc(d.shared.code)}</span>`);
         st.insertAdjacentHTML("afterend", `<p class="grp-from mini">${bits.join(" · ")}</p>`);
       }
-      // Check once per session whether a deck you added from a link has been updated.
       if (sf && sf.code && online() && !S.linkChecked[d.id]) {
         S.linkChecked[d.id] = 1;
         api.getDeck(sf.code).then(r => { if (r && ts(r.updated_at) > ts(sf.v) + 1000 && !r.is_mine) { S.linkNew[d.id] = 1; if (ui.tab === "flashcards" && ui.deckId === d.id) render(); } }).catch(() => {});
@@ -3178,7 +3079,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     }
   }
 
-  // Your edits to shared tasks update the group's copy a few seconds later.
+  // Your edits to shared tasks update the group's copy a few seconds later
   hook("changed", changes => {
     const ids = changes.filter(c => c.kind === "task" && c.after).map(c => c.id);
     if (!ids.length || !online()) return;
@@ -3187,7 +3088,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     clearTimeout(S.pushT); S.pushT = setTimeout(pushTasks, 2500);
   });
 
-  // A note on tasks copied from a group, linking back to it.
+  // A note on tasks copied from a group, linking back to it
   const origTaskForm = taskForm;
   taskForm = function(t, ...rest){
     const r = origTaskForm.call(this, t, ...rest);
@@ -3200,7 +3101,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     return r;
   };
 
-  // Groups button in the desktop sidebar (phones reach the page from Flashcards and Settings).
+  // Groups button in the desktop sidebar (phones reach the page from Flashcards and Settings)
   (() => {
     const inn = $("nav.tabs .in"); if (!inn || $('[data-tab="groups"]', inn)) return;
     const b = document.createElement("button");
@@ -3209,25 +3110,24 @@ ${kindPreview("study")}${kindPreview("project")}`;
     inn.insertBefore(b, $("#navPomo", inn) || null);
   })();
 
-  /* ---------- Links (?deck=CODE, ?group=CODE) and update checks ---------- */
+  /* Links (?deck=CODE, ?group=CODE) and update checks */
   const PEND = "sb:grpPending";
   let watchT = 0, checked = false;
   function takePending(){ try { const p = JSON.parse(localStorage.getItem(PEND) || "null"); if (p && Date.now() - p.at < 864e5) return p; localStorage.removeItem(PEND); } catch(e) {} return null; }
   function tick(){
     const p = takePending();
-    // A shared note or quiz, or a shared deck while signed out: the public view (97-sharing.js), which works without an account
     const pub = p && window.SBSHARE && SBSHARE.can() && (p.kind === "share" || (p.kind === "deck" && !online()));
     if (pub) { if (!dlg.open) { try { localStorage.removeItem(PEND); } catch(e) {} SBSHARE.open(p.code); } }
     else if (p) {
       if (online()) {
         if (!dlg.open) { try { localStorage.removeItem(PEND); } catch(e) {} if (p.kind === "group") openGroupCode(p.code); else openDeckCode(p.code); }
-      } else if ((!sbConfig() && sbLocalOnly()) || inClaude()) {
+      } else if ((!sbConfig() && sbLocalOnly()) || inPreview()) {
         if (!dlg.open) {
           try { localStorage.removeItem(PEND); } catch(e) {}
           openSheet(`<div class="sheet">${head(p.kind === "group" ? "Study Group Invite" : "Shared Deck")}<div class="sheet-body">
-            <p style="margin:0">Someone sent you ${p.kind === "group" ? "an invite to a study group" : "a shared deck"} (code <b>${esc(p.code)}</b>). ${inClaude() ? "Open it on the Studyboard website or in the desktop app to add it." : "Sign in to your Studyboard account to open it."}</p>
+            <p style="margin:0">Someone sent you ${p.kind === "group" ? "an invite to a study group" : "a shared deck"} (code <b>${esc(p.code)}</b>). ${inPreview() ? "Open it on the Studyboard website or in the desktop app to add it." : "Sign in to your Studyboard account to open it."}</p>
             ${p.kind === "group" ? "" : `<p class="mini" style="margin:0">Or ask them to send the deck as a file (Share, then Share as File) and use Import a Deck File.</p>`}</div>
-            <div class="sheet-foot">${p.kind === "group" ? "" : `<button type="button" class="btn" data-act="grp-import">Import a Deck File</button>`}<span class="spacer"></span>${inClaude() ? `<button type="button" class="btn primary" data-act="close">OK</button>` : `<button type="button" class="btn primary" data-act="sb-signin">Sign In</button>`}</div></div>`);
+            <div class="sheet-foot">${p.kind === "group" ? "" : `<button type="button" class="btn" data-act="grp-import">Import a Deck File</button>`}<span class="spacer"></span>${inPreview() ? `<button type="button" class="btn primary" data-act="close">OK</button>` : `<button type="button" class="btn primary" data-act="sb-signin">Sign In</button>`}</div></div>`);
         }
       }
     }
@@ -3242,27 +3142,18 @@ ${kindPreview("study")}${kindPreview("project")}`;
         } catch(e) {}
       })();
     }
-    if (!takePending() && (checked || !sbConfig() || inClaude())) { clearInterval(watchT); watchT = 0; }
+    if (!takePending() && (checked || !sbConfig() || inPreview())) { clearInterval(watchT); watchT = 0; }
   }
-  /* ---------- 1.16: Pro groups ----------
-     A Pro group gets the extras below for every member. A group is Pro while enforcement is off, or while the member who assigned Pro
-     to it (Assign Pro in the group's header, up to 5 groups per Pro account, owned ones included) is in it and has Pro. The server decides
-     (supabase-plans.sql: group_pro_status, group_pro_set) and enforces the limits; the extras are cheap, so they are shown in Pro groups.
-     Group projects: Team Deadline, Rubric Checklist, Review Before Done, Split the Work, Contribution Report, Find a Time, Group Uploads,
-     Group Templates. Study groups: Split Exam Topics, Live Quiz. Both: Recurring sessions and meetings, the supporter badge.
-     Everything is stored the way the group already stores things: shared items (new kinds avail, topics, topic, gfile), task lists, and one
-     date (study_groups.team_due). The pure logic is GXP (no page access). */
+  /* 1.16: Pro groups A Pro group gets the extras below for every member */
   /*GXP-START*/
   const GXP = (() => {
     const DAYMS = 864e5, SLOT = 30 * 60000, SLOTS = 14 * 48;
-    // Find a Time: a member's busy half-hours for 14 days from `from` (ms, their local midnight), as hex. busy: [[startMs, endMs]]
     function busyHex(from, busy){
       const bits = new Array(SLOTS).fill(0);
       busy.forEach(([a, b]) => { for (let i = Math.max(0, Math.floor((a - from) / SLOT)); i < SLOTS && from + i * SLOT < b; i++) bits[i] = 1; });
       let hex = ""; for (let i = 0; i < SLOTS; i += 4) hex += ((bits[i] << 3) | (bits[i + 1] << 2) | (bits[i + 2] << 1) | bits[i + 3]).toString(16);
       return hex;
     }
-    // Is that member free for the whole of [a, b)? null when their shared times don't cover it
     function freeAt(av, a, b){
       if (!av || typeof av.hex !== "string" || !(av.from > 0)) return null;
       for (let t = a; t < b; t += SLOT) {
@@ -3271,7 +3162,6 @@ ${kindPreview("study")}${kindPreview("project")}`;
       }
       return true;
     }
-    // The best meeting times: [{start, free, total}], most people free first, then soonest. days: [{start: local-midnight ms}], from 8:00 to 22:00.
     function bestTimes(avs, days, minutes, now, n){
       const out = [], len = minutes * 60000;
       days.forEach(d => { for (let m = 8 * 60; m + minutes <= 22 * 60; m += 30) { const a = d.start + m * 60000; if (a < now + 3600000) continue; let free = 0, known = 0; avs.forEach(av => { const f = freeAt(av, a, a + len); if (f !== null) known++; if (f) free++; }); if (known) out.push({start: a, free, total: avs.length, hour: m / 60}); } });
@@ -3281,7 +3171,6 @@ ${kindPreview("study")}${kindPreview("project")}`;
       for (const o of out) { const dk = Math.floor(o.start / DAYMS); if (days2.has(dk) && out.some(z => !pick.includes(z) && Math.floor(z.start / DAYMS) !== dk && z.free === o.free)) continue; pick.push(o); days2.add(dk); if (pick.length >= (n || 3)) break; }
       return pick;
     }
-    // Split the work: unassigned tasks to members by role keywords and room (free hours), earliest due first. rnd: 0..1 for the tie-break.
     const ROLE_WORDS = {
       lead: /\b(plan|organi[sz]e|coordinat|schedul|integrat|final|submit|check.?in|meet|outline|timeline|budget|manage)/i,
       research: /\b(research|literature|sources?|data|survey|test|experiment|compar|analy[sz]|find|interview|measure|stud(y|ies))/i,
@@ -3304,7 +3193,6 @@ ${kindPreview("study")}${kindPreview("project")}`;
       });
       return out;
     }
-    // A rubric or assignment sheet, as checklist lines: bullets, numbers, "(10 points)" or "criteria:" lines. Up to 40, no repeats.
     function rubricLines(text){
       const seen = new Set(), out = [];
       String(text || "").replace(/\r/g, "").split("\n").forEach(raw => {
@@ -3318,12 +3206,10 @@ ${kindPreview("study")}${kindPreview("project")}`;
       });
       return out.slice(0, 40);
     }
-    // Exam topics, shared out in turn (members sorted, so every device agrees)
     function shareTopics(names, members){
       const ms = members.slice().sort();
       return names.map((name, i) => ({id: "t" + (i + 1), name: String(name).trim().slice(0, 80), who: ms.length ? ms[i % ms.length] : ""})).filter(t => t.name);
     }
-    // The next time a weekly session happens (ms), or null when it has ended. start: ms of the first one; until: "YYYY-MM-DD" or ""
     function nextWeekly(start, until, now){
       if (!(start > 0)) return null;
       const WK = 7 * DAYMS; let t = start;
@@ -3331,7 +3217,6 @@ ${kindPreview("study")}${kindPreview("project")}`;
       if (until && new Date(t) > new Date(until + "T23:59:59")) return null;
       return t;
     }
-    // The contribution report's numbers for each member
     function contrib(tasks, members, minutes){
       return members.map(m => {
         const mine = tasks.filter(t => !t.deleted && t.assignee_id === m.user_id), done = mine.filter(t => t.status === "done");
@@ -3346,24 +3231,24 @@ ${kindPreview("study")}${kindPreview("project")}`;
 
   S.gpro = S.gpro || {};
   const PAYWALL = () => typeof PLAN !== "undefined" && !!PLAN && PLAN.paywall();
-  const meIsPro = () => typeof PLAN === "undefined" || !PLAN || (PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro());   // Pro groups come with a paid plan (not the free week)
-  // Is this a Pro group? (the server's answer: a member with Pro assigned Pro to it)
+  const meIsPro = () => typeof PLAN === "undefined" || !PLAN || (PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro());
+  // Is this a Pro group
   const gxOn = g => !!g && (!PAYWALL() || !!(S.gpro[g.id] && S.gpro[g.id].active));
-  // How many of your groups you've assigned Pro to (at most GX_MAX; the server holds the same line)
+  // How many of your groups you've assigned Pro to
   const GX_MAX = 5, gxMine = () => (S.groups || []).filter(x => S.gpro[x.id] && S.gpro[x.id].by && S.gpro[x.id].by === myId()).length;
   const gxWhy = "This is part of Pro groups. When a member with Pro assigns Pro to the group, everyone in it gets this.";
   api.groupPro = ids => q(cli().rpc("group_pro_status", {p_groups: ids}));
   api.setGroupPro = (gid, on) => q(cli().rpc("group_pro_set", {p_group: gid, p_on: on}));
   api.setBadge = on => q(cli().rpc("set_supporter_badge", {p_on: on}));
-  // Members with their badge (an older server has no badge column: then without it)
+  // Members with their badge
   const membersBase = api.members;
   api.members = async ids => {
     try { return await q(cli().from("group_members").select("group_id,user_id,role,display_name,joined_at,badge,color,face").in("group_id", ids).order("joined_at")); } catch(e0) {}
     try { return await q(cli().from("group_members").select("group_id,user_id,role,display_name,joined_at,badge,color").in("group_id", ids).order("joined_at")); }
-    catch(e) { try { return await q(cli().from("group_members").select("group_id,user_id,role,display_name,joined_at,badge").in("group_id", ids).order("joined_at")); } catch(e2) { return membersBase(ids); } }   // an older server: no colours (or badges)
+    catch(e) { try { return await q(cli().from("group_members").select("group_id,user_id,role,display_name,joined_at,badge").in("group_id", ids).order("joined_at")); } catch(e2) { return membersBase(ids); } }
   };
   api.setColor = (gid, c) => q(cli().rpc("set_member_color", {p_group: gid, p_color: c}));
-  // Your companion, shared with your groups so they see it as your picture. Sent when it differs from what your groups have.
+  // Your companion, shared with your groups so they see it as your picture
   api.setFace = f => q(cli().rpc("set_my_face", {p_face: f || null}));
   let faceSent = null;
   function syncMyFace(){
@@ -3381,28 +3266,27 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const before = JSON.stringify(S.gpro);
     try { const rows = await api.groupPro(ids) || []; rows.forEach(r => { S.gpro[r.group_id] = {active: !!r.active, by: r.by_user || "", byOwner: !!r.by_owner}; }); S.gproErr = ""; }
     catch(e) { S.gproErr = e.setup ? "setup" : e.message; }
-    if (ui.tab === "groups" && JSON.stringify(S.gpro) !== before) render();   // sections appear or go: draw the page again
+    if (ui.tab === "groups" && JSON.stringify(S.gpro) !== before) render();
   }
   const loadGroupsBase = loadGroups;
   loadGroups = async function(quiet){ await loadGroupsBase(quiet); gxLoad(); gxBadgeSync(); };
   const loadGroupBase = loadGroup;
   loadGroup = async function(gid){ await loadGroupBase(gid); gxLoad([gid]); gxAvailRefresh(gid); };
-  // The supporter badge follows the setting in Settings > Studyboard Pro (once per session, and when it changes)
+  // The supporter badge follows the setting in Settings > Studyboard Pro
   let badgeDone = false;
   async function gxBadgeSync(force){
     if ((badgeDone && !force) || !online()) return; badgeDone = true;
     const want = !!(state.settings && state.settings.badge) && meIsPro();
     const mine = Object.values(S.members || {}).flat().filter(m => m.user_id === myId());
     if (!force && mine.every(m => !!m.badge === want)) return;
-    try { await api.setBadge(want); mine.forEach(m => { m.badge = want; }); if (ui.tab === "groups" && ui.grp) patch(ui.grp); } catch(e) { /* an older server: no badges */ }
+    try { await api.setBadge(want); mine.forEach(m => { m.badge = want; }); if (ui.tab === "groups" && ui.grp) patch(ui.grp); } catch(e) { }
   }
   hook("pro-badge", () => gxBadgeSync(true));
   const GX_STAR = `<svg class="gx-star" viewBox="0 0 24 24" width="14" height="14" role="img" aria-label="Supports Studyboard"><title>Supports Studyboard with Pro</title><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.2 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z" fill="#FF8A5C"/></svg>`;
 
-  /* ----- Header chip, and the Pro group box in Members ----- */
+  /* Header chip, and the Pro group box in Members */
   const headBase = headHtml;
-  // Assign Pro / Unassign Pro (with a PRO badge) goes in the header's More menu (raMore), for members with Pro. A group someone else made Pro has neither, and
-  // once your 5 are used the button leaves the groups you haven't assigned (Unassign one to free a place).
+  // Assign Pro / Unassign Pro (with a PRO badge) goes in the header's More menu (raMore)
   function gxAssignBtn(g){
     if (!PAYWALL() || !meIsPro() || S.gproErr) return "";
     const st = S.gpro[g.id]; if (!st) return "";
@@ -3435,7 +3319,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     catch(e) { toast(String(e.message || "").replace(/^SB_[A-Z_]+:\s*/, "")); }
   }
 
-  /* ----- Team Deadline (group projects) ----- */
+  /* Team Deadline (group projects) */
   const teamDue = g => g && GTL.isDay(g.team_due) && gxOn(g) ? String(g.team_due).slice(0, 10) : "";
   function gxTeamCard(g){
     const td = teamDue(g), owner = isOwner(g), today = todayISO();
@@ -3458,7 +3342,6 @@ ${kindPreview("study")}${kindPreview("project")}`;
     try { await api.updateGroup(g.id, {team_due: d || null}); g.team_due = d || null; toast(d ? `Team deadline set for ${fmtShort(d)}` : "Team deadline removed"); deriveMineFor(g.id); patch(g.id); }
     catch(e) { toast(/team_due|column/i.test(e.message) ? srvSetup("Team deadlines", "groups.sql") : e.message); }
   }
-  // My tasks from a group with a team deadline show that date in my planner when theirs is later (or missing)
   function gxTeamMine(gid){
     const g = groupOf(gid), td = teamDue(g); if (!td || !S.mine[gid]) return;
     let ch = false;
@@ -3470,7 +3353,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
   const loadMineBase = loadMine;
   loadMine = async function(){ const r = await loadMineBase.apply(this, arguments); Object.keys(S.mine || {}).forEach(gxTeamMine); return r; };
 
-  /* ----- Review Before Done (group projects) ----- */
+  /* Review Before Done (group projects) */
   const reviewerOf = t => t && t.reviewer_id ? t.reviewer_id : "";
   function gxReviewBtns(g, t){
     if (t.status !== "review") return "";
@@ -3483,13 +3366,13 @@ ${kindPreview("study")}${kindPreview("project")}`;
     return `<label class="f"><span class="lh">Reviewer <span class="hint">checks it before it's done</span></span><select name="reviewer"><option value="">No review</option>${ms.map(m => `<option value="${esc(m.user_id)}"${m.user_id === cur ? " selected" : ""}>${esc(m.user_id === me ? "Me" : m.display_name || "Member")}</option>`).join("")}</select></label>`;
   }
 
-  /* ----- Find a Time ----- */
+  /* Find a Time */
   const availOf = (gid, uid2) => { const it = kindItems(gid, "avail").find(x => x.user_id === uid2); return it && it.data ? {from: Number(it.data.from), hex: String(it.data.hex || ""), at: it.updated_at} : null; };
   const shareKey = gid => "sb:availShare:" + myId() + ":" + gid;
-  // How you share: "manual" (you picked your free hours; the default) or "auto" (from your planner, kept fresh). An older "1" means auto.
+  // How you share
   const shareMode = gid => { try { const v = localStorage.getItem(shareKey(gid)); return v === "1" || v === "auto" ? "auto" : v === "manual" ? "manual" : ""; } catch(e) { return ""; } };
   const sharing = gid => shareMode(gid) === "auto";
-  // My busy half-hours for 14 days: classes, events, work and other blocks from the planner (only busy or free is shared)
+  // My busy half-hours for 14 days
   function myBusy(){
     const start = parse(todayISO()).getTime(), from = todayISO(), to = addDays(from, 13), busy = [];
     try { schOccurrences(from, to).forEach(o => { if (o.skipped || o.allDay || !o.start || !o.end) return; const a = new Date(`${o.date}T${o.start}`).getTime(), b = new Date(`${o.date}T${o.end}`).getTime(); if (b > a) busy.push([a, b]); }); } catch(e) {}
@@ -3506,7 +3389,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
       if (!quiet) toast("Your free times are shared with the group");
     } catch(e) { if (!quiet) toast(/kind_check|avail/i.test(e.message) ? srvSetup("Find a Time", "groups.sql") : e.message); }
   }
-  // Kept fresh: once you've chosen to share, opening the group updates it when it's more than 12 hours old
+  // Kept fresh: once you've chosen to share
   function gxAvailRefresh(gid){
     const g = groupOf(gid); if (!g || !gxOn(g) || !isProj(g) || !sharing(gid)) return;
     const a = availOf(gid, myId()); if (a && Date.now() - ts(a.at) < 12 * 3600000 && a.from === parse(todayISO()).getTime()) return;
@@ -3517,9 +3400,9 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const ms = (S.members[g.id] || []).filter(m => m.user_id === myId() || !S.blocked.has(m.user_id));
     const avs = ms.map(m => availOf(g.id, m.user_id)).filter(Boolean), have = ms.filter(m => availOf(g.id, m.user_id)).length, iShare = !!availOf(g.id, myId());
     const today = parse(todayISO()).getTime(), days = Array.from({length: 7}, (_, i) => ({start: new Date(new Date(today).setDate(new Date(today).getDate() + i)).getTime()}));
-    const enough = have >= 2;   // a session is picked here once at least 2 members have shared their free times
+    const enough = have >= 2;
     const best = enough ? GXP.bestTimes(avs, days, FT.mins, Date.now(), 3) : [];
-    const hours = Array.from({length: 14}, (_, i) => 8 + i);   // one row per hour, 8 AM to 9 PM
+    const hours = Array.from({length: 14}, (_, i) => 8 + i);
     const cell = (d, h) => { const a = d.start + h * 3600000; let f = 0; avs.forEach(av => { if (GXP.freeAt(av, a, a + 3600000)) f++; }); return f; };
     const grid = avs.length ? `<div class="ft-grid" role="img" aria-label="How many people are free, by day and time"><span></span>${days.map(d => `<span class="ft-d">${esc(new Date(d.start).toLocaleDateString(undefined, {weekday: "short"}))}</span>`).join("")}${hours.map(h => `<span class="ft-h">${esc(new Date(2001, 0, 1, h).toLocaleTimeString(undefined, {hour: "numeric"}))}</span>${days.map(d => { const f = cell(d, h); return `<span class="ft-c" style="--a:${Math.round(f / Math.max(1, avs.length) * 100)}%" title="${f} of ${avs.length} free"></span>`; }).join("")}`).join("")}</div>` : "";
     openSheet(`<div class="sheet pro-sheet">${head("Find a Time")}<div class="sheet-body">
@@ -3531,8 +3414,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button>${best.length ? `<button type="button" class="btn primary" data-act="gx-ft-add" data-id="${esc(g.id)}">${isProj(g) ? "Add to Meetings" : "Add to Sessions"}</button>` : ""}</div></div>`);
     FT.best = best; FT.gid = g.id;
   }
-  // Pick your own free hours (the default way to share): 7 days from today, one tap per hour from 8 AM to 10 PM. Fill In Automatically
-  // marks the hours your planner has free, to adjust before sharing. Anything not picked counts as busy.
+  // Pick your own free hours (the default way to share)
   let PF = null;
   function gxPickFree(g){
     const today = parse(todayISO()).getTime(), days = Array.from({length: 7}, (_, i) => new Date(new Date(today).setDate(new Date(today).getDate() + i)).getTime());
@@ -3562,7 +3444,6 @@ ${kindPreview("study")}${kindPreview("project")}`;
     $("#pfSave").addEventListener("click", () => {
       if (!PF.on.size) { toast("Tap at least one hour you're free."); return; }
       const busy = [], start = today, end = today + 14 * 864e5;
-      // every hour that wasn't picked is busy, and so is the second week (only this week is picked)
       for (let t = start; t < end; t += 3600000) { const di = Math.round((new Date(t).setHours(0, 0, 0, 0) - today) / 864e5), h = new Date(t).getHours(); if (!(di < 7 && PF.on.has(di + ":" + h))) busy.push([t, t + 3600000]); }
       gxShareAvail(g.id, false, {from: start, hex: GXP.busyHex(start, busy)}).then(() => { PF = null; gxFindTime(g); });
     });
@@ -3580,7 +3461,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     });
   }
 
-  /* ----- Split the Work ----- */
+  /* Split the Work */
   let SP2 = null;
   function gxSplitSheet(g){
     const x = ptX(g.id); if (!x) { toast("Tasks aren't ready yet. Try again in a moment."); return; }
@@ -3607,7 +3488,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     try { await api.post(g.id, `I split up the ${all.length} unassigned task${all.length === 1 ? "" : "s"} with Split the Work. Check Tasks for yours.`); } catch(e) {}
   }
 
-  /* ----- Rubric Checklist ----- */
+  /* Rubric Checklist */
   let RB = null;
   function gxRubricSheet(g){
     RB = {gid: g.id, lines: []};
@@ -3640,10 +3521,9 @@ ${kindPreview("study")}${kindPreview("project")}`;
     } catch(e) { if (go) busyBtn(go, false); toast(e.message); }
   }
 
-  /* ----- Group Templates (kept in your own settings, so they follow you) ----- */
+  /* Group Templates (kept in your own settings, so they follow you) */
   const tpls = () => (state.settings && Array.isArray(state.settings.grpTemplates) ? state.settings.grpTemplates : []).slice(0, 12);
-  // A template keeps the group's setup (kind, course, icon, which features are on, a study group's weekly goal) and a project's tasks
-  // with their timing. It shows up in New Group under Start From.
+  // A template keeps the group's setup
   function gxSaveTemplate(g){
     const proj = isProj(g), x = proj ? ptX(g.id) : null;
     let tasks = [];
@@ -3663,7 +3543,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
         : `<p style="margin:0">No templates yet. In a project you liked, open Overview and choose Save as Template. Its tasks and their timing are kept in your account for next time.</p>`}</div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button></div></div>`);
   }
-  // A new project made from a template: its tasks are added once the project's task list has loaded
+  // A new project made from a template
   function tplTasksWhenReady(gid, id){
     let n = 0;
     const tick = () => { const g = groupOf(gid); if (g && ptX(gid)) { gxUseTemplate(g, id); return; } if (n === 0 && g) { try { loadPT(gid); } catch(e) {} } if (++n < 40) setTimeout(tick, 500); };
@@ -3680,7 +3560,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     } catch(e) { toast(e.message); }
   }
 
-  /* ----- Contribution Report (printed or saved as PDF through Studyboard's print page) ----- */
+  /* Contribution Report (printed or saved as PDF through Studyboard's print page) */
   function gxReport(g){
     const x = ptX(g.id); if (!x) { toast("Tasks aren't ready yet. Try again in a moment."); return; }
     const act = new Set(x.lists.filter(l => !l.archived).map(l => l.id)), tasks = x.tasks.filter(t => act.has(t.list_id));
@@ -3692,7 +3572,6 @@ ${kindPreview("study")}${kindPreview("project")}`;
       <h2>What each person finished</h2><div class="pp-plan">${rows.map(r => `<div class="pp-pd"><b>${esc(r.name)}</b><span>${esc(r.titles.slice(0, 14).join(" · ") || "Nothing marked done yet")}</span></div>`).join("")}</div>
       <div class="pp-foot"><span>Made by Studyboard from the group's own tasks and meeting notes. Every member can see this report.</span><span>${esc(new Date().toLocaleDateString(undefined, {month: "long", day: "numeric", year: "numeric"}))}</span></div></div>`;
     if (!(window.SBPRO && SBPRO.printRaw)) { toast("Printing isn't available here."); return; }
-    // A preview first, then Download or Print
     const name = `Contribution Report - ${g.name}`.slice(0, 80);
     openSheet(`<div class="sheet pro-sheet gx-rep-sheet">${head("Contribution Report")}<div class="sheet-body">
       <p class="mini" style="margin:0">A preview of the report. Every member can see it.</p>
@@ -3702,7 +3581,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     $("#gxRepPrint").addEventListener("click", () => SBPRO.printRaw(html, null, false, {mode: "print", name}));
   }
 
-  /* ----- Group Uploads (group projects) ----- */
+  /* Group Uploads (group projects) */
   const MAXUP = 50 * 1048576;
   function gxUploadsHtml(g){
     const its = kindItems(g.id, "gfile"), me = myId();
@@ -3730,7 +3609,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     catch(e) { toast("Couldn't open that file. Check your connection and try again."); }
   }
 
-  /* ----- Split Exam Topics (study groups) ----- */
+  /* Split Exam Topics (study groups) */
   function gxTopicsHtml(g){
     const its = kindItems(g.id, "topics").filter(it => it.data && Array.isArray(it.data.topics) && (!it.data.date || it.data.date >= addDays(todayISO(), -2))).slice(0, 3), me = myId();
     const done = (it, tid, who) => kindItems(g.id, "topic").some(x => x.ref_id === it.id && x.title === tid && x.user_id === who && x.data && x.data.done);
@@ -3745,7 +3624,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
   }
   function gxTopicsSheet(g){
     const ms = (S.members[g.id] || []).filter(m => m.user_id === myId() || !S.blocked.has(m.user_id)).map(m => m.user_id);
-    const gcid = String(g.course || "").trim() ? matchCourse(g.course) : null;   // a group's course: only its exams are suggested (none when you don't have the course)
+    const gcid = String(g.course || "").trim() ? matchCourse(g.course) : null;
     const exams = tasksArr().filter(t => MILESTONE(t.type) && t.status !== "done" && t.due && t.due >= todayISO() && (gcid === null || (gcid && t.courseId === gcid))).sort((a, b) => a.due.localeCompare(b.due)).slice(0, 8);
     const ex = exams[0], topics = ex && ex.prep && Array.isArray(ex.prep.topics) ? ex.prep.topics.map(t => t.name) : [];
     openSheet(`<form class="sheet">${head("Split Exam Topics")}<div class="sheet-body">${REQ_NOTE}
@@ -3773,10 +3652,9 @@ ${kindPreview("study")}${kindPreview("project")}`;
     } catch(e) { toast(e.message); }
   }
 
-  /* ----- Live Quiz (study groups): a private Realtime channel, sbquiz:<group id>. The host's device holds the quiz. ----- */
+  /* Live Quiz (study groups) */
   const LQ = {gid: "", ch: null, ok: false, host: false, item: null, i: 0, reveal: false, answers: {}, mine: null, live: null, seen: 0};
-  /* SECURITY: any group member can broadcast on the channel, so a received state is rebuilt field by field (numbers as numbers, text
-     length-capped) and never trusted as sent: lqHtml puts some of these values into the page without esc(). */
+  /* SECURITY: any group member can broadcast on the channel */
   const lqInt = (v, lo, hi) => { const x = Math.floor(Number(v)); return Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : lo; };
   const lqClean = p => {
     if (!p || typeof p !== "object") return null;
@@ -3828,13 +3706,12 @@ ${kindPreview("study")}${kindPreview("project")}`;
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button></div></div>`);
   }
 
-  /* ----- Weekly sessions and meetings ----- */
+  /* Weekly sessions and meetings */
   const occStart = it => { const d = it.data || {}, t0 = ts(d.start); return d.repeat && d.repeat.weekly ? GXP.nextWeekly(t0, d.repeat.until || "", Date.now()) : t0; };
 
-  /* ----- Where it all shows: one section per place, at the top of its tab ----- */
+  /* Where it all shows */
   function gxPane(g, k){
     const proj0 = isProj(g);
-    // Find a Time is free in every group (it used to be a Pro group extra); the rest of these stay Pro
     const ftSec = (k === "meetings" || (!proj0 && k === "sessions")) ? (() => { const proj = proj0; return featOn(g, "findtime") ? `<section class="grp-sec" id="gxFind">${secHead(gi('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M12 13v3l2 1"/>'), "Find a Time", null, `<button type="button" class="btn small" data-act="gx-ft" data-id="${esc(g.id)}">Find a Time</button>`)}<p class="grp-none">${proj ? "See when every teammate is free and pick a meeting time that works for all of you." : "See when everyone is free and pick a time to study together."}</p></section>` : ""; })() : "";
     if (!gxOn(g)) return k === "members" ? `<div id="gxPro">${gxProBox(g)}</div>` : ftSec;
     const proj = isProj(g);
@@ -3842,7 +3719,6 @@ ${kindPreview("study")}${kindPreview("project")}`;
     if (proj && k === "overview") return `<div id="gxOver" class="gx-over">${gxTeamCard(g)}<div class="gx-tools">${featOn(g, "split") ? `<button type="button" class="btn small" data-act="gx-split" data-id="${esc(g.id)}">Split the Work</button>` : ""}${featOn(g, "report") ? `<button type="button" class="btn small" data-act="gx-report" data-id="${esc(g.id)}">Contribution Report</button>` : ""}<button type="button" class="btn small" data-act="gx-tpl-save" data-id="${esc(g.id)}">Save as Template</button></div></div>`;
     if (proj && k === "tasks") return `<div id="gxTasks" class="gx-tools">${featOn(g, "rubric") ? `<button type="button" class="btn small" data-act="gx-rubric" data-id="${esc(g.id)}">Rubric Checklist</button>` : ""}${featOn(g, "split") ? `<button type="button" class="btn small" data-act="gx-split" data-id="${esc(g.id)}">Split the Work</button>` : ""}<button type="button" class="btn small" data-act="gx-tpl" data-id="${esc(g.id)}">Start From a Template</button></div>`;
     if (proj && k === "files") return featOn(g, "uploads") ? gxUploadsHtml(g) : "";
-    // Find a Time is its own section, like Live Quiz: a heading with its button and a line on what it does
     if (k === "meetings" || (!proj && k === "sessions")) return ftSec + (proj || !featOn(g, "livequiz") ? "" : lqHtml(g));
     if (!proj && k === "study") return featOn(g, "topics") ? gxTopicsHtml(g) : "";
     return "";
@@ -3888,7 +3764,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
       case "gx-tpl": if (g && need()) gxTemplateSheet(g); return true;
       case "gx-tpl-use": { const gg = groupOf(ui.grp); if (gg) gxUseTemplate(gg, id); return true; }
       case "gx-tpl-del": { state.settings = Object.assign({}, state.settings, {grpTemplates: tpls().filter(t => t.id !== id)}); saveSettings(); const gg = groupOf(ui.grp); if (gg) gxTemplateSheet(gg); return true; }
-      case "gx-ft": if (g) gxFindTime(g); return true;   // free in every group
+      case "gx-ft": if (g) gxFindTime(g); return true;
       case "gx-ft-share": if (g) gxShareAvail(g.id).then(() => { if (dlg.open && dlg.querySelector(".ft-grid,.gx-box")) gxFindTime(g); }); return true;
       case "gx-ft-len": { FT.mins = [30, 60, 120].includes(Number(id)) ? Number(id) : 60; FT.pick = 0; const gg = groupOf(FT.gid); if (gg) gxFindTime(gg); return true; }
       case "gx-ft-pick": { FT.pick = Number(id) || 0; const gg = groupOf(FT.gid); if (gg) gxFindTime(gg); return true; }
@@ -3960,15 +3836,14 @@ ${kindPreview("study")}${kindPreview("project")}`;
 `;
   document.head.appendChild(gxCss);
 
-  // The "..." menus in groups (Report or Block, and the others built on details.grp-more) close when you tap or click anywhere
-  // else, press Escape, pick an item, or open another one, instead of staying open until their own button is pressed again.
+  // The "..." menus in groups
   const closeMenus = keep => document.querySelectorAll("details.grp-more[open]").forEach(d => { if (d !== keep) d.open = false; });
   document.addEventListener("pointerdown", e => { const d = e.target.closest && e.target.closest("details.grp-more"); closeMenus(d); }, true);
   document.addEventListener("click", e => { const b = e.target.closest && e.target.closest("details.grp-more[open] [data-act]"); if (b) setTimeout(() => { const d = b.closest("details"); if (d) d.open = false; }, 0); }, true);
   document.addEventListener("keydown", e => { if (e.key !== "Escape") return; const d = document.querySelector("details.grp-more[open]"); if (d) { d.open = false; const sm = d.querySelector("summary"); if (sm) sm.focus(); e.stopPropagation(); } }, true);
   document.addEventListener("toggle", e => { const d = e.target; if (d && d.matches && d.matches("details.grp-more") && d.open) closeMenus(d); }, true);
-  window.SBGROUPS = {known: () => Array.isArray(S.groups) ? S.groups.length : null, probe: async () => online() ? ((await api.groups()) || []).length : null};   // 97-groups-nudge.js
-  // For 97-sharing.js (public links and the Course Library): the deck and quiz helpers this module already has
+  window.SBGROUPS = {known: () => Array.isArray(S.groups) ? S.groups.length : null, probe: async () => online() ? ((await api.groups()) || []).length : null};
+  // For 97-sharing.js (public links and the Course Library)
   window.SBGROUPS.share = {online, cli, myId, ensureName, rememberWebUrl, linkFor, normCode, cleanPayload, cleanQuizPayload, quizPayload, deckPayload, addDeckCopy, previewSheet,
     deckShareSheet, matchCourse, codeKey, copyText, sendText, busyBtn, hashOf, loadingSheet, myName: () => S.name || "",
     // members of a group (for who has a shared whiteboard) and the groups you're in
@@ -3977,7 +3852,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     avatar: (gid, id, name) => av(name, id, gid),
     // open a group on its Whiteboards tab
     openBoards: gid => { if (!gid) return; S.tab[gid] = "boards"; openGroup(gid); },
-    // load a group's members (names, colours, companions) when the group page hasn't yet; true when there's something new
+    // load a group's members (names, colours, companions) when the group page hasn't yet
     loadMembers: async gid => { if (!gid || !online()) return false; if ((S.members[gid] || []).length) return false; try { const ms = await api.members([gid]); if (ms && ms.length) { S.members[gid] = ms; return true; } } catch (e) {} return false; },
     groups: () => (Array.isArray(S.groups) ? S.groups : []).map(g => ({id: g.id, name: g.name, kind: g.kind || "study"}))};
   hook("boot", () => {
@@ -3993,7 +3868,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     watchT = setInterval(tick, 1500);
     setTimeout(tick, 600);
   });
-  // Start watching again after you sign in later.
+  // Start watching again after you sign in later
   setInterval(() => { if (!watchT && (takePending() || !checked) && online()) watchT = setInterval(tick, 1500); }, 20000);
 })();
 

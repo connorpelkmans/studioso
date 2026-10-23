@@ -1,6 +1,5 @@
 /* ===== module: 01-flashcards.js: the app's core, flashcards: decks, spaced repetition, quizzes ===== */
-/* ---------- Flashcards: decks, spaced-repetition study and auto-generated quizzes ---------- */
-// Leitner boxes: a card moves up a box each time you know it and is shown again after that many days.
+/* Flashcards: decks, spaced-repetition study and auto-generated quizzes */
 const BOX_DAYS = [0, 1, 3, 7, 14, 30];
 const FC_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/></svg>';
 function normDeck(d){
@@ -13,20 +12,17 @@ function normDeck(d){
   return d;
 }
 const decksArr = () => Object.values(state.decks || {}).filter(d => !d.archived).sort((a, b) => ((a.created || 0) - (b.created || 0)) || a.name.localeCompare(b.name));
-// A quiz made straight from slides or notes is kept in a holder deck with no cards (quizOnly). It never shows as a deck: only its quizzes do.
+// A quiz made straight from slides or notes is kept in a holder deck with no cards
 const isQuizHolder = d => !!(d && d.quizOnly && !(d.cards || []).length);
 const quizFrom = (d, qz) => isQuizHolder(d) ? ((qz && qz.sources || []).filter(Boolean).map(x => String(x).replace(/\.[a-z0-9]{2,5}$/i, "")).slice(0, 2).join(", ") || "your material") : d.name;
 const deckListArr = () => decksArr().filter(d => !isQuizHolder(d));
 const cardDue = c => c.seen > 0 && (!c.due || c.due <= todayISO());
 const cardNew = c => !c.seen;
-/* How prepared you are for a deck (0 to 100), from every card: whether it has been reviewed at all, how well you rate it, and how recently.
-   A card you never reviewed counts as 0, a card you marked "again" or "hard" counts for less, and a card not reviewed for longer than its review interval fades.
-   Pure code (no page access); tests/flashcard-ready.test.js runs it. */
+/* How prepared you are for a deck (0 to 100), from every card */
 /*DR-START*/
 const DR = (() => {
   const BASE = [0.15, 0.4, 0.55, 0.7, 0.85, 0.95], GAP = [1, 1, 3, 7, 14, 30];
   const num = s => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || "")); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) / 864e5 : NaN; };
-  // The day a card was last reviewed: recorded since this was added, else worked back from its due date.
   function lastDay(c){
     if (Number.isFinite(num(c.last))) return num(c.last);
     if (Number.isFinite(num(c.due))) return num(c.due) - (c.box > 0 ? GAP[Math.min(5, c.box)] : 0);
@@ -35,7 +31,7 @@ const DR = (() => {
   function card(c, today){
     if (!(c.seen > 0)) return 0;
     const box = Math.max(0, Math.min(5, c.box | 0)), t = num(today), l = lastDay(c);
-    const age = Number.isFinite(l) ? Math.max(0, t - l) : 45;                      // no record at all: treat as not touched for a while
+    const age = Number.isFinite(l) ? Math.max(0, t - l) : 45;
     const gap = GAP[box], late = Math.max(0, age - gap), fade = late ? Math.max(0.15, 1 / (1 + late / Math.max(gap, 3))) : 1;
     const acc = ((c.right || 0) + 1) / ((c.seen || 0) + 2);
     const feel = c.rate === "again" ? 0.6 : c.rate === "hard" ? 0.88 : 1;
@@ -52,7 +48,7 @@ const deckStats = d => {
   return {total: cs.length, due, fresh, mastered, mastery, last, ready: DR.deck(cs, todayISO())};
 };
 const allDueCount = () => decksArr().reduce((s, d) => s + d.cards.filter(cardDue).length, 0);
-// Flashcard styles grouped for choosing: the basic ones, then each theme's own
+// Flashcard styles grouped for choosing
 function cardStyleGroups(){
   const ok = c => c.id !== "theme" || themeKit(), basic = CARD_STYLES.filter(c => !c.theme && ok(c)), groups = [["Flashcard Styles", basic]], by = {};
   CARD_STYLES.filter(c => c.theme).forEach(c => { (by[c.theme] = by[c.theme] || []).push(c); });
@@ -69,12 +65,12 @@ const fcMatches = (d, q) => {
 };
 function masteryPips(box){ return `<span class="pips" title="Level ${box} of 5">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= box ? "on" : ""}"></i>`).join("")}</span>`; }
 
-/* Review (the Flashcards tab): Flashcards and Quizzes, each its own sub-tab. Quizzes are kept on their deck (deck.aiQuizzes) and listed here. */
+/* Review (the Flashcards tab) */
 ui.rvView = ui.rvView || (() => { try { return localStorage.getItem("studyboard:rvview") === "quizzes" ? "quizzes" : "cards"; } catch (e) { return "cards"; } })();
 const rvSet = v => { ui.rvView = v === "quizzes" ? "quizzes" : "cards"; try { localStorage.setItem("studyboard:rvview", ui.rvView); } catch (e) {} };
 const reviewSwitchHtml = () => `<div class="pview-tabs rv-tabs" role="tablist" aria-label="Flashcards and Quizzes"><button role="tab" data-act="rv-view" data-id="cards" aria-selected="${ui.rvView !== "quizzes"}">Flashcards</button><button role="tab" data-act="rv-view" data-id="quizzes" aria-selected="${ui.rvView === "quizzes"}">Quizzes</button></div>`;
 const QZ_GROUP_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19.5c0-3.2 2.7-5.5 6-5.5s6 2.3 6 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16.5 14.1c2.6.2 4.5 2.2 4.5 4.9"/></svg>';
-// Quizzes you put away with Archive (qz.archived) stay on their deck, out of the list, until you restore them
+// Quizzes you put away with Archive (qz.archived) stay on their deck, out of the list
 const quizzesAll = archived => { const out = []; decksArr().forEach(d => (d.aiQuizzes || []).forEach(qz => { if (qz && qz.questions && qz.questions.length && !!qz.archived === !!archived) out.push({d, qz}); })); return out.sort((a, b) => (b.qz.created || 0) - (a.qz.created || 0)); };
 const qzFind = ref => { const [did, qid] = String(ref || "").split(":"), d = state.decks[did], qz = d && (d.aiQuizzes || []).find(x => x.id === qid); return qz ? {d, qz} : null; };
 const qzArchBtn = () => { const n = quizzesAll(true).length; return `<button class="btn small trash-btn fc-arch-btn" data-act="qz-arch-open" aria-label="Archived Quizzes${n ? ` (${n})` : ""}" title="Archived Quizzes${n ? ` (${n})` : ""}">${ARCHIVE.replace('width="26" height="26"', 'width="16" height="16"')}${n ? `<span>${n}</span>` : ""}</button>`; };
@@ -123,7 +119,7 @@ function viewQuizzes(){
       <div class="qz-acts"><button class="btn small primary" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Start</button><button class="btn small" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Share</button><span class="spacer"></span><button class="btn small deck-arch" data-act="qz-archive" data-id="${esc(d.id + ":" + qz.id)}" title="Put this quiz away" aria-label="Archive ${esc(qz.title || "quiz")}">${ARCHIVE.replace('width="26" height="26"', 'width="16" height="16"')}</button></div></article>`; }).join("");
   return `<div class="view-head" data-qz-list><h2>Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${chipsHtml()}${q ? `<div class="search-note">Showing quizzes that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
-    ${list.length ? `<div class="qz-grid">${cards}</div>` : `<div class="empty" style="margin-top:14px"><strong>${all.length ? "No Quizzes Match" : "No Quizzes Yet"}</strong>${all.length ? "Try another course or search." : (inClaude() ? "Make a quiz from one of your flashcard decks." : "Upload your slides, notes or readings and " + esc(aiWho("AI")) + " writes a practice quiz. Or make one from a flashcard deck.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px">${inClaude() || all.length ? "" : `<button class="btn primary ai-btn" data-act="qz-ai">${AI_ICON} From Slides or Notes</button>`}<button class="btn${inClaude() ? " primary" : ""}" data-act="qz-from-deck">From a Deck</button></div></div>`}
+    ${list.length ? `<div class="qz-grid">${cards}</div>` : `<div class="empty" style="margin-top:14px"><strong>${all.length ? "No Quizzes Match" : "No Quizzes Yet"}</strong>${all.length ? "Try another course or search." : (inPreview() ? "Make a quiz from one of your flashcard decks." : "Upload your slides, notes or readings and " + esc(aiWho("AI")) + " writes a practice quiz. Or make one from a flashcard deck.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px">${inPreview() || all.length ? "" : `<button class="btn primary ai-btn" data-act="qz-ai">${AI_ICON} From Slides or Notes</button>`}<button class="btn${inPreview() ? " primary" : ""}" data-act="qz-from-deck">From a Deck</button></div></div>`}
     <section class="grp-strip"><div class="grp-strip-txt">${QZ_GROUP_IC}<span><b>Study Together</b><span class="mini">Share quizzes with a study group: everyone takes them in their own app and sees the best scores.</span></span></div>
       <div class="grp-strip-btns"><button class="btn small" data-act="grp-page">Study Groups</button></div></section>
     <p class="hint-line tip-everyday">Make a quiz straight from your slides or notes with New Quiz, or from a deck with Make a Quiz.</p>`;
@@ -136,11 +132,10 @@ function viewFlashcards(){
   ui.deckId = null;
   if (ui.rvView === "quizzes") return reviewSwitchHtml() + viewQuizzes();
   let ds = deckListArr().filter(d => ui.filter === "all" || d.courseId === ui.filter).filter(d => fcMatches(d, ui.q));
-  if (window.SBEXAM) ds = SBEXAM.sortDecks(ds);   // Exam Mode: the exam's course first
+  if (window.SBEXAM) ds = SBEXAM.sortDecks(ds);
   const due = allDueCount();
   const tiles = ds.map(d => {
     const st = deckStats(d), c = courseOf(d.courseId), tone = st.ready >= 70 ? "hi" : st.ready >= 35 ? "mid" : "lo";
-    // The deck is a little stack of flashcards in the card style you have chosen (the same look as the card you study with)
     return `<article class="deck deck-fc cs-${esc(cardStyleOf(d))}" style="--c:${esc(colorOf(d.courseId))}">
       <span class="deck-lay l3" aria-hidden="true"><span class="face"></span></span><span class="deck-lay l2" aria-hidden="true"><span class="face"></span></span>
       <span class="deck-tab">${esc(c ? courseLabel(c) : "General")}</span>
@@ -158,10 +153,10 @@ function viewFlashcards(){
       ${(w => due || w.n ? `<button class="btn small" data-act="fc-review-menu">Review</button>` : "")(weakSpots(decksArr().filter(d => ui.filter === "all" || d.courseId === ui.filter).map(d => d.id)))}
       ${window.SBSHARE ? SBSHARE.libBtn() : ""}${archBtn()}${trashBtn("deck") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="deck" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${chipsHtml()}${ui.q.trim() ? `<div class="search-note">Showing decks that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
-    ${ds.length ? `<div class="deck-grid">${tiles}</div>` : `<div class="empty" style="margin-top:14px"><strong>${deckListArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Add cards or paste a list, then study them." + (inClaude() ? "" : " Or upload slides and let " + esc(aiWho("AI")) + " make them.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inClaude() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}
+    ${ds.length ? `<div class="deck-grid">${tiles}</div>` : `<div class="empty" style="margin-top:14px"><strong>${deckListArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Add cards or paste a list, then study them." + (inPreview() ? "" : " Or upload slides and let " + esc(aiWho("AI")) + " make them.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inPreview() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}
     <p class="hint-line tip-everyday">Studyboard learns how fast you forget each card and brings it back just before you would.</p>`;
 }
-// Decks you put away with Archive (not the ones a finished term moved): kept out of the way, behind the Archive button next to Recently Deleted, until you restore them.
+// Decks you put away with Archive (not the ones a finished term moved)
 const archivedDecks = () => Object.values(state.decks || {}).filter(d => d.archived === "Archived").sort((a, b) => a.name.localeCompare(b.name));
 const archBtn = () => { const n = archivedDecks().length; return `<button class="btn small trash-btn fc-arch-btn" data-act="fc-arch-open" aria-label="Archived Decks${n ? ` (${n})` : ""}" title="Archived Decks${n ? ` (${n})` : ""}">${ARCHIVE.replace('width="26" height="26"', 'width="16" height="16"')}${n ? `<span>${n}</span>` : ""}</button>`; };
 function archivedDecksSheet(){
@@ -228,7 +223,7 @@ function cardSheet(d, cardId){
   $("#cdDel").addEventListener("click", () => { dlg.close(); const nd = clone(state.decks[d.id]); nd.cards = nd.cards.filter(y => y.id !== cardId); saveDeck(nd, "Card deleted"); });
   $("#cdReset").addEventListener("click", () => { dlg.close(); const nd = clone(state.decks[d.id]); const x = nd.cards.find(y => y.id === cardId); Object.assign(x, {box: 0, due: "", seen: 0, right: 0, wrong: 0}); saveDeck(nd, "Card progress reset"); });
 }
-// Paste a list of cards: one per line, term and definition split by a tab (Quizlet export), dash, colon, equals sign or comma.
+// Paste a list of cards
 const SEPS = {auto: null, tab: "\t", dash: " - ", colon: ":", equals: "=", semicolon: ";", comma: ","};
 function parseCards(text, sep){
   const out = [], bad = [];
@@ -298,14 +293,13 @@ function startStudy(deckIds, onlyIds){
     const pick = shuffle(due).concat(shuffle(fresh).slice(0, 20));
     if (pick.length) q = pick; else { q = shuffle(q); note = "Nothing is due, so you're reviewing every card."; }
   } else q = shuffle(q);
-  if (window.SBEXAM) q = SBEXAM.sortQueue(q);   // Exam Mode: the exam's course first
+  if (window.SBEXAM) q = SBEXAM.sortQueue(q);
   q = q.slice(0, 60).map(x => ({deckId: x.deckId, cardId: x.cardId}));
   ui.tab = "flashcards"; ui.fc = {mode: "study", deckIds, q, i: 0, flipped: false, again: 0, hard: 0, good: 0, easy: 0, repeats: {}, note};
   render(); window.scrollTo(0, 0);
 }
 const nextDue = (box, rating) => rating === "again" ? todayISO() : addDays(todayISO(), rating === "hard" ? 1 : BOX_DAYS[Math.min(5, box)]);
-// Lifetime counts that unlock free companions (kept with your settings, so they follow your account): quizzes passed (5+ questions,
-// 80%+) and flashcards reviewed. Earlier activity is counted from your decks too (see the companion's earnedCounts).
+// Lifetime counts that unlock free companions
 function earnBump(k, n){ try { const e = Object.assign({q: 0, c: 0}, (state.settings || {}).earn); e[k] = (Number(e[k]) || 0) + (n || 1); state.settings = Object.assign({}, state.settings, {earn: e}); saveSettings(); } catch(err) {} }
 const quizPasses = (score, total) => total >= 5 && score / total >= 0.8;
 function rateCard(rating){
@@ -313,8 +307,8 @@ function rateCard(rating){
   const d = clone(state.decks[it.deckId]); if (!d) return;
   const c = d.cards.find(x => x.id === it.cardId);
   if (c) {
-    const sm = window.SBPRO && SBPRO.cardRated ? SBPRO.cardRated(d, c, rating) : null;   // Smart scheduling (FSRS, free for everyone) and the deck's review log
-    c.seen++; c.last = todayISO(); c.rate = rating;   // when and how it felt: they drive the deck's Prepared bar
+    const sm = window.SBPRO && SBPRO.cardRated ? SBPRO.cardRated(d, c, rating) : null;
+    c.seen++; c.last = todayISO(); c.rate = rating;
     if (rating === "again") { c.box = 0; c.wrong++; }
     else if (rating === "hard") { c.box = Math.max(1, c.box); c.right++; }
     else if (rating === "good") { c.box = Math.min(5, c.box + 1); c.right++; }
@@ -410,8 +404,7 @@ function buildQuiz(deckIds, n, types, dir){
   });
   return qs;
 }
-// Make a Quiz: the options you pick, then your AI companion writes the questions from the deck's cards (without AI, they're made
-// straight from the cards). You check them, and the quiz is kept on the deck and listed under Review, Quizzes.
+// Make a Quiz: the options you pick
 function quizSheet(deckIds){
   const ds = decksArr().filter(d => d.cards.length);
   if (!ds.length) { toast("Add cards to a deck first"); return; }
@@ -461,7 +454,7 @@ async function quizFromCardsAi(decks, n, types, dir, title){
     if (go) { go.disabled = false; go.classList.remove("busy"); }
   }
 }
-// Without AI: the questions are made from the cards here, in the same form, and the quiz is saved straight away
+// Without AI: the questions are made from the cards here, in the same form
 function quizFromCardsLocal(decks, n, types, dir, title){
   const qs = aiCleanQuestions(buildQuiz(decks, n, types, dir).map(q => q.type === "mc" ? {type: "single", stem: q.prompt, options: q.options, correct: [q.options.indexOf(q.answer)]}
     : q.type === "tf" ? {type: "truefalse", stem: `${q.prompt}\nAnswer: ${q.shown}`, options: ["True", "False"], correct: [q.truth ? 0 : 1]}
@@ -484,7 +477,6 @@ function answerQuiz(given, pre){
   else if (q.type === "tf") r = {given, correct: (given === "true") === q.truth};
   else r = Object.assign({given}, pre || gradeWritten(given, q.answer));
   f.ans[f.i] = r;
-  // Update the card's record: a wrong answer sends it back for review today
   const d = state.decks[q.deckId] && clone(state.decks[q.deckId]);
   if (d) { const c = d.cards.find(x => x.id === q.cardId); if (c) { if (r.correct) c.right++; else { c.wrong++; c.box = Math.max(0, c.box - 1); c.due = todayISO(); c.seen = Math.max(1, c.seen); } saveDeck(d, null); } }
   render();
@@ -495,7 +487,6 @@ function finishQuiz(){
   f.qs.forEach((q, i) => { const b = byDeck[q.deckId] = byDeck[q.deckId] || {score: 0, total: 0}; b.total++; if (f.ans[i] && f.ans[i].correct) b.score++; });
   const changes = Object.entries(byDeck).map(([id, r]) => { const d = clone(state.decks[id]); if (!d) return null; d.quizzes = d.quizzes.concat({at: Date.now(), score: r.score, total: r.total}).slice(-20); return {kind: "deck", id, after: d}; }).filter(Boolean);
   applyChanges(changes, null);
-  // 80% or better on a practice quiz gets the celebration
   const sc = Object.values(byDeck).reduce((a, r) => a + r.score, 0), tot = Object.values(byDeck).reduce((a, r) => a + r.total, 0);
   if (tot > 0 && sc / tot >= 0.8) { try { celebrate("check"); } catch (e) {} }
   if (quizPasses(sc, tot)) earnBump("q");
@@ -574,7 +565,7 @@ function fcAction(act, el){
     case "fc-answer": answerQuiz(el.dataset.val); return true;
     case "fc-next": ui.fc.i++; render(); setTimeout(() => { const w = $("#qWritten"); if (w) w.focus(); }, 20); return true;
     case "fc-override": { const a = ui.fc.ans[ui.fc.i]; if (a) { a.correct = true; a.close = true; const q = ui.fc.qs[ui.fc.i]; const d = clone(state.decks[q.deckId]); const c = d && d.cards.find(x => x.id === q.cardId); if (c) { c.wrong = Math.max(0, c.wrong - 1); c.right++; saveDeck(d, null); } render(); } return true; }
-    case "fc-exit": { const aq = ui.fc && ui.fc.mode === "aiquiz", one = !aq && ui.fc && ui.fc.deckIds.length === 1 ? ui.fc.deckIds[0] : null; ui.fc = null; ui.deckId = one; render(); return true; }   // (a quiz goes back to Quizzes)
+    case "fc-exit": { const aq = ui.fc && ui.fc.mode === "aiquiz", one = !aq && ui.fc && ui.fc.deckIds.length === 1 ? ui.fc.deckIds[0] : null; ui.fc = null; ui.deckId = one; render(); return true; }
     case "fc-study-again": startStudy(ui.fc.deckIds); return true;
     case "fc-quiz-from-study": quizSheet(ui.fc.deckIds); return true;
     case "fc-new-quiz": quizSheet(ui.fc.deckIds); return true;

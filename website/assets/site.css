@@ -1,5 +1,4 @@
-/* Studyboard website. Same look as the app: navy spine, graph-paper background, Lexend headings, Atkinson Hyperlegible text, light and dark.
-   No inline styles are used anywhere (strict Content-Security-Policy), so every width, spacing and color lives here. */
+/* Studyboard website */
 
 /* ===== Tokens (same values as the app) ===== */
 :root{
@@ -191,7 +190,7 @@ section.block.tight{padding-top:0}
 .gtabs button:hover{border-color:var(--accent-2)}
 .gtabs button[aria-selected="true"]{background:var(--btn);color:var(--btn-ink);border-color:var(--btn)}
 
-/* Make it yours: the real themes */
+/* Make it yours */
 .themes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
 @media (max-width:900px){.themes{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:560px){.themes{grid-template-columns:1fr}}
@@ -289,7 +288,7 @@ input.code{font:700 1.6rem ui-monospace,Menlo,Consolas,monospace;letter-spacing:
 :root[data-theme="dark"] .toast{background:#E7EEFA;color:#0A1428}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .toast{background:#E7EEFA;color:#0A1428}}
 
-/* ---- Live theme tiles (assets/scenes.js): the app's own scene and animation, with a small Task Board in the theme's colors on top ---- */
+/* -- Live theme tiles (assets/scenes.js) */
 .tile.scn-on > img{display:none}
 .tile-zoomable{cursor:zoom-in;transition:transform .15s ease,box-shadow .15s ease}
 .tile-zoomable:hover{transform:translateY(-2px)}
@@ -310,7 +309,7 @@ input.code{font:700 1.6rem ui-monospace,Menlo,Consolas,monospace;letter-spacing:
 .scn-ui-img{position:absolute;left:0;top:0;width:100%;height:100%;display:block;pointer-events:none}
 @media (prefers-reduced-motion:reduce){.scn-cv{display:block}}
 
-/* ---- Live companions (assets/companions.js): the app's companion art, drawn and moved by the app's own animation code ---- */
+/* -- Live companions (assets/companions.js) */
 .wcp-host{position:absolute;width:var(--cps,96px);aspect-ratio:1;z-index:3;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .wcp-host .cp{position:absolute;inset:0}
 .wcp-host .cp-move,.wcp-host .cp-breathe{position:absolute;inset:0;display:block;transform-origin:50% 93%;will-change:transform}
@@ -338,7 +337,7 @@ input.code{font:700 1.6rem ui-monospace,Menlo,Consolas,monospace;letter-spacing:
 /* In the companion section it stands in the corner of the screenshot */
 .shot{position:relative}
 .wcp-host.corner{--cps:clamp(84px,16%,120px);right:2.5%;bottom:2%}
-/* Meet Your Companion: a button steps through the six free companions (screenshot and live companion change together) */
+/* Meet Your Companion */
 .meet-row{display:flex;align-items:flex-start;gap:14px}
 .meet-row .cap{flex:1}
 .meet-next{flex:none;margin-top:10px;white-space:nowrap}
@@ -346,7 +345,7 @@ input.code{font:700 1.6rem ui-monospace,Menlo,Consolas,monospace;letter-spacing:
 @media (max-width:560px){.meet-row{flex-direction:column;align-items:stretch;gap:0}}
 .wcp-host.geo{--cps:auto}
 
-/* "Get it from Microsoft" badge (Microsoft's own artwork, shown as provided): the dark one on light pages, the light one on dark pages */
+/* "Get it from Microsoft" badge (Microsoft's own artwork, shown as provided) */
 .msb{display:inline-flex;align-items:center;border-radius:6px;text-decoration:none;line-height:0}
 .msb img{display:block;height:44px;width:auto}
 .msb.big img{height:56px}

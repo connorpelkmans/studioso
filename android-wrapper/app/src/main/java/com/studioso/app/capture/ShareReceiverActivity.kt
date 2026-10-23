@@ -1,11 +1,4 @@
-// UNTESTED on a device (kotlinc type-check against android-all API 34 stubs only). Share target for ACTION_SEND (text/plain, image/*) and
-// ACTION_SEND_MULTIPLE (image/*). The activity is exported (any app can start it), so NOTHING is sent or saved without the person's tap:
-//   text  -> an AlertDialog shows a preview with "Add to Studyboard" / "Cancel"; only "Add" POSTs to the capture endpoint (CaptureClient,
-//            source "android-share"); a Toast reports the result. Failures are retried by CaptureClient's outbox.
-//   image -> an AlertDialog asks first; on "Add" the image is decoded (content:// only, never our own providers), EXIF-rotated, downscaled
-//            (<= 2048 px, <= 8 MB JPEG), saved in the app's queue, and MainActivity opens; the web app drains it (StudyboardSharedQueue) and shows
-//            its own confirm sheet.
-// Only the first image of a SEND_MULTIPLE is used (one photo per capture). Theme: translucent (AndroidManifest.additions.xml), so only the dialog shows.
+// UNTESTED on a device (kotlinc type-check against android-all API 34 stubs only)
 package com.studioso.app.capture
 
 import android.app.Activity
@@ -37,9 +30,9 @@ class ShareReceiverActivity : Activity() {
 
     companion object {
         private const val MAX_PREVIEW = 300
-        private const val MAX_PIXELS = 2048            // long side of the saved JPEG
+        private const val MAX_PIXELS = 2048
         private const val MAX_JPEG_BYTES = 8 * 1024 * 1024
-        private const val MAX_SOURCE_SIDE = 30_000     // refuse absurd dimensions (decoder bombs) before decoding
+        private const val MAX_SOURCE_SIDE = 30_000
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -56,12 +49,12 @@ class ShareReceiverActivity : Activity() {
                     confirmImage(i.streamUris().firstOrNull(), i.extraText(Intent.EXTRA_TEXT))
                 else -> finish()
             }
-        } catch (e: Exception) {          // malformed extras from another app (BadParcelableException etc.)
+        } catch (e: Exception) {
             finish()
         }
     }
 
-    // ---------- text ----------
+    // text
 
     private fun confirmText(i: Intent) {
         val text = listOfNotNull(i.extraText(Intent.EXTRA_SUBJECT), i.extraText(Intent.EXTRA_TEXT))
@@ -80,13 +73,13 @@ class ShareReceiverActivity : Activity() {
                 CaptureResult.Rejected -> "Studyboard couldn't accept that text."
                 is CaptureResult.Failed -> if (r.queued) "Saved. It will be added when you're back online." else "Couldn't add it."
             }
-            if (msg == "Added to Studyboard") CaptureClient.flushInBackground(applicationContext)   // online now: retry anything older too
+            if (msg == "Added to Studyboard") CaptureClient.flushInBackground(applicationContext)
             toast(msg)
             finish()
         }
     }
 
-    // ---------- image ----------
+    // image
 
     private fun confirmImage(uri: Uri?, text: String?) {
         if (uri == null || !isAllowedStream(uri)) { toast("Couldn't read that image."); finish(); return }
@@ -111,8 +104,7 @@ class ShareReceiverActivity : Activity() {
         }
     }
 
-    /** Only content:// URIs from OTHER apps' providers. file:// (path tricks) and our own providers (which could expose this app's private
-     *  files, e.g. a FileProvider or a plugin's provider) are refused. The MIME type must be an image. */
+    /* Only content:// URIs from OTHER apps' providers */
     private fun isAllowedStream(uri: Uri): Boolean {
         if (uri.scheme != ContentResolver.SCHEME_CONTENT) return false
         val authority = uri.authority?.lowercase() ?: return false
@@ -124,7 +116,7 @@ class ShareReceiverActivity : Activity() {
         } catch (e: Exception) { null }
         if (owner == packageName) return false
         val mime = try { contentResolver.getType(uri) } catch (e: Exception) { null }
-        return mime == null || mime.startsWith("image/")      // some providers return null; the decoder rejects non-images anyway
+        return mime == null || mime.startsWith("image/")
     }
 
     private fun ownAuthorities(): Set<String> = try {
@@ -138,7 +130,7 @@ class ShareReceiverActivity : Activity() {
             .map { it.trim().lowercase() }.filter { it.isNotEmpty() }.toSet()
     } catch (e: Exception) { emptySet() }
 
-    /** JPEG <= 2048 px on the long side and <= 8 MB, upright per EXIF, or null. */
+    /* JPEG <= 2048 px on the long side and <= 8 MB, upright per EXIF, or null */
     private fun downscale(uri: Uri): ByteArray? {
         var decoded: Bitmap? = null
         var rotated: Bitmap? = null
@@ -166,7 +158,7 @@ class ShareReceiverActivity : Activity() {
                 if (bos.size() <= MAX_JPEG_BYTES) { out = bos.toByteArray(); break }
             }
             out
-        } catch (e: Throwable) {          // includes OutOfMemoryError on a hostile image
+        } catch (e: Throwable) {
             null
         } finally {
             if (rotated != null && rotated !== decoded) rotated.recycle()
@@ -174,7 +166,7 @@ class ShareReceiverActivity : Activity() {
         }
     }
 
-    /** Returns a new upright bitmap, or null when no transform is needed. */
+    /* Returns a new upright bitmap, or null when no transform is needed */
     private fun applyOrientation(src: Bitmap, orientation: Int): Bitmap? {
         val m = Matrix()
         when (orientation) {
@@ -190,7 +182,7 @@ class ShareReceiverActivity : Activity() {
         return Bitmap.createBitmap(src, 0, 0, src.width, src.height, m, true)
     }
 
-    // ---------- helpers ----------
+    // helpers
 
     private fun ask(title: String, message: String, onAdd: () -> Unit) {
         dialog = AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)

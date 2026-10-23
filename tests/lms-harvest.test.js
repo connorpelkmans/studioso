@@ -1,8 +1,4 @@
-// The school-platform sync as it really runs: lms.js builds one script per platform and runs it inside the school's page
-// (executeJavaScript), where nothing from lms.js exists. This takes that exact script and runs it in an empty vm context with only
-// what a web page has (fetch, AbortController, timers, location), against a fake Brightspace, Canvas and Blackboard that answer
-// with realistic JSON (including HTML descriptions). A ReferenceError here means the harvest uses something only lms.js has.
-// Run: node tests/lms-harvest.test.js   (no Electron needed: the electron module is stubbed)
+// The school-platform sync as it really runs
 const path = require("path"), assert = require("assert"), vm = require("vm"), Module = require("module");
 
 const realLoad = Module._load;
@@ -19,7 +15,7 @@ const t = async (name, fn) => { n++; try { await fn(); } catch (e) { fail++; con
 const DAY = 864e5, iso = d => new Date(Date.now() + d * DAY).toISOString();
 const SAFE = { pastDays: 60, aheadDays: 240, grades: true, news: true, only: null, skip: [] };
 
-// A tiny fetch: routes are [regex on path+query, body or function, extra headers]. Anything else is a 404.
+// A tiny fetch: routes are [regex on path+query, body or function, extra headers]
 function fakeFetch(routes, seen) {
   return async (url, opts) => {
     const p = String(url);
@@ -35,7 +31,7 @@ function fakeFetch(routes, seen) {
     return { ok: false, status: 404, headers: { get: () => null }, json: async () => ({}), text: async () => "" };
   };
 }
-// Runs the injected script the way Electron would: a fresh global with page-like objects only.
+// Runs the injected script the way Electron would
 async function runInjected(id, origin, routes) {
   const seen = [];
   const ctx = vm.createContext({ fetch: fakeFetch(routes, seen), AbortController, setTimeout, clearTimeout, location: { origin }, console });
@@ -102,7 +98,7 @@ const BB = [
       [/quiz_summary\.d2l\?qi=11&/, "<p>Allowed - 2, Completed - 0</p>", { "content-type": "text/html" }],
       [/quiz_submissions\.d2l\?qi=11&/, "<table><tr><td>Attempt 1</td><td>Pending Evaluation</td></tr></table>", { "content-type": "text/html" }],
       [/quiz_summary\.d2l\?qi=7&/, "<p>Completed: 10/6/2026 5:00 AM</p>", { "content-type": "text/html" }],
-      [/\/quizzes\/9\/attempts\/$/, [{ AttemptId: 4, AttemptNumber: 1 }]],   // waiting to be marked: no score, no completion time
+      [/\/quizzes\/9\/attempts\/$/, [{ AttemptId: 4, AttemptNumber: 1 }]],
       [/quizzes_list\.d2l\?ou=101/, page, { "content-type": "text/html" }]]);
     const { out } = await runInjected("brightspace", "https://learn.example.edu", routes);
     const q = id => out.courses[0].quizzes.find(x => x.id === id);

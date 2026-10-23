@@ -1,5 +1,4 @@
-/* Public flashcard and quiz pages (studyboardapp.com/flashcards and /quizzes), rendered by cloudflare/site/public-pages.js.
-   Builds on site.css (its colours, fonts and buttons, light and dark). No inline styles anywhere. */
+/* Public flashcard and quiz pages (studyboardapp.com/flashcards and /quizzes) */
 .pub-main{padding-top:24px;padding-bottom:40px;max-width:980px}
 .pub-hero{margin:8px 0 22px}
 .pub-hero h1,.pub-head h1{font:700 clamp(1.7rem,4vw,2.5rem)/1.15 var(--display);margin:0 0 10px;color:var(--ink);overflow-wrap:anywhere}
@@ -66,8 +65,7 @@
   .pub-cta{flex-direction:column;align-items:stretch}
   .pub-card{min-height:180px;font-size:1.12rem}
 }
-/* Flashcard sets as decks, drawn like the app: a stack of lined index cards, the course band with its icon and code, and the card count.
-   Every deck is the same size: the name stops after two lines, the school and preview after one, each with "..." */
+/* Flashcard sets as decks, drawn like the app */
 .pdecks{list-style:none;margin:6px 0 0;padding:0 12px 12px 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(250px,100%),1fr));gap:30px 26px}
 .pdecks li{display:flex}
 .pdeck{position:relative;display:flex;flex:1;min-width:0;color:#15213A;text-decoration:none;--c:#3B6FE0;transition:transform .15s ease}
@@ -96,7 +94,7 @@
 @media (max-width:560px){.pdecks{grid-template-columns:minmax(0,1fr);gap:26px}}
 @media (prefers-reduced-motion:reduce){.pdeck{transition:none}.pdeck:hover{transform:none}}
 
-/* A set's page, drawn like a deck in the app: the course band with the actions, the big course icon, then the cards as lined index cards */
+/* A set's page, drawn like a deck in the app */
 .pdh{position:relative;margin:4px 0 22px;border:1px solid var(--line);border-radius:16px;background:var(--surface);overflow:hidden;box-shadow:var(--shadow)}
 .pdh-band{min-height:66px;padding:14px 18px;padding-right:min(400px,45%);background:linear-gradient(120deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 70%,#fff));color:#fff}
 .pdh-kick{display:block;font:800 .76rem/1.2 var(--display);letter-spacing:.06em;text-transform:uppercase;text-shadow:0 1px 2px rgba(0,0,0,.25);padding-top:4px;overflow-wrap:anywhere}
@@ -132,7 +130,7 @@
 .pub-card.is-back{background:#FFFEF9 repeating-linear-gradient(transparent 0 35px,rgba(57,136,254,.18) 35px 36px)}
 .pub-card small{color:#5A6A86}
 @media (max-width:560px){
-  /* phones: a short band, the icon and name side by side, the details as one quiet line, then two even buttons */
+  /* phones: a short band, the icon and name side by side, the details as one quiet line */
   .pdh{border-radius:14px}
   .pdh-band{min-height:0;padding:10px 14px 30px}
   .pdh-kick{font-size:.7rem}
@@ -158,5 +156,5 @@
   .pub .top .navbtn{white-space:nowrap;padding:8px 12px;font-size:.88rem}
   .pub .top .brand img{width:112px;height:auto}
 }
-/* Phones: no Popular courses list (search and the filters do that job; the long list of chips pushed the sets far down) */
+/* Phones: no Popular courses list */
 @media (max-width:640px){.pub-popular{display:none}}

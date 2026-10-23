@@ -1,5 +1,4 @@
-// Moving a sticker around on a sticky note never opens the note's editor; a plain click on the note still does.
-// Run: node tests/sticker-drag.e2e.js
+// Moving a sticker around on a sticky note never opens the note's editor
 "use strict";
 const path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");

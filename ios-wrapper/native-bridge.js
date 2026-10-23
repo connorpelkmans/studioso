@@ -30,14 +30,13 @@
   if (!C || typeof C.isNativePlatform !== "function" || !C.isNativePlatform()) return;
   var P = C.Plugins || {};
 
-  /* 1. Keychain-backed storage for the Supabase session. Keys are namespaced, values are the session JSON. */
+  /* 1. Keychain-backed storage for the Supabase session */
   var S = P.SecureStoragePlugin;
   if (S) {
     var key = function (k) { return "studyboard." + String(k).replace(/[^\w.-]/g, "_").slice(0, 80); };
     window.StudyboardAuthStorage = {
       getItem: function (k) {
         return S.get({ key: key(k) }).then(function (r) { return r && typeof r.value === "string" ? r.value : null; }, function () {
-          // Not in the Keychain yet: move an older copy out of localStorage (once), then forget it.
           try {
             var old = window.localStorage.getItem(k);
             if (old == null) return null;
@@ -49,8 +48,6 @@
       removeItem: function (k) { try { window.localStorage.removeItem(k); } catch (e) {} return S.remove({ key: key(k) }).catch(function () {}); }
     };
   }
-  /* 1b. window.StudyboardSecrets: device-only secrets (the person's own AI keys) in the same secure storage, same API as the desktop app's
-         preload.js `secrets`. index.html uses `DESK.secrets || window.StudyboardSecrets`. Never synced, never logged. */
   var SECRET_NAME = /^[\w.-]{1,64}$/;
   window.StudyboardSecrets = {
     available: function () { return Promise.resolve(!!S); },
@@ -70,7 +67,7 @@
     }
   };
 
-  /* 2. Links. */
+  /* 2. Links */
   var BLOCKED = /(^|\.)(stripe\.com|paypal\.com|paypal\.me|paddle\.com|lemonsqueezy\.com|gumroad\.com|ko-fi\.com|buymeacoffee\.com|patreon\.com)$/i;
   function safeLink(raw) {
     try {
@@ -87,25 +84,23 @@
     if (P.Browser) { P.Browser.open({ url: href }).catch(function () {}); return true; }
     return false;
   }
-  window.open = function (url) { openExternal(url); return null; };       // the page's window.open calls become the in-app browser
+  window.open = function (url) { openExternal(url); return null; };
   document.addEventListener("click", function (e) {
     var a = e.target && e.target.closest ? e.target.closest("a[href]") : null;
     if (!a) return;
     var href = a.getAttribute("href") || "";
-    if (/^(#|\/|\.|capacitor:)/.test(href) && a.target !== "_blank") return;   // the app's own pages
+    if (/^(#|\/|\.|capacitor:)/.test(href) && a.target !== "_blank") return;
     if (/^(https?:|mailto:)/i.test(href) || a.target === "_blank") { e.preventDefault(); openExternal(a.href); }
   }, true);
 
-  /* 3. Deep links. Only deck, group and task codes are copied over; everything else in the link is ignored. */
+  /* 3. Deep links */
   if (P.App) {
     P.App.addListener("appUrlOpen", function (ev) {
       try {
         var u = new URL(ev.url), q = new URLSearchParams();
-        // Quick capture links (studyboard://add?... and studyboard://capture?...) go to the capture router in the page (cap-core: SBCAPTURE.handleUrl).
-        // The page must NOT register its own appUrlOpen listener for these (window.StudyboardNative.forwardsDeepLinks tells it so).
         if (u.protocol === "studyboard:" && (u.hostname === "add" || u.hostname === "capture")) {
           var tries = 0, raw = String(ev.url);
-          (function route() {                                       // on a cold start the page script may not have defined SBCAPTURE yet: wait up to ~10 s
+          (function route() {
             if (window.SBCAPTURE && typeof window.SBCAPTURE.handleUrl === "function") window.SBCAPTURE.handleUrl(raw);
             else if (++tries < 20) setTimeout(route, 500);
           })();
@@ -120,25 +115,14 @@
           if (["quickadd", "today", "focus", "search", "flashcards", "settings"].indexOf(a) >= 0) q.set("action", a);
         }
         if (String(q)) window.location.href = window.location.pathname + "?" + q.toString();
-      } catch (e) { /* ignore anything that isn't a Studyboard link */ }
+      } catch (e) { }
     });
   }
 
-  /* 4. Push notifications through @capacitor/push-notifications: APNs on iOS, Firebase Cloud Messaging (FCM) on Android. Web Push never works
-        inside WKWebView / Android WebView, so in the wrappers the page must use this instead (README-IOS.md / README-ANDROID.md, "Push").
-        enablePush({prompt}) -> Promise<{platform: "ios"|"android", kind: "apns"|"fcm", token} | null>
-          prompt !== false: asks for permission if needed (call it from a button, so the prompt appears when the person asks for reminders).
-          prompt === false: never prompts; resolves null unless permission was already granted. Call it at every app start to refresh the
-                            token (it can change) and save it again server-side when it differs.
-        disablePush() -> Promise<boolean>: unregisters this device (delete the server row too).
-        pushAvailable: false when the plugin is missing or push is not set up for this platform (PUSH_READY below): hide the push switch then.
-        The iOS token is the raw APNs device token (hex), NOT an FCM token (unless you add the Firebase iOS SDK), so the server must send it
-        through APNs (kind "apns"). A tap on a notification whose data has taskId / rid opens ?sbtask=&sbrid= like the web push click does. */
+  /* 4. Push notifications through @capacitor/push-notifications */
   var platform = typeof C.getPlatform === "function" && C.getPlatform() === "android" ? "android" : "ios";
   var isAndroid = platform === "android";
-  // iPad or iPhone (the page's pen tools are iPad only: SBINK.available() in index.html). The app shell says so before any script runs
-  // (MainViewController.swift sets window.StudyboardDevice.idiom); builds without that line fall back to the user agent, where iPadOS
-  // can say "Macintosh" (desktop-class browsing) but still has a touch screen.
+  // iPad or iPhone
   var device = isAndroid ? "android" : (function () {
     try {
       var D = window.StudyboardDevice;
@@ -147,8 +131,7 @@
       return /iPad/.test(ua) || (/Macintosh/.test(ua) && (navigator.maxTouchPoints || 0) > 1) ? "ipad" : "iphone";
     } catch (e) { return "iphone"; }
   })();
-  // OWNER: set android to true only after android/app/google-services.json is in place (README-ANDROID.md "Push"): without Firebase,
-  // registering fails on Android. iOS needs the Push Notifications capability and the two AppDelegate methods (README-IOS.md "Push").
+  // OWNER: set android to true only after android/app/google-services.json is in place
   var PUSH_READY = { ios: true, android: false };
   var Push = P.PushNotifications;
   var pushOk = !!(Push && PUSH_READY[platform]);
@@ -171,7 +154,7 @@
           handles.forEach(function (h) { Promise.resolve(h).then(function (x) { if (x && typeof x.remove === "function") x.remove(); }).catch(function () {}); });
           resolve(v);
         }
-        timer = setTimeout(function () { finish(null); }, 20000);   // no answer: capability, AppDelegate methods or Firebase not set up
+        timer = setTimeout(function () { finish(null); }, 20000);
         handles.push(Push.addListener("registration", function (t) {
           var v = t && typeof t.value === "string" ? t.value.trim() : "";
           finish(v && v.length <= 4096 && /^[\w:.-]+$/.test(v) ? { platform: platform, kind: isAndroid ? "fcm" : "apns", token: v } : null);
@@ -183,20 +166,20 @@
     return pushPending;
   }
   if (pushOk) {
-    // Tapping a reminder: send-reminders puts {taskId, rid} in the push data; open it the way the web push click does (?sbtask=&sbrid=).
+    // Tapping a reminder
     Push.addListener("pushNotificationActionPerformed", function (a) {
       try {
         var d = (a && a.notification && a.notification.data) || {}, q = new URLSearchParams();
         if (typeof d.taskId === "string" && /^[\w.:-]{1,200}$/.test(d.taskId)) q.set("sbtask", d.taskId);
         if (typeof d.rid === "string" && /^[\w.:-]{1,200}$/.test(d.rid)) q.set("sbrid", d.rid);
         if (String(q)) window.location.href = window.location.pathname + "?" + q.toString();
-      } catch (e) { /* ignore */ }
+      } catch (e) { }
     });
   }
   window.StudyboardNative = Object.assign(window.StudyboardNative || {}, {
     forwardsDeepLinks: true,
     platform: platform,
-    device: device,                                                // "ipad" | "iphone" | "android"
+    device: device,
     store: isAndroid ? "google-play" : "app-store",
     pushAvailable: pushOk,
     enablePush: function (opts) { return getPushToken(!(opts && opts.prompt === false)); },
@@ -206,11 +189,11 @@
     }
   });
 
-  /* 5. Quick capture: capture token for the native entry points + shared queue. Both are no-ops when the local plugins are not installed. */
+  /* 5. Quick capture */
   function plugin(name) {
     try { return P[name] || (typeof C.registerPlugin === "function" ? C.registerPlugin(name) : null); } catch (e) { return null; }
   }
-  var CAPTURE_TOKEN_RE = /^[A-Za-z0-9._~+\/-]{16,512}$/;          // opaque token: no spaces, no control characters
+  var CAPTURE_TOKEN_RE = /^[A-Za-z0-9._~+\/-]{16,512}$/;
   function captureEndpoint(supabaseUrl) {
     try {
       var u = new URL(String(supabaseUrl));
@@ -236,7 +219,7 @@
     var Q = plugin("StudyboardSharedQueue");
     if (!Q || draining) return;
     var cap = window.SBCAPTURE;
-    if (!cap || typeof cap.ingest !== "function") {                // the capture module may load after the bridge: retry for ~10 s
+    if (!cap || typeof cap.ingest !== "function") {
       if ((attempt || 0) < 10) setTimeout(function () { drainSharedQueue((attempt || 0) + 1); }, 1000);
       return;
     }
@@ -247,7 +230,7 @@
       return items.reduce(function (chain, item) {
         return chain.then(function () {
           if (!item || typeof item.id !== "string" || !/^[\w-]{1,64}$/.test(item.id)) return null;
-          if (item.kind === "route") {                              // e.g. "studyboard://capture?photo=1" saved by OpenCaptureIntent
+          if (item.kind === "route") {
             var fresh = Date.now() - Number(item.createdAt || 0) < 120000;
             if (fresh && typeof cap.handleUrl === "function" && /^studyboard:\/\//.test(String(item.url))) cap.handleUrl(String(item.url));
             done.push(item.id);
@@ -262,15 +245,9 @@
   drainSharedQueue(0);
   if (P.App) P.App.addListener("appStateChange", function (st) { if (st && st.isActive) drainSharedQueue(0); });
 
-  /* 6. Purchases through RevenueCat: Apple In-App Purchase on iOS, Google Play Billing on Android. OWNER: put your RevenueCat PUBLIC SDK keys
-        below ("appl_..." from the App Store app and "goog_..." from the Play Store app of the same RevenueCat project), create an offering
-        with a monthly and an annual package, and an entitlement called "pro". The page never trusts this file for Pro: RevenueCat tells our
-        server (webhook), and the page re-reads the plan from the server after every result. The app user id is the Supabase user id.
-        StudyboardNative.purchasesAvailable is false when the plugin is missing or no real key is set for THIS platform. Then the checkout and
-        restore events are NOT claimed (no preventDefault), so the page says buying isn't available in this build; the page should also hide
-        the Buy buttons when purchasesAvailable === false (README-IOS.md, "Purchase bridge contract"). */
+  /* 6. Purchases through RevenueCat */
   var RC_KEYS = { ios: "appl_REPLACE_WITH_REVENUECAT_PUBLIC_KEY", android: "goog_REPLACE_WITH_REVENUECAT_PUBLIC_KEY" };
-  var RC_KEY_RE = { ios: /^appl_[A-Za-z0-9]{10,64}$/, android: /^goog_[A-Za-z0-9]{10,64}$/ };   // the placeholders fail this on purpose
+  var RC_KEY_RE = { ios: /^appl_[A-Za-z0-9]{10,64}$/, android: /^goog_[A-Za-z0-9]{10,64}$/ };
   var RC_KEY = RC_KEYS[platform], RC_ENTITLEMENT = "pro";
   var RC = P.Purchases, rcReady = null;
   var purchasesAvailable = !!RC && RC_KEY_RE[platform].test(RC_KEY);
@@ -286,7 +263,7 @@
   }
   var isCancel = function (e) { return !!(e && (e.userCancelled || /cancel/i.test(String(e.message || "")))); };
   var active = function (info) { return !!(info && info.customerInfo ? info.customerInfo.entitlements.active[RC_ENTITLEMENT] : info && info.entitlements && info.entitlements.active[RC_ENTITLEMENT]); };
-  // "claim" = tell the page we are handling it (preventDefault), then answer later with a result.
+  // "claim" = tell the page we are handling it (preventDefault)
   if (purchasesAvailable) window.addEventListener("studyboard:plan-checkout", function (ev) {
     ev.preventDefault();
     var d = ev.detail || {};
@@ -305,7 +282,6 @@
   });
   window.addEventListener("studyboard:plan-manage", function (ev) {
     ev.preventDefault();
-    // RevenueCat's managementURL points at the store the subscription was bought in; otherwise this platform's own subscriptions page.
     (purchasesAvailable && rcReady ? Promise.resolve(rcReady).then(function () { return RC.getCustomerInfo(); }) : Promise.reject(new Error("no rc"))).then(function (r) {
       var u = r && r.customerInfo && r.customerInfo.managementURL;
       return typeof u === "string" && /^https:\/\//.test(u) ? u : MANAGE_URL;
@@ -314,7 +290,7 @@
     }).then(function () { result("manage", "success"); });
   });
 
-  /* 7. Focus timer in the Dynamic Island (iOS Live Activity). The page calls show() only when the timer's state changes; the system counts down. */
+  /* 7. Focus timer in the Dynamic Island (iOS Live Activity) */
   var FA = P.StudyboardFocusActivity;
   if (FA && !(C.getPlatform && C.getPlatform() === "android")) {
     var str = function (v, n) { return String(v == null ? "" : v).slice(0, n); };

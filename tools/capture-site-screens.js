@@ -1,7 +1,4 @@
-// node tools/capture-site-screens.js [outDir] [--companions | --overlays | --themes]    (Playwright + Chromium)
-// --companions: only the Companion screen once for each default companion (companion-mochi-light.png, ...), for the Meet Your Companion section
-// Runs the real app with made-up student data on a fixed date and saves screenshots (PNG, light and dark) for the website home page.
-// Convert them to WebP for website/assets/screens/ (for example with Pillow: Image.open(p).save(p.replace(".png", ".webp"), quality=82)).
+// node tools/capture-site-screens.js [outDir] [--companions | --overlays | --themes]
 const http = require("http"), fs = require("fs"), path = require("path"), os = require("os");
 const {chromium, executablePath} = require("../tests/pw");
 const root = path.join(__dirname, ".."), OUT = process.argv.slice(2).find(a => !a.startsWith("--")) || fs.mkdtempSync(path.join(os.tmpdir(), "sbshots-"));
@@ -9,10 +6,9 @@ fs.mkdirSync(OUT, {recursive: true});
 const MIME = {".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".png": "image/png", ".css": "text/css", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".webp": "image/webp", ".webmanifest": "application/manifest+json"};
 const server = http.createServer((q, r) => { let p = decodeURIComponent(new URL(q.url, "http://x").pathname); if (p === "/") p = "/index.html"; const f = path.join(root, p);
   if (!f.startsWith(root) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { r.writeHead(404); r.end(); return; }
-  // ?pro=off: the app with Pro enforcement off, so the theme pictures show the theme itself (the sample account has no plan)
   if (p === "/index.html" && /[?&]pro=off\b/.test(q.url)) { r.writeHead(200, {"content-type": "text/html"}); r.end(require("../scripts/csp").apply(require("../scripts/app-files").source().replace("const PRO_ENFORCED = true;", "const PRO_ENFORCED = false;"))); return; }
   r.writeHead(200, {"content-type": MIME[path.extname(f)] || "application/octet-stream"}); fs.createReadStream(f).pipe(r); });
-const NOW = new Date(2026, 9, 8, 10, 0, 0);   // Thursday Oct 8 2026
+const NOW = new Date(2026, 9, 8, 10, 0, 0);
 const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const plus = k => { const d = new Date(NOW); d.setDate(d.getDate() + k); return iso(d); };
 const card = (id, f, b, o) => Object.assign({id, front: f, back: b, box: 0, due: "", seen: 0, right: 0, wrong: 0}, o || {});
@@ -42,12 +38,12 @@ const SEED = {v: 2,
     {id: "n3", text: "Essay 2: argue one claim, three sources", courseId: "eng", x: 560, y: 40, rot: -1, color: "pink", z: 3},
     {id: "n4", text: "Study group Sunday 3pm, library room 204", x: 90, y: 250, rot: 2, color: "green", z: 4}],
   files: [], events: [], settings: {capacity: 15, dailyHours: 3, style: {skin: "classic"},
-    // Packy is the companion the website shows: picked for the plain themes, with the 30 focus hours that unlock it (36 h over the past 12 days)
+    // Packy is the companion the website shows
     comp: {pick: {plain: 4}}, focusDays: Object.fromEntries(Array.from({length: 12}, (_, i) => [plus(-1 - i), 180]))}, updated: 1};
 
-// The six default (plain theme) companions, in the order the app's companion picker lists them
+// The six default (plain theme) companions
 const PLAIN = ["plain-mochi", "plain-inky", "plain-owl", "plain-hilo", "plain-sum", "plain-packy"];
-// The seed with another of them picked (its place in the app's plain list, which follows companions-data order)
+// The seed with another of them picked
 const DATA_ORDER = ["plain-mochi", "plain-inky", "plain-owl", "plain-hilo", "plain-packy", "plain-sum"];
 const withComp = id => { const s = JSON.parse(JSON.stringify(SEED)); s.settings.comp = {pick: {plain: DATA_ORDER.indexOf(id)}}; return s; };
 const dismiss = async page => {
@@ -65,17 +61,13 @@ async function capture(browser, scheme, compId) {
   await ctx.clock.setFixedTime(NOW);
   await ctx.addInitScript(([seed, scheme]) => { try { if (!localStorage.getItem("coursework:v2")) {
     localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("studioso:theme", scheme); localStorage.setItem("studyboard:tips", "off");
-    localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaSyDEMO-NOT-A-REAL-KEY-FOR-SCREENSHOTS"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); } } catch (e) {} }, [compId ? withComp(compId) : SEED, scheme]);   // AI switched on (no request is made), so the screens show it as a person with a key sees it
+    localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaSyDEMO-NOT-A-REAL-KEY-FOR-SCREENSHOTS"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); } } catch (e) {} }, [compId ? withComp(compId) : SEED, scheme]);
   const page = await ctx.newPage(); await page.goto("http://localhost:" + server.address().port + "/"); await page.waitForSelector("#view", {state: "attached"}); await page.waitForTimeout(2500);
   await page.addStyleTag({content: ".toast,#toast{display:none!important}"});
-  // first-run banners and dialogs out of the way
   await page.evaluate(() => { document.querySelectorAll("dialog[open] [data-act=close], dialog[open] .x").forEach(b => b.click()); });
   await page.keyboard.press("Escape").catch(() => {});
   await dismiss(page);
   await page.waitForTimeout(500);
-  // the sidebar shows the signed-in state, as a person with an account sees it
-  // The companion stands on the bottom line just left of the Add button, where it lives in the app, instead of wherever the busy
-  // sample page left open (the app moves it off content; on these full pages that put it mid-page or half off screen)
   const homeComp = () => page.evaluate(() => {
     const f = document.getElementById("fab"), b = document.querySelector("#compFront .cp");
     if (!f || !b || getComputedStyle(f).display === "none") return;
@@ -88,7 +80,7 @@ async function capture(browser, scheme, compId) {
   const shot = async name => { await page.waitForTimeout(700); await homeComp(); await page.waitForTimeout(80); await page.screenshot({path: path.join(OUT, `${name}-${scheme}.png`)}); console.log("saved", `${name}-${scheme}.png`); };
   const tab = async label => { await page.evaluate(l => { const b = [...document.querySelectorAll("button")].find(e => e.closest("nav,aside,#nav,.side") && e.textContent.trim().replace(/\d+$/, "") === l); b && b.click(); }, label); await page.waitForTimeout(1200); };
   if (compId) { await tab("Companion"); await shot("companion-" + compId.replace("plain-", "")); await ctx.close(); return; }
-  await shot("plan");                                              // Board > Today's Plan
+  await shot("plan");
   await page.evaluate(() => { const b = [...document.querySelectorAll("button, [role=tab]")].find(e => /^Task Board$/i.test(e.textContent.trim())); b && b.click(); }); await shot("board");
   await tab("Calendar"); await shot("calendar");
   await tab("Review"); await page.evaluate(() => { const b = [...document.querySelectorAll("button")].find(e => /^Flashcards$/.test(e.textContent.trim())); b && b.click(); }); await shot("flashcards");
@@ -101,8 +93,7 @@ async function capture(browser, scheme, compId) {
   await ctx.close();
 }
 var THEMES = ["japan", "italy", "sakura", "forest", "galaxy", "sunset", "ocean", "nursing", "compsci"];
-// Theme pictures and the hero: a 1200x750 window (tall enough that the sidebar keeps its usual one-column layout) drawn at 1000x625 pixels,
-// so the scenes and cards still read larger on the website than in the other shots
+// Theme pictures and the hero
 const WINDOW = {width: 1200, height: 750}, SHRINK = 1000 / 1200;
 async function openSeeded(browser, scheme, seed, viewport) {
   const ctx = await browser.newContext({viewport, colorScheme: scheme, deviceScaleFactor: SHRINK, serviceWorkers: "block"});
@@ -116,12 +107,12 @@ async function openSeeded(browser, scheme, seed, viewport) {
 const taskBoard = async page => { await page.evaluate(() => { const b = [...document.querySelectorAll("button, [role=tab]")].find(e => /^Task Board$/i.test(e.textContent.trim())); b && b.click(); }); await page.waitForTimeout(1500); };
 async function captureThemes(browser, scheme) {
   for (const th of THEMES) {
-    const seed = JSON.parse(JSON.stringify(SEED)); seed.settings.style = {skin: th}; seed.settings.owned = THEMES.map(t => "skin:" + t);   // Pro enforcement is on, so own the themes shown
+    const seed = JSON.parse(JSON.stringify(SEED)); seed.settings.style = {skin: th}; seed.settings.owned = THEMES.map(t => "skin:" + t);
     const {ctx, page} = await openSeeded(browser, scheme, seed, WINDOW);
     await taskBoard(page); await page.screenshot({path: path.join(OUT, `theme-${th}-${scheme}.png`)}); console.log("saved", `theme-${th}-${scheme}.png`); await ctx.close();
   }
 }
-// The home page hero: a calm Task Board with a few real cards, without the quick-add row
+// The home page hero
 async function captureHero(browser, scheme) {
   const seed = JSON.parse(JSON.stringify(SEED)); const keep = new Set(["t3", "t4", "t2", "t1", "t5", "t8", "t9"]); seed.tasks = seed.tasks.filter(t => keep.has(t.id));
   const {ctx, page} = await openSeeded(browser, scheme, seed, {width: 1200, height: 768});
@@ -130,8 +121,7 @@ async function captureHero(browser, scheme) {
   await page.waitForTimeout(600); await page.screenshot({path: path.join(OUT, `hero-${scheme}.png`)}); console.log("saved", `hero-${scheme}.png`); await ctx.close();
 }
 
-// --overlays: the real interface on a transparent background (no scene, no companion) for the home page theme tiles and hero, plus where the scene and the
-// companion sit in that picture (geometry.json). The website draws the live scene behind the picture and the live companion in front of it.
+// overlays: the real interface on a transparent background
 const GEO = {window: {width: Math.round(WINDOW.width * SHRINK), height: Math.round(WINDOW.height * SHRINK)}, themes: {}, hero: {}};
 const measure = page => page.evaluate(() => {
   const r = e => { if (!e) return null; const b = e.getBoundingClientRect(); return {left: +b.left.toFixed(1), top: +b.top.toFixed(1), width: +b.width.toFixed(1), height: +b.height.toFixed(1)}; };

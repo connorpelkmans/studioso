@@ -1,9 +1,4 @@
-// node tests/match-game.e2e.js [screenshot-dir]   (Playwright + Chromium, see tests/pw.js)
-// Match game (97-match.js): start from a deck page, 12 tiles from 6 usable cards (no image or draft cards), a wrong pair shakes and adds 1 second,
-// solving every pair finishes the round, the best time and recent times are saved on the deck (deck.match) without touching spaced repetition,
-// Play Again and New Best, too few cards explains itself, keyboard, long text, reduced motion, phone width with no sideways scroll, dark mode, and
-// the study group flow: Match on a shared deck, post your time with your name or anonymously, the leaderboard, Remove My Time, and the Quiz Battle
-// join/leave keeping posted times. Study groups use an in-memory stand-in for Supabase (window.__sbGroupsStub), like tests/groupkinds.e2e.js.
+// node tests/match-game.e2e.js [screenshot-dir]
 const path = require("path"), fs = require("fs"), assert = require("assert");
 const file = path.resolve(__dirname, "..", "index.html");
 const shots = path.resolve(process.argv[2] || path.join(require("os").tmpdir(), "match-shots"));
@@ -25,7 +20,7 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIOL 201", colo
 function seedInit(seed){
   try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done"); } } catch (e) {}
 }
-// A small in-memory Supabase for the study group part (the same shape as tests/groupkinds.e2e.js)
+// A small in-memory Supabase for the study group part
 function stubInit(){
   const me = {id: "u1", email: "u1@x.com"}, NAMES = {u1: "Connor", u2: "Sam", u3: "Jo"}, now = new Date().toISOString();
   const mem = (g, u, role) => ({group_id: g, user_id: u, role, display_name: NAMES[u], joined_at: "2026-01-0" + u.slice(1)});
@@ -115,7 +110,6 @@ async function deckGame(browser){
   if (long) ok(/\bs3\b/.test(long.cls) && await page.evaluate(i => { const s = document.querySelector(`.mt-tile[data-mt="${i}"] .mt-tx`); return s.scrollHeight > s.clientHeight + 2 && getComputedStyle(s).webkitLineClamp !== "none"; }, long.i), "long text gets a smaller font and is clamped (full text in the title)");
   await page.screenshot({path: path.join(shots, "match-desktop.png")});
   ok(await page.evaluate(() => getComputedStyle(document.querySelector(".mt-grid")).gridTemplateColumns.split(" ").length) === 4, "desktop grid is 4 across (3 rows)");
-  // a wrong pair
   const t0 = ts.find(t => t.side === "t"), wrong = ts.find(t => t.side === "d" && t.k !== t0.k);
   await click(page, t0.i);
   ok(await page.evaluate(i => document.querySelector(`.mt-tile[data-mt="${i}"]`).getAttribute("aria-pressed"), t0.i) === "true", "the first tap selects a tile (aria-pressed)");
@@ -126,12 +120,10 @@ async function deckGame(browser){
   await page.waitForTimeout(150);
   ok(/Not a match/.test(await page.evaluate(() => document.getElementById("mtSay").textContent)), "screen readers hear it was not a match");
   ok(await page.evaluate(() => window.__sbMatch.round().sel) === -1, "a wrong pair clears the selection");
-  // two terms in a row: the second one is picked, no penalty
   const t1 = ts.filter(t => t.side === "t")[1];
   await click(page, t0.i); await click(page, t1.i);
   ok(await page.evaluate(() => window.__sbMatch.round().pen) === 1000 && await page.evaluate(i => window.__sbMatch.round().sel === i, t1.i), "tapping two terms just moves the selection");
   await click(page, t1.i);
-  // keyboard: Tab to a tile and press Enter
   await page.focus(`dialog[open] .mt-tile[data-mt="${t0.i}"]`); await page.keyboard.press("Enter");
   ok(await page.evaluate(i => window.__sbMatch.round().sel === i, t0.i), "Enter on a focused tile selects it");
   const p0 = ts.find(t => t.k === t0.k && t.side === "d"); await page.focus(`dialog[open] .mt-tile[data-mt="${p0.i}"]`); await page.keyboard.press("Enter");
@@ -148,7 +140,6 @@ async function deckGame(browser){
   ok(await page.evaluate(() => [...document.querySelectorAll("dialog[open] .sheet-foot .btn")].map(b => b.textContent.trim()).join()) === "Done,Play Again", "Play Again and Done");
   ok(JSON.stringify(d1.cards.map(c => [c.id, c.box, c.due, c.seen, c.right, c.wrong])) === JSON.stringify(before.cards.map(c => [c.id, c.box, c.due, c.seen, c.right, c.wrong])), "spaced repetition is untouched (box, due, seen, right, wrong)");
   await page.screenshot({path: path.join(shots, "match-result.png")});
-  // Play Again, cleanly: a new best
   await page.click('dialog[open] [data-act="mt-again"]'); await page.waitForSelector("dialog[open] [data-mt-play]");
   ts = await tiles(page); ok(ts.length === 12 && ts.every(t => !t.gone), "Play Again deals a fresh round");
   await solve(page);
@@ -156,7 +147,6 @@ async function deckGame(browser){
   ok(d1b.match.best < d1.match.best && d1b.match.recent.length === 2, "a faster round becomes the best, and recent times keep both: " + JSON.stringify(d1b.match));
   ok(/New best!/.test(res) && /No wrong pairs/.test(res), "the result says New best!: " + res);
   ok(await page.$$eval("dialog[open] .mt-recent li", l => l.length) === 2, "recent times are listed");
-  // a slower round keeps the best and only adds to recent (capped at 5)
   await page.evaluate(() => { const M = window.__sbMatch, d = M.clone(M.state().decks.d1); d.match.recent = [1, 2, 3, 4, 5].map(i => ({ms: 50000 + i, at: i})); M.applyChanges([{kind: "deck", id: "d1", after: d}], null); });
   await page.click('dialog[open] [data-act="mt-again"]'); await page.waitForSelector("dialog[open] [data-mt-play]");
   await page.evaluate(() => { window.__sbMatch.round().pen = 60000; }); await solve(page);
@@ -165,11 +155,8 @@ async function deckGame(browser){
   ok(/off your best/.test(await txt(page, "dialog[open] .mt-res")), "a slower round says how far off the best it was");
   await page.click('dialog[open] .sheet-foot [data-act="close"]'); await page.waitForTimeout(200);
   ok(!(await page.evaluate(() => document.getElementById("dlg").open)), "Done closes the game");
-  // (no tooltip check: the app turns every title tooltip off, see "No hover tooltips")
-  // a deck with too few cards explains itself
   await openDeck(page, "d2"); await page.click('[data-fc-deck="d2"] [data-act="mt-start"]'); await page.waitForTimeout(200);
   ok(!(await page.evaluate(() => document.getElementById("dlg").open)) && /at least 3 cards/.test(await toastOf(page)), "fewer than 3 cards: a friendly message, no game: " + await toastOf(page));
-  // quitting mid-round stops the clock
   await openDeck(page, "d1"); await page.click('[data-fc-deck="d1"] [data-act="mt-start"]'); await page.waitForSelector("dialog[open] [data-mt-play]");
   ts = await tiles(page); await click(page, ts[0].i); await page.keyboard.press("Escape"); await page.waitForTimeout(250);
   ok(await page.evaluate(() => window.__sbMatch.round() === null), "closing the sheet mid-round ends it");
@@ -182,7 +169,7 @@ async function phone(browser, dark){
   const tag = dark ? "phone dark" : "phone";
   const {ctx, page, errs} = await boot(browser, {w: 390, touch: true, dark});
   await openDeck(page, "d1"); await page.waitForSelector('[data-fc-deck="d1"] .ra-more-btn');
-  await page.click('[data-fc-deck="d1"] .ra-more-btn'); await page.click('[data-fc-deck="d1"] .ra-menu [data-act="mt-start"]');   // phones keep only Study out; the rest is behind More
+  await page.click('[data-fc-deck="d1"] .ra-more-btn'); await page.click('[data-fc-deck="d1"] .ra-menu [data-act="mt-start"]');
   await page.waitForSelector("dialog[open] [data-mt-play]"); await page.waitForTimeout(300);
   ok(await page.evaluate(() => getComputedStyle(document.querySelector(".mt-grid")).gridTemplateColumns.split(" ").length) === 3, tag + ": 3 tiles across (4 rows)");
   await noOverflow(page, tag + " while playing");
@@ -191,7 +178,6 @@ async function phone(browser, dark){
   ok(await page.evaluate(() => { const g = document.querySelector(".mt-grid").getBoundingClientRect(); return g.bottom <= innerHeight + 1; }), tag + ": the whole grid fits on screen");
   await page.screenshot({path: path.join(shots, `match-${dark ? "phone-dark" : "phone"}.png`)});
   if (!dark) {
-    // long press shows the whole text and doesn't pick the tile
     const ts = await tiles(page), t = ts.find(x => x.text === LONG) || ts[0];
     const box = await page.$(`dialog[open] .mt-tile[data-mt="${t.i}"]`).then(e => e.boundingBox());
     const cdp = await ctx.newCDPSession(page);
@@ -217,7 +203,6 @@ async function reduced(browser){
   ok(await page.evaluate(i => getComputedStyle(document.querySelector(`.mt-tile[data-mt="${i}"]`)).animationName, a.i) === "none", "reduced motion: no shake on a wrong pair (still marked red)");
   await click(page, a.i); await click(page, b.i); await page.waitForTimeout(40);
   ok(await page.evaluate(i => document.querySelector(`.mt-tile[data-mt="${i}"]`).classList.contains("gone"), a.i), "reduced motion: a match vanishes at once");
-  // the app's own Animations: Off setting counts too
   await page.keyboard.press("Escape"); await ctx.close();
   const b2 = await boot(browser);
   await b2.page.evaluate(() => { try { window.SBMotion.setPref("off"); } catch (e) {} });
@@ -244,7 +229,6 @@ async function group(browser){
   ok(/Sam/.test(panel) && /9\.0 s/.test(panel) && /Anonymous member/.test(panel) && /1:39\.0 s/.test(panel) && !/\bJo\b/.test(panel), "group: the board shows posted times; an anonymous one has no name: " + panel);
   ok(await page.evaluate(() => !window.__DB.group_items.some(i => i.kind === "battle" && i.user_id === "u1")), "group: nothing is posted until I choose");
   await page.screenshot({path: path.join(shots, "match-group-offer.png")});
-  // post anonymously
   await page.click('#mtAfter [data-act="grp-mt-post"][data-anon="1"]'); await page.waitForTimeout(300);
   let mine = await page.evaluate(() => JSON.parse(JSON.stringify(window.__DB.group_items.find(i => i.kind === "battle" && i.user_id === "u1") || null)));
   const myMs = await page.evaluate(() => window.__sbMatch.round().ms);
@@ -253,11 +237,9 @@ async function group(browser){
   ok(/You \(anonymous\)/.test(panel) && /Remove My Time/.test(panel) && !/Post With My Name/.test(panel), "group: the board shows me as anonymous and offers Remove My Time: " + panel);
   ok(await page.evaluate(() => document.querySelector("#mtAfter .mt-lb li.me .rk").textContent) === "1", "group: the fastest time is first");
   await page.screenshot({path: path.join(shots, "match-group-posted.png")});
-  // remove it: the item goes away (I'm not in the battle)
   await page.click('#mtAfter [data-act="grp-mt-del"]'); await page.waitForTimeout(300);
   ok(await page.evaluate(() => !window.__DB.group_items.some(i => i.kind === "battle" && i.user_id === "u1")), "group: Remove My Time takes it off the server");
   ok(/Post With My Name/.test(await txt(page, "#mtAfter")) && !/You/.test(await txt(page, "#mtAfter .mt-lb")), "group: and off the board");
-  // with my name, then join and leave the Quiz Battle: the time stays
   await page.click('#mtAfter [data-act="grp-mt-post"][data-anon="0"]'); await page.waitForTimeout(300);
   ok(/Connor/.test(await txt(page, "#mtAfter .mt-lb")) && /\(You\)/.test(await txt(page, "#mtAfter .mt-lb")), "group: posted with my name");
   await page.keyboard.press("Escape"); await page.waitForTimeout(200);
@@ -269,7 +251,6 @@ async function group(browser){
   await page.click('#grpBattle [data-act="grp-battle"][data-on="0"]'); await page.waitForTimeout(400);
   mine = await page.evaluate(() => JSON.parse(JSON.stringify(window.__DB.group_items.filter(i => i.kind === "battle" && i.user_id === "u1"))));
   ok(mine.length === 1 && mine[0].data.on === false && mine[0].data.match.dk1.ms === myMs && /Join the Battle/.test(await txt(page, "#grpBattle")), "group: leaving the battle keeps my posted Match time");
-  // a slower round offers no repost
   await page.click('[data-act="grp-tab"][data-t="study"]'); await page.waitForTimeout(100);
   await page.click('#grpDecks [data-act="grp-match"][data-id="dk1"]'); await page.waitForSelector("dialog[open] [data-mt-play]");
   await page.evaluate(() => { window.__sbMatch.round().pen = 30000; }); await solve(page); await page.waitForSelector("#mtAfter .mt-grp");

@@ -1,27 +1,11 @@
-// Studyboard 1.11: send-reminders (Supabase Edge Function)
-// Sends due reminders from reminder_queue to your devices: Web Push for browsers and the Home Screen app, and the phone
-// apps' own push (Firebase Cloud Messaging for Android, APNs for iPhone and iPad). A schedule in reminders.sql calls it
-// every 5 minutes. Tapping Snooze or Mark Done on a notification also comes here, checked with that reminder's
-// own random code, so it works without signing in and only for that one reminder.
-//
-// Secrets it needs (Edge Functions > Secrets): VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (mailto:you@example.com).
-// For the Android app (optional): FCM_SERVICE_ACCOUNT (the whole service-account JSON from Firebase > Project settings >
-//   Service accounts > Generate new private key) and FIREBASE_PROJECT_ID (optional; read from the JSON when missing).
-// For the iPhone app (optional): APNS_KEY_P8 (the .p8 file's text), APNS_KEY_ID, APNS_TEAM_ID, APNS_TOPIC (the app's bundle id,
-//   default com.studioso.app). A kind of device whose secrets aren't set is skipped (its rows stay; nothing is sent to it).
-// Supabase adds SUPABASE_URL and the service key by itself.
-// Deploy with "Verify JWT" turned off: the schedule and the notification buttons don't sign in.
-// Nothing here trusts the caller: "send" needs the schedule secret (the x-studyboard-cron header the 5-minute schedule in
-// supabase-reminders.sql sends from Vault; checked with studyboard_reminders_cron_ok, or against the optional
-// REMINDERS_CRON_SECRET secret when you set one), Snooze or Mark Done need the reminder's code, and "test" needs your sign-in.
-// Pushes only ever go to the real push services (the same list as push_subscriptions_host in supabase-reminders.sql).
+// Studyboard 1.11
 
-const LATE_OK_MS = 6 * 3600_000;         // reminders more than 6 hours late (for example, a paused project) are skipped
-const KEEP_MS = 14 * 86400_000;          // old rows are cleaned up after two weeks
+const LATE_OK_MS = 6 * 3600_000;
+const KEEP_MS = 14 * 86400_000;
 const MAX_TRIES = 3;
-const BATCH = 200;                       // reminders claimed (marked as sent) at a time, oldest first
-const MAX_BATCHES = 5;                   // per run (every 5 minutes); anything left stays unsent for the next run
-const HORIZON_MS = 400 * 86400_000;      // rows further ahead than this are dropped (reminders.sql refuses them too)
+const BATCH = 200;
+const MAX_BATCHES = 5;
+const HORIZON_MS = 400 * 86400_000;
 
 type Row = { user_id: string; id: string; title: string; body: string; url: string; task_id: string; tok: string; tries: number };
 type Sub = { id: string; user_id: string; endpoint: string; p256dh: string; auth: string; kind?: string; apns_env?: string | null };
@@ -44,14 +28,14 @@ const CORS = {
 };
 const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 
-// The push services browsers and phones use. Anything else is never contacted.
+// The push services browsers and phones use
 const PUSH_HOST = /^(fcm\.googleapis\.com|updates\.push\.services\.mozilla\.com|([a-z0-9-]+\.)+push\.services\.mozilla\.com|([a-z0-9-]+\.)+notify\.windows\.com|web\.push\.apple\.com|([a-z0-9-]+\.)+push\.apple\.com)$/;
 export function pushHostOk(endpoint: unknown): boolean {
   const raw = String(endpoint || "");
-  if (!/^https:\/\/[^/\s:@]+(\/\S*)?$/i.test(raw)) return false;      // https, no port, no user:password@
+  if (!/^https:\/\/[^/\s:@]+(\/\S*)?$/i.test(raw)) return false;
   try { const u = new URL(raw); return u.protocol === "https:" && !u.port && PUSH_HOST.test(u.hostname.toLowerCase()); } catch (_e) { return false; }
 }
-// Phone app tokens, as the app stores them ("fcm:<token>", "apns:<hex>"; the same rule as push_subscriptions_native).
+// Phone app tokens, as the app stores them
 const FCM_RE = /^fcm:[A-Za-z0-9_:.-]{20,4096}$/, APNS_RE = /^apns:[0-9a-fA-F]{64,200}$/;
 export function subOk(s: Sub): boolean {
   const kind = s.kind || "webpush";
@@ -60,7 +44,7 @@ export function subOk(s: Sub): boolean {
   if (kind === "apns") return APNS_RE.test(String(s.endpoint || ""));
   return false;
 }
-// Constant-time text compare (the schedule secret).
+// Constant-time text compare (the schedule secret)
 function same(a: string, b: string): boolean {
   if (!a || !b || a.length !== b.length) return false;
   let d = 0;
@@ -68,12 +52,10 @@ function same(a: string, b: string): boolean {
   return d === 0;
 }
 
-// ---------- The database parts (kept small so they can be swapped for a fake in tests) ----------
+// The database parts (kept small so they can be swapped for a fake in tests)
 export function supabaseStore(db: any) {
   return {
-    // One bounded batch, oldest first, claimed in one step by studyboard_reminders_claim (FOR UPDATE SKIP LOCKED), so a run can't
-    // mark everyone's reminders as sent and then time out before sending them. A project on an older reminders.sql (no such function)
-    // falls back to picking a batch and claiming each row only if it is still unsent.
+    // One bounded batch, oldest first, claimed in one step by studyboard_reminders_claim
     async claimDue(now: number, limit = BATCH): Promise<Row[]> {
       const at = new Date(now).toISOString();
       const { data, error } = await db.rpc("studyboard_reminders_claim", { p_now: at, p_late_ms: LATE_OK_MS, p_limit: limit });
@@ -96,16 +78,14 @@ export function supabaseStore(db: any) {
     async subsFor(users: string[]): Promise<Sub[]> {
       if (!users.length) return [];
       let { data, error } = await db.from("push_subscriptions").select("id,user_id,endpoint,p256dh,auth,kind,apns_env").in("user_id", users);
-      // A project that hasn't run the newer supabase-reminders.sql has no kind column yet: every row is Web Push there.
       if (error && /kind|apns_env|42703/.test(String(error.message || error.code || ""))) ({ data, error } = await db.from("push_subscriptions").select("id,user_id,endpoint,p256dh,auth").in("user_id", users));
       if (error) throw error;
-      // Only the real push services (or a well-formed phone app token) are contacted (stops a made-up address being called from here).
       return (data || []).filter((s: Sub) => subOk(s));
     },
     async dropSub(id: string) { await db.from("push_subscriptions").delete().eq("id", id); },
     async cleanup(now: number) {
       await db.from("reminder_queue").delete().lt("fire_at", new Date(now - KEEP_MS).toISOString());
-      await db.from("reminder_queue").delete().gt("fire_at", new Date(now + HORIZON_MS).toISOString());   // far-off rows nobody will ever reach
+      await db.from("reminder_queue").delete().gt("fire_at", new Date(now + HORIZON_MS).toISOString());
     },
     async byToken(id: string, tok: string): Promise<Row | null> {
       const { data } = await db.from("reminder_queue").select("user_id,id,title,body,url,task_id,tok,tries").eq("id", id).eq("tok", tok).maybeSingle();
@@ -115,9 +95,7 @@ export function supabaseStore(db: any) {
       const { error } = await db.from("reminder_queue").insert({ user_id: r.user_id, id, fire_at: new Date(at).toISOString(), title: r.title, body: r.body, url: r.url, task_id: r.task_id });
       if (error) throw error;
     },
-    // Marks the task complete in your Studyboard data. Your open apps pick up the change through live sync.
-    // Compare-and-set on updated_at (the server stamps it on every change): an edit a device saves between the read and the write is never
-    // overwritten with the older copy read here; the task is read again and the change made on top of the newer version.
+    // Marks the task complete in your Studyboard data
     async markDone(userId: string, taskId: string, now: number): Promise<boolean> {
       for (let attempt = 0; ; attempt++) {
         const { data, error } = await db.from("items").select("data,updated_at").eq("user_id", userId).eq("kind", "task").eq("id", taskId).maybeSingle();
@@ -132,12 +110,12 @@ export function supabaseStore(db: any) {
         const up = await q.select("id");
         if (up.error) return false;
         if (up.data && up.data.length) break;
-        if (attempt >= 4) return false;   // changed again and again meanwhile: leave it to the person
+        if (attempt >= 4) return false;
       }
       await db.from("reminder_queue").delete().eq("user_id", userId).eq("task_id", taskId).is("sent_at", null);
       return true;
     },
-    // Is this the schedule secret from Vault? (studyboard_reminders_cron_ok in supabase-reminders.sql, service role only)
+    // Is this the schedule secret from Vault
     async cronOk(secret: string): Promise<boolean> {
       if (!secret || secret.length < 32 || secret.length > 200) return false;
       const { data, error } = await db.rpc("studyboard_reminders_cron_ok", { p_secret: secret });
@@ -153,7 +131,7 @@ export function supabaseStore(db: any) {
 }
 export type Store = ReturnType<typeof supabaseStore>;
 
-// ---------- Phone apps: FCM (Android) and APNs (iPhone, iPad) ----------
+// Phone apps: FCM (Android) and APNs (iPhone, iPad)
 type NativeDeps = { env: (k: string) => string; fetch: typeof fetch; now: () => number; log?: (...a: unknown[]) => void };
 const b64u = (b: Uint8Array | string) => {
   const bytes = typeof b === "string" ? new TextEncoder().encode(b) : b;
@@ -170,12 +148,12 @@ async function signJwt(header: Record<string, unknown>, claims: Record<string, u
   const algo = alg === "RS256" ? { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" } : { name: "ECDSA", namedCurve: "P-256" };
   const key = await crypto.subtle.importKey("pkcs8", pemBytes(pem), algo, false, ["sign"]);
   const input = b64u(JSON.stringify(header)) + "." + b64u(JSON.stringify(claims));
-  // WebCrypto's ECDSA signature is already r||s (the JOSE form), so it goes in as is.
+  // WebCrypto's ECDSA signature is already r||s (the JOSE form), so it goes in as is
   const sig = new Uint8Array(await crypto.subtle.sign(alg === "RS256" ? algo : { name: "ECDSA", hash: "SHA-256" }, key, new TextEncoder().encode(input)));
   return input + "." + b64u(sig);
 }
 
-// Sends to the phone apps. Each kind is skipped when its secrets aren't set. Access tokens are cached between sends.
+// Sends to the phone apps
 export function nativeSender(d: NativeDeps) {
   const log = d.log || ((...a: unknown[]) => console.warn(...a));
   let fcmTok = "", fcmUntil = 0, apnsJwt = "", apnsAt = 0;
@@ -249,7 +227,7 @@ export function nativeSender(d: NativeDeps) {
 }
 export type Native = ReturnType<typeof nativeSender>;
 
-// ---------- Sending ----------
+// Sending
 function msgFor(r: Row, api: string, k: string): Msg {
   return { title: r.title || "Studyboard", body: r.body || "", rid: r.id, taskId: r.task_id || "", url: r.url || "", tok: r.tok || "", api, k };
 }
@@ -257,10 +235,9 @@ async function pool<T>(items: T[], n: number, fn: (x: T) => Promise<void>) {
   let i = 0;
   await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) await fn(items[i++]); }));
 }
-// Sends one message to one device. "gone" means the device unsubscribed (404 or 410, or a dead app token), so it's removed.
-// "skip" means this kind of device isn't set up on the server (its secrets are missing): nothing is sent, the row stays.
+// Sends one message to one device
 async function sendOne(push: Push | null, s: Sub, m: Msg, native?: Native): Promise<Result> {
-  if (!subOk(s)) return "gone";                                // not a push service or a valid app token: never contacted, and the row is removed
+  if (!subOk(s)) return "gone";
   const kind = s.kind || "webpush";
   if (kind === "fcm") return native ? native.fcm(s, m) : "skip";
   if (kind === "apns") return native ? native.apns(s, m) : "skip";
@@ -279,7 +256,7 @@ async function sendOne(push: Push | null, s: Sub, m: Msg, native?: Native): Prom
 export async function sendDue(store: Store, push: Push | null, now: number, api: string, k: string, native?: Native) {
   const gone = new Set<string>(), retry: Row[] = [];
   let due = 0, sent = 0, failed = 0;
-  // A batch at a time: each batch is claimed, then sent, before the next is claimed. A run that stops early only leaves the rest unsent.
+  // A batch at a time
   for (let b = 0; b < MAX_BATCHES; b++) {
     const rows = await store.claimDue(now, BATCH);
     due += rows.length;
@@ -288,7 +265,7 @@ export async function sendDue(store: Store, push: Push | null, now: number, api:
     subs.forEach((s) => byUser.set(s.user_id, (byUser.get(s.user_id) || []).concat(s)));
     await pool(rows, 8, async (r) => {
       const mine = (byUser.get(r.user_id) || []).filter((s) => !gone.has(s.id));
-      if (!mine.length) return;                                  // no devices: nothing to send, the row stays marked
+      if (!mine.length) return;
       const m = msgFor(r, api, k);
       const res = await Promise.all(mine.map(async (s) => { const x = await sendOne(push, s, m, native); if (x === "gone") gone.add(s.id); return x; }));
       if (res.includes("ok")) sent++;
@@ -296,14 +273,13 @@ export async function sendDue(store: Store, push: Push | null, now: number, api:
     });
     if (rows.length < BATCH) break;
   }
-  for (const r of retry) await store.release(r);              // after the batches, so a failed one is retried by the next run, not this one
+  for (const r of retry) await store.release(r);
   for (const id of gone) await store.dropSub(id);
   await store.cleanup(now);
   return { due, sent, failed, removed: gone.size };
 }
 
-// Reads the body but stops as soon as it passes max bytes (null = too big). Content-Length alone can't be trusted (or may be missing).
-// Every request here is a few small fields, read before any sign-in or secret is checked, so the cap is small.
+// Reads the body but stops as soon as it passes max bytes (null = too big)
 const MAX_BODY = 16_000;
 export async function readLimited(req: Request, max: number): Promise<string | null> {
   const cl = Number(req.headers.get("content-length") || 0);
@@ -315,7 +291,7 @@ export async function readLimited(req: Request, max: number): Promise<string | n
     const { done, value } = await reader.read();
     if (done) break;
     n += value.byteLength;
-    if (n > max) { try { await reader.cancel(); } catch (_e) { /* ignore */ } return null; }
+    if (n > max) { try { await reader.cancel(); } catch (_e) { } return null; }
     chunks.push(value);
   }
   const all = new Uint8Array(n); let o = 0;
@@ -348,13 +324,13 @@ export async function handle(req: Request, store: Store, push: Push, opts: { now
     return ok ? json({ ok: true }) : json({ error: "That task wasn't found." }, 404);
   }
   if (action !== "test") {
-    // "send" (the default) only for the schedule: it must bring the schedule secret.
+    // "send" (the default) only for the schedule
     if (action !== "send") return json({ error: "Unknown action." }, 400);
     const given = (req.headers.get("x-studyboard-cron") || "").trim();
     const ok = opts.cronSecret ? same(given, opts.cronSecret) : await store.cronOk(given).catch(() => false);
     if (!ok) return json({ error: "Not allowed." }, 401);
   }
-  const web = opts.vapidOk ? push : null;                     // without VAPID keys, browsers are skipped (the phone apps can still be reached)
+  const web = opts.vapidOk ? push : null;
   if (!opts.vapidOk && !(opts.native && opts.native.configured())) return json({ error: "The notification keys are missing or not valid. In Supabase open Edge Functions > Secrets and add VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY and VAPID_SUBJECT." }, 500);
   if (action === "test") {
     const user = await store.userFrom(req);
@@ -369,10 +345,10 @@ export async function handle(req: Request, store: Store, push: Push, opts: { now
   return json(await sendDue(store, web, now, opts.api, opts.k, opts.native));
 }
 
-// ---------- Start (only in Supabase, not in tests) ----------
+// Start (only in Supabase, not in tests)
 const D = (globalThis as any).Deno;
 if (D && typeof D.serve === "function") {
-  // Loaded here (not at the top) so the offline tests can load this file without Deno's npm: imports.
+  // Loaded here (not at the top) so the offline tests can load this file without Deno's npm
   const { createClient } = await import("npm:@supabase/supabase-js@2.117.2");
   const webpush = (await import("npm:web-push@3.6.7")).default;
   const url = env("SUPABASE_URL"), pub = env("VAPID_PUBLIC_KEY"), priv = env("VAPID_PRIVATE_KEY");

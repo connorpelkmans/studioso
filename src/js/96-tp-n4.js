@@ -1,5 +1,5 @@
 /* ===== module: 96-tp-n4.js ===== */
-/* Theme Collections, batch n4: diadelosmuertos, holi, ramadan, midautumn */
+/* Theme Collections, batch n4 */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2), S15 = SOw(1.6);

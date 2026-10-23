@@ -1,21 +1,14 @@
 /* ===== module: 97-sharing.js ===== */
-/* Public share links and the Course Library (server: supabase-sharing.sql).
-   - Links: a deck (made in its Share sheet, ?deck=CODE), a note or a quiz (?shared=CODE; ?share= is Quick Capture's). Anyone can open one, signed in or not, and
-     sees it read-only with "Study This in Studyboard", which adds their own copy (decks and quizzes as a deck, notes as a note).
-     A first-time visitor lands straight in the app with it. Only the text is shared, never progress, photos or stickers.
-   - Course Library: a shared deck can be listed for its course code at your school. Classmates who have that course see
-     "Decks from classmates" on the course page and in Flashcards > Course Library, and can preview and copy them.
-     Your school is your school site's address (from the Brightspace, Canvas or Blackboard connection) or one you pick once.
-   - Reports go to share_reports for review; three from different people hide it until reviewed. */
+/* Public share links and the Course Library */
 (() => {
   const G = () => (window.SBGROUPS && window.SBGROUPS.share) || null;
-  const can = () => !inClaude() && !!G() && !!(window.__sbShareStub || sb || sbConfig() || SB_HOSTED);
+  const can = () => !inPreview() && !!G() && !!(window.__sbShareStub || sb || sbConfig() || SB_HOSTED);
   const signedIn = () => { const g = G(); return !!(g && g.online()); };
   const clip = (v, n) => String(v == null ? "" : v).slice(0, n);
   const plural = (n, one, many) => `${Number(n) || 0} ${Number(n) === 1 ? one : many || one + "s"}`;
   const ago = t => { const d = Math.floor((Date.now() - new Date(t).getTime()) / 864e5); return !isFinite(d) ? "a while ago" : d <= 0 ? "today" : d === 1 ? "yesterday" : d < 30 ? `${d} days ago` : `on ${new Date(t).toLocaleDateString()}`; };
 
-  /* ---------- Talking to the server (works signed out too) ---------- */
+  /* Talking to the server (works signed out too) */
   function shErr(e){
     const m = String((e && (e.message || e.details)) || e || ""), code = String((e && e.code) || "");
     if (/fetch|network|Load failed|timed? ?out/i.test(m)) return new Error("Couldn't reach Studyboard. Check your internet connection and try again.");
@@ -39,7 +32,7 @@
   }
   const rows = x => Array.isArray(x) ? x : x ? [x] : [];
 
-  /* ---------- Sheets ---------- */
+  /* Sheets */
   const msgSheet = (title, msg) => openSheet(`<div class="sheet">${head(title)}<div class="sheet-body"><p style="margin:0">${esc(msg)}</p></div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">OK</button></div></div>`);
   const waitSheet = title => openSheet(`<div class="sheet">${head(title)}<div class="sheet-body"><p class="mini" style="margin:0" role="status">Opening…</p></div></div>`);
@@ -53,7 +46,7 @@
   const copyOf = code => decksArr().find(d => d.sharedFrom && d.sharedFrom.code === code);
   const saved = code => { if (signedIn()) rpc("share_saved", {p_code: code}).catch(() => {}); };
 
-  /* ---------- Opening a link ---------- */
+  /* Opening a link */
   async function open(code){
     if (!G()) return;
     waitSheet("Shared With You");
@@ -98,7 +91,6 @@
       dlg.querySelector(".sh-view").addEventListener("keydown", e => { if (e.target.closest("input,textarea,select")) return; if (e.key === "ArrowRight") { move(1); e.preventDefault(); } else if (e.key === "ArrowLeft") { move(-1); e.preventDefault(); } });
     }
     const op = $("#shOpen"); if (op) op.addEventListener("click", () => { dlg.close(); ui.tab = "flashcards"; ui.fc = null; ui.deckId = have.id; render(); window.scrollTo(0, 0); });
-    // Put It In: the copy goes in one of your courses and takes that course's colour and icon (shown on the band as you pick)
     const pick = $("#shCourse"), bandEl = $("#shBand");
     if (pick && bandEl) pick.addEventListener("change", () => { const c2 = courseOf(pick.value);
       bandEl.style.setProperty("--c", c2 ? colorOf(c2.id) : "#8A94A6");
@@ -153,7 +145,7 @@
     });
   }
 
-  /* ---------- Reporting ---------- */
+  /* Reporting */
   const REASONS = [["spam", "Spam or ads"], ["cheating", "Answers to a graded test or assignment"], ["harassment", "Bullying or harassment"], ["hate", "Hate"], ["sexual", "Sexual content"], ["privacy", "Someone's private information"], ["threat", "Threats or violence"], ["other", "Something else"]];
   function reportSheet(code){
     if (!signedIn()) { toast("Sign in to report this. Thank you for keeping Studyboard safe."); return; }
@@ -167,10 +159,10 @@
     });
   }
 
-  /* ---------- Sharing your own note or quiz ---------- */
+  /* Sharing your own note or quiz */
   function srcOf(kind, ref){
     const g = G();
-    if (kind === "board") return window.SBWB && SBWB.shareSrc ? SBWB.shareSrc(ref, g) : null;   // module 99-whiteboard-share
+    if (kind === "board") return window.SBWB && SBWB.shareSrc ? SBWB.shareSrc(ref, g) : null;
     if (kind === "note") {
       const n = state.notes && state.notes[ref]; if (!n || !String(n.text || "").trim()) return null;
       const c = courseOf(n.courseId), data = {v: 1, type: "note", text: clip(n.text, 8000), color: n.color || "yellow", course: c ? {code: c.code || "", name: c.name || ""} : null};
@@ -246,12 +238,12 @@
     } catch (e) { g.busyBtn(btn, false); toast(e.message); }
   }
 
-  /* ---------- Your school ---------- */
+  /* Your school */
   function hostKey(h){
     h = String(h || "").toLowerCase().replace(/^https?:\/\//, "").split(/[/:?#]/)[0];
     if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(h)) return "";
     const parts = h.split(".");
-    if (/(^|\.)(instructure\.com|brightspace\.com|blackboard\.com|d2l\.com|desire2learn\.com)$/.test(h)) return parts.slice(-3).join(".");   // school.instructure.com is the school
+    if (/(^|\.)(instructure\.com|brightspace\.com|blackboard\.com|d2l\.com|desire2learn\.com)$/.test(h)) return parts.slice(-3).join(".");
     const sl = parts[parts.length - 2];
     return parts.slice(parts.length >= 3 && ["ac", "edu", "co", "com", "org", "net", "gov", "sch"].includes(sl) ? -3 : -2).join(".");
   }
@@ -262,9 +254,7 @@
     for (const k of ["brightspace", "canvas", "blackboard"]) { const key = hostKey(st[k] && st[k].host); if (key) return {key, name: key, auto: true}; }
     return null;
   }
-  // Your school, picked from the list of real schools (supabase-schools.sql). It's filled in from your Brightspace, Canvas or Blackboard
-  // address when there is one (school_for_host), and kept in your settings (v: 1 = from the list) and on the server (set_my_school),
-  // where publishing checks it. "Can't find your school?" sends a request instead.
+  // Your school, picked from the list of real schools (supabase-schools.sql)
   const lmsHosts = () => { const st = state.settings || {}; return ["brightspace", "canvas", "blackboard"].map(k => [k, st[k] && st[k].host]).filter(x => x[1]); };
   const LMS_NAME = {brightspace: "Brightspace", canvas: "Canvas", blackboard: "Blackboard"};
   let autoTried = "";
@@ -283,7 +273,7 @@
     if (signedIn()) { try { await rpc("set_my_school", {p_key: sc.key}); } catch (e) { if (!quiet) toast(e.message); return false; } }
     return true;
   }
-  // Fill it in by itself when a school site is connected and nothing was picked yet (once per session)
+  // Fill it in by itself when a school site is connected and nothing was picked yet
   setTimeout(async () => { try { const st = state.settings || {}; if (!can() || (st.school && st.school.v)) return; const sc = await autoSchool(); if (sc && !((state.settings || {}).school || {}).v) keepSchool(sc, true); } catch (e) {} }, 4000);
   let schKind = "university";
   function schoolSheet(then, why){
@@ -327,7 +317,6 @@
       search(); $("#schQ").focus();
     }));
     setTimeout(() => { const q = $("#schQ"); if (q) q.focus(); }, 60);
-    // the school site's school, offered first
     (async () => {
       autoTried = "";
       const sc = await autoSchool(); const box = $("#schAuto"); if (!sc || !box || (curV && curV.key === sc.key)) return;
@@ -347,24 +336,23 @@
       });
     });
   }
-  // Publishing needs a school from the list, also on the server: make sure it's there (asks for it when it isn't)
+  // Publishing needs a school from the list, also on the server
   async function ensureSchool(then){
     const st = (state.settings || {}).school;
     if (st && st.v && st.key) { if (await keepSchool(st, false)) then(st); return; }
     schoolSheet(() => { const s2 = (state.settings || {}).school; if (s2 && s2.v) then(s2); }, "Pick your school before publishing. Your school shows on the public page, so students searching for your courses find it.");
   }
 
-  /* ---------- The Publish button on a deck ---------- */
+  /* The Publish button on a deck */
   const PUB_IC = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>';
   hook("render", tab => {
     if (tab !== "flashcards" || ui.fc || !ui.deckId || !can()) return;
     const d = state.decks[ui.deckId], ra = $("#view .deck-head .row-actions"); if (!d || !ra || $('[data-act="pub-deck"]', ra)) return;
-    if (notMine(d) && !(d.published && d.published.code)) return;   // a copy of someone else's deck can't be published (only unpublished, if it already was)
+    if (notMine(d) && !(d.published && d.published.code)) return;
     const html = `<button class="btn" data-act="pub-deck" data-id="${esc(d.id)}">${PUB_IC}${d.published && d.published.code ? "Published" : "Publish"}</button>`;
     const sh = $('[data-act="grp-deck-share"]', ra); if (sh) sh.insertAdjacentHTML("afterend", html); else ra.insertAdjacentHTML("beforeend", html);
   });
-  // Only your own decks can be published: not one you added from the website, a link, the Course Library or a group.
-  // (The server checks too: share_publish refuses a deck whose cards are mostly someone else's shared set.)
+  // Only your own decks can be published
   const notMine = d => !!(d && d.sharedFrom);
   const notMineText = (d, plain) => { const by = d && d.sharedFrom && d.sharedFrom.by ? String(d.sharedFrom.by).slice(0, 60) : ""; const t = `You can only publish decks you made. ${by ? by + " made this one" : "This one is a copy of someone else's deck"}, so it stays in your Studyboard just for you.`; return plain ? t : esc(t); };
   function publishDeck(id){
@@ -379,8 +367,7 @@
   }
   const withUsername = then => { if (window.SBUNAME) SBUNAME.ensure(() => SBUNAME.ensureAge(() => then())); else then(); };
   const madeBy = () => (window.SBUNAME && SBUNAME.cached() ? "@" + SBUNAME.cached() : G().myName() || "You");
-  /* The colour and icon of the deck on its public page. Picked when publishing; starts from the deck's course and can differ from it.
-     Only the app's course colours and built-in icons, since the website draws them with its own copies (cloudflare/site/course-icons.js). */
+  /* The colour and icon of the deck on its public page */
   const PUB_GENERAL = "#5E6B7E";
   const hexRgb = h => [1, 3, 5].map(i => parseInt(String(h).slice(i, i + 2), 16) || 0);
   const nearColor = h => { if (!/^#[0-9a-f]{6}$/i.test(h || "")) return COURSE_COLORS[0]; const a = hexRgb(h); let best = COURSE_COLORS[0], bd = 1e9;
@@ -415,7 +402,7 @@
     });
     return () => cur;
   }
-  // From the Published sheet: change the page's colour and icon, then update the page
+  // From the Published sheet
   function lookSheet(id){
     const d = state.decks[id]; if (!d) return; const L = lookOf(d);
     openSheet(`<div class="sheet">${head("Color and Icon")}<div class="sheet-body">
@@ -484,7 +471,7 @@
   }
 
 
-  /* ---------- The Course Library ---------- */
+  /* The Course Library */
   const courseKey = c => { const k = c && G() && G().codeKey(c.code || c.name); return k ? k.toUpperCase() : ""; };
   const coded = () => coursesArr().filter(c => !c.archived && courseKey(c));
   const COUNTS = {at: 0, school: "", map: null, busy: false, failed: false};
@@ -495,7 +482,6 @@
     COUNTS.busy = true;
     rpc("library_counts", {p_course_keys: keys, p_school_key: sc ? sc.key : ""}).then(r => {
       const m = {}; keys.forEach(k => { m[k] = 0; }); rows(r).forEach(x => { m[x.course_key] = Number(x.n) || 0; });
-      // redraw only when a number that shows changes (a needless redraw a moment after opening a course made the page flicker)
       const before = COUNTS.map || {}, shows = o => JSON.stringify(Object.keys(o).filter(k => o[k] > 0).sort().map(k => k + ":" + o[k]));
       const redo = shows(before) !== shows(m);
       Object.assign(COUNTS, {map: m, at: Date.now(), school: sc ? sc.key : ""}); if (redo) scheduleRender();
@@ -513,8 +499,7 @@
   }
   const libBtn = what => { const q = what === "quizzes"; return exploreBtn(q ? "quizzes" : "flashcards") + (can() && coded().length ? `<button class="btn small" data-act="lib-open"${q ? ' data-kind="quiz"' : ""}>Course Library</button>` : ""); };
   const L = {cid: "", all: false, kind: "deck"};
-  // Quizzes for a course: the published ones (public_search, the same list as studyboardapp.com/quizzes); an older database without the
-  // school filter is searched without it
+  // Quizzes for a course
   async function libQuizzes(k, sk){
     const base = {p_kind: "quiz", p_q: "", p_course: k, p_limit: 60, p_offset: 0};
     let r;
@@ -556,15 +541,14 @@
   // The listing switch in a deck's link sheet (groups' deckShareSheet)
   function libRow(d, code){ setTimeout(() => fillLibRow(d.id, code), 0); return `<div class="lib-row" id="libRow"><span class="mini">Checking the Course Library…</span></div>` + pubRow("deck", code, d.name); }
 
-  /* ---------- Publishing to studyboardapp.com/flashcards and /quizzes (supabase-sharing.sql: share_publish; pages: cloudflare/site/public-pages.js) ---------- */
-  // The public pages live on the website: this one when the app runs there, else the address the app was last opened at, else studyboardapp.com
-  const siteBase = () => { try { if (/^https:$/.test(location.protocol) && !/^(localhost|127\.)/.test(location.hostname) && !inClaude()) return location.origin; } catch (e) {}
+  /* Publishing to studyboardapp.com/flashcards and /quizzes */
+  const siteBase = () => { try { if (/^https:$/.test(location.protocol) && !/^(localhost|127\.)/.test(location.hostname) && !inPreview()) return location.origin; } catch (e) {}
     const w = (state.settings || {}).webUrl; try { if (w) return new URL(w).origin; } catch (e) {} return "https://studyboardapp.com"; };
-  // Same address rules as the pages themselves: /flashcards/<name>-<code without the dash>
+  // Same address rules as the pages themselves
   const pubSlug = s => String(s || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 70).replace(/-+$/, "") || "set";
   const pubUrl = (kind, name, code) => `${siteBase()}/${kind === "quiz" ? "quizzes" : "flashcards"}/${pubSlug(name)}-${String(code).replace(/-/g, "").toLowerCase()}`;
   const openOut = url => { try { window.open(url, "_blank", "noopener"); } catch (e) { location.href = url; } };
-  // Tells the website to drop its cached copies of the page (and the lists it's on), so a change shows there at once (public-pages.js: refresh)
+  // Tells the website to drop its cached copies of the page (and the lists it's on)
   function pubRefresh(kind, name, code, course){
     try { fetch(siteBase() + "/flashcards/refresh", {method: "POST", mode: "no-cors", keepalive: true, body: JSON.stringify({kind, code, name: String(name || ""), course: String(course || "")})}).catch(() => {}); } catch (e) {}
   }
@@ -590,7 +574,6 @@
     $("#pubOn").addEventListener("change", async e => {
       const box = e.target, want = box.checked;
       const sc0 = (state.settings || {}).school;
-      // anything still missing (username, birthday, school): a deck goes through the same steps as its Publish button; a quiz asks, then comes back here
       const missing = want && ((window.SBUNAME && (!SBUNAME.cached() || SBUNAME.ageCached() !== "ok")) || !(sc0 && sc0.v));
       if (missing) {
         box.checked = false;
@@ -612,7 +595,7 @@
     });
   }
   const EXPLORE_IC = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>';
-  const exploreBtn = what => inClaude() ? "" : `<button class="btn small" data-act="pub-explore" data-id="${what === "quizzes" ? "quizzes" : "flashcards"}" aria-label="Explore public ${what === "quizzes" ? "quizzes" : "flashcards"}">${EXPLORE_IC}<span>Explore</span></button>`;
+  const exploreBtn = what => inPreview() ? "" : `<button class="btn small" data-act="pub-explore" data-id="${what === "quizzes" ? "quizzes" : "flashcards"}" aria-label="Explore public ${what === "quizzes" ? "quizzes" : "flashcards"}">${EXPLORE_IC}<span>Explore</span></button>`;
   async function fillLibRow(deckId, code){
     const el = $("#libRow"), d = state.decks[deckId]; if (!el || !d) return;
     const c = courseOf(d.courseId), k = courseKey(c), sc = schoolOf();
@@ -639,7 +622,7 @@
     });
   }
 
-  /* ---------- Actions ---------- */
+  /* Actions */
   hook("act", (act, el, id) => {
     switch (act) {
       case "share-link": shareRef(el.dataset.kind, el.dataset.ref); return true;

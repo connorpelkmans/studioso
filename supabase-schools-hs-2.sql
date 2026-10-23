@@ -1,10 +1,7 @@
--- Studyboard: high schools, part 2 of 4. Run supabase-schools.sql first, then every part (any order).
--- Safe to run again. Sources (all open government data):
---   United States public schools: NCES Common Core of Data, school directory 2022-23 (public domain)
---   United States private schools: NCES Private School Universe Survey 2021-22 (public domain)
+-- Studyboard: high schools, part 2 of 4
 --   Ontario: Ministry of Education, School information and student demographics 2022-23 (Open Government Licence - Ontario)
 --   British Columbia: BC Schools K-12, 2025-26 (Open Government Licence - British Columbia)
--- Included: open schools that teach grade 12. See THIRD-PARTY-NOTICES.md.
+-- Included: open schools that teach grade 12
 
 insert into public.schools (key, name, country, code, region, city, domains, web, kind)
 select 'hs:us:' || v.k, v.n, 'United States', 'US', 'California', v.c, '{}', v.w, 'high_school' from (values

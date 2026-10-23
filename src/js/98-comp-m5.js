@@ -1,5 +1,5 @@
 /* ===== module: 98-comp-m5.js ===== */
-/* Study Companions, batch m5: observatory, ruins, valley, sketchcity */
+/* Study Companions, batch m5 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);

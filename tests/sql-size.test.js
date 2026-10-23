@@ -1,5 +1,4 @@
-// Every supabase-*.sql file must fit Supabase's SQL Editor, which refuses a query over 0.98 MB.
-// Run: node tests/sql-size.test.js
+// Every supabase-*.sql file must fit Supabase's SQL Editor
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const root = path.join(__dirname, ".."), LIMIT = 0.98 * 1024 * 1024;
 const files = fs.readdirSync(root).filter(f => /^supabase-.*\.sql$/.test(f));

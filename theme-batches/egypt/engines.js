@@ -1,17 +1,10 @@
-// ---- world theme engine: egypt (Egypt)
-// Loop: the felucca's sail fills as it drifts along the Nile (a smaller one far off the other way), palm fronds sway,
-// papyrus nods, heat shimmers over the sand, a camel caravan plods across the far dunes, ibises wade and feed in the
-// shallows and pigeons circle the dovecote. Night: stars twinkle over the Milky Way (now and then a shooting star), the
-// Nile carries the moon's path and the village windows glow. Moment: the sun (the moon at night) slides down onto the tip
-// of the Great Pyramid, its capstone flashes gold, light sweeps down the stone faces of all three pyramids and a flock of
-// ibises rises off the Nile across the glow.
+// -- world theme engine
 function egypt_ease(u) { u = Math.max(0, Math.min(1, u)); return u * u * (3 - 2 * u); }
 function egypt_env(T, a, b, c, d) { if (T < a || T > d) return 0; if (T < b) return egypt_ease((T - a) / (b - a)); if (T <= c) return 1; return 1 - egypt_ease((T - c) / (d - c)); }
-// a soft round glow: col is 'r,g,b', a its strength at the centre
+// a soft round glow
 function egypt_glow(c, x, y, r, col, a) { if (a <= 0.003 || r <= 0) return; var g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, 'rgba(' + col + ',' + Math.min(1, a) + ')'); g.addColorStop(0.35, 'rgba(' + col + ',' + Math.min(1, a) * 0.4 + ')'); g.addColorStop(1, 'rgba(' + col + ',0)'); c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); }
-// a sacred ibis in flight, facing right: white body and wings with black tips, black head, neck and curved bill. fl -1..1 is the wingbeat.
+// a sacred ibis in flight, facing right
 function egypt_flyIbis(c, x, y, s, fl, K) {
-  // a wing seen from the side: a long pointed blade from the shoulder, up or down with the beat, black at the tip
   var wing = function (dx, up, col, tip) { var tx = x + (-0.1 + dx) * s - Math.abs(up) * 0.06 * s, ty = y - up * 0.66 * s, mx = x + (0.02 + dx) * s, my = y - up * 0.34 * s;
     c.fillStyle = col; c.beginPath(); c.moveTo(x + (0.15 + dx) * s, y - 0.02 * s); c.quadraticCurveTo(mx + 0.1 * s, my, tx, ty); c.quadraticCurveTo(mx - 0.12 * s, my + up * 0.02 * s, x + (-0.12 + dx) * s, y); c.closePath(); c.fill();
     c.fillStyle = tip; c.beginPath(); var a1 = [tx + (mx + 0.1 * s - tx) * 0.35, ty + (my - ty) * 0.35], a2 = [tx + (mx - 0.12 * s - tx) * 0.3, ty + (my - ty) * 0.3]; c.moveTo(a1[0], a1[1]); c.lineTo(tx, ty); c.lineTo(a2[0], a2[1]); c.closePath(); c.fill(); };
@@ -24,10 +17,10 @@ function egypt_flyIbis(c, x, y, s, fl, K) {
   wing(-0.02, fl, K.ibis, K.ibisDark);
 }
 
-// a national flag waving from its pole at (F.x, F.y): bands (vertical when vert) in cols, an optional emblem drawn by em
+// a national flag waving from its pole at (F.x, F.y)
 function egypt_flag(c, F, t, vert, cols, em, dk) { var top = [], bot = [], k, u, wv = function (u2) { return Math.sin(u2 * Math.PI * 1.6 - t * 2.2) * F.h * 0.08 * u2; };
   var pt = function (u2, v2) { return [F.x + F.w * u2, F.y + F.h * v2 + wv(u2)]; }, piece = function (u0, u1, v0, v1) { var p = [], q; for (q = 0; q <= 8; q++) p.push(pt(u0 + (u1 - u0) * q / 8, v0)); for (q = 8; q >= 0; q--) p.push(pt(u0 + (u1 - u0) * q / 8, v1)); c.beginPath(); p.forEach(function (pp, i) { if (i) c.lineTo(pp[0], pp[1]); else c.moveTo(pp[0], pp[1]); }); c.closePath(); c.fill(); };
-  var dim = function (h) { if (!dk) return h; var n = parseInt(h.slice(1), 16); return 'rgb(' + Math.round((n >> 16) * 0.8) + ',' + Math.round(((n >> 8) & 255) * 0.8) + ',' + Math.round((n & 255) * 0.8) + ')'; }; // (solid at night too, just a little dimmer)
+  var dim = function (h) { if (!dk) return h; var n = parseInt(h.slice(1), 16); return 'rgb(' + Math.round((n >> 16) * 0.8) + ',' + Math.round(((n >> 8) & 255) * 0.8) + ',' + Math.round((n & 255) * 0.8) + ')'; };
   c.save(); cols.forEach(function (col, i) { c.fillStyle = dim(col); var a0 = i / cols.length, a1 = (i + 1) / cols.length + 0.004; if (vert) piece(a0, a1, 0, 1); else piece(0, 1, a0, a1); });
   if (em) { var m = pt(0.5, 0.5); em(c, m[0], m[1], F.h); } c.restore(); }
 ENGINES.egypt = function (A, v, dk) {
@@ -36,18 +29,16 @@ ENGINES.egypt = function (A, v, dk) {
     ibis: '#DCDAEE', ibisFar: '#B4B0CE', ibisDark: '#0E0A14', camel: '#1C1636', pigeon: '#4A4868', star: '255,248,232', sun: ['#FFFDF2', '#ECE4CC'], glowC: '225,228,255', path: 'rgba(255,240,205,'} :
     {palmB: '#4C7838', palmF: '#6A9846', dates: '#B4602A', boots: '#7E5636', stem: '#689A42', umb: '#88B252', bract: '#5A8A3A', hull: '#5A3A26', stripe: '#2F6FA8', sail: '#FDF6E8', seam: 'rgba(170,140,100,0.45)', spar: '#43301E',
     ibis: '#FFFFFF', ibisFar: '#E8E2DA', ibisDark: '#1E1A1E', camel: 'rgba(132,76,50,0.82)', pigeon: '#8C8AA2', star: '255,248,232', sun: ['#FFFDF0', '#FFE09A'], glowC: '255,214,140', path: 'rgba(255,242,206,'};
-  // the sky things (sun, stars, caravan) stay behind every pyramid and the Sphinx: one even-odd clip per outline
   var outs = A.sil.map(function (p) { return new Path2D(rect(-60, -60, W + 120, H + 120) + poly(p)); });
   var skyClip = function (c) { outs.forEach(function (q) { c.clip(q, 'evenodd'); }); };
   var kuFaces = new Path2D(ku.left + ku.right), faFaces = new Path2D(A.fa.left + A.fa.right), meFaces = new Path2D(A.me.left + A.me.right);
   var capL = new Path2D(poly([ku.at(ku.L, 0.9), ku.at(ku.F, 0.9), ku.A])), capR = new Path2D(poly([ku.at(ku.F, 0.9), ku.at(ku.R, 0.9), ku.A]));
   var boats = A.boats.map(function (b, k) { return {x: b.x, y: b.y, L: b.L, dir: b.dir, v: b.v * U, ph: k * 2.3}; })
-    .sort(function (p, q) { return p.y - q.y; }); // (drawn far to near, so the far one passes behind the near one)
+    .sort(function (p, q) { return p.y - q.y; });
   var waders = A.ibis.map(function (b, k) { return {x0: b.x, x: b.x, y: b.y, s: b.s, dir: b.dir, ph: k * 1.9 + 0.5, a: 1}; });
   var camels = []; for (i = 0; i < 4; i++) camels.push({off: i * 27 * U, s: 20 * U * (1 - i * 0.04) * (ph ? 0.8 : 1)});
   var cx = W * 0.1, twk = [], flock = [], shoot = null, nextShoot = 6;
   for (i = 0; i < (ph ? 16 : 30); i++) twk.push({x: hash(i + 3) * W, y: hash(i + 7) * (A.hz - H * 0.12), r: 1.4 + hash(i + 9) * 1.8, ph: hash(i + 11) * 6.28, sp: 1 + hash(i + 13) * 2});
-  // sun position: in the loop it rests above and right of the Great Pyramid; the moment slides it onto the tip and back
   function sunPos(t) { var T = t - T0, go = egypt_ease((T - 0.1) / 2.0), back = egypt_ease((T - 12.5) / 3.5), k = go * (1 - back); return [A.sun[0] + (ku.A[0] - A.sun[0]) * k, A.sun[1] + (ku.A[1] - A.sun[1]) * k - Math.sin(k * Math.PI) * H * 0.025, k]; }
   function drawBoat(c, b, t, f, refl) { var fill = 0.5 + 0.5 * Math.sin(t * 0.55 * f.s + b.ph), y = b.y + Math.sin(t * 1.3 + b.ph) * 0.8 * f.a, P = egypt_boat(b.x, y, b.L, fill, b.dir);
     c.fillStyle = K.sail; c.fill(new Path2D(P.sail)); c.strokeStyle = K.seam; c.lineWidth = 0.8; c.stroke(new Path2D(P.seams));
@@ -68,7 +59,7 @@ ENGINES.egypt = function (A, v, dk) {
     },
     draw: function (ca, cb, t, f) {
       var tt = t * f.s, T = t - T0, S = sunPos(t), al = S[2], hz = A.hz, ry = A.ry, by = A.by, sr = A.sunR;
-      // ---- the sky behind the pyramids: twinkling stars, a shooting star, the sun or moon, the caravan on the far dunes
+      // -- the sky behind the pyramids
       ca.save(); skyClip(ca);
       if (dk) { ca.save(); ca.globalCompositeOperation = 'lighter'; twk.forEach(function (s) { var a = 0.35 + 0.65 * Math.pow(0.5 + 0.5 * Math.sin(tt * s.sp + s.ph), 3); ca.fillStyle = 'rgba(' + K.star + ',' + a * 0.9 + ')'; ca.beginPath(); ca.moveTo(s.x, s.y - s.r * 2); ca.quadraticCurveTo(s.x, s.y, s.x + s.r * 2, s.y); ca.quadraticCurveTo(s.x, s.y, s.x, s.y + s.r * 2); ca.quadraticCurveTo(s.x, s.y, s.x - s.r * 2, s.y); ca.quadraticCurveTo(s.x, s.y, s.x, s.y - s.r * 2); ca.fill(); });
         if (shoot) { var u = (t - shoot.t0) / 1.1, L = H * 0.22, hx = shoot.x + Math.cos(shoot.a) * L * u, hy = shoot.y + Math.sin(shoot.a) * L * u, g = ca.createLinearGradient(hx, hy, hx - Math.cos(shoot.a) * L * 0.35, hy - Math.sin(shoot.a) * L * 0.35); g.addColorStop(0, 'rgba(255,250,235,' + (1 - u) + ')'); g.addColorStop(1, 'rgba(255,250,235,0)'); ca.strokeStyle = g; ca.lineWidth = 1.6; ca.beginPath(); ca.moveTo(hx, hy); ca.lineTo(hx - Math.cos(shoot.a) * L * 0.35, hy - Math.sin(shoot.a) * L * 0.35); ca.stroke(); }
@@ -79,12 +70,12 @@ ENGINES.egypt = function (A, v, dk) {
       if (dk) { ca.fillStyle = 'rgba(190,175,140,0.22)'; [[-0.3, -0.2, 0.24], [0.28, 0.22, 0.2], [0.1, -0.42, 0.13], [-0.18, 0.4, 0.15]].forEach(function (q) { ca.beginPath(); ca.arc(S[0] + q[0] * sr, S[1] + q[1] * sr, q[2] * sr, 0, 7); ca.fill(); }); }
       ca.fillStyle = K.camel; camels.forEach(function (c, k) { var x = cx - c.off, y = egypt_yOn(A.ridge, x) + 2; if (x < -60 || x > W + 60) return; ca.fill(new Path2D(egypt_camel(x, y, c.s, x / (c.s * 0.32) + k))); });
       ca.restore();
-      // ---- heat shimmer over the sand (day)
+      // -- heat shimmer over the sand (day)
       if (!dk) { ca.save(); ca.lineWidth = 1.3; ca.lineCap = 'round';
         for (i = 0; i < 7; i++) { var yy = hz - H * 0.034 + i * H * 0.006, q = i * 1.7; ca.setLineDash([30 + i * 4, 50 + i * 7]); ca.lineDashOffset = -tt * (14 + i * 3) + i * 37; ca.strokeStyle = 'rgba(255,250,236,' + (0.1 + 0.07 * Math.sin(tt * 0.9 + q)) * f.a + ')'; ca.beginPath();
           for (var x = -10; x <= W + 10; x += 12) { var y2 = yy + Math.sin(x / 22 + tt * 2.2 + q) * 1.4 + Math.sin(x / 57 - tt * 1.3) * 1; if (x === -10) ca.moveTo(x, y2); else ca.lineTo(x, y2); } ca.stroke(); }
         ca.restore(); }
-      // ---- the moment on the pyramids: the gold capstone, its flash and the light sweeping down the faces
+      // -- the moment on the pyramids
       var gold = egypt_env(T, 1.6, 2.2, 11, 14), flash = egypt_env(T, 1.9, 2.3, 2.7, 5);
       if (gold > 0) { ca.save(); ca.globalAlpha = gold; var gg = ca.createLinearGradient(ku.A[0], ku.A[1], ku.A[0], ku.A[1] + kh * 0.1); gg.addColorStop(0, '#FFF6C0'); gg.addColorStop(1, '#F2B62E'); ca.fillStyle = gg; ca.fill(capR); ca.fillStyle = '#D89220'; ca.fill(capL); ca.restore(); }
       [[kuFaces, 2.3, 0], [faFaces, 2.8, 1], [meFaces, 3.2, 2]].forEach(function (q, k) { var u = (T - q[1]) / 3.4; if (u <= 0 || u >= 1.25) return; var P = k === 0 ? ku : k === 1 ? A.fa : A.me, top = P.A[1], bot = P.by + P.h * 0.08, yc = top + (bot - top) * egypt_ease(u / 1.1) * 1.1, hb = P.h * 0.26, a = Math.min(1, u * 5, (1.25 - u) * 3);
@@ -92,14 +83,14 @@ ENGINES.egypt = function (A, v, dk) {
       if (flash > 0) { ca.save(); ca.globalCompositeOperation = 'lighter'; egypt_glow(ca, ku.A[0], ku.A[1], kh * 0.7 * (0.6 + flash * 0.6), '255,220,120', 0.8 * flash); ca.translate(ku.A[0], ku.A[1]); ca.rotate(tt * 0.15);
         for (i = 0; i < 8; i++) { ca.rotate(Math.PI / 4); var rl = kh * (i % 2 ? 0.45 : 0.8) * (0.5 + flash * 0.5), rg = ca.createLinearGradient(0, 0, rl, 0); rg.addColorStop(0, 'rgba(255,240,190,' + 0.8 * flash + ')'); rg.addColorStop(1, 'rgba(255,240,190,0)'); ca.fillStyle = rg; ca.beginPath(); ca.moveTo(0, -kh * 0.012); ca.lineTo(rl, 0); ca.lineTo(0, kh * 0.012); ca.fill(); }
         ca.restore(); }
-      // ---- the river: the far bank's reflection, the sun's (moon's) path, the feluccas and the wading ibises with their reflections
+      // -- the river: the far bank's reflection, the sun's (moon's) path
       var rg2 = ca.createLinearGradient(0, ry, 0, ry + (by - ry) * 0.35); rg2.addColorStop(0, dk ? 'rgba(8,16,22,0.4)' : 'rgba(70,100,50,0.28)'); rg2.addColorStop(1, dk ? 'rgba(8,16,22,0)' : 'rgba(70,100,50,0)'); ca.fillStyle = rg2; ca.fillRect(0, ry, W, (by - ry) * 0.35);
       ca.save(); ca.globalCompositeOperation = dk ? 'lighter' : 'source-over'; var nR = ph ? 11 : 15;
       for (i = 0; i < nR; i++) { var y3 = ry + 5 + i * (by - ry) / nR, w3 = sr * (0.6 + i * 0.13) * (0.6 + 0.4 * Math.sin(tt * 1.4 + i * 1.9)), x3 = S[0] + Math.sin(tt * 0.8 + i) * 5; ca.fillStyle = K.path + ((dk ? 0.3 : 0.55) - i * 0.015) * (1 + al * 0.4) + ')'; ca.fillRect(x3 - w3 / 2, y3, w3, 2.2); }
       ca.restore();
       boats.forEach(function (b) { ca.save(); ca.beginPath(); ca.rect(-20, b.y, W + 40, H); ca.clip(); ca.translate(0, b.y); ca.scale(1, -0.6); ca.translate(0, -b.y); ca.globalAlpha = dk ? 0.28 : 0.2; drawBoat(ca, b, tt, f, true); ca.restore(); drawBoat(ca, b, tt, f, false); });
       waders.forEach(function (w) { if (w.a <= 0) return; ca.save(); ca.globalAlpha = w.a * 0.22; ca.translate(0, w.y); ca.scale(1, -0.55); ca.translate(0, -w.y); drawWader(ca, w, tt, f); ca.restore(); ca.save(); ca.globalAlpha = w.a; drawWader(ca, w, tt, f); ca.restore(); });
-      // ---- in front of everything: papyrus, palms, pigeons, the night windows, the rising ibises
+      // -- in front of everything
       if (A.egflag) egypt_flag(cb, A.egflag, tt, false, ['#CE1126', '#FFFFFF', '#000000'], function (c, x, y, h) { c.fillStyle = '#C09300'; c.beginPath(); c.moveTo(x, y - h * 0.13); c.lineTo(x + h * 0.1, y + h * 0.1); c.lineTo(x - h * 0.1, y + h * 0.1); c.closePath(); c.fill(); }, dk);
       A.papy.forEach(function (p) { var sw = (Math.sin(tt * 1.1 + p.ph) * 2.6 + Math.sin(tt * 0.43 + p.ph * 2) * 1.8) * U * f.a, tx = p.x + p.lean + sw, ty = p.y - p.h + Math.abs(sw) * 0.1;
         cb.fillStyle = K.stem; cb.fill(new Path2D(egypt_limb(p.x, p.y, tx, ty, 2.4 * U, 1.3 * U, p.lean * 0.2 + sw * 0.3)));

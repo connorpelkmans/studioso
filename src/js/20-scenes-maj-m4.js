@@ -1,10 +1,10 @@
 /* ===== module: 20-scenes-maj-m4.js ===== */
-/* Study Fields themes, batch m4: concert, track, math, chem */
+/* Study Fields themes, batch m4 */
 (() => {
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const NOTES = ["#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"];
 
-  /* ---------- Concert Hall (Music) ---------- */
+  /* Concert Hall (Music) */
   MAJ_THEMES.push({
     skin: {id: "concert", name: "Concert Hall",
       light: ["#F7EFE6", "rgba(168,48,62,.10)", "#FFFCF8", "#2E1418", "#74585A", "#EBDCD0", "#F3E6DC", "#FDF9F5", "#A8303E", "#C05A64", "#FFFFFF", "#6E1C28", "#6E1C28", "#F2D6D8", "#F5D9A0"],
@@ -18,7 +18,7 @@
     tag: "A concert hall where a conductor leads the show under rainbow stage lights, fairy lights and a twirling mirror ball"
   });
 
-  /* ---------- Track and Field (Kinesiology) ---------- */
+  /* Track and Field (Kinesiology) */
   MAJ_THEMES.push({
     skin: {id: "track", name: "Track and Field",
       light: ["#FBF2E8", "rgba(178,74,42,.10)", "#FFFCF7", "#2E1E16", "#76604E", "#EEDCCB", "#F5E8DA", "#FFFBF5", "#B24A2A", "#C8704E", "#FFFFFF", "#6E2C16", "#8E3E26", "#F6D8C8", "#FFE0A0"],
@@ -42,7 +42,7 @@
     tag: "A golden-hour stadium with a running track, a marked football and soccer field, a high jump and a big scoreboard"
   });
 
-  /* ---------- Infinite Grid (Mathematics) ---------- */
+  /* Infinite Grid (Mathematics) */
   MAJ_THEMES.push({
     skin: {id: "math", name: "Infinite Grid",
       light: ["#F6F1FB", "rgba(106,79,192,.10)", "#FFFFFF", "#241A3E", "#675C80", "#E2D9F2", "#EDE6F7", "#FBF9FE", "#6A4FC0", "#8C76D0", "#FFFFFF", "#44308A", "#4E3C8E", "#DED2F6", "#FFE3A8"],
@@ -60,7 +60,7 @@
     tag: "A candy geometry world where smiling shapes bounce, polygon kites fly and rainbow dice roll by"
   });
 
-  /* ---------- Chem Lab (Chemistry) ---------- */
+  /* Chem Lab (Chemistry) */
   MAJ_THEMES.push({
     skin: {id: "chem", name: "Chem Lab",
       light: ["#EFF7F4", "rgba(46,138,128,.10)", "#FFFFFF", "#16302C", "#526A66", "#D4E6E1", "#E3EFEB", "#F8FCFB", "#2E8A80", "#55A39A", "#FFFFFF", "#1C5A52", "#256058", "#CDEBE5", "#FFD9E8"],

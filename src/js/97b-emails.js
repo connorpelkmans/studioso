@@ -1,18 +1,13 @@
 /* ===== module: 97b-emails.js ===== */
-/* Emails (Courses, between Grades and Files): your school's messages, read and answered from Studyboard with your school sign-in.
-   Works in the desktop app with Canvas (its Inbox is reachable with your sign-in). Brightspace and Blackboard don't offer a
-   mail API to apps, so they can't be read here. Nothing is sent without a tap on Send. */
+/* Emails (Courses, between Grades and Files) */
 (() => {
   const E = ui.em = ui.em || {list: null, loading: false, err: "", open: null, thread: null, tLoading: false, draft: "", ask: "", sending: false, drafting: false};
   const canvas = () => { try { const L = window.SBLMS && SBLMS.canvas; const c = L && L.cfg(); return L && c && c.mode === "api" && c.host ? c : null; } catch (e) { return null; } };
   const hasDesk = () => !!(lmsBridge() && lmsBridge().mail);
-  // Two ways in: the desktop app, with your school sign-in (read and reply), and the Studyboard School Sync extension on the website
-  // (the latest messages, read only). Canvas access tokens are no longer used: Canvas's API policy says an app used by many people must
-  // not ask them to make a token and paste it in (it must use OAuth with a key from the school). A token an older version saved is
-  // erased from this device here, once.
+  // Two ways in: the desktop app, with your school sign-in (read and reply)
   const TK = "studyboard:cvmail", CV_SECRET = "canvas-mail";
   (async () => { try { localStorage.removeItem(TK); } catch (e) {} try { if (await DEVSECRET.get(CV_SECRET)) await DEVSECRET.remove(CV_SECRET); } catch (e) {} })();
-  // The Studyboard School Sync extension (website) also reads the Canvas Inbox: the latest conversations, kept on this device only (never synced), read-only
+  // The Studyboard School Sync extension (website) also reads the Canvas Inbox
   const GK = "studyboard:grabmail";
   const grabbed = () => { try { const g = JSON.parse(localStorage.getItem(GK) || "null"); return g && /^https:\/\/[^/?#@\s]+$/.test(String(g.host || "")) && Array.isArray(g.items) ? g : null; } catch (e) { return null; } };
   window.addEventListener("sb:grab-mail", e => { const d = e.detail || {}; try { localStorage.setItem(GK, JSON.stringify({host: d.host, at: Date.now(), items: (d.items || []).slice(0, 30)})); } catch (x) {} E.list = null; E.open = null; E.thread = null; E.err = ""; if (ui.tab === "emails") render(); });
@@ -61,7 +56,6 @@
   async function send(){
     const ta = $("#emDraft"); if (!via() || !E.open || E.sending) return;
     E.draft = ta ? ta.value : E.draft; const body = E.draft.trim(); if (!body) { toast("Write a reply first."); return; }
-    // The desktop app asks in its own window before anything is sent (lms.js), so only the website asks here
     if (via().kind !== "desk" && !(await askBox({title: "Send This Reply?", text: `It goes to ${(E.thread && E.thread.names.filter(n => n).join(", ")) || "them"} through your school's inbox.`, yes: "Send Reply"}))) return;
     E.sending = true; render();
     try { const r = await mailCall({op: "send", id: E.open, body}); if (r && r.ok) { E.draft = ""; E.aiDraft = false; E.ask = ""; toast("Reply sent"); E.sending = false; await openThread(E.open); return; } if (!(r && r.error === "cancelled")) toast(errText(r)); } catch (e) { toast(errText(null)); }
@@ -99,7 +93,7 @@
       ${note()}`;
   }
   VIEWS.emails = viewEmails;
-  // The Emails tab shows only once Canvas is connected: signed in (desktop), the extension, or a Canvas calendar link (its page then says how to bring the inbox in)
+  // The Emails tab shows only once Canvas is connected
   window.SBEMAIL = {available(){ try { const L = window.SBLMS && SBLMS.canvas; return !!(via() || (window.SBEXT && SBEXT.has("canvas")) || (L && L.cfg && L.connected(L.cfg()))); } catch (e) { return false; } }};
   hook("act", (act, el) => {
     switch (act) {

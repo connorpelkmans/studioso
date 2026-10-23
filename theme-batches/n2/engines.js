@@ -1,4 +1,4 @@
-// ---- batch n2 engines: mushrooms, sunflowers, nighttrain, ramen
+// -- batch n2 engines
 function n2_ease(u) { u = Math.max(0, Math.min(1, u)); return u * u * (3 - 2 * u); }
 function n2_env(T, a, b, c, d) { if (T < a || T > d) return 0; if (T < b) return n2_ease((T - a) / (b - a)); if (T <= c) return 1; return 1 - n2_ease((T - c) / (d - c)); }
 var n2_gc = null;
@@ -7,10 +7,10 @@ function n2_ctx() { return n2_gc || (n2_gc = document.createElement('canvas').ge
 function n2_rg(col, mid) { var g = n2_ctx().createRadialGradient(0, 0, 0, 0, 0, 1); g.addColorStop(0, col); if (mid) g.addColorStop(mid[0], col.replace(/[\d.]+\)$/, mid[1] + ')')); g.addColorStop(1, col.replace(/[\d.]+\)$/, '0)')); return g; }
 function n2_dot(c, g, x, y, r, a) { if (a <= 0.003 || r <= 0) return; c.save(); c.globalAlpha = Math.min(1, a); c.translate(x, y); c.scale(r, r); c.fillStyle = g; c.beginPath(); c.arc(0, 0, 1, 0, 7); c.fill(); c.restore(); }
 function n2_blink(t, seed) { var u = (t * 0.29 + seed * 3.7) % 4.6; return u < 0.13 ? Math.abs(u - 0.065) / 0.065 : 1; }
-// an offscreen canvas of w x h (scene units) drawn by fn(ctx) with 0,0 at the top-left, at k pixels per unit
+// an offscreen canvas of w x h (scene units) drawn by fn(ctx) with 0,0 at the top-left
 function n2_sprite(w, h, k, fn) { var cv = document.createElement('canvas'); cv.width = Math.max(1, Math.ceil(w * k)); cv.height = Math.max(1, Math.ceil(h * k)); var o = cv.getContext('2d'); o.scale(k, k); fn(o); cv.uw = w; cv.uh = h; return cv; }
 var n2_INK = '#3A2A3A', n2_BLUSH = 'rgba(255,120,150,0.5)';
-// kawaii face centred at x,y with size r. mode 0 open (blinks), 1 sleeping, 2 happy
+// kawaii face centred at x,y with size r
 function n2_face(c, x, y, r, mode, t, seed, ink) {
   var k = ink || n2_INK, g = r * 0.34, er = r * 0.1;
   c.fillStyle = k; c.strokeStyle = k; c.lineCap = 'round'; c.lineWidth = Math.max(0.8, r * 0.07);
@@ -24,8 +24,7 @@ function n2_face(c, x, y, r, mode, t, seed, ink) {
 function n2_note(c, x, y, s, col) { c.save(); c.translate(x, y); c.scale(s, s); c.fillStyle = col; c.strokeStyle = col; c.lineWidth = 1.6; c.beginPath(); c.ellipse(0, 0, 3.4, 2.5, -0.4, 0, 7); c.fill(); c.beginPath(); c.moveTo(3, -1); c.lineTo(3, -13); c.quadraticCurveTo(7, -10, 8, -6); c.stroke(); c.restore(); }
 function n2_star(c, x, y, r) { c.beginPath(); c.moveTo(x, y - r); c.quadraticCurveTo(x, y, x + r, y); c.quadraticCurveTo(x, y, x, y + r); c.quadraticCurveTo(x, y, x - r, y); c.quadraticCurveTo(x, y, x, y - r); c.fill(); }
 
-// ---------- Mushroom Hollow: caps breathe, spores drift through the light, a fern uncurls, a snail crosses the log.
-// Night: the mushrooms glow blue and teal. Moment: the fairy ring lights up one by one like a xylophone, each puffing sparkles.
+// Mushroom Hollow
 ENGINES.mushrooms = function (A, v, dk) {
   var W = v.bw, H = v.bh, ph = !v.desk, ctx = n2_ctx();
   var CAP = dk ? [['#B8F6FF', '#5FD6E8', '#2E8FB0'], ['#C8D8FF', '#7FA6FF', '#4A5AC0'], ['#C8FFE8', '#6FE8C0', '#2E9A88']] : [['#FF9E86', '#E45A48', '#B83A34'], ['#F2C79A', '#C98B5A', '#94603A'], ['#E8D2FF', '#B48AD8', '#8A5AB0']];
@@ -41,7 +40,6 @@ ENGINES.mushrooms = function (A, v, dk) {
     return {x: m.x, y: m.y, h: m.h, r: m.r, top: P.top, ry: ry, ring: m.ring, face: m.face, ph: i * 1.37, stem: new Path2D(n2_cw(P.stem)), under: new Path2D(P.under), cap: new Path2D(P.cap), spots: P.spots ? new Path2D(P.spots) : null, shine: new Path2D(P.shine), g: g, sg: sg, base: ring ? RC[m.ring] : null, glow: ring ? n2_rg(rgba(RC[m.ring], dk ? 0.6 : 0.55), [0.35, dk ? 0.25 : 0.2]) : m.col === 1 ? glowB : glowT, lit: 0};
   });
   var ringOrder = sh.filter(function (m) { return m.ring != null; }).sort(function (p, q) { return p.ring - q.ring; });
-  // spores
   var spores = [], NS = ph ? 34 : 70;
   function spore(fresh) { var b = A.beams[Math.floor(Math.random() * A.beams.length)], y = fresh ? Math.random() * H : A.gy + Math.random() * (H - A.gy) * 0.6, x = b[0] + (y + 40) / (A.gy + 50) * b[2] + (Math.random() - 0.5) * b[1] * 1.6;
     if (dk || Math.random() < 0.35) { var m = sh[Math.floor(Math.random() * sh.length)]; x = m.x + m.top[0] + (Math.random() - 0.5) * m.r; y = m.y + m.top[1] - m.r * 0.3; if (fresh) y -= Math.random() * H * 0.4; }
@@ -72,23 +70,18 @@ ENGINES.mushrooms = function (A, v, dk) {
     },
     draw: function (ca, cb, t, f) {
       var tt = t * f.s, i, T = mom ? t - mom.t0 : -1, all = mom ? n2_env(T, 3.0, 3.6, 6.5, 8.5) : 0;
-      // spores drifting in the light (behind the front layer)
       ca.save(); if (dk) ca.globalCompositeOperation = 'lighter';
       spores.forEach(function (p, k) { var tw = 0.55 + 0.45 * Math.sin(tt * 1.7 + p.ph); n2_dot(ca, sporeG, p.x, p.y, p.r * (dk ? 5 : 4.5), p.a * tw * (dk ? 0.9 : 0.9)); });
       ca.restore();
-      // the snail on the log
       var su = Math.max(0, Math.min(1, snail.u)), sx = L.x0 + (L.x1 - L.x0) * (0.08 + su * 0.84), sy = L.y0 + (L.y1 - L.y0) * (0.08 + su * 0.84) - L.th * 0.45;
       ca.save(); ca.globalAlpha = Math.min(1, (snail.u + 0.05) * 10, (1.08 - snail.u) * 10); drawSnail(ca, tt, sx, sy, ph ? 0.75 : 1.05, mom); ca.restore();
-      // the uncurling fiddlehead
       var cu = 0.5 + 0.5 * Math.cos(tt * 2 * Math.PI / 30), sway = Math.sin(tt * 0.8) * 0.04;
       cb.fillStyle = dk ? '#2A6A5E' : '#6DB35E'; cb.fill(new Path2D(n2_frond(F.x, F.y, F.len, -1.62 + sway, 0.3, 0.15 + cu * 0.85, ph ? 2.6 : 3.6)));
       cb.fillStyle = dk ? '#3A8A74' : '#8CCB6A'; cb.fill(new Path2D(n2_frond(F.x + 8, F.y + 4, F.len * 0.75, -1.3 + sway, 0.5, 0.3 + (1 - cu) * 0.6, ph ? 2.2 : 3)));
-      // the fairy ring lights up on the ground during the moment
       if (mom) { var ga = Math.max(all, ringOrder.reduce(function (a, m) { return a + (m.fired ? 1 : 0); }, 0) / ringOrder.length * 0.6);
         if (ga > 0.01) { cb.save(); cb.globalCompositeOperation = dk ? 'lighter' : 'source-over'; cb.lineCap = 'round';
           cb.strokeStyle = dk ? 'rgba(170,255,240,' + (0.35 * ga) + ')' : 'rgba(255,236,150,' + (0.55 * ga) + ')'; cb.lineWidth = (ph ? 9 : 16); cb.beginPath(); cb.ellipse(RG.x, RG.y + 2, RG.rx, RG.ry * 1.05, 0, 0, 7); cb.stroke();
           cb.strokeStyle = 'rgba(255,255,255,' + (0.7 * ga) + ')'; cb.lineWidth = ph ? 2 : 3; cb.setLineDash([2, ph ? 9 : 14]); cb.lineDashOffset = -tt * 30; cb.beginPath(); cb.ellipse(RG.x, RG.y + 2, RG.rx, RG.ry * 1.05, 0, 0, 7); cb.stroke(); cb.setLineDash([]); cb.restore(); } }
-      // mushrooms
       sh.forEach(function (m, k) {
         cb.fillStyle = shadC; cb.beginPath(); cb.ellipse(m.x + m.top[0] * 0.25, m.y + 1, m.r * 0.62, m.r * 0.13, 0, 0, 7); cb.fill();
         var b = Math.sin(tt * 0.9 + m.ph), hit = m.hit && t - m.hit < 0.6 ? Math.sin((t - m.hit) / 0.6 * Math.PI) : 0, lit = mom && m.ring != null ? Math.max(m.fired ? n2_env(t - m.hit, 0, 0.1, 0.5, 2.2) * 0.85 + all * 0.75 : 0, all * 0.75) : 0;
@@ -105,17 +98,14 @@ ENGINES.mushrooms = function (A, v, dk) {
         if (m.face) { var fr = m.r * (m.face === 3 ? 0.55 : 0.42), fy = -m.h * (m.face === 3 ? 0.5 : 0.42), fx = m.top[0] * 0.45; n2_face(cb, fx, fy, fr, mom ? 2 : m.face === 1 ? 0 : (m.face === 2 ? 0 : 1), tt, k, dk ? '#2A2A4A' : n2_INK); }
         cb.restore();
       });
-      // sparkle puffs and notes from the fairy ring
       puffs.forEach(function (p) { var a = Math.min(1, p.life); cb.fillStyle = rgba(p.c, a); n2_star(cb, p.x, p.y, p.r * 1.6); cb.fillStyle = 'rgba(255,255,255,' + a * 0.8 + ')'; cb.beginPath(); cb.arc(p.x, p.y, p.r * 0.45, 0, 7); cb.fill(); });
       notes.forEach(function (n) { cb.globalAlpha = Math.min(1, n.life); n2_note(cb, n.x, n.y, ph ? 0.9 : 1.2, mix(n.c, dk ? '#FFFFFF' : '#3A2A4A', 0.35)); cb.globalAlpha = 1; });
-      // the big fern fronds at the bottom corners are the nearest things in the glade
       if (fernP) { cb.fillStyle = A.fernC; cb.fill(fernP); }
     },
     finish: function (t) { if (!mom) mom = {t0: t}; }
   };
 };
-// ---------- Sunflower Field: the sun crosses the sky and every head follows it, bees drift between flowers, cloud shadows slide over
-// the field. Night: the heads droop sleepily, fireflies and the barn windows glow. Moment: every flower turns to face you, nods, and tosses petals.
+// Sunflower Field
 ENGINES.sunflowers = function (A, v, dk) {
   var W = v.bw, H = v.bh, ph = !v.desk, S = ph ? 0.62 : 1, R0 = 48, i;
   var PET = dk ? ['#F2D27A', '#C89A36', '#9A6E24'] : ['#FFE680', '#FFC21F', '#E89A10'], DISC = dk ? ['#5A3A24', '#2E1C14'] : ['#8A5428', '#4A2A14'];
@@ -161,20 +151,16 @@ ENGINES.sunflowers = function (A, v, dk) {
     },
     draw: function (ca, cb, t, f) {
       var tt = t * f.s, T = mom ? t - mom.t0 : -1, J = mom ? n2_env(T, 0, 0.4, 5, 6.5) : 0;
-      // sky: the sun with its rays (day) or a sleepy moon (night); clouds
       if (!dk) { n2_dot(ca, sunG, sun.x, sun.y, 120 * S, 0.9); ca.save(); ca.translate(sun.x, sun.y); ca.rotate(tt * 0.05); ca.fillStyle = 'rgba(255,214,90,0.55)'; for (i = 0; i < 12; i++) { ca.rotate(Math.PI / 6); ca.beginPath(); ca.moveTo(42 * S, -6 * S); ca.lineTo(62 * S, 0); ca.lineTo(42 * S, 6 * S); ca.fill(); } ca.restore();
         var sg = ca.createRadialGradient(sun.x - 10 * S, sun.y - 10 * S, 4, sun.x, sun.y, 36 * S); sg.addColorStop(0, '#FFF6C2'); sg.addColorStop(1, '#FFC93A'); ca.fillStyle = sg; ca.beginPath(); ca.arc(sun.x, sun.y, 34 * S, 0, 7); ca.fill(); n2_face(ca, sun.x, sun.y + 2 * S, 30 * S, J > 0.2 ? 2 : 2, tt, 1); }
       else { var mx = W * (ph ? 0.78 : 0.66), my = H * 0.15, mr = 26 * S; n2_dot(ca, moonG, mx, my, mr * 3.2, 1); ca.fillStyle = '#FFF4D2'; ca.beginPath(); ca.arc(mx, my, mr, Math.PI * 0.35, Math.PI * 1.65); ca.arc(mx + mr * 0.55, my - mr * 0.2, mr * 0.82, Math.PI * 1.45, Math.PI * 0.62, true); ca.fill(); n2_face(ca, mx - mr * 0.42, my + 2, mr * 0.5, J > 0.2 ? 2 : 1, tt, 2);
         ca.fillStyle = '#FFF4DA'; for (i = 0; i < (ph ? 10 : 18); i++) { var sx = hash(i * 3.1) * W, sy = hash(i * 7.7) * H * 0.4, a = 0.5 + 0.5 * Math.sin(tt * (0.8 + hash(i) * 1.5) + i); ca.globalAlpha = 0.3 + 0.7 * a; n2_star(ca, sx, sy, 2 + a * 2.5); } ca.globalAlpha = 1; }
       clouds.forEach(function (c) { cloud(ca, c.x, c.y, c.s * S); });
-      // barn windows glow at night
       if (dk) { cb.save(); cb.globalCompositeOperation = 'lighter'; A.barn.wins.forEach(function (w, k) { n2_dot(cb, winG, w[0], w[1], 26 * A.barn.s, 0.8 + 0.2 * flick(tt * 0.3, k)); }); cb.restore(); }
       var stemC = dk ? '#2C5A3A' : '#4E8E34', leafC = dk ? '#2A5236' : '#5A9E3A';
-      // the sunflowers, back rows first (from the cache)
       if (t - backAt > (mom ? 0 : 0.4) || t < backAt) { backAt = t; var bo = backCv.getContext('2d'); bo.setTransform(1, 0, 0, 1, 0, 0); bo.clearRect(0, 0, backCv.width, backCv.height); bo.setTransform(BK, 0, 0, BK, 0, -BY0 * BK); back.forEach(function (q) { flower(bo, q, q.k, tt, t); }); }
       cb.drawImage(backCv, 0, BY0, W, BY1 - BY0);
       front2.forEach(function (q) { flower(cb, q, q.k, tt, t); });
-      // cloud shadows over the field (day), fireflies (night)
       function flower(cb, q, k, tt, t) {
         var r = q.r, sc = r / R0, hx = q.x + Math.sin(tt * 0.7 + q.ph) * r * 0.08, hy = q.y - q.h + (q.droop || 0) * r * 0.7;
         cb.strokeStyle = stemC; cb.lineWidth = Math.max(1, r * 0.15); cb.lineCap = 'round'; cb.beginPath(); cb.moveTo(q.x, q.y + r * 1.5); cb.quadraticCurveTo(q.x, hy + r * 1.2, hx, hy + r * 0.2); cb.stroke();
@@ -198,38 +184,28 @@ ENGINES.sunflowers = function (A, v, dk) {
 UIC.sunflowers = {L: ['#4E7A2E', '#33531C', 'rgba(255,253,244,0.86)', '#2A2410', '#6A6248', '#C2561A', '#C2561A', '#E08A1A', '#FFFFFF'], D: ['#2F2F5E', '#1B1E40', 'rgba(24,26,56,0.80)', '#F6F2E4', '#BAB4CC', '#F6C84A', '#F6C84A', '#FFE08A', '#1E1A0A']};
 UIC.mushrooms ={L: ['#6E5A3E', '#4A3C28', 'rgba(255,253,246,0.86)', '#2A2418', '#6E6450', '#B8432F', '#B8432F', '#D2643C', '#FFFFFF'], D: ['#22304A', '#121A2E', 'rgba(18,24,44,0.80)', '#ECF4FA', '#A6B6CC', '#6FE0EC', '#6FE0EC', '#9CC4FF', '#0E1A2A']};
 
-// ---------- Night Train: hills, trees, poles and towns slide past the window in layers, the carriage rocks, the table lamp and the blind pull sway.
-// Night: town lights stream by, the ceiling lamps glow and the moon keeps pace. Moment: a tunnel dims everything (the ceiling lamps come on), then the train runs out onto a long bridge over the sea at sunrise (moonrise).
+// Night Train: hills, trees, poles and towns slide past the window in layers
 ENGINES.nighttrain = function (A, v, dk) {
   var W = v.bw, H = v.bh, G = A.G, ph = G.ph, S = G.S, ww = G.x1 - G.x0, wh = G.y1 - G.y0, X = 0, mom = null, C = n2_trainCol(dk);
   var win = new Path2D(rrect(G.x0, G.y0, ww, wh, G.r));
   var LC = dk ? ['#2C3762', '#1E2848', '#16203A', '#101830'] : ['#A9C3DC', '#94C08A', '#72A866', '#4E8A4E'], LV = n2_trainLand(G), MC = dk ? ['#26305A', '#4A5488'] : ['#BCCFE6', '#F4F8FC'];
   var lampG = n2_rg(dk ? 'rgba(255,200,120,0.55)' : 'rgba(255,220,160,0.35)', [0.3, dk ? 0.3 : 0.18]), townG = n2_rg('rgba(255,200,120,0.9)', [0.25, 0.4]), sunG = n2_rg(dk ? 'rgba(255,240,200,0.5)' : 'rgba(255,230,170,0.85)', [0.3, 0.35]), tunG = n2_rg('rgba(255,170,80,0.9)', [0.2, 0.4]), ceilG = n2_rg('rgba(255,214,150,0.5)', [0.3, 0.22]);
-  // the books and a little vase on the fold-down table, painted once
   var tw = (G.tbl[1] - G.tbl[0]), props = n2_sprite(tw, 90 * S, 2, function (o) { o.translate(0, 90 * S); o.scale(S, S); var bx = 26;
     [['#5A7AB8', 60], ['#E0A040', 52], ['#B85A6A', 56]].forEach(function (b, k) { o.fillStyle = b[0]; o.fill(new Path2D(rrect(bx - 4 + k * 3, -4 - (k + 1) * 11, b[1], 10, 2))); o.fillStyle = 'rgba(255,255,255,0.7)'; o.fillRect(bx + 2 + k * 3, -4 - (k + 1) * 11 + 3, b[1] - 12, 1.6); });
-    // a ticket lying on the table
     var tx = bx + 84; o.save(); o.translate(tx, -5); o.rotate(-0.12); o.fillStyle = dk ? '#E8D8B8' : '#FFF4D8'; o.fill(new Path2D(rrect(0, -12, 40, 12, 2))); o.fillStyle = '#B8484C'; o.fillRect(4, -9, 12, 2.4); o.fillRect(4, -5, 22, 1.6); o.fillStyle = dk ? '#3E2830' : '#8A5434'; o.beginPath(); o.arc(34, -6, 2.2, 0, 7); o.fill(); o.restore();
     var vx = tw / S * 0.5 - 10; o.fillStyle = '#9AD0C8'; o.beginPath(); o.moveTo(vx - 7, -2); o.quadraticCurveTo(vx - 12, -18, vx - 4, -24); o.lineTo(vx + 4, -24); o.quadraticCurveTo(vx + 12, -18, vx + 7, -2); o.fill();
     o.strokeStyle = '#5E9A4E'; o.lineWidth = 2; o.beginPath(); o.moveTo(vx, -24); o.quadraticCurveTo(vx + 4, -40, vx - 2, -52); o.stroke(); o.fillStyle = '#FF9AB0'; for (var k = 0; k < 5; k++) { o.beginPath(); o.arc(vx - 2 + Math.cos(k * 1.256) * 4.5, -54 + Math.sin(k * 1.256) * 4.5, 3.6, 0, 7); o.fill(); } o.fillStyle = '#FFE08A'; o.beginPath(); o.arc(vx - 2, -54, 2.8, 0, 7); o.fill(); });
-  // the compartment's shading and small things, painted once over the flat scene: ceiling curve, wall light, seat velvet, suitcases, a route map, the carpet
   function shade(o, d, y0, y1, a, b) { var g = o.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, a); g.addColorStop(1, b); o.fillStyle = g; o.fill(new Path2D(d)); }
   var decor = n2_sprite(W, H, 2, function (o) {
-    // the curved ceiling: light along the middle of the curve, darker where it meets the wall
     shade(o, rect(-10, -10, W + 20, G.ceil + 8), 0, G.ceil, dk ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.7)', dk ? 'rgba(0,0,0,0)' : 'rgba(170,130,90,0.16)');
     shade(o, rect(-10, G.ceil + 3 * S, W + 20, 40 * S), G.ceil, G.ceil + 40 * S, dk ? 'rgba(0,0,0,0.3)' : 'rgba(120,80,40,0.14)', 'rgba(0,0,0,0)');
-    // the ceiling lamps: frosted glass domes under brass
     G.lights.forEach(function (lx) { var ly = G.ceil * 0.55; o.fillStyle = dk ? '#FFE6B8' : '#FFF8E8'; o.beginPath(); o.ellipse(lx, ly + 6 * S, 22 * S, 12 * S, 0, 0, Math.PI); o.fill(); o.fillStyle = 'rgba(255,255,255,0.6)'; o.beginPath(); o.ellipse(lx - 8 * S, ly + 9 * S, 6 * S, 3 * S, 0, 0, 7); o.fill(); });
-    // a soft shadow under the rack, and the wall warming toward the floor
     shade(o, rect(-10, G.rack + 24 * S, W + 20, 30 * S), G.rack + 24 * S, G.rack + 54 * S, dk ? 'rgba(0,0,0,0.25)' : 'rgba(110,70,30,0.12)', 'rgba(0,0,0,0)');
     shade(o, rect(-10, G.wain + 3 * S, W + 20, G.fl - G.wain), G.wain, G.fl, 'rgba(255,255,255,0.08)', 'rgba(0,0,0,0.18)');
-    // the sill's front edge
     o.fillStyle = 'rgba(0,0,0,0.18)'; o.fillRect(G.x0 - G.fr - 12 * S, G.y1 + G.fr + 3 * S, ww + 2 * G.fr + 24 * S, 3 * S);
-    // the carpet: a runner with a border and little diamonds
     var fy = G.fl; o.fillStyle = dk ? '#3A2436' : '#A85A5E'; o.fillRect(-10, fy + 10 * S, W + 20, H - fy); o.fillStyle = dk ? '#C8A050' : '#E8C070'; o.globalAlpha = dk ? 0.35 : 0.55; o.fillRect(-10, fy + 14 * S, W + 20, 2.5 * S);
     for (var x = 20 * S; x < W; x += 40 * S) { o.beginPath(); o.moveTo(x, fy + 24 * S); o.lineTo(x + 5 * S, fy + 30 * S); o.lineTo(x, fy + 36 * S); o.lineTo(x - 5 * S, fy + 30 * S); o.fill(); } o.globalAlpha = 1;
     shade(o, rect(-10, fy, W + 20, 12 * S), fy, fy + 12 * S, 'rgba(0,0,0,0.25)', 'rgba(0,0,0,0)');
-    // suitcases on the rack, each its own colour, with straps, corners and a travel sticker
     var CS = dk ? [['#8A5A48', '#5E3A30'], ['#4A6A8A', '#2E4660'], ['#8A4A60', '#5E2E40'], ['#6A7A5A', '#46543C']] : [['#C68A52', '#8A5A30'], ['#6A9AC8', '#40709A'], ['#D86A6A', '#A84448'], ['#9AB87A', '#6A8A50']];
     G.cases.forEach(function (q, i) { var c = n2_trainCase(G, q), col = CS[(i + q[3]) % 4], k2;
       o.fillStyle = col[0]; o.fill(new Path2D(c.d)); shade(o, rrect(c.x, c.y, c.w, c.h, q[3] === 3 ? c.w / 2 : 8 * S), c.y, c.y + c.h, 'rgba(255,255,255,0.18)', 'rgba(0,0,0,0.16)');
@@ -239,13 +215,11 @@ ENGINES.nighttrain = function (A, v, dk) {
       o.fillStyle = dk ? '#C8A050' : '#E8C060'; [[0, 0], [1, 0], [0, 1], [1, 1]].forEach(function (p) { o.beginPath(); o.arc(c.x + 4 * S + p[0] * (c.w - 8 * S), c.y + 4 * S + p[1] * (c.h - 8 * S), 3 * S, 0, 7); o.fill(); });
       k2 = c.x + c.w * 0.5; if (q[3] === 0) { o.fillStyle = dk ? '#E8D8C0' : '#FFF6E0'; o.beginPath(); o.arc(k2, c.y + c.h * 0.5, Math.min(c.h * 0.24, 13 * S), 0, 7); o.fill(); o.fillStyle = '#E8706A'; n2_star(o, k2, c.y + c.h * 0.5, Math.min(c.h * 0.16, 8 * S)); }
       else if (q[3] === 2) { o.save(); o.translate(k2, c.y + c.h * 0.5); o.rotate(-0.15); o.fillStyle = dk ? '#E8D8C0' : '#FFF6E0'; o.fillRect(-12 * S, -7 * S, 24 * S, 14 * S); o.fillStyle = '#7FB8D8'; o.fillRect(-9 * S, -4 * S, 18 * S, 4 * S); o.fillStyle = '#E8706A'; o.fillRect(-9 * S, 2 * S, 10 * S, 2 * S); o.restore(); } });
-    // a brass heater grille along the bottom of the wall, and a travel bag on the floor under the table
     var gx0 = G.seat.reach + 10 * S, gx1 = W - G.seat.reach - 10 * S, gy = G.fl - 26 * S; o.fillStyle = dk ? '#8A7040' : '#C8A050'; o.fill(new Path2D(rrect(gx0, gy, gx1 - gx0, 18 * S, 4 * S))); o.fillStyle = dk ? 'rgba(0,0,0,0.45)' : 'rgba(90,60,20,0.45)';
     for (x = gx0 + 8 * S; x < gx1 - 8 * S; x += 9 * S) o.fill(new Path2D(rrect(x, gy + 4 * S, 4 * S, 10 * S, 2 * S)));
     var bgx = (G.tbl[0] + G.tbl[1]) / 2 + (ph ? 46 : 90) * S, bgw = 74 * S, bgh = 48 * S, bgy = G.fl + 4 * S - bgh; o.fillStyle = 'rgba(0,0,0,0.18)'; o.beginPath(); o.ellipse(bgx, G.fl + 4 * S, bgw * 0.6, 5 * S, 0, 0, 7); o.fill();
     o.strokeStyle = dk ? '#4A3020' : '#7A4A28'; o.lineWidth = 5 * S; o.beginPath(); o.arc(bgx, bgy + 4 * S, bgw * 0.26, Math.PI, 0); o.stroke();
     o.fillStyle = dk ? '#7A4E3A' : '#B8784A'; o.fill(new Path2D(rrect(bgx - bgw / 2, bgy, bgw, bgh, 14 * S))); o.fillStyle = dk ? '#5E3A2C' : '#93582F'; o.fill(new Path2D(rrect(bgx - bgw / 2, bgy, bgw, bgh * 0.36, 12 * S))); o.fillStyle = dk ? '#C8A050' : '#E8C060'; o.fill(new Path2D(rrect(bgx - 6 * S, bgy + bgh * 0.28, 12 * S, 9 * S, 2.5 * S)));
-    // the seats and the table, painted again over the wall's shading, then velvet light along the top, darker underneath and the headrest covers' lace
     o.fillStyle = C.wood; o.fill(new Path2D(n2_trainTable(G)));
     var TN = dk ? {L: '#3A6E70', M: '#2C5A5C', D: '#1C3C40'} : {L: '#55A08A', M: '#3E7C6C', D: '#2C5E52'};
     [1, -1].forEach(function (sd) { var p = n2_trainSeat(G, W, sd), s = G.seat, vg = o.createLinearGradient(0, s.top, 0, s.by);
@@ -256,10 +230,8 @@ ENGINES.nighttrain = function (A, v, dk) {
       o.strokeStyle = dk ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.3)'; o.lineWidth = 2 * S; o.stroke(new Path2D(p.pipe));
       o.fillStyle = TN.D; o.fill(new Path2D(p.btn));
       o.fillStyle = C.cover; o.fill(new Path2D(p.cloth + p.lace)); shade(o, p.cloth, s.top, s.top + 140 * S, 'rgba(255,255,255,0.25)', dk ? 'rgba(80,60,100,0.18)' : 'rgba(170,140,120,0.18)'); });
-    // the table: a light top edge
     o.fillStyle = 'rgba(255,255,255,0.22)'; o.fill(new Path2D(rrect(G.tbl[0] + 3, G.ty - 1 * S, G.tbl[1] - G.tbl[0] - 6, 3 * S, 1.5 * S)));
     if (ph) return;
-    // a framed route map right of the window, and the compartment number plate and a coat hook with a scarf on the left
     var mx = G.x1 + G.fr + 18, mw = W - G.seat.bf - 14 - mx, my = G.y0 + 6, mh = Math.min(mw * 0.72, G.seat.top - 50 - my);
     if (mw > 50 && mh > 34) { o.fillStyle = dk ? '#2C1C28' : '#7A4A30'; o.fill(new Path2D(rrect(mx - 6, my - 6, mw + 12, mh + 12, 5))); o.fillStyle = dk ? '#CFC2AC' : '#F6EBD2'; o.fillRect(mx, my, mw, mh);
       o.fillStyle = dk ? '#8AA89A' : '#B8DCA8'; o.beginPath(); o.ellipse(mx + mw * 0.3, my + mh * 0.62, mw * 0.25, mh * 0.24, 0.3, 0, 7); o.ellipse(mx + mw * 0.72, my + mh * 0.32, mw * 0.2, mh * 0.18, -0.3, 0, 7); o.fill(); o.fillStyle = dk ? '#7A9AC0' : '#A8D8F2'; o.fillRect(mx + mw * 0.58, my + mh * 0.64, mw * 0.42, mh * 0.36);
@@ -280,24 +252,19 @@ ENGINES.nighttrain = function (A, v, dk) {
   function hills(c, k, off, base, amp, col) { c.fillStyle = col; c.beginPath(); c.moveTo(G.x0 - 10, G.y1 + 10); for (var x = G.x0 - 10; x <= G.x1 + 12; x += 8) c.lineTo(x, base + amp * n2_land(k, x + off)); c.lineTo(G.x1 + 12, G.y1 + 10); c.closePath(); c.fill(); }
   function land(c, t, X) {
     var y0 = G.y0, f0 = X * 0.05, f1 = X * 0.18, f2 = X * 0.45, f3 = X * 1.3, i, cell;
-    // moon or sun, then clouds
     if (dk) { var mx = G.x0 + ww * 0.72, my = y0 + wh * 0.24, mr = 20 * S; n2_dot(c, sunG, mx, my, mr * 4, 1); c.fillStyle = '#FFF6DA'; c.beginPath(); c.arc(mx, my, mr, 0, 7); c.fill(); n2_face(c, mx, my + 2, mr * 0.9, 1, t, 3, '#7A6A7A'); }
     else { for (i = 0; i < 3; i++) { var cx = G.x0 + ((i * ww * 0.45 - X * 0.03) % (ww + 200) + ww + 200) % (ww + 200) - 100, cy = y0 + wh * (0.17 + i * 0.05); c.fillStyle = 'rgba(255,255,255,0.9)'; c.beginPath(); c.arc(cx, cy, 16 * S, 0, 7); c.arc(cx + 18 * S, cy - 8 * S, 20 * S, 0, 7); c.arc(cx + 40 * S, cy, 15 * S, 0, 7); c.rect(cx, cy, 40 * S, 12 * S); c.fill(); } }
-    // far mountains with snowy tops
     var fm = X * 0.02; c.fillStyle = MC[0]; c.beginPath(); c.moveTo(G.x0 - 10, G.y1 + 10); for (var xm = G.x0 - 10; xm <= G.x1 + 12; xm += 6) c.lineTo(xm, LV.m - LV.ma * n2_mount(xm + fm)); c.lineTo(G.x1 + 12, G.y1 + 10); c.closePath(); c.fill();
     c.fillStyle = MC[1]; c.beginPath(); n2_snow(G.x0 - 10, G.x1 + 12, LV.m, LV.ma, fm).forEach(function (q, k) { if (k) c.lineTo(q[0], q[1]); else c.moveTo(q[0], q[1]); }); c.closePath(); c.fill();
     hills(c, 0, f0, LV.h0, wh * 0.1, LC[0]);
     hills(c, 1, f1, LV.h1, wh * 0.08, LC[1]);
-    // houses on the middle hills, windows lit at night
     for (cell = Math.floor((G.x0 + f1) / 170) - 1; cell * 170 < G.x1 + f1 + 170; cell++) { if (hash(cell * 1.7) > 0.45) continue; var hx = cell * 170 + hash(cell) * 80 - f1, hy = LV.h1 + wh * 0.08 * n2_land(1, hx + f1) + 2, s2 = S * 0.9;
       c.fillStyle = dk ? '#3A3A5A' : '#F4E8D8'; c.fillRect(hx - 10 * s2, hy - 12 * s2, 20 * s2, 12 * s2); c.fillStyle = dk ? '#5A3048' : '#D86A5A'; c.beginPath(); c.moveTo(hx - 13 * s2, hy - 11 * s2); c.lineTo(hx, hy - 21 * s2); c.lineTo(hx + 13 * s2, hy - 11 * s2); c.fill();
       if (dk) { n2_dot(c, townG, hx, hy - 6 * s2, 9 * s2, 0.7); c.fillStyle = '#FFD27A'; c.fillRect(hx - 3 * s2, hy - 8 * s2, 6 * s2, 4 * s2); } }
     hills(c, 2, f2, LV.h2, wh * 0.06, LC[2]);
-    // trees on the near hills, town lights at night
     for (cell = Math.floor((G.x0 + f2) / 46) - 1; cell * 46 < G.x1 + f2 + 46; cell++) { var hv = hash(cell * 3.3), tx = cell * 46 + hv * 30 - f2, ty = LV.h2 + wh * 0.06 * n2_land(2, tx + f2) + 3, ts = (0.7 + hv * 0.6) * S;
       if (hv < 0.55) { c.fillStyle = LC[3]; c.beginPath(); c.moveTo(tx - 9 * ts, ty); c.lineTo(tx, ty - 30 * ts); c.lineTo(tx + 9 * ts, ty); c.fill(); }
       else if (dk && hv > 0.8) { for (var j = 0; j < 4; j++) n2_dot(c, townG, tx + j * 7 * S, ty - 3 - hash(cell + j) * 6, 5 * S, 0.6 + 0.4 * hash(cell * j + 1)); } }
-    // the fast foreground: bushes and telegraph poles with sagging wires
     c.fillStyle = dk ? '#0C1222' : '#3E7A44'; c.beginPath(); c.moveTo(G.x0 - 10, G.y1 + 10); for (var x = G.x0 - 10; x <= G.x1 + 12; x += 10) c.lineTo(x, G.y1 - wh * 0.05 - Math.abs(Math.sin((x + f3) / 37)) * wh * 0.05); c.lineTo(G.x1 + 12, G.y1 + 10); c.fill();
     var gap = 300 * S, p0 = Math.floor((G.x0 + X * 2.2) / gap) - 1, pc = dk ? '#0A0E1A' : '#5A4A40'; c.strokeStyle = pc; c.fillStyle = pc;
     for (var p = p0; p * gap < G.x1 + X * 2.2 + gap; p++) { var px = p * gap - X * 2.2, top = y0 + wh * 0.2; c.fillRect(px - 3 * S, top, 6 * S, wh); c.fillRect(px - 16 * S, top + 6 * S, 32 * S, 4 * S);
@@ -310,9 +277,7 @@ ENGINES.nighttrain = function (A, v, dk) {
     var s2 = c.createLinearGradient(0, hz, 0, G.y1); s2.addColorStop(0, dk ? '#3A3A72' : '#7FC0E0'); s2.addColorStop(1, dk ? '#1A2048' : '#3A88C0'); c.fillStyle = s2; c.fillRect(G.x0 - 5, hz, ww + 10, G.y1 - hz + 5);
     c.fillStyle = dk ? 'rgba(255,246,210,0.7)' : 'rgba(255,250,220,0.85)'; for (var k = 0; k < 14; k++) { var yy = hz + 4 + k * k * 1.2 * S, wv = (6 + k * 2.5) * S * (0.6 + 0.4 * Math.sin(t * 2 + k)); c.fillRect(sx - wv + Math.sin(t * 3 + k) * 4, yy, wv * 2, 1.4); }
     c.fillStyle = dk ? 'rgba(160,170,230,0.35)' : 'rgba(255,255,255,0.5)'; for (k = 0; k < 18; k++) { var wx = G.x0 + ((hash(k) * ww - X * 0.2 * (1 + hash(k + 9))) % ww + ww) % ww, wy = hz + 10 + hash(k * 2) * (G.y1 - hz - 20); c.fillRect(wx, wy, 10 * S, 1.2); }
-    // a sailboat far away
     var bxp = G.x0 + ((ww * 0.25 - X * 0.02) % ww + ww) % ww; c.fillStyle = dk ? '#C8C0E8' : '#FFFFFF'; c.beginPath(); c.moveTo(bxp, hz - 2); c.lineTo(bxp, hz - 22 * S); c.lineTo(bxp + 12 * S, hz - 2); c.fill(); c.fillStyle = dk ? '#5A4A6A' : '#C86A4A'; c.fillRect(bxp - 6 * S, hz - 2, 18 * S, 3 * S);
-    // the bridge: railings and a truss sliding past fast
     var bc = dk ? '#2A2440' : '#C8504A', bt = G.y0 + wh * 0.16, bb = G.y1 - wh * 0.12, gap = 120 * S, o = (X * 2.6) % gap;
     c.fillStyle = bc; c.fillRect(G.x0 - 5, bt - 6 * S, ww + 10, 8 * S); c.fillRect(G.x0 - 5, bb, ww + 10, G.y1 - bb + 5); c.fillRect(G.x0 - 5, bb - 18 * S, ww + 10, 4 * S);
     c.strokeStyle = bc; c.lineWidth = 4 * S; c.beginPath(); for (var x = G.x0 - o - gap; x < G.x1 + gap; x += gap) { c.moveTo(x, bt); c.lineTo(x, bb); c.moveTo(x, bt); c.lineTo(x + gap, bb); } c.stroke();
@@ -325,24 +290,21 @@ ENGINES.nighttrain = function (A, v, dk) {
       var seaA = mom ? n2_env(T, 1.85, 2.0, 11, 12.5) : 0;
       if (seaA < 1) land(ca, tt, X);
       if (seaA > 0) { ca.globalAlpha = seaA; seaView(ca, tt, T, X); ca.globalAlpha = 1; }
-      if (mom && T < 2.1) { // the tunnel: its mouth sweeps in, then darkness with lamps streaking past
+      if (mom && T < 2.1) {
         var cover = T < 0.45 ? n2_ease(T / 0.45) : T > 1.85 ? 1 - n2_ease((T - 1.85) / 0.25) : 1, edge = T < 0.45 ? G.x1 - cover * (ww + 40) : G.x0 - 20;
         ca.fillStyle = '#120E18'; if (T < 0.45) ca.fillRect(edge, G.y0 - 10, G.x1 - edge + 20, wh + 20); else { ca.globalAlpha = cover; ca.fillRect(G.x0 - 10, G.y0 - 10, ww + 20, wh + 20); ca.globalAlpha = 1; }
         if (T < 0.45) { ca.fillStyle = '#5A4E5A'; ca.fillRect(edge - 18 * S, G.y0 - 10, 18 * S, wh + 20); }
         if (T > 0.45 && T < 1.9) for (var k = 0; k < 4; k++) { var lx = G.x1 - (((T - 0.45) * 900 + k * ww / 3) % (ww + 200)) + 100; n2_dot(ca, tunG, lx, G.y0 + wh * 0.4, 30 * S, cover); n2_dot(ca, tunG, lx - 40, G.y0 + wh * 0.4, 14 * S, cover * 0.6); }
       }
       ca.restore();
-      // the glass: a faint warm reflection of the room at night, and two soft diagonal glints
       ca.save(); ca.clip(win); if (dk) { ca.fillStyle = 'rgba(255,200,140,0.05)'; ca.fillRect(G.x0, G.y0, ww, wh); }
       ca.fillStyle = dk ? 'rgba(255,230,200,0.05)' : 'rgba(255,255,255,0.16)'; [[0.12, 46], [0.2, 16], [0.7, 30]].forEach(function (q) { var gx = G.x0 + ww * q[0]; ca.beginPath(); ca.moveTo(gx, G.y1); ca.lineTo(gx + q[1] * S, G.y1); ca.lineTo(gx + q[1] * S + wh * 0.6, G.y0); ca.lineTo(gx + wh * 0.6, G.y0); ca.closePath(); ca.fill(); }); ca.restore();
-      // inside: table props, the blind pull and curtain tassels swaying with the carriage, the lamps
       var dim = mom ? n2_env(T, 0.3, 0.5, 1.8, 2.2) : 0;
       if (!this.hosted) cb.drawImage(decor, 0, 0, W, H); cb.drawImage(props, G.tbl[0], G.ty - 90 * S, G.tbl[1] - G.tbl[0], 90 * S);
       var bs = Math.sin(tt * 1.4 + 0.6) * 0.14 + rock * 0.08; cb.save(); cb.translate(G.x0 + ww / 2, G.y0 + wh * 0.1 + 18 * S); cb.rotate(bs); cb.strokeStyle = C.brass; cb.lineWidth = 1.6 * S; cb.beginPath(); cb.moveTo(0, 0); cb.lineTo(0, 14 * S); cb.stroke(); cb.lineWidth = 2.6 * S; cb.beginPath(); cb.arc(0, 19 * S, 5 * S, 0, 7); cb.stroke(); cb.restore();
       [-1, 1].forEach(function (sd, k) { var ex = sd < 0 ? G.x0 - G.fr - 18 * S : G.x1 + G.fr + 18 * S, cw = ph ? 30 : 42, x = ex - sd * cw * 0.32, y = G.y0 + wh * 0.6 + 4.5 * S, sw = Math.sin(tt * 1.4 + k) * 0.12 + rock * 0.05; if (y + 30 * S > G.seat.top && (sd < 0 ? x < G.seat.reach : x > W - G.seat.reach)) return;
         cb.save(); cb.translate(x, y); cb.rotate(sw); cb.strokeStyle = C.brass; cb.lineWidth = 2 * S; cb.beginPath(); cb.moveTo(0, 0); cb.lineTo(0, 14 * S); cb.stroke(); cb.fillStyle = dk ? '#C8A050' : '#E0B050'; cb.beginPath(); cb.arc(0, 16 * S, 4 * S, 0, 7); cb.fill(); cb.beginPath(); cb.moveTo(-4 * S, 18 * S); cb.lineTo(4 * S, 18 * S); cb.lineTo(6 * S, 30 * S); cb.lineTo(-6 * S, 30 * S); cb.fill(); cb.restore(); });
       if (dim > 0) { cb.fillStyle = 'rgba(8,6,16,' + (0.62 * dim) + ')'; cb.fillRect(-10, -10, W + 20, H + 20); }
-      // the ceiling lamps glow at night, and come on in the tunnel
       var cg = Math.max(dk ? 0.85 + Math.sin(tt * 7) * 0.03 : 0, dim);
       if (cg > 0) { cb.save(); cb.globalCompositeOperation = 'lighter'; G.lights.forEach(function (lx) { n2_dot(cb, ceilG, lx, G.ceil * 0.55 + 10 * S, 90 * S, cg); }); cb.restore(); }
       lamp(cb, Math.sin(tt * 1.4) * 0.05 + rock * 0.03, (dk ? 1 : 0.55) + dim * 0.6);
@@ -353,9 +315,7 @@ ENGINES.nighttrain = function (A, v, dk) {
 };
 UIC.nighttrain = {L: ['#7A4C30', '#55331F', 'rgba(255,252,246,0.86)', '#2E2018', '#6E5E50', '#B8484C', '#B8484C', '#D06A4A', '#FFFFFF'], D: ['#3A2C46', '#1E1628', 'rgba(30,24,44,0.80)', '#F4EEF8', '#BDB0CC', '#FFC27A', '#FFC27A', '#FFD9A0', '#2A1A0A']};
 
-// ---------- Ramen Shop: steam rises from the pots and bowls, the noren flutter, the broth simmers, rain runs down the window.
-// Night: the sign outside hums and glows on the wet street. Moment: the chef flicks a strainer of noodles into a bowl, tops it and slides it down the counter to you.
-// a ramen bowl standing on 0,0 with radius r; top: 0..5 toppings shown (chashu, egg, nori, naruto, onions)
+// Ramen Shop: steam rises from the pots and bowls, the noren flutter, the broth simmers
 function n2_bowl(c, r, dk, top, t, happy) {
   c.fillStyle = 'rgba(0,0,0,0.15)'; c.beginPath(); c.ellipse(0, 1, r * 0.75, r * 0.12, 0, 0, 7); c.fill();
   if (top > 2) { c.save(); c.translate(r * 0.38, -r * 0.62); c.rotate(0.12); c.fillStyle = '#2E4A34'; c.fillRect(-r * 0.16, -r * 0.42, r * 0.32, r * 0.5); c.fillStyle = 'rgba(255,255,255,0.15)'; c.fillRect(-r * 0.1, -r * 0.38, r * 0.04, r * 0.4); c.restore(); }
@@ -381,11 +341,10 @@ ENGINES.ramen = function (A, v, dk) {
   var steam = []; function puff(x, y, s) { steam.push({x: x, y: y, s: s, age: 0, life: 2.5 + Math.random() * 1.5, vx: (Math.random() - 0.5) * 8, ph: Math.random() * 6}); }
   var cx = G.chef[0], hy = G.chef[1], cs = S * 1.0, bx = cx + 125 * S, bTop = G.ct - 34 * S, P = G.pot;
   var nekoP = G.neko, bowlP = G.bowl, cad = G.caddy;
-  var props = n2_sprite(120, 80, 2, function (o) { o.translate(60, 78); // condiment caddy and chopstick box
+  var props = n2_sprite(120, 80, 2, function (o) { o.translate(60, 78);
     o.fillStyle = '#7A4A2C'; o.fillRect(-56, -26, 54, 26); o.fillStyle = '#5A3420'; o.fillRect(-56, -30, 54, 6);
     [['#C83A2A', -48], ['#3A2A1A', -34], ['#F2E0B0', -20]].forEach(function (q) { o.fillStyle = q[0]; o.beginPath(); o.ellipse(q[1] + 5, -40, 6, 14, 0, 0, 7); o.fill(); o.fillStyle = '#E8E0D0'; o.fillRect(q[1], -58, 10, 6); });
     o.fillStyle = '#C8904A'; o.fillRect(8, -36, 40, 36); o.fillStyle = '#E8C48A'; for (var k = 0; k < 7; k++) o.fillRect(11 + k * 5.2, -52 - (k % 2) * 3, 2.6, 18); o.fillStyle = '#A06A30'; o.fillRect(8, -36, 40, 4); });
-  // the maneki-neko: soft outlines so the white cat reads on the counter, its raised paw beckoning beside its face (in front of the head)
   function neko(c, x, y, s, t, J) { c.save(); c.translate(x, y); c.scale(s, s); var w = '#FFFDF8', ol = dk ? '#B8A8B8' : '#D8C8B8';
     c.fillStyle = 'rgba(0,0,0,0.12)'; c.beginPath(); c.ellipse(0, 0, 22, 4, 0, 0, 7); c.fill();
     c.lineWidth = 1.4; c.strokeStyle = ol; c.lineJoin = 'round';
@@ -414,7 +373,6 @@ ENGINES.ramen = function (A, v, dk) {
     for (var k = 0; k < n; k++) { var x0 = N[0] + k * pw + 2, x1 = x0 + pw - 4, len = N[3] - N[2], wv = (Math.sin(t * 1.4 + k * 0.9) * 6 + Math.sin(t * 2.3 + k * 1.7) * 3 + J * Math.sin(t * 6 + k) * 8) * S;
       c.fillStyle = k % 2 ? col : col2; c.beginPath(); c.moveTo(x0, N[2]); c.lineTo(x1, N[2]); c.quadraticCurveTo(x1 + wv * 0.5, N[2] + len * 0.6, x1 + wv, N[2] + len); c.lineTo(x0 + wv, N[2] + len); c.quadraticCurveTo(x0 + wv * 0.5, N[2] + len * 0.6, x0, N[2]); c.fill();
       c.fillStyle = 'rgba(255,255,255,0.9)'; c.fillRect(x0 + wv * 0.6, N[2] + len - 7 * S, pw - 4, 2.5 * S); }
-    // the emblem across the middle panels: a bowl with steam
     var ex = (N[0] + N[1]) / 2, ey = N[2] + (N[3] - N[2]) * 0.48, er = (ph ? 20 : 30), wv2 = Math.sin(t * 1.4 + 2) * 4 * S; c.save(); c.translate(ex + wv2 * 0.5, ey); c.fillStyle = '#FFFFFF'; c.beginPath(); c.arc(0, 0, er, 0, 7); c.fill();
     c.fillStyle = col; c.beginPath(); c.moveTo(-er * 0.62, -er * 0.05); c.lineTo(er * 0.62, -er * 0.05); c.quadraticCurveTo(er * 0.55, er * 0.55, 0, er * 0.58); c.quadraticCurveTo(-er * 0.55, er * 0.55, -er * 0.62, -er * 0.05); c.fill();
     c.strokeStyle = col; c.lineWidth = er * 0.1; c.lineCap = 'round'; c.beginPath(); for (var j = -1; j <= 1; j++) { c.moveTo(j * er * 0.25, -er * 0.2); c.quadraticCurveTo(j * er * 0.25 - er * 0.12, -er * 0.38, j * er * 0.25, -er * 0.55); } c.stroke(); c.restore(); }
@@ -422,11 +380,9 @@ ENGINES.ramen = function (A, v, dk) {
     c.fillStyle = dk ? '#E8E2F0' : '#FFFFFF'; c.beginPath(); c.moveTo(-48, 40); c.quadraticCurveTo(-58, 120, -60, 200); c.lineTo(60, 200); c.quadraticCurveTo(58, 120, 48, 40); c.quadraticCurveTo(0, 26, -48, 40); c.fill();
     c.fillStyle = dk ? '#2A3260' : '#2B4078'; c.fillRect(-46, 104, 92, 100); c.strokeStyle = dk ? '#2A3260' : '#2B4078'; c.lineWidth = 4; c.beginPath(); c.moveTo(-30, 104); c.lineTo(-20, 44); c.moveTo(30, 104); c.lineTo(20, 44); c.stroke();
     c.fillStyle = dk ? '#C8C0D8' : '#E8E4EC'; c.beginPath(); c.moveTo(-16, 40); c.lineTo(0, 62); c.lineTo(16, 40); c.fill();
-    // left arm resting, right arm to the strainer
     c.strokeStyle = dk ? '#E8E2F0' : '#FFFFFF'; c.lineCap = 'round'; c.lineWidth = 20; c.beginPath(); c.moveTo(-44, 56); c.quadraticCurveTo(-66, 96, -40, 118); c.stroke();
     c.beginPath(); c.moveTo(44, 56); c.quadraticCurveTo(arm[0] * 0.4 + 30, arm[1] * 0.5 + 60, arm[0], arm[1]); c.stroke();
     c.fillStyle = '#F7D2B0'; c.beginPath(); c.arc(-40, 120, 9, 0, 7); c.arc(arm[0], arm[1], 9, 0, 7); c.fill();
-    // head
     c.save(); c.rotate(look); c.fillStyle = '#F7D8B8'; c.beginPath(); c.arc(-36, 2, 8, 0, 7); c.arc(36, 2, 8, 0, 7); c.fill(); c.beginPath(); c.arc(0, 0, 36, 0, 7); c.fill();
     c.fillStyle = '#3A2A28'; c.beginPath(); c.arc(0, -6, 35, Math.PI * 1.08, Math.PI * 1.92); c.fill();
     c.fillStyle = dk ? '#E8E2F0' : '#FFFFFF'; c.beginPath(); c.moveTo(-37, -14); c.quadraticCurveTo(0, -30, 37, -14); c.lineTo(37, -4); c.quadraticCurveTo(0, -20, -37, -4); c.fill();
@@ -455,7 +411,6 @@ ENGINES.ramen = function (A, v, dk) {
     },
     draw: function (ca, cb, t, f) {
       var tt = t * f.s, T = mom ? t - mom.t0 : -1, J = mom && T < 9 ? 1 : 0;
-      // the window: rain outside, the neon sign humming, drops on the glass
       ca.save(); ca.clip(winP);
       var sg = A.sign, on = (dk ? 1 : 0.6) * hum;
       ca.save(); ca.globalCompositeOperation = dk ? 'lighter' : 'source-over'; n2_dot(ca, neonG, sg[0], sg[1], sg[2] * 1.6, on * (dk ? 0.9 : 0.4)); ca.fillStyle = dk ? 'rgba(255,100,120,' + 0.25 * on + ')' : 'rgba(255,255,255,0.2)'; ca.fillRect(sg[0] - sg[2] * 0.6, A.gy + 2, sg[2] * 1.2, wh * 0.25); ca.restore();
@@ -464,7 +419,6 @@ ENGINES.ramen = function (A, v, dk) {
       ca.fillStyle = dk ? 'rgba(220,230,255,0.45)' : 'rgba(255,255,255,0.7)'; beads.forEach(function (b) { ca.beginPath(); ca.arc(b.x, b.y, b.r, 0, 7); ca.fill(); });
       slides.forEach(function (s) { ca.strokeStyle = dk ? 'rgba(220,230,255,0.25)' : 'rgba(255,255,255,0.45)'; ca.lineWidth = s.r * 0.8; ca.beginPath(); s.trail.forEach(function (q, k) { if (k) ca.lineTo(q[0], q[1]); else ca.moveTo(q[0], q[1]); }); ca.stroke(); ca.beginPath(); ca.arc(s.x, s.y, s.r * 1.2, 0, 7); ca.fill(); });
       ca.restore();
-      // the kitchen: stockpot on its burner, the noodle boiler, the chef
       var pw = 64 * S, ph2 = G.ct - P[1];
       if (dk) { ca.save(); ca.globalCompositeOperation = 'lighter'; n2_dot(ca, fireG, P[0], G.ct - 4, 40 * S, 0.5 + 0.2 * Math.sin(tt * 9)); ca.restore(); }
       var pg = ca.createLinearGradient(P[0] - pw, 0, P[0] + pw, 0); pg.addColorStop(0, dk ? '#8A8AA0' : '#D8DCE4'); pg.addColorStop(0.4, dk ? '#B8B8CC' : '#F4F6FA'); pg.addColorStop(1, dk ? '#5A5A70' : '#A8ACB8'); ca.fillStyle = pg; ca.fillRect(P[0] - pw, P[1], pw * 2, ph2 + 2);
@@ -472,9 +426,7 @@ ENGINES.ramen = function (A, v, dk) {
       ca.fillStyle = dk ? '#C89848' : '#E8B860'; ca.beginPath(); ca.ellipse(P[0], P[1], pw, 9 * S, 0, 0, 7); ca.fill();
       ca.fillStyle = dk ? '#F0C870' : '#FFE29A'; for (i = 0; i < 6; i++) { var bu = (tt * 0.8 + i * 0.37) % 1, bxp = P[0] + (hash(i * 3) - 0.5) * pw * 1.5, br = (2 + hash(i) * 3) * S * Math.sin(Math.PI * bu); if (br > 0.2) { ca.beginPath(); ca.arc(bxp, P[1] - 1, br, 0, 7); ca.fill(); } }
       ca.strokeStyle = '#8A6A40'; ca.lineWidth = 4 * S; ca.beginPath(); ca.moveTo(P[0] + pw * 0.3, P[1]); ca.lineTo(P[0] + pw * 0.6, P[1] - 50 * S); ca.stroke();
-      // the noodle boiler: its inside first, its front wall after the strainer, so the basket sits down in the water
       ca.fillStyle = dk ? '#3A3A50' : '#7A7E88'; ca.beginPath(); ca.ellipse(bx, bTop, 46 * S, 7 * S, 0, 0, 7); ca.fill(); ca.fillStyle = dk ? 'rgba(160,190,230,0.35)' : 'rgba(200,225,245,0.6)'; ca.beginPath(); ca.ellipse(bx, bTop + 1.5 * S, 40 * S, 4.6 * S, 0, 0, 7); ca.fill();
-      // strainer and chef arm through the moment
       var lift = 0, sxp = bx - 10 * S, syp = bTop - 40 * S, sang = 0.15, full = true, bp = [cx + 58 * S, G.ct + (G.cf - G.ct) * 0.55];
       if (mom) { if (T < 0.6) lift = n2_ease(T / 0.6); else if (T < 1.6) lift = 1 + Math.abs(Math.sin((T - 0.6) * Math.PI * 4)) * 0.25; else if (T < 2.3) lift = 1; else lift = Math.max(0, 1 - (T - 2.3) / 0.6);
         syp -= lift * 60 * S; if (T > 1.6 && T < 2.6) { var mv = n2_ease((T - 1.6) / 0.45); sxp = lerp(sxp, bp[0] + 26 * S, mv); syp = lerp(syp, bp[1] - 120 * S, mv); sang = lerp(0.15, -1.6, n2_ease((T - 1.95) / 0.35)); full = T < 2.15; }
@@ -486,9 +438,7 @@ ENGINES.ramen = function (A, v, dk) {
       ca.beginPath(); ca.moveTo(bx - 46 * S, bTop); ca.ellipse(bx, bTop, 46 * S, 7 * S, 0, Math.PI, 0, true); ca.lineTo(bx + 46 * S, G.ct + 2); ca.lineTo(bx - 46 * S, G.ct + 2); ca.closePath(); ca.fill();
       ca.strokeStyle = dk ? '#A8A8C0' : '#F4F6FA'; ca.lineWidth = 2 * S; ca.beginPath(); ca.ellipse(bx, bTop, 46 * S, 7 * S, 0, 0.15, Math.PI - 0.15); ca.stroke();
       ca.fillStyle = 'rgba(190,220,255,0.8)'; drops.forEach(function (d) { ca.beginPath(); ca.arc(d.x, d.y, 2 * S, 0, 7); ca.fill(); });
-      // steam
       steam.forEach(function (p) { var u = p.age / p.life; n2_dot(ca, steamG, p.x, p.y, (14 + u * 30) * p.s, Math.sin(Math.PI * u) * 0.8); });
-      // the counter: maneki-neko, a bowl, condiments; the new bowl sliding down to you
       neko(cb, nekoP[0], nekoP[1] + 4 * S, S * (ph ? 0.8 : 1.1), tt, J);
       cb.drawImage(props, cad[0] - 60 * S, cad[1] - 72 * S, 120 * S, 80 * S);
       cb.save(); cb.translate(bowlP[0], bowlP[1] + 6 * S); n2_bowl(cb, 38 * S, dk, 5, tt, J); cb.restore();

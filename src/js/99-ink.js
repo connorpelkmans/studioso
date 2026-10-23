@@ -1,16 +1,5 @@
 /* ===== module: 99-ink.js ===== */
-/* Studyboard Pro: pen ink. Handwriting and drawing with Apple Pencil over a PDF's pages (in the reader) and on a note (a drawing page).
-   Where: only in the iPad app for now. SBINK.available() is the one check (widen it there): the native iOS app (Capacitor, platform "ios")
-   on an iPad (window.StudyboardDevice.idiom from the app shell, else StudyboardNative.device from native-bridge.js, else the user agent:
-   "iPad", or iPadOS's desktop "Macintosh" with a touch screen). Tests turn it on with localStorage "studyboard:ink-test" = "1".
-   Elsewhere ink that is already there is still shown (read only), so nothing looks lost on the website or a phone.
-   Plan: Pro, like the reader. On a free plan the Draw button shows the Pro badge and opens the Pro sheet; drawings already made stay visible.
-   Data (see normInk in the core): strokes [{id, t: "pen" | "hl", c: colour id, w: width in 1/10000 of the page width, d: points, at}] on
-   f.ink (with p: page, a: the revision's asset id) or n.ink. Points are x, y as 0..1 of the page (so zoom and rotation never move them) and
-   pressure, simplified, then packed as zigzag deltas in a 64-letter code (about 4 letters a point). Strokes never change: sync merges them by
-   id, an erase is a removal. Sizes are capped (a file 4000 strokes / 600k letters, a note 2000 / 200k, all ink on this device 2.5M letters).
-   Pencil: Pointer Events. pointerType "pen" draws with pressure and coalesced points; fingers scroll and zoom (palm rejection), unless
-   Draw with Finger is on. Committed strokes are drawn once per page (highlighter on its own layer, under the ink); only the live stroke redraws. */
+/* Studyboard Pro */
 var SBINK = null;
 (() => {
   const P = SBPRO; if (!P) return;
@@ -18,7 +7,7 @@ var SBINK = null;
   const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
 
-  /* ---------- Where the pen tools appear ---------- */
+  /* Where the pen tools appear */
   const iPadUA = () => { const ua = navigator.userAgent || ""; return /iPad/.test(ua) || (/Macintosh/.test(ua) && (navigator.maxTouchPoints || 0) > 1); };
   function nativeIOS(){
     try {
@@ -35,19 +24,17 @@ var SBINK = null;
       return iPadUA();
     } catch (e) { return false; }
   }
-  // THE switch for the pen tools. Only the iPad app today; widen it here (e.g. any touch screen with a stylus) when that's wanted.
+  // THE switch for the pen tools
   const available = () => lsGet(K_TEST) === "1" || (nativeIOS() && isIPad());
   const proWhy = why => { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(why); };
   const NOTE_WHY = "Drawing and handwriting in notes is part of Studyboard Pro: write with your Apple Pencil, and turn it into typed notes.";
 
-  /* ---------- Colours, widths, tools ---------- */
-  // Pen colours (ids are stored; the colour is looked up when drawing, so it can follow the theme). Pages are paper: PDFs are white, a
-  // drawing sits on its note's colour in light and dark mode alike, so these dark-on-light shades stay readable everywhere.
+  /* Colours, widths, tools */
   const PEN = [["ink", "Black", "#1F2328"], ["blue", "Blue", "#2457C5"], ["red", "Red", "#D0342C"], ["green", "Green", "#1E8A4C"], ["accent", "Theme Color", ""], ["orange", "Orange", "#D46A12"]];
   const HLC = [["yellow", "Yellow", "#FFD84D"], ["green", "Green", "#7DDB8A"], ["blue", "Blue", "#7CC4FF"], ["pink", "Pink", "#FF9EC4"]];
   const WID = {pen: [20, 35, 65], hl: [120, 200, 320]};
   const WNAME = ["Fine", "Medium", "Thick"];
-  const AR = 4 / 3;   // a note's drawing page: height / width, like a sheet of paper
+  const AR = 4 / 3;
   const LIM = {file: [4000, 600000], note: [2000, 200000], all: 2.5e6};
   const accent = () => { try { const v = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim(); return /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%]+\))$/i.test(v) ? v : "#2F6FDB"; } catch (e) { return "#2F6FDB"; } };
   function colorOf(s){
@@ -57,9 +44,9 @@ var SBINK = null;
   }
   const T = Object.assign({tool: "pen", pen: "ink", hl: "yellow", pw: 1, hw: 1, finger: false}, (() => { try { return JSON.parse(lsGet(K_TOOLS) || "{}") || {}; } catch (e) { return {}; } })());
   const saveTools = () => lsSet(K_TOOLS, JSON.stringify(T));
-  const wf = p => 0.4 + 1.2 * Math.max(0, Math.min(1, p));   // pressure (0..1) to a width factor; 0.5 (a mouse, a finger) is 1
+  const wf = p => 0.4 + 1.2 * Math.max(0, Math.min(1, p));
 
-  /* ---------- Points: simplify, pack, unpack ---------- */
+  /* Points: simplify, pack, unpack */
   const AL = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_", AIX = {};
   for (let i = 0; i < 64; i++) AIX[AL.charCodeAt(i)] = i;
   const c01 = v => Math.max(0, Math.min(1, v));
@@ -89,14 +76,14 @@ var SBINK = null;
       const [a, b] = stack.pop(); let best = 0, at = -1;
       const [ax, ay] = pts[a], [bx, by] = pts[b], dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1;
       for (let i = a + 1; i < b; i++) {
-        const d = Math.abs(dy * pts[i][0] - dx * pts[i][1] + bx * ay - by * ax) / L + Math.abs(pts[i][2] - pts[a][2]) * 0.6;   // a big pressure change is kept too
+        const d = Math.abs(dy * pts[i][0] - dx * pts[i][1] + bx * ay - by * ax) / L + Math.abs(pts[i][2] - pts[a][2]) * 0.6;
         if (d > best) { best = d; at = i; }
       }
       if (at > 0 && best > eps) { keep[at] = 1; stack.push([a, at], [at, b]); }
     }
     return pts.filter((_, i) => keep[i]);
   }
-  const CACHE = new Map();   // stroke id -> {d, pts, bb}
+  const CACHE = new Map();
   function ptsOf(s){
     const c = CACHE.get(s.id); if (c && c.d === s.d) return c.pts;
     const pts = decode(s.d); let x0 = 1, y0 = 1, x1 = 0, y1 = 0;
@@ -107,8 +94,7 @@ var SBINK = null;
   }
   const bbOf = s => { ptsOf(s); return CACHE.get(s.id).bb; };
 
-  /* ---------- Drawing strokes ---------- */
-  // Quadratic curves through the midpoints; a pen stroke is drawn piece by piece so its width follows the pressure
+  /* Drawing strokes */
   function penOn(ctx, pts, W, H, base, color){
     ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineCap = "round"; ctx.lineJoin = "round";
     const X = i => pts[i][0] * W, Y = i => pts[i][1] * H, n = pts.length;
@@ -157,7 +143,7 @@ var SBINK = null;
     return svg;
   }
 
-  /* ---------- Where strokes are kept ---------- */
+  /* Where strokes are kept */
   const inkOf = o => Array.isArray(o && o.ink) ? o.ink : [];
   const charsOf = list => list.reduce((n, s) => n + s.d.length + 40, 0);
   function usedAll(){
@@ -166,7 +152,7 @@ var SBINK = null;
     Object.values(state.notes || {}).forEach(x => { if (x && x.ink) n += charsOf(inkOf(x)); });
     return n;
   }
-  // Strokes waiting to be saved: added and removed ones, put on top of whatever the saved record holds (so a sync that lands meanwhile is kept)
+  // Strokes waiting to be saved
   function makeStore(read, write){
     let added = new Map(), removed = new Set(), timer = 0;
     const list = () => {
@@ -183,7 +169,7 @@ var SBINK = null;
   }
   const liveText = id => { const t = $("#noteText"); return t && noteEditing === id ? t.value : null; };
 
-  /* ---------- A session: the reader's pages, or a note's drawing page ---------- */
+  /* A session: the reader's pages, or a note's drawing page */
   let CUR = null;
   function endSession(){ if (!CUR) return; try { CUR.store.flush(); } catch (e) { console.warn("ink", e); } CUR = null; DRAW = null; }
   function pdfSession(){
@@ -214,7 +200,7 @@ var SBINK = null;
     return CUR;
   }
 
-  /* ---------- A surface: three canvases over one page (highlighter, ink, the live stroke) ---------- */
+  /* A surface: three canvases over one page (highlighter, ink, the live stroke) */
   function surface(host, p){
     if (!host.firstChild) host.innerHTML = `<canvas class="ink-cv ink-hlc"></canvas><canvas class="ink-cv ink-pen"></canvas><canvas class="ink-cv ink-live"></canvas>`;
     let S = host.__ink;
@@ -243,7 +229,7 @@ var SBINK = null;
   }
   function refresh(){ if (CUR) CUR.surfaces.forEach(S => { if (S.host.isConnected) redraw(S); }); bar(); }
 
-  /* ---------- The pen ---------- */
+  /* The pen */
   let DRAW = null, penAt = 0;
   const clearLive = S => { const c = S.ctx[2]; c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, c.canvas.width, c.canvas.height); c.restore(); };
   function bind(S){
@@ -252,7 +238,6 @@ var SBINK = null;
     h.addEventListener("pointermove", e => move(S, e));
     h.addEventListener("pointerup", e => up(S, e));
     h.addEventListener("pointercancel", e => up(S, e));
-    // Palm rejection: the Pencil never scrolls the page, and while it's writing (and just after) a resting palm doesn't either. Fingers scroll.
     const guard = e => {
       if (!CUR || !CUR.active) return;
       const stylus = [...(e.changedTouches || [])].some(t => t.touchType === "stylus");
@@ -260,13 +245,13 @@ var SBINK = null;
     };
     h.addEventListener("touchstart", guard, {passive: false});
     h.addEventListener("touchmove", guard, {passive: false});
-    h.addEventListener("click", e => { if (CUR && CUR.active) e.stopPropagation(); });   // a pen tap is not a tap on a highlight
+    h.addEventListener("click", e => { if (CUR && CUR.active) e.stopPropagation(); });
     h.addEventListener("contextmenu", e => { if (CUR && CUR.active) e.preventDefault(); });
   }
   function down(S, e){
     if (!CUR || !CUR.active || DRAW) return;
     const pen = e.pointerType === "pen", touch = e.pointerType === "touch";
-    if (touch && !T.finger) return;               // fingers scroll and zoom; the Pencil draws
+    if (touch && !T.finger) return;
     if (!touch && !pen && e.button > 0) return;
     e.preventDefault();
     try { S.host.setPointerCapture(e.pointerId); } catch (err) {}
@@ -295,7 +280,7 @@ var SBINK = null;
       else { ctx.moveTo(a[0], a[1]); ctx.lineTo((a[0] + b[0]) / 2, (a[1] + b[1]) / 2); }
       ctx.stroke();
     }
-    if (n >= 1500) { const keep = DRAW; finish(); DRAW = Object.assign({}, keep, {pts: [D.pts[n - 1]]}); }   // a very long stroke is saved in parts
+    if (n >= 1500) { const keep = DRAW; finish(); DRAW = Object.assign({}, keep, {pts: [D.pts[n - 1]]}); }
   }
   function move(S, e){
     if (!DRAW || DRAW.S !== S || e.pointerId !== DRAW.id) return;
@@ -351,7 +336,7 @@ var SBINK = null;
     redraw(S);
   }
 
-  /* ---------- Undo, redo, clear ---------- */
+  /* Undo, redo, clear */
   function record(op){ CUR.undo.push(op); if (CUR.undo.length > 200) CUR.undo.shift(); CUR.redo = []; bar(); }
   function applyOp(op, back){
     const add = back ? op.del : op.add, del = back ? op.add : op.del;
@@ -385,7 +370,7 @@ var SBINK = null;
     });
   }
 
-  /* ---------- The tool bar ---------- */
+  /* The tool bar */
   const ico = d => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
   const IC = {
     pen: ico('<path d="M15.5 4.5l4 4L8 20H4v-4z"/><path d="M13 7l4 4"/>'),
@@ -406,15 +391,15 @@ var SBINK = null;
       <button type="button" class="btn small ink-finger" data-act="ink-finger" aria-pressed="${!!T.finger}" title="Off: your Apple Pencil writes and fingers scroll. On: fingers write too.">${IC.hand}Draw with Finger</button>`;
   }
   function bar(){ const el = document.getElementById("inkBar"); if (el) el.innerHTML = barHtml(); syncTouch(); }
-  // Draw with Finger off: fingers pan and zoom the page (the Pencil still draws). On: nothing scrolls under the pen layer.
+  // Draw with Finger off
   function syncTouch(){ const box = dlg.querySelector(".pdr-pages, .ink-stage"); if (box) box.classList.toggle("ink-fingers", !!T.finger); }
 
-  /* ---------- In the PDF reader ---------- */
+  /* In the PDF reader */
   const readerBtn = () => available() ? `<button type="button" class="btn small ink-mode" data-act="ink-mode" aria-pressed="false" id="inkModeBtn">${IC.pen}Pen</button>` : "";
   function readerPage(n, el){
     const R = P.reader && P.reader(); if (!R) return;
     const ses = pdfSession(); if (!ses) return;
-    if (!ses.mine().length && !available()) return;   // nothing to show, and no pen here
+    if (!ses.mine().length && !available()) return;
     let host = el.querySelector(".ink-layer");
     if (!host) { host = document.createElement("div"); host.className = "ink-layer"; el.appendChild(host); }
     const S = surface(host, n);
@@ -432,13 +417,12 @@ var SBINK = null;
     if (ses.active && !el) { const b = dlg.querySelector(".pdr-bar"); if (b) { el = document.createElement("div"); el.id = "inkBar"; el.className = "ink-bar"; el.setAttribute("role", "toolbar"); el.setAttribute("aria-label", "Pen tools"); b.after(el); } }
     if (!ses.active && el) el.remove();
     if (ses.active) { try { window.getSelection().removeAllRanges(); } catch (e) {} const pop = dlg.querySelector(".pdr-pop"); if (pop) pop.remove(); }
-    // pages drawn before any ink was there get their layer now
     const R = P.reader(); if (R && R.pages) R.pages.forEach(pg => { if (pg.done && !pg.el.querySelector(".ink-layer")) readerPage(pg.n, pg.el); });
     bar(); ses.store.flush();
   }
   function readerClose(){ if (CUR && CUR.kind === "pdf") endSession(); }
 
-  /* ---------- On a note ---------- */
+  /* On a note */
   const noteInk = n => inkOf(n);
   function noteThumb(n, editing){
     const list = noteInk(n); if (!list.length) return "";
@@ -481,7 +465,7 @@ var SBINK = null;
     const list = CUR.store.list(); if (!list.length) { toast("Write something first."); return; }
     const blob = await pngOf(list); if (!blob) { toast("Couldn't read the drawing. Try again."); return; }
     const file = new File([blob], `Handwritten note ${new Date().toISOString().slice(0, 10)}.png`, {type: "image/png"});
-    endSession();   // the drawing is saved on the note first; the typed notes become a new note
+    endSession();
     dlg.close();
     setTimeout(() => photoNoteSheet(file), 0);
   }
@@ -489,7 +473,7 @@ var SBINK = null;
   P.noteExtra = n => noteThumb(n, true) + (baseExtra ? baseExtra(n) : "");
   P.noteBar = n => (baseBar ? baseBar(n) : "") + (available() ? `<div class="np-bar ink-nbar"><button type="button" class="btn small" data-act="ink-note" data-id="${esc(n.id)}">${IC.pen}${noteInk(n).length ? "Edit Drawing" : "Draw"}${P.locked() ? ` ${PRO_BADGE}` : ""}</button></div>` : "");
 
-  /* ---------- Wiring ---------- */
+  /* Wiring */
   hook("act", (act, el, id) => {
     if (!/^ink-/.test(act)) return false;
     switch (act) {
@@ -519,7 +503,7 @@ var SBINK = null;
 
   P.addFeature({id: "ink", name: "Pen and Handwriting", where: "In the iPad app: write on PDFs in the reader (Pen), and draw on a note (Draw)", icon: '<path d="M15.5 4.5l4 4L8 20H4v-4z"/><path d="M13 7l4 4"/>'});
   SBINK = window.SBINK = {available, readerBtn, readerPage, readerClose, noteThumb: n => noteThumb(n, false)};
-  window.__sbInk = {T, encode, decode, simplify, svgOf, session: () => CUR, flush: flushNow, available, normInk, LIM};   // test handle
+  window.__sbInk = {T, encode, decode, simplify, svgOf, session: () => CUR, flush: flushNow, available, normInk, LIM};
 
   const css = document.createElement("style");
   css.textContent = `

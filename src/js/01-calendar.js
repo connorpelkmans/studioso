@@ -1,11 +1,11 @@
 /* ===== module: 01-calendar.js: the app's core, calendar events, .ics import, daily quote, weekly schedule ===== */
-/* ---------- Calendar events: your own, and ones imported from Apple Calendar (or any .ics file) ---------- */
+/* Calendar events */
 const eventsArr = () => Object.values(state.events || {});
 const minToT = m => pad(Math.floor(m / 60)) + ":" + pad(m % 60);
 const tToMin = t => { const [h, m] = String(t || "0:0").split(":").map(Number); return h * 60 + (m || 0); };
 const EV_LABEL_CLASS = {Lecture: "k-lecture", Lab: "k-lab", Discussion: "k-discussion", Tutorial: "k-discussion", "Office Hours": "k-officehours"};
 const wkDiff = (a, b) => Math.round((parse(mondayOf(a)) - parse(mondayOf(b))) / 6048e5);
-// Every class meeting and event that lands between from and to (inclusive), with this-week-only changes applied.
+// Every class meeting and event that lands between from and to (inclusive)
 function schOccurrences(from, to){
   const out = [], lo = addDays(from, -7), hi = addDays(to, 7), inRange = d => d >= from && d <= to;
   coursesArr().forEach(c => courseMeetings(c).forEach(m => {
@@ -38,11 +38,11 @@ function schOccurrences(from, to){
       push(d);
     }
   });
-  try { availOccs(from, to).forEach(o => out.push(o)); } catch(e) {}   // work, shifts and other availability blocks (type "avail", o.avail.kind)
+  try { availOccs(from, to).forEach(o => out.push(o)); } catch(e) {}
   return out;
 }
 const occWhen = o => `${parse(o.date).toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"})}${o.allDay ? "" : `, ${fmtTime(o.start)}–${fmtTime(o.end)}`}`;
-// Change one week's class or event without touching the others. val: null (back to normal), {skip:true} or {date,start,end}.
+// Change one week's class or event without touching the others
 function setOccurrence(type, id, key, val, label){
   if (type === "meet") {
     const c = state.courses[id]; if (!c) return;
@@ -56,8 +56,6 @@ function setOccurrence(type, id, key, val, label){
     applyChanges([{kind: "event", id, after: n}], label);
   }
 }
-// Events imported from a school site often come as separate weekly copies with no repeat rule. One that has a twin
-// (same title and time, same weekday, within ~9 weeks) is treated as a repeating class: changes stay this week only.
 function evInSeries(ev){
   if (!ev || ev.repeat || ev.allDay || !ev.start) return false;
   const tl = String(ev.title || "").trim().toLowerCase();
@@ -67,11 +65,11 @@ function findOcc(type, id, key){
   const d = type === "meet" ? key.split("|")[0] : key;
   return schOccurrences(addDays(d, -8), addDays(d, 8)).find(o => o.type === type && o.id === id && o.key === key) || null;
 }
-/* A class or event on the Schedule, shown in full: every detail the small block cuts off, and an Edit button for changing it. */
+/* A class or event on the Schedule, shown in full */
 function occView(type, id, key){
   if (type === "avail") { availOccSheet(id, key); return; }
   const ev0 = type === "event" ? state.events[id] : null;
-  if (ev0 && window.SBPRO && SBPRO.extEventSheet && SBPRO.extEventSheet(ev0)) return;   // from Google Calendar or Outlook: its own read-only sheet
+  if (ev0 && window.SBPRO && SBPRO.extEventSheet && SBPRO.extEventSheet(ev0)) return;
   const o = findOcc(type, id, key); if (!o) { occSheet(type, id, key); return; }
   const c = o.c || o.course || null, ev = o.ev || null, m = o.m || null;
   const ic = d => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -146,7 +144,7 @@ function occSheet(type, id, key){
   $("#occAll").addEventListener("click", () => { dlg.close(); setTimeout(() => type === "meet" ? courseForm(state.courses[id]) : eventForm(state.events[id]), 30); });
 }
 function eventForm(ev, preset){
-  if (ev && window.SBPRO && SBPRO.extEventSheet && SBPRO.extEventSheet(ev)) return;   // an event from Google Calendar or Outlook is changed there
+  if (ev && window.SBPRO && SBPRO.extEventSheet && SBPRO.extEventSheet(ev)) return;
   const isNew = !ev;
   ev = ev ? clone(ev) : normEvent(Object.assign({title: "", date: todayISO(), start: "10:00", end: "11:00"}, preset || {}));
   const rp = ev.repeat, days = rp ? rp.days : [parse(ev.date).getDay()];
@@ -192,7 +190,7 @@ function eventForm(ev, preset){
   const del = $("#evDel"); if (del) del.addEventListener("click", () => { dlg.close(); applyChanges([{kind: "event", id: ev.id, after: null}], `Deleted ${ev.title}`); });
 }
 
-/* Drag a class, event or exam on the schedule to a new time or day. Recurring ones change for that week only. */
+/* Drag a class, event or exam on the schedule to a new time or day */
 let schDragEnd = 0;
 (function schDrag(){
   let st = null;
@@ -268,7 +266,7 @@ function schDrop(type, id, key, tg){
   setOccurrence(type, id, key, back ? null : tg, back ? `${name} is back to its usual time` : `Moved ${name} to ${when}, this week only`);
 }
 
-/* ---------- Import from Apple Calendar or any .ics file ---------- */
+/* Import from Apple Calendar or any .ics file */
 function icsParse(text){
   const lines = String(text).replace(/\r\n[ \t]/g, "").replace(/\n[ \t]/g, "").split(/\r?\n/);
   const items = [], stack = []; let cur = null;
@@ -283,10 +281,9 @@ function icsParse(text){
   }
   return items;
 }
-const icsTxt = s => scrubText(String(s || "").replace(/\\n/gi, "\n").replace(/\\([,;\\])/g, "$1").trim(), false);   // calendar text often carries HTML
+const icsTxt = s => scrubText(String(s || "").replace(/\\n/gi, "\n").replace(/\\([,;\\])/g, "$1").trim(), false);
 function icsTz(y, mo, d, h, mi, tz){
   try {
-    // The offset is read at the instant the wall-clock time means (two passes), so times near a clock change come out right.
     const f = new Intl.DateTimeFormat("en-US", {timeZone: tz.replace(/^\//, ""), hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit"});
     const off = ms => { const P = {}; f.formatToParts(new Date(ms)).forEach(x => { P[x.type] = x.value; }); return Date.UTC(+P.year, +P.month - 1, +P.day, +P.hour % 24, +P.minute) - Math.floor(ms / 6e4) * 6e4; };
     const guess = Date.UTC(y, mo - 1, d, h, mi); let t = guess - off(guess); const o2 = off(t); if (guess - o2 !== t) t = guess - o2;
@@ -298,7 +295,6 @@ function icsWhen(x){
   const m = String(x.v).trim().match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?/); if (!m) return null;
   if (!m[4]) return {date: `${m[1]}-${m[2]}-${m[3]}`, time: "", allDay: true};
   const d = m[7] ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5])) : x.p.TZID ? icsTz(+m[1], +m[2], +m[3], +m[4], +m[5], x.p.TZID) : new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
-  // An instant (UTC "Z" or a TZID) becomes the wall-clock time in your home zone, so a calendar link imported at home doesn't move when you travel. A floating time stays as written.
   const hz = (m[7] || x.p.TZID) && window.SBTZ && SBTZ.schoolZone(), w = hz && SBTZ.wallIn(d.getTime(), hz);
   if (w) return {date: w.date, time: w.time, allDay: false, ms: d.getTime()};
   return {date: iso(d), time: pad(d.getHours()) + ":" + pad(d.getMinutes()), allDay: false, ms: d.getTime()};
@@ -306,9 +302,7 @@ function icsWhen(x){
 const icsDur = s => { const m = String(s || "").match(/P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?)?/); return m ? ((+m[1] || 0) * 7 * 1440 + (+m[2] || 0) * 1440 + (+m[3] || 0) * 60 + (+m[4] || 0)) : 0; };
 const ICS_DAY = {SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6};
 const TASK_RX = /\b(exam|midterm|final exam|finals?|quiz(?:zes)?|test|due|deadline|assignment|homework|hw\s?\d*|problem set|p-?set|project|paper|essay|lab report|presentation|submission|submit)\b/i;
-// Something about an exam that isn't the exam itself, told by where the words sit, not by single words (a "Nursing Practice Midterm
-// Exam", a "Workshop Quiz" and a "Midterm Clinical Evaluation" are real ones): "NK1 Midterm Exam Review", "Final Exam Prep Session",
-// "Practice Midterm Exam Questions", "Mock Final", "Midterm Results", "Exam Registration", "Review Session", "Study Guide"
+// Something about an exam that isn't the exam itself, told by where the words sit
 const notSitting = s => { const t = String(s || "").replace(/\s+/g, " ");
   return /\b(exams?|examination|midterms?|mid-term|finals?|tests?|quiz(zes)?)(\s+exam)?\s*[-:]?\s*(review|prep|preparation|tutorial|workshop|study\s+session|info(rmation)?\s+session|walk-?through|debrief|q\s*&\s*a|results|feedback|solutions?|answer\s+key|registration|sign[- ]?up|booking|accommodations?|reflection|grades|marks|scores|viewing|overview)\b/i.test(t)
     || /\b(review|prep|preparation|help|study|info(rmation)?|tutorial|catch-?up)\s+(session|class|lecture|workshop|day)\b/i.test(t)
@@ -317,15 +311,14 @@ const notSitting = s => { const t = String(s || "").replace(/\s+/g, " ");
     || /\b(mock|sample)\s+(exams?|midterms?|finals?|tests?|quiz(zes)?)\b/i.test(t)
     || /\b(study\s+guide|office\s+hours|exam\s+schedule|exam\s+timetable)\b/i.test(t); };
 const NOT_SITTING = {test: notSitting};
-// An exam or test you sit: "Midterm", "Final Exam", "Unit 3 Test", "Midterm Clinical Evaluation"; not "Final Project", "Final Group
-// Paper" or "Midterm Reflection Paper" (a deliverable named after when it's due)
+// An exam or test you sit
 const isExamSitting = s => { const t = String(s || ""); if (notSitting(t)) return false;
   if (/\b(midterm|mid-term|final)\b(\s+\w+)?\s+(project|paper|essay|report|reflection|presentation|portfolio|assignment|draft|submission|video|poster|demo|journal|case\s+study|care\s+plan|lab\s+report|proposal)\b/i.test(t)) return false;
   return /\b(exams?|examination|midterms?|mid-term|tests?|finals?)\b/i.test(t); };
 const guessTaskType = s => isExamSitting(s) && /\b(exams?|examination|midterms?|mid-term)\b/i.test(s) ? "Exam" : /\bquiz/i.test(s) && !notSitting(s) ? "Quiz" : isExamSitting(s) ? "Exam" : /\bproject|presentation\b/i.test(s) ? "Project" : /\blab\b/i.test(s) ? "Lab" : /\bread/i.test(s) ? "Reading" : "Assignment";
 const guessMeetLabel = s => /office\s*hours?|\bOH\b/i.test(s) ? "Office Hours" : /\blab\b/i.test(s) ? "Lab" : /tutorial|\btut\b/i.test(s) ? "Tutorial" : /discussion|recitation|\bsection\b|\bdis\b/i.test(s) ? "Discussion" : /lecture|\blec\b|\bclass\b/i.test(s) ? "Lecture" : "";
 const codeKey = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-// Turns calendar entries into Studyboard events and tasks, linked to your courses where the names match.
+// Turns calendar entries into Studyboard events and tasks
 function icsPlan(text){
   const raw = icsParse(text), today = todayISO(), out = [], overrides = [];
   raw.forEach(it => {
@@ -365,14 +358,12 @@ function icsPlan(text){
     const isTask = !repeat && TASK_RX.test(title);
     out.push({kind: isTask ? "task" : "event", uid: uidv, title, date: s.date, endDate, allDay: s.allDay, start: s.allDay ? "" : s.time, end: s.allDay ? "" : end, repeat, exdates: exd, where: txt("LOCATION"), notes: [txt("DESCRIPTION"), note].filter(Boolean).join("\n\n"), past, label: guessMeetLabel(title)});
   });
-  // One-off changes to a single week of a repeating event
   overrides.forEach(ov => {
     const it = out.find(x => x.uid === ov.uid && x.repeat); if (!it || !ov.rid) return;
     it.moved = it.moved || {};
     if (ov.cancel) { it.exdates.push(ov.rid.date); return; }
     if (ov.s) { const end = ov.e && ov.e.ms ? ov.e.time : minToT(Math.min(1439, tToMin(ov.s.time) + (ov.dur || tToMin(it.end) - tToMin(it.start)))); it.moved[ov.rid.date] = {date: ov.s.date, start: ov.s.time, end}; }
   });
-  // Link to courses: by course code or name, or suggest a new course for codes like "CHEM 110".
   const cs = coursesArr(), newCourses = {};
   out.forEach(it => {
     const hay = codeKey(it.title), c = cs.find(c => c.code && codeKey(c.code).length >= 3 && hay.includes(codeKey(c.code))) || cs.find(c => c.name && c.name.length > 3 && it.title.toLowerCase().includes(c.name.toLowerCase()));
@@ -382,7 +373,7 @@ function icsPlan(text){
   });
   return {items: out, newCourses};
 }
-// Which calendar a file is: its own name (X-WR-CALNAME) when it has one, otherwise the file name without a browser's " (2)" copy number.
+// Which calendar a file is
 function icsSrcKey(text, fileName){
   const m = String(text).match(/^X-WR-CALNAME[^:\r\n]*:([^\r\n]*)/mi);
   const n = (m && icsTxt(m[1])) || String(fileName || "").replace(/\.(ics|ical|icalendar|ifb)$/i, "").replace(/\s*\(\d+\)$/, "");
@@ -393,8 +384,6 @@ function icsImportSheet(text, fileName){
   try { plan = icsPlan(text); } catch(e) { console.warn(e); toast("That file isn't a calendar file Studyboard can read"); return; }
   if (!plan.items.length) { toast("No events or to-dos were found in that file"); return; }
   const its = plan.items;
-  // Each calendar file is its own source: many school and timetable exports number their entries 1, 2, 3…, so the same UID in a
-  // second file is a different event and must not replace the first file's. Items imported before sources were kept match by UID and title.
   const src = icsSrcKey(text, fileName);
   const mine = x => x.icsUid && (x.icsSrc ? x.icsSrc === src : true);
   const evByUid = {}, tByUid = {};
@@ -437,7 +426,7 @@ function icsImportSheet(text, fileName){
         ch.push({kind: "task", id: t.id, after: t}); prev ? nU++ : nT++;
       } else {
         const prev = existingEv[it.uid];
-        const ev = normEvent(Object.assign(prev ? clone(prev) : {id: uid(), created: Date.now(), src: "ics"}, {title: it.title, courseId: prev && prev.courseId && !courseId ? prev.courseId : courseId, label: it.label || "", date: it.date || it.due, endDate: it.endDate || "", allDay: !!it.allDay || !it.start, start: it.start || "", end: it.end || "", repeat: it.repeat, exdates: it.exdates || [], where: it.where || "", notes: prev && prev.notes ? prev.notes : (it.notes || ""), /* notes you wrote or kept are never replaced by the calendar's */ icsUid: it.uid, icsSrc: src,
+        const ev = normEvent(Object.assign(prev ? clone(prev) : {id: uid(), created: Date.now(), src: "ics"}, {title: it.title, courseId: prev && prev.courseId && !courseId ? prev.courseId : courseId, label: it.label || "", date: it.date || it.due, endDate: it.endDate || "", allDay: !!it.allDay || !it.start, start: it.start || "", end: it.end || "", repeat: it.repeat, exdates: it.exdates || [], where: it.where || "", notes: prev && prev.notes ? prev.notes : (it.notes || ""), icsUid: it.uid, icsSrc: src,
           moved: Object.assign({}, it.moved || {}, prev ? prev.moved : {})}));
         if (prev && JSON.stringify(prev) === JSON.stringify(ev)) return;
         ch.push({kind: "event", id: ev.id, after: ev}); prev ? nU++ : nE++;
@@ -463,7 +452,7 @@ function icsImportSheet(text, fileName){
   };
   pastBox.addEventListener("change", draw); draw();
 }
-// One or several calendar files: each opens its own import sheet in turn, and each stays its own source (see icsSrcKey)
+// One or several calendar files
 function icsPick(){
   const inp = document.createElement("input"); inp.type = "file"; inp.multiple = true; inp.accept = ".ics,.ical,.ifb,.icalendar,text/calendar";
   inp.addEventListener("change", async () => {
@@ -474,7 +463,7 @@ function icsPick(){
       let text = ""; try { text = await files[i].text(); } catch (e) { run(i + 1); return; }
       icsImportSheet(text, files[i].name);
       if (i + 1 >= files.length) return;
-      if (dlg.open) dlg.addEventListener("close", () => setTimeout(() => run(i + 1), 60), {once: true}); else setTimeout(() => run(i + 1), 900);   // nothing new in that one: on to the next
+      if (dlg.open) dlg.addEventListener("close", () => setTimeout(() => run(i + 1), 60), {once: true}); else setTimeout(() => run(i + 1), 900);
     };
     run(0);
   });
@@ -495,8 +484,7 @@ function icsHelpSheet(){
   $("#icsGo").addEventListener("click", () => { dlg.close(); icsPick(); });
 }
 
-/* ---------- Daily quote and progress streak ---------- */
-// 365 motivational quotes from well-known people, one for each day of the year. Keep the count off multiples of 37 so the daily rotation reaches every one.
+/* Daily quote and progress streak */
 const DAILY_QUOTES = [
   ["A journey of a thousand miles begins with a single step.", "Laozi"],
   ["Well begun is half done.", "Aristotle"],
@@ -865,12 +853,12 @@ const DAILY_QUOTES = [
   ["Courage is being scared to death, but saddling up anyway.", "John Wayne"]
 ];
 function todaysQuote(){
-  const t = todayISO(), n = Math.floor(Date.UTC(+t.slice(0, 4), +t.slice(5, 7) - 1, +t.slice(8, 10)) / 864e5), N = DAILY_QUOTES.length;   // whole days in UTC: the same quote all day, whatever the zone or clock change
+  const t = todayISO(), n = Math.floor(Date.UTC(+t.slice(0, 4), +t.slice(5, 7) - 1, +t.slice(8, 10)) / 864e5), N = DAILY_QUOTES.length;
   return DAILY_QUOTES[((n * 37) % N + N) % N];
 }
 const streakOf = () => { const s = Object.assign({cur: 0, best: 0, last: ""}, (state.settings && state.settings.streak) || {}); if (s.last && s.last < addDays(todayISO(), -1)) s.cur = 0; return s; };
 function streakLine(){
-  if (window.SBSTREAK && SBSTREAK.on()) return SBSTREAK.line();     // the gentle streak (module 99-review-streaks) replaces the fire line when the student turned it on
+  if (window.SBSTREAK && SBSTREAK.on()) return SBSTREAK.line();
   const s = streakOf(), today = s.last === todayISO();
   if (!s.cur) return "Make progress on a task today to start a streak.";
   return `🔥 ${s.cur}-day streak${today ? "" : " (make progress today to keep it)"}.${s.best > s.cur ? ` Your best is ${s.best} days.` : ""}`;
@@ -905,7 +893,7 @@ function qodPop(html, cls){
 }
 function dailyQuote(force){
   if (!force && styleCfg().quotes === false) return;
-  if (!force && navigator.webdriver && !window.__qodTest) return;     // not during automated tests
+  if (!force && navigator.webdriver && !window.__qodTest) return;
   const d = todayISO();
   let last = ""; try { last = localStorage.getItem("studyboard:quoteDay") || ""; } catch(e) {}
   if (!force && last === d) return;
@@ -918,8 +906,7 @@ function dailyQuote(force){
     <div class="qod-foot"><button type="button" class="btn primary" data-qod-close>Let's Go</button></div>`);
 }
 
-/* ---------- Weekly class schedule ---------- */
-// Course colours: the first eight are the originals (existing courses keep matching a swatch); the rest are extra distinct hues. Any other colour comes from the custom picker.
+/* Weekly class schedule */
 const COURSE_COLORS = ["#3B6FE0", "#1E9E74", "#E0673B", "#9A4FD1", "#D6386F", "#1D9BB8", "#C79A12", "#5E6B7E", "#DC2626", "#16A34A", "#65A30D", "#0D9488", "#4F46E5", "#C026D3", "#EA580C", "#92400E", "#334155"];
 const COURSE_COLOR_NAMES = ["Blue", "Emerald", "Coral", "Purple", "Raspberry", "Ocean", "Gold", "Slate Gray", "Red", "Green", "Lime", "Teal", "Indigo", "Magenta", "Orange", "Brown", "Charcoal"];
 const MEET_KINDS = ["Lecture", "Lab", "Discussion", "Tutorial", "Office Hours", "Other"];
@@ -946,10 +933,9 @@ function parseMeetings(text, kind, where){
   return out;
 }
 const daysLabel = ds => WEEK_ORDER.filter(d => ds.includes(d)).map(d => DAY_SHORT[d]).join("");
-// Courses saved before class times existed still have a "Meets" line; read the times from it.
+// Courses saved before class times existed still have a "Meets" line; read the times from it
 const courseMeetings = c => Array.isArray(c.meetings) ? c.meetings : parseMeetings(c.schedule, "Lecture", c.room).concat(parseMeetings(c.office, "Office Hours"));
-// The class times on a course's colour band, always in one format: "Mon, Wed, Fri · 10:00–11:40 AM" (a second kind, like a lab, as "+ Lab").
-// Read from the course's meetings (or its "Meets" line); text that has no days and times in it is shown as it was typed.
+// The class times on a course's colour band, always in one format
 const DAY_ABBR = {1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 0: "Sun"};
 function meetDaysText(ds){
   const ord = WEEK_ORDER.filter(d => ds.includes(d));
@@ -958,14 +944,14 @@ function meetDaysText(ds){
 }
 function meetTimeText(a, b){
   const s = fmtTime(a), e = fmtTime(b), sm = s.match(/^(.*?)\s?([AaPp]\.?[Mm]\.?)$/), em = e.match(/^(.*?)\s?([AaPp]\.?[Mm]\.?)$/);
-  return sm && em && sm[2].toUpperCase() === em[2].toUpperCase() ? `${sm[1]}–${e}` : `${s}–${e}`;   // "10:00–11:40 AM", "11:30 AM–12:50 PM"
+  return sm && em && sm[2].toUpperCase() === em[2].toUpperCase() ? `${sm[1]}–${e}` : `${s}–${e}`;
 }
 function courseTimesText(c){
   let ms = []; try { ms = courseMeetings(c).filter(m => m && m.kind !== "Office Hours" && Array.isArray(m.days) && m.days.length && m.start && m.end); } catch (e) { ms = []; }
   if (!ms.length) return String(c.schedule || "").trim();
   const main = ms.find(m => m.kind === "Lecture") || ms[0];
   const extra = [...new Set(ms.filter(m => m !== main && m.kind !== main.kind).map(m => m.kind))];
-  const same = ms.filter(m => m.kind === main.kind && m !== main && m.start === main.start && m.end === main.end);   // a lecture saved as one row per day
+  const same = ms.filter(m => m.kind === main.kind && m !== main && m.start === main.start && m.end === main.end);
   const days = [...new Set(main.days.concat(...same.map(m => m.days)))];
   return `${meetDaysText(days)} · ${meetTimeText(main.start, main.end)}${extra.length ? " + " + extra.join(", ") : ""}`;
 }
@@ -991,10 +977,9 @@ function viewSchedule(){
   const hasWeekend = occ.some(o => { const w = parse(o.date).getDay(); return w === 0 || w === 6; });
   const days = []; for (let i = 0; i < (hasWeekend ? 7 : 5); i++) { const iso = addDays(mon, i); days.push({i, iso, wd: parse(iso).getDay()}); }
   const lastDay = days[days.length - 1].iso;
-  // Tasks due this week: exams and quizzes with a time sit on the grid, everything else is listed under the day.
   const weekTasks = tasksArr().filter(t => t.due && t.due >= mon && t.due <= lastDay && t.status !== "done");
   const onGrid = t => MILESTONE(t.type) && t.time;
-  const shown = new Set(days.map(d => d.iso)), timed = occ.filter(o => !o.allDay && shown.has(o.date));   // only what's drawn sets the hours (9 AM to 5 PM unless something falls outside)
+  const shown = new Set(days.map(d => d.iso)), timed = occ.filter(o => !o.allDay && shown.has(o.date));
   let lo = Math.min(...timed.map(o => tToMin(o.start)), ...weekTasks.filter(onGrid).map(t => tToMin(t.time)), 9 * 60);
   let hi = Math.max(...timed.map(o => tToMin(o.end)), ...weekTasks.filter(onGrid).map(t => tToMin(t.time) + 60), 17 * 60);
   const h0 = Math.max(0, Math.floor(lo / 60)), h1 = Math.min(24, Math.ceil(hi / 60));
@@ -1004,7 +989,6 @@ function viewSchedule(){
   const cols = days.map(d => {
     const items = timed.filter(o => o.date === d.iso).map(o => ({s: tToMin(o.start), e: Math.max(tToMin(o.end), tToMin(o.start) + 15), o}))
       .concat(weekTasks.filter(t => t.due === d.iso && onGrid(t)).map(t => ({s: tToMin(t.time), e: tToMin(t.time) + 60, t}))).sort((a, b) => a.s - b.s || b.e - a.e);
-    // side-by-side lanes for anything that overlaps
     let group = [], groupEnd = -1;
     const flush = () => { const lanes = []; group.forEach(it => { let l = lanes.findIndex(end => end <= it.s); if (l < 0) { l = lanes.length; lanes.push(0); } lanes[l] = it.e; it.lane = l; }); group.forEach(it => it.lanes = lanes.length); group = []; };
     items.forEach(it => { if (it.s >= groupEnd) { flush(); groupEnd = it.e; } else groupEnd = Math.max(groupEnd, it.e); group.push(it); });
@@ -1036,7 +1020,6 @@ function viewSchedule(){
   const pills = days.map(d => `<button data-act="sch-day" data-id="${d.i}" aria-pressed="${d.i === sel}" class="${d.iso === today ? "is-today" : ""}"><span>${esc(parse(d.iso).toLocaleDateString(undefined, {weekday: "narrow"}))}</span><b>${parse(d.iso).getDate()}</b></button>`).join("");
   const nEv = occ.filter(o => o.type === "event" && !o.skipped).length;
   const avKinds = AV_ORDER.filter(k => occ.some(o => o.type === "avail" && o.avail.kind === k));
-  // The week's summary and any courses still missing class times sit behind a Notices button (its count is what needs doing)
   schNoticeHtml = `<p style="margin:0">${fmtHM(classMin / 60) || "0m"} of class this week${availMinSum >= 15 ? `, ${fmtHM(availMinSum / 60)} of work and shifts` : ""}${nEv ? `, ${nEv} event${nEv === 1 ? "" : "s"}` : ""}${weekTasks.length ? `, ${weekTasks.length} deadline${weekTasks.length === 1 ? "" : "s"}` : ""}. Tap a class to change just this week, or drag it to a new time.</p>${missing.length ? `<div class="sch-ntc"><b>No class times yet</b><span class="mini">Add them so these courses show on your Schedule.</span><div class="sch-missing">${missing.map(c => `<button class="chip" style="--c:${esc(c.color)}" data-act="edit-course" data-id="${esc(c.id)}"><span class="dot"></span>${esc(courseLabel(c))}: Add Class Times</button>`).join("")}</div></div>` : ""}`;
   const ntcBtn = `<button class="btn small sch-ntc-btn" data-act="sch-notices" title="This week's summary${missing.length ? " and courses missing class times" : ""}">Notices${missing.length ? `<span class="sch-ntc-n">${missing.length}</span>` : ""}</button>`;
   return nav.replace(/<\/div><\/div>$/, ntcBtn + "</div></div>") + `
@@ -1050,7 +1033,7 @@ function viewSchedule(){
     <div class="sch-legend mini"><span class="lg k-lecture">Lecture</span><span class="lg k-lab">Lab</span><span class="lg k-discussion">Discussion or Tutorial</span><span class="lg k-officehours">Office Hours</span><span class="lg k-event">Event</span><span class="lg sch-exam">Exam or Quiz</span>${avKinds.map(k => `<span class="lg k-av k-av-${k}" style="--c:${esc(AVAIL.TYPES[k].color)}">${esc(AVAIL.TYPES[k].label)}</span>`).join("")}</div>`;
 }
 
-/* ---------- Calendar: Timeline and Schedule share one tab ---------- */
+/* Calendar: Timeline and Schedule share one tab */
 const isPlanTab = t => t === "timeline" || t === "schedule" || t === "crunch";
 function planViewSet(t){
   if (ui.planView === t) return;
@@ -1062,7 +1045,7 @@ function planSwitchHtml(){
   return `<div class="pview-tabs" role="tablist" aria-label="Calendar view"><button role="tab" data-act="plan-view" data-id="timeline" aria-selected="${t === "timeline"}">${tlPhone() ? "Month" : "Timeline"}</button><button role="tab" data-act="plan-view" data-id="schedule" aria-selected="${t === "schedule"}">Schedule</button><button role="tab" data-act="plan-view" data-id="crunch" aria-selected="${t === "crunch"}">Crunch</button></div>`;
 }
 
-/* Courses and Files share one nav tab: ui.tab stays "courses" or "files", and this switch moves between them */
+/* Courses and Files share one nav tab */
 const isCfTab = t => t === "courses" || t === "files" || t === "emails";
 function cfSwitchHtml(){
   const t = ui.tab, g = t === "courses" && ui.courseTab === "grades", hasCourses = typeof coursesArr === "function" && coursesArr().length > 0;

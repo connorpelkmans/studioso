@@ -1,12 +1,12 @@
 /* ===== module: 01-render.js: the app's core, render and dialogs ===== */
-/* ---------- Render ---------- */
+/* Render */
 let renderQueued = false, renderBlocked = false;
 function scheduleRender(){
   if (renderQueued) return;
   renderQueued = true;
   requestAnimationFrame(() => { renderQueued = false; render(); });
 }
-// The big button at the bottom right does the main "add" for the page you're on. Null hides it.
+// The big button at the bottom right does the main "add" for the page you're on
 function fabConfig(){
   if ((VIEWS[ui.tab] && ui.tab !== "groups") || ui.tab === "archive") return null;
   if (ui.tab === "courses" && ui.courseId && ui.courseTab === "lectures" && ui.courseTabFor === ui.courseId && window.SBLEC && SBLEC.canAdd()) return {act: "fab-lecture", label: "Add Lecture"};
@@ -23,14 +23,12 @@ function refreshFab(){
   fab.style.display = cfg ? "" : "none";
   if (cfg) { fab.dataset.act = cfg.act; if (cfg.id) fab.dataset.id = cfg.id; else delete fab.dataset.id; const sp = fab.querySelector("span"); if (sp && sp.textContent !== cfg.label) sp.textContent = cfg.label; }
 }
-// The app tour's example planner (49-apptour.js): while it's set, each draw shows it instead of your own (empty) planner. It is only
-// swapped in for the moment of drawing: everything else, saving and syncing included, only ever sees your real data, and nothing
-// is saved while it's in (saveLocal, queueWrite and the rest return straight away).
+// The app tour's example planner (49-apptour.js)
 let tourDemo = null, demoDrawing = false;
 function render(){
   if (!tourDemo || demoDrawing) return renderNow();
   const real = state; demoDrawing = true; state = Object.assign({}, tourDemo, {settings: real.settings, trash: {}});
-  try { return renderNow(); } finally { state = real; demoDrawing = false; FOCUS = null; }   // (Today's Plan is worked out again from your data next time it's needed)
+  try { return renderNow(); } finally { state = real; demoDrawing = false; FOCUS = null; }
 }
 function renderNow(){
   if (renderBlocked) { renderQueued = false; setTimeout(scheduleRender, 120); return; }
@@ -39,7 +37,6 @@ function renderNow(){
   computeFocus(); remoteStoreSoon();
   { const nd = new Date(); $("#navDate").textContent = nd.toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"}); }
   { const sk = streakOf(); $("#todayLabel").innerHTML = `<span class="wd">${esc(new Date().toLocaleDateString(undefined, {weekday:"long"}))}</span> ${esc(new Date().toLocaleDateString(undefined, {month:"long", day:"numeric"}))}${sk.cur >= 2 && !(window.SBSTREAK && SBSTREAK.on()) ? `<button class="streak-chip" data-act="daily-quote" title="${esc(streakLine())}">🔥 ${sk.cur}</button>` : ""}`; }
-  // "plan" (Calendar) is one tab with two views, Timeline and Schedule. The rest of the app can still say "timeline" or "schedule".
   if (ui.tab === "plan" || ui.tab === "calendar") ui.tab = ui.planView;
   if (isPlanTab(ui.tab)) planViewSet(ui.tab);
   const navTab = isPlanTab(ui.tab) ? "plan" : ui.tab === "files" || ui.tab === "emails" ? "courses" : ui.tab;
@@ -59,7 +56,6 @@ function renderNow(){
   const sc = $(".tl-scroll");
   if (sc) {
     if (ui.tlJump || ui.tlScroll == null) {
-      // Put today in the middle of the visible part of the chart (to the right of the sticky task names).
       const lw = Number(($(".tl", sc) || {dataset: {}}).dataset.lw || 0), dw = Number(sc.dataset.dw || 22);
       const target = Math.max(0, Number(sc.dataset.today || 0) + dw / 2 - (sc.clientWidth - lw) / 2);
       if (ui.tlJump === "smooth") { const from = ui.tlScroll || 0; sc.scrollLeft = from; sc.scrollTo({left: target, behavior: "smooth"}); flashToday(); } else sc.scrollLeft = target;
@@ -75,12 +71,9 @@ function renderNow(){
   if (AUTO_ON) autoKick();
   if (ui.tab === "notes") fitNoteBoard();
   fire("render", ui.tab);
-  // Again once the render hooks have added their parts: before that the page can be too short to scroll back to where you were
-  // (ticking a task near the bottom of the Board used to throw the page back to the top)
   if (Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y);
 }
-// Size the note board to its notes: it fills its frame (min 100% in CSS), and only when a note sits past the frame's
-// edge does it grow, so scroll bars appear only then.
+// Size the note board to its notes
 function fitNoteBoard(){
   const board = $("#nbBoard"); if (!board || (drag && drag.kind === "note" && drag.started)) return;
   let w = 0, h = 0;
@@ -89,9 +82,7 @@ function fitNoteBoard(){
   board.style.height = h ? (h + 28) + "px" : "";
   nbZoomApply();
 }
-/* ---- Note board zoom: pinch (phones, trackpads), Ctrl/⌘ + scroll, or the − / + buttons; 100% puts it back ----
-   The board is drawn at its usual size and scaled; an outer box takes the scaled size so the frame scrolls over exactly the board.
-   Notes keep their own positions (n.x, n.y in board pixels): anything that turns a point on the screen into a board position divides by nbZ(). */
+/* -- Note board zoom */
 const NBZ_KEY = "studyboard:noteZoom", NBZ_MIN = 0.4, NBZ_MAX = 2;
 let NBZ = 1; try { NBZ = Math.min(NBZ_MAX, Math.max(NBZ_MIN, Number(localStorage.getItem(NBZ_KEY)) || 1)); } catch (e) {}
 const nbZ = () => NBZ;
@@ -104,10 +95,10 @@ function nbZoomApply(){
   if (Math.abs(NBZ - 1) < 0.001) { b.style.transform = ""; b.style.minWidth = b.style.minHeight = ""; sz.style.width = sz.style.height = ""; sz.classList.remove("zoomed"); return; }
   sz.classList.add("zoomed");
   b.style.transform = `scale(${NBZ})`;
-  b.style.minWidth = (sc.clientWidth / NBZ) + "px"; b.style.minHeight = (sc.clientHeight / NBZ) + "px";   // the cork still fills the frame when zoomed out
+  b.style.minWidth = (sc.clientWidth / NBZ) + "px"; b.style.minHeight = (sc.clientHeight / NBZ) + "px";
   sz.style.width = (b.offsetWidth * NBZ) + "px"; sz.style.height = (b.offsetHeight * NBZ) + "px";
 }
-// Zoom to z, keeping the point under (cx, cy) on the screen where it is (the middle of the frame when no point is given)
+// Zoom to z, keeping the point under (cx, cy) on the screen where it is
 function nbZoomTo(z, cx, cy){
   const sc = $("#nbScroll"); if (!sc) return;
   z = Math.round(Math.min(NBZ_MAX, Math.max(NBZ_MIN, z)) * 100) / 100;
@@ -121,18 +112,18 @@ function nbZoomTo(z, cx, cy){
 }
 const NBZ_STEPS = [0.4, 0.5, 0.6, 0.75, 0.9, 1, 1.25, 1.5, 1.75, 2];
 function nbZoomStep(dir){ const z = dir > 0 ? NBZ_STEPS.find(v => v > NBZ + 0.001) : [...NBZ_STEPS].reverse().find(v => v < NBZ - 0.001); if (z) nbZoomTo(z); }
-// Trackpad pinch (Chrome, Edge, Firefox send it as Ctrl + wheel) and Ctrl/⌘ + mouse wheel; a plain wheel still scrolls the board
+// Trackpad pinch (Chrome, Edge, Firefox send it as Ctrl + wheel) and Ctrl/⌘ + mouse wheel
 document.addEventListener("wheel", e => {
   if (!(e.ctrlKey || e.metaKey) || ui.tab !== "notes" || !e.target.closest || !e.target.closest("#nbScroll")) return;
   e.preventDefault();
   nbZoomTo(NBZ * Math.exp(-Math.max(-50, Math.min(50, e.deltaY)) * (e.deltaMode === 1 ? 0.05 : 0.01)), e.clientX, e.clientY);
 }, {passive: false});
-// Safari on a Mac trackpad: gesture events
+// Safari on a Mac trackpad
 let nbGest = null;
 document.addEventListener("gesturestart", e => { if (ui.tab === "notes" && e.target.closest && e.target.closest("#nbScroll")) { e.preventDefault(); nbGest = {z: NBZ}; } });
 document.addEventListener("gesturechange", e => { if (nbGest) { e.preventDefault(); nbZoomTo(nbGest.z * e.scale, e.clientX, e.clientY); } });
 document.addEventListener("gestureend", e => { if (nbGest) { e.preventDefault(); nbGest = null; } });
-// Phones and tablets: two fingers pinch, around the point between them (a note being dragged keeps its finger)
+// Phones and tablets
 let nbPinch = null;
 const nbTouchMid = t => ({x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2, d: Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY)});
 document.addEventListener("touchstart", e => {
@@ -148,7 +139,7 @@ document.addEventListener("touchmove", e => {
 }, {passive: false});
 document.addEventListener("touchend", e => { if (nbPinch && e.touches.length < 2) nbPinch = null; });
 document.addEventListener("touchcancel", () => { nbPinch = null; });
-// Keep each board strip where it was across redraws; after a drop, show the column the card went to.
+// Keep each board strip where it was across redraws; after a drop
 function restoreBoards(prev){
   const boards = $$(".board");
   boards.forEach((b, i) => { if (prev[i] != null) b.scrollLeft = prev[i]; });
@@ -188,10 +179,10 @@ function drawDeps(){
   svg.innerHTML = `<defs><marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" class="head"/></marker><marker id="arrBad" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" class="head bad"/></marker></defs>${paths}`;
   tl.appendChild(svg);
 }
-/* ---------- Dialogs ---------- */
+/* Dialogs */
 const dlg = $("#dlg");
 function openSheet(html, onSubmit){
-  const tt = $("#toast"), inSheet = !!tt && tt.parentNode === dlg;    // a message showing inside the sheet survives the new contents
+  const tt = $("#toast"), inSheet = !!tt && tt.parentNode === dlg;
   if (inSheet) document.body.appendChild(tt);
   dlg.innerHTML = html;
   if (inSheet) dlg.appendChild(tt);
@@ -230,11 +221,11 @@ const FAB_IC = {
   project: '<rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v3M16 3v3M8 14h3"/>',
   code: '<rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 12h.01M11 12h.01M15 12h2"/>'
 };
-// A pop-up of big, friendly choices. Each item: [act, label, sub, icon key, ai?]
+// A pop-up of big, friendly choices
 const fabMenu = (title, items) => { openSheet(`<div class="sheet fab-menu">${head(title)}<div class="sheet-body"><div class="menu-list fm-list">${items.map(([act, label, sub, ic, ai]) => `<button data-act="${act}"${ai ? ' class="ai-row"' : ""}><i class="fm-ic" aria-hidden="true">${ai ? AI_ICON : `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${FAB_IC[ic] || ""}</svg>`}</i><span class="fm-t"><b>${esc(label)}</b><span class="sub">${esc(sub)}</span></span><svg class="fm-go" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>`).join("")}</div></div></div>`);
   const fl = dlg.querySelector(".fm-list"); if (fl) fl.addEventListener("click", e => { if (e.target.closest("button[data-act]") && dlg.open) dlg.close(); }, true); };
 const head = title => `<div class="sheet-head"><h2>${esc(title)}</h2><button type="button" class="icon-btn" data-act="close" aria-label="Close">${CLOSE}</button></div>`;
-// A sheet header with a colour band and a line icon in a ring (Direction 1): bandHead(title, icon svg, colour, line under the title)
+// A sheet header with a colour band and a line icon in a ring (Direction 1)
 const bandHead = (title, icon, color, sub, big) => `<div class="sheet-head g2-sheet-head${big ? " sh-big" : ""}" style="--c:${esc(color)}"><span class="g2-ring sh-ring" aria-hidden="true">${icon}</span>${big ? `<span class="sh-kick">${esc(title)}</span><div class="sh-t"><h2 class="sh-name">${big}</h2></div>` : `<div class="sh-t"><h2>${esc(title)}</h2>${sub ? `<span class="mini">${sub}</span>` : ""}</div>`}<button type="button" class="icon-btn" data-act="close" aria-label="Close">${CLOSE}</button></div>`;
 const SH_IC = {
   pencil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 3.5l4 4L8 20l-5 1 1-5z"/><path d="M14 6l4 4"/></svg>',
@@ -260,11 +251,11 @@ function taskForm(t, preset = {}){
   t = t ? clone(t) : normTask({id: uid(), title:"", courseId: preset.courseId || (ui.filter !== "all" ? ui.filter : ""), type:"Assignment",
     start: (preset.due && preset.due < todayISO()) ? preset.due : todayISO(), due: preset.due || "", status: preset.status || "todo"});
   let items = clone(t.checklist || []);
-  const rxEff = isNew ? {v: "", src: ""} : remoteOf(t), rxInit = rxEff.v || "";            // where an exam or quiz is taken: what Studyboard (or you) already decided
+  const rxEff = isNew ? {v: "", src: ""} : remoteOf(t), rxInit = rxEff.v || "";
   let deps = (t.dependsOn || []).filter(id => state.tasks[id]);
   let attached = new Set(filesOfTask(t.id).map(f => f.id));
   let noteSet = new Set(notesOfTask(t.id).map(n => n.id)), newNotes = [];
-  let planAfter = false;      // "Add & Plan Prep" on a new exam or quiz: open the Exam Prep Planner once it's saved
+  let planAfter = false;
   const dependsOnSelf = (id, seen = new Set()) => { if (id === t.id) return true; if (seen.has(id)) return false; seen.add(id); return ((state.tasks[id] || {}).dependsOn || []).some(x => dependsOnSelf(x, seen)); };
   const courseOpts = `<option value="">No course</option>` + coursesArr().map(c => `<option value="${esc(c.id)}" ${c.id === t.courseId ? "selected" : ""}>${esc(c.name)}</option>`).join("");
   openSheet(`<form class="sheet">${bandHead(isNew ? "New Task" : "Edit Task", SH_IC.pencil, t.courseId ? colorOf(t.courseId) : "#2F6FE4", "", isNew ? "" : esc(t.title))}
@@ -293,7 +284,7 @@ function taskForm(t, preset = {}){
         <div class="adv-body">
           <div class="two">
             <label class="f" data-fld="time"><span class="lbl">Due Time</span><input type="time" name="time" value="${esc(t.time)}"></label>
-            <label class="f" data-fld="hours"><span class="lh"><span class="lbl">Hours Needed</span>${inClaude() ? "" : `<button type="button" class="link-btn est-btn" id="tfEst" data-act="tf-est">${aiReady() ? AI_ICON + " " : ""}Estimate</button>`}</span><input type="number" name="hours" min="0" step="0.25" inputmode="decimal" value="${isNum(t.hours) ? esc(t.hours) : ""}" placeholder="e.g. 3"></label>
+            <label class="f" data-fld="hours"><span class="lh"><span class="lbl">Hours Needed</span>${inPreview() ? "" : `<button type="button" class="link-btn est-btn" id="tfEst" data-act="tf-est">${aiReady() ? AI_ICON + " " : ""}Estimate</button>`}</span><input type="number" name="hours" min="0" step="0.25" inputmode="decimal" value="${isNum(t.hours) ? esc(t.hours) : ""}" placeholder="e.g. 3"></label>
           </div>
           <p class="mini est-hint" id="estHint" hidden aria-live="polite"></p>
           <p class="mini acc-hint" id="accHint" hidden aria-live="polite"></p>
@@ -351,7 +342,7 @@ function taskForm(t, preset = {}){
       difficulty: fd.get("difficulty") || "med", late: fd.get("late") || "unknown",
       location: cfg.location ? txt("location") : "", team: cfg.team ? txt("team") : "", reading: cfg.reading ? txt("reading") : "", link
     };
-    if (MILESTONE(type)) {                                       // changed here = the student's own answer, which always wins; "Not sure" hands it back to Studyboard
+    if (MILESTONE(type)) {
       const rv = String(fd.get("remote") || "");
       if (rv !== rxInit) { if (rv === "yes" || rv === "no") Object.assign(data, {remote: rv, remoteSrc: "user", remoteWhy: "You set this", remoteAt: Date.now(), remoteSig: ""}); else Object.assign(data, {remote: "", remoteSrc: "", remoteWhy: "", remoteAt: 0, remoteSig: ""}); }
     }
@@ -384,7 +375,7 @@ function taskForm(t, preset = {}){
       }
       applyChanges(changes.concat(fileChanges), changes.length > 1 ? `Added ${changes.length} tasks` : "Task added");
       if (planAfter && MILESTONE(base.type) && base.due) setTimeout(() => { if (window.SBPREP) SBPREP.open(base.id); }, 80);
-      else if (MILESTONE(base.type) && base.due && base.due >= todayISO() && base.status !== "done") setTimeout(() => { if (!dlg.open) remoteAsk(base.id); }, 80);   // left on "Not sure": ask once where it's taken
+      else if (MILESTONE(base.type) && base.due && base.due >= todayISO() && base.status !== "done") setTimeout(() => { if (!dlg.open) remoteAsk(base.id); }, 80);
     } else {
       const x = state.tasks[t.id]; if (!x) return;
       const next = Object.assign(clone(x), data);
@@ -398,7 +389,6 @@ function taskForm(t, preset = {}){
   });
   const list = $("#clList");
   const curType = () => $("#tfType").value;
-  // A short summary of what's filled in under Advanced Settings, so nothing hides there unnoticed
   const advSummary = () => {
     const f = dlg.querySelector("form"); if (!f) return;
     const v = n => (f.elements[n] && !f.elements[n].closest("[hidden]")) ? String(f.elements[n].value || "").trim() : "";
@@ -436,7 +426,6 @@ function taskForm(t, preset = {}){
   const setStatus = v => { const r = dlg.querySelector(`input[name=status][value="${v}"]`); if (r && !r.checked) r.checked = true; };
   pctIn.addEventListener("input", () => {
     $("#pctOut").textContent = pctIn.value + "%"; pctHint();
-    // Progress drives status for regular tasks: above 0% is In work, 100% is Complete.
     if (!MILESTONE(curType())) { const v = Number(pctIn.value); setStatus(v >= 100 ? "done" : v > 0 ? "doing" : "todo"); }
   });
   const tForm = dlg.querySelector("form");
@@ -498,7 +487,6 @@ function taskForm(t, preset = {}){
   tForm.addEventListener("input", planHint); tForm.addEventListener("change", planHint);
   tForm.addEventListener("input", advSummary); tForm.addEventListener("change", advSummary);
   $("#tfAdv").addEventListener("toggle", e => { ui.advOpen = e.target.open; });
-  // Dependencies
   const depList = $("#depList"), depAdd = $("#depAdd");
   const drawDeps = () => {
     depList.innerHTML = deps.map(id => { const x = state.tasks[id]; return x ? `<span class="dep-chip" style="--c:${esc(colorOf(x.courseId))}">${x.status === "done" ? CHECK.replace('<svg', '<svg width="12" height="12"') : ""}${esc(x.title)}${x.due ? ` <span class="mini">${esc(fmtShort(x.due))}</span>` : ""}<button type="button" class="x-btn" data-dep-rm="${esc(id)}" aria-label="Remove dependency on ${esc(x.title)}">${CLOSE}</button></span>` : ""; }).join("") || `<span class="mini">None. Add tasks that must be finished before this one can start.</span>`;
@@ -511,7 +499,6 @@ function taskForm(t, preset = {}){
   depList.addEventListener("click", e => { const b = e.target.closest("[data-dep-rm]"); if (b) { deps = deps.filter(x => x !== b.dataset.depRm); drawDeps(); } });
   dlg.querySelector("select[name=courseId]").addEventListener("change", () => { drawDeps(); drawFiles(); });
   drawDeps();
-  // Files
   const tfFiles = $("#tfFiles"), tfAttach = $("#tfAttach");
   const drawFiles = () => {
     const fs = [...attached].map(id => state.files[id]).filter(Boolean);
@@ -534,7 +521,6 @@ function taskForm(t, preset = {}){
     if (dlg.open) drawFiles();
   });
   drawFiles();
-  // Sticky notes
   const tfNotes = $("#tfNotes"), tfNoteAttach = $("#tfNoteAttach");
   const drawNotes = () => {
     const ns = [...noteSet].map(id => state.notes[id]).filter(Boolean);
@@ -561,7 +547,6 @@ function deleteTask(id){
   const t = state.tasks[id]; if (!t) return;
   if (window.SBBREAK && SBBREAK.deleteHook(id)) return;
   const later = t.seriesId ? tasksArr().filter(x => x.seriesId === t.seriesId && x.id !== id && x.due >= t.due) : [];
-  // Deleting an exam takes its unfinished prep sessions with it (one Undo, and Recently Deleted restores them together)
   const prep = MILESTONE(t.type) ? planSessions(id).filter(x => x.status !== "done") : [];
   if (prep.length) { dlg.close(); applyChanges([t].concat(prep).map(x => ({kind:"task", id:x.id, after:null})), `Deleted ${t.title} and ${prep.length} prep session${prep.length === 1 ? "" : "s"}`); return; }
   if (!later.length) { dlg.close(); applyChanges([{kind:"task", id, after:null}], `Deleted ${t.title}`); return; }
@@ -615,15 +600,12 @@ function courseForm(c){
     if (isNew) { const nc = Object.assign({id: uid(), created: Date.now()}, data); applyChanges([{kind:"course", id: nc.id, after: nc}], `Added ${name}`); }
     else { applyChanges([{kind:"course", id: c.id, after: Object.assign(clone(state.courses[c.id] || c), data)}], "Course saved"); }
   });
-  // The icon grid follows the colour picked above it
   dlg.querySelectorAll('input[name="color"]').forEach(r => r.addEventListener("change", () => { const g = $("#ciGrid"); if (g) g.style.setProperty("--c", r.value); }));
   { const pk = $("#ccPick"), rd = $("#ccRadio");
     if (pk && rd) { pk.addEventListener("input", () => { rd.value = pk.value; rd.nextElementSibling.style.setProperty("--c", pk.value); rd.checked = true; rd.dispatchEvent(new Event("change", {bubbles: true})); });
       rd.addEventListener("click", () => { try { pk.showPicker ? pk.showPicker() : pk.click(); } catch (e) { pk.click(); } }); } }
-  // Until an icon is picked by hand, the picker follows what the course is called
   { const g = $("#ciGrid"), follow = () => { if (!g || g.dataset.picked) return; const k = courseIconKey({name: (dlg.querySelector('input[name="name"]') || {}).value, code: (dlg.querySelector('input[name="code"]') || {}).value}); const r = g.querySelector(`input[value="${k}"]`); if (r) r.checked = true; };
     if (g) { g.addEventListener("change", () => { g.dataset.picked = "1"; }); dlg.querySelectorAll('input[name="name"],input[name="code"]').forEach(i => i.addEventListener("input", follow)); } }
-  // Class times editor
   let meets = clone(courseMeetings(c));
   const mList = $("#meetList");
   const drawMeets = () => {
@@ -650,8 +632,7 @@ function courseForm(c){
   });
 }
 
-// A small question in the app's own style that opens ON TOP of whatever is open (an open recorder or reply isn't lost), instead of
-// the browser's grey confirm() and prompt() boxes. Resolves true / false, or with o.input the text typed (null when cancelled).
+// A small question in the app's own style that opens ON TOP of whatever is open
 function askBox(o){
   return new Promise(res => {
     let d = document.getElementById("askDlg");
@@ -666,7 +647,7 @@ function askBox(o){
     d.querySelector("form").addEventListener("submit", e => { e.preventDefault(); fin(o.input ? String(d.querySelector("#askIn").value) : true); });
     d.oncancel = e => { e.preventDefault(); nope(); };
     d.onclick = e => { if (e.target === d) nope(); };
-    d.onkeydown = e => { e.stopPropagation(); if (e.key === "Escape") { e.preventDefault(); nope(); } };   // Escape answers this box only, never the sheet under it
+    d.onkeydown = e => { e.stopPropagation(); if (e.key === "Escape") { e.preventDefault(); nope(); } };
     try { d.showModal(); } catch (e) { d.setAttribute("open", ""); }
     setTimeout(() => { const f = d.querySelector(o.input ? "#askIn" : "#askYes"); if (f) { f.focus(); if (o.input) f.select(); } }, 30);
   });
@@ -677,7 +658,7 @@ function confirmSheet(title, text, label, onYes){
 }
 
 function accountRows(){
-  if (inClaude()) return "";
+  if (inPreview()) return "";
   if (!sbConfig()) return SB_HOSTED ? `<button data-act="sb-signin"><span>Sign In or Create Account<span class="sub">A free Studyboard account keeps your data and files in sync on all your devices</span></span></button>`
     : `<button data-act="sb-connect"><span>Sync Across Devices<span class="sub">Save your data and files online and use them on all your devices</span></span></button>`;
   return (sbUser
@@ -715,7 +696,7 @@ function menuSheet(){
       <button data-act="ia-open"><span>Import From Another App<span class="sub">Anki, Quizlet, Todoist or Notion. Read on this device, nothing is uploaded.</span></span></button>
       <button data-act="clear-all" style="color:var(--late)"><span>Clear All Data</span></button>
     </div>
-    <p class="summary-sub" style="font-size:.85rem">${inClaude() ? (cloud.on ? "Your data is saved to your account and stays in sync across your devices." : "Your data is saved in this browser only. Export a backup now and then so you don't lose it.") : sbUser ? "Your data and files sync to your Studyboard account, with a copy on this device so the app works offline. Download a backup now and then for extra peace of mind." : "Your data is saved in this browser only. Sign in to a Studyboard account, or export a backup file now and then so you don't lose it."}</p>
+    <p class="summary-sub" style="font-size:.85rem">${inPreview() ? (cloud.on ? "Your data is saved to your account and stays in sync across your devices." : "Your data is saved in this browser only. Export a backup now and then so you don't lose it.") : sbUser ? "Your data and files sync to your Studyboard account, with a copy on this device so the app works offline. Download a backup now and then for extra peace of mind." : "Your data is saved in this browser only. Sign in to a Studyboard account, or export a backup file now and then so you don't lose it."}</p>
     </div></div>`);
   $("#dailyIn").addEventListener("change", e => {
     const v = Math.max(0, Math.min(16, Number(e.target.value) || 0));

@@ -1,20 +1,14 @@
 /* ===== module: 98-comp-extra.js ===== */
-/* Extra companions: not part of any theme's set. Each one is offered as one more choice in every theme's companion picker, but only
-   to an account that may see the hidden themes (window.SBThemes.all(): all_themes in studyboard_theme_access, see
-   supabase-theme-access.sql), so nobody else ever sees them. 98-companion.js reads COMP_EXTRA.
-   Cosmo: drawn from photos of the owner's cat (a fluffy brown tabby, white mittens and bib, golden-green eyes, a huge smoky tail),
-   in the shape of the app's sitting cats: forehead M with faint lines above it, mittens, a bell collar and a big banded plume of a tail. */
+/* Extra companions */
 var COMP_EXTRA = [];
 (() => {
   function MAKE_CAT(K, id){
       const {INK, O, OW, RG, puff} = K;
       const STRIPE = "#5C4838", WHITE = "#FFFDF8", CREAM = "#F6EBDD", PINK = "#FFB6C6", TAN = "#C9AA84", BAND = "#4E433D", WISP = "#D6CCC4";
       const MIR = s => `<g transform="matrix(-1 0 0 1 120 0)">${s}</g>`;
-      // fluffy shapes: overlapping circles, every outline first, then every fill on top (one clean silhouette)
       const blob = (P, fill) => P.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${INK}" stroke="${INK}" stroke-width="6"/>`).join("") + P.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}"/>`).join("");
       const tailFill = (n, x1, y1, x2, y2) => `<defs><linearGradient id="${id}-${n}" gradientUnits="userSpaceOnUse" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"><stop offset="0" stop-color="#6A5E57"/><stop offset=".6" stop-color="#887A71"/><stop offset="1" stop-color="#A59890"/></linearGradient></defs>`;
       const furGrad = (n, cx = 0.45, cy = 0.35) => RG(id + "-" + n, [[0, "#ECD8BA"], [0.6, "#CFB08A"], [1, "#A8896A"]], cx, cy, 0.8);
-      // the head, drawn around a 120 box: centre x 60, crown y 33, chin y 79.6 (cheek tufts at the sides)
       const HEADD = "M60 33C77 33 86.4 43 87 55.6L90.6 59.4L87.4 61.6L90 66L85.6 67.6C82 75.6 72.6 79.6 60 79.6C47.4 79.6 38 75.6 34.4 67.6L30 66L32.6 61.6L29.4 59.4L33 55.6C33.6 43 43 33 60 33Z";
       const HEAD = `${RG(id + "-h", [[0, "#F0DEC4"], [0.62, "#D5B893"], [1, "#AE8E6A"]], 0.45, 0.4, 0.8)}<path d="${HEADD}" fill="url(#${id}-h)" ${O}/>
         <path d="M53.2 45.4L54.8 39.6L57.6 43.4L60 38.6L62.4 43.4L65.2 39.6L66.8 45.4" fill="none" stroke="#55412F" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" opacity=".92"/>
@@ -24,13 +18,11 @@ var COMP_EXTRA = [];
         <path d="M60 60.6C55.4 60.2 50.8 62.6 50.8 66.8C50.8 71.6 55.4 74.6 60 78C64.6 74.6 69.2 71.6 69.2 66.8C69.2 62.6 64.6 60.2 60 60.6Z" fill="${WHITE}"/>
         <path d="M39.4 51Q41.4 43 48 39.4" fill="none" stroke="#FFF6E8" stroke-width="3" stroke-linecap="round" opacity=".9"/>`;
       const FACE = `<path d="M57.6 62.6H62.4L60 65.2Z" fill="#F29AAA" ${OW(1.2)}/>`;
-      // the whiskers go in the top layer, so they draw over the face
       const WHISKERS = `<path d="M46 65.4l-12.6 -1.8M46 68l-12.6 1.6M74 65.4l12.6 -1.8M74 68l12.6 1.6" stroke="${INK}" stroke-width="2.2" stroke-linecap="round" opacity=".2"/>
         <path d="M46 65.4l-12.6 -1.8M46 68l-12.6 1.6M74 65.4l12.6 -1.8M74 68l12.6 1.6" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round"/>`;
       const EAR = (tuft = 6) => `<path d="M37.6 46L39.4 23.6L55 37Z" fill="${TAN}" ${O}/><path d="M41.2 40.6L42 29.6L49.4 36.4Z" fill="${PINK}"/>
         <path d="M42.4 40.6l1 -5.2M45.2 39.8l1.8 -4.4" stroke="${WHITE}" stroke-width="1.3" stroke-linecap="round"/>
         <path d="M37.8 27.4C37 ${23 - tuft * 0.5} 37.6 ${21 - tuft * 0.8} 39 ${22.6 - tuft}C40.6 ${21 - tuft * 0.6} 41.6 ${23.6 - tuft * 0.4} 41.4 27Z" fill="#DCC29C" ${OW(1.5)}/><path d="M39.2 ${25.6 - tuft * 0.6}l0 ${-tuft * 0.5}" stroke="#8C7360" stroke-width="1.1" stroke-linecap="round"/>`;
-      // scale the head art: x' = 60 + s(x - 60), y' = dy + s*y
       const HT = (s, dy) => `translate(60 ${dy}) scale(${s}) translate(-60 0)`;
       const hy = (s, dy, y) => Math.round((dy + s * y) * 100) / 100, hx = (s, x) => Math.round((60 + s * (x - 60)) * 100) / 100;
       const LINES = {
@@ -45,20 +37,17 @@ var COMP_EXTRA = [];
         break: ["Break time! Stretch like a cat!", "Find a sunny spot and rest your eyes!"]
       };
       const EYE = "#8E8A2A";
-      // a smooth fluffy tube through control points [x, y, r]: circles every ~0.45 r along a Catmull-Rom curve
       const chain = P => { const out = []; for (let i = 0; i < P.length - 1; i++) { const a = P[Math.max(0, i - 1)], b = P[i], c = P[i + 1], d = P[Math.min(P.length - 1, i + 2)];
           const len = Math.hypot(c[0] - b[0], c[1] - b[1]), n = Math.max(2, Math.ceil(len / (0.45 * Math.min(b[2], c[2]))));
           for (let k = 0; k < n; k++) { const t = k / n, t2 = t * t, t3 = t2 * t, f = j => 0.5 * ((2 * b[j]) + (-a[j] + c[j]) * t + (2 * a[j] - 5 * b[j] + 4 * c[j] - d[j]) * t2 + (-a[j] + 3 * b[j] - 3 * c[j] + d[j]) * t3);
             out.push([f(0), f(1), b[2] + (c[2] - b[2]) * t].map(v => Math.round(v * 10) / 10)); } }
         out.push(P[P.length - 1]);
-        // fluff: small bumps on both edges every few circles, so the outline stays soft and scalloped
         const fl = [];
         for (let i = 1; i < out.length - 1; i += 3) { const [x, y, r] = out[i], p = out[i - 1], q = out[i + 1], dx = q[0] - p[0], dy = q[1] - p[1], L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L, sd = (i % 2 ? 1 : 0.85);
           fl.push([x + nx * r * 0.7 * sd, y + ny * r * 0.7 * sd, r * 0.45], [x - nx * r * 0.7, y - ny * r * 0.7, r * 0.42]); }
         return out.concat(fl.map(c => c.map(v => Math.round(v * 10) / 10))); };
-      // Concept 1, "Classic": the app's sitting-cat shape (like Kiki), in Cosmo's colours and markings
       const TP = [[80, 101, 6], [87, 103.4, 7.6], [95, 102, 9], [101.4, 96, 9.8], [104.6, 87.6, 10], [104.6, 78.4, 9.4], [101.6, 70.4, 8.2], [97, 65.4, 6.6], [92.6, 63.4, 4.8]];
-      const EARC = EAR(0).replace(/<path d="M37\.8 27\.4[\s\S]*$/, "");   // plain pointed ears, no tufts
+      const EARC = EAR(0).replace(/<path d="M37\.8 27\.4[\s\S]*$/, "");
       return {
         id, name: "Cosmo", kind: "Fluffy Tabby", pose: "sit", sleepy: true, wearColor: "#6E8297",
         bio: "A fluffy tabby with white mittens and a tail bigger than a pillow.",

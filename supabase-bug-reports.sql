@@ -1,16 +1,3 @@
--- Studyboard: bug reports and feedback from the app
--- Run this once in Supabase: SQL Editor > New query > paste everything > Run.
--- It is safe to run again (it only creates what is missing and refreshes the rules).
---
--- What this sets up:
---  * bug_reports: one row per report sent from Settings > Report a Bug or Send Feedback.
---  * Anyone using the app can SEND a report (signed in or not), but nobody can READ, change or delete reports through the app.
---    Only you can read them: in the Supabase dashboard (Table Editor > bug_reports) or with the service role / SQL Editor.
---  * Size limits on every field, and rate limits so the table can't be flooded:
---      signed in:  5 reports an hour and 20 a day per account, screenshots up to about 220 KB, at most 10 screenshots a day;
---      signed out: no screenshot (it is dropped), shorter text, and only 30 signed-out reports an hour for everyone together
---                  (the device id a signed-out app sends is made up by the app, so it can't be the real limit).
---  * Retention: screenshots are removed after 30 days and reports after 180 days (a daily clean-up with pg_cron when it is available).
 
 create table if not exists public.bug_reports (
   id            uuid primary key default gen_random_uuid(),
@@ -43,7 +30,7 @@ create index if not exists bug_reports_created_idx on public.bug_reports (create
 create index if not exists bug_reports_client_idx  on public.bug_reports (client_id, created_at desc);
 create index if not exists bug_reports_user_idx    on public.bug_reports (user_id, created_at desc);
 
--- Row Level Security: insert only. There is deliberately no select, update or delete policy for anyone using the app.
+-- Row Level Security
 alter table public.bug_reports enable row level security;
 drop policy if exists "anyone can send a report" on public.bug_reports;
 create policy "anyone can send a report" on public.bug_reports
@@ -53,8 +40,7 @@ create policy "anyone can send a report" on public.bug_reports
 revoke all on public.bug_reports from anon, authenticated;
 grant insert (category, message, steps, contact_email, diagnostics, screenshot, client_id, user_id) on public.bug_reports to anon, authenticated;
 
--- Fills in the trusted fields and stops floods. Limits are keyed on things the app can't change: the signed-in account
--- (auth.uid()) or, for signed-out reports, everyone signed out together. client_id is only an extra, best-effort limit.
+-- Fills in the trusted fields and stops floods
 create or replace function public.bug_reports_guard() returns trigger
 language plpgsql security definer set search_path = public as $$
 declare
@@ -65,7 +51,6 @@ begin
   new.created_at := now();
   new.status := 'new';
   if me is null then
-    -- Signed out: no screenshot (dropped, so the report itself still arrives), shorter text, smaller diagnostics.
     new.screenshot := null;
     new.message := left(new.message, 2000);
     new.steps := left(new.steps, 1000);
@@ -100,7 +85,7 @@ drop trigger if exists bug_reports_guard on public.bug_reports;
 create trigger bug_reports_guard before insert on public.bug_reports
   for each row execute function public.bug_reports_guard();
 
--- A tidy view for you in the SQL Editor (screenshot left out so it is quick to scan). Not reachable from the app.
+-- A tidy view for you in the SQL Editor (screenshot left out so it is quick to scan)
 create or replace view public.bug_reports_inbox with (security_invoker = true) as
   select created_at, status, category, message, steps, contact_email,
          diagnostics ->> 'version' as version, diagnostics ->> 'tab' as tab, diagnostics ->> 'plan' as plan,
@@ -108,7 +93,7 @@ create or replace view public.bug_reports_inbox with (security_invoker = true) a
   from public.bug_reports order by created_at desc;
 revoke all on public.bug_reports_inbox from anon, authenticated;
 
--- ---------- Retention: screenshots go after 30 days, reports after 180 days ----------
+-- Retention: screenshots go after 30 days, reports after 180 days
 create or replace function public.bug_reports_purge() returns void
 language sql security definer set search_path = public as $$
   update public.bug_reports set screenshot = null where screenshot is not null and created_at < now() - interval '30 days';
@@ -128,6 +113,4 @@ begin
   perform cron.schedule('studyboard-bug-reports-purge', '37 3 * * *', 'select public.bug_reports_purge();');
 end $$;
 
--- To read your reports:   select * from public.bug_reports_inbox limit 50;
--- To see one screenshot:  select screenshot from public.bug_reports where id = '...';   (paste the value into a browser address bar)
--- To mark one handled:    update public.bug_reports set status = 'fixed' where id = '...';
+-- To read your reports

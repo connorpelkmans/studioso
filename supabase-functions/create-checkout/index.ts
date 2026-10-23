@@ -1,29 +1,4 @@
-// Studyboard Pro: create-checkout (Supabase Edge Function)
-// Starts a Stripe Checkout for Studyboard Pro, for the person who is signed in. The website's account page calls it and sends the
-// browser to the returned address. The app (signed in, so checkout opens already tied to the account, with the plan chosen) can call it
-// directly too. The browser only ever says "monthly", "semester" or "yearly": prices, trial length, who is paying and where
-// they land afterwards are all decided here, never by the browser.
-//
-// Deploy with "Verify JWT" turned ON. Secrets (Supabase > Edge Functions > Secrets):
-//   STRIPE_SECRET_KEY      a Stripe secret or restricted key (restricted: Customers write, Checkout Sessions write)
-//   STRIPE_PRICE_MONTHLY   the monthly price id (price_...)
-//   STRIPE_PRICE_YEARLY    the yearly price id (price_...)
-//   STRIPE_PRICE_SEMESTER  the semester price id (price_...: $12.99, recurring every 4 months). Until it is set, "semester" is refused.
-//   SITE_ORIGINS           the website address(es) that may be used for the return pages, comma separated, e.g. https://studyboard.example
-//                          (the "site_url" row of studyboard_config is allowed too)
-// Optional: APP_ORIGINS   extra app origins allowed to call this (comma separated). The desktop app (app://studioso) and the phone apps
-//                          (capacitor://localhost, https://localhost) are allowed already; the sign-in token, not the origin, is what counts.
-//           ALLOW_LOCALHOST=1 lets http://localhost origins through while you test.
-//           STRIPE_MANAGED_PAYMENTS=1 turns on Stripe Managed Payments for the checkout (Stripe takes on sales tax / VAT / GST, fraud
-//           and order support). It needs Managed Payments enabled on your Stripe account, and the product's tax category set to an
-//           eligible digital code (for example txcd_10103100) on the Studyboard Pro product. Leave it unset for a normal Checkout.
-// Supabase adds SUPABASE_URL, SUPABASE_ANON_KEY and the service key by itself.
-//
-// What it does: checks the sign-in with Supabase Auth, limits each person to a few checkouts an hour, refuses people who already
-// have a live subscription, finds or makes the person's Stripe customer (kept in a server-only table), then creates a subscription
-// Checkout with client_reference_id and metadata.uid = the signed-in person, and (only if prices.checkoutTrialDays is set) a trial only for people who never had one
-// (also checked against the email hashes of deleted accounts, studyboard_trial_uses).
-// The billing-webhook function is what actually turns Pro on, once Stripe says the payment happened.
+// Studyboard Pro
 
 type Env = (k: string) => string;
 type Deps = { env: Env; fetch: typeof fetch; now: () => number; log: (...a: unknown[]) => void };
@@ -40,13 +15,13 @@ const json = (o: unknown, status: number, cors: Record<string, string>, extra: R
 
 function serviceKey(d: Deps): string {
   let key = d.env("SUPABASE_SERVICE_ROLE_KEY");
-  if (!key) { try { const k = JSON.parse(d.env("SUPABASE_SECRET_KEYS") || "{}"); key = String(k.default || Object.values(k)[0] || ""); } catch (_e) { /* newer projects only */ } }
+  if (!key) { try { const k = JSON.parse(d.env("SUPABASE_SECRET_KEYS") || "{}"); key = String(k.default || Object.values(k)[0] || ""); } catch (_e) { } }
   return key;
 }
 const base = (d: Deps) => d.env("SUPABASE_URL").replace(/\/+$/, "");
 const anon = (d: Deps) => d.env("SUPABASE_ANON_KEY") || serviceKey(d);
 
-// ---------- Where people may be sent back to ----------
+// Where people may be sent back to
 export function originOf(u: string, allowLocalhost: boolean): string | null {
   try {
     const x = new URL(u);
@@ -62,7 +37,6 @@ export function allowedOrigins(env: Env, siteUrlFromConfig: string): string[] {
   const list = [...env("SITE_ORIGINS").split(","), siteUrlFromConfig].map(s => s.trim()).filter(Boolean);
   return [...new Set(list.map(s => originOf(s, local)).filter((o): o is string => !!o))];
 }
-// A return address from the browser is only used if its origin is on the list and its path is plain; its query is thrown away.
 export function safeReturn(candidate: unknown, origins: string[], fallbackPath: string, allowLocalhost: boolean, query = ""): string {
   let origin = origins[0], path = fallbackPath;
   if (typeof candidate === "string" && candidate.length <= 500) {
@@ -75,7 +49,7 @@ export function safeReturn(candidate: unknown, origins: string[], fallbackPath: 
   return origin + path + query;
 }
 
-// ---------- Stripe (form-encoded) ----------
+// Stripe (form-encoded)
 function form(o: Record<string, unknown>, prefix = "", out: string[] = []): string {
   for (const [k, v] of Object.entries(o)) {
     if (v === undefined || v === null) continue;
@@ -85,7 +59,7 @@ function form(o: Record<string, unknown>, prefix = "", out: string[] = []): stri
   }
   return out.join("&");
 }
-// Managed Payments is a preview: it needs this API version on the Checkout Session call (every other call keeps the account's default).
+// Managed Payments is a preview
 const MANAGED_PAYMENTS_VERSION = "2026-02-25.preview";
 async function stripe(d: Deps, path: string, body: Record<string, unknown>, idem?: string, version?: string): Promise<any> {
   const r = await d.fetch(`https://api.stripe.com/v1/${path}`, {
@@ -93,13 +67,11 @@ async function stripe(d: Deps, path: string, body: Record<string, unknown>, idem
     headers: { Authorization: `Bearer ${d.env("STRIPE_SECRET_KEY")}`, "Content-Type": "application/x-www-form-urlencoded", ...(idem ? { "Idempotency-Key": idem } : {}), ...(version ? { "Stripe-Version": version } : {}) },
     body: form(body),
   });
-  if (!r.ok) { const e = await r.json().catch(() => ({})) as { error?: { code?: string; message?: string } }; throw new Error(`stripe ${path} ${r.status} ${e.error?.code || ""} ${String(e.error?.message || "").slice(0, 200)}`.trim()); }   // Stripe's reason goes to the function log only
+  if (!r.ok) { const e = await r.json().catch(() => ({})) as { error?: { code?: string; message?: string } }; throw new Error(`stripe ${path} ${r.status} ${e.error?.code || ""} ${String(e.error?.message || "").slice(0, 200)}`.trim()); }
   return await r.json();
 }
 
-// Has this email address had a free trial before, on an account that was deleted since? Asked with the service role through
-// studyboard_trial_used (the same email hash studyboard_start_trial and account deletion use). A project that hasn't run the newer
-// supabase-plans.sql yet (no such function) is let through as before; any other failure stops the checkout rather than give a trial.
+// Has this email address had a free trial before, on an account that was deleted since
 export async function trialUsed(d: Deps, h: Record<string, string>, email: string): Promise<boolean> {
   const r = await d.fetch(`${base(d)}/rest/v1/rpc/studyboard_trial_used`, { method: "POST", headers: h, body: JSON.stringify({ p_email: email }) });
   if (r.status === 404) { d.log("create-checkout: studyboard_trial_used is missing; run supabase-plans.sql again"); return false; }
@@ -116,7 +88,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
     "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Max-Age": "600", Vary: "Origin",
   };
-  // Browsers on other sites are not told yes. (The check below is repeated after the settings row is read.)
+  // Browsers on other sites are not told yes
   if (reqOrigin && envOrigins.includes(reqOrigin)) cors["Access-Control-Allow-Origin"] = reqOrigin;
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405, cors);
@@ -143,7 +115,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     const rl = await (await rest("rpc/studyboard_plan_rate_hit", { method: "POST", body: JSON.stringify({ p_key: `checkout:${uid}`, p_max: RATE_MAX, p_window: RATE_WINDOW }) })).json();
     if (rl !== true) return json({ error: "rate_limited", message: "Too many tries. Please wait a little and try again." }, 429, cors, { "Retry-After": "900" });
 
-    // Only "monthly", "semester" or "yearly" is taken from the browser. Anything else in the body is ignored, except the return pages (checked below).
+    // Only "monthly", "semester" or "yearly" is taken from the browser
     const text = await req.text();
     if (text.length > 4096) return json({ error: "bad request" }, 400, cors);
     const body = (() => { try { return JSON.parse(text || "{}"); } catch (_e) { return null; } })();
@@ -153,14 +125,13 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     if (plan === "semester" && !/^price_[A-Za-z0-9]+$/.test(price)) return json({ error: "plan_unavailable", message: "The semester plan isn't available yet. Choose monthly or yearly." }, 400, cors);
     if (!/^price_[A-Za-z0-9]+$/.test(price) || !d.env("STRIPE_SECRET_KEY")) throw new Error("checkout is not configured");
 
-    // Allowed return sites: the secret list plus the owner's "site_url" setting
+    // Allowed return sites
     const cfg = await (await rest("studyboard_config?key=in.(site_url,prices)&select=key,value")).json() as { key: string; value: unknown }[];
     const siteUrl = String(cfg.find(c => c.key === "site_url")?.value || "");
     const origins = allowedOrigins(d.env, siteUrl);
     if (!origins.length) throw new Error("no allowed site origin is set (SITE_ORIGINS or studyboard_config site_url)");
     if (reqOrigin && (origins.includes(reqOrigin) || appOrigins.includes(reqOrigin))) cors["Access-Control-Allow-Origin"] = reqOrigin;
-    // No card trial at checkout by default: every new account already gets a free week of Pro without a card (supabase-plans.sql).
-    // Set prices.checkoutTrialDays in studyboard_config to offer one again.
+    // No card trial at checkout by default
     const trialDays = Math.min(30, Math.max(0, Number((cfg.find(c => c.key === "prices")?.value as any)?.checkoutTrialDays ?? 0) || 0));
 
     const ent = ((await (await rest(`studyboard_entitlements?user_id=eq.${uid}&select=plan,pro_until,trial_until,external_id,source,will_renew`)).json()) as any[])[0] || null;
@@ -168,7 +139,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     if (live && ent.source === "stripe" && ent.will_renew) return json({ error: "already_subscribed", message: "You already have an active Studyboard Pro subscription. Use Manage billing to change it." }, 409, cors);
     if (ent && ent.plan === "lifetime") return json({ error: "already_subscribed", message: "You already have Studyboard Pro for good." }, 409, cors);
 
-    // The Stripe customer for this account: kept in a table the app can't read
+    // The Stripe customer for this account
     let customer = ((await (await rest(`studyboard_billing_customers?user_id=eq.${uid}&select=stripe_customer_id`)).json()) as any[])[0]?.stripe_customer_id as string | undefined;
     if (!customer) {
       const created = await stripe(d, "customers", { email: user.email, metadata: { uid } }, `sb-customer-${uid}`);
@@ -177,15 +148,14 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
       customer = ((await (await rest(`studyboard_billing_customers?user_id=eq.${uid}&select=stripe_customer_id`)).json()) as any[])[0]?.stripe_customer_id || customer;
     }
 
-    // A free trial only for accounts that never had one (an app trial, a store trial or a Stripe trial) and never subscribed,
-    // and only for an email address that hasn't had one on a deleted account (studyboard_trial_uses keeps a hash of it; supabase-plans.sql).
+    // A free trial only for accounts that never had one
     let hadTrial = !!(ent && (ent.trial_until || ent.external_id || ent.source === "stripe"));
     if (!hadTrial && trialDays > 0) hadTrial = await trialUsed(d, h, user.email);
     const src = body.src === "app" ? "&src=app" : "";
     const managed = d.env("STRIPE_MANAGED_PAYMENTS") === "1";
     const session = await stripe(d, "checkout/sessions", {
       mode: "subscription",
-      customer,   // the customer already carries the account's email address
+      customer,
       client_reference_id: uid,
       metadata: { uid, plan },
       line_items: { 0: { price, quantity: 1 } },

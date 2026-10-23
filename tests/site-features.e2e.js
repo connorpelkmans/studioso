@@ -1,5 +1,4 @@
-// node tests/site-features.e2e.js  (Playwright + Chromium; no network)
-// The home page feature cards show a still and play their loop only while hovered (a tap on a touch screen); leaving shows the still again.
+// node tests/site-features.e2e.js
 const http=require("http"),fs=require("fs"),path=require("path"),assert=require("assert");const {chromium,executablePath}=require("./pw");const root=path.join(__dirname,"..","website");
 const M={".html":"text/html",".js":"text/javascript",".css":"text/css",".webp":"image/webp",".png":"image/png",".woff2":"font/woff2",".svg":"image/svg+xml"};
 const server=http.createServer((q,r)=>{let p=decodeURIComponent(new URL(q.url,"http://x").pathname);if(p.endsWith("/"))p+="index.html";const f=path.join(root,p);if(!fs.existsSync(f)||fs.statSync(f).isDirectory()){r.writeHead(404);r.end();return;}r.writeHead(200,{"content-type":M[path.extname(f)]||"application/octet-stream"});fs.createReadStream(f).pipe(r);});

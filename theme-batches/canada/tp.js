@@ -1,4 +1,4 @@
-/* Theme Collection, Around the World: Canada */
+/* Theme Collection, Around the World */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2);
@@ -10,7 +10,7 @@
   const blush = (a, b, y, rx = 2.6, ry = 1.7) => `<ellipse cx="${a}" cy="${y}" rx="${rx}" ry="${ry}" fill="#FF8FA8" opacity=".8"/><ellipse cx="${b}" cy="${y}" rx="${rx}" ry="${ry}" fill="#FF8FA8" opacity=".8"/>`;
   const smile = (x, y, w = 2.4, sw = 1.9) => `<path d="M${x - w} ${y}q${w} ${w * .8} ${w * 2} 0" fill="none" stroke="${O}" stroke-width="${sw}" stroke-linecap="round"/>`;
   const tapeEdge = "M3 1.5H83L80 5.5L83 9.5L80 13.5L83 17.5L80 21.5L82 24.5H3L6 20.5L3 16.5L6 12.5L3 8.5L6 4.5z";
-  // a sugar maple leaf pointing up: s is its half-size, a its turn in degrees
+  // a sugar maple leaf pointing up
   const LEAF = [[0, -1], [.14, -.6], [.4, -.76], [.32, -.36], [.82, -.5], [.64, -.16], [.94, .02], [.5, .2], [.56, .46], [.12, .3], [.05, .78], [-.05, .78], [-.12, .3], [-.56, .46], [-.5, .2], [-.94, .02], [-.64, -.16], [-.82, -.5], [-.32, -.36], [-.4, -.76], [-.14, -.6]];
   const maple = (x, y, s, fill, sw = 1.6, a = 0) => { const c = Math.cos(a * Math.PI / 180), n = Math.sin(a * Math.PI / 180);
     return `<path d="M${LEAF.map(([u, v]) => `${f1(x + (u * c - v * n) * s)} ${f1(y + (u * n + v * c) * s)}`).join("L")}Z" fill="${fill}" ${sw ? SOw(sw) : ""}/>`; };

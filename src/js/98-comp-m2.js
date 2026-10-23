@@ -1,10 +1,10 @@
 /* ===== module: 98-comp-m2.js ===== */
-/* Study Companions, Study Fields batch m2: compsci, engineering, education, comms */
+/* Study Companions, Study Fields batch m2 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
   const r2 = v => Math.round(v * 100) / 100;
-  // A gear outline: n teeth between radius ri (root) and ro (tip).
+  // A gear outline
   const gear = (cx, cy, ro, ri, n) => {
     const pt = (r, a) => `${r2(cx + r * Math.cos(a))} ${r2(cy + r * Math.sin(a))}`;
     const step = 2 * Math.PI / n, h = step / 4;
@@ -16,7 +16,7 @@
     }
     return d + "Z";
   };
-  // A thick outlined segment (robot arm links, mic arms).
+  // A thick outlined segment (robot arm links, mic arms)
   const SEG = (d, color, w) => `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${w + 6}" stroke-linecap="round" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
 
   /* Code Night */

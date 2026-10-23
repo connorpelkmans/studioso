@@ -1,11 +1,9 @@
 /* ===== module: 49-feedback.js ===== */
-/* Report a Bug or Send Feedback. The report goes to the bug_reports table (supabase-bug-reports.sql), which only the app's
-   owner can read. It works signed in or out. With no connection (or a server hiccup) the report waits on this device and
-   is sent later. Diagnostics hold no personal content: version, browser, current page, plan and recent error messages. */
+/* Report a Bug or Send Feedback */
 (() => {
-  const APP_VERSION = "1.15.0";   // keep in step with package.json
+  const APP_VERSION = "1.15.0";
   const QKEY = "studyboard:bugq", CID = "studyboard:bugcid", LASTSEND = "studyboard:bugsent";
-  const MAX_SHOT = 280000;        // characters of the screenshot data URL
+  const MAX_SHOT = 280000;
   let shot = "", busy = false, flushing = false;
 
   const readQ = () => { try { const q = JSON.parse(localStorage.getItem(QKEY) || "[]"); return Array.isArray(q) ? q : []; } catch (e) { return []; } };
@@ -22,13 +20,11 @@
     try { if (DESK) d.desktop = {platform: DESK.platform, version: DESK.version}; } catch (e) {}
     try { d.plan = window.StudyboardPlan ? window.StudyboardPlan.tier() : ""; } catch (e) {}
     try { d.signedIn = !!sbUser; d.theme = document.documentElement.dataset.skin || "classic"; d.dark = document.documentElement.dataset.theme || ""; } catch (e) {}
-    // Recent errors go through the crash-report cleaner too, so a task title or note an error quoted never rides along
     d.errors = ERRLOG.slice(-10).map(e => ({ago: Math.round((Date.now() - e.t) / 1000) + "s", k: e.k, m: window.SBERR && SBERR.scrub ? SBERR.scrub(e.m) : "[hidden]"}));
     return d;
   }
 
-  /* ---------- Sending ---------- */
-  // client_ref only stops a queued report being sent twice, so on the wire it travels inside diagnostics
+  /* Sending */
   const wire = r => { const w = Object.assign({}, r); w.diagnostics = Object.assign({}, r.diagnostics, {ref: r.client_ref}); delete w.client_ref; return w; };
   async function post(row){
     const sv = server();
@@ -43,7 +39,6 @@
     if (res.status === 404 || /PGRST205|42P01|does not exist/i.test(body)) return "missing";
     if (res.status === 429 || /SB_RATE/.test(body)) return "limited";
     if (res.status >= 500 || res.status === 408) return "offline";
-    // A server that hasn't re-run supabase-bug-reports.sql doesn't know the "ai" category yet: send it as "other", marked in the message.
     if (row.category === "ai") return post(Object.assign({}, row, {category: "other", message: ("[AI response] " + row.message).slice(0, 2000)}));
     return "rejected";
   }
@@ -56,7 +51,7 @@
       for (const row of q.slice()) {
         const r = await post(row);
         if (r === "offline" || r === "limited") break;
-        q = q.filter(x => x !== row && x.client_ref !== row.client_ref);   // sent, or can never be accepted: drop it
+        q = q.filter(x => x !== row && x.client_ref !== row.client_ref);
         writeQ(q);
         if (r === "sent") sent++;
       }
@@ -66,7 +61,7 @@
   window.addEventListener("online", () => setTimeout(flush, 1500));
   hook("boot", () => setTimeout(flush, 8000));
 
-  /* ---------- Screenshot ---------- */
+  /* Screenshot */
   function shrink(file){
     return new Promise((resolve, reject) => {
       const url = URL.createObjectURL(file), img = new Image();
@@ -90,11 +85,10 @@
     });
   }
 
-  /* ---------- The form ---------- */
+  /* The form */
   function open(opts){
     opts = opts || {};
     shot = ""; busy = false;
-    // Reporting an AI response: the response is filled into the second box, where the student can see, shorten or remove it before sending.
     const ai = opts.ai && typeof opts.ai === "object" ? {text: String(opts.ai.text || "").slice(0, 1400), feature: String(opts.ai.feature || "").slice(0, 40)} : null;
     const email = (sbUser && sbUser.email) || "";
     const queued = readQ().length;
@@ -167,8 +161,6 @@
       : "That report couldn't be sent. If it has a screenshot, try again without it.");
   }
 
-  // Report an AI response (Microsoft Store policy 11.16 asks for a way to report inappropriate AI output). Any button with data-ai-report="<feature>"
-  // and the response in data-ai-text opens the form above with it filled in; Settings, AI Features has a row for everything else.
   function reportAI(text, feature){ open({cat: "ai", ai: {text, feature}}); }
   document.addEventListener("click", e => {
     const b = e.target && e.target.closest ? e.target.closest("[data-ai-report]") : null;

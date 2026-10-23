@@ -1,28 +1,23 @@
 /* ===== module: 97-exammode.js ===== */
-/* Exam Mode. In the last days before an exam (or quiz) the app points at it: a small card on Today's Plan, Do This Next, deck order,
-   a few companion lines and the Focus timer's default task. Assignments due in the same days are never buried: anything due sooner than the
-   exam study (by the end of the exam's day when no session is planned sooner) or short of time comes before exam study, and every one of them is listed on the card. Free, works offline, no AI.
-   On when an open exam is due today or in the next 3 days (by local date) and hasn't happened yet; the soonest one is the focus.
-   Settings has an on/off row (on by default, synced with your settings); Not Now turns it off for one exam on this device. */
+/* Exam Mode */
 (() => {
 /*EXAMMODE-START*/
-// Exam Mode's rules. Pure functions only (no app globals, no DOM): tests/exam-mode.test.js runs this block in Node.
+// Exam Mode's rules
 const EXAMMODE = (() => {
-  const DAYS = 3;                   // the window: today and the next 3 days
-  const AFTER_MS = 2 * 3600000;     // an exam with a start time counts as over 2 hours after it starts; one with no time, at the end of its day
+  const DAYS = 3;
+  const AFTER_MS = 2 * 3600000;
   const EXAM_RX = /\b(midterm|final exam)\b/i;
   const pd = s => { const [y, m, d] = String(s).split("-").map(Number); return new Date(y, m - 1, d); };
   const isDay = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
   const diff = (a, b) => Math.round((pd(b) - pd(a)) / 864e5);
   const dueMs = t => { const d = pd(t.due); if (t.time && /^\d{1,2}:\d{2}$/.test(t.time)) { const [h, m] = t.time.split(":").map(Number); d.setHours(h, m, 0, 0); } else d.setHours(23, 59, 0, 0); return d.getTime(); };
   const endMs = t => t.time && /^\d{1,2}:\d{2}$/.test(t.time) ? dueMs(t) + AFTER_MS : dueMs(t) + 60000;
-  // An exam: type Exam or Quiz, or a task titled Midterm / Final Exam. Study sessions never are.
+  // An exam: type Exam or Quiz, or a task titled Midterm / Final Exam
   const isExam = t => !!t && t.type !== "Study" && !t.prepFor && (t.type === "Exam" || t.type === "Quiz" || EXAM_RX.test(String(t.title || "")));
-  // Work that has to be handed in: anything open with a due date that isn't exam study (a take-home quiz that isn't the focus counts too)
+  // Work that has to be handed in
   const isWork = (t, exam) => !!t && t.type !== "Study" && !t.prepFor && (!exam || t.id !== exam.id);
 
-  // The mode right now. input: {tasks, today, now (ms), off: {examId: true}, enabled}
-  // -> null, or {exam, days, others: [other exams in the window], also: [work due in the window, by due time]}
+  // The mode right now
   function pick(input){
     if (!input || input.enabled === false) return null;
     const today = input.today, now = Number(input.now) || 0, off = input.off || {};
@@ -37,13 +32,7 @@ const EXAMMODE = (() => {
     return {exam, days: diff(today, exam.due), others, also};
   }
 
-  // Do This Next in Exam Mode. items, in the app's own ranked order: {id, kind: "study"|"work"|"other", dueMs, inWindow, risk}.
-  //   study: sessions for this exam (or the exam itself, when it's taken from home)
-  //   work:  anything else to hand in; inWindow when due in the window; risk when overdue or short of time for it
-  // New order: window work due sooner than the exam study (or at risk), soonest first; then exam study; then the rest of the window's work,
-  // soonest first; then everything else as it was. Each item gets lane: "first" | "study" | "after" | "rest".
-  // "Sooner than the study": before the earliest study session on the list, or, with none, by the end of the exam's day (on the exam's day
-  // itself, before the exam). o: {dayEnd: end of the exam's day (ms), examDay: true once it is the exam's day}
+  // Do This Next in Exam Mode
   const studyKey = (examDue, o, dues) => Math.min(o ? (o.examDay ? examDue : Math.max(examDue, o.dayEnd)) : examDue, ...(dues || []));
   const leads = (it, key) => !!it.risk || it.dueMs <= key;
   function order(items, examDue, o){
@@ -59,7 +48,7 @@ const EXAMMODE = (() => {
     first.sort(byDue); after.sort(byDue);
     return first.concat(study, after, rest);
   }
-  // Short words for a countdown: "today", "tomorrow", "in 2 days"
+  // Short words for a countdown
   const rel = d => d <= 0 ? "today" : d === 1 ? "tomorrow" : `in ${d} days`;
   const kindWord = t => t && t.type === "Quiz" ? "Quiz" : "Exam";
   const tag = (t, d) => `${kindWord(t)} ${rel(d)}`;
@@ -101,12 +90,11 @@ const whenText = (t, cap) => {
 const dueText = t => { const d = dayDiff(todayISO(), t.due); return (d < 0 ? `overdue since ${fmtShort(t.due)}` : d <= 1 ? EXAMMODE.rel(d) : parse(t.due).toLocaleDateString(undefined, {weekday: "long"})) + (t.time ? ` ${fmtTime(t.time)}` : ""); };
 const courseTag = t => { const c = courseOf(t.courseId); return c ? courseLabel(c) : ""; };
 
-/* ----- Do This Next ----- */
+/* Do This Next */
 const laneOpts = m => ({dayEnd: EXAMMODE.dayEnd(m.exam), examDay: m.days <= 0});
 const riskOf = x => x.dl < 0 || (x.behind || 0) >= 0.5 || (x.own || 0) >= 1 || (x.rho || 0) >= 0.9;
 const studyToday = t => { const d0 = new Date(); d0.setHours(0, 0, 0, 0); return (t.history || []).reduce((m, h) => { const mm = /^Focus session:? (\d+)m/.exec(h.text || ""); return mm && h.at >= d0.getTime() ? m + Number(mm[1]) : m; }, 0); };
-// Called by nextUp with its scored list (each {x, s, why}). Reorders it in place. Returns null when Exam Mode is off,
-// {study: <Do This Next object>} when studying for the exam (with no session in the list) should come first, or {} to carry on with the new order.
+// Called by nextUp with its scored list (each {x, s, why})
 function rankNext(F, scored, pool, focusLen){
   const m = current(); if (!m) return null;
   const ex = m.exam, exDue = EXAMMODE.dueMs(ex), chip = EXAMMODE.tag(ex, m.days);
@@ -124,7 +112,6 @@ function rankNext(F, scored, pool, focusLen){
   const top = ord[0];
   if (top && top.lane !== "rest" && top.lane !== "after") return {};
   if (ord.some(it => it.lane === "study")) return {};
-  // Nothing for the exam is on the list (no prep plan, or no session today): "Study for ..." comes first
   const x = F.info && F.info[ex.id];
   if (!x || !inFilter(ex) || ui.skipNext.ids.includes("study:" + ex.id) || ui.skipNext.ids.includes(ex.id) || studyToday(ex) >= 120) return {};
   const hasPlan = planSessions(ex.id).length > 0;
@@ -133,7 +120,7 @@ function rankNext(F, scored, pool, focusLen){
   if (!hasPlan) why.push("No study plan yet");
   return {study: {x, why, step: null, mins: Math.max(focusLen, Math.min(focusLen * 2, m.days <= 1 ? focusLen * 2 : focusLen)), left: pool.length, ai: false, study: true, hasPlan, label: "Study for " + ex.title, exam: true}};
 }
-// The task the Focus timer suggests: whatever Do This Next says (the exam itself for "Study for ...")
+// The task the Focus timer suggests
 function focusPick(){
   if (!current()) return "";
   const keep = ui.nextShown;
@@ -143,7 +130,7 @@ function pomoDefault(){
   try {
     if (pomo.running || pomo.left > 0 || pomo.mode !== "focus") return;
     const cur = pomo.taskId && state.tasks[pomo.taskId];
-    if (cur && cur.status !== "done" && pomo.day === todayISO() && pomo.sessions > 0) return;   // already working on something today: leave it
+    if (cur && cur.status !== "done" && pomo.day === todayISO() && pomo.sessions > 0) return;
     const id = focusPick(); if (id && id !== pomo.taskId) { pomo.taskId = id; pomoSave(); }
   } catch (e) { console.warn("exam mode focus", e); }
 }
@@ -154,25 +141,22 @@ function pomoHtml(){
   return `<p class="exm-pomo"><b>Exam Mode</b> <span>${esc(examTitle(ex))} is ${esc(whenText(ex))}. ${on}</span></p>`;
 }
 
-/* ----- "Study for It" ----- */
+/* "Study for It" */
 function study(id){
   const m = current(), ex = (id && state.tasks[id]) || (m && m.exam); if (!ex) return;
   if (dlg.open) dlg.close();
-  // 1. The prep plan's next session (opens its deck, note or quiz, or a focus session on it)
   const today = todayISO();
   const ss = planSessions(ex.id).filter(t => t.status !== "done" && t.type === "Study").sort((a, b) => (a.due || "").localeCompare(b.due || "") || String(a.slot || "").localeCompare(String(b.slot || "")));
   const nx = ss.find(t => t.due && t.due <= today) || ss[0];
   if (nx) { if (nx.matKind && window.SBPREP) SBPREP.runIdea(nx.id); else runAct("pomo-task", {id: nx.id}); return; }
-  // 2. The course's due cards, then its weak spots, then all its cards
   const decks = decksArr().filter(d => ex.courseId && d.courseId === ex.courseId && d.cards.length);
   const due = decks.filter(d => d.cards.some(cardDue));
   if (due.length) { startStudy(due.map(d => d.id)); return; }
   if (decks.length) { const w = weakSpots(decks.map(d => d.id)); if (w.n) { weakSheet(decks.map(d => d.id)); return; } startStudy(decks.map(d => d.id)); return; }
-  // 3. A focus session on the exam itself
   runAct("pomo-task", {id: ex.id, study: "1", mins: String(Math.round(Number(pomoCfg().focus) || 25))});
 }
 
-/* ----- Today: one compact card ----- */
+/* Today: one compact card */
 function todayHtml(){
   let m; try { m = current(); } catch (e) { return ""; } if (!m) return "";
   const ex = m.exam, c = courseOf(ex.courseId), sm = window.SBPREP && SBPREP.summary ? (() => { try { return SBPREP.summary(ex); } catch (e) { return null; } })() : null;
@@ -195,7 +179,7 @@ function todayHtml(){
   </section>`;
 }
 
-/* ----- Flashcards: the exam's course first ----- */
+/* Flashcards: the exam's course first */
 function sortDecks(ds){
   const m = current(); if (!m || !m.exam.courseId) return ds;
   const cid = m.exam.courseId;
@@ -211,7 +195,7 @@ function sortQueue(q){
   return q.filter(inC).concat(q.filter(x => !inC(x)));
 }
 
-/* ----- the companion: a few lines, at most twice a day, 3+ hours apart ----- */
+/* the companion */
 function offer(){
   try {
     const m = current(); if (!m) return null;
@@ -233,7 +217,7 @@ function offer(){
 function offered(){ const s = lsGet(SAID_KEY), today = todayISO(), said = s.day === today ? s : {day: today, n: 0, at: 0}; said.n = (said.n || 0) + 1; said.at = Date.now(); lsSet(SAID_KEY, said); }
 const ideaValid = id => { const m = current(); return !!m && m.exam.id === id; };
 
-/* ----- Settings ----- */
+/* Settings */
 hook("menu", () => `<div class="cap-row" data-group="study"><span style="flex:1;font-weight:600">Exam Mode<span class="sub">In the last 3 days before an exam or quiz, Today's Plan, Do This Next, your decks and Focus point at it. Work due sooner than your exam study still comes first.</span></span><label class="anim-tog"><input type="checkbox" data-act="exm-toggle" ${enabled() ? "checked" : ""}> On</label></div>`);
 
 hook("act", (act, el, id) => {

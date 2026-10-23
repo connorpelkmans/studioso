@@ -1,5 +1,4 @@
-// node tests/capture.e2e.js  (Playwright + Chromium; serves the app over http so the service worker runs; the AI network call is stubbed)
-// Checks: typed capture speed, undo, confirm sheet, URL handler, share-target manifest + service-worker POST, paste, photo flow, offline queue, ingest contract. Writes screenshots to $SHOTS.
+// node tests/capture.e2e.js
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, ".."), SHOTS = process.env.SHOTS || path.join(require("os").tmpdir(), "cap-shots");
@@ -42,7 +41,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     const send = (page, bytes) => page.evaluate(b => window.__shot(new Uint8Array(b)), bytes);
     const kindsSent = ctx => (ctx.aiCalls || []).map(x => /screenshot from a student/.test(x) ? "shot" : /course syllabi/i.test(x) ? "syllabus" : /study notes/i.test(x) ? "note" : "other");
 
-    // ---- settings: the desktop row, and no web-only rows ----
+    // settings: the desktop row, and no web-only rows
     let ctx = await mkCtx(); let page = await open(ctx);
     await page.locator('[data-act="menu"]:visible').first().click(); await page.waitForSelector(".us-cat"); await page.click('.us-cat[data-us="capture"]'); await page.waitForSelector('[data-cap-pref="auto"]');
     await page.waitForSelector("[data-cap-shot] #capShotKey");
@@ -57,7 +56,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     ok(true, "Try it asks the app to start the screenshot picker");
     await page.screenshot({path: path.join(SHOTS, "shot-settings.png")}); await page.close(); await ctx.close();
 
-    // ---- a screenshot of tasks: the usual Check and Add sheet, read with the screenshot prompt ----
+    // a screenshot of tasks
     ctx = await mkCtx(); ctx.aiReply = {kind: "tasks", items: [{title: "Lab report 4", dueDate: "2026-10-28", dueTime: "", course: "BIO101", type: "Lab", notes: "", confidence: 0.9}], rawText: "Lab report 4 due Oct 28"};
     page = await open(ctx); const bytes = await shotBytes(page);
     await send(page, bytes); await page.waitForSelector("#capAddAll", {timeout: 8000});
@@ -66,7 +65,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await page.screenshot({path: path.join(SHOTS, "shot-tasks.png")});
     await page.keyboard.press("Escape"); await page.close();
 
-    // ---- a screenshot of a syllabus goes to the syllabus reader ----
+    // a screenshot of a syllabus goes to the syllabus reader
     ctx.aiReply = {kind: "syllabus", items: [], rawText: "BIO101 syllabus"}; ctx.aiCalls = [];
     page = await open(ctx); await send(page, bytes);
     await page.waitForFunction(() => /Import a Syllabus/.test((document.querySelector("dialog[open]") || {}).innerText || ""), null, {timeout: 8000});
@@ -75,14 +74,14 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     ok(kindsSent(ctx).length >= 2 && kindsSent(ctx)[1] !== "shot", "and the syllabus reader is run on the same picture (" + kindsSent(ctx).join(",") + ")");
     await page.keyboard.press("Escape"); await page.close();
 
-    // ---- a screenshot of slides goes to Photo to Note ----
+    // a screenshot of slides goes to Photo to Note
     ctx.aiReply = {kind: "notes", items: [], rawText: "Photosynthesis"}; ctx.aiCalls = [];
     page = await open(ctx); await send(page, bytes);
     await page.waitForFunction(() => /Photo to Note/.test((document.querySelector("dialog[open]") || {}).innerText || ""), null, {timeout: 8000});
     ok(true, "a screenshot of slides or an article opens Photo to Note");
     await page.keyboard.press("Escape"); await page.close();
 
-    // ---- nothing useful in it ----
+    // nothing useful in it
     ctx.aiReply = {kind: "other", items: [], rawText: "cat photo"}; ctx.aiCalls = [];
     page = await open(ctx); await send(page, bytes); await page.waitForSelector("#qcIn", {timeout: 8000});
     ok(/didn't find any tasks|no tasks or dates found/i.test(await page.textContent(".cap-body")), "nothing useful says so and offers typing it in");

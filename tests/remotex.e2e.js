@@ -1,7 +1,4 @@
-// Browser checks for "can this exam or quiz be taken from home?" (Playwright + Chromium). Run: node tests/remotex.e2e.js [outDir]
-// Fixed clock: Monday 2026-10-05 15:00 in New York. Runs at 1280 and 390 wide; the AI is stubbed. Screenshots go to outDir.
-// The page is served over http://127.0.0.1, not file://: Chromium sometimes drops a file:// page's whole localStorage across a reload in a
-// fresh browser context (seen as "persists after reload" failures), which made this test flaky. Waits are on conditions, not fixed sleeps.
+// Browser checks for "can this exam or quiz be taken from home?" (Playwright + Chromium)
 const {chromium, executablePath} = require("./pw");
 const path = require("path"), fs = require("fs"), http = require("http"), os = require("os");
 const OUT = process.argv[2] || path.join(os.tmpdir(), "remotex-shots"), ROOT = path.join(__dirname, "..");
@@ -18,7 +15,7 @@ let checks = 0; const ok = (c, m) => { checks++; if (!c) { console.log("FAIL:", 
 const T = (id, title, type, due, o) => Object.assign({id, title, courseId: "c1", type, start: type === "Exam" || type === "Quiz" ? due : "2026-10-01", due, time: "", priority: "med", status: "todo", notes: "", hours: type === "Assignment" || type === "Study" ? 2 : null, checklist: [], pct: 0, dependsOn: [], history: [], created: 1, order: 10}, o || {});
 const COURSE = {id: "c1", name: "Biology 101", code: "BIO101", color: "#4F8A5B", meetings: [{id: "m1", kind: "Lecture", days: [2, 4], start: "09:00", end: "10:15"}]};
 const SC = {
-  // an in-person midterm, an online quiz from the school site, a final nothing can settle, a normal assignment and a study session
+  // an in-person midterm, an online quiz from the school site, a final nothing can settle
   mixed: [T("m1", "Midterm 2", "Exam", "2026-10-06", {time: "09:00", weight: 30, notes: "Held in class on Tuesday. Bring a pencil. Covers chapters 1 to 5."}),
     T("q1", "Quiz 3", "Quiz", "2026-10-06", {time: "23:59", cv: {key: "1|quiz3", ou: "1", rx: {k: "quiz", st: ["online_quiz"], tl: 30}}}),
     T("m2", "Final Exam", "Exam", "2026-10-09", {weight: 40, notes: "Chapters 1 to 8. Take-home or in person, details to come."}),
@@ -58,12 +55,12 @@ async function open(browser, W, scenario, o) {
   await p.clock.install({time: new Date("2026-10-05T15:00:00-04:00")});
   await p.addInitScript(c => { window.__COURSE = c; }, COURSE);
   await p.addInitScript(seedFn, [Array.isArray(scenario) ? scenario : SC[scenario], !!o.ai]);
-  await p.goto(FILE); await booted(p); await p.waitForTimeout(1000);   // let the start-up passes (the 700 ms store pass among them) run
+  await p.goto(FILE); await booted(p); await p.waitForTimeout(1000);
   return {ctx, p, errs};
 }
-// The app has started and loaded the planner from localStorage.
+// The app has started and loaded the planner from localStorage
 const booted = p => p.waitForFunction(() => window.__sbRemote && window.__sbAvail && window.__sbPlan && document.readyState === "complete", null, {timeout: 20000});
-// After a reload: wait (bounded) until the task is back with the expected answer, so a slow start doesn't read a half-booted page.
+// After a reload
 const reloadUntil = async (p, id, v) => {
   await p.reload(); await booted(p);
   await p.waitForFunction(([i, want]) => { const r = window.__sbRemote.of(i); return r && r.v === want; }, [id, v], {timeout: 10000}).catch(() => {});
@@ -80,7 +77,7 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
   const browser = await chromium.launch({executablePath});
   for (const W of [1280, 390]) {
     const tag = W + "w";
-    // ---------- 1. Mixed list, no AI: rules and the one-tap question ----------
+    // 1. Mixed list, no AI
     {
       const {ctx, p, errs} = await open(browser, W, "mixed");
       await showToday(p); await p.waitForTimeout(900);
@@ -105,12 +102,10 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       ok((await p.locator('[data-act="rmt-set"]').evaluateAll(els => els.every(e => e.getBoundingClientRect().height >= 30))), tag + " question buttons are tappable");
       ok((await overflow(p)) <= 0, tag + " Today has no horizontal overflow");
       await p.screenshot({path: path.join(OUT, `01-today-${tag}.png`), fullPage: true});
-      // the board row hint
       await p.evaluate(() => window.__sbAvail.view({tab: "board", bview: "board"})); await p.waitForTimeout(300);
       const qm = await p.locator(".rx-q").count();
       ok(qm === 1, tag + " one '?' hint on the unsure exam, none on the others (" + qm + ")");
       await p.evaluate(() => window.__sbAvail.view({tab: "board", bview: "plan"})); await p.waitForTimeout(200);
-      // the edit sheet
       await p.evaluate(() => { const t = document.querySelector('.pt-tab[data-k="cal"]'); if (t) t.click(); }); await p.click('.plan-fixed [data-id="m1"]'); await p.waitForSelector("dialog[open] #rxFs");
       ok(await p.locator("dialog[open] #rxFs legend").textContent() === "Where is this taken?", tag + " edit sheet asks where it is taken");
       const note = await p.locator("dialog[open] #rxNote").textContent();
@@ -119,7 +114,6 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       ok(await p.locator("dialog[open] .focus-btn").count() === 0, tag + " no Focus button in the sheet for an in-person exam");
       await p.screenshot({path: path.join(OUT, `02-sheet-${tag}.png`)});
       await p.keyboard.press("Escape"); await p.waitForTimeout(150);
-      // answer the question: Yes (on the Suggestions tab)
       await p.evaluate(() => { const t = document.querySelector('.pt-tab[data-k="sugg"]'); if (t) t.click(); });
       await p.click('[data-act="rmt-set"][data-v="yes"]'); await p.waitForTimeout(400);
       const m2b = await eff(p, "m2"), st = await stored(p, "m2");
@@ -130,13 +124,12 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       ok(st1.remote === "no" && st1.remoteSrc === "rule" && stq.remote === "yes" && stq.remoteSrc === "lms", tag + " rule and school-site answers are saved on the tasks");
       await reloadUntil(p, "m2", "yes");
       const m2c = await eff(p, "m2") || {}; ok(m2c.v === "yes" && m2c.src === "user", tag + " persists after reload");
-      // a school sync can't overwrite it: rules never touch a user answer
       await p.waitForTimeout(1200);
       ok((await stored(p, "m2")).remoteSrc === "user", tag + " user answer survives the store pass");
       ok(errs.length === 0, tag + " no page errors: " + errs.join("|"));
       await ctx.close();
     }
-    // ---------- 2. The online quiz is Do This Next; the in-person midterm never is ----------
+    // 2. The online quiz is Do This Next; the in-person midterm never is
     {
       const {ctx, p, errs} = await open(browser, W, "online");
       await showToday(p); await p.waitForTimeout(700);
@@ -145,15 +138,12 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       const nu = (await txt(p, ".next-up"))[0] || "";
       ok(/Quiz 3/.test(nu) && /Take-home/.test(nu), tag + " card names it and says Take-home: " + nu.slice(0, 80));
       await p.screenshot({path: path.join(OUT, `03-quiz-next-${tag}.png`)});
-      // Something Else walks the alternatives: the midterm never comes up
       for (let i = 0; i < 4; i++) { if (await p.locator('[data-act="nu-skip"]').count()) { await p.click('[data-act="nu-skip"]'); await p.waitForTimeout(150); } }
       const n2 = (await txt(p, ".next-up .nu-title"))[0] || "";
       ok(!/Midterm 2/.test(n2), tag + " alternatives never offer the in-person midterm: " + n2);
-      // the in-person midterm is not startable by any route
       await p.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "pomo-task"; b.dataset.id = "m1"; b.hidden = true; document.body.appendChild(b); b.click(); });
       await p.waitForTimeout(200);
       ok(!(await p.evaluate(() => window.__sbAvail.pomo().running)) && /taken in person/.test(await p.textContent("#toastMsg")), tag + " a focus session can't be started on it");
-      // answering "From home" in the sheet makes the midterm eligible, and it can then lead
       await p.evaluate(() => window.__sbAvail.view({tab: "board", bview: "plan"}));
       await p.evaluate(() => { const t = document.querySelector('.pt-tab[data-k="cal"]'); if (t) t.click(); }); await p.click('.plan-fixed [data-id="m1"]'); await p.waitForSelector("dialog[open] #rxFs");
       await p.locator('dialog[open] input[name=remote][value="yes"]').check({force: true});
@@ -167,12 +157,11 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       ok(errs.length === 0, tag + " no page errors: " + errs.join("|"));
       await ctx.close();
     }
-    // ---------- 3. Unknown is not eligible; answering In person keeps it out ----------
+    // 3. Unknown is not eligible; answering In person keeps it out
     {
       const {ctx, p} = await open(browser, W, "unknown");
       await showToday(p); await p.waitForTimeout(700);
       let pl = await plan(p);
-      // The exam itself is never offered; with nothing due before it, Do This Next suggests studying for it instead
       ok(pl.next && (pl.next.id === "a1" || (pl.next.id === "m2" && pl.next.study)), tag + " an unsure exam due tomorrow is not suggested as itself (" + (pl.next && pl.next.id) + ")");
       if (pl.next.study) ok(/Study for Final Exam/.test(await p.textContent(".next-up")) && await p.locator('.next-up .check').count() === 0, tag + " it says Study for Final Exam, with no check box to tick the exam off");
       await p.evaluate(() => { const t = document.querySelector('.pt-tab[data-k="sugg"]'); if (t) t.click(); });
@@ -181,7 +170,7 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       pl = await plan(p); ok(pl.next.id === "a1" || (pl.next.id === "m2" && pl.next.study), tag + " still not suggested as itself after saying In person");
       await ctx.close();
     }
-    // ---------- 4. With AI: accepted, rejected, low confidence, no text ----------
+    // 4. With AI: accepted, rejected, low confidence, no text
     {
       const {ctx, p, errs} = await open(browser, W, "ai", {ai: true});
       await showToday(p);
@@ -197,7 +186,6 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       const st = await stored(p, "e1"); ok(st.remote === "no" && st.remoteSrc === "ai" && st.remoteWhy && st.remoteWhy.length <= 120, tag + " stored with source ai and a short reason");
       const qs = await p.evaluate(() => window.__sbRemote.questions());
       ok(qs.length === 0, tag + " exams assumed in person are not asked about: " + qs.join());
-      // the same text is not sent twice
       const before = ctx.aiCalls.filter(b => /everything the school site gave/.test(b)).length;
       await p.evaluate(() => window.__sbRemote.cands()); await p.waitForTimeout(3500);
       ok(ctx.aiCalls.filter(b => /everything the school site gave/.test(b)).length === before, tag + " cached by text: no repeat calls");
@@ -206,7 +194,7 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       await ctx.close();
     }
   }
-  // ---------- 6. School site data: how items are handed in reaches the task, sanitized, and drives the answer ----------
+  // 6. School site data
   {
     const {ctx, p, errs} = await open(browser, 1280, [SC.unknown[1]]);
     const out = await p.evaluate(() => {
@@ -227,8 +215,6 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
     await ctx.close();
   }
   {
-    // put them on the board (seeded before the app starts, never written behind a running app's back, which its next save would undo)
-    // and ask what Studyboard now believes
     const {ctx, p, errs} = await open(browser, 1280, [SC.unknown[1]].concat(SC.lmsTasks));
     const ids = SC.lmsTasks.map(t => t.id), e = [];
     await p.waitForFunction(is => is.every(i => window.__sbRemote.of(i)), ids, {timeout: 10000}).catch(() => {});
@@ -239,7 +225,7 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
     ok(errs.length === 0, 'school sync' + " no page errors: " + errs.join("|"));
     await ctx.close();
   }
-  // ---------- 5. Settings: the Automatic AI panel explains it ----------
+  // 5. Settings: the Automatic AI panel explains it
   {
     const {ctx, p} = await open(browser, 1280, "mixed", {ai: true});
     await showToday(p); await p.waitForTimeout(500);

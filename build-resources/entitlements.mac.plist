@@ -2,16 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <!-- Direct download (Developer ID, notarized DMG). Hardened Runtime is on; these are the only exceptions Electron needs. -->
-  <!-- V8's JIT compiler and its executable memory. -->
+  <!-- Direct download (Developer ID, notarized DMG) -->
   <key>com.apple.security.cs.allow-jit</key>
   <true/>
   <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
   <true/>
-  <!-- The microphone, for Record a Lecture (Pro): used only while a recording runs. -->
+  <!-- The microphone, for Record a Lecture (Pro) -->
   <key>com.apple.security.device.audio-input</key>
   <true/>
-  <!-- Deliberately NOT present: disable-library-validation, allow-dyld-environment-variables, disable-executable-page-protection,
-       camera, contacts, calendars, location, Apple Events, printing, USB, Bluetooth (Studyboard uses none of them). -->
+  <!-- Deliberately NOT present -->
 </dict>
 </plist>

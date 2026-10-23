@@ -1,5 +1,5 @@
 /* ===== module: 96-tp-b1.js ===== */
-/* Theme Collections, batch 1: winter, spring, summer, autumn, ocean, sakura */
+/* Theme Collections, batch 1 */
 (() => {
   const D = "#2B2233";
   const LG = (id, a, b, x2 = 0, y2 = 1) => `<linearGradient id="${id}" x1="0" y1="0" x2="${x2}" y2="${y2}"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient>`;
@@ -9,7 +9,7 @@
   const TXT = (t, y, sz, c = "#fff", len) => `<text x="32" y="${y}" text-anchor="middle" font-family="Lexend,Arial Rounded MT Bold,Arial,sans-serif" font-weight="800" font-size="${sz}" fill="${c}" textLength="${len || Math.min(52, t.length * sz * .62)}" lengthAdjust="spacingAndGlyphs">${t}</text>`;
   const SW = w => `stroke="${D}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"`;
   const pts = a => a.map(p => p.map(n => +n.toFixed(2)).join(" ")).join("L");
-  // A mirrored outline: right-hand points, reflected about x = cx for the left side
+  // A mirrored outline
   const mirror = (right, cx = 32) => { const left = right.slice(1, -1).reverse().map(([x, y]) => [2 * cx - x, y]); return "M" + pts(right.concat(left)) + "Z"; };
   const MAPLE = mirror([[32, 4], [37, 14], [45, 9], [44, 22], [57, 17], [53, 28], [60, 32], [46, 38], [48, 46], [36, 41], [32, 49]]);
   // five notched petals around (cx, cy)

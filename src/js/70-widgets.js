@@ -1,10 +1,5 @@
 /* ===== module: 70-widgets.js ===== */
-/* ---------- 1.11 Widgets and Desktop ----------
-   - Feeds the desktop Today widget (DESK.setWidgetData) and the Windows 11 Widgets board (through the service worker).
-   - ?widget=today shows only a small Today card, for a Home Screen icon or a narrow browser window.
-   - Handles app shortcuts (?action=quickadd, today, focus, search, flashcards; ?task=ID; ?action=done&task=ID)
-     and the same requests from the desktop tray, widget and reminders (DESK.onAction, DESK.onOpenTask).
-   - Settings row: Widgets and Desktop. */
+/* 1.11 Widgets and Desktop - Feeds the desktop Today widget */
 (() => {
   const params = new URLSearchParams(location.search);
   const WV = params.get("widget") === "today";
@@ -12,8 +7,7 @@
   const LIST_MAX = 12;
   const isDoneToday = t => t.status === "done" && t.doneAt && iso(new Date(t.doneAt)) === todayISO();
 
-  /* ---------- What's on today ---------- */
-  // Today's list: what Today's Plan gives time to today, anything due today or overdue, and what you finished today.
+  /* What's on today */
   function dayList(){
     const today = todayISO(), F = computeFocus(), seen = new Set(), out = [];
     const add = (t, x) => { if (!t || seen.has(t.id)) return; seen.add(t.id); out.push({t, x}); };
@@ -49,7 +43,7 @@
     };
   }
 
-  /* ---------- Sending it to the widgets ---------- */
+  /* Sending it to the widgets */
   let lastSent = "", pushT = null;
   function push(){
     clearTimeout(pushT); pushT = null;
@@ -62,8 +56,7 @@
   }
   const pushSoon = () => { if (!pushT) pushT = setTimeout(push, 500); };
 
-  // Windows 11 Widgets board (the installed web app from Edge). The service worker (sw/widgets.js) keeps the latest
-  // copy and redraws the widget. Anywhere else this quietly does nothing.
+  // Windows 11 Widgets board (the installed web app from Edge)
   function cardData(d){
     const open = d.tasks.filter(t => !t.done);
     return {
@@ -78,13 +71,12 @@
     };
   }
   function pushWindows(d){
-    if (DESK || inClaude() || !("serviceWorker" in navigator) || !(location.protocol === "https:" || location.hostname === "localhost")) return;
+    if (DESK || inPreview() || !("serviceWorker" in navigator) || !(location.protocol === "https:" || location.hostname === "localhost")) return;
     const msg = {type: "sb-widget-data", data: cardData(d)};
     navigator.serviceWorker.ready.then(r => { if (r.active) r.active.postMessage(msg); }).catch(() => {});
   }
 
-  /* ---------- Doing what a shortcut, the tray, a widget or a reminder asks ---------- */
-  // Uses the app's own buttons, so checking off a task behaves exactly like a click on the Board (undo, celebration, sync).
+  /* Doing what a shortcut, the tray, a widget or a reminder asks */
   function runAct(act, id){
     const b = document.createElement("button");
     b.dataset.act = act; if (id) b.dataset.id = id; b.hidden = true;
@@ -95,7 +87,7 @@
   function openTaskById(id){
     const t = state.tasks[id];
     if (!t) { toast("That task isn't in Studyboard any more"); return; }
-    if (dlg.open && dlg.querySelector(`[data-id="${CSS.escape(id)}"]`)) return;    // already open (a reminder module may open it too)
+    if (dlg.open && dlg.querySelector(`[data-id="${CSS.escape(id)}"]`)) return;
     taskForm(t);
   }
   function doAction(a, arg){
@@ -126,7 +118,7 @@
     else if (ACTIONS.includes(a)) doAction(a);
   }
 
-  /* ---------- ?widget=today: just the Today card ---------- */
+  /* ?widget=today */
   function todayCard(){
     const d = widgetData(), n = d.next, left = d.tasks.filter(t => !t.done).length;
     const row = t => `<li class="sbw-row ${t.done ? "is-done" : ""} ${t.late ? "is-late" : ""}" style="--c:${esc(t.color)}">
@@ -159,16 +151,16 @@
     document.body.classList.add("sb-wv");
     document.title = "Studyboard Today";
     const at = document.querySelector('meta[name="apple-mobile-web-app-title"]'); if (at) at.setAttribute("content", "Today");
-    // No daily quote pop-up over the little card.
+    // No daily quote pop-up over the little card
     dailyQuote = function(force){ if (force) { if (dlg.open) dlg.close(); openSheet(`<div class="sheet">${head("Your Streak")}<div class="sheet-body"><p>${esc(streakLine())}</p></div></div>`); } };
-    // Its own Home Screen icon: point "Add to Home Screen" and "Install" at the Today card instead of the whole app.
+    // Its own Home Screen icon
     const origPwa = pwaBoot;
     pwaBoot = function(){ const r = origPwa.apply(this, arguments); const l = document.querySelector('link[rel="manifest"]'); if (l) l.href = "today.webmanifest"; return r; };
-    // Changes made in another tab or window of Studyboard show up here too.
+    // Changes made in another tab or window of Studyboard show up here too
     window.addEventListener("storage", e => { if (e.key === LS2 && e.newValue) { loadLocal(); scheduleRender(); } });
   }
 
-  /* ---------- Settings: Widgets and Desktop ---------- */
+  /* Settings: Widgets and Desktop */
   const ua = navigator.userAgent || "";
   const IOS = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
   const ANDROID = /Android/.test(ua);
@@ -187,7 +179,7 @@
       <div class="cap-row"><span style="flex:1;font-weight:600">Keep the Widget on Top<span class="sub">The widget stays above other windows.</span></span>${tog("widgetPinned", !!c.widgetPinned, "Keep the Widget on Top")}</div>
       <div class="cap-row"><span style="flex:1;font-weight:600">Reminders<span class="sub">${paused ? `Paused until ${esc(new Date(c.pausedUntil).toLocaleTimeString([], {hour: "numeric", minute: "2-digit"}))}. Reminders that come up meanwhile are shown when the pause ends.` : c.notifications === false ? "This computer doesn't allow notifications from Studyboard. Turn them on in your system settings." : `Shown as ${mac ? "Mac" : "Windows"} notifications, even with the window closed. You can pause them for an hour from the ${where} icon.`}</span></span>${paused ? `<button class="btn small" data-act="sbw-resume">Resume</button>` : `<button class="btn small" data-act="sbw-pause">Pause 1 Hour</button>`}</div>`;
   }
-  // Inside the App Store / Google Play apps (Capacitor) the web-only steps (Add to Home Screen, Install) don't apply: list what the app itself offers.
+  // Inside the App Store / Google Play apps (Capacitor) the web-only steps
   const NATIVE_APP = (() => { try { const C = window.Capacitor; return !!(C && typeof C.isNativePlatform === "function" && C.isNativePlatform()); } catch (e) { return false; } })();
   function nativeRows(){
     const share = `<div class="cap-row"><span style="flex:1;font-weight:600">Share to Studyboard<span class="sub">In any app, tap Share and choose Studyboard to turn text, a link or a photo into a task.</span></span></div>`;
@@ -224,8 +216,8 @@
     const box = dlg.open && dlg.querySelector(".sbw-set"); if (box && deskCfg) box.innerHTML = deskRows();
   }
 
-  /* ---------- Hooks ---------- */
-  hook("menu", () => inClaude() ? "" : `<button data-act="sbw-open"><span>Widgets and Desktop<span class="sub">${DESK_OK ? "Tray icon, Today widget, reminders and starting with your computer" : "Today on your Home Screen, app shortcuts and widgets"}</span></span></button>`);
+  /* Hooks */
+  hook("menu", () => inPreview() ? "" : `<button data-act="sbw-open"><span>Widgets and Desktop<span class="sub">${DESK_OK ? "Tray icon, Today widget, reminders and starting with your computer" : "Today on your Home Screen, app shortcuts and widgets"}</span></span></button>`);
   hook("act", (act, el) => {
     if (act === "sbw-open") { if (dlg.open) dlg.close(); setTimeout(widgetsSheet, 30); return true; }
     if (act === "sbw-set") { setDesk(el.dataset.key, !!el.checked); return true; }
@@ -242,15 +234,12 @@
       if (DESK.onAction) DESK.onAction((a, arg) => doAction(a, arg));
       if (DESK.onOpenTask) DESK.onOpenTask(id => setTimeout(() => openTaskById(id), 0));
     }
-    // Windows 11 Widgets board: the widget asks this page to check off a task or open one.
-    if ("serviceWorker" in navigator && !DESK && !inClaude()) navigator.serviceWorker.addEventListener("message", e => {
+    if ("serviceWorker" in navigator && !DESK && !inPreview()) navigator.serviceWorker.addEventListener("message", e => {
       const m = e.data; if (!m || m.type !== "sb-widget-click" || typeof m.id !== "string") return;
       if (m.verb === "done") doAction("done", m.id); else if (m.verb === "task") doAction("task", m.id); else if (ACTIONS.includes(m.verb)) doAction(m.verb);
     });
-    // Theme and style changes don't always redraw the page, so watch for them to recolor the widget.
     try { new MutationObserver(pushSoon).observe(document.documentElement, {attributes: true, attributeFilter: ["data-theme", "data-skin", "style", "class"]}); } catch(e) {}
     if (window.matchMedia) window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", pushSoon);
-    // Keep the date and Today's Plan fresh, even when nothing changes.
     setInterval(push, 5 * 60000);
     handleUrl();
     push();

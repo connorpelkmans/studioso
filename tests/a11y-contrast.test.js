@@ -1,5 +1,4 @@
-// node tests/a11y-contrast.test.js
-// The theme contrast guard (ensureContrast in index.html): a colour that fails is nudged just far enough, one that passes is left alone.
+// node tests/a11y-contrast.test.js The theme contrast guard (ensureContrast in index.html)
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const src = require("../scripts/app-files").source();
 const a = src.indexOf("const HEX6 = "), b = src.indexOf("function skinVars(s, dark){");

@@ -1,9 +1,4 @@
-// UNTESTED: written without compiler access. App Target only. Local Capacitor plugins (Capacitor 6/7 `CAPBridgedPlugin` style; verify against the
-// installed Capacitor version: Capacitor 5 and older need a .m file with CAP_PLUGIN(...) instead, see README-IOS.md "Quick capture").
-//
-//   StudyboardCaptureToken: save({token, endpoint}) / clear()          <- window.StudyboardNative.saveCaptureToken / clearCaptureToken
-//   StudyboardSharedQueue:  drain() -> {items:[...]} / ack({ids})      <- native-bridge.js, then SBCAPTURE.ingest(item)
-// Queue item JSON = "sharedQueueItem" in capture-contract.json; `image` is a data: URL of a JPEG (max 2048 px, 8 MB).
+// UNTESTED: written without compiler access
 import Foundation
 import Capacitor
 
@@ -20,7 +15,7 @@ public class StudyboardCaptureTokenPlugin: CAPPlugin, CAPBridgedPlugin {
         guard let token = call.getString("token"), let endpoint = call.getString("endpoint"),
               token.range(of: "^[A-Za-z0-9._~+/-]{16,512}$", options: .regularExpression) != nil,
               SBCapture.validatedEndpoint(endpoint) != nil else { return call.reject("invalid") }
-        SBCapture.saveCredentials(token: token, endpoint: endpoint) ? call.resolve() : call.reject("keychain")   // never log `token`
+        SBCapture.saveCredentials(token: token, endpoint: endpoint) ? call.resolve() : call.reject("keychain")
     }
 
     @objc func clear(_ call: CAPPluginCall) {

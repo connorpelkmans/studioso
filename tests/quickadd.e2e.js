@@ -1,8 +1,4 @@
-// Browser test for Quick Add Files, learning objectives and the companion's file search.
-// Run: node tests/quickadd.e2e.js [outDir]    (Playwright + Chromium; file storage and the AI network call are stubbed)
-// Covers: Quick Add (sorted by keywords with no AI, fix a guess, save into the right folders, undo), sorting with AI, objectives found in an
-// uploaded syllabus and reviewed, edited, checked off, coverage, flashcards per objective, objectives as Exam Prep topics, and
-// SBSEARCH.retrieve (the retrieval the companion now shares with Search Everywhere's Ask With AI) finding text inside a file and a note.
+// Browser test for Quick Add Files, learning objectives and the companion's file search
 const path = require("path"), fs = require("fs"), assert = require("assert"), os = require("os");
 const {chromium, executablePath} = require("./pw");
 const FILE = "file://" + path.join(__dirname, "..", "index.html");
@@ -41,7 +37,6 @@ async function mk(browser, w, h, ai) {
   const page = await ctx.newPage(); page.errs = [];
   page.on("pageerror", e => page.errs.push(e.message));
   await page.goto(FILE); await page.waitForTimeout(1500);
-  // File storage is stubbed: uploads succeed and Studyboard keeps the bytes in memory
   await page.evaluate(() => {
     window.__bytes = {};
     __sbQadd.caps.assets = {upload: async (f, o) => { const id = "a" + Math.random().toString(36).slice(2, 8); window.__bytes[id] = new Uint8Array(await f.arrayBuffer()); return {id, sizeBytes: f.size, contentType: o.type}; }, delete: async () => {}};
@@ -55,9 +50,9 @@ const files = page => page.evaluate(() => Object.values(__sbQadd.state().files).
 const course = (page, id) => page.evaluate(i => JSON.parse(JSON.stringify(__sbQadd.state().courses[i])), id);
 const vis = (page, sel) => page.evaluate(s => { const e = document.querySelector(s); return !!e && !!(e.offsetWidth || e.offsetHeight); }, sel);
 const goTab = async (page, t) => { await page.evaluate(t => { const b = document.querySelector(`[data-tab="${t}"]`); if (b) b.click(); }, t); await page.waitForTimeout(250); };
-// Files is a sub-tab of Courses since 658555c (Courses and Files tabs merged): open Courses, then its Files tab
+// Files is a sub-tab of Courses since 658555c (Courses and Files tabs merged)
 const goFiles = async page => { await goTab(page, "courses"); const has = await page.evaluate(() => { const b = document.querySelector('[data-act="cf-view"][data-id="files"]'); if (b) b.click(); return !!b; }); assert(has, "Courses has a Files tab"); await page.waitForTimeout(250); };
-// the Courses tab remembers its sub-tab (Files stays open), so pick the Courses sub-tab before opening a course
+// the Courses tab remembers its sub-tab (Files stays open)
 const goCourse = async (page, id) => { await goTab(page, "courses"); await page.evaluate(() => { const b = document.querySelector('[data-act="cf-view"][data-id="courses"]'); if (b) b.click(); }); await page.waitForTimeout(150); await page.evaluate(i => { __sbQadd.ui.courseId = i; __sbQadd.render(); }, id); await page.waitForTimeout(250); };
 const noHScroll = page => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
 const pick = (page, list) => page.setInputFiles("#qaFileIn", list.map(([name, text]) => ({name, mimeType: "text/plain", buffer: Buffer.from(text)})));
@@ -84,7 +79,6 @@ const pick = (page, list) => page.setInputFiles("#qaFileIn", list.map(([name, te
       ok(!await page.evaluate(() => document.querySelector("#qaAI")), "no AI toggle without AI set up");
       if (W === 390) { ok(await noHScroll(page), "no sideways scroll at phone width"); ok(await page.evaluate(() => { const d = document.querySelector("#dlg"); return d.scrollWidth <= d.clientWidth + 1; }), "sheet fits the phone"); }
       await page.screenshot({path: path.join(OUT, `quickadd-${tag}.png`)});
-      // fix the wrong guess: the unclear file is Biology notes
       await page.selectOption('.qa-row:nth-child(3) [data-qa-course]', "c1"); await page.selectOption('.qa-row:nth-child(3) [data-qa-kind]', "notes");
       ok((await page.textContent("#qaSave")).includes("Add 3 Files"), "the button counts the files");
       await page.click("#qaSave"); await page.waitForTimeout(1500);
@@ -95,7 +89,6 @@ const pick = (page, list) => page.setInputFiles("#qaFileIn", list.map(([name, te
       ok(by("hw3.txt").courseId === "c2" && by("hw3.txt").folderId === "assignments", "homework in Calculus II > Assignments");
       ok(by("scan.txt").courseId === "c1" && by("scan.txt").folderId === "notes" && by("scan.txt").ftype === "notes", "the fixed file went where the person chose");
       ok(page.errs.length === 0, "no page errors: " + page.errs.join("; "));
-      // learning objectives were found in the syllabus and offered, not added
       await page.waitForFunction(() => window.SBOBJ && SBOBJ.pending("c1"), null, {timeout: 8000});
       ok((await page.evaluate(() => SBOBJ.pending("c1").list)).length === 4, "four objectives found in the syllabus text");
       ok((await course(page, "c1")).objectives === undefined, "nothing is added until the person reviews them");
@@ -110,26 +103,21 @@ const pick = (page, list) => page.setInputFiles("#qaFileIn", list.map(([name, te
       ok(objs.length === 3 && objs[2].text === "Compare mitosis and meiosis in detail", "reviewed objectives saved, edit kept, unticked one left out");
       ok(await vis(page, ".obj-list"), "listed on the course page");
       ok((await page.textContent(".obj-bar")).includes("0 of 3"), "progress shows");
-      // coverage: the Krebs objective is matched by the note and the (searchable) file; Punnett has none
       const covTxt = await page.evaluate(() => [...document.querySelectorAll(".obj-li")].map(li => li.innerText.replace(/\s+/g, " ")));
       ok(/1 note/.test(covTxt[1]), "the Krebs objective shows the note that covers it: " + covTxt[1]);
       ok(/No material yet/.test(covTxt[0]) || /file/.test(covTxt[0]), "an objective with nothing shows a gap or its file: " + covTxt[0]);
-      // mastered
       await page.click('.obj-li:nth-child(1) input[data-act="obj-done"]'); await page.waitForTimeout(300);
       ok((await course(page, "c1")).objectives[0].done === true && (await page.textContent(".obj-bar")).includes("1 of 3"), "check one off as mastered");
       ok(await page.evaluate(() => document.querySelector(".obj-li.done") !== null), "mastered rows are marked");
-      // edit: change one, add one, remove one
       await page.click('[data-act="obj-edit"]'); await page.waitForTimeout(300);
       await page.fill('#oeList li:nth-child(2) [data-ot]', "Explain the Krebs cycle");
       await page.click("#oeAdd"); await page.keyboard.type("Define osmosis"); await page.click('#oeList li:nth-child(3) [data-orm]');
       await page.click("#oeSave"); await page.waitForTimeout(400);
       objs = (await course(page, "c1")).objectives;
       ok(objs.length === 3 && objs[1].text === "Explain the Krebs cycle" && objs[2].text === "Define osmosis" && objs[0].done === true, "edit sheet: changed, added, removed, mastered kept");
-      // exam prep offers the unmastered objectives as topics
       const names = await page.evaluate(() => SBOBJ.topicNames("c1"));
       ok(names.length === 2 && names.includes("Krebs cycle") && !names.some(x => /membrane/i.test(x)), "Exam Prep gets the objectives that aren't mastered: " + names.join(" | "));
       await page.screenshot({path: path.join(OUT, `objectives-${tag}.png`)});
-      // retrieval shared with Search Everywhere's Ask With AI: text inside a stored file and a note
       await page.waitForTimeout(500);
       const hit = await page.evaluate(async () => { const x = await SBSEARCH.retrieve("what are Punnett squares used for"); return {text: x.text, src: x.src}; });
       ok(/Punnett/i.test(hit.text), "retrieve finds text inside an uploaded file: " + hit.src.join(" | "));
@@ -154,14 +142,12 @@ const pick = (page, list) => page.setInputFiles("#qaFileIn", list.map(([name, te
       await page.click("#qaSave"); await page.waitForTimeout(1500);
       const f = await files(page);
       ok(f.find(x => x.name === "c.txt").folderId === "other" && f.find(x => x.name === "c.txt").ftype === "reading", "a reading is filed under Other and remembers its type");
-      // AI objectives: kept only if the text supports them (the invented one is dropped)
       await page.waitForFunction(() => window.SBOBJ && SBOBJ.pending("c1"), null, {timeout: 8000});
       const list = await page.evaluate(() => SBOBJ.pending("c1").list);
       ok(list.length >= 4 && !list.some(x => /moon base/i.test(x)), "AI and keyword objectives merged without repeats, invented ones dropped: " + list.length);
       ok(new Set(list.map(x => x.toLowerCase())).size === list.length, "no repeats");
       await goCourse(page, "c1");
       await page.click('[data-act="obj-review"]'); await page.waitForTimeout(300); await page.click("#rvAdd"); await page.waitForTimeout(400);
-      // flashcards per objective
       await page.click('[data-act="obj-cards"]'); await page.waitForTimeout(500);
       ok(await vis(page, "#ocGo"), "the flashcards sheet opens");
       ok((await page.$$("[data-oc]")).length >= 4 && (await page.$$("[data-of]")).length >= 1, "lists the objectives and the course's files");
@@ -173,7 +159,6 @@ const pick = (page, list) => page.setInputFiles("#qaFileIn", list.map(([name, te
       const li = await page.evaluate(() => [...document.querySelectorAll(".obj-li")].map(x => x.innerText.replace(/\s+/g, " ")));
       ok(/1 card/.test(li[0]) && /1 card/.test(li[1]), "coverage shows the new cards: " + li[0]);
       ok(ctx.aiCalls.some(c => /flashcards/.test(c.sys) && /O1\. /.test(c.text)), "one AI call carried every objective");
-      // the companion's chat now sees inside files, through the same retrieval as Search Everywhere's Ask With AI
       ctx.aiCalls.length = 0;
       await page.evaluate(() => { SBCOMPTAB.open("What are Punnett squares used for in my files?"); });
       await page.waitForFunction(() => document.querySelector(".cpt-a:not(.cpt-wait)"), null, {timeout: 10000}).catch(() => {});

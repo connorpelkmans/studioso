@@ -1,6 +1,4 @@
-// node tests/theme-visibility.e2e.js  (Playwright + Chromium)
-// Hidden themes (20-scenes-visible.js): they are out of the Style Shop, Theme Collections and every theme list, a hidden theme
-// in use shows Classic, and an account with all_themes in studyboard_theme_access sees them all again (until it signs out).
+// node tests/theme-visibility.e2e.js (Playwright + Chromium) Hidden themes
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -52,11 +50,9 @@ const sameSet = (a, b) => a.length === b.length && a.every(x => b.includes(x));
     console.log("   shop:", JSON.stringify(shop));
     ok(!shop.venice && !shop.ideas && shop.seasons && shop.kelp, "the Style Shop shows Seasons and has no hidden theme or empty section");
 
-    // someone already using a hidden theme sees Classic, and keeps the choice
     const r = await page.evaluate(() => { const st = __sbCollPreview.state; st.settings.style = Object.assign({}, st.settings.style, {skin: "venice"}); return {shown: __sbCollPreview.shown(), saved: st.settings.style.skin}; });
     ok(r.shown === "classic" && r.saved === "venice", "a hidden theme in use falls back to Classic without losing the choice");
 
-    // signs in with all_themes = true
     const order0 = l.map(s => s.id);
     await page.evaluate(() => { window.__asked = []; SBThemes.fake({from: t => ({select: () => ({eq: (c, v) => ({maybeSingle: async () => { window.__asked.push([t, c, v]); return {data: {all_themes: true}, error: null}; }})})})}, {id: "u1"}); });
     await page.waitForFunction(() => SBThemes.all(), null, {timeout: 5000});
@@ -67,14 +63,12 @@ const sameSet = (a, b) => a.length === b.length && a.every(x => b.includes(x));
     ok(await page.evaluate(() => { const C = __sbCollPreview; if (!C.owns("skin", "venice")) C.start("venice"); const on = C.shown() === "venice"; C.end(); return on; }), "with access, a hidden theme can be used again");
     ok(/"on":true/.test(await page.evaluate(() => localStorage.getItem("studyboard:theme-access"))), "access is remembered for the next start");
 
-    // signs out
     await page.evaluate(() => SBThemes.fake(null, null));
     await page.waitForFunction(() => !SBThemes.all(), null, {timeout: 5000});
     l = await list();
     ok(JSON.stringify(l.map(s => s.id)) === JSON.stringify(order0), "signed out: the same themes are hidden again, in the same order");
     ok(!(await page.evaluate(() => localStorage.getItem("studyboard:theme-access"))), "signed out: the remembered access is cleared");
 
-    // an account without access (or before supabase-theme-access.sql is run) changes nothing
     await page.evaluate(() => SBThemes.fake({from: () => ({select: () => ({eq: () => ({maybeSingle: async () => ({data: null, error: {message: "relation does not exist"}})})})})}, {id: "u2"}));
     await page.waitForTimeout(300);
     ok(!(await page.evaluate(() => SBThemes.all())) && (await list()).length === order0.length, "no table or no row: the themes stay hidden");

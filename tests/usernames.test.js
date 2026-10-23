@@ -1,5 +1,4 @@
-// Usernames: the app's instant check (index.html, 96-usernames.js) follows the same rules and word list as the server
-// (supabase-usernames.sql, which has the final say). Run: node tests/usernames.test.js
+// Usernames: the app's instant check
 const fs = require("fs"), path = require("path"), assert = require("assert");
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 const html = require("../scripts/app-files").source(), sql = fs.readFileSync(path.join(__dirname, "..", "supabase-usernames.sql"), "utf8");

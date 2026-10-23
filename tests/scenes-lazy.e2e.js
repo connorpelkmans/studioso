@@ -1,8 +1,4 @@
-// The scene library (bundle/scenes.js, about 3 MB) loads only when it's needed.
-// Run: node tests/scenes-lazy.e2e.js
-// Covers: with a plain theme the library isn't fetched at all; the Style Shop's scene previews fill in once it has loaded; picking a scene
-// theme draws the scene; the next open loads it at start (before the app runs, so the first paint has the scene); the list of scene names
-// in index.html matches the library.
+// The scene library (bundle/scenes.js, about 3 MB) loads only when it's needed
 "use strict";
 const fs = require("fs"), path = require("path"), http = require("http"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
@@ -17,14 +13,12 @@ const server = http.createServer((req, res) => {
   const f = path.join(root, p); if (!f.startsWith(root) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); res.end("no"); return; }
   const mime = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".css": "text/css", ".png": "image/png", ".woff2": "font/woff2"}[path.extname(f)];
   res.writeHead(200, {"content-type": mime || "application/octet-stream"});
-  // Pro on (enforcement off), so the scene themes can be used
   if (p === "/index.html" || p === "/bundle/app.js") { res.end((p === "/index.html" ? csp.apply : String)(fs.readFileSync(f, "utf8").replace("const PRO_ENFORCED = true;", "const PRO_ENFORCED = false;"))); return; }
   fs.createReadStream(f).pipe(res);
 });
 const scenesAsked = () => asked.filter(p => p === "/bundle/scenes.js").length;
 
 (async () => {
-  // the names in index.html are the library's (scripts/app-files.js keeps them current)
   const html = fs.readFileSync(path.join(root, "index.html"), "utf8"), listed = (/\/\*SCENE-IDS\*\/"([^"]*)"/.exec(html) || [])[1] || "";
   ok(listed.split(" ").includes("ocean") && listed.split(" ").includes("lavenderfields") && listed === AF.sceneIds(), "index.html lists every scene by name (and the theme ids that draw one under another name)");
   ok(!/SCN20_LIB|buildSceneAt/.test(fs.readFileSync(path.join(root, "bundle", "app.js"), "utf8").split("/* ===== module: 20-scenes-load.js")[0]), "the app's code doesn't carry the scene library");
@@ -45,24 +39,20 @@ const scenesAsked = () => asked.filter(p => p === "/bundle/scenes.js").length;
     ok(await page.locator("[data-tab]").count() > 3, "the app opens");
     ok(scenesAsked() === 0 && !(await page.evaluate(() => window.__libAtStart)), "with a plain theme, the scene library isn't fetched");
 
-    // the Style Shop: scene previews load the library, then fill in
     await act("shop"); await page.waitForSelector("dialog[open] .sheet.shop");
     await page.waitForFunction(() => document.querySelectorAll(".sc-thumb img").length > 10 && !document.querySelector("img[data-scn-thumb]"), null, {timeout: 30000});
     ok(scenesAsked() === 1, "opening the Style Shop loads the library once");
     ok(await page.evaluate(() => [...document.querySelectorAll(".sc-thumb img")].every(i => /^(blob:|data:image\/svg)/.test(i.getAttribute("src") || ""))), "every scene preview is drawn once it has loaded");
     await page.keyboard.press("Escape"); await page.waitForTimeout(200);
 
-    // pick a scene theme: the scene is drawn
     await act("shop-use", {kind: "skin", id: "ocean"}); await page.waitForTimeout(800);
     ok(await page.evaluate(() => document.documentElement.dataset.skin) === "ocean" && await page.locator("#sceneArt svg").count() > 0, "picking a scene theme draws its scene");
 
-    // next open: the library comes in at start, before the app runs
     asked.length = 0;
     await page.reload(); await page.waitForTimeout(2500);
     ok(scenesAsked() === 1 && await page.evaluate(() => window.__libAtStart), "with a scene theme saved, the next open loads the library at start (before the app runs)");
     ok(await page.locator("#sceneArt svg").count() > 0, "and the scene is there from the first paint");
 
-    // a scene theme picked on a page that started without the library (the saved theme not yet known to the start-up script)
     await page.evaluate(() => localStorage.removeItem("studyboard:skin"));
     asked.length = 0;
     await page.reload(); await page.waitForTimeout(500);

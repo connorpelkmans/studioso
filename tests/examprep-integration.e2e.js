@@ -1,6 +1,4 @@
-// Integration: Exam Prep Planner + take-home gate (remoteexams) + big assignment breakdown, in one planner.  Run: node tests/examprep-integration.e2e.js [outDir]
-// An in-person exam with a prep plan, a take-home quiz, and a big paper with milestones. Checks: Do This Next never shows the in-person exam, prep sessions and milestones
-// can be suggested, Crunch counts each piece of work once, the exam edit sheet shows both "Where is this taken?" and the prep block, and Plan My Prep works.
+// Integration: Exam Prep Planner + take-home gate (remoteexams) + big assignment breakdown
 const path = require("path"), fs = require("fs"), assert = require("assert"), os = require("os");
 const {chromium, executablePath} = require("./pw");
 const FILE = "file://" + path.join(__dirname, "..", "index.html");
@@ -33,7 +31,6 @@ const vis = (page, sel) => page.evaluate(s => { const e = document.querySelector
       await ctx.addInitScript(seed => { try { if (!sessionStorage.getItem("seeded")) { sessionStorage.setItem("seeded", "1"); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("coursework:v2", JSON.stringify(seed)); } } catch (e) {} }, SEED);
       const page = await ctx.newPage(); const errs = []; page.on("pageerror", e => errs.push(e.message));
       await page.goto(FILE); await page.waitForTimeout(1500);
-      // Plan My Prep on the in-person exam works (and is offered on the take-home quiz too)
       await act(page, "edit-task", "ex1"); await page.waitForTimeout(400);
       const sheet = await page.evaluate(() => document.querySelector("#dlg").innerText);
       ok(/Where is this taken\?/i.test(sheet) || await vis(page, "input[name=remote]"), "the exam edit sheet has the Where is this taken? control");
@@ -47,7 +44,6 @@ const vis = (page, sel) => page.evaluate(s => { const e = document.querySelector
       let ts = (await store(page)).tasks; const ss = ts.filter(t => t.prepFor === "ex1");
       ok(ss.length >= 6 && ss.every(t => t.type === "Study" && !t.breakdownOf && !t.remote), "prep sessions are Study tasks with no breakdown or take-home fields");
       ok(ts.filter(t => t.breakdownOf === "pp").length === 3 && ts.filter(t => t.breakdownOf === "pp").every(t => !t.prepFor), "milestones stay milestones, never prep sessions");
-      // Do This Next
       await page.evaluate(() => { const b = document.querySelector('[data-tab="board"]'); if (b) b.click(); }); await page.waitForTimeout(300);
       await act(page, "bview", "plan"); await page.waitForTimeout(400);
       const next = await page.evaluate(() => (document.querySelector(".next-up .nu-title") || {innerText: ""}).innerText);
@@ -57,7 +53,6 @@ const vis = (page, sel) => page.evaluate(s => { const e = document.querySelector
       ok(planTitles.some(t => /Midterm: /.test(t) || /History paper: /.test(t)), "prep sessions or milestones are suggested");
       ok(await vis(page, ".plan-row .focus-go") || await vis(page, ".next-up .btn.primary"), "suggested sessions can start a focus");
       await act(page, "bview", "board"); await page.waitForTimeout(200);
-      // Crunch counts each piece once
       const c = await page.evaluate(() => { const inp = SBCRUNCH.input(); const T = inp.tasks; return {prep: T.filter(t => t.prep).map(t => [t.id, t.rem]), bd: T.filter(t => t.bd).map(t => [t.id, t.rem]), par: T.find(t => t.id === "pp"), ex: T.find(t => t.id === "ex1"), ids: T.map(t => t.id)}; });
       ok(c.ids.length === new Set(c.ids).size, "every task appears once in the Crunch input");
       ok(c.prep.length === ss.length && Math.abs(c.prep.reduce((a, x) => a + x[1], 0) - ss.reduce((a, t) => a + t.hours, 0)) < 0.01, "Crunch counts every prep session's hours once");

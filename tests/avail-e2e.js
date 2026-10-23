@@ -1,7 +1,6 @@
-// Browser checks for availability blocks (Playwright + Chromium). Run: node tests/avail-e2e.js [outDir]
-// Fixed clock: Monday 2026-10-05 15:00 in New York. Checks run at 1280 and 390 wide and save screenshots to outDir.
+// Browser checks for availability blocks (Playwright + Chromium)
 const {chromium, executablePath} = require("./pw");
-// On a phone the Schedule's Availability button sits in its Options menu: open that first
+// On a phone the Schedule's Availability button sits in its Options menu
 const openAvail = async p => { await p.evaluate(() => { const d = document.querySelector("details.ph-more:not([open])"); if (d && d.querySelector('[data-act="avail-open"]')) d.open = true; }); await p.click('[data-act="avail-open"] >> visible=true >> nth=0'); };
 const path = require("path"), fs = require("fs"), assert = require("assert");
 const OUT = process.argv[2] || "/tmp/avail-shots", FILE = "file://" + path.join(__dirname, "..", "index.html");
@@ -56,13 +55,11 @@ const blocks = p => p.evaluate(() => window.__sbAvail.state().blocks);
   const browser = await chromium.launch({executablePath});
   for (const W of [1280, 390]) {
     const tag = W + "w", {ctx, p, errs} = await open(browser, W);
-    // Today tab with no blocks: nothing new shows up
     ok((await txt(p, ".av-strip")).length === 1 || (await txt(p, ".av-strip")).length === 0, "strip renders or is hidden");
     const plan0 = await p.evaluate(() => window.__sbPlan());
     ok(plan0.ranked.length === 3 && plan0.th > 0, tag + " baseline plan");
     await p.screenshot({path: path.join(OUT, `01-today-before-${tag}.png`)});
 
-    // Schedule view and add each block type through the form
     await p.evaluate(() => window.__sbAvail.view({tab: "schedule"}));
     await p.waitForSelector(".sch-nav");
     ok(await p.locator('.sch-nav [data-act="avail-open"]').count() === 1, tag + " Availability button in the schedule");
@@ -77,7 +74,6 @@ const blocks = p => p.evaluate(() => window.__sbAvail.state().blocks);
     ok(bl.find(b => b.type === "work").bufB === 20, tag + " buffer saved");
     ok(bl.find(b => b.type === "shift").every === 2 && !!bl.find(b => b.type === "shift").anchor, tag + " alternating week pattern saved");
 
-    // Quick add: a typed phrase opens the form filled in; a normal task phrase still becomes a task
     await p.evaluate(() => window.__sbAvail.view({tab: "board", bview: "plan"}));
     await p.fill("#qaIn", "work Tue Thu 4-9pm"); await p.press("#qaIn", "Enter");
     await p.waitForSelector("dialog[open] .av-form");
@@ -86,7 +82,6 @@ const blocks = p => p.evaluate(() => window.__sbAvail.state().blocks);
     await p.click("dialog[open] [data-act=close]"); await p.waitForTimeout(150);
     await p.evaluate(() => window.__sbAvail.view({tab: "schedule"}));
 
-    // Roster mode: typed dates plus calendar taps, with an overnight shift
     if (!(await p.locator('[data-act="avail-add"]:visible').count())) { await openAvail(p); await p.waitForSelector('dialog[open] [data-act="avail-add"]'); }
     await p.click('[data-act="avail-add"] >> visible=true >> nth=0');
     await p.waitForSelector("dialog[open] .av-form");
@@ -110,7 +105,6 @@ const blocks = p => p.evaluate(() => window.__sbAvail.state().blocks);
     const ro = bl.find(b => b.title === "Night roster");
     ok(ro && ro.dates.join() === "2026-10-06,2026-10-08,2026-10-10,2026-10-13" && ro.end === "07:30", tag + " roster saved with 4 dates");
 
-    // Schedule shows them, distinct styling per type, no overflow
     await p.evaluate(() => window.__sbAvail.view({schWeek: "2026-10-05", schDay: 1}));
     await p.waitForTimeout(200);
     const kinds = await p.evaluate(() => [...new Set(Array.from(document.querySelectorAll(".sch-b.k-av")).map(e => (e.className.match(/k-av-(\w+)/) || [])[1]))].sort());
@@ -123,7 +117,6 @@ const blocks = p => p.evaluate(() => window.__sbAvail.state().blocks);
             await p.screenshot({path: path.join(OUT, `04-schedule-${tag}.png`), fullPage: true});
     ok((await txt(p, ".sch-legend")).join().includes("Shift / Placement"), tag + " legend names Shift / Placement");
 
-    // Today's Plan: a shift today (Mon 11:00-19:30, 15:00 now) leaves 8-11 PM, and slots land only there
     await addBlock(p, {type: "shift", title: "Ward shift today", mode: "one", date: "2026-10-05", start: "11:00", end: "19:30", bufA: 30, bufB: 0});
     await p.evaluate(() => window.__sbAvail.view({tab: "board", bview: "plan"}));
     await p.waitForSelector(".av-strip");
@@ -143,17 +136,14 @@ const blocks = p => p.evaluate(() => window.__sbAvail.state().blocks);
     const chipH = await minTarget(p, ".av-chip, .av-strip .btn");
     ok(chipH.every(v => v >= 38), tag + " strip targets >= 38px (" + Math.min(...chipH) + ")");
     await p.screenshot({path: path.join(OUT, `05-today-shift-${tag}.png`), fullPage: true});
-    // overflow message: more work than the window holds
     const note = await p.evaluate(() => (window.__sbAvail.plan() || {}).note);
     console.log(tag, "overflow note:", note || "(none)");
-    // chip starts a focus session sized to the slot
     await p.locator(".av-chip").last().click(); await p.waitForTimeout(300);
     const pm0 = await p.evaluate(() => window.__sbAvail.pomo()), pm = Object.assign({}, pm0, {run: pm0.running, left: pm0.endAt - await p.evaluate(() => Date.now())});
     ok(pm.run && pm.mode === "focus" && pm.preset >= 5 && Math.abs(pm.left - pm.preset * 60000) < 5000, tag + " chip starts a focus session of the slot's length: " + JSON.stringify(pm));
     await p.screenshot({path: path.join(OUT, `06-focus-chip-${tag}.png`)});
     await p.evaluate(() => window.__sbAvail.pomoReset());
 
-    // No free time: all-day shift today
     await addBlock(p, {type: "shift", title: "Full placement day", mode: "one", date: "2026-10-05", allDay: true});
     await p.evaluate(() => window.__sbAvail.view({tab: "board"}));
     const strip2 = (await txt(p, ".av-strip"))[0];
@@ -166,7 +156,6 @@ const blocks = p => p.evaluate(() => window.__sbAvail.state().blocks);
     const later = (await p.evaluate(() => window.__sbAvail.day())).map(x => Math.round(x * 10) / 10);
     ok(later[0] === 0 && later[1] > 0, tag + " later days still have capacity: " + later.join());
 
-    // Edit / skip / delete / undo via the schedule
     await p.evaluate(() => window.__sbAvail.view({tab: "schedule", schWeek: "2026-10-05", schDay: 0}));
     const before = (await blocks(p)).length;
     await p.evaluate(() => { const b = window.__sbAvail.state().blocks.find(x => x.title === "Cafe shift"); document.querySelector(`.sch-b[data-id="${b.id}"][data-key="2026-10-05"]`).click(); });
@@ -178,14 +167,12 @@ const blocks = p => p.evaluate(() => window.__sbAvail.state().blocks);
     await p.click("#toastUndo"); await p.waitForTimeout(250);
     cafe = (await blocks(p)).find(b => b.title === "Cafe shift");
     ok(!cafe.skip["2026-10-05"], tag + " undo restores the day");
-    // change just this day's time
     await p.evaluate(() => { const b = window.__sbAvail.state().blocks.find(x => x.title === "Cafe shift"); document.querySelector(`.sch-b[data-id="${b.id}"][data-key="2026-10-05"]`).click(); });
     await p.waitForSelector("dialog[open] [name=start]");
     await p.fill("dialog[open] [name=start]", "17:00"); await p.fill("dialog[open] [name=end]", "20:00");
     await p.click("dialog[open] [data-submit]"); await p.waitForTimeout(250);
     cafe = (await blocks(p)).find(b => b.title === "Cafe shift");
     ok(cafe.skip["2026-10-05"] && cafe.skip["2026-10-05"].start === "17:00", tag + " change one day's time");
-    // duplicate and delete from the manager, then undo the delete
     await openAvail(p); await p.waitForSelector("dialog[open] .av-list");
     const rowsN = await p.locator("dialog[open] .av-row").count();
     ok(rowsN === before, tag + " manager lists every block (" + rowsN + ")");
@@ -198,7 +185,6 @@ const blocks = p => p.evaluate(() => window.__sbAvail.state().blocks);
     ok((await blocks(p)).length === before + 1, tag + " duplicate adds a copy and opens it");
     await p.click("dialog[open] [data-act=close]"); await p.waitForTimeout(150);
 
-    // Manager settings: waking window and recovery rule
     await openAvail(p); await p.waitForSelector("dialog[open] .av-set");
     ok((await dlgOverflow(p)) === 0, tag + " manager has no horizontal overflow");
     await p.screenshot({path: path.join(OUT, `08-manager-${tag}.png`)});
@@ -210,7 +196,6 @@ const blocks = p => p.evaluate(() => window.__sbAvail.state().blocks);
     const rec = await p.evaluate(() => window.__sbAvail.free("2026-10-07", null).windows.map(w => w.a));
     ok(rec[0] === "12:00" || rec[0] >= "12:00", tag + " recovery morning after the night shift: " + rec.join());
 
-    // Persistence after reload
     const snapshot = await p.evaluate(() => JSON.stringify(window.__sbAvail.state()));
     const store = await p.evaluate(() => localStorage.getItem("coursework:v2"));
     await p.close();
@@ -220,7 +205,6 @@ const blocks = p => p.evaluate(() => window.__sbAvail.state().blocks);
     await p2.goto(FILE); await p2.waitForTimeout(1500);
     ok(await p2.evaluate(() => JSON.stringify(window.__sbAvail.state())) === snapshot, tag + " blocks survive a reload");
 
-    // Backup export and import round trip
     const json = await p2.evaluate(() => JSON.stringify(Object.assign({app: "studyboard"}, window.__sbAvail.exportArrays())));
     ok(JSON.parse(json).settings.avail.blocks.length === before + 1, tag + " export contains availability");
     const tmp = path.join(OUT, "backup-" + tag + ".json"); fs.writeFileSync(tmp, json);
@@ -230,7 +214,6 @@ const blocks = p => p.evaluate(() => window.__sbAvail.state().blocks);
     const rep = p2.locator("dialog[open] .btn.primary, dialog[open] [data-submit]").first(); await rep.click(); await p2.waitForTimeout(600);
     ok((await p2.evaluate(() => window.__sbAvail.state().blocks.length)) === before + 1, tag + " import restores availability");
     ok(await p2.evaluate(() => window.__sbAvail.state().cfg.recover === true), tag + " import restores settings");
-    // a hostile import is cleaned
     const bad = JSON.parse(json); bad.settings.avail = {blocks: [{id: "x", type: "shift", title: "<img src=x onerror=alert(1)>", days: [1, 99], start: "99:99", end: "07:00", color: "red;}", dates: ["nope"]}].concat(Array.from({length: 300}, (_, i) => ({id: "j" + i, days: [2]}))), cfg: {dayStart: "zz"}};
     fs.writeFileSync(tmp, JSON.stringify(bad));
     await p2.setInputFiles("#importFile", tmp); await p2.waitForTimeout(400);

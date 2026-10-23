@@ -1,4 +1,4 @@
-// Pre-agrees the school sync consent screen for tests that aren't about it.
+// Pre-agrees the school sync consent screen for tests that aren't about it
 module.exports = () => {
   const K = "coursework:v2", P = ["canvas", "brightspace", "blackboard"];
   const add = v => { try { const s = JSON.parse(v); if (s && s.settings) { P.forEach(p => { if (!(s.settings[p] && s.settings[p].consent)) s.settings[p] = Object.assign({}, s.settings[p], {consent: {v: 1, at: 1}}); }); return JSON.stringify(s); } } catch (e) {} return v; };

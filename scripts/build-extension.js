@@ -1,15 +1,4 @@
-// Builds the Studyboard School Sync browser extension (extension/) for the stores:
-//   extension/build/chrome/    unpacked, for Chrome and Edge (Load unpacked to try it)
-//   extension/build/firefox/   unpacked, for Firefox (about:debugging, Load Temporary Add-on)
-//   extension/build/safari/    unpacked, for Safari: on a Mac, scripts/make-safari-app.sh turns it into the Xcode project (macOS, iPhone, iPad)
-//   extension/dist/studyboard-school-sync-<version>-chrome.zip    upload to the Chrome Web Store and to Microsoft Edge Add-ons
-//   extension/dist/studyboard-school-sync-<version>-firefox.zip   upload to addons.mozilla.org (AMO)
-//   extension/dist/studyboard-school-sync-<version>-safari.zip    the Safari folder, zipped (to copy to a Mac)
-//   extension/dist/studyboard-school-sync-<version>-source.zip    AMO asks for the source when a file is generated: this is it, with this script
-// Usage: node scripts/build-extension.js   (Node 18 or newer; nothing to install)
-// harvest.js is generated from lms.js: the same harvest scripts and result cleaning the desktop app, the phone apps and the website's bookmark use.
-// They're put inside a function whose parameters are named fetch and location, so the background can run them with its own fetch that only
-// reaches the school's site, and a school tab can run them with the page's own. Nothing is evaluated from text: the stores don't allow it.
+// Builds the Studyboard School Sync browser extension (extension/) for the stores
 const fs = require("fs"), path = require("path"), zlib = require("zlib");
 const { loadLms, cleaning } = require("./build-lms-mobile.js");
 const root = path.join(__dirname, ".."), SRC = path.join(root, "extension", "src"), OUT = path.join(root, "extension", "build"), DIST = path.join(root, "extension", "dist");
@@ -43,16 +32,12 @@ function manifests() {
   const chrome = JSON.parse(JSON.stringify(base));
   const firefox = JSON.parse(JSON.stringify(base));
   delete firefox.minimum_chrome_version;
-  delete firefox.externally_connectable;               // Chrome and Edge only: Firefox talks to the website through relay.js
+  delete firefox.externally_connectable;
   firefox.background = { scripts: ["background.js"] };
   firefox.browser_specific_settings = { gecko: {
-    id: GECKO_ID, strict_min_version: "140.0",          // 140: the first Firefox that reads data_collection_permissions (AMO requires it)
-    // What leaves the extension: the school data it reads goes to the Studyboard web app in this browser (which can sync it to the
-    // student's own account). Course content, names and emails of teaching staff, and Canvas Inbox messages.
+    id: GECKO_ID, strict_min_version: "140.0",
     data_collection_permissions: { required: ["websiteContent", "personallyIdentifyingInfo", "personalCommunications"] }
   }, gecko_android: { strict_min_version: "142.0" } };
-  // Safari (macOS, iPhone, iPad): a non-persistent background script, which Safari on iPhone and iPad requires; it talks to the website
-  // through relay.js, like Firefox. 17: scripting in the page's world, and the MV3 APIs this uses.
   const safari = JSON.parse(JSON.stringify(base));
   delete safari.minimum_chrome_version;
   delete safari.externally_connectable;
@@ -65,7 +50,6 @@ const FILES = ["popup.html", "popup.css", "popup.js", "relay.js", "icons/icon-16
 function files(target) {
   const h = harvestJs(), m = manifests()[target];
   const out = { "manifest.json": JSON.stringify(m, null, 2) + "\n", "harvest.js": h,
-    // The background is the harvest file followed by background.js, so one file works as Chrome's service worker and Firefox's script.
     "background.js": h + "\n" + fs.readFileSync(path.join(SRC, "background.js"), "utf8") };
   for (const f of FILES) out[f] = fs.readFileSync(path.join(SRC, f));
   return out;

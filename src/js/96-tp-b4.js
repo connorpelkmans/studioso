@@ -1,5 +1,5 @@
 /* ===== module: 96-tp-b4.js ===== */
-/* Theme Collections, batch 4: cats, music, reading, knitting, painting, baking */
+/* Theme Collections, batch 4 */
 (() => {
   const D = "#2B2233";
   const LN = (w = 2) => `stroke="${D}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"`;
@@ -13,7 +13,7 @@
   // washi tape body with zigzag torn ends, 86 by 26
   const TAPE = (() => { let r = "", l = ""; for (let i = 0; i <= 8; i++) { const y = 2 + i * 2.75; r += `L${i % 2 ? 85.5 : 82.5} ${y.toFixed(2)}`; l = `L${i % 2 ? .5 : 3.5} ${y.toFixed(2)}` + l; } return `M3.5 2H82.5${r.slice(1).replace(/^[^L]*/, "")}H3.5${l}Z`; })();
 
-  /* ---------------- Cozy Cats ---------------- */
+  /* Cozy Cats */
   TP_DATA.push({
     theme: "cats",
     pack: {name: "Kitty Corner", items: {
@@ -87,7 +87,7 @@
     card: {id: "tp-cats", name: "Catnap", desc: "Warm cream paper with a stitched border, a trail of paw prints and a tabby curled up asleep in the corner."}
   });
 
-  /* ---------------- Music Room ---------------- */
+  /* Music Room */
   TP_DATA.push({
     theme: "music",
     pack: {name: "Recital Day", items: {
@@ -155,7 +155,7 @@
     card: {id: "tp-music", name: "Recital Program", desc: "Soft lavender manuscript paper with a flowing staff of notes along the bottom and a gold treble clef."}
   });
 
-  /* ---------------- Reading Nook ---------------- */
+  /* Reading Nook */
   TP_DATA.push({
     theme: "reading",
     pack: {name: "Bookworm Club", items: {
@@ -232,7 +232,7 @@
     card: {id: "tp-reading", name: "Book Page", desc: "A warm, well-loved book page with a double-ruled frame, a fleuron and a burgundy ribbon bookmark."}
   });
 
-  /* ---------------- Knitting Nook ---------------- */
+  /* Knitting Nook */
   const WOOL = (pts, fill) => `<g fill="${D}" stroke="${D}" stroke-width="5">${pts.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join("")}</g><g fill="${fill}">${pts.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join("")}</g>`;
   TP_DATA.push({
     theme: "knitting",
@@ -310,7 +310,7 @@
     card: {id: "tp-knitting", name: "Knit Swatch", desc: "A cream card framed by a hand-knit sage border of little V stitches."}
   });
 
-  /* ---------------- Art Studio ---------------- */
+  /* Art Studio */
   TP_DATA.push({
     theme: "painting",
     pack: {name: "Paint Party", items: {
@@ -388,7 +388,7 @@
     card: {id: "tp-painting", name: "Watercolor Wash", desc: "Soft cold-press paper with blooming watercolor washes in the corners and a few painted dots."}
   });
 
-  /* ---------------- Bake Shop ---------------- */
+  /* Bake Shop */
   const SPR = (list) => list.map(([x, y, r, c]) => `<rect x="${x - 2.4}" y="${y - 1}" width="4.8" height="2" rx="1" fill="${c}" transform="rotate(${r} ${x} ${y})"/>`).join("");
   TP_DATA.push({
     theme: "baking",

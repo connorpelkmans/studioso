@@ -1,15 +1,11 @@
-// Microsoft Store (MSIX) build guards (static checks, no browser). Run: node tests/msstore.test.js
-//  1. package.json build.appx has the identity fields, the tiles exist at every scale with the right pixel sizes (no electron-builder sample art)
-//  2. electron-builder's own manifest writer turns the config into a valid AppxManifest with the studyboard:// link and an off-by-default startup task
-//  3. main.js and preload.js handle the packaged app: no app ID override, no registry protocol call, start-at-login through Windows Settings
-//  4. the screenshot shortcuts on Windows never use Ctrl+Alt+letter alone (that is AltGr on many keyboards)
+// Microsoft Store (MSIX) build guards (static checks, no browser)
 "use strict";
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const root = path.join(__dirname, "..");
 const read = p => fs.readFileSync(path.join(root, p), "utf8");
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 
-/* ---------- 1. config and images ---------- */
+/* 1. config and images */
 const pkg = JSON.parse(read("package.json")), appx = pkg.build.appx;
 ok(appx && appx.identityName && appx.publisher && appx.publisherDisplayName, "build.appx has identityName, publisher and publisherDisplayName");
 ok(/^CN=/.test(appx.publisher), "publisher is a CN= value (copied from Partner Center)");
@@ -32,7 +28,7 @@ for (const t of [16, 24, 32, 48, 256]) for (const alt of ["", "_altform-unplated
 }
 ok(/build-resources", "appx"/.test(read("prepare.js")), "prepare.js stages the tiles into build/appx (it empties build/ first)");
 
-/* ---------- 2. the manifest electron-builder writes ---------- */
+/* 2. the manifest electron-builder writes */
 const AT = path.join(root, "node_modules/app-builder-lib/out/targets/AppxTarget.js");
 if (fs.existsSync(AT)) {
   const AppX = require(AT).default, {Arch} = require(path.join(root, "node_modules/builder-util"));
@@ -54,7 +50,7 @@ if (fs.existsSync(AT)) {
   }).catch(e => { console.error(e); process.exit(1); });
 } else { console.log("(app-builder-lib not installed: manifest check skipped)"); setImmediate(finish); }
 
-/* ---------- 3. main.js / preload.js ---------- */
+/* 3. main.js / preload.js */
 const main = read("main.js"), preload = read("preload.js");
 ok(/const IS_MSSTORE = !!process\.windowsStore/.test(main), "main.js knows when it runs from the Microsoft Store");
 ok(/if \(!IS_MSSTORE\) app\.setAppUserModelId\(/.test(main), "the packaged app keeps the app ID Windows gives it (notifications)");
@@ -62,11 +58,11 @@ ok(/app\.isPackaged && !IS_MAS && !IS_MSSTORE\) \{/.test(main), "no registry pro
 ok(/process\.platform === "win32" && !IS_MSSTORE/.test(main) && /startupSettings: IS_MSSTORE/.test(main), "the Store build offers Windows Startup Settings instead of a toggle that does nothing");
 ok(/shell\.openExternal\("ms-settings:startupapps"\)/.test(main), "Startup Settings opens a fixed ms-settings address");
 ok(/storeArg === "mas" \|\| storeArg === "msstore"/.test(preload) && /openStartupSettings/.test(preload), "preload passes the store and the startup-settings call to the page");
-const page = require("../scripts/app-files").source();   // the whole app page (index.html and its js/, css/ files)
+const page = require("../scripts/app-files").source();
 ok(/data-act="sbw-startup"/.test(page) && /act === "sbw-startup"/.test(page), "Settings, Widgets and Desktop has the Open Startup Settings button");
 ok(/DESK && \(DESK\.mas \|\| DESK\.store === "mas"\)/.test(page), "only the Mac App Store build uses in-app purchase; the Microsoft Store build buys like the direct download");
 
-/* ---------- 4. screenshot shortcuts ---------- */
+/* 4. screenshot shortcuts */
 const keys = main.match(/: \["CommandOrControl\+Shift\+Alt\+C"[^\]]*\]/);
 ok(keys, "Windows/Linux shortcut list found");
 for (const k of JSON.parse(keys[0].slice(2))) ok(/Shift/.test(k), `${k} is not Ctrl+Alt+letter (AltGr) on Windows`);

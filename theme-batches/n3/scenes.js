@@ -1,5 +1,4 @@
-// batch n3: greenhouse, pottery, campfire, aquarium (Cozy Spots, New Theme Ideas)
-// Every shape here is drawn clockwise (n3_P, n3_E, rect, rrect), so shapes sharing one layer slot union cleanly instead of cutting holes.
+// batch n3: greenhouse, pottery, campfire, aquarium
 function n3_cw(pts) { var a = 0; for (var i = 0; i < pts.length; i++) { var p = pts[i], q = pts[(i + 1) % pts.length]; a += p[0] * q[1] - q[0] * p[1]; } return a < 0 ? pts.slice().reverse() : pts; }
 function n3_P(pts) { return poly(n3_cw(pts)); }
 function n3_E(x, y, rx, ry) { return 'M' + PT(x - rx, y) + ' a' + n1(rx) + ' ' + n1(ry) + ' 0 1 1 ' + n1(2 * rx) + ' 0 a' + n1(rx) + ' ' + n1(ry) + ' 0 1 1 ' + n1(-2 * rx) + ' 0 '; }
@@ -14,7 +13,7 @@ function n3_below(pts, bottom) { return n3_P(pts.concat([[pts[pts.length - 1][0]
 function n3_band(top, bot) { return n3_P(top.concat(bot.slice().reverse())); }
 function n3_spark(x, y, r) { return n3_P([[x, y - r], [x + r * 0.22, y - r * 0.22], [x + r, y], [x + r * 0.22, y + r * 0.22], [x, y + r], [x - r * 0.22, y + r * 0.22], [x - r, y], [x - r * 0.22, y - r * 0.22]]); }
 function n3_pine(x, y, h, w) { w = w || h * 0.36; var p = [[x - w, y + 1]]; for (var k = 0; k < 4; k++) { var a = k / 4, b = (k + 1) / 4, ww = w * (1 - a * 0.78), w2 = w * (1 - b * 0.78); p.push([x - ww * 0.55, y - h * (a + 0.12)]); p.push([x - w2 * 1.05, y - h * (b - 0.02)]); } p.push([x, y - h]); for (k = 3; k >= 0; k--) { a = k / 4; b = (k + 1) / 4; ww = w * (1 - a * 0.78); w2 = w * (1 - b * 0.78); p.push([x + w2 * 1.05, y - h * (b - 0.02)]); p.push([x + ww * 0.55, y - h * (a + 0.12)]); } p.push([x + w, y + 1]); return n3_P(p); }
-// a monstera leaf: heart-shaped blade with slits, stem at (x,y), pointing ang degrees (0 = right), len long
+// a monstera leaf
 function n3_monsteraPts(x, y, len, ang, splits) {
   var TH = [0, 0.06, 0.25, 0.5, 0.75, 0.9, 1], RR = [0.6, 0.52, 0.48, 0.44, 0.46, 0.4, 0.3], up = [], i, s, sp = splits || 0;
   function rad(t) { for (var k = 1; k < TH.length; k++) if (t <= TH[k]) return RR[k - 1] + (RR[k] - RR[k - 1]) * (t - TH[k - 1]) / (TH[k] - TH[k - 1]); return 0.3; }
@@ -26,7 +25,7 @@ function n3_monsteraPts(x, y, len, ang, splits) {
 }
 function n3_monstera(x, y, len, ang, splits) { return n3_P(n3_monsteraPts(x, y, len, ang, splits)); }
 function n3_frond(x, y, len, ang, w, droop) { var d = '', pts = [], i, a0 = ang * Math.PI / 180; for (i = 0; i <= 12; i++) { var t = i / 12; pts.push([x + Math.cos(a0) * len * t, y + Math.sin(a0) * len * t + droop * len * t * t]); } d += n3_tube(pts, w * 0.25, w * 0.08); for (i = 2; i <= 12; i++) { var p = pts[i], q = pts[Math.max(0, i - 1)], dir = Math.atan2(p[1] - q[1], p[0] - q[0]) * 180 / Math.PI, l2 = w * (1.6 - i / 12) * 2.2; d += n3_leaf(p[0], p[1], l2, l2 * 0.16, dir - 55, 0.1) + n3_leaf(p[0], p[1], l2, l2 * 0.16, dir + 55, -0.1); } return d; }
-// one planting clump into the colour buckets o (dark, mid, light, yel, acc1, acc2, stem). s = scale (1 is a small pot plant)
+// one planting clump into the colour buckets o (dark, mid, light, yel, acc1, acc2, stem)
 function n3_clump(type, x, y, s, rnd, o) {
   var i, a, len;
   if (type === 'mon') { [-150, -118, -70, -34].forEach(function (b, k) { a = b + (rnd() - 0.5) * 16; len = (30 + rnd() * 14) * s; var sx = x + Math.cos(a * Math.PI / 180) * len * 0.35, sy = y + Math.sin(a * Math.PI / 180) * len * 0.35;
@@ -38,35 +37,31 @@ function n3_clump(type, x, y, s, rnd, o) {
       var fr = Math.min(s, 1.5); for (i = 0; i < 7 + Math.round(s * 3); i++) { var fx = x + (rnd() - 0.5) * 26 * s, fy = y - (6 + rnd() * 20) * s, rr = (2.2 + rnd() * 1.4) * fr; o.acc1 += n3_C(fx, fy, rr) + n3_C(fx + rr * 1.4, fy + rr * 0.3, rr * 0.8); } }
   else if (type === 'bird') { for (i = 0; i < 5; i++) { a = -90 + (i - 2) * 17 + (rnd() - 0.5) * 8; len = (40 + rnd() * 12) * s; var bx = x + Math.cos(a * Math.PI / 180) * len * 0.45, by = y + Math.sin(a * Math.PI / 180) * len * 0.45; o.stem += n3_tube([[x, y], [bx, by]], 1.8 * s, 1.4 * s); o[i % 2 ? 'mid' : 'dark'] += n3_leaf(bx, by, len * 0.7, 8 * s, a, 0); }
       [[-6, -40], [8, -46]].forEach(function (q) { var fx = x + q[0] * s, fy = y + q[1] * s; o.stem += n3_tube([[x, y], [fx, fy]], 1.6 * s, 1.4 * s); o.acc2 += n3_P([[fx - 2 * s, fy], [fx + 14 * s, fy - 3 * s], [fx + 4 * s, fy - 8 * s], [fx + 10 * s, fy - 14 * s], [fx - 1 * s, fy - 6 * s]]); o.dark += n3_P([[fx - 3 * s, fy + 2 * s], [fx + 13 * s, fy - 1 * s], [fx + 2 * s, fy + 3 * s]]); }); }
-  else { /* anthurium: heart leaves and red spathes */ for (i = 0; i < 5; i++) { a = -150 + i * 28 + (rnd() - 0.5) * 10; len = (20 + rnd() * 8) * s; var hx = x + Math.cos(a * Math.PI / 180) * len * 0.7, hy = y + Math.sin(a * Math.PI / 180) * len * 0.7; o.stem += n3_tube([[x, y], [hx, hy]], 1.4 * s, 1.2 * s); o[i % 2 ? 'dark' : 'mid'] += n3_monstera(hx, hy, len, a, 0); }
+  else { for (i = 0; i < 5; i++) { a = -150 + i * 28 + (rnd() - 0.5) * 10; len = (20 + rnd() * 8) * s; var hx = x + Math.cos(a * Math.PI / 180) * len * 0.7, hy = y + Math.sin(a * Math.PI / 180) * len * 0.7; o.stem += n3_tube([[x, y], [hx, hy]], 1.4 * s, 1.2 * s); o[i % 2 ? 'dark' : 'mid'] += n3_monstera(hx, hy, len, a, 0); }
       [[-8, -26, -110], [9, -30, -70]].forEach(function (q) { o.acc1 += n3_monstera(x + q[0] * s, y + q[1] * s, 13 * s, q[2], 0); o.yel += n3_RE(x + q[0] * s + Math.cos(q[2] * Math.PI / 180) * 6 * s, y + q[1] * s + Math.sin(q[2] * Math.PI / 180) * 6 * s - 3 * s, 1.4 * s, 4 * s, q[2] + 100); }); }
 }
 function n3_bucket() { return {dark: '', mid: '', light: '', yel: '', acc1: '', acc2: '', stem: ''}; }
-// the night-bloom bud's bracts (quadratic curves in bud space: x along the bud, units of the flower scale); shared with the engine
+// the night-bloom bud's bracts
 var N3_BRACTS = [[[1, 1], [8, 4.6], [15, 5.2]], [[1, -1], [9, -5], [16, -5.4]], [[3, 0.4], [8, 2.6], [12, 3.4]], [[3, -0.4], [9, -2.4], [13, -3]]];
 
-// ======================================================================
-// 1. Greenhouse: inside a Victorian glass greenhouse, seen down its length. Curved iron ribs recede toward the far glass wall
-//    and its door, planting beds overflow on both sides of a tiled aisle, palms reach the roof, baskets hang from the ribs.
-// ======================================================================
 SCENES.greenhouse = function (W, H, dk, rnd) {
   var ph = H > W, far = Lay(10), refl = Lay(0), mid = Lay(0.4), near = Lay(0);
   var sky = dk ? 'linear-gradient(180deg,#0E1D22 0%,#13252A 30%,#1F3A3C 66%,#3F5A55 100%)' : 'linear-gradient(180deg,#BFE2CF 0%,#CDE9DA 30%,#EEF7EF 62%,#F7F1E3 100%)';
   var vx = W * 0.5, vy = H * (ph ? 0.44 : 0.43), L = -W * (ph ? 0.36 : 0.27), B = H * (ph ? 0.12 : 0.13), E = -H * (ph ? 0.09 : 0.11), R = -H * (ph ? 0.2 : 0.27), K = B - H * 0.045, Ae = -L * 0.24, hE = H * 0.012;
-  function arch(m, c) { return [vx - L * m * c, vy + (E + (R - E) * Math.sqrt(Math.max(0, 1 - c * c))) * m]; }   // c: -1 left eave .. 1 right eave
+  function arch(m, c) { return [vx - L * m * c, vy + (E + (R - E) * Math.sqrt(Math.max(0, 1 - c * c))) * m]; }
   function prof(m, n) { var o = [[vx + L * m, vy + B * m]]; for (var i = 0; i <= n; i++) { var a = Math.PI - i / n * Math.PI; o.push([vx - L * m * Math.cos(a), vy + (E + (R - E) * Math.sin(a)) * m]); } o.push([vx - L * m, vy + B * m]); return o; }
   function P(m, px, py) { return [vx + px * m, vy + py * m]; }
   var cols = dk ? {glass: 'rgba(120,170,160,0.10)', ceil: 'rgba(90,140,135,0.13)', frame: '#5C7C75', thin: 'rgba(120,160,150,0.42)', knee: '#2E3B38', kneeL: '#43534E', floor: '#3A3A34', tile: '#4E4038', soil: '#231C17', shade: 'rgba(0,8,8,0.4)'} :
     {glass: 'rgba(255,255,255,0.20)', ceil: 'rgba(235,250,244,0.34)', frame: '#FFFFFF', thin: 'rgba(255,255,255,0.85)', knee: '#C9A68A', kneeL: '#E6CDB5', floor: '#F3E8D6', tile: '#E6B497', soil: '#6E5442', shade: 'rgba(80,60,40,0.18)'};
   var G = dk ? {dark: '#173A2B', mid: '#23533B', light: '#3A7350', yel: '#4F7036', acc1: '#C46282', acc2: '#C8783C', stem: '#2B5A3E'} : {dark: '#2E7A4D', mid: '#4C9E5C', light: '#88C97A', yel: '#A9C94E', acc1: '#F2779A', acc2: '#F59338', stem: '#4A9058'};
-  // ---- outside, through the glass (blurred): garden trees and the sun or moon
+  // -- outside, through the glass (blurred)
   if (dk) { add(far, 'a', n3_E(W * 0.72, H * 0.13, W * 0.16, H * 0.12), 'rgba(200,230,220,0.2)'); add(far, 'b', n3_C(W * 0.72, H * 0.13, ph ? 14 : 22), 'rgba(240,250,235,0.85)'); }
   else { add(far, 'a', n3_E(W * 0.68, H * 0.1, W * 0.18, H * 0.13), 'rgba(255,250,225,0.7)'); add(far, 'b', n3_C(W * 0.68, H * 0.1, ph ? 22 : 34), 'rgba(255,253,240,0.95)'); }
   var trees = '', trees2 = '';
   spread(-40, vy + B - H * 0.22, W + 80, H * 0.12, ph ? 60 : 90, 40, rnd, 0.6).forEach(function (c) { var r = (ph ? 26 : 40) * (0.7 + c.r * 0.6); trees += n3_C(c.x, c.y, r) + n3_C(c.x + r * 0.7, c.y + r * 0.3, r * 0.7); });
   spread(-40, vy + B - H * 0.12, W + 80, H * 0.08, ph ? 46 : 70, 30, rnd, 0.6).forEach(function (c) { trees2 += n3_C(c.x, c.y, (ph ? 20 : 30) * (0.7 + c.r * 0.5)); });
   add(far, 'c', trees, dk ? '#22403F' : '#B4DCC0'); add(far, 'd', trees2 + rect(-60, vy + B - H * 0.06, W + 120, H * 0.5), dk ? '#1A3233' : '#98CDA7');
-  // ---- the glass house: far wall, roof glass, knee walls, aisle, beds
+  // -- the glass house
   var back = prof(1, 28), far7 = prof(7, 28), ceil = '';
   add(refl, 'a', n3_P(back), cols.glass);
   for (var i = 1; i < back.length - 2; i++) ceil += n3_P([back[i], back[i + 1], far7[i + 1], far7[i]]);
@@ -77,8 +72,6 @@ SCENES.greenhouse = function (W, H, dk, rnd) {
   var kwTop = n3_P([P(1, L, K), P(1, L, K - 3), P(1, -L, K - 3), P(1, -L, K)]) + n3_P([P(1, -Ae, B - hE), P(9, -Ae, B - hE), P(9, -Ae - 2.5, B - hE), P(1, -Ae - 2.5, B - hE)]) + n3_P([P(1, Ae + 2.5, B - hE), P(9, Ae + 2.5, B - hE), P(9, Ae, B - hE), P(1, Ae, B - hE)]);
   add(refl, 'd', kwTop, cols.kneeL);
   add(refl, 'e', n3_P([P(1, -Ae, B), P(1, Ae, B), P(9, Ae, B), P(9, -Ae, B)]), cols.floor);
-  // a Victorian encaustic floor: a solid terracotta border down each side, then a checker of terracotta tiles with a cream diamond
-  // inlaid (a counter-clockwise hole) and cream tiles with a little terracotta diamond, grout lines between every tile
   var NT = 4, tiles = '', grout = '', mk = [1]; while (mk[mk.length - 1] < 9) mk.push(mk[mk.length - 1] * 1.13);
   var ix0 = -Ae * 0.84, ix1 = Ae * 0.84;
   function dia(r, x0, x1, f) { var mA = mk[r], mB = mk[r + 1], mc = (mA + mB) / 2, xc = (x0 + x1) / 2, hw = (x1 - x0) / 2 * f, dm = (mB - mA) / 2 * f; return [P(mc - dm, xc, B), P(mc, xc + hw, B), P(mc + dm, xc, B), P(mc, xc - hw, B)]; }
@@ -90,7 +83,6 @@ SCENES.greenhouse = function (W, H, dk, rnd) {
   for (var c2 = 0; c2 <= NT; c2++) { var gx = ix0 + (ix1 - ix0) * c2 / NT; grout += seg(P(1, gx, B)[0], P(1, gx, B)[1], P(9, gx, B)[0], P(9, gx, B)[1]); }
   add(refl, 'f', tiles, cols.tile);
   add(refl, 'h', n3_P([P(1, L, B - hE), P(1, -Ae, B - hE), P(9, -Ae, B - hE), P(9, L, B - hE)]) + n3_P([P(1, Ae, B - hE), P(1, -L, B - hE), P(9, -L, B - hE), P(9, Ae, B - hE)]), cols.soil);
-  // iron ribs (tubes that thicken toward us), the far door, mullions, purlins and a fanlight
   var ribs = '', thin = '', mull = '';
   [1, 1.3, 1.72, 2.38, 3.45, 5.2].forEach(function (m) { ribs += n3_tube(prof(m, 30), 2.2 * m, 2.2 * m); });
   var dw = Ae * 0.75, dh = (B - E) * 0.72, dTop = B - dh;
@@ -103,7 +95,7 @@ SCENES.greenhouse = function (W, H, dk, rnd) {
   mull += 'M' + PT(vx + L * 0.3, vy + E) + ' A' + n1(-L * 0.3) + ' ' + n1(-(R - E) * 0.3) + ' 0 0 1 ' + PT(vx - L * 0.3, vy + E) + ' ' + seg(vx + L, vy + E, vx - L, vy + E);
   add(refl, 'g', ribs, cols.frame);
   stk(refl, 's', mull + thin, cols.thin, 1.4); stk(refl, 't', grout, dk ? 'rgba(0,0,0,0.32)' : 'rgba(150,96,62,0.3)', 1.1);
-  // ---- planting: the far row, both beds (near halves go into the front layer), two palms
+  // -- planting: the far row, both beds (near halves go into the front layer), two palms
   var Mo = n3_bucket(), No = n3_bucket(), trunks = '';
   for (var bx = L + 8; bx < -L - 8; bx += ph ? 22 : 34) { if (Math.abs(bx) < dw + 6) continue; var p0 = P(1.02, bx, B); n3_clump(['bush', 'fern', 'spiky', 'anth', 'mon'][Math.floor(rnd() * 5)], p0[0], p0[1], (ph ? 0.4 : 0.55) * (0.8 + rnd() * 0.4), rnd, Mo); }
   [-1, 1].forEach(function (sd) {
@@ -124,7 +116,6 @@ SCENES.greenhouse = function (W, H, dk, rnd) {
     for (var f = 0; f < 10; f++) { var ang = -180 + f * 20 + (rnd() - 0.5) * 8, fr = n3_frond(tx, ty, (96 + rnd() * 30) * s, ang, 11 * s, 0.45 + Math.abs(Math.cos(ang * Math.PI / 180)) * 0.35); if (f % 2) Mo.mid += fr; else Mo.dark += fr; }
     for (var k = 0; k < 5; k++) trunks += n3_RE(trunk[k * 2 + 1][0], trunk[k * 2 + 1][1], 8 * s, 2.6 * s, 0); });
   add(mid, 'a', Mo.dark, G.dark); add(mid, 'b', Mo.mid + Mo.stem, G.mid); add(mid, 'c', Mo.light, G.light); add(mid, 'd', Mo.yel, G.yel);
-  // fallen leaves and petals scattered on the aisle tiles (lying flat, so squashed by the floor's perspective); seeded apart from rnd
   var lr = SR(77 + (ph ? 1 : 0)), fallen = '', petals = '';
   function flat(pts, cy, k) { return pts.map(function (p) { return [p[0], cy + (p[1] - cy) * k]; }); }
   for (var q2 = 0; q2 < (ph ? 9 : 14); q2++) { var fm = 1.5 + Math.pow(lr(), 0.8) * (ph ? 3.4 : 4.4), fxx = (lr() * 2 - 1) * Ae * 0.72, fp = P(fm, fxx, B), sz = fm * (ph ? 0.9 : 1.2);
@@ -132,16 +123,14 @@ SCENES.greenhouse = function (W, H, dk, rnd) {
     if (lr() < 0.55) fallen += n3_P(flat(n3_leafPts(fp[0], fp[1], 9 * sz, 3 * sz, lr() * 360, 0.1), fp[1], 0.45));
     else for (var pq = 0; pq < 3; pq++) petals += n3_E(fp[0] + (lr() - 0.5) * 8 * sz, fp[1] + (lr() - 0.5) * 2 * sz, 2.2 * sz, 1 * sz); }
   add(mid, 'e', Mo.acc1 + petals, G.acc1); add(mid, 'f', Mo.acc2, G.acc2); add(mid, 'h', trunks, dk ? '#4A3A2C' : '#A47A55'); add(mid, 'c', fallen);
-  // ---- hanging baskets, grow lamps and misting nozzles hang from the ribs (the engine moves them)
-  // (a basket hanging from a nearer rib than a palm may cross in front of it; on the phone the left basket hangs from the rib in front of the palm)
+  // -- hanging baskets, grow lamps and misting nozzles hang from the ribs
   var baskets = []; (ph ? [[1.72, -0.6], [1.3, 0.62], [1.72, 0.12]] : [[1.3, -0.46], [1.3, 0.56], [1.72, -0.74], [1.72, 0.28], [2.38, -0.16]]).forEach(function (q, j) { var m = q[0], a = arch(m, q[1]), s = m * (ph ? 0.6 : 0.8);
     baskets.push({x: a[0], y: Math.max(-12, a[1]), len: (30 + (j % 3) * 20) * s, s: s, k: j, m: m}); });
   var lamps = (ph ? [[-0.3, 1.3]] : [[-0.12, 1.3], [0.5, 1.72]]).map(function (q) { var a = arch(q[1], q[0]); return {x: a[0], top: Math.max(-20, a[1]), y: Math.max(-20, a[1]) + (ph ? 40 : 64) * q[1] * 0.7, s: q[1] * (ph ? 0.6 : 0.8), m: q[1]}; });
   var noz = []; (ph ? [-0.7, 0.08, 0.7] : [-0.84, -0.52, 0.12, 0.44, 0.84]).forEach(function (c) { var a = arch(1.3, c); if (a[1] > 4) noz.push({x: a[0], y: a[1] + 3, s: ph ? 0.8 : 1}); });
-  // ---- front: the beds' near halves, the night-bloom pot in the aisle, a watering can
+  // -- front: the beds' near halves, the night-bloom pot in the aisle, a watering can
   var fl = P(ph ? 2.5 : 2.6, 0, B), fs = ph ? 1.1 : 1.6;
   add(near, 'a', No.dark, G.dark); add(near, 'b', No.mid + No.stem, G.mid); add(near, 'c', No.light + No.yel, G.light); add(near, 'e', No.acc1 + No.acc2, G.acc1);
-  // the pot's shadow on the tiles: the ellipse without the part the pot stands on (the shade slot is drawn after the pot)
   var shd = [], sa; for (sa = 0; sa <= 40; sa++) { var su = Math.PI + sa / 40 * Math.PI, spx = fl[0] + Math.cos(su) * 34 * fs, spy = fl[1] + 1 + Math.sin(su) * 6 * fs; if (Math.abs(spx - fl[0]) < 19.5 * fs) spy = Math.max(spy, fl[1]); shd.push([spx, spy]); }
   for (sa = 1; sa < 40; sa++) { var sv = sa / 40 * Math.PI; shd.push([fl[0] + Math.cos(sv) * 34 * fs, fl[1] + 1 + Math.sin(sv) * 6 * fs]); }
   add(near, 'g', n3_P(shd), cols.shade);
@@ -154,18 +143,14 @@ SCENES.greenhouse = function (W, H, dk, rnd) {
   var wc = P(ph ? 2.2 : 2.3, Ae * 0.55, B), ws = ph ? 0.85 : 1.15, cx = wc[0], cy = wc[1];
   var can = rrect(cx - 16 * ws, cy - 28 * ws, 32 * ws, 28 * ws, 6 * ws) + n3_tube([[cx + 12 * ws, cy - 9 * ws], [cx + 27 * ws, cy - 26 * ws], [cx + 34 * ws, cy - 37 * ws]], 5 * ws, 4 * ws) + n3_RE(cx + 36 * ws, cy - 39 * ws, 6 * ws, 3.5 * ws, -40) + n3_tube(n3_bz([cx - 12 * ws, cy - 26 * ws], [cx - 12 * ws, cy - 46 * ws], [cx + 8 * ws, cy - 46 * ws], [cx + 8 * ws, cy - 26 * ws], 10), 3.6 * ws, 3.6 * ws);
   add(near, 'd', can, dk ? '#4E7C86' : '#6FB4C0');
-  // the can's shaded right side, its rim band and the rose's holes (in the shade colour)
   add(near, 'g', n3_P([[cx + 5 * ws, cy - 28 * ws], [cx + 10 * ws, cy - 28 * ws], [cx + 16 * ws, cy - 22 * ws], [cx + 16 * ws, cy - 6 * ws], [cx + 10 * ws, cy], [cx + 5 * ws, cy]]) + rect(cx - 16 * ws, cy - 24 * ws, 32 * ws, 2.2 * ws) + rect(cx - 16 * ws, cy - 7 * ws, 32 * ws, 2.2 * ws)
     + n3_RE(cx + 37.5 * ws, cy - 40.5 * ws, 3.6 * ws, 1.8 * ws, -40) + n3_P(n3_leafPts(cx + 2 * ws, cy + 1, 30 * ws, 3 * ws, 0, 0)));
-  // corner monsteras (the engine sways them)
   var corners = ph ? [{x: -14, y: H + 8, len: 120, ang: -60, sp: 3}, {x: W + 14, y: H + 8, len: 112, ang: -122, sp: 3}] :
     [{x: -24, y: H + 14, len: 200, ang: -54, sp: 3}, {x: -46, y: H * 0.8, len: 160, ang: -18, sp: 3}, {x: W + 24, y: H + 14, len: 190, ang: -128, sp: 3}, {x: W + 40, y: H * 0.78, len: 150, ang: -164, sp: 2}];
   if (ANIM) {
     ANIM.vp = [vx, vy]; ANIM.baskets = baskets; ANIM.corners = corners; ANIM.flower = {x: fl[0] + 10 * fs, y: fl[1] - 92 * fs, s: fs}; ANIM.lamps = lamps; ANIM.noz = noz;
     ANIM.glass = {L: L, E: E, R: R, vx: vx, vy: vy}; ANIM.ph = ph;
   } else {
-    // the still scene: the same baskets (three chains, a rounded pot with a rim, a dome of foliage, trailing vines, flowers on
-    // every other one), the grow lamps, the misting nozzles, the corner monsteras and the closed night-bloom bud
     var mon = '', bk = '', ch = '', bl = '', bd = '', fw = '', sh = '', br = '';
     corners.forEach(function (c) { mon += n3_monstera(c.x, c.y, c.len, c.ang, c.sp); });
     baskets.forEach(function (b) { var s = b.s, x = b.x, y = b.y + b.len;
@@ -178,7 +163,6 @@ SCENES.greenhouse = function (W, H, dk, rnd) {
     lamps.forEach(function (lp) { var s = lp.s, x = lp.x, y = lp.y; ch += seg(x, lp.top, x, y - 6 * s); sh += 'M' + PT(x - 13 * s, y + 6 * s) + ' Q' + PT(x - 12 * s, y - 8 * s) + ' ' + PT(x, y - 8 * s) + ' Q' + PT(x + 12 * s, y - 8 * s) + ' ' + PT(x + 13 * s, y + 6 * s) + ' Z '; br += n3_C(x, y + 6 * s, 4.2 * s); });
     noz.forEach(function (nz) { br += rect(nz.x - 1.5, nz.y - 3, 3, 4) + n3_P([[nz.x - 3, nz.y + 1], [nz.x + 3, nz.y + 1], [nz.x, nz.y + 4]]); });
     add(near, 'a', mon); add(mid, 'g', bk, dk ? '#9A6048' : '#E8946A'); add(mid, 'b', bd + sh); add(mid, 'c', bl); add(mid, 'e', fw); add(mid, 'f', br); stk(mid, 't', ch, dk ? '#6A7A74' : '#8A8F88', 1);
-    // the closed bud: a plump, pointed bud on its arching stem, wrapped in thin reddish bracts, its tip blushing pink
     var bx0 = fl[0] + 10 * fs, by0 = fl[1] - 92 * fs, bud = [], ax = -69;
     for (var bi = 0; bi <= 16; bi++) { var bt = bi / 16; bud.push([bt * 30 * fs, 6.2 * fs * Math.pow(Math.sin(Math.PI * Math.pow(bt, 0.75)), 0.9) * (1 - 0.15 * bt)]); }
     var budP = bud.concat(bud.slice(1, -1).reverse().map(function (p) { return [p[0], -p[1]]; }));
@@ -191,11 +175,6 @@ SCENES.greenhouse = function (W, H, dk, rnd) {
   return {sky: sky, far: far, refl: refl, mid: mid, near: near};
 };
 
-// ======================================================================
-// 2. Pottery Studio: a sunlit studio wall under a wooden beam, a big paned window with plants on the sill, a tall shelf unit of
-//    drying and glazed pots, an arched brick kiln with a glowing door, a work table, and the wheel on the floor in front.
-// ======================================================================
-// pot outline standing on (x,y), w = widest width, h = height. kinds: 0 bowl, 1 vase, 2 jug, 3 cylinder, 4 round jar, 5 plate on edge
 function n3_potProf(kind) {
   if (kind === 0) return function (u) { return 0.26 + 0.24 * Math.sqrt(u); };
   if (kind === 1) return function (u) { return u < 0.7 ? 0.2 + 0.3 * Math.sin(Math.PI * u / 0.7 * 0.85) : 0.13 + 0.07 * Math.pow((u - 0.7) / 0.3, 2) + (u > 0.94 ? 0.05 : 0); };
@@ -209,7 +188,7 @@ SCENES.pottery = function (W, H, dk, rnd) {
   var ph = H > W, far = Lay(6), refl = Lay(0), mid = Lay(0), near = Lay(0);
   var sky = dk ? 'linear-gradient(180deg,#1B1417 0%,#221A1E 30%,#3E2C2A 72%,#6A4030 100%)' : 'linear-gradient(180deg,#E3CDB7 0%,#EAD7C3 22%,#F6ECE1 58%,#E6CBB0 86%,#D9B79A 100%)';
   var fy = H * (ph ? 0.8 : 0.78), bmH = ph ? 16 : 24;
-  // ---- the window and the view through it
+  // -- the window and the view through it
   var wx0 = W * (ph ? 0.06 : 0.04), wx1 = W * (ph ? 0.56 : 0.3), wy0 = H * (ph ? 0.06 : 0.1), wy1 = H * (ph ? 0.3 : 0.5), fr = ph ? 7 : 11;
   add(far, 'a', rect(wx0, wy0, wx1 - wx0, wy1 - wy0), dk ? '#1C2442' : '#BFE0F0');
   var hz = wy0 + (wy1 - wy0) * 0.6, hills = n3_fn(wx0 - 10, wx1 + 10, 8, function (x) { return hz - Math.sin(x / 70 + 1) * 10 - Math.sin(x / 23) * 3; }), hills2 = n3_fn(wx0 - 10, wx1 + 10, 8, function (x) { return hz + 24 - Math.sin(x / 50 + 3) * 8; });
@@ -224,11 +203,11 @@ SCENES.pottery = function (W, H, dk, rnd) {
   add(refl, 'b', frame, dk ? '#4A3A36' : '#FBF6EE');
   add(refl, 'c', rect(wx0 - fr * 2.2, wy1, wx1 - wx0 + fr * 4.4, fr * 1.1), dk ? '#6A4C3E' : '#D2A47A');
   add(refl, 'g', rect(wx0 - fr * 2.2, wy1 + fr * 1.1, wx1 - wx0 + fr * 4.4, fr * 0.6) + rect(wx0, wy0, wx1 - wx0, 5) + rect(wx0, wy0, 5, wy1 - wy0), dk ? 'rgba(0,0,0,0.3)' : 'rgba(120,80,50,0.16)');
-  // ---- wall plaster patches, wainscot, ceiling beam, floor
+  // -- wall plaster patches, wainscot, ceiling beam, floor
   var blot = ''; spread(0, bmH, W, fy - bmH - H * 0.16, ph ? 120 : 170, 110, rnd, 0.9).forEach(function (c) { if (c.q < 0.55 && (c.x < wx0 - 20 || c.x > wx1 + 20 || c.y > wy1 + 20)) blot += n3_E(c.x, c.y, 30 + c.r * 40, 14 + c.k * 14); });
   void blot;
   add(refl, 'a', rect(-40, fy - H * 0.15, W + 80, H * 0.15), dk ? '#2E2226' : '#E0C3A6');
-  var boards = '', bdX = [];   // the wainscot's board joints (cut later where the shelf unit stands in front of them)
+  var boards = '', bdX = [];
   for (var bx = 6; bx < W; bx += ph ? 30 : 44) bdX.push(bx);
   add(refl, 'h', rect(-40, -10, W + 80, bmH + 10) + rect(-40, fy - H * 0.15, W + 80, 5) + rect(-40, fy - 10, W + 80, 10), dk ? '#3E2C26' : '#9A6844');
   add(refl, 'e', rect(-40, fy, W + 80, H - fy + 40), dk ? '#3A2A26' : '#D9B596');
@@ -236,13 +215,11 @@ SCENES.pottery = function (W, H, dk, rnd) {
   stk(refl, 's', planks, dk ? 'rgba(0,0,0,0.28)' : 'rgba(130,80,45,0.24)', 1.4);
   var spl = ''; spread(0, fy + 8, W, H - fy - 8, ph ? 70 : 110, 40, rnd, 1).forEach(function (c) { if (c.q < 0.4) spl += n3_E(c.x, c.y, 4 + c.r * 9, 1.5 + c.k * 2.5); });
   add(refl, 'f', spl, dk ? 'rgba(160,130,110,0.22)' : 'rgba(165,125,95,0.28)');
-  // ---- the shelf unit: uprights and boards full of pots
-  // (on the phone the unit stops short of the kiln's chimney, and has no row hidden behind the kiln)
+  // -- the shelf unit
   var shx0 = ph ? W * 0.58 : W * 0.355, shx1 = ph ? W * 0.9 : W * 0.78, shelfY = ph ? [H * 0.16, H * 0.3, H * 0.44, H * 0.58] : [H * 0.2, H * 0.36, H * 0.52, H * 0.66], bt = ph ? 6 : 9, unit = '';
   shelfY.forEach(function (y) { unit += rect(shx0, y, shx1 - shx0, bt); });
   unit += rect(shx0 - 4, shelfY[0] - (ph ? 50 : 70), ph ? 7 : 10, fy - shelfY[0] + (ph ? 50 : 70)) + rect(shx1 - (ph ? 3 : 6), shelfY[0] - (ph ? 50 : 70), ph ? 7 : 10, fy - shelfY[0] + (ph ? 50 : 70)) + rect(shx0 - 6, shelfY[0] - (ph ? 54 : 76), shx1 - shx0 + 12, ph ? 6 : 9);
   add(refl, 'd', unit, dk ? '#5E4234' : '#B07A50');
-  // the board joints are strokes (drawn over the unit), so they skip its uprights and break at its boards
   var upX = [[shx0 - 5, shx0 - 4 + (ph ? 7 : 10) + 1], [shx1 - (ph ? 3 : 6) - 1, shx1 - (ph ? 3 : 6) + (ph ? 7 : 10) + 1]];
   bdX.forEach(function (x) { if (upX.some(function (u) { return x > u[0] - 1 && x < u[1] + 1; })) return; var y0 = fy - H * 0.15 + 6, y1 = fy - 10;
     if (x > shx0 - 4 && x < shx1 + 4) shelfY.forEach(function (y) { if (y + bt > y0 && y < y1) { if (y - 1 > y0 + 2) boards += seg(x, y0, x, y - 1); y0 = Math.max(y0, y + bt + 1); } });
@@ -255,16 +232,15 @@ SCENES.pottery = function (W, H, dk, rnd) {
     var pts = n3_potPts(kind, cx, y, w, h); gl[key] += n3_P(pts);
     var rs = pts.slice(0, 15); gl.sh += n3_P(rs.concat(rs.map(function (p) { return [cx + (p[0] - cx) * 0.35, p[1]]; }).reverse()));
     if (key !== 'grn') gl.hi += n3_RE(cx - w * 0.18, y - h * 0.55, Math.max(1.2, w * 0.05), h * 0.16, 8);
-    if (kind === 5) gl.sh += n3_C(cx, y - h * 0.5, w * 0.3);   // a plate standing on edge: its shallow well
+    if (kind === 5) gl.sh += n3_C(cx, y - h * 0.5, w * 0.3);
     if (kind === 2) gl[key] += n3_tube(n3_bz([cx + w * 0.38, y - h * 0.78], [cx + w * 0.8, y - h * 0.82], [cx + w * 0.78, y - h * 0.3], [cx + w * 0.4, y - h * 0.34], 8), ph ? 2.2 : 3.2, ph ? 2.2 : 3.2);
     potList.push({x: cx, y: y - h * 0.5, w: w, h: h}); x += w + 3 + rnd() * 8; } });
   add(mid, 'a', gl.grn, dk ? '#8E8478' : '#DCD3C6'); add(mid, 'b', gl.bsq, dk ? '#A26A54' : '#EDAF90'); add(mid, 'c', gl.g1, dk ? '#2F7C7A' : '#3FA6A0'); add(mid, 'd', gl.g2, dk ? '#36508E' : '#4A68C0');
   add(mid, 'e', gl.g3, dk ? '#B2873A' : '#E5B24A'); add(mid, 'f', gl.g4, dk ? '#7FA290' : '#A8D2BC'); add(mid, 'g', gl.sh, dk ? 'rgba(10,4,6,0.32)' : 'rgba(90,60,40,0.16)'); add(mid, 'h', gl.hi, 'rgba(255,255,255,0.55)');
-  // sill plants: succulents in little handmade pots
   var sillY = wy1, sp = '', spl2 = '', spot = '';
   [0.12, 0.62, 0.86].forEach(function (f, j) { var x = wx0 + (wx1 - wx0) * f, s = ph ? 0.7 : 1; spot += n3_P(n3_potPts(j === 1 ? 3 : 0, x, sillY, 22 * s, 16 * s));
     for (var q = 0; q < 6; q++) { var a = -90 + (q - 2.5) * 26, lf = n3_leaf(x, sillY - 15 * s, (j === 1 ? 26 : 14) * s, (j === 1 ? 3.4 : 4.4) * s, a + (rnd() - 0.5) * 10, 0); if (q % 2) spl2 += lf; else sp += lf; } });
-  // ---- the arched brick kiln with its chimney
+  // -- the arched brick kiln with its chimney
   var kx0 = ph ? W * 0.58 : W * 0.8, kx1 = ph ? W * 1.06 : W * 1.02, kTop = fy - H * (ph ? 0.2 : 0.34), kSpring = kTop + (kx1 - kx0) * 0.32, kby = fy + 4, kcx = (kx0 + kx1) / 2;
   var kOut = [[kx0, kby], [kx0, kSpring]]; for (i = 1; i < 16; i++) { var a = Math.PI - i / 16 * Math.PI; kOut.push([kcx + Math.cos(a) * (kx1 - kx0) / 2, kSpring - Math.sin(a) * (kSpring - kTop)]); } kOut.push([kx1, kSpring], [kx1, kby]);
   var chim = rect(ph ? W * 0.93 : kcx + (kx1 - kx0) * 0.12, -20, ph ? 16 : 24, kTop + 28);
@@ -272,7 +248,6 @@ SCENES.pottery = function (W, H, dk, rnd) {
   var dx0 = kcx - (kx1 - kx0) * 0.26, dx1 = kcx + (kx1 - kx0) * 0.26, dy1 = kby - (kby - kTop) * 0.12, dSpring = kSpring + (kby - kSpring) * 0.18, dTop = dSpring - (dx1 - dx0) * 0.42;
   var door = [[dx0, dy1], [dx0, dSpring]]; for (i = 1; i < 12; i++) { a = Math.PI - i / 12 * Math.PI; door.push([kcx + Math.cos(a) * (dx1 - dx0) / 2, dSpring - Math.sin(a) * (dSpring - dTop)]); } door.push([dx1, dSpring], [dx1, dy1]);
   var bricks = '', bh = ph ? 9 : 13, rowI = 0;
-  // the mortar lines are strokes (drawn over the door, its arch and the base strip), so they stop short of all three
   var aw = (ph ? 6 : 9) / 2 + 2, oHalf = function (y) { if (y >= dy1 + 4) return -1; var rx = (dx1 - dx0) / 2 + (y > dSpring ? 6 : 9 + aw), ry = dSpring - dTop + 9 + aw; if (y > dSpring) return rx; var u = (dSpring - y) / ry; return u >= 1 ? -1 : rx * Math.sqrt(1 - u * u); };
   for (var by = kby - bh; by > kTop + 4; by -= bh, rowI++) { var half = (kx1 - kx0) / 2 * (by > kSpring ? 1 : Math.sqrt(Math.max(0, 1 - Math.pow((kSpring - by) / (kSpring - kTop), 2)))) - 3, dHalf = oHalf(by), jb = Math.min(by + bh, kby - 8), jHalf = Math.max(dHalf, oHalf(jb));
     if (dHalf > 0) bricks += seg(kcx - half, by, kcx - dHalf, by) + seg(kcx + dHalf, by, kcx + half, by); else bricks += seg(kcx - half, by, kcx + half, by);
@@ -282,13 +257,12 @@ SCENES.pottery = function (W, H, dk, rnd) {
   var peep = [kcx, dSpring + (dy1 - dSpring) * 0.2], arch2 = [];
   for (i = 0; i <= 12; i++) { a = Math.PI - i / 12 * Math.PI; arch2.push([kcx + Math.cos(a) * ((dx1 - dx0) / 2 + 9), dSpring - Math.sin(a) * (dSpring - dTop + 9)]); }
   add(near, 'h', n3_tube(arch2, ph ? 6 : 9, ph ? 6 : 9) + rect(dx1 - 12, dSpring + (dy1 - dSpring) * 0.45, 6, (dy1 - dSpring) * 0.22) + n3_C(peep[0], peep[1], ph ? 5 : 8), dk ? '#5A2E22' : '#8C4430');
-  // ---- the work table, clay, bisque bowls, a mug; sacks and a bucket on the floor
+  // -- the work table, clay, bisque bowls, a mug; sacks and a bucket on the floor
   var tbx0 = ph ? -10 : W * 0.02, tbx1 = ph ? W * 0.4 : W * 0.32, tby = fy - H * (ph ? 0.09 : 0.12), legH = fy - tby + 6;
   add(near, 'a', rect(tbx0, tby, tbx1 - tbx0, ph ? 8 : 12) + n3_P([[tbx0 + 4, tby + (ph ? 8 : 12)], [tbx1 - 4, tby + (ph ? 8 : 12)], [tbx1 - 8, tby + (ph ? 14 : 20)], [tbx0 + 8, tby + (ph ? 14 : 20)]]), dk ? '#7A5640' : '#C89262');
   var lip = ph ? 14 : 20, wood2 = rect(tbx0 + 10, tby + lip, ph ? 6 : 10, legH - lip) + rect(tbx1 - 20, tby + lip, ph ? 6 : 10, legH - lip) + rect(tbx0 + 10, tby + legH * 0.62, tbx1 - tbx0 - 24, ph ? 4 : 6);
   var cs = ph ? 0.7 : 1.05, cl = tbx0 + (tbx1 - tbx0) * 0.14;
   var clay = rrect(cl, tby - 22 * cs, 50 * cs, 22 * cs, 6 * cs) + n3_E(cl + 76 * cs, tby - 12 * cs, 20 * cs, 12 * cs) + n3_E(cl + 100 * cs, tby - 8 * cs, 12 * cs, 8 * cs);
-  // clay sacks slumped against the table legs
   var sk = [tbx0 + (tbx1 - tbx0) * 0.3, fy + 6], ss = ph ? 0.75 : 1.15;
   var sacks = n3_P([[sk[0] - 34 * ss, sk[1]], [sk[0] - 30 * ss, sk[1] - 40 * ss], [sk[0] - 20 * ss, sk[1] - 48 * ss], [sk[0] + 16 * ss, sk[1] - 46 * ss], [sk[0] + 26 * ss, sk[1] - 36 * ss], [sk[0] + 30 * ss, sk[1]]]) + n3_P([[sk[0] + 16 * ss, sk[1] + 4], [sk[0] + 20 * ss, sk[1] - 28 * ss], [sk[0] + 30 * ss, sk[1] - 34 * ss], [sk[0] + 60 * ss, sk[1] - 30 * ss], [sk[0] + 66 * ss, sk[1] + 4]]);
   add(near, 'c', clay, dk ? '#8A6E62' : '#B9988A');
@@ -296,7 +270,6 @@ SCENES.pottery = function (W, H, dk, rnd) {
   var bowls = n3_P(n3_potPts(0, bwx, tby, 46 * bws, 18 * bws)) + n3_P(n3_potPts(0, bwx, tby - 14 * bws, 40 * bws, 16 * bws)) + n3_P(n3_potPts(0, bwx, tby - 26 * bws, 34 * bws, 14 * bws));
   var fpots = n3_P(n3_potPts(4, W * (ph ? 0.08 : 0.38), fy + (ph ? 40 : 30), (ph ? 34 : 52), (ph ? 36 : 54))) + n3_P(n3_potPts(1, W * (ph ? 0.2 : 0.43), fy + (ph ? 34 : 26), (ph ? 22 : 34), (ph ? 44 : 66)));
   add(near, 'd', bowls + fpots, dk ? '#A26A54' : '#EDB596');
-  // the clay sacks (in the clay colour, so they read apart from the table legs behind them), tied at the neck, with folds
   add(near, 'b', wood2, dk ? '#4E3628' : '#946240'); add(near, 'c', sacks);
   var sackTop = '', sackLines = 'M' + PT(sk[0] - 26 * ss, sk[1] - 42 * ss) + ' Q' + PT(sk[0] - 4 * ss, sk[1] - 38 * ss) + ' ' + PT(sk[0] + 20 * ss, sk[1] - 41 * ss) + ' M' + PT(sk[0] - 22 * ss, sk[1] - 30 * ss) + ' Q' + PT(sk[0] - 16 * ss, sk[1] - 14 * ss) + ' ' + PT(sk[0] - 24 * ss, sk[1] - 2 * ss)
     + ' M' + PT(sk[0] + 6 * ss, sk[1] - 30 * ss) + ' Q' + PT(sk[0] + 12 * ss, sk[1] - 16 * ss) + ' ' + PT(sk[0] + 8 * ss, sk[1] - 4 * ss) + ' M' + PT(sk[0] + 26 * ss, sk[1] - 30 * ss) + ' Q' + PT(sk[0] + 44 * ss, sk[1] - 26 * ss) + ' ' + PT(sk[0] + 60 * ss, sk[1] - 29 * ss)
@@ -306,16 +279,14 @@ SCENES.pottery = function (W, H, dk, rnd) {
   add(near, 'e', rrect(mug[0] - 9 * ms, mug[1] - 20 * ms, 18 * ms, 20 * ms, 3 * ms) + n3_tube(n3_bz([mug[0] + 8 * ms, mug[1] - 16 * ms], [mug[0] + 16 * ms, mug[1] - 16 * ms], [mug[0] + 16 * ms, mug[1] - 5 * ms], [mug[0] + 8 * ms, mug[1] - 6 * ms], 8), 3 * ms, 3 * ms)
     + n3_P([[bucket[0] - 22 * bks, bucket[1] - 34 * bks], [bucket[0] + 22 * bks, bucket[1] - 34 * bks], [bucket[0] + 17 * bks, bucket[1]], [bucket[0] - 17 * bks, bucket[1]]]), dk ? '#3E7C8C' : '#5FAFC2');
   add(mid, 'b', spot); add(mid, 'c', spl2); add(mid, 'f', sp);
-  // rims and a wire handle for the floor pots and the bucket, the sacks' folds and printed labels (one fine dark line set)
   var fpx = [W * (ph ? 0.08 : 0.38), W * (ph ? 0.2 : 0.43)], rims = sackLines + 'M' + PT(bucket[0] - 21 * bks, bucket[1] - 30 * bks) + ' L' + PT(bucket[0] + 21 * bks, bucket[1] - 30 * bks)
     + ' M' + PT(bucket[0] - 20 * bks, bucket[1] - 33 * bks) + ' Q' + PT(bucket[0], bucket[1] - 58 * bks) + ' ' + PT(bucket[0] + 20 * bks, bucket[1] - 33 * bks)
     + ' M' + PT(fpx[0] - (ph ? 7 : 10), fy + (ph ? 40 : 30) - (ph ? 30 : 45)) + ' L' + PT(fpx[0] + (ph ? 7 : 10), fy + (ph ? 40 : 30) - (ph ? 30 : 45)) + ' M' + PT(fpx[1] - (ph ? 4 : 6), fy + (ph ? 34 : 26) - (ph ? 36 : 54)) + ' L' + PT(fpx[1] + (ph ? 4 : 6), fy + (ph ? 34 : 26) - (ph ? 36 : 54)) + ' ';
   stk(near, 't', rims, dk ? 'rgba(20,8,6,0.45)' : 'rgba(90,50,30,0.42)', 1.3);
-  // ---- the potter's wheel: frame and splash pan rim; the engine draws the turning head, the clay and the pan's front lip
+  // -- the potter's wheel
   var wx = ph ? W * 0.52 : W * 0.6, wy = H * (ph ? 0.9 : 0.88), ws = ph ? 0.95 : 1.5;
   add(near, 'b', rect(wx - 40 * ws, wy + 8 * ws, 9 * ws, H - wy + 20) + rect(wx + 31 * ws, wy + 8 * ws, 9 * ws, H - wy + 20) + rect(wx + 84 * ws, wy - 24 * ws, 38 * ws, 8 * ws) + rect(wx + 90 * ws, wy - 16 * ws, 6 * ws, H - wy + 40) + rect(wx + 112 * ws, wy - 16 * ws, 6 * ws, H - wy + 40));
   var panC = dk ? '#4C5A6A' : '#7FA3BC';
-  // contact shadows on the floor (under the wall layer's shade colour): floor pots, bucket, sacks, table legs, wheel and stool
   add(refl, 'g', n3_E(fpx[0], fy + (ph ? 40 : 30), (ph ? 20 : 30), 4) + n3_E(fpx[1], fy + (ph ? 34 : 26), (ph ? 13 : 19), 3.4) + n3_E(bucket[0], bucket[1], 22 * bks, 4 * bks) + n3_E(sk[0] + 14 * ss, sk[1] + 2, 58 * ss, 6 * ss)
     + n3_E(tbx0 + 10 + (ph ? 3 : 5), fy + 6, 12, 3) + n3_E(tbx1 - 20 + (ph ? 3 : 5), fy + 6, 12, 3) + n3_E(wx, H - 2, 90 * ws, 10 * ws) + n3_E(wx + 103 * ws, H - 2, 30 * ws, 6 * ws));
   var tiles = ''; var ty0 = bmH + (ph ? 4 : 6), tA = W * (ph ? 0.08 : 0.36), tB = W * (ph ? 0.56 : 0.76), sag = ph ? 18 : 30;
@@ -323,7 +294,6 @@ SCENES.pottery = function (W, H, dk, rnd) {
     ANIM.wheel = {x: wx, y: wy, s: ws, pan: panC}; ANIM.win = {x0: wx0, x1: wx1, y0: wy0, y1: wy1}; ANIM.kiln = {x0: kx0, x1: kx1, top: kTop, y1: kby, cx: kcx, peep: peep, door: door, dTop: dTop}; ANIM.pots = potList; ANIM.mug = [mug[0], mug[1] - 20 * ms, ms];
     ANIM.sill = {x: wx0 + (wx1 - wx0) * 0.36, y: wy1, s: ph ? 1.0 : 1.55}; ANIM.tiles = {a: tA, b: tB, y: ty0, sag: sag, n: ph ? 6 : 10}; ANIM.lamps = ph ? [[W * 0.7, bmH]] : [[W * 0.46, bmH], [W * 0.88, bmH]]; ANIM.ph = ph;
   } else {
-    // the still scene (Style Shop): glazed test tiles on their string, the pendant lamps, the dozing cat on the sill and the wheel
     var n = ph ? 6 : 10, ts = ph ? 0.75 : 1, gk = ['c', 'd', 'e', 'f'], gz = {c: '', d: '', e: '', f: ''}, cord = 'M' + PT(tA, ty0) + ' Q' + PT((tA + tB) / 2, ty0 + sag * 2) + ' ' + PT(tB, ty0) + ' ';
     for (var q = 1; q < n; q++) { var u = q / n, px = tA + (tB - tA) * u, py = ty0 + sag * 4 * u * (1 - u); tiles += rect(px - 6 * ts, py + 2, 12 * ts, 15 * ts); gz[gk[q % 4]] += rect(px - 6 * ts, py + 2, 12 * ts, 9 * ts); }
     var lampsS = ph ? [[W * 0.7, bmH]] : [[W * 0.46, bmH], [W * 0.88, bmH]], shade = '', bulb = '';
@@ -337,7 +307,6 @@ SCENES.pottery = function (W, H, dk, rnd) {
     catL += 'M' + PT(cp(5.8, -14.2)[0], cp(5.8, -14.2)[1]) + ' Q' + PT(cp(7.6, -12.4)[0], cp(7.6, -12.4)[1]) + ' ' + PT(cp(9.4, -14.2)[0], cp(9.4, -14.2)[1]) + ' M' + PT(cp(12.6, -14.2)[0], cp(12.6, -14.2)[1]) + ' Q' + PT(cp(14.4, -12.4)[0], cp(14.4, -12.4)[1]) + ' ' + PT(cp(16.2, -14.2)[0], cp(16.2, -14.2)[1]) + ' ';
     add(mid, 'b', tiles + catB); add(mid, 'c', gz.c + shade); add(mid, 'd', gz.d); add(mid, 'e', gz.e); add(mid, 'f', gz.f); add(mid, 'g', catP); add(mid, 'h', bulb);
     stk(mid, 's', cord, dk ? '#8A7468' : '#8A6A55', 1); stk(mid, 't', catL, '#3A2A33', 1.1);
-    // the wheel: splash pan wall and rim, the dark basin, a lump of red clay with throwing lines
     add(near, 'e', 'M' + PT(wx - 74 * ws, wy) + ' A' + n1(74 * ws) + ' ' + n1(19 * ws) + ' 0 0 1 ' + PT(wx + 74 * ws, wy) + ' L' + PT(wx + 74 * ws, wy + 16 * ws) + ' A' + n1(74 * ws) + ' ' + n1(19 * ws) + ' 0 0 1 ' + PT(wx - 74 * ws, wy + 16 * ws) + ' Z ');
     add(near, 'g', n3_E(wx, wy + 1 * ws, 66 * ws, 15 * ws));
     add(near, 'h', n3_P(n3_potPts(4, wx, wy - 2 * ws, 46 * ws, 40 * ws)));
@@ -346,36 +315,30 @@ SCENES.pottery = function (W, H, dk, rnd) {
   return {sky: sky, far: far, refl: refl, mid: mid, near: near};
 };
 
-// ======================================================================
-// 3. Campfire Night: a still mountain lake ringed with pines, a tent and a crackling campfire on the near shore, log seats,
-//    a canoe pulled up on the bank and a marshmallow stick leaning toward the flames.
-// ======================================================================
 SCENES.campfire = function (W, H, dk, rnd) {
   var ph = H > W, far = Lay(2), refl = Lay(0.6), mid = Lay(0.3), near = Lay(0);
   var sky = dk ? 'linear-gradient(180deg,#0B1022 0%,#10162A 26%,#1E2742 56%,#3A3040 78%,#46352E 100%)' : 'linear-gradient(180deg,#9CC6E2 0%,#B5D3E6 30%,#E7EFE7 66%,#DDE6C8 100%)';
   var hz = H * (ph ? 0.5 : 0.52), shore = H * (ph ? 0.66 : 0.68);
   var lake = dk ? 'linear-gradient(180deg,#26324E 0%,#1A2440 40%,#141B30 100%)' : 'linear-gradient(180deg,#B8D8E2 0%,#8FC0D2 45%,#76AEC4 100%)';
-  // ---- sky: sun or moon, clouds or stars
+  // -- sky: sun or moon, clouds or stars
   var mx = W * (ph ? 0.72 : 0.7), my = H * (ph ? 0.14 : 0.16), mr = ph ? 18 : 26;
   if (dk) { add(far, 'a', n3_C(mx, my, mr * 3.2), 'rgba(200,210,255,0.14)'); add(far, 'b', n3_C(mx, my, mr), '#F6F1DC'); }
   else { add(far, 'a', n3_C(mx, my, mr * 3), 'rgba(255,248,220,0.6)'); add(far, 'b', n3_C(mx, my, mr * 1.1), '#FFF9E6'); var cl = ''; [[0.18, 0.12, 1], [0.42, 0.2, 0.8], [0.88, 0.3, 0.7]].forEach(function (c) { var x = W * c[0], y = H * c[1], s = c[2] * (ph ? 0.6 : 1); cl += n3_E(x, y, 60 * s, 14 * s) + n3_C(x - 18 * s, y - 10 * s, 18 * s) + n3_C(x + 12 * s, y - 14 * s, 22 * s); }); add(far, 'f', cl, 'rgba(255,255,255,0.88)'); }
   var m1 = ridge(W, hz - H * (ph ? 0.12 : 0.16), [[H * 0.07, 210, 0.4], [H * 0.03, 77, 1.3]], 6, true), m2 = ridge(W, hz - H * (ph ? 0.05 : 0.07), [[H * 0.04, 140, 2.2], [H * 0.015, 45, 0.6]], 6, false);
-  // stars only in open sky: the far layer's mountains are drawn before the stars, so none may sit over a peak
   var skyAt = function (x) { var i = Math.max(0, Math.min(m1.length - 1, Math.round((x + 60) / 6))); return Math.min(m1[i][1], m2[i][1]) - 6; };
   var stars = '', twk = [];
   if (dk) spread(0, 0, W, hz - 30, 30, 30, rnd, 1).forEach(function (c) { if (c.q > 0.55 || Math.hypot(c.x - mx, c.y - my) < mr + 16 || c.y > skyAt(c.x)) return; if (c.r > 0.93 && twk.length < (ph ? 14 : 28)) twk.push({x: c.x, y: c.y, r: 2.5 + c.k * 2.5, k: c.k}); else stars += n3_C(c.x, c.y, 0.5 + c.r * 1.1); });
-  // ---- mountains
+  // -- mountains
   add(far, 'c', n3_below(m1, hz + 2), dk ? '#2A3354' : '#A4B9D2');
   var snow = ''; var pk = []; m1.forEach(function (p, i) { if (i > 0 && i < m1.length - 1 && p[1] < m1[i - 1][1] && p[1] <= m1[i + 1][1]) pk.push(p); });
   pk.forEach(function (p) { if (p[1] > hz - H * 0.12) return; var w = H * 0.03; snow += n3_P([[p[0], p[1] - 1], [p[0] + w, p[1] + w * 0.8], [p[0] + w * 0.4, p[1] + w * 0.6], [p[0], p[1] + w * 0.9], [p[0] - w * 0.5, p[1] + w * 0.6], [p[0] - w, p[1] + w * 0.8]]); });
   add(far, 'e', snow, dk ? '#8A92B8' : '#F4F7FA');
   add(far, 'd', n3_below(m2, hz + 2), dk ? '#222A46' : '#8BA6BE');
-  // ---- far shore: a band of pines along the water line
+  // -- far shore: a band of pines along the water line
   var fshore = '', fp = '', fp2 = '';
   for (var x = -20; x < W + 20; x += (ph ? 7 : 10) + rnd() * 8) { var h = (ph ? 18 : 26) * (0.6 + rnd() * 0.8); var pn = n3_pine(x, hz + 2, h, h * 0.32); if (rnd() < 0.5) fp += pn; else fp2 += pn; }
   fshore += rect(-40, hz - 3, W + 80, 5);
   add(mid, 'a', fp + fshore, dk ? '#141C30' : '#4E7A68'); add(mid, 'c', fp2, dk ? '#18223A' : '#5F8E74');
-  // reflections in the still water (mirrored, faint)
   var rm = '', rp = '';
   rm += n3_P(m1.map(function (p) { return [p[0], 2 * hz - p[1]]; }).concat([[W + 60, hz], [-60, hz]]));
   for (x = -20; x < W + 20; x += (ph ? 10 : 14) + rnd() * 8) { h = (ph ? 14 : 20) * (0.6 + rnd() * 0.8); rp += n3_P([[x - h * 0.3, hz + 2], [x, hz + 2 + h], [x + h * 0.3, hz + 2]]); }
@@ -383,11 +346,11 @@ SCENES.campfire = function (W, H, dk, rnd) {
   var mref = ''; for (var k = 0; k < 9; k++) { var yy = hz + 8 + k * (ph ? 9 : 12), ww = mr * (1.4 - k * 0.1) * (0.7 + rnd() * 0.5); mref += rrect(mx - ww, yy, ww * 2, 2.4, 1.2); }
   add(refl, 'c', mref, dk ? 'rgba(246,241,220,0.5)' : 'rgba(255,252,236,0.7)');
   add(refl, 'd', stars, 'rgba(255,248,230,0.85)');
-  // ---- side pines (midground, both sides) and rocks on the near shore
+  // -- side pines (midground, both sides) and rocks on the near shore
   var sp = '', sp2 = '';
   [[0.02, 1.0], [0.07, 0.8], [0.12, 0.65], [0.9, 0.75], [0.95, 0.95], [0.99, 1.1]].forEach(function (q, j) { if (ph && j % 2) return; var xx = W * q[0], hh = H * 0.3 * q[1] * (ph ? 0.8 : 1); var pn2 = n3_pine(xx, shore + 6, hh, hh * 0.3); if (j % 2) sp += pn2; else sp2 += pn2; });
   add(mid, 'd', sp, dk ? '#0F1626' : '#3C6A54'); add(mid, 'e', sp2, dk ? '#121A2C' : '#467860');
-  // ---- the near shore: meadow, clearing, stones, logs, tent
+  // -- the near shore
   var ground = n3_fn(-40, W + 40, 10, function (x) { return shore + Math.sin(x / 90 + 1) * 4 + Math.sin(x / 31) * 1.5; });
   add(near, 'a', n3_below(ground, H + 20), dk ? '#232A26' : '#9CBB78');
   var fx = W * (ph ? 0.5 : 0.52), fyy = H * (ph ? 0.89 : 0.87), fs = ph ? 1.1 : 1.7;
@@ -397,23 +360,18 @@ SCENES.campfire = function (W, H, dk, rnd) {
   var strip = n3_band(ground.map(function (p) { return [p[0], p[1] - 1]; }), ground.map(function (p) { return [p[0], p[1] + 7 + Math.sin(p[0] / 17) * 2]; }));
   add(near, 'c', clearing + strip, dk ? '#3A3430' : '#D8C49A');
   var flw = ''; if (!dk) spread(0, shore + 20, W, H - shore - 20, ph ? 40 : 54, 30, rnd, 1).forEach(function (c) { if (c.q > 0.3 || Math.hypot((c.x - fx) / 1.7, c.y - fyy) < 120 * fs) return; var s = 0.7 + (c.y - shore) / (H - shore); for (var q = 0; q < 5; q++) flw += n3_C(c.x + Math.cos(q * 1.257) * 2.2 * s, c.y + Math.sin(q * 1.257) * 2.2 * s, 1.6 * s); });
-  // stones ringing the fire, and a few on the shore
   var stones = '', stonesF = '', stonesS = ''; for (k = 0; k < 11; k++) { var a = k / 11 * Math.PI * 2, sx2 = fx + Math.cos(a) * 46 * fs, sy2 = fyy + Math.sin(a) * 13 * fs, st1 = n3_E(sx2, sy2 - 3 * fs, (9 + (k % 3) * 2) * fs, 6.5 * fs); stones += st1; if (Math.sin(a) > 0.05) stonesF += st1; if (Math.sin(a) > 0 || Math.abs(Math.cos(a)) > 0.76) stonesS += st1; }
   [[0.3, 0.72], [0.34, 0.73], [0.66, 0.705]].forEach(function (q) { if (ph) return; var e = n3_E(W * q[0], H * q[1], 14, 7); stones += e; stonesS += e; });
-  add(near, 'f', ANIM ? stones : stonesS, dk ? '#4A4A52' : '#9EA2A8');   // (the still fire hides the back stones behind its flames)
-  // log seats: one behind-left, one to the right of the fire
+  add(near, 'f', ANIM ? stones : stonesS, dk ? '#4A4A52' : '#9EA2A8');
   var logs = '', ends = '';
   [[fx - 150 * fs, fyy - 18 * fs, 120 * fs, -6], [fx + 120 * fs, fyy + 16 * fs, 100 * fs, 8]].forEach(function (q) { var lx = q[0], ly = q[1], L = q[2], r = 14 * fs; var p = rotp([[-L / 2, -r], [L / 2, -r], [L / 2, r], [-L / 2, r]], lx, ly, q[3]); logs += n3_P(p); var e = rotp([[L / 2, 0]], lx, ly, q[3])[0]; ends += n3_RE(e[0], e[1], r * 0.45, r, q[3]); });
-  // the fire's logs (crossed) under the flames
   var fl = rotp([[-40, -6], [40, -6], [40, 6], [-40, 6]], fx, fyy - 4 * fs, 18).map(function (p) { return [fx + (p[0] - fx) * fs, fyy - 4 * fs + (p[1] - fyy + 4 * fs) * fs]; });
   var fl2 = rotp([[-40, -6], [40, -6], [40, 6], [-40, 6]], fx, fyy - 4 * fs, -16).map(function (p) { return [fx + (p[0] - fx) * fs, fyy - 4 * fs + (p[1] - fyy + 4 * fs) * fs]; });
   logs += n3_P(fl) + n3_P(fl2);
   add(near, 'd', logs, dk ? '#4A3024' : '#8A5A3A'); add(near, 'e', ends + flw, dk ? '#C89A6A' : '#F4E2B8');
-  // bark lines along the seat logs and growth rings on their cut ends
   var bark = ''; [[fx - 150 * fs, fyy - 18 * fs, 120 * fs, -6], [fx + 120 * fs, fyy + 16 * fs, 100 * fs, 8]].forEach(function (q) { var L = q[2], r = 14 * fs;
     [[-0.42, -0.5, 0.1], [-0.3, 0.1, 0.38], [0.2, -0.2, 0.3], [0.45, -0.46, -0.05], [-0.05, 0.05, 0.4]].forEach(function (b) { var p = rotp([[b[1] * L, b[0] * r * 1.6], [b[2] * L, b[0] * r * 1.6]], q[0], q[1], q[3]); bark += seg(p[0][0], p[0][1], p[1][0], p[1][1]); });
     var e = rotp([[L / 2, 0]], q[0], q[1], q[3])[0]; bark += 'M' + PT(e[0], e[1] - r * 0.55) + ' A' + n1(r * 0.25) + ' ' + n1(r * 0.55) + ' 0 1 1 ' + PT(e[0], e[1] + r * 0.55) + ' A' + n1(r * 0.25) + ' ' + n1(r * 0.55) + ' 0 1 1 ' + PT(e[0], e[1] - r * 0.55) + ' '; });
-  // the tent (A-frame) with its open door
   var tx = W * (ph ? 0.8 : 0.8), ty = H * (ph ? 0.8 : 0.81), tw = ph ? 84 : 150, th = ph ? 94 : 160;
   var tent = n3_P([[tx - tw, ty], [tx - tw * 0.12, ty - th], [tx + tw * 0.12, ty - th], [tx + tw * 1.05, ty], [tx + tw * 0.2, ty + 10]]);
   var tside = n3_P([[tx + tw * 0.12, ty - th], [tx + tw * 1.05, ty], [tx + tw * 0.2, ty + 10]]);
@@ -421,12 +379,9 @@ SCENES.campfire = function (W, H, dk, rnd) {
   add(near, 'g', tent, dk ? '#B8562E' : '#F08A3E');
   add(near, 'h', tside + door, dk ? 'rgba(40,14,8,0.5)' : 'rgba(150,50,20,0.3)');
   var guys = seg(tx - tw * 0.12, ty - th, tx - tw * 1.5, ty + 6) + seg(tx + tw * 0.12, ty - th, tx + tw * 1.55, ty + 4) + seg(tx, ty - th, tx, ty - th - 10);
-  // the tent's ridge and front seams, and its pegs
   var seams = seg(tx - tw * 0.12, ty - th, tx + tw * 0.12, ty - th) + seg(tx - tw * 0.12, ty - th, tx + tw * 0.2, ty + 10)
     + seg(tx - tw * 1.5, ty + 6, tx - tw * 1.5, ty - 2) + seg(tx + tw * 1.55, ty + 4, tx + tw * 1.55, ty - 4) + seg(tx - tw, ty, tx - tw - 4, ty + 6) + seg(tx + tw * 1.05, ty, tx + tw * 1.05 + 4, ty + 6);
   stk(near, 's', guys + seams + bark, dk ? 'rgba(200,190,170,0.5)' : 'rgba(110,80,60,0.6)', 1.2);
-  // grass blades and reeds at the water's edge
-  // (grass and reeds are strokes, drawn over every fill in this layer: no blades grow out of the seat logs, the stones or the beached canoe)
   var cnX = W * 0.2, cnY = shore - (ph ? 3 : 4), cnW = ph ? 50 : 90, onThing = function (x, y) {
     if (x > cnX - cnW - 4 && x < cnX + cnW + 4 && y > cnY - 18 && y < cnY + 10) return true;
     var hit = false; [[fx - 150 * fs, fyy - 18 * fs, 120 * fs, -6], [fx + 120 * fs, fyy + 16 * fs, 100 * fs, 8]].forEach(function (q) { var a = -q[3] * Math.PI / 180, dx = x - q[0], dy = y - q[1], u = dx * Math.cos(a) - dy * Math.sin(a), v = dx * Math.sin(a) + dy * Math.cos(a); if (Math.abs(u) < q[2] / 2 + 4 * fs && Math.abs(v) < 14 * fs + 4) hit = true; });
@@ -434,18 +389,14 @@ SCENES.campfire = function (W, H, dk, rnd) {
   var grass = ''; spread(0, shore, W, H - shore, ph ? 26 : 34, ph ? 22 : 26, rnd, 1).forEach(function (c) { if (c.q > 0.5) return; if (Math.hypot((c.x - fx) / 1.7, c.y - fyy) < 110 * fs || (c.x > tx - tw && c.x < tx + tw * 1.1 && c.y < ty + 8 && c.y > ty - th) || onThing(c.x, c.y)) return; var s = 0.6 + (c.y - shore) / (H - shore) * 1.2; grass += 'M' + PT(c.x - 3 * s, c.y) + ' L' + PT(c.x - 5 * s, c.y - 8 * s) + ' M' + PT(c.x, c.y) + ' L' + PT(c.x + 1 * s, c.y - 11 * s) + ' M' + PT(c.x + 3 * s, c.y) + ' L' + PT(c.x + 6 * s, c.y - 7 * s) + ' '; });
   var reeds = ''; for (x = 4; x < W; x += 9 + rnd() * 30) { if (ph && x > W * 0.3 && x < W * 0.7) continue; var rh = 14 + rnd() * 22, gy = shore + Math.sin(x / 90 + 1) * 4; if ((x > cnX - cnW - 6 && x < cnX + cnW + 6) || (gy > ty - th && gy < ty && x > tx - tw + tw * 0.88 * (ty - gy) / th - 4 && x < tx + tw * 1.05 - tw * 0.93 * (ty - gy) / th + 4)) { rnd(); continue; } reeds += 'M' + PT(x, gy + 2) + ' Q' + PT(x + 2, gy - rh * 0.5) + ' ' + PT(x + 4 * (rnd() - 0.3), gy - rh) + ' '; }
   stk(near, 't', grass + reeds, dk ? '#36423A' : '#6E9A55', 1.4);
-  // a canoe pulled up on the bank (left)
   var cx = W * (ph ? 0.2 : 0.2), cy = shore - (ph ? 3 : 4), cw = ph ? 50 : 90;
   var canoe = n3_P([[cx - cw, cy - 14], [cx - cw * 0.82, cy - 2], [cx - cw * 0.55, cy + 6], [cx + cw * 0.55, cy + 6], [cx + cw * 0.82, cy - 2], [cx + cw, cy - 14], [cx + cw * 0.8, cy - 6], [cx - cw * 0.8, cy - 6]]);
   add(mid, 'f', canoe, dk ? '#8A3A3A' : '#D8564A'); add(mid, 'g', rect(cx - cw * 0.8, cy - 6, cw * 1.6, 3) + n3_RE(cx + cw * 0.35, cy - 6, 20 * (ph ? 0.6 : 1), 2.4, -12), dk ? '#C8A07A' : '#F2D2A6');
-  // marshmallow stick: rests on the left log, tip over the flames
-  // marshmallow stick: pushed into the ground in front of the left log, resting across its top, tip over the flames
   var stA = [fx - 175 * fs, fyy + 5 * fs], stB = [fx - 40 * fs, fyy - 96 * fs];
   add(near, 'c', n3_E(stA[0] + 1 * fs, stA[1] + 1 * fs, 7 * fs, 2.4 * fs));
   if (ANIM) {
     ANIM.fire = {x: fx, y: fyy - 6 * fs, s: fs, stones: stonesF, logs: n3_P(fl) + n3_P(fl2), stoneC: dk ? '#4A4A52' : '#9EA2A8', logC: dk ? '#4A3024' : '#8A5A3A'}; ANIM.stick = [stA, stB]; ANIM.pines = sp + sp2; ANIM.tent = {x: tx, y: ty, w: tw, h: th}; ANIM.lake = {top: hz, bot: shore, mx: mx}; ANIM.moon = [mx, my, mr]; ANIM.twk = twk; ANIM.ph = ph;
   } else {
-    // the still fire: the engine's five tongues in orange with a pale core showing through a hole in them; the peeled stick and its marshmallow
     var stP = n3_bz(stA, [(stA[0] + stB[0]) / 2 - 10 * fs, (stA[1] + stB[1]) / 2 - 6 * fs], [(stA[0] + stB[0]) / 2 + 20 * fs, (stA[1] + stB[1]) / 2 - 8 * fs], stB, 12);
     var sAng = Math.atan2(stB[1] - stA[1], stB[0] - stA[0]) * 180 / Math.PI;
     add(near, 'e', n3_tube(stP, 3.4 * fs, 2.4 * fs) + n3_P(rotp([[-3 * fs, -6 * fs], [11 * fs, -6 * fs], [13 * fs, -3 * fs], [13 * fs, 3 * fs], [11 * fs, 6 * fs], [-3 * fs, 6 * fs], [-5 * fs, 3 * fs], [-5 * fs, -3 * fs]], stB[0], stB[1], sAng)));
@@ -459,14 +410,9 @@ SCENES.campfire = function (W, H, dk, rnd) {
   return {sky: sky, far: far, refl: refl, mid: mid, near: near, band: {top: hz, bg: lake}};
 };
 
-// ======================================================================
-// 4. Aquarium Tunnel: inside an acrylic tunnel through a giant tank. The seams arch overhead and run to the lit far end, sand and
-//    coral gardens rise on both sides of the walkway, light rays fall from the surface, and two benches wait along the path.
-// ======================================================================
-// branching coral: a few forking tubes from (x,y), scale s
 function n3_branch(x, y, s, rnd, depth, ang, len) { if (depth === undefined) { depth = 3; ang = -90; len = 26; } var a = ang * Math.PI / 180, x2 = x + Math.cos(a) * len * s, y2 = y + Math.sin(a) * len * s, d = n3_tube([[x, y], [(x + x2) / 2 + Math.sin(a) * 2 * s, (y + y2) / 2], [x2, y2]], (2.2 + depth * 1.4) * s, (1.6 + depth) * s) + n3_C(x2, y2, (1 + depth * 0.7) * s);
   if (depth > 0) { d += n3_branch(x2, y2, s, rnd, depth - 1, ang - 22 - rnd() * 16, len * 0.72); d += n3_branch(x2, y2, s, rnd, depth - 1, ang + 22 + rnd() * 16, len * 0.72); } return d; }
-// a sea fan: a half disc on a short stalk, its lacy mesh made by small counter-clockwise holes (the water shows through)
+// a sea fan: a half disc on a short stalk
 function n3_fan(x, y, s) { var o = [[x, y]], i, d; for (i = 0; i <= 16; i++) { var a = Math.PI + i / 16 * Math.PI; o.push([x + Math.cos(a) * 30 * s, y - 6 * s + Math.sin(a) * 36 * s]); } d = n3_P(o);
   [[0.3, 3], [0.47, 5], [0.63, 7], [0.79, 9], [0.92, 11]].forEach(function (r, j) { for (var k = 0; k < r[1]; k++) { var a = Math.PI + (k + 0.5) / r[1] * Math.PI; d += ell(x + Math.cos(a) * 30 * s * r[0], y - 6 * s + Math.sin(a) * 36 * s * r[0], (1.7 - j * 0.15) * s, (1.3 - j * 0.1) * s); } }); return d; }
 SCENES.aquarium = function (W, H, dk, rnd) {
@@ -475,7 +421,7 @@ SCENES.aquarium = function (W, H, dk, rnd) {
   var vx = W * 0.5, vy = H * (ph ? 0.46 : 0.47), a0 = W * (ph ? 0.2 : 0.11), fB = H * (ph ? 0.07 : 0.085), R0 = a0 * 1.05, af = a0 * 0.58;
   function P(m, x, y) { return [vx + x * m, vy + y * m]; }
   function rib(m, n) { var side = n3_bz([-af, fB], [-a0 * 0.98, fB * 0.9], [-a0, fB * 0.35], [-a0, 0], 8), o = side.map(function (q) { return P(m, q[0], q[1]); }); for (var i = 1; i < n; i++) { var t = Math.PI + i / n * Math.PI; o.push(P(m, Math.cos(t) * a0, Math.sin(t) * R0)); } side.slice().reverse().forEach(function (q) { o.push(P(m, -q[0], q[1])); }); return o; }
-  // ---- far water: a glow at the tunnel's end, light rays from the surface, distant rocks and kelp
+  // -- far water: a glow at the tunnel's end, light rays from the surface
   add(far, 'a', n3_E(vx, vy - R0 * 0.2, a0 * 2, R0 * 1.5), dk ? 'rgba(60,140,200,0.25)' : 'rgba(240,255,255,0.42)');
   var rays = ''; [[-0.35, 0.05], [-0.12, 0.08], [0.15, 0.05], [0.4, 0.07], [0.7, 0.04]].forEach(function (r) { var x = W * (0.5 + r[0]), w = W * r[1]; rays += n3_P([[x, -40], [x + w, -40], [x + w * 0.4 + W * 0.12, H * 0.62], [x + W * 0.12 - w * 0.4, H * 0.62]]); });
   add(far, 'b', rays, dk ? 'rgba(120,180,255,0.07)' : 'rgba(255,255,255,0.22)');
@@ -483,22 +429,20 @@ SCENES.aquarium = function (W, H, dk, rnd) {
   add(far, 'c', frocks + rect(-60, vy + 2, W + 120, H * 0.6), dk ? '#123A5A' : '#8FCBD8');
   var fk = ''; for (x = -20; x < W + 20; x += 18 + rnd() * 30) { if (Math.abs(x - vx) < a0 * 1.4) continue; var kh = 30 + rnd() * 60; fk += n3_tube([[x, vy + 6], [x + 6, vy - kh * 0.5], [x - 2, vy - kh]], 5, 2); }
   add(far, 'd', fk, dk ? '#0F3A4E' : '#7FC2B8');
-  // ---- the sand plane outside the tunnel, rising in gentle dunes toward the sides
+  // -- the sand plane outside the tunnel, rising in gentle dunes toward the sides
   var sand = n3_fn(-60, W + 60, 10, function (x) { var d = Math.abs(x - vx) / (W * 0.5); return vy + 6 - d * d * H * 0.025 + Math.sin(x / 60) * 4; });
   add(refl, 'c', n3_below(sand, H + 20), dk ? '#1D4058' : '#E4D3A6');
   var dunes = ''; for (var k = 0; k < 9; k++) { var m = 1.2 * Math.pow(1.35, k), y = vy + fB * m * 0.92; [-1, 1].forEach(function (sd) { var x0 = vx + sd * a0 * m * 1.15, w2 = W * 0.18 * Math.min(2.5, m * 0.5); dunes += n3_E(x0 + sd * w2 * 0.6, y, w2, 3 + m * 1.6) + n3_E(x0 + sd * w2 * 1.5, y + fB * m * 0.1, w2 * 0.6, 2 + m); }); }
   add(refl, 'd', dunes, dk ? '#234B66' : '#CDB98A');
-  // ---- the tunnel: far end portal, acrylic seams arching overhead
+  // -- the tunnel
   var far1 = rib(1, 30);
   add(refl, 'b', n3_P(far1), dk ? 'rgba(80,160,220,0.28)' : 'rgba(255,255,255,0.35)');
   add(refl, 'e', n3_P(rib(0.55, 24)), dk ? '#4AB8E0' : '#E6FAFF');
   var seams = '', thin = '';
   var seamL = []; [1, 1.32, 1.78, 2.45, 3.45, 5, 7.4].forEach(function (m) { seamL.push(rib(m, 40)); });
-  // long seams running from the far end toward us along the arch
   for (k = 0; k <= 10; k++) { var t = Math.PI + k / 10 * Math.PI, p0 = P(1, Math.cos(t) * a0, Math.sin(t) * R0); thin += seg(p0[0], p0[1], vx + (p0[0] - vx) * 9, vy + (p0[1] - vy) * 9); }
-  // (the acrylic seams are on the glass between us and the tank, so they go in the front layer: fish and coral pass behind them)
 
-  // ---- coral gardens on both sides, outside the glass
+  // -- coral gardens on both sides, outside the glass
   var cB = {rock: '', hi: '', pink: '', orange: '', purple: '', kelp: '', yel: '', teal: ''};
   [-1, 1].forEach(function (sd) {
     for (var m = 1.1; m < 6; m *= 1.15) {
@@ -518,10 +462,9 @@ SCENES.aquarium = function (W, H, dk, rnd) {
   });
   var C = dk ? {rock: '#16324A', hi: 'rgba(90,170,220,0.18)', pink: '#B8507A', orange: '#C46A3A', purple: '#6A4EA8', kelp: '#1E5A4A', yel: '#B09A3A', teal: '#2A8C8A'} : {rock: '#6A8FA0', hi: 'rgba(255,255,255,0.3)', pink: '#F27BA0', orange: '#F59A4A', purple: '#9B7BE0', kelp: '#4FA07A', yel: '#F2CC4A', teal: '#3FC1B0'};
   add(mid, 'f', cB.kelp, C.kelp); add(mid, 'a', cB.rock, C.rock); add(mid, 'b', cB.hi, C.hi); add(mid, 'c', cB.pink, C.pink); add(mid, 'd', cB.orange, C.orange); add(mid, 'e', cB.purple, C.purple); add(mid, 'g', cB.yel, C.yel); add(mid, 'h', cB.teal, C.teal);
-  // ---- the walkway, its base ledges and LED strips
+  // -- the walkway, its base ledges and LED strips
   var M = 12, wl = [P(1, -af, fB), P(1, af, fB), P(M, af, fB), P(M, -af, fB)];
   add(near, 'a', n3_P(wl), dk ? '#1A3150' : '#4A6884');
-  // a carpet runner down the middle with glowing edge piping
   add(near, 'f', n3_P([P(1, -af * 0.5, fB), P(1, af * 0.5, fB), P(M, af * 0.5, fB), P(M, -af * 0.5, fB)]), dk ? '#132848' : '#2E4C6E');
   add(near, 'g', n3_P([P(1, -af * 0.5, fB), P(1, -af * 0.46, fB), P(M, -af * 0.46, fB), P(M, -af * 0.5, fB)]) + n3_P([P(1, af * 0.46, fB), P(1, af * 0.5, fB), P(M, af * 0.5, fB), P(M, af * 0.46, fB)]), dk ? '#2E8FB0' : '#7FD8EE');
   var hL = H * 0.016, a1 = af * 1.06, ledge = n3_P([P(1, -a1, fB), P(1, -a1, fB - hL), P(M, -a1, fB - hL), P(M, -a1, fB)]) + n3_P([P(1, a1, fB - hL), P(1, a1, fB), P(M, a1, fB), P(M, a1, fB - hL)]);
@@ -531,17 +474,14 @@ SCENES.aquarium = function (W, H, dk, rnd) {
   add(near, 'c', leds, dk ? '#5FE0FF' : '#9FEFFF');
   var stripes = ''; for (k = 0; k < 14; k++) { var m1 = Math.pow(1.22, k), m2 = m1 * 1.06; stripes += n3_P([P(m1, -af * 0.85, fB), P(m1, af * 0.85, fB), P(m2, af * 0.85, fB), P(m2, -af * 0.85, fB)]); }
   add(near, 'd', stripes, dk ? 'rgba(120,190,255,0.1)' : 'rgba(255,255,255,0.1)');
-  // two backless benches along the walkway, staggered (a near one on the left, a far one on the right), each a slatted seat on two slim legs
   var bTop = '', bSide = '', bPolys = [], sh = fB * 0.2, st = fB * 0.028;
   [[-1, ph ? 1.7 : 1.9, ph ? 2.5 : 2.8], [1, 1.25, 1.6]].forEach(function (b) { var sd = b[0], m1 = b[1], m2 = b[2], xi = sd * af * 0.6, xo = sd * af * 0.86, y = fB - sh;
     bTop += n3_P([P(m1, xo, y), P(m1, xi, y), P(m2, xi, y), P(m2, xo, y)]); bPolys.push([P(m1, xo, y), P(m1, xi, y), P(m2, xi, y), P(m2, xo, y)]);
     bSide += n3_P([P(m1, xi, y), P(m2, xi, y), P(m2, xi, y + st), P(m1, xi, y + st)]) + n3_P([P(m2, xo, y), P(m2, xi, y), P(m2, xi, y + st), P(m2, xo, y + st)]);
-    [0.36, 0.64].forEach(function (u) { var xs = xi + (xo - xi) * u; bSide += n3_P([P(m1, xs - sd * af * 0.008, y), P(m1, xs + sd * af * 0.008, y), P(m2, xs + sd * af * 0.008, y), P(m2, xs - sd * af * 0.008, y)]); });   // gaps between the seat slats
+    [0.36, 0.64].forEach(function (u) { var xs = xi + (xo - xi) * u; bSide += n3_P([P(m1, xs - sd * af * 0.008, y), P(m1, xs + sd * af * 0.008, y), P(m2, xs + sd * af * 0.008, y), P(m2, xs - sd * af * 0.008, y)]); });
     [0.12, 0.84].forEach(function (u) { var ma = m1 + (m2 - m1) * u, mb = ma + (m2 - m1) * 0.04, xl = sd * af * 0.67, xr = sd * af * 0.79;
       bSide += n3_P([P(ma, xl, y + st), P(mb, xl, y + st), P(mb, xl, fB), P(ma, xl, fB)]) + n3_P([P(mb, xl, y + st), P(mb, xr, y + st), P(mb, xr, fB), P(mb, xl, fB)]); bPolys.push([P(ma, xl, y + st), P(mb, xl, y + st), P(mb, xl, fB), P(ma, xl, fB)], [P(mb, xl, y + st), P(mb, xr, y + st), P(mb, xr, fB), P(mb, xl, fB)]); });
     bPolys.push([P(m2, xo, y), P(m2, xi, y), P(m2, xi, y + st), P(m2, xo, y + st)]); });
-  // the acrylic seams are on the glass between us and the tank (fish and coral pass behind them), but the benches stand inside the
-  // tunnel in front of the glass: the seams are strokes drawn over every fill here, so they are cut where a bench covers them
   var inB = function (x, y) { return bPolys.some(function (P2) { var c = false; for (var i2 = 0, j2 = P2.length - 1; i2 < P2.length; j2 = i2++) { var a2 = P2[i2], b2 = P2[j2]; if ((a2[1] > y) !== (b2[1] > y) && x < (b2[0] - a2[0]) * (y - a2[1]) / (b2[1] - a2[1]) + a2[0]) c = !c; } return c; }); };
   seamL.forEach(function (pl) { var run = []; for (var s2 = 1; s2 < pl.length; s2++) { var a = pl[s2 - 1], b = pl[s2], n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 3)); for (var q = s2 === 1 ? 0 : 1; q <= n; q++) { var px = a[0] + (b[0] - a[0]) * q / n, py = a[1] + (b[1] - a[1]) * q / n;
     if (inB(px, py)) { if (run.length > 1) seams += pline(run); run = []; } else run.push([px, py]); } } if (run.length > 1) seams += pline(run); });
@@ -553,7 +493,6 @@ SCENES.aquarium = function (W, H, dk, rnd) {
     ANIM.vp = [vx, vy]; ANIM.tun = {a0: a0, af: af, fB: fB, R0: R0}; ANIM.floor = wl; ANIM.ph = ph; ANIM.benches = bTop + bSide;
     ANIM.bubbles = [P(1.6, -a0 * 1.6, fB), P(2.6, a0 * 1.9, fB), P(1.25, a0 * 1.4, fB)].map(function (p, i) { return {x: p[0], y: p[1] - 6, s: [1.6, 2.6, 1.25][i] * (ph ? 0.5 : 0.7)}; });
   } else {
-    // the still scene's fish: the engine's blue tangs (yellow tail and dorsal fin) and yellow tangs, each with an eye and a pupil
     var fish = '', fin = '', eye = '', pup = '', fs2 = ph ? 1 : 1.5; [[0.2, 0.16, 1, 0], [0.62, 0.1, -1, 1], [0.8, 0.3, -1, 0], [0.38, 0.28, 1, 1]].forEach(function (sc) { for (var q = 0; q < 7; q++) { var x = W * sc[0] + (q % 4) * 22 * fs2 * sc[2] * -1 + (rnd() - 0.5) * 16, y = H * sc[1] + Math.floor(q / 4) * 16 * fs2 + (rnd() - 0.5) * 10, d = sc[2], k = fs2 * (sc[3] ? 0.95 : 1);
       var body = n3_E(x, y, 10 * k, (sc[3] ? 7 : 5.5) * k), tail = n3_P([[x - d * 7 * k, y], [x - d * 15 * k, y - 5.5 * k], [x - d * 13 * k, y], [x - d * 15 * k, y + 5.5 * k]]), dors = n3_P([[x - d * 3 * k, y - 4.4 * k], [x + d * 1 * k, y - (sc[3] ? 11 : 9) * k], [x + d * 4 * k, y - 4.6 * k]]);
       if (sc[3]) fin += body + tail + dors; else { fish += body; fin += tail + dors; }

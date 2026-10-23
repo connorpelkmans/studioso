@@ -47,7 +47,7 @@
   nav.tabs[data-fit="5"] .nav-tool svg{width:19px;height:19px}
   nav.tabs[data-fit="5"] .nav-sync{padding-bottom:1px}
 }
-/* spare height goes to the upper group (--nb-min and --nb-g are set by 97-ui-nav.js from the free room only) */
+/* spare height goes to the upper group */
 @media (min-width:980px){
   nav.tabs .in,nav.tabs:is([data-fit="3"],[data-fit="4"]) .in{gap:calc(2px + var(--nb-g,0px))}
   nav.tabs[data-fit="5"] .in{gap:calc(1px + var(--nb-g,0px))}

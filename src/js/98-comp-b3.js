@@ -1,5 +1,5 @@
 /* ===== module: 98-comp-b3.js ===== */
-/* Study Companions, batch 3: sunset, mint, bokeh, neon, candy, arcade */
+/* Study Companions, batch 3 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);

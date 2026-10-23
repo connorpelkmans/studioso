@@ -1,7 +1,4 @@
-// node tests/note-photos.e2e.js  (Playwright + Chromium; file storage is stubbed)
-// Pro notes: Add Photo stores the photo as a file and shows it on the note (open and resting), a tap opens it large without starting to
-// edit, Remove from Note takes it off the note but keeps the file, pasting an image adds it, and Link a File types a [[link]] at the cursor
-// that opens the file. A free account sees both buttons with a Pro badge and gets the Pro sheet. Screenshots go to $SHOTS.
+// node tests/note-photos.e2e.js (Playwright + Chromium; file storage is stubbed) Pro notes
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, ".."), SHOTS = process.env.SHOTS || path.join(require("os").tmpdir(), "note-photo-shots");
@@ -29,9 +26,8 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     const page = await ctx.newPage(); page.errs = []; page.on("pageerror", e => page.errs.push(e.message));
     await page.goto(base); await page.waitForFunction(() => window.__sbProStudy && window.__sbNotePhotos);
     await page.evaluate(free => {
-      if (!free) SBPRO.locked = () => false;   // Pro is on for real accounts only through a signed token, so the Pro half unlocks here
+      if (!free) SBPRO.locked = () => false;
       const T = window.__sbProStudy; Object.defineProperty(window, "state", {get: () => T.state(), configurable: true});
-      // Storage stubs: an upload becomes a file in the app, and its bytes are a real PNG drawn here
       window.__bytes = {};
       const NP = window.__sbNotePhotos; NP.IO.upload = async (list, opts) => { const made = []; for (const f of list) { const id = "ph" + Math.random().toString(36).slice(2, 8), aid = "asset-" + id;
         window.__bytes[aid] = new Uint8Array(await f.arrayBuffer());
@@ -48,7 +44,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   const edit = async page => { await page.click('.note[data-note="n1"] .note-body'); await page.waitForSelector('.note.editing[data-note="n1"] #noteText'); await page.waitForTimeout(150); };
   const note = page => page.evaluate(() => JSON.parse(JSON.stringify(state.notes.n1)));
   try {
-    /* ---------- Pro ---------- */
+    /* Pro */
     {
       const {ctx, page} = await mk(false);
       await edit(page);
@@ -61,7 +57,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(await page.evaluate(id => !!state.files[id] && state.files[id].courseId === "c1" && window.__lastOpts.folderId === "notes", nt.photos[0]), "it's stored as a file in the note's course, under Lecture Notes");
       ok(await page.evaluate(() => { const i = document.querySelector(".note.editing .np-photos img"); return !!i && /^blob:/.test(i.src); }), "the open note shows the photo");
       ok(await page.evaluate(() => !!document.querySelector(".note.editing .np-x")), "an open note has a remove button on each photo");
-      // Link a File: the [[link]] goes where the cursor was
       await page.evaluate(() => { const t = document.querySelector("#noteText"); t.focus(); const at = t.value.indexOf("\n"); t.setSelectionRange(at, at); });
       await page.click('.note.editing [data-act="np-link"]'); await page.waitForSelector("#dlg .np-link-sheet #npList .np-opt");
       ok(await page.evaluate(() => document.querySelectorAll("#npList .np-opt").length === 3), "Link a File lists every file and link in the app");
@@ -71,7 +66,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await page.click("#npList .np-opt"); await page.waitForTimeout(200);
       const txt = await page.evaluate(() => document.querySelector("#noteText").value);
       ok(txt.startsWith("Heart anatomy [[Lecture 4 slides.pdf]]\n"), "the link is typed where the cursor was: " + JSON.stringify(txt.slice(0, 50)));
-      // Pasting an image adds it
       await page.evaluate(async () => { const t = document.querySelector("#noteText"); const dt = new DataTransfer(); dt.items.add(await window.__png("#3B6FE0", "image.png")); t.dispatchEvent(new ClipboardEvent("paste", {clipboardData: dt, bubbles: true, cancelable: true})); });
       await page.waitForTimeout(400);
       nt = await note(page);
@@ -93,7 +87,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(!page.errs.length, "no page errors " + page.errs.join(" | "));
       await ctx.close();
     }
-    /* ---------- Free ---------- */
+    /* Free */
     {
       const {ctx, page} = await mk(true);
       await edit(page);

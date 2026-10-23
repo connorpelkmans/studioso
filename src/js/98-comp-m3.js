@@ -1,10 +1,10 @@
 /* ===== module: 98-comp-m3.js ===== */
-/* Study Companions, Study Fields batch m3: civics, justice, writing */
+/* Study Companions, Study Fields batch m3 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
   const f = v => Math.round(v * 100) / 100;
-  // A frilly oval (tutus, ruffles): n bumps around an ellipse.
+  // A frilly oval (tutus, ruffles)
   const puffE = (cx, cy, rx, ry, n, bump = 1.1) => {
     const p = i => { const a = -Math.PI / 2 + i * 2 * Math.PI / n; return [cx + rx * Math.cos(a), cy + ry * Math.sin(a)]; };
     let d = `M${f(p(0)[0])} ${f(p(0)[1])}`;
@@ -15,7 +15,7 @@
     return d + "Z";
   };
 
-  /* ---------- Civic Square ---------- */
+  /* Civic Square */
   COMP_DATA.push({
     theme: "civics",
     companions: [
@@ -133,7 +133,7 @@
     ]
   });
 
-  /* ---------- Case Room ---------- */
+  /* Case Room */
   COMP_DATA.push({
     theme: "justice",
     companions: [
@@ -250,7 +250,7 @@
     ]
   });
 
-  /* ---------- Writer's Retreat ---------- */
+  /* Writer's Retreat */
   COMP_DATA.push({
     theme: "writing",
     companions: [

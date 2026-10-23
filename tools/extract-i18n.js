@@ -1,8 +1,6 @@
-// node tools/extract-i18n.js [--check]
-// Collects every tr("key", "English") / trn("key", n, "one|other") call (and data-i18n attributes) in index.html into locales/en.json.
-// --check: exit 1 if locales/en.json is out of date, or if a key is used with two different English texts, or a locale file has keys that no longer exist.
+// node tools/extract-i18n.js [--check] Collects every tr("key", "English") / trn
 const fs = require("fs"), path = require("path");
-const root = path.join(__dirname, ".."), src = require("../scripts/app-files").source()   // the whole app page (index.html and its js/, css/ files);
+const root = path.join(__dirname, ".."), src = require("../scripts/app-files").source()
 const found = {}, clash = [];
 const unq = (q, s) => s.replace(/\\(["'`\\])/g, "$1").replace(/\\n/g, "\n");
 const add = (k, en) => { if (found[k] != null && found[k] !== en) clash.push(`${k}: "${found[k]}" vs "${en}"`); found[k] = en; };

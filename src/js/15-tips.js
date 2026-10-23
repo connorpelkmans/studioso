@@ -1,13 +1,9 @@
 /* ===== module: 15-tips.js ===== */
-/* Page tips: the "how to use this page" lines (under the Timeline, the Board, the note board, flashcards, files, the
-   sticker envelope) are for new students. After 14 days of using Studyboard they hide, so everyday pages stay clean.
-   Tips for things people rarely do (setting up a term, the scrapbook, school sync, sharing, backups...) always stay.
-   Mark a tip with class "tip-everyday" to have it hide. Settings > Appearance > Page Tips brings them back.
-   Counted in state.settings.useDays = {n, last} (distinct days the app was opened), so every device agrees. */
+/* Page tips: the "how to use this page" lines */
 (() => {
   const SEASON_DAYS = 14;
   const use = () => (state.settings && state.settings.useDays) || {n: 0, last: ""};
-  const mode = () => (state.settings && state.settings.tips) || "auto";   // "auto" | "always"
+  const mode = () => (state.settings && state.settings.tips) || "auto";
   function tick(){
     const d = todayISO(), u = use();
     if (u.last === d) return;

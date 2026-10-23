@@ -1,5 +1,4 @@
-// node tests/companion-chat.e2e.js  (Playwright + Chromium; the AI call is stubbed)
-// Checks: the Companion tab chat takes attachments, the AI's reply offers actions, and tapping one saves a note to a new board / adds tasks.
+// node tests/companion-chat.e2e.js (Playwright + Chromium; the AI call is stubbed) Checks
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -46,7 +45,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   await page.click('[data-act="cpt-do"][data-i="3"]');
   await page.waitForFunction(() => (JSON.parse(localStorage.getItem("coursework:v2")).tasks || []).some(t => t.title === "Cells Exam" && t.due === "2030-05-03"));
   ok(true, "edit_tasks moved the exam");
-  // refresh, then make the flashcards without attaching the file again
   await page.reload(); await page.waitForFunction(() => window.SBCOMPTAB); await page.evaluate(() => SBCOMPTAB.open());
   await page.click('[data-act="cpt-tab"][data-id="history"]'); await page.click(".cpt-hmain");
   await page.waitForSelector('[data-act="cpt-do"][data-i="2"]');

@@ -1,5 +1,4 @@
--- Self-test for supabase-sync-conflicts.sql. Run it on a scratch database AFTER the setup, lean, plans and sync-conflicts files.
--- It makes two fake users, exercises the compare-and-set functions, and rolls everything back. Any "ASSERT" failure raises an error.
+-- Self-test for supabase-sync-conflicts.sql
 begin;
 insert into auth.users (id, email) values ('aaaaaaaa-0000-0000-0000-000000000001', 'sync-a@test'), ('aaaaaaaa-0000-0000-0000-000000000002', 'sync-b@test');
 set local role authenticated;

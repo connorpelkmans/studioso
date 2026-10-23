@@ -1,6 +1,4 @@
-// node tests/lms-consent.e2e.js  (Playwright + Chromium)
-// Full school sync asks first: what is read, where it is kept, that Studyboard is independent; Not Now leaves it off, Turn On Full Sync
-// is remembered with the settings, and a read the School Sync extension hands over waits for the answer.
+// node tests/lms-consent.e2e.js (Playwright + Chromium) Full school sync asks first
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -25,7 +23,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     const text = await page.textContent("#lmsConsentDlg");
     ok(/your own Canvas work with your own sign-in/.test(text) && /only reads/i.test(text), "it says what is read, and that it only reads");
     ok(/Studyboard account/.test(text) && /Inbox messages stay on your device/.test(text), "it says where it is kept");
-    ok(/not affiliated with or endorsed by Instructure/.test(text) && /school allows/.test(text), "it says Studyboard is independent and to check the school's rules");
+    ok(/not affiliated with or endorsed by Instructure/.test(text) && /school's rules allow/.test(text), "it says Studyboard is independent and to check the school's rules");
     await page.click("#lmsConsentNo"); await page.waitForFunction(() => window.__ans === false);
     ok(await page.evaluate(() => !SBLMS.canvas.consented()), "Not Now leaves full sync off");
     await ask(); await page.waitForSelector("#lmsConsentDlg[open]"); await page.click("#lmsConsentYes"); await page.waitForFunction(() => window.__ans === true);

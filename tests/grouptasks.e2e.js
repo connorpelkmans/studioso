@@ -1,5 +1,4 @@
-// Browser checks for Project Tasks with an in-memory stand-in for the Supabase client (window.__sbGroupsStub).
-// Run: node tests/grouptasks.e2e.js [path/to/index.html] [screenshot-dir]      (needs Playwright; see tests/pw.js for how it and Chromium are found)
+// Browser checks for Project Tasks with an in-memory stand-in for the Supabase client
 const path = require("path"), fs = require("fs"), assert = require("assert");
 const file = path.resolve(process.argv[2] || path.join(__dirname, "..", "index.html"));
 const shots = path.resolve(process.argv[3] || path.join(__dirname, "..", "tests-out"));
@@ -7,19 +6,18 @@ fs.mkdirSync(shots, {recursive: true});
 const {chromium, executablePath} = require("./pw");
 let checks = 0; const ok = (c, m) => { checks++; assert(c, m); };
 
-// The stand-in client: tables in memory, the Project Task RPCs with the same rules as groups.sql, and channels you can fire by hand.
+// The stand-in client
 function stubInit(opts){
   const me = {id: opts.me, email: opts.me + "@x.com"};
   const day = n => { const d = new Date(); d.setDate(d.getDate() + n); const z = x => String(x).padStart(2, "0"); return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate()); };
   const DB = {
-    study_groups: [{id: "g1", name: "Bio Squad", course: "BIOL 201", owner_id: "u1", invite_code: "ABC-DEF", created_at: "2026-01-01", weekly_goal: 0, kind: opts.kind || "study", project_due: null}],   // task lists now live in study groups that already have one (a group project uses its board, see groupkinds.e2e.js)
+    study_groups: [{id: "g1", name: "Bio Squad", course: "BIOL 201", owner_id: "u1", invite_code: "ABC-DEF", created_at: "2026-01-01", weekly_goal: 0, kind: opts.kind || "study", project_due: null}],
     group_members: [{group_id: "g1", user_id: "u1", role: "owner", display_name: "Connor", joined_at: "2026-01-01"}, {group_id: "g1", user_id: "u2", role: "member", display_name: "Sam", joined_at: "2026-01-02"}, {group_id: "g1", user_id: "u3", role: "member", display_name: "Jo", joined_at: "2026-01-03"}],
     group_items: [], group_messages: [], study_profiles: [{user_id: opts.me, display_name: opts.me === "u1" ? "Connor" : "Sam"}], shared_decks: [], group_blocks: [],
     group_quiz_scores: [], group_rsvps: [], group_stats: [], group_checkins: [], group_reactions: [],
     group_task_lists: [], group_tasks: []
   };
   const nowIso = () => new Date().toISOString(); let n = 0; const id = p => p + (++n);
-  // lists can't be made any more: a study group shows the ones it already has (an empty one here, for the main scenario)
   if (opts.emptyList) DB.group_task_lists.push({id: "L1", group_id: "g1", title: "BIOL 201 Poster", course_code: "BIOL 201", created_by: "u1", created_at: "2026-02-01T00:00:00Z", archived: false});
   if (opts.seed) {
     DB.group_task_lists.push({id: "L1", group_id: "g1", title: "BIOL 201 Poster", course_code: "BIOL 201", created_by: "u2", created_at: "2026-02-01T00:00:00Z", archived: false});
@@ -45,7 +43,6 @@ function stubInit(opts){
     };
     const api = {select() { return api; }, eq(c, v) { st.f.push(r => r[c] === v); return api; }, neq(c, v) { st.f.push(r => r[c] !== v); return api; }, in(c, v) { st.f.push(r => v.includes(r[c])); return api; },
       gte(c, v) { st.f.push(r => r[c] >= v); return api; },
-      // PostgREST's or=(col.op.value,...), as the planner asks for "not done, or finished in the last two weeks"
       or(expr) { const ts = String(expr).split(",").map(x => { const i = x.indexOf("."), j = x.indexOf(".", i + 1); return [x.slice(0, i), x.slice(i + 1, j), x.slice(j + 1)]; });
         const t1 = ([c, op, v], r) => op === "eq" ? String(r[c]) === v : op === "neq" ? String(r[c]) !== v : op === "gte" ? String(r[c] || "") >= v : op === "is" ? (v === "null" ? r[c] == null : String(r[c]) === v) : false;
         st.f.push(r => ts.some(t => t1(t, r))); return api; },
@@ -103,12 +100,11 @@ async function boot(browser, w, opts){
 const click = (page, sel) => page.evaluate(sel => { const b = document.createElement("button"); b.dataset.act = sel; document.body.appendChild(b); b.click(); b.remove(); }, sel);
 async function openGroup(page){
   await click(page, "grp-page"); await page.waitForSelector('[data-act="grp-open"]'); await page.click('[data-act="grp-open"]');
-  // a study group opens on its Study tab, which holds the task lists it has; a group project opens on Overview
   await page.waitForSelector("#grpDetail", {timeout: 5000});
   if (await page.locator('[data-act="grp-tab"][data-t="tasks"]').count()) await page.click('[data-act="grp-tab"][data-t="tasks"]');
   await page.waitForSelector("#grpPT", {state: "attached", timeout: 5000}); await page.waitForTimeout(700);
 }
-// the sign-in sheet may open over the Board (this stub signs in to groups, not to sync): close it, then show Today's Plan
+// the sign-in sheet may open over the Board (this stub signs in to groups, not to sync)
 const toPlan = async page => { await page.evaluate(() => { const d = document.querySelector("#dlg"); if (d && d.open) d.close(); }); await page.click('[data-act="bview"][data-id="plan"]'); };
 const txt = (page, sel) => page.evaluate(sel => { const e = document.querySelector(sel); return e ? e.innerText.replace(/\s+/g, " ") : ""; }, sel);
 const noOverflow = async (page, label) => ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), "no horizontal overflow: " + label);
@@ -120,7 +116,6 @@ async function scenario(browser, w){
   await page.screenshot({path: path.join(shots, `pt-${w}-0-empty.png`), fullPage: false});
   ok(/BIOL 201 Poster/.test(await txt(page, "#grpPT")), tag + " the group's list shows");
   ok(/Split up the work: add the first task/.test(await txt(page, "#grpPT")), tag + " empty list wording");
-  // add tasks
   const add = async (title, who, due) => { await page.fill("#ptTitle", title); if (who) await page.selectOption("#ptWho", who); if (due) await page.fill("#ptDue", due); await page.press("#ptTitle", "Enter"); await page.waitForTimeout(200); };
   const day = n => { const d = new Date(); d.setDate(d.getDate() + n); const z = x => String(x).padStart(2, "0"); return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate()); };
   await add("Draft the intro", "u2", day(2));
@@ -140,18 +135,14 @@ async function scenario(browser, w){
   ok(await page.evaluate(() => window.__DB.group_tasks.length) === 4, tag + " tasks reached the server stub");
   await noOverflow(page, tag + " after adding");
   await page.screenshot({path: path.join(shots, `pt-${w}-1-tasks.png`), fullPage: true});
-  // claim
   await page.click('[data-act="grp-pt-claim"]'); await page.waitForTimeout(250);
   ok(/Find three figures.*You/.test(await txt(page, ".pt-tasks li:nth-child(2)")), tag + " claim assigns me: " + (await txt(page, ".pt-tasks")).replace(/\s+/g, " "));
   ok(await page.evaluate(() => window.__DB.group_tasks.find(t => t.title === "Find three figures").assignee_id) === "u1", tag + " claim saved");
-  // nudge Jo about the overdue task
   ok(await page.$$eval('[data-act="grp-pt-nudge"]', e => e.length) === 0, tag + " no Nudge button (the feature was removed)");
-  // complete
   await page.click('.pt-task:has-text("Make the slides") [data-act="grp-pt-done"]'); await page.waitForTimeout(300);
   ok(/1 of 4 done/.test(await txt(page, ".pt-prog")), tag + " completing updates progress");
   ok(await page.evaluate(() => window.__DB.group_tasks.find(t => t.title === "Make the slides").status) === "done", tag + " completion saved");
   ok(await page.getAttribute('.pt-task:has-text("Make the slides") [data-act="grp-pt-done"]', "aria-checked") === "true", tag + " checkbox state is exposed");
-  // filters
   const filt = async f => { await page.click(`[data-act="grp-pt-filter"][data-f="${f}"]`); await page.waitForTimeout(100); return page.$$eval(".pt-task .pt-title", e => e.map(x => x.innerText)); };
   eq(await filt("mine"), ["Find three figures"], tag + " Mine");
   eq(await filt("unassigned"), [], tag + " Unassigned (none left)");
@@ -159,31 +150,26 @@ async function scenario(browser, w){
   eq(await filt("overdue"), ["Write the abstract"], tag + " Overdue");
   eq(await filt("done"), ["Make the slides"], tag + " Done");
   ok((await filt("all")).length === 4, tag + " All");
-  // realtime: Sam finishes his task in another browser
   await page.evaluate(() => { const t = window.__DB.group_tasks.find(x => x.title === "Draft the intro"); t.status = "done"; t.completed_by = "u2"; t.completed_at = new Date().toISOString(); t.updated_by = "u2"; window.__fire("group_tasks", "UPDATE"); });
   await page.waitForTimeout(900);
   ok(/2 of 4 done/.test(await txt(page, ".pt-prog")), tag + " realtime update from another member");
   ok(await page.evaluate(() => window.__chans.some(c => !c.gone && c.name.startsWith("sbt-"))), tag + " the task channel was opened once the tables were confirmed");
-  // typing is not lost when a live update arrives
   await page.fill("#ptTitle", "Half typed"); await page.evaluate(() => window.__fire("group_tasks", "UPDATE")); await page.waitForTimeout(900);
   eq(await page.inputValue("#ptTitle"), "Half typed", tag + " live update keeps the draft");
   ok(await page.evaluate(() => document.activeElement && document.activeElement.id) === "ptTitle", tag + " and keeps focus");
   await page.fill("#ptTitle", "");
-  // error rollback
   await page.evaluate(() => { window.__fail = "update_group_task"; window.__failMsg = "You don't have permission to do that in this group."; });
   await page.click('.pt-task:has-text("Write the abstract") [data-act="grp-pt-done"]');
   await page.waitForTimeout(10);
   await page.waitForTimeout(300);
   ok(await page.getAttribute('.pt-task:has-text("Write the abstract") [data-act="grp-pt-done"]', "aria-checked") === "false", tag + " failed save rolls the checkbox back");
   ok(/permission/.test(await txt(page, "#toast")), tag + " the error is explained");
-  // offline add: the row goes away and the text comes back
   await page.evaluate(() => { window.__offline = true; });
   await page.fill("#ptTitle", "Offline thought"); await page.press("#ptTitle", "Enter"); await page.waitForTimeout(400);
   eq(await page.$$eval(".pt-task", e => e.length), 4, tag + " offline add rolls back");
   eq(await page.inputValue("#ptTitle"), "Offline thought", tag + " offline add restores what was typed");
   ok(/reach Studyboard/.test(await txt(page, "#toast")), tag + " offline message");
   await page.evaluate(() => { window.__offline = false; }); await page.fill("#ptTitle", "");
-  // edit sheet
   await page.click('.pt-task:has-text("Write the abstract") [data-act="grp-pt-edit"]'); await page.waitForSelector("dialog[open] input[name=title]");
   await page.fill('dialog input[name="title"]', "Write the abstract (150 words)"); await page.fill('dialog textarea[name="notes"]', "Keep it under 150 words"); await page.selectOption('dialog select[name="priority"]', "high"); await page.selectOption('dialog select[name="who"]', "u1");
   await noOverflow(page, tag + " edit sheet");
@@ -192,7 +178,6 @@ async function scenario(browser, w){
   const saved = await page.evaluate(() => window.__DB.group_tasks.find(t => /abstract/.test(t.title)));
   ok(saved.title === "Write the abstract (150 words)" && saved.notes === "Keep it under 150 words" && saved.priority === "high" && saved.assignee_id === "u1", tag + " edit saved (owner may reassign)");
   ok(/High/.test(await txt(page, "#grpPT")), tag + " priority tag");
-  // list options: archive, then restore
   await page.click('[data-act="grp-pt-list-edit"]'); await page.click('dialog [data-act="grp-pt-list-arch"]'); await page.waitForTimeout(300);
   ok(/All your lists are archived/.test(await txt(page, "#grpPT")), tag + " archive hides the list");
   await page.click('[data-act="grp-pt-arch"]'); await page.waitForTimeout(100);
@@ -214,7 +199,6 @@ async function plainMember(browser){
   ok(/Only Jo or the group owner/.test(await txt(page, "dialog")), "the reason is shown");
   ok(await page.$$eval('dialog [data-act="grp-pt-del"]', e => e.length) === 0, "no delete button for a task someone else added");
   await page.keyboard.press("Escape");
-  // an unassigned task can be claimed by anyone
   await page.click('.pt-task:has-text("Proofread") [data-act="grp-pt-claim"]'); await page.waitForTimeout(300);
   ok(await page.evaluate(() => window.__DB.group_tasks.find(t => t.title === "Proofread").assignee_id) === "u2", "member claims an unassigned task");
   eq(errs, [], "no errors (member)");
@@ -223,7 +207,6 @@ async function plainMember(browser){
 
 async function sqlNotRun(browser){
   for (const who of ["u1", "u2"]) {
-    // a group project, which always has a Tasks tab (a study group without lists shows no task section at all)
     const {ctx, page, errs} = await boot(browser, 1280, {me: who, kind: "project", missing: ["group_task_lists", "group_tasks"]});
     await openGroup(page).catch(() => {});
     await page.waitForTimeout(500);
@@ -240,7 +223,7 @@ async function sqlNotRun(browser){
 async function planner(browser, w){
   const tag = "planner " + w;
   const {ctx, page, errs} = await boot(browser, w, {me: "u1", seed: true});
-  await toPlan(page);   // the card sits under Today's Plan (the Board can open on the Task Board)
+  await toPlan(page);
   await page.waitForSelector("#grpMine", {timeout: 6000});
   const card = await txt(page, "#grpMine");
   ok(/Group: BIOL 201 Poster/.test(card), tag + " group badge: " + card.replace(/\s+/g, " "));
@@ -254,18 +237,14 @@ async function planner(browser, w){
   ok(await page.evaluate(() => (localStorage.getItem("sb:gtmine:u1") || "").includes("Write the methods section")), tag + " cached for offline");
   await page.screenshot({path: path.join(shots, `planner-${w}.png`), fullPage: true});
   await noOverflow(page, tag);
-  // complete from the planner updates the shared task
   await page.click('#grpMine [data-act="grp-pt-done"]:near(:text("Collect survey data"))').catch(async () => { await page.click('#grpMine li:has-text("Collect survey data") [data-act="grp-pt-done"]'); });
   await page.waitForTimeout(500);
   ok(await page.evaluate(() => window.__DB.group_tasks.find(t => t.id === "s2").status) === "done", tag + " completing here completes the shared task");
   ok(!/Collect survey data/.test(await txt(page, "#grpMine")), tag + " it leaves the card");
-  // open the group from the card
   await page.click('#grpMine [data-act="grp-pt-open"]:has-text("Write the methods section")'); await page.waitForSelector("#grpPT", {timeout: 4000}); await page.waitForTimeout(700);
   ok(/BIOL 201 Poster/.test(await txt(page, "#grpPT")), tag + " card opens the group's list");
-  // the other way round: finishing it in the group updates the planner
   await page.click('.pt-task:has-text("Write the methods section") [data-act="grp-pt-done"]'); await page.waitForTimeout(400);
   ok(await page.evaluate(() => window.SBGROUPTASKS.mine().length === 0), tag + " completing in the group updates the planner list");
-  // a failed completion from the planner (group not open) rolls back
   eq(errs, [], tag + " no errors: " + errs.join(" | "));
   await ctx.close();
 }

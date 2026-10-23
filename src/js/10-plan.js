@@ -1,97 +1,47 @@
 /* ===== module: 10-plan.js ===== */
-/* Studyboard 1.11: Plans (Free and Pro)
-   The plan and entitlement system. It is built and ready, but switched off: while Pro enforcement is off (PRO_ENFORCED is false
-   and the server switch studyboard_config.paywall is false), PLAN.isPro() is true, nothing is locked and no limit sheets appear.
-   To launch, see "FLIP TO true TO LAUNCH PRO" next to STORE.
-
-   Shared API (declared with var so every later module can use it):
-     PLAN.tier()            "free" | "pro"   ("pro" while enforcement is off)
-     PLAN.isPro()           paid or trialling Pro (a verified signed token), or enforcement off
-     PLAN.paywall()         STORE.paywall (enforcement on: constant OR server switch OR test override; local state can never turn it off)
-     PLAN.mode()            "off" | "free" | "signed" (verified token) | "unsigned-fallback" (own RLS row, no key or no Ed25519)
-     PLAN.limits()          {devices, fileMB, dataMB, groupMembers, groupMsgDays, cloudBackupDays}  (Infinity / null = no limit)
-     PLAN.can(feature)      "sync-unlimited-devices" | "cloud-backups" | "big-groups" | "full-group-history" | "premium-styles" | "big-storage" | "insights" | "ai-credits"
-     PLAN.openSheet(reason) the Studyboard Pro sheet, with an optional reason line at the top
-     PLAN.usage()           {dataMB, fileMB} estimated from this device's copy of your data
-     PLAN.buy(period)       "monthly" | "yearly": the ONE buy function (website account page, or native in-app purchase in store builds)
-     PLAN.manage() PLAN.restore() PLAN.refresh()
-     hook("plan-changed", fn(PLAN))   fired after the plan loads or changes
-   Hooks fired for a native layer (RevenueCat in an app store wrapper, or the desktop app):
-     "plan-checkout" (period, userId) return true if handled; "plan-restore" (userId); "plan-manage" (ent); "plan-buy-item" (kind, id)
-   The same three calls are also sent to a native wrapper as cancelable window events (a wrapper script cannot see these hooks):
-     window "studyboard:plan-checkout"  detail {period, userId}      call event.preventDefault() to say "handled"
-     window "studyboard:plan-restore"   detail {userId}              (same)
-     window "studyboard:plan-manage"    detail {entitlement}         (same)
-   and answers by dispatching   window.dispatchEvent(new CustomEvent("studyboard:purchase-result", {detail}))   with
-     detail = {action: "checkout" | "restore" | "manage", status: "success" | "cancelled" | "nothing" | "error", message?: string}
-   ("nothing" = a restore that found no purchase). See ios-wrapper/README-IOS.md. Pro itself still only ever turns on from the server.
-*/
+/* Studyboard 1.11 */
 var PLAN = null;
-window.__sbPlanObj = () => PLAN;   // test handle
+window.__sbPlanObj = () => PLAN;
 (() => {
   const K_ENT = "studyboard:plan", K_TOK = "studyboard:enttok", K_HW = "studyboard:ent:hw", K_CFG = "studyboard:plancfg", K_DEV = "studyboard:deviceId", K_NAG = "studyboard:devnag";
   const MB = 1048576;
 
   /* ============================== OWNER SETTINGS (replace these before launch) ============================== */
-  // The Pro switch itself is PRO_ENFORCED (next to STORE, near the top of this file). These are the other things you fill in:
 
-  // The public half of the key that signs entitlement tokens. REPLACE with the output of the key-generation step in
-  // PRO-PLANS-GUIDE.md ("Entitlement signing key"). It is a RAW 32-byte Ed25519 public key as base64url (43 characters).
-  // While this is still the placeholder, the app falls back to reading the signed-in user's own studyboard_entitlements row
-  // (allowed by RLS) and marks the plan as "unsigned-fallback" (kept in memory only, never trusted from storage).
   const ENT_PUBKEY = "oTFcMtlYPbLZ6D2g-dK798oh7NQrw7r1DusqzFmELtw";
 
-  // Your website. REPLACE with the real address (no trailing slash). studyboard_config "site_url" overrides it without a rebuild.
-  // Buy / Manage Plan open <site>/account?plan=monthly|yearly&src=app in the person's browser.
   const SITE_URL = "https://studyboardapp.com/website";
 
-  // App Store / Play builds must sell digital subscriptions with the store's own in-app purchase (Apple guideline 3.1.1), so
-  // Buy goes to the native layer (the "plan-checkout" event, RevenueCat) there. Set this to true ONLY if you are sure that your
-  // storefronts allow external purchase links (for example the US storefront under the current Apple rules); store builds then
-  // open the website like everyone else. Default false is the safe choice.
   const EXTERNAL_PURCHASE_ALLOWED = false;
 
-  /* About tamper resistance (please read): Studyboard is a fully client-side app, so nobody can stop a determined person from
-     editing their own copy of index.html and making isPro() return true. Everything that gates cosmetics here (themes, companions,
-     stickers...) is deterrence for normal people, not security. The REAL protection is on the server: file and data storage
-     limits, the device limit, study group size and message retention, online backups and Study Together rooms are enforced by
-     Supabase (supabase-plans.sql triggers and room_limits) from the studyboard_entitlements row that only the billing webhook can write.
-     What this client does on top: it never trusts a plain flag in localStorage. Pro is derived from a SIGNED token
-     (the entitlement-token edge function) that is verified with the public key above on every load, must belong to the signed-in
-     user, and must not be expired (with a clock high-water mark so setting the device clock back doesn't revive it). */
 
-  /* ---------- Config: one place for limits and prices. The studyboard_config table can override any of it. ---------- */
+  /* Config: one place for limits and prices */
   const PLAN_CONFIG = {
     limits: {
       free: {devices: 2, fileMB: 25, dataMB: 25, groupMembers: 5, groupMsgDays: 60, cloudBackupDays: 0},
       pro: {devices: Infinity, fileMB: 10240, dataMB: 250, groupMembers: 100, groupMsgDays: null, cloudBackupDays: 30}
     },
-    prices: {monthly: "$3.99", semester: "$12.99", yearly: "$29.99", trialDays: 7, checkoutTrialDays: 0},   // trialDays: the free week; checkoutTrialDays: a card trial at checkout (off)   // semester: every 4 months, on the website only (not in the App Store or Google Play yet)
+    prices: {monthly: "$3.99", semester: "$12.99", yearly: "$29.99", trialDays: 7, checkoutTrialDays: 0},
     checkout_url_monthly: "", checkout_url_semester: "", checkout_url_yearly: "", manage_url: "", site_url: "",
-    app_trial: false,                 // a no-card trial started in the app (studyboard_start_trial). Store trials work without this.
-    item_purchases: false,            // single cosmetic items or packs for sale on their own (optional)
+    app_trial: false,
+    item_purchases: false,
     features: {insights: false, ai_credits: false},
-    paywall: false                    // the server switch (studyboard_config.paywall); the app switch is PRO_ENFORCED. Either one turns enforcement on.
+    paywall: false
   };
   const read = k => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } };
   const write = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
-  // Upgrade tracking: private counts per day of which Pro prompt was shown, which led to a buy click, and which led to a purchase.
-  // Only the prompt's reason line is sent (numbers and quoted names taken out), never who it was. Read them in Supabase (supabase-plans.sql).
   const K_ATTR = "studyboard:upgradeAttr";
   const reasonKey = r => String(r || "").replace(/["\u201c][^"\u201d]*["\u201d]/g, "\u2026").replace(/\d+(?:[.,]\d+)?/g, "#").replace(/\s+/g, " ").trim().slice(0, 120) || "(none)";
   function track(ev, reason){
     try {
       if (!paywall()) return;
-      if (Array.isArray(window.__sbTrackSink)) window.__sbTrackSink.push([ev, reasonKey(reason)]);   // test handle
+      if (Array.isArray(window.__sbTrackSink)) window.__sbTrackSink.push([ev, reasonKey(reason)]);
       if (typeof sb === "undefined" || !sb || !sb.rpc) return;
       const q = sb.rpc("studyboard_upgrade_event", {p_event: ev, p_reason: reasonKey(reason)});
-      if (q && q.then) q.then(() => {}, () => {});   // fire and forget; a missing function just fails quietly
+      if (q && q.then) q.then(() => {}, () => {});
     } catch (e) {}
   }
   const numOr = (v, d) => v === null ? null : typeof v === "number" && isFinite(v) ? v : d;
-  // Merge server rows ({key: value}) over the defaults. null in a limit means "no limit".
-  // These three limits are set here, not by the table or a cached copy of it, so the Free vs Pro table can never show an old number
-  // (the server enforces the same values: supabase-plans.sql).
   const PINNED = {free: ["devices", "groupMembers", "groupMsgDays"], pro: ["devices", "groupMembers", "groupMsgDays"]};
   function mergeCfg(rows){
     const c = JSON.parse(JSON.stringify(PLAN_CONFIG, (k, v) => v === Infinity ? "Infinity" : v), (k, v) => v === "Infinity" ? Infinity : v);
@@ -110,15 +60,15 @@ window.__sbPlanObj = () => PLAN;   // test handle
   /* ---------- State ---------- */
   const P = {
     cfgRows: (read(K_CFG) || {}).rows || null,
-    row: read(K_ENT),         // {uid, ent: {plan, pro_until, trial_until, source, will_renew}, at}: the user's own row, for DISPLAY (and the unsigned fallback when fetched this session)
-    rowLive: false,           // the row above was read from the server during this page load
-    tok: null,                // the verified token {tier, exp, uid, iat, sig} (only ever set after a successful signature check in this page load)
-    pend: null,               // the cached token while its signature check is still running (a few ms at startup)
-    mode: "none",             // "signed" (verified token) | "unsigned-fallback" (the user's own RLS row) | "none"
+    row: read(K_ENT),
+    rowLive: false,
+    tok: null,
+    pend: null,
+    mode: "none",
     edBad: false, noFn: false,
-    entDone: false,           // the server was asked about this user's plan during this page load (finished, answered or not)
-    uid: null,                // the signed-in user we last loaded for
-    stored: null,             // the user id of the saved sign-in, used only while the app hasn't finished signing in (offline start)
+    entDone: false,
+    uid: null,
+    stored: null,
     loading: false, tablesMissing: false, lastLoad: 0, awaiting: 0, wasPro: false,
     devices: null, devErr: "", devBlocked: false,
     lastKey: ""
@@ -126,8 +76,6 @@ window.__sbPlanObj = () => PLAN;   // test handle
   let cfg = mergeCfg(P.cfgRows);
   try { const a = JSON.parse(localStorage.getItem("studioso-auth") || "null"); P.stored = a && a.user && typeof a.user.id === "string" ? a.user.id : (a && a.currentSession && a.currentSession.user && a.currentSession.user.id) || null; } catch (e) {}
 
-  /* Time that only moves forward: the larger of the device clock and a saved high-water mark (bumped from the server's own
-     timestamps and every minute), plus the time elapsed in this session. Setting the clock back can't un-expire a token. */
   let hw = Number((() => { try { return localStorage.getItem(K_HW); } catch (e) { return 0; } })()) || 0;
   const base0 = Math.max(Date.now(), hw), perf0 = typeof performance !== "undefined" ? performance.now() : 0;
   const bump = ms => { if (ms > hw) { hw = ms; try { localStorage.setItem(K_HW, String(Math.floor(hw))); } catch (e) {} } };
@@ -149,19 +97,14 @@ window.__sbPlanObj = () => PLAN;   // test handle
   const PRO_TIERS = ["pro", "trial", "lifetime"];
   const SKEW_MS = 2 * 60000;
   const tokLive = t => !!t && PRO_TIERS.includes(t.tier) && t.uid === curUid() && now() < t.exp * 1000 + SKEW_MS;
-  // Is this person Pro right now? Derived from the verified token (or the legitimate RLS fallback), never from a stored flag.
   function paid(){
     const u = curUid(); if (!u) return false;
     if (P.mode === "signed" && tokLive(P.tok)) return true;
     if (P.mode === "unsigned-fallback" && P.rowLive && P.row && P.row.uid === u && entActive(P.row.ent)) return true;
-    return !!P.pend && tokLive(P.pend);   // the cached token's signature is being checked: keep what you had for those few milliseconds
+    return !!P.pend && tokLive(P.pend);
   }
-  // Enforcement: PRO_ENFORCED, the server switch (latched), or the test override. Local state can only ever turn it ON.
   const paywall = () => !!STORE.paywall;
-  // Is the plan known for this load? (Until it is, the theme from last time stays on screen: see skinHeld.)
   const settled = () => !paywall() || !curUid() || paid() || !!P.entDone || P.edBad;
-  // Right after a refresh, until the plan is confirmed (at most 10 seconds), show what this device last confirmed for this account, so a
-  // Pro account doesn't flash Pro badges and the free companion. Display only and short-lived: the confirmed answer always wins.
   const K_HINT = "studyboard:planHint", boot0 = Date.now();
   let hintW = null;
   const hintPro = () => { try { const h = JSON.parse(localStorage.getItem(K_HINT) || "null"); return !!h && h.uid === curUid() && h.pro === true; } catch (e) { return false; } };
@@ -171,27 +114,17 @@ window.__sbPlanObj = () => PLAN;   // test handle
     if (settled()) { const u = curUid(); if (u && hintW !== u + p) { hintW = u + p; try { localStorage.setItem(K_HINT, JSON.stringify({uid: u, pro: p})); } catch (e) {} } return p; }
     return p || (Date.now() - boot0 < 10000 && hintPro());
   }
-  // Cloud file storage is the one limit that applies even while the paywall is off (the server enforces it too): files cost real storage.
-  // A card-free trial (the free week, or an in-app trial) unlocks every Pro theme and feature but keeps the free plan's amounts (storage,
-  // synced data, devices, group size, online backups, Pro groups), the same as the server (studyboard_limits_pro), so nothing is over a
-  // limit when it ends. A paid plan or a gift gives Pro's amounts.
   const freeTrialOnly = () => { const e = ent(); return !!e && e.plan === "free" && trialing(e); };
   const limitsPro = () => paid() && !freeTrialOnly();
   const fileCapMB = () => cfg.limits[limitsPro() ? "pro" : "free"].fileMB;
   const mode = () => !paywall() ? "off" : !paid() ? "free" : P.mode === "signed" ? "signed" : P.mode === "unsigned-fallback" ? "unsigned-fallback" : "signed";
 
-  /* ---------- The signed entitlement token ----------
-     Contract with the server (edge function "entitlement-token", POST with the user's Supabase JWT) returns
-       {tier, exp, uid, iat, sig}
-     tier "free" | "pro" | "trial" | "lifetime"; exp and iat in unix seconds (exp is at most 7 days after iat, sooner for trials; the
-     server hands out a fresh one while the subscription is active); sig = base64url Ed25519 signature over the UTF-8 string
-       studyboard-ent-v1|<uid>|<tier>|<exp>|<iat>                                                                                    */
+  /* The signed entitlement token Contract with the server */
   const b64u = s => { s = String(s || "").replace(/-/g, "+").replace(/_/g, "/"); while (s.length % 4) s += "="; const bin = atob(s), a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return a; };
   const keyBytes = () => { try { const b = b64u(ENT_PUBKEY); return b.length === 32 ? b : null; } catch (e) { return null; } };
   const hasKey = () => !!keyBytes();
   let keyP = null;
   const cryptoKey = () => keyP || (keyP = crypto.subtle.importKey("raw", keyBytes(), {name: "Ed25519"}, false, ["verify"]));
-  // "ok" | "nokey" | "unsupported" | "shape" | "forged" | "uid" | "expired" | "toolong"
   async function verifyToken(t, uid){
     if (!t || typeof t !== "object") return "shape";
     const {tier, exp, uid: tu, iat, sig} = t;
@@ -208,7 +141,6 @@ window.__sbPlanObj = () => PLAN;   // test handle
     if (now() > exp * 1000 + SKEW_MS) return "expired";
     return "ok";
   }
-  // On every load: re-verify the cached token (never trusted just because it is in storage)
   async function loadCachedToken(){
     const c = read(K_TOK); if (!c || !c.tok) return;
     if (!hasKey() || !(window.crypto && crypto.subtle)) { write(K_TOK, null); return; }
@@ -222,27 +154,24 @@ window.__sbPlanObj = () => PLAN;   // test handle
     changed();
   }
 
-  /* ---------- Features ---------- */
+  /* Features */
   function can(feature){
     switch (feature) {
       case "insights": return !!cfg.features.insights && isPro();
       case "ai-credits": return !!cfg.features.ai_credits && isPro();
-      // amounts: a paid plan or a gift (not a card-free trial), like the server's studyboard_limits_pro
       case "sync-unlimited-devices": case "cloud-backups": case "big-groups": case "full-group-history": case "big-storage": return !paywall() || limitsPro();
-      default: return isPro();   // premium-styles and the Pro features
+      default: return isPro();
     }
   }
 
-  /* ---------- Usage (estimated from this device's copy) ---------- */
+  /* Usage (estimated from this device's copy) */
   function usage(){
     let dataB = 0, fileB = 0;
     try { dataB = new Blob([JSON.stringify(toArrays())]).size; } catch (e) {}
-    try { const seen = new Set(); Object.values(state.files || {}).forEach(f => (f && f.revs || []).forEach(r => { if (r && r.assetId && !/^local:/.test(r.assetId) && !seen.has(r.assetId)) { seen.add(r.assetId); fileB += Number(r.size) || 0; } })); } catch (e) {}   // a stored file shared by two records (a lecture and its backup in Files) counts once
+    try { const seen = new Set(); Object.values(state.files || {}).forEach(f => (f && f.revs || []).forEach(r => { if (r && r.assetId && !/^local:/.test(r.assetId) && !seen.has(r.assetId)) { seen.add(r.assetId); fileB += Number(r.size) || 0; } })); } catch (e) {}
     return {dataMB: dataB / MB, fileMB: fileB / MB, dataBytes: dataB, fileBytes: fileB};
   }
   const lim = () => cfg.limits[!paywall() || limitsPro() ? "pro" : "free"];
-  // When Pro ends while the app is open, the Pro look (theme, companion, stickers) stays for the rest of that session: it switches the
-  // next time the app or the web page opens, or as soon as the Style Shop is opened, whichever comes first.
   function styleGrace(){
     if (P.sessionPro !== true || P.graceOff || !paywall()) return false;
     return !isPro();
@@ -250,13 +179,12 @@ window.__sbPlanObj = () => PLAN;   // test handle
   function endStyleGrace(){ const was = styleGrace(); P.graceOff = true; return was; }
   const fmtMB = mb => mb === Infinity ? "Unlimited" : mb >= 1024 ? `${+(mb / 1024).toFixed(mb % 1024 ? 1 : 0)} GB` : mb >= 10 || mb === 0 ? `${Math.round(mb)} MB` : `${mb.toFixed(1)} MB`;
 
-  /* ---------- Loading from Supabase (tolerates missing tables) ---------- */
+  /* Loading from Supabase (tolerates missing tables) */
   const missing = err => { const m = String(err && (err.message || err.code) || ""); return err && (err.code === "42P01" || err.code === "PGRST205" || err.code === "PGRST202" || /does not exist|Could not find the (table|function)|schema cache/i.test(m)); };
   let lastFire = "";
   function changed(){
     const pro = isPro();
     const key = JSON.stringify([paywall(), pro, mode(), ent(), cfg.limits, cfg.prices, P.edBad, settled()]);
-    // the person just became Pro after starting a purchase: say so
     if (pro && !P.wasPro && P.awaiting && paywall()) {
       P.awaiting = 0;
       setTimeout(() => { try { toast("Pro is on. Thank you for supporting Studyboard!"); if (dlg.open && dlg.querySelector(".plan-sheet")) proSheet(P.reason); } catch (e) {} }, 50);
@@ -280,24 +208,21 @@ window.__sbPlanObj = () => PLAN;   // test handle
       if (error) { if (missing(error)) { P.tablesMissing = true; P.cfgRows = null; cfg = mergeCfg(null); write(K_CFG, null); } return; }
       const rows = {}; (data || []).forEach(r => { rows[r.key] = r.value; });
       P.cfgRows = rows; cfg = mergeCfg(rows); write(K_CFG, {rows, at: Date.now()});
-      STORE.serverPaywall(rows.paywall === true);   // a successful answer: true turns it on (latched), false releases the latch
-    } catch (e) { /* offline: keep the cached config (and the latch) */ }
+      STORE.serverPaywall(rows.paywall === true);
+    } catch (e) { }
   }
   async function loadRow(){
     if (!sb || !sbUser) return null;
     const uid = sbUser.id;
     try {
-      // grant_until / grant_lifetime hold manual gifts (studyboard_grant_pro); older databases don't have them yet, so retry without.
-      // promo_until / promo_lifetime come from promo codes (studyboard_redeem_code); a database without them yet is read without them
       let res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime,promo_until,promo_lifetime").eq("user_id", uid).maybeSingle();
       if (res.error && /promo_|column/i.test(String(res.error.message || ""))) res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime").eq("user_id", uid).maybeSingle();
       if (res.error && /grant_(until|lifetime)|column/i.test(String(res.error.message || ""))) res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew").eq("user_id", uid).maybeSingle();
       let {data, error} = res;
-      if (data) {   // fold a manual gift into the display shape the rest of the module reads (a gift never hides a live subscription)
+      if (data) {
         const e = Object.assign({}, data);
         if (e.grant_lifetime) { e.plan = "lifetime"; e.source = "lifetime"; }
         else if (e.grant_until && ts(e.grant_until) > now() && !entActive(e)) { e.plan = "pro"; e.pro_until = e.grant_until; e.source = "promo"; }
-        // A promo code reads like a trial: Pro's features with the free plan's amounts, ending when the code does (never with a paid plan or a gift)
         const paidNow = e.plan === "lifetime" || (e.plan === "pro" && (!e.pro_until || ts(e.pro_until) > now()));
         const promoEnd = e.promo_lifetime ? "9999-12-31T00:00:00Z" : e.promo_until && ts(e.promo_until) > now() ? e.promo_until : "";
         if (!paidNow && promoEnd && !(ts(e.trial_until) > ts(promoEnd))) { e.trial_until = promoEnd; e.source = "code"; e.codeForever = !!e.promo_lifetime; }
@@ -306,37 +231,33 @@ window.__sbPlanObj = () => PLAN;   // test handle
       if (error) { if (missing(error)) { P.tablesMissing = true; P.row = {uid, ent: null, at: Date.now()}; P.rowLive = true; write(K_ENT, P.row); } return false; }
       P.row = {uid, ent: data || null, at: Date.now()}; P.rowLive = true; write(K_ENT, P.row);
       return true;
-    } catch (e) { return false; /* offline: keep what we have */ }
+    } catch (e) { return false; }
   }
-  // Ask the server for a fresh signed token. true = the token path handled it (even if the answer was "free"); false = use the fallback.
   async function loadToken(){
     if (!sb || !sbUser) return false;
     if (!hasKey() || P.edBad) return false;
     const uid = sbUser.id;
     let res;
     try { res = await sb.functions.invoke("entitlement-token", {body: {}}); }
-    catch (e) { return P.mode === "signed"; }   // offline: a verified, unexpired token keeps working
+    catch (e) { return P.mode === "signed"; }
     const {data, error} = res || {};
     if (error) {
       const st = error.context && error.context.status;
-      if (st === 404 || /not found|FunctionsFetchError.*404/i.test(String(error.message || ""))) { P.noFn = true; return false; }   // not deployed yet: fall back to the RLS row
-      return P.mode === "signed";                 // network trouble or a server hiccup: keep the verified token we have
+      if (st === 404 || /not found|FunctionsFetchError.*404/i.test(String(error.message || ""))) { P.noFn = true; return false; }
+      return P.mode === "signed";
     }
     const r = await verifyToken(data, uid);
     if (r === "ok") { P.tok = data; P.mode = "signed"; P.noFn = false; write(K_TOK, {tok: data, at: Date.now()}); return true; }
     if (r === "unsupported") { P.edBad = true; return false; }
-    // forged, wrong user, expired or malformed: this is not a Pro token
     P.tok = null; write(K_TOK, null); P.mode = "signed";
     return true;
   }
   async function loadEntitlement(){
     if (!sb || !sbUser) return;
     const signed = await loadToken();
-    await loadRow();                                   // the user's own row: plan details for display, and the fallback when there is no usable key
+    await loadRow();
     if (!signed) { P.mode = "unsigned-fallback"; P.tok = null; }
   }
-  // Pro is offered only when you reach one of the free plan's limits, as one small message per limit (once per account on this device),
-  // never as a pop-up on its own. Returns true when it showed.
   const K_LIMITS = "studyboard:limitNotes";
   function limitNote(key, msg, opts){
     const o = opts || {};
@@ -348,7 +269,6 @@ window.__sbPlanObj = () => PLAN;   // test handle
     toast(msg, null, {label: o.label || "See Pro", fn: o.fn || (() => proSheet(o.reason || ""))});
     return true;
   }
-  // Promo codes: the person types a code, the database checks it (studyboard_redeem_code) and gives Pro's features. Nothing here decides.
   function redeemSheet(){
     if (!sbUser) { toast("Sign in first, then redeem your code."); if (typeof sbAsk === "function") sbAsk(); return; }
     openSheet(`<form class="sheet" id="promoForm">${head("Redeem a Code")}<div class="sheet-body">
@@ -375,18 +295,15 @@ window.__sbPlanObj = () => PLAN;   // test handle
     });
   }
   async function refresh(){
-    if (P.loading || inClaude()) return;
+    if (P.loading || inPreview()) return;
     P.loading = true;
     try { await loadConfig(); if (paywall() && sbUser) { await loadEntitlement(); P.entDone = true; } } finally { P.loading = false; P.lastLoad = Date.now(); }
-    if (P.sessionPro == null && paywall() && sbUser && P.entDone) P.sessionPro = paid();   // was this load started on Pro? (see styleGrace)
+    if (P.sessionPro == null && paywall() && sbUser && P.entDone) P.sessionPro = paid();
     changed();
     welcomeNotes();
   }
-  // The free week of Pro every new account gets (granted by the database when the email is confirmed): one hello when it starts and
-  // one calm note when it ends. Each shows once per account on this device, never as a sheet.
   const K_WELCOME = "studyboard:welcomeWeek";
   let welcomeRetry = 0;
-  // The free week, while it's running (for the welcome tour's last step), and marking its welcome as said for this account
   function welcomeWeek(){ const e = ent(); return e && e.source === "welcome" && e.trial_until && paywall() && ts(e.trial_until) > now() ? {until: e.trial_until, date: dateStr(e.trial_until)} : null; }
   function welcomeSaid(){ const uid = curUid(); if (!uid) return; const seen = read(K_WELCOME) || {}, mine = seen[uid] || {}; if (!mine.start) { mine.start = Date.now(); seen[uid] = mine; write(K_WELCOME, seen); } }
   function welcomePop(until){
@@ -406,8 +323,6 @@ window.__sbPlanObj = () => PLAN;   // test handle
       save("lastDay"); if (!mine.start) save("start");
       setTimeout(() => toast(`Your free week of Pro ends tomorrow. Everything you made stays, and the planner stays free. Pro themes go back to a plain theme.`, null, {label: "See Plans", fn: () => proSheet("Your free week of Pro ends tomorrow. Keep Pro with any plan below, or carry on with Free.")}), 1500);
     } else if (endAt > now() && !mine.start) {
-      // The welcome is part of the welcome tour's last step. If the tour is still to come (or open), it says it there; if the account
-      // was made after the tour (someone who started without one), it's a warm card in the middle of the screen, never a bar at the bottom.
       if (window.SBOB && SBOB.pending()) { clearTimeout(welcomeRetry); welcomeRetry = setTimeout(welcomeNotes, 4000); return; }
       save("start");
       setTimeout(() => { if (window.SBOB && SBOB.pending()) { delete mine.start; seen[uid] = mine; write(K_WELCOME, seen); return; } welcomePop(e.trial_until); }, 1200);
@@ -416,7 +331,6 @@ window.__sbPlanObj = () => PLAN;   // test handle
       setTimeout(() => toast("Your free week of Pro has ended. Everything you made is still here, and the planner stays free.", null, {label: "See Plans", fn: () => proSheet("Your free week of Pro has ended. Keep Pro with any plan below, or carry on with Free.")}), 1200);
     }
   }
-  // Notice sign in and sign out without touching the sync code: the render hook runs after every sync too.
   function watchUser(){
     const id = sbUser ? sbUser.id : null;
     if (id === P.uid) return;
@@ -427,10 +341,10 @@ window.__sbPlanObj = () => PLAN;   // test handle
       if (P.tok && P.tok.uid !== id) { P.tok = null; write(K_TOK, null); }
       P.rowLive = false; P.entDone = false; P.devices = null;
       refresh().then(registerDevice);
-    } else if (was && sb) { P.row = null; P.tok = null; P.pend = null; P.stored = null; P.rowLive = false; write(K_ENT, null); write(K_TOK, null); P.devices = null; changed(); }   // signed out
+    } else if (was && sb) { P.row = null; P.tok = null; P.pend = null; P.stored = null; P.rowLive = false; write(K_ENT, null); write(K_TOK, null); P.devices = null; changed(); }
   }
 
-  /* ---------- Devices ---------- */
+  /* Devices */
   function deviceId(){
     let id = null; try { id = localStorage.getItem(K_DEV); } catch (e) {}
     if (!id) { id = (crypto.randomUUID ? crypto.randomUUID() : uid() + uid()); try { localStorage.setItem(K_DEV, id); } catch (e) {} }
@@ -452,7 +366,7 @@ window.__sbPlanObj = () => PLAN;   // test handle
     P.devices = data || []; return P.devices;
   }
   async function registerDevice(){
-    if (!sb || !sbUser || inClaude()) return;
+    if (!sb || !sbUser || inPreview()) return;
     const info = deviceInfo();
     try {
       const {error} = await sb.from("studyboard_devices").upsert({user_id: sbUser.id, device_id: deviceId(), name: info.name, platform: info.platform, last_seen: new Date().toISOString()}, {onConflict: "user_id,device_id"});
@@ -460,12 +374,10 @@ window.__sbPlanObj = () => PLAN;   // test handle
       if (error && missing(error)) { P.tablesMissing = true; return; }
       await loadDevices();
     } catch (e) { return; }
-    // Only once the plan is known for this load (the device registers right at sign-in, often before your Pro plan has been read),
-    // and never for Pro: the limit is the free plan's
     for (let i = 0; i < 40 && !settled(); i++) await new Promise(r => setTimeout(r, 500));
     if (!settled() || !paywall() || isPro()) return;
     const over = (P.devices || []).length > lim().devices;
-    if (P.devBlocked || over) {   // a new device past the free plan's limit: one message, the first time only
+    if (P.devBlocked || over) {
       setTimeout(() => { if (paywall() && !isPro()) limitNote("devices", `This is one device more than the free plan syncs on (${lim().devices}). Remove one you don't use in Your Devices, or Pro syncs on all of them.`, {label: "Your Devices", fn: () => devicesSheet(true)}); }, 900);
     }
   }
@@ -477,13 +389,7 @@ window.__sbPlanObj = () => PLAN;   // test handle
     if (P.devBlocked) await registerDevice(); else await loadDevices().catch(() => {});
   }
 
-  /* ---------- Buying: ONE function, PLAN.buy(period), picks the route by platform ----------
-     web and desktop (direct download):  the Studyboard website account page, <site>/account?plan=monthly|yearly&src=app
-         (people log in with their Studyboard account, then pay with Stripe Checkout tied to it). Opens in the external browser.
-     iOS / Android wrapper, Mac App Store build:  native in-app purchase through the "plan-checkout" event (RevenueCat), because
-         Apple requires in-app purchase for digital subscriptions sold inside App Store apps (guideline 3.1.1). With
-         EXTERNAL_PURCHASE_ALLOWED = true the store builds use the website route as well.
-     Manage Plan and Restore Purchases follow the same split. After the website, the app refreshes the plan on its own. */
+  /* Buying: ONE function, PLAN.buy(period), picks the route by platform web and desktop */
   const nativeStore = () => {
     try {
       const C = window.Capacitor;
@@ -492,7 +398,6 @@ window.__sbPlanObj = () => PLAN;   // test handle
     } catch (e) { return false; }
   };
   const route = () => nativeStore() && !EXTERNAL_PURCHASE_ALLOWED ? "store" : "web";
-  // A store build whose native side says in-app purchases aren't set up (no RevenueCat key for this platform): no Buy or Restore buttons.
   const nativeBuyOff = () => { try { const N = window.StudyboardNative; return route() === "store" && !!N && N.purchasesAvailable === false; } catch (e) { return false; } };
   const onAndroid = () => { try { const N = window.StudyboardNative, C = window.Capacitor; return (N && N.platform === "android") || (C && typeof C.getPlatform === "function" && C.getPlatform() === "android"); } catch (e) { return false; } };
   const siteBase = () => {
@@ -500,16 +405,14 @@ window.__sbPlanObj = () => PLAN;   // test handle
   };
   const siteReady = () => { const b = siteBase(); try { return !!b && !/\.example$/.test(new URL(b).hostname); } catch (e) { return false; } };
   const siteUrl = (path, q) => { const u = new URL(siteBase() + path); Object.keys(q || {}).forEach(k => u.searchParams.set(k, q[k])); u.searchParams.set("src", "app"); return u.toString(); };
-  // The Studyboard logo opens the website (about the app, installers), on the web app only: in the desktop and phone apps it's just the logo.
-  const siteLinkOk = () => siteReady() && !DESK && !nativeStore() && !(typeof inClaude === "function" && inClaude());
+  const siteLinkOk = () => siteReady() && !DESK && !nativeStore() && !(typeof inPreview === "function" && inPreview());
   const siteLinks = () => document.querySelectorAll("a[data-site-link]").forEach(a => { if (siteLinkOk()) { a.href = siteBase() + "/"; a.setAttribute("aria-label", "Studyboard website"); } else { a.removeAttribute("href"); a.removeAttribute("title"); } });
   document.addEventListener("click", e => { const a = e.target.closest && e.target.closest("a[data-site-link]"); if (!a) return; e.preventDefault(); if (siteLinkOk()) openExternal(siteUrl("/", {})); });
-  siteLinks(); window.addEventListener("load", siteLinks); setTimeout(siteLinks, 4000);   // again once the native layer and the server config have loaded
+  siteLinks(); window.addEventListener("load", siteLinks); setTimeout(siteLinks, 4000);
   function openExternal(url){
     try { const B = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser; if (B && B.open) { B.open({url}); return; } } catch (e) {}
-    window.open(url, "_blank", "noopener");   // in the desktop app this goes to the system browser (main.js setWindowOpenHandler)
+    window.open(url, "_blank", "noopener");
   }
-  // After sending someone to pay: check the plan when they come back (window focus), and poll for about two minutes.
   const WATCH_MS = 2 * 60000, AWAIT_MS = 30 * 60000;
   let pollUntil = 0, pollT = 0;
   function watchPurchase(){
@@ -519,7 +422,7 @@ window.__sbPlanObj = () => PLAN;   // test handle
     const tick = () => { if (Date.now() > pollUntil || (paid() && paywall())) return; if (sbUser && navigator.onLine !== false) refresh(); pollT = setTimeout(tick, 10000); };
     pollT = setTimeout(tick, 6000);
   }
-  /* ---------- Native bridge: hooks + cancelable window events out, "studyboard:purchase-result" in ---------- */
+  /* Native bridge */
   const NATIVE_DETAIL = {"plan-checkout": (period, userId) => ({period, userId}), "plan-restore": userId => ({userId}), "plan-manage": entitlement => ({entitlement})};
   function nativeFire(name, ...a){
     let handled = fire(name, ...a).some(Boolean);
@@ -530,7 +433,7 @@ window.__sbPlanObj = () => PLAN;   // test handle
     } catch (e) {}
     return handled;
   }
-  let waiter = null;   // {action, res, t}: the one thing we are waiting for the native layer to answer
+  let waiter = null;
   function waitResult(action, ms){
     return new Promise(res => {
       if (waiter) { clearTimeout(waiter.t); waiter.res({status: "superseded"}); }
@@ -543,10 +446,8 @@ window.__sbPlanObj = () => PLAN;   // test handle
     const d = (e && e.detail) || {}, action = ["checkout", "restore", "manage"].includes(d.action) ? d.action : "";
     const status = ["success", "cancelled", "nothing", "error"].includes(d.status) ? d.status : "error", message = cleanMsg(d.message);
     if (waiter && (!action || action === waiter.action)) { const w = waiter; waiter = null; clearTimeout(w.t); w.res({status, message}); return; }
-    // Nobody is waiting (for example the purchase sheet was closed): still re-read the plan after a success
     if (status === "success" && sbUser) refresh();
   });
-  // Poll the server for the plan for a few seconds: the store tells our server first (RevenueCat webhook), so Pro can lag a moment
   async function refreshUntilPaid(tries){
     for (let i = 0; i < tries; i++) {
       for (let j = 0; j < 20 && P.loading; j++) await new Promise(r => setTimeout(r, 150));
@@ -567,8 +468,6 @@ window.__sbPlanObj = () => PLAN;   // test handle
     } else if (r.status === "cancelled") toast("Purchase canceled. You weren't charged.");
     else if (r.status === "error") toast(r.message || "The purchase didn't go through. You weren't charged. Please try again.");
   }
-  // Checkout straight from the app: the app is already signed in, so it asks the create-checkout function for a Stripe page tied to this
-  // account with the plan chosen, and opens it. No second sign-in on the website. null means "use the website instead".
   async function directCheckout(period){
     if (!sb || !sbUser || sbUser.is_anonymous) return null;
     try {
@@ -583,7 +482,7 @@ window.__sbPlanObj = () => PLAN;   // test handle
   function buy(period){
     period = ["monthly", "semester", "yearly"].includes(period) ? period : "monthly";
     if (!paid()) { track("buy", P.reason); write(K_ATTR, {r: P.reason || "", t: Date.now(), uid: curUid()}); }
-    if (period === "semester" && route() === "store") period = "monthly";   // the stores don't sell the semester plan yet
+    if (period === "semester" && route() === "store") period = "monthly";
     const userId = sbUser ? sbUser.id : null;
     if (route() === "store") {
       if (nativeBuyOff()) { toast("Buying Pro in the app isn't available in this build yet."); return false; }
@@ -608,7 +507,6 @@ window.__sbPlanObj = () => PLAN;   // test handle
       watchPurchase();
       return true;
     }
-    // The website isn't set up yet: a Stripe Payment Link from studyboard_config still works
     const url = cfg["checkout_url_" + period];
     if (url) {
       if (!userId) { toast("Sign in first so Pro is linked to your account."); if (sb && typeof sbSignInSheet === "function") sbSignInSheet(); return false; }
@@ -623,7 +521,6 @@ window.__sbPlanObj = () => PLAN;   // test handle
     toast("Pro isn't available yet");
     return false;
   }
-  // "I've Purchased - Refresh" and Restore Purchases: re-read the plan, then say what we found
   async function refreshNow(quiet, restoring){
     if (!sbUser) { if (!quiet) { toast("Sign in to the account you bought Pro with, then try again."); if (sb && typeof sbSignInSheet === "function") sbSignInSheet(); } return false; }
     if (!quiet) toast(restoring ? "Restoring your purchases…" : "Checking your plan…");
@@ -635,8 +532,6 @@ window.__sbPlanObj = () => PLAN;   // test handle
     if (dlg.open && dlg.querySelector(".plan-sheet")) proSheet(P.reason);
     return ok;
   }
-  // Restore Purchases: store builds ask the native layer (RevenueCat re-links the store purchase to this account) and wait for its
-  // answer; web builds just re-read the plan. Always shows progress, then success, "nothing to restore", or an error.
   const restoreBtns = on => document.querySelectorAll('[data-act="plan-restore"]').forEach(b => {
     b.disabled = on; b.setAttribute("aria-busy", String(on));
     const sub = b.querySelector(".sub"); if (sub && sub.dataset.idle === undefined) sub.dataset.idle = sub.textContent;
@@ -662,7 +557,6 @@ window.__sbPlanObj = () => PLAN;   // test handle
           if (dlg.open && dlg.querySelector(".plan-sheet")) proSheet(P.reason);
           return ok;
         }
-        // "nothing", or no answer in time: read the plan once and say what we found
       }
       return await refreshNow(false, true);
     } finally { P.restoring = false; restoreBtns(false); }
@@ -688,7 +582,7 @@ window.__sbPlanObj = () => PLAN;   // test handle
     } catch (e) { toast("Couldn't start the trial. Check your connection and try again."); }
   }
 
-  /* ---------- The Studyboard Pro sheet ---------- */
+  /* The Studyboard Pro sheet */
   const IC = {
     spark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l1.9 5.6 5.6 1.9-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.9z" fill="currentColor"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" fill="currentColor" opacity=".7"/></svg>',
     check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -722,7 +616,6 @@ window.__sbPlanObj = () => PLAN;   // test handle
     const e = ent();
     if (!paywall()) return {title: "Everything Is Unlocked Right Now", sub: "Studyboard is in early access, so every theme and feature is yours to use. Pro will add the extras below later."};
     if (!paid()) return {title: "You're on the Free Plan", sub: "The whole planner is free, forever. Pro adds room to grow and every style in the shop."};
-    // Pro: one thank-you headline (the same wording everywhere), and the plan's dates underneath
     const THANKS = "You're on Pro. Thank you for supporting Studyboard!";
     if (!e) return {title: THANKS, sub: ""};
     if (e.plan === "lifetime") return {title: THANKS, sub: e.source === "lifetime" ? "Pro was granted to your account for good." : "Pro is yours for good."};
@@ -733,16 +626,12 @@ window.__sbPlanObj = () => PLAN;   // test handle
     if (e.source === "promo") return {title: THANKS, sub: `Pro was granted to your account until ${dateStr(e.pro_until)}.`};
     return {title: THANKS, sub: e.will_renew === false ? `Pro ends ${dateStr(e.pro_until)}. You can turn renewal back on any time.` : `Renews ${dateStr(e.pro_until)}.`};
   }
-  // Auto-renewal disclosure shown next to the buy buttons (App Store guideline 3.1.2: price, period, trial, how to cancel, Terms and Privacy links)
   const APPLE_RENEW = "Payment will be charged to your Apple ID account at confirmation of purchase. The subscription renews automatically unless it is cancelled at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours before the end of the current period. You can manage and cancel your subscriptions in your App Store account settings after purchase. Any unused portion of a free trial period, if offered, is forfeited when you buy a subscription.";
   const GOOGLE_RENEW = "Payment will be charged to your Google Play account at confirmation of purchase. The subscription renews automatically unless it is cancelled before the end of the current period. You can manage and cancel your subscriptions in Google Play, Payments and subscriptions, Subscriptions.";
   const WEB_RENEW_NOTRIAL = "Your card is charged today and again at the start of each period until you cancel. Cancel any time from Manage Plan; you keep Pro until the end of the period you paid for.";
   const WEB_RENEW = "Your card is charged when the free trial ends unless you cancel before then, and again at the start of each period until you cancel. Cancel any time from Manage Plan; you keep Pro until the end of the period you paid for.";
   const semesterOn = () => route() !== "store" && !!cfg.prices.semester;
-  // The checkout's 7-day card trial is only for accounts that never had a trial (every new account starts with a free week instead)
   const cardTrialOk = () => { const e = ent(); return +cfg.prices.checkoutTrialDays > 0 && !(e && (e.trial_until || e.source === "stripe" || e.external_id)); };
-  // Days of free trial to mention next to the buy buttons: in the App Store and Google Play builds it's the store's own introductory offer
-  // (storeTrialDays, set to match App Store Connect / Play Console; the store decides who gets it); on the website, the checkout trial (off).
   const trialDaysShown = () => route() === "store" ? +(cfg.prices.storeTrialDays != null ? cfg.prices.storeTrialDays : cfg.prices.trialDays) || 0 : cardTrialOk() ? +cfg.prices.checkoutTrialDays : 0;
   function renewalText(pr, trial){
     const store = route() === "store", t = trialDaysShown();
@@ -764,7 +653,7 @@ window.__sbPlanObj = () => PLAN;   // test handle
       ${renewalText(pr, trial)}`;
   }
   function proSheet(reason){
-    if (!(dlg.open && dlg.querySelector(".plan-sheet")) && !paid()) track("shown", reason);   // a fresh prompt, not a redraw
+    if (!(dlg.open && dlg.querySelector(".plan-sheet")) && !paid()) track("shown", reason);
     P.reason = reason || "";
     const st = statusLine(), pro = paywall() && paid(), u = usage(), L = lim();
     const rows = compareRows();
@@ -785,11 +674,11 @@ window.__sbPlanObj = () => PLAN;   // test handle
         <p class="plan-free mini">${IC.check}<span>Always free: Board, Timeline, Schedule, Focus, notes, flashcards, grades, reminders, Brightspace, Canvas and Blackboard sync, and AI with your own key.</span></p>
         ${pro ? "" : usageHtml}
       </div>
-      <div class="sheet-foot">${paywall() && !nativeBuyOff() ? `<button type="button" class="btn" data-act="plan-restore">Restore Purchases</button>` : ""}${paywall() && sbUser && !inClaude() ? `<button type="button" class="btn" data-act="plan-code">Redeem a Code</button>` : ""}${paywall() && !pro && P.awaiting ? `<button type="button" class="btn" data-act="plan-refresh">I've Purchased: Refresh</button>` : ""}${!paywall() && sbUser ? `<button type="button" class="btn" data-act="plan-devices">Your Devices</button>` : ""}<span class="spacer"></span><button type="button" class="btn ${pro || !paywall() ? "primary" : ""}" data-act="close">${pro || !paywall() ? "Done" : "Maybe Later"}</button></div></div>`);
+      <div class="sheet-foot">${paywall() && !nativeBuyOff() ? `<button type="button" class="btn" data-act="plan-restore">Restore Purchases</button>` : ""}${paywall() && sbUser && !inPreview() ? `<button type="button" class="btn" data-act="plan-code">Redeem a Code</button>` : ""}${paywall() && !pro && P.awaiting ? `<button type="button" class="btn" data-act="plan-refresh">I've Purchased: Refresh</button>` : ""}${!paywall() && sbUser ? `<button type="button" class="btn" data-act="plan-devices">Your Devices</button>` : ""}<span class="spacer"></span><button type="button" class="btn ${pro || !paywall() ? "primary" : ""}" data-act="close">${pro || !paywall() ? "Done" : "Maybe Later"}</button></div></div>`);
   }
   async function devicesSheet(limitHit){
     const L = lim(), limited = paywall() && !isPro();
-    limitHit = !!limitHit && limited;   // Pro has no device limit: just the device list
+    limitHit = !!limitHit && limited;
     const draw = (list, err) => {
       const mine = deviceId();
       const intro = limitHit
@@ -811,16 +700,14 @@ window.__sbPlanObj = () => PLAN;   // test handle
     catch (e) { draw(null, "Couldn't load your devices. Check your connection and try again."); }
   }
 
-  /* ---------- Guards ---------- */
+  /* Guards */
   const KIND_NAME = {skin: "theme", card: "flashcard style", note: "note shape", pin: "pin", sticker: "sticker pack", comp: "companion", prop: "accessory"};
-  // Tapping a Pro item you don't own (Style Shop, onboarding, sticker envelope) opens the Pro sheet.
   const origUnlock = shopUnlock;
   shopUnlock = function (kind, id){
     if (!paywall()) return origUnlock.apply(this, arguments);
     if (cfg.item_purchases && fire("plan-buy-item", kind, id).some(Boolean)) return;
     proSheet(`This ${KIND_NAME[kind] || "item"} is part of Studyboard Pro`);
   };
-  // Cloud file storage: stop an upload that would go over the plan before it starts. The server checks too.
   const origUpload = sbAssets.upload;
   sbAssets.upload = async function (file, opts){
     if (!limitsPro()) {
@@ -833,8 +720,7 @@ window.__sbPlanObj = () => PLAN;   // test handle
     return origUpload.apply(this, arguments);
   };
 
-  /* ---------- Settings row, actions and hooks ---------- */
-  // The plan state shown in Settings: "Free" | "Pro until <date>" | "Pro (granted)" (| "Pro trial until <date>")
+  /* Settings row, actions and hooks */
   function planLabel(){
     if (!paywall()) return "Everything is unlocked right now";
     if (!paid()) return "Free";
@@ -850,7 +736,7 @@ window.__sbPlanObj = () => PLAN;   // test handle
     if (!paywall()) return "Everything is unlocked right now";
     return paid() ? planLabel() : "Free. See what Pro adds.";
   }
-  hook("menu", () => inClaude() ? "" : `<button data-act="plan-open" data-group="account" class="plan-row"><span class="plan-row-ic" aria-hidden="true">${IC.spark}</span><span>Studyboard Pro<span class="sub">${esc(rowSub())}</span></span></button>`
+  hook("menu", () => inPreview() ? "" : `<button data-act="plan-open" data-group="account" class="plan-row"><span class="plan-row-ic" aria-hidden="true">${IC.spark}</span><span>Studyboard Pro<span class="sub">${esc(rowSub())}</span></span></button>`
     + (paywall() && !nativeBuyOff() ? `<button data-act="plan-restore" data-group="account"><span>Restore Purchases<span class="sub">Get Pro back after reinstalling or on a new device</span></span></button>` : ""));
   hook("act", (act, el, id) => {
     switch (act) {
@@ -870,15 +756,13 @@ window.__sbPlanObj = () => PLAN;   // test handle
   hook("boot", () => {
     watchUser();
     changed();
-    // Refresh now and then (a renewal or a purchase on another device), and when you come back to the app.
     setInterval(() => { if (sbUser && navigator.onLine !== false) refresh(); }, 6 * 3600000);
-    // Coming back from the website (or the store): check the plan again, and now and then anyway
     const back = () => { if (document.hidden || !sbUser || !paywall() || navigator.onLine === false) return; if ((P.awaiting && Date.now() < P.awaiting) || Date.now() - P.lastLoad > 15 * 60000) refresh(); };
     document.addEventListener("visibilitychange", back);
     window.addEventListener("focus", back);
     document.addEventListener("visibilitychange", () => { if (document.hidden) bump(now()); });
   });
-  loadCachedToken();   // every load: the saved token is checked against the public key again, never just believed
+  loadCachedToken();
 
   PLAN = {
     tier: () => isPro() ? "pro" : "free",
@@ -897,7 +781,6 @@ window.__sbPlanObj = () => PLAN;   // test handle
     deviceId,
     fmtMB
   };
-  // For a native store layer (RevenueCat) and tests. Nothing here can turn Pro on; that only comes from your Supabase project.
   window.StudyboardPlan = {tier: PLAN.tier, isPro, limitsPro, paywall, settled, mode, limits: PLAN.limits, can, usage, openSheet: r => proSheet(r), refresh, entitlement: PLAN.entitlement, label: () => planLabel(), status: () => statusLine(), limitNote};
 })();
 

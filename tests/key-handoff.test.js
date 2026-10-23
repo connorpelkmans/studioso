@@ -11,8 +11,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
 
 (async () => {
-  // ---- QR: every module must match the python-qrcode reference (byte mode, level M, the given mask). Hashes of the module grid,
-  // rows of 0/1 joined by newlines, made with qrcode 8.x: QRCode(error_correction=M, mask_pattern=m) + QRData(bytes, MODE_8BIT_BYTE).
+  // QR: every module must match the python-qrcode reference
   const REF = [["https://keys.example.workers.dev/k#K7Q2-9XMD-4TRP", 0, 4, "74a17a5214fa941b"], ["https://keys.example.workers.dev/k#K7Q2-9XMD-4TRP", 1, 4, "b5935e8dc1a43b49"],
     ["https://keys.example.workers.dev/k#K7Q2-9XMD-4TRP", 2, 4, "8cf8b9460567dfcb"], ["https://keys.example.workers.dev/k#K7Q2-9XMD-4TRP", 3, 4, "11afd738027ea2f6"],
     ["https://keys.example.workers.dev/k#K7Q2-9XMD-4TRP", 4, 4, "e48f5fcf336e6968"], ["https://keys.example.workers.dev/k#K7Q2-9XMD-4TRP", 5, 4, "29da323dcefa82e4"],
@@ -31,7 +30,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   const svg = QR.svg("hello", 'a "label" <x>');
   ok(/^<svg class="qr" viewBox="0 0 29 29"/.test(svg) && svg.includes('aria-label="a label x"') && svg.includes('fill="#fff"'), "svg: quiet zone, label stripped, white background");
 
-  // ---- codes
+  // codes
   const code = KEYHO.newCode(rand);
   ok(/^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/.test(code), "new code shape: " + code);
   ok(new Set(Array.from({length: 50}, () => KEYHO.newCode(rand))).size === 50, "codes differ");
@@ -43,7 +42,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq(KEYHO.codeIn("  k7q2-9xmd-4trp\n"), "K7Q2-9XMD-4TRP", "a copied code");
   eq(KEYHO.codeIn("https://app.example/#sbkey=K7Q2-9XMD-4TRP"), "K7Q2-9XMD-4TRP", "a link with a code");
   eq(KEYHO.codeIn("meet at K7Q2-9XMD-4TRP tomorrow"), "", "a code inside other text is not taken");
-  const gk = "AIza" + "SyD-abcdefghijklmnopqrstuvwxyz_0123"; // 39 characters, like a real Gemini key
+  const gk = "AIza" + "SyD-abcdefghijklmnopqrstuvwxyz_0123";
   eq(KEYHO.geminiKeyIn("my key: " + gk + " thanks"), gk, "finds a Gemini key in copied text");
   eq(KEYHO.geminiKeyIn("AIzaShort"), "", "no partial keys");
   eq(KEYHO.geminiKeyIn(gk + "9"), "", "no cut-off longer strings");
@@ -51,7 +50,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq(KEYHO.cleanKeys({gemini: "has spaces in it which is wrong"}), {}, "spaces are refused");
   eq(KEYHO.cleanKeys(null), {}, "nothing");
 
-  // ---- derive, seal, open
+  // derive, seal, open
   const a = await KEYHO.derive("K7Q2-9XMD-4TRP", subtle), b = await KEYHO.derive("k7q2 9xmd 4trp", subtle), c = await KEYHO.derive("K7Q2-9XMD-4TRQ", subtle);
   ok(/^[0-9a-f]{64}$/.test(a.id) && a.id === b.id && a.id !== c.id, "same code, same mailbox; another code, another mailbox");
   const keys = {gemini: gk, anthropic: "sk-ant-" + "b".repeat(40)};
@@ -64,7 +63,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   await assert.rejects(KEYHO.open(a.key, bad, subtle), "a changed box is refused"); n++;
   await assert.rejects(KEYHO.derive("nope", subtle), "a bad code is refused"); n++;
 
-  // ---- the relay Worker (no Cloudflare runtime: an in-memory stand-in for Durable Object storage and a clock we move by hand)
+  // the relay Worker
   const R = await import(pathToFileURL(path.join(__dirname, "..", "cloudflare", "key-relay", "src", "relay.js")).href);
   let now = 1_000_000;
   const mem = () => { const m = new Map(); let alarm = null; return {
@@ -83,18 +82,15 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq(await (await call("GET", "/v1/h/" + id + "/status")).json(), {state: "taken"}, "the first device sees it was taken");
   ok(!objs.get(id).st.m.has("box"), "the box itself is gone");
   eq((await call("POST", "/v1/h/" + id, {box})).status, 409, "a taken id can't be filled again");
-  // expiry, even if the alarm is late
   const id2 = c.id;
   eq((await call("POST", "/v1/h/" + id2, {box})).status, 201, "second box");
   now += R.TTL_MS + 1;
   eq((await call("GET", "/v1/h/" + id2)).status, 404, "expired boxes are not handed out");
   eq(objs.get(id2).st.m.size, 0, "and are wiped");
-  // cancel
   const id3 = "f".repeat(64);
   await call("POST", "/v1/h/" + id3, {box});
   eq((await call("DELETE", "/v1/h/" + id3)).status, 204, "the first device can cancel");
   eq(await (await call("GET", "/v1/h/" + id3 + "/status")).json(), {state: "none"}, "cancelled is gone");
-  // bad input
   eq((await call("POST", "/v1/h/ABC", {box})).status, 400, "ids are 64 lower-case hex");
   eq((await call("POST", "/v1/h/" + "e".repeat(64), {box: "short"})).status, 400, "tiny boxes are refused");
   eq((await call("POST", "/v1/h/" + "e".repeat(64), {box: "<script>" + "a".repeat(50)})).status, 400, "only base64url");
@@ -102,7 +98,6 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq((await call("POST", "/v1/h/" + "e".repeat(64), {box: "a".repeat(5000)})).status, 413, "too big");
   eq((await call("PUT", "/v1/h/" + "e".repeat(64), {box})).status, 405, "other methods");
   eq((await call("OPTIONS", "/v1/h/" + "e".repeat(64))).headers.get("Access-Control-Allow-Methods"), "GET, POST, DELETE, OPTIONS", "CORS preflight");
-  // POST_LIMIT: new boxes are limited per network address, before any Durable Object is made
   const seenKeys = []; let allow = false;
   env.POST_LIMIT = {limit: async ({key}) => { seenKeys.push(key); return {success: allow}; }};
   const before = objs.size;
@@ -114,7 +109,6 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   allow = true;
   eq((await call("POST", "/v1/h/" + "d".repeat(64), {box})).status, 201, "under the limit it stores as before");
   delete env.POST_LIMIT;
-  // the page a scanned code opens
   const page = await call("GET", "/k"), html = await page.text();
   ok(html.includes('data-app="https://app.example"') && /script-src 'self'/.test(page.headers.get("Content-Security-Policy")), "page names the app (trailing slash dropped) under a strict CSP");
   ok(!/sbkey|[0-9A-Z]{4}-[0-9A-Z]{4}/.test(html), "the page itself carries no code (it stays in the #fragment)");
@@ -123,7 +117,6 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   env.APP_URL = "https://a.example/?x=\"><b>";
   ok(!(await (await call("GET", "/k")).text()).includes("<b>"), "APP_URL is escaped");
   ok((await call("GET", "/k.js")).headers.get("Content-Type").startsWith("text/javascript"), "page script");
-  // the page script fills in the code and the Open link from the fragment
   const els = {}, el = id => els[id] || (els[id] = {hidden: true, textContent: "", href: "", addEventListener(){}, getAttribute: () => "https://app.example"});
   new Function("location", "history", "document", "navigator", R.PAGE_JS)({hash: "#K7Q2-9XMD-4TRP", pathname: "/k"}, {replaceState(){}}, {getElementById: el, querySelector: () => el("main")}, {});
   ok(!els.ok.hidden && els.code.textContent === "K7Q2-9XMD-4TRP" && els.open.href === "https://app.example#sbkey=K7Q2-9XMD-4TRP" && !els.open.hidden, "page shows the code and links back into the app");
@@ -131,7 +124,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   new Function("location", "history", "document", "navigator", R.PAGE_JS)({hash: "#<img>", pathname: "/k"}, {replaceState(){}}, {getElementById: el, querySelector: () => el("main")}, {});
   ok(!els.bad.hidden && !els.code && els.ok === undefined, "a bad fragment shows the help line, not the text");
 
-  // ---- the desktop main process returns only a key or a code from the clipboard (same patterns as KEYHO)
+  // the desktop main process returns only a key or a code from the clipboard
   const mainSrc = fs.readFileSync(path.join(__dirname, "..", "main.js"), "utf8");
   ok(/ipcMain\.handle\("clip:aikey", e => \{\s*if \(!fromMain\(e\)\) return "";/.test(mainSrc), "clipboard read is only for the main window");
   ok(!/"clipboard-read"/.test(mainSrc), "the page still has no clipboard-read permission");

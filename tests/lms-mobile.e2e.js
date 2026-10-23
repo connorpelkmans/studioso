@@ -1,6 +1,4 @@
-// node tests/lms-mobile.e2e.js   (Playwright + Chromium; see tests/pw.js)
-// The phone apps' school site layer inside the real page: with a stand-in for the native plugin (it runs the harvest script against a fake Brightspace, the way a hidden
-// web view would), a connected school syncs from the phone: due dates arrive, the settings say "this phone", Sync Now works, and sign out reaches the plugin.
+// node tests/lms-mobile.e2e.js
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert"), vm = require("vm"), Module = require("module");
 const {chromium, executablePath} = require("./pw");
 const {build} = require("../scripts/build-lms-mobile.js");
@@ -66,11 +64,9 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {brightspace: 
     ok(asked.some(a => a[0] === "run" && a[1] === "brightspace" && a[2] === "https://learn.example.edu" && /\/d2l\/api\/versions\/$/.test(a[3])), "the plugin was asked to run the harvest on the school's own site");
     const st = await page.evaluate(() => SBLMS.brightspace.statusLine());
     ok(/Signed in on this phone/.test(st) && /Last synced/.test(st), "settings say it is signed in on this phone: " + st);
-    // Sync Now in the School Sites sheet runs a real sync
     const before = asked.filter(a => a[0] === "run").length;
     await page.evaluate(() => SBLMS.pickerSheet()); await page.click('dialog [data-act="lms-sync-all"]'); await page.waitForTimeout(800);
     ok(asked.filter(a => a[0] === "run").length > before && !/can't be synced from here/.test(await page.evaluate(() => (document.querySelector("#toast") || {}).innerText || "")), "Sync Now asks the plugin to read the school site again");
-    // Sign out
     await page.evaluate(() => window.studiosoLms.signOut("brightspace")); ok(asked.some(a => a[0] === "signOut" && a[2] === "https://learn.example.edu"), "sign out reaches the plugin with the school's address");
     ok(!errs.length, "no page errors: " + errs.join(" | "));
     console.log("\nlms-mobile.e2e: " + n + " checks passed");

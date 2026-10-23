@@ -1,7 +1,5 @@
 /* ===== module: 99-motion-a11y-tz.js ===== */
-/* Animations governor (Auto / Full / Reduced / Off), low-power handling, text size, high contrast and time zones.
-   Pieces: SBMotion (level, frame rate, pause rules, quality governor), SBTZ (time zone model and DST-proof day math),
-   Settings rows (via the "menu" hook), and the shared a11y helpers that run after every render. */
+/* Animations governor (Auto / Full / Reduced / Off), low-power handling, text size */
 (() => {
   const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} return null; };
   const ss = (k, v) => { try { if (v === undefined) return sessionStorage.getItem(k); sessionStorage.setItem(k, v); } catch (e) {} return null; };
@@ -16,7 +14,7 @@
   let pref = ls(KEY); if (MODES.indexOf(pref) < 0) pref = "auto";
   let battery = null, saveData = false, desk = {onBattery: false, thermal: "unknown", locked: false};
   let blurred = false, idle = false, covered = false, lastInput = Date.now(), lastSig = "";
-  let gov = Math.max(0, Math.min(3, Number(ss("studyboard:animGov")) || 0));     // 0 none, 1 15 fps, 2 + lower pixel density, 3 still: kept for this session
+  let gov = Math.max(0, Math.min(3, Number(ss("studyboard:animGov")) || 0));
   const IDLE_MS = 5 * 60000;
 
   const reduceSys = () => !!(mqReduce && mqReduce.matches);
@@ -72,7 +70,7 @@
   }
   const setPref = p => { if (MODES.indexOf(p) < 0) return; pref = p; ls(KEY, p === "auto" ? null : p); if (p !== "auto" || gov) { gov = 0; ss("studyboard:animGov", "0"); } emit(true); };
 
-  // Quality governor: if drawing a frame keeps costing too much (or frames keep arriving late), step down for this session.
+  // Quality governor
   let win = {n: 0, cost: 0, t0: 0, last: 0}, badRuns = 0;
   function frameCost(ms, ts){
     if (!win.t0 || ts - win.last > 600) { win = {n: 0, cost: 0, t0: ts, last: ts}; badRuns = 0; }
@@ -99,21 +97,21 @@
   const touch = () => { lastInput = Date.now(); if (idle) { idle = false; emit(); } };
   ["pointerdown", "keydown", "wheel", "touchstart", "pointermove", "scroll"].forEach(ev => document.addEventListener(ev, touch, {passive: true, capture: true}));
   setInterval(() => { if (!idle && Date.now() - lastInput > IDLE_MS) { idle = true; emit(); } }, 15000);
-  // A sheet or the Focus timer that fills a phone screen hides the scene: nothing to animate behind it.
+  // A sheet or the Focus timer that fills a phone screen hides the scene
   const coverDlgs = () => [dlg, document.getElementById("pomoDlg")].filter(Boolean);
   const syncCover = () => { const c = !!(mqPhone && mqPhone.matches && coverDlgs().some(d => d.open)); if (c !== covered) { covered = c; emit(); } };
-  // Every dialog (sheets, Focus timer, alerts, Search Everywhere) gets the screen reader pass when it opens.
+  // Every dialog
   const passOpen = () => { ["dlg", "pomoDlg", "alarmDlg", "sxDlg"].forEach(id => { const d = document.getElementById(id); if (d && d.open) { try { a11yPass(d); } catch (e) {} setTimeout(() => { try { a11yPass(d); } catch (e) {} }, 400); } }); };
   try { const mo = new MutationObserver(() => { syncCover(); passOpen(); }); ["dlg", "pomoDlg", "alarmDlg", "sxDlg"].forEach(id => { const d = document.getElementById(id); if (d) mo.observe(d, {attributes: true, attributeFilter: ["open"]}); }); onMq(mqPhone, syncCover); } catch (e) {}
 
-  // Smooth scrolling off whenever motion is reduced.
+  // Smooth scrolling off whenever motion is reduced
   const calmScroll = () => level() !== "full" || reduceSys();
   [[Element.prototype, ["scrollIntoView", "scrollTo", "scrollBy", "scroll"]], [window, ["scrollTo", "scrollBy", "scroll"]]].forEach(([o, names]) => names.forEach(n => {
     const f = o[n]; if (typeof f !== "function") return;
     o[n] = function (a) { if (a && typeof a === "object" && a.behavior === "smooth" && calmScroll()) { const b = Object.assign({}, a, {behavior: "auto"}); const r = Array.prototype.slice.call(arguments, 1); return f.apply(this, [b].concat(r)); } return f.apply(this, arguments); };
   }));
 
-  // A brief highlight that doesn't move, in place of confetti and fireworks.
+  // A brief highlight that doesn't move, in place of confetti and fireworks
   function flash(){
     try {
       const old = document.getElementById("sbFlash"); if (old) old.remove();
@@ -121,7 +119,7 @@
       setTimeout(() => el.remove(), 700);
     } catch (e) {}
   }
-  // A native shell that knows more (iOS Low Power Mode is not visible to web pages) can say so: SBMotion.setPower({lowPower: true}).
+  // A native shell that knows more (iOS Low Power Mode is not visible to web pages) can say so
   let nativeLow = false;
   const setPower = o => { nativeLow = !!(o && o.lowPower); if (o && o.thermal) desk.thermal = String(o.thermal); emit(true); };
   window.SBMotion = {level, live, frameMs, dprScale, noParticles, frameCost, flash, pref: () => pref, setPref, setPower, status: statusText, gov: () => gov, why: pauseWhy};
@@ -140,7 +138,6 @@
   const SBTZ_CORE = (() => {
     const p2 = n => String(n).padStart(2, "0");
     const isDate = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
-    // Day numbers are whole days since 1970 in UTC, so day maths never sees a 23 or 25 hour day.
     const dn = s => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)) / 864e5;
     const fromDn = n => { const d = new Date(n * 864e5); return d.getUTCFullYear() + "-" + p2(d.getUTCMonth() + 1) + "-" + p2(d.getUTCDate()); };
     const localISO = d => d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate());
@@ -152,13 +149,9 @@
     const fmts = {};
     const valid = tz => { try { return typeof tz === "string" && tz.length < 64 && !!new Intl.DateTimeFormat("en-US", {timeZone: tz}); } catch (e) { return false; } };
     const partsIn = (tz, ms) => { const f = fmts[tz] || (fmts[tz] = new Intl.DateTimeFormat("en-US", {timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit"})); const o = {}; f.formatToParts(new Date(ms)).forEach(x => { o[x.type] = x.value; }); return o; };
-    // The wall-clock date and time an instant has in a zone.
     const wallIn = (ms, tz) => { if (!valid(tz) || !isFinite(ms)) return null; const o = partsIn(tz, ms); return {date: o.year + "-" + o.month + "-" + o.day, time: p2(+o.hour % 24) + ":" + o.minute}; };
-    // The wall-clock date and time of an ISO instant in a zone ("2026-11-02T07:59:00Z" in America/Vancouver is 2026-11-01 23:59).
     const wallOfIso = (s, tz) => { if (isDate(s)) return {date: s, time: ""}; const ms = Date.parse(s); return isNaN(ms) ? null : wallIn(ms, tz); };
-    // A due date and time are a wall-clock reading: 11:59 PM is 11:59 PM wherever the device is. This is the instant it means right now.
     const dueMs = (due, time) => { const m = /^(\d{2}):(\d{2})$/.exec(time || ""); return new Date(+due.slice(0, 4), +due.slice(5, 7) - 1, +due.slice(8, 10), m ? +m[1] : 23, m ? +m[2] : 59, m ? 0 : 59).getTime(); };
-    // overdue | today | tomorrow | later for an open task, against a moment (ms).
     const dueClass = (t, nowMs) => {
       if (!t || !isDate(t.due) || t.status === "done") return "none";
       const today = todayLocal(new Date(nowMs)), d = dayDiff(today, t.due);
@@ -166,7 +159,6 @@
       if (d === 0) return nowMs > dueMs(t.due, t.time) ? "overdue" : "today";
       return d === 1 ? "tomorrow" : "later";
     };
-    // Streak rule used by the app: progress today extends the run when the last progress day was yesterday.
     const streakStep = (s, today) => { const o = Object.assign({cur: 0, best: 0, last: ""}, s); if (o.last === today) return o; o.cur = o.last === addDays(today, -1) ? o.cur + 1 : 1; o.last = today; o.best = Math.max(o.best, o.cur); return o; };
     const zoneChanged = (home, now) => !!home && !!now && home !== now;
     return {isDate, dn, fromDn, localISO, todayLocal, addDays, dayDiff, weekday, mondayOf, valid, wallIn, wallOfIso, dueMs, dueClass, streakStep, zoneChanged};
@@ -179,7 +171,7 @@
   if (!homeZone() && deviceZone()) ls(HOME_KEY, deviceZone());
   window.SBTZ = Object.assign({}, SBTZ_CORE, {
     device: deviceZone, home: () => homeZone() || deviceZone(),
-    // The zone school sites' instants (Canvas due_at and so on) are turned into wall-clock times in: the home zone, so a trip doesn't move a deadline.
+    // The zone school sites' instants
     schoolZone: () => homeZone() || null
   });
 
@@ -228,7 +220,7 @@
     const strip = el => {
       if (!el || el.nodeType !== 1) return;
       if (el.hasAttribute("title")) { const t = (el.getAttribute("title") || "").trim(); el.removeAttribute("title"); if (t && !named(el)) el.setAttribute("aria-label", t); }
-      if (el.tagName === "title" && el.parentNode && el.parentNode.tagName && el.parentNode.tagName.toLowerCase() === "svg") {   // an icon's own <title>
+      if (el.tagName === "title" && el.parentNode && el.parentNode.tagName && el.parentNode.tagName.toLowerCase() === "svg") {
         const svg = el.parentNode, t = (el.textContent || "").trim(); el.remove();
         if (t && !svg.hasAttribute("aria-label")) { svg.setAttribute("aria-label", t); if (!svg.hasAttribute("role")) svg.setAttribute("role", "img"); }
       }
@@ -257,7 +249,7 @@
       });
     } catch (e) { console.warn("a11y pass", e); }
   }
-  // One page title for screen readers when the visible header (with the logo heading) is hidden, as on desktop: "Studyboard, Board".
+  // One page title for screen readers when the visible header
   function pageTitle(){
     const h = document.getElementById("pageH1"); if (!h) return;
     const top = document.querySelector("header.top .brand"), cur = document.querySelector('nav.tabs [aria-current="page"]');
@@ -272,7 +264,7 @@
 })();
 
 
-/* ---------- Recently Deleted (screen) and Export My Data ---------- */
+/* Recently Deleted (screen) and Export My Data */
 (() => {
   const tick = () => new Promise(r => setTimeout(r, 0));
   const when = ms => { const d = Math.floor((Date.now() - ms) / 864e5); return d <= 0 ? "today" : d === 1 ? "yesterday" : d + " days ago"; };
@@ -337,7 +329,6 @@
     if (a === "export-data") { exportSheet(); return true; }
     return false;
   });
-  // Ctrl/Cmd+Z undoes the last delete (not while typing, and not with a sheet open).
   document.addEventListener("keydown", e => {
     if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || String(e.key).toLowerCase() !== "z") return;
     const t = e.target; if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
@@ -347,12 +338,11 @@
     f();
   });
 
-  /* ---------- Export My Data ---------- */
+  /* Export My Data */
   const PARTS = [["tasks", "Tasks", "tasks.csv"], ["notes", "Notes", "notes.csv"], ["grades", "Grades and marks", "grades.csv, grades-summary.csv"], ["decks", "Flashcard decks", "flashcards.csv, flashcards-anki.txt"],
     ["courses", "Courses", "courses.csv"], ["events", "Schedule and events", "events.csv"], ["sessions", "Study sessions (focus time)", "study-sessions.csv"], ["files", "File list (names and links, not the files)", "JSON only"], ["trash", "Recently Deleted items", "JSON only"]];
   const countOf = k => k === "tasks" ? Object.keys(state.tasks).length : k === "notes" ? Object.keys(state.notes).length : k === "decks" ? Object.keys(state.decks || {}).length : k === "courses" ? Object.keys(state.courses).length
     : k === "events" ? Object.keys(state.events || {}).length : k === "files" ? Object.keys(state.files).length : k === "trash" ? trashVisible().length : k === "grades" ? Object.values(state.tasks).filter(t => t.mark).length : Object.values(state.tasks).filter(t => Number(t.focusMin) > 0).length;
-  // Never let a secret ride along: anything named like a key, token, session or device id is dropped from settings.
   const scrub = (o, depth) => {
     if (!o || typeof o !== "object" || depth > 6) return o;
     if (Array.isArray(o)) return o.map(x => scrub(x, depth + 1));
@@ -386,7 +376,7 @@
       const dl = caps.downloads || await useCap("downloads");
       if (dl) { await dl.save({filename: name, data: type === "json" ? await blob.text() : new Uint8Array(await blob.arrayBuffer())}); return true; }
     } catch(e) { if (e && e.code === "declined") return false; }
-    if (!inClaude()) { saveBlob(name, blob, type === "json" ? "application/json" : "application/zip"); return true; }
+    if (!inPreview()) { saveBlob(name, blob, type === "json" ? "application/json" : "application/zip"); return true; }
     toast("Downloads aren't available here"); return false;
   }
   function exportSheet(){
@@ -424,14 +414,10 @@
   window.exportSheet = exportSheet;
 })();
 
-/* ---------- Board notices: folded away ----------
-   The Board can gather several notices above the quick-add bar (backup, heavy week, rough week, the streak offer, setup).
-   They all wait behind one "Notices" button with a red count, so Today's Plan stays on the first screen; it opens them in order of urgency.
-   When the heavy week the Crunch card warns about is the week Rough Week is about, the two become one card.
-   Registered last, so it sees every notice the other render hooks have added. */
+/* Board notices */
 (() => {
-  let more = false;   // the waiting notices are open (until the Board is left)
-  const KEEP = ["bn-more", "fgs-strip", "sem-card-b"];   // not notices: the toggle itself, the study-streak chip and an empty planner's "Set up your semester" always stay
+  let more = false;
+  const KEEP = ["bn-more", "fgs-strip", "sem-card-b"];
   const PRI = ["wkr-card", "rw-banner", "crunch-card", "sem-card-b", "nudge", "fgs-intro"];
   const CHEV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
   function mergeWeek(v){
@@ -454,7 +440,6 @@
     const list = [];
     for (let el = v.firstElementChild; el && el !== qa; el = el.nextElementSibling) if (!el.hidden && !KEEP.some(c => el.classList.contains(c))) list.push(el);
     if (!list.length) return;
-    // most pressing first: this week's review, a heavy week, setup, the backup reminder; offers (the streak) last
     const rank = el => { const i = PRI.findIndex(c => el.classList.contains(c)); return i < 0 ? PRI.length - 1.5 : i; };
     list.sort((a, c) => rank(a) - rank(c)).forEach(el => v.insertBefore(el, qa));
     list.forEach(el => el.classList.toggle("bn-shut", !more));
@@ -467,13 +452,12 @@
   hook("render", tab => { if (tab !== "board") { more = false; return; } try { stack(); } catch (e) { console.warn("board notices", e); } });
   hook("act", (act, el) => {
     if (act === "bn-more") { more = !more; render(); return true; }
-    // "Not This Week" on the combined card also waves off that heavy week
     if (act === "rw-hide" && el.dataset.crWeek && window.SBCRUNCH) { try { SBCRUNCH.dismiss(el.dataset.crWeek); } catch (e) {} scheduleRender(); }
     return false;
   });
 })();
 
-/* ---------- Phones: frosted header once the page scrolls; the Add button steps aside while the quick-add bar is under it ---------- */
+/* Phones: frosted header once the page scrolls */
 (() => {
   const PHONE = window.matchMedia ? matchMedia("(max-width:639px)") : {matches: false};
   let raf = 0;
@@ -495,22 +479,18 @@
   if (PHONE.addEventListener) PHONE.addEventListener("change", soon);
   hook("render", soon);
 })();
-// Placeholder text: a shorter one on phones, so it isn't cut off. Swapped live when the window crosses the phone width.
+// Placeholder text
 function phPh(long, short){
   const ph = !!(window.matchMedia && matchMedia("(max-width:639px)").matches);
   return `placeholder="${esc(ph ? short : long)}" data-ph-l="${esc(long)}" data-ph-s="${esc(short)}"`;
 }
 if (window.matchMedia) { const mq = matchMedia("(max-width:639px)"); const swap = () => document.querySelectorAll("[data-ph-s]").forEach(el => { el.placeholder = mq.matches ? el.dataset.phS : el.dataset.phL; }); if (mq.addEventListener) mq.addEventListener("change", swap); }
 
-/* ---------- Dropdowns in the app's own style ----------
-   Every plain <select> opens Studyboard's list instead of the system's (with a mouse or trackpad; touch screens keep the phone's own picker,
-   which suits a finger better). The real <select> stays in the page and gets the value and the usual input and change events, so every
-   form and handler works as before. The list goes in the top layer (popover) so it shows above open sheets. data-native keeps the system one. */
 (() => {
   const fine = () => !!(window.matchMedia && matchMedia("(pointer:fine)").matches);
   const usable = sel => sel && sel.tagName === "SELECT" && !sel.multiple && !(sel.size > 1) && !sel.disabled && !("native" in sel.dataset) && fine();
   const CK = `<svg class="sb-dd-ck" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`;
-  let cur = null;   // {sel, list}
+  let cur = null;
   function close(back){
     if (!cur) return; const {sel, list} = cur; cur = null;
     try { if (list.matches(":popover-open")) list.hidePopover(); } catch (e) {}
@@ -531,7 +511,7 @@ if (window.matchMedia) { const mq = matchMedia("(max-width:639px)"); const swap 
     list.innerHTML = [...sel.children].map(n => n.tagName === "OPTGROUP" ? `<div class="sb-dd-grp" role="presentation">${esc(n.label)}</div>${[...n.children].map(optHtml).join("")}` : n.tagName === "OPTION" ? optHtml(n) : "").join("");
     const pop = typeof list.showPopover === "function";
     if (pop) list.setAttribute("popover", "manual");
-    (sel.closest("dialog") || document.body).appendChild(list);   // inside an open sheet, so the sheet doesn't treat the list as outside (inert)
+    (sel.closest("dialog") || document.body).appendChild(list);
     if (pop) list.showPopover();
     const r = sel.getBoundingClientRect(), w = Math.min(Math.max(r.width, 200), 480, innerWidth - 16), below = innerHeight - r.bottom - 10, up = below < 220 && r.top > below;
     Object.assign(list.style, {position: "fixed", margin: "0", width: w + "px", left: Math.max(8, Math.min(r.left, innerWidth - w - 8)) + "px",
@@ -541,7 +521,6 @@ if (window.matchMedia) { const mq = matchMedia("(max-width:639px)"); const swap 
     if (on) { on.scrollIntoView({block: "nearest"}); on.focus({preventScroll: true}); }
     list.addEventListener("click", e => { const b = e.target.closest(".sb-dd-opt"); if (b && !b.disabled) pick(sel, +b.dataset.i); });
   }
-  // Open on press (before the system list would), and with Enter, Space or Alt+Down on a focused dropdown
   document.addEventListener("mousedown", e => {
     if (cur && !cur.list.contains(e.target) && e.target !== cur.sel) close(false);
     const sel = e.target && e.target.closest ? e.target.closest("select") : null;
@@ -558,7 +537,7 @@ if (window.matchMedia) { const mq = matchMedia("(max-width:639px)"); const swap 
         e.preventDefault(); const n = e.key === "Home" ? all[0] : e.key === "End" ? all[all.length - 1] : all[Math.max(0, Math.min(all.length - 1, i + (e.key === "ArrowDown" ? 1 : -1)))];
         if (n) n.focus(); return;
       }
-      if (e.key.length === 1 && /\S/.test(e.key)) {   // type a letter to jump
+      if (e.key.length === 1 && /\S/.test(e.key)) {
         const k = e.key.toLowerCase(), from = Math.max(0, i + 1), hit = all.slice(from).concat(all.slice(0, from)).find(b => b.textContent.trim().toLowerCase().startsWith(k));
         if (hit) { e.preventDefault(); hit.focus(); }
       }
@@ -573,15 +552,15 @@ if (window.matchMedia) { const mq = matchMedia("(max-width:639px)"); const swap 
   hook("render", () => { if (cur && !cur.sel.isConnected) close(false); });
 })();
 
-// The note-board tabs scroll sideways with no scrollbar showing: a mouse wheel over them moves them left and right
+// The note-board tabs scroll sideways with no scrollbar showing
 document.addEventListener("wheel", e => {
   const el = e.target && e.target.closest ? e.target.closest(".nb-boards") : null;
   if (!el || el.scrollWidth <= el.clientWidth + 1 || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
   const max = el.scrollWidth - el.clientWidth, next = Math.max(0, Math.min(max, el.scrollLeft + e.deltaY));
-  if (next === el.scrollLeft) return;   // already at that end: let the page scroll
+  if (next === el.scrollLeft) return;
   el.scrollLeft = next; e.preventDefault();
 }, {passive: false});
-// Timeline course rows fade from where the track comes out from under the sticky name column (see .tl-group .tl-track in the CSS)
+// Timeline course rows fade from where the track comes out from under the sticky name column
 function tlBandSync(sc){
   if (!sc || !sc.classList || !sc.classList.contains("tl-scroll")) return;
   const lab = sc.querySelector(".tl-group .tl-label");
@@ -592,8 +571,7 @@ document.addEventListener("scroll", e => tlBandSync(e.target), true);
 window.addEventListener("resize", () => tlBandSync(document.querySelector(".tl-scroll")));
 hook("render", () => { const sc = document.querySelector(".tl-scroll"); if (sc) { tlBandSync(sc); requestAnimationFrame(() => tlBandSync(sc)); } });
 
-/* ---------- Start ---------- */
-// If starting up ever stops (an error, or a wait that never ends), say so on screen with the details, instead of leaving a blank page.
+/* Start */
 let bootDone = false, bootErr = "";
 const bootNote = e => { if (!bootDone && !bootErr) { try { bootErr = String((e && (e.stack || e.message)) || e).slice(0, 1500); } catch (x) { bootErr = "unknown error"; } } };
 window.addEventListener("error", ev => bootNote(ev.error || ev.message));
@@ -612,24 +590,19 @@ function bootStuck(){
 setTimeout(bootStuck, 15000);
 (async () => {
 try {
-// The Studyboard folder can sit in a synced folder (OneDrive) whose file is still downloading: never wait on it for more than a few seconds.
 if (DESK) { try { await Promise.race([deskBoot(), sleep(6000)]); } catch(e) { console.warn(e); } }
 try { pwaBoot(); } catch(e) {}
 try { applyTheme(); } catch(e) {}
 try { applySkin(); } catch(e) {}
 loadLocal();
 try { noteDraftRecover(); } catch(e) { console.warn("note draft", e); }
-// Ask the browser to keep this site's storage (see storageProtect). Chrome, Edge and Safari answer silently; Firefox asks once. While it isn't
-// granted and there is no account copy, remind gently (at most once a week) how to make the data safe.
 setTimeout(async () => {
   try {
     const has = ["tasks", "courses", "notes", "decks"].some(k => Object.keys(state[k] || {}).length);
-    const was = PST.state, r = await storageProtect(has); if (r !== was && dlg.open) scheduleRender();   // only the Settings row shows it
-    // (Not in automated browsers, such as the test suite: a reminder appearing mid-test would cover the message a test is checking.)
-    if (!has || r === "granted" || r === "app" || inClaude() || (typeof sbUser !== "undefined" && sbUser) || navigator.webdriver) return;
+    const was = PST.state, r = await storageProtect(has); if (r !== was && dlg.open) scheduleRender();
+    if (!has || r === "granted" || r === "app" || inPreview() || (typeof sbUser !== "undefined" && sbUser) || navigator.webdriver) return;
     const K = "studyboard:persistNudge", last = Number(localStorage.getItem(K) || 0);
     if (Date.now() - last < 7 * 864e5) return;
-    // Only when nothing else is on screen: never over an Undo message or an open sheet. Gives up after two minutes and tries another day.
     for (let i = 0; i < 24; i++) {
       await sleep(5000);
       if ($("#toast").classList.contains("show") || (typeof dlg !== "undefined" && dlg.open)) continue;
@@ -640,22 +613,15 @@ setTimeout(async () => {
     }
   } catch (e) {}
 }, 4000);
-// AI choices (provider, model) kept across a sign-out; the keys themselves never left this device
 try { const pr = JSON.parse(localStorage.getItem(AI_PREFS_LS) || "null"); if (pr && typeof pr === "object" && !(state.settings && state.settings.ai)) { state.settings = Object.assign({}, state.settings, {ai: pr}); saveSettings(); } localStorage.removeItem(AI_PREFS_LS); } catch(e) {}
-// Every device keeps its own daily backup (14 days), signed in or not; and a saved copy that couldn't be read is set aside, with a message.
 setTimeout(async () => { try { const has = ["tasks", "courses", "notes", "decks", "files"].some(k => Object.keys(state[k] || {}).length); if (has) { const dev = (await deviceBackups()).filter(b => !String(b.id || "").startsWith("k-")); if (!dev.length || Date.now() - dev[0].at > 864e5) await saveDeviceBackup(backupSnap()); } } catch(e) {} }, 6000);
 if (loadProblem) setTimeout(() => { try { toast("Your saved data on this device couldn't be read. A copy was set aside, not deleted. Sign in to get your account's copy, or restore a backup in Settings."); } catch(e) {} }, 2500);
-try { trashEnforce(); } catch(e) { console.warn(e); }   // anything older than 30 days leaves Recently Deleted at start
+try { trashEnforce(); } catch(e) { console.warn(e); }
 syncLabel();
 pomoBoot();
 initFolderBackup();
-// One-time reset (v2): the Red Pin is the default pin. Anyone still carrying Washi Dots from the old theme defaults, picked or not, goes back to it once;
-// Washi Dots stays a normal choice in the Pins tab and sticks when picked again.
-// The default note is the plain Square. A shape saved only because a theme was switched (Graph Paper, Scalloped...) goes back to Square; one you picked yourself stays.
 try { const st = state.settings && state.settings.style; if (st && !st.noteDefault2) { state.settings = Object.assign({}, state.settings, {style: Object.assign({}, st, st.note && st.note !== "classic" && !st.notePicked && st.noteAuto !== true ? {note: "classic"} : {}, {noteDefault2: true})}); saveSettings(); } } catch (e) {}
 try { const st = state.settings && state.settings.style; if (st && !st.pinDefault2) { state.settings = Object.assign({}, state.settings, {style: Object.assign({}, st, st.pin === "washi" ? {pin: "pin", pinPicked: false} : {}, {pinDefault2: true})}); saveSettings(); } } catch (e) {}
-// A refresh keeps your place: where you are (tab, view, course, deck, group, scroll) is kept for this browser tab only, so reloading
-// comes back to it and opening the app fresh still starts on Today's Plan.
 const HERE = "studyboard:here";
 let hereScroll = 0;
 try {

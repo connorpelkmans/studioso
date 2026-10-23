@@ -1,19 +1,14 @@
 /* ===== module: 97-match.js ===== */
-/* Match: a timed game on a deck. Six random cards become twelve tiles (six terms, six definitions) shuffled in a grid; tap a tile, then its partner.
-   A match makes both vanish, a wrong pair shakes and adds one second. The clock starts on the first tap and counts tenths of a second.
-   It is only a game: it never changes spaced repetition (box, due, FSRS fields) and doesn't count as reviewing cards.
-   The deck keeps your times as a plain field, deck.match = {best: ms, at: ISO date of the best, recent: [{ms, at: epoch ms}] (the last 5)},
-   so it saves, syncs and merges like the rest of the deck. Study groups (80-groups.js) start it on a shared deck with an `after` callback that
-   offers posting the time to the group. The pure pieces are in MATCH (pick, tiles, clock, record); window.SBMATCH is the way in. */
+/* Match: a timed game on a deck */
 (() => {
   /*MATCH-START: pure code, no DOM or app state */
   const MATCH = (() => {
     const N = 6, PENALTY = 1000, KEEP = 5, MIN = 3;
     const norm = s => String(s == null ? "" : s).replace(/\s+/g, " ").trim();
-    // Cards that can be tiles: text on both sides, not an image card, not a draft waiting to be checked
+    // Cards that can be tiles
     const usable = cards => (Array.isArray(cards) ? cards : []).filter(c => c && !c.draft && !c.img && norm(c.front) && norm(c.back));
     const mix = (a, rnd) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-    // Up to six cards, none repeating another's text on either side (two tiles that read the same would be a coin toss)
+    // Up to six cards, none repeating another's text on either side
     function pick(cards, n, rnd){
       rnd = rnd || Math.random; n = n || N;
       const out = [], seen = new Set();
@@ -26,14 +21,14 @@
       return out;
     }
     const tiles = (cards, rnd) => mix(cards.flatMap((c, k) => [{k, side: "t", text: norm(c.front)}, {k, side: "d", text: norm(c.back)}]), rnd || Math.random);
-    // Text size step for a tile: longer text gets a smaller font (the tile clamps the rest)
+    // Text size step for a tile
     const size = t => { const n = String(t || "").length; return n > 140 ? 3 : n > 70 ? 2 : n > 32 ? 1 : 0; };
     // 12.3 (seconds and tenths), 1:02.3 past a minute
     const clock = ms => { const d = Math.max(0, Math.floor((Number(ms) || 0) / 100)), s = Math.floor(d / 10), t = d % 10; return s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}.${t}` : `${s}.${t}`; };
     const say = ms => { const d = Math.max(0, Math.floor((Number(ms) || 0) / 100)), s = Math.floor(d / 10); return s >= 60 ? `${Math.floor(s / 60)} min ${s % 60}.${d % 10} seconds` : `${s}.${d % 10} seconds`; };
     const ok = v => Number.isFinite(v) && v > 0;
     const bestOf = m => m && typeof m === "object" ? (ok(m.best) ? m.best : 0) : 0;
-    // A finished round folded into the deck's times: {match, first, better, prev}
+    // A finished round folded into the deck's times
     function record(prev, ms, now){
       ms = Math.max(1, Math.round(Number(ms) || 0)); now = now || Date.now();
       const p = prev && typeof prev === "object" ? prev : {}, old = bestOf(p), better = !old || ms < old;
@@ -45,7 +40,7 @@
   })();
   /*MATCH-END*/
 
-  let R = null;          // the round on screen: {src, opts, cards, tiles, sel, t0, pen, miss, left, done, iv, ms}
+  let R = null;
   const still = () => { try { return (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) || !!(window.SBMotion && SBMotion.level && SBMotion.level() === "static"); } catch (e) { return false; } };
   const pl = (n, w, ws) => `${n} ${n === 1 ? w : (ws || w + "s")}`;
   const now = () => (window.performance && performance.now ? performance.now() : Date.now());
@@ -59,7 +54,7 @@
     if (!R || !el) { stop(); return; }
     el.textContent = MATCH.clock(elapsed());
   }
-  // src: {name, cards, deckId (the deck that keeps the best time, or "")}. opts.after(result, box) adds to the result screen (study groups).
+  // src: {name, cards, deckId (the deck that keeps the best time, or "")}. opts.after
   function start(src, opts){
     const cards = MATCH.pick(src && src.cards);
     if (cards.length < MATCH.MIN) {
@@ -92,7 +87,7 @@
     if (!R.t0) { R.t0 = now(); R.iv = setInterval(tick, 100); }
     if (R.sel < 0 || R.sel === i) { select(R.sel === i ? -1 : i); return; }
     const a = R.tiles[R.sel];
-    if (a.side === t.side) { select(i); return; }      // two terms (or two definitions): the newer tap is the one picked
+    if (a.side === t.side) { select(i); return; }
     const j = R.sel; select(-1);
     if (a.k === t.k) hit(j, i); else miss(j, i);
   }
@@ -118,7 +113,7 @@
     const d = R.src.deckId && state.decks[R.src.deckId];
     let rec;
     if (d) { const nd = clone(d); rec = MATCH.record(nd.match, R.ms); nd.match = rec.match; saveDeck(nd, null); }
-    else { rec = MATCH.record(R.opts.prev || null, R.ms); R.opts.prev = rec.match; }   // no deck of yours to keep it on: kept for this sitting only
+    else { rec = MATCH.record(R.opts.prev || null, R.ms); R.opts.prev = rec.match; }
     R.rec = rec;
     setTimeout(() => { if (R && R.done && dlg.open && dlg.querySelector("[data-mt-play]")) result(); }, still() ? 0 : 360);
   }
@@ -136,7 +131,7 @@
     if (R.opts.after) { const box = $("#mtAfter"); try { R.opts.after({ms: R.ms, miss: R.miss, best, better: rec.better, first: rec.first}, box); } catch (e) { console.warn("match after", e); } }
   }
 
-  // Long press on a tile (touch) shows its whole text without picking it; a mouse gets the title tooltip.
+  // Long press on a tile (touch) shows its whole text without picking it
   let press = 0, peeked = false;
   const unpeek = () => { const p = dlg.querySelector(".mt-peek"); if (p) p.remove(); };
   dlg.addEventListener("pointerdown", e => {
@@ -148,7 +143,7 @@
       const p = document.createElement("p"); p.className = "mt-peek"; p.setAttribute("role", "note"); p.textContent = t.text; g.appendChild(p);
     }, 450);
   });
-  ["pointerup", "pointercancel", "pointerleave"].forEach(ev => dlg.addEventListener(ev, () => { clearTimeout(press); if (peeked) { setTimeout(unpeek, 1600); setTimeout(() => { peeked = false; }, 500); } }, true));   // the click a long press may end with is skipped
+  ["pointerup", "pointercancel", "pointerleave"].forEach(ev => dlg.addEventListener(ev, () => { clearTimeout(press); if (peeked) { setTimeout(unpeek, 1600); setTimeout(() => { peeked = false; }, 500); } }, true));
   dlg.addEventListener("contextmenu", e => { if (e.target.closest && e.target.closest(".mt-tile")) e.preventDefault(); });
   dlg.addEventListener("click", e => {
     const b = e.target.closest && e.target.closest(".mt-tile[data-mt]"); if (!b || !dlg.querySelector("[data-mt-play]")) return;
@@ -168,7 +163,7 @@
     return `<button class="btn" data-act="mt-start" data-id="${esc(d.id)}" ${d.cards.length ? "" : "disabled"} title="${best ? `Match the terms and definitions against the clock. Your best: ${MATCH.clock(best)} s` : "Match the terms and definitions against the clock"}">Match</button>`;
   }
   window.SBMATCH = {start, deckBtn, MATCH, clock: MATCH.clock, best: d => MATCH.bestOf(d && d.match), usable: c => MATCH.usable(c).length};
-  // test handle, like __sbNotecards: read-only access to the round and the app
+  // test handle, like __sbNotecards
   window.__sbMatch = {state: () => state, ui, render, applyChanges, clone, round: () => R, MATCH, tap, elapsed};
 })();
 

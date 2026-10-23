@@ -1,5 +1,5 @@
 /* ===== module: 96-tp-b2.js ===== */
-/* Theme Collections, batch 2: forest, galaxy, arctic, lemonade, xmas, cafe */
+/* Theme Collections, batch 2 */
 (() => {
   const f = n => +n.toFixed(2);
   const stops = s => s.map(([o, c, a]) => `<stop offset="${o}" stop-color="${c}"${a == null ? "" : ` stop-opacity="${a}"`}/>`).join("");

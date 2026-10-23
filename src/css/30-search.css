@@ -55,7 +55,7 @@ dialog.sx-dlg[open]{display:flex}
 .sx-from{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.8rem;color:var(--muted)}
 .sx-src{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 10px 4px 4px;font-size:.8rem;max-width:100%;min-height:32px}
 .sx-src span{display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--soft);font-weight:700;font-size:.72rem;flex:none}
-/* Ask Your Course: scope chips, the conversation, general knowledge, study buttons and Quiz Me */
+/* Ask Your Course */
 .sx-ans-t{white-space:pre-line;overflow-wrap:anywhere}
 .sx-scope{display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none;margin:8px 8px 2px;padding-bottom:2px}
 .sx-scope::-webkit-scrollbar{display:none}

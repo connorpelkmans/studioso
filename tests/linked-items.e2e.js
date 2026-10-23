@@ -1,9 +1,4 @@
-// node tests/linked-items.e2e.js   (Playwright + Chromium; see tests/pw.js)
-// Linked items (module 99-linked): the compact "Linked" row on a task's sheet and on a deck page. A task shows exactly its attached notes,
-// the notes that [[link]] it, the decks and files its notes link and its Exam Prep material (never a deck that only sounds alike); a task or
-// deck with nothing shows no row at all; a deck shows the lecture, note or PDF its cards were made from (deck.origins, card.from and the older
-// card.srcNote / card.src fields); chips open what they name (mouse and keyboard); past 6 items the rest fold into "+N more"; phone width;
-// dark theme; the shared origin format written by SBLINKED.stamp; no page errors.
+// node tests/linked-items.e2e.js (Playwright + Chromium; see tests/pw.js) Linked items
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -62,7 +57,7 @@ function SEED(){
   try {
     {
       const page = await open();
-      // ---- a task with an attached note, a note that links it, a deck its note links and an attached file: exactly those
+      // a task with an attached note, a note that links it
       await openTask(page, "t1");
       let cs = await chips(page);
       ok(JSON.stringify(cs.map(c => c.k + ":" + c.id)) === JSON.stringify(["note:n1", "note:n2", "deck:d1", "file:f1"]), "Lab Report 3 links exactly its note, the note that mentions it, the deck its note links and its file: " + JSON.stringify(cs.map(c => c.k + ":" + c.id)));
@@ -71,7 +66,6 @@ function SEED(){
       ok(cs[0].sr === "Note: " && cs[1].sr === "Note that links here: " && cs[2].sr === "Deck: " && cs[3].sr === "File: ", "screen readers hear what each chip is: " + cs.map(c => c.sr).join("|"));
       ok(await page.evaluate(() => { const r = document.querySelector("#dlg .lk-row"); return r.getAttribute("role") === "group" && r.getAttribute("aria-label") === "Linked" && !document.querySelector("#dlg .lk-row [title]") && !document.querySelector("#dlg .lk-more"); }), "one Linked group, no tooltips, no +more for four items");
       ok(await page.evaluate(() => { const r = document.querySelector("#dlg .lk-row"), b = document.querySelector("#dlg .sheet-body"); return r.closest(".sheet-body") === b && r.compareDocumentPosition(b.querySelector("input[name=title]")) & Node.DOCUMENT_POSITION_FOLLOWING; }), "the row sits at the top of the task sheet, above the fields");
-      // each chip opens what it names
       await page.click('#dlg .lk-chip[data-id="n1"]');
       await page.waitForFunction(() => window.__sbSync.ui.tab === "notes" && !document.querySelector("#dlg").open);
       ok(!!(await page.$('.note[data-note="n1"]')), "the attached note chip opens the note on its board");
@@ -85,11 +79,11 @@ function SEED(){
       await page.waitForFunction(() => document.querySelector("#dlg").open && (document.querySelector('#dlg input[name="name"]') || {}).value === "Lab handout" && !document.querySelector("#dlg .lk-row"));
       ok(true, "the file chip opens the file");
 
-      // ---- nothing linked: no row, no heading, no button
+      // nothing linked
       await openTask(page, "t2");
       ok(await page.evaluate(() => !document.querySelector("#dlg .lk-row") && !/\bLinked\b/.test(document.querySelector("#dlg .sheet-body").innerText.split("\n").slice(0, 6).join(" "))), "a task with nothing linked shows no Linked section at all");
 
-      // ---- Exam Prep material on an exam: its topic's deck and quiz (the deck is explicitly linked, so it shows)
+      // Exam Prep material on an exam
       await openTask(page, "t4");
       cs = await chips(page);
       ok(JSON.stringify(cs.map(c => c.k + ":" + c.id)) === JSON.stringify(["deck:d2", "quiz:q1"]), "an exam shows the deck and quiz its prep plan links: " + JSON.stringify(cs.map(c => c.k + ":" + c.id)));
@@ -97,7 +91,7 @@ function SEED(){
       await page.waitForFunction(() => window.__sbSync.ui.fc && window.__sbSync.ui.fc.mode === "aiquiz");
       ok(true, "the quiz chip starts the quiz");
 
-      // ---- collapse beyond 6
+      // collapse beyond 6
       await openTask(page, "t3");
       cs = await chips(page);
       ok(cs.length === 8 && cs.filter(c => c.shown).length === 5, "eight linked notes: five chips shown");
@@ -108,7 +102,7 @@ function SEED(){
       ok(await page.evaluate(() => document.activeElement && document.activeElement.dataset.id === "m5"), "focus moves to the first chip that was folded");
       ok(await page.evaluate(() => document.querySelector("#dlg").open && document.querySelector("#dlg form.sheet")), "expanding keeps the task sheet (and any edits) open");
 
-      // ---- deck pages: where the cards came from, and the notes that link the deck
+      // deck pages
       await goDeck(page, "d3");
       let dc = await deckChips(page);
       ok(JSON.stringify(dc.map(c => c.k + ":" + c.id)) === JSON.stringify(["lecture:lec1", "file:pdf1", "note:n3", "note:n4"]), "a deck made from a lecture, a PDF and a note shows them, then the note linking it: " + JSON.stringify(dc.map(c => c.k + ":" + c.id)));
@@ -123,7 +117,6 @@ function SEED(){
       ok(dc.length === 1 && dc[0].id === "n1", "a deck with no stored origin shows only the note that links it");
       await goDeck(page, "d2");
       ok(!(await page.$("#view .lk-row")), "a deck with nothing linked shows no row");
-      // a deck whose only links are origins says Made From
       await page.evaluate(() => { const T = window.__sbSync, d = T.clone(T.state.decks.d2); d.cards[0].srcNote = "n5"; T.applyChanges([{kind: "deck", id: "d2", after: d}], null); });
       await page.waitForSelector("#view .lk-row");
       ok((await page.textContent("#view .lk-row .lk-h")) === "Made From" && (await deckChips(page)).map(c => c.id).join() === "n5", "a deck made from a note (card.srcNote) shows Made From and the note");
@@ -131,7 +124,7 @@ function SEED(){
       await page.waitForFunction(() => window.__sbSync.ui.tab === "notes" && !!document.querySelector('.note[data-note="n5"]'));
       ok(true, "the origin note chip opens the note");
 
-      // ---- the shared origin format
+      // the shared origin format
       const st = await page.evaluate(() => {
         const L = window.SBLINKED, T = window.__sbSync, d = T.clone(T.state.decks.d2), fresh = [{id: "x1", front: "a", back: "b"}, {id: "x2", front: "c", back: "d"}];
         d.cards = d.cards.concat(fresh);
@@ -147,7 +140,7 @@ function SEED(){
       await page.ctx.close();
     }
 
-    // ---- phone width, dark theme
+    // phone width, dark theme
     {
       const page = await open({w: 390, h: 800, touch: true, dark: true});
       await openTask(page, "t3");

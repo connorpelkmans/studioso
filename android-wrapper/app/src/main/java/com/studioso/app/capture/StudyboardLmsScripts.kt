@@ -4,11 +4,11 @@ package com.studioso.app.capture
 
 internal val LMS_SCRIPTS = arrayOf(
     LmsScript("brightspace", "who", intArrayOf(580), arrayOf("696d419a0c8ae94e9108c13e1c8dfd6ebf2a082f7081401b0ec1ff134e9b296b"), arrayOf<String>()),
-    LmsScript("brightspace", "run", intArrayOf(29558, 7), arrayOf("4a91c68d23c8fc0245195c14cd36278819e6f037c5240aaf5b4e5698e397bb1e", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"), arrayOf<String>("json")),
+    LmsScript("brightspace", "run", intArrayOf(25944, 7), arrayOf("41efd354b96aadb54b14cf809ef0a80513b4678ca8191d8efdcba6c41d2442b8", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"), arrayOf<String>("json")),
     LmsScript("canvas", "who", intArrayOf(285), arrayOf("dcceed04f724416604630fa0318da165c3aa00082d5e7470b10cda616b86d6f1"), arrayOf<String>()),
-    LmsScript("canvas", "run", intArrayOf(22958, 7), arrayOf("39f0f68016f9d9142045e8a5e676d60c83dd487adad8e38698ac7cde2bba2fd3", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"), arrayOf<String>("json")),
-    LmsScript("blackboard", "who", intArrayOf(448), arrayOf("0ee7783018c9c6998698f83c32a0bab586f6c9c8012cbb6322356e73a6423a3c"), arrayOf<String>()),
-    LmsScript("blackboard", "run", intArrayOf(19922, 7), arrayOf("a6743290bb585765ce377571cb8051aa6ef310a109e098589ff430cb9a064e29", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"), arrayOf<String>("json")),
+    LmsScript("canvas", "run", intArrayOf(20741, 7), arrayOf("ddc88d000ccc8b89d5517f92d7ae9fdfbf5c4e755dddaa70c02d9f83665d8199", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"), arrayOf<String>("json")),
+    LmsScript("blackboard", "who", intArrayOf(422), arrayOf("2c84b275ca04526dd57c36abbdbc3f0336c4341001b14088f7f2ddaffd4da3da"), arrayOf<String>()),
+    LmsScript("blackboard", "run", intArrayOf(17895, 7), arrayOf("5c450fa178ee1f1cde6dde78488a3e299fc2778e204efc9d87697d9abb918d12", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"), arrayOf<String>("json")),
     LmsScript("brightspace", "run", intArrayOf(263, 17, 13, 818), arrayOf("b3d77bd943b2c40bab26ebfda3e9ecdbb70af6ae86b44e3f6fb01b9e799fa6b0", "98a77c2163e7ece5557ff1aa13d9885488539574d0cdd0f758274ddd4059e7ec", "7aec78918ff5ceed82c74c4c2087df50996c8eb8016b0a1d532ecd7ee23f33a7", "d0a6180283288de3087d03238f0864ca7dd43dc941640b0747ec70db2c6ee19a"), arrayOf<String>("digits", "digits", "digits")),
     LmsScript("canvas", "run", intArrayOf(54, 420), arrayOf("359a414a0fbe91b98b5e57a809de62e0918eb80e941d169d2aef1d9260b2a29c", "c855e2731588c7abf2a864046766e4a6db329b1e2b2a43202bc9b45cddabd06b"), arrayOf<String>("digits")),
     LmsScript("canvas", "run", intArrayOf(2604, 1), arrayOf("ce6760b2fc3d089db938414dc0b93b2c599b6ffaf52ae193b560df5f210adc49", "ba5ec51d07a4ac0e951608704431d59a02b21a4e951acc10505a8dc407c501ee"), arrayOf<String>("json")),

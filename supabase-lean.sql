@@ -1,20 +1,6 @@
--- Studyboard 1.11: Lean Sync (keeps Supabase's free plan going a long way)
--- Run this once in Supabase: SQL Editor > New query > paste everything > Run.
--- It is safe to run again. Run it after your main setup SQL (and after groups.sql and calendar-feed.sql if you use them).
---
--- What it does:
---  * Sync downloads only what changed. The server stamps every change with its own clock, and a short list of
---    deleted items (studyboard_deletions) lets your devices catch up without downloading everything again.
---  * Rate limits (studyboard_rate) so a stuck device or someone guessing invite codes can't run up your usage.
---  * The calendar link for Google or Apple Calendar is rebuilt only when something changed.
---  * Accounts not used for 6 months are packed into one compressed row (studyboard_archive) and unpacked
---    automatically the next time that person opens Studyboard.
---  * Daily clean-ups of old deletion records and rate counters.
--- It also adds the "Delete My Account" function (studyboard_delete_my_account) that the in-app account deletion calls.
--- That part is required for a public launch. Sync itself works with or without this file (without it, every device
--- downloads everything each time, like before).
+-- Studyboard 1.11
 
--- ---------- Server time on every change ----------
+-- Server time on every change
 alter table public.items add column if not exists updated_at timestamptz not null default now();
 
 create or replace function public.studyboard_touch() returns trigger
@@ -29,7 +15,7 @@ create trigger lean_items_touch before insert or update on public.items
 
 create index if not exists items_user_updated_idx on public.items (user_id, updated_at);
 
--- ---------- Deleted items, so other devices hear about deletions ----------
+-- Deleted items, so other devices hear about deletions
 create table if not exists public.studyboard_deletions (
   seq bigserial primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -58,7 +44,7 @@ drop trigger if exists lean_items_deleted on public.items;
 create trigger lean_items_deleted after delete on public.items
   for each row execute function public.studyboard_log_delete();
 
--- When something with the same id is added again, its old deletion record is no longer needed.
+-- When something with the same id is added again
 create or replace function public.studyboard_undelete() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
@@ -71,13 +57,13 @@ drop trigger if exists lean_items_undelete on public.items;
 create trigger lean_items_undelete after insert on public.items
   for each row execute function public.studyboard_undelete();
 
--- Deletion records older than 45 days are removed. A device away longer than 30 days downloads everything once.
+-- Deletion records older than 45 days are removed
 create or replace function public.studyboard_purge_deletions() returns void
 language sql security definer set search_path = public as $$
   delete from public.studyboard_deletions where deleted_at < now() - interval '45 days';
 $$;
 
--- ---------- Rate limits ----------
+-- Rate limits
 create table if not exists public.studyboard_rate (
   key text not null,
   bucket timestamptz not null,
@@ -87,7 +73,7 @@ create table if not exists public.studyboard_rate (
 alter table public.studyboard_rate enable row level security;   -- no policies: only the functions below touch it
 revoke all on public.studyboard_rate from anon, authenticated;
 
--- Counts one use of "key" in the current time window. Returns false once it's over p_max uses in p_window seconds.
+-- Counts one use of "key" in the current time window
 create or replace function public.studyboard_rate_hit(p_key text, p_max int, p_window int) returns boolean
 language plpgsql volatile security definer set search_path = public as $$
 declare b timestamptz := to_timestamp(floor(extract(epoch from now()) / greatest(p_window, 1)) * greatest(p_window, 1)); c int;
@@ -98,9 +84,7 @@ begin
   return c <= p_max;
 end $$;
 
--- The same, for the signed-in person (used by the lms-feed function with your sign-in).
--- Only the limits listed here exist, each with its own fixed window and maximum (p_max and p_window are kept for the callers but
--- ignored), so nobody can make up names or windows to fill studyboard_rate with rows. Anything else is refused.
+-- The same, for the signed-in person (used by the lms-feed function with your sign-in)
 create or replace function public.studyboard_rate_me(p_what text, p_max int, p_window int) returns boolean
 language plpgsql volatile security definer set search_path = public as $$
 declare lim int; win int;
@@ -122,21 +106,16 @@ language sql security definer set search_path = public as $$
   delete from public.studyboard_rate where bucket < now() - interval '2 days';
 $$;
 
--- ---------- Calendar link cache (used by the calendar-feed function) ----------
+-- Calendar link cache (used by the calendar-feed function)
 do $$
 begin
   if to_regclass('public.calendar_feeds') is not null then
     alter table public.calendar_feeds add column if not exists cache_key text;
     alter table public.calendar_feeds add column if not exists cache_text text;
-    -- The cache is written only by the calendar-feed function (service role). Signed-in people write just token, user_id and
-    -- options (supabase-calendar-feed.sql); this repeats that here so an older copy of that file run later can't open it up again.
     revoke insert, update on public.calendar_feeds from authenticated;
     revoke insert (cache_key, cache_text), update (cache_key, cache_text) on public.calendar_feeds from authenticated;
     grant insert (token, user_id, options) on public.calendar_feeds to authenticated;
     grant update (options) on public.calendar_feeds to authenticated;
-    -- A cached calendar is at most 2 MB (a bigger one is just rebuilt each time: the function treats the cache as optional).
-    -- NOT VALID, and any bigger cache already stored is emptied first (it is rebuilt on the next fetch), so no existing link is
-    -- left with a row that a later change of its options would fail on.
     update public.calendar_feeds set cache_key = null, cache_text = null
       where octet_length(cache_text) > 2000000 or char_length(cache_key) > 64;
     alter table public.calendar_feeds drop constraint if exists calendar_feeds_cache_limits;
@@ -145,20 +124,19 @@ begin
   end if;
 end $$;
 
--- ---------- Packing away accounts nobody has used for 6 months ----------
+-- Packing away accounts nobody has used for 6 months
 create table if not exists public.studyboard_archive (
   user_id uuid primary key references auth.users(id) on delete cascade,
   rows int not null,
   items jsonb not null,             -- every row, in one value that Postgres compresses
   archived_at timestamptz not null default now()
 );
--- Set when an unpack found items a device had already saved again: the packed-away versions of just those are kept here (never unpacked
--- again, so an item deleted later can't come back; recoverable from the SQL editor).
+-- Set when an unpack found items a device had already saved again
 alter table public.studyboard_archive add column if not exists kept_at timestamptz;
 alter table public.studyboard_archive enable row level security;   -- no policies: only the functions below touch it
 revoke all on public.studyboard_archive from anon, authenticated;
 
--- Packs up to p_limit accounts at a time whose last sign-in, last session refresh and last change are all older than p_days.
+-- Packs up to p_limit accounts at a time whose last sign-in
 create or replace function public.studyboard_archive_inactive(p_days int default 180, p_limit int default 200) returns int
 language plpgsql security definer set search_path = public, auth as $$
 declare u uuid; done int := 0; cutoff timestamptz := now() - make_interval(days => greatest(p_days, 90)); has_sessions boolean := to_regclass('auth.sessions') is not null;
@@ -185,7 +163,7 @@ begin
   return done;
 end $$;
 
--- The app calls this when it starts. It unpacks your account if it was packed away, and returns how many items came back.
+-- The app calls this when it starts
 create or replace function public.studyboard_restore_archive() returns int
 language plpgsql security definer set search_path = public as $$
 declare me uuid := auth.uid(); a public.studyboard_archive; n int := 0;
@@ -198,8 +176,6 @@ begin
     select me, x.kind, x.id, x.data from jsonb_to_recordset(a.items) as x(kind text, id text, data jsonb, updated_at timestamptz)
     on conflict (user_id, kind, id) do nothing;
   get diagnostics n = row_count;
-  -- An item a device saved again before this ran keeps that newer save. The packed-away copy of such an item is not thrown away when it
-  -- differs: it stays in the archive row (only those), so nothing is lost; the archive row goes once nothing in it differs.
   update public.studyboard_archive x set kept_at = now(),
     items = coalesce((select jsonb_agg(e) from jsonb_array_elements(a.items) e
                       where exists (select 1 from public.items i where i.user_id = me and i.kind = e ->> 'kind' and i.id = e ->> 'id' and i.data is distinct from e -> 'data')), '[]'::jsonb)
@@ -213,7 +189,7 @@ revoke all on function public.studyboard_restore_archive() from public, anon;
 grant execute on function public.studyboard_restore_archive() to authenticated;
 revoke all on function public.studyboard_purge_deletions(), public.studyboard_purge_rate() from public, anon, authenticated;
 
--- ---------- Schedules (needs the pg_cron extension: Database > Extensions > pg_cron) ----------
+-- Schedules
 do $$
 begin
   begin
@@ -227,37 +203,13 @@ begin
   perform cron.schedule('studyboard-archive-monthly', '43 4 2 * *', 'select public.studyboard_archive_inactive(180, 500);');
 end $$;
 
--- ---------- Delete My Account (Settings > Account and Sync > Delete My Account and Data) ----------
--- Permanently deletes the signed-in person's account and everything stored for it. The rules (also shown in the app, the
--- privacy policy and STORE-READINESS.md):
---   * Their own data is deleted: synced items, deletion log, archive, devices, device-removal log, plan, usage, billing link
---     (the Stripe customer link, not Stripe's own records), reminders, push devices, calendar links, profile, shared decks,
---     bug reports (and the contact email on them), rate counters.
---   * Study groups: if the person owns a group and someone else is a member, ownership moves to the longest-standing other
---     member (the group carries on). If nobody else is in it, the group and its content are deleted.
---   * What the person wrote in groups (messages, items, quiz scores, RSVPs, reactions, check-ins, stats) is deleted with the account.
---   * Shared group tasks and lists stay for the group with their author, assignee and completer links removed.
---   * Removals from groups by their owners (group_bans) are deleted.
---   * Voice-capture tokens and inbox (capture_tokens, capture_inbox) and the Email to Studyboard address (capture_email) are deleted.
---   * Two-way calendar sync connections (calsync_accounts, with their stored sign-in) and what they sent (calsync_map) are deleted.
---   * Google Drive and OneDrive connections (cloud_accounts, with their stored sign-in) are deleted. Files in the cloud stay there.
---   * Reports they made or that were made about them (group_reports) stay for safety but lose the link to the account
---     (reporter_id and reported_user_id become null by the foreign keys).
---   * Payment bookkeeping that must be kept (studyboard_billing_events, studyboard_pro_grants) is anonymized: the user id,
---     email and free-text reason are removed; only event ids, dates and plan facts remain.
---   * A used free trial stays recorded as a SHA-256 of the tidied email only (studyboard_trial_uses), so it can't be reused.
---   * Uploaded files in the studioso-files bucket (<uid>/...) must be deleted through the Storage API (Supabase does not
---     allow deleting storage rows from SQL). The delete-account Edge Function does that with the service role; the app falls
---     back to deleting them with the person's own sign-in. The block below only sweeps up what SQL is allowed to.
--- It can only ever act on the caller (auth.uid()), does nothing for anonymous visitors, and is safe to call twice.
--- It does NOT cancel a Pro subscription at Stripe, the App Store or Google Play (the delete-account Edge Function cancels Stripe).
+-- Delete My Account (Settings > Account and Sync > Delete My Account and Data)
 
--- The shared worker. Service role only (the Edge Function) and the caller-bound wrapper below. Returns what it removed, by table.
+-- The shared worker
 create or replace function public.studyboard_delete_user_data(p_uid uuid) returns jsonb
 language plpgsql security definer set search_path = public, auth, storage as $$
 declare
   res jsonb := '{}'::jsonb; n bigint; g record; heir uuid; t text[];
-  -- table, column: rows deleted outright (explicit so it works even before the auth row goes)
   del text[][] := array[
     ['group_reactions','user_id'], ['group_checkins','user_id'], ['group_stats','user_id'], ['group_rsvps','user_id'],
     ['group_quiz_scores','user_id'], ['group_misses','user_id'], ['group_peer_ratings','from_user'], ['group_peer_ratings','to_user'], ['group_messages','user_id'], ['group_items','user_id'], ['group_board_ops','user_id'], ['group_board_people','user_id'], ['group_blocks','blocker_id'],
@@ -271,10 +223,7 @@ declare
     ['group_suspended','user_id'], ['studyboard_promo_redemptions','user_id'], ['studyboard_entitlements','user_id'], ['studyboard_theme_access','user_id'], ['bug_reports','user_id'], ['items','user_id']];
 begin
   if p_uid is null then raise exception 'SB_NO_USER' using errcode = '22023'; end if;
-  -- Groups they own: hand over to the longest-standing other member, or delete the group when nobody else is in it.
   if to_regclass('public.study_groups') is not null and to_regclass('public.group_members') is not null then
-    -- Deleting an account deletes for real (groups.sql otherwise only hides a deleted group for 30 days). A group they had already
-    -- deleted goes now with them, never handed over to a member.
     perform set_config('studyboard.group_purge', 'on', true);
     if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'study_groups' and column_name = 'deleted_at') then
       execute 'delete from public.study_groups where owner_id = $1 and deleted_at is not null' using p_uid;
@@ -292,13 +241,9 @@ begin
     end loop;
     res := res || jsonb_build_object('groups_transferred', n);
   end if;
-  -- Whiteboards they shared with a group stay with the group (everyone has their own copy); only the maker's name goes. Their own
-  -- changes in the log go with the rows above (group_board_ops).
   if to_regclass('public.group_boards') is not null then
     update public.group_boards set created_by = null where created_by = p_uid;
   end if;
-  -- A used free trial is remembered as a hash of the email only (supabase-plans.sql), so deleting and re-creating the account
-  -- doesn't give a second trial. No account id or address is kept.
   if to_regclass('public.studyboard_trial_uses') is not null and to_regclass('public.studyboard_entitlements') is not null
      and to_regprocedure('public.plans_email_hash(text)') is not null then
     insert into public.studyboard_trial_uses (email_hash)
@@ -313,12 +258,10 @@ begin
       res := jsonb_set(res, array[t[1]], to_jsonb(coalesce((res ->> t[1])::bigint, 0) + n));
     end if;
   end loop;
-  -- Bug reports sent while signed out that left this account's email as the contact address
   if to_regclass('public.bug_reports') is not null then
     delete from public.bug_reports where contact_email is not null and lower(contact_email) = (select lower(u.email) from auth.users u where u.id = p_uid);
     get diagnostics n = row_count; res := jsonb_set(res, '{bug_reports}', to_jsonb(coalesce((res ->> 'bug_reports')::bigint, 0) + n));
   end if;
-  -- Payment and grant bookkeeping we must keep: anonymize it instead of deleting it.
   if to_regclass('public.studyboard_billing_events') is not null then
     update public.studyboard_billing_events set user_id = null where user_id = p_uid;
     get diagnostics n = row_count; res := res || jsonb_build_object('studyboard_billing_events_anonymized', n);
@@ -328,7 +271,6 @@ begin
       where user_id = p_uid or (email is not null and lower(email) = (select lower(u.email) from auth.users u where u.id = p_uid));
     get diagnostics n = row_count; res := res || jsonb_build_object('studyboard_pro_grants_anonymized', n);
   end if;
-  -- Shared group tasks and lists stay for the group but lose every link to the person (the foreign keys set null; done here too so it holds before the auth row goes)
   if to_regclass('public.group_tasks') is not null then
     update public.group_tasks set assignee_id = case when assignee_id = p_uid then null else assignee_id end,
       created_by = case when created_by = p_uid then null else created_by end,
@@ -340,7 +282,6 @@ begin
   if to_regclass('public.group_task_lists') is not null then
     update public.group_task_lists set created_by = null where created_by = p_uid;
   end if;
-  -- Reports made by or about them stay (safety) without the link to the account.
   if to_regclass('public.group_reports') is not null then
     update public.group_reports set reporter_id = null where reporter_id = p_uid;
     update public.group_reports set reported_user_id = null where reported_user_id = p_uid;
@@ -351,7 +292,6 @@ begin
   if to_regclass('public.school_requests') is not null then
     update public.school_requests set user_id = null where user_id = p_uid;
   end if;
-  -- Rate counters whose key contains their id
   foreach t slice 1 in array array[['studyboard_rate','key'], ['studyboard_plan_rate','key']] loop
     if to_regclass('public.' || t[1]) is not null then
       execute format('delete from public.%I where %I like $1', t[1], t[2]) using '%:' || p_uid::text;
@@ -374,14 +314,7 @@ do $$ begin
   end if;
 end $$;
 
--- What the app calls (fallback when the delete-account Edge Function is not deployed). Acts on the caller only.
--- Because this path can't cancel a card subscription or check a password, it refuses (and deletes nothing) when:
---   * the last sign-in was more than 10 minutes ago (auth.users.last_sign_in_at; a token refresh doesn't count), so a stolen
---     or left-open session can't delete the account: sign in again (or enter the password) first;
---   * the account has a running Stripe card subscription (or a Stripe customer whose plan isn't known to have ended): it
---     must be cancelled first, or the delete-account Edge Function (which cancels it) must be used.
--- studyboard_delete_my_account_check() answers the same question without deleting anything (null = allowed), so the app
--- can ask before it starts removing files.
+-- What the app calls (fallback when the delete-account Edge Function is not deployed)
 create or replace function public.studyboard_delete_my_account_check() returns text
 language plpgsql stable security definer set search_path = public, auth as $$
 declare me uuid := auth.uid(); signed_in timestamptz; has_user boolean := false;

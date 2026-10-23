@@ -19,7 +19,7 @@ const SBI18N = (() => {
   function fill(str, vars){ return vars ? String(str).replace(/\{(\w+)\}/g, (m, k) => vars[k] != null ? vars[k] : m) : String(str); }
   function lookup(key){ const c = CATS[lang] || CATS[base(lang)]; return c && c[key] != null ? c[key] : null; }
   function tr(key, en, vars){ const hit = lookup(key); return fill(hit != null ? hit : en, vars); }
-  // trn(key, n, "one form|other form"): "one|other" (extra forms for languages that need them: zero|one|two|few|many|other)
+  // trn(key, n, "one form|other form")
   function trn(key, n, en, vars){
     const forms = String(lookup(key) != null ? lookup(key) : en).split("|");
     const names = ["zero", "one", "two", "few", "many", "other"];
@@ -64,7 +64,7 @@ const SBI18N = (() => {
   async function set(l){ store(LS, l || "auto"); const want = l && l !== "auto" ? l : pick(); await load(want); use(want); }
   const have = l => !!CATS[norm(l)] || !!CATS[base(l)];
   lang = pick(); setRules();
-  // English pages stay untouched: only a non-English choice loads a catalog and rewrites the page
+  // English pages stay untouched
   if (base(lang) !== "en") load(lang).then(() => { if (have(lang)) use(lang); else { lang = "en"; setRules(); } });
   return {tr, trn, fmtN, fmtD, register, applyDom, load, set, use, have, get lang(){ return lang; }, get saved(){ return store(LS) || "auto"; }, available: () => SOURCES.slice(), names: {en: "English", es: "Español"}};
 })();
@@ -75,7 +75,7 @@ hook("menu", () => {
   const cur = SBI18N.saved, items = [["auto", tr("lang.auto", "Auto")]].concat(av.map(l => [l, SBI18N.names[l] || l]));
   return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">${esc(tr("lang.title", "Language"))}<span class="sub">${esc(tr("lang.sub", "Auto follows your device. Anything not translated yet stays in English."))}</span></span><div class="segb" role="group" aria-label="${esc(tr("lang.title", "Language"))}">${items.map(([k, l]) => `<button type="button" data-act="lang-set" data-id="${esc(k)}" aria-pressed="${cur === k}">${esc(l)}</button>`).join("")}</div></div>`;
 });
-// Spelling: Automatic (by where you are), or fixed to American, British or Canadian (see SPELL)
+// Spelling: Automatic (by where you are), or fixed to American, British or Canadian
 hook("menu", () => {
   let cur = "auto"; try { cur = localStorage.getItem(SPELL.KEY) || "auto"; } catch (e) {}
   const opts = [["auto", "Automatic"], ["us", "American"], ["gb", "British"], ["ca", "Canadian"]];
@@ -84,7 +84,7 @@ hook("menu", () => {
 hook("act", (act, el, id) => {
   if (act !== "spell-set") return false;
   try { if (id === "auto") localStorage.removeItem(SPELL.KEY); else localStorage.setItem(SPELL.KEY, id); } catch (e) {}
-  location.reload();   // the app's text is spelled as it's put on the page, so start fresh
+  location.reload();
   return true;
 });
 hook("act", (act, el, id) => {
@@ -102,7 +102,7 @@ const PRIO = {low:"Low", med:"Medium", high:"High", urgent:"Urgent"};
 const PRIO_W = {urgent:40, high:25, med:10, low:0};
 const SPAN = {Assignment:5, Exam:0, Quiz:0, Reading:3, Project:14, Lab:4, Study:0, Other:3};
 const MILESTONE = type => type === "Exam" || type === "Quiz";
-// Which fields each task type uses, and what they're called.
+// Which fields each task type uses, and what they're called
 const TYPE_CFG = {
   Assignment: {start:"Start Date", due:"Due Date", time:"Due Time", hours:"Hours Needed", prog:"Progress", checklist:"Checklist", step:"Add a step, e.g. Draft answers", link:"Submission Link", notes:"Notes", notesPh:"Instructions, page numbers…", title:"e.g. Homework 3"},
   Project:    {start:"Start Date", due:"Due Date", time:"Due Time", hours:"Hours Needed", prog:"Progress", checklist:"Milestones", step:"Add a milestone, e.g. Proposal approved", link:"Project Link", team:"Team Members", notes:"Notes", notesPh:"Scope, requirements, meeting times…", title:"e.g. Bridge design project"},

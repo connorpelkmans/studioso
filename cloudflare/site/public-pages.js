@@ -1,12 +1,4 @@
-// Public flashcards and quizzes: studyboardapp.com/flashcards and /quizzes (supabase-sharing.sql, "Public flashcards and quizzes").
-// Rendered here on the server as plain HTML, so search engines read every card and question (like Quizlet's set pages), with:
-//   - one page per published deck or quiz at /flashcards/<name>-<code> and /quizzes/<name>-<code> (old names redirect to the current one)
-//   - a page per course code (/flashcards/course/biol-201: "BIOL 201 Flashcards"), the strongest pages for searches like "biol 201 flashcards"
-//   - an index with search (/flashcards?q=...; result pages are noindex, the index and course pages are indexed)
-//   - schema.org Quiz / Question markup (Google's flashcard and practice-question formats), canonical links, Open Graph tags
-//   - /sitemap-public.xml listing everything, linked from robots.txt
-// Pages are cached at Cloudflare's edge (set pages 15 minutes, lists up to an hour, search results five minutes; the app clears them on publish), so most visits never reach Supabase.
-// Only published, not hidden items are ever read; nothing about the person but their display name.
+// Public flashcards and quizzes
 
 import {ICONS, GUESS, GENERAL, COLORS} from "./course-icons.js";
 
@@ -17,7 +9,7 @@ const KINDS = {
 };
 const PER_PAGE = 30;
 
-/* ---------- small helpers ---------- */
+/* small helpers */
 export const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"})[c]);
 export function slugify(s){
   const x = String(s || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 70).replace(/-+$/, "");
@@ -26,17 +18,17 @@ export function slugify(s){
 export const codeOf = s => { const x = String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, ""); return x.length === 8 ? x.slice(0, 4) + "-" + x.slice(4) : ""; };
 export const urlCode = code => String(code || "").replace(/-/g, "").toLowerCase();
 export const itemPath = (section, name, code) => `/${section}/${slugify(name)}-${urlCode(code)}`;
-// A course code as a key ("BIOL 201" -> BIOL201). Same rules as public.sbs_course_key (supabase-sharing.sql) and the app's codeKey.
+// A course code as a key ("BIOL 201" -> BIOL201)
 const NOT_CODE = /^(GRADE|GR|YEAR|YR|UNIT|WEEK|WK|CHAPTER|CH|LAB|ROOM|PAGE|PART|LESSON|TERM|SEM|CLASS|PERIOD|QUIZ|TEST|EXAM|MIDTERM|FINAL|LECTURE|LEC|MODULE|TOPIC|SECTION|SEC|GROUP|TEAM|DAY|SET|DECK|LEVEL|NOTE|NOTES|VERSION|STEP|ROUND|BOOK|VOL|NO|NUMBER|COVID)$/;
 export const courseKey = s => {
   s = String(s || ""); let m;
-  if ((m = s.match(/(?:^|[^0-9])([0-9]{2})[:. -]([0-9]{3})[:. -]([0-9]{3})(?![0-9])/))) return m[1] + m[2] + m[3];   // all numbers: Rutgers' 01:119:115
-  if ((m = s.match(/(?:^|[^A-Za-z])([A-Z]{2,8})-([A-Z]{2})\s*([0-9]{1,4}[A-Z]?)(?![A-Za-z0-9])/))) return m[1] + m[2] + m[3];   // NYU's PSYCH-UA 1
-  if ((m = s.match(/(?:^|[^A-Za-z])([A-Za-z]{2,8})[\s._-]*([0-9][A-Za-z][0-9]{2}|[0-9]{2,5}[A-Za-z]{0,2})/)) && (/^[0-9]{3}/.test(m[2]) || !NOT_CODE.test(m[1].toUpperCase()))) return (m[1] + m[2]).toUpperCase();   // BIOL 201, McMaster's 1A03 (but not Grade 12)
-  if ((m = s.match(/(?:^|[^A-Za-z])([A-Za-z]{9,12})\s+([0-9]{4}[A-Za-z]?)(?![0-9])/))) return (m[1] + m[2]).toUpperCase();   // Western's Psychology 1002A
-  if ((m = s.match(/(?:^|[^A-Za-z0-9])([A-Z]{2,8})[\s._-]?([0-9][A-Z]?)(?![A-Za-z0-9])/)) && !NOT_CODE.test(m[1])) return m[1] + m[2];   // short ones in capitals: ECON 1, CHEM 1A, SBI4U
-  if ((m = s.match(/(?:^|[^A-Za-z0-9])([A-Z])\s?([0-9]{3}[A-Z]?)(?![A-Za-z0-9])/))) return m[1] + m[2];   // one-letter subjects: UT Austin's M 408C
-  const h = s.match(/\b([A-Za-z]{3})[\s-]?([1-4])([A-Za-z][A-Za-z0-9]?)\b/);   // high school codes like Ontario's SBI4U
+  if ((m = s.match(/(?:^|[^0-9])([0-9]{2})[:. -]([0-9]{3})[:. -]([0-9]{3})(?![0-9])/))) return m[1] + m[2] + m[3];
+  if ((m = s.match(/(?:^|[^A-Za-z])([A-Z]{2,8})-([A-Z]{2})\s*([0-9]{1,4}[A-Z]?)(?![A-Za-z0-9])/))) return m[1] + m[2] + m[3];
+  if ((m = s.match(/(?:^|[^A-Za-z])([A-Za-z]{2,8})[\s._-]*([0-9][A-Za-z][0-9]{2}|[0-9]{2,5}[A-Za-z]{0,2})/)) && (/^[0-9]{3}/.test(m[2]) || !NOT_CODE.test(m[1].toUpperCase()))) return (m[1] + m[2]).toUpperCase();
+  if ((m = s.match(/(?:^|[^A-Za-z])([A-Za-z]{9,12})\s+([0-9]{4}[A-Za-z]?)(?![0-9])/))) return (m[1] + m[2]).toUpperCase();
+  if ((m = s.match(/(?:^|[^A-Za-z0-9])([A-Z]{2,8})[\s._-]?([0-9][A-Z]?)(?![A-Za-z0-9])/)) && !NOT_CODE.test(m[1])) return m[1] + m[2];
+  if ((m = s.match(/(?:^|[^A-Za-z0-9])([A-Z])\s?([0-9]{3}[A-Z]?)(?![A-Za-z0-9])/))) return m[1] + m[2];
+  const h = s.match(/\b([A-Za-z]{3})[\s-]?([1-4])([A-Za-z][A-Za-z0-9]?)\b/);
   return h ? (h[1] + h[2] + h[3]).toUpperCase() : "";
 };
 export const courseSlug = key => { if (/^[0-9]{8}$/.test(key || "")) return key.slice(0, 2) + "-" + key.slice(2, 5) + "-" + key.slice(5); const m = String(key || "").match(/^([A-Z]+)([0-9].*)$/); return m ? (m[1] + "-" + m[2]).toLowerCase() : String(key || "").toLowerCase(); };
@@ -47,7 +39,7 @@ const jsonLd = o => `<script type="application/ld+json">${JSON.stringify(o).repl
 const monthYear = t => { const d = new Date(t); return isNaN(d) ? "" : d.toLocaleDateString("en-US", {month: "long", year: "numeric", timeZone: "UTC"}); };
 const isoDate = t => { const d = new Date(t); return isNaN(d) ? "" : d.toISOString().slice(0, 10); };
 
-/* ---------- reading from Supabase (published items only) ---------- */
+/* reading from Supabase (published items only) */
 export async function rpc(env, fn, args){
   const base = String(env.SUPABASE_URL || "").replace(/\/+$/, ""), key = env.SUPABASE_ANON_KEY || "";
   if (!base || !key) throw Object.assign(new Error("not configured"), {status: 503});
@@ -56,7 +48,7 @@ export async function rpc(env, fn, args){
   return r.json();
 }
 
-/* ---------- page shell ---------- */
+/* page shell */
 function page({title, description, canonical, robots, body, ld, ogType}){
   return `<!doctype html>
 <html lang="en">
@@ -104,8 +96,7 @@ ${body}
 </body>
 </html>`;
 }
-// Filters under the search box: school, size and order. They change the results as soon as one is picked (public.js); without
-// JavaScript, Search applies them.
+// Filters under the search box
 const SORTS = [["", "Best match"], ["new", "Newest"], ["saves", "Most saved"], ["cards", "Most cards"]];
 const SIZES = [0, 10, 25, 50];
 const filtersOf = url => ({school: (url.searchParams.get("school") || "").slice(0, 120), sort: SORTS.some(x => x[0] === url.searchParams.get("sort")) ? url.searchParams.get("sort") : "",
@@ -123,13 +114,11 @@ const searchForm = (section, q, course, f, schools) => `<form class="pub-search"
   </div>` : ""}</form>`;
 const crumbs = (list, base) => `<nav class="pub-crumbs" aria-label="Breadcrumb"><ol>${list.map((c, i) => `<li>${i < list.length - 1 ? `<a href="${esc(c[1])}">${esc(c[0])}</a>` : `<span aria-current="page">${esc(c[0])}</span>`}</li>`).join("")}</ol></nav>`;
 const crumbLd = (list, base) => ({"@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: list.map((c, i) => ({"@type": "ListItem", position: i + 1, name: c[0], item: base + c[1]}))});
-// A deck tile drawn like the app's Flashcards screen: a little stack of lined index cards with the course's band, icon and card count.
-// The course colour is a class (pc0, pc1...), since the pages allow no inline styles. Same course, same colour on every page.
+// A deck tile drawn like the app's Flashcards screen
 const GENERAL_COLOR = COLORS.indexOf("#5E6B7E");
 const svgOf = k => `<svg class="ci-svg" viewBox="${ICONS[k][0]}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k][1]}</svg>`;
 export function deckLook(r){
   const label = String(r.course_label || "").trim();
-  // the colour and icon the maker picked when publishing (only the app's own colours and icons)
   const lk = r.look && typeof r.look === "object" ? r.look : null, ci = lk ? COLORS.indexOf(String(lk.color || "").toUpperCase()) : -1;
   if (ci >= 0 && (lk.icon === "general" || Object.prototype.hasOwnProperty.call(ICONS, lk.icon))) return {label: label || "General", color: ci, icon: lk.icon === "general" ? GENERAL : svgOf(lk.icon)};
   if (!label) return {label: "General", color: GENERAL_COLOR, icon: GENERAL};
@@ -160,16 +149,14 @@ function listHtml(section, rows){
 const pager = (section, base, pageNo, more) => (pageNo > 1 || more) ? `<nav class="pub-pager" aria-label="Pages">${pageNo > 1 ? `<a class="btn" rel="prev" href="${esc(base + (pageNo === 2 ? "" : (base.includes("?") ? "&" : "?") + "page=" + (pageNo - 1)))}">Previous</a>` : "<span></span>"}<span>Page ${pageNo}</span>${more ? `<a class="btn" rel="next" href="${esc(base + (base.includes("?") ? "&" : "?") + "page=" + (pageNo + 1))}">Next</a>` : "<span></span>"}</nav>` : "";
 const cta = section => `<aside class="pub-cta"><div><b>Make your own ${section === "quizzes" ? "practice quizzes" : "flashcards"}, free</b><span>Studyboard plans your semester and brings each card back just before you'd forget it. Works in any browser, no download needed.</span></div><a class="btn primary" href="/">Open Studyboard</a></aside>`;
 
-/* ---------- the pages ---------- */
+/* the pages */
 async function indexPage(env, section, url, origin){
   const K = KINDS[section], q = (url.searchParams.get("q") || "").trim().slice(0, 120), courseIn = url.searchParams.get("course") || "", f = filtersOf(url);
   const searching = !!(q || f.school || f.sort || f.min);
   const pageNo = Math.max(1, Math.min(100, parseInt(url.searchParams.get("page") || "1", 10) || 1));
-  // a search that is just a course code goes to that course's page
   const ck = courseKey(q);
   if (q && ck && q.replace(/[\s._:-]/g, "").toUpperCase() === ck && !courseIn && !f.school && !f.sort && !f.min) return Response.redirect(`${origin}/${section}/course/${courseSlug(ck)}`, 302);
   const [rows, courses, schools] = await Promise.all([
-    // the filtered search needs the latest supabase-sharing.sql; until it has been run, search the older way (no filters) instead of failing
     rpc(env, "public_search", {p_kind: K.kind, p_q: q, p_course: courseIn, p_limit: PER_PAGE + 1, p_offset: (pageNo - 1) * PER_PAGE, p_school: f.school, p_sort: f.sort, p_min: f.min})
       .catch(() => rpc(env, "public_search", {p_kind: K.kind, p_q: q, p_course: courseIn, p_limit: PER_PAGE + 1, p_offset: (pageNo - 1) * PER_PAGE})),
     searching || pageNo > 1 ? Promise.resolve([]) : rpc(env, "public_courses", {p_kind: K.kind, p_limit: 40}),
@@ -231,14 +218,13 @@ async function itemPage(env, section, slug, code, origin){
   const related = key ? (await rpc(env, "public_search", {p_kind: K.kind, p_q: "", p_course: key, p_limit: 9, p_offset: 0}).catch(() => [])).filter(r => r.code !== row.code).slice(0, 8) : [];
   const appLink = `/?${K.appParam}=${encodeURIComponent(row.code)}`;
   const school = row.school_name || "";
-  const official = String(row.sharer_name || "").toLowerCase() === "@studyboard";   // Studyboard's own sample sets (supabase-seed-sets.sql)
+  const official = String(row.sharer_name || "").toLowerCase() === "@studyboard";
   const meta = `${esc(plural(Number(row.n) || 0, K.unit))}${label ? ` · ${esc(label)}` : ""}${school ? ` · ${esc(school)}` : ""}${row.sharer_name ? ` · Made by ${esc(row.sharer_name)}` : ""}${row.updated_at ? ` · Updated ${esc(monthYear(row.updated_at))}` : ""}`;
   let body, ld, title, description;
   if (K.kind === "deck") {
     const cards = (Array.isArray(d.cards) ? d.cards : []).filter(c => c && (c.front || c.back)).slice(0, 2000);
     title = `${row.name}${label && !row.name.toLowerCase().includes(label.toLowerCase()) ? " (" + label + ")" : ""} Flashcards | ${SITE}`;
     description = clip(`Study ${row.name}${label ? " for " + label : ""}${school ? " at " + school : ""} with ${cards.length} flashcards: ${cards.slice(0, 5).map(c => c.front).join(", ")}.`, 158);
-    // Drawn like the deck page in the app: the course band with the actions, the big course icon, the name and its numbers, then the cards as lined index cards
     const L = deckLook({course_label: label, course_key: key, name: row.name, look: d.look});
     const chips = [`<b>${esc(String(cards.length))}</b> ${esc(cards.length === 1 ? K.unit : K.unit + "s")}`, school && esc(school), row.sharer_name && "by " + esc(row.sharer_name), row.updated_at && "Updated " + esc(monthYear(row.updated_at))].filter(Boolean);
     body = `${crumbs(cr)}<header class="pdh pc${L.color}"><div class="pdh-band"><span class="pdh-kick">${esc(label || "General")} · Flashcards</span></div>
@@ -291,7 +277,7 @@ async function sitemap(env, origin){
   return xml;
 }
 
-/* ---------- the router ---------- */
+/* the router */
 const HTML_HEADERS = {
   "content-type": "text/html; charset=utf-8",
   "content-security-policy": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
@@ -305,9 +291,7 @@ function notFound(section, origin){
   return new Response(html, {status: 404, headers: Object.assign({"cache-control": "public, max-age=60"}, HTML_HEADERS)});
 }
 
-/* The app calls this right after you publish, update, recolour or unpublish something, so its pages here show the change at once
-   instead of after the hour they're cached for. It only drops cached copies in this data centre (the next visit rebuilds them from
-   Supabase), so anyone may call it: the worst it can do is make a page load fresh. */
+/* The app calls this right after you publish, update, recolour or unpublish something */
 async function refresh(request, env, origin){
   const ok = new Response(null, {status: 204, headers: {"access-control-allow-origin": "*", "cache-control": "no-store"}});
   let b = null; try { b = JSON.parse((await request.text()).slice(0, 2000)); } catch (e) {}

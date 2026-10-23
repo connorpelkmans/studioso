@@ -1,8 +1,5 @@
 /* ===== module: 98-scrap-art.js ===== */
-/* Studyboard 1.11.0: Term Scrapbook art. Module prefix 98-scrap.
-   One sticker per milestone (64 by 64, kawaii house style), plus washi tapes, doodle frames, caption tags and paper designs.
-   Every sticker is wrapped with a die-cut white border and a soft shadow baked into the SVG (an SVG filter), so it looks the same
-   on the page and in Save as Image. Declared at top level (no wrapper) so 98-scrapbook.js can use SCRAP_ART. */
+/* Studyboard 1.11.0 */
 var SCRAP_ART = (() => {
   const D = "#2B2233";
   const S = (w = 2.5) => `stroke="${D}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"`;
@@ -19,7 +16,7 @@ var SCRAP_ART = (() => {
   const heart = (x, y, s, c = "#FF6F91", sw = 1.6) => `<path d="M${x} ${y + s * .95}C${x - s * 1.5} ${y}, ${x - s * 1.05} ${y - s * 1.1}, ${x} ${y - s * .35}C${x + s * 1.05} ${y - s * 1.1}, ${x + s * 1.5} ${y}, ${x} ${y + s * .95}Z" fill="${c}"${sw ? " " + S(sw) : ""}/>`;
   const star = (x, y, r, c = "#FFD23F", sw = 1.8) => { let d = ""; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * .48 : r; d += (i ? "L" : "M") + (x + rr * Math.cos(a)).toFixed(2) + " " + (y + rr * Math.sin(a)).toFixed(2); } return `<path d="${d}Z" fill="${c}" ${S(sw)}/>`; };
 
-  // Tier trims: tier stickers share a motif, with a different ribbon.
+  // Tier trims: tier stickers share a motif, with a different ribbon
   const TIERS = {
     mint: ["#B8F5DA", "#35B983", "#fff"], bronze: ["#F8CB9E", "#C0712F", "#fff"], silver: ["#FFFFFF", "#A4B1C4", D],
     gold: ["#FFEE9A", "#F0A000", D], rainbow: [null, null, D]
@@ -28,7 +25,7 @@ var SCRAP_ART = (() => {
   const banner = (tier, t) => `${DEF(tierFill(tier, "bn"))}<path d="M2 43.5h60l-4.6 7.75L62 59H2l4.6-7.75z" fill="url(#bn)" ${S(2.3)}/>${txt(t, 32, 55.6, 12, TIERS[tier][2], Math.min(46, t.length * 7.4))}`;
   const tierDef = (tier, id) => DEF(tierFill(tier, id));
 
-  /* ---------- Motifs ---------- */
+  /* Motifs */
   const clipboard = (tier, n) => `${tierDef(tier, "cl")}<rect x="12" y="7" width="40" height="44" rx="6" fill="#D29A63" ${S()}/><rect x="16.5" y="12.5" width="31" height="34" rx="3" fill="#FFFDF6" ${S(1.6)}/><rect x="22" y="3.5" width="20" height="9" rx="3.5" fill="url(#cl)" ${S(2.2)}/><path d="M21 25l6.5 6.5L43 16" fill="none" stroke="${D}" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 25l6.5 6.5L43 16" fill="none" stroke="#3DCB86" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round"/>${eyes(27.5, 36.5, 37.5, 2)}${blush(23, 41, 40.5, 2.4)}${banner(tier, n)}`;
   const flame = (tier, n) => `${DEF(LG("fl", "#FFC25C", "#FF5A3C"))}<path d="M32 2.5c5 9 17 13 17 28.5a17 17 0 0 1-34 0c0-8 4-12.5 7.5-15.5.8 5 2.8 7.2 4.8 8.2C27 15 29.5 8 32 2.5z" fill="url(#fl)" ${S()}/><path d="M32 18.5c3.5 5.4 9.5 8 9.5 15.3a9.5 9.5 0 0 1-19 0c0-5.4 5-8.8 9.5-15.3z" fill="#FFE27A"/>${eyes(27.3, 36.7, 31.5, 2.3)}${smile(32, 35.6, 2.6, 2)}${blush(23.5, 40.5, 35.5, 2.4)}${banner(tier, n)}`;
   const clock = (tier, n) => `${tierDef(tier, "ck")}<path d="M13 14a8 8 0 0 1 11-7M51 14a8 8 0 0 0-11-7" fill="url(#ck)" ${S(2.3)}/><path d="M20 38l-4 5M44 38l4 5" ${S(3)}/><circle cx="32" cy="25" r="19" fill="url(#ck)" ${S()}/><circle cx="32" cy="25" r="14" fill="#FFFDF6" ${S(1.8)}/><path d="M32 13.5v2.6M32 33.9v2.6M20.5 25h2.6M41 25h2.6" stroke="#C5B8A8" stroke-width="2" stroke-linecap="round"/>${eyes(27, 37, 24, 2.3)}${smile(32, 28.2, 2.4, 2)}${blush(23, 41, 29, 2.3)}${banner(tier, n)}`;
@@ -91,7 +88,7 @@ var SCRAP_ART = (() => {
     return (cache[key] = uri(wrap(art)));
   }
 
-  /* ---------- Washi tape (260 by 64 units) ---------- */
+  /* Washi tape (260 by 64 units) */
   const edge = (w, h) => { let l = "", r = ""; for (let i = 0; i <= 8; i++) { const y = (h * i / 8).toFixed(1); l = `L${i % 2 ? 4 : 0} ${y}` + l; r += `L${w - (i % 2 ? 4 : 0)} ${y}`; } return `M0 0H${w}${r.slice(0)}H0${l}Z`; };
   const TAPE = edge(260, 60);
   const tape = (id, fill, pat) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 60" width="260" height="60"><defs><clipPath id="c"><path d="${TAPE}"/></clipPath>${pat || ""}</defs><g clip-path="url(#c)" opacity=".9"><rect width="260" height="60" fill="${fill}"/>${pat ? `<rect width="260" height="60" fill="url(#p)"/>` : ""}<rect width="260" height="60" fill="#fff" opacity=".12"/></g></svg>`;
@@ -108,7 +105,7 @@ var SCRAP_ART = (() => {
     sakura: {name: "Sakura", tier: "pro", svg: tape("sakura", "#FFE4EC", P(40, 30, `<g fill="#FF9EBB" transform="translate(12 12)">${[0, 72, 144, 216, 288].map(a => `<ellipse cx="0" cy="-4.5" rx="3" ry="4.5" transform="rotate(${a})"/>`).join("")}<circle r="2" fill="#FFD23F"/></g><circle cx="32" cy="24" r="2" fill="#FFB3C7"/>`))}
   };
 
-  /* ---------- Doodle frames (300 by 300 units) ---------- */
+  /* Doodle frames (300 by 300 units) */
   const wob = (cx, cy, r, n = 28, amp = 5, seed = 1) => { let d = ""; n = 90; for (let i = 0; i <= n; i++) { const a = i / n * Math.PI * 2 + seed * .3, rr = r + Math.sin(a * 3 + seed) * amp * .6 + Math.cos(a * 2 + seed * 2) * amp * .4 + (i > n - 8 ? (i - n + 8) * 1.2 : 0); d += (i ? "L" : "M") + (cx + rr * Math.cos(a)).toFixed(1) + " " + (cy + rr * Math.sin(a)).toFixed(1); } return d + "Z"; };
   const fr = body => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="300" height="300">${body}</svg>`;
   const ink = (c, w = 6) => `fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"`;
@@ -123,14 +120,14 @@ var SCRAP_ART = (() => {
   };
   const frameShadow = k => k === "polaroid";
 
-  /* ---------- Caption tag (w by 80 units, sized to its words) ---------- */
+  /* Caption tag (w by 80 units, sized to its words) */
   const tagCache = {};
   const tag = w => tagCache[w] || (tagCache[w] = uri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} 80" width="${w}" height="80"><path d="M28 4h${w - 36}a4 4 0 0 1 4 4v64a4 4 0 0 1-4 4H28L4 52V28z" fill="#E8CFA6" stroke="#B98F5C" stroke-width="2"/><circle cx="25" cy="40" r="6.5" fill="#FFFDF6" stroke="#B98F5C" stroke-width="2"/><path d="M8 40c-6 0-6-10 0-12" fill="none" stroke="#C7A06E" stroke-width="1.6" stroke-linecap="round"/></svg>`));
   const tagW = t => Math.round(Math.max(150, Math.min(560, 64 + String(t || "").length * 14.5 + 22)));
 
-  /* ---------- Paper designs (the page is 1000 units wide; tall pages repeat the pattern) ---------- */
+  /* Paper designs (the page is 1000 units wide; tall pages repeat the pattern) */
   const noise = (op, base = .9) => `<filter id="n"><feTurbulence type="fractalNoise" baseFrequency="${base}" numOctaves="2" seed="7"/><feColorMatrix values="0 0 0 0 .35 0 0 0 0 .25 0 0 0 0 .12 0 0 0 ${op} 0"/></filter>`;
-  let grain = 1;   // Save as Image turns the grain down so the file stays small enough to share
+  let grain = 1;
   const paperSvg = (w, h, bg, extra, noiseOp) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" preserveAspectRatio="none"><defs>${noise((noiseOp || .16) * (grain >= 1 ? 1 : grain))}${grain < 1 ? `<pattern id="nt" width="120" height="120" patternUnits="userSpaceOnUse"><g fill="#6B4E2A" opacity="${(.5 * (noiseOp || .16) / .16).toFixed(2)}"><circle cx="14" cy="22" r=".9"/><circle cx="71" cy="9" r=".7"/><circle cx="102" cy="48" r="1"/><circle cx="40" cy="61" r=".7"/><circle cx="88" cy="97" r=".8"/><circle cx="23" cy="104" r=".6"/><circle cx="58" cy="84" r=".5"/><path d="M8 70l5 1.5M95 20l4 2.5" stroke="#6B4E2A" stroke-width=".6"/></g></pattern>` : ""}${extra.defs || ""}</defs><rect width="${w}" height="${h}" fill="${bg}"/>${extra.body || ""}${grain >= 1 ? `<rect width="${w}" height="${h}" filter="url(#n)"/>` : grain > 0 ? `<rect width="${w}" height="${h}" fill="url(#nt)"/>` : ""}</svg>`;
   const PAPERS = {
     cream: {name: "Cream", tier: "free", ink: "#3B2F2A", sub: "#8A7663", bg: "#FBF3E1", make: (w, h) => paperSvg(w, h, "#FBF3E1", {body: `<rect width="${w}" height="${h}" fill="url(#g)"/>`, defs: `<radialGradient id="g" cx=".5" cy=".4" r=".8"><stop offset=".6" stop-color="#FBF3E1" stop-opacity="0"/><stop offset="1" stop-color="#E9D8B6" stop-opacity=".55"/></radialGradient>`}, .14)},
@@ -156,6 +153,6 @@ var SCRAP_ART = (() => {
   }
   return {sticker, keys: Object.keys(ST), washi: WASHI, frames: FRAMES, frameShadow, tag, tagW, papers: PAPERS, paper, uri};
 })();
-window.__scrapArt = SCRAP_ART;   // for tests
+window.__scrapArt = SCRAP_ART;
 
 

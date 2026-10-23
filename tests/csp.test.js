@@ -1,7 +1,4 @@
-// Content-Security-Policy and site-layout checks.
-// Run: node tests/csp.test.js
-// Covers: the page's inline scripts are allowed by hash (not 'unsafe-inline') and the hashes in index.html are current; the policy keeps the
-// other restrictions; the deployable site/ layout resolves every path the manifests and the service worker name.
+// Content-Security-Policy and site-layout checks
 const fs = require("fs"), path = require("path"), assert = require("assert"), crypto = require("crypto"), {execFileSync} = require("child_process");
 const ROOT = path.join(__dirname, ".."), csp = require("../scripts/csp");
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
@@ -16,18 +13,18 @@ ok(!csp.stale(html), "script hashes in index.html are current (run `node scripts
 const H = (first.match(/\/\*CSP-HASHES\*\/"([^"]*)"/) || [])[1] || "";
 const want = scripts.slice(1).map(s => "'sha256-" + crypto.createHash("sha256").update(s, "utf8").digest("base64") + "'");
 ok(H === want.join(" "), `every inline script after the injector is hashed (${want.length})`);
-ok(/script-src 'self' "\+\(lax\?"'unsafe-inline'":H\)\+" https:\/\/cdn\.jsdelivr\.net;/.test(first), "script-src uses the hashes; 'unsafe-inline' only in Claude's artifact preview");
+ok(/script-src 'self' "\+\(lax\?"'unsafe-inline'":H\)\+" https:\/\/cdn\.jsdelivr\.net;/.test(first), "script-src uses the hashes; 'unsafe-inline' only in the preview host");
 ok(/lax=!H\|\|\/\(\^\|\\\.\)claudeusercontent\\\.com\$\/\.test\(location\.hostname\)/.test(first), "the lax case is limited to *.claudeusercontent.com (or no hashes at all)");
 ok(/SBJS_SRI/.test(app) && /loadScript\(src, SBJS_SRI\)/.test(app), "the only CDN script (the supabase-js fallback) is loaded with its pinned SRI hash");
 for (const d of ["object-src 'none'", "frame-src 'none'", "base-uri 'self'", "form-action 'self'", "default-src 'self'"]) ok(first.includes(d), "policy keeps " + d);
 ok(!/\son[a-z]+\s*=\s*["']/i.test(html.replace(/<script>[\s\S]*?<\/script>/g, "")), "no inline event handler attributes in the page markup (they would be blocked)");
 
-// apply() is idempotent and updates a changed script.
+// apply() is idempotent and updates a changed script
 ok(csp.apply(html) === html, "apply() leaves a current page unchanged");
 const edited = html.replace("<script>try{var ts=", "<script>/*x*/try{var ts=");
 ok(csp.stale(edited) && !csp.stale(csp.apply(edited)), "apply() refreshes the hashes after a script changes");
 
-// The deployable site layout.
+// The deployable site layout
 const out = execFileSync(process.execPath, [path.join(ROOT, "scripts", "build-site.js"), "--check"], {encoding: "utf8"});
 ok(/every manifest and service-worker path resolves/.test(out), "site/ layout: every manifest and service-worker path resolves");
 

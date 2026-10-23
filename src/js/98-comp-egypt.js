@@ -1,11 +1,11 @@
 /* ===== module: 98-comp-egypt.js ===== */
-/* Study Companions, Around the World: Egypt (Kheper the scarab, Jamal the camel calf, Miu the Mau kitten) */
+/* Study Companions, Around the World */
 (() => {
   const {O, OW, LG, RG, LINE} = COMP_KIT;
   const O2 = OW(2.2);
   const f1 = v => Math.round(v * 10) / 10;
   const ring = (cx, cy, n, r, fn) => Array.from({length: n}, (_, i) => { const a = i / n * Math.PI * 2; return fn(f1(cx + Math.cos(a) * r), f1(cy + Math.sin(a) * r), a * 180 / Math.PI, i); }).join("");
-  // a broad bead collar along an arc under the chin: alternating gold and lapis beads
+  // a broad bead collar along an arc under the chin
   const collar = (cx, cy, rx, ry, n, r) => Array.from({length: n}, (_, i) => { const a = Math.PI * (0.15 + 0.7 * i / (n - 1)), x = f1(cx + Math.cos(a) * rx), y = f1(cy + Math.sin(a) * ry); return `<circle cx="${x}" cy="${y}" r="${r}" fill="${i % 2 ? "#2E5FA8" : "#F2C24A"}" ${OW(1.2)}/>`; }).join("");
 
   COMP_DATA.push({

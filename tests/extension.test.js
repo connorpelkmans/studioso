@@ -1,9 +1,4 @@
-// The Studyboard School Sync extension's background, as built for the stores (scripts/build-extension.js), run in an empty vm context
-// with a stand-in for the browser's extension APIs and a fake Canvas, Brightspace and Blackboard. Checks: the site is found out by itself,
-// the background read works and is cleaned and stored, every request stays on the school's own site and is a GET, a "next page" link
-// to another site is refused, the toolbar badge shows when sign-in is needed, a web page can only ask for "sync now", removing a school
-// drops its data and its permission, and the build itself has no eval and a Firefox manifest the stores accept.
-// Run: node tests/extension.test.js
+// The Studyboard School Sync extension's background, as built for the stores
 const assert = require("assert"), vm = require("vm");
 const {files, manifests} = require("../scripts/build-extension.js");
 
@@ -42,13 +37,12 @@ const DAY = 864e5, iso = d => new Date(Date.now() + d * DAY).toISOString();
 const CANVAS = [
   [/^\/api\/v1\/users\/self$/, {id: 9, name: "Ana Lee"}],
   [/^\/api\/v1\/courses\?enrollment_state=active/, [{id: 201, name: "History 200", course_code: "HIS200"}]],
-  // the assignments' "next page" points at another site: it must never be followed
+  // the assignments' "next page" points at another site
   [/^\/api\/v1\/courses\/201\/assignments\?/, [{id: 1, name: "Essay 1", due_at: iso(-3), published: true, points_possible: 20, submission_types: ["online_upload"], submission: {submitted_at: iso(-4), workflow_state: "submitted"}}], 200, '<https://evil.example.com/steal>; rel="next"'],
 ];
 
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 (async () => {
-  // Build: the stores' rules
   const h = files("chrome")["harvest.js"], m = manifests();
   ok(!/\beval\s*\(|new Function\s*\(/.test(h + files("chrome")["background.js"]), "nothing is evaluated from text");
   ok(m.firefox.background.scripts[0] === "background.js" && !m.firefox.background.service_worker && m.firefox.browser_specific_settings.gecko.id && m.firefox.browser_specific_settings.gecko.data_collection_permissions.required.length, "the Firefox manifest has a background script, an add-on id and its data collection declared");
@@ -58,7 +52,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); };
   ok(files("safari")["background.js"] === files("firefox")["background.js"], "Safari runs the same background as Firefox");
   ok(m.chrome.description.length <= 132, "the description fits the Chrome Web Store's 132 characters");
 
-  // Connect with the platform found out by itself, then the background read
   const b = browser(CANVAS);
   const r = await b.send({op: "add", origin: "school.example.edu", platform: ""});
   ok(r.ok && r.id === "canvas", "the platform is found out by itself: " + JSON.stringify(r));
@@ -69,19 +62,16 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); };
   ok(!b.asked.some(([, o]) => /evil/.test(o)), "a next-page link to another site is not followed");
   ok(b.badge.text === "", "no badge when it's fine");
 
-  // The website talking to the extension directly (Chrome and Edge): what was read, and sync now; nothing for any other site
   const got = await b.sendExt({type: "get"}, "https://studyboardapp.com");
   ok(got && got.v === 1 && got.list.length === 1 && got.list[0].id === "canvas" && got.schools[0].id === "canvas", "studyboardapp.com can ask the extension directly for what it read");
   ok((await b.sendExt({type: "get"}, "https://evil.example.com")) === undefined, "no other site can");
   ok((await b.sendExt({type: "sync"}, "https://studyboardapp.com")).ok && (await b.sendExt({type: "remove", id: "canvas"}, "https://studyboardapp.com")) === undefined, "the website can ask for a sync now, and nothing else");
   ok(m.chrome.externally_connectable.matches.every(x => /^https:\/\/(www\.)?studyboardapp\.com\/\*$/.test(x)) && !m.firefox.externally_connectable, "only studyboardapp.com may connect (Chrome and Edge; Firefox uses relay.js)");
-  // A page (relay.js) may only ask for "sync now"
   const fromPage = {id: "ext", url: "https://studyboardapp.com/", tab: {id: 1}};
   ok((await b.send({op: "remove", id: "canvas"}, fromPage)).error === "not-allowed", "a web page can't remove a school");
   ok((await b.send({op: "add", origin: "https://other.edu"}, fromPage)).error === "not-allowed", "a web page can't connect a site");
   ok((await b.send({op: "sync"}, fromPage)).ok, "a web page can ask for a sync now");
 
-  // Kind to the school site: reads are spaced out; Sync Now in the popup always reads
   ok((await b.send({op: "settings", every: 15})).settings.every === 15, "every 15 minutes can be chosen");
   const n0 = b.asked.length;
   await b.send({op: "sync", why: "open"}, fromPage); await new Promise(r => setTimeout(r, 50));
@@ -93,7 +83,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); };
   ok(b.asked.length > n0, "opening Studyboard 10+ minutes after the last read reads it");
   const n1 = b.asked.length;
   await b.send({op: "sync", id: "canvas"}); ok(b.asked.length > n1, "Sync Now in the popup always reads");
-  // Signed out: the badge says so
   const s = browser([[/^\/api\/v1\/users\/self$/, {errors: [{message: "unauthorized"}]}, 401]]);
   await s.send({op: "add", origin: ORIGIN, platform: "canvas"});
   for (let i = 0; i < 100 && !(s.store.status && s.store.status.canvas && s.store.status.canvas.state === "login"); i++) await new Promise(res => setTimeout(res, 20));
@@ -102,7 +91,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); };
   s.store.status.canvas.at = Date.now() - 6 * 60000; s.store.status.canvas.fails = 3;
   await new Promise(res => s.send({op: "sync"}, {id: "ext", url: "chrome-extension://ext/popup.html"}).then(res));
   ok(s.asked.length > sn, "Sync Now still reads while signed out");
-  // the timer, after three failed reads: it waits about an hour (15 min, then 30, then 60) before trying again
   for (let i = 0; i < 100 && s.store.status.canvas.state === "syncing"; i++) await new Promise(r => setTimeout(r, 20));
   const wait = async () => { for (let i = 0; i < 30; i++) await new Promise(r => setTimeout(r, 10)); };
   s.store.status.canvas.at = Date.now() - 20 * 60000; s.store.status.canvas.fails = 3;
@@ -112,11 +100,9 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); };
   s.fire("alarm", {name: "sync"}); for (let i = 0; i < 100 && s.asked.length === sn2; i++) await new Promise(r => setTimeout(r, 10));
   ok(s.asked.length > sn2, "it tries again after about an hour");
 
-  // Remove: its data and its permission go
   await b.send({op: "remove", id: "canvas"});
   ok(!b.store["result:canvas"] && !b.granted.has(ORIGIN + "/*") && !Object.keys(b.store.schools).length, "removing a school drops its data and the permission");
 
-  // An address that isn't a public https site is refused
   ok((await b.send({op: "add", origin: "http://192.168.1.1", platform: "canvas"})).error === "bad-address", "a local or plain-http address is refused");
   console.log("extension: " + n + " checks passed");
 })().catch(e => { console.error(e); process.exit(1); });

@@ -1,19 +1,11 @@
-// node tests/extension-released.e2e.js   (Playwright + Chromium; see tests/pw.js)
-// Every released version of the Studyboard School Sync extension (extension/released/<version>/, the exact files sent to the stores)
-// must keep working with the website as it is now: a store review or an old install runs that version's own reading code, while the
-// website changes. For each version:
-//  1. the whole flow in Chromium (tests/extension.e2e.js with that build): it loads, reads a stand-in Canvas, and studyboardapp.com
-//     imports what it read (tasks, done when submitted, grade, feedback, instructor, class times)
-//  2. its own Brightspace and Blackboard reading (harvest.js from that version) on stand-in sites, imported by today's page: courses,
-//     tasks, the submitted ones done, no page errors
-// Never change a folder in extension/released: add a new one for each version sent to a store.
+// node tests/extension-released.e2e.js
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert"), vm = require("vm"), {spawnSync} = require("child_process");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, ".."), REL = path.join(root, "extension", "released");
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 const DAY = 864e5, iso = d => new Date(Date.now() + d * DAY).toISOString();
 
-// Stand-in Brightspace and Blackboard (the paths their APIs use; the longest matching prefix answers)
+// Stand-in Brightspace and Blackboard
 const BS = (b => ({
   "/d2l/api/versions/": [{ProductCode: "lp", LatestVersion: "1.30"}, {ProductCode: "le", LatestVersion: "1.50"}],
   "/d2l/api/lp/1.30/users/whoami": {Identifier: "42", FirstName: "Ana", LastName: "Lee"},
@@ -36,7 +28,7 @@ const fakeFetch = routes => async u => {
   const body = JSON.stringify(routes[k]);
   return {ok: true, status: 200, headers: {get: () => ""}, json: async () => JSON.parse(body), text: async () => body};
 };
-// The version's own harvest.js, run the way its background runs it: make(fetch, location)[platform](options), then its clean()
+// The version's own harvest.js, run the way its background runs it
 async function readWith(dir, id, routes) {
   const ctx = vm.createContext({URL, AbortController, setTimeout, clearTimeout, encodeURIComponent, Date, console});
   ctx.globalThis = ctx;
@@ -62,10 +54,8 @@ const server = http.createServer((req, res) => {
     for (const v of versions) {
       const dir = path.join(REL, v);
       ok(JSON.parse(fs.readFileSync(path.join(dir, "manifest.json"), "utf8")).version === v, `${v}: the folder holds that version`);
-      // 1. The whole flow, with this version's files
       const r = spawnSync(process.execPath, [path.join(__dirname, "extension.e2e.js")], {env: Object.assign({}, process.env, {SB_EXT_BUILD: dir}), encoding: "utf8", timeout: 240000});
       ok(r.status === 0, `${v}: the extension loads, reads Canvas, and today's website imports it` + (r.status === 0 ? "" : "\n" + (r.stdout || "").slice(-1500) + (r.stderr || "").slice(-1500)));
-      // 2. Its Brightspace and Blackboard reading, imported by today's page
       for (const [id, routes, done, todo] of [["brightspace", BS, "Care Plan 1", "Care Plan 2"], ["blackboard", BB, "Lab Report 1", "Lab Report 2"]]) {
         const h = await readWith(dir, id, routes);
         ok(h.ok && h.courses.length === 1, `${v}: its ${id} reading works (${h.courses.length} course)`);

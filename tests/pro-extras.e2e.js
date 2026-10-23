@@ -1,6 +1,4 @@
-// node tests/pro-extras.e2e.js   (Playwright + Chromium; see tests/pw.js)
-// Studyboard Pro extras (module 99-pro): Insights from Weekly Review, the Term Recap card and sheet, the Pro sheet's "What Pro Adds",
-// and the free-plan lock (paywall test switch on, no Pro): one quiet PRO row, no recap card.
+// node tests/pro-extras.e2e.js
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const csp = require("../scripts/csp");
@@ -10,8 +8,6 @@ const server = http.createServer((req, res) => {
   const f = path.join(root, p); if (!f.startsWith(root) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); res.end("no"); return; }
   const ext = path.extname(f), mime = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".css": "text/css", ".webmanifest": "application/manifest+json"};
   res.writeHead(200, {"content-type": mime[ext] || "application/octet-stream"});
-  // The page as served with Pro enforcement off (everyone has Pro, as before launch); the free-plan checks turn it back on with the
-  // test switch. The script hashes are recomputed so the page's own security policy still accepts it.
   if (p === "/index.html" || /^\/bundle\/[^/]+\.js$/.test(p)) { res.end((/\.html$/.test(p) ? csp.apply : String)(fs.readFileSync(f, "utf8").replace("const PRO_ENFORCED = true;", "const PRO_ENFORCED = false;"))); return; }
   fs.createReadStream(f).pipe(res);
 });
@@ -21,7 +17,7 @@ const day = off => { const d = new Date(); d.setDate(d.getDate() + off); return 
 const at = off => { const d = new Date(); d.setDate(d.getDate() + off); d.setHours(12, 0, 0, 0); return d.getTime(); };
 const T = (id, title, course, due, extra) => Object.assign({id, title, courseId: course, type: "Assignment", due, start: due, status: "todo", priority: "med", created: 1000 + Number(id.replace(/\D/g, ""))}, extra || {});
 const done = (id, title, course, due, doneOff, mark, w) => T(id, title, course, due, {status: "done", doneAt: at(doneOff), weight: w || null, mark: mark == null ? undefined : {got: mark, outOf: 100}});
-// A one-page PDF with a drawing (12 separate strokes) and four short labels spread around it, like a labelled diagram on a slide
+// A one-page PDF with a drawing (12 separate strokes) and four short labels spread around it
 function diagramPdf(){
   const lines = []; for (let i = 0; i < 12; i++) lines.push(`${200 + i * 10} 300 m ${260 + i * 10} 480 l S`);
   const label = (x, y, t) => `BT /F1 14 Tf ${x} ${y} Td (${t}) Tj ET`;
@@ -64,7 +60,7 @@ function SEED(){
   const act = (page, a, id) => page.evaluate(([a, id]) => { const b = document.createElement("button"); b.dataset.act = a; if (id) b.dataset.id = id; b.style.display = "none"; document.body.appendChild(b); b.click(); b.remove(); }, [a, id || ""]);
   const noOverflow = async (page, what) => { const o = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth); ok(o <= 0, "no horizontal scroll " + what + " (" + o + ")"); };
   try {
-    // ---------- Pro (enforcement off: everyone has it) ----------
+    // Pro
     const page = await open(await mkCtx(SEED()));
     await act(page, "wkr-open"); await page.waitForTimeout(400);
     ok(await page.locator(".wkr-sheet .pro-ins-card").count() === 1, "Weekly Review shows this week's insight");
@@ -80,7 +76,6 @@ function SEED(){
     await noOverflow(page, "in Insights");
     await page.keyboard.press("Escape"); await page.waitForTimeout(200);
 
-    // The Pro sheet lists what Pro adds
     await act(page, "plan-open"); await page.waitForTimeout(400);
     const sheet = await page.locator(".plan-sheet").textContent();
     ok(/What Pro Adds/.test(sheet) && /Insights/.test(sheet) && /Term Recap/.test(sheet), "the Pro sheet lists what Pro adds");
@@ -89,7 +84,7 @@ function SEED(){
     ok(await page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")).settings.early === true), "early access is saved in settings");
     await page.keyboard.press("Escape"); await page.waitForTimeout(200);
 
-    // ---------- Focus timer: routines and Focus History ----------
+    // Focus timer: routines and Focus History
     await act(page, "pomo-open"); await page.waitForTimeout(400);
     ok(await page.locator('#pomoDlg .pr-chip[data-act="pro-rt"]').count() === 3, "the Focus timer offers three routines");
     await page.click('#pomoDlg .pr-chip[data-id="deep"]'); await page.waitForTimeout(300);
@@ -108,7 +103,7 @@ function SEED(){
     await noOverflow(page, "in Focus History");
     await page.keyboard.press("Escape"); await page.waitForTimeout(200);
 
-    // ---------- Flashcards: deck stats, Smart scheduling, image cards ----------
+    // Flashcards: deck stats, Smart scheduling, image cards
     await page.click('nav.tabs [data-tab="flashcards"]').catch(() => {}); await page.waitForTimeout(300);
     await act(page, "fc-open", "d1"); await page.waitForTimeout(300);
     ok(await page.locator('[data-act="pro-dk-stats"]').count() === 1 && await page.locator('[data-act="pro-cf-open"]').count() === 1, "the deck page has Stats and Image Cards");
@@ -124,7 +119,6 @@ function SEED(){
     const rated = await page.evaluate(() => { const st = JSON.parse(localStorage.getItem("coursework:v2")); const d = (Array.isArray(st.decks) ? st.decks : Object.values(st.decks)).find(x => x.id === "d1"); return d.cards.find(c => c.fs); });
     ok(rated && rated.fs.s > 0 && rated.fs.d >= 1 && rated.due > day(0), "a Smart rating gives the card its own stability and a later due date (" + (rated && rated.due) + ", button said " + goodLbl + ")");
     await page.click('[data-act="fc-exit"]').catch(() => {}); await page.waitForTimeout(200);
-    // a PDF with a labelled diagram: its labels are found and become boxes
     const found = await page.evaluate(async bytes => { const items = await window.SBPRO.scanPdf(new Uint8Array(bytes), "Lecture 7"); return items.map(x => ({n: x.boxes.length, t: x.boxes.map(b => b.t), w: x.w, h: x.h, ok: x.boxes.every(b => b.x >= 0 && b.y >= 0 && b.x + b.w <= 1.02 && b.y + b.h <= 1.02)})); }, diagramPdf());
     ok(found.length === 1 && found[0].n === 4 && !found[0].t.includes("An animal cell") && found[0].t.includes("Mitochondria") && found[0].t.includes("Cell membrane") && found[0].ok, "the diagram page and its labels are found: " + JSON.stringify(found));
     await page.evaluate(async bytes => { const items = await window.SBPRO.scanPdf(new Uint8Array(bytes), "Lecture 7"); items.forEach(x => { x.found = true; }); window.SBPRO.openImageEditor("d1", items); }, diagramPdf());
@@ -139,14 +133,13 @@ function SEED(){
     await act(page, "fc-open", "d1"); await page.waitForTimeout(300);
     await page.evaluate(id => { const b = document.createElement("button"); b.dataset.act = "fc-study"; b.dataset.id = "d1"; document.body.appendChild(b); b.click(); b.remove(); }, "");
     await page.waitForTimeout(300);
-    // step to an image card in the session (new cards come after due ones)
     for (let i = 0; i < 8 && !(await page.locator(".ic-study").count()); i++) { await page.click('[data-act="fc-flip"]').catch(() => {}); await page.waitForTimeout(100); await page.click(".rate-btn.easy").catch(() => {}); await page.waitForTimeout(150); }
     ok(await page.locator(".ic-study button.ci-box.me").count() === 1, "studying an image card covers its own label on the front");
     await page.waitForTimeout(400);
     ok(await page.locator(".ic-study .ci-wrap img").count() === 1, "the picture loads from this device's copy");
     await page.click('[data-act="fc-exit"]').catch(() => {}); await page.waitForTimeout(200);
 
-    // ---------- Print and PDF ----------
+    // Print and PDF
     await act(page, "pro-pr-open"); await page.waitForTimeout(400);
     ok(await page.locator("#dlg .pr-kind").count() === 4 && await page.locator("#dlg .pr-prev .pp-day").count() === 8, "Print offers four layouts; the week agenda preview has 7 days and a notes box");
     await page.click('#dlg [data-act="pro-pr-kind"][data-id="grades"]'); await page.waitForTimeout(250);
@@ -159,11 +152,10 @@ function SEED(){
     ok(await page.evaluate(() => window.__printed) === 1 && await page.locator("#sbPrint .pp-day").count() === 8, "Print fills the print area and opens the print dialog");
     await noOverflow(page, "after printing");
 
-    // A focus session ends: it is logged with its start hour and course
     await page.evaluate(() => { localStorage.setItem("pro-e2e", "1"); });
     ok(page.errs.length === 0, "no console errors so far: " + page.errs.join(" | "));
 
-    // ---------- Term Recap: a term closed with Start a New Term five days ago ----------
+    // Term Recap: a term closed with Start a New Term five days ago
     const seed2 = SEED(); seed2.settings.scrap = {v: 1, cur: {id: "p2", n: "Winter", s: day(-4), g: {}, p: {}, d: [], pp: "cream"}, past: [{id: "p1", n: "Fall 2026", s: day(-70), e: day(-5), lab: "Fall 2026", g: {}, p: {}, d: [], pp: "cream"}]};
     const p2 = await open(await mkCtx(seed2));
     await p2.click('nav.tabs [data-tab="board"]').catch(() => {}); await p2.waitForTimeout(300);
@@ -179,7 +171,7 @@ function SEED(){
     ok(await p2.locator(".pro-recap-card").count() === 0, "after opening it, the card doesn't come back");
     ok(p2.errs.length === 0, "no console errors in the recap: " + p2.errs.join(" | "));
 
-    // ---------- Free plan (enforcement on, not Pro) ----------
+    // Free plan (enforcement on, not Pro)
     const p3 = await open(await mkCtx(seed2, true));
     ok(await p3.locator(".pro-recap-card").count() === 0, "free: no term recap card");
     await act(p3, "wkr-open"); await p3.waitForTimeout(400);
@@ -207,7 +199,7 @@ function SEED(){
     await act(p3, "pro-cf-open", "d1"); await p3.waitForTimeout(400);
     ok(await p3.locator("#dlg .plan-sheet").count() === 1, "free: Image Cards opens the Pro sheet");
     ok(p3.errs.length === 0, "no console errors on the free plan: " + p3.errs.join(" | "));
-    if (process.env.SHOTS) { /* screenshots for a manual look */ }
+    if (process.env.SHOTS) { }
     console.log("\npro-extras.e2e: " + n + " checks passed");
   } finally { await browser.close(); server.close(); }
 })().catch(e => { console.error(e); process.exit(1); });

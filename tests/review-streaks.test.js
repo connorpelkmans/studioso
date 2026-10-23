@@ -1,6 +1,4 @@
-// Unit tests for the Weekly Review numbers and the gentle study streak (pure logic extracted from index.html). Run: node tests/review-streaks.test.js
-// The logic works on calendar-day strings; instants (task done times, history lines) become a local day with dayOf, so the same data must give the
-// same answers in every zone, across clock changes, and at 23:30 / 00:30 local.
+// Unit tests for the Weekly Review numbers and the gentle study streak
 const fs = require("fs"), path = require("path"), assert = require("assert"), cp = require("child_process");
 const TZS = ["UTC", "America/New_York", "America/Los_Angeles", "Europe/London", "Australia/Sydney", "Pacific/Auckland", "Asia/Kolkata", "Pacific/Apia", "Pacific/Kiritimati"];
 if (!process.env.RS_TZ_CHILD && !process.env.RS_NO_TZ) {
@@ -24,7 +22,7 @@ const done = (id, day, o) => T(id, Object.assign({status: "done", doneAt: at(day
 const days = (from, k) => Array.from({length: k}, (_, i) => RS.add(from, i));
 const act = list => Object.fromEntries(list.map(d => [d, {done: 1}]));
 
-// ---------- day arithmetic ----------
+// day arithmetic
 eq(RS.add("2026-03-08", 1), "2026-03-09", "add across a US spring forward");
 eq(RS.add("2026-11-01", 1), "2026-11-02", "add across a US fall back");
 eq(RS.add("2026-02-28", 1), "2026-03-01", "no Feb 29 in 2026");
@@ -39,7 +37,7 @@ for (const d of ["2026-03-08", "2026-03-29", "2026-10-25", "2026-11-01", "2026-0
 }
 eq(RS.dayOf(NaN), "", "bad instant");
 
-// ---------- the review window ----------
+// the review window
 {
   const SUN = "2026-10-04", MON = "2026-10-05";
   eq(RS.reviewWindow("2026-10-03", 20), null, "Saturday evening: not yet");
@@ -77,9 +75,9 @@ eq(RS.dayOf(NaN), "", "bad instant");
   ok(RS.cardShown({period: RS.reviewWindow("2026-10-11", 14), review: sk, today: "2026-10-11", worth: true}), "and ends by the next Sunday");
 }
 
-// ---------- week numbers ----------
+// week numbers
 {
-  const P = RS.reviewWindow("2026-10-04", 14);   // Mon Sep 28 to Sun Oct 4
+  const P = RS.reviewWindow("2026-10-04", 14);
   const tasks = [
     done("in-mon", "2026-09-28"), done("in-sun", "2026-10-04"), T("late-sun", {status: "done", doneAt: at("2026-10-04", 23, 59)}),
     T("early-mon", {status: "done", doneAt: at("2026-10-05", 0, 1)}), done("before", "2026-09-27"),
@@ -114,7 +112,7 @@ for (const [ws, bad] of [["2026-03-02", "2026-03-08"], ["2026-10-26", "2026-11-0
   eq(RS.weekStats({tasks, period: P, today: P.weekEnd}).doneN, 7, `7 days of work around ${bad}, including 00:30 and 23:30`);
 }
 
-// ---------- time studied ----------
+// time studied
 {
   const P = RS.reviewWindow("2026-10-04", 14);
   const H = (d, text, h = 10) => ({at: at(d, h), text});
@@ -124,14 +122,14 @@ for (const [ws, bad] of [["2026-03-02", "2026-03-08"], ["2026-10-26", "2026-11-0
   eq(st.minutes.total, 135, "history lines in the week add up; last week's line is left out");
   eq(st.minutes.courses.map(x => [x.id, x.min]), [["c1", 90], ["c2", 30], ["", 15]], "per course, biggest first");
   ok(st.minutes.tracked && st.minutes.other === 0, "tracked");
-  // the per day focus log covers history that was trimmed away: the larger of the two for each day, the rest shows as 'not tied to a course'
+  // the per day focus log covers history that was trimmed away
   const st2 = RS.weekStats({tasks, period: P, today: "2026-10-04", focusDays: {"2026-09-29": 120, "2026-10-02": 10, "2026-09-10": 400}});
   eq(st2.minutes.total, 120 + 40 + 30 + 15, "focusDays wins on a day when it is larger");
   eq(st2.minutes.other, 70, "the part of the day total no task line explains");
   // SBTIME's per course answer is used when present
   const st3 = RS.weekStats({tasks: [], period: P, today: "2026-10-04", time: {byDay: {"2026-09-30": 90}, byCourse: {c9: 60, c8: 30}}});
   eq([st3.minutes.total, st3.minutes.courses.map(x => x.id)], [90, ["c9", "c8"]], "time module answers");
-  // nothing tracked: no pretending
+  // nothing tracked
   const st4 = RS.weekStats({tasks: [done("x", "2026-09-30", {hours: 2})], period: P, today: "2026-10-04"});
   ok(!st4.minutes.tracked && st4.minutes.total === 0 && st4.hoursEst === 2, "no tracked time falls back to estimated hours");
   eq(RS.roundMin(137), 135, "rounded to 5 minutes");
@@ -139,7 +137,7 @@ for (const [ws, bad] of [["2026-03-02", "2026-03-08"], ["2026-10-26", "2026-11-0
   ok(!RS.weekStats({tasks: [T("z", {history: [H("2026-09-30", "Focus session: 3m")]})], period: P, today: "2026-10-04"}).minutes.tracked, "but 3 minutes is not 'tracked'");
 }
 
-// ---------- suggestion, pick a day ----------
+// suggestion, pick a day
 {
   eq(RS.suggestion({slipped: [{title: "A"}], exams: [{title: "E", noPrep: true}]}), {kind: "slipped", title: "A"}, "slipped first");
   eq(RS.suggestion({slipped: [], exams: [{title: "E", noPrep: false}, {title: "F", noPrep: true}]}), {kind: "prep", title: "F"}, "exam with no plan");
@@ -152,7 +150,7 @@ for (const [ws, bad] of [["2026-03-02", "2026-03-08"], ["2026-10-26", "2026-11-0
   eq(RS.pickDay([]), "", "no days");
 }
 
-// ---------- AI recap vetting ----------
+// AI recap vetting
 {
   const facts = {text: "Finished 4 tasks: \"Stats HW\" (STAT101).\nStill open: \"Lab 3\" (was due Tuesday).\nStudy time about 3h 30m.", titles: ["Stats HW", "Lab 3", "Essay"]};
   const good = "You finished 4 tasks this week, including \"Stats HW\". \"Lab 3\" is still waiting for a new day after Tuesday. About 3 hours of study is a solid base.";
@@ -170,7 +168,7 @@ for (const [ws, bad] of [["2026-03-02", "2026-03-08"], ["2026-10-26", "2026-11-0
   eq(RS.vetRecap(good, null), "", "no facts, no trust");
 }
 
-// ---------- study days ----------
+// study days
 {
   const tasks = [done("d1", "2026-10-01"), T("born", {status: "done", doneAt: at("2026-10-02", 10), created: at("2026-10-02", 10) - 5000}),
     T("f", {history: [{at: at("2026-10-03", 9), text: "Focus session: 25m"}, {at: at("2026-10-04", 9), text: "Focus session: 2m"}, {at: at("2026-10-05", 22), text: "Logged time: 30m"}]}),
@@ -180,7 +178,7 @@ for (const [ws, bad] of [["2026-03-02", "2026-03-08"], ["2026-10-26", "2026-11-0
   eq(Object.keys(RS.activityDays({tasks, from: "2026-10-05", to: "2026-10-06"})).sort(), ["2026-10-05", "2026-10-06"], "range");
 }
 
-// ---------- the streak ----------
+// the streak
 {
   const S = (list, o) => RS.streak(Object.assign({today: "2026-10-14", active: act(list)}, o || {}));
   // 2026-10-14 is a Wednesday
@@ -190,15 +188,15 @@ for (const [ws, bad] of [["2026-03-02", "2026-03-08"], ["2026-10-26", "2026-11-0
   ok(r.run === 3 && r.todayActive && r.best === 3 && r.last28 === 3, "three days in a row");
   r = S(["2026-10-12", "2026-10-13"]);
   ok(r.run === 2 && !r.todayActive && r.status["2026-10-14"] === "open", "today is open: it never breaks anything");
-  // free rest days: two a week
-  r = S(["2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-09", "2026-10-12", "2026-10-14"]);   // Mon to Fri, then Mon and Wed
+  // free rest days
+  r = S(["2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-09", "2026-10-12", "2026-10-14"]);
   ok(r.status["2026-10-10"] === "rest" && r.status["2026-10-11"] === "rest" && r.status["2026-10-13"] === "rest", "quiet days are covered by 2 free rest days a week");
   ok(r.run === 7 && r.gap === 0 && r.restsLeft === 1, "none of that broke the run: " + r.run + " rests left " + r.restsLeft);
-  r = S(["2026-10-05", "2026-10-10", "2026-10-14"]);   // Tue to Fri quiet in the first week: 2 free, 2 pause
+  r = S(["2026-10-05", "2026-10-10", "2026-10-14"]);
   eq([r.status["2026-10-06"], r.status["2026-10-07"], r.status["2026-10-08"], r.status["2026-10-09"]], ["rest", "rest", "quiet", "quiet"], "the third quiet day of a week is a pause");
   ok(r.run === 3, "a short pause keeps the run and the next study day adds one: " + r.run);
   // weekday off never uses free rest days
-  r = S(["2026-10-05", "2026-10-06", "2026-10-07"], {today: "2026-10-12", cfg: {wd: [0, 6], rpw: 0}});   // Sat/Sun off, no free rests
+  r = S(["2026-10-05", "2026-10-06", "2026-10-07"], {today: "2026-10-12", cfg: {wd: [0, 6], rpw: 0}});
   ok(r.status["2026-10-10"] === "rest" && r.status["2026-10-11"] === "rest" && r.status["2026-10-08"] === "quiet", "weekdays off are rest days even with 0 free rest days");
   r = S(["2026-10-05", "2026-10-09", "2026-10-12"], {today: "2026-10-12", cfg: {wd: [0, 6], rpw: 2}});
   ok(r.status["2026-10-06"] === "rest" && r.status["2026-10-07"] === "rest" && r.status["2026-10-08"] === "quiet" && r.run === 3, "weekday off does not consume the free rest days: " + JSON.stringify(r.status));
@@ -209,9 +207,9 @@ for (const [ws, bad] of [["2026-03-02", "2026-03-08"], ["2026-10-26", "2026-11-0
   r = S(["2026-10-10", "2026-10-11"], {today: "2026-10-12", cfg: {wd: [0, 6]}});
   ok(r.run === 2 && r.status["2026-10-10"] === "active", "studying on a day off is a bonus");
   // a long gap softens, never resets
-  const long = days("2026-09-01", 20);   // 20 days in a row
+  const long = days("2026-09-01", 20);
   r = S(long, {today: "2026-09-20"}); eq(r.run, 20, "20 in a row");
-  r = S(long, {today: "2026-09-26"});    // after Sunday Sep 20: Mon 21 and Tue 22 are the week free rest days; 23, 24, 25 are quiet (today is still open) => gap 3
+  r = S(long, {today: "2026-09-26"});
   ok(r.gap === 3 && r.run === 20 && r.paused && !r.softened, "a pause of up to 3 quiet days leaves the run alone: gap " + r.gap + " run " + r.run);
   r = S(long, {today: "2026-09-27"});
   ok(r.gap === 4 && r.run === 10 && r.softened, "longer: it softens to half, not to zero: " + r.run);
@@ -243,7 +241,7 @@ for (const [ws, bad] of [["2026-03-02", "2026-03-08"], ["2026-10-26", "2026-11-0
   eq(RS.normCfg({rpw: 0}).rpw, 0, "0 free rest days is allowed");
   eq(RS.normCfg({wd: [0, 1, 2, 3, 4, 5, 6]}).wd.length, 6, "never every day off");
 }
-// the streak is the same in every zone and across clock changes: a done time at 23:30 or 00:30 local is that local day
+// the streak is the same in every zone and across clock changes
 for (const start of ["2026-03-04", "2026-10-22", "2026-10-30", "2026-03-26", "2026-09-24", "2026-04-02"]) {
   const L = days(start, 12), tasks = L.map((d, i) => done("t" + i, d, {doneAt: at(d, i % 2 ? 23 : 0, 30)}));
   const A = RS.activityDays({tasks}), r = RS.streak({today: L[11], active: A});

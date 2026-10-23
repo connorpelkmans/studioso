@@ -1,7 +1,5 @@
 /* ===== module: 100-phone.css ===== */
-/* Phone and tablet bar (the desktop side menu is untouched).
-   Bottom tabs run Board to Groups like the desktop menu, with no More button; the top right holds Focus, Search and Announcements, and the
-   three dots hold light/dark, style and settings. */
+/* Phone and tablet bar (the desktop side menu is untouched) */
 @media (max-width:979px){
   nav.tabs .in .nav-more{display:none!important}
   nav.tabs .in .nav-groups{display:flex}
@@ -17,10 +15,9 @@
   .head-actions [data-act="menu"]{order:4}
 }
 @media (max-width:979px){html[data-ts="l"] nav.tabs .in button{font-size:clamp(.42rem,2.05vw,.6rem)!important}html[data-ts="xl"] nav.tabs .in button{font-size:clamp(.4rem,1.9vw,.55rem)!important}}
-/* Companion page on a phone: the companion scrolls with its name and description, so it passes under the top bar */
+/* Companion page on a phone */
 .cp-front.cp-under{z-index:4}
-/* Notes on a phone: a little smaller (same centre, same spacing, same tilt); the sticker envelope sits at the left so it never covers the Add button,
-   and while a sticker is being dragged it steps aside so the whole board shows. */
+/* Notes on a phone */
 @media (max-width:700px){
   .note{transform:rotate(var(--rot)) scale(.88)}
   .note.dragging{transform:rotate(calc(var(--rot) + 3deg)) scale(.92)}
@@ -32,8 +29,7 @@
   .env{transition:opacity .15s}
   body.stk-dragging .env{opacity:0}
 }
-/* Crunch Forecast on a phone: seven day cells fit the width, each week's label sits on its own line above them, and each cell keeps just the date and the count
-   (the paper and exam breakdown is in the week details). Prefixed with .cr so it wins over the stylesheet the Crunch page adds itself. */
+/* Crunch Forecast on a phone */
 @media (max-width:600px){
   .cr .cr-scroll{padding:8px}
   .cr .cr-grid{min-width:0;gap:2px}
@@ -44,7 +40,7 @@
   .cr .cr-d{min-height:46px}
   .cr .cr-d .mk,.cr .cr-d .td{display:none}
 }
-/* Board notices: one shows, the rest wait behind a "N more" button (see the Board notices script) */
+/* Board notices */
 .bn-shut{display:none!important}
 .bn-more{display:inline-flex;align-items:center;gap:6px;margin:8px 0 0;padding:6px 12px;min-height:36px;border:1px dashed var(--line);border-radius:999px;background:var(--surface);color:var(--muted);font:600 .85rem var(--display);cursor:pointer}
 .bn-more:hover{color:var(--ink);border-style:solid}
@@ -68,8 +64,7 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .course-card .next .late{color:var(--late);font-weight:600}
 /* Deck Archive: the same folder icon as the notes Archive */
 .deck-actions .deck-arch svg{display:block}
-/* Phones: the header frosts over the page once it scrolls; the Add button (and the companion beside it) step aside while the
-   quick-add bar passes under them, and pages leave room at the bottom for both */
+/* Phones: the header frosts over the page once it scrolls; the Add button */
 @media (max-width:639px){
   header.top{transition:background-color .2s,box-shadow .2s,border-color .2s}
   body.sb-scrolled header.top{background:color-mix(in srgb,var(--paper) 72%,transparent);-webkit-backdrop-filter:blur(20px) saturate(1.5);backdrop-filter:blur(20px) saturate(1.5);border-bottom-color:var(--line);box-shadow:0 8px 18px -14px rgba(8,20,50,.45)}
@@ -116,10 +111,10 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .g2-head .grp-tabs{margin:14px 0 0;padding:0 16px 12px;border:0;gap:6px;flex-wrap:wrap}
 .g2-head .grp-tabs button{border:0!important;border-radius:999px;padding:8px 14px;min-height:38px}
 .g2-head .grp-tabs button.on{background:color-mix(in srgb,var(--c) 15%,var(--surface));color:color-mix(in srgb,var(--c) 62%,var(--ink))}
-/* Start a Session sits in the header; the separate Study Together card only shows while a session is live (or needs attention) */
+/* Start a Session sits in the header */
 #grpDetail .room-sec.is-idle:not(:has(.room-err)){display:none}
 #grpDetail:not(:has(.room-sec.is-idle)) .g2-session{display:none}
-/* Sections are cards with a round icon in the group's colour; ones with nothing in them yet sit side by side */
+/* Sections are cards with a round icon in the group's colour */
 #grpDetail .grp-pane{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-flow:row dense;gap:16px;margin-top:16px;align-items:stretch}
 #grpDetail .grp-pane > *{grid-column:1/-1;min-width:0}
 #grpDetail .grp-pane[data-pane="study"] > .grp-sec:has(> .grp-none){grid-column:auto}
@@ -249,7 +244,7 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .ci-grid input:checked + span{background:color-mix(in srgb,var(--c) 16%,var(--surface));border:2px solid var(--c);box-shadow:0 0 0 2px var(--surface),0 0 0 4px color-mix(in srgb,var(--c) 35%,transparent)}
 .ci-grid input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
 .g2-ring > svg.ci-svg{width:56%;height:56%;overflow:visible}
-/* Course icons as stickers: coloured fills, a white die-cut edge and a little tilt */
+/* Course icons as stickers */
 .ci-svg{--ci-ink:color-mix(in srgb,var(--c) 40%,#0E1424);stroke:var(--ci-ink);stroke-width:1.6;filter:drop-shadow(1.3px 0 0 #fff) drop-shadow(-1.3px 0 0 #fff) drop-shadow(0 1.3px 0 #fff) drop-shadow(0 -1.3px 0 #fff) drop-shadow(0 1.5px 1.5px rgba(10,20,40,.28));transform:rotate(-7deg)}
 .ci-svg .a{fill:var(--c)}
 .ci-svg .b{fill:color-mix(in srgb,var(--c) 26%,#fff)}
@@ -284,8 +279,8 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .cr2-meter{margin:0 16px;height:10px;border-radius:99px;background:color-mix(in srgb,var(--c) 15%,var(--surface));overflow:hidden}
 .cr2-meter i{display:block;height:100%;border-radius:99px;background:var(--c)}
 .cr2-over{margin:6px 16px 10px}.cr2-over b{color:var(--late)}
-/* one grid for every row (each row a subgrid), so the hours line up in one column and the bars all start and end together */
-.cr2-courses{list-style:none;margin:0 16px;padding:0;display:grid;grid-template-columns:fit-content(140px) 1fr auto;gap:8px 10px}   /* (the name column is only as wide as the longest code, so the bars start right after it) */
+/* one grid for every row (each row a subgrid) */
+.cr2-courses{list-style:none;margin:0 16px;padding:0;display:grid;grid-template-columns:fit-content(140px) 1fr auto;gap:8px 10px}
 .cr2-courses li{grid-column:1/-1;display:grid;grid-template-columns:subgrid;align-items:center;font:700 .82rem var(--display)}
 .cr2-courses li span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cr2-cb{height:8px;border-radius:99px;background:color-mix(in srgb,var(--c) 15%,var(--surface));overflow:hidden}
@@ -316,7 +311,7 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .cr2-legend i.cap{height:0;width:16px;border-top:2px dashed var(--muted);border-radius:0}
 .cr2-coming{margin-top:18px}
 .cr2-coming ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px}
-/* every week keeps the same room for an Ease This Week button, so a week's bar is the same length whether or not it has one */
+/* every week keeps the same room for an Ease This Week button */
 .cr2-coming li{grid-column:1/-1;display:grid;grid-template-columns:subgrid;align-items:center;border-top:1px solid var(--line);padding:8px 0}
 .cr2-coming li > .cr2-wk{grid-column:1}
 .cr2-wk{flex:1;min-width:0;display:grid;grid-template-columns:120px minmax(80px,1fr) minmax(0,1.3fr);align-items:center;gap:14px;border:0;background:none;padding:4px 0;text-align:left;color:inherit;font-size:.88rem}
@@ -357,7 +352,7 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 @media (max-width:600px){.plan-row:has(.pr-ring){grid-template-columns:26px 34px minmax(0,1fr) auto;grid-template-areas:"chk ring main side" "chk ring why side" ". . slot slot" ". . more more"}}
 .plan-fixed li:has(.pr-ring){border-left:0}
 @media (max-width:600px){.plan-row .pr-ring,.plan-fixed .pr-ring{display:none}.plan-row:has(.pr-ring){grid-template-columns:26px minmax(0,1fr) auto;grid-template-areas:"chk main side" "chk why side" ". slot slot" ". more more"}}
-/* Task Board cards: a thin band in the course colour with the code, and the course sticker in a ring */
+/* Task Board cards */
 .card.has-tab{margin-top:10px;padding-top:0!important;overflow:visible;border-radius:16px!important;border-top-left-radius:16px!important}
 .card.has-tab > .card-course{position:static;display:block;max-width:none;height:auto;margin:0 -1px 0;padding:5px 12px 5px 60px;border-radius:15px 15px 0 0;text-align:right;color:#fff;font:800 .68rem/1.2 var(--display);letter-spacing:.05em;background:linear-gradient(120deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 74%,var(--surface)))}
 .card.has-tab{position:relative}
@@ -365,7 +360,7 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .card.has-tab > .card-title{padding-left:46px;margin-top:8px}
 .card.has-tab > .card-sub:first-of-type{padding-left:46px}
 .card.has-tab.is-done > .card-course,.card.has-tab.is-done .card-ring{opacity:.6}
-/* Flashcard decks: a band in the course colour across the top card, with the course sticker in a ring */
+/* Flashcard decks */
 .deck-fc > .deck-tab{display:none}
 .deck-fc{margin-top:0!important}
 .deck-fc .deck-face{overflow:hidden;border-radius:16px!important}
@@ -376,7 +371,7 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .deck-fc .deck-name{text-align:left}
 .deck-fc .deck-count{top:12px;right:12px;background:rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.55);box-shadow:none}
 .deck-fc .mastery i{background:var(--c)!important}
-/* Settings, Direction 1: a colour per category, round icon chips, a band over the open category, rows as cards */
+/* Settings, Direction 1 */
 .us-cat[data-us="account"],#usPane-account{--uc:#2F6FE4}.us-cat[data-us="appearance"],#usPane-appearance{--uc:#8B5CF6}.us-cat[data-us="study"],#usPane-study{--uc:#16A34A}.us-cat[data-us="capture"],#usPane-capture{--uc:#E8833A}.us-cat[data-us="school"],#usPane-school{--uc:#0E9AA7}.us-cat[data-us="app"],#usPane-app{--uc:#D9467A}.us-cat[data-us="data"],#usPane-data{--uc:#64748B}
 .us-cat .us-ic{border-radius:50%!important;background:color-mix(in srgb,var(--uc,var(--accent)) 14%,var(--surface))!important;color:var(--uc,var(--accent))!important}
 .us-cat[aria-selected="true"] .us-ic{background:var(--uc,var(--accent))!important;color:#fff!important}
@@ -392,7 +387,7 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .us-pane .menu-list{gap:8px!important}
 .us-pane .menu-list > button,.us-pane .menu-list > .cap-row,.us-pane .menu-list > label{border:1px solid var(--line)!important;border-radius:14px!important;background:var(--surface);padding:12px 14px!important}
 .us-pane .menu-list > button:hover{border-color:color-mix(in srgb,var(--uc,var(--accent)) 45%,var(--line))!important}
-/* Sheets with a band: New/Edit Task and the Focus timer */
+/* Sheets with a band */
 .g2-sheet-head{position:relative;align-items:flex-start;padding:76px 18px 12px 116px!important;min-height:120px;background:linear-gradient(120deg,color-mix(in srgb,var(--c) 90%,#000),color-mix(in srgb,var(--c) 60%,var(--surface))) top/100% 62px no-repeat}
 .g2-sheet-head .sh-ring{position:absolute;left:20px;top:22px;width:80px;height:80px;color:var(--c);background:color-mix(in srgb,var(--c) 12%,var(--surface))}
 .g2-sheet-head .sh-ring svg{width:46%;height:46%}
@@ -412,7 +407,7 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 
 .nu-ic{display:inline-grid;place-items:center;width:28px;height:28px;margin-right:8px;vertical-align:-7px}
 .nu-ic svg.ci-svg{width:100%;height:100%;transform:rotate(-6deg)}
-/* Task Board cards: slim band with sticker and code */
+/* Task Board cards */
 .card.has-tab > .card-course{display:flex!important;align-items:center;gap:6px;padding:4px 10px!important;text-align:left!important;font-size:.7rem!important;border-radius:15px 15px 0 0}
 .cc-ic{display:inline-grid;width:18px;height:18px;flex:none}
 .cc-ic svg.ci-svg{width:100%;height:100%;filter:none;transform:none;--ci-ink:#fff;stroke:#fff}
@@ -459,13 +454,13 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .cpt3-ward .cp-accs{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
 .cpt3-how > summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font:700 .95rem var(--display)}
 .cpt3-how[open]{display:grid;gap:8px}
-/* Icons stand out: a white disc, darker outlines and stronger fills */
+/* Icons stand out */
 .g2-ring{background:#fff!important}
 .ci-svg{--ci-ink:color-mix(in srgb,var(--c) 45%,#071022)!important;stroke-width:1.8!important}
 .ci-svg .b{fill:color-mix(in srgb,var(--c) 42%,#fff)}
 .ci-svg .sb{stroke:color-mix(in srgb,var(--c) 55%,#fff)}
 .ci-svg .a{fill:color-mix(in srgb,var(--c) 92%,#000)}
-/* Fixes: task card strip reaches both edges; dragged cards stay visible; long course names stay below the band */
+/* Fixes: task card strip reaches both edges; dragged cards stay visible */
 .card.has-tab{padding-left:12px!important;padding-right:12px!important}
 .card.has-tab > .card-course{margin:0 -12px!important;width:auto!important}
 .card.ghost,.card.has-tab.ghost{position:fixed!important;margin:0!important}
@@ -510,7 +505,7 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 /* Companion ring a little smaller so the companion fills it */
 .cpt3-ring{width:116px!important;height:116px!important;margin-top:-58px!important}
 .cpt3-ring .cpt-face{width:98px!important;height:98px!important}
-/* Change Companion: other themes in a drop-down */
+/* Change Companion */
 .cp-oth-d{border:1px solid var(--line);border-radius:14px;padding:0 12px;background:var(--surface)}
 .cp-oth-d > summary{cursor:pointer;min-height:46px;display:flex;align-items:center;font:700 .95rem var(--display)}
 .cp-oth-d[open]{display:grid;gap:10px;padding-bottom:12px}
@@ -523,10 +518,10 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .sh-big .sh-kick{position:absolute;left:116px;top:16px;color:#fff;font:800 1.3rem var(--display);letter-spacing:.02em;text-shadow:0 1px 2px rgba(0,0,0,.25)}
 .sh-big h2.sh-name{font:800 1.45rem/1.2 var(--display);overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 @media (max-width:600px){.sh-big .sh-kick{left:96px;top:22px}.sh-big h2.sh-name{font-size:1.2rem}}
-/* Sheets without a task name: the title sits in the colour band, larger and centred in it */
+/* Sheets without a task name */
 .g2-sheet-head:not(.sh-big) .sh-t h2{position:absolute;left:116px;right:64px;top:0;height:62px;display:flex;align-items:center;color:#fff;font:800 1.5rem/1.1 var(--display);text-shadow:0 1px 2px rgba(0,0,0,.25);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .g2-sheet-head:not(.sh-big):not(:has(.sh-t .mini)){min-height:104px;padding-top:62px!important}
-/* A sheet whose title sits in the band: the ring rides higher, about half over the band, and the title sits a little below the band's middle, nearer the ring's */
+/* A sheet whose title sits in the band */
 .g2-sheet-head:not(.sh-big) .sh-t h2{top:6px!important}
 .g2-sheet-head:not(.sh-big) .sh-ring{top:12px}
 @media (max-width:600px){.g2-sheet-head:not(.sh-big) .sh-ring{top:14px}}
@@ -546,14 +541,13 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .tl-dl em{font-style:normal;font:800 .66rem var(--display);padding:2px 7px;border-radius:999px;background:color-mix(in srgb,var(--late) 14%,var(--surface));color:var(--late)}
 .tl-label small{color:var(--muted)}
 .tl-controls .segb,.tl-controls .btn{border-radius:999px}
-/* Pill toggles: the selected segment follows the pill's curve instead of sitting square inside it */
 .tl-controls .segb button,.cr2-range button,.segb:has(> [data-act="f-sort"]) button{border-radius:999px}
 .cr2-range,.segb:has(> [data-act="f-sort"]){border-radius:999px}
 /* Page-heading buttons (Review, Archive, Recently Deleted) are pills too */
 .view-head > .btn{border-radius:999px}
 /* Every button is a pill (menu rows inside a More menu stay square-ish) */
 .btn,.btn.big,:root[data-skin] .btn.primary{border-radius:999px}
-/* Every segmented selector (Status, Priority, view switchers, sub-page tabs) is a pill, and so is its selected segment */
+/* Every segmented selector (Status, Priority, view switchers, sub-page tabs) is a pill */
 .seg,.seg span,.segb,.segb button,.bview-tabs,.bview-tabs button,.pview-tabs,.pview-tabs button,.us-subs,.us-sub-tab{border-radius:999px}
 /* ===== Schedule, Direction 1: tinted class blocks with a course-colour edge, a calmer grid ===== */
 .sch-wrap{border-radius:18px!important;box-shadow:0 2px 8px rgba(14,42,86,.08)!important}
@@ -572,7 +566,7 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .sch-b.k-lab{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--c) 18%,var(--surface)) 0 8px,color-mix(in srgb,var(--c) 26%,var(--surface)) 8px 16px)!important}
 .sch-b.k-officehours{background:color-mix(in srgb,var(--c) 6%,var(--surface))!important;border:1.5px dashed color-mix(in srgb,var(--c) 70%,transparent)!important;border-left:4px solid var(--c)!important;box-shadow:none!important}
 .sch-b.k-discussion{background:color-mix(in srgb,var(--c) 10%,var(--surface))!important}
-/* class meetings: a card like the board's task cards: a band in the course colour with its icon and code, then the details */
+/* class meetings */
 .sch-b:has(> .sch-band){display:flex!important;flex-direction:column;padding:0!important;gap:0!important;background:var(--surface)!important;color:var(--ink)!important;border:1px solid color-mix(in srgb,var(--c) 35%,var(--line))!important;border-radius:12px!important;box-shadow:0 2px 8px rgba(8,20,50,.14)!important}
 .sch-b:has(> .sch-band):hover{background:color-mix(in srgb,var(--c) 6%,var(--surface))!important}
 .sch-b > .sch-band{flex:none;display:flex;align-items:center;gap:6px;min-width:0;padding:4px 8px;background:linear-gradient(120deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 74%,var(--surface)));color:#fff}
@@ -586,7 +580,7 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .sch-b.k-other,.sch-b.k-event{background:color-mix(in srgb,var(--c) 12%,var(--surface))!important}
 .sch-b.sch-exam{background:color-mix(in srgb,var(--late) 10%,var(--surface))!important;border-left-color:var(--late)!important}
 .sch-b.sch-exam b{color:var(--late)}
-/* short classes: name and time only, nothing clipped */
+/* short classes */
 @container (max-height:44px){.sch-b span:nth-of-type(2),.sch-b span:nth-of-type(3){display:none}}
 @container (max-height:24px){.sch-b span{display:none}}
 .sch-chip{border-radius:8px!important;border-left-width:4px!important;padding:4px 7px!important;background:color-mix(in srgb,var(--c) 12%,var(--surface))!important;font-weight:700!important}
@@ -607,47 +601,41 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .nb-targets{gap:8px!important}
 .nb-target{width:auto!important;height:auto!important;flex-direction:row!important;gap:6px!important;padding:8px 14px!important;border-radius:999px!important;border:1px solid var(--line)!important;background:var(--surface)!important;box-shadow:0 2px 8px rgba(14,42,86,.14)!important;font:700 .8rem var(--display)!important}
 .nb-target svg{width:18px!important;height:18px!important}
-/* Desktop: the board and the sticker envelope run further down the page (less empty space under them), bottoms aligned */
+/* Desktop: the board and the sticker envelope run further down the page */
 @media (min-width:721px){
   .nb-scroll{height:calc(100dvh - 270px)!important}
   .env{margin-top:11px;height:calc(100dvh - 270px);max-height:none!important}
 }
-/* Rings at 1x: one solid ring hugging the white disc (no dark gap ring), so there are fewer hard edges to stair-step */
+/* Rings at 1x: one solid ring hugging the white disc (no dark gap ring) */
 .g2-ring{box-shadow:0 0 0 3px var(--c),0 3px 9px rgba(0,0,0,.18)!important}
 .gp-ring.sm,.pr-ring,.card-ring{box-shadow:0 0 0 2px var(--c)!important}
 .cpt3-ring{box-shadow:0 0 0 4px var(--c),0 6px 14px rgba(0,0,0,.18)!important}
 .ci-svg{stroke-width:1.5!important;--ci-ink:color-mix(in srgb,var(--c) 52%,#071022)!important}
-/* Small course icons: a white disc behind the inline icon on rows, heavier lines on the tiny white glyphs, so they hold up at 1x */
-/* The course icon on Do This Next and plan rows: the icon alone (like the Task Board's), in the course colour; white in dark mode */
+/* Small course icons */
 .nu-ic{width:24px!important;height:24px!important;border-radius:0;background:none;box-shadow:none;vertical-align:-5.5px!important}
 /* the check circle, the icon and the title's first line share one centre line */
 .next-up .nu-row > .check{position:relative;top:-2px}
-/* Deck previews (Review > Flashcards): the plain card edge, never the theme's coloured card outline (that stays on the cards you study) */
+/* Deck previews (Review > Flashcards) */
 .deck .face,.deck .deck-lay .face{border:0!important;outline:0!important;box-shadow:0 0 0 1px var(--line),0 12px 30px rgba(14,42,86,.14)!important}
-.deck .deck-lay .face{box-shadow:0 0 0 1px var(--line)!important}   /* drawn as a ring outside the card (not a border inside it), so the coloured band reaches the outline with no light sliver between */
+.deck .deck-lay .face{box-shadow:0 0 0 1px var(--line)!important}
 .deck .deck-lay{border:0!important;outline:0!important;box-shadow:none!important;background:none!important}
-/* The cards behind sit 6px lower and right, less than the 8px corner, so their light tops peeked into the front card's rounded
-   corners (a white sliver, most visible when zoomed out). Each is cut off at the top only, just below the corner of the card in front
-   of it, except at the right, where it shows past the front card: there its own rounded top corner stays (the clip sits 4px outside
-   its edges, past the outline). */
-/* A little shorter deck cards: less padding around the band, the name and the buttons (same text and button sizes) */
+/* The cards behind sit 6px lower and right, less than the 8px corner */
 .deck.deck-fc .fc-band{padding-top:7px!important;padding-bottom:7px!important}
 .deck.deck-fc .deck-main{padding-top:10px!important;padding-bottom:6px!important;gap:6px!important}
 .deck.deck-fc .deck-actions{padding-bottom:10px!important}
-/* a little taller again, and all the same height: the extra room goes between the name and the buttons */
+/* a little taller again, and all the same height */
 .deck.deck-fc > .deck-face{height:188px;min-height:0}
-/* every deck the same size: a long name stops after two lines with "...", a long course code after one */
+/* every deck the same size */
 .deck.deck-fc .deck-name{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .deck.deck-fc .fc-band .g2-kick{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .deck.deck-fc .deck-main{min-height:0;overflow:hidden}
 .deck.deck-fc .deck-lay.l2 .face{clip-path:polygon(-4px 8px,calc(100% - 14px) 8px,calc(100% - 14px) -4px,calc(100% + 4px) -4px,calc(100% + 4px) calc(100% + 4px),-4px calc(100% + 4px))}
 .deck.deck-fc .deck-lay.l3 .face{clip-path:polygon(-4px 10px,calc(100% - 20px) 10px,calc(100% - 20px) -4px,calc(100% + 4px) -4px,calc(100% + 4px) calc(100% + 4px),-4px calc(100% + 4px))}
-/* and just slightly rounded corners, like the flashcard itself when it's open (the preview is about half its size) */
+/* and just slightly rounded corners, like the flashcard itself when it's open */
 .deck .face,.deck .deck-face,.deck .deck-lay,.deck .deck-lay .face,.deck.deck-fc > .deck-face,.deck.deck-fc .deck-lay .face{border-radius:8px!important;border-top-left-radius:8px!important}
-/* an icon's lines may reach a little past its frame: never cut them off */
+/* an icon's lines may reach a little past its frame */
 svg.ci-svg{overflow:visible!important}
-/* Small course icons (Task Board cards, Do This Next, schedule blocks): lines drawn exactly 2 screen pixels wide, whatever the icon's
-   size, instead of a fraction of a pixel (1.7px at 18px), which looked rough at 100% display scaling */
+/* Small course icons (Task Board cards, Do This Next, schedule blocks) */
 :is(.cc-ic,.nu-ic,.fc-ic) svg.ci-svg :is(path,circle,ellipse,rect,line,polyline,polygon){vector-effect:non-scaling-stroke}
 :is(.cc-ic,.nu-ic,.fc-ic) svg.ci-svg{stroke-width:2!important;shape-rendering:geometricPrecision}
 .nu-ic svg.ci-svg{width:100%!important;height:100%!important;stroke-width:2!important;stroke:var(--c);--ci-ink:var(--c)}
@@ -661,16 +649,13 @@ svg.ci-svg{overflow:visible!important}
 }
 .cc-ic svg.ci-svg,.fc-ic svg.ci-svg{stroke-width:2.1!important}
 .tl-gic svg.ci-svg{stroke-width:1.8!important}
-/* Sticker art in rings: a softer, slightly finer outline than on the note board, where it is drawn much bigger */
+/* Sticker art in rings */
 .g2-ring > svg:not(.ci-svg){width:80%!important;height:80%!important}
 .g2-ring > svg:not(.ci-svg) [stroke="#2B2233"]{stroke:#4A4058;stroke-width:2.1}
-/* Colour bands: one recipe everywhere, made only from the band's own colour, so the same colour looks the same in light and dark.
-   Bands with no course or group colour use the theme's main colour as it is in light mode (--accent-band), in both modes. */
+/* Colour bands: one recipe everywhere, made only from the band's own colour */
 :root{--accent-band:#1A60D0}
 .g2-band,.c2-band,.gp-hero-band,.cr2-band,.next-up .nu-top,.g2-sheet-head,.cpt3-band,.tl-row.tl-group,.card.has-tab > .card-course,.fc-band,.sch-b > .sch-band{background:linear-gradient(120deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 74%,var(--surface)))!important}
-/* Timeline course rows: the sticky name column and the long track are separate boxes. The name column is the band's deep colour, and the
-   track starts at exactly that colour where it comes out from under the name column (--tls, kept equal to how far the timeline is scrolled)
-   and fades across the visible width (--tlv), so there is no jump where they meet at any scroll position. */
+/* Timeline course rows */
 .tl-scroll .tl-row.tl-group{--ba:color-mix(in srgb,var(--c) 88%,#000);--bb:color-mix(in srgb,var(--c) 74%,var(--surface));background:none!important}
 .tl-scroll .tl-group .tl-label{background:var(--ba)!important;border-right:0!important;box-shadow:none!important}
 .tl-scroll .tl-group .tl-track{background:linear-gradient(90deg,var(--ba) var(--tls,0px),var(--bb) calc(var(--tls,0px) + var(--tlv,1000px)))!important}
@@ -678,8 +663,7 @@ svg.ci-svg{overflow:visible!important}
 .g2-sheet-head{background-size:100% 62px!important;background-repeat:no-repeat!important;background-position:top!important}
 .gp-hero-band{--c:var(--accent-band)!important}
 .gp-cap{color:var(--accent-band)!important}
-/* Side bar icons: drawn at their native 24px on whole pixels in the roomy layout, so each 2px line lands on the pixel grid (21px blurred
-   every line). The compact layouts (data-fit) keep their sizes, with lines held at exactly 2px. */
+/* Side bar icons */
 nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:non-scaling-stroke}
 @media (min-width:980px){
   nav.tabs:is([data-fit="0"],:not([data-fit]),[data-fit="1"],[data-fit="2"]) .in button svg,nav.tabs:is([data-fit="0"],:not([data-fit]),[data-fit="1"]) .nav-foot button svg{width:24px!important;height:24px!important}
@@ -698,7 +682,7 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
   nav.tabs[data-fit="2"] .nav-foot{column-gap:0!important}
   nav.tabs[data-fit="2"] .nav-sync{height:20px;line-height:16px!important;box-sizing:border-box}
 }
-/* Today's Plan, concept C: stat tiles, chips on Do This Next, a one-line warning, and one tab bar for everything else */
+/* Today's Plan, concept C */
 .plan .focus-head{align-items:stretch!important;flex-wrap:nowrap!important}
 .plan .fh-txt{flex:1 1 auto!important}
 .plan .fh-txt:not(:has(.pt-stats)){align-self:center}
@@ -723,8 +707,7 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
 .nu-chip svg{width:13px;height:13px;flex:none;opacity:.8}
 .nu-chip.late{background:color-mix(in srgb,var(--late) 12%,var(--surface));border-color:color-mix(in srgb,var(--late) 40%,transparent);color:var(--late)}
 .nu-chip.soon{background:color-mix(in srgb,var(--mark) 22%,var(--surface));border-color:color-mix(in srgb,var(--mark) 45%,transparent)}
-/* Phones: Do This Next's tags pack two or three to a line, and its buttons use the card's full width, side by side and the same size
-   (each as wide as its words; if they can't share a line, each takes a full row) */
+/* Phones: Do This Next's tags pack two or three to a line */
 @media (max-width:639px){
   .next-up .nu-why{gap:5px}
   .next-up .nu-chip{font-size:.7rem;padding:2px 8px}
@@ -754,7 +737,7 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
 .pt-panel .av-strip .av-line:not(:only-child){order:3;flex-basis:100%;margin:0;font-size:.85rem;color:var(--muted)}
 .pt-panel .av-strip:has(.av-chips) .av-line{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .pt-panel .av-note{order:4;flex-basis:100%;margin:0}
-/* Phones: free windows as full-width rows (time on the left, length on the right), then Availability (where shifts and work are added) across the bottom */
+/* Phones: free windows as full-width rows (time on the left, length on the right) */
 @media (max-width:639px){
   .pt-panel .av-strip{flex-direction:column;align-items:stretch;gap:10px}
   .pt-panel .av-strip .av-chips{flex-direction:column;flex-wrap:nowrap;gap:6px}
@@ -772,15 +755,14 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
 @media (max-width:600px){.pw-main{flex:1 1 0}.pt-stats{grid-template-columns:1fr 1fr}.pt-stat{padding:10px 12px}.pt-stat b{font-size:1.25rem}.pw-tip{margin-left:32px}.pt-panel .plan-fixed li{flex-wrap:wrap;row-gap:4px}.pt-panel .plan-fixed .plan-main{flex-basis:100%}}
 /* ===== Phone visibility pass (phones only; the desktop layout is untouched) ===== */
 @media (max-width:600px){
-  /* Scene themes: the readability plate behind page titles and notes hugs the text instead of running the full width */
   html.sc-on :is(.view-head > h2,.tl-controls > h2,.board-sec-head > h2,.hint-line,.fcrumb){width:fit-content!important;max-width:100%;flex:0 1 auto!important;margin-right:auto}
-  /* that title can share its row with a taller control: it stays at the top of the row, 12px under the tab selector */
+  /* that title can share its row with a taller control */
   html.sc-on .pview-tabs + :is(.view-head,.tl-controls){align-items:flex-start}
   /* Groups: the "share without an account" text sat straight on the artwork */
   html.sc-on .grp-file{padding:14px;border:1px solid var(--line);border-radius:16px;background:color-mix(in srgb,var(--surface) 94%,transparent)}
-  /* Timeline: the course's full name ran into the "N open" count; the code beside the icon already names it */
+  /* Timeline: the course's full name ran into the "N open" count */
   .tl-row.tl-group .tl-gname{display:none}
-  /* Grades: course names broke mid-word beside the grade; the name gets the whole row and the grade sits beside the bar */
+  /* Grades: course names broke mid-word beside the grade */
   .gp-hero .gp-main{grid-template-columns:40px minmax(0,1fr) auto!important;grid-template-areas:"ring who who" "ring bar grade" "ring line line"!important;gap:4px 10px!important}
   .gp-who .gp-name{overflow-wrap:normal!important;word-break:normal!important}
   .gp-hero .gp-grade b{font-size:1.15rem!important}
@@ -794,22 +776,22 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
   .sch-head.is-today .sch-dn b{background:color-mix(in srgb,var(--accent) 70%,#000)!important}
   :root[data-theme="light"] :is(.nu-chip.late,.g2-pill.late,.tl-dl em){color:color-mix(in srgb,var(--late) 80%,#000)!important}
 }
-/* Companion chat: the message list fits the screen with the box to type in, and the box stays in view on a long page */
+/* Companion chat */
 .cpt-log{max-height:max(240px,calc(100dvh - 456px))!important}
 .cpt-form{position:sticky;bottom:12px;z-index:3;padding:6px;margin-inline:-6px;border-radius:18px;background:color-mix(in srgb,var(--paper,var(--bg)) 86%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
 @media (max-width:979px){.cpt-log{max-height:max(220px,calc(100dvh - 520px))!important}.cpt-form{bottom:calc(84px + env(safe-area-inset-bottom,0px))}}
 .fc-arch-btn{display:inline-flex;align-items:center;gap:6px}
-/* Review, Quizzes: one card per quiz, in its course colour */
+/* Review, Quizzes */
 .qz-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;margin-top:12px}
 .qz-card{position:relative;cursor:pointer;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:16px;background:var(--surface);overflow:hidden;box-shadow:0 2px 8px rgba(14,42,86,.06)}
 .qz-band{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--c);color:#fff;min-height:40px}
-.qz-band .fc-ic{width:24px;height:24px}   /* the course icon, white, like the flashcard decks' band */
+.qz-band .fc-ic{width:24px;height:24px}
 .qz-pill{margin-left:auto;font:800 .62rem var(--display);letter-spacing:.06em;text-transform:uppercase;background:rgba(255,255,255,.22);border-radius:6px;padding:2px 7px}
 .qz-body{display:grid;gap:4px;padding:12px 14px 6px;flex:1;border:0;background:none;color:inherit;text-align:left;font:inherit;cursor:pointer;align-content:start}
-.qz-body::after{content:"";position:absolute;inset:0;border-radius:inherit}   /* the whole card opens the quiz */
+.qz-body::after{content:"";position:absolute;inset:0;border-radius:inherit}
 .qz-body:focus-visible{outline:none}.qz-card:has(.qz-body:focus-visible){outline:2px solid var(--accent,#3B6FE0);outline-offset:2px}
-.qz-acts > .btn{position:relative;z-index:1}   /* buttons stay above the card-wide click area */
-.qz-acts .deck-arch,.deck-actions .deck-arch{display:inline-grid;place-items:center;padding:0;width:2.25rem;height:2.25rem;min-height:0;aspect-ratio:1}.qz-acts .deck-arch svg,.deck-actions .deck-arch svg{display:block}   /* archive: a round button, icon centred */
+.qz-acts > .btn{position:relative;z-index:1}
+.qz-acts .deck-arch,.deck-actions .deck-arch{display:inline-grid;place-items:center;padding:0;width:2.25rem;height:2.25rem;min-height:0;aspect-ratio:1}.qz-acts .deck-arch svg,.deck-actions .deck-arch svg{display:block}
 .qzd-list{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:10px}
 .qzd-q{border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:12px 14px}
 .qzd-top{display:flex;align-items:center;gap:8px}
@@ -824,9 +806,9 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
 .qz-title{font:700 1.05rem/1.25 var(--display);overflow-wrap:anywhere}
 .qz-acts{display:flex;align-items:center;gap:8px;padding:8px 14px 12px}
 .qz-acts .spacer{flex:1}
-:has(> .fc-arch-btn) > .btn.small{align-self:center;height:2.3rem;min-height:0;display:inline-flex;align-items:center}   /* Review, Archived Decks and Recently Deleted: one height (not stretched to the row) */
-:has(> .fc-arch-btn) > .btn.small.trash-btn:not(:has(> span)){width:2.3rem;padding:0;justify-content:center}   /* with nothing in them, Archived Decks and Recently Deleted are the same round button, icon centred */
-/* Deck page, Direction 1: band with the actions, the course icon in its ring, stats as chips, and the cards as little flashcards */
+:has(> .fc-arch-btn) > .btn.small{align-self:center;height:2.3rem;min-height:0;display:inline-flex;align-items:center}
+:has(> .fc-arch-btn) > .btn.small.trash-btn:not(:has(> span)){width:2.3rem;padding:0;justify-content:center}
+/* Deck page, Direction 1 */
 .dk2 .deck-stats{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .dk2 .deck-stats > span{display:inline-flex;align-items:baseline;gap:4px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);background:color-mix(in srgb,var(--soft) 70%,var(--surface));color:var(--muted);font-size:.8rem}
 .dk2 .deck-stats b{color:var(--ink);font-weight:800}
@@ -852,16 +834,16 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
 [data-fc-deck] ~ .fc-list.fc-styled .fc-back{color:inherit;opacity:.78;position:relative;z-index:1}
 [data-fc-deck] ~ .fc-list.fc-styled .fc-row > :not(.fc-cell){z-index:2}
 [data-fc-deck] ~ .fc-list.fc-styled .fc-row:hover .fc-face{transform:translateY(-2px)}
-/* A card preview shows its front and back in the middle of the card, like a real flashcard (the buttons stay in the corner) */
+/* A card preview shows its front and back in the middle of the card, like a real flashcard */
 [data-fc-deck] ~ .fc-list .fc-cell,[data-fc-deck] ~ .fc-list.fc-styled .fc-face{justify-content:center;align-items:center;text-align:center;padding:22px 18px 26px}
 [data-fc-deck] ~ .fc-list .fc-front,[data-fc-deck] ~ .fc-list .fc-back{width:100%;text-align:center}
 [data-fc-deck] ~ .fc-list .fc-back{-webkit-box-pack:center}
-[data-fc-deck] ~ .fc-list.cs-index .fc-face{justify-content:flex-start;padding-top:12px}   /* the lined index card: the front stays on its header line, the back sits in the middle below it */
+[data-fc-deck] ~ .fc-list.cs-index .fc-face{justify-content:flex-start;padding-top:12px}
 [data-fc-deck] ~ .fc-list.cs-index .fc-back{margin:auto 0}
-/* the red line sits under the front, however many lines it takes, so it never runs through the text; the blue lines start below it */
+/* the red line sits under the front, however many lines it takes */
 [data-fc-deck] ~ .fc-list.cs-index .fc-face{background-image:repeating-linear-gradient(to bottom,transparent 0 27px,rgba(57,136,254,.18) 27px 28px)!important;background-size:100% 100%!important;background-position:0 0!important;background-repeat:repeat!important}
 [data-fc-deck] ~ .fc-list.cs-index .fc-front{box-sizing:border-box;width:calc(100% + 36px);margin:-12px -18px 14px;padding:12px 18px 9px;min-height:40px;background:#FFFEF9;border-bottom:2px solid rgba(214,57,44,.55);border-radius:inherit;border-bottom-left-radius:0;border-bottom-right-radius:0}
-/* Holographic: the shine starts and ends fully off the card, so its loop never pops in; colours and shine run on one clock (see holoSync) */
+/* Holographic: the shine starts and ends fully off the card, so its loop never pops in */
 .cs-holo .face::after{background:linear-gradient(120deg,transparent 0 38%,rgba(255,255,255,.5) 50%,transparent 62% 100%)!important;background-size:300% 100%!important;animation:holo-shine 5s linear infinite!important;animation-delay:inherit!important;will-change:background-position}
 @keyframes holo-shine{from{background-position:100% 0}to{background-position:0% 0}}
 @media (prefers-reduced-motion:reduce){.cs-holo .face::after{animation:none!important}}
@@ -876,7 +858,7 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
 .g2-band .ra-menu .gx-assign{background:none!important;color:var(--ink)!important;gap:8px}
 .g2-band .ra-menu .gx-assign:hover{background:var(--soft)!important}
 @media (max-width:600px){.g2-band > .row-actions[data-ra]{flex-wrap:nowrap;gap:8px;justify-content:flex-end;margin-left:auto}.g2-band:has(> .row-actions[data-ra]){overflow:visible;display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:8px}}
-/* Card style tiles: the sample word fits the tile on one line (no mid-word break, no scroll arrows) */
+/* Card style tiles */
 .cs-demo{container-type:inline-size}
 .cs-demo .face-text{font-size:min(1.05rem,9.5cqi)!important;line-height:1.2!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis;overflow-wrap:normal!important;max-width:100%!important;max-height:none!important}
 .cs-demo .face-label{font-size:min(.72rem,7cqi)!important}
@@ -896,22 +878,20 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
 .gp-d-h .spacer{flex:1}
 .gp-d-calc .gp-calc-out{margin-top:10px}
 @media (max-width:760px){.gp-drop{grid-template-columns:1fr;margin-left:0}}
-/* Files, Direction 1: band header with the course ring, course rings in the folder list, pill buttons on rows */
+/* Files, Direction 1 */
 .fhead.g2-head{margin:0 0 10px;padding:0;border:1px solid var(--line);border-radius:18px;background:var(--surface);box-shadow:0 2px 8px rgba(14,42,86,.08);overflow:hidden}
 .fhead .g2-band{border-radius:17px 17px 0 0}
 .fhead .fcrumb{margin:0;font:800 1.35rem/1.2 var(--display)}
 .fhead .g2-ring svg:not(.ci-svg){width:46%;height:46%;color:var(--c)}
-/* A primary button on a course-coloured band is white with course-coloured text: the glass layer under it must be white too, not the theme's
-   button gradient (that made Study on a deck's page unreadable: dark gold text on a pink and purple gradient) */
+/* A primary button on a course-coloured band is white with course-coloured text */
 html #view :is(.g2-head,.c2-head) .g2-band .btn.primary::before,html dialog :is(.g2-head,.c2-head) .g2-band .btn.primary::before{background:#fff}
 .dk2 > .g2-band:has(> .row-actions){padding-bottom:36px}
-/* On a wide screen the deck's buttons sit to the right of the ring, so the band only needs as much space under them as above them */
+/* On a wide screen the deck's buttons sit to the right of the ring */
 @media (min-width:720px){.dk2 > .g2-band:has(> .row-actions){padding-bottom:10px}}
-/* Course, Files and deck headers: a shorter band, the ring's top third over it, and the title centred beside the ring */
+/* Course, Files and deck headers */
 .g2-head .g2-band,.c2-head .g2-band{min-height:58px;padding:10px 18px}
 .g2-head .g2-low,.c2-head .g2-low{margin-top:-32px}
 .g2-head .g2-txt,.c2-head .g2-txt{padding-top:42px}
-/* The ring sits a little lower than the low row so it has room under the course code at the top of the band */
 .g2-head .g2-low > .g2-ring,.c2-head .g2-low > .g2-ring{margin-top:10px}
 .fhead .fcrumb{font-size:1.75rem;line-height:1.15}
 @media (max-width:719px){
@@ -920,12 +900,12 @@ html #view :is(.g2-head,.c2-head) .g2-band .btn.primary::before,html dialog :is(
   .g2-head .g2-txt,.c2-head .g2-txt{padding-top:36px}
   .fhead .fcrumb{font-size:1.4rem}
 }
-/* Files header: the title sits on the card, so no scenic-theme legibility box behind it; a smaller ring, and the title a touch higher */
+/* Files header: the title sits on the card, so no scenic-theme legibility box behind it */
 html .fhead .fcrumb{background:none!important;padding-inline:0!important;text-shadow:none!important;box-shadow:none!important}
 .fhead.g2-head .g2-low > .g2-ring{width:66px;height:66px}
 .fhead .g2-ring > svg:not(.ci-svg){width:56%!important;height:56%!important}
 .fhead .g2-ring > svg.ci-svg{width:60%!important;height:60%!important}
-.fhead.g2-head .g2-txt{padding-top:36px;gap:0}   /* (the item count moves up with the title) */
+.fhead.g2-head .g2-txt{padding-top:36px;gap:0}
 @media (max-width:719px){.fhead.g2-head .g2-low > .g2-ring{width:54px;height:54px}.fhead.g2-head .g2-txt{padding-top:30px}}
 .fn-ring{display:grid!important;place-items:center;width:24px!important;height:24px!important;flex:0 0 24px!important;padding:0!important;border-radius:50%;background:#fff;box-shadow:0 0 0 1.5px var(--c,var(--line))}
 .fn-ring svg{width:68%;height:68%;display:block}
@@ -950,7 +930,7 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
 [data-sortable] > [data-sort-id]{-webkit-touch-callout:none}
 .ci-ai-btn{display:grid;place-items:center;align-content:center;gap:2px;aspect-ratio:1;border:2px dashed var(--line);border-radius:50%;background:none;color:var(--accent);font:800 .62rem var(--display);cursor:pointer;position:relative;padding:0}
 .ci-ai-btn svg{width:26px;height:26px}
-.ci-ai-btn .cp-ai-face.ai-ic{width:32px;height:32px;min-width:32px;margin:0;vertical-align:0;justify-self:center;display:grid;place-items:center}   /* the companion's face, big and centred over Create */
+.ci-ai-btn .cp-ai-face.ai-ic{width:32px;height:32px;min-width:32px;margin:0;vertical-align:0;justify-self:center;display:grid;place-items:center}
 .ci-ai-btn .cp-ai-face > svg.cp-svg{inset:0!important;width:100%!important;height:100%!important;display:block}
 .ci-ai-btn > span:not(.cp-ai-face){display:block;text-align:center;line-height:1.1}
 .ci-ai-btn .pro-badge{position:absolute;top:-6px;right:-8px;transform:scale(.8)}
@@ -963,7 +943,7 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
 .ci-cand.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
 .ci-ai-prev:has(.ci-cand){flex-wrap:wrap;gap:6px}
 .ci-src{flex-basis:100%}
-/* Style Shop S2: themed band header, category rail on the left (a strip on phones) */
+/* Style Shop S2 */
 .sheet.shop .sheet-head.shop-band{position:relative;display:block;padding:16px 64px 16px 20px!important;background:linear-gradient(135deg,color-mix(in srgb,var(--accent-band,var(--accent)) 86%,#000),var(--accent-band,var(--accent)))!important;color:#fff;border-bottom:0!important}
 .shop-band h2{color:#fff!important;margin:0;font:800 1.35rem var(--display)!important}
 .shop-band .shop-sub{margin:3px 0 0;font-size:.84rem;opacity:.92;display:flex;align-items:center;gap:6px;flex-wrap:wrap}

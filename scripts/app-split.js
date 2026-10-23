@@ -1,13 +1,7 @@
 #!/usr/bin/env node
-// The reverse of scripts/app-files.js source(): takes the app as one page (its styles in one <style>, its code in one script) and writes it
+// The reverse of scripts/app-files.js source()
 // back as src/css/*.css and src/js/*.js (cut at the "/* ===== module: NAME =====" lines), src/app.json (their order) and index.html, then
-// builds bundle/. For tools that edit the app as one piece (tools/insert-theme-batches.py): bundle, edit, split.
-// A new module line makes a new file; a section that is gone loses its file.
-//
-//   node scripts/app-split.js one-page.html
-//
-// Files loaded later ("lazy" in src/app.json, e.g. the scene library) appear in the one-page form as their own <script> blocks just before
-// the app's script; they go back to their sections the same way.
+// builds bundle/. For tools that edit the app as one piece (tools/insert-theme-batches.py)
 "use strict";
 const fs = require("fs"), path = require("path");
 const AF = require("./app-files"), ROOT = AF.ROOT;
@@ -24,14 +18,13 @@ function cut(body, ext, firstName){
   return out;
 }
 
-// page: the one-page form. Returns {shell, manifest, files: Map(src path -> text)} without writing anything.
+// page: the one-page form
 function parse(page, oldManifest){
   const so = page.indexOf("<style>"), sc = page.indexOf("</style>", so);
   const jo = page.lastIndexOf("<script>"), jc = page.lastIndexOf("</script>");
   if (so < 0 || sc < 0 || jo < 0 || jc < jo) throw new Error("app-split: expected one <style> and the app's script");
   const inner = page.slice(jo + 8, jc), pre = AF.INLINE_JS_PRE + AF.APP_HEAD, post = AF.APP_TAIL + AF.INLINE_JS_POST;
   if (!inner.startsWith(pre) || !inner.endsWith(post)) throw new Error("app-split: the app's script isn't in its usual wrapper");
-  // lazy files: the <script> blocks right before the app's script, in src/app.json's order
   const lazyNames = Object.keys((oldManifest && oldManifest.lazy) || {}), lazyBodies = [];
   let start = jo;
   for (let k = lazyNames.length - 1; k >= 0; k--) {
@@ -57,7 +50,6 @@ function split(page, opts = {}){
   for (const p of AF.srcFiles(old)) if (!r.files.has(p) && fs.existsSync(path.join(ROOT, p))) fs.unlinkSync(path.join(ROOT, p));
   fs.writeFileSync(path.join(ROOT, "src", "app.json"), JSON.stringify(r.manifest, null, 1) + "\n");
   AF.build();
-  // index.html: the page with its two tags back (references to lazy files in its start-up script come through unchanged, and get fresh ?v= hashes)
   fs.writeFileSync(path.join(ROOT, "index.html"), require("./csp").apply(AF.stamp(r.shell)));
   return r;
 }

@@ -1,14 +1,9 @@
 /* ===== module: 01-accounts.js: the app's core, accounts, using the app without one, and lean sync ===== */
-/* ---------- Studyboard accounts (the server behind them is a Supabase project) ----------
-   build.py fills SB_DEFAULT from server.json, so people only ever see "Sign In to Studyboard".
-   Nothing in the interface names the service behind it. */
 const SB_DEFAULT = {"url": "https://pivcmrqcjseycjkbocmc.supabase.co", "key": "sb_publishable_hoKTO5FRblXqHs6MvO686Q_81c5_gvd"};
 const SB_HOSTED = !!(SB_DEFAULT.url && SB_DEFAULT.key);
-// When a server feature isn't switched on yet: students just hear it's coming; someone running their own server gets the file to run.
+// When a server feature isn't switched on yet
 function srvSetup(what, file){ return SB_HOSTED && !sbCustom() ? `${what} isn't available yet. Please check back soon.` : `${what} needs one more setup step on your server: run ${file} from the setup guide, then try again.`; }
-// supabase-js 2.117.2 (UMD). Loaded from our own origin first (vendor/, the exact npm package file), then from jsDelivr as a fallback.
-// Both are pinned with Subresource Integrity, so a changed or tampered file is refused rather than run. To update: replace the vendored
-// file, the version in the two paths below, the hash (curl -s <url> | openssl dgst -sha384 -binary | openssl base64 -A), sw.js and the CSP.
+// supabase-js 2.117.2 (UMD)
 const SBJS_LOCAL = "vendor/supabase-js-2.117.2.umd.js";
 const SBJS = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js";
 const SBJS_SRI = "sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok";
@@ -17,15 +12,14 @@ const SB_CFG = "studioso:sb";
 let sb = null, sbUser = null, sbStarting = false, sbNextMode = "";
 function sbConfig(){
   try { const c = JSON.parse(localStorage.getItem(SB_CFG) || "null"); if (c && c.url && c.key) return c; } catch(e) {}
-  if (sbLocalOnly()) return null;   // they chose to use Studyboard without an account (until they sign in)
+  if (sbLocalOnly()) return null;
   return SB_HOSTED ? SB_DEFAULT : null;
 }
-// Studyboard can be used without an account ("Use Without an Account" when it first opens): everything is then kept on this device only, and
-// signing in later brings it into the account (claimDevice). The app keeps asking, gently, at the moments an account matters (SBGUEST).
+// Studyboard can be used without an account ("Use Without an Account" when it first opens)
 function sbLocalOnly(){ try { return localStorage.getItem(SB_CFG) === "\"local\""; } catch(e) { return false; } }
-// A server someone typed in themselves (only possible in copies built without a Studyboard server, or set before one was built in).
+// A server someone typed in themselves
 function sbCustom(){ try { const c = JSON.parse(localStorage.getItem(SB_CFG) || "null"); return !!(c && c.url && c.key && c.url !== SB_DEFAULT.url); } catch(e) { return false; } }
-// Friendly words for account errors, so nobody sees raw server messages.
+// Friendly words for account errors, so nobody sees raw server messages
 function sbWords(error, fallback){
   const m = String((error && (error.message || error.error_description)) || error || ""), st = Number(error && error.status) || 0;
   if (/invalid login credentials/i.test(m)) return "That email and password don't match. Try again, or reset your password.";
@@ -38,8 +32,7 @@ function sbWords(error, fallback){
   if (/fetch|network|timed? ?out|Load failed/i.test(m)) return "Couldn't reach Studyboard. Check your internet connection and try again.";
   return fallback || "Something went wrong. Please try again.";
 }
-/* A link from an email that failed (expired, already used) comes back as #error_code=otp_expired&error_description=... on the address.
-   Captured now, before the sign-in library cleans the address up, and shown by sbLinkErrorSheet() once the page is ready. */
+/* A link from an email that failed */
 const SB_LINK_ERR = (() => {
   try {
     const q = new URLSearchParams(location.hash.replace(/^#/, "") + "&" + location.search.replace(/^\?/, ""));
@@ -48,7 +41,7 @@ const SB_LINK_ERR = (() => {
     return {code: String(code).slice(0, 40), recovery: /recover|reset/i.test(String(q.get("type") || "")) };
   } catch (e) { return null; }
 })();
-// Password strength for the new-password forms: {label, score 0-4, ok}
+// Password strength for the new-password forms
 function sbStrength(pw){
   pw = String(pw || "");
   let n = 0;
@@ -60,7 +53,7 @@ function sbStrength(pw){
   const label = pw.length < 8 ? "Too short" : n <= 1 ? "Weak" : n === 2 ? "Okay" : n === 3 ? "Good" : "Strong";
   return {label, score: pw.length < 8 ? 0 : n, ok: pw.length >= 8 && n >= 2};
 }
-const sbActive = () => !inClaude() && !!sb && !!sbUser;
+const sbActive = () => !inPreview() && !!sb && !!sbUser;
 function sbErr(e){
   const msg = String((e && (e.message || e.error_description || e.error)) || e || "");
   const status = Number(e && (e.status || e.statusCode)) || 0;
@@ -71,10 +64,7 @@ function sbErr(e){
     : status === 429 ? "rate_limited" : e && e.code === "23514" ? "schema" : (e && e.code) || "error";
   return x;
 }
-/* Where the sign-in session (the Supabase tokens) is kept. In a browser that is localStorage, as always.
-   - iOS app (Capacitor): the wrapper sets window.StudyboardAuthStorage to a Keychain-backed adapter (ios-wrapper/README-IOS.md), used as is.
-   - Desktop app: tokens are locked with the system keychain (safeStorage) when it is available; an older plain copy is moved on first use.
-   Both are asynchronous, which supabase-js supports. */
+/* Where the sign-in session (the Supabase tokens) is kept */
 const deskAuthStorage = DESK && DESK.secrets ? (() => {
   const nm = k => "sb-" + String(k).toLowerCase().replace(/[^a-z0-9:_-]/g, "_").slice(0, 60);
   let ok = null; const avail = async () => ok === null ? (ok = await DESK.secrets.available().catch(() => false)) : ok;
@@ -96,22 +86,16 @@ const authStorage = () => {
   const n = window.StudyboardAuthStorage;
   return n && typeof n.getItem === "function" && typeof n.setItem === "function" && typeof n.removeItem === "function" ? n : deskAuthStorage;
 };
-/* The server can refuse a sign-in token this device still thinks is good: the device's clock is off (a wrong time zone, a clock set by hand),
-   or the server's signing keys changed. The sign-in library only renews a token when this device's own clock says it ran out, so every request
-   failed with "JWT expired", a reload reused the same saved token, and sync stayed on "Connecting…" until site data was cleared.
-   Now a request refused for its token renews the session (once, shared by every request that hit it) and is sent again with the new token.
-   A session the server won't renew either is signed out here, so the sign-in sheet shows instead of a sync that never connects. */
+/* The server can refuse a sign-in token this device still thinks is good */
 let sbRenewP = null, sbRenewAt = 0, sbRenewTok = "";
 function sbRenewToken(used){
   if (sbRenewP) return sbRenewP;
-  if (Date.now() - sbRenewAt < 15000) return Promise.resolve(sbRenewTok && sbRenewTok !== used ? sbRenewTok : null);   // renewed moments ago: resend with that token, never renew in a loop
+  if (Date.now() - sbRenewAt < 15000) return Promise.resolve(sbRenewTok && sbRenewTok !== used ? sbRenewTok : null);
   sbRenewP = (async () => {
     let tok = "", dead = false;
     try {
       const {data, error} = await sb.auth.refreshSession();
       if (!error && data && data.session) tok = data.session.access_token || "";
-      // The server refused the renewal too (signed out elsewhere, password changed): this session is over. The library keeps it while this
-      // device's clock says the token is still good, so sign out here; what's on this device and its unsent changes stay.
       else if (error && [400, 401, 403].includes(Number(error.status)) && !/retryable/i.test(error.name || "")) dead = true;
     } catch(e) {}
     sbRenewAt = Date.now(); sbRenewTok = tok; sbRenewP = null;
@@ -126,12 +110,11 @@ function sbRenewToken(used){
 }
 const SB_TOKEN_REFUSED = /jwt|jws|pgrst30[0-3]|"exp" claim|exp claim|(invalid|expired|bad).{0,12}token|token.{0,12}(invalid|expired)/i;
 const sbFetch = key => async (input, init) => {
-  // A request that never answers would leave sync on "reconnecting…" for good: reads and sign-in renewals give up after 30 seconds and are retried.
   try {
     const u = String(typeof Request !== "undefined" && input instanceof Request ? input.url : input || ""), m = String((init && init.method) || "GET").toUpperCase();
     if (typeof AbortSignal !== "undefined" && AbortSignal.timeout && ((/\/rest\/v1\//.test(u) && (m === "GET" || m === "HEAD" || /\/rpc\//.test(u))) || /\/auth\/v1\/token/.test(u))) {
       const t = AbortSignal.timeout(window.__SB_REQ_WAIT || 30000), own = init && init.signal;
-      const sig = !own ? t : AbortSignal.any ? AbortSignal.any([own, t]) : null;   // keep the library's own cancel signal too
+      const sig = !own ? t : AbortSignal.any ? AbortSignal.any([own, t]) : null;
       if (sig) init = Object.assign({}, init, {signal: sig});
     }
   } catch(e) {}
@@ -139,10 +122,10 @@ const sbFetch = key => async (input, init) => {
   if (res.status !== 401 && res.status !== 403 && res.status !== 400) return res;
   try {
     const url = String(typeof input === "string" ? input : (input && input.url) || "");
-    if (!sb || !/\/(rest|storage|functions)\/v1\//.test(url) || typeof input !== "string") return res;   // never the sign-in calls themselves
+    if (!sb || !/\/(rest|storage|functions)\/v1\//.test(url) || typeof input !== "string") return res;
     const h = new Headers((init && init.headers) || {});
     const used = (h.get("Authorization") || "").replace(/^Bearer\s+/i, "");
-    if (!used || used === key || used.split(".").length !== 3) return res;   // not signed in: nothing to renew
+    if (!used || used === key || used.split(".").length !== 3) return res;
     if (!SB_TOKEN_REFUSED.test(await res.clone().text())) return res;
     const tok = await sbRenewToken(used);
     if (!tok) return res;
@@ -150,11 +133,7 @@ const sbFetch = key => async (input, init) => {
     return fetch(input, Object.assign({}, init, {headers: h}));
   } catch(e) { return res; }
 };
-/* SECURITY: an email link signs in by putting the session tokens in the address (#access_token=...). Anyone can make such a link from
-   their own account and send it, which would quietly sign the reader in to the sender's account: what the reader then adds (or what
-   this device held before any account) would go to the sender. So a session in the address is only taken when this browser asked
-   for an email (sign up, reset, change email) in the last two days, or when nothing would be lost or shared: no account here and
-   nothing saved on this device. Otherwise the reader uses the 6-digit code from the same email. Error links (#error_code=) pass. */
+/* SECURITY: an email link signs in by putting the session tokens in the address */
 const SB_LINK_ASKED = "studioso:linkAsked";
 const sbLinkAsked = () => { try { localStorage.setItem(SB_LINK_ASKED, String(Date.now())); } catch(e) {} };
 function sbUrlSessionOk(url, params){
@@ -171,14 +150,14 @@ function sbUrlSessionOk(url, params){
 async function initSupabase(ask){
   const cfg = sbConfig() || (ask && SB_HOSTED ? SB_DEFAULT : null);
   if (!cfg) { syncLabel(); if (!sbLocalOnly() || ask) setTimeout(() => { if (!dlg.open || ask) sbSetupSheet(); }, ask ? 0 : 400); return; }
-  if (sbLocalOnly() && !ask) { syncLabel(); return; }   // they chose to use Studyboard without an account
+  if (sbLocalOnly() && !ask) { syncLabel(); return; }
   if (!window.supabase) {
     try { await loadSupabaseLib(); }
     catch(e) {
       console.warn("Sign-in library failed to load:", e && e.message); syncLabel();
       if (ask) toast("Can't reach the sign-in service right now. Check your connection and try again.");
       return;
-    } // offline: keep working on this device, the retry timer reconnects later
+    }
   }
   if (!sb) {
     sb = window.supabase.createClient(cfg.url, cfg.key, {auth: Object.assign({persistSession: true, autoRefreshToken: true, detectSessionInUrl: sbUrlSessionOk, storageKey: "studioso-auth"}, authStorage() ? {storage: authStorage()} : {}), global: {fetch: sbFetch(cfg.key)}});
@@ -196,25 +175,19 @@ async function initSupabase(ask){
   if (session) { if (!sbUser) { sbUser = session.user; startSupabaseSync(); setTimeout(aiTrialSignedIn, 1500); } }
   else { syncLabel(); setTimeout(() => { if ((ask || !dlg.open) && !sbUser) sbSignInSheet(sbNextMode || undefined); sbNextMode = ""; }, ask ? 0 : 400); }
 }
-// Settings, sharing, reminders and so on call this to let someone sign in or make an account.
+// Settings, sharing, reminders and so on call this to let someone sign in or make an account
 function sbAsk(){ if (sb) sbSignInSheet(); else if (sbConfig() || SB_HOSTED) { toast("Connecting…"); initSupabase(true); } else sbSetupSheet(); }
-/* ---------- Using Studyboard without an account ----------
-   Everything is kept on this device only until they make an account (what they made then joins it: claimDevice). They're told so by a
-   small "Only on This Device" button in the header, and asked to save it to an account at the moments it matters: at the end of the
-   welcome tour, after the first school-site import, and now and then once they've used it for a few days (not more than once a week).
-   Each ask can be waved away; nothing is ever blocked. */
 const SBGUEST = window.SBGUEST = (() => {
   const K = "studyboard:guest:";
   const get = k => { try { return localStorage.getItem(K + k); } catch(e) { return null; } };
   const set = (k, v) => { try { localStorage.setItem(K + k, String(v)); } catch(e) {} };
-  const is = () => SB_HOSTED && sbLocalOnly() && !sbUser && !(typeof inClaude === "function" && inClaude());
+  const is = () => SB_HOSTED && sbLocalOnly() && !sbUser && !(typeof inPreview === "function" && inPreview());
   const hasData = () => ["courses", "tasks", "notes", "decks", "files"].some(k => Object.keys((state && state[k]) || {}).length);
   function signUp(mode){
     mode = mode === "signin" ? "signin" : "signup";
     if (sb) { sbSignInSheet(mode); return; }
     sbNextMode = mode; toast("Connecting…"); initSupabase(true);
   }
-  // "Save your planner": what an account adds, and that what's here comes along
   function sheet(lead){
     openSheet(`<div class="sheet">${head("Save Your Planner")}<div class="sheet-body">
       <p style="margin:0">${esc(lead || "Your planner is only on this device right now.")} A free Studyboard account keeps it safe online, even if you clear your browser or lose this device, and puts it on your phone and laptop too.</p>
@@ -225,14 +198,12 @@ const SBGUEST = window.SBGUEST = (() => {
       if (v !== "later") setTimeout(() => signUp(v), 120);
     }));
   }
-  // once for each moment ("tour", "import"); "later" is the weekly reminder. Waits for an open sheet to close instead of covering it.
   function nudge(key, lead){
     if (!is() || !hasData()) return;
     if (key !== "later" && get("did:" + key)) return;
     let tries = 0;
     const go = () => {
       if (!is()) return;
-      // never over another message: it may carry Undo or Re-plan
       { const t = document.getElementById("toast"); if (t && t.classList.contains("show") && ++tries < 20) { setTimeout(go, 3000); return; } }
       if (key !== "later") set("did:" + key, 1);
       set("asked", Date.now());
@@ -240,7 +211,6 @@ const SBGUEST = window.SBGUEST = (() => {
     };
     if (typeof dlg !== "undefined" && dlg.open) dlg.addEventListener("close", () => setTimeout(go, 500), {once: true}); else go();
   }
-  // On opening Studyboard: after 3 days of use, at most once a week
   function remind(){
     if (!is()) return;
     const since = Number(get("since")) || 0; if (!since) { set("since", Date.now()); return; }
@@ -251,19 +221,14 @@ const SBGUEST = window.SBGUEST = (() => {
 })();
 document.addEventListener("click", e => { if (e.target.closest && e.target.closest("#guestBadge,#guestBadgeSide")) SBGUEST.sheet(); });
 setTimeout(() => { try { SBGUEST.remind(); } catch(e) {} }, 6000);
-/* Whose data is on this device. The device remembers the account its copy belongs to, so that
-   - what was made here before any account existed joins the account when you first sign in (instead of being replaced by the account's copy), and
-   - a copy left behind by a different account is set aside in a device backup and never mixed into this one. */
+/* Whose data is on this device */
 const OWNER = "studioso:owner";
 const AI_KEYS_OWNER = "studyboard:aiKeysOwner";
-const NO_OWNER = "none";   // written when the device is wiped on sign-out: no account owns what is here
-// Set when a fresh install starts from the copy in the Studyboard folder (deskBoot): the account that wrote it ("none" signed out, "?" an older copy
-// that doesn't say). claimDevice reads it on the next sign-in, then clears it.
+const NO_OWNER = "none";
+// Set when a fresh install starts from the copy in the Studyboard folder (deskBoot)
 const FOLDER_FROM = "studyboard:folderFrom";
 async function claimDevice(uid){
   let owner = null; try { owner = localStorage.getItem(OWNER); } catch(e) {}
-  // AI keys stay on the device after sign-out for the person who added them, never for the next account to sign in here
-  // (they would pay for its AI use, and see its requests in their provider's logs).
   try {
     const keysOwner = localStorage.getItem(AI_KEYS_OWNER);
     if (keysOwner ? keysOwner !== uid : (owner && owner !== uid)) aiWipeLocal();
@@ -274,7 +239,6 @@ async function claimDevice(uid){
   const KIND_OF = {courses: "course", tasks: "task", files: "file", notes: "note", decks: "deck", events: "event"};
   if (owner && owner !== uid) {
     if (has()) {
-      // Set aside before anything is removed. If the device backup can't be written, the copy is saved as a file instead (the next step empties this device).
       let kept = false;
       try { await saveDeviceBackup(Object.assign(backupSnap(), {note: "Left on this device by another account"}), true); kept = true; } catch(e) { console.warn("set-aside backup", e); }
       if (!kept) { try { saveBlob(`studyboard-other-account-${todayISO()}.json`, JSON.stringify(Object.assign({app: "studyboard"}, exportArrays()), null, 1), "application/json"); setTimeout(() => toast("This device held another account's data. It was saved as a file in your Downloads before your account's data loaded."), 1300); } catch(e) {} }
@@ -287,13 +251,9 @@ async function claimDevice(uid){
   } else if (!owner && has()) {
     let synced = false;
     try { synced = !!(await SBC.get("rows", uid)); } catch(e) {}
-    // Data restored from the Studyboard folder on a fresh install (deskBoot) says which account wrote it. Another account's copy is set aside, never merged in.
     let from = ""; try { from = localStorage.getItem(FOLDER_FROM) || ""; } catch(e) {}
     const restored = !!from, otherAccount = restored && from !== "none" && from !== "?" && from !== uid;
     if (!synced) {
-      // What the account deleted stays deleted. This device's data never synced (a fresh install restored from the Studyboard folder, or an old
-      // copy in this browser), so it can hold things the account removed since: those are checked against the account's deletion log and left out
-      // (kept in a device backup, never uploaded). Everything else made here joins the account.
       let gone = null;
       if (!otherAccount) {
         try {
@@ -309,7 +269,6 @@ async function claimDevice(uid){
         } catch(e) { console.warn("deletion check", e); }
       }
       if (otherAccount || (restored && !gone)) {
-        // Another account's copy, or a restored copy that can't be checked: the account's own data wins. The copy is kept in a device backup.
         try { await saveDeviceBackup(Object.assign(backupSnap(), {note: otherAccount ? "Restored from the Studyboard folder, written by another account" : "Restored from the Studyboard folder"}), true); } catch(e) { console.warn("set-aside backup", e); }
         state = {courses:{}, tasks:{}, files:{}, notes:{}, decks:{}, events:{}, trash:{}, settings: state.settings || {capacity:15}, updated:0};
         try { localStorage.removeItem(OUTBOX); outboxOwn.clear(); } catch(e) {}
@@ -317,7 +276,6 @@ async function claimDevice(uid){
         setTimeout(() => { try { toast("An older copy found in your Studyboard folder was kept in a device backup instead of being added to your account. Restore it from Settings if you need it."); } catch(e) {} }, 1500);
       } else {
         const out = gone || new Set();
-        // A deleted course takes its own tasks, files and events with it, even any the log doesn't list one by one
         const deadCourses = new Set(Object.keys(state.courses || {}).filter(id => out.has("course|" + id)));
         const isGone = (k, o) => out.has(KIND_OF[k] + "|" + o.id) || (k !== "courses" && o.courseId && deadCourses.has(o.courseId));
         const drop = kinds.flatMap(k => Object.values(state[k] || {}).filter(o => o && o.id && isGone(k, o)).map(o => [k, o.id]));
@@ -327,7 +285,6 @@ async function claimDevice(uid){
           saveLocal();
           setTimeout(() => { try { toast(`${plural0(drop.length, "item")} you'd deleted in your account ${drop.length === 1 ? "was" : "were"} left out, so ${drop.length === 1 ? "it stays" : "they stay"} deleted.`); } catch(e) {} }, 1500);
         }
-        // never synced here: queue everything made on this device so it joins the account
         kinds.forEach(k => Object.values(state[k] || {}).forEach(o => { if (o && o.id) outboxAdd(KIND_OF[k], o.id, o); }));
       }
     }
@@ -335,7 +292,7 @@ async function claimDevice(uid){
   try { localStorage.setItem(OWNER, uid); localStorage.removeItem(FOLDER_FROM); } catch(e) {}
 }
 let sbStartGen = 0, sbStartTries = 0;
-/* What connecting is waiting on, shown under "reconnecting…" in Settings, so a slow or stuck connection can be explained without developer tools. */
+/* What connecting is waiting on, shown under "reconnecting…" in Settings */
 const SB_DIAG = window.SB_DIAG = {step: "", since: 0, err: "", errAt: 0, tries: 0, startedAt: 0};
 const sbStep = step => { if (SB_DIAG.step !== step) { SB_DIAG.step = step; SB_DIAG.since = Date.now(); } };
 function sbDiagHtml(){
@@ -349,7 +306,7 @@ function sbDiagHtml(){
 setInterval(() => { try { const d = document.querySelector(".sb-diag"); if (!d) return; const h = sbDiagHtml(); if (!h) d.remove(); else if (d.outerHTML !== h) d.outerHTML = h; } catch(e) {} }, 2000);
 function sbRetryNow(){
   SB_DIAG.err = ""; sbStartTries = 0;
-  sbStartGen++; sbStarting = false;   // let go of a start that is stuck, then begin a fresh one
+  sbStartGen++; sbStarting = false;
   startSupabaseSync();
 }
 async function startSupabaseSync(){
@@ -357,13 +314,12 @@ async function startSupabaseSync(){
   sbStarting = true;
   const gen = ++sbStartGen;
   SB_DIAG.tries++; SB_DIAG.startedAt = Date.now(); sbStep("Checking this device");
-  // A start that hangs (slow network, a blocked device database) must not hold the lock forever: after 25 seconds it is let go and tried again.
   const dog = setTimeout(() => { if (gen === sbStartGen && sbStarting) { SB_DIAG.err = `Timed out after 25s at "${SB_DIAG.step}"`; SB_DIAG.errAt = Date.now(); sbStarting = false; if (!cloud.on) setTimeout(startSupabaseSync, 500); } }, 25000);
   try {
     await claimDevice(sbUser.id);
     sbStep("Checking your account");
     const backend = await sbBackend(sb, sbUser.id);
-    if (gen !== sbStartGen) return;   // a newer attempt took over while this one was stuck
+    if (gen !== sbStartGen) return;
     if (backend.alive()) {
       caps.assets = DESK ? deskAssets : sbAssets;
       sbStep("Reading your settings");
@@ -382,7 +338,6 @@ async function startSupabaseSync(){
     if (/relation .*items.* does not exist|Could not find the table/i.test(m)) toast(SB_HOSTED ? "Studyboard's online sync isn't ready yet. Your work is saved on this device." : "Your server isn't set up yet. Run the setup SQL from the guide, then reload.");
     else {
       if (!/fetch|network/i.test(m)) toast("Couldn't load your online data just now. Your work is saved on this device and will sync later.");
-      // try again soon (3s, 6s, 12s, 24s, then every 30s with the regular check) instead of waiting for the next 45 second check
       if (sbStartTries < 4) setTimeout(() => { if (!cloud.on) startSupabaseSync(); }, 3000 * Math.pow(2, sbStartTries++));
     }
   } finally {
@@ -390,13 +345,7 @@ async function startSupabaseSync(){
     if (gen === sbStartGen) sbStarting = false;
   }
 }
-/* ---------- Lean sync ----------
-   Keeps what Supabase sends small, so it stays free for a lot of students:
-   - A copy of your synced rows is kept on this device (IndexedDB). After the first load, only rows changed since
-     last time are downloaded (delta sync), plus a short list of deleted rows. Needs supabase/lean.sql; without it,
-     everything is downloaded like before.
-   - Live updates from your other devices only stay connected while Studyboard is on screen.
-   - A full check runs once a week to heal anything missed. */
+/* Lean sync Keeps what Supabase sends small, so it stays free for a lot of students */
 const SBC = {
   db: null,
   open(){
@@ -404,7 +353,6 @@ const SBC = {
     const p = this.db = new Promise((ok, no) => {
       try {
         const r = indexedDB.open("studyboard-sync", 1);
-        // This copy only speeds sync up: if the database can't be opened in a few seconds (another tab is deleting it), sync goes on without it.
         let late = false; const t = setTimeout(() => { late = true; no(new Error("device copy unavailable")); }, window.__SBC_WAIT || 4000);
         r.onupgradeneeded = () => { const d = r.result; if (!d.objectStoreNames.contains("rows")) d.createObjectStore("rows"); if (!d.objectStoreNames.contains("backups")) d.createObjectStore("backups"); };
         r.onsuccess = () => { clearTimeout(t); const d = r.result; if (late) { try { d.close(); } catch(e) {} return; }
@@ -420,18 +368,18 @@ const SBC = {
   },
   get(store, key){ return this.run(store, "readonly", s => s.get(key)).catch(() => undefined); },
   put(store, key, val){ return this.run(store, "readwrite", s => s.put(val, key)).catch(e => console.warn("device copy", e)); },
-  putStrict(store, key, val){ return this.run(store, "readwrite", s => s.put(val, key)); },   // for backups: the caller must know when nothing was kept
+  putStrict(store, key, val){ return this.run(store, "readwrite", s => s.put(val, key)); },
   del(store, key){ return this.run(store, "readwrite", s => s.delete(key)).catch(() => {}); },
   all(store){ return this.run(store, "readonly", s => s.getAll()).catch(() => []); },
   keys(store){ return this.run(store, "readonly", s => s.getAllKeys()).catch(() => []); }
 };
-// This device's id (shared with the device list in Studyboard Pro), stamped on every synced write so conflicts can say where an edit came from.
+// This device's id (shared with the device list in Studyboard Pro)
 function sbDevice(){
   let id = ""; try { id = localStorage.getItem("studyboard:deviceId") || ""; if (!id) { id = crypto.randomUUID ? crypto.randomUUID() : uid() + uid(); localStorage.setItem("studyboard:deviceId", id); } } catch(e) {}
   return id.slice(0, 64) || "web";
 }
 const SB_OVERLAP = 2 * 60000, SB_FULL_EVERY = 7 * 864e5, SB_DELTA_MAX_AGE = 30 * 864e5, SB_REALTIME_IDLE = 60000;
-const SB_STATS = {mode: "", full: 0, delta: 0, rows: 0, at: 0};   // for Settings and tests
+const SB_STATS = {mode: "", full: 0, delta: 0, rows: 0, at: 0};
 async function sbBackend(client, userId){
   const T = "items", KINDS = ["task", "course", "file", "note", "deck", "event", "trash", "meta"];
   const blank = () => { const o = {}; KINDS.forEach(k => { o[k] = new Map(); }); return o; };
@@ -439,28 +387,25 @@ async function sbBackend(client, userId){
   const listeners = {task: [], course: [], file: [], note: [], deck: [], event: [], trash: []};
   const snapOf = kind => ({docs: [...cache[kind].entries()].map(([id, d]) => ({id, data: () => d}))});
   const emit = kind => (listeners[kind] || []).forEach(f => { try { f(snapOf(kind)); } catch(e) { console.warn(e); } });
-  const saved = {cursor: "", fullAt: 0, at: 0};   // cursor: the server's time of the newest change seen; at: when this device last synced
+  const saved = {cursor: "", fullAt: 0, at: 0};
   let lean = false;
-  // Is supabase/lean.sql installed? (the deletions list exists)
   try { const {error} = await client.from("studyboard_deletions").select("id").limit(1); lean = !error; } catch(e) {}
-  // Is supabase-sync-conflicts.sql installed? (every row carries a revision, and writes are compare-and-set). Without it, sync behaves as before,
-  // except that a device coming back from offline (or one that heard of a change while editing) reads the row first and merges instead of overwriting.
   let revCol = false;
   try { const {error} = await client.from(T).select("rev").limit(1); revCol = !error; } catch(e) {}
   const COLS = "kind,id,data,updated_at" + (revCol ? ",rev" : "");
-  const revs = new Map();      // "kind:id" -> the revision last seen from the server
-  let pbase = new Map();       // "kind:id" -> {rev, data, at}: the server version an unsent local edit started from (the base of the three-way merge)
-  const foreign = new Set();   // keys with an unsent edit that another device changed meanwhile
+  const revs = new Map();
+  let pbase = new Map();
+  const foreign = new Set();
   const bkey = (kind, id) => kind === "meta" ? "meta:planner" : kind + ":" + id;
   const skewKey = "studioso:skew";
   let skew = 0; try { skew = Number(localStorage.getItem(skewKey)) || 0; } catch(e) {}
-  if (revCol) {   // learn how far this device's clock is from the server's (so an edit's time can be compared fairly with another device's)
+  if (revCol) {
     try { const t0 = Date.now(), {data: now, error} = await client.rpc("studyboard_clock"); if (!error && now) { const k = SyncMerge.skewFrom(now, t0, Date.now()); if (Math.abs(k) < 30 * 864e5) { skew = k; try { localStorage.setItem(skewKey, String(k)); } catch(e) {} } } } catch(e) {}
   }
   const noteForeign = (kind, id, data) => { const k = bkey(kind, id), b = pbase.get(k); if (b && !SyncMerge.eq(b.data, data)) foreign.add(k); };
   let pbT = 0;
   const pbSave = () => { clearTimeout(pbT); pbT = setTimeout(() => SBC.put("rows", "pb:" + userId, {v: 1, items: [...pbase.entries()]}), 150); };
-  try {   // bases of edits that were still unsent when this device last closed (kept only while the edit is still waiting in the outbox)
+  try {
     const s = await SBC.get("rows", "pb:" + userId), ob = outboxGet();
     if (s && s.v === 1) (s.items || []).forEach(([k, v]) => { if (k in ob || (k === "meta:planner" && "meta:meta" in ob)) pbase.set(k, v); });
   } catch(e) {}
@@ -484,7 +429,6 @@ async function sbBackend(client, userId){
     persist();
     return n;
   };
-  // Only what changed since last time, plus rows deleted on your other devices.
   const pullDelta = async () => {
     const since = new Date(Date.parse(saved.cursor) - SB_OVERLAP).toISOString();
     const got = new Map(), changed = new Set(); let cursor = saved.cursor, n = 0;
@@ -505,7 +449,7 @@ async function sbBackend(client, userId){
     (dels || []).forEach(d => {
       cursor = later(cursor, d.deleted_at);
       const back = got.get(d.kind + "|" + d.id);
-      if (back && Date.parse(back) >= Date.parse(d.deleted_at)) return;   // added again after it was deleted
+      if (back && Date.parse(back) >= Date.parse(d.deleted_at)) return;
       if (cache[d.kind] && cache[d.kind].delete(d.id)) changed.add(d.kind);
     });
     saved.cursor = cursor; saved.at = Date.now();
@@ -513,7 +457,6 @@ async function sbBackend(client, userId){
     persist();
     return changed;
   };
-  // Start from the copy on this device when it's recent enough, then fetch only the changes.
   let started = false;
   if (lean) {
     sbStep("Reading the copy on this device");
@@ -521,7 +464,6 @@ async function sbBackend(client, userId){
     if (s && s.v === 1 && s.cursor && Date.now() - (s.fullAt || 0) < SB_FULL_EVERY && Date.now() - (s.at || 0) < SB_DELTA_MAX_AGE) {
       cache = blank(); KINDS.forEach(k => { (s.rows[k] || []).forEach(([id, d]) => cache[k].set(id, d)); });
       (s.revs || []).forEach(([k, v]) => revs.set(k, v));
-      // An unsent edit whose saved base was lost: the copy of the server's version kept on this device is the next best base.
       try { Object.keys(outboxGet()).forEach(k => { const pk = k === "meta:meta" ? "meta:planner" : k, i = pk.indexOf(":"), kd = pk.slice(0, i); if (!pbase.has(pk) && cache[kd]) pbase.set(pk, {rev: revs.get(pk) || 0, data: cache[kd].get(pk.slice(i + 1)) ?? null, at: null}); }); } catch(e) {}
       saved.cursor = s.cursor; saved.fullAt = s.fullAt; saved.at = s.at || 0;
       sbStep("Fetching recent changes");
@@ -531,19 +473,13 @@ async function sbBackend(client, userId){
   if (!started) {
     sbStep("Loading all your data");
     const n = await loadAll();
-    // Accounts not used for 6 months are packed away to save space. Signing in brings everything back.
-    if (lean) {   // always asked, not only after an empty load: a stray write from a stale device must not strand a packed-away account
-      // A failed unpack must stop the start (it is retried): carrying on would look like a brand-new account, and this device's copy and
-      // settings would be written in place of the packed-away ones, which the next unpack then skips.
+    if (lean) {
       let packErr = null;
       try { const {data, error} = await client.rpc("studyboard_restore_archive"); if (error) throw error; if (Number(data) > 0) { toast("Welcome back! Your planner has been restored."); await loadAll(); } }
       catch(e) { if (!/does not exist|could not find|schema cache/i.test(String(e && e.message))) packErr = e; }
-      if (packErr) throw packErr;   // the start says it couldn't load and tries again
+      if (packErr) throw packErr;
     }
   }
-  /* Writes. With supabase-sync-conflicts.sql installed, a write names the revision it was based on and the server refuses it if the row moved on
-     (compare-and-set); the device then merges the server's version into its own edit (SyncMerge.mergeItem) and tries again. Nothing is ever
-     overwritten blindly, and a device that was offline for weeks cannot undo newer work. The result tells the app what was merged. */
   const baseOf = (kind, id) => pbase.get(bkey(kind, id)) || {rev: revs.get(bkey(kind, id)) || 0, data: cache[kind] && cache[kind].has(id) ? cache[kind].get(id) : null, at: null};
   const mopts = (b, theirsAt) => ({mineAt: b.at, theirsAt, skew, now: Date.now()});
   const learnSkew = (serverNow, t0) => {
@@ -556,22 +492,15 @@ async function sbBackend(client, userId){
     if (error) throw sbErr(error);
     return data && data[0] && data[0].updated_at;
   };
-  // Every write checks it still belongs to the account it was made for: a retry still running after a sign-out must not land in another account
-  // that signs in on this device (the client is shared). The change stays in the outbox for its own account.
   const mine = () => { if (!sbUser || sbUser.id !== userId) throw sbErr({message: "Signed out of the account this change belongs to", status: 401}); };
   const upsert = async (kind, id, d, o) => {
     mine();
     o = o || {};
     const k = bkey(kind, id);
-    // Backups and bin entries (kind "trash") are whole records keyed by id that are written once and then only removed: no merge, nothing to conflict.
-    // (The app hides a bin entry whenever the item is live again, so a stale entry can never hide or undo someone's edit.)
     if (kind === "backup" || kind === "trash") { await plainUpsert(kind, id, d); if (cache[kind]) { cache[kind].set(id, d); persist(); } return; }
     let b = baseOf(kind, id), cur = d, info = null, theirs = null;
-    const floor = x => kind === "meta" && x && b.data && b.data.schema > x.schema ? Object.assign({}, x, {schema: b.data.schema}) : x;   // the data format version never goes down
+    const floor = x => kind === "meta" && x && b.data && b.data.schema > x.schema ? Object.assign({}, x, {schema: b.data.schema}) : x;
     cur = floor(cur);
-    // Last line of defence for the account's settings: a write that has no boards, themes, style or purchases at all (a device that never loaded them)
-    // gets the ones the account already holds put back, so settings written by a fresh or wiped device can never wipe them. (Real deletions leave an empty
-    // list or a "gone" entry behind, never a missing key.)
     if (kind === "meta" && cur && cur.settings && b.data && b.data.settings) {
       const keepKeys = ["noteBoards", "noteBoardsGone", "photoThemes", "photoGone", "style", "comp", "owned"], fix = {};
       keepKeys.forEach(k => { if (cur.settings[k] === undefined && b.data.settings[k] !== undefined) fix[k] = b.data.settings[k]; });
@@ -598,7 +527,6 @@ async function sbBackend(client, userId){
       }
       if (!upsert.noRpc) throw sbErr({message: "Couldn't settle a sync conflict, will retry", status: 503});
     }
-    // Without the conflict SQL: read the row first when this edit may be stale (it waited in the outbox, or another device changed the row meanwhile; settings are always checked).
     if (o.outbox || foreign.has(k) || kind === "meta") {
       const {data: row, error} = await client.from(T).select("data,updated_at").eq("user_id", userId).eq("kind", kind).eq("id", id).maybeSingle();
       if (error) throw sbErr(error);
@@ -629,7 +557,7 @@ async function sbBackend(client, userId){
         const {data: res, error} = await client.rpc("studyboard_item_delete", {p_kind: kind, p_id: id, p_base_rev: b.rev || 0});
         if (error) { if (/PGRST202|42883|could not find the function/i.test((error.code || "") + " " + (error.message || ""))) { upsert.noRpc = true; break; } throw sbErr(error); }
         if (res.ok) { if (cache[kind]) { cache[kind].delete(id); persist(); } revs.delete(k); pbase.delete(k); foreign.delete(k); pbSave(); return; }
-        if (SyncMerge.eq(res.data, b.data)) { b = {rev: res.rev, data: b.data, at: b.at}; continue; }   // unchanged elsewhere: our rev was just out of date
+        if (SyncMerge.eq(res.data, b.data)) { b = {rev: res.rev, data: b.data, at: b.at}; continue; }
         keep = res;
       }
       if (keep) { cache[kind] && cache[kind].set(id, keep.data); revs.set(k, keep.rev); pbase.delete(k); foreign.delete(k); pbSave(); persist(); return {merged: keep.data, merge: {state: "restored", title: SyncMerge.titleOf(kind, keep.data), kept: true}}; }
@@ -645,14 +573,13 @@ async function sbBackend(client, userId){
     if (cache[kind]) { cache[kind].delete(id); persist(); }
     revs.delete(k); pbase.delete(k); foreign.delete(k); pbSave();
   };
-  // Live updates from your other devices, only while Studyboard is on screen
   let chan = null, idleT = 0;
   const hooks = {};
   const subscribe = () => {
     if (chan) return;
     chan = client.channel("studioso-" + userId).on("postgres_changes", {event: "*", schema: "public", table: T, filter: "user_id=eq." + userId}, p => {
       const row = p.eventType === "DELETE" ? p.old : p.new;
-      if (row && row.kind === "meta" && p.eventType !== "DELETE" && (!row.user_id || row.user_id === userId)) {   // settings changed on another device
+      if (row && row.kind === "meta" && p.eventType !== "DELETE" && (!row.user_id || row.user_id === userId)) {
         cache.meta.set(row.id, row.data); if (row.rev != null) revs.set(bkey("meta", row.id), row.rev); noteForeign("meta", row.id, row.data);
         if (hooks.onMeta) hooks.onMeta(row.data);
         return;
@@ -664,12 +591,11 @@ async function sbBackend(client, userId){
     }).subscribe();
   };
   const unsubscribe = () => { if (!chan) return; try { client.removeChannel(chan); } catch(e) {} chan = null; };
-  if (sbBackend.cur) sbBackend.cur();   // an older connection (from a retry) stops listening
+  if (sbBackend.cur) sbBackend.cur();
   const me = {dead: false};
   sbBackend.cur = () => { me.dead = true; unsubscribe(); };
   subscribe();
   let refreshing = null;
-  // Catch up with changes from other devices when you come back to this tab
   const refresh = () => refreshing || (refreshing = (async () => {
     try {
       if (lean && saved.cursor && Date.now() - saved.fullAt < SB_FULL_EVERY && Date.now() - saved.at < SB_DELTA_MAX_AGE) (await pullDelta()).forEach(k => emit(k));
@@ -698,13 +624,13 @@ async function sbBackend(client, userId){
       if (error) throw sbErr(error);
       return {docs: (data || []).map(r => ({id: r.id, data: () => r.data}))};
     }})})};
-  const noteBase = (kind, id) => {   // called before every local change is queued: remember what the server version was, and when this device last edited
+  const noteBase = (kind, id) => {
     if (kind === "backup" || kind === "trash") return;
     const k = bkey(kind, id), b = pbase.get(k);
     if (b) b.at = Date.now(); else pbase.set(k, {rev: revs.get(k) || 0, data: cache[kind] && cache[kind].has(id) ? JSON.parse(JSON.stringify(cache[kind].get(id))) : null, at: Date.now()});
     pbSave();
   };
-  const alive = () => !me.dead && !!sbUser && sbUser.id === userId;   // false once signed out (or another account signed in) while connecting
+  const alive = () => !me.dead && !!sbUser && sbUser.id === userId;
   return {noteBase, hooks, alive, revCol: () => revCol, metaBase: () => { const x = pbase.get(bkey("meta", "planner")); return x && x.data ? x.data : null; }, base: doc("meta", "planner"), tasks: col("task"), courses: col("course"), files: col("file"), notes: col("note"), decks: col("deck"), events: col("event"), trash: col("trash"), backups, refresh, lean: () => lean, stop: unsubscribe};
 }
 const sbAssets = {
@@ -718,17 +644,14 @@ const sbAssets = {
   },
   delete: async id => { const {error} = await sb.storage.from(SB_BUCKET).remove([id]); if (error) throw sbErr(error); FCACHE.del(id); return {deleted: true}; }
 };
-/* Files you open are kept on this device (IndexedDB), so opening one again costs no download.
-   An uploaded file never changes (each upload gets its own new path), so a kept copy is never out of date.
-   Up to FCACHE.MAX bytes per device; the least recently opened go first. Big files and the searchable-text sidecars (which do change)
-   are not kept. Cleared with the rest of this device's data when someone signs out (wipeDeviceData). */
+/* Files you open are kept on this device (IndexedDB), so opening one again costs no download */
 const FCACHE = {DB: "studyboard-files", MAX: 300 * 1048576, BIG: 60 * 1048576, db: null, hits: 0, misses: 0,
   open(){ if (!this.db) this.db = new Promise((res, rej) => { try { const r = indexedDB.open(this.DB, 1); r.onupgradeneeded = () => r.result.createObjectStore("f"); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); } catch (e) { rej(e); } }); return this.db; },
   ok: path => typeof path === "string" && !!path && !/\/_text\//.test(path) && !/^local:/.test(path),
   async get(path){
     try { const db = await this.open(); const rec = await new Promise(res => { const t = db.transaction("f").objectStore("f").get(path); t.onsuccess = () => res(t.result || null); t.onerror = () => res(null); });
       if (!rec || !rec.blob) return null;
-      try { const tx = db.transaction("f", "readwrite"); tx.objectStore("f").put(Object.assign({}, rec, {at: Date.now()}), path); } catch (e) {}   // recently opened: kept longest
+      try { const tx = db.transaction("f", "readwrite"); tx.objectStore("f").put(Object.assign({}, rec, {at: Date.now()}), path); } catch (e) {}
       return rec.blob; } catch (e) { return null; }
   },
   async put(path, blob){
@@ -739,11 +662,11 @@ const FCACHE = {DB: "studyboard-files", MAX: 300 * 1048576, BIG: 60 * 1048576, d
       const tx = db.transaction("f", "readwrite"), st = tx.objectStore("f");
       for (const x of all.sort((a, b) => a.at - b.at)) { if (total <= this.MAX) break; if (x.k !== path) { st.delete(x.k); total -= x.size; } }
       st.put({blob, size: blob.size, type: blob.type || "", at: Date.now()}, path);
-    } catch (e) {}   // full or unavailable (private browsing): it just downloads next time
+    } catch (e) {}
   },
   async del(path){ try { const db = await this.open(); db.transaction("f", "readwrite").objectStore("f").delete(path); } catch (e) {} }
 };
-// Download a stored file, from this device when it has a copy. client: a Supabase client (defaults to the signed-in one).
+// Download a stored file, from this device when it has a copy
 async function sbDownload(path, client){
   if (FCACHE.ok(path)) { const hit = await FCACHE.get(path); if (hit) { FCACHE.hits++; return hit; } }
   const {data, error} = await (client || sb).storage.from(SB_BUCKET).download(path);
@@ -756,39 +679,38 @@ async function sbOpenAsset(path){
   const w = window.open("", "_blank");
   try {
     const data = await sbDownload(path);
-    // Pages and scripts never run inside Studyboard's own origin: they are handed over as plain downloads instead.
     const safeBlob = /html|svg|xml|javascript|ecmascript/i.test(data.type || "") || /\.(html?|xhtml|svg|xml|js|mjs)$/i.test(path) ? new Blob([data], {type: "application/octet-stream"}) : data;
     const url = URL.createObjectURL(safeBlob);
     setTimeout(() => URL.revokeObjectURL(url), 120000);
     if (w) w.location.href = url; else window.location.href = url;
   } catch(e) { if (w) w.close(); toast("Couldn't open the file. Check your connection and try again."); }
 }
-// Stored files are private, so each one is downloaded with your sign-in when you open it.
+// Stored files are private, so each one is downloaded with your sign-in when you open it
 document.addEventListener("click", e => {
   const a = e.target.closest && e.target.closest("a[data-asset]");
-  if (!a || inClaude()) return;
+  if (!a || inPreview()) return;
   if (DESK) { e.preventDefault(); e.stopPropagation(); deskOpenAsset(a.dataset.asset); return; }
   if (/^local:/.test(a.dataset.asset)) { e.preventDefault(); e.stopPropagation(); toast("This file is still on the computer it was added from. It uploads the next time Studyboard opens there."); return; }
   if (!sb) return;
   e.preventDefault(); e.stopPropagation();
   sbOpenAsset(a.dataset.asset);
 }, true);
-function assetHref(id){ return inClaude() ? "/_blob/" + id : "#"; }
-function assetAttr(id){ return id && !inClaude() ? `data-asset="${esc(id)}"` : ""; }
+function assetHref(id){ return inPreview() ? "/_blob/" + id : "#"; }
+function assetAttr(id){ return id && !inPreview() ? `data-asset="${esc(id)}"` : ""; }
 setInterval(() => {
-  if (inClaude()) return;
+  if (inPreview()) return;
   if (sbConfig() && !sb && !sbLocalOnly() && navigator.onLine !== false) initSupabase();
   else if (sb && sbUser && !cloud.on) startSupabaseSync();
   else if (cloud.on) { flushOutbox(); if (DESK) deskPromote(); }
 }, 45000);
-window.addEventListener("online", () => { if (inClaude()) return; if (!sb && sbConfig() && !sbLocalOnly()) initSupabase(); else if (sb && sbUser && !cloud.on) startSupabaseSync(); else flushOutbox(); });
+window.addEventListener("online", () => { if (inPreview()) return; if (!sb && sbConfig() && !sbLocalOnly()) initSupabase(); else if (sb && sbUser && !cloud.on) startSupabaseSync(); else flushOutbox(); });
 let hiddenAt = 0;
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) { hiddenAt = Date.now(); return; }
   if (cloud.on && cloud.refresh && Date.now() - hiddenAt > 30000) cloud.refresh();
 });
 
-// Only for copies built without a Studyboard server: connect your own server, or keep everything on this device.
+// Only for copies built without a Studyboard server
 function sbSetupSheet(){
   const cur = sbCustom() || !SB_HOSTED ? (sbConfig() || {url: "", key: ""}) : {url: "", key: ""};
   openSheet(`<form class="sheet sb-acct">${head(SB_HOSTED ? "Custom Server" : "Welcome to Studyboard")}
@@ -810,20 +732,19 @@ function sbSetupSheet(){
   });
   const lo = $("#sbLocal"); if (lo) lo.addEventListener("click", () => { try { localStorage.setItem(SB_CFG, JSON.stringify("local")); } catch(e) {} dlg.close(); toast("Saving on this device only. You can change this in Settings."); syncLabel(); });
   const bk = $("#sbBack"); if (bk) bk.addEventListener("click", async () => {
-    // Like signing out, this empties the device: first send what is still waiting, and say so if anything couldn't be sent.
     try { if (cloud.on) await Promise.race([flushOutbox(), new Promise(r => setTimeout(r, 6000))]); } catch(e) {}
     const n = Object.keys(outboxGet()).length;
     confirmSheet(n ? "Not everything is saved yet" : "Switch to a Studyboard account?", n ? `${n} recent change${n === 1 ? "" : "s"} haven't reached your server yet and will be lost if you switch now. Stay online for a minute and try again, or use Export in Settings first.` : "You'll be signed out of your own server on this device. Your data there isn't touched.", n ? "Switch Anyway" : "Switch", async () => {
     try { if (sb) await sb.auth.signOut(); } catch(e) {}
     try { localStorage.removeItem(SB_CFG); } catch(e) {}
-    aiWipeLocal(true);   // the API keys stay on this device
+    aiWipeLocal(true);
     await wipeDeviceData();
     location.reload();
   });
   });
 }
-// Sign in, create an account, confirm your email with a code, and reset a forgotten password, all inside Studyboard.
-const SB_RESEND = {}, SB_RESEND_MS = 30000;   // when each "send a new code" button may be used again (kept here so re-opening the sheet doesn't reset it)
+// Sign in, create an account, confirm your email with a code, and reset a forgotten password
+const SB_RESEND = {}, SB_RESEND_MS = 30000;
 function sbSignInSheet(mode, email, note){
   if (!sb) { sbAsk(); return; }
   mode = mode || "signin"; email = email || (dlg.open && dlg.querySelector(".sb-acct input[name=email]") ? dlg.querySelector(".sb-acct input[name=email]").value.trim() : "");
@@ -888,15 +809,14 @@ function sbSignInSheet(mode, email, note){
           }
           if (window.SBUNAME && $("#unIn")) {
             const bad = SBUNAME.problem(un); if (bad) { say(bad); const ui2 = $("#unIn"); if (ui2) ui2.focus(); return; }
-            try { const {data: ck} = await sb.rpc("username_check", {p_name: un}); const r = (ck || [])[0]; if (r && !r.ok) { say(r.reason || "That username isn't available."); return; } } catch (e) {}   // (checked again when it's saved)
+            try { const {data: ck} = await sb.rpc("username_check", {p_name: un}); const r = (ck || [])[0]; if (r && !r.ok) { say(r.reason || "That username isn't available."); return; } } catch (e) {}
           }
           say("Creating your account…");
           const nm = String(fd.get("name") || "").replace(/\s+/g, " ").trim().slice(0, 40);
           if (nm) try { localStorage.setItem("studyboard:comp:uname", nm); } catch(e) {}
-          const meta = Object.assign(nm ? {first_name: nm.split(" ")[0], full_name: nm} : {}, un ? {username: un} : {}, bday ? {birth_date: bday} : {}, bday && SBUNAME.yearsOld(bday) < 13 ? {parent_consent: new Date().toISOString()} : {});   // (the username is saved after the first sign-in: 96-usernames.js)
+          const meta = Object.assign(nm ? {first_name: nm.split(" ")[0], full_name: nm} : {}, un ? {username: un} : {}, bday ? {birth_date: bday} : {}, bday && SBUNAME.yearsOld(bday) < 13 ? {parent_consent: new Date().toISOString()} : {});
           sbLinkAsked(); const {data, error} = await sb.auth.signUp({email: em, password: pw, options: Object.assign(redirect ? {} : {emailRedirectTo: back}, Object.keys(meta).length ? {data: meta} : {})});
           if (error) throw error;
-          // An address that already has an account looks the same as a new one here, so nobody can use this screen to find out who has an account.
           if (data && data.session) { done("Welcome to Studyboard!"); return; }
           busy = false; sbSignInSheet("confirm", em); return;
         } else if (mode === "confirm") {
@@ -928,8 +848,7 @@ function sbSignInSheet(mode, email, note){
   });
   dlg.querySelectorAll("[data-sbm]").forEach(b => b.addEventListener("click", () => sbSignInSheet(b.dataset.sbm)));
   if (mode === "signup" && window.SBUNAME && $("#unIn")) {
-    SBUNAME.wireCheck($("#unIn"), $("#unMsg"));   // live username check (96-usernames.js)
-    // a birthday under 13: the email becomes the parent's or guardian's, with their consent
+    SBUNAME.wireCheck($("#unIn"), $("#unMsg"));
     const form = dlg.querySelector("form.sb-acct"), em = form && form.querySelector("input[name=email]"), lab = em && em.closest("label") && em.closest("label").querySelector(".lh");
     const upd = () => { const iso = SBUNAME.bdayOf(new FormData(form)), young = !!iso && SBUNAME.yearsOld(iso) < 13; $("#u13").hidden = !young; $("#u13ok").required = young; if (lab) lab.firstChild.textContent = young ? "Parent or Guardian's Email " : "Email "; };
     form.querySelectorAll(".bday select").forEach(x => x.addEventListener("change", upd));
@@ -961,7 +880,7 @@ function sbSignInSheet(mode, email, note){
   if (pwr && st) pwr.addEventListener("input", () => { st.textContent = pwr.value ? "Strength: " + sbStrength(pwr.value).label : ""; });
   const sv = $("#sbServer"); if (sv) sv.addEventListener("click", sbSetupSheet);
 }
-// Opened from the link in a password email (recovery session): new password twice, with a strength hint.
+// Opened from the link in a password email (recovery session)
 function sbNewPasswordSheet(){
   openSheet(`<form class="sheet sb-acct" data-mode="newpass">${head("Set a New Password")}
     <div class="sheet-body">${REQ_NOTE}
@@ -985,7 +904,7 @@ function sbNewPasswordSheet(){
   const pw = dlg.querySelector("input[name=password]"), st = $("#sbStrength");
   if (pw && st) pw.addEventListener("input", () => { st.textContent = pw.value ? "Strength: " + sbStrength(pw.value).label : ""; });
 }
-// A link in an email failed (expired or already used): say so and offer to send a new one.
+// A link in an email failed (expired or already used)
 function sbLinkErrorSheet(){
   openSheet(`<div class="sheet sb-acct">${head("That Link Didn't Work")}
     <div class="sheet-body"><p style="margin:0" role="status">This link has expired or was already used. Links in Studyboard emails work once, for 1 hour.</p>
@@ -994,29 +913,25 @@ function sbLinkErrorSheet(){
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button></div></div>`);
   dlg.querySelectorAll("[data-sbm]").forEach(b => b.addEventListener("click", () => sbSignInSheet(b.dataset.sbm)));
 }
-// Signing out removes this account's copy from the device: the working copy, backups, the sync cache, the search index,
-// photos, queued reports and school sign-ins. The person's own AI API keys stay on the device (see aiWipeLocal).
+// Signing out removes this account's copy from the device
 const WIPE_KEYS = () => [LS2, LS1, LSB, OUTBOX, LS_TRASH, "studyboard:bugq", "studyboard:comp:uname", "studyboard:comp:helloDay"];
 async function wipeDeviceData(){
-  deviceWiping = true;   // a late save while the databases below are being cleared (a timer, a sync, a render) must not put the old account's data back
+  deviceWiping = true;
   state = {courses:{}, tasks:{}, files:{}, notes:{}, decks:{}, events:{}, trash:{}, settings:{capacity:15}, updated:0};
   try { WIPE_KEYS().forEach(k => localStorage.removeItem(k)); } catch(e) {}
   try { Object.keys(localStorage).filter(k => k.startsWith("studyboard:ext:")).forEach(k => localStorage.removeItem(k)); } catch(e) {}
   try { if (SBC.db) { const d = await SBC.db; d.close(); SBC.db = null; } } catch(e) {}
   try { if (window.caches) for (const k of await caches.keys()) { const c = await caches.open(k); for (const r of await c.keys()) if (/\/widgets\/today-data\.json/.test(r.url)) await c.delete(r); } } catch(e) {}
   try { if (lmsBridge()) await Promise.race([Promise.all(["brightspace", "canvas", "blackboard"].map(id => Promise.resolve(lmsBridge().signOut(id)).catch(() => {}))), new Promise(r => setTimeout(r, 1500))]); } catch(e) {}
-  // The Canvas inbox token belongs to the person leaving: the next person on this device must never read their school email.
   try { localStorage.removeItem("studyboard:cvmail"); await Promise.race([DEVSECRET.wipe(["canvas-mail"]), new Promise(r => setTimeout(r, 1500))]); window.dispatchEvent(new Event("sb:secrets-wiped")); } catch(e) {}
   try {
     const names = ["studyboard-sync", "studyboard-search", "studyboard-photos", "studioso-fs", "studyboard-files"];
     try { if (FCACHE.db) { (await FCACHE.db).close(); FCACHE.db = null; } } catch (e) {}
     await Promise.race([Promise.all(names.map(n => new Promise(ok => { try { const r = indexedDB.deleteDatabase(n); r.onsuccess = r.onerror = r.onblocked = () => ok(); } catch(e) { ok(); } }))), new Promise(r => setTimeout(r, 1200))]);
   } catch(e) {}
-  // Once more, in case anything slipped in meanwhile, and mark the device as clean: the next account to sign in here starts empty and never adopts leftovers.
   try { WIPE_KEYS().forEach(k => localStorage.removeItem(k)); localStorage.setItem(OWNER, NO_OWNER); } catch(e) {}
 }
 async function sbSignOut(){
-  // Signing out wipes this device's copy, so first push anything still waiting (edits made offline, a photo theme that hasn't uploaded yet).
   const waiting = () => { let n = Object.keys(outboxGet()).length; try { (state.settings.photoThemes || []).forEach(r => { if (r && !r.asset) n++; }); } catch(e) {} return n; };
   try { await Promise.race([flushOutbox(), new Promise(r => setTimeout(r, 6000))]); } catch(e) {}
   const n = waiting();
@@ -1024,7 +939,7 @@ async function sbSignOut(){
   confirmSheet(n ? "Not everything is saved yet" : "Sign out?", (n ? note.trim() : "Your data stays safe in your Studyboard account. This device's copy is removed, so sign back in to see it here again."), n ? "Sign Out Anyway" : "Sign Out", async () => {
     try { window.dispatchEvent(new Event("sb:signing-out")); } catch(e) {}
     try { await sb.auth.signOut(); } catch(e) {}
-    aiWipeLocal(true);   // the API keys stay on this device
+    aiWipeLocal(true);
     await wipeDeviceData();
     location.reload();
   });

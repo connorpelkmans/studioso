@@ -1,5 +1,5 @@
 /* ===== module: 98-comp-canada.js ===== */
-/* Study Companions, Around the World: Canada */
+/* Study Companions, Around the World */
 (() => {
   const {INK, O, OW, LG, RG} = COMP_KIT;
   const O2 = OW(2.2);
@@ -7,7 +7,7 @@
   // a sugar maple leaf pointing up, centred on (x, y), s its half-size
   const LEAF = [[0, -1], [.14, -.6], [.4, -.76], [.32, -.36], [.82, -.5], [.64, -.16], [.94, .02], [.5, .2], [.56, .46], [.12, .3], [.05, .78], [-.05, .78], [-.12, .3], [-.56, .46], [-.5, .2], [-.94, .02], [-.64, -.16], [-.82, -.5], [-.32, -.36], [-.4, -.76], [-.14, -.6]];
   const leafD = (x, y, s) => "M" + LEAF.map(([u, v]) => `${f1(x + u * s)} ${f1(y + v * s)}`).join("L") + "Z";
-  // the beaver's mouth: a little smile over two big front teeth
+  // the beaver's mouth
   const teeth = (y, h) => `<path d="M56.4 ${y}H63.6V${f1(y + h - 1.4)}Q63.6 ${f1(y + h)} 62.2 ${f1(y + h)}H57.8Q56.4 ${f1(y + h)} 56.4 ${f1(y + h - 1.4)}Z" fill="#FFFDF4" ${OW(1.6)}/><path d="M60 ${y}V${f1(y + h)}" stroke="${INK}" stroke-width="1.1"/>`;
 
   COMP_DATA.push({

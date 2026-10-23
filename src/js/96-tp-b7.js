@@ -1,5 +1,5 @@
 /* ===== module: 96-tp-b7.js ===== */
-/* Theme Collections, batch 7: diwali, balloons, koi, rain, alpine */
+/* Theme Collections, batch 7 */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2), S15 = SOw(1.6);

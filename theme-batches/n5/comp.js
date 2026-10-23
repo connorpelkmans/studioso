@@ -1,4 +1,4 @@
-/* Study Companions, batch n5: pride, graduation, birthday, geology */
+/* Study Companions, batch n5 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);

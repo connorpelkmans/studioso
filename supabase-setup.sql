@@ -1,17 +1,4 @@
--- Studyboard: core setup (your synced data table and private file storage)
--- Run this FIRST, once, in Supabase: SQL Editor > New query > paste everything > Run.
--- It is safe to run again (it only creates what is missing and refreshes the rules).
---
--- NOTE FOR THE OWNER: the guides refer to this file as supabase-setup.sql, but it was missing from the repository, so
--- this copy was rebuilt from what the app reads and writes (public.items with user_id, kind, id, data, updated_at, and the
--- private studioso-files bucket whose first folder is the user's id). If you still have your original supabase-setup.sql,
--- compare the two and keep the one your live project was created with; both are safe to run on a project that has the original.
---
--- What this sets up:
---  * items: one row per task, course, file record, note, deck, event, settings and backup. Each row belongs to one account.
---  * Row level security: you can only read, add, change or delete your own rows. Nobody can list anyone else's data.
---  * studioso-files: a private storage bucket. Files live under "<your user id>/..." and only you can open them.
---  * Live updates for items, so your devices stay in sync.
+-- Studyboard: core setup (your synced data table and private file storage) Run this FIRST
 
 create table if not exists public.items (
   user_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
@@ -35,10 +22,10 @@ create policy "items own delete" on public.items for delete to authenticated usi
 
 revoke all on public.items from anon;
 grant select, insert, update, delete on public.items to authenticated;
--- TRUNCATE ignores row level security: nobody signed in may empty the table (Supabase grants it by default).
+-- TRUNCATE ignores row level security
 revoke truncate, references, trigger on public.items from authenticated;
 
--- ---------- Private file storage ----------
+-- Private file storage
 insert into storage.buckets (id, name, public)
 values ('studioso-files', 'studioso-files', false)
 on conflict (id) do update set public = false;
@@ -57,7 +44,7 @@ drop policy if exists "studioso files own delete" on storage.objects;
 create policy "studioso files own delete" on storage.objects for delete to authenticated
   using (bucket_id = 'studioso-files' and split_part(name, '/', 1) = (select auth.uid())::text);
 
--- ---------- Live updates ----------
+-- Live updates
 do $$
 begin
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
@@ -65,5 +52,5 @@ begin
     alter publication supabase_realtime add table public.items;
   end if;
 end $$;
--- A delete event carries the whole old row (including its kind), so other open devices see deletions live instead of at the next refresh.
+-- A delete event carries the whole old row (including its kind)
 alter table public.items replica identity full;

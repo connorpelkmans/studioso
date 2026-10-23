@@ -1,4 +1,4 @@
-/* Study Companions, around the world: venice (Venice) */
+/* Study Companions, around the world */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);

@@ -66,22 +66,21 @@
   .ui-chips{-webkit-mask-image:linear-gradient(to right,#000 85%,transparent);mask-image:linear-gradient(to right,#000 85%,transparent);padding-right:28px}
 }
 @media (prefers-reduced-motion:reduce){.ui-chev,.ui-chip{transition:none}}
-/* Speed: stickers and theme previews are cached bitmaps (the white edge and shadow are baked in, so there are no
-   CSS filters to repaint), and each pack's stickers are only added just before it scrolls into view. */
+/* Speed: stickers and theme previews are cached bitmaps */
 .stk-cell.ui-stk{position:relative;filter:none}
 .ui-stk img,.ui-stk > svg{position:absolute;left:-12.5%;top:-12.5%;width:125%;height:125%;display:block;max-width:none;pointer-events:none;user-select:none;-webkit-user-drag:none}
 
-/* Long vertical lists use plain block flow (not grid), so adding one pack doesn't re-measure every other pack */
+/* Long vertical lists use plain block flow (not grid) */
 .ui-shop .sheet-body{display:block}
 .ui-shop .sheet-body > * + *,.ui-shop .ui-sec-b > * + *,.ui-shop .tp-rows > * + *{margin-top:12px}
 .ui-shop .ui-sec,.ui-shop .ui-sec-b,.ui-shop .ui-sec-b > .tp-rows,.ui-shop .tp-sec{display:block}
 .ui-shop .ui-sec > h3.shop-sec{margin-bottom:8px}
 .ui-shop .ui-sec[hidden],.ui-shop .ui-sec.shut > .ui-sec-b,.ui-col-all[hidden]{display:none}
 .ui-shop .sheet-body > .ui-shop-bar + *{margin-top:12px}
-/* Previews are pictures only: skipping them when finding what's under the pointer keeps hovering quick */
+/* Previews are pictures only */
 .ui-shop .skin-pair,.ui-shop .ui-col-prev,.ui-shop .pack-grid,.ui-shop .ui-col-stk,.ui-shop .ns-demo,.ui-shop .cs-demo,.ui-shop .shop-tile > p.mini{pointer-events:none}
 .ui-shop .ui-sec.ui-held > .ui-sec-b,.ui-shop .ui-col.ui-held{display:none}
 .ui-cols-more{margin-top:0!important}
-.ui-shop .sheet-body{background:var(--surface)}   /* opaque, so the browser can scroll it without repainting */
+.ui-shop .sheet-body{background:var(--surface)}
 
 

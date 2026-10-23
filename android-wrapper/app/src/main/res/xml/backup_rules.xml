@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- UNTESTED: Android 11 and lower full-backup rules (android:fullBackupContent). allowBackup="false" already turns backup off there; these rules
-     match data_extraction_rules.xml in case that flag is ever flipped: nothing is backed up (WebView data under app_webview/ with the Supabase
-     session, Canvas token and school cookies; the encrypted capture token; the pending capture queue; databases). -->
+<!-- UNTESTED: Android 11 and lower full-backup rules (android:fullBackupContent) -->
 <full-backup-content>
     <exclude domain="root" path="." />
     <exclude domain="file" path="." />

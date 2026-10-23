@@ -1,9 +1,9 @@
 /* ===== module: 96-tp-b8.js ===== */
-/* Theme Collections, batch 8: dunes, jelly, bamboo, lavenderfields, rooftops */
+/* Theme Collections, batch 8 */
 (() => {
   // A soft four-point twinkle, centred on x,y with arm length s
   const TW = (x, y, s, c) => `<path d="M${x} ${y - s}Q${x + s * .22} ${y - s * .22} ${x + s} ${y}Q${x + s * .22} ${y + s * .22} ${x} ${y + s}Q${x - s * .22} ${y + s * .22} ${x - s} ${y}Q${x - s * .22} ${y - s * .22} ${x} ${y - s}Z" fill="${c}"/>`;
-  // A lavender sprig: stem base at x,y, flower head pointing up
+  // A lavender sprig
   const SPRIG = (x, y, r, k, c = "#A884F0") => `<g transform="translate(${x} ${y}) rotate(${r}) scale(${k})"><path d="M0 12V-6" stroke="#6E8F4E" stroke-width="${(3 / k).toFixed(2)}" stroke-linecap="round"/><path d="M0 -28c4 0 5 4 4 7 3 2 2 6 0 8 2 3 1 7-4 7s-6-4-4-7c-2-2-3-6 0-8-1-3 0-7 4-7z" fill="${c}" ${SOw((2 / k).toFixed(2))}/><path d="M-2 -20h4M-2 -13h4" stroke="#fff" stroke-width="${(1.4 / k).toFixed(2)}" stroke-linecap="round" opacity=".5"/></g>`;
   // A fuzzy circle outline (for bumblebee fluff)
   const FUZZ = (cx, cy, r, n) => { let d = ""; for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, b = (i + 1) / n * Math.PI * 2, m = (a + b) / 2;
@@ -11,7 +11,7 @@
     d += (i ? "" : `M${p(a).join(" ")}`) + `Q${q.join(" ")} ${p(b).join(" ")}`; } return d + "Z"; };
   const RG = (id, a, b, cx = .38, cy = .32) => `<defs><radialGradient id="${id}" cx="${cx}" cy="${cy}" r=".75"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></radialGradient></defs>`;
 
-  /* ---------------- Desert Dunes ---------------- */
+  /* Desert Dunes */
   TP_DATA.push({
     theme: "dunes",
     pack: {name: "Dune Wanderers", items: {
@@ -31,7 +31,7 @@
     card: {id: "tp-dunes", name: "Sand Ripple", desc: "Warm sandstone paper with wind ripples, a low sun and dunes along the edge."}
   });
 
-  /* ---------------- Jellyfish Drift ---------------- */
+  /* Jellyfish Drift */
   TP_DATA.push({
     theme: "jelly",
     pack: {name: "Glow Drifters", items: {
@@ -51,7 +51,7 @@
     card: {id: "tp-jelly", name: "Sunlit Shallows", desc: "Clear aqua water with rays of sunlight and little jellies drifting at the corners."}
   });
 
-  /* ---------------- Bamboo Grove ---------------- */
+  /* Bamboo Grove */
   TP_DATA.push({
     theme: "bamboo",
     pack: {name: "Grove Friends", items: {
@@ -71,7 +71,7 @@
     card: {id: "tp-bamboo", name: "Bamboo Scroll", desc: "Rice paper hung between two bamboo rods, with a leafy sprig in the corner."}
   });
 
-  /* ---------------- Lavender Fields ---------------- */
+  /* Lavender Fields */
   TP_DATA.push({
     theme: "lavenderfields",
     pack: {name: "Lavender Lane", items: {
@@ -91,7 +91,7 @@
     card: {id: "tp-lavenderfields", name: "Pressed Lavender", desc: "Cream linen paper with pressed lavender sprigs tucked into the corners."}
   });
 
-  /* ---------------- City Rooftops ---------------- */
+  /* City Rooftops */
   TP_DATA.push({
     theme: "rooftops",
     pack: {name: "Rooftop Nights", items: {

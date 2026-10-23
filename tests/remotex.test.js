@@ -1,5 +1,4 @@
-// Unit tests for "can this exam or quiz be taken from home?" (the REMOTEX block in index.html) and where the answer is used.
-// Run: node tests/remotex.test.js
+// Unit tests for "can this exam or quiz be taken from home?"
 const fs = require("fs"), path = require("path"), assert = require("assert"), vm = require("vm");
 const src = require("../scripts/app-files").source();
 const block = (a, b) => { const i = src.indexOf(a), j = src.indexOf(b); assert(i > 0 && j > i, "block " + a); return src.slice(i, j); };
@@ -9,7 +8,7 @@ const t = (name, fn) => { n++; try { fn(); } catch (e) { fail++; console.log("FA
 const V = f => R.verdict(Object.assign({type: "Exam", title: "Midterm", text: ""}, f));
 const is = (f, v, minC) => { const r = V(f); assert.strictEqual(r.verdict, v, JSON.stringify(f) + " -> " + JSON.stringify(r)); if (minC) assert(r.confidence >= minC, "confidence " + r.confidence); return r; };
 
-/* ---- Canvas submission types ---- */
+/* -- Canvas submission types */
 t("canvas online_quiz -> yes (lms)", () => { const r = is({type: "Quiz", title: "Quiz 3", rx: {st: ["online_quiz"]}}, "yes", 0.8); assert.strictEqual(r.src, "lms"); });
 t("canvas online_upload / text entry / external tool -> yes", () => ["online_upload", "online_text_entry", "external_tool", "online_url"].forEach(s => is({rx: {st: [s]}}, "yes", 0.8)));
 t("canvas on_paper -> no", () => is({rx: {st: ["on_paper"]}}, "no", 0.8));
@@ -21,8 +20,7 @@ t("window of more than 12 hours -> yes", () => is({type: "Quiz", title: "Quiz 4"
 t("window of 2 hours is not evidence", () => is({type: "Quiz", title: "Quiz 4", rx: {ul: "2026-10-05T08:00:00Z", ll: "2026-10-05T10:00:00Z"}}, "unknown"));
 t("an exam with a multi-day window is take-home", () => is({type: "Exam", rx: {ul: "2026-12-01T08:00:00Z", ll: "2026-12-04T08:00:00Z"}}, "yes", 0.8));
 
-/* ---- Respondus and friends: taken on a computer, so from home, unless the text says otherwise ---- */
-// A lockdown browser alone doesn't say where: it's used in campus labs and classrooms as much as at home
+/* -- Respondus and friends */
 t("Respondus lockdown browser (school site flag) alone -> unknown", () => is({type: "Exam", rx: {ld: 1}}, "unknown"));
 t("lockdown browser in the title, open 9:50 to 11:30 one morning -> not take-home", () => { const r = V({type: "Exam", title: "BSNC 1000 Midterm Exam- Requires Respondus LockDown Browser", rx: {k: "quiz", tl: 90, ld: 1, ul: "2026-10-16T09:50:00", ll: "2026-10-16T11:30:00"}}); assert.notStrictEqual(r.verdict, "yes", JSON.stringify(r)); });
 t("an online quiz with a room on the calendar -> in person", () => is({type: "Exam", title: "Midterm Exam", location: "SW1 Room 2015", rx: {k: "quiz", tl: 90}}, "no"));
@@ -33,7 +31,7 @@ t("Respondus but 'in the testing center' -> no", () => is({text: "Respondus Lock
 t("Respondus but 'on campus' -> no", () => is({text: "Uses Respondus. Must be completed on campus."}, "no", 0.8));
 t("Respondus and 'in person' mixed with online -> not yes", () => assert.notStrictEqual(V({text: "Respondus required. In person at the testing center.", rx: {ld: 1}}).verdict, "yes"));
 
-/* ---- In-person words ---- */
+/* -- In-person words */
 ["Held in class on Tuesday", "This exam is in-class.", "Taken in person", "Meet on campus at 9am", "Testing center, bring ID", "Lecture hall A", "Bring a pencil and calculator", "Scantron answer sheet provided",
  "Paper exam", "Proctored in the gym", "Lab practical in the anatomy lab", "OSCE stations", "Clinical skills check-off", "ATI proctored on campus", "Face to face final"].forEach(x =>
   t("in-person text: " + x, () => is({text: x}, "no", 0.7)));
@@ -42,7 +40,7 @@ t("written exam is a weaker no", () => is({text: "Written exam, ch 1-5"}, "no", 
 t("'not in person' counts as online", () => is({text: "This exam is not in person; it is on Canvas."}, "yes", 0.8));
 t("'no in-class component' counts as online", () => is({text: "There is no in-class component, take it at home."}, "yes", 0.8));
 
-/* ---- Take-home words ---- */
+/* -- Take-home words */
 ["Take-home exam", "take home final", "Open book online", "Online quiz in Canvas", "Submit online through Canvas", "Quiz in Canvas, do it from home", "Complete it remotely", "Available from Monday until Wednesday night", "Taken on your own computer"].forEach(x =>
   t("take-home text: " + x, () => is({text: x}, "yes", 0.8)));
 t("'online' alone is not enough", () => is({text: "Review the online resources before the exam."}, "unknown"));
@@ -50,28 +48,28 @@ t("'due by 11:59 pm' alone is not enough", () => is({text: "Due by 11:59 pm."}, 
 t("in-class beats an online word", () => is({text: "Online practice quiz available. The midterm itself is in class.", title: "Midterm"}, "no", 0.8));
 t("in-person and take-home both strongly stated -> unknown", () => { const r = V({text: "The midterm is in class. A take-home makeup exam is available online."}); assert.strictEqual(r.verdict, "unknown"); assert(r.conflict); });
 
-/* ---- Locations (calendar feed items) ---- */
+/* -- Locations (calendar feed items) */
 t("a place -> no", () => is({location: "Loew Hall 101"}, "no", 0.8));
 t("a different place -> no", () => is({location: "Science Building, Room 2"}, "no", 0.8));
 t("a Zoom link -> yes", () => is({location: "https://zoom.us/j/123"}, "yes", 0.7));
 t("'Online' location -> yes", () => is({location: "Online"}, "yes", 0.7));
 t("TBA location is no evidence", () => is({location: "TBA"}, "unknown"));
-// A room on the calendar with an online quiz: the quiz is taken in that room (a lab, a lockdown browser), unless the words say online
+// A room on the calendar with an online quiz
 t("location in person but school site says online quiz -> in person", () => assert.strictEqual(V({location: "Rm 12", rx: {st: ["online_quiz"]}}).verdict, "no"));
 t("a room, but the words say take it from home -> not in person", () => assert.notStrictEqual(V({location: "Rm 12", text: "Take this quiz from home on Brightspace.", rx: {st: ["online_quiz"]}}).verdict, "no"));
 
-/* ---- Your schedule ---- */
+/* -- Your schedule */
 t("an event with a room at the exam time -> no", () => is({sched: {room: "Hall 3"}}, "no", 0.7));
 t("inside a class meeting -> no for an exam", () => is({sched: {inClass: true}}, "no", 0.7));
 t("inside a class meeting is only a weak no for a quiz (not applied alone)", () => is({type: "Quiz", title: "Quiz 2", sched: {inClass: true}}, "unknown"));
 t("online quiz in the school site beats 'falls inside a class meeting'", () => is({type: "Quiz", title: "Quiz 2", rx: {st: ["online_quiz"]}, sched: {inClass: true}}, "yes", 0.7));
 
-/* ---- Other platforms ---- */
+/* -- Other platforms */
 t("Brightspace quiz -> yes", () => is({type: "Quiz", rx: {k: "quiz"}}, "yes", 0.8));
 t("Brightspace dropbox: file / text -> yes, on paper / observed in person -> no", () => { is({rx: {k: "dropbox", sb: 0}}, "yes", 0.8); is({rx: {k: "dropbox", sb: 1}}, "yes", 0.8); is({rx: {k: "dropbox", sb: 2}}, "no", 0.8); is({rx: {k: "dropbox", sb: 3}}, "no", 0.8); });
 t("Blackboard: online attempt -> yes; instructor-entered exam -> no", () => { is({rx: {gt: "Attempts"}}, "yes", 0.7); is({title: "Midterm Exam", rx: {gt: "Manual"}}, "no", 0.7); });
 
-/* ---- Unknown is not eligible; user override wins ---- */
+/* -- Unknown is not eligible; user override wins */
 t("nothing known -> assumed in person and not eligible", () => { const r = V({text: "Chapters 1 to 8"}); assert.strictEqual(r.verdict, "unknown"); const e = R.remoteEff({type: "Exam"}, r, "s"); assert.strictEqual(e.v, "no"); assert.strictEqual(e.assumed, true); assert.strictEqual(R.canDoNow({type: "Exam"}, e), false); });
 t("low-confidence rule is not applied", () => { const r = V({text: "Due by 11:59 pm"}); const e = R.remoteEff({type: "Exam"}, r, "s"); assert.strictEqual(e.v, "no"); assert.strictEqual(e.assumed, true); });
 t("non exam/quiz types are always eligible", () => ["Assignment", "Project", "Lab", "Reading", "Study", "Other"].forEach(ty => { assert.strictEqual(R.canDoNow({type: ty}, {v: ""}), true); assert.strictEqual(R.remoteEff({type: ty}, V({type: ty}), "").v, "yes"); }));
@@ -87,7 +85,7 @@ t("rules beat a stored AI answer; a stored AI answer for other text is ignored",
 t("a stored rule/lms answer is not trusted without the rules (they are recomputed live)", () => assert.strictEqual(R.remoteEff({type: "Exam", remote: "yes", remoteSrc: "rule"}, V({text: "Chapters"}), "s").assumed, true));
 t("mixed signals stay unsure (not assumed in person)", () => { const e = R.remoteEff({type: "Exam"}, {verdict: "unknown", confidence: 0.4, why: "Mixed", conflict: true}, "s"); assert.strictEqual(e.v, ""); });
 
-/* ---- The AI answer is checked ---- */
+/* -- The AI answer is checked */
 const TEXT = "Title: Practical\nType: Exam\nDescription: Students will sit the exam in a supervised session using the school's laptops. Bring your student ID.";
 const OK = {takeHome: "no", confidence: 0.85, evidence: "supervised session using the school's laptops"};
 t("AI: a good 'no' with a real quote is accepted", () => { const v = R.vetAi(OK, {text: TEXT}); assert(v.ok && v.apply && v.verdict === "no", JSON.stringify(v)); assert(v.why.length <= 120); });
@@ -124,7 +122,7 @@ t("cleanRx: small, plain and capped", () => {
   assert(R.cleanRx({st: Array(50).fill("none")}).st.length <= 8);
 });
 
-/* ---- The gate in the code that makes suggestions: seeded states ---- */
+/* -- The gate in the code that makes suggestions */
 const fnText = name => { const i = src.indexOf("function " + name + "("); assert(i > 0, name); let d = 0, k = src.indexOf("{", i); for (let j = k; j < src.length; j++) { if (src[j] === "{") d++; else if (src[j] === "}" && --d === 0) return src.slice(i, j + 1); } throw new Error("unbalanced " + name); };
 const cleanNext = new Function(fnText("autoCleanNext") + ";return autoCleanNext;")();
 t("autoCleanNext drops anything the 'ok' gate refuses (ineligible exams), keeps eligible ones, no repeats", () => {
@@ -133,7 +131,7 @@ t("autoCleanNext drops anything the 'ok' gate refuses (ineligible exams), keeps 
   const out = cleanNext([{ref: "t1", why: "x"}, {ref: "t2", why: "y"}, {ref: "t4", why: "z"}, {ref: "t3", why: "w"}, {ref: "t3", why: "again"}, {ref: "t9", why: "invented"}], back, ok);
   assert.deepStrictEqual(out.map(x => x.id), ["quiz1", "hw"]);
 });
-// nextUp itself, with its helpers stubbed: an in-person midterm due tomorrow has the highest score and must never be picked
+// nextUp itself, with its helpers stubbed
 const mkNext = eff => {
   const ctx = {
     todayISO: () => "2026-10-05", ui: {}, inFilter: () => true, pad: x => String(x).padStart(2, "0"), pomoCfg: () => ({focus: 25}), schOccurrences: () => [], tasksArr: () => [],
@@ -189,7 +187,7 @@ t("nextUp: the AI's stored pick can't bring back an exam that has become ineligi
   const r = ctx.nextUp({ranked: [X("m", "Exam", 99), X("hw", "Assignment", 40)]}); assert.strictEqual(r.x.t.id, "hw"); assert.strictEqual(r.ai, false);
 });
 
-/* ---- Wiring: every place that suggests work goes through canDoNow ---- */
+/* -- Wiring: every place that suggests work goes through canDoNow */
 const has = (re, m) => t(m, () => assert(re.test(src), "missing: " + re));
 has(/const pool = F\.ranked\.filter\(x => inFilter\(x\.t\) && canDoNow\(x\.t\)/, "nextUp pool uses canDoNow");
 has(/t\.status !== "done" && canDoNow\(t\) && !blockers\(t\)\.length; \}, \(id, why, step\)/, "autoPlan's autoCleanNext validation uses canDoNow");
@@ -204,7 +202,7 @@ has(/x\.alloc > 0 && x\.t\.status !== "done" && canDoNow\(x\.t\)/, "companion's 
 has(/state\.tasks\[i\.taskId\]\.status !== "done" && canDoNow\(state\.tasks\[i\.taskId\]\)/, "companion's focus ideas are checked with canDoNow");
 t("the AI plan schema/prompt never lets the model pick fixed events", () => assert(/FIXED EVENT happens in person|a line saying FIXED EVENT happens in person at a set time, so never choose it/.test(src)));
 
-/* ---- Task data: normalising, merging, exporting ---- */
+/* -- Task data: normalising, merging, exporting */
 const norm = (() => {
   const body = fnText("normTask"), ctx = {DIFF_M: {easy: 1, med: 1, hard: 1}, LATE_M: {unknown: 1}, STATUS_LABEL: {todo: 1, doing: 1, done: 1}, PRIO: {low: 1, med: 1, high: 1, urgent: 1}, isDate: x => /^\d{4}-\d{2}-\d{2}$/.test(x || ""), scrubFields: o => o, Object, Array, Number, Math, String};
   vm.createContext(ctx); vm.runInContext(body, ctx); return x => ctx.normTask(x);
@@ -234,7 +232,7 @@ const TB = new Function(block("/*TRASH-START*/", "/*TRASH-END*/") + ";return TB;
 t("export: tasks.csv has a take_home column (yes / no / blank)", () => {
   const f = TB.toCsvFiles({courses: [], tasks: [{id: "1", title: "Mid", type: "Exam", remote: "no"}, {id: "2", title: "Qz", type: "Quiz", remote: "yes"}, {id: "3", title: "HW", type: "Assignment"}, {id: "4", title: "Old", type: "Exam"}, {id: "5", title: "Odd", type: "Assignment", remote: "yes"}], notes: [], decks: [], events: [], files: []}, {tasks: true})["tasks.csv"];
   const rows = f.replace(/^﻿/, "").trim().split("\r\n"), head = rows[0].split(",");
-  const ti = head.indexOf("take_home"), v = i => rows[i].split(",")[ti];     // columns added later (prep_for_exam, topic) follow take_home
+  const ti = head.indexOf("take_home"), v = i => rows[i].split(",")[ti];
   assert(ti > 0); assert(v(1) === "no" && v(2) === "yes" && v(3) === "" && v(4) === "" && v(5) === "", rows.join("\n"));
 });
 

@@ -1,5 +1,4 @@
-// Browser checks for Animations (reduced motion / low power), text size, contrast and time zones. Run: node tests/a11y-motion-tz.pw.js [index.html]
-// Needs Playwright + Chromium (see tests/pw.js for how Playwright and Chromium are found).
+// Browser checks for Animations (reduced motion / low power), text size
 const path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const F = "file://" + path.resolve(process.argv[2] || path.join(__dirname, "..", "index.html"));
@@ -7,7 +6,6 @@ let n = 0; const ok = (c, m) => { assert(c, m); n++; console.log("ok -", m); };
 const seed = skin => ({courses: [{id: "c1", name: "Biology 101", code: "BIO 101", color: "#2C55D6"}], tasks: [
   {id: "t1", title: "Lab report", courseId: "c1", due: "2026-11-01", time: "23:59", status: "todo", type: "Assignment", created: 1},
   {id: "t2", title: "Essay draft", courseId: "c1", due: "2026-11-02", time: "23:59", status: "todo", type: "Assignment", created: 1}], settings: {capacity: 15, style: {skin},
-  // the scene themes are Pro: this free device is in its 5 minute preview of the theme (what "Preview 5 Min" in the Style Shop starts), so the scene really runs
   collPreview: {used: [skin], active: {id: skin, until: Date.now() + 5 * 60000, prev: {}}}}, updated: 1});
 async function mk(b, opts, skin, init) {
   const ctx = await b.newContext(Object.assign({viewport: {width: 1280, height: 800}}, opts));
@@ -20,7 +18,6 @@ async function mk(b, opts, skin, init) {
   const b = await chromium.launch({executablePath});
   const count = async p => { const a = await p.evaluate(() => window.__raf); await p.waitForTimeout(2500); return (await p.evaluate(() => window.__raf)) - a; };
   const batt = l => `navigator.getBattery=()=>Promise.resolve(Object.assign(new EventTarget(),{level:${l},charging:false}));`;
-  // 1. Animation modes: callbacks over 2.5 s on a theme with an engine
   const res = {};
   for (const [name, opts, init] of [["auto", {}, ""], ["reduced-media", {reducedMotion: "reduce"}, ""], ["off", {}, "localStorage.setItem('studyboard:anim','off')"], ["calm", {}, "localStorage.setItem('studyboard:anim','calm')"], ["battery15", {}, batt(0.15)], ["battery5", {}, batt(0.05)]]) {
     const {ctx, p} = await mk(b, opts, "ocean", init); await p.goto(F); await p.waitForTimeout(2200);
@@ -29,25 +26,20 @@ async function mk(b, opts, skin, init) {
   ok(res.auto.c > 25 && res.auto.lvl === "full", "Auto plays the scene at full level");
   ok(res["reduced-media"].c <= 2 && res["reduced-media"].lvl === "static", "system Reduce Motion stops the loop");
   ok(res.off.c <= 2 && res.battery5.c <= 2, "Off and battery under 8% stop the loop");
-  // the rate each mode asks for is exact; the frames actually drawn depend on how busy the machine is, so that part only has to be lower
   ok(res.calm.lvl === "calm" && res.battery15.lvl === "calm" && res.calm.ms > res.auto.ms && res.battery15.ms > res.auto.ms && res.calm.c < res.auto.c, "Calm and low battery run at a lower rate (" + res.calm.ms + " and " + res.battery15.ms + " ms a frame vs " + res.auto.ms + ")");
-  // 2. Live toggle
   { const {ctx, p} = await mk(b, {}, "ocean"); await p.goto(F); await p.waitForTimeout(2000);
     await p.emulateMedia({reducedMotion: "reduce"}); await p.waitForTimeout(300); ok((await count(p)) <= 2, "reduce toggles live (stops)");
     await p.emulateMedia({reducedMotion: "no-preference"}); await p.waitForTimeout(300); ok((await count(p)) > 20, "and back (resumes)");
     await p.evaluate(() => window.dispatchEvent(new Event("blur"))); await p.waitForTimeout(300); ok((await count(p)) <= 2, "blur pauses");
     await ctx.close(); }
-  // 3. Text size
   { const {ctx, p} = await mk(b, {}, "classic", "localStorage.setItem('studyboard:anim','off');localStorage.setItem('studyboard:textsize','xl')"); await p.goto(F); await p.waitForTimeout(1500);
     ok(await p.evaluate(() => getComputedStyle(document.documentElement).fontSize === "20px"), "Extra Large text is a 20px root");
     ok(await p.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), "no horizontal overflow at Extra Large"); await ctx.close(); }
-  // 4. Travel: the same data in Tokyo shows the notice, times stay 11:59 PM
   { const {ctx, p} = await mk(b, {timezoneId: "Asia/Tokyo"}, "classic", "localStorage.setItem('studyboard:anim','off');if(!localStorage.getItem('studyboard:tz'))localStorage.setItem('studyboard:tz','America/Los_Angeles')");
     await p.clock.install({time: new Date("2026-10-31T20:00:00-07:00")}); await p.goto(F); await p.clock.runFor(2500);
     ok(await p.locator("#tzNote").count() === 1, "time zone notice appears after travel");
     ok(await p.evaluate(() => /11:59 PM/.test(document.querySelector("#view").innerText)), "due times still read 11:59 PM");
     await p.locator('[data-act="tz-keep"]').click(); ok(await p.locator("#tzNote").count() === 0, "Keep my times dismisses it"); await ctx.close(); }
-  // 5. Contrast on a few themes (rendered text over scenes)
   for (const skin of ["spring", "gardening", "writing"]) for (const scheme of ["light", "dark"]) {
     const {ctx, p} = await mk(b, {colorScheme: scheme, reducedMotion: "reduce"}, skin, "localStorage.setItem('studyboard:anim','off')"); await p.goto(F); await p.waitForTimeout(1500);
     const worst = await p.evaluate(() => { const v = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim(); return {muted: v("--muted"), paper: v("--paper"), surface: v("--surface")}; });

@@ -1,6 +1,4 @@
-// node tests/review-streaks.e2e.js  (Playwright + Chromium; the date is faked with the page clock, the AI call is stubbed)
-// Weekly Review card (Sunday afternoon and Monday only, Not Now, Skip This Week, one tap new day, undo) and the gentle study streak
-// (off by default, opt in, chip, rest days, a quiet stretch never zeroes it, the old fire line is replaced while it is on, companion milestone).
+// node tests/review-streaks.e2e.js
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -11,7 +9,7 @@ const server = http.createServer((req, res) => {
   res.writeHead(200, {"content-type": MIME[path.extname(f)] || "application/octet-stream"}); fs.createReadStream(f).pipe(res);
 });
 const TZ = "America/New_York";
-const T = (day, h = 12, m = 0) => new Date(`${day}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00-04:00`).getTime();   // New York is on daylight time all of these days
+const T = (day, h = 12, m = 0) => new Date(`${day}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00-04:00`).getTime();
 const H = (day, h, text) => ({at: T(day, h), text});
 const SEED = () => ({v: 2, courses: [{id: "c1", name: "Marine Biology", code: "BIO210", color: "#3B6FE0"}, {id: "c2", name: "Statistics", code: "STAT101", color: "#1E9E74"}],
   settings: {capacity: 15, dailyHours: 3, streak: {cur: 6, best: 6, last: "2026-10-06"}}, updated: 1, tasks: [
@@ -37,7 +35,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done");
         if (withAi) { localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); } } } catch (e) {}
     }, [SEED(), ai]);
-    // A shifted clock: each load starts at the chosen moment and then runs normally (timers stay real, so sheets and toasts behave).
     await ctx.addInitScript(t => { try { if (!localStorage.getItem("__fakeNow")) localStorage.setItem("__fakeNow", String(t)); } catch (e) {} }, +new Date(now));
     await ctx.addInitScript(() => {
       try {
@@ -57,7 +54,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await page.evaluate(() => { const b = document.querySelector('[data-act="bview"][data-id="board"]'); if (b) b.click(); });
     await page.waitForTimeout(250); await expand(page); return page;
   };
-  // Board notices wait behind the Notices button: open them (they stay open while on the Board)
   const expand = async page => { if (await page.evaluate(() => { const b = document.querySelector('#view .bn-more[aria-expanded="false"]'); if (b) b.click(); return !!b; })) await page.waitForTimeout(200); };
   const at = async (ctx, page, now) => { await page.evaluate(t => localStorage.setItem("__fakeNow", String(t)), +new Date(now)); await page.reload(); await page.waitForFunction(() => window.SBREVIEW && window.SBSTREAK); await page.waitForTimeout(300); await expand(page); };
   const store = page => page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")));
@@ -67,7 +63,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   try {
     for (const W of [1280, 390]) {
       console.log("\n=== width", W);
-      // ================= Weekly review card =================
+      // Weekly review card
       const SUN = "2026-10-04T15:00:00-04:00";
       let ctx = await mkCtx(SUN, W, W === 390 ? 780 : 900), page = await open(ctx);
       ok(await card(page).count() === 1, "Sunday 3 PM: the review card is on the Board");
@@ -76,7 +72,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(!/fail|behind|overdue|late|miss|guilt|lazy/i.test(txt), "no guilt words");
       ok(await page.locator("#view .fgs-intro, #view .fgs-chip").count() === 0, "the streak intro waits while the review card is up, and there is no chip (streak is off by default)");
       await noOverflow(page, "with the card @" + W); await bigEnough(page, ".wkr-card .btn", "on the card @" + W);
-      // keyboard: the card buttons are reachable and Not Now works from the keyboard
       await page.locator('.wkr-card [data-act="wkr-open"]').focus();
       await page.keyboard.press("Tab"); ok(await page.evaluate(() => document.activeElement.dataset.act) === "wkr-later", "Tab reaches Not Now");
       await page.keyboard.press("Enter"); await page.waitForTimeout(200);
@@ -84,7 +79,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok((await page.evaluate(() => localStorage.getItem("studyboard:review:snooze"))) === "2026-10-04", "snooze is kept on this device for the day");
       await page.reload(); await page.waitForSelector("#view .qa-wrap"); await page.waitForTimeout(300);
       ok(await card(page).count() === 0, "still hidden after a reload the same day");
-      // Monday: back
       await at(ctx, page, "2026-10-05T09:00:00-04:00");
       ok(await card(page).count() === 1 && /Last week in review/.test(await card(page).innerText()), "Monday: the card is back, about last week");
       await page.click('.wkr-card [data-act="wkr-skip"]'); await page.waitForTimeout(200);
@@ -99,7 +93,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await at(ctx, page, "2026-10-11T12:05:00-04:00"); ok(await card(page).count() === 1, "next Sunday from noon: a new week brings it back");
       await ctx.close();
 
-      // ----- the sheet, from Settings -----
+      // the sheet, from Settings
       ctx = await mkCtx("2026-10-04T16:30:00-04:00", W, W === 390 ? 780 : 900); page = await open(ctx);
       await page.click('.wkr-card [data-act="wkr-open"]'); await page.waitForSelector("#dlg .wkr-body .wkr-sec");
       const sheet = await page.locator("#dlg .wkr-body").innerText();
@@ -134,7 +128,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(await page.evaluate(() => !!document.querySelector("#dlg .sheet")), "Plan My Prep opens Exam Prep");
       await page.keyboard.press("Escape"); await page.waitForTimeout(200);
       await page.reload(); await page.waitForTimeout(300); ok(await card(page).count() === 0, "after reading the review the card is gone for the week");
-      // reopen from Settings any time
       await page.click('[data-act="menu"]:visible'); await page.waitForSelector("#dlg .us");
       const row = page.locator('#dlg [data-act="wkr-open"]'); await row.first().scrollIntoViewIfNeeded().catch(() => {});
       ok(await page.locator('#dlg [data-act="wkr-open"]').count() === 1 && await page.locator('#dlg [data-act="fgs-open"]').count() === 1, "Settings has Weekly Review and Gentle Study Streak rows");
@@ -142,21 +135,19 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await page.evaluate(() => document.querySelector('#dlg [data-act="wkr-open"]').click()); await page.waitForSelector("#dlg .wkr-body .wkr-sec");
       ok(/Weekly Review/.test(await page.textContent("#dlg .sheet-head")), "Review My Week opens from Settings");
       await page.keyboard.press("Escape");
-      // card toggle in Settings
       await ctx.close();
       ctx = await mkCtx("2026-10-07T10:00:00-04:00", W, W === 390 ? 780 : 900); page = await open(ctx);
       await page.evaluate(() => SBREVIEW.open(true)); await page.waitForSelector("#dlg .wkr-body .wkr-sec");
       ok(/so far this week/.test(await page.textContent("#dlg .wkr-range")), "midweek Review My Week looks at the week so far");
       await ctx.close();
 
-      // ================= Gentle study streak =================
+      // Gentle study streak
       const WED = "2026-10-07T10:00:00-04:00";
       ctx = await mkCtx(WED, W, W === 390 ? 780 : 900); page = await open(ctx);
       ok(await card(page).count() === 0, "Wednesday: no review card");
       ok(await page.evaluate(() => SBSTREAK.on()) === false && await page.locator(".fgs-chip").count() === 0, "off by default: no chip");
       ok(await page.locator("#todayLabel .streak-chip").count() === 1 && /🔥/.test(await page.textContent("#todayLabel .streak-chip")), "the original fire chip is still there");
       ok(await page.locator("#view .fgs-intro").count() === 1, "a one time, clear first mention");
-      // other Board notices come first; the streak offer waits behind "N More Notices"
       if (!(await page.locator("#view .fgs-intro").isVisible())) { await page.click("#view .bn-more"); await page.waitForTimeout(200); }
       ok(await page.locator("#view .fgs-intro").isVisible(), "the intro shows once the notices are opened");
       ok(/A streak that forgives/.test(await page.textContent("#view .fgs-intro")) && /Optional/.test(await page.textContent("#view .fgs-intro")), "says what it is and that it is optional");
@@ -176,13 +167,11 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(!/🔥|make progress/i.test(newSub) && /study days/.test(newSub), "Today's Quote and Streak now shows the gentle line: " + newSub.replace(/\s+/g, " "));
       await page.keyboard.press("Escape");
       await bigEnough(page, ".fgs-chip", "on the chip @" + W); await noOverflow(page, "with the chip @" + W);
-      // the companion celebrates a week of study days (its own words, once)
       const said = await page.waitForFunction(() => { const b = window.SBCOMP && SBCOMP.bubble && SBCOMP.bubble(); return b && /week|Seven/i.test(b) ? b : false; }, null, {timeout: 45000}).then(h => h.jsonValue()).catch(() => "");
       if (said) {
         ok(!/[—–-]/.test(said) && !/[\u{1F300}-\u{1FAFF}☀-➿]/u.test(said) && !/fail|miss|lose|lost|break|broke/i.test(said), "companion line follows its rules: " + said);
         ok(await page.evaluate(() => JSON.parse(localStorage.getItem("studyboard:streak:said")).m[7] === "2026-10-07"), "and remembers it said it");
       } else console.log("note - no companion on screen in this run; milestone line not checked");
-      // details sheet
       await page.click("#view .fgs-chip"); await page.waitForSelector("#dlg .fgs-grid");
       ok(await page.locator("#dlg .fgs-d").count() === 35, "five weeks of dots");
       ok(await page.locator("#dlg .fgs-d.st-active").count() === 7, "seven study days");
@@ -191,7 +180,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(await page.locator("#dlg .fgs-d.is-today").count() === 1, "today is marked");
       const lab = await page.getAttribute('#dlg .fgs-d[data-id="2026-10-03"]', "aria-label"); ok(/rest day/.test(lab), "the weekend after five study days is a rest day: " + lab);
       await noOverflow(page, "in the streak sheet @" + W); await bigEnough(page, "#dlg .fgs-d, #dlg .fgs-sheet .btn, #dlg .fgs-sheet .segb button", "in the streak sheet @" + W);
-      // mark a day, change the allowance, choose weekdays off
       await page.click('#dlg .fgs-d[data-id="2026-10-03"]'); await page.waitForTimeout(150);
       ok((await store(page)).settings.gentle.rests["2026-10-03"] === 1 && await page.getAttribute('#dlg .fgs-d[data-id="2026-10-03"]', "aria-pressed") === "true", "tapping a day marks it as a rest day");
       await page.click('#dlg [data-act="fgs-rpw"][data-id="0"]'); await page.waitForTimeout(150);
@@ -200,18 +188,15 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await page.click('#dlg [data-act="fgs-wd"][data-id="0"]'); await page.waitForTimeout(150);
       ok(/rest day/.test(await page.getAttribute('#dlg .fgs-d[data-id="2026-10-04"]', "aria-label")) && (await store(page)).settings.gentle.wd.join() === "0", "a weekday off is always a rest day");
       await page.click('#dlg [data-act="fgs-rpw"][data-id="2"]');
-      // color: nothing red in the dots, chip or card
       const reds = await page.evaluate(() => [...document.querySelectorAll("#dlg .fgs-dot, .fgs-pill")].map(e => { const c = getComputedStyle(e); return [c.backgroundColor, c.borderTopColor, c.color].join(); }).filter(s => /rgb\((2[0-9]{2}|1[89][0-9]), ?([0-9]|[1-5][0-9]), ?([0-9]|[1-5][0-9])\)/.test(s)));
       ok(!reds.length, "no red anywhere: " + reds.join(" | "));
       await page.keyboard.press("Escape");
-      // a quiet stretch softens, never zeroes, and the best run stays
       await at(ctx, page, "2026-10-09T10:00:00-04:00");
       ok(/7 study days in a row/.test(await page.textContent("#view .fgs-chip")), "Friday, two quiet days later: still 7 in a row");
       await at(ctx, page, "2026-10-21T10:00:00-04:00");
       const st = await page.evaluate(() => { const s = SBSTREAK.state(); return {run: s.run, best: s.best, last28: s.last28}; });
       ok(st.run >= 1 && st.run < 7 && st.best === 7, "two weeks away: a gentler number, not zero, best still 7: " + JSON.stringify(st));
       ok(await page.locator("#view .fgs-chip").count() === 1 && !/0 study/.test(await page.textContent("#view .fgs-chip")), "chip never shows zero");
-      // off again
       await page.click("#view .fgs-chip"); await page.waitForSelector("#dlg .fgs-grid");
       await page.click('#dlg [data-act="fgs-toggle"]'); await page.waitForTimeout(250);
       ok(await page.locator("#view .fgs-chip").count() === 0 && await page.evaluate(() => SBSTREAK.on()) === false, "turning it off removes the chip");
@@ -222,7 +207,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await ctx.close();
     }
 
-    // ================= AI recap, only when AI is on, only facts =================
+    // AI recap, only when AI is on, only facts
     console.log("\n=== AI recap");
     let ctx = await mkCtx("2026-10-04T16:00:00-04:00", 1280, 900, true), page = await open(ctx);
     ctx.aiReply = {recap: "You finished 4 tasks, including \"Quiz 1\". \"Lab 3 report\" is still waiting for a new day. Nice steady work."};

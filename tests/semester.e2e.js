@@ -1,7 +1,4 @@
-// node tests/semester.e2e.js  (Playwright + Chromium; no network, AI off)
-// "Set up your semester": Board card for an empty planner (and none for someone with data), the Settings row, six skippable steps, quick typing,
-// the review list with quick fixes and Undo, one-tap time estimates, Exam Prep / Break Down handoffs, several syllabi in a row (one per course),
-// resume after a reload, nothing-found fallback, welcome-setup button, phone width, keyboard focus and aria-live, dark theme, no console errors.
+// node tests/semester.e2e.js
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, ".."), SHOTS = process.env.SHOTS || path.join(require("os").tmpdir(), "sem-shots");
@@ -48,7 +45,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     for (const W of [1280, 390]) {
       console.log("\n=== width", W);
       const ctx = await mkCtx({w: W, h: W === 390 ? 780 : 900}); const page = await open(ctx);
-      // ---- empty planner: the Board card
+      // empty planner
       ok(await page.locator(".sem-card-b").count() === 1 && await page.locator('.sem-card-b [data-act="sem-open"]').count() === 1, "empty Board shows the Set up your semester card");
       await page.click('.sem-card-b [data-act="sem-open"]');
       await page.waitForSelector(".sem-sheet .sem-h");
@@ -56,7 +53,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(await page.locator(".sem-sheet #semLive[aria-live=polite]").count() === 1, "progress is announced through an aria-live region");
       await noOverflow(page, "on step 1 @" + W);
       await page.screenshot({path: path.join(SHOTS, `step1-${W}.png`)});
-      // ---- step 1: add a course (Enter works), a duplicate is refused calmly
+      // step 1: add a course (Enter works), a duplicate is refused calmly
       await page.fill("#semCode", "BIO 210"); await page.fill("#semName", "Marine Biology"); await page.press("#semName", "Enter");
       await page.waitForSelector(".sem-chips li");
       ok(await page.locator(".sem-chips li").count() === 1, "a course is added with Enter");
@@ -64,7 +61,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(/already in your list/.test(await page.textContent("#semMsg")) && await page.locator(".sem-chips li").count() === 1, "a duplicate course is refused with a calm message");
       await page.click('[data-sem="next"]');
       ok(await step(page) === "work" && await focusedIsHeading(page), "Next goes to step 2 and moves focus to the heading");
-      // ---- step 2: type a few things
+      // step 2: type a few things
       await page.click('[data-sem="type-add"]');
       ok(/Type something first/.test(await page.textContent("#semMsg")), "adding an empty box gives a calm hint, not an error");
       await typeAll(page);
@@ -73,7 +70,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(/\d+ items? found/.test(await page.textContent("#semTally")), "the tally counts what was found");
       await noOverflow(page, "on step 2 @" + W);
       await page.screenshot({path: path.join(SHOTS, `step2-${W}.png`)});
-      // ---- step 3: review with quick fixes
+      // step 3: review with quick fixes
       await page.click('[data-sem="next"]');
       ok(await step(page) === "review", "step 3 is the review");
       const rows = await page.locator(".sem-r").count();
@@ -94,7 +91,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok((await ls(page)).tasks.some(t => t.id === tid), "Undo Remove puts it back");
       await noOverflow(page, "on the review step @" + W);
       await page.screenshot({path: path.join(SHOTS, `step3-${W}.png`)});
-      // ---- step 4: one-tap estimates
+      // step 4: one-tap estimates
       await page.click('[data-sem="next"]');
       ok(await step(page) === "times", "step 4 is time estimates");
       const need = await page.evaluate(() => SBEST.list(true).length);
@@ -103,7 +100,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
         ok(await page.evaluate(() => SBEST.list(true).length) === 0, "one tap gives every item a suggested time");
       } else ok(true, "every typed item already had a time");
       await page.screenshot({path: path.join(SHOTS, `step4-${W}.png`)});
-      // ---- step 5: prep
+      // step 5: prep
       await page.click('[data-sem="next"]');
       ok(await step(page) === "prep" && await page.locator('[data-sem="prep"]').count() >= 1, "step 5 lists the exam with Plan My Prep");
       await page.click('[data-sem="prep"]');
@@ -113,7 +110,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await page.waitForSelector(".sem-sheet .sem-h", {timeout: 4000});
       ok(await step(page) === "prep", "closing Exam Prep returns to the same step");
       await page.screenshot({path: path.join(SHOTS, `step5-${W}.png`)});
-      // ---- step 6: your week
+      // step 6: your week
       await page.click('[data-sem="next"]');
       ok(await step(page) === "week" && /across/.test(await page.textContent(".sem-ok")), "step 6 shows a short success summary");
       ok(await page.locator(".sem-list li").count() >= 1 || /calm start/.test(await page.textContent(".sem-body")), "step 6 shows what is due in the next 7 days");
@@ -126,7 +123,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await ctx.close();
     }
 
-    // ---- someone with data: no card; the Settings row still offers it
+    // someone with data
     console.log("\n=== existing data");
     {
       const seed = {v: 2, courses: [{id: "c1", name: "Chem", code: "CHE101", color: "#3B6FE0"}], settings: {dailyHours: 3}, updated: 1, tasks: [{id: "t1", title: "Lab 1", courseId: "c1", type: "Lab", due: addD(5), start: addD(1), hours: 2, status: "todo", priority: "med", created: Date.now() - 864e5}]};
@@ -148,7 +145,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await ctx.close();
     }
 
-    // ---- several syllabi in a row, one per course; resume after reload; nothing-found fallback
+    // several syllabi in a row, one per course; resume after reload; nothing-found fallback
     console.log("\n=== syllabi in a row and resume");
     {
       const ctx = await mkCtx(); const page = await open(ctx);
@@ -162,7 +159,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       const found1 = await page.locator(".imp-row").count();
       ok(found1 >= 3, "the first syllabus lists its items (" + found1 + ")");
       await page.click("#impAdd");
-      // the second one starts by itself, without going back to the flow
       await page.waitForFunction(() => { const i = document.querySelector("#impAdd"); return i && !i.hidden && /CHE|Chem/i.test((document.querySelector("#icName") || {}).value + (document.querySelector("#icCode") || {}).value); }, null, {timeout: 8000});
       ok(true, "the next syllabus opens automatically after the first is added");
       await page.click("#impAdd");
@@ -170,7 +166,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       const st = await ls(page);
       ok(st.courses.length === 2 && st.tasks.length >= 6, "two syllabi gave two courses and their tasks (" + st.courses.length + " courses, " + st.tasks.length + " tasks)");
       ok(/Added \d+ tasks? and 1 course/.test(await page.textContent("#semMsg")), "returning to the flow says what was added");
-      // resume
       await page.click('[data-sem="next"]');
       ok(await step(page) === "review", "moved on to review");
       await page.reload(); await page.waitForFunction(() => window.SBSEM);
@@ -179,7 +174,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await page.evaluate(() => SBSEM.open());
       await page.waitForSelector(".sem-sheet .sem-h");
       ok(await step(page) === "review", "reopening resumes where it left off");
-      // cancel a syllabus: the queue waits instead of nagging
       await page.click('[data-sem="goto"][data-id="work"]');
       await page.setInputFiles("#semPdf", [{name: "a.txt", mimeType: "text/plain", buffer: Buffer.from(syllabus("ART 100", "Art", 9))}, {name: "b.txt", mimeType: "text/plain", buffer: Buffer.from(syllabus("MUS 100", "Music", 9))}]);
       await page.waitForSelector("#impAdd");
@@ -192,7 +186,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await ctx.close();
     }
 
-    // ---- keyboard, dark theme, welcome-setup button, hide card
+    // keyboard, dark theme, welcome-setup button, hide card
     console.log("\n=== keyboard, dark, welcome setup");
     {
       const ctx = await mkCtx({dark: true, w: 390, h: 780}); const page = await open(ctx);
@@ -211,7 +205,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       const reduced = await page.evaluate(() => { const css = [...document.styleSheets].flatMap(s => { try { return [...s.cssRules]; } catch (e) { return []; } }); return css.some(r => r.media && /prefers-reduced-motion/.test(r.media.mediaText) && /sem-sheet/.test(r.cssText)); });
       ok(reduced, "reduced motion is honored in the module's CSS");
       await ctx.close();
-      // welcome setup: the last page offers it
       const c2 = await browser.newContext({viewport: {width: 1280, height: 900}});
       await c2.addInitScript(() => { try { localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); } catch (e) {} });
       const p2 = await c2.newPage(); p2.errs = []; p2.on("pageerror", e => p2.errs.push(e.message)); await p2.goto(base);

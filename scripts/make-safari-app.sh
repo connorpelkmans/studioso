@@ -1,9 +1,5 @@
 #!/bin/bash
-# Makes the Safari version of Studyboard School Sync: an Xcode project with a small Mac app and iPhone/iPad app that carry the extension.
-# Run on a Mac with Xcode installed (free from the App Store):   bash scripts/make-safari-app.sh
-# Then open extension/safari-app/Studyboard School Sync/Studyboard School Sync.xcodeproj in Xcode.
-# The project points at extension/build/safari/ rather than copying it, so after a change: run `node scripts/build-extension.js` and
-# build again in Xcode. Run this script again only to start the project over (it asks first; your signing settings would be lost).
+# Makes the Safari version of Studyboard School Sync
 set -euo pipefail
 cd "$(dirname "$0")/.."
 if [ "$(uname)" != "Darwin" ]; then echo "This needs a Mac with Xcode (Safari extensions are built with Apple's tools)." >&2; exit 1; fi
@@ -17,7 +13,7 @@ if [ -d "$OUT" ]; then
   [ "$a" = "y" ] || [ "$a" = "Y" ] || { echo "Left as it is. To pick up changes, just build again in Xcode."; exit 0; }
   rm -rf "$OUT"
 fi
-# The bundle identifier is permanent once the app is in the App Store; the extension inside gets <it>.Extension
+# The bundle identifier is permanent once the app is in the App Store
 xcrun safari-web-extension-converter extension/build/safari \
   --project-location "$OUT" \
   --app-name "Studyboard School Sync" \

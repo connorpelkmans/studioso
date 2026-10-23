@@ -1,9 +1,9 @@
-// Study Fields batch n6 engines: film, culinary, marinebio
+// Study Fields batch n6 engines
 function n6_ease(u) { u = Math.max(0, Math.min(1, u)); return u * u * (3 - 2 * u); }
 function n6_env(T, a, b, c, d) { if (T < a || T > d) return 0; if (T < b) return n6_ease((T - a) / (b - a)); if (T <= c) return 1; return 1 - n6_ease((T - c) / (d - c)); }
 var n6_gc = null;
 function n6_ctx() { return n6_gc || (n6_gc = document.createElement('canvas').getContext('2d')); }
-// radial glow centred on 0,0 with radius r that fades to transparent (col is an rgba() string)
+// radial glow centred on 0,0 with radius r that fades to transparent
 function n6_rg(col, r, mid) { var g = n6_ctx().createRadialGradient(0, 0, 0, 0, 0, r); g.addColorStop(0, col); if (mid) g.addColorStop(mid[0], col.replace(/[\d.]+\)$/, mid[1] + ')')); g.addColorStop(1, col.replace(/[\d.]+\)$/, '0)')); return g; }
 function n6_dot(c, g, x, y, r, a) { if (a <= 0.003 || r <= 0) return; c.save(); c.globalAlpha = Math.min(1, a); c.translate(x, y); c.scale(r, r); c.fillStyle = g; c.beginPath(); c.arc(0, 0, 1, 0, 7); c.fill(); c.restore(); }
 function n6_blinkAt(t, seed) { var u = (t * 0.31 + seed * 3.7) % 4.3; return u < 0.12 ? Math.abs(u - 0.06) / 0.06 : 1; }
@@ -18,7 +18,7 @@ function n6_face(c, x, y, r, blink, happy) { n6_eyes(c, x, y - r * 0.08, r * 0.3
 function n6_text(c, s, x, y, px, col, font, align) { c.font = (font || '800 ') + px + 'px Lexend, "Arial Rounded MT Bold", Arial, sans-serif'; c.textAlign = align || 'center'; c.textBaseline = 'middle'; c.fillStyle = col; c.fillText(s, x, y); }
 // a sprite: draw once into an offscreen canvas (k: pixel density) and blit it
 function n6_sprite(w, h, fn, k) { k = k || 2; var cv = document.createElement('canvas'); cv.width = Math.max(1, Math.ceil(w * k)); cv.height = Math.max(1, Math.ceil(h * k)); var o = cv.getContext('2d'); o.scale(k, k); fn(o); return cv; }
-// an offscreen canvas in scene units at pixel density k (an engine's unchanging decor: the host paints it once, see eng.stat)
+// an offscreen canvas in scene units at pixel density k
 function n6_off(w, h, k) { var cv = document.createElement('canvas'); cv.width = Math.max(1, Math.ceil(w * k)); cv.height = Math.max(1, Math.ceil(h * k)); var o = cv.getContext('2d'); o.scale(k, k); return {cv: cv, o: o}; }
 function n6_hull(pts) { pts = pts.slice().sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; }); var cr = function (o, a, b) { return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]); }, lo = [], up = [], i;
   for (i = 0; i < pts.length; i++) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], pts[i]) <= 0) lo.pop(); lo.push(pts[i]); }
@@ -26,23 +26,19 @@ function n6_hull(pts) { pts = pts.slice().sort(function (a, b) { return a[0] - b
   up.pop(); lo.pop(); return lo.concat(up); }
 function n6_path(c, pts) { c.beginPath(); pts.forEach(function (p, i) { if (i) c.lineTo(p[0], p[1]); else c.moveTo(p[0], p[1]); }); c.closePath(); }
 
-// ==== n6:film ====
-// ---------- Movie Palace: the picture flickers on the screen with dust in the projector beam, the reels turn, the marquee
-// bulbs chase, popcorn pops in the cart. Moment: a clapperboard snaps, the screen plays a tiny silent film of a sunrise, then THE END.
+// n6:film
 ENGINES.film = function (A, v, dk) {
   var W = v.bw, H = v.bh, ph = A.ph, S = A.screen, C = A.cols, M = A.marq, G = A.glass, T0 = -99;
   var sx = S[0], sy = S[1], sw = S[2], sh = S[3];
   var bulbG = n6_rg('rgba(255,210,120,0.85)', 1), lampG = n6_rg(dk ? 'rgba(255,196,120,0.6)' : 'rgba(255,214,150,0.35)', 1, [0.3, dk ? 0.3 : 0.16]), moteG = n6_rg('rgba(255,244,214,0.9)', 1), scrG = n6_rg(dk ? 'rgba(255,236,190,0.22)' : 'rgba(255,250,230,0)', 1);
-  // the projector beam: from the lens to the screen
   var L = A.lens, hull = n6_hull([L, [sx + 4, sy + 4], [sx + sw - 4, sy + 4], [sx + sw - 4, sy + sh - 4], [sx + 4, sy + sh - 4]]);
   var beamG = (function () { var g = n6_ctx().createLinearGradient(L[0], L[1], sx + sw * 0.5, sy + sh * 0.5); g.addColorStop(0, dk ? 'rgba(255,246,214,0.42)' : 'rgba(255,255,240,0.32)'); g.addColorStop(0.35, dk ? 'rgba(255,240,200,0.16)' : 'rgba(255,252,236,0.12)'); g.addColorStop(1, dk ? 'rgba(255,236,190,0.05)' : 'rgba(255,250,230,0.03)'); return g; })();
   var motes = []; for (var i = 0; i < (ph ? 22 : 46); i++) motes.push({u: Math.random(), w: Math.random() * 2 - 1, sp: 0.006 + Math.random() * 0.012, ph: Math.random() * 6.28, r: 0.8 + Math.random() * 1.6});
   function beamAt(u, w) { var tx = sx + sw * (0.5 + w * 0.48), ty = sy + sh * (0.5 + w * 0.3 * (ph ? 1 : -1)); return [L[0] + (tx - L[0]) * u, L[1] + (ty - L[1]) * u]; }
-  // the silent film on the screen: sepia hills, drifting clouds, a little train puffing along
   var hillA = [], hillB = []; for (var x = 0; x <= 1.0001; x += 0.025) { hillA.push([x, 0.62 + 0.06 * Math.sin(x * 7 + 1) + 0.03 * Math.sin(x * 17)]); hillB.push([x, 0.74 + 0.05 * Math.sin(x * 5 + 3) + 0.02 * Math.sin(x * 13 + 1)]); }
   function hills(c, pts, col) { c.fillStyle = col; c.beginPath(); c.moveTo(sx, sy + sh); pts.forEach(function (p) { c.lineTo(sx + p[0] * sw, sy + p[1] * sh); }); c.lineTo(sx + sw, sy + sh); c.closePath(); c.fill(); }
   function puff(c, x, y, r) { c.beginPath(); c.arc(x, y, r, 0, 7); c.arc(x - r * 0.8, y + r * 0.2, r * 0.7, 0, 7); c.arc(x + r * 0.8, y + r * 0.25, r * 0.65, 0, 7); c.fill(); }
-  function grain(c, t, k) { // flicker, scratches, specks and a vignette over whatever is on the screen
+  function grain(c, t, k) {
     var fr = Math.floor(t * 12), fl = 0.05 + 0.05 * hash(fr * 1.7);
     c.fillStyle = 'rgba(40,24,10,' + fl * k + ')'; c.fillRect(sx, sy, sw, sh);
     c.strokeStyle = 'rgba(60,40,20,' + 0.2 * k + ')'; c.lineWidth = 1;
@@ -54,7 +50,6 @@ ENGINES.film = function (A, v, dk) {
     var g = c.createLinearGradient(0, sy, 0, sy + sh); g.addColorStop(0, '#F2E6C8'); g.addColorStop(1, '#D9C39A'); c.fillStyle = g; c.fillRect(sx, sy, sw, sh);
     c.fillStyle = 'rgba(255,250,236,0.85)'; for (var j = 0; j < 4; j++) { var cxx = sx + ((hash(j + 1) * sw + t * (6 + j * 2) * f.s) % (sw + 120)) - 60, cyy = sy + sh * (0.14 + 0.1 * j % 0.3); puff(c, cxx, cyy, sh * (0.05 + 0.015 * j)); }
     hills(c, hillA, '#BFA174'); hills(c, hillB, '#9C7C52');
-    // the train: crosses every 26 s
     var u = ((t * f.s) % 26) / 26, tx = sx - sw * 0.2 + u * sw * 1.4, ty = sy + sh * 0.86, s = sh / 120;
     c.fillStyle = 'rgba(240,230,210,0.85)'; for (j = 0; j < 5; j++) { var pu = ((t * 1.3 + j * 0.4) % 2) / 2; c.globalAlpha = 0.8 * (1 - pu); puff(c, tx + 18 * s - pu * 40 * s, ty - 26 * s - pu * 34 * s, (4 + pu * 9) * s); } c.globalAlpha = 1;
     c.fillStyle = '#4A3826'; c.fillRect(sx, ty + 6 * s, sw, 2 * s);
@@ -63,7 +58,7 @@ ENGINES.film = function (A, v, dk) {
     c.fillStyle = '#F2E6C8'; [-30, -22, -14, -64, -56, -48].forEach(function (q) { c.fillRect(tx + q * s, ty - 10 * s, 5 * s, 4 * s); });
     c.fillStyle = '#4A3826'; [4, 18, -28, -12, -62, -46].forEach(function (q) { c.beginPath(); c.arc(tx + q * s, ty + 1 * s, 3.6 * s, 0, 7); c.fill(); });
   }
-  function sunrise(c, T) { // T: 0..1 through the little film
+  function sunrise(c, T) {
     var e = n6_ease(Math.min(1, T * 1.5)), g = c.createLinearGradient(0, sy, 0, sy + sh); g.addColorStop(0, e < 0.3 ? '#C9B49A' : '#F6D89A'); g.addColorStop(0.65, '#F8C27A'); g.addColorStop(1, '#F29A68'); c.fillStyle = g; c.fillRect(sx, sy, sw, sh);
     var cxx = sx + sw * 0.5, sun = sy + sh * (0.8 - 0.46 * e), r = sh * 0.16;
     var gl = c.createRadialGradient(cxx, sun, r * 0.5, cxx, sun, r * 4.5); gl.addColorStop(0, 'rgba(255,244,200,' + (0.4 + 0.4 * e) + ')'); gl.addColorStop(1, 'rgba(255,230,170,0)'); c.fillStyle = gl; c.fillRect(sx, sy, sw, sh);
@@ -84,7 +79,7 @@ ENGINES.film = function (A, v, dk) {
     c.fillRect(sx + sw * 0.36, sy + sh * 0.63, sw * 0.28, 2); c.beginPath(); c.arc(sx + sw / 2, sy + sh * 0.635, 3.4, 0, 7); c.fill();
     c.font = '600 ' + Math.round(px * 0.3) + 'px Georgia, "Times New Roman", serif'; c.fillStyle = 'rgba(246,238,218,0.75)'; c.fillText('~ well done ~', sx + sw / 2, sy + sh * 0.73);
   }
-  function clapper(c, T) { // T seconds into the moment
+  function clapper(c, T) {
     var a = n6_env(T, 0, 0.22, 1.05, 1.4); if (a <= 0) return;
     var bw = Math.min(sw * 0.36, sh * 0.7), bh = bw * 0.62, x = sx + sw / 2 - bw / 2, y = sy + sh * 0.5 - bh * 0.3 + (1 - n6_ease(T / 0.22)) * 30 + n6_ease((T - 1.05) / 0.35) * 40;
     var open = T < 0.18 ? 0 : T < 0.42 ? n6_ease((T - 0.18) / 0.24) : T < 0.55 ? 1 - n6_ease((T - 0.42) / 0.13) : 0, snap = T > 0.55 && T < 0.9 ? 1 - (T - 0.55) / 0.35 : 0;
@@ -102,7 +97,6 @@ ENGINES.film = function (A, v, dk) {
     if (snap > 0) { c.strokeStyle = 'rgba(255,236,170,' + snap + ')'; c.lineWidth = 3; c.lineCap = 'round'; for (var k = 0; k < 6; k++) { var an = -Math.PI * (0.15 + k * 0.14), r0 = bw * 0.62 + (1 - snap) * 18; c.beginPath(); c.moveTo(bw * 0.5 + Math.cos(an) * r0, -sh2 + Math.sin(an) * r0 * 0.6); c.lineTo(bw * 0.5 + Math.cos(an) * (r0 + 16), -sh2 + Math.sin(an) * (r0 + 16) * 0.6); c.stroke(); } }
     c.restore();
   }
-  // popcorn
   var kx = G[0] + G[2] / 2, ky = G[1] + G[3] * 0.28, kr = G[2] * 0.16 / 0.84, pops = [], nextPop = 0.3, cornC = dk ? ['#FFF1C2', '#FBE39A'] : ['#FFFBEA', '#FFEFB8'];
   function corn(c, x, y, r, rot) { c.save(); c.translate(x, y); c.rotate(rot); c.fillStyle = cornC[0]; c.beginPath(); c.arc(0, 0, r, 0, 7); c.arc(r * 0.8, -r * 0.3, r * 0.7, 0, 7); c.arc(-r * 0.6, -r * 0.6, r * 0.65, 0, 7); c.fill(); c.fillStyle = cornC[1]; c.beginPath(); c.arc(r * 0.2, r * 0.35, r * 0.45, 0, 7); c.fill(); c.fillStyle = '#E2A23A'; c.beginPath(); c.arc(-r * 0.2, r * 0.7, r * 0.22, 0, 7); c.fill(); c.restore(); }
   var proj = A.proj, reel = proj ? n6_sprite(proj.s * 50, proj.s * 50, function (o) { var r = proj.s * 22; o.translate(proj.s * 25, proj.s * 25); o.fillStyle = C.metal; o.beginPath(); o.arc(0, 0, r, 0, 7); o.fill(); o.fillStyle = C.booth; for (var k = 0; k < 3; k++) { var a = k * Math.PI * 2 / 3; o.beginPath(); o.arc(Math.cos(a) * r * 0.55, Math.sin(a) * r * 0.55, r * 0.28, 0, 7); o.fill(); } o.fillStyle = dk ? '#B8C0D0' : '#DDE2EA'; o.beginPath(); o.arc(0, 0, r * 0.16, 0, 7); o.fill(); o.strokeStyle = 'rgba(0,0,0,0.25)'; o.lineWidth = r * 0.1; o.beginPath(); o.arc(0, 0, r * 0.94, 0, 7); o.stroke(); }, 3) : null;
@@ -118,7 +112,7 @@ ENGINES.film = function (A, v, dk) {
     },
     draw: function (ca, cb, t, f) {
       var T = t - T0, j;
-      // ---- canvas A (under the seats): the picture, the beam with its dust, the popcorn ----
+      // -- canvas A (under the seats)
       ca.save(); ca.beginPath(); ca.rect(sx, sy, sw, sh); ca.clip();
       var inFilm = T > 1.15 && T < 7.2, lit = dk ? 1 : 0.55 + 0.45 * n6_env(T, 0.6, 1.2, 6.4, 7.2);
       ca.globalAlpha = lit;
@@ -129,22 +123,19 @@ ENGINES.film = function (A, v, dk) {
       var flash = n6_env(T, 0.85, 1.1, 1.15, 1.5); if (flash > 0) { ca.fillStyle = 'rgba(255,252,240,' + flash + ')'; ca.fillRect(sx, sy, sw, sh); }
       grain(ca, t, T > 4.3 && T < 6.8 ? 0.6 : 1);
       ca.globalAlpha = 1; ca.restore();
-      // beam + dust
       var fl = 0.82 + 0.18 * flick(t * 2, 3) + (T > 1 && T < 7 ? 0.25 : 0);
       ca.save(); ca.globalAlpha = Math.min(1, fl * (dk ? 1 : 0.7)); ca.fillStyle = beamG; n6_path(ca, hull); ca.fill(); ca.restore();
       ca.save(); ca.globalCompositeOperation = dk ? 'lighter' : 'source-over';
       motes.forEach(function (m) { var p = beamAt(m.u, m.w), tw = 0.5 + 0.5 * Math.sin(t * 2.3 + m.ph); n6_dot(ca, moteG, p[0], p[1], m.r * 2.4, (dk ? 0.75 : 0.6) * tw * Math.sin(Math.PI * m.u)); });
       ca.restore();
-      // popcorn in the glass
       ca.save(); ca.beginPath(); ca.rect(G[0], G[1], G[2], G[3]); ca.clip();
       pops.forEach(function (p) { ca.globalAlpha = p.rest > 3 ? 4 - p.rest : 1; corn(ca, p.x, p.y, p.r, p.rot); }); ca.globalAlpha = 1;
       var glare = ca.createLinearGradient(G[0], G[1], G[0] + G[2], G[1] + G[3]); glare.addColorStop(0, 'rgba(255,255,255,0.28)'); glare.addColorStop(0.5, 'rgba(255,255,255,0)'); ca.fillStyle = glare; ca.fillRect(G[0], G[1], G[2], G[3]);
       if (dk) { ca.globalCompositeOperation = 'lighter'; n6_dot(ca, lampG, kx, ky + G[3] * 0.2, G[2] * 0.7, 0.55); }
       ca.restore();
-      // ---- canvas B (on top): reels, marquee, glows, the clapperboard ----
+      // -- canvas B (on top)
       if (proj && reel) { [[-18, -40], [20, -40]].forEach(function (q, k) { cb.save(); cb.translate(proj.x + q[0] * proj.s, proj.y + q[1] * proj.s); cb.rotate(t * (k ? 1.6 : 1.9) * f.s); cb.drawImage(reel, -proj.s * 25, -proj.s * 25, proj.s * 50, proj.s * 50); cb.restore(); });
         cb.strokeStyle = C.metal; cb.lineWidth = Math.max(1, proj.s * 1.6); cb.beginPath(); cb.moveTo(proj.x - 18 * proj.s, proj.y - 18 * proj.s); cb.lineTo(proj.x - 12 * proj.s, proj.y - 16 * proj.s); cb.moveTo(proj.x + 20 * proj.s, proj.y - 18 * proj.s); cb.lineTo(proj.x + 14 * proj.s, proj.y - 16 * proj.s); cb.stroke(); }
-      // the marquee: lettering and chasing bulbs
       var mx = M[0], my = M[1], mw = M[2], mh = M[3], big = T > 0 && T < 6;
       n6_text(cb, ph ? 'NOW SHOWING' : 'NOW  SHOWING', mx + mw / 2, my + mh * 0.54, Math.round(mh * 0.48), C.plum, '900 ');
       var nB = A.bulbs.length, chase = t * 7 * f.s;
@@ -152,15 +143,12 @@ ENGINES.film = function (A, v, dk) {
       A.bulbs.forEach(function (b, k) { var on = big ? (Math.floor(t * 6) % 2 ? 1 : 0.35) : ((k - chase) % 4 + 4) % 4 < 2 ? 1 : 0.25; n6_dot(cb, bulbG, b[0], b[1], (ph ? 7 : 10) * (0.7 + 0.3 * on), on * (dk ? 0.9 : 0.6)); });
       cb.restore();
       A.bulbs.forEach(function (b, k) { var on = big ? (Math.floor(t * 6) % 2 ? 1 : 0.35) : ((k - chase) % 4 + 4) % 4 < 2 ? 1 : 0.25; cb.fillStyle = on > 0.5 ? '#FFF4C8' : (dk ? '#8A6A3A' : '#E8C878'); cb.beginPath(); cb.arc(b[0], b[1], ph ? 2.2 : 2.9, 0, 7); cb.fill(); });
-      // POPCORN on the cart roof
       var ct = A.cart; n6_text(cb, 'POPCORN', ct[0], ct[1], Math.round(ct[2] * (ph ? 0.12 : 0.13)), '#FFF4D0', '900 ');
-      // warm lamps: sconces and footlights
       cb.save(); cb.globalCompositeOperation = dk ? 'lighter' : 'source-over';
       A.sconces.forEach(function (s, k) { n6_dot(cb, lampG, s[0], s[1] - 4 * s[2], (dk ? 110 : 70) * s[2], (dk ? 0.8 : 0.6) * (0.92 + 0.08 * Math.sin(t * 1.3 + k))); });
       A.foot.forEach(function (p, k) { n6_dot(cb, lampG, p[0], p[1], ph ? 14 : 22, (dk ? 0.6 : 0.35) * (0.85 + 0.15 * Math.sin(t * 2 + k))); });
       if (dk) n6_dot(cb, n6_rg('rgba(255,236,190,0.5)', 1), A.lens[0], A.lens[1], 26, 0.9 * fl);
       cb.restore();
-      // the screen's light falling on the room at night
       if (dk) { cb.save(); cb.globalCompositeOperation = 'lighter'; cb.globalAlpha = 0.5 * fl; cb.translate(sx + sw / 2, sy + sh * 0.6); cb.scale(sw * 0.75, sh * 1.1); cb.fillStyle = scrG; cb.beginPath(); cb.arc(0, 0, 1, 0, 7); cb.fill(); cb.restore(); }
       if (T >= 0 && T < 1.5) clapper(cb, T);
     },
@@ -168,10 +156,7 @@ ENGINES.film = function (A, v, dk) {
   };
 };
 UIC.film = {L: ['#8E2A36', '#5A1E2E', 'rgba(255,251,245,0.86)', '#2E1418', '#74585A', '#A8303E', '#A8303E', '#C0503A', '#FFFFFF'], D: ['#3A1A2A', '#1A0E16', 'rgba(30,16,26,0.8)', '#F8EEEE', '#C2A8B0', '#F2C46A', '#F2C46A', '#F6D592', '#2A1220']};
-// ==== /n6:film ====
-// ==== n6:culinary ====
-// ---------- Test Kitchen: pots simmer and the stockpot lid rattles, steam rises, herbs sway in the window box, order tickets
-// flutter on the rail, the heat lamps glow. Moment: the pan flips the omelette high into the air, it lands, and a pinch of herbs falls on top.
+// /n6:film
 ENGINES.culinary = function (A, v, dk) {
   var W = v.bw, H = v.bh, ph = A.ph, C = A.cols, Wn = A.win, T0 = -99, ctop = A.ctop;
   var steamG = n6_rg(dk ? 'rgba(230,226,240,0.35)' : 'rgba(255,255,255,0.75)', 1, [0.4, dk ? 0.18 : 0.4]), lampG = n6_rg(dk ? 'rgba(255,160,70,0.6)' : 'rgba(255,170,90,0.4)', 1, [0.3, dk ? 0.3 : 0.18]);
@@ -184,7 +169,7 @@ ENGINES.culinary = function (A, v, dk) {
   var clouds = dk ? [] : [0, 1].map(function (i) { return {x: Wn[0] + Wn[2] * (0.2 + 0.5 * i), y: Wn[1] + Wn[3] * (0.16 + 0.12 * i), s: Wn[2] / (ph ? 260 : 300) * (1 - i * 0.2), v: 3 + i * 2}; });
   var stars = []; if (dk) for (var i = 0; i < 14; i++) stars.push([Wn[0] + Wn[2] * hash(i + 4), Wn[1] + Wn[3] * 0.5 * hash(i + 9), hash(i + 13) * 6]);
   var PX = A.pan[0], PY = A.pan[1] - 7, PW = A.pan[2], S = A.stock;
-  // ---- unchanging decor, painted once: steel shading, oven glass, a dish towel, the chalkboard menu, a clock, window light ----
+  // -- unchanging decor, painted once
   var K = Math.min(1.5, Math.max(1.15, (window.devicePixelRatio || 1) * 0.9)), dec = n6_off(W, H, K), o = dec.o;
   (function () {
     var g = o.createLinearGradient(0, ctop, 0, H); g.addColorStop(0, 'rgba(255,255,255,' + (dk ? 0.08 : 0.3) + ')'); g.addColorStop(0.35, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(0,0,0,' + (dk ? 0.2 : 0.1) + ')'); o.fillStyle = g; o.fillRect(0, ctop + H * 0.024, W, H);
@@ -192,9 +177,7 @@ ENGINES.culinary = function (A, v, dk) {
     A.ovens.forEach(function (r) { o.save(); o.beginPath(); o.rect(r[0], r[1], r[2], r[3]); o.clip(); o.fillStyle = 'rgba(255,255,255,' + (dk ? 0.05 : 0.12) + ')'; for (var k = 0; k < 2; k++) { o.beginPath(); o.moveTo(r[0] + r[2] * (0.15 + k * 0.2), r[1]); o.lineTo(r[0] + r[2] * (0.27 + k * 0.2), r[1]); o.lineTo(r[0] + r[2] * (0.12 + k * 0.2), r[1] + r[3]); o.lineTo(r[0] + r[2] * (0.0 + k * 0.2), r[1] + r[3]); o.fill(); } o.restore(); });
     var k;
 
-    // the window's light falling across the wall by day
     var wn = A.win; if (!dk) { var lg = o.createLinearGradient(wn[0], wn[1], wn[0] + W * 0.25, wn[1] + H * 0.45); lg.addColorStop(0, 'rgba(255,248,220,0.38)'); lg.addColorStop(1, 'rgba(255,248,220,0)'); o.fillStyle = lg; o.beginPath(); o.moveTo(wn[0] + wn[2], wn[1]); o.lineTo(wn[0] + wn[2] + W * 0.22, wn[1] + H * 0.36); o.lineTo(wn[0] + wn[2] + W * 0.08, wn[1] + wn[3] + H * 0.4); o.lineTo(wn[0] + wn[2], wn[1] + wn[3]); o.fill(); }
-    // the range front: knob bezels and pointers, framed oven windows, a control-panel seam, a maker's plate, vents and a kick plate
     var kr = ph ? 6 : 8, ky = ctop + H * 0.045;
     A.burners.forEach(function (b, i) { o.fillStyle = 'rgba(255,255,255,' + (dk ? 0.12 : 0.55) + ')'; o.beginPath(); o.arc(b[0], ky, kr + 3, 0, 7); o.fill(); o.fillStyle = dk ? '#2E2C36' : '#5A5E6A'; o.beginPath(); o.arc(b[0], ky, kr, 0, 7); o.fill();
       o.strokeStyle = dk ? '#C9C2B4' : '#FFFFFF'; o.lineWidth = 2; o.lineCap = 'round'; var a = -Math.PI / 2 + (i - 1) * 0.6; o.beginPath(); o.moveTo(b[0] + Math.cos(a) * kr * 0.2, ky + Math.sin(a) * kr * 0.2); o.lineTo(b[0] + Math.cos(a) * kr * 0.8, ky + Math.sin(a) * kr * 0.8); o.stroke();
@@ -205,7 +188,6 @@ ENGINES.culinary = function (A, v, dk) {
     var pmx = ph ? (A.burners[0][0] + A.burners[1][0]) / 2 : (A.burners[1][0] + A.burners[2][0]) / 2, pmy = ky; o.fillStyle = dk ? '#8A7448' : '#C8A45A'; o.beginPath(); o.roundRect ? o.roundRect(pmx - 26, pmy - 6, 52, 12, 4) : o.rect(pmx - 26, pmy - 6, 52, 12); o.fill(); n6_text(o, 'TEST KITCHEN', pmx, pmy + 0.5, 6.5, dk ? '#2A2418' : '#5A4420', '800 ');
     o.fillStyle = 'rgba(0,0,0,' + (dk ? 0.3 : 0.14) + ')'; o.fillRect(0, H - H * 0.03, W, H * 0.03); o.fillStyle = 'rgba(255,255,255,' + (dk ? 0.05 : 0.3) + ')'; o.fillRect(0, H - H * 0.03, W, 1.5);
     if (!ph) { for (k = 0; k < 6; k++) { o.fillStyle = 'rgba(0,0,0,' + (dk ? 0.3 : 0.15) + ')'; o.beginPath(); o.roundRect ? o.roundRect(W * 0.835 + k * W * 0.022, ctop + H * 0.115, W * 0.012, H * 0.035, 3) : o.rect(W * 0.835 + k * W * 0.022, ctop + H * 0.115, W * 0.012, H * 0.035); o.fill(); } }
-    // a striped dish towel over the left oven handle (after the oven's details: it hangs in front of the door)
     var ov = A.ovensX[0], tx = ov[0] + (ov[1] - ov[0]) * (ph ? 0.7 : 0.66), tw = W * (ph ? 0.09 : 0.045), ty = A.oy - 2, th = H * (ph ? 0.075 : 0.095);
     o.fillStyle = 'rgba(0,0,0,0.12)'; o.beginPath(); o.moveTo(tx + 3, ty + 4); o.lineTo(tx + tw + 3, ty + 4); o.lineTo(tx + tw * 1.02 + 3, ty + th + 3); o.lineTo(tx + 1, ty + th + 3); o.fill();
     o.fillStyle = dk ? '#C9C2B4' : '#FFFFFF'; o.beginPath(); o.moveTo(tx, ty); o.lineTo(tx + tw, ty); o.lineTo(tx + tw * 1.02, ty + th); o.lineTo(tx - tw * 0.02, ty + th); o.fill();
@@ -214,15 +196,13 @@ ENGINES.culinary = function (A, v, dk) {
     o.fillStyle = dk ? '#B8B0A2' : '#F2EEE6'; o.beginPath(); o.moveTo(tx - 2, ty - 6); o.lineTo(tx + tw + 2, ty - 6); o.lineTo(tx + tw, ty + th * 0.16); o.lineTo(tx, ty + th * 0.16); o.fill();
     o.fillStyle = dk ? 'rgba(168,70,62,0.75)' : 'rgba(226,90,74,0.7)'; for (k = 0; k < 3; k++) o.fillRect(tx + tw * (0.18 + k * 0.28), ty - 6, tw * 0.08, th * 0.16 + 6);
     if (!A.clock) return;
-    // a round wall clock (its hands move on canvas B)
     var cx = A.clock[0], cy = A.clock[1], cr = A.clock[2]; o.fillStyle = dk ? '#3A3A44' : '#E25A4A'; o.beginPath(); o.arc(cx, cy, cr + 4, 0, 7); o.fill(); o.fillStyle = dk ? '#E8E2D6' : '#FFFFFF'; o.beginPath(); o.arc(cx, cy, cr, 0, 7); o.fill();
     o.fillStyle = '#3A3440'; for (k = 0; k < 12; k++) { var a = k * Math.PI / 6; o.beginPath(); o.arc(cx + Math.cos(a) * cr * 0.8, cy + Math.sin(a) * cr * 0.8, k % 3 ? 1 : 1.8, 0, 7); o.fill(); }
     clock = [cx, cy, cr];
   })();
-  // the chalkboard's writing (the board itself is in the scene): on canvas A, under the utensils standing in front of it
   var BD = A.board, chalk = BD ? n6_sprite(BD[2], BD[3] + 12, function (o) { var bw = BD[2], bh = BD[3], ch = 'rgba(250,248,240,0.88)';
     o.fillStyle = 'rgba(255,255,255,0.05)'; o.fillRect(0, 0, bw, bh * 0.4);
-    o.fillStyle = 'rgba(255,255,255,0.04)'; [[0.3, 0.6, 0.4], [0.7, 0.3, 0.3]].forEach(function (q) { o.beginPath(); o.ellipse(bw * q[0], bh * q[1], bw * q[2], bh * 0.12, -0.2, 0, 7); o.fill(); });   // old chalk smudges
+    o.fillStyle = 'rgba(255,255,255,0.04)'; [[0.3, 0.6, 0.4], [0.7, 0.3, 0.3]].forEach(function (q) { o.beginPath(); o.ellipse(bw * q[0], bh * q[1], bw * q[2], bh * 0.12, -0.2, 0, 7); o.fill(); });
     n6_text(o, "TODAY'S SPECIALS", bw / 2, bh * 0.14, Math.round(bw * 0.075), '#F6D38A', '800 ');
     o.fillStyle = ch; o.fillRect(bw * 0.2, bh * 0.24, bw * 0.6, 1.5);
     [['Herb Omelette', 0.38], ['Garden Soup', 0.55], ['Lemon Tart', 0.72]].forEach(function (q) { n6_text(o, q[0], bw * 0.08, bh * q[1], Math.round(bw * 0.075), ch, '600 ', 'left'); });
@@ -264,7 +244,6 @@ ENGINES.culinary = function (A, v, dk) {
       gust = Math.max(0, gust - dt * 0.6); nextGust -= dt * f.s; if (nextGust <= 0) { nextGust = 4 + Math.random() * 5; gust = 1; }
       tk.forEach(function (q, j) { var target = Math.sin(t * 1.4 + j * 0.9) * 0.04 + gust * Math.sin(t * 9 + j * 1.3) * 0.22; q.va += (target - q.a) * 30 * dt; q.va *= Math.pow(0.04, dt); q.a += q.va * dt; });
       clouds.forEach(function (c) { c.x += c.v * f.s * dt; if (c.x > Wn[0] + Wn[2] + 50) c.x = Wn[0] - 50; });
-      // the moment's herbs: a pinch falls and settles on the omelette
       if (T > 2.0 && T < 2.9 && flecks.length < 40 && Math.random() < dt * 40) { var a = Math.random() * 6.28; flecks.push({x: PX + (Math.random() - 0.5) * PW * 0.12, y: PY - PW * 0.9, vx: Math.cos(a) * PW * 0.12, vy: 10, r: 1.6 + Math.random() * 2, rot: Math.random() * 6, land: [PX - 2 + (Math.random() - 0.5) * PW * 0.5, PY - PW * 0.02 + (Math.random() - 0.5) * PW * 0.07], k: Math.random() < 0.3 ? 1 : 0, done: 0}); }
       flecks.forEach(function (p) { if (p.done) return; p.vy += 260 * dt; p.x += (p.land[0] - p.x) * Math.min(1, dt * 2.4) + p.vx * dt * 0.2; p.y += p.vy * dt; p.rot += dt * 6; if (p.y >= p.land[1]) { p.y = p.land[1]; p.x = p.land[0]; p.done = 1; } });
       if (T > 7.5) flecks = [];
@@ -273,18 +252,18 @@ ENGINES.culinary = function (A, v, dk) {
     },
     draw: function (ca, cb, t, f) {
       var T = t - T0, j;
-      // ---- canvas A: the window view and the herbs (the box hides their stems) ----
+      // -- canvas A: the window view and the herbs (the box hides their stems)
       ca.save(); ca.beginPath(); ca.rect(Wn[0], Wn[1], Wn[2], Wn[3]); ca.clip();
       ca.fillStyle = 'rgba(255,255,255,0.92)'; clouds.forEach(function (c) { ca.beginPath(); ca.ellipse(c.x, c.y, 34 * c.s, 9 * c.s, 0, 0, 7); ca.ellipse(c.x + 12 * c.s, c.y - 7 * c.s, 18 * c.s, 10 * c.s, 0, 0, 7); ca.fill(); });
       stars.forEach(function (s) { var tw = 0.5 + 0.5 * Math.sin(t * 1.3 + s[2]); n6_dot(ca, sparkG, s[0], s[1], 2.6, tw); });
       ca.restore();
       if (chalk) ca.drawImage(chalk, BD[0], BD[1], BD[2], BD[3] + 12);
-      if (dk && A.ovens.length) { var ovr = A.ovens[0], ofl = 0.75 + 0.25 * flick(t, 2); ca.save(); ca.globalCompositeOperation = 'lighter'; ca.beginPath(); ca.rect(ovr[0], ovr[1], ovr[2], ovr[3]); ca.clip(); ca.translate(ovr[0] + ovr[2] / 2, ovr[1] + ovr[3] * 0.7); ca.scale(ovr[2] * 0.6, ovr[3] * 0.9); ca.globalAlpha = ofl; ca.fillStyle = ovenG; ca.beginPath(); ca.arc(0, 0, 1, 0, 7); ca.fill(); ca.restore(); }   // the oven light (under the towel)
+      if (dk && A.ovens.length) { var ovr = A.ovens[0], ofl = 0.75 + 0.25 * flick(t, 2); ca.save(); ca.globalCompositeOperation = 'lighter'; ca.beginPath(); ca.rect(ovr[0], ovr[1], ovr[2], ovr[3]); ca.clip(); ca.translate(ovr[0] + ovr[2] / 2, ovr[1] + ovr[3] * 0.7); ca.scale(ovr[2] * 0.6, ovr[3] * 0.9); ca.globalAlpha = ofl; ca.fillStyle = ovenG; ca.beginPath(); ca.arc(0, 0, 1, 0, 7); ca.fill(); ca.restore(); }
       herbP.forEach(function (h, k) { var sw = Math.sin(t * 1.1 * f.s + h.ph) * 0.07 + gust * Math.sin(t * 6 + k) * 0.08; ca.save(); ca.translate(h.h.x, h.h.y); ca.rotate(sw); ca.fillStyle = herbC[h.h.kind]; ca.fill(h.p);
         if (h.h.kind === 2) { ca.fillStyle = dk ? '#B48AD8' : '#C79AF0'; ca.beginPath(); ca.arc(0, -30 * h.h.s, 4 * h.h.s, 0, 7); ca.fill(); }
         if (h.h.kind === 0 && k % 2) { ca.fillStyle = '#FFFFFF'; ca.beginPath(); ca.arc(0, -33 * h.h.s, 1.6 * h.h.s, 0, 7); ca.fill(); }
         ca.restore(); });
-      // ---- canvas B: decor (unless the host paints it), clock hands, lamps, tickets, flames, lid, pan, steam ----
+      // -- canvas B: decor (unless the host paints it), clock hands, lamps, tickets, flames, lid
       if (!this.hosted) cb.drawImage(dec.cv, 0, 0, W, H);
       if (clock) { var ck = clock, mn = t * 0.02 * f.s, hr = mn / 12; cb.strokeStyle = '#3A3440'; cb.lineCap = 'round'; cb.lineWidth = 2.4; cb.beginPath(); cb.moveTo(ck[0], ck[1]); cb.lineTo(ck[0] + Math.cos(hr - 1.2) * ck[2] * 0.5, ck[1] + Math.sin(hr - 1.2) * ck[2] * 0.5); cb.stroke(); cb.lineWidth = 1.6; cb.beginPath(); cb.moveTo(ck[0], ck[1]); cb.lineTo(ck[0] + Math.cos(mn - 2) * ck[2] * 0.72, ck[1] + Math.sin(mn - 2) * ck[2] * 0.72); cb.stroke(); cb.strokeStyle = '#E25A4A'; cb.lineWidth = 1; var sa = t * f.s * Math.PI / 30; cb.beginPath(); cb.moveTo(ck[0], ck[1]); cb.lineTo(ck[0] + Math.cos(sa - 1.57) * ck[2] * 0.8, ck[1] + Math.sin(sa - 1.57) * ck[2] * 0.8); cb.stroke(); }
       cb.save(); cb.globalCompositeOperation = dk ? 'lighter' : 'source-over';
@@ -295,12 +274,10 @@ ENGINES.culinary = function (A, v, dk) {
       A.pots.forEach(function (p, k) { var g = Math.pow(Math.max(0, Math.sin(t * 0.5 + k * 1.9)), 30); if (g > 0.02) n6_dot(cb, sparkG, p.x - p.w * 0.2, p.y + p.h * 0.3, 10 + g * 8, g); });
       tk.forEach(function (q) { ticket(cb, q, t); });
       A.burners.forEach(function (b, k) { cb.save(); if (dk) cb.globalCompositeOperation = 'lighter';
-        var pot = k === 0 ? A.stock : k === 1 ? A.sauce : null; if (pot) { cb.beginPath(); cb.rect(0, 0, W, H); cb.rect(pot[0] - pot[2] / 2, pot[1], pot[2], A.ctop - 9 - pot[1]); cb.clip('evenodd'); }   // the flames stay under the pots, not on their sides
+        var pot = k === 0 ? A.stock : k === 1 ? A.sauce : null; if (pot) { cb.beginPath(); cb.rect(0, 0, W, H); cb.rect(pot[0] - pot[2] / 2, pot[1], pot[2], A.ctop - 9 - pot[1]); cb.clip('evenodd'); }
         flames(cb, b, t * f.s, k); n6_dot(cb, flameG, b[0], b[1], b[2] * 0.4, dk ? 0.35 : 0.15); cb.restore(); });
-      // stockpot lid
       var rt = rattle > 0 ? Math.sin(t * 38) * 0.05 * Math.min(1, rattle * 2) : 0, lf = rattle > 0 ? Math.abs(Math.sin(t * 19)) * 3 * Math.min(1, rattle * 2) : 0;
       lid(cb, S[0], S[1] - 2, S[2], rt, lf);
-      // the pan and the omelette
       var pr = 0, pdy = 0, ox = PX - 2, oy = PY - PW * 0.02, orot = 0, osy = 1, ofront = false;
       if (T >= 0 && T < 2.4) {
         if (T < 0.25) { var u = n6_ease(T / 0.25); pdy = 6 * u; pr = 0.1 * u; } else if (T < 0.42) { u = n6_ease((T - 0.25) / 0.17); pdy = 6 - 22 * u; pr = 0.1 - 0.32 * u; } else if (T < 0.9) { u = n6_ease((T - 0.42) / 0.48); pdy = -16 * (1 - u); pr = -0.22 * (1 - u); }
@@ -314,25 +291,19 @@ ENGINES.culinary = function (A, v, dk) {
       else { if (osy < 0) { cb.save(); cb.translate(ox, oy); cb.scale(1, -1); cb.translate(-ox, -oy); omelette(cb, ox, oy, orx * osc, ory * osc, -orot, -osy); cb.restore(); } else omelette(cb, ox, oy, orx * osc, ory * osc, orot, Math.max(0.08, osy));
         cb.strokeStyle = 'rgba(255,255,255,' + (dk ? 0.35 : 0.8) + ')'; cb.lineWidth = 2; cb.lineCap = 'round'; for (j = 0; j < 3; j++) { cb.beginPath(); cb.moveTo(ox - orx * 0.6 + j * orx * 0.6, oy + ory * osc * 2.2); cb.lineTo(ox - orx * 0.6 + j * orx * 0.6, oy + ory * osc * 2.2 + 18); cb.stroke(); } }
       flecks.forEach(function (p) { var a = T > 6.5 ? Math.max(0, 1 - (T - 6.5) / 0.8) : 1; if (a <= 0) return; cb.globalAlpha = a; cb.fillStyle = p.k ? '#2E7A3A' : '#5DB84E'; cb.save(); cb.translate(p.x, p.y + (p.done ? pdy : 0)); cb.rotate(p.rot); cb.fillRect(-p.r, -p.r * 0.45, p.r * 2, p.r * 0.9); cb.restore(); cb.globalAlpha = 1; });
-      // a chef's hand pinching the herbs over the pan
       var hA = n6_env(T, 1.85, 2.1, 2.9, 3.3); if (hA > 0) { var hx = PX + PW * 0.06 + Math.sin(T * 22) * 2, hy = PY - PW * 0.95 - (1 - hA) * 60, hs = PW / 170; cb.save(); cb.globalAlpha = hA; cb.translate(hx, hy); cb.scale(hs, hs); cb.rotate(-0.35);
-        cb.fillStyle = dk ? '#DCD6CC' : '#FFFFFF'; cb.fillRect(-14, -40 - (hy + 40) / hs * 1.3, 28, 16 + (hy + 40) / hs * 1.3); cb.fillStyle = 'rgba(0,0,0,0.08)'; cb.fillRect(-14, -36, 28, 10); cb.fillRect(4, -40 - (hy + 40) / hs * 1.3, 10, 16 + (hy + 40) / hs * 1.3);   // the chef's sleeve reaches in from above the picture
+        cb.fillStyle = dk ? '#DCD6CC' : '#FFFFFF'; cb.fillRect(-14, -40 - (hy + 40) / hs * 1.3, 28, 16 + (hy + 40) / hs * 1.3); cb.fillStyle = 'rgba(0,0,0,0.08)'; cb.fillRect(-14, -36, 28, 10); cb.fillRect(4, -40 - (hy + 40) / hs * 1.3, 10, 16 + (hy + 40) / hs * 1.3);
         cb.fillStyle = '#F2C49A'; cb.beginPath(); cb.ellipse(0, -14, 14, 16, 0, 0, 7); cb.fill(); cb.beginPath(); cb.ellipse(-6, 4, 5, 10, 0.3, 0, 7); cb.ellipse(5, 5, 5, 10, -0.3, 0, 7); cb.fill();
         cb.fillStyle = '#E8A87A'; cb.beginPath(); cb.ellipse(-0.5, 13, 4, 3, 0, 0, 7); cb.fill(); cb.restore(); }
-      // sizzle sparkles while it cooks, little stars after the landing
       if (Math.sin(t * 2.3) > 0.6) for (j = 0; j < 3; j++) { var sx = PX + (hash(Math.floor(t * 8) + j) - 0.5) * PW * 0.6, sy = PY - PW * 0.05 - hash(Math.floor(t * 8) * 3 + j) * 6; cb.fillStyle = 'rgba(255,240,200,0.8)'; cb.beginPath(); cb.arc(sx, sy, 1.2, 0, 7); cb.fill(); }
       sparks.forEach(function (p) { var a = Math.sin(Math.PI * (t - p.t0) / 1.2); cb.fillStyle = dk ? 'rgba(255,236,180,' + a + ')' : 'rgba(255,190,70,' + a + ')'; cb.beginPath(); var s2 = p.s * a, y2 = p.y - (t - p.t0) * 12; cb.moveTo(p.x, y2 - s2); cb.quadraticCurveTo(p.x, y2, p.x + s2, y2); cb.quadraticCurveTo(p.x, y2, p.x, y2 + s2); cb.quadraticCurveTo(p.x, y2, p.x - s2, y2); cb.quadraticCurveTo(p.x, y2, p.x, y2 - s2); cb.fill(); });
-      // steam last, so it drifts in front of everything
       puffs.forEach(function (p) { var u = (t - p.t0) / p.life, a = Math.sin(Math.PI * Math.min(1, u)) * (dk ? 0.5 : 0.55); n6_dot(cb, steamG, p.x, p.y, p.r * (1 + u * 2.6), a); });
     },
     finish: function (t) { T0 = t; flecks = []; }
   };
 };
 UIC.culinary = {L: ['#3E7A5A', '#285A40', 'rgba(255,255,252,0.86)', '#2A2018', '#6E6052', '#C8603A', '#C8603A', '#D97B45', '#FFFFFF'], D: ['#2A2830', '#141218', 'rgba(28,24,30,0.8)', '#F4EEE6', '#B8ACA0', '#F2A35A', '#F2A35A', '#F6C27A', '#241A14']};
-// ==== /n6:culinary ====
-// ==== n6:marinebio ====
-// ---------- Kelp Forest: the kelp sways in the current, sunbeams flicker through the water, bubbles rise, fish dart about, an otter
-// naps on the surface; at night the sub's headlights sweep the dark water. Moment: the sub's sonar pings, and a pod of dolphins circles it.
+// /n6:culinary
 function n6_fish(c, x, y, s, dir, t, body, fin, ph) { c.save(); c.translate(x, y); c.scale(s * dir, s); var w = Math.sin(t * 9 + ph) * 0.25;
   c.fillStyle = fin; c.beginPath(); c.moveTo(-8, 0); c.lineTo(-15, -6 + w * 6); c.lineTo(-14, 0); c.lineTo(-15, 6 + w * 6); c.closePath(); c.fill();
   c.beginPath(); c.moveTo(-2, -6); c.quadraticCurveTo(2, -11, 6, -6); c.fill();
@@ -340,7 +311,7 @@ function n6_fish(c, x, y, s, dir, t, body, fin, ph) { c.save(); c.translate(x, y
   c.fillStyle = 'rgba(255,255,255,0.35)'; c.beginPath(); c.ellipse(1, -2.4, 6, 2, 0, 0, 7); c.fill();
   c.fillStyle = n6_INK; c.beginPath(); c.arc(5, -1, 1.5, 0, 7); c.fill(); c.fillStyle = '#FFFFFF'; c.beginPath(); c.arc(5.5, -1.6, 0.6, 0, 7); c.fill();
   c.fillStyle = n6_BLUSH; c.beginPath(); c.ellipse(4.6, 2, 1.8, 1.1, 0, 0, 7); c.fill(); c.restore(); }
-var n6_dolG = null;   // the dolphin's body gradient (local coordinates, made once)
+var n6_dolG = null;
 function n6_dolphin(c, x, y, s, dir, tilt, t, happy) { c.save(); c.translate(x, y); c.scale(s * dir, s); c.rotate(tilt); var fl = Math.sin(t * 8) * 0.25;
   c.fillStyle = '#6E9AC0'; c.beginPath(); c.moveTo(-18, -2); c.lineTo(-25, -7 + fl * 8); c.quadraticCurveTo(-24, -1, -26, 5 + fl * 8); c.lineTo(-18, 2); c.fill();
   c.beginPath(); c.moveTo(-2, -8); c.quadraticCurveTo(-4, -16, -9, -17); c.quadraticCurveTo(-6, -12, -7, -7); c.fill();
@@ -363,28 +334,23 @@ ENGINES.marinebio = function (A, v, dk) {
   for (var i = 0; i < (ph ? 3 : 4); i++) fishes.push({x0: W * [0.2, 0.44, 0.66, 0.86][i], y0: H * [0.42, 0.64, 0.5, 0.7][i], ax: W * (0.08 + 0.1 * hash(i + 8)), ay: H * 0.04, sp: 0.18 + 0.12 * hash(i + 11), ph: i * 2.3, s: (ph ? 1.15 : 1.7) * (0.85 + 0.3 * hash(i + 14)), c: FC[i % 3]});
   for (i = 0; i < (ph ? 14 : 24); i++) school.push({dx: (hash(i * 3 + 1) - 0.5) * (ph ? 60 : 110), dy: (hash(i * 3 + 2) - 0.5) * (ph ? 30 : 50), ph: hash(i * 3 + 3) * 6.28, s: 0.5 + 0.25 * hash(i + 40)});
   var sc = {x: W * 0.3, y: H * 0.4, dir: 1, turn: 1, tNext: 6};
-  function sub(c, x, y, L, t, k) { // the research sub, nose to the right
+  function sub(c, x, y, L, t, k) {
     c.save(); c.translate(x, y); c.rotate(Math.sin(t * 0.7) * 0.03); var s = L / 150;
     c.scale(s, s);
-    // propeller
     c.save(); c.translate(-78, 2); c.fillStyle = dk ? '#8A8A6A' : '#B8B48A'; c.fillRect(-6, -3, 10, 6); c.scale(1, Math.cos(t * 14)); c.fillStyle = dk ? '#9A9070' : '#C8C098'; c.beginPath(); c.ellipse(-8, 0, 3, 14, 0, 0, 7); c.fill(); c.restore();
     c.fillStyle = dk ? '#C89A22' : '#F2C230'; c.beginPath(); c.moveTo(-74, -4); c.lineTo(-86, -18); c.lineTo(-80, -18); c.lineTo(-64, -8); c.fill(); c.beginPath(); c.moveTo(-74, 6); c.lineTo(-86, 18); c.lineTo(-80, 18); c.lineTo(-64, 10); c.fill();
-    // hull
     var g = c.createLinearGradient(0, -34, 0, 34); g.addColorStop(0, dk ? '#E8BC3A' : '#FFDA4A'); g.addColorStop(0.6, dk ? '#C8961E' : '#F2B624'); g.addColorStop(1, dk ? '#9A6E14' : '#D8941A'); c.fillStyle = g;
     c.beginPath(); c.moveTo(-70, 0); c.bezierCurveTo(-70, -32, 40, -36, 66, -12); c.quadraticCurveTo(78, 0, 66, 12); c.bezierCurveTo(40, 36, -70, 32, -70, 0); c.fill();
     c.fillStyle = dk ? '#C8961E' : '#F2B624'; c.beginPath(); c.moveTo(-26, -24); c.lineTo(-20, -44); c.lineTo(12, -44); c.lineTo(20, -26); c.fill();
     c.fillStyle = dk ? '#6A6A72' : '#8A8A96'; c.fillRect(-6, -60, 4, 18); c.fillRect(-6, -60, 14, 4);
     c.fillStyle = 'rgba(255,255,255,0.35)'; c.beginPath(); c.ellipse(-20, -18, 34, 5, -0.05, 0, 7); c.fill();
     c.fillStyle = 'rgba(0,0,0,0.12)'; c.fillRect(-60, 6, 110, 3);
-    // portholes
     [[-40, 0, 7], [-18, 0, 7]].forEach(function (q) { c.fillStyle = dk ? '#7A6A3A' : '#C89A2A'; c.beginPath(); c.arc(q[0], q[1], q[2] + 2.5, 0, 7); c.fill(); c.fillStyle = dk ? '#FFD88A' : '#BFE8F2'; c.beginPath(); c.arc(q[0], q[1], q[2], 0, 7); c.fill(); });
-    // the big front dome window, with a little pilot looking out
     c.fillStyle = dk ? '#7A6A3A' : '#C89A2A'; c.beginPath(); c.arc(38, -2, 21, 0, 7); c.fill();
     var gw = c.createRadialGradient(32, -8, 2, 38, -2, 18); gw.addColorStop(0, dk ? '#BFEFFF' : '#E8FBFF'); gw.addColorStop(1, dk ? '#3A8AA8' : '#7ACCE0'); c.fillStyle = gw; c.beginPath(); c.arc(38, -2, 17, 0, 7); c.fill();
     c.fillStyle = '#F2C49A'; c.beginPath(); c.arc(40, 4, 9, 0, 7); c.fill(); c.fillStyle = '#5A3A2A'; c.beginPath(); c.arc(40, 1, 9.4, Math.PI * 1.05, Math.PI * 1.95); c.fill();
     n6_eyes(c, 42, 5, 3.2, 1.3, n6_blinkAt(t, 3), k > 0); c.fillStyle = n6_BLUSH; c.beginPath(); c.ellipse(46.5, 8, 2, 1.2, 0, 0, 7); c.fill();
     c.fillStyle = 'rgba(255,255,255,0.55)'; c.beginPath(); c.ellipse(31, -11, 6, 3, -0.6, 0, 7); c.fill();
-    // headlight + arm
     c.fillStyle = dk ? '#FFF2C0' : '#FFFFFF'; c.beginPath(); c.ellipse(68, 8, 4, 5, 0, 0, 7); c.fill();
     c.strokeStyle = dk ? '#6A6A72' : '#8A8A96'; c.lineWidth = 4; c.lineCap = 'round'; var aa = Math.sin(t * 0.8) * 0.2; c.beginPath(); c.moveTo(30, 24); c.lineTo(46 + Math.cos(aa) * 4, 38 + Math.sin(aa) * 6); c.lineTo(60, 42 + Math.sin(aa) * 8); c.stroke(); c.lineWidth = 2.4; c.beginPath(); c.moveTo(60, 42 + Math.sin(aa) * 8); c.lineTo(66, 38 + Math.sin(aa) * 8); c.moveTo(60, 42 + Math.sin(aa) * 8); c.lineTo(66, 47 + Math.sin(aa) * 8); c.stroke();
     c.fillStyle = dk ? '#3A3A44' : '#3A3440'; c.font = '800 9px Lexend, Arial, sans-serif'; c.textAlign = 'center'; c.fillText('SB-1', -50, -10);
@@ -392,7 +358,6 @@ ENGINES.marinebio = function (A, v, dk) {
   function otter(c, x, y, s, t, sleep) { c.save(); c.translate(x, y + Math.sin(t * 1.4) * 2); c.rotate(Math.sin(t * 0.9) * 0.05); c.scale(s, s);
     c.fillStyle = '#8A5A3A'; c.beginPath(); c.ellipse(0, 0, 30, 11, 0, 0, 7); c.fill(); c.beginPath(); c.ellipse(-30, 2, 10, 4, -0.2, 0, 7); c.fill();
     c.fillStyle = '#C89A72'; c.beginPath(); c.ellipse(4, -3, 18, 7, 0, 0, 7); c.fill();
-    // hind feet up out of the water, the shell held on the chest with both front paws
     c.fillStyle = '#7A4C30'; c.beginPath(); c.ellipse(-24, -9 + Math.sin(t * 1.1) * 0.8, 3.6, 6, -0.7, 0, 7); c.ellipse(-17, -10 + Math.sin(t * 1.1 + 1) * 0.8, 3.6, 6, -0.35, 0, 7); c.fill();
     c.fillStyle = dk ? '#C8B8A0' : '#FFF4E4'; c.beginPath(); c.arc(6, -8, 6.5, Math.PI * 0.95, Math.PI * 2.05); c.closePath(); c.fill();
     c.strokeStyle = dk ? 'rgba(120,100,80,0.6)' : 'rgba(200,150,120,0.7)'; c.lineWidth = 0.8; c.beginPath(); c.moveTo(6, -8); c.lineTo(2, -13); c.moveTo(6, -8); c.lineTo(6, -14.2); c.moveTo(6, -8); c.lineTo(10, -13); c.stroke();
@@ -414,7 +379,6 @@ ENGINES.marinebio = function (A, v, dk) {
         else bubbles.push({x: Math.random() * W, y: FY + 20, r: 1.2 + Math.random() * 2, vy: 20 + Math.random() * 10, ph: Math.random() * 6}); }
       bubbles.forEach(function (b) { b.y -= b.vy * dt * f.s; b.x += Math.sin(t * 2 + b.ph) * 10 * dt; b.r *= 1 + dt * 0.04; });
       bubbles = bubbles.filter(function (b) { return b.y > H * 0.03; });
-      // the school drifts on a slow figure-eight and darts round now and then
       sc.tNext -= dt; if (sc.tNext <= 0) { sc.tNext = 5 + Math.random() * 5; sc.dir = -sc.dir; }
       sc.turn += (sc.dir - sc.turn) * Math.min(1, dt * 3);
       sc.x += sc.turn * W * 0.035 * dt * f.s * (1 + Math.abs(sc.dir - sc.turn) * 3); sc.y = H * (0.38 + 0.08 * Math.sin(t * 0.21)); if (sc.x < -W * 0.1) sc.x = W * 1.1; if (sc.x > W * 1.1) sc.x = -W * 0.1;
@@ -423,26 +387,24 @@ ENGINES.marinebio = function (A, v, dk) {
     },
     draw: function (ca, cb, t, f) {
       var T = t - T0, j;
-      // ---- canvas A: sunbeams, the surface shimmer, the school, the kelp ----
+      // -- canvas A: sunbeams, the surface shimmer, the school, the kelp
       ca.save(); ca.globalCompositeOperation = 'lighter'; ca.fillStyle = rayG;
       for (j = 0; j < (ph ? 3 : 5); j++) { var bx = W * (0.08 + j * (ph ? 0.3 : 0.2)) + Math.sin(t * 0.13 + j) * 30; ca.globalAlpha = (dk ? 0.05 : 0.12) * (0.6 + 0.4 * Math.sin(t * 0.7 + j * 1.7)) * (0.7 + 0.3 * flick(t * 0.3, j)); ca.beginPath(); ca.moveTo(bx, 0); ca.lineTo(bx + 50 + j * 6, 0); ca.lineTo(bx + 50 + H * 0.32, H * 0.85); ca.lineTo(bx - 20 + H * 0.28, H * 0.85); ca.fill(); }
       ca.restore();
       ca.strokeStyle = dk ? 'rgba(170,230,230,0.3)' : 'rgba(255,255,255,0.75)'; ca.lineWidth = 2;
       for (j = 0; j < 3; j++) { ca.beginPath(); for (var x = -10; x <= W + 10; x += 12) { var yy = H * (0.012 + j * 0.013) + Math.sin(x / (40 + j * 13) + t * (1 + j * 0.3) * f.s) * 3 + Math.sin(x / 17 - t * 1.7) * 1.4; if (x < 0) ca.moveTo(x, yy); else ca.lineTo(x, yy); } ca.globalAlpha = 1 - j * 0.3; ca.stroke(); } ca.globalAlpha = 1;
       ca.fillStyle = dk ? 'rgba(150,190,200,0.55)' : 'rgba(80,130,150,0.45)';
-      ca.beginPath(); school.forEach(function (m) { var x = sc.x + m.dx * (1 + 0.1 * Math.sin(t + m.ph)), y = sc.y + m.dy + Math.sin(t * 2 + m.ph) * 4, d = sc.turn >= 0 ? 1 : -1, s = m.s * (ph ? 0.8 : 1); ca.moveTo(x + 9 * s, y); ca.ellipse(x, y, 9 * s, 2.6 * s, 0, 0, 7); ca.moveTo(x - 8 * s * d, y); ca.lineTo(x - 13 * s * d, y - 3.5 * s); ca.lineTo(x - 13 * s * d, y + 3.5 * s); ca.closePath(); }); ca.fill();   // the whole school in one path
+      ca.beginPath(); school.forEach(function (m) { var x = sc.x + m.dx * (1 + 0.1 * Math.sin(t + m.ph)), y = sc.y + m.dy + Math.sin(t * 2 + m.ph) * 4, d = sc.turn >= 0 ? 1 : -1, s = m.s * (ph ? 0.8 : 1); ca.moveTo(x + 9 * s, y); ca.ellipse(x, y, 9 * s, 2.6 * s, 0, 0, 7); ca.moveTo(x - 8 * s * d, y); ca.lineTo(x - 13 * s * d, y - 3.5 * s); ca.lineTo(x - 13 * s * d, y + 3.5 * s); ca.closePath(); }); ca.fill();
       kel.forEach(function (k, n) { var q = k.q, sway = Math.sin(t * 0.45 * f.s + k.ph) * W * 0.025 + Math.sin(t * 0.21 + n) * W * 0.01, g = n6_kelpGeom(q.x, q.y, q.h, q.b + sway, q.seed);
         ca.strokeStyle = kelpCol[0]; ca.lineWidth = q.w; ca.lineCap = 'round'; ca.lineJoin = 'round'; ca.beginPath(); g.pts.forEach(function (p, i) { if (i) ca.lineTo(p[0], p[1]); else ca.moveTo(p[0], p[1]); }); ca.stroke();
-        // the blades, batched by colour into three paths (one fill each instead of one per blade)
         var pA = new Path2D(), pB = new Path2D(), pC = new Path2D();
         g.bl.forEach(function (b, i) { var fl = Math.sin(t * 1.3 * f.s + i * 0.7 + k.ph) * 9, an = (b[4] + fl) * Math.PI / 180, co = Math.cos(an), si = Math.sin(an); (i % 3 ? pB : pA).addPath(k.blades[i].p, {a: co, b: si, c: -si, d: co, e: b[0], f: b[1]}); var cx = b[0] + co * q.w * 0.8, cy = b[1] + si * q.w * 0.8; pC.moveTo(cx + q.w * 0.5, cy); pC.arc(cx, cy, q.w * 0.5, 0, 7); });
         ca.fillStyle = kelpCol[0]; ca.fill(pA); ca.fillStyle = kelpCol[1]; ca.fill(pB); ca.fillStyle = kelpCol[2]; ca.fill(pC); });
-      // ---- canvas B: anemone tentacles, fish, bubbles, the sub (and its lights), the otter, the moment ----
+      // -- canvas B: anemone tentacles, fish, bubbles, the sub (and its lights), the otter
       A.anem.forEach(function (a, n) { for (var jj = -4; jj <= 4; jj++) { var sw = Math.sin(t * 1.6 * f.s + n + jj * 0.4) * 10; cb.save(); cb.translate(a[0] + jj * a[2] * 0.15, a[1] - a[2] * 0.62); cb.rotate((-90 + jj * 14 + sw) * Math.PI / 180); cb.fillStyle = C.anemL; cb.beginPath(); cb.ellipse(a[2] * 0.4, 0, a[2] * 0.42, a[2] * 0.1, 0, 0, 7); cb.fill(); cb.fillStyle = '#FFFFFF'; cb.globalAlpha = 0.6; cb.beginPath(); cb.arc(a[2] * 0.8, 0, a[2] * 0.06, 0, 7); cb.fill(); cb.restore(); } });
       fishes.forEach(function (fi) { var u = t * fi.sp * f.s + fi.ph, x = fi.x0 + Math.sin(u) * fi.ax, y = fi.y0 + Math.sin(u * 2.1) * fi.ay, dir = Math.cos(u) >= 0 ? 1 : -1; n6_fish(cb, x, y, fi.s, dir, t, fi.c[0], fi.c[1], fi.ph); });
       cb.strokeStyle = dk ? 'rgba(190,240,255,0.5)' : 'rgba(255,255,255,0.8)'; cb.lineWidth = 1; cb.beginPath(); bubbles.forEach(function (b) { cb.moveTo(b.x + b.r, b.y); cb.arc(b.x, b.y, b.r, 0, 7); }); cb.stroke();
       cb.fillStyle = dk ? 'rgba(190,240,255,0.5)' : 'rgba(255,255,255,0.9)'; cb.beginPath(); bubbles.forEach(function (b) { var r = b.r * 0.3; cb.moveTo(b.x - b.r * 0.35 + r, b.y - b.r * 0.35); cb.arc(b.x - b.r * 0.35, b.y - b.r * 0.35, r, 0, 7); }); cb.fill();
-      // the sub: headlight beam, then dolphins behind it, the sub, dolphins in front
       var sx = SB[0], sy = SB[1] + Math.sin(t * 0.9) * 5, L = SB[2], s = L / 150, beam = Math.sin(t * 0.35 * f.s) * 0.35 + 0.15;
       cb.save(); cb.globalCompositeOperation = 'lighter'; cb.translate(sx + 68 * s, sy + 8 * s); cb.rotate(beam);
       var bg = cb.createLinearGradient(0, 0, W * 0.4, 0); bg.addColorStop(0, dk ? 'rgba(255,246,200,0.45)' : 'rgba(255,255,240,0.25)'); bg.addColorStop(1, 'rgba(255,246,200,0)'); cb.fillStyle = bg; cb.beginPath(); cb.moveTo(0, -4); cb.lineTo(W * 0.4, -W * 0.09); cb.lineTo(W * 0.4, W * 0.09); cb.lineTo(0, 4); cb.fill(); cb.restore();
@@ -451,7 +413,6 @@ ENGINES.marinebio = function (A, v, dk) {
       dol.forEach(function (d) { var p = orb(d); if (p.back) n6_dolphin(cb, p.x, p.y, (ph ? 1.2 : 2) * 0.88, p.dir, p.tilt, t + d.k, T > 2 && T < 5); });
       sub(cb, sx, sy, L, t, T > 0 && T < 7 ? 1 : 0);
       dol.forEach(function (d) { var p = orb(d); if (!p.back) n6_dolphin(cb, p.x, p.y, (ph ? 1.2 : 2) * 1.08, p.dir, p.tilt, t + d.k, T > 2 && T < 5); });
-      // sonar pings: three rings out of the sub
       if (T >= 0 && T < 4) { cb.save(); cb.globalCompositeOperation = dk ? 'lighter' : 'source-over'; for (j = 0; j < 3; j++) { var u = (T - j * 0.8) / 1.8; if (u < 0 || u > 1) continue; var R = 20 + u * W * (ph ? 0.5 : 0.32); cb.strokeStyle = dk ? 'rgba(150,255,230,' + (1 - u) * 0.8 + ')' : 'rgba(255,255,255,' + (1 - u) * 0.95 + ')'; cb.lineWidth = 3 * (1 - u) + 1; cb.beginPath(); cb.ellipse(sx, sy, R, R * 0.6, 0, 0, 7); cb.stroke(); if (u < 0.3) n6_dot(cb, pingG, sx, sy, 40, (0.3 - u) * 2); } cb.restore(); }
       otter(cb, OT[0], OT[1], OT[2], t, dk);
     },
@@ -459,4 +420,4 @@ ENGINES.marinebio = function (A, v, dk) {
   };
 };
 UIC.marinebio = {L: ['#2E8A86', '#1A5E5E', 'rgba(255,255,255,0.84)', '#0E2E30', '#4C6A6A', '#1F8A86', '#1F8A86', '#3AA6A0', '#FFFFFF'], D: ['#0E3440', '#06161C', 'rgba(8,30,38,0.78)', '#E6F6F4', '#9CC0BE', '#F2C230', '#F2C230', '#F6D86A', '#0A2028']};
-// ==== /n6:marinebio ====
+// /n6:marinebio

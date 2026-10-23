@@ -1,8 +1,5 @@
 /* ===== module: 96-usernames.js ===== */
-/* Usernames. Every account picks a unique @username: on the sign-up form, or once after signing in for accounts made before (or with
-   Google or Apple). Published flashcards and quizzes show it (studyboardapp.com/flashcards). The rules and the word list are the
-   server's (supabase-usernames.sql, which has the final say); this copy only gives instant feedback while typing. Keep the two lists
-   in step (tests/usernames.test.js checks them). */
+/* Usernames */
 (() => {
   /*UNAME-START*/
   const UNAME = (() => {
@@ -12,7 +9,7 @@
     const MAP = {"0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "8": "b", "9": "g", "@": "a", "$": "s", "!": "i", "|": "l"};
     const letters = s => String(s || "").toLowerCase().replace(/[013457893@$!|]/g, c => MAP[c] || c);
     const squeeze = s => s.replace(/(.)\1+/g, "$1");
-    // What's wrong with a name (the same messages as the server), or "" when it looks fine. Doesn't know who has which name.
+    // What's wrong with a name (the same messages as the server), or "" when it looks fine
     function problem(name){
       const n = String(name || "").trim();
       if (n.length < 3) return "Use at least 3 characters.";
@@ -36,15 +33,14 @@
   /*UNAME-END*/
 
   const KEY = uid => "studyboard:uname:" + uid;
-  // (tests stand in for the server with window.__sbShareStub and for the signed-in person with window.__sbGroupsStub)
   const who = () => (window.__sbGroupsStub && window.__sbGroupsStub.user) || sbUser;
   const cached = () => { try { const u = who(); return u ? localStorage.getItem(KEY(u.id)) || "" : ""; } catch (e) { return ""; } };
   const keep = n => { try { const u = who(); if (u) localStorage.setItem(KEY(u.id), n); } catch (e) {} };
-  const live = () => !inClaude() && (!!window.__sbShareStub || !!sb) && !!who() && !who().is_anonymous;
+  const live = () => !inPreview() && (!!window.__sbShareStub || !!sb) && !!who() && !who().is_anonymous;
   const rpcErr = e => { const m = String((e && (e.message || e.details)) || e || ""); return /Could not find the function|schema cache|does not exist/i.test(m) ? srvSetup("Usernames", "supabase-usernames.sql") : m.replace(/^SB_[A-Z_]+:\s*/, ""); };
   async function call(fn, args){ if (window.__sbShareStub) return window.__sbShareStub(fn, args || {}); const {data, error} = await sb.rpc(fn, args || {}); if (error) throw error; return data; }
 
-  // Live check under a username box: rules first (instant), then whether it's free (the server)
+  // Live check under a username box
   function wireCheck(input, msg){
     let t = 0, seq = 0;
     const run = async () => {
@@ -82,9 +78,9 @@
     const run = wireCheck($("#unIn"), $("#unMsg")); if ((cur || o.suggest) && !cur) run();
     setTimeout(() => { const i = $("#unIn"); if (i) i.focus(); }, 60);
   }
-  /* ---------- Birthday (like Quizlet: once; students under 13 can't publish or share publicly) ---------- */
+  /* Birthday */
   const AKEY = uid => "studyboard:age:" + uid;
-  const ageCached = () => { try { const u = who(); return u ? localStorage.getItem(AKEY(u.id)) || "" : ""; } catch (e) { return ""; } };   // "ok" or "young"
+  const ageCached = () => { try { const u = who(); return u ? localStorage.getItem(AKEY(u.id)) || "" : ""; } catch (e) { return ""; } };
   const ageKeep = v => { try { const u = who(); if (u) localStorage.setItem(AKEY(u.id), v); } catch (e) {} };
   const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const yearsOld = iso => { const b = new Date(iso + "T12:00:00"), n = new Date(); let a = n.getFullYear() - b.getFullYear(); if (n.getMonth() < b.getMonth() || (n.getMonth() === b.getMonth() && n.getDate() < b.getDate())) a--; return a; };
@@ -112,7 +108,7 @@
     if (c === "ok") { then(); return; }
     if (c === "young") { youngSheet(); return; }
     let a = null;
-    try { a = await call("my_age"); } catch (e) { then(); return; }   // (not set up on this server yet: the server's own checks decide)
+    try { a = await call("my_age"); } catch (e) { then(); return; }
     if (a != null) { ageKeep(a >= 13 ? "ok" : "young"); if (a >= 13) then(); else youngSheet(); return; }
     openSheet(`<form class="sheet">${head("When's Your Birthday?")}<div class="sheet-body">${bdayField()}<p class="mini" style="margin:0">It can't be changed later, and nobody else sees it.</p><p class="mini un-msg bad" id="bdMsg" aria-live="polite"></p></div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="submit" class="btn primary" data-submit id="bdSave">Continue</button></div></form>`, fd => {
@@ -124,7 +120,7 @@
     });
   }
 
-  // Something needs a username (publishing): use it, or ask for one first
+  // Something needs a username (publishing)
   async function ensure(then){
     if (!live()) { toast("Sign in first."); return; }
     const c = cached(); if (c) { then(c); return; }
@@ -133,7 +129,7 @@
     if (n) { keep(n); then(n); return; }
     sheet(then);
   }
-  // After signing in: an account without a username picks one (the one typed at sign-up is used when it's still free)
+  // After signing in
   let asked = "";
   async function afterSignIn(){
     if (!live() || asked === who().id) return;
@@ -143,17 +139,17 @@
     if (/^\d{4}-\d{2}-\d{2}$/.test(bd) && !ageCached()) { try { const a = await call("my_age"); if (a == null) { const got = await call("set_birthdate", {p_date: bd}); ageKeep(Number(got) >= 13 ? "ok" : "young"); } else ageKeep(a >= 13 ? "ok" : "young"); } catch (e) {} }
     if (cached()) return;
     let n = "";
-    try { n = await call("my_username"); } catch (e) { return; }   // (not set up on this server yet: nothing to ask)
+    try { n = await call("my_username"); } catch (e) { return; }
     if (n) { keep(n); return; }
     const want = String(((who().user_metadata || {}).username) || "").trim();
     if (want && !UNAME.problem(want)) { try { const got = await call("set_username", {p_name: want}); keep(String(got || want)); scheduleRender(); return; } catch (e) {} }
-    if (window.SBOB && SBOB.pending && SBOB.pending()) { asked = ""; setTimeout(afterSignIn, 15000); return; }   // after the welcome tour
+    if (window.SBOB && SBOB.pending && SBOB.pending()) { asked = ""; setTimeout(afterSignIn, 15000); return; }
     sheet(null, want ? {suggest: want, why: `@${want} is taken. Pick another.`} : {});
   }
   let seen = "";
   hook("render", () => { const u = who() && who().id; if (!u || u === seen) return; seen = u; setTimeout(afterSignIn, 1500); });
 
-  // Settings > Account: your username
+  // Settings > Account
   hook("menu", () => live() ? `<button data-act="un-edit" data-group="account"><span>Username<span class="sub">${cached() ? "@" + esc(cached()) : "Not picked yet"}</span></span></button>` : "");
   hook("act", act => { if (act !== "un-edit") return false; if (dlg.open) dlg.close(); setTimeout(() => sheet(null), 0); return true; });
 

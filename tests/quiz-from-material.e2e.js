@@ -1,5 +1,4 @@
-// A quiz made straight from slides or notes (no flashcards): saved on its own, never shows as a deck, shows in Quizzes.
-// Run: node tests/quiz-from-material.e2e.js
+// A quiz made straight from slides or notes (no flashcards)
 const path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
@@ -16,7 +15,6 @@ const SEED = {v: 2, updated: 1, courses: [{id: "c1", name: "Biology", code: "BIO
   await page.click("#fab"); await page.waitForTimeout(300);
   ok(await page.evaluate(() => { const b = [...document.querySelectorAll('dialog[open] [data-act="qz-ai"],dialog[open] [data-act="qz-from-deck"]')]; return b.length === 2 && b[0].dataset.act === "qz-ai"; }), "it offers From Slides or Notes first, then From a Deck");
   await page.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
-  // the review step for a quiz made from material
   await page.evaluate(() => __sbSync.aiReviewSheet({cards: [], cases: [], quizTitle: "Lecture 5 Quiz", questions: [
     {id: "q1", type: "single", stem: "Which organelle makes ATP?", options: ["Nucleus", "Mitochondria"], correct: [1], rationale: "Powerhouse."},
     {id: "q2", type: "single", stem: "Where are ribosomes made?", options: ["Nucleolus", "Golgi"], correct: [0], rationale: "In the nucleolus."}]},

@@ -1,30 +1,18 @@
 /* ===== module: 98-rooms.js ===== */
-/* Studyboard 1.11: Study Together rooms (module 98-rooms)
-   A shared focus session inside a study group's page: anyone in the group starts one (25, 50, 90 minutes or custom,
-   with an optional goal), everyone else gets a gentle note and can join any time before it ends.
-   - Timing comes from the server: the room row holds started_at and ends_at, and each device measures its clock
-     offset against room_now(), so every countdown agrees even when device clocks don't.
-   - Realtime: one channel per group ("sbroom:<group id>", private with rules in rooms.sql) carries Presence (who's here),
-     Broadcast (cheers) and postgres_changes on the room rows. It stays connected while you're in a session (even with
-     the tab hidden, since people switch tabs to study) or looking at that group's page, and closes otherwise.
-     A tiny notice listener (new rooms in your groups) runs only while the app is visible.
-   - Your own Focus timer is left alone: rooms keep their own time. At the end your minutes in the room
-     (whole minutes, every one counts) go to SBSTATS.addFocus(minutes, "room").
-   - Room size and length follow the group owner's plan (room_limits in rooms.sql); with the paywall off, Pro limits for all.
-   The Supabase side is supabase/rooms.sql. Tests use window.__sbGroupsStub, like the groups module. */
+/* Studyboard 1.11 */
 (() => {
-  /* ---------- Connection (same as the groups module) ---------- */
+  /* Connection (same as the groups module) */
   const stub = () => window.__sbGroupsStub || null;
   const cli = () => { const s = stub(); return s ? s.client : (sbActive() ? sb : null); };
   const me = () => { const s = stub(); return s ? s.user : sbUser; };
   const online = () => !!cli() && !!me();
   const myId = () => (me() || {}).id || "";
 
-  const LIMITS = {free: {people: 4, minutes: 180}, pro: {people: 30, minutes: 180}};   // session length is the same on every plan
+  const LIMITS = {free: {people: 4, minutes: 180}, pro: {people: 30, minutes: 180}};
   const LENGTHS = [25, 50, 90];
-  const BREAK_MS = 5 * 60000;          // the short break after a session
-  const MOMENT_MS = BREAK_MS + 10 * 60000;   // how long the shared moment stays up (unless you tap Done)
-  const STALE_MS = 5 * 60000;          // someone whose app stopped checking in this long ago isn't "here"
+  const BREAK_MS = 5 * 60000;
+  const MOMENT_MS = BREAK_MS + 10 * 60000;
+  const STALE_MS = 5 * 60000;
   const PING_MS = 2 * 60000;
   const CHEERS = [["clap", "👏", "Clap"], ["fire", "🔥", "You're on Fire"], ["muscle", "💪", "Keep Going"], ["star", "⭐", "Star"], ["heart", "💖", "Love It"]];
   const CHEER = Object.fromEntries(CHEERS.map(c => [c[0], c]));
@@ -64,7 +52,7 @@
     live: {}, liveAt: 0, liveBusy: false, hasGroups: undefined, pageGid: null, draft: {}, busy: false,
     ch: null, chGid: null, chReady: false, chTriedPublic: false, tracked: false, presence: new Map(), presenceOK: false,
     nch: null, offset: 0, clockAt: 0, mine: null, tickT: 0, pingT: 0, lastCheer: 0, pendingToast: null};
-  const now = () => Date.now() + R.offset;         // the server's clock, in ms
+  const now = () => Date.now() + R.offset;
   const ts = x => { const t = Date.parse(x || ""); return isNaN(t) ? 0 : t; };
   const str = (x, n) => String(x == null ? "" : x).slice(0, n);
   const plural = (n, w, ws) => `${n} ${n === 1 ? w : (ws || w + "s")}`;
@@ -86,8 +74,7 @@
   }
   const isLive = room => phase(room) === "live";
 
-  /* ---------- Your session (kept on this device so a reload or a closed tab picks up where you were) ---------- */
-  // {rid, gid, gname, minutes, startedAt, endsAt, goal, segs: [[inMs, outMs|0]], seen, names: {uid: name}, done, moment}
+  /* Your session (kept on this device so a reload or a closed tab picks up where you were) */
   const MK = () => "sb:room:" + myId();
   function loadMine(){ const m = lsJSON(MK(), null); return m && m.rid && Array.isArray(m.segs) ? m : null; }
   function saveMine(){ if (!myId()) return; if (R.mine) ls(MK(), JSON.stringify(R.mine)); else ls(MK(), null); }
@@ -98,7 +85,7 @@
     m.segs.forEach(([a, b]) => { const s = Math.max(a, m.startedAt), e = Math.min(b || endAt, endAt, m.endsAt); if (e > s) t += e - s; });
     return t;
   }
-  // Rooms whose minutes this account already recorded (synced in settings, so two devices don't both count one session).
+  // Rooms whose minutes this account already recorded
   const RECK = "sb:roomRec";
   function recorded(rid){ return ((state.settings || {}).roomsDone || []).includes(rid) || lsJSON(RECK, []).includes(rid); }
   function markRecorded(rid){
@@ -120,24 +107,22 @@
     const ks = Object.keys(m.names); if (ks.length > 40) ks.slice(0, ks.length - 40).forEach(k => delete m.names[k]);
   }
 
-  /* ---------- Server clock ---------- */
+  /* Server clock */
   async function syncClock(force){
     if (!online() || (!force && Date.now() - R.clockAt < 10 * 60000)) return;
     try {
       const t0 = Date.now(), s = await api.now(), t1 = Date.now(), srv = ts(first(s));
-      // Only trust quick answers: half the round trip is the error.
       if (srv && t1 - t0 < 4000) { R.offset = Math.round(srv - (t0 + t1) / 2); R.clockAt = t1; }
-    } catch(e) { /* keep the last offset (0 at first): the countdown is then only as good as this device's clock */ }
+    } catch(e) { }
   }
 
-  /* ---------- Loading ---------- */
+  /* Loading */
   function limitsFor(gid){
     const l = R.limits[gid];
     if (l) return l;
-    // Before room_limits answers (or without it): Pro limits while the paywall is off, else what we can tell locally.
     const pw = typeof PLAN !== "undefined" && PLAN && PLAN.paywall();
     const g = R.groups[gid], ownerMe = g && g.owner_id === myId();
-    const pro = !pw || (ownerMe && (PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro()));   // room size follows the paid plan, not the free week
+    const pro = !pw || (ownerMe && (PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro()));
     return Object.assign({pro: pro && pw, paywall: !!pw, guess: true}, pro ? LIMITS.pro : LIMITS.free);
   }
   async function loadRoom(gid){
@@ -157,7 +142,7 @@
     R.loading[gid] = false; R.loaded[gid] = true; R.loadedAt[gid] = Date.now();
     draw(); need();
   }
-  // A room row arrived (loaded or live). Keeps your session in step with it.
+  // A room row arrived (loaded or live)
   function setRoom(gid, room){
     const prev = R.rooms[gid];
     R.rooms[gid] = room;
@@ -170,21 +155,18 @@
       if (room.status !== "active") m.endsAt = Math.min(m.endsAt, now());
       saveMine();
     } else if ((room && room.id !== m.rid) || (!room && prev && prev.id === m.rid)) {
-      // Your room was ended and replaced (or removed). It ended no later than the new one started.
       m.endsAt = Math.min(m.endsAt, room ? ts(room.started_at) || now() : now());
       saveMine();
     }
   }
 
-  /* ---------- Realtime ---------- */
+  /* Realtime */
   function wantGid(){ if (inRoom()) return R.mine.gid; if (R.pageGid && !document.hidden) return R.pageGid; return null; }
   function updateChannel(){ const g = wantGid(); if (g !== R.chGid || (g && !R.ch)) { disconnect(); if (g) connect(g); } else trackMe(); }
   function connect(gid){
     const c = cli(); if (!c || typeof c.channel !== "function") return;
     R.chGid = gid; R.chTriedPublic = false; R.chPublic = false; R.presence = new Map(); R.presenceOK = false; R.tracked = false;
     const mk = priv => {
-      // A regular (non-private) channel can be joined by anyone who knows the group id, so it only carries database changes (which the
-      // database's own row rules still filter per person): never presence (who is in the room) or cheers.
       R.chPublic = !priv;
       const ch = c.channel("sbroom:" + gid, {config: priv ? {private: true, presence: {key: myId()}, broadcast: {self: false, ack: false}} : {private: false}});
       if (priv) {
@@ -198,8 +180,6 @@
           if (R.ch !== ch) return;
           if (status === "SUBSCRIBED") { R.chReady = true; R.tracked = false; trackMe(); }
           else if (status === "CHANNEL_ERROR" && priv && !R.chTriedPublic) {
-            // The private channel rules from rooms.sql aren't there (or Realtime Authorization is off): a regular channel for room changes
-            // only. Live presence and cheers stay off until the rules are installed, rather than being sent where anyone could listen.
             R.chTriedPublic = true; R.chReady = false; try { c.removeChannel(ch); } catch(e) {}
             R.ch = mk(false);
           } else if (status === "CLOSED" || status === "TIMED_OUT" || status === "CHANNEL_ERROR") { R.chReady = false; R.tracked = false; }
@@ -242,7 +222,6 @@
     const was = R.rooms[gid];
     if (!was || was.id !== row.id) { R.people[row.id] = R.people[row.id] || []; R.presence = new Map(); }
     setRoom(gid, row);
-    // A new round started by someone else while you're on the page: fetch who's in it.
     if (!was || was.id !== row.id) loadRoomSoon(gid);
     draw(); need();
   }
@@ -256,10 +235,7 @@
   let loadT = 0;
   function loadRoomSoon(gid){ clearTimeout(loadT); loadT = setTimeout(() => loadRoom(gid), 400); }
 
-  /* ---------- Study Companion portraits (another module; used only if it's there) ---------- */
-  // Uses SBCOMP.current() (your companion's id) and SBCOMP.wearing() (its accessory id), shared through Presence,
-  // and draws others with SBCOMP.rigSvg(id, {prop: "book"}) in a studying pose. A future SBCOMP.portrait(desc, px) wins if
-  // it exists. Only short ids travel between people, so nothing another person sends is ever put on the page as HTML.
+  /* Study Companion portraits (another module; used only if it's there) */
   function cleanComp(d){
     if (!d || typeof d !== "object" || Array.isArray(d)) return null;
     const o = {}; let n = 0;
@@ -296,7 +272,7 @@
     return `<span class="room-av" style="--c:${esc(hueOf(p.id || p.n))}" aria-hidden="true">${esc(initials(p.n))}</span>`;
   }
 
-  /* ---------- Who's in the room ---------- */
+  /* Who's in the room */
   function peopleNow(gid, room){
     const rows = R.people[room.id] || [], by = new Map();
     if (R.presenceOK && R.chGid === gid) R.presence.forEach((x, id) => by.set(id, {id, n: x.n, g: x.g, c: x.c}));
@@ -308,14 +284,14 @@
     return list.sort((a, b) => (b.me - a.me) || String(a.n).localeCompare(String(b.n)));
   }
 
-  /* ---------- Drawing the room on the group page ---------- */
+  /* Drawing the room on the group page */
   const ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="7.5"/><path d="M12 9.5V13l2.4 1.6M9.5 2.8h5M12 2.8v2.7"/><path d="M4.2 6.2l1.6 1.4M19.8 6.2l-1.6 1.4"/></svg>';
   const R_DIAL = 52, C_DIAL = 2 * Math.PI * R_DIAL;
   function ensureSection(gid){
     const head = $("#grpHead"); if (!head) return null;
     let sec = $("#roomSec");
     const gd = $("#grpDetail");
-    if (gd && gd.dataset.kind === "project") { if (sec) sec.remove(); return null; }   // Study Together is for study groups, not group projects
+    if (gd && gd.dataset.kind === "project") { if (sec) sec.remove(); return null; }
     if (sec && sec.dataset.gid !== gid) { sec.remove(); sec = null; }
     if (!sec) {
       sec = document.createElement("section");
@@ -348,7 +324,6 @@
   function sectionHtml(gid){
     if (R.setup) return `<div class="room-card" data-state="is-setup"><div class="room-idle">${`<span class="room-ic">${ICON}</span>`}<div class="room-idle-txt"><b>Study Together</b><span class="mini">Focus at the same time as your group. ${esc(srvSetup("It", "rooms.sql"))}</span></div><button class="btn small" data-act="room-retry">Try Again</button></div></div>`;
     const room = R.rooms[gid], m = R.mine;
-    // The shared moment (and short break) after a session you were in
     if (m && m.done && m.gid === gid && m.moment && now() < m.moment.endAt + MOMENT_MS) return momentHtml(gid, m, room);
     if (!R.loaded[gid] && !room) return `<div class="room-card" data-state="is-idle"><div class="room-idle"><span class="room-ic">${ICON}</span><div class="room-idle-txt"><b>Study Together</b><span class="mini"><span class="ai-spin" aria-hidden="true"></span> Checking for a session…</span></div></div></div>`;
     if (room && isLive(room)) return inRoom(room.id) ? roomHtml(gid, room) : liveHtml(gid, room);
@@ -414,7 +389,7 @@
         <div class="row-actions"><button class="btn primary" data-act="room-again">${next ? "Join Next Round" : `Go Again (${esc(minLabel(m.minutes))})`}</button><button class="btn" data-act="room-done">Done</button></div>
       </div></div>`;
   }
-  // Countdowns, the ring, the header pill and the tab title: text-only updates, once a second.
+  // Countdowns, the ring, the header pill and the tab title
   function paint(){
     $$("[data-room-left]").forEach(el => { const r = R.rooms[el.dataset.roomLeft]; if (r) el.textContent = fmtClock(Math.max(0, ts(r.ends_at) - now())); });
     $$("[data-room-dial] .bar").forEach(el => {
@@ -429,26 +404,23 @@
   function updatePill(){
     const m = R.mine, on = inRoom() && !(ui.tab === "groups" && ui.grp === m.gid);
     const left = inRoom() ? fmtClock(Math.max(0, m.endsAt - now())) : "";
-    // Phones and tablets: a small chip at the bottom left (the desktop sidebar shows the time on the Groups button instead)
     let pill = $("#roomPill");
     if (on) {
       if (!pill) { pill = document.createElement("button"); pill.id = "roomPill"; pill.className = "room-pill"; pill.dataset.act = "room-open"; document.body.appendChild(pill); }
       const html = `${ICON}<span>${esc(left)}</span>`;
       if (pill.dataset.t !== left) { pill.innerHTML = html; pill.dataset.t = left; pill.setAttribute("aria-label", `Study Together, ${left} left. Open the room`); }
     } else if (pill) pill.remove();
-    // Desktop sidebar: the time on the Groups button
     const nb = $('nav.tabs [data-tab="groups"]');
     if (nb) {
       let t = $(".room-navtime", nb);
       if (inRoom()) { if (!t) { t = document.createElement("span"); t.className = "room-navtime"; nb.appendChild(t); } t.textContent = left; }
       else if (t) t.remove();
     }
-    // The tab title, when your own Focus timer isn't using it
     let pr = false; try { pr = !!pomo.running; } catch(e) {}
     if (!pr) { const want = inRoom() ? `${left} Study Together · Studyboard` : "Studyboard"; if (document.title !== want && (inRoom() || / Study Together · /.test(document.title))) document.title = want; }
   }
 
-  /* ---------- The clock that runs while something needs it ---------- */
+  /* The clock that runs while something needs it */
   function need(){
     const m = R.mine, pageRoom = R.pageGid && R.rooms[R.pageGid];
     const want = (m && !m.done) || (m && m.done && m.moment && now() < m.moment.endAt + MOMENT_MS) || (pageRoom && isLive(pageRoom)) || Object.keys(R.live).length;
@@ -464,7 +436,6 @@
       if (now() >= m.endsAt) finish(false);
       else if (inRoom() && Date.now() - (m.savedAt || 0) > 15000) { m.seen = now(); m.savedAt = Date.now(); saveMine(); }
     }
-    // Rooms that just ended on the page or in the list
     Object.keys(R.live).forEach(g => { if (!isLive(R.live[g])) { delete R.live[g]; if (ui.tab === "groups" && !ui.grp) decorateList(); } });
     const pr = R.pageGid && R.rooms[R.pageGid];
     if (pr && R.pageGid && $("#roomSec") && $("#roomSec").className.includes("is-live") && !isLive(pr)) draw();
@@ -474,7 +445,7 @@
     need();
   }
 
-  /* ---------- Joining, leaving, finishing ---------- */
+  /* Joining, leaving, finishing */
   function enter(room, goal){
     const gid = room.group_id, g = R.groups[gid];
     const t = now();
@@ -482,7 +453,6 @@
       : {rid: room.id, gid, gname: str(g && g.name, 80), minutes: Number(room.minutes) || 25, startedAt: ts(room.started_at), endsAt: ts(room.ends_at), goal: "", segs: [], names: {}, done: 0};
     if (goal != null) m.goal = str(goal, 80);
     const last = m.segs[m.segs.length - 1];
-    // The person who started it was there from the server's start time.
     if (!last || last[1]) m.segs.push([!m.segs.length && room.started_by === myId() ? m.startedAt : Math.max(t, m.startedAt), 0]);
     m.seen = t; m.savedAt = Date.now();
     R.mine = m; saveMine();
@@ -491,7 +461,7 @@
     updateChannel(); trackMe(); need(); draw();
     try { fire("room", {type: "join", gid, endAt: m.endsAt - R.offset, minutes: m.minutes}); } catch(e) {}
   }
-  // One session at a time: you can't be in two rooms. A session you left earlier is wrapped up (its minutes count).
+  // One session at a time
   function switchOk(gid, rid){
     const m = R.mine; if (!m || m.done || m.rid === rid) return true;
     if (inRoom()) { toast(`You're in a session in ${m.gname || "another group"}. Leave that room first.`); return false; }
@@ -544,7 +514,7 @@
     updateChannel(); need(); draw();
     try { fire("room", {type: "leave", gid: m.gid}); } catch(e) {}
   }
-  // Time's up (or the session was ended early): the shared moment, and your minutes go to your focus stats.
+  // Time's up (or the session was ended early)
   function finish(quiet){
     const m = R.mine; if (!m || m.done) return;
     const end = Math.min(m.endsAt, now());
@@ -573,7 +543,7 @@
     if (document.hidden) R.pendingToast = msg;
     else if (!onPage) toast(msg, null, {label: "Open", fn: () => openGroupPage(m.gid)});
   }
-  // After a reload or reopening the app: pick up your session where it was.
+  // After a reload or reopening the app
   function resume(){
     const m = R.mine = loadMine();
     if (!m) return;
@@ -582,14 +552,13 @@
     const last = lastSeg();
     if (last && !last[1] && now() - (m.seen || 0) > 3 * 60000) { last[1] = Math.max(last[0], m.seen || last[0]); saveMine(); }
     if (inRoom()) {
-      // Still in it: say "still here" to the server and reconnect.
       api.join(m.rid, null).then(row => { if (row) setRoom(m.gid, row); draw(); }).catch(e => { if (e.kind === "GONE") { m.endsAt = Math.min(m.endsAt, now()); saveMine(); finish(false); } });
       syncClock(true);
     }
     updateChannel(); need();
   }
 
-  /* ---------- Cheers ---------- */
+  /* Cheers */
   function sendCheer(k){
     if (!CHEER[k] || !inRoom()) return;
     if (Date.now() - R.lastCheer < 1200) return;
@@ -602,7 +571,6 @@
   function onCheer(p){
     if (!p || typeof p !== "object" || !CHEER[p.k] || p.u === myId()) return;
     const room = R.rooms[R.chGid]; if (room && p.r && p.r !== room.id) return;
-    // A friendly cap on how many cheers show at once
     const t = Date.now(); while (cheerLog.length && t - cheerLog[0] > 3000) cheerLog.shift();
     if (cheerLog.length >= 8) return; cheerLog.push(t);
     floatCheer(p.k, str(p.n, 40) || "Classmate");
@@ -619,7 +587,7 @@
     setTimeout(() => el.remove(), 3200);
   }
 
-  /* ---------- Sheets ---------- */
+  /* Sheets */
   function startSheet(gid){
     const g = R.groups[gid] || {}, lim = limitsFor(gid), ownerMe = g.owner_id === myId();
     const locked = n => n > lim.minutes;
@@ -661,7 +629,7 @@
     ui.tab = "groups"; ui.grp = gid; render(); window.scrollTo(0, 0);
   }
 
-  /* ---------- Actions ---------- */
+  /* Actions */
   hook("act", (act, el, id) => {
     if (!act.startsWith("room-")) return false;
     const gid = R.pageGid;
@@ -702,7 +670,7 @@
     if (e.target && e.target.id === "roomGoalIn" && e.key === "Enter") { e.preventDefault(); const b = $('#roomSec [data-act="room-join"]'); if (b && !b.disabled) b.click(); }
   });
 
-  /* ---------- Notices: a small banner on the Groups page and a gentle toast ---------- */
+  /* Notices: a small banner on the Groups page and a gentle toast */
   const SEENK = "sb:roomSeen";
   const seen = rid => lsJSON(SEENK, []).includes(rid);
   function markSeen(rid){ ls(SEENK, JSON.stringify(lsJSON(SEENK, []).filter(x => x !== rid).concat(rid).slice(-40))); }
@@ -710,7 +678,7 @@
     if (!room || !isLive(room) || seen(room.id)) return;
     markSeen(room.id);
     if (room.started_by === myId() || !noticesOn() || inRoom()) return;
-    if (ui.tab === "groups" && ui.grp === room.group_id) return;    // it's right there on the page
+    if (ui.tab === "groups" && ui.grp === room.group_id) return;
     const name = (R.groups[room.group_id] || {}).name || "your study group";
     const left = Math.max(1, Math.round((ts(room.ends_at) - now()) / 60000));
     const msg = `${str(room.starter_name, 40) || "A classmate"} started Study Together in ${name}. ${left} min left.`;
@@ -741,7 +709,6 @@
     const want = online() && !document.hidden && !R.setup && noticesOn() && R.hasGroups === true && c && typeof c.channel === "function";
     if (want && !R.nch) {
       const ch = R.nch = c.channel("sbroom-notice-" + myId() + "-" + uid());
-      // Only rooms in your own groups reach you: Realtime checks the same rules as the table.
       ch.on("postgres_changes", {event: "INSERT", schema: "public", table: "study_rooms"}, p => {
         const row = p && p.new; if (!row || !row.id) return;
         R.live[row.group_id] = row; if (!R.rooms[row.group_id] || R.rooms[row.group_id].id !== row.id) setRoom(row.group_id, row);
@@ -769,7 +736,7 @@
     $$(".room-banners", v).slice(1).forEach(x => x.remove());
   }
 
-  /* ---------- Hooks into the rest of the app ---------- */
+  /* Hooks into the rest of the app */
   function checkUser(){
     const id = online() ? myId() : "";
     if (R.uid === id) return;
@@ -785,7 +752,7 @@
     if (R.pageGid !== gid) { R.pageGid = gid; if (gid && R.loadedAt[gid] && Date.now() - R.loadedAt[gid] > 30000) R.loaded[gid] = false; }
     if (gid) { draw(); if (!R.loaded[gid] && !R.loading[gid]) loadRoom(gid); }
     if (tab === "groups" && online()) {
-      if (R.hasGroups === false) R.hasGroups = undefined;   // they may have just joined one
+      if (R.hasGroups === false) R.hasGroups = undefined;
       if (!ui.grp) { decorateList(); loadLive(false); }
     }
     updateChannel(); updatePill(); need();
@@ -795,7 +762,6 @@
   hook("boot", () => {
     checkUser();
     setTimeout(() => loadLive(true), 2500);
-    // Signed in a bit after boot: notice it (no polling; after the first check, new rooms arrive through the notice listener).
     setInterval(() => { checkUser(); if (online() && !document.hidden && R.hasGroups === undefined) loadLive(true); else updateNotice(); }, 60000);
   });
   document.addEventListener("visibilitychange", () => {

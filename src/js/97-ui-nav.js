@@ -1,8 +1,5 @@
 /* ===== module: 97-ui-nav.js ===== */
-/* Studyboard 1.11.0: the desktop side menu always fits, with no scrollbar. Module prefix 97-ui.
-   The menu has compact levels (data-fit="1" to "4", in 97-ui-nav.css). After any size change this picks the
-   roomiest level where everything fits: tighter spacing first, then icon-only tools, then icon-only tabs.
-   Every button keeps a tooltip (title) and its aria-label, so nothing is lost when labels are hidden. */
+/* Studyboard 1.11.0 */
 (() => {
   const nav = document.querySelector("nav.tabs");
   if (!nav) return;
@@ -12,8 +9,7 @@
     const t = (b.getAttribute("aria-label") || b.textContent || "").replace(/\s+/g, " ").trim();
     if (t && b.title !== t) b.title = t;
   });
-  // Let the upper group (Board ... Focus) use spare height: taller buttons and a little more spacing, capped so it
-  // never looks stretched, while the tools stay at the bottom. Only room that is really free is used, so no scrollbar.
+  // Let the upper group (Board ... Focus) use spare height
   const KEEP = 28, CAP_H = 12, CAP_G = 4;
   function stretch(lvl){
     nav.style.removeProperty("--nb-min"); nav.style.removeProperty("--nb-g");

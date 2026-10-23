@@ -1,7 +1,4 @@
-// node tests/image-cards.e2e.js   (Playwright + Chromium; see tests/pw.js)
-// Image cards (Pro, module 99-pro): older masks ([x, y, w, h], no set id) still render and study; the editor draws boxes, ovals and
-// freehand shapes, groups boxes into one card, undoes, and edits a picture's cards later keeping their history; study modes (Hide One,
-// Hide All, Tap to Peek), Type Answers, the answer on the back; Diagram Practice (place labels, timed, Count as a Review); free plan.
+// node tests/image-cards.e2e.js (Playwright + Chromium; see tests/pw.js) Image cards
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const csp = require("../scripts/csp");
@@ -17,7 +14,7 @@ const server = http.createServer((req, res) => {
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 const pad = x => String(x).padStart(2, "0");
 const day = off => { const d = new Date(); d.setDate(d.getDate() + off); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
-// Two cards made by an older version: masks are plain [x, y, w, h], no set id, Hide All
+// Two cards made by an older version
 const OLD = i => ({id: "o" + i, front: "Name the hidden label", back: ["Nucleus", "Ribosome"][i], box: 0, due: "", seen: 0, right: 0, wrong: 0,
   img: {k: "i:old", w: 400, h: 300, m: [[0.1, 0.1, 0.2, 0.1], [0.6, 0.6, 0.2, 0.1]], i, mode: "all", src: "Old cell"}});
 function SEED(){
@@ -48,7 +45,7 @@ function SEED(){
   try {
     const page = await open(await mkCtx(SEED()));
 
-    // ---------- Older masks still render and study ----------
+    // Older masks still render and study
     await studyDeck(page, "d1");
     ok(await page.locator(".ic-study").count() === 1 && await page.locator(".flip").count() === 0, "an image card is studied on the image card screen");
     ok(await page.locator('.ic-study button.ci-box.me[data-act="fc-flip"]').count() === 1, "old masks: the card's own label is a button that shows the answer");
@@ -63,7 +60,7 @@ function SEED(){
     await noOverflow(page, "studying an image card");
     await page.click('[data-act="fc-exit"]').catch(() => {}); await page.waitForTimeout(200);
 
-    // ---------- The editor: shapes, a group, undo ----------
+    // The editor: shapes, a group, undo
     await page.evaluate(async () => {
       const cv = document.createElement("canvas"); cv.width = 400; cv.height = 300; const g = cv.getContext("2d");
       g.fillStyle = "#fff"; g.fillRect(0, 0, 400, 300); g.fillStyle = "#222"; g.font = "16px sans-serif";
@@ -78,28 +75,25 @@ function SEED(){
     const P = (fx, fy) => [st.x + st.width * fx, st.y + st.height * fy];
     const drag = async (a, b, steps) => { await measure(); await page.mouse.move(...P(...a)); await page.mouse.down(); for (let i = 1; i <= (steps || 6); i++) await page.mouse.move(...P(a[0] + (b[0] - a[0]) * i / (steps || 6), a[1] + (b[1] - a[1]) * i / (steps || 6))); await page.mouse.up(); await page.waitForTimeout(150); };
     const label = async t => { await page.locator(".oc-list input").last().fill(t); };
-    await drag([0.05, 0.06], [0.3, 0.17]); await label("Nucleus");                                   // a box
+    await drag([0.05, 0.06], [0.3, 0.17]); await label("Nucleus");
     await page.click('[data-act="pro-oc-tool"][data-id="oval"]');
-    await drag([0.6, 0.06], [0.85, 0.17]); await label("Ribosome");                                  // an oval
+    await drag([0.6, 0.06], [0.85, 0.17]); await label("Ribosome");
     await page.click('[data-act="pro-oc-tool"][data-id="free"]');
     await measure(); await page.mouse.move(...P(0.05, 0.75)); await page.mouse.down();
     for (const [x, y] of [[0.15, 0.72], [0.25, 0.76], [0.26, 0.86], [0.15, 0.9], [0.06, 0.86], [0.05, 0.78]]) await page.mouse.move(...P(x, y), {steps: 4});
-    await page.mouse.up(); await page.waitForTimeout(150); await label("Golgi");                      // a freehand shape
+    await page.mouse.up(); await page.waitForTimeout(150); await label("Golgi");
     await page.click('[data-act="pro-oc-tool"][data-id="rect"]');
     await drag([0.6, 0.6], [0.75, 0.69]); await label("Cell");
     await drag([0.62, 0.73], [0.85, 0.8]); await label("membrane");
     ok(await page.locator(".oc-stage .oc-box").count() === 5 && await page.locator(".oc-stage ellipse").count() === 1 && await page.locator(".oc-stage polygon").count() === 1, "the editor draws boxes, an oval and a freehand shape");
-    // Undo: delete a box, then bring it back
     await page.click('.oc-list li:nth-child(2) [data-act="pro-oc-del"]'); await page.waitForTimeout(150);
     ok(await page.locator(".oc-stage .oc-box").count() === 4, "a box can be removed");
     await page.click('[data-act="pro-oc-undo"]'); await page.waitForTimeout(150);
     ok(await page.locator(".oc-stage .oc-box").count() === 5 && await page.locator(".oc-stage ellipse").count() === 1, "Undo brings it back");
-    // Group the label on two lines into one card
     await page.click('[data-act="pro-oc-multi"]');
     await page.click('.oc-stage [data-oc-box="3"]'); await page.click('.oc-stage [data-oc-box="4"]');
     await page.click('[data-act="pro-oc-group"]'); await page.waitForTimeout(150);
     ok(await page.locator(".oc-list li").count() === 4 && await page.locator('.oc-list input[data-oc-ans="3"]').inputValue() === "Cell membrane", "two boxes grouped make one card, their words joined: Cell membrane");
-    // Resize the first box with its corner
     await page.click('.oc-list [data-act="pro-oc-pick"][data-id="0"]'); await page.waitForTimeout(100);
     await measure(); const h = await page.locator(".oc-h.se").boundingBox();
     await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2); await page.mouse.down(); await page.mouse.move(...P(0.4, 0.22), {steps: 4}); await page.mouse.up(); await page.waitForTimeout(150);
@@ -118,7 +112,7 @@ function SEED(){
     ok(grp && grp.img.g && grp.img.g.join() === "3,4" && grp.img.i === 3, "the grouped card hides both its masks (g), i is the first");
     ok(await page.evaluate(() => { const d = window.__sbSync.state.decks.d3, c = d.cards.find(x => x.back === "Cell membrane"); return (window.SBPRO.studyCard(d, c, {flipped: false}).match(/class="ci-box me"/g) || []).length; }) === 2, "studying the grouped card covers both parts as one question");
 
-    // ---------- Studying: Tap to Peek, Type Answers, keyboard ----------
+    // Studying: Tap to Peek, Type Answers, keyboard
     await studyDeck(page, "d3");
     ok(await page.locator(".ic-study ellipse").count() === 1 && await page.locator(".ic-study polygon").count() === 1, "the oval and freehand masks are drawn in study");
     const peeks = page.locator('.ic-study [data-act="pro-ic-peek"]');
@@ -143,7 +137,7 @@ function SEED(){
     await noOverflow(page, "studying zoomed in");
     await page.click('[data-act="fc-exit"]').catch(() => {}); await page.waitForTimeout(200);
 
-    // ---------- Editing a picture's cards later keeps their history ----------
+    // Editing a picture's cards later keeps their history
     await page.evaluate(() => { const S = window.__sbSync, d = S.clone(S.state.decks.d3); d.cards.forEach(c => Object.assign(c, {seen: 4, right: 3, wrong: 1, box: 3})); S.applyChanges([{kind: "deck", id: "d3", after: d}], null); });
     const before = await deck(page, "d3");
     const nuc = before.cards.find(c => c.back === "Nucleus"), rib = before.cards.find(c => c.back === "Ribosome");
@@ -169,20 +163,17 @@ function SEED(){
     const cm = after.cards.find(c => c.back === "Cell membrane");
     ok(cm && cm.seen === 4 && cm.img.g.length === 2 && cm.img.g.every(j => j < 4), "the grouped card is still grouped, history kept, its masks renumbered");
 
-    // ---------- Diagram Practice ----------
+    // Diagram Practice
     await act(page, "pro-dp-open", "d3"); await page.waitForTimeout(400);
     ok(await page.locator("#dlg .dp-pin").count() === 4 && await page.locator("#dlg .dp-lab").count() === 4 && /0:0\d/.test(await page.textContent("#dlg .dp-time")), "Diagram Practice shows numbered spots, the labels and a timer");
     ok(!(await page.isChecked("[data-dp-count]")), "Count as a Review is off unless you choose it");
     const labs = await page.$$eval("#dlg .dp-lab", els => els.map(e => e.dataset.dpLab));
-    // one wrong try first
     const wrongSpot = await page.$$eval("#dlg .dp-pin", (els, id) => els.find(e => e.dataset.dpSpot !== id).dataset.dpSpot, labs[0]);
     await page.click(`#dlg [data-dp-lab="${labs[0]}"]`); await page.click(`#dlg [data-dp-spot="${wrongSpot}"]`); await page.waitForTimeout(150);
     ok(/Not that spot/.test(await page.textContent("#dlg .dp-msg")) && await page.locator(`#dlg [data-dp-lab="${labs[0]}"][aria-pressed="true"]`).count() === 1, "a wrong spot says so and keeps the label picked");
     await page.click(`#dlg [data-dp-spot="${labs[0]}"]`); await page.waitForTimeout(150);
     ok(/Right/.test(await page.textContent("#dlg .dp-msg")) && await page.locator("#dlg .dp-pin.ok").count() === 1, "the right spot places it");
-    // spot first, then the label
     await page.click(`#dlg [data-dp-spot="${labs[1]}"]`); await page.click(`#dlg [data-dp-lab="${labs[1]}"]`); await page.waitForTimeout(150);
-    // drag a label onto its spot
     const lb = await page.locator(`#dlg [data-dp-lab="${labs[2]}"]`).boundingBox(), sp = await page.locator(`#dlg [data-dp-spot="${labs[2]}"]`).boundingBox();
     await page.mouse.move(lb.x + lb.width / 2, lb.y + lb.height / 2); await page.mouse.down(); await page.mouse.move(sp.x + sp.width / 2, sp.y + sp.height / 2, {steps: 8}); await page.mouse.up(); await page.waitForTimeout(200);
     ok(await page.locator("#dlg .dp-pin.ok").count() === 3, "dragging a label onto its spot places it");
@@ -199,7 +190,7 @@ function SEED(){
     ok(await page.locator("#dlg .dp-pin.ok").count() === 0 && await page.locator("#dlg .dp-lab").count() === 4, "Try Again starts a fresh round");
     await page.keyboard.press("Escape"); await page.waitForTimeout(200);
 
-    // ---------- A box you draw takes the page's own text under it ----------
+    // A box you draw takes the page's own text under it
     await page.evaluate(async () => {
       const cv = document.createElement("canvas"); cv.width = 400; cv.height = 300; cv.getContext("2d").fillRect(0, 0, 4, 4);
       const blob = await new Promise(r => cv.toBlob(r, "image/jpeg", 0.9));
@@ -212,14 +203,14 @@ function SEED(){
     ok((await deck(page, "d1")).cards.length === 2, "skipping the picture adds nothing");
     ok(page.errs.length === 0, "no console errors: " + page.errs.join(" | "));
 
-    // ---------- Dark mode renders ----------
+    // Dark mode renders
     const dk = await page.context().newPage(); await dk.emulateMedia({colorScheme: "dark"}); await dk.goto(base); await dk.waitForTimeout(900);
     await dk.evaluate(() => { const S = window.__sbSync; S.ui.tab = "flashcards"; S.ui.deckId = "d3"; S.render(); });
     await dk.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "fc-study"; b.dataset.id = "d3"; document.body.appendChild(b); b.click(); b.remove(); }); await dk.waitForTimeout(300);
     ok(await dk.evaluate(() => { const b = document.querySelector(".ic-study"); return !!b && getComputedStyle(b).backgroundColor !== "rgb(255, 255, 255)"; }), "dark mode: the image card screen takes the dark surface");
     await dk.close();
 
-    // ---------- Free plan: keeps studying, no new extras ----------
+    // Free plan: keeps studying, no new extras
     const p3 = await open(await mkCtx(SEED(), true));
     await studyDeck(p3, "d1");
     ok(await p3.locator(".ic-study .ci-box.me").count() === 1 && await p3.locator('[data-act="pro-ic-type"]').count() === 0, "free: image cards you have still study, without Type Answers");

@@ -1,33 +1,4 @@
-// Studyboard: cloud-files (Supabase Edge Function)  ·  Google Drive and OneDrive (free for every signed-in account)
-//
-// Deploy with "Verify JWT" turned OFF: Google and Microsoft send the person back here (GET ?code=&state=) without a Supabase sign-in.
-// Every POST checks the person's sign-in itself (the same way calendar-sync does). Tables and rules: supabase-cloud.sql.
-// Secrets (Edge Functions > Secrets):
-//   CLOUD_KEY              32+ random characters (falls back to CALSYNC_KEY). Encrypts the stored sign-ins (AES-GCM) and signs the
-//                          connect state (HMAC); the keys are derived from it (HKDF) apart from calendar-sync's. If it changes, people connect again.
-//   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET   the same OAuth "Web application" client calendar-sync uses works: turn on the Google Drive API
-//                          and add https://<project>.supabase.co/functions/v1/cloud-files as an Authorized redirect URI.
-//                          (CLOUD_GOOGLE_CLIENT_ID / CLOUD_GOOGLE_CLIENT_SECRET take precedence when set.)
-//   MS_CLIENT_ID, MS_CLIENT_SECRET           the same app registration works: add the redirect URI above (Web) and the delegated permission
-//                          Files.ReadWrite. (CLOUD_MS_CLIENT_ID / CLOUD_MS_CLIENT_SECRET take precedence when set.)
-//   Either provider can be left out; the app then only offers the other. Optional: CLOUD_REDIRECT (a different redirect address).
-//
-// What Studyboard may do with the account:
-//   Google: drive.file. Only the files and folders Studyboard itself made (a folder called "Studyboard"). It can't see anything else.
-//   Microsoft: Files.ReadWrite. It saves into the folder the person picks (a folder called "Studyboard" unless they choose another), and
-//   reads the folders they choose to watch. It never deletes anything in OneDrive.
-//
-// The browser talks to Google Drive and Microsoft Graph itself (big files go straight there, never through this function). This function
-// keeps the long-lived sign-in (refresh token) encrypted and hands the signed-in person a short-lived access token (about an hour).
-//
-// POST {action} with Authorization: Bearer <the person's Supabase access token>:
-//   "start"      {provider}        -> {url}: where to send the person to allow access (any signed-in account, not a guest)
-//   "status"                       -> {accounts: [{provider, account, status, connected_at}], providers: {google, microsoft}}
-//   "token"      {provider}        -> {access, expires_in, account}  (Pro only)
-//   "disconnect" {provider}        -> {ok}   (files already in the cloud stay there)
-// Errors: 401 sign in · 402 not allowed (a guest account) · 404 not_connected · 409 reauth (allow access again) · 501 not_configured ·
-//         502 provider (Google or Microsoft refused or failed) · 400 bad request · 429 too many requests.
-// Logs are one line of JSON per request, never tokens, file names or the account address.
+// Studyboard: cloud-files (Supabase Edge Function) · Google Drive and OneDrive
 
 type Env = (k: string) => string;
 type Deps = { env: Env; fetch: typeof fetch; now: () => number; log: (...a: unknown[]) => void };
@@ -50,7 +21,7 @@ export async function keys(secret: string) {
   KEYS = { raw: secret, aes, mac };
   return KEYS;
 }
-// A sealed value is bound to its owner and provider: a row copied to another account can't be opened there
+// A sealed value is bound to its owner and provider
 export async function seal(secret: string, text: string, uid: string, provider: string): Promise<string> {
   const k = await keys(secret), iv = crypto.getRandomValues(new Uint8Array(12));
   const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: enc.encode(uid + "|" + provider) }, k.aes, enc.encode(text));
@@ -104,11 +75,11 @@ export function google(d: Deps): Adapter {
     async exchange(code, redirect) {
       const j = await tokenCall(d, "https://oauth2.googleapis.com/token", { code, client_id: id, client_secret: secret, redirect_uri: redirect, grant_type: "authorization_code" });
       if (!j.refresh_token || !j.access_token) throw new ProviderError(400, false, "no refresh token");
-      if (typeof j.scope === "string" && !j.scope.includes("drive.file")) throw new ProviderError(403, false, "drive not allowed");   // they unticked Drive
+      if (typeof j.scope === "string" && !j.scope.includes("drive.file")) throw new ProviderError(403, false, "drive not allowed");
       return { refresh: j.refresh_token, access: j.access_token, expires: secs(j.expires_in), account: jwtEmail(j.id_token || "") };
     },
     async refresh(rt) { const j = await tokenCall(d, "https://oauth2.googleapis.com/token", { refresh_token: rt, client_id: id, client_secret: secret, grant_type: "refresh_token" }); return { access: j.access_token, expires: secs(j.expires_in) }; },
-    async revoke(rt) { try { await d.fetch("https://oauth2.googleapis.com/revoke?token=" + encodeURIComponent(rt), { method: "POST" }); } catch (_e) { /* best effort */ } },
+    async revoke(rt) { try { await d.fetch("https://oauth2.googleapis.com/revoke?token=" + encodeURIComponent(rt), { method: "POST" }); } catch (_e) { } },
   };
 }
 export function microsoft(d: Deps): Adapter {
@@ -122,26 +93,26 @@ export function microsoft(d: Deps): Adapter {
       let account = jwtEmail(j.id_token || "");
       if (!account) {
         try { const r = await d.fetch("https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName", { headers: { Authorization: `Bearer ${j.access_token}` } }); const me = await r.json() as any; account = String(me.mail || me.userPrincipalName || ""); }
-        catch (_e) { /* the address is only for display */ }
+        catch (_e) { }
       }
       return { refresh: j.refresh_token, access: j.access_token, expires: secs(j.expires_in), account };
     },
     async refresh(rt) { const j = await tokenCall(d, `${T}/token`, { client_id: id, client_secret: secret, refresh_token: rt, grant_type: "refresh_token", scope: MS_SCOPE }); return { access: j.access_token, expires: secs(j.expires_in), refresh: j.refresh_token }; },
-    async revoke() { /* Microsoft has no token revocation for this kind of app: deleting the stored sign-in is what disconnects */ },
+    async revoke() { },
   };
 }
 export const adapters = (d: Deps): Record<Provider, Adapter> => ({ google: google(d), microsoft: microsoft(d) });
 
 /* ================= Plumbing ================= */
 const CORS: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",   // the app runs on many origins; auth is a bearer token, never a cookie
+  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
   "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Max-Age": "600",
 };
 const reply = (o: unknown, status: number) => new Response(JSON.stringify(o), { status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...CORS } });
 function serviceKey(d: Deps): string {
   let key = d.env("SUPABASE_SERVICE_ROLE_KEY");
-  if (!key) { try { const k = JSON.parse(d.env("SUPABASE_SECRET_KEYS") || "{}"); key = String(k.default || Object.values(k)[0] || ""); } catch (_e) { /* newer projects only */ } }
+  if (!key) { try { const k = JSON.parse(d.env("SUPABASE_SECRET_KEYS") || "{}"); key = String(k.default || Object.values(k)[0] || ""); } catch (_e) { } }
   return key;
 }
 const base = (d: Deps) => d.env("SUPABASE_URL").replace(/\/+$/, "");
@@ -174,7 +145,7 @@ export async function readLimited(req: Request, max: number): Promise<string | n
     const { done, value } = await reader.read();
     if (done) break;
     n += value.byteLength;
-    if (n > max) { try { await reader.cancel(); } catch (_e) { /* ignore */ } return null; }
+    if (n > max) { try { await reader.cancel(); } catch (_e) { } return null; }
     chunks.push(value);
   }
   const all = new Uint8Array(n); let o = 0;
@@ -189,10 +160,7 @@ const page = (title: string, text: string, ok: boolean) => new Response(`${HTML_
 const confirmPage = (title: string, html: string, box: string) => new Response(`${HTML_HEAD(title)}<body><main><h1>${title}</h1><p>${html}</p><form method="post"><input type="hidden" name="confirm" value="${htmlEsc(box)}"><button type="submit">Connect</button></form></main></body></html>`, { status: 200, headers: SAFE_HEADERS(true) });
 const htmlEsc = (s: string) => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" } as any)[c]);
 
-/* Connecting is bound to the browser that started it, and confirmed by the person (the same three steps as calendar-sync):
-   1. The app opens ?begin=<state>. A short cookie holding the state's nonce is set in this browser, then on to Google or Microsoft.
-   2. They send the browser back with ?code&state. Without the matching cookie (a link someone sent you) nothing happens.
-   3. A page asks: connect <cloud account> to the Studyboard account <address>? Only that button stores anything. */
+/* Connecting is bound to the browser that started it, and confirmed by the person */
 const COOKIE = "sbcf";
 const cookieOf = (req: Request) => ((req.headers.get("cookie") || "").split(/;\s*/).find(c => c.startsWith(COOKIE + "=")) || "").slice(COOKIE.length + 1);
 const setCookie = (v: string, age: number) => `${COOKIE}=${v}; Max-Age=${age}; Path=/functions/v1/${FN}; HttpOnly; Secure; SameSite=Lax`;
@@ -201,8 +169,7 @@ async function begin(req: Request, url: URL, d: Deps, A: Record<Provider, Adapte
   const secret = secretOf(d), raw = url.searchParams.get("begin") || "";
   const st = secret.length >= 32 ? await readState(secret, raw, d.now()) : null;
   if (!st || !A[st.p].configured()) { log("begin_bad"); return page("That link has expired", "Go back to Studyboard and choose Connect again.", false); }
-  // When the return address is on the website (CLOUD_REDIRECT / CALSYNC_REDIRECT), the browser's cookie has to be set there too: a link
-  // that reached Supabase directly (one made before the address changed) goes to the website first, which passes it back here.
+  // When the return address is on the website (CLOUD_REDIRECT / CALSYNC_REDIRECT)
   if (new URL(redirectOf(d)).host !== new URL(base(d)).host && req.headers.get("x-studyboard-via") !== "site") {
     log("begin_to_site");
     return new Response(null, { status: 302, headers: { Location: `${redirectOf(d)}?begin=${encodeURIComponent(raw)}`, "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
@@ -229,7 +196,7 @@ async function callback(req: Request, url: URL, d: Deps, A: Record<Provider, Ada
   }
 }
 async function confirm(req: Request, d: Deps, A: Record<Provider, Adapter>, log: Log): Promise<Response> {
-  const secret = secretOf(d), text = await readLimited(req, 9000);   // unsigned-in POST: read at most 9000 bytes
+  const secret = secretOf(d), text = await readLimited(req, 9000);
   if (secret.length < 32 || text === null) return page("Not connected", "Try again from Studyboard.", false);
   let o: any = null;
   try { o = JSON.parse(await unseal(secret, new URLSearchParams(text).get("confirm") || "", "confirm", FN)); } catch (_e) { o = null; }
@@ -248,8 +215,7 @@ async function confirm(req: Request, d: Deps, A: Record<Provider, Adapter>, log:
   }
 }
 
-// A short-lived access token for the browser. The last one is kept (encrypted) and handed out again while it has 5+ minutes left,
-// so opening Studyboard on several devices doesn't refresh the sign-in every time.
+// A short-lived access token for the browser
 async function token(uid: string, prov: Provider, d: Deps, A: Record<Provider, Adapter>, log: Log): Promise<Response> {
   const secret = secretOf(d);
   const acct = (await rpc(d, "cloud_account", { p_uid: uid, p_provider: prov }) || [])[0];
@@ -257,7 +223,7 @@ async function token(uid: string, prov: Provider, d: Deps, A: Record<Provider, A
   if (acct.status === "reauth") return reply({ error: "reauth" }, 409);
   const nowS = Math.floor(d.now() / 1000), exp = acct.access_exp ? Math.floor(Date.parse(acct.access_exp) / 1000) : 0;
   if (acct.access_enc && exp - nowS > 300) {
-    try { const access = await unseal(secret, acct.access_enc, uid, prov + ":at"); return reply({ access, expires_in: exp - nowS, account: acct.account || "" }, 200); } catch (_e) { /* refresh below */ }
+    try { const access = await unseal(secret, acct.access_enc, uid, prov + ":at"); return reply({ access, expires_in: exp - nowS, account: acct.account || "" }, 200); } catch (_e) { }
   }
   let rt: string;
   try { rt = await unseal(secret, acct.refresh_enc, uid, prov); }
@@ -295,7 +261,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     const prov: Provider = b.provider;
     if (b.action === "disconnect") {
       const acct = (await rpc(d, "cloud_account", { p_uid: uid, p_provider: prov }) || [])[0];
-      if (acct) { try { await A[prov].revoke(await unseal(secret, acct.refresh_enc, uid, prov)); } catch (_e) { /* disconnecting never fails because the provider did */ } await rpc(d, "cloud_disconnect", { p_uid: uid, p_provider: prov }); }
+      if (acct) { try { await A[prov].revoke(await unseal(secret, acct.refresh_enc, uid, prov)); } catch (_e) { } await rpc(d, "cloud_disconnect", { p_uid: uid, p_provider: prov }); }
       log("disconnected", { provider: prov });
       return reply({ ok: true }, 200);
     }

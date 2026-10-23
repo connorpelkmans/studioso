@@ -1,9 +1,8 @@
 /* ===== module: 50-calfeed.js ===== */
-/* Studyboard 1.11.0 module 50-calfeed: Calendar Sync (live calendar link + .ics download) */
+/* Studyboard 1.11.0 module 50-calfeed */
 (() => {
 // ==== STUDYBOARD ICS CORE START ====
-// Shared by the app (download) and the calendar-feed Edge Function (live link). Plain JavaScript, no imports.
-// Keep both copies identical: test/calfeed.test.js checks that they match.
+// Shared by the app (download) and the calendar-feed Edge Function (live link)
 const SBICS = (() => {
   const DAY = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
   const PRIO = {low: "Low", med: "Medium", high: "High", urgent: "Urgent"};
@@ -19,7 +18,7 @@ const SBICS = (() => {
   const tMin = t => +t.slice(0, 2) * 60 + +t.slice(3, 5);
   const minT = m => p2(Math.floor(m / 60)) + ":" + p2(m % 60);
 
-  /* ----- time zones (Intl only, so it works the same in browsers, Node and Deno) ----- */
+  /* time zones (Intl only, so it works the same in browsers, Node and Deno) */
   const fmts = {};
   const parts = (tz, ms) => {
     const f = fmts[tz] || (fmts[tz] = new Intl.DateTimeFormat("en-US", {timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit"}));
@@ -67,14 +66,12 @@ const SBICS = (() => {
       const o = offset(tz, Date.UTC(y0, 6, 1));
       comp(o, o, "19700101T000000", [], Date.UTC(y0, 6, 1));
     } else if (a.length === 2 && b.length === 2 && a[0].key === b[0].key && a[1].key === b[1].key) {
-      // Same rule every year: write it as a yearly rule, the way calendar apps export their own zones.
       a.forEach(t => {
         let d1970 = t.nth > 0 ? 1 + ((t.wd - new Date(Date.UTC(1970, t.month - 1, 1)).getUTCDay() + 7) % 7) + (t.nth - 1) * 7 : 0;
         if (t.nth < 0) { const last = new Date(Date.UTC(1970, t.month, 0)); d1970 = last.getUTCDate() - ((last.getUTCDay() - t.wd + 7) % 7); }
         comp(t.from, t.to, "1970" + p2(t.month) + p2(d1970) + "T" + t.time, ["RRULE:FREQ=YEARLY;BYMONTH=" + t.month + ";BYDAY=" + (t.nth < 0 ? "-1" : t.nth) + DAY[t.wd]], t.at + 3600e3);
       });
     } else {
-      // Rules change between years (or no clean pattern): list each change.
       const first = a[0] || b[0];
       comp(first.from, first.from, "19700101T000000", [], first.at - 864e5);
       for (let y = y0; y <= y1; y++) transitions(tz, y).map(info).forEach(t => comp(t.from, t.to, t.date.replace(/-/g, "") + "T" + t.time, [], t.at + 3600e3));
@@ -83,10 +80,10 @@ const SBICS = (() => {
     return L;
   }
 
-  /* ----- text ----- */
+  /* text */
   const clean = s => String(s == null ? "" : s).replace(/\r\n?/g, "\n").replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "");
   const esc = s => clean(s).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
-  // Lines longer than 75 bytes are split with CRLF + space, never inside a character.
+  // Lines longer than 75 bytes are split with CRLF + space, never inside a character
   function fold(line){
     const out = []; let cur = "", n = 0;
     for (const ch of line) {
@@ -100,7 +97,7 @@ const SBICS = (() => {
   const dur = (m, sign) => { const d = Math.floor(m / 1440), h = Math.floor(m % 1440 / 60), mi = m % 60; return (sign || "") + "P" + (d ? d + "D" : "") + (h || mi || !d ? "T" + (h ? h + "H" : "") + (mi || (!h && !d) ? mi + "M" : "") : ""); };
   const safeUrl = u => typeof u === "string" && /^https?:\/\/[^\s"<>]+$/i.test(u) && u.length < 1000 ? u : "";
 
-  /* ----- the app's data, read the same way the app reads it ----- */
+  /* the app's data, read the same way the app reads it */
   function meetingDays(s){
     s = String(s || ""); const days = new Set();
     const words = s.match(/\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*/gi);
@@ -147,7 +144,7 @@ const SBICS = (() => {
     if (!e.moved || typeof e.moved !== "object" || Array.isArray(e.moved)) e.moved = {};
     return e;
   }
-  // Studyboard's own reminder settings (settings.reminders, from the Reminders feature). Same defaults as the app.
+  // Studyboard's own reminder settings (settings.reminders, from the Reminders feature)
   const REM_DEF = {tasks: true, dayBefore: true, dayTime: "18:00", hoursBefore: true, hours: 2, exams: true, events: true, eventLead: 15, classes: false, morningTime: "07:30"};
   const OVR_MIN = {"0": 0, "15m": 15, "1h": 60, "2h": 120}, OVR_DAY = {"1d": 1, "2d": 2, "3d": 3, "1w": 7};
   function remCfgOf(settings, appHasReminders){
@@ -159,7 +156,7 @@ const SBICS = (() => {
     c.eventLead = Math.max(0, Math.min(240, Number(c.eventLead) || 0));
     return c;
   }
-  // Reminder times for a task, in minutes from the start of its calendar entry (negative = before).
+  // Reminder times for a task, in minutes from the start of its calendar entry
   function taskAlarms(t, opt, cfg){
     const timed = isTime(t.time), base = timed ? tMin(t.time) : 0, exam = t.type === "Exam" || t.type === "Quiz";
     const dayAt = (n, time) => -n * 1440 + tMin(time) - base;
@@ -169,7 +166,7 @@ const SBICS = (() => {
       if (timed) return [-m];
       return m >= 1440 ? [dayAt(Math.floor(m / 1440), "09:00")] : [tMin("09:00")];
     }
-    if (!cfg) return timed ? [-1440] : [dayAt(1, "09:00")]; // no reminder settings: 1 day before
+    if (!cfg) return timed ? [-1440] : [dayAt(1, "09:00")];
     const o = t.remind;
     if (o === "off") return [];
     if (o != null && Object.prototype.hasOwnProperty.call(OVR_DAY, String(o))) return [dayAt(OVR_DAY[o], cfg.dayTime)];
@@ -189,8 +186,7 @@ const SBICS = (() => {
       classesFrom: isDate(o.classesFrom) ? o.classesFrom : "", classesUntil: isDate(o.classesUntil) ? o.classesUntil : "", tz: validTz(o.tz) ? o.tz : "America/Vancouver", appUrl: safeUrl(o.appUrl), pastDays: Math.max(0, Math.min(3650, Number(o.pastDays) >= 0 ? Number(o.pastDays) : 60))};
   }
 
-  /* ----- build ----- */
-  // data: {tasks, courses, events, settings} as arrays/objects from the app. opts: see normOptions. now: ms. feed: true for the live link.
+  /* build */
   function build(data, rawOpts, now, feed){
     const o = normOptions(rawOpts), tz = o.tz;
     now = typeof now === "number" ? now : Date.now();
@@ -209,7 +205,6 @@ const SBICS = (() => {
     const add = (k, v) => L.push(fold(k + ":" + v));
     const addText = (k, v) => { if (clean(v).trim()) add(k, esc(v)); };
     const remCfg = remCfgOf(settings, o.appReminders);
-    // Classes and events get reminders only when following Studyboard's reminder settings.
     const evAlarm = (desc, isClass) => { if (o.remind !== "app" || !remCfg || !remCfg.events || (isClass && !remCfg.classes)) return; L.push("BEGIN:VALARM", "ACTION:DISPLAY"); add("DESCRIPTION", esc(desc)); add("TRIGGER", trigger(-remCfg.eventLead)); L.push("END:VALARM"); };
     const ev = (uid, fields) => {
       L.push("BEGIN:VEVENT"); add("UID", uid); add("DTSTAMP", stamp);
@@ -219,7 +214,6 @@ const SBICS = (() => {
     const timed = (d, s, e) => { years.push(+d.slice(0, 4)); let ed = d, em = tMin(e); if (em >= 1440) { ed = addD(d, Math.floor(em / 1440)); em %= 1440; } add("DTSTART" + tzp, local(d, s)); add("DTEND" + tzp, local(ed, minT(em))); };
     const allDay = (d, endExcl) => { add("DTSTART;VALUE=DATE", d.replace(/-/g, "")); add("DTEND;VALUE=DATE", endExcl.replace(/-/g, "")); };
 
-    // Tasks with due dates
     const from = addD(today, -o.pastDays);
     list(data && data.tasks).forEach(t => {
       if (!t || !t.id || !isDate(t.due) || t.due < from || t.archivedTerm || t.deleted) return;
@@ -246,7 +240,6 @@ const SBICS = (() => {
       });
     });
 
-    // Weekly class times
     if (o.classes) {
       const until = o.classesUntil || addD(today, 112);
       Object.values(courses).forEach(c => {
@@ -270,7 +263,6 @@ const SBICS = (() => {
             addText("LOCATION", where); addText("DESCRIPTION", desc);
             add("CATEGORIES", esc(m.kind)); add("TRANSP", "OPAQUE"); evAlarm(title, true);
           });
-          // One week moved: a replacement for that week
           moves.filter(x => !x.v.skip).forEach(x => {
             const d = isDate(x.v.date) ? x.v.date : x.d, s = isTime(x.v.start) ? x.v.start : m.start, e = isTime(x.v.end) && x.v.end > s ? x.v.end : minT(Math.min(1439, tMin(s) + tMin(m.end) - tMin(m.start)));
             ev(uid, () => {
@@ -282,7 +274,6 @@ const SBICS = (() => {
       });
     }
 
-    // Your own events
     if (o.events) list(data && data.events).forEach(raw => {
       if (!raw || !raw.id || raw.deleted) return;
       const e = normEvent(Object.assign({}, raw)); if (!e) return;
@@ -335,7 +326,6 @@ const SBICS = (() => {
       });
     });
 
-    // Study sessions, if a study plan saved any
     if (o.study) {
       const sp = settings.studyPlan && typeof settings.studyPlan === "object" ? settings.studyPlan.sessions : settings.studySessions;
       list(sp).forEach((s, i) => {
@@ -367,23 +357,22 @@ const SBICS = (() => {
 })();
 // ==== STUDYBOARD ICS CORE END ====
 
-/* ---------- Calendar Sync: a live calendar link (Supabase Edge Function) and a downloadable .ics file ---------- */
+/* Calendar Sync */
 const CS_TABLE = "calendar_feeds", CS_FN = "calendar-feed";
 const CS_SQL = "-- Studyboard: live calendar link (Calendar Sync)\n-- Run this once in Supabase > SQL Editor. Running it again is safe.\n-- Each row is one private calendar link. Only you can see or change your own links.\n-- The calendar-feed Edge Function reads this table with the service role key to find whose calendar a link belongs to.\n\ncreate table if not exists public.calendar_feeds (\n  token text primary key check (char_length(token) between 32 and 128),\n  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,\n  options jsonb not null default '{}'::jsonb,\n  created_at timestamptz not null default now(),\n  last_fetched_at timestamptz\n);\n\n-- Keep each link's options small, and tokens to plain URL-safe characters (they go in a web address).\nalter table public.calendar_feeds drop constraint if exists calendar_feeds_limits;\nalter table public.calendar_feeds add constraint calendar_feeds_limits check (token ~ '^[A-Za-z0-9_-]+$' and pg_column_size(options) <= 20000) not valid;\n\ncreate index if not exists calendar_feeds_user_id_idx on public.calendar_feeds (user_id);\n\n-- ---------- The token's SHA-256 (what the calendar-feed function looks links up by) ----------\n-- The function finds a link by token_hash, so the token itself never goes into its database queries or logs. The hash is\n-- filled in by the database on every insert or token change (the app keeps sending the token as before), and existing links\n-- are filled in below. The token column stays for now because the app reads it back to show you your link.\nalter table public.calendar_feeds add column if not exists token_hash text;\ncreate or replace function public.calendar_feeds_hash() returns trigger\nlanguage plpgsql set search_path = public as $$\nbegin\n  if new.token is not null then\n    new.token_hash := encode(sha256(convert_to(new.token, 'UTF8')), 'hex');\n  elsif tg_op = 'UPDATE' then\n    new.token_hash := old.token_hash;      -- the hash can't be changed on its own\n  end if;\n  if new.token_hash is null or new.token_hash !~ '^[0-9a-f]{64}$' then raise exception 'calendar link token missing' using errcode = '23514'; end if;\n  return new;\nend $$;\ndrop trigger if exists calendar_feeds_hash on public.calendar_feeds;\ncreate trigger calendar_feeds_hash before insert or update on public.calendar_feeds\n  for each row execute function public.calendar_feeds_hash();\nupdate public.calendar_feeds set token_hash = encode(sha256(convert_to(token, 'UTF8')), 'hex')\n  where token is not null and token_hash is distinct from encode(sha256(convert_to(token, 'UTF8')), 'hex');\ncreate unique index if not exists calendar_feeds_token_hash_idx on public.calendar_feeds (token_hash);\n\nalter table public.calendar_feeds enable row level security;\n\ndrop policy if exists \"calendar_feeds_select_own\" on public.calendar_feeds;\ncreate policy \"calendar_feeds_select_own\" on public.calendar_feeds\n  for select to authenticated using ((select auth.uid()) = user_id);\n\ndrop policy if exists \"calendar_feeds_insert_own\" on public.calendar_feeds;\ncreate policy \"calendar_feeds_insert_own\" on public.calendar_feeds\n  for insert to authenticated with check ((select auth.uid()) = user_id);\n\ndrop policy if exists \"calendar_feeds_update_own\" on public.calendar_feeds;\ncreate policy \"calendar_feeds_update_own\" on public.calendar_feeds\n  for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);\n\ndrop policy if exists \"calendar_feeds_delete_own\" on public.calendar_feeds;\ncreate policy \"calendar_feeds_delete_own\" on public.calendar_feeds\n  for delete to authenticated using ((select auth.uid()) = user_id);\n\n-- The app only ever writes the token, its own user_id and the options (it changes nothing else), so that is all a signed-in\n-- person may write. Every other column (token_hash, last_fetched_at and the cache_key/cache_text columns that supabase-lean.sql\n-- adds) is written only by this database and by the calendar-feed function with the service role, so nobody can plant their\n-- own calendar text for the function to serve. Columns added later get no client grant either (there is no table-wide one).\nrevoke all on public.calendar_feeds from anon;\nrevoke insert, update, truncate, references, trigger on public.calendar_feeds from authenticated;\ngrant select, delete on public.calendar_feeds to authenticated;\ngrant insert (token, user_id, options) on public.calendar_feeds to authenticated;\ngrant update (options) on public.calendar_feeds to authenticated;\n\n-- At most 5 links per account. The app keeps one: a new link is added, then the old one is removed.\ncreate or replace function public.calendar_feeds_cap() returns trigger\nlanguage plpgsql security definer set search_path = public as $$\nbegin\n  perform pg_advisory_xact_lock(hashtextextended('sb-calfeed:' || new.user_id::text, 0));   -- two at once can't both slip under the cap\n  if (select count(*) from public.calendar_feeds where user_id = new.user_id) >= 5 then\n    raise exception 'You already have 5 calendar links. Turn the live calendar off, then on again, to start fresh.' using errcode = 'P0001';\n  end if;\n  return new;\nend $$;\nrevoke all on function public.calendar_feeds_cap() from public, anon, authenticated;\ndrop trigger if exists calendar_feeds_cap on public.calendar_feeds;\ncreate trigger calendar_feeds_cap before insert on public.calendar_feeds\n  for each row execute function public.calendar_feeds_cap();\n\n-- LATER (only once your app no longer reads the token back, see SETUP-GUIDE \"Calendar Sync\"): to keep only the hash, run\n--   alter table public.calendar_feeds drop constraint calendar_feeds_pkey, alter column token drop not null;\n--   alter table public.calendar_feeds add primary key using index calendar_feeds_token_hash_idx;\n--   update public.calendar_feeds set token = null;\n-- and from then on the trigger above keeps filling token_hash from the token the app sends, with a second trigger\n-- (before insert or update, after calendar_feeds_hash) that sets new.token := null.\n\n-- Ask the API to notice the new table right away\nnotify pgrst, 'reload schema';\n";
 const cs = {tab: "live", phase: "idle", row: null, err: "", fn: "", fnAt: 0, confirm: "", busy: false, saved: ""};
 let csSaveTimer = null;
 
-// The calendar link uses the HOME zone (changed only when you choose "Use this device" after a trip), so the link never silently changes zone while you travel.
+// The calendar link uses the HOME zone
 const csTz = () => { try { const h = window.SBTZ && SBTZ.schoolZone(); if (h && SBICS.validTz(h)) return h; const z = Intl.DateTimeFormat().resolvedOptions().timeZone; return SBICS.validTz(z) ? z : "America/Vancouver"; } catch (e) { return "America/Vancouver"; } };
 const csAppUrl = () => /^https?:$/.test(location.protocol) ? location.origin + location.pathname : "";
 const csCourses = () => Object.values(state.courses || {}).filter(c => c && !c.archived).sort((a, b) => courseLabel(a).localeCompare(courseLabel(b)));
 const csHasImported = () => Object.values(state.events || {}).some(e => e && e.src === "ics");
 const csStudyList = () => { const s = state.settings || {}; const l = s.studyPlan && typeof s.studyPlan === "object" ? s.studyPlan.sessions : s.studySessions; return Array.isArray(l) ? l : l && typeof l === "object" ? Object.values(l) : []; };
-// A guess at when classes end: the end of this term, or a week after your last deadline if that's later.
+// A guess at when classes end
 function csGuessUntil(){
   const today = todayISO(), ids = new Set(csCourses().map(c => c.id));
   const last = Object.values(state.tasks || {}).filter(t => t && ids.has(t.courseId) && !t.archivedTerm && t.due && t.due > addDays(today, 14)).map(t => t.due).sort().pop();
-  // Typical terms: fall ends mid-December, winter ends in April, summer in August.
   const y = today.slice(0, 4), m = Number(today.slice(5, 7));
   let term = m >= 9 ? y + "-12-15" : m <= 4 ? y + "-04-30" : y + "-08-15";
   if (term <= addDays(today, 14)) term = addDays(today, 112);
@@ -401,7 +390,7 @@ function csFeedOpts(o, prev){
 const csData = () => ({tasks: Object.values(state.tasks || {}), courses: Object.values(state.courses || {}), events: Object.values(state.events || {}), settings: state.settings || {}});
 const csBuild = (feed) => SBICS.build(csData(), Object.assign({}, csOpts(), {tz: csTz(), appUrl: csAppUrl(), pastDays: feed ? 60 : 0, appReminders: !!window.studyboardReminders}), Date.now(), !!feed);
 
-/* ----- links ----- */
+/* links */
 const csBase = () => { const c = sbConfig(); return c && c.url ? String(c.url).replace(/\/+$/, "") : ""; };
 const csFnUrl = () => csBase() + "/functions/v1/" + CS_FN;
 const csFeedUrl = token => csFnUrl() + "?token=" + encodeURIComponent(token);
@@ -416,9 +405,9 @@ function csToken(){
 const csMissingTable = e => /calendar_feeds|PGRST205|42P01|schema cache/i.test(String((e && (e.code + " " + e.message + " " + (e.details || ""))) || e));
 const csNet = e => /fetch|network|Load failed|timed? ?out/i.test(String(e && e.message || e));
 
-/* ----- Supabase ----- */
+/* Supabase */
 function csWhyNot(){
-  if (inClaude()) return "claude";
+  if (inPreview()) return "claude";
   if (sbLocalOnly() || !sbConfig()) return "local";
   if (!sb) return navigator.onLine === false ? "offline" : "connecting";
   if (!sbUser) return "signin";
@@ -440,7 +429,7 @@ async function csLoad(){
   }
   csDraw();
 }
-// Is the Edge Function deployed and open to calendar apps?
+// Is the Edge Function deployed and open to calendar apps
 async function csCheckFn(){
   cs.fn = "checking"; csDraw();
   const ping = async headers => { const r = await fetch(csFnUrl() + "?ping=1", {cache: "no-store", headers: headers || {}}); if (!r.ok) return {status: r.status}; const j = await r.json().catch(() => ({})); return {status: r.status, ok: j && j.app === "studyboard-calendar-feed"}; };
@@ -449,7 +438,6 @@ async function csCheckFn(){
   catch (e) {
     if (navigator.onLine === false) res = "offline";
     else {
-      // Calendar apps can't sign in. If the check only works when signed in, Verify JWT is still on.
       try { const c = sbConfig(), r = await ping({apikey: c.key, Authorization: "Bearer " + c.key}); res = r.ok ? "jwt" : "missing"; } catch (e2) { res = "unreachable"; }
     }
   }
@@ -505,7 +493,7 @@ function csSaveOpts(o){
   }, 700);
 }
 
-/* ----- the sheet ----- */
+/* the sheet */
 const csWhen = iso => { try { return new Date(iso).toLocaleString(undefined, {weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}); } catch (e) { return ""; } };
 const csHasRem = () => !!window.studyboardReminders || !!(state.settings && state.settings.reminders);
 const csRemindLabel = () => csHasRem() ? "Match Studyboard Reminders" : "1 Day Before (Default)";
@@ -635,7 +623,7 @@ function csDraw(){
   const pane = root.querySelector("#csPane");
   const same = pane.dataset.csPane === cs.tab, openD = same && pane.querySelector("[data-cs-details]"), wasOpen = openD ? openD.open : null, y = root.scrollTop;
   pane.innerHTML = cs.tab === "two" && window.SBPRO && SBPRO.calPane ? SBPRO.calPane() : cs.tab === "file" ? csFilePane() : cs.tab === "upload" ? csUploadPane() : csLivePane();
-  pane.dataset.csPane = cs.tab;   // not data-tab: the app's tab bar listens for clicks inside any [data-tab]
+  pane.dataset.csPane = cs.tab;
   const d = pane.querySelector("[data-cs-details]"); if (d && wasOpen != null) d.open = wasOpen;
   root.scrollTop = y;
 }
@@ -671,7 +659,7 @@ async function csDownload(){
   const {text} = csBuild(false);
   const dl = caps.downloads || await useCap("downloads");
   if (!dl) {
-    if (!inClaude()) { saveBlob("studyboard-calendar.ics", text, "text/calendar"); toast("Calendar file saved"); return; }
+    if (!inPreview()) { saveBlob("studyboard-calendar.ics", text, "text/calendar"); toast("Calendar file saved"); return; }
     toast("Downloads aren't available here"); return;
   }
   try { await dl.save({filename: "studyboard-calendar.zip", data: zipOne("studyboard-calendar.ics", text)}); toast("Calendar file saved"); }
@@ -710,16 +698,15 @@ function calSyncSheet(tab){
     const o = csReadOpts(root); if (!o) return;
     csSaveOpts(o);
   });
-  // Opening a webcal:// link from an installed app can fail silently; tell people what to expect.
   root.addEventListener("click", e => { const l = e.target.closest("[data-cs-link=apple]"); if (l) setTimeout(() => toast("If nothing opened, copy the link and add it in Calendar: File > New Calendar Subscription"), 1200); });
   csDraw();
   csLoad();
 }
 
-/* ----- entry points ----- */
+/* entry points */
 hook("act", act => {
   if (act === "cal-export" || act === "cal-sync") { calSyncSheet(); return true; }
-  if (act === "sch-ics") { calSyncSheet("upload"); return true; }   // Schedule's calendar file button opens the upload tab
+  if (act === "sch-ics") { calSyncSheet("upload"); return true; }
   return false;
 });
 const csOrigMenu = menuSheet;
@@ -734,7 +721,7 @@ hook("render", tab => {
   const nav = document.querySelector(".sch-nav");
   if (nav && !nav.querySelector('[data-act="cal-sync"]')) nav.insertAdjacentHTML("beforeend", `<button class="btn small" data-act="cal-sync" title="Put your classes and deadlines in Apple, Google or Outlook Calendar">Calendar Sync</button>`);
 });
-// Links in calendar events open the task: ?task=<id>
+// Links in calendar events open the task
 let csDeep = null, csDeepTries = 0;
 try { const q = new URLSearchParams(location.search); csDeep = q.get("task"); if (csDeep && history.replaceState) { q.delete("task"); history.replaceState(null, "", location.pathname + (q.toString() ? "?" + q : "") + location.hash); } } catch (e) {}
 const csOpenDeep = () => {

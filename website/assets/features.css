@@ -1,6 +1,4 @@
-/* "What's Inside" on the home page: each feature card plays a short loop of the feature working (assets/features.js steps it).
-   The stage gets s1, s2, s3 as the loop goes on; everything below says what each step looks like, and transitions do the moving.
-   Without JavaScript, or with "reduce motion", the stage keeps all three classes: a still picture of the finished moment. */
+/* "What's Inside" on the home page */
 
 .fx-grid .feat{padding:14px 14px 20px;gap:8px;transition:transform .25s ease,box-shadow .25s ease}
 .fx-grid .feat:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
@@ -25,7 +23,7 @@
 .qa-caret{display:inline-block;width:2px;height:15px;margin-left:1px;background:var(--accent);vertical-align:middle;animation:fx-blink 1s steps(1) infinite}
 @keyframes fx-blink{50%{opacity:0}}
 
-/* ---------- Today's Plan: the top task is ticked off and the list moves up ---------- */
+/* Today's Plan: the top task is ticked off and the list moves up */
 .pl-head{position:absolute;left:14px;right:14px;top:12px;display:flex;align-items:center;justify-content:space-between;font:700 .9rem var(--display)}
 .pl-free{font:700 .7rem var(--display);color:var(--leaf);background:color-mix(in srgb,var(--leaf) 14%,transparent);padding:3px 9px;border-radius:999px}
 .pl-win{position:absolute;left:12px;right:12px;top:42px;height:130px;overflow:hidden}
@@ -44,8 +42,7 @@
 .s2 .pl-list .r1{opacity:0}
 .s3 .pl-list .r2{border-color:color-mix(in srgb,var(--accent) 50%,var(--line));box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 14%,transparent)}
 
-/* ---------- Companion: it thinks, offers a quiz, you say yes ---------- */
-/* Mochi is the app's own companion, drawn and animated by assets/companions.js (the same art as in the app) */
+/* Companion: it thinks, offers a quiz, you say yes */
 .fx-stage .fx-comp{--cps:100px;left:8px;bottom:6px}
 .fx-stage .fx-comp,.fx-stage .fx-comp *{transition:none}
 .cm-bub{position:absolute;left:108px;right:14px;top:22px;min-height:58px;padding:10px 12px;border-radius:14px 14px 14px 4px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);font-weight:700;transform-origin:0 100%;transform:scale(.4);opacity:0}
@@ -62,7 +59,7 @@
 .s2 .cm-acts{opacity:1;transform:none}
 .s3 .cm-yes{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);transform:scale(1.08)}
 
-/* ---------- School site sync: connect the school site, the deadlines come in ---------- */
+/* School site sync */
 .sy-sites{position:absolute;left:12px;top:12px;width:118px;display:grid;gap:6px}
 .sy-sites small{font:700 .64rem var(--display);color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
 .sy-sites span{display:flex;align-items:center;justify-content:space-between;height:32px;padding:0 10px;border-radius:9px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);font:700 .76rem var(--display)}
@@ -84,7 +81,7 @@
 .s3 .sy-badge{opacity:1;transform:none}
 @media (max-width:580px){.sy-sites{width:96px}.sy-sites span{padding:0 7px;font-size:.7rem}.sy-sync{left:112px;width:18px}.sy-list{left:136px;right:10px}.sy-list li{padding:0 6px;gap:5px;font-size:.68rem}}
 
-/* ---------- Lectures: recording with live captions, a key moment, then notes and cards ---------- */
+/* Lectures: recording with live captions, a key moment, then notes and cards */
 .rc-top{position:absolute;left:14px;right:14px;top:12px;display:flex;align-items:center;gap:7px;font:700 .82rem var(--display)}
 .rc-dot{width:10px;height:10px;border-radius:50%;background:var(--tomato);animation:fx-rec 1.2s ease-in-out infinite}
 @keyframes fx-rec{50%{opacity:.3}}
@@ -110,7 +107,7 @@
 .s3 .rc-out span{opacity:1;transform:none}
 .s3 .rc-out span:nth-child(2){transition-delay:.15s}.s3 .rc-out span:nth-child(3){transition-delay:.3s}
 
-/* ---------- Flashcards: the card flips, you rate it, it comes back later ---------- */
+/* Flashcards: the card flips, you rate it, it comes back later */
 .fc-card{position:absolute;left:50%;top:14px;width:min(250px,calc(100% - 28px));height:96px;margin-left:calc(min(250px,calc(100% - 28px)) / -2);perspective:700px}
 .fc-f,.fc-b{position:absolute;inset:0;display:grid;place-content:center;gap:4px;text-align:center;padding:10px 14px;border-radius:12px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);font:700 .88rem/1.3 var(--display);-webkit-backface-visibility:hidden;backface-visibility:hidden;transition:transform .7s cubic-bezier(.3,.7,.2,1)}
 .fc-f small,.fc-b small{font:700 .64rem var(--display);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
@@ -124,7 +121,7 @@
 .fc-next{position:absolute;left:0;right:0;bottom:10px;text-align:center;font:700 .72rem var(--display);color:var(--muted);opacity:0}
 .s3 .fc-next{opacity:1}
 
-/* ---------- Board: a task moves from To Do to In Work to Done ---------- */
+/* Board: a task moves from To Do to In Work to Done */
 .bd-cols{position:absolute;inset:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .bd-cols>div{border-radius:10px;background:color-mix(in srgb,var(--soft) 80%,transparent);border:1px solid var(--line);padding:7px 6px;display:grid;gap:6px;align-content:start}
 .bd-cols b{font:700 .7rem var(--display);color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding-left:2px}
@@ -139,7 +136,7 @@
 .s2 .bd-ok{opacity:1;transform:none}
 .s3 .bd-card{box-shadow:var(--shadow)}
 
-/* ---------- Quick Add: typing turns into a filled-in task ---------- */
+/* Quick Add: typing turns into a filled-in task */
 .qa-box{position:absolute;left:14px;right:14px;top:18px;height:42px;display:flex;align-items:center;gap:8px;padding:0 12px;border-radius:12px;background:var(--surface);border:2px solid var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 14%,transparent);font:600 .95rem var(--body)}
 .qa-box svg,.se-box svg{flex:none;width:18px;height:18px;fill:none;stroke:var(--accent);stroke-width:2.4;stroke-linecap:round}
 .qa-text{white-space:nowrap}
@@ -151,7 +148,7 @@
 .qa-done{position:absolute;left:14px;bottom:14px;padding:5px 11px;border-radius:999px;background:color-mix(in srgb,var(--leaf) 14%,transparent);color:var(--leaf);font:700 .74rem var(--display);opacity:0}
 .s3 .qa-done{opacity:1}
 
-/* ---------- Focus: the timer runs down while your group focuses too ---------- */
+/* Focus: the timer runs down while your group focuses too */
 .fo-ring{position:absolute;left:16px;top:22px;width:136px;height:136px}
 .fo-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
 .fo-bg{fill:var(--surface);stroke:var(--line);stroke-width:9}
@@ -178,7 +175,7 @@
 .fo-n{display:inline-flex;align-items:center;gap:6px;font:700 .74rem var(--display);color:var(--leaf)}
 .fo-n::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--leaf);animation:fx-rec 1.4s ease-in-out infinite}
 
-/* ---------- Grades: the marks fill in and it tells you what you need ---------- */
+/* Grades: the marks fill in and it tells you what you need */
 .gr-big{position:absolute;left:14px;top:14px;display:grid}
 .gr-big b{font:700 1.7rem var(--display);line-height:1;opacity:.2}
 .gr-big span{font:700 .72rem var(--display);color:var(--muted)}
@@ -193,7 +190,7 @@
 .gr-need{position:absolute;left:14px;right:14px;bottom:12px;padding:6px 10px;border-radius:10px;background:color-mix(in srgb,var(--plum) 14%,transparent);color:var(--plum);font:700 .76rem var(--display);opacity:0;transform:translateY(10px)}
 .s3 .gr-need{opacity:1;transform:none}
 
-/* ---------- Search: a word finds notes, cards and the moment in a lecture ---------- */
+/* Search: a word finds notes, cards and the moment in a lecture */
 .se-box{position:absolute;left:14px;right:14px;top:14px;height:40px;display:flex;align-items:center;gap:8px;padding:0 10px;border-radius:12px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);font:600 .95rem var(--body)}
 .se-text{white-space:nowrap}
 .se-box kbd{margin-left:auto;font:700 .64rem var(--display);color:var(--muted);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:2px 5px}
@@ -206,7 +203,7 @@
 .s2 .se-res li:nth-child(2){transition-delay:.12s}.s2 .se-res li:nth-child(3){transition-delay:.24s}
 .s3 .se-res li:first-child{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent)}
 
-/* ---------- Notes: stickers drop onto the corkboard ---------- */
+/* Notes: stickers drop onto the corkboard */
 .fx[data-fx="notes"] .fx-stage{background:#C79A6B radial-gradient(rgba(90,55,20,.28) 1px,transparent 1.4px) 0 0/8px 8px;border-color:color-mix(in srgb,#7A5230 45%,var(--line))}
 .nt-n{position:absolute;top:30px;width:118px;height:104px;padding:20px 12px 0;background:#FFE47A;color:#2B2410;font:700 .82rem/1.35 var(--body);box-shadow:0 8px 16px rgba(60,35,10,.3)}
 .nt-n.n1{left:calc(50% - 128px);transform:rotate(-4deg)}
@@ -220,7 +217,7 @@
 .s2 .st2{opacity:1;transform:rotate(10deg)}
 .s3 .nt-n.n1{transform:rotate(-1deg) translateY(-4px)}
 
-/* ---------- Study groups: everyone's free times overlap into one pick ---------- */
+/* Study groups: everyone's free times overlap into one pick */
 .gp-av{position:absolute;left:14px;top:12px}
 .gp-grid{position:absolute;left:14px;right:14px;top:50px;display:grid;grid-template-columns:34px repeat(5,1fr);gap:3px;align-items:center}
 .gp-grid b{font:700 .6rem var(--display);color:var(--muted);text-align:center}

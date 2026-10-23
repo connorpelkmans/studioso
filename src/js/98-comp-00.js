@@ -1,18 +1,15 @@
 /* ===== module: 98-comp-00.js ===== */
-/* Study Companions: shared data list, art helpers, and the reference art (plain colour themes, Winter, Cozy Café).
-   COMP_DATA and COMP_KIT are shared on purpose (not wrapped) so the batch files 98-comp-b*.js can reach them.
-   98-companion.js (which loads after every 98-comp-* file) reads COMP_DATA and draws and animates the companions.
-   The format is documented in COMP_ART_BRIEF.md. */
+/* Study Companions */
 var COMP_DATA = [];
 var COMP_KIT = (() => {
   const INK = "#2B2233";
   const O = `stroke="${INK}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"`;
   const OW = w => `stroke="${INK}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"`;
   const stops = s => s.map(([o, c, a]) => `<stop offset="${o}" stop-color="${c}"${a != null ? ` stop-opacity="${a}"` : ""}/>`).join("");
-  // Linear gradient in the shape's own box (0..1). Vertical by default.
+  // Linear gradient in the shape's own box (0..1)
   const LG = (id, s, x1 = 0, y1 = 0, x2 = 0, y2 = 1) => `<defs><linearGradient id="${id}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}">${stops(s)}</linearGradient></defs>`;
   const RG = (id, s, cx = 0.5, cy = 0.5, r = 0.5) => `<defs><radialGradient id="${id}" cx="${cx}" cy="${cy}" r="${r}">${stops(s)}</radialGradient></defs>`;
-  // A soft, bumpy cloud or fluff outline: n bumps around a circle.
+  // A soft, bumpy cloud or fluff outline
   const puff = (cx, cy, r, n, bump = 1.15) => {
     const p = i => { const a = -Math.PI / 2 + i * 2 * Math.PI / n; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; };
     const chord = 2 * r * Math.sin(Math.PI / n), br = (chord / 2) * bump, f = v => Math.round(v * 100) / 100;
@@ -20,17 +17,16 @@ var COMP_KIT = (() => {
     for (let i = 1; i <= n; i++) { const q = p(i); d += `A${f(br)} ${f(br)} 0 0 1 ${f(q[0])} ${f(q[1])}`; }
     return d + "Z";
   };
-  // An outlined line (a dark stroke under a coloured one), for steam, stems and wisps.
+  // An outlined line (a dark stroke under a coloured one), for steam, stems and wisps
   const LINE = (d, color, w = 3) => `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${w + 2.6}" stroke-linecap="round" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
   return {INK, O, OW, LG, RG, puff, LINE};
 })();
 
-/* ---------- Reference art ---------- */
+/* Reference art */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
 
-  /* Plain colour themes (all 14 share these six) */
   COMP_DATA.push({
     theme: "plain",
     companions: [
@@ -202,7 +198,6 @@ var COMP_KIT = (() => {
     ]
   });
 
-  /* Winter */
   COMP_DATA.push({
     theme: "winter", spot: {x: 0.84, y: 0.985},
     companions: [
@@ -319,7 +314,6 @@ var COMP_KIT = (() => {
     ]
   });
 
-  /* Cozy Café */
   COMP_DATA.push({
     theme: "cafe", spot: {x: 0.84, y: 0.985},
     companions: [

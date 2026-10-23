@@ -1,33 +1,12 @@
 #!/usr/bin/env node
-// The app page's code and styles live in src/, one file per section, so each part is easy to find and change:
-//   src/css/NN-name.css    the styles, in the order src/app.json lists them
-//   src/js/NN-name.js      the code, in the order src/app.json lists them (the files share one scope: together they are one function body)
-//   src/app.json           that order, plus the files loaded only when needed ("lazy")
-// The browser loads files built from them (bundle/, made by this script; don't edit those by hand):
-//   bundle/app.css         every style file, in order
-//   bundle/app.js          every code file, in order, inside the one function the app has always run in (so it runs exactly as before)
-//   bundle/<lazy>.js       a file loaded later, only when it's needed (the scene library: only when a scene theme is drawn)
-// index.html names them with ?v= and a hash of their content, so browsers and the offline copy (sw.js) fetch a file again only when it changed.
-//
-//   node scripts/app-files.js            build bundle/ from src/ and refresh index.html's ?v= hashes (scripts/csp.js runs this too)
-//   node scripts/app-files.js --check    exit 1 if bundle/ or a ?v= hash is out of date with src/
-//   node scripts/app-files.js --bundle out.html   write the whole app as one page, the way index.html used to be
-//   node scripts/app-files.js --where app.js:16336   which src/ file and line a line of a bundle/ file comes from (for error reports)
-//
-//   require("./scripts/app-files")
-//     .source()          the whole app as one page (styles inline, the code inline): tests and tools that read the app's code use this
-//     .build()           write bundle/ from src/ (returns the names of the files that changed)
-//     .stamp(html)       html with fresh ?v= hashes for every bundle/ file it names
-//     .inline(html, read) the one-page form of a page (read(path) -> text; default: from this folder)
-//     .fileWith(text)    {path, file, text} of the src/ file that contains `text`
-//     .manifest(), .srcFiles()
+// The app page's code and styles live in src/, one file per section
 "use strict";
 const fs = require("fs"), path = require("path"), crypto = require("crypto");
 const ROOT = path.join(__dirname, "..");
 const MANIFEST = path.join(ROOT, "src", "app.json");
-// The code's wrapper, as it has always been: one strict function around every section.
+// The code's wrapper, as it has always been
 const APP_HEAD = '(function(){\n"use strict";\n', APP_TAIL = "})();\n";
-// The one-page form: <script> + "\n" + bundle/app.js + "\n\n" + </script>, exactly the page before the split.
+// The one-page form
 const INLINE_JS_PRE = "\n", INLINE_JS_POST = "\n\n";
 const REF = /bundle\/([A-Za-z0-9._-]+)\?v=[0-9a-f]*/g;
 
@@ -35,7 +14,7 @@ const readRoot = p => fs.readFileSync(path.join(ROOT, p), "utf8");
 const hash = s => crypto.createHash("sha256").update(String(s).replace(/\r\n?/g, "\n"), "utf8").digest("hex").slice(0, 10);
 const manifest = () => JSON.parse(fs.readFileSync(MANIFEST, "utf8"));
 
-// What each bundle/ file is made of: {"app.css": [...], "app.js": [...], "<lazy>.js": [...]}
+// What each bundle/ file is made of
 function plan(m = manifest()){
   const out = {"app.css": m.css.map(n => "src/css/" + n), "app.js": m.js.map(n => "src/js/" + n)};
   for (const [name, parts] of Object.entries(m.lazy || {})) out[name] = parts.map(n => "src/js/" + n);
@@ -53,13 +32,12 @@ function build(){
     const f = path.join(ROOT, "bundle", name), text = built(name, readRoot, m);
     if (!fs.existsSync(f) || fs.readFileSync(f, "utf8") !== text) { fs.writeFileSync(f, text); changed.push(name); }
   }
-  // a bundle file no section makes any more
   for (const f of fs.readdirSync(path.join(ROOT, "bundle"))) if (!plan(m)[f]) { fs.unlinkSync(path.join(ROOT, "bundle", f)); changed.push(f + " (removed)"); }
   return changed;
 }
 const refs = html => [...new Set([...String(html).matchAll(REF)].map(x => x[1]))];
 // The scene names index.html's start-up script lists (/*SCENE-IDS*/"..."): every scene in bundle/scenes.js, plus the theme ids that draw one
-// of them under another name (SCENE_ALIAS in 20-scenes.js). It loads the library early when the saved theme is one of these.
+// of them under another name (SCENE_ALIAS in 20-scenes.js)
 const idCache = new Map();
 function sceneIds(read = readRoot){
   const lib = read("bundle/scenes.js"), key = hash(lib) + hash(read("bundle/app.js"));
@@ -77,7 +55,7 @@ function stamp(html, read = readRoot){
   if (out.includes("/*SCENE-IDS*/")) out = out.replace(/\/\*SCENE-IDS\*\/"[^"]*"/, () => '/*SCENE-IDS*/"' + sceneIds(read) + '"');
   return out;
 }
-// The one-page form: app.css inline as <style>, every lazy file and app.js inline as scripts (the lazy ones first, as if already loaded).
+// The one-page form
 function inline(html, read = readRoot){
   let out = String(html);
   out = out.replace(/<link rel="stylesheet" href="bundle\/app\.css\?v=[0-9a-f]*">/, () => "<style>" + read("bundle/app.css") + "</style>");
@@ -91,11 +69,11 @@ function fileWith(text){
   for (const p of srcFiles()) { const t = readRoot(p); if (t.includes(text)) return {path: p, file: path.join(ROOT, p), text: t}; }
   return null;
 }
-// bundle/<name> line N (1-based) -> {path: "src/js/...", line}; null for the wrapper lines
+// bundle/<name> line N (1-based) -> {path
 function where(name, line, read = readRoot){
-  let at = name === "app.js" ? APP_HEAD.split("\n").length : 1;   // the first line of the first file
+  let at = name === "app.js" ? APP_HEAD.split("\n").length : 1;
   for (const p of plan()[name] || []) {
-    const n = read(p).split("\n").length - 1;   // each file ends with a newline, so it adds n lines
+    const n = read(p).split("\n").length - 1;
     if (line < at + n) return {path: p, line: line - at + 1};
     at += n;
   }

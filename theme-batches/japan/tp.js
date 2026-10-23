@@ -1,4 +1,4 @@
-/* Theme Collections, Around the World: japan */
+/* Theme Collections, Around the World */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2);
@@ -9,7 +9,7 @@
   const spark = (x, y, s, c) => `<path d="M${x} ${y - s}Q${x} ${y} ${x + s} ${y}Q${x} ${y} ${x} ${y + s}Q${x} ${y} ${x - s} ${y}Q${x} ${y} ${x} ${y - s}z" fill="${c}"/>`;
   const blush = (a, b, y, rx = 2.6, ry = 1.7) => `<ellipse cx="${a}" cy="${y}" rx="${rx}" ry="${ry}" fill="#FF8FA8" opacity=".8"/><ellipse cx="${b}" cy="${y}" rx="${rx}" ry="${ry}" fill="#FF8FA8" opacity=".8"/>`;
   const smile = (x, y, w = 2.4, sw = 1.9) => `<path d="M${x - w} ${y}q${w} ${w * .8} ${w * 2} 0" fill="none" stroke="${O}" stroke-width="${sw}" stroke-linecap="round"/>`;
-  // a cherry blossom: five notched petals; s is the petal length
+  // a cherry blossom
   const sakura = (cx, cy, s, fill, sw = 1.4, mid = "#E8507A") => Array.from({length: 5}, (_, i) => { const a = -90 + i * 72;
     return `<path d="M0 -${f1(s * .12)}C${f1(s * .4)} -${f1(s * .3)} ${f1(s * .5)} -${f1(s * .82)} ${f1(s * .2)} -${f1(s)}L0 -${f1(s * .84)}L-${f1(s * .2)} -${f1(s)}C-${f1(s * .5)} -${f1(s * .82)} -${f1(s * .4)} -${f1(s * .3)} 0 -${f1(s * .12)}Z" transform="translate(${cx} ${cy}) rotate(${a + 90})" fill="${fill}" ${SOw(sw)}/>`; }).join("") + `<circle cx="${cx}" cy="${cy}" r="${f1(s * .2)}" fill="${mid}"/>`;
   const tapeEdge = "M3 1.5H83L80 5.5L83 9.5L80 13.5L83 17.5L80 21.5L82 24.5H3L6 20.5L3 16.5L6 12.5L3 8.5L6 4.5z";

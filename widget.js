@@ -1,15 +1,14 @@
-// Studyboard Today widget: shows what the Studyboard page sends (see the widgets module) in the page's own theme colors.
-// Everything is built with textContent, so nothing from your tasks can ever run as code here.
+// Studyboard Today widget
 (() => {
   "use strict";
   const W = window.studyboardWidget;
   const $ = id => document.getElementById(id);
   const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
   let data = null, pinned = false;
-  const flipped = new Map();            // tasks checked here and waiting for the page to confirm: id -> done
+  const flipped = new Map();
 
   function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
-  function svg(markup) { const t = document.createElement("template"); t.innerHTML = markup; return t.content.firstChild; }   // our own constant icons only
+  function svg(markup) { const t = document.createElement("template"); t.innerHTML = markup; return t.content.firstChild; }
 
   function applyTheme(t) {
     const r = document.documentElement.style;
@@ -96,7 +95,6 @@
 
   W.onData(d => {
     data = d && typeof d === "object" ? d : null;
-    // Drop local check marks the page has now confirmed.
     if (data) for (const [id, done] of flipped) { const t = (data.tasks || []).find(x => x.id === id); if (!t || t.done === done) flipped.delete(id); }
     applyTheme(data && data.theme);
     render();
@@ -106,7 +104,7 @@
   $("pin").addEventListener("click", () => { pinned = !pinned; W.pin(pinned); render(); });
   $("close").addEventListener("click", () => W.hide());
   document.documentElement.dataset.platform = W.platform;
-  // A new day starts: redraw the date and let the page's next update bring the new list.
+  // A new day starts
   setInterval(() => { if (data && data.day && data.day !== new Date().toLocaleDateString("en-CA")) { data.dateLabel = ""; render(); } }, 60000);
   render();
   W.ready();

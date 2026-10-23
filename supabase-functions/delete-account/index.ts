@@ -1,18 +1,4 @@
-// Studyboard: delete-account (Supabase Edge Function)
-// Permanently deletes the signed-in person's account and everything stored for it, on the server (Apple 5.1.1(v), Google Play account deletion).
-// Steps, in this order (every step is safe to repeat, so a failed attempt can simply be tried again):
-//   1. check who is asking (their own sign-in), that they signed in recently (or re-typed their password) and typed DELETE
-//   2. rate limit (5 tries an hour per account)
-//   3. cancel their Stripe subscription(s) (stops if Stripe fails, so billing is never left running for a deleted account);
-//      Apple / Google subscriptions can only be cancelled by the person in the store, so we require them to acknowledge that
-//   4. delete every uploaded file under <uid>/ in the studioso-files bucket (the bytes, not just the database rows)
-//   5. studyboard_delete_user_data(uid): the database rows (see supabase-lean.sql for the rules: groups are handed over or deleted, etc.)
-//   6. delete the sign-in account itself (this also ends every session on every device)
-// Returns {ok: true, deleted: {...checklist...}, retained: [...]}.
-//
-// Deploy with "Verify JWT" turned ON. Secrets: STRIPE_SECRET_KEY (the one the billing functions use; optional if you never took card payments),
-// SITE_ORIGINS (same as create-checkout; must include the web address the app is served from).
-// Needs supabase-lean.sql (studyboard_delete_user_data) and supabase-plans.sql (studyboard_plan_rate_hit) to be run first.
+// Studyboard: delete-account
 
 type Env = (k: string) => string;
 type Deps = { env: Env; fetch: typeof fetch; now: () => number; log: (...a: unknown[]) => void };
@@ -26,15 +12,14 @@ const json = (o: unknown, status: number, cors: Record<string, string>, extra: R
   new Response(JSON.stringify(o), { status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...cors, ...extra } });
 function serviceKey(d: Deps): string {
   let key = d.env("SUPABASE_SERVICE_ROLE_KEY");
-  if (!key) { try { const k = JSON.parse(d.env("SUPABASE_SECRET_KEYS") || "{}"); key = String(k.default || Object.values(k)[0] || ""); } catch (_e) { /* newer projects only */ } }
+  if (!key) { try { const k = JSON.parse(d.env("SUPABASE_SECRET_KEYS") || "{}"); key = String(k.default || Object.values(k)[0] || ""); } catch (_e) { } }
   return key;
 }
 const base = (d: Deps) => d.env("SUPABASE_URL").replace(/\/+$/, "");
 function originOf(u: string): string | null {
   try { const x = new URL(u); return x.protocol === "https:" && !x.username && !x.password ? x.origin : null; } catch (_e) { return null; }
 }
-// The app's own origins: desktop (Electron app://), iPhone (Capacitor) and Android (Capacitor serves https://localhost).
-// A missing one is blocked by the browser and shows up in the app as "couldn't reach the server".
+// The app's own origins
 const NATIVE_ORIGINS = ["app://studioso", "capacitor://localhost", "ionic://localhost", "https://localhost"];
 
 export async function handle(req: Request, d: Deps): Promise<Response> {
@@ -74,7 +59,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     const rl = await (await rest("rpc/studyboard_plan_rate_hit", { method: "POST", body: JSON.stringify({ p_key: `delete:${uid}`, p_max: RATE_MAX, p_window: RATE_WINDOW }) })).json();
     if (rl !== true) return json({ error: "rate_limited", message: "Too many tries. Please wait a little and try again." }, 429, cors, { "Retry-After": "900" });
 
-    // Re-authentication: a sign-in in the last 10 minutes (last_sign_in_at; the token's iat is renewed by every refresh, so it proves nothing), or the password right now
+    // Re-authentication
     const last = Date.parse(String(user.last_sign_in_at || ""));
     const recent = Number.isFinite(last) && d.now() - last >= -60_000 && d.now() - last <= RECENT_SIGNIN_MS;
     if (!recent) {
@@ -88,7 +73,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
 
     const done: Record<string, unknown> = {};
 
-    // What plan do they pay for, and where?
+    // What plan do they pay for, and where
     const ent = ((await (await rest(`studyboard_entitlements?user_id=eq.${uid}&select=plan,pro_until,source,external_id,will_renew`)).json()) as any[])[0] || null;
     let customer = ((await (await rest(`studyboard_billing_customers?user_id=eq.${uid}&select=stripe_customer_id`)).json()) as any[])[0]?.stripe_customer_id as string | undefined;
     if (!customer && ent?.source === "stripe" && /^cus_[A-Za-z0-9]+$/.test(String(ent.external_id || ""))) customer = ent.external_id;
@@ -102,7 +87,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
       }, 409, cors);
     }
 
-    // 3. Stripe: cancel now. If Stripe fails we stop so billing is never left running for an account that no longer exists.
+    // 3. Stripe: cancel now
     if (customer && /^cus_[A-Za-z0-9]+$/.test(customer) && d.env("STRIPE_SECRET_KEY")) {
       const sh = { Authorization: `Bearer ${d.env("STRIPE_SECRET_KEY")}` };
       const lr = await d.fetch(`https://api.stripe.com/v1/subscriptions?customer=${encodeURIComponent(customer)}&status=all&limit=100`, { headers: sh });
@@ -116,8 +101,6 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
         cancelled++;
       }
       done.stripe_subscriptions_cancelled = cancelled;
-      // Then the Stripe customer itself (it holds the email address and the account id). Stripe keeps its invoices and payments, as tax
-      // law requires, but no longer a customer profile tied to this person. Not fatal: the subscriptions are already cancelled above.
       const xr = await d.fetch(`https://api.stripe.com/v1/customers/${encodeURIComponent(customer)}`, { method: "DELETE", headers: sh });
       done.stripe_customer_deleted = xr.ok || xr.status === 404;
       if (!done.stripe_customer_deleted) d.log("stripe customer delete", xr.status);
@@ -142,7 +125,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
         if (rows.length < 100) break;
       }
     };
-    // More than MAX_FILES (or folders deeper than the walk): delete what was found and look again, until nothing is left.
+    // More than MAX_FILES (or folders deeper than the walk)
     let removed = 0;
     for (let round = 0; round < 50; round++) {
       files.length = 0;

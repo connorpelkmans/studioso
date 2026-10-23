@@ -1,6 +1,4 @@
-// Offline checks for the capture-task Edge Function (no network, no Supabase). Run from the repo root:
-//   node --experimental-strip-types supabase-functions/tools/test-capture.mjs
-// It loads the real function file with a fake database that follows the same rules as capture_add() in supabase-capture.sql.
+// Offline checks for the capture-task Edge Function (no network, no Supabase)
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";

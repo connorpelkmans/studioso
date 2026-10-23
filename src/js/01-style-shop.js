@@ -1,5 +1,5 @@
 /* ===== module: 01-style-shop.js: the app's core, the Style Shop, completion animations, theme kits ===== */
-/* ---------- Style Shop: themes, flashcard styles, note shapes, pins, stickers ---------- */
+/* Style Shop: themes, flashcard styles, note shapes, pins, stickers */
 /* ============================================================================================================
    FLIP TO true TO LAUNCH PRO
    ------------------------------------------------------------------------------------------------------------
@@ -18,10 +18,9 @@
    To launch with the constant, change false to true on the next line, rebuild, and set the server switch too
    (see "Launch Day" in PRO-PLANS-GUIDE.md).
    ============================================================================================================ */
-const PRO_ENFORCED = true;   // <-- FLIP TO true TO LAUNCH PRO
+const PRO_ENFORCED = true;
 
-// PRO items are free while enforcement is off; once it's on they need Pro (or the free trial).
-// STORE.paywall is a read-only view of the switch above; the PLAN module feeds the server answer in through STORE.serverPaywall().
+// PRO items are free while enforcement is off; once it's on they need Pro
 const STORE = (() => {
   const K_CFG = "studyboard:plancfg", K_LATCH = "studyboard:pw-latch", K_TEST = "studyboard:paywall-test";
   const ls = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
@@ -30,7 +29,7 @@ const STORE = (() => {
   if (ls(K_LATCH) === "1") server = true;
   const st = {
     get paywall(){ return PRO_ENFORCED === true || server || ls(K_TEST) === "1"; },
-    // v: true | false from a successful read of studyboard_config.paywall. false releases the latch; a failed read never calls this.
+    // v: true | false from a successful read of studyboard_config.paywall
     serverPaywall(v){ server = !!v; try { if (v) localStorage.setItem(K_LATCH, "1"); else localStorage.removeItem(K_LATCH); } catch (e) {} },
     get enforcedByApp(){ return PRO_ENFORCED === true; }
   };
@@ -38,7 +37,7 @@ const STORE = (() => {
 })();
 const svgUrl = svg => `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 const SVGH = (vb, body, ar = "none") => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='${vb}' preserveAspectRatio='${ar}'>${body}</svg>`;
-// Theme colors: [paper, grid, surface, ink, muted, line, soft, field, accent, accent-2, accent-ink, selected, spine, spine-ink, highlight]
+// Theme colors: [paper, grid, surface, ink, muted, line, soft, field, accent, accent-2
 const SKINS = [
   {id: "classic", name: "Classic", tier: "free", group: "plain", desc: "The original notebook blue on graph paper."},
   {id: "paper", name: "Plain Paper", tier: "free", group: "plain", desc: "Clean white, nothing extra.", plain: true,
@@ -230,14 +229,13 @@ const SKINS = [
     glow: ["radial-gradient(90% 70% at 100% 100%, rgba(250,170,60,.24), transparent 62%), radial-gradient(80% 60% at 0% 0%, rgba(230,110,170,.16), transparent 62%), #FAF2E8", "radial-gradient(90% 70% at 100% 100%, rgba(255,160,74,.14), transparent 62%), radial-gradient(80% 60% at 0% 0%, rgba(184,54,122,.18), transparent 62%), #1A0F12"], spine: ["linear-gradient(180deg,#8E2A5E,#5A1A3C)", "linear-gradient(180deg,#5A1A3C,#12080B)"], btn: ["linear-gradient(135deg,#B8367A,#E0782E)", "linear-gradient(135deg,#FFA04A,#FF7AB0)"]}
 ];
 const SKIN_KEYS = ["paper", "grid", "surface", "ink", "muted", "line", "soft", "field", "accent", "accent-2", "accent-ink", "sel", "spine", "spine-ink", "mark"];
-// Light mode is toned down a touch: page, cards and fields are mixed a little toward the theme's ink.
+// Light mode is toned down a touch
 function dimLight(v){
   const hx = h => /^#[0-9a-f]{6}$/i.test(h), ink = hx(v[3]) ? v[3] : "#1A1A1A";
   const mix = (a, f) => { if (!hx(a)) return a; const A = [1, 3, 5].map(i => parseInt(a.substr(i, 2), 16)), B = [1, 3, 5].map(i => parseInt(ink.substr(i, 2), 16)); return "#" + A.map((x, i) => Math.round(x + (B[i] - x) * f).toString(16).padStart(2, "0")).join(""); };
   const o = v.slice(); [[0, 0.075], [2, 0.045], [5, 0.035], [6, 0.045], [7, 0.055]].forEach(([i, f]) => { o[i] = mix(o[i], f); }); return o;
 }
-/* Readable text on every theme: a colour is nudged toward black or white, just far enough, until it reaches the contrast asked for
-   against every background it sits on (WCAG 2: 4.5 for normal text). Only colours that fail are touched. */
+/* Readable text on every theme */
 const HEX6 = /^#[0-9a-f]{6}$/i;
 const hexRgb = h => [1, 3, 5].map(i => parseInt(h.substr(i, 2), 16));
 const rgbHex = c => "#" + c.map(x => Math.max(0, Math.min(255, Math.round(x))).toString(16).padStart(2, "0")).join("");
@@ -261,12 +259,10 @@ function skinVars(s, dark){
   o["spine-bg"] = s.spine ? s.spine[dark ? 1 : 0] : v[12];
   o["btn-bg"] = s.btn ? s.btn[dark ? 1 : 0] : v[8];
   try {
-    // contrast guard (see ensureContrast): small text, links, selected states, the side bar and filled buttons
     o.muted = ensureContrast(o.muted, [o.paper, o.surface, o.soft, o.field, o.line], 5);
     o.accent = ensureContrast(o.accent, [o.paper, o.surface], 4.5);
     o["accent-2"] = ensureContrast(o["accent-2"], [o.paper, o.surface], 3);
     o.sel = ensureContrast(o.sel, [o["sel-ink"]], 4.5);
-    // the side bar: its colours are darkened (or lightened, for a dark label) until the label reads, with room for the highlighted item's overlay
     const ink0 = o["spine-ink"];
     o.spine = ensureContrast(o.spine, [ink0], 5.5);
     o["spine-bg"] = String(o["spine-bg"]).replace(/#[0-9a-f]{6}/gi, h => ensureContrast(h, [ink0], 5.5));
@@ -282,7 +278,7 @@ function skinCss(s){
   return `${r}{${L};color-scheme:light}@media (prefers-color-scheme:dark){${r}:not([data-theme="light"]){${D};color-scheme:dark}}${r}[data-theme="dark"]{${D};color-scheme:dark}`;
 }
 
-/* Theme artwork: drawn once as SVG behind the page, scaled to the window, recolored for light and dark. */
+/* Theme artwork */
 const skinOf = id => SKINS.find(x => x.id === id);
 const isDarkNow = () => { const t = document.documentElement.getAttribute("data-theme"); return t === "dark" || (t !== "light" && !!(window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches)); };
 let artSig = "";
@@ -294,8 +290,7 @@ if (window.matchMedia) { const mq = matchMedia("(prefers-color-scheme: dark)"); 
 new MutationObserver(queueArt).observe(document.documentElement, {attributes: true, attributeFilter: ["data-theme", "data-skin"]});
 function artThumb(id, dark){ return fire("thumb", id, dark).find(Boolean) || ""; }
 
-/* ---------- Completion animations ----------
-   Classic and plain colors keep confetti (drag) and fireworks (checkbox). Artwork themes get their own. */
+/* Completion animations Classic and plain colors keep confetti (drag) and fireworks */
 function celebrate(kind){
   if (styleCfg().celebrate === false) return;
   if (fire("celebrate", kind).some(Boolean)) return;
@@ -304,9 +299,7 @@ function celebrate(kind){
   if (!fx) { fxUntil = performance.now() + 4500; return kind === "check" ? fireworks() : confetti(); }
   runThemeFx(fx);
 }
-/* A good grade gets the same celebration as finishing a task. A quiz or assignment mark of 80% or more (from school sync or typed in)
-   plays it once, as soon as the mark shows up while the app is open, or soon after it is reopened if the mark arrived while it was closed.
-   Marks already there the first time this runs are remembered without a celebration, and each mark celebrates only once. */
+/* A good grade gets the same celebration as finishing a task */
 const GRADE_CHEER = (() => {
   const KEY = "studyboard:gradeCheer", MIN = 80;
   const read = () => { try { const o = JSON.parse(localStorage.getItem(KEY) || "null"); return o && typeof o === "object" ? o : null; } catch (e) { return null; } };
@@ -322,7 +315,7 @@ const GRADE_CHEER = (() => {
     if (!seen) { const o = {}; now.forEach(t => { o[t.id] = sigOf(t); }); write(o); return; }
     const fresh = now.filter(t => seen[t.id] !== sigOf(t));
     if (!fresh.length) return;
-    if (document.hidden) return;                                   // plays when the app is back in view
+    if (document.hidden) return;
     fresh.forEach(t => { seen[t.id] = sigOf(t); });
     write(seen);
     try { celebrate("check"); } catch (e) {}
@@ -374,7 +367,7 @@ const FX_PATHS = {};
 const fxPath = k => FX_PATHS[k] || (FX_PATHS[k] = {d: new Path2D(FX_SHAPES[k].d), detail: FX_SHAPES[k].detail ? new Path2D(FX_SHAPES[k].detail) : null});
 const fxR = (a, b) => a + Math.random() * (b - a), fxPick = a => a[Math.floor(Math.random() * a.length)];
 
-/* Each theme: spawn(W, H, dark, n) returns particles; optional draw(g, f, W, H, dark) for extras (ribbons, rings, stripes). */
+/* Each theme: spawn(W, H, dark, n) returns particles; optional draw */
 const fxFall = (W, H, n, shape, cols, o = {}) => Array.from({length: n}, () => ({shape, c: fxPick(cols), x: fxR(-20, W + 20), y: fxR(-H * 0.5, -10), vx: fxR(-0.6, 0.6), vy: fxR(o.vmin || 1.2, o.vmax || 2.6), g: 0.012, size: fxR(o.smin || 7, o.smax || 12), rot: fxR(0, 6.3), vr: fxR(-0.06, 0.06), sway: o.sway || 1.3, swf: fxR(0.03, 0.06), flip: o.flip, life: 260, delay: Math.floor(fxR(0, 40)), glow: o.glow}));
 const fxRise = (W, H, n, shape, cols, o = {}) => Array.from({length: n}, () => ({shape, c: fxPick(cols), x: o.cx ? fxR(o.cx[0] * W, o.cx[1] * W) : fxR(0, W), y: H + fxR(10, 60), vx: fxR(-0.3, 0.3), vy: -fxR(o.vmin || 1.4, o.vmax || 3), g: 0, size: fxR(o.smin || 5, o.smax || 12), rot: 0, vr: 0, sway: o.sway || 0.8, swf: fxR(0.03, 0.07), grow: o.grow || 0, alpha: o.alpha || 1, life: o.life || 170, delay: Math.floor(fxR(0, 50)), glow: o.glow}));
 const fxBurst = (W, H, n, shape, cols, pts, o = {}) => Array.from({length: n}, (_, i) => { const [bx, by] = pts[i % pts.length], up = by > 0.5, a = up ? -Math.PI / 2 + fxR(-0.7, 0.7) + (bx < 0.4 ? 0.3 : bx > 0.6 ? -0.3 : 0) : fxR(0, 6.3), sp = up ? fxR(H * 0.02, H * 0.034) : fxR(3, 8); return {shape, c: fxPick(cols), x: bx * W, y: by * H, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, g: o.g || 0.3, drag: 0.985, size: fxR(o.smin || 7, o.smax || 12), rot: fxR(0, 6.3), vr: fxR(-0.2, 0.2), sway: 0, life: 210, delay: up ? 0 : Math.floor(fxR(4, 14)), flip: o.flip, glow: o.glow, bounce: o.bounce}; });
@@ -407,7 +400,7 @@ const THEME_FX = {
 };
 
 
-/* ---------- Sprites: each shape is drawn once into a small image, then stamped. Much cheaper than redrawing paths. ---------- */
+/* Sprites: each shape is drawn once into a small image, then stamped */
 const FX_SPR = new Map(), SPR_U = 2.4, SPR_S = 64, SPR_G = 96;
 function fxSprite(shape, color, glow, dark){
   const key = shape + "|" + color + "|" + (glow || 0) + "|" + (dark ? 1 : 0);
@@ -433,12 +426,12 @@ function fxSprite(shape, color, glow, dark){
 FX_SHAPES.orb = {d: "M-10 0a10 10 0 1 0 20 0a10 10 0 1 0-20 0"};
 FX_SHAPES.puffsoft = {d: "M-10 0a10 10 0 1 0 20 0a10 10 0 1 0-20 0"};
 
-/* Busy window: while a completion animation plays, heavy background work (sync echoes, backups) waits. */
+/* Busy window: while a completion animation plays, heavy background work */
 let fxUntil = 0;
 const fxBusyMs = () => Math.max(0, fxUntil - performance.now());
 const fxDefer = fn => { const w = fxBusyMs(); w > 0 ? setTimeout(fn, w + 120) : fn(); };
 
-/* The pop-up plays in front of the page. Anything animating behind it (the scene themes) can pause while it runs by wrapping this. */
+/* The pop-up plays in front of the page */
 function ambientPause(on){}
 
 function runThemeFx(fx){
@@ -456,7 +449,6 @@ function runThemeFx(fx){
   fxUntil = performance.now() + 5200; ambientPause(true);
   let f = 0, last = performance.now(), acc = 0;
   const step = now => {
-    // Advance in fixed 60 fps steps so a slow frame catches up instead of visibly slowing the motion.
     acc += Math.min(100, now - last); last = now;
     let ticks = 0; while (acc >= 16.6 && ticks < 4) { acc -= 16.6; ticks++; tick(); }
     if (!ticks) { requestAnimationFrame(step); return; }
@@ -512,7 +504,7 @@ FX_SHAPES.oakleaf = {d: "M0 -11C2 -10 3.4 -8.6 3 -7C5.2 -7.4 6.2 -5.6 5 -4C7.4 -
 FX_SHAPES.sprinkle = {d: "M-7 -1.8H7A1.8 1.8 0 0 1 7 1.8H-7A1.8 1.8 0 0 1 -7 -1.8Z"};
 
 
-/* ---------- Shapes for the hobby and holiday themes ---------- */
+/* Shapes for the hobby and holiday themes */
 (() => {
   const c = (x, y, r) => `M${x - r} ${y}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0Z`;
   Object.assign(FX_SHAPES, {
@@ -543,9 +535,8 @@ FX_SHAPES.sprinkle = {d: "M-7 -1.8H7A1.8 1.8 0 0 1 7 1.8H-7A1.8 1.8 0 0 1 -7 -1.
 
 
 
-/* ---------- Completion animations for the hobby and holiday themes ---------- */
+/* Completion animations for the hobby and holiday themes */
 const fxFirework = cols => (g, f, W, H, d) => {
-  // Bursts bloom one after another across the sky: radiating streaks with bright tips that drift down and fade.
   const B = [[0.28, 0.3, 0], [0.7, 0.24, 16], [0.5, 0.42, 34], [0.18, 0.5, 52], [0.84, 0.46, 66]];
   g.save(); g.lineCap = "round"; if (d) g.globalCompositeOperation = "lighter";
   B.forEach(([bx, by, t0], i) => {
@@ -584,9 +575,7 @@ Object.assign(THEME_FX, {
   diwali: {spawn: (W, H, d, n) => fxRise(W, H, n(40), "flame", ["#FFB347", "#FFD86B", "#FF8A3A"], {smin: 5, smax: 9, sway: 1.2, glow: 14}).concat(fxBurst(W, H, n(40), "flower", ["#F2A33A", "#E0463C", "#F2C24A"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 7, smax: 11}), fxTw(W, H, n(26), "sparkle", ["#FFE08A", "#FFFFFF"], {smin: 3, smax: 7, glow: 12}))}
 });
 
-/* ---------- Theme kits: each artwork theme brings its own flashcards, note colors, note shape, pin and button shapes ----------
-   These are defaults. Anything you pick yourself (a deck's style, one note's shape) still wins, and in the Style Shop
-   "Match Theme" puts a choice back to following the theme. */
+/* Theme kits: each artwork theme brings its own flashcards, note colors, note shape */
 const THEME_KIT = {
   ocean:   {motif: "drop",      card: ["#F3FBFC", "#DDF1F4"], ink: "#0B2B33", bd: "#9ED3DB", mc: "#14A7BD", r: 18, notes: ["#FFF1B8", "#FFD2C9", "#BFE9EE", "#C8F0DA", "#FFE0A8", "#D6D8FF"], shape: "rounded", pin: "magnet", fab: "28px 28px 28px 8px", btn: "14px"},
   sakura:  {motif: "petal",     card: ["#FFF7FA", "#FDE6EE"], ink: "#3B1D2B", bd: "#F5C6D8", mc: "#E8688A", r: 22, notes: ["#FFF0C2", "#FFD1E1", "#E6DBFF", "#D9F0D8", "#FFDCC8", "#FBE3F0"], shape: "scallop", pin: "pin", fab: "999px", btn: "999px"},
@@ -688,46 +677,34 @@ const PINS = [
   {id: "binder", name: "Binder Clip", tier: "pro", desc: "A black binder clip."},
   {id: "magnet", name: "Magnet", tier: "pro", desc: "A round fridge magnet."}
 ];
-// How each pin attaches, so it can sit right on round, heart and cloud notes (theme pins add theirs when they load).
+// How each pin attaches, so it can sit right on round, heart and cloud notes
 const PIN_KIND = {tape: "tape", washi: "tape", washi2: "tape", corners: "corners", clip: "clip", binder: "top", staple: "flat", none: "none"};
 const pinHtml = k => `<span class="pin pk-${k} pkk-${PIN_KIND[k] || "badge"}" aria-hidden="true">${PIN_SVG[k] || ""}</span>`;
 
 const STICKERS = {}; STICKER_PACKS.forEach(p => Object.entries(p.items).forEach(([k, svg]) => { STICKERS[k] = {svg, pack: p.id}; }));
 const stickerSvg = k => STICKERS[k] ? `<svg viewBox="0 0 64 64" aria-hidden="true">${STICKERS[k].svg}</svg>` : "";
 
-/* Ownership: free items always; PRO items once Pro enforcement is on need Pro (nothing is given away or earned: the only free Pro is the trial).
-   Every place that APPLIES or RENDERS a style item asks owns() again (applySkin, cardStyleOf, noteShapeOf, notePinOf, the companion,
-   stickers on notes, scrapbook extras), so a Pro id that arrives from a synced setting, an imported backup, restored storage or
-   another device is never used without entitlement. The choice itself stays in settings ("remembered"), so it returns with Pro. */
-const STYLE_LISTS = {skin: SKINS, card: CARD_STYLES, note: NOTE_SHAPES, pin: PINS, sticker: STICKER_PACKS, comp: [], prop: []};   // comp and prop are filled by the companion module
-// The tier of a theme (a skin id, or "plain" for the free plain colors). Theme collections and companions take their tier from here.
+/* Ownership: free items always; PRO items once Pro enforcement is on need Pro */
+const STYLE_LISTS = {skin: SKINS, card: CARD_STYLES, note: NOTE_SHAPES, pin: PINS, sticker: STICKER_PACKS, comp: [], prop: []};
+// The tier of a theme (a skin id, or "plain" for the free plain colors)
 const themeTier = id => id === "plain" || !id ? "free" : ((SKINS.find(x => x.id === id) || {}).tier || "free");
 const itemTier = (kind, id) => ((STYLE_LISTS[kind] || []).find(x => x.id === id) || {}).tier || "free";
 const owns = (kind, id) => {
   if (!STORE.paywall || itemTier(kind, id) === "free") return true;
   if (typeof PLAN !== "undefined" && !!PLAN && (PLAN.isPro() || (PLAN.styleGrace && PLAN.styleGrace()))) return true;
-  if (cpAllows(kind, id)) return true;   // a running collection preview (free plan)
-  // a companion comes with its theme: previewing the theme previews its companions too
+  if (cpAllows(kind, id)) return true;
   if (kind === "comp") { const it = (STYLE_LISTS.comp || []).find(x => x.id === id); if (it && it.theme && cpAllows("skin", it.theme)) return true; }
   return false;
 };
-/* The theme from last time is painted before any script runs (the snippet in <head>). A Pro theme needs a confirmed Pro plan, and on
-   some starts that takes a sign-in and a server answer, so until the plan is known for this load the saved theme stays on screen
-   instead of dropping to Classic and coming back. It gives up after 10 seconds; a plan that turns out free switches to Classic then. */
+/* The theme from last time is painted before any script runs (the snippet in <head>) */
 const SKIN_HOLD = (() => { try { return localStorage.getItem("studyboard:skin") || ""; } catch (e) { return ""; } })(), SKIN_HOLD_UNTIL = Date.now() + 10000;
 const skinHeld = id => !!SKIN_HOLD && id === SKIN_HOLD && Date.now() < SKIN_HOLD_UNTIL && typeof PLAN !== "undefined" && !!PLAN && typeof PLAN.settled === "function" && !PLAN.settled();
 const skinOk = id => owns("skin", id) || skinHeld(id);
 if (SKIN_HOLD) setTimeout(() => { try { if (document.documentElement.dataset.skin === SKIN_HOLD && !owns("skin", SKIN_HOLD)) applySkin(); } catch (e) {} }, 10050);
-// The theme actually on screen: the chosen one only if it may be used now, else Classic (the choice stays in settings).
+// The theme actually on screen
 const effSkinId = () => { const id = ((state.settings && state.settings.style) || {}).skin || "classic"; return SKINS.some(x => x.id === id) && owns("skin", id) ? id : "classic"; };
 const styleCfg = () => Object.assign({skin: "classic", card: "index", note: "classic", pin: "pin"}, (state.settings && state.settings.style) || {});
 
-/* ---------- Collection previews (free plan) ----------
-   A free account can try 3 different Pro collections for 5 minutes each, at any time. A preview applies the collection's theme and lets its own
-   stickers, pins and flashcard style through owns() until the time is up; then the earlier look comes back by itself (also if the app was closed
-   meanwhile). Once 3 previews are used there are no more, and a collection can't be previewed twice. Buying Pro during a preview keeps everything.
-   The count and the running preview live in settings.collPreview, so they follow the account to other devices.
-   This is cosmetic only (like the rest of the shop): nothing here touches the limits the database enforces. */
 const CP_MAX = 3, CP_MS = 5 * 60000, CP_KEYS = ["skin", "skinAt", "card", "cardAuto", "pin", "pinAuto", "pinPicked", "note", "noteAuto", "notePicked"];
 function cpState(){
   const c = state && state.settings && state.settings.collPreview;
@@ -780,7 +757,6 @@ function cpStart(id){
 function cpEnd(auto){
   const c = cpState(), a = c.active; if (!a) return;
   const style = Object.assign({}, (state.settings && state.settings.style) || {}), prev = a.prev && typeof a.prev === "object" ? a.prev : {};
-  // Bought Pro (or the paywall went off) meanwhile: keep what they're using. Otherwise the earlier look comes back.
   if (!cpIsPro()) CP_KEYS.forEach(k => { if (k in prev) style[k] = prev[k]; else delete style[k]; });
   state.settings = Object.assign({}, state.settings, {style, collPreview: {used: c.used, active: null}}); saveSettings();
   try { applySkin(); render(); } catch (e) { console.warn(e); }
@@ -791,21 +767,19 @@ function cpEnd(auto){
 function cpTick(){ try { const c = cpState(); if (c.active && c.active.until <= Date.now()) cpEnd(true); else cpBanner(); } catch (e) {} }
 setInterval(cpTick, 1000);
 document.addEventListener("visibilitychange", cpTick);
-window.__sbCollPreview = {get state(){ return state; }, start: cpStart, end: cpEnd, tick: cpTick, canStart: cpCanStart, left: cpLeft, status: cpState, items: cpItems, shown: effSkinId, owns};   // test handle, like __sbPlan
+window.__sbCollPreview = {get state(){ return state; }, start: cpStart, end: cpEnd, tick: cpTick, canStart: cpCanStart, left: cpLeft, status: cpState, items: cpItems, shown: effSkinId, owns};
 const cardStyleOf = d => { const cfg = styleCfg(), kit = themeKit(); let s = (d && d.cardStyle) || (cfg.cardAuto !== false && kit ? "theme" : cfg.card); if (s === "theme") return kit ? "theme" : "index"; return owns("card", s) && CARD_STYLES.some(x => x.id === s) ? s : "index"; };
 const noteShapeOf = n => { const cfg = styleCfg(); if (n && n.shape) return owns("note", n.shape) && NOTE_SHAPES.some(x => x.id === n.shape) ? n.shape : "classic"; const s = cfg.note; return owns("note", s) && NOTE_SHAPES.some(x => x.id === s) ? s : "classic"; };
-// The default pin is the Red Pin. A theme's own pin is used only after "Always Match Theme" (pinAuto true); any pin you pick, Washi Dots included, is used as picked.
+// The default pin is the Red Pin
 const notePinOf = n => { const cfg = styleCfg(), kit = themeKit(); if (n && n.pin) return owns("pin", n.pin) && PINS.some(x => x.id === n.pin) ? n.pin : "pin"; if (cfg.pinAuto === true && kit) return kit.pin; const s = cfg.pin; return owns("pin", s) && PINS.some(x => x.id === s) ? s : "pin"; };
 function saveStyle(patch){
   const cur = styleCfg(), shapeBefore = noteShapeOf(null);
-  // Switching themes keeps your note shape and pin. They only follow the theme if you chose "Always Match Theme".
   if (patch.skin && patch.skin !== cur.skin) {
     patch.skinAt = Date.now();
     if (cur.noteAuto === undefined && !("noteAuto" in patch)) Object.assign(patch, {note: noteShapeOf(null), noteAuto: false});
     if (cur.pinAuto === undefined && !("pinAuto" in patch)) Object.assign(patch, {pin: notePinOf(null), pinAuto: false});
   }
-  state.settings = Object.assign({}, state.settings, {style: Object.assign({}, (state.settings && state.settings.style) || {}, patch)}); saveSettings();   // the saved style gets only what was changed, never the defaults filled in by styleCfg()
-  // Picking a new default note shape is for notes made from now on: every note without a shape of its own keeps the shape it has now.
+  state.settings = Object.assign({}, state.settings, {style: Object.assign({}, (state.settings && state.settings.style) || {}, patch)}); saveSettings();
   try {
     if (noteShapeOf(null) !== shapeBefore) {
       const keep = Object.values(state.notes || {}).filter(n => n && !n.shape).map(n => ({kind: "note", id: n.id, after: Object.assign(clone(n), {shape: shapeBefore})}));
@@ -832,11 +806,10 @@ function shopUnlock(kind, id){ toast("This item is part of Studyboard Pro."); }
 const PRO_BADGE = `<span class="pro-badge">PRO</span>`, FREE_BADGE = `<span class="free-badge">Free</span>`;
 function skinPreview(s, dark){
   const vars = s.light ? skinVars(s, dark) : dark ? "--paper:#0A1428;--grid:rgba(96,160,255,.07);--surface:#111E38;--ink:#E7EEFA;--muted:#93A3C2;--line:#22355C;--accent:#5B9DFF;--accent-ink:#071430;--spine:#060F24;--spine-ink:#A9BADC;--mark:#8C7713;--soft:#172848" : "--paper:#E6EBF3;--grid:rgba(57,136,254,.09);--surface:#F4F6FA;--ink:#0F1F3D;--muted:#5A6A86;--line:#D9E2EF;--accent:#1F6FEB;--accent-ink:#FFFFFF;--spine:#0E2A56;--spine-ink:#C9D7F2;--mark:#FFE45C;--soft:#E3EAF4";
-  // Every preview starts from its own defaults, so nothing (button, side bar, page picture, scenery) leaks in from the theme you're using now
   const base = "--bgimg:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);--bgsize:12px 12px;--bgpos:0 0;--scene:none;--scene-h:0px;--btn-bg:var(--accent);--spine-bg:var(--spine);--sel:var(--accent);--accent-2:var(--accent);";
   return `<div class="skin-prev" style="${esc(base + vars)}" aria-hidden="true">${artThumb(s.id, dark)}<span class="sp-spine"><i></i><i></i><i></i></span><span class="sp-main"><span class="sp-card"><b></b><em></em></span><span class="sp-card sm"><b></b></span><span class="sp-btn"></span></span><span class="sp-mode">${dark ? "Dark" : "Light"}</span></div>`;
 }
-// A note's pin list. The first choice means "use my default pin" and is named for it, once ("Red Pin (Default)"); that pin is not listed a second time.
+// A note's pin list
 const pinBase = x => String(x.name).replace(/\s*\(Default\)\s*$/i, "");
 function pinOptionsHtml(n){
   const dp = PINS.find(x => x.id === styleCfg().pin) || PINS[0], mine = n && n.pin && n.pin !== dp.id ? n.pin : "";
@@ -846,7 +819,7 @@ function noteDemo(shape, pin, i, stk){
   return `<div class="ns-demo"><div class="note ns-${shape}" style="--nc:${noteColor(NOTE_COLORS[i % NOTE_COLORS.length][0])};--rot:${i % 2 ? 2 : -2}deg">${pinHtml(pin)}<div class="note-body">Quiz on Friday!</div>${stk ? `<span class="stk" style="left:80%;top:74px;--r:12deg">${stickerSvg(stk)}</span>` : ""}</div></div>`;
 }
 function kitFollow(kind, list, cur, auto){
-  const kit = themeKit(); if (!kit || kind === "note") return "";   // notes keep your own shape (Square by default); only pins can follow the theme
+  const kit = themeKit(); if (!kit || kind === "note") return "";
   const def = list.find(x => x.id === kit[kind === "note" ? "shape" : "pin"]);
   return `<div class="kit-row"><span>This theme's own ${kind === "note" ? "note shape" : "pin"}: <b>${esc(def ? def.name : "")}</b></span>${auto !== false ? `<span class="mini">In use${auto === true ? ", changes with your theme" : ""}</span>` : `<button type="button" class="btn small" data-act="kit-follow" data-kind="${kind}" title="Changes with each theme you pick">Always Match Theme</button>`}</div>`;
 }
@@ -857,7 +830,7 @@ function animRows(){
     + `<button data-act="daily-quote"><span>Today's Quote and Streak<span class="sub">${esc(streakLine())}</span></span></button>`;
 }
 function styleShop(tab){
-  if (typeof PLAN !== "undefined" && PLAN && PLAN.endStyleGrace && PLAN.endStyleGrace()) { try { applySkin(); } catch (e) {} render(); }   // Pro ended while the app was open: the shop shows the free look from here on
+  if (typeof PLAN !== "undefined" && PLAN && PLAN.endStyleGrace && PLAN.endStyleGrace()) { try { applySkin(); } catch (e) {} render(); }
   ui.shopTab = tab || ui.shopTab || "themes";
   const cfg = styleCfg();
   const btnFor = (kind, it, cur, useLabel) => !owns(kind, it.id) ? `<button type="button" class="btn small" data-act="shop-unlock" data-kind="${kind}" data-id="${it.id}">🔒 Unlock</button>${kind === "skin" ? cpBtn(it.id) : ""}` : cur ? `<button type="button" class="btn small" disabled>In Use</button>` : `<button type="button" class="btn small primary" data-act="shop-use" data-kind="${kind}" data-id="${it.id}">${useLabel || "Use"}</button>`;
@@ -896,14 +869,11 @@ function shopRow(){
   return `<div class="cap-row"><span style="flex:1;font-weight:600">Style Shop<span class="sub">Themes, flashcard styles, note shapes, pins and stickers. Theme: ${esc(s.name)}.</span></span><button class="btn small" data-act="shop">Open</button></div>`;
 }
 
-/* Stickers: an envelope beside the board. Drag a sticker onto a note; it rides along when the note moves. A sticker's height on the
-   note is capped at the note's own height, so one placed low on a note while it was open for editing (taller) stays on it after. */
+/* Stickers: an envelope beside the board */
 function noteStickersHtml(n){
-  // Stickers from a Pro pack you can't use right now stay in the note but are not drawn (they come back with Pro)
   return (n.stickers || []).map((x, i) => [x, i]).filter(([x]) => STICKERS[x.k] && stkOwns(x.k)).map(([x, i]) => `<span class="stk" data-stk="${i}" title="Drag to move, drag off the note to remove, tap to resize, turn it with the round handle" style="left:${x.x}%;top:${x.yp != null ? `min(${x.yp}px, calc(100% - 8px))` : (x.y || 50) + "%"};--r:${x.r || 0}deg;--s:${x.s || 1}">${stickerSvg(x.k)}<i class="stk-rot" aria-hidden="true">${ROT_ICON}</i></span>`).join("");
 }
-/* Sticker search: every sticker in every pack is findable by its name, a few keywords (and emoji), or its pack and theme.
-   Words below are for the built-in packs; theme packs fall back on their own names. Recents are kept on this device. */
+/* Sticker search */
 const STK_WORDS = {
   dot: "circle ball blue", fstar: "star favorite gold yellow rating important ⭐", fheart: "heart love like red favorite ❤", fcheck: "check tick done complete yes correct green ✅", fx: "cross no wrong cancel close delete ❌",
   farrow: "arrow next right direction purple →", ftri: "triangle warning shape", fsquare: "square box shape", fbang: "exclamation important alert warning urgent !", fq: "question help unsure confused ?",
@@ -925,7 +895,6 @@ const STK_WORDS = {
 };
 let stkIdx = null, stkIdxSig = "";
 const stkNorm = t => String(t).toLowerCase().replace(/\uFE0F/g, "");
-// Every pack ever seen (the theme-pack module hides its packs from STICKER_PACKS while it draws the envelope, so search keeps its own list).
 const stkPacks = new Map();
 function stkPackInfo(id){
   STICKER_PACKS.forEach((p, i) => { if (!stkPacks.has(p.id)) stkPacks.set(p.id, {id: p.id, name: p.name, tier: p.tier, theme: p.theme, i}); });
@@ -940,7 +909,6 @@ function stkIndex(){
   stkIdx = Object.keys(STICKERS).map(k => {
     const p = stkPackInfo(STICKERS[k].pack) || {}, pi = p.i == null ? 99 : p.i;
     const th = p.theme ? ((SKINS.find(x => x.id === p.theme) || {}).name || "") : "";
-    // Basics are named f<name> (fstar) and labels l<name>: drop the prefix so "star" and "due" find them
     const base = p.id === "basics" && k !== "dot" ? k.slice(1) : p.id === "labels" ? k.slice(1) : k;
     const nm = stkNorm(base.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[_\d]+/g, " ").trim());
     const ws = stkNorm(STK_WORDS[k] || "").split(/[\s,]+/).filter(Boolean).concat(nm.split(" "));
@@ -965,7 +933,7 @@ function stkSearch(q){
   out.sort((a, b) => b.sc - a.sc || a.pi - b.pi);
   return out.slice(0, 80).map(x => x.k);
 }
-// One sticker in the envelope. mark: show the lock on a single sticker (search results mix packs).
+// One sticker in the envelope
 const stkCellHtml = (k, mark) => `<span class="env-stk" data-stk-src="${k}" ${mark && !stkOwns(k) ? 'data-locked="1"' : ""} role="button" tabindex="0" aria-label="${esc(k)} sticker. Press Enter to put it on the top note." title="${esc(k)}">${stickerSvg(k)}</span>`;
 function stkParts(){
   const q = (ui.stkQ || "").trim(), cur = STICKER_PACKS.find(p => p.id === ui.stkPack) || STICKER_PACKS[0];
@@ -979,7 +947,7 @@ function stkParts(){
   return {name: `<b>${esc(cur.name)}</b>${cur.tier === "pro" ? PRO_BADGE : ""}`,
     results: `<div class="env-sheet ${locked ? "locked" : ""}">${Object.keys(cur.items).map(k => stkCellHtml(k)).join("")}</div>`};
 }
-// Search as you type: only the name line and the sticker area change, so the box keeps focus.
+// Search as you type
 function stkRefresh(){
   const env = document.querySelector(".env"); if (!env) return;
   const p = stkParts(), n = env.querySelector(".env-name"), r = env.querySelector(".env-results"), x = env.querySelector(".env-qx"), inp = env.querySelector(".env-q");
@@ -1003,7 +971,7 @@ function envelopeHtml(){
     <div class="env-pocket" aria-hidden="true"></div>
   </aside>`;
 }
-// Keyboard: put a sticker on the top note (the last one drawn). The toast has Undo.
+// Keyboard: put a sticker on the top note (the last one drawn)
 function stkKeyAdd(k){
   if (!STICKERS[k]) return;
   if (!stkOwns(k)) { shopUnlock("sticker", STICKERS[k].pack); return; }
@@ -1024,7 +992,6 @@ document.addEventListener("keydown", e => {
   if (!t.classList.contains("env-stk") || !t.dataset.stkSrc) return;
   const cells = [...env.querySelectorAll(".env-results .env-stk")], i = cells.indexOf(t);
   const go = j => { const c = cells[Math.max(0, Math.min(cells.length - 1, j))]; if (c) { e.preventDefault(); c.focus(); c.scrollIntoView({block: "nearest", inline: "nearest"}); } };
-  // Up and down move by a row, which is however many stickers share the top edge of the first one
   const per = Math.max(1, cells.filter(c => Math.abs(c.offsetTop - cells[0].offsetTop) < 4).length);
   if (e.key === "ArrowRight") go(i + 1); else if (e.key === "ArrowLeft") go(i - 1);
   else if (e.key === "ArrowDown") go(i + per); else if (e.key === "Home") go(0); else if (e.key === "End") go(cells.length - 1);
@@ -1032,7 +999,7 @@ document.addEventListener("keydown", e => {
   else if (e.key === "Escape") { const q = env.querySelector(".env-q"); if (q) { e.preventDefault(); q.focus(); } }
   else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); stkKeyAdd(t.dataset.stkSrc); }
 });
-// Where a screen point lands on a (possibly rotated) note: x as % of its width, y in pixels from its top.
+// Where a screen point lands on a (possibly rotated) note
 function noteLocalPoint(noteEl, px, py){
   const r = noteEl.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
   const w = noteEl.offsetWidth, h = noteEl.offsetHeight;
@@ -1073,7 +1040,7 @@ function stkEnd(ok, e){
   changes.push({kind: "note", id: tid, after: t});
   applyChanges(changes, "");
 }
-// Turning a sticker: drag its round handle around the sticker's centre, as with a note's (saved as its r, in degrees)
+// Turning a sticker
 let sRot = null;
 document.addEventListener("pointerdown", e => {
   const h = e.target.closest && e.target.closest(".nb-board .note .stk .stk-rot"); if (!h || sRot || sDrag) return;
@@ -1084,7 +1051,7 @@ document.addEventListener("pointerdown", e => {
 document.addEventListener("pointermove", e => {
   if (!sRot || e.pointerId !== sRot.pid) return;
   let r = sRot.r0 + (Math.atan2(e.clientY - sRot.cy, e.clientX - sRot.cx) - sRot.a0) * 180 / Math.PI;
-  r = ((r + 540) % 360) - 180; if (Math.abs(r) < 3) r = 0;   // snaps straight near zero
+  r = ((r + 540) % 360) - 180; if (Math.abs(r) < 3) r = 0;
   sRot.r = Math.round(r); sRot.el.style.setProperty("--r", sRot.r + "deg"); e.preventDefault(); e.stopPropagation();
 }, {capture: true, passive: false});
 const sRotEnd = e => { if (!sRot || e.pointerId !== sRot.pid) return; const d = sRot; sRot = null; d.el.classList.remove("rotating"); stkClickBlock = Date.now(); e.stopPropagation();
@@ -1120,8 +1087,7 @@ document.addEventListener("pointermove", e => {
 }, {capture: true, passive: false});
 document.addEventListener("pointerup", e => { if (sDrag && e.pointerId === sDrag.pid) { e.stopPropagation(); stkEnd(true, e); } }, true);
 document.addEventListener("pointercancel", e => { if (sDrag && e.pointerId === sDrag.pid) stkEnd(sDrag.moved, e); }, true);
-// The click that ends a sticker drag, turn or resize must not open the note: it often lands on the note itself, not the sticker (the
-// pointer was let go somewhere else on the note, or the sticker was redrawn), so it's swallowed anywhere on the board.
+// The click that ends a sticker drag, turn or resize must not open the note
 document.addEventListener("click", e => { if (Date.now() - stkClickBlock < 500 && e.target.closest && e.target.closest(".stk,[data-stk-src],.note,#nbBoard")) { e.preventDefault(); e.stopPropagation(); } }, true);
 document.addEventListener("touchmove", e => { if (sDrag && sDrag.moved) e.preventDefault(); }, {passive: false});
 const STYLE_ACTS = {

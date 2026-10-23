@@ -1,7 +1,4 @@
-// node tests/lms-relog.e2e.js  (Playwright + Chromium; the desktop app's school bridge is stubbed)
-// Desktop school sign-in: the regular "who am I" check notices when Brightspace has signed you out and a Sign In Again button appears at
-// the bottom middle of the screen; × hides it until the next sign-out; it steps aside while a sheet is open; one click signs you in and
-// it goes away; a check that finds the sign-in good again clears it. Also (no browser): sign-ins last as long as the school sets.
+// node tests/lms-relog.e2e.js
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert"), Module = require("module");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, ".."), SHOTS = process.env.SHOTS || path.join(require("os").tmpdir(), "relog-shots");
@@ -14,7 +11,7 @@ const server = http.createServer((req, res) => {
 });
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 (async () => {
-  /* ---------- lms.js follows the school's own sign-in lifetime (no Electron: stubbed) ---------- */
+  /* lms.js follows the school's own sign-in lifetime */
   {
     const load = Module._load;
     Module._load = function (req) { if (req === "electron") return {app: {isPackaged: true, userAgentFallback: "", on() {}}, BrowserWindow: function () {}, ipcMain: {handle() {}}, net: {}, session: {}}; return load.apply(this, arguments); };

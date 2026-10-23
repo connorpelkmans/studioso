@@ -1,5 +1,4 @@
-/* New theme ideas, batch n1: onsen (Hot Spring), rainforest (Rainforest Canopy), tidepool (Tide Pools), volcano (Volcano Island), savanna (Savanna Sunset).
-   Registered like the Study Fields themes (MAJ_THEMES), but in the Style Shop's "New Theme Ideas" group. */
+/* New theme ideas, batch n1 */
 (() => {
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const r1 = n => Math.round(n * 100) / 100;

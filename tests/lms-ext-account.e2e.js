@@ -1,6 +1,4 @@
-// node tests/lms-ext-account.e2e.js  (Playwright + Chromium)
-// The School Sync extension reads the school site with the browser's school sign-in, not the Studyboard account. A read from a school
-// account the signed-in Studyboard account hasn't accepted is never imported by itself, and signing out tells the extension to forget its reads.
+// node tests/lms-ext-account.e2e.js
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -22,7 +20,6 @@ const read = (id, name, title, at) => ({v: 1, id: "canvas", origin: ORIGIN, at, 
   const ctx = await browser.newContext({serviceWorkers: "block"}); await ctx.addInitScript(require("./consent-ok")); await ctx.route(/supabase\.co/, r => r.abort());
   await ctx.addInitScript(() => { try { localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, courses: [{id: "c1", name: "Anatomy", code: "BIOL 1200", color: "#1E9E74"}], tasks: [], settings: {}}));
     localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("studyboard:tour", "done"); } catch (e) {}
-    // a stand-in for the extension's relay.js: hands over window.__extList, and notes what the page asks
     window.__extList = []; window.__extGot = [];
     window.addEventListener("message", ev => { const d = ev.data; if (!d || d.source !== "studyboard-app") return; window.__extGot.push(d.type);
       if (d.type === "hello") window.postMessage({source: "studyboard-ext", type: "ready", version: "1.0.3"}, location.origin);
@@ -32,7 +29,6 @@ const read = (id, name, title, at) => ({v: 1, id: "canvas", origin: ORIGIN, at, 
   const send = r => page.evaluate(r => { window.__extList = [r]; window.postMessage({source: "studyboard-app", type: "get"}, location.origin); }, r);
   await page.goto(base); await page.waitForFunction(() => window.SBLMS && SBLMS.canvas, null, {timeout: 40000});
 
-  // 1. The first read: asked whose it is, then brought in
   await send(read("1001", "Anna Student", "Anna Lab", Date.now() - 5000));
   await page.waitForSelector("#dlg[open] [data-ext-no]", {timeout: 20000});
   ok(/Anna Student/.test(await page.textContent("#dlg[open]")), "a new account is asked first, naming the school account the extension reads");
@@ -41,13 +37,11 @@ const read = (id, name, title, at) => ({v: 1, id: "canvas", origin: ORIGIN, at, 
   await page.waitForFunction(() => Object.values(SBLMS.st().tasks).some(t => t.title === "Anna Lab"), null, {timeout: 20000});
   ok((await page.evaluate(() => SBLMS.canvas.cfg().extMe.key)) === "id:1001", "\"It's Me\" pairs this Studyboard account with that school account");
 
-  // 2. Later reads from the same school account come in by themselves
   await page.waitForTimeout(600);
   await send(read("1001", "Anna Student", "Anna Essay", Date.now() - 3000));
   await page.waitForFunction(() => Object.values(SBLMS.st().tasks).some(t => t.title === "Anna Essay"), null, {timeout: 20000});
   ok(!(await page.$("#dlg[open] [data-ext-no]")), "the paired school account's next read is imported without asking");
 
-  // 3. Someone else signs in to the school site in this browser: their read is held back and asked about
   await page.waitForTimeout(600);
   await send(read("2002", "Ben Other", "Ben Lab", Date.now() - 2000));
   await page.waitForSelector("#dlg[open] [data-ext-no]", {timeout: 20000});
@@ -61,7 +55,6 @@ const read = (id, name, title, at) => ({v: 1, id: "canvas", origin: ORIGIN, at, 
   await page.waitForTimeout(1500);
   ok(!(await page.$("#dlg[open] [data-ext-no]")) && !(await titles()).includes("Ben Quiz"), "a school account turned down isn't asked about again, and its reads stay out");
 
-  // 4. Signing out tells the extension to forget what it read
   await page.evaluate(() => window.dispatchEvent(new Event("sb:signing-out")));
   await page.waitForTimeout(300);
   ok((await page.evaluate(() => window.__extGot)).includes("signout"), "signing out asks the extension to forget its reads");

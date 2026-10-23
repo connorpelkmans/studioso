@@ -1,5 +1,4 @@
-// Browser tests for the store-readiness flows, against a STUBBED Supabase client and a MOCK purchase bridge (both live only in this
-// test, nothing here ships). Run: node tests/e2e/store-flows.e2e.js   (needs Playwright; see tests/pw.js)
+// Browser tests for the store-readiness flows
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const root = path.join(__dirname, "..", "..");
 const {chromium, executablePath} = require("../pw");
@@ -11,7 +10,7 @@ const server = http.createServer((q, r) => {
   r.writeHead(200, {"Content-Type": TYPES[path.extname(f)] || "application/octet-stream"}); fs.createReadStream(f).pipe(r);
 });
 
-/* The stub client. Everything the page calls is recorded in window.__sb.calls; behaviour is set by the test through window.__sb.cfg. */
+/* The stub client */
 const STUB = `(() => {
   const USER = {id: "11111111-2222-4333-8444-555555555555", email: "me@example.com"};
   const sbx = window.__sb = {calls: [], listeners: [], session: null, cfg: {}, ent: null};
@@ -56,7 +55,7 @@ const STUB = `(() => {
     channel: () => ({on() { return this; }, subscribe() { return this; }, unsubscribe() {} }), removeChannel() {}, removeAllChannels() {}
   })};
 })();`;
-/* The mock native purchase bridge: deterministic answers chosen by window.__bridge.next. */
+/* The mock native purchase bridge */
 const BRIDGE = `(() => {
   const b = window.__bridge = {log: [], next: {restore: "success", checkout: "success", manage: "success"}, delayMs: 50, message: ""};
   window.StudyboardNative = {platform: "ios", store: "app-store"};
@@ -88,13 +87,13 @@ async function newPage(browser, {signedIn = false, bridge = false, hash = "", cf
   return {ctx, page, errs};
 }
 const test = async (name, fn) => { try { await fn(); passed++; console.log("ok   " + name); } catch (e) { console.error("FAIL " + name + "\n" + (e.stack || e)); process.exitCode = 1; } };
-const openMenu = async page => {   // Settings, Account category (two-pane layout on a wide screen)
+const openMenu = async page => {
   await page.locator('[data-act="menu"]:visible').first().click(); await page.waitForSelector("dialog[open] .us");
   await page.click('dialog[open] .us-cat[data-us="account"]'); await page.waitForTimeout(150);
 };
 const calls = (page, name) => page.evaluate(n => window.__sb.calls.filter(c => c[0] === n), name);
 const dlgText = page => page.evaluate(() => { const d = document.querySelector("dialog[open]"); return d ? d.innerText : ""; });
-const signUp = async (page, email) => {   // the sign-up form also asks for a username and a birthday (96-usernames.js)
+const signUp = async (page, email) => {
   await page.fill("dialog[open] [name=username]", "newstudent");
   await page.selectOption("dialog[open] select[name=bm]", "5"); await page.selectOption("dialog[open] select[name=bd]", "14"); await page.selectOption("dialog[open] select[name=by]", "2000");
   await fillSubmit(page, {email, password: "correct horse 7"});
@@ -113,12 +112,12 @@ const fillSubmit = async (page, fields) => { for (const [k, v] of Object.entries
     assert.match(await dlgText(page), /Privacy Policy/, "sign-up links to the privacy policy");
     await signUp(page, "new@example.com");
     const t = await dlgText(page);
-    assert.match(t, /Check Your Email/); assert.match(t, /If\s+new@example\.com\s+can be used/i); assert.match(t, /Confirm your email to start using your account/i);   // the new account works once its email is confirmed
+    assert.match(t, /Check Your Email/); assert.match(t, /If\s+new@example\.com\s+can be used/i); assert.match(t, /Confirm your email to start using your account/i);
     assert.equal((await calls(page, "signUp")).length, 1);
     await page.click("#sbResend"); await page.waitForTimeout(200);
     assert.equal((await calls(page, "resend")).length, 1);
     assert.match(await page.textContent("#sbResend"), /Send again in \d+s/); assert.ok(await page.isDisabled("#sbResend"));
-    await page.click('dialog[open] [data-sbm="signin"]'); await page.click('dialog[open] [data-sbm="signup"]');   // away and back
+    await page.click('dialog[open] [data-sbm="signin"]'); await page.click('dialog[open] [data-sbm="signup"]');
     await signUp(page, "new@example.com");
     assert.match(await page.textContent("#sbResend"), /Send again in \d+s/, "cooldown is still running after the sheet was re-opened");
     await fillSubmit(page, {code: "000000"});
@@ -259,7 +258,6 @@ const fillSubmit = async (page, fields) => { for (const [k, v] of Object.entries
     assert.match(t, /renews automatically unless it is cancelled at least 24 hours before/); assert.match(t, /Terms of Use/); assert.match(t, /Privacy Policy/);
     assert.ok(!(await page.evaluate(() => /stripe|checkout|studyboard\.example/i.test(document.querySelector("dialog[open]").innerHTML))), "no Stripe or website link in the store Pro sheet");
     assert.ok(await page.isVisible('dialog[open] [data-act="plan-restore"]'));
-    // success: the bridge says success, then the plan is re-read; the server now says Pro
     await page.evaluate(() => { window.__sb.ent = {plan: "pro", source: "revenuecat", will_renew: true, pro_until: new Date(Date.now() + 864e5).toISOString()}; });
     await page.evaluate(() => { window.__bridge.delayMs = 700; });
     await page.click('dialog[open] [data-act="plan-restore"]');
@@ -288,11 +286,9 @@ const fillSubmit = async (page, fields) => { for (const [k, v] of Object.entries
     assert.equal(await page.evaluate(() => StudyboardPlan.limitsPro()), false, "a code keeps the free plan's limits");
     assert.match(await page.evaluate(() => StudyboardPlan.status().title), /Pro From a Code/);
     assert.ok((await calls(page, "rpc")).some(c => c[1] === "studyboard_redeem_code" && c[2].p_code === "sb-good-code-1234"), "the database decides, with the code as typed");
-    // the month is over: free again on the next check
     await page.evaluate(() => { window.__sb.ent = {plan: "free", promo_until: new Date(Date.now() - 1000).toISOString(), promo_lifetime: false}; });
     await page.evaluate(() => StudyboardPlan.refresh()); await page.waitForTimeout(300);
     assert.equal(await page.evaluate(() => StudyboardPlan.isPro()), false, "an ended month code is free");
-    // forever
     await page.evaluate(() => { window.__sb.ent = {plan: "free", promo_until: null, promo_lifetime: true}; });
     await page.evaluate(() => StudyboardPlan.refresh()); await page.waitForTimeout(300);
     assert.equal(await page.evaluate(() => StudyboardPlan.isPro() && !StudyboardPlan.limitsPro()), true, "a forever code: Pro, free limits");
@@ -302,10 +298,10 @@ const fillSubmit = async (page, fields) => { for (const [k, v] of Object.entries
 
   await test("Restore Purchases: nothing to restore, error, cancelled; reachable from Settings; refuses without sign-in; no double taps", async () => {
     const {ctx, page} = await newPage(browser, {signedIn: true, bridge: true});
-    await openMenu(page); await page.waitForSelector('[data-act="plan-restore"]');   // Settings row
+    await openMenu(page); await page.waitForSelector('[data-act="plan-restore"]');
     const say = async () => { await page.waitForTimeout(500); return page.evaluate(() => [...document.querySelectorAll(".toast")].map(t => t.innerText).join(" | ")); };
     await page.evaluate(() => { window.__bridge.next.restore = "nothing"; });
-    await page.evaluate(() => { const b = document.querySelector('[data-act="plan-restore"]'); b.click(); b.click(); });   // a double tap, with no time for the bridge to answer in between
+    await page.evaluate(() => { const b = document.querySelector('[data-act="plan-restore"]'); b.click(); b.click(); });
     assert.match(await say(), /Nothing to restore/);
     assert.equal(await page.evaluate(() => window.__bridge.log.filter(l => l[0] === "restore").length), 1, "second tap while restoring is ignored");
     await page.waitForTimeout(3500);
@@ -345,7 +341,7 @@ const fillSubmit = async (page, fields) => { for (const [k, v] of Object.entries
   });
 
 
-  /* ---------- the website account page, same stub idea ---------- */
+  /* the website account page, same stub idea */
   const SITE_CFG = `window.STUDYBOARD_SITE = {SUPABASE_URL: "https://stub.supabase.co", SUPABASE_ANON_KEY: "sb_publishable_stub_key_for_tests_0123456789", APP_URL: "https://app.example.test", SUPPORT_EMAIL: "x@example.test", RETURN_ALLOWLIST: [], FUNCTIONS: {checkout: "create-checkout", portal: "create-portal-session"}};`;
   const SITE_SB = `(() => { const L = []; const x = window.__w = {calls: [], L};
     const sess = {user: {id: "u1", email: "me@example.com"}, access_token: "t"};
@@ -360,7 +356,7 @@ const fillSubmit = async (page, fields) => { for (const [k, v] of Object.entries
   async function sitePage(hash = "") {
     const ctx = await browser.newContext({viewport: {width: 420, height: 900}}), page = await ctx.newPage();
     await page.route("**/website/config.js", r => r.fulfill({contentType: "text/javascript", body: SITE_CFG}));
-    await page.addInitScript(SITE_SB);   // the real library is pinned by an integrity hash, so the stub goes in before the page and the library file is not loaded
+    await page.addInitScript(SITE_SB);
     await page.route("**/website/vendor/supabase-js*", r => r.fulfill({contentType: "text/javascript", body: "/* stub in use */"}));
     await page.goto(`http://127.0.0.1:${server.address().port}/website/account/index.html${hash}`); await page.waitForTimeout(500);
     return {ctx, page};

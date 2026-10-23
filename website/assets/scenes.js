@@ -1,6 +1,4 @@
-// Animated theme tiles on the home page. It loads the app's own scene library (scenes-lib.js, copied from the app) the first time a tile
-// comes near the screen, then draws each tile's scene and plays its animation engine, just like the app does.
-// No inline styles or scripts are used (strict Content-Security-Policy): everything is built with the DOM and set through element.style.
+// Animated theme tiles on the home page
 (function () {
   "use strict";
   var tiles = Array.prototype.slice.call(document.querySelectorAll(".tile[data-scene]"));
@@ -49,11 +47,10 @@
     parent.appendChild(svg);
   }
 
-  var live = []; // {tile, box, W, eng, ctx, s, T, drawn, visible}
+  var live = [];
   function teardown(rec) { if (rec.box && rec.box.parentNode) rec.box.parentNode.removeChild(rec.box); rec.tile.classList.remove("scn-on"); rec.eng = null; rec.ctx = []; }
 
-  // The tile is a picture of the real app (a transparent interface picture made from the app itself) over the live scene, which sits exactly where it does in the app:
-  // to the right of the sidebar, drawn at the scale the app uses for that window size.
+  // The tile is a picture of the real app
   function build(rec) {
     if (!L || !rec.tile.isConnected) return;
     var tile = rec.tile, id = tile.getAttribute("data-scene"), dk = isDark(), geo = window.SB_TILE_GEO, g = geo && geo.themes[id] && geo.themes[id][dk ? "dark" : "light"];
@@ -69,7 +66,6 @@
     if (!v) { try { L.setAnim(null); v = L.buildSceneAt(id, dk, bw, bh, desk); } catch (e) { return; } }
     teardown(rec);
     var box = el("div", "scn"); box.setAttribute("aria-hidden", "true");
-    // The scene reaches a little way under the sidebar, so no hairline of the tile's own color can show where the picture's edge is scaled.
     var pad = Math.max(3, 10 * t), art = el("div", "scn-art", box), inner = el("div", "scn-in", art);
     art.style.left = (sx - pad) + "px"; art.style.top = sy + "px"; art.style.width = (sw + pad) + "px"; art.style.height = sh + "px"; art.style.background = v.sky;
     inner.style.left = pad + "px"; inner.style.top = "0px"; inner.style.width = sw + "px"; inner.style.height = sh + "px";
@@ -108,7 +104,7 @@
     } catch (e) { broken[rec.tile.getAttribute("data-scene")] = 1; rec.eng = null; }
   }
 
-  // One loop for all tiles on screen.
+  // One loop for all tiles on screen
   var raf = 0, last = 0;
   function tick(ts) {
     raf = 0;
@@ -136,7 +132,7 @@
   function track(t) { var rec = {tile: t, visible: false}; t.__scn = rec; live.push(rec); io.observe(t); return rec; }
   tiles.forEach(track);
 
-  // Click (or Enter) on a tile: the same live theme, drawn large in a window over the page.
+  // Click (or Enter) on a tile
   var zoom = null;
   function closeZoom() { if (zoom && zoom.open) zoom.close(); }
   function openZoom(tile) {
@@ -144,7 +140,7 @@
       zoom = el("dialog", "tile-zoom", document.body); zoom.setAttribute("aria-label", "Theme preview");
       var x = el("button", "tz-x", zoom); x.type = "button"; x.setAttribute("aria-label", "Close"); x.textContent = "\u00d7";
       x.addEventListener("click", closeZoom);
-      zoom.addEventListener("click", function (e) { if (e.target === zoom) closeZoom(); });   // a click on the dimmed backdrop
+      zoom.addEventListener("click", function (e) { if (e.target === zoom) closeZoom(); });
       zoom.addEventListener("close", function () {
         var big = zoom.querySelector(".tile"); if (!big) return;
         var rec = big.__scn; io.unobserve(big); if (rec) { teardown(rec); live = live.filter(function (r) { return r !== rec; }); }
@@ -167,7 +163,7 @@
     t.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openZoom(t); } });
   });
 
-  // Light/dark switch and window size: redraw the scenes that are on screen.
+  // Light/dark switch and window size
   var redrawT = 0;
   function redraw(force) {
     clearTimeout(redrawT);

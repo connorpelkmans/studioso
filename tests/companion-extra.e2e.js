@@ -1,6 +1,4 @@
-// Extra companions (src/js/98-comp-extra.js): Cosmo, the owner's cat, is offered in every theme's companion picker, but only to an
-// account that may see the hidden themes (SBThemes.all()). Nobody else ever sees him.
-// Run: node tests/companion-extra.e2e.js
+// Extra companions (src/js/98-comp-extra.js)
 "use strict";
 const path = require("path"), fs = require("fs"), http = require("http"), assert = require("assert");
 const csp = require("../scripts/csp"), root = path.join(__dirname, "..");
@@ -33,7 +31,6 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {}};
     ok(t.length === 6 && !t.includes("extra-cosmo"), "without access to the hidden themes, Cosmo isn't offered: " + t.join(","));
     await page.keyboard.press("Escape");
 
-    // an account with access to every theme (saved by the check against studyboard_theme_access)
     await page.evaluate(() => localStorage.setItem("studyboard:theme-access", JSON.stringify({uid: "owner", on: true})));
     await page.reload(); await page.waitForFunction(() => window.SBCOMP && SBCOMP.open && window.SBThemes && SBThemes.all());
     await page.evaluate(() => SBCOMP.open()); await page.waitForSelector("dialog[open] .cp-tile");
@@ -46,7 +43,6 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {}};
     await page.reload(); await page.waitForFunction(() => window.SBCOMP && SBCOMP.current && window.SBThemes && SBThemes.all()); await page.waitForTimeout(500);
     ok(await page.evaluate(() => SBCOMP.current()) === "extra-cosmo", "and he's still there after a reload");
     ok(await page.evaluate(() => /extra-cosmo|Cosmo/.test(SBCOMP.el() ? SBCOMP.el().innerHTML + SBCOMP.el().getAttribute("aria-label") : "") || !!SBCOMP.el()), "he's on screen");
-    // another theme offers him too
     const art = await page.evaluate(() => SBCOMP.themes().find(k => k !== "plain" && SBCOMP.list(k).length === 3 && (() => { SBCOMP.setSkin(k); return document.documentElement.dataset.skin === k; })()));
     ok(!!art, "switched to an artwork theme: " + art); await page.waitForTimeout(300);
     await page.evaluate(() => SBCOMP.open()); await page.waitForSelector("dialog[open] .cp-tile");
@@ -55,7 +51,6 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {}};
     await page.keyboard.press("Escape");
     await page.evaluate(() => SBCOMP.setSkin("classic")); await page.waitForTimeout(300);
 
-    // access gone: he's not offered and not shown, and a normal companion takes his place
     await page.evaluate(() => localStorage.removeItem("studyboard:theme-access"));
     await page.reload(); await page.waitForFunction(() => window.SBCOMP && SBCOMP.current && window.SBThemes && !SBThemes.all()); await page.waitForTimeout(500);
     const now = await page.evaluate(() => SBCOMP.current());

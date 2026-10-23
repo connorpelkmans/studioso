@@ -1,9 +1,4 @@
-// Browser test for the privacy hardening (October 2026). Run: node tests/privacy-hardening.e2e.js
-//  1. Canvas access tokens are no longer used (Canvas's API policy): a token an older version saved, as plain text or in the encrypted device
-//     store, is erased; the encrypted store itself still keeps secrets as AES-GCM boxes with a key that can't be exported
-//  2. school calendar links never leave the device: not in synced settings, not in backup files; this device's link survives settings from the account
-//  3. the bug-report error log is cleaned like crash reports (the person's own titles are hidden)
-//  4. persistent storage: the app asks for it and Settings can show the result
+// Browser test for the privacy hardening (October 2026)
 const path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const FILE = "file://" + path.join(__dirname, "..", "index.html");
@@ -27,20 +22,17 @@ const TOKEN = "7~AbCdEfGhIjKlMnOpQrStUvWxYz0123456789secret";
   try {
     await page.goto(FILE); await page.waitForTimeout(2500);
 
-    // 1. Canvas token: erased, plain or encrypted
     ok(await page.evaluate(() => localStorage.getItem("studyboard:cvmail")) === null, "an old plain copy of a Canvas token is erased");
     ok(await page.evaluate(async () => (await __sbPrivacy.DEVSECRET.get("canvas-mail")) === null), "and not moved into the device store");
     await page.evaluate(async tok => { await __sbPrivacy.DEVSECRET.set("canvas-mail", JSON.stringify({host: "https://school.instructure.com", token: tok})); }, TOKEN);
     await page.reload(); await page.waitForTimeout(2000);
     ok(await page.evaluate(async () => (await __sbPrivacy.DEVSECRET.get("canvas-mail")) === null), "an encrypted token an older version saved is erased on the next start");
-    // the device store still encrypts what it keeps
     await page.evaluate(async tok => { await __sbPrivacy.DEVSECRET.set("probe", tok); }, TOKEN);
     const raw = await page.evaluate(() => new Promise(res => { const r = indexedDB.open("studyboard-secrets"); r.onsuccess = () => { const d = r.result, q = d.transaction("s").objectStore("s").get("probe"); q.onsuccess = () => res(q.result ? {ct: Array.from(new Uint8Array(q.result.ct)), iv: Array.from(new Uint8Array(q.result.iv))} : null); }; }));
     ok(raw && raw.ct.length > 0 && raw.iv.length === 12, "secrets are stored as encrypted boxes");
     ok(!Buffer.from(raw.ct).toString("latin1").includes(TOKEN.slice(3, 20)), "the stored box does not contain the secret");
     await page.evaluate(async () => { await __sbPrivacy.DEVSECRET.remove("probe"); });
 
-    // 2. calendar links stay on the device
     const feeds = await page.evaluate(() => {
       const {syncSettings, exportArrays, keepLocalFeeds} = __sbPrivacy;
       __sbPrivacy.setSettings({canvas: {mode: "feed", feed: "https://school.instructure.com/feeds/calendars/user_SECRETFEED.ics"}, ai: {provider: "gemini", keys: {gemini: "AIzaFAKE"}}});
@@ -55,18 +47,15 @@ const TOKEN = "7~AbCdEfGhIjKlMnOpQrStUvWxYz0123456789secret";
     ok(/SECRETFEED/.test(feeds.kept), "this device's calendar link survives settings arriving from the account");
     ok(feeds.hadOld === true && feeds.legacyKept === "https://old/f.ics", "a link an older version synced is taken in once and flagged for removal from the account");
 
-    // 3. bug-report error log cleaning
     const scrubbed = await page.evaluate(() => {
       __sbPrivacy.addTask({id: "zz1", title: "Frog dissection lab writeup", notes: ""});
       return window.SBERR.scrub("Couldn't save Frog dissection lab writeup for me@example.com at https://school.example.edu/x?y=1");
     });
     ok(!/Frog dissection/i.test(scrubbed) && !/me@example\.com/.test(scrubbed) && !/school\.example\.edu/.test(scrubbed), "error text loses titles, emails and outside addresses: " + scrubbed);
 
-    // 4. persistent storage
     const st = await page.evaluate(async () => ({r: await __sbPrivacy.storageProtect(false), row: typeof __sbPrivacy.storageRow() === "string"}));
     ok(["granted", "denied", "unsupported", "unknown"].includes(st.r) && st.row, "the storage check runs and Settings can show it: " + st.r);
 
-    // 1b. wiping the device (sign-out, another account signing in) empties the device store
     await page.evaluate(async () => { await __sbPrivacy.DEVSECRET.set("probe2", "x"); await __sbPrivacy.wipeDeviceData(); });
     ok(await page.evaluate(async () => (await __sbPrivacy.DEVSECRET.get("probe2")) === null), "wiping the device empties the device store");
 

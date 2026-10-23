@@ -1,9 +1,9 @@
 /* ===== module: 01-ai-study.js: the app's core, AI study helpers: explain, grade by meaning, weak spots, case studies, summaries, photos to notes, ask your course ===== */
-/* ---------- Explain this card or question ---------- */
+/* Explain this card or question */
 const EXPLAIN_SCHEMA = {type: "OBJECT", properties: {
   explanation: {type: "STRING", description: "2 to 4 plain sentences"}, analogy: {type: "STRING"}, memoryTip: {type: "STRING", description: "A mnemonic or memory hook"},
   example: {type: "STRING", description: "A short real-world example"}, mistake: {type: "STRING", description: "The common mistake or confusion, if any"}}, required: ["explanation"]};
-// key: "c|deckId|cardId" for a flashcard, "q|deckId|quizId|questionId" for an AI quiz question
+// key: "c|deckId|cardId" for a flashcard
 function explainTarget(key){
   const [k, deckId, a, b] = key.split("|"), d = state.decks[deckId]; if (!d) return null;
   if (k === "c") { const c = d.cards.find(x => x.id === a); return c ? {d, item: c, prompt: c.front, answer: c.back} : null; }
@@ -37,13 +37,12 @@ async function runExplain(key, given){
     const d = clone(state.decks[x.d.id]);
     const item = key[0] === "c" ? d.cards.find(y => y.id === x.item.id) : d.aiQuizzes.find(y => y.id === x.qz.id).questions.find(y => y.id === x.item.id);
     item.explain = {explanation: String(r.data.explanation || ""), analogy: String(r.data.analogy || ""), example: String(r.data.example || ""), memoryTip: String(r.data.memoryTip || ""), mistake: String(r.data.mistake || "")};
-    // keep the running quiz's copy in step
     if (ui.fc && ui.fc.qs) ui.fc.qs.forEach(q => { if (q.id === x.item.id) q.explain = item.explain; });
     ui.explain = null; saveDeck(d, null);
   } catch(e) { ui.explain = {key, err: e.message || "Couldn't explain that."}; render(); }
 }
 
-/* ---------- Grading typed answers by meaning ---------- */
+/* Grading typed answers by meaning */
 const GRADE_SCHEMA = {type: "OBJECT", properties: {verdict: {type: "STRING", enum: ["correct", "partly", "incorrect"]}, feedback: {type: "STRING", description: "One or two sentences to the student"}}, required: ["verdict", "feedback"]};
 async function aiGrade(question, expected, given){
   const r = await aiCall({task: "grade", fast: true, maxTokens: 800, temperature: 0, schema: GRADE_SCHEMA, parts: [{text: `Question: ${question}\nExpected answer: ${expected}\nStudent's answer: ${given}`}],
@@ -51,14 +50,14 @@ async function aiGrade(question, expected, given){
   const v = ["correct", "partly", "incorrect"].includes(r.data.verdict) ? r.data.verdict : "incorrect";
   return {correct: v === "correct", partly: v === "partly", ai: String(r.data.feedback || "").trim()};
 }
-// Local check first; only ask the AI when the answer doesn't match word for word.
+// Local check first; only ask the AI when the answer doesn't match word for word
 async function smartGrade(question, expected, given){
   const local = gradeWritten(given, expected);
   if (local.correct || !aiReady()) return local;
   try { return await aiGrade(question, expected, given); } catch(e) { console.warn(e); return local; }
 }
 
-/* ---------- Weak spots ---------- */
+/* Weak spots */
 function weakSpots(deckIds){
   const cards = [], qs = [];
   deckIds.forEach(id => {
@@ -103,8 +102,7 @@ function weakSheet(deckIds){
   });
 }
 
-/* ---------- Case studies ---------- */
-// Case study styles. [key, label, instructions]. "auto" picks from the course name: NCLEX only for nursing, a fitting general style otherwise.
+/* Case studies */
 const CASE_STYLES = [
   ["auto", "Match my course", ""],
   ["general", "General scenario", "Case style: a realistic scenario from the course's own field that unfolds in stages, with a mix of single best answer, select-all-that-apply and put-in-order questions about what matters, why, and what to do next."],
@@ -138,7 +136,7 @@ function aiCleanCases(list){
     return qs.length >= 2 && String(c.scenario || "").trim() ? {title: String(c.title || "Case Study").trim(), scenario: String(c.scenario).trim(), questions: qs} : null;
   }).filter(Boolean);
 }
-// Asks which kind of case study to write before making one from a deck's cards.
+// Asks which kind of case study to write before making one from a deck's cards
 function caseStyleSheet(deckId){
   const d = state.decks[deckId]; if (!d) return;
   if (!aiReady()) { aiSetupSheet(true); return; }
@@ -163,31 +161,27 @@ async function caseFromDeck(deckId, caseStyle){
   } catch(e) { st(e.message || "Couldn't make a case study right now.", true); }
 }
 
-// A small sheet that shows progress while the AI works. Returns a function to update the message (error=true stops the spinner).
+// A small sheet that shows progress while the AI works
 function aiBusySheet(title, msg){
   openSheet(`<form class="sheet">${head(title)}<div class="sheet-body"><p class="status-msg" id="busyMsg" aria-live="polite"><span class="ai-spin" aria-hidden="true"></span> ${esc(msg)}</p>${aiModelBar()}</div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button></div></form>`);
   return (m, err) => { const el = $("#busyMsg"); if (el) el.innerHTML = (err ? "" : `<span class="ai-spin" aria-hidden="true"></span> `) + esc(m); };
 }
 
-/* ---------- Exam study plans ---------- */
-// The Exam Prep Planner (module 97-examprep.js) works out the schedule; these are the small shared pieces it and other features use.
+/* Exam study plans */
 const planSessions = examId => allTasks().filter(t => t.prepFor === examId);
-// A file kept in Google Drive or OneDrive goes to AI only if the person allowed that when connecting (Files, Cloud); otherwise it
-// still saves, opens and shows everywhere, just without AI features
 const cloudAiOk = f => !(f && f.cloud && !f.revs.length) || !!(window.SBCLOUD && SBCLOUD.aiOk && SBCLOUD.aiOk(f.cloud.p));
 const readableFile = f => !!f && (f.kind === "file" && f.revs.length || f.kind === "cloud") && /\.(pdf|pptx|docx|txt|md|png|jpe?g|webp)$/i.test(fileNameOf(f)) && cloudAiOk(f);
-// The bytes of a stored file, or of one kept in Google Drive or OneDrive (fetched from there with the person's own access)
+// The bytes of a stored file, or of one kept in Google Drive or OneDrive
 async function fileBytes(f){
   if (f && f.cloud && !f.revs.length) { if (!window.SBCLOUD) throw new Error("cloud unavailable"); return SBCLOUD.bytes(f); }
   const r = f && curRev(f); if (!r) throw new Error("This file has no stored copy.");
   return assetBytes(r.assetId);
 }
 const TOPICS_SCHEMA = {type: "OBJECT", properties: {topics: {type: "ARRAY", items: {type: "OBJECT", properties: {name: {type: "STRING", description: "Short topic name, 2 to 6 words"}, weight: {type: "STRING", enum: ["high", "medium", "low"], description: "How heavily it seems to be tested"}}, required: ["name"]}}}, required: ["topics"]};
-// The old exam-plan sheet is replaced by the Exam Prep Planner (module 97-examprep.js). Old exams keep their planTopics, planStyle and planPerDay
-// (the planner starts from them, and keeps writing them for Tune Study Sessions and practice tests), so every old entry point still lands in the one flow.
+// The old exam-plan sheet is replaced by the Exam Prep Planner (module 97-examprep.js)
 function examPlanSheet(examId){ if (window.SBPREP) window.SBPREP.open(examId); }
 
-/* ---------- Summarize a file ---------- */
+/* Summarize a file */
 const SUM_SCHEMA = {type: "OBJECT", properties: {
   overview: {type: "STRING", description: "2 to 4 sentences: what this file is about"},
   keyPoints: {type: "ARRAY", items: {type: "STRING"}, description: "5 to 12 key points, one sentence each"},
@@ -215,7 +209,6 @@ function summaryHtml(f){
 }
 async function summarizeFile(fid, again){
   const f = state.files[fid]; if (!f || (f.kind !== "file" && f.kind !== "cloud")) return;
-  // A summary is kept with the file (synced, a few KB), so opening it again never needs AI, a key, or the file itself
   if (!(f.summary && !again)) {
     if (!aiReady()) { aiSetupSheet(true); return; }
     if (!cloudAiOk(f)) { toast(`AI isn't allowed to read files from ${CLOUD_NAMES[f.cloud.p]}. You can allow it in Files, Cloud.`, null, window.SBCLOUD ? {label: "Open Cloud", fn: () => SBCLOUD.open()} : undefined); return; }
@@ -250,7 +243,6 @@ async function summarizeFile(fid, again){
     const r = await aiCall({task: "summary", maxTokens: 8000, schema: SUM_SCHEMA, onStatus: m => st(m), parts: [src.part, {text: `Course: ${c ? c.name : "not given"}. Summarize this file for studying.`}],
       system: "You summarize course material for a student who will be tested on it. Be accurate and specific to the file (names, numbers, mechanisms, steps), not generic. Include the key terms with short definitions and the questions an instructor would most likely ask. Use only what the file says: never add facts, numbers or examples that are not in it. Write in the file's language, in plain text without markdown or LaTeX. Return JSON only."});
     const n = clone(state.files[fid]);
-    // Kept small (a few KB, never more than about 25 KB) so saved summaries cost next to nothing in synced storage
     const cut = (x, n) => String(x || "").replace(/\s+/g, " ").trim().slice(0, n);
     n.summary = {at: Date.now(), model: r.model, provider: r.provider, overview: cut(r.data.overview, 1500), keyPoints: (r.data.keyPoints || []).slice(0, 14).map(x => cut(x, 400)).filter(Boolean),
       keyTerms: (r.data.keyTerms || []).filter(k => k && k.term && k.definition).slice(0, 30).map(k => ({term: cut(k.term, 100), definition: cut(k.definition, 350)})), questions: (r.data.questions || []).slice(0, 10).map(x => cut(x, 300)).filter(Boolean)};
@@ -267,14 +259,14 @@ function addNoteText(text, courseId, color, extra){
   return n;
 }
 
-/* ---------- Photo of the board or a slide, into a note ---------- */
+/* Photo of the board or a slide, into a note */
 const PHOTO_SCHEMA = {type: "OBJECT", properties: {
   title: {type: "STRING", description: "Short title for the note"},
   notes: {type: "STRING", description: "Clean, well-organized study notes of everything shown. Plain text: short headings on their own line, bullets starting with '• ', keep formulas and numbers exact."},
   course: {type: "STRING", description: "One of the listed course codes if the content clearly belongs to it, else empty"},
   dates: {type: "ARRAY", items: {type: "OBJECT", properties: {title: {type: "STRING"}, type: {type: "STRING", enum: ["Assignment", "Exam", "Quiz", "Reading", "Project", "Lab", "Other"]}, due: {type: "STRING", description: "YYYY-MM-DD"}, time: {type: "STRING"}}, required: ["title", "due"]}, description: "Deadlines or exam dates written in the photo, if any"}},
   required: ["notes"]};
-// A phone or tablet (a touch screen as the main pointer): the places that can open the camera offer Take Photo next to Choose Photos.
+// A phone or tablet (a touch screen as the main pointer)
 const phoneLike = () => { try { return window.matchMedia("(pointer:coarse)").matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || ""); } catch (e) { return false; } };
 function photoNoteSheet(file){
   if (!aiReady()) { aiSetupSheet(true); return; }
@@ -293,10 +285,10 @@ function photoNoteSheet(file){
   const status = $("#pnStatus");
   const draw = () => { $("#pnSrcs").innerHTML = S.srcs.map((s, i) => `<li><span class="ficon">${s.kind === "PDF" ? "PDF" : "IMG"}</span><span class="nm">${esc(s.name)}</span><span class="mini">${fmtSize(s.size)}</span><button type="button" class="x-btn" data-rm="${i}" aria-label="Remove">${CLOSE}</button></li>`).join(""); };
   const add = async list => { for (const f of list) { try { S.srcs.push(await aiSourceFromFile(f)); S.files.push(f); } catch(e) { status.textContent = e.message; } } draw(); };
-  if (file) add([file]).then(() => { const g = $("#pnGo"); if (g && S.srcs.length) g.click(); });   // a screenshot handed over from Quick Capture is read right away
+  if (file) add([file]).then(() => { const g = $("#pnGo"); if (g && S.srcs.length) g.click(); });
   $("#pnPick").addEventListener("click", () => $("#pnFile").click());
   $("#pnFile").addEventListener("change", e => { const l = [...e.target.files]; e.target.value = ""; add(l); });
-  const cam = $("#pnTake"); if (cam) { cam.addEventListener("click", () => $("#pnCam").click()); $("#pnCam").addEventListener("change", e => { const l = [...e.target.files]; e.target.value = ""; add(l); }); }   // capture="environment" opens the camera on a phone or tablet
+  const cam = $("#pnTake"); if (cam) { cam.addEventListener("click", () => $("#pnCam").click()); $("#pnCam").addEventListener("change", e => { const l = [...e.target.files]; e.target.value = ""; add(l); }); }
   const drop = $("#pnDrop");
   ["dragover", "dragenter"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
   ["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
@@ -339,7 +331,7 @@ function photoNoteSheet(file){
   };
 }
 
-/* ---------- Ask your course materials ---------- */
+/* Ask your course materials */
 const ASK_SCHEMA = {type: "OBJECT", properties: {
   answer: {type: "STRING", description: "The answer. Plain text; use short paragraphs, '- ' bullets and **bold** sparingly."},
   sources: {type: "ARRAY", items: {type: "OBJECT", properties: {file: {type: "STRING"}, where: {type: "STRING", description: "Slide or page, e.g. 'Slide 12' or 'p. 4'"}}, required: ["file"]}},
@@ -359,7 +351,6 @@ function miniMd(s){
 function askSheet(courseId){
   if (!aiReady()) { aiSetupSheet(true); return; }
   const c = courseOf(courseId);
-  // Files the AI can read, and the course's lectures (their transcripts, as text); the newest are checked to start with
   const isLec = f => f.folderId === "lectures" && f.tr && String(f.tr.text || "").trim();
   const sizeOf = f => isLec(f) ? String((f.lec && f.lec.org) || f.tr.text).length : (curRev(f) || {}).size || (f.cloud && f.cloud.size) || 0;
   const files = Object.values(state.files).filter(f => (f.courseId || "") === (courseId || "") && (readableFile(f) || isLec(f))).sort((a, b) => (isLec(a) - isLec(b)) || ((b.updated || b.created || 0) - (a.updated || a.created || 0)));

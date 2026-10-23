@@ -1,8 +1,5 @@
 /* ===== module: 40-onboarding.js ===== */
-/* First-run onboarding: a short welcome tour that sets up courses, a theme, study hours,
-   reminders, AI and the app itself. Shows once per device (localStorage "sb:onboarded"), and also once for each brand-new account
-   (made in the last 2 days) the first time it signs in on a device, even one that has had the tour before. Only for an empty
-   planner, and never on top of the Connect or Sign In screens. */
+/* First-run onboarding */
 (() => {
   const KEY = "sb:onboarded", QKEY = "studyboard:quoteDay";
   const acctKey = () => sbUser && sbUser.id ? KEY + ":" + sbUser.id : "";
@@ -10,13 +7,13 @@
   const isDone = () => { try { const a = acctKey(); if (a && localStorage.getItem(a)) return true; if (a && newAccount()) return false; return !!localStorage.getItem(KEY); } catch (e) { return true; } };
   const markDone = () => { try { localStorage.setItem(KEY, "1"); const a = acctKey(); if (a) localStorage.setItem(a, "1"); } catch (e) {} };
   const isEmpty = () => !Object.keys(state.courses || {}).length && !Object.keys(state.tasks || {}).length;
-  // The tour is open, or still to come for this account (so the free week's welcome waits for its last step)
+  // The tour is open, or still to come for this account
   window.SBOB = {pending: () => !!document.querySelector("dialog[open] .ob") || (!isDone() && isEmpty()), T: {plan: null}};
 
-  // The Backups step shows only where a web page can save to a folder (Chrome or Edge on a computer; the desktop app has its own folder)
+  // The Backups step shows only where a web page can save to a folder
   const cbk = () => window.SBCLOUD && SBCLOUD.backup;
   const cloudBkHere = () => { const B = cbk(); return !!B && (B.possible("google") || B.possible("microsoft")); };
-  const backupsHere = () => { try { return !DESK && !inClaude() && ((typeof FSB !== "undefined" && FSB.supported()) || cloudBkHere()); } catch (e) { return false; } };
+  const backupsHere = () => { try { return !DESK && !inPreview() && ((typeof FSB !== "undefined" && FSB.supported()) || cloudBkHere()); } catch (e) { return false; } };
   const bkOnText = () => { const B = cbk(); return B && B.on() ? `${B.name(B.provider())} › Studyboard › Backups` : FSB.status === "on" ? FSB.where : ""; };
   const ALL_STEPS = [
     {id: "welcome", title: "Welcome"},
@@ -37,7 +34,7 @@
   // Tour state (lives only while the tour is open)
   let step = 0, cheered = false, dir = 1, away = null, finishing = false, added = [], newColor = null, remindersOk = false, remindersMsg = "", deviceTab = null, hoursTimer = 0;
 
-  /* ---------- Icons ---------- */
+  /* Icons */
   const svg = (d, extra = "") => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${d}</svg>`;
   const IC = {
     board: svg('<rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="17" y="4" width="4" height="7" rx="1.5"/>'),
@@ -58,7 +55,7 @@
     install: svg('<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M12 7.5v6M9.5 11l2.5 2.5 2.5-2.5M8 20.5h8"/>'),
     upload: svg('<path d="M12 15V4M8 8l4-4 4 4"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/>')
   };
-  // Where backups go: Google Drive's and OneDrive's own logos (BRAND_LOGO), and a folder for anywhere else
+  // Where backups go
   const BK_LOGO = {
     gdrive: BRAND_LOGO.gdrive,
     onedrive: BRAND_LOGO.onedrive,
@@ -66,18 +63,18 @@
   };
   const hero = (ic, cls = "") => `<div class="ob-hero ${cls}" aria-hidden="true">${ic}</div>`;
 
-  /* ---------- Device detection for install tips ---------- */
+  /* Device detection for install tips */
   const UA = navigator.userAgent || "";
   const isIOS = () => /iPhone|iPad|iPod/.test(UA) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   const isAndroid = () => /Android/i.test(UA);
   const standalone = () => !!(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
   const deviceKind = () => isIOS() ? "iphone" : isAndroid() ? "android" : "computer";
   const isWindows = () => /Windows/i.test(UA), isMac = () => /Macintosh|Mac OS X/i.test(UA) && !isIOS();
-  // On a computer the real apps come first: the Microsoft Store on Windows (signed, updates itself), the Mac app from the website
+  // On a computer the real apps come first
   const MS_STORE = "https://apps.microsoft.com/detail/9N8PHL54N3SN", MAC_DL = "https://studyboardapp.com/website/#download";
   const ext = (href, label) => `<a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`;
 
-  /* ---------- Steps ---------- */
+  /* Steps */
   function welcomeStep(){
     return `<div class="ob-logo" aria-hidden="true"></div>
       <h2 class="ob-h" id="obH" tabindex="-1">Welcome to Studyboard</h2>
@@ -134,7 +131,6 @@
 
   function themeStep(){
     const cur = styleCfg().skin, dark = isDark();
-    // With the paywall on, only offer themes this person owns: Pro picks are swapped for free plain colors.
     const spare = SKINS.filter(s => s.group === "plain" && !THEME_PICKS.includes(s.id) && owns("skin", s.id));
     const picks = THEME_PICKS.map(id => SKINS.find(s => s.id === id) || spare.shift()).filter(Boolean).map(s => owns("skin", s.id) ? s : spare.shift() || s);
     const cur0 = SKINS.find(s => s.id === cur && owns("skin", s.id));
@@ -181,7 +177,7 @@
 
   function aiStep(){
     let body;
-    if (inClaude()) body = `<div class="ob-info"><span class="mini">AI features work in the Studyboard app and on your own Studyboard website. There's nothing to set up here.</span></div>`;
+    if (inPreview()) body = `<div class="ob-info"><span class="mini">AI features work in the Studyboard app and on your own Studyboard website. There's nothing to set up here.</span></div>`;
     else if (aiReady()) { const c = aiCfg(); body = `<div class="ob-okbox">${IC.check}<span><b>AI Is On</b><span class="mini">Using ${esc(aiModelName(c.provider, c.model))}.</span></span><button type="button" class="btn small" data-ob="ai">Change</button></div>`; }
     else body = `<div class="ob-duo"><button type="button" class="btn primary" data-ob="ai">Set Up AI</button><button type="button" class="btn" data-ob="next">Later</button></div>
       <p class="ob-note mini">It takes about a minute with a free Google account. Everything in Studyboard works without it.</p>`;
@@ -209,14 +205,13 @@
   function appStep(){
     let body;
     const here = deviceKind();
-    if (inClaude()) body = `<div class="ob-info"><span class="mini">You're using Studyboard inside Claude, so there's nothing to install here. Your own Studyboard website can be added to your phone's home screen.</span></div>`;
+    if (inPreview()) body = `<div class="ob-info"><span class="mini">You're using a preview of Studyboard, so there's nothing to install here. Your own Studyboard website can be added to your phone's home screen.</span></div>`;
     else if (DESK) body = `<div class="ob-okbox">${IC.check}<span><b>You're Using the Desktop App</b><span class="mini">It has its own window and works offline. To use Studyboard on your phone too, open your Studyboard website there and add it to your home screen.</span></span></div>`;
     else if (standalone() || (() => { try { const C = window.Capacitor; return !!(C && typeof C.isNativePlatform === "function" && C.isNativePlatform()); } catch (e) { return false; } })()) body = `<div class="ob-okbox">${IC.check}<span><b>Studyboard Is Installed</b><span class="mini">You're already using the app on this device. It works offline, too.</span></span></div>`;
     else {
       const tab = deviceTab || here;
       const desktopApp = here === "computer" && tab === "computer" && (isWindows() || isMac());
       const canPrompt = !!installEvt && tab === here && here !== "iphone" && !desktopApp;
-      // Windows: Microsoft's own "Get it from Microsoft" badge (the website's copies, drawn from Microsoft's artwork), dark on light themes
       const badge = `<a class="ob-msbadge" href="${MS_STORE}" target="_blank" rel="noopener noreferrer" aria-label="Get it from Microsoft"><img class="on-light" src="website/assets/ms-store-badge-dark.png" alt="" width="161" height="44"><img class="on-dark" src="website/assets/ms-store-badge-light.png" alt="" width="161" height="44"></a>`;
       body = `${desktopApp ? (isWindows() ? badge : `<a class="btn primary ob-big" href="${MAC_DL}" target="_blank" rel="noopener noreferrer">Download for Mac</a>`) : ""}${canPrompt ? `<button type="button" class="btn primary ob-big" data-ob="install">Install Studyboard</button>` : ""}
         <div class="segb ob-dev" role="group" aria-label="Show tips for">${[["iphone", "iPhone"], ["android", "Android"], ["computer", "Computer"]].map(([k, l]) => `<button type="button" data-ob="dev" data-id="${k}" aria-pressed="${tab === k}">${l}${k === here ? `<span class="sr"> (this device)</span>` : ""}</button>`).join("")}</div>
@@ -233,7 +228,7 @@
     const B = cbk(), cloudOn = !!(B && B.on()), pend = B && B.pending(), on = cloudOn || FSB.status === "on", paused = !cloudOn && FSB.status === "paused", folders = FSB.supported();
     const opt = (kind, title, sub) => `<button type="button" class="ob-alt ob-bk" data-ob="backup-folder" data-id="${kind}"><span class="ob-alt-ic bk-ico bk-${kind}" aria-hidden="true">${BK_LOGO[kind] || ""}</span><span class="ob-alt-t"><b>${title}</b><span class="mini">${sub}</span></span></button>`;
     const viaCloud = p => !!(B && B.possible(p));
-    if (B && !on) ["google", "microsoft"].forEach(p => { if (viaCloud(p) && !B.connected(p)) B.connectUrl(p); });   // ready before a click
+    if (B && !on) ["google", "microsoft"].forEach(p => { if (viaCloud(p) && !B.connected(p)) B.connectUrl(p); });
     const gSub = viaCloud("google") ? "Connect your Google Drive. Backups go to Studyboard › Backups in it, with nothing to install." : "Choose the Google Drive folder (on Windows, the G: drive), then My Drive. Needs Google Drive for desktop.";
     const oSub = viaCloud("microsoft") ? "Connect your OneDrive. Backups go to Studyboard › Backups in it, with nothing to install." : "Choose your OneDrive folder or its Documents folder.";
     const body = on ? `<div class="ob-okbox">${IC.check}<span><b>Automatic Backups Are On</b><span class="mini">Saving to ${esc(bkOnText())} every hour while Studyboard is open.</span></span><button type="button" class="btn small" data-ob="backup-change">Change</button></div>`
@@ -250,16 +245,13 @@
       ${on || pend || !folders || cloudy ? "" : `<p class="ob-note mini">After you pick a folder, your browser asks to let Studyboard save there. Choose <b>Allow on every visit</b> if it's offered (otherwise <b>Edit files</b> or <b>Allow</b>) so backups keep running after the browser restarts. A “Studyboard Backups” folder is made inside the one you pick.</p>`}`;
   }
 
-  // The free week of Pro every new account gets: its own page just before the end, so nobody misses it. Only where Pro is sold
-  // (not for someone who already pays), and worded for where they are: running now, starting when the email is confirmed, or
-  // waiting for an account.
+  // The free week of Pro every new account gets
   const planObj = () => (window.SBOB.T && window.SBOB.T.plan) || (typeof PLAN !== "undefined" ? PLAN : null);
-  function proHere(){ try { const P = planObj(); if (!P || !P.paywall || !P.paywall() || inClaude()) return false; return !!(P.welcomeWeek && P.welcomeWeek()) || !(P.isPro && P.isPro()); } catch (e) { return false; } }
+  function proHere(){ try { const P = planObj(); if (!P || !P.paywall || !P.paywall() || inPreview()) return false; return !!(P.welcomeWeek && P.welcomeWeek()) || !(P.isPro && P.isPro()); } catch (e) { return false; } }
   function proStep(){
     const P = planObj(), gift = P && P.welcomeWeek ? P.welcomeWeek() : null;
     const account = typeof sbUser !== "undefined" && !!sbUser && !(window.SBGUEST && SBGUEST.is());
     const li = (t, sub) => `<li class="ok"><span class="ob-ck" aria-hidden="true">${IC.check}</span><span><b>${t}</b>${sub ? ` <span class="mini">${sub}</span>` : ""}</span></li>`;
-    // Only what the free week really unlocks: every Pro feature and look. Amounts (file storage, devices, online backups) stay at Free's.
     return `${hero('<span class="ob-gift-ic">🎁</span>', "pro")}
       <h2 class="ob-h" id="obH" tabindex="-1">${gift ? "Your First Week of Pro Is On Us" : "A Free Week of Pro"} <span class="pro-badge ob-pro-tag">PRO</span></h2>
       <p class="ob-lead">${gift ? `Try every Pro feature and look until <b>${esc(gift.date)}</b>.` : "Every new Studyboard account gets a week to try every Pro feature and look."} No card needed, and nothing you make goes away when the week ends.</p>
@@ -277,7 +269,7 @@
   function doneStep(){
     const nC = coursesArr().length, skin = SKINS.find(s => s.id === styleCfg().skin) || SKINS[0], h = dailyHours();
     const row = (ok, t) => `<li class="${ok ? "ok" : ""}"><span class="ob-ck" aria-hidden="true">${ok ? IC.check : ""}</span>${t}</li>`;
-    const P = window.SBOB.T.plan || (typeof PLAN !== "undefined" ? PLAN : null);   // (tests put a stand-in in T.plan)
+    const P = window.SBOB.T.plan || (typeof PLAN !== "undefined" ? PLAN : null);
     const gift = P && P.welcomeWeek ? P.welcomeWeek() : null;
     if (gift) P.welcomeSaid();
     const guestGift = !gift && window.SBGUEST && SBGUEST.is() && typeof PLAN !== "undefined" && PLAN && PLAN.paywall && PLAN.paywall();
@@ -290,7 +282,7 @@
         ${row(!!SBAREA.label(), SBAREA.label() ? `Studying ${esc(SBAREA.label())}` : "Set your area of study any time in Settings")}
         ${row(true, `Theme: ${esc(skin.name)}`)}
         ${row(true, `${h % 1 ? h.toFixed(1) : h} ${h === 1 ? "hour" : "hours"} of study a day`)}
-        ${inClaude() ? "" : row(aiReady(), aiReady() ? "AI is on" : "AI can be turned on in Settings")}
+        ${inPreview() ? "" : row(aiReady(), aiReady() ? "AI is on" : "AI can be turned on in Settings")}
         ${backupsHere() ? row(!!bkOnText(), bkOnText() ? `Backing up to ${esc(bkOnText())}` : "Automatic backups can be turned on in Settings") : ""}
       </ul>
       <div class="ob-next">
@@ -304,7 +296,7 @@
 
   const VIEW = {welcome: welcomeStep, area: areaStep, courses: coursesStep, theme: themeStep, hours: hoursStep, reminders: remindersStep, ai: aiStep, app: appStep, backups: backupsStep, pro: proStep, done: doneStep};
 
-  /* ---------- Sheet ---------- */
+  /* Sheet */
   function sheetHtml(){
     const s = STEPS[step], last = step === STEPS.length - 1;
     const bar = STEPS.map((x, i) => `<button type="button" class="ob-seg ${i < step ? "past" : i === step ? "cur" : ""}" data-ob="goto" data-id="${i}" aria-label="Step ${i + 1}: ${esc(x.title)}${i === step ? " (current)" : ""}"></button>`).join("");
@@ -330,13 +322,11 @@
     step = Math.max(0, Math.min(STEPS.length - 1, n));
     openSheet(sheetHtml());
     const form = dlg.querySelector(".sheet.ob"); if (!form) return;
-    // Wordmark on the welcome step: reuse the app's own light and dark logos.
     const logo = form.querySelector(".ob-logo");
     if (logo) $$(".brand img.logo").forEach(img => { const c = img.cloneNode(true); c.removeAttribute("id"); c.alt = ""; c.sizes = "217px"; logo.appendChild(c); });
     wire(form);
     const id = STEPS[step].id;
     if (id === "done" && !cheered) { cheered = true; celebrateHere(); }
-    // Focus: the heading for screen readers on step changes; the course field on desktop.
     const wide = window.matchMedia && window.matchMedia("(min-width:601px)").matches;
     const target = id === "courses" && wide ? $("#obCode") : focusHead ? $("#obH") : form.querySelector(".ob-go");
     if (target) try { target.focus({preventScroll: true}); } catch (e) {}
@@ -372,11 +362,9 @@
       case "semester": finish(true); if (window.SBSEM) SBSEM.open({from: "tour"}); break;
       case "add-course": addCourse(); break;
       case "account": finish(true); setTimeout(() => SBGUEST.signUp(), 350); break;
-      // the folder picker has to open from this click; the step redraws when it's done
       case "backup-folder": {
         const here = () => STEPS[step] && STEPS[step].id === "backups" && dlg.querySelector(".sheet.ob");
         chooseBackupFolder(id).then(() => { if (here()) show(step); });
-        // a cloud connection finishes in another tab: the step updates when it's on
         const B = cbk(); if (B && B.pending()) { const t0 = Date.now(), iv = setInterval(() => { if (!here() || Date.now() - t0 > 5 * 60000) { clearInterval(iv); return; } if (B.on() || !B.pending()) { clearInterval(iv); show(step); } }, 2000); }
         break;
       }
@@ -437,12 +425,12 @@
     const btn = dlg.querySelector('[data-ob="reminders"]'), msg = $("#obRMsg");
     if (btn) btn.disabled = true;
     if (msg) msg.textContent = "Setting up reminders…";
-    away = {step};                       // in case the reminders module opens its own sheet
+    away = {step};
     let res = [];
     try { res = fire("reminders-setup").filter(x => x !== undefined && x !== null && x !== false); } catch (e) { res = []; }
     const mine = () => !!dlg.querySelector(".sheet.ob");
     if (!res.length) { away = null; remindersMsg = "Reminders aren't available on this device yet. You can turn them on later in Settings."; if (mine()) show(step); return; }
-    if (!mine()) { remindersOk = true; remindersMsg = ""; return; }   // the reminders module showed its own sheet; we come back when it closes
+    if (!mine()) { remindersOk = true; remindersMsg = ""; return; }
     away = null;
     let ok = true, text = "";
     try {
@@ -457,18 +445,18 @@
     if (mine()) show(step);
   }
 
-  // Open another app sheet (import, AI setup, Style Shop), then come back to this step when it closes.
+  // Open another app sheet (import, AI setup, Style Shop)
   function leaveTo(fn){ away = {step}; fn(); if (!dlg.open) setTimeout(checkReturn, 250); }
   function checkReturn(){
     if (!away) return;
-    if (dlg.open) return;                // another sheet followed; wait for it to close
+    if (dlg.open) return;
     const s = away.step; away = null;
     dir = 1; show(s, true);
   }
   dlg.addEventListener("close", () => {
     if (away) { setTimeout(checkReturn, 250); return; }
     if (finishing) { finishing = false; return; }
-    if (dlg.querySelector(".sheet.ob")) {   // closed with Escape or a tap outside
+    if (dlg.querySelector(".sheet.ob")) {
       markDone();
       setTimeout(() => toast("Welcome tour closed. Replay it any time from Settings."), 60);
     }
@@ -489,8 +477,7 @@
     }, 120);
   }
 
-  /* The celebration is drawn on a canvas added to <body>, which sits under the open dialog.
-     Move any new canvas into the dialog so it plays on top, and back out when the tour closes. */
+  /* The celebration is drawn on a canvas added to <body>, which sits under the open dialog */
   let moved = [];
   function celebrateHere(){
     const before = new Set([...document.body.children]);
@@ -500,14 +487,14 @@
   }
   function moveCanvasesBack(){ moved.forEach(n => { if (n.isConnected && n.parentNode === dlg) document.body.appendChild(n); }); moved = []; }
 
-  /* ---------- When to show it ---------- */
+  /* When to show it */
   let poll = 0, cloudSince = 0, quoteHeld = null;
   const bootAt = Date.now();
   function settled(){
     if (cloud.on) { if (!cloudSince) cloudSince = Date.now(); } else cloudSince = 0;
-    if (inClaude()) return !!cloudSince && Date.now() - cloudSince > 1500;
-    if (sbConfig()) return !!sbUser && !!cloudSince && Date.now() - cloudSince > 1500;   // wait for sign-in and the first sync
-    return Date.now() - bootAt > 1100;   // local: the Connect screen (if any) opens first, and we wait for it below
+    if (inPreview()) return !!cloudSince && Date.now() - cloudSince > 1500;
+    if (sbConfig()) return !!sbUser && !!cloudSince && Date.now() - cloudSince > 1500;
+    return Date.now() - bootAt > 1100;
   }
   function releaseQuote(){
     if (quoteHeld === null) return;
@@ -518,9 +505,9 @@
   function check(){
     if (isDone()) { stop(); releaseQuote(); return; }
     if (!settled()) return;
-    if (!isEmpty()) { markDone(); stop(); releaseQuote(); return; }     // an account or device that already has data
+    if (!isEmpty()) { markDone(); stop(); releaseQuote(); return; }
     if (dlg.open || document.getElementById("qod") || document.hidden) return;
-    stop(); quoteHeld = null;            // keep today's quote for tomorrow so it doesn't pop up over the tour
+    stop(); quoteHeld = null;
     start();
   }
   function stop(){ clearInterval(poll); poll = 0; }
@@ -529,18 +516,17 @@
   hook("boot", () => {
     if (isDone()) return;
     if (isEmpty()) {
-      // Probably a first run: hold back the daily quote so it doesn't collide with the tour.
       try { const today = todayISO(), prev = localStorage.getItem(QKEY) || ""; if (prev !== today) { quoteHeld = prev; localStorage.setItem(QKEY, today); } } catch (e) {}
     }
     poll = setInterval(check, 700);
     setTimeout(check, 1150);
   });
 
-  // Someone signed up or signed in after the page loaded: a brand-new account gets its tour too (check() waits for the first sync).
+  // Someone signed up or signed in after the page loaded
   let seenUid = "";
   hook("render", () => { const u = sbUser && sbUser.id; if (!u || u === seenUid) return; seenUid = u; if (!poll && !isDone()) { poll = setInterval(check, 700); } });
 
-  /* ---------- Settings row ---------- */
+  /* Settings row */
   hook("menu", () => `<button data-act="ob-replay"><span>Replay Welcome Tour<span class="sub">The two-minute setup: courses, theme, study hours, reminders and more</span></span></button>`);
   hook("act", act => {
     if (act !== "ob-replay") return false;

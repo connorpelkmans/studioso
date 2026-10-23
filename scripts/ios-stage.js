@@ -1,10 +1,5 @@
 #!/usr/bin/env node
-// Stages the iPhone/iPad app's web files in one step (ios-wrapper/README-IOS.md sections 2 and 4 did this by hand):
-//   1. node prepare.js into ios-www/ for capacitor://localhost/ (libraries and fonts bundled, no CDN)
-//   2. copies ios-wrapper/native-bridge.js next to the page and loads it first (right after <head>), before the app's own script
-//   3. copies ios-www/ into ios-wrapper/ios-www/ (Capacitor's webDir) and, when the Xcode project exists (ios-wrapper/ios/) and
-//      Capacitor is installed there, runs `npx cap sync ios`.
-// Run after every change to the app:   npm run ios:stage
+// Stages the iPhone/iPad app's web files in one step
 "use strict";
 const fs = require("fs"), path = require("path"), {execFileSync} = require("child_process");
 const root = path.join(__dirname, ".."), www = path.join(root, "ios-www"), wrap = path.join(root, "ios-wrapper");

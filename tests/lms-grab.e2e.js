@@ -1,7 +1,4 @@
-// node tests/lms-grab.e2e.js   (Playwright + Chromium; see tests/pw.js)
-// The website's school sites: the cleaning every read from the Studyboard School Sync extension goes through, built into index.html, is
-// current with lms.js; the Connect sheet never offers a bookmark (there isn't one any more) and offers the extension, with its Chrome Web
-// Store link, in desktop Google Chrome only; and an old bookmark's #sbgrab= address does nothing.
+// node tests/lms-grab.e2e.js
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const {grabIn} = require("../scripts/build-lms-mobile.js");
@@ -46,7 +43,6 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {}};
   const app = await ctx.newPage(); const errs = []; app.on("pageerror", e => errs.push(e.message));
   try {
     await app.goto(base); await app.waitForSelector("#view", {state: "attached"}); await app.waitForFunction(() => window.SBLMS);
-    // Connect sheet on the website: never the bookmark. The extension is offered in desktop Google Chrome only; elsewhere the calendar link leads
     await app.evaluate(() => SBLMS.canvas.connectSheet());
     let ways = await app.evaluate(() => [...document.querySelectorAll("#dlg .bs-way")].map(w => ({t: w.querySelector("b").textContent, rec: w.classList.contains("rec"), pill: (w.querySelector(".bs-pill") || {}).textContent, text: w.innerText})));
     ok(!/bookmark/i.test(await app.evaluate(() => document.querySelector("#dlg").innerText)) && !(await app.locator('dialog [data-act="cv-grab"]').count()), "the Connect sheet never mentions or offers the bookmark");
@@ -58,7 +54,6 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {}};
     ok(/only reads|Read only/.test(ways[0].text) && /never sees your password/.test(ways[0].text), "it says plainly what the extension reads and that it never sees your password");
     ok(/Due Dates Only/.test(ways[1].pill) && /can't see grades/.test(ways[1].text), "the calendar link is offered second, as due dates only");
     await app.evaluate(() => { delete navigator.userAgentData; document.querySelector("#dlg").close(); });
-    // An old bookmark's address (#sbgrab=...) is ignored: nothing is imported and nothing is asked
     const tab = await ctx.newPage(); tab.on("pageerror", e => errs.push(e.message));
     await tab.goto(base + "#sbgrab=SBG1j.eyJ2IjoxLCJpZCI6ImNhbnZhcyJ9"); await tab.waitForFunction(() => window.SBLMS); await tab.waitForTimeout(2500);
     ok(!(await tab.evaluate(() => SBLMS.canvas.cfg().host)) && !(await tab.evaluate(() => document.querySelector("#dlg").open)) && !(await tab.evaluate(() => "grabReceive" in SBLMS)), "an old bookmark's address does nothing");

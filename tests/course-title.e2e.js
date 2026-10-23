@@ -1,5 +1,4 @@
-// node tests/course-title.e2e.js  (Playwright + Chromium)
-// The course name on a course's page must stay readable on every theme, light and dark: it sits on its own solid card (opaque, with text/surface colors that contrast well).
+// node tests/course-title.e2e.js
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, ".."), SHOTS = process.env.SHOTS || path.join(require("os").tmpdir(), "ct-shots");
@@ -31,7 +30,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); if (!/^theme /.test(m)) con
         return {ctx, page};
       };
       const first = await open("classic"); await first.ctx.close();
-      // every theme still gets its own fresh load; a few run side by side (each load parses the whole app, which is most of the time)
       const check = async skin => {
         const {ctx, page} = await open(skin);
         const r = await page.$eval(".detail-head", hd => { const h = hd.querySelector("h2"), s = getComputedStyle(hd), t = getComputedStyle(h), c = hd.querySelector(".code"); return {bg: s.backgroundColor, ink: t.color, code: c ? getComputedStyle(c).color : "", shadow: t.textShadow}; });
@@ -44,7 +42,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); if (!/^theme /.test(m)) con
       await Promise.all(Array.from({length: 3}, worker));
       ok(bad.length === 0, `${mode}: the course name has solid, high-contrast backing on all ${themes.length} themes` + (bad.length ? "\n  " + bad.join("\n  ") : ""));
     }
-    // a long name wraps instead of running off, at phone width, and the page does not scroll sideways
     { const {ctx, page} = await open2(); await ctx.close(); }
     async function open2() {
       const ctx = await browser.newContext({viewport: {width: 390, height: 780}});

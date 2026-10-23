@@ -1,9 +1,7 @@
-// Email to Studyboard (Pro): a Cloudflare Email Worker. Mail sent to <key>@<your inbound domain> arrives here through Cloudflare Email
-// Routing. The Worker reads the subject and the text (mime.js) and posts them to the capture-email Edge Function with a shared secret;
-// the database decides whose inbox it belongs in. Nothing is stored here. See README.md.
+// Email to Studyboard (Pro)
 import { parseEmail } from "./mime.js";
 
-export const MAX_READ = 3 * 1024 * 1024;   // the text comes first in a message; big attachments after it are not read
+export const MAX_READ = 3 * 1024 * 1024;
 
 // Reads at most max bytes of the message (a stream), then stops
 export async function readRaw(stream, max){
@@ -12,7 +10,7 @@ export async function readRaw(stream, max){
     const { done, value } = await reader.read();
     if (done) break;
     const room = max - n;
-    if (value.byteLength >= room) { chunks.push(value.subarray(0, room)); n = max; cut = true; try { await reader.cancel(); } catch (e) { /* ignore */ } break; }
+    if (value.byteLength >= room) { chunks.push(value.subarray(0, room)); n = max; cut = true; try { await reader.cancel(); } catch (e) { } break; }
     chunks.push(value); n += value.byteLength;
   }
   const all = new Uint8Array(n); let o = 0;
@@ -20,24 +18,22 @@ export async function readRaw(stream, max){
   return { bytes: all, cut };
 }
 
-// One email in, one decision out: {action: "ok" | "drop" | "reject" | "retry", reason}
+// One email in, one decision out
 export async function deliver(message, env, fetchFn){
   const url = String(env.SUPABASE_URL || "").replace(/\/+$/, ""), secret = String(env.EMAIL_CAPTURE_SECRET || "");
   if (!/^https:\/\//.test(url) || secret.length < 32) return { action: "retry", reason: "Email to Studyboard is not set up yet." };
   const { bytes } = await readRaw(message.raw, MAX_READ);
   let mail;
   try { mail = parseEmail(bytes); }
-  catch (e) { return { action: "reject", reason: "Studyboard couldn't read this email." }; }   // malformed mail is bounced, never a crash
-  if (mail.autoSubmitted === "auto-replied") return { action: "drop", reason: "an automatic reply" };   // "out of office" answers
+  catch (e) { return { action: "reject", reason: "Studyboard couldn't read this email." }; }
+  if (mail.autoSubmitted === "auto-replied") return { action: "drop", reason: "an automatic reply" };
   if (!mail.subject && !mail.text.trim()) return { action: "reject", reason: "This email is empty. Studyboard reads the subject and the text." };
   let res;
   try {
     res = await fetchFn(url + "/functions/v1/capture-email", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Studyboard-Email-Secret": secret },
-      // from: the header From (who wrote it; with forwarding, the envelope sender is the forwarder). It isn't verified, so the app only
-      // shows it as a hint, never trusts it. The Message-ID is deduplicated per inbox (not per sender), so a resent copy isn't added twice.
-      body: JSON.stringify({ to: message.to, from: mail.from || message.from, subject: mail.subject.slice(0, 900), text: mail.text.slice(0, 8000), id: mail.messageId })   // the database keeps 6,000 characters
+      body: JSON.stringify({ to: message.to, from: mail.from || message.from, subject: mail.subject.slice(0, 900), text: mail.text.slice(0, 8000), id: mail.messageId })
     });
   } catch (e) { return { action: "retry", reason: "Studyboard couldn't be reached. Your mail server will try again." }; }
   if (res.ok) return { action: "ok", reason: "" };
@@ -52,6 +48,6 @@ export default {
   async email(message, env){
     const r = await deliver(message, env, fetch);
     if (r.action === "reject") message.setReject(r.reason);
-    else if (r.action === "retry") throw new Error(r.reason);   // a temporary failure: the sending server tries again
+    else if (r.action === "retry") throw new Error(r.reason);
   }
 };

@@ -1,8 +1,4 @@
-// Writes a hardened `_headers` file (Netlify / Cloudflare Pages) for the Studyboard website, with the page's inline scripts allowed by
-// SHA-256 hash instead of 'unsafe-inline'. Run it every time index.html changes, before deploying (a stale hash blocks the page):
-//   node make-headers.js [path to index.html] [output file]       defaults: index.html and _headers.strict
-// Then deploy _headers.strict under the name `_headers`. The committed `_headers` is the relaxed baseline that never goes stale.
-// See website-headers.md.
+// Writes a hardened `_headers` file (Netlify / Cloudflare Pages) for the Studyboard website
 const fs = require("fs"), path = require("path"), crypto = require("crypto");
 const src = path.resolve(process.argv[2] || path.join(__dirname, "index.html"));
 const out = path.resolve(process.argv[3] || path.join(__dirname, "_headers.strict"));

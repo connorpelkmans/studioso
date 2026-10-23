@@ -1,7 +1,4 @@
-// node tests/whiteboard-pro.e2e.js  (Playwright + Chromium; file storage and the AI are stubbed)
-// Whiteboard pictures (Pro): the Picture tool adds a picture as a file, it shows on the board, Select moves and resizes it, ink goes over it,
-// Draw in Marker redraws it (AI, with the white made see-through) or draws it on this device from the picture's own lines, and exports include it.
-// On a free plan the Picture tool has a Pro badge and opens the Pro sheet, and pictures already on a board still show.
+// node tests/whiteboard-pro.e2e.js
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -34,7 +31,6 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
         const file = NP.normFile({id, name: f.name, courseId: opts.courseId || "", folderId: opts.folderId || "other", kind: "file", revs: [{assetId: aid, size: f.size, type: f.type || "image/png", at: Date.now(), name: f.name}], taskIds: [], created: Date.now()});
         T.applyChanges([{kind: "file", id, after: file}], ""); made.push(file); } window.__lastOpts = opts; return made; };
       IO.bytes = async id => { if (!window.__bytes[id]) throw new Error("none"); return window.__bytes[id]; };
-      // a picture: white background, a dark blue square in the middle
       window.__pic = async () => { const c = document.createElement("canvas"); c.width = 400; c.height = 300; const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, 400, 300); g.fillStyle = "#1D3B8C"; g.fillRect(120, 80, 160, 140);
         const b = await new Promise(r => c.toBlob(r, "image/png")); return new File([b], "diagram.png", {type: "image/png"}); };
       document.querySelectorAll("dialog[open]").forEach(d => d.close());
@@ -56,7 +52,6 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       ok(Math.abs(it.w / it.h - 4 / 3) < 0.02, "it keeps its shape: " + it.w + " x " + it.h);
       ok(await page.locator(".wb-imgs .wb-img img").count() === 1 && await page.locator(".wb-selbar:not([hidden])").count() === 1 && await page.evaluate(() => SBWB.tool()) === "select", "it shows on the board, selected, with Select on");
       ok((await page.locator('.wb-selbar [data-wb="restyle-menu"]').textContent()).includes("Draw"), "its menu offers Draw (which opens the drawing styles)");
-      // right after a reload sign-in may still be coming back: a picture whose first loads fail is tried again soon, not shown as missing
       await page.evaluate(async () => {
         const T = window.__sbProStudy, NP = window.__sbNotePhotos, IO = SBWB.pictures.IO, b0 = IO.bytes; let fails = 0;
         window.__bytes["asset-slow"] = window.__bytes[Object.keys(window.__bytes)[0]];
@@ -70,18 +65,15 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       ok(await page.locator(".wb-imgs .wb-img img").count() === 2, "and it shows once it loads, a moment later");
       await page.evaluate(() => SBWB.change(set => set("i", "slowit", null)));
 
-      // resize from the corner handle
       const box = await page.evaluate(id => { const b = SBWB.itemBB(SBWB.getI(id)), c = SBWB.cam(), r = document.querySelector(".wb-frame").getBoundingClientRect(); return {x: r.left + b[2] * c.z + c.x, y: r.top + b[3] * c.z + c.y, z: c.z}; }, it.id);
       await page.mouse.move(box.x, box.y); await page.mouse.down(); await page.mouse.move(box.x + 40, box.y + 30, {steps: 4}); await page.mouse.move(box.x + 80, box.y + 60, {steps: 4}); await page.mouse.up(); await page.waitForTimeout(100);
       const it2 = (await items(page)).find(i => i.id === it.id);
       ok(it2.w > it.w * 1.1 && Math.abs(it2.w / it2.h - it.w / it.h) < 0.02, "dragging the corner makes it bigger, same shape: " + it.w + " to " + it2.w);
-      // ink goes over it
       await page.evaluate(() => SBWB.setTool("pen"));
       const c = await page.evaluate(id => { const b = SBWB.itemBB(SBWB.getI(id)), c = SBWB.cam(), r = document.querySelector(".wb-frame").getBoundingClientRect(); return {x: r.left + (b[0] + b[2]) / 2 * c.z + c.x, y: r.top + (b[1] + b[3]) / 2 * c.z + c.y}; }, it.id);
       await page.mouse.move(c.x - 60, c.y); await page.mouse.down(); await page.mouse.move(c.x + 60, c.y, {steps: 8}); await page.mouse.up(); await page.waitForTimeout(60);
       ok((await page.evaluate(() => SBWB.board().strokes.length)) === 1 && (await items(page)).length === 1, "drawing on top of the picture adds a stroke and leaves the picture alone");
 
-      // Draw in Marker with the AI (stubbed: returns a marker drawing on white)
       await page.evaluate(() => { SBWB.pictures.IO.ai = async () => { const c = document.createElement("canvas"); c.width = 500; c.height = 375; const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, 500, 375); g.strokeStyle = "#1D5BD6"; g.lineWidth = 14; g.strokeRect(150, 100, 200, 175);
         return await new Promise(r => { const im = new Image(); im.onload = () => r(im); im.src = c.toDataURL(); }); }; });
       await page.evaluate(id => SBWB.select(["i" + id]), it.id); await page.waitForTimeout(60);
@@ -92,7 +84,6 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
         const c = document.createElement("canvas"); c.width = im.width; c.height = im.height; const g = c.getContext("2d"); g.drawImage(im, 0, 0); return {bg: [...g.getImageData(20, 20, 1, 1).data], line: [...g.getImageData(152, 180, 1, 1).data]}; }, f3.revs[0].assetId);
       ok(px.bg[3] === 0 && px.line[3] > 200 && px.line[2] > px.line[0], "its white background is see-through and the marker line stays blue: " + JSON.stringify(px));
       ok(await page.locator(".wb-img.drawn img").count() === 1, "it shows as a drawn picture");
-      // colours: original, or all in one marker colour
       ok(await page.locator('.wb-selbar [data-wb="sel-color"][data-id="orig"][aria-pressed=true]').count() === 1 && await page.locator('.wb-selbar [data-wb="sel-color"]').count() === 7, "a drawn picture's menu has Original Colors (picked) and the six marker colours");
       await page.click('.wb-selbar [data-wb="sel-color"][data-id="red"]'); await page.waitForTimeout(120);
       ok((await items(page)).find(i => i.id === it.id).tint === "red" && await page.locator(".wb-img .wb-tint").count() === 1 && await page.locator('.wb-selbar [data-id="red"][aria-pressed=true]').count() === 1, "picking red draws the whole picture in red");
@@ -100,7 +91,6 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       ok(red.r > 50 && red.b < 10, "and the exported picture has it in red: " + JSON.stringify(red));
       await page.click('.wb-selbar [data-wb="sel-color"][data-id="orig"]'); await page.waitForTimeout(120);
       ok(!(await items(page)).find(i => i.id === it.id).tint && await page.locator(".wb-img .wb-tint").count() === 0, "Original Colors puts its own colours back");
-      // Fade Edges
       await page.click('.wb-selbar [data-wb="fade"]'); await page.waitForTimeout(120);
       ok((await items(page)).find(i => i.id === it.id).fade === 1 && await page.locator(".wb-img.fade").count() === 1 && await page.locator('.wb-selbar [data-wb="fade"][aria-pressed=true]').count() === 1, "Fade Edges softens the picture's edges (and shows as on)");
       await page.click('.wb-selbar [data-wb="fade"]'); await page.waitForTimeout(120);
@@ -109,7 +99,6 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       await page.evaluate(() => SBWB.undo()); await page.waitForTimeout(80);
       ok(!(await items(page)).find(i => i.id === it.id).r, "Undo brings the original picture back");
 
-      // without AI: traced on this device
       await page.evaluate(() => { SBWB.pictures.IO.ai = async () => null; });
       await page.evaluate(id => SBWB.select(["i" + id]), it.id); await page.waitForTimeout(60);
       await page.click('.wb-selbar [data-wb="restyle-menu"]'); await page.click('.wb-stylemenu [data-id$="|marker"]'); await page.waitForTimeout(1500);
@@ -120,7 +109,6 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       ok(it4.r === 1 && tr.dark > 200 && tr.clear > tr.all * 0.5, "without AI it's drawn here: marker outlines in the picture's colours, on a see-through background: " + JSON.stringify(tr));
       ok(/on this device/.test(await page.locator("#toast").textContent()), "and says it was traced on this device (with how to get a full redraw)");
 
-      // the rainbow marker: any colour
       await page.evaluate(() => SBWB.setTool("pen"));
       await page.click('.wb-tray [data-wb="pen-any"]'); await page.waitForTimeout(100);
       const cpb = await page.evaluate(() => { const p = document.querySelector(".wb-cpick"), m = document.querySelector('.wb-tray [data-wb="pen-any"]'); if (!p) return null; const a = p.getBoundingClientRect(), b = m.getBoundingClientRect(); return {top: a.top - b.bottom, dx: Math.abs((a.left + a.width / 2) - (b.left + b.width / 2))}; });
@@ -137,7 +125,6 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       ok(teal > 20, "and exports in exactly that colour: " + teal + " teal pixels");
       await page.evaluate(() => SBWB.undo());
 
-      // the eraser on a picture: Erase Parts rubs out where it goes
       await page.evaluate(() => { SBWB.setTool("eraser"); });
       await page.click('.wb-tray [data-wb="erase"][data-id="part"]'); await page.click('.wb-tray [data-wb="ew"][data-id="2"]');
       const pc = await page.evaluate(id => { const b = SBWB.itemBB(SBWB.getI(id)), c = SBWB.cam(), r = document.querySelector(".wb-frame").getBoundingClientRect(); return {x0: r.left + b[0] * c.z + c.x, x1: r.left + b[2] * c.z + c.x, y: r.top + (b[1] + b[3]) / 2 * c.z + c.y}; }, it.id);
@@ -150,20 +137,17 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       ok(!((await items(page)).find(x => x.id === it.id).er), "Undo brings the picture back whole");
       await page.evaluate(() => SBWB.setTool("select"));
 
-      // the drawing made on this device follows the picture's own lines: ink along the square's edges, none in the empty corners
       const shp = await page.evaluate(async () => { const f = await window.__pic(), im = await new Promise(r => { const m = new Image(); m.onload = () => r(m); m.src = URL.createObjectURL(f); });
         const c = SBWB.pictures.sketch(im), x = c.getContext("2d"), sx = c.width / 400, sy = c.height / 300;
         const dark = (px, py) => { let n = 0; for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) { const d = x.getImageData(Math.round(px * sx) + dx, Math.round(py * sy) + dy, 1, 1).data; if (d[0] + d[1] + d[2] < 450) n++; } return n > 0; };
         return {edges: [[120, 150], [280, 150], [200, 80], [200, 220]].every(q => dark(q[0], q[1])), corners: [[30, 30], [370, 30], [30, 270], [370, 270]].some(q => dark(q[0], q[1]))}; });
       ok(shp.edges && !shp.corners, "Draw in Marker on this device follows the picture's own outline (ink on the square's edges, empty corners stay empty): " + JSON.stringify(shp));
-      // with a subject outline (from Gemini), only the subject is drawn: here the outline covers the left half
       const seg = await page.evaluate(async () => { const f = await window.__pic(), im = await new Promise(r => { const m = new Image(); m.onload = () => r(m); m.src = URL.createObjectURL(f); });
         const W0 = 400, H0 = 300, a = new Float32Array(W0 * H0); for (let y = 0; y < H0; y++) for (let x = 0; x < 200; x++) a[y * W0 + x] = 1;
         const c = SBWB.pictures.clearWhite(SBWB.pictures.sketch(im, "marker", {w: W0, h: H0, a})), x = c.getContext("2d"), sx = c.width / 400, sy = c.height / 300;
         const ink = (x0, x1) => { let n = 0; const d = x.getImageData(Math.round(x0 * sx), 0, Math.round((x1 - x0) * sx), c.height).data; for (let i = 3; i < d.length; i += 4) if (d[i] > 60) n++; return n; };
         return {left: ink(100, 190), right: ink(230, 300)}; });
       ok(seg.left > 200 && seg.right === 0, "with a subject outline, only the subject is drawn (nothing outside it): " + JSON.stringify(seg));
-      // drawing styles: a menu beside the Draw button; picking one draws in it and is remembered
       await page.evaluate(id => SBWB.select(["i" + id]), it.id); await page.waitForTimeout(60);
       await page.click('.wb-selbar [data-wb="restyle-menu"]'); await page.waitForTimeout(80);
       ok(await page.locator('.wb-stylemenu [data-wb="restyle-as"]').count() === 4 && await page.locator('.wb-stylemenu .on').textContent() === "Marker", "the style menu offers 4 drawing styles, Marker first and picked");
@@ -178,7 +162,6 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       await page.evaluate(() => SBWB.undo()); await page.waitForTimeout(80);
       await page.evaluate(() => { SBWB.undo(); localStorage.removeItem("studyboard:wbDrawStyle"); }); await page.waitForTimeout(80);
 
-      // export includes the picture
       const ex = await page.evaluate(async () => { const n = state.notes.wb1; const c = await SBWB.renderBoard(n, {max: 600}); const g = c.getContext("2d"); const d = g.getImageData(0, 0, c.width, c.height).data; let dark = 0; for (let i = 0; i < d.length; i += 4) if (d[i] < 80 && d[i + 1] < 80 && d[i + 2] < 90) dark++; return dark; });
       ok(ex > 100, "the exported picture of the board includes it: " + ex + " dark pixels");
       ok(!page.errs.length, "no page errors (Pro): " + page.errs.join(" | "));

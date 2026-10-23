@@ -1,14 +1,5 @@
 /* ===== module: 99-whiteboard-share.js ===== */
-/* Sharing whiteboards (free):
-   Share a Copy: a link (97-sharing's share links, kind "board"). Whoever opens it sees the board and can save their own copy. Pictures go
-     along inside the copy, made small.
-   Share With a Study Group: the board goes live in the group (supabase-groups.sql: group_boards and group_board_ops) and shows in the group's
-     Whiteboards tab, with a preview and who has it. A member who adds it (Add to My Whiteboards, or tapping its preview) gets their own copy in
-     their Whiteboard tab (group_board_people records who has it), and what anyone draws, types, moves or erases shows up for everyone as it
-     happens. Each copy is a normal board (n.wb.g = {gid, bid, gn}), so it works offline and catches up when it's back online; deleting your
-     copy only removes yours (and takes you off its list).
-   The server keeps a log of changes (batches of [{t: "s" | "i", id, v | null}]); each device replays what it hasn't seen (its place in the
-   log is kept on the device, and replaying twice changes nothing, because each change sets a stroke or item to a value). */
+/* Sharing whiteboards (free) */
 (() => {
   const W = window.SBWB; if (!W) return;
   const G = () => (window.SBGROUPS && SBGROUPS.share) || null;
@@ -17,11 +8,11 @@
   const me = () => G().myId();
   const q = async p => { const r = await p; if (r && r.error) throw r.error; return r ? r.data : null; };
   const cut = (s, n) => String(s == null ? "" : s).slice(0, n);
-  const K_SEQ = "studyboard:wbSeq", TAG = uid();   // TAG: this page's changes, so their echoes from the server are skipped
+  const K_SEQ = "studyboard:wbSeq", TAG = uid();
   const live = n => (n && n.wb && n.wb.g) || null;
 
-  /* ---------- Pictures travel as small images inside the board ---------- */
-  const PIC = new Map();   // file id -> data URL
+  /* Pictures travel as small images inside the board */
+  const PIC = new Map();
   const loadImg = u => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = u; });
   async function picData(it){
     if (it.src) return it.src;
@@ -43,14 +34,14 @@
   async function prepPictures(n){ await Promise.all(((n && n.wbItems) || []).filter(it => it.k === "i").map(picData)); }
   const embedded = it => it.k !== "i" ? it : (it.src || PIC.get(it.f)) ? Object.assign({}, it, {src: it.src || PIC.get(it.f), f: undefined}) : null;
 
-  /* ---------- Share a Copy (a link) ---------- */
+  /* Share a Copy (a link) */
   function shareSrc(id, g){
     const n = state.notes[id]; if (!n || !n.wb) return null;
     const ink = n.wbInk || [], all = (n.wbItems || []).map(embedded).filter(Boolean);
     if (!ink.length && !all.length) return null;
     const c = courseOf(n.courseId);
     let data = JSON.parse(JSON.stringify({v: 1, type: "board", name: W.boardName(n), tpl: n.wb.tpl || "blank", ink, items: all, course: c ? {code: c.code || "", name: c.name || ""} : null}));
-    if (JSON.stringify(data).length > 950000) data.items = all.filter(it => it.k !== "i");   // too big with its pictures: shared without them
+    if (JSON.stringify(data).length > 950000) data.items = all.filter(it => it.k !== "i");
     return {title: W.boardName(n), data, h: g ? g.hashOf(JSON.stringify(data)) : "",
       cur: () => (state.notes[id] || {}).shared,
       mark: m => { const cur = state.notes[id]; if (!cur) return; const nn = clone(cur); if (m) nn.shared = m; else delete nn.shared; applyChanges([{kind: "note", id, after: nn}], ""); }};
@@ -82,14 +73,14 @@
     });
   }
 
-  /* ---------- Live group boards ---------- */
+  /* Live group boards */
   const seqs = () => { try { return JSON.parse(localStorage.getItem(K_SEQ) || "{}") || {}; } catch (e) { return {}; } };
   const seqGet = bid => Number(seqs()[bid]) || 0;
   const seqSet = (bid, v) => { const m = seqs(); if ((Number(m[bid]) || 0) >= v) return; m[bid] = v; try { localStorage.setItem(K_SEQ, JSON.stringify(m)); } catch (e) {} };
   const goneList = () => (((state.settings || {}).wbGone) || []).filter(x => typeof x === "string");
   function addGone(bid){ const l = goneList(); if (l.includes(bid)) return; state.settings = Object.assign({}, state.settings, {wbGone: l.concat(bid).slice(-200)}); saveSettings(); }
 
-  // What arrives from others goes through the same checks as anything saved (normWbNote): bad strokes or items are dropped
+  // What arrives from others goes through the same checks as anything saved (normWbNote)
   function clean(list){
     if (!Array.isArray(list)) return [];
     const ok = list.filter(c => c && (c.t === "s" || c.t === "i") && typeof c.id === "string" && /^[\w-]{1,40}$/.test(c.id)).slice(0, 200);
@@ -115,7 +106,7 @@
     }
     return out;
   }
-  let L = null;   // the open live board: {nid, bid, gid, ch, q, timer, sent: Set(op ids from here), seen: Set(op ids applied)}
+  let L = null;
   async function catchUp(nid, Lx){
     const g = live(state.notes[nid]); if (!g || !online()) return;
     const rows = await fetchOps(g.bid, seqGet(g.bid));
@@ -181,7 +172,7 @@
     x.q.push({t, id, v}); clearTimeout(x.timer); x.timer = setTimeout(() => send(x), 250);
   });
 
-  /* ---------- Share With a Study Group ---------- */
+  /* Share With a Study Group */
   async function groupSheet(nid){
     const n = state.notes[nid]; if (!n) return;
     if (live(n)) { toast(`This board is already live with ${n.wb.g.gn || "a study group"}.`); return; }
@@ -225,31 +216,30 @@
     toast(`Shared with ${gname}. Everyone in the group can add it from the group's Whiteboards tab.`);
     render();
   }
-  // A shared board joins your Whiteboards when you add it from the group (it used to arrive by itself): a copy of it here, live from then on
+  // A shared board joins your Whiteboards when you add it from the group
   async function addCopy(row, gname){
     const have = Object.values(state.notes || {}).find(n => live(n) && n.wb.g.bid === row.id); if (have) return have.id;
     const now = Date.now(), n = normNote({id: uid(), text: cut(row.name, 60) || "Group Whiteboard", wb: {v: 1, tpl: row.tpl, g: {gid: row.group_id, bid: row.id, seq: 0, gn: cut(gname || "your study group", 80)}}, courseId: "", board: "", created: now, updated: now});
-    // added back after deleting it before: it's wanted again
     const gone = goneList(); if (gone.includes(row.id)) { state.settings = Object.assign({}, state.settings, {wbGone: gone.filter(x => x !== row.id)}); saveSettings(); }
     applyChanges([{kind: "note", id: n.id, after: n}], "");
     try { seqSet(row.id, 0); await catchUp(n.id, null); } catch (e) {}
     await addMe(row.id, row.group_id);
     return n.id;
   }
-  // who has a board: me on its list (once per board per visit), and its list for the board's own panel
+  // who has a board
   const ADDED = new Set();
   async function addMe(bid, gid){
     if (!online() || ADDED.has(bid)) return; ADDED.add(bid);
     try { await q(cli().from("group_board_people").upsert({board_id: bid, group_id: gid}, {onConflict: "board_id,user_id", ignoreDuplicates: true})); } catch (e) { ADDED.delete(bid); }
   }
-  const ACC = new Map();   // board id -> {ids: [user ids], at}
+  const ACC = new Map();
   async function access(bid, force){
     const c = ACC.get(bid); if (!online() || (!force && c && Date.now() - c.at < 30000)) return c;
     try { const rows = (await q(cli().from("group_board_people").select("user_id,added_at").eq("board_id", bid).order("added_at"))) || []; ACC.set(bid, {ids: rows.map(r => r.user_id), at: Date.now()}); chip(); }
     catch (e) {}
     return ACC.get(bid);
   }
-  // a member's picture: their companion (as the rest of the group shows them), or their initial in their colour
+  // a member's picture
   const faceOf = (gid, id, titled) => {
     const m = ((G() && G().members) ? G().members(gid) : []).find(x => x.id === id), nm = memberName(gid, id), real = nm === "You" ? (G() && G().myName && G().myName()) || "You" : nm;
     let h = ""; try { h = G() && G().avatar ? G().avatar(gid, id, real) : ""; } catch (e) {}
@@ -257,7 +247,7 @@
     return `<span class="wbg-av" style="--c:${esc((m && /^#[0-9A-F]{6}$/i.test(m.color || "")) ? m.color : "#7A8494")}"${titled ? ` title="${esc(nm)}"` : ""}>${esc(real.trim().charAt(0).toUpperCase() || "?")}</span>`; };
   const memberName = (gid, id) => { if (id === me()) return "You"; const m = ((G() && G().members) ? G().members(gid) : []).find(x => x.id === id); return (m && m.name) || "A member"; };
   const whoText = (gid, ids) => { const names = [...new Set(ids)].sort((a, b) => (b === me()) - (a === me())).map(id => memberName(gid, id)); return !names.length ? "Nobody has added it yet" : names.length <= 3 ? names.join(", ").replace(/, ([^,]*)$/, " and $1") + (names.length === 1 && names[0] !== "You" ? " has it" : " have it") : `${names.slice(0, 2).join(", ")} and ${names.length - 2} others have it`; };
-  // a small picture of the board for the group's Whiteboards tab, kept fresh while people draw (at most every 20 seconds)
+  // a small picture of the board for the group's Whiteboards tab, kept fresh while people draw
   const PV = new Map();
   function previewSoon(nid, now){
     const n = state.notes[nid], g = live(n); if (!g || !online()) return;
@@ -266,16 +256,15 @@
     setTimeout(async () => {
       try {
         W.flush(); const pic = async dark => { const cv = await W.renderBoard(state.notes[nid] || n, {max: 520, dark}); let url = cv.toDataURL("image/jpeg", 0.72); if (url.length > 190000) url = cv.toDataURL("image/jpeg", 0.45); return url.length < 190000 ? url : null; };
-        // light and dark, so each member sees it the way their own whiteboards look
         const url = await pic(false), dk = await pic(true); if (!url) return;
         try { await q(cli().rpc("group_board_preview", {p_board: g.bid, p_preview: url, p_dark: dk})); }
-        catch (e) { await q(cli().rpc("group_board_preview", {p_board: g.bid, p_preview: url})); }   // a server without dark previews yet
+        catch (e) { await q(cli().rpc("group_board_preview", {p_board: g.bid, p_preview: url})); }
       } catch (e) {}
     }, 300);
   }
 
-  /* ---------- The group's Whiteboards tab ---------- */
-  const GB = new Map();   // group id -> {rows, people: Map(board id -> [user ids]), at, busy}
+  /* The group's Whiteboards tab */
+  const GB = new Map();
   async function loadGroup(gid, force){
     const c = GB.get(gid); if (!online() || (c && c.busy) || (!force && c && Date.now() - c.at < 15000)) return;
     const x = c || {rows: null, people: new Map(), at: 0}; x.busy = true; GB.set(gid, x);
@@ -331,14 +320,14 @@
       makeLive(nid, gid, gname).then(() => loadGroup(gid, true)); return true;
     });
   }
-  // Deleting your copy of a group board: it's gone for you (it isn't added back), and stays for everyone else
+  // Deleting your copy of a group board
   hook("changed", (changes, inverse) => {
     changes.forEach((c, i) => { const was = inverse && inverse[i] && inverse[i].after; if (c.kind === "note" && c.after === null && live(was)) {
       addGone(was.wb.g.bid); ADDED.delete(was.wb.g.bid);
       if (online()) q(cli().from("group_board_people").delete().eq("board_id", was.wb.g.bid).eq("user_id", me())).catch(() => {}); } });
   });
 
-  /* ---------- On the page ---------- */
+  /* On the page */
   function chip(){
     const el = document.querySelector(".wb-livechip"); if (!el) return;
     el.classList.toggle("on", !!(L && L.on));

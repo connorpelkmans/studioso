@@ -1,7 +1,4 @@
-// Offline checks for the calendar-sync Edge Function (two-way Google Calendar and Outlook sync). No network, no Supabase. Run from the repo root:
-//   node --experimental-strip-types supabase-functions/tools/test-calendar-sync.mjs
-// It loads the real function with in-memory stand-ins for Supabase (Auth and the calsync_* functions of supabase-calsync.sql), Google
-// Calendar and Microsoft Graph, and walks the whole thing: connect, sync, moves and deletions in the calendar, busy times, reauth, disconnect.
+// Offline checks for the calendar-sync Edge Function
 import assert from "node:assert/strict";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
@@ -13,7 +10,7 @@ const test = async (name, fn) => { try { await fn(); passed++; console.log("ok  
 const UID = "11111111-2222-4333-8444-555555555555", TZ = "America/Toronto", NOW = Date.parse("2026-10-11T16:00:00Z");
 const SECRET = "k".repeat(48);
 
-// ---------- A small world: Supabase + Google + Microsoft ----------
+// A small world
 function world(opts = {}) {
   const db = { accounts: new Map(), map: new Map(), allowed: opts.allowed !== false };
   const g = { cals: new Map([["primary", new Map()]]), n: 0, tokens: { refresh: "g-refresh-1" }, revoked: [], badGrant: false, calls: [] };
@@ -96,7 +93,6 @@ function world(opts = {}) {
   const call = async (body, jwt = "user-jwt") => { const r = await F.handle(new Request("https://x.supabase.co/functions/v1/calendar-sync", { method: "POST", headers: { authorization: "Bearer " + jwt, "content-type": "application/json" }, body: JSON.stringify(body) }), deps); return { status: r.status, body: await r.json() }; };
   const get = async (qs, cookie) => { const r = await F.handle(new Request("https://x.supabase.co/functions/v1/calendar-sync?" + qs, { headers: cookie ? { cookie } : {} }), deps); return { status: r.status, text: await r.text(), csp: r.headers.get("content-security-policy"), location: r.headers.get("location"), cookie: (r.headers.get("set-cookie") || "").split(";")[0] }; };
   const post = async (form, cookie) => { const r = await F.handle(new Request("https://x.supabase.co/functions/v1/calendar-sync", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", ...(cookie ? { cookie } : {}) }, body: new URLSearchParams(form).toString() }), deps); return { status: r.status, text: await r.text(), cookie: r.headers.get("set-cookie") || "" }; };
-  // The whole connect flow: start (app) -> begin (sets the cookie, on to Google) -> back with a code -> the confirm page -> Connect
   const connect = async (provider = "google") => {
     const s = await call({ action: "start", provider, tz: TZ });
     const b = await get(new URL(s.body.url).search.slice(1));
@@ -167,7 +163,6 @@ await test("connecting: Google's page, the callback, an encrypted token and the 
 });
 await test("someone else's link does nothing: no cookie, a forged or expired state, a replayed confirm", async () => {
   const w = world();
-  // The attacker starts a connection for THEIR account and sends the victim Google's link (or the begin link's target)
   const s = await w.call({ action: "start", provider: "google", tz: TZ });
   const b = await w.get(new URL(s.body.url).search.slice(1));
   const st = new URL(b.location).searchParams.get("state");
@@ -175,7 +170,6 @@ await test("someone else's link does nothing: no cookie, a forged or expired sta
   assert.equal(victim.status, 400); assert.ok(/wasn't started in this browser/.test(victim.text));
   assert.equal((await w.get(new URLSearchParams({ code: "good-code", state: st }).toString(), "sbcs=wrongnonce12")).status, 400);
   assert.equal(w.db.accounts.size, 0, "nothing was stored");
-  // Before Connect is pressed, nothing is stored either
   const c = await w.get(new URLSearchParams({ code: "good-code", state: st }).toString(), b.cookie);
   assert.equal(w.db.accounts.size, 0, "the confirm page alone stores nothing");
   const box = /name="confirm" value="([^"]+)"/.exec(c.text)[1].replace(/&amp;/g, "&");
@@ -236,13 +230,11 @@ await test("moved in the calendar: Studyboard hears about it; deleted there: it 
   assert.deepEqual(r.body.changes.find(c => c.k === "t:mid"), { k: "t:mid", deleted: true });
   assert.equal(r.body.stats.created, 0, "the deleted midterm is not put back");
   assert.equal(lab.start.dateTime, "2026-10-17T14:00:00-04:00", "the moved event is left where the person put it");
-  // The app takes the move: its next sync sends the new time, and nothing fights
   const ev = EV(); ev[0] = { ...ev[0], date: "2026-10-17", start: "14:00", end: "14:30" };
   const r2 = await w.call(SYNC(ev));
   assert.equal(r2.body.changes.length, 0); assert.equal(r2.body.stats.created, 0);
   const r3 = await w.call(SYNC(ev));
   assert.deepEqual([r3.body.stats.created, r3.body.stats.updated], [0, 0], "settled");
-  // A school deadline the app won't move: it sends the old time, which goes back into the calendar
   const lab2 = [...cal.values()].find(e => /Lab report/.test(e.summary));
   lab2.start = { dateTime: "2026-10-18T10:00:00-04:00" }; lab2.end = { dateTime: "2026-10-18T10:30:00-04:00" };
   const moved = await w.call(SYNC(ev));
@@ -302,7 +294,6 @@ await test("the person's own calendar: every event with titles (all-day ones too
   const r2 = await w.call(SYNC(EV(), { bring: "busy" }));
   assert.ok(r2.body.busy.every(b => b.title === "Busy" && b.where === ""), "busy only: no titles or places leave the calendar");
   assert.equal(r2.body.busy.length, 2, "busy only: free time is left out");
-  // Reading their calendar wasn't allowed (Google lets people untick it): the rest of the sync still works, and the app is told
   w.g.noRead = true;
   const r3 = await w.call(SYNC(EV(), { bring: "titles" }));
   assert.equal(r3.status, 200); assert.equal(r3.body.busy, null); assert.equal(r3.body.busyErr, "no_access");
@@ -322,7 +313,7 @@ await test("one sync at a time; the lock is let go afterwards, even after an err
   w.db.accounts.get(UID + "|google").lock_until = Date.now() + 30000;
   assert.equal((await w.call(SYNC(EV()))).body.error, "busy");
   w.db.accounts.get(UID + "|google").lock_until = 0;
-  const realList = w.g.cals.get("sbcal1"); w.g.cals.delete("sbcal1");   // the person deleted the Studyboard calendar
+  const realList = w.g.cals.get("sbcal1"); w.g.cals.delete("sbcal1");
   const r = await w.call(SYNC(EV()));
   assert.equal(r.status, 200); assert.equal(r.body.stats.created, 4, "a deleted Studyboard calendar is made again and filled");
   assert.ok(realList && w.db.accounts.get(UID + "|google").cal_id === "sbcal2" && w.db.accounts.get(UID + "|google").lock_until === 0);
@@ -364,24 +355,19 @@ await test("an event the person adds to the Studyboard calendar comes into Study
   assert.deepEqual({ date: wk.date, endDate: wk.endDate, allDay: wk.allDay }, { date: "2026-10-19", endDate: "2026-10-23", allDay: true }, "a multi-day event keeps its days");
   assert.equal(r.body.added.length, 2, "Studyboard's own events are never taken in");
   assert.equal(cal.size, 6);
-  // A device that doesn't have them yet syncs: nothing is deleted, they're offered again
   const r2 = await w.call(SYNC(EV()));
   assert.equal(cal.size, 6, "not deleted by a device that hasn't got them yet");
   assert.deepEqual(r2.body.added.map(a => a.id).sort(), [den.id, wk.id].sort(), "offered again, same ids");
-  // The app now sends them the way it stores them: no writes, no copies, and they're settled
   const mine = [{ k: `e:${den.id}:2026-10-15`, title: "Dentist", date: "2026-10-15", start: "14:00", end: "15:00", allDay: false, busy: true, where: "Main St", note: "" },
     { k: `e:${wk.id}:2026-10-19`, title: "Reading week", date: "2026-10-19", endDate: "2026-10-23", allDay: true, busy: false, where: "", note: "" }];
   const r3 = await w.call(SYNC(EV(mine)));
   assert.deepEqual([r3.body.stats.created, r3.body.stats.updated, r3.body.added.length], [0, 0, 0], "already there: nothing written, nothing added: " + JSON.stringify(r3.body.stats));
   assert.equal(cal.size, 6);
-  // Changed in Studyboard: the calendar event is updated (not a new one)
   const r4 = await w.call(SYNC(EV([Object.assign({}, mine[0], { title: "Dentist (moved room)" }), mine[1]])));
   assert.equal(r4.body.stats.updated, 1); assert.equal(cal.get("mine1").summary, "Dentist (moved room)"); assert.equal(cal.size, 6);
-  // Deleted in the calendar: the app hears about it
   cal.delete("mine2");
   const r5 = await w.call(SYNC(EV([Object.assign({}, mine[0], { title: "Dentist (moved room)" }), mine[1]])));
   assert.ok(r5.body.changes.some(c => c.k === mine[1].k && c.deleted), "deleted there");
-  // Deleted in Studyboard: removed from the calendar
   const r6 = await w.call(SYNC(EV()));
   assert.equal(r6.body.stats.removed, 1); assert.ok(!cal.has("mine1"));
 });

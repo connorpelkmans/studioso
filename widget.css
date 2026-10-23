@@ -1,4 +1,4 @@
-/* Studyboard Today widget. Colors come from the Studyboard page's current theme; these are the fallbacks. */
+/* Studyboard Today widget */
 :root{
   --bg:#F3F5F8; --surface:#FFFFFF; --ink:#1C2433; --muted:#667085; --line:#DFE3EA; --soft:#EEF1F6;
   --accent:#2C55D6; --accent-ink:#FFFFFF; --late:#C8352E; --tomato:#E0673B;
@@ -15,7 +15,7 @@ body{background:var(--surface);color:var(--ink);font:14px/1.4 var(--body);-webki
 button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;text-align:left}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
 .w{display:flex;flex-direction:column;height:100%}
-/* The header is the handle for moving the widget around. */
+/* The header is the handle for moving the widget around */
 .w-head{display:flex;align-items:center;gap:6px;padding:10px 8px 8px 14px;-webkit-app-region:drag;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--accent) 7%,var(--surface))}
 .w-head button,.w-head .w-streak{-webkit-app-region:no-drag}
 .w-brand{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;-webkit-app-region:drag}

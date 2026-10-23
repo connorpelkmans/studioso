@@ -1,7 +1,4 @@
-// What the school sites say beyond due dates and grades, on Brightspace, Canvas and Blackboard alike: submitted when, late, missing,
-// extensions; your feedback (comments and rubric scores); the rubric itself; who teaches the course; and the syllabus. Brightspace
-// discussion topics too. Runs each platform's real harvest script in an empty vm context against a fake school site, then cleanHarvest.
-// Run: node tests/lms-extras.test.js   (no Electron needed: the electron module is stubbed)
+// What the school sites say beyond due dates and grades, on Brightspace
 const path = require("path"), assert = require("assert"), vm = require("vm"), Module = require("module");
 const realLoad = Module._load;
 Module._load = function (req, ...rest) { return req === "electron" ? { app: { isPackaged: true, userAgentFallback: "" } } : realLoad.call(this, req, ...rest); };
@@ -9,12 +6,11 @@ const L = require(path.join(__dirname, "..", "lms.js"));
 Module._load = realLoad;
 const soon = new Date(Date.now() + 3 * 864e5).toISOString(), ago = new Date(Date.now() - 3 * 864e5).toISOString(), ago2 = new Date(Date.now() - 2 * 864e5).toISOString();
 function run(P, routes){
-  // the longest matching route prefix answers; anything else is a 404
   const fetch = async (u) => { u = String(u); const k = Object.keys(routes).sort((a, b) => b.length - a.length).find(k => u.startsWith(k)); if (!k) return { ok: false, status: 404, headers: { get: () => "" } };
     const b = routes[k]; return { ok: true, status: 200, headers: { get: () => "" }, json: async () => b, text: async () => typeof b === "string" ? b : JSON.stringify(b) }; };
   return vm.runInNewContext(L.harvestScript(P, { pastDays: 60 }), { fetch, location: { origin: "https://x.edu" }, AbortController, setTimeout, clearTimeout, encodeURIComponent, Date, URL });
 }
-const clean = h => { const c = L.cleanHarvest(h, "https://x.edu"); assert.strictEqual(c.ok, true); return JSON.parse(JSON.stringify(c.courses[0])); };   // plain objects of this realm, for deepStrictEqual
+const clean = h => { const c = L.cleanHarvest(h, "https://x.edu"); assert.strictEqual(c.ok, true); return JSON.parse(JSON.stringify(c.courses[0])); };
 (async () => {
   const cv = clean(await run(L.P.canvas, {
     "/api/v1/users/self": { id: 5, name: "Me" },
@@ -57,7 +53,6 @@ const clean = h => { const c = L.cleanHarvest(h, "https://x.edu"); assert.strict
     [`/learn/api/v1/courses/${c}/rubrics`]: { results: [{ id: "rb", title: "Paper rubric", rubricColumns: [{ id: "k1", header: "Excellent" }], rubricRows: [{ id: "w1", header: "Clarity", rubricCells: [{ rubricColumnId: "k1", points: 5, description: "Very clear" }] }] }] },
   }));
 
-  // Canvas
   const ci = cv.items[0];
   assert.deepStrictEqual([ci.done, ci.st.late, ci.st.ext, !!ci.st.subAt], [true, true, true, true], "Canvas: submitted, late, extension");
   assert.strictEqual(ci.fb.c[0].t, "Nice work", "Canvas: comment, as plain text");
@@ -66,7 +61,6 @@ const clean = h => { const c = L.cleanHarvest(h, "https://x.edu"); assert.strict
   assert.deepStrictEqual(cv.staff.map(u => u.role), ["Instructor", "TA"], "Canvas: instructor and TA");
   assert(/MWF 10:00-10:50/.test(cv.syl.join("")) && /^https:\/\/x\.edu\//.test(cv.sylUrl), "Canvas: syllabus text and link");
   assert(cv.grades[0].fb, "Canvas: feedback travels with the grade too");
-  // Brightspace
   const bf = bs.folders[0];
   assert.deepStrictEqual([bf.sub, bf.st.late, bf.fb.c[0].t, bf.fb.ra[0].lv], [true, true, "Great job", "Good"], "Brightspace: submitted late, feedback, rubric level");
   assert.deepStrictEqual(bf.rub.cr[0].lv.map(v => v.t + ":" + v.d), ["Good:strong", "Poor:weak"], "Brightspace: rubric levels with descriptions");
@@ -74,9 +68,8 @@ const clean = h => { const c = L.cleanHarvest(h, "https://x.edu"); assert.strict
   assert.deepStrictEqual(bs.discussions.map(d => [d.name, d.posted]), [["Week 1 post", true]], "Brightspace: discussion topics and whether you posted");
   assert.deepStrictEqual(bs.staff.map(u => u.name), ["Dr. D"], "Brightspace: only instructors from the class list");
   assert(/Lab Thursdays/.test(bs.syl.join("")) && /viewContent\/77/.test(bs.sylUrl), "Brightspace: syllabus page from Content");
-  // Blackboard
   const [pa, re] = bb.items;
-  assert.deepStrictEqual([pa.done, pa.st.late, pa.fb.c[0].t, pa.rub.cr[0].t, pa.rub.cr[0].lv[0].t], [true, true, "Good draft", "Clarity", "Excellent"], "Blackboard: attempt, late, feedback, rubric");
+  assert.deepStrictEqual([pa.done, pa.st.late, pa.fb.c[0].t, pa.rub || null], [true, true, "Good draft", null], "Blackboard: attempt, late, feedback (no rubrics: only the public API is read)");
   assert.deepStrictEqual([re.done, re.st.missing], [false, true], "Blackboard: missing when past due with no attempt");
   assert.deepStrictEqual(bb.staff.map(u => u.email), ["lee@x.edu"], "Blackboard: instructor email");
   assert(/Tue\/Thu 9:30-10:45/.test(bb.syl.join("")), "Blackboard: syllabus from course content");

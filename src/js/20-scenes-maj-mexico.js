@@ -1,5 +1,5 @@
 /* ===== module: 20-scenes-maj-mexico.js ===== */
-/* Around the World: Mexico (a rainbow hillside town around a pink cathedral) */
+/* Around the World */
 (() => {
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const r1 = n => Math.round(n * 100) / 100;
@@ -7,11 +7,11 @@
   const circ = (x, y, r) => `M${r1(x - r)} ${r1(y)}a${r1(r)} ${r1(r)} 0 1 0 ${r1(2 * r)} 0a${r1(r)} ${r1(r)} 0 1 0 ${r1(-2 * r)} 0Z`;
   const ring = (n, f) => Array.from({length: n}, (_, i) => f(i / n * Math.PI * 2, i)).join("");
   Object.assign(FX_SHAPES, {
-    // a talavera tile flower: four round petals around a heart, with little pointed leaves between them
+    // a talavera tile flower
     mexicotile: {d: ring(4, a => circ(Math.cos(a + Math.PI / 4) * 5.2, Math.sin(a + Math.PI / 4) * 5.2, 4.4)) + ring(4, a => pts([[Math.cos(a) * 6, Math.sin(a) * 6], [Math.cos(a + 0.35) * 11, Math.sin(a + 0.35) * 11], [Math.cos(a) * 12, Math.sin(a) * 12], [Math.cos(a - 0.35) * 11, Math.sin(a - 0.35) * 11]])), detail: circ(0, 0, 2.6), dfill: true},
-    // a papel picado flag: a zigzag bottom edge with a cut flower and four diamonds
+    // a papel picado flag
     mexicopapel: {d: "M-8 -9H8V8L5.3 6L2.7 8L0 6L-2.7 8L-5.3 6L-8 8Z", detail: circ(0, -1.5, 2.6) + "M-5 -6L-4 -4.8L-5 -3.6L-6 -4.8Z M5 -6L6 -4.8L5 -3.6L4 -4.8Z M-5 2L-4 3.2L-5 4.4L-6 3.2Z M5 2L6 3.2L5 4.4L4 3.2Z", dfill: true},
-    // a jacaranda flower: a little lilac trumpet seen from the front
+    // a jacaranda flower
     mexicojac: {d: ring(5, a => circ(Math.cos(a - Math.PI / 2) * 3.8, Math.sin(a - Math.PI / 2) * 3.8, 3.4)), detail: circ(0, 0.4, 1.8), dfill: true},
     // a party balloon with its knot and a curl of string
     mexicoballoon: {d: "M0 -11C7 -11 9.4 -4 8.4 0.6C7.4 5.6 3 9 0 9.6C-3 9 -7.4 5.6 -8.4 0.6C-9.4 -4 -7 -11 0 -11Z M-1.6 9.4H1.6L0 11.6Z", detail: "M0 11.6Q-2.6 14 0 16Q2.6 18 0 20", dstroke: true},

@@ -12,7 +12,7 @@ let seq = 0;
 const task = (o = {}) => Object.assign({id: "t" + (++seq), list_id: "L1", group_id: "g1", title: "Task " + seq, notes: "", status: "todo", assignee_id: null, due_at: null, priority: null,
   position: seq, created_by: SAM, created_at: "2026-10-01T10:00:0" + (seq % 10) + "Z", updated_by: SAM, updated_at: "2026-10-01T10:00:00Z", completed_at: null, completed_by: null, deleted: false}, o);
 
-// ---- dates: whole days, never shifted by time zone or daylight saving ----
+// dates: whole days, never shifted by time zone or daylight saving
 eq(G.diff("2026-03-07", "2026-03-09"), 2, "across US spring-forward");
 eq(G.diff("2026-11-01", "2026-11-02"), 1, "across US fall-back");
 eq(G.diff("2026-03-28", "2026-03-30"), 2, "across EU spring-forward");
@@ -25,7 +25,7 @@ ok(G.isDay("2026-10-03") && !G.isDay("") && !G.isDay(null) && !G.isDay("soon") &
 eq(G.localISO(new Date(2026, 9, 3, 23, 59)), "2026-10-03", "local date late evening is still today");
 eq(G.localISO(new Date(2026, 0, 1, 0, 1)), "2026-01-01", "local date just after midnight");
 
-// ---- due classification ----
+// due classification
 eq(G.due(null, T).k, "none", "no date");
 eq(G.due("2026-10-02", T).k, "overdue", "yesterday is overdue");
 ok(G.due("2026-10-02", T).late && !G.due("2026-10-02", T).soon, "overdue is late, not soon");
@@ -44,7 +44,7 @@ eq(G.dueLabel("2026-10-04", T, wd, md), "Due tomorrow", "label tomorrow");
 eq(G.dueLabel("2026-10-08", T, wd, md), "Due Thu", "label weekday within a week");
 eq(G.dueLabel("2026-10-12", T, wd, md), "Due Oct 12", "label date beyond a week");
 
-// ---- ordering ----
+// ordering
 {
   const a = task({position: 2}), b = task({position: 1}), c = task({position: 3, status: "done", completed_at: "2026-10-02T09:00:00Z"}), d = task({position: 4, status: "done", completed_at: "2026-10-03T09:00:00Z"}), e = task({position: 0, deleted: true});
   eq(G.order([a, b, c, d, e]).map(t => t.id), [b.id, a.id, d.id, c.id], "open by position, then done newest first, deleted gone");
@@ -52,7 +52,7 @@ eq(G.dueLabel("2026-10-12", T, wd, md), "Due Oct 12", "label date beyond a week"
   eq(G.order([x, y]).map(t => t.id), [y.id, x.id], "ties break on created_at");
 }
 
-// ---- filters ----
+// filters
 const list = [
   task({title: "mine open", assignee_id: ME, due_at: "2026-10-05"}),
   task({title: "mine late", assignee_id: ME, due_at: "2026-10-01"}),
@@ -72,11 +72,11 @@ eq(titles("done").sort(), ["mine done", "nobody done"], "done");
 eq(titles("bogus").length, 7, "unknown filter shows all");
 eq(G.counts(list, ME, T), {all: 7, mine: 2, unassigned: 1, overdue: 2, done: 2}, "counts");
 
-// ---- progress ----
+// progress
 eq(G.progress(list), {done: 2, total: 7, pct: 29}, "progress ignores deleted");
 eq(G.progress([]), {done: 0, total: 0, pct: 0}, "empty progress");
 
-// ---- workload ----
+// workload
 {
   const w = G.workload(list, members, T);
   eq(w.rows.map(r => [r.name, r.open]), [["Jo", 1], ["Me", 2], ["Sam", 1], ["Alex", 0]].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])), "open per member, busiest first");
@@ -92,7 +92,7 @@ eq(G.progress([]), {done: 0, total: 0, pct: 0}, "empty progress");
   eq(G.workload([], [{user_id: ME, display_name: ""}], T).rows[0].name, "Member", "nameless member");
 }
 
-// ---- permissions (mirror of the server rules) ----
+// permissions (mirror of the server rules)
 {
   const free = task({assignee_id: null}), mine = task({assignee_id: ME}), theirs = task({assignee_id: SAM});
   ok(G.canReassign(free, JO, false), "anyone can assign an unassigned task");
@@ -104,7 +104,7 @@ eq(G.progress([]), {done: 0, total: 0, pct: 0}, "empty progress");
   ok(G.canDeleteList({created_by: ME}, ME, false) && !G.canDeleteList({created_by: SAM}, ME, false) && G.canDeleteList({created_by: SAM}, ME, true), "delete list: creator or owner");
 }
 
-// ---- caps ----
+// caps
 {
   const mk = (k, o) => Array.from({length: k}, (_, i) => task(Object.assign({list_id: "LC", id: "c" + i + "-" + k}, o)));
   ok(G.canAddTask(mk(199), "LC") && !G.canAddTask(mk(200), "LC"), "200 tasks per list");
@@ -119,7 +119,7 @@ eq(G.progress([]), {done: 0, total: 0, pct: 0}, "empty progress");
   eq([G.LIM.lists, G.LIM.tasks, G.LIM.title, G.LIM.notes, G.LIM.listTitle], [20, 200, 200, 1000, 80], "limits match groups.sql");
 }
 
-// ---- optimistic update and rollback ----
+// optimistic update and rollback
 {
   const base = task({assignee_id: null}), now = "2026-10-03T12:00:00.000Z";
   const claimed = G.applyPatch(base, {assignee_id: ME}, ME, now);
@@ -137,7 +137,7 @@ eq(G.progress([]), {done: 0, total: 0, pct: 0}, "empty progress");
   eq(lst[0].status, "todo", "rollback restores the snapshot");
 }
 
-// ---- reconcile: a refresh from the server must not undo what is being saved right now ----
+// reconcile: a refresh from the server must not undo what is being saved right now
 {
   const a = task({title: "A"}), b = task({title: "B"}), c = task({title: "C"});
   const local = [Object.assign({}, a, {status: "done"}), b, {id: "tmp-1", _tmp: true, title: "typing", list_id: "L1"}];
@@ -153,7 +153,7 @@ eq(G.progress([]), {done: 0, total: 0, pct: 0}, "empty progress");
   ok(!G.reconcile([a], [], new Set()).length, "a task removed on the server disappears");
 }
 
-// ---- reordering ----
+// reordering
 {
   const mk = (id, position, status) => task({id, position, status: status || "todo", list_id: "LM", created_at: "2026-10-01T10:00:00Z"});
   const l = [mk("a", 1), mk("b", 2), mk("c", 3, "done"), mk("d", 4), mk("e", 5, "done")];
@@ -168,7 +168,7 @@ eq(G.progress([]), {done: 0, total: 0, pct: 0}, "empty progress");
   eq(G.move(l, "zzz", 1), {}, "unknown id");
 }
 
-// ---- derive "mine" for the planner ----
+// derive "mine" for the planner
 {
   const lists = [{id: "L1", title: "BIOL 201 Poster", course_code: "BIOL 201", archived: false}, {id: "L2", title: "Old", course_code: "", archived: true}];
   const ts = [
@@ -195,7 +195,7 @@ eq(G.progress([]), {done: 0, total: 0, pct: 0}, "empty progress");
   ok(!G.deriveMine(ts.map(t => t.id === "m3" ? Object.assign({}, t, {assignee_id: JO}) : t), lists, "x", "g1", ME).some(x => x.id === "m3"), "reassigned tasks leave the planner list");
 }
 
-// ---- notices ----
+// notices
 {
   const prev = [task({id: "a", assignee_id: ME}), task({id: "b", assignee_id: null})];
   const next = [task({id: "a", assignee_id: ME}), task({id: "b", assignee_id: ME, updated_by: SAM}), task({id: "c", assignee_id: ME, updated_by: ME}), task({id: "d", assignee_id: ME, updated_by: JO}), task({id: "e", assignee_id: SAM, updated_by: JO})];
@@ -206,7 +206,7 @@ eq(G.progress([]), {done: 0, total: 0, pct: 0}, "empty progress");
   eq(G.weekDue([], T), {week: 0, late: 0, tomorrow: 0}, "empty week");
 }
 
-// ---- list selection ----
+// list selection
 {
   const ls = [{id: "x", archived: true}, {id: "y", archived: false}, {id: "z", archived: false}];
   eq(G.nextListId(ls, "z", false), "z", "keeps the current list");

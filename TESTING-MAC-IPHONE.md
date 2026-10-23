@@ -10,7 +10,7 @@ First, get the code:
 ```bash
 git clone https://github.com/connorpelkmans/studioso.git
 cd studioso
-git checkout claude/vigilant-heisenberg-owznuv     # or main, once the PR is merged
+git checkout main
 npm ci
 ```
 

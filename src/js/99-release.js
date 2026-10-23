@@ -1,10 +1,8 @@
 /* ===== module: 99-release.js ===== */
-/* Studyboard 1.13.0 release polish. Module prefix 99-rel.
-   Privacy Policy, Terms of Service and About sheets (Settings and the sign-in screen), "Delete My Account and Data",
-   and small accessibility helpers (every sheet gets a name for screen readers). */
+/* Studyboard 1.13.0 release polish */
 (() => {
-  const VERSION = "1.15.0";   // keep in step with package.json and APP_VERSION above
-  // The support address shown in the policies and About (the same one as website/config.js SUPPORT_EMAIL).
+  const VERSION = "1.15.0";
+  // The support address shown in the policies and About
   const SUPPORT = "support@studyboardapp.com";
   const UPDATED = "October 23, 2026";
   const FIRST_YEAR = 2026;
@@ -12,7 +10,7 @@
   const year = () => { const y = new Date().getFullYear(); return y > FIRST_YEAR ? FIRST_YEAR + "–" + y : String(FIRST_YEAR); };
   let backFn = null;
 
-  /* ---------- Texts ---------- */
+  /* Texts */
   const PRIVACY = () => `
     <p class="legal-meta">Effective ${UPDATED}</p>
 <p>Studyboard is a planner for courses, deadlines, notes and flashcards, run by Connor Pelkmans, who publishes it as Studyboard ("we"). This page explains, in plain words, what we collect, why, who else handles it, how long we keep it and how to delete it. The short version: without an account your work stays on your device; with a free account it is also kept online so it syncs between your devices. There are no ads, and nothing in Studyboard tracks you or sells your data.</p>
@@ -126,10 +124,10 @@
     <p>Study groups, study rooms and shared decks let you post content other people see. There is zero tolerance for objectionable content or abusive users: no harassment, bullying, hate, threats, sexual content, spam, cheating services or sharing other people's personal information. Use Report on a group message, a shared item or a group member to tell us, and Block (in the group's member list) to stop seeing someone's messages straight away. We review reports within 24 hours, remove content that breaks these rules and remove people who post it.</p>
 
     <h3>AI features</h3>
-    <p>AI features are optional. They use either your own key from a provider you choose, whose terms and any costs are between you and that provider, or, if you are signed in without a key, a small number of free trial requests answered by an open AI model run on Cloudflare (see the Privacy Policy). AI answers can be wrong or out of date. Check dates, grades and facts before you rely on them, and do not use AI in a way your school or instructor does not allow.</p>
+    <p>AI features are optional. They use either your own key from a provider you choose, whose terms and any costs are between you and that provider, or, if you are signed in without a key, a small number of free trial requests answered by an open AI model run on Cloudflare (see the Privacy Policy). AI answers can be wrong or out of date. Check dates, grades and facts before you rely on them, and use AI only as your school and instructors allow.</p>
 
     <h3>Your school and other services</h3>
-    <p>Connecting a school learning platform, calendar or other service is your choice. Make sure you are allowed to, and follow your school's rules. Studyboard only reads from those sites. Studyboard is not affiliated with Brightspace, Canvas, Blackboard, Google, Anthropic, OpenAI, Apple or any school.</p>
+    <p>Connecting a school learning platform, calendar or other service is your choice. You're responsible for using it as your school's rules allow. Studyboard only reads from those sites. Studyboard is not affiliated with Brightspace, Canvas, Blackboard, Google, Anthropic, OpenAI, Apple or any school.</p>
 
     <h3>Free and Pro</h3>
     <ul>
@@ -184,7 +182,7 @@
     <details class="about-lic"><summary>Lucide and Feather licenses</summary><pre>${esc(LU_LICENSE)}</pre></details>
     <p class="mini">Full notices are in THIRD-PARTY-NOTICES.md in the project's files. Support: ${contact()}.</p>`;
 
-  /* ---------- Sheets ---------- */
+  /* Sheets */
   function legalSheet(title, html, back){
     backFn = back || null;
     openSheet(`<div class="sheet legal-sheet">${head(title)}<div class="sheet-body legal" tabindex="0">${html}</div>
@@ -194,7 +192,7 @@
   const showPrivacy = back => legalSheet("Privacy Policy", PRIVACY(), back);
   const showTerms = back => legalSheet("Terms of Service", TERMS(), back);
   const showAbout = back => legalSheet("About Studyboard", ABOUT(), back);
-  // Where "Back" goes from the sheet that the link was in.
+  // Where "Back" goes from the sheet that the link was in
   function backFor(el){
     if (el && el.closest(".sb-acct")) {
       const f = el.closest("form"), mode = f && f.dataset.mode || "signin", em = f && f.querySelector("input[name=email]");
@@ -210,8 +208,8 @@
     return `<p class="mini legal-line" style="margin:0">By continuing you agree to the <button type="button" class="link-btn" data-act="legal-terms">Terms of Service</button> and the <button type="button" class="link-btn" data-act="legal-privacy">Privacy Policy</button>.</p>`;
   }
 
-  /* ---------- Delete My Account and Data ---------- */
-  const canDelete = () => { try { return !inClaude() && !!sb && !!sbUser; } catch (e) { return false; } };
+  /* Delete My Account and Data */
+  const canDelete = () => { try { return !inPreview() && !!sb && !!sbUser; } catch (e) { return false; } };
   function deleteErr(e){
     const m = String((e && (e.message || e.error_description)) || e || "");
     if (e && (e.code === "PGRST202" || e.status === 404) || /could not find the function|schema cache|not found/i.test(m)) return `Account deletion isn't switched on for this server yet. Email ${SUPPORT} and ask us to delete your account.`;
@@ -238,7 +236,7 @@
     try {
       const files = await listFiles(uid, 0);
       for (let i = 0; i < files.length; i += 100) await sb.storage.from(SB_BUCKET).remove(files.slice(i, i + 100));
-    } catch (e) { /* best effort: the server also sweeps up what it is allowed to */ }
+    } catch (e) { }
   }
   async function wipeDevice(){
     try { localStorage.clear(); } catch (e) {}
@@ -249,18 +247,15 @@
     } catch (e) {}
     try { if (window.caches) for (const k of await caches.keys()) await caches.delete(k); } catch (e) {}
   }
-  /* What plan the person pays for, from the plan module. Card subscriptions are cancelled for them by the server;
-     App Store / Google Play ones can only be cancelled by the person in the store, so they must acknowledge it. */
+  /* What plan the person pays for, from the plan module */
   const planEnt = () => { try { return typeof PLAN !== "undefined" && PLAN && PLAN.entitlement ? PLAN.entitlement() : null; } catch (e) { return null; } };
   const payingNow = e => !!e && e.plan === "pro" && (!e.pro_until || Date.parse(e.pro_until) > Date.now());
   const storeSub = () => { const e = planEnt(); return payingNow(e) && ["apple", "google", "revenuecat"].includes(e.source) && e.will_renew !== false; };
   const cardSub = () => { const e = planEnt(); return payingNow(e) && e.source === "stripe"; };
   const APPLE_SUBS = "https://apps.apple.com/account/subscriptions";
-  // Calls the delete-account Edge Function. kind: ok | missing (not deployed) | network | http
+  // Calls the delete-account Edge Function
   async function callDelete(payload){
     let res;
-    // A function that isn't deployed, wasn't redeployed or is refused by the gateway often has no CORS headers, so the browser
-    // reports it like a lost connection. If the database still answers (read-only check), the server is reachable: use the fallback.
     const unreachable = async error => { try { const {error: pe} = await sb.rpc("studyboard_delete_my_account_check"); if (!pe) return {kind: "missing"}; } catch (e) {} return {kind: "network", error}; };
     try { res = await sb.functions.invoke("delete-account", {body: payload}); }
     catch (e) { return unreachable(e); }
@@ -346,10 +341,8 @@
           let data = null, fallback = "";
           if (r.kind === "ok") data = r.data;
           else if (r.kind === "missing") {
-            // The Edge Function isn't deployed: delete the files and database rows with the person's own sign-in instead.
             if (cardSub()) { stop("Cancel your plan first (Studyboard Pro, Manage Plan), then try again. This server can't cancel it for you yet."); return; }
             if (storeSub() && !ack) { stop("Tick the box about your App Store subscription first.", true); return; }
-            // The server refuses this path without a recent sign-in or while a card plan renews; ask it first, so nothing is deleted before a refusal.
             if (pw && sbUser && sbUser.email) { const {error: ae} = await sb.auth.signInWithPassword({email: sbUser.email, password: pw}); if (ae) { stop("That password isn't right. Try again."); const i = $("#delPw"); if (i) i.focus(); return; } }
             const {data: why, error: ce} = await sb.rpc("studyboard_delete_my_account_check");
             if (!ce && why === "SB_REAUTH") { stop("For your safety, enter your password (or sign in again), then try again."); const i = $("#delPw"); if (i) i.focus(); return; }
@@ -370,7 +363,7 @@
           }
           try { await sb.auth.signOut({scope: "local"}); } catch (e) {}
           try { localStorage.removeItem(OUTBOX); } catch (e) {}
-          aiWipeLocal();                       // AI keys and AI consent never outlive the account on this device
+          aiWipeLocal();
           if (wipe) { try { await wipeDeviceData(); } catch (e) {} await wipeDevice(); }
           deletedSheet(data, wipe, fallback);
         } catch (e) { stop(deleteErr(e)); }
@@ -381,10 +374,7 @@
     if (inp && go) inp.addEventListener("input", () => { go.disabled = inp.value.trim().toUpperCase() !== "DELETE"; });
   }
 
-  /* ---------- Change email and change password (both ask for the current password first) ----------
-     Email: Supabase "Secure email change" sends a confirmation to the old AND the new address (change-email.html); the address
-     changes after both are confirmed. Password: if the server asks for re-authentication (reauthentication.html) a code is
-     emailed and entered here as the "nonce". */
+  /* Change email and change password (both ask for the current password first) Email */
   function securitySheet(kind){
     if (!canDelete()) { toast("Sign in to your account first."); return; }
     const isMail = kind === "email", T = isMail ? "Change Email" : "Change Password";
@@ -443,7 +433,7 @@
     if (pw && st) pw.addEventListener("input", () => { st.textContent = pw.value ? "Strength: " + sbStrength(pw.value).label : ""; });
   }
 
-  /* ---------- Hooks ---------- */
+  /* Hooks */
   hook("menu", () => {
     const rows = [
       `<button data-act="legal-about" data-group="app"><span>About Studyboard<span class="sub">Version ${VERSION}, credits and licenses</span></span></button>`,
@@ -467,7 +457,7 @@
   });
   window.SBLEGAL = {line, privacy: showPrivacy, terms: showTerms, about: showAbout, version: VERSION};
 
-  /* ---------- Left and Right Arrow move between the tabs of a tab list (Enter or Space picks one) ---------- */
+  /* Left and Right Arrow move between the tabs of a tab list (Enter or Space picks one) */
   document.addEventListener("keydown", e => {
     if (!/^(ArrowLeft|ArrowRight|Home|End)$/.test(e.key) || e.altKey || e.ctrlKey || e.metaKey) return;
     const t = e.target, list = t && t.matches && t.matches('[role="tab"]') ? t.closest('[role="tablist"]') : null;
@@ -478,23 +468,20 @@
     e.preventDefault(); tabs[j].focus();
   });
 
-  /* ---------- Closing a sheet puts keyboard focus back where it was (even if the page re-drew the button meanwhile) ---------- */
+  /* Closing a sheet puts keyboard focus back where it was */
   const was = new WeakMap();
   const sigOf = el => el && el.nodeType === 1 && el !== document.body ? {el, act: el.dataset && el.dataset.act, id: el.dataset && el.dataset.id, tab: el.dataset && el.dataset.tab} : null;
   const visible = el => !!el && el.isConnected && el.getClientRects().length > 0 && !el.disabled;
   function refocus(sig){
     if (!sig) return;
     const a = document.activeElement;
-    if (a && a !== document.body && a.isConnected && !a.closest("dialog:not([open])")) return;    // something else already has focus
+    if (a && a !== document.body && a.isConnected && !a.closest("dialog:not([open])")) return;
     let t = visible(sig.el) ? sig.el : null;
     if (!t && sig.act) t = [...document.querySelectorAll(`[data-act="${CSS.escape(sig.act)}"]${sig.id ? `[data-id="${CSS.escape(sig.id)}"]` : ""}`)].find(visible) || null;
     if (!t && sig.tab) t = [...document.querySelectorAll(`[data-tab="${CSS.escape(sig.tab)}"]`)].find(visible) || null;
     if (t) { try { t.focus({preventScroll: true}); } catch (e) {} }
   }
-  /* Top-level sheets are exclusive: the sheet dialog, the focus timer and Search Everywhere never stack. Opening one closes the
-     others first and hands over the focus-restore target, so closing the new one still returns focus to the original opener.
-     Nested layers are untouched: confirms and sub-sheets reuse the sheet dialog itself, the tour (#sbTour) sits above its own
-     panels, and the timer alert and AI consent dialog are separate layers on purpose. */
+  /* Top-level sheets are exclusive */
   const TOP = ["dlg", "pomoDlg", "sxDlg", "capDlg"];
   TOP.forEach(id => {
     const d = document.getElementById(id);
@@ -507,7 +494,7 @@
       if (!(tour && tour.open)) TOP.forEach(oid => {
         const o = document.getElementById(oid);
         if (!o || o === d || !o.open) return;
-        if (!sig || o.contains(sig.el)) sig = was.get(o) || null;      // the opener of the sheet being replaced
+        if (!sig || o.contains(sig.el)) sig = was.get(o) || null;
         was.delete(o);
         try { o.close(); } catch (e) { o.removeAttribute("open"); }
       });
@@ -516,8 +503,7 @@
     };
     d.addEventListener("close", () => { const sig = was.get(d); was.delete(d); setTimeout(() => refocus(sig), 90); });
   });
-  /* Header and nav buttons that open a sheet ignore double clicks and ghost taps: the same button is ignored while its sheet is
-     open or for a short moment after it was accepted (a safety timeout, since the open itself is synchronous). */
+  /* Header and nav buttons that open a sheet ignore double clicks and ghost taps */
   const OPENERS = {"pomo-open": "pomoDlg", "search": "sxDlg", "menu": "dlg", "ann-open": "dlg", "new-task": "dlg"};
   let lastOpen = {act: "", at: 0};
   document.addEventListener("click", e => {
@@ -531,10 +517,10 @@
     if (same || open) { e.stopImmediatePropagation(); e.preventDefault(); return; }
     lastOpen = {act, at: now};
   }, true);
-  // Once its sheet has closed, the button works again straight away: closing and reopening quickly is deliberate, not a ghost tap.
+  // Once its sheet has closed, the button works again straight away
   new Set(Object.values(OPENERS)).forEach(id => { const d = document.getElementById(id); if (d) d.addEventListener("close", () => { if (OPENERS[lastOpen.act] === id) lastOpen = {act: "", at: 0}; }); });
 
-  /* ---------- Every sheet gets a name for screen readers ---------- */
+  /* Every sheet gets a name for screen readers */
   const nameSheet = d => {
     const h = d.querySelector("h2");
     if (h && h.textContent.trim()) d.setAttribute("aria-label", h.textContent.trim());

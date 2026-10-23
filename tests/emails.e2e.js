@@ -1,5 +1,4 @@
-// node tests/emails.e2e.js  (Playwright + Chromium; the desktop app's Canvas mail bridge is stubbed)
-// Checks: the Emails tab sits between Grades and Files, lists the inbox, opens a thread, drafts and sends a reply; the tab selector doesn't move.
+// node tests/emails.e2e.js
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -45,8 +44,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   await page.waitForFunction(() => window.__sent.length === 1);
   ok(await page.evaluate(() => __sent[0].body === "Sure, sending it now." && __sent[0].id === "11"), "the reply was sent through the bridge");
   ok(errs.length === 0, "no page errors: " + errs.join("; "));
-  // The website: no desktop app. Canvas access tokens aren't used any more (Canvas's API policy), so Emails explains how to bring the
-  // inbox in (the desktop app or the extension) and never calls Canvas itself; a token an older version saved is erased.
   const web = await browser.newContext({viewport: {width: 1280, height: 800}});
   await web.addInitScript(seed => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(Object.assign({}, seed, {settings: {capacity: 15, canvas: {mode: "feed", feed: "https://school.instructure.com/feeds/calendars/user_x.ics"}}}))); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:sb", '"local"');
     localStorage.setItem("studyboard:cvmail", JSON.stringify({host: "https://school.instructure.com", token: "tok123"})); } } catch (e) {} }, SEED);

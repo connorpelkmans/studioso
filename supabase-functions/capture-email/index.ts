@@ -1,37 +1,21 @@
-// Studyboard: capture-email (Supabase Edge Function)  ·  Email to Studyboard (Pro)
-// The email-capture Cloudflare Worker (cloudflare/email-capture) receives mail sent to <key>@<your inbound domain>, reads the MIME and
-// posts the subject and text here. This function only checks the Worker's shared secret, finds the address key and hands the email to
-// capture_add_email() in supabase-capture.sql, which checks the key, Pro, the limits and the Message-ID, and puts one row in the
-// owner's capture inbox. The app reads it and always shows what it found to check first. Nothing else can be done with this function.
-//
-// Deploy with "Verify JWT" turned OFF (the Worker has no Supabase sign-in). Secrets: EMAIL_CAPTURE_SECRET, a long random string
-// (32+ characters) that is ALSO set on the Worker (npx wrangler secret put EMAIL_CAPTURE_SECRET). Supabase adds the URL and service key.
-//
-// Request:  POST, header X-Studyboard-Email-Secret: <the secret>
-//   JSON {"to": "k7m2p9x4qrst@in.example.com", "from": "prof@school.edu", "subject": "...", "text": "...", "id": "<message-id>"}  (64 KB at most)
-// Answer:   200 {ok:true, dup}                       the email is in the inbox (or was already)
-//           404 {ok:false, error:"unknown"}          no such address (never made, replaced or turned off): the Worker bounces it
-//           402 {ok:false, error:"pro_required"}     the owner's Pro ended: the Worker bounces it with that reason
-//           429 {ok:false, error:"rate_limited" | "inbox_full"}, Retry-After: the Worker asks the sender's server to try later
-//           400 bad request · 401 wrong or missing secret · 500 anything else (the Worker asks to try later)
-// Logs are one line of JSON per request, never the address key, the sender, the subject or the text.
+// Studyboard: capture-email (Supabase Edge Function) · Email to Studyboard
 
 type Env = (k: string) => string;
 type Deps = { env: Env; fetch: typeof fetch; now: () => number; log: (...a: unknown[]) => void };
 
-export const MAX_BODY = 192 * 1024;   // 20,000 characters of non-Latin text, escaped as JSON, fit
+export const MAX_BODY = 192 * 1024;
 export const KEY_RE = /^[a-hj-km-np-z2-9]{12}$/;
 const reply = (o: unknown, status: number, extra: Record<string, string> = {}) =>
   new Response(JSON.stringify(o), { status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", ...extra } });
 
 function serviceKey(d: Deps): string {
   let key = d.env("SUPABASE_SERVICE_ROLE_KEY");
-  if (!key) { try { const k = JSON.parse(d.env("SUPABASE_SECRET_KEYS") || "{}"); key = String(k.default || Object.values(k)[0] || ""); } catch (_e) { /* newer projects only */ } }
+  if (!key) { try { const k = JSON.parse(d.env("SUPABASE_SECRET_KEYS") || "{}"); key = String(k.default || Object.values(k)[0] || ""); } catch (_e) { } }
   return key;
 }
 const base = (d: Deps) => d.env("SUPABASE_URL").replace(/\/+$/, "");
 
-// Constant-time comparison of two strings (as UTF-8 bytes); different lengths are simply unequal
+// Constant-time comparison of two strings (as UTF-8 bytes)
 export function sameSecret(a: string, b: string): boolean {
   const x = new TextEncoder().encode(a), y = new TextEncoder().encode(b);
   if (x.length !== y.length || !x.length) return false;
@@ -39,7 +23,7 @@ export function sameSecret(a: string, b: string): boolean {
   for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
   return diff === 0;
 }
-// The address key from the recipient: the part before @, lower case, without a +tag ("K7M2P9X4QRST+bio@in.x" -> "k7m2p9x4qrst")
+// The address key from the recipient
 export function keyOf(to: unknown): string | null {
   const m = /^\s*<?([^@\s<>]+)@[^@\s<>]+>?\s*$/.exec(String(to || ""));
   if (!m) return null;
@@ -57,7 +41,7 @@ async function readLimited(req: Request, max: number): Promise<string | null> {
     const { done, value } = await reader.read();
     if (done) break;
     n += value.byteLength;
-    if (n > max) { try { await reader.cancel(); } catch (_e) { /* ignore */ } return null; }
+    if (n > max) { try { await reader.cancel(); } catch (_e) { } return null; }
     chunks.push(value);
   }
   const all = new Uint8Array(n); let o = 0;

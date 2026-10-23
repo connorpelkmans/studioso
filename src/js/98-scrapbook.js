@@ -1,12 +1,5 @@
 /* ===== module: 98-scrapbook.js ===== */
-/* Studyboard 1.11.0: Term Scrapbook. Module prefix 98-scrap.
-   Each term gets a scrapbook page that fills with stickers earned for real milestones (tasks, grades, streaks, focus,
-   flashcards, study groups). Students can drag, turn and resize stickers, add captions, washi tape and doodle frames.
-   Stored compactly in state.settings.scrap (it syncs):
-     {v, cur: Page, past: [Page], db: {deckId: seenAtStart}, hi: {st, rv}, f: {rs, rm, sh, gp}, who, toast}
-     Page = {id, n (name), s (start ISO), e (end ISO), lab (archive label), g: {milestone: earnedMinute}, p: {key: [x, y, rot, scale%]} (only moved stickers),
-             d: [[kind "w"|"f"|"c", style, x, y, rot, scale%, text]], pp (paper), sum}
-   Page units: 1000 wide, 1400 or more tall. Free: everything except extra papers and extra decorations (Pro). Save as Image is free. */
+/* Studyboard 1.11.0 */
 (() => {
   const A = SCRAP_ART;
   const W = 1000, BASE_H = 1400, STK = 150, WASHI = [260, 60], FRAME = 300;
@@ -21,16 +14,16 @@
   const plural = (n, w, ws) => `${n} ${n === 1 ? w : (ws || w + "s")}`;
   const BOOK = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5C4 4.7 4.7 4 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5z"/><path d="M20 5.5c0-.8-.7-1.5-1.5-1.5H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z"/><path d="M7 8h1.5M15.5 8H17"/></svg>`;
 
-  /* ---------- Terms ---------- */
+  /* Terms */
   function termName(startISO){
-    const d = parse(addDays(startISO, 30)), m = d.getMonth();   // named after the bulk of the term, like seasonGuess()
+    const d = parse(addDays(startISO, 30)), m = d.getMonth();
     return `${m <= 4 ? "Spring" : m <= 7 ? "Summer" : "Fall"} ${d.getFullYear()}`;
   }
   function academicStart(today){
     const d = parse(today), y = d.getFullYear(), m = d.getMonth();
     return m >= 8 ? `${y}-09-01` : m >= 4 ? `${y}-05-01` : `${y}-01-01`;
   }
-  // First run: from the last "Start a New Term", else the earliest of this term's tasks (or the academic term start).
+  // First run: from the last "Start a New Term", else the earliest of this term's tasks
   function guessStart(){
     const today = todayISO();
     const archAt = Math.max(0, ...allCourses().filter(c => c.archived).map(c => Number(c.archivedAt) || 0), ...allTasks().filter(t => t.archivedTerm).map(t => Number(t.archivedAt) || 0));
@@ -54,22 +47,11 @@
   }
   const edit = fn => { const sc = clone(SC()); if (!sc) return null; fn(sc); saveSc(sc); return sc; };
 
-  /* ---------- Milestones ---------- */
+  /* Milestones */
   const CATS = [["start", "Getting Started"], ["goals", "Term Goals"], ["tasks", "Tasks"], ["grades", "Grades"], ["streaks", "Streaks"], ["focus", "Focus"], ["cards", "Flashcards and Practice"], ["together", "Together"], ["term", "Term"]];
   const pctTxt = v => Math.round(v) + "%";
   const cnt = (need, unit, key) => ({need, unit, v: c => c[key]});
-  /* Term Goals: Bronze, Silver and Gold stickers you can reach down several different paths, so a planner, a crammer, a
-     flashcard fan and a note-and-grades person can all get there. ANY ONE path earns the tier. Targets are for a typical
-     15-week term and shrink or grow with the real length of this one (the span from the page's start to the last due date,
-     8 to 20 weeks), so a summer session is not held to a fall semester. Nothing is ever taken away: earned stickers stay on the page.
-                      Bronze    Silver    Gold      (15-week term)
-       Tasks done     18        40        70
-       On-time rate   70%+ of   80%+ of   90%+ of   (with at least 10 / 22 / 36 tasks done on time)
-       Focus hours    8         20        40
-       Best streak    5 days    14 days   28 days   (days in a row with progress; scales half as much as the rest)
-       Cards reviewed 150       400       900
-       Practice quiz  3         6         12        (quizzes finished)
-       Marks logged   3         6         10        (gold also needs a 70% average, so it's effort plus results) */
+  /* Term Goals: Bronze, Silver and Gold stickers you can reach down several different paths */
   const GOAL_TIERS = [["bronze", "Bronze"], ["silver", "Silver"], ["gold", "Gold"]];
   const cntSt = (v, n, unit) => ({p: Math.min(1, v / n), text: `${Math.min(v, n).toLocaleString()} of ${n.toLocaleString()} ${unit}`});
   const GOAL_PATHS = [
@@ -149,20 +131,19 @@
     {id: "study-group", cat: "together", name: "Study Buddies", goal: "Join or make a study group.", need: 1, v: c => c.flag("gp")},
     {id: "term-end", cat: "term", name: "Term Complete", goal: "Finish the term with Start a New Term. Your page is kept in the Archive.", need: 1, v: () => 0, special: true}
   ];
-  // Tier level of the ribbon (bronze 1, silver 2, gold 3, rainbow 4): used to pick which sticker a batched toast names
+  // Tier level of the ribbon (bronze 1, silver 2, gold 3, rainbow 4)
   const TIER = {"term-bronze": 2, "term-silver": 3, "term-gold": 4, "tasks-10": 1, "tasks-25": 2, "tasks-50": 3, "tasks-100": 4, "streak-7": 1, "streak-14": 2, "streak-30": 3, "streak-60": 4, "focus-5": 1, "focus-15": 2, "focus-30": 3, "focus-60": 4, "cards-100": 2, "cards-500": 3, "mark-80": 2, "mark-90": 3};
   const MI = Object.fromEntries(M.map((m, i) => [m.id, Object.assign(m, {i})]));
   const keyName = k => (MI[k] || {}).name || "Sticker";
   const keyOrder = k => (MI[k] || {i: 99}).i;
 
-  /* ---------- What the student has done this term ---------- */
+  /* What the student has done this term */
   const markPct = t => t && t.mark && Number(t.mark.outOf) > 0 && isNum(t.mark.got) ? Number(t.mark.got) / Number(t.mark.outOf) * 100 : null;
-  // Added already finished (imported from a school site, or created as done): never counts. Only finishing it counts.
+  // Added already finished (imported from a school site, or created as done)
   const bornDone = t => !!(t.created && t.doneAt && t.doneAt - t.created < 60000);
   const dayOf = ms => iso(new Date(ms));
   function context(sc, lab){
     const page = sc.cur, start = page.s, startMs = parse(start).getTime(), today = todayISO(), startMin = Math.round(startMs / 6e4);
-    // lab: while a term is being closed, its just-archived courses, tasks and decks still count
     const inTerm = t => !t.archivedTerm || (lab && t.archivedTerm === lab);
     const liveCourses = allCourses().filter(x => !x.archived || (lab && x.archived === lab));
     const active = allTasks().filter(t => inTerm(t) && !bornDone(t));
@@ -171,13 +152,11 @@
       flag: k => sc.f && sc.f[k] >= startMin ? 1 : 0};
     c.nEarly = done.filter(t => t.doneAt && t.due && !t.prepFor && dayOf(t.doneAt) <= addDays(t.due, -2)).length;
     c.nExams = done.filter(t => MILESTONE(t.type)).length;
-    // On-time rate (for the Term Goals), and the real length of this term so goals scale to it
     const dueDone = done.filter(t => t.due && !t.prepFor);
     c.nDue = dueDone.length; c.nOnTime = dueDone.filter(t => t.doneAt && dayOf(t.doneAt) <= t.due).length;
     const lastDue = active.reduce((m, t) => t.due && t.due >= start && t.due > m ? t.due : m, start);
     c.termWeeks = lastDue === start ? 15 : Math.max(8, Math.min(20, Math.round((parse(lastDue < today ? today : lastDue) - startMs) / (7 * 864e5))));
     c.scale = c.termWeeks / 15;
-    // Weeks: planning and clean sweeps
     const onTime = t => t.status === "done" && (t.doneAt ? dayOf(t.doneAt) <= t.due : true);
     const weeks = []; for (let m = mondayOf(start); m <= addDays(mondayOf(today), 7); m = addDays(m, 7)) weeks.push(m);
     c.bestWeekPlanned = 0; c.sweep = false; c.weekNow = {n: 0, ok: 0};
@@ -189,7 +168,6 @@
       if (due.length >= 3 && ok === due.length) c.sweep = true;
       if (m === mondayOf(today)) c.weekNow = {n: due.length, ok};
     });
-    // Study plans
     const exams = active.filter(t => MILESTONE(t.type) && t.due >= start);
     const sessions = id => active.filter(t => t.prepFor === id);
     c.plans = active.some(t => t.prepFor && (t.due >= start || (t.created || 0) >= startMs));
@@ -197,7 +175,6 @@
     exams.forEach(ex => { const ss = sessions(ex.id); if (!ss.length) return; const n = ss.filter(t => t.status === "done" && (!t.doneAt || dayOf(t.doneAt) <= ex.due)).length;
       if (ss.length >= 3 && n === ss.length) c.planDone = true;
       if (!c.planBest || n / ss.length > c.planBest[0] / c.planBest[1]) c.planBest = [n, ss.length]; });
-    // Marks and course averages (the Grade Tracker's own math when it's there)
     c.marks = allTasks().filter(t => inTerm(t) && markPct(t) != null && (t.due || dayOf(doneTime(t))) >= start);
     c.bestMark = Math.max(0, ...c.marks.map(markPct));
     const G = window.__sbGrades;
@@ -218,9 +195,7 @@
     const byCourse = {}; c.marks.forEach(t => (byCourse[t.courseId || "-"] = byCourse[t.courseId || "-"] || []).push(t));
     Object.values(byCourse).forEach(ts => { ts.sort((a, b) => ((a.due || "") < (b.due || "") ? -1 : (a.due || "") > (b.due || "") ? 1 : doneTime(a) - doneTime(b)));
       for (let i = 1; i < ts.length; i++) if (markPct(ts[i]) > markPct(ts[i - 1]) + .5) c.improved = true; });
-    // Streaks: the best run seen during this term
     c.streak = Math.max(Number(sc.hi && sc.hi.st) || 0, streakOf().cur);
-    // Focus: SBSTATS (timer and study rooms), or the tasks' own focus minutes from before that log existed
     const S = typeof SBSTATS !== "undefined" ? SBSTATS : null;
     const logged = S ? S.focusMinutes(start, today) : 0;
     const fromTasks = allTasks().filter(inTerm).reduce((s, t) => s + (Number(t.focusMin) || 0), 0);
@@ -229,7 +204,6 @@
     const perWeek = {};
     Object.entries(S ? S.focusDays() : {}).forEach(([d, m]) => { if (d >= start && d <= today && Number(m) >= 15) { const k = mondayOf(d); perWeek[k] = (perWeek[k] || 0) + 1; } });
     c.steady = Math.max(0, ...Object.values(perWeek));
-    // Flashcards
     const decks = Object.values(state.decks || {}).filter(d => !d.archived || (lab && d.archived === lab));
     const seen = d => (d.cards || []).reduce((s, x) => s + (Number(x.seen) || 0), 0);
     c.db = Object.assign({}, sc.db || {}); c.dbDirty = false;
@@ -252,7 +226,7 @@
     return {got, v, need: m.need, p: got ? 1 : p, text};
   }
 
-  /* ---------- Earning ---------- */
+  /* Earning */
   let evalT = 0, lastCtx = null;
   const pending = [];
   function schedule(ms){ clearTimeout(evalT); evalT = setTimeout(evaluate, ms == null ? 4000 : ms); }
@@ -272,7 +246,7 @@
     if (fresh.length && !opts.quiet) { pending.push(...fresh); flushToast(); if (ui.tab === "scrapbook") paint(fresh); }
     return fresh;
   }
-  // The first time: award what's already been earned this term quietly, with one gentle summary.
+  // The first time
   function init(){
     if (SC()) return [];
     if (typeof sbUser !== "undefined" && sbUser && typeof cloud !== "undefined" && !cloud.on && initTries++ < 6) { setTimeout(init, 3000); return []; }
@@ -284,7 +258,7 @@
   }
   let initTries = 0;
 
-  /* Gentle toasts: at most one every few minutes, never over another toast, batched. */
+  /* Gentle toasts */
   const TOAST_GAP = 3 * 60e3, K_T = "studyboard:scrapToastAt";
   let toastTimer = 0;
   function toastBusy(){ const t = document.getElementById("toast"); return !!(t && t.classList.contains("show")); }
@@ -302,7 +276,6 @@
     if (ui.tab === "scrapbook") { pending.length = 0; return; }
     const last = Number(ls(K_T)) || 0, wait = Math.max(0, last + TOAST_GAP - Date.now());
     if (wait || document.hidden || toastBusy() || (dlg && dlg.open)) { toastTimer = setTimeout(flushToast, Math.max(3000, wait)); return; }
-    // Name the proudest one: special ones, then the biggest goals
     const rank = k => { const m = MI[k]; return m ? (m.special ? 20 : 0) + (TIER[k] || 0) * 2 - m.i / 100 : 1; };
     const ks = [...new Set(pending.splice(0))].sort((a, b) => rank(b) - rank(a));
     const first = ks[0];
@@ -311,7 +284,7 @@
   }
   document.addEventListener("visibilitychange", () => { if (!document.hidden && pending.length) setTimeout(flushToast, 1500); });
 
-  /* ---------- A new term closes this page ---------- */
+  /* A new term closes this page */
   function summaryOf(sc, lab){
     const c = lastCtx && lastCtx.start === sc.cur.s ? lastCtx : context(sc, lab);
     const ms = c.marks.map(markPct);
@@ -320,7 +293,7 @@
   function closeTerm(label, at){
     let sc = SC(); if (!sc) return;
     const lab = label;
-    if (sc.cur.s === todayISO() && sc.past && sc.past[0] && sc.past[0].lab === label) return;   // already closed for this archive
+    if (sc.cur.s === todayISO() && sc.past && sc.past[0] && sc.past[0].lab === label) return;
     evaluate({quiet: true, lab});
     sc = clone(SC());
     const old = sc.cur;
@@ -334,7 +307,7 @@
     V.page = null;
     setTimeout(() => quietToast(`${old.n} is saved in your Scrapbook with ${plural(old.sum.st, "sticker")}. Your new page is ready.`, null, () => { const s = SC(); return !!(s && s.past && s.past[0] && s.past[0].id === old.id); }), 1200);
   }
-  // Undo of Start a New Term: put the page back
+  // Undo of Start a New Term
   function maybeReopen(){
     const sc = SC(); if (!sc || !sc.past || !sc.past[0]) return;
     const p = sc.past[0];
@@ -346,7 +319,7 @@
     if (ui.tab === "scrapbook") scheduleRender();
   }
 
-  /* ---------- Hooks: when to look ---------- */
+  /* Hooks: when to look */
   hook("boot", () => { setTimeout(() => { if (!SC()) init(); else schedule(0); }, 2500); });
   hook("changed", ch => {
     const arch = (ch || []).find(x => x && x.kind === "course" && x.after && x.after.archived && x.after.archivedAt && Date.now() - x.after.archivedAt < 120000);
@@ -371,7 +344,7 @@
     return origToast.apply(this, arguments);
   };
 
-  /* ---------- Layout ---------- */
+  /* Layout */
   function slot(i){
     let r = 0, n = i; for (;;) { const c = r % 2 ? 4 : 5; if (n < c) break; n -= c; r++; }
     return [r % 2 ? 215 + n * 190 : 120 + n * 190, 300 + r * 122];
@@ -395,7 +368,7 @@
   }
   const accent = () => { try { return getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#7C8CF8"; } catch (e) { return "#7C8CF8"; } };
   const paperCache = {};
-  // Apply-time gate: a Pro page design from a synced/imported page is only drawn with Pro (the page keeps its choice)
+  // Apply-time gate
   const paperId = page => A.papers[page.pp] && !locked((A.papers[page.pp] || {}).tier) ? page.pp : "cream";
   function paperOf(page, H){
     const id = paperId(page), k = id + H + (id === "theme" ? accent() : "");
@@ -408,7 +381,7 @@
   const dUri = (k, s, t) => k === "c" ? A.tag(A.tagW(t)) : (decoCache[k + s + (locked("pro") ? "L" : "")] || (decoCache[k + s + (locked("pro") ? "L" : "")] = decoUri(k, s)));
   const sizeOf = (kind, t) => kind === "s" ? [STK, STK] : kind === "w" ? WASHI : kind === "f" ? [FRAME, FRAME] : [A.tagW(t), 80];
 
-  /* ---------- The page ---------- */
+  /* The page */
   const V = {page: null, sel: null, zoom: false, back: "board", hl: null, fresh: null};
   const smooth = () => window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
   const pages = () => { const sc = SC(); return sc ? [sc.cur].concat(sc.past || []) : []; };
@@ -416,7 +389,6 @@
   const isCur = page => { const sc = SC(); return !!(sc && page && sc.cur.id === page.id); };
   function whoName(){
     const sc = SC(); if (sc && sc.who) return sc.who;
-    // Only the signed-in account's own group name: other accounts that used this device keep theirs.
     try { if (typeof sbUser !== "undefined" && sbUser) return localStorage.getItem("sb:grpName:" + sbUser.id) || ""; } catch (e) {}
     return "";
   }
@@ -521,7 +493,7 @@
     V.page = pageId || null; V.sel = null; V.hl = highlight || null;
     if (dlg.open) dlg.close();
     const q = document.getElementById("qod"); if (q) q.remove();
-    V.fresh = (evaluate({quiet: true}) || []).slice();   // anything new pops in on the page instead of a toast
+    V.fresh = (evaluate({quiet: true}) || []).slice();
     pending.length = 0;
     ui.tab = "scrapbook"; render(); window.scrollTo(0, 0);
     V.fresh = null;
@@ -529,7 +501,7 @@
     setTimeout(() => { V.hl = null; $$("#sbkPaper .hl").forEach(x => x.classList.remove("hl")); }, 3200);
   }
 
-  /* ---------- Editing: drag, turn, resize ---------- */
+  /* Editing: drag, turn, resize */
   const findEl = sel => sel ? document.querySelector(sel.k ? `#sbkPaper .sbk-it[data-k="${CSS.escape(sel.k)}"]` : `#sbkPaper .sbk-it[data-i="${sel.i}"]`) : null;
   const selOf = el => el.dataset.k ? {k: el.dataset.k} : {i: Number(el.dataset.i)};
   function readItem(sel){
@@ -606,7 +578,7 @@
     const bar = document.getElementById("sbkBar");
     if (bar) bar.addEventListener("click", e => { const b = e.target.closest("[data-sbk]"); if (b) barAction(b.dataset.sbk); });
     const ptrs = new Map();
-    let g = null;   // the gesture in progress
+    let g = null;
     const pt = e => ({x: e.clientX, y: e.clientY});
     const unit = () => W / paper.getBoundingClientRect().width;
     paper.addEventListener("pointerdown", e => {
@@ -655,7 +627,6 @@
     };
     paper.addEventListener("pointerup", end);
     paper.addEventListener("pointercancel", end);
-    // Turning with the corner handle (desktop): Shift + wheel turns, Ctrl or Alt + wheel resizes the selected item
     paper.addEventListener("wheel", e => {
       if (!V.sel || !(e.shiftKey || e.altKey || e.ctrlKey)) return;
       const el = e.target.closest(".sbk-it"); if (!el || !el.classList.contains("sel")) return;
@@ -680,13 +651,11 @@
     selBar();
   }
 
-  /* ---------- Sheets: decorate, paper, details, milestones ---------- */
-  // Place new decorations near the middle of what's on screen
+  /* Sheets: decorate, paper, details, milestones */
   function visibleCenter(){
     const paper = document.getElementById("sbkPaper"); if (!paper) return [500, 500];
     const r = paper.getBoundingClientRect(), u = W / r.width;
     const top = clampN(Math.max(0, -r.top) * u + 120, 260, V.H - 120), bot = clampN((Math.min(innerHeight, r.bottom) - r.top) * u - 120, top, V.H - 100);
-    // pick the roomiest of a few spots on screen, away from what's already there
     const page = curPage(), taken = placed(page).map(it => [it.x, it.y]).concat((page.d || []).map(d => [d[2], d[3]]));
     let best = [500, (top + bot) / 2], bestD = -1;
     for (let i = 0; i < 24; i++) {
@@ -768,14 +737,13 @@
     if (id) setTimeout(() => { const r = dlg.querySelector(`[data-mid="${CSS.escape(id)}"]`); if (r) { r.scrollIntoView({block: "center"}); r.classList.add("flash"); } }, 60);
   }
 
-  /* ---------- Save as Image (free) ---------- */
+  /* Save as Image (free) */
   const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error("image")); i.src = src; });
   async function renderPng(page, o){
     o = o || {};
     const items = placed(page), H = pageH(page, items), p = paperOf(page, H), Z = o.z || 1.6;
     const cv = document.createElement("canvas"); cv.width = W * Z; cv.height = H * Z;
     const x = cv.getContext("2d"); x.scale(Z, Z);
-    // The paper's fine grain becomes light speckles here, so the image stays small enough to share (a few hundred KB)
     x.drawImage(await loadImg(A.uri(A.paper(paperId(page), W, H, accent(), o.grain == null ? .5 : o.grain).svg)), 0, 0, W, H);
     const font = (getComputedStyle(document.documentElement).getPropertyValue("--display") || "Lexend, sans-serif").trim();
     x.textAlign = "center"; x.fillStyle = p.ink; x.font = `800 ${Math.round(titleSize(page.n) * 10)}px ${font}`;
@@ -810,13 +778,13 @@
       const touch = window.matchMedia && matchMedia("(pointer:coarse)").matches;
       if (touch && file && navigator.canShare && navigator.canShare({files: [file]})) { try { await navigator.share({files: [file], title: page.n}); return; } catch (e) { if (e && e.name === "AbortError") return; } }
       const dl = caps.downloads;
-      if (dl && inClaude()) { const buf = new Uint8Array(await blob.arrayBuffer()); await dl.save({filename: name, data: buf}); toast("Image saved"); return; }
+      if (dl && inPreview()) { const buf = new Uint8Array(await blob.arrayBuffer()); await dl.save({filename: name, data: buf}); toast("Image saved"); return; }
       saveBlob(name, blob, "image/png"); toast("Image saved");
       window.__sbkLastExport = {name, size: blob.size};
     } catch (e) { console.warn("scrapbook export", e); toast("That image couldn't be made. Try again in a moment."); }
   }
 
-  /* ---------- Where it lives ---------- */
+  /* Where it lives */
   hook("act", (act, el, id) => {
     switch (act) {
       case "sbk-open": openBook(id || null, el && el.dataset.hl || null); return true;
@@ -842,7 +810,7 @@
   });
   const stickerCount = () => { const sc = SC(); return sc ? Object.keys(sc.cur.g || {}).length : 0; };
   hook("menu", () => { const sc = SC(), n = stickerCount(); return `<button data-act="sbk-open" data-group="study"><span>Term Scrapbook<span class="sub">${sc ? `${plural(n, "sticker")} on your ${esc(sc.cur.n)} page` : "Stickers for your milestones this term"}</span></span></button>`; });
-  // The streak and daily quote card gets a Scrapbook button (the Board's streak count opens that card too)
+  // The streak and daily quote card gets a Scrapbook button
   const origPop = qodPop;
   qodPop = function(html, cls){
     const r = origPop.apply(this, arguments);

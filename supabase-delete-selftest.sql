@@ -1,16 +1,4 @@
--- Studyboard: account deletion self-test (attacker style)
--- Run in Supabase: SQL Editor > New query > paste everything > Run. Run it AFTER supabase-lean.sql (and the other setup files).
---
--- It creates three throw-away accounts, A (the one who deletes), B (a group-mate) and C (a stranger), gives them data, then
---   * deletes A's account the way the app does and checks A's rows are gone and B's and C's are untouched,
---   * checks the group A owned was handed to B (or removed when nobody else was in it),
---   * checks payment/grant bookkeeping was anonymized (no user id, no email) rather than left linked,
---   * plays an attacker: B tries to delete C, to call the worker function for C, to delete auth.users directly, and an
---     anonymous visitor tries to delete anything. Every attempt must FAIL.
---   * checks the in-app fallback refuses (and deletes nothing) for D, whose last sign-in is old (re-authentication needed),
---     and for E, who has a running Stripe card subscription that only the Edge Function can cancel.
--- Failure shows as   ERROR: DELETE TEST FAILED: <what>   Success shows   ALL n ACCOUNT-DELETION CHECKS PASSED.
--- Everything runs in one transaction that ends in ROLLBACK, so nothing real is touched. If you stop half way, run: rollback;
+-- Studyboard: account deletion self-test
 
 begin;
 create table public.sbd_log (n serial, name text);
@@ -63,7 +51,7 @@ insert into public.reminder_queue (user_id, id, fire_at) values
   ('aaaaaaaa-0000-4000-8000-00000000000a', 'r1', now()), ('bbbbbbbb-0000-4000-8000-00000000000b', 'r1', now());
 insert into public.push_subscriptions (user_id, endpoint, p256dh, auth) values
   ('aaaaaaaa-0000-4000-8000-00000000000a', 'https://fcm.googleapis.com/fcm/send/a', 'k', 'k'), ('bbbbbbbb-0000-4000-8000-00000000000b', 'https://fcm.googleapis.com/fcm/send/b', 'k', 'k');
--- group 1: A owns, B and A are members (ownership must go to B). group 2: A owns alone (must be deleted). group 3: C owns, A is a member.
+-- group 1: A owns, B and A are members (ownership must go to B)
 insert into public.study_groups (id, name, owner_id, invite_code) values
   ('11111111-1111-4111-8111-111111111111', 'G1', 'aaaaaaaa-0000-4000-8000-00000000000a', 'DEL-TST1'),
   ('22222222-2222-4222-8222-222222222222', 'G2', 'aaaaaaaa-0000-4000-8000-00000000000a', 'DEL-TST2'),
@@ -89,7 +77,7 @@ insert into public.studyboard_rate (key, bucket, n) values ('code:aaaaaaaa-0000-
 
 grant select on all tables in schema public to authenticated;     -- the self-test needs to count rows as a normal account (RLS still decides which)
 
--- ---------- attacks first: B signed in ----------
+-- attacks first
 set role authenticated;
 select set_config('request.jwt.claim.sub', 'bbbbbbbb-0000-4000-8000-00000000000b', true);
 select public.sbd_ok(public.sbd_try($$select public.studyboard_delete_user_data('cccccccc-0000-4000-8000-00000000000c')$$) like 'err:%', 'a signed-in person can NOT call the worker function for someone else');
@@ -105,7 +93,7 @@ reset role;
 select public.sbd_ok(public.sbd_n($$select 1 from auth.users where id in ('aaaaaaaa-0000-4000-8000-00000000000a','bbbbbbbb-0000-4000-8000-00000000000b','cccccccc-0000-4000-8000-00000000000c')$$) = 3, 'nobody was deleted by the attacks');
 select public.sbd_ok(public.sbd_n($$select 1 from public.items where user_id = 'cccccccc-0000-4000-8000-00000000000c'$$) = 1, 'C''s data survived the attacks');
 
--- ---------- the in-app fallback refuses without a recent sign-in, and with a running card subscription ----------
+-- the in-app fallback refuses without a recent sign-in, and with a running card subscription
 set role authenticated;
 select set_config('request.jwt.claim.sub', 'dddddddd-0000-4000-8000-00000000000d', true);
 select public.sbd_ok(public.studyboard_delete_my_account_check() = 'SB_REAUTH', 'the check reports that D must sign in again');
@@ -119,7 +107,7 @@ reset role;
 select public.sbd_ok(public.sbd_n($$select 1 from auth.users where id in ('dddddddd-0000-4000-8000-00000000000d','eeeeeeee-0000-4000-8000-00000000000e')$$) = 2, 'D and E still have accounts');
 select public.sbd_ok(public.sbd_n($$select 1 from public.items where user_id in ('dddddddd-0000-4000-8000-00000000000d','eeeeeeee-0000-4000-8000-00000000000e')$$) = 2, 'D''s and E''s data was not touched by the refused deletes');
 
--- ---------- A deletes their own account (twice: it must be safe to repeat) ----------
+-- A deletes their own account
 set role authenticated;
 select set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-4000-8000-00000000000a', true);
 select public.studyboard_delete_my_account();

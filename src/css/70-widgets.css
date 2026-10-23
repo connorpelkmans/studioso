@@ -1,5 +1,5 @@
 /* ===== module: 70-widgets.css ===== */
-/* 1.11 Widgets and Desktop: the ?widget=today card */
+/* 1.11 Widgets and Desktop */
 body.sb-wv header.top,body.sb-wv nav.tabs,body.sb-wv #fab,body.sb-wv #toolbar,body.sb-wv .nav-foot{display:none!important}
 body.sb-wv .wrap{max-width:460px;padding:max(12px,env(safe-area-inset-top,0px)) 12px 90px;margin:0 auto}
 @media (min-width:900px){body.sb-wv .wrap{margin:0 auto;padding-left:12px}body.sb-wv{padding-left:0!important}}

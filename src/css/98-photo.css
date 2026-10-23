@@ -1,26 +1,24 @@
 /* ===== module: 98-photo.css ===== */
 /* ===== Your Photo themes ===== */
-/* The photo sits behind the page (left of the desktop sidebar) as one fixed, composited layer: no repaint on scroll. */
+/* The photo sits behind the page (left of the desktop sidebar) as one fixed */
 #photoArt{position:fixed;top:0;left:0;z-index:-1;pointer-events:none;background-repeat:no-repeat;contain:strict;will-change:transform;transform:translateZ(0)}
 html.ph-on body{background-image:none}
-/* Readability over the photo, like the scene themes: titles get a soft halo, loose lines a frosted backing. Cards are opaque. */
+/* Readability over the photo, like the scene themes */
 html.ph-on #view :is(.view-head h2,.board-sec-head h2,.tl-controls h2,.sec .t,.sec .n,.board-ctl .mini,.sch-range,.fcrumb){text-shadow:0 0 2px var(--paper),0 0 6px var(--paper),0 0 12px var(--paper)}
 html.ph-on #view :is(.hint-line,.sch-legend,.tl-legend,.term-bar){background:color-mix(in srgb,var(--paper) 84%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-radius:10px;padding:4px 10px;width:fit-content;max-width:100%;box-sizing:border-box}
-/* Glass cards (a photo theme's "Glass" slider): cards keep a share of their color and frost the photo behind them */
+/* Glass cards (a photo theme's "Glass" slider) */
 html.ph-glass #view :is(ul.tasks,.course-card,.card,.deck,.day,.notes,.facts,.focus,.ftree,.flist,.sch-wrap,.tl-scroll,.empty,.qod,.qa-bar,.done-card,.q-card,.arch-list){background:color-mix(in srgb,var(--ph-surf) var(--ph-gl,100%),transparent);-webkit-backdrop-filter:blur(var(--ph-glb,0px)) saturate(1.15);backdrop-filter:blur(var(--ph-glb,0px)) saturate(1.15)}
-/* Every theme: everything that was solid (cards, buttons, chips, tabs, banners, fields, the Add Task button, the phone tab bar) turns a light glass.
-   It keeps --ph-gls of its color (94%, down to 84% with a photo theme's Glass slider), a much smaller step than the Task Board columns (88%),
-   so the background shows through faintly and text reads as before. The solid colors are kept as --ph-* for what must stay solid. */
+/* Every theme: everything that was solid */
 html{--ph-surf:var(--surface);--ph-soft:var(--soft);--ph-field:var(--field);--ph-surf-g:color-mix(in srgb,var(--surface) var(--ph-gls,94%),transparent);--ph-soft-g:color-mix(in srgb,var(--soft) var(--ph-gls,94%),transparent);--ph-field-g:color-mix(in srgb,var(--field,var(--surface)) var(--ph-gls,94%),transparent)}
 #view{--surface:var(--ph-surf-g);--soft:var(--ph-soft-g);--field:var(--ph-field-g)}
-/* Menus and sticky columns cover other content, not the background: they stay solid */
+/* Menus and sticky columns cover other content, not the background */
 #view :is(.tl-label,.tl-headrow,.grp-menu,.ra-menu,.sbk-side,.sbk-selbar,.ui-shop-bar,.tour-card,[role=menu],[role=listbox],dialog){--surface:var(--ph-surf);--soft:var(--ph-soft);--field:var(--ph-field)}
-/* Gradient fills (primary buttons, the Add Task button, the phone tab bar) can't be color-mixed, so they paint on a layer at the same share */
+/* Gradient fills */
 html :is(#view .btn.primary,.fab){isolation:isolate;background:transparent}
 :where(#view .btn.primary){position:relative}
 html :is(#view .btn.primary,.fab)::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;background:var(--btn-bg,var(--accent));opacity:var(--ph-glo,.94);pointer-events:none}
 html :is(#view .btn.primary,.fab):hover::before{filter:brightness(.9)}
-html .fab::before{opacity:1}   /* the floating + Add button is always solid, never see-through */
+html .fab::before{opacity:1}
 @media (max-width:979px){
   html nav.tabs{isolation:isolate;background:transparent}
   html nav.tabs::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;background:var(--spine-bg,var(--spine));opacity:var(--ph-glo,.94);pointer-events:none}

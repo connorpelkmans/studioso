@@ -1,5 +1,5 @@
 /* ===== module: 96-tp-b5.js ===== */
-/* Theme Collections, batch 5: gardening, gaming, photography, newyear, lunarnewyear, valentines */
+/* Theme Collections, batch 5 */
 (() => {
   const D = "#2B2233";
   const f1 = n => Math.round(n * 10) / 10;
@@ -24,7 +24,7 @@
   const PIX = (x, y, s, rows, c) => rows.map((r, j) => [...r].map((ch, i) => ch === "X" ? `<rect x="${f1(x + i * s)}" y="${f1(y + j * s)}" width="${s}" height="${s}" fill="${c}"/>` : "").join("")).join("");
   const PHEART = [".XX.XX.", "XXXXXXX", "XXXXXXX", ".XXXXX.", "..XXX..", "...X..."];
 
-  /* ---------------- Garden Plot ---------------- */
+  /* Garden Plot */
   TP_DATA.push({
     theme: "gardening",
     pack: {name: "Potting Bench", items: {
@@ -116,7 +116,7 @@
     card: {id: "tp-gardening", name: "Ivy Trellis", desc: "Seed packet cream paper with trailing ivy and a little potted sprout."}
   });
 
-  /* ---------------- Game Night ---------------- */
+  /* Game Night */
   TP_DATA.push({
     theme: "gaming",
     pack: {name: "Power Up Pals", items: {
@@ -183,9 +183,9 @@
     card: {id: "tp-gaming", name: "Pixel Quest", desc: "A glowing game screen with a pixel frame, scanlines and a heart health bar."}
   });
 
-  /* ---------------- Photo Walk ---------------- */
+  /* Photo Walk */
   const APERTURE = (() => { const cx = 32, cy = 32, h = 8, R = 21, v = Array.from({length: 6}, (_, i) => { const a = (i * 60 - 90) * Math.PI / 180; return [cx + h * Math.cos(a), cy + h * Math.sin(a)]; });
-    return v.map((p, i) => { const q = v[(i + 5) % 6], dx = p[0] - q[0], dy = p[1] - q[1], L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L; // extend from p along q->p until hitting circle R
+    return v.map((p, i) => { const q = v[(i + 5) % 6], dx = p[0] - q[0], dy = p[1] - q[1], L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L;
       const bx = p[0] - cx, by = p[1] - cy, b = bx * ux + by * uy, c = bx * bx + by * by - R * R, t = -b + Math.sqrt(b * b - c);
       return `M${f1(p[0])} ${f1(p[1])}L${f1(p[0] + ux * t)} ${f1(p[1] + uy * t)}`; }).join(""); })();
   TP_DATA.push({
@@ -274,7 +274,7 @@
     card: {id: "tp-photography", name: "Contact Sheet", desc: "A warm darkroom print between two strips of film, with an amber grease pencil mark."}
   });
 
-  /* ---------------- New Year's Eve ---------------- */
+  /* New Year's Eve */
   const NY_C = ["#F5C451", "#F07AA0", "#3CC8C0", "#9B7BF0"];
   TP_DATA.push({
     theme: "newyear",
@@ -362,7 +362,7 @@
     card: {id: "tp-newyear", name: "Midnight Fireworks", desc: "A midnight blue card with gold foil trim, corner fireworks and a sleeping city skyline."}
   });
 
-  /* ---------------- Lunar New Year ---------------- */
+  /* Lunar New Year */
   TP_DATA.push({
     theme: "lunarnewyear",
     pack: {name: "Lantern Luck", items: {
@@ -445,7 +445,7 @@
     card: {id: "tp-lunarnewyear", name: "Red Paper Gold", desc: "Rich red paper with gold embossed corners and a fine gold border."}
   });
 
-  /* ---------------- Valentine's Day ---------------- */
+  /* Valentine's Day */
   TP_DATA.push({
     theme: "valentines",
     pack: {name: "Sweetheart Post", items: {

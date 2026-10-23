@@ -1,5 +1,4 @@
-// Studyboard's own sample sets (seed-sets/*.json -> supabase-seed-sets*.sql): well formed, real schools, honest names, SQL up to date.
-// Run: node tests/seed-sets.test.js
+// Studyboard's own sample sets (seed-sets/*.json -> supabase-seed-sets*.sql)
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const root = path.join(__dirname, ".."), G = require("../scripts/gen-seed-sets.js");
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };

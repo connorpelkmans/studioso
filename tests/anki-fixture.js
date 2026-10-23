@@ -1,10 +1,4 @@
-// Builds small, real Anki collections (SQLite) for tests/import-apps.test.js and tests/import-apps.e2e.js. Not a test itself.
-// Uses python3's sqlite3 module, so the file is written by real SQLite. ankiCollection(kind, opts) -> Buffer (or null without python3).
-//   kind "11": the old schema (collection.anki2 / .anki21): note types and decks as JSON in col
-//   kind "18": the new schema (inside collection.anki21b): decks and notetypes tables, names split by \x1f
-//   kind "dummy": Anki's one-note "please update" placeholder that newer exports write next to collection.anki21b
-// opts.filler: that many extra notes in a deck "Big" (with one very long field), so the tables need interior and overflow pages.
-// The dates are local: day numbers count from 4 am on 2026-01-01 here, like Anki's collection creation time.
+// Builds small, real Anki collections
 "use strict";
 const cp = require("child_process"), fs = require("fs"), os = require("os"), path = require("path");
 

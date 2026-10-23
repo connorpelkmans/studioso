@@ -1,5 +1,5 @@
 // Unit tests for the crash/error reporter's pure core (extracted from index.html between ERRREPORT-START and ERRREPORT-END),
-// build-id.js and the error-ingest schema check.  Run: node tests/error-report.test.js
+// build-id.js and the error-ingest schema check
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const root = path.join(__dirname, "..");
 const s = require("../scripts/app-files").source();
@@ -10,7 +10,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
 const OWN = ["studyboard.example"];
 
-// ---- scrubber: emails, keys, URLs, ids, paths
+// scrubber: emails, keys, URLs, ids, paths
 const t1 = C.scrubText("Failed for jane.doe@school.edu with key AIzaSyA1234567890abcdefghijklmnop and sk-abcdef1234567890abcd", 400);
 ok(!/jane|school\.edu|AIza|sk-abc/.test(t1) && /\[email\]/.test(t1) && /\[hidden\]/.test(t1), t1);
 ok(!/eyJ/.test(C.scrubText("jwt eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghijk end")), "jwt");
@@ -24,7 +24,7 @@ eq(C.scrubUrl("file:///Users/jane/Documents/Studyboard/index.html?x=1"), "file:/
 eq(C.scrubUrl("chrome-extension://abcdefg/inject.js"), "[extension-url]");
 ok(!/jane|Bio notes|y\.txt/.test(C.scrubText("ENOENT: no such file C:\\Users\\jane\\Documents\\Bio notes.docx and /home/jane/x/y.txt")), "paths and file names");
 ok(!/[0-9a-f]{8}-[0-9a-f]{4}-/.test(C.scrubText("user 123e4567-e89b-12d3-a456-426614174000 not found")), "uuid");
-// PII-like task titles: quoted text and known titles
+// PII-like task titles
 const q = C.scrubText(`Unexpected token 'S', "Study for Dr. Patel's oncology exam" is not valid JSON`, 300);
 ok(!/Patel|oncology/.test(q), q);
 ok(/reading 'foo'/.test(C.scrubText("Cannot read properties of undefined (reading 'foo')")), "identifiers survive");
@@ -33,7 +33,7 @@ const r = C.scrubText("render failed on Physics lab report: Jane's sleep study (
 ok(!/Physics|Patel|sleep/.test(r), r);
 ok(C.scrubText("x ".repeat(500), 100).length === 100, "cap");
 
-// ---- stacks and fingerprints
+// stacks and fingerprints
 const chrome = `TypeError: Cannot read properties of undefined (reading 'x')
     at renderCard (https://studyboard.example/index.html?v=3:30412:9)
     at async Object.render (https://studyboard.example/index.html:10730:5)
@@ -52,7 +52,7 @@ ok(f1 === f2 && /^[0-9a-f]{8}$/.test(f1), "stack decides the fingerprint");
 ok(C.fingerprint("RangeError", fr, "") !== f1, "class matters");
 ok(C.fingerprint("Error", [], 'bad "Math homework" id 42') === C.fingerprint("Error", [], 'bad "Other" id 7'), "no stack: quoted text and digits normalised");
 
-// ---- ignore list
+// ignore list
 const ign = (m, extra) => C.ignore(Object.assign({message: m, type: "Error"}, extra), {own: OWN, online: true});
 ok(ign("ResizeObserver loop completed with undelivered notifications."), "resize observer");
 ok(ign("Script error."), "cross-origin");
@@ -65,7 +65,7 @@ ok(ign("boom", {stack: "at f (https://cdn.other.example/lib.js:1:1)"}), "third-p
 ok(!ign("boom", {stack: "at f (https://studyboard.example/index.html:1:1)"}), "own frames reported");
 ok(!ign("Cannot read properties of undefined"), "real errors reported");
 
-// ---- DSN parsing
+// DSN parsing
 const d = C.parseDsn("https://abcdef0123456789abcdef0123456789@o4501.ingest.sentry.io/4507001");
 ok(d && d.key === "abcdef0123456789abcdef0123456789" && d.project === "4507001" && d.host === "o4501.ingest.sentry.io", JSON.stringify(d));
 eq(d.url, "https://o4501.ingest.sentry.io/api/4507001/envelope/?sentry_key=abcdef0123456789abcdef0123456789&sentry_version=7&sentry_client=studyboard-errreport%2F1");
@@ -73,7 +73,7 @@ ok(C.parseDsn("https://abcdef0123456789:secretpart@sentry.example.com:9000/relay
 ok(!C.parseDsn("https://abcdef0123456789:secretpart@sentry.example.com/12").dsn.includes("secret"), "secret dropped");
 ["", "nonsense", "http://abcdef0123456789@o1.ingest.sentry.io/1", "https://@o1.ingest.sentry.io/1", "https://abcdef0123456789@o1.ingest.sentry.io/", "https://abcdef0123456789@o1.ingest.sentry.io/abc", "https://abc@o1.ingest.sentry.io/1", "javascript:alert(1)", null, undefined].forEach(x => ok(C.parseDsn(x) === null, "invalid DSN " + x));
 
-// ---- event + envelope (Sentry envelope format)
+// event + envelope (Sentry envelope format)
 const ctx = {release: "1.13.0", environment: "production", build: "1.13.0+abc123def456", platform: "pwa", pro: true, theme: "aurora", dark: "dark", sw: "studyboard-v6", anon: "0123456789abcdef", own: OWN,
   redact: ["Physics lab report"], crumbs: [], now: 1_800_000_000_000};
 C.addCrumb(ctx.crumbs, "nav", "board", ctx.now); C.addCrumb(ctx.crumbs, "act", "bug-open", ctx.now); C.addCrumb(ctx.crumbs, "sync", "fail", ctx.now);
@@ -98,7 +98,7 @@ eq(JSON.parse(lines[2]), JSON.parse(JSON.stringify(ev)), "payload round trip");
 const big = C.finish(C.buildEvent({kind: "error", type: "Error", message: "m".repeat(5000), stack: ""}, ctx));
 ok(JSON.stringify(big).length < 24000, "size cap");
 
-// ---- rate limiting, dedupe, back-off, queue, consent
+// rate limiting, dedupe, back-off, queue, consent
 let T = 0; const L = C.makeLimiter({now: () => T, random: () => 0.1, maxSession: 5, perFp: 2});
 ok(L.allow("a", "error") && L.allow("a", "error") && !L.allow("a", "error"), "per fingerprint");
 T += 3600001; ok(L.allow("a", "error"), "per fingerprint window is an hour");
@@ -112,7 +112,7 @@ ok(C.decideEnabled({}) === true, "default on");
 ok(C.decideEnabled({gpc: true}) === false && C.decideEnabled({dnt: true}) === false, "GPC / DNT default off");
 ok(C.decideEnabled({stored: "on", gpc: true}) === true && C.decideEnabled({stored: "off"}) === false, "explicit choice wins");
 
-// ---- build id
+// build id
 const bid = require("../build-id.js");
 const id1 = bid.idOf(s), stamped = bid.stamp(s);
 ok(/^\d+\.\d+\.\d+\+[0-9a-f]{12}$/.test(id1), id1);
@@ -121,12 +121,12 @@ ok(bid.idOf(stamped + " ") !== id1, "any content change changes the id");
 ok(/const APP_VERSION = "([^"]+)"/.exec(s)[1] === JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).version, "APP_VERSION matches package.json");
 ok(/ERROR_REPORTING = \{\s*dsn: "",/.test(s), "shipped with an empty DSN (nothing is sent until the owner pastes one)");
 
-// ---- no SDK, no third-party script in the reporter
+// no SDK, no third-party script in the reporter
 const mod = s.slice(s.indexOf("/* ===== module: 49-errreport.js"), s.indexOf("/* ===== module: 49-apptour.js"));
 ok(!/Sentry\.init|@sentry|browser\.sentry-cdn/.test(mod.replace(/\/\*[\s\S]*?\*\//g, "")), "no SDK");
 ok(/ERROR_REPORTING = \{[^}]*release: APP_VERSION/.test(mod), "release tagged");
 
-// ---- main.js: the Electron main-process reporter, run against fake Electron / https objects (no Electron needed)
+// main.js: the Electron main-process reporter, run against fake Electron / https objects
 {
   const ms = fs.readFileSync(path.join(root, "main.js"), "utf8");
   const blk = ms.slice(ms.indexOf("// ---------- Crash and error reports for the main process"), ms.indexOf("// \"Keep Running in the Background\" is on unless"));
@@ -145,7 +145,7 @@ ok(/ERROR_REPORTING = \{[^}]*release: APP_VERSION/.test(mod), "release tagged");
       fs, path, appDir, false, cfgRef, () => ({}), () => true, () => {}, {error() {}});
     return cfgRef;
   };
-  // never turned on by the page: nothing is sent
+  // never turned on by the page
   let c = mk({}); const boom = new Error("EACCES /home/jane/Documents/Bio notes.docx for jane@school.edu");
   boom.stack = "Error: x\n    at readIt (/home/jane/app/main.js:10:5)\n    at Object.<anonymous> (/opt/Studyboard/resources/app.asar/main.js:99:1)";
   handlers.proc.uncaughtException(boom);
@@ -163,13 +163,13 @@ ok(/ERROR_REPORTING = \{[^}]*release: APP_VERSION/.test(mod), "release tagged");
   handlers.proc.unhandledRejection(new TypeError("late failure")); ok(posts.length === 5, "unhandled rejection");
   handlers.ipc["crash:set"]({}, false); ok(c.crashReports === false && !("crashId" in c), "turned off: id forgotten");
   handlers.proc.uncaughtException(new Error("after off")); ok(posts.length === 5, "nothing sent after the page turned it off");
-  // no DSN configured: nothing is sent even when on
+  // no DSN configured
   fs.writeFileSync(path.join(appDir, "error-config.json"), JSON.stringify({dsn: ""}));
   c = mk({crashReports: true}); const before = posts.length; handlers.proc.uncaughtException(new Error("no dsn")); ok(posts.length === before, "empty DSN sends nothing from the main process either");
 }
 
 (async () => {
-  // ---- the error-ingest schema check (Node 22.6+ loads .ts when asked)
+  // the error-ingest schema check (Node 22.6+ loads .ts when asked)
   try {
     const m = await import(require("url").pathToFileURL(path.join(root, "supabase-functions/error-ingest/index.ts")).href);
     const good = m.validate({v: 1, event: ev}, ctx.now);

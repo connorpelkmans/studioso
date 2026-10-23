@@ -1,5 +1,5 @@
 /* ===== module: 98-comp-france.js ===== */
-/* Study Companions, around the world: france (Paris) */
+/* Study Companions, around the world */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);

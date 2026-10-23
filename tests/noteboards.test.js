@@ -6,13 +6,13 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); }; const eq = (a, b, m) => 
 const B = (id, name, extra) => Object.assign({id, name}, extra);
 const names = st => (st.noteBoards || []).map(b => b.name);
 
-// the account's copy has no boards (older, empty or reset): every board on this device survives
+// the account's copy has no boards (older, empty or reset)
 let next = {capacity: 15}, mine = {noteBoards: [B("a", "Biology"), B("b", "Chemistry")]};
 ok(keep(next, mine) === true, "reports that boards were put back"); eq(names(next), ["Biology", "Chemistry"], "boards survive an account copy without any");
 next = {noteBoards: []}; keep(next, mine); eq(names(next), ["Biology", "Chemistry"], "and one with an empty list");
-// the account has other boards: both sets are kept
+// the account has other boards
 next = {noteBoards: [B("c", "History")]}; keep(next, mine); eq(names(next).sort(), ["Biology", "Chemistry", "History"], "boards from two devices are joined");
-// nothing to add: no needless write
+// nothing to add
 next = {noteBoards: [B("a", "Biology"), B("b", "Chemistry")]}; ok(keep(next, mine) === false, "nothing lost, nothing to send");
 // deleted boards stay deleted, on both sides
 next = {noteBoards: [B("a", "Biology")], noteBoardsGone: [{id: "b", at: 5}]}; keep(next, mine); eq(names(next), ["Biology"], "a board deleted on another device is not brought back");

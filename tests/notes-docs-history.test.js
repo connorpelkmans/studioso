@@ -1,10 +1,10 @@
-// Tests for note version history (undo), Notes to Word/Google Docs, and the Your Photo theme fixes.  Run: node tests/notes-docs-history.test.js
+// Tests for note version history (undo), Notes to Word/Google Docs
 const fs = require("fs"), path = require("path"), assert = require("assert"), cp = require("child_process"), os = require("os");
 const s = require("../scripts/app-files").source();
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 const between = (a, b) => { const i = s.indexOf(a), j = s.indexOf(b, i); assert(i >= 0 && j > i, "marker " + a); return s.slice(i + a.length, j); };
 
-// ---- note history
+// note history
 const H = new Function(between("/*NOTEHIST-START*/", "/*NOTEHIST-END*/") + ";return {NH_CAP, nhRemoved, nhAdd, nhTrimAll, nhChain};")();
 ok(H.nhRemoved("hello world", "hello world!") === 0, "adding at the end removes nothing");
 ok(H.nhRemoved("hello world", "") === 11, "select all and delete");
@@ -25,7 +25,7 @@ const tr = H.nhTrimAll(all, id => id !== "gone", 300000);
 ok(!tr.gone && !tr.a.some(x => x.at === 1) && tr.b.length === 1, "unknown notes and the oldest snapshots go first: " + JSON.stringify(Object.keys(tr)));
 ok(H.nhChain(["a", "a", "b"], "c").join() === "a,b,c" && H.nhChain(["a", "b"], "b").join() === "a,b", "undo chain ends with the text on screen, no repeats");
 
-// ---- notes to documents
+// notes to documents
 const code = between("/*NOTEDOC-START*/", "/*NOTEDOC-END*/");
 const zipSrc = s.slice(s.indexOf("function crc32(bytes){"), s.indexOf("function zipOne(")) + s.slice(s.indexOf("function zipMany(entries){"), s.indexOf("function unzipStored("));
 const D = new Function(zipSrc + code + ";return {noteDocModel, noteDocHtml, noteDocText, noteDocx, zipMany, nxX, NX_MIME};")();
@@ -51,20 +51,20 @@ ok(bytes instanceof Uint8Array && bytes[0] === 0x50 && bytes[1] === 0x4b, "zip s
 const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength), files = {};
 let p = 0; while (dv.getUint32(p, true) === 0x04034b50) { const sz = dv.getUint32(p + 18, true), nl = dv.getUint16(p + 26, true), nm = Buffer.from(bytes.slice(p + 30, p + 30 + nl)).toString(); files[nm] = Buffer.from(bytes.slice(p + 30 + nl, p + 30 + nl + sz)).toString("utf8"); p += 30 + nl + sz; }
 ok(Object.keys(files)[0] === "[Content_Types].xml" && ["_rels/.rels", "word/document.xml", "word/styles.xml", "word/_rels/document.xml.rels"].every(k => k in files), "docx parts: " + Object.keys(files));
-Object.entries(files).forEach(([k, v]) => {   // well-formed: every tag opens and closes
+Object.entries(files).forEach(([k, v]) => {
   const st = []; let m; const re = /<(\/?)([A-Za-z0-9:]+)[^>]*?(\/?)>/g; const body = v.replace(/<\?[^>]*\?>/g, "");
   while ((m = re.exec(body))) { if (m[3]) continue; if (m[1]) { ok(st.pop() === m[2], k + " closes " + m[2]); } else st.push(m[2]); }
   ok(st.length === 0, k + " is balanced");
 });
 const doc = files["word/document.xml"];
 ok(doc.includes('w:pStyle w:val="Heading1"') && doc.includes("indented &lt;b&gt;&amp; more") && doc.includes("Attached to: Lab report") && !doc.includes("\u0007"), "document.xml content");
-// zip integrity: the archive tools agree with our CRCs (skipped where unzip is missing)
+// zip integrity
 try {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nx-")), f = path.join(dir, "n.docx"); fs.writeFileSync(f, bytes);
   cp.execSync("unzip -tq " + f, {stdio: "pipe"}); ok(true, "unzip -t");
 } catch (e) { if (!/not found|ENOENT/.test(String(e.stderr || e.message))) throw e; }
 
-// ---- Your Photo theme: the picked color and gradient never paint over the photo
+// Your Photo theme
 const stackSrc = s.slice(s.indexOf("  function stack(rec, photoImg){"), s.indexOf("  const lay = (pre, L, key)"));
 const stack = new Function(stackSrc + ";return stack;")();
 const rec = {fx: 40, fy: 60, vg: 0, gr: {m: "on", t: "linear", a: 135, c: ["#FF0000", "#0000FF"], op: 100}, tn: {c: "#00FF00", a: 100, b: "normal"}};
@@ -74,10 +74,10 @@ L = stack(Object.assign({}, rec, {vg: 50}), "url(photo)");
 ok(L.length === 2 && !/#FF0000|rgba\(255,0,0|rgba\(0,255,0/i.test(L.map(x => x.i).join()), "only the vignette sits on the photo");
 ok(!/\bgr\.m === "only"/.test(s.slice(s.indexOf("module: 98-photo.js"))), "no 'gradient instead of photo' mode left");
 
-// ---- the theme only changes when the person changes it
+// the theme only changes when the person changes it
 const hookSrc = s.slice(s.indexOf("let missAt = 0, missTimer = 0;"), s.indexOf("hook(\"boot\", () => { setTimeout(() => housekeeping(true), 2500); });"));
 ok(hookSrc.includes("grace") && !/setTimeout\(\(\) => \{ const c = styleCfg\(\); if \(isPh\(c\.skin\) && !recOf\(c\.skin\)\) \{ saveStyle/.test(hookSrc), "a missing photo record no longer resets the saved theme at once");
-// run the render hook with stubs: a record that is missing for a moment and comes back must keep the theme; one that stays missing past the grace time is given up
+// run the render hook with stubs
 function run(recBack){
   const saved = []; let render, now = 1000; const timers = [];
   const env = {

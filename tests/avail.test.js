@@ -1,5 +1,5 @@
 // Unit tests for availability blocks and the free-time engine (pure logic extracted from index.html between AVAIL-START and AVAIL-END).
-// Run: node tests/avail.test.js   It re-runs itself under three time zones so the DST days (US and EU) are real.
+// Run: node tests/avail.test.js It re-runs itself under three time zones so the DST days
 const fs = require("fs"), path = require("path"), assert = require("assert"), cp = require("child_process");
 
 if (!process.env.AV_CHILD) {
@@ -22,7 +22,7 @@ const blk = o => A.normBlock(Object.assign({id: "b" + Math.random().toString(36)
 const free = (date, blocks, extra) => A.freeWindows(date, Object.assign({blocks, cfg: {}}, extra || {}));
 const wins = r => r.windows.map(w => w.a + "-" + w.b);
 
-// ---- sanitizing ----
+// sanitizing
 {
   const b = A.normBlock({id: "x", type: "bogus", title: "<b>Hi</b>\n\n" + "x".repeat(200), color: "red;}body{", days: [1, 1, 9, "3", -1, 2.5], start: "25:00", end: "7:5", every: 99, bufB: 9999, bufA: -5});
   ok(b.type === "other" && b.title.indexOf("<") < 0 && b.title.length <= 80, "type/title cleaned");
@@ -50,13 +50,13 @@ const wins = r => r.windows.map(w => w.a + "-" + w.b);
   ok(A.normBlock({id: "z", days: [1], bufB: 30, type: "protected"}).bufB === 0, "protected has no buffers");
 }
 
-// ---- which days a block occurs on ----
+// which days a block occurs on
 {
-  const wk = blk({days: [2, 4]});               // Tue Thu
+  const wk = blk({days: [2, 4]});
   ok(A.occursOn(wk, "2026-11-03") && A.occursOn(wk, "2026-11-05") && !A.occursOn(wk, "2026-11-04"), "weekly days");
   const term = blk({days: [1], from: "2026-09-07", until: "2026-12-11"});
   ok(!A.occursOn(term, "2026-08-31") && A.occursOn(term, "2026-09-07") && A.occursOn(term, "2026-12-07") && !A.occursOn(term, "2026-12-14"), "term range");
-  const ab = blk({days: [3], every: 2, anchor: "2026-11-02"});   // A weeks start the week of Nov 2
+  const ab = blk({days: [3], every: 2, anchor: "2026-11-02"});
   ok(A.occursOn(ab, "2026-11-04") && !A.occursOn(ab, "2026-11-11") && A.occursOn(ab, "2026-11-18") && !A.occursOn(ab, "2026-10-28") && A.occursOn(ab, "2026-10-21"), "alternating weeks, both directions");
   const b3 = blk({days: [5], every: 3, anchor: "2026-11-02"});
   ok(A.occursOn(b3, "2026-11-06") && !A.occursOn(b3, "2026-11-13") && !A.occursOn(b3, "2026-11-20") && A.occursOn(b3, "2026-11-27"), "every 3 weeks");
@@ -71,7 +71,7 @@ const wins = r => r.windows.map(w => w.a + "-" + w.b);
   ok(A.occursOn(dst2, "2026-10-25") && !A.occursOn(dst2, "2026-11-01") && A.occursOn(dst2, "2026-11-08"), "A/B weeks across the fall changes");
 }
 
-// ---- free time basics ----
+// free time basics
 {
   const r = free("2026-11-04", []);
   eq(wins(r), ["07:00-23:00"], "empty day is one waking window");
@@ -107,7 +107,7 @@ const wins = r => r.windows.map(w => w.a + "-" + w.b);
   const tb = free("2026-11-02", [blk({start: "16:00", end: "21:00", bufB: 30, bufA: 30})]);
   eq(wins(tb), ["07:00-15:30", "21:30-23:00"], "travel before and after");
   ok(tb.busy[0].parts.some(p => p.kind === "travel"), "buffer is labelled travel");
-  const spill = free("2026-11-02", [blk({type: "shift", days: [2], start: "00:10", end: "06:00", bufB: 30})]);   // starts Tue 00:10: buffer is Mon 23:40-24:00
+  const spill = free("2026-11-02", [blk({type: "shift", days: [2], start: "00:10", end: "06:00", bufB: 30})]);
   eq(wins(spill), ["07:00-23:00"], "Mon unaffected before the 23:00 end");
   eq(wins(free("2026-11-02", [blk({type: "shift", days: [2], start: "00:10", end: "06:00", bufB: 30})], {cfg: {dayEnd: "24:00"}})).length, 1, "waking window cannot pass midnight");
   // protected time and outside events
@@ -123,7 +123,7 @@ const wins = r => r.windows.map(w => w.a + "-" + w.b);
   ok(free("2026-11-02", [], {nowMin: 23 * 60 + 30}).none, "after the waking window nothing is free");
 }
 
-// ---- overnight shifts ----
+// overnight shifts
 {
   const night = blk({type: "shift", title: "Night", dates: ["2026-11-03"], start: "19:00", end: "07:30"});
   eq(wins(free("2026-11-03", [night])), ["07:00-19:00"], "evening of day 1 is blocked");
@@ -137,7 +137,7 @@ const wins = r => r.windows.map(w => w.a + "-" + w.b);
   eq(wins(free("2026-11-04", [dayShift], {cfg: {recover: true}})), ["07:00-23:00"], "recovery only follows overnight shifts");
   const nwork = blk({type: "other", dates: ["2026-11-03"], start: "19:00", end: "07:30"});
   eq(wins(free("2026-11-04", [nwork], {cfg: {recover: true}})), ["07:30-23:00"], "recovery only for shifts and work");
-  // weekly overnight: Fri 19:00-07:30 blocks Fri evening and Sat morning
+  // weekly overnight
   const wk = blk({type: "shift", days: [5], start: "19:00", end: "07:30"});
   eq(wins(free("2026-11-06", [wk])), ["07:00-19:00"], "weekly overnight, first night");
   eq(wins(free("2026-11-07", [wk])), ["07:30-23:00"], "weekly overnight, next morning");
@@ -157,7 +157,7 @@ const wins = r => r.windows.map(w => w.a + "-" + w.b);
   ok(allday.allDay && allday.start === "" && allday.end === "", "all-day row has no times, like events");
 }
 
-// ---- real durations on daylight saving days (wall-clock windows, real minutes) ----
+// real durations on daylight saving days (wall-clock windows, real minutes)
 {
   const win = {dayStart: "00:00", dayEnd: "06:00"};
   const real = d => free(d, [], {cfg: win}).total;
@@ -182,10 +182,10 @@ const wins = r => r.windows.map(w => w.a + "-" + w.b);
   eq(wins(free("2026-03-08", [night])), ["07:30-23:00"], "overnight into US spring-forward morning");
 }
 
-// ---- placing work in free windows ----
+// placing work in free windows
 {
   const W = (a, b) => ({s: a, e: b, min: b - a});
-  // "4:15-5:45 PM: Bio lab report (90 min)"
+  // "4:15-5:45 PM
   let p = A.place([W(975, 1080)], [{id: "bio", min: 90}]);
   eq(p.slots.map(x => [x.id, x.s, x.e]), [["bio", 975, 1065]], "90 minute task takes 4:15-5:45 PM");
   ok(Object.keys(p.unplaced).length === 0 && p.placed === 90, "all placed");
@@ -199,7 +199,7 @@ const wins = r => r.windows.map(w => w.a + "-" + w.b);
   // several tasks in rank order, with a break between
   p = A.place([W(540, 720)], [{id: "a", min: 60}, {id: "b", min: 45}], {maxSession: 90, breakMin: 10});
   eq(p.slots.map(x => [x.id, x.s, x.e]), [["a", 540, 600], ["b", 610, 655]], "ranked order, break between tasks");
-  // never into a block: blocks aren't windows, so a too-big load is left over
+  // never into a block
   p = A.place([W(1200, 1260)], [{id: "a", min: 40}, {id: "b", min: 60}], {breakMin: 10});
   ok(p.slots.length === 1 && p.unplaced.b === 60 && p.slots.every(x => x.e <= 1260), "overflow stays unplaced, never past the window");
   p = A.place([], [{id: "a", min: 30}]);
@@ -211,7 +211,7 @@ const wins = r => r.windows.map(w => w.a + "-" + w.b);
   ok(p.slots.length > 0 && p.slots.every(x => busy.every(([a, b]) => x.e <= a || x.s >= b)), "no slot overlaps work or its travel");
 }
 
-// ---- explaining the day ----
+// explaining the day
 {
   const shift = blk({type: "shift", dates: ["2026-11-03"], title: "Ward shift", start: "11:00", end: "19:30", bufA: 30});
   const r = free("2026-11-03", [shift], {cfg: {dayEnd: "22:00"}, nowMin: 15 * 60});
@@ -225,7 +225,7 @@ const wins = r => r.windows.map(w => w.a + "-" + w.b);
   ok(/recovering from your night shift until 12 PM/.test(A.explain(rec, {nowMin: 8 * 60})), A.explain(rec, {nowMin: 8 * 60}));
 }
 
-// ---- typing helpers ----
+// typing helpers
 {
   const T = "2026-10-03";
   eq(A.parseDates("Mon Nov 3, Wed Nov 5, Sat Nov 8", T).dates, ["2026-11-03", "2026-11-05", "2026-11-08"], "roster text");

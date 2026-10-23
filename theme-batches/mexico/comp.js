@@ -1,4 +1,4 @@
-/* Study Companions, world theme: mexico */
+/* Study Companions, world theme */
 (() => {
   const {O, OW, LG, RG, LINE} = COMP_KIT;
   const O2 = OW(2.2);

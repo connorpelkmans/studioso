@@ -1,9 +1,9 @@
-/* Study Fields themes, batch n6: film, culinary, marinebio (Style Shop group "New Theme Ideas") */
+/* Study Fields themes, batch n6 */
 (() => {
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const r1 = n => Math.round(n * 100) / 100;
   const circ = (x, y, r) => `M${r1(x - r)} ${r1(y)}a${r1(r)} ${r1(r)} 0 1 0 ${r1(2 * r)} 0a${r1(r)} ${r1(r)} 0 1 0 ${r1(-2 * r)} 0Z`;
-  const hole = (x, y, r) => `M${r1(x - r)} ${r1(y)}a${r1(r)} ${r1(r)} 0 1 1 ${r1(2 * r)} 0a${r1(r)} ${r1(r)} 0 1 1 ${r1(-2 * r)} 0Z`;   // the other way round: cuts a hole
+  const hole = (x, y, r) => `M${r1(x - r)} ${r1(y)}a${r1(r)} ${r1(r)} 0 1 1 ${r1(2 * r)} 0a${r1(r)} ${r1(r)} 0 1 1 ${r1(-2 * r)} 0Z`;
   Object.assign(FX_SHAPES, {
     n6clap: {d: "M-10 -3H10V10H-10Z M-10.6 -4.6L9.4 -9.8L10.4 -6.2L-9.6 -1Z", detail: "M-6.4 -7.9L-4 -2.9M-1 -9.3L1.4 -4.3M4.4 -10.7L6.8 -5.7M-10 3H10", dstroke: true},
     n6reel: {d: circ(0, 0, 10.5) + hole(0, -5, 2.8) + hole(4.3, 2.5, 2.8) + hole(-4.3, 2.5, 2.8) + hole(0, 0, 1.2)},

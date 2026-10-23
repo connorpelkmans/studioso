@@ -1,4 +1,4 @@
-// Unit tests for the grade trend math and the Study Groups card rule (pure logic extracted from index.html).  Run: node tests/gradetrend.test.js
+// Unit tests for the grade trend math and the Study Groups card rule
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const s = require("../scripts/app-files").source();
 const cut = (a, b) => s.slice(s.indexOf(a), s.indexOf(b));
@@ -6,8 +6,8 @@ const G = new Function(cut("/*TREND-START*/", "/*TREND-END*/") + ";return GTREND
 const showCard = new Function(cut("/*NUDGE-START*/", "/*NUDGE-END*/") + ";return showCard;")();
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 
-// A stand-in for the app's courseGrade(c, ids).current: weighted average of the marks in ids (the app passes its own math in)
-const W = {a: [10, 80], b: [20, 90], c: [20, 70], d: [10, 70]};   // id -> [weight, percent]
+// A stand-in for the app's courseGrade(c, ids).current
+const W = {a: [10, 80], b: [20, 90], c: [20, 70], d: [10, 70]};
 const running = ids => { let w = 0, e = 0; ids.forEach(id => { w += W[id][0]; e += W[id][0] * W[id][1]; }); return w ? e / w : null; };
 const it = (id, key, seq) => ({id, title: id, key, seq});
 

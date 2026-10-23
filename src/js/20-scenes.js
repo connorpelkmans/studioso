@@ -7,12 +7,10 @@
 (() => {
   const L = SCN20;
   const F_BAL = {s: 1, a: 1}, F_GENTLE = {s: 0.7, a: 0.7};
-  // Pixel density: 1.5 at most, 1.25 on big art areas (over about 1.5 million CSS pixels) so large screens stay smooth.
+  // Pixel density
   const DPR_MAX = 1.5, DPR_BIG = 1.25, BIG_AREA = 1.5e6, FRAME_MS = 31;
 
-  /* ---------- The nine new scene themes (Pro, "New Scenes" group) ----------
-     The plain free theme already uses the id "lavender", so Lavender Fields is "lavenderfields" in the app and
-     draws the library's "lavender" scene. */
+  /* The nine new scene themes */
   const SCENE_ALIAS = {lavenderfields: "lavender"};
   const sceneOf = id => SCENE_ALIAS[id] || id;
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
@@ -75,7 +73,7 @@
     lavenderfields: {motif: "sprig", card: ["#FBF9FE", "#ECE5F6"], ink: "#231A36", bd: "#D4C8EA", mc: "#8A5BC0", r: 18, notes: ["#E3D8F3"].concat(NOTES), shape: "rounded", pin: "gold", fab: "24px 24px 24px 6px", btn: "14px"},
     rooftops: {motif: "moon", card: ["#FAF9FB", "#E9E6EF"], ink: "#221E30", bd: "#D2CCDF", mc: "#B8502E", r: 8, notes: ["#EED6CC"].concat(NOTES), shape: "gridnote", pin: "binder", fab: "12px", btn: "8px"}
   };
-  // Motif shapes for the new kits' flashcards (same -12..12 box as the other FX_SHAPES).
+  // Motif shapes for the new kits' flashcards (same -12..12 box as the other FX_SHAPES)
   Object.assign(FX_SHAPES, {
     balloon: {d: "M0 -10.5C5.6 -10.5 8.2 -6.4 8.2 -2.8C8.2 1.8 3.6 5.4 1.3 7H-1.3C-3.6 5.4 -8.2 1.8 -8.2 -2.8C-8.2 -6.4 -5.6 -10.5 0 -10.5Z M-2.2 8.4H2.2V11.2H-2.2Z", detail: "M0 -10.2C-3.4 -6 -3.4 2 -1 6.8M0 -10.2C3.4 -6 3.4 2 1 6.8", dstroke: true},
     umbrella: {d: "M-11 1C-10 -7 -4 -10 0 -10C4 -10 10 -7 11 1C9 -0.6 7 -0.6 5.5 1C4 -0.6 1.6 -0.6 0 1C-1.6 -0.6 -4 -0.6 -5.5 1C-7 -0.6 -9 -0.6 -11 1Z M-0.7 0.4H0.7V7.6A2.3 2.3 0 0 1 -3.9 7.6H-2.5A0.9 0.9 0 0 0 -0.7 7.6Z"},
@@ -87,7 +85,7 @@
     sprig: {d: "M-0.6 -3H0.6V11H-0.6Z M-1.6 -10.6a1.6 1.8 0 1 0 3.2 0a1.6 1.8 0 1 0 -3.2 0Z M-4 -7a1.9 2.1 0 1 0 3.8 0a1.9 2.1 0 1 0 -3.8 0Z M0.2 -7a1.9 2.1 0 1 0 3.8 0a1.9 2.1 0 1 0 -3.8 0Z M-4.2 -2.8a2 2.2 0 1 0 4 0a2 2.2 0 1 0 -4 0Z M0.2 -2.8a2 2.2 0 1 0 4 0a2 2.2 0 1 0 -4 0Z"},
     moon: {d: "M3 -9.6A9.6 9.6 0 1 0 9.6 3A7.4 7.4 0 1 1 3 -9.6Z"}
   });
-  /* Task pop-ups for the nine new themes, in the same style as the others (see THEME_FX in the app). */
+  /* Task pop-ups for the nine new themes, in the same style as the others */
   const koiSwim = (W, H, n, cols, d) => Array.from({length: n}, (_, i) => { const left = i % 2 === 0, sp = fxR(2.2, 3.6), vx = (left ? 1 : -1) * sp, vy = -fxR(0.15, 0.8);
     return {shape: "fish", c: fxPick(cols), x: left ? fxR(-70, -20) : W + fxR(20, 70), y: fxR(H * 0.3, H * 0.95), vx, vy, g: 0, size: fxR(14, 22), rot: Math.atan2(vy, vx), vr: 0, sway: 0, life: 280, delay: Math.floor(fxR(0, 60)), glow: d ? 8 : 0}; });
   const sandGust = (W, H, n, cols) => Array.from({length: n}, () => ({shape: "circle", c: fxPick(cols), x: fxR(-W * 0.45, -10), y: fxR(H * 0.2, H), vx: fxR(5, 9), vy: fxR(-0.7, 0.2), g: 0, size: fxR(1.6, 3.4), rot: 0, vr: 0, sway: 0.9, swf: fxR(0.05, 0.1), life: 220, delay: Math.floor(fxR(0, 80)), alpha: 0.9}));
@@ -114,14 +112,14 @@
       .concat(fxTw(W, H, n(36), d ? "pixel" : "sparkle", d ? ["#FFD27F", "#FFE3A8"] : ["#F2B53A", "#FFD86B"], {smin: 2.5, smax: 5, glow: d ? 10 : 4}))}
   });
 
-  // New scene summaries for the Style Shop (the 37 redrawn themes).
+  // New scene summaries for the Style Shop (the 37 redrawn themes)
   const TAGS = {"ocean": "Gentle swells roll from a lighthouse island all the way to your feet", "summer": "A sunny beach seen from above, with turquoise water and two soft foam lines", "sunset": "A golden hour beach with the sun sinking into the sea and seashells on the sand", "galaxy": "A dreamy Milky Way with a ringed planet and soft twinkling starlight", "arctic": "Aurora ribbons over snowy peaks, a still lake and a cozy cabin", "winter": "A snowy valley with a cozy cabin, a frozen pond and a friendly snowman", "spring": "Rainbow tulip fields rolling toward a windmill, with butterflies resting on the flowers", "autumn": "A quiet park path through golden trees with maple and oak leaves drifting down", "sakura": "A cherry blossom branch over a calm lake below a snowy mountain", "forest": "Layer after layer of misty pine hills fading into the distance", "lemonade": "A sunny lemon grove with a striped lemonade stand", "mint": "Dreamy mint ice cream hills with fresh mint sprigs", "candy": "Pastel candy hills with lollipop trees and a candy path", "cafe": "A café window counter with steaming cups and coffee beans", "baking": "A sweet bakery with shelves of bread and a pastry case", "bokeh": "An evening meadow seen through a dreamy camera lens, with soft circles of colored light", "neon": "A quiet shop street at dusk, lit by glowing blue and magenta neon signs", "arcade": "The classic retro sunset: a striped sun sinking behind purple mountains over a glowing grid", "xmas": "A snowy village square with a glowing Christmas tree, strings of colored bulbs and a snowman", "newyear": "Colorful fireworks bursting over a quiet city skyline by the river", "cats": "A sunny cat room where an orange tabby bats a ball of yarn across the rug", "music": "A lavender music room with a piano, a guitar and a staff of notes flowing across the floor", "reading": "A book-lined nook with a window seat, an arc lamp and a stack of books with a ribbon bookmark", "knitting": "A sage green knitting corner with yarn cubbies, an armchair and two yarn balls with needles", "painting": "A sunny painter's studio with an easel, a paint palette and art on the walls", "gardening": "A bright greenhouse full of well-kept plants", "photography": "A golden-hour park path with photo prints on a string line", "gaming": "A soft, rounded game world with coins, a star power-up and a heart HUD", "valentines": "Heart balloons drifting up over a rolling rose garden", "easter": "An egg hunt in a spring meadow full of tulips", "stpatricks": "A pastel rainbow and tumbling shamrocks over green hills", "july4": "Fireworks over a lakeside town with a waving flag ribbon", "halloween": "Three jack-o'-lanterns with glowing faces on a moonlit hill", "thanksgiving": "A warm harvest field with a friendly turkey and an overflowing cornucopia", "hanukkah": "A menorah glowing in a snowy window, with a dreidel, gelt and a garland of stars", "diwali": "A rooftop terrace glowing with diyas, brass lanterns and a bright rangoli", "lunarnewyear": "Red lanterns over a misty lake with a plum blossom branch"};
   SKINS.forEach(s => { if (TAGS[s.id] && L.SCENES[s.id]) s.desc = TAGS[s.id] + "."; });
   NEW_SKINS.forEach(s => { if (L.SCENES[sceneOf(s.id)] && !SKINS.some(x => x.id === s.id)) { SKINS.push(Object.assign({tier: "pro", group: "newscenes"}, s)); THEME_KIT[s.id] = NEW_KITS[s.id]; } });
 
   const isScene = id => { if (!id || id === "terraces") return false; const s = SKINS.find(x => x.id === id); return !!(s && s.light && !s.plain && L.SCENES[sceneOf(id)]); };
 
-  /* ---------- Style Shop: a "New Scenes" section above the other Pro scenes ---------- */
+  /* Style Shop: a "New Scenes" section above the other Pro scenes */
   const origShop = styleShop;
   styleShop = function (tab) {
     const r = origShop.apply(this, arguments);
@@ -129,34 +127,31 @@
       if (ui.shopTab !== "themes") return r;
       const body = dlg.querySelector(".sheet.shop .sheet-body"); if (!body) return r;
       const mode = body.querySelector(".shop-mode"); if (mode && !mode.querySelector(".sc-moment")) mode.insertAdjacentHTML("beforeend", momentBtn());
-      // The newer scenes now sit in the one Pro · Scenes section (styleShop above)
     } catch (e) { console.warn("scenes shop", e); }
     return r;
   };
 
-  /* ---------- Conditions ---------- */
+  /* Conditions */
   const mqReduce = window.matchMedia ? matchMedia("(prefers-reduced-motion: reduce)") : null;
   const reduced = () => !!(mqReduce && mqReduce.matches);
   let lowBattery = false;
   try { if (navigator.getBattery) navigator.getBattery().then(b => { const u = () => { lowBattery = !b.charging && b.level < 0.2; syncRun(); }; b.addEventListener("levelchange", u); b.addEventListener("chargingchange", u); u(); }).catch(() => {}); } catch (e) {}
-  const MO = () => window.SBMotion || null;   // the Animations governor (99-motion-a11y-tz.js): level, frame rate, pause rules
-  const liveOK = () => styleCfg().motion !== false && (!lowBattery || !!MO()) && (!reduced() || (!!MO() && MO().pref() === "full")) && (!MO() || MO().live());   // with the governor: low battery is its call (Auto only), and an explicit Full beats the system setting
+  const MO = () => window.SBMotion || null;
+  const liveOK = () => styleCfg().motion !== false && (!lowBattery || !!MO()) && (!reduced() || (!!MO() && MO().pref() === "full")) && (!MO() || MO().live());
 
-  /* ---------- The scene on screen ---------- */
+  /* The scene on screen */
   let cur = null, raf = 0, rafT = 0, last = 0, T = 0, finUntil = 0, rebuildTimer = 0;
   const stopLoop = () => { cancelAnimationFrame(raf); clearTimeout(rafT); raf = 0; rafT = 0; };
-  // Sleep between frames (a timer, then one rAF) so a 15 or 30 fps scene does not wake the page on every 60 Hz refresh.
+  // Sleep between frames
   const nextFrame = () => { const gap = MO() ? MO().frameMs() : FRAME_MS, wait = last ? gap - (performance.now() - last) + 1 : 0; if (gap > 45 && wait > 4) { rafT = setTimeout(() => { rafT = 0; if (raf === -1) raf = requestAnimationFrame(tick); }, wait); return -1; } return requestAnimationFrame(tick); };
-  const broken = new Set();   // scene ids whose engine threw: shown as a still scene from then on
+  const broken = new Set();
 
   function geometry(){
     const nav = document.querySelector("nav.tabs"), r = nav && nav.getBoundingClientRect();
     const side = r && r.left < 4 && r.height > innerHeight * 0.6 ? Math.round(r.right) : 0;
-    // a full-width bottom bar keeps the scene above it; the phone's floating bar (inset from the edges) has the scene run underneath to the bottom
     const floating = r && r.left >= 4 && r.right <= innerWidth - 4;
     const foot = r && !side && !floating && r.top > innerHeight * 0.6 ? Math.max(0, Math.round(innerHeight - r.top - 4)) : 0;
     const W = Math.max(1, innerWidth - side), H = Math.max(1, innerHeight - foot), desk = W / H >= 0.9;
-    // Scale so the scene keeps the proportions it was designed at (1200x800 desktop, 390x~770 phone).
     const k = Math.max(0.8, Math.min(3, desk ? Math.min(W / 1200, H / 800) : Math.min(W / 390, H / 760)));
     return {side, foot, W, H, desk, k, bw: Math.round(W / k), bh: Math.round(H / k)};
   }
@@ -169,15 +164,13 @@
     ["s", "t"].forEach(key => { if (Ly[key].d) inner += `<path d="${Ly[key].d}" fill="none" stroke="${Ly[key].c}" stroke-width="${Ly[key].w}" stroke-linecap="round" stroke-linejoin="round"/>`; });
     if (!inner) return "";
     const box = pad ? `left:${-40 * k}px;top:${-40 * k}px;width:${v.pw * k}px;height:${v.phh * k}px` : `left:0;top:0;width:${v.bw * k}px;height:${v.bh * k}px`;
-    // A soft (far-away) layer is blurred inside the SVG rather than with CSS filter:blur on the whole big layer: iPhone Safari
-    // sometimes drew a stray coloured line across the screen at the tile seams of a CSS-blurred layer. (1 viewBox unit = k px.)
     if (!Ly.blur) return `<svg class="sc-l" viewBox="${pad ? v.vbPad : v.vb}" preserveAspectRatio="none" style="${box}">${inner}</svg>`;
     const fid = "scb" + (++blurN);
     return `<svg class="sc-l" viewBox="${pad ? v.vbPad : v.vb}" preserveAspectRatio="none" style="${box}"><defs><filter id="${fid}" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="${Ly.blur.toFixed(2)}"/></filter></defs><g filter="url(#${fid})">${inner}</g></svg>`;
   }
 
   function makeScene(id, dk, g){
-    if (!L.ready()) return null;   // the scene library (bundle/scenes.js) isn't here yet: skinart loads it and draws again
+    if (!L.ready()) return null;
     const sc = sceneOf(id), wantEng = !!L.ENGINES[sc] && !broken.has(sc);
     let A = null, v = null, eng = null;
     if (wantEng) {
@@ -199,11 +192,9 @@
     const band = v.band.h ? `<div class="sc-band" style="top:${v.band.top * k}px;height:${v.band.h * k}px;background:${v.band.bg}"></div>` : "";
     el.innerHTML = band + layerHtml(v.far, true, v, k) + layerHtml(v.refl, true, v, k) + layerHtml(v.mid, true, v, k)
       + (eng ? `<canvas class="sc-cv sc-a"></canvas>` : "") + layerHtml(v.near, false, v, k) + (eng && eng.stat ? `<canvas class="sc-cv sc-s"></canvas>` : "") + (eng ? `<canvas class="sc-cv sc-b"></canvas>` : "");
-    const dpr = Math.min(g.W * g.H > BIG_AREA ? DPR_BIG : DPR_MAX, eng && eng.maxDpr || 9, window.devicePixelRatio || 1) * (MO() ? MO().dprScale() : 1), s = k * dpr;   // eng.maxDpr: a scene made of soft glows needs no retina-sized canvases
+    const dpr = Math.min(g.W * g.H > BIG_AREA ? DPR_BIG : DPR_MAX, eng && eng.maxDpr || 9, window.devicePixelRatio || 1) * (MO() ? MO().dprScale() : 1), s = k * dpr;
     const cvs = eng ? [el.querySelector(".sc-a"), el.querySelector(".sc-b")] : [];
     cvs.forEach(c => { c.width = Math.round(g.W * dpr); c.height = Math.round(g.H * dpr); c.style.width = g.W + "px"; c.style.height = g.H + "px"; });
-    // An engine's unchanging decor (eng.stat, an offscreen canvas) is painted ONCE into its own canvas between the near layer and
-    // the animated canvas, instead of being blitted across the whole screen on every frame.
     const sCv = eng && eng.stat ? el.querySelector(".sc-s") : null;
     if (sCv) { sCv.width = eng.stat.width; sCv.height = eng.stat.height; sCv.style.width = g.W + "px"; sCv.style.height = g.H + "px"; sCv.getContext("2d").drawImage(eng.stat, 0, 0); eng.hosted = true; }
     stopLoop(); last = 0; T = 0;
@@ -223,14 +214,12 @@
   const feel = () => reduced() ? F_GENTLE : F_BAL;
   function drawFrame(){
     const c = cur; if (!c || !c.eng) return;
-    // Optional engine hints: eng.uses = "a" | "b" says which canvas it draws on (the other is never cleared),
-    // and eng.idle(t) returning true means nothing changed since the last frame, so both canvases are left as they are.
     if (c.drawn && c.eng.idle && c.eng.idle(T)) return;
     const uses = typeof c.eng.uses === "string" ? c.eng.uses : "ab";
     c.ctx.forEach((x, i) => { if (uses.indexOf(i ? "b" : "a") < 0) return; x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, x.canvas.width, x.canvas.height); x.setTransform(c.s, 0, 0, c.s, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = "source-over"; });
     c.eng.draw(c.ctx[0], c.ctx[1], T, feel()); c.drawn = true;
   }
-  // An engine that throws is dropped and the theme is redrawn as a still scene.
+  // An engine that throws is dropped and the theme is redrawn as a still scene
   function safe(fn){
     try { fn(); return true; }
     catch (e) { console.warn("scene engine " + (cur && cur.sc), e); if (cur) { broken.add(cur.sc); const id = cur.id; cur = null; build(id); } return false; }
@@ -252,41 +241,36 @@
     if (!cur || !cur.eng || raf || document.hidden) return;
     if ((liveOK() && !popup) || performance.now() < finUntil) { last = 0; raf = requestAnimationFrame(tick); }
   }
-  // While a task pop-up plays in front of the page, the scene's loop rests (one animation at a time keeps it smooth).
+  // While a task pop-up plays in front of the page, the scene's loop rests
   let popup = false;
   const origPause = ambientPause;
   ambientPause = function (on) { origPause.apply(this, arguments); popup = !!on; if (!on) syncRun(); };
   document.addEventListener("visibilitychange", () => { if (document.hidden) { stopLoop(); } else syncRun(); });
   if (mqReduce) (mqReduce.addEventListener ? mqReduce.addEventListener("change", () => { stopLoop(); syncRun(); }) : mqReduce.addListener(syncRun));
-  // The Animations governor changed something (mode, power, focus, idle, quality step): stop or restart the loop, and redraw at a new pixel density if it changed.
+  // The Animations governor changed something (mode, power, focus, idle, quality step)
   window.addEventListener("sb-motion", () => {
     stopLoop(); last = 0;
     if (cur && cur.eng && MO() && cur.dprK !== MO().dprScale()) { build(cur.id); return; }
     syncRun();
   });
 
-  /* ---------- Hooks ---------- */
+  /* Hooks */
   hook("skinart", () => {
     const id = document.documentElement.dataset.skin;
     if (!isScene(id)) { teardown(); return false; }
-    // a scene theme, but the library isn't loaded yet (the theme was just picked): load it, then draw
     if (!L.ready()) { L.load().then(ok => { if (ok && document.documentElement.dataset.skin === id) renderSkinArt(); }); teardown(); return false; }
     const dk = isDarkNow(), g = geometry(), sig = sigOf(id, dk, g);
     if (!cur || cur.id !== id) return build(id) || (teardown(), false);
     if (cur.sig !== sig) {
-      // Resize or light/dark change: rebuild shortly after it settles; meanwhile keep the current scene in place.
       clearTimeout(rebuildTimer);
       rebuildTimer = setTimeout(() => { if (cur && cur.id === id) build(id); }, dk !== cur.dk ? 60 : 220);
       cur.el.style.left = g.side + "px";
     }
-    stopLoop(); syncRun();   // the motion switch or battery state may have changed
+    stopLoop(); syncRun();
     return true;
   });
 
-  /* ---------- Scene moments ----------
-     Finishing a task plays the theme's pop-up in front of the page (the app's celebrate). The scene's own moment
-     (the engine's finish) plays for bigger wins: a Focus session, a flashcard study session or quiz, and clearing
-     Today's Plan. The student can also play it on purpose from the Style Shop or Settings. */
+  /* Scene moments Finishing a task plays the theme's pop-up in front of the page */
   const hasMoment = () => !!(cur && cur.eng && cur.id === document.documentElement.dataset.skin);
   function sceneMoment(byUser){
     if (!hasMoment() || document.hidden || (MO() && MO().level() === "static")) return false;
@@ -300,7 +284,7 @@
   }
   const later = (ms, byUser) => setTimeout(() => sceneMoment(byUser), ms);
 
-  // A Focus session ends: play once the alarm card is closed, so the scene isn't hidden behind it.
+  // A Focus session ends
   const origPomoFinish = pomoFinish;
   pomoFinish = function (missed) {
     const focusEnded = pomo.running && pomo.mode === "focus" && !missed;
@@ -311,7 +295,7 @@
     }
     return r;
   };
-  // A flashcard study session or a quiz round ends.
+  // A flashcard study session or a quiz round ends
   const origRate = rateCard;
   rateCard = function () {
     const f = ui.fc, r = origRate.apply(this, arguments);
@@ -322,7 +306,7 @@
   finishQuiz = function () { const r = origQuiz.apply(this, arguments); later(700); return r; };
   const origAiFinish = aiFinish;
   aiFinish = function () { const r = origAiFinish.apply(this, arguments); later(700); return r; };
-  // The last task on Today's Plan is done: the task's pop-up plays first, then the scene moment.
+  // The last task on Today's Plan is done
   hook("changed", changes => {
     const F = FOCUS; if (!F || !hasMoment()) return;
     const done = changes.filter(c => c.kind === "task" && c.after && c.after.status === "done" && F.info[c.id]);
@@ -331,7 +315,7 @@
     if (!planned.length || !done.some(c => planned.includes(c.id))) return;
     if (planned.every(id => state.tasks[id] && state.tasks[id].status === "done")) later(2600);
   });
-  // On purpose: Style Shop (Themes tab) and Settings (which also makes it a Search action).
+  // On purpose: Style Shop (Themes tab) and Settings (which also makes it a Search action)
   const momentBtn = () => hasMoment() ? `<button type="button" class="btn small sc-moment" data-act="scene-moment">Play Scene Moment</button>` : "";
   hook("menu", () => hasMoment() ? `<button data-act="scene-moment"><span>Play Scene Moment<span class="sub">Watch your theme's scene do its little celebration</span></span></button>` : "");
   hook("act", act => {
@@ -341,7 +325,7 @@
     return true;
   });
 
-  // Pointer positions for engines that react to them (the art sits under the page, so listen on the document).
+  // Pointer positions for engines that react to them
   let lastPtr = 0;
   document.addEventListener("pointermove", e => {
     const c = cur; if (!c || !c.eng || !c.eng.pointer || e.pointerType === "touch" || !raf) return;
@@ -351,10 +335,10 @@
   }, {passive: true});
   document.documentElement.addEventListener("pointerleave", () => { const c = cur; if (c && c.eng && c.eng.pointer) safe(() => c.eng.pointer(null)); });
 
-  /* ---------- Style Shop previews: a still scene as one small SVG image, cached per theme and mode ---------- */
+  /* Style Shop previews */
   const TH_W = 640, TH_H = 400, thumbs = new Map();
   function splitTop(s){ const out = []; let d = 0, st = 0; for (let i = 0; i < s.length; i++) { const ch = s[i]; if (ch === "(") d++; else if (ch === ")") d--; else if (ch === "," && !d) { out.push(s.slice(st, i).trim()); st = i + 1; } } out.push(s.slice(st).trim()); return out; }
-  // CSS gradient (as the scenes write them) -> SVG defs + rect. Handles linear-gradient(Ndeg,...), radial-gradient(rx% ry% at x% y%,...) and plain colors, layered.
+  // CSS gradient (as the scenes write them) -> SVG defs + rect
   function cssToSvg(css, x, y, w, h, uidp){
     let defs = "", rects = "";
     splitTop(css).reverse().forEach((layer, li) => {
@@ -404,7 +388,7 @@
     }
     return thumbs.get(key);
   }
-  // Style Shop previews before the library is here: an empty picture now, filled in when it has loaded
+  // Style Shop previews before the library is here
   function fillThumbs(){
     document.querySelectorAll("img[data-scn-thumb]").forEach(im => {
       const [id, dk] = im.dataset.scnThumb.split("|"); im.removeAttribute("data-scn-thumb");

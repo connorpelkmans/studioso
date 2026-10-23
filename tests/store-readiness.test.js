@@ -1,19 +1,14 @@
-// Store-readiness guards (static checks, no browser). Run: node tests/store-readiness.test.js
-//  1. every table that holds user data is handled by account deletion (cascade or explicit) and storage is covered
-//  2. the in-app privacy policy and website/privacy.html state the same key facts, with the same sections and date
-//  3. no third-party / social login exists (Sign in with Apple is therefore not required)
-//  4. the auth email templates use the right variables and have the app name, a plain-text link fallback and no trackers
-//  5. the Pro sheet has auto-renewal wording, Terms and Privacy links, and Restore Purchases is reachable
+// Store-readiness guards (static checks, no browser)
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const root = path.join(__dirname, "..");
 const read = p => fs.readFileSync(path.join(root, p), "utf8");
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 
-/* ---------- 1. deletion coverage ---------- */
+/* 1. deletion coverage */
 const sqlFiles = fs.readdirSync(root).filter(f => /^supabase-.*\.sql$/.test(f) && !/selftest/.test(f));
 const lean = read("supabase-lean.sql");
 const worker = lean.slice(lean.indexOf("function public.studyboard_delete_user_data"), lean.indexOf("create or replace function public.studyboard_delete_my_account"));
-const tables = {};   // table -> {fkCascade: bool, userCols: Set}
+const tables = {};
 for (const f of sqlFiles) {
   const s = read(f);
   for (const m of s.matchAll(/create table if not exists public\.(\w+)\s*\(([\s\S]*?)\n\);/g)) {
@@ -32,10 +27,10 @@ ok(Object.keys(tables).length > 25, "found the tables");
 for (const [t, v] of Object.entries(tables)) {
   for (const c of v.plain) ok(mentioned(t), `${t}.${c} holds a user id with no foreign key: the delete worker must handle it`);
   for (const c of v.setnull) ok(mentioned(t) || t === "group_reports", `${t}.${c} is set null by the foreign key: confirm that is the intended rule`);
-  // cascade tables are removed with the auth row; the explicit list in the worker is a belt-and-braces and gives the audit row counts
+  // cascade tables are removed with the auth row
   for (const c of v.cascade) ok(mentioned(t) || t === "study_groups", `${t}.${c} cascades from auth.users but is not in the worker list (add it so the Edge Function path deletes it before the auth row goes)`);
 }
-// client_errors (crash reports) has no user id by design: a random per-install id only. Exempt, with the reason asserted.
+// client_errors (crash reports) has no user id by design
 ok(!/client_errors[\s\S]*?user_id/.test(read("supabase-error-reports.sql").match(/create table if not exists public\.client_errors[\s\S]*?\n\);/)[0]) && /anon_id\s+text/.test(read("supabase-error-reports.sql")), "client_errors holds no user id (random anon_id only), so deletion has nothing to unlink");
 ok(mentioned("capture_inbox") && mentioned("capture_tokens") && mentioned("group_tasks"), "worker covers capture tables and group tasks");
 ok(/split_part\(name, '\/', 1\) = p_uid::text/.test(worker) && /delete from storage\.objects/.test(worker), "worker sweeps storage rows it is allowed to");
@@ -45,8 +40,8 @@ const fn = read("supabase-functions/delete-account/index.ts");
 ok(/storage\/v1\/object\/\$\{BUCKET\}/.test(fn) && /admin\/users/.test(fn) && /studyboard_delete_user_data/.test(fn) && /api\.stripe\.com\/v1\/subscriptions/.test(fn), "edge function removes files, DB rows, Stripe subs and the auth user");
 ok(/const BUCKET = "studioso-files"/.test(fn), "bucket name matches");
 
-/* ---------- 2. privacy policy sync ---------- */
-const app = require("../scripts/app-files").source();   // the whole app page (index.html and its js/, css/ files)
+/* 2. privacy policy sync */
+const app = require("../scripts/app-files").source();
 const appPrivacy = app.slice(app.indexOf("const PRIVACY = () =>"), app.indexOf("const TERMS = () =>")).replace(/`;\s*$/, "");
 const web = read("website/privacy.html");
 const webPrivacy = web.slice(web.indexOf("<h1>Privacy Policy</h1>"), web.indexOf("</div></section>", web.indexOf("<h1>Privacy Policy</h1>")));
@@ -76,14 +71,14 @@ const site = read("website/index.html");
 ok(/auto-renewing subscription/.test(site) && /href="terms(\.html)?"/.test(site) && /href="privacy(\.html)?"/.test(site), "website pricing has the renewal disclosure and links");
 for (const f of ["website/index.html", "website/privacy.html", "website/terms.html", "website/account/index.html", "website/success.html", "website/cancel.html"]) ok(/href="(\.\.\/)?privacy(\.html)?"/.test(read(f)) && /href="(\.\.\/)?terms(\.html)?"/.test(read(f)), f + " footer links to privacy and terms");
 
-/* ---------- 3. no social login ---------- */
+/* 3. no social login */
 const authFiles = [["index.html", require("../scripts/app-files").source()]].concat(["website/account/account.js", "website/account/index.html", "SETUP-GUIDE.md", "lms.js", "sw.js"].map(f => [f, read(f)]));
 for (const [f, s] of authFiles) {
   ok(!/signInWithOAuth|signInWithIdToken|signInWithSSO|linkIdentity|provider:\s*["'](google|facebook|apple|github|azure|twitter|discord)/i.test(s), f + ": no OAuth/social sign-in call");
   ok(!/Continue with (Google|Facebook|Apple)|Sign in with (Google|Facebook)|accounts\.google\.com\/gsi|appleid\.auth|connect\.facebook\.net/i.test(s), f + ": no social login button or SDK");
 }
 
-/* ---------- 4. email templates ---------- */
+/* 4. email templates */
 const T = {"confirm-signup.html": ["Token", "ConfirmationURL"], "reset-password.html": ["Token", "ConfirmationURL"], "magic-link.html": ["Token", "ConfirmationURL"], "change-email.html": ["Token", "ConfirmationURL", "NewEmail"], "invite.html": ["ConfirmationURL"], "reauthentication.html": ["Token"]};
 for (const [f, vars] of Object.entries(T)) {
   const s = read(f);
@@ -96,9 +91,9 @@ for (const [f, vars] of Object.entries(T)) {
   ok(/color-scheme/.test(s) && /role="presentation"/.test(s), f + " is a simple table layout");
 }
 
-/* ---------- 5. restore purchases reachable ---------- */
+/* 5. restore purchases reachable */
 ok((app.match(/data-act="plan-restore"/g) || []).length >= 2, "Restore Purchases in the Pro sheet and in Settings");
-ok(/studyboard:purchase-result/.test(app) && /studyboard:plan-restore/.test(app), "purchase-result receiver and cancelable events exist");
+ok(/studyboard:purchase-result/.test(app) && /new CustomEvent\("studyboard:" \+ name, \{cancelable: true/.test(app) && /"plan-restore": userId =>/.test(app), "purchase-result receiver and cancelable events exist");
 ok(/studyboard:purchase-result/.test(read("ios-wrapper/README-IOS.md")) && /studyboard:purchase-result/.test(read("ios-wrapper/native-bridge.js")), "bridge contract documented and exampled");
 
 console.log(`store-readiness: ${n} checks passed`);

@@ -1,8 +1,6 @@
-// Studyboard offline support: keeps a copy of the app so it opens with no internet.
-// Your data is never stored here; it lives in the app itself and in your Supabase account.
+// Studyboard offline support
 const CACHE = "studyboard-v9";
-// CORE must exist for the app to work offline. OPTIONAL files (icons) may be missing, in the icons/ folder layout or the
-// flat layout; a missing one never stops the service worker from installing.
+// CORE must exist for the app to work offline
 const CORE = ["./", "./index.html"];
 const OPTIONAL = ["./manifest.webmanifest", "./today.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/maskable-512.png", "./icons/apple-touch-icon.png",
   "./icon-192.png", "./icon-512.png", "./maskable-512.png", "./apple-touch-icon.png",
@@ -13,19 +11,14 @@ const OPTIONAL = ["./manifest.webmanifest", "./today.webmanifest", "./icons/icon
   "./vendor/fonts/atkinson-hyperlegible-next-latin-700-normal.woff2",
   "./vendor/fonts/atkinson-hyperlegible-latin-400-normal.woff2", "./vendor/fonts/atkinson-hyperlegible-latin-700-normal.woff2",
   "./vendor/fonts/permanent-marker-latin-400-normal.woff2", "./vendor/fonts/patrick-hand-latin-400-normal.woff2", "./vendor/fonts/caveat-latin-400-normal.woff2", "./vendor/fonts/kalam-latin-400-normal.woff2", "./vendor/fonts/gochi-hand-latin-400-normal.woff2"];
-// PDF.js (same-origin, ES modules) is saved too so a PDF can be imported offline; if it isn't there the fetch handler saves it on first use.
+// PDF.js (same-origin, ES modules) is saved too so a PDF can be imported offline
 OPTIONAL.push("./vendor/pdfjs/pdf.min.mjs", "./vendor/pdfjs/pdf.worker.min.mjs", "./locales/es.json");
-// fzstd unpacks newer Anki files (Import From Another App), so it is saved too for importing offline.
+// fzstd unpacks newer Anki files (Import From Another App)
 OPTIONAL.push("./vendor/fzstd-0.1.1.umd.js");
-// Same-origin vendored libraries and fonts are precached (OPTIONAL, so a missing one never blocks install). The CDN copy is only the
-// fallback the page uses if the vendored file can't load: it is never fetched in advance (that would contact the CDN on every install),
-// only cached by the fetch handler below on the rare visit that actually needs it.
+// Same-origin vendored libraries and fonts are precached
 const LIB_HOSTS = ["cdn.jsdelivr.net"];
 
-// The app page loads its code and styles from bundle/ (app.js, app.css, and files loaded only when needed), each named with ?v= and a hash
-// of its content (scripts/app-files.js).
-// A page and its files are saved together: a new page is only kept once every file it names is saved, so the offline copy never mixes
-// two versions. The files of the page before stay too, for a page that is still open and loads one of them later.
+// The app page loads its code and styles from bundle/
 const PART = /bundle\/[^"'?\s]+\?v=[0-9a-f]+/g;
 const partsOf = html => [...new Set(String(html).match(PART) || [])].map(p => "./" + p);
 const isPart = url => url.origin === location.origin && /\?v=[0-9a-f]+$/.test(url.search) && /\/bundle\/[^/]+$/.test(url.pathname);
@@ -55,20 +48,13 @@ self.addEventListener("activate", e => {
 const timeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))]);
 self.addEventListener("fetch", e => {
   const req = e.request, url = new URL(req.url);
-  // Quick capture: the Web Share Target (manifest share_target) POSTs shared text and photos here. Handled, never cached.
   if (req.method === "POST" && url.origin === location.origin && /\/share-target$/.test(url.pathname)) { e.respondWith(sbcShare(req)); return; }
   if (req.method !== "GET" || !/^https?:$/.test(url.protocol)) return;
-  if (req.headers.has("range") || req.headers.has("authorization")) return;   // never cache ranged or authenticated requests
-  // Only the app's own address counts as "the app page". (It used to be any address ending in "/", so opening /website/account/ saved
-  // that page as the app's offline copy and the app then opened as a broken account page.)
+  if (req.headers.has("range") || req.headers.has("authorization")) return;
   const scope = new URL("./", location.href).pathname;
   const isApp = url.origin === location.origin && (url.pathname === scope || url.pathname === scope + "index.html");
-  // The website pages (pricing, account, billing, legal) live under /website/ and always come straight from the network.
   if (url.origin === location.origin && url.pathname.startsWith(scope + "website/")) return;
-  // Other pages next to the app (invite, reset-password...) go straight to the network and never replace the saved app page.
   if (req.mode === "navigate" && url.origin === location.origin && !isApp) return;
-  // The app page: the saved copy opens right away (the page is several MB, so waiting for the network left a blank screen on every refresh),
-  // and the newest version is fetched in the background and used on the next open. First visit or nothing saved: the network, then offline fallback.
   if (isApp || req.mode === "navigate") {
     e.respondWith((async () => {
       const c = await caches.open(CACHE);
@@ -82,7 +68,6 @@ self.addEventListener("fetch", e => {
     })());
     return;
   }
-  // The page's code and style files (bundle/): a ?v= address never changes content, so the saved copy is used as it is.
   if (isPart(url)) {
     e.respondWith((async () => {
       const c = await caches.open(CACHE), hit = await c.match(req);
@@ -93,9 +78,7 @@ self.addEventListener("fetch", e => {
     })());
     return;
   }
-  // Icons and other files next to the app.
   if (url.origin === location.origin) {
-    // Saved copy right away, refreshed in the background so updated files arrive on the next visit.
     e.respondWith((async () => {
       const c = await caches.open(CACHE), hit = await c.match(req);
       const net = fetch(req).then(r => { if (r.ok && r.type === "basic") c.put(req, r.clone()); return r; }).catch(() => null);
@@ -104,7 +87,6 @@ self.addEventListener("fetch", e => {
     })());
     return;
   }
-  // Fonts and libraries: use the saved copy right away and refresh it in the background.
   if (LIB_HOSTS.includes(url.hostname)) {
     e.respondWith((async () => {
       const c = await caches.open(CACHE), hit = await c.match(req);
@@ -112,13 +94,9 @@ self.addEventListener("fetch", e => {
       return hit || (await net) || Response.error();
     })());
   }
-  // Everything else (your Supabase account) goes straight to the network.
 });
 
-// ---------- Reminders (Studyboard 1.11) ----------
-// Shows reminders sent by your Supabase project while Studyboard is closed, and handles taps on them:
-// tapping opens Studyboard on that task, Snooze 1 Hour brings it back in an hour, Mark Done completes the task.
-// Reminders shown by the open app use the same tag, so one reminder never shows twice on a device.
+// Reminders (Studyboard 1.11)
 const SBR_ICON = "./icons/icon-192.png";
 function sbrData(d) {
   d = d && typeof d === "object" ? d : {};
@@ -133,14 +111,13 @@ self.addEventListener("push", e => {
   const actions = [{action: "snooze", title: "Snooze 1 Hour"}].concat(data.taskId ? [{action: "done", title: "Mark Done"}] : []);
   e.waitUntil(self.registration.showNotification(data.title, {body: data.body, tag: data.rid || undefined, data, icon: SBR_ICON, badge: SBR_ICON, actions, timestamp: Date.now()}));
 });
-// The browser renewed this device's subscription: subscribe again with the same key. The app saves it next time it opens.
+// The browser renewed this device's subscription
 self.addEventListener("pushsubscriptionchange", e => {
   const key = e.oldSubscription && e.oldSubscription.options && e.oldSubscription.options.applicationServerKey;
   if (!key) return;
   e.waitUntil(self.registration.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: key}).catch(() => {}));
 });
 async function sbrServer(d, action) {
-  // Works with Studyboard closed: the reminder's own code lets your Supabase snooze it or complete the task.
   if (!d.api || !d.tok || !/^https:\/\//.test(d.api)) return false;
   const headers = {"Content-Type": "application/json"};
   if (d.k) { headers.apikey = d.k; if (/^eyJ/.test(d.k)) headers.Authorization = "Bearer " + d.k; }
@@ -151,7 +128,7 @@ async function sbrServer(d, action) {
 }
 self.addEventListener("notificationclick", e => {
   const n = e.notification, d = n.data || {};
-  if (!d.sbRem) return;                      // not a Studyboard reminder
+  if (!d.sbRem) return;
   const act = e.action === "snooze" || e.action === "done" ? e.action : "open";
   n.close();
   e.waitUntil((async () => {
@@ -160,7 +137,6 @@ self.addEventListener("notificationclick", e => {
     const msg = {type: "sb-reminder", action: act, rid: d.rid, taskId: d.taskId, title: d.title, body: d.body};
     if (act !== "open") {
       if (await sbrServer(d, act)) {
-        // A short confirmation that closes itself.
         try {
           await self.registration.showNotification(act === "done" ? "Marked Done" : "Snoozed for 1 Hour", {body: d.title, tag: "sbr-ack", icon: SBR_ICON, silent: true});
           await new Promise(r => setTimeout(r, 4000));
@@ -182,10 +158,7 @@ self.addEventListener("notificationclick", e => {
   })());
 });
 
-// ---------- Windows 11 Widgets board: the Studyboard Today widget ----------
-// Only Microsoft Edge on Windows 11 shows these (for Studyboard installed as an app). Everywhere else self.widgets
-// doesn't exist and none of this runs. The Studyboard page sends its latest Today data here whenever it changes;
-// it's kept in the offline cache so the widget still shows your day when Studyboard is closed.
+// Windows 11 Widgets board
 const SBW_TAG = "today";
 const SBW_CACHE = typeof CACHE === "string" ? CACHE : "studyboard-v1";
 const sbwUrl = rel => new URL(rel, self.registration.scope).href;
@@ -198,7 +171,7 @@ async function sbwText(url, preferCache){
   const hit = await c.match(url);
   return hit ? hit.text() : "{}";
 }
-// Template from the network when possible (so updates arrive), data from what the page last sent.
+// Template from the network when possible (so updates arrive)
 async function sbwPayload(def){
   const template = await sbwText((def && def.msAcTemplate) || SBW_TEMPLATE, false);
   const data = await sbwText(SBW_DATA, true);
@@ -227,8 +200,7 @@ if (self.widgets) {
     e.waitUntil(sbwClick(verb, id));
   });
 }
-// Buttons on the widget: check off or open a task, open Studyboard, or Quick Add.
-// An open Studyboard window does it right away; otherwise Studyboard opens and does it as it starts.
+// Buttons on the widget
 async function sbwClick(verb, id){
   const ok = ["open", "quickadd", "task", "done"].includes(verb) ? verb : "open";
   const wins = await self.clients.matchAll({type: "window", includeUncontrolled: false});
@@ -238,7 +210,7 @@ async function sbwClick(verb, id){
   const q = ok === "quickadd" ? "?action=quickadd" : ok === "task" && id ? "?task=" + encodeURIComponent(id) : ok === "done" && id ? "?action=done&task=" + encodeURIComponent(id) : "?action=today";
   try { await self.clients.openWindow(sbwUrl("./") + q); } catch (e) {}
 }
-// Crash reports (ERROR-REPORTING.md): the page asks which worker version it has, and gets told about this worker's own errors. The page scrubs and sends them; the worker never makes a network call for this.
+// Crash reports (ERROR-REPORTING.md)
 self.addEventListener("message", e => {
   const m = e.data;
   if (m && m.type === "sb-sw-ping" && e.source && typeof e.source.postMessage === "function") { try { e.source.postMessage({type: "sb-sw-info", v: CACHE}); } catch (err) {} }
@@ -252,10 +224,9 @@ async function sbTell(err) {
 }
 self.addEventListener("error", e => { sbTell(e.error || e.message); });
 self.addEventListener("unhandledrejection", e => { sbTell(e.reason); });
-// The page's latest Today data (see modules/70-widgets.js).
+// The page's latest Today data (see modules/70-widgets.js)
 self.addEventListener("message", e => {
   const m = e.data;
-  // Only Studyboard's own pages (inside this worker's scope) may feed the widget.
   if (!e.source || typeof e.source.url !== "string" || !e.source.url.startsWith(self.registration.scope)) return;
   if (!m || m.type !== "sb-widget-data" || !m.data || typeof m.data !== "object") return;
   let text; try { text = JSON.stringify(m.data); } catch (err) { return; }
@@ -267,10 +238,7 @@ self.addEventListener("message", e => {
   })().catch(() => {}));
 });
 
-// ---------- Quick capture: share target (Studyboard 1.12) ----------
-// Android, ChromeOS and desktop installs list Studyboard in the system Share menu. The shared text and photos are checked (images only, at most
-// 10 files, 15 MB each), kept for a few minutes in a private cache so the page can read them after the redirect, and the page deletes them as it reads.
-// Anything not read is swept out after 10 minutes. iPhone Safari web apps don't support share targets (the iOS app has a share extension instead).
+// Quick capture
 const SBC_STAGE = "sb-capture-stage", SBC_FILES = 10, SBC_BYTES = 15 * 1048576, SBC_TTL = 10 * 60 * 1000, SBC_IMG = /^image\/(png|jpe?g|webp|gif|heic|heif|avif|bmp)$/i;
 async function sbcSweep(c) {
   const now = Date.now();

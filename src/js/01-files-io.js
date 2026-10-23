@@ -1,5 +1,5 @@
 /* ===== module: 01-files-io.js: the app's core, calendar export, zip archives, automatic backups, the desktop app's folder ===== */
-/* ---------- Calendar export (.ics inside a .zip) ---------- */
+/* Calendar export (.ics inside a .zip) */
 function icsEscape(s){ return String(s || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n"); }
 function fold(line){ const out = []; while (line.length > 74) { out.push(line.slice(0, 74)); line = " " + line.slice(74); } out.push(line); return out.join("\r\n"); }
 function buildIcs(){
@@ -54,7 +54,7 @@ function calExportSheet(){
     const {text} = buildIcs();
     const dl = caps.downloads || await useCap("downloads");
     if (!dl) {
-      if (!inClaude()) { saveBlob("studyboard-deadlines.ics", text, "text/calendar"); dlg.close(); toast("Calendar file saved"); return; }
+      if (!inPreview()) { saveBlob("studyboard-deadlines.ics", text, "text/calendar"); dlg.close(); toast("Calendar file saved"); return; }
       toast("Downloads aren't available here"); return;
     }
     try { await dl.save({filename: "studyboard-deadlines.zip", data: zipOne("studyboard-deadlines.ics", text)}); dlg.close(); toast("Calendar file saved"); }
@@ -65,7 +65,7 @@ function calExportSheet(){
   });
 }
 
-/* ---------- Zip archives (backups that include your uploaded files) ---------- */
+/* Zip archives (backups that include your uploaded files) */
 function zipMany(entries){
   const enc = new TextEncoder(), parts = [], central = [];
   let off = 0;
@@ -104,14 +104,13 @@ function unzipStored(buf){
 async function assetBytes(id){
   if (DESK) { const hit = deskRevOf(id); if (hit) { for (const rel of deskCandidates(hit.f, hit.i)) { const b = await DESK.read(rel); if (b) return b; } } }
   if (/^local:/.test(id)) throw new Error("This file is only on the computer it was added from");
-  // a copy kept on this device needs no sign-in (right after a reload, sign-in is still being restored)
-  if (!inClaude() && FCACHE.ok(id)) { const hit = await FCACHE.get(id); if (hit) { FCACHE.hits++; return new Uint8Array(await hit.arrayBuffer()); } }
-  if (inClaude()) { const r = await fetch("/_blob/" + id); if (!r.ok) throw new Error("fetch " + r.status); return new Uint8Array(await r.arrayBuffer()); }
+  if (!inPreview() && FCACHE.ok(id)) { const hit = await FCACHE.get(id); if (hit) { FCACHE.hits++; return new Uint8Array(await hit.arrayBuffer()); } }
+  if (inPreview()) { const r = await fetch("/_blob/" + id); if (!r.ok) throw new Error("fetch " + r.status); return new Uint8Array(await r.arrayBuffer()); }
   if (!sbActive()) throw new Error("not signed in");
   const data = await sbDownload(id).catch(e => { throw new Error((e && e.message) || "download failed"); });
   return new Uint8Array(await data.arrayBuffer());
 }
-// Everything in one file: your data plus every uploaded file and revision.
+// Everything in one file
 async function exportFullBackup(){
   const entries = [{name: "studyboard-backup.json", data: JSON.stringify(Object.assign({app: "studyboard"}, exportArrays()), null, 2)}];
   const revs = Object.values(state.files).filter(f => f.kind === "file").flatMap(f => f.revs.map(r => r.assetId)).filter(Boolean);
@@ -121,14 +120,13 @@ async function exportFullBackup(){
     try { entries.push({name: "files/" + revs[i], data: await assetBytes(revs[i])}); } catch(e) { missing++; }
   }
   const zip = zipMany(entries), name = `studyboard-backup-with-files-${todayISO()}.zip`;
-  if (inClaude()) {
+  if (inPreview()) {
     const dl = caps.downloads || await useCap("downloads");
     if (!dl) { toast("Downloads aren't available here"); return; }
     try { await dl.save({filename: name, data: zip}); } catch(e) { if (!(e && e.code === "declined")) toast("Couldn't save the file. Try again."); return; }
   } else { saveBlob(name, zip, "application/zip"); try { localStorage.setItem("studioso:lastExport", String(Date.now())); } catch(e) {} }
   toast(missing ? `Backup saved, but ${missing} file${missing === 1 ? "" : "s"} couldn't be included` : `Backup saved with ${revs.length} file${revs.length === 1 ? "" : "s"}`);
 }
-// Brings a backup's files into this app's storage and points the file records at the new copies.
 async function importBackupFiles(files, zipEntries){
   const byName = new Map(zipEntries.map(e => [e.name, e.data]));
   const assets = await getAssets();
@@ -152,8 +150,8 @@ async function importBackupFiles(files, zipEntries){
   return {files: out, moved, skipped};
 }
 
-/* ---------- Automatic backups to a folder on your computer (Chrome and Edge) ---------- */
-const FSB = {supported: () => !inClaude() && (!!DESK || typeof window.showDirectoryPicker === "function"), dir: null, status: "off", last: 0, where: "", busy: false, timer: null};
+/* Automatic backups to a folder on your computer (Chrome and Edge) */
+const FSB = {supported: () => !inPreview() && (!!DESK || typeof window.showDirectoryPicker === "function"), dir: null, status: "off", last: 0, where: "", busy: false, timer: null};
 function idb(){ return new Promise((res, rej) => { const r = indexedDB.open("studioso-fs", 1); r.onupgradeneeded = () => r.result.createObjectStore("h"); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
 async function idbGet(k){ const db = await idb(); return new Promise(res => { const t = db.transaction("h").objectStore("h").get(k); t.onsuccess = () => res(t.result); t.onerror = () => res(null); }); }
 async function idbSet(k, v){ const db = await idb(); return new Promise(res => { const t = db.transaction("h", "readwrite"); t.objectStore("h").put(v, k); t.oncomplete = () => res(true); t.onerror = () => res(false); }); }
@@ -177,8 +175,6 @@ async function initFolderBackup(){
   } catch(e) { console.warn(e); }
 }
 const CLOUD_NAME = {gdrive: "Google Drive", onedrive: "OneDrive", other: ""};
-// Google Drive and OneDrive go straight to the cloud through the same connection as saving files (free), with nothing to
-// install; without it, a folder that the Google Drive or OneDrive app syncs.
 const cloudBk = () => window.SBCLOUD && SBCLOUD.backup;
 const BK_PROV = {gdrive: "google", onedrive: "microsoft"};
 function cloudBackupTo(kind){
@@ -197,7 +193,6 @@ async function chooseBackupFolder(kind){
   if (!FSB.supported()) { toast("Automatic folder backups need Chrome or Edge on a computer"); return; }
   try {
     const picked = await window.showDirectoryPicker({id: "studioso-backups", mode: "readwrite", startIn: kind === "gdrive" ? "desktop" : "documents"});
-    // Keep everything in one tidy "Studyboard Backups" folder inside whatever was picked.
     const h = /^(studioso|studyboard) backups$/i.test(picked.name) ? picked : await picked.getDirectoryHandle("Studyboard Backups", {create: true});
     await idbSet("dir", h);
     const label = CLOUD_NAME[kind] ? `${CLOUD_NAME[kind]} › ${picked.name === h.name ? h.name : picked.name + " › Studyboard Backups"}` : (picked.name === h.name ? h.name : picked.name + " › Studyboard Backups");
@@ -209,7 +204,6 @@ async function chooseBackupFolder(kind){
   scheduleRender();
 }
 function backupWhereSheet(){
-  // With the Google Drive / OneDrive connection, those two go straight to the cloud: nothing to install, no folder to pick
   const B = cloudBk(), via = k => !!(B && B.possible(BK_PROV[k]));
   if (B) ["gdrive", "onedrive"].forEach(k => { if (via(k) && !B.connected(BK_PROV[k])) B.connectUrl(BK_PROV[k]); });
   const cloudCard = (kind, title) => card(kind, title, [B.connected(BK_PROV[kind]) ? `Your ${title} is connected.` : `Click the button below and allow Studyboard in the page that opens.`, `Every hour, a backup of everything goes to <b>Studyboard › Backups</b> in your ${title}. The latest also shows in Files, and you can restore any day from Restore a Backup.`], `Back Up to ${title}`);
@@ -240,16 +234,14 @@ async function runFolderBackup(){
   if (FSB.status !== "on" || !FSB.dir || FSB.busy) return;
   FSB.busy = true;
   try {
-    // Never replace a good backup with an empty copy (an empty page can mean a failed load, a bad import or a sync that hasn't arrived yet)
     if (!["tasks", "courses", "notes", "decks", "files", "events"].some(k => Object.keys(state[k] || {}).length)) { FSB.busy = false; return; }
     let owner = ""; try { owner = localStorage.getItem(OWNER) || NO_OWNER; } catch(e) {}
     const json = JSON.stringify(Object.assign({app: "studyboard", savedAt: new Date().toISOString(), owner}, exportArrays()), null, 1);
-    await writeText(FSB.dir, "studyboard-latest.json", json);                                // always current
+    await writeText(FSB.dir, "studyboard-latest.json", json);
     const daily = await FSB.dir.getDirectoryHandle("Daily backups", {create: true});
-    await writeText(daily, `studyboard-${todayISO()}.json`, json);                          // one per day
+    await writeText(daily, `studyboard-${todayISO()}.json`, json);
     const names = []; for await (const [n, h] of daily.entries()) if (h.kind === "file" && /^(studioso|studyboard)-\d{4}-\d{2}-\d{2}\.json$/.test(n)) names.push(n);
-    names.sort(); for (const n of names.slice(0, Math.max(0, names.length - 90))) { try { await daily.removeEntry(n); } catch(e) {} }  // keep 90 days
-    // Copies of uploaded files, organized by course and folder
+    names.sort(); for (const n of names.slice(0, Math.max(0, names.length - 90))) { try { await daily.removeEntry(n); } catch(e) {} }
     const done = (() => { try { return JSON.parse(localStorage.getItem("studioso:fsFiles") || "{}"); } catch(e) { return {}; } })();
     const filesDir = await FSB.dir.getDirectoryHandle("Files", {create: true});
     let copied = 0;
@@ -266,7 +258,7 @@ async function runFolderBackup(){
           const bytes = await assetBytes(r.assetId);
           const fh = await d2.getFileHandle(fname, {create: true}); const w = await fh.createWritable(); await w.write(bytes); await w.close();
           done[r.assetId] = 1; copied++;
-        } catch(e) { /* try again next time */ }
+        } catch(e) { }
       }
     }
     try { localStorage.setItem("studioso:fsFiles", JSON.stringify(done)); } catch(e) {}
@@ -293,7 +285,7 @@ function cloudBackupRow(){
   return "";
 }
 function folderBackupRow(){
-  if (inClaude()) return "";
+  if (inPreview()) return "";
   { const c = !DESK && cloudBackupRow(); if (c) return c; }
   if (!DESK && !FSB.supported() && cloudBk() && (cloudBk().possible("google") || cloudBk().possible("microsoft")))
     return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">Automatic Backups<span class="sub">Back up everything to your Google Drive or OneDrive every hour.</span></span>${cloudBk().possible("google") ? `<button class="btn small" data-act="cbk-go" data-id="gdrive">Google Drive</button>` : ""}${cloudBk().possible("microsoft") ? `<button class="btn small" data-act="cbk-go" data-id="onedrive">OneDrive</button>` : ""}</div>`;
@@ -312,8 +304,7 @@ function folderBackupRow(){
 }
 
 
-/* ---------- Desktop app: local folder, offline files, clean shutdown ---------- */
-// A small stand-in for the browser's folder handles, so automatic backups write straight into the Studyboard folder.
+/* Desktop app: local folder, offline files, clean shutdown */
 function deskDir(rel, name){
   const join = n => (rel ? rel + "/" : "") + n;
   const bytesOf = async parts => {
@@ -352,18 +343,17 @@ const deskAssets = {
     const type = o.type || file.type || "application/octet-stream";
     const bytes = new Uint8Array(await file.arrayBuffer());
     const rel = await deskUniqueRel(deskMirrorRel({name: file.name, courseId: o.courseId || "", folderId: o.folderId || "other"}, 0, o.courseId || "", o.folderId || "other"));
-    await DESK.write(rel, bytes, o.untrusted || o.origin ? {untrusted: true, origin: o.origin || ""} : undefined);   // saved on this computer first (marked as downloaded when it came from elsewhere)
+    await DESK.write(rel, bytes, o.untrusted || o.origin ? {untrusted: true, origin: o.origin || ""} : undefined);
     let id = "local:" + uid();
-    if (sbActive() && cloud.on && navigator.onLine !== false) { try { id = (await sbAssets.upload(file, {type})).id; } catch(e) {} }   // then online, if it can
+    if (sbActive() && cloud.on && navigator.onLine !== false) { try { id = (await sbAssets.upload(file, {type})).id; } catch(e) {} }
     deskMarkDone(id);
     return {id, url: "#", sizeBytes: file.size, contentType: type, localRel: rel};
   },
-  // Local copies are never removed, only the online copy.
+  // Local copies are never removed, only the online copy
   delete: async id => { if (!/^local:/.test(id) && sbActive()) { try { await sbAssets.delete(id); } catch(e) {} } return {deleted: true}; }
 };
 let deskPromoting = false;
 async function deskPromote(){
-  // Files added while offline are uploaded once you're signed in and online.
   if (!DESK || deskPromoting || !sbActive() || !cloud.on || navigator.onLine === false) return;
   deskPromoting = true;
   try {
@@ -380,7 +370,7 @@ async function deskPromote(){
       if (changed) applyChanges([{kind: "file", id: f.id, after: nf}], "");
     }
     if (n) toast(`Uploaded ${n} file${n === 1 ? "" : "s"} added while offline`);
-  } catch(e) { /* try again later */ }
+  } catch(e) { }
   deskPromoting = false;
 }
 async function deskOpenAsset(id){
@@ -391,7 +381,7 @@ async function deskOpenAsset(id){
     try {
       toast("Downloading…");
       const bytes = await assetBytes(id), rel = deskMirrorRel(hit.f, hit.i);
-      await DESK.write(rel, bytes, {untrusted: true}); deskMarkDone(id);   // marked as downloaded, so Office and the system warn before running macros or programs
+      await DESK.write(rel, bytes, {untrusted: true}); deskMarkDone(id);
       const err = await DESK.openFile(rel); if (err) toast("Couldn't open the file: " + err);
     } catch(e) { toast(navigator.onLine === false ? "You're offline and this file hasn't been saved to this computer yet" : "Couldn't download the file. Try again."); }
   }
@@ -408,13 +398,10 @@ async function deskBoot(){
   document.body.classList.add("desk"); document.documentElement.classList.add("desk");
   if (DESK.platform === "darwin") document.body.classList.add("mac");
   if (DESK.onFullscreen) DESK.onFullscreen(on => { document.body.classList.toggle("fs", on); deskTint(); const b = dlg.open && dlg.querySelector('[data-act="sbw-fs"]'); if (b) b.textContent = on ? "Exit Full Screen" : "Full Screen"; });
-  // The Mac App Store build can ask for a folder at first start (a dialog from main.js); when the window gets focus back, show the new place.
   window.addEventListener("focus", async () => { try { const w = await DESK.dataDir(); if (w && FSB.where && w !== FSB.where) { FSB.where = w; scheduleRender(); } } catch(e) {} });
-  // A fresh install (or a cleared app) starts from the copy in the Studyboard folder.
   let has = false; try { has = !!localStorage.getItem(LS2); } catch(e) {}
-  if (has) { try { const b = await DESK.read("studyboard-latest.json"); if (b) { const f = JSON.parse(new TextDecoder().decode(b)); if (f && f.app === "studyboard" && Array.isArray(f.tasks)) deskFolderCopy = f; } } catch(e) {} }   // compared in loadLocal
+  if (has) { try { const b = await DESK.read("studyboard-latest.json"); if (b) { const f = JSON.parse(new TextDecoder().decode(b)); if (f && f.app === "studyboard" && Array.isArray(f.tasks)) deskFolderCopy = f; } } catch(e) {} }
   if (!has) { try { const b = (await DESK.read("studyboard-latest.json")) || (await DESK.read("studioso-latest.json")); if (b) { const t = new TextDecoder().decode(b), f = JSON.parse(t); localStorage.setItem(LS2, t);
-    // Remember where this came from and which account wrote it: on sign-in it is checked against the account (claimDevice), never just uploaded
     localStorage.setItem(FOLDER_FROM, f && typeof f.owner === "string" && f.owner ? f.owner.slice(0, 80) : "?"); } } catch(e) { console.warn("No local copy to restore", e); } }
   DESK.onFlush(async () => {
     clearTimeout(FSB.timer);

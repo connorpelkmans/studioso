@@ -1,5 +1,5 @@
 // Unit tests for the Exam Prep planner engine (pure code between EXAMPREP-START and EXAMPREP-END in index.html).
-// Run: node tests/examprep.test.js          (re-runs itself under several time zones; EP_TZ=<zone> runs just one)
+// Run: node tests/examprep.test.js
 const fs = require("fs"), path = require("path"), assert = require("assert"), cp = require("child_process");
 const ZONES = ["UTC", "America/New_York", "America/Los_Angeles", "Europe/London", "Australia/Sydney", "Pacific/Auckland"];
 if (!process.env.EP_TZ) {
@@ -28,7 +28,7 @@ const byTopic = (r, id) => r.sessions.filter(x => x.topicIds.includes(id));
 const dates = r => [...new Set(r.sessions.map(x => x.date))].sort();
 const minsOn = (r, d) => r.sessions.filter(x => x.date === d).reduce((a, x) => a + x.min, 0);
 
-// ---- spreading: exam in 2 / 7 / 14 / 30 days
+// spreading: exam in 2 / 7 / 14 / 30 days
 [2, 7, 14, 30].forEach(d => {
   const r = mk(d), due = E.add(T0, d);
   ok(!r.err && r.sessions.length >= 4, `sessions for ${d} days: ${r.sessions.length}`);
@@ -40,7 +40,7 @@ ok(dates(mk(30))[0] >= E.add(T0, 9), "a 30-day exam is not planned further out t
 ok(dates(mk(30, {start: T0}))[0] === T0, "unless a start date is asked for");
 ok(dates(mk(14))[0] === T0 && dates(mk(14)).length >= 6, "14 days starts today");
 
-// ---- per-day cap, interleaving, once a topic a day
+// per-day cap, interleaving, once a topic a day
 {
   const many = []; for (let i = 0; i < 10; i++) many.push({id: "t" + i, name: "Topic number " + i, conf: i % 3 ? "ok" : "weak", links: []});
   const r = mk(14, {topics: many});
@@ -50,7 +50,7 @@ ok(dates(mk(14))[0] === T0 && dates(mk(14)).length >= 6, "14 days starts today")
   dates(r).forEach(d => ok(minsOn(r, d) <= 90, "never over the day's minutes " + d + " " + minsOn(r, d)));
 }
 
-// ---- weak topics get more time and come back more often
+// weak topics get more time and come back more often
 {
   const r = mk(21, {topics: [{id: "w", name: "Shaky stuff", conf: "weak", links: []}, {id: "o", name: "Okay stuff", conf: "ok", links: []}, {id: "s", name: "Strong stuff", conf: "strong", links: []}]});
   const m = id => byTopic(r, id).reduce((a, x) => a + x.min, 0), c = id => byTopic(r, id).length;
@@ -60,7 +60,7 @@ ok(dates(mk(14))[0] === T0 && dates(mk(14)).length >= 6, "14 days starts today")
   ok(byTopic(hw, "y").reduce((a, x) => a + x.min, 0) > byTopic(hw, "x").reduce((a, x) => a + x.min, 0), "weight raises a topic's share");
 }
 
-// ---- expanding review gaps: learn, then +1, +3, +6 (shaky topic with plenty of room), a recap in the last 48 h
+// expanding review gaps
 {
   const r = mk(21, {topics: [{id: "w", name: "Shaky stuff", conf: "weak", links: []}]});
   const ss = byTopic(r, "w").sort((a, b) => a.date < b.date ? -1 : 1), L = ss.find(x => x.kind === "learn");
@@ -72,7 +72,7 @@ ok(dates(mk(14))[0] === T0 && dates(mk(14)).length >= 6, "14 days starts today")
   const gaps = ss.map((x, i) => i ? E.diff(ss[i - 1].date, x.date) : 0).slice(1); ok(gaps.every(g => g >= 1), "never twice in a day");
 }
 
-// ---- final day light review, rest day, past paper
+// final day light review, rest day, past paper
 {
   const r = mk(10), last = E.add(T0, 9), L = r.sessions.filter(x => x.date === last);
   ok(L.length === 1 && L[0].kind === "light" && L[0].min <= 30, "the day before is one light review of at most 30 min");
@@ -83,7 +83,7 @@ ok(dates(mk(14))[0] === T0 && dates(mk(14)).length >= 6, "14 days starts today")
   ok(!mk(4).sessions.some(x => x.kind === "past"), "no past paper when there are few days");
 }
 
-// ---- blocked days, chosen days, free minutes
+// blocked days, chosen days, free minutes
 {
   const blocked = new Set([E.add(T0, 2), E.add(T0, 3), E.add(T0, 4)]);
   const r = mk(14, {dayInfo: d => blocked.has(d) ? {blocked: true, cap: 0} : {}});
@@ -95,7 +95,7 @@ ok(dates(mk(14))[0] === T0 && dates(mk(14)).length >= 6, "14 days starts today")
   const fallback = mk(7, {days: [E.dow(E.add(T0, 40))], dayInfo: d => ({})}); ok(fallback.sessions.length > 0, "chosen days with nothing free fall back to other days");
 }
 
-// ---- crunch avoidance: heavy days are used last, never skipped when needed
+// crunch avoidance
 {
   const heavy = new Set([E.add(T0, 1), E.add(T0, 2)]), info = d => heavy.has(d) ? {crunch: true} : {};
   const r = mk(14, {dayInfo: info}), h = r.sessions.filter(x => heavy.has(x.date));
@@ -108,7 +108,7 @@ ok(dates(mk(14))[0] === T0 && dates(mk(14)).length >= 6, "14 days starts today")
   ok(lo.sessions.filter(x => E.diff(T0, x.date) >= 7).length >= lo.sessions.filter(x => E.diff(T0, x.date) < 7).length / 2, "load pushes work toward lighter days");
 }
 
-// ---- compression: crash plan with dropped topics reported
+// compression
 {
   const r = mk(2, {topics: topics().concat([{id: "e", name: "Extra topic one", conf: "weak", links: []}, {id: "f", name: "Extra topic two", conf: "strong", links: []}, {id: "g", name: "Extra topic three", conf: "ok", links: []}]), intensity: 45});
   ok(r.crash, "crash plan"); ok(r.dropped.length >= 1, "drops topics that can't fit"); ok(r.warnings[0].startsWith("Not enough time to cover everything. Dropped: "), r.warnings[0]);
@@ -123,13 +123,13 @@ ok(dates(mk(14))[0] === T0 && dates(mk(14)).length >= 6, "14 days starts today")
   const room = mk(1, {topics: Array.from({length: 8}, (_, i) => ({id: "z" + i, name: "Z topic " + i, conf: "ok", links: []}))}); ok(room.dropped.length >= 4 && room.sessions.length <= 3, "one day, eight topics: at most 3 topics, the rest reported");
 }
 
-// ---- plenty of time: capped, not stretched
+// plenty of time
 {
   const r = mk(60, {topics: [{id: "a", name: "Only topic", conf: "ok", links: []}]});
   ok(r.sessions.length <= 8, "a single topic isn't spread into dozens of sessions: " + r.sessions.length); ok(r.sessions.reduce((a, x) => a + x.min, 0) <= 200, "total minutes capped");
 }
 
-// ---- material matching
+// material matching
 {
   const mat = {decks: [
     {id: "d1", name: "Cardiac Drugs", courseId: "c1", cards: [{id: "k1", front: "Beta blockers", back: "..."}, {id: "k2", front: "ACE inhibitors", back: "..."}], quizzes: [{id: "q1", title: "Cardio quiz"}]},
@@ -152,7 +152,7 @@ ok(dates(mk(14))[0] === T0 && dates(mk(14)).length >= 6, "14 days starts today")
   const one = E.matchTopic("Drugs", mat, "c1"); ok(!one.notes.some(x => x.id === "n3"), "one common word doesn't match unrelated notes");
 }
 
-// ---- topic suggestions and parsing
+// topic suggestions and parsing
 {
   eq(E.parseTopics("1. Cell cycle\n- Mitosis; Meiosis, DNA repair\n\n  • Cell cycle\n"), ["Cell cycle", "Mitosis", "Meiosis", "DNA repair"], "parse a pasted list, dedupe");
   eq(E.chaptersIn("Covers chapters 4-6 and Ch. 9"), ["Chapter 4", "Chapter 5", "Chapter 6", "Chapter 9"], "chapters named in notes");
@@ -161,7 +161,7 @@ ok(dates(mk(14))[0] === T0 && dates(mk(14)).length >= 6, "14 days starts today")
   ok(new Set(names.map(E.keyOf)).size === names.length, "no duplicates");
 }
 
-// ---- session types from material, sizing from due-card counts
+// session types from material, sizing from due-card counts
 {
   const r = mk(14); const a = byTopic(r, "a"), b = byTopic(r, "b");
   ok(a.some(x => x.kind === "cards" && x.mat && x.mat.id === "d1"), "flashcards session opens the linked deck"); ok(a.some(x => x.kind === "questions" && x.mat && x.mat.k === "quiz" && x.mat.id === "q1" && /quiz/i.test(x.text)), "practice questions use the linked quiz");
@@ -179,7 +179,7 @@ ok(dates(mk(14))[0] === T0 && dates(mk(14)).length >= 6, "14 days starts today")
   ok(mk(14, {style: ["essay"]}).sessions.find(x => x.kind === "past").text.includes("essay"), "timed practice follows the format");
 }
 
-// ---- slots in real time windows
+// slots in real time windows
 {
   const win = d => ({windows: [{s: 9 * 60, e: 11 * 60}, {s: 18 * 60, e: 20 * 60}]});
   const r = mk(7, {dayInfo: win});
@@ -189,7 +189,7 @@ ok(dates(mk(14))[0] === T0 && dates(mk(14)).length >= 6, "14 days starts today")
   const custom = mk(7, {dayInfo: win, place: (w, items) => ({slots: items.map(it => ({id: it.id, s: w[0].s, e: w[0].s + it.min, min: it.min}))})}); ok(custom.sessions.every(x => x.slot && x.slot.s === 540), "uses the app's own placer when given");
 }
 
-// ---- readiness
+// readiness
 {
   const tp = [{id: "a", name: "A", conf: "weak", links: [{k: "deck", id: "d1"}, {k: "quiz", id: "q1", deckId: "d1"}]}, {id: "b", name: "B", conf: "ok", links: []}];
   const ss = [{topicIds: ["a"], min: 30, done: false}, {topicIds: ["a"], min: 30, done: false}, {topicIds: ["b"], min: 40, done: false}];
@@ -205,7 +205,7 @@ ok(dates(mk(14))[0] === T0 && dates(mk(14)).length >= 6, "14 days starts today")
   const heavy = E.readiness({topics: [{id: "a", conf: "ok", weight: 90, links: []}, {id: "b", conf: "ok", weight: 10, links: []}], sessions: [{topicIds: ["a"], min: 30, done: true}, {topicIds: ["b"], min: 30, done: false}]}); const light = E.readiness({topics: [{id: "a", conf: "ok", weight: 10, links: []}, {id: "b", conf: "ok", weight: 90, links: []}], sessions: [{topicIds: ["a"], min: 30, done: true}, {topicIds: ["b"], min: 30, done: false}]}); ok(heavy.pct > light.pct, "weight counts in readiness");
 }
 
-// ---- catch-up and re-plan keep done sessions; idempotent
+// catch-up and re-plan keep done sessions; idempotent
 {
   const first = mk(14); const done = first.sessions.filter(x => x.date < E.add(T0, 3)).map(x => ({topicId: x.topicIds[0], kind: x.kind, min: x.min, date: x.date}));
   ok(done.length >= 3, "something to keep");
@@ -225,7 +225,7 @@ ok(dates(mk(14))[0] === T0 && dates(mk(14)).length >= 6, "14 days starts today")
   const sig = x => x.sessions.map(s => [s.date, s.kind, s.topicIds.join("+"), s.min].join("|")).join(";"); eq(sig(E.plan(inp)), sig(E.plan(JSON.parse(JSON.stringify(Object.assign({}, inp, {topics: topics(), dayInfo: undefined}))))), "a copy of the input gives the same plan");
 }
 
-// ---- DST days and Feb 29 are plain calendar days
+// DST days and Feb 29 are plain calendar days
 {
   const cases = [["2026-10-30", "2026-11-03", ["2026-10-30", "2026-10-31", "2026-11-01", "2026-11-02"]], ["2026-03-06", "2026-03-10", ["2026-03-06", "2026-03-07", "2026-03-08", "2026-03-09"]], ["2028-02-26", "2028-03-02", ["2028-02-26", "2028-02-27", "2028-02-28", "2028-02-29", "2028-03-01"]]];
   cases.forEach(([today, due, want]) => {
@@ -238,14 +238,14 @@ ok(dates(mk(14))[0] === T0 && dates(mk(14)).length >= 6, "14 days starts today")
   const wk = E.plan({today: "2026-10-30", due: "2026-11-09", topics: topics(), intensity: 90, days: [0]}); ok(wk.sessions.every(x => E.dow(x.date) === 0), "weekday filter is right across the DST change");
 }
 
-// ---- odd inputs
+// odd inputs
 {
   ok(E.plan({}).err === "date", "no dates"); ok(E.plan({today: T0, due: "nope"}).err === "date", "bad date");
   const noTopics = E.plan({today: T0, due: E.add(T0, 7), topics: [], intensity: 90, examTitle: "Midterm"}); ok(noTopics.sessions.length > 0 && noTopics.sessions[0].topic === "Midterm", "no topics: plans the whole exam");
   ok(E.plan({today: T0, due: E.add(T0, 7), topics: [{name: "  "}, null], intensity: 90}).sessions.length > 0, "blank topics ignored");
   const huge = E.plan({today: T0, due: E.add(T0, 7), topics: topics(), intensity: 9999}); ok(huge.sessions.every(x => x.min <= 300), "intensity clamped");
 }
-// ---- the plan stored on the exam task: normalised, and merged field by field across devices
+// the plan stored on the exam task
 {
   const vm = require("vm");
   const fa = s.indexOf("function normPrep(p){"), fb = s.indexOf("\n}\n", fa) + 3;

@@ -1,24 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- UNTESTED: written without Android Studio. A MERGE GUIDE, not a drop-in manifest: copy each marked block into android/app/src/main/AndroidManifest.xml
-     of the project that `npx cap add android` generates. Package/appId: com.studioso.app (change the class names' package if yours differs). -->
+<!-- UNTESTED: written without Android Studio -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Push reminders (@capacitor/push-notifications + FCM): Android 13+ asks for this at runtime when the page calls
-         StudyboardNative.enablePush(). firebase-messaging also declares it; listing it here makes the requirement explicit.
-         Capture (share sheet, tile, shortcuts) needs no extra permission. -->
+    <!-- Push reminders (@capacitor/push-notifications + FCM) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- Record a Lecture (Pro): the web view's getUserMedia({audio}) needs these. Capacitor's BridgeWebChromeClient asks for RECORD_AUDIO at runtime
-         when the page asks for the microphone (only when the person presses Start Recording). No camera permission. -->
+    <!-- Record a Lecture (Pro) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
-    <!-- (1) On the existing <application ...> element add these attributes (and keep the others Capacitor generated):
-           android:networkSecurityConfig="@xml/network_security_config"
-           android:usesCleartextTraffic="false"
-           android:allowBackup="false"
-           android:dataExtractionRules="@xml/data_extraction_rules"
-           android:fullBackupContent="@xml/backup_rules" -->
+    <!-- (1) On the existing <application ...> element add these attributes -->
     <application
         android:networkSecurityConfig="@xml/network_security_config"
         android:usesCleartextTraffic="false"
@@ -26,30 +17,22 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules">
 
-        <!-- (2) Inside Capacitor's existing MainActivity <activity> (launchMode="singleTask"): keep its MAIN/LAUNCHER filter and ADD these. -->
         <activity android:name=".MainActivity" android:exported="true">
-            <!-- Custom scheme: studyboard://add?text=...  studyboard://capture?photo=1  studyboard://action/quickadd (used by shortcuts, the tile, Bixby, Tasker) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="studyboard" />
             </intent-filter>
-            <!-- https App Links: replace YOUR-DOMAIN.example (the SAME domain as applinks: in ../ios-wrapper/App.entitlements.template.plist) and host
-                 ../../../assetlinks.template.json as https://YOUR-DOMAIN.example/.well-known/assetlinks.json (README-ANDROID.md section 5).
-                 autoVerify makes the links open the app without a chooser. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="YOUR-DOMAIN.example" />
             </intent-filter>
-            <!-- Static launcher shortcuts (long-press the icon): res/xml/shortcuts.xml -->
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity>
 
-        <!-- (3) Share target: "Share > Studyboard" from any app. Exported (it must be), so it never acts without the person's tap: it shows a
-             confirmation dialog first (ShareReceiverActivity.kt). Translucent theme: only the dialog is visible; text shares never open the full app. -->
         <activity
             android:name=".capture.ShareReceiverActivity"
             android:exported="true"
@@ -75,7 +58,6 @@
             </intent-filter>
         </activity>
 
-        <!-- (4) Quick Settings tile "Quick capture" (user adds it from the tile editor; Android does not add it automatically). -->
         <service
             android:name=".capture.QuickCaptureTileService"
             android:exported="true"
@@ -87,10 +69,6 @@
             </intent-filter>
         </service>
 
-        <!-- (5) NOT included on purpose: android.intent.action.CREATE_NOTE (Android 14+) is for the user's default NOTES app role, not a task manager;
-             registering for it would misrepresent the app. Google Assistant App Actions (actions.xml / built-in intents): see README-ANDROID.md section 4. -->
 
-        <!-- (6) Push: nothing to add. @capacitor/push-notifications merges its own FCM MessagingService; google-services.json (README-ANDROID.md
-             "Push") supplies the Firebase config. Optional: com.google.firebase.messaging.default_notification_icon / _channel_id meta-data. -->
     </application>
 </manifest>

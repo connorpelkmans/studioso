@@ -1,7 +1,5 @@
 /* ===== module: 01-focus.js: the app's core, the Pomodoro focus timer ===== */
-/* ---------- Pomodoro focus timer ---------- */
-// Classic technique: 25 minutes of focus, a 5-minute break, and a longer 15-minute break after every 4 focus sessions.
-// How the Pomodoro method works: at the bottom of the Focus Timer, and in the app tour's Focus Timer step
+/* Pomodoro focus timer */
 const POMO_HOW = `<ol><li><b>Pick one task</b> and start a 25-minute focus session (one "pomodoro").</li><li><b>Work only on that task</b> until the timer rings. If something else comes up, jot it down for later.</li><li><b>Take a 5-minute break.</b> Stand up, stretch, get water: anything but work.</li><li><b>After four sessions, take a longer break</b> of 15 to 30 minutes.</li></ol><p>Short, timed bursts make it easier to start and keep your focus fresh, and counting sessions shows how long things really take. Studyboard's Classic routine uses these times. The method was created by Francesco Cirillo in the late 1980s.</p>`;
 const POMO_DEF = {focus: 25, short: 5, long: 15, every: 4, autoBreak: true, autoFocus: false, sound: "chime", volume: 0.8, notify: true};
 const POMO_LS = "studioso:pomo";
@@ -13,7 +11,7 @@ function pomoLoad(){
   try { return Object.assign(base, JSON.parse(localStorage.getItem(POMO_LS) || "{}")); } catch(e) { return base; }
 }
 let pomo = pomoLoad(), pomoTimer = null;
-const modeMs = m => m === "focus" && Number(pomo.preset) > 0 ? Number(pomo.preset) * 60000 : Math.max(1, Number(pomoCfg()[m === "focus" ? "focus" : m === "short" ? "short" : "long"]) || 1) * 60000;   // pomo.preset: a one-off length, set by a free-time chip
+const modeMs = m => m === "focus" && Number(pomo.preset) > 0 ? Number(pomo.preset) * 60000 : Math.max(1, Number(pomoCfg()[m === "focus" ? "focus" : m === "short" ? "short" : "long"]) || 1) * 60000;
 const pomoLeft = () => pomo.running ? Math.max(0, pomo.endAt - Date.now()) : (pomo.left > 0 ? pomo.left : modeMs(pomo.mode));
 const fmtClock = ms => { const s = Math.ceil(ms / 1000), m = Math.floor(s / 60); return `${m}:${String(s % 60).padStart(2, "0")}`; };
 function pomoSave(){ try { localStorage.setItem(POMO_LS, JSON.stringify(pomo)); } catch(e) {} }
@@ -62,13 +60,12 @@ function pomoSchedule(){
   if (pomo.running) pomoTimer = setTimeout(pomoFinish, Math.max(0, pomo.endAt - Date.now()) + 30);
 }
 function pomoStart(){
-  audio(); // unlock sound from this click so the alarm can play later, even in a background tab
+  audio();
   const cfg = pomoCfg();
   if (cfg.notify && notifySupported() && Notification.permission === "default") { try { Notification.requestPermission().then(() => renderPomo()); } catch(e) {} }
   pomoToday();
   pomo.endAt = Date.now() + pomoLeft(); pomo.left = 0; pomo.running = true;
   pomoSave(); pomoSchedule(); pomoUI(true);
-  // Starting focus on a To Do task moves it to In Work (exams and quizzes stay where they are)
   try {
     const t = pomo.mode === "focus" && pomo.taskId && state.tasks[pomo.taskId];
     if (t && t.status === "todo" && !MILESTONE(t.type)) applyChanges([{kind: "task", id: t.id, after: Object.assign(clone(t), {status: "doing", order: nextOrder("doing")})}], `${t.title} moved to ${STATUS_LABEL.doing}`);
@@ -76,14 +73,13 @@ function pomoStart(){
   fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId});
 }
 function pomoPause(){ if (!pomo.running) return; pomo.left = Math.max(1000, pomo.endAt - Date.now()); pomo.pausedAt = Date.now(); pomo.running = false; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); fire("focus", {type: "pause", mode: pomo.mode}); }
-// Minutes of a running or paused focus session already done, so stopping it early doesn't lose them (logged by 92-accuracy.js)
+// Minutes of a running or paused focus session already done
 function pomoElapsedMin(){
   if (pomo.mode !== "focus" || !(pomo.running || pomo.left > 0)) return 0;
   const total = modeMs("focus"), left = Math.min(total, pomo.running ? Math.max(0, pomo.endAt - Date.now()) : pomo.left);
   return Math.max(0, (total - left) / 60000);
 }
-// Stopping a focus session early (Reset, Skip, a new mode) still counts every whole minute you focused: stats, today's total, the task,
-// and the Pro focus history (the "early" focus event)
+// Stopping a focus session early
 const pomoEarly = (min, why) => {
   const m = Math.min(180, Math.round(Number(min) || 0)); if (m < 1) return;
   const A = accOf();
@@ -169,8 +165,7 @@ function renderPomoBits(){
   nav.innerHTML = `${TOMATO}<span class="nf-l" ${active ? "data-pomo-time" : ""}>${active ? fmtClock(pomoLeft()) : "Focus"}</span>${active ? `<span class="nf-m">${esc(MODE_LABEL[pomo.mode])}${pomo.running ? "" : ", paused"}</span>` : ""}`;
   try { islandSync(); } catch (e) {}
 }
-// iPhone app: while the timer runs, it shows in the Dynamic Island and on the Lock Screen (a Live Activity, ios-wrapper/native/FocusActivity), and the
-// header keeps just the tomato button, so the logo and date stay where they are. Sent only when the timer's state changes; the system counts down.
+// iPhone app: while the timer runs, it shows in the Dynamic Island and on the Lock Screen
 const ISLAND = {sig: "", on: false};
 function islandSync(){
   const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
@@ -188,7 +183,7 @@ function islandSync(){
 }
 function islandOn(on){ ISLAND.on = on; document.documentElement.classList.toggle("sb-island", on); }
 function openPomo(taskId){
-  if (taskId === undefined && window.SBEXAM) SBEXAM.pomoDefault();   // Exam Mode: suggest studying for the exam (or what's due before it)
+  if (taskId === undefined && window.SBEXAM) SBEXAM.pomoDefault();
   if (taskId !== undefined) { pomo.taskId = taskId; if (!pomo.running && pomo.mode !== "focus") { pomo.mode = "focus"; pomo.left = 0; } pomoSave(); }
   const d = $("#pomoDlg");
   renderPomo();
@@ -198,7 +193,7 @@ function renderPomo(){
   const cfg = pomoCfg(), d = $("#pomoDlg");
   pomoToday();
   const R = 92, C = 2 * Math.PI * R;
-  const openTasks = (FOCUS ? FOCUS.ranked.map(x => x.t) : []).concat(tasksArr().filter(t => t.status !== "done").sort(sortTasks)).filter((t, i, a) => a.indexOf(t) === i && t.status !== "done" && (canDoNow(t) || t.id === pomo.taskId));   // an in-person exam can't be started as a focus session (its study sessions can)
+  const openTasks = (FOCUS ? FOCUS.ranked.map(x => x.t) : []).concat(tasksArr().filter(t => t.status !== "done").sort(sortTasks)).filter((t, i, a) => a.indexOf(t) === i && t.status !== "done" && (canDoNow(t) || t.id === pomo.taskId));
   const every = Number(cfg.every) || 4, inCycle = pomo.cycle % every;
   const notifyNote = !notifySupported() ? "Desktop notifications aren't available here, so the alarm sound and on-screen alert are used." : Notification.permission === "denied" ? "Notifications are blocked for this site in your browser settings." : Notification.permission === "default" ? "Your browser will ask to allow notifications when you start the timer." : "Notifications are allowed.";
   d.innerHTML = `<div class="sheet pomo-sheet">${bandHead("Focus Timer", TOMATO, pomo.mode === "focus" ? "#E5484D" : "#2F9E5F")}
@@ -253,7 +248,6 @@ function renderPomo(){
 setInterval(() => { if (pomo.running) { if (Date.now() >= pomo.endAt) pomoFinish(); else pomoUI(false); } }, 500);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { clearInterval(flashT); flashT = null; setTitle(); if (pomo.running && Date.now() >= pomo.endAt) pomoFinish(); } });
 function pomoBoot(){
-  // If the timer ran out while the page was closed, count it and say so, without ringing.
   if (pomo.running && Date.now() >= pomo.endAt) { if (Date.now() - pomo.endAt < 3 * 3600000) pomoFinish(true); else { pomo.running = false; pomo.left = 0; pomoSave(); } }
   pomoSchedule(); pomoUI(true);
 }
@@ -266,7 +260,7 @@ function pomoAction(act, el){
     case "pomo-skip": pomoSkip(); return true;
     case "pomo-mode": pomoSetMode(el.dataset.id); return true;
     case "pomo-test": { const cfg = pomoCfg(); if (!playAlarm($("#psSound") ? $("#psSound").value : cfg.sound, $("#psVol") ? Number($("#psVol").value) : cfg.volume, 1)) toast("Sound isn't available in this browser"); return true; }
-    case "pomo-task": { const tk = state.tasks[el.dataset.id]; if (tk && !canDoNow(tk) && !el.dataset.study) { toast(`“${tk.title}” is taken in person, so it can't be started as a focus session. Start one of its study sessions instead.`); return true; } } if (ui.nextShown && ui.nextShown === el.dataset.id) { nufbAdd("accept", state.tasks[el.dataset.id]); ui.nextShown = null; } if (dlg.open) dlg.close(); openPomo(el.dataset.id); { const m = Math.round(Number(el.dataset.mins)); if (m >= 5 && m <= 180 && !pomo.running && !(pomo.left > 0) && pomo.mode === "focus") { pomo.preset = m; pomoSave(); renderPomo(); } }   // "Start a 45m Focus" runs 45 minutes, not the default length
+    case "pomo-task": { const tk = state.tasks[el.dataset.id]; if (tk && !canDoNow(tk) && !el.dataset.study) { toast(`“${tk.title}” is taken in person, so it can't be started as a focus session. Start one of its study sessions instead.`); return true; } } if (ui.nextShown && ui.nextShown === el.dataset.id) { nufbAdd("accept", state.tasks[el.dataset.id]); ui.nextShown = null; } if (dlg.open) dlg.close(); openPomo(el.dataset.id); { const m = Math.round(Number(el.dataset.mins)); if (m >= 5 && m <= 180 && !pomo.running && !(pomo.left > 0) && pomo.mode === "focus") { pomo.preset = m; pomoSave(); renderPomo(); } }
       if (!pomo.running) pomoStart(); return true;
   }
   return false;

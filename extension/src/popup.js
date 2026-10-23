@@ -1,5 +1,4 @@
-// Studyboard School Sync: the toolbar popup. Connect a school site (the browser asks to let the extension read that one site),
-// see when each was last read, sync now, choose how often, or remove it. Everything shown is built as text nodes, never as HTML.
+// Studyboard School Sync
 "use strict";
 
 const APP = "https://studyboardapp.com/";
@@ -8,15 +7,13 @@ const TAGS = { canvas: "Canvas", brightspace: "D2L", blackboard: "Bb" };
 const EVERY = [[15, "Every 15 minutes"], [30, "Every 30 minutes"], [60, "Every hour"], [180, "Every 3 hours"], [360, "Every 6 hours"], [720, "Every 12 hours"]];
 const originOf = s => globalThis.__studyboardExt.originOf(s);
 const $ = id => document.getElementById(id);
-// Safari (see popup.css): one fixed height that scrolls inside
-// Safari (see popup.css): the popup keeps the height it opens with, so it opens with the height its content needed last time
+// Safari (see popup.css)
 const FIXED = /Safari\//.test(navigator.userAgent) && !/Chrom(e|ium)\/|Edg\/|Firefox\//.test(navigator.userAgent);
 const POP_H = "popupHeight", fitH = n => Math.max(300, Math.min(600, Math.round(n)));
 function setPopupH(n) { document.documentElement.style.height = document.body.style.height = fitH(n) + "px"; }
 if (FIXED) { document.documentElement.classList.add("fixed"); let last = 0; try { last = Number(localStorage.getItem(POP_H)) || 0; } catch (e) {} setPopupH(last || 600); }
 const send = m => chrome.runtime.sendMessage(m);
 
-// h("div", {class: "x"}, "text", child): a small element builder (text is always text)
 function h(tag, attrs, ...kids) {
   const el = document.createElement(tag);
   Object.entries(attrs || {}).forEach(([k, v]) => { if (v == null || v === false) return; if (k === "class") el.className = v; else if (k.startsWith("on")) el.addEventListener(k.slice(2), v); else el.setAttribute(k, v === true ? "" : String(v)); });
@@ -32,7 +29,7 @@ function ago(t) {
   const d = Math.round(hr / 24); return d + (d === 1 ? " day ago" : " days ago");
 }
 const plural = (n, w) => n + " " + w + (n === 1 ? "" : "s");
-// A guess at the platform from an address, so the form can offer it (the background checks it for real)
+// A guess at the platform from an address, so the form can offer it
 function guess(url) {
   try {
     const u = new URL(url);
@@ -57,7 +54,7 @@ function statusLine(id, s, st) {
   return { text: `Couldn't read it last time${st.error ? ` (${st.error})` : ""}. It tries again by itself.${st.lastOk ? ` Last synced ${ago(st.lastOk)}.` : ""}`, tone: "warn" };
 }
 
-// Asked in the popup itself: Safari's popups can't show confirm() dialogs
+// Asked in the popup itself
 function askRemove(btn, id) {
   const box = h("div", { class: "confirm", role: "group", "aria-label": "Remove " + NAMES[id] },
     h("p", { class: "mini" }, `Stop syncing ${NAMES[id]}? Studyboard keeps what it already brought in.`),
@@ -91,7 +88,6 @@ function connectForm(have) {
   const input = h("input", { type: "text", id: "addr", inputmode: "url", autocomplete: "off", spellcheck: "false", placeholder: "school.instructure.com", value: tabOrigin ? host(tabOrigin) : "", "aria-describedby": "addrHelp" });
   const sel = h("select", { id: "plat" }, h("option", { value: "" }, "Find out automatically"), ...Object.keys(NAMES).filter(k => !have.includes(k) || k === guessed).map(k => h("option", { value: k, selected: k === guessed }, NAMES[k])));
   const msg = h("p", { class: "status", id: "formMsg", role: "status" });
-  // The platform is found out by itself; picking it is tucked away (opened when it couldn't be found out)
   const more = h("details", { class: "more" }, h("summary", {}, "Choose the platform"), h("label", { class: "f" }, h("span", { class: "sr" }, "Platform"), sel));
   const go = h("button", { type: "submit", class: "btn primary" }, "Agree, Allow and Connect");
   const form = h("form", { class: "connect", onsubmit: e => {
@@ -99,8 +95,6 @@ function connectForm(have) {
     const origin = originOf(input.value);
     if (!origin) { msg.className = "status warn"; msg.textContent = "Type your school site's address, like school.instructure.com or learn.school.edu."; input.focus(); return; }
     const platform = sel.value;
-    // The permission request has to start right away, inside the click. Firefox may close this popup while it asks,
-    // so the background is told first and finishes connecting when the permission arrives.
     send({ op: "pending", origin, platform }).catch(() => {});
     chrome.permissions.request({ origins: [origin + "/*"] }).then(async ok => {
       if (!ok) { msg.className = "status warn"; msg.textContent = "Studyboard needs your OK to read that site. Nothing was connected."; return; }
@@ -115,7 +109,6 @@ function connectForm(have) {
     h("h2", {}, have.length ? "Connect Another School Site" : "Connect Your School Site"),
     h("label", { class: "f" }, h("span", {}, "School Site Address"), input),
     h("p", { class: "mini", id: "addrHelp" }, "Your browser asks you to let Studyboard read this one site. ", more),
-    // What it collects and what happens to it, shown before anything is read (Chrome Web Store: prominent disclosure and consent)
     h("div", { class: "disclose", id: "disclose" },
       h("p", {}, h("b", {}, "What it reads: "), "from this site, about every hour, your courses, due dates, submissions, grades, feedback, rubrics, announcements, syllabus, your name, your instructors' names and school emails, and (Canvas) Inbox messages."),
       h("p", {}, h("b", {}, "Where it goes: "), "this browser and your Studyboard planner (and your Studyboard account, if you have one). Only used to show your school work. Never sold or used for ads. ",
@@ -131,7 +124,7 @@ async function render() {
   if (!st || st.error) { main.append(h("p", { class: "status warn" }, "Studyboard School Sync is starting. Close this and open it again in a moment.")); return; }
   $("ver").textContent = "Version " + st.version;
   const ids = Object.keys(st.schools);
-  document.body.classList.toggle("fresh", !ids.length);   // the connect form says it all: the footer's first line is left out
+  document.body.classList.toggle("fresh", !ids.length);
   if (ids.length) {
     main.append(h("ul", { class: "schools" }, ids.map(id => schoolCard(id, st.schools[id], st.status[id]))));
     main.append(h("div", { class: "settings" },
@@ -147,10 +140,10 @@ async function render() {
 }
 
 $("openApp").addEventListener("click", async () => {
-  try { const [t] = await chrome.tabs.query({ url: APP + "*" }); if (t) { await chrome.tabs.update(t.id, { active: true }); if (chrome.windows) await chrome.windows.update(t.windowId, { focused: true }).catch(() => {}); /* (Safari on iPhone and iPad has no windows) */ window.close(); return; } } catch (e) {}
+  try { const [t] = await chrome.tabs.query({ url: APP + "*" }); if (t) { await chrome.tabs.update(t.id, { active: true }); if (chrome.windows) await chrome.windows.update(t.windowId, { focused: true }).catch(() => {}); window.close(); return; } } catch (e) {}
   chrome.tabs.create({ url: APP });
 });
-// Open at the top: Safari focuses the first control by itself and scrolls to it
+// Open at the top
 activeTab().then(u => { tabUrl = u; return render(); }).then(() => {
   if (!FIXED) return;
   const need = ["header", "main", "footer"].reduce((n, sel) => { const el = document.querySelector(sel); return n + (el ? el.offsetHeight : 0); }, 0) + 4;

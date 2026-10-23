@@ -1,5 +1,5 @@
 /* ===== module: 98-comp-b7.js ===== */
-/* Study Companions, batch 7: diwali, balloons, koi, rain, alpine */
+/* Study Companions, batch 7 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);

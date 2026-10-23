@@ -1,17 +1,4 @@
-// Sign-in token refused by the server. Run: node tests/sync-reauth.e2e.js
-// The real sign-in library (vendor/supabase-js) runs in Chromium against a stand-in Supabase (auth + REST) served by request interception.
-// The bug: the server refused a saved token this device still thought was good (device clock behind, or the server's signing keys changed).
-// The library only renews a token when the device's own clock says it ran out, so every request failed with "JWT expired", reloading reused
-// the same token, and sync showed "Connecting…" / "reconnecting" until site data was cleared. Checks:
-//   1. a valid saved session connects (control)
-//   2. server says the token expired, device clock says it's fine: the session is renewed and sync connects, also after a reload
-//   3. server can't verify the token (signing keys changed): same
-//   4. the refused token can't be renewed either (signed out elsewhere): signed out cleanly, never stuck on "Connecting…"
-//   5. already connected when the server starts refusing the token: catching up renews it and stays connected
-//   6. another Studyboard tab has the device's sync database open while this one deletes it (signing out does): the other tab lets go,
-//      so after a reload this tab connects (it used to wait on the database forever and stay on "reconnecting" until site data was cleared)
-//   7. a tab that never lets go (an older version still open) holds it: sync connects anyway, without the device copy
-//   8. the server never answers: requests give up, Settings says what connecting is waiting on and the last problem, and Try Again connects
+// Sign-in token refused by the server
 const fs = require("fs"), path = require("path"), http = require("http"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const ROOT = path.join(__dirname, "..");
@@ -26,11 +13,11 @@ const web = http.createServer((req, res) => {
   fs.readFile(f, (e, b) => { if (e) { res.writeHead(404); res.end(); return; } res.writeHead(200, {"content-type": /\.html$/.test(p) ? "text/html" : /\.m?js$/.test(p) ? "text/javascript" : /\.css$/.test(p) ? "text/css" : "application/octet-stream"}); res.end(b); });
 });
 
-/* ---------- stand-in Supabase ---------- */
+/* stand-in Supabase */
 const b64 = o => Buffer.from(JSON.stringify(o)).toString("base64url");
 const USER = {id: "11111111-1111-1111-1111-111111111111", aud: "authenticated", role: "authenticated", email: "me@example.com", app_metadata: {provider: "email"}, user_metadata: {}, created_at: "2026-01-01T00:00:00Z"};
 const S = {skew: 0, badSig: new Set(), refresh: new Set(), serial: 0, log: [], hang: false};
-const srvNow = () => Date.now() + S.skew;   // the server's clock; the browser keeps the real one
+const srvNow = () => Date.now() + S.skew;
 function mint(){
   const iat = Math.floor(srvNow() / 1000), exp = iat + 3600, k = ++S.serial;
   const s = {access_token: b64({alg: "HS256", typ: "JWT"}) + "." + b64({sub: USER.id, exp, iat, role: "authenticated", aud: "authenticated", k}) + ".sig",
@@ -59,7 +46,7 @@ async function handle(route){
   if (u.pathname === "/auth/v1/user") return tokenState(req.headers()["authorization"]) === "ok" ? send(200, USER) : send(403, {code: "bad_jwt", msg: "invalid JWT"});
   if (u.pathname === "/auth/v1/logout") return send(204);
   if (u.pathname.startsWith("/rest/v1/")) {
-    if (S.hang && m === "GET") return;   // the server never answers
+    if (S.hang && m === "GET") return;
     const t = tokenState(req.headers()["authorization"]);
     if (t === "expired") return send(401, {code: "PGRST303", details: null, hint: null, message: "JWT expired"});
     if (t === "bad") return send(401, {code: "PGRST301", details: null, hint: null, message: "JWSError JWSInvalidSignature"});
@@ -150,8 +137,8 @@ const reset = () => { S.skew = 0; S.badSig = new Set(); S.log = []; S.hang = fal
     { reset(); const s = mint();
       const ctx = await browser.newContext({serviceWorkers: "block", viewport: {width: 1200, height: 800}});
       const H = await ctx.newPage(); await H.goto("http://127.0.0.1:" + web.address().port + "/__blank");
-      await H.evaluate(() => new Promise(ok => { const r = indexedDB.open("studyboard-sync", 1); r.onupgradeneeded = () => r.result.createObjectStore("rows"); r.onsuccess = () => { window.keep = r.result; ok(); }; }));   // no onversionchange: never lets go
-      await H.evaluate(() => { indexedDB.deleteDatabase("studyboard-sync"); });   // a sign-out elsewhere: this delete now waits forever
+      await H.evaluate(() => new Promise(ok => { const r = indexedDB.open("studyboard-sync", 1); r.onupgradeneeded = () => r.result.createObjectStore("rows"); r.onsuccess = () => { window.keep = r.result; ok(); }; }));
+      await H.evaluate(() => { indexedDB.deleteDatabase("studyboard-sync"); });
       const {page} = await open(browser, s, ctx);
       ok(/^Saved$/.test(await until(page, /^Saved$/, 20000)), "sync connects anyway, without the device copy");
       await ctx.close(); }

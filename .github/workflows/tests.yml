@@ -1,5 +1,4 @@
-# Lint, unit tests and browser tests on every push and pull request.
-# Locally: npm run lint / npm test / npm run test:e2e / npm run test:slow (see scripts/run-tests.js).
+# Lint, unit tests and browser tests on every push and pull request
 name: Tests
 
 on:
@@ -48,7 +47,6 @@ jobs:
       - run: npm run test:e2e
 
   e2e-slow:
-    # The companion-on-screen matrix (tests/mascot-bounds.pw.js) takes about ten minutes, so it runs on its own.
     name: Browser tests (slow)
     runs-on: ubuntu-latest
     timeout-minutes: 40

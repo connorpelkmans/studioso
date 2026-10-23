@@ -12,8 +12,7 @@
    The pure logic sits between the RS-START and RS-END markers so tests/review-streaks.test.js can run it in Node under several time zones. */
 (() => {
 /*RS-START*/
-// Pure functions only (no app globals). Dates are local "YYYY-MM-DD" strings; every day step goes through UTC day numbers, so DST can't skew a day.
-// Instants (ms) become a local calendar day with dayOf. Weeks run Monday to Sunday.
+// Pure functions only (no app globals)
 const RS = (() => {
   const p2 = n => String(n).padStart(2, "0");
   const isDay = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
@@ -21,27 +20,27 @@ const RS = (() => {
   const fromDn = n => { const d = new Date(n * 864e5); return d.getUTCFullYear() + "-" + p2(d.getUTCMonth() + 1) + "-" + p2(d.getUTCDate()); };
   const add = (s, n) => fromDn(dn(s) + n);
   const diff = (a, b) => dn(b) - dn(a);
-  const wday = s => new Date(dn(s) * 864e5).getUTCDay();          // 0 is Sunday
+  const wday = s => new Date(dn(s) * 864e5).getUTCDay();
   const monday = s => add(s, -((wday(s) + 6) % 7));
   const dayOf = ms => { const d = new Date(Number(ms)); return isFinite(d.getTime()) ? d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate()) : ""; };
   const isMil = t => !!t && (t.type === "Exam" || t.type === "Quiz");
-  const bornDone = t => !!(t.created && t.doneAt && t.doneAt - t.created < 60000);     // added already finished: never counts as an achievement
+  const bornDone = t => !!(t.created && t.doneAt && t.doneAt - t.created < 60000);
   const doneDay = t => t && t.status === "done" && Number(t.doneAt) > 0 ? dayOf(t.doneAt) : "";
   const TIME_RX = /^(Focus session|Logged time):? (\d+)m/;
   const CHK_RX = /^Checklist: (\d+)\/(\d+) → (\d+)\/(\d+)/;
   const DUE_RX = /^Due: /;
   const FOCUS_MIN = 5;
 
-  /* ---------- The review window ---------- */
+  /* The review window */
   const mkPeriod = (ws, kind) => ({weekStart: ws, weekEnd: add(ws, 6), nextStart: add(ws, 7), nextEnd: add(ws, 13), kind});
-  // Sunday from noon: the week that ends today. All of Monday: last week. Otherwise none.
+  // Sunday from noon
   function reviewWindow(today, hour){
     const w = wday(today);
     if (w === 0 && Number(hour) >= 12) return mkPeriod(add(today, -6), "sun");
     if (w === 1) return mkPeriod(add(today, -7), "mon");
     return null;
   }
-  // The period to review: the window when it is open; a manual "Review My Week" any other day looks at this week so far.
+  // The period to review
   function periodFor(today, hour, manual){
     const w = reviewWindow(today, manual ? 24 : hour);
     if (w) return w;
@@ -55,11 +54,11 @@ const RS = (() => {
     return o.snoozeDay !== o.today;
   }
 
-  /* ---------- Week numbers ---------- */
+  /* Week numbers */
   const TYPE_W = {Exam: 6, Project: 5, Quiz: 3, Lab: 2, Assignment: 2, Reading: 1, Study: 1};
   const winScore = t => (TYPE_W[t.type] || 1) + Math.min(8, Number(t.hours) > 0 ? Number(t.hours) : 0) + (Number(t.weight) > 0 ? Math.min(10, Number(t.weight) / 5) : 0) + ({urgent: 2, high: 1}[t.priority] || 0);
   const roundMin = m => Math.round(Number(m) / 5) * 5;
-  // o: {tasks, live (open tasks that still count, default tasks), period, today, focusDays, time: {byDay, byCourse}, active: activityDays map, horizon}
+  // o: {tasks, live (open tasks that still count, default tasks), period, today, focusDays
   function weekStats(o){
     const P = o.period, a = P.weekStart, b = P.weekEnd, today = o.today, inR = d => !!d && d >= a && d <= b;
     const all = (o.tasks || []).filter(t => t && typeof t === "object"), live = (o.live || all).filter(t => t && typeof t === "object");
@@ -67,7 +66,6 @@ const RS = (() => {
     all.forEach(t => { const d = doneDay(t); if (!inR(d) || bornDone(t)) return; (t.prepFor ? sessions : t.breakdownOf ? steps : done).push(t); });
     const ranked = done.slice().sort((x, y) => winScore(y) - winScore(x) || y.doneAt - x.doneAt || String(x.title).localeCompare(String(y.title))), wins = ranked.slice(0, 3);
     let hoursEst = 0; done.forEach(t => { if (!isMil(t) && Number(t.hours) > 0) hoursEst += Number(t.hours); });
-    // time: the history lines the timer and manual logs write (only the last 30 per task are kept), the per day focus log, and SBTIME when it exists
     const hDay = {}, hCourse = {};
     all.forEach(t => (Array.isArray(t.history) ? t.history : []).forEach(h => {
       const m = TIME_RX.exec(String((h && h.text) || "")), d = Number(h && h.at) > 0 ? dayOf(h.at) : "", min = m ? Number(m[2]) : 0;
@@ -97,7 +95,7 @@ const RS = (() => {
       slipped, moved, exams, studyDays};
   }
   function worth(st){ return st.doneN + st.stepsN + st.sessionsN > 0 || st.minutes.tracked || st.slipped.length > 0 || st.exams.length > 0; }
-  // One idea, tied to something real. The wording lives with the app (so it can be translated).
+  // One idea, tied to something real
   function suggestion(c){
     if (c.slipped && c.slipped.length) return {kind: "slipped", title: c.slipped[0].title};
     const nop = (c.exams || []).find(x => x.noPrep);
@@ -106,19 +104,19 @@ const RS = (() => {
     if (c.topTitle) return {kind: "first", title: c.topTitle};
     return {kind: "rest"};
   }
-  // The day with the most room (lowest load), earliest on a tie. days: [{date, ratio}], extra: load already given to a date.
+  // The day with the most room (lowest load), earliest on a tie
   function pickDay(days, extra){
     let best = null;
     (days || []).forEach(d => { const r = (Number(d.ratio) || 0) + ((extra || {})[d.date] || 0); if (!best || r < best.r - 1e-9) best = {date: d.date, r}; });
     return best ? best.date : "";
   }
 
-  /* ---------- An AI recap is only used when it sticks to the facts it was given ---------- */
+  /* An AI recap is only used when it sticks to the facts it was given */
   const BAD_RX = /\b(fail(ed|ing|ure|s)?|lazy|guilt\w*|behind|disappoint\w*|procrastinat\w*|should have|didn't manage|falling|worthless|terrible|slack\w*|wasted?)\b/i;
   const DAY_RX = /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tues?|wed|thu(rs?)?|fri|sat|sun)\b/gi;
   const MONTH_RX = /\b(january|february|april|june|july|august|september|october|november|december|jan|feb|apr|jun|jul|aug|sept?|oct|nov|dec)\b/i;
   const EMOJI_RX = /[\u{1F300}-\u{1FAFF}☀-➿⭐️]/u;
-  // facts: {text (what the model was shown), titles (every real task title)}. Returns clean text, or "" when it can't be trusted.
+  // facts: {text (what the model was shown), titles
   function vetRecap(text, facts){
     let s = String(text == null ? "" : text).replace(/\s+/g, " ").trim();
     if (!s || s.length > 600 || !facts) return "";
@@ -135,7 +133,7 @@ const RS = (() => {
     return s;
   }
 
-  /* ---------- The gentle streak ---------- */
+  /* The gentle streak */
   const GRACE = 3, MAXBACK = 800;
   const MILESTONES = [3, 7, 14, 21, 30, 50, 75, 100, 150, 200, 365];
   const normCfg = c => {
@@ -145,11 +143,9 @@ const RS = (() => {
     const rests = {}; if (c.rests && typeof c.rests === "object") Object.keys(c.rests).forEach(d => { if (isDay(d) && c.rests[d]) rests[d] = 1; });
     return {rpw: isFinite(r) ? Math.max(0, Math.min(2, r)) : 2, wd, rests};
   };
-  // A run that has been quiet (beyond rest days) for more than GRACE days softens to half, then half again for each further week; it never reaches zero.
+  // A run that has been quiet (beyond rest days) for more than GRACE days softens to half
   const soften = (n, gap) => n <= 0 || gap <= GRACE ? n : Math.max(1, Math.ceil(n / Math.pow(2, 1 + Math.floor((gap - GRACE - 1) / 7))));
-  // o: {today, active: {day: anything}, cfg, best}. Walks day by day from the first study day:
-  //   a study day adds one to the run; a quiet day is a rest day when it is a chosen weekday off, marked by the student, or one of the week's free rest days (first come);
-  //   any other quiet day only counts toward a pause; today never counts until it is over.
+  // o: {today, active: {day: anything}, cfg
   function streak(o){
     const today = o.today, act = o.active || {}, cfg = normCfg(o.cfg);
     const keys = Object.keys(act).filter(d => isDay(d) && d <= today).sort();
@@ -169,7 +165,7 @@ const RS = (() => {
     res.restsLeft = Math.max(0, cfg.rpw - (used[monday(today)] || 0));
     return res;
   }
-  // The calendar dots: the last `weeks` weeks (Monday first) ending with this one.
+  // The calendar dots
   function grid(res, weeks){
     const n = weeks || 5, today = res.today, start = add(monday(today), -7 * (n - 1)), out = [];
     for (let i = 0; i < n * 7; i++) {
@@ -180,7 +176,7 @@ const RS = (() => {
     }
     return out;
   }
-  // said: {m: {n: day}, wb: day}. A milestone is the run reaching a round number today; a welcome back is a study day after 4 or more quiet days.
+  // said: {m: {n: day}, wb: day}. A milestone is the run reaching a round number today
   function celebration(res, said, today){
     said = said || {};
     if (!res.todayActive) return null;
@@ -188,7 +184,7 @@ const RS = (() => {
     if (MILESTONES.indexOf(res.run) >= 0) { const w = (said.m || {})[res.run]; if (!(w && diff(w, today) < 28)) return {kind: "milestone", n: res.run}; }
     return null;
   }
-  // The wording stays with the app; this only says which pool a milestone uses.
+  // The wording stays with the app; this only says which pool a milestone uses
   const tier = n => n >= 30 ? "m30" : n >= 21 ? "m21" : n >= 14 ? "m14" : n >= 7 ? "m7" : "m3";
   return {isDay, dn, fromDn, add, diff, wday, monday, dayOf, reviewWindow, periodFor, cardShown, weekStats, worth, suggestion, pickDay, vetRecap, activityDays, normCfg, soften, streak, grid, celebration, tier, MILESTONES, GRACE, winScore, roundMin};
   function activityDays(src){
@@ -214,7 +210,7 @@ const RS = (() => {
 })();
 /*RS-END*/
 
-/* ---------- Small helpers ---------- */
+/* Small helpers */
 const lsr = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
 const lsw = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
 const stg = k => { const v = state.settings && state.settings[k]; return v && typeof v === "object" && !Array.isArray(v) ? v : {}; };
@@ -229,7 +225,7 @@ function durText(min){
   return h && r ? tr("review.hm", "{h}h {m}m", {h, m: r}) : h ? tr("review.h", "{h}h", {h}) : tr("review.m", "{m}m", {m: r});
 }
 const focusDaysNow = () => { try { return typeof SBSTATS !== "undefined" ? SBSTATS.focusDays() : {}; } catch (e) { return {}; } };
-// SBTIME (the time tracking module) is optional. Its answers are read defensively: {key: minutes}, [{id|courseId|date, minutes}] or a plain list of days.
+// SBTIME (the time tracking module) is optional
 function sbtimeMap(v){
   if (!v) return null;
   const o = {};
@@ -265,7 +261,7 @@ function reviewStats(period){
   return st;
 }
 function crunchModel(){ try { return window.SBCRUNCH ? SBCRUNCH.model() : null; } catch (e) { return null; } }
-// The week ahead from the Crunch Forecast: its level, what it is made of, and the busiest items day by day
+// The week ahead from the Crunch Forecast
 function planOf(period){
   const m = crunchModel(); if (!m || !m.weeks) return null;
   const W = m.weeks.find(w => w.start === period.nextStart); if (!W) return null;
@@ -299,8 +295,8 @@ function reviewCardHtml(){
   </section>`;
 }
 
-/* ---------- The review sheet ---------- */
-let RV = null;   // {period, ai: {text, busy, msg}}
+/* The review sheet */
+let RV = null;
 const courseName = id => { const c = courseOf(id); return c ? courseLabel(c) : tr("review.nocourse", "No course"); };
 const dot = id => `<span class="wkr-dot" style="background:${esc(colorOf(id))}" aria-hidden="true"></span>`;
 function planDays(today){
@@ -388,10 +384,10 @@ function ideaText(s, plan){
   if (s.kind === "first") return tr("review.idea.first", "Choose \"{title}\" as your first task for the week so it is easy to begin.", {title});
   return tr("review.idea.rest", "Enjoy the quiet. Nothing is pressing, so resting is a fine plan.");
 }
-// ----- optional AI recap: only when AI is already set up, only on a tap, and only kept when it sticks to the facts -----
+// optional AI recap
 const AI_KEY = ws => "studyboard:review:ai:" + ws;
 const RECAP_SCHEMA = {type: "OBJECT", properties: {recap: {type: "STRING", description: "One short paragraph, 2 to 4 sentences, warm and calm"}}, required: ["recap"]};
-// The facts are always written in English, with English weekday names, so the reply can be checked against them whatever language the app shows.
+// The facts are always written in English, with English weekday names
 const dayEn = iso => parse(iso).toLocaleDateString("en-US", {weekday: "long"});
 const enDur = min => { const m = Math.max(5, RS.roundMin(min)), h = Math.floor(m / 60), r = m % 60; return h && r ? `${h}h ${r}m` : h ? `${h}h` : `${r}m`; };
 const LV_EN = ["a light week", "a steady week", "a fairly busy week", "a heavy week", "a big week"];
@@ -430,7 +426,7 @@ function reviewBody(){
     <section class="wkr-sec wkr-idea"><h3>${esc(tr("review.idea.h", "One gentle idea"))}</h3><p style="margin:0">${esc(ideaText(idea, plan))}</p></section>${ai}
     <p class="status-msg" id="wkrMsg" aria-live="polite">${esc(RV.ai.msg || "")}</p>`;
 }
-// A move can be taken back right in the sheet: the app's own toast sits behind an open sheet
+// A move can be taken back right in the sheet
 function liveNote(text, undo){
   const el = $("#wkrLive"); if (!el) return;
   el.textContent = text || "";
@@ -457,9 +453,7 @@ function openReview(manual){
 dlg.addEventListener("close", () => { RV = null; });
 
 /* ================= Gentle study streak ================= */
-/* The answer to "Try It" / "No Thanks" is also kept on this device. If the synced settings ever come back without it (another device or an
-   older copy of the app wrote the settings over it), it is put back instead of asking again. An explicit choice made on another device
-   (on or off, which always sets "intro") is never overridden. */
+/* The answer to "Try It" / "No Thanks" is also kept on this device */
 const FGS_CHOICE = "studyboard:fgs:choice";
 const gcfg = () => stg("gentle");
 function fgsRestore(){
@@ -507,7 +501,7 @@ function streakStripHtml(hideIntro){
     <div class="wkr-acts"><button type="button" class="btn small primary" data-act="fgs-on">${esc(tr("streak.intro.on", "Try It"))}</button><button type="button" class="btn small" data-act="fgs-open">${esc(tr("streak.intro.more", "Learn More"))}</button><button type="button" class="btn small" data-act="fgs-no">${esc(tr("streak.intro.no", "No Thanks"))}</button></div></section>`;
 }
 
-/* ---------- Seeing what happened today: flashcards leave no dated record, so a day is noted when 5 cards were reviewed ---------- */
+/* Seeing what happened today */
 const CARDS = "studyboard:fgs:cards";
 let fcSeen = 0;
 function logDay(){
@@ -529,7 +523,7 @@ function noteCards(){
   c.n += add; lsw(CARDS, JSON.stringify(c));
   if (c.n >= 5) logDay();
 }
-// Keep what was seen: today's study day (so it outlives a task's short history) and the best run
+// Keep what was seen
 function observe(res){
   const g = gcfg(), patch = {};
   if (res.todayActive && !(g.log && g.log[res.today])) { const log = Object.assign({}, g.log); log[res.today] = 1; const out = {}; Object.keys(log).sort().slice(-120).forEach(d => { out[d] = 1; }); patch.log = out; }
@@ -538,7 +532,7 @@ function observe(res){
   if (Object.keys(patch).length) setStg("gentle", patch);
 }
 
-/* ---------- The companion ---------- */
+/* The companion */
 const SAID = "studyboard:streak:said";
 const saidRead = () => { try { const v = JSON.parse(lsr(SAID) || "{}"); return v && typeof v === "object" ? v : {}; } catch (e) { return {}; } };
 function lines(c){
@@ -575,10 +569,10 @@ function tryCelebrate(){
   } catch (e) { console.warn("streak companion", e); }
 }
 
-/* ---------- The details sheet ---------- */
+/* The details sheet */
 let SG = false;
 const WD = [1, 2, 3, 4, 5, 6, 0];
-const wdName = d => fmtD(RS.add("2026-10-04", d), {weekday: "long"});     // 2026-10-04 is a Sunday
+const wdName = d => fmtD(RS.add("2026-10-04", d), {weekday: "long"});
 const wdShort = d => fmtD(RS.add("2026-10-04", d), {weekday: "narrow"});
 const STAT_WORD = {active: () => tr("streak.st.active", "study day"), rest: () => tr("streak.st.rest", "rest day"), quiet: () => tr("streak.st.quiet", "quiet day"), open: () => tr("streak.st.open", "today, still open"), future: () => tr("streak.st.future", "coming up"), none: () => tr("streak.st.none", "no record")};
 function gridHtml(res){

@@ -23,7 +23,7 @@
 }
 *,*::before,*::after{box-sizing:inherit}
 html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px);scrollbar-gutter:stable;overscroll-behavior-y:none}
-/* no bounce past the top or bottom (Chrome on Windows and Mac touchpads): it slid the page down and showed a strip of the light background above the sidebar */
+/* no bounce past the top or bottom (Chrome on Windows and Mac touchpads) */
 body{overscroll-behavior-y:none}
 body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:1rem/1.5 var(--body);-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -207,7 +207,7 @@ li.task>.lms-go{align-self:center;margin-right:12px}
 .tl-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
 .tl-controls > .spacer{flex:1}
 .tl-controls h2{flex:1;margin:0;font:700 1.2rem var(--display)}
-.segb{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px;flex:none;max-width:100%}   /* never squeezed narrower than its buttons, so the chosen pill sits evenly inside the outline at either end */
+.segb{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px;flex:none;max-width:100%}
 .segb button{border:0;background:none;border-radius:8px;padding:6px 12px;font-size:.85rem;font-weight:500;white-space:nowrap}
 .segb button[aria-pressed="true"]{background:var(--ink);color:var(--bg);font-weight:600}
 .tl-scroll{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:14px;margin-top:10px}
@@ -216,7 +216,7 @@ li.task>.lms-go{align-self:center;margin-right:12px}
 .tl-bg .we{position:absolute;top:0;bottom:0;background:var(--soft)}
 .tl-bg-top{z-index:1}
 .tl-bg .today-line{position:absolute;top:58px;bottom:0;width:2px;background:var(--late)}
-/* Today's line runs behind a due date's marker and label, never through them: they sit above it, the marker's own ring keeps a gap round it and the label has a soft halo in the page colour, so the line fades out behind the text */
+/* Today's line runs behind a due date's marker and label, never through them */
 .tl-track > .tl-ic,.tl-track > .tl-dl{z-index:2}
 .tl-track > .tl-dl{text-shadow:0 0 2px var(--surface),0 0 4px var(--surface),0 0 6px var(--surface),0 0 8px var(--surface)}
 .tl-row{display:flex;position:relative;z-index:auto;height:46px}
@@ -410,7 +410,7 @@ nav.tabs button{font-size:.75rem!important}
 .nb-scroll{overflow:auto;height:calc(100vh - 290px);height:calc(100dvh - 290px);min-height:380px;border-radius:16px;border:1px solid color-mix(in srgb,#7A5230 40%,var(--line));box-shadow:inset 0 2px 10px rgba(60,35,10,.25)}
 .nb-board{position:relative;z-index:0;isolation:isolate;min-width:100%;min-height:100%;box-sizing:border-box;background-color:#C69C6D;background-image:radial-gradient(rgba(90,55,20,.28) 1px,transparent 1.4px),radial-gradient(rgba(255,235,200,.22) 1px,transparent 1.5px);background-size:9px 9px,13px 13px;background-position:0 0,5px 7px}
 .nb-board{-webkit-touch-callout:none}
-.nb-scroll{touch-action:pan-x pan-y}   /* two-finger pinch zooms the board (handled in the page), not the whole page */
+.nb-scroll{touch-action:pan-x pan-y}
 .nb-sizer{width:100%;height:100%}
 .nb-sizer.zoomed{position:relative;overflow:hidden;width:auto;height:auto}
 .nb-sizer.zoomed > .nb-board{transform-origin:0 0}
@@ -515,7 +515,7 @@ nav.tabs button{font-size:.75rem!important}
 .ms.tl-ic,.tl-ic.key{transform:none;border-radius:50%;width:26px;height:26px;top:7px;display:grid;place-items:center;background:var(--c);color:#fff;border:2px solid var(--surface);box-shadow:0 0 0 1.5px var(--c)}
 .ms.tl-ic svg,.tl-ic.key svg{width:15px;height:15px}
 .ms.tl-ic.late{background:var(--late);box-shadow:0 0 0 1.5px var(--late)}
-/* the icon and its date label both sit on the row's middle line, whatever size a theme gives the icon */
+/* the icon and its date label both sit on the row's middle line */
 .tl-track > .ms.tl-ic{top:50%!important;margin-top:0!important;translate:0 -50%}
 .tl-track > .tl-dl{line-height:1}
 .tl-legend .tl-ic.key{display:inline-grid;position:static;width:20px;height:20px;margin-right:6px;vertical-align:middle;--c:var(--muted);background:var(--muted);box-shadow:none;border-width:0}
@@ -654,7 +654,7 @@ h1,h2,h3{text-wrap:balance}
 /* Logo swaps with the theme */
 .brand{display:flex;align-items:center;flex:none}
 .brand .logo{height:34px;width:154px;display:block}
-.site-link{display:block;color:inherit;border-radius:10px}.site-link[href]{cursor:pointer}.site-link[href]:hover{opacity:.85}.site-link:focus-visible{outline:2px solid var(--accent,#3B6FE0);outline-offset:3px}   /* the logo opens the Studyboard website */
+.site-link{display:block;color:inherit;border-radius:10px}.site-link[href]{cursor:pointer}.site-link[href]:hover{opacity:.85}.site-link:focus-visible{outline:2px solid var(--accent,#3B6FE0);outline-offset:3px}
 .logo-d{display:none!important}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .logo-l{display:none!important}:root:not([data-theme="light"]) .logo-d{display:block!important}}
 :root[data-theme="dark"] .logo-l{display:none!important}
@@ -673,7 +673,7 @@ header.top{background:color-mix(in srgb,var(--paper) 86%,transparent);-webkit-ba
 .pomo-btn.m-short,.pomo-btn.m-long{color:var(--leaf)}
 .pomo-btn.run{background:color-mix(in srgb,currentColor 12%,var(--surface));border-color:color-mix(in srgb,currentColor 45%,var(--line))}
 .pomo-btn svg{width:20px;height:20px;flex:none}
-html.sb-island #pomoBtnTime{display:none!important}html.sb-island .head-actions > .pomo-btn{width:40px;min-width:40px;padding:0;border-radius:50%;justify-content:center}   /* the time is in the Dynamic Island */
+html.sb-island #pomoBtnTime{display:none!important}html.sb-island .head-actions > .pomo-btn{width:40px;min-width:40px;padding:0;border-radius:50%;justify-content:center}
 /* Navigation: floating dock on phones */
 nav.tabs{left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));padding:6px;border:0;border-radius:20px;background:var(--spine);box-shadow:0 10px 30px rgba(8,20,50,.35)}
 nav.tabs .in{grid-template-columns:none!important;grid-auto-flow:column;grid-auto-columns:1fr;max-width:760px;gap:1px}
@@ -729,7 +729,7 @@ nav.tabs .in button[aria-current="page"] svg{color:var(--accent-2)}
 h2.sec,.col-head,.tl-controls h2,.view-head h2,.cal-head h2,.fcrumb,.sheet-head h2,.detail-head h2,.course-card h3,.deck-name,.focus-head h2,.empty strong,.lane-head{font-family:var(--display);letter-spacing:-.01em}
 .view-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px}
 .view-head h2{flex:1;margin:0;font:700 1.45rem/1.2 var(--display)}
-.tl-controls h2{font-size:1.45rem;line-height:1.2}   /* same line height as .view-head h2, so the scene themes' plate behind every page title is the same height */
+.tl-controls h2{font-size:1.45rem;line-height:1.2}
 /* Controls */
 .btn{border-radius:11px;border-color:var(--line);font-weight:700;box-shadow:0 1px 0 rgba(14,42,86,.05)}
 .btn:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
@@ -800,8 +800,8 @@ ul.tasks,.plan-list,.flist,.fc-list{box-shadow:var(--shadow);border-color:var(--
 .course-card .code{font-size:1.05rem}
 .course-card .body > .prog{margin-top:auto;padding-top:10px}
 .course-card .body > .stats{margin-top:6px}
-.back{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:6px 14px 6px 8px;min-height:36px;font-weight:600}   /* a solid pill, so it stays readable on a theme's scene */
-/* The course name sits on its own solid card, so a theme's scene or photo behind the page can never swallow it */
+.back{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:6px 14px 6px 8px;min-height:36px;font-weight:600}
+/* The course name sits on its own solid card */
 .detail-head{border:1px solid var(--line);border-left:0;border-radius:14px;padding:14px 18px;background:var(--ph-surf,var(--surface));color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.12)}
 .detail-head h2{font-size:1.9rem;color:var(--ink);text-shadow:none;overflow-wrap:anywhere}
 .detail-head .code{color:var(--muted);text-shadow:none}
@@ -818,7 +818,7 @@ ul.tasks,.plan-list,.flist,.fc-list{box-shadow:var(--shadow);border-color:var(--
 .mastery.lo i{background:var(--late)}
 .mastery.hi i{background:var(--leaf)}
 .deck-actions{display:flex;align-items:center;gap:8px;padding:0 16px 14px}
-/* A deck drawn as a stack of flashcards in the chosen card style: two cards peek out behind the front one */
+/* A deck drawn as a stack of flashcards in the chosen card style */
 .deck.deck-fc{background:none!important;border:0!important;border-radius:0;box-shadow:none!important}
 .deck-fc .deck-lay{position:absolute;inset:0;pointer-events:none}
 .deck-fc .deck-lay.l2{transform:translate(6px,6px)}
@@ -830,11 +830,11 @@ ul.tasks,.plan-list,.flist,.fc-list{box-shadow:var(--shadow);border-color:var(--
 .deck-fc .deck-name{text-align:center}
 .deck-fc .mastery{width:100%}
 .deck-count{position:absolute;top:-11px;right:-9px;z-index:3;min-width:26px;height:26px;padding:0 8px;box-sizing:border-box;display:inline-grid;place-items:center;border-radius:999px;background:var(--c);color:#fff;font:700 .82rem/1 var(--display);box-shadow:0 2px 6px rgba(0,0,0,.3);border:2px solid var(--surface);font-variant-numeric:tabular-nums}
-.deck-fc .deck-face .deck-main,.deck-fc .deck-face .deck-actions{position:relative;z-index:1}   /* above the style's shimmer or texture layer */
+.deck-fc .deck-face .deck-main,.deck-fc .deck-face .deck-actions{position:relative;z-index:1}
 .deck-fc .deck-face .deck-meta,.deck-fc .deck-face .deck-arch{color:inherit;opacity:.72}
 .deck-fc .deck-face .deck-arch:hover{opacity:1}
 .deck-fc .deck-face .btn:not(.primary):not(.deck-arch){color:var(--ink)}
-.deck-fc > .deck-tab{left:0;z-index:2}   /* on the article, not inside the card, so it lines up with the card's outer edge whatever the card's border is */
+.deck-fc > .deck-tab{left:0;z-index:2}
 .deck-fc.cs-neon .deck-face .btn:not(.primary):not(.deck-arch),.deck-fc.cs-chalk .deck-face .btn:not(.primary):not(.deck-arch),.deck-fc.cs-blueprint .deck-face .btn:not(.primary):not(.deck-arch){background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.4);color:inherit}
 .deck-fc.cs-ticket .deck-main,.deck-fc.cs-ticket .deck-actions{padding-left:36px;padding-right:36px}
 .deck-fc.cs-polaroid .deck-main{padding-top:8px}
@@ -949,7 +949,7 @@ dialog.alarm{width:min(420px,calc(100% - 32px));margin:auto;border-radius:22px}
 @media (prefers-reduced-motion:reduce){.alarm-ring{animation:none}}
 @media (max-width:600px){dialog.alarm{margin:auto;border-radius:22px}}
 
-/* ---- v6: settings rows, board sections, rail sidebar ---- */
+/* -- v6: settings rows, board sections, rail sidebar */
 .cap-row label,.cap-row > span{min-width:0}
 .cap-row input[type=number]{width:88px!important;flex:none;text-align:right}
 .cap-row .sub{display:block;margin-top:2px;font-weight:400}
@@ -1007,7 +1007,7 @@ dialog.alarm{width:min(420px,calc(100% - 32px));margin:auto;border-radius:22px}
   .toast{left:calc(50% + 56px)}
 }
 
-/* ---- v7 ---- */
+/* -- v7 */
 .focus-head h2 span,.today .wd{background:none!important;padding:0;margin:0}
 .col{background:color-mix(in srgb,var(--ph-surf,var(--surface)) 88%,transparent)}
 .bk-opt{border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:8px;justify-items:start}
@@ -1028,7 +1028,7 @@ dialog.alarm{width:min(420px,calc(100% - 32px));margin:auto;border-radius:22px}
   .toast{left:calc(50% + 68px)}
 }
 
-/* ---- v8 ---- */
+/* -- v8 */
 .col-more{margin-top:12px}
 .col-more > summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;padding:8px 10px;border:1px dashed var(--line);border-radius:10px;font:600 .86rem var(--display);color:var(--muted);background:color-mix(in srgb,var(--surface) 70%,transparent)}
 .col-more > summary::-webkit-details-marker{display:none}
@@ -1041,7 +1041,7 @@ dialog.alarm{width:min(420px,calc(100% - 32px));margin:auto;border-radius:22px}
 .board.dragging .col-more:not([open]) > summary{border-style:solid}
 canvas.confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:200}
 
-/* ---- v9: notes ---- */
+/* -- v9: notes */
 .note-rot{position:absolute;right:-11px;top:-11px;width:26px;height:26px;border-radius:50%;background:#fff;color:#2A2418;box-shadow:0 0 0 1px rgba(0,0,0,.14),0 1px 2px rgba(0,0,0,.2);display:grid;place-items:center;opacity:0;transition:opacity .15s;cursor:grab;touch-action:none;z-index:2}
 .note:hover .note-rot,.note:focus-visible .note-rot,.note.rotating .note-rot{opacity:1}
 @media (hover:none){.note-rot{opacity:.9}}
@@ -1055,7 +1055,7 @@ canvas.confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:n
 .tf-note .x-btn{position:absolute;right:0;top:0;width:26px;height:26px;color:#2A2418}
 .note-count{display:inline-flex;align-items:center}
 
-/* ---- v9: archive ---- */
+/* -- v9: archive */
 .arch-link{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:10px;border:1px dashed var(--line);background:none;border-radius:10px;padding:7px 8px;color:var(--muted);font:600 .8rem var(--display)}
 .arch-link:hover{color:var(--ink);border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
 .arch-list{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}
@@ -1078,7 +1078,7 @@ canvas.confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:n
 .nt-list{display:grid;gap:6px}
 .nt-row{padding:8px 10px;border:1px solid var(--line);border-radius:10px}
 .nt-row .sd{width:10px;height:10px;border-radius:3px;background:var(--c);flex:none}
-/* ---- v9: schedule ---- */
+/* -- v9: schedule */
 .sch-nav{display:flex;align-items:center;gap:8px}
 .sch-range{font:600 .95rem var(--display);min-width:118px;text-align:center}
 .sch-missing{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
@@ -1159,7 +1159,7 @@ canvas.confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:n
   nav.tabs .in button span,nav.tabs .in button{font-size:.7rem!important}
   .nav-sync{display:none}
 }
-/* The side tabs never scroll. They keep their usual size (logo, date, icons) and only tighten up when the window is really short. */
+/* The side tabs never scroll */
 @media (min-width:980px){nav.tabs{overflow:hidden}}
 @media (min-width:980px) and (max-height:640px){
   nav.tabs{padding-top:8px;gap:6px}
@@ -1169,7 +1169,7 @@ canvas.confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:n
 }
 @media (max-width:420px){nav.tabs .in button{font-size:.6rem!important}nav.tabs .in button svg{width:20px;height:20px}}
 
-/* ---- desktop app window ---- */
+/* -- desktop app window */
 body.desk{--tb:34px;padding-top:var(--tb)}
 body.desk::before{content:"";position:fixed;top:0;left:0;right:0;height:var(--tb);background:var(--spine);-webkit-app-region:drag;z-index:400}
 body.desk header.top{top:var(--tb)}
@@ -1178,7 +1178,7 @@ body.desk dialog{max-height:calc(100vh - var(--tb) - 24px)}
 /* Full screen: no strip for the window buttons */
 body.desk.fs{--tb:0px}
 body.desk.fs::before{display:none}
-/* No page scrollbar in the app window (scrolling still works: wheel, trackpad, keys) */
+/* No page scrollbar in the app window */
 html.desk{scrollbar-width:none}
 html.desk::-webkit-scrollbar{display:none;width:0;height:0}
 body.desk nav.tabs{scrollbar-width:none}
@@ -1186,7 +1186,7 @@ body.desk nav.tabs::-webkit-scrollbar{display:none}
 
 @media (min-width:980px){.nav-tool{color:rgba(255,255,255,.78)}.nav-tool:hover{color:#fff}}
 
-/* ---- theme toggle ---- */
+/* -- theme toggle */
 .theme-btn .ti-sun{display:none}
 .theme-btn.is-dark .ti-sun{display:block}
 .theme-btn.is-dark .ti-moon{display:none}
@@ -1197,7 +1197,7 @@ html{transition:none}
 .ai-ic{flex:none;vertical-align:-3px;color:#8B5CF6}
 .btn.primary .ai-ic{color:currentColor}
 .btn.ai-btn{border-color:color-mix(in srgb,#8B5CF6 45%,var(--line));background:color-mix(in srgb,#8B5CF6 9%,var(--surface))}
-/* Every button with the AI mark (the companion's face, or the sparkle) is AI's purple, so AI is easy to spot anywhere */
+/* Every button with the AI mark (the companion's face, or the sparkle) is AI's purple */
 .btn:not(.primary):has(.ai-ic){border-color:color-mix(in srgb,#8B5CF6 45%,var(--line));background:color-mix(in srgb,#8B5CF6 12%,var(--surface));color:color-mix(in srgb,#6D3FD8 70%,var(--ink))}
 .btn:not(.primary):has(.ai-ic):hover{background:color-mix(in srgb,#8B5CF6 20%,var(--surface))}
 html[data-theme=dark] .btn:not(.primary):has(.ai-ic){color:color-mix(in srgb,#C4B0FF 75%,var(--ink));background:color-mix(in srgb,#8B5CF6 18%,var(--surface))}
@@ -1345,7 +1345,6 @@ body.cap-drag::after{content:"Drop a photo to capture its tasks";position:fixed;
 .qa-meta{display:flex;gap:6px;font-size:.8rem;color:var(--muted)}
 .qa-meta span{background:var(--soft);border-radius:6px;padding:2px 6px}
 /* do this next */
-/* estimates */
 .est-btn{font-size:.82rem;padding:0 0 0 8px;display:inline-flex;align-items:center;gap:3px}
 .est-hint{margin:0;background:var(--field);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
 /* explain & grading */
@@ -1439,7 +1438,7 @@ body.cap-drag::after{content:"Drop a photo to capture its tasks";position:fixed;
 .pp-exams{list-style:none;margin:0 0 8px;padding:0;display:grid;gap:6px}
 .pp-exams li{display:flex;align-items:center;gap:8px;flex-wrap:wrap;border:1px solid var(--line);border-radius:12px;padding:8px 12px;background:var(--surface)}
 .pp-ex-main{display:grid;text-align:left;flex:1 1 180px;background:none;border:0;padding:0;color:inherit;font:inherit;cursor:pointer}
-/* Same look and spot as Break It Down: centred in the row, before the open-in-school-site link */
+/* Same look and spot as Break It Down */
 li.task .pp-row-btn{flex:none;align-self:center;margin:0 10px 0 0;min-height:40px;padding:0 14px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--accent);font:600 .8rem var(--body,inherit);cursor:pointer;white-space:nowrap}
 li.task .pp-row-btn:last-child{margin-right:12px}
 @media (max-width:600px){li.task .pp-row-btn{margin-right:6px;padding:0 8px;font-size:.76rem}}
@@ -1467,7 +1466,7 @@ li.task .pp-row-btn:last-child{margin-right:12px}
 .ask-foot textarea{flex:1;min-height:0;resize:none;max-height:9em;overflow-y:auto;line-height:1.35}
 .ask-foot .btn{align-self:flex-end}
 .note-body{max-height:480px;overflow:hidden;white-space:pre-wrap}
-/* Notes never scroll: a long note grows to 480px, then fades out with a Show More button; the edit box grows with its text. */
+/* Notes never scroll */
 .note.nb-clip:not(.nb-open) .note-body{-webkit-mask-image:linear-gradient(#000 78%,transparent);mask-image:linear-gradient(#000 78%,transparent)}
 .note.nb-open .note-body{max-height:none}
 .note-more{display:flex;align-items:center;justify-content:center;gap:4px;width:100%;margin:6px 0 0;padding:6px 8px;border:0;border-radius:8px;background:rgba(255,255,255,.5);color:#2A2418;font:700 .78rem var(--body);cursor:pointer}
@@ -1489,7 +1488,7 @@ li.task .pp-row-btn:last-child{margin-right:12px}
 .nu-title .tag{font:700 .72rem var(--body);letter-spacing:.04em;color:var(--muted);margin-left:8px;vertical-align:2px}
 
 
-/* ---- Today's Plan: one calm card ---- */
+/* -- Today's Plan */
 .plan{padding:16px 18px}
 .plan .focus-head{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap}
 .plan .fh-txt{flex:1 1 220px;min-width:0}
@@ -1516,7 +1515,7 @@ li.task .pp-row-btn:last-child{margin-right:12px}
 .nu-step{font-size:.86rem;font-weight:600}
 .nu-acts{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
 .nu-acts svg{width:16px;height:16px;margin-right:4px;vertical-align:-3px}
-.nu-acts .btn.primary svg{color:var(--tomato);filter:drop-shadow(0 0 1px #fff)}   /* the tomato stays red whatever the button text color is */
+.nu-acts .btn.primary svg{color:var(--tomato);filter:drop-shadow(0 0 1px #fff)}
 /* the rest of today */
 .plan-sub{margin:16px 0 0;font:700 .72rem var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .plan .plan-list{list-style:none;margin:4px 0 0;padding:0;background:transparent;border:0;border-radius:0;box-shadow:none;overflow:visible}
@@ -1615,7 +1614,7 @@ button.pr-why:hover{background:var(--soft);color:var(--ink)}
 .bview[data-bview=board] .board-sec{margin-top:0;padding-top:0;border-top:0}
 .bview[data-bview=board] .board-sec::before{display:none}
 .bview[data-bview=board] .board-sec-head,.bview[data-bview=plan] .focus-head h2{display:none}
-/* Calendar's Timeline / Schedule switch: the same look as the phone's Today's Plan / Task Board switch, on every screen size */
+/* Calendar's Timeline / Schedule switch */
 .pview-tabs{display:flex;gap:4px;padding:4px;margin:0 0 12px;background:var(--soft);border:1px solid var(--line);border-radius:14px;max-width:420px}
 .pview-tabs button{flex:1;border:0;background:transparent;border-radius:10px;padding:10px 8px;font:700 .95rem var(--display);color:var(--muted);display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}
 .pview-tabs button[aria-selected=true]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
@@ -1674,8 +1673,7 @@ body{background-image:var(--bgimg,linear-gradient(var(--grid) 1px,transparent 1p
 body::after{content:"";position:fixed;left:0;right:0;bottom:0;height:var(--scene-h,0px);background:var(--scene,none) center bottom/100% 100% no-repeat;pointer-events:none;z-index:-1}
 nav.tabs{background:var(--spine-bg,var(--spine))}
 body.desk::before{background:var(--spine-bg,var(--spine))}
-/* A wide window: the sidebar runs to the very top, and the strip for the window buttons is the page itself, frosted, instead of a dark band
-   (its buttons take the page's colour too, see deskTint). On a Mac the sidebar leaves room for the traffic lights. */
+/* A wide window */
 @media (min-width:980px){
   body.desk nav.tabs{top:0}
   body.desk.mac nav.tabs{padding-top:calc(var(--tb) + 8px)}
@@ -1683,8 +1681,7 @@ body.desk::before{background:var(--spine-bg,var(--spine))}
 }
 .btn.primary,.fab{background:var(--btn-bg,var(--accent))}
 .btn.primary{border-color:transparent}
-/* No stray line of the wrong colour beside or under a themed button: a gradient or picture fill is drawn across the whole box (not repeated
-   into the border edge), and the thin shadow under plain buttons is not drawn under coloured ones */
+/* No stray line of the wrong colour beside or under a themed button */
 .btn.primary,.fab{background-origin:border-box !important;background-clip:border-box !important}
 .btn.primary{box-shadow:none}
 :root[data-skin] .btn.primary:hover,:root[data-skin] .fab:hover{background:var(--btn-bg,color-mix(in srgb,var(--accent) 88%,#000));filter:brightness(.95)}
@@ -1749,7 +1746,7 @@ body.desk::before{background:var(--spine-bg,var(--spine))}
 .pin.pk-heartpin,.pin.pk-starpin,.pin.pk-magnet{top:-6px;width:28px;height:28px;margin-left:-14px;background:none;box-shadow:none;border-radius:0;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))}
 .pin.pk-clip{top:-16px;left:22px;width:18px;height:44px;margin:0;background:none;box-shadow:none;border-radius:0;filter:drop-shadow(0 1px 1px rgba(0,0,0,.3))}
 .pin.pk-binder{top:-16px;width:40px;height:36px;margin-left:-20px;background:none;box-shadow:none;border-radius:0;filter:drop-shadow(0 2px 2px rgba(0,0,0,.3))}
-/* Pins on shaped notes: keep every pin and tape touching the paper */
+/* Pins on shaped notes */
 .note.ns-cloud .pin.pkk-tape{top:5px}
 .note.ns-cloud .pin.pkk-badge{top:4px}.note.ns-cloud .pin.pk-pin,.note.ns-cloud .pin.pk-gold{top:12px}.note.ns-cloud .pin.pkk-flat{top:16px}.note.ns-cloud .pin.pkk-top{top:-6px}
 .note.ns-cloud .pin.pkk-clip{left:24%;top:-2px}
@@ -1765,12 +1762,12 @@ body.desk::before{background:var(--spine-bg,var(--spine))}
 .pin svg{display:block;width:100%;height:100%}
 /* stickers on notes */
 .stk{position:absolute;width:48px;height:48px;transform:translate(-50%,-50%) rotate(var(--r,0deg)) scale(var(--s,1));z-index:3}
-.stk > svg{width:100%;height:100%;display:block;overflow:visible;filter:drop-shadow(1.6px 0 0 #fff) drop-shadow(-1.6px 0 0 #fff) drop-shadow(0 1.6px 0 #fff) drop-shadow(0 -1.6px 0 #fff) drop-shadow(0 2px 3px rgba(0,0,0,.28))}   /* the white outline is the sticker's own, not the rotate handle's */
+.stk > svg{width:100%;height:100%;display:block;overflow:visible;filter:drop-shadow(1.6px 0 0 #fff) drop-shadow(-1.6px 0 0 #fff) drop-shadow(0 1.6px 0 #fff) drop-shadow(0 -1.6px 0 #fff) drop-shadow(0 2px 3px rgba(0,0,0,.28))}
 .stk-rot{position:absolute;right:-9px;top:-9px;width:20px;height:20px;border-radius:50%;background:#fff;color:#2A2418;box-shadow:0 0 0 1px rgba(0,0,0,.14),0 1px 2px rgba(0,0,0,.2);display:grid;place-items:center;opacity:0;transition:opacity .15s;cursor:grab;touch-action:none;transform:scale(calc(1 / var(--s,1)))}
 .stk-rot svg{width:12px;height:12px}
 .nb-board .note .stk:hover .stk-rot,.stk.rotating .stk-rot{opacity:1}
 .stk.rotating .stk-rot{cursor:grabbing}
-@media (hover:none){.nb-board .note .stk-rot{opacity:.85}}   /* (no hover on a touch screen, so the handle shows, as on notes) */
+@media (hover:none){.nb-board .note .stk-rot{opacity:.85}}
 .ns-demo .stk-rot,.stk-ghost .stk-rot{display:none}
 .nb-board .note .stk{cursor:grab;touch-action:none}
 .ns-demo .stk{pointer-events:none;width:34px;height:34px}
@@ -1898,9 +1895,9 @@ body.sch-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 .sch-chip.sch-allday{background:color-mix(in srgb,var(--c) 26%,var(--surface))}
 .sch-legend .k-event::before{background:color-mix(in srgb,var(--accent) 22%,var(--surface));border-left:4px solid var(--accent)}
 .sch-nav{flex-wrap:wrap;justify-content:flex-end}
-/* wide screens: the week selector on the left, the rest of the Schedule's buttons at the right end of the row */
+/* wide screens: the week selector on the left */
 @media (min-width:640px){.view-head > .sch-nav{flex:1 1 100%;justify-content:flex-start}.sch-nav > [data-act="sch-next"] + *{margin-left:auto}}
-/* Availability blocks: Schedule styling per type, Today's free-time strip, the add/edit sheet */
+/* Availability blocks */
 .sch-b.k-av-class{background:var(--c);color:#fff}
 .sch-b.k-av-work{background:color-mix(in srgb,var(--c) 24%,var(--surface));color:var(--ink);border-left:5px solid var(--c);box-shadow:0 1px 4px rgba(8,20,50,.12)}
 .sch-b.k-av-shift{background:repeating-linear-gradient(135deg,var(--c) 0 9px,color-mix(in srgb,var(--c) 78%,#000) 9px 18px);color:#fff}
@@ -1976,7 +1973,6 @@ body.sch-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 .streak-chip{margin-left:10px;border:0;background:color-mix(in srgb,var(--tomato) 14%,var(--surface));color:var(--ink);font:700 .8rem/1 var(--display);padding:5px 9px;border-radius:999px;vertical-align:middle;cursor:pointer}
 @media (prefers-reduced-motion:reduce){.qod-wrap,.qod{transition:none}}
 /* Heads Up (automatic AI) */
-/* Exam location: where an exam or quiz is taken (REMOTEX) */
 .rx-chip{display:inline-block;font:700 .68rem/1 var(--body);letter-spacing:.03em;border-radius:6px;padding:4px 7px;border:1px solid var(--line);color:var(--muted);background:var(--surface);white-space:nowrap}
 .rx-chip.yes{color:var(--accent-ink,var(--ink));background:color-mix(in srgb,var(--accent) 14%,var(--surface));border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
 .rx-chip.no{color:var(--ink);background:color-mix(in srgb,var(--ink) 6%,var(--surface))}
@@ -2018,13 +2014,13 @@ body.sch-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 .ap-row{padding:8px 0;border-top:1px solid var(--line)}
 @media (max-width:560px){.auto-ins li{flex-direction:column}.auto-ins .ins-acts{max-width:none;justify-content:flex-start}}
 
-/* Full screen board (boardMax in 01-notes.js): the arrow button at the board's top left corner, and the board filling the app window */
+/* Full screen board (boardMax in 01-notes.js) */
 .board-max-btn{position:absolute;z-index:6;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;border-radius:999px;cursor:pointer;color:var(--ink);background:color-mix(in srgb,var(--surface) 88%,transparent);border:1px solid var(--line);box-shadow:0 2px 8px rgba(40,25,10,.18);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 .board-max-btn svg{width:17px;height:17px}
 .board-max-btn:hover{filter:brightness(.96)}
 .board-max-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .nb-max{top:14px;right:14px}
-/* Archive and Trash: round icon buttons beside it at the top (their names are in their labels; dragging a note over one still grows it) */
+/* Archive and Trash */
 .nb-main .nb-targets{top:14px;right:58px;bottom:auto!important;gap:8px!important;z-index:6}
 .nb-main .nb-target{width:36px!important;height:36px!important;padding:0!important;gap:0!important;border-radius:999px!important;border:1px solid var(--line)!important;background:color-mix(in srgb,var(--surface) 88%,transparent)!important;box-shadow:0 2px 8px rgba(40,25,10,.18)!important;justify-content:center!important;align-items:center!important}
 .nb-main .nb-target>span{display:none}

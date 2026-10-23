@@ -1,10 +1,10 @@
 /* ===== module: 98-comp-m1.js ===== */
-/* Study Companions, Study Fields batch m1: business, nursing, psych, biology */
+/* Study Companions, Study Fields batch m1 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
   const O16 = OW(1.6);
-  // A bumpy outline around an ellipse (puff() is round only): n bumps, each bulging by `bump`.
+  // A bumpy outline around an ellipse (puff() is round only)
   const ellPuff = (cx, cy, rx, ry, n, bump = 1.15) => {
     const f = v => Math.round(v * 100) / 100;
     const p = i => { const a = -Math.PI / 2 + i * 2 * Math.PI / n; return [cx + rx * Math.cos(a), cy + ry * Math.sin(a)]; };
@@ -15,7 +15,7 @@
     }
     return d + "Z";
   };
-  // A small heart shape, top dip at (x, y), half width s.
+  // A small heart shape, top dip at (x, y), half width s
   const heart = (x, y, s, fill, stroke) => `<path d="M${x} ${y + s * 0.35}C${x} ${y - s * 0.25} ${x - s} ${y - s * 0.3} ${x - s} ${y + s * 0.2}C${x - s} ${y + s * 0.65} ${x - s * 0.3} ${y + s * 0.95} ${x} ${y + s * 1.25}C${x + s * 0.3} ${y + s * 0.95} ${x + s} ${y + s * 0.65} ${x + s} ${y + s * 0.2}C${x + s} ${y - s * 0.3} ${x} ${y - s * 0.25} ${x} ${y + s * 0.35}Z" fill="${fill}"${stroke ? " " + stroke : ""}/>`;
 
   /* Market District */

@@ -1,5 +1,5 @@
 /* ===== module: 01-quick-add.js: the app's core, quick add: type a sentence ===== */
-/* ---------- Quick add: type a sentence ---------- */
+/* Quick add: type a sentence */
 const QA_MONTHS = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
 const QA_DAYS = [["sun","sunday"],["mon","monday"],["tue","tues","tuesday"],["wed","weds","wednesday"],["thu","thur","thurs","thursday"],["fri","friday"],["sat","saturday"]];
 function qaCourse(text){
@@ -69,12 +69,9 @@ const QA_SCHEMA = {type: "OBJECT", properties: {tasks: {type: "ARRAY", items: {t
   priority: {type: "STRING", enum: ["low", "med", "high", "urgent"]}, difficulty: {type: "STRING", enum: ["easy", "med", "hard"]},
   location: {type: "STRING"}, reading: {type: "STRING"}, notes: {type: "STRING"}}, required: ["title", "type", "due"]}}}, required: ["tasks"]};
 async function qaRun(text){
-  // Quick capture: a clear sentence with a date is added right away (Undo in the toast)
   if (window.SBCAPTURE && SBCAPTURE.fast(text)) { ui.qa = null; ui.qaText = ""; render(); setTimeout(() => { const i = $("#qaIn"); if (i) i.focus(); }, 30); return; }
   ui.qa = {busy: true, text, items: []}; render();
   let items = null, by = "local", err = "";
-  // Dates, times, durations, courses and types are read on this device first (instant, free, always the same). The AI only steps in
-  // when the sentence is ambiguous: several tasks in one line, or words that look like a date this reader didn't understand.
   const loc = qaLocal(text), sure = qaConfident(text, loc);
   if (sure) items = [loc];
   if (!sure && aiReady()) {
@@ -87,7 +84,6 @@ async function qaRun(text){
       items = (r.data.tasks || []).map(x => ({title: String(x.title || "").trim(), type: TYPES.includes(x.type) ? x.type : "Assignment", due: isDate(x.due) ? x.due : "", time: /^\d\d:\d\d$/.test(x.time || "") ? x.time : "", start: isDate(x.start) ? x.start : "",
         hours: Number(x.hours) > 0 && !MILESTONE(x.type) ? Math.round(Number(x.hours) * 4) / 4 : null, weight: Number(x.weight) > 0 ? Number(x.weight) : null, priority: PRIO[x.priority] ? x.priority : "med", difficulty: DIFF_M[x.difficulty] ? x.difficulty : "med",
         courseId: byCode[String(x.course || "").toLowerCase()] || "", location: String(x.location || ""), reading: String(x.reading || ""), notes: String(x.notes || "")})).filter(x => x.title);
-      // Don't trust a date, time or hours figure the AI made up when the sentence states one plainly
       items.forEach(x => { if (x.due && (dayDiff(today, x.due) < -45 || dayDiff(today, x.due) > 800)) x.due = ""; if (x.hours && x.hours > 40) x.hours = null; });
       if (items.length === 1) { const x = items[0]; if (loc.due) x.due = loc.due; if (loc.time) x.time = loc.time; if (loc.hours && !MILESTONE(x.type)) x.hours = loc.hours; if (loc.weight) x.weight = loc.weight; if (!x.courseId && loc.courseId) x.courseId = loc.courseId; }
       by = "ai";
@@ -125,7 +121,6 @@ function qaBarHtml(){
 document.addEventListener("submit", e => {
   if (e.target.id !== "qaForm") return;
   e.preventDefault(); const v = $("#qaIn").value.trim(); if (!v) { $("#qaIn").focus(); return; }
-  // "work Tue Thu 4-9pm" or "shift 7a-7:30p Mon Wed Fri" opens the availability form filled in; anything else is a task
   try { const aq = AVAIL.parseQuick(v); if (aq) { ui.qaText = ""; $("#qaIn").value = ""; availForm(null, aq); return; } } catch(err) {}
   ui.qaText = v; qaRun(v);
 });
@@ -144,7 +139,7 @@ function qaAdd(){
   ui.qa = null; ui.qaText = "";
   const ex1 = changes.length === 1 && MILESTONE(changes[0].after.type) && changes[0].after.due > todayISO() ? changes[0].after : null;
   if (changes.length) applyChanges(changes, changes.length === 1 ? `Added ${changes[0].after.title}` : `Added ${changes.length} tasks`, ex1 && window.SBPREP ? {label: "Plan My Prep", fn: () => SBPREP.open(ex1.id)} : undefined); else render();
-  const ask = changes.map(c => c.after).find(t => MILESTONE(t.type) && t.due && t.due >= todayISO() && state.tasks[t.id] && !remoteOf(state.tasks[t.id]).v);   // where is it taken? (the first one; the Suggestions tray asks about any others)
+  const ask = changes.map(c => c.after).find(t => MILESTONE(t.type) && t.due && t.due >= todayISO() && state.tasks[t.id] && !remoteOf(state.tasks[t.id]).v);
   if (ask) { remoteAsk(ask.id); return; }
   setTimeout(() => { const i = $("#qaIn"); if (i) i.focus(); }, 30);
 }

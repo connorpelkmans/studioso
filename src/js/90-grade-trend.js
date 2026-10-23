@@ -1,13 +1,9 @@
 /* ===== module: 90-grade-trend.js ===== */
-/* Grade trend per course: the running grade after each graded item, as a small chart with a plain one-line summary.
-   - The math is the Grade Tracker's own (courseGrade in 90-grades.js, asked "what was the grade counting only these marks?"),
-     so weighted work, LMS-synced marks, the pass mark and the letter scale all behave exactly as everywhere else.
-   - Items are ordered by due date (else the day they were finished). Two marks are needed; fewer shows a friendly note.
-   - Shown in the course's Grades tab, and as a tiny sparkline on the course cards. Tone: a drop is "down 2 points", never a warning. */
+/* Grade trend per course */
 (() => {
   /*TREND-START*/
   const GTREND = (() => {
-    // items: [{id, key: "YYYY-MM-DD" or "", seq}] -> dated items first by date, undated ones last, ties by seq then id
+    // items: [{id, key: "YYYY-MM-DD" or "", seq}] -> dated items first by date
     function order(items){
       return items.slice().sort((a, b) => (a.key ? 0 : 1) - (b.key ? 0 : 1) || String(a.key || "").localeCompare(String(b.key || "")) || (a.seq || 0) - (b.seq || 0) || String(a.id).localeCompare(String(b.id)));
     }
@@ -21,13 +17,13 @@
       });
       return out;
     }
-    // The last few grades, as a neutral change: {dir: "up"|"down"|"flat", pts: whole points, n: grades looked at}
+    // The last few grades, as a neutral change
     function summary(pts, win){
       if (!pts || pts.length < 2) return null;
       const w = pts.slice(-(win || 4)), d = w[w.length - 1].pct - w[0].pct, p = Math.round(Math.abs(d));
       return {dir: p === 0 ? "flat" : d > 0 ? "up" : "down", pts: p, n: w.length, delta: d};
     }
-    // The vertical range: the values with a little room, on multiples of 5, inside 0..100, at least 10 tall
+    // The vertical range
     function domain(vals){
       vals = vals.filter(v => v != null && isFinite(v));
       if (!vals.length) return {lo: 0, hi: 100};
@@ -66,7 +62,7 @@
   }
   const lastTxt = d => { const p = d.pts[d.pts.length - 1], L = d.letter(p.pct); return pctTxt(p.pct) + (L ? " " + L : ""); };
 
-  /* ---------- The chart ---------- */
+  /* The chart */
   function chartHtml(d){
     const W = 320, H = 158, box = {l: 40, t: 18, w: 320 - 40 - 16, h: 158 - 18 - 30}, n = d.pts.length;
     const dom = GTREND.domain(d.pts.map(p => p.pct).concat(d.goal != null ? [d.goal] : []));
@@ -101,7 +97,7 @@
     return `<div class="gr-sub gt-sec">${head}${chartHtml(d)}</div>`;
   }
 
-  /* ---------- Sparkline on course cards ---------- */
+  /* Sparkline on course cards */
   function sparkHtml(d){
     const n = d.pts.length, box = {l: 3, t: 3, w: 58, h: 14}, dom = GTREND.domain(d.pts.map(p => p.pct));
     const P = d.pts.map((p, i) => GTREND.xy(i, n, p.pct, dom, box)), f = v => v.toFixed(1), e = P[n - 1];

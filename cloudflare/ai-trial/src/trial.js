@@ -1,30 +1,6 @@
-// Studyboard AI trial: everything except the Cloudflare wiring (src/index.js), so tests/ai-trial.test.js can run it in Node.
-//
-// A signed-in student with a confirmed email gets a few free AI tries (TRIAL_USES in all, DAILY_USES a day) on a small Workers AI model,
-// until they add their own free Gemini key. Only jobs they start themselves come here; Automatic AI never uses the trial.
-//
-// Never billed: the account must stay on the Workers FREE plan, where going over a limit only makes requests fail. On top of that this
-// Worker keeps its own count of neurons per UTC day and stops at DAILY_NEURONS (never more than HARD_CEILING, below the free 10,000),
-// reserving each request's worst case before the model runs, and it only uses models that run on the free plan (MODELS).
-//
-// Not a robot: when TURNSTILE_SITE_KEY and the TURNSTILE_SECRET secret are set, a student passes one Cloudflare Turnstile check before
-// their first try. The check runs on this Worker's own /verify page (Turnstile only runs on real web addresses, so not inside the desktop
-// or phone apps); the app opens it, the page reports the result here, and the app sees "verify" turn false.
-//
-//   GET  /v1/trial   {left, total, todayLeft, daily, verify}    how many tries this student has, and whether the check is still needed
-//   POST /v1/verify/start                                      {url}: the check page for this student (link valid 15 minutes)
-//   POST /v1/verify/finish  {nonce, token}                     from the check page: Turnstile's token, checked with siteverify
-//   GET  /verify#<nonce>                                       the check page
-//   DELETE /v1/trial                                           {ok}: forget this student's count and check (sent by Delete My Account).
-//                                                              The id is then closed for good (only a "gone" flag stays), so it can't be
-//                                                              used to reset the count and take another round of free tries.
-//   POST /v1/ai      {task, system, text, schema?, maxTokens?, temperature?}
-//                    200 {data, model, left, todayLeft, total}
-//                    401 auth   403 unconfirmed | verify   413 too_long   429 used_up | today | busy   502 ai_failed {refunded}
-//                    (schema: at most MAX_SCHEMA characters as JSON. An answer that isn't JSON gives the try back at most MAX_REFUNDS times a
-//                    day: the model still ran and the shared pool paid for it, so endless free retries would let one account drain the day.)
+// Studyboard AI trial
 
-// Free-plan models only (none of them needs the Workers Paid plan), with Cloudflare's neurons per million tokens (pricing page, Oct 2026).
+// Free-plan models only (none of them needs the Workers Paid plan)
 export const MODELS = {
   "@cf/google/gemma-4-26b-a4b-it": { in: 9091, out: 27273 },
   "@cf/qwen/qwen3-30b-a3b-fp8": { in: 4625, out: 30475 },
@@ -32,9 +8,9 @@ export const MODELS = {
   "@cf/openai/gpt-oss-20b": { in: 18182, out: 27273 }
 };
 export const DEFAULT_MODEL = "@cf/google/gemma-4-26b-a4b-it";
-export const HARD_CEILING = 9000;       // neurons per UTC day, whatever DAILY_NEURONS says (Workers AI's free allocation is 10,000)
-export const MAX_SCHEMA = 8000;         // characters of JSON Schema (the app's largest is about 4,000)
-export const MAX_REFUNDS = 3;           // failed answers given back per student per UTC day, once the model has run
+export const HARD_CEILING = 9000;
+export const MAX_SCHEMA = 8000;
+export const MAX_REFUNDS = 3;
 
 const int = (v, d, lo, hi) => { const n = Math.floor(Number(v)); return Number.isFinite(n) && n > 0 ? Math.min(hi, Math.max(lo, n)) : d; };
 export function config(env) {
@@ -43,23 +19,23 @@ export function config(env) {
     dailyUses: int(env.DAILY_USES, 5, 1, 50),
     dailyNeurons: int(env.DAILY_NEURONS, 8000, 100, HARD_CEILING),
     model: MODELS[env.MODEL] ? env.MODEL : DEFAULT_MODEL,
-    maxChars: int(env.MAX_CHARS, 16000, 1000, 40000),      // system prompt + text
+    maxChars: int(env.MAX_CHARS, 16000, 1000, 40000),
     maxOut: int(env.MAX_OUTPUT_TOKENS, 1500, 200, 4000),
     turnstile: !!(env.TURNSTILE_SITE_KEY && env.TURNSTILE_SECRET)
   };
 }
 export const dayOf = now => new Date(now).toISOString().slice(0, 10);
-// Deliberately high: English is about 4 characters a token, so 2 over-counts even for most other languages; plus the chat template.
+// Deliberately high
 export const estTokens = chars => Math.ceil(chars / 2) + 60;
 export const neurons = (rates, inTok, outTok) => Math.ceil((inTok * rates.in + outTok * rates.out) / 1e6);
 
-// One per student (Durable Object named by the Supabase user id). Durable Objects run one request at a time, so counts can't race.
+// One per student (Durable Object named by the Supabase user id)
 export class Student {
   constructor(storage, now = () => Date.now()) { this.s = storage; this.now = now; }
   async read() {
     const [used, day, dayUsed, gone] = [await this.s.get("used"), await this.s.get("day"), await this.s.get("dayUsed"), await this.s.get("gone")];
     const today = dayOf(this.now());
-    if (gone) return { used: Infinity, dayUsed: Infinity, today, gone: true };   // forgotten (Delete My Account): no tries ever again on this id
+    if (gone) return { used: Infinity, dayUsed: Infinity, today, gone: true };
     return { used: used || 0, dayUsed: day === today ? dayUsed || 0 : 0, today };
   }
   async status(cfg) {
@@ -67,11 +43,9 @@ export class Student {
     return { left, total: cfg.trialUses, todayLeft: Math.min(left, Math.max(0, cfg.dailyUses - r.dayUsed)), daily: cfg.dailyUses, verify: !!cfg.turnstile && !r.gone && !(await this.s.get("human")) };
   }
   async setHuman() { await this.s.put("human", true); }
-  // Delete My Account: the count and the check flag go (nothing about the student is left here except a "gone" flag on the account id).
-  // The flag closes the id for good: account ids are never reused, so a real deletion loses nothing, and someone who sends DELETE
-  // while keeping the account can't use it to reset the count and drain the shared pool (they just lose their own trial).
+  // Delete My Account
   async forget() { await this.s.deleteAll(); await this.s.put("gone", true); }
-  // Counts the try before the model runs; refund() gives it back if the model then fails.
+  // Counts the try before the model runs; refund() gives it back if the model then fails
   async take(cfg) {
     const r = await this.read();
     if (r.used >= cfg.trialUses) return { ok: false, reason: "used_up" };
@@ -79,7 +53,7 @@ export class Student {
     await this.s.put({ used: r.used + 1, day: r.today, dayUsed: r.dayUsed + 1 });
     return { ok: true, day: r.today };
   }
-  // capped: the model ran (and the shared pool paid), so only MAX_REFUNDS of these a day are given back. Returns whether it was.
+  // capped: the model ran (and the shared pool paid)
   async refund(day, capped = false) {
     const r = await this.read();
     if (r.gone) return false;
@@ -94,7 +68,7 @@ export class Student {
   }
 }
 
-// One per UTC day (Durable Object named by the date): the neurons everyone's tries may use that day.
+// One per UTC day (Durable Object named by the date)
 export class Pool {
   constructor(storage) { this.s = storage; }
   async spent() { return (await this.s.get("spent")) || 0; }
@@ -102,16 +76,15 @@ export class Pool {
     const spent = await this.spent();
     if (spent + n > ceiling) return false;
     await this.s.put("spent", spent + n);
-    if (!(await this.s.getAlarm())) await this.s.setAlarm(Date.now() + 3 * 86400000);   // tidy up old days
+    if (!(await this.s.getAlarm())) await this.s.setAlarm(Date.now() + 3 * 86400000);
     return true;
   }
-  // Replace a reservation with what the model really used (never less than 0, and more if it somehow used more).
+  // Replace a reservation with what the model really used
   async settle(reserved, actual) { const spent = await this.spent(); await this.s.put("spent", Math.max(0, spent - reserved + actual)); }
   async expire() { await this.s.deleteAll(); }
 }
 
-// The check page's link: <uid>.<expiry>.<HMAC of both with the Turnstile secret>, so only this Worker can make one and it can't be
-// pointed at another student. It travels in the page's #fragment, which browsers don't send to any server.
+// The check page's link
 const b64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 async function hmac(secret, text) {
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(String(secret)), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
@@ -124,8 +97,7 @@ export async function readNonce(secret, nonce, now) {
   let diff = want.length ^ m[3].length; for (let i = 0; i < want.length; i++) diff |= want.charCodeAt(i) ^ (m[3].charCodeAt(i) || 0);
   return diff === 0 && Number(m[2]) * 1000 > now ? m[1] : null;
 }
-// Cloudflare's siteverify: the token must be fresh, unused, from this widget's check with the "trial" action (the check page always
-// sets it), and, when host is given, solved on this Worker's own check page (a token solved on another site using the same key is refused).
+// Cloudflare's siteverify
 export async function siteverify(env, token, ip, fetchFn = fetch, host = "") {
   if (typeof token !== "string" || !token || token.length > 2048) return false;
   try {
@@ -138,7 +110,7 @@ export async function siteverify(env, token, ip, fetchFn = fetch, host = "") {
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS", "Access-Control-Allow-Headers": "Authorization, Content-Type", "Access-Control-Max-Age": "86400" };
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json", "Cache-Control": "no-store" } });
 
-// Who is signed in: Supabase checks the token (GET /auth/v1/user). Answers are kept a few minutes so a burst of tries is one check.
+// Who is signed in
 const seen = new Map();
 export async function verifyUser(token, env, fetchFn = fetch, now = Date.now()) {
   if (!token || token.length > 4096 || !env.SUPABASE_URL || !env.SUPABASE_KEY) return null;
@@ -156,7 +128,7 @@ export async function verifyUser(token, env, fetchFn = fetch, now = Date.now()) 
 }
 export const _forgetUsers = () => seen.clear();
 
-// The app's answers are always JSON. The schema goes into the instructions (JSON mode keeps the reply to one object).
+// The app's answers are always JSON
 export function messagesFor(system, text, schema) {
   const sys = String(system || "").trim() + "\n\nReply with one JSON object only, no other text." + (schema ? " It must match this JSON Schema:\n" + JSON.stringify(schema) : "");
   return [{ role: "system", content: sys }, { role: "user", content: String(text || "") }];
@@ -165,9 +137,9 @@ export function readAnswer(out) {
   const c = out && (out.choices && out.choices[0] && out.choices[0].message ? out.choices[0].message.content : out.response);
   if (c && typeof c === "object") return c;
   const t = String(c || "").trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
-  try { return JSON.parse(t); } catch (e) { /* fall through */ }
+  try { return JSON.parse(t); } catch (e) { }
   const a = t.indexOf("{"), b = t.lastIndexOf("}");
-  if (a >= 0 && b > a) { try { return JSON.parse(t.slice(a, b + 1)); } catch (e) { /* not JSON */ } }
+  if (a >= 0 && b > a) { try { return JSON.parse(t.slice(a, b + 1)); } catch (e) { } }
   return null;
 }
 const usageOf = out => { const u = out && out.usage; return u && Number.isFinite(u.prompt_tokens) && Number.isFinite(u.completion_tokens) ? u : null; };
@@ -189,15 +161,13 @@ export async function handle(request, env, deps) {
     return json({ ok: true });
   }
   if (!["/v1/trial", "/v1/ai", "/v1/verify/start"].includes(url.pathname)) return json({ error: "not_found" }, 404);
-  // Forgetting works for every signed-in student (even unconfirmed, even with the trial switched off): it only ever deletes their own record,
-  // and it never gives tries back (the id is closed afterwards; see Student.forget).
   if (url.pathname === "/v1/trial" && request.method === "DELETE") {
     const who = await deps.user((request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, ""));
     if (!who) return json({ error: "auth" }, 401);
     await deps.student(who.id).forget();
     return json({ ok: true });
   }
-  if (String(env.TRIAL_OFF || "") === "1") return json({ error: "busy", left: 0, total: 0, todayLeft: 0, daily: 0 }, 429);   // off switch
+  if (String(env.TRIAL_OFF || "") === "1") return json({ error: "busy", left: 0, total: 0, todayLeft: 0, daily: 0 }, 429);
   const token = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
   const user = await deps.user(token);
   if (!user || user.anonymous) return json({ error: "auth" }, 401);
@@ -219,7 +189,7 @@ export async function handle(request, env, deps) {
   if (!text.trim()) return json({ error: "bad" }, 400);
   const schema = body.schema && typeof body.schema === "object" ? body.schema : null;
   const schemaLen = schema ? JSON.stringify(schema).length : 0;
-  if (schemaLen > MAX_SCHEMA) return json({ error: "too_long" }, 413);   // the schema is input too: capped here, and counted below
+  if (schemaLen > MAX_SCHEMA) return json({ error: "too_long" }, 413);
   const messages = messagesFor(system, text, schema), chars = messages.reduce((n, m) => n + m.content.length, 0);
   if (chars > cfg.maxChars + schemaLen + 200) return json({ error: "too_long" }, 413);
   const maxOut = Math.min(cfg.maxOut, int(body.maxTokens, cfg.maxOut, 50, cfg.maxOut));
@@ -236,12 +206,9 @@ export async function handle(request, env, deps) {
     out = await deps.ai.run(cfg.model, { messages, max_completion_tokens: maxOut, temperature, response_format: { type: "json_object" }, chat_template_kwargs: { enable_thinking: false } });
   } catch (e) { failed = true; }
   const u = usageOf(out);
-  // What the model really used, if it said; otherwise the whole reservation stays counted (never under-count).
   await pool.settle(reserve, u ? Math.min(reserve * 4, neurons(rates, u.prompt_tokens, u.completion_tokens)) : reserve);
   const data = failed ? null : readAnswer(out);
   if (!data || typeof data !== "object") {
-    // The call failing (Workers AI down or out of capacity: no answer was made) gives the try back. An answer that came back but isn't
-    // JSON means the model ran on the shared pool, so that refund is capped (MAX_REFUNDS a day): tiny maxTokens can't be retried forever.
     const refunded = await student.refund(take.day, !failed);
     return json({ error: "ai_failed", refunded, ...(await student.status(cfg)) }, 502);
   }

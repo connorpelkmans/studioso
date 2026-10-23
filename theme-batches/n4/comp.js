@@ -1,4 +1,4 @@
-/* Study Companions, batch n4: diadelosmuertos, holi, ramadan, midautumn */
+/* Study Companions, batch n4 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);

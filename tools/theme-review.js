@@ -1,11 +1,3 @@
-// node tools/theme-review.js <theme id> [more ids] --out <dir> [--only scene,moment,still,phone,comp]     (Playwright + Chromium)
-// Close-up review renders of a theme from the real app (index.html), for finding layering mistakes, detached parts and thin detail:
-//   <id>-scene-<light|dark>-t<s>.png     the scene alone (board and companion hidden), 2x pixels, at 1, 4, 9 and 15 s of the living loop
-//   <id>-moment-<light|dark>-<s>.png      the scene's finish moment ("Play Scene Moment") at 0.6 .. 8 s, 2x pixels
-//   <id>-still-<light|dark>.png           animations off (the still scene, also used for the Style Shop thumbnails)
-//   <id>-phone-<light|dark>.png           the scene alone in a phone window, 2x pixels
-//   <id>-comps.png                        each companion large: at rest, in the two idle joint swings, waving each arm, and happy
-// Prints console errors and page errors, and exits 1 if there were any.
 const http = require("http"), fs = require("fs"), path = require("path");
 const {chromium, executablePath} = require("../tests/pw");
 const root = path.join(__dirname, "..");
@@ -37,7 +29,6 @@ const moment = page => page.evaluate(() => { const b = document.createElement("b
 async function comps(browser, id) {
   const {ctx, page} = await open(browser, id, "light", {width: 1600, height: 900});
   const n = await page.evaluate(() => {
-    // the same joint swings the app's idle and cheer moves use, with its signs (side(): a left part raises with + rotation) (98-companion.js: headTilt 9/-4, tailSwish 14/-9, earTwitch 16, wingFlutter 26, finWiggle 10/-8, wave 115)
     const list = SBCOMP.list(document.documentElement.getAttribute("data-skin"));
     const host = document.createElement("div");
     host.id = "rvComps"; host.style.cssText = "position:fixed;inset:0;z-index:99999;background:#F4F1F8;display:grid;grid-template-columns:repeat(6,1fr);gap:6px;padding:10px;overflow:hidden;font:600 13px system-ui;color:#333";

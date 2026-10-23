@@ -1,4 +1,4 @@
-// UNTESTED: written without compiler access. Quick Settings tile "Quick capture": opens studyboard://capture. TileService is a long-stable API (API 24+).
+// UNTESTED: written without compiler access
 package com.studioso.app.capture
 
 import android.app.PendingIntent

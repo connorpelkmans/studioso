@@ -1,13 +1,4 @@
-// UNTESTED: written without compiler access. App target only. Local Capacitor plugin (Capacitor 6/7 CAPBridgedPlugin style, like StudyboardPlugins.swift),
-// registered in MainViewController.capacitorDidLoad().
-//
-//   StudyboardFocusActivity.available() -> {value: Bool}       Live Activities are on for this app (iOS 16.2+, not switched off in Settings)
-//   StudyboardFocusActivity.show({mode, label, task, running, endsAt, left, total, accent}) -> {shown: Bool}
-//        Starts the Focus timer's Live Activity, or updates the one already showing. endsAt: ms since 1970 (running); left: seconds (paused).
-//   StudyboardFocusActivity.end() -> {}                         Removes it at once (timer reset, finished and not continuing).
-//
-// The countdown itself is drawn by the system from endsAt (Text(timerInterval:)), so the page only calls show() when something changes
-// (start, pause, resume, skip, a new session), never every second. Nothing here talks to a server: there is no push token.
+// UNTESTED: written without compiler access
 import Foundation
 import Capacitor
 import ActivityKit
@@ -51,7 +42,6 @@ public class StudyboardFocusActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         let accent = accentIn.range(of: "^#[0-9A-Fa-f]{6}$", options: .regularExpression) != nil ? accentIn : "#E5533D"
         let state = StudyboardFocusAttributes.ContentState(mode: mode, label: Self.clip(call.getString("label"), 24), task: Self.clip(call.getString("task"), 80),
                                                            startedAt: startedAt, endsAt: endsAt, pausedLeft: pausedLeft, total: total)
-        // Running: stale a minute after it should have ended, so an app that was closed never leaves "0:00" up for hours
         let content = ActivityContent(state: state, staleDate: running ? endsAt.addingTimeInterval(60) : nil)
         Task {
             if let current = Activity<StudyboardFocusAttributes>.activities.first {

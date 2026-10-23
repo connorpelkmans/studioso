@@ -1,7 +1,4 @@
-/* Every on-device database this page opens closes itself when another tab, window or this page deletes or upgrades it.
-   Signing out deletes them; without this, an open Studyboard tab (or a connection a module never closed) kept the delete
-   waiting forever, every later open of that database queued behind it (even after a reload), and sync hung on
-   "reconnecting" until site data was cleared. Modules that keep a connection also forget it then (see SBC.open). */
+/* Every on-device database this page opens closes itself when another tab */
 try {
   const idbOpen = IDBFactory.prototype.open;
   IDBFactory.prototype.open = function(){
@@ -10,15 +7,14 @@ try {
     return r;
   };
 } catch(e) {}
-/* ---------- Basics ---------- */
+/* Basics */
 const $ = (s, el=document) => el.querySelector(s);
-// Set when Studyboard runs as the installed desktop app (see the desktop project's preload.js).
+// Set when Studyboard runs as the installed desktop app
 const DESK = window.studiosoDesktop || null;
-// School site sign-in and reading: the desktop app's own, or the phone apps' native one (lms-mobile.js). Same six calls either way.
+// School site sign-in and reading
 const lmsBridge = () => (DESK && DESK.lms) || window.studiosoLms || null;
 const lmsOnPhone = () => !(DESK && DESK.lms) && !!window.studiosoLms;
-// The Studyboard School Sync extension on the Chrome Web Store. It's offered only in desktop Google Chrome: not in Edge, Brave, Opera or
-// other Chromium browsers (they'd need their own store), not in Chrome on a phone or tablet (no extensions there), and not in the apps.
+// The Studyboard School Sync extension on the Chrome Web Store
 const EXT_CHROME_URL = "https://chromewebstore.google.com/detail/studyboard-school-sync/ibibaefpedmlgaamopopcoelnnaaollf";
 function chromeDesktop(){
   try {
@@ -31,12 +27,7 @@ function chromeDesktop(){
   } catch (e) { return false; }
 }
 const $$ = (s, el=document) => [...el.querySelectorAll(s)];
-/* Spelling by where you are: the app's own words are written in American English and shown in Canadian spelling (colour, centre,
-   cancelled; -ize kept) or British/Commonwealth spelling (also -ise, enrol) where that's what people use. Where: the browser's language
-   region (en-GB, en-CA...), or when that says nothing more than US English, the time zone (many Canadians have a US-English browser).
-   Settings, Appearance, Spelling can fix it to one. Only the app's text changes, never yours: everything you typed reaches the page
-   through esc(), which writes a matching word's first letter as an entity (looks the same, survives in form fields) so the
-   spelling pass (on HTML going into the page, see the innerHTML hook below) can't recognize it. */
+/* Spelling by where you are */
 const SPELL = (() => {
   const KEY = "studyboard:spelling";
   const GBR = /^(GB|UK|IE|AU|NZ|ZA|IN|SG|HK|MY|PK|NG|KE|GH|JM|MT|CY|BD|LK)$/;
@@ -44,7 +35,7 @@ const SPELL = (() => {
     let pick = ""; try { pick = localStorage.getItem(KEY) || ""; } catch (e) {}
     if (pick === "us") return ""; if (pick === "ca" || pick === "gb") return pick;
     const L = ((navigator.languages && navigator.languages[0]) || navigator.language || "en").replace("_", "-");
-    if (!/^en\b/i.test(L)) return "";   // another language: its own words (and translations) apply
+    if (!/^en\b/i.test(L)) return "";
     const r = (L.split("-")[1] || "").toUpperCase();
     if (r === "CA") return "ca"; if (GBR.test(r)) return "gb";
     if (r && r !== "US") return "";
@@ -72,10 +63,8 @@ const SPELL = (() => {
   const RX = keys.length ? new RegExp("\\b(" + keys.join("|") + ")\\b", "gi") : null;
   const cased = (m, to) => m === m.toUpperCase() && m.length > 1 ? to.toUpperCase() : m[0] === m[0].toUpperCase() ? to[0].toUpperCase() + to.slice(1) : to;
   const fix = t => (RX && t && RX.test(t) ? (RX.lastIndex = 0, t.replace(RX, m => cased(m, W[m.toLowerCase()] || m))) : (RX && (RX.lastIndex = 0), t));
-  // Someone's own text: a matching word's first letter becomes an entity, so fix() never sees the word (the page shows it the same)
   const guard = t => (RX && RX.test(t) ? (RX.lastIndex = 0, t.replace(RX, m => "&#" + m.charCodeAt(0) + ";" + m.slice(1))) : (RX && (RX.lastIndex = 0), t));
   const ATTR = /\b(title|placeholder|aria-label|alt|data-tip)="([^"]*)"/g;
-  // HTML going into the page: text between tags and the readable attributes (never tag names, classes, styles, scripts or styles' insides)
   function html(h){
     if (!RX || typeof h !== "string" || !RX.test(h)) { if (RX) RX.lastIndex = 0; return h; }
     RX.lastIndex = 0;
@@ -94,7 +83,7 @@ const SPELL = (() => {
   return {mode, fix, guard, html, KEY};
 })();
 if (SPELL.mode) {
-  // Every bit of HTML the app puts on the page goes through html() (innerHTML, insertAdjacentHTML)
+  // Every bit of HTML the app puts on the page goes through html()
   try {
     const d = Object.getOwnPropertyDescriptor(Element.prototype, "innerHTML");
     Object.defineProperty(Element.prototype, "innerHTML", {configurable: true, enumerable: d.enumerable, get: d.get, set(v){ d.set.call(this, this instanceof HTMLStyleElement || this instanceof HTMLScriptElement ? v : SPELL.html(v)); }});
@@ -104,9 +93,7 @@ if (SPELL.mode) {
 }
 const esc0 = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const esc = SPELL.mode ? s => SPELL.guard(esc0(s)) : esc0;
-// Readable plain text from HTML-ish text (LMS text, entity-encoded markup). Pure string work: nothing is parsed into a live DOM, so nothing can run.
-// Handles tags (with line breaks for p/br/li/headings), named, numeric and double-encoded entities (&amp;amp;), and collapses whitespace.
-// opts.line: one line only. opts.max: cut length.
+// Readable plain text from HTML-ish text (LMS text, entity-encoded markup)
 const HT_ENT = {amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", ensp: " ", emsp: " ", thinsp: " ", zwnj: "", zwj: "", shy: "", lrm: "", rlm: "",
   lsquo: "\u2018", rsquo: "\u2019", sbquo: "\u201A", ldquo: "\u201C", rdquo: "\u201D", bdquo: "\u201E", laquo: "\u00AB", raquo: "\u00BB", lsaquo: "\u2039", rsaquo: "\u203A",
   ndash: "\u2013", mdash: "\u2014", hellip: "\u2026", bull: "\u2022", middot: "\u00B7", sdot: "\u22C5", dagger: "\u2020", Dagger: "\u2021", prime: "\u2032", Prime: "\u2033",
@@ -116,7 +103,7 @@ const HT_ENT = {amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", ens
   alpha: "\u03B1", beta: "\u03B2", gamma: "\u03B3", delta: "\u03B4", mu: "\u03BC", pi: "\u03C0", sigma: "\u03C3", omega: "\u03C9", Omega: "\u03A9", Delta: "\u0394", ordf: "\u00AA", ordm: "\u00BA",
   szlig: "\u00DF", aelig: "\u00E6", AElig: "\u00C6", oslash: "\u00F8", Oslash: "\u00D8", ntilde: "\u00F1", Ntilde: "\u00D1", ccedil: "\u00E7", Ccedil: "\u00C7"};
 const HT_ACC = {grave: "\u0300", acute: "\u0301", circ: "\u0302", tilde: "\u0303", uml: "\u0308", ring: "\u030A", cedil: "\u0327"};
-// Only real HTML tag names count as markup, so text like "<Chapter 3>" or "a < b" is left alone.
+// Only real HTML tag names count as markup
 const HT_TAGS = "a|abbr|address|article|aside|audio|b|bdi|bdo|big|blockquote|body|br|button|canvas|caption|center|cite|code|col|colgroup|dd|del|details|dfn|dialog|div|dl|dt|em|fieldset|figcaption|figure|font|footer|form|h[1-6]|header|hr|html|i|img|input|ins|kbd|label|legend|li|link|main|mark|meta|nav|o:p|ol|optgroup|option|p|pre|q|s|samp|section|select|small|source|span|strike|strong|sub|summary|sup|table|tbody|td|textarea|tfoot|th|thead|time|tr|tt|u|ul|var|video|wbr|!doctype|\\?xml";
 const HT_TAGRE = new RegExp("<\\/?(?:" + HT_TAGS + ")(?=[\\s/>])(?:\"[^\"]*\"|'[^']*'|[^<>\"'])*>", "gi");
 const HT_OPENRE = new RegExp("<\\/?(?:" + HT_TAGS + ")(?:\\s[^<>]*)?$", "i");
@@ -133,7 +120,6 @@ function htmlText(s, opts){
     const lm = /^([A-Za-z])(grave|acute|circ|tilde|uml|ring|cedil)$/.exec(name); if (lm) return (lm[1] + HT_ACC[lm[2]]).normalize("NFC");
     return m;
   };
-  // Each pass strips markup then decodes entities, so "&lt;p&gt;Tom &amp;amp; Jo" (double-encoded) peels one layer per pass.
   for (let i = 0; i < 5; i++) {
     const before = t;
     t = t.replace(/<!--[\s\S]*?(-->|$)/g, "").replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
@@ -150,16 +136,15 @@ function htmlText(s, opts){
   t = t.trim();
   return o.max && t.length > o.max ? t.slice(0, o.max) : t;
 }
-const htmlLine = s => htmlText(s, {line: true});   // same, on one line (titles, names)
-// Text that still carries markup or entities (<p>, &amp;, &#39;): cleaned when data is loaded or shown, so already-stored school text is fixed too.
+const htmlLine = s => htmlText(s, {line: true});
+// Text that still carries markup or entities (<p>, &amp;, &#39;)
 const HT_DIRTY = new RegExp("<\\/?(?:" + HT_TAGS + ")(?=[\\s/>])|&(?:#\\d+|#[xX][0-9a-fA-F]+|[A-Za-z][A-Za-z0-9]{1,9});");
 const scrubText = (s, line) => typeof s === "string" && HT_DIRTY.test(s) ? htmlText(s, {line}) : s;
 function scrubFields(o, lineKeys, blockKeys){ lineKeys.forEach(k => { if (o[k]) o[k] = scrubText(o[k], true); }); (blockKeys || []).forEach(k => { if (o[k]) o[k] = scrubText(o[k], false); }); return o; }
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-/* ---------- Hooks: how the 1.11 feature modules plug into the app ----------
-   hook(name, fn) registers; fire(name, ...args) calls every fn and returns their results. VIEWS[tab] adds a page. */
+/* Hooks: how the 1.11 feature modules plug into the app hook(name, fn) registers; fire */
 const HOOK = {}, VIEWS = {};
-/* Recent errors, kept in memory only (never saved or sent on their own), so a bug report can say what went wrong. */
+/* Recent errors, kept in memory only (never saved or sent on their own) */
 const ERRLOG = [];
 (() => {
   const add = (k, m) => { try { ERRLOG.push({t: Date.now(), k, m: String(m || "").replace(/AIza[\w-]{20,}|sk-[\w-]{16,}|sb_(?:secret|publishable)_[\w-]+|eyJ[\w-]{10,}\.[\w-]{10,}\.[\w-]{5,}|(key|token|apikey|authorization|bearer)([=:\s]+)[\w.~+\/-]{12,}/gi, "[hidden]").replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, "[email]").slice(0, 240)}); if (ERRLOG.length > 15) ERRLOG.shift(); } catch(e) {} };
@@ -170,5 +155,5 @@ const ERRLOG = [];
 })();
 const hook = (name, fn) => { (HOOK[name] = HOOK[name] || []).push(fn); };
 const fire = (name, ...a) => (HOOK[name] || []).map(fn => { try { return fn(...a); } catch(e) { console.warn("hook " + name, e); return undefined; } });
-window.__sbFire = fire;   // test handle
+window.__sbFire = fire;
 const clone = o => o == null ? o : JSON.parse(JSON.stringify(o));

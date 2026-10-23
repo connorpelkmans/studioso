@@ -1,5 +1,4 @@
-// node tests/site-worker.test.js: the website worker passes the sign-in return addresses through to Supabase unchanged, and serves
-// everything else from the static files.
+// node tests/site-worker.test.js
 const assert = require("assert"), path = require("path"), {pathToFileURL} = require("url");
 (async () => {
   const W = (await import(pathToFileURL(path.join(__dirname, "..", "cloudflare", "site", "worker.js")).href)).default;
