@@ -48,8 +48,27 @@ export async function rpc(env, fn, args){
   return r.json();
 }
 
+/* The site's top bar, the same on every page (the website's pages carry a copy; tests/site-nav.test.js keeps them equal) */
+const NAV_LINKS = [["features", "/website/#features", "Features"], ["sync", "/website/#sync", "Sync &amp; Backups"], ["flashcards", "/flashcards", "Flashcards"],
+  ["quizzes", "/quizzes", "Quizzes"], ["pricing", "/website/#pricing", "Pricing"], ["account", "/website/account/", "Account"]];
+export function siteHeader(current){
+  return `<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/website/" aria-label="Studyboard home"><img class="logo-l" src="/website/assets/logo-light.webp" alt="" width="136" height="30"><img class="logo-d" src="/website/assets/logo-dark.webp" alt="" width="136" height="30"></a>
+    <nav class="main" aria-label="Main">
+      <div class="navlinks" id="site-links">
+${NAV_LINKS.map(([k, href, label]) => `        <a href="${href}"${k === current ? ' aria-current="page"' : ""}>${label}</a>`).join("\n")}
+      </div>
+      <a href="/website/#download" class="navbtn">Download</a>
+      <button class="icon-btn" id="theme-toggle" type="button" aria-pressed="false" aria-label="Switch theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+      <button class="icon-btn menu-btn" id="menu-toggle" type="button" aria-expanded="false" aria-controls="site-links" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </nav>
+  </div>
+</header>`;
+}
+
 /* page shell */
-function page({title, description, canonical, robots, body, ld, ogType}){
+function page({title, description, canonical, robots, body, ld, ogType, section}){
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -70,21 +89,12 @@ ${canonical ? `<meta property="og:url" content="${esc(canonical)}">` : ""}
 <link rel="apple-touch-icon" href="/website/assets/apple-touch-icon.png">
 <link rel="stylesheet" href="/website/assets/fonts.css">
 <link rel="stylesheet" href="/website/assets/site.css">
-<link rel="stylesheet" href="/website/assets/public.css?v=2">
+<link rel="stylesheet" href="/website/assets/public.css?v=3">
 ${(ld || []).map(jsonLd).join("\n")}
 </head>
 <body class="pub">
 <a class="skip" href="#main">Skip to the content</a>
-<header class="top">
-  <div class="wrap">
-    <a class="brand" href="/website/" aria-label="Studyboard home"><img class="logo-l" src="/website/assets/logo-light.webp" alt="" width="136" height="30"><img class="logo-d" src="/website/assets/logo-dark.webp" alt="" width="136" height="30"></a>
-    <nav class="main" aria-label="Main">
-      <a href="/flashcards">Flashcards</a>
-      <a href="/quizzes">Quizzes</a>
-      <a href="/" class="navbtn">Open Studyboard</a>
-    </nav>
-  </div>
-</header>
+${siteHeader(section)}
 <main id="main" class="wrap pub-main">
 ${body}
 </main>
@@ -92,6 +102,7 @@ ${body}
   <p>Flashcards and quizzes on this page were made and shared by students using <a href="/website/">Studyboard</a>, the free student planner with spaced-repetition flashcards.</p>
   <p><a href="/flashcards">All flashcards</a> · <a href="/quizzes">All quizzes</a> · <a href="/website/privacy">Privacy</a> · <a href="/website/terms">Terms</a></p>
 </div></footer>
+<script src="/website/assets/site.js" defer></script>
 <script src="/website/assets/public.js" defer></script>
 </body>
 </html>`;
@@ -156,10 +167,9 @@ async function indexPage(env, section, url, origin){
   const pageNo = Math.max(1, Math.min(100, parseInt(url.searchParams.get("page") || "1", 10) || 1));
   const ck = courseKey(q);
   if (q && ck && q.replace(/[\s._:-]/g, "").toUpperCase() === ck && !courseIn && !f.school && !f.sort && !f.min) return Response.redirect(`${origin}/${section}/course/${courseSlug(ck)}`, 302);
-  const [rows, courses, schools] = await Promise.all([
+  const [rows, schools] = await Promise.all([
     rpc(env, "public_search", {p_kind: K.kind, p_q: q, p_course: courseIn, p_limit: PER_PAGE + 1, p_offset: (pageNo - 1) * PER_PAGE, p_school: f.school, p_sort: f.sort, p_min: f.min})
       .catch(() => rpc(env, "public_search", {p_kind: K.kind, p_q: q, p_course: courseIn, p_limit: PER_PAGE + 1, p_offset: (pageNo - 1) * PER_PAGE})),
-    searching || pageNo > 1 ? Promise.resolve([]) : rpc(env, "public_courses", {p_kind: K.kind, p_limit: 40}),
     rpc(env, "public_schools", {p_kind: K.kind, p_limit: 400}).catch(() => [])]);
   const schoolName = f.school ? ((schools.find(x => x.school_key === f.school) || {}).school_name || "") : "";
   const what = q ? `“${q}”` : schoolName ? schoolName : "";
@@ -170,11 +180,10 @@ async function indexPage(env, section, url, origin){
   const body = `<div class="pub-hero"><h1>${searching ? (what ? `${esc(K.noun)} ${q ? "for" : "from"} ${esc(what)}` : `${esc(K.noun)}`) : `${esc(K.noun)} made by students`}</h1>
     <p class="lede">${searching ? `${list.length ? "" : "Nothing matches that yet. Try a school, a course code or fewer words."}` : `Free ${esc(K.many)} for your courses, shared by students on Studyboard. Search by school, course code or topic.`}</p>
     ${searchForm(section, q, "", f, schools)}</div>
-    ${courses.length ? `<section class="pub-sec pub-popular"><h2>Popular courses</h2><ul class="pub-chips">${courses.map(c => `<li><a href="/${section}/course/${esc(courseSlug(c.course_key))}">${esc(c.course_label || courseLabelOf(c.course_key))} <span>${esc(c.n)}</span></a></li>`).join("")}</ul></section>` : ""}
     <section class="pub-sec"><h2>${searching ? "Results" : "Newest " + esc(K.many)}</h2>${listHtml(section, list) || `<p class="pub-none">No ${esc(K.many)} here yet. Share one from Studyboard: open it, tap Share, then Publish.</p>`}${pager(section, base, pageNo, more)}</section>
     ${cta(section)}`;
   const ld = searching ? [] : [{"@context": "https://schema.org", "@type": "WebSite", name: SITE, url: origin + "/", potentialAction: {"@type": "SearchAction", target: `${origin}/${section}?q={search_term_string}`, "query-input": "required name=search_term_string"}}];
-  return {html: page({title, description, canonical: searching ? "" : `${origin}/${section}${pageNo > 1 ? "?page=" + pageNo : ""}`, robots: searching ? "noindex,follow" : "", body, ld}), ttl: searching ? 300 : 1800};
+  return {html: page({title, description, canonical: searching ? "" : `${origin}/${section}${pageNo > 1 ? "?page=" + pageNo : ""}`, robots: searching ? "noindex,follow" : "", body, ld, section}), ttl: searching ? 300 : 1800};
 }
 
 async function coursePage(env, section, slug, url, origin){
@@ -195,7 +204,7 @@ async function coursePage(env, section, slug, url, origin){
     <section class="pub-sec"><h2>${esc(plural(list.length, K.one, K.many))}${more ? "+" : ""}</h2>${listHtml(section, list)}${pager(section, `/${section}/course/${courseSlug(key)}`, pageNo, more)}</section>
     <p class="pub-also">Also see <a href="/${other}/course/${esc(courseSlug(key))}">${esc(label)} ${other}</a>.</p>
     ${cta(section)}`;
-  return {html: page({title, description, canonical: `${origin}/${section}/course/${courseSlug(key)}${pageNo > 1 ? "?page=" + pageNo : ""}`, body, ld: [crumbLd(cr, origin)]}), ttl: 3600};
+  return {html: page({title, description, canonical: `${origin}/${section}/course/${courseSlug(key)}${pageNo > 1 ? "?page=" + pageNo : ""}`, body, ld: [crumbLd(cr, origin)], section}), ttl: 3600};
 }
 
 const LETTER = i => String.fromCharCode(65 + i);
@@ -264,7 +273,7 @@ async function itemPage(env, section, slug, code, origin){
   body += `${related.length ? `<section class="pub-sec"><h2>More ${esc(label || courseLabelOf(key))} ${esc(K.noun.toLowerCase())}</h2>${listHtml(section, related)}<p><a href="/${section}/course/${esc(courseSlug(key))}">See all ${esc(label || courseLabelOf(key))} ${esc(K.noun.toLowerCase())}</a></p></section>` : ""}
     ${cta(section)}
     <p class="pub-report">Something wrong with this ${esc(K.one)}? <a href="${esc(appLink)}">Open it in Studyboard</a> and choose Report.</p>`;
-  return {html: page({title, description, canonical, body, ld, ogType: "article"}), ttl: 900};
+  return {html: page({title, description, canonical, body, ld, ogType: "article", section}), ttl: 900};
 }
 
 async function sitemap(env, origin){
@@ -286,7 +295,7 @@ const HTML_HEADERS = {
 export const isPublicPath = p => /^\/(flashcards|quizzes)(\/|$)/.test(p) || p === "/sitemap-public.xml";
 
 function notFound(section, origin){
-  const html = page({title: `Not found | ${SITE}`, description: "This page isn't available.", robots: "noindex,follow",
+  const html = page({title: `Not found | ${SITE}`, description: "This page isn't available.", robots: "noindex,follow", section,
     body: `<div class="pub-hero"><h1>This ${section === "quizzes" ? "quiz" : "set"} isn't available</h1><p class="lede">It may have been unpublished or removed. Try searching instead.</p>${searchForm(section || "flashcards", "")}</div>`});
   return new Response(html, {status: 404, headers: Object.assign({"cache-control": "public, max-age=60"}, HTML_HEADERS)});
 }
