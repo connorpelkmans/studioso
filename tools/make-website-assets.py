@@ -3,16 +3,20 @@
 Run from the repo root after the app's scenes or companions change:   python3 tools/make-website-assets.py
 Writes: website/assets/scenes-lib.js, website/assets/companions-data.js, website/assets/companions-engine.js"""
 import re, sys
-src = open("index.html", encoding="utf-8").read().split("\n")
+# The app is split into files (index.html, css/, js/; scripts/app-files.js): read it as one page.
+import subprocess
+src = subprocess.run(["node", "-e", "process.stdout.write(require('./scripts/app-files').source())"], check=True, capture_output=True, text=True, encoding="utf-8").stdout.split("\n")
 def find(prefix, start=0):
     for i in range(start, len(src)):
         if src[i].startswith(prefix): return i
     sys.exit("not found: " + prefix)
 def rng(a, b): return "\n".join(src[a:b]) + "\n"
 
-# 1. scene library (a closed block: const SCN20 = ...)
-s = find("const SCN20 = (function"); e = find("/* ===== module: 20-scenes.js ===== */")
-open("website/assets/scenes-lib.js", "w", encoding="utf-8").write("/* Studyboard scene library, copied unchanged from the app (module 20-scenes-lib). Do not edit by hand: run tools/make-website-assets.py. */\n" + rng(s, e))
+# 1. scene library (src/js/20-scenes-lib.js: a closed block, var SCN20_LIB = ... in the app, loaded on its own; the website names it SCN20)
+lib = open("src/js/20-scenes-lib.js", encoding="utf-8").read().split("\n")
+s = next(i for i, l in enumerate(lib) if l.startswith("var SCN20_LIB = (function"))
+body = "\n".join(lib[s:]).replace("var SCN20_LIB = (function", "const SCN20 = (function", 1)
+open("website/assets/scenes-lib.js", "w", encoding="utf-8").write("/* Studyboard scene library, copied unchanged from the app (module 20-scenes-lib). Do not edit by hand: run tools/make-website-assets.py. */\n" + body)
 
 # 2. companion art data (COMP_DATA and COMP_KIT plus every batch)
 s = find("/* ===== module: 98-comp-00.js ===== */"); e = find("/* ===== module: 98-companion.js ===== */")

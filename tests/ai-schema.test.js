@@ -1,7 +1,7 @@
 // AI response schemas: Gemini rejects a schema whose enum holds an empty string ("enum[0]: cannot be empty"), which made whole companion
 // actions (flashcards from an uploaded file, task edits) fail. Run: node tests/ai-schema.test.js
 const fs = require("fs"), path = require("path"), assert = require("assert");
-const src = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const src = require("../scripts/app-files").source();
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 const enums = [...src.matchAll(/enum:\s*\[([^\]]*)\]/g)].map(m => ({at: src.slice(0, m.index).split("\n").length, body: m[1]}));
 ok(enums.length > 5, `found the schema enums (${enums.length})`);

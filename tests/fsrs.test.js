@@ -1,6 +1,6 @@
 // Unit tests for Smart scheduling (FSRS-4.5, the pure block between /*FSRS-START*/ and /*FSRS-END*/ in index.html).  Run: node tests/fsrs.test.js
 const fs = require("fs"), path = require("path"), assert = require("assert");
-const s = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const s = require("../scripts/app-files").source();
 const F = new Function(s.slice(s.indexOf("/*FSRS-START*/"), s.indexOf("/*FSRS-END*/")) + ";return FSRS;")();
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 const W = F.W;

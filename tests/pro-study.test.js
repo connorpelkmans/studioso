@@ -3,7 +3,7 @@
 // Linked Notes (NOTELINK), Listen (LISTEN), the PDF reader (READER), Record a Lecture (LECTURE), Email to Studyboard (EMAILCAP) and the
 // capture inbox's email routing (CAPTURE-INBOX), plus the two-way calendar sync's planner (CALSYNC).
 const fs = require("fs"), path = require("path"), assert = require("assert");
-const src = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const src = require("../scripts/app-files").source();
 const block = (a, b, names) => { const i = src.indexOf(a), j = src.indexOf(b, i); assert.ok(i > 0 && j > i, "markers " + a); return new Function(src.slice(a.endsWith("*/") ? i + a.length : i, j) + `; return {${names}};`)(); };   // a marker that opens a comment stays in
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 

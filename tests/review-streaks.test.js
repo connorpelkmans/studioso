@@ -11,7 +11,7 @@ if (!process.env.RS_TZ_CHILD && !process.env.RS_NO_TZ) {
   }
   process.exit(0);
 }
-const s = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const s = require("../scripts/app-files").source();
 const a = s.indexOf("/*RS-START*/"), b = s.indexOf("/*RS-END*/");
 assert(a > 0 && b > a, "markers missing");
 const RS = new Function(s.slice(a, b) + ";return RS;")();

@@ -18,7 +18,7 @@ const server = http.createServer((req, res) => {
   const ext = path.extname(f), mime = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".css": "text/css", ".webmanifest": "application/manifest+json"};
   res.writeHead(200, {"content-type": mime[ext] || "application/octet-stream"});
   // Pro on (enforcement off); the free context below forces the paywall back on with studyboard:paywall-test
-  if (p === "/index.html") { res.end(csp.apply(fs.readFileSync(f, "utf8").replace("const PRO_ENFORCED = true;", "const PRO_ENFORCED = false;"))); return; }
+  if (p === "/index.html" || /^\/bundle\/[^/]+\.js$/.test(p)) { res.end((/\.html$/.test(p) ? csp.apply : String)(fs.readFileSync(f, "utf8").replace("const PRO_ENFORCED = true;", "const PRO_ENFORCED = false;"))); return; }
   fs.createReadStream(f).pipe(res);
 });
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
@@ -195,8 +195,8 @@ function reply(ctx, t){
   await page.click('#sxAnswer [data-sx="tq-save"]');
   await page.waitForSelector("dialog[open] #arSave");
   await page.click("#arSave"); await page.waitForTimeout(300);
-  const qz = ((await H(page)).decks.d1.aiQuizzes || []);
-  ok(qz.length === 1 && qz[0].questions.length === 3, "Save as Practice Quiz adds the quiz to Cell Biology");
+  const qz = Object.values((await H(page)).decks).filter(d => d.courseId === "c1").flatMap(d => d.aiQuizzes || []);
+  ok(qz.length === 1 && qz[0].questions.length === 3, "Save as Practice Quiz saves the quiz in Biology (BIO101)");
 
   // Not covered: says so, and general knowledge is separate and sends no sources
   await openSearch(page); await page.waitForSelector("#sxDlg[open]");

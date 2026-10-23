@@ -6,7 +6,7 @@ Studyboard can tell you about bugs before users leave a review. It sends **one s
 
 1. Create a free account at sentry.io, then **Create Project > Platform: Browser JavaScript** (name it `studyboard`). Copy the **DSN** (Settings > Projects > studyboard > Client Keys).
 2. In the project's **Settings > Security & Privacy**, turn on **Prevent Storing of IP Addresses** (so even the network address is never kept) and leave **Data Scrubber** on. This is what lets you answer "not linked to identity" in App Store Connect.
-3. In `index.html`, find the block at the top of module `49-errreport.js` and paste the DSN:
+3. In `src/js/49-errreport.js`, find the block at the top and paste the DSN (then run `node scripts/csp.js` to rebuild `bundle/`):
    ```js
    const ERROR_REPORTING = {dsn: "https://PUBLICKEY@o0000.ingest.sentry.io/0000000", environment: "production", release: APP_VERSION, supabaseFallback: false};
    ```
@@ -52,22 +52,22 @@ Known limits: free-text from `console.error` and from error messages is redacted
 
 ## Reading a stack (build id and line numbers)
 
-The app is one inline script, so stack frames look like `renderCard  index.html:30412:9`. The `build` tag (`1.13.0+3fa91c2b07de`) is the version plus a SHA-256 prefix of the exact file shipped, so the line number can be matched to that file:
+The app's code runs as one script, `bundle/app.js` (built from the files in `src/`; see README.md), so stack frames look like `renderCard  bundle/app.js:30412:9`. `node scripts/app-files.js --where app.js:30412` names the source file and line in `src/`. The `build` tag (`1.13.0+3fa91c2b07de`) is the version plus a SHA-256 prefix of the exact file shipped, so the line number can be matched to that file:
 
 ```bash
-node build-id.js                                   # prints the id of the current index.html
-node build-id.js --write deploy/index.html         # website: writes a stamped copy (BUILD_ID filled in); line numbers do not change
+node build-id.js                                   # prints the id of the current app (index.html with bundle/)
+node build-id.js --write deploy/index.html         # writes a stamped copy of the app as one page (BUILD_ID filled in)
 node build-id.js --check shipped/index.html        # prints the stamped id and whether it matches the file's content
-node prepare.js                                    # desktop and iOS: stamps app/index.html (or ios-www/index.html) for you
+node prepare.js                                    # desktop and iOS: stamps app/bundle/app.js (or ios-www/...) for you
 ```
 
-To investigate: check out the release tag (`git checkout v1.13.0`), run `node build-id.js` and confirm the id equals the event's `build` (if it does not, the source differs from what shipped), then `sed -n '30412p' index.html`. For desktop and iOS builds, line numbers refer to the staged `app/index.html` (which can differ from the source by a few lines because `prepare.js` rewrites the font and library tags): `node build-id.js --check app/index.html`, then look at that file. Keep the staged `index.html` of each store build with the release (or rebuild from the tag with the same dependencies).
+To investigate: check out the release tag (`git checkout v1.13.0`), run `node build-id.js` and confirm the id equals the event's `build` (if it does not, the source differs from what shipped), then `node scripts/app-files.js --where app.js:30412` (or `sed -n '30412p' bundle/app.js`). For desktop and iOS builds, line numbers refer to the staged `app/bundle/app.js` (`prepare.js` changes a few strings in it but no lines): `node build-id.js --check app/index.html`, then look at that file. Keep the staged `index.html` of each store build with the release (or rebuild from the tag with the same dependencies).
 
 ## Optional: self-hosted path (Supabase) instead of Sentry
 
 1. Supabase > SQL Editor: run `supabase-error-reports.sql`. It creates `client_errors` with **RLS enabled and no policies** (the app can neither read nor write it), a rate-limit function, a `client_errors_summary` view for you, and a daily 30-day clean-up with pg_cron when available (turn on Database > Extensions > pg_cron, then run the file again; otherwise run `select public.client_errors_purge();` now and then).
 2. Deploy `supabase-functions/error-ingest/index.ts` as an Edge Function named `error-ingest` with **Verify JWT OFF** (it checks everything itself: 24 KB cap, strict schema, 30 reports an hour per anonymous id, 60 per hashed network address, 500 an hour overall, no new rows once the table holds 20,000 (the 30-day clean-up makes room), text scrubbed again, unknown fields dropped, service-role insert only). Optional secret `ERROR_INGEST_SALT`: the network address is kept only as an HMAC keyed with it (or with the service key when it isn't set), together with the date, so it can't be reversed by trying every address.
-3. In `index.html` set `supabaseFallback: true` (leave `dsn: ""`). With a DSN present, the DSN is always used.
+3. In `src/js/49-errreport.js` set `supabaseFallback: true` (leave `dsn: ""`). With a DSN present, the DSN is always used.
 4. Read: `select * from public.client_errors_summary limit 30;` and `select * from public.client_errors where fingerprint = '...' order by created_at desc limit 20;`.
 
 The `build`, `frames` and `crumbs` columns are stored so the same stack-matching steps apply.

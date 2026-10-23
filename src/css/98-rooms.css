@@ -1,0 +1,123 @@
+/* ===== module: 98-rooms.css ===== */
+/* Study Together rooms (98-rooms) */
+.room-sec{position:relative;margin:18px 0 4px}
+.room-card{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:14px 16px;overflow:hidden}
+.room-card.is-live,.room-card.is-in,.room-card.is-moment{border-color:color-mix(in srgb,var(--accent) 38%,var(--line));background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 7%,var(--surface)),var(--surface) 70%)}
+.room-idle{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.room-ic{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:color-mix(in srgb,var(--accent) 14%,var(--surface));color:var(--accent)}
+.room-ic svg{width:22px;height:22px}
+.room-idle-txt{flex:1 1 220px;min-width:0;display:flex;flex-direction:column;gap:2px}
+.room-idle-txt b{font:700 1.02rem var(--display)}
+.room-idle-txt .mini{display:flex;align-items:center;gap:6px}
+.room-err{margin:10px 0 0;color:var(--late);font-size:.88rem}
+.room-sec .mini{color:var(--muted);font-size:.8rem}
+
+/* Live (not joined) */
+.room-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.room-top b{font:700 1rem var(--display)}
+.room-top .spacer{flex:1}
+.room-left-sm{font-size:.86rem;color:var(--muted)}
+.room-left-sm b{font:700 1.05rem var(--display);font-variant-numeric:tabular-nums;color:var(--ink)}
+.room-dot{flex:none;width:9px;height:9px;border-radius:50%;background:#1E9E74;box-shadow:0 0 0 0 color-mix(in srgb,#1E9E74 55%,transparent);animation:roomPulse 2.4s ease-out infinite}
+@keyframes roomPulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,#1E9E74 55%,transparent)}70%,100%{box-shadow:0 0 0 7px transparent}}
+.room-goal{margin:8px 0 0;font-size:.92rem;overflow-wrap:anywhere}
+.room-goal .mini{display:inline-block;margin-right:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:.68rem}
+.room-join{display:flex;gap:8px;margin-top:12px}
+.room-join input{flex:1;min-width:0;min-height:44px}
+.room-join .btn{min-height:44px;min-width:92px}
+.room-seats{margin:8px 0 0}
+.room-none{margin:10px 0 0;color:var(--muted);font-size:.88rem}
+
+/* People */
+.room-people{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px 8px}
+.room-person{display:flex;align-items:center;gap:7px;min-width:0;background:color-mix(in srgb,var(--soft) 70%,transparent);border-radius:999px;padding:3px 10px 3px 3px;font-size:.86rem}
+.room-person.more{padding:3px}
+.room-person.is-me{background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.room-pn{display:flex;flex-direction:column;min-width:0;line-height:1.2}
+.room-pn b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:14em}
+.room-pg{color:var(--muted);font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:16em}
+.room-av{flex:none;display:inline-grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--c,#8A94A6);color:#fff;font:700 .74rem var(--display);letter-spacing:.02em;overflow:hidden}
+.room-av.more{background:var(--soft);color:var(--muted)}
+.room-av.is-comp{background:color-mix(in srgb,var(--accent) 12%,var(--surface));border:1px solid var(--line)}
+.room-av.is-comp{position:relative;overflow:hidden}
+.room-av.is-comp > svg{position:absolute;left:4%;top:12%;width:92%;height:92%;display:block;overflow:visible;filter:none}
+.room-people.big{flex-direction:column;flex-wrap:nowrap;gap:6px}
+.room-people.big .room-person{border-radius:14px;padding:5px 12px 5px 5px}
+.room-people.big .room-av{width:44px;height:44px;font-size:.9rem}
+.room-people.big .room-pn b{max-width:none}
+.room-people.big .room-pg{white-space:normal;max-width:none}
+
+/* In the room */
+.room-main{display:flex;gap:22px;align-items:center}
+.room-dial{position:relative;flex:none;width:170px;height:170px}
+.room-dial svg{width:100%;height:100%;transform:rotate(-90deg)}
+.room-dial .track{fill:none;stroke:color-mix(in srgb,var(--accent) 14%,var(--line));stroke-width:7}
+.room-dial .bar{fill:none;stroke:var(--accent);stroke-width:7;stroke-linecap:round;transition:stroke-dashoffset 1s linear}
+.room-read{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.room-time{font:700 2.3rem/1 var(--display);font-variant-numeric:tabular-nums;color:var(--ink)}
+.room-lbl{margin-top:6px;font-size:.76rem;color:var(--muted);font-weight:600}
+.room-side{flex:1;min-width:0}
+.room-title{margin:0;display:flex;flex-direction:column;gap:2px}
+.room-title b{font:700 1.15rem var(--display)}
+.room-cheers{display:flex;justify-content:center;gap:8px;margin-top:14px;flex-wrap:wrap}
+.room-cheer{width:48px;height:48px;border-radius:50%;border:1px solid var(--line);background:var(--surface);font-size:1.35rem;line-height:1;display:grid;place-items:center;box-shadow:0 1px 2px rgba(0,0,0,.06);transition:transform .15s ease,background .15s ease}
+.room-cheer:hover{background:color-mix(in srgb,var(--accent) 10%,var(--surface));transform:translateY(-2px)}
+.room-cheer:active{transform:scale(.92)}
+.room-foot{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
+.room-foot .spacer{flex:1}
+.room-end{color:var(--late)}
+.room-note{margin:10px 0 0}
+
+/* Floating cheers */
+.room-floats{position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:16px}
+.room-float{position:absolute;left:var(--x,50%);bottom:40px;display:flex;flex-direction:column;align-items:center;gap:2px;animation:roomFloat 2.9s cubic-bezier(.2,.7,.3,1) forwards}
+.room-float .e{font-size:1.9rem;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.15))}
+.room-float small{font:600 .7rem var(--display);color:var(--ink);background:color-mix(in srgb,var(--surface) 85%,transparent);border-radius:999px;padding:1px 7px;white-space:nowrap}
+@keyframes roomFloat{0%{transform:translate(0,10px) scale(.6);opacity:0}12%{opacity:1;transform:translate(0,0) scale(1.05)}100%{transform:translate(var(--dx,0),-190px) scale(1);opacity:0}}
+.room-float.still{animation:roomFade 2.6s ease forwards;bottom:70px}
+@keyframes roomFade{0%{opacity:0}12%,75%{opacity:1}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.room-float{animation:roomFade 2.6s ease forwards}.room-dot{animation:none}.room-dial .bar{transition:none}.room-spark{animation:none}}
+
+/* The shared moment */
+.room-moment{text-align:center;padding:8px 4px 4px}
+.room-moment h3{margin:4px 0 6px;font:700 1.35rem/1.25 var(--display)}
+.room-names{margin:0 0 6px;font-weight:600;overflow-wrap:anywhere}
+.room-moment .mini{margin:4px 0}
+.room-spark{display:inline-block;font-size:2rem;animation:roomSpark 2.4s ease-in-out infinite}
+@keyframes roomSpark{0%,100%{transform:scale(1) rotate(0)}50%{transform:scale(1.12) rotate(8deg)}}
+.room-break{margin:10px 0 4px;font-size:.92rem;color:var(--muted)}
+.room-break b{font:700 1.05rem var(--display);color:var(--ink);font-variant-numeric:tabular-nums;margin-left:4px}
+.room-moment .row-actions{justify-content:center;margin-top:10px}
+
+/* Groups list: banner and card pill */
+.room-banners{display:flex;flex-direction:column;gap:8px;margin:12px 0 4px}
+.room-banner{display:flex;align-items:center;gap:10px;background:color-mix(in srgb,var(--accent) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));border-radius:12px;padding:8px 10px 8px 12px}
+.room-banner-txt{flex:1;min-width:0;font-size:.9rem}
+.room-banner .btn{flex:none}
+.room-live-pill{display:inline-flex;align-items:center;gap:6px;margin-top:4px;font-size:.76rem;font-weight:700;color:#177A5A;background:color-mix(in srgb,#1E9E74 14%,transparent);border-radius:999px;padding:2px 9px 2px 7px;width:max-content}
+:root[data-theme="dark"] .room-live-pill{color:#6FD3AE}
+
+/* A small chip while you're in a session (phones and tablets), and the time on the Groups button (desktop sidebar) */
+.room-pill{position:fixed;left:14px;bottom:calc(98px + env(safe-area-inset-bottom,0px));z-index:30;height:44px;display:flex;align-items:center;gap:6px;padding:0 12px 0 10px;border:1px solid color-mix(in srgb,var(--accent) 45%,var(--line));background:color-mix(in srgb,var(--accent) 12%,var(--surface));border-radius:999px;color:var(--accent);font:700 .9rem var(--display);font-variant-numeric:tabular-nums;box-shadow:var(--shadow)}
+.room-pill svg{width:19px;height:19px;flex:none}
+.room-pill span{color:var(--ink)}
+@media (min-width:980px){.room-pill{display:none}}
+.nav-groups .room-navtime{display:block;font:700 .7rem var(--display);font-variant-numeric:tabular-nums;opacity:.9}
+
+.room-lens .is-locked span{opacity:.6}
+.room-lens .is-locked .pro-badge{margin-left:3px;vertical-align:1px}
+.room-lens label span{display:inline-flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap}
+.room-lens .is-locked .pro-badge{margin-left:0;vertical-align:0}
+
+@media (max-width:600px){
+  .room-card{padding:12px}
+  .room-main{flex-direction:column;align-items:stretch;gap:12px}
+  .room-dial{width:150px;height:150px;margin:0 auto}
+  .room-time{font-size:2rem}
+  .room-join{flex-direction:column}
+  .room-join .btn{width:100%}
+  .room-cheer{width:46px;height:46px}
+  .room-lens span{font-size:.8rem}
+}
+
+

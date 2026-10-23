@@ -70,7 +70,7 @@ This repository is a flat copy of an intended layout. Nothing was moved or renam
 | PDF.js 6.4.299 (legacy ES-module build) vendored in `vendor/pdfjs/` (deploy this folder with the web page; `prepare.js` stages it for the desktop app); re-test a PDF syllabus import after any pdf.js update | Done |
 | **Delete My Account and Data** (Settings > Account and Sync, signed-in only): explains what is removed, offers an export first, requires typing DELETE, optionally erases this device's copy, clear messages for "server not set up", offline and signed-out. Calls `studyboard_delete_my_account()` after removing the user's files through the Storage API. Tested with a stubbed server (3 outcomes) | Done |
 | `studyboard_delete_my_account()` in `supabase-lean.sql`: SECURITY DEFINER, `search_path` set, acts on `auth.uid()` only, execute granted to `authenticated` only, safe to run twice, tolerates Supabase blocking SQL deletes on storage | Done. Owner: run `supabase-lean.sql` and test with a spare account |
-| Contact address is the clearly marked placeholder `support@YOUR-DOMAIN` (one constant, `SUPPORT`, in the 99-release module of `index.html`) | Owner: replace it |
+| Contact address is the clearly marked placeholder `support@YOUR-DOMAIN` (one constant, `SUPPORT`, in `src/js/99-release.js`) | Owner: replace it |
 | The policy texts match what the app does today but are not legal advice | Owner: have them reviewed for your country or state; add your legal name and governing law |
 | Deleting an account does not cancel a Stripe or app-store subscription (the sheet tells people to cancel first) | Owner: decide the process for cancel-on-request |
 | App Store / Google Play: privacy label and data-safety form, age rating, screenshots | Owner (only if shipping store apps) |
@@ -95,9 +95,9 @@ This repository is a flat copy of an intended layout. Nothing was moved or renam
 |---|---|
 | `README.md` rewritten: features, running web and desktop, deploying, links | Done |
 | `SETUP-GUIDE.md`: "What's New in 1.13", every SQL file in run order, Edge Function file mapping, **Public launch checklist** at the end | Done |
-| `PRO-PLANS-GUIDE.md`: SQL order note, wrong `base/app.js` path fixed (`const STORE` lives in `index.html`), Public Launch Checklist (Pro) | Done |
+| `PRO-PLANS-GUIDE.md`: SQL order note, wrong `base/app.js` path fixed (`const STORE` lives in the app's code, now `src/js/01-style-shop.js`), Public Launch Checklist (Pro) | Done |
 | `supabase-setup.sql` was missing although every guide starts with it. A new one was rebuilt from how the app uses the `items` table and the `studioso-files` bucket (own-row policies, private bucket, realtime) | Done. Owner: compare it with the original if you have it and keep the one your live project was made with |
-| `SB_DEFAULT` in `index.html` contains a project URL and publishable key (`pivcmrqcjseycjkbocmc`) | Owner: confirm that is your production project (the publishable key is meant to be public) |
+| `SB_DEFAULT` in `src/js/01-accounts.js` contains a project URL and publishable key (`pivcmrqcjseycjkbocmc`) | Owner: confirm that is your production project (the publishable key is meant to be public) |
 
 ## 8. Cold start
 

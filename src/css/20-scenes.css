@@ -1,0 +1,13 @@
+/* ===== module: 20-scenes.css ===== */
+/* Full-scene themes: the scene sits behind the page, left of the desktop sidebar and above the phone's bottom bar. */
+#sceneArt{position:fixed;z-index:-1;pointer-events:none;overflow:hidden;contain:strict}
+#sceneArt .sc-l,#sceneArt .sc-cv,#sceneArt .sc-band{position:absolute;overflow:visible}
+#sceneArt .sc-band{left:0;width:100%}
+#sceneArt .sc-cv{left:0;top:0}
+.sp-art.sc-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+/* Readability over the fuller scenes: page titles get a soft halo in the page color, and the small loose lines
+   (hints, legends, summaries) that sit straight on the scene get a frosted backing. Cards are already opaque. */
+html.sc-on #view :is(.view-head h2,.board-sec-head h2,.tl-controls h2,.sec .t,.sec .n,.board-ctl .mini,.sch-range,.fcrumb){text-shadow:0 0 2px var(--paper),0 0 6px var(--paper),0 0 12px var(--paper)}
+html.sc-on #view :is(.hint-line,.sch-legend,.tl-legend,.term-bar){background:color-mix(in srgb,var(--paper) 82%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-radius:10px;padding:4px 10px;width:fit-content;max-width:100%;box-sizing:border-box}
+
+

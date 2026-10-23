@@ -1,7 +1,7 @@
 // node tests/a11y-contrast.test.js
 // The theme contrast guard (ensureContrast in index.html): a colour that fails is nudged just far enough, one that passes is left alone.
 const fs = require("fs"), path = require("path"), assert = require("assert");
-const src = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const src = require("../scripts/app-files").source();
 const a = src.indexOf("const HEX6 = "), b = src.indexOf("function skinVars(s, dark){");
 assert(a > 0 && b > a, "contrast helpers not found");
 const C = new Function(src.slice(a, b) + "; return {ensureContrast, hexContrast, hexLum};")();

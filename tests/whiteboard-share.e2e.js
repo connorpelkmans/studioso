@@ -164,6 +164,17 @@ function fake(opts){
       await page.click(".wb-livechip"); await page.waitForSelector("dialog[open] .wbg-people li");
       ok(await page.locator("dialog[open] .wbg-people li").count() === 2 && /Maya/.test(await page.locator("dialog[open] .wbg-people").textContent()), "its panel lists who has access");
       await page.keyboard.press("Escape"); await page.waitForTimeout(150);
+      // after a reload, straight to the board (the group page not opened): the panel still names people, not "A member"
+      await page.reload(); await page.waitForTimeout(1500);
+      await page.evaluate(id => SBWB.open(id), gb.id); await page.waitForSelector(".wb-livechip"); await page.waitForTimeout(400);
+      await page.click(".wb-livechip"); await page.waitForSelector("dialog[open] .wbg-people li");
+      const ppl = await page.locator("dialog[open] .wbg-people").textContent();
+      ok(/Maya/.test(ppl) && !/A member/.test(ppl), "after a reload it names everyone who has it: " + ppl.trim().replace(/\s+/g, " "));
+      ok(/Shared from\s*Bio Squad/.test(await page.locator("dialog[open] .wbg-from").textContent()), "the panel says which group it's from");
+      await page.locator("dialog[open]").screenshot({path: "tests-out/wb-access.png"});
+      await page.click("dialog[open] #wbGoGroup"); await page.waitForSelector("#grpDetail"); await page.waitForTimeout(400);
+      ok(await page.locator('#grpDetail [data-act="grp-tab"][data-t="boards"].on').count() === 1 && await page.locator("#grpDetail .grp-wbs:visible").count() === 1, "Go to Group opens that group on its Whiteboards tab");
+      await page.evaluate(id => SBWB.open(id), gb.id); await page.waitForSelector(".wb-livechip"); await page.waitForTimeout(300);
       // delete your copy: you're off its list, and it doesn't come back
       await act(page, "wb-opts"); await page.click('dialog[open] [data-wbo="del"]'); await page.click("dialog[open] [data-submit]"); await page.waitForTimeout(400);
       st = await S(page);

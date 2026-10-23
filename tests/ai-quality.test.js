@@ -1,6 +1,6 @@
 // node tests/ai-quality.test.js  (extracts the AI-QUALITY block from index.html and tests it)
 const fs = require("fs"), path = require("path"), assert = require("assert");
-const src = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const src = require("../scripts/app-files").source();
 const block = src.slice(src.indexOf("/* AI-QUALITY-START"), src.indexOf("/* AI-QUALITY-END */"));
 const api = new Function(block + "; return {aiRepairJson, aiTidyText, aiGateCards, aiGateQuestions, aiGateSyllabus, aiCleanCites, aiCorpus, aiGroundNote, qaConfident};")();
 let n = 0; const t = (name, fn) => { fn(); n++; console.log("ok -", name); };

@@ -47,7 +47,7 @@ const STUB = () => {
     pool: day => { if (!pools.has(day)) pools.set(day, new T.Pool(mem())); return pools.get(day); },
     ai: {run: async (model, input) => { runs.push(input); return {choices: [{message: {content: JSON.stringify(STAGES)}}], usage: {prompt_tokens: 900, completion_tokens: 300}}; }}
   };
-  const html = require("../scripts/csp").apply(fs.readFileSync(path.join(ROOT, "index.html"), "utf8").replace('const AI_TRIAL = "";', `const AI_TRIAL = "${TRIAL}";`));
+  const html = require("../scripts/csp").apply(require("../scripts/app-files").source().replace('const AI_TRIAL = "";', `const AI_TRIAL = "${TRIAL}";`));
   ok(html.includes(`const AI_TRIAL = "${TRIAL}";`), "test copy of the app points at the test trial server");
 
   const browser = await chromium.launch({executablePath});
@@ -55,7 +55,7 @@ const STUB = () => {
     const ctx = await browser.newContext({viewport: {width: 1100, height: 900}, serviceWorkers: "block"});
     await ctx.addInitScript({content: `
       try { if (!sessionStorage.getItem("seeded")) { sessionStorage.setItem("seeded", "1");
-        localStorage.setItem("coursework:v2", ${JSON.stringify(JSON.stringify(SEED))}); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:tour", "done");
+        localStorage.setItem("coursework:v2", ${JSON.stringify(JSON.stringify(SEED))}); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:tour", "done"); localStorage.setItem("studyboard:uname:u1", "student");   // has a username: no Pick a Username sheet ahead of the AI message
         ${keys ? `localStorage.setItem("studyboard:aiKeys", ${JSON.stringify(JSON.stringify(keys))}); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}}));` : ""} } } catch (e) {}
       (${STUB.toString()})();`});
     await ctx.route(`${APP}/**`, route => {
@@ -89,7 +89,7 @@ const STUB = () => {
     await row.first().click(); await page.waitForSelector("#dlg[open]");
   };
   const openBreakdown = async page => { await page.evaluate(() => { document.querySelectorAll("dialog[open]").forEach(d => d.close()); }); await openTask(page, "t1"); await page.click('#dlg [data-act="bd-open"]'); await page.waitForSelector("#bdList li"); };
-  const openAi = async page => { await page.evaluate(() => { document.querySelectorAll("dialog[open]").forEach(d => d.close()); const b = document.createElement("button"); b.dataset.act = "ai-setup"; document.body.appendChild(b); b.click(); b.remove(); }); await page.waitForSelector("#aiPaste"); };
+  const openAi = async page => { await page.evaluate(() => { document.querySelectorAll("dialog[open]").forEach(d => d.close()); const b = document.createElement("button"); b.dataset.act = "ai-setup"; document.body.appendChild(b); b.click(); b.remove(); }); await page.waitForSelector('#dlg[open] [data-key="gemini"]'); };
 
   try {
     // ---- 1. After sign-in with no key: one message, two ways to start.
@@ -101,7 +101,7 @@ const STUB = () => {
     ok(A.ctx.trialCalls.includes("GET /v1/trial"), "it asked the trial server how many tries are left");
     if (SHOTS) await A.page.locator("#dlg").screenshot({path: path.join(SHOTS, "trial-welcome.png")});
     await A.page.click("#aiwTry");
-    await A.page.waitForFunction(() => /AI is on to try/.test((document.querySelector("#toastMsg") || {}).textContent || ""));
+    await A.page.waitForFunction(() => /Your free AI tries are on/.test((document.querySelector("#toastMsg") || {}).textContent || ""));
     ok(true, "Try AI First closes it with a pointer to the AI buttons");
     await A.page.reload(); await A.page.waitForSelector("#view", {state: "attached"}); await A.page.waitForTimeout(3500);
     ok(!/Turn On AI/.test(await A.page.evaluate(() => document.querySelector("#dlg[open]") ? document.querySelector("#dlg").textContent : "")), "the message shows once per student");

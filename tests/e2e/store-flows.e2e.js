@@ -94,6 +94,11 @@ const openMenu = async page => {   // Settings, Account category (two-pane layou
 };
 const calls = (page, name) => page.evaluate(n => window.__sb.calls.filter(c => c[0] === n), name);
 const dlgText = page => page.evaluate(() => { const d = document.querySelector("dialog[open]"); return d ? d.innerText : ""; });
+const signUp = async (page, email) => {   // the sign-up form also asks for a username and a birthday (96-usernames.js)
+  await page.fill("dialog[open] [name=username]", "newstudent");
+  await page.selectOption("dialog[open] select[name=bm]", "5"); await page.selectOption("dialog[open] select[name=bd]", "14"); await page.selectOption("dialog[open] select[name=by]", "2000");
+  await fillSubmit(page, {email, password: "correct horse 7"});
+};
 const fillSubmit = async (page, fields) => { for (const [k, v] of Object.entries(fields)) await page.fill(`dialog[open] [name=${k}]`, v); await page.click("dialog[open] [data-submit]"); await page.waitForTimeout(250); };
 
 (async () => {
@@ -106,7 +111,7 @@ const fillSubmit = async (page, fields) => { for (const [k, v] of Object.entries
     await page.click('dialog[open] [data-sbm="signup"]');
     assert.match(await dlgText(page), /Create Your Studyboard Account/);
     assert.match(await dlgText(page), /Privacy Policy/, "sign-up links to the privacy policy");
-    await fillSubmit(page, {email: "new@example.com", password: "correct horse 7"});
+    await signUp(page, "new@example.com");
     const t = await dlgText(page);
     assert.match(t, /Check Your Email/); assert.match(t, /If\s+new@example\.com\s+can be used/i); assert.match(t, /Confirm your email to start using your account/i);   // the new account works once its email is confirmed
     assert.equal((await calls(page, "signUp")).length, 1);
@@ -114,7 +119,7 @@ const fillSubmit = async (page, fields) => { for (const [k, v] of Object.entries
     assert.equal((await calls(page, "resend")).length, 1);
     assert.match(await page.textContent("#sbResend"), /Send again in \d+s/); assert.ok(await page.isDisabled("#sbResend"));
     await page.click('dialog[open] [data-sbm="signin"]'); await page.click('dialog[open] [data-sbm="signup"]');   // away and back
-    await fillSubmit(page, {email: "new@example.com", password: "correct horse 7"});
+    await signUp(page, "new@example.com");
     assert.match(await page.textContent("#sbResend"), /Send again in \d+s/, "cooldown is still running after the sheet was re-opened");
     await fillSubmit(page, {code: "000000"});
     assert.match(await page.textContent("#sbMsg"), /didn't work or has expired/);
@@ -127,7 +132,7 @@ const fillSubmit = async (page, fields) => { for (const [k, v] of Object.entries
   await test("sign up with an address that already has an account looks identical (no enumeration)", async () => {
     const {ctx, page} = await newPage(browser, {cfg: {existing: true}});
     await page.waitForSelector("dialog[open] form.sb-acct"); await page.click('dialog[open] [data-sbm="signup"]');
-    await fillSubmit(page, {email: "taken@example.com", password: "correct horse 7"});
+    await signUp(page, "taken@example.com");
     const t = await dlgText(page); assert.match(t, /Check Your Email/); assert.ok(!/already/i.test(t.replace(/Already have (an account|one)\?/i, "")));
     await ctx.close();
   });
@@ -300,7 +305,7 @@ const fillSubmit = async (page, fields) => { for (const [k, v] of Object.entries
     await openMenu(page); await page.waitForSelector('[data-act="plan-restore"]');   // Settings row
     const say = async () => { await page.waitForTimeout(500); return page.evaluate(() => [...document.querySelectorAll(".toast")].map(t => t.innerText).join(" | ")); };
     await page.evaluate(() => { window.__bridge.next.restore = "nothing"; });
-    await page.click('[data-act="plan-restore"]'); await page.click('[data-act="plan-restore"]', {force: true}).catch(() => {});
+    await page.evaluate(() => { const b = document.querySelector('[data-act="plan-restore"]'); b.click(); b.click(); });   // a double tap, with no time for the bridge to answer in between
     assert.match(await say(), /Nothing to restore/);
     assert.equal(await page.evaluate(() => window.__bridge.log.filter(l => l[0] === "restore").length), 1, "second tap while restoring is ignored");
     await page.waitForTimeout(3500);

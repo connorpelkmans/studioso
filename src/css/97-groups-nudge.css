@@ -1,0 +1,19 @@
+/* ===== module: 97-groups-nudge.css ===== */
+/* More button: only in the bottom bar (phones and tablets). The desktop side menu lists Groups itself. */
+nav.tabs .in .nav-more{display:none}
+@media (max-width:979px){
+  nav.tabs .in .nav-more{display:flex;position:relative;min-height:44px}
+  nav.tabs .in{grid-template-columns:repeat(6,minmax(0,1fr)) 40px!important}
+  nav.tabs .in .nm-dot{position:absolute;top:6px;right:6px;width:9px;height:9px;border-radius:50%;background:var(--late);box-shadow:0 0 0 2px var(--spine,var(--surface))}
+}
+@media (max-width:380px){nav.tabs .in button{font-size:.56rem!important}}
+@media (max-width:340px){nav.tabs .in button{font-size:.5rem!important}}
+@media (max-width:979px){html[data-ts="l"] nav.tabs .in button{font-size:.53rem!important}html[data-ts="xl"] nav.tabs .in button{font-size:.48rem!important}}
+.more-sheet .menu-list button{min-height:56px}
+.gn-card{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;align-items:start;margin-top:8px;padding:12px 14px;border-radius:14px;background:color-mix(in srgb,var(--accent) 7%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 28%,var(--line))}
+.gn-ic{color:var(--accent);padding-top:2px}
+.gn-body h3{margin:0 0 2px;font-size:1rem}
+.gn-body p{margin:0;font-size:.9rem;color:var(--muted);line-height:1.4}
+.gn-acts{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.gn-acts .btn,.gn-acts .link-btn{min-height:44px}
+.gn-acts .link-btn{padding:0 6px}

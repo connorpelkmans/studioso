@@ -1,0 +1,110 @@
+/* ===== module: 98-sounds.css ===== */
+/* Focus Sounds (98-sounds): the card in the Focus Timer sheet, its panel, the Settings sheet and the small speaker button */
+.snd-card{border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--soft) 45%,transparent);padding:4px 6px 4px 4px}
+.snd-top{display:flex;align-items:center;gap:4px}
+.snd-head{flex:1;min-width:0;display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 6px;border:0;border-radius:10px;background:none;color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+div.snd-head{cursor:default}
+button.snd-head:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
+.snd-ic{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 13%,var(--surface));color:var(--accent);transition:background .25s,color .25s}
+.snd-ic svg{width:19px;height:19px}
+.snd-card:not(.on) .snd-ic{background:var(--field);color:var(--muted)}
+.snd-card.live .snd-ic{background:var(--accent);color:var(--accent-ink)}
+.snd-txt{display:flex;flex-direction:column;min-width:0;gap:1px}
+.snd-txt b{font:600 .95rem var(--display)}
+.snd-txt .sub{font-size:.8rem;color:var(--muted);line-height:1.3}
+.snd-chev{flex:none;display:grid;place-items:center;color:var(--muted)}
+.snd-chev svg{width:18px;height:18px;transition:transform .2s}
+.snd-head[aria-expanded="true"] .snd-chev svg{transform:rotate(180deg)}
+/* switch: a 44px tall touch target with a small track inside */
+.snd-sw{flex:none;position:relative;width:54px;height:44px;border:0;background:none;padding:0;cursor:pointer;border-radius:12px}
+.snd-sw::before{content:"";position:absolute;left:5px;right:5px;top:10px;bottom:10px;border-radius:999px;background:color-mix(in srgb,var(--muted) 40%,var(--field));transition:background .2s}
+.snd-sw i{position:absolute;top:13px;left:8px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s}
+.snd-sw[aria-checked="true"]::before{background:var(--accent)}
+.snd-sw[aria-checked="true"] i{transform:translateX(20px)}
+.snd-sw:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+/* little equalizer shown while sound plays */
+.snd-eq{display:flex;align-items:flex-end;gap:2px;height:14px}
+.snd-eq i{width:3px;height:100%;border-radius:2px;background:currentColor;transform:scaleY(.4);transform-origin:50% 100%;will-change:transform;animation:snd-eq 1.3s ease-in-out infinite alternate}
+.snd-eq i:nth-child(2){animation-duration:1.7s;animation-delay:-.6s}
+.snd-eq i:nth-child(3){animation-duration:1.1s;animation-delay:-.3s}
+@keyframes snd-eq{0%{transform:scaleY(.25)}100%{transform:scaleY(1)}}
+/* the panel */
+.snd-panel{display:grid;gap:14px;margin:4px 4px 6px;padding-top:12px;border-top:1px solid var(--line)}
+.snd-h{display:block;font:600 .82rem var(--display);color:var(--muted);margin:0 0 7px}
+.snd-chips{display:flex;flex-wrap:wrap;gap:6px}
+.snd-chip{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font:500 .85rem var(--display, inherit);cursor:pointer}
+.snd-chip:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.snd-chip[aria-pressed="true"]{background:var(--sel);color:var(--sel-ink);border-color:var(--sel)}
+.snd-chip svg{width:16px;height:16px}
+.snd-chip .pro-badge{font-size:.54rem;padding:1px 4px;border-radius:5px}
+.snd-note{margin:8px 0 0;line-height:1.4}
+.snd-mix{display:grid;gap:4px;margin-top:8px}
+.snd-lv{display:grid;grid-template-columns:minmax(7.5em,34%) 1fr;align-items:center;gap:10px;font-size:.86rem;min-height:36px}
+.snd-vol{display:grid;gap:2px}
+.snd-mode{display:flex}
+.snd-mode button{flex:1;min-height:38px}
+.snd-after{margin-top:10px}
+.snd-sec .mi-check{margin-top:10px}
+.snd-card.fixed .snd-panel{border-top:0;padding-top:4px}
+.snd-sheet .sheet-body{display:grid;gap:12px}
+/* the speaker button beside the timer pill in the header, only while a session is active */
+.snd-quick{color:var(--muted)}
+.snd-quick[hidden]{display:none}
+.snd-quick svg{width:20px;height:20px}
+.snd-quick.on{color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--surface));border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
+/* desktop: a small round badge on the corner of the sidebar Focus pill */
+.snd-quick-nav{display:none}
+@media (min-width:980px){
+  nav.tabs .in .snd-quick-nav:not([hidden]){display:grid;place-items:center;align-self:flex-end;position:relative;z-index:2;width:28px;height:28px;min-height:0;margin:-18px -3px 0 0;padding:0;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:var(--spine,#0E2A56);color:rgba(255,255,255,.75);box-shadow:0 2px 6px rgba(0,0,0,.25)}
+  nav.tabs .in .snd-quick-nav svg{width:15px;height:15px}
+  nav.tabs .in .snd-quick-nav.on{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+  nav.tabs .in .snd-quick-nav:hover{filter:brightness(1.12)}
+}
+@media (pointer:coarse){.snd-chip{min-height:44px}}
+/* narrow phones: the header has no room beside the timer pill, so the switch lives in the Focus Timer sheet only */
+@media (max-width:479px){#sndQuick{display:none}}
+@media (max-width:420px){.snd-lv{grid-template-columns:1fr;gap:0}}
+@media (prefers-reduced-motion:reduce){.snd-eq i{animation:none;transform:none;will-change:auto}.snd-eq i:nth-child(1){height:55%}.snd-eq i:nth-child(2){height:100%}.snd-eq i:nth-child(3){height:70%}.snd-sw i,.snd-sw::before,.snd-chev svg{transition:none}}
+
+/* ===== Release polish (1.13.0): contrast, focus, motion and touch targets ===== */
+.skip-link{position:fixed;left:12px;top:-60px;z-index:100000;padding:10px 16px;border-radius:10px;background:var(--surface);color:var(--ink);border:2px solid var(--accent);font-weight:700;text-decoration:none;transition:top .12s}
+.skip-link:focus{top:max(12px,env(safe-area-inset-top,0px))}
+:root[data-theme="dark"] .soon{color:#fff}
+:root[data-theme="dark"] .soon.late,:root[data-theme="dark"] .wk.over{color:var(--accent-ink)}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .soon{color:#fff}
+  :root:not([data-theme="light"]) .soon.late,:root:not([data-theme="light"]) .wk.over{color:var(--accent-ink)}
+}
+:root[data-theme="dark"] .soon{background:color-mix(in srgb,var(--mark) 85%,#000)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .soon{background:color-mix(in srgb,var(--mark) 85%,#000)}}
+:root[data-theme="dark"] .soon.late{background:var(--late)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .soon.late{background:var(--late)}}
+.legal{font-size:.95rem;line-height:1.55;max-height:min(68vh,640px);overflow:auto}
+.legal:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.legal h3{font:700 1rem/1.3 var(--display);margin:1.2rem 0 .3rem}
+.legal p{margin:.4rem 0}
+.legal ul,.legal-list{margin:.4rem 0 .4rem 1.1rem;padding:0}
+.legal li{margin:.25rem 0}
+.legal-meta{color:var(--muted);font-size:.85rem}
+.legal-line{margin-top:.5rem}
+.about-top{display:flex;flex-direction:column;gap:2px;margin-bottom:.5rem}
+.about-name{font:800 1.5rem/1.2 var(--display)}
+.about-ver{color:var(--muted)}
+.about-credits{margin:.3rem 0 .6rem 1.1rem;padding:0}
+.about-credits li{margin:.35rem 0}
+.about-lic{margin:.2rem 0 .6rem}.about-lic summary{cursor:pointer;font-size:.85rem}
+.about-lic pre{white-space:pre-wrap;font-size:.72rem;max-height:240px;overflow:auto;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.link-btn:focus-visible,.btn:focus-visible,.icon-btn:focus-visible,[role="tab"]:focus-visible,[role="switch"]:focus-visible,[data-act]:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
+@media (pointer:coarse),(max-width:719px){
+  .icon-btn,.pomo-btn,nav.tabs button,.btn,.btn.small,.icon-btn.sm,.seg label span,.segb button,.chips button,.chip,.bview-tabs button,.pview-tabs button,[role="tab"],.menu-list>button,.cap-row>.btn,
+  [data-act="plan-view"],[data-act="cf-view"],[data-act="bview"],[data-act="tl-mode"],[data-act="tl-zoom"],[data-act="f-sort"],.env-head,.pf-link,.plan .btn.small.fh-hide,.est-btn{min-height:max(40px,2.5rem)}
+  .icon-btn,.icon-btn.sm{min-width:max(40px,2.5rem)}
+  select,input[type="text"],input[type="number"],input[type="date"],input[type="time"],input[type="search"],input[type="email"],input[type="url"],input[type="password"]{min-height:max(40px,2.5rem)}
+  /* small round controls keep their look but get a bigger tap area */
+  button.check,.focus-go,.ms{position:relative}
+  button.check::after,.focus-go::after,.ms::after{content:"";position:absolute;inset:-7px}
+  .link-btn{padding-block:8px}
+}

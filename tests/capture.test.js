@@ -1,6 +1,6 @@
 // node tests/capture.test.js  (extracts the CAPTURE block from index.html and tests the pure core: parser, courses, links, validators)
 const fs = require("fs"), path = require("path"), assert = require("assert");
-const src = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const src = require("../scripts/app-files").source();
 const block = src.slice(src.indexOf("/* CAPTURE-START"), src.indexOf("/* CAPTURE-END */"));
 const CAP = new Function(block + "; return CAP;")();
 let n = 0; const t = (name, fn) => { fn(); n++; console.log("ok -", name); };

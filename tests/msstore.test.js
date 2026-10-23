@@ -62,7 +62,7 @@ ok(/app\.isPackaged && !IS_MAS && !IS_MSSTORE\) \{/.test(main), "no registry pro
 ok(/process\.platform === "win32" && !IS_MSSTORE/.test(main) && /startupSettings: IS_MSSTORE/.test(main), "the Store build offers Windows Startup Settings instead of a toggle that does nothing");
 ok(/shell\.openExternal\("ms-settings:startupapps"\)/.test(main), "Startup Settings opens a fixed ms-settings address");
 ok(/storeArg === "mas" \|\| storeArg === "msstore"/.test(preload) && /openStartupSettings/.test(preload), "preload passes the store and the startup-settings call to the page");
-const page = read("index.html");
+const page = require("../scripts/app-files").source();   // the whole app page (index.html and its js/, css/ files)
 ok(/data-act="sbw-startup"/.test(page) && /act === "sbw-startup"/.test(page), "Settings, Widgets and Desktop has the Open Startup Settings button");
 ok(/DESK && \(DESK\.mas \|\| DESK\.store === "mas"\)/.test(page), "only the Mac App Store build uses in-app purchase; the Microsoft Store build buys like the direct download");
 

@@ -46,7 +46,7 @@ ok(/storage\/v1\/object\/\$\{BUCKET\}/.test(fn) && /admin\/users/.test(fn) && /s
 ok(/const BUCKET = "studioso-files"/.test(fn), "bucket name matches");
 
 /* ---------- 2. privacy policy sync ---------- */
-const app = read("index.html");
+const app = require("../scripts/app-files").source();   // the whole app page (index.html and its js/, css/ files)
 const appPrivacy = app.slice(app.indexOf("const PRIVACY = () =>"), app.indexOf("const TERMS = () =>")).replace(/`;\s*$/, "");
 const web = read("website/privacy.html");
 const webPrivacy = web.slice(web.indexOf("<h1>Privacy Policy</h1>"), web.indexOf("</div></section>", web.indexOf("<h1>Privacy Policy</h1>")));
@@ -77,7 +77,7 @@ ok(/auto-renewing subscription/.test(site) && /href="terms(\.html)?"/.test(site)
 for (const f of ["website/index.html", "website/privacy.html", "website/terms.html", "website/account/index.html", "website/success.html", "website/cancel.html"]) ok(/href="(\.\.\/)?privacy(\.html)?"/.test(read(f)) && /href="(\.\.\/)?terms(\.html)?"/.test(read(f)), f + " footer links to privacy and terms");
 
 /* ---------- 3. no social login ---------- */
-const authFiles = ["index.html", "website/account/account.js", "website/account/index.html", "SETUP-GUIDE.md", "lms.js", "sw.js"].map(f => [f, read(f)]);
+const authFiles = [["index.html", require("../scripts/app-files").source()]].concat(["website/account/account.js", "website/account/index.html", "SETUP-GUIDE.md", "lms.js", "sw.js"].map(f => [f, read(f)]));
 for (const [f, s] of authFiles) {
   ok(!/signInWithOAuth|signInWithIdToken|signInWithSSO|linkIdentity|provider:\s*["'](google|facebook|apple|github|azure|twitter|discord)/i.test(s), f + ": no OAuth/social sign-in call");
   ok(!/Continue with (Google|Facebook|Apple)|Sign in with (Google|Facebook)|accounts\.google\.com\/gsi|appleid\.auth|connect\.facebook\.net/i.test(s), f + ": no social login button or SDK");

@@ -9,7 +9,7 @@ if (!process.env.ACC_TZ_CHILD && !process.env.ACC_NO_TZ) {
   }
   process.exit(0);
 }
-const s = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const s = require("../scripts/app-files").source();
 const code = s.slice(s.indexOf("/*ACC-START*/"), s.indexOf("/*ACC-END*/"));
 const A = new Function(code + ";return ACC;")();
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };

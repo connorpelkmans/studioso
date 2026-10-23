@@ -3,7 +3,8 @@
 // sneaks into the page can't run code. The policy is added by the first inline script in index.html (a static <meta> made Chrome fire junk
 // requests, see SECURITY-REVIEW.md #13); this tool rewrites the hash list inside it.
 //
-//   node scripts/csp.js           update index.html in place (run after editing any inline script; `npm test` fails while it is stale)
+//   node scripts/csp.js           update index.html in place (run after editing any inline script or anything in src/: it also builds
+//                                 bundle/ from src/; `npm test` fails while either is stale)
 //   node scripts/csp.js --check   exit 1 if index.html's hashes don't match its scripts
 //   require("./scripts/csp").apply(html) -> html with fresh hashes (prepare.js and build-site.js call this after they change the page)
 //
@@ -34,13 +35,19 @@ function stale(html){ return apply(html) !== html; }
 module.exports = {apply, stale};
 
 if (require.main === module) {
+  // index.html loads the app's code and styles from bundle/ (built from src/, with a ?v= hash of each); this run rebuilds and restamps them
+  // too (scripts/app-files.js), so editing a file in src/ and running this one command is all it takes.
+  const AF = require("./app-files");
   const file = path.join(__dirname, "..", "index.html");
   const html = fs.readFileSync(file, "utf8");
   if (process.argv.includes("--check")) {
     if (stale(html)) { console.error("csp: index.html's script hashes are stale. Run: node scripts/csp.js"); process.exit(1); }
+    const p = AF.problems(html); if (p.length) { console.error("csp: " + p.join("; ").replace("node scripts/app-files.js", "node scripts/csp.js")); process.exit(1); }
     console.log("csp: script hashes are current");
   } else {
-    const out = apply(html);
+    const built = AF.build();   // src/ -> bundle/ first, so the ?v= hashes below are the new files'
+    if (built.length) console.log("csp: built bundle/" + built.join(", bundle/"));
+    const out = apply(AF.stamp(html));
     if (out === html) console.log("csp: already current");
     else { fs.writeFileSync(file, out); console.log("csp: updated index.html"); }
   }

@@ -7,7 +7,7 @@ const root = path.join(__dirname, "..");
 const server = http.createServer((req, res) => {
   const u = new URL(req.url, "http://x"); let p = decodeURIComponent(u.pathname); if (p === "/") p = "/index.html";
   const f = path.join(root, p); if (!f.startsWith(root) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); res.end("no"); return; }
-  res.writeHead(200, {"content-type": p.endsWith(".js") ? "text/javascript" : p.endsWith(".html") ? "text/html" : "application/octet-stream"}); fs.createReadStream(f).pipe(res);
+  res.writeHead(200, {"content-type": p.endsWith(".js") ? "text/javascript" : p.endsWith(".html") ? "text/html" : p.endsWith(".css") ? "text/css" : "application/octet-stream"}); fs.createReadStream(f).pipe(res);
 });
 const SEED = {v: 2, courses: [{id: "c1", name: "Intro Biology", code: "BIO101", color: "#3B6FE0"}], tasks: [], settings: {capacity: 15}, updated: 1};
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };

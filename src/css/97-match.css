@@ -1,0 +1,59 @@
+/* ===== module: 97-match.css ===== */
+/* Match game (97-match.js): a grid of term and definition tiles in a sheet. Colors come from the theme variables, so dark mode and themes follow. */
+dialog:has(.sheet.mt-sheet){width:min(780px,calc(100% - 24px))}
+.mt-sheet .sheet-body{display:flex;flex-direction:column;gap:10px}
+.mt-bar{display:flex;align-items:center;gap:10px;min-width:0}
+.mt-name{flex:1;min-width:0;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mt-clock{position:relative;flex:none;display:inline-flex;align-items:baseline;gap:2px;min-width:5.2em;justify-content:flex-end;padding:4px 12px;border-radius:999px;background:var(--soft);border:1px solid var(--line);font:700 1.15rem/1.2 var(--display);font-variant-numeric:tabular-nums;color:var(--ink)}
+.mt-pen{position:absolute;right:6px;top:-18px;font:700 .85rem var(--display);color:var(--late);opacity:0;pointer-events:none}
+.mt-pen.show{animation:mtPen .9s ease-out}
+@keyframes mtPen{0%{opacity:0;transform:translateY(6px)}20%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-8px)}}
+.mt-help{margin:0}
+.mt-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:minmax(104px,1fr);gap:10px;position:relative}
+.mt-tile{position:relative;display:flex;align-items:center;justify-content:center;min-width:0;min-height:44px;padding:10px;border:1px solid var(--line);border-radius:14px;background:var(--field,var(--surface));color:var(--ink);font:600 1rem/1.25 var(--body);text-align:center;cursor:pointer;overflow:hidden;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;transition:transform .15s ease,border-color .15s ease,background-color .15s ease,box-shadow .15s ease}
+.mt-tile.is-def{font-weight:500}
+.mt-tile:hover:not(:disabled){border-color:var(--accent)}
+.mt-tile:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.mt-tile.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--surface));box-shadow:0 0 0 2px var(--accent) inset;transform:translateY(-1px)}
+.mt-tx{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;line-clamp:4;overflow:hidden;overflow-wrap:anywhere;max-width:100%}
+.mt-tile.s1{font-size:.9rem}
+.mt-tile.s2{font-size:.8rem}.mt-tile.s2 .mt-tx{-webkit-line-clamp:5;line-clamp:5}
+.mt-tile.s3{font-size:.72rem;line-height:1.2}.mt-tile.s3 .mt-tx{-webkit-line-clamp:6;line-clamp:6}
+.mt-tile.hit{border-color:var(--leaf);background:color-mix(in srgb,var(--leaf) 18%,var(--surface));animation:mtHit .32s ease-in forwards;pointer-events:none}
+@keyframes mtHit{0%{transform:scale(1)}35%{transform:scale(1.06)}100%{transform:scale(.6);opacity:0}}
+.mt-tile.gone{visibility:hidden}
+.mt-tile.miss{border-color:var(--late);background:color-mix(in srgb,var(--late) 14%,var(--surface));animation:mtShake .42s ease}
+@keyframes mtShake{0%,100%{transform:none}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+.mt-peek{position:absolute;left:0;right:0;bottom:0;z-index:2;margin:0;padding:10px 12px;border-radius:12px;background:var(--surface);border:1px solid var(--accent);box-shadow:0 8px 24px rgba(0,0,0,.18);font-size:.95rem;line-height:1.35;overflow-wrap:anywhere;max-height:60%;overflow:auto}
+.mt-res{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding:12px 8px;border-radius:16px;background:var(--soft);border:1px solid var(--line)}
+.mt-big{font:800 2.6rem/1.05 var(--display);font-variant-numeric:tabular-nums;color:var(--ink)}
+.mt-new{display:inline-block;padding:3px 12px;border-radius:999px;background:var(--leaf);color:#fff;font:700 .9rem var(--display);animation:mtPop .5s cubic-bezier(.22,1.6,.36,1)}
+@keyframes mtPop{from{transform:scale(.5);opacity:0}to{transform:none;opacity:1}}
+.mt-recent{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;justify-content:center}
+.mt-recent ol{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+.mt-recent li{padding:2px 9px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-size:.85rem;font-variant-numeric:tabular-nums}
+.mt-recent li.best{border-color:var(--leaf);font-weight:700}
+.mt-grp{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.mt-grp h3{margin:0;font:700 1rem var(--display)}
+.mt-grp p{margin:0}
+.mt-grp .row-actions{display:flex;flex-wrap:wrap;gap:8px}
+.mt-lb{margin:0;padding:0;list-style:none;display:grid;gap:4px}
+.mt-lb li{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:10px;min-width:0}
+.mt-lb li.me{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.mt-lb .rk{flex:none;width:1.6em;text-align:center;font:700 .9rem var(--display);color:var(--muted)}
+.mt-lb .rk.top{color:var(--leaf)}
+.mt-lb .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mt-lb b{flex:none;font-variant-numeric:tabular-nums}
+@media (max-width:600px){
+  .mt-grid{grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:minmax(88px,1fr);gap:8px}
+  .mt-tile{padding:8px 6px;font-size:.9rem;border-radius:12px}
+  .mt-tile.s1{font-size:.8rem}
+  .mt-tile.s2{font-size:.74rem}
+  .mt-tile.s3{font-size:.68rem}
+  .mt-big{font-size:2.2rem}
+}
+@media (prefers-reduced-motion:reduce){.mt-tile,.mt-tile.hit,.mt-tile.miss,.mt-new,.mt-pen.show{animation:none;transition:none}.mt-tile.on{transform:none}}
+html[data-motion="static"] :is(.mt-tile,.mt-tile.hit,.mt-tile.miss,.mt-new,.mt-pen.show){animation:none;transition:none}
+html[data-motion="static"] .mt-tile.on{transform:none}
+.mt-still .mt-tile,.mt-still .mt-tile.hit,.mt-still .mt-tile.miss,.mt-still .mt-new,.mt-still .mt-pen.show{animation:none;transition:none}
+.mt-still .mt-pen.show{opacity:1}

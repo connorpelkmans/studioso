@@ -6,7 +6,9 @@ const fs = require("fs"), path = require("path"), assert = require("assert"), cr
 const ROOT = path.join(__dirname, ".."), csp = require("../scripts/csp");
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 
-const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8"), AF = require("../scripts/app-files"), app = AF.source();
+ok(AF.refs(html).includes("app.js") && AF.refs(html).includes("app.css") && !AF.problems(html).length, "index.html loads bundle/app.js and bundle/app.css, built from src/ and current, with current ?v= hashes");
+ok(!/<script>(?![\s\S]{0,4000}?<\/script>)/.test(html) && [...html.matchAll(/<script>/g)].length === 2, "only the two small start-up scripts are inline; the app's code is bundle/app.js (allowed by script-src 'self')");
 const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
 const first = scripts[0];
 ok(/cm\.httpEquiv="Content-Security-Policy"/.test(first), "the first inline script installs the policy");
@@ -16,7 +18,7 @@ const want = scripts.slice(1).map(s => "'sha256-" + crypto.createHash("sha256").
 ok(H === want.join(" "), `every inline script after the injector is hashed (${want.length})`);
 ok(/script-src 'self' "\+\(lax\?"'unsafe-inline'":H\)\+" https:\/\/cdn\.jsdelivr\.net;/.test(first), "script-src uses the hashes; 'unsafe-inline' only in Claude's artifact preview");
 ok(/lax=!H\|\|\/\(\^\|\\\.\)claudeusercontent\\\.com\$\/\.test\(location\.hostname\)/.test(first), "the lax case is limited to *.claudeusercontent.com (or no hashes at all)");
-ok(/SBJS_SRI/.test(html) && /loadScript\(src, SBJS_SRI\)/.test(html), "the only CDN script (the supabase-js fallback) is loaded with its pinned SRI hash");
+ok(/SBJS_SRI/.test(app) && /loadScript\(src, SBJS_SRI\)/.test(app), "the only CDN script (the supabase-js fallback) is loaded with its pinned SRI hash");
 for (const d of ["object-src 'none'", "frame-src 'none'", "base-uri 'self'", "form-action 'self'", "default-src 'self'"]) ok(first.includes(d), "policy keeps " + d);
 ok(!/\son[a-z]+\s*=\s*["']/i.test(html.replace(/<script>[\s\S]*?<\/script>/g, "")), "no inline event handler attributes in the page markup (they would be blocked)");
 

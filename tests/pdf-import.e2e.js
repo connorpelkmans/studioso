@@ -48,7 +48,7 @@ const server = http.createServer((req, res) => {
     const page = await ctx.newPage();
     const errors = []; page.on("pageerror", e => errors.push(String(e && e.message || e)));
     await page.goto(base + "index.html");
-    const src = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+    const src = require("../scripts/app-files").source();
     const opts = (src.match(/const PDF_OPTS = (\{[^\n]*\});/) || [])[1];
     const lib = (src.match(/const PDFJS_URL = "([^"]+)"/) || [])[1], wk = (src.match(/const PDFW_URL = "([^"]+)"/) || [])[1];
     ok(opts && lib && wk, "PDF_OPTS, PDFJS_URL and PDFW_URL found in index.html");

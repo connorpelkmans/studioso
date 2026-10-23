@@ -1,0 +1,87 @@
+/* ===== module: 97-ui-shop.css ===== */
+/* ===== 97-ui: an easier Style Shop ===== */
+.ui-shop .sheet-body{gap:12px;align-content:start}
+.ui-shop-bar{position:sticky;top:-14px;z-index:4;display:grid;gap:8px;margin:-4px -18px 0;padding:8px 18px 10px;background:var(--surface);border-bottom:1px solid transparent}
+.ui-shop-bar .shop-tabs{margin:0;overflow-x:auto;flex-wrap:nowrap;max-width:100%;scrollbar-width:none}
+.ui-shop-bar .shop-tabs::-webkit-scrollbar{display:none}
+.ui-shop-bar .shop-tabs button{white-space:nowrap;min-height:36px}
+.ui-chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 1px}
+.ui-chips::-webkit-scrollbar{display:none}
+.ui-chip{flex:none;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:99px;padding:5px 13px;min-height:34px;font:600 .82rem var(--display);cursor:pointer;transition:background .15s,color .15s,box-shadow .15s}
+.ui-chip:hover{color:var(--ink);border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
+.ui-chip[aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 13%,var(--surface));border-color:color-mix(in srgb,var(--accent) 50%,var(--line));color:var(--ink);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 10%,transparent)}
+.ui-chip:focus-visible,.ui-sec-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* sections */
+.ui-sec{display:grid;gap:10px}
+.ui-sec[hidden]{display:none}
+.ui-sec > h3.shop-sec{margin:0}
+.ui-sec-btn{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;padding:8px 4px;color:var(--ink);font:inherit;text-align:left;cursor:pointer;border-radius:10px;min-height:40px}
+.ui-sec-btn:hover{background:color-mix(in srgb,var(--accent) 6%,transparent)}
+.ui-sec-t{display:flex;align-items:center;gap:6px;flex:1;min-width:0}
+.ui-n{font:600 .74rem var(--display);color:var(--muted);background:var(--field,var(--bg));border:1px solid var(--line);border-radius:99px;padding:1px 9px;min-width:26px;text-align:center}
+.ui-chev{width:18px;height:18px;color:var(--muted);flex:none;transition:transform .2s}
+.ui-sec.shut .ui-chev{transform:rotate(-90deg)}
+.ui-sec.shut > .ui-sec-b{display:none}
+.ui-sec-b{display:grid;gap:10px}
+.ui-sec + .ui-sec{border-top:1px solid var(--line);padding-top:4px}
+.ui-sec-b > .tp-rows{display:grid;gap:10px}
+.ui-gone{display:none!important}
+.ui-none{margin:20px 0;text-align:center;color:var(--muted)}
+/* compact tiles */
+.ui-shop .shop-grid{grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:10px}
+.ui-shop .shop-tile{padding:8px;gap:5px;border-radius:12px}
+.ui-shop .skin-prev{height:66px}
+.ui-shop .shop-tile p.mini{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35}
+.ui-shop .shop-name b{font-size:.92rem}
+.ui-shop .shop-tile .cs-demo{transform-origin:top left}
+.ui-shop .shop-pack{padding:8px 10px;gap:6px}
+.ui-shop .pack-grid{grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:8px}
+.ui-shop .shop-tile.on{box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent),0 6px 20px color-mix(in srgb,var(--accent) 14%,transparent)}
+/* Collections */
+.ui-cols{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));grid-auto-flow:row dense;gap:12px}
+.ui-col[hidden]{display:none}
+.ui-col-prev .skin-prev{height:78px}
+.ui-col .tp-now{margin-left:2px}
+.ui-col-stk{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:2px 2px 0}
+.ui-col-act{display:flex;gap:4px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.ui-col-more{border:0!important;background:none!important;color:var(--accent)!important;box-shadow:none!important;padding-inline:8px!important}
+.ui-col-more:hover{text-decoration:underline}
+.ui-col.open{grid-column:1/-1}
+.ui-col.open .ui-col-stk{display:none}
+.ui-col-all{display:grid;gap:12px;border-top:1px dashed var(--line);padding-top:10px;margin-top:2px}
+.ui-col-all[hidden]{display:none}
+.ui-col-part{display:grid;gap:8px}
+.ui-col-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;align-items:start}
+.ui-col-piece{display:grid;gap:6px;justify-items:start;border:1px solid var(--line);border-radius:12px;padding:8px}
+.ui-col-piece > :first-child{justify-self:stretch}
+.ui-col.open .ui-col-prev .skin-prev{height:96px}
+@media (min-width:720px){.ui-col.open{grid-template-columns:minmax(180px,260px) minmax(0,1fr);column-gap:16px;align-items:start}.ui-col.open > *{grid-column:1}.ui-col.open > .ui-col-all{grid-column:2;grid-row:1/span 5;border-top:0;padding-top:0;margin:0}}
+@media (max-width:600px){
+  .ui-shop .shop-grid{grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px}
+  .ui-shop .skin-prev{height:56px}
+  .ui-cols{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+  .ui-shop .shop-mode{row-gap:6px}
+  .ui-shop-bar .shop-tabs{flex-wrap:wrap;overflow:visible}
+  .ui-shop-bar .shop-tabs button{flex:1 1 auto;padding-inline:8px}
+  .ui-chips{-webkit-mask-image:linear-gradient(to right,#000 85%,transparent);mask-image:linear-gradient(to right,#000 85%,transparent);padding-right:28px}
+}
+@media (prefers-reduced-motion:reduce){.ui-chev,.ui-chip{transition:none}}
+/* Speed: stickers and theme previews are cached bitmaps (the white edge and shadow are baked in, so there are no
+   CSS filters to repaint), and each pack's stickers are only added just before it scrolls into view. */
+.stk-cell.ui-stk{position:relative;filter:none}
+.ui-stk img,.ui-stk > svg{position:absolute;left:-12.5%;top:-12.5%;width:125%;height:125%;display:block;max-width:none;pointer-events:none;user-select:none;-webkit-user-drag:none}
+
+/* Long vertical lists use plain block flow (not grid), so adding one pack doesn't re-measure every other pack */
+.ui-shop .sheet-body{display:block}
+.ui-shop .sheet-body > * + *,.ui-shop .ui-sec-b > * + *,.ui-shop .tp-rows > * + *{margin-top:12px}
+.ui-shop .ui-sec,.ui-shop .ui-sec-b,.ui-shop .ui-sec-b > .tp-rows,.ui-shop .tp-sec{display:block}
+.ui-shop .ui-sec > h3.shop-sec{margin-bottom:8px}
+.ui-shop .ui-sec[hidden],.ui-shop .ui-sec.shut > .ui-sec-b,.ui-col-all[hidden]{display:none}
+.ui-shop .sheet-body > .ui-shop-bar + *{margin-top:12px}
+/* Previews are pictures only: skipping them when finding what's under the pointer keeps hovering quick */
+.ui-shop .skin-pair,.ui-shop .ui-col-prev,.ui-shop .pack-grid,.ui-shop .ui-col-stk,.ui-shop .ns-demo,.ui-shop .cs-demo,.ui-shop .shop-tile > p.mini{pointer-events:none}
+.ui-shop .ui-sec.ui-held > .ui-sec-b,.ui-shop .ui-col.ui-held{display:none}
+.ui-cols-more{margin-top:0!important}
+.ui-shop .sheet-body{background:var(--surface)}   /* opaque, so the browser can scroll it without repainting */
+
+

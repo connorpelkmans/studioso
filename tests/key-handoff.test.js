@@ -2,7 +2,7 @@
 // helpers (KEYHO-START..KEYHO-END) and the key relay Worker's logic (cloudflare/key-relay/src/relay.js).
 // Run: node tests/key-handoff.test.js
 const fs = require("fs"), path = require("path"), assert = require("assert"), crypto = require("crypto"), {pathToFileURL} = require("url");
-const s = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const s = require("../scripts/app-files").source();
 const block = (a, b) => s.slice(s.indexOf(a), s.indexOf(b));
 const QR = new Function(block("/*QR-START*/", "/*QR-END*/") + ";return QR;")();
 const KEYHO = new Function(block("/*KEYHO-START*/", "/*KEYHO-END*/") + ";return KEYHO;")();

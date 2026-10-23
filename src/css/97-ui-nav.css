@@ -1,0 +1,58 @@
+/* ===== module: 97-ui-nav.css ===== */
+/* ===== 97-ui: a side menu that always fits (desktop only; the phone bar is unchanged) =====
+   97-ui-nav.js sets data-fit on nav.tabs to the roomiest level where every button fits:
+   1 tighter spacing, 2 tools as a grid of icons, 3 small tab labels, 4 icon-only tabs, 5 smallest windows. */
+@media (min-width:980px){
+  nav.tabs .in button,nav.tabs .nav-tool{transition:background .15s,color .15s}
+
+  /* 1: a little tighter */
+  nav.tabs:is([data-fit="1"],[data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]){gap:8px;padding-top:12px}
+  nav.tabs:is([data-fit="1"],[data-fit="2"]) .nav-brand img{width:96px}
+  nav.tabs:is([data-fit="1"],[data-fit="2"]) .nav-brand{gap:3px}
+  nav.tabs:is([data-fit="1"],[data-fit="2"]) .in button{padding:5px 4px 4px;gap:3px}
+  nav.tabs:is([data-fit="1"],[data-fit="2"]) .in button svg{width:20px;height:20px}
+  nav.tabs[data-fit="1"] .nav-tool{padding:5px 4px;gap:3px}
+
+  /* 2: the tools at the bottom become a 2 by 2 grid of icons */
+  nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-foot{display:grid;grid-template-columns:1fr 1fr;gap:2px;padding-top:6px}
+  nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-sync{grid-column:1/-1;order:-1;display:flex;align-items:center;justify-content:center;gap:5px;padding:1px 2px 3px;font-size:.62rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-sync::before{margin:0;flex:none;width:7px;height:7px}
+  nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-tool{padding:8px 2px;min-height:38px;justify-content:center}
+  nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-tool span{display:none}
+
+  /* 3: small tab labels, no date */
+  nav.tabs:is([data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-date{display:none}
+  nav.tabs[data-fit="3"] .nav-brand img{width:80px}
+  nav.tabs[data-fit="3"] .in button{padding:3px 4px 3px;gap:2px;font-size:.66rem!important}
+  nav.tabs[data-fit="3"] .in button svg{width:19px;height:19px}
+  nav.tabs:is([data-fit="3"],[data-fit="4"],[data-fit="5"]) .in .nav-focus{margin-top:3px}
+
+  /* 4: tabs become icons with tooltips */
+  nav.tabs:is([data-fit="4"],[data-fit="5"]) .nav-brand img{width:70px}
+  nav.tabs:is([data-fit="4"],[data-fit="5"]) .in button{font-size:0!important;line-height:0!important;gap:0;padding:6px 4px;min-height:max(33px,var(--nb-min,0px))}
+  nav.tabs:is([data-fit="4"],[data-fit="5"]) .in button svg{width:21px;height:21px}
+  nav.tabs:is([data-fit="4"],[data-fit="5"]) .in button[aria-current="page"]::before{top:7px;bottom:7px}
+  nav.tabs:is([data-fit="4"],[data-fit="5"]) .in .nav-focus :is(.nf-m),nav.tabs:is([data-fit="4"],[data-fit="5"]) .in .nav-focus:not(.active) .nf-l{display:none}
+  nav.tabs:is([data-fit="4"],[data-fit="5"]) .in .nav-focus.active{gap:3px;flex-direction:row}
+  nav.tabs:is([data-fit="4"],[data-fit="5"]) .in .nav-focus.active .nf-l{font:700 .74rem/1 var(--display)!important}
+  nav.tabs:is([data-fit="4"],[data-fit="5"]) .in .nav-focus.active svg{width:18px;height:18px}
+  nav.tabs:is([data-fit="4"],[data-fit="5"]) .nav-groups .grp-dot{top:1px;right:22px}
+
+  /* 5: the smallest windows */
+  nav.tabs[data-fit="5"]{gap:5px;padding-top:8px;padding-bottom:calc(6px + env(safe-area-inset-bottom,0px))}
+  nav.tabs[data-fit="5"] .nav-brand img{width:58px}
+  nav.tabs[data-fit="5"] .in button{padding:4px;min-height:max(30px,var(--nb-min,0px))}
+  nav.tabs[data-fit="5"] .in button svg{width:20px;height:20px}
+  nav.tabs[data-fit="5"] .nav-tool{padding:5px 2px;min-height:32px}
+  nav.tabs[data-fit="5"] .nav-tool svg{width:19px;height:19px}
+  nav.tabs[data-fit="5"] .nav-sync{padding-bottom:1px}
+}
+/* spare height goes to the upper group (--nb-min and --nb-g are set by 97-ui-nav.js from the free room only) */
+@media (min-width:980px){
+  nav.tabs .in,nav.tabs:is([data-fit="3"],[data-fit="4"]) .in{gap:calc(2px + var(--nb-g,0px))}
+  nav.tabs[data-fit="5"] .in{gap:calc(1px + var(--nb-g,0px))}
+  nav.tabs .in > button{min-height:var(--nb-min,0px)}
+}
+@media (prefers-reduced-motion:reduce){nav.tabs .in button,nav.tabs .nav-tool{transition:none}}
+
+

@@ -1,0 +1,74 @@
+/* ===== module: 96-semester.css ===== */
+/* Set up your semester */
+:root{--sem-ok:#17805F}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--sem-ok:#5FD3A8}}
+:root[data-theme="dark"]{--sem-ok:#5FD3A8}
+.sem-sheet{position:relative}
+.sem-main{display:contents}
+.sem-top{flex:none;padding:6px 18px 0;display:grid;gap:6px}
+.sem-count{margin:0}
+.sem-steps{list-style:none;margin:0;padding:0;display:flex;gap:4px}
+.sem-steps li{flex:1;min-width:0}
+.sem-st{width:100%;min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:4px 2px;border:0;border-radius:10px;background:none;color:var(--muted);font-size:.72rem;font-weight:600}
+.sem-st:hover{background:var(--soft)}
+.sem-n{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;border:2px solid var(--line);font:700 .78rem var(--display);background:var(--surface)}
+.sem-n svg{width:14px;height:14px}
+.sem-st.cur{color:var(--ink)}
+.sem-st.cur .sem-n{border-color:var(--accent);background:var(--accent);color:var(--accent-ink)}
+.sem-st.done .sem-n{border-color:var(--sem-ok);color:var(--sem-ok)}
+.sem-st.skip .sem-n{border-style:dashed}
+.sem-l{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:520px){.sem-st:not(.cur) .sem-l{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}}
+.sem-body{align-content:start}
+.sem-h{margin:0;font:700 1.15rem var(--display)}
+.sem-h:focus{outline:none}
+.sem-h:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.sem-h4{margin:4px 0 0;font:700 .95rem var(--display)}
+.sem-lead{margin:0;color:var(--muted)}
+.sem-ok{display:flex;gap:10px;align-items:flex-start;color:var(--ink)}
+.sem-ok svg{flex:none;color:var(--sem-ok);margin-top:2px}
+.sem-chips{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.sem-chips li{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--line);border-left:4px solid var(--c,var(--accent));border-radius:10px;background:var(--surface)}
+.sem-dot{width:10px;height:10px;border-radius:50%;background:var(--c,var(--accent))}
+.sem-add{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr) auto;gap:10px;align-items:end}
+.sem-add input,.sem-card textarea{width:100%;min-height:44px}
+.sem-add .btn{min-height:44px}
+@media (max-width:520px){.sem-add{grid-template-columns:1fr}}
+.sem-card{display:grid;gap:10px;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.sem-card>div:first-child{display:grid;gap:2px}
+.sem-drop.over{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
+.sem-row-btns,.sem-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.sem-bar .spacer{flex:1}
+.sem-row-btns .btn,.sem-bar .btn,.sem-queue .btn{min-height:44px}
+.sem-queue{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;background:var(--soft);font-size:.9rem}
+.sem-queue span{flex:1 1 200px}
+.sem-msg{margin:0;min-height:1.2em}
+.sem-tally,.sem-sumline{margin:0}
+.sem-sumline{font-weight:600}
+.sem-empty .sem-card{text-align:left;margin-top:12px}
+.sem-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.sem-r{display:grid;gap:6px;padding:10px;border:1px solid var(--line);border-left:4px solid var(--c,var(--accent));border-radius:12px;background:var(--surface)}
+.sem-r.chk{border-color:color-mix(in srgb,var(--late) 40%,var(--line));border-left-color:var(--c,var(--accent))}
+.sem-r input[type=text]{width:100%;min-height:44px;font-weight:600}
+.sem-r2{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.sem-r2 select,.sem-r2 input{min-height:44px;max-width:100%;width:auto;flex:1 1 120px;min-width:0}
+.sem-r2 .sem-rm{margin-left:auto;min-width:44px;min-height:44px}
+.sem-flag{font-size:.82rem;color:var(--late);font-weight:600}
+.sem-r1{display:flex;gap:10px;align-items:center;padding:8px 12px;border:1px solid var(--line);border-left:4px solid var(--c,var(--accent));border-radius:12px;background:var(--surface)}
+.sem-r1t{flex:1;min-width:0;display:grid}
+.sem-r1t b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sem-r1 .btn{min-height:44px;flex:none}
+.sem-est{flex:none;padding:3px 10px;border-radius:999px;background:var(--soft);font:700 .82rem var(--display);white-space:nowrap}
+.sem-weeks{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.sem-weeks li{display:inline-flex;gap:6px;padding:6px 12px;border-radius:10px;background:var(--soft);border:1px solid var(--line)}
+.sem-weeks li.lv3,.sem-weeks li.lv4{border-color:color-mix(in srgb,var(--late) 50%,var(--line))}
+/* the Board card, shown while the planner is empty */
+.sem-card-b{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;margin:0 0 14px;padding:14px 16px;border:1px solid color-mix(in srgb,var(--accent) 40%,var(--line));border-radius:16px;background:color-mix(in srgb,var(--accent) 7%,var(--surface))}
+.sem-cb-t{flex:1 1 240px;display:grid;gap:2px;min-width:0}
+.sem-cb-t span{color:var(--muted);font-size:.92rem}
+.sem-cb-b{display:flex;gap:10px;align-items:center}
+.sem-cb-b .btn{min-height:44px}
+.sem-cb-b .link-btn{min-height:44px;padding:0 6px}
+.sem-sheet .sheet-foot .btn,.sem-sheet .sheet-foot .link-btn{min-height:44px}
+@media (prefers-reduced-motion:reduce){.sem-sheet *,.sem-card-b *{transition:none!important;animation:none!important}}
+

@@ -1,6 +1,6 @@
 // node tests/notecards.test.js  (extracts the NOTECARDS block from index.html: heuristic card extraction, dedupe against a deck, and the checks on AI cards)
 const fs = require("fs"), path = require("path"), assert = require("assert");
-const src = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const src = require("../scripts/app-files").source();
 const grab = (a, b) => { const i = src.indexOf(a), j = src.indexOf(b); assert(i > 0 && j > i, "markers " + a); return src.slice(i, j); };
 const NC = new Function(grab("/*NOTECARDS-START", "/*NOTECARDS-END*/") + "; return NOTECARDS;")();
 const Q = new Function(grab("/* AI-QUALITY-START", "/* AI-QUALITY-END */") + "; return {aiTidyText, aiGateCards};")();

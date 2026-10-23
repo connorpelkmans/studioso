@@ -12,7 +12,7 @@ if (!process.env.EP_TZ) {
   });
   console.log(`examprep: all ${ZONES.length} time zones passed (${total} checks in all)`); process.exit(0);
 }
-const s = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const s = require("../scripts/app-files").source();
 const code = s.slice(s.indexOf("/*EXAMPREP-START*/"), s.indexOf("/*EXAMPREP-END*/"));
 const E = new Function(code + ";return EXAMPREP;")();
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };

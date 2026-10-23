@@ -168,7 +168,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     ok(ts.length === 2 && ts.some(t => t.title === "Lab report 3" && t.link === ""), "Add all adds only the checked items");
     // cancel works
     ctx.aiDelay = 4000; const fc2 = page.waitForEvent("filechooser"); await page.click('[data-act="cap-photo"]'); (await fc2).setFiles(imgPath); await page.waitForFunction(() => /Reading your photo/.test(document.querySelector("#capStatus") ? document.querySelector("#capStatus").textContent : "")); await page.click('[data-cap="cancel-ai"]');
-    ok(await page.isVisible("#qcIn") && /Cancelled/.test(await page.textContent(".cap-body")), "cancel stops the AI and offers typing it in with the photo visible"); await page.keyboard.press("Escape");
+    ok(await page.isVisible("#qcIn") && /Cancell?ed/.test(await page.textContent(".cap-body")), "cancel stops the AI and offers typing it in with the photo visible"); await page.keyboard.press("Escape");
     // paste an image
     ctx.aiDelay = 0; await page.evaluate(() => { document.activeElement && document.activeElement.blur(); });
     await page.evaluate(async () => { const c = document.createElement("canvas"); c.width = 300; c.height = 200; c.getContext("2d").fillRect(0, 0, 300, 200); const b = await new Promise(r => c.toBlob(r, "image/png")); const dt = new DataTransfer(); dt.items.add(new File([b], "shot.png", {type: "image/png"}));

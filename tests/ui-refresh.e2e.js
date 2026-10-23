@@ -46,10 +46,16 @@ const stored = p => p.evaluate(() => JSON.parse(localStorage.getItem("coursework
 
       // Timeline: icons on due dates, no bars, no completed tasks, no hours-per-week row
       await tab(p, "plan"); await act(p, "plan-view", "timeline");
-      ok((await p.locator(".tl-ic.ms").count()) === 4, "one icon per open task with a due date (the finished task is left out)");
-      ok((await p.locator(".tlbar").count()) === 0 && (await p.locator(".tl-work").count()) === 0, "no bars and no Hours per Week row");
-      ok(!(await p.evaluate(() => document.querySelector(".tl").textContent.includes("Finished thing"))), "completed tasks are not on the timeline");
-      ok(await p.evaluate(() => { const tl = document.querySelector(".tl-scroll"); return tl.scrollWidth > 0 && document.documentElement.scrollWidth <= innerWidth + 1; }), "no horizontal page overflow");
+      if (W >= 640) {
+        ok((await p.locator(".tl-ic.ms").count()) === 4, "one icon per open task with a due date (the finished task is left out)");
+        ok((await p.locator(".tlbar").count()) === 0 && (await p.locator(".tl-work").count()) === 0, "no bars and no Hours per Week row");
+        ok(!(await p.evaluate(() => document.querySelector(".tl").textContent.includes("Finished thing"))), "completed tasks are not on the timeline");
+        ok(await p.evaluate(() => { const tl = document.querySelector(".tl-scroll"); return tl.scrollWidth > 0 && document.documentElement.scrollWidth <= innerWidth + 1; }), "no horizontal page overflow");
+      } else {   // phones: the Timeline tab is the month calendar only, named Month
+        ok(!(await p.locator(".tl").count()) && await vis(".cal") && /Month/.test(await p.textContent('[data-act="plan-view"][data-id="timeline"]')), "on a phone the Timeline tab is the month calendar, named Month");
+        ok((await p.locator(".cal .day .ci").count()) === 5 && (await p.locator('.cal .day .ci[style*="opacity"]').count()) === 1, "one icon per task with a due date, the finished one faded");
+        ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "no horizontal page overflow");
+      }
 
       // Crunch: summary first, legend tucked away
       await act(p, "plan-view", "crunch");

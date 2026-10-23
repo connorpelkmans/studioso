@@ -87,6 +87,10 @@ const until = async (fn, ms, what) => { const end = Date.now() + ms; for (;;) { 
     await app.goto(APP + "/"); await app.waitForFunction(() => window.SBLMS && window.SBEXT);
     await until(() => app.evaluate(() => SBEXT.on()), 15000, "the app sees the extension");
     ok(true, "the Studyboard website sees the extension through relay.js");
+    // The first read asks whose school account it is (tests/lms-ext-account.e2e.js); "It's Me" pairs it, and from then on reads come in by themselves
+    await app.waitForSelector("#dlg[open] [data-ext-no]", {timeout: 15000});
+    ok(/Ana Lee/.test(await app.textContent("#dlg[open]")), "the first read asks whose it is, naming the school account");
+    await app.click("#dlg[open] [data-submit]");
     // The extension's reads are applied by themselves: no "Ready to Import", just a notice of what changed
     await app.waitForFunction(() => Object.values(SBLMS.st().tasks).some(t => t.cv), null, {timeout: 15000});
     ok(!/Ready to Import/.test(await app.evaluate(() => { const d = document.querySelector("#dlg"); return d.open ? d.textContent : ""; })), "the extension's read is applied by itself, without asking to import");

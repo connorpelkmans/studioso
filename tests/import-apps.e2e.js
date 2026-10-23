@@ -38,7 +38,7 @@ function zip(entries){
   if (!c11) { console.log("python3 with sqlite3 not found: skipped"); return; }
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sb-import-"));
   // the zstd frame for collection.anki21b, built with the page's own helper (raw blocks: valid zstd any decoder reads)
-  const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  const html = require("../scripts/app-files").source();
   const IA = new Function(html.slice(html.indexOf("/*IMPORTAPPS-START*/"), html.indexOf("/*IMPORTAPPS-END*/")) + ";return IA;")();
   const files = {
     apkg: path.join(tmp, "Biology.apkg"), apkg21b: path.join(tmp, "Newer Anki.apkg"), todoist: path.join(tmp, "BIO 101.csv"), notion: path.join(tmp, "Export-1234.zip"),

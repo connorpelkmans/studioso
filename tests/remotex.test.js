@@ -1,7 +1,7 @@
 // Unit tests for "can this exam or quiz be taken from home?" (the REMOTEX block in index.html) and where the answer is used.
 // Run: node tests/remotex.test.js
 const fs = require("fs"), path = require("path"), assert = require("assert"), vm = require("vm");
-const src = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const src = require("../scripts/app-files").source();
 const block = (a, b) => { const i = src.indexOf(a), j = src.indexOf(b); assert(i > 0 && j > i, "block " + a); return src.slice(i, j); };
 const R = new Function(block("/*REMOTEX-START*/", "/*REMOTEX-END*/") + ";return REMOTEX;")();
 let n = 0, fail = 0;

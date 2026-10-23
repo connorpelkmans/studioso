@@ -42,7 +42,9 @@ const seen = new Set(), problems = [];
 for (const t of chosen) {
   const T = TARGETS[t];
   for (const rel of T.need || []) if (!fs.existsSync(path.join(ROOT, rel))) problems.push(`[${t}] ${rel}: missing (needed to build this target)`);
-  for (const entry of T.files) {
+  // index.html stands for the whole app page: the page and every code and style file it's built from (src/; scripts/app-files.js)
+  const pageFiles = () => { try { return ["index.html"].concat(require("./app-files").srcFiles()); } catch (e) { return ["index.html"]; } };
+  for (const entry of T.files.flatMap(e => e === "index.html" ? pageFiles() : [e])) {
     const rel = typeof entry === "string" ? entry : entry.label, file = path.join(ROOT, typeof entry === "string" ? entry : entry.file);
     if (!fs.existsSync(file)) continue;
     const text = fs.readFileSync(file, "utf8");

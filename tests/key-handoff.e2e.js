@@ -17,7 +17,7 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/jav
     delete: async k => m.delete(k), deleteAll: async () => m.clear(), setAlarm: async () => {}, deleteAlarm: async () => {}}; };
   const objs = new Map(), env = {APP_URL: APP, HANDOFF: {getByName: id => { if (!objs.has(id)) objs.set(id, new R.Slot(mem())); return objs.get(id); }}};
   // The relay address changes an inline script, so its CSP hash is refreshed the same way the build does it.
-  const html = require("../scripts/csp").apply(fs.readFileSync(path.join(ROOT, "index.html"), "utf8").replace('const KEY_RELAY = "";', `const KEY_RELAY = "${RELAY}";`));
+  const html = require("../scripts/csp").apply(require("../scripts/app-files").source().replace('const KEY_RELAY = "";', `const KEY_RELAY = "${RELAY}";`));
   ok(html.includes(`const KEY_RELAY = "${RELAY}";`), "test copy of the app points at the test relay");
 
   const browser = await chromium.launch({executablePath});

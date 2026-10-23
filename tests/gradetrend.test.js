@@ -1,6 +1,6 @@
 // Unit tests for the grade trend math and the Study Groups card rule (pure logic extracted from index.html).  Run: node tests/gradetrend.test.js
 const fs = require("fs"), path = require("path"), assert = require("assert");
-const s = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const s = require("../scripts/app-files").source();
 const cut = (a, b) => s.slice(s.indexOf(a), s.indexOf(b));
 const G = new Function(cut("/*TREND-START*/", "/*TREND-END*/") + ";return GTREND;")();
 const showCard = new Function(cut("/*NUDGE-START*/", "/*NUDGE-END*/") + ";return showCard;")();
