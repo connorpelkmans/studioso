@@ -56,6 +56,29 @@
     };
   }
 
+  // The little round faces (study room, study group): each is a companion's face, cropped from its drawing the way the app makes them.
+  // The art comes with assets/companions.js (loaded when a companion nears the screen); the letters show until it is here.
+  function heads() {
+    var W = window.SBCOMPW; if (!W) return false;
+    [].slice.call(document.querySelectorAll(".fx [data-head]")).forEach(function (el) {
+      var c = W.BYID[el.getAttribute("data-head")]; if (!c) return;
+      var ey = c.eyes && typeof c.eyes.y === "number" ? c.eyes.y : 60, y = Math.max(0, Math.min(30, ey - 50));
+      var svg = W.rigSvg(c, {eyes: "happy", mouth: "smile"}).replace(/<g class="cp-zs">[\s\S]*?<\/g>/, "")
+        .replace(/\sstyle="[^"]*"/g, "").replace('viewBox="0 0 120 120"', 'viewBox="15 ' + y.toFixed(1) + ' 90 90"');
+      el.innerHTML = svg; el.classList.add("fx-face"); el.setAttribute("aria-hidden", "true");
+    });
+    return true;
+  }
+  if (!heads()) {
+    var tries = 0, wait = setInterval(function () { if (heads() || ++tries > 120) clearInterval(wait); }, 500);
+    // nothing brings the art in until a companion is near the screen: ask for it when the cards with faces are
+    setTimeout(function () { if (!("IntersectionObserver" in window) || !window.SBWebComp) return;   // (companions.js loads after this file)
+      var probe = document.querySelector('.fx [data-companion]');
+      new IntersectionObserver(function (es, o) { if (es.some(function (x) { return x.isIntersecting; })) { o.disconnect(); if (probe) window.SBWebComp.mount(probe); } }, {rootMargin: "300px 0px"})
+        .observe(document.querySelector('.fx[data-fx="focus"]') || document.body);
+    }, 0);
+  }
+
   var touch = window.matchMedia && matchMedia("(hover: none)").matches;
   cards.forEach(function (card) {
     var l = loop(card);

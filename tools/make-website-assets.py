@@ -20,6 +20,12 @@ open("website/assets/scenes-lib.js", "w", encoding="utf-8").write("/* Studyboard
 
 # 2. companion art data (COMP_DATA and COMP_KIT plus every batch)
 s = find("/* ===== module: 98-comp-00.js ===== */"); e = find("/* ===== module: 98-companion.js ===== */")
+# 98-comp-extra.js (private companions, such as the owner's cat) stays out of the public website
+x = next((i for i in range(s, e) if src[i].startswith("/* ===== module: 98-comp-extra.js")), None)
+if x is not None:
+    x_end = next(i for i in range(x + 1, len(src)) if src[i].startswith("/* ===== module: "))
+    if x_end != e: sys.exit("98-comp-extra.js must come right before 98-companion.js")
+    e = x
 open("website/assets/companions-data.js", "w", encoding="utf-8").write("/* Studyboard companion art, copied unchanged from the app (modules 98-comp-*). Do not edit by hand: run tools/make-website-assets.py. */\n" + rng(s, e))
 
 # 3. companion drawing + animation actor from 98-companion.js
