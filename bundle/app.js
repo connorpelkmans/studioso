@@ -1638,7 +1638,7 @@ async function initSupabase(ask){
   try { const r = await sb.auth.getSession(); session = r.data && r.data.session; } catch(e) {}
   if (SB_LINK_ERR && !SB_LINK_ERR.shown) { SB_LINK_ERR.shown = true; try { history.replaceState(null, "", location.pathname); } catch(e) {} setTimeout(sbLinkErrorSheet, 500); }
   if (session) { if (!sbUser) { sbUser = session.user; startSupabaseSync(); setTimeout(aiTrialSignedIn, 1500); } }
-  else { syncLabel(); setTimeout(() => { if ((ask || !dlg.open) && !sbUser) sbSignInSheet(sbNextMode || undefined); sbNextMode = ""; }, ask ? 0 : 400); }
+  else { syncLabel(); setTimeout(() => { if ((ask || !dlg.open) && !sbUser) sbSignInSheet(sbNextMode || (ask ? undefined : "hello")); sbNextMode = ""; }, ask ? 0 : 400); }
 }
 // Settings, sharing, reminders and so on call this to let someone sign in or make an account
 function sbAsk(){ if (sb) sbSignInSheet(); else if (sbConfig() || SB_HOSTED) { toast("Connecting…"); initSupabase(true); } else sbSetupSheet(); }
@@ -2212,14 +2212,15 @@ function sbSetupSheet(){
 const SB_RESEND = {}, SB_RESEND_MS = 30000;
 function sbSignInSheet(mode, email, note){
   if (!sb) { sbAsk(); return; }
-  mode = mode || "signin"; email = email || (dlg.open && dlg.querySelector(".sb-acct input[name=email]") ? dlg.querySelector(".sb-acct input[name=email]").value.trim() : "");
-  const back = location.origin + location.pathname, redirect = DESK || !/^https?:/.test(location.protocol) ? {} : null;
   const first = !localStorage.getItem("studioso:welcomed");
-  const T = {signin: first ? "Welcome to Studyboard" : "Sign In to Studyboard", signup: "Create Your Studyboard Account", confirm: "Check Your Email", forgot: "Reset Your Password", reset: "Set a New Password"}[mode];
+  mode = mode === "hello" && !first ? "signin" : mode || "signin"; email = email || (dlg.open && dlg.querySelector(".sb-acct input[name=email]") ? dlg.querySelector(".sb-acct input[name=email]").value.trim() : "");
+  const back = location.origin + location.pathname, redirect = DESK || !/^https?:/.test(location.protocol) ? {} : null;
+  const T = {hello: "Welcome to Studyboard", signin: first ? "Welcome to Studyboard" : "Sign In to Studyboard", signup: "Create Your Studyboard Account", confirm: "Check Your Email", forgot: "Reset Your Password", reset: "Set a New Password"}[mode];
   const emailIn = (ro) => `<label class="f"><span class="lh">Email ${REQ}</span><input type="email" name="email" required autocomplete="email" value="${esc(email)}" ${ro ? "readonly" : ""} ${email && !ro ? "" : "autofocus"}></label>`;
   const codeIn = `<label class="f"><span class="lh">Code ${REQ} <span class="hint">From the email</span></span><input type="text" name="code" required inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="123456" class="sb-code" autofocus></label>`;
   const pwIn = (lbl, ac) => `<label class="f"><span class="lh">${lbl} ${REQ}</span><input type="password" name="password" required minlength="8" autocomplete="${ac}" ${email && mode !== "reset" ? "autofocus" : ""}></label>`;
   const body = {
+    hello: sbWelcomeHtml(),
     signin: `${first ? `<p style="margin:0">Sign in to keep your tasks, notes and files safe online and in sync on all your devices.</p>` : ""}${emailIn()}${pwIn("Password", "current-password")}`,
     signup: `<p style="margin:0">Free, and it keeps your planner in sync on your phone, laptop and the web.</p><label class="f"><span class="lh">Name <span class="hint">Optional. Your study companion uses it to say hi</span></span><input type="text" name="name" maxlength="40" autocomplete="given-name"></label>${window.SBUNAME ? SBUNAME.bdayField(true) + `<div class="u13" id="u13" hidden><p class="mini" style="margin:0"><b>Under 13?</b> A parent or guardian makes the account with their own email and confirms it. Publishing and sharing with a link stay off until you're 13.</p><label class="mi-check"><input type="checkbox" name="parentok" id="u13ok"> I'm the parent or guardian, and I agree to the Terms and Privacy Policy for my child</label></div>` : ""}${emailIn()}${sbPwHtml("Password", "new-password", {autofocus: !!email})}`,
     confirm: `<p style="margin:0">If <b>${esc(email)}</b> can be used for a new account, we sent a code to it. Type it here to finish, or open the link in the email.</p><p class="mini" style="margin:0">Confirm your email to start using your account. Already have one? Use Back to Sign In.</p>${codeIn}`,
@@ -2227,6 +2228,7 @@ function sbSignInSheet(mode, email, note){
     reset: `<p style="margin:0">If an account uses <b>${esc(email)}</b>, we sent it a code. Enter the code with your new password.</p>${codeIn}${sbPwHtml("New Password", "new-password")}`
   }[mode];
   const links = {
+    hello: "",
     signin: `<button type="button" class="link-btn" data-sbm="forgot">Forgot Password?</button> · <button type="button" class="link-btn" id="sbLater">${first ? "Use Without an Account" : "Not Now"}</button>`,
     signup: `<button type="button" class="link-btn" data-sbm="signin">I Already Have an Account</button> · <button type="button" class="link-btn" id="sbLater">${first ? "Use Without an Account" : "Not Now"}</button>`,
     confirm: `<button type="button" class="link-btn" id="sbResend">Send a New Code</button> · <button type="button" class="link-btn" data-sbm="signin">Back to Sign In</button>`,
@@ -2234,6 +2236,7 @@ function sbSignInSheet(mode, email, note){
     reset: `<button type="button" class="link-btn" id="sbResend">Send a New Code</button> · <button type="button" class="link-btn" data-sbm="signin">Back to Sign In</button>`
   }[mode];
   const foot = {
+    hello: "",
     signin: `<button type="button" class="btn" data-sbm="signup">Create Account</button><span class="spacer"></span><button type="button" class="btn primary" data-submit>Sign In</button>`,
     signup: `<span class="spacer"></span><button type="button" class="btn primary" data-submit>Create Account</button>`,
     confirm: `<span class="spacer"></span><button type="button" class="btn primary" data-submit>Confirm</button>`,
@@ -2241,19 +2244,20 @@ function sbSignInSheet(mode, email, note){
     reset: `<span class="spacer"></span><button type="button" class="btn primary" data-submit>Save Password</button>`
   }[mode];
   const custom = (sbCustom() ? `<p class="mini" style="margin:0"><button type="button" class="link-btn" id="sbServer">Custom Server</button></p>` : "")
-    + ((mode === "signin" || mode === "signup") && window.SBLEGAL ? SBLEGAL.line() : "");
+    + ((mode === "signin" || mode === "signup" || mode === "hello") && window.SBLEGAL ? SBLEGAL.line() : "");
   let busy = false;
   const say = t => { const m = $("#sbMsg"); if (m) m.textContent = t; };
   const done = t => { try { localStorage.setItem("studioso:welcomed", "1"); } catch(e) {} if (dlg.open) dlg.close(); toast(t); };
+  const hello = mode === "hello";
   openSheet(`<form class="sheet sb-acct" data-mode="${mode}"${first ? " data-first" : ""}>${head(T)}
     <div class="sheet-body">
-      ${REQ_NOTE}${body}
-      <p class="status-msg" id="sbMsg" style="margin:0" aria-live="polite">${esc(note || "")}</p>
-      <p class="mini" style="margin:0">${links}</p>${custom}
+      ${hello ? "" : REQ_NOTE}${body}
+      ${hello ? "" : `<p class="status-msg" id="sbMsg" style="margin:0" aria-live="polite">${esc(note || "")}</p>
+      <p class="mini" style="margin:0">${links}</p>`}${custom}
     </div>
-    <div class="sheet-foot">${foot}</div>
+    ${hello ? "" : `<div class="sheet-foot">${foot}</div>`}
   </form>`, fd => {
-    if (busy) return false;
+    if (busy || hello) return false;
     const em = String(fd.get("email") || email || "").trim(), pw = String(fd.get("password") || ""), code = String(fd.get("code") || "").replace(/\s+/g, "");
     const go = async () => {
       busy = true;
@@ -2318,6 +2322,8 @@ function sbSignInSheet(mode, email, note){
   }
   const later = $("#sbLater");
   if (later) later.addEventListener("click", () => { dlg.close(); sbUseLater(first); });
+  const start = $("#sbStart");
+  if (start) start.addEventListener("click", () => { dlg.close(); sbUseLater(true); });
   const rs = $("#sbResend");
   if (rs) {
     const ckey = mode + ":" + String(email).toLowerCase(), label = rs.textContent;
@@ -2337,6 +2343,23 @@ function sbSignInSheet(mode, email, note){
   }
   const sv = $("#sbServer"); if (sv) sv.addEventListener("click", sbSetupSheet);
 }
+// The first thing a new student sees: Mochi says hi, then Get Started (on this device) or sign in
+function sbWelcomeHtml(){
+  let mochi = ""; try { mochi = window.SBCOMP ? SBCOMP.rigSvg("plain-mochi", {eyes: "happy", mouth: "smile"}) : ""; } catch(e) {}
+  const ic = d => `<i aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg></i>`;
+  return `<div class="sb-welc">
+    <div class="sb-welc-m" aria-hidden="true">${mochi}</div>
+    <h3>Hi! I'm Mochi.<br>Let's plan your semester.</h3>
+    <p>Studyboard turns your syllabi into a calm plan for every day.</p>
+    <ul>
+      <li>${ic('<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5zM13 4h5.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H13z"/>')}Add courses and deadlines in minutes</li>
+      <li>${ic('<circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.2l2.4 2.4 4.6-5"/>')}See exactly what to do next, today</li>
+      <li>${ic('<path d="M12 20v-7"/><path d="M12 13c0-3.5-2.5-6-6.5-6 0 3.6 2.6 6 6.5 6zM12 11c0-3 2.2-5.5 6.5-5.5 0 3.2-2.4 5.5-6.5 5.5z"/>')}Works offline, no account needed</li>
+    </ul>
+    <button type="button" class="btn primary sb-welc-go" id="sbStart">Get Started</button>
+    <button type="button" class="link-btn sb-welc-alt" data-sbm="signin">I Already Have an Account</button>
+  </div>`;
+}
 // "Use Without an Account", "Not Now", or closing the first sign-in sheet
 function sbUseLater(first){
   try { localStorage.setItem("studioso:welcomed", "1"); if (first) { localStorage.setItem(SB_CFG, JSON.stringify("local")); SBGUEST.chose(); } } catch(e) {}
@@ -2344,7 +2367,7 @@ function sbUseLater(first){
   toast(first ? "Saving on this device only. Sign in any time from Settings." : "Working on this device. Sign in from Settings to sync.");
 }
 document.getElementById("dlg").addEventListener("close", () => {
-  if (sbUser || !dlg.querySelector('.sb-acct[data-first][data-mode="signin"], .sb-acct[data-first][data-mode="signup"]')) return;
+  if (sbUser || !dlg.querySelector('.sb-acct[data-first]:is([data-mode="hello"], [data-mode="signin"], [data-mode="signup"])')) return;
   try { if (localStorage.getItem("studioso:welcomed")) return; } catch(e) { return; }
   sbUseLater(true);
 });
@@ -2459,7 +2482,7 @@ function setItem(kind, id, obj, record){
   }
   queueWrite(kind, id, obj === null ? null : m[id]);
 }
-function applyChanges(changes, label, extra){
+function applyChanges(changes, label, extra, opts){
   if (!changes.length) return;
   const inverse = changes.map(c => ({kind:c.kind, id:c.id, after: clone(getItem(c.kind, c.id))}));
   const progressed = label !== null && typeof isProgress === "function" && changes.some(c => c.kind === "task" && c.after && isProgress(getItem("task", c.id), c.after));
@@ -2473,7 +2496,7 @@ function applyChanges(changes, label, extra){
   const undo = () => { if (step.done) return; step.done = true; applyChanges(inverse, null); trashDrop(binned); toast("Undone"); };
   step.undo = undo;
   if (typeof extra === "function") extra = extra();
-  if (label) { toast(label, undo, extra); undoStack.push(step); if (undoStack.length > 20) undoStack.shift(); }
+  if (label) { toast(label, undo, extra, opts); undoStack.push(step); if (undoStack.length > 20) undoStack.shift(); }
   if (typeof scheduleFolderBackup === "function") scheduleFolderBackup(DESK ? 3000 : 60000);
   if (progressed) { try { noteProgress(); } catch(e) { console.warn(e); } }
   fire("changed", changes, inverse);
@@ -7542,7 +7565,7 @@ function toast(msg, undoFn, extra, opts){
   const t = $("#toast"), b = $("#toastUndo"), x = $("#toastExtra"), more = extra ? [].concat(extra).filter(Boolean) : [], err = !!(opts && opts.error);
   let xx = $("#toastX");
   if (!xx) { xx = document.createElement("button"); xx.id = "toastX"; xx.type = "button"; xx.className = "toast-x"; xx.setAttribute("aria-label", "Dismiss"); t.appendChild(xx); xx.addEventListener("click", () => { clearTimeout(toastT); t.classList.remove("show", "toast-err"); toastErr = false; toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; }); }
-  t.setAttribute("role", err ? "alert" : "status"); t.classList.toggle("toast-err", err); xx.hidden = !err; toastErr = err;
+  t.setAttribute("role", err ? "alert" : "status"); t.classList.toggle("toast-err", err); t.classList.toggle("toast-done", !err && !!(opts && opts.done)); xx.hidden = !err; toastErr = err;
   $("#toastMsg").textContent = SPELL.fix(msg);
   toastUndoFn = undoFn || null;
   b.hidden = !undoFn;
@@ -7571,6 +7594,17 @@ $("#toastExtra").addEventListener("click", () => { const f = toastExtraFn; toast
   t.addEventListener("pointerenter", hold); t.addEventListener("pointermove", hold); t.addEventListener("focusin", hold);
   t.addEventListener("pointerleave", () => { if (!t.contains(document.activeElement)) go(); });
   t.addEventListener("focusout", () => setTimeout(() => { if (!t.contains(document.activeElement) && !t.matches(":hover")) go(); }, 0)); }
+// Empty pages: two notebook cards and Mochi's sprout, drawn in the theme's colours
+function emptyArt(){
+  const star = (x, y, r, c) => { const a = +(r * .18).toFixed(2), b = +(r * .82).toFixed(2); return `<path class="${c}" d="M${x} ${y - r}q${a} ${b} ${r} ${r}q-${b} ${a}-${r} ${r}q-${a}-${b}-${r}-${r}q${b}-${a} ${r}-${r}z"/>`; };
+  return `<svg class="es-art" viewBox="0 0 200 140" aria-hidden="true" focusable="false">
+    <g transform="rotate(-8 73 78)"><rect class="es-card" x="34" y="30" width="78" height="96" rx="10"/><rect class="es-hl2" x="44" y="46" width="40" height="7" rx="3.5"/><rect class="es-line" x="44" y="62" width="58" height="5" rx="2.5"/><rect class="es-line" x="44" y="74" width="46" height="5" rx="2.5"/><rect class="es-line" x="44" y="86" width="52" height="5" rx="2.5"/></g>
+    <g transform="rotate(7 127 70)"><rect class="es-card" x="88" y="22" width="78" height="96" rx="10"/><rect class="es-hl" x="98" y="38" width="44" height="7" rx="3.5"/><rect class="es-line" x="98" y="54" width="58" height="5" rx="2.5"/><rect class="es-line" x="98" y="66" width="50" height="5" rx="2.5"/><rect class="es-line" x="98" y="78" width="54" height="5" rx="2.5"/></g>
+    <path class="es-stem" d="M100 91v-10"/><path class="es-leaf" d="M100 83q-9-7-14-1q7 5 14 1zM100 83q9-7 14-1q-7 5-14 1z"/>
+    <circle class="es-face" cx="100" cy="112" r="22"/><circle class="es-eye" cx="93" cy="111" r="2.2"/><circle class="es-eye" cx="107" cy="111" r="2.2"/><path class="es-smile" d="M96 117q4 3 8 0"/><circle class="es-cheek" cx="88" cy="116" r="3"/><circle class="es-cheek" cx="112" cy="116" r="3"/>
+    ${star(172, 32, 7, "es-star")}${star(26, 30, 5, "es-star2")}
+  </svg>`;
+}
 function safeUrl(u){
   u = String(u || "").trim();
   if (!u) return null;
@@ -7621,7 +7655,7 @@ function chipsHtml(right){
   return `<div class="chips cf-chips" role="group" aria-label="Filter by course">
     <button class="chip" data-act="filter" data-id="all" aria-pressed="${ui.filter === "all"}">All Courses</button>
     ${cs.map(c => `<button class="chip" style="--c:${esc(c.color)}" data-act="filter" data-id="${esc(c.id)}" aria-pressed="${ui.filter === c.id}"><span class="dot"></span>${esc(courseLabel(c))}</button>`).join("")}
-  </div><div class="cf-row"><label class="cf-pick${on ? " on" : ""}"${on ? ` style="--c:${esc(on.color)}"` : ""}>${on ? `<span class="dot" aria-hidden="true"></span>` : ""}<span class="cf-l">${esc(on ? courseLabel(on) : "All Courses")}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+  </div><div class="cf-row"><label class="cf-pick${on ? " on" : ""}"${on ? ` style="--c:${esc(on.color)}"` : ""}>${on ? `<span class="dot" aria-hidden="true"></span>` : `<span class="dot dot-all" aria-hidden="true" style="--dots:conic-gradient(${cs.slice(0, 6).map((c, i, a) => `${esc(c.color)} ${Math.round(i / a.length * 100)}% ${Math.round((i + 1) / a.length * 100)}%`).join(",")})"></span>`}<span class="cf-l">${esc(on ? courseLabel(on) : "All Courses")}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
     <select data-course-filter aria-label="Filter by course"><option value="all"${on ? "" : " selected"}>All Courses</option>${cs.map(c => `<option value="${esc(c.id)}"${on === c ? " selected" : ""}>${esc(courseLabel(c))}${c.name && courseLabel(c) !== c.name ? ` · ${esc(c.name)}` : ""}</option>`).join("")}</select></label>${right || ""}</div>`;
 }
 function searchNote(){
@@ -7739,7 +7773,7 @@ ui.colOpen = {};
 document.addEventListener("toggle", e => { const d = e.target; if (d && d.classList && d.classList.contains("col-more")) ui.colOpen[d.dataset.col] = d.open; if (d && d.id === "planExtra") ui.planExtraOpen = d.open; if (d && d.classList && d.classList.contains("deck-archived")) ui.decksArchOpen = d.open; }, true);
 function viewBoard(){
   const hasAny = tasksArr().length || coursesArr().length;
-  const banner = coursesArr().length ? "" : `<div class="empty" style="margin-top:14px;text-align:left;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span style="flex:1;min-width:200px"><strong>${hasAny ? "Color-Code by Class" : "Let's Set Up Your Term"}</strong>Add your courses so each card gets its class color, or import one straight from a syllabus PDF.</span><button class="btn primary small" data-act="import-syllabus">Import a Syllabus</button><button class="btn small" data-act="new-course">Add a Course</button></div>`;
+  const banner = coursesArr().length ? "" : `<div class="empty tb-setup${hasAny ? "" : " sb-es"}">${hasAny ? "" : emptyArt()}<span class="tb-setup-t"><strong>${hasAny ? "Color-Code by Class" : "Let's Set Up Your Term"}</strong>Add your courses so each card gets its class color, or import one straight from a syllabus PDF.</span><button class="btn primary small" data-act="import-syllabus">Import a Syllabus</button><button class="btn small" data-act="new-course">Add a Course</button></div>`;
   const ts = visibleTasks();
   const weekAgo = Date.now() - 7 * 864e5;
   const colsFor = (tsx, laneId) => STATUSES.map(([k, label, col]) => {
@@ -8279,21 +8313,23 @@ function viewCourses(){
   }
   const cs = coursesArr();
   const imp = `<button class="btn small" data-act="import-syllabus">Import a Syllabus</button>`;
-  if (!cs.length) return `<div class="empty" style="margin-top:18px"><strong>No Courses Yet</strong>Add each class you're taking this term.<br><button class="btn primary" data-act="new-course">Add a Course</button> ${imp}</div>${(n => n ? `<div class="term-bar"><span>${ARCHIVE_SM}${n} course${n === 1 ? " is" : "s are"} in the Archive from past terms.</span><button class="btn small" data-act="archive-open">Open Archive (${n})</button></div>` : "")(allCourses().filter(c => c.archived).length)}`;
+  if (!cs.length) return `<div class="empty sb-es" style="margin-top:18px">${emptyArt()}<strong>No Courses Yet</strong>Add each class you're taking this term.<br><button class="btn primary" data-act="new-course">Add a Course</button> ${imp}</div>${(n => n ? `<div class="term-bar"><span>${ARCHIVE_SM}${n} course${n === 1 ? " is" : "s are"} in the Archive from past terms.</span><button class="btn small" data-act="archive-open">Open Archive (${n})</button></div>` : "")(allCourses().filter(c => c.archived).length)}`;
   const today = todayISO();
   const cards = cs.map(c => {
     const ts = courseTasks(c);
     const open = ts.filter(t => t.status !== "done");
     const hrs = weekHours(open, mondayOf(today));
     const doneN = ts.length - open.length, nFiles = Object.values(state.files).filter(f => f.courseId === c.id).length;
-    const gn = window.SBGRADES && SBGRADES.now(c), pill = courseStatusPill(open, today);
+    const gn = window.SBGRADES && SBGRADES.now(c), pill = courseStatusPill(open, today), when = courseTimesText(c), pct = ts.length ? (doneN / ts.length * 100).toFixed(0) : 0;
+    const mini = (ts.length ? `<span class="c2-mini"><i><b style="width:${pct}%"></b></i><span aria-hidden="true">${doneN}/${ts.length}</span><span class="sr">${doneN} of ${ts.length} done</span></span>` : "")
+      + (nFiles ? `<span class="c2-mini c2-files"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5l-7.8 7.8a5 5 0 0 1-7.1-7.1l8.2-8.2a3.4 3.4 0 0 1 4.8 4.8l-8.2 8.2a1.7 1.7 0 0 1-2.4-2.4l7.5-7.5"/></svg><span aria-hidden="true">${nFiles}</span><span class="sr">${nFiles} file${nFiles === 1 ? "" : "s"}</span></span>` : "");
     return `<div class="course-wrap" data-sort-id="${esc(c.id)}"><button class="course-card c2-card" style="--c:${esc(c.color)}" data-code="${esc(courseLabel(c))}" data-act="open-course" data-id="${esc(c.id)}">
-      <span class="c2-band"><span class="g2-kick">${esc(courseLabel(c))}</span>${courseTimesText(c) ? `<span class="c2-sched">${esc(courseTimesText(c))}</span>` : ""}</span>
-      <span class="c2-top"><span class="g2-ring c2-ring" aria-hidden="true">${courseRingHtml(c)}</span><h3>${esc(c.name)}</h3></span>
+      <span class="c2-band"><span class="g2-kick">${esc(courseLabel(c))}</span>${when ? `<span class="c2-sched">${esc(when)}</span>` : ""}</span>
+      <span class="c2-top"><span class="g2-ring c2-ring" aria-hidden="true">${courseRingHtml(c)}</span><h3>${esc(c.name)}<span class="c2-code">${esc(courseLabel(c))}</span></h3></span>
       <span class="body">
-        ${courseNextHtml(open, today)}
-        ${ts.length ? `<div class="prog" style="--c:${esc(c.color)}"><span class="track"><i style="width:${(doneN / ts.length * 100).toFixed(0)}%"></i></span>${doneN} of ${ts.length} done${nFiles ? `, ${nFiles} file${nFiles === 1 ? "" : "s"}` : ""}</div>` : ""}
-        ${gn || hrs > 0 || pill ? `<span class="c2-foot">${gn && gn.pct != null ? `<span class="c2-grade">Grade <b>${esc(gn.fmt(gn.pct))}</b>${gn.letter ? `<span class="c2-letter">${esc(gn.letter)}</span>` : ""}<span class="mini">· ${esc(gn.fmt(gn.marked))} marked</span></span>` : gn ? `<span class="mini">No marks yet</span>` : hrs > 0 ? `<span class="mini"><b>${fmtH(hrs)}</b> this week</span>` : "<span></span>"}${pill}</span>` : ""}
+        ${when ? `<span class="c2-when">${esc(when)}</span>` : ""}${courseNextHtml(open, today)}
+        ${ts.length ? `<div class="prog" style="--c:${esc(c.color)}"><span class="track"><i style="width:${pct}%"></i></span>${doneN} of ${ts.length} done${nFiles ? `, ${nFiles} file${nFiles === 1 ? "" : "s"}` : ""}</div>` : ""}
+        ${gn || hrs > 0 || pill || mini ? `<span class="c2-foot${gn || hrs > 0 || pill ? "" : " c2-foot-m"}">${mini}${gn && gn.pct != null ? `<span class="c2-grade">Grade <b>${esc(gn.fmt(gn.pct))}</b>${gn.letter ? `<span class="c2-letter">${esc(gn.letter)}</span>` : ""}<span class="mini">· ${esc(gn.fmt(gn.marked))} marked</span></span>` : gn ? `<span class="mini">No marks yet</span>` : hrs > 0 ? `<span class="mini"><b>${fmtH(hrs)}</b> this week</span>` : "<span></span>"}${pill}</span>` : ""}
       </span></button></div>`;
   }).join("");
   return `<div class="view-head"><h2>Your Courses</h2>${proBtns("courses")}${trashBtn("course")}</div><div class="course-list" data-sortable="courses">${cards}</div>
@@ -10472,10 +10508,21 @@ function cfSwitchHtml(){
 /* ===== module: 01-render.js: the app's core, render and dialogs ===== */
 /* Render */
 let renderQueued = false, renderBlocked = false;
+let renderHold = 0;
 function scheduleRender(){
   if (renderQueued) return;
   renderQueued = true;
-  requestAnimationFrame(() => { renderQueued = false; render(); });
+  const go = () => { const w = renderHold - Date.now(); if (w > 0) { setTimeout(() => requestAnimationFrame(go), w); return; } renderQueued = false; render(); };
+  requestAnimationFrame(go);
+}
+// A finished check pops before the list redraws (phones, when motion is on)
+function popDone(el){
+  if (!el || !el.isConnected || !el.classList || !el.classList.contains("check") || !window.matchMedia) return;
+  if (!matchMedia("(max-width:639px)").matches || matchMedia("(prefers-reduced-motion: reduce)").matches || document.documentElement.dataset.motion === "static") return;
+  el.classList.add("sb-pop");
+  const row = el.closest("li, .plan-row, .nu-row, .card, .next-up");
+  if (row) row.classList.add("sb-popped");
+  renderHold = Math.max(renderHold, Date.now() + 300);
 }
 // The big button at the bottom right does the main "add" for the page you're on
 function fabConfig(){
@@ -12235,7 +12282,8 @@ function viewFiles(){
   const fs = filesVisible();
   let list;
   if (!fs.length) {
-    list = `<div class="empty" style="margin-top:12px"><strong>${ui.q.trim() ? "No Files Match Your Search" : "No Files Here Yet"}</strong>${ui.q.trim() ? "" : (sbActive() ? "Upload any file, like PDFs, Word documents, slides or images, or drop them here." : `Upload PDFs, images or text files${caps.assets ? ", or drop them here" : ""}. For Word, PowerPoint or Excel files, save a PDF copy or add a link to the file online.`)}</div>`;
+    const none = !ui.q.trim();
+    list = `<div class="empty${none ? " sb-es" : ""}" style="margin-top:12px">${none ? emptyArt() : ""}<strong>${none ? "No Files Here Yet" : "No Files Match Your Search"}</strong>${none ? (sbActive() ? "Upload any file, like PDFs, Word documents, slides or images, or drop them here." : `Upload PDFs, images or text files${caps.assets ? ", or drop them here" : ""}. For Word, PowerPoint or Excel files, save a PDF copy or add a link to the file online.`) : ""}${none ? `<div class="row-actions es-ph"><button type="button" class="btn primary" data-act="fab-file">Add a File</button></div>` : ""}</div>`;
   } else if (ui.fCourse !== "all" && !ui.fFolder) {
     list = foldersOf(ui.fCourse).map(fo => { const g = fs.filter(f => f.folderId === fo.id); return g.length ? `<h3 class="fsec">${FOLDER}${esc(fo.name)}<span class="n">${g.length}</span></h3><ul class="flist">${g.map(fileRow).join("")}</ul>` : ""; }).join("")
       + (() => { const known = new Set(foldersOf(ui.fCourse).map(fo => fo.id)); const g = fs.filter(f => !known.has(f.folderId)); return g.length ? `<h3 class="fsec">${FOLDER}Unsorted<span class="n">${g.length}</span></h3><ul class="flist">${g.map(fileRow).join("")}</ul>` : ""; })();
@@ -12735,7 +12783,7 @@ function viewNoteBoard(){
       <div class="nb-scroll" id="nbScroll">
         <div class="nb-sizer" id="nbSizer"><div class="nb-board" id="nbBoard" style="width:${W}px;height:${H}px">
           ${onBoard.sort((a, b) => a.z - b.z).map(noteHtml).join("")}
-          ${!onBoard.length ? `<div class="nb-empty"><strong>${curBoard ? esc(nbName(curBoard)) + " Is Empty" : "Your Board Is Empty"}</strong>Choose Add Note, or press and hold anywhere on the board, to pin a quick note.</div>` : ""}
+          ${!onBoard.length ? `<div class="nb-empty sb-es">${emptyArt()}<strong>${curBoard ? esc(nbName(curBoard)) + " Is Empty" : "Your Board Is Empty"}</strong>Choose Add Note, or press and hold anywhere on the board, to pin a quick note.</div>` : ""}
         </div></div>
       </div>
       ${boardMaxBtn("nb-max")}${nbZoomCtl()}
@@ -13243,7 +13291,7 @@ function viewQuizzes(){
       <div class="qz-acts"><button class="btn small primary" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Start</button><button class="btn small" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Share</button><span class="spacer"></span><button class="btn small deck-arch" data-act="qz-archive" data-id="${esc(d.id + ":" + qz.id)}" title="Put this quiz away" aria-label="Archive ${esc(qz.title || "quiz")}">${ARCHIVE.replace('width="26" height="26"', 'width="16" height="16"')}</button></div></article>`; }).join("");
   return `<div class="view-head" data-qz-list><h2>Your Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${chipsHtml()}${q ? `<div class="search-note">Showing quizzes that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
-    ${list.length ? `<div class="qz-grid">${cards}</div>` : `<div class="empty" style="margin-top:14px"><strong>${all.length ? "No Quizzes Match" : "No Quizzes Yet"}</strong>${all.length ? "Try another course or search." : (inPreview() ? "Make a quiz from one of your flashcard decks." : "Upload your slides, notes or readings and " + esc(aiWho("AI")) + " writes a practice quiz. Or make one from a flashcard deck.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px">${inPreview() || all.length ? "" : `<button class="btn primary ai-btn" data-act="qz-ai">${AI_ICON} From Slides or Notes</button>`}<button class="btn${inPreview() ? " primary" : ""}" data-act="qz-from-deck">From a Deck</button></div></div>`}
+    ${list.length ? `<div class="qz-grid">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length ? "" : emptyArt()}<strong>${all.length ? "No Quizzes Match" : "No Quizzes Yet"}</strong>${all.length ? "Try another course or search." : (inPreview() ? "Make a quiz from one of your flashcard decks." : "Upload your slides, notes or readings and " + esc(aiWho("AI")) + " writes a practice quiz. Or make one from a flashcard deck.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px">${inPreview() || all.length ? "" : `<button class="btn primary ai-btn" data-act="qz-ai">${AI_ICON} From Slides or Notes</button>`}<button class="btn${inPreview() ? " primary" : ""}" data-act="qz-from-deck">From a Deck</button></div></div>`}
     <section class="grp-strip"><div class="grp-strip-txt">${QZ_GROUP_IC}<span><b>Study Together</b><span class="mini">Share quizzes with a study group: everyone takes them in their own app and sees the best scores.</span></span></div>
       <div class="grp-strip-btns"><button class="btn small" data-act="grp-page">Study Groups</button></div></section>
     <p class="hint-line tip-everyday">Make a quiz straight from your slides or notes with Add Quiz, or from a deck with Make a Quiz.</p>`;
@@ -13278,7 +13326,7 @@ function viewFlashcards(){
       ${(w => due || w.n ? `<button class="btn small" data-act="fc-review-menu"${due ? ` aria-label="Review, ${due} card${due === 1 ? "" : "s"} due"` : ""}>Review${due ? ` <span class="n-badge due" aria-hidden="true">${due}</span>` : ""}</button>` : "")(weakSpots(decksArr().filter(d => ui.filter === "all" || d.courseId === ui.filter).map(d => d.id)))}
       ${window.SBSHARE ? SBSHARE.libBtn() : ""}${archBtn()}${trashBtn("deck") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="deck" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${chipsHtml()}${ui.q.trim() ? `<div class="search-note">Showing decks that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
-    ${ds.length ? `<div class="deck-grid">${tiles}</div>` : `<div class="empty" style="margin-top:14px"><strong>${deckListArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Add cards or paste a list, then study them." + (inPreview() ? "" : " Or upload slides and let " + esc(aiWho("AI")) + " make them.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inPreview() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}
+    ${ds.length ? `<div class="deck-grid">${tiles}</div>` : `<div class="empty${decksArr().length ? "" : " sb-es"}" style="margin-top:14px">${decksArr().length ? "" : emptyArt()}<strong>${deckListArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Add cards or paste a list, then study them." + (inPreview() ? "" : " Or upload slides and let " + esc(aiWho("AI")) + " make them.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inPreview() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}
     <p class="hint-line tip-everyday">Studyboard learns how fast you forget each card and brings it back just before you would.</p>`;
 }
 // Decks you put away with Archive (not the ones a finished term moved)
@@ -14687,8 +14735,8 @@ document.addEventListener("click", e => {
       const n = clone(t);
       if (t.status === "done") { n.status = "todo"; n.doneAt = null; if (!MILESTONE(t.type) && n.pct >= 100) n.pct = 0; } else { n.status = "done"; n.doneAt = Date.now(); if (!MILESTONE(t.type)) n.pct = 100; }
       n.order = nextOrder(n.status);
-      if (n.status === "done") celebrate("check");
-      applyChanges([{kind:"task", id, after:n}], n.status === "done" ? `Completed ${t.title}` : `Moved ${t.title} back to To Do`);
+      if (n.status === "done") { celebrate("check"); popDone(el); }
+      applyChanges([{kind:"task", id, after:n}], n.status === "done" ? `Completed ${t.title}` : `Moved ${t.title} back to To Do`, undefined, n.status === "done" ? {done: true} : undefined);
       break;
     }
     case "delete-task": deleteTask(id); break;
@@ -22528,7 +22576,7 @@ const RM_CORE = (() => {
   }
   // The form's save builds its own task object
   const origApply = applyChanges;
-  applyChanges = function (changes, label, extra) {
+  applyChanges = function (changes, label, extra, opts) {
     const A = armed;
     if (A && Array.isArray(changes)) changes = changes.map(ch => {
       if (ch.kind !== "task" || !ch.after || !(A.isNew ? !state.tasks[ch.id] : ch.id === A.id)) return ch;
@@ -22536,7 +22584,7 @@ const RM_CORE = (() => {
       if (A.val) after.remind = A.val; else delete after.remind;
       return Object.assign({}, ch, {after});
     });
-    return origApply.call(this, changes, label, extra);
+    return origApply.call(this, changes, label, extra, opts);
   };
 
   /* Hooks */
@@ -24575,8 +24623,8 @@ hook("boot", boot);
   function offlineView(){
     const local = !sbConfig(), preview = inPreview();
     return `<div class="view-head"><h2>Study Groups</h2></div>
-      <div class="empty grp-offline"><strong>${preview ? "Sharing Isn't Available Here" : "Sharing Needs a Studyboard Account"}</strong>
-        ${preview ? "Study groups and share links work on the Studyboard website and in the desktop app, where you sign in to your Studyboard account." : "Sign in to make or join study groups and share decks."}
+      <div class="empty grp-offline sb-es">${emptyArt()}<strong>${preview ? "Sharing Isn't Available Here" : "Study Better Together"}</strong>
+        ${preview ? "Study groups and share links work on the Studyboard website and in the desktop app, where you sign in to your Studyboard account." : "Sharing needs a free Studyboard account. Sign in to make or join study groups and share decks."}
         ${preview ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="${local ? "sb-connect" : "sb-signin"}">${local && !SB_HOSTED ? "Set Up Sync" : "Sign In"}</button></div>`}</div>
       <section class="grp-file"><h3 class="fsec">Share Without an Account</h3>
         <p>No account? Share a deck as a file: open it, tap <b>Share</b>, then <b>Share as File</b>. Others use <b>Import a Deck File</b>.</p>
@@ -24607,7 +24655,7 @@ hook("boot", boot);
       ${S.err ? errBox(S.err, S.setup) : ""}
       ${gs == null ? (S.err ? "" : `<p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Loading your groups…</p>`)
         : gs.length ? `<div class="grp-grid" data-sortable="groups">${cards}</div>`
-        : `<div class="empty"><strong>No Groups Yet</strong>Start a study group or a group project, then send the invite code. Have a code? Enter it to join.<div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="grp-new">New Group</button><button class="btn" data-act="grp-code">Enter a Code</button></div></div>`}
+        : `<div class="empty sb-es">${emptyArt()}<strong>No Groups Yet</strong>Start a study group or a group project, then send the invite code. Have a code? Enter it to join.<div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="grp-new">New Group</button><button class="btn" data-act="grp-code">Enter a Code</button></div></div>`}
       ${(S.binned || []).length ? `<section class="grp-shares grp-binned"><h3 class="fsec">Recently Deleted Groups<span class="n">${S.binned.length}</span></h3>
         <p class="hint-line">Kept for 30 days with everything in them. Restoring brings a group back for all its members.</p>
         <ul class="grp-list">${S.binned.map(b => `<li class="grp-item"><div class="grp-item-main"><b>${esc(b.name)}</b><span class="mini">Deleted ${esc(fmtShort(String(b.deleted_at).slice(0, 10)))} · gone for good after ${esc(fmtShort(String(b.purge_at).slice(0, 10)))}</span></div>
@@ -40277,6 +40325,7 @@ var TP_DATA = [];
     body.appendChild(wrap);
     const hd = sheet.querySelector(".sheet-head"), h2 = hd && hd.querySelector("h2");
     if (hd && !hd.querySelector(".us-back")) hd.insertAdjacentHTML("afterbegin", `<button type="button" class="icon-btn us-back" aria-label="Back to all settings" title="Back">${BACK_IC}</button>`);
+    if (hd) dragToClose(sheet, hd);
     const q = wrap.querySelector(".us-q"), empty = wrap.querySelector(".us-empty");
     const setHead = () => { if (h2) h2.textContent = phone() && wrap.dataset.view === "cat" && !wrap.classList.contains("searching") ? CAT[wrap.dataset.cat].t : "Settings"; };
     const select = (k, view, keepScroll) => {
@@ -40343,6 +40392,23 @@ var TP_DATA = [];
     if (prev) requestAnimationFrame(() => { main.scrollTop = prev.top; });
     // A fresh Settings sheet starts in Search Settings (not on Close); phones skip it so the keyboard doesn't pop up
     else if (window.matchMedia && matchMedia("(min-width:601px)").matches) { try { q.focus({preventScroll: true}); } catch (e) {} }
+  }
+
+  // Phones: pull the sheet down by its top bar to close it
+  function dragToClose(sheet, grip){
+    let y0 = null, dy = 0, id = null;
+    grip.addEventListener("pointerdown", e => {
+      if (!phone() || e.button > 0 || e.target.closest("button, input, a, select")) return;
+      y0 = e.clientY; dy = 0; id = e.pointerId; sheet.style.transition = "none";
+      try { grip.setPointerCapture(id); } catch (err) {}
+    });
+    grip.addEventListener("pointermove", e => { if (y0 == null || e.pointerId !== id) return; dy = Math.max(0, e.clientY - y0); sheet.style.transform = dy ? `translateY(${dy}px)` : ""; });
+    const end = () => {
+      if (y0 == null) return;
+      const far = dy > 90 && dlg.open; y0 = null; dy = 0; sheet.style.transition = "";
+      if (far) { dlg.close(); setTimeout(() => { sheet.style.transform = ""; }, 300); } else sheet.style.transform = "";
+    };
+    grip.addEventListener("pointerup", end); grip.addEventListener("pointercancel", end);
   }
 
   // Show one settings row (for other modules and tests)
@@ -61218,7 +61284,7 @@ function chipHide(){ clearTimeout(chipT); chip = null; const el = document.getEl
 const X_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 const short = (s, n) => { s = String(s || ""); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
 function chipShow(c, timeoutMs){
-  chip = c; const el = chipEl(); el.hidden = false;
+  chip = c; const el = chipEl(); el.hidden = false; el.dataset.kind = c.kind === "took" && c.exact ? "exact" : c.kind;
   el.innerHTML = chipHtml(c);
   clearTimeout(chipT);
   if (timeoutMs) chipT = setTimeout(() => { if (el.contains(document.activeElement)) { chipT = setTimeout(() => chipDismiss(), timeoutMs); return; } chipDismiss(); }, timeoutMs);
@@ -61229,8 +61295,10 @@ function chipHtml(c){
     return `<span class="acc-q">${esc(tr("acc.which", "Which task was that for?"))} <span class="mini">${esc(fmtMins(c.min))}</span></span><span class="acc-opts">${opts}</span><button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
   }
   const t = state.tasks[c.id], title = short(t ? t.title : "", 30);
-  if (c.exact) return `<span class="acc-q">${esc(tr("acc.exactQ", "How long did “{title}” take?", {title}))}</span><span class="acc-opts"><label class="acc-own"><span class="sr">${esc(tr("acc.exactLbl", "Time spent, like 45m or 1h 30m"))}</span><input type="text" id="accExact" inputmode="text" autocomplete="off" maxlength="12" placeholder="${esc(tr("acc.exactPh", "e.g. 1h 30m"))}" data-noenter></label><button type="button" class="acc-opt primary" data-act="acc-exact-save">${esc(tr("acc.save", "Save"))}</button><button type="button" class="acc-opt" data-act="acc-feel-back">${esc(tr("acc.back", "Back"))}</button></span><button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
-  return `<span class="acc-q">${esc(tr("acc.tookQ", "How long did “{title}” take?", {title}))}</span><span class="acc-opts"><button type="button" class="acc-opt" data-act="acc-feel" data-v="q">${esc(tr("acc.quicker", "Quicker than I thought"))}</button><button type="button" class="acc-opt" data-act="acc-feel" data-v="r">${esc(tr("acc.right", "About right"))}</button><button type="button" class="acc-opt" data-act="acc-feel" data-v="l">${esc(tr("acc.longer", "Longer"))}</button><button type="button" class="acc-opt link" data-act="acc-exact">${esc(tr("acc.exact", "Exact Time"))}</button></span><button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
+  const q = (k, en) => { const [a, b] = tr(k, en, {title: "\u0001"}).split("\u0001"); return b == null ? esc(a) : `${esc(a)}<span class="acc-t">${esc(title)}</span>${esc(b)}`; };
+  const lbl = (k, en, ks, ens) => `<span class="acc-l">${esc(tr(k, en))}</span><span class="acc-s" aria-hidden="true">${esc(tr(ks, ens))}</span>`;
+  if (c.exact) return `<span class="acc-q">${q("acc.exactQ", "How long did “{title}” take?")}</span><span class="acc-opts"><label class="acc-own"><span class="sr">${esc(tr("acc.exactLbl", "Time spent, like 45m or 1h 30m"))}</span><input type="text" id="accExact" inputmode="text" autocomplete="off" maxlength="12" placeholder="${esc(tr("acc.exactPh", "e.g. 1h 30m"))}" data-noenter></label><button type="button" class="acc-opt primary" data-act="acc-exact-save">${esc(tr("acc.save", "Save"))}</button><button type="button" class="acc-opt" data-act="acc-feel-back">${esc(tr("acc.back", "Back"))}</button></span><button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
+  return `<span class="acc-q">${q("acc.tookQ", "How long did “{title}” take?")}</span><span class="acc-opts"><button type="button" class="acc-opt" data-act="acc-feel" data-v="q">${lbl("acc.quicker", "Quicker than I thought", "acc.quickerShort", "Quicker")}</button><button type="button" class="acc-opt" data-act="acc-feel" data-v="r">${esc(tr("acc.right", "About right"))}</button><button type="button" class="acc-opt" data-act="acc-feel" data-v="l">${esc(tr("acc.longer", "Longer"))}</button><button type="button" class="acc-opt link" data-act="acc-exact">${lbl("acc.exact", "Exact Time", "acc.exactShort", "Exact")}</button></span><button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
 }
 function askState(){ return Object.assign({askedLast: false, streak: 0, skip: 0}, lsGet(LS_ASK, {})); }
 function chipDismiss(){
@@ -76480,7 +76548,9 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
   function check(){
     raf = 0;
     const b = document.body; if (!b) return;
-    b.classList.toggle("sb-scrolled", PHONE.matches && window.scrollY > 4);
+    const on = PHONE.matches && window.scrollY > 4;
+    b.classList.toggle("sb-scrolled", on);
+    if (on) section();
     let y = false;
     const fab = PHONE.matches && document.getElementById("fab"), qa = fab && document.querySelector("#view .qa-bar");
     if (qa && fab.style.display !== "none") {
@@ -76488,6 +76558,15 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
       y = q.height > 0 && q.bottom > f.top - 8 && q.top < f.bottom + 8;
     }
     b.classList.toggle("fab-yield", !!y);
+  }
+  // The page's name next to the small logo
+  function section(){
+    const box = document.querySelector("header.top .top-row > div:first-child"), brand = box && box.querySelector(".brand"); if (!brand) return;
+    let el = box.querySelector(".top-sec");
+    if (!el) { el = document.createElement("span"); el.className = "top-sec"; el.setAttribute("aria-hidden", "true"); brand.after(el); }
+    const pick = document.querySelector("#view > .pview-tabs [aria-selected=true], #view .bview-tabs [aria-selected=true]") || document.querySelector("nav.tabs [aria-current=page]");
+    const t = pick ? pick.textContent.replace(/\s+/g, " ").trim() : "";
+    if (el.textContent !== t) el.textContent = t;
   }
   const soon = () => { if (!raf) raf = requestAnimationFrame(check); };
   window.addEventListener("scroll", soon, {passive: true});
