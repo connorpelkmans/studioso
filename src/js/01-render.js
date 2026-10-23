@@ -326,7 +326,7 @@ function taskForm(t, preset = {}){
           <fieldset><legend>Sticky Notes</legend><div class="tf-notes" id="tfNotes"></div>
             <div class="cl-new"><input type="text" id="tfNoteNew" placeholder="Write a new sticky note" maxlength="2000" data-noenter aria-label="New sticky note"><button type="button" class="btn small" id="tfNoteAddBtn">Add</button></div>
             <select id="tfNoteAttach" aria-label="Attach an existing sticky note"></select></fieldset>
-          ${!isNew && t.pomos ? `<p class="mini" style="margin:0">${TOMATO} ${t.pomos} focus session${t.pomos === 1 ? "" : "s"}, ${fmtHM((t.focusMin || 0) / 60)} focused on this task.</p>` : ""}
+          ${!isNew && t.pomos ? `<p class="mini" style="margin:0">${TOMATO} ${t.pomos} focus session${t.pomos === 1 ? "" : "s"}, ${fmtMins(t.focusMin)} focused on this task.</p>` : ""}
         </div>
       </details>
       ${!isNew && t.due ? `<div class="link-row"><a href="${esc(gcalLink(t))}" target="_blank" rel="noopener noreferrer">Add to Google Calendar</a></div>` : ""}

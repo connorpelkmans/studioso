@@ -89,6 +89,14 @@ const pomoEarly = (min, why) => {
 };
 function pomoReset(){ const was = pomo.running, el = pomoElapsedMin(); pomo.preset = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); pomoEarly(el, "reset"); if (was) fire("focus", {type: "stop", mode: pomo.mode, taskId: pomo.taskId}); }
 function pomoSetMode(m){ const el = pomoElapsedMin(); if (el > 0) pomoEarly(el, m === pomo.mode ? "reset" : "skip"); pomo.mode = m; pomo.preset = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); }
+// Tapping a mode button: ending a focus session for a break asks first
+function pomoPickMode(m){
+  if (m === pomo.mode && (pomo.running || pomo.left > 0)) return;
+  const el = pomoElapsedMin();
+  if (pomo.mode !== "focus" || m === "focus" || el < 1) { pomoSetMode(m); return; }
+  askBox({title: "End This Focus Session?", text: `You've focused for ${fmtMins(el)}. Switching to a break ends this session. The time you focused is kept.`, yes: `Start ${MODE_LABEL[m]}`, no: "Keep Focusing"})
+    .then(ok => { if (ok) { pomoSetMode(m); pomoStart(); } });
+}
 function pomoSkip(){ const next = pomo.mode === "focus" ? ((pomo.cycle + 1) % pomoCfg().every === 0 ? "long" : "short") : "focus"; if (pomo.mode === "long") pomo.cycle = 0; pomoSetMode(next); }
 function pomoFinish(missed){
   if (!pomo.running) return;
@@ -126,17 +134,24 @@ function pomoAlarm(done, next, auto, missed){
     }
     if (document.hidden) { let on = false; clearInterval(flashT); flashT = setInterval(() => { on = !on; document.title = on ? `● ${title}` : "Studyboard"; }, 1000); }
   }
+  const t = done === "focus" && pomo.taskId && state.tasks[pomo.taskId], task = t && t.status !== "done" ? t : null;
+  const short = task ? (task.title.length > 30 ? task.title.slice(0, 29) + "…" : task.title) : "";
   const ad = $("#alarmDlg");
   ad.innerHTML = `<div class="alarm-card ${done === "focus" ? "is-focus" : "is-break"}">
     <div class="alarm-ring" aria-hidden="true">${TOMATO}</div>
     <h2>${missed ? "Your timer finished while Studyboard was closed" : esc(title)}</h2>
     <p>${esc(body)}</p>
     <div class="row-actions">${!auto ? `<button class="btn primary" id="alStart">Start ${esc(MODE_LABEL[next])}</button>` : ""}<button class="btn ${auto ? "primary" : ""}" id="alOk">${auto ? "Got It" : "Not Yet"}</button></div>
+    ${task || (auto && next !== "focus") ? `<div class="row-actions alarm-more">${task ? `<button class="btn" id="alDone" data-act="toggle" data-id="${esc(task.id)}">Mark “${esc(short)}” Done</button><button class="btn" id="alAgain">Another Session on It</button>` : ""}${auto && next !== "focus" ? `<button class="btn" id="alSkip">Skip Break</button>` : ""}</div>` : ""}
   </div>`;
   if (!ad.open) { try { ad.showModal(); } catch(e) { ad.setAttribute("open", ""); } }
   const close = () => { stopAlarm(); try { ad.close(); } catch(e) { ad.removeAttribute("open"); } };
+  const toFocus = () => { pomo.mode = "focus"; pomo.running = false; pomo.left = 0; pomo.preset = 0; clearTimeout(pomoTimer); pomoSave(); };
   $("#alOk").addEventListener("click", close);
   const st = $("#alStart"); if (st) st.addEventListener("click", () => { close(); pomoStart(); });
+  const dn = $("#alDone"); if (dn) dn.addEventListener("click", () => { close(); if (pomo.taskId === task.id) { pomo.taskId = ""; pomoSave(); pomoUI(true); } });
+  const ag = $("#alAgain"); if (ag) ag.addEventListener("click", () => { close(); toFocus(); pomo.taskId = task.id; pomoStart(); });
+  const sk = $("#alSkip"); if (sk) sk.addEventListener("click", () => { close(); toFocus(); pomoUI(true); openPomo(); });
   ad.addEventListener("cancel", stopAlarm, {once: true});
 }
 function setTitle(){
@@ -187,14 +202,23 @@ function openPomo(taskId){
   if (taskId !== undefined) { pomo.taskId = taskId; if (!pomo.running && pomo.mode !== "focus") { pomo.mode = "focus"; pomo.left = 0; } pomoSave(); }
   const d = $("#pomoDlg");
   renderPomo();
-  if (!d.open) d.showModal();
+  if (!d.open) { d.showModal(); const b = d.querySelector(".pomo-ctl .btn.primary"); if (b) b.focus(); }
 }
+// Today's totals come from the synced stats, so every device shows the same
+function pomoTodayHtml(){
+  const today = todayISO(), st = typeof SBSTATS !== "undefined" ? SBSTATS : null;
+  const n = st ? st.focusSessions(today, today) : pomo.sessions, min = st ? st.focusMinutes(today, today) : pomo.minutes;
+  return `Today: <b>${n}</b> focus session${n === 1 ? "" : "s"}, <b>${fmtMins(min)}</b> focused.${window.SBPRO && SBPRO.pomoHtml && SBPRO.isPro() ? ` <button type="button" class="link-btn" data-act="pro-fh-open">Focus History</button>` : ""}`;
+}
+hook("stats-focus", () => { const p = $("#pomoDlg .pomo-today"); if (p) p.innerHTML = pomoTodayHtml(); });
 function renderPomo(){
   const cfg = pomoCfg(), d = $("#pomoDlg");
   pomoToday();
   const R = 92, C = 2 * Math.PI * R;
   const openTasks = (FOCUS ? FOCUS.ranked.map(x => x.t) : []).concat(tasksArr().filter(t => t.status !== "done").sort(sortTasks)).filter((t, i, a) => a.indexOf(t) === i && t.status !== "done" && (canDoNow(t) || t.id === pomo.taskId));
   const every = Number(cfg.every) || 4, inCycle = pomo.cycle % every;
+  const fa = d.contains(document.activeElement) ? document.activeElement : null;
+  const keep = !fa ? "" : fa.closest(".pomo-ctl .big") ? ".pomo-ctl .big" : fa.id ? "#" + fa.id : fa.dataset.act ? `[data-act="${fa.dataset.act}"]${fa.dataset.id ? `[data-id="${fa.dataset.id}"]` : ""}` : "";
   const notifyNote = !notifySupported() ? "Desktop notifications aren't available here, so the alarm sound and on-screen alert are used." : Notification.permission === "denied" ? "Notifications are blocked for this site in your browser settings." : Notification.permission === "default" ? "Your browser will ask to allow notifications when you start the timer." : "Notifications are allowed.";
   d.innerHTML = `<div class="sheet pomo-sheet">${bandHead("Focus Timer", TOMATO, pomo.mode === "focus" ? "#E5484D" : "#2F9E5F")}
     <div class="sheet-body">
@@ -211,7 +235,7 @@ function renderPomo(){
       </div>
       ${window.SBPRO && SBPRO.pomoHtml ? SBPRO.pomoHtml() : ""}${window.SBEXAM ? SBEXAM.pomoHtml() : ""}
       <label class="f">Working On<select id="pomoTask"><option value="">No particular task</option>${openTasks.slice(0, 40).map(t => { const c = courseOf(t.courseId); return `<option value="${esc(t.id)}" ${t.id === pomo.taskId ? "selected" : ""}>${esc(t.title)}${c ? " · " + esc(courseLabel(c)) : ""}</option>`; }).join("")}</select></label>
-      <p class="pomo-today">Today: <b>${pomo.sessions}</b> focus session${pomo.sessions === 1 ? "" : "s"}, <b>${fmtHM(pomo.minutes / 60) || "0m"}</b> focused.${window.SBPRO && SBPRO.pomoHtml && SBPRO.isPro() ? ` <button type="button" class="link-btn" data-act="pro-fh-open">Focus History</button>` : ""}</p>
+      <p class="pomo-today">${pomoTodayHtml()}</p>
       <details class="adv" ${ui.pomoSet ? "open" : ""} id="pomoSetD"><summary>Timer Settings</summary>
         <div class="adv-body">
           <div class="three">
@@ -244,6 +268,7 @@ function renderPomo(){
     if (!pomo.running && !pomo.left) pomoUI(true);
   };
   $$("#pomoSetD input, #pomoSetD select", d).forEach(el => el.addEventListener("change", saveCfg));
+  if (keep) { const k = d.querySelector(keep); if (k) k.focus(); }
 }
 setInterval(() => { if (pomo.running) { if (Date.now() >= pomo.endAt) pomoFinish(); else pomoUI(false); } }, 500);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { clearInterval(flashT); flashT = null; setTitle(); if (pomo.running && Date.now() >= pomo.endAt) pomoFinish(); } });
@@ -258,7 +283,7 @@ function pomoAction(act, el){
     case "pomo-pause": pomoPause(); return true;
     case "pomo-reset": pomoReset(); return true;
     case "pomo-skip": pomoSkip(); return true;
-    case "pomo-mode": pomoSetMode(el.dataset.id); return true;
+    case "pomo-mode": pomoPickMode(el.dataset.id); return true;
     case "pomo-test": { const cfg = pomoCfg(); if (!playAlarm($("#psSound") ? $("#psSound").value : cfg.sound, $("#psVol") ? Number($("#psVol").value) : cfg.volume, 1)) toast("Sound isn't available in this browser"); return true; }
     case "pomo-task": { const tk = state.tasks[el.dataset.id]; if (tk && !canDoNow(tk) && !el.dataset.study) { toast(`“${tk.title}” is taken in person, so it can't be started as a focus session. Start one of its study sessions instead.`); return true; } } if (ui.nextShown && ui.nextShown === el.dataset.id) { nufbAdd("accept", state.tasks[el.dataset.id]); ui.nextShown = null; } if (dlg.open) dlg.close(); openPomo(el.dataset.id); { const m = Math.round(Number(el.dataset.mins)); if (m >= 5 && m <= 180 && !pomo.running && !(pomo.left > 0) && pomo.mode === "focus") { pomo.preset = m; pomoSave(); renderPomo(); } }
       if (!pomo.running) pomoStart(); return true;
@@ -266,3 +291,5 @@ function pomoAction(act, el){
   return false;
 }
 
+// Test handle (only when a test page sets window.__SB_TEST)
+if (window.__SB_TEST) window.__sbPomo = {get pomo(){ return pomo; }, save: pomoSave, render: renderPomo, finish: pomoFinish};

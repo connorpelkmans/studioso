@@ -1381,7 +1381,7 @@ Return JSON only.`;
   function scopeBar(){
     const cs = coursesArr(), cur = S.course; if (!cs.length) return "";
     const chip = (id, label, color) => `<button type="button" class="chip" data-sx="scope" data-id="${esc(id)}" aria-pressed="${cur === id}"${color ? ` style="--c:${esc(color)}"` : ""}>${esc(label)}</button>`;
-    const shown = cs.slice(0, 12), extra = cur && !shown.some(c => c.id === cur) ? (cur === "_none" ? [{id: "_none", code: "General"}] : [courseOf(cur)].filter(Boolean)) : [];
+    const shown = cs, extra = cur && !shown.some(c => c.id === cur) ? (cur === "_none" ? [{id: "_none", code: "General"}] : [courseOf(cur)].filter(Boolean)) : [];
     const auto = S.autoScope && S.autoScope === cur ? courseOf(cur) : null;
     return `<div class="sx-scope" role="group" aria-label="Ask about"><span class="sx-scope-l">Ask About</span>${chip("", "All Courses")}${shown.concat(extra).map(c => chip(c.id, courseLabel(c), c.color)).join("")}</div>${auto ? `<p class="sx-hint">Asking about ${esc(courseLabel(auto))} because your question names it.</p>` : ""}`;
   }

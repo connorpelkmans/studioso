@@ -508,6 +508,7 @@
     if (!isEmpty()) { markDone(); stop(); releaseQuote(); return; }
     if (dlg.open || document.getElementById("qod") || document.hidden) return;
     stop(); quoteHeld = null;
+    try { if (window.SBSTREAK) SBSTREAK.newUser(); } catch (e) {}
     start();
   }
   function stop(){ clearInterval(poll); poll = 0; }

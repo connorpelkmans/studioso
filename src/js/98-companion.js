@@ -273,7 +273,7 @@
       if (d <= t.due) s.ontime++;
       if (d <= addDays(t.due, -2)) s.early++;
     }));
-    tr(() => { const k = streakOf(); s.streak = Math.max(Number(k.best) || 0, Number(k.cur) || 0); });
+    tr(() => { const k = shownStreak(); s.streak = Math.max(Number(k.best) || 0, Number(k.cur) || 0); });
     tr(() => Object.values(state.decks || {}).forEach(d => {
       (d.cards || []).forEach(x => { s.cards += Number(x.seen) || 0; });
       (d.quizzes || []).concat(...(d.aiQuizzes || []).map(q => q.results || [])).forEach(r => { if (r && Number(r.total) >= 3 && Number(r.score) / Number(r.total) >= 0.7) s.quizzes++; });
@@ -1436,7 +1436,7 @@
     const today = todayISO(), lim = addDays(today, days);
     return openTasks().filter(t => t.due && t.due >= today && t.due <= lim && /exam|quiz|test|midterm|final/i.test(t.type + " " + t.title)).sort((a, b) => a.due < b.due ? -1 : 1)[0] || null;
   }
-  const streakN = () => { try { return streakOf().cur || 0; } catch (e) { return 0; } };
+  const streakN = () => { try { return shownStreak().cur || 0; } catch (e) { return 0; } };
   const focusToday = () => { try { return typeof SBSTATS !== "undefined" ? SBSTATS.focusMinutes(todayISO(), todayISO()) : 0; } catch (e) { return 0; } };
   function contextKinds(){
     const h = new Date().getHours(), k = [];
@@ -2056,9 +2056,9 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const locked = !canSlot(i), on = c && c.id === x.id, left = focusLeft(x), earn = left > 0 && owns("comp", x.id);
       return `<div class="cp-tile${on ? " on" : ""}${locked ? " locked" : ""}" data-id="${esc(x.id)}" aria-current="${on ? "true" : "false"}">
         ${previewHtml(x, on ? wearOf(x) : "", 92)}
-        <div class="cp-tile-t"><b>${esc(on ? nameOf(x) : ownName(x.id) || x.name)}</b>${x.theme === "extra" ? "" : compTier(x) === "pro" ? PRO_BADGE : FREE_BADGE}</div>
+        <div class="cp-tile-t"><b>${esc(on ? nameOf(x) : ownName(x.id) || x.name)}</b>${x.theme === "extra" || earn ? "" : compTier(x) === "pro" ? PRO_BADGE : FREE_BADGE}</div>
         <p class="cp-bio">${esc(x.bio || "")}</p>
-        ${earn ? `<span class="cp-earn mini">🔒 ${esc(EARN[x.id].how)} to unlock · ${esc(EARN[x.id].left(left))} to go</span><button type="button" class="btn small" data-act="comp-pick" data-slot="${i}">Get It with Pro</button>`
+        ${earn ? (pct => `<span class="cp-earn">${esc(EARN[x.id].how)} to unlock</span><span class="cp-earn-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Progress to unlock ${esc(x.name)}"><i style="width:${pct}%"></i></span><span class="mini">${esc(EARN[x.id].left(left))} to go</span><button type="button" class="link-btn cp-earn-pro" data-act="comp-pick" data-slot="${i}">Or Get It With Pro</button>`)(Math.max(0, Math.min(99, Math.floor((1 - left / EARN[x.id].n) * 100))))
           : locked ? `<button type="button" class="btn small" data-act="comp-pick" data-slot="${i}">🔒 Go Pro</button>` : on ? `<span class="cp-chosen" role="status">✓ ${want !== i && !canSlot(want) ? "In Use" : "Chosen"}</span>` : `<button type="button" class="btn small primary" data-act="comp-pick" data-slot="${i}">Choose</button>`}
       </div>`;
     }).join("");

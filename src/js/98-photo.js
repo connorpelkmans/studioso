@@ -467,13 +467,13 @@
   function injectShop(keepPhotos){
     const body = dlg.querySelector(".sheet.shop .sheet-body"); if (!body || body.querySelector(".ph-sec")) return;
     const lazy = !!body.querySelector(".ui-shop-bar"), mode = body.querySelector(".shop-mode");
-    const first = body.querySelector(lazy ? ".ui-sec" : "h3.shop-sec"), html = sectionHtml(lazy);
-    if (mode) mode.insertAdjacentHTML("afterend", html); else if (first) first.insertAdjacentHTML("beforebegin", html); else body.insertAdjacentHTML("beforeend", html);
+    const first = body.querySelector(lazy ? ".ui-sec" : "h3.shop-sec"), html = sectionHtml(lazy), free = lazy && !canUse() ? body.querySelector('.ui-sec[data-f="free"]') : null;
+    if (free) free.insertAdjacentHTML("afterend", html); else if (mode) mode.insertAdjacentHTML("afterend", html); else if (first) first.insertAdjacentHTML("beforebegin", html); else body.insertAdjacentHTML("beforeend", html);
     const sec = body.querySelector(".ph-sec");
     if (lazy) {
       const chips = body.querySelector(".ui-chips");
       if (chips && !chips.querySelector('[data-ui-f="photos"]')) {
-        const all = chips.querySelector('[data-ui-f="all"]'), b = `<button type="button" class="ui-chip" data-ui-f="photos" aria-pressed="false">Your Photos</button>`;
+        const all = chips.querySelector(!canUse() && chips.querySelector('[data-ui-f="free"]') ? '[data-ui-f="free"]' : '[data-ui-f="all"]'), b = `<button type="button" class="ui-chip" data-ui-f="photos" aria-pressed="false">Your Photos</button>`;
         if (all) all.insertAdjacentHTML("afterend", b); else chips.insertAdjacentHTML("afterbegin", b);
       }
       const on = chips && chips.querySelector('.ui-chip[aria-pressed="true"]'), f = on ? on.dataset.uiF : "all";

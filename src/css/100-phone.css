@@ -109,7 +109,7 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .g2-head .grp-avs{margin:0}
 .g2-head .grp-chips{margin:4px 0 0}
 .g2-head .grp-tabs{margin:14px 0 0;padding:0 16px 12px;border:0;gap:6px;flex-wrap:wrap}
-.g2-head .grp-tabs button{border:0!important;border-radius:999px;padding:8px 14px;min-height:38px}
+.g2-head .grp-tabs button{border:0!important;border-radius:999px;padding:8px 14px;min-height:40px}
 .g2-head .grp-tabs button.on{background:color-mix(in srgb,var(--c) 15%,var(--surface));color:color-mix(in srgb,var(--c) 62%,var(--ink))}
 /* Start a Session sits in the header */
 #grpDetail .room-sec.is-idle:not(:has(.room-err)){display:none}
@@ -139,8 +139,8 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
   .g2-low{margin-top:-38px}
   .g2-txt{padding-top:42px}
   .g2-txt h2{font-size:1.4rem}
-  .g2-head .grp-tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding:0 10px 10px}
-  .g2-head .grp-tabs button{flex:none}
+  .g2-head .grp-tabs{padding:0 10px 10px;gap:6px}
+  .g2-head .grp-tabs button{flex:none;min-height:40px;padding:8px 12px;font-size:.9rem}
 }
 /* ===== Courses, Direction 1: band in the course colour, initials in a ring, the grade and one status pill ===== */
 .course-card.c2-card{display:flex;flex-direction:column;gap:0;padding:0;margin-top:0;border-radius:18px!important;overflow:hidden;box-shadow:0 2px 8px rgba(14,42,86,.08)}
@@ -452,7 +452,10 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .cpt3-ward{display:grid;gap:10px;padding:14px 16px 16px;background:var(--surface);border:1px solid var(--line);border-radius:18px}
 .cpt3-ward > h3.fsec:first-child{margin-top:0}
 .cpt3-ward .cp-accs{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
-.cpt3-how > summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font:700 .95rem var(--display)}
+.cpt3-how > summary{cursor:pointer;min-height:44px;display:flex;align-items:center;gap:10px;font:700 .95rem var(--display);list-style:none}
+.cpt3-how > summary::-webkit-details-marker{display:none}
+.cpt3-how > summary::after{content:"";margin-left:auto;width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .15s}
+.cpt3-how[open] > summary::after{transform:rotate(-135deg)}
 .cpt3-how[open]{display:grid;gap:8px}
 /* Icons stand out */
 .g2-ring{background:#fff!important}
