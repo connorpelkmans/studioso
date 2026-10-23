@@ -34,7 +34,11 @@ function within(p, ms) {
 const errText = e => String((e && e.message) || e || "error").slice(0, 160);
 
 // What the harvest is asked for
-const OPTS = id => ({ pastDays: 60, aheadDays: 240, grades: true, news: true, only: null, skip: [], mail: id === "canvas" });
+// Remote switch for Blackboard's internal endpoints (stored by relay.js)
+let FLAGS = {};
+chrome.storage.local.get("flags").then(r => { FLAGS = (r && r.flags) || {}; }).catch(() => {});
+chrome.storage.onChanged.addListener((ch, area) => { if (area === "local" && ch.flags) FLAGS = ch.flags.newValue || {}; });
+const OPTS = id => ({ pastDays: 60, aheadDays: 240, grades: true, news: true, only: null, skip: [], mail: id === "canvas", internal: FLAGS.bbInternal !== false });
 
 // fetch for the background read
 function schoolFetch(origin) {

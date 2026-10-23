@@ -30448,7 +30448,7 @@ function cleanFile(r) {
     try {
       if (how === "api") {
         const skip = Object.entries(c.map).filter(([, v]) => v === "skip").map(([k]) => k);
-        const h = await lmsBridge().sync(P.id, c.host, {pastDays: Math.max(60, Number(c.pastDays) || 0), grades: c.grades, news: c.news, skip});
+        const h = await lmsBridge().sync(P.id, c.host, {pastDays: Math.max(60, Number(c.pastDays) || 0), grades: c.grades, news: c.news, skip, internal: appFlag("bb_internal")});
         if (!h) return {error: "none", text: "The desktop app didn't answer. Try again."};
         if (h.needLogin) return {needLogin: true};
         if (!h.ok) return {error: h.error, text: errText(h.error)};
@@ -31317,6 +31317,24 @@ body:has(#dlg[open]) #lmsRelog{display:none}
   function grabOk(){ return !lmsBridge() && !window.Capacitor && /^https?:$/.test(location.protocol) && !inPreview(); }
   function loadGrab(){ return Promise.resolve(SBGRAB_BUILT); }
 
+  /* Remote switches (app_flags table), checked every 3 hours */
+  const FLAGS_KEY = "studyboard:appFlags", FLAGS_EVERY = 3 * 3600e3;
+  let FLAGS = (() => { try { return JSON.parse(localStorage.getItem(FLAGS_KEY) || "null") || {}; } catch (e) { return {}; } })();
+  function appFlag(k){ return !(FLAGS.v && FLAGS.v[k] === false); }
+  async function loadFlags(){
+    const c = SB_HOSTED ? SB_DEFAULT : (typeof sbConfig === "function" && sbConfig());
+    if (!c || !c.url || !c.key || (FLAGS.at && Date.now() - FLAGS.at < FLAGS_EVERY)) return;
+    try {
+      const r = await fetch(c.url.replace(/\/$/, "") + "/rest/v1/app_flags?select=key,value", {headers: {apikey: c.key, Authorization: "Bearer " + c.key}, cache: "no-store"});
+      if (!r.ok) return;
+      const v = {}; (await r.json() || []).forEach(x => { if (x && typeof x.key === "string") v[x.key] = !(x.value === false || x.value === "false"); });
+      FLAGS = {at: Date.now(), v}; try { localStorage.setItem(FLAGS_KEY, JSON.stringify(FLAGS)); } catch (e) {}
+      if (EXT.on) extPost({type: "flags", bbInternal: appFlag("bb_internal")});
+    } catch (e) {}
+  }
+  if (!inPreview()) { setTimeout(loadFlags, 2000); setInterval(loadFlags, FLAGS_EVERY); }
+  window.SBFLAGS = {get: appFlag, load: () => { FLAGS.at = 0; return loadFlags(); }};
+
   /* The Studyboard School Sync browser extension (the website only) */
   const EXT_STORE = {chrome: EXT_CHROME_URL, edge: "", firefox: "", safari: ""};
   const EXT = {on: false, version: "", schools: [], checked: false};
@@ -31372,7 +31390,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     window.addEventListener("message", ev => {
       if (ev.source !== window || ev.origin !== location.origin || !ev.data || typeof ev.data !== "object" || ev.data.source !== "studyboard-ext") return;
       const d = ev.data;
-      if (d.type === "ready") { EXT.on = true; EXT.version = String(d.version || "").slice(0, 20); extPost({type: "get"}); }
+      if (d.type === "ready") { EXT.on = true; EXT.version = String(d.version || "").slice(0, 20); extPost({type: "flags", bbInternal: appFlag("bb_internal")}); extPost({type: "get"}); }
       else if (d.type === "data") {
         EXT.on = true; EXT.version = String(d.version || EXT.version).slice(0, 20);
         EXT.schools = (Array.isArray(d.schools) ? d.schools : []).slice(0, 6).filter(x => x && typeof x.id === "string").map(x => ({id: x.id, origin: String(x.origin || "").slice(0, 200), state: String(x.state || "").slice(0, 20), at: Number(x.at) || 0}));

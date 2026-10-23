@@ -5,10 +5,10 @@ Module._load = function (req, ...rest) { return req === "electron" ? { app: { is
 const L = require(path.join(__dirname, "..", "lms.js"));
 Module._load = realLoad;
 const soon = new Date(Date.now() + 3 * 864e5).toISOString(), ago = new Date(Date.now() - 3 * 864e5).toISOString(), ago2 = new Date(Date.now() - 2 * 864e5).toISOString();
-function run(P, routes){
-  const fetch = async (u) => { u = String(u); const k = Object.keys(routes).sort((a, b) => b.length - a.length).find(k => u.startsWith(k)); if (!k) return { ok: false, status: 404, headers: { get: () => "" } };
+function run(P, routes, opts, seen){
+  const fetch = async (u) => { u = String(u); if (seen) seen.push(u); const k = Object.keys(routes).sort((a, b) => b.length - a.length).find(k => u.startsWith(k)); if (!k) return { ok: false, status: 404, headers: { get: () => "" } };
     const b = routes[k]; return { ok: true, status: 200, headers: { get: () => "" }, json: async () => b, text: async () => typeof b === "string" ? b : JSON.stringify(b) }; };
-  return vm.runInNewContext(L.harvestScript(P, { pastDays: 60 }), { fetch, location: { origin: "https://x.edu" }, AbortController, setTimeout, clearTimeout, encodeURIComponent, Date, URL });
+  return vm.runInNewContext(L.harvestScript(P, Object.assign({ pastDays: 60 }, opts || {})), { fetch, location: { origin: "https://x.edu" }, AbortController, setTimeout, clearTimeout, encodeURIComponent, Date, URL });
 }
 const clean = h => { const c = L.cleanHarvest(h, "https://x.edu"); assert.strictEqual(c.ok, true); return JSON.parse(JSON.stringify(c.courses[0])); };
 (async () => {
@@ -40,7 +40,7 @@ const clean = h => { const c = L.cleanHarvest(h, "https://x.edu"); assert.strict
     "/content/enforced/7/syl.html": "<html><body><h1>Syllabus</h1><p>Lab Thursdays 13:00-15:50</p></body></html>",
   }));
   const c = "_1_1";
-  const bb = clean(await run(L.P.blackboard, {
+  const BB = {
     "/learn/api/public/v1/users/me": { id: "_u", name: { given: "A" } },
     "/learn/api/public/v1/users/_u/courses": { results: [{ course: { id: c, name: "Chem", description: "Intro chem" }, lastAccessed: ago }] },
     [`/learn/api/public/v2/courses/${c}/gradebook/columns/_a/attempts`]: { results: [{ status: "NeedsGrading", attemptDate: ago2, feedback: "<p>Good draft</p>" }] },
@@ -51,7 +51,8 @@ const clean = h => { const c = L.cleanHarvest(h, "https://x.edu"); assert.strict
     [`/learn/api/public/v1/courses/${c}/contents`]: { results: [{ id: "_s", title: "Syllabus", hasChildren: true, body: "" }] },
     [`/learn/api/v1/courses/${c}/rubricAssociations`]: { results: [{ gradebookColumnId: "_a", rubricId: "rb" }] },
     [`/learn/api/v1/courses/${c}/rubrics`]: { results: [{ id: "rb", title: "Paper rubric", rubricColumns: [{ id: "k1", header: "Excellent" }], rubricRows: [{ id: "w1", header: "Clarity", rubricCells: [{ rubricColumnId: "k1", points: 5, description: "Very clear" }] }] }] },
-  }));
+  };
+  const bb = clean(await run(L.P.blackboard, BB));
 
   const ci = cv.items[0];
   assert.deepStrictEqual([ci.done, ci.st.late, ci.st.ext, !!ci.st.subAt], [true, true, true, true], "Canvas: submitted, late, extension");
@@ -69,9 +70,16 @@ const clean = h => { const c = L.cleanHarvest(h, "https://x.edu"); assert.strict
   assert.deepStrictEqual(bs.staff.map(u => u.name), ["Dr. D"], "Brightspace: only instructors from the class list");
   assert(/Lab Thursdays/.test(bs.syl.join("")) && /viewContent\/77/.test(bs.sylUrl), "Brightspace: syllabus page from Content");
   const [pa, re] = bb.items;
-  assert.deepStrictEqual([pa.done, pa.st.late, pa.fb.c[0].t, pa.rub || null], [true, true, "Good draft", null], "Blackboard: attempt, late, feedback (no rubrics: only the public API is read)");
+  assert.deepStrictEqual([pa.done, pa.st.late, pa.fb.c[0].t, pa.rub.cr[0].t, pa.rub.cr[0].lv[0].t], [true, true, "Good draft", "Clarity", "Excellent"], "Blackboard: attempt, late, feedback, rubric");
   assert.deepStrictEqual([re.done, re.st.missing], [false, true], "Blackboard: missing when past due with no attempt");
   assert.deepStrictEqual(bb.staff.map(u => u.email), ["lee@x.edu"], "Blackboard: instructor email");
   assert(/Tue\/Thu 9:30-10:45/.test(bb.syl.join("")), "Blackboard: syllabus from course content");
+  // the remote switch: with internal off, only Blackboard's public API is called (and there are no rubrics)
+  const seenOn = [], seenOff = [];
+  await run(L.P.blackboard, BB, {}, seenOn);
+  const off = clean(await run(L.P.blackboard, BB, { internal: false }, seenOff));
+  assert(seenOn.some(u => u.startsWith("/learn/api/v1/")), "Blackboard: internal endpoints are used when the switch is on");
+  assert(!seenOff.some(u => u.startsWith("/learn/api/v1/")) && seenOff.length > 3, "Blackboard: with the switch off, only the public API is called");
+  assert(!off.items[0].rub && off.items[0].fb.c[0].t === "Good draft", "Blackboard: switch off keeps feedback, drops rubrics");
   console.log("lms-extras: all checks passed");
 })().catch(e => { console.error(e); process.exit(1); });

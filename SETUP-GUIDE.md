@@ -945,6 +945,14 @@ The desktop app uses the website address for share links. If a share sheet in th
 
 ## Brightspace, Canvas and Blackboard
 
+**Remote switch for Blackboard's internal endpoints.** Studyboard reads Blackboard through its public API, and also uses Blackboard's internal endpoints for rubrics and as a fallback when the public API doesn't answer. To turn the internal ones off for everyone without an app update, run `supabase-app-flags.sql` once in the Supabase SQL editor, then when needed:
+
+```sql
+update public.app_flags set value = 'false', updated_at = now() where key = 'bb_internal';
+```
+
+The website, desktop and phone apps pick it up within about 3 hours (or when they next open); the School Sync extension (version 1.0.4 or later) picks it up the next time the student opens the Studyboard website. Set it back to `'true'` to turn them on again.
+
 Studyboard can bring in everything from your school's learning platform on its own: **Brightspace** (D2L, the learning site many schools use), **Canvas** or **Blackboard Learn**. Assignments, quizzes, discussions and exams go on your Board and Timeline with their due dates, instructor calendar events go on your Schedule, and your grades go into the Grade Tracker. Open **Settings > Brightspace, Canvas and Blackboard**, or the **School Sites** button on the Courses page, and pick your platform. Using more than one? Connect each; they stay separate and nothing is added twice.
 
 Studyboard only ever **reads** from these sites. It never submits, posts or changes anything there.

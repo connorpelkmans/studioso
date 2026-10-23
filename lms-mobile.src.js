@@ -31,7 +31,7 @@
     var o = opts && typeof opts === "object" ? opts : {};
     var idOk = function (x) { return /^[\w.-]{1,40}$/.test(x); };
     var safe = { pastDays: Math.min(365, Math.max(1, Number(o.pastDays) || 60)), aheadDays: Math.min(400, Math.max(7, Number(o.aheadDays) || 240)),
-      grades: o.grades !== false, news: o.news !== false,
+      grades: o.grades !== false, news: o.news !== false, internal: o.internal !== false,
       only: Array.isArray(o.only) ? o.only.map(String).filter(idOk).slice(0, 40) : null,
       skip: Array.isArray(o.skip) ? o.skip.map(String).filter(idOk).slice(0, 200) : [] };
     remember(id, origin);

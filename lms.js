@@ -147,7 +147,7 @@ const WHO = {
   try { const r = await fetch('/api/v1/users/self', {credentials: 'include', headers: {Accept: 'application/json'}}); if (!r.ok) return null; const me = await r.json(); return me && me.id ? {name: me.name || me.short_name || ''} : null; } catch (e) { return null; }
 })()`,
   blackboard: `(async () => {
-  for (const p of ['/learn/api/public/v1/users/me']) {
+  for (const p of ['/learn/api/public/v1/users/me', '/learn/api/v1/users/me']) {
     try { const r = await fetch(p, {credentials: 'include', headers: {Accept: 'application/json'}}); if (!r.ok) continue; const me = await r.json();
       if (me && me.id) return {name: me.name ? [me.name.given, me.name.family].filter(Boolean).join(' ') : [me.givenName, me.familyName].filter(Boolean).join(' ')}; } catch (e) {}
   }
@@ -573,6 +573,8 @@ async function cvHarvest(o) {
 // Blackboard Learn
 async function bbHarvest(o) {
   const q = o || {}, now = Date.now(), T0 = now;
+  // Internal endpoints (/learn/api/v1): fallbacks and rubrics, remote switch bb_internal
+  const INTERNAL = q.internal !== false;
   const errors = [], enc = encodeURIComponent;
   const req = async p => {
     const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 25000);
@@ -596,10 +598,10 @@ async function bbHarvest(o) {
 
   let me = null;
   let lastErr = null;
-  for (const p of ["/learn/api/public/v1/users/me"]) { try { me = await req(p); if (me && me.id) break; } catch (e) { lastErr = e; } }
+  for (const p of ["/learn/api/public/v1/users/me", ...(INTERNAL ? ["/learn/api/v1/users/me"] : [])]) { try { me = await req(p); if (me && me.id) break; } catch (e) { lastErr = e; } }
   if (!me || !me.id) return !lastErr || lastErr.status === 401 || lastErr.status === 403 ? { needLogin: true } : { error: "me " + (lastErr.status || lastErr.message) };
   const uid = me.id, name = me.name ? [me.name.given, me.name.family].filter(Boolean).join(" ") : [me.givenName, me.familyName].filter(Boolean).join(" ");
-  const mem = await pages([`/learn/api/public/v1/users/${uid}/courses?expand=course&limit=100`], false, 5);
+  const mem = await pages([`/learn/api/public/v1/users/${uid}/courses?expand=course&limit=100`, ...(INTERNAL ? [`/learn/api/v1/users/${uid}/memberships?expand=course&limit=100`] : [])], false, 5);
   const all = mem.filter(m => m && m.course && !m.course.organization && (!m.availability || m.availability.available !== "No") && (!m.course.availability || m.course.availability.available !== "No"))
     .map(m => ({ ou: String(m.course.id), code: String(m.course.courseId || ""), name: String(m.course.name || m.course.displayName || ""), last: dt(m.lastAccessed), term: m.course.termId || "", url: String(m.course.externalAccessUrl || ""), desc: m.course.description || "" }));
   const only = Array.isArray(q.only) && q.only.length ? new Set(q.only.map(String)) : null;
@@ -619,12 +621,13 @@ async function bbHarvest(o) {
     const id = c.ou;
     const desc = c.desc; delete c.desc;
     const [cols, mine, news, people, contents, rubrics, rubAssoc] = await Promise.all([
-      pages([`/learn/api/public/v2/courses/${id}/gradebook/columns?limit=200`, `/learn/api/public/v1/courses/${id}/gradebook/columns?limit=200`], true, 3),
+      pages([`/learn/api/public/v2/courses/${id}/gradebook/columns?limit=200`, `/learn/api/public/v1/courses/${id}/gradebook/columns?limit=200`, ...(INTERNAL ? [`/learn/api/v1/courses/${id}/gradebook/columns?limit=200`] : [])], true, 3),
       pages([`/learn/api/public/v2/courses/${id}/gradebook/users/${uid}`, `/learn/api/public/v1/courses/${id}/gradebook/users/${uid}`], true, 3),
-      q.news === false ? [] : pages([`/learn/api/public/v1/courses/${id}/announcements?limit=50`], true, 2),
-      pages([`/learn/api/public/v1/courses/${id}/users?expand=user&limit=200`], true, 2),
+      q.news === false ? [] : pages([`/learn/api/public/v1/courses/${id}/announcements?limit=50`, ...(INTERNAL ? [`/learn/api/v1/courses/${id}/announcements?limit=50`] : [])], true, 2),
+      pages([`/learn/api/public/v1/courses/${id}/users?expand=user&limit=200`, ...(INTERNAL ? [`/learn/api/v1/courses/${id}/users?expand=user&limit=200`] : [])], true, 2),
       pages([`/learn/api/public/v1/courses/${id}/contents?limit=200`], true, 2),
-      [], []   // rubrics: Blackboard's public API has none, so they aren't read
+      INTERNAL ? pages([`/learn/api/v1/courses/${id}/rubrics?limit=100`], true, 2) : [],
+      INTERNAL ? pages([`/learn/api/v1/courses/${id}/rubricAssociations?limit=200`, `/learn/api/v1/courses/${id}/rubrics/associations?limit=200`], true, 2) : []
     ]);
     const g = {}; mine.forEach(x => { g[String(x.columnId)] = x; });
     const counts = col => !col.externalGrade && !(col.grading && col.grading.type === "Calculated") && col.includeInCalculations !== false && col.score && Number(col.score.possible) > 0;
@@ -837,7 +840,7 @@ async function sync(id, host, opts) {
   const o = opts && typeof opts === "object" ? opts : {};
   const idOk = x => /^[\w.-]{1,40}$/.test(x);
   const safe = { pastDays: Math.min(365, Math.max(1, Number(o.pastDays) || 60)), aheadDays: Math.min(400, Math.max(7, Number(o.aheadDays) || 240)),
-    grades: o.grades !== false, news: o.news !== false,
+    grades: o.grades !== false, news: o.news !== false, internal: o.internal !== false,
     only: Array.isArray(o.only) ? o.only.map(String).filter(idOk).slice(0, 40) : null,
     skip: Array.isArray(o.skip) ? o.skip.map(String).filter(idOk).slice(0, 200) : [] };
   busy[id] = (async () => {

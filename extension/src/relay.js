@@ -17,6 +17,7 @@
     if (e.data.type === "hello" || e.data.type === "get") send();
     else if (e.data.type === "sync") chrome.runtime.sendMessage({ op: "sync" }).catch(() => {});
     else if (e.data.type === "signout") chrome.runtime.sendMessage({ op: "forget" }).catch(() => {});
+    else if (e.data.type === "flags" && typeof e.data.bbInternal === "boolean") chrome.storage.local.set({ flags: { bbInternal: e.data.bbInternal } }).catch(() => {});
   });
   chrome.storage.onChanged.addListener((ch, area) => { if (area === "local" && Object.keys(ch).some(k => k.startsWith("result:") || k === "status")) send(); });
   post({ type: "ready", version });
