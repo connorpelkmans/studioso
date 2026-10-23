@@ -970,11 +970,11 @@ function viewSchedule(){
   const withEvents = new Set(eventsArr().map(e => e.courseId).filter(Boolean));
   const missing = cs.filter(c => !courseMeetings(c).length && !withEvents.has(c.id));
   const hasAny = cs.some(c => courseMeetings(c).length) || eventsArr().length || availBlocks().length;
-  if (!hasAny) return nav + `<div class="empty" style="margin-top:14px;text-align:left"><strong>Add Your Class Times</strong>Your weekly schedule fills in from each course's class times: lectures, labs, discussions and office hours. You can also add your own events, or import your Apple, Google or Outlook calendar.
-    ${cs.length ? `<div class="sch-missing">${cs.map(c => `<button class="chip" style="--c:${esc(c.color)}" data-act="edit-course" data-id="${esc(c.id)}"><span class="dot"></span>${esc(courseLabel(c))}: Add Class Times</button>`).join("")}</div>` : `<br><button class="btn primary" data-act="new-course" style="margin-top:10px">Add a Course</button>`}
+  const setup = hasAny ? "" : `<div class="sch-setup" role="region" aria-label="Set up your schedule"><p style="margin:0"><strong>Add Your Class Times</strong><span class="mini">Your week fills in from each course's class times: lectures, labs, discussions and office hours. You can also add your own events, or import your Apple, Google or Outlook calendar. Deadlines already show below.</span></p>
+    ${cs.length ? `<div class="sch-missing">${cs.map(c => `<button class="chip" style="--c:${esc(c.color)}" data-act="edit-course" data-id="${esc(c.id)}"><span class="dot"></span>${esc(courseLabel(c))}: Add Class Times</button>`).join("")}</div>` : `<div class="sch-missing"><button class="btn small primary" data-act="new-course">Add a Course</button></div>`}
     <div class="sch-missing"><button class="btn small" data-act="sch-add">+ Add an Event</button><button class="btn small" data-act="avail-add">+ Add Shift or Work</button><button class="btn small" data-act="sch-ics">Import a Calendar File</button></div></div>`;
   const occ = schOccurrences(mon, addDays(mon, 6));
-  const hasWeekend = occ.some(o => { const w = parse(o.date).getDay(); return w === 0 || w === 6; });
+  const hasWeekend = occ.some(o => { const w = parse(o.date).getDay(); return w === 0 || w === 6; }) || tasksArr().some(t => t.status !== "done" && t.due && t.due >= addDays(mon, 5) && t.due <= addDays(mon, 6));
   const days = []; for (let i = 0; i < (hasWeekend ? 7 : 5); i++) { const iso = addDays(mon, i); days.push({i, iso, wd: parse(iso).getDay()}); }
   const lastDay = days[days.length - 1].iso;
   const weekTasks = tasksArr().filter(t => t.due && t.due >= mon && t.due <= lastDay && t.status !== "done");
@@ -1022,7 +1022,7 @@ function viewSchedule(){
   const avKinds = AV_ORDER.filter(k => occ.some(o => o.type === "avail" && o.avail.kind === k));
   schNoticeHtml = `<p style="margin:0">${fmtHM(classMin / 60) || "0m"} of class this week${availMinSum >= 15 ? `, ${fmtHM(availMinSum / 60)} of work and shifts` : ""}${nEv ? `, ${nEv} event${nEv === 1 ? "" : "s"}` : ""}${weekTasks.length ? `, ${weekTasks.length} deadline${weekTasks.length === 1 ? "" : "s"}` : ""}. Tap a class to change just this week, or drag it to a new time.</p>${missing.length ? `<div class="sch-ntc"><b>No class times yet</b><span class="mini">Add them so these courses show on your Schedule.</span><div class="sch-missing">${missing.map(c => `<button class="chip" style="--c:${esc(c.color)}" data-act="edit-course" data-id="${esc(c.id)}"><span class="dot"></span>${esc(courseLabel(c))}: Add Class Times</button>`).join("")}</div></div>` : ""}`;
   const ntcBtn = `<button class="btn small sch-ntc-btn" data-act="sch-notices" title="This week's summary${missing.length ? " and courses missing class times" : ""}">Notices${missing.length ? `<span class="sch-ntc-n">${missing.length}</span>` : ""}</button>`;
-  return nav.replace(/<\/div><\/div>$/, ntcBtn + "</div></div>") + `
+  return nav.replace(/<\/div><\/div>$/, ntcBtn + "</div></div>") + setup + `
     <div class="sch-pills" role="group" aria-label="Day">${pills}</div>
     <div class="sch-wrap" style="--n:${days.length}">
       <div class="sch-grid" data-h0="${h0}" data-h1="${h1}" data-pph="${PPH}">
@@ -1042,7 +1042,7 @@ function planViewSet(t){
 }
 function planSwitchHtml(){
   const t = ui.tab;
-  return `<div class="pview-tabs" role="tablist" aria-label="Calendar view"><button role="tab" data-act="plan-view" data-id="timeline" aria-selected="${t === "timeline"}">${tlPhone() ? "Month" : "Timeline"}</button><button role="tab" data-act="plan-view" data-id="schedule" aria-selected="${t === "schedule"}">Schedule</button><button role="tab" data-act="plan-view" data-id="crunch" aria-selected="${t === "crunch"}">Crunch</button></div>`;
+  return `<div class="pview-tabs" role="tablist" aria-label="Calendar view"><button role="tab" data-act="plan-view" data-id="timeline" aria-selected="${t === "timeline"}">Due Dates</button><button role="tab" data-act="plan-view" data-id="schedule" aria-selected="${t === "schedule"}">Schedule</button><button role="tab" data-act="plan-view" data-id="crunch" aria-selected="${t === "crunch"}">Crunch</button></div>`;
 }
 
 /* Courses and Files share one nav tab */

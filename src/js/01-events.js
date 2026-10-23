@@ -114,7 +114,7 @@ document.addEventListener("click", e => {
     case "open-course": ui.courseId = id; ui.courseTab = ""; render(); window.scrollTo(0, 0); break;
     case "back": ui.courseId = null; render(); break;
     case "filter": ui.filter = id; render(); break;
-    case "tl-mode": ui.tlMode = id; ui.tlJump = true; render(); break;
+    case "tl-mode": ui.tlMode = id; ui.tlJump = true; try { localStorage.setItem("studyboard:tlmode", id); } catch(err) {} render(); break;
     case "note-new": if (noteEditing) saveNoteText(); newNoteAt(); break;
     case "board-max": boardMax(!boardMaxOn()); break;
     case "nb-zoom": if (id === "reset") nbZoomTo(1); else nbZoomStep(id === "in" ? 1 : -1); break;
@@ -156,7 +156,7 @@ document.addEventListener("click", e => {
     case "f-newfolder": folderSheet(null); break;
     case "f-folder-edit": { const fo = foldersOf(ui.fCourse === "all" ? "" : ui.fCourse).find(x => x.id === ui.fFolder); if (fo) folderSheet(fo); break; }
     case "f-sort": ui.fSort = id; render(); break;
-    case "tl-zoom": ui.tlZoom = id; ui.tlJump = true; render(); break;
+    case "tl-zoom": ui.tlZoom = id; ui.tlJump = true; try { localStorage.setItem("studyboard:tlzoom", id); } catch(err) {} render(); break;
     case "tl-today": ui.tlJump = "smooth"; if (ui.tlMode !== "bars") ui.tlMode = "bars"; render(); break;
     case "pick-day": ui.calDay = id; if (id.slice(0, 7) !== ui.calMonth.slice(0, 7)) ui.calMonth = id.slice(0, 7) + "-01"; render(); break;
     case "cal-prev": case "cal-next": {

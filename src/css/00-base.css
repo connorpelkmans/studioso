@@ -58,6 +58,9 @@ nav.tabs button[aria-current="page"] svg{color:var(--accent)}
 
 .fab{position:fixed;right:max(18px,calc(50% - 362px));bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:6;border:0;border-radius:18px;background:var(--accent);color:var(--accent-ink);padding:14px 18px;font-weight:600;display:flex;align-items:center;gap:8px;box-shadow:0 6px 18px rgba(20,40,120,.25)}
 .fab svg{width:20px;height:20px}
+#fab.fab-icon{width:56px;height:56px;padding:0;border-radius:50%;justify-content:center}
+#fab.fab-icon span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+#fab.fab-icon svg{width:24px;height:24px}
 .fab span{position:relative;top:-1.5px}
 
 /* Sections */
@@ -290,6 +293,21 @@ li.task>.lms-go{align-self:center;margin-right:12px}
 .dots{gap:2px;max-width:100%}
 .dots .ci-more{font:700 .72rem/24px var(--body);color:var(--muted)}
 @media (max-width:600px){.dots i.ci{width:15px;height:15px}.dots i.ci svg{width:10px;height:10px}.dots .ci-more{line-height:15px}}
+.dots .ci-row{display:contents}
+.dots .ci-t{display:none}
+.dots .ci-row.late i.ci{box-shadow:0 0 0 1.5px var(--surface),0 0 0 3px var(--late)}
+@media (min-width:900px){
+  .cal .day{align-items:stretch;padding:5px 6px 6px}
+  .cal .day .num{align-self:center}
+  .cal .dots{display:grid;gap:4px;justify-content:stretch;min-width:0}
+  .cal .ci-row{display:flex;align-items:center;gap:5px;min-width:0;font-size:.74rem;line-height:1.2;text-align:left}
+  .cal .ci-row i.ci{flex:none;width:18px;height:18px}
+  .cal .ci-row i.ci svg{width:11px;height:11px}
+  .cal .ci-t{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink);font-weight:600}
+  .cal .ci-t.done{color:var(--muted);text-decoration:line-through}
+  .cal .ci-row.late .ci-t{color:var(--late)}
+  .cal .dots .ci-more{line-height:1.2;text-align:left;padding-left:23px}
+}
 
 /* Dialog */
 dialog{border:0;padding:0;background:var(--surface);color:var(--ink);width:min(560px,100%);max-height:92vh;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
@@ -1091,6 +1109,9 @@ canvas.confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:n
 .sch-nav{display:flex;align-items:center;gap:8px}
 .sch-range{font:600 .95rem var(--display);min-width:118px;text-align:center}
 .sch-missing{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.sch-setup{margin:4px 0 14px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.sch-setup .mini{display:block;margin-top:2px}
+.sch-setup .sch-missing{margin-top:10px}
 .sch-wrap{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
 .sch-grid{display:grid;grid-template-columns:54px repeat(var(--n),minmax(0,1fr))}
 .sch-corner,.sch-head{border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--soft) 55%,var(--surface))}

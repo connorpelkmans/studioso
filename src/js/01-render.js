@@ -21,6 +21,9 @@ function fabConfig(){
 function refreshFab(){
   const fab = $("#fab"), cfg = fabConfig(); if (!fab) return;
   fab.style.display = cfg ? "" : "none";
+  const icon = !!cfg && cfg.act === "new-task" && !!$("#view .qa-bar");
+  fab.classList.toggle("fab-icon", icon);
+  if (icon) fab.title = cfg.label; else fab.removeAttribute("title");
   if (cfg) { fab.dataset.act = cfg.act; if (cfg.id) fab.dataset.id = cfg.id; else delete fab.dataset.id; const sp = fab.querySelector("span"); if (sp && sp.textContent !== cfg.label) sp.textContent = cfg.label; }
 }
 // The app tour's example planner (49-apptour.js)

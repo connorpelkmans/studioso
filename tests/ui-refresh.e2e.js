@@ -49,7 +49,7 @@ const stored = p => p.evaluate(() => JSON.parse(localStorage.getItem("coursework
         ok(!(await p.evaluate(() => document.querySelector(".tl").textContent.includes("Finished thing"))), "completed tasks are not on the timeline");
         ok(await p.evaluate(() => { const tl = document.querySelector(".tl-scroll"); return tl.scrollWidth > 0 && document.documentElement.scrollWidth <= innerWidth + 1; }), "no horizontal page overflow");
       } else {
-        ok(!(await p.locator(".tl").count()) && await vis(".cal") && /Month/.test(await p.textContent('[data-act="plan-view"][data-id="timeline"]')), "on a phone the Timeline tab is the month calendar, named Month");
+        ok(!(await p.locator(".tl").count()) && await vis(".cal") && /Due Dates/.test(await p.textContent('[data-act="plan-view"][data-id="timeline"]')), "on a phone the Due Dates tab is the month calendar, with the same name as on a computer");
         ok((await p.locator(".cal .day .ci").count()) === 5 && (await p.locator('.cal .day .ci[style*="opacity"]').count()) === 1, "one icon per task with a due date, the finished one faded");
         ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "no horizontal page overflow");
       }
