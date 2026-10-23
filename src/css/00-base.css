@@ -142,6 +142,13 @@ body.wide .wrap{max-width:1180px}
 .card-course{font-size:.75rem;font-weight:700;color:color-mix(in srgb,var(--c) 78%,var(--ink))}
 .card-title{font-weight:600;margin:2px 0 8px;overflow-wrap:anywhere;line-height:1.35}
 .card.is-done .card-title{text-decoration:line-through;color:var(--muted)}
+.card .card-title{display:flex;align-items:flex-start;gap:8px}
+.card .card-check{position:relative;flex:none;margin:0;width:22px;height:22px;border-color:color-mix(in srgb,var(--c) 75%,var(--muted));cursor:pointer}
+.card .card-check::after{content:"";position:absolute;inset:-9px}
+.card .card-check svg{width:12px;height:12px}
+.card .card-check:hover svg,.card .card-check:focus-visible svg{opacity:.55;color:var(--c)}
+.card.is-done .card-check{background:var(--c)}
+.card.is-done .card-check svg{opacity:1;color:#fff}
 .ann-btn{position:relative}
 .ann-btn[hidden]{display:none}
 .ann-n{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--late,#C0392B);color:#fff;font:700 .68rem/18px var(--body);text-align:center;box-sizing:border-box}

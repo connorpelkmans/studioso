@@ -153,17 +153,23 @@ var SBEST = (() => {
     if (!secs.length) return;
     if (!secs.some(x => x.k === ui.planTab)) ui.planTab = secs[0].k;
     const box = document.createElement("div"); box.className = "plan-tabs"; box.id = "planExtra";
-    box.innerHTML = `<div class="pt-bar" role="tablist" aria-label="More for today">${secs.map(x => `<button type="button" role="tab" class="pt-tab" id="ptt-${x.k}" data-k="${x.k}" aria-controls="ptp-${x.k}" aria-selected="${x.k === ui.planTab}">${esc(PT_NAME[x.k] || x.k)}${x.n ? `<i class="pt-n">${esc(String(x.n))}</i>` : ""}</button>`).join("")}</div>`;
+    box.innerHTML = `<div class="pt-bar" role="tablist" aria-label="More for today">${secs.map(x => `<button type="button" role="tab" class="pt-tab" id="ptt-${x.k}" data-k="${x.k}" aria-controls="ptp-${x.k}" aria-selected="${x.k === ui.planTab}" tabindex="${x.k === ui.planTab ? 0 : -1}">${esc(PT_NAME[x.k] || x.k)}${x.n ? `<i class="pt-n">${esc(String(x.n))}</i>` : ""}</button>`).join("")}</div>`;
     secs.forEach(x => { const p = document.createElement("div"); p.className = "pt-panel pe-item"; p.id = "ptp-" + x.k; p.dataset.k = x.k; p.setAttribute("role", "tabpanel"); p.setAttribute("aria-labelledby", "ptt-" + x.k); p.hidden = x.k !== ui.planTab; x.els.forEach(e => p.appendChild(e)); box.appendChild(p); });
     if (ex) ex.remove();
     const foot = plan.querySelector(".plan-foot"); if (foot) foot.before(box); else plan.appendChild(box);
   });
-  document.addEventListener("click", e => {
-    const b = e.target.closest && e.target.closest(".pt-tab"); if (!b) return;
+  const ptPick = b => {
     ui.planTab = b.dataset.k;
     const box = b.closest(".plan-tabs");
-    box.querySelectorAll(".pt-tab").forEach(t => t.setAttribute("aria-selected", String(t === b)));
+    box.querySelectorAll(".pt-tab").forEach(t => { t.setAttribute("aria-selected", String(t === b)); t.tabIndex = t === b ? 0 : -1; });
     box.querySelectorAll(".pt-panel").forEach(p => { p.hidden = p.dataset.k !== ui.planTab; });
+  };
+  document.addEventListener("click", e => { const b = e.target.closest && e.target.closest(".pt-tab"); if (b) ptPick(b); });
+  document.addEventListener("keydown", e => {
+    const b = e.target.closest && e.target.closest(".pt-tab"); if (!b || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+    const all = [...b.parentNode.querySelectorAll(".pt-tab")], i = all.indexOf(b);
+    const n = all[e.key === "Home" ? 0 : e.key === "End" ? all.length - 1 : (i + (e.key === "ArrowRight" ? 1 : -1) + all.length) % all.length];
+    e.preventDefault(); ptPick(n); n.focus();
   });
 
   /* After a big import */

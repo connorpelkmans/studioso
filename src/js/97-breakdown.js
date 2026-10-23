@@ -133,9 +133,9 @@ const BREAKDOWN = (() => {
   function isBig(t){
     if (!t || t.prepFor || t.breakdownOf || t.status === "done" || t.breakdownParent) return false;
     if (!BIG_TYPES[t.type]) return false;
-    const h = Number(t.hours), cue = BIG_RX.test(String(t.title || ""));
-    if (t.type === "Lab") return cue;
-    return (isFinite(h) && h >= 3) || cue;
+    const h = t.hours == null || t.hours === "" ? NaN : Number(t.hours), cue = BIG_RX.test(String(t.title || ""));
+    if (!(h >= 3)) return false;
+    return t.type === "Lab" ? cue : true;
   }
   // The number of milestones for this much work
   const nFor = h => h >= 40 ? 8 : h >= 28 ? 7 : h >= 18 ? 6 : h >= 11 ? 5 : h >= 7 ? 4 : h >= 3 ? 3 : 2;
@@ -869,11 +869,19 @@ function formHtml(t, isNew){
       <ul class="bd-kids">${kids.map(k => `<li class="${k.status === "done" ? "is-done" : ""}"><button type="button" class="link-btn" data-act="edit-task" data-id="${esc(k.id)}">${esc(k.step || "")} ${esc(k.title)}</button><span class="mini">${esc(fmtShort(k.due))}${k.status === "done" ? " · done" : k.due < today ? " · overdue" : ""}</span></li>`).join("")}</ul></div>`;
   }
   if (!bigBtnTypes[t.type] || t.status === "done" || t.prepFor) return "";
-  return BD.isBig(t) ? `<div class="bd-panel offer"><div><b>This looks big.</b><span class="mini" style="display:block">Split it into milestones, scheduled backward from the due date.</span></div><button type="button" class="btn small primary" data-act="bd-open" data-id="${esc(t.id)}">Break It Down</button></div>`
-    : `<p class="mini bd-new-link"><button type="button" class="link-btn" data-act="bd-open" data-id="${esc(t.id)}">Break It into Milestones</button></p>`;
+  return BD.isBig(t) && !bdNo(t.id) ? `<div class="bd-panel offer"><div><b>This looks big.</b><span class="mini" style="display:block">Split it into milestones, scheduled backward from the due date.</span></div><button type="button" class="btn small primary" data-act="bd-open" data-id="${esc(t.id)}">Break It Down</button><button type="button" class="icon-btn sm bd-x" data-act="bd-no" data-id="${esc(t.id)}" aria-label="Don't suggest this for ${esc(t.title)}" title="Don't suggest this again">${CLOSE}</button></div>`
+    : bdLink(t.id);
+}
+const bdLink = id => `<p class="mini bd-new-link"><button type="button" class="link-btn" data-act="bd-open" data-id="${esc(id)}">Break It into Milestones</button></p>`;
+// Tasks whose Break It Down suggestion was waved off
+const bdNo = id => !!((bdMem().no || {})[id]);
+function bdNoSet(id){
+  const mem = bdMem(); mem.no = mem.no || {}; mem.no[id] = Date.now();
+  const ks = Object.keys(mem.no); if (ks.length > 300) ks.sort((x, y) => mem.no[x] - mem.no[y]).slice(0, ks.length - 300).forEach(k => delete mem.no[k]);
+  bdMemSet(mem);
 }
 function rowBtn(t){
-  if (!t || !t.due || t.status === "done" || t.due < todayISO() || !BD.isBig(t) || (t.breakdownParent && kidsOfTask(t.id).length)) return "";
+  if (!t || !t.due || t.status === "done" || t.due < todayISO() || !BD.isBig(t) || bdNo(t.id) || (t.breakdownParent && kidsOfTask(t.id).length)) return "";
   return `<button type="button" class="bd-row-btn" data-act="bd-open" data-id="${esc(t.id)}" aria-label="Break ${esc(t.title)} into milestones">Break It Down</button>`;
 }
 function rowMeta(t){
@@ -885,7 +893,7 @@ function rowMeta(t){
 function trayItem(){
   try {
     const today = todayISO();
-    const c = tasksArr().filter(t => BD.isBig(t) && t.due && BD.diff(today, t.due) >= 5 && BD.diff(today, t.due) <= 30 && !kidsOfTask(t.id).length)
+    const c = tasksArr().filter(t => BD.isBig(t) && !bdNo(t.id) && t.due && BD.diff(today, t.due) >= 5 && BD.diff(today, t.due) <= 30 && !kidsOfTask(t.id).length)
       .map(t => ({t, s: (Number(t.hours) || 0) + (BIG_CUE.test(t.title) ? 4 : 0) + (t.type === "Project" ? 1 : 0)})).sort((a, b) => b.s - a.s || (a.t.due < b.t.due ? -1 : 1));
     if (!c.length) return null;
     const t = c[0].t, n = BD.diff(today, t.due);
@@ -949,6 +957,7 @@ hook("changed", changes => {
 hook("act", (act, el, id) => {
   switch (act) {
     case "bd-open": openFor(id); return true;
+    case "bd-no": { bdNoSet(id); const p = el.closest(".bd-panel"); if (p) p.outerHTML = bdLink(id); toast("Got it. You can still break it down from the task."); scheduleRender(); return true; }
     case "bd-catchup": if (dlg.open) dlg.close(); openFor(id, {catchup: true}); return true;
     case "bd-new": { const f = dlg.querySelector("form.sheet"), g = n => f && f.elements[n] ? f.elements[n].value : ""; const pre = {title: g("title"), courseId: g("courseId"), due: g("due")}; if (dlg.open) dlg.close(); openNew(pre); return true; }
     case "bd-complete": completeParent(id); if (dlg.open) dlg.close(); return true;
@@ -1002,6 +1011,7 @@ hook("act", (act, el, id) => {
 .bd-panel{display:flex;gap:10px 14px;align-items:center;flex-wrap:wrap;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--surface);margin-bottom:12px}
 .bd-panel.offer{border-color:color-mix(in srgb,var(--accent) 40%,var(--line));background:color-mix(in srgb,var(--accent) 7%,var(--surface))}
 .bd-panel>div:first-child{flex:1 1 200px;min-width:0}
+.bd-panel .bd-x{flex:none;color:var(--muted)}
 .bd-ph{display:grid;gap:6px}.bd-bar{display:block;height:8px;border-radius:99px;background:var(--soft);overflow:hidden}.bd-bar i{display:block;height:100%;background:var(--accent)}
 .bd-pb{display:flex;gap:8px;flex-wrap:wrap;width:100%}.bd-pb .btn{min-height:40px}
 .bd-kids{list-style:none;margin:0;padding:0;width:100%;display:grid}

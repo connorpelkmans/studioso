@@ -58,6 +58,8 @@ document.addEventListener("click", e => {
     case "today-h": { const v = Math.max(0, Math.min(16, todayHours() + Number(id))); setTodayHours(v); render(); break; }
     case "focus-toggle": ui.focusOpen = !ui.focusOpen; render(); break;
     case "plan-rows": ui.planAllToday = !ui.planAllToday; render(); break;
+    case "plan-tile": ui.planTile = id && ui.planTile !== id ? id : ""; render(); requestAnimationFrame(() => { const l = ui.planTile && document.querySelector("#view .plan .plan-past, #view .plan #planListLbl"); if (l && l.scrollIntoView) l.scrollIntoView({block: "nearest", behavior: "smooth"}); }); break;
+    case "move-date": { const t = state.tasks[id]; if (!t) break; taskForm(t); const d = dlg.querySelector("input[name=due]"); if (d) { d.focus(); try { d.showPicker(); } catch (err) {} } break; }
     case "plan-sec": { const k = id === "how" ? "planHow" : "planMore"; ui[k] = !ui[k]; const p = document.getElementById("plan-" + id); if (p) p.hidden = !ui[k]; el.setAttribute("aria-expanded", String(ui[k])); break; }
     case "plan-why": { ui.planWhy = ui.planWhy || {}; const on = !ui.planWhy[id]; if (on) ui.planWhy[id] = 1; else delete ui.planWhy[id]; const p = document.getElementById("pw-" + id); if (p) p.hidden = !on; el.setAttribute("aria-expanded", String(on)); const li = el.closest(".plan-row"); if (li) li.classList.toggle("why-open", on); break; }
     case "show-old": ui.showOldDone = true; render(); break;
@@ -252,34 +254,9 @@ $("#searchInput").addEventListener("keydown", e => { if (e.key === "Escape") tog
 
 /* Drag: board cards and timeline bars (mouse, pen and touch) */
 let drag = null;
-// Task Board: double-click (or double-tap) a card to pick it up; it follows the pointer
-let cardClickT = 0, cardPass = false;
-document.addEventListener("click", e => {
-  if (cardPass || drag) return;
-  const card = e.target.closest && e.target.closest(".board .card[data-act='edit-task']");
-  if (!card || e.target.closest("[data-act]") !== card || e.target.closest("button,a,input,select,label,textarea")) return;
-  if (e.detail === 1) {
-    e.preventDefault(); e.stopImmediatePropagation();
-    clearTimeout(cardClickT);
-    cardClickT = setTimeout(() => { if (drag || !card.isConnected) return; cardPass = true; try { card.click(); } finally { cardPass = false; } }, 260);
-  } else if (e.detail >= 2) {
-    e.preventDefault(); e.stopImmediatePropagation();
-    clearTimeout(cardClickT);
-    drag = {kind: "card", id: card.dataset.id, el: card, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, started: false, touch: false, carry: true, pid: e.pointerId != null && e.pointerId >= 0 ? e.pointerId : 1};
-    startDrag();
-    if (drag && drag.ghost) drag.ghost.classList.add("carry");
-    toast("Picked up. Click where it goes, or press Escape.");
-  }
-}, true);
 document.addEventListener("pointerdown", e => {
-  if (drag && drag.carry && drag.started) {
-    e.preventDefault(); e.stopPropagation();
-    drag.x = e.clientX; drag.y = e.clientY;
-    if (e.button === 0) { try { placeAt(drag.x, drag.y); } catch (x) {} endDrag(true); } else endDrag(false);
-    return;
-  }
   if (drag || (e.pointerType === "mouse" && e.button !== 0)) return;
-  if (e.target.closest && e.target.closest(".lms-go")) return;
+  if (e.target.closest && e.target.closest(".lms-go, .card-check")) return;
   const rotEl = e.target.closest && e.target.closest(".note-rot");
   if (rotEl) {
     const nEl = rotEl.closest(".note");
@@ -306,7 +283,7 @@ document.addEventListener("pointermove", e => {
     if (b) { const r = b.getBoundingClientRect(), edge = Math.min(12, r.width / 3); b.style.cursor = (e.clientX - r.left < edge || r.right - e.clientX < edge) ? "ew-resize" : "grab"; }
     return;
   }
-  if (e.pointerId !== drag.pid && !drag.carry) return;
+  if (e.pointerId !== drag.pid) return;
   drag.x = e.clientX; drag.y = e.clientY;
   if (!drag.started) {
     const d = Math.hypot(drag.x - drag.x0, drag.y - drag.y0);
