@@ -300,8 +300,10 @@ const SY = (() => {
       if (!c) return;
       let type = c[1];
       if (type === "Final" && /project/i.test(t)) type = "Project";
-      if (out[type]) return;
       const rest = t.replace(c[0], " ");
+      const nth = rest.match(/^\s*(?:#|no\.?\s*)?(\d{1,2})\b(?!\s*(?:%|x\b|×))/i), own = rest.match(/(\d{1,3}(?:\.\d+)?)\s*%/);
+      if (nth && own && !/each/i.test(rest) && !/s$/i.test(t.match(c[0])[0].trim())) { (out.items = out.items || []).push({type, n: Number(nth[1]), pct: Number(own[1])}); return; }
+      if (out[type]) return;
       const each = rest.match(/(\d{1,3}(?:\.\d+)?)\s*%\s*each/i);
       const pct = rest.match(/(\d{1,3}(?:\.\d+)?)\s*%/);
       const cnt = rest.match(/\((\d{1,2})\)|\b(\d{1,2})\s*[x×]\b|\b(one|two|three|four|five|six|seven|eight|nine|ten|twelve)\b/i);
@@ -445,16 +447,21 @@ const SY = (() => {
       return x;
     });
     final.sort((a, b) => (a.due || "9999") < (b.due || "9999") ? -1 : (a.due || "9999") > (b.due || "9999") ? 1 : 0);
-    const weights = gradeWeights(lines);
-    const countOf = type => final.filter(x => x.type === type && !(type === "Exam" && /final/i.test(x.title) && weights.Final)).length;
+    const weights = gradeWeights(lines), own = weights.items || [];
+    delete weights.items;
+    // Numbered lines in the breakdown go to the item with that number
+    const ownOf = x => own.find(w => (w.type === x.type || (w.type === "Exam" && x.type === "Exam")) && new RegExp("(^|\\D)" + w.n + "(\\D|$)").test(x.title) && !(w.type !== "Final" && /final/i.test(x.title)));
+    final.forEach(x => { const w = ownOf(x); if (w && w.pct > 0 && w.pct <= 100) { x.weight = w.pct; x.ownW = true; } });
+    const countOf = type => final.filter(x => x.type === type && !x.ownW && !(type === "Exam" && /final/i.test(x.title) && weights.Final)).length;
     final.forEach(x => {
+      if (x.ownW) { delete x.ownW; return; }
       const key = x.type === "Exam" && /final/i.test(x.title) && weights.Final ? "Final" : x.type;
       const w = weights[key];
       if (!w) return;
       const v = w.each != null ? w.each : w.pct / Math.max(1, w.count || (key === "Final" ? 1 : countOf(x.type)));
       if (v > 0 && v <= 100) x.weight = Math.round(v * 10) / 10;
     });
-    return {course, items: final, term, lineCount: lines.length, weightsFound: Object.keys(weights).length > 0};
+    return {course, items: final, term, lineCount: lines.length, weightsFound: Object.keys(weights).length > 0 || own.length > 0};
   }
   return {parse, findDates, termInfo, findTime, meetingDays};
 })();
@@ -527,9 +534,9 @@ function importSheet(courseId, file){
   openSheet(`<form class="sheet">${head("Import a Syllabus")}
     <div class="sheet-body" id="impBody">
       <div class="drop" id="impDrop">
-        <p style="margin:0 0 10px"><strong>Choose your syllabus as a PDF.</strong><br><span class="mini">The course details and dated assignments, exams, quizzes, labs, projects and readings are pulled out for you to review.</span></p>
-        <button type="button" class="btn primary" id="impPick">Choose a PDF</button>
-        <input type="file" id="impFile" accept=".pdf,.txt,application/pdf,text/plain,image/*" class="sr" tabindex="-1">
+        <p style="margin:0 0 10px"><strong>Choose your syllabus as a PDF or Word file.</strong><br><span class="mini">The course details and dated assignments, exams, quizzes, labs, projects and readings are pulled out for you to review.</span></p>
+        <button type="button" class="btn primary" id="impPick">Choose a File</button>
+        <input type="file" id="impFile" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,image/*" class="sr" tabindex="-1">
       </div>
       ${aiReady() ? `<label class="mi-check ai-toggle"><input type="checkbox" id="impAI" checked> ${AI_ICON}<span><b>Read with AI</b><span class="mini" style="display:block">Smarter at dates, weights and class times, and reads scanned PDFs and photos. Uses ${esc(aiModelName(aiCfg().provider, aiCfg().model))}; turn off to read it only on this device.</span></span></label>` : inPreview() ? "" : `<p class="mini" style="margin:0">${AI_ICON} Want smarter reading that also handles scanned PDFs? <button type="button" class="link-btn" data-act="ai-setup">Turn on AI Features</button></p>`}
       <details id="impPaste"><summary>Or Paste the Text Instead</summary>
@@ -577,12 +584,20 @@ function importSheet(courseId, file){
       srcFile = null; let aiNote = "";
       if (f.size > 60 * 1024 * 1024) { status.textContent = "That file is too big to read here (over 60 MB)."; return; }
       if (/\.txt$/i.test(f.name) || f.type === "text/plain") { const t = (await f.text()).slice(0, 2e6); if (useAI()) { await aiShow([{text: "Syllabus text:\n\n" + t}], t, f.name); return; } show(t, f.name); return; }
+      if (/\.docx$/i.test(f.name) || f.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+        status.textContent = "Opening the Word file…";
+        const t = (await docxText(await f.arrayBuffer())).slice(0, 2e6);
+        if (t.replace(/\s/g, "").length < 150) { status.textContent = "Couldn't find much text in that Word file. Save it as a PDF and try again, or paste the text instead."; $("#impPaste").open = true; return; }
+        srcFile = f;
+        if (useAI()) { await aiShow([{text: "Syllabus text:\n\n" + t}], t, f.name); return; }
+        show(t, f.name); return;
+      }
       const isImg = /^image\//.test(f.type) || /\.(png|jpe?g|webp|heic|heif)$/i.test(f.name);
       if (isImg && useAI()) {
         if (f.size > AI_LIMIT_BYTES) { status.textContent = "That photo is too large. Try a smaller one."; return; }
         const src = await aiSourceFromFile(f); await aiShow([src.part], "", f.name); return;
       }
-      if (!/\.pdf$/i.test(f.name) && f.type !== "application/pdf") { status.textContent = isImg ? "Photos of a syllabus can only be read with AI Features on. Choose a PDF, or paste the text instead." : "That file isn't a PDF. Choose a PDF, or paste the text instead."; return; }
+      if (!/\.pdf$/i.test(f.name) && f.type !== "application/pdf") { status.textContent = isImg ? "Photos of a syllabus can only be read with AI Features on. Choose a PDF, or paste the text instead." : /\.doc$/i.test(f.name) ? "Older Word files (.doc) can't be read here. Save it as .docx or PDF, or paste the text instead." : "That file isn't a PDF or Word file. Choose one of those, or paste the text instead."; return; }
       if (useAI() && f.size <= AI_LIMIT_BYTES) {
         srcFile = f;
         if (await aiShow([{inline_data: {mime_type: "application/pdf", data: bytesToB64(new Uint8Array(await f.arrayBuffer()))}}], "", f.name)) return;
@@ -619,9 +634,10 @@ function importSheet(courseId, file){
     const c = r.course;
     const flag = i => i.source === "ai-low" ? (i.due ? "The AI worked out this date, so double-check it" : "No date found") : i.source === "week" ? "Date estimated from the week number" : i.source === "session" ? "Date estimated from the class number" : i.source === "context" ? "Date taken from the schedule entry above" : !i.due ? "No date found" : "";
     const typeSel = (i, n) => `<select data-f="type" data-n="${n}" aria-label="Type">${TYPES.map(x => `<option ${x === i.type ? "selected" : ""}>${x}</option>`).join("")}</select>`;
+    const today = todayISO(), past = i => !!i.due && i.due < today;
     const rowOf = (i, n) => {
       const dup = match && existingKeys.has(norm(i.title) + "|" + i.due + "|" + match.id);
-      const checked = i.due && !dup;
+      const checked = i.due && !dup && !past(i);
       const f = dup ? "Already in your planner" : flag(i);
       return `<li class="imp-row ${checked ? "" : "off"}"><input type="checkbox" data-n="${n}" ${checked ? "checked" : ""} aria-label="Include ${esc(i.title)}">
         <div class="imp-fields"><input type="text" data-f="title" data-n="${n}" value="${esc(i.title)}" aria-label="Title">
@@ -631,9 +647,9 @@ function importSheet(courseId, file){
           <span class="imp-src" title="${esc(i.note)}">${esc(i.note.replace(/\t/g, "  "))}</span></div></li>`;
     };
     const idx = r.items.map((it, n) => n);
-    const rowsDated = idx.filter(n => r.items[n].due).map(n => rowOf(r.items[n], n)).join("");
-    const undated = idx.filter(n => !r.items[n].due);
-    const rows = `<ul class="imp-list">${rowsDated}</ul>` + (undated.length ? `<details class="imp-group"><summary>No Date Found (${undated.length})</summary><p class="mini" style="margin:0 0 8px">These were mentioned without a date. Check any you want and add the date yourself.</p><ul class="imp-list">${undated.map(n => rowOf(r.items[n], n)).join("")}</ul></details>` : "");
+    const rowsDated = idx.filter(n => r.items[n].due && !past(r.items[n])).map(n => rowOf(r.items[n], n)).join("");
+    const undated = idx.filter(n => !r.items[n].due), gone = idx.filter(n => past(r.items[n]));
+    const rows = `<ul class="imp-list">${rowsDated}</ul>` + (gone.length ? `<details class="imp-group"><summary>Already Past (${gone.length})</summary><p class="mini" style="margin:0 0 8px">These dates have passed, so they're left out. Tick any you want in your planner, for example to add a mark. They're added as done.</p><ul class="imp-list">${gone.map(n => rowOf(r.items[n], n)).join("")}</ul></details>` : "") + (undated.length ? `<details class="imp-group"><summary>No Date Found (${undated.length})</summary><p class="mini" style="margin:0 0 8px">These were mentioned without a date. Check any you want and add the date yourself.</p><ul class="imp-list">${undated.map(n => rowOf(r.items[n], n)).join("")}</ul></details>` : "");
     $("#impDrop").hidden = true; $("#impPaste").hidden = true; $$(".ai-toggle", dlg).forEach(x => { x.hidden = true; });
     $("#impResult").innerHTML = `
       <p style="margin:0"><button type="button" class="link-btn" id="impAgain">Choose a Different File</button></p>
@@ -651,7 +667,7 @@ function importSheet(courseId, file){
         <label class="mi-check" id="impFillWrap"><input type="checkbox" id="impFill" checked> Fill in missing course details from the syllabus</label>
         ${srcFile && caps.assets ? `<label class="mi-check"><input type="checkbox" id="impSave" checked> Save the PDF in the course's Syllabus folder</label>` : ""}
       </fieldset>
-      ${r.items.length ? `<div class="imp-head"><strong>Tasks</strong><span class="spacer"></span><button type="button" class="link-btn" id="impAll">Select All</button><button type="button" class="link-btn" id="impNone">Select None</button></div><div id="impLists">${rows}</div>` : ""}`;
+      ${r.items.length ? `<div class="imp-head"><strong>Tasks</strong><span class="spacer"></span><button type="button" class="link-btn" id="impAll">Select All</button><button type="button" class="link-btn" id="impNone">Select None</button></div><p class="mini imp-wsum" id="impWSum" role="status"></p><div id="impLists">${rows}</div>` : ""}`;
     $("#impAgain").addEventListener("click", () => { result = null; $("#impResult").innerHTML = ""; $("#impAdd").hidden = true; status.textContent = ""; $("#impDrop").hidden = false; $("#impPaste").hidden = false; $$(".ai-toggle", dlg).forEach(x => { x.hidden = false; }); });
     const target = $("#impTarget");
     const syncTarget = () => { const isNew = target.value === "new"; $("#impNew").hidden = !isNew; $("#impFillWrap").hidden = isNew; updateAdd(); };
@@ -679,8 +695,16 @@ function importSheet(courseId, file){
     return out.length ? out : null;
   }
   function picked(){ const list = $("#impLists"); return list ? $$("input[type=checkbox][data-n]:checked", list).map(b => result.items[Number(b.dataset.n)]) : []; }
+  // The grade weights of what's ticked, so a misread breakdown stands out
+  function weightSum(){
+    const el = $("#impWSum"); if (!el) return;
+    const ws = picked().map(i => Number(i.weight)).filter(v => isNum(v) && v > 0), sum = Math.round(ws.reduce((a, v) => a + v, 0) * 10) / 10;
+    el.classList.toggle("imp-over", sum > 100.5);
+    el.textContent = !ws.length ? "" : sum > 100.5 ? `Grade weights add up to ${sum}%, more than 100%. Check them against the grading breakdown.` : `Grade weights add up to ${sum}%.`;
+  }
   function updateAdd(){
     const btn = $("#impAdd"); if (!result) return;
+    weightSum();
     const n = picked().length, isNew = $("#impTarget").value === "new";
     btn.hidden = false;
     btn.textContent = isNew ? (n ? `Add Course and ${n} Task${n === 1 ? "" : "s"}` : "Add Course") : `Add ${n} Task${n === 1 ? "" : "s"}`;
@@ -715,8 +739,9 @@ function importSheet(courseId, file){
       const due = isDate(i.due) ? i.due : "";
       let start = i.start && isDate(i.start) ? i.start : due ? addDays(due, -(SPAN[i.type] ?? 3)) : todayISO();
       if (due && start > due) start = due;
+      const gone = !!due && due < todayISO();
       let t = normTask({id: uid(), created: Date.now(), order, title, type: TYPES.includes(i.type) ? i.type : "Other", due, time: i.time || "", start, courseId: cid,
-        status: "todo", priority: i.type === "Exam" ? "high" : "med", weight: isNum(i.weight) && Number(i.weight) > 0 ? Number(i.weight) : null, location: i.location || "", reading: i.reading || "", hours: !MILESTONE(i.type) && isNum(i.hours) && Number(i.hours) > 0 ? Number(i.hours) : null, notes: "From syllabus: " + String(i.note || "").replace(/\t+/g, " | ")});
+        status: gone ? "done" : "todo", pct: gone ? 100 : 0, priority: i.type === "Exam" ? "high" : "med", weight: isNum(i.weight) && Number(i.weight) > 0 ? Number(i.weight) : null, location: i.location || "", reading: i.reading || "", hours: !MILESTONE(i.type) && isNum(i.hours) && Number(i.hours) > 0 ? Number(i.hours) : null, notes: "From syllabus: " + String(i.note || "").replace(/\t+/g, " | ")});
       order += 10;
       let kids = [];
       if (i.bd && window.SBBREAK) { const x = SBBREAK.expandNew(t); if (x) { t = x.parent; kids = x.kids; } }
