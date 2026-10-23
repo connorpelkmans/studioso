@@ -33,3 +33,29 @@
 @media (max-width:639px) and (prefers-color-scheme:dark){:root:not([data-theme="light"]) #toast.toast{background:color-mix(in srgb,var(--surface) 82%,#fff);color:#fff}}
 @media (max-width:639px){:root[data-theme="dark"] #toast.toast{background:color-mix(in srgb,var(--surface) 82%,#fff);color:#fff}}
 @media (max-width:639px) and (prefers-reduced-motion:reduce){.fab{transition:none}}
+
+/* Compact course cards */
+.c2-card .c2-code,.c2-card .c2-mini,.c2-card .c2-when,.c2-card .c2-foot-m{display:none}
+@media (max-width:639px){
+  #view .course-list{gap:10px;margin-top:12px}
+  #view .course-card.c2-card{display:grid;grid-template-columns:48px minmax(0,1fr);grid-template-areas:"ring top" "ring body";align-items:center;column-gap:12px;row-gap:2px;min-height:0;padding:12px 14px 12px 18px;border:1px solid var(--line);border-radius:18px!important;background:var(--surface);box-shadow:0 1px 2px rgba(14,42,86,.06);overflow:hidden;position:relative;text-align:left}
+  #view .c2-card .c2-band{position:absolute;inset:0 auto 0 0;width:6px;height:auto;padding:0;border-radius:0;background:var(--c)!important}
+  #view .c2-card .c2-band > *{display:none}
+  #view .c2-card .c2-top{display:contents}
+  #view .c2-card .c2-ring{grid-area:ring;align-self:center;width:48px;height:48px;margin:0;font-size:.8rem;box-shadow:0 0 0 2.5px var(--c)!important}
+  #view .c2-card h3{grid-area:top;display:flex;align-items:baseline;gap:8px;min-width:0;margin:0!important;padding:0!important;font:800 1.06rem/1.25 var(--display)!important;overflow-wrap:normal}
+  #view .c2-card h3 .c2-code{display:inline;flex:none;font:700 .68rem var(--display);letter-spacing:.04em;color:color-mix(in srgb,var(--c) 62%,var(--ink));white-space:nowrap}
+  #view .c2-card .body{grid-area:body;display:grid;gap:5px!important;padding:0;min-width:0}
+  #view .c2-card .c2-when{display:block;font-size:.78rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #view .c2-card .next{margin:0;font-size:.84rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #view .c2-card .next b{color:var(--ink)}
+  #view .c2-card .body > .prog{display:none}
+  #view .c2-card .c2-foot{display:flex;flex-wrap:nowrap;align-items:center;gap:8px;min-width:0;margin:0;padding:0;border:0;font-size:.76rem}
+  #view .c2-card .c2-foot > .g2-pill{flex:none;margin-left:auto;padding:2px 8px;font-size:.72rem}
+  #view .c2-card .c2-foot > :is(.mini,.c2-grade){flex:0 1 auto;min-width:0;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #view .c2-card .c2-mini{flex:none;display:inline-flex;align-items:center;gap:6px;color:var(--muted);white-space:nowrap}
+  #view .c2-card .c2-mini i{display:block;width:40px;height:5px;border-radius:3px;overflow:hidden;background:color-mix(in srgb,var(--ink) 10%,transparent)}
+  #view .c2-card .c2-mini b{display:block;height:100%;border-radius:inherit;background:var(--c)}
+  #view .c2-card .c2-foot .mini,#view .c2-card .c2-grade{font-size:.76rem}
+  #view .c2-card .c2-grade b{font-size:.84rem}
+}
