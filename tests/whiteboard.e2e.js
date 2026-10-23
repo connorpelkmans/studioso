@@ -55,6 +55,8 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     ok(await page.locator("#nbBoard .note").count() === 1 && !(await page.locator("#nbBoard").textContent()).includes("Cell Biology"), "the board never shows up as a sticky note");
     await page.click('.nv-tabs [data-id="wb"]'); await page.waitForTimeout(300);
     await frameBox();
+    const lay = await page.evaluate(() => { const f = document.querySelector(".wb-frame").getBoundingClientRect(), t = document.querySelector(".wb-tray").getBoundingClientRect(), h = document.getElementById("wbHost").getBoundingClientRect(); return {f: [f.left, f.right, f.top, f.bottom], t: [t.left, t.right, t.top, t.bottom], h: [h.top, h.bottom], sx: document.documentElement.scrollWidth > innerWidth}; });
+    ok(lay.t[0] >= lay.f[1] && Math.abs(lay.t[2] - lay.f[2]) < 2 && Math.abs(lay.t[3] - lay.f[3]) < 2 && lay.f[3] - lay.f[2] > (lay.h[1] - lay.h[0]) - 30 && !lay.sx, "on a wide screen the tools stand in a panel right of the board, which keeps its full height: " + JSON.stringify(lay));
     const z0 = (await page.evaluate(() => SBWB.cam())).z;
     ok(z0 < 0.4, "a new board opens showing the whole board: " + z0);
     const bg = () => page.evaluate(() => getComputedStyle(document.querySelector(".wb-back")).backgroundColor);
