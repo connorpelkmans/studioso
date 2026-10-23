@@ -31,7 +31,7 @@
     return /^\s*free/.test(t) ? "free" : /^\s*all pins/.test(t) ? "mixed" : "pro";
   };
   const slug = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  let openCol = "";
+  let openCol = "", shopQ = "";
 
   /* The picture caches live in their own small database */
   let cdb = null;
@@ -254,6 +254,10 @@
     const has = new Set([...body.querySelectorAll("[data-f]")].map(x => x.dataset.f));
     const chips = (CHIPS[tab] || [["all", "All"]]).filter(([k]) => k === "all" || has.has(k)).concat(STORE.paywall ? [["owned", "Owned"]] : []);
     if (chips.length > 2 || STORE.paywall) bar.insertAdjacentHTML("beforeend", `<div class="ui-chips" role="group" aria-label="Show">${chips.map(([k, l]) => `<button type="button" class="ui-chip" data-ui-f="${k}" aria-pressed="false">${esc(l)}</button>`).join("")}</div>`);
+    bar.insertAdjacentHTML("beforeend", `<div class="ui-shop-q" role="search"><input type="search" id="shopQ" data-noenter placeholder="Search the Style Shop" aria-label="Search the Style Shop" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" maxlength="40" value="${esc(shopQ)}"></div>`);
+    const qi = bar.querySelector("#shopQ");
+    qi.addEventListener("input", () => { shopQ = qi.value; apply(body, tab); });
+    qi.addEventListener("keydown", e => { if (e.key === "Enter") e.preventDefault(); if (e.key === "Escape" && qi.value) { e.preventDefault(); e.stopPropagation(); qi.value = shopQ = ""; apply(body, tab); } });
     if (!chips.some(([k]) => k === S.f[tab])) S.f[tab] = "all";
     sheet.addEventListener("click", e => {
       const chip = e.target.closest("[data-ui-f]");
@@ -305,7 +309,20 @@
   }
   function apply(body, tab){
     releaseAll(body);
+    if (shopQ.trim()) { body.querySelectorAll(".ui-sec").forEach(sec => { if (typeof sec.tpFill === "function") sec.tpFill(); }); try { apply0(body, tab); } finally { lazyGrids(body); bump(body); } return; }
     try { apply0(body, tab); } finally { holdRest(body); }
+  }
+  /* Search: by name, section and theme, and stickers by what they show */
+  const qNorm = t => String(t || "").toLowerCase().replace(/\s+/g, " ").trim();
+  function matchQ(body, tab, q){
+    const hits = new Set(tab === "stickers" ? stkSearch(q).map(k => (STICKERS[k] || {}).pack) : []), words = qNorm(q).split(" ");
+    body.querySelectorAll(".shop-tile, .shop-pack, .ui-col").forEach(t => {
+      if (t.closest(".ui-col-all")) return;
+      const nm = t.querySelector(".shop-name b"), sec = t.closest(".ui-sec"), pack = t.classList.contains("shop-pack") && nm ? STICKER_PACKS.find(p => p.name === nm.textContent) : null;
+      const text = qNorm([nm && nm.textContent, (t.querySelector(".tp-eyebrow") || {}).textContent, t.querySelector(".mini") && t.querySelector(".mini").textContent, sec && sec.querySelector(".ui-sec-t").textContent].join(" "));
+      t.classList.toggle("ui-nomatch", !(words.every(w => text.includes(w)) || (pack && hits.has(pack.id))));
+    });
+    body.querySelectorAll(".ui-sec").forEach(sec => { if (!sec.hidden && !sec.querySelector(".shop-tile:not(.ui-nomatch):not(.ui-gone), .shop-pack:not(.ui-nomatch):not(.ui-gone)")) sec.hidden = true; else if (!sec.hidden) setOpen(sec, true); });
   }
   /* Sections (and Collections cards) below about the first three rows stay display:none */
   const HELD = "ui-held";
@@ -376,10 +393,12 @@
     body.querySelectorAll(".ui-col").forEach(c => { c.hidden = pick && c.dataset.f !== f; });
     body.querySelectorAll(".shop-tile, .shop-pack, .ui-col").forEach(t => t.classList.toggle("ui-gone", f === "owned" && !!t.querySelector(':scope > [data-act="shop-unlock"], :scope > .shop-name [data-act="shop-unlock"], :scope > .ui-col-act [data-act="shop-unlock"]')));
     body.querySelectorAll(".ui-sec").forEach(sec => { if (f === "owned") sec.hidden = !sec.querySelector(".shop-tile:not(.ui-gone), .shop-pack:not(.ui-gone)"); });
+    const q = shopQ.trim();
+    if (q) matchQ(body, tab, q); else body.querySelectorAll(".ui-nomatch").forEach(t => t.classList.remove("ui-nomatch"));
     const none = body.querySelector(".ui-none");
-    const visible = body.querySelector(".ui-sec:not([hidden]), .ui-col:not([hidden]):not(.ui-gone)");
-    if (!visible && !none) body.insertAdjacentHTML("beforeend", `<p class="ui-none">Nothing here yet. Try All.</p>`);
-    else if (visible && none) none.remove();
+    const visible = body.querySelector(".ui-sec:not([hidden]), .ui-col:not([hidden]):not(.ui-gone):not(.ui-nomatch)");
+    if (none) none.remove();
+    if (!visible) body.insertAdjacentHTML("beforeend", `<p class="ui-none">${q ? `Nothing matches “${esc(q.slice(0, 24))}”. Try another word${f !== "all" ? " or All" : ""}.` : "Nothing here yet. Try All."}</p>`);
   }
 
   /* Collections: each theme's stickers, pins and flashcard style together */
