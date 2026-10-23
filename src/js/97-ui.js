@@ -157,6 +157,7 @@
     body.appendChild(wrap);
     const hd = sheet.querySelector(".sheet-head"), h2 = hd && hd.querySelector("h2");
     if (hd && !hd.querySelector(".us-back")) hd.insertAdjacentHTML("afterbegin", `<button type="button" class="icon-btn us-back" aria-label="Back to all settings" title="Back">${BACK_IC}</button>`);
+    if (hd) dragToClose(sheet, hd);
     const q = wrap.querySelector(".us-q"), empty = wrap.querySelector(".us-empty");
     const setHead = () => { if (h2) h2.textContent = phone() && wrap.dataset.view === "cat" && !wrap.classList.contains("searching") ? CAT[wrap.dataset.cat].t : "Settings"; };
     const select = (k, view, keepScroll) => {
@@ -223,6 +224,23 @@
     if (prev) requestAnimationFrame(() => { main.scrollTop = prev.top; });
     // A fresh Settings sheet starts in Search Settings (not on Close); phones skip it so the keyboard doesn't pop up
     else if (window.matchMedia && matchMedia("(min-width:601px)").matches) { try { q.focus({preventScroll: true}); } catch (e) {} }
+  }
+
+  // Phones: pull the sheet down by its top bar to close it
+  function dragToClose(sheet, grip){
+    let y0 = null, dy = 0, id = null;
+    grip.addEventListener("pointerdown", e => {
+      if (!phone() || e.button > 0 || e.target.closest("button, input, a, select")) return;
+      y0 = e.clientY; dy = 0; id = e.pointerId; sheet.style.transition = "none";
+      try { grip.setPointerCapture(id); } catch (err) {}
+    });
+    grip.addEventListener("pointermove", e => { if (y0 == null || e.pointerId !== id) return; dy = Math.max(0, e.clientY - y0); sheet.style.transform = dy ? `translateY(${dy}px)` : ""; });
+    const end = () => {
+      if (y0 == null) return;
+      const far = dy > 90 && dlg.open; y0 = null; dy = 0; sheet.style.transition = "";
+      if (far) { dlg.close(); setTimeout(() => { sheet.style.transform = ""; }, 300); } else sheet.style.transform = "";
+    };
+    grip.addEventListener("pointerup", end); grip.addEventListener("pointercancel", end);
   }
 
   // Show one settings row (for other modules and tests)
