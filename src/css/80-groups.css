@@ -81,7 +81,8 @@ nav.tabs .in .nav-groups{display:none}
 .grp-tabs button.on{color:var(--ink);border-bottom-color:var(--accent)}
 .grp-pane[hidden]{display:none}
 .grp-more{position:relative;display:inline-block}
-.pf-grid .pf-c{min-height:26px;border:0;border-radius:7px;background:color-mix(in srgb,var(--accent) 10%,var(--surface));cursor:pointer;padding:0}
+.pf-grid .pf-c{min-height:34px;border:0;border-radius:7px;background:color-mix(in srgb,var(--accent) 10%,var(--surface));cursor:pointer;padding:0;touch-action:none}
+@media (max-width:600px){.pf-grid .pf-c{min-height:40px}}
 .pf-grid .pf-c[aria-pressed="true"]{background:var(--accent)}
 .pf-grid .pf-c:disabled{opacity:.35;cursor:default}
 .pf-grid .pf-c:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
@@ -142,6 +143,9 @@ button.grp-item-main{cursor:pointer;min-height:44px}
 .grp-post{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;margin-bottom:10px}
 .grp-post textarea{min-height:48px;resize:vertical;width:100%;box-sizing:border-box}
 .grp-post .btn{min-height:44px}
+.grp-post-hint{grid-column:1/-1;margin-top:-4px;color:var(--muted)}
+@media (hover:none) and (pointer:coarse){.grp-post-hint{display:none}}
+.grp-oncal{color:var(--leaf);font-weight:600}
 .grp-msgs{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .grp-msgs > .status-msg,.grp-msgs > .grp-none{list-style:none}
 .grp-msg{display:flex;gap:10px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 6px 10px 12px}
@@ -428,6 +432,10 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;overflow:au
 .mc-sw:disabled{opacity:.45;cursor:not-allowed}
 .kb-free{width:14px;height:14px;border-radius:50%;border:1.5px dashed rgba(255,255,255,.85);flex:none}
 .kb-card .pt-title{padding-top:8px}
+.kb-main{display:flex;align-items:flex-start;gap:2px;margin-left:-10px;min-width:0}
+.kb-main .pt-title{flex:1;min-width:0}
+.kb-main .pt-check{width:40px;height:40px;margin-top:2px}
+.kb-claim{justify-self:start;min-height:40px;margin:2px 0 6px}
 .kb-card .pt-meta:empty{display:none}
 .kb-col.k-done .kb-band{opacity:.6}
 .kb-card.is-saving{opacity:.65}

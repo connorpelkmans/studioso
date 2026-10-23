@@ -21,6 +21,9 @@ function fabConfig(){
 function refreshFab(){
   const fab = $("#fab"), cfg = fabConfig(); if (!fab) return;
   fab.style.display = cfg ? "" : "none";
+  const icon = !!cfg && cfg.act === "new-task" && !!$("#view .qa-bar");
+  fab.classList.toggle("fab-icon", icon);
+  if (icon) fab.title = cfg.label; else fab.removeAttribute("title");
   if (cfg) { fab.dataset.act = cfg.act; if (cfg.id) fab.dataset.id = cfg.id; else delete fab.dataset.id; const sp = fab.querySelector("span"); if (sp && sp.textContent !== cfg.label) sp.textContent = cfg.label; }
 }
 // The app tour's example planner (49-apptour.js)
@@ -47,6 +50,7 @@ function renderNow(){
   const nt = $("#noteText"), ntVal = nt ? nt.value : null, ntFocus = nt && document.activeElement === nt, ntSel = nt ? [nt.selectionStart, nt.selectionEnd] : null;
   const nbs = $("#nbScroll"), nbPos = nbs ? [nbs.scrollLeft, nbs.scrollTop] : null;
   const bds = $$(".board").map(b => b.scrollLeft);
+  const fk = focusKeep(v);
   v.innerHTML = (isPlanTab(ui.tab) ? planSwitchHtml() : isCfTab(ui.tab) && !(ui.tab === "courses" && ui.courseId) ? cfSwitchHtml() : "") + (VIEWS[ui.tab] ? VIEWS[ui.tab]() : ui.tab === "archive" ? viewArchive() : ui.tab === "schedule" ? viewSchedule() : ui.tab === "timeline" ? viewTimeline() : ui.tab === "courses" ? viewCourses() : ui.tab === "files" ? viewFiles() : ui.tab === "notes" ? viewNotes() : ui.tab === "flashcards" ? viewFlashcards() : viewBoard());
   refreshFab();
   document.body.dataset.view = ui.tab;
@@ -71,13 +75,43 @@ function renderNow(){
   if (AUTO_ON) autoKick();
   if (ui.tab === "notes") fitNoteBoard();
   fire("render", ui.tab);
+  focusBack(v, fk);
   if (Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y);
+}
+// Keyboard focus survives a redraw: the same control, or the nearest one after it, or the page itself
+const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),summary,[tabindex]:not([tabindex="-1"])';
+function focusSel(el){
+  const d = el.dataset || {};
+  if (el.id) return "#" + CSS.escape(el.id);
+  if (d.act) return `[data-act="${CSS.escape(d.act)}"]` + (d.id ? `[data-id="${CSS.escape(d.id)}"]` : "");
+  if (d.tab) return `[data-tab="${CSS.escape(d.tab)}"]`;
+  if (d.note) return `[data-note="${CSS.escape(d.note)}"]`;
+  if (el.name) return `${el.tagName.toLowerCase()}[name="${CSS.escape(el.name)}"]`;
+  return null;
+}
+function focusKeep(v){
+  const a = document.activeElement;
+  if (!a || a === v || !v.contains(a)) return null;
+  const all = [...v.querySelectorAll(FOCUSABLE)], i = all.indexOf(a), own = focusSel(a);
+  const near = all.slice(i + 1, i + 8).concat(all.slice(Math.max(0, i - 6), Math.max(0, i)).reverse()).map(focusSel).filter(Boolean);
+  return {own, nth: own ? [...v.querySelectorAll(own)].indexOf(a) : 0, near, value: a.value, sel: "selectionStart" in a ? (() => { try { return [a.selectionStart, a.selectionEnd]; } catch (e) { return null; } })() : null};
+}
+function focusBack(v, k){
+  if (!k) return;
+  const a = document.activeElement;
+  if (a && a !== document.body && a !== v && a.isConnected) return;
+  const shown = el => el && el.getClientRects().length > 0 && !el.disabled;
+  let t = null;
+  if (k.own) { const m = [...v.querySelectorAll(k.own)]; t = shown(m[k.nth]) ? m[k.nth] : m.find(shown) || null; }
+  for (let i = 0; !t && i < k.near.length; i++) t = [...v.querySelectorAll(k.near[i])].find(shown) || null;
+  try { (t || v).focus({preventScroll: true}); } catch (e) {}
+  if (t && k.sel && t.value === k.value) { try { t.setSelectionRange(k.sel[0], k.sel[1]); } catch (e) {} }
 }
 // Size the note board to its notes
 function fitNoteBoard(){
   const board = $("#nbBoard"); if (!board || (drag && drag.kind === "note" && drag.started)) return;
   let w = 0, h = 0;
-  board.querySelectorAll(".note").forEach(n => { w = Math.max(w, n.offsetLeft + n.offsetWidth); h = Math.max(h, n.offsetTop + n.offsetHeight); });
+  board.querySelectorAll(".note:not(.n-sheet)").forEach(n => { w = Math.max(w, n.offsetLeft + n.offsetWidth); h = Math.max(h, n.offsetTop + n.offsetHeight); });
   board.style.width = w ? (w + 28) + "px" : "";
   board.style.height = h ? (h + 28) + "px" : "";
   nbZoomApply();
@@ -181,7 +215,14 @@ function drawDeps(){
 }
 /* Dialogs */
 const dlg = $("#dlg");
+// A sheet with unsaved changes asks before it closes
+let dlgGuard = null;
+function dlgClose(){
+  if (!(dlgGuard && dlgGuard())) { dlg.close(); return; }
+  askBox({title: "Discard Changes?", text: "Your changes to this task aren't saved yet.", yes: "Discard", no: "Keep Editing", danger: true}).then(ok => { if (ok && dlg.open) { dlgGuard = null; dlg.close(); } });
+}
 function openSheet(html, onSubmit){
+  dlgGuard = null;
   const tt = $("#toast"), inSheet = !!tt && tt.parentNode === dlg;
   if (inSheet) document.body.appendChild(tt);
   dlg.innerHTML = html;
@@ -207,8 +248,12 @@ function openSheet(html, onSubmit){
   const first = dlg.querySelector("[autofocus]");
   if (first && window.matchMedia("(min-width:601px)").matches) first.focus();
 }
-dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); });
-$("#pomoDlg").addEventListener("click", e => { if (e.target.id === "pomoDlg") e.target.close(); });
+// A backdrop tap closes a sheet only when it both started and ended on the backdrop (not a text selection dragged out)
+const backdropClose = (d, close) => { let down = false; d.addEventListener("pointerdown", e => { down = e.target === d; }); d.addEventListener("click", e => { const was = down; down = false; if (e.target === d && was) close(); }); };
+backdropClose(dlg, () => dlgClose()); backdropClose($("#pomoDlg"), () => $("#pomoDlg").close());
+dlg.addEventListener("keydown", e => { if (e.key === "Escape" && !e.defaultPrevented && dlgGuard && dlgGuard()) { e.preventDefault(); dlgClose(); } });
+dlg.addEventListener("cancel", e => { if (dlgGuard && dlgGuard()) { e.preventDefault(); dlgClose(); } });
+dlg.addEventListener("close", () => { dlgGuard = null; });
 const FAB_IC = {
   course: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M9 8h6"/>',
   syllabus: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h4"/>',
@@ -219,7 +264,8 @@ const FAB_IC = {
   deck: '<rect x="3" y="7" width="14" height="13" rx="2"/><path d="M7 4h12a2 2 0 0 1 2 2v11"/>',
   group: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0M16 5.5a3 3 0 0 1 0 5.8M18 20a5.5 5.5 0 0 0-3-5"/>',
   project: '<rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v3M16 3v3M8 14h3"/>',
-  code: '<rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 12h.01M11 12h.01M15 12h2"/>'
+  code: '<rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 12h.01M11 12h.01M15 12h2"/>',
+  school: '<path d="M3 9.5 12 5l9 4.5-9 4.5z"/><path d="M7 11.5V16c0 1.2 2.2 2.5 5 2.5s5-1.3 5-2.5v-4.5M21 9.5V15"/>'
 };
 // A pop-up of big, friendly choices
 const fabMenu = (title, items) => { openSheet(`<div class="sheet fab-menu">${head(title)}<div class="sheet-body"><div class="menu-list fm-list">${items.map(([act, label, sub, ic, ai]) => `<button data-act="${act}"${ai ? ' class="ai-row"' : ""}><i class="fm-ic" aria-hidden="true">${ai ? AI_ICON : `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${FAB_IC[ic] || ""}</svg>`}</i><span class="fm-t"><b>${esc(label)}</b><span class="sub">${esc(sub)}</span></span><svg class="fm-go" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>`).join("")}</div></div></div>`);
@@ -256,24 +302,30 @@ function taskForm(t, preset = {}){
   let attached = new Set(filesOfTask(t.id).map(f => f.id));
   let noteSet = new Set(notesOfTask(t.id).map(n => n.id)), newNotes = [];
   let planAfter = false;
+  const canRepeat = isNew || !(t.seriesId || lmsOf(t) || t.prepFor || t.breakdownOf || t.breakdownParent || t.gt);
   const dependsOnSelf = (id, seen = new Set()) => { if (id === t.id) return true; if (seen.has(id)) return false; seen.add(id); return ((state.tasks[id] || {}).dependsOn || []).some(x => dependsOnSelf(x, seen)); };
   const courseOpts = `<option value="">No course</option>` + coursesArr().map(c => `<option value="${esc(c.id)}" ${c.id === t.courseId ? "selected" : ""}>${esc(c.name)}</option>`).join("");
   openSheet(`<form class="sheet">${bandHead(isNew ? "New Task" : "Edit Task", SH_IC.pencil, t.courseId ? colorOf(t.courseId) : "#2F6FE4", "", isNew ? "" : esc(t.title))}
     <div class="sheet-body">${REQ_NOTE}${window.SBBREAK ? SBBREAK.formHtml(isNew ? null : t, isNew) : ""}${!isNew && window.SBLINKED ? SBLINKED.taskHtml(t) : ""}
+      <label class="f"><span class="lh">Title ${REQ}</span><input type="text" name="title" required maxlength="200" value="${esc(t.title)}" autofocus></label>
       <div class="two">
         <label class="f">Type<select name="type" id="tfType">${(window.SBAREA ? SBAREA.types() : TYPES).map(x => `<option ${x === t.type ? "selected" : ""}>${x}</option>`).join("")}</select></label>
         <label class="f">Course<select name="courseId">${courseOpts}</select></label>
       </div>
-      <label class="f"><span class="lh">Title ${REQ}</span><input type="text" name="title" required maxlength="200" value="${esc(t.title)}" autofocus></label>
       <label class="f" data-fld="reading"><span class="lbl">What to Read</span><input type="text" name="reading" maxlength="200" value="${esc(t.reading)}" placeholder="e.g. Ch. 4, pp. 101–130"></label>
       <div class="two">
-        <label class="f" data-fld="start"><span class="lbl">Start Date</span><input type="date" name="start" value="${esc(isNew ? t.start : (t.start || startOf(t) || ""))}"></label>
         <label class="f"><span><span class="lbl" id="dueLbl">Due Date</span> <span class="req" id="dueReq" aria-hidden="true" hidden>*</span></span><input type="date" name="due" value="${esc(t.due)}"></label>
+        <label class="f" data-fld="time"><span class="lbl">Due Time</span><input type="time" name="time" value="${esc(t.time)}"></label>
       </div>
-      <fieldset><legend>Status</legend><div id="statusSeg">${seg("status", STATUSES.map(x => [x[0], statusLabels(t.type)[x[0]]]), t.status)}</div></fieldset>
+      <div class="two">
+        <label class="f" data-fld="start"><span class="lbl">Start Date</span><input type="date" name="start" value="${esc(isNew ? t.start : (t.start || startOf(t) || ""))}"></label>
+        ${canRepeat ? `<label class="f" id="repeatWrap">Repeat<select name="repeat"><option value="">Doesn't repeat</option><option value="1">Every day</option><option value="7">Every week</option><option value="14">Every 2 weeks</option><option value="m">Every month</option></select></label>` : ""}
+      </div>
+      ${canRepeat ? `<label class="f" id="untilWrap" hidden><span class="lh">Repeat Until <span class="hint" id="untilHint"></span></span><input type="date" name="until"></label>` : ""}
+      <fieldset id="statusFs" ${isNew ? "hidden" : ""}><legend>Status</legend><div id="statusSeg">${seg("status", STATUSES.map(x => [x[0], statusLabels(t.type)[x[0]]]), t.status)}</div></fieldset>
       <fieldset data-fld="remote" id="rxFs" ${MILESTONE(t.type) ? "" : "hidden"}><legend>Where is this taken?</legend>${seg("remote", [["yes", "From home"], ["no", "In person"], ["", "Not sure"]], rxInit)}<p class="mini rx-note" id="rxNote" aria-live="polite"></p></fieldset>
       <fieldset><legend id="prioLbl">Priority</legend>${seg("priority", [["low","Low"],["med","Medium"],["high","High"],["urgent","Urgent"]], t.priority)}</fieldset>
-      <label class="f" id="pctWrap"><span><span class="lbl" id="pctLbl">Progress</span> <span class="hint" id="pctOut">${t.pct}%</span></span><input type="range" name="pct" min="0" max="100" step="10" value="${t.pct}"><span class="mini" id="pctHint"></span></label>
+      <label class="f" id="pctWrap" ${isNew ? "hidden" : ""}><span><span class="lbl" id="pctLbl">Progress</span> <span class="hint" id="pctOut">${t.pct}%</span></span><input type="range" name="pct" min="0" max="100" step="10" value="${t.pct}"><span class="mini" id="pctHint"></span></label>
       <p class="mini" id="pctFromCl" hidden style="margin:0"></p>
       ${!isNew && window.SBPREP ? SBPREP.formHtml(t) : ""}
       <label class="f"><span class="lbl" id="notesLbl">Notes</span><textarea name="notes" maxlength="5000">${esc(t.notes)}</textarea></label>
@@ -283,7 +335,6 @@ function taskForm(t, preset = {}){
         <summary><span class="adv-title">Advanced Settings</span><span class="adv-sum" id="advSum"></span></summary>
         <div class="adv-body">
           <div class="two">
-            <label class="f" data-fld="time"><span class="lbl">Due Time</span><input type="time" name="time" value="${esc(t.time)}"></label>
             <label class="f" data-fld="hours"><span class="lh"><span class="lbl">Hours Needed</span>${inPreview() ? "" : `<button type="button" class="link-btn est-btn" id="tfEst" data-act="tf-est">${aiReady() ? AI_ICON + " " : ""}Estimate</button>`}</span><input type="number" name="hours" min="0" step="0.25" inputmode="decimal" value="${isNum(t.hours) ? esc(t.hours) : ""}" placeholder="e.g. 3"></label>
           </div>
           <p class="mini est-hint" id="estHint" hidden aria-live="polite"></p>
@@ -308,11 +359,7 @@ function taskForm(t, preset = {}){
           <fieldset><legend>Sticky Notes</legend><div class="tf-notes" id="tfNotes"></div>
             <div class="cl-new"><input type="text" id="tfNoteNew" placeholder="Write a new sticky note" maxlength="2000" data-noenter aria-label="New sticky note"><button type="button" class="btn small" id="tfNoteAddBtn">Add</button></div>
             <select id="tfNoteAttach" aria-label="Attach an existing sticky note"></select></fieldset>
-          ${isNew ? `<div class="two" id="repeatRow">
-            <label class="f">Repeat<select name="repeat"><option value="">Doesn't repeat</option><option value="7">Every week</option><option value="14">Every 2 weeks</option></select></label>
-            <label class="f">Until<input type="date" name="until"></label>
-          </div>` : ""}
-          ${!isNew && t.pomos ? `<p class="mini" style="margin:0">${TOMATO} ${t.pomos} focus session${t.pomos === 1 ? "" : "s"}, ${fmtHM((t.focusMin || 0) / 60)} focused on this task.</p>` : ""}
+          ${!isNew && t.pomos ? `<p class="mini" style="margin:0">${TOMATO} ${t.pomos} focus session${t.pomos === 1 ? "" : "s"}, ${fmtMins(t.focusMin)} focused on this task.</p>` : ""}
         </div>
       </details>
       ${!isNew && t.due ? `<div class="link-row"><a href="${esc(gcalLink(t))}" target="_blank" rel="noopener noreferrer">Add to Google Calendar</a></div>` : ""}
@@ -356,23 +403,14 @@ function taskForm(t, preset = {}){
       return {kind:"file", id: f.id, after: n};
     }));
     if (data.start && data.due && data.start > data.due) data.start = data.due;
+    const every = canRepeat && type !== "Exam" ? String(fd.get("repeat") || "") : "", untilIn = fd.get("until") || "";
+    if (every && !data.due) { toast("Set a due date to repeat this task"); return false; }
+    if (every && untilIn && untilIn < data.due) { toast("Pick a Repeat Until date after the due date"); return false; }
+    const until = every ? untilIn || repeatEnd(data.due, data.courseId) : "";
     if (isNew) {
-      const every = Number(fd.get("repeat") || 0), until = fd.get("until") || "";
-      if (every) {
-        if (!data.due) { toast("Set a due date to repeat this task"); return false; }
-        if (!until || until < data.due) { toast("Pick an end date for the repeats"); return false; }
-      }
       const base = newTask(Object.assign({}, data, {id: t.id, doneAt: data.status === "done" ? Date.now() : null}));
-      const changes = [{kind:"task", id: base.id, after: base}];
-      if (every) {
-        base.seriesId = uid();
-        const off = dayDiff(base.start, base.due);
-        for (let d = addDays(base.due, every), n = 1; d <= until && n < 60; d = addDays(d, every), n++) {
-          const copy = Object.assign(clone(base), {id: uid(), due: d, start: addDays(d, -off), status: "todo", doneAt: null, order: base.order + n,
-            checklist: base.checklist.map(i => ({id: uid(), text: i.text, done: false}))});
-          changes.push({kind:"task", id: copy.id, after: copy});
-        }
-      }
+      if (every) base.seriesId = uid();
+      const changes = [{kind:"task", id: base.id, after: base}].concat(every ? repeatCopies(base, every, until) : []);
       applyChanges(changes.concat(fileChanges), changes.length > 1 ? `Added ${changes.length} tasks` : "Task added");
       if (planAfter && MILESTONE(base.type) && base.due) setTimeout(() => { if (window.SBPREP) SBPREP.open(base.id); }, 80);
       else if (MILESTONE(base.type) && base.due && base.due >= todayISO() && base.status !== "done") setTimeout(() => { if (!dlg.open) remoteAsk(base.id); }, 80);
@@ -382,18 +420,19 @@ function taskForm(t, preset = {}){
       if (data.status === "done" && x.status !== "done") next.doneAt = Date.now();
       if (data.status !== "done") next.doneAt = null;
       if (data.status !== x.status) next.order = nextOrder(data.status);
-      const inv = applyChanges([{kind:"task", id: t.id, after: next}].concat(fileChanges), "");
+      if (every) next.seriesId = uid();
+      const copies = every ? repeatCopies(next, every, until) : [];
       const moved = next.due !== x.due || startOf(next) !== startOf(x);
-      toast("Task saved", () => { applyChanges(inv, null); toast("Undone"); }, moved ? shiftOffer(t.id) : null);
+      applyChanges([{kind:"task", id: t.id, after: next}].concat(copies, fileChanges), copies.length ? `Task saved, repeating ${copies.length} more time${copies.length === 1 ? "" : "s"}` : "Task saved", () => moved ? shiftOffer(t.id) : null);
     }
   });
   const list = $("#clList");
+  let drawRepeat = () => {};
   const curType = () => $("#tfType").value;
   const advSummary = () => {
     const f = dlg.querySelector("form"); if (!f) return;
     const v = n => (f.elements[n] && !f.elements[n].closest("[hidden]")) ? String(f.elements[n].value || "").trim() : "";
     const bits = [];
-    if (v("time")) bits.push("due " + fmtTime(v("time")));
     if (v("hours")) bits.push(v("hours") + "h");
     if (v("location")) bits.push(v("location"));
     if (v("team")) bits.push("team");
@@ -404,12 +443,11 @@ function taskForm(t, preset = {}){
     if (items.length) bits.push(`checklist ${items.filter(i => i.done).length}/${items.length}`);
     if (deps.length) bits.push(`${deps.length} dependenc${deps.length === 1 ? "y" : "ies"}`);
     if (attached.size) bits.push(`${attached.size} file${attached.size === 1 ? "" : "s"}`);
-    const rp = f.elements.repeat && f.elements.repeat.value; if (rp) bits.push(rp === "7" ? "weekly" : "every 2 weeks");
-    $("#advSum").textContent = bits.length ? bits.join(", ") : "Due time, hours, checklist, files and more";
+    $("#advSum").textContent = bits.length ? bits.join(", ") : "Hours, checklist, files and more";
   };
   const drawCl = () => {
-    const pw = $("#pctWrap"); if (pw) pw.hidden = items.length > 0 && !MILESTONE(curType());
-    const pc = $("#pctFromCl"); if (pc) { pc.hidden = !(items.length > 0 && !MILESTONE(curType())); pc.textContent = `Progress comes from the checklist in Advanced Settings: ${items.filter(i => i.done).length} of ${items.length} done.`; }
+    const pw = $("#pctWrap"); if (pw) pw.hidden = isNew || (items.length > 0 && !MILESTONE(curType()));
+    const pc = $("#pctFromCl"); if (pc) { pc.hidden = isNew || !(items.length > 0 && !MILESTONE(curType())); pc.textContent = `Progress comes from the checklist in Advanced Settings: ${items.filter(i => i.done).length} of ${items.length} done.`; }
     if (typeof advSummary === "function" && $("#advSum")) advSummary();
     list.innerHTML = items.map((i, n) => `<li class="${i.done ? "done" : ""}"><input type="checkbox" data-i="${n}" ${i.done ? "checked" : ""} aria-label="Done"><input type="text" data-i="${n}" value="${esc(i.text)}" data-noenter aria-label="Step ${n + 1}"><button type="button" class="x-btn" data-rm="${n}" aria-label="Remove step">${CLOSE}</button></li>`).join("");
   };
@@ -458,12 +496,28 @@ function taskForm(t, preset = {}){
     $("#prioLbl").textContent = MILESTONE(type) ? "Importance" : "Priority";
     const cur = (dlg.querySelector("input[name=status]:checked") || {}).value || t.status;
     $("#statusSeg").innerHTML = seg("status", STATUSES.map(x => [x[0], statusLabels(type)[x[0]]]), cur);
+    const rr = $("#repeatWrap"); if (rr) rr.hidden = type === "Exam";
     $$(".two", dlg).forEach(row => { row.hidden = [...row.children].every(c => c.hidden); });
-    const rr = $("#repeatRow"); if (rr) rr.hidden = type === "Exam";
+    drawRepeat();
     const dueIn = dlg.querySelector("input[name=due]"); dueIn.required = !!cfg.single; $("#dueReq").hidden = !cfg.single;
     pctHint(); drawCl(); if (typeof planHint === "function") planHint(); advSummary();
   };
   $("#tfType").addEventListener("change", applyType);
+  {
+    const rs = dlg.querySelector("select[name=repeat]"), un = dlg.querySelector("input[name=until]"), dueIn = dlg.querySelector("input[name=due]"), cSel = dlg.querySelector("select[name=courseId]");
+    if (rs) {
+      let touched = false;
+      drawRepeat = () => {
+        const on = !!rs.value && !$("#repeatWrap").hidden, end = dueIn.value ? repeatEnd(dueIn.value, cSel.value) : "";
+        $("#untilWrap").hidden = !on;
+        if (!touched) un.value = on ? end : "";
+        const n = on && dueIn.value ? repeatDates(dueIn.value, rs.value, un.value || end).length : 0;
+        $("#untilHint").textContent = !on ? "" : !dueIn.value ? "Set a due date first" : `${n} more after this one${touched ? "" : ", to the end of term"}`;
+      };
+      un.addEventListener("input", () => { touched = !!un.value; drawRepeat(); });
+      [rs, dueIn, cSel].forEach(x => x.addEventListener("change", drawRepeat));
+    }
+  }
   { const ppB = $("#tfPlanPrep"); if (ppB) { const sync = () => { ppB.hidden = !MILESTONE(curType()); }; $("#tfType").addEventListener("change", sync); sync(); ppB.addEventListener("click", () => { planAfter = true; try { dlg.querySelector("[data-submit]").click(); } finally { planAfter = false; } }); } }
   const drawRx = () => {
     const n = $("#rxNote"); if (!n) return;
@@ -541,6 +595,37 @@ function taskForm(t, preset = {}){
   $("#clAdd").addEventListener("click", add);
   $("#clNew").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); add(); } });
   applyType();
+  const snap = () => { const f = dlg.querySelector("form"); return f ? JSON.stringify([[...new FormData(f)].filter(([k]) => k !== "until"), items, deps, [...attached], [...noteSet], newNotes, $("#clNew").value, $("#tfNoteNew").value]) : ""; };
+  let start = null;
+  ["focusin", "pointerdown", "keydown"].forEach(ev => tForm.addEventListener(ev, () => { if (start === null) start = snap(); }, true));
+  dlgGuard = () => start !== null && snap() !== start;
+}
+// Repeats run until the course's last deadline, or the end of the usual term
+function repeatEnd(due, cid){
+  const last = cid ? allTasks().filter(x => x.courseId === cid && x.due && !x.seriesId).reduce((m, x) => x.due > m ? x.due : m, "") : "";
+  if (last && dayDiff(due, last) >= 14) return last;
+  const d = parse(due), y = d.getFullYear(), m = d.getMonth(), end = m >= 7 ? `${y}-12-15` : m >= 4 ? `${y}-08-15` : `${y}-05-15`;
+  return dayDiff(due, end) >= 14 ? end : addDays(due, 84);
+}
+function repeatDue(due, every, n){
+  if (every !== "m") return addDays(due, Number(every) * n);
+  const d = parse(due), x = new Date(d.getFullYear(), d.getMonth() + n, 1);
+  x.setDate(Math.min(d.getDate(), new Date(x.getFullYear(), x.getMonth() + 1, 0).getDate()));
+  return iso(x);
+}
+function repeatDates(due, every, until){
+  const out = [];
+  for (let n = 1; n <= 120; n++) { const d = repeatDue(due, every, n); if (d > until) break; out.push(d); }
+  return out;
+}
+function repeatCopies(base, every, until){
+  const off = dayDiff(base.start || base.due, base.due);
+  return repeatDates(base.due, every, until).map((d, i) => {
+    const keep = {}; ["title", "courseId", "type", "time", "priority", "notes", "hours", "weight", "difficulty", "late", "location", "team", "reading", "link", "seriesId"].forEach(k => { if (base[k] !== undefined) keep[k] = clone(base[k]); });
+    const x = newTask(Object.assign(keep, {due: d, start: addDays(d, -off), status: "todo", checklist: (base.checklist || []).map(i => ({id: uid(), text: i.text, done: false}))}));
+    x.order += i + 1;
+    return {kind: "task", id: x.id, after: x};
+  });
 }
 
 function deleteTask(id){
@@ -659,7 +744,7 @@ function confirmSheet(title, text, label, onYes){
 
 function accountRows(){
   if (inPreview()) return "";
-  if (!sbConfig()) return SB_HOSTED ? `<button data-act="sb-signin"><span>Sign In or Create Account<span class="sub">A free Studyboard account keeps your data and files in sync on all your devices</span></span></button>`
+  if (!sbConfig()) return SB_HOSTED ? `<button data-act="sb-signin"><span>Sign In or Create Account<span class="sub">${window.SBGUEST && SBGUEST.is() ? "Your planner is only on this device. A free account keeps it safe and on all your devices, and everything here comes with you." : "A free Studyboard account keeps your data and files in sync on all your devices"}</span></span></button>`
     : `<button data-act="sb-connect"><span>Sync Across Devices<span class="sub">Save your data and files online and use them on all your devices</span></span></button>`;
   return (sbUser
     ? `<div class="cap-row"><span style="flex:1;font-weight:600">Studyboard Account<span class="sub">Signed in as ${esc(sbUser.email || "")}${cloud.on ? "" : ", reconnecting…"}</span></span><button class="btn small" data-act="sb-signout">Sign Out</button></div>${sbDiagHtml()}`
@@ -689,9 +774,9 @@ function menuSheet(){
       <button data-act="export-data"><span>Export My Data<span class="sub">Tasks, notes, grades and flashcards as a ZIP of spreadsheet files and one JSON file</span></span></button>
       <button data-act="cal-export"><span>Add Deadlines to Your Calendar<span class="sub">Download a calendar file with reminders</span></span></button>
       ${Object.values(state.files).some(f => f.kind === "file") ? `<button data-act="export-full"><span>Export Backup with Files<span class="sub">One file with your data and every uploaded file. Use it to move to another version of Studyboard.</span></span></button>` : ""}
-      <button data-act="backup-now"><span>Back Up Now<span class="sub">A backup is also saved on this device each day</span></span></button>
+      <button data-act="export"><span>Export a Backup File<span class="sub">Download a file you can keep anywhere, like Google Drive or a USB drive</span></span></button>
+      <button data-act="backup-now"><span>Save a Copy on This Device<span class="sub">Kept in this browser, which also saves a copy each day. It won't survive clearing the browser.</span></span></button>
       <button data-act="restore"><span>Restore a Backup</span></button>
-      <button data-act="export"><span>Export a Backup File</span></button>
       <button data-act="import"><span>Import from a Backup File</span></button>
       <button data-act="ia-open"><span>Import From Another App<span class="sub">Anki, Quizlet, Todoist or Notion. Read on this device, nothing is uploaded.</span></span></button>
       <button data-act="clear-all" style="color:var(--late)"><span>Clear All Data</span></button>
@@ -716,7 +801,7 @@ async function restoreSheet(){
   try { list = await listBackups(); } catch(e) {}
   if (!dlg.open) return;
   const body = dlg.querySelector(".sheet-body");
-  if (!list.length) { body.innerHTML = `<p class="status-msg">No backups yet. One is saved on this device each day you use Studyboard, or choose Back Up Now in Settings.</p>`; return; }
+  if (!list.length) { body.innerHTML = `<p class="status-msg">No backups yet. One is saved on this device each day you use Studyboard, or choose Save a Copy on This Device in Settings.</p>`; return; }
   body.innerHTML = `<p class="status-msg" style="margin:0">Restoring replaces everything with the backup. You can undo right after.</p><div class="backup-list">${list.map((b, i) => `<button data-i="${i}"><span>${esc(new Date(b.at).toLocaleString(undefined, {weekday:"short", month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}))}</span><small>${b.where === "cloud" ? "Online · " : b.where === "device" ? "This device · " : b.where === "drive" ? esc(b.label || "Cloud") + " · " : ""}${(b.courses || []).length} course${(b.courses || []).length === 1 ? "" : "s"}, ${(b.tasks || []).length} task${(b.tasks || []).length === 1 ? "" : "s"}</small></button>`).join("")}</div>`;
   body.querySelectorAll("[data-i]").forEach(btn => btn.addEventListener("click", () => {
     const b = list[Number(btn.dataset.i)];

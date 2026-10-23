@@ -3,7 +3,24 @@
 const cloud = {on:false, base:null, tasks:null, courses:null, files:null, notes:null, decks:null, events:null, trash:null, backups:null};
 const KIND_MAP = {task:"tasks", course:"courses", file:"files", note:"notes", deck:"decks", event:"events", trash:"trash"};
 const queue = new Map(), intended = new Map();
-let syncError = false;
+let syncError = false, syncRetryT = 0, syncRetryN = 0;
+// Saves that ran out of quick retries where there's no offline outbox (key -> {ref, data}); they're sent again later
+const syncLater = new Map();
+function syncRetryRun(){
+  syncLater.forEach((j, key) => { syncLater.delete(key); if (queue.has(key)) return; const e = {running: false, next: {data: j.data}, ref: j.ref}; queue.set(key, e); intended.set(key, j.data); runQueue(key, e); });
+  flushOutbox();
+}
+// After a failed save, the waiting changes are tried again on their own, less often each time (15 s up to 5 min)
+function syncRetryLater(){
+  if (syncRetryT || !cloud.on) return;
+  syncRetryT = setTimeout(() => { syncRetryT = 0; syncRetryRun(); }, Math.min(300000, (window.__SB_RETRY_LATER_MS || 15000) * Math.pow(2, syncRetryN++)));
+}
+function syncRetryNow(){
+  clearTimeout(syncRetryT); syncRetryT = 0; syncRetryN = 0;
+  if (cloud.on) { syncRetryRun(); return true; }
+  if (typeof sbUser !== "undefined" && sbUser) { sbRetryNow(); return true; }
+  return false;
+}
 function refFor(kind, id){
   if (kind === "meta") return cloud.base;
   return cloud[KIND_MAP[kind]].doc(id);
@@ -18,10 +35,16 @@ function syncLabel(){
   }
   else if (!cloud.on) el.textContent = "Saved on this device";
   else if (queue.size) el.textContent = "Saving…";
-  else if (syncError) el.textContent = "Not saved, retrying";
+  else if (syncError) el.textContent = syncRetryT || flushing || syncLater.size && queue.size ? "Not saved, retrying" : "Not saved";
   else el.textContent = "Saved";
-  const side = $("#syncSide");
-  if (side) { const t = el.textContent; side.textContent = t === "Saved on this device" ? "On this device" : t; side.dataset.state = /^(Saved|Saved on this device)$/.test(t) ? "ok" : /Saving|Connecting/.test(t) ? "busy" : "warn"; side.title = t; }
+  const side = $("#syncSide"), t = el.textContent, warn = !/^(Saved|Saved on this device)$/.test(t) && !/Saving|Connecting/.test(t);
+  el.setAttribute("aria-label", warn ? t + ". Sync details" : t);
+  if (side) {
+    side.textContent = t === "Saved on this device" ? "On this device" : t; side.dataset.state = warn ? "warn" : /Saving|Connecting/.test(t) ? "busy" : "ok";
+    // a problem can be tapped for details and Try Again
+    if (warn) { side.removeAttribute("aria-hidden"); side.setAttribute("role", "button"); side.tabIndex = 0; side.dataset.act = "sync-status"; side.setAttribute("aria-label", t + ". Sync details"); }
+    else { side.setAttribute("aria-hidden", "true"); side.removeAttribute("role"); side.removeAttribute("tabindex"); delete side.dataset.act; side.removeAttribute("aria-label"); }
+  }
 }
 function queueWrite(kind, id, data){
   if (demoDrawing) return;
@@ -30,6 +53,7 @@ function queueWrite(kind, id, data){
   if (!cloud.on) return;
   if (kind === "trash" && !cloud.trash) return;
   const key = kind + ":" + id;
+  syncLater.delete(key);
   intended.set(key, data === null ? null : clone(data));
   let e = queue.get(key);
   if (!e) { e = {running:false, next:null}; queue.set(key, e); }
@@ -46,7 +70,7 @@ async function runQueue(key, e){
     const job = e.next; e.next = null;
     try {
       const res = job.data === null ? await e.ref.delete() : await e.ref.set(job.data);
-      tries = 0; syncError = false;
+      tries = 0; syncLater.delete(key); syncError = syncLater.size > 0;
       outboxDone(key, job.data);
       if (res && res.merge) syncAdopt(key, job.data, res);
       if (window.SBERR) SBERR.crumb("sync", "ok");
@@ -58,14 +82,20 @@ async function runQueue(key, e){
         if (!e.next) e.next = job;
       } else {
         syncError = true; console.warn("Save failed", code, err && err.message);
+        // tried again later from the offline outbox (which merges with what the server has now); where there is no outbox, a save that
+        // failed only because the server was out of reach is sent again as it was
+        if (code !== "quota_exceeded" && code !== "quota_or_state" && code !== "schema") {
+          if ((inPreview() || !sbConfig()) && (code === "unavailable" || code === "resource_exhausted")) syncLater.set(key, {ref: e.ref, data: job.data});
+          syncRetryLater();
+        }
         if (window.SBERR) { SBERR.crumb("sync", "fail"); if (code !== "quota_exceeded") SBERR.flow("sync", err, {tags: {code}}); }
 
-        if (code === "quota_exceeded" || code === "quota_or_state") toast("Online storage is full, so recent changes can't sync. They are still saved on this device. Delete old items or export a backup.");
+        if (code === "quota_exceeded" || code === "quota_or_state") toast("Online storage is full, so recent changes can't sync. They are still saved on this device. Delete old items or export a backup.", null, null, {error: true});
         if (code === "schema" && !window.__schemaWarned) { window.__schemaWarned = true; toast(SB_HOSTED ? "Flashcards are saved on this device but can't sync yet. They'll sync once Studyboard's server is updated." : "Flashcards are saved on this device but can't sync yet. Run the flashcards update SQL from the setup guide, then reload."); }
       }
     }
   }
-  e.running = false; queue.delete(key); intended.delete(key); syncLabel();
+  e.running = false; queue.delete(key); if (!syncLater.has(key)) intended.delete(key); syncLabel();
 }
 function applySnap(kind, snap){
   const m = {};
@@ -173,7 +203,7 @@ function outboxAdd(kind, id, data){
   if (inPreview() || !sbConfig() || deviceWiping) return;
   outboxOwn.add(kind + ":" + id);
   const o = outboxGet(); o[kind + ":" + id] = data === null ? null : clone(data);
-  try { localStorage.setItem(OUTBOX, JSON.stringify(o)); } catch(e) { try { toast("This device's storage is full, so offline changes may not be kept. Export a backup, then free some space."); } catch(e2) {} }
+  try { localStorage.setItem(OUTBOX, JSON.stringify(o)); } catch(e) { try { toast("This device's storage is full, so offline changes may not be kept. Export a backup, then free some space.", null, null, {error: true}); } catch(e2) {} }
 }
 function outboxDone(key, data){
   if (inPreview()) return;
@@ -185,9 +215,9 @@ let flushing = false;
 async function flushOutbox(){
   if (flushing || !cloud.on) return;
   const o = outboxGet(), keys = Object.keys(o);
-  if (!keys.length) return;
+  if (!keys.length) { if (syncError && !queue.size && !syncLater.size) { syncError = false; syncRetryN = 0; syncLabel(); } return; }
   flushing = true;
-  let sent = 0; const merged = [], sentBy = {}, readAs = {};
+  let sent = 0, failed = false; const merged = [], sentBy = {}, readAs = {};
   keys.forEach(k => { readAs[k] = JSON.stringify(o[k]); });
   for (const k of keys) {
     const i = k.indexOf(":"), kind = k.slice(0, i), id = k.slice(i + 1);
@@ -199,7 +229,7 @@ async function flushOutbox(){
       const sentData = o[k]; sentBy[k] = sentData; delete o[k]; sent++;
       if (res && res.merge) { merged.push([k, sentData, res]); }
     }
-    catch(e) { const c = e && e.code; if (c === "unavailable" || c === "resource_exhausted" || !c) break; }
+    catch(e) { failed = true; const c = e && e.code; if (c === "unavailable" || c === "resource_exhausted" || !c) break; }
   }
   try {
     const cur = outboxGet();
@@ -209,7 +239,9 @@ async function flushOutbox(){
   flushing = false;
   merged.forEach(([k, sentData, res]) => syncAdopt(k, sentData, res));
   if (sent && !merged.some(m => m[2].merge.state === "merged" || m[2].merge.state === "restored")) { toast(`Synced ${sent} change${sent === 1 ? "" : "s"} made while offline`); }
-  if (sent) syncLabel();
+  if (failed) { syncError = true; syncRetryLater(); }
+  else if (!queue.size && !syncLater.size) { syncError = false; syncRetryN = 0; clearTimeout(syncRetryT); syncRetryT = 0; }
+  syncLabel();
 }
 
 /* Sync conflicts */
@@ -356,10 +388,8 @@ hook("act", (act, el, id) => {
     case "sync-resolve": syncResolve(el.dataset.kind, id, el.dataset.choice); if (syncConflicts().length) syncIssuesSheet(); else if (dlg.open) dlg.close(); return true;
   }
 });
-hook("menu", () => window.SBGUEST && SBGUEST.is() ? `<button data-act="guest-save" data-group="account"><span>Save Your Planner<span class="sub">It's only on this device. A free account keeps it safe and on all your devices.</span></span></button>` : "");
-hook("act", act => { if (act !== "guest-save") return false; SBGUEST.sheet(); return true; });
 hook("menu", () => { try { const n = inPreview() ? 0 : syncConflicts().length; return n ? `<button data-act="sb-issues" data-group="account"><span>Sync Issues<span class="sub">${n} ${n === 1 ? "item was" : "items were"} edited on two devices. Choose what to keep.</span></span></button>` : ""; } catch(e) { return ""; } });
 
 // Test handle (only when a test page sets window.__SB_TEST)
-if (window.__SB_TEST) setTimeout(() => { window.__sbSync = {get state(){ return state; }, useClient: c => { sb = c; }, claimDevice, wipeDeviceData, devKeys: {LS2, OUTBOX, OWNER}, mapOf, getItem, applyChanges, clone, saveSettings, outboxGet, idle: () => queue.size === 0 && !flushing, get cloud(){ return cloud; }, toastText: () => $("#toastMsg").textContent, trashVisible, trashRestore, trashForever, trashList, backupBefore, saveDeviceBackup, backupSnap, refresh: () => cloud.refresh && cloud.refresh(), ui, render, scheduleRender, menuSheet, dlg, setKeys: k => aiKeysSetLocal(k), aiReviewSheet: (r, c) => aiReviewSheet(r, c), sbDownload: (p, c) => sbDownload(p, c), FCACHE, wipeDeviceData2: () => wipeDeviceData(), get keys(){ return aiLocalKeys; }}; }, 0);
+if (window.__SB_TEST) setTimeout(() => { window.__sbSync = {get state(){ return state; }, SY, useClient: c => { sb = c; }, claimDevice, wipeDeviceData, devKeys: {LS2, OUTBOX, OWNER}, mapOf, getItem, applyChanges, clone, saveSettings, outboxGet, idle: () => queue.size === 0 && !flushing, get cloud(){ return cloud; }, toastText: () => $("#toastMsg").textContent, trashVisible, trashRestore, trashForever, trashList, backupBefore, saveDeviceBackup, backupSnap, refresh: () => cloud.refresh && cloud.refresh(), ui, render, scheduleRender, menuSheet, dlg, setKeys: k => aiKeysSetLocal(k), aiReviewSheet: (r, c) => aiReviewSheet(r, c), sbDownload: (p, c) => sbDownload(p, c), FCACHE, wipeDeviceData2: () => wipeDeviceData(), get keys(){ return aiLocalKeys; }}; }, 0);
 

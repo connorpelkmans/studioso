@@ -5,10 +5,6 @@
   if (!nav) return;
   const MAX = 5;
   const wide = () => !!(window.matchMedia && matchMedia("(min-width:980px)").matches);
-  const titles = () => nav.querySelectorAll("button").forEach(b => {
-    const t = (b.getAttribute("aria-label") || b.textContent || "").replace(/\s+/g, " ").trim();
-    if (t && b.title !== t) b.title = t;
-  });
   // Let the upper group (Board ... Focus) use spare height
   const KEEP = 28, CAP_H = 12, CAP_G = 4;
   function stretch(lvl){
@@ -32,7 +28,6 @@
     if (busy) return;
     busy = true;
     try {
-      titles();
       if (!wide()) { if (nav.dataset.fit) delete nav.dataset.fit; nav.style.removeProperty("--nb-min"); nav.style.removeProperty("--nb-g"); return; }
       let lvl = 0;
       nav.style.removeProperty("--nb-min"); nav.style.removeProperty("--nb-g");

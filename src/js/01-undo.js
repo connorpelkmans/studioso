@@ -1,6 +1,17 @@
 /* ===== module: 01-undo.js: the app's core, changes and undo ===== */
 /* Changes and undo */
-let lastDelete = null;
+// Ctrl/Cmd+Z steps back through recent changes, newest first
+const undoStack = [];
+function undoLast(){
+  while (undoStack.length) {
+    const s = undoStack.pop();
+    if (s.done || Date.now() - s.at > 30 * 60000) continue;
+    s.undo(); toast(s.label ? `Undone: ${s.label}` : "Undone");
+    return true;
+  }
+  toast("Nothing to undo");
+  return false;
+}
 const mapOf = kind => state[KIND_MAP[kind]];
 const getItem = (kind, id) => mapOf(kind)[id] || null;
 function historyDiff(a, b){
@@ -45,9 +56,11 @@ function applyChanges(changes, label, extra){
   state.updated = Date.now();
   saveLocal();
   scheduleRender();
-  const undo = () => { applyChanges(inverse, null); trashDrop(binned); toast("Undone"); };
-  if (label) toast(label, undo, extra);
-  if (binned.length) lastDelete = {at: Date.now(), undo, label: label || ""};
+  const step = {label: label || "", at: Date.now(), done: false, binned: binned.length > 0};
+  const undo = () => { if (step.done) return; step.done = true; applyChanges(inverse, null); trashDrop(binned); toast("Undone"); };
+  step.undo = undo;
+  if (typeof extra === "function") extra = extra();
+  if (label) { toast(label, undo, extra); undoStack.push(step); if (undoStack.length > 20) undoStack.shift(); }
   if (typeof scheduleFolderBackup === "function") scheduleFolderBackup(DESK ? 3000 : 60000);
   if (progressed) { try { noteProgress(); } catch(e) { console.warn(e); } }
   fire("changed", changes, inverse);

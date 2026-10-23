@@ -231,14 +231,14 @@
     add("Start a New Term", "Put last term's courses, tasks and flashcards in the Archive", act("new-term"), "semester");
     add("Archive", "Finished tasks and past terms", act("archive-open"), "old");
     add("Calendar Sync", "Add your deadlines and classes to Apple, Google or Outlook Calendar", act("cal-export"), "export ics calendar subscribe feed");
-    add("Back Up Now", "A backup is also saved on this device each day", act("backup-now"), "save");
+    add("Save a Copy on This Device", "Kept in this browser, which also saves a copy each day", act("backup-now"), "save backup");
     add("Restore a Backup", "Go back to an earlier backup", act("restore"), "");
     add("Export a Backup File", "Download your data as a file", act("export"), "download");
     add("Import from a Backup File", "Replace your data with a backup file", act("import"), "upload");
     add("Import From Another App", "Bring in Anki decks, Quizlet sets, Todoist tasks or Notion pages", act("ia-open"), "anki apkg colpkg quizlet todoist notion csv import");
     if (Object.values(state.files).some(f => f.kind === "file")) add("Export Backup with Files", "Your data plus every uploaded file", act("export-full"), "download zip");
     if (!inPreview()) add(sbConfig() || SB_HOSTED ? (sbUser ? "Studyboard Account" : "Sign In or Create Account") : "Sync Across Devices", "Sync your data and files across devices", act(sbConfig() && !sbUser ? "sb-signin" : sbUser ? "menu" : "sb-connect"), "sync account cloud login sign in");
-    [["board", "Board"], ["timeline", "Timeline"], ["schedule", "Schedule"], ["crunch", "Crunch Forecast"], ["flashcards", "Review"], ["notes", "Notes"], ["files", "Files"], ["courses", "Courses"]]
+    [["board", "Board"], ["timeline", "Due Dates"], ["schedule", "Schedule"], ["crunch", "Crunch Forecast"], ["flashcards", "Review"], ["notes", "Notes"], ["files", "Files"], ["courses", "Courses"]]
       .forEach(([t, n]) => add(`Go to ${n}`, "Open the " + n + " page", () => { go(t); if (t === "flashcards") { ui.fc = null; ui.deckId = null; } render(); window.scrollTo(0, 0); }, "page open" + (t === "crunch" ? " workload heatmap heavy busy week exams crunch forecast" : "")));
     const seen = new Set(A.map(a => a.title));
     $$("nav.tabs [data-tab]").forEach(b => { const t = b.dataset.tab, n = (b.textContent || "").trim(); if (n && !seen.has(`Go to ${n}`) && VIEWS[t]) { seen.add(`Go to ${n}`); add(`Go to ${n}`, "Open the " + n + " page", () => { go(t); render(); window.scrollTo(0, 0); }, "page"); } });
@@ -1381,7 +1381,7 @@ Return JSON only.`;
   function scopeBar(){
     const cs = coursesArr(), cur = S.course; if (!cs.length) return "";
     const chip = (id, label, color) => `<button type="button" class="chip" data-sx="scope" data-id="${esc(id)}" aria-pressed="${cur === id}"${color ? ` style="--c:${esc(color)}"` : ""}>${esc(label)}</button>`;
-    const shown = cs.slice(0, 12), extra = cur && !shown.some(c => c.id === cur) ? (cur === "_none" ? [{id: "_none", code: "General"}] : [courseOf(cur)].filter(Boolean)) : [];
+    const shown = cs, extra = cur && !shown.some(c => c.id === cur) ? (cur === "_none" ? [{id: "_none", code: "General"}] : [courseOf(cur)].filter(Boolean)) : [];
     const auto = S.autoScope && S.autoScope === cur ? courseOf(cur) : null;
     return `<div class="sx-scope" role="group" aria-label="Ask about"><span class="sx-scope-l">Ask About</span>${chip("", "All Courses")}${shown.concat(extra).map(c => chip(c.id, courseLabel(c), c.color)).join("")}</div>${auto ? `<p class="sx-hint">Asking about ${esc(courseLabel(auto))} because your question names it.</p>` : ""}`;
   }

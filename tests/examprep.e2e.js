@@ -67,10 +67,10 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       await goCourse(page, "c1");
       ok(await vis(page, ".pp-exams"), "the course page lists upcoming exams");
       ok((await txt(page, ".pp-exams")).includes("Midterm") && (await txt(page, ".pp-exams")).includes("Plan My Prep"), "next to the exam: Plan My Prep");
-      ok(await page.evaluate(() => !!document.querySelector("li.task .pp-row-btn")), "the exam row has a Plan My Prep action");
+      ok(await page.evaluate(() => ![...document.querySelectorAll("#view li.task")].some(li => /Midterm/.test(li.textContent)) && document.querySelectorAll('#view [data-act="exam-plan"]').length === 1), "the exam is listed once, with one Plan My Prep");
       await page.screenshot({path: path.join(OUT, `course-${tag}.png`)});
-      await page.click("li.task .pp-row-btn"); await page.waitForTimeout(500);
-      ok(await vis(page, "#ppBody"), "the planner sheet opens from the exam row");
+      await page.click('.pp-exams [data-act="exam-plan"]'); await page.waitForTimeout(500);
+      ok(await vis(page, "#ppBody"), "the planner sheet opens from the exam");
       ok((await txt(page, "#ppTitle")) === "Plan My Prep", "title");
       const tn = await page.evaluate(() => [...document.querySelectorAll("[data-pn]")].map(i => i.value));
       ok(tn.includes("Cardiac Drugs") && tn.includes("Renal Physiology") && tn.includes("Respiratory system") && tn.includes("Acid base balance"), "topics suggested from decks and notes: " + tn.join(" | "));
@@ -162,7 +162,7 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       const r2 = Number((await txt(page, ".pp-line")).match(/readiness (\d+)%/)[1]); ok(r2 >= r1, `readiness grows with finished sessions (${r1}% -> ${r2}%)`);
       await page.keyboard.press("Escape"); await page.waitForTimeout(200);
       await goCourse(page, "c1");
-      ok(/2\/\d+ sessions/.test(await page.evaluate(() => document.querySelector("li.task .task-meta") ? [...document.querySelectorAll("li.task")].map(l => l.innerText).join("\n") : "")), "the exam row says how many sessions are done");
+      ok(/2 of \d+ sessions/.test(await txt(page, ".pp-exams")), "the exam on the course page says how many sessions are done: " + await txt(page, ".pp-exams"));
       // old entry points
       const count = (await sessions(page)).length;
       await act(page, "exam-plan", "ex1"); await page.waitForTimeout(300); ok(await vis(page, "#ppBody") && !(await vis(page, "#epBody")), "the old exam-plan action opens the new planner"); await page.keyboard.press("Escape");

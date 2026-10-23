@@ -74,7 +74,9 @@ function open(o){
   o = o || {};
   if (window.SBTOUR && SBTOUR.active()) return false;
   const fresh = !M.since || M.fin || !IDS.includes(M.step) || Date.now() - Number(M.since) > 45 * 864e5;
-  if (fresh || o.restart) save({since: Date.now(), step: "courses", done: {}, skip: {}, fin: 0, from: o.from || ""});
+  // From the welcome setup, which just asked for courses
+  const had = o.from === "tour" && coursesArr().length > 0;
+  if (fresh || o.restart) save({since: Date.now(), step: had ? "work" : "courses", done: had ? {courses: true} : {}, skip: {}, fin: 0, from: o.from || ""});
   R.scope = "new"; R.msg = ""; R.removed = []; R.queue = []; R.qTotal = 0; R.away = false; R.showAll = false;
   openSheet(shell());
   paint(false, true, tr("sem.live.open", "Set up your semester. Step {i} of {n}. Every step can be skipped.", {i: stepIdx() + 1, n: IDS.length}));
@@ -129,14 +131,17 @@ function vCourses(){
     </div>
     <p class="status-msg sem-msg" id="semMsg">${esc(R.msg)}</p>`;
 }
-function addCourse(){
+// quiet: on the way to another step, so a typed course isn't lost
+function addCourse(quiet){
   const code = (($("#semCode") || {}).value || "").trim(), name = (($("#semName") || {}).value || "").trim(), msg = $("#semMsg");
+  if (quiet && (!code && !name || coursesArr().some(c => (code && String(c.code || "").toLowerCase() === code.toLowerCase()) || (!code && String(c.name || "").toLowerCase() === name.toLowerCase())))) return;
   if (!code && !name) { const t = tr("sem.courses.empty", "Type a course code or a name first."); if (msg) msg.textContent = t; announce(t); const f = $("#semCode"); if (f) f.focus(); return; }
   const dup = coursesArr().find(c => (code && String(c.code || "").toLowerCase() === code.toLowerCase()) || (!code && String(c.name || "").toLowerCase() === name.toLowerCase()));
   if (dup) { const t = tr("sem.courses.dup", "{name} is already in your list.", {name: courseLabel(dup)}); if (msg) msg.textContent = t; announce(t); return; }
   const used = coursesArr().map(c => c.color);
   const nc = {id: uid(), created: Date.now(), name: name || code, code, instructor: "", schedule: "", room: "", office: "", meetings: [], color: COLORS.find(x => !used.includes(x)) || COLORS[used.length % COLORS.length], notes: "", links: []};
   applyChanges([{kind: "course", id: nc.id, after: nc}], "");
+  if (quiet) return;
   R.msg = tr("sem.courses.added", "Added {name}. Add another, or choose Next.", {name: nc.name});
   paint(true, false, R.msg);
   const f = $("#semCode"); if (f) try { f.focus({preventScroll: true}); } catch (e) { }
@@ -158,7 +163,7 @@ function vWork(){
     <p class="sem-lead">${esc(tr("sem.work.lead", "Use whichever is easiest, or more than one. You'll check everything in the next step."))}</p>
     <div class="sem-card sem-drop" id="semDrop"><div><b>${esc(tr("sem.work.pdf", "Syllabus PDFs"))}</b><span class="mini">${esc(tr("sem.work.pdf.s", "Choose one per course, or all at once. They're read here on your device."))}</span></div>
       <div class="sem-row-btns"><button type="button" class="btn primary" data-sem="pdf">${esc(tr("sem.work.pdf.b", "Choose PDFs"))}</button><button type="button" class="btn" data-sem="paste">${esc(tr("sem.work.paste", "Paste Text"))}</button></div>
-      <input type="file" id="semPdf" class="sr" tabindex="-1" multiple accept=".pdf,.txt,application/pdf,text/plain${aiOn() ? ",image/*" : ""}" aria-label="${esc(tr("sem.work.pdf.b", "Choose PDFs"))}">
+      <input type="file" id="semPdf" class="sr" tabindex="-1" multiple accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain${aiOn() ? ",image/*" : ""}" aria-label="${esc(tr("sem.work.pdf.b", "Choose PDFs"))}">
       ${qPanel()}</div>
     <div class="sem-card"><div><b>${esc(tr("sem.work.lms", "Your school's site"))}</b><span class="mini">${esc((() => { try { return window.SBLMS && SBLMS.grabOk && SBLMS.grabOk(); } catch (e) { return false; } })()
         ? tr("sem.work.lms.web", "Brightspace, Canvas or Blackboard: due dates, grades, announcements and what you've already submitted. On the website in desktop Chrome, the Studyboard School Sync extension brings it all in. It only reads and never sees your password. Your school's calendar link brings in due dates in any browser.")
@@ -173,8 +178,8 @@ function vWork(){
 }
 function queueFiles(list){
   const ai = aiOn();
-  const ok = [...list].filter(f => /\.(pdf|txt)$/i.test(f.name) || f.type === "application/pdf" || f.type === "text/plain" || (ai && /^image\//.test(f.type)));
-  if (!ok.length) { R.msg = tr("sem.q.bad", "Those files are not PDFs. Choose a syllabus as a PDF, or paste its text."); const m = $("#semMsg"); if (m) m.textContent = R.msg; announce(R.msg); return; }
+  const ok = [...list].filter(f => /\.(pdf|docx|txt)$/i.test(f.name) || f.type === "application/pdf" || f.type === "text/plain" || (ai && /^image\//.test(f.type)));
+  if (!ok.length) { R.msg = tr("sem.q.bad2", "Those files are not PDF or Word files. Choose a syllabus as a PDF or .docx, or paste its text."); const m = $("#semMsg"); if (m) m.textContent = R.msg; announce(R.msg); return; }
   R.queue = R.queue.concat(ok).slice(0, 12); R.qTotal = R.queue.length;
   nextSyllabus();
 }
@@ -351,6 +356,7 @@ dlg.addEventListener("click", e => {
   const b = e.target.closest("[data-sem]"); if (!b || !b.closest(".sem-sheet")) return;
   e.preventDefault(); e.stopPropagation();
   const a = b.dataset.sem, id = b.dataset.id, i = stepIdx();
+  if (IDS[i] === "courses" && (a === "goto" || a === "next")) addCourse(true);
   switch (a) {
     case "goto": go(id); break;
     case "back": if (i > 0) go(IDS[i - 1]); break;
@@ -402,8 +408,10 @@ dlg.addEventListener("keydown", e => {
 hook("changed", () => { if (!dlg.open) return; const t = $("#semTally"); if (t) t.textContent = tallyText(); });
 
 /* Entry points */
+const cardDue = () => isEmpty() && !M.hide && !(window.SBOB && SBOB.pending());
 hook("render", tab => {
-  if (tab !== "board" || !isEmpty() || M.hide) return;
+  // Not while the first sign-in or the welcome setup is still to come
+  if (tab !== "board" || !cardDue()) return;
   const v = $("#view"); if (!v || v.querySelector(".sem-card-b")) return;
   const going = M.since && !M.fin && M.step && M.step !== "courses";
   v.insertAdjacentHTML("afterbegin", `<section class="sem-card-b" aria-labelledby="semCardT"><div class="sem-cb-t"><b id="semCardT">${esc(tr("sem.card.h", "Set Up Your Semester"))}</b><span>${esc(going ? tr("sem.card.resume", "Pick up where you left off. It takes a couple of minutes.") : tr("sem.card.s", "Bring in your syllabi, school site or calendar and see your first week planned in about two minutes."))}</span></div>
@@ -421,6 +429,7 @@ hook("menu", () => {
 
 window.SBSEM = {
   open,
+  cardDue,
   found: () => found().map(t => t.id),
   state: () => Object.assign({}, M),
   // For the welcome setup's last page

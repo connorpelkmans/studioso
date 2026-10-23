@@ -77,6 +77,9 @@ function nufbAdd(kind, t){
   if (!t) return;
   try { const a = nufbLoad().filter(e => Date.now() - e.at < 30 * 864e5); a.push({k: kind, id: t.id, ty: t.type || "", c: t.courseId || "", at: Date.now()}); localStorage.setItem(NUFB_LS, JSON.stringify(a.slice(-200))); } catch(e) {}
 }
+function nufbDrop(kind, id){
+  try { const a = nufbLoad(), i = a.map(e => e.k === kind && e.id === id).lastIndexOf(true); if (i >= 0) { a.splice(i, 1); localStorage.setItem(NUFB_LS, JSON.stringify(a)); } } catch(e) {}
+}
 function nufbWeights(ev, now){
   const w = {type: {}, course: {}, task: {}};
   (ev || []).forEach(e => {
@@ -199,6 +202,7 @@ function headsHtml(){
   if (!list.length) return "";
   return `<div class="plan-heads" role="note"><span class="ph-label">Heads Up</span><ul>${list.map(h => `<li><span>${esc(h.text)}</span>${h.id ? `<button class="link-btn" data-act="edit-task" data-id="${esc(h.id)}">Open</button>` : ""}<button class="icon-btn sm ph-x" data-act="heads-hide" data-id="${esc(headKey(h))}" aria-label="Dismiss">${CLOSE}</button></li>`).join("")}</ul></div>`;
 }
+const nuBackBtn = () => ui.skipNext && ui.skipNext.day === todayISO() && ui.skipNext.ids.length ? `<button class="btn small" data-act="nu-back" title="Back to the suggestion before this one">Go Back</button>` : "";
 function nextUpHtml(F, pre){
   const n = arguments.length > 1 ? pre : nextUp(F); if (!n) return "";
   const t = n.x.t, c = courseOf(t.courseId);
@@ -210,7 +214,7 @@ function nextUpHtml(F, pre){
         <span class="nu-why">${n.why.map(r => `<span class="nu-chip${/tomorrow/.test(r) ? " soon" : ""}">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}</span>
         <span class="nu-step">${n.hasPlan ? "Review your weakest topics or flashcards for it." : "Review now, or let Plan My Prep spread short sessions over the days before it."}</span>
       </div>
-      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-study="1" data-id="${esc(t.id)}" data-mins="${n.mins}">${TOMATO}Study for ${n.mins}m</button>${n.hasPlan ? "" : `<button class="btn small" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button>`}<button class="btn small" data-act="nu-skip" data-id="study:${esc(t.id)}">Something Else</button></div>
+      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-study="1" data-id="${esc(t.id)}" data-mins="${n.mins}">${TOMATO}Study for ${n.mins}m</button>${n.hasPlan ? "" : `<button class="btn small" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button>`}<button class="btn small" data-act="nu-skip" data-id="study:${esc(t.id)}">Something Else</button>${nuBackBtn()}</div>
     </div>
   </div>`;
   return `<div class="next-up" style="--c:${esc(colorOf(t.courseId))}">
@@ -223,7 +227,7 @@ function nextUpHtml(F, pre){
         ${n.step ? `<span class="nu-step">Next step: ${esc(n.step.text)}</span>` : ""}
       </div>
       ${lmsGoBtn(t)}
-      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-id="${t.gt ? "" : esc(t.id)}" data-mins="${n.mins}">${TOMATO}Start a ${n.mins}m Focus</button>${window.SBPREP ? SBPREP.matBtn(t) : ""}${t.type === "Study" && (t.studyDecks || []).length && !t.matKind ? `<button class="btn small" data-act="fc-study-plan" data-id="${esc(t.id)}">Study Cards</button>` : ""}${n.left ? `<button class="btn small" data-act="nu-skip" data-id="${esc(t.id)}">Something Else</button>` : ""}</div>
+      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-id="${t.gt ? "" : esc(t.id)}" data-mins="${n.mins}">${TOMATO}Start a ${n.mins}m Focus</button>${window.SBPREP ? SBPREP.matBtn(t) : ""}${t.type === "Study" && (t.studyDecks || []).length && !t.matKind ? `<button class="btn small" data-act="fc-study-plan" data-id="${esc(t.id)}">Study Cards</button>` : ""}${n.left ? `<button class="btn small" data-act="nu-skip" data-id="${esc(t.id)}">Something Else</button>` : ""}${nuBackBtn()}</div>
     </div>
   </div>`;
 }

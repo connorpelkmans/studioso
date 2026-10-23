@@ -48,6 +48,25 @@ const deckStats = d => {
   return {total: cs.length, due, fresh, mastered, mastery, last, ready: DR.deck(cs, todayISO())};
 };
 const allDueCount = () => decksArr().reduce((s, d) => s + d.cards.filter(cardDue).length, 0);
+// What a review session of these decks holds: every due card (up to 60) and up to 20 new ones
+const STUDY_MAX = 60, STUDY_NEW = 20;
+function studyCounts(deckIds){
+  let due = 0, fresh = 0;
+  deckIds.forEach(id => { const d = state.decks[id]; if (d) d.cards.forEach(c => { if (c.draft) return; if (cardDue(c)) due++; else if (cardNew(c)) fresh++; }); });
+  due = Math.min(due, STUDY_MAX); fresh = Math.min(fresh, STUDY_NEW, STUDY_MAX - due);
+  return {due, fresh};
+}
+// The Review tab shows how many cards are due
+hook("render", () => {
+  const b = document.querySelector('nav.tabs [data-tab="flashcards"]'); if (!b) return;
+  const n = allDueCount(); let dot = b.querySelector(".fc-navdue");
+  if (!n) { if (dot) { dot.remove(); b.removeAttribute("aria-label"); } return; }
+  if (!dot) { dot = document.createElement("span"); dot.className = "fc-navdue"; dot.setAttribute("aria-hidden", "true"); b.appendChild(dot); }
+  const txt = n > 99 ? "99+" : String(n); if (dot.textContent !== txt) dot.textContent = txt;
+  b.setAttribute("aria-label", `${tr("nav.flashcards", "Review")}, ${n} card${n === 1 ? "" : "s"} due`);
+});
+const dueWords = n => `${n.due} due${n.fresh ? ` + ${n.fresh} new` : ""}`;
+const reviewDecks = course => decksArr().filter(d => (!course || course === "all" || d.courseId === course) && d.cards.some(c => !c.draft && cardDue(c))).map(d => d.id);
 // Flashcard styles grouped for choosing
 function cardStyleGroups(){
   const ok = c => c.id !== "theme" || themeKit(), basic = CARD_STYLES.filter(c => !c.theme && ok(c)), groups = [["Flashcard Styles", basic]], by = {};
@@ -68,7 +87,7 @@ function masteryPips(box){ return `<span class="pips" title="Level ${box} of 5">
 /* Review (the Flashcards tab) */
 ui.rvView = ui.rvView || (() => { try { return localStorage.getItem("studyboard:rvview") === "quizzes" ? "quizzes" : "cards"; } catch (e) { return "cards"; } })();
 const rvSet = v => { ui.rvView = v === "quizzes" ? "quizzes" : "cards"; try { localStorage.setItem("studyboard:rvview", ui.rvView); } catch (e) {} };
-const reviewSwitchHtml = () => `<div class="pview-tabs rv-tabs" role="tablist" aria-label="Flashcards and Quizzes"><button role="tab" data-act="rv-view" data-id="cards" aria-selected="${ui.rvView !== "quizzes"}">Flashcards</button><button role="tab" data-act="rv-view" data-id="quizzes" aria-selected="${ui.rvView === "quizzes"}">Quizzes</button></div>`;
+const reviewSwitchHtml = () => `<div class="pview-tabs rv-tabs" role="tablist" aria-label="Review"><button role="tab" data-act="rv-view" data-id="cards" aria-selected="${ui.rvView !== "quizzes"}">Flashcards</button><button role="tab" data-act="rv-view" data-id="quizzes" aria-selected="${ui.rvView === "quizzes"}">Quizzes</button></div>`;
 const QZ_GROUP_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19.5c0-3.2 2.7-5.5 6-5.5s6 2.3 6 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16.5 14.1c2.6.2 4.5 2.2 4.5 4.9"/></svg>';
 // Quizzes you put away with Archive (qz.archived) stay on their deck, out of the list
 const quizzesAll = archived => { const out = []; decksArr().forEach(d => (d.aiQuizzes || []).forEach(qz => { if (qz && qz.questions && qz.questions.length && !!qz.archived === !!archived) out.push({d, qz}); })); return out.sort((a, b) => (b.qz.created || 0) - (a.qz.created || 0)); };
@@ -117,12 +136,12 @@ function viewQuizzes(){
       <div class="qz-band"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span><span class="g2-kick">${esc(c ? courseLabel(c) : "General")}</span>${qz.kind === "case" ? `<span class="qz-pill">Case Study</span>` : ""}</div>
       <button class="qz-body" data-act="qz-open" data-id="${esc(d.id + ":" + qz.id)}"><b class="qz-title">${esc(qz.title || "Practice Quiz")}</b><span class="mini">${n} question${n === 1 ? "" : "s"} · from ${esc(quizFrom(d, qz))}${last ? ` · last score ${last.score}/${last.total}` : ""}</span></button>
       <div class="qz-acts"><button class="btn small primary" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Start</button><button class="btn small" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Share</button><span class="spacer"></span><button class="btn small deck-arch" data-act="qz-archive" data-id="${esc(d.id + ":" + qz.id)}" title="Put this quiz away" aria-label="Archive ${esc(qz.title || "quiz")}">${ARCHIVE.replace('width="26" height="26"', 'width="16" height="16"')}</button></div></article>`; }).join("");
-  return `<div class="view-head" data-qz-list><h2>Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
+  return `<div class="view-head" data-qz-list><h2>Your Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${chipsHtml()}${q ? `<div class="search-note">Showing quizzes that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${list.length ? `<div class="qz-grid">${cards}</div>` : `<div class="empty" style="margin-top:14px"><strong>${all.length ? "No Quizzes Match" : "No Quizzes Yet"}</strong>${all.length ? "Try another course or search." : (inPreview() ? "Make a quiz from one of your flashcard decks." : "Upload your slides, notes or readings and " + esc(aiWho("AI")) + " writes a practice quiz. Or make one from a flashcard deck.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px">${inPreview() || all.length ? "" : `<button class="btn primary ai-btn" data-act="qz-ai">${AI_ICON} From Slides or Notes</button>`}<button class="btn${inPreview() ? " primary" : ""}" data-act="qz-from-deck">From a Deck</button></div></div>`}
     <section class="grp-strip"><div class="grp-strip-txt">${QZ_GROUP_IC}<span><b>Study Together</b><span class="mini">Share quizzes with a study group: everyone takes them in their own app and sees the best scores.</span></span></div>
       <div class="grp-strip-btns"><button class="btn small" data-act="grp-page">Study Groups</button></div></section>
-    <p class="hint-line tip-everyday">Make a quiz straight from your slides or notes with New Quiz, or from a deck with Make a Quiz.</p>`;
+    <p class="hint-line tip-everyday">Make a quiz straight from your slides or notes with Add Quiz, or from a deck with Make a Quiz.</p>`;
 }
 function viewFlashcards(){
   if (ui.fc && ui.fc.mode === "study") return viewStudy();
@@ -133,7 +152,7 @@ function viewFlashcards(){
   if (ui.rvView === "quizzes") return reviewSwitchHtml() + viewQuizzes();
   let ds = deckListArr().filter(d => ui.filter === "all" || d.courseId === ui.filter).filter(d => fcMatches(d, ui.q));
   if (window.SBEXAM) ds = SBEXAM.sortDecks(ds);
-  const due = allDueCount();
+  const due = decksArr().filter(d => ui.filter === "all" || d.courseId === ui.filter).reduce((s, d) => s + d.cards.filter(c => !c.draft && cardDue(c)).length, 0);
   const tiles = ds.map(d => {
     const st = deckStats(d), c = courseOf(d.courseId), tone = st.ready >= 70 ? "hi" : st.ready >= 35 ? "mid" : "lo";
     return `<article class="deck deck-fc cs-${esc(cardStyleOf(d))}" style="--c:${esc(colorOf(d.courseId))}">
@@ -144,13 +163,14 @@ function viewFlashcards(){
       <span class="fc-band" aria-hidden="true"><span class="fc-ic">${c ? courseRingHtml(c) : GENERAL_ICON}</span><span class="g2-kick">${esc(c ? courseLabel(c) : "General")}</span></span>
       <button class="deck-main" data-act="fc-open" data-id="${esc(d.id)}">
         <span class="deck-name">${esc(d.name)}</span>${window.SBEXAM ? SBEXAM.deckTag(d) : ""}
+        <span class="deck-due mini${st.due ? " on" : ""}">${st.due || st.fresh ? `${st.due} due · ${st.fresh} new` : st.total ? "All caught up" : "No cards yet"}</span>
         <span class="mastery ${tone}" role="img" aria-label="${st.ready}% prepared" title="${st.ready}% prepared. It rises as you review and rate cards well, and falls when you skip reviews or mark cards as not known."><i style="width:${st.ready}%"></i></span>
       </button>
       <div class="deck-actions"><button class="btn small primary" data-act="fc-study" data-id="${esc(d.id)}" ${st.total ? "" : "disabled"}>Study</button><button class="btn small" data-act="fc-share" data-id="${esc(d.id)}" ${st.total ? "" : "disabled"}>Share</button><button class="btn small deck-arch" data-act="fc-archive" data-id="${esc(d.id)}" title="Put this deck away when you're done studying it" aria-label="Archive ${esc(d.name)}">${ARCHIVE.replace('width="26" height="26"', 'width="16" height="16"')}</button></div>
     </div></article>`;
   }).join("");
-  return reviewSwitchHtml() + `<div class="view-head" data-fc-list><h2>Flashcards</h2>
-      ${(w => due || w.n ? `<button class="btn small" data-act="fc-review-menu">Review</button>` : "")(weakSpots(decksArr().filter(d => ui.filter === "all" || d.courseId === ui.filter).map(d => d.id)))}
+  return reviewSwitchHtml() + `<div class="view-head" data-fc-list><h2>Your Decks</h2>
+      ${(w => due || w.n ? `<button class="btn small" data-act="fc-review-menu"${due ? ` aria-label="Review, ${due} card${due === 1 ? "" : "s"} due"` : ""}>Review${due ? ` <span class="n-badge due" aria-hidden="true">${due}</span>` : ""}</button>` : "")(weakSpots(decksArr().filter(d => ui.filter === "all" || d.courseId === ui.filter).map(d => d.id)))}
       ${window.SBSHARE ? SBSHARE.libBtn() : ""}${archBtn()}${trashBtn("deck") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="deck" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${chipsHtml()}${ui.q.trim() ? `<div class="search-note">Showing decks that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${ds.length ? `<div class="deck-grid">${tiles}</div>` : `<div class="empty" style="margin-top:14px"><strong>${deckListArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Add cards or paste a list, then study them." + (inPreview() ? "" : " Or upload slides and let " + esc(aiWho("AI")) + " make them.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inPreview() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}
@@ -239,11 +259,11 @@ function parseCards(text, sep){
   return {cards: out, bad};
 }
 function reviewSheet(){
-  const ids = decksArr().filter(d => ui.filter === "all" || d.courseId === ui.filter).map(d => d.id);
-  const due = allDueCount(), w = weakSpots(ids);
-  openSheet(`<div class="sheet">${head("Review")}
+  const course = ui.filter || "all", ids = decksArr().filter(d => course === "all" || d.courseId === course).map(d => d.id);
+  const n = studyCounts(reviewDecks(course)), w = weakSpots(ids), c = course !== "all" && courseOf(course);
+  openSheet(`<div class="sheet">${head(c ? `Review ${courseLabel(c)}` : "Review")}
     <div class="sheet-body"><div class="menu-list">
-      <button data-act="fc-review-all" ${due ? "" : "disabled"}><span>Flashcards Due${due ? ` (${due})` : ""}<span class="sub">${due ? "Study every card that is due for review today" : "Nothing is due right now"}</span></span></button>
+      <button data-act="fc-review-all" data-course="${esc(course)}" ${n.due ? "" : "disabled"}><span>Flashcards Due${n.due ? ` (${dueWords(n)})` : ""}<span class="sub">${n.due ? `Study every card that is due today${n.fresh ? `, plus ${n.fresh} new one${n.fresh === 1 ? "" : "s"}` : ""}` : "Nothing is due right now"}</span></span></button>
       <button data-act="fc-weak" ${w.n ? "" : "disabled"}><span>Weak Spots${w.n ? ` (${w.n})` : ""}<span class="sub">${w.n ? "Practice the cards and questions you keep missing" : "Study or take a quiz first, and anything you keep missing shows up here"}</span></span></button>
     </div></div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button></div></div>`);
@@ -290,22 +310,23 @@ function startStudy(deckIds, onlyIds){
   let note = "";
   if (!onlyIds) {
     const due = q.filter(x => cardDue(x.c)), fresh = q.filter(x => cardNew(x.c));
-    const pick = shuffle(due).concat(shuffle(fresh).slice(0, 20));
+    const pick = shuffle(due).concat(shuffle(fresh).slice(0, STUDY_NEW));
     if (pick.length) q = pick; else { q = shuffle(q); note = "Nothing is due, so you're reviewing every card."; }
   } else q = shuffle(q);
   if (window.SBEXAM) q = SBEXAM.sortQueue(q);
-  q = q.slice(0, 60).map(x => ({deckId: x.deckId, cardId: x.cardId}));
-  ui.tab = "flashcards"; ui.fc = {mode: "study", deckIds, q, i: 0, flipped: false, again: 0, hard: 0, good: 0, easy: 0, repeats: {}, note};
+  q = q.slice(0, STUDY_MAX).map(x => ({deckId: x.deckId, cardId: x.cardId}));
+  ui.tab = "flashcards"; ui.fc = {mode: "study", deckIds, q, i: 0, flipped: false, again: 0, hard: 0, good: 0, easy: 0, repeats: {}, note, hist: []};
   render(); window.scrollTo(0, 0);
 }
 const nextDue = (box, rating) => rating === "again" ? todayISO() : addDays(todayISO(), rating === "hard" ? 1 : BOX_DAYS[Math.min(5, box)]);
 // Lifetime counts that unlock free companions
-function earnBump(k, n){ try { const e = Object.assign({q: 0, c: 0}, (state.settings || {}).earn); e[k] = (Number(e[k]) || 0) + (n || 1); state.settings = Object.assign({}, state.settings, {earn: e}); saveSettings(); } catch(err) {} }
+function earnBump(k, n){ try { const e = Object.assign({q: 0, c: 0}, (state.settings || {}).earn); e[k] = Math.max(0, (Number(e[k]) || 0) + (n || 1)); state.settings = Object.assign({}, state.settings, {earn: e}); saveSettings(); } catch(err) {} }
 const quizPasses = (score, total) => total >= 5 && score / total >= 0.8;
 function rateCard(rating){
   const f = ui.fc; const it = f.q[f.i]; if (!it) return;
   const d = clone(state.decks[it.deckId]); if (!d) return;
   const c = d.cards.find(x => x.id === it.cardId);
+  const step = {i: f.i, rating, deckId: it.deckId, cardId: it.cardId, card: c ? clone(c) : null, rv: d.rv ? clone(d.rv) : null, rep: f.repeats[it.cardId], pushed: false};
   if (c) {
     const sm = window.SBPRO && SBPRO.cardRated ? SBPRO.cardRated(d, c, rating) : null;
     c.seen++; c.last = todayISO(); c.rate = rating;
@@ -321,10 +342,29 @@ function rateCard(rating){
     earnBump("c");
   }
   f[rating]++;
-  if (rating === "again" && (f.repeats[it.cardId] || 0) < 2) { f.repeats[it.cardId] = (f.repeats[it.cardId] || 0) + 1; f.q.push(it); }
+  if (rating === "again" && (f.repeats[it.cardId] || 0) < 2) { f.repeats[it.cardId] = (f.repeats[it.cardId] || 0) + 1; f.q.push(it); step.pushed = true; }
+  f.hist = (f.hist || []).concat(step).slice(-50);
   f.i++; f.flipped = false;
   render();
 }
+// Undo the last rating: the card, the session and its counts go back to how they were
+function undoRate(){
+  const f = ui.fc; if (!f || f.mode !== "study" || !f.hist || !f.hist.length) return false;
+  const s = f.hist.pop();
+  if (s.pushed) f.q.pop();
+  if (s.rep == null) delete f.repeats[s.cardId]; else f.repeats[s.cardId] = s.rep;
+  f[s.rating] = Math.max(0, (f[s.rating] || 0) - 1);
+  f.i = s.i; f.flipped = true;
+  const cur = state.decks[s.deckId];
+  if (cur && s.card) {
+    const d = clone(cur), k = d.cards.findIndex(x => x.id === s.cardId);
+    if (k >= 0) { d.cards[k] = s.card; if (s.rv) d.rv = s.rv; else delete d.rv; d.updated = Date.now(); saveDeck(d, null); fire("fc-unrated", {rating: s.rating, deckId: s.deckId, cardId: s.cardId}); earnBump("c", -1); }
+  }
+  render();
+  toast("Rating undone");
+  return true;
+}
+const undoBtn = (f, small) => `<button class="btn${small ? " small" : ""} fc-undo" data-act="fc-undo" title="Undo your last rating (Z)" aria-keyshortcuts="Z Backspace"${f.hist && f.hist.length ? "" : " disabled"}>Undo</button>`;
 function viewStudy(){
   const f = ui.fc, it = f.q[f.i];
   const deckNames = f.deckIds.map(id => state.decks[id] && state.decks[id].name).filter(Boolean);
@@ -336,19 +376,19 @@ function viewStudy(){
         <p class="big-num">${total}<span> cards reviewed</span></p>
         <div class="deck-stats"><span><b>${f.easy + f.good}</b> known</span><span><b>${f.hard}</b> hard</span><span><b>${f.again}</b> to relearn</span></div>
         <p class="mini">Cards you knew come back in a few days. Cards marked Again come back today.</p>
-        <div class="row-actions"><button class="btn primary" data-act="fc-quiz-from-study">Take a Quiz</button><button class="btn" data-act="fc-study-again">Study Again</button><button class="btn" data-act="fc-exit">Done</button></div>
+        <div class="row-actions"><button class="btn primary" data-act="fc-quiz-from-study">Take a Quiz</button><button class="btn" data-act="fc-study-again">Study Again</button>${undoBtn(f)}<button class="btn" data-act="fc-exit">Done</button></div>
       </section>`;
   }
   const d = state.decks[it.deckId], c = d && d.cards.find(x => x.id === it.cardId);
   if (!c) { f.i++; return viewStudy(); }
   const box = c.box;
   const lbl = r => { const due = (window.SBPRO && SBPRO.cardPreview ? SBPRO.cardPreview(d, c, r) : "") || nextDue(r === "good" ? Math.min(5, box + 1) : r === "easy" ? Math.min(5, box + 2) : box, r); const n = dayDiff(todayISO(), due); return n <= 0 ? "today" : n === 1 ? "1 day" : n + " days"; };
-  return `<div class="view-head"><h2>Studying ${esc(title)}</h2><span class="mini">${f.i + 1} of ${f.q.length}</span><button class="btn small" data-act="fc-exit">End Session</button></div>
+  return `<div class="view-head"><h2>Studying ${esc(title)}</h2><span class="mini">${f.i + 1} of ${f.q.length}</span>${undoBtn(f, true)}<button class="btn small" data-act="fc-exit">End Session</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.q.length * 100)}%"></i></div>
     ${f.note ? `<p class="mini">${esc(f.note)}</p>` : ""}
     ${c.img && window.SBPRO && SBPRO.studyCard ? SBPRO.studyCard(d, c, f) : `<button class="flip cs-${cardStyleOf(d)} ${f.flipped ? "is-flipped" : ""}${c.img ? " has-img" : ""}" data-act="fc-flip" style="--c:${esc(colorOf(d.courseId))}" aria-live="polite" aria-label="${f.flipped ? "Answer shown. " : ""}Flip card">
       <span class="flip-inner">
-        <span class="face front"><span class="face-label">Front</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, false) : `<span class="face-text">${esc(c.front)}</span>`}<span class="face-hint">Tap or press Space to flip</span></span>
+        <span class="face front"><span class="face-label">Front</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, false) : `<span class="face-text">${esc(c.front)}</span>`}<span class="face-hint">Tap<span class="kbd-only"> or press Space</span> to flip</span></span>
         <span class="face back"><span class="face-label">Back</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, true) : `<span class="face-text">${esc(c.back)}</span><span class="face-hint">${esc(c.front)}</span>`}</span>
       </span>
     </button>`}
@@ -357,7 +397,7 @@ function viewStudy(){
       <button class="rate-btn hard" data-act="fc-rate" data-id="hard"><b>Hard</b><span>${lbl("hard")}</span></button>
       <button class="rate-btn good" data-act="fc-rate" data-id="good"><b>Good</b><span>${lbl("good")}</span></button>
       <button class="rate-btn easy" data-act="fc-rate" data-id="easy"><b>Easy</b><span>${lbl("easy")}</span></button>
-    </div>${explainHtml(`c|${it.deckId}|${it.cardId}`)}<p class="hint-line tip-everyday">Keys: 1 Again, 2 Hard, 3 Good, 4 Easy.</p>` : `<div class="rate"><button class="btn primary" data-act="fc-flip" style="grid-column:1/-1">Show Answer</button></div>`}`;
+    </div>${explainHtml(`c|${it.deckId}|${it.cardId}`)}<p class="hint-line tip-everyday kbd-only">Keys: 1 Again, 2 Hard, 3 Good, 4 Easy. Z undoes the last rating.</p>` : `<div class="rate"><button class="btn primary" data-act="fc-flip" style="grid-column:1/-1">Show Answer</button></div>`}`;
 }
 
 /* Quizzes made automatically from your cards */
@@ -404,21 +444,37 @@ function buildQuiz(deckIds, n, types, dir){
   });
   return qs;
 }
+// A quiz name no other quiz has yet
+function uniqueQuizTitle(t){
+  t = String(t || "").trim() || "Practice Quiz";
+  const have = new Set(quizzesAll().concat(quizzesAll(true)).map(x => String(x.qz.title || "").trim().toLowerCase()));
+  if (!have.has(t.toLowerCase())) return t;
+  const base = t.replace(/\s*\(\d+\)$/, ""); let n = 2;
+  while (have.has((base + " (" + n + ")").toLowerCase())) n++;
+  return (base + " (" + n + ")").slice(0, 120);
+}
+// The choices made last time
+const QZ_OPTS_KEY = "studyboard:quizOpts";
+function quizOpts(){
+  let o = {}; try { o = JSON.parse(localStorage.getItem(QZ_OPTS_KEY) || "{}") || {}; } catch (e) {}
+  const qt = Array.isArray(o.qt) ? o.qt.filter(t => ["mc", "tf", "written"].includes(t)) : [];
+  return {qn: ["5", "10", "20", "all"].includes(o.qn) ? o.qn : "10", qt: qt.length ? qt : ["mc", "tf", "written"], qd: ["fwd", "rev", "mix"].includes(o.qd) ? o.qd : "fwd"};
+}
 // Make a Quiz: the options you pick
 function quizSheet(deckIds){
   const ds = decksArr().filter(d => d.cards.length);
   if (!ds.length) { toast("Add cards to a deck first"); return; }
-  const sel = new Set(deckIds && deckIds.length ? deckIds : [ds[0].id]), ai = aiReady();
+  const sel = new Set(deckIds && deckIds.length ? deckIds : [ds[0].id]), ai = aiReady(), last = quizOpts();
   openSheet(`<form class="sheet">${head(ai ? `Make a Quiz with ${aiWho("AI")}` : "Make a Quiz")}
     <div class="sheet-body">
       <fieldset><legend>Decks</legend><div class="check-list">${ds.map(d => `<label class="mi-check"><input type="checkbox" name="deck" value="${esc(d.id)}" ${sel.has(d.id) ? "checked" : ""}> ${esc(d.name)} <span class="mini">${d.cards.length} cards</span></label>`).join("")}</div></fieldset>
-      <label class="f"><span class="lh">Quiz Name</span><input type="text" name="qname" maxlength="120" value="${esc((state.decks[[...sel][0]] || ds[0]).name + " Quiz")}"></label>
-      <fieldset><legend>Questions</legend>${seg("qn", [["5", "5"], ["10", "10"], ["20", "20"], ["all", "All"]], "10")}</fieldset>
+      <label class="f"><span class="lh">Quiz Name</span><input type="text" name="qname" maxlength="120" value="${esc(uniqueQuizTitle((state.decks[[...sel][0]] || ds[0]).name + " Quiz"))}"></label>
+      <fieldset><legend>Questions</legend>${seg("qn", [["5", "5"], ["10", "10"], ["20", "20"], ["all", "All"]], last.qn)}</fieldset>
       <fieldset><legend>Question Types</legend><div class="check-list row">
-        <label class="mi-check"><input type="checkbox" name="qt" value="mc" checked> Multiple choice</label>
-        <label class="mi-check"><input type="checkbox" name="qt" value="tf" checked> True or false</label>
-        <label class="mi-check"><input type="checkbox" name="qt" value="written" checked> Written answer</label></div></fieldset>
-      <fieldset><legend>Ask With</legend>${seg("qd", [["fwd", "Front, answer back"], ["rev", "Back, answer front"], ["mix", "Mixed"]], "fwd")}</fieldset>
+        <label class="mi-check"><input type="checkbox" name="qt" value="mc"${last.qt.includes("mc") ? " checked" : ""}> Multiple choice</label>
+        <label class="mi-check"><input type="checkbox" name="qt" value="tf"${last.qt.includes("tf") ? " checked" : ""}> True or false</label>
+        <label class="mi-check"><input type="checkbox" name="qt" value="written"${last.qt.includes("written") ? " checked" : ""}> Written answer</label></div></fieldset>
+      <fieldset><legend>Ask With</legend>${seg("qd", [["fwd", "Front, answer back"], ["rev", "Back, answer front"], ["mix", "Mixed"]], last.qd)}</fieldset>
       <p class="mini" style="margin:0">${ai ? `${esc(aiWho("AI"))} writes the questions from these cards, and you check them before the quiz is saved to Quizzes.` : "The questions come straight from your cards. Set up AI in Settings to have them written for you."}</p>
       <p class="status-msg" id="mqStatus" style="margin:0" aria-live="polite"></p>
     </div>
@@ -427,6 +483,7 @@ function quizSheet(deckIds){
     const decks = fd.getAll("deck"), types = fd.getAll("qt"), n = fd.get("qn") || "10", dir = fd.get("qd") || "fwd", title = String(fd.get("qname") || "").trim().slice(0, 120) || "Practice Quiz";
     if (!decks.length) { toast("Pick at least one deck"); return false; }
     if (!types.length) { toast("Pick at least one question type"); return false; }
+    try { localStorage.setItem(QZ_OPTS_KEY, JSON.stringify({qn: n, qt: types, qd: dir})); } catch (e) {}
     const cardsIn = decks.reduce((t, id) => t + (state.decks[id] ? state.decks[id].cards.length : 0), 0);
     if (cardsIn < 2) { toast("A quiz needs at least 2 cards"); return false; }
     if (ai) { quizFromCardsAi(decks, n, types, dir, title); return false; }
@@ -461,9 +518,11 @@ function quizFromCardsLocal(decks, n, types, dir, title){
     : {type: "short", stem: q.prompt, answer: q.answer}));
   if (!qs.length) { toast("Couldn't make questions from these cards"); return; }
   const d = clone(state.decks[decks[0]]); if (!d) return;
-  d.aiQuizzes = (d.aiQuizzes || []).concat({id: uid(), title, style: "", created: Date.now(), sources: decks.map(id => (state.decks[id] || {}).name || ""), questions: qs, results: []}); d.updated = Date.now();
-  ui.tab = "flashcards"; ui.fc = null; ui.deckId = null; rvSet("quizzes");
-  saveDeck(d, `Saved ${title} to Quizzes`); window.scrollTo(0, 0);
+  const qid = uid(), name = uniqueQuizTitle(title);
+  d.aiQuizzes = (d.aiQuizzes || []).concat({id: qid, title: name, style: "", created: Date.now(), sources: decks.map(id => (state.decks[id] || {}).name || ""), questions: qs, results: []}); d.updated = Date.now();
+  ui.deckId = null;
+  saveDeck(d, `Saved ${name} to Quizzes`);
+  startAiQuiz(d.id, qid);
 }
 function startQuiz(questions, deckIds, opts){
   ui.tab = "flashcards"; ui.fc = {mode: "quiz", deckIds, opts, qs: questions, i: 0, ans: []};
@@ -531,6 +590,7 @@ function viewQuiz(){
 function fcKey(e){
   if (ui.tab !== "flashcards" || !ui.fc || dlg.open || e.target.closest("input,textarea,select")) return false;
   const f = ui.fc;
+  if (f.mode === "study" && (e.key === "z" || e.key === "Z" || e.key === "Backspace") && !e.altKey && f.hist && f.hist.length) { e.preventDefault(); undoRate(); return true; }
   if (f.mode === "study" && f.q[f.i]) {
     if (e.key === " " || e.key === "Enter") { if (!f.flipped) { e.preventDefault(); f.flipped = true; render(); return true; } }
     if (f.flipped && ["1", "2", "3", "4"].includes(e.key)) { e.preventDefault(); rateCard(["again", "hard", "good", "easy"][Number(e.key) - 1]); return true; }
@@ -558,14 +618,21 @@ function fcAction(act, el){
     case "fc-card": if (ui.deckId && state.decks[ui.deckId]) cardSheet(state.decks[ui.deckId], id); return true;
     case "fc-study": startStudy([id]); return true;
     case "fc-review-menu": reviewSheet(); return true;
-    case "fc-review-all": if (el.closest("dialog")) dlg.close(); startStudy(decksArr().filter(d => d.cards.some(cardDue)).map(d => d.id)); return true;
+    case "fc-review-all": if (el.closest("dialog")) dlg.close(); startStudy(reviewDecks(el.dataset.course)); return true;
     case "fc-quiz": quizSheet([id]); return true;
     case "fc-flip": if (ui.fc) { ui.fc.flipped = !ui.fc.flipped; render(); } return true;
     case "fc-rate": rateCard(id); return true;
+    case "fc-undo": undoRate(); return true;
     case "fc-answer": answerQuiz(el.dataset.val); return true;
     case "fc-next": ui.fc.i++; render(); setTimeout(() => { const w = $("#qWritten"); if (w) w.focus(); }, 20); return true;
     case "fc-override": { const a = ui.fc.ans[ui.fc.i]; if (a) { a.correct = true; a.close = true; const q = ui.fc.qs[ui.fc.i]; const d = clone(state.decks[q.deckId]); const c = d && d.cards.find(x => x.id === q.cardId); if (c) { c.wrong = Math.max(0, c.wrong - 1); c.right++; saveDeck(d, null); } render(); } return true; }
-    case "fc-exit": { const aq = ui.fc && ui.fc.mode === "aiquiz", one = !aq && ui.fc && ui.fc.deckIds.length === 1 ? ui.fc.deckIds[0] : null; ui.fc = null; ui.deckId = one; render(); return true; }
+    case "fc-exit": {
+      const f = ui.fc, quiz = f && (f.mode === "quiz" || f.mode === "aiquiz"), left = quiz && f.qs[f.i] && f.ans.filter(Boolean).length;
+      const leave = () => { if (ui.fc !== f) return; const aq = f && f.mode === "aiquiz", one = !aq && f && f.deckIds.length === 1 ? f.deckIds[0] : null; ui.fc = null; ui.deckId = one; render(); };
+      if (left) confirmSheet("Quit This Quiz?", `You've answered ${left} of ${f.qs.length} question${f.qs.length === 1 ? "" : "s"}. If you quit now, this attempt isn't scored or saved.`, "Quit Quiz", leave);
+      else leave();
+      return true;
+    }
     case "fc-study-again": startStudy(ui.fc.deckIds); return true;
     case "fc-quiz-from-study": quizSheet(ui.fc.deckIds); return true;
     case "fc-new-quiz": quizSheet(ui.fc.deckIds); return true;

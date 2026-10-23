@@ -16,7 +16,7 @@ const tlPhone = () => innerWidth < 640;
 { let was = null; addEventListener("resize", () => { const now = tlPhone(); if (was !== null && now !== was && typeof ui !== "undefined" && ui.tab === "timeline") render(); was = now; }); }
 function viewTimeline(){
   if (tlPhone()) return viewCalendar("");
-  const mode = `<div class="segb" role="group" aria-label="View"><button data-act="tl-mode" data-id="bars" aria-pressed="${ui.tlMode === "bars"}">Chart</button><button data-act="tl-mode" data-id="calendar" aria-pressed="${ui.tlMode === "calendar"}">Calendar</button></div>`;
+  const mode = `<div class="segb" role="group" aria-label="View"><button data-act="tl-mode" data-id="bars" aria-pressed="${ui.tlMode === "bars"}">Timeline</button><button data-act="tl-mode" data-id="calendar" aria-pressed="${ui.tlMode === "calendar"}">Month</button></div>`;
   return ui.tlMode === "calendar" ? viewCalendar(mode) : viewBars(mode);
 }
 function viewBars(mode){
@@ -62,8 +62,8 @@ function viewBars(mode){
     });
   });
 
-  const zoom = [["week","Week"],["month","Month"],["term","Term"]].map(([k, l]) => `<button data-act="tl-zoom" data-id="${k}" aria-pressed="${ui.tlZoom === k}">${l}</button>`).join("");
-  const head = `<div class="tl-controls"><h2>Timeline</h2>${mode}<div class="segb" role="group" aria-label="Zoom">${zoom}</div><button class="btn small" data-act="tl-today">Today</button>${proBtns("timeline")}</div>`;
+  const zoom = [["week","Days"],["month","Weeks"],["term","Term"]].map(([k, l]) => `<button data-act="tl-zoom" data-id="${k}" aria-pressed="${ui.tlZoom === k}">${l}</button>`).join("");
+  const head = `<div class="tl-controls"><h2>Due Dates</h2>${mode}<div class="segb" role="group" aria-label="Zoom">${zoom}</div><button class="btn small" data-act="tl-today">Today</button>${proBtns("timeline")}</div>`;
   if (!ts.length) return head + chipsHtml() + searchNote() + `<div class="empty" style="margin-top:14px"><strong>Nothing to Show Yet</strong>Tasks show up here as an icon on their due date.${noDue ? `<br>${noDue} task${noDue === 1 ? " has" : "s have"} no due date.` : ""}</div>`;
   return head + chipsHtml() + searchNote() + `<div class="tl-scroll" data-today="${x(today)}" data-dw="${dw}">
       <div class="tl" style="width:${LW + W}px" data-lw="${LW}">
@@ -93,12 +93,13 @@ function viewCalendar(mode){
     const k = iso(d);
     const ts = (byDay[k] || []).slice().sort(sortTasks);
     const out = d.getMonth() !== m.getMonth();
-    const dots = ts.slice(0, 4).map(t => `<i class="ci" title="${esc(t.type)}: ${esc(t.title)}" style="--c:${esc(colorOf(t.courseId))};${t.status === "done" ? "opacity:.35" : ""}">${typeIcon(t.type)}</i>`).join("") + (ts.length > 4 ? `<b class="ci-more">+${ts.length - 4}</b>` : "");
-    cells += `<button class="day ${out ? "out" : ""} ${k === today ? "is-today" : ""}" data-act="pick-day" data-id="${k}" aria-pressed="${k === ui.calDay}" aria-label="${esc(d.toLocaleDateString(undefined, {weekday:"long", month:"long", day:"numeric"}))}, ${ts.length} task${ts.length === 1 ? "" : "s"} due"><span class="num">${d.getDate()}</span><span class="dots">${dots}</span></button>`;
+    const late = ts.filter(t => t.status !== "done" && k < today).length;
+    const dots = ts.slice(0, 4).map(t => `<span class="ci-row${t.status !== "done" && k < today ? " late" : ""}" style="--c:${esc(colorOf(t.courseId))}"><i class="ci" title="${esc(t.type)}: ${esc(t.title)}${t.status !== "done" && k < today ? ", overdue" : ""}" style="--c:${esc(colorOf(t.courseId))};${t.status === "done" ? "opacity:.35" : ""}">${typeIcon(t.type)}</i><span class="ci-t${t.status === "done" ? " done" : ""}">${esc(t.title)}</span></span>`).join("") + (ts.length > 4 ? `<b class="ci-more">+${ts.length - 4}</b>` : "");
+    cells += `<button class="day ${out ? "out" : ""} ${k === today ? "is-today" : ""}${late ? " has-late" : ""}" data-act="pick-day" data-id="${k}" aria-pressed="${k === ui.calDay}" aria-label="${esc(d.toLocaleDateString(undefined, {weekday:"long", month:"long", day:"numeric"}))}, ${ts.length} task${ts.length === 1 ? "" : "s"} due${late ? `, ${late} overdue` : ""}"><span class="num">${d.getDate()}</span><span class="dots">${dots}</span></button>`;
   }
   const dayTasks = (byDay[ui.calDay] || []).slice().sort(sortTasks);
   const dayLabel = parse(ui.calDay).toLocaleDateString(undefined, {weekday:"long", month:"long", day:"numeric"});
-  return `${mode ? `<div class="tl-controls"><h2>Timeline</h2>${mode}</div>` : ""}${chipsHtml()}${searchNote()}
+  return `${mode ? `<div class="tl-controls"><h2>Due Dates</h2>${mode}</div>` : ""}${chipsHtml()}${searchNote()}
     <div class="cal-head">
       <button class="icon-btn" data-act="cal-prev" aria-label="Previous month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
       <h2>${esc(m.toLocaleDateString(undefined, {month:"long", year:"numeric"}))}</h2>
@@ -122,7 +123,7 @@ function viewCourses(){
   if (!cs.length) return `<div class="empty" style="margin-top:18px"><strong>No Courses Yet</strong>Add each class you're taking this term.<br><button class="btn primary" data-act="new-course">Add a Course</button> ${imp}</div>${(n => n ? `<div class="term-bar"><span>${ARCHIVE_SM}${n} course${n === 1 ? " is" : "s are"} in the Archive from past terms.</span><button class="btn small" data-act="archive-open">Open Archive (${n})</button></div>` : "")(allCourses().filter(c => c.archived).length)}`;
   const today = todayISO();
   const cards = cs.map(c => {
-    const ts = tasksArr().filter(t => t.courseId === c.id);
+    const ts = courseTasks(c);
     const open = ts.filter(t => t.status !== "done");
     const hrs = weekHours(open, mondayOf(today));
     const doneN = ts.length - open.length, nFiles = Object.values(state.files).filter(f => f.courseId === c.id).length;
@@ -372,6 +373,18 @@ function ciPng(c, col){
   });
 }
 hook("act", (act, el) => {
+  if (act === "course-deck") { ui.tab = "flashcards"; rvSet("cards"); ui.fc = null; ui.deckId = el.dataset.id; ui.courseId = null; render(); window.scrollTo(0, 0); return true; }
+  if (act === "course-deck-new") { const f = ui.filter; ui.filter = el.dataset.id; try { deckSheet(null); } finally { ui.filter = f; } return true; }
+  if (act === "course-note" || act === "course-notes") {
+    const n = act === "course-note" && state.notes[el.dataset.id], cid = n ? n.courseId : el.dataset.id;
+    const b = n ? noteBoardOf(n) : (noteBoards().find(x => x.courseId === cid) || {}).id || "";
+    if (window.SBWB && SBWB.on()) SBWB.setView("board");
+    ui.tab = "notes"; ui.courseId = null; ui.noteBoard = b; try { localStorage.setItem(NB_KEY, b); } catch (e) {}
+    if (n) noteEditing = n.id;
+    render(); window.scrollTo(0, 0);
+    return true;
+  }
+  if (act === "cd-old") { ui.cdOld = ui.cdOld === ui.courseId ? null : ui.courseId; render(); return true; }
   if (act === "ci-ai") {
     if (typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !PLAN.isPro()) { toast("Making your own icons with AI is part of Studyboard Pro", null, {label: "See Pro", fn: () => PLAN.openSheet("ai-icons")}); return true; }
     if (!aiReady()) { toast("Set up AI to make your own icons", null, {label: "Set Up AI", fn: () => aiSetupSheet(true)}); return true; }
@@ -449,32 +462,39 @@ function courseMoreSheet(c){
     </div></div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button></div></div>`);
 }
+// Every task of a course this term, including finished work the Board has tucked away
+const courseTasks = c => allTasks().filter(t => t.courseId === c.id && !t.archivedTerm);
 function viewCourseDetail(c){
   const ts = tasksArr().filter(t => t.courseId === c.id && matchesQ(t));
-  const by = k => ts.filter(t => t.status === k).sort(sortTasks);
+  const exams = new Set(window.SBPREP && SBPREP.courseExams ? SBPREP.courseExams(c).map(t => t.id) : []);
+  const by = k => ts.filter(t => t.status === k && !exams.has(t.id)).sort(sortTasks);
+  const old = courseTasks(c).filter(t => autoArchived(t) && matchesQ(t)).sort(sortTasks), showOld = ui.cdOld === c.id;
+  const doneL = by("done").concat(showOld ? old : []), kick = [c.code, courseTimesText(c), c.room].filter(Boolean).join(" · ");
   const lmsL = lmsCourseLink(c), isLms = l => lmsL && ((l.url && l.url === lmsL.url) || String(l.label || "").trim().toLowerCase() === String(lmsL.name || "").toLowerCase());
   const links = (c.links || []).filter(l => !isLms(l)).map(l => { const u = safeUrl(l.url); return u ? `<dt>${esc(l.label || "Link")}</dt><dd><a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(u.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a></dd>` : ""; }).join("");
   return `<button class="back" data-act="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>All Courses</button>
     <div class="detail-head c2-head" style="--c:${esc(c.color)}">
-      <div class="g2-band"><span class="g2-kick">${esc(courseLabel(c))}${courseTimesText(c) ? " · " + esc(courseTimesText(c)) : ""}${c.room ? " · " + esc(c.room) : ""}</span>
+      <div class="g2-band"><span class="g2-kick">${esc(kick || "Course")}</span>
         <div class="row-actions">${(l => l ? `<button class="btn small" data-act="lms-go" data-url="${esc(l.url)}">Open in ${esc(l.name)}</button>` : "")(lmsCourseLink(c))}${inPreview() ? "" : `<button class="btn small ai-btn" data-act="ask-course" data-sx-ask="1" data-id="${esc(c.id)}">${AI_ICON} Ask About This Course</button>`}${window.SBLEC ? SBLEC.btn(c) : ""}<button class="btn small" data-act="import-syllabus" data-course="${esc(c.id)}">Import Syllabus</button><button class="btn small" data-act="edit-course" data-id="${esc(c.id)}">Edit Course</button></div></div>
       <div class="g2-low"><span class="g2-ring" aria-hidden="true">${courseRingHtml(c)}</span>
-        <div class="g2-txt"><h2>${esc(c.name)}</h2><div class="g2-meta">${c.code ? `<span class="g2-code">${esc(c.code)}</span>` : ""}<span>${esc(courseMetaLine(c))}</span></div></div></div>
+        <div class="g2-txt"><h2>${esc(c.name)}</h2><div class="g2-meta"><span>${esc(courseMetaLine(c))}</span></div></div></div>
       <!--cd-tabs--></div><!--cd-body-->
     <div class="c2-cols" style="--c:${esc(c.color)}"><div class="c2-main">
     ${c.notes ? `<h2 class="sec"><span class="t">Notes</span></h2><p class="notes">${esc(c.notes)}</p>` : ""}
+    ${searchNote()}
+    ${window.SBPREP ? SBPREP.courseHtml(c) : ""}
+    ${section("To Do", by("todo"), "", {hideCourse:true})}
+    ${section("In Progress", by("doing"), "", {hideCourse:true})}
+    ${doneL.length || old.length ? `<h2 class="sec"><span class="t">Complete</span><span class="n">${by("done").length + old.length}</span></h2>${doneL.length ? taskList(doneL, {hideCourse:true}) : ""}${old.length ? `<button class="show-old" data-act="cd-old" aria-expanded="${showOld}">${showOld ? "Hide Older" : `Show Older (${old.length})`}</button>` : ""}` : ""}
+    ${!ts.length && !old.length ? `<div class="empty" style="margin-top:18px"><strong>No Tasks Yet</strong>Add assignments, exams and readings for this course.</div>` : ""}
     ${window.SBOBJ ? SBOBJ.courseHtml(c) : ""}
     ${window.SBSHARE ? SBSHARE.courseHtml(c) : ""}
-    ${window.SBPREP ? SBPREP.courseHtml(c) : ""}
-    ${searchNote()}
-    ${section("To Do", by("todo"), "", {hideCourse:true})}
-    ${section("In Work", by("doing"), "", {hideCourse:true})}
-    ${section("Complete", by("done"), "", {hideCourse:true})}
-    ${!ts.length ? `<div class="empty" style="margin-top:18px"><strong>No Tasks Yet</strong>Add assignments, exams and readings for this course.</div>` : ""}
     </div><aside class="c2-side">
     ${courseGradeSide(c)}
     ${courseTeamHtml(c, "")}
     ${courseFilesHtml(c)}
+    ${courseDecksHtml(c)}
+    ${courseNotesHtml(c)}
     ${links ? `<h2 class="sec"><span class="t">Links</span></h2><dl class="facts">${links}</dl>` : ""}
     </aside></div>`;
 }
@@ -486,7 +506,7 @@ function courseTeamHtml(c, staff){
 }
 // The line under a course's name on its page
 function courseMetaLine(c){
-  const all = tasksArr().filter(t => t.courseId === c.id), done = all.filter(t => t.status === "done").length, today = todayISO();
+  const all = courseTasks(c), done = all.filter(t => t.status === "done").length, today = todayISO();
   const ex = all.filter(t => t.status !== "done" && MILESTONE(t.type) && t.due && t.due >= today).length, gn = window.SBGRADES && SBGRADES.now(c);
   return [all.length ? `${done} of ${all.length} done` : "No tasks yet", ex ? `${ex} exam${ex === 1 ? "" : "s"} coming` : "", gn && gn.pct != null ? `${gn.fmt(gn.pct)}${gn.letter ? " " + gn.letter : ""} so far` : ""].filter(Boolean).join(" · ");
 }
@@ -496,6 +516,22 @@ function courseGradeSide(c){
   return `<section class="c2-card2"><h2 class="sec"><span class="t">Grade So Far</span><span class="n">${esc(gn.fmt(gn.marked))} marked</span></h2>
     ${gn.pct != null ? `<div class="c2-big">${esc(gn.fmt(gn.pct))}${gn.letter ? `<span class="c2-letter">${esc(gn.letter)}</span>` : ""}</div><div class="prog"><span class="track"><i style="width:${Math.min(100, gn.marked).toFixed(0)}%"></i></span></div>` : ""}
     <p class="mini" style="margin:6px 0 10px">${esc(gn.line)}</p><button class="btn small" data-act="course-tab" data-id="grades">See Grades</button></section>`;
+}
+// The student's own decks and notes for a course
+function courseDecksHtml(c){
+  const ds = deckListArr().filter(d => d.courseId === c.id);
+  const row = d => { const st = deckStats(d), n = studyCounts([d.id]);
+    return `<li><button class="c2-li-main" data-act="course-deck" data-id="${esc(d.id)}"><b>${esc(d.name)}</b><span class="mini${st.due ? " c2-due" : ""}">${st.total ? (st.due || st.fresh ? `${st.due} due · ${st.fresh} new` : "All caught up") : "No cards yet"}</span></button>${st.total ? `<button class="btn small${n.due ? " primary" : ""}" data-act="fc-study" data-id="${esc(d.id)}" aria-label="Study ${esc(d.name)}">Study</button>` : ""}</li>`; };
+  return `<h2 class="sec"><span class="t">Your Decks</span><span class="n">${ds.length || ""}</span></h2>
+    ${ds.length ? `<ul class="c2-list">${ds.map(row).join("")}</ul>` : `<div class="facts c2-none"><span class="mini">No flashcard decks for this course yet.</span><button class="btn small" data-act="course-deck-new" data-id="${esc(c.id)}">New Deck</button></div>`}`;
+}
+function courseNotesHtml(c){
+  const ns = notesArr().filter(n => !n.archived && n.courseId === c.id).sort((a, b) => (b.updated || b.created || 0) - (a.updated || a.created || 0));
+  const title = n => (String(n.text || "").split("\n").map(x => x.trim()).find(Boolean) || "Empty note").slice(0, 80);
+  const shown = ns.slice(0, 5);
+  return `<h2 class="sec"><span class="t">Notes</span><span class="n">${ns.length || ""}</span></h2>
+    ${ns.length ? `<ul class="c2-list">${shown.map(n => `<li><button class="c2-li-main" data-act="course-note" data-id="${esc(n.id)}" style="--nc:${noteColor(n.color)}"><b><span class="c2-nc" aria-hidden="true"></span>${esc(title(n))}</b></button></li>`).join("")}</ul>${ns.length > shown.length ? `<button class="link-btn c2-more" data-act="course-notes" data-id="${esc(c.id)}">See All ${ns.length} Notes</button>` : ""}`
+      : `<div class="facts c2-none"><span class="mini">No notes for this course yet.</span><button class="btn small" data-act="course-notes" data-id="${esc(c.id)}">Open Notes</button></div>`}`;
 }
 function courseFilesHtml(c){
   const fs = Object.values(state.files).filter(f => f.courseId === c.id && f.folderId !== "lectures");
@@ -514,7 +550,7 @@ function archRow(t){
   return `<li class="arch-row" style="--c:${esc(colorOf(t.courseId))}">
     <span class="arch-st st-${esc(t.status)}">${esc(lab)}</span>
     <button class="arch-main" data-act="edit-task" data-id="${esc(t.id)}"><span class="arch-t">${esc(t.title)}</span><span class="mini">${esc(meta.join(" · "))}</span></button>
-    <span class="arch-acts"><span class="mini">Move to</span><button class="btn small" data-act="arch-restore" data-id="${esc(t.id)}" data-status="todo">To Do</button><button class="btn small" data-act="arch-restore" data-id="${esc(t.id)}" data-status="doing">In Work</button></span></li>`;
+    <span class="arch-acts"><span class="mini">Move to</span><button class="btn small" data-act="arch-restore" data-id="${esc(t.id)}" data-status="todo">To Do</button><button class="btn small" data-act="arch-restore" data-id="${esc(t.id)}" data-status="doing">In Progress</button></span></li>`;
 }
 function viewArchive(){
   const q = t => matchesQ(t) && inFilter(t);
@@ -541,7 +577,7 @@ function viewArchive(){
     </details>`;
   }).join("");
   return `<div class="view-head"><h2>Archive</h2><button class="btn small" data-act="new-term">Start a New Term</button><button class="btn small" data-act="archive-back">Back to Board</button></div>
-    <p class="mini" style="margin:6px 0 0;max-width:70ch">Completed tasks move here ${ARCHIVE_DAYS} days after you finish them, and past terms move here when you start a new one. Move anything back to To Do or In Work any time.</p>
+    <p class="mini" style="margin:6px 0 0;max-width:70ch">Completed tasks move here ${ARCHIVE_DAYS} days after you finish them, and past terms move here when you start a new one. Move anything back to To Do or In Progress any time.</p>
     ${chipsHtml()}${searchNote()}
     <h3 class="fsec">${ARCHIVE_SM}Completed Tasks<span class="n">${done.length}</span></h3>
     ${done.length ? `<ul class="arch-list">${shown.map(archRow).join("")}</ul>${done.length > shown.length ? `<button class="show-old" data-act="arch-all" style="width:100%;margin-top:8px">Show All ${done.length}</button>` : ""}` : `<div class="empty">Nothing here yet. Tasks you finish show up here two weeks later.</div>`}
@@ -558,7 +594,8 @@ function newTermSheet(){
   const cs = coursesArr();
   const loose = tasksArr().filter(t => !courseOf(t.courseId)).length;
   if (!cs.length && !loose) { toast("There's nothing to archive yet"); return; }
-  const cnt = c => tasksArr().filter(t => t.courseId === c.id).length;
+  const cnt = c => tasksArr().filter(t => t.courseId === c.id).length, today = todayISO();
+  const ahead = t => t.status !== "done" && !!t.due && t.due > today, nAhead = tasksArr().filter(ahead).length;
   openSheet(`<form class="sheet">${head("Start a New Term")}
     <div class="sheet-body">${REQ_NOTE}
       <p style="margin:0">This puts the finished term's courses, tasks, flashcards and sticky notes in the Archive, so your board, timeline and plan start clean. Nothing is deleted, and you can bring anything back later.</p>
@@ -571,7 +608,8 @@ function newTermSheet(){
         <label class="mi-check"><input type="checkbox" name="decks" checked> Flashcard decks for these courses</label>
         <label class="mi-check"><input type="checkbox" name="notes" checked> Sticky notes for these courses</label>
       </fieldset>
-      <p class="mini" style="margin:0">Open tasks are archived too. Move any you're carrying over back to To Do from the Archive.</p>
+      <label class="mi-check"><input type="checkbox" name="keep" checked> Keep Unfinished Work Due After Today${nAhead ? ` <span class="mini">${nAhead} task${nAhead === 1 ? "" : "s"}</span>` : ""}</label>
+      <p class="mini" style="margin:0">Other open tasks are archived too. Move any you're carrying over back to To Do from the Archive.</p>
     </div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Archive Term</button></div>
   </form>`, fd => {
@@ -580,7 +618,8 @@ function newTermSheet(){
     if (!ids.size && !fd.get("loose")) { toast("Pick at least one course"); return false; }
     ids.forEach(id => ch.push({kind: "course", id, after: Object.assign(clone(state.courses[id]), {archived: label, archivedAt: now})}));
     let nT = 0;
-    allTasks().filter(t => !t.archivedTerm && (ids.has(t.courseId) || (fd.get("loose") && !courseOf(t.courseId) && !(state.courses[t.courseId] || {}).archived))).forEach(t => { nT++; ch.push({kind: "task", id: t.id, after: Object.assign(clone(t), {archivedTerm: label, archivedAt: now})}); });
+    const keep = !!fd.get("keep");
+    allTasks().filter(t => !t.archivedTerm && !(keep && ahead(t)) && (ids.has(t.courseId) || (fd.get("loose") && !courseOf(t.courseId) && !(state.courses[t.courseId] || {}).archived))).forEach(t => { nT++; ch.push({kind: "task", id: t.id, after: Object.assign(clone(t), {archivedTerm: label, archivedAt: now})}); });
     if (fd.get("decks")) decksArr().filter(d => ids.has(d.courseId)).forEach(d => ch.push({kind: "deck", id: d.id, after: Object.assign(clone(d), {archived: label})}));
     if (fd.get("notes")) notesArr().filter(n => !n.archived && ids.has(n.courseId)).forEach(n => ch.push({kind: "note", id: n.id, after: Object.assign(clone(n), {archived: true, archivedAt: now})}));
     ui.filter = "all"; ui.courseId = null; ui.deckId = null;

@@ -317,7 +317,9 @@ ipcMain.on("desk:listen", (e, channel) => {
   for (const m of now) e.sender.send(m.channel, ...m.args);
 });
 // Actions the page knows how to do (see the widgets module)
-const ACTIONS = ["quickadd", "today", "focus", "search", "flashcards", "toggle", "focus-task", "settings"];
+const ACTIONS = ["quickadd", "today", "focus", "search", "flashcards", "toggle", "focus-task", "settings", "new-task", "view", "shortcuts"];
+// The pages, in the order of the side menu (Ctrl or Cmd + 1 to 7)
+const MENU_VIEWS = [["board", "Board"], ["plan", "Calendar"], ["flashcards", "Review"], ["notes", "Notes"], ["courses", "Courses"], ["companion", "Companion"], ["groups", "Groups"]];
 function sendAction(action, arg, stayHidden) {
   if (!ACTIONS.includes(action)) return;
   if (!stayHidden) showMain();
@@ -1029,11 +1031,16 @@ if (GOT_LOCK) app.whenReady().then(async () => {
       return new Response(r.body, { status: r.status, headers: h });
     } catch (e) { return new Response("Not found", { status: 404 }); }
   });
+  const settingsItem = { label: process.platform === "darwin" ? "Settings…" : "Settings", accelerator: "CmdOrCtrl+,", click: () => sendAction("settings") };
   Menu.setApplicationMenu(Menu.buildFromTemplate([
-    ...(process.platform === "darwin" ? [{ role: "appMenu" }] : []),
+    ...(process.platform === "darwin" ? [{ label: app.name, submenu: [{ role: "about" }, { type: "separator" }, settingsItem, { type: "separator" }, { role: "services" }, { type: "separator" }, { role: "hide" }, { role: "hideOthers" }, { role: "unhide" }, { type: "separator" }, { role: "quit" }] }] : []),
+    { label: "File", submenu: [{ label: "New Task", accelerator: "CmdOrCtrl+N", click: () => sendAction("new-task") }, { label: "Quick Add", click: () => sendAction("quickadd") }, { label: "Search Everywhere", accelerator: "CmdOrCtrl+K", registerAccelerator: false, click: () => sendAction("search") },
+      ...(process.platform === "darwin" ? [] : [{ type: "separator" }, settingsItem, { type: "separator" }, { role: "quit" }])] },
     { label: "Edit", submenu: [{ role: "undo" }, { role: "redo" }, { type: "separator" }, { role: "cut" }, { role: "copy" }, { role: "paste" }, { role: "selectAll" }] },
-    { label: "View", submenu: [{ role: "reload" }, { role: "resetZoom" }, { role: "zoomIn" }, { role: "zoomOut" }, { type: "separator" }, { role: "togglefullscreen" }, ...(IS_DEV ? [{ role: "toggleDevTools" }] : [])] },
-    { role: "windowMenu" }
+    { label: "View", submenu: [...MENU_VIEWS.map(([id, label], i) => ({ label, accelerator: "CmdOrCtrl+" + (i + 1), click: () => sendAction("view", id) })), { type: "separator" },
+      { role: "reload" }, { role: "resetZoom" }, { role: "zoomIn" }, { role: "zoomOut" }, { type: "separator" }, { role: "togglefullscreen" }, ...(IS_DEV ? [{ role: "toggleDevTools" }] : [])] },
+    { role: "windowMenu" },
+    { role: "help", submenu: [{ label: "Keyboard Shortcuts", accelerator: "CmdOrCtrl+/", click: () => sendAction("shortcuts") }] }
   ]));
   createTray();
   registerShotKey();

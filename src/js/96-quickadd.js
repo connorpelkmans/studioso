@@ -534,8 +534,9 @@ const QADD = (() => {
     const done = objs.filter(o => o.done).length;
     const head = `<h2 class="sec"><span class="t">Learning Objectives</span><span class="n">${objs.length ? done + "/" + objs.length : ""}</span></h2>`;
     const review = pend && pend.list.length ? `<div class="obj-pend"><span>${pend.list.length} suggested from ${esc(clip(pend.src, 60))}</span><button type="button" class="btn small primary" data-act="obj-review" data-c="${esc(c.id)}">Review</button></div>` : "";
-    if (!objs.length) return `${head}${review}<div class="facts" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><span class="mini" style="flex:1 1 220px">What you should be able to do by the end of the course. Pulled from a syllabus or lecture slides, then used for flashcards, coverage and exam prep.</span>
+    const intro = `<div class="facts" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><span class="mini" style="flex:1 1 220px">What you should be able to do by the end of the course. Pulled from a syllabus or lecture slides, then used for flashcards, coverage and exam prep.</span>
       ${hasFiles ? `<button class="btn small ai-btn" data-act="obj-find" data-c="${esc(c.id)}">${AI_ICON} Find in My Files</button>` : ""}<button class="btn small" data-act="obj-edit" data-c="${esc(c.id)}">Add Objectives</button></div>`;
+    if (!objs.length) return review ? `${head}${review}${intro}` : `<details class="c2-promo"><summary>Learning Objectives<span class="mini">None yet</span></summary>${intro}</details>`;
     const cov = QADD.coverage(objs, materialOf(c)), gaps = objs.filter(o => !o.done && !(cov[o.id] || {}).cards).length;
     const shown = OB.all[c.id] || objs.length <= 6 ? objs : objs.slice(0, 5);
     const chip = (n, one, many) => n ? `<span class="obj-chip">${n} ${n === 1 ? one : many}</span>` : "";

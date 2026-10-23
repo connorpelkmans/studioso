@@ -213,7 +213,7 @@ function logTime(id, min, kind, label, at){
   const n = clone(t);
   n.focusMin = (Number(n.focusMin) || 0) + min;
   n.history = (n.history || []).concat({at: at || Date.now(), text: kind === "focus" ? `Focus session: ${min}m` : `Logged time: ${min}m`}).slice(-30);
-  applyChanges([{kind: "task", id, after: n}], label || tr("acc.loggedToast", "Logged {t} on {title}", {t: fmtHM(min / 60) || min + "m", title: t.title.length > 28 ? t.title.slice(0, 27) + "…" : t.title}));
+  applyChanges([{kind: "task", id, after: n}], label || tr("acc.loggedToast", "Logged {t} on {title}", {t: fmtMins(min), title: t.title.length > 28 ? t.title.slice(0, 27) + "…" : t.title}));
   LEARN = null;
   return true;
 }
@@ -224,7 +224,7 @@ function early(min, taskId, why){
   if (min < MIN_EARLY) return false;
   try { SBSTATS.addFocus(min, "timer"); } catch (e) { }
   try { pomoToday(); pomo.minutes += min; pomoSave(); } catch (e) { }
-  if (taskId && state.tasks[taskId] && state.tasks[taskId].status !== "done") return logTime(taskId, min, "focus", tr("acc.earlyToast", "Logged {t} of focus on {title}", {t: fmtHM(min / 60) || min + "m", title: state.tasks[taskId].title.slice(0, 28)}));
+  if (taskId && state.tasks[taskId] && state.tasks[taskId].status !== "done") return logTime(taskId, min, "focus", tr("acc.earlyToast", "Logged {t} of focus on {title}", {t: fmtMins(min), title: state.tasks[taskId].title.slice(0, 28)}));
   pending({min, at: Date.now(), why: why || "stop"});
   return false;
 }
@@ -252,7 +252,7 @@ function chipShow(c, timeoutMs){
 function chipHtml(c){
   if (c.kind === "which") {
     const opts = c.opts.map(t => `<button type="button" class="acc-opt" data-act="acc-which" data-id="${esc(t.id)}">${esc(short(t.title, 26))}</button>`).join("");
-    return `<span class="acc-q">${esc(tr("acc.which", "Which task was that for?"))} <span class="mini">${esc(fmtHM(c.min / 60) || c.min + "m")}</span></span><span class="acc-opts">${opts}</span><button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
+    return `<span class="acc-q">${esc(tr("acc.which", "Which task was that for?"))} <span class="mini">${esc(fmtMins(c.min))}</span></span><span class="acc-opts">${opts}</span><button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
   }
   const t = state.tasks[c.id], title = short(t ? t.title : "", 30);
   if (c.exact) return `<span class="acc-q">${esc(tr("acc.exactQ", "How long did “{title}” take?", {title}))}</span><span class="acc-opts"><label class="acc-own"><span class="sr">${esc(tr("acc.exactLbl", "Time spent, like 45m or 1h 30m"))}</span><input type="text" id="accExact" inputmode="text" autocomplete="off" maxlength="12" placeholder="${esc(tr("acc.exactPh", "e.g. 1h 30m"))}" data-noenter></label><button type="button" class="acc-opt primary" data-act="acc-exact-save">${esc(tr("acc.save", "Save"))}</button><button type="button" class="acc-opt" data-act="acc-feel-back">${esc(tr("acc.back", "Back"))}</button></span><button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
@@ -339,7 +339,7 @@ const logHtml = t => `<div class="acc-log" id="accLog" data-id="${esc(t.id)}"><s
   <span class="mini acc-log-tot" aria-live="polite">${logTotal(t)}</span></div>`;
 function logTotal(t){
   const m = Number(t.focusMin) || 0;
-  return m ? esc(tr("acc.logTotal", "{t} tracked so far", {t: fmtHM(m / 60) || m + "m"})) : esc(tr("acc.logNone", "Nothing tracked yet"));
+  return m ? esc(tr("acc.logTotal", "{t} tracked so far", {t: fmtMins(m)})) : esc(tr("acc.logNone", "Nothing tracked yet"));
 }
 function refreshLog(id){
   const box = document.getElementById("accLog"); if (!box || box.dataset.id !== id || !state.tasks[id]) return;
@@ -364,7 +364,7 @@ hook("act", (a, el) => {
   if (a === "acc-dismiss") { chipDismiss(); return true; }
   if (a === "acc-which") {
     const p = lsGet(LS_PEND, null), id = el.dataset.id; lsSet(LS_PEND, null); chipHide();
-    if (p && id) logTime(id, p.min, "focus", tr("acc.whichToast", "Added {t} to {title}", {t: fmtHM(p.min / 60) || p.min + "m", title: short((state.tasks[id] || {}).title, 28)}), p.at);
+    if (p && id) logTime(id, p.min, "focus", tr("acc.whichToast", "Added {t} to {title}", {t: fmtMins(p.min), title: short((state.tasks[id] || {}).title, 28)}), p.at);
     return true;
   }
   if (a === "acc-feel") { answerTook({feel: el.dataset.v}); return true; }

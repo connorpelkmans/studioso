@@ -238,15 +238,15 @@ async function sharer(browser){
   await page.click("#pubOff"); await page.waitForSelector("#askDlg[open]"); await page.click("#askYes"); await page.waitForTimeout(300);
   ok(await page.evaluate(() => window.__SV.decks.find(x => x.deck_id === "d3").published === false && !__sbSync.state.decks.d3.published), "Unpublish takes the page down");
   await page.evaluate(() => { window.__SV.age = null; Object.keys(localStorage).filter(k => k.startsWith("studyboard:age:")).forEach(k => localStorage.removeItem(k)); });
-  await page.evaluate(() => document.querySelector('#view [data-act="pub-deck"]').click()); await page.waitForSelector("dialog[open] select[name=bm]");
+  await page.evaluate(() => document.querySelector('#view [data-act="pub-deck"]').click()); await page.waitForSelector("dialog[open] input[name=bday]");
   ok(/When's Your Birthday/.test(await txt(page, "dialog[open]")) && /can't be changed later/.test(await txt(page, "dialog[open]")), "with no birthday saved, publishing asks for it once");
   const kid = new Date(); kid.setFullYear(kid.getFullYear() - 11);
-  await page.selectOption("dialog[open] select[name=bm]", String(kid.getMonth() + 1)); await page.selectOption("dialog[open] select[name=bd]", String(kid.getDate())); await page.selectOption("dialog[open] select[name=by]", String(kid.getFullYear()));
+  await page.fill("dialog[open] input[name=bday]", `${kid.getFullYear()}-${String(kid.getMonth() + 1).padStart(2, "0")}-${String(kid.getDate()).padStart(2, "0")}`);
   await page.click("#bdSave"); await page.waitForTimeout(400);
   ok(await page.evaluate(() => window.__SV.age === 11) && /13 and older/.test(await txt(page, "dialog[open]")), "under 13: the birthday is saved and publishing says it's for 13 and older");
   await page.evaluate(() => __sbSync.dlg.close());
   await page.evaluate(() => document.querySelector('#view [data-act="pub-deck"]').click()); await page.waitForTimeout(300);
-  ok(/13 and older/.test(await txt(page, "dialog[open]")) && !(await page.$("dialog[open] select[name=bm]")), "and it isn't asked again");
+  ok(/13 and older/.test(await txt(page, "dialog[open]")) && !(await page.$("dialog[open] input[name=bday]")), "and it isn't asked again");
   await page.evaluate(() => { __sbSync.dlg.close(); window.__SV.age = 20; Object.keys(localStorage).filter(k => k.startsWith("studyboard:age:")).forEach(k => localStorage.removeItem(k)); });
   await page.evaluate(() => { __sbSync.ui.deckId = "d1"; __sbSync.render(); }); await page.waitForTimeout(200);
   await page.evaluate(() => document.querySelector('#view [data-act="pub-deck"]').click()); await page.waitForTimeout(300);

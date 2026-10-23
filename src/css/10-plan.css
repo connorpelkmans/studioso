@@ -90,3 +90,9 @@ dialog:has(.plan-sheet){width:min(600px,calc(100% - 24px))}
 @media (max-width:360px){.plan-prices{grid-template-columns:1fr}}
 
 
+/* No account yet: the free week comes first */
+.plan-gift{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:14px 16px;border-radius:16px;border:1px solid color-mix(in srgb,#F5B301 45%,var(--line));background:linear-gradient(135deg,color-mix(in srgb,#FFD166 20%,var(--surface)),color-mix(in srgb,#FF8FB0 12%,var(--surface)))}
+.plan-gift > span:nth-child(2){flex:1 1 220px;display:grid;gap:4px}
+.plan-gift-ic{font-size:1.8rem;line-height:1}
+.plan-gift .btn{min-height:44px}
+@media (max-width:600px){.plan-gift .btn{flex:1 1 100%}}

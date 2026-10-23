@@ -1,7 +1,7 @@
 /* ===== module: 90-grade-trend.css ===== */
 .gt-sec h4{margin:0}
 .gt-fig{margin:0;display:grid;gap:6px}
-.gt-svg{display:block;width:100%;max-width:520px;height:auto;overflow:visible}
+.gt-svg{display:block;width:100%;max-width:620px;height:auto;max-height:200px;overflow:visible}
 .gt-grid{stroke:var(--line);stroke-width:1}
 .gt-ax{fill:var(--muted);font:11px var(--display,system-ui,sans-serif)}
 .gt-line{stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}

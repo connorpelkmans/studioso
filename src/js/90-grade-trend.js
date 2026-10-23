@@ -64,7 +64,8 @@
 
   /* The chart */
   function chartHtml(d){
-    const W = 320, H = 158, box = {l: 40, t: 18, w: 320 - 40 - 16, h: 158 - 18 - 30}, n = d.pts.length;
+    // A wider, shorter drawing on bigger screens, so a few points don't make a tall chart with big text
+    const wide = !(window.matchMedia && matchMedia("(max-width:600px)").matches), W = wide ? 560 : 320, H = wide ? 150 : 158, box = {l: 40, t: 18, w: W - 40 - 16, h: H - 18 - 30}, n = d.pts.length;
     const dom = GTREND.domain(d.pts.map(p => p.pct).concat(d.goal != null ? [d.goal] : []));
     const P = d.pts.map((p, i) => GTREND.xy(i, n, p.pct, dom, box));
     const f = v => v.toFixed(1), mid = Math.round((dom.lo + dom.hi) / 2 / 5) * 5;

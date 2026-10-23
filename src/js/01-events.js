@@ -32,7 +32,7 @@ document.addEventListener("click", e => {
   if (act.startsWith("fc-") && fcAction(act, el)) return;
   if (act.startsWith("pomo-") && pomoAction(act, el)) return;
   switch (act) {
-    case "close": { const dd = el.closest("dialog") || dlg; dd.close(); break; }
+    case "close": { const dd = el.closest("dialog") || dlg; if (dd === dlg) dlgClose(); else dd.close(); break; }
     case "menu": menuSheet(); break;
     case "search": toggleSearch(true); break;
     case "search-close": toggleSearch(false); break;
@@ -58,6 +58,8 @@ document.addEventListener("click", e => {
     case "today-h": { const v = Math.max(0, Math.min(16, todayHours() + Number(id))); setTodayHours(v); render(); break; }
     case "focus-toggle": ui.focusOpen = !ui.focusOpen; render(); break;
     case "plan-rows": ui.planAllToday = !ui.planAllToday; render(); break;
+    case "plan-tile": ui.planTile = id && ui.planTile !== id ? id : ""; render(); requestAnimationFrame(() => { const l = ui.planTile && document.querySelector("#view .plan .plan-past, #view .plan #planListLbl"); if (l && l.scrollIntoView) l.scrollIntoView({block: "nearest", behavior: "smooth"}); }); break;
+    case "move-date": { const t = state.tasks[id]; if (!t) break; taskForm(t); const d = dlg.querySelector("input[name=due]"); if (d) { d.focus(); try { d.showPicker(); } catch (err) {} } break; }
     case "plan-sec": { const k = id === "how" ? "planHow" : "planMore"; ui[k] = !ui[k]; const p = document.getElementById("plan-" + id); if (p) p.hidden = !ui[k]; el.setAttribute("aria-expanded", String(ui[k])); break; }
     case "plan-why": { ui.planWhy = ui.planWhy || {}; const on = !ui.planWhy[id]; if (on) ui.planWhy[id] = 1; else delete ui.planWhy[id]; const p = document.getElementById("pw-" + id); if (p) p.hidden = !on; el.setAttribute("aria-expanded", String(on)); const li = el.closest(".plan-row"); if (li) li.classList.toggle("why-open", on); break; }
     case "show-old": ui.showOldDone = true; render(); break;
@@ -112,19 +114,19 @@ document.addEventListener("click", e => {
     case "open-course": ui.courseId = id; ui.courseTab = ""; render(); window.scrollTo(0, 0); break;
     case "back": ui.courseId = null; render(); break;
     case "filter": ui.filter = id; render(); break;
-    case "tl-mode": ui.tlMode = id; ui.tlJump = true; render(); break;
+    case "tl-mode": ui.tlMode = id; ui.tlJump = true; try { localStorage.setItem("studyboard:tlmode", id); } catch(err) {} render(); break;
     case "note-new": if (noteEditing) saveNoteText(); newNoteAt(); break;
     case "board-max": boardMax(!boardMaxOn()); break;
     case "nb-zoom": if (id === "reset") nbZoomTo(1); else nbZoomStep(id === "in" ? 1 : -1); break;
     case "nb-pick": if (noteEditing) saveNoteText(); ui.noteBoard = el.dataset.id || ""; try { localStorage.setItem(NB_KEY, ui.noteBoard); } catch (e) {} render(); break;
     case "nb-new": if (noteEditing) saveNoteText(); noteBoardSheet(""); break;
     case "nb-edit": noteBoardSheet(el.dataset.id); break;
-    case "note-done": saveNoteText(); break;
+    case "note-done": { const nid = noteEditing; saveNoteText(); noteRefocus(nid); break; }
     case "note-undo": noteUndoRedo(-1); break;
     case "note-redo": noteUndoRedo(1); break;
     case "note-versions": noteVersionsSheet(id); break;
     case "note-export": if (noteEditing && !id) saveNoteText(); noteExportSheet(id || ""); break;
-    case "note-color": { const n = state.notes[id]; if (!n) break; const t = $("#noteText"); applyChanges([{kind:"note", id, after: Object.assign(clone(n), {color: el.dataset.color, text: t ? t.value : n.text})}], ""); break; }
+    case "note-color": { const n = state.notes[id]; if (!n) break; const t = $("#noteText"); try { localStorage.setItem(NOTE_COLOR_KEY, el.dataset.color); } catch (err) {} applyChanges([{kind:"note", id, after: Object.assign(clone(n), {color: el.dataset.color, text: t ? t.value : n.text})}], ""); break; }
     case "note-archive": noteToArchive(id); break;
     case "note-trash": noteToTrash(id); break;
     case "note-archive-open": if (noteEditing) saveNoteText(); archiveSheet(); break;
@@ -134,11 +136,11 @@ document.addEventListener("click", e => {
     case "f-go": ui.tab = "files"; ui.fCourse = el.dataset.c; ui.fFolder = el.dataset.f || ""; ui.courseId = null; render(); window.scrollTo(0, 0); break;
     case "f-open": { const f = state.files[id]; if (f) fileSheet(f); break; }
     case "f-upload": if (dlg.open) dlg.close(); $("#fUploadIn").click(); break;
-    case "fab-course": fabMenu("Add Course", [["new-course", "Add Course", "Name, code, color and class times", "course"], ["import-syllabus", "Import a Syllabus", "Upload a PDF to add the course and its deadlines", "syllabus"]]); break;
+    case "fab-course": fabMenu("Add Course", [["new-course", "Add Course", "Name, code, color and class times", "course"], ["import-syllabus", "Import a Syllabus", "Upload a PDF to add the course and its deadlines", "syllabus"], ["lms-open", "Connect Canvas, Brightspace or Blackboard", "Bring in your courses, due dates and grades", "school"]]); break;
     case "fab-file": fabMenu("Add File", [...(caps.assets ? [["f-upload", "Upload File", "PDFs, slides, documents and images", "upload"], ["f-quick", "Quick Add", "Drop files and let " + aiWho("Studyboard") + " sort them into the right course and folder", "", true]] : []), ["f-link", "Add Link", "For files kept in OneDrive, Google Drive or Canvas", "link"]]); break;
-    case "fab-note": fabMenu("Add Note", [["note-new", "New Note", "Pin a quick note to your board", "note"], ...(inPreview() ? [] : [["note-photo", "Photo to Note", "Turn a photo of a board or slide into a note", "", true]])]); break;
+    case "fab-note": if (noteEditing) saveNoteText(); newNoteAt(); break;
     case "fab-deck": fabMenu("Add Deck", [["fc-new", "New Deck", "Add cards yourself or paste a list", "deck"], ...(inPreview() ? [] : [["fc-ai-cards", "Create with " + aiWho("AI"), "Upload slides or notes and get flashcards", "", true]]), ["ia-open", "Import From Another App", "Anki, Quizlet or Notion decks, read on this device", "upload"]]); break;
-    case "qz-add": fabMenu("New Quiz", [...(inPreview() ? [] : [["qz-ai", "From Slides or Notes", "Upload slides, notes or readings and get a practice quiz or case studies. No flashcards needed.", "", true]]), ["qz-from-deck", "From a Deck", aiReady() ? `${aiWho("AI")} writes questions from your flashcards` : "Questions from your flashcards", "deck"]]); break;
+    case "qz-add": fabMenu("Add Quiz", [...(inPreview() ? [] : [["qz-ai", "From Slides or Notes", "Upload slides, notes or readings and get a practice quiz or case studies. No flashcards needed.", "", true]]), ["qz-from-deck", "From a Deck", aiReady() ? `${aiWho("AI")} writes questions from your flashcards` : "Questions from your flashcards", "deck"]]); break;
     case "qz-from-deck": quizSheet(ui.filter !== "all" ? decksArr().filter(d => d.courseId === ui.filter && d.cards.length).slice(0, 1).map(d => d.id) : []); break;
     case "qz-ai": aiStudySheet(null, "quiz"); break;
     case "fc-ai-cards": aiStudySheet(id || null, "cards"); break;
@@ -154,7 +156,7 @@ document.addEventListener("click", e => {
     case "f-newfolder": folderSheet(null); break;
     case "f-folder-edit": { const fo = foldersOf(ui.fCourse === "all" ? "" : ui.fCourse).find(x => x.id === ui.fFolder); if (fo) folderSheet(fo); break; }
     case "f-sort": ui.fSort = id; render(); break;
-    case "tl-zoom": ui.tlZoom = id; ui.tlJump = true; render(); break;
+    case "tl-zoom": ui.tlZoom = id; ui.tlJump = true; try { localStorage.setItem("studyboard:tlzoom", id); } catch(err) {} render(); break;
     case "tl-today": ui.tlJump = "smooth"; if (ui.tlMode !== "bars") ui.tlMode = "bars"; render(); break;
     case "pick-day": ui.calDay = id; if (id.slice(0, 7) !== ui.calMonth.slice(0, 7)) ui.calMonth = id.slice(0, 7) + "-01"; render(); break;
     case "cal-prev": case "cal-next": {
@@ -166,7 +168,7 @@ document.addEventListener("click", e => {
     case "cal-export": calExportSheet(); break;
     case "backup-now":
       dlg.close();
-      makeBackup().then(() => toast("Backup saved")).catch(() => toast("Couldn't make a backup right now"));
+      makeBackup().then(() => toast("Copy saved on this device")).catch(() => toast("Couldn't make a backup right now"));
       break;
     case "restore": restoreSheet(); break;
     case "export": dlg.close(); exportBackup(); break;
@@ -224,7 +226,7 @@ document.addEventListener("change", e => {
   if (e.target.id === "fUploadIn") { const list = [...(e.target.files || [])]; e.target.value = ""; if (list.length) uploadFiles(list, Object.assign(uploadTarget(), {cloud: true})); }
 });
 document.addEventListener("keydown", e => {
-  if (e.target.id === "noteText" && (e.key === "Escape" || (e.key === "Enter" && (e.metaKey || e.ctrlKey)))) { e.preventDefault(); saveNoteText(); return; }
+  if (e.target.id === "noteText" && (e.key === "Escape" || (e.key === "Enter" && (e.metaKey || e.ctrlKey)))) { e.preventDefault(); const nid = noteEditing; saveNoteText(); noteRefocus(nid); return; }
   const nf = e.target.matches && e.target.matches('.note[role="button"]') ? state.notes[e.target.dataset.note] : null;
   if (nf && (e.key === "[" || e.key === "]")) {
     e.preventDefault();
@@ -252,34 +254,9 @@ $("#searchInput").addEventListener("keydown", e => { if (e.key === "Escape") tog
 
 /* Drag: board cards and timeline bars (mouse, pen and touch) */
 let drag = null;
-// Task Board: double-click (or double-tap) a card to pick it up; it follows the pointer
-let cardClickT = 0, cardPass = false;
-document.addEventListener("click", e => {
-  if (cardPass || drag) return;
-  const card = e.target.closest && e.target.closest(".board .card[data-act='edit-task']");
-  if (!card || e.target.closest("[data-act]") !== card || e.target.closest("button,a,input,select,label,textarea")) return;
-  if (e.detail === 1) {
-    e.preventDefault(); e.stopImmediatePropagation();
-    clearTimeout(cardClickT);
-    cardClickT = setTimeout(() => { if (drag || !card.isConnected) return; cardPass = true; try { card.click(); } finally { cardPass = false; } }, 260);
-  } else if (e.detail >= 2) {
-    e.preventDefault(); e.stopImmediatePropagation();
-    clearTimeout(cardClickT);
-    drag = {kind: "card", id: card.dataset.id, el: card, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, started: false, touch: false, carry: true, pid: e.pointerId != null && e.pointerId >= 0 ? e.pointerId : 1};
-    startDrag();
-    if (drag && drag.ghost) drag.ghost.classList.add("carry");
-    toast("Picked up. Click where it goes, or press Escape.");
-  }
-}, true);
 document.addEventListener("pointerdown", e => {
-  if (drag && drag.carry && drag.started) {
-    e.preventDefault(); e.stopPropagation();
-    drag.x = e.clientX; drag.y = e.clientY;
-    if (e.button === 0) { try { placeAt(drag.x, drag.y); } catch (x) {} endDrag(true); } else endDrag(false);
-    return;
-  }
   if (drag || (e.pointerType === "mouse" && e.button !== 0)) return;
-  if (e.target.closest && e.target.closest(".lms-go")) return;
+  if (e.target.closest && e.target.closest(".lms-go, .card-check")) return;
   const rotEl = e.target.closest && e.target.closest(".note-rot");
   if (rotEl) {
     const nEl = rotEl.closest(".note");
@@ -306,7 +283,7 @@ document.addEventListener("pointermove", e => {
     if (b) { const r = b.getBoundingClientRect(), edge = Math.min(12, r.width / 3); b.style.cursor = (e.clientX - r.left < edge || r.right - e.clientX < edge) ? "ew-resize" : "grab"; }
     return;
   }
-  if (e.pointerId !== drag.pid && !drag.carry) return;
+  if (e.pointerId !== drag.pid) return;
   drag.x = e.clientX; drag.y = e.clientY;
   if (!drag.started) {
     const d = Math.hypot(drag.x - drag.x0, drag.y - drag.y0);

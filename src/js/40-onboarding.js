@@ -15,6 +15,8 @@
   const cloudBkHere = () => { const B = cbk(); return !!B && (B.possible("google") || B.possible("microsoft")); };
   const backupsHere = () => { try { return !DESK && !inPreview() && ((typeof FSB !== "undefined" && FSB.supported()) || cloudBkHere()); } catch (e) { return false; } };
   const bkOnText = () => { const B = cbk(); return B && B.on() ? `${B.name(B.provider())} › Studyboard › Backups` : FSB.status === "on" ? FSB.where : ""; };
+  // First run asks only the essentials; the rest is offered later from a card on the Board
+  const FIRST = ["welcome", "area", "courses", "hours", "done"], MORE = ["theme", "reminders", "ai", "app", "backups", "pro", "done"];
   const ALL_STEPS = [
     {id: "welcome", title: "Welcome"},
     {id: "area", title: "Your Studies"},
@@ -28,7 +30,12 @@
     {id: "pro", title: "Free Week of Pro"},
     {id: "done", title: "Done"}
   ];
-  let STEPS = ALL_STEPS;
+  let STEPS = ALL_STEPS, mode = "first";
+  // The later "A Few More Things" card
+  const MKEY = "sb:onboarded:more";
+  const moreGet = () => { try { return JSON.parse(localStorage.getItem(MKEY) || "{}") || {}; } catch (e) { return {}; } };
+  const moreSet = patch => { try { localStorage.setItem(MKEY, JSON.stringify(Object.assign(moreGet(), patch))); } catch (e) {} };
+  const noteEnd = () => { if (mode === "more") moreSet({done: Date.now()}); else if (!moreGet().at) moreSet({at: Date.now()}); };
   const THEME_PICKS = ["classic", "lavender", "japan", "italy", "ocean", "sakura", "galaxy", "cafe"];
 
   // Tour state (lives only while the tour is open)
@@ -71,14 +78,14 @@
   const deviceKind = () => isIOS() ? "iphone" : isAndroid() ? "android" : "computer";
   const isWindows = () => /Windows/i.test(UA), isMac = () => /Macintosh|Mac OS X/i.test(UA) && !isIOS();
   // On a computer the real apps come first
-  const MS_STORE = "https://apps.microsoft.com/detail/9N8PHL54N3SN", MAC_DL = "https://studyboardapp.com/website/#download";
+  const MS_STORE = "https://apps.microsoft.com/detail/9N8PHL54N3SN", MAC_DL = DESK_DL;
   const ext = (href, label) => `<a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`;
 
   /* Steps */
   function welcomeStep(){
     return `<div class="ob-logo" aria-hidden="true"></div>
       <h2 class="ob-h" id="obH" tabindex="-1">Welcome to Studyboard</h2>
-      <p class="ob-lead">Your courses, deadlines and study time in one calm place. Setting up takes about two minutes, and you can skip anything.</p>
+      <p class="ob-lead">Your courses, deadlines and study time in one calm place. Setting up takes about a minute, and you can skip anything.</p>
       <ul class="ob-points">
         <li><span class="ob-pi">${IC.board}</span><span><b>Every Deadline in One Place</b><span>See assignments, exams and labs for all your courses on a board, a timeline and a weekly schedule.</span></span></li>
         <li><span class="ob-pi">${IC.plan}</span><span><b>A Plan for Today</b><span>Today's Plan picks what to do next and fits your work into the hours you have.</span></span></li>
@@ -273,6 +280,16 @@
     const gift = P && P.welcomeWeek ? P.welcomeWeek() : null;
     if (gift) P.welcomeSaid();
     const guestGift = !gift && window.SBGUEST && SBGUEST.is() && typeof PLAN !== "undefined" && PLAN && PLAN.paywall && PLAN.paywall();
+    const has = id => STEPS.some(x => x.id === id);
+    if (mode === "more") return `${hero(IC.party, "done")}
+      <h2 class="ob-h" id="obH" tabindex="-1">You're All Set!</h2>
+      <p class="ob-lead">You can change any of these in Settings.</p>
+      <ul class="ob-sum">
+        ${row(true, `Theme: ${esc(skin.name)}`)}
+        ${row(remindersOk, remindersOk ? "Reminders are on" : "Reminders can be turned on in Settings")}
+        ${inPreview() ? "" : row(aiReady(), aiReady() ? "AI is on" : "AI can be turned on in Settings")}
+        ${backupsHere() ? row(!!bkOnText(), bkOnText() ? `Backing up to ${esc(bkOnText())}` : "Automatic backups can be turned on in Settings") : ""}
+      </ul>`;
     return `${hero(IC.party, "done")}
       <h2 class="ob-h" id="obH" tabindex="-1">${gift ? "Welcome to Studyboard!" : "You're All Set!"}</h2>
       <p class="ob-lead">${gift ? "We're so glad you're here. Studyboard is ready for your term." : "Nice work. Studyboard is ready for your term."}</p>
@@ -280,17 +297,17 @@
       <ul class="ob-sum">
         ${row(nC > 0, nC ? `${nC} course${nC === 1 ? "" : "s"} added` : "Add courses any time from the Courses page")}
         ${row(!!SBAREA.label(), SBAREA.label() ? `Studying ${esc(SBAREA.label())}` : "Set your area of study any time in Settings")}
-        ${row(true, `Theme: ${esc(skin.name)}`)}
+        ${has("theme") ? row(true, `Theme: ${esc(skin.name)}`) : ""}
         ${row(true, `${h % 1 ? h.toFixed(1) : h} ${h === 1 ? "hour" : "hours"} of study a day`)}
-        ${inPreview() ? "" : row(aiReady(), aiReady() ? "AI is on" : "AI can be turned on in Settings")}
-        ${backupsHere() ? row(!!bkOnText(), bkOnText() ? `Backing up to ${esc(bkOnText())}` : "Automatic backups can be turned on in Settings") : ""}
+        ${!has("ai") || inPreview() ? "" : row(aiReady(), aiReady() ? "AI is on" : "AI can be turned on in Settings")}
+        ${has("backups") && backupsHere() ? row(!!bkOnText(), bkOnText() ? `Backing up to ${esc(bkOnText())}` : "Automatic backups can be turned on in Settings") : ""}
       </ul>
       <div class="ob-next">
         <b>Next: Add Your First Task</b>
         <span class="mini">Type it the way you'd say it in the quick-add bar at the top of the Board, and Studyboard fills in the details.</span>
         <span class="ob-qa" aria-hidden="true"><span>+</span>bio quiz fri 2pm worth 5%</span>
       </div>
-      ${window.SBSEM ? `<div class="ob-next">${SBSEM.tourButton()}</div>` : ""}
+      ${window.SBSEM && SBSEM.tourButton() ? `<div class="ob-next">${SBSEM.tourButton()}</div>` : ""}
       ${window.SBGUEST && SBGUEST.is() ? `<div class="ob-next ob-guest"><b>Keep Your Planner Safe</b><span class="mini">It's only on this device for now. A free account keeps it safe online and puts it on your phone and laptop too. What you've set up comes with you.${guestGift ? " New accounts also get their first week of Pro free." : ""}</span><button type="button" class="btn" data-ob="account">Create a Free Account</button></div>` : ""}`;
   }
 
@@ -300,20 +317,21 @@
   function sheetHtml(){
     const s = STEPS[step], last = step === STEPS.length - 1;
     const bar = STEPS.map((x, i) => `<button type="button" class="ob-seg ${i < step ? "past" : i === step ? "cur" : ""}" data-ob="goto" data-id="${i}" aria-label="Step ${i + 1}: ${esc(x.title)}${i === step ? " (current)" : ""}"></button>`).join("");
-    const primary = step === 0 ? "Get Started" : last ? "Add My First Task" : "Next";
+    const more = mode === "more";
+    const primary = step === 0 && !more ? "Get Started" : last ? (more ? "Done" : "Add My First Task") : "Next";
     return `<form class="sheet ob" data-step="${s.id}" aria-labelledby="obH">
       <div class="ob-top">
         <span class="ob-count mini">Step ${step + 1} of ${STEPS.length}</span>
         <span class="spacer"></span>
-        ${last ? "" : `<button type="button" class="link-btn ob-skip" data-ob="skip">Skip Tour</button>`}
+        ${last ? "" : `<button type="button" class="link-btn ob-skip" data-ob="skip">${more ? "Not Now" : "Skip Setup"}</button>`}
       </div>
       <div class="ob-bar" role="group" aria-label="Progress">${bar}</div>
       <div class="sheet-body ob-body"><div class="ob-step-in${dir < 0 ? " ob-rev" : ""}">${VIEW[s.id]()}</div></div>
       <div class="sheet-foot ob-foot">
         <button type="button" class="btn ob-back" data-ob="back" ${step === 0 ? "hidden" : ""}>Back</button>
         <span class="spacer"></span>
-        ${last ? `<button type="button" class="btn" data-ob="finish">Go to My Board</button>` : ""}
-        <button type="button" class="btn primary ob-go" data-ob="${last ? "first-task" : "next"}">${primary}</button>
+        ${last && !more ? `<button type="button" class="btn" data-ob="finish">Go to My Board</button>` : ""}
+        <button type="button" class="btn primary ob-go" data-ob="${last ? (more ? "finish" : "first-task") : "next"}">${primary}</button>
       </div>
     </form>`;
   }
@@ -331,7 +349,9 @@
     const target = id === "courses" && wide ? $("#obCode") : focusHead ? $("#obH") : form.querySelector(".ob-go");
     if (target) try { target.focus({preventScroll: true}); } catch (e) {}
   }
-  const go = n => { dir = n >= step ? 1 : -1; show(n, true); };
+  // A course typed but not added yet comes along when moving on
+  const flushCourse = () => { if (STEPS[step] && STEPS[step].id === "courses" && dlg.querySelector(".sheet.ob")) addCourse(true); };
+  const go = n => { flushCourse(); dir = n >= step ? 1 : -1; show(n, true); };
 
   function wire(form){
     form.addEventListener("click", onClick);
@@ -360,6 +380,7 @@
       case "finish": finish(true); break;
       case "first-task": finish(true, true); break;
       case "semester": finish(true); if (window.SBSEM) SBSEM.open({from: "tour"}); break;
+      case "apptour": finish(true); if (window.SBTOUR) setTimeout(() => SBTOUR.start(), 350); break;
       case "add-course": addCourse(); break;
       case "account": finish(true); setTimeout(() => SBGUEST.signUp(), 350); break;
       case "backup-folder": {
@@ -398,15 +419,17 @@
     }
   }
 
-  function addCourse(){
+  // quiet: on the way to another step, so nothing is said or redrawn
+  function addCourse(quiet){
     const code = ($("#obCode") || {}).value || "", nm = ($("#obName") || {}).value || "", msg = $("#obCMsg");
     const c0 = code.trim(), n0 = nm.trim();
-    if (!c0 && !n0) { if (msg) msg.textContent = "Type a course code or name first."; const f = $("#obCode"); if (f) f.focus(); return; }
+    if (!c0 && !n0) { if (quiet) return; if (msg) msg.textContent = "Type a course code or name first."; const f = $("#obCode"); if (f) f.focus(); return; }
     const dup = coursesArr().find(c => (c0 && String(c.code || "").toLowerCase() === c0.toLowerCase()) || (!c0 && n0 && String(c.name || "").toLowerCase() === n0.toLowerCase()));
-    if (dup) { if (msg) msg.textContent = `${courseLabel(dup)} is already in your list.`; return; }
+    if (dup) { if (!quiet && msg) msg.textContent = `${courseLabel(dup)} is already in your list.`; return; }
     const nc = {id: uid(), created: Date.now(), name: n0 || c0, code: c0, instructor: "", schedule: "", room: "", office: "", meetings: [], color: newColor || COLORS[0], notes: "", links: []};
     applyChanges([{kind: "course", id: nc.id, after: nc}], "");
     added.push(nc.id); newColor = null;
+    if (quiet) return;
     show(step);
     const m = $("#obCMsg"); if (m) m.textContent = `Added ${nc.name}. Add another, or choose Next.`;
     const f = $("#obCode"); if (f) try { f.focus({preventScroll: true}); } catch (e) {}
@@ -457,17 +480,21 @@
     if (away) { setTimeout(checkReturn, 250); return; }
     if (finishing) { finishing = false; return; }
     if (dlg.querySelector(".sheet.ob")) {
-      markDone();
-      setTimeout(() => toast("Welcome tour closed. Replay it any time from Settings."), 60);
+      markDone(); noteEnd();
+      setTimeout(() => toast(mode === "more" ? "No problem. These are all in Settings too." : "Welcome setup closed. Replay it any time from Settings."), 60);
+      scheduleRender();
     }
   });
 
   function finish(completed, firstTask){
+    if (completed) flushCourse();
+    noteEnd();
     finishing = true; markDone(); clearTimeout(hoursTimer); saveSettings();
     if (dlg.open) dlg.close(); else finishing = false;
     added = []; remindersOk = false; remindersMsg = ""; deviceTab = null;
     moveCanvasesBack();
-    if (!completed) { toast("No problem. Replay the welcome tour any time from Settings."); return; }
+    if (!completed) { toast(mode === "more" ? "No problem. These are all in Settings too." : "No problem. Replay the welcome setup any time from Settings."); render(); return; }
+    if (mode === "more") { render(); return; }
     ui.tab = "board"; ui.courseId = null; render(); window.scrollTo(0, 0);
     if (firstTask) setTimeout(() => {
       const i = $("#qaIn"); if (!i) return;
@@ -508,10 +535,15 @@
     if (!isEmpty()) { markDone(); stop(); releaseQuote(); return; }
     if (dlg.open || document.getElementById("qod") || document.hidden) return;
     stop(); quoteHeld = null;
-    start();
+    try { if (window.SBSTREAK) SBSTREAK.newUser(); } catch (e) {}
+    start("first");
   }
   function stop(){ clearInterval(poll); poll = 0; }
-  function start(){ STEPS = ALL_STEPS.filter(x => (x.id !== "backups" || backupsHere()) && (x.id !== "pro" || proHere())); cheered = false; finishing = false; step = 0; dir = 1; added = []; remindersOk = false; remindersMsg = ""; deviceTab = null; newColor = null; away = null; show(0); }
+  // kind: "first" (the essentials), "more" (the optional extras) or "all" (a replay from Settings)
+  function start(kind){
+    mode = kind === "more" || kind === "all" ? kind : "first";
+    const ids = mode === "first" ? FIRST : mode === "more" ? MORE : null;
+    STEPS = ALL_STEPS.filter(x => (!ids || ids.includes(x.id)) && (x.id !== "backups" || backupsHere()) && (x.id !== "pro" || proHere())); cheered = false; finishing = false; step = 0; dir = 1; added = []; remindersOk = false; remindersMsg = ""; deviceTab = null; newColor = null; away = null; show(0); }
 
   hook("boot", () => {
     if (isDone()) return;
@@ -527,12 +559,22 @@
   hook("render", () => { const u = sbUser && sbUser.id; if (!u || u === seenUid) return; seenUid = u; if (!poll && !isDone()) { poll = setInterval(check, 700); } });
 
   /* Settings row */
-  hook("menu", () => `<button data-act="ob-replay"><span>Replay Welcome Tour<span class="sub">The two-minute setup: courses, theme, study hours, reminders and more</span></span></button>`);
+  hook("menu", () => `<button data-act="ob-replay"><span>Replay Welcome Setup<span class="sub">Courses, study hours, theme, reminders, backups and more</span></span></button>`);
   hook("act", act => {
-    if (act !== "ob-replay") return false;
+    if (act === "ob-more-hide") { moreSet({hide: Date.now()}); render(); toast("Okay. You'll find all of these in Settings."); return true; }
+    if (act !== "ob-replay" && act !== "ob-more") return false;
     if (dlg.open) dlg.close();
-    setTimeout(start, 40);
+    setTimeout(() => start(act === "ob-more" ? "more" : "all"), 40);
     return true;
+  });
+
+  /* A gentle nudge for the optional setup, from the day after the welcome setup */
+  const moreDue = () => { const m = moreGet(); return !!m.at && !m.hide && !m.done && Date.now() - m.at > 20 * 3600e3 && isDone(); };
+  hook("render", tab => {
+    if (tab !== "board" || inPreview() || !moreDue() || window.SBOB.pending()) return;
+    const v = $("#view"); if (!v || v.querySelector(".sem-card-b") || (window.SBSEM && SBSEM.cardDue())) return;
+    v.insertAdjacentHTML("afterbegin", `<section class="sem-card-b ob-more-b" aria-labelledby="obMoreT"><div class="sem-cb-t"><b id="obMoreT">A Few More Things</b><span>Reminders, backups, the app and a theme. Each takes about a minute, and all are optional.</span></div>
+      <div class="sem-cb-b"><button type="button" class="btn primary" data-act="ob-more">Take a Look</button><button type="button" class="link-btn" data-act="ob-more-hide">Not Now</button></div></section>`);
   });
 })();
 

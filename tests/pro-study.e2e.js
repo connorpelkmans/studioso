@@ -221,7 +221,7 @@ function SEED(){
 
     /* Turning a sticker on a note */
     await tab(page, "notes");
-    const sk = await page.evaluate(() => { const n = Object.values(state.notes).find(x => !x.board) || Object.values(state.notes)[0]; n.stickers = [{k: "dot", r: 0, s: 1, x: 50, yp: 50}]; render(); return n.id; });
+    const sk = await page.evaluate(() => { const n = Object.values(state.notes).find(x => !x.board) || Object.values(state.notes)[0]; n.stickers = [{k: "dot", r: 0, s: 1, x: 50, yp: 50}]; n.z = Math.max(0, ...Object.values(state.notes).map(o => o.z || 0)) + 1; render(); return n.id; });
     await page.waitForTimeout(300);
     const stk = page.locator(`.note[data-note="${sk}"] .stk`).first();
     await stk.hover(); const hb = await page.locator(`.note[data-note="${sk}"] .stk-rot`).first().boundingBox(), sb = await stk.boundingBox();

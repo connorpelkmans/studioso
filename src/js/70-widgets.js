@@ -106,6 +106,7 @@
       case "toggle": if (state.tasks[arg]) { runAct("toggle", arg); push(); } break;
       case "done": if (state.tasks[arg] && state.tasks[arg].status !== "done") { runAct("toggle", arg); push(); } break;
       case "task": openTaskById(arg); break;
+      default: fire("desk-action", a, arg);
     }
   }
   const ACTIONS = ["quickadd", "today", "focus", "search", "flashcards", "done", "settings"];

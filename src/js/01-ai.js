@@ -1136,7 +1136,8 @@ function aiReviewSheet(r, ctx){
     else { const nm = $("#arName").value.trim(); if (!nm) { toast("Give the new deck a name"); $("#arName").focus(); return; } d = normDeck({id: uid(), created: Date.now(), name: nm, courseId: ctx.courseId || ""}); }
     if (!d) return;
     d.cards = d.cards.concat(keepC.map(c => ({id: uid(), front: c.front.trim(), back: c.back.trim(), box: 0, due: "", seen: 0, right: 0, wrong: 0, ai: true, src: c.source || ""})));
-    if (keepQ.length) d.aiQuizzes = (d.aiQuizzes || []).concat({id: uid(), title: ($("#arQuizName") && $("#arQuizName").value.trim()) || "Practice Quiz", style: ctx.style || "", created: Date.now(), sources: ctx.sources, questions: keepQ, results: []});
+    const qzId = uid();
+    if (keepQ.length) d.aiQuizzes = (d.aiQuizzes || []).concat({id: qzId, title: uniqueQuizTitle(($("#arQuizName") && $("#arQuizName").value.trim()) || "Practice Quiz"), style: ctx.style || "", created: Date.now(), sources: ctx.sources, questions: keepQ, results: []});
     keepCs.forEach(c => { d.aiQuizzes = (d.aiQuizzes || []).concat(Object.assign({id: uid(), style: ctx.style || "", created: Date.now(), sources: ctx.sources, results: [], kind: "case"}, c)); });
     if (ctx.style) d.aiStyle = ctx.style;
     if (window.SBLINKED && ctx.origins && ctx.origins.length) SBLINKED.stamp(d, ctx.origins.map(o => SBLINKED.origin(o.k, o.id)), d.cards.slice(d.cards.length - keepC.length));
@@ -1144,6 +1145,7 @@ function aiReviewSheet(r, ctx){
     dlg.close(); ui.tab = "flashcards"; ui.fc = null;
     if (!keepC.length) { ui.deckId = null; rvSet("quizzes"); } else { ui.deckId = d.id; rvSet("cards"); }
     saveDeck(d, `Saved ${keepC.length ? keepC.length + " card" + (keepC.length === 1 ? "" : "s") : ""}${keepC.length && keepQ.length ? " and " : ""}${keepQ.length ? "a " + keepQ.length + "-question quiz" : ""}${(keepC.length || keepQ.length) && keepCs.length ? " and " : ""}${keepCs.length ? keepCs.length + " case stud" + (keepCs.length === 1 ? "y" : "ies") : ""} to ${d.name}`);
+    if (ctx.fromCards && keepQ.length && !keepC.length) { startAiQuiz(d.id, qzId); return; }
     window.scrollTo(0, 0);
   });
 }
@@ -1156,6 +1158,7 @@ function startAiQuiz(deckId, quizId, onlyIds){
   ui.explain = null;
   ui.tab = "flashcards"; rvSet("quizzes"); ui.fc = {mode: "aiquiz", deckIds: [deckId], deckId, quizId, qs, i: 0, ans: [], pick: [], order: null};
   render(); window.scrollTo(0, 0);
+  setTimeout(() => { const w = $("#aiWritten"); if (w) w.focus(); }, 30);
 }
 function aiAnswer(given, pre){
   const f = ui.fc, q = f.qs[f.i]; if (!q || f.ans[f.i]) return;
@@ -1205,7 +1208,7 @@ function viewAiQuiz(){
   if (q.type === "single" || q.type === "truefalse") {
     body = `<div class="mc ${q.type === "truefalse" ? "two-col" : ""}">${q.options.map((o, i) => {
       const cls = a ? (q.correct.includes(i) ? "right" : a.given.includes(i) ? "wrong" : "") : "";
-      return `<button class="opt ${cls}" data-act="ai-pick" data-i="${i}" ${a ? "disabled" : ""}><span class="key">${letters[i]}</span><span>${esc(o)}${a && q.notes[i] ? `<small class="opt-note">${esc(q.notes[i])}</small>` : ""}</span></button>`; }).join("")}</div>`;
+      return `<button class="opt ${cls}" data-act="ai-pick" data-i="${i}" ${a ? "disabled" : ""}><span class="key">${q.type === "truefalse" && /^(true|false)$/i.test(String(o).trim()) ? String(o).trim()[0].toUpperCase() : letters[i]}</span><span>${esc(o)}${a && q.notes[i] ? `<small class="opt-note">${esc(q.notes[i])}</small>` : ""}</span></button>`; }).join("")}</div>`;
   } else if (q.type === "multiple") {
     const pick = a ? a.given : f.pick;
     body = `<div class="mc sata">${q.options.map((o, i) => {
@@ -1280,6 +1283,10 @@ document.addEventListener("keydown", e => {
   const f = ui.fc, q = f.qs[f.i]; if (!q) return;
   if (f.ans[f.i] && e.key === "Enter") { e.preventDefault(); e.stopPropagation(); aiQuizAction("ai-next", {dataset: {}}); return; }
   if (f.ans[f.i]) return;
+  if (q.type === "truefalse" && /^[tf]$/i.test(e.key)) {
+    const want = e.key.toLowerCase() === "t" ? /^true$/i : /^false$/i, i = q.options.findIndex(o => want.test(String(o).trim()));
+    if (i >= 0) { e.preventDefault(); e.stopPropagation(); aiAnswer([i]); return; }
+  }
   const k = "123456".indexOf(e.key) >= 0 ? Number(e.key) - 1 : "abcdef".indexOf(e.key.toLowerCase());
   if (k >= 0 && k < q.options.length && (q.type === "single" || q.type === "truefalse")) { e.preventDefault(); e.stopPropagation(); aiAnswer([k]); }
   else if (k >= 0 && k < q.options.length && q.type === "multiple") { e.preventDefault(); e.stopPropagation(); aiQuizAction("ai-toggle", {dataset: {i: String(k)}}); }

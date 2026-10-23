@@ -27,6 +27,12 @@ var SBPRO = null;
     const keys = Object.keys(cur).sort(); if (keys.length > 800) keys.slice(0, keys.length - 800).forEach(k => delete cur[k]);
     setS({fcDays: cur});
   });
+  hook("fc-unrated", () => {
+    const d = todayISO(), cur = Object.assign({}, S().fcDays || {});
+    if (!(Number(cur[d]) > 0)) return;
+    if (cur[d] > 1) cur[d]--; else delete cur[d];
+    setS({fcDays: cur});
+  });
 
   /* Terms */
   function termName(startISO){
@@ -1678,7 +1684,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     return false;
   });
   hook("menu", () => inPreview() ? "" : `<button data-act="pro-pr-open" data-group="study"><span>Print or Save as PDF${P.locked() ? " " + PRO_BADGE : ""}<span class="sub">A week agenda, the term calendar, a grade report or an exam prep plan</span></span></button>`);
-  P.addFeature({id: "print", name: "Print and PDF", where: "In Schedule, Timeline, Grades and Settings: a week agenda, term calendar, grade report or exam prep plan", act: "pro-pr-open", icon: '<path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7"/>'});
+  P.addFeature({id: "print", name: "Print and PDF", where: "In Schedule, Due Dates, Grades and Settings: a week agenda, term calendar, grade report or exam prep plan", act: "pro-pr-open", icon: '<path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7"/>'});
   Object.assign(P, {openPrint, printRaw, printHtml: () => PR ? build() : ""});
 
   const css = document.createElement("style");
@@ -2396,6 +2402,18 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     applyChanges([{kind: "file", id: f.id, after: Object.assign(clone(f), {hl: others.concat(list).slice(-MAX_HL * 2), updated: Date.now()})}], label === undefined ? null : label);
   }
 
+  /* Where you left off, for each version of a file (on this device) */
+  const PAGE_KEY = "studyboard:pdrPages", FIT_KEY = "studyboard:pdrFit";
+  const pagesSeen = () => { try { const o = JSON.parse(localStorage.getItem(PAGE_KEY) || "{}"); return o && typeof o === "object" && !Array.isArray(o) ? o : {}; } catch (e) { return {}; } };
+  const lastPage = rev => Math.max(0, Math.round(Number((pagesSeen()[rev] || {}).p) || 0));
+  function keepPage(rev, p){
+    const o = pagesSeen(); if (o[rev] && o[rev].p === p) return;
+    o[rev] = {p, at: Date.now()};
+    Object.keys(o).sort((a, b) => (o[b].at || 0) - (o[a].at || 0)).slice(60).forEach(k => delete o[k]);
+    try { localStorage.setItem(PAGE_KEY, JSON.stringify(o)); } catch (e) {}
+  }
+  const fitPref = () => { try { return localStorage.getItem(FIT_KEY) === "page" ? "page" : "width"; } catch (e) { return "width"; } };
+
   /* Opening */
   async function open(fid, page){
     const f = state.files[fid]; if (!f) return;
@@ -2403,13 +2421,13 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     if (!isPdf(f)) { fileSheet(f); return; }
     close();
     const rev = curRev(f);
-    R = {fid, rev: rev.assetId, doc: null, pages: [], zoom: 1, fit: 1, io: null, cur: Math.max(1, page || 1), side: false, pop: null, card: null, color: (state.settings && state.settings.hlColor) || "yellow"};
+    R = {fid, rev: rev.assetId, doc: null, pages: [], zoom: 1, fit: 1, fitMode: fitPref(), io: null, cur: Math.max(1, page || lastPage(rev.assetId) || 1), side: false, pop: null, card: null, color: (state.settings && state.settings.hlColor) || "yellow"};
     openSheet(`<div class="sheet pdr-sheet">${head(f.name)}
       <div class="pdr-bar" role="toolbar" aria-label="Reader">
         <span class="pdr-nav"><button type="button" class="icon-btn" data-act="pdr-go" data-id="-1" aria-label="Previous page">${ico('<path d="M15 6l-6 6 6 6"/>')}</button>
           <label class="pdr-pg"><span class="sr">Page</span><input type="text" inputmode="numeric" id="pdrPg" value="${R.cur}" aria-label="Page"></label><span class="mini" id="pdrOf">of …</span>
           <button type="button" class="icon-btn" data-act="pdr-go" data-id="1" aria-label="Next page">${ico('<path d="M9 6l6 6-6 6"/>')}</button></span>
-        <span class="pdr-zoom"><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="-1" aria-label="Zoom out">${ico('<path d="M5 12h14"/>')}</button><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="1" aria-label="Zoom in">${ico('<path d="M12 5v14M5 12h14"/>')}</button></span>
+        <span class="pdr-zoom" role="group" aria-label="Zoom"><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="-1" aria-label="Zoom out" title="Zoom Out (-)">${ico('<path d="M5 12h14"/>')}</button><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="1" aria-label="Zoom in" title="Zoom In (+)">${ico('<path d="M12 5v14M5 12h14"/>')}</button><button type="button" class="btn small pdr-fit" data-act="pdr-fit" id="pdrFit" aria-pressed="${R.fitMode === "page"}" title="Fit the whole page on screen">Fit Page</button></span>
         <span class="pdr-cols" role="group" aria-label="Highlight color">${COLORS.map(([k, name, hex]) => `<button type="button" class="pdr-col" data-act="pdr-color" data-id="${k}" style="--h:${hex}" aria-label="${name}" aria-pressed="${R.color === k}"></button>`).join("")}</span>
         ${window.SBINK ? SBINK.readerBtn() : ""}<span class="spacer"></span>
         <button type="button" class="btn small" data-act="pdr-side" aria-expanded="false" id="pdrSideBtn">Highlights <b id="pdrN">0</b></button>
@@ -2458,6 +2476,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     if (R.io) R.io.disconnect();
     const first = await R.doc.getPage(1), base = first.getViewport({scale: 1});
     R.fit = Math.min(2.5, Math.max(0.3, (box.clientWidth - 28) / base.width));
+    if (R.fitMode === "page") R.fit = Math.max(0.2, Math.min(R.fit, (box.clientHeight - 28) / base.height));
     const s = R.fit * R.zoom, w = Math.round(base.width * s), h = Math.round(base.height * s);
     box.innerHTML = Array.from({length: R.doc.numPages}, (_, i) => `<div class="pdr-page" data-p="${i + 1}" style="width:${w}px;height:${h}px" aria-label="Page ${i + 1}"><div class="pdr-hl"></div></div>`).join("");
     R.pages = Array.from(box.querySelectorAll(".pdr-page")).map((el, i) => ({n: i + 1, el, done: 0}));
@@ -2507,6 +2526,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const pg = R.pages[n - 1], box = $("#pdrPages"); if (!pg || !box) return;
     box.scrollTo({top: pg.el.offsetTop - 12, behavior: instant || matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
     R.cur = n; const inp = $("#pdrPg"); if (inp) inp.value = String(n);
+    keepPage(R.rev, n);
     draw(n);
   }
   function trackPage(){
@@ -2514,6 +2534,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const top = box.scrollTop + box.clientHeight * 0.3;
     let cur = 1; for (const p of R.pages) { if (p.el.offsetTop <= top) cur = p.n; else break; }
     if (cur !== R.cur) { R.cur = cur; const inp = $("#pdrPg"); if (inp && document.activeElement !== inp) inp.value = String(cur); }
+    keepPage(R.rev, R.cur);
   }
 
   /* Selecting */
@@ -2658,6 +2679,41 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   document.addEventListener("scroll", e => { if (R && e.target && e.target.id === "pdrPages") { trackPage(); hidePop(); } }, true);
   document.addEventListener("change", e => { if (R && e.target && e.target.id === "pdrPg") goTo(e.target.value); });
   document.addEventListener("keydown", e => { if (R && e.target && e.target.id === "pdrPg" && e.key === "Enter") { e.preventDefault(); goTo(e.target.value); } });
+  // Page keys: arrows, Page Up and Page Down, Home and End; + and - zoom
+  document.addEventListener("keydown", e => {
+    if (!R || !R.doc || !dlg.open || !dlg.querySelector(".pdr-sheet") || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+    const t = e.target; if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) || dlg.querySelector(".pdr-side .pdr-card textarea:focus")) return;
+    const go = {ArrowLeft: -1, PageUp: -1, ArrowRight: 1, PageDown: 1}[e.key];
+    if (go) { e.preventDefault(); hidePop(); goTo(R.cur + go); return; }
+    if (e.key === "Home" || e.key === "End") { e.preventDefault(); hidePop(); goTo(e.key === "Home" ? 1 : R.doc.numPages); return; }
+    if (e.key === "+" || e.key === "=" || e.key === "-") { e.preventDefault(); zoomBy(e.key === "-" ? -1 : 1); }
+  });
+  const ZOOMS = [0.5, 0.6, 0.75, 0.9, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
+  function zoomBy(step){
+    const i = ZOOMS.findIndex(z => Math.abs(z - R.zoom) < 0.001), next = ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, (i < 0 ? ZOOMS.indexOf(1) : i) + step))];
+    if (next === R.zoom) return;
+    R.zoom = next; layout(R.cur);
+  }
+  // Pinch to zoom on a touch screen: the pages scale as you pinch and are drawn sharp when you let go
+  let pinch = null;
+  document.addEventListener("touchstart", e => {
+    if (!R || !R.doc || e.touches.length !== 2 || !e.target.closest || !e.target.closest("#pdrPages")) return;
+    const [a, b] = e.touches, box = $("#pdrPages");
+    pinch = {d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1, z: R.zoom, s: 1, box};
+  }, {passive: true});
+  document.addEventListener("touchmove", e => {
+    if (!pinch || e.touches.length !== 2) return;
+    e.preventDefault();
+    const [a, b] = e.touches, s = Math.max(0.5 / pinch.z, Math.min(3 / pinch.z, Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) / pinch.d));
+    pinch.s = s; pinch.box.style.setProperty("--pdr-pinch", s.toFixed(3)); pinch.box.classList.add("pinching");
+  }, {passive: false});
+  const pinchEnd = () => {
+    if (!pinch) return;
+    const p = pinch; pinch = null; p.box.classList.remove("pinching"); p.box.style.removeProperty("--pdr-pinch");
+    if (R && Math.abs(p.s - 1) > 0.04) { R.zoom = Math.round(Math.max(0.5, Math.min(3, p.z * p.s)) * 100) / 100; layout(R.cur); }
+  };
+  document.addEventListener("touchend", e => { if (pinch && e.touches.length < 2) pinchEnd(); });
+  document.addEventListener("touchcancel", pinchEnd);
   let rz = 0; window.addEventListener("resize", () => { if (!R || !R.doc) return; hidePop(); clearTimeout(rz); rz = setTimeout(() => layout(R.cur), 200); });
   dlg.addEventListener("close", () => { if (!dlg.open) close(); });
   hook("changed", changes => { if (R && changes.some(c => c.kind === "file" && c.id === R.fid)) { counts(); paint(); if (R.side && !R.card) side(); } });
@@ -2669,7 +2725,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const byId = x => mine().find(h => h.id === x);
     switch (act) {
       case "pdr-go": goTo(R.cur + (Number(id) || 1)); break;
-      case "pdr-zoom": { const z = [0.6, 0.75, 0.9, 1, 1.25, 1.5, 1.75, 2, 2.5], i = z.indexOf(R.zoom); R.zoom = z[Math.max(0, Math.min(z.length - 1, (i < 0 ? 3 : i) + (Number(id) || 1)))]; layout(R.cur); break; }
+      case "pdr-zoom": zoomBy(Number(id) || 1); break;
+      case "pdr-fit": { R.fitMode = R.fitMode === "page" ? "width" : "page"; R.zoom = 1; try { localStorage.setItem(FIT_KEY, R.fitMode); } catch (e) {} el.setAttribute("aria-pressed", String(R.fitMode === "page")); layout(R.cur); break; }
       case "pdr-color": R.color = id; state.settings = Object.assign({}, state.settings, {hlColor: id}); saveSettings(); dlg.querySelectorAll('.pdr-bar .pdr-col').forEach(b => b.setAttribute("aria-pressed", String(b.dataset.id === id))); break;
       case "pdr-hl-add": addFromSel(id); break;
       case "pdr-sel-note": { const h = addFromSel(R.color); if (h) hlNote(h); break; }
@@ -2689,7 +2746,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     return true;
   });
 
-  P.fileBtns = f => !P.locked() && isPdf(f) ? `<button type="button" class="btn" data-act="pdr-open" data-id="${esc(f.id)}">Read${hlOf(f).length ? ` <span class="pdr-badge">${hlOf(f).length}</span>` : ""}</button>` : "";
+  P.canRead = f => !P.locked() && isPdf(f);
+  P.fileBtns = f => P.canRead(f) ? `<button type="button" class="btn" data-act="pdr-open" data-id="${esc(f.id)}">Read${hlOf(f).length ? ` <span class="pdr-badge">${hlOf(f).length}</span>` : ""}</button>` : "";
   P.addFeature({id: "reader", name: "PDF Reader and Highlights", where: "Open a PDF in Files, then Read: highlight, and make notes and cards", icon: '<path d="M4 19.5V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-1.5z"/><path d="M8 8h6M8 12h4"/><path d="M15 16l2 2 4-4"/>'});
   Object.assign(P, {openReader: open, reader: () => R});
   Object.assign(window.__sbProStudy || {}, {reader: () => R, readerRects: rectsOn, readerHit: hitAt, idbSet});
@@ -2706,6 +2764,9 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .pdr-main{position:relative;flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr)}
 .pdr-main.with-side{grid-template-columns:minmax(0,1fr) minmax(260px,330px)}
 .pdr-pages{overflow:auto;background:color-mix(in srgb,var(--ink) 8%,var(--soft));padding:14px;display:flex;flex-direction:column;align-items:flex-start;gap:14px;outline:0}
+.pdr-pages{touch-action:pan-x pan-y}
+.pdr-pages.pinching .pdr-page{zoom:var(--pdr-pinch,1)}
+.pdr-fit[aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 14%,var(--surface));border-color:var(--accent);color:var(--accent)}
 .pdr-wait{display:flex;gap:8px;align-items:center;justify-content:center;margin:40px auto;color:var(--muted)}
 .pdr-page{position:relative;flex:none;margin:0 auto;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.18),0 6px 18px rgba(0,0,0,.08)}
 .pdr-cv{position:absolute;inset:0;display:block}
@@ -2739,7 +2800,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   .pdr-main.with-side{grid-template-columns:minmax(0,1fr)}
   .pdr-side{position:absolute;inset:auto 0 0 0;max-height:62%;border-left:0;border-top:1px solid var(--line);box-shadow:0 -10px 30px rgba(0,0,0,.18);border-radius:16px 16px 0 0;z-index:40}
   .pdr-bar{gap:6px;padding:6px 10px 8px}
-  .pdr-zoom{display:none}
+  .pdr-bar .icon-btn{width:40px;height:40px}
+  .pdr-fit{min-height:40px}
 }
 `;
   document.head.appendChild(css);
@@ -4340,8 +4402,12 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   }
   async function scan(o){
     o = o || {};
+    if (U.scanning) return U.scanRun ? U.scanRun.then(() => scan(o)) : null;
+    U.scanRun = scanNow(o); try { return await U.scanRun; } finally { U.scanRun = null; }
+  }
+  async function scanNow(o){
     const W = prefs().watch;
-    if (U.scanning || !W.length || !connected().includes("microsoft")) return null;
+    if (!W.length || !connected().includes("microsoft")) return null;
     U.scanning = true; U.scanAt = Date.now(); paint();
     let added = 0, gone = [];
     try {
@@ -4351,7 +4417,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       for (const w of W) { const r = await scanOne(w, byCloudId, hide); if (r.gone) gone.push(w); else { all.push(...r.ch); added += r.added; } }
       const ids = new Set(W.map(w => w.id));
       Object.values(state.files).forEach(f => { if (f.kind === "cloud" && f.cloud.w && !ids.has(f.cloud.w)) all.push({kind: "file", id: f.id, after: null}); });
-      if (all.length) applyChanges(all, null);
+      const hideNow = new Set(prefs().hide), fresh = all.filter(c => !(c.after && c.after.cloud && hideNow.has(String(c.after.cloud.id)) && !state.files[c.id]));
+      if (fresh.length) applyChanges(fresh, null);
       U.scanErr = gone.length ? `${gone.map(w => "“" + w.name + "”").join(", ")} ${gone.length === 1 ? "isn't" : "aren't"} in your OneDrive any more.` : "";
       if (added && !o.quiet) toast(`${added} new file${added === 1 ? "" : "s"} from OneDrive`);
       else if (added && o.quiet && U.scanDone) toast(`${added} new file${added === 1 ? "" : "s"} from your OneDrive folder${W.length === 1 ? "" : "s"}`);

@@ -21,9 +21,9 @@
     {id: "today", title: "Today's Plan", tab: "board", go: () => { ui.bview = "plan"; }, sel: [".bview-tabs", ".focus.plan", NAV("board")],
       text: () => "Today's Plan lines up what to work on next and for how long, with time set aside for each task around your classes and free time."},
     {id: "taskboard", title: "Task Board", tab: "board", go: () => { ui.bview = "board"; }, sel: [".bview-tabs", ".board-sec-head", NAV("board")],
-      text: () => "Every task by status: To Do, In Work and Complete. Drag a card to move it along, filter by course, or group the board by course."},
-    {id: "timeline", title: "Calendar: Timeline", tab: "timeline", sel: [".pview-tabs", NAV("plan")],
-      text: () => "Every deadline across your courses, as a chart or a calendar by week, month or term. Calendar has three views: Timeline, Schedule and Crunch."},
+      text: () => "Every task by status: To Do, In Progress and Complete. Drag a card to move it along, filter by course, or group the board by course."},
+    {id: "timeline", title: "Calendar: Due Dates", tab: "timeline", sel: [".pview-tabs", NAV("plan")],
+      text: () => "Every deadline across your courses, on a timeline or a month calendar. Calendar has three views: Due Dates, Schedule and Crunch."},
     {id: "schedule", title: "Calendar: Schedule", tab: "schedule", sel: [".pview-tabs", NAV("plan")],
       text: () => "Your week of classes, labs, shifts and appointments. Study time is planned around it."},
     {id: "crunch", title: "Calendar: Crunch", tab: "crunch", sel: [".pview-tabs", NAV("plan")],
@@ -298,7 +298,7 @@
   hook("render", () => { const u = typeof sbUser !== "undefined" && sbUser && sbUser.id; if (!u || u === seenUid) return; seenUid = u; if (!poll && flag() !== "done") { sawSetup = false; poll = setInterval(check, 700); } });
 
   /* Settings row */
-  window.SBTOUR = {start, active: () => active};
+  window.SBTOUR = {start, active: () => active, taken: () => flag() === "done"};
   hook("menu", () => `<button data-act="tour-open" data-group="app"><span>Take the App Tour<span class="sub">A one-minute walk around the tabs and controls</span></span></button>`);
   hook("act", act => {
     if (act !== "tour-open") return false;

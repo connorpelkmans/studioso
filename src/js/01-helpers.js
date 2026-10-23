@@ -114,10 +114,14 @@ const cleanCourseCode = (raw, name) => {
   for (const s of [raw, name]) { const m = String(s || "").match(COURSE_CODE_RX); if (m) return m[1].toUpperCase() + " " + m[2].toUpperCase(); }
   return "";
 };
+// A start no further back than a year before the due date (a missing or broken "created", like 1, would otherwise mean 1970)
+const START_SPAN_DAYS = 365, CREATED_MIN = Date.UTC(2000, 0, 1);
 function startOf(t){
   if (MILESTONE(t.type) && t.due) return t.due;
-  let s = t.start || (t.created ? iso(new Date(t.created)) : t.due);
+  const made = Number(t.created) > CREATED_MIN ? iso(new Date(Number(t.created))) : "";
+  let s = t.start || made || t.due;
   if (t.due && (!s || s > t.due)) s = t.due;
+  if (t.due && s && s < addDays(t.due, -START_SPAN_DAYS)) s = addDays(t.due, -START_SPAN_DAYS);
   return s;
 }
 function progress(t){
@@ -234,23 +238,43 @@ function newTask(fields){
   if (due && start > due) start = due;
   return normTask(Object.assign({id: uid(), created: Date.now(), order: nextOrder(fields.status || "todo")}, fields, {start}));
 }
-let toastT, toastUndoFn = null, toastExtraFn = null;
-function toast(msg, undoFn, extra){
-  const t = $("#toast"), b = $("#toastUndo"), x = $("#toastExtra");
+let toastT, toastUndoFn = null, toastExtraFn = null, toastExtra2Fn = null, toastMs = 0, toastErr = false, toastAt = 0;
+// Long enough to read (about 15 characters a second), longer with a button to press
+const toastLen = (msg, undoFn, n) => Math.max(n ? 9000 : undoFn ? 8000 : 2600, Math.min(12000, 1500 + String(msg || "").length * 65));
+// extra is one {label, fn} or a list of up to two. opts.error: stays until dismissed and is announced at once
+function toast(msg, undoFn, extra, opts){
+  const t = $("#toast"), b = $("#toastUndo"), x = $("#toastExtra"), more = extra ? [].concat(extra).filter(Boolean) : [], err = !!(opts && opts.error);
+  let xx = $("#toastX");
+  if (!xx) { xx = document.createElement("button"); xx.id = "toastX"; xx.type = "button"; xx.className = "toast-x"; xx.setAttribute("aria-label", "Dismiss"); t.appendChild(xx); xx.addEventListener("click", () => { clearTimeout(toastT); t.classList.remove("show", "toast-err"); toastErr = false; toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; }); }
+  t.setAttribute("role", err ? "alert" : "status"); t.classList.toggle("toast-err", err); xx.hidden = !err; toastErr = err;
   $("#toastMsg").textContent = SPELL.fix(msg);
   toastUndoFn = undoFn || null;
   b.hidden = !undoFn;
-  toastExtraFn = extra ? extra.fn : null;
-  x.hidden = !extra; if (extra) x.textContent = extra.label;
+  toastExtraFn = more[0] ? more[0].fn : null;
+  x.hidden = !more[0]; if (more[0]) x.textContent = more[0].label;
+  let x2 = $("#toastExtra2");
+  if (more[1] && !x2) { x2 = document.createElement("button"); x2.id = "toastExtra2"; x.after(x2); x2.addEventListener("click", () => { const f = toastExtra2Fn; toastExtra2Fn = null; t.classList.remove("show"); if (f) f(); }); }
+  toastExtra2Fn = more[1] ? more[1].fn : null;
+  if (x2) { x2.hidden = !more[1]; if (more[1]) x2.textContent = more[1].label; }
   let host = document.body; try { if (dlg.open) host = dlg; } catch(e) {}
   if (t.parentNode !== host) host.appendChild(t);
   t.classList.add("show");
+  toastMs = toastLen(msg, undoFn, more.length); toastAt = Date.now();
+  if (err || t.contains(document.activeElement)) clearTimeout(toastT); else toastTimer(toastMs);
+  try { document.documentElement.style.setProperty("--toast-h", t.offsetHeight + "px"); } catch(e) {}
+}
+function toastTimer(ms){
   clearTimeout(toastT);
-  toastT = setTimeout(() => { t.classList.remove("show"); toastUndoFn = null; toastExtraFn = null; }, extra ? 9000 : undoFn ? 8000 : 2600);
+  toastT = setTimeout(() => { $("#toast").classList.remove("show"); toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; }, ms);
 }
 document.addEventListener("close", e => { const t = $("#toast"); if (t && e.target && t.parentNode === e.target) document.body.appendChild(t); }, true);
 $("#toastUndo").addEventListener("click", () => { const f = toastUndoFn; toastUndoFn = null; $("#toast").classList.remove("show"); if (f) f(); });
 $("#toastExtra").addEventListener("click", () => { const f = toastExtraFn; toastExtraFn = null; $("#toast").classList.remove("show"); if (f) f(); });
+// Pointing at a toast with a button, or tabbing into it, holds it open
+{ const t = $("#toast"), acts = () => t.classList.contains("show") && !!(toastUndoFn || toastExtraFn || toastExtra2Fn), hold = e => { if (acts() && (e.type === "focusin" || Date.now() - toastAt > 700)) clearTimeout(toastT); }, go = () => { if (acts() && !toastErr) toastTimer(Math.max(3000, toastMs / 2)); };
+  t.addEventListener("pointerenter", hold); t.addEventListener("pointermove", hold); t.addEventListener("focusin", hold);
+  t.addEventListener("pointerleave", () => { if (!t.contains(document.activeElement)) go(); });
+  t.addEventListener("focusout", () => setTimeout(() => { if (!t.contains(document.activeElement) && !t.matches(":hover")) go(); }, 0)); }
 function safeUrl(u){
   u = String(u || "").trim();
   if (!u) return null;
@@ -317,7 +341,7 @@ function taskRow(t, opts = {}){
   if (c && !opts.hideCourse) meta.push(`<span class="tag">${esc(courseLabel(c))}</span>`);
   meta.push(`<span>${esc(t.type || "Task")}</span>`);
   meta.push(`<span class="${late ? "late" : ""}">${esc(relDue(t))}</span>`);
-  if (t.status === "doing") meta.push(`<span class="pill">In Work</span>`);
+  if (t.status === "doing") meta.push(`<span class="pill">In Progress</span>`);
   if ((t.priority === "high" || t.priority === "urgent") && t.status !== "done") meta.push(prioBadge(t.priority));
   const sb = statusBadges(t); if (sb) meta.push(sb);
   const p = progress(t);
