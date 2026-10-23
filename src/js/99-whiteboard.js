@@ -475,7 +475,8 @@ var SBWB = null;
     if (boardMaxOn()) { host.style.height = ""; return; }
     const top = host.getBoundingClientRect().top + window.scrollY, nav = document.querySelector("nav.tabs");
     const navH = phone() && nav ? nav.getBoundingClientRect().height : 0;
-    host.style.height = Math.max(phone() ? 420 : 460, Math.round(window.innerHeight - Math.min(top, window.innerHeight * 0.45) - navH - (phone() ? 18 : 28))) + "px";
+    const cp = !phone() && document.querySelector("#compFront .cp"), mascot = cp && !cp.hidden && cp.offsetHeight ? cp.offsetHeight + 10 : 0;
+    host.style.height = Math.max(phone() ? 420 : 460, Math.round(window.innerHeight - Math.min(top, window.innerHeight * 0.45) - navH - (phone() ? 18 : 28) - mascot)) + "px";
   }
 
   /* Painting */
@@ -1288,6 +1289,7 @@ var SBWB = null;
 .wb-pick{display:inline-flex;max-width:min(320px,100%);min-width:0}
 .wb-pick select{font:600 .92rem var(--display);height:34px;max-width:100%;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:0 12px;cursor:pointer}
 .wb-host{position:relative;min-height:420px;margin-top:4px}
+body:has(#wbHost) #fab{display:none!important}
 .wb-stage{position:absolute;inset:0;display:flex;flex-direction:column;gap:8px;padding:10px 10px 8px;border-radius:18px;background:linear-gradient(180deg,#EEF1F4,#D4DAE1 60%,#C5CCD4);box-shadow:inset 0 1px 0 #fff,inset 0 -1px 0 rgba(0,0,0,.08),0 8px 24px rgba(20,30,45,.16)}
 .wb-stage.wb-dk{background:linear-gradient(180deg,#5B636E,#3E454E 60%,#353B43);box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 8px 24px rgba(0,0,0,.4)}
 .wb-frame{position:relative;flex:1;min-height:0;overflow:hidden;border-radius:10px;background:#FDFEFE;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12),inset 0 2px 8px rgba(0,0,0,.12);touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;outline:none;cursor:crosshair}
@@ -1469,9 +1471,13 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
   .wb-opts>*{flex:none}
   .wb-opts{padding-right:24px;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent)}
   .wb-tools,.wb-hist{gap:0}
-  .wb-tool,.wb-hist button{width:31px;height:34px}
-  .wb-tool svg,.wb-hist svg{width:18px;height:18px}
-  .wb-sizes button,.wb-shapes button{width:34px;height:34px}
+  .wb-tools{flex:1 0 100%;border-right:0;padding-right:0}
+  .wb-hist{order:2;padding-right:6px}
+  .wb-opts{flex:1 1 0}
+  .wb-tool{flex:1 1 0;width:auto;min-width:0;max-width:46px;height:40px}
+  .wb-hist button{width:40px;height:40px}
+  .wb-tool svg,.wb-hist svg{width:20px;height:20px}
+  .wb-sizes button,.wb-shapes button{width:40px;height:40px}
   .tl-controls.wb-head>.btn.small{white-space:nowrap}
   .wb-tip{display:none}
   .wb-zoom{top:6px;right:6px}

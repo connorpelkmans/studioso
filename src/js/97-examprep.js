@@ -609,7 +609,7 @@ function topicLi(t){
   return `<li class="pp-topic" data-tid="${esc(t.id)}">
     <div class="ep-topic"><input type="text" data-pn="${esc(t.id)}" value="${esc(t.name)}" aria-label="Topic" maxlength="80">
       <div class="segb" role="group" aria-label="How well you know it">${CONF3.map(([k, l]) => `<button type="button" data-pp="conf" data-id="${esc(t.id)}" data-v="${k}" data-conf="${k}" aria-pressed="${t.conf === k}">${l}</button>`).join("")}</div>
-      <input type="number" class="pp-w" data-pw="${esc(t.id)}" min="0" max="100" step="1" inputmode="numeric" value="${t.weight == null ? "" : esc(t.weight)}" placeholder="%" aria-label="Weight, percent of the exam (optional)" title="Weight: % of the exam (optional)">
+      <label class="pp-wl" title="How much of the exam this topic is worth (optional)"><input type="number" class="pp-w" data-pw="${esc(t.id)}" min="0" max="100" step="1" inputmode="numeric" value="${t.weight == null ? "" : esc(t.weight)}" aria-label="Weight, percent of the exam (optional)"><span aria-hidden="true">% of exam</span></label>
       <label class="pp-done"><input type="checkbox" data-pp="done" data-id="${esc(t.id)}" ${t.done ? "checked" : ""}> Studied</label>
       <button type="button" class="x-btn" data-pp="rm" data-id="${esc(t.id)}" aria-label="Remove ${esc(t.name)}">${CLOSE}</button></div>
     <button type="button" class="link-btn pp-mat-t" data-pp="mat" data-id="${esc(t.id)}" aria-expanded="${open}">${links.length ? `Linked material (${links.length})` : "No linked material"}</button>
@@ -840,8 +840,9 @@ function rowBtn(t){
   return `<button type="button" class="pp-row-btn" data-act="exam-plan" data-id="${esc(t.id)}">${sm ? "Prep Plan" : "Plan My Prep"}</button>`;
 }
 const rowLine = t => { if (!t || !MILESTONE(t.type) || t.status === "done") return ""; const sm = summaryOf(t); return sm ? `${sm.done}/${sm.total} sessions` : ""; };
+const courseExams = c => upcoming().filter(t => t.courseId === c.id).slice(0, 3);
 function courseHtml(c){
-  const list = upcoming().filter(t => t.courseId === c.id).slice(0, 3); if (!list.length) return "";
+  const list = courseExams(c); if (!list.length) return "";
   return `<h2 class="sec"><span class="t">Upcoming Exams</span><span class="n">${list.length}</span></h2><ul class="pp-exams">${list.map(t => { const sm = summaryOf(t), d = dayDiff(todayISO(), t.due); return `<li><button type="button" class="pp-ex-main" data-act="edit-task" data-id="${esc(t.id)}"><b>${esc(t.title)}</b><span class="mini">${esc(fmtDate(t.due))}${t.time ? " at " + esc(fmtTime(t.time)) : ""} · ${d === 0 ? "today" : d === 1 ? "tomorrow" : d + " days"}${sm ? " · " + esc(sm.line) : ""}</span></button><button type="button" class="btn small ${sm ? "" : "primary"}" data-act="exam-plan" data-id="${esc(t.id)}">${sm ? "Prep Plan" : "Plan My Prep"}</button></li>`; }).join("")}</ul>`;
 }
 /* the companion */
@@ -885,6 +886,6 @@ hook("changed", changes => {
     });
   } catch (e) { console.warn("prep changed", e); }
 });
-window.SBPREP = {open, todayHtml, formHtml, rowBtn, rowLine, courseHtml, matBtn, pct: pctOf, summary: summaryOf, offer, offered, ideaValid, runIdea, catchUp, sessions: sessionsOf, EXAMPREP, _state: () => S, _plan: id => { const ex = state.tasks[id], P = prepOf(ex); return EXAMPREP.plan(inputFor(ex, P, P.topics, ex.due)); }};
+window.SBPREP = {open, todayHtml, formHtml, rowBtn, rowLine, courseHtml, courseExams, matBtn, pct: pctOf, summary: summaryOf, offer, offered, ideaValid, runIdea, catchUp, sessions: sessionsOf, EXAMPREP, _state: () => S, _plan: id => { const ex = state.tasks[id], P = prepOf(ex); return EXAMPREP.plan(inputFor(ex, P, P.topics, ex.due)); }};
 })();
 

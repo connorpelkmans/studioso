@@ -15,7 +15,7 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath});
   const errs = [];
-  const ctx = await browser.newContext({viewport: {width: 1280, height: 900}, acceptDownloads: true});
+  const ctx = await browser.newContext({viewport: {width: 1280, height: 1000}, acceptDownloads: true});
   await ctx.addInitScript(seed => {
     try { localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1");
       if (!localStorage.getItem("coursework:v2")) localStorage.setItem("coursework:v2", JSON.stringify(seed)); } catch (e) {}

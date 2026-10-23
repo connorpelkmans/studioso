@@ -373,6 +373,17 @@ function ciPng(c, col){
   });
 }
 hook("act", (act, el) => {
+  if (act === "course-deck") { ui.tab = "flashcards"; rvSet("cards"); ui.fc = null; ui.deckId = el.dataset.id; ui.courseId = null; render(); window.scrollTo(0, 0); return true; }
+  if (act === "course-deck-new") { const f = ui.filter; ui.filter = el.dataset.id; try { deckSheet(null); } finally { ui.filter = f; } return true; }
+  if (act === "course-note" || act === "course-notes") {
+    const n = act === "course-note" && state.notes[el.dataset.id], cid = n ? n.courseId : el.dataset.id;
+    const b = n ? noteBoardOf(n) : (noteBoards().find(x => x.courseId === cid) || {}).id || "";
+    if (window.SBWB && SBWB.on()) SBWB.setView("board");
+    ui.tab = "notes"; ui.courseId = null; ui.noteBoard = b; try { localStorage.setItem(NB_KEY, b); } catch (e) {}
+    if (n) noteEditing = n.id;
+    render(); window.scrollTo(0, 0);
+    return true;
+  }
   if (act === "ci-ai") {
     if (typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !PLAN.isPro()) { toast("Making your own icons with AI is part of Studyboard Pro", null, {label: "See Pro", fn: () => PLAN.openSheet("ai-icons")}); return true; }
     if (!aiReady()) { toast("Set up AI to make your own icons", null, {label: "Set Up AI", fn: () => aiSetupSheet(true)}); return true; }
@@ -452,7 +463,8 @@ function courseMoreSheet(c){
 }
 function viewCourseDetail(c){
   const ts = tasksArr().filter(t => t.courseId === c.id && matchesQ(t));
-  const by = k => ts.filter(t => t.status === k).sort(sortTasks);
+  const exams = new Set(window.SBPREP && SBPREP.courseExams ? SBPREP.courseExams(c).map(t => t.id) : []);
+  const by = k => ts.filter(t => t.status === k && !exams.has(t.id)).sort(sortTasks);
   const lmsL = lmsCourseLink(c), isLms = l => lmsL && ((l.url && l.url === lmsL.url) || String(l.label || "").trim().toLowerCase() === String(lmsL.name || "").toLowerCase());
   const links = (c.links || []).filter(l => !isLms(l)).map(l => { const u = safeUrl(l.url); return u ? `<dt>${esc(l.label || "Link")}</dt><dd><a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(u.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a></dd>` : ""; }).join("");
   return `<button class="back" data-act="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>All Courses</button>
@@ -476,6 +488,8 @@ function viewCourseDetail(c){
     ${courseGradeSide(c)}
     ${courseTeamHtml(c, "")}
     ${courseFilesHtml(c)}
+    ${courseDecksHtml(c)}
+    ${courseNotesHtml(c)}
     ${links ? `<h2 class="sec"><span class="t">Links</span></h2><dl class="facts">${links}</dl>` : ""}
     </aside></div>`;
 }
@@ -497,6 +511,22 @@ function courseGradeSide(c){
   return `<section class="c2-card2"><h2 class="sec"><span class="t">Grade So Far</span><span class="n">${esc(gn.fmt(gn.marked))} marked</span></h2>
     ${gn.pct != null ? `<div class="c2-big">${esc(gn.fmt(gn.pct))}${gn.letter ? `<span class="c2-letter">${esc(gn.letter)}</span>` : ""}</div><div class="prog"><span class="track"><i style="width:${Math.min(100, gn.marked).toFixed(0)}%"></i></span></div>` : ""}
     <p class="mini" style="margin:6px 0 10px">${esc(gn.line)}</p><button class="btn small" data-act="course-tab" data-id="grades">See Grades</button></section>`;
+}
+// The student's own decks and notes for a course
+function courseDecksHtml(c){
+  const ds = deckListArr().filter(d => d.courseId === c.id);
+  const row = d => { const st = deckStats(d), n = studyCounts([d.id]);
+    return `<li><button class="c2-li-main" data-act="course-deck" data-id="${esc(d.id)}"><b>${esc(d.name)}</b><span class="mini${st.due ? " c2-due" : ""}">${st.total ? (st.due || st.fresh ? `${st.due} due · ${st.fresh} new` : "All caught up") : "No cards yet"}</span></button>${st.total ? `<button class="btn small${n.due ? " primary" : ""}" data-act="fc-study" data-id="${esc(d.id)}" aria-label="Study ${esc(d.name)}">Study</button>` : ""}</li>`; };
+  return `<h2 class="sec"><span class="t">Your Decks</span><span class="n">${ds.length || ""}</span></h2>
+    ${ds.length ? `<ul class="c2-list">${ds.map(row).join("")}</ul>` : `<div class="facts c2-none"><span class="mini">No flashcard decks for this course yet.</span><button class="btn small" data-act="course-deck-new" data-id="${esc(c.id)}">New Deck</button></div>`}`;
+}
+function courseNotesHtml(c){
+  const ns = notesArr().filter(n => !n.archived && n.courseId === c.id).sort((a, b) => (b.updated || b.created || 0) - (a.updated || a.created || 0));
+  const title = n => (String(n.text || "").split("\n").map(x => x.trim()).find(Boolean) || "Empty note").slice(0, 80);
+  const shown = ns.slice(0, 5);
+  return `<h2 class="sec"><span class="t">Notes</span><span class="n">${ns.length || ""}</span></h2>
+    ${ns.length ? `<ul class="c2-list">${shown.map(n => `<li><button class="c2-li-main" data-act="course-note" data-id="${esc(n.id)}" style="--nc:${noteColor(n.color)}"><b><span class="c2-nc" aria-hidden="true"></span>${esc(title(n))}</b></button></li>`).join("")}</ul>${ns.length > shown.length ? `<button class="link-btn c2-more" data-act="course-notes" data-id="${esc(c.id)}">See All ${ns.length} Notes</button>` : ""}`
+      : `<div class="facts c2-none"><span class="mini">No notes for this course yet.</span><button class="btn small" data-act="course-notes" data-id="${esc(c.id)}">Open Notes</button></div>`}`;
 }
 function courseFilesHtml(c){
   const fs = Object.values(state.files).filter(f => f.courseId === c.id && f.folderId !== "lectures");

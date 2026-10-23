@@ -121,12 +121,12 @@ document.addEventListener("click", e => {
     case "nb-pick": if (noteEditing) saveNoteText(); ui.noteBoard = el.dataset.id || ""; try { localStorage.setItem(NB_KEY, ui.noteBoard); } catch (e) {} render(); break;
     case "nb-new": if (noteEditing) saveNoteText(); noteBoardSheet(""); break;
     case "nb-edit": noteBoardSheet(el.dataset.id); break;
-    case "note-done": saveNoteText(); break;
+    case "note-done": { const nid = noteEditing; saveNoteText(); noteRefocus(nid); break; }
     case "note-undo": noteUndoRedo(-1); break;
     case "note-redo": noteUndoRedo(1); break;
     case "note-versions": noteVersionsSheet(id); break;
     case "note-export": if (noteEditing && !id) saveNoteText(); noteExportSheet(id || ""); break;
-    case "note-color": { const n = state.notes[id]; if (!n) break; const t = $("#noteText"); applyChanges([{kind:"note", id, after: Object.assign(clone(n), {color: el.dataset.color, text: t ? t.value : n.text})}], ""); break; }
+    case "note-color": { const n = state.notes[id]; if (!n) break; const t = $("#noteText"); try { localStorage.setItem(NOTE_COLOR_KEY, el.dataset.color); } catch (err) {} applyChanges([{kind:"note", id, after: Object.assign(clone(n), {color: el.dataset.color, text: t ? t.value : n.text})}], ""); break; }
     case "note-archive": noteToArchive(id); break;
     case "note-trash": noteToTrash(id); break;
     case "note-archive-open": if (noteEditing) saveNoteText(); archiveSheet(); break;
@@ -138,9 +138,9 @@ document.addEventListener("click", e => {
     case "f-upload": if (dlg.open) dlg.close(); $("#fUploadIn").click(); break;
     case "fab-course": fabMenu("Add Course", [["new-course", "Add Course", "Name, code, color and class times", "course"], ["import-syllabus", "Import a Syllabus", "Upload a PDF to add the course and its deadlines", "syllabus"]]); break;
     case "fab-file": fabMenu("Add File", [...(caps.assets ? [["f-upload", "Upload File", "PDFs, slides, documents and images", "upload"], ["f-quick", "Quick Add", "Drop files and let " + aiWho("Studyboard") + " sort them into the right course and folder", "", true]] : []), ["f-link", "Add Link", "For files kept in OneDrive, Google Drive or Canvas", "link"]]); break;
-    case "fab-note": fabMenu("Add Note", [["note-new", "New Note", "Pin a quick note to your board", "note"], ...(inPreview() ? [] : [["note-photo", "Photo to Note", "Turn a photo of a board or slide into a note", "", true]])]); break;
+    case "fab-note": if (noteEditing) saveNoteText(); newNoteAt(); break;
     case "fab-deck": fabMenu("Add Deck", [["fc-new", "New Deck", "Add cards yourself or paste a list", "deck"], ...(inPreview() ? [] : [["fc-ai-cards", "Create with " + aiWho("AI"), "Upload slides or notes and get flashcards", "", true]]), ["ia-open", "Import From Another App", "Anki, Quizlet or Notion decks, read on this device", "upload"]]); break;
-    case "qz-add": fabMenu("New Quiz", [...(inPreview() ? [] : [["qz-ai", "From Slides or Notes", "Upload slides, notes or readings and get a practice quiz or case studies. No flashcards needed.", "", true]]), ["qz-from-deck", "From a Deck", aiReady() ? `${aiWho("AI")} writes questions from your flashcards` : "Questions from your flashcards", "deck"]]); break;
+    case "qz-add": fabMenu("Add Quiz", [...(inPreview() ? [] : [["qz-ai", "From Slides or Notes", "Upload slides, notes or readings and get a practice quiz or case studies. No flashcards needed.", "", true]]), ["qz-from-deck", "From a Deck", aiReady() ? `${aiWho("AI")} writes questions from your flashcards` : "Questions from your flashcards", "deck"]]); break;
     case "qz-from-deck": quizSheet(ui.filter !== "all" ? decksArr().filter(d => d.courseId === ui.filter && d.cards.length).slice(0, 1).map(d => d.id) : []); break;
     case "qz-ai": aiStudySheet(null, "quiz"); break;
     case "fc-ai-cards": aiStudySheet(id || null, "cards"); break;
@@ -226,7 +226,7 @@ document.addEventListener("change", e => {
   if (e.target.id === "fUploadIn") { const list = [...(e.target.files || [])]; e.target.value = ""; if (list.length) uploadFiles(list, Object.assign(uploadTarget(), {cloud: true})); }
 });
 document.addEventListener("keydown", e => {
-  if (e.target.id === "noteText" && (e.key === "Escape" || (e.key === "Enter" && (e.metaKey || e.ctrlKey)))) { e.preventDefault(); saveNoteText(); return; }
+  if (e.target.id === "noteText" && (e.key === "Escape" || (e.key === "Enter" && (e.metaKey || e.ctrlKey)))) { e.preventDefault(); const nid = noteEditing; saveNoteText(); noteRefocus(nid); return; }
   const nf = e.target.matches && e.target.matches('.note[role="button"]') ? state.notes[e.target.dataset.note] : null;
   if (nf && (e.key === "[" || e.key === "]")) {
     e.preventDefault();
