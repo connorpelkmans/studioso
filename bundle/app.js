@@ -13269,7 +13269,10 @@ function normDeck(d){
   d.aiQuizzes = d.aiQuizzes.filter(q => q && q.id && Array.isArray(q.questions)).map(q => Object.assign({title: "Practice Quiz", style: "", results: [], sources: []}, q, {questions: q.questions.filter(x => x && x.id).map(x => Object.assign({type: "single", stem: "", options: [], correct: [], answer: "", rationale: "", notes: [], topic: "", source: ""}, x))}));
   return d;
 }
-const decksArr = () => Object.values(state.decks || {}).filter(d => !d.archived).sort((a, b) => ((a.created || 0) - (b.created || 0)) || a.name.localeCompare(b.name));
+// Your own order (set by dragging) comes first; decks never moved follow, oldest first
+const hasOrd = x => typeof (x && x.order) === "number";
+const byOrd = (a, b) => (hasOrd(a) && hasOrd(b) ? a.order - b.order : 0);
+const decksArr = () => Object.values(state.decks || {}).filter(d => !d.archived).sort((a, b) => (hasOrd(b) - hasOrd(a)) || byOrd(a, b) || ((a.created || 0) - (b.created || 0)) || a.name.localeCompare(b.name));
 // A quiz made straight from slides or notes is kept in a holder deck with no cards
 const isQuizHolder = d => !!(d && d.quizOnly && !(d.cards || []).length);
 const quizFrom = (d, qz) => isQuizHolder(d) ? ((qz && qz.sources || []).filter(Boolean).map(x => String(x).replace(/\.[a-z0-9]{2,5}$/i, "")).slice(0, 2).join(", ") || "your material") : d.name;
@@ -13348,7 +13351,8 @@ const rvSet = v => { ui.rvView = v === "quizzes" ? "quizzes" : "cards"; try { lo
 const reviewSwitchHtml = () => `<div class="pview-tabs rv-tabs" role="tablist" aria-label="Review"><button role="tab" data-act="rv-view" data-id="cards" aria-selected="${ui.rvView !== "quizzes"}">Flashcards</button><button role="tab" data-act="rv-view" data-id="quizzes" aria-selected="${ui.rvView === "quizzes"}">Quizzes</button></div>`;
 const QZ_GROUP_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19.5c0-3.2 2.7-5.5 6-5.5s6 2.3 6 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16.5 14.1c2.6.2 4.5 2.2 4.5 4.9"/></svg>';
 // Quizzes you put away with Archive (qz.archived) stay on their deck, out of the list
-const quizzesAll = archived => { const out = []; decksArr().forEach(d => (d.aiQuizzes || []).forEach(qz => { if (qz && qz.questions && qz.questions.length && !!qz.archived === !!archived) out.push({d, qz}); })); return out.sort((a, b) => (b.qz.created || 0) - (a.qz.created || 0)); };
+// New quizzes (no qz.order yet) come first, newest first, then the ones you've put in order
+const quizzesAll = archived => { const out = []; decksArr().forEach(d => (d.aiQuizzes || []).forEach(qz => { if (qz && qz.questions && qz.questions.length && !!qz.archived === !!archived) out.push({d, qz}); })); return out.sort((a, b) => (hasOrd(a.qz) - hasOrd(b.qz)) || byOrd(a.qz, b.qz) || (b.qz.created || 0) - (a.qz.created || 0)); };
 const qzFind = ref => { const [did, qid] = String(ref || "").split(":"), d = state.decks[did], qz = d && (d.aiQuizzes || []).find(x => x.id === qid); return qz ? {d, qz} : null; };
 const qzArchBtn = () => { const n = quizzesAll(true).length; return `<button class="btn small trash-btn fc-arch-btn" data-act="qz-arch-open" aria-label="Archived Quizzes${n ? ` (${n})` : ""}" title="Archived Quizzes${n ? ` (${n})` : ""}">${ARCHIVE.replace('width="26" height="26"', 'width="16" height="16"')}${n ? `<span>${n}</span>` : ""}</button>`; };
 function qzSetArchived(ref, on){
@@ -13390,10 +13394,10 @@ function viewQuizzes(){
   const q = ui.q.trim().toLowerCase(), all = quizzesAll();
   const list = all.filter(({d}) => ui.filter === "all" || d.courseId === ui.filter).filter(({d, qz}) => !q || [qz.title, d.name, qz.style].join(" ").toLowerCase().includes(q));
   const cards = list.map(({d, qz}) => { const c = courseOf(d.courseId), res = qz.results || [], last = res[res.length - 1], n = qz.questions.length;
-    return `<article class="qz-card" style="--c:${esc(colorOf(d.courseId))}">
+    return `<article class="qz-card" data-rv="${esc(d.id + ":" + qz.id)}" style="--c:${esc(colorOf(d.courseId))}">
       <div class="qz-band"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span><span class="g2-kick">${esc(c ? courseLabel(c) : "General")}</span>${qz.kind === "case" ? `<span class="qz-pill">Case Study</span>` : ""}</div>
       <button class="qz-body" data-act="qz-open" data-id="${esc(d.id + ":" + qz.id)}"><b class="qz-title">${esc(qz.title || "Practice Quiz")}</b><span class="mini">${n} question${n === 1 ? "" : "s"} · from ${esc(quizFrom(d, qz))}${last ? ` · last score ${last.score}/${last.total}` : ""}</span></button>
-      <div class="qz-acts"><button class="btn small primary" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Start</button><button class="btn small" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Share</button><span class="spacer"></span><button class="btn small deck-arch" data-act="qz-archive" data-id="${esc(d.id + ":" + qz.id)}" title="Put this quiz away" aria-label="Archive ${esc(qz.title || "quiz")}">${ARCHIVE.replace('width="26" height="26"', 'width="16" height="16"')}</button></div></article>`; }).join("");
+      <div class="qz-acts"><button class="btn small primary" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Start</button><button class="btn small" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Share</button><span class="spacer"></span><button class="btn small deck-arch" data-act="qz-archive" data-id="${esc(d.id + ":" + qz.id)}" title="Put this quiz away" aria-label="Archive ${esc(qz.title || "quiz")}">${ARCHIVE.replace('width="26" height="26"', 'width="16" height="16"')}</button>${rvGrip(qz.title || "Practice Quiz")}</div></article>`; }).join("");
   return `<div class="view-head" data-qz-list><h2>Your Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${chipsHtml()}${q ? `<div class="search-note">Showing quizzes that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${list.length ? `<div class="qz-grid">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length ? "" : emptyArt()}<strong>${all.length ? "No Quizzes Match" : "No Quizzes Yet"}</strong>${all.length ? "Try another course or search." : (inPreview() ? "Make a quiz from one of your flashcard decks." : "Upload your slides, notes or readings and " + esc(aiWho("AI")) + " writes a practice quiz. Or make one from a flashcard deck.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px">${inPreview() || all.length ? "" : `<button class="btn primary ai-btn" data-act="qz-ai">${AI_ICON} From Slides or Notes</button>`}<button class="btn${inPreview() ? " primary" : ""}" data-act="qz-from-deck">From a Deck</button></div></div>`}
@@ -13459,11 +13463,10 @@ function viewFlashcards(){
   if (ui.deckId && state.decks[ui.deckId]) return viewDeck(state.decks[ui.deckId]);
   ui.deckId = null;
   if (ui.rvView === "quizzes") return reviewSwitchHtml() + viewQuizzes();
-  let ds = deckListArr().filter(d => ui.filter === "all" || d.courseId === ui.filter).filter(d => fcMatches(d, ui.q));
-  if (window.SBEXAM) ds = SBEXAM.sortDecks(ds);
+  const ds = decksShown().filter(d => ui.filter === "all" || d.courseId === ui.filter).filter(d => fcMatches(d, ui.q));
   const tiles = ds.map(d => {
     const st = deckStats(d), c = courseOf(d.courseId), tone = st.ready >= 70 ? "hi" : st.ready >= 35 ? "mid" : "lo";
-    return `<article class="deck deck-fc cs-${esc(cardStyleOf(d))}" style="--c:${esc(colorOf(d.courseId))}">
+    return `<article class="deck deck-fc cs-${esc(cardStyleOf(d))}" data-rv="${esc(d.id)}" style="--c:${esc(colorOf(d.courseId))}">
       <span class="deck-lay l3" aria-hidden="true"><span class="face"></span></span><span class="deck-lay l2" aria-hidden="true"><span class="face"></span></span>
       <span class="deck-tab">${esc(c ? courseLabel(c) : "General")}</span>
       <span class="deck-count" role="img" aria-label="${st.total} card${st.total === 1 ? "" : "s"}" title="${st.total} card${st.total === 1 ? "" : "s"}">${st.total}</span>
@@ -13474,7 +13477,7 @@ function viewFlashcards(){
         <span class="deck-due mini${st.due ? " on" : ""}">${st.due || st.fresh ? `${st.due} due · ${st.fresh} new` : st.total ? "All caught up" : "No cards yet"}</span>
         <span class="mastery ${tone}" role="img" aria-label="${st.ready}% prepared" title="${st.ready}% prepared. It rises as you review and rate cards well, and falls when you skip reviews or mark cards as not known."><i style="width:${st.ready}%"></i></span>
       </button>
-      <div class="deck-actions"><button class="btn small primary" data-act="fc-study" data-id="${esc(d.id)}" ${st.total ? "" : "disabled"}>Study</button><button class="btn small" data-act="fc-share" data-id="${esc(d.id)}" ${st.total ? "" : "disabled"}>Share</button><button class="btn small deck-arch" data-act="fc-archive" data-id="${esc(d.id)}" title="Put this deck away when you're done studying it" aria-label="Archive ${esc(d.name)}">${ARCHIVE.replace('width="26" height="26"', 'width="16" height="16"')}</button></div>
+      <div class="deck-actions"><button class="btn small primary" data-act="fc-study" data-id="${esc(d.id)}" ${st.total ? "" : "disabled"}>Study</button><button class="btn small" data-act="fc-share" data-id="${esc(d.id)}" ${st.total ? "" : "disabled"}>Share</button><button class="btn small deck-arch" data-act="fc-archive" data-id="${esc(d.id)}" title="Put this deck away when you're done studying it" aria-label="Archive ${esc(d.name)}">${ARCHIVE.replace('width="26" height="26"', 'width="16" height="16"')}</button>${rvGrip(d.name)}</div>
     </div></article>`;
   }).join("");
   return reviewSwitchHtml() + `<div class="view-head" data-fc-list><h2>Your Decks</h2>
@@ -13483,6 +13486,126 @@ function viewFlashcards(){
     ${ds.length ? `<div class="deck-grid">${tiles}</div>` : `<div class="empty${decksArr().length ? "" : " sb-es"}" style="margin-top:14px">${decksArr().length ? "" : emptyArt()}<strong>${deckListArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Add cards or paste a list, then study them." + (inPreview() ? "" : " Or upload slides and let " + esc(aiWho("AI")) + " make them.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inPreview() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}
     <p class="hint-line tip-everyday">Studyboard learns how fast you forget each card and brings it back just before you would.</p>`;
 }
+/* Your own order for decks and quizzes: drag a tile (on touch, press and hold, or drag its grip), or press Alt + Left or Right Arrow */
+const RV_TILE = ".deck-grid > .deck-fc[data-rv], .qz-grid > .qz-card[data-rv]", RV_HOW = "Drag to reorder, or press Alt + Left or Right Arrow";
+const rvGrip = name => `<button type="button" class="rv-grip" aria-label="Move ${esc(name)}" aria-description="${RV_HOW}" title="${RV_HOW}"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></button>`;
+// The decks in the order the list shows them: yours once you've moved one, else the exam's course first
+function decksShown(){ const ds = deckListArr(); return window.SBEXAM && !ds.some(hasOrd) ? SBEXAM.sortDecks(ds) : ds; }
+// Saves the order of the tiles shown; ones a course filter or search hides keep their places among the rest
+function rvSave(isQuiz, shownKeys, label){
+  const full = isQuiz ? quizzesAll().map(x => x.d.id + ":" + x.qz.id) : decksShown().map(d => d.id), shown = new Set(shownKeys);
+  let k = 0; const keys = full.map(key => shown.has(key) ? shownKeys[k++] : key);
+  if (keys.join("|") === full.join("|")) return false;
+  const changes = [], now = Date.now();
+  if (isQuiz) {
+    const by = {};
+    keys.forEach((key, i) => { const f = qzFind(key); if (!f || f.qz.order === (i + 1) * 10) return; const d = by[f.d.id] || (by[f.d.id] = clone(f.d)); d.aiQuizzes.find(x => x.id === f.qz.id).order = (i + 1) * 10; });
+    Object.values(by).forEach(d => { d.updated = now; changes.push({kind: "deck", id: d.id, after: d}); });
+  } else keys.forEach((id, i) => { const d = state.decks[id]; if (d && d.order !== (i + 1) * 10) changes.push({kind: "deck", id, after: Object.assign(clone(d), {order: (i + 1) * 10, updated: now})}); });
+  if (changes.length) applyChanges(changes, label);
+  return changes.length > 0;
+}
+const rvName = (isQuiz, key) => { if (!isQuiz) return (state.decks[key] || {}).name || "the deck"; const f = qzFind(key); return (f && f.qz.title) || "the quiz"; };
+const rvMoved = (isQuiz, keys, key) => `Moved ${rvName(isQuiz, key)} to ${keys.indexOf(key) + 1} of ${keys.length}`;
+const rvCalm = () => window.SBMotion ? SBMotion.level() === "static" : !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+let rvDrag = null;
+document.addEventListener("pointerdown", e => {
+  if (rvDrag || ui.tab !== "flashcards" || (e.pointerType === "mouse" && e.button !== 0)) return;
+  const el = e.target.closest && e.target.closest(RV_TILE); if (!el) return;
+  rvDrag = {el, grid: el.parentNode, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, pid: e.pointerId, touch: e.pointerType !== "mouse", started: false};
+  if (rvDrag.touch && e.target.closest(".rv-grip")) { e.preventDefault(); rvStart(); }
+  else if (rvDrag.touch) rvDrag.timer = setTimeout(() => { if (rvDrag && !rvDrag.started) rvStart(); }, 350);
+});
+document.addEventListener("pointermove", e => {
+  if (!rvDrag || e.pointerId !== rvDrag.pid) return;
+  rvDrag.x = e.clientX; rvDrag.y = e.clientY;
+  if (rvDrag.started) { e.preventDefault(); return; }
+  // A mouse drags after a short move (so clicks still work); a touch that moves before the hold is a scroll
+  const far = Math.hypot(rvDrag.x - rvDrag.x0, rvDrag.y - rvDrag.y0);
+  if (rvDrag.touch) { if (far > 10) rvEnd(false); } else if (far > 6) rvStart();
+}, {passive: false});
+document.addEventListener("pointerup", e => { if (rvDrag && e.pointerId === rvDrag.pid) rvEnd(true); });
+// Phones can take a held touch over for scrolling part way: keep following the finger
+document.addEventListener("pointercancel", e => { if (!rvDrag || e.pointerId !== rvDrag.pid) return; if (rvDrag.started && rvDrag.touch) rvDrag.viaTouch = true; else rvEnd(false); });
+document.addEventListener("touchmove", e => { if (!rvDrag || !rvDrag.started) return; e.preventDefault(); const t = e.touches[0]; if (t) { rvDrag.x = t.clientX; rvDrag.y = t.clientY; } }, {passive: false});
+document.addEventListener("touchend", () => { if (rvDrag && rvDrag.viaTouch) rvEnd(true); });
+document.addEventListener("contextmenu", e => { if (rvDrag) e.preventDefault(); });
+document.addEventListener("dragstart", e => { if (e.target.closest && e.target.closest(RV_TILE)) e.preventDefault(); });
+window.addEventListener("keydown", e => { if (e.key === "Escape" && rvDrag && rvDrag.started) { e.preventDefault(); rvEnd(false); } });
+window.addEventListener("blur", () => { if (rvDrag) rvEnd(false); });
+function rvStart(){
+  const d = rvDrag, el = d.el;
+  clearTimeout(d.timer);
+  if (!el.isConnected) { rvDrag = null; return; }
+  const r = el.getBoundingClientRect();
+  d.started = true; renderBlocked = true;
+  if (d.touch && navigator.vibrate) { try { navigator.vibrate(12); } catch (x) {} }
+  try { getSelection().removeAllRanges(); } catch (x) {}
+  d.dx = d.x - r.left; d.dy = d.y - r.top; d.gl = r.left; d.gt = r.top;
+  const g = el.cloneNode(true);
+  g.classList.add("ghost", "rv-ghost"); g.removeAttribute("data-rv"); g.setAttribute("aria-hidden", "true"); g.inert = true;
+  Object.assign(g.style, {width: r.width + "px", height: r.height + "px", left: r.left + "px", top: r.top + "px"});
+  document.body.appendChild(g); d.ghost = g;
+  const ph = document.createElement("div"); ph.className = "placeholder rv-ph"; ph.style.height = r.height + "px";
+  el.after(ph); el.style.display = "none"; d.ph = ph;
+  document.body.classList.add("rv-dragging");
+  d.raf = requestAnimationFrame(rvTick);
+}
+function rvTick(){
+  const d = rvDrag; if (!d || !d.started) return;
+  d.ghost.style.translate = (d.x - d.dx - d.gl) + "px " + (d.y - d.dy - d.gt) + "px";
+  // Near the top or bottom edge the page scrolls (once you've moved, so a grab near an edge doesn't)
+  if (Math.abs(d.y - d.y0) > 24) { if (d.y < 100) window.scrollBy(0, -10); else if (d.y > window.innerHeight - 100) window.scrollBy(0, 10); }
+  rvPlace(d);
+  d.raf = requestAnimationFrame(rvTick);
+}
+// Moves the gap next to the tile under the pointer: before it on its left half, after it on its right half (top and bottom halves in one column)
+function rvPlace(d){
+  if (performance.now() < (d.settle || 0)) return;
+  const under = document.elementFromPoint(d.x, d.y), t = under && under.closest(RV_TILE), tiles = [...d.grid.children].filter(n => n !== d.el && n.matches(RV_TILE));
+  let ref = null, after = false;
+  if (t && t.parentNode === d.grid && t !== d.el) {
+    const r = t.getBoundingClientRect(), oneCol = getComputedStyle(d.grid).gridTemplateColumns.trim().split(/\s+/).length < 2;
+    ref = t; after = oneCol ? d.y > r.top + r.height / 2 : d.x > r.left + r.width / 2;
+  }
+  else if (!t && tiles.length) {
+    // Past the last tile: the gap goes to the end
+    const last = tiles[tiles.length - 1], lr = last.getBoundingClientRect(), gr = d.grid.getBoundingClientRect();
+    if (d.x >= gr.left && d.x <= gr.right && d.y < gr.bottom + 80 && (d.y > lr.bottom || (d.y > lr.top && d.x > lr.right))) { ref = last; after = true; }
+  }
+  if (!ref || (after ? ref.nextElementSibling : ref.previousElementSibling) === d.ph) return;
+  const calm = rvCalm(), was = calm ? [] : tiles.map(n => n.getBoundingClientRect());
+  d.grid.insertBefore(d.ph, after ? ref.nextSibling : ref);
+  if (calm) return;
+  // The other tiles slide to their new places
+  tiles.forEach((n, i) => { const r = n.getBoundingClientRect(), dx = was[i].left - r.left, dy = was[i].top - r.top; if ((dx || dy) && n.animate) n.animate([{transform: `translate(${dx}px,${dy}px)`}, {transform: "none"}], {duration: 180, easing: "cubic-bezier(.2,.7,.3,1)"}); });
+  d.settle = performance.now() + 180;
+}
+function rvEnd(ok){
+  const d = rvDrag; rvDrag = null; if (!d) return;
+  clearTimeout(d.timer);
+  if (!d.started) return;
+  cancelAnimationFrame(d.raf); renderBlocked = false;
+  suppressClick = true; setTimeout(() => { suppressClick = false; }, 400);
+  document.body.classList.remove("rv-dragging");
+  d.ghost.remove();
+  const isQuiz = d.grid.classList.contains("qz-grid"), key = d.el.dataset.rv;
+  const keys = [...d.grid.children].filter(n => n === d.ph || (n !== d.el && n.matches(RV_TILE))).map(n => n === d.ph ? key : n.dataset.rv);
+  if (ok && d.ph.parentNode) d.ph.replaceWith(d.el); else d.ph.remove();
+  d.el.style.display = "";
+  if (ok) rvSave(isQuiz, keys, rvMoved(isQuiz, keys, key));
+}
+// Keyboard: Alt + Arrow keys move the focused tile one place
+document.addEventListener("keydown", e => {
+  if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || !/^Arrow(Left|Right|Up|Down)$/.test(e.key) || ui.tab !== "flashcards" || rvDrag) return;
+  const el = e.target.closest && e.target.closest(RV_TILE); if (!el) return;
+  e.preventDefault();
+  const grid = el.parentNode, keys = [...grid.children].filter(n => n.matches(RV_TILE)).map(n => n.dataset.rv), key = el.dataset.rv, i = keys.indexOf(key), j = i + (/Left|Up/.test(e.key) ? -1 : 1);
+  if (j < 0 || j >= keys.length) return;
+  keys.splice(j, 0, keys.splice(i, 1)[0]);
+  const isQuiz = grid.classList.contains("qz-grid"), act = e.target.dataset.act, sel = act ? `[data-act="${CSS.escape(act)}"]` : ".rv-grip";
+  if (rvSave(isQuiz, keys, rvMoved(isQuiz, keys, key))) setTimeout(() => { const t = document.querySelector(`[data-rv="${CSS.escape(key)}"]`), f = t && t.querySelector(sel); if (f) f.focus(); }, 60);
+});
 // Decks you put away with Archive (not the ones a finished term moved)
 const archivedDecks = () => Object.values(state.decks || {}).filter(d => d.archived === "Archived").sort((a, b) => a.name.localeCompare(b.name));
 const archBtn = () => { const n = archivedDecks().length; return `<button class="btn small trash-btn fc-arch-btn" data-act="fc-arch-open" aria-label="Archived Decks${n ? ` (${n})` : ""}" title="Archived Decks${n ? ` (${n})` : ""}">${ARCHIVE.replace('width="26" height="26"', 'width="16" height="16"')}${n ? `<span>${n}</span>` : ""}</button>`; };
