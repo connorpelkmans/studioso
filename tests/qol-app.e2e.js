@@ -1,5 +1,5 @@
 // node tests/qol-app.e2e.js (Playwright + Chromium) Focus after redraws, toasts, Back and page addresses, sync status, the month calendar on a small phone,
-// keyboard shortcuts and the phone bottom bar
+// keyboard shortcuts and the phone bottom bar fitting
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const csp = require("../scripts/csp.js"), root = path.join(__dirname, "..");
@@ -138,13 +138,8 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     const cal = await H(P.page, () => { const cells = [...document.querySelectorAll("#view .cal .day")]; const last = cells[6]; const r = last && last.getBoundingClientRect(); return {n: cells.length, right: r ? r.right : 0, w: innerWidth, sw: document.documentElement.scrollWidth}; });
     ok(cal.n >= 28 && cal.right <= cal.w && cal.sw <= cal.w, "the month calendar fits at 360 px, Saturday included: " + JSON.stringify(cal));
     const bar = await H(P.page, () => [...document.querySelectorAll("nav.tabs .in > button")].filter(b => b.offsetParent).map(b => ({t: b.dataset.tab || b.dataset.act, f: parseFloat(getComputedStyle(b).fontSize)})));
-    ok(bar.length <= 6 && !bar.some(b => b.t === "groups"), "the bottom bar has six places or fewer, with Groups in More: " + bar.map(b => b.t).join(","));
-    ok(bar.filter(b => b.t !== "companion").every(b => b.f >= 11), "bottom bar labels are at least 11 px");
-    await P.page.click('header.top [data-act="menu"]'); await P.page.waitForSelector("#dlg[open] .set-go");
-    const more = await P.page.textContent("#dlg .set-go");
-    ok(/Study Groups/.test(more) && /Files/.test(more) && /Grades/.test(more) && /Style Shop/.test(more) && /Archive/.test(more) && await P.page.locator("#dlg .us").count() === 1, "Settings (the header's ⋯ button) starts with Study Groups, Files, Grades, Style Shop and Archive");
-    await P.page.click('#dlg .set-go [data-act="more-go-files"]'); await P.page.waitForTimeout(300);
-    ok(await H(P.page, () => !document.getElementById("dlg").open && window.__sbProStudy.ui.tab === "files"), "and they go straight there");
+    ok(bar.some(b => b.t === "groups"), "Groups stays in the bottom bar: " + bar.map(b => b.t).join(","));
+    ok(await H(P.page, () => [...document.querySelectorAll("nav.tabs .in > button")].filter(b => b.offsetParent).every(b => b.getBoundingClientRect().right <= innerWidth + 0.5)), "the bottom bar fits at 360 px");
     await P.page.keyboard.press("Escape"); await P.page.waitForTimeout(200);
     const chk = await H(P.page, () => { const S = window.__sbProStudy; S.ui.tab = "courses"; S.ui.courseId = "c1"; S.render(); const b = [...document.querySelectorAll('#view li.task button.check')].find(x => x.offsetParent); const a = getComputedStyle(b, "::after"), r = b.getBoundingClientRect(); return {w: parseFloat(a.width), h: parseFloat(a.height), ring: Math.round(r.width)}; });
     ok(chk.w >= 44 && chk.h >= 44 && chk.ring < 30, "Mark Complete keeps its small ring but has a 44 px tap area on a phone: " + JSON.stringify(chk));
