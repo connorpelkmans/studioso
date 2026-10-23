@@ -8140,29 +8140,45 @@ function planRow(x, i, showScore, noRank){
     ${rest.length ? `<ul class="pr-more" id="pw-${esc(key)}"${open ? "" : " hidden"}>${rest.map(r => `<li>${esc(r)}</li>`).join("")}</ul>` : ""}
   </li>`;
 }
-/* Today's Plan: the week ahead, one card a day */
+/* Today's Plan: the next two weeks */
+const RB_DAYS = 14;
 function weekAhead(F, inView){
   const today = todayISO(), all = Object.values(F.info).filter(x => inView(x) && x.t.status !== "done");
-  return [0, 1, 2, 3, 4, 5, 6].map(i => {
+  return Array.from({length: RB_DAYS}, (_, i) => {
     const iso = addDays(today, i), rows = all.filter(x => x.t.due === iso).sort((a, b) => dueDate(a.t) - dueDate(b.t));
-    const hours = rows.reduce((s, x) => s + (x.R || 0), 0), cap = Math.max(0.5, i === 0 ? (F.thSet || 0) : (F.day[i] || 0));
-    return {i, iso, rows, hours, cap, heavy: hours > cap + 0.01};
+    return {i, iso, rows, hours: rows.reduce((s, x) => s + (x.R || 0), 0)};
   });
 }
-function weekStripHtml(week, pick, overdue){
+// Deadline ribbon: a pin per thing due, spaced by day, labels on two rows that never overlap
+function ribbonHtml(week, pick, late){
+  const S = 1.5, pct = c => (c / RB_DAYS * 100).toFixed(3) + "%", at = (c, off) => `${pct(c)} + ${off}px`;
   const days = week.map(w => {
-    const d = parse(w.iso), dow = w.i === 0 ? "Today" : d.toLocaleDateString(undefined, {weekday: "short"}), n = w.rows.length;
-    const exams = w.rows.filter(x => MILESTONE(x.t.type) && /^(Exam|Quiz)$/.test(x.t.type)), rest = w.rows.filter(x => !exams.includes(x));
-    const marks = exams.map(x => `<i class="wk-flag" style="--c:${esc(colorOf(x.t.courseId))}">${x.t.type === "Quiz" ? "Quiz" : "Exam"}</i>`).join("") + rest.slice(0, 6).map(x => `<i style="--c:${esc(colorOf(x.t.courseId))}"></i>`).join("") + (rest.length > 6 ? `<em>+${rest.length - 6}</em>` : "");
-    const wd = d.getDay() === 0 || d.getDay() === 6, pct = Math.min(100, Math.round(w.hours / w.cap * 100));
-    const said = `${w.i === 0 ? "Today, " : ""}${fmtDate(w.iso)}: ${n ? `${n} due${fmtHM(w.hours) ? `, ${fmtHM(w.hours)} of work` : ""}${exams.length ? `, ${exams.map(x => x.t.title).join(", ")}` : ""}${w.heavy ? ", more than the time planned for that day" : ""}` : "nothing due"}. Show only that day`;
-    return `<li class="wk-cell"><button type="button" class="wk-day${w.i === 0 ? " today" : ""}${wd ? " wkend" : ""}" data-act="plan-tile" data-id="d:${w.iso}" aria-pressed="${pick === "d:" + w.iso}" aria-label="${esc(said)}">
-      <span class="wk-h"><span class="wk-dow">${esc(dow)}</span><span class="wk-num">${d.getDate()}</span></span>
-      <span class="wk-dots" aria-hidden="true">${marks}</span>
-      <span class="wk-sum" aria-hidden="true">${n ? `${n} due${fmtHM(w.hours) ? ` · ${esc(fmtHM(w.hours))}` : ""}` : "Free"}</span>
-      <span class="wk-load${w.heavy ? " heavy" : ""}" aria-hidden="true"><b style="width:${pct}%"></b></span></button>${w.i === 0 && overdue ? `<button type="button" class="wk-late" data-act="plan-tile" data-id="late" aria-pressed="${pick === "late"}" aria-label="Show only the ${overdue} overdue"><b>${overdue}</b> overdue</button>` : ""}</li>`;
+    const d = parse(w.iso), wd = d.getDay() === 0 || d.getDay() === 6, n = w.rows.length;
+    const said = `${w.i === 0 ? "Today, " : ""}${fmtDate(w.iso)}: ${n ? `${n} due${fmtHM(w.hours) ? `, ${fmtHM(w.hours)} of work` : ""}` : "nothing due"}. Show only that day`;
+    return `<li class="rb-col${w.i === 0 ? " is-today" : ""}${wd ? " is-wkend" : ""}"><button type="button" class="rb-day" data-act="plan-tile" data-id="d:${w.iso}" aria-pressed="${pick === "d:" + w.iso}" aria-label="${esc(said)}">${esc(w.i === 0 ? "Today" : d.toLocaleDateString(undefined, {weekday: "short"}))}<b>${d.getDate()}</b></button></li>`;
   }).join("");
-  return `<ol class="wk-strip" aria-label="The week ahead">${days}</ol>`;
+  // x is in day columns from Today's left edge; same-day pins are nudged apart by off px
+  const items = late.n ? [{late: true, x: -0.4, left: "var(--lead) / -2", aLeft: "var(--lead) / -2", lane: 1}] : [];
+  week.forEach(w => w.rows.forEach((r, k, a) => { const off = Math.round((k - (a.length - 1) / 2) * Math.min(10, 36 / Math.max(1, a.length - 1))); items.push({r, w, x: w.i + 0.5, off, left: at(w.i + 0.5, off)}); }));
+  // Two label rows: each label needs S columns clear, exams and quizzes get first pick, and near the right edge a label hangs left of its pin
+  const rows = [[], []], more = {}, big = o => !o.late && MILESTONE(o.r.t.type);
+  [...items].sort((p, q) => !!q.late - !!p.late || big(q) - big(p) || p.x - q.x).forEach(o => {
+    o.flip = !o.late && o.x > RB_DAYS - S; o.a = o.flip ? o.x - S : o.x;
+    o.lane = o.late ? 1 : [0, 1].find(l => rows[l].every(p => Math.abs(p.a - o.a) >= S));
+    if (o.lane == null) { more[o.w.i] = (more[o.w.i] || 0) + 1; return; }
+    o.aLeft = o.flip ? at(o.a, o.off) : o.left; rows[o.lane].push(o);
+  });
+  rows.forEach(l => l.sort((p, q) => p.a - q.a).forEach((o, k) => { const nx = l[k + 1]; o.maxw = o.flip ? `calc(${pct(S)} - 8px)` : `min(calc(${nx ? nx.aLeft : "100%"} - (${o.aLeft}) - 8px), 16rem)`; }));
+  const pin = (o, cls, c) => `<i class="rb-dot${cls}" style="left:calc(${o.left});--c:${c}"></i>`;
+  const stem = (o, c) => `<i class="rb-stem r${o.lane}" style="left:calc(${o.left});--c:${c}"></i>`;
+  const pins = items.map(o => {
+    if (o.late) return pin(o, " rb-late", "var(--late)") + stem(o, "var(--late)") + `<button type="button" class="rb-lb rb-late r1" data-act="plan-tile" data-id="late" aria-pressed="${pick === "late"}" style="left:calc(${o.left});max-width:${o.maxw}" aria-label="${esc(`${late.n} overdue. Show only the overdue`)}"><span class="rb-t"><b>${late.n}</b> late</span>${late.title ? `<small>${esc(late.title)}</small>` : ""}</button>`;
+    const t = o.r.t, c = esc(colorOf(t.courseId)), big = MILESTONE(t.type), co = courseOf(t.courseId), h = fmtHM(o.r.R || 0);
+    const sub = big || !h ? (co ? courseLabel(co) : t.type || "") : h;
+    if (o.lane == null) return pin(o, big ? " rb-big" : "", c);
+    return pin(o, big ? " rb-big" : "", c) + stem(o, c) + `<button type="button" class="rb-lb r${o.lane}${big ? " rb-big" : ""}${o.flip ? " rb-flip" : ""}" ${gtOpenAttrs(t)} style="left:calc(${o.left});max-width:${o.maxw};--c:${c}" title="${esc(t.title)}"><span class="rb-t">${esc(t.title)}</span>${sub ? `<small>${esc(sub)}</small>` : ""}</button>`;
+  }).join("") + Object.entries(more).map(([i, n]) => { const iso = week[i].iso; return `<button type="button" class="rb-more" data-act="plan-tile" data-id="d:${iso}" style="left:${pct(+i + 0.5)}" aria-label="${esc(`${n} more due ${fmtDate(iso)}. Show only that day`)}">+${n}</button>`; }).join("");
+  return `<div class="rb${late.n ? " has-late" : ""}${Object.keys(more).length ? " has-more" : ""}" role="group" aria-label="The next two weeks"><ol class="rb-days">${days}</ol><i class="rb-line" aria-hidden="true"></i><div class="rb-pins">${pins}</div></div>`;
 }
 function focusHtml(){
   const F = FOCUS || computeFocus();
@@ -8208,7 +8224,7 @@ function focusHtml(){
   const planH = todayList.reduce((s, x) => s + x.alloc, 0), freeMin = F.avail && F.avail.show && F.avail.res ? (F.avail.res.windows || []).reduce((s, w) => s + (w.min || 0), 0) : null;
   const hoursTitle = F.doneToday >= 0.25 ? `${fmtMins(F.doneToday * 60)} done so far, ${fmtHM(F.th)} left` : planH && Math.abs(planH - F.thSet) >= 0.25 ? `${fmtHM(planH)} of tasks planned` : "";
   const planTile = `<div class="pt-stat pt-hours" role="group" aria-label="Study time today"><div class="pt-adj"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button><b${hoursTitle ? ` title="${esc(hoursTitle)}"` : ""}>${fmtHM(F.thSet) || "0m"}</b><button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></div><span>Planned Today</span>${freeMin != null ? `<span class="pt-free">${esc(fmtHM(freeMin / 60) || "0m")} free left</span>` : ""}</div>`;
-  const ptStats = todayList.length || overdue || queued ? `<div class="pt-stats">${planTile}${weekStripHtml(week, pick, overdue)}</div>` : "";
+  const ptStats = todayList.length || overdue || queued ? `<div class="pt-stats">${planTile}${ribbonHtml(week, pick, {n: overdue, title: ((lateRows[0] || pastFixed[0]) || {t: {}}).t.title || ""})}</div>` : "";
   return `<section class="focus plan" aria-label="Today's Plan">
     <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? `<p class="plan-gap">${F.gapWhy.map(esc).join(" ")}</p>` : ""}</div>
       ${ptStats ? (autoChipHtml() ? `<div class="fh-ctl fh-chip">${autoChipHtml()}</div>` : "") : `<div class="fh-ctl"><div class="hours-ctl" role="group" aria-label="Study time available today"><span class="mini">Time Today</span><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button><b>${fmtHM(F.thSet) || "0m"}</b><button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></div>${autoChipHtml()}</div>`}</div>
@@ -12671,16 +12687,6 @@ function noteClipCheck(){
     if (m) { m.innerHTML = (open ? "Show Less" : "Show More") + ` <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`; m.setAttribute("aria-expanded", open ? "true" : "false"); }
   });
 }
-// Today's Plan numbers on a phone
-function ptStatsFit(){
-  const S = document.querySelector("#view .plan .pt-stats"); if (!S) return;
-  S.classList.remove("pt-2x2");
-  const tiles = [...S.children]; if (tiles.length < 3) return;
-  const top = tiles[0].offsetTop;
-  if (tiles.some(t => Math.abs(t.offsetTop - top) > 2)) S.classList.add("pt-2x2");
-}
-hook("render", () => requestAnimationFrame(ptStatsFit));
-{ let t = 0; addEventListener("resize", () => { clearTimeout(t); t = setTimeout(ptStatsFit, 120); }); }
 // The note being edited: a sheet over the page on a phone, and scrolled fully into view on a bigger screen
 const notePhone = () => !!(window.matchMedia && matchMedia("(max-width:700px)").matches);
 let noteShown = null;

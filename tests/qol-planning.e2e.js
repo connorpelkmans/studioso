@@ -137,16 +137,18 @@ const typeAdd = async (p, text) => { await p.fill("#qaIn", text); await p.click(
       ok(/^From now to (the end of today|Fri, Oct 23)/.test((await p.textContent(".plan-warn .pw-main")).trim()), "17: the plan warning names its time window");
       ok(/today/.test(await p.textContent(".plan-row .alloc")), "21: a row's suggested time is labeled as today's");
       ok(/\+\d+ more/.test(await p.textContent(".plan-row .pr-n")), "21: the extra-reasons chip says how many more reasons");
-      ok(await p.locator(".wk-strip .wk-day").count() === 7 && /Today/i.test(await p.textContent(".wk-day.today .wk-dow")), "21: the week ahead shows seven days, today first");
+      ok(await p.locator(".rb .rb-day").count() === 14 && /Today/i.test(await p.textContent(".rb-col.is-today .rb-day")), "21: the ribbon shows two weeks, today first");
+      const hit = await p.evaluate(() => [...document.querySelectorAll(".pt-adj .icon-btn")].map(b => { const r = b.getBoundingClientRect(), a = getComputedStyle(b, "::after"); return r.width - parseFloat(a.left) - parseFloat(a.right); }));
+      ok(hit.length === 2 && hit.every(w => w >= 40), `9: the Planned Today buttons have a 40px tap area: ${hit.join(", ")}`);
       if (Number(tile) > 0) {
         await p.click('[data-act="plan-tile"][data-id="late"]'); await wait(300);
         ok(await p.evaluate(() => document.querySelector('[data-act="plan-tile"][data-id="late"]').getAttribute("aria-pressed") === "true") && (await p.locator("#planListLbl", {hasText: "Overdue"}).count() === 1 || await p.isVisible(".plan-past")), "21: the overdue badge on Today filters the list");
         await p.click('[data-act="plan-tile"][data-id=""]'); await wait(300);
       }
-      const days = await p.locator(".wk-day").evaluateAll(b => b.map(x => x.dataset.id.slice(2))), openT = (await stored(p)).filter(t => t.status !== "done");
+      const days = await p.locator(".rb-day").evaluateAll(b => b.map(x => x.dataset.id.slice(2))), openT = (await stored(p)).filter(t => t.status !== "done");
       const day = days.slice(1).find(d => openT.some(t => t.due === d)) || days[1], dueThen = openT.filter(t => t.due === day).length;
-      await p.click(`.wk-day[data-id="d:${day}"]`); await wait(300);
-      ok(await p.getAttribute(`.wk-day[data-id="d:${day}"]`, "aria-pressed") === "true" && (dueThen ? await p.locator("#planListLbl", {hasText: /^Due /}).count() === 1 && await p.locator(".plan-list").first().locator(".plan-row").count() === dueThen : /Nothing due that day/.test(await p.textContent(".plan"))), `21: a day card filters the list to that day (${dueThen} due)`);
+      await p.click(`.rb-day[data-id="d:${day}"]`); await wait(300);
+      ok(await p.getAttribute(`.rb-day[data-id="d:${day}"]`, "aria-pressed") === "true" && (dueThen ? await p.locator("#planListLbl", {hasText: /^Due /}).count() === 1 && await p.locator(".plan-list").first().locator(".plan-row").count() === dueThen : /Nothing due that day/.test(await p.textContent(".plan"))), `21: a day card filters the list to that day (${dueThen} due)`);
       await p.click('[data-act="plan-tile"][data-id=""]'); await wait(300);
       ok(!(await p.locator("#planListLbl", {hasText: /^Due /}).count()), "21: Back to Today's Plan clears the filter");
       const first = await p.getAttribute(".next-up .nu-title", "data-id");
@@ -209,8 +211,7 @@ const typeAdd = async (p, text) => { await p.fill("#qaIn", text); await p.click(
       const {ctx, p} = await open(browser, 390, {dark});
       const tag = dark ? "phone dark" : "phone";
       await view(p, {tab: "board", bview: "plan"});
-      const hit = await p.evaluate(() => [...document.querySelectorAll(".pt-adj .icon-btn")].map(b => { const r = b.getBoundingClientRect(), a = getComputedStyle(b, "::after"); return r.width - parseFloat(a.left) - parseFloat(a.right); }));
-      ok(hit.length === 2 && hit.every(w => w >= 40), `9 (${tag}): the Planned Today buttons have a 40px tap area: ${hit.join(", ")}`);
+      ok(await p.evaluate(() => [...document.querySelectorAll(".plan .pt-stats, .plan .rb, .plan .pt-hours")].every(e => !e.offsetWidth && !e.offsetHeight)), `${tag}: no strip above Do This Next on a phone`);
       ok(await p.evaluate(() => { const b = document.querySelector(".pt-bar"); return !b || b.scrollWidth <= b.clientWidth + 1; }), `23 (${tag}): every Today's Plan tab fits without hidden scrolling`);
       await p.click(".next-up .check"); await wait(1500);
       const r = await p.evaluate(() => { const a = document.querySelector("#accChip"), t = document.querySelector("#toast"); if (!a || a.hidden || !t.classList.contains("show")) return null; const x = a.getBoundingClientRect(), y = t.getBoundingClientRect(); return {chip: [x.top, x.bottom], toast: [y.top, y.bottom]}; });

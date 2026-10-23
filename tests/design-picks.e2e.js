@@ -1,4 +1,4 @@
-// Exam Mode card and strip, the week ahead, the review hero, the month calendar and the page header, in the real app
+// Exam Mode card and strip, the deadline ribbon, the review hero, the month calendar and the page header, in the real app
 const path = require("path"), fs = require("fs"), assert = require("assert"), os = require("os");
 const {chromium, executablePath} = require("./pw");
 const FILE = "file://" + path.join(__dirname, "..", "index.html");
@@ -67,20 +67,36 @@ const noOverflow = page => page.evaluate(() => document.documentElement.scrollWi
       }
       ok(await page.evaluate(() => { const c = document.querySelector(".exm-card"), t = c.querySelector(".exm-title"); return getComputedStyle(t).color !== getComputedStyle(c).backgroundColor; }), tag + ": the card text is readable");
 
-      /* Week ahead */
-      ok(await page.locator(".wk-strip .wk-day").count() === 7 && /Today/i.test(await txt(page, ".wk-day.today .wk-dow")), tag + ": seven day cards, Today first");
-      ok(await page.locator(".wk-day >> nth=1").locator(".wk-flag").count() === 1 && /Quiz/i.test(await txt(page, `.wk-day[data-id="d:${plus(1)}"]`)), tag + ": tomorrow's card flags the quiz");
-      ok((await page.locator(".wk-day").evaluateAll(b => b.map(x => x.getBoundingClientRect().height))).every(h => h >= 40), tag + ": day cards are big enough to tap");
-      ok(await page.locator('.wk-day.today ~ .wk-late[data-act="plan-tile"][data-id="late"]').count() === 1 && /1\s*overdue/.test(await txt(page, ".wk-late")), tag + ": the overdue count sits on Today");
-      await page.click(".wk-late"); await page.waitForTimeout(250);
-      ok(/Overdue/i.test(await txt(page, "#planListLbl")) && /Late worksheet/.test(await txt(page, ".plan-list")), tag + ": and filters the list to the overdue work");
-      await page.click('[data-act="plan-tile"][data-id=""]'); await page.waitForTimeout(250);
-      const d4 = `.wk-day[data-id="d:${plus(4)}"]`;
-      await page.locator(d4).scrollIntoViewIfNeeded(); await page.click(d4); await page.waitForTimeout(250);
-      ok(await page.getAttribute(d4, "aria-pressed") === "true" && await page.locator("ol.plan-list[aria-labelledby] > .plan-row").count() === 4, tag + ": a day card shows what's due that day");
-      ok(/4 due/.test(await page.getAttribute(d4, "aria-label")), tag + ": and says it to a screen reader: " + await page.getAttribute(d4, "aria-label"));
-      await page.click('[data-act="plan-tile"][data-id=""]'); await page.waitForTimeout(200);
-      ok(await noOverflow(page), tag + ": Today's Plan has no sideways scroll");
+      /* Deadline ribbon: wider screens only */
+      if (phone) {
+        ok(await page.evaluate(() => [...document.querySelectorAll(".plan .pt-stats, .plan .rb, .plan .pt-hours")].every(e => !e.offsetWidth && !e.offsetHeight)), tag + ": no strip above Do This Next on a phone");
+        ok(await noOverflow(page), tag + ": Today's Plan has no sideways scroll");
+      } else {
+        ok(await page.locator(".rb .rb-day").count() === 14 && /Today/i.test(await txt(page, ".rb-col.is-today .rb-day")), tag + ": two weeks of days, Today first");
+        ok(await page.locator(".rb-dot:not(.rb-late)").count() === 10, tag + ": a pin for each open task due in the two weeks");
+        ok(await page.locator(".rb-dot.rb-big").count() === 2 && await page.evaluate(() => { const l = document.querySelector('.rb-lb.rb-big[data-id="qz"]'); return !!l && getComputedStyle(l).backgroundColor === "rgb(217, 130, 43)" && /ART 140/.test(l.textContent); }), tag + ": the quiz and the exam hang as solid flags in the course colour");
+        const lateAt = await page.evaluate(() => { const d = document.querySelector(".rb-dot.rb-late").getBoundingClientRect(), t = document.querySelector(".rb-col.is-today").getBoundingClientRect(); return [d.left + d.width / 2, t.left]; });
+        ok(lateAt[0] < lateAt[1] && lateAt[1] - lateAt[0] < 40 && /1\s*late/.test(await txt(page, ".rb-lb.rb-late")) && /Late worksheet/.test(await txt(page, ".rb-lb.rb-late")), tag + ": the overdue pin sits just left of Today: " + await txt(page, ".rb-lb.rb-late"));
+        await page.click('.rb-lb.rb-late[data-act="plan-tile"][data-id="late"]'); await page.waitForTimeout(250);
+        ok(/Overdue/i.test(await txt(page, "#planListLbl")) && /Late worksheet/.test(await txt(page, ".plan-list")), tag + ": and filters the list to the overdue work");
+        await page.click('[data-act="plan-tile"][data-id=""]'); await page.waitForTimeout(250);
+        const d4 = `.rb-day[data-id="d:${plus(4)}"]`;
+        await page.click(d4); await page.waitForTimeout(250);
+        ok(await page.getAttribute(d4, "aria-pressed") === "true" && await page.locator("ol.plan-list[aria-labelledby] > .plan-row").count() === 4, tag + ": a day header shows what's due that day");
+        ok(/4 due/.test(await page.getAttribute(d4, "aria-label")), tag + ": and says it to a screen reader: " + await page.getAttribute(d4, "aria-label"));
+        await page.click('[data-act="plan-tile"][data-id=""]'); await page.waitForTimeout(200);
+        await page.click('.rb-lb[data-act="edit-task"][data-id="lab"]'); await page.waitForTimeout(250);
+        ok(await page.evaluate(() => document.querySelector("#dlg").open && /Lab report/.test(document.querySelector("#dlg").textContent)), tag + ": a label opens its task");
+        await page.keyboard.press("Escape"); await page.waitForTimeout(250);
+        for (const w of [1280, 1024, 1600]) {
+          await page.setViewportSize({width: w, height: H}); await page.waitForTimeout(150);
+          const lay = await page.evaluate(() => { const R = document.querySelector(".rb").getBoundingClientRect(), ls = [...document.querySelectorAll(".rb-lb")].map(e => e.getBoundingClientRect());
+            return {inside: ls.every(r => r.left >= R.left - 1 && r.right <= R.right + 1), hit: ls.some((a, i) => ls.some((b, j) => j > i && a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1))}; });
+          ok(lay.inside && !lay.hit, `${tag} at ${w}: labels stay inside the ribbon and never overlap`);
+          ok(await noOverflow(page), `${tag} at ${w}: Today's Plan has no sideways scroll`);
+        }
+        await page.setViewportSize({width: W, height: H});
+      }
       await page.screenshot({path: path.join(OUT, `plan-${tag}.png`)});
 
       /* Review hero */

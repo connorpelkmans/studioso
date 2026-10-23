@@ -181,12 +181,6 @@
   #view > .tl-controls:not(:has(> :not(h2,.segb))) > .segb{flex:2 1 0;min-width:0}
   #view > .tl-controls:not(:has(> :not(h2,.segb))) > .segb + .segb{flex-grow:3}
   #view > .tl-controls:not(:has(> :not(h2,.segb))) > .segb button{flex:1 1 0;min-width:0;padding-inline:2px;font-size:.94rem}
-  /* Today's Plan: the four numbers as one strip */
-  .plan .pt-stats{display:flex;flex-wrap:wrap;gap:6px}
-  .plan .pt-stat{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:64px;padding:8px 6px;border-radius:12px;text-align:center;min-width:min-content;flex:1 1 0}
-  .plan .pt-stats.pt-2x2 > .pt-stat{flex:1 1 calc(50% - 3px)}
-  .plan .pt-stat b{display:block;font-size:.98rem;line-height:1.1;white-space:nowrap;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-  .plan .pt-stat span{display:block;font-size:.64rem;line-height:1.15;white-space:normal;overflow-wrap:normal;word-break:normal;overflow:visible;margin:0}
   .plan .fh-ctl .hours-ctl{min-height:0;padding:4px 10px}
   /* A page's own buttons whose heading was hidden */
   #view > .view-head.ph-btns,#view > section > .view-head.ph-btns{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:4px 0 14px!important;padding:0!important;min-height:0;height:auto;position:static!important;transform:none!important}
@@ -224,7 +218,6 @@
   .c2-head .cd-tabs button{font-size:.84rem;padding-inline:4px;white-space:nowrap}
 }
 /* the narrowest phones */
-@media (max-width:379px){.plan .pt-stat b{font-size:.8rem}.plan .pt-stat span{font-size:.6rem;white-space:normal;overflow:visible}}
 @media (max-width:359px){header.top .today{font-size:.68rem!important}}
 @media (max-width:359px){nav.tabs .in button,html[data-ts] nav.tabs .in button{font-size:0!important;line-height:0!important;gap:0;min-height:48px;justify-content:center}}
 /* Due Dates: course, zoom, Today and Print in one row */
