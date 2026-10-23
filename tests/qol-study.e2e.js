@@ -80,7 +80,7 @@ function SEED(){
     const overlap = await page.evaluate(id => { const a = document.querySelector(`.note[data-note="${id}"]`); const ra = {x: a.offsetLeft, y: a.offsetTop, w: 200, h: 140}; return [...document.querySelectorAll("#nbBoard .note")].filter(e => e !== a).some(e => e.offsetLeft < ra.x + ra.w && e.offsetLeft + e.offsetWidth > ra.x && e.offsetTop < ra.y + ra.h && e.offsetTop + e.offsetHeight > ra.y); }, made.id);
     ok(!overlap, "and lands in an empty spot, not on top of another note: " + JSON.stringify({x: made.x, y: made.y}));
     await page.keyboard.press("Escape"); await page.waitForTimeout(200);
-    ok(await page.locator('.tl-controls [data-act="note-photo"]').count() === 1, "Photo to Note is a button beside the board");
+    ok(await page.locator('.tl-controls [data-act="note-photo"], .pg-head [data-act="note-photo"]').count() === 1, "Photo to Note is a button beside the board");
     await act(page, "note-archive-open"); await page.waitForTimeout(250);
     ok(/Drag a note onto the folder, or open it and choose Archive/.test(await page.locator("dialog[open]").textContent()), "an empty Archive explains both ways to archive");
     await page.evaluate(() => document.querySelector("dialog[open]").close());

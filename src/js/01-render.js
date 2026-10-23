@@ -52,6 +52,7 @@ function renderNow(){
   const bds = $$(".board").map(b => b.scrollLeft);
   const fk = focusKeep(v);
   v.innerHTML = (isPlanTab(ui.tab) ? planHeadHtml() + planSwitchHtml() : isCfTab(ui.tab) && !(ui.tab === "courses" && ui.courseId) ? cfSwitchHtml() : "") + (VIEWS[ui.tab] ? VIEWS[ui.tab]() : ui.tab === "archive" ? viewArchive() : ui.tab === "schedule" ? viewSchedule() : ui.tab === "timeline" ? viewTimeline() : ui.tab === "courses" ? viewCourses() : ui.tab === "files" ? viewFiles() : ui.tab === "notes" ? viewNotes() : ui.tab === "flashcards" ? viewFlashcards() : viewBoard());
+  pageHeadUp(v);
   refreshFab();
   document.body.dataset.view = ui.tab;
   const nbs2 = $("#nbScroll"); if (nbs2) fitNoteBoard(); if (nbs2 && nbPos) { nbs2.scrollLeft = nbPos[0]; nbs2.scrollTop = nbPos[1]; }

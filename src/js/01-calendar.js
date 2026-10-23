@@ -1051,6 +1051,64 @@ function nextExamWords(list){
   const today = todayISO(), ex = (list || tasksArr()).filter(t => t.status !== "done" && t.due && t.due >= today && /^(Exam|Quiz)$/.test(t.type)).sort((a, b) => a.due.localeCompare(b.due) || String(a.time || "").localeCompare(String(b.time || "")))[0];
   return ex ? `next ${ex.type === "Quiz" ? "quiz" : "exam"} ${relDays(dayDiff(today, ex.due))}` : "";
 }
+// One line of context for each tabbed page
+const nWord = (n, one, many) => `${n} ${n === 1 ? one : many || one + "s"}`;
+function pageSub(){
+  const today = todayISO(), open = tasksArr().filter(t => t.status !== "done");
+  try {
+    if (ui.tab === "board") {
+      const dueToday = open.filter(t => t.due === today).length, late = open.filter(t => t.due && t.due < today).length, ex = nextExamWords(open);
+      if ((ui.bview || "plan") === "plan") return [new Date().toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}), dueToday ? `${dueToday} due today` : "nothing due today", ex].filter(Boolean).join(" · ");
+      return [nWord(open.length, "open task"), open.filter(t => t.status === "doing").length ? `${open.filter(t => t.status === "doing").length} in progress` : "", late ? `${late} overdue` : ""].filter(Boolean).join(" · ");
+    }
+    if (ui.tab === "flashcards") {
+      if (ui.rvView === "quizzes") { const qs = quizzesAll(), taken = qs.filter(x => (x.qz.results || []).length).length; return qs.length ? `${nWord(qs.length, "quiz", "quizzes")} · ${taken} taken` : "Practice quizzes from your decks and notes"; }
+      const ds = deckListArr(), cards = ds.reduce((s, d) => s + d.cards.length, 0), due = allDueCount();
+      return ds.length ? [nWord(ds.length, "deck"), nWord(cards, "card"), due ? `${due} due today` : "nothing due today"].join(" · ") : "Make a deck to start reviewing";
+    }
+    if (ui.tab === "courses" && ui.courseTab === "grades") {
+      const gs = coursesArr().map(c => window.SBGRADES && SBGRADES.now(c)).filter(g => g && g.pct != null);
+      return gs.length ? `${nWord(gs.length, "course")} with marks · average ${Math.round(gs.reduce((s, g) => s + g.pct, 0) / gs.length)}%` : "Add marks to see where you stand";
+    }
+    if (ui.tab === "courses") {
+      const cs = coursesArr(), gs = cs.map(c => window.SBGRADES && SBGRADES.now(c)).filter(g => g && g.pct != null);
+      return cs.length ? [nWord(cs.length, "course"), nWord(open.length, "open task"), gs.length ? `average ${Math.round(gs.reduce((s, g) => s + g.pct, 0) / gs.length)}%` : ""].filter(Boolean).join(" · ") : "Add each class you're taking this term";
+    }
+    if (ui.tab === "files") { const n = Object.keys(state.files || {}).length; return n ? `${nWord(n, "file")} across your courses` : "Slides, readings and handouts in one place"; }
+    if (ui.tab === "emails") return "Messages from your school account";
+    if (ui.tab === "notes") {
+      const n = notesArr().filter(x => !x.archived).length; return n ? `${nWord(n, "note")} · ${nWord(new Set(notesArr().filter(x => !x.archived).map(x => x.courseId).filter(Boolean)).size, "course")}` : "Quick notes for your classes";
+    }
+  } catch (e) { return ""; }
+  return "";
+}
+// Lift the page's own heading above its tabs, with its context line and its buttons beside it
+function pageHeadUp(v){
+  if (v.querySelector(":scope > .pg-head") || (ui.tab === "notes" && window.SBWB && SBWB.on())) return;
+  const tabs = v.querySelector(":scope > .pview-tabs, :scope > .bview-row"); if (!tabs) return;
+  const phone = innerWidth < 640, sub = pageSub();
+  let title = "", head = null;
+  if (tabs.matches(".bview-row")) { const s = tabs.querySelector("[aria-selected=true]"); title = s ? s.textContent.trim() : ""; }
+  else {
+    head = [...v.querySelectorAll(":scope > .view-head, :scope > .tl-controls, :scope > section > .view-head")].find(h => h.querySelector(":scope > h2") && (tabs.compareDocumentPosition(h) & Node.DOCUMENT_POSITION_FOLLOWING));
+    if (!head) return;
+    title = head.querySelector(":scope > h2").textContent.trim();
+  }
+  if (!title) return;
+  const box = document.createElement("div"); box.innerHTML = pageHeadHtml(title, sub, "");
+  const pg = box.firstChild;
+  if (head && !phone) {
+    head.querySelector(":scope > h2").remove();
+    [...head.attributes].filter(x => x.name.startsWith("data-")).forEach(x => pg.setAttribute(x.name, x.value));
+    const rest = [...head.children];
+    if (rest.length && rest.length <= 6 && rest.every(c => c.matches("button, .btn, .segb, a.btn"))) {
+      const r = document.createElement("div"); r.className = "pg-right"; rest.forEach(c => r.appendChild(c)); pg.appendChild(r); head.remove();
+    } else if (!rest.length) head.remove();
+  }
+  (tabs.matches(".bview-row") ? tabs.querySelector(".bview-tabs") : tabs).classList.add("pg-tabs");
+  v.insertBefore(pg, tabs);
+}
+{ let was = null; addEventListener("resize", () => { const p = innerWidth < 640; if (was !== null && p !== was && typeof ui !== "undefined" && document.querySelector("#view > .pg-head")) scheduleRender(); was = p; }); }
 function planHeadHtml(){
   const t = ui.tab, today = todayISO(), open = tasksArr().filter(x => x.status !== "done" && inFilter(x));
   let title = "Due Dates", sub = [], right = "";
