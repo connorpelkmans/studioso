@@ -118,21 +118,23 @@ function viewCourses(){
   }
   const cs = coursesArr();
   const imp = `<button class="btn small" data-act="import-syllabus">Import a Syllabus</button>`;
-  if (!cs.length) return `<div class="empty" style="margin-top:18px"><strong>No Courses Yet</strong>Add each class you're taking this term.<br><button class="btn primary" data-act="new-course">Add a Course</button> ${imp}</div>${(n => n ? `<div class="term-bar"><span>${ARCHIVE_SM}${n} course${n === 1 ? " is" : "s are"} in the Archive from past terms.</span><button class="btn small" data-act="archive-open">Open Archive (${n})</button></div>` : "")(allCourses().filter(c => c.archived).length)}`;
+  if (!cs.length) return `<div class="empty sb-es" style="margin-top:18px">${emptyArt()}<strong>No Courses Yet</strong>Add each class you're taking this term.<br><button class="btn primary" data-act="new-course">Add a Course</button> ${imp}</div>${(n => n ? `<div class="term-bar"><span>${ARCHIVE_SM}${n} course${n === 1 ? " is" : "s are"} in the Archive from past terms.</span><button class="btn small" data-act="archive-open">Open Archive (${n})</button></div>` : "")(allCourses().filter(c => c.archived).length)}`;
   const today = todayISO();
   const cards = cs.map(c => {
     const ts = courseTasks(c);
     const open = ts.filter(t => t.status !== "done");
     const hrs = weekHours(open, mondayOf(today));
     const doneN = ts.length - open.length, nFiles = Object.values(state.files).filter(f => f.courseId === c.id).length;
-    const gn = window.SBGRADES && SBGRADES.now(c), pill = courseStatusPill(open, today);
+    const gn = window.SBGRADES && SBGRADES.now(c), pill = courseStatusPill(open, today), when = courseTimesText(c), pct = ts.length ? (doneN / ts.length * 100).toFixed(0) : 0;
+    const mini = (ts.length ? `<span class="c2-mini"><i><b style="width:${pct}%"></b></i><span aria-hidden="true">${doneN}/${ts.length}</span><span class="sr">${doneN} of ${ts.length} done</span></span>` : "")
+      + (nFiles ? `<span class="c2-mini c2-files"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5l-7.8 7.8a5 5 0 0 1-7.1-7.1l8.2-8.2a3.4 3.4 0 0 1 4.8 4.8l-8.2 8.2a1.7 1.7 0 0 1-2.4-2.4l7.5-7.5"/></svg><span aria-hidden="true">${nFiles}</span><span class="sr">${nFiles} file${nFiles === 1 ? "" : "s"}</span></span>` : "");
     return `<div class="course-wrap" data-sort-id="${esc(c.id)}"><button class="course-card c2-card" style="--c:${esc(c.color)}" data-code="${esc(courseLabel(c))}" data-act="open-course" data-id="${esc(c.id)}">
-      <span class="c2-band"><span class="g2-kick">${esc(courseLabel(c))}</span>${courseTimesText(c) ? `<span class="c2-sched">${esc(courseTimesText(c))}</span>` : ""}</span>
-      <span class="c2-top"><span class="g2-ring c2-ring" aria-hidden="true">${courseRingHtml(c)}</span><h3>${esc(c.name)}</h3></span>
+      <span class="c2-band"><span class="g2-kick">${esc(courseLabel(c))}</span>${when ? `<span class="c2-sched">${esc(when)}</span>` : ""}</span>
+      <span class="c2-top"><span class="g2-ring c2-ring" aria-hidden="true">${courseRingHtml(c)}</span><h3>${esc(c.name)}<span class="c2-code">${esc(courseLabel(c))}</span></h3></span>
       <span class="body">
-        ${courseNextHtml(open, today)}
-        ${ts.length ? `<div class="prog" style="--c:${esc(c.color)}"><span class="track"><i style="width:${(doneN / ts.length * 100).toFixed(0)}%"></i></span>${doneN} of ${ts.length} done${nFiles ? `, ${nFiles} file${nFiles === 1 ? "" : "s"}` : ""}</div>` : ""}
-        ${gn || hrs > 0 || pill ? `<span class="c2-foot">${gn && gn.pct != null ? `<span class="c2-grade">Grade <b>${esc(gn.fmt(gn.pct))}</b>${gn.letter ? `<span class="c2-letter">${esc(gn.letter)}</span>` : ""}<span class="mini">· ${esc(gn.fmt(gn.marked))} marked</span></span>` : gn ? `<span class="mini">No marks yet</span>` : hrs > 0 ? `<span class="mini"><b>${fmtH(hrs)}</b> this week</span>` : "<span></span>"}${pill}</span>` : ""}
+        ${when ? `<span class="c2-when">${esc(when)}</span>` : ""}${courseNextHtml(open, today)}
+        ${ts.length ? `<div class="prog" style="--c:${esc(c.color)}"><span class="track"><i style="width:${pct}%"></i></span>${doneN} of ${ts.length} done${nFiles ? `, ${nFiles} file${nFiles === 1 ? "" : "s"}` : ""}</div>` : ""}
+        ${gn || hrs > 0 || pill || mini ? `<span class="c2-foot${gn || hrs > 0 || pill ? "" : " c2-foot-m"}">${mini}${gn && gn.pct != null ? `<span class="c2-grade">Grade <b>${esc(gn.fmt(gn.pct))}</b>${gn.letter ? `<span class="c2-letter">${esc(gn.letter)}</span>` : ""}<span class="mini">· ${esc(gn.fmt(gn.marked))} marked</span></span>` : gn ? `<span class="mini">No marks yet</span>` : hrs > 0 ? `<span class="mini"><b>${fmtH(hrs)}</b> this week</span>` : "<span></span>"}${pill}</span>` : ""}
       </span></button></div>`;
   }).join("");
   return `<div class="view-head"><h2>Your Courses</h2>${proBtns("courses")}${trashBtn("course")}</div><div class="course-list" data-sortable="courses">${cards}</div>

@@ -246,7 +246,7 @@ function toast(msg, undoFn, extra, opts){
   const t = $("#toast"), b = $("#toastUndo"), x = $("#toastExtra"), more = extra ? [].concat(extra).filter(Boolean) : [], err = !!(opts && opts.error);
   let xx = $("#toastX");
   if (!xx) { xx = document.createElement("button"); xx.id = "toastX"; xx.type = "button"; xx.className = "toast-x"; xx.setAttribute("aria-label", "Dismiss"); t.appendChild(xx); xx.addEventListener("click", () => { clearTimeout(toastT); t.classList.remove("show", "toast-err"); toastErr = false; toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; }); }
-  t.setAttribute("role", err ? "alert" : "status"); t.classList.toggle("toast-err", err); xx.hidden = !err; toastErr = err;
+  t.setAttribute("role", err ? "alert" : "status"); t.classList.toggle("toast-err", err); t.classList.toggle("toast-done", !err && !!(opts && opts.done)); xx.hidden = !err; toastErr = err;
   $("#toastMsg").textContent = SPELL.fix(msg);
   toastUndoFn = undoFn || null;
   b.hidden = !undoFn;
@@ -275,6 +275,17 @@ $("#toastExtra").addEventListener("click", () => { const f = toastExtraFn; toast
   t.addEventListener("pointerenter", hold); t.addEventListener("pointermove", hold); t.addEventListener("focusin", hold);
   t.addEventListener("pointerleave", () => { if (!t.contains(document.activeElement)) go(); });
   t.addEventListener("focusout", () => setTimeout(() => { if (!t.contains(document.activeElement) && !t.matches(":hover")) go(); }, 0)); }
+// Empty pages: two notebook cards and Mochi's sprout, drawn in the theme's colours
+function emptyArt(){
+  const star = (x, y, r, c) => { const a = +(r * .18).toFixed(2), b = +(r * .82).toFixed(2); return `<path class="${c}" d="M${x} ${y - r}q${a} ${b} ${r} ${r}q-${b} ${a}-${r} ${r}q-${a}-${b}-${r}-${r}q${b}-${a} ${r}-${r}z"/>`; };
+  return `<svg class="es-art" viewBox="0 0 200 140" aria-hidden="true" focusable="false">
+    <g transform="rotate(-8 73 78)"><rect class="es-card" x="34" y="30" width="78" height="96" rx="10"/><rect class="es-hl2" x="44" y="46" width="40" height="7" rx="3.5"/><rect class="es-line" x="44" y="62" width="58" height="5" rx="2.5"/><rect class="es-line" x="44" y="74" width="46" height="5" rx="2.5"/><rect class="es-line" x="44" y="86" width="52" height="5" rx="2.5"/></g>
+    <g transform="rotate(7 127 70)"><rect class="es-card" x="88" y="22" width="78" height="96" rx="10"/><rect class="es-hl" x="98" y="38" width="44" height="7" rx="3.5"/><rect class="es-line" x="98" y="54" width="58" height="5" rx="2.5"/><rect class="es-line" x="98" y="66" width="50" height="5" rx="2.5"/><rect class="es-line" x="98" y="78" width="54" height="5" rx="2.5"/></g>
+    <path class="es-stem" d="M100 91v-10"/><path class="es-leaf" d="M100 83q-9-7-14-1q7 5 14 1zM100 83q9-7 14-1q-7 5-14 1z"/>
+    <circle class="es-face" cx="100" cy="112" r="22"/><circle class="es-eye" cx="93" cy="111" r="2.2"/><circle class="es-eye" cx="107" cy="111" r="2.2"/><path class="es-smile" d="M96 117q4 3 8 0"/><circle class="es-cheek" cx="88" cy="116" r="3"/><circle class="es-cheek" cx="112" cy="116" r="3"/>
+    ${star(172, 32, 7, "es-star")}${star(26, 30, 5, "es-star2")}
+  </svg>`;
+}
 function safeUrl(u){
   u = String(u || "").trim();
   if (!u) return null;
@@ -325,7 +336,7 @@ function chipsHtml(right){
   return `<div class="chips cf-chips" role="group" aria-label="Filter by course">
     <button class="chip" data-act="filter" data-id="all" aria-pressed="${ui.filter === "all"}">All Courses</button>
     ${cs.map(c => `<button class="chip" style="--c:${esc(c.color)}" data-act="filter" data-id="${esc(c.id)}" aria-pressed="${ui.filter === c.id}"><span class="dot"></span>${esc(courseLabel(c))}</button>`).join("")}
-  </div><div class="cf-row"><label class="cf-pick${on ? " on" : ""}"${on ? ` style="--c:${esc(on.color)}"` : ""}>${on ? `<span class="dot" aria-hidden="true"></span>` : ""}<span class="cf-l">${esc(on ? courseLabel(on) : "All Courses")}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+  </div><div class="cf-row"><label class="cf-pick${on ? " on" : ""}"${on ? ` style="--c:${esc(on.color)}"` : ""}>${on ? `<span class="dot" aria-hidden="true"></span>` : `<span class="dot dot-all" aria-hidden="true" style="--dots:conic-gradient(${cs.slice(0, 6).map((c, i, a) => `${esc(c.color)} ${Math.round(i / a.length * 100)}% ${Math.round((i + 1) / a.length * 100)}%`).join(",")})"></span>`}<span class="cf-l">${esc(on ? courseLabel(on) : "All Courses")}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
     <select data-course-filter aria-label="Filter by course"><option value="all"${on ? "" : " selected"}>All Courses</option>${cs.map(c => `<option value="${esc(c.id)}"${on === c ? " selected" : ""}>${esc(courseLabel(c))}${c.name && courseLabel(c) !== c.name ? ` · ${esc(c.name)}` : ""}</option>`).join("")}</select></label>${right || ""}</div>`;
 }
 function searchNote(){
