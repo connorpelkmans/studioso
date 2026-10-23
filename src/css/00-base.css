@@ -1340,6 +1340,10 @@ body.cap-drag::after{content:"Drop a photo to capture its tasks";position:fixed;
 .qa-bar input{flex:1;min-width:0;border:0!important;background:transparent!important;box-shadow:none!important;outline:0!important;padding:8px 2px;font-size:1rem}
 .qa-preview{margin-top:8px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:grid;gap:8px;box-shadow:var(--shadow)}
 .qa-preview>p{margin:0}
+.qa-live{margin:6px 6px 0;color:var(--muted)}
+.qa-live:empty{display:none}
+.qa-item .qa-past{flex-basis:100%;color:var(--late);font-weight:600}
+.qa-item .qa-past[hidden]{display:none}
 .qa-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .qa-item{display:flex;flex-wrap:wrap;align-items:center;gap:6px;border-left:4px solid var(--c);padding-left:8px}
 .qa-item input[type=text]{flex:1 1 200px;min-width:0;font-weight:600}

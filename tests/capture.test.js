@@ -23,11 +23,30 @@ t("times and durations", () => {
 });
 t("the example sentence: Bio lab report, due Fri 5 PM", () => {
   const d = P("bio lab report due fri 5pm");
-  assert.strictEqual(d.title, "Bio lab report"); assert.strictEqual(d.due, "2026-10-09"); assert.strictEqual(d.time, "17:00"); assert.strictEqual(d.type, "Lab"); assert.strictEqual(d.courseId, "c1"); assert.ok(d.confident);
+  assert.strictEqual(d.title, "Lab report", "the course word goes to the course, not the title"); assert.strictEqual(d.due, "2026-10-09"); assert.strictEqual(d.time, "17:00"); assert.strictEqual(d.type, "Lab"); assert.strictEqual(d.courseId, "c1"); assert.ok(d.confident);
 });
 t("types by keyword", () => {
   [["midterm oct 20", "Exam"], ["final exam dec 5", "Exam"], ["quiz fri", "Quiz"], ["lab 4 fri", "Lab"], ["group project fri", "Project"], ["read chapter 3 fri", "Reading"], ["hw 3 fri", "Assignment"], ["study notes fri", "Study"]]
     .forEach(([s, ty]) => assert.strictEqual(P(s).type, ty, s));
+});
+t("study or review phrasing wins over exam words, and keeps its hours", () => {
+  const d = P("study for midterm 2 hrs tomorrow");
+  assert.strictEqual(d.type, "Study"); assert.strictEqual(d.hours, 2); assert.strictEqual(d.title, "Study for midterm"); assert.strictEqual(d.due, "2026-10-04");
+  assert.strictEqual(P("review for the quiz fri").type, "Study"); assert.strictEqual(P("cram for final exam mon").type, "Study");
+  assert.strictEqual(P("midterm oct 20").type, "Exam"); assert.strictEqual(P("peer review essay fri").type, "Assignment");
+});
+t("the matched course word is taken out of the title", () => {
+  assert.strictEqual(P("bio quiz fri 2pm").title, "Quiz"); assert.strictEqual(P("bio quiz fri 2pm").courseId, "c1"); assert.ok(P("bio quiz fri 2pm").confident, "a bare type with a course is still clear");
+  assert.strictEqual(P("chem201 project fri").title, "Project"); assert.strictEqual(P("quiz for bio fri").title, "Quiz");
+  assert.strictEqual(P("bio fri").title, "Bio", "a title that would be empty keeps the word");
+  assert.strictEqual(CAP.fromText("finish paper next week\nbio quiz fri 2pm", ctx).drafts.length, 2, "a course-and-type line is its own task, not a date for the line above");
+  assert.ok(!P("quiz fri").confident, "a bare type with no course is not clear");
+});
+t("one weekday rule: a plain weekday on the same day means next week", () => {
+  assert.strictEqual(CAP.parseLine("bio quiz fri 2pm", {today: "2026-10-23", courses}).due, "2026-10-30");
+  assert.strictEqual(CAP.parseLine("quiz this fri", {today: "2026-10-23", courses}).due, "2026-10-23");
+  assert.strictEqual(CAP.parseLine("essay due next tuesday", {today: "2026-10-23", courses}).due, "2026-10-27");
+  assert.match(CAP.WEEKDAY_RULE, /next <weekday>/); assert.ok(CAP.visionSystem().includes(CAP.WEEKDAY_RULE));
 });
 t("course matching: code, spaced code, nickname, number, name word, ambiguity", () => {
   assert.strictEqual(P("chem201 pset fri").courseId, "c2"); assert.strictEqual(P("chem 201 pset fri").courseId, "c2"); assert.strictEqual(P("math140 hw fri").courseId, "c3");

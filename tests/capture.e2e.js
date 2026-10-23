@@ -46,12 +46,12 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     const tOpen = Date.now() - t0;
     await page.keyboard.type("bio lab report fri 5pm");
     await page.keyboard.press("Enter");
-    await page.waitForFunction(() => /Added: Bio lab report/.test(document.querySelector("#toastMsg").textContent) && document.querySelector("#toast").classList.contains("show"), null, {timeout: 3000});
+    await page.waitForFunction(() => /Added: Lab report/.test(document.querySelector("#toastMsg").textContent) && document.querySelector("#toast").classList.contains("show"), null, {timeout: 3000});
     const tAll = Date.now() - t0;
     console.log(`timing: open+focus ${tOpen} ms, open -> typed -> Enter -> task visible ${tAll} ms`);
     ok(tAll < 3000, "typed capture end to end under 3 s (" + tAll + " ms)");
-    let ts = await tasks(page); ok(ts.length === 1 && ts[0].title === "Bio lab report" && ts[0].due === nextFri() && ts[0].time === "17:00" && ts[0].courseId === "c1" && ts[0].type === "Lab", "task has title, due Friday, 5 PM, course and type");
-    const toast = await page.textContent("#toastMsg"); ok(/Added: Bio lab report, due .*5 PM/.test(toast), "toast reads: " + toast);
+    let ts = await tasks(page); ok(ts.length === 1 && ts[0].title === "Lab report" && ts[0].due === nextFri() && ts[0].time === "17:00" && ts[0].courseId === "c1" && ts[0].type === "Lab", "task has title (the course word goes to the course), due Friday, 5 PM, course and type");
+    const toast = await page.textContent("#toastMsg"); ok(/Added: Lab report, due .*5 PM/.test(toast), "toast reads: " + toast);
     ok(await page.isVisible("#toastUndo") && await page.isVisible("#toastExtra"), "toast has Undo and Edit");
     await page.click("#toastUndo"); await page.waitForTimeout(150); ok((await tasks(page)).length === 0, "Undo removes the task");
 
