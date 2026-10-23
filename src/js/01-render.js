@@ -219,7 +219,8 @@ const FAB_IC = {
   deck: '<rect x="3" y="7" width="14" height="13" rx="2"/><path d="M7 4h12a2 2 0 0 1 2 2v11"/>',
   group: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0M16 5.5a3 3 0 0 1 0 5.8M18 20a5.5 5.5 0 0 0-3-5"/>',
   project: '<rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v3M16 3v3M8 14h3"/>',
-  code: '<rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 12h.01M11 12h.01M15 12h2"/>'
+  code: '<rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 12h.01M11 12h.01M15 12h2"/>',
+  school: '<path d="M3 9.5 12 5l9 4.5-9 4.5z"/><path d="M7 11.5V16c0 1.2 2.2 2.5 5 2.5s5-1.3 5-2.5v-4.5M21 9.5V15"/>'
 };
 // A pop-up of big, friendly choices
 const fabMenu = (title, items) => { openSheet(`<div class="sheet fab-menu">${head(title)}<div class="sheet-body"><div class="menu-list fm-list">${items.map(([act, label, sub, ic, ai]) => `<button data-act="${act}"${ai ? ' class="ai-row"' : ""}><i class="fm-ic" aria-hidden="true">${ai ? AI_ICON : `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${FAB_IC[ic] || ""}</svg>`}</i><span class="fm-t"><b>${esc(label)}</b><span class="sub">${esc(sub)}</span></span><svg class="fm-go" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>`).join("")}</div></div></div>`);
@@ -659,7 +660,7 @@ function confirmSheet(title, text, label, onYes){
 
 function accountRows(){
   if (inPreview()) return "";
-  if (!sbConfig()) return SB_HOSTED ? `<button data-act="sb-signin"><span>Sign In or Create Account<span class="sub">A free Studyboard account keeps your data and files in sync on all your devices</span></span></button>`
+  if (!sbConfig()) return SB_HOSTED ? `<button data-act="sb-signin"><span>Sign In or Create Account<span class="sub">${window.SBGUEST && SBGUEST.is() ? "Your planner is only on this device. A free account keeps it safe and on all your devices, and everything here comes with you." : "A free Studyboard account keeps your data and files in sync on all your devices"}</span></span></button>`
     : `<button data-act="sb-connect"><span>Sync Across Devices<span class="sub">Save your data and files online and use them on all your devices</span></span></button>`;
   return (sbUser
     ? `<div class="cap-row"><span style="flex:1;font-weight:600">Studyboard Account<span class="sub">Signed in as ${esc(sbUser.email || "")}${cloud.on ? "" : ", reconnecting…"}</span></span><button class="btn small" data-act="sb-signout">Sign Out</button></div>${sbDiagHtml()}`
@@ -689,9 +690,9 @@ function menuSheet(){
       <button data-act="export-data"><span>Export My Data<span class="sub">Tasks, notes, grades and flashcards as a ZIP of spreadsheet files and one JSON file</span></span></button>
       <button data-act="cal-export"><span>Add Deadlines to Your Calendar<span class="sub">Download a calendar file with reminders</span></span></button>
       ${Object.values(state.files).some(f => f.kind === "file") ? `<button data-act="export-full"><span>Export Backup with Files<span class="sub">One file with your data and every uploaded file. Use it to move to another version of Studyboard.</span></span></button>` : ""}
-      <button data-act="backup-now"><span>Back Up Now<span class="sub">A backup is also saved on this device each day</span></span></button>
+      <button data-act="export"><span>Export a Backup File<span class="sub">Download a file you can keep anywhere, like Google Drive or a USB drive</span></span></button>
+      <button data-act="backup-now"><span>Save a Copy on This Device<span class="sub">Kept in this browser, which also saves a copy each day. It won't survive clearing the browser.</span></span></button>
       <button data-act="restore"><span>Restore a Backup</span></button>
-      <button data-act="export"><span>Export a Backup File</span></button>
       <button data-act="import"><span>Import from a Backup File</span></button>
       <button data-act="ia-open"><span>Import From Another App<span class="sub">Anki, Quizlet, Todoist or Notion. Read on this device, nothing is uploaded.</span></span></button>
       <button data-act="clear-all" style="color:var(--late)"><span>Clear All Data</span></button>
@@ -716,7 +717,7 @@ async function restoreSheet(){
   try { list = await listBackups(); } catch(e) {}
   if (!dlg.open) return;
   const body = dlg.querySelector(".sheet-body");
-  if (!list.length) { body.innerHTML = `<p class="status-msg">No backups yet. One is saved on this device each day you use Studyboard, or choose Back Up Now in Settings.</p>`; return; }
+  if (!list.length) { body.innerHTML = `<p class="status-msg">No backups yet. One is saved on this device each day you use Studyboard, or choose Save a Copy on This Device in Settings.</p>`; return; }
   body.innerHTML = `<p class="status-msg" style="margin:0">Restoring replaces everything with the backup. You can undo right after.</p><div class="backup-list">${list.map((b, i) => `<button data-i="${i}"><span>${esc(new Date(b.at).toLocaleString(undefined, {weekday:"short", month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}))}</span><small>${b.where === "cloud" ? "Online · " : b.where === "device" ? "This device · " : b.where === "drive" ? esc(b.label || "Cloud") + " · " : ""}${(b.courses || []).length} course${(b.courses || []).length === 1 ? "" : "s"}, ${(b.tasks || []).length} task${(b.tasks || []).length === 1 ? "" : "s"}</small></button>`).join("")}</div>`;
   body.querySelectorAll("[data-i]").forEach(btn => btn.addEventListener("click", () => {
     const b = list[Number(btn.dataset.i)];

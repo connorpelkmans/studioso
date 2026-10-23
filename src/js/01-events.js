@@ -134,7 +134,7 @@ document.addEventListener("click", e => {
     case "f-go": ui.tab = "files"; ui.fCourse = el.dataset.c; ui.fFolder = el.dataset.f || ""; ui.courseId = null; render(); window.scrollTo(0, 0); break;
     case "f-open": { const f = state.files[id]; if (f) fileSheet(f); break; }
     case "f-upload": if (dlg.open) dlg.close(); $("#fUploadIn").click(); break;
-    case "fab-course": fabMenu("Add Course", [["new-course", "Add Course", "Name, code, color and class times", "course"], ["import-syllabus", "Import a Syllabus", "Upload a PDF to add the course and its deadlines", "syllabus"]]); break;
+    case "fab-course": fabMenu("Add Course", [["new-course", "Add Course", "Name, code, color and class times", "course"], ["import-syllabus", "Import a Syllabus", "Upload a PDF to add the course and its deadlines", "syllabus"], ["lms-open", "Connect Canvas, Brightspace or Blackboard", "Bring in your courses, due dates and grades", "school"]]); break;
     case "fab-file": fabMenu("Add File", [...(caps.assets ? [["f-upload", "Upload File", "PDFs, slides, documents and images", "upload"], ["f-quick", "Quick Add", "Drop files and let " + aiWho("Studyboard") + " sort them into the right course and folder", "", true]] : []), ["f-link", "Add Link", "For files kept in OneDrive, Google Drive or Canvas", "link"]]); break;
     case "fab-note": fabMenu("Add Note", [["note-new", "New Note", "Pin a quick note to your board", "note"], ...(inPreview() ? [] : [["note-photo", "Photo to Note", "Turn a photo of a board or slide into a note", "", true]])]); break;
     case "fab-deck": fabMenu("Add Deck", [["fc-new", "New Deck", "Add cards yourself or paste a list", "deck"], ...(inPreview() ? [] : [["fc-ai-cards", "Create with " + aiWho("AI"), "Upload slides or notes and get flashcards", "", true]]), ["ia-open", "Import From Another App", "Anki, Quizlet or Notion decks, read on this device", "upload"]]); break;
@@ -166,7 +166,7 @@ document.addEventListener("click", e => {
     case "cal-export": calExportSheet(); break;
     case "backup-now":
       dlg.close();
-      makeBackup().then(() => toast("Backup saved")).catch(() => toast("Couldn't make a backup right now"));
+      makeBackup().then(() => toast("Copy saved on this device")).catch(() => toast("Couldn't make a backup right now"));
       break;
     case "restore": restoreSheet(); break;
     case "export": dlg.close(); exportBackup(); break;

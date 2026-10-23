@@ -657,20 +657,23 @@ window.__sbPlanObj = () => PLAN;
     P.reason = reason || "";
     const st = statusLine(), pro = paywall() && paid(), u = usage(), L = lim();
     const rows = compareRows();
-    const showUsage = paywall() || u.fileMB > 0 || sbUser;
+    // Storage is per account, so it only shows once there is one
+    const showUsage = !!sbUser && !inPreview();
+    const noAcct = paywall() && !pro && !sbUser && !inPreview();
     const usageHtml = showUsage ? `<div class="plan-usage"><h3 class="fsec">Your Storage</h3>${meter("Cloud Files", u.fileMB, fileCapMB())}${meter("Synced Data", u.dataMB, L.dataMB)}</div>` : "";
     openSheet(`<div class="sheet plan-sheet">${head("Studyboard Pro")}
       <div class="sheet-body">
         ${reason ? `<p class="plan-reason" role="status">${IC.info}<span>${esc(reason)}</span></p>` : ""}
         <div class="plan-hero${pro ? " is-pro" : ""}"><span class="plan-orb" aria-hidden="true">${IC.spark}</span><div><b>${esc(st.title)}</b>${st.sub ? `<p class="mini">${esc(st.sub)}</p>` : ""}</div></div>
         ${pro ? `<div class="plan-actions"><button type="button" class="btn primary" data-act="plan-manage">Manage Plan</button><button type="button" class="btn" data-act="plan-devices">Your Devices</button></div>${usageHtml}` : ""}
+        ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get a Week of Pro</b><span class="mini">Every Pro theme and feature for 7 days. No card needed, and everything you make stays when the week ends.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
         ${paywall() ? `<p class="plan-state mini" role="status"><b>Plan:</b> ${esc(planLabel())}</p>` : ""}
+        ${paywall() && !pro ? priceButtons() : ""}
         <div class="plan-compare" role="table" aria-label="Free and Pro">
           <div class="pc-row pc-head" role="row"><span role="columnheader"></span><span role="columnheader">Free</span><span role="columnheader" class="pc-pro">${PRO_BADGE}</span></div>
           ${rows.map(([k, f, p]) => `<div class="pc-row" role="row"><span role="rowheader">${esc(k)}</span><span role="cell">${esc(f)}</span><span role="cell" class="pc-pro">${esc(p)}</span></div>`).join("")}
         </div>
         ${(pro || !paywall()) && window.SBPRO ? SBPRO.sheetHtml(pro) : ""}
-        ${paywall() && !pro ? priceButtons() : ""}
         <p class="plan-free mini">${IC.check}<span>Always free: Board, Timeline, Schedule, Focus, notes, flashcards, grades, reminders, Brightspace, Canvas and Blackboard sync, and AI with your own key.</span></p>
         ${pro ? "" : usageHtml}
       </div>
@@ -747,6 +750,7 @@ window.__sbPlanObj = () => PLAN;
       case "plan-code": if (dlg.open) dlg.close(); setTimeout(redeemSheet, 60); return true;
       case "plan-manage": manage(); return true;
       case "plan-trial": startTrial(); return true;
+      case "plan-signup": if (dlg.open) dlg.close(); setTimeout(() => { if (window.SBGUEST) SBGUEST.signUp("signup"); else if (typeof sbAsk === "function") sbAsk(); }, 120); return true;
       case "plan-devices": devicesSheet(false); return true;
       case "plan-dev-rm": removeDevice(id).then(() => devicesSheet(!!el.dataset.lim && P.devBlocked)); return true;
     }

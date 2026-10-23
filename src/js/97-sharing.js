@@ -493,9 +493,10 @@
     const k = courseKey(c); if (!k) return "";
     const m = counts(), n = m && k in m ? m[k] : null;
     if (COUNTS.failed) return "";
-    return `<section class="lib-strip"><span class="lib-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="13" height="15" rx="2"/><path d="M8 3h11a2 2 0 0 1 2 2v13"/></svg></span>
+    const strip = `<section class="lib-strip"><span class="lib-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="13" height="15" rx="2"/><path d="M8 3h11a2 2 0 0 1 2 2v13"/></svg></span>
       <span class="lib-txt"><b>Decks From Classmates</b><span class="mini">${n == null ? `Shared decks for ${esc(c.code || k)}` : n ? `${plural(n, "deck")} shared for ${esc(c.code || k)}` : `None shared for ${esc(c.code || k)} yet. Share one of yours from its deck page.`}</span></span>
       <button type="button" class="btn small" data-act="lib-open" data-id="${esc(c.id)}">Browse</button></section>`;
+    return n ? strip : `<details class="c2-promo"><summary>Decks From Classmates<span class="mini">${n === 0 ? "None shared yet" : "Shared decks"}</span></summary>${strip}</details>`;
   }
   const libBtn = what => { const q = what === "quizzes"; return exploreBtn(q ? "quizzes" : "flashcards") + (can() && coded().length ? `<button class="btn small" data-act="lib-open"${q ? ' data-kind="quiz"' : ""}>Course Library</button>` : ""); };
   const L = {cid: "", all: false, kind: "deck"};
