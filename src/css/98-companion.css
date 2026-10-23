@@ -81,21 +81,14 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 /* 1.11.1: a livelier speech bubble */
 .cp-bubble{background:linear-gradient(160deg,color-mix(in srgb,var(--cp-wear,var(--accent)) 9%,var(--surface)),var(--surface) 70%);font-size:.9rem;letter-spacing:.005em;transform:translateY(10px) scale(.7);transition:opacity .18s ease,transform .42s cubic-bezier(.25,1.6,.45,1)}
 .cp-bubble.on{animation:cpBubbleWobble .9s .3s ease-in-out 1}
-.cp-bubble::before{content:"";position:absolute;right:-7px;top:-8px;width:18px;height:18px;pointer-events:none;opacity:0;
-  background:conic-gradient(from 45deg,transparent 0 10%,var(--cp-wear,var(--accent)) 10% 15%,transparent 15% 35%,var(--cp-wear,var(--accent)) 35% 40%,transparent 40% 60%,var(--cp-wear,var(--accent)) 60% 65%,transparent 65% 85%,var(--cp-wear,var(--accent)) 85% 90%,transparent 90%);
-  -webkit-mask:radial-gradient(circle,#000 0 30%,transparent 62%);mask:radial-gradient(circle,#000 0 30%,transparent 62%);transform:scale(.4) rotate(-30deg);transition:opacity .3s .15s,transform .5s .15s cubic-bezier(.25,1.6,.45,1)}
-.cp-bubble.on::before{opacity:.85;transform:none}
 .cp-bubble.cheer{font-size:.98rem;box-shadow:0 8px 26px color-mix(in srgb,var(--cp-wear,var(--accent)) 35%,transparent),0 0 0 2px color-mix(in srgb,var(--cp-wear,var(--accent)) 60%,var(--line));background:linear-gradient(160deg,color-mix(in srgb,var(--cp-wear,var(--accent)) 20%,var(--surface)),var(--surface) 75%)}
 .cp-bubble.cheer.on{animation:cpBubbleCheer .8s .25s ease-in-out 1}
-.cp-bubble.cheer::before{width:24px;height:24px;right:-10px;top:-11px;opacity:0}
-.cp-bubble.cheer.on::before{opacity:1;animation:cpSparkSpin 1.4s ease-in-out 2}
 .cp-bubble.long,.cp-bubble.long.on{animation:none}
 @keyframes cpBubbleWobble{0%,100%{transform:none}35%{transform:rotate(-1.6deg)}70%{transform:rotate(1.2deg)}}
 @keyframes cpBubbleCheer{0%,100%{transform:none}20%{transform:translateY(-3px) rotate(-3deg)}45%{transform:translateY(-2px) rotate(3deg)}70%{transform:translateY(-1px) rotate(-1.5deg)}}
-@keyframes cpSparkSpin{0%,100%{transform:scale(1) rotate(0)}50%{transform:scale(1.25) rotate(45deg)}}
-.cp-front.cp-still .cp-bubble,.cp-front.cp-still .cp-bubble::before{animation:none!important;transition:opacity .2s!important}
+.cp-front.cp-still .cp-bubble{animation:none!important;transition:opacity .2s!important}
 .cp-front.cp-still .cp-bubble.on{transform:none}
-@media (prefers-reduced-motion:reduce){.cp-bubble{transition:opacity .2s}.cp-bubble,.cp-bubble.on{transform:none;animation:none}.cp-bubble::before{transition:none;animation:none!important}}
+@media (prefers-reduced-motion:reduce){.cp-bubble{transition:opacity .2s}.cp-bubble,.cp-bubble.on{transform:none;animation:none}}
 .cp-still .cp-breathe{animation:none!important}
 .cp-still .cp-move{transform:none}
 /* Picker (sheet and Style Shop tab) */
