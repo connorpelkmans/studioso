@@ -71101,8 +71101,12 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   }
   async function scan(o){
     o = o || {};
+    if (U.scanning) return U.scanRun ? U.scanRun.then(() => scan(o)) : null;
+    U.scanRun = scanNow(o); try { return await U.scanRun; } finally { U.scanRun = null; }
+  }
+  async function scanNow(o){
     const W = prefs().watch;
-    if (U.scanning || !W.length || !connected().includes("microsoft")) return null;
+    if (!W.length || !connected().includes("microsoft")) return null;
     U.scanning = true; U.scanAt = Date.now(); paint();
     let added = 0, gone = [];
     try {
@@ -71112,7 +71116,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       for (const w of W) { const r = await scanOne(w, byCloudId, hide); if (r.gone) gone.push(w); else { all.push(...r.ch); added += r.added; } }
       const ids = new Set(W.map(w => w.id));
       Object.values(state.files).forEach(f => { if (f.kind === "cloud" && f.cloud.w && !ids.has(f.cloud.w)) all.push({kind: "file", id: f.id, after: null}); });
-      if (all.length) applyChanges(all, null);
+      const hideNow = new Set(prefs().hide), fresh = all.filter(c => !(c.after && c.after.cloud && hideNow.has(String(c.after.cloud.id)) && !state.files[c.id]));
+      if (fresh.length) applyChanges(fresh, null);
       U.scanErr = gone.length ? `${gone.map(w => "“" + w.name + "”").join(", ")} ${gone.length === 1 ? "isn't" : "aren't"} in your OneDrive any more.` : "";
       if (added && !o.quiet) toast(`${added} new file${added === 1 ? "" : "s"} from OneDrive`);
       else if (added && o.quiet && U.scanDone) toast(`${added} new file${added === 1 ? "" : "s"} from your OneDrive folder${W.length === 1 ? "" : "s"}`);
