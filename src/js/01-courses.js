@@ -61,9 +61,9 @@ function viewBars(){
   });
 
   const zoom = [["week","Days"],["month","Weeks"],["term","Term"]].map(([k, l]) => `<button data-act="tl-zoom" data-id="${k}" aria-pressed="${ui.tlZoom === k}">${l}</button>`).join("");
-  const head = `<div class="tl-controls tl-tools"><div class="segb" role="group" aria-label="Zoom">${zoom}</div><button class="btn small" data-act="tl-today">Today</button>${proBtns("timeline")}</div>`;
-  if (!ts.length) return head + chipsHtml() + searchNote() + `<div class="empty" style="margin-top:14px"><strong>Nothing to Show Yet</strong>Tasks show up here as an icon on their due date.${noDue ? `<br>${noDue} task${noDue === 1 ? " has" : "s have"} no due date.` : ""}</div>`;
-  return head + chipsHtml() + searchNote() + `<div class="tl-scroll" data-today="${x(today)}" data-dw="${dw}">
+  const head = `<div class="tl-controls tl-tools">${coursePickHtml()}<div class="segb" role="group" aria-label="Zoom">${zoom}</div><button class="btn small" data-act="tl-today">Today</button>${proBtns("timeline")}</div>`;
+  if (!ts.length) return head + searchNote() + `<div class="empty" style="margin-top:14px"><strong>Nothing to Show Yet</strong>Tasks show up here as an icon on their due date.${noDue ? `<br>${noDue} task${noDue === 1 ? " has" : "s have"} no due date.` : ""}</div>`;
+  return head + searchNote() + `<div class="tl-scroll" data-today="${x(today)}" data-dw="${dw}">
       <div class="tl" style="width:${LW + W}px" data-lw="${LW}">
         <div class="tl-bg" style="left:${LW}px;width:${W}px">${bg}</div><div class="tl-bg tl-bg-top" style="left:${LW}px;width:${W}px"><i class="today-line" style="left:${x(today) + dw/2 - 1}px"></i></div>
         <div class="tl-row tl-headrow"><div class="tl-label" style="width:${LW}px"></div><div class="tl-track" style="width:${W}px">${months}</div></div>

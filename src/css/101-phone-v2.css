@@ -89,7 +89,21 @@
   dialog#dlg .sheet-foot{flex-wrap:wrap;gap:8px}
   dialog#dlg .sheet-foot > .btn.primary:last-child,dialog#dlg .sheet-foot > [data-submit].primary{flex:1 1 140px}
 }
-@media (min-width:640px){#view .cf-row{display:none!important}}
+/* Course filter: one dropdown instead of a row of chips */
+#view .cf-chips{display:none!important}
+@media (min-width:640px){
+  #view .cf-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 14px}
+  #view .cf-row.nb-row{display:none}
+  .cf-pick{position:relative;display:inline-flex;align-items:center;gap:8px;min-height:38px;max-width:320px;padding:0 14px;border-radius:999px;background:var(--surface);color:var(--ink);border:1px solid var(--line);font:600 .9rem var(--display);cursor:pointer;box-sizing:border-box}
+  .cf-pick.on{border-color:color-mix(in srgb,var(--c) 55%,var(--line))}
+  .cf-pick .dot{width:9px;height:9px;border-radius:50%;background:var(--c);flex:none}
+  #view .cf-pick .dot-all{display:block;background:var(--dots,var(--muted))}
+  .cf-pick .cf-l{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .cf-pick svg{width:16px;height:16px;flex:none;opacity:.85}
+  .cf-pick select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;appearance:none}
+  .cf-pick:has(select:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+  .cf-pick:hover{border-color:color-mix(in srgb,var(--ink) 30%,var(--line))}
+}
 @media (max-width:639px){
   /* Course filter */
   .cf-chips{display:none!important}
@@ -213,3 +227,6 @@
 @media (max-width:379px){.plan .pt-stat b{font-size:.8rem}.plan .pt-stat span{font-size:.6rem;white-space:normal;overflow:visible}}
 @media (max-width:359px){header.top .today{font-size:.68rem!important}}
 @media (max-width:359px){nav.tabs .in button,html[data-ts] nav.tabs .in button{font-size:0!important;line-height:0!important;gap:0;min-height:48px;justify-content:center}}
+/* Due Dates: course, zoom, Today and Print in one row */
+#view .tl-controls.tl-tools{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;min-height:40px;height:auto;margin:0 0 14px}
+#view .tl-controls.tl-tools .cf-pick{margin:0}

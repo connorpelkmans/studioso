@@ -7658,6 +7658,14 @@ function weekHours(ts, monday){
 }
 
 /* Shared pieces */
+// Course filter as a dropdown
+function coursePickHtml(){
+  const cs = coursesArr();
+  if (!cs.length) return "";
+  const on = cs.find(c => c.id === ui.filter);
+  return `<label class="cf-pick${on ? " on" : ""}"${on ? ` style="--c:${esc(on.color)}"` : ""}>${on ? `<span class="dot" aria-hidden="true"></span>` : `<span class="dot dot-all" aria-hidden="true" style="--dots:conic-gradient(${cs.slice(0, 6).map((c, i, a) => `${esc(c.color)} ${Math.round(i / a.length * 100)}% ${Math.round((i + 1) / a.length * 100)}%`).join(",")})"></span>`}<span class="cf-l">${esc(on ? courseLabel(on) : "All Courses")}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+    <select data-course-filter aria-label="Filter by course"><option value="all"${on ? "" : " selected"}>All Courses</option>${cs.map(c => `<option value="${esc(c.id)}"${on === c ? " selected" : ""}>${esc(courseLabel(c))}${c.name && courseLabel(c) !== c.name ? ` · ${esc(c.name)}` : ""}</option>`).join("")}</select></label>`;
+}
 function chipsHtml(right){
   const cs = coursesArr();
   if (!cs.length) return "";
@@ -7665,8 +7673,7 @@ function chipsHtml(right){
   return `<div class="chips cf-chips" role="group" aria-label="Filter by course">
     <button class="chip" data-act="filter" data-id="all" aria-pressed="${ui.filter === "all"}">All Courses</button>
     ${cs.map(c => `<button class="chip" style="--c:${esc(c.color)}" data-act="filter" data-id="${esc(c.id)}" aria-pressed="${ui.filter === c.id}"><span class="dot"></span>${esc(courseLabel(c))}</button>`).join("")}
-  </div><div class="cf-row"><label class="cf-pick${on ? " on" : ""}"${on ? ` style="--c:${esc(on.color)}"` : ""}>${on ? `<span class="dot" aria-hidden="true"></span>` : `<span class="dot dot-all" aria-hidden="true" style="--dots:conic-gradient(${cs.slice(0, 6).map((c, i, a) => `${esc(c.color)} ${Math.round(i / a.length * 100)}% ${Math.round((i + 1) / a.length * 100)}%`).join(",")})"></span>`}<span class="cf-l">${esc(on ? courseLabel(on) : "All Courses")}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-    <select data-course-filter aria-label="Filter by course"><option value="all"${on ? "" : " selected"}>All Courses</option>${cs.map(c => `<option value="${esc(c.id)}"${on === c ? " selected" : ""}>${esc(courseLabel(c))}${c.name && courseLabel(c) !== c.name ? ` · ${esc(c.name)}` : ""}</option>`).join("")}</select></label>${right || ""}</div>`;
+  </div><div class="cf-row">${coursePickHtml()}${right || ""}</div>`;
 }
 function searchNote(){
   if (!ui.q.trim()) return "";
@@ -8287,9 +8294,9 @@ function viewBars(){
   });
 
   const zoom = [["week","Days"],["month","Weeks"],["term","Term"]].map(([k, l]) => `<button data-act="tl-zoom" data-id="${k}" aria-pressed="${ui.tlZoom === k}">${l}</button>`).join("");
-  const head = `<div class="tl-controls tl-tools"><div class="segb" role="group" aria-label="Zoom">${zoom}</div><button class="btn small" data-act="tl-today">Today</button>${proBtns("timeline")}</div>`;
-  if (!ts.length) return head + chipsHtml() + searchNote() + `<div class="empty" style="margin-top:14px"><strong>Nothing to Show Yet</strong>Tasks show up here as an icon on their due date.${noDue ? `<br>${noDue} task${noDue === 1 ? " has" : "s have"} no due date.` : ""}</div>`;
-  return head + chipsHtml() + searchNote() + `<div class="tl-scroll" data-today="${x(today)}" data-dw="${dw}">
+  const head = `<div class="tl-controls tl-tools">${coursePickHtml()}<div class="segb" role="group" aria-label="Zoom">${zoom}</div><button class="btn small" data-act="tl-today">Today</button>${proBtns("timeline")}</div>`;
+  if (!ts.length) return head + searchNote() + `<div class="empty" style="margin-top:14px"><strong>Nothing to Show Yet</strong>Tasks show up here as an icon on their due date.${noDue ? `<br>${noDue} task${noDue === 1 ? " has" : "s have"} no due date.` : ""}</div>`;
+  return head + searchNote() + `<div class="tl-scroll" data-today="${x(today)}" data-dw="${dw}">
       <div class="tl" style="width:${LW + W}px" data-lw="${LW}">
         <div class="tl-bg" style="left:${LW}px;width:${W}px">${bg}</div><div class="tl-bg tl-bg-top" style="left:${LW}px;width:${W}px"><i class="today-line" style="left:${x(today) + dw/2 - 1}px"></i></div>
         <div class="tl-row tl-headrow"><div class="tl-label" style="width:${LW}px"></div><div class="tl-track" style="width:${W}px">${months}</div></div>
@@ -12721,7 +12728,16 @@ function noteScrollIn(){
   if (dx || dy) sc.scrollBy(dx, dy);
   const r = sc.getBoundingClientRect(); if (r.top < 0 || r.bottom > innerHeight) sc.scrollIntoView({block: "nearest"});
 }
-hook("render", () => { noteSheetUp(); if (ui.tab !== "notes") return; noteFitText($("#noteText")); requestAnimationFrame(() => { noteFitText($("#noteText")); noteClipCheck(); fitNoteBoard(); noteScrollIn(); }); });
+// Desktop: the board reaches down to the same spot as the whiteboard
+function nbFill(){
+  const el = document.getElementById("nbScroll");
+  if (!el) return;
+  if (innerWidth < 640 || boardMaxOn()) { el.style.removeProperty("height"); return; }
+  const top = el.getBoundingClientRect().top + scrollY;
+  el.style.setProperty("height", Math.max(380, Math.round(innerHeight - Math.min(top, innerHeight * 0.45) - 27)) + "px", "important");
+}
+addEventListener("resize", () => { if (ui.tab === "notes") nbFill(); });
+hook("render", () => { noteSheetUp(); if (ui.tab !== "notes") return; noteFitText($("#noteText")); nbFill(); requestAnimationFrame(() => { noteFitText($("#noteText")); noteClipCheck(); fitNoteBoard(); noteScrollIn(); }); });
 document.addEventListener("input", e => { if (e.target && e.target.id === "noteText") noteFitText(e.target); });
 document.addEventListener("focusin", e => { if (e.target && e.target.id === "noteText") noteFitText(e.target); });
 ["pointerdown", "mousedown", "touchstart"].forEach(t => document.addEventListener(t, e => { if (e.target.closest && e.target.closest(".note-more")) e.stopPropagation(); }, {capture: true, passive: true}));
@@ -53233,7 +53249,8 @@ var COMP_EXTRA = [];
     RECTS = null;
     if (!fresh && here && +box.dataset.px === px && spotKind) { const b = spotCheck(here, px, f); if (!b.hard) return Object.assign(here, {kind: spotKind, px, fab: f}); }
     RECTS = null;
-    const list = candidates(px, f, fresh).sort((a, b) => a.score - b.score);
+    // It stands level with the Add button, never higher up the page
+    const list = candidates(px, f, fresh).filter(c => c.kind === "home" || c.kind === "ground").sort((a, b) => a.score - b.score);
     let best = null, tested = 0;
     for (const c of list) {
       if (best && c.score >= best.score) break;
@@ -53243,7 +53260,7 @@ var COMP_EXTRA = [];
       if (b.surface) { if (c.kind !== "home" && c.kind !== "ground") continue; c.score += 45; }
       if (!best || c.score < best.score) best = c;
     }
-    if (!best) best = edgeSpot(px, f, list, here, fresh);
+    if (!best) { const h = list.find(c => c.kind === "home"), rg = range(px); best = h ? {left: Math.round(Math.min(Math.max(rg.L, rg.R), Math.max(rg.L, h.left))), top: Math.round(Math.min(Math.max(rg.T, rg.B), Math.max(rg.T, h.top))), kind: "home"} : edgeSpot(px, f, list, here, fresh); }
     // No clear spot: it waits in its reserved place beside the Add button (the page keeps room below its last row for it) rather than on top of text or buttons
     if (best.kind === "edge" && best.over > 0) { const h = list.find(c => c.kind === "home"), rg = range(px); if (h) best = {left: Math.round(Math.min(Math.max(rg.L, rg.R), Math.max(rg.L, h.left))), top: Math.round(Math.min(Math.max(rg.T, rg.B), Math.max(rg.T, h.top))), kind: "home"}; }
     return Object.assign(best, {px, fab: f});

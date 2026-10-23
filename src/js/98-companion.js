@@ -692,7 +692,8 @@
     RECTS = null;
     if (!fresh && here && +box.dataset.px === px && spotKind) { const b = spotCheck(here, px, f); if (!b.hard) return Object.assign(here, {kind: spotKind, px, fab: f}); }
     RECTS = null;
-    const list = candidates(px, f, fresh).sort((a, b) => a.score - b.score);
+    // It stands level with the Add button, never higher up the page
+    const list = candidates(px, f, fresh).filter(c => c.kind === "home" || c.kind === "ground").sort((a, b) => a.score - b.score);
     let best = null, tested = 0;
     for (const c of list) {
       if (best && c.score >= best.score) break;
@@ -702,7 +703,7 @@
       if (b.surface) { if (c.kind !== "home" && c.kind !== "ground") continue; c.score += 45; }
       if (!best || c.score < best.score) best = c;
     }
-    if (!best) best = edgeSpot(px, f, list, here, fresh);
+    if (!best) { const h = list.find(c => c.kind === "home"), rg = range(px); best = h ? {left: Math.round(Math.min(Math.max(rg.L, rg.R), Math.max(rg.L, h.left))), top: Math.round(Math.min(Math.max(rg.T, rg.B), Math.max(rg.T, h.top))), kind: "home"} : edgeSpot(px, f, list, here, fresh); }
     // No clear spot: it waits in its reserved place beside the Add button (the page keeps room below its last row for it) rather than on top of text or buttons
     if (best.kind === "edge" && best.over > 0) { const h = list.find(c => c.kind === "home"), rg = range(px); if (h) best = {left: Math.round(Math.min(Math.max(rg.L, rg.R), Math.max(rg.L, h.left))), top: Math.round(Math.min(Math.max(rg.T, rg.B), Math.max(rg.T, h.top))), kind: "home"}; }
     return Object.assign(best, {px, fab: f});
