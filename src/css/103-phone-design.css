@@ -22,10 +22,10 @@
   body:has(#toast.show) .acc-chip{bottom:calc(var(--sb-snack-b) + var(--toast-h,52px) + 8px)}
   .acc-chip .acc-q{flex:1 1 0;min-width:0;display:flex;white-space:nowrap;font:700 .92rem/1.3 var(--display)}
   .acc-chip .acc-t{min-width:0;overflow:hidden;text-overflow:ellipsis}
-  .acc-chip .acc-x{order:2;min-width:40px;min-height:40px;margin:-8px 0 -8px auto}
+  .acc-chip .acc-x{order:2;min-width:44px;min-height:44px;margin:-10px -2px -10px auto}
   .acc-chip .acc-opts{order:3;flex:1 1 100%;padding-right:10px}
   .acc-chip[data-kind="took"] .acc-opts{flex-wrap:nowrap;gap:6px}
-  .acc-chip[data-kind="took"] .acc-opt{flex:1 1 auto;min-height:40px;padding:4px 10px;border-radius:999px;font-weight:700;white-space:nowrap}
+  .acc-chip[data-kind="took"] .acc-opt{flex:1 1 auto;min-height:44px;padding:4px 10px;border-radius:999px;font-weight:700;white-space:nowrap}
   .acc-chip[data-kind="took"] .acc-opt.link{flex:none;padding:4px 6px}
   .acc-chip[data-kind="took"] .acc-l{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
   .acc-chip[data-kind="took"] .acc-s{display:inline}
@@ -52,6 +52,7 @@
   #view .c2-card .body > .prog{display:none}
   #view .c2-card .c2-foot{display:flex;flex-wrap:nowrap;align-items:center;gap:8px;min-width:0;margin:0;padding:0;border:0;font-size:.76rem}
   #view .c2-card .c2-foot > .g2-pill{flex:none;margin-left:auto;padding:2px 8px;font-size:.72rem}
+  #view .c2-card .c2-foot > .g2-pill.late{color:color-mix(in srgb,var(--late) 78%,var(--ink))}
   #view .c2-card .c2-foot > :is(.mini,.c2-grade){flex:0 1 auto;min-width:0;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #view .c2-card .c2-mini{flex:none;display:inline-flex;align-items:center;gap:6px;color:var(--muted);white-space:nowrap}
   #view .c2-card .c2-mini i{display:block;width:40px;height:5px;border-radius:3px;overflow:hidden;background:color-mix(in srgb,var(--ink) 10%,transparent)}
@@ -141,7 +142,7 @@
 .cf-pick .dot-all{display:none}
 @media (max-width:639px){
   :is(.segb,.seg,.us-subs,.pt-bar):not(.ep-topic .segb){--seg-on:var(--surface);padding:3px!important;gap:2px!important;border:0!important;border-radius:12px!important;background:color-mix(in srgb,var(--ink) 7%,transparent)!important;box-shadow:none!important}
-  :is(.segb > button,.us-subs > .us-sub-tab,.pt-bar > .pt-tab,.seg span):not(.ep-topic button){position:relative;min-height:34px!important;padding-block:4px!important;border:0!important;border-radius:9px!important;background:transparent!important;color:var(--muted)!important;font-weight:700;box-shadow:none!important}
+  :is(.segb > button,.us-subs > .us-sub-tab,.pt-bar > .pt-tab,.seg span):not(.ep-topic button){position:relative;min-height:34px!important;padding-block:4px!important;border:0!important;border-radius:9px!important;background:transparent!important;color:color-mix(in srgb,var(--muted) 70%,var(--ink))!important;font-weight:700;box-shadow:none!important}
   :is(.segb > button,.us-subs > .us-sub-tab,.pt-bar > .pt-tab):not(.ep-topic button)::after,.seg label::after{content:"";position:absolute;inset:-3px -1px}
   .seg label{display:block}
   .seg span{display:grid;place-items:center}
