@@ -74,7 +74,7 @@
       <p class="mini mt-help">Tap a term, then its definition. The clock starts on your first tap, and a wrong pair adds 1 second.</p>
       <div class="mt-grid" role="group" aria-label="Terms and definitions to match">${R.tiles.map(tileHtml).join("")}</div>
       <p class="sr" id="mtSay" aria-live="polite"></p></div>
-      <div class="sheet-foot"><span class="mini" id="mtLeft">${pl(R.left, "pair")} to go</span><span class="spacer"></span><button type="button" class="btn" data-act="close">Quit</button><button type="button" class="btn" data-act="mt-again">Shuffle</button></div></div>`);
+      <div class="sheet-foot"><span class="mini" id="mtLeft">${pl(R.left, "pair")} to go</span><span class="spacer"></span><button type="button" class="btn" data-act="close">Quit</button><button type="button" class="btn" data-act="mt-again" title="Shuffle the cards and start the clock again">Restart</button></div></div>`);
   }
   function select(i){
     if (R.sel >= 0) { const o = tileEl(R.sel); if (o) { o.classList.remove("on"); o.setAttribute("aria-pressed", "false"); } }
