@@ -137,10 +137,18 @@ const typeAdd = async (p, text) => { await p.fill("#qaIn", text); await p.click(
       ok(/^From now to (the end of today|Fri, Oct 23)/.test((await p.textContent(".plan-warn .pw-main")).trim()), "17: the plan warning names its time window");
       ok(/today/.test(await p.textContent(".plan-row .alloc")), "21: a row's suggested time is labeled as today's");
       ok(/\+\d+ more/.test(await p.textContent(".plan-row .pr-n")), "21: the extra-reasons chip says how many more reasons");
-      await p.click('[data-act="plan-tile"][data-id="soon"]'); await wait(300);
-      ok(await p.evaluate(() => document.querySelector('[data-act="plan-tile"][data-id="soon"]').getAttribute("aria-pressed") === "true") && /Coming Up/.test(await p.textContent("#planListLbl")), "21: the Coming Up tile filters the list");
+      ok(await p.locator(".wk-strip .wk-day").count() === 7 && /Today/i.test(await p.textContent(".wk-day.today .wk-dow")), "21: the week ahead shows seven days, today first");
+      if (Number(tile) > 0) {
+        await p.click('[data-act="plan-tile"][data-id="late"]'); await wait(300);
+        ok(await p.evaluate(() => document.querySelector('[data-act="plan-tile"][data-id="late"]').getAttribute("aria-pressed") === "true") && (await p.locator("#planListLbl", {hasText: "Overdue"}).count() === 1 || await p.isVisible(".plan-past")), "21: the overdue badge on Today filters the list");
+        await p.click('[data-act="plan-tile"][data-id=""]'); await wait(300);
+      }
+      const days = await p.locator(".wk-day").evaluateAll(b => b.map(x => x.dataset.id.slice(2))), openT = (await stored(p)).filter(t => t.status !== "done");
+      const day = days.slice(1).find(d => openT.some(t => t.due === d)) || days[1], dueThen = openT.filter(t => t.due === day).length;
+      await p.click(`.wk-day[data-id="d:${day}"]`); await wait(300);
+      ok(await p.getAttribute(`.wk-day[data-id="d:${day}"]`, "aria-pressed") === "true" && (dueThen ? await p.locator("#planListLbl", {hasText: /^Due /}).count() === 1 && await p.locator(".plan-list").first().locator(".plan-row").count() === dueThen : /Nothing due that day/.test(await p.textContent(".plan"))), `21: a day card filters the list to that day (${dueThen} due)`);
       await p.click('[data-act="plan-tile"][data-id=""]'); await wait(300);
-      ok(!(await p.locator("#planListLbl", {hasText: "Coming Up"}).count()), "21: Back to Today's Plan clears the filter");
+      ok(!(await p.locator("#planListLbl", {hasText: /^Due /}).count()), "21: Back to Today's Plan clears the filter");
       const first = await p.getAttribute(".next-up .nu-title", "data-id");
       await p.click('.next-up [data-act="nu-skip"]'); await wait(200);
       ok(await p.getAttribute(".next-up .nu-title", "data-id") !== first, "22: Something Else picks another task");
