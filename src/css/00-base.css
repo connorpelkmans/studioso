@@ -1742,7 +1742,9 @@ button.pr-why:hover{background:var(--soft);color:var(--ink)}
 .pview-tabs.cf-tabs button{flex:1 1 0;min-width:0}
 @media (max-width:979px){.pview-tabs{max-width:none}}
 /* Page header: title and context line, then the page's tabs as underlined tabs on a hairline */
-.pg-head{display:flex;align-items:flex-end;gap:10px 16px;flex-wrap:wrap;margin:14px 0 0}
+.pg-head{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap;margin:14px 0 0;min-height:40px}
+/* the same gap under the tabs on every page */
+#view > .pg-tabs + *{margin-top:0!important}
 .pg-tt{flex:1 1 260px;min-width:0}
 .pg-title{margin:0;font:800 2rem/1.1 var(--display);letter-spacing:-.025em;color:var(--ink)}
 .pg-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}

@@ -34,7 +34,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   const bars = [];
   for (const u of pages) {
     await p.goto(base + u);
-    bars.push(await p.evaluate(() => [...document.querySelectorAll("header.top nav a")].map(a => a.textContent + " " + a.getAttribute("href")).join("|")));
+    bars.push(await p.evaluate(() => [...document.querySelectorAll("header.top nav .navlinks a")].map(a => a.textContent + " " + a.getAttribute("href")).join("|")));
     const box = await p.locator("header.top").boundingBox();
     ok(box.height > 60 && box.height < 70, u + ": the bar is one row on a computer");
   }

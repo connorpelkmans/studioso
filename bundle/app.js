@@ -7658,6 +7658,14 @@ function weekHours(ts, monday){
 }
 
 /* Shared pieces */
+// Course filter as a dropdown
+function coursePickHtml(){
+  const cs = coursesArr();
+  if (!cs.length) return "";
+  const on = cs.find(c => c.id === ui.filter);
+  return `<label class="cf-pick${on ? " on" : ""}"${on ? ` style="--c:${esc(on.color)}"` : ""}>${on ? `<span class="dot" aria-hidden="true"></span>` : `<span class="dot dot-all" aria-hidden="true" style="--dots:conic-gradient(${cs.slice(0, 6).map((c, i, a) => `${esc(c.color)} ${Math.round(i / a.length * 100)}% ${Math.round((i + 1) / a.length * 100)}%`).join(",")})"></span>`}<span class="cf-l">${esc(on ? courseLabel(on) : "All Courses")}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+    <select data-course-filter aria-label="Filter by course"><option value="all"${on ? "" : " selected"}>All Courses</option>${cs.map(c => `<option value="${esc(c.id)}"${on === c ? " selected" : ""}>${esc(courseLabel(c))}${c.name && courseLabel(c) !== c.name ? ` · ${esc(c.name)}` : ""}</option>`).join("")}</select></label>`;
+}
 function chipsHtml(right){
   const cs = coursesArr();
   if (!cs.length) return "";
@@ -7665,8 +7673,7 @@ function chipsHtml(right){
   return `<div class="chips cf-chips" role="group" aria-label="Filter by course">
     <button class="chip" data-act="filter" data-id="all" aria-pressed="${ui.filter === "all"}">All Courses</button>
     ${cs.map(c => `<button class="chip" style="--c:${esc(c.color)}" data-act="filter" data-id="${esc(c.id)}" aria-pressed="${ui.filter === c.id}"><span class="dot"></span>${esc(courseLabel(c))}</button>`).join("")}
-  </div><div class="cf-row"><label class="cf-pick${on ? " on" : ""}"${on ? ` style="--c:${esc(on.color)}"` : ""}>${on ? `<span class="dot" aria-hidden="true"></span>` : `<span class="dot dot-all" aria-hidden="true" style="--dots:conic-gradient(${cs.slice(0, 6).map((c, i, a) => `${esc(c.color)} ${Math.round(i / a.length * 100)}% ${Math.round((i + 1) / a.length * 100)}%`).join(",")})"></span>`}<span class="cf-l">${esc(on ? courseLabel(on) : "All Courses")}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-    <select data-course-filter aria-label="Filter by course"><option value="all"${on ? "" : " selected"}>All Courses</option>${cs.map(c => `<option value="${esc(c.id)}"${on === c ? " selected" : ""}>${esc(courseLabel(c))}${c.name && courseLabel(c) !== c.name ? ` · ${esc(c.name)}` : ""}</option>`).join("")}</select></label>${right || ""}</div>`;
+  </div><div class="cf-row">${coursePickHtml()}${right || ""}</div>`;
 }
 function searchNote(){
   if (!ui.q.trim()) return "";
@@ -8287,9 +8294,9 @@ function viewBars(){
   });
 
   const zoom = [["week","Days"],["month","Weeks"],["term","Term"]].map(([k, l]) => `<button data-act="tl-zoom" data-id="${k}" aria-pressed="${ui.tlZoom === k}">${l}</button>`).join("");
-  const head = `<div class="tl-controls tl-tools"><div class="segb" role="group" aria-label="Zoom">${zoom}</div><button class="btn small" data-act="tl-today">Today</button>${proBtns("timeline")}</div>`;
-  if (!ts.length) return head + chipsHtml() + searchNote() + `<div class="empty" style="margin-top:14px"><strong>Nothing to Show Yet</strong>Tasks show up here as an icon on their due date.${noDue ? `<br>${noDue} task${noDue === 1 ? " has" : "s have"} no due date.` : ""}</div>`;
-  return head + chipsHtml() + searchNote() + `<div class="tl-scroll" data-today="${x(today)}" data-dw="${dw}">
+  const head = `<div class="tl-controls tl-tools">${coursePickHtml()}<div class="segb" role="group" aria-label="Zoom">${zoom}</div><button class="btn small" data-act="tl-today">Today</button>${proBtns("timeline")}</div>`;
+  if (!ts.length) return head + searchNote() + `<div class="empty" style="margin-top:14px"><strong>Nothing to Show Yet</strong>Tasks show up here as an icon on their due date.${noDue ? `<br>${noDue} task${noDue === 1 ? " has" : "s have"} no due date.` : ""}</div>`;
+  return head + searchNote() + `<div class="tl-scroll" data-today="${x(today)}" data-dw="${dw}">
       <div class="tl" style="width:${LW + W}px" data-lw="${LW}">
         <div class="tl-bg" style="left:${LW}px;width:${W}px">${bg}</div><div class="tl-bg tl-bg-top" style="left:${LW}px;width:${W}px"><i class="today-line" style="left:${x(today) + dw/2 - 1}px"></i></div>
         <div class="tl-row tl-headrow"><div class="tl-label" style="width:${LW}px"></div><div class="tl-track" style="width:${W}px">${months}</div></div>
@@ -12721,7 +12728,16 @@ function noteScrollIn(){
   if (dx || dy) sc.scrollBy(dx, dy);
   const r = sc.getBoundingClientRect(); if (r.top < 0 || r.bottom > innerHeight) sc.scrollIntoView({block: "nearest"});
 }
-hook("render", () => { noteSheetUp(); if (ui.tab !== "notes") return; noteFitText($("#noteText")); requestAnimationFrame(() => { noteFitText($("#noteText")); noteClipCheck(); fitNoteBoard(); noteScrollIn(); }); });
+// Desktop: the board reaches down to the same spot as the whiteboard
+function nbFill(){
+  const el = document.getElementById("nbScroll");
+  if (!el) return;
+  if (innerWidth < 640 || boardMaxOn()) { el.style.removeProperty("height"); return; }
+  const top = el.getBoundingClientRect().top + scrollY;
+  el.style.setProperty("height", Math.max(380, Math.round(innerHeight - Math.min(top, innerHeight * 0.45) - 27)) + "px", "important");
+}
+addEventListener("resize", () => { if (ui.tab === "notes") nbFill(); });
+hook("render", () => { noteSheetUp(); if (ui.tab !== "notes") return; noteFitText($("#noteText")); nbFill(); requestAnimationFrame(() => { noteFitText($("#noteText")); noteClipCheck(); fitNoteBoard(); noteScrollIn(); }); });
 document.addEventListener("input", e => { if (e.target && e.target.id === "noteText") noteFitText(e.target); });
 document.addEventListener("focusin", e => { if (e.target && e.target.id === "noteText") noteFitText(e.target); });
 ["pointerdown", "mousedown", "touchstart"].forEach(t => document.addEventListener(t, e => { if (e.target.closest && e.target.closest(".note-more")) e.stopPropagation(); }, {capture: true, passive: true}));
@@ -53233,7 +53249,8 @@ var COMP_EXTRA = [];
     RECTS = null;
     if (!fresh && here && +box.dataset.px === px && spotKind) { const b = spotCheck(here, px, f); if (!b.hard) return Object.assign(here, {kind: spotKind, px, fab: f}); }
     RECTS = null;
-    const list = candidates(px, f, fresh).sort((a, b) => a.score - b.score);
+    // It stands level with the Add button, never higher up the page
+    const list = candidates(px, f, fresh).filter(c => c.kind === "home" || c.kind === "ground").sort((a, b) => a.score - b.score);
     let best = null, tested = 0;
     for (const c of list) {
       if (best && c.score >= best.score) break;
@@ -53243,7 +53260,7 @@ var COMP_EXTRA = [];
       if (b.surface) { if (c.kind !== "home" && c.kind !== "ground") continue; c.score += 45; }
       if (!best || c.score < best.score) best = c;
     }
-    if (!best) best = edgeSpot(px, f, list, here, fresh);
+    if (!best) { const h = list.find(c => c.kind === "home"), rg = range(px); best = h ? {left: Math.round(Math.min(Math.max(rg.L, rg.R), Math.max(rg.L, h.left))), top: Math.round(Math.min(Math.max(rg.T, rg.B), Math.max(rg.T, h.top))), kind: "home"} : edgeSpot(px, f, list, here, fresh); }
     // No clear spot: it waits in its reserved place beside the Add button (the page keeps room below its last row for it) rather than on top of text or buttons
     if (best.kind === "edge" && best.over > 0) { const h = list.find(c => c.kind === "home"), rg = range(px); if (h) best = {left: Math.round(Math.min(Math.max(rg.L, rg.R), Math.max(rg.L, h.left))), top: Math.round(Math.min(Math.max(rg.T, rg.B), Math.max(rg.T, h.top))), kind: "home"}; }
     return Object.assign(best, {px, fab: f});
@@ -72777,7 +72794,7 @@ var SBWB = null;
   function build(){
     if (STAGE) return;
     STAGE = document.createElement("div"); STAGE.className = "wb-stage";
-    STAGE.innerHTML = `<div class="wb-frame" tabindex="0" role="application" aria-roledescription="whiteboard" aria-label="Whiteboard. Draw with the mouse, a finger or a pen. Tools are below the board.">
+    STAGE.innerHTML = `<div class="wb-frame" tabindex="0" role="application" aria-roledescription="whiteboard" aria-label="Whiteboard. Draw with the mouse, a finger or a pen. Tools are next to the board.">
         <div class="wb-world wb-back"><div class="wb-tplbox"></div><div class="wb-imgs"></div></div>
         <canvas class="wb-cv wb-hl"></canvas><canvas class="wb-cv wb-ink"></canvas>
         <div class="wb-world wb-front"><div class="wb-texts"></div></div>
@@ -73251,7 +73268,9 @@ var SBWB = null;
     if (t === "eraser") opts = sizes(EW, EWN, T.ew, "ew", 64) + `<div class="wb-seg" role="group" aria-label="What the eraser takes">${b("erase", "part", "Erase Parts", "Parts", T.erase === "part")}${b("erase", "whole", "Whole Strokes", "Whole Strokes", T.erase === "whole")}</div>`
       + (T.erase === "part" ? `<div class="wb-seg" role="group" aria-label="Eraser hardness">${EHN.map((nm, i) => b("eh", i, nm + " eraser", nm, T.eh === i)).join("")}</div>` : "");
     if (t === "select") opts = `${b("sel-all", "", "Select Everything", "Select All", false, ' class="wb-txt"')}`;
-    tray.innerHTML = `<div class="wb-tools" role="group" aria-label="Tools">${TOOLS.map(x => b("tool", x[0], x[1] + " (" + x[2] + ")", IC[x[0]], x[0] === t, ` class="wb-tool${x[0] === t ? " on" : ""}"`)).join("")}${fire("wb-tools").filter(Boolean).join("")}</div>
+    const tn = (TOOLS.find(x => x[0] === t) || [0, "Tools"])[1];
+    // the head only shows on the side panel (wide screens)
+    tray.innerHTML = `<div class="wb-tray-head" aria-hidden="true">${esc(tn)}</div><div class="wb-tools" role="group" aria-label="Tools">${TOOLS.map(x => b("tool", x[0], x[1] + " (" + x[2] + ")", IC[x[0]], x[0] === t, ` class="wb-tool${x[0] === t ? " on" : ""}"`)).join("")}${fire("wb-tools").filter(Boolean).join("")}</div>
       <div class="wb-hist" role="group" aria-label="Undo and redo">${b("undo", "", "Undo (Ctrl+Z)", IC.undo, false, ' class="wb-u"')}${b("redo", "", "Redo (Ctrl+Shift+Z)", IC.redo, false, ' class="wb-r"')}</div>
       <div class="wb-opts">${opts}</div>`;
     frame.dataset.tool = t;
@@ -73724,6 +73743,36 @@ var SBWB = null;
 .wb-font.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);color:var(--accent)}
 .wb-dk .wb-font{background:#2A2F36;color:#EEF1F4;border-color:rgba(255,255,255,.14)}
 .wb-tray{order:-1}
+/* wide screens: the tools stand in a panel on the right of the board, like the sticker envelope on Notes */
+.wb-tray-head{display:none}
+@media (min-width:640px){
+  .wb-stage{flex-direction:row}
+  .wb-tray{order:1;width:190px;height:auto;display:grid;grid-template-columns:minmax(0,1fr) auto;align-content:start;align-items:stretch;gap:10px 0;padding:0 0 12px;border-radius:14px;overflow:hidden auto;scrollbar-width:thin}
+  .wb-tray>*{grid-column:1/-1}
+  /* the head names the tool in use, with undo and redo beside it */
+  .wb-tray-head,.wb-tray>.wb-hist{grid-row:1;background:linear-gradient(180deg,#E3E8EE,#CDD4DC);box-shadow:inset 0 -1px 0 rgba(0,0,0,.1)}
+  .wb-tray-head{grid-column:1;display:flex;align-items:center;min-width:0;padding:0 4px 0 12px;font:800 .95rem var(--display);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wb-tray>.wb-hist{grid-column:2;padding:4px 6px 4px 0;border-right:0;gap:0}
+  .wb-dk .wb-tray-head,.wb-dk .wb-tray>.wb-hist{background:linear-gradient(180deg,#535B66,#454C56);box-shadow:inset 0 -1px 0 rgba(255,255,255,.1)}
+  .wb-tools{display:grid;grid-template-columns:repeat(4,38px);justify-content:space-between;gap:4px 0;margin:0 10px;padding:0 0 10px;border-right:0;border-bottom:1px solid rgba(0,0,0,.12)}
+  .wb-dk .wb-tools{border-bottom-color:rgba(255,255,255,.14)}
+  .wb-opts{flex-direction:column;align-items:stretch;gap:12px;flex:none;overflow:visible;min-height:0;padding:0 10px}
+  .wb-opts>[role=group]{flex-wrap:wrap}
+  /* each set of options gets a small label, as the sticker envelope does */
+  .wb-opts>[role=group]:not(.wb-seg)::before{content:attr(aria-label);flex:0 0 100%;font:700 .7rem var(--display);text-transform:uppercase;letter-spacing:.05em;opacity:.6;margin-bottom:6px}
+  .wb-markers{height:auto;padding:0;gap:10px 0;align-items:flex-end;justify-content:space-between}
+  .wb-markers::before{margin-bottom:2px!important}
+  .wb-mk{width:24px}
+  .wb-mk .wb-cap{left:7px}
+  .wb-mk .wb-body{left:2px;right:2px}
+  .wb-mk-any{margin-right:0}
+  .wb-mk.wb-mk-any .wb-pro{right:-5px}
+  .wb-sizes,.wb-shapes{justify-content:flex-start;gap:4px 2px}
+  .wb-opts>.wb-seg{flex-wrap:nowrap}
+  .wb-opts .wb-seg button{flex:1 1 auto;min-width:0;padding:0 6px;font-size:.8rem}
+  .wb-fontpick{width:100%;min-width:0}
+  .wb-opts .wb-txt{width:100%;height:36px}
+}
 @media (min-width:640px){.tl-controls.wb-head>.wb-pick,.tl-controls.wb-head>.wb-optbtn{display:none}}
 @media (max-width:639px){#view>.wb-boards{display:none}}
 .wb-seg{flex:none;display:flex;gap:3px;padding:3px;border-radius:10px;background:rgba(0,0,0,.07);border:1px solid rgba(0,0,0,.1)}
