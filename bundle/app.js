@@ -10538,8 +10538,8 @@ function pageHeadHtml(title, right){
 // Lift the page's own heading above its tabs, with its context line and its buttons beside it
 function pageHeadUp(v){
   if (v.querySelector(":scope > .pg-head")) return;
-  const tabs = v.querySelector(":scope > .pview-tabs, :scope > .bview-row"); if (!tabs) return;
-  const phone = innerWidth < 640;
+  const tabs = v.querySelector(":scope > .pview-tabs, :scope > .bview-row"), phone = innerWidth < 640;
+  if (!tabs) { soloHeadUp(v, phone); return; }
   let title = "", head = null;
   if (tabs.matches(".bview-row")) { const s = tabs.querySelector("[aria-selected=true]"); title = s ? s.textContent.trim() : ""; }
   else {
@@ -10560,6 +10560,20 @@ function pageHeadUp(v){
   }
   (tabs.matches(".bview-row") ? tabs.querySelector(".bview-tabs") : tabs).classList.add("pg-tabs");
   v.insertBefore(pg, tabs);
+}
+// Pages without tabs: the same big title, then the content
+function soloHeadUp(v, phone){
+  const head = v.firstElementChild;
+  if (phone || !head || !head.matches(".view-head") || !head.querySelector(":scope > h2")) return;
+  const h2 = head.querySelector(":scope > h2"), box = document.createElement("div");
+  box.innerHTML = pageHeadHtml(h2.textContent.trim(), "");
+  const pg = box.firstChild; pg.classList.add("pg-solo");
+  [...head.attributes].filter(x => x.name.startsWith("data-")).forEach(x => pg.setAttribute(x.name, x.value));
+  h2.remove();
+  const rest = [...head.children];
+  if (rest.length && rest.length <= 6 && rest.every(c => c.matches("button, .btn, .segb, a.btn"))) { const r = document.createElement("div"); r.className = "pg-right"; rest.forEach(c => r.appendChild(c)); pg.appendChild(r); head.remove(); }
+  else if (!rest.length) head.remove();
+  v.insertBefore(pg, v.firstChild);
 }
 { let was = null; addEventListener("resize", () => { const p = innerWidth < 640; if (was !== null && p !== was && typeof ui !== "undefined" && document.querySelector("#view > .pg-head")) scheduleRender(); was = p; }); }
 function planHeadHtml(){
@@ -24757,7 +24771,7 @@ hook("boot", boot);
 
   function offlineView(){
     const local = !sbConfig(), preview = inPreview();
-    return `<div class="view-head"><h2>Study Groups</h2></div>
+    return `<div class="view-head"><h2>Groups</h2></div>
       <div class="empty grp-offline sb-es">${emptyArt()}<strong>${preview ? "Sharing Isn't Available Here" : "Study Better Together"}</strong>
         ${preview ? "Study groups and share links work on the Studyboard website and in the desktop app, where you sign in to your Studyboard account." : "Sharing needs a free Studyboard account. Sign in to make or join study groups and share decks."}
         ${preview ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="${local ? "sb-connect" : "sb-signin"}">${local && !SB_HOSTED ? "Set Up Sync" : "Sign In"}</button></div>`}</div>
@@ -39793,9 +39807,10 @@ var TP_DATA = [];
   const soon = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; fit(); }); };
   fit();
   window.addEventListener("resize", soon);
-  if (window.ResizeObserver) { const ro = new ResizeObserver(soon); ro.observe(nav); [...nav.children].forEach(c => ro.observe(c)); }
+  // Fit in the same frame as the change, so the menu never shows a squeezed or scrolling state
+  if (window.ResizeObserver) { const ro = new ResizeObserver(() => fit()); ro.observe(nav); [...nav.children].forEach(c => ro.observe(c)); }
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(soon);
-  hook("render", soon);
+  hook("render", () => fit());
   hook("boot", soon);
   window.SBUI = Object.assign(window.SBUI || {}, {navFit: () => (fit(), Number(nav.dataset.fit || 0))});
 })();

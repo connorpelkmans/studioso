@@ -1745,6 +1745,9 @@ button.pr-why:hover{background:var(--soft);color:var(--ink)}
 .pg-head{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap;margin:14px 0 0;min-height:40px}
 /* the same gap under the tabs on every page */
 #view > .pg-tabs + *{margin-top:0!important}
+#view > .pg-head.pg-solo{margin-bottom:16px}
+#view > .pg-head.pg-solo + *{margin-top:0!important}
+#view > .bview-row:has(> .pg-tabs){margin-bottom:0}
 .pg-tt{flex:1 1 260px;min-width:0}
 .pg-title{margin:0;font:800 2rem/1.1 var(--display);letter-spacing:-.025em;color:var(--ink)}
 .pg-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -2203,7 +2206,7 @@ html.board-max,html.board-max body{overflow:hidden!important;overscroll-behavior
 html.board-max{scrollbar-gutter:auto}
 html.board-max .nb-wrap,html.board-max .wb-host{position:fixed;inset:0;z-index:40;margin:0!important;box-sizing:border-box;background:var(--bg)}
 html.board-max .nb-wrap{display:flex;align-items:stretch;gap:12px;padding:max(10px,env(safe-area-inset-top,0px)) max(10px,env(safe-area-inset-right,0px)) max(10px,env(safe-area-inset-bottom,0px)) max(10px,env(safe-area-inset-left,0px))}
-html.board-max .nb-main{display:flex;flex-direction:column;min-height:0;padding-bottom:0}
+html.board-max .nb-main{display:flex;flex-direction:column;min-height:0;padding:0!important;border:0!important;background:none!important;box-shadow:none!important}
 html.board-max .nb-scroll{flex:1;height:auto!important;min-height:0}
 html.board-max .env{max-height:none}
 html.board-max .wb-host{height:auto!important;min-height:0}

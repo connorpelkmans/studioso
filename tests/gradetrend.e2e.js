@@ -128,7 +128,7 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
       ok(spans.every((q, i) => !i || q[0] >= spans[i - 1][1] - 0.5), `bar labels never run into each other @${W}`);
       if (W === 390) await page.screenshot({path: path.join(SHOTS, "nav-390.png"), clip: {x: 0, y: 760 - 110, width: 390, height: 110}});
       await page.click('nav.tabs [data-tab="groups"]'); await page.waitForTimeout(300);
-      ok(await page.evaluate(() => document.body.dataset.view) === "groups" && /Study Groups/.test(await page.locator("#view h2").first().textContent()), "the Groups tab opens the Study Groups page");
+      ok(await page.evaluate(() => document.body.dataset.view) === "groups" && /^Groups$/.test((await page.locator("#view h2").first().textContent()).trim()), "the Groups tab opens the Study Groups page");
       ok(await page.locator('nav.tabs [data-tab="groups"]').getAttribute("aria-current") === "page", "Groups is highlighted while on Groups");
       ok(await page.locator(`nav.tabs [data-tab][aria-current="page"]:visible`).count() === 1, "no other visible tab claims to be current: " + (await page.locator(`nav.tabs [data-tab][aria-current="page"]:visible`).allTextContents()).join());
       ok(/Sign In|Set Up Sync/.test(await page.locator("#view .grp-offline").textContent()), "signed out, the Groups page offers Sign In");

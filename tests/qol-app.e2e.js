@@ -122,7 +122,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     // 17. Tooltips for icon-only controls
     await page.click('nav.tabs [data-tab="notes"]'); await page.waitForTimeout(300);
     const ic = page.locator('#view button.icon-btn[aria-label]:visible, #view .nbz-b[aria-label]:visible').first();
-    await ic.hover(); await page.waitForTimeout(800);
+    await ic.hover(); await page.waitForFunction(() => { const t = document.querySelector(".sb-tip"); return t && t.textContent; }, null, {timeout: 3000}).catch(() => {});
     const tipT = await H(page, () => { const t = document.querySelector(".sb-tip"); return t ? t.textContent : ""; });
     ok(!!tipT && tipT === await ic.getAttribute("aria-label"), "hovering an icon-only button shows its name in a tooltip: " + tipT);
     ok(await H(page, () => !document.querySelector("nav.tabs [title]")), "the side menu buttons carry no title attributes");
