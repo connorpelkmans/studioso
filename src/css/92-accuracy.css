@@ -13,6 +13,6 @@
 .acc-log .btn{min-height:44px}
 .acc-log-btns{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center}
 .acc-hint{margin:0;color:var(--muted)}
-body:has(.toast.show) .acc-chip{bottom:calc(214px + env(safe-area-inset-bottom,0px))}
-@media (min-width:980px){.acc-chip{bottom:24px}body:has(.toast.show) .acc-chip{bottom:84px}}
+body:has(.toast.show) .acc-chip{bottom:calc(168px + var(--toast-h,48px) + env(safe-area-inset-bottom,0px))}
+@media (min-width:980px){.acc-chip{bottom:24px}body:has(.toast.show) .acc-chip{bottom:calc(42px + var(--toast-h,44px))}}
 @media (prefers-reduced-motion:reduce){.acc-chip{transition:none}}

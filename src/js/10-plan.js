@@ -671,7 +671,7 @@ window.__sbPlanObj = () => PLAN;
         </div>
         ${(pro || !paywall()) && window.SBPRO ? SBPRO.sheetHtml(pro) : ""}
         ${paywall() && !pro ? priceButtons() : ""}
-        <p class="plan-free mini">${IC.check}<span>Always free: Board, Timeline, Schedule, Focus, notes, flashcards, grades, reminders, Brightspace, Canvas and Blackboard sync, and AI with your own key.</span></p>
+        <p class="plan-free mini">${IC.check}<span>Always free: Board, Due Dates, Schedule, Focus, notes, flashcards, grades, reminders, Brightspace, Canvas and Blackboard sync, and AI with your own key.</span></p>
         ${pro ? "" : usageHtml}
       </div>
       <div class="sheet-foot">${paywall() && !nativeBuyOff() ? `<button type="button" class="btn" data-act="plan-restore">Restore Purchases</button>` : ""}${paywall() && sbUser && !inPreview() ? `<button type="button" class="btn" data-act="plan-code">Redeem a Code</button>` : ""}${paywall() && !pro && P.awaiting ? `<button type="button" class="btn" data-act="plan-refresh">I've Purchased: Refresh</button>` : ""}${!paywall() && sbUser ? `<button type="button" class="btn" data-act="plan-devices">Your Devices</button>` : ""}<span class="spacer"></span><button type="button" class="btn ${pro || !paywall() ? "primary" : ""}" data-act="close">${pro || !paywall() ? "Done" : "Maybe Later"}</button></div></div>`);

@@ -692,7 +692,7 @@ function cardHtml(){
     if (!w || dismissedWeek(w.start) || crunchQuiet()) return "";
     if (trayOn()) { const ti = SBCRUNCH.trayItem(); if (ti && ti.tid === w.start) return ""; }
     const crunch = w.levelIdx >= 4;
-    return `<div class="crunch-card lv${w.levelIdx}" role="region" aria-label="${crunch ? "Crunch" : "Heavy week"} ahead"><div class="cc-t"><b>${crunch ? "Crunch ahead" : "Heavy week ahead"}: week of ${esc(fmtShort(w.start))}</b> (${esc(awayText(today, w.start))})<span class="mini">${esc(cap1(w.headline || w.reasons || ""))}</span></div>
+    return `<div class="crunch-card lv${w.levelIdx}" role="region" aria-label="${crunch ? "Crunch" : "Heavy week"} ahead"><div class="cc-t"><b>${crunch ? "Crunch ahead" : "Heavy week ahead"}: ${esc(fmtShort(w.start))} to ${esc(fmtShort(w.end))}</b> (${esc(awayText(today, w.start))})<span class="mini">${esc(cap1(w.headline || w.reasons || ""))}</span></div>
       <button type="button" class="btn small" data-act="cr-open" data-id="${w.start}">See Forecast</button><button type="button" class="icon-btn sm" data-act="cr-dismiss" data-id="${w.start}" aria-label="Hide this for the week of ${esc(fmtShort(w.start))}">${CLOSE}</button></div>`;
   } catch (e) { console.warn("crunch card", e); return ""; }
 }

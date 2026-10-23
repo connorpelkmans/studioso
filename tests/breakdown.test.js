@@ -33,7 +33,9 @@ eq(B.detectKind("Learning portfolio", ""), "portfolio", "portfolio");
 eq(B.detectKind("Take-home midterm", ""), "takehome", "take home");
 eq(B.detectKind("Homework 4", ""), "generic", "nothing fits");
 eq(B.detectKind("Assignment 2", "Write an essay of 1500 words"), "paper", "kind from text");
-ok(B.isBig({type: "Project", title: "Thing", hours: 3}) && B.isBig({type: "Assignment", title: "Term paper"}) && !B.isBig({type: "Assignment", title: "Homework 1", hours: 1}), "isBig by hours or cue");
+ok(B.isBig({type: "Project", title: "Thing", hours: 3}) && B.isBig({type: "Assignment", title: "Term paper", hours: 5}) && !B.isBig({type: "Assignment", title: "Homework 1", hours: 1}), "isBig by hours");
+ok(!B.isBig({type: "Assignment", title: "Term paper"}) && !B.isBig({type: "Assignment", title: "Research paper", hours: 2}) && !B.isBig({type: "Lab", title: "Lab report 4", hours: 2}), "a keyword alone is not enough: the hours must be big too");
+ok(B.isBig({type: "Lab", title: "Lab report 4", hours: 4}) && !B.isBig({type: "Lab", title: "Lab 4", hours: 4}), "a lab needs both the hours and a big-work word");
 ok(!B.isBig({type: "Exam", title: "Midterm", hours: 20}) && !B.isBig({type: "Study", title: "Study paper", hours: 5, prepFor: "x"}) && !B.isBig({type: "Project", title: "Paper", hours: 9, breakdownOf: "p"}), "exams, study sessions, milestones are not big");
 
 // stage fractions and counts
