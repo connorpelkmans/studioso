@@ -6354,7 +6354,7 @@ function ensureContrast(fg, bgs, min){
 }
 // Plain colors: a soft sidebar gradient from the theme's own spine and accent
 const mixHex = (a, b, f) => HEX6.test(a) && HEX6.test(b) ? rgbHex(hexRgb(a).map((x, i) => x + (hexRgb(b)[i] - x) * f)) : a;
-const plainSpine = (base, accent, dark) => HEX6.test(base) ? `radial-gradient(130% 55% at 0% 0%,rgba(255,255,255,${dark ? 0.042 : 0.077}),transparent 70%),linear-gradient(170deg,${mixHex(base, accent, dark ? 0.21 : 0.32)} 0%,${base} 45%,${mixHex(base, "#000000", dark ? 0.32 : 0.35)} 100%)` : base;
+const plainSpine = (base, accent, dark) => HEX6.test(base) ? `radial-gradient(130% 55% at 0% 0%,rgba(255,255,255,${dark ? 0.036 : 0.068}),transparent 70%),linear-gradient(170deg,${mixHex(base, accent, dark ? 0.18 : 0.28)} 0%,${base} 45%,${mixHex(base, "#000000", dark ? 0.29 : 0.31)} 100%)` : base;
 function skinVars(s, dark){
   let v = dark ? s.dark : s.light; if (!v) return "";
   const dim = !dark && s.id !== "paper"; if (dim) v = dimLight(v);
