@@ -20,12 +20,15 @@ function cut(body, ext, firstName){
 
 // page: the one-page form
 function parse(page, oldManifest){
+  // style sheets loaded on demand (<style data-lazy="NAME">, see inline()) go back to their own lazy lists
+  const lazyCss = {};
+  page = page.replace(/<style data-lazy="([A-Za-z0-9._-]+)">([\s\S]*?)<\/style>/g, (all, name, body) => { lazyCss[name] = body; return ""; });
   const so = page.indexOf("<style>"), sc = page.indexOf("</style>", so);
   const jo = page.lastIndexOf("<script>"), jc = page.lastIndexOf("</script>");
   if (so < 0 || sc < 0 || jo < 0 || jc < jo) throw new Error("app-split: expected one <style> and the app's script");
   const inner = page.slice(jo + 8, jc), pre = AF.INLINE_JS_PRE + AF.APP_HEAD, post = AF.APP_TAIL + AF.INLINE_JS_POST;
   if (!inner.startsWith(pre) || !inner.endsWith(post)) throw new Error("app-split: the app's script isn't in its usual wrapper");
-  const lazyNames = Object.keys((oldManifest && oldManifest.lazy) || {}), lazyBodies = [];
+  const lazyNames = Object.keys((oldManifest && oldManifest.lazy) || {}).filter(n => !/\.css$/.test(n)), lazyBodies = [];
   let start = jo;
   for (let k = lazyNames.length - 1; k >= 0; k--) {
     const end = page.lastIndexOf("</script>\n", start), open = page.lastIndexOf("<script>", end);
@@ -37,6 +40,7 @@ function parse(page, oldManifest){
   for (const f of css) { files.set("src/css/" + f.name, f.text); manifest.css.push(f.name); }
   for (const f of js) { files.set("src/js/" + f.name, f.text); manifest.js.push(f.name); }
   lazyNames.forEach((n, k) => { manifest.lazy[n] = []; for (const f of cut(lazyBodies[k], "js", n.replace(/\.js$/, ""))) { if (files.has("src/js/" + f.name)) throw new Error("app-split: two sections named " + f.name); files.set("src/js/" + f.name, f.text); manifest.lazy[n].push(f.name); } });
+  Object.entries(lazyCss).forEach(([n, body]) => { manifest.lazy[n] = []; for (const f of cut(body, "css", n.replace(/\.css$/, ""))) { if (files.has("src/css/" + f.name)) throw new Error("app-split: two sections named " + f.name); files.set("src/css/" + f.name, f.text); manifest.lazy[n].push(f.name); } });
   const names = [...files.keys()]; if (new Set(names).size !== names.length) throw new Error("app-split: two sections share a name");
   const shell = page.slice(0, so) + '<link rel="stylesheet" href="bundle/app.css?v=">' + page.slice(sc + 8, start) + '<script src="bundle/app.js?v="></script>' + page.slice(jc + 9);
   return {shell, manifest, files};

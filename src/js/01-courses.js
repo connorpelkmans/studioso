@@ -484,7 +484,7 @@ function viewCourseDetail(c){
     ${searchNote()}
     ${window.SBPREP ? SBPREP.courseHtml(c) : ""}
     ${section("To Do", by("todo"), "", {hideCourse:true})}
-    ${section("In Work", by("doing"), "", {hideCourse:true})}
+    ${section("In Progress", by("doing"), "", {hideCourse:true})}
     ${doneL.length || old.length ? `<h2 class="sec"><span class="t">Complete</span><span class="n">${by("done").length + old.length}</span></h2>${doneL.length ? taskList(doneL, {hideCourse:true}) : ""}${old.length ? `<button class="show-old" data-act="cd-old" aria-expanded="${showOld}">${showOld ? "Hide Older" : `Show Older (${old.length})`}</button>` : ""}` : ""}
     ${!ts.length && !old.length ? `<div class="empty" style="margin-top:18px"><strong>No Tasks Yet</strong>Add assignments, exams and readings for this course.</div>` : ""}
     ${window.SBOBJ ? SBOBJ.courseHtml(c) : ""}
@@ -550,7 +550,7 @@ function archRow(t){
   return `<li class="arch-row" style="--c:${esc(colorOf(t.courseId))}">
     <span class="arch-st st-${esc(t.status)}">${esc(lab)}</span>
     <button class="arch-main" data-act="edit-task" data-id="${esc(t.id)}"><span class="arch-t">${esc(t.title)}</span><span class="mini">${esc(meta.join(" · "))}</span></button>
-    <span class="arch-acts"><span class="mini">Move to</span><button class="btn small" data-act="arch-restore" data-id="${esc(t.id)}" data-status="todo">To Do</button><button class="btn small" data-act="arch-restore" data-id="${esc(t.id)}" data-status="doing">In Work</button></span></li>`;
+    <span class="arch-acts"><span class="mini">Move to</span><button class="btn small" data-act="arch-restore" data-id="${esc(t.id)}" data-status="todo">To Do</button><button class="btn small" data-act="arch-restore" data-id="${esc(t.id)}" data-status="doing">In Progress</button></span></li>`;
 }
 function viewArchive(){
   const q = t => matchesQ(t) && inFilter(t);
@@ -577,7 +577,7 @@ function viewArchive(){
     </details>`;
   }).join("");
   return `<div class="view-head"><h2>Archive</h2><button class="btn small" data-act="new-term">Start a New Term</button><button class="btn small" data-act="archive-back">Back to Board</button></div>
-    <p class="mini" style="margin:6px 0 0;max-width:70ch">Completed tasks move here ${ARCHIVE_DAYS} days after you finish them, and past terms move here when you start a new one. Move anything back to To Do or In Work any time.</p>
+    <p class="mini" style="margin:6px 0 0;max-width:70ch">Completed tasks move here ${ARCHIVE_DAYS} days after you finish them, and past terms move here when you start a new one. Move anything back to To Do or In Progress any time.</p>
     ${chipsHtml()}${searchNote()}
     <h3 class="fsec">${ARCHIVE_SM}Completed Tasks<span class="n">${done.length}</span></h3>
     ${done.length ? `<ul class="arch-list">${shown.map(archRow).join("")}</ul>${done.length > shown.length ? `<button class="show-old" data-act="arch-all" style="width:100%;margin-top:8px">Show All ${done.length}</button>` : ""}` : `<div class="empty">Nothing here yet. Tasks you finish show up here two weeks later.</div>`}

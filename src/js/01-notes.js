@@ -701,7 +701,7 @@ function viewNoteBoard(){
         <div class="nb-target trash" data-drop-note="trash" role="button" tabindex="0" data-act="trash-open" data-kind="note" title="Trash" aria-label="Trash${trashVisible().filter(e => e.kind === "note").length ? ", " + trashVisible().filter(e => e.kind === "note").length + " recently deleted" : ""}. Click to see recently deleted notes, or drag a note here to delete it.">${TRASH}<span>Trash</span></div>
       </div>
     </div>${envelopeHtml()}</div>
-    <p class="hint-line tip-everyday">Drag notes to move them. Drop a note on a board tab, the folder (archive) or the trash. Drag stickers onto notes. Tap a note to edit.</p>`;
+    <p class="hint-line tip-everyday nb-hint"><span class="nbh-l">Drag notes to move them. Drop a note on a board tab, the folder (archive) or the trash. Drag stickers onto notes. Tap a note to edit.</span><span class="nbh-s">Drag a note to move it. Tap one to edit.</span></p>`;
 }
 /*NOTESPOT-START*/
 // The first spot in view, row by row, where a w by h note overlaps none of the others

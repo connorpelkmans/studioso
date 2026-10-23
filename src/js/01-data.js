@@ -349,7 +349,7 @@ function saveLocal(){
   try { const a = toArrays(); delete a.trash; localStorage.setItem(LS2, JSON.stringify(a)); }
   catch(e){
     if (window.SBERR && e && /quota/i.test(e.name + " " + e.message)) SBERR.flow("storage-quota", e);
-    if (Date.now() - saveWarnAt > 6e4) { saveWarnAt = Date.now(); setTimeout(() => { try { toast("Couldn't save on this device. Storage is full or blocked. Export a backup so nothing is lost."); } catch(e2) {} }, 700); }
+    if (Date.now() - saveWarnAt > 6e4) { saveWarnAt = Date.now(); setTimeout(() => { try { toast("Couldn't save on this device. Storage is full or blocked. Export a backup so nothing is lost.", null, null, {error: true}); } catch(e2) {} }, 700); }
   }
 }
 // A saved copy that can't be read is set aside, never overwritten
@@ -378,7 +378,7 @@ function keepUnreadable(key, raw){
   lsHold = true;
   SBC.putStrict("backups", "unreadable-" + Date.now(), {unreadable: raw, keptAt: Date.now()})
     .then(() => { lsHold = false; saveLocal(); })
-    .catch(e => { console.warn("Couldn't set the unreadable copy aside", e); setTimeout(() => { try { toast("Studyboard can't save on this device until some storage is freed: your earlier saved copy couldn't be read and is being kept. Export a backup now."); } catch(x) {} }, 3000); });
+    .catch(e => { console.warn("Couldn't set the unreadable copy aside", e); setTimeout(() => { try { toast("Studyboard can't save on this device until some storage is freed: your earlier saved copy couldn't be read and is being kept. Export a backup now.", null, null, {error: true}); } catch(x) {} }, 3000); });
 }
 // Desktop app: the copy in the Studyboard folder (read by deskBoot)
 let deskFolderCopy = null;
@@ -434,7 +434,7 @@ function trashFlush(){
     try { localStorage.setItem(LS_TRASH, JSON.stringify(list)); break; }
     catch(e) { if (!list.length) break; let big = 0, bs = -1; list.forEach((x, i) => { const n = JSON.stringify(x).length; if (n > bs) { bs = n; big = i; } }); list.splice(big, 1); left++; }
   }
-  if (left && !(typeof cloud !== "undefined" && cloud.on) && Date.now() - trashWarnAt > 6e4) { trashWarnAt = Date.now(); try { toast("This device's storage is full, so some of Recently Deleted can't be kept after you close Studyboard. Restore what you need now, or export a backup."); } catch(e) {} }
+  if (left && !(typeof cloud !== "undefined" && cloud.on) && Date.now() - trashWarnAt > 6e4) { trashWarnAt = Date.now(); try { toast("This device's storage is full, so some of Recently Deleted can't be kept after you close Studyboard. Restore what you need now, or export a backup.", null, null, {error: true}); } catch(e) {} }
 }
 window.addEventListener("pagehide", () => { try { trashFlush(); } catch(e) {} });
 // Stored files only go away when the bin lets go of them

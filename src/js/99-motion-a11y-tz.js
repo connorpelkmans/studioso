@@ -211,15 +211,20 @@
     return false;
   });
 
-  /* ================= No hover tooltips =================
+  /* ================= No browser tooltips =================
      The browser's own tooltip boxes (from title="…" anywhere, and <title> inside icons) never show. What they said still reaches
-     screen readers: it becomes the element's aria-label when the element has no name of its own (no text, no label). This also covers
-     anything drawn later (sheets, menus, third-party bits), through one observer that only looks at title attributes and new nodes. */
+     screen readers: it becomes the element's aria-label when the element has no name of its own (no text, no label), or data-tip
+     (shown by the app's own tooltip, 102-qol.js) when it adds to the name. This also covers anything drawn later (sheets, menus,
+     third-party bits), through one observer that only looks at title attributes and new nodes. */
   (() => {
     const named = el => el.hasAttribute("aria-label") || el.hasAttribute("aria-labelledby") || (el.labels && el.labels.length) || ((el.textContent || "").trim() && !/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName));
     const strip = el => {
       if (!el || el.nodeType !== 1) return;
-      if (el.hasAttribute("title")) { const t = (el.getAttribute("title") || "").trim(); el.removeAttribute("title"); if (t && !named(el)) el.setAttribute("aria-label", t); }
+      if (el.hasAttribute("title")) {
+        const t = (el.getAttribute("title") || "").trim(); el.removeAttribute("title");
+        if (t && !named(el)) el.setAttribute("aria-label", t);
+        else if (t && t !== (el.getAttribute("aria-label") || (el.textContent || "").trim())) el.dataset.tip = t;
+      }
       if (el.tagName === "title" && el.parentNode && el.parentNode.tagName && el.parentNode.tagName.toLowerCase() === "svg") {
         const svg = el.parentNode, t = (el.textContent || "").trim(); el.remove();
         if (t && !svg.hasAttribute("aria-label")) { svg.setAttribute("aria-label", t); if (!svg.hasAttribute("role")) svg.setAttribute("role", "img"); }
@@ -250,10 +255,11 @@
     } catch (e) { console.warn("a11y pass", e); }
   }
   // One page title for screen readers when the visible header
+  const mqSide = mm("(min-width:980px)");
   function pageTitle(){
     const h = document.getElementById("pageH1"); if (!h) return;
     const top = document.querySelector("header.top .brand"), cur = document.querySelector('nav.tabs [aria-current="page"]');
-    const topShown = !!(top && top.getClientRects().length);
+    const topShown = !!top && !(mqSide && mqSide.matches);
     h.hidden = topShown;
     if (!topShown) { const t = "Studyboard" + (cur ? ", " + (cur.textContent || "").replace(/\s+/g, " ").trim() : ""); if (h.textContent !== t) h.textContent = t; }
   }
@@ -614,7 +620,7 @@ setTimeout(async () => {
 }, 4000);
 try { const pr = JSON.parse(localStorage.getItem(AI_PREFS_LS) || "null"); if (pr && typeof pr === "object" && !(state.settings && state.settings.ai)) { state.settings = Object.assign({}, state.settings, {ai: pr}); saveSettings(); } localStorage.removeItem(AI_PREFS_LS); } catch(e) {}
 setTimeout(async () => { try { const has = ["tasks", "courses", "notes", "decks", "files"].some(k => Object.keys(state[k] || {}).length); if (has) { const dev = (await deviceBackups()).filter(b => !String(b.id || "").startsWith("k-")); if (!dev.length || Date.now() - dev[0].at > 864e5) await saveDeviceBackup(backupSnap()); } } catch(e) {} }, 6000);
-if (loadProblem) setTimeout(() => { try { toast("Your saved data on this device couldn't be read. A copy was set aside, not deleted. Sign in to get your account's copy, or restore a backup in Settings."); } catch(e) {} }, 2500);
+if (loadProblem) setTimeout(() => { try { toast("Your saved data on this device couldn't be read. A copy was set aside, not deleted. Sign in to get your account's copy, or restore a backup.", null, {label: "Open Backups", fn: restoreSheet}, {error: true}); } catch(e) {} }, 2500);
 try { trashEnforce(); } catch(e) { console.warn(e); }
 syncLabel();
 pomoBoot();
@@ -636,10 +642,13 @@ try {
     hereScroll = Math.max(0, Number(h.y) || 0);
   }
 } catch(e) {}
+try { if (window.SBROUTE) SBROUTE.boot(); } catch(e) {}
 const hereSave = () => { try { if (window.SBTOUR && SBTOUR.active && SBTOUR.active()) return;
   sessionStorage.setItem(HERE, JSON.stringify({tab: ui.tab, courseId: ui.courseId || "", courseTab: ui.courseTab || "", bview: ui.bview || "", deckId: ui.tab === "flashcards" && !ui.fc ? ui.deckId || "" : "",
     grp: ui.tab === "groups" ? ui.grp || "" : "", fCourse: ui.fCourse || "", fFolder: ui.fFolder || "", y: Math.round(window.scrollY || 0), at: Date.now()})); } catch(e) {} };
-hook("render", () => hereSave());
+// Saved when the page goes away, plus at most once a second after a redraw (no layout reads during a render)
+let hereT = 0;
+hook("render", () => { if (!hereT) hereT = setTimeout(() => { hereT = 0; hereSave(); }, 1000); });
 addEventListener("pagehide", hereSave);
 document.addEventListener("visibilitychange", () => { if (document.hidden) hereSave(); });
 render();

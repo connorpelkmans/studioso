@@ -290,9 +290,9 @@ li.task>.lms-go{align-self:center;margin-right:12px}
 /* Calendar */
 .cal-head{display:flex;align-items:center;gap:10px;margin:14px 0 10px}
 .cal-head h2{flex:1;margin:0;font:700 1.3rem var(--display)}
-.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
 .cal .dow{text-align:center;font-size:.75rem;color:var(--muted);padding-bottom:2px}
-.day{aspect-ratio:1/1.05;border:1px solid transparent;border-radius:10px;background:var(--surface);display:flex;flex-direction:column;align-items:center;padding:5px 2px;gap:4px;font-size:.9rem}
+.day{min-width:0;overflow:hidden;aspect-ratio:1/1.05;border:1px solid transparent;border-radius:10px;background:var(--surface);display:flex;flex-direction:column;align-items:center;padding:5px 2px;gap:4px;font-size:.9rem}
 .day.out{background:transparent;color:var(--muted);opacity:.55}
 .day.is-today .num{background:var(--mark);color:var(--ink);border-radius:6px;padding:0 5px;font-weight:700}
 .day[aria-pressed="true"]{border-color:var(--ink)}

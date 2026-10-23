@@ -21,7 +21,7 @@
     {id: "today", title: "Today's Plan", tab: "board", go: () => { ui.bview = "plan"; }, sel: [".bview-tabs", ".focus.plan", NAV("board")],
       text: () => "Today's Plan lines up what to work on next and for how long, with time set aside for each task around your classes and free time."},
     {id: "taskboard", title: "Task Board", tab: "board", go: () => { ui.bview = "board"; }, sel: [".bview-tabs", ".board-sec-head", NAV("board")],
-      text: () => "Every task by status: To Do, In Work and Complete. Drag a card to move it along, filter by course, or group the board by course."},
+      text: () => "Every task by status: To Do, In Progress and Complete. Drag a card to move it along, filter by course, or group the board by course."},
     {id: "timeline", title: "Calendar: Due Dates", tab: "timeline", sel: [".pview-tabs", NAV("plan")],
       text: () => "Every deadline across your courses, on a timeline or a month calendar. Calendar has three views: Due Dates, Schedule and Crunch."},
     {id: "schedule", title: "Calendar: Schedule", tab: "schedule", sel: [".pview-tabs", NAV("plan")],

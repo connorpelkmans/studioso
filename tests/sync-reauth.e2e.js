@@ -16,7 +16,7 @@ const web = http.createServer((req, res) => {
 /* stand-in Supabase */
 const b64 = o => Buffer.from(JSON.stringify(o)).toString("base64url");
 const USER = {id: "11111111-1111-1111-1111-111111111111", aud: "authenticated", role: "authenticated", email: "me@example.com", app_metadata: {provider: "email"}, user_metadata: {}, created_at: "2026-01-01T00:00:00Z"};
-const S = {skew: 0, badSig: new Set(), refresh: new Set(), serial: 0, log: [], hang: false};
+const S = {skew: 0, badSig: new Set(), refresh: new Set(), serial: 0, log: [], hang: false, down: false};
 const srvNow = () => Date.now() + S.skew;
 function mint(){
   const iat = Math.floor(srvNow() / 1000), exp = iat + 3600, k = ++S.serial;
@@ -47,6 +47,7 @@ async function handle(route){
   if (u.pathname === "/auth/v1/logout") return send(204);
   if (u.pathname.startsWith("/rest/v1/")) {
     if (S.hang && m === "GET") return;
+    if (S.down && m !== "GET") return send(503, {message: "Service Unavailable"});
     const t = tokenState(req.headers()["authorization"]);
     if (t === "expired") return send(401, {code: "PGRST303", details: null, hint: null, message: "JWT expired"});
     if (t === "bad") return send(401, {code: "PGRST301", details: null, hint: null, message: "JWSError JWSInvalidSignature"});
@@ -73,7 +74,7 @@ async function open(browser, session, ctxIn){
 }
 const label = page => page.evaluate(() => (document.querySelector("#sync") || {}).textContent || "");
 const until = async (page, re, ms) => { const end = Date.now() + (ms || 10000); let t = ""; while (Date.now() < end) { t = await label(page); if (re.test(t)) return t; await page.waitForTimeout(150); } return t; };
-const reset = () => { S.skew = 0; S.badSig = new Set(); S.log = []; S.hang = false; };
+const reset = () => { S.skew = 0; S.badSig = new Set(); S.log = []; S.hang = false; S.down = false; };
 
 (async () => {
   await new Promise(r => web.listen(0, "127.0.0.1", r));
@@ -162,6 +163,23 @@ const reset = () => { S.skew = 0; S.badSig = new Set(); S.log = []; S.hang = fal
       ok(/^Saved$/.test(await until(page, /^Saved$/, 10000)), "Try Again connects once the server answers");
       await page.waitForTimeout(2500);
       ok(!(await page.$(".sb-diag")), "the details go away once connected");
+      ok(!errs.length, "no page errors: " + errs.join("; "));
+      await ctx.close(); }
+
+    console.log("9. saves keep failing, then the server comes back");
+    { reset();
+      const ctx = await browser.newContext({serviceWorkers: "block", viewport: {width: 1200, height: 800}});
+      await ctx.addInitScript(() => { window.__SB_RETRY_MS = 4; window.__SB_RETRY_LATER_MS = 700; });
+      const {page, errs} = await open(browser, mint(), ctx);
+      ok(/^Saved$/.test(await until(page, /^Saved$/)), "connects");
+      S.down = true;
+      await page.evaluate(() => { const P = window.__sbProStudy; P.applyChanges([{kind: "task", id: "sync9", after: {id: "sync9", title: "Essay draft", type: "Assignment", status: "todo", due: "", created: Date.now()}}], ""); });
+      const bad = await until(page, /^Not saved/, 8000);
+      ok(/^Not saved, retrying$/.test(bad), "after the quick retries run out the label says it keeps retrying, and it does: " + bad);
+      ok(await page.evaluate(() => { const s = document.getElementById("sync"); return s.tagName === "BUTTON" && s.dataset.state === "warn"; }), "the problem is a button (it opens Sync Status)");
+      S.down = false;
+      ok(/^Saved$/.test(await until(page, /^Saved$/, 10000)), "once a later retry gets through the label goes back to Saved");
+      ok(await page.evaluate(() => !Object.keys(JSON.parse(localStorage.getItem("studioso:outbox") || "{}")).length), "and nothing is left waiting to sync");
       ok(!errs.length, "no page errors: " + errs.join("; "));
       await ctx.close(); }
 

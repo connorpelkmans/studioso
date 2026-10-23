@@ -15,9 +15,6 @@
 .pw-meter[data-s="3"] i{width:80%;background:var(--leaf,#1E9E74)}
 .pw-meter[data-s="4"] i{width:100%;background:var(--leaf,#1E9E74)}
 @media (prefers-reduced-motion:reduce){.pw-meter i{transition:none}}
-/* On phones there's no room beside the logo for words */
-@media (max-width:600px){
-  .top-row .sync:not([data-state="ok"]){font-size:0;width:9px;height:9px;flex:none;border-radius:50%;background:#E0A030;box-shadow:0 0 0 3px color-mix(in srgb,#E0A030 22%,transparent);align-self:center}
-}
+/* On phones there's no room beside the logo for words: the sync status is a dot (102-qol.css) */
 
 

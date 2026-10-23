@@ -11,6 +11,8 @@
 .cp-front .cp-hit:focus-visible{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 60%,transparent)}
 /* Pages keep 120 px free at the bottom for the Add Task button */
 @media (max-width:639px){body.cp-on .wrap{padding-bottom:170px}}
+/* Tablets and computers: room under the last row for the companion (--cp-pad, set where it stands) */
+@media (min-width:640px){body.cp-on .wrap{padding-bottom:max(120px,var(--cp-pad,0px))}}
 .cp-front .cp-breathe{animation:cpBreathe 3.6s ease-in-out infinite}
 .cp-front .cp.cp-float .cp-breathe{animation:cpFloat 3.4s ease-in-out infinite}
 .cp-front .cp.cp-float .cp-shadow{animation:cpShadow 3.4s ease-in-out infinite}

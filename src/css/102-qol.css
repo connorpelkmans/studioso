@@ -1,0 +1,115 @@
+/* ===== module: 102-qol.css ===== */
+/* Toasts: a problem stays until dismissed */
+/* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
+.toast{width:max-content;max-width:min(560px,calc(100vw - 24px));box-sizing:border-box;flex-wrap:wrap;row-gap:6px}
+.toast #toastMsg{flex:1 1 220px;min-width:0}
+.toast button{flex:none}
+.toast .toast-x{margin-left:auto}
+@media (min-width:980px){.toast{max-width:min(560px,calc(100vw - 300px))}}
+.toast .toast-x::before{content:"\00d7"}
+.toast .toast-x{font-size:1.25rem;line-height:1;min-width:32px;min-height:32px;margin:-6px -8px -6px auto;border-radius:8px;color:inherit;opacity:.8}
+.toast .toast-x:hover,.toast .toast-x:focus-visible{opacity:1}
+.toast.toast-err{box-shadow:0 0 0 2px var(--late),0 8px 24px rgba(8,20,50,.3)}
+@media (pointer:coarse){.toast .toast-x{min-width:40px;min-height:40px}}
+
+/* The sync status in the header is a button (it opens Sync Status) */
+button.sync{border:0;background:none;font:inherit;font-size:.78rem;color:var(--muted);padding:6px 8px;border-radius:999px;cursor:pointer}
+button.sync[data-state="warn"]{color:var(--ink);background:color-mix(in srgb,#E0A030 18%,transparent)}
+button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030 26%,transparent)}
+.nav-sync[role="button"]{cursor:pointer;border-radius:8px}
+.nav-sync[role="button"]:hover,.nav-sync[role="button"]:focus-visible{background:rgba(255,255,255,.08)}
+/* phones: a dot in a full-size tap target */
+@media (max-width:600px){
+  header.top .top-row button.sync:not([data-state="ok"]){font-size:0;width:40px;height:40px;padding:0;flex:none;border-radius:50%;background:none;box-shadow:none;position:relative;align-self:center}
+  header.top .top-row button.sync:not([data-state="ok"])::before{content:"";position:absolute;left:50%;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:#E0A030;box-shadow:0 0 0 3px color-mix(in srgb,#E0A030 26%,transparent)}
+}
+.sync-sheet .sync-st{margin:0;display:flex;align-items:center;gap:8px}
+.sync-sheet .sync-st::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--leaf,#1E9E74);flex:none}
+.sync-sheet .sync-st[data-state="warn"]::before{background:#E0A030}
+.sync-sheet .sync-st[data-state="busy"]::before{background:var(--mark)}
+
+/* Tooltips for icon-only controls (mouse and trackpad) */
+.sb-tip{position:fixed;z-index:2147480000;max-width:min(280px,calc(100vw - 12px));padding:5px 9px;border-radius:7px;background:var(--navy,#0E2A56);color:#fff;font:600 .78rem/1.3 var(--display,inherit);pointer-events:none;box-shadow:0 4px 14px rgba(8,20,50,.28);white-space:normal}
+@media (prefers-reduced-motion:no-preference){.sb-tip{animation:sbTipIn .12s ease-out}@keyframes sbTipIn{from{opacity:0}to{opacity:1}}}
+:root[data-theme="dark"] .sb-tip{background:#E7EEFA;color:#0A1428}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .sb-tip{background:#E7EEFA;color:#0A1428}}
+
+/* Keyboard Shortcuts */
+.kb-sheet .kb-h{margin:6px 0 2px;font:700 .95rem var(--display,inherit)}
+.kb-t{width:100%;border-collapse:collapse}
+.kb-t th,.kb-t td{text-align:left;padding:6px 0;border-bottom:1px solid var(--line);vertical-align:top;font-weight:400}
+.kb-t th{width:44%;padding-right:12px;color:var(--muted);white-space:nowrap}
+.kb-t kbd,.kb-sheet kbd{display:inline-block;min-width:1.6em;padding:1px 6px;border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;background:var(--surface);color:var(--ink);font:600 .8rem/1.4 var(--body,inherit);text-align:center}
+@media (max-width:420px){.kb-t th{white-space:normal;width:48%}}
+
+/* Mark Complete: a 44 px tap area around the small ring on touch screens */
+@media (pointer:coarse),(max-width:719px){
+  button.check::after{inset:auto;left:50%;top:50%;width:max(44px,100%);height:max(44px,100%);transform:translate(-50%,-50%);border-radius:50%}
+}
+
+/* Bottom bar (phones and tablets): Board, Calendar, Review, the companion's seat, Notes and Courses. Study Groups, Files, Grades,
+   Style and Archive head the Settings sheet (the header's ⋯ button). Labels stay at least 11 px. */
+.set-go{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin:0 0 14px}
+.set-go-b{display:grid;gap:2px;justify-items:start;text-align:left;min-height:52px;padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;cursor:pointer}
+.set-go-b b{font:700 .92rem var(--display,inherit)}
+.set-go-b span{font-size:.78rem;color:var(--muted)}
+.set-go-b:hover,.set-go-b:focus-visible{border-color:var(--accent)}
+@media (min-width:700px){.set-go{grid-template-columns:repeat(5,minmax(0,1fr));padding:14px 16px 0;margin-bottom:12px}}
+@media (max-width:979px){
+  nav.tabs .in > .nav-groups,nav.tabs .in .nav-groups{display:none!important}
+  nav.tabs .in button,html[data-ts] nav.tabs .in button{font-size:.75rem!important;letter-spacing:0}
+  html[data-ts="s"] nav.tabs .in button{font-size:.86rem!important}
+  html[data-ts="l"] nav.tabs .in button{font-size:.67rem!important}
+  html[data-ts="xl"] nav.tabs .in button{font-size:.6rem!important}
+}
+@media (max-width:639px){
+  nav.tabs .in button,html[data-ts] nav.tabs .in button{font-size:.6875rem!important}
+  html[data-ts="s"] nav.tabs .in button{font-size:.79rem!important}
+  html[data-ts="l"] nav.tabs .in button{font-size:.62rem!important}
+  html[data-ts="xl"] nav.tabs .in button{font-size:.56rem!important}
+}
+@media (max-width:359px){nav.tabs .in button,html[data-ts] nav.tabs .in button{font-size:0!important}}
+/* the companion's seat keeps no label */
+@media (max-width:639px){nav.tabs .in [data-tab="companion"],html[data-ts] nav.tabs .in [data-tab="companion"]{font-size:0!important}}
+/* Desktop side menu: Study Groups needs an account, so it's left out for a planner kept on this device only (it's in Settings) */
+@media (min-width:980px){body.sb-local nav.tabs .in .nav-groups{display:none!important}}
+
+/* Text on course colours: white on dark colours, black on light ones (amber, yellow, light green), picked from the colour's luminance.
+   Browsers without relative colours keep white. */
+.g2-code,.deck-count,.tlbar.st-doing,.ms.tl-ic,.tl-ic.key,.sch-b,.qz-band{--c-ink:color(from var(--c) srgb-linear clamp(0,(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 10000,1) clamp(0,(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 10000,1) clamp(0,(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 10000,1))}
+.g2-code,.deck-count,.tlbar.st-doing,.ms.tl-ic,.tl-ic.key,.sch-b,.sch-b.k-av-class,.sch-b.k-av-shift,.qz-band{color:var(--c-ink)}
+.course-card,.card-course,.deck-tab{--c-ink:color(from color-mix(in srgb,var(--c) 66%,#000) srgb-linear clamp(0,(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 10000,1) clamp(0,(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 10000,1) clamp(0,(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 10000,1))}
+.course-card::before,.card-course,.deck-tab{color:var(--c-ink)}
+.g2-band,.c2-band,.cr2-band,.next-up .nu-top,.card.has-tab > .card-course,.fc-band,.tl-row.tl-group,.tl-group .tl-label,.sch-b > .sch-band,.kb-band,.occv-band{--c-ink:color(from color-mix(in srgb,var(--c) 88%,#000) srgb-linear clamp(0,(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 10000,1) clamp(0,(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 10000,1) clamp(0,(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 10000,1));color:var(--c-ink)}
+.sch-b > .sch-band b,.c2-head .g2-code{color:var(--c-ink)!important}
+.g2-head .g2-band .btn,.g2-head .g2-band summary.btn,.c2-head .g2-band .btn{color:var(--c-ink);background:color-mix(in srgb,var(--c-ink) 16%,transparent);border-color:color-mix(in srgb,var(--c-ink) 45%,transparent)}
+/* white buttons on a band: the course colour, dark enough to read */
+.g2-head .g2-band .btn.primary,.c2-head .g2-band .btn:last-child,.cpt3-band .btn{background:#fff;border-color:#fff;color:color-mix(in srgb,var(--c) 52%,#000)}
+
+/* Red on a pale red tint: a deeper red in light mode (at least 4.5 to 1) */
+:root{--late-ink:color-mix(in srgb,var(--late) 74%,#000)}
+:root[data-theme="dark"]{--late-ink:var(--late)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--late-ink:var(--late)}}
+.pill.hi,.g2-pill.late,.tl-dl em,.nu-chip.late,.pt-due.late,.pt-prio.high,.pt-prio.urgent,.nb-target.trash.hot{color:var(--late-ink)}
+/* Dark mode: dark text on the light red badges, and readable Due Today pills and today's date */
+:root[data-theme="dark"] .bn-n,:root[data-theme="dark"] .pw-ic{color:#1A0705}
+:root[data-theme="dark"] .g2-pill.due{color:#FFD58A}
+:root[data-theme="dark"] .day.is-today .num{background:color-mix(in srgb,var(--mark) 72%,#000);color:#fff}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .bn-n,:root:not([data-theme="light"]) .pw-ic{color:#1A0705}
+  :root:not([data-theme="light"]) .g2-pill.due{color:#FFD58A}
+  :root:not([data-theme="light"]) .day.is-today .num{background:color-mix(in srgb,var(--mark) 72%,#000);color:#fff}
+}
+
+/* Notes on a phone: the closed Stickers button sits in its own strip under the board (not over the notes), and a one-line hint
+   fits above the bottom bar */
+.nb-hint .nbh-s{display:none}
+@media (max-width:700px){
+  .nb-hint .nbh-l{display:none}
+  .nb-hint .nbh-s{display:inline}
+  html:not(.board-max) .nb-wrap:has(> .env.closed) > .nb-main{padding-bottom:60px}
+  html:not(.board-max) .nb-wrap > .env.closed{position:absolute;left:12px;right:auto;bottom:10px;z-index:3}
+  html:not(.board-max) .nb-scroll{min-height:240px}
+}
+@media (max-width:600px){html:not(.board-max) .nb-scroll{height:calc(100dvh - 386px)}}
+@media (min-width:601px) and (max-width:700px){html:not(.board-max) .nb-scroll{height:calc(100dvh - 356px)!important}}

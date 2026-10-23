@@ -42,21 +42,44 @@
   }
   const inBar = () => !!(window.matchMedia && matchMedia("(max-width:979px)").matches);
 
-  function moreSheet(){
+  function moreSheet(opener){
     const row = (act, title, sub) => `<button type="button" data-act="${act}"><span>${esc(title)}<span class="sub">${esc(sub)}</span></span></button>`;
+    const local = typeof sbLocalOnly === "function" && sbLocalOnly() && !stub();
     openSheet(`<div class="sheet more-sheet">${head(tr("more.title", "More"))}<div class="sheet-body"><div class="menu-list">
-      ${row("more-go-groups", tr("more.groups", "Study Groups"), tr("more.groups.sub", "Share decks and deadlines, plan sessions with friends"))}
+      ${row("more-go-groups", tr("more.groups", "Study Groups"), local ? tr("more.groups.local", "Share decks and deadlines with friends. Needs a free account.") : tr("more.groups.sub", "Share decks and deadlines, plan sessions with friends"))}
       ${row("more-go-files", tr("more.files", "Files"), tr("more.files.sub", "Your course files and documents"))}
       ${row("g-grades", tr("more.grades", "Grades"), tr("more.grades.sub", "Your marks and what you need on the rest"))}
+      ${row("shop", tr("more.style", "Style Shop"), tr("more.style.sub", "Themes, card styles, note shapes and stickers"))}
+      ${row("archive-open", tr("more.archive", "Archive"), tr("more.archive.sub", "Finished tasks and past terms"))}
       ${row("menu", tr("more.settings", "Settings"), tr("more.settings.sub", "Backups, text size, themes and more"))}
     </div></div></div>`);
-    const b = $("nav.tabs .nav-more"); if (b) b.setAttribute("aria-expanded", "true");
+    const b = opener || $("nav.tabs .nav-more"); if (b) b.setAttribute("aria-expanded", "true");
     dlg.addEventListener("close", () => {
-      const m = $("nav.tabs .nav-more"); if (!m) return;
+      const m = opener || $("nav.tabs .nav-more"); if (!m) return;
       m.setAttribute("aria-expanded", "false");
       if (!document.activeElement || document.activeElement === document.body) { try { m.focus(); } catch (e) {} }
     }, {once: true});
   }
+  // Phones and tablets: the bottom bar keeps the main pages; Settings (the header's ⋯ button) starts with the rest
+  const goRow = () => {
+    const local = typeof sbLocalOnly === "function" && sbLocalOnly() && !stub();
+    const b = (act, label, sub) => `<button type="button" class="set-go-b" data-act="${act}"><b>${esc(label)}</b><span>${esc(sub)}</span></button>`;
+    return `<nav class="set-go" aria-label="${esc(tr("more.title", "More"))}">${b("more-go-groups", tr("more.groups", "Study Groups"), local ? tr("more.groups.short.local", "Needs a free account") : tr("more.groups.short", "Study with friends"))}${b("more-go-files", tr("more.files", "Files"), tr("more.files.short", "Course files"))}${b("g-grades", tr("more.grades", "Grades"), tr("more.grades.short", "Your marks"))}${b("shop", tr("more.style", "Style Shop"), tr("more.style.short", "Themes and stickers"))}${b("archive-open", tr("more.archive", "Archive"), tr("more.archive.short", "Finished work"))}</nav>`;
+  };
+  const origMenu = menuSheet;
+  menuSheet = function(){
+    const r = origMenu.apply(this, arguments);
+    try { const body = inBar() && !dlg.querySelector(".set-go") ? dlg.querySelector(".sheet-body") : null; if (body) body.insertAdjacentHTML("afterbegin", goRow()); } catch (e) {}
+    return r;
+  };
+  // Phones and tablets: the bottom bar keeps the main pages, and the header's ⋯ button holds the rest
+  const headMore = () => $('header.top [data-act="menu"]');
+  function headLabel(){
+    const b = headMore(); if (!b) return;
+    b.setAttribute("aria-label", inBar() ? tr("more.aria.head", "Settings, Study Groups, Files, Grades, Style and Archive") : "Settings, backups and import");
+        document.body.classList.toggle("sb-local", typeof sbLocalOnly === "function" && sbLocalOnly() && !stub());
+  }
+  try { const mq = matchMedia("(max-width:979px)"); (mq.addEventListener ? mq.addEventListener("change", headLabel) : mq.addListener(headLabel)); } catch (e) {}
 
   /* Board card */
   let probed = null, probing = null;
@@ -110,9 +133,9 @@
     }
     return false;
   });
-  hook("render", () => { addMore(); label(); });
-  hook("boot", () => { addMore(); label(); });
-  hook("lang", () => label());
+  hook("render", () => { addMore(); label(); headLabel(); });
+  hook("boot", () => { addMore(); label(); headLabel(); });
+  hook("lang", () => { label(); headLabel(); });
   window.SBGNUDGE = {showCard, state: rd, inBar};
 })();
 

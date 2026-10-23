@@ -50,6 +50,7 @@ function renderNow(){
   const nt = $("#noteText"), ntVal = nt ? nt.value : null, ntFocus = nt && document.activeElement === nt, ntSel = nt ? [nt.selectionStart, nt.selectionEnd] : null;
   const nbs = $("#nbScroll"), nbPos = nbs ? [nbs.scrollLeft, nbs.scrollTop] : null;
   const bds = $$(".board").map(b => b.scrollLeft);
+  const fk = focusKeep(v);
   v.innerHTML = (isPlanTab(ui.tab) ? planSwitchHtml() : isCfTab(ui.tab) && !(ui.tab === "courses" && ui.courseId) ? cfSwitchHtml() : "") + (VIEWS[ui.tab] ? VIEWS[ui.tab]() : ui.tab === "archive" ? viewArchive() : ui.tab === "schedule" ? viewSchedule() : ui.tab === "timeline" ? viewTimeline() : ui.tab === "courses" ? viewCourses() : ui.tab === "files" ? viewFiles() : ui.tab === "notes" ? viewNotes() : ui.tab === "flashcards" ? viewFlashcards() : viewBoard());
   refreshFab();
   document.body.dataset.view = ui.tab;
@@ -74,7 +75,37 @@ function renderNow(){
   if (AUTO_ON) autoKick();
   if (ui.tab === "notes") fitNoteBoard();
   fire("render", ui.tab);
+  focusBack(v, fk);
   if (Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y);
+}
+// Keyboard focus survives a redraw: the same control, or the nearest one after it, or the page itself
+const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),summary,[tabindex]:not([tabindex="-1"])';
+function focusSel(el){
+  const d = el.dataset || {};
+  if (el.id) return "#" + CSS.escape(el.id);
+  if (d.act) return `[data-act="${CSS.escape(d.act)}"]` + (d.id ? `[data-id="${CSS.escape(d.id)}"]` : "");
+  if (d.tab) return `[data-tab="${CSS.escape(d.tab)}"]`;
+  if (d.note) return `[data-note="${CSS.escape(d.note)}"]`;
+  if (el.name) return `${el.tagName.toLowerCase()}[name="${CSS.escape(el.name)}"]`;
+  return null;
+}
+function focusKeep(v){
+  const a = document.activeElement;
+  if (!a || a === v || !v.contains(a)) return null;
+  const all = [...v.querySelectorAll(FOCUSABLE)], i = all.indexOf(a), own = focusSel(a);
+  const near = all.slice(i + 1, i + 8).concat(all.slice(Math.max(0, i - 6), Math.max(0, i)).reverse()).map(focusSel).filter(Boolean);
+  return {own, nth: own ? [...v.querySelectorAll(own)].indexOf(a) : 0, near, value: a.value, sel: "selectionStart" in a ? (() => { try { return [a.selectionStart, a.selectionEnd]; } catch (e) { return null; } })() : null};
+}
+function focusBack(v, k){
+  if (!k) return;
+  const a = document.activeElement;
+  if (a && a !== document.body && a !== v && a.isConnected) return;
+  const shown = el => el && el.getClientRects().length > 0 && !el.disabled;
+  let t = null;
+  if (k.own) { const m = [...v.querySelectorAll(k.own)]; t = shown(m[k.nth]) ? m[k.nth] : m.find(shown) || null; }
+  for (let i = 0; !t && i < k.near.length; i++) t = [...v.querySelectorAll(k.near[i])].find(shown) || null;
+  try { (t || v).focus({preventScroll: true}); } catch (e) {}
+  if (t && k.sel && t.value === k.value) { try { t.setSelectionRange(k.sel[0], k.sel[1]); } catch (e) {} }
 }
 // Size the note board to its notes
 function fitNoteBoard(){
@@ -217,11 +248,12 @@ function openSheet(html, onSubmit){
   const first = dlg.querySelector("[autofocus]");
   if (first && window.matchMedia("(min-width:601px)").matches) first.focus();
 }
-dlg.addEventListener("click", e => { if (e.target === dlg) dlgClose(); });
+// A backdrop tap closes a sheet only when it both started and ended on the backdrop (not a text selection dragged out)
+const backdropClose = (d, close) => { let down = false; d.addEventListener("pointerdown", e => { down = e.target === d; }); d.addEventListener("click", e => { const was = down; down = false; if (e.target === d && was) close(); }); };
+backdropClose(dlg, () => dlgClose()); backdropClose($("#pomoDlg"), () => $("#pomoDlg").close());
 dlg.addEventListener("keydown", e => { if (e.key === "Escape" && !e.defaultPrevented && dlgGuard && dlgGuard()) { e.preventDefault(); dlgClose(); } });
 dlg.addEventListener("cancel", e => { if (dlgGuard && dlgGuard()) { e.preventDefault(); dlgClose(); } });
 dlg.addEventListener("close", () => { dlgGuard = null; });
-$("#pomoDlg").addEventListener("click", e => { if (e.target.id === "pomoDlg") e.target.close(); });
 const FAB_IC = {
   course: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M9 8h6"/>',
   syllabus: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h4"/>',
@@ -275,11 +307,11 @@ function taskForm(t, preset = {}){
   const courseOpts = `<option value="">No course</option>` + coursesArr().map(c => `<option value="${esc(c.id)}" ${c.id === t.courseId ? "selected" : ""}>${esc(c.name)}</option>`).join("");
   openSheet(`<form class="sheet">${bandHead(isNew ? "New Task" : "Edit Task", SH_IC.pencil, t.courseId ? colorOf(t.courseId) : "#2F6FE4", "", isNew ? "" : esc(t.title))}
     <div class="sheet-body">${REQ_NOTE}${window.SBBREAK ? SBBREAK.formHtml(isNew ? null : t, isNew) : ""}${!isNew && window.SBLINKED ? SBLINKED.taskHtml(t) : ""}
+      <label class="f"><span class="lh">Title ${REQ}</span><input type="text" name="title" required maxlength="200" value="${esc(t.title)}" autofocus></label>
       <div class="two">
         <label class="f">Type<select name="type" id="tfType">${(window.SBAREA ? SBAREA.types() : TYPES).map(x => `<option ${x === t.type ? "selected" : ""}>${x}</option>`).join("")}</select></label>
         <label class="f">Course<select name="courseId">${courseOpts}</select></label>
       </div>
-      <label class="f"><span class="lh">Title ${REQ}</span><input type="text" name="title" required maxlength="200" value="${esc(t.title)}" autofocus></label>
       <label class="f" data-fld="reading"><span class="lbl">What to Read</span><input type="text" name="reading" maxlength="200" value="${esc(t.reading)}" placeholder="e.g. Ch. 4, pp. 101–130"></label>
       <div class="two">
         <label class="f"><span><span class="lbl" id="dueLbl">Due Date</span> <span class="req" id="dueReq" aria-hidden="true" hidden>*</span></span><input type="date" name="due" value="${esc(t.due)}"></label>

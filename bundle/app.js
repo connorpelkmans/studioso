@@ -259,8 +259,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const isNum = v => v !== null && v !== "" && v !== undefined && !isNaN(Number(v));
 const COLORS = ["#3B6FE0","#1E9E74","#E0673B","#9A4FD1","#D6386F","#1D9BB8","#C79A12","#5E6B7E"];
 const TYPES = ["Assignment","Exam","Quiz","Reading","Project","Lab","Study","Other"];
-const STATUSES = [["todo","To Do","#8A94A6"],["doing","In Work","#2C55D6"],["done","Complete","#1E9E74"]];
-const STATUS_LABEL = {todo:"To Do", doing:"In Work", done:"Complete"};
+const STATUSES = [["todo","To Do","#8A94A6"],["doing","In Progress","#2C55D6"],["done","Complete","#1E9E74"]];
+const STATUS_LABEL = {todo:"To Do", doing:"In Progress", done:"Complete"};
 const PRIO = {low:"Low", med:"Medium", high:"High", urgent:"Urgent"};
 const PRIO_W = {urgent:40, high:25, med:10, low:0};
 const SPAN = {Assignment:5, Exam:0, Quiz:0, Reading:3, Project:14, Lab:4, Study:0, Other:3};
@@ -638,7 +638,7 @@ function saveLocal(){
   try { const a = toArrays(); delete a.trash; localStorage.setItem(LS2, JSON.stringify(a)); }
   catch(e){
     if (window.SBERR && e && /quota/i.test(e.name + " " + e.message)) SBERR.flow("storage-quota", e);
-    if (Date.now() - saveWarnAt > 6e4) { saveWarnAt = Date.now(); setTimeout(() => { try { toast("Couldn't save on this device. Storage is full or blocked. Export a backup so nothing is lost."); } catch(e2) {} }, 700); }
+    if (Date.now() - saveWarnAt > 6e4) { saveWarnAt = Date.now(); setTimeout(() => { try { toast("Couldn't save on this device. Storage is full or blocked. Export a backup so nothing is lost.", null, null, {error: true}); } catch(e2) {} }, 700); }
   }
 }
 // A saved copy that can't be read is set aside, never overwritten
@@ -667,7 +667,7 @@ function keepUnreadable(key, raw){
   lsHold = true;
   SBC.putStrict("backups", "unreadable-" + Date.now(), {unreadable: raw, keptAt: Date.now()})
     .then(() => { lsHold = false; saveLocal(); })
-    .catch(e => { console.warn("Couldn't set the unreadable copy aside", e); setTimeout(() => { try { toast("Studyboard can't save on this device until some storage is freed: your earlier saved copy couldn't be read and is being kept. Export a backup now."); } catch(x) {} }, 3000); });
+    .catch(e => { console.warn("Couldn't set the unreadable copy aside", e); setTimeout(() => { try { toast("Studyboard can't save on this device until some storage is freed: your earlier saved copy couldn't be read and is being kept. Export a backup now.", null, null, {error: true}); } catch(x) {} }, 3000); });
 }
 // Desktop app: the copy in the Studyboard folder (read by deskBoot)
 let deskFolderCopy = null;
@@ -723,7 +723,7 @@ function trashFlush(){
     try { localStorage.setItem(LS_TRASH, JSON.stringify(list)); break; }
     catch(e) { if (!list.length) break; let big = 0, bs = -1; list.forEach((x, i) => { const n = JSON.stringify(x).length; if (n > bs) { bs = n; big = i; } }); list.splice(big, 1); left++; }
   }
-  if (left && !(typeof cloud !== "undefined" && cloud.on) && Date.now() - trashWarnAt > 6e4) { trashWarnAt = Date.now(); try { toast("This device's storage is full, so some of Recently Deleted can't be kept after you close Studyboard. Restore what you need now, or export a backup."); } catch(e) {} }
+  if (left && !(typeof cloud !== "undefined" && cloud.on) && Date.now() - trashWarnAt > 6e4) { trashWarnAt = Date.now(); try { toast("This device's storage is full, so some of Recently Deleted can't be kept after you close Studyboard. Restore what you need now, or export a backup.", null, null, {error: true}); } catch(e) {} }
 }
 window.addEventListener("pagehide", () => { try { trashFlush(); } catch(e) {} });
 // Stored files only go away when the bin lets go of them
@@ -1051,7 +1051,24 @@ const SyncMerge = (() => {
 const cloud = {on:false, base:null, tasks:null, courses:null, files:null, notes:null, decks:null, events:null, trash:null, backups:null};
 const KIND_MAP = {task:"tasks", course:"courses", file:"files", note:"notes", deck:"decks", event:"events", trash:"trash"};
 const queue = new Map(), intended = new Map();
-let syncError = false;
+let syncError = false, syncRetryT = 0, syncRetryN = 0;
+// Saves that ran out of quick retries where there's no offline outbox (key -> {ref, data}); they're sent again later
+const syncLater = new Map();
+function syncRetryRun(){
+  syncLater.forEach((j, key) => { syncLater.delete(key); if (queue.has(key)) return; const e = {running: false, next: {data: j.data}, ref: j.ref}; queue.set(key, e); intended.set(key, j.data); runQueue(key, e); });
+  flushOutbox();
+}
+// After a failed save, the waiting changes are tried again on their own, less often each time (15 s up to 5 min)
+function syncRetryLater(){
+  if (syncRetryT || !cloud.on) return;
+  syncRetryT = setTimeout(() => { syncRetryT = 0; syncRetryRun(); }, Math.min(300000, (window.__SB_RETRY_LATER_MS || 15000) * Math.pow(2, syncRetryN++)));
+}
+function syncRetryNow(){
+  clearTimeout(syncRetryT); syncRetryT = 0; syncRetryN = 0;
+  if (cloud.on) { syncRetryRun(); return true; }
+  if (typeof sbUser !== "undefined" && sbUser) { sbRetryNow(); return true; }
+  return false;
+}
 function refFor(kind, id){
   if (kind === "meta") return cloud.base;
   return cloud[KIND_MAP[kind]].doc(id);
@@ -1066,10 +1083,16 @@ function syncLabel(){
   }
   else if (!cloud.on) el.textContent = "Saved on this device";
   else if (queue.size) el.textContent = "Saving…";
-  else if (syncError) el.textContent = "Not saved, retrying";
+  else if (syncError) el.textContent = syncRetryT || flushing || syncLater.size && queue.size ? "Not saved, retrying" : "Not saved";
   else el.textContent = "Saved";
-  const side = $("#syncSide");
-  if (side) { const t = el.textContent; side.textContent = t === "Saved on this device" ? "On this device" : t; side.dataset.state = /^(Saved|Saved on this device)$/.test(t) ? "ok" : /Saving|Connecting/.test(t) ? "busy" : "warn"; side.title = t; }
+  const side = $("#syncSide"), t = el.textContent, warn = !/^(Saved|Saved on this device)$/.test(t) && !/Saving|Connecting/.test(t);
+  el.setAttribute("aria-label", warn ? t + ". Sync details" : t);
+  if (side) {
+    side.textContent = t === "Saved on this device" ? "On this device" : t; side.dataset.state = warn ? "warn" : /Saving|Connecting/.test(t) ? "busy" : "ok";
+    // a problem can be tapped for details and Try Again
+    if (warn) { side.removeAttribute("aria-hidden"); side.setAttribute("role", "button"); side.tabIndex = 0; side.dataset.act = "sync-status"; side.setAttribute("aria-label", t + ". Sync details"); }
+    else { side.setAttribute("aria-hidden", "true"); side.removeAttribute("role"); side.removeAttribute("tabindex"); delete side.dataset.act; side.removeAttribute("aria-label"); }
+  }
 }
 function queueWrite(kind, id, data){
   if (demoDrawing) return;
@@ -1078,6 +1101,7 @@ function queueWrite(kind, id, data){
   if (!cloud.on) return;
   if (kind === "trash" && !cloud.trash) return;
   const key = kind + ":" + id;
+  syncLater.delete(key);
   intended.set(key, data === null ? null : clone(data));
   let e = queue.get(key);
   if (!e) { e = {running:false, next:null}; queue.set(key, e); }
@@ -1094,7 +1118,7 @@ async function runQueue(key, e){
     const job = e.next; e.next = null;
     try {
       const res = job.data === null ? await e.ref.delete() : await e.ref.set(job.data);
-      tries = 0; syncError = false;
+      tries = 0; syncLater.delete(key); syncError = syncLater.size > 0;
       outboxDone(key, job.data);
       if (res && res.merge) syncAdopt(key, job.data, res);
       if (window.SBERR) SBERR.crumb("sync", "ok");
@@ -1106,14 +1130,20 @@ async function runQueue(key, e){
         if (!e.next) e.next = job;
       } else {
         syncError = true; console.warn("Save failed", code, err && err.message);
+        // tried again later from the offline outbox (which merges with what the server has now); where there is no outbox, a save that
+        // failed only because the server was out of reach is sent again as it was
+        if (code !== "quota_exceeded" && code !== "quota_or_state" && code !== "schema") {
+          if ((inPreview() || !sbConfig()) && (code === "unavailable" || code === "resource_exhausted")) syncLater.set(key, {ref: e.ref, data: job.data});
+          syncRetryLater();
+        }
         if (window.SBERR) { SBERR.crumb("sync", "fail"); if (code !== "quota_exceeded") SBERR.flow("sync", err, {tags: {code}}); }
 
-        if (code === "quota_exceeded" || code === "quota_or_state") toast("Online storage is full, so recent changes can't sync. They are still saved on this device. Delete old items or export a backup.");
+        if (code === "quota_exceeded" || code === "quota_or_state") toast("Online storage is full, so recent changes can't sync. They are still saved on this device. Delete old items or export a backup.", null, null, {error: true});
         if (code === "schema" && !window.__schemaWarned) { window.__schemaWarned = true; toast(SB_HOSTED ? "Flashcards are saved on this device but can't sync yet. They'll sync once Studyboard's server is updated." : "Flashcards are saved on this device but can't sync yet. Run the flashcards update SQL from the setup guide, then reload."); }
       }
     }
   }
-  e.running = false; queue.delete(key); intended.delete(key); syncLabel();
+  e.running = false; queue.delete(key); if (!syncLater.has(key)) intended.delete(key); syncLabel();
 }
 function applySnap(kind, snap){
   const m = {};
@@ -1221,7 +1251,7 @@ function outboxAdd(kind, id, data){
   if (inPreview() || !sbConfig() || deviceWiping) return;
   outboxOwn.add(kind + ":" + id);
   const o = outboxGet(); o[kind + ":" + id] = data === null ? null : clone(data);
-  try { localStorage.setItem(OUTBOX, JSON.stringify(o)); } catch(e) { try { toast("This device's storage is full, so offline changes may not be kept. Export a backup, then free some space."); } catch(e2) {} }
+  try { localStorage.setItem(OUTBOX, JSON.stringify(o)); } catch(e) { try { toast("This device's storage is full, so offline changes may not be kept. Export a backup, then free some space.", null, null, {error: true}); } catch(e2) {} }
 }
 function outboxDone(key, data){
   if (inPreview()) return;
@@ -1233,9 +1263,9 @@ let flushing = false;
 async function flushOutbox(){
   if (flushing || !cloud.on) return;
   const o = outboxGet(), keys = Object.keys(o);
-  if (!keys.length) return;
+  if (!keys.length) { if (syncError && !queue.size && !syncLater.size) { syncError = false; syncRetryN = 0; syncLabel(); } return; }
   flushing = true;
-  let sent = 0; const merged = [], sentBy = {}, readAs = {};
+  let sent = 0, failed = false; const merged = [], sentBy = {}, readAs = {};
   keys.forEach(k => { readAs[k] = JSON.stringify(o[k]); });
   for (const k of keys) {
     const i = k.indexOf(":"), kind = k.slice(0, i), id = k.slice(i + 1);
@@ -1247,7 +1277,7 @@ async function flushOutbox(){
       const sentData = o[k]; sentBy[k] = sentData; delete o[k]; sent++;
       if (res && res.merge) { merged.push([k, sentData, res]); }
     }
-    catch(e) { const c = e && e.code; if (c === "unavailable" || c === "resource_exhausted" || !c) break; }
+    catch(e) { failed = true; const c = e && e.code; if (c === "unavailable" || c === "resource_exhausted" || !c) break; }
   }
   try {
     const cur = outboxGet();
@@ -1257,7 +1287,9 @@ async function flushOutbox(){
   flushing = false;
   merged.forEach(([k, sentData, res]) => syncAdopt(k, sentData, res));
   if (sent && !merged.some(m => m[2].merge.state === "merged" || m[2].merge.state === "restored")) { toast(`Synced ${sent} change${sent === 1 ? "" : "s"} made while offline`); }
-  if (sent) syncLabel();
+  if (failed) { syncError = true; syncRetryLater(); }
+  else if (!queue.size && !syncLater.size) { syncError = false; syncRetryN = 0; clearTimeout(syncRetryT); syncRetryT = 0; }
+  syncLabel();
 }
 
 /* Sync conflicts */
@@ -7378,10 +7410,14 @@ const cleanCourseCode = (raw, name) => {
   for (const s of [raw, name]) { const m = String(s || "").match(COURSE_CODE_RX); if (m) return m[1].toUpperCase() + " " + m[2].toUpperCase(); }
   return "";
 };
+// A start no further back than a year before the due date (a missing or broken "created", like 1, would otherwise mean 1970)
+const START_SPAN_DAYS = 365, CREATED_MIN = Date.UTC(2000, 0, 1);
 function startOf(t){
   if (MILESTONE(t.type) && t.due) return t.due;
-  let s = t.start || (t.created ? iso(new Date(t.created)) : t.due);
+  const made = Number(t.created) > CREATED_MIN ? iso(new Date(Number(t.created))) : "";
+  let s = t.start || made || t.due;
   if (t.due && (!s || s > t.due)) s = t.due;
+  if (t.due && s && s < addDays(t.due, -START_SPAN_DAYS)) s = addDays(t.due, -START_SPAN_DAYS);
   return s;
 }
 function progress(t){
@@ -7498,10 +7534,15 @@ function newTask(fields){
   if (due && start > due) start = due;
   return normTask(Object.assign({id: uid(), created: Date.now(), order: nextOrder(fields.status || "todo")}, fields, {start}));
 }
-let toastT, toastUndoFn = null, toastExtraFn = null, toastExtra2Fn = null, toastMs = 0;
-// extra is one {label, fn} or a list of up to two
-function toast(msg, undoFn, extra){
-  const t = $("#toast"), b = $("#toastUndo"), x = $("#toastExtra"), more = extra ? [].concat(extra).filter(Boolean) : [];
+let toastT, toastUndoFn = null, toastExtraFn = null, toastExtra2Fn = null, toastMs = 0, toastErr = false;
+// Long enough to read (about 15 characters a second), longer with a button to press
+const toastLen = (msg, undoFn, n) => Math.max(n ? 9000 : undoFn ? 8000 : 2600, Math.min(12000, 1500 + String(msg || "").length * 65));
+// extra is one {label, fn} or a list of up to two. opts.error: stays until dismissed and is announced at once
+function toast(msg, undoFn, extra, opts){
+  const t = $("#toast"), b = $("#toastUndo"), x = $("#toastExtra"), more = extra ? [].concat(extra).filter(Boolean) : [], err = !!(opts && opts.error);
+  let xx = $("#toastX");
+  if (!xx) { xx = document.createElement("button"); xx.id = "toastX"; xx.type = "button"; xx.className = "toast-x"; xx.setAttribute("aria-label", "Dismiss"); t.appendChild(xx); xx.addEventListener("click", () => { clearTimeout(toastT); t.classList.remove("show", "toast-err"); toastErr = false; toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; }); }
+  t.setAttribute("role", err ? "alert" : "status"); t.classList.toggle("toast-err", err); xx.hidden = !err; toastErr = err;
   $("#toastMsg").textContent = SPELL.fix(msg);
   toastUndoFn = undoFn || null;
   b.hidden = !undoFn;
@@ -7514,8 +7555,8 @@ function toast(msg, undoFn, extra){
   let host = document.body; try { if (dlg.open) host = dlg; } catch(e) {}
   if (t.parentNode !== host) host.appendChild(t);
   t.classList.add("show");
-  toastMs = more.length ? 9000 : undoFn ? 8000 : 2600;
-  if (t.contains(document.activeElement)) clearTimeout(toastT); else toastTimer(toastMs);
+  toastMs = toastLen(msg, undoFn, more.length);
+  if (err || t.contains(document.activeElement)) clearTimeout(toastT); else toastTimer(toastMs);
   try { document.documentElement.style.setProperty("--toast-h", t.offsetHeight + "px"); } catch(e) {}
 }
 function toastTimer(ms){
@@ -7526,7 +7567,7 @@ document.addEventListener("close", e => { const t = $("#toast"); if (t && e.targ
 $("#toastUndo").addEventListener("click", () => { const f = toastUndoFn; toastUndoFn = null; $("#toast").classList.remove("show"); if (f) f(); });
 $("#toastExtra").addEventListener("click", () => { const f = toastExtraFn; toastExtraFn = null; $("#toast").classList.remove("show"); if (f) f(); });
 // Pointing at a toast with a button, or tabbing into it, holds it open
-{ const t = $("#toast"), acts = () => t.classList.contains("show") && !!(toastUndoFn || toastExtraFn || toastExtra2Fn), hold = () => { if (acts()) clearTimeout(toastT); }, go = () => { if (acts()) toastTimer(Math.max(3000, toastMs / 2)); };
+{ const t = $("#toast"), acts = () => t.classList.contains("show") && !!(toastUndoFn || toastExtraFn || toastExtra2Fn), hold = () => { if (acts()) clearTimeout(toastT); }, go = () => { if (acts() && !toastErr) toastTimer(Math.max(3000, toastMs / 2)); };
   t.addEventListener("pointerenter", hold); t.addEventListener("focusin", hold);
   t.addEventListener("pointerleave", () => { if (!t.contains(document.activeElement)) go(); });
   t.addEventListener("focusout", () => setTimeout(() => { if (!t.contains(document.activeElement) && !t.matches(":hover")) go(); }, 0)); }
@@ -7596,7 +7637,7 @@ function taskRow(t, opts = {}){
   if (c && !opts.hideCourse) meta.push(`<span class="tag">${esc(courseLabel(c))}</span>`);
   meta.push(`<span>${esc(t.type || "Task")}</span>`);
   meta.push(`<span class="${late ? "late" : ""}">${esc(relDue(t))}</span>`);
-  if (t.status === "doing") meta.push(`<span class="pill">In Work</span>`);
+  if (t.status === "doing") meta.push(`<span class="pill">In Progress</span>`);
   if ((t.priority === "high" || t.priority === "urgent") && t.status !== "done") meta.push(prioBadge(t.priority));
   const sb = statusBadges(t); if (sb) meta.push(sb);
   const p = progress(t);
@@ -8072,7 +8113,7 @@ function focusHtml(){
   const fixedEv = Object.values(F.info).filter(x => x.fixed && inView(x) && x.t.status !== "done" && x.dl >= 0 && x.dl <= 7).sort((a, b) => dueDate(a.t) - dueDate(b.t)).slice(0, 3);
   const fixedHtml = fixedEv.length ? `<div class="plan-fixed" role="region" aria-label="Exams and quizzes on the calendar"><h3 class="plan-sub">On the Calendar</h3><ul>${fixedEv.map(x => { const t = x.t, e = remoteOf(t); return `<li style="--c:${esc(colorOf(t.courseId))}"><button class="plan-main" data-act="edit-task" data-id="${esc(t.id)}"><span class="task-title">${esc(t.title)}</span></button><span class="pf-when">${x.dl === 0 ? "Today" : x.dl === 1 ? "Tomorrow" : esc(fmtShort(t.due))}${t.time ? " " + esc(fmtTime(t.time)) : ""}</span><span class="rx-chip${e.v ? "" : " unk"}" title="${esc(e.v === "no" ? "Taken in person, so it is not suggested as something to do now." : "Not confirmed as take-home, so it is not suggested as something to do now. Open it to say where it is taken.")}">${e.v === "no" ? "In person" : "Not sure"}</span></li>`; }).join("")}</ul></div>` : "";
   if (queued) sum.push(`${queued} more lined up for the coming days`);
-  const warn = F.crunch && inView(F.crunch) ? `<p class="plan-warn"><span class="pw-ic" aria-hidden="true">!</span><span class="pw-main">From now to ${esc(fmtDate(F.crunch.t.due))}, ${Math.abs((F.thSet == null ? F.dh : F.thSet) - F.dh) < 0.01 ? `at ${fmtHM(F.dh)} a day` : `with ${fmtHM(F.thSet)} today and ${fmtHM(F.dh)} a day after`}, you're about <b>${fmtHM(F.crunch.behind)}</b> short for what's due by then.</span> <span class="pw-tip">Add study time, start sooner, or talk to your instructor early.</span></p>` : "";
+  const warn = F.crunch && inView(F.crunch) ? `<p class="plan-warn"><span class="pw-ic" aria-hidden="true">!</span><span class="pw-main">${(d => d === todayISO() ? "Between now and tonight" : "From now to " + (d === addDays(todayISO(), 1) ? "tomorrow" : esc(fmtDate(d))))(F.crunch.t.due)}, ${Math.abs((F.thSet == null ? F.dh : F.thSet) - F.dh) < 0.01 ? `at ${fmtHM(F.dh)} a day` : `with ${fmtHM(F.thSet)} today and ${fmtHM(F.dh)} a day after`}, you're about <b>${fmtHM(F.crunch.behind)}</b> short for what's due by then.</span> <span class="pw-tip">Add study time, start sooner, or talk to your instructor early.</span></p>` : "";
   const nBlk = F.blocked.filter(inView).length, nLater = F.later.filter(inView).length;
   const more = ranked.length > show.length + (heroId ? 1 : 0) || nBlk || nLater;
   const listLabel = pick === "late" ? "Overdue" : pick === "soon" ? "Coming Up" : heroId ? (show.some(x => x.alloc > 0) ? "Also Today" : "Then") : "";
@@ -8602,7 +8643,7 @@ function viewCourseDetail(c){
     ${searchNote()}
     ${window.SBPREP ? SBPREP.courseHtml(c) : ""}
     ${section("To Do", by("todo"), "", {hideCourse:true})}
-    ${section("In Work", by("doing"), "", {hideCourse:true})}
+    ${section("In Progress", by("doing"), "", {hideCourse:true})}
     ${doneL.length || old.length ? `<h2 class="sec"><span class="t">Complete</span><span class="n">${by("done").length + old.length}</span></h2>${doneL.length ? taskList(doneL, {hideCourse:true}) : ""}${old.length ? `<button class="show-old" data-act="cd-old" aria-expanded="${showOld}">${showOld ? "Hide Older" : `Show Older (${old.length})`}</button>` : ""}` : ""}
     ${!ts.length && !old.length ? `<div class="empty" style="margin-top:18px"><strong>No Tasks Yet</strong>Add assignments, exams and readings for this course.</div>` : ""}
     ${window.SBOBJ ? SBOBJ.courseHtml(c) : ""}
@@ -8668,7 +8709,7 @@ function archRow(t){
   return `<li class="arch-row" style="--c:${esc(colorOf(t.courseId))}">
     <span class="arch-st st-${esc(t.status)}">${esc(lab)}</span>
     <button class="arch-main" data-act="edit-task" data-id="${esc(t.id)}"><span class="arch-t">${esc(t.title)}</span><span class="mini">${esc(meta.join(" · "))}</span></button>
-    <span class="arch-acts"><span class="mini">Move to</span><button class="btn small" data-act="arch-restore" data-id="${esc(t.id)}" data-status="todo">To Do</button><button class="btn small" data-act="arch-restore" data-id="${esc(t.id)}" data-status="doing">In Work</button></span></li>`;
+    <span class="arch-acts"><span class="mini">Move to</span><button class="btn small" data-act="arch-restore" data-id="${esc(t.id)}" data-status="todo">To Do</button><button class="btn small" data-act="arch-restore" data-id="${esc(t.id)}" data-status="doing">In Progress</button></span></li>`;
 }
 function viewArchive(){
   const q = t => matchesQ(t) && inFilter(t);
@@ -8695,7 +8736,7 @@ function viewArchive(){
     </details>`;
   }).join("");
   return `<div class="view-head"><h2>Archive</h2><button class="btn small" data-act="new-term">Start a New Term</button><button class="btn small" data-act="archive-back">Back to Board</button></div>
-    <p class="mini" style="margin:6px 0 0;max-width:70ch">Completed tasks move here ${ARCHIVE_DAYS} days after you finish them, and past terms move here when you start a new one. Move anything back to To Do or In Work any time.</p>
+    <p class="mini" style="margin:6px 0 0;max-width:70ch">Completed tasks move here ${ARCHIVE_DAYS} days after you finish them, and past terms move here when you start a new one. Move anything back to To Do or In Progress any time.</p>
     ${chipsHtml()}${searchNote()}
     <h3 class="fsec">${ARCHIVE_SM}Completed Tasks<span class="n">${done.length}</span></h3>
     ${done.length ? `<ul class="arch-list">${shown.map(archRow).join("")}</ul>${done.length > shown.length ? `<button class="show-old" data-act="arch-all" style="width:100%;margin-top:8px">Show All ${done.length}</button>` : ""}` : `<div class="empty">Nothing here yet. Tasks you finish show up here two weeks later.</div>`}
@@ -10480,6 +10521,7 @@ function renderNow(){
   const nt = $("#noteText"), ntVal = nt ? nt.value : null, ntFocus = nt && document.activeElement === nt, ntSel = nt ? [nt.selectionStart, nt.selectionEnd] : null;
   const nbs = $("#nbScroll"), nbPos = nbs ? [nbs.scrollLeft, nbs.scrollTop] : null;
   const bds = $$(".board").map(b => b.scrollLeft);
+  const fk = focusKeep(v);
   v.innerHTML = (isPlanTab(ui.tab) ? planSwitchHtml() : isCfTab(ui.tab) && !(ui.tab === "courses" && ui.courseId) ? cfSwitchHtml() : "") + (VIEWS[ui.tab] ? VIEWS[ui.tab]() : ui.tab === "archive" ? viewArchive() : ui.tab === "schedule" ? viewSchedule() : ui.tab === "timeline" ? viewTimeline() : ui.tab === "courses" ? viewCourses() : ui.tab === "files" ? viewFiles() : ui.tab === "notes" ? viewNotes() : ui.tab === "flashcards" ? viewFlashcards() : viewBoard());
   refreshFab();
   document.body.dataset.view = ui.tab;
@@ -10504,7 +10546,37 @@ function renderNow(){
   if (AUTO_ON) autoKick();
   if (ui.tab === "notes") fitNoteBoard();
   fire("render", ui.tab);
+  focusBack(v, fk);
   if (Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y);
+}
+// Keyboard focus survives a redraw: the same control, or the nearest one after it, or the page itself
+const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),summary,[tabindex]:not([tabindex="-1"])';
+function focusSel(el){
+  const d = el.dataset || {};
+  if (el.id) return "#" + CSS.escape(el.id);
+  if (d.act) return `[data-act="${CSS.escape(d.act)}"]` + (d.id ? `[data-id="${CSS.escape(d.id)}"]` : "");
+  if (d.tab) return `[data-tab="${CSS.escape(d.tab)}"]`;
+  if (d.note) return `[data-note="${CSS.escape(d.note)}"]`;
+  if (el.name) return `${el.tagName.toLowerCase()}[name="${CSS.escape(el.name)}"]`;
+  return null;
+}
+function focusKeep(v){
+  const a = document.activeElement;
+  if (!a || a === v || !v.contains(a)) return null;
+  const all = [...v.querySelectorAll(FOCUSABLE)], i = all.indexOf(a), own = focusSel(a);
+  const near = all.slice(i + 1, i + 8).concat(all.slice(Math.max(0, i - 6), Math.max(0, i)).reverse()).map(focusSel).filter(Boolean);
+  return {own, nth: own ? [...v.querySelectorAll(own)].indexOf(a) : 0, near, value: a.value, sel: "selectionStart" in a ? (() => { try { return [a.selectionStart, a.selectionEnd]; } catch (e) { return null; } })() : null};
+}
+function focusBack(v, k){
+  if (!k) return;
+  const a = document.activeElement;
+  if (a && a !== document.body && a !== v && a.isConnected) return;
+  const shown = el => el && el.getClientRects().length > 0 && !el.disabled;
+  let t = null;
+  if (k.own) { const m = [...v.querySelectorAll(k.own)]; t = shown(m[k.nth]) ? m[k.nth] : m.find(shown) || null; }
+  for (let i = 0; !t && i < k.near.length; i++) t = [...v.querySelectorAll(k.near[i])].find(shown) || null;
+  try { (t || v).focus({preventScroll: true}); } catch (e) {}
+  if (t && k.sel && t.value === k.value) { try { t.setSelectionRange(k.sel[0], k.sel[1]); } catch (e) {} }
 }
 // Size the note board to its notes
 function fitNoteBoard(){
@@ -10647,11 +10719,12 @@ function openSheet(html, onSubmit){
   const first = dlg.querySelector("[autofocus]");
   if (first && window.matchMedia("(min-width:601px)").matches) first.focus();
 }
-dlg.addEventListener("click", e => { if (e.target === dlg) dlgClose(); });
+// A backdrop tap closes a sheet only when it both started and ended on the backdrop (not a text selection dragged out)
+const backdropClose = (d, close) => { let down = false; d.addEventListener("pointerdown", e => { down = e.target === d; }); d.addEventListener("click", e => { const was = down; down = false; if (e.target === d && was) close(); }); };
+backdropClose(dlg, () => dlgClose()); backdropClose($("#pomoDlg"), () => $("#pomoDlg").close());
 dlg.addEventListener("keydown", e => { if (e.key === "Escape" && !e.defaultPrevented && dlgGuard && dlgGuard()) { e.preventDefault(); dlgClose(); } });
 dlg.addEventListener("cancel", e => { if (dlgGuard && dlgGuard()) { e.preventDefault(); dlgClose(); } });
 dlg.addEventListener("close", () => { dlgGuard = null; });
-$("#pomoDlg").addEventListener("click", e => { if (e.target.id === "pomoDlg") e.target.close(); });
 const FAB_IC = {
   course: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M9 8h6"/>',
   syllabus: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h4"/>',
@@ -10705,11 +10778,11 @@ function taskForm(t, preset = {}){
   const courseOpts = `<option value="">No course</option>` + coursesArr().map(c => `<option value="${esc(c.id)}" ${c.id === t.courseId ? "selected" : ""}>${esc(c.name)}</option>`).join("");
   openSheet(`<form class="sheet">${bandHead(isNew ? "New Task" : "Edit Task", SH_IC.pencil, t.courseId ? colorOf(t.courseId) : "#2F6FE4", "", isNew ? "" : esc(t.title))}
     <div class="sheet-body">${REQ_NOTE}${window.SBBREAK ? SBBREAK.formHtml(isNew ? null : t, isNew) : ""}${!isNew && window.SBLINKED ? SBLINKED.taskHtml(t) : ""}
+      <label class="f"><span class="lh">Title ${REQ}</span><input type="text" name="title" required maxlength="200" value="${esc(t.title)}" autofocus></label>
       <div class="two">
         <label class="f">Type<select name="type" id="tfType">${(window.SBAREA ? SBAREA.types() : TYPES).map(x => `<option ${x === t.type ? "selected" : ""}>${x}</option>`).join("")}</select></label>
         <label class="f">Course<select name="courseId">${courseOpts}</select></label>
       </div>
-      <label class="f"><span class="lh">Title ${REQ}</span><input type="text" name="title" required maxlength="200" value="${esc(t.title)}" autofocus></label>
       <label class="f" data-fld="reading"><span class="lbl">What to Read</span><input type="text" name="reading" maxlength="200" value="${esc(t.reading)}" placeholder="e.g. Ch. 4, pp. 101–130"></label>
       <div class="two">
         <label class="f"><span><span class="lbl" id="dueLbl">Due Date</span> <span class="req" id="dueReq" aria-hidden="true" hidden>*</span></span><input type="date" name="due" value="${esc(t.due)}"></label>
@@ -12674,7 +12747,7 @@ function viewNoteBoard(){
         <div class="nb-target trash" data-drop-note="trash" role="button" tabindex="0" data-act="trash-open" data-kind="note" title="Trash" aria-label="Trash${trashVisible().filter(e => e.kind === "note").length ? ", " + trashVisible().filter(e => e.kind === "note").length + " recently deleted" : ""}. Click to see recently deleted notes, or drag a note here to delete it.">${TRASH}<span>Trash</span></div>
       </div>
     </div>${envelopeHtml()}</div>
-    <p class="hint-line tip-everyday">Drag notes to move them. Drop a note on a board tab, the folder (archive) or the trash. Drag stickers onto notes. Tap a note to edit.</p>`;
+    <p class="hint-line tip-everyday nb-hint"><span class="nbh-l">Drag notes to move them. Drop a note on a board tab, the folder (archive) or the trash. Drag stickers onto notes. Tap a note to edit.</span><span class="nbh-s">Drag a note to move it. Tap one to edit.</span></p>`;
 }
 /*NOTESPOT-START*/
 // The first spot in view, row by row, where a w by h note overlaps none of the others
@@ -13122,7 +13195,7 @@ function masteryPips(box){ return `<span class="pips" title="Level ${box} of 5">
 /* Review (the Flashcards tab) */
 ui.rvView = ui.rvView || (() => { try { return localStorage.getItem("studyboard:rvview") === "quizzes" ? "quizzes" : "cards"; } catch (e) { return "cards"; } })();
 const rvSet = v => { ui.rvView = v === "quizzes" ? "quizzes" : "cards"; try { localStorage.setItem("studyboard:rvview", ui.rvView); } catch (e) {} };
-const reviewSwitchHtml = () => `<div class="pview-tabs rv-tabs" role="tablist" aria-label="Flashcards and Quizzes"><button role="tab" data-act="rv-view" data-id="cards" aria-selected="${ui.rvView !== "quizzes"}">Flashcards</button><button role="tab" data-act="rv-view" data-id="quizzes" aria-selected="${ui.rvView === "quizzes"}">Quizzes</button></div>`;
+const reviewSwitchHtml = () => `<div class="pview-tabs rv-tabs" role="tablist" aria-label="Review"><button role="tab" data-act="rv-view" data-id="cards" aria-selected="${ui.rvView !== "quizzes"}">Flashcards</button><button role="tab" data-act="rv-view" data-id="quizzes" aria-selected="${ui.rvView === "quizzes"}">Quizzes</button></div>`;
 const QZ_GROUP_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19.5c0-3.2 2.7-5.5 6-5.5s6 2.3 6 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16.5 14.1c2.6.2 4.5 2.2 4.5 4.9"/></svg>';
 // Quizzes you put away with Archive (qz.archived) stay on their deck, out of the list
 const quizzesAll = archived => { const out = []; decksArr().forEach(d => (d.aiQuizzes || []).forEach(qz => { if (qz && qz.questions && qz.questions.length && !!qz.archived === !!archived) out.push({d, qz}); })); return out.sort((a, b) => (b.qz.created || 0) - (a.qz.created || 0)); };
@@ -13171,7 +13244,7 @@ function viewQuizzes(){
       <div class="qz-band"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span><span class="g2-kick">${esc(c ? courseLabel(c) : "General")}</span>${qz.kind === "case" ? `<span class="qz-pill">Case Study</span>` : ""}</div>
       <button class="qz-body" data-act="qz-open" data-id="${esc(d.id + ":" + qz.id)}"><b class="qz-title">${esc(qz.title || "Practice Quiz")}</b><span class="mini">${n} question${n === 1 ? "" : "s"} · from ${esc(quizFrom(d, qz))}${last ? ` · last score ${last.score}/${last.total}` : ""}</span></button>
       <div class="qz-acts"><button class="btn small primary" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Start</button><button class="btn small" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Share</button><span class="spacer"></span><button class="btn small deck-arch" data-act="qz-archive" data-id="${esc(d.id + ":" + qz.id)}" title="Put this quiz away" aria-label="Archive ${esc(qz.title || "quiz")}">${ARCHIVE.replace('width="26" height="26"', 'width="16" height="16"')}</button></div></article>`; }).join("");
-  return `<div class="view-head" data-qz-list><h2>Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
+  return `<div class="view-head" data-qz-list><h2>Your Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${chipsHtml()}${q ? `<div class="search-note">Showing quizzes that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${list.length ? `<div class="qz-grid">${cards}</div>` : `<div class="empty" style="margin-top:14px"><strong>${all.length ? "No Quizzes Match" : "No Quizzes Yet"}</strong>${all.length ? "Try another course or search." : (inPreview() ? "Make a quiz from one of your flashcard decks." : "Upload your slides, notes or readings and " + esc(aiWho("AI")) + " writes a practice quiz. Or make one from a flashcard deck.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px">${inPreview() || all.length ? "" : `<button class="btn primary ai-btn" data-act="qz-ai">${AI_ICON} From Slides or Notes</button>`}<button class="btn${inPreview() ? " primary" : ""}" data-act="qz-from-deck">From a Deck</button></div></div>`}
     <section class="grp-strip"><div class="grp-strip-txt">${QZ_GROUP_IC}<span><b>Study Together</b><span class="mini">Share quizzes with a study group: everyone takes them in their own app and sees the best scores.</span></span></div>
@@ -13204,7 +13277,7 @@ function viewFlashcards(){
       <div class="deck-actions"><button class="btn small primary" data-act="fc-study" data-id="${esc(d.id)}" ${st.total ? "" : "disabled"}>Study</button><button class="btn small" data-act="fc-share" data-id="${esc(d.id)}" ${st.total ? "" : "disabled"}>Share</button><button class="btn small deck-arch" data-act="fc-archive" data-id="${esc(d.id)}" title="Put this deck away when you're done studying it" aria-label="Archive ${esc(d.name)}">${ARCHIVE.replace('width="26" height="26"', 'width="16" height="16"')}</button></div>
     </div></article>`;
   }).join("");
-  return reviewSwitchHtml() + `<div class="view-head" data-fc-list><h2>Flashcards</h2>
+  return reviewSwitchHtml() + `<div class="view-head" data-fc-list><h2>Your Decks</h2>
       ${(w => due || w.n ? `<button class="btn small" data-act="fc-review-menu"${due ? ` aria-label="Review, ${due} card${due === 1 ? "" : "s"} due"` : ""}>Review${due ? ` <span class="n-badge due" aria-hidden="true">${due}</span>` : ""}</button>` : "")(weakSpots(decksArr().filter(d => ui.filter === "all" || d.courseId === ui.filter).map(d => d.id)))}
       ${window.SBSHARE ? SBSHARE.libBtn() : ""}${archBtn()}${trashBtn("deck") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="deck" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${chipsHtml()}${ui.q.trim() ? `<div class="search-note">Showing decks that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
@@ -20843,7 +20916,7 @@ const ERRCORE = (() => {
     {id: "today", title: "Today's Plan", tab: "board", go: () => { ui.bview = "plan"; }, sel: [".bview-tabs", ".focus.plan", NAV("board")],
       text: () => "Today's Plan lines up what to work on next and for how long, with time set aside for each task around your classes and free time."},
     {id: "taskboard", title: "Task Board", tab: "board", go: () => { ui.bview = "board"; }, sel: [".bview-tabs", ".board-sec-head", NAV("board")],
-      text: () => "Every task by status: To Do, In Work and Complete. Drag a card to move it along, filter by course, or group the board by course."},
+      text: () => "Every task by status: To Do, In Progress and Complete. Drag a card to move it along, filter by course, or group the board by course."},
     {id: "timeline", title: "Calendar: Due Dates", tab: "timeline", sel: [".pview-tabs", NAV("plan")],
       text: () => "Every deadline across your courses, on a timeline or a month calendar. Calendar has three views: Due Dates, Schedule and Crunch."},
     {id: "schedule", title: "Calendar: Schedule", tab: "schedule", sel: [".pview-tabs", NAV("plan")],
@@ -23612,6 +23685,7 @@ hook("boot", boot);
       case "toggle": if (state.tasks[arg]) { runAct("toggle", arg); push(); } break;
       case "done": if (state.tasks[arg] && state.tasks[arg].status !== "done") { runAct("toggle", arg); push(); } break;
       case "task": openTaskById(arg); break;
+      default: fire("desk-action", a, arg);
     }
   }
   const ACTIONS = ["quickadd", "today", "focus", "search", "flashcards", "done", "settings"];
@@ -39404,7 +39478,43 @@ var TP_DATA = [];
     });
   });
 
+  /* The Theme Collection card styles (bundle/tp.css, about 650 KB) load only when a page or sheet shows one: the decks, a deck or a study
+     session in one of them, or the Style Shop. A device that uses one remembers it, so the next start loads them with the page. */
+  const TPCSS = "tp.css", TPKEY = "studyboard:tpcss";
+  let tpWait = null;
+  const tpHere = () => !!document.querySelector(`[data-lazy="${TPCSS}"]`);
+  function tpCss(){
+    if (tpWait) return tpWait;
+    const have = document.querySelector(`[data-lazy="${TPCSS}"]`), url = (window.SB_LAZY || {}).tpcss;
+    if ((have && (have.tagName === "STYLE" || have.sheet)) || !url) return (tpWait = Promise.resolve(!!have));
+    const root = document.documentElement;
+    root.classList.add("tpcss-loading");
+    tpWait = new Promise(res => {
+      const l = have || Object.assign(document.createElement("link"), {rel: "stylesheet", href: url});
+      l.dataset.lazy = TPCSS;
+      const done = ok => { root.classList.remove("tpcss-loading"); if (!ok) { l.remove(); tpWait = null; } res(ok); };
+      l.addEventListener("load", () => done(true), {once: true});
+      l.addEventListener("error", () => done(false), {once: true});
+      if (!have) document.head.appendChild(l);
+    });
+    return tpWait;
+  }
+  const tpUsed = () => { try { return /^tp-/.test(cardStyleOf(null)) || Object.values(state.decks || {}).some(d => d && /^tp-/.test(d.cardStyle || "")); } catch (e) { return false; } };
+  let tpMark = null;
+  function tpCheck(scope){
+    const used = tpUsed();
+    if (used !== tpMark) { tpMark = used; try { if (used) localStorage.setItem(TPKEY, "1"); else localStorage.removeItem(TPKEY); } catch (e) {} }
+    if (used || (scope && scope.querySelector('[class*="cs-tp-"]'))) tpCss();
+  }
+  hook("render", () => tpCheck(document.getElementById("view")));
+  const origSheet = openSheet;
+  openSheet = function(){ const r = origSheet.apply(this, arguments); try { tpCheck(dlg); } catch (e) {} return r; };
+  // The Style Shop's Flashcards tab lists every card style
+  const origShop2 = styleShop;
+  styleShop = function(){ tpCss(); return origShop2.apply(this, arguments); };
+
   // For previews and tests
+  window.SBTPCSS = {load: tpCss, loaded: tpHere};
   window.SBTP = {
     themes: () => tpOrder().slice(), pinHtml, shopRows: rowsHtml, pinIds: () => PINS.map(x => x.id),
     ordered,
@@ -39449,10 +39559,6 @@ var TP_DATA = [];
   if (!nav) return;
   const MAX = 5;
   const wide = () => !!(window.matchMedia && matchMedia("(min-width:980px)").matches);
-  const titles = () => nav.querySelectorAll("button").forEach(b => {
-    const t = (b.getAttribute("aria-label") || b.textContent || "").replace(/\s+/g, " ").trim();
-    if (t && b.title !== t) b.title = t;
-  });
   // Let the upper group (Board ... Focus) use spare height
   const KEEP = 28, CAP_H = 12, CAP_G = 4;
   function stretch(lvl){
@@ -39476,7 +39582,6 @@ var TP_DATA = [];
     if (busy) return;
     busy = true;
     try {
-      titles();
       if (!wide()) { if (nav.dataset.fit) delete nav.dataset.fit; nav.style.removeProperty("--nb-min"); nav.style.removeProperty("--nb-g"); return; }
       let lvl = 0;
       nav.style.removeProperty("--nb-min"); nav.style.removeProperty("--nb-g");
@@ -40220,6 +40325,8 @@ var TP_DATA = [];
     select(start, prev ? prev.view : "home", !!prev);
     if (prev && prev.q) { q.value = prev.q; search(prev.q); }
     if (prev) requestAnimationFrame(() => { main.scrollTop = prev.top; });
+    // A fresh Settings sheet starts in Search Settings (not on Close); phones skip it so the keyboard doesn't pop up
+    else if (window.matchMedia && matchMedia("(min-width:601px)").matches) { try { q.focus({preventScroll: true}); } catch (e) {} }
   }
 
   // Show one settings row (for other modules and tests)
@@ -52936,6 +53043,8 @@ var COMP_EXTRA = [];
       if (!best || c.score < best.score) best = c;
     }
     if (!best) best = edgeSpot(px, f, list, here, fresh);
+    // No clear spot: it waits in its reserved place beside the Add button (the page keeps room below its last row for it) rather than on top of text or buttons
+    if (best.kind === "edge" && best.over > 0) { const h = list.find(c => c.kind === "home"), rg = range(px); if (h) best = {left: Math.round(Math.min(Math.max(rg.L, rg.R), Math.max(rg.L, h.left))), top: Math.round(Math.min(Math.max(rg.T, rg.B), Math.max(rg.T, h.top))), kind: "home"}; }
     return Object.assign(best, {px, fab: f});
   }
   function choose(fresh){
@@ -53098,6 +53207,8 @@ var COMP_EXTRA = [];
     document.body.classList.toggle("cp-docked", s.kind === "dock");
     box.hidden = false;
     document.documentElement.style.setProperty("--cp-reserve", s.kind === "home" ? Math.round(s.fab.right - s.left + 12) + "px" : "0px");
+    // room under the page's last row, so it can scroll clear of the companion
+    document.documentElement.style.setProperty("--cp-pad", s.kind !== "slot" && s.kind !== "dock" && s.top > innerHeight * 0.45 ? Math.round(innerHeight - s.top + 16) + "px" : "0px");
     document.body.classList.toggle("cp-on", true);
     if (box.parentNode !== front) front.appendChild(box);
     box.classList.toggle("cp-h-fab", s.kind === "home");
@@ -53540,7 +53651,7 @@ var COMP_EXTRA = [];
   function teardown(){
     clearTimers(); clearInterval(tickT); if (act) act.stopAll();
     if (layer) layer.remove(); if (front) front.remove();
-    document.body.classList.remove("cp-on"); document.documentElement.style.removeProperty("--cp-reserve");
+    document.body.classList.remove("cp-on"); document.documentElement.style.removeProperty("--cp-reserve"); document.documentElement.style.removeProperty("--cp-pad");
     layer = front = box = act = cur = null; curSig = ""; home = ""; homeSig = ""; vext = null; shrink = 1;
     compChanged();
   }
@@ -58963,21 +59074,44 @@ var SOUNDS_HOOK = hook;
   }
   const inBar = () => !!(window.matchMedia && matchMedia("(max-width:979px)").matches);
 
-  function moreSheet(){
+  function moreSheet(opener){
     const row = (act, title, sub) => `<button type="button" data-act="${act}"><span>${esc(title)}<span class="sub">${esc(sub)}</span></span></button>`;
+    const local = typeof sbLocalOnly === "function" && sbLocalOnly() && !stub();
     openSheet(`<div class="sheet more-sheet">${head(tr("more.title", "More"))}<div class="sheet-body"><div class="menu-list">
-      ${row("more-go-groups", tr("more.groups", "Study Groups"), tr("more.groups.sub", "Share decks and deadlines, plan sessions with friends"))}
+      ${row("more-go-groups", tr("more.groups", "Study Groups"), local ? tr("more.groups.local", "Share decks and deadlines with friends. Needs a free account.") : tr("more.groups.sub", "Share decks and deadlines, plan sessions with friends"))}
       ${row("more-go-files", tr("more.files", "Files"), tr("more.files.sub", "Your course files and documents"))}
       ${row("g-grades", tr("more.grades", "Grades"), tr("more.grades.sub", "Your marks and what you need on the rest"))}
+      ${row("shop", tr("more.style", "Style Shop"), tr("more.style.sub", "Themes, card styles, note shapes and stickers"))}
+      ${row("archive-open", tr("more.archive", "Archive"), tr("more.archive.sub", "Finished tasks and past terms"))}
       ${row("menu", tr("more.settings", "Settings"), tr("more.settings.sub", "Backups, text size, themes and more"))}
     </div></div></div>`);
-    const b = $("nav.tabs .nav-more"); if (b) b.setAttribute("aria-expanded", "true");
+    const b = opener || $("nav.tabs .nav-more"); if (b) b.setAttribute("aria-expanded", "true");
     dlg.addEventListener("close", () => {
-      const m = $("nav.tabs .nav-more"); if (!m) return;
+      const m = opener || $("nav.tabs .nav-more"); if (!m) return;
       m.setAttribute("aria-expanded", "false");
       if (!document.activeElement || document.activeElement === document.body) { try { m.focus(); } catch (e) {} }
     }, {once: true});
   }
+  // Phones and tablets: the bottom bar keeps the main pages; Settings (the header's ⋯ button) starts with the rest
+  const goRow = () => {
+    const local = typeof sbLocalOnly === "function" && sbLocalOnly() && !stub();
+    const b = (act, label, sub) => `<button type="button" class="set-go-b" data-act="${act}"><b>${esc(label)}</b><span>${esc(sub)}</span></button>`;
+    return `<nav class="set-go" aria-label="${esc(tr("more.title", "More"))}">${b("more-go-groups", tr("more.groups", "Study Groups"), local ? tr("more.groups.short.local", "Needs a free account") : tr("more.groups.short", "Study with friends"))}${b("more-go-files", tr("more.files", "Files"), tr("more.files.short", "Course files"))}${b("g-grades", tr("more.grades", "Grades"), tr("more.grades.short", "Your marks"))}${b("shop", tr("more.style", "Style Shop"), tr("more.style.short", "Themes and stickers"))}${b("archive-open", tr("more.archive", "Archive"), tr("more.archive.short", "Finished work"))}</nav>`;
+  };
+  const origMenu = menuSheet;
+  menuSheet = function(){
+    const r = origMenu.apply(this, arguments);
+    try { const body = inBar() && !dlg.querySelector(".set-go") ? dlg.querySelector(".sheet-body") : null; if (body) body.insertAdjacentHTML("afterbegin", goRow()); } catch (e) {}
+    return r;
+  };
+  // Phones and tablets: the bottom bar keeps the main pages, and the header's ⋯ button holds the rest
+  const headMore = () => $('header.top [data-act="menu"]');
+  function headLabel(){
+    const b = headMore(); if (!b) return;
+    b.setAttribute("aria-label", inBar() ? tr("more.aria.head", "Settings, Study Groups, Files, Grades, Style and Archive") : "Settings, backups and import");
+        document.body.classList.toggle("sb-local", typeof sbLocalOnly === "function" && sbLocalOnly() && !stub());
+  }
+  try { const mq = matchMedia("(max-width:979px)"); (mq.addEventListener ? mq.addEventListener("change", headLabel) : mq.addListener(headLabel)); } catch (e) {}
 
   /* Board card */
   let probed = null, probing = null;
@@ -59031,9 +59165,9 @@ var SOUNDS_HOOK = hook;
     }
     return false;
   });
-  hook("render", () => { addMore(); label(); });
-  hook("boot", () => { addMore(); label(); });
-  hook("lang", () => label());
+  hook("render", () => { addMore(); label(); headLabel(); });
+  hook("boot", () => { addMore(); label(); headLabel(); });
+  hook("lang", () => { label(); headLabel(); });
   window.SBGNUDGE = {showCard, state: rd, inBar};
 })();
 
@@ -75442,7 +75576,8 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
 /* ===== module: 101-phone-v2.js ===== */
 /* Phones: the page's name in the top bar (with the date over the Board) */
 (() => {
-  const isPhone = () => innerWidth < 640;
+  const mqPhone = window.matchMedia ? matchMedia("(max-width:639px)") : null;
+  const isPhone = () => mqPhone ? mqPhone.matches : innerWidth < 640;
   const navBtn = t => document.querySelector(`nav.tabs .in [data-tab="${t}"]`);
   const label = t => { const b = navBtn(t); return b ? b.textContent.trim() : ""; };
   const norm = x => String(x || "").replace(/\s+/g, " ").trim().toLowerCase();
@@ -75474,7 +75609,7 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
         view.insertBefore(pill, view.firstChild);
       }
       const sel = view.querySelector(":scope > .pview-tabs [aria-selected=true], :scope > .pview-tabs.ph-solo > .ph-solo-t");
-      const same = new Set([norm(t), sel ? norm(sel.textContent) : "", tab === "courses" ? "your courses" : "", "study " + norm(t)].filter(Boolean));
+      const same = new Set([norm(t), sel ? norm(sel.textContent) : "", tab === "courses" ? "your courses" : "", tab === "flashcards" ? "your decks" : "", tab === "flashcards" ? "your quizzes" : "", "study " + norm(t)].filter(Boolean));
       const selT = sel ? norm(sel.textContent) : "";
       view.querySelectorAll(":scope > .view-head > h2, :scope > .tl-controls > h2, :scope > * > .view-head > h2").forEach(h => { const x = norm(h.textContent); h.classList.toggle("ph-dup", same.has(x) || (!!selT && x.startsWith(selT + " "))); });
       view.querySelectorAll(":scope > .view-head, :scope > section > .view-head").forEach(v => { const h = v.querySelector(":scope > h2.ph-dup"), rest = [...v.children].filter(c => c !== h); v.classList.toggle("ph-btns", !!h && rest.length > 0 && rest.length <= 3 && rest.every(c => c.matches("button.btn"))); });
@@ -75538,7 +75673,21 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
       }
     } catch (e) {}
   }
-  hook("render", () => { update(); fitChat(); seatCut(); barTint(); });
+  // The nav shape and the bar colour only change with the layout, theme or skin: measured once per frame, and only when one of those changed
+  let raf = 0, seatSig = "", tintSig = "";
+  const sig = () => { const r = document.documentElement; return [isPhone(), r.dataset.theme || "", r.dataset.skin || "", r.dataset.hc || "", r.dataset.ts || "", (document.getElementById("skinCss") || {textContent: ""}).textContent.length].join("|"); };
+  function later(force){
+    if (force) { seatSig = ""; tintSig = ""; }
+    if (raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      const s = sig(), nav = document.querySelector("nav.tabs");
+      const seat = s + "|" + (nav ? nav.dataset.fit || "" : "") + "|" + (document.querySelector('nav.tabs .in [data-tab="companion"]') ? 1 : 0);
+      if (seat !== seatSig) { seatSig = seat; seatCut(); }
+      if (s !== tintSig) { tintSig = s; barTint(); }
+    });
+  }
+  hook("render", () => { update(); fitChat(); later(false); });
   // Phones: iOS paints the strip behind the clock and battery in the page's theme colour
   function barTint(){
     const m = document.querySelector('meta[name="theme-color"]'); if (!m) return;
@@ -75570,7 +75719,7 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
     if (fresh.length === 2) { fresh.forEach(([k, v]) => { if (nav.style.getPropertyValue(k) !== v) nav.style.setProperty(k, v); }); nav.classList.add("ph-seatcut"); }
     else nav.classList.remove("ph-seatcut");
   }
-  hook("boot", () => setTimeout(() => { update(); fitChat(); seatCut(); barTint(); }, 0));
+  hook("boot", () => setTimeout(() => { update(); fitChat(); later(true); }, 0));
   // Companion chat on a phone
   function fitChat(){
     const root = document.documentElement, view = document.getElementById("view");
@@ -75599,10 +75748,269 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
     if (s.value === "__new") setTimeout(() => { try { render(); } catch (x) {} }, 0);
   });
   let wasPhone = isPhone();
-  addEventListener("resize", () => { if (isPhone() !== wasPhone) { wasPhone = isPhone(); scheduleRender(); } else update(); fitChat(); seatCut(); barTint(); });
+  addEventListener("resize", () => { if (isPhone() !== wasPhone) { wasPhone = isPhone(); scheduleRender(); } else update(); fitChat(); later(true); });
 
 })();
 
+/* ===== module: 102-qol.js ===== */
+/* Back and Forward, page titles, keyboard shortcuts, tooltips, skip links and the sync status sheet */
+(() => {
+  const mm = q => { try { return window.matchMedia ? matchMedia(q) : null; } catch (e) { return null; } };
+  const widgetView = (() => { try { return new URLSearchParams(location.search).get("widget") === "today"; } catch (e) { return false; } })();
+  const modals = () => [...document.querySelectorAll("dialog[open]")].filter(d => { try { return d.matches(":modal"); } catch (e) { return true; } });
+
+  /* ================= Back and Forward =================
+     Each page (tab, course, deck, group) is its own history entry with its own address (?view=notes, ?view=courses&course=…),
+     so Back goes to the last page instead of leaving the app. An open sheet adds an entry too, so Back closes it first. */
+  const H = window.history, canRoute = !widgetView && !!(H && H.pushState && H.replaceState);
+  const PARAMS = ["view", "course", "deckid", "grp"];
+  const KNOWN = ["board", "timeline", "schedule", "crunch", "courses", "files", "emails", "archive", "flashcards", "notes", "groups", "companion"];
+  const group = t => isPlanTab(t) ? "plan" : t === "files" || t === "emails" ? "courses" : t;
+  const route = () => ({tab: ui.tab, course: ui.tab === "courses" ? ui.courseId || "" : "", deck: ui.tab === "flashcards" ? ui.deckId || "" : "", grp: ui.tab === "groups" ? ui.grp || "" : ""});
+  const keyOf = r => [r.tab, r.course, r.deck, r.grp].join("|");
+  function urlOf(r){
+    const u = new URL(location.href);
+    PARAMS.forEach(k => u.searchParams.delete(k));
+    if (r.tab !== "board") u.searchParams.set("view", r.tab);
+    if (r.course) u.searchParams.set("course", r.course);
+    if (r.deck) u.searchParams.set("deckid", r.deck);
+    if (r.grp) u.searchParams.set("grp", r.grp);
+    return u.pathname + u.search + u.hash;
+  }
+  let cur = null, curKey = "", idx = 0, sheetOpen = false, skip = 0, popping = false, waiting = [];
+  const op = f => { if (skip) waiting.push(f); else { try { f(); } catch (e) {} } };
+  const put = (r, push, sheet) => op(() => {
+    if (push) idx++;
+    H[push ? "pushState" : "replaceState"]({sb: r, i: idx, sheet: sheet ? 1 : 0}, "", urlOf(r));
+  });
+  function closeTop(d){
+    const ev = new Event("cancel", {cancelable: true});
+    d.dispatchEvent(ev);
+    if (ev.defaultPrevented) return false;
+    try { d.close(); } catch (e) { d.removeAttribute("open"); }
+    return true;
+  }
+  // Keep the sheet entry in step with whether a sheet is open
+  function sheets(){
+    if (!canRoute || !cur) return;
+    const open = modals().length > 0;
+    if (open && !sheetOpen) { sheetOpen = true; put(cur, true, true); }
+    else if (!open && sheetOpen) { sheetOpen = false; op(() => { skip++; idx = Math.max(0, idx - 1); H.back(); }); }
+  }
+  function title(){
+    const navCur = document.querySelector('nav.tabs .in [aria-current="page"]');
+    let t = ui.tab === "archive" ? "Archive" : navCur ? (navCur.textContent || "").replace(/\s+/g, " ").trim() : "";
+    try {
+      if (ui.tab === "courses" && ui.courseId && state.courses[ui.courseId]) t = state.courses[ui.courseId].name || t;
+      else if (ui.tab === "flashcards" && ui.deckId && state.decks && state.decks[ui.deckId]) t = state.decks[ui.deckId].name || t;
+      else if (isPlanTab(ui.tab) || ui.tab === "files" || ui.tab === "emails") { const sub = document.querySelector('#view > .pview-tabs [aria-selected="true"]'); if (sub && sub.textContent.trim() && sub.textContent.trim() !== t) t = sub.textContent.trim() + " · " + t; }
+    } catch (e) {}
+    const want = t ? t + " · Studyboard" : "Studyboard";
+    if (document.title !== want) document.title = want;
+  }
+  function onRender(){
+    title();
+    if (!canRoute) return;
+    const r = route(), k = keyOf(r);
+    if (k === curKey) { sheets(); return; }
+    const prev = cur; cur = r; curKey = k;
+    if (!prev || popping) put(r, false, false);
+    else if (sheetOpen) {
+      // the page changed under a sheet: the sheet's entry becomes the new page (and a new sheet entry follows if it's still open)
+      sheetOpen = false; put(r, false, false);
+    } else {
+      const same = group(prev.tab) === group(r.tab) && prev.course === r.course && prev.deck === r.deck && prev.grp === r.grp;
+      if (!same) op(() => { try { H.replaceState(Object.assign({}, H.state, {y: Math.round(window.scrollY || 0)}), ""); } catch (e) {} });
+      put(r, !same, false);
+    }
+    sheets();
+  }
+  function go(r, y){
+    // from a study group back to the list of groups: the same as its Back button (which also stops listening for the group's updates)
+    if (ui.tab === "groups" && r.tab === "groups" && ui.grp && !r.grp) { popping = true; try { fire("act", "grp-back", document.body, ""); } finally { popping = false; } return; }
+    ui.tab = KNOWN.includes(r.tab) ? r.tab : "board";
+    ui.courseId = r.course && state.courses[r.course] ? r.course : null;
+    if (ui.tab === "flashcards") { ui.fc = null; ui.deckId = r.deck && state.decks && state.decks[r.deck] ? r.deck : null; }
+    if (ui.tab === "groups") ui.grp = r.grp || null;
+    if (isPlanTab(ui.tab)) ui.tlJump = true;
+    popping = true;
+    try { render(); } finally { popping = false; }
+    window.scrollTo(0, Number(y) || 0);
+  }
+  const fromUrl = () => { try { const q = new URLSearchParams(location.search); return {tab: q.get("view") || "board", course: q.get("course") || "", deck: q.get("deckid") || "", grp: q.get("grp") || ""}; } catch (e) { return null; } };
+  if (canRoute) {
+    addEventListener("popstate", e => {
+      if (skip) { skip--; const w = waiting; waiting = []; w.forEach(f => { try { f(); } catch (x) {} }); return; }
+      const st = e.state || {};
+      idx = Number(st.i) || 0;
+      const r = st.sb || fromUrl();
+      const open = modals();
+      if (open.length) {
+        sheetOpen = false;
+        if (!closeTop(open[open.length - 1])) { sheetOpen = true; put(cur, true, true); return; }
+        if (r && keyOf(r) !== curKey) go(r, st.y);
+        sheets();
+        return;
+      }
+      sheetOpen = false;
+      if (st.sheet) { try { H.replaceState(Object.assign({}, st, {sheet: 0}), ""); } catch (x) {} }
+      if (r && keyOf(r) !== curKey) go(r, st.y);
+    });
+    // Sheets opening and closing (any modal dialog)
+    try { new MutationObserver(() => sheets()).observe(document.body, {subtree: true, attributes: true, attributeFilter: ["open"]}); } catch (e) {}
+    // Other start-up code tidies the address bar (deep links); put the page's own address and entry back
+    hook("boot", () => setTimeout(() => { if (!cur) return; const st = H.state; if (!st || !st.sb) op(() => H.replaceState({sb: cur, i: idx, sheet: sheetOpen ? 1 : 0}, "", urlOf(cur))); }, 1500));
+  }
+  hook("render", onRender);
+  // The address's page wins over the remembered one (a link or a refresh)
+  function boot(){
+    if (!canRoute) return;
+    const q = new URLSearchParams(location.search), v = q.get("view");
+    if (!v || !KNOWN.includes(v)) return;
+    ui.tab = v;
+    const c = q.get("course"); ui.courseId = v === "courses" && c && state.courses[c] ? c : null;
+    if (v === "flashcards") { const d = q.get("deckid"); ui.deckId = d && state.decks && state.decks[d] ? d : null; }
+    if (v === "groups") ui.grp = q.get("grp") || null;
+  }
+  // Back on an Android phone: close a sheet, else go back a page, else go to the Board; only from the Board does the app close
+  function back(){
+    const open = modals();
+    if (open.length) { if (sheetOpen && canRoute) H.back(); else closeTop(open[open.length - 1]); return true; }
+    if (canRoute && idx > 0) { H.back(); return true; }
+    if (ui.tab !== "board" || ui.courseId) { ui.tab = "board"; ui.courseId = null; render(); window.scrollTo(0, 0); return true; }
+    return false;
+  }
+  window.SBROUTE = {boot, url: () => cur ? urlOf(cur) : "", depth: () => idx};
+  window.SBTOAST = function () { return toast.apply(null, arguments); };
+  window.SBBACK = {handle: back};
+
+  /* ================= Keyboard shortcuts ================= */
+  const MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || "");
+  const MOD = MAC ? "⌘" : "Ctrl";
+  const VIEWS_KEYS = [["board", "Board"], ["plan", "Calendar"], ["flashcards", "Review"], ["notes", "Notes"], ["courses", "Courses"], ["companion", "Companion"], ["groups", "Groups"]];
+  const viewName = t => { const b = document.querySelector(`nav.tabs .in [data-tab="${t}"]`); const s = b && (b.textContent || "").replace(/\s+/g, " ").trim(); return s || (VIEWS_KEYS.find(v => v[0] === t) || [t, t])[1]; };
+  function goView(t){
+    if (dlg.open) dlg.close();
+    const b = document.querySelector(`nav.tabs .in [data-tab="${t}"]`);
+    if (b) b.click(); else { ui.tab = t; ui.courseId = null; render(); window.scrollTo(0, 0); }
+  }
+  function newTask(){ if (dlg.open) dlg.close(); taskForm(null, {courseId: (ui.tab === "courses" && ui.courseId) || undefined}); }
+  function settings(){ if (dlg.open) dlg.close(); menuSheet(); }
+  const typing = t => !!t && t.nodeType === 1 && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || !!(t.closest && t.closest('[role="application"],[contenteditable="true"],[contenteditable=""]')));
+  const kbd = s => s.split("+").map(k => `<kbd>${esc(k)}</kbd>`).join("+");
+  function helpSheet(){
+    const row = (keys, what) => `<tr><th scope="row">${keys.map(kbd).join(" or ")}</th><td>${esc(what)}</td></tr>`;
+    const sec = (h, rows) => `<h3 class="kb-h">${esc(h)}</h3><table class="kb-t"><tbody>${rows.join("")}</tbody></table>`;
+    openSheet(`<div class="sheet kb-sheet">${head("Keyboard Shortcuts")}<div class="sheet-body">
+      <p class="mini" style="margin:0">These work when you're not typing in a box.</p>
+      ${sec("Anywhere", [row(["N"], "New task"), row(["C"], "Quick Capture"), row([MOD + "+K"], "Search everything"), row([MOD + "+,"], "Settings"), row([MOD + "+Z"], "Undo the last delete"), row(["?"], "Show this list"), row(["Esc"], "Close a sheet")])}
+      ${sec("Go To", VIEWS_KEYS.map(([t], i) => row([String(i + 1), MOD + "+" + (i + 1)], viewName(t))))}
+      ${sec("Flashcards", [row(["Space"], "Flip the card"), `<tr><th scope="row">${kbd("1")} to ${kbd("4")}</th><td>Again, Hard, Good or Easy (after flipping)</td></tr>`, row(["Enter"], "Next question in a quiz")])}
+      ${sec("Notes", [row(["Arrow keys"], "Move the selected note"), row(["[", "]"], "Turn the selected note"), row([MOD + "+Enter"], "Finish editing a note")])}
+    </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
+  }
+  document.addEventListener("keydown", e => {
+    if (e.defaultPrevented || e.isComposing || e.repeat) return;
+    if (typing(e.target) || modals().length) return;
+    const mod = e.ctrlKey || e.metaKey, m = /^Digit([1-7])$/.exec(e.code || "");
+    if (mod && !e.altKey && !e.shiftKey && e.key === ",") { e.preventDefault(); settings(); return; }
+    if (mod && !e.altKey && !e.shiftKey && m) { e.preventDefault(); goView(VIEWS_KEYS[Number(m[1]) - 1][0]); return; }
+    if (mod || e.altKey) return;
+    if (e.key === "?") { e.preventDefault(); helpSheet(); return; }
+    if ((e.key === "n" || e.key === "N") && !e.shiftKey) { e.preventDefault(); newTask(); return; }
+    if (m && !e.shiftKey && !(ui.tab === "flashcards" && ui.fc)) { e.preventDefault(); goView(VIEWS_KEYS[Number(m[1]) - 1][0]); }
+  });
+  hook("act", act => {
+    if (act === "kbd-help") { if (dlg.open) dlg.close(); setTimeout(helpSheet, 0); return true; }
+    if (act === "sync-status") { syncSheet(); return true; }
+    if (act === "sync-retry") { if (!syncRetryNow() && typeof initSupabase === "function") initSupabase(true); if (dlg.open) dlg.close(); toast("Trying again…"); return true; }
+    return false;
+  });
+  hook("menu", () => `<button data-act="kbd-help"><span>Keyboard Shortcuts<span class="sub">Press ? to see them all. N adds a task, 1 to 7 switch pages.</span></span></button>`);
+  // The desktop app's menu
+  hook("desk-action", (a, arg) => {
+    if (a === "new-task") newTask();
+    else if (a === "view" && VIEWS_KEYS.some(v => v[0] === arg)) goView(arg);
+    else if (a === "shortcuts") { if (dlg.open) dlg.close(); helpSheet(); }
+  });
+  hook("boot", () => {
+    document.querySelectorAll("nav.tabs .in [data-tab]").forEach(b => { const i = VIEWS_KEYS.findIndex(v => v[0] === b.dataset.tab); if (i >= 0) b.setAttribute("aria-keyshortcuts", `${i + 1} ${MAC ? "Meta" : "Control"}+${i + 1}`); });
+    document.querySelectorAll('[data-act="new-task"]#fab').forEach(b => b.setAttribute("aria-keyshortcuts", "N"));
+  });
+
+  /* ================= Sync status ================= */
+  function syncSheet(){
+    const t = ($("#sync") || {}).textContent || "", n = (() => { try { return Object.keys(outboxGet()).length; } catch (e) { return 0; } })();
+    const off = navigator.onLine === false, signedOut = /Not signed in/.test(t);
+    const say = off ? "This device is offline. Your changes are saved here and sync when you're back online."
+      : signedOut ? "You're signed out, so changes are only kept on this device. Sign in to sync them to your account."
+      : /^Not saved/.test(t) ? "Your latest changes are saved on this device but haven't reached your account yet." + (/retrying/.test(t) ? " Studyboard keeps trying on its own." : "")
+      : /Saved on this device/.test(t) ? "Your planner is saved on this device only." : t ? `Status: ${t}.` : "";
+    openSheet(`<div class="sheet sync-sheet">${head("Sync Status")}<div class="sheet-body">
+      <p class="sync-st" data-state="${esc(($("#sync") || {dataset: {}}).dataset.state || "")}"><b>${esc(t || "Saved")}</b></p>
+      <p style="margin:0">${esc(say)}</p>
+      ${n ? `<p class="mini" style="margin:0">${n} change${n === 1 ? "" : "s"} waiting to sync.</p>` : ""}
+    </div><div class="sheet-foot"><button type="button" class="btn" data-act="menu">Open Settings</button><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button>${signedOut ? `<button type="button" class="btn primary" data-act="sb-signin">Sign In</button>` : `<button type="button" class="btn primary" data-act="sync-retry">Try Again</button>`}</div></div>`);
+  }
+  // Elements acting as buttons (role="button") work with Enter and Space
+  document.addEventListener("keydown", e => {
+    const t = e.target;
+    if ((e.key !== "Enter" && e.key !== " ") || !t || !t.matches || !t.matches('[role="button"][data-act]:not(button)')) return;
+    e.preventDefault(); t.click();
+  });
+
+  /* ================= Skip links ================= */
+  document.addEventListener("click", e => {
+    const a = e.target.closest && e.target.closest("a.skip-link"); if (!a) return;
+    e.preventDefault();
+    const id = (a.getAttribute("href") || "").slice(1), el = document.getElementById(id); if (!el) return;
+    const vis = x => x && x.getClientRects().length > 0;
+    const t = el.matches("nav") ? [el.querySelector('[aria-current="page"]'), ...el.querySelectorAll("button,a[href]")].find(vis) : el;
+    if (t) { try { t.focus(); } catch (x) {} }
+  });
+
+  /* ================= Tooltips =================
+     The browser's own title tooltips never show (99-motion-a11y-tz.js). Icon-only controls get a small tooltip with their name instead, on
+     devices with a mouse or trackpad, after a short pause or when reached with the keyboard. */
+  const hover = mm("(hover: hover) and (pointer: fine)");
+  let tip = null, tipFor = null, tipT = 0;
+  const tipText = el => {
+    if (el.dataset && el.dataset.tip) return el.dataset.tip;
+    // icon-only: no visible letters or digits (an icon, or a sign like − or ×)
+    if (!el.matches("button,a[href],[role=button],[role=tab]") || /[\p{L}\p{N}]/u.test(el.innerText || "")) return "";
+    return (el.getAttribute("aria-label") || "").trim();
+  };
+  function hideTip(){ clearTimeout(tipT); tipT = 0; tipFor = null; if (tip) { tip.remove(); tip = null; } }
+  function showTip(el, text){
+    if (!el.isConnected || !el.getClientRects().length) return;
+    const host = el.closest("dialog[open]") || document.body;
+    tip = document.createElement("div"); tip.className = "sb-tip"; tip.setAttribute("aria-hidden", "true"); tip.textContent = text;
+    host.appendChild(tip);
+    const r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight, gap = 8;
+    let top = r.top - h - gap; if (top < 6) top = r.bottom + gap;
+    const left = Math.max(6, Math.min(innerWidth - w - 6, r.left + r.width / 2 - w / 2));
+    tip.style.left = left + "px"; tip.style.top = top + "px";
+  }
+  const want = (el, delay) => {
+    if (!hover || !hover.matches) return;
+    const t = el && tipText(el); if (!t) return;
+    hideTip(); tipFor = el; tipT = setTimeout(() => { tipT = 0; if (tipFor === el) showTip(el, t); }, delay);
+  };
+  document.addEventListener("pointerover", e => {
+    if (e.pointerType && e.pointerType !== "mouse") return;
+    const el = e.target.closest && e.target.closest("[data-tip],button,a[href],[role=button],[role=tab]");
+    if (!el || el === tipFor) return;
+    if (tipFor) hideTip();
+    want(el, 500);
+  }, true);
+  document.addEventListener("pointerout", e => { if (tipFor && !(e.relatedTarget && tipFor.contains(e.relatedTarget))) hideTip(); }, true);
+  document.addEventListener("focusin", e => { const el = e.target; let fv = false; try { fv = el.matches(":focus-visible"); } catch (x) {} if (fv) want(el, 300); else hideTip(); });
+  document.addEventListener("focusout", hideTip);
+  ["pointerdown", "keydown", "wheel"].forEach(ev => document.addEventListener(ev, hideTip, true));
+  addEventListener("scroll", hideTip, {capture: true, passive: true});
+  document.addEventListener("close", hideTip, true);
+  hook("render", () => { if (tipFor && !tipFor.isConnected) hideTip(); });
+})();
 /* ===== module: 99-motion-a11y-tz.js ===== */
 /* Animations governor (Auto / Full / Reduced / Off), low-power handling, text size */
 (() => {
@@ -75816,15 +76224,20 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
     return false;
   });
 
-  /* ================= No hover tooltips =================
+  /* ================= No browser tooltips =================
      The browser's own tooltip boxes (from title="…" anywhere, and <title> inside icons) never show. What they said still reaches
-     screen readers: it becomes the element's aria-label when the element has no name of its own (no text, no label). This also covers
-     anything drawn later (sheets, menus, third-party bits), through one observer that only looks at title attributes and new nodes. */
+     screen readers: it becomes the element's aria-label when the element has no name of its own (no text, no label), or data-tip
+     (shown by the app's own tooltip, 102-qol.js) when it adds to the name. This also covers anything drawn later (sheets, menus,
+     third-party bits), through one observer that only looks at title attributes and new nodes. */
   (() => {
     const named = el => el.hasAttribute("aria-label") || el.hasAttribute("aria-labelledby") || (el.labels && el.labels.length) || ((el.textContent || "").trim() && !/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName));
     const strip = el => {
       if (!el || el.nodeType !== 1) return;
-      if (el.hasAttribute("title")) { const t = (el.getAttribute("title") || "").trim(); el.removeAttribute("title"); if (t && !named(el)) el.setAttribute("aria-label", t); }
+      if (el.hasAttribute("title")) {
+        const t = (el.getAttribute("title") || "").trim(); el.removeAttribute("title");
+        if (t && !named(el)) el.setAttribute("aria-label", t);
+        else if (t && t !== (el.getAttribute("aria-label") || (el.textContent || "").trim())) el.dataset.tip = t;
+      }
       if (el.tagName === "title" && el.parentNode && el.parentNode.tagName && el.parentNode.tagName.toLowerCase() === "svg") {
         const svg = el.parentNode, t = (el.textContent || "").trim(); el.remove();
         if (t && !svg.hasAttribute("aria-label")) { svg.setAttribute("aria-label", t); if (!svg.hasAttribute("role")) svg.setAttribute("role", "img"); }
@@ -75855,10 +76268,11 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
     } catch (e) { console.warn("a11y pass", e); }
   }
   // One page title for screen readers when the visible header
+  const mqSide = mm("(min-width:980px)");
   function pageTitle(){
     const h = document.getElementById("pageH1"); if (!h) return;
     const top = document.querySelector("header.top .brand"), cur = document.querySelector('nav.tabs [aria-current="page"]');
-    const topShown = !!(top && top.getClientRects().length);
+    const topShown = !!top && !(mqSide && mqSide.matches);
     h.hidden = topShown;
     if (!topShown) { const t = "Studyboard" + (cur ? ", " + (cur.textContent || "").replace(/\s+/g, " ").trim() : ""); if (h.textContent !== t) h.textContent = t; }
   }
@@ -76219,7 +76633,7 @@ setTimeout(async () => {
 }, 4000);
 try { const pr = JSON.parse(localStorage.getItem(AI_PREFS_LS) || "null"); if (pr && typeof pr === "object" && !(state.settings && state.settings.ai)) { state.settings = Object.assign({}, state.settings, {ai: pr}); saveSettings(); } localStorage.removeItem(AI_PREFS_LS); } catch(e) {}
 setTimeout(async () => { try { const has = ["tasks", "courses", "notes", "decks", "files"].some(k => Object.keys(state[k] || {}).length); if (has) { const dev = (await deviceBackups()).filter(b => !String(b.id || "").startsWith("k-")); if (!dev.length || Date.now() - dev[0].at > 864e5) await saveDeviceBackup(backupSnap()); } } catch(e) {} }, 6000);
-if (loadProblem) setTimeout(() => { try { toast("Your saved data on this device couldn't be read. A copy was set aside, not deleted. Sign in to get your account's copy, or restore a backup in Settings."); } catch(e) {} }, 2500);
+if (loadProblem) setTimeout(() => { try { toast("Your saved data on this device couldn't be read. A copy was set aside, not deleted. Sign in to get your account's copy, or restore a backup.", null, {label: "Open Backups", fn: restoreSheet}, {error: true}); } catch(e) {} }, 2500);
 try { trashEnforce(); } catch(e) { console.warn(e); }
 syncLabel();
 pomoBoot();
@@ -76241,10 +76655,13 @@ try {
     hereScroll = Math.max(0, Number(h.y) || 0);
   }
 } catch(e) {}
+try { if (window.SBROUTE) SBROUTE.boot(); } catch(e) {}
 const hereSave = () => { try { if (window.SBTOUR && SBTOUR.active && SBTOUR.active()) return;
   sessionStorage.setItem(HERE, JSON.stringify({tab: ui.tab, courseId: ui.courseId || "", courseTab: ui.courseTab || "", bview: ui.bview || "", deckId: ui.tab === "flashcards" && !ui.fc ? ui.deckId || "" : "",
     grp: ui.tab === "groups" ? ui.grp || "" : "", fCourse: ui.fCourse || "", fFolder: ui.fFolder || "", y: Math.round(window.scrollY || 0), at: Date.now()})); } catch(e) {} };
-hook("render", () => hereSave());
+// Saved when the page goes away, plus at most once a second after a redraw (no layout reads during a render)
+let hereT = 0;
+hook("render", () => { if (!hereT) hereT = setTimeout(() => { hereT = 0; hereSave(); }, 1000); });
 addEventListener("pagehide", hereSave);
 document.addEventListener("visibilitychange", () => { if (document.hidden) hereSave(); });
 render();

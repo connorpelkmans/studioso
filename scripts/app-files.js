@@ -17,7 +17,8 @@ const manifest = () => JSON.parse(fs.readFileSync(MANIFEST, "utf8"));
 // What each bundle/ file is made of
 function plan(m = manifest()){
   const out = {"app.css": m.css.map(n => "src/css/" + n), "app.js": m.js.map(n => "src/js/" + n)};
-  for (const [name, parts] of Object.entries(m.lazy || {})) out[name] = parts.map(n => "src/js/" + n);
+  // loaded on demand: scripts (src/js) and style sheets (src/css)
+  for (const [name, parts] of Object.entries(m.lazy || {})) out[name] = parts.map(n => (/\.css$/.test(name) ? "src/css/" : "src/js/") + n);
   return out;
 }
 const srcFiles = (m = manifest()) => [].concat(...Object.values(plan(m)));
@@ -58,8 +59,10 @@ function stamp(html, read = readRoot){
 // The one-page form
 function inline(html, read = readRoot){
   let out = String(html);
-  out = out.replace(/<link rel="stylesheet" href="bundle\/app\.css\?v=[0-9a-f]*">/, () => "<style>" + read("bundle/app.css") + "</style>");
-  const lazy = refs(out).filter(n => n !== "app.css" && n !== "app.js");
+  // style sheets loaded on demand follow the app's own, each in a <style data-lazy="NAME"> (so the app knows they're here)
+  const lazyCss = refs(out).filter(n => n !== "app.css" && /\.css$/.test(n));
+  out = out.replace(/<link rel="stylesheet" href="bundle\/app\.css\?v=[0-9a-f]*">/, () => "<style>" + read("bundle/app.css") + "</style>" + lazyCss.map(n => `<style data-lazy="${n}">` + read("bundle/" + n) + "</style>").join(""));
+  const lazy = refs(out).filter(n => n !== "app.css" && n !== "app.js" && !/\.css$/.test(n));
   out = out.replace(/<script src="bundle\/app\.js\?v=[0-9a-f]*"><\/script>/, () =>
     lazy.map(n => "<script>" + read("bundle/" + n) + "</script>\n").join("") + "<script>" + INLINE_JS_PRE + read("bundle/app.js") + INLINE_JS_POST + "</script>");
   return out;

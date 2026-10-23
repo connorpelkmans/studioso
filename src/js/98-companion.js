@@ -703,6 +703,8 @@
       if (!best || c.score < best.score) best = c;
     }
     if (!best) best = edgeSpot(px, f, list, here, fresh);
+    // No clear spot: it waits in its reserved place beside the Add button (the page keeps room below its last row for it) rather than on top of text or buttons
+    if (best.kind === "edge" && best.over > 0) { const h = list.find(c => c.kind === "home"), rg = range(px); if (h) best = {left: Math.round(Math.min(Math.max(rg.L, rg.R), Math.max(rg.L, h.left))), top: Math.round(Math.min(Math.max(rg.T, rg.B), Math.max(rg.T, h.top))), kind: "home"}; }
     return Object.assign(best, {px, fab: f});
   }
   function choose(fresh){
@@ -865,6 +867,8 @@
     document.body.classList.toggle("cp-docked", s.kind === "dock");
     box.hidden = false;
     document.documentElement.style.setProperty("--cp-reserve", s.kind === "home" ? Math.round(s.fab.right - s.left + 12) + "px" : "0px");
+    // room under the page's last row, so it can scroll clear of the companion
+    document.documentElement.style.setProperty("--cp-pad", s.kind !== "slot" && s.kind !== "dock" && s.top > innerHeight * 0.45 ? Math.round(innerHeight - s.top + 16) + "px" : "0px");
     document.body.classList.toggle("cp-on", true);
     if (box.parentNode !== front) front.appendChild(box);
     box.classList.toggle("cp-h-fab", s.kind === "home");
@@ -1307,7 +1311,7 @@
   function teardown(){
     clearTimers(); clearInterval(tickT); if (act) act.stopAll();
     if (layer) layer.remove(); if (front) front.remove();
-    document.body.classList.remove("cp-on"); document.documentElement.style.removeProperty("--cp-reserve");
+    document.body.classList.remove("cp-on"); document.documentElement.style.removeProperty("--cp-reserve"); document.documentElement.style.removeProperty("--cp-pad");
     layer = front = box = act = cur = null; curSig = ""; home = ""; homeSig = ""; vext = null; shrink = 1;
     compChanged();
   }
