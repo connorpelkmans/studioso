@@ -20,6 +20,16 @@
     sync();
   }
 
+  // Phone menu for the top bar's links
+  var menu = document.getElementById("menu-toggle"), top = document.querySelector("header.top");
+  if (menu && top) {
+    var setOpen = function (on) { top.classList.toggle("menu-open", on); menu.setAttribute("aria-expanded", String(on)); menu.setAttribute("aria-label", on ? "Close menu" : "Menu"); };
+    menu.addEventListener("click", function () { setOpen(!top.classList.contains("menu-open")); });
+    top.addEventListener("click", function (e) { if (e.target.closest && e.target.closest(".navlinks a")) setOpen(false); });
+    document.addEventListener("click", function (e) { if (!top.contains(e.target)) setOpen(false); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && top.classList.contains("menu-open")) { setOpen(false); menu.focus(); } });
+  }
+
   // Put the owner's support address (config.js) into every .support-email element
   var cfg = window.STUDYBOARD_SITE || {};
   var mail = typeof cfg.SUPPORT_EMAIL === "string" && /^[^\s@<>"]+@[^\s@<>"]+$/.test(cfg.SUPPORT_EMAIL) ? cfg.SUPPORT_EMAIL : "support@studyboardapp.com";

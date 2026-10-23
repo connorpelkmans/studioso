@@ -147,8 +147,3 @@
 }
 
 @media (prefers-reduced-motion:reduce){.pub-card,.pub-item{transition:none}}
-@media (max-width:480px){
-  .pub .top nav.main{gap:12px}
-  .pub .top .navbtn{white-space:nowrap;padding:8px 12px;font-size:.88rem}
-  .pub .top .brand img{width:112px;height:auto}
-}
