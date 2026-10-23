@@ -221,6 +221,8 @@
     select(start, prev ? prev.view : "home", !!prev);
     if (prev && prev.q) { q.value = prev.q; search(prev.q); }
     if (prev) requestAnimationFrame(() => { main.scrollTop = prev.top; });
+    // A fresh Settings sheet starts in Search Settings (not on Close); phones skip it so the keyboard doesn't pop up
+    else if (window.matchMedia && matchMedia("(min-width:601px)").matches) { try { q.focus({preventScroll: true}); } catch (e) {} }
   }
 
   // Show one settings row (for other modules and tests)

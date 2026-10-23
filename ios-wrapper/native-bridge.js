@@ -117,6 +117,11 @@
         if (String(q)) window.location.href = window.location.pathname + "?" + q.toString();
       } catch (e) { }
     });
+    // Android's Back button closes an open sheet, then goes back a page, then to the Board; only from the Board does it leave the app
+    P.App.addListener("backButton", function () {
+      try { if (window.SBBACK && window.SBBACK.handle()) return; } catch (e) { }
+      if (typeof P.App.exitApp === "function") P.App.exitApp();
+    });
   }
 
   /* 4. Push notifications through @capacitor/push-notifications */
