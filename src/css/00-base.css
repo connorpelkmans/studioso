@@ -316,7 +316,7 @@ li.task>.lms-go{align-self:center;margin-right:12px}
   .cal .day{aspect-ratio:auto;min-height:clamp(78px,calc((100vh - 400px) / 6),128px);border:0;border-radius:0;align-items:stretch;justify-content:flex-start;padding:6px 6px 8px;gap:5px;background:var(--surface);color:var(--ink)}
   .cal .day:hover{background:color-mix(in srgb,var(--accent) 5%,var(--surface))}
   .cal .day.wkend{background:color-mix(in srgb,var(--soft) 60%,var(--surface))}
-  .cal .day.out{opacity:1;background:color-mix(in srgb,var(--bg) 65%,var(--surface))}
+  .cal .day.out{opacity:1;background:color-mix(in srgb,var(--bg) 40%,var(--surface))}
   .cal .day.out .num{opacity:.5}
   .cal .day.past:not(.is-today) .num{color:var(--muted)}
   .cal .day.past .ci-row:not(.late){opacity:.6}

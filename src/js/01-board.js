@@ -444,11 +444,11 @@ function weekStripHtml(week, pick, overdue){
     const exams = w.rows.filter(x => MILESTONE(x.t.type) && /^(Exam|Quiz)$/.test(x.t.type)), rest = w.rows.filter(x => !exams.includes(x));
     const marks = exams.map(x => `<i class="wk-flag" style="--c:${esc(colorOf(x.t.courseId))}">${x.t.type === "Quiz" ? "Quiz" : "Exam"}</i>`).join("") + rest.slice(0, 6).map(x => `<i style="--c:${esc(colorOf(x.t.courseId))}"></i>`).join("") + (rest.length > 6 ? `<em>+${rest.length - 6}</em>` : "");
     const wd = d.getDay() === 0 || d.getDay() === 6, pct = Math.min(100, Math.round(w.hours / w.cap * 100));
-    const said = `${w.i === 0 ? "Today, " : ""}${fmtDate(w.iso)}: ${n ? `${n} due, ${fmtHM(w.hours) || "no work left"}${exams.length ? `, ${exams.map(x => x.t.title).join(", ")}` : ""}${w.heavy ? ", more than the time planned for that day" : ""}` : "nothing due"}. Show only that day`;
+    const said = `${w.i === 0 ? "Today, " : ""}${fmtDate(w.iso)}: ${n ? `${n} due${fmtHM(w.hours) ? `, ${fmtHM(w.hours)} of work` : ""}${exams.length ? `, ${exams.map(x => x.t.title).join(", ")}` : ""}${w.heavy ? ", more than the time planned for that day" : ""}` : "nothing due"}. Show only that day`;
     return `<li class="wk-cell"><button type="button" class="wk-day${w.i === 0 ? " today" : ""}${wd ? " wkend" : ""}" data-act="plan-tile" data-id="d:${w.iso}" aria-pressed="${pick === "d:" + w.iso}" aria-label="${esc(said)}">
       <span class="wk-h"><span class="wk-dow">${esc(dow)}</span><span class="wk-num">${d.getDate()}</span></span>
       <span class="wk-dots" aria-hidden="true">${marks}</span>
-      <span class="wk-sum" aria-hidden="true">${n ? `${n} due · ${esc(fmtHM(w.hours) || "0m")}` : "Free"}</span>
+      <span class="wk-sum" aria-hidden="true">${n ? `${n} due${fmtHM(w.hours) ? ` · ${esc(fmtHM(w.hours))}` : ""}` : "Free"}</span>
       <span class="wk-load${w.heavy ? " heavy" : ""}" aria-hidden="true"><b style="width:${pct}%"></b></span></button>${w.i === 0 && overdue ? `<button type="button" class="wk-late" data-act="plan-tile" data-id="late" aria-pressed="${pick === "late"}" aria-label="Show only the ${overdue} overdue"><b>${overdue}</b> overdue</button>` : ""}</li>`;
   }).join("");
   return `<ol class="wk-strip" aria-label="The week ahead">${days}</ol>`;
@@ -468,7 +468,7 @@ function focusHtml(){
   const week = weekAhead(F, inView), pickDay = /^d:/.test(ui.planTile || "") ? week.find(w => w.iso === ui.planTile.slice(2)) : null;
   if ((ui.planTile === "late" && !overdue) || (/^d:/.test(ui.planTile || "") && !pickDay) || (ui.planTile && ui.planTile !== "late" && !/^d:/.test(ui.planTile))) ui.planTile = "";
   const pick = ui.planTile || "";
-  const base = pick === "late" ? lateRows : pickDay ? pickDay.rows : todayList.length ? todayList : workable, rowsAll = pickDay ? base : base.filter(x => x.t.id !== heroId);
+  const base = pick === "late" ? lateRows : pickDay ? pickDay.rows : todayList.length ? todayList : workable, rowsAll = pick ? base : base.filter(x => x.t.id !== heroId);
   const cap = pick || (todayList.length && ui.planAllToday) ? rowsAll.length : todayList.length ? 5 : 3;
   const show = rowsAll.slice(0, cap), hiddenToday = !pick && todayList.length ? rowsAll.slice(show.length) : [];
   const sum = [];
