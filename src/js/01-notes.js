@@ -163,11 +163,12 @@ function fileRow(f){
   else if (f.kind === "file") { meta.push(`<span>Rev ${revLetter(f.revs.length - 1)}</span>`); if (r) meta.push(`<span>${fmtSize(r.size)}</span>`); }
   else { try { meta.push(`<span>${esc(new URL(safeUrl(f.url)).hostname.replace(/^www\./, ""))}</span>`); } catch(e) {} }
   meta.push(`<span>${esc(new Date(f.updated || f.created || Date.now()).toLocaleDateString(undefined, {month:"short", day:"numeric"}))}</span>`);
+  const read = f.kind === "file" && window.SBPRO && SBPRO.canRead && SBPRO.canRead(f);
   return `<li class="frow" draggable="true" data-fid="${esc(f.id)}">
     ${fileIcon(f)}
-    <button class="fmain" data-act="f-open" data-id="${esc(f.id)}"><span class="fname">${esc(f.name)}</span><span class="task-meta">${meta.join("")}</span>
+    <button class="fmain" data-act="${read ? "pdr-open" : "f-open"}" data-id="${esc(f.id)}"${read ? ` aria-label="Read ${esc(f.name)}"` : ""}><span class="fname">${esc(f.name)}</span><span class="task-meta">${meta.join("")}</span>
       ${tasks.length ? `<span class="ftasks">${tasks.slice(0, 3).map(t => `<span class="dep-chip" style="--c:${esc(colorOf(t.courseId))}">${CLIP}${esc(t.title)}</span>`).join("")}${tasks.length > 3 ? `<span class="mini">+${tasks.length - 3}</span>` : ""}</span>` : ""}</button>
-    ${f.summary && !inPreview() ? `<button type="button" class="btn small ai-btn f-sum" data-act="f-summarize" data-id="${esc(f.id)}" aria-label="Summary of ${esc(f.name)}">${AI_ICON}<span class="f-sum-l">Summary</span></button>` : ""}<a class="btn small" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">Open</a>
+    ${f.summary && !inPreview() ? `<button type="button" class="btn small ai-btn f-sum" data-act="f-summarize" data-id="${esc(f.id)}" aria-label="Summary of ${esc(f.name)}">${AI_ICON}<span class="f-sum-l">Summary</span></button>` : ""}${read ? `<button type="button" class="btn small f-edit" data-act="f-open" data-id="${esc(f.id)}" aria-label="Edit details of ${esc(f.name)}" title="Name, course, folder and versions">Edit</button>` : `<a class="btn small" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">Open</a>`}
   </li>`;
 }
 function viewFiles(){
@@ -237,7 +238,7 @@ function fileSheet(f){
       ${isLink ? "" : `<fieldset><legend>Revisions</legend><ul class="revs">${f.revs.map((r, i) => ({r, i})).reverse().map(({r, i}) => `<li><span class="rev">Rev ${revLetter(i)}</span><span class="mini">${esc(new Date(r.at).toLocaleString(undefined, {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}))}, ${fmtSize(r.size)}${r.name && r.name !== f.name ? ", " + esc(r.name) : ""}</span><span class="spacer"></span><a class="link-btn" href="${esc(assetHref(r.assetId))}" ${assetAttr(r.assetId)} target="_blank" rel="noopener noreferrer">Open</a><button type="button" class="link-btn" data-dl="${i}">Download</button></li>`).join("")}</ul>
         ${caps.assets ? `<button type="button" class="btn small" id="fsNewRev">Upload a New Revision</button><input type="file" id="fsRevIn" class="sr" tabindex="-1">` : ""}${window.SBCLOUD ? SBCLOUD.moveHtml(f) : ""}</fieldset>`}
     </div>
-    <div class="sheet-foot"><button type="button" class="btn danger" id="fsDel">Delete</button><span class="spacer"></span>${(!isLink || isCloud) && !inPreview() && readableFile(f) ? `<button type="button" class="btn ai-btn" data-act="f-summarize" data-id="${esc(f.id)}">${AI_ICON} ${f.summary ? "Summary" : "Summarize"}</button>` : ""}${!isLink && window.SBPRO && SBPRO.fileBtns ? SBPRO.fileBtns(f) : ""}<a class="btn" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">Open</a><button type="button" class="btn primary" data-submit>Save</button></div>
+    <div class="sheet-foot"><button type="button" class="btn danger" id="fsDel">Delete</button><span class="spacer"></span>${(!isLink || isCloud) && !inPreview() && readableFile(f) ? `<button type="button" class="btn ai-btn" data-act="f-summarize" data-id="${esc(f.id)}">${AI_ICON} ${f.summary ? "Summary" : "Summarize"}</button>` : ""}${!isLink && window.SBPRO && SBPRO.fileBtns ? SBPRO.fileBtns(f) : ""}<a class="btn" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${!isLink && window.SBPRO && SBPRO.canRead && SBPRO.canRead(f) ? (DESK ? "Open in Another App" : "Open in Browser") : "Open"}</a><button type="button" class="btn primary" data-submit>Save</button></div>
   </form>`, fd => {
     const name = String(fd.get("name") || "").trim(); if (!name) return false;
     const cur = state.files[f.id]; if (!cur) return;
@@ -441,7 +442,8 @@ const notesArr = () => Object.values(state.notes || {}).filter(n => !isWhiteboar
 const NOTE_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;margin-right:2px"><path d="M4 4h16v10l-6 6H4z"/><path d="M14 20v-6h6"/></svg>';
 const ROT_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>';
 const notesOfTask = id => notesArr().filter(n => n.taskId === id);
-let noteEditing = null;
+let noteEditing = null, noteMoreOpen = null;
+document.addEventListener("toggle", e => { const d = e.target; if (d && d.classList && d.classList.contains("note-moredd")) { const el = d.closest(".note"); noteMoreOpen = d.open && el ? el.dataset.note : null; } }, true);
 function noteMatches(n){
   const q = ui.q.trim().toLowerCase(); if (!q) return true;
   const c = courseOf(n.courseId);
@@ -452,7 +454,7 @@ function noteTaskOpts(n){
   const cur = n.taskId && state.tasks[n.taskId];
   const cands = tasksArr().filter(t => t.status !== "done" && t.id !== n.taskId).sort(sortTasks);
   const grp = (label, arr) => arr.length ? `<optgroup label="${esc(label)}">${arr.map(t => `<option value="${esc(t.id)}">${esc(t.title)}${t.due ? " (" + esc(fmtShort(t.due)) + ")" : ""}</option>`).join("")}</optgroup>` : "";
-  return `<option value="">Not attached to a task</option>${cur ? `<option value="${esc(cur.id)}" selected>Attached: ${esc(cur.title)}</option>` : ""}`
+  return `<option value="">No task attached</option>${cur ? `<option value="${esc(cur.id)}" selected>Attached: ${esc(cur.title)}</option>` : ""}`
     + grp(n.courseId && courseOf(n.courseId) ? courseLabel(courseOf(n.courseId)) : "Open tasks", cands.filter(t => !n.courseId || t.courseId === n.courseId))
     + (n.courseId ? grp("Other courses", cands.filter(t => t.courseId !== n.courseId)) : "");
 }
@@ -466,10 +468,9 @@ function noteHtml(n){
          <div class="note-colors" role="group" aria-label="Note color">${NOTE_COLORS_SHOWN.map(([k, hex]) => `<button type="button" class="nc ${k === n.color ? "on" : ""}" style="background:${noteColor(k)}" data-act="note-color" data-id="${esc(n.id)}" data-color="${k}" aria-label="${k}"></button>`).join("")}</div>
          <select class="note-task" data-id="${esc(n.id)}" aria-label="Attach to a task">${noteTaskOpts(n)}</select>
          <select class="note-course" data-id="${esc(n.id)}" aria-label="Course">${`<option value="">No course</option>` + coursesArr().map(x => `<option value="${esc(x.id)}" ${x.id === n.courseId ? "selected" : ""}>${esc(courseLabel(x))}</option>`).join("")}</select>
-         <div class="note-row2"><select class="note-shape" data-id="${esc(n.id)}" aria-label="Note shape" title="Shape"><option value="">${esc((NOTE_SHAPES.find(x => x.id === styleCfg().note) || NOTE_SHAPES[0]).name)} (default)</option>${NOTE_SHAPES.filter(x => x.id !== (NOTE_SHAPES.find(y => y.id === styleCfg().note) || NOTE_SHAPES[0]).id).map(x => `<option value="${x.id}" ${n.shape === x.id ? "selected" : ""} ${owns("note", x.id) ? "" : "disabled"}>${esc(x.name)}${x.tier === "pro" ? " ✦" : ""}</option>`).join("")}</select><select class="note-pin" data-id="${esc(n.id)}" aria-label="Pin" title="Pin">${pinOptionsHtml(n)}</select></div>
          ${window.SBPRO && SBPRO.noteBar ? SBPRO.noteBar(n) : ""}
          <div class="note-hbtns" role="group" aria-label="Undo and redo"><button type="button" class="btn small" data-act="note-undo" title="Undo your last change (Ctrl+Z also works)" aria-label="Undo change">↶ Undo</button><button type="button" class="btn small" data-act="note-redo" title="Redo" aria-label="Redo change">↷ Redo</button></div>
-         <details class="note-moredd"><summary class="btn small">More<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><div class="note-xbtns" role="group" aria-label="More for this note"><button type="button" class="btn small" data-act="note-versions" data-id="${esc(n.id)}" title="Restore an earlier version of this note">Versions</button><button type="button" class="btn small" data-act="note-export" data-id="${esc(n.id)}" title="Make a Word or Google Doc from this note">Export</button>${window.SBSHARE ? `<button type="button" class="btn small" data-act="share-link" data-kind="note" data-ref="${esc(n.id)}" title="Make a link anyone can open">Share Link</button>` : ""}</div></details>
+         <details class="note-moredd"${noteMoreOpen === n.id ? " open" : ""}><summary class="btn small">More<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><div class="note-row2"><select class="note-shape" data-id="${esc(n.id)}" aria-label="Note shape" title="Shape"><option value="">${esc((NOTE_SHAPES.find(x => x.id === styleCfg().note) || NOTE_SHAPES[0]).name)} (default)</option>${NOTE_SHAPES.filter(x => x.id !== (NOTE_SHAPES.find(y => y.id === styleCfg().note) || NOTE_SHAPES[0]).id).map(x => `<option value="${x.id}" ${n.shape === x.id ? "selected" : ""} ${owns("note", x.id) ? "" : "disabled"}>${esc(x.name)}${x.tier === "pro" ? " ✦" : ""}</option>`).join("")}</select><select class="note-pin" data-id="${esc(n.id)}" aria-label="Pin" title="Pin">${pinOptionsHtml(n)}</select></div><div class="note-xbtns" role="group" aria-label="More for this note"><button type="button" class="btn small" data-act="note-versions" data-id="${esc(n.id)}" title="Restore an earlier version of this note">Versions</button><button type="button" class="btn small" data-act="note-export" data-id="${esc(n.id)}" title="Make a Word or Google Doc from this note">Export</button>${window.SBSHARE ? `<button type="button" class="btn small" data-act="share-link" data-kind="note" data-ref="${esc(n.id)}" title="Make a link anyone can open">Share Link</button>` : ""}</div></details>
          <div class="note-btns"><button type="button" class="nb" data-act="note-archive" data-id="${esc(n.id)}" title="Archive" aria-label="Archive note">${ARCHIVE}</button><button type="button" class="nb" data-act="note-trash" data-id="${esc(n.id)}" title="Delete" aria-label="Delete note">${TRASH}</button><button type="button" class="btn small" data-act="note-done">Done</button></div>
        </div>`
     : `<div class="note-body">${n.text.trim() ? (window.SBPRO && SBPRO.noteText ? SBPRO.noteText(n) : esc(n.text)) : `<span class="note-empty">Empty note. Tap to write.</span>`}</div>`;
@@ -513,7 +514,54 @@ function ptStatsFit(){
 }
 hook("render", () => requestAnimationFrame(ptStatsFit));
 { let t = 0; addEventListener("resize", () => { clearTimeout(t); t = setTimeout(ptStatsFit, 120); }); }
-hook("render", () => { if (ui.tab !== "notes") return; noteFitText($("#noteText")); requestAnimationFrame(() => { noteFitText($("#noteText")); noteClipCheck(); fitNoteBoard(); }); });
+// The note being edited: a sheet over the page on a phone, and scrolled fully into view on a bigger screen
+const notePhone = () => !!(window.matchMedia && matchMedia("(max-width:700px)").matches);
+let noteShown = null;
+function noteSheetUp(){
+  const el = $(".note.editing"), sheet = !!el && notePhone();
+  if (!el) noteMoreOpen = null;
+  let bg = $(".n-sheet-bg");
+  if (sheet && !bg) { bg = document.createElement("div"); bg.className = "n-sheet-bg"; bg.setAttribute("aria-hidden", "true"); if (bg.showPopover) bg.setAttribute("popover", "manual"); document.body.appendChild(bg); }
+  if (bg) { bg.classList.toggle("on", sheet); if (bg.showPopover) try { if (sheet && !bg.matches(":popover-open")) bg.showPopover(); else if (!sheet && bg.matches(":popover-open")) bg.hidePopover(); } catch (e) {} }
+  if (!sheet) return;
+  el.classList.add("n-sheet");
+  if (el.showPopover && !el.matches(":popover-open")) {
+    const t = $("#noteText"), had = t && document.activeElement === t;
+    el.setAttribute("popover", "manual");
+    try { el.showPopover(); } catch (e) {}
+    if (had && document.activeElement !== t) try { t.focus({preventScroll: true}); } catch (e) {}
+    noteToastUp(true);
+  }
+  noteKbFit();
+}
+// A toast shows above the sheet
+function noteToastUp(again){
+  const t = document.getElementById("toast"); if (!t || !t.showPopover) return;
+  const up = t.classList.contains("show") && !!$(".note.n-sheet:popover-open"), open = t.matches(":popover-open");
+  try {
+    if (open && (!up || again)) t.hidePopover();
+    if (up && (!open || again)) { t.setAttribute("popover", "manual"); t.showPopover(); }
+    else if (!up) t.removeAttribute("popover");
+  } catch (e) {}
+}
+{ const t = document.getElementById("toast"); if (t) new MutationObserver(() => noteToastUp(false)).observe(t, {attributes: true, attributeFilter: ["class"]}); }
+function noteKbFit(){
+  const el = $(".note.n-sheet"), vv = window.visualViewport; if (!el || !vv) return;
+  el.style.setProperty("--kb", Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)) + "px");
+}
+if (window.visualViewport) { visualViewport.addEventListener("resize", noteKbFit); visualViewport.addEventListener("scroll", noteKbFit); }
+function noteScrollIn(){
+  const el = $(".note.editing"), sc = $("#nbScroll");
+  if (!el || !sc) { noteShown = null; return; }
+  if (noteShown === el.dataset.note || el.classList.contains("n-sheet")) { noteShown = el.dataset.note; return; }
+  noteShown = el.dataset.note;
+  const er = el.getBoundingClientRect(), sr = sc.getBoundingClientRect(), pad = 12;
+  let dy = er.bottom > sr.bottom - pad ? er.bottom - sr.bottom + pad : 0; if (er.top - dy < sr.top + pad) dy = er.top - sr.top - pad;
+  let dx = er.right > sr.right - pad ? er.right - sr.right + pad : 0; if (er.left - dx < sr.left + pad) dx = er.left - sr.left - pad;
+  if (dx || dy) sc.scrollBy(dx, dy);
+  const r = sc.getBoundingClientRect(); if (r.top < 0 || r.bottom > innerHeight) sc.scrollIntoView({block: "nearest"});
+}
+hook("render", () => { noteSheetUp(); if (ui.tab !== "notes") return; noteFitText($("#noteText")); requestAnimationFrame(() => { noteFitText($("#noteText")); noteClipCheck(); fitNoteBoard(); noteScrollIn(); }); });
 document.addEventListener("input", e => { if (e.target && e.target.id === "noteText") noteFitText(e.target); });
 document.addEventListener("focusin", e => { if (e.target && e.target.id === "noteText") noteFitText(e.target); });
 ["pointerdown", "mousedown", "touchstart"].forEach(t => document.addEventListener(t, e => { if (e.target.closest && e.target.closest(".note-more")) e.stopPropagation(); }, {capture: true, passive: true}));
@@ -562,12 +610,19 @@ function noteBoardSheet(id){
   });
   const del = dlg.querySelector("[data-nb-del]");
   if (del) del.addEventListener("click", () => {
-    const mine = notesArr().filter(n => n.board === b.id), live = mine.filter(n => !n.archived).length;
+    const mine = notesArr().filter(n => n.board === b.id), live = mine.filter(n => !n.archived).length, at = noteBoards().findIndex(x => x.id === b.id);
     if (mine.length) applyChanges(mine.map(n => ({kind: "note", id: n.id, after: Object.assign(clone(n), {board: ""})})), null);
     state.settings = Object.assign({}, state.settings, {noteBoards: noteBoards().filter(x => x.id !== b.id), noteBoardsGone: ((state.settings || {}).noteBoardsGone || []).filter(g => g && g.id !== b.id).concat({id: b.id, at: Date.now()}).slice(-30)}); saveSettings();
     ui.noteBoard = ""; try { localStorage.setItem(NB_KEY, ""); } catch (e) {}
     dlg.close(); render();
-    toast(live ? `Board deleted. Its ${live} note${live === 1 ? "" : "s"} moved to My Notes` : "Board deleted");
+    toast(live ? `Board deleted. Its ${live} note${live === 1 ? "" : "s"} moved to My Notes` : "Board deleted", () => {
+      const list = noteBoards().filter(x => x.id !== b.id); list.splice(Math.max(0, Math.min(at, list.length)), 0, b);
+      state.settings = Object.assign({}, state.settings, {noteBoards: list, noteBoardsGone: ((state.settings || {}).noteBoardsGone || []).filter(g => g && g.id !== b.id)}); saveSettings();
+      const back = mine.map(n => state.notes[n.id]).filter(n => n && !n.board).map(n => ({kind: "note", id: n.id, after: Object.assign(clone(n), {board: b.id})}));
+      if (back.length) applyChanges(back, null);
+      ui.noteBoard = b.id; try { localStorage.setItem(NB_KEY, b.id); } catch (e) {}
+      render(); toast(`${b.name} is back`);
+    });
   });
 }
 // Text still being typed in an open note goes into the note first
@@ -630,7 +685,7 @@ function viewNoteBoard(){
   const archived = notesArr().filter(n => n.archived).length;
   const maxY = onBoard.reduce((m, n) => Math.max(m, n.y), 0), maxX = onBoard.reduce((m, n) => Math.max(m, n.x), 0);
   const W = maxX ? maxX + NOTE_W() + 40 : 0, H = maxY ? maxY + 260 : 0;
-  return `<div class="tl-controls f-title"><h2>Notes</h2><button class="btn small" data-act="note-export" title="Make a Word or Google Doc from your notes">Export</button>${proBtns("notes")}</div>
+  return `<div class="tl-controls f-title"><h2>Notes</h2>${inPreview() ? "" : `<button class="btn small ai-btn nb-photo" data-act="note-photo" aria-label="Photo to Note" title="Turn a photo of a board or slide into a note"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span class="nb-photo-l">Photo to Note</span></button>`}<button class="btn small" data-act="note-export" title="Make a Word or Google Doc from your notes">Export</button>${proBtns("notes")}</div>
     ${noteBoardBar()}
     ${ui.q.trim() ? `<div class="search-note">Notes that don't match “${esc(ui.q.trim())}” are faded. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     <div class="nb-wrap"><div class="nb-main">
@@ -648,11 +703,27 @@ function viewNoteBoard(){
     </div>${envelopeHtml()}</div>
     <p class="hint-line tip-everyday">Drag notes to move them. Drop a note on a board tab, the folder (archive) or the trash. Drag stickers onto notes. Tap a note to edit.</p>`;
 }
+/*NOTESPOT-START*/
+// The first spot in view, row by row, where a w by h note overlaps none of the others
+function noteFreeSpot(rects, view, w, h){
+  const gap = 16, step = 24, hit = (x, y) => rects.some(r => x < r.x + r.w + gap && x + w + gap > r.x && y < r.y + r.h + gap && y + h + gap > r.y);
+  const x0 = Math.max(16, view.x + 16), y0 = Math.max(16, view.y + 16), x1 = Math.max(x0, view.x + view.w - w - 16), y1 = Math.max(y0, view.y + view.h - h - 16);
+  for (let y = y0; y <= y1; y += step) for (let x = x0; x <= x1; x += step) if (!hit(x, y)) return {x: Math.round(x), y: Math.round(y)};
+  const below = rects.filter(r => r.x < x1 + w && r.x + r.w > x0).reduce((m, r) => Math.max(m, r.y + r.h), y0 - gap);
+  return {x: Math.round(x0), y: Math.round(below + gap)};
+}
+/*NOTESPOT-END*/
+const NOTE_COLOR_KEY = "studyboard:noteColor";
+const noteLastColor = () => { let c = ""; try { c = localStorage.getItem(NOTE_COLOR_KEY) || ""; } catch (e) {} return NOTE_COLORS_SHOWN.some(([k]) => k === c) ? c : "yellow"; };
 function newNoteAt(x, y){
   const sc = $("#nbScroll");
-  if (x == null && sc) { x = (sc.scrollLeft + sc.clientWidth / 2) / nbZ() - NOTE_W() / 2 + (Math.random() * 60 - 30); y = (sc.scrollTop + 40) / nbZ() + Math.random() * 40; }
+  if (x == null && sc) {
+    const z0 = nbZ(), rects = $$("#nbBoard .note:not(.n-sheet)").map(el => ({x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight}));
+    const p = noteFreeSpot(rects, {x: sc.scrollLeft / z0, y: sc.scrollTop / z0, w: sc.clientWidth / z0, h: sc.clientHeight / z0}, NOTE_W(), 160);
+    x = p.x; y = p.y;
+  }
   const z = notesArr().reduce((m, n) => Math.max(m, n.z || 0), 0) + 1;
-  const n = normNote({id: uid(), text: "", color: "yellow", x: Math.round(x || 40), y: Math.round(y || 40), z, rot: Math.round((Math.random() * 4 - 2) * 10) / 10,
+  const n = normNote({id: uid(), text: "", color: noteLastColor(), x: Math.round(x || 40), y: Math.round(y || 40), z, rot: Math.round((Math.random() * 4 - 2) * 10) / 10,
     courseId: (() => { const b = noteBoards().find(x => x.id === noteBoardId()); return b && b.courseId || ""; })(), board: noteBoardId(), created: Date.now()});
   noteEditing = n.id;
   applyChanges([{kind:"note", id: n.id, after: n}], "");
@@ -665,6 +736,17 @@ function saveNoteText(){
   const n = state.notes[id];
   if (t.value !== n.text) { nhRecord(id, n.text, "Before this edit"); applyChanges([{kind:"note", id, after: Object.assign(clone(n), {text: t.value, updated: Date.now()})}], ""); }
   else render();
+}
+// Keyboard focus goes back to the note that was open, and stays on a note when the board redraws
+let noteFocusId = null;
+const noteFocus = () => { const el = noteFocusId && !noteEditing && $(`.note[data-note="${CSS.escape(noteFocusId)}"]`); if (el && document.activeElement !== el && (!document.activeElement || document.activeElement === document.body)) try { el.focus({preventScroll: true}); } catch (e) {} };
+document.addEventListener("focusin", e => { const t = e.target; noteFocusId = t && t.matches && t.matches(".note[data-note]:not(.editing)") ? t.dataset.note : null; });
+document.addEventListener("focusout", e => { if (e.target && e.target.isConnected && !e.relatedTarget && document.hasFocus()) noteFocusId = null; });
+hook("render", tab => { if (tab === "notes") noteFocus(); });
+function noteRefocus(id){
+  if (!id) return;
+  noteFocusId = id;
+  setTimeout(noteFocus, 60);
 }
 /* Note versions */
 /*NOTEHIST-START*/
@@ -956,7 +1038,7 @@ function archiveSheet(){
         <button type="button" class="link-btn" data-ar="restore" data-id="${esc(n.id)}">Put Back</button>
         ${caps.assets ? `<button type="button" class="link-btn" data-ar="file" data-id="${esc(n.id)}">Save to Files</button>` : ""}
         <button type="button" class="link-btn danger-link" data-ar="delete" data-id="${esc(n.id)}">Delete</button></div></div>`; }).join("")
-      || `<p class="status-msg">${q ? "No archived notes match." : "Nothing archived yet. Drag a note onto the folder to archive it."}</p>`;
+      || `<p class="status-msg">${q ? "No archived notes match." : (phoneLike() ? "Nothing archived yet. Open a note and tap its Archive button (the folder)." : "Nothing archived yet. Drag a note onto the folder, or open it and choose Archive.")}</p>`;
   };
   draw();
   $("#arQ").addEventListener("input", e => { q = e.target.value.trim().toLowerCase(); draw(); });

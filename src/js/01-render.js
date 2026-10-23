@@ -77,7 +77,7 @@ function renderNow(){
 function fitNoteBoard(){
   const board = $("#nbBoard"); if (!board || (drag && drag.kind === "note" && drag.started)) return;
   let w = 0, h = 0;
-  board.querySelectorAll(".note").forEach(n => { w = Math.max(w, n.offsetLeft + n.offsetWidth); h = Math.max(h, n.offsetTop + n.offsetHeight); });
+  board.querySelectorAll(".note:not(.n-sheet)").forEach(n => { w = Math.max(w, n.offsetLeft + n.offsetWidth); h = Math.max(h, n.offsetTop + n.offsetHeight); });
   board.style.width = w ? (w + 28) + "px" : "";
   board.style.height = h ? (h + 28) + "px" : "";
   nbZoomApply();

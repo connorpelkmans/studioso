@@ -77,11 +77,12 @@ const stored = p => p.evaluate(() => JSON.parse(localStorage.getItem("coursework
       ok((await p.inputValue("#qaIn").then(() => p.getAttribute("#qaIn", "placeholder"))).includes("cs project"), "the quick-add example follows the area");
 
       await tab(p, "notes");
-      await act(p, "note-new"); await p.fill("#noteText", "Main board note"); await p.locator("#view").click({position: {x: 2, y: 2}}); await p.waitForTimeout(250);
+      const clickOff = async page => { const b = await page.locator("#view").boundingBox(); await page.mouse.click(b.x + 2, b.y + 2); };
+      await act(p, "note-new"); await p.fill("#noteText", "Main board note"); await clickOff(p); await p.waitForTimeout(250);
       await act(p, "nb-new"); await p.fill('input[name=name]', "Biology"); await p.selectOption('select[name=courseId]', "c1"); await p.click("[data-submit]"); await p.waitForTimeout(400);
       ok((await p.locator(".nb-tab[role=tab]").count()) === 3 || (await p.locator(".nb-tab").count()) >= 3, "a new board gets its own tab");
       ok((await p.locator(".note").count()) === 0, "the new board starts empty");
-      await act(p, "note-new"); await p.fill("#noteText", "Biology note"); await p.locator("#view").click({position: {x: 2, y: 2}}); await p.waitForTimeout(250);
+      await act(p, "note-new"); await p.fill("#noteText", "Biology note"); await clickOff(p); await p.waitForTimeout(250);
       const ns = (await stored(p)).notes;
       ok(ns.length === 2 && ns.some(x => x.text === "Biology note" && x.board && x.courseId === "c1") && ns.some(x => x.text === "Main board note" && !x.board), "notes are kept per board and tagged with the board's class");
       await pickBoard(p, ''); await p.waitForTimeout(250);
