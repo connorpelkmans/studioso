@@ -275,6 +275,17 @@ $("#toastExtra").addEventListener("click", () => { const f = toastExtraFn; toast
   t.addEventListener("pointerenter", hold); t.addEventListener("pointermove", hold); t.addEventListener("focusin", hold);
   t.addEventListener("pointerleave", () => { if (!t.contains(document.activeElement)) go(); });
   t.addEventListener("focusout", () => setTimeout(() => { if (!t.contains(document.activeElement) && !t.matches(":hover")) go(); }, 0)); }
+// Empty pages: two notebook cards and Mochi's sprout, drawn in the theme's colours
+function emptyArt(){
+  const star = (x, y, r, c) => { const a = +(r * .18).toFixed(2), b = +(r * .82).toFixed(2); return `<path class="${c}" d="M${x} ${y - r}q${a} ${b} ${r} ${r}q-${b} ${a}-${r} ${r}q-${a}-${b}-${r}-${r}q${b}-${a} ${r}-${r}z"/>`; };
+  return `<svg class="es-art" viewBox="0 0 200 140" aria-hidden="true" focusable="false">
+    <g transform="rotate(-8 73 78)"><rect class="es-card" x="34" y="30" width="78" height="96" rx="10"/><rect class="es-hl2" x="44" y="46" width="40" height="7" rx="3.5"/><rect class="es-line" x="44" y="62" width="58" height="5" rx="2.5"/><rect class="es-line" x="44" y="74" width="46" height="5" rx="2.5"/><rect class="es-line" x="44" y="86" width="52" height="5" rx="2.5"/></g>
+    <g transform="rotate(7 127 70)"><rect class="es-card" x="88" y="22" width="78" height="96" rx="10"/><rect class="es-hl" x="98" y="38" width="44" height="7" rx="3.5"/><rect class="es-line" x="98" y="54" width="58" height="5" rx="2.5"/><rect class="es-line" x="98" y="66" width="50" height="5" rx="2.5"/><rect class="es-line" x="98" y="78" width="54" height="5" rx="2.5"/></g>
+    <path class="es-stem" d="M100 91v-10"/><path class="es-leaf" d="M100 83q-9-7-14-1q7 5 14 1zM100 83q9-7 14-1q-7 5-14 1z"/>
+    <circle class="es-face" cx="100" cy="112" r="22"/><circle class="es-eye" cx="93" cy="111" r="2.2"/><circle class="es-eye" cx="107" cy="111" r="2.2"/><path class="es-smile" d="M96 117q4 3 8 0"/><circle class="es-cheek" cx="88" cy="116" r="3"/><circle class="es-cheek" cx="112" cy="116" r="3"/>
+    ${star(172, 32, 7, "es-star")}${star(26, 30, 5, "es-star2")}
+  </svg>`;
+}
 function safeUrl(u){
   u = String(u || "").trim();
   if (!u) return null;

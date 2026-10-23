@@ -730,8 +730,8 @@
   function offlineView(){
     const local = !sbConfig(), preview = inPreview();
     return `<div class="view-head"><h2>Study Groups</h2></div>
-      <div class="empty grp-offline"><strong>${preview ? "Sharing Isn't Available Here" : "Sharing Needs a Studyboard Account"}</strong>
-        ${preview ? "Study groups and share links work on the Studyboard website and in the desktop app, where you sign in to your Studyboard account." : "Sign in to make or join study groups and share decks."}
+      <div class="empty grp-offline sb-es">${emptyArt()}<strong>${preview ? "Sharing Isn't Available Here" : "Study Better Together"}</strong>
+        ${preview ? "Study groups and share links work on the Studyboard website and in the desktop app, where you sign in to your Studyboard account." : "Sharing needs a free Studyboard account. Sign in to make or join study groups and share decks."}
         ${preview ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="${local ? "sb-connect" : "sb-signin"}">${local && !SB_HOSTED ? "Set Up Sync" : "Sign In"}</button></div>`}</div>
       <section class="grp-file"><h3 class="fsec">Share Without an Account</h3>
         <p>No account? Share a deck as a file: open it, tap <b>Share</b>, then <b>Share as File</b>. Others use <b>Import a Deck File</b>.</p>
@@ -762,7 +762,7 @@
       ${S.err ? errBox(S.err, S.setup) : ""}
       ${gs == null ? (S.err ? "" : `<p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Loading your groups…</p>`)
         : gs.length ? `<div class="grp-grid" data-sortable="groups">${cards}</div>`
-        : `<div class="empty"><strong>No Groups Yet</strong>Start a study group or a group project, then send the invite code. Have a code? Enter it to join.<div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="grp-new">New Group</button><button class="btn" data-act="grp-code">Enter a Code</button></div></div>`}
+        : `<div class="empty sb-es">${emptyArt()}<strong>No Groups Yet</strong>Start a study group or a group project, then send the invite code. Have a code? Enter it to join.<div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="grp-new">New Group</button><button class="btn" data-act="grp-code">Enter a Code</button></div></div>`}
       ${(S.binned || []).length ? `<section class="grp-shares grp-binned"><h3 class="fsec">Recently Deleted Groups<span class="n">${S.binned.length}</span></h3>
         <p class="hint-line">Kept for 30 days with everything in them. Restoring brings a group back for all its members.</p>
         <ul class="grp-list">${S.binned.map(b => `<li class="grp-item"><div class="grp-item-main"><b>${esc(b.name)}</b><span class="mini">Deleted ${esc(fmtShort(String(b.deleted_at).slice(0, 10)))} · gone for good after ${esc(fmtShort(String(b.purge_at).slice(0, 10)))}</span></div>
