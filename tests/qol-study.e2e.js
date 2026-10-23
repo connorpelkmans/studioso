@@ -91,10 +91,10 @@ function SEED(){
     await page.click("#toastUndo"); await page.waitForTimeout(300);
     ok(await page.evaluate(() => state.settings.noteBoards.some(b => b.id === "b1" && b.name === "Ideas") && state.notes.n4.board === "b1" && ui.noteBoard === "b1"), "Undo brings the board back with its name and notes");
 
-    /* Whiteboard: the Add button steps away and the board fills the page */
+    /* Whiteboard: Add Board floats bottom right and the board fills the page */
     await page.evaluate(() => { const T = window.__sbProStudy; T.applyChanges([{kind: "note", id: "w1", after: {id: "w1", text: "", wb: {v: 1, tpl: "grid"}, color: "yellow", x: 0, y: 0, z: 1, created: 1}}], null); });
     await act(page, "nv-view", "wb"); await page.waitForSelector(".wb-frame"); await page.waitForTimeout(1200);
-    ok(await page.evaluate(() => getComputedStyle(document.getElementById("fab")).display === "none"), "no Add button over an open whiteboard");
+    ok(await page.evaluate(() => { const f = document.getElementById("fab"); return getComputedStyle(f).display !== "none" && f.dataset.act === "wb-new" && /Add Board/.test(f.textContent); }), "the Add Board button floats bottom right on an open whiteboard");
     const cv = await rect(page, ".wb-frame"), vh = await page.evaluate(() => innerHeight);
     ok(cv.b >= vh - 40, "the board fills the page down to the bottom: " + JSON.stringify({b: cv.b, vh}));
     await act(page, "nv-view", "board"); await page.waitForTimeout(250);

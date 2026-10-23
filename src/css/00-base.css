@@ -1,3 +1,7 @@
+/* Digits from Lexend in body text: Atkinson's zero has a slash through it */
+@font-face{font-family:"SB Digits";font-weight:400;font-display:swap;src:url(../vendor/fonts/lexend-latin-400-normal.woff2) format("woff2");unicode-range:U+0030-0039}
+@font-face{font-family:"SB Digits";font-weight:500 600;font-display:swap;src:url(../vendor/fonts/lexend-latin-500-normal.woff2) format("woff2");unicode-range:U+0030-0039}
+@font-face{font-family:"SB Digits";font-weight:700 900;font-display:swap;src:url(../vendor/fonts/lexend-latin-700-normal.woff2) format("woff2");unicode-range:U+0030-0039}
 
 :root{
   box-sizing:border-box;
@@ -693,7 +697,7 @@ details *{box-sizing:border-box}
   --shadow:0 1px 2px rgba(14,42,86,.06),0 4px 14px rgba(14,42,86,.06);
   --bg:var(--paper);
   --display:"Lexend", "Avenir Next", "Segoe UI", system-ui, sans-serif;
-  --body:"Atkinson Hyperlegible Next", "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --body:"SB Digits", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, sans-serif;
   color-scheme:light;
 }
 @media (prefers-color-scheme:dark){
@@ -1398,8 +1402,9 @@ html[data-theme=dark] .btn:not(.primary):has(.ai-ic){color:color-mix(in srgb,#C4
 .n-badge{display:inline-grid;place-items:center;min-width:20px;height:20px;border-radius:10px;background:var(--late);color:#fff;font:700 .72rem var(--display);padding:0 5px;margin-left:4px}
 .n-badge.due{background:var(--accent);color:var(--accent-ink,#fff)}
 nav.tabs [data-tab="flashcards"]{position:relative}
-.fc-navdue{position:absolute;top:5px;right:12px;min-width:18px;height:18px;border-radius:9px;background:var(--late);color:#fff;font:700 .66rem/18px var(--display);text-align:center;padding:0 4px;pointer-events:none}
-@media (max-width:979px){.fc-navdue{right:50%;margin-right:-22px;top:2px}}
+/* cards-due count: a small pill tucked on the icon's corner, ringed in the sidebar colour */
+.fc-navdue{position:absolute;top:4px;left:50%;margin-left:3px;min-width:17px;height:17px;box-sizing:border-box;border-radius:999px;background:linear-gradient(180deg,color-mix(in srgb,var(--late) 82%,#fff),var(--late));color:#fff;font:700 .62rem/17px var(--display);letter-spacing:-.01em;font-variant-numeric:tabular-nums;text-align:center;padding:0 5px;pointer-events:none;box-shadow:0 0 0 2px var(--spine,#0E2A56),0 2px 5px rgba(0,0,0,.25)}
+@media (max-width:979px){.fc-navdue{top:2px;box-shadow:0 0 0 2px var(--surface),0 2px 5px rgba(0,0,0,.2)}}
 .aiq-btns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .ai-callout .aiq-btns{flex:none}
 .aiq-list li.is-case{border-left-color:var(--tomato)}
