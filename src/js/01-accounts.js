@@ -418,6 +418,8 @@ async function sbBackend(client, userId){
   const revs = new Map();
   let pbase = new Map();
   const foreign = new Set();
+  // Bumped each time this device edits an item, so a save that lands after a newer edit leaves that edit's base in place
+  const edits = new Map();
   const bkey = (kind, id) => kind === "meta" ? "meta:planner" : kind + ":" + id;
   const skewKey = "studioso:skew";
   let skew = 0; try { skew = Number(localStorage.getItem(skewKey)) || 0; } catch(e) {}
@@ -508,7 +510,14 @@ async function sbBackend(client, userId){
     const k = SyncMerge.skewFrom(serverNow, t0, Date.now());
     if (serverNow && Math.abs(k) < 30 * 864e5) { skew = k; try { localStorage.setItem(skewKey, String(k)); } catch(e) {} }
   };
-  const settle = (kind, id, d, rev) => { const k = bkey(kind, id); if (rev != null) revs.set(k, rev); if (cache[kind]) { cache[kind].set(id, d); persist(); } pbase.delete(k); foreign.delete(k); pbSave(); };
+  const settle = (kind, id, d, rev, e0) => {
+    const k = bkey(kind, id), p = pbase.get(k);
+    if (rev != null) revs.set(k, rev);
+    if (cache[kind]) { cache[kind].set(id, d); persist(); }
+    // an edit made while this save was on its way is based on what was just saved, not on whatever the server has when it is sent
+    if (p && edits.get(k) !== e0) pbase.set(k, {rev: revs.get(k) || 0, data: d == null ? null : JSON.parse(JSON.stringify(d)), at: p.at}); else pbase.delete(k);
+    foreign.delete(k); pbSave();
+  };
   const plainUpsert = async (kind, id, d) => {
     const {data, error} = await client.from(T).upsert({user_id: userId, kind, id, data: d, updated_at: new Date().toISOString()}, {onConflict: "user_id,kind,id"}).select("updated_at");
     if (error) throw sbErr(error);
@@ -518,7 +527,7 @@ async function sbBackend(client, userId){
   const upsert = async (kind, id, d, o) => {
     mine();
     o = o || {};
-    const k = bkey(kind, id);
+    const k = bkey(kind, id), e0 = edits.get(k);
     if (kind === "backup" || kind === "trash") { await plainUpsert(kind, id, d); if (cache[kind]) { cache[kind].set(id, d); persist(); } return; }
     let b = baseOf(kind, id), cur = d, info = null, theirs = null;
     const floor = x => kind === "meta" && x && b.data && b.data.schema > x.schema ? Object.assign({}, x, {schema: b.data.schema}) : x;
@@ -537,14 +546,14 @@ async function sbBackend(client, userId){
           throw sbErr(error);
         }
         learnSkew(res.now, t0);
-        if (res.ok) { settle(kind, id, cur, res.rev); return info ? {merged: cur, merge: info} : (res.restored ? {merged: cur, merge: {state: "restored", title: SyncMerge.titleOf(kind, cur)}} : undefined); }
+        if (res.ok) { settle(kind, id, cur, res.rev, e0); return info ? {merged: cur, merge: info} : (res.restored ? {merged: cur, merge: {state: "restored", title: SyncMerge.titleOf(kind, cur)}} : undefined); }
         theirs = res.data;
         const r = SyncMerge.mergeItem(kind, b.data, cur, theirs, mopts(b, res.edited_at || res.updated_at));
         info = info ? Object.assign(r, {conflict: r.conflict || info.conflict}) : r;
         cache[kind] && cache[kind].set(id, theirs);
         b = {rev: res.rev, data: theirs, at: b.at};
         cur = floor(cur);
-        if (r.state === "theirs" || r.state === "same") { settle(kind, id, theirs, res.rev); return {merged: theirs, merge: info}; }
+        if (r.state === "theirs" || r.state === "same") { settle(kind, id, theirs, res.rev, e0); return {merged: theirs, merge: info}; }
         cur = r.merged;
       }
       if (!upsert.noRpc) throw sbErr({message: "Couldn't settle a sync conflict, will retry", status: 503});
@@ -554,13 +563,13 @@ async function sbBackend(client, userId){
       if (error) throw sbErr(error);
       if (row && !SyncMerge.eq(row.data, b.data)) {
         const r = SyncMerge.mergeItem(kind, b.data, cur, row.data, mopts(b, row.updated_at));
-        if (r.state === "theirs" || r.state === "same") { settle(kind, id, row.data, null); return {merged: row.data, merge: r}; }
+        if (r.state === "theirs" || r.state === "same") { settle(kind, id, row.data, null, e0); return {merged: row.data, merge: r}; }
         info = r; cur = r.merged;
       }
     }
     const at = await plainUpsert(kind, id, cur);
     if (at && lean) learnSkew(at, Date.now() - 200);
-    settle(kind, id, cur, null);
+    settle(kind, id, cur, null, e0);
     return info && !SyncMerge.eq(cur, d) ? {merged: cur, merge: info} : undefined;
   };
   const remove = async (kind, id, o) => {
@@ -649,6 +658,7 @@ async function sbBackend(client, userId){
   const noteBase = (kind, id) => {
     if (kind === "backup" || kind === "trash") return;
     const k = bkey(kind, id), b = pbase.get(k);
+    edits.set(k, (edits.get(k) || 0) + 1);
     if (b) b.at = Date.now(); else pbase.set(k, {rev: revs.get(k) || 0, data: cache[kind] && cache[kind].has(id) ? JSON.parse(JSON.stringify(cache[kind].get(id))) : null, at: Date.now()});
     pbSave();
   };
