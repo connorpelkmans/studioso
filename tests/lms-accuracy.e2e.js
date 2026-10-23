@@ -40,7 +40,7 @@ const SEED = {v: 2, updated: 1, courses: [{id: "c1", created: 1, name: "History 
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath});
-  const ctx = await browser.newContext({viewport: {width: 390, height: 844}, timezoneId: "UTC"});
+  const ctx = await browser.newContext({viewport: {width: 390, height: 844}, timezoneId: "UTC"}); await ctx.addInitScript(require("./consent-ok"));
   await ctx.exposeFunction("__nodeRun", async a => ({ok: true, json: JSON.stringify(await vm.runInContext(a.script, vm.createContext({fetch: fakeFetch(CV), AbortController, setTimeout, clearTimeout, location: {origin: a.origin}, console})))}));
   await ctx.addInitScript(([seed, src]) => {
     try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); } } catch (e) {}

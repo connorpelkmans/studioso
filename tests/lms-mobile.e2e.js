@@ -43,7 +43,7 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {brightspace: 
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath});
-  const ctx = await browser.newContext({viewport: {width: 390, height: 844}});
+  const ctx = await browser.newContext({viewport: {width: 390, height: 844}}); await ctx.addInitScript(require("./consent-ok"));
   const asked = [];
   await ctx.exposeFunction("__nodeRun", async a => {
     asked.push(["run", a.id, a.origin, a.url]);

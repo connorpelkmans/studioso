@@ -1211,6 +1211,7 @@ function cleanFile(r) {
     running = (async () => {
       const how = howNow();
       if (!how) { if (!o.quiet) bsSheet(); return null; }
+      if (how === "api" && !consented()) { if (o.quiet) { askConsentSoon(() => syncNow()); return null; } if (!(await askConsent())) return null; }
       if (!o.quiet) toast(`Syncing with ${P.name}…`);
       const t0 = Date.now(); setLocal({lastTry: t0});
       let r = await getData(how), used = how;
@@ -1463,10 +1464,53 @@ function cleanFile(r) {
 
   // The platform's panel, if it's the one open, drawn again with the latest status (after signing in, while and after reading)
   const refreshSheet = () => { try { if (dlg.open && dlg.querySelector(".bs-sheet") && dlg.querySelector(".bs-status") && connected()) bsSheet(); else scheduleRender(); } catch (e) {} };
+  /* ---------- Consent before full sync ---------- */
+  // Full sync reads the student's own school work with their own sign-in. Before the first read (signing in on desktop or phone, the first
+  // sync for someone connected before this existed, or the first read the School Sync extension hands over), one screen says what is read,
+  // where it is kept and that Studyboard is independent, and the student turns it on themselves. Their answer is kept with their settings
+  // (so it is asked once per account); CONSENT_V goes up when the wording changes in a way that needs asking again.
+  const CONSENT_V = 1, OWNER = {canvas: "Instructure (Canvas)", brightspace: "D2L (Brightspace)", blackboard: "Blackboard"};
+  const consented = () => { const k = cfg().consent; return !!(k && k.v >= CONSENT_V); };
+  let consentOpen = null, consentAsked = false;
+  function askConsent(){
+    if (consented()) return Promise.resolve(true);
+    if (consentOpen) return consentOpen;
+    consentOpen = new Promise(res => {
+      let d = document.getElementById("lmsConsentDlg");
+      if (!d) { d = document.createElement("dialog"); d.id = "lmsConsentDlg"; d.className = "ask-dlg"; document.body.appendChild(d); }
+      const what = `your courses, due dates, submissions, grades, feedback and rubrics, announcements, the syllabus and your instructors' names${P.id === "canvas" ? ", and your Inbox" : ""}`;
+      d.innerHTML = `<form class="sheet ask-sheet lms-consent"><div class="sheet-head"><h2>Turn On Full Sync With ${esc(P.name)}?</h2></div><div class="sheet-body">
+        <ul class="lms-consent-list">
+          <li>Studyboard reads your own ${esc(P.name)} work with your own sign-in: ${esc(what)}.</li>
+          <li>It only reads. It never submits, posts or changes anything there${P.id === "canvas" ? " (a reply you write is sent only when you tap Send)" : ""}.</li>
+          <li>What it reads goes into your planner on this device, and into your Studyboard account if you have one, so your devices stay in step.${P.id === "canvas" ? " Inbox messages stay on your device." : ""} It's never sold or shared.</li>
+          <li>Studyboard is an independent app, not affiliated with or endorsed by ${esc(OWNER[P.id] || P.name)}. Check that your school allows apps like this. You can turn it off any time.</li>
+        </ul>
+        <p class="mini" style="margin:0">Only want due dates? Use your calendar link instead. <button type="button" class="linklike" data-act="legal-privacy">Privacy Policy</button></p></div>
+        <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" id="lmsConsentNo">Not Now</button><button type="submit" class="btn primary" id="lmsConsentYes">Turn On Full Sync</button></div></form>`;
+      let done = false;
+      const fin = v => { if (done) return; done = true; consentOpen = null; try { d.close(); } catch (e) {} if (v) save({consent: {v: CONSENT_V, at: Date.now()}}); res(v); };
+      d.querySelector("#lmsConsentNo").addEventListener("click", () => fin(false));
+      d.querySelector("form").addEventListener("submit", e => { e.preventDefault(); fin(true); });
+      d.querySelector('[data-act="legal-privacy"]').addEventListener("click", () => fin(false));
+      d.oncancel = e => { e.preventDefault(); fin(false); };
+      d.onkeydown = e => { e.stopPropagation(); if (e.key === "Escape") { e.preventDefault(); fin(false); } };
+      try { d.showModal(); } catch (e) { d.setAttribute("open", ""); }
+    });
+    return consentOpen;
+  }
+  // An automatic sync or extension read with no answer yet: ask once while the app is open, never in the middle of something else
+  function askConsentSoon(then){
+    if (consentAsked || consented()) return; consentAsked = true;
+    const go = () => { if (document.hidden || (dlg && dlg.open)) { setTimeout(go, 4000); return; } askConsent().then(ok => { if (ok && then) then(); else if (!ok) toast(`Full sync with ${P.name} is off. Turn it on any time in Settings, School Sites.`); }); };
+    setTimeout(go, 1500);
+  }
+
   /* ---------- Connecting ---------- */
   async function doLogin(){
     const inp = $("#bsHostIn"), host = (inp && inp.value.trim()) || cfg().host || P.host;
     if (!bsDesk()) { toast(`Signing in to ${P.name} works in the Studyboard desktop, iPhone and Android apps`); return; }
+    if (!(await askConsent())) return;
     if (!host) { toast(`Type your ${P.name} address first, like ${P.hostPh}`); const i = $("#bsHostIn"); if (i) i.focus(); return; }
     toast(`Sign in to ${P.name} in the window that opened…`);
     const r = await lmsBridge().connect(P.id, host);
@@ -1627,6 +1671,7 @@ function cleanFile(r) {
   // auto: a read the Studyboard School Sync extension made by itself. It's applied straight away (courses matched to yours, or added),
   // with a small "See Changes" notice; only a merge ("Same Item?", "Same Exam?") is asked.
   function importGrab(h, origin, auto){
+    if (!consented()) { if (auto) askConsentSoon(() => importGrab(h, origin, false)); else askConsent().then(ok => { if (ok) importGrab(h, origin, false); }); return; }
     const c = cfg(), host = origin.replace(/^https:\/\//, ""), data = P.fromApi(h);
     data.via = "extension";                                        // for "Where this came from" on each task
     const go = () => {
@@ -1843,7 +1888,7 @@ function cleanFile(r) {
     if (moved) save({dropped: d});
   });
 
-  return {P, cfg, save, connected, statusLine, shortStatus, bsSheet, connectSheet, syncNow, canSync: () => !!howNow(), autoTick, isRunning: () => !!running, courseCard, staffHtml, local,
+  return {P, cfg, save, connected, consented, askConsent, statusLine, shortStatus, bsSheet, connectSheet, syncNow, canSync: () => !!howNow(), autoTick, isRunning: () => !!running, courseCard, staffHtml, local,
     fromApi: P.fromApi, fromFeed, plan, applyPlan, cleanTitle, titleKey, codeOf, mapping, reviewSheet, scanNews, doLogin, feedConnect, importGrab, setLocal,
     lastRead: () => bulk().lastRead || null, linkTask, startFresh, freshPlan, drop: (key, why) => { const c = cfg(); if (!(c.dropped || []).includes(key)) save({dropped: (c.dropped || []).concat(key).slice(-400)}); if (why === "merge" && !(c.mergedDrops || []).includes(key)) save({mergedDrops: (cfg().mergedDrops || []).concat(key).slice(-200)}); }};
   }
@@ -1919,9 +1964,9 @@ function cleanFile(r) {
   const ALL = () => PROVIDERS.map(P => LMS[P.id]);
 
   /* ---------- Desktop: staying signed in, and a quick way back in ---------- */
-  // Every 20 minutes (and when the app comes back to the front) each school you're signed in to gets a light "who am I" check through
-  // the desktop app. It keeps an idle sign-in from timing out there, and it notices a sign-out before the next sync does. When a school
-  // has signed you out, a small button sits at the bottom middle of the screen: one click opens that school's sign-in window.
+  // When the desktop app opens, and when it comes back to the front after 10 minutes away, each school you're signed in to gets a light
+  // "who am I" check, so a sign-out shows before the next sync. It never runs on a timer: an idle sign-in times out when the school says
+  // it should. When a school has signed you out, a small button sits at the bottom middle of the screen: one click opens its sign-in window.
   const relogNeeded = () => ALL().filter(L => !!lmsBridge() && L.cfg().mode === "api" && L.connected() && L.local().needLogin);
   let relogHidden = "", pinging = false;
   async function keepAlive(){
@@ -1938,7 +1983,6 @@ function cleanFile(r) {
     } finally { pinging = false; }
   }
   if (lmsBridge()) {
-    setInterval(keepAlive, 20 * 60000);
     setTimeout(keepAlive, 30000);
     let away = 0;
     document.addEventListener("visibilitychange", () => { if (document.hidden) away = Date.now(); else if (away && Date.now() - away > 10 * 60000) keepAlive(); });

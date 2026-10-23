@@ -127,23 +127,10 @@ function lockPartition(part) {
   ses.webRequest.onBeforeSendHeaders({ urls: API_URLS }, (d, cb) => {
     const h = Object.assign({}, d.requestHeaders); h["User-Agent"] = apiUA(); cb({ requestHeaders: h });
   });
-  keepCookies(ses);
 }
-// Staying signed in: many school and Microsoft/Google sign-in cookies are "session" cookies, which a browser forgets when it closes,
-// so a desktop app restart used to sign you out. Each one is kept for up to 30 days instead (the site can still end it sooner: a
-// cookie the site removes or replaces is left alone, and signing out clears them all). Only this platform's private store is touched.
-const KEEP_DAYS = 30;
-function keepCookies(ses) {
-  ses.cookies.on("changed", (e, c, cause, removed) => {
-    if (removed || !c || !c.session || !c.name) return;
-    const host = String(c.domain || "").replace(/^\./, ""); if (!host) return;
-    const d = { url: "https://" + host + (c.path || "/"), name: c.name, value: c.value, path: c.path || "/", secure: !!c.secure, httpOnly: !!c.httpOnly,
-      expirationDate: Math.floor(Date.now() / 1000) + KEEP_DAYS * 86400 };
-    if (!c.hostOnly && c.domain) d.domain = c.domain;
-    if (c.sameSite && c.sameSite !== "unspecified") d.sameSite = c.sameSite;
-    ses.cookies.set(d).catch(() => {});
-  });
-}
+// Staying signed in follows the school's own rules: a sign-in cookie lasts exactly as long as the site set it to. One that is meant to end
+// when the browser closes ends when Studyboard closes (an earlier version kept those for 30 days; Canvas's terms and schools' session
+// policies are why it no longer does). Signing in again is one click on Sign In Again.
 // Sign-in pop-ups (Microsoft, Google, Duo) stay in the same private store, but only for https addresses, and they are locked down the same way.
 function guardWindow(w, Pv, sameOrigin) {
   const wc = w.webContents;
@@ -1125,8 +1112,8 @@ async function feed(id, url) {
   } catch (e) { return { error: String(e && e.message || e).slice(0, 200) }; }
 }
 
-// Is this sign-in still good? A light check on the school's own site (who am I), which also counts as activity there, so an idle
-// sign-in doesn't time out while Studyboard is open. At most one check per platform every 5 minutes.
+// Is this sign-in still good? A light check on the school's own site (who am I), only when Studyboard opens or comes back to the front
+// (never on a timer, so a school's idle time-out still applies). At most one check per platform every 5 minutes.
 const lastPing = {};
 async function ping(id, host) {
   const Pv = prov(id), origin = originOf(host);
@@ -1164,4 +1151,4 @@ function register(getMain, trusted) {
 }
 
 // harvestScript, cleanHarvest, cleanFile and privateIp are exported for tests/lms-harvest.test.js only (nothing in the app reads them from here).
-module.exports = { WHO, BS_FILE, CV_FILE, cvMail, HARVEST_PRELUDE, register, bsHarvest, cvHarvest, bbHarvest, originOf, feedOk, connect, sync, file, feed, signOut, ping, keepCookies, mail, harvestScript, cleanHarvest, cleanFile, privateIp, P };
+module.exports = { WHO, BS_FILE, CV_FILE, cvMail, HARVEST_PRELUDE, register, bsHarvest, cvHarvest, bbHarvest, originOf, feedOk, connect, sync, file, feed, signOut, ping, mail, harvestScript, cleanHarvest, cleanFile, privateIp, P };

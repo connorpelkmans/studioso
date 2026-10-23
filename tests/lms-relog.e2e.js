@@ -1,7 +1,7 @@
 // node tests/lms-relog.e2e.js  (Playwright + Chromium; the desktop app's school bridge is stubbed)
 // Desktop school sign-in: the regular "who am I" check notices when Brightspace has signed you out and a Sign In Again button appears at
 // the bottom middle of the screen; × hides it until the next sign-out; it steps aside while a sheet is open; one click signs you in and
-// it goes away; a check that finds the sign-in good again clears it. Also (no browser): kept cookies in lms.js.
+// it goes away; a check that finds the sign-in good again clears it. Also (no browser): sign-ins last as long as the school sets.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert"), Module = require("module");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, ".."), SHOTS = process.env.SHOTS || path.join(require("os").tmpdir(), "relog-shots");
@@ -14,28 +14,20 @@ const server = http.createServer((req, res) => {
 });
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 (async () => {
-  /* ---------- lms.js keeps session cookies (no Electron: stubbed) ---------- */
+  /* ---------- lms.js follows the school's own sign-in lifetime (no Electron: stubbed) ---------- */
   {
     const load = Module._load;
     Module._load = function (req) { if (req === "electron") return {app: {isPackaged: true, userAgentFallback: "", on() {}}, BrowserWindow: function () {}, ipcMain: {handle() {}}, net: {}, session: {}}; return load.apply(this, arguments); };
     const L = require("../lms.js"); Module._load = load;
-    let fire = null; const sets = [];
-    L.keepCookies({cookies: {on: (ev, fn) => { if (ev === "changed") fire = fn; }, set: async d => { sets.push(d); }}});
-    const now = Date.now() / 1000;
-    fire({}, {name: "d2lSessionVal", value: "abc", domain: "learn.example.edu", hostOnly: true, path: "/", secure: true, httpOnly: true, session: true, sameSite: "lax"}, "explicit", false);
-    ok(sets.length === 1 && sets[0].url === "https://learn.example.edu/" && !sets[0].domain && sets[0].expirationDate > now + 29 * 86400 && sets[0].httpOnly && sets[0].secure && sets[0].sameSite === "lax",
-      "a session cookie is kept for 30 days, with its flags");
-    fire({}, {name: "ESTSAUTH", value: "x", domain: ".login.microsoftonline.com", hostOnly: false, path: "/", secure: true, httpOnly: true, session: true, sameSite: "no_restriction"}, "explicit", false);
-    ok(sets.length === 2 && sets[1].domain === ".login.microsoftonline.com" && sets[1].url === "https://login.microsoftonline.com/", "a domain cookie keeps its domain");
-    fire({}, {name: "a", value: "1", domain: "x.edu", path: "/", session: false, expirationDate: now + 60}, "explicit", false);
-    fire({}, {name: "b", value: "1", domain: "x.edu", path: "/", session: true}, "expired", true);
-    ok(sets.length === 2, "cookies that already expire, and cookies the site removes, are left alone");
+    ok(!("keepCookies" in L) && !/expirationDate:\s*Math\.floor/.test(fs.readFileSync(path.join(root, "lms.js"), "utf8")), "session cookies are no longer stretched to 30 days");
     ok(typeof L.ping === "function", "lms.js has the sign-in check");
+    const app = fs.readFileSync(path.join(root, "src", "js", "95-lms.js"), "utf8");
+    ok(!/setInterval\(keepAlive/.test(app), "the sign-in check never runs on a timer (a school's idle time-out still applies)");
   }
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath});
   try {
-    const ctx = await browser.newContext({serviceWorkers: "block", viewport: {width: 1280, height: 800}}); await ctx.route(/supabase\.co/, r => r.abort());
+    const ctx = await browser.newContext({serviceWorkers: "block", viewport: {width: 1280, height: 800}}); await ctx.addInitScript(require("./consent-ok")); await ctx.route(/supabase\.co/, r => r.abort());
     await ctx.addInitScript(() => {
       localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, courses: [{id: "c1", name: "Biology", code: "BIOL 1200", color: "#1E9E74"}], tasks: [], settings: {}}));
       localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("studyboard:tour", "done");

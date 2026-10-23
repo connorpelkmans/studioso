@@ -42,7 +42,7 @@ const H = {ok: true, origin: ORIGIN, me: {name: "Anna Student"}, errors: [], cou
   });
 
   // 1. The app path: the app's own signed-in read (desktop and phone apps), through the bridge the app gives the page
-  let ctx = await browser.newContext({serviceWorkers: "block"}); await ctx.route(/supabase\.co/, r => r.abort()); await ctx.addInitScript(seed);
+  let ctx = await browser.newContext({serviceWorkers: "block"}); await ctx.addInitScript(require("./consent-ok")); await ctx.route(/supabase\.co/, r => r.abort()); await ctx.addInitScript(seed);
   await ctx.addInitScript(h => { window.studiosoLms = {sync: async () => JSON.parse(JSON.stringify(h)), connect: async () => ({ok: true}), signOut: async () => true, file: async () => ({error: "x"}), feed: async () => ({error: "x"})}; }, H);
   let page = await ctx.newPage(); const errs = []; page.on("pageerror", e => errs.push(e.message));
   await page.goto(base); await page.waitForFunction(() => window.SBLMS && SBLMS.canvas, null, {timeout: 40000});
@@ -54,7 +54,7 @@ const H = {ok: true, origin: ORIGIN, me: {name: "Anna Student"}, errors: [], cou
   await ctx.close();
 
   // 2. The extension path: the same read handed to the website by the School Sync extension
-  ctx = await browser.newContext({serviceWorkers: "block"}); await ctx.route(/supabase\.co/, r => r.abort()); await ctx.addInitScript(seed);
+  ctx = await browser.newContext({serviceWorkers: "block"}); await ctx.route(/supabase\.co/, r => r.abort()); await ctx.addInitScript(seed); await ctx.addInitScript(require("./consent-ok"));
   await ctx.addInitScript(([h, o]) => { localStorage.setItem("studyboard:canvas", JSON.stringify({mode: "api", host: o, map: {"101": "c1", "102": "c2"}}));
     window.addEventListener("message", ev => { const d = ev.data; if (!d || d.source !== "studyboard-app") return;
       if (d.type === "hello") window.postMessage({source: "studyboard-ext", type: "ready", version: "1.0.3"}, location.origin);

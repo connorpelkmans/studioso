@@ -44,7 +44,7 @@ const until = async (fn, ms, what) => { const end = Date.now() + ms; for (;;) { 
   await new Promise(r => server.listen(0, r)); const local = "http://127.0.0.1:" + server.address().port;
   // Playwright's default headless browser (chromium-headless-shell, what CI installs) can't load extensions; its "chromium" channel can.
   const ctx = await chromium.launchPersistentContext(prof, {executablePath, ...(executablePath ? {} : {channel: "chromium"}), headless: true, viewport: {width: 1100, height: 900}, timezoneId: "UTC",
-    args: ["--disable-extensions-except=" + ext, "--load-extension=" + ext]});
+    args: ["--disable-extensions-except=" + ext, "--load-extension=" + ext]}); await ctx.addInitScript(require("./consent-ok"));
   const asked = [];
   await ctx.route(SCHOOL + "/**", route => {
     const u = new URL(route.request().url()), p = u.pathname + u.search;

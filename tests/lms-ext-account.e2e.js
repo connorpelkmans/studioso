@@ -19,7 +19,7 @@ const read = (id, name, title, at) => ({v: 1, id: "canvas", origin: ORIGIN, at, 
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath});
-  const ctx = await browser.newContext({serviceWorkers: "block"}); await ctx.route(/supabase\.co/, r => r.abort());
+  const ctx = await browser.newContext({serviceWorkers: "block"}); await ctx.addInitScript(require("./consent-ok")); await ctx.route(/supabase\.co/, r => r.abort());
   await ctx.addInitScript(() => { try { localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, courses: [{id: "c1", name: "Anatomy", code: "BIOL 1200", color: "#1E9E74"}], tasks: [], settings: {}}));
     localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("studyboard:tour", "done"); } catch (e) {}
     // a stand-in for the extension's relay.js: hands over window.__extList, and notes what the page asks

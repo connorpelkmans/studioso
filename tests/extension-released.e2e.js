@@ -69,7 +69,7 @@ const server = http.createServer((req, res) => {
       for (const [id, routes, done, todo] of [["brightspace", BS, "Care Plan 1", "Care Plan 2"], ["blackboard", BB, "Lab Report 1", "Lab Report 2"]]) {
         const h = await readWith(dir, id, routes);
         ok(h.ok && h.courses.length === 1, `${v}: its ${id} reading works (${h.courses.length} course)`);
-        const ctx = await browser.newContext({timezoneId: "UTC"});
+        const ctx = await browser.newContext({timezoneId: "UTC"}); await ctx.addInitScript(require("./consent-ok"));
         await ctx.addInitScript(() => { try { localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, courses: [], tasks: [], settings: {}})); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); } catch (e) {} });
         const page = await ctx.newPage(); const errs = []; page.on("pageerror", e => errs.push(e.message));
         await page.goto(base); await page.waitForFunction(() => window.SBLMS && window.SBLMS.canvas);
