@@ -32,15 +32,24 @@
 .deck-main .exm-tag{align-self:flex-start}
 .exm-pomo{margin:0;font-size:.85rem;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
 .exm-pomo b{margin-right:4px}
-@media (max-width:620px){
-  .exm-card{grid-template-columns:auto minmax(0,1fr);gap:10px 14px;padding:14px}
-  .exm-cd{width:72px;align-self:start}
-  .exm-cd b{font-size:1.8rem}
-  .exm-txt{padding-right:0}
-  .exm-kick{padding-right:64px}
-  .exm-title{font-size:1.12rem}
-  .exm-bar{flex-basis:100%}
-  .exm-acts{grid-column:1/-1;flex-direction:row;margin-top:2px}
-  .exm-acts .btn{flex:1 1 0;min-height:44px;padding:0 10px}
-  .exm-off{top:6px;right:8px;min-height:40px}
+.exm-cd-u,.exm-wk,.exm-x{display:none}
+/* Phones: a compact strip with the countdown, the title, Study and a close button */
+@media (max-width:639px){
+  .exm-card{grid-template-columns:56px minmax(0,1fr) auto;gap:12px;padding:10px 44px 10px 10px;border-radius:18px;background:color-mix(in srgb,var(--c,var(--accent)) 7%,var(--surface));border-color:color-mix(in srgb,var(--c,var(--accent)) 40%,var(--line))}
+  .exm-cd{width:56px;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:16px;background:var(--c,var(--accent));color:var(--c-ink,#fff);box-shadow:0 6px 14px -6px var(--c,var(--accent))}
+  .exm-cd-t,.exm-cd-l{display:none}
+  .exm-cd b,.exm-cd.word b{font:800 1.5rem/1 var(--display);color:inherit;padding:0}
+  .exm-cd.word b{font-size:.9rem}
+  .exm-cd-u{display:block;font:700 .62rem/1 var(--display);text-transform:uppercase;letter-spacing:.06em;margin-top:3px}
+  .exm-txt{padding-right:0;gap:1px}
+  .exm-kick,.exm-title .tag,.exm-prep,.exm-others,.exm-sl,.exm-offt,.exm-acts .btn:not(.primary){display:none}
+  .exm-title{display:block;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .exm-name{display:inline;min-height:0;line-height:32px}
+  .exm-when{font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .exm-wk{display:inline;font-weight:800;color:var(--c-text)}
+  .exm-when b{font-weight:600;color:var(--muted)}
+  .exm-acts{margin:0}
+  .exm-acts .btn.primary{min-height:40px;padding:0 14px;border-radius:12px}
+  .exm-off{top:50%;right:4px;transform:translateY(-50%);width:40px;height:40px;min-height:40px;padding:0;display:grid;place-items:center;border-radius:12px}
+  .exm-x{display:block}
 }

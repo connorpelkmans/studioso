@@ -172,8 +172,8 @@ function prepLine(ex, sm){
 }
 function countTile(ex, m, hrs){
   const k = EXAMMODE.kindWord(ex), wd = parse(ex.due).toLocaleDateString(undefined, {weekday: "short"});
-  if (m.days >= 1) return {top: `${k} in`, big: String(m.days), low: `${m.days === 1 ? "day" : "days"} · ${wd}`};
-  if (ex.time && hrs >= 1.5) return {top: `${k} in`, big: String(Math.round(hrs)), low: "hours"};
+  if (m.days >= 1) return {top: `${k} in`, big: String(m.days), low: `${m.days === 1 ? "day" : "days"} · ${wd}`, unit: m.days === 1 ? "day" : "days"};
+  if (ex.time && hrs >= 1.5) return {top: `${k} in`, big: String(Math.round(hrs)), low: "hours", unit: "hours"};
   return {top: k, big: "Today", low: ex.time ? fmtTime(ex.time) : wd, word: true};
 }
 function todayHtml(){
@@ -187,15 +187,15 @@ function todayHtml(){
   const othersH = m.others.length ? `<p class="exm-others">Also coming up: ${m.others.map(t => `<button type="button" class="link-btn" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}</button>${courseTag(t) ? ` (${esc(courseTag(t))})` : ""}, ${esc(whenText(t))}`).join("; ")}.</p>` : "";
   const planBtn = !sm && m.days >= 1 && window.SBPREP ? `<button type="button" class="btn" data-act="exam-plan" data-id="${esc(ex.id)}">Plan My Prep</button>` : "";
   return `<section class="exm-card" role="region" aria-label="Exam Mode" style="--c:${esc(colorOf(ex.courseId))}">
-    <div class="exm-cd${cd.word ? " word" : ""}" aria-hidden="true"><span class="exm-cd-t">${esc(cd.top)}</span><b>${esc(cd.big)}</b><span class="exm-cd-l">${esc(cd.low)}</span></div>
+    <div class="exm-cd${cd.word ? " word" : ""}" aria-hidden="true"><span class="exm-cd-t">${esc(cd.top)}</span><b>${esc(cd.big)}</b><span class="exm-cd-l">${esc(cd.low)}</span>${cd.unit ? `<span class="exm-cd-u">${esc(cd.unit)}</span>` : ""}</div>
     <div class="exm-txt">
       <span class="exm-kick">Exam Mode</span>
       <h3 class="exm-title"><button type="button" class="exm-name" data-act="edit-task" data-id="${esc(ex.id)}">${esc(ex.title)}</button>${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</h3>
-      <p class="exm-when"><b>${esc(count)}</b>${when ? ` <span>${when}</span>` : ""}</p>
+      <p class="exm-when"><span class="exm-wk">Exam Mode · </span><b>${esc(count)}</b>${when ? ` <span>${when}</span>` : ""}</p>
       ${prep}${othersH}
     </div>
-    <div class="exm-acts"><button type="button" class="btn primary" data-act="exm-study" data-id="${esc(ex.id)}">Study for It</button>${planBtn}</div>
-    <button type="button" class="link-btn exm-off" data-act="exm-off" data-id="${esc(ex.id)}" aria-label="Not now: turn Exam Mode off for ${esc(ex.title)}">Not Now</button>
+    <div class="exm-acts"><button type="button" class="btn primary" data-act="exm-study" data-id="${esc(ex.id)}">Study<span class="exm-sl"> for It</span></button>${planBtn}</div>
+    <button type="button" class="link-btn exm-off" data-act="exm-off" data-id="${esc(ex.id)}" aria-label="Not now: turn Exam Mode off for ${esc(ex.title)}"><span class="exm-offt">Not Now</span><svg class="exm-x" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   </section>`;
 }
 
