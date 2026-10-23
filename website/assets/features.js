@@ -1,18 +1,18 @@
-// "What's Inside" on the home page: each feature card plays a short loop of the feature working.
+// "What's Inside" on the home page: each feature card shows a still of the feature (the finished moment) and plays a short loop of it
+// working while the pointer is over it (or it has keyboard focus). On a touch screen, a tap plays it; scrolling it away stops it.
 // A card's data-ms lists how long each step is held. Step n adds the class sN to its stage (assets/features.css says what each step looks like),
 // [data-type] text is typed out on step 1, and after the last step the stage fades and starts over.
-// Loops only run while the card is on screen. With "reduce motion" (or no IntersectionObserver), nothing moves:
-// the stage keeps the classes it has in the page, a still picture of the finished moment.
+// With "reduce motion", or without JavaScript, the still is all there is.
 (function () {
   "use strict";
   var cards = [].slice.call(document.querySelectorAll(".fx[data-fx]"));
-  if (!cards.length || !("IntersectionObserver" in window)) return;
+  if (!cards.length) return;
   if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
   function loop(card) {
     var st = card.querySelector(".fx-stage");
     var ms = String(card.getAttribute("data-ms") || "1000,1000,1000,1600").split(",").map(Number);
-    var n = ms.length, step = 0, timer = 0, on = false, typing = 0;
+    var n = ms.length, step = n - 1, timer = 0, on = false, typing = 0;
     var typers = [].slice.call(st.querySelectorAll("[data-type]"));
 
     function set(i) {
@@ -24,45 +24,53 @@
       var text = el.getAttribute("data-type"), j = 0, per = Math.max(40, (ms[1] * 0.7) / text.length);
       clearTimeout(typing); el.textContent = "";
       (function next() {
-        if (!on) { el.textContent = text; return; }
+        if (!on) return;
         el.textContent = text.slice(0, ++j);
         if (j < text.length) typing = setTimeout(next, per);
       })();
     }
-    function snap() {
-      st.classList.add("fx-snap");
-      clearTimeout(typing);
-      typers.forEach(function (el) { el.textContent = ""; });
-      set(0);
-      void st.offsetWidth;   // apply the first step at once, without transitions
-      st.classList.remove("fx-snap");
+    // jump to a step at once (no transitions), after a short fade
+    function jump(i, then) {
+      clearTimeout(timer); clearTimeout(typing);
+      st.classList.add("fx-out");
+      timer = setTimeout(function () {
+        st.classList.add("fx-snap");
+        typers.forEach(function (el) { el.textContent = i ? el.getAttribute("data-type") : ""; });
+        set(i);
+        void st.offsetWidth;
+        st.classList.remove("fx-snap", "fx-out");
+        if (then) then();
+      }, 220);
     }
     function tick() {
       if (!on) return;
-      if (step >= n - 1) {
-        st.classList.add("fx-out");
-        timer = setTimeout(function () { snap(); st.classList.remove("fx-out"); timer = setTimeout(tick, ms[0]); }, 380);
-        return;
-      }
+      if (step >= n - 1) { jump(0, function () { timer = setTimeout(tick, ms[0]); }); return; }
       set(step + 1);
       timer = setTimeout(tick, ms[step]);
     }
-    snap();
     st.classList.add("paused");
     return {
-      start: function () { if (on) return; on = true; st.classList.remove("paused"); timer = setTimeout(tick, ms[step]); },
-      stop: function () { on = false; clearTimeout(timer); clearTimeout(typing); st.classList.add("paused"); }
+      on: function () { return on; },
+      start: function () { if (on) return; on = true; card.classList.add("fx-playing"); st.classList.remove("paused"); jump(0, function () { timer = setTimeout(tick, ms[0]); }); },
+      stop: function () { if (!on) return; on = false; card.classList.remove("fx-playing"); st.classList.add("paused"); jump(n - 1); }   // back to the still
     };
   }
 
-  var loops = new Map();
-  cards.forEach(function (c) { loops.set(c, loop(c)); });
-  var io = new IntersectionObserver(function (entries) {
-    entries.forEach(function (e) { var l = loops.get(e.target); if (e.isIntersecting && !document.hidden) l.start(); else l.stop(); });
-  }, {threshold: 0.35});
-  cards.forEach(function (c) { io.observe(c); });
-  document.addEventListener("visibilitychange", function () {
-    if (document.hidden) loops.forEach(function (l) { l.stop(); });
-    else cards.forEach(function (c) { io.unobserve(c); io.observe(c); });   // observe again: running cards report back and restart
+  var touch = window.matchMedia && matchMedia("(hover: none)").matches;
+  cards.forEach(function (card) {
+    var l = loop(card);
+    card.addEventListener("pointerenter", function (e) { if (e.pointerType === "mouse" || e.pointerType === "pen") l.start(); });
+    card.addEventListener("pointerleave", function (e) { if (e.pointerType === "mouse" || e.pointerType === "pen") l.stop(); });
+    card.addEventListener("focusin", function () { l.start(); });
+    card.addEventListener("focusout", function (e) { if (!card.contains(e.relatedTarget)) l.stop(); });
+    if (touch) {
+      card.addEventListener("click", function (e) {
+        if (e.target.closest && e.target.closest("a")) return;   // the deck library link
+        if (l.on()) l.stop(); else { cards.forEach(function (c) { if (c !== card) c.dispatchEvent(new CustomEvent("fx-stop")); }); l.start(); }
+      });
+      card.addEventListener("fx-stop", function () { l.stop(); });
+      if ("IntersectionObserver" in window) new IntersectionObserver(function (es) { es.forEach(function (x) { if (!x.isIntersecting) l.stop(); }); }, {threshold: 0}).observe(card);
+    }
   });
+  document.addEventListener("visibilitychange", function () { if (document.hidden) cards.forEach(function (c) { c.dispatchEvent(new CustomEvent("fx-stop")); }); });
 })();

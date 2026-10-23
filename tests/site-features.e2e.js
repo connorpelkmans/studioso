@@ -1,0 +1,26 @@
+// node tests/site-features.e2e.js  (Playwright + Chromium; no network)
+// The home page feature cards show a still and play their loop only while hovered (a tap on a touch screen); leaving shows the still again.
+const http=require("http"),fs=require("fs"),path=require("path"),assert=require("assert");const {chromium,executablePath}=require("./pw");const root=path.join(__dirname,"..","website");
+const M={".html":"text/html",".js":"text/javascript",".css":"text/css",".webp":"image/webp",".png":"image/png",".woff2":"font/woff2",".svg":"image/svg+xml"};
+const server=http.createServer((q,r)=>{let p=decodeURIComponent(new URL(q.url,"http://x").pathname);if(p.endsWith("/"))p+="index.html";const f=path.join(root,p);if(!fs.existsSync(f)||fs.statSync(f).isDirectory()){r.writeHead(404);r.end();return;}r.writeHead(200,{"content-type":M[path.extname(f)]||"application/octet-stream"});fs.createReadStream(f).pipe(r);});
+let n=0;const ok=(c,m)=>{n++;assert(c,m);console.log("ok -",m)};
+(async()=>{await new Promise(r=>server.listen(0,r));const b=await chromium.launch({executablePath});const url="http://localhost:"+server.address().port+"/index.html";
+const cls=(p,i)=>p.evaluate(i=>{const s=document.querySelectorAll(".fx-stage")[i];return [1,2,3].filter(k=>s.classList.contains("s"+k)).length+(s.classList.contains("paused")?"p":"")},i);
+let c=await b.newContext({viewport:{width:1280,height:900}});let p=await c.newPage();const errs=[];p.on("pageerror",e=>errs.push(e.message));
+await p.goto(url);await p.mouse.move(5,5);await p.locator(".fx").nth(6).scrollIntoViewIfNeeded();await p.waitForTimeout(3000);
+ok((await p.evaluate(()=>[...document.querySelectorAll(".fx-stage")].every(s=>s.matches(".s1.s2.s3.paused")))),"desktop: nothing plays until hovered; every card shows its still");
+const qa=p.locator('.fx[data-fx="quick"]');await qa.hover();await p.waitForTimeout(500);
+ok(await cls(p,6)==="0"&&await p.evaluate(()=>document.querySelector(".qa-text").textContent==="" ),"hovering Quick Add starts it from the beginning");
+await p.waitForTimeout(1500);const t=await p.evaluate(()=>document.querySelector(".qa-text").textContent);ok(t.length>0,"it types: "+t);
+await p.waitForTimeout(2000);ok(Number((await cls(p,6))[0])>=2,"and steps on");
+await p.mouse.move(5,5);await p.waitForTimeout(500);
+ok(await cls(p,6)==="3p"&&await p.evaluate(()=>document.querySelector(".qa-text").textContent==="bio quiz fri 2pm 5%"),"leaving goes back to the still, with the full text");
+await p.waitForTimeout(2500);ok(await cls(p,6)==="3p","and it stays still");
+ok(!errs.length,"no errors "+errs);await c.close();
+c=await b.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});p=await c.newPage();await p.goto(url);
+const card=p.locator('.fx[data-fx="cards"]');await card.scrollIntoViewIfNeeded();await p.waitForTimeout(800);
+ok(await cls(p,4)==="3p","phone: shows the still");
+await card.locator(".fx-stage").tap();await p.waitForTimeout(400);ok(await cls(p,4)==="0","a tap plays it");
+await card.locator(".fx-stage").tap();await p.waitForTimeout(400);ok(await cls(p,4)==="3p","another tap stops it");
+await card.locator(".fx-stage").tap();await p.waitForTimeout(300);await p.evaluate(()=>window.scrollTo(0,0));await p.waitForTimeout(600);ok(await cls(p,4)==="3p","scrolling it away stops it");
+await c.close();await b.close();server.close();console.log(n+" passed");})().catch(e=>{console.error(e);process.exit(1)});
