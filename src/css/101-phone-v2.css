@@ -231,3 +231,5 @@
 /* Due Dates: course, zoom, Today and Print in one row */
 #view .tl-controls.tl-tools{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;min-height:40px;height:auto;margin:0 0 14px}
 #view .tl-controls.tl-tools .cf-pick{margin:0}
+/* Side menu: never show a scrollbar while it re-fits */
+@media (min-width:640px){nav.tabs{scrollbar-width:none}nav.tabs::-webkit-scrollbar{display:none}}

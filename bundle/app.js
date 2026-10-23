@@ -24771,7 +24771,7 @@ hook("boot", boot);
 
   function offlineView(){
     const local = !sbConfig(), preview = inPreview();
-    return `<div class="view-head"><h2>Study Groups</h2></div>
+    return `<div class="view-head"><h2>Groups</h2></div>
       <div class="empty grp-offline sb-es">${emptyArt()}<strong>${preview ? "Sharing Isn't Available Here" : "Study Better Together"}</strong>
         ${preview ? "Study groups and share links work on the Studyboard website and in the desktop app, where you sign in to your Studyboard account." : "Sharing needs a free Studyboard account. Sign in to make or join study groups and share decks."}
         ${preview ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="${local ? "sb-connect" : "sb-signin"}">${local && !SB_HOSTED ? "Set Up Sync" : "Sign In"}</button></div>`}</div>
@@ -39807,9 +39807,10 @@ var TP_DATA = [];
   const soon = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; fit(); }); };
   fit();
   window.addEventListener("resize", soon);
-  if (window.ResizeObserver) { const ro = new ResizeObserver(soon); ro.observe(nav); [...nav.children].forEach(c => ro.observe(c)); }
+  // Fit in the same frame as the change, so the menu never shows a squeezed or scrolling state
+  if (window.ResizeObserver) { const ro = new ResizeObserver(() => fit()); ro.observe(nav); [...nav.children].forEach(c => ro.observe(c)); }
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(soon);
-  hook("render", soon);
+  hook("render", () => fit());
   hook("boot", soon);
   window.SBUI = Object.assign(window.SBUI || {}, {navFit: () => (fit(), Number(nav.dataset.fit || 0))});
 })();
