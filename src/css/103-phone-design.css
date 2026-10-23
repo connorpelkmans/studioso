@@ -141,12 +141,16 @@
 /* Lighter toggle buttons */
 .cf-pick .dot-all{display:none}
 @media (max-width:639px){
-  :is(.segb,.seg,.us-subs,.pt-bar):not(.ep-topic .segb){--seg-on:var(--surface);padding:3px!important;gap:2px!important;border:0!important;border-radius:12px!important;background:color-mix(in srgb,var(--ink) 7%,transparent)!important;box-shadow:none!important}
-  :is(.segb > button,.us-subs > .us-sub-tab,.pt-bar > .pt-tab,.seg span):not(.ep-topic button){position:relative;min-height:34px!important;padding-block:4px!important;border:0!important;border-radius:9px!important;background:transparent!important;color:color-mix(in srgb,var(--muted) 70%,var(--ink))!important;font-weight:700;box-shadow:none!important}
-  :is(.segb > button,.us-subs > .us-sub-tab,.pt-bar > .pt-tab):not(.ep-topic button)::after,.seg label::after{content:"";position:absolute;inset:-3px -1px}
-  .seg label{display:block}
-  .seg span{display:grid;place-items:center}
-  :is(.segb > button[aria-pressed="true"],.us-subs > .us-sub-tab[aria-selected="true"],.pt-bar > .pt-tab[aria-selected="true"],.seg input:checked + span):not(.ep-topic button){background:var(--seg-on)!important;color:var(--ink)!important;box-shadow:0 1px 3px rgba(14,42,86,.18),0 0 0 .5px rgba(14,42,86,.08)!important}
+  :is(.segb,.seg,.us-subs,.pt-bar):not(.ep-topic .segb){--seg-on:var(--surface);padding:0 3px!important;gap:2px!important;border:0!important;border-radius:12px!important;background:color-mix(in srgb,var(--ink) 7%,transparent)!important;box-shadow:none!important}
+  :where(.segb > button,.us-subs > .us-sub-tab,.pt-bar > .pt-tab){min-height:40px}
+  :is(.f-row,.board-ctl) .segb > button{min-height:40px!important}
+  :is(.segb > button,.us-subs > .us-sub-tab,.pt-bar > .pt-tab):not(.ep-topic button){position:relative;isolation:isolate;padding-block:0!important;border:0!important;border-radius:9px!important;background:transparent!important;color:color-mix(in srgb,var(--muted) 70%,var(--ink))!important;font-weight:700;box-shadow:none!important}
+  :is(.segb > button,.us-subs > .us-sub-tab,.pt-bar > .pt-tab):not(.ep-topic button)::before{content:"";position:absolute;inset:calc(50% - 17px) 0;z-index:-1;border-radius:9px;pointer-events:none}
+  .seg label{padding-block:3px}
+  .seg span{display:grid;place-items:center;min-height:34px;padding-block:0;border-radius:9px;background:transparent;color:color-mix(in srgb,var(--muted) 70%,var(--ink));font-weight:700;box-shadow:none}
+  .seg input:checked + span{background:var(--seg-on);color:var(--ink);box-shadow:0 1px 3px rgba(14,42,86,.18),0 0 0 .5px rgba(14,42,86,.08)}
+  :is(.segb > button[aria-pressed="true"],.us-subs > .us-sub-tab[aria-selected="true"],.pt-bar > .pt-tab[aria-selected="true"]):not(.ep-topic button){color:var(--ink)!important}
+  :is(.segb > button[aria-pressed="true"],.us-subs > .us-sub-tab[aria-selected="true"],.pt-bar > .pt-tab[aria-selected="true"]):not(.ep-topic button)::before{background:var(--seg-on);box-shadow:0 1px 3px rgba(14,42,86,.18),0 0 0 .5px rgba(14,42,86,.08)}
   .seg input:focus-visible + span{outline:2px solid var(--accent);outline-offset:1px}
   .cf-pick:not(.on){background:var(--surface)!important;color:var(--ink)!important;border:1px solid var(--line);min-height:40px;font-size:.88rem}
   .cf-pick .dot-all{display:block;width:9px;height:9px;flex:none;border-radius:50%;background:var(--dots,var(--muted))}
