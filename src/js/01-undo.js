@@ -46,7 +46,7 @@ function setItem(kind, id, obj, record){
   }
   queueWrite(kind, id, obj === null ? null : m[id]);
 }
-function applyChanges(changes, label, extra){
+function applyChanges(changes, label, extra, opts){
   if (!changes.length) return;
   const inverse = changes.map(c => ({kind:c.kind, id:c.id, after: clone(getItem(c.kind, c.id))}));
   const progressed = label !== null && typeof isProgress === "function" && changes.some(c => c.kind === "task" && c.after && isProgress(getItem("task", c.id), c.after));
@@ -60,7 +60,7 @@ function applyChanges(changes, label, extra){
   const undo = () => { if (step.done) return; step.done = true; applyChanges(inverse, null); trashDrop(binned); toast("Undone"); };
   step.undo = undo;
   if (typeof extra === "function") extra = extra();
-  if (label) { toast(label, undo, extra); undoStack.push(step); if (undoStack.length > 20) undoStack.shift(); }
+  if (label) { toast(label, undo, extra, opts); undoStack.push(step); if (undoStack.length > 20) undoStack.shift(); }
   if (typeof scheduleFolderBackup === "function") scheduleFolderBackup(DESK ? 3000 : 60000);
   if (progressed) { try { noteProgress(); } catch(e) { console.warn(e); } }
   fire("changed", changes, inverse);

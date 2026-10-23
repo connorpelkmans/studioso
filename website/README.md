@@ -8,6 +8,7 @@ Plain HTML, CSS and JavaScript. No build step. Upload this whole folder to any s
 4. If your Supabase address is not `*.supabase.co` (a custom domain), add it to `connect-src` in the CSP meta tag of each page and in `_headers`.
 
 Pages: `index.html` (landing, features, pricing), `account/` (sign in, sign up, reset, plan, buy, manage billing), `success.html`, `cancel.html`, `privacy.html`, `terms.html`.
+The top bar is shared with the public /flashcards and /quizzes pages: its source is `siteHeader()` in `cloudflare/site/public-pages.js`, each page here carries a copy, and `tests/site-nav.test.js` checks they match. Its links are absolute (`/website/#pricing`), as the site is served with the website under `/website/`.
 Links the app uses: `account/?plan=monthly|yearly&src=app` (sign in, then checkout starts by itself).
 See PRO-PLANS-GUIDE.md in the main folder for the full owner steps.
 

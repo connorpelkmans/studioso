@@ -19,10 +19,6 @@
 .pub-crumbs a:hover{text-decoration:underline}
 .pub-meta{color:var(--muted);margin:0;font-size:.95rem}
 .pub-acts{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
-.pub-chips{list-style:none;display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0}
-.pub-chips a{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:6px 14px;border:1.5px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);text-decoration:none;font-weight:600}
-.pub-chips a span{color:var(--muted);font-weight:400;font-size:.88rem}
-.pub-chips a:hover{border-color:var(--accent-2)}
 .pub-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .pub-item{display:flex;flex-direction:column;gap:4px;padding:14px 16px;border:1.5px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);text-decoration:none;box-shadow:var(--shadow)}
 .pub-item:hover{border-color:var(--accent-2)}
@@ -150,11 +146,4 @@
   .pub-crumbs li:last-child{display:none}
 }
 
-@media (prefers-reduced-motion:reduce){.pub-card,.pub-item,.pub-chips a{transition:none}}
-@media (max-width:480px){
-  .pub .top nav.main{gap:12px}
-  .pub .top .navbtn{white-space:nowrap;padding:8px 12px;font-size:.88rem}
-  .pub .top .brand img{width:112px;height:auto}
-}
-/* Phones: no Popular courses list */
-@media (max-width:640px){.pub-popular{display:none}}
+@media (prefers-reduced-motion:reduce){.pub-card,.pub-item{transition:none}}

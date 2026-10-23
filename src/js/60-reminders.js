@@ -589,7 +589,7 @@ const RM_CORE = (() => {
   }
   // The form's save builds its own task object
   const origApply = applyChanges;
-  applyChanges = function (changes, label, extra) {
+  applyChanges = function (changes, label, extra, opts) {
     const A = armed;
     if (A && Array.isArray(changes)) changes = changes.map(ch => {
       if (ch.kind !== "task" || !ch.after || !(A.isNew ? !state.tasks[ch.id] : ch.id === A.id)) return ch;
@@ -597,7 +597,7 @@ const RM_CORE = (() => {
       if (A.val) after.remind = A.val; else delete after.remind;
       return Object.assign({}, ch, {after});
     });
-    return origApply.call(this, changes, label, extra);
+    return origApply.call(this, changes, label, extra, opts);
   };
 
   /* Hooks */

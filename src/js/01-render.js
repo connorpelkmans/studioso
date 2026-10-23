@@ -1,10 +1,21 @@
 /* ===== module: 01-render.js: the app's core, render and dialogs ===== */
 /* Render */
 let renderQueued = false, renderBlocked = false;
+let renderHold = 0;
 function scheduleRender(){
   if (renderQueued) return;
   renderQueued = true;
-  requestAnimationFrame(() => { renderQueued = false; render(); });
+  const go = () => { const w = renderHold - Date.now(); if (w > 0) { setTimeout(() => requestAnimationFrame(go), w); return; } renderQueued = false; render(); };
+  requestAnimationFrame(go);
+}
+// A finished check pops before the list redraws (phones, when motion is on)
+function popDone(el){
+  if (!el || !el.isConnected || !el.classList || !el.classList.contains("check") || !window.matchMedia) return;
+  if (!matchMedia("(max-width:639px)").matches || matchMedia("(prefers-reduced-motion: reduce)").matches || document.documentElement.dataset.motion === "static") return;
+  el.classList.add("sb-pop");
+  const row = el.closest("li, .plan-row, .nu-row, .card, .next-up");
+  if (row) row.classList.add("sb-popped");
+  renderHold = Math.max(renderHold, Date.now() + 300);
 }
 // The big button at the bottom right does the main "add" for the page you're on
 function fabConfig(){

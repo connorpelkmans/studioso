@@ -195,7 +195,7 @@ async function initSupabase(ask){
   try { const r = await sb.auth.getSession(); session = r.data && r.data.session; } catch(e) {}
   if (SB_LINK_ERR && !SB_LINK_ERR.shown) { SB_LINK_ERR.shown = true; try { history.replaceState(null, "", location.pathname); } catch(e) {} setTimeout(sbLinkErrorSheet, 500); }
   if (session) { if (!sbUser) { sbUser = session.user; startSupabaseSync(); setTimeout(aiTrialSignedIn, 1500); } }
-  else { syncLabel(); setTimeout(() => { if ((ask || !dlg.open) && !sbUser) sbSignInSheet(sbNextMode || undefined); sbNextMode = ""; }, ask ? 0 : 400); }
+  else { syncLabel(); setTimeout(() => { if ((ask || !dlg.open) && !sbUser) sbSignInSheet(sbNextMode || (ask ? undefined : "hello")); sbNextMode = ""; }, ask ? 0 : 400); }
 }
 // Settings, sharing, reminders and so on call this to let someone sign in or make an account
 function sbAsk(){ if (sb) sbSignInSheet(); else if (sbConfig() || SB_HOSTED) { toast("Connecting…"); initSupabase(true); } else sbSetupSheet(); }
@@ -779,14 +779,15 @@ function sbSetupSheet(){
 const SB_RESEND = {}, SB_RESEND_MS = 30000;
 function sbSignInSheet(mode, email, note){
   if (!sb) { sbAsk(); return; }
-  mode = mode || "signin"; email = email || (dlg.open && dlg.querySelector(".sb-acct input[name=email]") ? dlg.querySelector(".sb-acct input[name=email]").value.trim() : "");
-  const back = location.origin + location.pathname, redirect = DESK || !/^https?:/.test(location.protocol) ? {} : null;
   const first = !localStorage.getItem("studioso:welcomed");
-  const T = {signin: first ? "Welcome to Studyboard" : "Sign In to Studyboard", signup: "Create Your Studyboard Account", confirm: "Check Your Email", forgot: "Reset Your Password", reset: "Set a New Password"}[mode];
+  mode = mode === "hello" && !first ? "signin" : mode || "signin"; email = email || (dlg.open && dlg.querySelector(".sb-acct input[name=email]") ? dlg.querySelector(".sb-acct input[name=email]").value.trim() : "");
+  const back = location.origin + location.pathname, redirect = DESK || !/^https?:/.test(location.protocol) ? {} : null;
+  const T = {hello: "Welcome to Studyboard", signin: first ? "Welcome to Studyboard" : "Sign In to Studyboard", signup: "Create Your Studyboard Account", confirm: "Check Your Email", forgot: "Reset Your Password", reset: "Set a New Password"}[mode];
   const emailIn = (ro) => `<label class="f"><span class="lh">Email ${REQ}</span><input type="email" name="email" required autocomplete="email" value="${esc(email)}" ${ro ? "readonly" : ""} ${email && !ro ? "" : "autofocus"}></label>`;
   const codeIn = `<label class="f"><span class="lh">Code ${REQ} <span class="hint">From the email</span></span><input type="text" name="code" required inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="123456" class="sb-code" autofocus></label>`;
   const pwIn = (lbl, ac) => `<label class="f"><span class="lh">${lbl} ${REQ}</span><input type="password" name="password" required minlength="8" autocomplete="${ac}" ${email && mode !== "reset" ? "autofocus" : ""}></label>`;
   const body = {
+    hello: sbWelcomeHtml(),
     signin: `${first ? `<p style="margin:0">Sign in to keep your tasks, notes and files safe online and in sync on all your devices.</p>` : ""}${emailIn()}${pwIn("Password", "current-password")}`,
     signup: `<p style="margin:0">Free, and it keeps your planner in sync on your phone, laptop and the web.</p><label class="f"><span class="lh">Name <span class="hint">Optional. Your study companion uses it to say hi</span></span><input type="text" name="name" maxlength="40" autocomplete="given-name"></label>${window.SBUNAME ? SBUNAME.bdayField(true) + `<div class="u13" id="u13" hidden><p class="mini" style="margin:0"><b>Under 13?</b> A parent or guardian makes the account with their own email and confirms it. Publishing and sharing with a link stay off until you're 13.</p><label class="mi-check"><input type="checkbox" name="parentok" id="u13ok"> I'm the parent or guardian, and I agree to the Terms and Privacy Policy for my child</label></div>` : ""}${emailIn()}${sbPwHtml("Password", "new-password", {autofocus: !!email})}`,
     confirm: `<p style="margin:0">If <b>${esc(email)}</b> can be used for a new account, we sent a code to it. Type it here to finish, or open the link in the email.</p><p class="mini" style="margin:0">Confirm your email to start using your account. Already have one? Use Back to Sign In.</p>${codeIn}`,
@@ -794,6 +795,7 @@ function sbSignInSheet(mode, email, note){
     reset: `<p style="margin:0">If an account uses <b>${esc(email)}</b>, we sent it a code. Enter the code with your new password.</p>${codeIn}${sbPwHtml("New Password", "new-password")}`
   }[mode];
   const links = {
+    hello: "",
     signin: `<button type="button" class="link-btn" data-sbm="forgot">Forgot Password?</button> · <button type="button" class="link-btn" id="sbLater">${first ? "Use Without an Account" : "Not Now"}</button>`,
     signup: `<button type="button" class="link-btn" data-sbm="signin">I Already Have an Account</button> · <button type="button" class="link-btn" id="sbLater">${first ? "Use Without an Account" : "Not Now"}</button>`,
     confirm: `<button type="button" class="link-btn" id="sbResend">Send a New Code</button> · <button type="button" class="link-btn" data-sbm="signin">Back to Sign In</button>`,
@@ -801,6 +803,7 @@ function sbSignInSheet(mode, email, note){
     reset: `<button type="button" class="link-btn" id="sbResend">Send a New Code</button> · <button type="button" class="link-btn" data-sbm="signin">Back to Sign In</button>`
   }[mode];
   const foot = {
+    hello: "",
     signin: `<button type="button" class="btn" data-sbm="signup">Create Account</button><span class="spacer"></span><button type="button" class="btn primary" data-submit>Sign In</button>`,
     signup: `<span class="spacer"></span><button type="button" class="btn primary" data-submit>Create Account</button>`,
     confirm: `<span class="spacer"></span><button type="button" class="btn primary" data-submit>Confirm</button>`,
@@ -808,19 +811,20 @@ function sbSignInSheet(mode, email, note){
     reset: `<span class="spacer"></span><button type="button" class="btn primary" data-submit>Save Password</button>`
   }[mode];
   const custom = (sbCustom() ? `<p class="mini" style="margin:0"><button type="button" class="link-btn" id="sbServer">Custom Server</button></p>` : "")
-    + ((mode === "signin" || mode === "signup") && window.SBLEGAL ? SBLEGAL.line() : "");
+    + ((mode === "signin" || mode === "signup" || mode === "hello") && window.SBLEGAL ? SBLEGAL.line() : "");
   let busy = false;
   const say = t => { const m = $("#sbMsg"); if (m) m.textContent = t; };
   const done = t => { try { localStorage.setItem("studioso:welcomed", "1"); } catch(e) {} if (dlg.open) dlg.close(); toast(t); };
+  const hello = mode === "hello";
   openSheet(`<form class="sheet sb-acct" data-mode="${mode}"${first ? " data-first" : ""}>${head(T)}
     <div class="sheet-body">
-      ${REQ_NOTE}${body}
-      <p class="status-msg" id="sbMsg" style="margin:0" aria-live="polite">${esc(note || "")}</p>
-      <p class="mini" style="margin:0">${links}</p>${custom}
+      ${hello ? "" : REQ_NOTE}${body}
+      ${hello ? "" : `<p class="status-msg" id="sbMsg" style="margin:0" aria-live="polite">${esc(note || "")}</p>
+      <p class="mini" style="margin:0">${links}</p>`}${custom}
     </div>
-    <div class="sheet-foot">${foot}</div>
+    ${hello ? "" : `<div class="sheet-foot">${foot}</div>`}
   </form>`, fd => {
-    if (busy) return false;
+    if (busy || hello) return false;
     const em = String(fd.get("email") || email || "").trim(), pw = String(fd.get("password") || ""), code = String(fd.get("code") || "").replace(/\s+/g, "");
     const go = async () => {
       busy = true;
@@ -885,6 +889,8 @@ function sbSignInSheet(mode, email, note){
   }
   const later = $("#sbLater");
   if (later) later.addEventListener("click", () => { dlg.close(); sbUseLater(first); });
+  const start = $("#sbStart");
+  if (start) start.addEventListener("click", () => { dlg.close(); sbUseLater(true); });
   const rs = $("#sbResend");
   if (rs) {
     const ckey = mode + ":" + String(email).toLowerCase(), label = rs.textContent;
@@ -904,6 +910,23 @@ function sbSignInSheet(mode, email, note){
   }
   const sv = $("#sbServer"); if (sv) sv.addEventListener("click", sbSetupSheet);
 }
+// The first thing a new student sees: Mochi says hi, then Get Started (on this device) or sign in
+function sbWelcomeHtml(){
+  let mochi = ""; try { mochi = window.SBCOMP ? SBCOMP.rigSvg("plain-mochi", {eyes: "happy", mouth: "smile"}) : ""; } catch(e) {}
+  const ic = d => `<i aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg></i>`;
+  return `<div class="sb-welc">
+    <div class="sb-welc-m" aria-hidden="true">${mochi}</div>
+    <h3>Hi! I'm Mochi.<br>Let's plan your semester.</h3>
+    <p>Studyboard turns your syllabi into a calm plan for every day.</p>
+    <ul>
+      <li>${ic('<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5zM13 4h5.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H13z"/>')}Add courses and deadlines in minutes</li>
+      <li>${ic('<circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.2l2.4 2.4 4.6-5"/>')}See exactly what to do next, today</li>
+      <li>${ic('<path d="M12 20v-7"/><path d="M12 13c0-3.5-2.5-6-6.5-6 0 3.6 2.6 6 6.5 6zM12 11c0-3 2.2-5.5 6.5-5.5 0 3.2-2.4 5.5-6.5 5.5z"/>')}Works offline, no account needed</li>
+    </ul>
+    <button type="button" class="btn primary sb-welc-go" id="sbStart">Get Started</button>
+    <button type="button" class="link-btn sb-welc-alt" data-sbm="signin">I Already Have an Account</button>
+  </div>`;
+}
 // "Use Without an Account", "Not Now", or closing the first sign-in sheet
 function sbUseLater(first){
   try { localStorage.setItem("studioso:welcomed", "1"); if (first) { localStorage.setItem(SB_CFG, JSON.stringify("local")); SBGUEST.chose(); } } catch(e) {}
@@ -911,7 +934,7 @@ function sbUseLater(first){
   toast(first ? "Saving on this device only. Sign in any time from Settings." : "Working on this device. Sign in from Settings to sync.");
 }
 document.getElementById("dlg").addEventListener("close", () => {
-  if (sbUser || !dlg.querySelector('.sb-acct[data-first][data-mode="signin"], .sb-acct[data-first][data-mode="signup"]')) return;
+  if (sbUser || !dlg.querySelector('.sb-acct[data-first]:is([data-mode="hello"], [data-mode="signin"], [data-mode="signup"])')) return;
   try { if (localStorage.getItem("studioso:welcomed")) return; } catch(e) { return; }
   sbUseLater(true);
 });
