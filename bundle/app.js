@@ -10500,7 +10500,7 @@ function pageSub(){
     if (ui.tab === "flashcards") {
       if (ui.rvView === "quizzes") { const qs = quizzesAll(), taken = qs.filter(x => (x.qz.results || []).length).length; return qs.length ? `${nWord(qs.length, "quiz", "quizzes")} · ${taken} taken` : "Practice quizzes from your decks and notes"; }
       const ds = deckListArr(), cards = ds.reduce((s, d) => s + d.cards.length, 0), due = allDueCount();
-      return ds.length ? [nWord(ds.length, "deck"), nWord(cards, "card"), due ? `${due} due today` : "nothing due today"].join(" · ") : "Make a deck to start reviewing";
+      return ds.length ? [nWord(ds.length, "deck"), nWord(cards, "card"), due ? `${due} due today` : (k => k ? `${k} new to learn` : "nothing due today")(ds.reduce((m, d) => m + d.cards.filter(c => !c.draft && cardNew(c)).length, 0))].join(" · ") : "Make a deck to start reviewing";
     }
     if (ui.tab === "courses" && ui.courseTab === "grades") {
       const gs = coursesArr().map(c => window.SBGRADES && SBGRADES.now(c)).filter(g => g && g.pct != null);
