@@ -78,7 +78,7 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
       await noOverflow(page, "in the grade view"); noErr(page, "in the grade view");
       await svg.evaluate(e => e.scrollIntoView({block: "center"})); await page.waitForTimeout(150);
       await page.screenshot({path: path.join(SHOTS, "trend-390.png")});
-      await svg.screenshot({path: path.join(SHOTS, "trend-chart.png")});
+      await svg.screenshot({path: path.join(SHOTS, "trend-chart.png")}).catch(async () => { await page.waitForTimeout(400); await svg.screenshot({path: path.join(SHOTS, "trend-chart.png")}); });
       await page.evaluate(() => { document.documentElement.dataset.theme = "dark"; document.documentElement.dataset.ts = "xl"; });
       await page.waitForTimeout(200);
       const dark = await page.evaluate(() => { const l = document.querySelector(".gt-line"), v = document.querySelector(".gt-val"); return {line: getComputedStyle(l).stroke, val: getComputedStyle(v).fill, bg: getComputedStyle(document.body).backgroundColor}; });

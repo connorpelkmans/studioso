@@ -58,9 +58,6 @@ nav.tabs button[aria-current="page"] svg{color:var(--accent)}
 
 .fab{position:fixed;right:max(18px,calc(50% - 362px));bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:6;border:0;border-radius:18px;background:var(--accent);color:var(--accent-ink);padding:14px 18px;font-weight:600;display:flex;align-items:center;gap:8px;box-shadow:0 6px 18px rgba(20,40,120,.25)}
 .fab svg{width:20px;height:20px}
-#fab.fab-icon{width:56px;height:56px;padding:0;border-radius:50%;justify-content:center}
-#fab.fab-icon span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-#fab.fab-icon svg{width:24px;height:24px}
 .fab span{position:relative;top:-1.5px}
 
 /* Sections */
