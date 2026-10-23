@@ -181,7 +181,14 @@ function drawDeps(){
 }
 /* Dialogs */
 const dlg = $("#dlg");
+// A sheet with unsaved changes asks before it closes
+let dlgGuard = null;
+function dlgClose(){
+  if (!(dlgGuard && dlgGuard())) { dlg.close(); return; }
+  askBox({title: "Discard Changes?", text: "Your changes to this task aren't saved yet.", yes: "Discard", no: "Keep Editing", danger: true}).then(ok => { if (ok && dlg.open) { dlgGuard = null; dlg.close(); } });
+}
 function openSheet(html, onSubmit){
+  dlgGuard = null;
   const tt = $("#toast"), inSheet = !!tt && tt.parentNode === dlg;
   if (inSheet) document.body.appendChild(tt);
   dlg.innerHTML = html;
@@ -207,7 +214,10 @@ function openSheet(html, onSubmit){
   const first = dlg.querySelector("[autofocus]");
   if (first && window.matchMedia("(min-width:601px)").matches) first.focus();
 }
-dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); });
+dlg.addEventListener("click", e => { if (e.target === dlg) dlgClose(); });
+dlg.addEventListener("keydown", e => { if (e.key === "Escape" && !e.defaultPrevented && dlgGuard && dlgGuard()) { e.preventDefault(); dlgClose(); } });
+dlg.addEventListener("cancel", e => { if (dlgGuard && dlgGuard()) { e.preventDefault(); dlgClose(); } });
+dlg.addEventListener("close", () => { dlgGuard = null; });
 $("#pomoDlg").addEventListener("click", e => { if (e.target.id === "pomoDlg") e.target.close(); });
 const FAB_IC = {
   course: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M9 8h6"/>',
@@ -256,6 +266,7 @@ function taskForm(t, preset = {}){
   let attached = new Set(filesOfTask(t.id).map(f => f.id));
   let noteSet = new Set(notesOfTask(t.id).map(n => n.id)), newNotes = [];
   let planAfter = false;
+  const canRepeat = isNew || !(t.seriesId || lmsOf(t) || t.prepFor || t.breakdownOf || t.breakdownParent || t.gt);
   const dependsOnSelf = (id, seen = new Set()) => { if (id === t.id) return true; if (seen.has(id)) return false; seen.add(id); return ((state.tasks[id] || {}).dependsOn || []).some(x => dependsOnSelf(x, seen)); };
   const courseOpts = `<option value="">No course</option>` + coursesArr().map(c => `<option value="${esc(c.id)}" ${c.id === t.courseId ? "selected" : ""}>${esc(c.name)}</option>`).join("");
   openSheet(`<form class="sheet">${bandHead(isNew ? "New Task" : "Edit Task", SH_IC.pencil, t.courseId ? colorOf(t.courseId) : "#2F6FE4", "", isNew ? "" : esc(t.title))}
@@ -267,13 +278,18 @@ function taskForm(t, preset = {}){
       <label class="f"><span class="lh">Title ${REQ}</span><input type="text" name="title" required maxlength="200" value="${esc(t.title)}" autofocus></label>
       <label class="f" data-fld="reading"><span class="lbl">What to Read</span><input type="text" name="reading" maxlength="200" value="${esc(t.reading)}" placeholder="e.g. Ch. 4, pp. 101–130"></label>
       <div class="two">
-        <label class="f" data-fld="start"><span class="lbl">Start Date</span><input type="date" name="start" value="${esc(isNew ? t.start : (t.start || startOf(t) || ""))}"></label>
         <label class="f"><span><span class="lbl" id="dueLbl">Due Date</span> <span class="req" id="dueReq" aria-hidden="true" hidden>*</span></span><input type="date" name="due" value="${esc(t.due)}"></label>
+        <label class="f" data-fld="time"><span class="lbl">Due Time</span><input type="time" name="time" value="${esc(t.time)}"></label>
       </div>
-      <fieldset><legend>Status</legend><div id="statusSeg">${seg("status", STATUSES.map(x => [x[0], statusLabels(t.type)[x[0]]]), t.status)}</div></fieldset>
+      <div class="two">
+        <label class="f" data-fld="start"><span class="lbl">Start Date</span><input type="date" name="start" value="${esc(isNew ? t.start : (t.start || startOf(t) || ""))}"></label>
+        ${canRepeat ? `<label class="f" id="repeatWrap">Repeat<select name="repeat"><option value="">Doesn't repeat</option><option value="1">Every day</option><option value="7">Every week</option><option value="14">Every 2 weeks</option><option value="m">Every month</option></select></label>` : ""}
+      </div>
+      ${canRepeat ? `<label class="f" id="untilWrap" hidden><span class="lh">Repeat Until <span class="hint" id="untilHint"></span></span><input type="date" name="until"></label>` : ""}
+      <fieldset id="statusFs" ${isNew ? "hidden" : ""}><legend>Status</legend><div id="statusSeg">${seg("status", STATUSES.map(x => [x[0], statusLabels(t.type)[x[0]]]), t.status)}</div></fieldset>
       <fieldset data-fld="remote" id="rxFs" ${MILESTONE(t.type) ? "" : "hidden"}><legend>Where is this taken?</legend>${seg("remote", [["yes", "From home"], ["no", "In person"], ["", "Not sure"]], rxInit)}<p class="mini rx-note" id="rxNote" aria-live="polite"></p></fieldset>
       <fieldset><legend id="prioLbl">Priority</legend>${seg("priority", [["low","Low"],["med","Medium"],["high","High"],["urgent","Urgent"]], t.priority)}</fieldset>
-      <label class="f" id="pctWrap"><span><span class="lbl" id="pctLbl">Progress</span> <span class="hint" id="pctOut">${t.pct}%</span></span><input type="range" name="pct" min="0" max="100" step="10" value="${t.pct}"><span class="mini" id="pctHint"></span></label>
+      <label class="f" id="pctWrap" ${isNew ? "hidden" : ""}><span><span class="lbl" id="pctLbl">Progress</span> <span class="hint" id="pctOut">${t.pct}%</span></span><input type="range" name="pct" min="0" max="100" step="10" value="${t.pct}"><span class="mini" id="pctHint"></span></label>
       <p class="mini" id="pctFromCl" hidden style="margin:0"></p>
       ${!isNew && window.SBPREP ? SBPREP.formHtml(t) : ""}
       <label class="f"><span class="lbl" id="notesLbl">Notes</span><textarea name="notes" maxlength="5000">${esc(t.notes)}</textarea></label>
@@ -283,7 +299,6 @@ function taskForm(t, preset = {}){
         <summary><span class="adv-title">Advanced Settings</span><span class="adv-sum" id="advSum"></span></summary>
         <div class="adv-body">
           <div class="two">
-            <label class="f" data-fld="time"><span class="lbl">Due Time</span><input type="time" name="time" value="${esc(t.time)}"></label>
             <label class="f" data-fld="hours"><span class="lh"><span class="lbl">Hours Needed</span>${inPreview() ? "" : `<button type="button" class="link-btn est-btn" id="tfEst" data-act="tf-est">${aiReady() ? AI_ICON + " " : ""}Estimate</button>`}</span><input type="number" name="hours" min="0" step="0.25" inputmode="decimal" value="${isNum(t.hours) ? esc(t.hours) : ""}" placeholder="e.g. 3"></label>
           </div>
           <p class="mini est-hint" id="estHint" hidden aria-live="polite"></p>
@@ -308,10 +323,6 @@ function taskForm(t, preset = {}){
           <fieldset><legend>Sticky Notes</legend><div class="tf-notes" id="tfNotes"></div>
             <div class="cl-new"><input type="text" id="tfNoteNew" placeholder="Write a new sticky note" maxlength="2000" data-noenter aria-label="New sticky note"><button type="button" class="btn small" id="tfNoteAddBtn">Add</button></div>
             <select id="tfNoteAttach" aria-label="Attach an existing sticky note"></select></fieldset>
-          ${isNew ? `<div class="two" id="repeatRow">
-            <label class="f">Repeat<select name="repeat"><option value="">Doesn't repeat</option><option value="7">Every week</option><option value="14">Every 2 weeks</option></select></label>
-            <label class="f">Until<input type="date" name="until"></label>
-          </div>` : ""}
           ${!isNew && t.pomos ? `<p class="mini" style="margin:0">${TOMATO} ${t.pomos} focus session${t.pomos === 1 ? "" : "s"}, ${fmtHM((t.focusMin || 0) / 60)} focused on this task.</p>` : ""}
         </div>
       </details>
@@ -356,23 +367,14 @@ function taskForm(t, preset = {}){
       return {kind:"file", id: f.id, after: n};
     }));
     if (data.start && data.due && data.start > data.due) data.start = data.due;
+    const every = canRepeat && type !== "Exam" ? String(fd.get("repeat") || "") : "", untilIn = fd.get("until") || "";
+    if (every && !data.due) { toast("Set a due date to repeat this task"); return false; }
+    if (every && untilIn && untilIn < data.due) { toast("Pick a Repeat Until date after the due date"); return false; }
+    const until = every ? untilIn || repeatEnd(data.due, data.courseId) : "";
     if (isNew) {
-      const every = Number(fd.get("repeat") || 0), until = fd.get("until") || "";
-      if (every) {
-        if (!data.due) { toast("Set a due date to repeat this task"); return false; }
-        if (!until || until < data.due) { toast("Pick an end date for the repeats"); return false; }
-      }
       const base = newTask(Object.assign({}, data, {id: t.id, doneAt: data.status === "done" ? Date.now() : null}));
-      const changes = [{kind:"task", id: base.id, after: base}];
-      if (every) {
-        base.seriesId = uid();
-        const off = dayDiff(base.start, base.due);
-        for (let d = addDays(base.due, every), n = 1; d <= until && n < 60; d = addDays(d, every), n++) {
-          const copy = Object.assign(clone(base), {id: uid(), due: d, start: addDays(d, -off), status: "todo", doneAt: null, order: base.order + n,
-            checklist: base.checklist.map(i => ({id: uid(), text: i.text, done: false}))});
-          changes.push({kind:"task", id: copy.id, after: copy});
-        }
-      }
+      if (every) base.seriesId = uid();
+      const changes = [{kind:"task", id: base.id, after: base}].concat(every ? repeatCopies(base, every, until) : []);
       applyChanges(changes.concat(fileChanges), changes.length > 1 ? `Added ${changes.length} tasks` : "Task added");
       if (planAfter && MILESTONE(base.type) && base.due) setTimeout(() => { if (window.SBPREP) SBPREP.open(base.id); }, 80);
       else if (MILESTONE(base.type) && base.due && base.due >= todayISO() && base.status !== "done") setTimeout(() => { if (!dlg.open) remoteAsk(base.id); }, 80);
@@ -382,18 +384,19 @@ function taskForm(t, preset = {}){
       if (data.status === "done" && x.status !== "done") next.doneAt = Date.now();
       if (data.status !== "done") next.doneAt = null;
       if (data.status !== x.status) next.order = nextOrder(data.status);
-      const inv = applyChanges([{kind:"task", id: t.id, after: next}].concat(fileChanges), "");
+      if (every) next.seriesId = uid();
+      const copies = every ? repeatCopies(next, every, until) : [];
       const moved = next.due !== x.due || startOf(next) !== startOf(x);
-      toast("Task saved", () => { applyChanges(inv, null); toast("Undone"); }, moved ? shiftOffer(t.id) : null);
+      applyChanges([{kind:"task", id: t.id, after: next}].concat(copies, fileChanges), copies.length ? `Task saved, repeating ${copies.length} more time${copies.length === 1 ? "" : "s"}` : "Task saved", () => moved ? shiftOffer(t.id) : null);
     }
   });
   const list = $("#clList");
+  let drawRepeat = () => {};
   const curType = () => $("#tfType").value;
   const advSummary = () => {
     const f = dlg.querySelector("form"); if (!f) return;
     const v = n => (f.elements[n] && !f.elements[n].closest("[hidden]")) ? String(f.elements[n].value || "").trim() : "";
     const bits = [];
-    if (v("time")) bits.push("due " + fmtTime(v("time")));
     if (v("hours")) bits.push(v("hours") + "h");
     if (v("location")) bits.push(v("location"));
     if (v("team")) bits.push("team");
@@ -404,12 +407,11 @@ function taskForm(t, preset = {}){
     if (items.length) bits.push(`checklist ${items.filter(i => i.done).length}/${items.length}`);
     if (deps.length) bits.push(`${deps.length} dependenc${deps.length === 1 ? "y" : "ies"}`);
     if (attached.size) bits.push(`${attached.size} file${attached.size === 1 ? "" : "s"}`);
-    const rp = f.elements.repeat && f.elements.repeat.value; if (rp) bits.push(rp === "7" ? "weekly" : "every 2 weeks");
-    $("#advSum").textContent = bits.length ? bits.join(", ") : "Due time, hours, checklist, files and more";
+    $("#advSum").textContent = bits.length ? bits.join(", ") : "Hours, checklist, files and more";
   };
   const drawCl = () => {
-    const pw = $("#pctWrap"); if (pw) pw.hidden = items.length > 0 && !MILESTONE(curType());
-    const pc = $("#pctFromCl"); if (pc) { pc.hidden = !(items.length > 0 && !MILESTONE(curType())); pc.textContent = `Progress comes from the checklist in Advanced Settings: ${items.filter(i => i.done).length} of ${items.length} done.`; }
+    const pw = $("#pctWrap"); if (pw) pw.hidden = isNew || (items.length > 0 && !MILESTONE(curType()));
+    const pc = $("#pctFromCl"); if (pc) { pc.hidden = isNew || !(items.length > 0 && !MILESTONE(curType())); pc.textContent = `Progress comes from the checklist in Advanced Settings: ${items.filter(i => i.done).length} of ${items.length} done.`; }
     if (typeof advSummary === "function" && $("#advSum")) advSummary();
     list.innerHTML = items.map((i, n) => `<li class="${i.done ? "done" : ""}"><input type="checkbox" data-i="${n}" ${i.done ? "checked" : ""} aria-label="Done"><input type="text" data-i="${n}" value="${esc(i.text)}" data-noenter aria-label="Step ${n + 1}"><button type="button" class="x-btn" data-rm="${n}" aria-label="Remove step">${CLOSE}</button></li>`).join("");
   };
@@ -458,12 +460,28 @@ function taskForm(t, preset = {}){
     $("#prioLbl").textContent = MILESTONE(type) ? "Importance" : "Priority";
     const cur = (dlg.querySelector("input[name=status]:checked") || {}).value || t.status;
     $("#statusSeg").innerHTML = seg("status", STATUSES.map(x => [x[0], statusLabels(type)[x[0]]]), cur);
+    const rr = $("#repeatWrap"); if (rr) rr.hidden = type === "Exam";
     $$(".two", dlg).forEach(row => { row.hidden = [...row.children].every(c => c.hidden); });
-    const rr = $("#repeatRow"); if (rr) rr.hidden = type === "Exam";
+    drawRepeat();
     const dueIn = dlg.querySelector("input[name=due]"); dueIn.required = !!cfg.single; $("#dueReq").hidden = !cfg.single;
     pctHint(); drawCl(); if (typeof planHint === "function") planHint(); advSummary();
   };
   $("#tfType").addEventListener("change", applyType);
+  {
+    const rs = dlg.querySelector("select[name=repeat]"), un = dlg.querySelector("input[name=until]"), dueIn = dlg.querySelector("input[name=due]"), cSel = dlg.querySelector("select[name=courseId]");
+    if (rs) {
+      let touched = false;
+      drawRepeat = () => {
+        const on = !!rs.value && !$("#repeatWrap").hidden, end = dueIn.value ? repeatEnd(dueIn.value, cSel.value) : "";
+        $("#untilWrap").hidden = !on;
+        if (!touched) un.value = on ? end : "";
+        const n = on && dueIn.value ? repeatDates(dueIn.value, rs.value, un.value || end).length : 0;
+        $("#untilHint").textContent = !on ? "" : !dueIn.value ? "Set a due date first" : `${n} more after this one${touched ? "" : ", to the end of term"}`;
+      };
+      un.addEventListener("input", () => { touched = !!un.value; drawRepeat(); });
+      [rs, dueIn, cSel].forEach(x => x.addEventListener("change", drawRepeat));
+    }
+  }
   { const ppB = $("#tfPlanPrep"); if (ppB) { const sync = () => { ppB.hidden = !MILESTONE(curType()); }; $("#tfType").addEventListener("change", sync); sync(); ppB.addEventListener("click", () => { planAfter = true; try { dlg.querySelector("[data-submit]").click(); } finally { planAfter = false; } }); } }
   const drawRx = () => {
     const n = $("#rxNote"); if (!n) return;
@@ -541,6 +559,37 @@ function taskForm(t, preset = {}){
   $("#clAdd").addEventListener("click", add);
   $("#clNew").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); add(); } });
   applyType();
+  const snap = () => { const f = dlg.querySelector("form"); return f ? JSON.stringify([[...new FormData(f)].filter(([k]) => k !== "until"), items, deps, [...attached], [...noteSet], newNotes, $("#clNew").value, $("#tfNoteNew").value]) : ""; };
+  let start = null;
+  ["focusin", "pointerdown", "keydown"].forEach(ev => tForm.addEventListener(ev, () => { if (start === null) start = snap(); }, true));
+  dlgGuard = () => start !== null && snap() !== start;
+}
+// Repeats run until the course's last deadline, or the end of the usual term
+function repeatEnd(due, cid){
+  const last = cid ? allTasks().filter(x => x.courseId === cid && x.due && !x.seriesId).reduce((m, x) => x.due > m ? x.due : m, "") : "";
+  if (last && dayDiff(due, last) >= 14) return last;
+  const d = parse(due), y = d.getFullYear(), m = d.getMonth(), end = m >= 7 ? `${y}-12-15` : m >= 4 ? `${y}-08-15` : `${y}-05-15`;
+  return dayDiff(due, end) >= 14 ? end : addDays(due, 84);
+}
+function repeatDue(due, every, n){
+  if (every !== "m") return addDays(due, Number(every) * n);
+  const d = parse(due), x = new Date(d.getFullYear(), d.getMonth() + n, 1);
+  x.setDate(Math.min(d.getDate(), new Date(x.getFullYear(), x.getMonth() + 1, 0).getDate()));
+  return iso(x);
+}
+function repeatDates(due, every, until){
+  const out = [];
+  for (let n = 1; n <= 120; n++) { const d = repeatDue(due, every, n); if (d > until) break; out.push(d); }
+  return out;
+}
+function repeatCopies(base, every, until){
+  const off = dayDiff(base.start || base.due, base.due);
+  return repeatDates(base.due, every, until).map((d, i) => {
+    const keep = {}; ["title", "courseId", "type", "time", "priority", "notes", "hours", "weight", "difficulty", "late", "location", "team", "reading", "link", "seriesId"].forEach(k => { if (base[k] !== undefined) keep[k] = clone(base[k]); });
+    const x = newTask(Object.assign(keep, {due: d, start: addDays(d, -off), status: "todo", checklist: (base.checklist || []).map(i => ({id: uid(), text: i.text, done: false}))}));
+    x.order += i + 1;
+    return {kind: "task", id: x.id, after: x};
+  });
 }
 
 function deleteTask(id){

@@ -32,7 +32,7 @@ document.addEventListener("click", e => {
   if (act.startsWith("fc-") && fcAction(act, el)) return;
   if (act.startsWith("pomo-") && pomoAction(act, el)) return;
   switch (act) {
-    case "close": { const dd = el.closest("dialog") || dlg; dd.close(); break; }
+    case "close": { const dd = el.closest("dialog") || dlg; if (dd === dlg) dlgClose(); else dd.close(); break; }
     case "menu": menuSheet(); break;
     case "search": toggleSearch(true); break;
     case "search-close": toggleSearch(false); break;
