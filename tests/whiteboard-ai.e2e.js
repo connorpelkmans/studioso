@@ -42,8 +42,8 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
   try {
     {
       const {ctx, page} = await mk(true);
-      ok(await page.locator('.wb-head [data-act="wb-ai"]').count() === 1, "the board's header has Notes and Cards");
-      await page.click('.wb-head [data-act="wb-ai"]'); await page.waitForSelector("dialog[open] #wbaGo");
+      ok(await page.locator('#view [data-act="wb-ai"]').count() === 1, "the board's header has Notes and Cards");
+      await page.click('#view [data-act="wb-ai"]'); await page.waitForSelector("dialog[open] #wbaGo");
       await page.waitForFunction(() => { const i = document.getElementById("wbaImg"); return i && i.src && i.naturalWidth > 0; });
       ok(true, "the sheet shows a picture of the board");
       ok(await page.inputValue("#wbaCourse") === "c1", "it starts with the board's course");
@@ -62,7 +62,7 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       ok(!page.errs.length, "no page errors: " + page.errs.join(" | "));
       await page.evaluate(() => { SBPRO.locked = () => false; window.__ic = null; SBPRO.scanImage = async (blob, name) => ({blob, name, boxes: [{x: 0.1, y: 0.1, w: 0.2, h: 0.1, t: "Mitosis"}]}); SBPRO.openImageEditor = (deckId, q) => { window.__ic = {deckId, n: q.length, name: q[0].name, size: q[0].blob.size, found: q[0].found}; }; });
       await page.click('.nv-tabs [data-id="wb"]'); await page.waitForSelector(".wb-stage .wb-frame"); await page.waitForTimeout(200);
-      await page.click('.wb-head [data-act="wb-ai"]'); await page.waitForSelector("dialog[open] #wbaGo");
+      await page.click('#view [data-act="wb-ai"]'); await page.waitForSelector("dialog[open] #wbaGo");
       ok(await page.locator("dialog[open] .wb-ai-k legend").count() === 0, "no stray Make label over the choices");
       await page.check('input[name="wbaK"][value="pics"]'); await page.waitForTimeout(60);
       ok(await page.isVisible("#wbaDeck") && /New deck: Cell Division/.test(await page.locator("#wbaDeck").textContent()) && /Make Picture Cards/.test(await page.locator("#wbaGo").textContent()), "Picture flashcards asks for a deck (or a new one named after the board)");
@@ -87,7 +87,7 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     }
     {
       const {ctx, page} = await mk(false);
-      await page.click('.wb-head [data-act="wb-ai"]'); await page.waitForTimeout(400);
+      await page.click('#view [data-act="wb-ai"]'); await page.waitForTimeout(400);
       ok(await page.locator("dialog[open] #wbaGo").count() === 0 && await page.locator("dialog[open]").count() === 1, "without AI set up, Notes and Cards opens AI setup instead");
       ok(!page.errs.length, "no page errors (no AI): " + page.errs.join(" | "));
       await ctx.close();
