@@ -40,9 +40,9 @@ const SHOTS = process.env.SHOTS || "";
         const t = [...document.querySelectorAll(".nb-target")].map(x => x.getBoundingClientRect()), apart = (p, q) => p.right <= q.left || q.right <= p.left || p.bottom <= q.top || q.bottom <= p.top;
         const covers = [...document.querySelectorAll("nav.tabs, .fab")].filter(e => getComputedStyle(e).position === "fixed" && getComputedStyle(e).opacity !== "0").map(e => e.getBoundingClientRect());
         return {right: s.right - b.right < 24 && b.top - s.top < 24, zoomLeft: z.left - s.left < 24 && z.top - s.top < 24,
-          bottom: t.every(q => s.bottom - q.bottom < 120 && q.top > s.top + s.height / 2), clear: [b, z].every(p => t.every(q => apart(p, q))) && t.every(q => covers.every(c => apart(q, c)))}; });
+          top: t.length === 2 && t.every(q => q.top - s.top < 24 && q.right <= b.left && b.left - q.right < 60 && q.width < 50), clear: [b, z].every(p => t.every(q => apart(p, q))) && apart(t[0], t[1])}; });
       ok(await page.locator(".nb-max").isVisible() && bm.right && bm.zoomLeft, `${label}: the note board has its zoom at the top left and the expand button at the top right`);
-      ok(bm.bottom && bm.clear, `${label}: Archive and Trash sit at the bottom, clear of the buttons and the tab bar`);
+      ok(bm.top && bm.clear, `${label}: Archive and Trash are round buttons at the top, just left of the expand button`);
       await page.click(".nb-max"); await page.waitForTimeout(300);
       let c = await covers(page);
       ok(await isMax(page) && c.full && c.over, `${label}: it makes the note board fill the whole window, over the header and tabs`);

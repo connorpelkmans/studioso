@@ -88,24 +88,7 @@ function fitNoteBoard(){
   board.style.width = w ? (w + 28) + "px" : "";
   board.style.height = h ? (h + 28) + "px" : "";
   nbZoomApply();
-  nbTargetsLift();
 }
-// Archive and Trash sit at the board's bottom right corner. On a phone or tablet the bottom tab bar and the round Add button float over that
-// corner, so they move up just above whatever covers it.
-function nbTargetsLift(){
-  const sc = $("#nbScroll"), t = document.querySelector(".nb-targets"); if (!sc || !t) return;
-  t.style.marginBottom = "";
-  if (document.documentElement.classList.contains("board-max")) return;
-  const r = sc.getBoundingClientRect(), tr = t.getBoundingClientRect();
-  let top = Infinity;   // the highest thing floating over the corner
-  document.querySelectorAll("nav.tabs, .fab").forEach(el => {
-    const cs = getComputedStyle(el); if (cs.position !== "fixed" || cs.display === "none" || cs.visibility === "hidden" || Number(cs.opacity) === 0) return;
-    const b = el.getBoundingClientRect(); if (!b.width || b.right <= tr.left || b.left >= tr.right || b.top >= r.bottom || b.bottom <= r.top) return;
-    top = Math.min(top, b.top);
-  });
-  const lift = tr.bottom - (top - 8); if (lift > 0) t.style.marginBottom = Math.round(lift) + "px";
-}
-window.addEventListener("resize", () => { if (ui.tab === "notes") nbTargetsLift(); });
 /* ---- Note board zoom: pinch (phones, trackpads), Ctrl/⌘ + scroll, or the − / + buttons; 100% puts it back ----
    The board is drawn at its usual size and scaled; an outer box takes the scaled size so the frame scrolls over exactly the board.
    Notes keep their own positions (n.x, n.y in board pixels): anything that turns a point on the screen into a board position divides by nbZ(). */
