@@ -144,7 +144,43 @@
     });
   });
 
+  /* The Theme Collection card styles (bundle/tp.css, about 650 KB) load only when a page or sheet shows one: the decks, a deck or a study
+     session in one of them, or the Style Shop. A device that uses one remembers it, so the next start loads them with the page. */
+  const TPCSS = "tp.css", TPKEY = "studyboard:tpcss";
+  let tpWait = null;
+  const tpHere = () => !!document.querySelector(`[data-lazy="${TPCSS}"]`);
+  function tpCss(){
+    if (tpWait) return tpWait;
+    const have = document.querySelector(`[data-lazy="${TPCSS}"]`), url = (window.SB_LAZY || {}).tpcss;
+    if ((have && (have.tagName === "STYLE" || have.sheet)) || !url) return (tpWait = Promise.resolve(!!have));
+    const root = document.documentElement;
+    root.classList.add("tpcss-loading");
+    tpWait = new Promise(res => {
+      const l = have || Object.assign(document.createElement("link"), {rel: "stylesheet", href: url});
+      l.dataset.lazy = TPCSS;
+      const done = ok => { root.classList.remove("tpcss-loading"); if (!ok) { l.remove(); tpWait = null; } res(ok); };
+      l.addEventListener("load", () => done(true), {once: true});
+      l.addEventListener("error", () => done(false), {once: true});
+      if (!have) document.head.appendChild(l);
+    });
+    return tpWait;
+  }
+  const tpUsed = () => { try { return /^tp-/.test(cardStyleOf(null)) || Object.values(state.decks || {}).some(d => d && /^tp-/.test(d.cardStyle || "")); } catch (e) { return false; } };
+  let tpMark = null;
+  function tpCheck(scope){
+    const used = tpUsed();
+    if (used !== tpMark) { tpMark = used; try { if (used) localStorage.setItem(TPKEY, "1"); else localStorage.removeItem(TPKEY); } catch (e) {} }
+    if (used || (scope && scope.querySelector('[class*="cs-tp-"]'))) tpCss();
+  }
+  hook("render", () => tpCheck(document.getElementById("view")));
+  const origSheet = openSheet;
+  openSheet = function(){ const r = origSheet.apply(this, arguments); try { tpCheck(dlg); } catch (e) {} return r; };
+  // The Style Shop's Flashcards tab lists every card style
+  const origShop2 = styleShop;
+  styleShop = function(){ tpCss(); return origShop2.apply(this, arguments); };
+
   // For previews and tests
+  window.SBTPCSS = {load: tpCss, loaded: tpHere};
   window.SBTP = {
     themes: () => tpOrder().slice(), pinHtml, shopRows: rowsHtml, pinIds: () => PINS.map(x => x.id),
     ordered,
