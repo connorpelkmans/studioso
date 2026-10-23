@@ -354,5 +354,13 @@ input.code{font:700 1.6rem ui-monospace,Menlo,Consolas,monospace;letter-spacing:
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .msb .on-light{display:none}:root:not([data-theme="light"]) .msb .on-dark{display:block}}
 :root[data-theme="dark"] .msb .on-light{display:none}
 :root[data-theme="dark"] .msb .on-dark{display:block}
+/* "Available in the Chrome Web Store" badge (Google's artwork, resized only) */
+.cwsb{display:inline-flex;align-items:center;text-decoration:none;line-height:0}
+.cwsb img{display:block;height:56px;width:auto}
+.cwsb:focus-visible{outline:2px solid var(--accent,#2F6FDB);outline-offset:3px}
+.cwsb .on-dark{display:none}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .cwsb .on-light{display:none}:root:not([data-theme="light"]) .cwsb .on-dark{display:block}}
+:root[data-theme="dark"] .cwsb .on-light{display:none}
+:root[data-theme="dark"] .cwsb .on-dark{display:block}
 .ms-go{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:auto}
 .ms-go .exe{font-size:.85rem;color:var(--muted,#5b6475)}

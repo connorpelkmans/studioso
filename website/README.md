@@ -18,6 +18,7 @@ See PRO-PLANS-GUIDE.md in the main folder for the full owner steps.
 - `assets/fonts/` and `assets/fonts.css` are self-hosted copies of Lexend and Atkinson Hyperlegible Next (SIL OFL licenses included), so no outside font service is needed.
 - `assets/logo-light.webp` and `assets/logo-dark.webp` are the wordmark for light and dark.
 - **Installers:** open `config.js` and paste each link into `DOWNLOADS` (Windows, Mac Apple M-series, Mac Intel, Linux, App Store, Google Play). While a link is empty its button stays on the page and says "coming soon" when pressed. The home page detects the visitor's device and highlights the right one. To preview another device add `?os=` to the address: `windows`, `mac-arm`, `mac-intel`, `mac-unknown`, `linux`, `ios` or `android`.
+- **Chrome extension:** `DOWNLOADS.chrome.store` is the extension's Chrome Web Store page. While it's set, the download section shows Google's "Available in the Chrome Web Store" badge linking to it. Google's rules: don't change the badge other than resizing, keep it linked to the listing, and remove it if the listing is ever taken down.
 - `VERSION` in `config.js` is the version number shown on the page.
 
 ## Screenshots of the real app

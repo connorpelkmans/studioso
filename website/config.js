@@ -27,6 +27,8 @@ window.STUDYBOARD_SITE = {
     macIntel: { label: "Mac (Intel)",          url: "https://github.com/connorpelkmans/installers/releases/download/v1.14.4/Studyboard-1.14.4-mac-intel.dmg", file: "Studyboard-{version}-mac-intel.dmg", needs: "Macs with an Intel processor" },
     linux:    { label: "Linux",                url: "", file: "Studyboard-{version}.AppImage",        needs: "64-bit Linux, runs as an AppImage" },
     ios:      { label: "App Store",            url: "", needs: "iPhone and iPad" },
-    android:  { label: "Google Play",          url: "", needs: "Android phones and tablets" }
+    android:  { label: "Google Play",          url: "", needs: "Android phones and tablets" },
+    // store: the extension's Chrome Web Store page
+    chrome:   { label: "Chrome Web Store",     store: "https://chromewebstore.google.com/detail/studyboard-school-sync/ibibaefpedmlgaamopopcoelnnaaollf", needs: "Chrome, Edge and Brave on a computer" }
   }
 };
