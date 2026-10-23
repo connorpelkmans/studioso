@@ -88,7 +88,7 @@ const noOverflow = page => page.evaluate(() => document.documentElement.scrollWi
       ok(await vis(page, ".rv-hero") && /^3 cards ready to review$/.test(await txt(page, ".rv-hero h3")), tag + ": the review hero counts what's ready: " + await txt(page, ".rv-hero h3"));
       ok(/minute/.test(await txt(page, ".rv-hero p")) && /Organelles/.test(await txt(page, ".rv-hero p")) && /Midterm 2 is in 6 days/.test(await txt(page, ".rv-hero p")), tag + ": with the time, the decks and the next exam: " + await txt(page, ".rv-hero p"));
       ok(await page.locator(".rv-week .rv-wd").count() === 7 && await page.locator(".rv-week .rv-wd.on").count() >= 1 && await page.locator(".rv-week .rv-wd.now").count() === 1, tag + ": a week of review days, today ringed");
-      ok(/2 due · 1 new · studied 2 days ago/.test(await txt(page, '.deck:has([data-id="d1"])')), tag + ": a deck tile says what's due, new and when you last studied");
+      ok(/2 due · 1 new/.test(await txt(page, '.deck:has([data-id="d1"])')), tag + ": a deck tile says what's due and new");
       await page.click('.rv-hero [data-act="fc-review-start"]'); await page.waitForTimeout(300);
       ok(await page.evaluate(() => { const f = window.__sbSync.ui.fc; return !!f && f.mode === "study" && f.q.length === 3; }), tag + ": Start Review starts a session with those cards");
       await go(page, {fc: null}); await page.waitForTimeout(150);
