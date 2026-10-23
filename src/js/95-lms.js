@@ -1413,7 +1413,8 @@ function cleanFile(r) {
         ${extWay}
         ${feedWay}
         <p class="mini" style="margin:0">Don't want to connect? <button class="linklike" data-act="${A}-file">Import a Downloaded ${P.name} Calendar File</button> instead.</p>
-        ${P.id === "canvas" && !desk ? `<p class="mini" style="margin:0">Want your Canvas inbox here? <button class="linklike" data-act="cf-view" data-id="emails">Connect Canvas Messages With an Access Token</button></p>` : ""}
+        <p class="mini" style="margin:0">Studyboard is an independent app, not affiliated with or endorsed by ${({canvas: "Instructure (Canvas)", brightspace: "D2L (Brightspace)", blackboard: "Blackboard"})[P.id] || P.name}. What it reads is your own school work, kept in your planner (and your account, if you have one). Follow your school's rules for apps like this.</p>
+        ${P.id === "canvas" && !desk ? `<p class="mini" style="margin:0">Want your Canvas inbox here? <button class="linklike" data-act="cf-view" data-id="emails">How to Bring It In</button></p>` : ""}
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button></div></div>`);
   }

@@ -91,6 +91,7 @@ nav.main a.navbtn:hover{background:var(--btn-hover);color:var(--btn-ink)}
 footer.site{border-top:1px solid var(--line);padding-block:28px 40px;margin-top:20px}
 footer.site .wrap{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between;color:var(--muted);font-size:.92rem}
 footer.site img{height:24px;width:auto}
+footer.site .tm-note{flex-basis:100%;margin:0;font-size:.8rem;line-height:1.5}
 footer.site .links{display:flex;flex-wrap:wrap;gap:6px 18px}
 footer.site a{color:var(--muted)}
 footer.site a:hover{color:var(--accent)}

@@ -31972,7 +31972,8 @@ function cleanFile(r) {
         ${extWay}
         ${feedWay}
         <p class="mini" style="margin:0">Don't want to connect? <button class="linklike" data-act="${A}-file">Import a Downloaded ${P.name} Calendar File</button> instead.</p>
-        ${P.id === "canvas" && !desk ? `<p class="mini" style="margin:0">Want your Canvas inbox here? <button class="linklike" data-act="cf-view" data-id="emails">Connect Canvas Messages With an Access Token</button></p>` : ""}
+        <p class="mini" style="margin:0">Studyboard is an independent app, not affiliated with or endorsed by ${({canvas: "Instructure (Canvas)", brightspace: "D2L (Brightspace)", blackboard: "Blackboard"})[P.id] || P.name}. What it reads is your own school work, kept in your planner (and your account, if you have one). Follow your school's rules for apps like this.</p>
+        ${P.id === "canvas" && !desk ? `<p class="mini" style="margin:0">Want your Canvas inbox here? <button class="linklike" data-act="cf-view" data-id="emails">How to Bring It In</button></p>` : ""}
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button></div></div>`);
   }
@@ -55613,31 +55614,18 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   const E = ui.em = ui.em || {list: null, loading: false, err: "", open: null, thread: null, tLoading: false, draft: "", ask: "", sending: false, drafting: false};
   const canvas = () => { try { const L = window.SBLMS && SBLMS.canvas; const c = L && L.cfg(); return L && c && c.mode === "api" && c.host ? c : null; } catch (e) { return null; } };
   const hasDesk = () => !!(lmsBridge() && lmsBridge().mail);
-  // Two ways in. The desktop app uses your school sign-in. Anywhere else (the website, a phone) uses a Canvas access token you make in
-  // Canvas (Account, Settings, New Access Token), kept on this device only and never synced. Tokens go straight to your school's Canvas.
-  // The token is a password to the person's school inbox, so it is never kept as plain text: DEVSECRET puts it in the system keychain in
-  // the apps, or encrypts it (AES-GCM, a non-extractable key) in this browser's storage on the website. It is only in memory while the page is open.
+  // Two ways in: the desktop app, with your school sign-in (read and reply), and the Studyboard School Sync extension on the website
+  // (the latest messages, read only). Canvas access tokens are no longer used: Canvas's API policy says an app used by many people must
+  // not ask them to make a token and paste it in (it must use OAuth with a key from the school). A token an older version saved is
+  // erased from this device here, once.
   const TK = "studyboard:cvmail", CV_SECRET = "canvas-mail";
-  let cvTok = null;
-  const tok = () => cvTok;
-  const tokOk = t => t && typeof t === "object" && /^https:\/\/[^/?#@\s]+$/.test(String(t.host || "")) && typeof t.token === "string" && t.token.length > 0 && t.token.length < 400;
-  const tokSave = async t => { cvTok = t; return DEVSECRET.set(CV_SECRET, JSON.stringify(t)); };
-  const tokForget = () => { cvTok = null; try { localStorage.removeItem(TK); } catch (e) {} return DEVSECRET.remove(CV_SECRET); };
-  (async () => {
-    try {
-      // An older version kept the token in plain localStorage: move it into the protected store and erase the plain copy.
-      let legacy = null; try { legacy = JSON.parse(localStorage.getItem(TK) || "null"); } catch (e) {}
-      if (!tokOk(legacy) || await tokSave({host: legacy.host, token: legacy.token})) { try { localStorage.removeItem(TK); } catch (e) {} }   // kept only if it couldn't be moved
-      if (!cvTok) { const raw = await DEVSECRET.get(CV_SECRET); const t = raw ? JSON.parse(raw) : null; if (tokOk(t)) cvTok = {host: t.host, token: t.token}; }
-      if (cvTok && ["emails", "courses", "files"].includes(ui.tab)) render();   // the Emails tab appears once the token is known
-    } catch (e) {}
-  })();
+  (async () => { try { localStorage.removeItem(TK); } catch (e) {} try { if (await DEVSECRET.get(CV_SECRET)) await DEVSECRET.remove(CV_SECRET); } catch (e) {} })();
   // The Studyboard School Sync extension (website) also reads the Canvas Inbox: the latest conversations, kept on this device only (never synced), read-only
   const GK = "studyboard:grabmail";
   const grabbed = () => { try { const g = JSON.parse(localStorage.getItem(GK) || "null"); return g && /^https:\/\/[^/?#@\s]+$/.test(String(g.host || "")) && Array.isArray(g.items) ? g : null; } catch (e) { return null; } };
   window.addEventListener("sb:grab-mail", e => { const d = e.detail || {}; try { localStorage.setItem(GK, JSON.stringify({host: d.host, at: Date.now(), items: (d.items || []).slice(0, 30)})); } catch (x) {} E.list = null; E.open = null; E.thread = null; E.err = ""; if (ui.tab === "emails") render(); });
-  window.addEventListener("sb:secrets-wiped", () => { cvTok = null; E.list = null; E.open = null; E.thread = null; try { localStorage.removeItem(GK); } catch (e) {} });
-  const via = () => (canvas() && hasDesk() ? {kind: "desk", host: canvas().host} : tok() ? {kind: "token", host: tok().host, token: tok().token} : grabbed() ? {kind: "grab", host: grabbed().host} : null);
+  window.addEventListener("sb:secrets-wiped", () => { E.list = null; E.open = null; E.thread = null; try { localStorage.removeItem(GK); } catch (e) {} });
+  const via = () => (canvas() && hasDesk() ? {kind: "desk", host: canvas().host} : grabbed() ? {kind: "grab", host: grabbed().host} : null);
   function grabCall(q){
     const g = grabbed(); if (!g) return {error: "none"};
     const last = c => (c.msgs || [])[(c.msgs || []).length - 1] || {};
@@ -55647,39 +55635,10 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     return {error: "grab"};
   }
   const cleanT = (x, n) => String(x == null ? "" : x).replace(/\r/g, "").trim().slice(0, n);
-  async function webMail(host, token, q){
-    const hdr = {Accept: "application/json", Authorization: "Bearer " + token};
-    const parse = async r => { const t = await r.text(); try { return JSON.parse(t.replace(/^while\(1\);/, "")); } catch (e) { return null; } };
-    const bad = r => (r.status === 401 || r.status === 403) ? {needLogin: true, token: true} : {error: "HTTP " + r.status};
-    // The token goes to this exact Canvas origin and nowhere else: no redirects (it would follow them), no cookies, no referrer, no caching.
-    const OPT = {headers: hdr, redirect: "error", credentials: "omit", referrerPolicy: "no-referrer", cache: "no-store"};
-    const get = p => fetch(host + p, OPT);
-    try {
-      if (q.op === "list") {
-        const r = await get("/api/v1/conversations?scope=inbox&per_page=30"); if (!r.ok) return bad(r);
-        const a = await parse(r);
-        return {ok: true, items: (Array.isArray(a) ? a : []).map(c => ({id: String(c.id), subject: cleanT(c.subject, 160) || "(No subject)", preview: cleanT(c.last_message || c.last_authored_message, 200), at: c.last_message_at || c.last_authored_message_at || "", count: Number(c.message_count) || 0, unread: c.workflow_state === "unread", course: cleanT(c.context_name, 80), names: (c.participants || []).slice(0, 4).map(x => cleanT(x.name, 60))}))};
-      }
-      if (q.op === "get") {
-        const [r, me] = await Promise.all([get("/api/v1/conversations/" + encodeURIComponent(q.id) + "?auto_mark_as_read=true"), get("/api/v1/users/self")]);
-        if (!r.ok) return bad(r);
-        const c = await parse(r), u = me.ok ? await parse(me) : null; if (!c) return {error: "empty"};
-        const who = {}; (c.participants || []).forEach(x => { who[x.id] = x.name; });
-        return {ok: true, subject: cleanT(c.subject, 160) || "(No subject)", course: cleanT(c.context_name, 80), names: (c.participants || []).map(x => cleanT(x.name, 60)).filter(Boolean).slice(0, 8),
-          messages: (c.messages || []).slice().reverse().map(m => ({id: String(m.id), from: cleanT(who[m.author_id], 60) || "Someone", mine: !!u && m.author_id === u.id, at: m.created_at || "", body: cleanT(m.body, 6000), files: (m.attachments || []).length}))};
-      }
-      if (q.op === "send") {
-        const r = await fetch(host + "/api/v1/conversations/" + encodeURIComponent(q.id) + "/add_message", Object.assign({}, OPT, {method: "POST", headers: Object.assign({"Content-Type": "application/x-www-form-urlencoded"}, hdr), body: "body=" + encodeURIComponent(q.body)}));
-        return r.ok ? {ok: true} : bad(r);
-      }
-      if (q.op === "check") { const r = await get("/api/v1/users/self"); if (!r.ok) return bad(r); const u = await parse(r); return {ok: true, name: cleanT(u && u.name, 80)}; }
-    } catch (e) { return {error: "network"}; }
-    return {error: "bad-request"};
-  }
-  const mailCall = spec => { const v = via(); if (!v) return Promise.resolve({error: "none"}); if (v.kind === "grab") return Promise.resolve(grabCall(spec)); return v.kind === "desk" ? lmsBridge().mail("canvas", v.host, spec) : webMail(v.host, v.token, spec); };
+  const mailCall = spec => { const v = via(); if (!v) return Promise.resolve({error: "none"}); if (v.kind === "grab") return Promise.resolve(grabCall(spec)); return lmsBridge().mail("canvas", v.host, spec); };
   const when = iso => { const d = new Date(iso); if (isNaN(d)) return ""; const days = Math.floor((Date.now() - d.getTime()) / 864e5); return days <= 0 ? d.toLocaleTimeString(undefined, {hour: "numeric", minute: "2-digit"}) : days < 7 ? d.toLocaleDateString(undefined, {weekday: "short"}) : d.toLocaleDateString(undefined, {month: "short", day: "numeric"}); };
   const whenLong = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleString(undefined, {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}); };
-  const errText = r => !r ? "Couldn't reach your school site." : r.error === "network" ? "Your school's Canvas didn't answer. It may not allow access from here, or you may be offline." : r.needLogin && r.token ? "Canvas didn't accept your access token. It may have expired or been removed. Disconnect and add a new one." : r.needLogin ? "Your school sign-in has expired. Sign in again under Settings, School Sites." : r.error === "unsupported" ? "This school site can't be read for messages." : "Something went wrong (" + String(r.error || "unknown").slice(0, 60) + "). Try again.";
+  const errText = r => !r ? "Couldn't reach your school site." : r.error === "network" ? "Your school's Canvas didn't answer. It may not allow access from here, or you may be offline." : r.needLogin ? "Your school sign-in has expired. Sign in again under Settings, School Sites." : r.error === "unsupported" ? "This school site can't be read for messages." : "Something went wrong (" + String(r.error || "unknown").slice(0, 60) + "). Try again.";
   async function load(){
     if (!via()) return;
     E.loading = true; E.err = ""; if (ui.tab === "emails") render();
@@ -55688,7 +55647,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   }
   async function openThread(id){
     if (!via()) return;
-    E.open = id; E.thread = null; E.tLoading = true; E.draft = ""; E.ask = ""; E.err = ""; render();
+    E.open = id; E.thread = null; E.tLoading = true; E.draft = ""; E.aiDraft = false; E.ask = ""; E.err = ""; render();
     try { const r = await mailCall({op: "get", id}); if (r && r.ok) { E.thread = r; const it = (E.list || []).find(x => x.id === id); if (it) it.unread = false; } else E.err = errText(r); } catch (e) { E.err = errText(null); }
     E.tLoading = false; if (ui.tab === "emails") render();
   }
@@ -55703,7 +55662,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
         schema: {type: "OBJECT", properties: {reply: {type: "STRING", description: "The reply text only, no subject line"}}, required: ["reply"]},
         system: "You write replies for a college student to a message in their school's inbox (from an instructor, TA or classmate). Be polite, clear and brief, in the student's own voice (first person, natural, no flowery language). Answer what was asked. Don't invent facts, dates, grades or promises the student didn't state: if you need a detail from them, put a short [bracketed placeholder]. No subject line, no emojis. End with a simple sign-off only if it suits a message. Return JSON only.",
         parts: [{text: `Subject: ${E.thread.subject}\nCourse: ${E.thread.course || "unknown"}\n\nThe conversation so far:\n${threadText()}\n\n${E.draft ? "The student's draft so far (improve it):\n" + E.draft + "\n\n" : ""}${E.ask ? "What the student wants to say: " + E.ask : "Write a suitable reply to the last message."}`}]});
-      const t = String((r.data || {}).reply || "").trim(); if (t) E.draft = t; else toast("I couldn't write a reply. Try telling me what to say.");
+      const t = String((r.data || {}).reply || "").trim(); if (t) { E.draft = t; E.aiDraft = true; } else toast("I couldn't write a reply. Try telling me what to say.");
     } catch (e) { toast((e && e.message) || "I couldn't write a reply just now."); }
     E.drafting = false; if (ui.tab === "emails") render();
   }
@@ -55713,32 +55672,17 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     // The desktop app asks in its own window before anything is sent (lms.js), so only the website asks here
     if (via().kind !== "desk" && !(await askBox({title: "Send This Reply?", text: `It goes to ${(E.thread && E.thread.names.filter(n => n).join(", ")) || "them"} through your school's inbox.`, yes: "Send Reply"}))) return;
     E.sending = true; render();
-    try { const r = await mailCall({op: "send", id: E.open, body}); if (r && r.ok) { E.draft = ""; E.ask = ""; toast("Reply sent"); E.sending = false; await openThread(E.open); return; } if (!(r && r.error === "cancelled")) toast(errText(r)); } catch (e) { toast(errText(null)); }
+    try { const r = await mailCall({op: "send", id: E.open, body}); if (r && r.ok) { E.draft = ""; E.aiDraft = false; E.ask = ""; toast("Reply sent"); E.sending = false; await openThread(E.open); return; } if (!(r && r.error === "cancelled")) toast(errText(r)); } catch (e) { toast(errText(null)); }
     E.sending = false; if (ui.tab === "emails") render();
   }
-  function note(){ return `<p class="mini em-note">Reads and answers your Canvas inbox. Brightspace and Blackboard don't let apps read their messages, so those inboxes stay on your school's site.${tok() && !(canvas() && hasDesk()) ? ` <button type="button" class="link-btn" data-act="em-disconnect">Disconnect Canvas</button>` : ""}</p>`; }
+  function note(){ return `<p class="mini em-note">Reads and answers your Canvas inbox. Brightspace and Blackboard don't let apps read their messages, so those inboxes stay on your school's site.</p>`; }
   function gate(){
-    const head = `<div class="view-head"><h2>Emails</h2></div>`, c = canvas();
+    const head = `<div class="view-head"><h2>Emails</h2></div>`;
     return `${head}<div class="empty em-empty" style="text-align:left;margin-top:12px"><strong>Connect Canvas to See Your Emails</strong>
-      ${hasDesk() ? `In the desktop app, sign in to Canvas under Settings, School Sites and your inbox appears here. <button class="btn small" data-act="lms-open">Connect a School Site</button><br><br>Or use an access token, which also works on the website:` : `On the website, use a Canvas access token. In Canvas, go to Account, Settings, New Access Token, then paste the token here.`}
-      ${chromeDesktop() ? `<p class="mini" style="margin:8px 0 0">Or add the <a href="${esc(EXT_CHROME_URL)}" target="_blank" rel="noopener noreferrer">Studyboard School Sync extension</a> to Chrome and connect Canvas in it to bring your latest messages in with your courses.</p>` : ""}
-      <form class="em-conn" data-em-conn><label class="f"><span class="lh">Your Canvas address</span><input type="text" name="host" placeholder="school.instructure.com" value="${esc(c ? c.host.replace(/^https?:\/\//, "") : "")}" autocomplete="off" required data-noenter></label>
-        <label class="f"><span class="lh">Access token</span><input type="password" name="token" autocomplete="off" required data-noenter></label>
-        <p class="mini" style="margin:0">The token stays encrypted on this device only. It's never synced or included in backups, exports or reports, and goes only to your school's Canvas. Give it an expiry date when you make it, and use Disconnect Canvas (or delete it in Canvas) when you're done. If your school blocks tokens, use the desktop app.</p>
-        <button type="submit" class="btn primary" ${E.connecting ? "disabled" : ""}>${E.connecting ? "Checking…" : "Connect"}</button></form>
+      ${hasDesk() ? `Sign in to Canvas under Settings, School Sites and your inbox appears here. <button class="btn small" data-act="lms-open">Connect a School Site</button>`
+        : chromeDesktop() ? `Add the <a href="${esc(EXT_CHROME_URL)}" target="_blank" rel="noopener noreferrer">Studyboard School Sync extension</a> to Chrome and connect Canvas in it. Your latest messages then come in with your courses (to reply, open them in Canvas). In the Studyboard desktop app you can also read and answer them here.`
+        : `Your Canvas inbox can be read in the Studyboard desktop app, which also lets you answer here, or on a computer with the Studyboard School Sync browser extension.`}
       ${E.err ? `<p class="mini em-err">${esc(E.err)}</p>` : ""}${note()}</div>`;
-  }
-  async function connect(form){
-    const fd = new FormData(form); let host = String(fd.get("host") || "").trim(), token = String(fd.get("token") || "").trim();
-    if (!host || !token) return;
-    try { const u = new URL(/^https?:\/\//i.test(host) ? host : "https://" + host); if (u.protocol !== "https:" || u.username || u.password || u.port || !/\./.test(u.hostname) || /^[\d.]+$|^\[/.test(u.hostname)) throw 0; host = u.origin; } catch (e) { E.err = "That doesn't look like a Canvas address. Use the https address of your school's Canvas, like school.instructure.com."; render(); return; }
-    if (token.length >= 400 || /\s/.test(token)) { E.err = "That doesn't look like a Canvas access token."; render(); return; }
-    E.connecting = true; E.err = ""; render();
-    const r = await webMail(host, token, {op: "check"});
-    E.connecting = false;
-    if (r && r.ok) { try { await tokSave({host, token}); } catch (e) {} E.list = null; toast("Canvas connected" + (r.name ? ": " + r.name : "")); }
-    else E.err = errText(r) + (r && r.error === "network" ? " Use the exact address your browser shows in Canvas. The token is only ever sent there." : "");
-    render();
   }
   function viewEmails(){
     if (!via()) return gate();
@@ -55751,7 +55695,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
         <div class="em-thread">${t.messages.map(m => `<div class="em-msg${m.mine ? " mine" : ""}"><div class="em-from"><b>${esc(m.mine ? "You" : m.from)}</b><span class="mini">${esc(whenLong(m.at))}</span></div><div class="em-body">${esc(m.body)}</div>${m.files ? `<span class="mini">${m.files} attachment${m.files === 1 ? "" : "s"} (open it on your school's site)</span>` : ""}</div>`).join("")}</div>
         ${via().kind === "grab" ? `<p class="mini em-note">This came in through the Studyboard School Sync extension, so you can't reply from here. <a href="${esc(via().host)}/conversations" target="_blank" rel="noopener noreferrer">Reply in Canvas</a></p>` : `<div class="em-reply"><h3 class="fsec">Reply</h3>
           <div class="em-ai"><input type="text" id="emAsk" maxlength="300" placeholder="Tell ${aiWho("the AI")} what to say, like &quot;ask for an extension until Friday&quot;" value="${esc(E.ask)}" data-noenter><button type="button" class="btn small" data-act="em-draft" ${E.drafting ? "disabled" : ""}>${AI_ICON} ${E.drafting ? "Writing…" : "Draft with AI"}</button></div>
-          <textarea id="emDraft" rows="6" maxlength="10000" placeholder="Write your reply…" aria-label="Your reply">${esc(E.draft)}</textarea>
+          ${E.aiDraft && E.draft ? `<p class="mini em-ai-note">Drafted by AI from this conversation. Check it's right before you send it.</p>` : ""}<textarea id="emDraft" rows="6" maxlength="10000" placeholder="Write your reply…" aria-label="Your reply">${esc(E.draft)}</textarea>
           <div class="row-actions"><span class="mini">Nothing is sent until you tap Send Reply.</span><span class="spacer"></span><button type="button" class="btn primary" data-act="em-send" ${E.sending ? "disabled" : ""}>${E.sending ? "Sending…" : "Send Reply"}</button></div></div>`}` : ""}`;
     }
     const list = E.list || [];
@@ -55763,7 +55707,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       ${note()}`;
   }
   VIEWS.emails = viewEmails;
-  // The Emails tab shows only once Canvas is connected: signed in (desktop), a token, the extension, or a Canvas calendar link (its page then offers a token)
+  // The Emails tab shows only once Canvas is connected: signed in (desktop), the extension, or a Canvas calendar link (its page then says how to bring the inbox in)
   window.SBEMAIL = {available(){ try { const L = window.SBLMS && SBLMS.canvas; return !!(via() || (window.SBEXT && SBEXT.has("canvas")) || (L && L.cfg && L.connected(L.cfg()))); } catch (e) { return false; } }};
   hook("act", (act, el) => {
     switch (act) {
@@ -55771,13 +55715,11 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       case "em-back": E.open = null; E.thread = null; E.err = ""; render(); return true;
       case "em-refresh": load(); return true;
       case "em-draft": draft(); return true;
-      case "em-disconnect": tokForget(); E.list = null; E.open = null; E.thread = null; E.err = ""; render(); toast("Canvas disconnected. To switch the token off for good, delete it in Canvas, Account, Settings."); return true;
       case "em-send": send(); return true;
       case "em-grab-forget": try { localStorage.removeItem(GK); } catch (e) {} E.list = null; E.open = null; E.thread = null; render(); toast("Removed those messages"); return true;
     }
     return false;
   });
-  document.addEventListener("submit", e => { const f = e.target.closest && e.target.closest("[data-em-conn]"); if (!f) return; e.preventDefault(); connect(f); });
   document.addEventListener("input", e => { if (e.target.id === "emDraft") E.draft = e.target.value; else if (e.target.id === "emAsk") E.ask = e.target.value; });
   const st = document.createElement("style");
   st.textContent = `.em-list{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:8px}
@@ -55796,7 +55738,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
 .em-reply{display:grid;gap:10px;margin-top:14px}
 .em-ai{display:flex;gap:8px;align-items:center}.em-ai input{flex:1;min-width:0}
 .em-reply textarea{min-height:130px}
-.em-conn{display:grid;gap:10px;margin-top:10px;max-width:420px}`;
+.em-ai-note{margin:0;color:var(--muted)}`;
   document.head.appendChild(st);
 })();
 
@@ -66809,7 +66751,7 @@ window.SBSTREAK = {on: gentleOn, line: () => streakLineText(streakNow()), state:
   const VERSION = "1.15.0";   // keep in step with package.json and APP_VERSION above
   // The support address shown in the policies and About (the same one as website/config.js SUPPORT_EMAIL).
   const SUPPORT = "support@studyboardapp.com";
-  const UPDATED = "October 20, 2026";
+  const UPDATED = "October 23, 2026";
   const FIRST_YEAR = 2026;
   const contact = () => `<a href="mailto:${esc(SUPPORT)}">${esc(SUPPORT)}</a>`;
   const year = () => { const y = new Date().getFullYear(); return y > FIRST_YEAR ? FIRST_YEAR + "–" + y : String(FIRST_YEAR); };
@@ -66842,12 +66784,13 @@ window.SBSTREAK = {on: gentleOn, line: () => streakLineText(streakNow()), state:
 <p>Files you attach (for example PDFs and images) are stored in a private storage area of our Supabase project, in a folder that only your account can open. On the website, attaching files needs an account, and the files are kept there rather than in your browser; the desktop app also keeps a copy in its folder on your computer. Photos you choose for your own theme are stored the same way, so they follow you to your other devices. They count toward your plan's storage limit and are deleted when you delete them or your account.</p>
 
 <h3>Optional: AI features, with your own key</h3>
-<p>AI is off until you add your own key from Google (Gemini), Anthropic (Claude) or OpenAI and agree, in a prompt that names the company, to send content to it. When you use an AI feature, the content it needs (for example task titles, notes, a syllabus or PDF you import, flashcards, your question, or the text of your items when you use search by meaning) is sent straight from your device to the provider you chose, using your key. It does not pass through our servers. If you're signed in and haven't added a key, you can try AI a few times for free: those requests go to Studyboard's trial server, run on Cloudflare, which passes them to an open AI model (Google's Gemma) run by Cloudflare's Workers AI service and sends the answer back, so Cloudflare processes what you send to produce the answer. The trial server keeps only a count of your tries and whether you passed its one-time robot check, under your account id, and deletes both when you delete your account. It never stores what you send. If the robot check (Cloudflare Turnstile) is switched on, Cloudflare sees your network address while it runs. If you use Add AI to Another Device, your keys are locked (encrypted) on your device with a one-time code, and only the locked copy is left with our key relay, which runs on Cloudflare. It is deleted as soon as your other device collects it, or after 10 minutes at most, and we can't unlock it, because the code never reaches our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time.</p>
+<p>AI is off until you add your own key from Google (Gemini), Anthropic (Claude) or OpenAI and agree, in a prompt that names the company, to send content to it. When you use an AI feature, the content it needs (for example task titles, notes, a syllabus or PDF you import, flashcards, your question, or the text of your items when you use search by meaning) is sent straight from your device to the provider you chose, using your key. It does not pass through our servers. If you're signed in and haven't added a key, you can try AI a few times for free: those requests go to Studyboard's trial server, run on Cloudflare, which passes them to an open AI model (Google's Gemma) run by Cloudflare's Workers AI service and sends the answer back, so Cloudflare processes what you send to produce the answer. The trial server keeps only a count of your tries and whether you passed its one-time robot check, under your account id, and deletes both when you delete your account. It never stores what you send. If the robot check (Cloudflare Turnstile) is switched on, Cloudflare sees your network address while it runs. If you use Add AI to Another Device, your keys are locked (encrypted) on your device with a one-time code, and only the locked copy is left with our key relay, which runs on Cloudflare. It is deleted as soon as your other device collects it, or after 10 minutes at most, and we can't unlock it, because the code never reaches our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time. Studyboard never uses what you send, or anything in your planner, to train AI models. AI answers can be wrong, so check dates, grades and facts; a reply to a school message that AI drafted for you is marked as drafted by AI.</p>
 
 <h3>Optional: your school's learning platform</h3>
-<p>If you connect Brightspace, Canvas or Blackboard, the connection stays on your device. On desktop you sign in on your school's own page (Studyboard never sees your password) and the sign-in is kept in a private store on your computer. On the website, the Studyboard School Sync browser extension does this instead (below). </p>
+<p>If you connect Brightspace, Canvas or Blackboard, the connection stays on your device. In the desktop and phone apps you sign in on your school's own page (Studyboard never sees your password) and the sign-in is kept in a private store on that device. On the website, the Studyboard School Sync browser extension does this instead (below). The apps then read your own school work through the platform's own interface, a few requests at a time, and each request from the desktop app names Studyboard as the app asking, so your school can always tell it apart.</p>
+<p>Grades, feedback and messages from your school are private (in the United States they can be protected by FERPA). What Studyboard brings in (your courses, due dates, submission status, grades, feedback and rubrics, announcements, the syllabus and your instructors' names and school email addresses) becomes part of your planner: kept on your device, and stored in your account on our servers (Supabase) if you have one, so it syncs between your devices. Your school Inbox messages are never stored in your account: they are read when you open them, or kept on the device that read them. We never sell this data, share it, publish it or use it for anything except showing your own school work to you, and you can delete it with your account at any time. Studyboard is an independent app: it is not affiliated with, endorsed by or sponsored by Instructure (Canvas), D2L (Brightspace) or Blackboard.</p>
 <p id="extension">The Studyboard School Sync browser extension (for Chrome, Edge and Firefox) reads your school site by itself. It can read only the school site you connect in it, and only after your browser asks you and you allow it; you can remove that permission any time, in the extension or in your browser. About every hour, and when you open that site, it reads your courses, due dates, submission status, grades, feedback and rubrics, announcements, the names and school email addresses of your instructors and teaching assistants, the course syllabus and, for Canvas, your Inbox messages, with the sign-in your browser already has. It only reads: it never submits, posts or changes anything on your school site, and it never sees your password. What it reads is kept in your browser's storage for the extension and handed to Studyboard when you open studyboardapp.com in the same browser; the extension itself sends nothing to Studyboard's servers or to anyone else, and it has no analytics or tracking. Once Studyboard brings it into your planner, it is treated like everything else in your planner: kept on your device, and in your account if you have one (above). Removing a school in the extension, or uninstalling it, deletes what it kept. We do not sell this data, use it for advertising or credit decisions, or use it for anything except showing your own school work in your planner. Studyboard School Sync's use of information it receives complies with the <a href="https://developer.chrome.com/docs/webstore/program-policies/policies">Chrome Web Store User Data Policy</a>, including the Limited Use requirements.</p>
-<p>If you paste a calendar link instead, it is saved on that device only. It works like a password to your calendar, so it is never synced to your account and never put in a backup or export. On the website and phone the link is passed through a small function on our server that fetches the calendar for you and stores nothing. To read your Canvas inbox on the website or phone you can paste a Canvas access token: it stays on that device only, locked (encrypted) in its secure storage, and is sent only to your school's Canvas, never to us. Disconnect Canvas or signing out removes it from the device; deleting the token in Canvas switches it off for good. Studyboard only reads from your school's site. What it brings in (due dates, grades, announcements) becomes part of your planner and syncs to your account like everything else if you have one.</p>
+<p>If you paste a calendar link instead, it is saved on that device only. It works like a password to your calendar, so it is never synced to your account and never put in a backup or export. On the website and phone the link is passed through a small function on our server that fetches the calendar for you and stores nothing. Studyboard does not ask for or use Canvas access tokens. A token an earlier version saved on a device is deleted from it, and you can also delete it in Canvas (Account, Settings). Studyboard only reads from your school's site. What it brings in (due dates, grades, announcements) becomes part of your planner and syncs to your account like everything else if you have one.</p>
 
 <h3>Optional: reminders, calendar link, study groups</h3>
 <p><b>Phone and desktop reminders</b> need your device's push address and your upcoming reminders (task titles and times for the next two weeks) to be stored on our server so a notification can arrive when Studyboard is closed. The notification itself is delivered by your browser or phone maker's push service (Google, Apple or Mozilla). <b>Calendar Sync</b> stores a private link token and your choices so your calendar app can fetch your deadlines. <b>Study groups, shared decks and Study Together rooms</b> share the display name and the decks, deadlines and messages you choose to share with the people in that group. Members of a group can see what is posted in it and who posted it, including messages, shared tasks, quiz scores, check-ins and focus time. Someone with a group's invite code can see only its name, course, member count and owner's name before joining. If you report something in a group, the report keeps a short copy of what was reported so we can review it. Turn any of these off, or leave a group, and it stops. <b>Voice and shortcut capture</b> (optional, for example "Hey Siri, add a task") stores a private capture token (only a hash of it, shown to you once) and the short notes you send, in an inbox on our server until your app collects them; you can revoke the token any time, and everything is deleted with your account. <b>Email to Studyboard</b> (Pro, optional) gives you a private email address. An email you forward to it passes through our email service (Cloudflare) and waits in the same inbox on our server, as its subject, the sender's address and up to 6,000 characters of its text, until your app collects it (it is then deleted within 7 days, and after 30 days at the latest). Your app reads it, with your AI provider if you have agreed to that, and shows you what it found before anything is added. You can make a new address or turn it off at any time. <b>Two-way calendar sync</b> (Pro, optional) connects your Google or Outlook calendar when you ask it to. We keep that account's sign-in, encrypted, so Studyboard can keep a calendar called Studyboard up to date there; it only ever writes to that calendar. For Outlook, if you choose, it also reads your other events (with their titles, or as busy times only); for Google Calendar it doesn&rsquo;t read your other events so your plan can work around them, and they are saved in your planner like your other events. Disconnect any time, which also removes our access; it is deleted with your account. <b>Record a Lecture</b> (Pro, optional) uses your microphone only while you are recording. Live captions use your browser's own speech service, which may send the audio to the browser's maker (Google, in Chrome). A recording you choose to keep is stored with your files, and Transcribe with AI sends the audio to Google with your own key, like other AI features. <b>Share links and the Course Library:</b> when you make a link for a deck, note or quiz, anyone who has the link can see its text and your display name, without an account, until you stop sharing it. A deck you list in the Course Library can be found by anyone who looks up that course code; it shows your display name, the school you picked and how many people saved a copy. <b>Published flashcards and quizzes:</b> if you choose Publish on a shared deck or quiz, it gets a public page on studyboardapp.com that anyone can find, including through search engines such as Google, showing its cards or questions, your username, your school and when it was updated, until you unpublish it. Your username is chosen by you, unique, and also visible to people you share with. Your study progress, photos and stickers are never shared. Shared items can be reported, and we review reports.</p>

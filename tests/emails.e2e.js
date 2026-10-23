@@ -45,34 +45,22 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   await page.waitForFunction(() => window.__sent.length === 1);
   ok(await page.evaluate(() => __sent[0].body === "Sure, sending it now." && __sent[0].id === "11"), "the reply was sent through the bridge");
   ok(errs.length === 0, "no page errors: " + errs.join("; "));
-  // The website: no desktop app, so a Canvas access token is used
+  // The website: no desktop app. Canvas access tokens aren't used any more (Canvas's API policy), so Emails explains how to bring the
+  // inbox in (the desktop app or the extension) and never calls Canvas itself; a token an older version saved is erased.
   const web = await browser.newContext({viewport: {width: 1280, height: 800}});
-  await web.addInitScript(seed => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(Object.assign({}, seed, {settings: {capacity: 15}}))); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done"); } } catch (e) {} window.confirm = () => true; }, SEED);
+  await web.addInitScript(seed => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(Object.assign({}, seed, {settings: {capacity: 15, canvas: {mode: "feed", feed: "https://school.instructure.com/feeds/calendars/user_x.ics"}}}))); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:sb", '"local"');
+    localStorage.setItem("studyboard:cvmail", JSON.stringify({host: "https://school.instructure.com", token: "tok123"})); } } catch (e) {} }, SEED);
   const seen = [];
-  await web.route("https://school.instructure.com/**", route => { const rq = route.request(), u = new URL(rq.url()); seen.push([rq.method(), u.pathname, rq.headers()["authorization"]]);
-    const cors = {"access-control-allow-origin": "*", "access-control-allow-headers": "authorization,content-type", "access-control-allow-methods": "GET,POST", "content-type": "application/json"};
-    if (rq.method() === "OPTIONS") return route.fulfill({status: 204, headers: cors});
-    const body = u.pathname === "/api/v1/users/self" ? {id: 5, name: "Sam Student"} : u.pathname === "/api/v1/conversations" ? [{id: 11, subject: "Lab 3 question", last_message: "Can you resend the rubric?", last_message_at: new Date().toISOString(), message_count: 1, workflow_state: "unread", context_name: "BIO101", participants: [{id: 9, name: "Dr. Reyes"}]}]
-      : /\/conversations\/11$/.test(u.pathname) ? {id: 11, subject: "Lab 3 question", participants: [{id: 9, name: "Dr. Reyes"}, {id: 5, name: "Sam Student"}], messages: [{id: 1, author_id: 9, created_at: new Date().toISOString(), body: "Can you resend the rubric?"}]} : {};
-    route.fulfill({status: 200, headers: cors, body: JSON.stringify(body)}); });
+  await web.route("https://school.instructure.com/**", route => { seen.push(route.request().url()); route.fulfill({status: 404, body: ""}); });
   const wp = await web.newPage(); const werrs = []; wp.on("pageerror", e => werrs.push(e.message));
-  await wp.goto(base); await wp.waitForSelector('[data-tab="courses"]');
-  await wp.evaluate(() => [...document.querySelectorAll('[data-tab="courses"]')].find(e => e.offsetParent).click());
-  await wp.waitForSelector(".cf-tabs");
-  ok(!(await wp.$('.cf-tabs [data-id="emails"]')), "no Emails tab before Canvas is connected");
-  await wp.evaluate(() => SBLMS.canvas.bsSheet()); await wp.click('dialog [data-act="cf-view"][data-id="emails"]'); await wp.waitForSelector("[data-em-conn]");
-  ok(!(await wp.evaluate(() => document.querySelector("dialog").open)), "the Canvas sheet closes on the way to Emails");
-  ok(true, "the website offers the access-token connection");
-  await wp.fill('[data-em-conn] [name=host]', "school.instructure.com"); await wp.fill('[data-em-conn] [name=token]', "tok123");
-  await wp.click('[data-em-conn] button[type=submit]'); await wp.waitForSelector(".em-item");
-  ok(seen.some(x => x[2] === "Bearer tok123"), "requests carry the token");
-  ok(!!(await wp.$('.cf-tabs [data-id="emails"]')), "the Emails tab shows once Canvas is connected");
-  await wp.click(".em-item"); await wp.waitForSelector("#emDraft");
-  await wp.fill("#emDraft", "On its way."); await wp.click('[data-act="em-send"]');
-  await wp.waitForSelector("#askDlg[open]", {timeout: 4000}); ok(/Send This Reply/.test(await wp.textContent("#askDlg")), "the website asks before sending, in the app's own box"); await wp.click("#askYes");
-  await wp.waitForFunction(() => document.querySelector(".em-thread"));
-  await wp.waitForTimeout(300);
-  ok(seen.some(x => x[0] === "POST" && x[1] === "/api/v1/conversations/11/add_message"), "the reply was posted to Canvas");
+  await wp.goto(base); await wp.waitForSelector('[data-tab="courses"]'); await wp.waitForTimeout(800);
+  ok(await wp.evaluate(() => localStorage.getItem("studyboard:cvmail")) === null, "a Canvas access token an older version saved is erased");
+  await wp.evaluate(() => SBLMS.canvas.bsSheet());
+  ok(!/Access Token/i.test(await wp.textContent("dialog")), "the Canvas sheet no longer offers an access token");
+  await wp.click('dialog [data-act="cf-view"][data-id="emails"]'); await wp.waitForSelector(".em-empty");
+  ok(!(await wp.$("[data-em-conn]")) && !/access token/i.test(await wp.textContent(".em-empty")), "Emails has no token form");
+  ok(/desktop app/i.test(await wp.textContent(".em-empty")), "it says how to bring the inbox in instead");
+  ok(!seen.some(u => /\/api\/v1\//.test(u)), "the website makes no Canvas API calls");
   ok(werrs.length === 0, "no page errors on the website: " + werrs.join("; "));
   await browser.close(); server.close(); console.log(n + " checks passed");
 })().catch(e => { console.error(e); process.exit(1); });

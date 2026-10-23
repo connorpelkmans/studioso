@@ -101,6 +101,9 @@ function privateIp(ip) {
 }
 // Some sign-in pages turn away browsers they don't recognise, so the windows use a plain Chrome user agent.
 function chromeUA() { return String(app.userAgentFallback || "").replace(/\s(Electron|studyboard|Studyboard|studioso)\/\S+/g, ""); }
+// What the platforms' data APIs see instead: the same browser, named as Studyboard (with its version and the website).
+const API_URLS = ["https://*/api/v1/*", "https://*/d2l/api/*", "https://*/learn/api/*"];
+function apiUA() { return chromeUA() + " Studyboard/" + (app.getVersion ? app.getVersion() : "") + " (+https://studyboardapp.com)"; }
 // Security: the school windows are sandboxed and isolated like the app's own, have no developer tools in the packaged app, and
 // can't use the camera, microphone, location, notifications or any other permission. They only ever speak https.
 const prefs = P => ({ partition: P.part, contextIsolation: true, nodeIntegration: false, nodeIntegrationInWorker: false, nodeIntegrationInSubFrames: false, sandbox: true,
@@ -118,6 +121,11 @@ function lockPartition(part) {
   ses.webRequest.onBeforeRequest({ urls: ["http://*/*", "ws://*/*", "ftp://*/*"] }, (d, cb) => {
     let local = false; try { local = TEST_MODE && new URL(d.url).hostname === "127.0.0.1"; } catch (e) {}
     cb({ cancel: !local });
+  });
+  // Honest about who is asking: the sign-in pages see a plain Chrome (some turn away browsers they don't know), but every request
+  // to the platform's data API says it comes from Studyboard, so the school and the platform can always tell Studyboard's reads apart.
+  ses.webRequest.onBeforeSendHeaders({ urls: API_URLS }, (d, cb) => {
+    const h = Object.assign({}, d.requestHeaders); h["User-Agent"] = apiUA(); cb({ requestHeaders: h });
   });
   keepCookies(ses);
 }
@@ -463,16 +471,30 @@ async function cvHarvest(o) {
   const fromISO = new Date(now - (q.pastDays || 60) * 864e5).toISOString();
   const toISO = new Date(now + (q.aheadDays || 240) * 864e5).toISOString();
   const enc = encodeURIComponent, errors = [];
-  const req = async p => {
+  // Kind to Canvas (its API policy asks apps not to overload it and to respect its rate limits): at most 3 requests at a time; when
+  // Canvas says the rate budget is running low (X-Rate-Limit-Remaining) the next ones wait a moment, and a request Canvas turns
+  // away for the rate limit (429, or 403 "Rate Limit Exceeded") waits 2, 4, then 8 seconds and is asked again.
+  let inFlight = 0, calmUntil = 0; const waiting = [];
+  const slot = async () => { while (inFlight >= 3) await new Promise(res => waiting.push(res)); inFlight++; const w = calmUntil - Date.now(); if (w > 0) await new Promise(res => setTimeout(res, w)); };
+  const free = () => { inFlight--; const n = waiting.shift(); if (n) n(); };
+  const req = async (p, tries) => {
+    await slot();
     const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 25000);
     try {
       const r = await fetch(p, { credentials: "include", headers: { Accept: "application/json" }, signal: ctl.signal });
-      if (r.status === 401 || r.status === 403) { const e = new Error("denied"); e.status = r.status; throw e; }
-      if (!r.ok) { const e = new Error("HTTP " + r.status); e.status = r.status; throw e; }
-      const link = r.headers.get("Link") || "";
-      const t = await r.text();
-      return { body: JSON.parse(t.replace(/^while\(1\);/, "")), next: ((link.match(/<([^>]+)>;\s*rel="next"/) || [])[1]) || null };
-    } finally { clearTimeout(tm); }
+      const left = parseFloat(r.headers.get("X-Rate-Limit-Remaining"));
+      if (left < 200) calmUntil = Math.max(calmUntil, Date.now() + (left < 50 ? 3000 : 1000));
+      const limited = r.status === 429 || (r.status === 403 && /rate limit/i.test(await r.clone().text().catch(() => "")));
+      if (limited && (tries || 0) < 3) calmUntil = Math.max(calmUntil, Date.now() + 2000 * Math.pow(2, tries || 0));
+      else {
+        if (r.status === 401 || r.status === 403) { const e = new Error("denied"); e.status = r.status; throw e; }
+        if (!r.ok) { const e = new Error("HTTP " + r.status); e.status = r.status; throw e; }
+        const link = r.headers.get("Link") || "";
+        const t = await r.text();
+        return { body: JSON.parse(t.replace(/^while\(1\);/, "")), next: ((link.match(/<([^>]+)>;\s*rel="next"/) || [])[1]) || null };
+      }
+    } finally { clearTimeout(tm); free(); }
+    return req(p, (tries || 0) + 1);
   };
   const soft = async (p, quiet) => { try { return (await req(p)).body; } catch (e) { if (!quiet) errors.push(String(p).replace(/\?.*/, "").replace(/\/\d+\//g, "/#/") + " " + (e.status || e.name || e.message)); return null; } };
   const pages = async (p, quiet, max) => {

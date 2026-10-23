@@ -284,6 +284,27 @@ const BB = [
     for (const ip of ["8.8.8.8", "142.250.1.1", "2607:f8b0:4004:800::200e", "172.32.0.1", "100.128.0.1"]) assert.strictEqual(L.privateIp(ip), false, ip);
   });
 
+  await t("Canvas: at most 3 requests at a time, and a request turned away for the rate limit waits and is asked again", async () => {
+    const plainRun = await runInjected("canvas", "https://x.instructure.com", CV);
+    const base = fakeFetch(CV, []); let cur = 0, max = 0, limited = 0; const asked = [];
+    const f = async (url, opts) => {
+      cur++; max = Math.max(max, cur);
+      try {
+        await new Promise(r => setTimeout(r, 15));
+        if (/\/assignments\?/.test(String(url)) && !limited) { limited++;
+          return { ok: false, status: 403, headers: { get: k => String(k).toLowerCase() === "x-rate-limit-remaining" ? "0" : null }, clone() { return { text: async () => "403 Forbidden (Rate Limit Exceeded)" }; }, text: async () => "", json: async () => ({}) }; }
+        asked.push(String(url)); return await base(url, opts);
+      } finally { cur--; }
+    };
+    const ctx = vm.createContext({ fetch: f, AbortController, setTimeout, clearTimeout, location: { origin: "https://x.instructure.com" }, console });
+    const out = await vm.runInContext(L.harvestScript(L.P.canvas, SAFE), ctx, { filename: "canvas-limit.js" });
+    assert(out && out.ok, "the read still works: " + JSON.stringify(out).slice(0, 200));
+    assert(max <= 3, "never more than 3 requests at once: " + max);
+    assert(limited === 1 && asked.some(u => /\/assignments\?/.test(u)), "the rate-limited request was asked again");
+    const items = o => o.courses.reduce((k, c) => k + (c.items || []).length, 0);
+    assert(items(out) === items(plainRun.out) && items(out) > 0, "and nothing was lost: " + items(out) + " items");
+  });
+
   console.log(fail ? `lms-harvest: ${fail} of ${n} failed` : `lms-harvest: ${n} checks passed`);
   process.exitCode = fail ? 1 : 0;
 })();

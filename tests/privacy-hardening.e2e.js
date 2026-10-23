@@ -1,6 +1,6 @@
 // Browser test for the privacy hardening (October 2026). Run: node tests/privacy-hardening.e2e.js
-//  1. a Canvas access token is never kept as plain text: an old plain localStorage copy is moved into the encrypted device store and erased,
-//     the stored copy doesn't contain the token, it survives a reload, and wiping the device (sign-out, another account) removes it
+//  1. Canvas access tokens are no longer used (Canvas's API policy): a token an older version saved, as plain text or in the encrypted device
+//     store, is erased; the encrypted store itself still keeps secrets as AES-GCM boxes with a key that can't be exported
 //  2. school calendar links never leave the device: not in synced settings, not in backup files; this device's link survives settings from the account
 //  3. the bug-report error log is cleaned like crash reports (the person's own titles are hidden)
 //  4. persistent storage: the app asks for it and Settings can show the result
@@ -27,20 +27,18 @@ const TOKEN = "7~AbCdEfGhIjKlMnOpQrStUvWxYz0123456789secret";
   try {
     await page.goto(FILE); await page.waitForTimeout(2500);
 
-    // 1. Canvas token
-    const legacyGone = await page.evaluate(() => localStorage.getItem("studyboard:cvmail"));
-    ok(legacyGone === null, "the plain localStorage copy of the token is erased");
-    const raw = await page.evaluate(() => new Promise(res => { const r = indexedDB.open("studyboard-secrets"); r.onsuccess = () => { const d = r.result, q = d.transaction("s").objectStore("s").get("canvas-mail"); q.onsuccess = () => { const v = q.result; d.close(); res(v ? {ct: Array.from(v.ct), iv: Array.from(v.iv)} : null); }; }; r.onerror = () => res(null); }));
-    ok(raw && raw.ct.length > 0 && raw.iv.length === 12, "the token is stored as an encrypted box");
-    ok(!Buffer.from(raw.ct).toString("latin1").includes(TOKEN.slice(3, 20)), "the stored box does not contain the token");
-    const keyInfo = await page.evaluate(() => new Promise(res => { const r = indexedDB.open("studyboard-secrets"); r.onsuccess = () => { const d = r.result, q = d.transaction("s").objectStore("s").get("_key"); q.onsuccess = () => { const k = q.result; d.close(); res(k ? {ext: k.extractable, alg: k.algorithm.name} : null); }; }; }));
-    ok(keyInfo && keyInfo.ext === false && keyInfo.alg === "AES-GCM", "the encryption key is AES-GCM and can't be exported");
-    const back = await page.evaluate(async () => JSON.parse(await __sbPrivacy.DEVSECRET.get("canvas-mail")));
-    ok(back.token.length > 10 && back.host === "https://school.instructure.com", "the token can be read back on this device");
-    const everywhere = await page.evaluate(() => JSON.stringify(localStorage) + JSON.stringify(__sbPrivacy.exportArrays()) + JSON.stringify(__sbPrivacy.syncSettings(__sbPrivacy.settings)));
-    ok(!everywhere.includes(TOKEN.slice(3, 20)), "the token is in no localStorage key, backup or synced settings");
+    // 1. Canvas token: erased, plain or encrypted
+    ok(await page.evaluate(() => localStorage.getItem("studyboard:cvmail")) === null, "an old plain copy of a Canvas token is erased");
+    ok(await page.evaluate(async () => (await __sbPrivacy.DEVSECRET.get("canvas-mail")) === null), "and not moved into the device store");
+    await page.evaluate(async tok => { await __sbPrivacy.DEVSECRET.set("canvas-mail", JSON.stringify({host: "https://school.instructure.com", token: tok})); }, TOKEN);
     await page.reload(); await page.waitForTimeout(2000);
-    ok(await page.evaluate(async () => !!(await __sbPrivacy.DEVSECRET.get("canvas-mail"))), "the token survives a reload");
+    ok(await page.evaluate(async () => (await __sbPrivacy.DEVSECRET.get("canvas-mail")) === null), "an encrypted token an older version saved is erased on the next start");
+    // the device store still encrypts what it keeps
+    await page.evaluate(async tok => { await __sbPrivacy.DEVSECRET.set("probe", tok); }, TOKEN);
+    const raw = await page.evaluate(() => new Promise(res => { const r = indexedDB.open("studyboard-secrets"); r.onsuccess = () => { const d = r.result, q = d.transaction("s").objectStore("s").get("probe"); q.onsuccess = () => res(q.result ? {ct: Array.from(new Uint8Array(q.result.ct)), iv: Array.from(new Uint8Array(q.result.iv))} : null); }; }));
+    ok(raw && raw.ct.length > 0 && raw.iv.length === 12, "secrets are stored as encrypted boxes");
+    ok(!Buffer.from(raw.ct).toString("latin1").includes(TOKEN.slice(3, 20)), "the stored box does not contain the secret");
+    await page.evaluate(async () => { await __sbPrivacy.DEVSECRET.remove("probe"); });
 
     // 2. calendar links stay on the device
     const feeds = await page.evaluate(() => {
@@ -68,9 +66,9 @@ const TOKEN = "7~AbCdEfGhIjKlMnOpQrStUvWxYz0123456789secret";
     const st = await page.evaluate(async () => ({r: await __sbPrivacy.storageProtect(false), row: typeof __sbPrivacy.storageRow() === "string"}));
     ok(["granted", "denied", "unsupported", "unknown"].includes(st.r) && st.row, "the storage check runs and Settings can show it: " + st.r);
 
-    // 1b. wiping the device (sign-out, another account signing in) removes the token
-    await page.evaluate(async () => { await __sbPrivacy.wipeDeviceData(); });
-    ok(await page.evaluate(async () => (await __sbPrivacy.DEVSECRET.get("canvas-mail")) === null), "wiping the device removes the Canvas token");
+    // 1b. wiping the device (sign-out, another account signing in) empties the device store
+    await page.evaluate(async () => { await __sbPrivacy.DEVSECRET.set("probe2", "x"); await __sbPrivacy.wipeDeviceData(); });
+    ok(await page.evaluate(async () => (await __sbPrivacy.DEVSECRET.get("probe2")) === null), "wiping the device empties the device store");
 
     ok(errs.length === 0, "no page errors: " + errs.join("; "));
     console.log(`privacy-hardening: ${n} checks passed`);
