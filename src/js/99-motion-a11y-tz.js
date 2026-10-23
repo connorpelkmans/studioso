@@ -331,11 +331,10 @@
   });
   document.addEventListener("keydown", e => {
     if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || String(e.key).toLowerCase() !== "z") return;
-    const t = e.target; if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
-    if (dlg.open || !lastDelete || Date.now() - lastDelete.at > 30000) return;
+    const t = e.target; if (e.defaultPrevented || (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)))) return;
+    if (dlg.open || document.querySelector("dialog.ask-dlg[open]")) return;
     e.preventDefault();
-    const f = lastDelete.undo; lastDelete = null; toastUndoFn = null; $("#toast").classList.remove("show");
-    f();
+    undoLast();
   });
 
   /* Export My Data */

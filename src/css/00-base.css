@@ -376,7 +376,8 @@ nav.tabs button{font-size:.75rem!important}
 .cl-new input{flex:1}
 .x-btn{border:0;background:none;color:var(--muted);width:34px;height:34px;border-radius:8px;flex:none;display:grid;place-items:center}
 .x-btn svg{width:16px;height:16px}
-.toast{display:flex;align-items:center;gap:14px}
+.toast{display:flex;align-items:center;gap:4px 14px;flex-wrap:wrap;width:max-content;max-width:min(560px,calc(100vw - 32px));box-sizing:border-box}
+#toastMsg{flex:1 1 auto;min-width:0}
 .toast.show{pointer-events:auto}
 .toast button{border:0;background:none;color:var(--mark);font-weight:700;padding:2px 4px}
 .toast button[hidden]{display:none}

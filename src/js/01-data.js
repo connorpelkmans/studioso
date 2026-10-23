@@ -503,7 +503,7 @@ function trashRestore(ids){
   gone.forEach(e => { delete state.trash[e.id]; queueWrite("trash", e.id, null); });
   saveLocal(); trashSaveLocal();
   const count = gone.reduce((n, e) => n + e.items.length, 0);
-  lastDelete = null;
+  undoStack.forEach(s => { if (s.binned) s.done = true; });
   return {count, notes: [...new Set(notes)], entries: gone, inverse: inv};
 }
 // Entries that came in with a backup or export
