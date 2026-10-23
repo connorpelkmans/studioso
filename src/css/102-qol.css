@@ -47,15 +47,19 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
   button.check::after{inset:auto;left:50%;top:50%;width:max(44px,100%);height:max(44px,100%);transform:translate(-50%,-50%);border-radius:50%}
 }
 
-/* Text on course colours: white on dark colours, black on light ones (amber, yellow, light green), picked from the colour's luminance.
-   Browsers without relative colours keep white. */
-.g2-code,.deck-count,.tlbar.st-doing,.ms.tl-ic,.tl-ic.key,.sch-b,.qz-band{--c-ink:color(from var(--c) srgb-linear clamp(0,(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 10000,1) clamp(0,(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 10000,1) clamp(0,(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 10000,1))}
+/* Text on course colours: always white, with a faint shadow so it still reads on light colours */
+.g2-code,.deck-count,.tlbar.st-doing,.ms.tl-ic,.tl-ic.key,.sch-b,.qz-band{--c-ink:#fff}
 .g2-code,.deck-count,.tlbar.st-doing,.ms.tl-ic,.tl-ic.key,.sch-b,.sch-b.k-av-class,.sch-b.k-av-shift,.qz-band{color:var(--c-ink)}
-.course-card,.card-course,.deck-tab{--c-ink:color(from color-mix(in srgb,var(--c) 66%,#000) srgb-linear clamp(0,(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 10000,1) clamp(0,(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 10000,1) clamp(0,(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 10000,1))}
+.course-card,.card-course,.deck-tab{--c-ink:#fff}
 .course-card::before,.card-course,.deck-tab{color:var(--c-ink)}
-.g2-band,.c2-band,.cr2-band,.next-up .nu-top,.card.has-tab > .card-course,.tl-row.tl-group,.tl-group .tl-label,.sch-b > .sch-band,.kb-band,.occv-band{--c-ink:color(from color-mix(in srgb,var(--c) 88%,#000) srgb-linear clamp(0,(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 10000,1) clamp(0,(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 10000,1) clamp(0,(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 10000,1));color:var(--c-ink)}
+.g2-band,.c2-band,.cr2-band,.next-up .nu-top,.card.has-tab > .card-course,.tl-row.tl-group,.tl-group .tl-label,.sch-b > .sch-band,.kb-band,.occv-band{--c-ink:#fff;color:var(--c-ink)}
 .sch-b > .sch-band b,.c2-head .g2-code{color:var(--c-ink)!important}
-.g2-head .g2-band .btn,.g2-head .g2-band summary.btn,.c2-head .g2-band .btn{color:var(--c-ink);background:color-mix(in srgb,var(--c-ink) 16%,transparent);border-color:color-mix(in srgb,var(--c-ink) 45%,transparent)}
+.g2-band,.c2-band,.cr2-band,.g2-code,.c2-head .g2-code,.sch-b > .sch-band,.kb-band,.qz-band{text-shadow:0 1px 2px rgba(0,0,0,.28)}
+.g2-band .btn{text-shadow:none}
+/* buttons on a band: frosted white with dark course-coloured text, readable on any colour */
+.g2-head .g2-band .btn,.g2-head .g2-band summary.btn,.c2-head .g2-band .btn{color:color-mix(in srgb,var(--c) 45%,#000);background:rgba(255,255,255,.8);border-color:rgba(255,255,255,.9)}
+.g2-head .g2-band .btn:hover,.c2-head .g2-band .btn:hover{background:#fff}
+:is(.g2-head,.c2-head) .g2-band .btn.ai-btn{color:#6D28D9;background:color-mix(in srgb,#8B5CF6 12%,#fff);border-color:color-mix(in srgb,#8B5CF6 40%,#fff)}
 /* white buttons on a band: the course colour, dark enough to read */
 .g2-head .g2-band .btn.primary,.c2-head .g2-band .btn:last-child,.cpt3-band .btn{background:#fff;border-color:#fff;color:color-mix(in srgb,var(--c) 52%,#000)}
 

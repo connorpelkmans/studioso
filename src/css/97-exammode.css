@@ -1,6 +1,6 @@
 /* ===== module: 97-exammode.css ===== */
 /* Exam Mode card: countdown tile, title and prep progress, two stacked actions */
-.exm-card{--c-text:color-mix(in srgb,var(--c,var(--accent)) 60%,var(--ink));--c-ink:color(from var(--c) srgb-linear clamp(0,(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 10000,1) clamp(0,(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 10000,1) clamp(0,(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 10000,1));
+.exm-card{--c-text:color-mix(in srgb,var(--c,var(--accent)) 60%,var(--ink));--c-ink:#fff;
   position:relative;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px 22px;margin:0 0 12px;padding:16px 20px;border-radius:18px;
   background:var(--surface);color:var(--ink);border:1px solid color-mix(in srgb,var(--c,var(--accent)) 30%,var(--line));
   box-shadow:0 10px 26px -18px color-mix(in srgb,var(--c,var(--accent)) 70%,transparent)}

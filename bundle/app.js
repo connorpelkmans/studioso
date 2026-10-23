@@ -1861,6 +1861,8 @@ async function sbBackend(client, userId){
   const revs = new Map();
   let pbase = new Map();
   const foreign = new Set();
+  // Bumped each time this device edits an item, so a save that lands after a newer edit leaves that edit's base in place
+  const edits = new Map();
   const bkey = (kind, id) => kind === "meta" ? "meta:planner" : kind + ":" + id;
   const skewKey = "studioso:skew";
   let skew = 0; try { skew = Number(localStorage.getItem(skewKey)) || 0; } catch(e) {}
@@ -1951,7 +1953,14 @@ async function sbBackend(client, userId){
     const k = SyncMerge.skewFrom(serverNow, t0, Date.now());
     if (serverNow && Math.abs(k) < 30 * 864e5) { skew = k; try { localStorage.setItem(skewKey, String(k)); } catch(e) {} }
   };
-  const settle = (kind, id, d, rev) => { const k = bkey(kind, id); if (rev != null) revs.set(k, rev); if (cache[kind]) { cache[kind].set(id, d); persist(); } pbase.delete(k); foreign.delete(k); pbSave(); };
+  const settle = (kind, id, d, rev, e0) => {
+    const k = bkey(kind, id), p = pbase.get(k);
+    if (rev != null) revs.set(k, rev);
+    if (cache[kind]) { cache[kind].set(id, d); persist(); }
+    // an edit made while this save was on its way is based on what was just saved, not on whatever the server has when it is sent
+    if (p && edits.get(k) !== e0) pbase.set(k, {rev: revs.get(k) || 0, data: d == null ? null : JSON.parse(JSON.stringify(d)), at: p.at}); else pbase.delete(k);
+    foreign.delete(k); pbSave();
+  };
   const plainUpsert = async (kind, id, d) => {
     const {data, error} = await client.from(T).upsert({user_id: userId, kind, id, data: d, updated_at: new Date().toISOString()}, {onConflict: "user_id,kind,id"}).select("updated_at");
     if (error) throw sbErr(error);
@@ -1961,7 +1970,7 @@ async function sbBackend(client, userId){
   const upsert = async (kind, id, d, o) => {
     mine();
     o = o || {};
-    const k = bkey(kind, id);
+    const k = bkey(kind, id), e0 = edits.get(k);
     if (kind === "backup" || kind === "trash") { await plainUpsert(kind, id, d); if (cache[kind]) { cache[kind].set(id, d); persist(); } return; }
     let b = baseOf(kind, id), cur = d, info = null, theirs = null;
     const floor = x => kind === "meta" && x && b.data && b.data.schema > x.schema ? Object.assign({}, x, {schema: b.data.schema}) : x;
@@ -1980,14 +1989,14 @@ async function sbBackend(client, userId){
           throw sbErr(error);
         }
         learnSkew(res.now, t0);
-        if (res.ok) { settle(kind, id, cur, res.rev); return info ? {merged: cur, merge: info} : (res.restored ? {merged: cur, merge: {state: "restored", title: SyncMerge.titleOf(kind, cur)}} : undefined); }
+        if (res.ok) { settle(kind, id, cur, res.rev, e0); return info ? {merged: cur, merge: info} : (res.restored ? {merged: cur, merge: {state: "restored", title: SyncMerge.titleOf(kind, cur)}} : undefined); }
         theirs = res.data;
         const r = SyncMerge.mergeItem(kind, b.data, cur, theirs, mopts(b, res.edited_at || res.updated_at));
         info = info ? Object.assign(r, {conflict: r.conflict || info.conflict}) : r;
         cache[kind] && cache[kind].set(id, theirs);
         b = {rev: res.rev, data: theirs, at: b.at};
         cur = floor(cur);
-        if (r.state === "theirs" || r.state === "same") { settle(kind, id, theirs, res.rev); return {merged: theirs, merge: info}; }
+        if (r.state === "theirs" || r.state === "same") { settle(kind, id, theirs, res.rev, e0); return {merged: theirs, merge: info}; }
         cur = r.merged;
       }
       if (!upsert.noRpc) throw sbErr({message: "Couldn't settle a sync conflict, will retry", status: 503});
@@ -1997,13 +2006,13 @@ async function sbBackend(client, userId){
       if (error) throw sbErr(error);
       if (row && !SyncMerge.eq(row.data, b.data)) {
         const r = SyncMerge.mergeItem(kind, b.data, cur, row.data, mopts(b, row.updated_at));
-        if (r.state === "theirs" || r.state === "same") { settle(kind, id, row.data, null); return {merged: row.data, merge: r}; }
+        if (r.state === "theirs" || r.state === "same") { settle(kind, id, row.data, null, e0); return {merged: row.data, merge: r}; }
         info = r; cur = r.merged;
       }
     }
     const at = await plainUpsert(kind, id, cur);
     if (at && lean) learnSkew(at, Date.now() - 200);
-    settle(kind, id, cur, null);
+    settle(kind, id, cur, null, e0);
     return info && !SyncMerge.eq(cur, d) ? {merged: cur, merge: info} : undefined;
   };
   const remove = async (kind, id, o) => {
@@ -2092,6 +2101,7 @@ async function sbBackend(client, userId){
   const noteBase = (kind, id) => {
     if (kind === "backup" || kind === "trash") return;
     const k = bkey(kind, id), b = pbase.get(k);
+    edits.set(k, (edits.get(k) || 0) + 1);
     if (b) b.at = Date.now(); else pbase.set(k, {rev: revs.get(k) || 0, data: cache[kind] && cache[kind].has(id) ? JSON.parse(JSON.stringify(cache[kind].get(id))) : null, at: Date.now()});
     pbSave();
   };
@@ -10512,6 +10522,7 @@ function pageSub(){
     }
     if (ui.tab === "files") { const n = Object.keys(state.files || {}).length; return n ? `${nWord(n, "file")} across your courses` : "Slides, readings and handouts in one place"; }
     if (ui.tab === "emails") return "Messages from your school account";
+    if (ui.tab === "notes" && window.SBWB && SBWB.on()) { const n = SBWB.boards().length; return n ? nWord(n, "whiteboard") : "Sketch and plan on a big board"; }
     if (ui.tab === "notes") {
       const n = notesArr().filter(x => !x.archived).length; return n ? `${nWord(n, "note")} · ${nWord(new Set(notesArr().filter(x => !x.archived).map(x => x.courseId).filter(Boolean)).size, "course")}` : "Quick notes for your classes";
     }
@@ -10520,7 +10531,7 @@ function pageSub(){
 }
 // Lift the page's own heading above its tabs, with its context line and its buttons beside it
 function pageHeadUp(v){
-  if (v.querySelector(":scope > .pg-head") || (ui.tab === "notes" && window.SBWB && SBWB.on())) return;
+  if (v.querySelector(":scope > .pg-head")) return;
   const tabs = v.querySelector(":scope > .pview-tabs, :scope > .bview-row"); if (!tabs) return;
   const phone = innerWidth < 640, sub = pageSub();
   let title = "", head = null;
@@ -10537,7 +10548,7 @@ function pageHeadUp(v){
     head.querySelector(":scope > h2").remove();
     [...head.attributes].filter(x => x.name.startsWith("data-")).forEach(x => pg.setAttribute(x.name, x.value));
     const rest = [...head.children];
-    if (rest.length && rest.length <= 6 && rest.every(c => c.matches("button, .btn, .segb, a.btn"))) {
+    if (rest.length && rest.length <= 6 && rest.every(c => c.matches("button, .btn, .segb, a.btn, .wb-pick"))) {
       const r = document.createElement("div"); r.className = "pg-right"; rest.forEach(c => r.appendChild(c)); pg.appendChild(r); head.remove();
     } else if (!rest.length) head.remove();
   }
@@ -72785,8 +72796,7 @@ var SBWB = null;
     if (boardMaxOn()) { host.style.height = ""; return; }
     const top = host.getBoundingClientRect().top + window.scrollY, nav = document.querySelector("nav.tabs");
     const navH = phone() && nav ? nav.getBoundingClientRect().height : 0;
-    const cp = !phone() && document.querySelector("#compFront .cp"), mascot = cp && !cp.hidden && cp.offsetHeight ? cp.offsetHeight + 10 : 0;
-    host.style.height = Math.max(phone() ? 420 : 460, Math.round(window.innerHeight - Math.min(top, window.innerHeight * 0.45) - navH - (phone() ? 18 : 28) - mascot)) + "px";
+    host.style.height = Math.max(phone() ? 420 : 460, Math.round(window.innerHeight - Math.min(top, window.innerHeight * 0.45) - navH - (phone() ? 18 : 16))) + "px";
   }
 
   /* Painting */
@@ -73599,7 +73609,6 @@ var SBWB = null;
 .wb-pick{display:inline-flex;max-width:min(320px,100%);min-width:0}
 .wb-pick select{font:600 .92rem var(--display);height:34px;max-width:100%;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:0 12px;cursor:pointer}
 .wb-host{position:relative;min-height:420px;margin-top:4px}
-body:has(#wbHost) #fab{display:none!important}
 .wb-stage{position:absolute;inset:0;display:flex;flex-direction:column;gap:8px;padding:10px 10px 8px;border-radius:18px;background:linear-gradient(180deg,#EEF1F4,#D4DAE1 60%,#C5CCD4);box-shadow:inset 0 1px 0 #fff,inset 0 -1px 0 rgba(0,0,0,.08),0 8px 24px rgba(20,30,45,.16)}
 .wb-stage.wb-dk{background:linear-gradient(180deg,#5B636E,#3E454E 60%,#353B43);box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 8px 24px rgba(0,0,0,.4)}
 .wb-frame{position:relative;flex:1;min-height:0;overflow:hidden;border-radius:10px;background:#FDFEFE;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12),inset 0 2px 8px rgba(0,0,0,.12);touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;outline:none;cursor:crosshair}

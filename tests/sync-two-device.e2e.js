@@ -137,7 +137,14 @@ async function device(browser, srv, name, opts) {
   const ctx = await browser.newContext({viewport: {width: 900, height: 900}, serviceWorkers: "block"});
   const dev = {name, online: true, ctx, srv, page: null, errors: []};
   srv.devs[name] = dev;
-  await ctx.exposeFunction("__srv", s => { const {op, a} = JSON.parse(s); return JSON.stringify(srv.call(name, op, a)); });
+  await ctx.exposeFunction("__srv", async s => {
+    const {op, a} = JSON.parse(s), out = JSON.stringify(srv.call(name, op, a));
+    // a held save: the server has it, its reply waits until the test lets it through
+    const h = dev.hold;
+    const put = op === "rpc" ? a.name === "studyboard_item_put" && a.args.p_kind : a.method === "upsert" && ((a.chain.find(c => c.m === "upsert") || {a: [{}]}).a[0] || {}).kind;
+    if (h && !h.got && put === h.kind) { h.got = true; h.reached(); await h.p; }
+    return out;
+  });
   await ctx.addInitScript({content: `
     ${opts.toured ? `try { if (!localStorage.getItem("seen")) { localStorage.setItem("seen", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("sb:onboarded", "1"); } } catch (e) {}`
       : `try { localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:tour", "done"); localStorage.setItem("sb:onboarded", "1"); } catch (e) {}`}
@@ -172,6 +179,7 @@ function kit(dev) {
   dev.state = (kind, id) => dev.page.evaluate(([k, i]) => { const m = window.__sbSync.mapOf(k); return JSON.parse(JSON.stringify(m[i] || null)); }, [kind, id]);
   dev.settings = () => dev.page.evaluate(() => JSON.parse(JSON.stringify(window.__sbSync.state.settings)));
   dev.set = (kind, id, patchOrNull) => dev.page.evaluate(([k, i, p]) => { const S = window.__sbSync; S.applyChanges([{kind: k, id: i, after: p === null ? null : Object.assign(S.clone(S.getItem(k, i) || {id: i}), p)}], null); }, [kind, id, patchOrNull]);
+  dev.holdNext = kind => { let go; const h = dev.hold = {kind, got: false, p: new Promise(r => { go = r; })}; h.seen = new Promise(r => { h.reached = r; }); h.release = () => { dev.hold = null; go(); }; return h; };
   dev.outbox = () => dev.page.evaluate(() => Object.keys(window.__sbSync.outboxGet()));
   dev.toasts = () => dev.page.evaluate(() => window.__sbSync.toastText());
   return dev;
@@ -423,6 +431,23 @@ const SC = [
     const st = srv.get("meta", "planner").settings, sa = await A.settings(), sb = await B.settings();
     return {out: `server settings=${JSON.stringify(st)}; A=${sa.capacity}/${sa.studyHours}/${sa.reminderLead}; B=${sb.capacity}/${sb.studyHours}/${sb.reminderLead}`,
       ok: st.capacity === 22 && st.studyHours === 5 && st.reminderLead === 30 && sa.studyHours === 5 && sb.capacity === 22, noLoss: st.capacity === 22 && st.studyHours === 5};
+  }],
+  ["8b a settings save is still on its way when the device goes offline; the change made meanwhile still merges with the other device's", async (b, srv) => {
+    const {A, B} = await fresh(b, srv, s => s.seed("meta", "planner", {schema: 2, settings: {capacity: 15, studyHours: 3}}, HOUR));
+    await pause(B, 3000); await A.settle(); await B.settle();
+    const h = B.holdNext("meta");
+    await setSetting(B, {theme8: "dark"});
+    await h.seen;
+    B.goOffline();
+    await setSetting(B, {studyHours: 5, reminderLead: 30});
+    h.release(); await B.settle();
+    await setSetting(A, {capacity: 22}); await A.settle();
+    B.online = true; await setSetting(A, {lang8: "en"}); await A.settle(); await pause(B, 300);
+    await B.goOnline(); await B.settle(); await converge(A, B);
+    const st = srv.get("meta", "planner").settings, sa = await A.settings(), sb = await B.settings();
+    const all = s => s.capacity === 22 && s.studyHours === 5 && s.reminderLead === 30 && s.theme8 === "dark" && s.lang8 === "en";
+    return {out: `server=${st.capacity}/${st.studyHours}/${st.reminderLead}/${st.theme8}/${st.lang8}; A=${sa.capacity}/${sa.studyHours}/${sa.reminderLead}; B=${sb.capacity}/${sb.studyHours}/${sb.reminderLead}`,
+      ok: all(st) && all(sa) && all(sb), noLoss: st.capacity === 22 && st.studyHours === 5 && st.reminderLead === 30};
   }],
   ["9a interrupted sync: B's connection drops after its first push, app is closed, reopened later", async (b, srv) => {
     const {A, B} = await fresh(b, srv, s => { ["n1", "n2", "n3"].forEach(i => s.seed("note", i, noteRow(i, "orig " + i), HOUR)); });
