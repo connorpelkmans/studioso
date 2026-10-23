@@ -249,6 +249,9 @@ function ensureContrast(fg, bgs, min){
   for (let f = 0.05; f < 1.001; f += 0.05) { const m = rgbHex(c.map((x, i) => x + (to[i] - x) * f)); if (worst(m) >= min) return m; }
   return rgbHex(to);
 }
+// Plain colors: a soft sidebar gradient from the theme's own spine and accent
+const mixHex = (a, b, f) => HEX6.test(a) && HEX6.test(b) ? rgbHex(hexRgb(a).map((x, i) => x + (hexRgb(b)[i] - x) * f)) : a;
+const plainSpine = (base, accent, dark) => HEX6.test(base) ? `radial-gradient(130% 55% at 0% 0%,rgba(255,255,255,${dark ? 0.05 : 0.09}),transparent 70%),linear-gradient(170deg,${mixHex(base, accent, dark ? 0.24 : 0.36)} 0%,${base} 45%,${mixHex(base, "#000000", dark ? 0.36 : 0.4)} 100%)` : base;
 function skinVars(s, dark){
   let v = dark ? s.dark : s.light; if (!v) return "";
   const dim = !dark && s.id !== "paper"; if (dim) v = dimLight(v);
@@ -256,7 +259,7 @@ function skinVars(s, dark){
   o["sel-ink"] = "#FFFFFF"; o["navy"] = v[12]; o["spine-hi"] = dark ? "rgba(255,255,255,.08)" : "rgba(255,255,255,.14)";
   if (s.glow) { o.bgimg = dim ? s.glow[0].replace(/#[0-9A-Fa-f]{6}\s*$/, v[0]) : s.glow[dark ? 1 : 0]; o.bgsize = "100% 100%"; o.bgpos = "0 0"; o.bgatt = "fixed"; }
   o.scene = "none"; o["scene-h"] = "0px";
-  o["spine-bg"] = s.spine ? s.spine[dark ? 1 : 0] : v[12];
+  o["spine-bg"] = s.spine ? s.spine[dark ? 1 : 0] : s.plain ? plainSpine(v[12], v[9], dark) : v[12];
   o["btn-bg"] = s.btn ? s.btn[dark ? 1 : 0] : v[8];
   try {
     o.muted = ensureContrast(o.muted, [o.paper, o.surface, o.soft, o.field, o.line], 5);
@@ -805,7 +808,7 @@ function shopUnlock(kind, id){ toast("This item is part of Studyboard Pro."); }
 /* The shop */
 const PRO_BADGE = `<span class="pro-badge">PRO</span>`, FREE_BADGE = `<span class="free-badge">Free</span>`;
 function skinPreview(s, dark){
-  const vars = s.light ? skinVars(s, dark) : dark ? "--paper:#0A1428;--grid:rgba(96,160,255,.07);--surface:#111E38;--ink:#E7EEFA;--muted:#93A3C2;--line:#22355C;--accent:#5B9DFF;--accent-ink:#071430;--spine:#060F24;--spine-ink:#A9BADC;--mark:#8C7713;--soft:#172848" : "--paper:#E6EBF3;--grid:rgba(57,136,254,.09);--surface:#F4F6FA;--ink:#0F1F3D;--muted:#5A6A86;--line:#D9E2EF;--accent:#1F6FEB;--accent-ink:#FFFFFF;--spine:#0E2A56;--spine-ink:#C9D7F2;--mark:#FFE45C;--soft:#E3EAF4";
+  const vars = s.light ? skinVars(s, dark) : dark ? "--paper:#0A1428;--grid:rgba(96,160,255,.07);--surface:#111E38;--ink:#E7EEFA;--muted:#93A3C2;--line:#22355C;--accent:#5B9DFF;--accent-ink:#071430;--spine:#060F24;--spine-ink:#A9BADC;--mark:#8C7713;--soft:#172848;--spine-bg:linear-gradient(165deg,#0E2148,#060F24 52%,#040A18)" : "--paper:#E6EBF3;--grid:rgba(57,136,254,.09);--surface:#F4F6FA;--ink:#0F1F3D;--muted:#5A6A86;--line:#D9E2EF;--accent:#1F6FEB;--accent-ink:#FFFFFF;--spine:#0E2A56;--spine-ink:#C9D7F2;--mark:#FFE45C;--soft:#E3EAF4;--spine-bg:linear-gradient(165deg,#1B4486,#0E2A56 52%,#0B2245)";
   const base = "--bgimg:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);--bgsize:12px 12px;--bgpos:0 0;--scene:none;--scene-h:0px;--btn-bg:var(--accent);--spine-bg:var(--spine);--sel:var(--accent);--accent-2:var(--accent);";
   return `<div class="skin-prev" style="${esc(base + vars)}" aria-hidden="true">${artThumb(s.id, dark)}<span class="sp-spine"><i></i><i></i><i></i></span><span class="sp-main"><span class="sp-card"><b></b><em></em></span><span class="sp-card sm"><b></b></span><span class="sp-btn"></span></span><span class="sp-mode">${dark ? "Dark" : "Light"}</span></div>`;
 }
