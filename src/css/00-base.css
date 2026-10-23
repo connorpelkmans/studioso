@@ -946,6 +946,8 @@ dialog.alarm{width:min(420px,calc(100% - 32px));margin:auto;border-radius:22px}
 .alarm-ring{width:72px;height:72px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--tomato) 14%,var(--surface));color:var(--tomato);animation:ring 1s ease-in-out infinite}
 .alarm-card.is-break .alarm-ring{background:color-mix(in srgb,var(--leaf) 14%,var(--surface));color:var(--leaf)}
 .alarm-ring svg{width:38px;height:38px}
+.alarm-more{justify-content:center;flex-wrap:wrap;gap:8px;padding-top:8px;border-top:1px solid var(--line);width:100%}
+.alarm-more .btn{min-height:40px;max-width:100%;white-space:normal}
 @keyframes ring{0%,100%{transform:rotate(0)}20%{transform:rotate(-12deg)}40%{transform:rotate(10deg)}60%{transform:rotate(-6deg)}80%{transform:rotate(4deg)}}
 @media (prefers-reduced-motion:reduce){.alarm-ring{animation:none}}
 @media (max-width:600px){dialog.alarm{margin:auto;border-radius:22px}}

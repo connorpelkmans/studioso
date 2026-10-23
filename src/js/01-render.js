@@ -312,7 +312,7 @@ function taskForm(t, preset = {}){
             <label class="f">Repeat<select name="repeat"><option value="">Doesn't repeat</option><option value="7">Every week</option><option value="14">Every 2 weeks</option></select></label>
             <label class="f">Until<input type="date" name="until"></label>
           </div>` : ""}
-          ${!isNew && t.pomos ? `<p class="mini" style="margin:0">${TOMATO} ${t.pomos} focus session${t.pomos === 1 ? "" : "s"}, ${fmtHM((t.focusMin || 0) / 60)} focused on this task.</p>` : ""}
+          ${!isNew && t.pomos ? `<p class="mini" style="margin:0">${TOMATO} ${t.pomos} focus session${t.pomos === 1 ? "" : "s"}, ${fmtMins(t.focusMin)} focused on this task.</p>` : ""}
         </div>
       </details>
       ${!isNew && t.due ? `<div class="link-row"><a href="${esc(gcalLink(t))}" target="_blank" rel="noopener noreferrer">Add to Google Calendar</a></div>` : ""}
