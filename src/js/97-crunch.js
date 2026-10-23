@@ -441,8 +441,7 @@ function typeCounts(W){
 }
 function viewCrunch(){
   const m = modelNow(), today = todayISO();
-  const head = `<div class="view-head cr-head"><h2>Crunch Forecast</h2></div>`;
-  if (m.empty) return `<section class="cr" aria-label="Crunch Forecast">${head}<div class="empty cr-empty"><strong>Nothing Due Yet</strong>Add tasks with due dates to see which weeks ahead get heavy.<div style="margin-top:12px"><button class="btn primary" data-act="new-task">Add a Task</button></div></div></section>`;
+  if (m.empty) return `<section class="cr" aria-label="Crunch Forecast"><div class="empty cr-empty"><strong>Nothing Due Yet</strong>Add tasks with due dates to see which weeks ahead get heavy.<div style="margin-top:12px"><button class="btn primary" data-act="new-task">Add a Task</button></div></div></section>`;
   const hv = C.heaviest(m, 0);
   let call;
   if (hv && hv.levelIdx >= 2) call = `<div class="cr-call"><div class="cr-ct"><span class="cr-pill lv${hv.levelIdx}">${LV_WORD[hv.levelIdx]}</span> <b>Heaviest week: ${esc(rangeLabel(hv.start, hv.end))}, ${esc(awayText(today, hv.start))}</b><br><span class="mini">${esc(cap1(hv.headline || "Steady work"))} · about ${ratioText(hv.score)} your usual study time</span></div><button class="btn${hv.levelIdx >= 3 ? " primary" : ""}" data-act="cr-week" data-id="${hv.start}">See the Week</button></div>`;
@@ -474,7 +473,7 @@ function viewCrunch(){
       <div class="cr-dow" role="row"><span role="columnheader" aria-label="Week"></span>${dow.map(d => `<span role="columnheader">${d}</span>`).join("")}<span class="cr-sum" role="columnheader" style="text-align:center">Week</span></div>
       ${rows}</div></div>${more}`;
   try { return crunchR2(m, today, call, est, grid, help); } catch (e) { console.warn("crunch view", e); }
-  return `<section class="cr" aria-label="Crunch Forecast">${head}${call}${grid}${help}</section>`;
+  return `<section class="cr" aria-label="Crunch Forecast">${call}${grid}${help}</section>`;
 }
 /* Crunch R2: this week's load against your study time */
 const CR_IC = ["<path d='M5 19c0-8 5-13 14-14 0 9-5 14-13 14z'/><path d='M5 19c3-5 6-8 10-10'/>", "<path d='M3 12h4l2-5 4 10 2-5h6'/>", "<circle cx='12' cy='12' r='8.5'/><path d='M12 7.5V12l3 2'/>",
@@ -518,7 +517,7 @@ function crunchR2(m, today, call, est, grid, help){
       <span class="cr2-wt"><b class="lv${W.levelIdx}">${LV_WORD[W.levelIdx]}</b> · ${W.demand >= 0.25 ? fmtHM(W.demand) : "nothing planned yet"}${W.headline ? " · " + esc(W.headline) : ""}</span></button>
       ${W.levelIdx >= 3 ? `<button type="button" class="btn small" data-act="cr-week" data-id="${W.start}">Ease This Week</button>` : ""}</li>`; }).join("");
   const toggle = `<div class="segb cr2-range" role="group" aria-label="Weeks shown"><button type="button" data-act="cr-all" aria-pressed="${!ui.crAll}"${ui.crAll ? "" : " disabled"}>Next 6 Weeks</button><button type="button" data-act="cr-all" aria-pressed="${!!ui.crAll}"${ui.crAll ? " disabled" : ""}>Whole Term</button></div>`;
-  return `<section class="cr cr2" aria-label="Crunch Forecast"><div class="view-head cr-head"><h2>Crunch Forecast</h2>${toggle}</div>
+  return `<section class="cr cr2" aria-label="Crunch Forecast"><div class="view-head cr-head">${toggle}</div>
     <div class="cr2-top">${thisWeek}${chart}</div>
     ${coming ? `<section class="c2-card2 cr2-coming"><h3 class="fsec">Coming Weeks<span class="spacer"></span><span class="mini">tap a week for details</span></h3><ul>${coming}</ul></section>` : ""}
     ${est}

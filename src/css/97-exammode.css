@@ -1,25 +1,55 @@
 /* ===== module: 97-exammode.css ===== */
-.exm-card{display:grid;gap:8px;margin:0 0 12px;padding:12px 14px;border:1px solid var(--line);border-left:4px solid var(--c,var(--accent));border-radius:14px;background:color-mix(in srgb,var(--c,var(--accent)) 7%,var(--surface));color:var(--ink)}
-.exm-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.exm-kick{font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.exm-off{font-size:.8rem;min-height:32px;padding:0 4px}
-.exm-main{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap}
-.exm-txt{flex:1 1 220px;min-width:0;display:grid;gap:2px}
-.exm-title{margin:0;font-size:1.05rem;line-height:1.3;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.exm-name{all:unset;cursor:pointer;font-weight:700;overflow-wrap:anywhere;display:inline-flex;align-items:center;min-height:32px}
+/* Exam Mode card: countdown tile, title and prep progress, two stacked actions */
+.exm-card{--c-text:color-mix(in srgb,var(--c,var(--accent)) 60%,var(--ink));--c-ink:color(from var(--c) srgb-linear clamp(0,(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 10000,1) clamp(0,(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 10000,1) clamp(0,(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 10000,1));
+  position:relative;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px 22px;margin:0 0 12px;padding:16px 20px;border-radius:18px;
+  background:var(--surface);color:var(--ink);border:1px solid color-mix(in srgb,var(--c,var(--accent)) 30%,var(--line));
+  box-shadow:0 10px 26px -18px color-mix(in srgb,var(--c,var(--accent)) 70%,transparent)}
+.exm-cd{width:86px;border-radius:14px;overflow:hidden;text-align:center;background:var(--surface);
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--c,var(--accent)) 35%,var(--line)),0 3px 0 color-mix(in srgb,var(--c,var(--accent)) 30%,transparent)}
+.exm-cd-t{display:block;background:var(--c,var(--accent));color:#fff;color:var(--c-ink,#fff);font:800 .64rem/1 var(--display);letter-spacing:.12em;padding:6px 4px 5px;text-transform:uppercase;white-space:nowrap}
+.exm-cd b{display:block;font:800 2.2rem/1 var(--display);color:var(--ink);padding:8px 2px 0}
+.exm-cd.word b{font-size:1.15rem;padding:14px 2px 4px}
+.exm-cd-l{display:block;font:600 .72rem/1 var(--body);color:var(--muted);padding:4px 2px 9px;white-space:nowrap}
+.exm-txt{min-width:0;display:grid;gap:3px;padding-right:56px}
+.exm-kick{display:block;font:800 .68rem/1 var(--display);letter-spacing:.12em;text-transform:uppercase;color:var(--c-text)}
+.exm-title{margin:0;font:800 1.3rem/1.2 var(--display);letter-spacing:-.01em;display:flex;align-items:center;gap:4px 10px;flex-wrap:wrap}
+.exm-title .tag{font:800 .7rem/1 var(--display);letter-spacing:.04em;padding:4px 7px;border-radius:7px;background:color-mix(in srgb,var(--c,var(--accent)) 13%,var(--surface));color:var(--c-text)}
+.exm-name{all:unset;cursor:pointer;overflow-wrap:anywhere;display:inline-flex;align-items:center;min-height:32px}
 .exm-name:hover{text-decoration:underline}
 .exm-name:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 .exm-when{margin:0;font-size:.9rem;color:var(--muted)}
 .exm-when b{color:var(--ink)}
-.exm-acts{display:flex;gap:6px;flex-wrap:wrap}
-.exm-ready{display:flex;align-items:center;gap:10px;font-size:.85rem}
-.exm-rl{flex:none}
-.exm-bar{flex:1;max-width:220px;height:6px;border-radius:99px;background:color-mix(in srgb,var(--ink) 12%,transparent);overflow:hidden}
-.exm-bar i{display:block;height:100%;background:var(--c,var(--accent));border-radius:inherit}
-.exm-others{margin:0;font-size:.82rem;color:var(--muted)}
+.exm-prep{display:flex;align-items:center;gap:6px 12px;flex-wrap:wrap;margin-top:6px;font:600 .8rem/1.3 var(--body);color:var(--muted)}
+.exm-bar{flex:0 1 220px;min-width:120px;height:7px;border-radius:999px;background:color-mix(in srgb,var(--c,var(--accent)) 16%,var(--surface));overflow:hidden}
+.exm-bar i{display:block;height:100%;min-width:7px;background:var(--c,var(--accent));border-radius:inherit}
+.exm-acts{display:flex;flex-direction:column;gap:8px;align-self:center;margin-top:14px}
+.exm-acts .btn{min-height:40px;justify-content:center;padding:0 18px;border-radius:12px;white-space:nowrap}
+.exm-off{position:absolute;top:8px;right:12px;font-size:.78rem;font-weight:600;color:var(--muted);min-height:32px;padding:0 4px}
+.exm-off:hover{color:var(--ink)}
+.exm-others{margin:2px 0 0;font-size:.82rem;color:var(--muted)}
 .exm-others .link-btn{font-size:inherit;min-height:32px;display:inline-flex;align-items:center}
 .exm-tag{display:inline-block;margin-top:4px;padding:1px 8px;border-radius:99px;font-size:.7rem;font-weight:700;line-height:1.5;background:color-mix(in srgb,var(--c,var(--accent)) 16%,var(--surface));color:var(--ink);border:1px solid color-mix(in srgb,var(--c,var(--accent)) 40%,transparent)}
 .deck-main .exm-tag{align-self:flex-start}
 .exm-pomo{margin:0;font-size:.85rem;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
 .exm-pomo b{margin-right:4px}
-@media (max-width:520px){.exm-card{padding:10px 12px}.exm-acts{width:100%}.exm-acts .btn{flex:1 1 auto}}
+.exm-cd-u,.exm-wk,.exm-x{display:none}
+/* Phones: a compact strip with the countdown, the title, Study and a close button */
+@media (max-width:639px){
+  .exm-card{grid-template-columns:56px minmax(0,1fr) auto;gap:12px;padding:10px 44px 10px 10px;border-radius:18px;background:color-mix(in srgb,var(--c,var(--accent)) 7%,var(--surface));border-color:color-mix(in srgb,var(--c,var(--accent)) 40%,var(--line))}
+  .exm-cd{width:56px;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:16px;background:var(--c,var(--accent));color:var(--c-ink,#fff);box-shadow:0 6px 14px -6px var(--c,var(--accent))}
+  .exm-cd-t,.exm-cd-l{display:none}
+  .exm-cd b,.exm-cd.word b{font:800 1.5rem/1 var(--display);color:inherit;padding:0}
+  .exm-cd.word b{font-size:.9rem}
+  .exm-cd-u{display:block;font:700 .62rem/1 var(--display);text-transform:uppercase;letter-spacing:.06em;margin-top:3px}
+  .exm-txt{padding-right:0;gap:1px}
+  .exm-kick,.exm-title .tag,.exm-prep,.exm-others,.exm-sl,.exm-offt,.exm-acts .btn:not(.primary){display:none}
+  .exm-title{display:block;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .exm-name{display:inline;min-height:0;line-height:32px}
+  .exm-when{font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .exm-wk{display:inline;font-weight:800;color:var(--c-text)}
+  .exm-when b{font-weight:600;color:var(--muted)}
+  .exm-acts{margin:0}
+  .exm-acts .btn.primary{min-height:40px;padding:0 14px;border-radius:12px}
+  .exm-off{top:50%;right:4px;transform:translateY(-50%);width:40px;height:40px;min-height:40px;padding:0;display:grid;place-items:center;border-radius:12px}
+  .exm-x{display:block}
+}

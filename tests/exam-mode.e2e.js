@@ -46,7 +46,7 @@ const setTask = (page, id, patch) => page.evaluate(([id, p]) => { const S = wind
 
       ok(await vis(page, ".exm-card"), "the Exam Mode card shows on Today's Plan");
       const c = await txt(page, ".exm-card");
-      ok(/Exam Mode/i.test(c) && /Midterm 2/.test(c) && /BIO 101/.test(c) && /In 2 days/.test(c), "it names the exam, course and countdown: " + c);
+      ok(/Exam Mode/i.test(c) && /Midterm 2/.test(c) && (W < 640 || /BIO 101/.test(c)) && /In 2 days/.test(c), "it names the exam, course (left out of the phone strip, which takes the course colour) and countdown: " + c);
       ok(await page.evaluate(() => { const a = document.querySelector(".exm-card"), b = document.querySelector("section.focus.plan"); return !!a && !!b && !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING); }), "the card sits above Today's Plan");
       ok(await page.evaluate(() => !document.querySelector(".exm-also") && !/Also Due/.test(document.querySelector(".exm-card").innerText)), "no Also Due list: that work is already in Do This Next");
       ok(await page.evaluate(() => !document.querySelector(".exm-card [title]") && /Study for It/.test(document.querySelector(".exm-card [data-act=exm-study]").textContent) && /Not Now/.test(document.querySelector(".exm-card [data-act=exm-off]").textContent)), "Study for It and Not Now buttons, no tooltips");
@@ -124,7 +124,7 @@ const setTask = (page, id, patch) => page.evaluate(([id, p]) => { const S = wind
       if (W === 390) {
         ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), "no horizontal page scroll at 390px");
         ok(await page.evaluate(() => { const r = document.querySelector(".exm-card").getBoundingClientRect(); return r.left >= 0 && r.right <= window.innerWidth + 1; }), "the card fits the phone");
-        ok(await page.evaluate(() => [...document.querySelectorAll(".exm-card button")].every(b => b.getBoundingClientRect().height >= 30)), "its buttons are big enough to tap");
+        ok(await page.evaluate(() => [...document.querySelectorAll(".exm-card button")].filter(b => b.offsetParent).every(b => b.getBoundingClientRect().height >= 30)), "its buttons are big enough to tap");
       }
 
       await setTask(page, "ex1", {due: plus(5)}); await toPlan(page);

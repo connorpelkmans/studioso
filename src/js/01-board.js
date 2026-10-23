@@ -429,6 +429,30 @@ function planRow(x, i, showScore, noRank){
     ${rest.length ? `<ul class="pr-more" id="pw-${esc(key)}"${open ? "" : " hidden"}>${rest.map(r => `<li>${esc(r)}</li>`).join("")}</ul>` : ""}
   </li>`;
 }
+/* Today's Plan: the week ahead, one card a day */
+function weekAhead(F, inView){
+  const today = todayISO(), all = Object.values(F.info).filter(x => inView(x) && x.t.status !== "done");
+  return [0, 1, 2, 3, 4, 5, 6].map(i => {
+    const iso = addDays(today, i), rows = all.filter(x => x.t.due === iso).sort((a, b) => dueDate(a.t) - dueDate(b.t));
+    const hours = rows.reduce((s, x) => s + (x.R || 0), 0), cap = Math.max(0.5, i === 0 ? (F.thSet || 0) : (F.day[i] || 0));
+    return {i, iso, rows, hours, cap, heavy: hours > cap + 0.01};
+  });
+}
+function weekStripHtml(week, pick, overdue){
+  const days = week.map(w => {
+    const d = parse(w.iso), dow = w.i === 0 ? "Today" : d.toLocaleDateString(undefined, {weekday: "short"}), n = w.rows.length;
+    const exams = w.rows.filter(x => MILESTONE(x.t.type) && /^(Exam|Quiz)$/.test(x.t.type)), rest = w.rows.filter(x => !exams.includes(x));
+    const marks = exams.map(x => `<i class="wk-flag" style="--c:${esc(colorOf(x.t.courseId))}">${x.t.type === "Quiz" ? "Quiz" : "Exam"}</i>`).join("") + rest.slice(0, 6).map(x => `<i style="--c:${esc(colorOf(x.t.courseId))}"></i>`).join("") + (rest.length > 6 ? `<em>+${rest.length - 6}</em>` : "");
+    const wd = d.getDay() === 0 || d.getDay() === 6, pct = Math.min(100, Math.round(w.hours / w.cap * 100));
+    const said = `${w.i === 0 ? "Today, " : ""}${fmtDate(w.iso)}: ${n ? `${n} due${fmtHM(w.hours) ? `, ${fmtHM(w.hours)} of work` : ""}${exams.length ? `, ${exams.map(x => x.t.title).join(", ")}` : ""}${w.heavy ? ", more than the time planned for that day" : ""}` : "nothing due"}. Show only that day`;
+    return `<li class="wk-cell"><button type="button" class="wk-day${w.i === 0 ? " today" : ""}${wd ? " wkend" : ""}" data-act="plan-tile" data-id="d:${w.iso}" aria-pressed="${pick === "d:" + w.iso}" aria-label="${esc(said)}">
+      <span class="wk-h"><span class="wk-dow">${esc(dow)}</span><span class="wk-num">${d.getDate()}</span></span>
+      <span class="wk-dots" aria-hidden="true">${marks}</span>
+      <span class="wk-sum" aria-hidden="true">${n ? `${n} due${fmtHM(w.hours) ? ` · ${esc(fmtHM(w.hours))}` : ""}` : "Free"}</span>
+      <span class="wk-load${w.heavy ? " heavy" : ""}" aria-hidden="true"><b style="width:${pct}%"></b></span></button>${w.i === 0 && overdue ? `<button type="button" class="wk-late" data-act="plan-tile" data-id="late" aria-pressed="${pick === "late"}" aria-label="Show only the ${overdue} overdue"><b>${overdue}</b> overdue</button>` : ""}</li>`;
+  }).join("");
+  return `<ol class="wk-strip" aria-label="The week ahead">${days}</ol>`;
+}
 function focusHtml(){
   const F = FOCUS || computeFocus();
   const inView = x => inFilter(x.t) && matchesQ(x.t);
@@ -441,22 +465,23 @@ function focusHtml(){
   const pastFixed = Object.values(F.info).filter(x => x.fixed && inView(x) && x.t.status !== "done" && x.dl < 0).sort((a, b) => b.dl - a.dl);
   const lateRows = workable.filter(x => x.dl < 0), soonRows = workable.filter(x => !(x.alloc > 0));
   const overdue = lateRows.length + pastFixed.length, queued = soonRows.length;
-  if ((ui.planTile === "late" && !overdue) || (ui.planTile === "soon" && !queued)) ui.planTile = "";
+  const week = weekAhead(F, inView), pickDay = /^d:/.test(ui.planTile || "") ? week.find(w => w.iso === ui.planTile.slice(2)) : null;
+  if ((ui.planTile === "late" && !overdue) || (/^d:/.test(ui.planTile || "") && !pickDay) || (ui.planTile && ui.planTile !== "late" && !/^d:/.test(ui.planTile))) ui.planTile = "";
   const pick = ui.planTile || "";
-  const base = pick === "late" ? lateRows : pick === "soon" ? soonRows : todayList.length ? todayList : workable, rowsAll = base.filter(x => x.t.id !== heroId);
+  const base = pick === "late" ? lateRows : pickDay ? pickDay.rows : todayList.length ? todayList : workable, rowsAll = pick ? base : base.filter(x => x.t.id !== heroId);
   const cap = pick || (todayList.length && ui.planAllToday) ? rowsAll.length : todayList.length ? 5 : 3;
   const show = rowsAll.slice(0, cap), hiddenToday = !pick && todayList.length ? rowsAll.slice(show.length) : [];
   const sum = [];
   if (todayList.length) sum.push(`<b>${fmtHM(todayList.reduce((s, x) => s + x.alloc, 0))}</b> planned across ${todayList.length} task${todayList.length === 1 ? "" : "s"}`);
   if (overdue) sum.push(`<span class="late"><b>${overdue}</b> overdue</span>`);
-  const pastHtml = pastFixed.length && pick !== "soon" ? `<div class="plan-past" role="region" aria-label="Past exams and quizzes"><ul>${pastFixed.slice(0, 3).map(x => { const t = x.t, c = courseOf(t.courseId); return `<li style="--c:${esc(colorOf(t.courseId))}"><span class="pp-q">Did you take <button class="link-btn" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}</button>?<span class="mini">${x.dl === -1 ? "Yesterday" : esc(fmtDate(t.due))}${c ? " · " + esc(courseLabel(c)) : ""}</span></span><span class="pp-acts"><button class="btn small primary" data-act="toggle" data-id="${esc(t.id)}">Mark Done</button><button class="btn small" data-act="move-date" data-id="${esc(t.id)}">Move Date</button></span></li>`; }).join("")}</ul>${pastFixed.length > 3 ? `<p class="mini">${pastFixed.length - 3} more past ${pastFixed.length - 3 === 1 ? "exam or quiz is" : "exams or quizzes are"} on the Task Board.</p>` : ""}</div>` : "";
+  const pastHtml = pastFixed.length && (!pick || pick === "late") ? `<div class="plan-past" role="region" aria-label="Past exams and quizzes"><ul>${pastFixed.slice(0, 3).map(x => { const t = x.t, c = courseOf(t.courseId); return `<li style="--c:${esc(colorOf(t.courseId))}"><span class="pp-q">Did you take <button class="link-btn" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}</button>?<span class="mini">${x.dl === -1 ? "Yesterday" : esc(fmtDate(t.due))}${c ? " · " + esc(courseLabel(c)) : ""}</span></span><span class="pp-acts"><button class="btn small primary" data-act="toggle" data-id="${esc(t.id)}">Mark Done</button><button class="btn small" data-act="move-date" data-id="${esc(t.id)}">Move Date</button></span></li>`; }).join("")}</ul>${pastFixed.length > 3 ? `<p class="mini">${pastFixed.length - 3} more past ${pastFixed.length - 3 === 1 ? "exam or quiz is" : "exams or quizzes are"} on the Task Board.</p>` : ""}</div>` : "";
   const fixedEv = Object.values(F.info).filter(x => x.fixed && inView(x) && x.t.status !== "done" && x.dl >= 0 && x.dl <= 7).sort((a, b) => dueDate(a.t) - dueDate(b.t)).slice(0, 3);
   const fixedHtml = fixedEv.length ? `<div class="plan-fixed" role="region" aria-label="Exams and quizzes on the calendar"><h3 class="plan-sub">On the Calendar</h3><ul>${fixedEv.map(x => { const t = x.t, e = remoteOf(t); return `<li style="--c:${esc(colorOf(t.courseId))}"><button class="plan-main" data-act="edit-task" data-id="${esc(t.id)}"><span class="task-title">${esc(t.title)}</span></button><span class="pf-when">${x.dl === 0 ? "Today" : x.dl === 1 ? "Tomorrow" : esc(fmtShort(t.due))}${t.time ? " " + esc(fmtTime(t.time)) : ""}</span><span class="rx-chip${e.v ? "" : " unk"}" title="${esc(e.v === "no" ? "Taken in person, so it is not suggested as something to do now." : "Not confirmed as take-home, so it is not suggested as something to do now. Open it to say where it is taken.")}">${e.v === "no" ? "In person" : "Not sure"}</span></li>`; }).join("")}</ul></div>` : "";
   if (queued) sum.push(`${queued} more lined up for the coming days`);
   const warn = F.crunch && inView(F.crunch) ? `<p class="plan-warn"><span class="pw-ic" aria-hidden="true">!</span><span class="pw-main">${"From now to " + (d => d === todayISO() ? "the end of today" : d === addDays(todayISO(), 1) ? "tomorrow" : esc(fmtDate(d)))(F.crunch.t.due)}, ${Math.abs((F.thSet == null ? F.dh : F.thSet) - F.dh) < 0.01 ? `at ${fmtHM(F.dh)} a day` : `with ${fmtHM(F.thSet)} today and ${fmtHM(F.dh)} a day after`}, you're about <b>${fmtHM(F.crunch.behind)}</b> short for what's due by then.</span> <span class="pw-tip">Add study time, start sooner, or talk to your instructor early.</span></p>` : "";
   const nBlk = F.blocked.filter(inView).length, nLater = F.later.filter(inView).length;
   const more = ranked.length > show.length + (heroId ? 1 : 0) || nBlk || nLater;
-  const listLabel = pick === "late" ? "Overdue" : pick === "soon" ? "Coming Up" : heroId ? (show.some(x => x.alloc > 0) ? "Also Today" : "Then") : "";
+  const listLabel = pick === "late" ? "Overdue" : pickDay ? (pickDay.i === 0 ? "Due Today" : "Due " + esc(fmtDate(pickDay.iso))) : heroId ? (show.some(x => x.alloc > 0) ? "Also Today" : "Then") : "";
   let spare = ""; if (ui.focusOpen && !heroId && !show.length && !pick) { try { spare = nextUpSpare(F, inView); } catch (e) { spare = ""; } }
   const skipped = !heroId && ui.skipNext && ui.skipNext.day === todayISO() && ui.skipNext.ids.length ? `<p class="nu-skipped mini">You skipped every suggestion for now. <button class="link-btn" data-act="nu-back">Go Back</button></p>` : "";
   const foot = (k, label, open) => `<button class="pf-link" data-act="plan-sec" data-id="${k}" aria-expanded="${open}" aria-controls="plan-${k}">${label}<svg class="pf-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>`;
@@ -470,16 +495,14 @@ function focusHtml(){
     if (parts.length) extraHtml = `<details class="plan-extra" id="planExtra"${ui.planExtraOpen ? " open" : ""}><summary><span class="pe-t">More for Today<i class="pe-dot" aria-hidden="true" style="margin-left:7px"></i></span><span class="pe-s">${esc(parts.join(", "))}</span></summary><div class="pe-b">${fcH}${prepH}${headH}${insH}</div></details>`;
   }
   const planH = todayList.reduce((s, x) => s + x.alloc, 0), freeMin = F.avail && F.avail.show && F.avail.res ? (F.avail.res.windows || []).reduce((s, w) => s + (w.min || 0), 0) : null;
-  const tile = (v, k, cls, act, aria) => act ? `<button type="button" class="pt-stat pt-go${cls ? " " + cls : ""}" data-act="plan-tile" data-id="${act}" aria-pressed="${pick === act}" aria-label="${esc(aria)}"><b>${v}</b><span>${k}</span></button>`
-    : `<div class="pt-stat${cls ? " " + cls : ""}" aria-hidden="true"><b>${v}</b><span>${k}</span></div>`;
   const hoursTitle = F.doneToday >= 0.25 ? `${fmtMins(F.doneToday * 60)} done so far, ${fmtHM(F.th)} left` : planH && Math.abs(planH - F.thSet) >= 0.25 ? `${fmtHM(planH)} of tasks planned` : "";
-  const planTile = `<div class="pt-stat pt-hours" role="group" aria-label="Study time today"><div class="pt-adj"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button><b${hoursTitle ? ` title="${esc(hoursTitle)}"` : ""}>${fmtHM(F.thSet) || "0m"}</b><button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></div><span>Planned Today</span></div>`;
-  const ptStats = todayList.length || overdue || queued ? `<div class="pt-stats">${planTile}${tile(overdue, "Overdue", overdue ? "late" : "", overdue ? "late" : "", `Show only the ${overdue} overdue`)}${freeMin != null ? tile(fmtHM(freeMin / 60) || "0m", "Free Time Left") : ""}${tile(queued, "Coming Up", "", queued ? "soon" : "", `Show only the ${queued} coming up`)}</div>` : "";
+  const planTile = `<div class="pt-stat pt-hours" role="group" aria-label="Study time today"><div class="pt-adj"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button><b${hoursTitle ? ` title="${esc(hoursTitle)}"` : ""}>${fmtHM(F.thSet) || "0m"}</b><button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></div><span>Planned Today</span>${freeMin != null ? `<span class="pt-free">${esc(fmtHM(freeMin / 60) || "0m")} free left</span>` : ""}</div>`;
+  const ptStats = todayList.length || overdue || queued ? `<div class="pt-stats">${planTile}${weekStripHtml(week, pick, overdue)}</div>` : "";
   return `<section class="focus plan" aria-label="Today's Plan">
     <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? `<p class="plan-gap">${F.gapWhy.map(esc).join(" ")}</p>` : ""}</div>
       ${ptStats ? (autoChipHtml() ? `<div class="fh-ctl fh-chip">${autoChipHtml()}</div>` : "") : `<div class="fh-ctl"><div class="hours-ctl" role="group" aria-label="Study time available today"><span class="mini">Time Today</span><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button><b>${fmtHM(F.thSet) || "0m"}</b><button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></div>${autoChipHtml()}</div>`}</div>
     ${ui.focusOpen ? `${window.SBPRO ? SBPRO.todayHtml() : ""}${nextUpHtml(F, hero)}${skipped}${spare}${warn}${pastHtml}${availStripHtml(F)}
-      ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : heroId || spare || pick ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
+      ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
       ${fixedHtml}
       ${extraHtml}
       <div class="plan-foot">${more ? foot("more", `Full Ranking${nBlk ? `, Waiting (${nBlk})` : ""}${nLater ? `, Coming Up (${nLater})` : ""}`, moreOpen) : ""}${foot("how", "How This Is Ranked", howOpen)}</div>
