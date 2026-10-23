@@ -251,7 +251,7 @@ function toast(msg, undoFn, extra){
   if (t.parentNode !== host) host.appendChild(t);
   t.classList.add("show");
   toastMs = more.length ? 9000 : undoFn ? 8000 : 2600;
-  if (t.matches(":hover") || t.contains(document.activeElement)) clearTimeout(toastT); else toastTimer(toastMs);
+  if (t.contains(document.activeElement)) clearTimeout(toastT); else toastTimer(toastMs);
   try { document.documentElement.style.setProperty("--toast-h", t.offsetHeight + "px"); } catch(e) {}
 }
 function toastTimer(ms){
@@ -261,8 +261,8 @@ function toastTimer(ms){
 document.addEventListener("close", e => { const t = $("#toast"); if (t && e.target && t.parentNode === e.target) document.body.appendChild(t); }, true);
 $("#toastUndo").addEventListener("click", () => { const f = toastUndoFn; toastUndoFn = null; $("#toast").classList.remove("show"); if (f) f(); });
 $("#toastExtra").addEventListener("click", () => { const f = toastExtraFn; toastExtraFn = null; $("#toast").classList.remove("show"); if (f) f(); });
-// Pointing at the toast or tabbing into it holds it open
-{ const t = $("#toast"), hold = () => { if (t.classList.contains("show")) clearTimeout(toastT); }, go = () => { if (t.classList.contains("show")) toastTimer(Math.max(3000, toastMs / 2)); };
+// Pointing at a toast with a button, or tabbing into it, holds it open
+{ const t = $("#toast"), acts = () => t.classList.contains("show") && !!(toastUndoFn || toastExtraFn || toastExtra2Fn), hold = () => { if (acts()) clearTimeout(toastT); }, go = () => { if (acts()) toastTimer(Math.max(3000, toastMs / 2)); };
   t.addEventListener("pointerenter", hold); t.addEventListener("focusin", hold);
   t.addEventListener("pointerleave", () => { if (!t.contains(document.activeElement)) go(); });
   t.addEventListener("focusout", () => setTimeout(() => { if (!t.contains(document.activeElement) && !t.matches(":hover")) go(); }, 0)); }
