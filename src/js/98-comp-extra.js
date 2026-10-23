@@ -2,68 +2,38 @@
 /* Extra companions: not part of any theme's set. Each one is offered as one more choice in every theme's companion picker, but only
    to an account that may see the hidden themes (window.SBThemes.all(): all_themes in studyboard_theme_access, see
    supabase-theme-access.sql), so nobody else ever sees them. 98-companion.js reads COMP_EXTRA.
-   Cosmo: drawn from photos of the owner's cat (a fluffy brown tabby, white mittens and bib, golden-green eyes, a huge smoky tail). */
+   Cosmo: drawn from photos of the owner's cat (a fluffy brown tabby, white mittens and bib, golden-green eyes, a huge smoky tail),
+   in the shape of the app's sitting cats: forehead M with faint lines above it, mittens, a bell collar and a big banded plume of a tail. */
 var COMP_EXTRA = [];
 (() => {
   function MAKE_CAT(K, id){
-    const {INK, O, OW, LG, RG, puff} = K;
-    const O2 = OW(2.2);
-    const TAN = "#B99872", STRIPE = "#3F3129", WHITE = "#FFFDF8", PINK = "#F4B3C0";
-    return {
-      id, name: "Cosmo", kind: "Fluffy Tabby", pose: "sit", sleepy: true, wearColor: "#7A8C9E",
-      bio: "A fluffy tabby with white mittens and a tail bigger than a pillow.",
-      idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "hop",
-      neck: [60, 78],
-      parts: {
-        tail: {svg: (() => {
-          // a big smoky plume: overlapping circles along the curve make its fluffy outline (outlines first, then one smooth fill on top)
-          const P = [[80, 101, 6.4], [87.4, 104, 8.4], [96, 103.4, 10.2], [103.6, 98, 11.4], [108.4, 88.6, 12], [109.4, 77.8, 11.6], [106.2, 67.8, 10.4], [100.6, 60.6, 8.6], [95, 57.4, 6.2]];
-          const c = (x, y, r, a) => `<circle cx="${x}" cy="${y}" r="${r}" ${a}/>`;
-          return `<g transform="translate(-5 0)"><defs><linearGradient id="${id}-t" gradientUnits="userSpaceOnUse" x1="86" y1="108" x2="112" y2="60"><stop offset="0" stop-color="#4A403B"/><stop offset=".55" stop-color="#5F544E"/><stop offset="1" stop-color="#7C716A"/></linearGradient>
-            <radialGradient id="${id}-tf" gradientUnits="userSpaceOnUse" cx="100" cy="84" r="24"><stop offset=".55" stop-color="#B3AAA3" stop-opacity="0"/><stop offset="1" stop-color="#B8AFA8" stop-opacity=".7"/></radialGradient></defs>`
-            + P.map(([x, y, r]) => c(x, y, r, `fill="${INK}" stroke="${INK}" stroke-width="6"`)).join("")
-            + P.map(([x, y, r]) => c(x, y, r, `fill="url(#${id}-t)"`)).join("")
-            + `<path d="M88.6 97.4Q93.6 100.6 93.4 106.4M99 94.6Q104.6 97.6 105.6 104M103.4 85.6Q109.6 86.6 113.4 91.6M103 74.6Q108.8 73.6 113.6 76.4" fill="none" stroke="#3B322E" stroke-width="2.6" stroke-linecap="round" opacity=".75"/>
-            <path d="M115.6 91.6q-3 -4.4 -2.4 -9.6M117 79.4q-3.6 -3.8 -3.6 -8.6M113 67.4q-4 -2.6 -5.4 -7M106 59.4q-3.6 -1.6 -5.6 -4.6M98 55.6q-2 -1.6 -3 -3.6M110.6 102.6q-3.6 -2.4 -4.6 -6.6M101.4 109.8q-2 -3.4 -1.4 -7.2" fill="none" stroke="#ADA39C" stroke-width="2.2" stroke-linecap="round" opacity=".7"/></g>`;
-        })(), pivot: [80, 100]},
-        feet: `<ellipse cx="47" cy="107.6" rx="8.8" ry="4.8" fill="${WHITE}" ${O}/><ellipse cx="73" cy="107.6" rx="8.8" ry="4.8" fill="${WHITE}" ${O}/>
-          <path d="M44.4 109.6v-2.4M48.6 109.8v-2.4M70.4 109.8v-2.4M74.6 109.6v-2.4" stroke="#D8CFC6" stroke-width="1.2" stroke-linecap="round"/>`,
-        body: `${RG(id + "-b", [[0, "#E2C59E"], [0.6, "#BE9B74"], [1, "#8E7357"]], 0.45, 0.35, 0.8)}
-          <path d="M60 67C77 67 85.6 80.6 85.6 94C85.6 106.4 77 110.4 60 110.4C43 110.4 34.4 106.4 34.4 94C34.4 80.6 43 67 60 67Z" fill="url(#${id}-b)" ${O}/>
-          <path d="M37.4 88.6q4.4 -2.6 8.6 0.6M36.4 96.4q5 -2.4 9.2 1M38.6 103.6q4.4 -1.4 7.6 1.2M82.6 88.6q-4.4 -2.6 -8.6 0.6M83.6 96.4q-5 -2.4 -9.2 1M81.4 103.6q-4.4 -1.4 -7.6 1.2" fill="none" stroke="${STRIPE}" stroke-width="2.4" stroke-linecap="round" opacity=".85"/>
-          <path d="${puff(60, 81.4, 13, 13, 1.25)}" fill="${WHITE}"/><path d="${puff(60, 77.6, 10, 10, 1.2)}" fill="#F4E6D2"/>
-          <path d="M54 92.6l1.4 2.6M60 94v2.8M66 92.6l-1.4 2.6" stroke="${WHITE}" stroke-width="2.4" stroke-linecap="round"/>
-          <path d="M46.8 78.6Q60 85.4 73.2 78.6" fill="none" stroke="#C6CDD6" stroke-width="2.6" stroke-linecap="round"/>
-          ${RG(id + "-bell", [[0, "#FFFFFF"], [0.5, "#DDE2E8"], [1, "#9AA3AE"]], 0.38, 0.32, 0.7)}
-          <circle cx="60" cy="85.2" r="3.4" fill="url(#${id}-bell)" ${OW(1.4)}/><path d="M60 86.2v2" stroke="#6A7380" stroke-width="1" stroke-linecap="round"/>
-          <path d="M41.2 90Q41.4 80 47.6 74.6" fill="none" stroke="#F6E6D0" stroke-width="2.8" stroke-linecap="round" opacity=".9"/>`,
-        armL: {svg: `<ellipse cx="50.5" cy="99.4" rx="5.8" ry="7.8" fill="${TAN}" ${O}/><path d="M45 101.4C45.6 106.6 55.4 106.6 56 101.4C55 99 46 99 45 101.4Z" fill="${WHITE}"/>
-          <path d="M48.6 105.6v-2M52.4 105.6v-2" stroke="#D8CFC6" stroke-width="1.1" stroke-linecap="round"/><path d="M47 95.4q3.4 -1.4 7 0" fill="none" stroke="${STRIPE}" stroke-width="1.6" stroke-linecap="round" opacity=".8"/>`, pivot: [50.5, 92.6]},
-        armR: {svg: `<ellipse cx="69.5" cy="99.4" rx="5.8" ry="7.8" fill="${TAN}" ${O}/><path d="M64 101.4C64.6 106.6 74.4 106.6 75 101.4C74 99 65 99 64 101.4Z" fill="${WHITE}"/>
-          <path d="M67.6 105.6v-2M71.4 105.6v-2" stroke="#D8CFC6" stroke-width="1.1" stroke-linecap="round"/><path d="M66 95.4q3.4 -1.4 7 0" fill="none" stroke="${STRIPE}" stroke-width="1.6" stroke-linecap="round" opacity=".8"/>`, pivot: [69.5, 92.6]},
-        earL: {svg: `<path d="M36.4 47L38.6 22.6L55.4 37Z" fill="${TAN}" ${O}/><path d="M40.4 41.4L41.4 29.4L49.6 36.6Z" fill="${PINK}"/>
-          <path d="M41.6 41l1.2 -6.4M44.6 40l2.2 -5.2" stroke="${WHITE}" stroke-width="1.3" stroke-linecap="round"/>
-          <path d="M38.8 23.6L37.8 19.2" stroke="${STRIPE}" stroke-width="2.2" stroke-linecap="round"/>`, pivot: [46, 40]},
-        earR: {svg: `<path d="M83.6 47L81.4 22.6L64.6 37Z" fill="${TAN}" ${O}/><path d="M79.6 41.4L78.6 29.4L70.4 36.6Z" fill="${PINK}"/>
-          <path d="M78.4 41l-1.2 -6.4M75.4 40l-2.2 -5.2" stroke="${WHITE}" stroke-width="1.3" stroke-linecap="round"/>
-          <path d="M81.2 23.6L82.2 19.2" stroke="${STRIPE}" stroke-width="2.2" stroke-linecap="round"/>`, pivot: [74, 40]},
-        head: `${RG(id + "-h", [[0, "#E8CFAA"], [0.62, "#C6A47C"], [1, "#9A7C5E"]], 0.45, 0.42, 0.8)}
-          <path d="M60 32.6C77.6 32.6 86 42.6 87 54.4C89.4 57.4 90.8 61.6 88.8 64.4C90.4 67.2 88.6 70.4 85.8 71C82.6 77 73 80.4 60 80.4C47 80.4 37.4 77 34.2 71C31.4 70.4 29.6 67.2 31.2 64.4C29.2 61.6 30.6 57.4 33 54.4C34 42.6 42.4 32.6 60 32.6Z" fill="url(#${id}-h)" ${O}/>
-          <path d="M51.4 45.4L53.8 37.6L57.2 43L60 36.4L62.8 43L66.2 37.6L68.6 45.4" fill="none" stroke="${STRIPE}" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M45.6 41.4l3.2 3.6M74.4 41.4l-3.2 3.6" stroke="${STRIPE}" stroke-width="2" stroke-linecap="round" opacity=".8"/>
-          <path d="M43.6 49.6q5 -2.4 9.6 -0.4M76.4 49.6q-5 -2.4 -9.6 -0.4" fill="none" stroke="${STRIPE}" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>
-          <path d="M34.6 60.4q4.4 -1.4 8 1.2M35 66q4.4 -0.6 7.6 1.6M85.4 60.4q-4.4 -1.4 -8 1.2M85 66q-4.4 -0.6 -7.6 1.6" fill="none" stroke="${STRIPE}" stroke-width="2" stroke-linecap="round" opacity=".85"/>
-          <ellipse cx="49.6" cy="61.4" rx="5" ry="2.4" fill="#EED8B6" opacity=".7"/><ellipse cx="70.4" cy="61.4" rx="5" ry="2.4" fill="#EED8B6" opacity=".7"/>
-          <path d="M60 61C55.2 60.4 50.4 62.8 50.4 67.2C50.4 72.4 55 75.6 60 79.6C65 75.6 69.6 72.4 69.6 67.2C69.6 62.8 64.8 60.4 60 61Z" fill="${WHITE}"/>
-          <path d="M39.6 50Q41.4 42 48.4 38.4" fill="none" stroke="#F6E6D0" stroke-width="3" stroke-linecap="round"/>`,
-        face: `<path d="M57.4 62.6H62.6L60 65.4Z" fill="#E98E9A" ${OW(1.2)}/>
-          <path d="M50 66.6l-15 -3.4M50 68.6l-15.6 0.8M50.6 70.4l-13.4 4.2M70 66.6l15 -3.4M70 68.6l15.6 0.8M69.4 70.4l13.4 4.2" stroke="${INK}" stroke-width="2" stroke-linecap="round" opacity=".18"/>
-          <path d="M50 66.6l-15 -3.4M50 68.6l-15.6 0.8M50.6 70.4l-13.4 4.2M70 66.6l15 -3.4M70 68.6l15.6 0.8M69.4 70.4l13.4 4.2" stroke="#FFFFFF" stroke-width="1.1" stroke-linecap="round"/>`
-      },
-      eyes: {lx: 49.6, rx: 70.4, y: 55.6, r: 5.3, style: "round", color: "#8A7A24"},
-      mouth: {x: 60, y: 67.8, w: 2.8, color: "#3A2A2A", style: "cat"},
-      cheeks: {lx: 42, rx: 78, y: 65.4, w: 4.2, h: 2.4, color: "#F2A4AE"},
-      anchors: {top: [60, 33, 0.95], neck: [60, 80, 1], chest: [60, 94, 0.62], back: [86, 88, 0.8], hands: [60, 100, 0.86]},
-      lines: {
+      const {INK, O, OW, RG, puff} = K;
+      const STRIPE = "#5C4838", WHITE = "#FFFDF8", CREAM = "#F6EBDD", PINK = "#FFB6C6", TAN = "#C9AA84", BAND = "#4E433D", WISP = "#D6CCC4";
+      const MIR = s => `<g transform="matrix(-1 0 0 1 120 0)">${s}</g>`;
+      // fluffy shapes: overlapping circles, every outline first, then every fill on top (one clean silhouette)
+      const blob = (P, fill) => P.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${INK}" stroke="${INK}" stroke-width="6"/>`).join("") + P.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}"/>`).join("");
+      const tailFill = (n, x1, y1, x2, y2) => `<defs><linearGradient id="${id}-${n}" gradientUnits="userSpaceOnUse" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"><stop offset="0" stop-color="#6A5E57"/><stop offset=".6" stop-color="#887A71"/><stop offset="1" stop-color="#A59890"/></linearGradient></defs>`;
+      const furGrad = (n, cx = 0.45, cy = 0.35) => RG(id + "-" + n, [[0, "#ECD8BA"], [0.6, "#CFB08A"], [1, "#A8896A"]], cx, cy, 0.8);
+      // the head, drawn around a 120 box: centre x 60, crown y 33, chin y 79.6 (cheek tufts at the sides)
+      const HEADD = "M60 33C77 33 86.4 43 87 55.6L90.6 59.4L87.4 61.6L90 66L85.6 67.6C82 75.6 72.6 79.6 60 79.6C47.4 79.6 38 75.6 34.4 67.6L30 66L32.6 61.6L29.4 59.4L33 55.6C33.6 43 43 33 60 33Z";
+      const HEAD = `${RG(id + "-h", [[0, "#F0DEC4"], [0.62, "#D5B893"], [1, "#AE8E6A"]], 0.45, 0.4, 0.8)}<path d="${HEADD}" fill="url(#${id}-h)" ${O}/>
+        <path d="M53.2 45.4L54.8 39.6L57.6 43.4L60 38.6L62.4 43.4L65.2 39.6L66.8 45.4" fill="none" stroke="#55412F" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" opacity=".92"/>
+        <path d="M39.6 47.4q3.6 -1.6 7 0.8M80.4 47.4q-3.6 -1.6 -7 0.8" fill="none" stroke="${STRIPE}" stroke-width="1.8" stroke-linecap="round" opacity=".75"/>
+        <path d="M32.8 59.2q4.6 -1.2 8.4 1.2M86.2 59.2q-4.6 -1.2 -8.4 1.2" fill="none" stroke="${STRIPE}" stroke-width="2" stroke-linecap="round" opacity=".85"/>
+        <ellipse cx="49.5" cy="62.4" rx="4.6" ry="2" fill="#F5E7D0" opacity=".85"/><ellipse cx="70.5" cy="62.4" rx="4.6" ry="2" fill="#F5E7D0" opacity=".85"/>
+        <path d="M60 60.6C55.4 60.2 50.8 62.6 50.8 66.8C50.8 71.6 55.4 74.6 60 78C64.6 74.6 69.2 71.6 69.2 66.8C69.2 62.6 64.6 60.2 60 60.6Z" fill="${WHITE}"/>
+        <path d="M39.4 51Q41.4 43 48 39.4" fill="none" stroke="#FFF6E8" stroke-width="3" stroke-linecap="round" opacity=".9"/>`;
+      const FACE = `<path d="M57.6 62.6H62.4L60 65.2Z" fill="#F29AAA" ${OW(1.2)}/>`;
+      // the whiskers go in the top layer, drawn after the cheeks, so the pink cheeks sit behind them
+      const WHISKERS = `<path d="M46 65.4l-12.6 -1.8M46 68l-12.6 1.6M74 65.4l12.6 -1.8M74 68l12.6 1.6" stroke="${INK}" stroke-width="2.2" stroke-linecap="round" opacity=".2"/>
+        <path d="M46 65.4l-12.6 -1.8M46 68l-12.6 1.6M74 65.4l12.6 -1.8M74 68l12.6 1.6" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round"/>`;
+      const EAR = (tuft = 6) => `<path d="M37.6 46L39.4 23.6L55 37Z" fill="${TAN}" ${O}/><path d="M41.2 40.6L42 29.6L49.4 36.4Z" fill="${PINK}"/>
+        <path d="M42.4 40.6l1 -5.2M45.2 39.8l1.8 -4.4" stroke="${WHITE}" stroke-width="1.3" stroke-linecap="round"/>
+        <path d="M37.8 27.4C37 ${23 - tuft * 0.5} 37.6 ${21 - tuft * 0.8} 39 ${22.6 - tuft}C40.6 ${21 - tuft * 0.6} 41.6 ${23.6 - tuft * 0.4} 41.4 27Z" fill="#DCC29C" ${OW(1.5)}/><path d="M39.2 ${25.6 - tuft * 0.6}l0 ${-tuft * 0.5}" stroke="#8C7360" stroke-width="1.1" stroke-linecap="round"/>`;
+      // scale the head art: x' = 60 + s(x - 60), y' = dy + s*y
+      const HT = (s, dy) => `translate(60 ${dy}) scale(${s}) translate(-60 0)`;
+      const hy = (s, dy, y) => Math.round((dy + s * y) * 100) / 100, hx = (s, x) => Math.round((60 + s * (x - 60)) * 100) / 100;
+      const LINES = {
         tap: ["Mrrp! I was guarding the cozy spot for you.", "My tail is fluffier than your notes are long. Almost.", "Slow blink. That means you're doing great.", "I tried to sit on your homework. You may proceed.", "White mittens on, ready to study!", "Purr... one page at a time, friend."],
         pet: ["Purrrr! Right behind the ears!", "Mrrrp! More, please!"],
         hello: ["You're back! I kept the chair warm.", "Mew! I missed you. Mostly."],
@@ -73,8 +43,51 @@ var COMP_EXTRA = [];
         done: ["Session done! Big stretch, big yawn!", "That was amazing! Purrs all round!"],
         task: ["Done! My tail is extra floofy now!", "Checked off! Mrrp!", "Another one! Pounce!", "Yes! Worth a happy tail swish!"],
         break: ["Break time! Stretch like a cat!", "Find a sunny spot and rest your eyes!"]
-      }
-    };
+      };
+      const EYE = "#8E8A2A";
+      // a smooth fluffy tube through control points [x, y, r]: circles every ~0.45 r along a Catmull-Rom curve
+      const chain = P => { const out = []; for (let i = 0; i < P.length - 1; i++) { const a = P[Math.max(0, i - 1)], b = P[i], c = P[i + 1], d = P[Math.min(P.length - 1, i + 2)];
+          const len = Math.hypot(c[0] - b[0], c[1] - b[1]), n = Math.max(2, Math.ceil(len / (0.45 * Math.min(b[2], c[2]))));
+          for (let k = 0; k < n; k++) { const t = k / n, t2 = t * t, t3 = t2 * t, f = j => 0.5 * ((2 * b[j]) + (-a[j] + c[j]) * t + (2 * a[j] - 5 * b[j] + 4 * c[j] - d[j]) * t2 + (-a[j] + 3 * b[j] - 3 * c[j] + d[j]) * t3);
+            out.push([f(0), f(1), b[2] + (c[2] - b[2]) * t].map(v => Math.round(v * 10) / 10)); } }
+        out.push(P[P.length - 1]);
+        // fluff: small bumps on both edges every few circles, so the outline stays soft and scalloped
+        const fl = [];
+        for (let i = 1; i < out.length - 1; i += 3) { const [x, y, r] = out[i], p = out[i - 1], q = out[i + 1], dx = q[0] - p[0], dy = q[1] - p[1], L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L, sd = (i % 2 ? 1 : 0.85);
+          fl.push([x + nx * r * 0.7 * sd, y + ny * r * 0.7 * sd, r * 0.45], [x - nx * r * 0.7, y - ny * r * 0.7, r * 0.42]); }
+        return out.concat(fl.map(c => c.map(v => Math.round(v * 10) / 10))); };
+      // Concept 1, "Classic": the app's sitting-cat shape (like Kiki), in Cosmo's colours and markings
+      const TP = [[80, 101, 6], [87, 103.4, 7.6], [95, 102, 9], [101.4, 96, 9.8], [104.6, 87.6, 10], [104.6, 78.4, 9.4], [101.6, 70.4, 8.2], [97, 65.4, 6.6], [92.6, 63.4, 4.8]];
+      const EARC = EAR(0).replace(/<path d="M37\.8 27\.4[\s\S]*$/, "");   // plain pointed ears, no tufts
+      return {
+        id, name: "Cosmo", kind: "Fluffy Tabby", pose: "sit", sleepy: true, wearColor: "#6E8297",
+        bio: "A fluffy tabby with white mittens and a tail bigger than a pillow.",
+        idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "hop", neck: [60, 78],
+        parts: {
+          tail: {svg: tailFill("t", 86, 108, 104, 62) + blob(chain(TP), `url(#${id}-t)`)
+            + `<path d="M91 96.6q3.4 4.4 2.6 10M99.4 91.8q5.4 2.4 7.2 8.4M102.4 83.4q6 0.4 9.6 4.6M101.6 74.8q5.6 -1.2 9.4 1.8" fill="none" stroke="${BAND}" stroke-width="2.6" stroke-linecap="round" opacity=".8"/>
+               <path d="M112.6 88q-2.6 -4 -2 -8.6M111.6 75.4q-3.2 -3 -3.6 -7.4M104.4 65.6q-3.4 -1.2 -5.2 -4" fill="none" stroke="${WISP}" stroke-width="2.2" stroke-linecap="round" opacity=".8"/>`, pivot: [80, 100]},
+          feet: `<ellipse cx="47" cy="107.6" rx="8.6" ry="4.6" fill="${WHITE}" ${O}/><ellipse cx="73" cy="107.6" rx="8.6" ry="4.6" fill="${WHITE}" ${O}/>
+            <path d="M44.6 109.4v-2.2M48.4 109.6v-2.2M70.6 109.6v-2.2M74.4 109.4v-2.2" stroke="#D8CFC6" stroke-width="1.2" stroke-linecap="round"/>`,
+          body: `${furGrad("b")}<path d="M60 68C76 68 84 81 84 94C84 106 76 110 60 110C44 110 36 106 36 94C36 81 44 68 60 68Z" fill="url(#${id}-b)" ${O}/>
+            <path d="M38.8 88.4q4.2 -2.2 8 0.8M38 95.8q4.6 -2 8.4 1.2M39.8 102.6q4 -1.2 7 1.2M81.2 88.4q-4.2 -2.2 -8 0.8M82 95.8q-4.6 -2 -8.4 1.2M80.2 102.6q-4 -1.2 -7 1.2" fill="none" stroke="${STRIPE}" stroke-width="2.2" stroke-linecap="round" opacity=".8"/>
+            <ellipse cx="60" cy="98" rx="11" ry="10.4" fill="${CREAM}"/>
+            <path d="${puff(60, 80.6, 12.4, 12, 1.25)}" fill="${WHITE}"/>
+            <defs><clipPath id="${id}-cc"><path d="M60 68C76 68 84 81 84 94C84 106 76 110 60 110C44 110 36 106 36 94C36 81 44 68 60 68Z"/></clipPath></defs><path d="M34 76.8Q60 88.6 86 76.8" fill="none" stroke="#6E8297" stroke-width="3.6" clip-path="url(#${id}-cc)"/>
+            ${RG(id + "-bell", [[0, "#FFFFFF"], [0.5, "#DDE2E8"], [1, "#9AA3AE"]], 0.38, 0.32, 0.7)}<circle cx="60" cy="85.6" r="3.2" fill="url(#${id}-bell)" ${OW(1.4)}/>
+            <path d="M42 90Q42 80 48 75" fill="none" stroke="#FFF6E8" stroke-width="3" stroke-linecap="round" opacity=".9"/>`,
+          armL: {svg: `<ellipse cx="50.5" cy="99.6" rx="5.8" ry="7.6" fill="${TAN}" ${O}/><path d="M45 101.6C45.6 106.8 55.4 106.8 56 101.6C55 99.2 46 99.2 45 101.6Z" fill="${WHITE}"/><path d="M48.6 105.4v-2M52.4 105.4v-2" stroke="#D8CFC6" stroke-width="1.1" stroke-linecap="round"/><path d="M47.2 95.6q3.3 -1.4 6.6 0" fill="none" stroke="${STRIPE}" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>`, pivot: [50.5, 93]},
+          armR: {svg: MIR(`<ellipse cx="50.5" cy="99.6" rx="5.8" ry="7.6" fill="${TAN}" ${O}/><path d="M45 101.6C45.6 106.8 55.4 106.8 56 101.6C55 99.2 46 99.2 45 101.6Z" fill="${WHITE}"/><path d="M48.6 105.4v-2M52.4 105.4v-2" stroke="#D8CFC6" stroke-width="1.1" stroke-linecap="round"/><path d="M47.2 95.6q3.3 -1.4 6.6 0" fill="none" stroke="${STRIPE}" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>`), pivot: [69.5, 93]},
+          earL: {svg: EARC, pivot: [46, 40]},
+          earR: {svg: MIR(EARC), pivot: [74, 40]},
+          head: HEAD + `<path d="M56.8 38.4l-.6 -3.4M60 38l0 -3.8M63.2 38.4l.6 -3.4" fill="none" stroke="#5C4838" stroke-width="1.3" stroke-linecap="round" opacity=".55"/>`, face: FACE, top: WHISKERS
+        },
+        eyes: {lx: 49.5, rx: 70.5, y: 55.8, r: 5.2, style: "round", color: EYE},
+        mouth: {x: 60, y: 67.6, w: 2.8, color: "#3A2A2A", style: "cat"},
+        cheeks: {lx: 42.5, rx: 77.5, y: 64.6, w: 4.2, h: 2.4, color: "#FFA6BA"},
+        anchors: {top: [60, 34, 0.95], neck: [60, 80, 1], chest: [60, 94, 0.62], back: [84, 88, 0.8], hands: [60, 100, 0.86]},
+        lines: LINES
+      };
   }
   COMP_EXTRA.push(MAKE_CAT(COMP_KIT, "extra-cosmo"));
 })();
