@@ -505,16 +505,6 @@ function noteClipCheck(){
     if (m) { m.innerHTML = (open ? "Show Less" : "Show More") + ` <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`; m.setAttribute("aria-expanded", open ? "true" : "false"); }
   });
 }
-// Today's Plan numbers on a phone
-function ptStatsFit(){
-  const S = document.querySelector("#view .plan .pt-stats"); if (!S) return;
-  S.classList.remove("pt-2x2");
-  const tiles = [...S.children]; if (tiles.length < 3) return;
-  const top = tiles[0].offsetTop;
-  if (tiles.some(t => Math.abs(t.offsetTop - top) > 2)) S.classList.add("pt-2x2");
-}
-hook("render", () => requestAnimationFrame(ptStatsFit));
-{ let t = 0; addEventListener("resize", () => { clearTimeout(t); t = setTimeout(ptStatsFit, 120); }); }
 // The note being edited: a sheet over the page on a phone, and scrolled fully into view on a bigger screen
 const notePhone = () => !!(window.matchMedia && matchMedia("(max-width:700px)").matches);
 let noteShown = null;
