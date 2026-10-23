@@ -17,7 +17,7 @@ window.STUDYBOARD_SITE = {
   FUNCTIONS: { checkout: "create-checkout", portal: "create-portal-session" },
 
   // -- Downloads (home page)
-  VERSION: "1.15.0",
+  VERSION: "1.15.1",
 
   // Where each installer lives
   DOWNLOADS: {

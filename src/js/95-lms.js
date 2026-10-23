@@ -965,6 +965,7 @@ function cleanFile(r) {
     try {
       if (how === "api") {
         const skip = Object.entries(c.map).filter(([, v]) => v === "skip").map(([k]) => k);
+        if (P.id === "blackboard") await loadFlags();
         const h = await lmsBridge().sync(P.id, c.host, {pastDays: Math.max(60, Number(c.pastDays) || 0), grades: c.grades, news: c.news, skip, internal: appFlag("bb_internal")});
         if (!h) return {error: "none", text: "The desktop app didn't answer. Try again."};
         if (h.needLogin) return {needLogin: true};
@@ -1834,7 +1835,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
   function grabOk(){ return !lmsBridge() && !window.Capacitor && /^https?:$/.test(location.protocol) && !inPreview(); }
   function loadGrab(){ return Promise.resolve(SBGRAB_BUILT); }
 
-  /* Remote switches (app_flags table), checked every 3 hours */
+  /* Remote switches (app_flags table): read before a Blackboard sync or for the extension, at most every 3 hours */
   const FLAGS_KEY = "studyboard:appFlags", FLAGS_EVERY = 3 * 3600e3;
   let FLAGS = (() => { try { return JSON.parse(localStorage.getItem(FLAGS_KEY) || "null") || {}; } catch (e) { return {}; } })();
   function appFlag(k){ return !(FLAGS.v && FLAGS.v[k] === false); }
@@ -1849,7 +1850,6 @@ body:has(#dlg[open]) #lmsRelog{display:none}
       if (EXT.on) extPost({type: "flags", bbInternal: appFlag("bb_internal")});
     } catch (e) {}
   }
-  if (!inPreview()) { setTimeout(loadFlags, 2000); setInterval(loadFlags, FLAGS_EVERY); }
   window.SBFLAGS = {get: appFlag, load: () => { FLAGS.at = 0; return loadFlags(); }};
 
   /* The Studyboard School Sync browser extension (the website only) */
@@ -1907,7 +1907,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     window.addEventListener("message", ev => {
       if (ev.source !== window || ev.origin !== location.origin || !ev.data || typeof ev.data !== "object" || ev.data.source !== "studyboard-ext") return;
       const d = ev.data;
-      if (d.type === "ready") { EXT.on = true; EXT.version = String(d.version || "").slice(0, 20); extPost({type: "flags", bbInternal: appFlag("bb_internal")}); extPost({type: "get"}); }
+      if (d.type === "ready") { EXT.on = true; EXT.version = String(d.version || "").slice(0, 20); extPost({type: "flags", bbInternal: appFlag("bb_internal")}); extPost({type: "get"}); if (!inPreview()) loadFlags(); }
       else if (d.type === "data") {
         EXT.on = true; EXT.version = String(d.version || EXT.version).slice(0, 20);
         EXT.schools = (Array.isArray(d.schools) ? d.schools : []).slice(0, 6).filter(x => x && typeof x.id === "string").map(x => ({id: x.id, origin: String(x.origin || "").slice(0, 200), state: String(x.state || "").slice(0, 20), at: Number(x.at) || 0}));

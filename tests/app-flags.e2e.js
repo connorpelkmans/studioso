@@ -16,6 +16,13 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   const browser = await chromium.launch({executablePath});
   try {
     let flags = [{key: "bb_internal", value: false}], asked = 0;
+    const plain = await browser.newContext({serviceWorkers: "block"});
+    await plain.route(/supabase\.co/, r => { if (/app_flags/.test(r.request().url())) asked++; r.abort(); });
+    await plain.addInitScript(() => { localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:tour", "done"); });
+    const p0 = await plain.newPage(); await p0.goto(base); await p0.waitForFunction(() => window.SBFLAGS); await p0.waitForTimeout(2500);
+    ok(asked === 0, "without school sync the app doesn't ask for the switches");
+    ok(await p0.evaluate(() => SBFLAGS.get("bb_internal")), "a switch that hasn't been read yet counts as on");
+    await plain.close();
     const ctx = await browser.newContext({serviceWorkers: "block"});
     await ctx.route(/supabase\.co/, r => r.abort());   // (routes added later are matched first)
     await ctx.route(/supabase\.co\/rest\/v1\/app_flags/, r => { asked++; r.fulfill({status: 200, contentType: "application/json", body: JSON.stringify(flags)}); });
@@ -27,9 +34,8 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     });
     const page = await ctx.newPage(); const errs = []; page.on("pageerror", e => errs.push(e.message));
     await page.goto(base); await page.waitForFunction(() => window.SBFLAGS);
-    ok(await page.evaluate(() => SBFLAGS.get("bb_internal")), "a switch that hasn't been read yet counts as on");
-    await page.evaluate(() => SBFLAGS.load()); await page.waitForFunction(() => !SBFLAGS.get("bb_internal"));
-    ok(asked >= 1, "the app reads app_flags from the server");
+    await page.waitForFunction(() => !SBFLAGS.get("bb_internal"));
+    ok(asked >= 1, "with the extension, the app reads app_flags from the server");
     ok(await page.evaluate(() => JSON.parse(localStorage.getItem("studyboard:appFlags")).v.bb_internal === false), "the answer is kept");
     ok(await page.evaluate(() => window.__toExt.some(m => m.type === "flags" && m.bbInternal === false)), "and handed to the School Sync extension");
     await page.reload(); await page.waitForFunction(() => window.SBFLAGS);

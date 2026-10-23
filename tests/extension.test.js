@@ -12,7 +12,7 @@ function browser(routes) {
       get: async k => { const keys = k == null ? Object.keys(store) : [].concat(k); const o = {}; keys.forEach(x => { if (x in store) o[x] = JSON.parse(JSON.stringify(store[x])); }); return o; },
       set: async o => { Object.assign(store, JSON.parse(JSON.stringify(o))); },
       remove: async k => { [].concat(k).forEach(x => delete store[x]); }
-    }},
+    }, onChanged: ev("storage")},
     permissions: {contains: async p => p.origins.every(o => granted.has(o)), remove: async p => { p.origins.forEach(o => granted.delete(o)); return true; }, onAdded: ev("padd"), onRemoved: ev("prem")},
     alarms: {clear: async () => true, create: async () => {}, onAlarm: ev("alarm")},
     action: {setBadgeText: async o => { badge.text = o.text; }, setBadgeBackgroundColor: async () => {}},

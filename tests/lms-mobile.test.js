@@ -23,7 +23,7 @@ function load(opts) {
 }
 const eq = (a, b, m) => assert.strictEqual(JSON.stringify(a), JSON.stringify(b), m);
 let n = 0; const t = async (name, fn) => { n++; try { await fn(); console.log("ok -", name); } catch (e) { console.log("FAIL", name, "\n  ", String(e && e.stack || e).split("\n").slice(0, 6).join("\n   ")); process.exitCode = 1; } };
-const SAFE = { pastDays: 60, aheadDays: 240, grades: true, news: true, only: null, skip: [] };
+const SAFE = { pastDays: 60, aheadDays: 240, grades: true, news: true, internal: true, only: null, skip: [] };
 
 (async () => {
   await t("it stays out of the way: no plugin, or the desktop app", async () => {
