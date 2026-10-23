@@ -94,8 +94,7 @@ const openMenu = async page => {
 const calls = (page, name) => page.evaluate(n => window.__sb.calls.filter(c => c[0] === n), name);
 const dlgText = page => page.evaluate(() => { const d = document.querySelector("dialog[open]"); return d ? d.innerText : ""; });
 const signUp = async (page, email) => {
-  await page.fill("dialog[open] [name=username]", "newstudent");
-  await page.selectOption("dialog[open] select[name=bm]", "5"); await page.selectOption("dialog[open] select[name=bd]", "14"); await page.selectOption("dialog[open] select[name=by]", "2000");
+  await page.fill("dialog[open] input[name=bday]", "2000-05-14");
   await fillSubmit(page, {email, password: "correct horse 7"});
 };
 const fillSubmit = async (page, fields) => { for (const [k, v] of Object.entries(fields)) await page.fill(`dialog[open] [name=${k}]`, v); await page.click("dialog[open] [data-submit]"); await page.waitForTimeout(250); };

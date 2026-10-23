@@ -60,7 +60,7 @@ const stored = p => p.evaluate(() => JSON.parse(localStorage.getItem("coursework
       await act(p, "menu");
       await p.evaluate(() => document.querySelector('.us-cat[data-us="data"]').click()); await p.waitForTimeout(200);
       const subs = await p.$$eval(".us-pane.on .us-sub-tab", b => b.map(x => x.textContent));
-      ok(subs.join() === "Backups,Export,Cleanup", "Data and Backups has sub-tabs: " + subs.join());
+      ok(subs.join() === "Backups,Import and Export,Cleanup", "Data and Backups has sub-tabs: " + subs.join());
       await p.evaluate(() => document.querySelectorAll(".us-pane.on .us-sub-tab")[2].click()); await p.waitForTimeout(150);
       ok(await vis('.us-pane.on [data-act="clear-all"]') && !(await vis('.us-pane.on [data-act="backup-now"]')), "choosing a sub-tab shows only its rows");
       if (W < 720) { await p.click(".us-back"); await p.waitForTimeout(150); }

@@ -16,6 +16,8 @@ const lmsBridge = () => (DESK && DESK.lms) || window.studiosoLms || null;
 const lmsOnPhone = () => !(DESK && DESK.lms) && !!window.studiosoLms;
 // The Studyboard School Sync extension on the Chrome Web Store
 const EXT_CHROME_URL = "https://chromewebstore.google.com/detail/studyboard-school-sync/ibibaefpedmlgaamopopcoelnnaaollf";
+// Where the desktop apps are downloaded
+const DESK_DL = "https://studyboardapp.com/website/#download";
 function chromeDesktop(){
   try {
     if (DESK || window.Capacitor || !/^https?:$/.test(location.protocol)) return false;

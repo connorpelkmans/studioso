@@ -976,7 +976,7 @@ function cleanFile(r) {
       return {data: fromFeed(text, "feed")};
     } catch(e) {
       console.warn(P.id, e);
-      if (String(e && e.message) === "nocloud") return {error: "nocloud", text: `Syncing a ${P.name} calendar link on the website needs you to be signed in to your Studyboard account. You can also use the desktop app, or import a downloaded calendar file.`};
+      if (String(e && e.message) === "nocloud") return {error: "nocloud", text: `A ${P.name} calendar link needs a free Studyboard account. Sign in or create one in Settings, Account and Sync, or import a downloaded calendar file instead.`};
       return {error: String(e && e.message || e), text: errText(e && e.message || e)};
     }
   }
@@ -1251,10 +1251,17 @@ function cleanFile(r) {
           <p class="mini" style="margin-top:4px"><b>Here's exactly what it does:</b></p>
           ${extFacts()}</div>` : "";
     const ext = !!extWay;
-    const feedWay = `<div class="bs-way${desk || ext ? "" : " rec"}"><div class="bs-way-h"><b>${ext ? "Or Just Use Your Calendar Link" : "Use Your Calendar Link"}</b><span class="bs-pill">${ext ? "Due Dates Only" : desk ? "Works on Your Phone" : "Works Here"}</span></div>
-          <p class="mini">Due dates, quizzes and calendar events${desk ? ", and it works on your phone too" : ""}, checked automatically. ${ext ? `It can't see grades, announcements or submissions, so tick off finished work yourself. It works alongside the extension and keeps due dates current on your phone.` : `Submitted work, grades and announcements need the desktop app.`}</p>
-          ${!desk && !ext ? `<p class="mini bs-note"><b>Heads up:</b> a calendar link only brings in due dates, not submissions or grades. For everything, download the Studyboard desktop app and sign in to ${P.name} instead.</p>` : ""}
-          ${!desk && !cloud ? `<p class="mini bs-note">On the website and phone, this needs your Studyboard account connected (Settings, Sync). Or download the calendar file from ${P.name} and import it below.</p>` : ""}
+    // A calendar link is read through the Studyboard account, so without one lead with the file
+    const local = !desk && !cloud, dl = `<a href="${DESK_DL}" target="_blank" rel="noopener noreferrer">desktop app</a>`;
+    const feedWay = local ? `<div class="bs-way${ext ? "" : " rec"}"><div class="bs-way-h"><b>${ext ? "Or Use a Calendar File" : "Import Your Calendar File"}</b><span class="bs-pill">Works Here</span></div>
+          <p class="mini">Download the calendar file from ${P.name} and import it. It brings in due dates, quizzes and calendar events once, and you can import a new file any time.</p>
+          <div class="bs-acts"><button class="btn ${ext ? "" : "primary"}" data-act="${A}-file">Import a Calendar File</button></div></div>
+        <div class="bs-way"><div class="bs-way-h"><b>Keep It Up to Date With Your Calendar Link</b><span class="bs-pill">Needs a Free Account</span></div>
+          <p class="mini">A calendar link is checked automatically through your Studyboard account, so it needs a free account. Sign in or create one, then paste the link here. For grades and submissions too, get the Studyboard ${dl} and sign in to ${P.name} there.</p>
+          <div class="bs-acts"><button class="btn" data-act="sb-signin">Sign In or Create Account</button></div></div>`
+      : `<div class="bs-way${desk || ext ? "" : " rec"}"><div class="bs-way-h"><b>${ext ? "Or Just Use Your Calendar Link" : "Use Your Calendar Link"}</b><span class="bs-pill">${ext ? "Due Dates Only" : desk ? "Works on Your Phone" : "Works Here"}</span></div>
+          <p class="mini">Due dates, quizzes and calendar events${desk ? ", and it works on your phone too" : ""}, checked automatically. ${ext ? `It can't see grades, announcements or submissions, so tick off finished work yourself. It works alongside the extension and keeps due dates current on your phone.` : desk ? `Submitted work, grades and announcements need the sign-in above.` : `Submitted work, grades and announcements need the desktop app.`}</p>
+          ${!desk && !ext ? `<p class="mini bs-note"><b>Heads up:</b> a calendar link only brings in due dates, not submissions or grades. For everything, get the Studyboard ${dl} and sign in to ${P.name} there.</p>` : ""}
           <label class="f"><span class="lh">Calendar Link <span class="hint">${P.name}, ${esc(P.feedWhere)}</span></span><input type="url" id="bsFeedIn" placeholder="${esc(P.feedPh)}" autocomplete="off" spellcheck="false"></label>
           <div class="bs-acts"><button class="btn ${desk || ext ? "" : "primary"}" data-act="${A}-feed-connect">Connect</button><button class="btn" data-act="${A}-feed-help">How to Find It</button></div></div>`;
     openSheet(`<div class="sheet bs-sheet">${head(`Connect ${P.name}`)}
@@ -1266,7 +1273,7 @@ function cleanFile(r) {
           <button class="btn primary" data-act="${A}-login">Sign In</button></div>` : ""}
         ${extWay}
         ${feedWay}
-        <p class="mini" style="margin:0">Don't want to connect? <button class="linklike" data-act="${A}-file">Import a Downloaded ${P.name} Calendar File</button> instead.</p>
+        ${local ? "" : `<p class="mini" style="margin:0">Don't want to connect? <button class="linklike" data-act="${A}-file">Import a Downloaded ${P.name} Calendar File</button> instead.</p>`}
         <p class="mini" style="margin:0">Studyboard is an independent app, not affiliated with or endorsed by ${({canvas: "Instructure (Canvas)", brightspace: "D2L (Brightspace)", blackboard: "Blackboard"})[P.id] || P.name}. What it reads is your own school work, kept in your planner (and your account, if you have one). Use it as your school's rules allow.</p>
         ${P.id === "canvas" && !desk ? `<p class="mini" style="margin:0">Want your Canvas inbox here? <button class="linklike" data-act="cf-view" data-id="emails">How to Bring It In</button></p>` : ""}
       </div>
@@ -1973,8 +1980,10 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     const html = origCourses.apply(this, arguments);
     if (ui.courseId) return html;
     const on = ALL().filter(L => L.connected());
-    const label = on.length === 1 ? on[0].P.name : "School Sites";
-    return html.replace(`<button class="btn small" data-act="new-course">Add Course</button>`, m => `<button class="btn small" data-act="${on.length === 1 ? on[0].P.k + "-open" : "lms-open"}">${esc(label)}</button>` + m);
+    const imp = `<button class="btn small" data-act="import-syllabus">Import a Syllabus</button></div>`;
+    if (!coursesArr().length) return html.replace(imp, m => m.replace("</div>", ` <button class="btn small" data-act="lms-open">Connect a School Site</button></div>`));
+    if (on.length) return html.replace("<h2>Your Courses</h2>", m => m + `<button class="btn small" data-act="${on.length === 1 ? on[0].P.k + "-open" : "lms-open"}">${esc(on.length === 1 ? on[0].P.name : "School Sites")}</button>`);
+    return html.replace(`<div class="term-bar">`, m => `<div class="term-bar lms-bar"><span><b>Connect Canvas, Brightspace or Blackboard</b> to bring in your courses, due dates and grades.</span><button class="btn small" data-act="lms-open">Connect</button></div>` + m);
   };
   const origCard = card;
   card = function(t){

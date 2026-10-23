@@ -173,6 +173,16 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .c2-head .cd-tabs{margin:14px 16px 12px;max-width:420px}
 .c2-cols{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:0 22px;align-items:start}
 .c2-side > :first-child,.c2-main > :first-child{margin-top:18px}
+.c2-main .show-old{width:100%;margin-top:8px;min-height:40px}
+/* Optional extras with nothing in them yet, folded to one line */
+.c2-promo{margin-top:14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.c2-promo > summary{display:flex;align-items:center;gap:8px;min-height:44px;padding:6px 14px;cursor:pointer;font:700 .95rem var(--display);list-style:none}
+.c2-promo > summary::-webkit-details-marker{display:none}
+.c2-promo > summary .mini{margin-left:auto;font:500 .8rem var(--body);color:var(--muted);text-align:right}
+.c2-promo > summary::after{content:"";flex:none;width:7px;height:7px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);margin:-4px 2px 0 4px}
+.c2-promo[open] > summary::after{transform:rotate(-135deg);margin-top:4px}
+.c2-promo > :not(summary){margin:0 14px 12px}
+.c2-promo > .lib-strip{margin:0 10px 10px}
 .c2-card2{margin-top:18px;padding:14px 16px 16px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 2px 8px rgba(14,42,86,.06)}
 .c2-card2 h2.sec{margin-top:0}
 .c2-big{display:flex;align-items:center;gap:8px;font:800 2.2rem/1.1 var(--display);margin:4px 0 8px}

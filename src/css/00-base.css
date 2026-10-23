@@ -645,12 +645,18 @@ details *{box-sizing:border-box}
 .imp-row.off .imp-fields{opacity:.55}
 .imp-fields{flex:1;min-width:0;display:grid;gap:6px}
 .imp-fields input[type=text]{font-weight:600}
-.imp-sub{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr);gap:6px}
-.imp-w{display:flex;align-items:center;gap:4px;font-size:.75rem;color:var(--muted);min-width:0}
-.imp-w input{min-width:0;width:100%}
+.imp-sub{display:flex;flex-wrap:wrap;gap:6px}
+.imp-sub > select{flex:1 1 120px}
+.imp-sub > input[type=date]{flex:1 1 150px}
+.imp-sub > input[type=time]{flex:1 1 110px}
+.imp-fields .imp-sub > input{width:auto}
+.imp-w{display:flex;flex:1 1 140px;align-items:center;gap:6px;font-size:.8rem;color:var(--muted);min-width:0}
+.imp-fields .imp-w input{flex:0 0 76px;width:76px;text-align:right}
 .imp-w span{white-space:nowrap}
-.imp-sub select,.imp-sub input{padding:7px 8px;font-size:max(14px,.875rem)}
-@media (max-width:480px){.imp-sub{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.imp-sub input[type=time]{grid-column:1/-1}}
+.imp-sub select,.imp-sub input{padding:7px 8px;min-height:40px;font-size:max(14px,.875rem)}
+.imp-wsum{margin:0}
+.imp-wsum:empty{display:none}
+.imp-wsum.imp-over{color:var(--late);font-weight:600}
 .imp-flag{font-size:.78rem;font-weight:600;color:var(--muted)}
 .imp-flag.warn{color:#9A6400}
 :root[data-theme="dark"] .imp-flag.warn{color:var(--mark)}

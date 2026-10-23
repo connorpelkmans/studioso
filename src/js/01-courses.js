@@ -123,7 +123,7 @@ function viewCourses(){
   if (!cs.length) return `<div class="empty" style="margin-top:18px"><strong>No Courses Yet</strong>Add each class you're taking this term.<br><button class="btn primary" data-act="new-course">Add a Course</button> ${imp}</div>${(n => n ? `<div class="term-bar"><span>${ARCHIVE_SM}${n} course${n === 1 ? " is" : "s are"} in the Archive from past terms.</span><button class="btn small" data-act="archive-open">Open Archive (${n})</button></div>` : "")(allCourses().filter(c => c.archived).length)}`;
   const today = todayISO();
   const cards = cs.map(c => {
-    const ts = tasksArr().filter(t => t.courseId === c.id);
+    const ts = courseTasks(c);
     const open = ts.filter(t => t.status !== "done");
     const hrs = weekHours(open, mondayOf(today));
     const doneN = ts.length - open.length, nFiles = Object.values(state.files).filter(f => f.courseId === c.id).length;
@@ -384,6 +384,7 @@ hook("act", (act, el) => {
     render(); window.scrollTo(0, 0);
     return true;
   }
+  if (act === "cd-old") { ui.cdOld = ui.cdOld === ui.courseId ? null : ui.courseId; render(); return true; }
   if (act === "ci-ai") {
     if (typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !PLAN.isPro()) { toast("Making your own icons with AI is part of Studyboard Pro", null, {label: "See Pro", fn: () => PLAN.openSheet("ai-icons")}); return true; }
     if (!aiReady()) { toast("Set up AI to make your own icons", null, {label: "Set Up AI", fn: () => aiSetupSheet(true)}); return true; }
@@ -461,29 +462,33 @@ function courseMoreSheet(c){
     </div></div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button></div></div>`);
 }
+// Every task of a course this term, including finished work the Board has tucked away
+const courseTasks = c => allTasks().filter(t => t.courseId === c.id && !t.archivedTerm);
 function viewCourseDetail(c){
   const ts = tasksArr().filter(t => t.courseId === c.id && matchesQ(t));
   const exams = new Set(window.SBPREP && SBPREP.courseExams ? SBPREP.courseExams(c).map(t => t.id) : []);
   const by = k => ts.filter(t => t.status === k && !exams.has(t.id)).sort(sortTasks);
+  const old = courseTasks(c).filter(t => autoArchived(t) && matchesQ(t)).sort(sortTasks), showOld = ui.cdOld === c.id;
+  const doneL = by("done").concat(showOld ? old : []), kick = [c.code, courseTimesText(c), c.room].filter(Boolean).join(" · ");
   const lmsL = lmsCourseLink(c), isLms = l => lmsL && ((l.url && l.url === lmsL.url) || String(l.label || "").trim().toLowerCase() === String(lmsL.name || "").toLowerCase());
   const links = (c.links || []).filter(l => !isLms(l)).map(l => { const u = safeUrl(l.url); return u ? `<dt>${esc(l.label || "Link")}</dt><dd><a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(u.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a></dd>` : ""; }).join("");
   return `<button class="back" data-act="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>All Courses</button>
     <div class="detail-head c2-head" style="--c:${esc(c.color)}">
-      <div class="g2-band"><span class="g2-kick">${esc(courseLabel(c))}${courseTimesText(c) ? " · " + esc(courseTimesText(c)) : ""}${c.room ? " · " + esc(c.room) : ""}</span>
+      <div class="g2-band"><span class="g2-kick">${esc(kick || "Course")}</span>
         <div class="row-actions">${(l => l ? `<button class="btn small" data-act="lms-go" data-url="${esc(l.url)}">Open in ${esc(l.name)}</button>` : "")(lmsCourseLink(c))}${inPreview() ? "" : `<button class="btn small ai-btn" data-act="ask-course" data-sx-ask="1" data-id="${esc(c.id)}">${AI_ICON} Ask About This Course</button>`}${window.SBLEC ? SBLEC.btn(c) : ""}<button class="btn small" data-act="import-syllabus" data-course="${esc(c.id)}">Import Syllabus</button><button class="btn small" data-act="edit-course" data-id="${esc(c.id)}">Edit Course</button></div></div>
       <div class="g2-low"><span class="g2-ring" aria-hidden="true">${courseRingHtml(c)}</span>
-        <div class="g2-txt"><h2>${esc(c.name)}</h2><div class="g2-meta">${c.code ? `<span class="g2-code">${esc(c.code)}</span>` : ""}<span>${esc(courseMetaLine(c))}</span></div></div></div>
+        <div class="g2-txt"><h2>${esc(c.name)}</h2><div class="g2-meta"><span>${esc(courseMetaLine(c))}</span></div></div></div>
       <!--cd-tabs--></div><!--cd-body-->
     <div class="c2-cols" style="--c:${esc(c.color)}"><div class="c2-main">
     ${c.notes ? `<h2 class="sec"><span class="t">Notes</span></h2><p class="notes">${esc(c.notes)}</p>` : ""}
-    ${window.SBOBJ ? SBOBJ.courseHtml(c) : ""}
-    ${window.SBSHARE ? SBSHARE.courseHtml(c) : ""}
-    ${window.SBPREP ? SBPREP.courseHtml(c) : ""}
     ${searchNote()}
+    ${window.SBPREP ? SBPREP.courseHtml(c) : ""}
     ${section("To Do", by("todo"), "", {hideCourse:true})}
     ${section("In Work", by("doing"), "", {hideCourse:true})}
-    ${section("Complete", by("done"), "", {hideCourse:true})}
-    ${!ts.length ? `<div class="empty" style="margin-top:18px"><strong>No Tasks Yet</strong>Add assignments, exams and readings for this course.</div>` : ""}
+    ${doneL.length || old.length ? `<h2 class="sec"><span class="t">Complete</span><span class="n">${by("done").length + old.length}</span></h2>${doneL.length ? taskList(doneL, {hideCourse:true}) : ""}${old.length ? `<button class="show-old" data-act="cd-old" aria-expanded="${showOld}">${showOld ? "Hide Older" : `Show Older (${old.length})`}</button>` : ""}` : ""}
+    ${!ts.length && !old.length ? `<div class="empty" style="margin-top:18px"><strong>No Tasks Yet</strong>Add assignments, exams and readings for this course.</div>` : ""}
+    ${window.SBOBJ ? SBOBJ.courseHtml(c) : ""}
+    ${window.SBSHARE ? SBSHARE.courseHtml(c) : ""}
     </div><aside class="c2-side">
     ${courseGradeSide(c)}
     ${courseTeamHtml(c, "")}
@@ -501,7 +506,7 @@ function courseTeamHtml(c, staff){
 }
 // The line under a course's name on its page
 function courseMetaLine(c){
-  const all = tasksArr().filter(t => t.courseId === c.id), done = all.filter(t => t.status === "done").length, today = todayISO();
+  const all = courseTasks(c), done = all.filter(t => t.status === "done").length, today = todayISO();
   const ex = all.filter(t => t.status !== "done" && MILESTONE(t.type) && t.due && t.due >= today).length, gn = window.SBGRADES && SBGRADES.now(c);
   return [all.length ? `${done} of ${all.length} done` : "No tasks yet", ex ? `${ex} exam${ex === 1 ? "" : "s"} coming` : "", gn && gn.pct != null ? `${gn.fmt(gn.pct)}${gn.letter ? " " + gn.letter : ""} so far` : ""].filter(Boolean).join(" · ");
 }
@@ -589,7 +594,8 @@ function newTermSheet(){
   const cs = coursesArr();
   const loose = tasksArr().filter(t => !courseOf(t.courseId)).length;
   if (!cs.length && !loose) { toast("There's nothing to archive yet"); return; }
-  const cnt = c => tasksArr().filter(t => t.courseId === c.id).length;
+  const cnt = c => tasksArr().filter(t => t.courseId === c.id).length, today = todayISO();
+  const ahead = t => t.status !== "done" && !!t.due && t.due > today, nAhead = tasksArr().filter(ahead).length;
   openSheet(`<form class="sheet">${head("Start a New Term")}
     <div class="sheet-body">${REQ_NOTE}
       <p style="margin:0">This puts the finished term's courses, tasks, flashcards and sticky notes in the Archive, so your board, timeline and plan start clean. Nothing is deleted, and you can bring anything back later.</p>
@@ -602,7 +608,8 @@ function newTermSheet(){
         <label class="mi-check"><input type="checkbox" name="decks" checked> Flashcard decks for these courses</label>
         <label class="mi-check"><input type="checkbox" name="notes" checked> Sticky notes for these courses</label>
       </fieldset>
-      <p class="mini" style="margin:0">Open tasks are archived too. Move any you're carrying over back to To Do from the Archive.</p>
+      <label class="mi-check"><input type="checkbox" name="keep" checked> Keep Unfinished Work Due After Today${nAhead ? ` <span class="mini">${nAhead} task${nAhead === 1 ? "" : "s"}</span>` : ""}</label>
+      <p class="mini" style="margin:0">Other open tasks are archived too. Move any you're carrying over back to To Do from the Archive.</p>
     </div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Archive Term</button></div>
   </form>`, fd => {
@@ -611,7 +618,8 @@ function newTermSheet(){
     if (!ids.size && !fd.get("loose")) { toast("Pick at least one course"); return false; }
     ids.forEach(id => ch.push({kind: "course", id, after: Object.assign(clone(state.courses[id]), {archived: label, archivedAt: now})}));
     let nT = 0;
-    allTasks().filter(t => !t.archivedTerm && (ids.has(t.courseId) || (fd.get("loose") && !courseOf(t.courseId) && !(state.courses[t.courseId] || {}).archived))).forEach(t => { nT++; ch.push({kind: "task", id: t.id, after: Object.assign(clone(t), {archivedTerm: label, archivedAt: now})}); });
+    const keep = !!fd.get("keep");
+    allTasks().filter(t => !t.archivedTerm && !(keep && ahead(t)) && (ids.has(t.courseId) || (fd.get("loose") && !courseOf(t.courseId) && !(state.courses[t.courseId] || {}).archived))).forEach(t => { nT++; ch.push({kind: "task", id: t.id, after: Object.assign(clone(t), {archivedTerm: label, archivedAt: now})}); });
     if (fd.get("decks")) decksArr().filter(d => ids.has(d.courseId)).forEach(d => ch.push({kind: "deck", id: d.id, after: Object.assign(clone(d), {archived: label})}));
     if (fd.get("notes")) notesArr().filter(n => !n.archived && ids.has(n.courseId)).forEach(n => ch.push({kind: "note", id: n.id, after: Object.assign(clone(n), {archived: true, archivedAt: now})}));
     ui.filter = "all"; ui.courseId = null; ui.deckId = null;

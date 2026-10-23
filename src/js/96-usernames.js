@@ -82,21 +82,18 @@
   const AKEY = uid => "studyboard:age:" + uid;
   const ageCached = () => { try { const u = who(); return u ? localStorage.getItem(AKEY(u.id)) || "" : ""; } catch (e) { return ""; } };
   const ageKeep = v => { try { const u = who(); if (u) localStorage.setItem(AKEY(u.id), v); } catch (e) {} };
-  const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const yearsOld = iso => { const b = new Date(iso + "T12:00:00"), n = new Date(); let a = n.getFullYear() - b.getFullYear(); if (n.getMonth() < b.getMonth() || (n.getMonth() === b.getMonth() && n.getDate() < b.getDate())) a--; return a; };
-  // Month, day and year boxes; returns the date as YYYY-MM-DD, or "" when it isn't a real date
-  const bdayField = () => {
-    const y = new Date().getFullYear();
-    return `<fieldset class="f bday"><legend class="lh">Birthday ${REQ}</legend><div class="bday-row">
-      <select name="bm" aria-label="Month"><option value="">Month</option>${MONTHS.map((m, i) => `<option value="${i + 1}">${m}</option>`).join("")}</select>
-      <select name="bd" aria-label="Day"><option value="">Day</option>${Array.from({length: 31}, (_, i) => `<option>${i + 1}</option>`).join("")}</select>
-      <select name="by" aria-label="Year"><option value="">Year</option>${Array.from({length: 100}, (_, i) => `<option>${y - i}</option>`).join("")}</select></div></fieldset>`;
+  // One date box; bdayOf returns YYYY-MM-DD, or "" when it isn't a real date
+  const bdayField = why => {
+    const t = new Date(), iso = d => d.toISOString().slice(0, 10);
+    return `<label class="f bday"><span class="lh">Birthday ${REQ}${why ? ` <span class="hint">Asked once so the right age rules apply. Nobody else sees it.</span>` : ""}</span><input type="date" name="bday" required min="${iso(new Date(Date.UTC(t.getFullYear() - 100, 0, 1)))}" max="${iso(t)}" autocomplete="bday"></label>`;
   };
   const bdayOf = fd => {
-    const m = Number(fd.get("bm")), d = Number(fd.get("bd")), y = Number(fd.get("by"));
-    if (!m || !d || !y) return "";
-    const dt = new Date(Date.UTC(y, m - 1, d)); if (dt.getUTCMonth() !== m - 1 || dt > new Date()) return "";
-    return dt.toISOString().slice(0, 10);
+    const v = String(fd.get("bday") || "").trim(), m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+    if (!m) return "";
+    const dt = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+    if (dt.getUTCDate() !== Number(m[3]) || dt > new Date() || Number(m[1]) < new Date().getFullYear() - 120) return "";
+    return v;
   };
   function youngSheet(){
     openSheet(`<div class="sheet">${head("Not Available Yet")}<div class="sheet-body"><p style="margin:0">Publishing and sharing with a link are for students 13 and older. Everything else in Studyboard works as usual, and you can still share with your study groups.</p></div>
@@ -112,7 +109,7 @@
     if (a != null) { ageKeep(a >= 13 ? "ok" : "young"); if (a >= 13) then(); else youngSheet(); return; }
     openSheet(`<form class="sheet">${head("When's Your Birthday?")}<div class="sheet-body">${bdayField()}<p class="mini" style="margin:0">It can't be changed later, and nobody else sees it.</p><p class="mini un-msg bad" id="bdMsg" aria-live="polite"></p></div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="submit" class="btn primary" data-submit id="bdSave">Continue</button></div></form>`, fd => {
-      const iso = bdayOf(fd); if (!iso) { $("#bdMsg").textContent = "Pick your whole birthday."; return false; }
+      const iso = bdayOf(fd); if (!iso) { $("#bdMsg").textContent = "Enter your birthday."; return false; }
       const b = $("#bdSave"); if (b) b.disabled = true;
       call("set_birthdate", {p_date: iso}).then(age => { const ok2 = Number(age) >= 13; ageKeep(ok2 ? "ok" : "young"); if (dlg.open) dlg.close(); setTimeout(() => ok2 ? then() : youngSheet(), 0); })
         .catch(e => { if (b) b.disabled = false; $("#bdMsg").textContent = rpcErr(e); });
@@ -142,9 +139,8 @@
     try { n = await call("my_username"); } catch (e) { return; }
     if (n) { keep(n); return; }
     const want = String(((who().user_metadata || {}).username) || "").trim();
-    if (want && !UNAME.problem(want)) { try { const got = await call("set_username", {p_name: want}); keep(String(got || want)); scheduleRender(); return; } catch (e) {} }
-    if (window.SBOB && SBOB.pending && SBOB.pending()) { asked = ""; setTimeout(afterSignIn, 15000); return; }
-    sheet(null, want ? {suggest: want, why: `@${want} is taken. Pick another.`} : {});
+    // Otherwise a username is asked for the first time it's needed (publishing)
+    if (want && !UNAME.problem(want)) { try { const got = await call("set_username", {p_name: want}); keep(String(got || want)); scheduleRender(); } catch (e) {} }
   }
   let seen = "";
   hook("render", () => { const u = who() && who().id; if (!u || u === seen) return; seen = u; setTimeout(afterSignIn, 1500); });
@@ -161,9 +157,7 @@
 .un-msg{margin:4px 0 0!important;min-height:1.2em}
 .un-msg.bad{color:var(--late)}
 .un-msg.good{color:var(--leaf, #1E9E74)}
-.bday{border:0;padding:0;margin:0}
-.bday-row{display:grid;grid-template-columns:1.4fr 1fr 1.1fr;gap:8px}
-.bday-row select{min-width:0}
+.bday input{min-width:0;max-width:240px}
 .u13{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--soft)}
 `;
   document.head.appendChild(css);

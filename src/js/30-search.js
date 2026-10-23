@@ -231,7 +231,7 @@
     add("Start a New Term", "Put last term's courses, tasks and flashcards in the Archive", act("new-term"), "semester");
     add("Archive", "Finished tasks and past terms", act("archive-open"), "old");
     add("Calendar Sync", "Add your deadlines and classes to Apple, Google or Outlook Calendar", act("cal-export"), "export ics calendar subscribe feed");
-    add("Back Up Now", "A backup is also saved on this device each day", act("backup-now"), "save");
+    add("Save a Copy on This Device", "Kept in this browser, which also saves a copy each day", act("backup-now"), "save backup");
     add("Restore a Backup", "Go back to an earlier backup", act("restore"), "");
     add("Export a Backup File", "Download your data as a file", act("export"), "download");
     add("Import from a Backup File", "Replace your data with a backup file", act("import"), "upload");
