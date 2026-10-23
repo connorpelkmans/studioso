@@ -48,10 +48,7 @@ const setTask = (page, id, patch) => page.evaluate(([id, p]) => { const S = wind
       const c = await txt(page, ".exm-card");
       ok(/Exam Mode/i.test(c) && /Midterm 2/.test(c) && /BIO 101/.test(c) && /In 2 days/.test(c), "it names the exam, course and countdown: " + c);
       ok(await page.evaluate(() => { const a = document.querySelector(".exm-card"), b = document.querySelector("section.focus.plan"); return !!a && !!b && !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING); }), "the card sits above Today's Plan");
-      const also = await page.evaluate(() => [...document.querySelectorAll(".exm-also li")].map(l => l.innerText.replace(/\s+/g, " ").trim()));
-      ok(also.length === 3 && /^Lab 4/.test(also[0]) && /tomorrow/.test(also[0]) && /BIO 101/.test(also[0]), "Also Due lists Lab 4, tomorrow: " + also.join(" | "));
-      ok(/Reform essay/.test(also[1]) && /HIS 200/.test(also[1]) && /Source list/.test(also[2]), "and the other course's work in the window, by due time");
-      ok(!also.some(x => /Reading log/.test(x)), "work due after the window isn't listed");
+      ok(await page.evaluate(() => !document.querySelector(".exm-also") && !/Also Due/.test(document.querySelector(".exm-card").innerText)), "no Also Due list: that work is already in Do This Next");
       ok(await page.evaluate(() => !document.querySelector(".exm-card [title]") && /Study for It/.test(document.querySelector(".exm-card [data-act=exm-study]").textContent) && /Not Now/.test(document.querySelector(".exm-card [data-act=exm-off]").textContent)), "Study for It and Not Now buttons, no tooltips");
       ok(!/[—]/.test(c), "no em dashes in the card");
       await page.screenshot({path: path.join(OUT, `today-${W}.png`), fullPage: false});
@@ -74,7 +71,6 @@ const setTask = (page, id, patch) => page.evaluate(([id, p]) => { const S = wind
 
       await setTask(page, "lab4", {status: "done", doneAt: Date.now()}); await setTask(page, "ess", {status: "done", doneAt: Date.now()}); await toPlan(page);
       ok(/Study for Midterm 2/.test(await txt(page, ".next-up .nu-title")), "with the lab and essay done, Study for Midterm 2 leads Do This Next");
-      ok(!(await page.evaluate(() => [...document.querySelectorAll(".exm-also li")].map(l => l.innerText).join(" "))).includes("Lab 4"), "and Also Due drops the finished lab");
       await setTask(page, "lab4", {status: "todo", doneAt: null}); await setTask(page, "ess", {status: "todo", doneAt: null}); await toPlan(page);
 
       await page.evaluate(() => { localStorage.removeItem("studioso:pomo"); });

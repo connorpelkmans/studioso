@@ -5963,15 +5963,7 @@ details.pp-group[open]>summary::before{content:"▾"}
 .exm-rl{flex:none}
 .exm-bar{flex:1;max-width:220px;height:6px;border-radius:99px;background:color-mix(in srgb,var(--ink) 12%,transparent);overflow:hidden}
 .exm-bar i{display:block;height:100%;background:var(--c,var(--accent));border-radius:inherit}
-.exm-also{display:grid;gap:4px}
-.exm-h{margin:0;font-size:.78rem;font-weight:700;color:var(--muted)}
-.exm-also ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
-.exm-item{all:unset;box-sizing:border-box;display:flex;align-items:baseline;gap:4px 10px;flex-wrap:wrap;width:100%;min-height:36px;padding:6px 10px;border:1px solid var(--line);border-left:3px solid var(--c);border-radius:10px;background:var(--surface);cursor:pointer}
-.exm-item:hover{border-color:var(--c)}
-.exm-item:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.exm-it{font-weight:600;overflow-wrap:anywhere;min-width:0}
-.exm-iw{font-size:.82rem;color:var(--muted)}
-.exm-more,.exm-others{margin:0;font-size:.82rem;color:var(--muted)}
+.exm-others{margin:0;font-size:.82rem;color:var(--muted)}
 .exm-others .link-btn{font-size:inherit;min-height:32px;display:inline-flex;align-items:center}
 .exm-tag{display:inline-block;margin-top:4px;padding:1px 8px;border-radius:99px;font-size:.7rem;font-weight:700;line-height:1.5;background:color-mix(in srgb,var(--c,var(--accent)) 16%,var(--surface));color:var(--ink);border:1px solid color-mix(in srgb,var(--c,var(--accent)) 40%,transparent)}
 .deck-main .exm-tag{align-self:flex-start}

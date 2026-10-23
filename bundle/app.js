@@ -61793,8 +61793,6 @@ function todayHtml(){
   const count = m.days === 0 && ex.time ? (hrs > 1 ? `In about ${Math.round(hrs)} hour${Math.round(hrs) === 1 ? "" : "s"}` : hrs > 0 ? "Starting soon" : "Happening now") : m.days === 0 ? "Today" : m.days === 1 ? "Tomorrow" : `In ${m.days} days`;
   const when = `${m.days <= 1 ? "" : esc(fmtDate(ex.due))}${ex.time ? `${m.days <= 1 ? "" : " at "}${esc(fmtTime(ex.time))}` : ""}`;
   const ready = sm ? `<div class="exm-ready"><span class="exm-rl">${sm.pct != null ? `Readiness <b>${sm.pct}%</b>` : `<b>${sm.done}</b> of ${sm.total} prep sessions done`}</span><span class="exm-bar" role="img" aria-label="${sm.pct != null ? `Readiness ${sm.pct} percent` : `${sm.done} of ${sm.total} prep sessions done`}"><i style="width:${sm.pct != null ? sm.pct : Math.round(sm.done / Math.max(1, sm.total) * 100)}%"></i></span></div>` : "";
-  const also = m.also.slice(0, 3), more = m.also.length - also.length;
-  const alsoH = m.also.length ? `<div class="exm-also"><h4 class="exm-h" id="exmAlsoH">Also Due</h4><ul aria-labelledby="exmAlsoH">${also.map(t => `<li style="--c:${esc(colorOf(t.courseId))}"><button type="button" class="exm-item" data-act="edit-task" data-id="${esc(t.id)}"><span class="exm-it">${esc(t.title)}</span><span class="exm-iw">${courseTag(t) ? esc(courseTag(t)) + ", " : ""}${esc(dueText(t))}</span></button></li>`).join("")}</ul>${more > 0 ? `<p class="exm-more">And ${more} more due in the next few days, listed in Today's Plan.</p>` : ""}</div>` : "";
   const othersH = m.others.length ? `<p class="exm-others">Also coming up: ${m.others.map(t => `<button type="button" class="link-btn" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}</button>${courseTag(t) ? ` (${esc(courseTag(t))})` : ""}, ${esc(whenText(t))}`).join("; ")}.</p>` : "";
   const planBtn = !sm && m.days >= 1 && window.SBPREP ? `<button type="button" class="btn small" data-act="exam-plan" data-id="${esc(ex.id)}">Plan My Prep</button>` : "";
   return `<section class="exm-card" role="region" aria-label="Exam Mode" style="--c:${esc(colorOf(ex.courseId))}">
@@ -61804,7 +61802,7 @@ function todayHtml(){
         <p class="exm-when"><b>${esc(count)}</b>${when ? ` <span>${when}</span>` : ""}</p></div>
       <div class="exm-acts"><button type="button" class="btn primary small" data-act="exm-study" data-id="${esc(ex.id)}">Study for It</button>${planBtn}</div>
     </div>
-    ${ready}${alsoH}${othersH}
+    ${ready}${othersH}
   </section>`;
 }
 
