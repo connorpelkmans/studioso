@@ -79,6 +79,11 @@
     REG[t.theme] = {theme: t.theme, spot: t.spot, list};
     list.forEach(c => { if (!BYID[c.id]) BYID[c.id] = c; });
   });
+  // Extra companions (98-comp-extra.js): one more choice in every theme's picker, only for an account that may see the hidden themes.
+  // They are always known by id (so a group member who picked one shows with that face), but only offered while access is on.
+  const EXTRA = (typeof COMP_EXTRA !== "undefined" && Array.isArray(COMP_EXTRA) ? COMP_EXTRA : []).map((c, i) => norm(c, "extra", i)).filter(c => c && !BYID[c.id]);
+  EXTRA.forEach(c => { BYID[c.id] = c; });
+  const extrasOn = () => { try { return EXTRA.length > 0 && !!(window.SBThemes && SBThemes.all()); } catch (e) { return false; } };
   /* ---------- Tiers: a companion has the tier of the theme it lives in (single source of truth: SKINS via themeTier) ----------
      Plain-color companions are free; every companion of a Pro theme is Pro. Registered in STYLE_LISTS so owns("comp", id) works
      like every other shop item (Pro, or owned/earned, or you own the companion's theme). Props (accessories) use their own free flag. */
@@ -234,7 +239,7 @@
     } catch (e) { return null; }
   };
   const themeKey = id => REG[id] ? id : photoSet(id) ? id : "plain";
-  const setOf = id => photoSet(id) || (REG[themeKey(id)] || REG.plain || {list: []}).list;
+  const setOf = id => { const base = photoSet(id) || (REG[themeKey(id)] || REG.plain || {list: []}).list; return extrasOn() ? base.concat(EXTRA) : base; };
   const compTier = c => itemTier("comp", c.id);
   // The plain set: Mochi, Inky and Hoot from the start; the other three are earned (all three come with Pro):
   //   Hilo: 5 hours in the Focus timer. Sum: 20 quizzes passed (5 or more questions, 80% or better). Packy: 200 flashcards reviewed.
@@ -2159,7 +2164,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const locked = !canSlot(i), on = c && c.id === x.id, left = focusLeft(x), earn = left > 0 && owns("comp", x.id);
       return `<div class="cp-tile${on ? " on" : ""}${locked ? " locked" : ""}" data-id="${esc(x.id)}" aria-current="${on ? "true" : "false"}">
         ${previewHtml(x, on ? wearOf(x) : "", 92)}
-        <div class="cp-tile-t"><b>${esc(on ? nameOf(x) : ownName(x.id) || x.name)}</b>${compTier(x) === "pro" ? PRO_BADGE : FREE_BADGE}</div>
+        <div class="cp-tile-t"><b>${esc(on ? nameOf(x) : ownName(x.id) || x.name)}</b>${x.theme === "extra" ? "" : compTier(x) === "pro" ? PRO_BADGE : FREE_BADGE}</div>
         <p class="cp-bio">${esc(x.bio || "")}</p>
         ${earn ? `<span class="cp-earn mini">🔒 ${esc(EARN[x.id].how)} to unlock · ${esc(EARN[x.id].left(left))} to go</span><button type="button" class="btn small" data-act="comp-pick" data-slot="${i}">Get It with Pro</button>`
           : locked ? `<button type="button" class="btn small" data-act="comp-pick" data-slot="${i}">🔒 Go Pro</button>` : on ? `<span class="cp-chosen" role="status">✓ ${want !== i && !canSlot(want) ? "In Use" : "Chosen"}</span>` : `<button type="button" class="btn small primary" data-act="comp-pick" data-slot="${i}">Choose</button>`}
