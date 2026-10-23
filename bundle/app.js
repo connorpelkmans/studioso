@@ -10512,6 +10512,7 @@ function pageSub(){
     }
     if (ui.tab === "files") { const n = Object.keys(state.files || {}).length; return n ? `${nWord(n, "file")} across your courses` : "Slides, readings and handouts in one place"; }
     if (ui.tab === "emails") return "Messages from your school account";
+    if (ui.tab === "notes" && window.SBWB && SBWB.on()) { const n = SBWB.boards().length; return n ? nWord(n, "whiteboard") : "Sketch and plan on a big board"; }
     if (ui.tab === "notes") {
       const n = notesArr().filter(x => !x.archived).length; return n ? `${nWord(n, "note")} · ${nWord(new Set(notesArr().filter(x => !x.archived).map(x => x.courseId).filter(Boolean)).size, "course")}` : "Quick notes for your classes";
     }
@@ -10520,7 +10521,7 @@ function pageSub(){
 }
 // Lift the page's own heading above its tabs, with its context line and its buttons beside it
 function pageHeadUp(v){
-  if (v.querySelector(":scope > .pg-head") || (ui.tab === "notes" && window.SBWB && SBWB.on())) return;
+  if (v.querySelector(":scope > .pg-head")) return;
   const tabs = v.querySelector(":scope > .pview-tabs, :scope > .bview-row"); if (!tabs) return;
   const phone = innerWidth < 640, sub = pageSub();
   let title = "", head = null;
@@ -10537,7 +10538,7 @@ function pageHeadUp(v){
     head.querySelector(":scope > h2").remove();
     [...head.attributes].filter(x => x.name.startsWith("data-")).forEach(x => pg.setAttribute(x.name, x.value));
     const rest = [...head.children];
-    if (rest.length && rest.length <= 6 && rest.every(c => c.matches("button, .btn, .segb, a.btn"))) {
+    if (rest.length && rest.length <= 6 && rest.every(c => c.matches("button, .btn, .segb, a.btn, .wb-pick"))) {
       const r = document.createElement("div"); r.className = "pg-right"; rest.forEach(c => r.appendChild(c)); pg.appendChild(r); head.remove();
     } else if (!rest.length) head.remove();
   }
