@@ -1745,7 +1745,6 @@ button.pr-why:hover{background:var(--soft);color:var(--ink)}
 .pg-head{display:flex;align-items:flex-end;gap:10px 16px;flex-wrap:wrap;margin:14px 0 0}
 .pg-tt{flex:1 1 260px;min-width:0}
 .pg-title{margin:0;font:800 2rem/1.1 var(--display);letter-spacing:-.025em;color:var(--ink)}
-.pg-sub{margin:6px 0 0;font:500 .95rem/1.4 var(--body);color:var(--muted)}
 .pg-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 @media (min-width:640px){
   #view .pg-tabs{display:flex;gap:26px;width:100%;max-width:none;margin:12px 0 16px;padding:0;background:none;border:0;border-bottom:1px solid var(--line);border-radius:0;box-shadow:none}
@@ -1757,7 +1756,7 @@ button.pr-why:hover{background:var(--soft);color:var(--ink)}
 @media (max-width:639px){
   .pg-head{margin:0 0 8px}
   .pg-title{display:none}
-  .pg-sub{margin:0;font-size:.86rem}
+  .pg-head:not(:has(.pg-right)){display:none}
   #view > .pg-head + .pview-tabs{margin-top:0}
 }
 /* App tour (coach marks) and the bug report form */

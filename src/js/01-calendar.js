@@ -1042,52 +1042,15 @@ function planViewSet(t){
   ui.planView = t;
   try { localStorage.setItem("studyboard:planview", t); } catch(e) {}
 }
-/* Page header: a title with one line of context, then the page's tabs underneath */
-function pageHeadHtml(title, sub, right){
-  return `<header class="pg-head"><div class="pg-tt"><h2 class="pg-title">${esc(title)}</h2>${sub ? `<p class="pg-sub">${esc(sub)}</p>` : ""}</div>${right ? `<div class="pg-right">${right}</div>` : ""}</header>`;
-}
-const relDays = n => n <= 0 ? "today" : n === 1 ? "tomorrow" : `in ${n} days`;
-function nextExamWords(list){
-  const today = todayISO(), ex = (list || tasksArr()).filter(t => t.status !== "done" && t.due && t.due >= today && /^(Exam|Quiz)$/.test(t.type)).sort((a, b) => a.due.localeCompare(b.due) || String(a.time || "").localeCompare(String(b.time || "")))[0];
-  return ex ? `next ${ex.type === "Quiz" ? "quiz" : "exam"} ${relDays(dayDiff(today, ex.due))}` : "";
-}
-// One line of context for each tabbed page
-const nWord = (n, one, many) => `${n} ${n === 1 ? one : many || one + "s"}`;
-function pageSub(){
-  const today = todayISO(), open = tasksArr().filter(t => t.status !== "done");
-  try {
-    if (ui.tab === "board") {
-      const dueToday = open.filter(t => t.due === today).length, late = open.filter(t => t.due && t.due < today).length, ex = nextExamWords(open);
-      if ((ui.bview || "plan") === "plan") return [new Date().toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}), dueToday ? `${dueToday} due today` : "nothing due today", ex].filter(Boolean).join(" · ");
-      return [nWord(open.length, "open task"), open.filter(t => t.status === "doing").length ? `${open.filter(t => t.status === "doing").length} in progress` : "", late ? `${late} overdue` : ""].filter(Boolean).join(" · ");
-    }
-    if (ui.tab === "flashcards") {
-      if (ui.rvView === "quizzes") { const qs = quizzesAll(), taken = qs.filter(x => (x.qz.results || []).length).length; return qs.length ? `${nWord(qs.length, "quiz", "quizzes")} · ${taken} taken` : "Practice quizzes from your decks and notes"; }
-      const ds = deckListArr(), cards = ds.reduce((s, d) => s + d.cards.length, 0), due = allDueCount();
-      return ds.length ? [nWord(ds.length, "deck"), nWord(cards, "card"), due ? `${due} due today` : (k => k ? `${k} new to learn` : "nothing due today")(ds.reduce((m, d) => m + d.cards.filter(c => !c.draft && cardNew(c)).length, 0))].join(" · ") : "Make a deck to start reviewing";
-    }
-    if (ui.tab === "courses" && ui.courseTab === "grades") {
-      const gs = coursesArr().map(c => window.SBGRADES && SBGRADES.now(c)).filter(g => g && g.pct != null);
-      return gs.length ? `${nWord(gs.length, "course")} with marks · average ${Math.round(gs.reduce((s, g) => s + g.pct, 0) / gs.length)}%` : "Add marks to see where you stand";
-    }
-    if (ui.tab === "courses") {
-      const cs = coursesArr(), gs = cs.map(c => window.SBGRADES && SBGRADES.now(c)).filter(g => g && g.pct != null);
-      return cs.length ? [nWord(cs.length, "course"), nWord(open.length, "open task"), gs.length ? `average ${Math.round(gs.reduce((s, g) => s + g.pct, 0) / gs.length)}%` : ""].filter(Boolean).join(" · ") : "Add each class you're taking this term";
-    }
-    if (ui.tab === "files") { const n = Object.keys(state.files || {}).length; return n ? `${nWord(n, "file")} across your courses` : "Slides, readings and handouts in one place"; }
-    if (ui.tab === "emails") return "Messages from your school account";
-    if (ui.tab === "notes" && window.SBWB && SBWB.on()) { const n = SBWB.boards().length; return n ? nWord(n, "whiteboard") : "Sketch and plan on a big board"; }
-    if (ui.tab === "notes") {
-      const n = notesArr().filter(x => !x.archived).length; return n ? `${nWord(n, "note")} · ${nWord(new Set(notesArr().filter(x => !x.archived).map(x => x.courseId).filter(Boolean)).size, "course")}` : "Quick notes for your classes";
-    }
-  } catch (e) { return ""; }
-  return "";
+/* Page header: a title, then the page's tabs underneath */
+function pageHeadHtml(title, right){
+  return `<header class="pg-head"><div class="pg-tt"><h2 class="pg-title">${esc(title)}</h2></div>${right ? `<div class="pg-right">${right}</div>` : ""}</header>`;
 }
 // Lift the page's own heading above its tabs, with its context line and its buttons beside it
 function pageHeadUp(v){
   if (v.querySelector(":scope > .pg-head")) return;
   const tabs = v.querySelector(":scope > .pview-tabs, :scope > .bview-row"); if (!tabs) return;
-  const phone = innerWidth < 640, sub = pageSub();
+  const phone = innerWidth < 640;
   let title = "", head = null;
   if (tabs.matches(".bview-row")) { const s = tabs.querySelector("[aria-selected=true]"); title = s ? s.textContent.trim() : ""; }
   else {
@@ -1096,7 +1059,7 @@ function pageHeadUp(v){
     title = head.querySelector(":scope > h2").textContent.trim();
   }
   if (!title) return;
-  const box = document.createElement("div"); box.innerHTML = pageHeadHtml(title, sub, "");
+  const box = document.createElement("div"); box.innerHTML = pageHeadHtml(title, "");
   const pg = box.firstChild;
   if (head && !phone) {
     head.querySelector(":scope > h2").remove();
@@ -1111,22 +1074,10 @@ function pageHeadUp(v){
 }
 { let was = null; addEventListener("resize", () => { const p = innerWidth < 640; if (was !== null && p !== was && typeof ui !== "undefined" && document.querySelector("#view > .pg-head")) scheduleRender(); was = p; }); }
 function planHeadHtml(){
-  const t = ui.tab, today = todayISO(), open = tasksArr().filter(x => x.status !== "done" && inFilter(x));
-  let title = "Due Dates", sub = [], right = "";
-  if (t === "schedule") {
-    const mon = ui.schWeek || mondayOf(today), n = open.filter(x => x.due && x.due >= mon && x.due <= addDays(mon, 6)).length;
-    title = "Schedule"; sub = [`${fmtShort(mon)} to ${fmtShort(addDays(mon, 6))}`, n ? `${n} due that week` : "nothing due that week"];
-  } else if (t === "crunch") {
-    title = "Crunch Forecast";
-    let w = null; try { w = (SBCRUNCH.model().weeks || []).filter(x => !x.past).slice(0, 6).reduce((m, x) => !m || x.levelIdx > m.levelIdx ? x : m, null); } catch (e) { w = null; }
-    const lv = w ? ["calm", "steady", "busy", "heavy", "like a crunch"][w.levelIdx] || "steady" : "";
-    sub = [w ? `Heaviest week ahead: ${w.start <= today ? "this week" : `week of ${fmtShort(w.start)}`}, ${w.levelIdx >= 4 ? "a crunch" : lv}` : "How heavy each week ahead looks"];
-  } else {
-    const dated = open.filter(x => x.due), cs = new Set(dated.map(x => x.courseId).filter(Boolean)).size;
-    sub = [dated.length ? `${dated.length} open task${dated.length === 1 ? "" : "s"}${cs > 1 ? ` across ${cs} courses` : ""}` : "No open tasks with due dates", nextExamWords(open)];
-    if (!tlPhone()) right = `<div class="segb" role="group" aria-label="View"><button data-act="tl-mode" data-id="bars" aria-pressed="${ui.tlMode === "bars"}">Timeline</button><button data-act="tl-mode" data-id="calendar" aria-pressed="${ui.tlMode === "calendar"}">Month</button></div>`;
-  }
-  return pageHeadHtml(title, sub.filter(Boolean).join(" · "), right);
+  const t = ui.tab;
+  const title = t === "schedule" ? "Schedule" : t === "crunch" ? "Crunch Forecast" : "Due Dates";
+  const right = t !== "schedule" && t !== "crunch" && !tlPhone() ? `<div class="segb" role="group" aria-label="View"><button data-act="tl-mode" data-id="bars" aria-pressed="${ui.tlMode === "bars"}">Timeline</button><button data-act="tl-mode" data-id="calendar" aria-pressed="${ui.tlMode === "calendar"}">Month</button></div>` : "";
+  return pageHeadHtml(title, right);
 }
 function planSwitchHtml(){
   const t = ui.tab;

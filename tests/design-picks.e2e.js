@@ -102,7 +102,7 @@ const noOverflow = page => page.evaluate(() => document.documentElement.scrollWi
       await go(page, {tab: "timeline", tlMode: "calendar", calMonth: "", calDay: ""}); await page.waitForTimeout(250);
       ok(await page.locator(".cal .day.is-today").count() === 1, tag + ": the month calendar shows today");
       if (!phone) {
-        ok(/Due Dates/.test(await txt(page, ".pg-head .pg-title")) && /open tasks? across \d courses/.test(await txt(page, ".pg-sub")) && /next quiz tomorrow/.test(await txt(page, ".pg-sub")), tag + ": a big page title with its context line: " + await txt(page, ".pg-sub"));
+        ok(/Due Dates/.test(await txt(page, ".pg-head .pg-title")) && await page.locator(".pg-sub").count() === 0, tag + ": a big page title with no context line");
         ok(await page.evaluate(() => { const t = document.querySelector(".pg-tabs"), b = t.querySelector("[aria-selected=true]"); return getComputedStyle(t).borderBottomWidth === "1px" && getComputedStyle(b).borderBottomWidth === "3px" && getComputedStyle(b).backgroundColor === "rgba(0, 0, 0, 0)"; }), tag + ": the views are underlined tabs on a hairline");
         ok(await page.evaluate(() => { const h = document.querySelector(".pg-head"), t = document.querySelector(".pg-tabs"); return !!(h.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING); }) && await vis(page, '.pg-right [data-act="tl-mode"]'), tag + ": the title comes first and the Timeline / Month switch sits top right");
         ok(await vis(page, ".cal .day.is-today .num-t") && await page.evaluate(() => getComputedStyle(document.querySelector(".cal .day.is-today")).boxShadow.includes("inset")), tag + ": today has a ring and a Today pill");
@@ -114,21 +114,21 @@ const noOverflow = page => page.evaluate(() => document.documentElement.scrollWi
         ok(await page.evaluate(() => { const c = document.querySelector(".cal").getBoundingClientRect(); return c.height < innerHeight; }), tag + ": the whole month fits on screen");
         ok(/^(Sun|Sunday)$/i.test(await txt(page, ".cal .dow")), tag + ": weekday names are written out: " + await txt(page, ".cal .dow"));
       } else {
-        ok(!(await vis(page, ".pg-title")) && await vis(page, ".pg-sub"), tag + ": on a phone the title stays in the top bar, with the context line under it");
+        ok(!(await vis(page, ".pg-title")) && await page.locator(".pg-sub").count() === 0, tag + ": on a phone the title stays in the top bar, with no context line");
         ok(await vis(page, ".cal .dots i.ci") && !(await vis(page, ".cal .ci-t")), tag + ": the phone keeps the compact dot view");
       }
       ok(await noOverflow(page), tag + ": Calendar has no sideways scroll");
       await page.screenshot({path: path.join(OUT, `calendar-${tag}.png`)});
       for (const [t, sel] of [["schedule", "plan-view"], ["crunch", "plan-view"]]) {
         await go(page, {tab: t}); await page.waitForTimeout(250);
-        ok(await page.locator(".pg-head").count() === 1 && (await txt(page, ".pg-sub")).length > 5 && (phone || await page.locator("#view h2", {hasText: /^(Schedule|Crunch Forecast)$/}).count() === 1), tag + ": " + t + " has the page header once: " + await txt(page, ".pg-sub"));
+        ok(await page.locator(".pg-head").count() === 1 && await page.locator(".pg-sub").count() === 0 && (phone || await page.locator("#view h2", {hasText: /^(Schedule|Crunch Forecast)$/}).count() === 1), tag + ": " + t + " has the page header once");
       }
 
       /* The same header on the other tabbed pages */
       for (const [o, title] of [[{tab: "board", bview: "board"}, "Task Board"], [{tab: "flashcards", rvView: "quizzes"}, "Your Quizzes"], [{tab: "courses", courseId: null, courseTab: ""}, "Your Courses"], [{tab: "notes"}, "Notes"]]) {
         await go(page, Object.assign({rvView: "cards"}, o)); await page.waitForTimeout(300);
         const h = await page.evaluate(() => [...document.querySelectorAll("#view h2")].filter(e => e.offsetWidth).map(e => e.textContent.trim()));
-        if (!phone) ok(await txt(page, ".pg-head .pg-title") === title && h.filter(x => x === title).length === 1 && await page.locator(".pg-tabs").count() === 1 && (await txt(page, ".pg-sub")).length > 3, tag + ": " + title + " gets the page header: " + await txt(page, ".pg-sub"));
+        if (!phone) ok(await txt(page, ".pg-head .pg-title") === title && h.filter(x => x === title).length === 1 && await page.locator(".pg-tabs").count() === 1 && await page.locator(".pg-sub").count() === 0, tag + ": " + title + " gets the page header");
         else ok(!h.includes(title) && await page.locator(".pg-head").count() === 1, tag + ": " + title + " on a phone does not repeat its title");
         ok(await noOverflow(page), tag + ": " + title + " has no sideways scroll");
       }
