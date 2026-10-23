@@ -144,12 +144,6 @@ function viewQuizzes(){
     <p class="hint-line tip-everyday">Make a quiz straight from your slides or notes with Add Quiz, or from a deck with Make a Quiz.</p>`;
 }
 /* Review hero: what's ready, about how long, and one Start button */
-const lastStudied = d => {
-  const last = d.cards.reduce((m, c) => c.last && c.last > m ? c.last : m, "");
-  if (!last) return "never studied";
-  const n = dayDiff(last, todayISO());
-  return n <= 0 ? "studied today" : n === 1 ? "studied yesterday" : n < 14 ? `studied ${n} days ago` : `studied ${fmtShort(last)}`;
-};
 // Decks with cards to review or learn, in the chosen course
 const readyDecks = course => decksArr().filter(d => (!course || course === "all" || d.courseId === course) && d.cards.some(c => !c.draft && (cardDue(c) || cardNew(c)))).map(d => d.id);
 // Days you rated at least one card: kept for two weeks, plus the last day each card was seen
@@ -210,7 +204,7 @@ function viewFlashcards(){
   let ds = deckListArr().filter(d => ui.filter === "all" || d.courseId === ui.filter).filter(d => fcMatches(d, ui.q));
   if (window.SBEXAM) ds = SBEXAM.sortDecks(ds);
   const tiles = ds.map(d => {
-    const st = deckStats(d), c = courseOf(d.courseId), tone = st.ready >= 70 ? "hi" : st.ready >= 35 ? "mid" : "lo", seen = lastStudied(d);
+    const st = deckStats(d), c = courseOf(d.courseId), tone = st.ready >= 70 ? "hi" : st.ready >= 35 ? "mid" : "lo";
     return `<article class="deck deck-fc cs-${esc(cardStyleOf(d))}" style="--c:${esc(colorOf(d.courseId))}">
       <span class="deck-lay l3" aria-hidden="true"><span class="face"></span></span><span class="deck-lay l2" aria-hidden="true"><span class="face"></span></span>
       <span class="deck-tab">${esc(c ? courseLabel(c) : "General")}</span>
@@ -219,7 +213,7 @@ function viewFlashcards(){
       <span class="fc-band" aria-hidden="true"><span class="fc-ic">${c ? courseRingHtml(c) : GENERAL_ICON}</span><span class="g2-kick">${esc(c ? courseLabel(c) : "General")}</span></span>
       <button class="deck-main" data-act="fc-open" data-id="${esc(d.id)}">
         <span class="deck-name">${esc(d.name)}</span>${window.SBEXAM ? SBEXAM.deckTag(d) : ""}
-        <span class="deck-due mini${st.due ? " on" : ""}">${st.due || st.fresh ? `<b class="${st.due ? "dd-on" : ""}">${st.due} due</b> · <b class="${st.fresh && !st.due ? "dd-new" : ""}">${st.fresh} new</b>` : st.total ? "All caught up" : "No cards yet"}${st.total ? ` · ${esc(seen)}` : ""}</span>
+        <span class="deck-due mini${st.due ? " on" : ""}">${st.due || st.fresh ? `${st.due} due · ${st.fresh} new` : st.total ? "All caught up" : "No cards yet"}</span>
         <span class="mastery ${tone}" role="img" aria-label="${st.ready}% prepared" title="${st.ready}% prepared. It rises as you review and rate cards well, and falls when you skip reviews or mark cards as not known."><i style="width:${st.ready}%"></i></span>
       </button>
       <div class="deck-actions"><button class="btn small primary" data-act="fc-study" data-id="${esc(d.id)}" ${st.total ? "" : "disabled"}>Study</button><button class="btn small" data-act="fc-share" data-id="${esc(d.id)}" ${st.total ? "" : "disabled"}>Share</button><button class="btn small deck-arch" data-act="fc-archive" data-id="${esc(d.id)}" title="Put this deck away when you're done studying it" aria-label="Archive ${esc(d.name)}">${ARCHIVE.replace('width="26" height="26"', 'width="16" height="16"')}</button></div>

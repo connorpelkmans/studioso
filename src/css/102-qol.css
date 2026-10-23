@@ -52,9 +52,9 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
 .g2-code,.deck-count,.tlbar.st-doing,.ms.tl-ic,.tl-ic.key,.sch-b,.sch-b.k-av-class,.sch-b.k-av-shift,.qz-band{color:var(--c-ink)}
 .course-card,.card-course,.deck-tab{--c-ink:#fff}
 .course-card::before,.card-course,.deck-tab{color:var(--c-ink)}
-.g2-band,.c2-band,.cr2-band,.next-up .nu-top,.card.has-tab > .card-course,.tl-row.tl-group,.tl-group .tl-label,.sch-b > .sch-band,.kb-band,.occv-band{--c-ink:#fff;color:var(--c-ink)}
+.g2-band,.c2-band,.cr2-band,.next-up .nu-top,.card.has-tab > .card-course,.fc-band,.tl-row.tl-group,.tl-group .tl-label,.sch-b > .sch-band,.kb-band,.occv-band{--c-ink:#fff;color:var(--c-ink)}
 .sch-b > .sch-band b,.c2-head .g2-code{color:var(--c-ink)!important}
-.g2-band,.c2-band,.cr2-band,.g2-code,.c2-head .g2-code,.sch-b > .sch-band,.kb-band,.qz-band{text-shadow:0 1px 2px rgba(0,0,0,.28)}
+.g2-band,.c2-band,.cr2-band,.g2-code,.c2-head .g2-code,.sch-b > .sch-band,.kb-band{text-shadow:0 1px 2px rgba(0,0,0,.28)}
 .g2-band .btn{text-shadow:none}
 /* buttons on a band: frosted white with dark course-coloured text, readable on any colour */
 .g2-head .g2-band .btn,.g2-head .g2-band summary.btn,.c2-head .g2-band .btn{color:color-mix(in srgb,var(--c) 45%,#000);background:rgba(255,255,255,.8);border-color:rgba(255,255,255,.9)}
