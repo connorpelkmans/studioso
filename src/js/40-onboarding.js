@@ -308,7 +308,6 @@
         <span class="ob-qa" aria-hidden="true"><span>+</span>bio quiz fri 2pm worth 5%</span>
       </div>
       ${window.SBSEM && SBSEM.tourButton() ? `<div class="ob-next">${SBSEM.tourButton()}</div>` : ""}
-      ${window.SBTOUR && !SBTOUR.taken() ? `<div class="ob-alt ob-tour"><span class="ob-alt-ic" aria-hidden="true">${IC.board}</span><span class="ob-alt-t"><b>New Here?</b><span class="mini">Take a one-minute look around the app, with example data.</span></span><button type="button" class="btn" data-ob="apptour">Take the App Tour</button></div>` : ""}
       ${window.SBGUEST && SBGUEST.is() ? `<div class="ob-next ob-guest"><b>Keep Your Planner Safe</b><span class="mini">It's only on this device for now. A free account keeps it safe online and puts it on your phone and laptop too. What you've set up comes with you.${guestGift ? " New accounts also get their first week of Pro free." : ""}</span><button type="button" class="btn" data-ob="account">Create a Free Account</button></div>` : ""}`;
   }
 

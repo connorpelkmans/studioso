@@ -36,7 +36,8 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     ok(await page.evaluate(() => Object.values(SBLMS.st().courses).some(c => c.code === "BIOL 101")), "a course typed but not added yet comes along on Next");
     await page.click('[data-ob="finish"]'); await page.waitForTimeout(300);
     ok(await page.locator(".ob-more-b").count() === 0 && await page.locator('.sem-card-b [data-act="sem-open"]').count() === 1, "the rest isn't pushed on the same day; an empty planner gets the Set Up Your Semester card");
-    const later = async pg => { await pg.evaluate(() => { const k = "sb:onboarded:more", m = JSON.parse(localStorage.getItem(k) || "{}"); m.at = Date.now() - 2 * 864e5; localStorage.setItem(k, JSON.stringify(m)); });
+    const later = async pg => { await pg.waitForTimeout(1600); if (await pg.evaluate(() => window.SBTOUR && SBTOUR.active())) { await pg.keyboard.press("Escape"); await pg.waitForTimeout(300); }
+      await pg.evaluate(() => { const k = "sb:onboarded:more", m = JSON.parse(localStorage.getItem(k) || "{}"); m.at = Date.now() - 2 * 864e5; localStorage.setItem(k, JSON.stringify(m)); });
       await pg.click('nav.tabs [data-tab="courses"]'); await pg.waitForTimeout(150); await pg.click('nav.tabs [data-tab="board"]'); await pg.waitForTimeout(250);
       if (await pg.locator('.sem-card-b [data-act="sem-hide"]').count()) { await pg.click('.sem-card-b [data-act="sem-hide"]'); await pg.waitForTimeout(250); } };
     await later(page);
