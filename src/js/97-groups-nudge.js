@@ -42,21 +42,33 @@
   }
   const inBar = () => !!(window.matchMedia && matchMedia("(max-width:979px)").matches);
 
-  function moreSheet(){
+  function moreSheet(opener){
     const row = (act, title, sub) => `<button type="button" data-act="${act}"><span>${esc(title)}<span class="sub">${esc(sub)}</span></span></button>`;
+    const local = typeof sbLocalOnly === "function" && sbLocalOnly() && !stub();
     openSheet(`<div class="sheet more-sheet">${head(tr("more.title", "More"))}<div class="sheet-body"><div class="menu-list">
-      ${row("more-go-groups", tr("more.groups", "Study Groups"), tr("more.groups.sub", "Share decks and deadlines, plan sessions with friends"))}
+      ${row("more-go-groups", tr("more.groups", "Study Groups"), local ? tr("more.groups.local", "Share decks and deadlines with friends. Needs a free account.") : tr("more.groups.sub", "Share decks and deadlines, plan sessions with friends"))}
       ${row("more-go-files", tr("more.files", "Files"), tr("more.files.sub", "Your course files and documents"))}
       ${row("g-grades", tr("more.grades", "Grades"), tr("more.grades.sub", "Your marks and what you need on the rest"))}
+      ${row("shop", tr("more.style", "Style Shop"), tr("more.style.sub", "Themes, card styles, note shapes and stickers"))}
+      ${row("archive-open", tr("more.archive", "Archive"), tr("more.archive.sub", "Finished tasks and past terms"))}
       ${row("menu", tr("more.settings", "Settings"), tr("more.settings.sub", "Backups, text size, themes and more"))}
     </div></div></div>`);
-    const b = $("nav.tabs .nav-more"); if (b) b.setAttribute("aria-expanded", "true");
+    const b = opener || $("nav.tabs .nav-more"); if (b) b.setAttribute("aria-expanded", "true");
     dlg.addEventListener("close", () => {
-      const m = $("nav.tabs .nav-more"); if (!m) return;
+      const m = opener || $("nav.tabs .nav-more"); if (!m) return;
       m.setAttribute("aria-expanded", "false");
       if (!document.activeElement || document.activeElement === document.body) { try { m.focus(); } catch (e) {} }
     }, {once: true});
   }
+  // Phones and tablets: the bottom bar keeps the main pages, and the header's More button holds the rest
+  const headMore = () => $('header.top [data-act="menu"]');
+  function headLabel(){
+    const b = headMore(); if (!b) return;
+    b.setAttribute("aria-label", inBar() ? tr("more.aria.head", "More: Study Groups, Files, Grades, Style and Settings") : "Settings, backups and import");
+    if (inBar()) b.setAttribute("aria-haspopup", "dialog"); else b.removeAttribute("aria-haspopup");
+    document.body.classList.toggle("sb-local", typeof sbLocalOnly === "function" && sbLocalOnly() && !stub());
+  }
+  try { const mq = matchMedia("(max-width:979px)"); (mq.addEventListener ? mq.addEventListener("change", headLabel) : mq.addListener(headLabel)); } catch (e) {}
 
   /* Board card */
   let probed = null, probing = null;
@@ -102,6 +114,7 @@
   hook("act", (act, el) => {
     switch (act) {
       case "more-open": moreSheet(); return true;
+      case "menu": if (inBar() && el && el.closest && el.closest("header.top")) { moreSheet(el); return true; } return false;
       case "more-go-groups": if (dlg.open) dlg.close(); ui.tab = "groups"; ui.grp = null; ui.courseId = null; render(); window.scrollTo(0, 0); return true;
       case "more-go-files": if (dlg.open) dlg.close(); ui.tab = "files"; ui.courseId = null; render(); window.scrollTo(0, 0); return true;
       case "gn-open": wr({snooze: Date.now() + 60 * 864e5}); ui.tab = "groups"; ui.grp = null; render(); window.scrollTo(0, 0); return true;
@@ -110,9 +123,9 @@
     }
     return false;
   });
-  hook("render", () => { addMore(); label(); });
-  hook("boot", () => { addMore(); label(); });
-  hook("lang", () => label());
+  hook("render", () => { addMore(); label(); headLabel(); });
+  hook("boot", () => { addMore(); label(); headLabel(); });
+  hook("lang", () => { label(); headLabel(); });
   window.SBGNUDGE = {showCard, state: rd, inBar};
 })();
 
