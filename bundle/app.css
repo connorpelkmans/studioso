@@ -5990,7 +5990,7 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
 }
 /* Companion chat */
 .cpt-log{max-height:max(240px,calc(100dvh - 456px))!important}
-.cpt-form{position:sticky;bottom:12px;z-index:3;padding:6px;margin-inline:-6px;border-radius:18px;background:color-mix(in srgb,var(--paper,var(--bg)) 86%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.cpt-form{position:sticky;bottom:12px;z-index:3;padding:6px;margin-inline:0;border-radius:18px;background:color-mix(in srgb,var(--paper,var(--bg)) 86%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
 @media (max-width:979px){.cpt-log{max-height:max(220px,calc(100dvh - 520px))!important}.cpt-form{bottom:calc(84px + env(safe-area-inset-bottom,0px))}}
 .fc-arch-btn{display:inline-flex;align-items:center;gap:6px}
 /* Review, Quizzes */
