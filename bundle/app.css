@@ -3868,6 +3868,20 @@ html.tpcss-loading [class*="cs-tp-"] .face *{visibility:hidden}
 .ui-shop .ui-sec.ui-held > .ui-sec-b,.ui-shop .ui-col.ui-held{display:none}
 .ui-cols-more{margin-top:0!important}
 .ui-shop .sheet-body{background:var(--surface)}
+/* Phone: keep the extras above the themes small so the previews come first */
+@media (max-width:600px){
+  .ui-shop .shop-mode{gap:6px 10px;align-items:center}
+  .ui-shop .shop-mode > .mini{display:none}
+  .ui-shop .shop-mode .segb button{min-height:34px;padding:4px 12px;font-size:.85rem}
+  .ui-shop .shop-mode .motion-tog{margin-left:0;font-size:.82rem;font-weight:600;color:var(--muted)}
+  .ui-shop .shop-mode .sc-moment{min-height:34px;padding:4px 12px;font-size:.82rem}
+  .ui-shop .ph-intro{display:none}
+  .ui-shop .ph-grid .ph-add{grid-column:1/-1;min-height:0;display:flex;align-items:center;justify-content:flex-start;text-align:left;gap:12px!important;padding:8px 12px}
+  .ui-shop .ph-grid .ph-add .ph-add-ic{width:36px;height:36px;flex:none}
+  .ui-shop .ph-grid .ph-add .ph-add-ic svg{width:20px;height:20px}
+  .ui-shop .ph-grid .ph-add .mini{display:none}
+  .ui-shop .ph-grid .ph-add.full .mini,.ui-shop .ph-grid .ph-add.locked .mini{display:block;max-width:none}
+}
 
 
 /* ===== module: 97-ui.css ===== */
