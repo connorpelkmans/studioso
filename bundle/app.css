@@ -5960,17 +5960,23 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
   /* Timeline: the course's full name ran into the "N open" count */
   .tl-row.tl-group .tl-gname{display:none}
   /* Grades: course names broke mid-word beside the grade */
-  .gp-hero .gp-main{grid-template-columns:44px minmax(0,1fr) auto!important;grid-template-areas:"ring who who" "ring bar grade" "ring line line"!important;gap:5px 14px!important;padding:12px 0!important}
+  .gp-hero .gp-main{grid-template-columns:44px minmax(0,1fr) 92px!important;grid-template-areas:"ring who who" "ring bar grade" "ring line line"!important;gap:5px 14px!important;padding:12px 0!important}
   .gp-hero .gp-ring{width:44px;height:44px;align-self:center}
   .gp-who .gp-name{overflow-wrap:normal!important;word-break:normal!important;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden!important;font-size:.98rem!important;line-height:1.25!important}
   .gp-who .mini{margin-top:2px;font-size:.8rem}
   .gp-hero .gp-bar{height:8px!important;align-self:center}
   .gp-hero .gp-grade b{font-size:1.15rem!important}
   .gp-hero .gp-grade .mini{font-size:.8rem;white-space:nowrap}
+  /* the grade sits flush right in a fixed column, so every course's bar is the same length */
+  .gp-hero .gp-grade{justify-self:end;justify-content:flex-end;white-space:nowrap}
   .gp-hero .gp-line{font-size:.8rem}
   /* the two row buttons: small and quiet, top right beside the name */
-  .gp-hero .gp-course{align-items:flex-start;gap:2px}
-  .gp-hero .gp-course > .icon-btn{width:34px;height:34px;min-width:34px;min-height:34px;margin-top:10px;border-color:transparent;background:none;box-shadow:none;color:var(--muted)}
+  .gp-hero .gp-course{position:relative;align-items:flex-start;gap:2px}
+  .gp-hero .gp-course > .gp-main{flex:1 1 100%}
+  .gp-hero .gp-who{padding-right:72px}
+  .gp-hero .gp-course > .icon-btn{position:absolute;top:10px;width:34px;height:34px;min-width:34px;min-height:34px;margin:0;border-color:transparent;background:none;box-shadow:none;color:var(--muted)}
+  .gp-hero .gp-course > .gp-tog{right:36px}
+  .gp-hero .gp-course > .icon-btn:not(.gp-tog){right:0}
   .gp-hero .gp-course > .icon-btn svg{width:17px;height:17px}
   /* Companion: a long suggested question ran off both sides of the screen */
   .cpt-chips .chip{max-width:100%;white-space:normal;text-align:center;height:auto;line-height:1.3;padding-block:8px}
