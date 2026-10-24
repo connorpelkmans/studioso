@@ -27,6 +27,11 @@ dialog:has(.plan-sheet){width:min(600px,calc(100% - 24px))}
 .cp-banner{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:12px;max-width:calc(100vw - 24px);padding:8px 8px 8px 16px;border-radius:999px;
   background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:0 8px 28px rgba(0,0,0,.35);font:600 .9rem var(--display)}
 .cp-banner .cp-txt{min-width:0;overflow-wrap:anywhere}
+@media (max-width:979px){
+  .cp-banner{left:12px;right:12px;transform:none;bottom:calc(96px + env(safe-area-inset-bottom,0px));justify-content:space-between;gap:10px;max-width:none;padding:8px 8px 8px 16px;border-radius:18px;font-size:.85rem;line-height:1.25}
+  .cp-banner .cp-txt{flex:1 1 auto;overflow-wrap:break-word}
+  .cp-banner .btn{flex:none;white-space:nowrap}
+}
 .cp-note{margin:6px 0 0}
 .plan-compare{display:grid;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--surface)}
 .pc-row{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) minmax(0,1.15fr);align-items:center;font-size:.9rem;border-top:1px solid var(--line)}
