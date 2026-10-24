@@ -336,14 +336,24 @@
   }
   async function accessSheet(nid){
     const g = live(state.notes[nid]); if (!g) return;
-    openSheet(`<div class="sheet">${head("Who Has This Board")}<div class="sheet-body"><p class="mini" style="margin:0" role="status">Loading…</p></div></div>`);
-    const [a] = await Promise.all([access(g.bid, true), G() && G().loadMembers ? G().loadMembers(g.gid) : null]); if (!dlg.open) return;
-    const ids = [...new Set(((a && a.ids) || []).concat(me()))].sort((x, y) => (y === me()) - (x === me()));
-    $(".sheet-body", dlg).innerHTML = `<div class="wbg-from"><span class="wbg-from-t"><span class="mini">Shared from</span><b>${esc(g.gn || "your study group")}</b></span>${G() && G().openBoards ? `<button type="button" class="btn small" id="wbGoGroup">Go to Group</button>` : ""}</div>
+    const body = a => { const ids = [...new Set(((a && a.ids) || []).concat(me()))].sort((x, y) => (y === me()) - (x === me()));
+      return `<div class="wbg-from"><span class="wbg-from-t"><span class="mini">Shared from</span><b>${esc(g.gn || "your study group")}</b></span>${G() && G().openBoards ? `<button type="button" class="btn small" id="wbGoGroup">Go to Group</button>` : ""}</div>
       <p style="margin:0">Live: what anyone here draws or writes shows up for everyone as it happens.</p>
-      <ul class="wbg-people">${ids.map(id => { const nm = memberName(g.gid, id); return `<li>${faceOf(g.gid, id)}${esc(nm)}</li>`; }).join("")}</ul>
-      <p class="mini" style="margin:0">Anyone else in the group can add it from the group's Whiteboards tab. Deleting your copy only removes yours.</p>`;
-    const go = $("#wbGoGroup", dlg); if (go) go.addEventListener("click", () => { W.flush(); G().openBoards(g.gid); });
+      <ul class="wbg-people">${ids.map(id => `<li>${faceOf(g.gid, id)}${esc(memberName(g.gid, id))}</li>`).join("")}</ul>
+      <p class="mini" style="margin:0">Anyone else in the group can add it from the group's Whiteboards tab. Deleting your copy only removes yours.</p>`; };
+    const fetch = () => Promise.all([access(g.bid, true), G() && G().loadMembers ? G().loadMembers(g.gid) : null]).then(r => r[0]).catch(() => ACC.get(g.bid));
+    // Open once, with everything: cached people show at once, otherwise wait briefly for them
+    if (accessSheet.busy) return; accessSheet.busy = true;
+    let a = ACC.get(g.bid), html;
+    const p = fetch(), haveM = G() && G().members && (G().members(g.gid) || []).length;
+    if (!a || !haveM) a = await Promise.race([p, new Promise(r => setTimeout(() => r(ACC.get(g.bid)), 1500))]);
+    accessSheet.busy = false;
+    openSheet(`<div class="sheet">${head("Who Has This Board")}<div class="sheet-body">${html = body(a)}</div></div>`);
+    const wire = () => { const go = $("#wbGoGroup", dlg); if (go) go.addEventListener("click", () => { W.flush(); G().openBoards(g.gid); }); };
+    wire();
+    // quietly refresh only if someone new turned up
+    const fresh = await p; if (!dlg.open) return;
+    const next = body(fresh); if (next !== html && $(".wbg-people", dlg)) { $(".sheet-body", dlg).innerHTML = next; wire(); }
   }
   hook("wb-head", id => {
     const g = live(state.notes[id]); if (!g) return "";
