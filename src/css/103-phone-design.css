@@ -133,7 +133,7 @@
   /* The header keeps its own space while it shrinks, so the browser must not shift the scroll for it */
   html{overflow-anchor:none}
   /* the size change is animated from script (see morph) */
-  body.sb-scrolled header.top{padding-top:6px!important;padding-bottom:6px!important;background:color-mix(in srgb,var(--paper,var(--bg)) 96%,transparent)!important;-webkit-backdrop-filter:blur(18px) saturate(1.6)!important;backdrop-filter:blur(18px) saturate(1.6)!important;border-bottom:1px solid color-mix(in srgb,var(--line) 75%,transparent);box-shadow:0 6px 16px -12px rgba(8,20,50,.35)}
+  body.sb-scrolled header.top{padding-top:6px!important;padding-bottom:6px!important;background:linear-gradient(to bottom,var(--paper) 0,color-mix(in srgb,var(--paper) 50%,transparent) 70%)!important;-webkit-backdrop-filter:blur(18px) saturate(1.6)!important;backdrop-filter:blur(18px) saturate(1.6)!important;border-bottom:1px solid color-mix(in srgb,var(--line) 75%,transparent);box-shadow:0 6px 16px -12px rgba(8,20,50,.35)}
   body.sb-scrolled header.top .top-row > div:first-child{flex-direction:row!important;flex-wrap:nowrap;align-items:center!important;padding-top:0;min-width:0}
   body.sb-scrolled header.top .brand{flex:none}
   body.sb-scrolled header.top .brand img.logo{width:92px}
