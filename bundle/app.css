@@ -6548,14 +6548,17 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
   #view .c2-card .c2-band > *{display:none}
   #view .c2-card .c2-top{display:contents}
   #view .c2-card .c2-ring{grid-area:ring;align-self:center;width:48px;height:48px;margin:0;font-size:.8rem;box-shadow:0 0 0 2.5px var(--c)!important}
-  #view .c2-card h3{grid-area:top;display:flex;align-items:baseline;gap:8px;min-width:0;margin:0!important;padding:0!important;font:800 1.06rem/1.25 var(--display)!important;overflow-wrap:normal}
-  #view .c2-card h3 .c2-code{display:inline;flex:none;font:700 .68rem var(--display);letter-spacing:.04em;color:color-mix(in srgb,var(--c) 62%,var(--ink));white-space:nowrap}
+  /* the code is a small label above the name; long names stop at two lines */
+  #view .c2-card h3{grid-area:top;display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:0;margin:0!important;padding:0!important;font:800 1.06rem/1.25 var(--display)!important;overflow-wrap:normal}
+  #view .c2-card h3 .c2-code{display:block;order:-1;font:800 .66rem/1.2 var(--display);letter-spacing:.06em;color:color-mix(in srgb,var(--c) 62%,var(--ink));white-space:nowrap}
+  #view .c2-card h3 .c2-name{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;max-width:100%}
   #view .c2-card .body{grid-area:body;display:grid;gap:5px!important;padding:0;min-width:0}
   #view .c2-card .c2-when{display:block;font-size:.78rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #view .c2-card .next{margin:0;font-size:.84rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #view .c2-card .next b{color:var(--ink)}
   #view .c2-card .body > .prog{display:none}
-  #view .c2-card .c2-foot{display:flex;flex-wrap:nowrap;align-items:center;gap:8px;min-width:0;margin:0;padding:0;border:0;font-size:.76rem}
+  #view .c2-card .c2-foot{display:flex;flex-wrap:nowrap;align-items:center;justify-content:flex-start;gap:14px;min-width:0;margin:2px 0 0;padding:0;border:0;font-size:.76rem}
+  #view .c2-card .c2-foot > .c2-nomarks{display:none}
   #view .c2-card .c2-foot > .g2-pill{flex:none;margin-left:auto;padding:2px 8px;font-size:.72rem}
   #view .c2-card .c2-foot > .g2-pill.late{color:color-mix(in srgb,var(--late) 78%,var(--ink))}
   #view .c2-card .c2-foot > :is(.mini,.c2-grade){flex:0 1 auto;min-width:0;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
