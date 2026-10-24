@@ -415,10 +415,15 @@ var SBWB = null;
     if (fx && fw > 0 && fh > 0) {
       const R = pageRect(noteOf().wb.pa), fit = Math.min(fw / R[2], fh / R[3]);
       if (!ph) { cam.z = Math.max(zMin(), fit); cam.x = 0; cam.y = 0; return; }
-      // zoom out as far as the whole page, centred when it's smaller than the frame
-      cam.z = clamp(cam.z, Math.max(ZMIN, fit), ZMAX);
-      const pw = R[2] * cam.z, phh = R[3] * cam.z;
-      cam.x = pw <= fw ? Math.round((fw - pw) / 2) : clamp(cam.x, fw - pw, 0); cam.y = phh <= fh ? Math.round((fh - phh) / 2) : clamp(cam.y, fh - phh, 0);
+      // the page plus anything drawn or placed past its edges, all reachable
+      const bb = contentBB(), E = [0, 0, R[2], R[3]];
+      if (bb) { E[0] = clamp(Math.min(0, bb[0]), 0, BW); E[1] = clamp(Math.min(0, bb[1]), 0, BH); E[2] = clamp(Math.max(R[2], bb[2]), 0, BW); E[3] = clamp(Math.max(R[3], bb[3]), 0, BH); }
+      const ew = E[2] - E[0], eh = E[3] - E[1];
+      // zoom out as far as all of it, centred when it's smaller than the frame
+      cam.z = clamp(cam.z, Math.max(ZMIN, Math.min(fw / ew, fh / eh)), ZMAX);
+      const pw = ew * cam.z, phh = eh * cam.z;
+      cam.x = pw <= fw ? Math.round((fw - pw) / 2 - E[0] * cam.z) : clamp(cam.x, fw - E[2] * cam.z, -E[0] * cam.z);
+      cam.y = phh <= fh ? Math.round((fh - phh) / 2 - E[1] * cam.z) : clamp(cam.y, fh - E[3] * cam.z, -E[1] * cam.z);
       return;
     }
     cam.z = clamp(cam.z, zMin(), ZMAX);
