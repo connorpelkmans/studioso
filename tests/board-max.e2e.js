@@ -63,8 +63,10 @@ const SHOTS = process.env.SHOTS || "";
       await page.waitForSelector(".wb-frame .wb-max");
       const w0 = await page.evaluate(() => document.querySelector(".wb-frame").getBoundingClientRect());
       const wm = await page.evaluate(() => { const b = document.querySelector(".wb-max").getBoundingClientRect(), z = document.querySelector(".wb-zoom").getBoundingClientRect(), f = document.querySelector(".wb-frame").getBoundingClientRect();
-        return f.right - b.right < 20 && b.top - f.top < 20 && z.left - f.left < 20 && z.top - f.top < 20 && z.right < b.left; });
-      ok(await page.locator(".wb-max").isVisible() && wm, `${label}: the whiteboard has its zoom at the top left and the expand button at the top right`);
+        const top = f.right - b.right < 20 && b.top - f.top < 20 && z.top - f.top < 20;
+        // phone: one corner pill, expand button at its right end; computer: zoom top left
+        return innerWidth < 700 ? top && f.right - z.right < 20 && b.left > z.left && b.right <= z.right + 2 : top && z.left - f.left < 20 && z.right < b.left; });
+      ok(await page.locator(".wb-max").isVisible() && wm, `${label}: the whiteboard's zoom and expand button sit at the top corners`);
       await page.click(".wb-max"); await page.waitForTimeout(400);
       c = await covers(page);
       const w1 = await page.evaluate(() => { const f = document.querySelector(".wb-frame").getBoundingClientRect(), cv = document.querySelector(".wb-ink"); return {w: f.width, h: f.height, cw: cv.width, ch: cv.height, dpr: devicePixelRatio}; });
