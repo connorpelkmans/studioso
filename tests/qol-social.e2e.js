@@ -259,6 +259,29 @@ async function sessions(w, dark){
   await done(page, tag);
 }
 
+// New things from other members show as counts on the Groups icon, the group's card and the section tab
+async function news(w){
+  const tag = `group news ${w}px:`, at = "2026-03-01T00:00:00Z";
+  const page = await page0({w, stub: {me: "u1", kind: "study",
+    items: [{id: "d1", kind: "deck", user_id: "u2", author_name: "Sam", title: "Cell Bio", created_at: at, updated_at: at, data: {v: 1, name: "Cell Bio", cards: [{id: "a", front: "ATP", back: "Energy"}]}}],
+    msgs: [{user_id: "u2", body: "Quiz on Friday?", created_at: "2026-03-02T00:00:00Z"}, {user_id: "u1", body: "Yes", created_at: "2026-03-03T00:00:00Z"}]}});
+  await page.evaluate(() => localStorage.setItem("studyboard:grpSeen:u1", JSON.stringify({g1: {b: Date.parse("2026-02-01T00:00:00Z"), t: {}}})));
+  await page.reload(); await page.waitForSelector("#view"); await page.waitForTimeout(1500);
+  const nav = () => page.evaluate(() => { const d = document.querySelector('nav.tabs [data-tab="groups"] .grp-dot'); return d ? d.textContent : ""; });
+  ok(await nav() === "2", tag + " the Groups icon counts the deck and the chat message from Sam, not your own message: " + await nav());
+  await act(page, "grp-page"); await page.waitForSelector('[data-act="grp-open"]'); await page.waitForTimeout(300);
+  ok(await txt(page, '[data-act="grp-open"] .grp-new') === "2", tag + " the group's card shows 2 new");
+  await page.click('[data-act="grp-open"]'); await page.waitForSelector("#grpDetail .grp-tabs"); await page.waitForTimeout(400);
+  const tabN = k => page.evaluate(k => { const b = document.querySelector(`#grpDetail .grp-tabs [data-t="${k}"] .grp-new`); return b ? b.textContent : ""; }, k);
+  ok(await tabN("study") === "" && await tabN("chat") === "1", tag + " opening the group clears Study (where you land) and Chat shows 1");
+  ok(await nav() === "1", tag + " the Groups icon drops to 1");
+  await page.click('#grpDetail .grp-tabs [data-t="chat"]'); await page.waitForTimeout(300);
+  ok(await tabN("chat") === "" && await nav() === "", tag + " opening Chat clears it everywhere");
+  await page.reload(); await page.waitForSelector("#view"); await page.waitForTimeout(1500);
+  ok(await nav() === "", tag + " and it stays cleared after a reload");
+  await done(page, tag);
+}
+
 (async () => {
   await new Promise(r => server.listen(0, r)); base = "http://localhost:" + server.address().port + "/";
   browser = await chromium.launch({executablePath});
@@ -269,6 +292,7 @@ async function sessions(w, dark){
     await search();
     await project(1280); await project(390, true);
     await sessions(1280); await sessions(390, true);
+    await news(1280); await news(390);
     console.log(`\nqol-social.e2e.js: ${n} checks passed. Screenshots in ${SHOTS}`);
   } catch (e) { console.error("FAILED:", e.message); process.exitCode = 1; }
   await browser.close(); server.close();

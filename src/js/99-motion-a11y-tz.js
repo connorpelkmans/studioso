@@ -517,7 +517,8 @@
     let el = box.querySelector(".top-sec");
     if (!el) { el = document.createElement("span"); el.className = "top-sec"; el.setAttribute("aria-hidden", "true"); brand.after(el); }
     const pick = document.querySelector("#view > .pview-tabs [aria-selected=true], #view .bview-tabs [aria-selected=true]") || document.querySelector("nav.tabs [aria-current=page]");
-    const t = pick ? pick.textContent.replace(/\s+/g, " ").trim() : "";
+    const name = pick && pick.cloneNode(true); if (name) name.querySelectorAll(".grp-dot,.fc-navdue,.nm-dot,.grp-new").forEach(x => x.remove());
+    const t = name ? name.textContent.replace(/\s+/g, " ").trim() : "";
     if (el.textContent !== t) el.textContent = t;
   }
   const soon = () => { if (!raf) raf = requestAnimationFrame(check); };

@@ -21,7 +21,9 @@
       const el = titleBox(); if (!el) return;
       const tab = (typeof ui !== "undefined" && ui.tab) || "board";
       const cur = document.querySelector('nav.tabs .in [aria-current="page"]');
-      const t = tab === "archive" ? "Archive" : (cur && cur.textContent.trim()) || label(tab) || (tab.charAt(0).toUpperCase() + tab.slice(1));
+      // the tab's name without its count badge
+      const navName = b => { const c = b.cloneNode(true); c.querySelectorAll(".grp-dot,.fc-navdue,.nm-dot").forEach(x => x.remove()); return c.textContent.trim(); };
+      const t = tab === "archive" ? "Archive" : (cur && navName(cur)) || label(tab) || (tab.charAt(0).toUpperCase() + tab.slice(1));
       const k = tab === "board" ? (document.getElementById("todayLabel") || {}).textContent || "" : "";
       el.querySelector(".ph-t").textContent = t;
       el.classList.toggle("ph-long", t.length > 8);

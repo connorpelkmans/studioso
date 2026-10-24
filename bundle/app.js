@@ -24853,6 +24853,7 @@ hook("boot", boot);
     if (ui.tab === "groups") render();
     updateNavBadge();
     reportStats();
+    newsFetch(true);
   }
   // Count shared items that changed since you copied them, per group
   function markChanges(stamps){
@@ -24877,7 +24878,7 @@ hook("boot", boot);
         indexItems(gid, S.items[gid]); delete S.errG[gid]; calSync(gid);
         const n = (S.items[gid] || []).filter(it => { const c = it.kind === "task" ? copyOfTask(it.id) : copyOfItem(it.id), ref = c && (c.groupRef || c.sharedFrom); return ref && it.user_id !== myId() && ts(it.updated_at) > ts(ref.v) + 1000; }).length;
         if (n) S.changed[gid] = n; else delete S.changed[gid];
-        updateNavBadge();
+        updateNavBadge(); newsAt = 0; setTimeout(() => newsFetch(true), 0);
       }
     } catch(e) { S.errG[gid] = e.message; }
     S.loadingG[gid] = false;
@@ -24909,13 +24910,85 @@ hook("boot", boot);
   }
   function updateNavBadge(){
     const b = $('nav.tabs [data-tab="groups"]'); if (!b) return;
-    const n = Object.values(S.changed).reduce((a, x) => a + x, 0);
+    const n = Object.values(S.changed).reduce((a, x) => a + x, 0) + newsTotal();
     let dot = $(".grp-dot", b);
     if (!n) { if (dot) dot.remove(); return; }
     if (!dot) { dot = document.createElement("span"); dot.className = "grp-dot"; b.appendChild(dot); }
     dot.textContent = n > 9 ? "9+" : String(n);
     b.setAttribute("aria-label", `Groups, ${n} update${n === 1 ? "" : "s"}`);
   }
+
+  /* New from other members: a count on the section tab, on the group's card and on the Groups icon.
+     When you last looked at each section is kept per device; a group you've never opened starts with nothing new. */
+  const NEWSK = () => "studyboard:grpSeen:" + (myId() || "x");
+  let SEEN = null, SEENU = "";
+  const seenAll = () => { if (!SEEN || SEENU !== NEWSK()) { SEENU = NEWSK(); try { SEEN = JSON.parse(localStorage.getItem(SEENU) || "{}") || {}; } catch (e) { SEEN = {}; } } return SEEN; };
+  const seenSave = () => { try { localStorage.setItem(SEENU, JSON.stringify(SEEN)); } catch (e) {} };
+  const seenOf = gid => { const a = seenAll(); if (!a[gid]) { a[gid] = {b: Date.now(), t: {}}; seenSave(); } return a[gid]; };
+  S.news = {}; S.newsMax = {}; S.newsRaw = {};
+  // before Groups has been opened, the list from the start-up check is enough
+  const newsGroups = () => S.groups && S.groups.length ? S.groups : (S.newsGroups || []);
+  const newsGroup = gid => newsGroups().find(g => g.id === gid);
+  // Which section each kind of shared thing lives in
+  const KIND_TAB = {study: {deck: "study", quiz: "study", qa: "study", answer: "study", task: "study", event: "sessions", battle: "challenge"},
+    project: {link: "files", gfile: "files", event: "meetings", minutes: "meetings"}};
+  const newsTotal = () => Object.values(S.news).reduce((a, m) => a + Object.values(m).reduce((x, y) => x + y, 0), 0);
+  function newsCount(gid){
+    const g = newsGroup(gid), raw = S.newsRaw[gid]; if (!g || !raw) { delete S.news[gid]; return; }
+    const tabs = new Set(tabsOf(g).map(x => x[0])), s = seenOf(gid), me = myId(), out = {}, mx = {};
+    raw.forEach(x => {
+      if (!x.tab || !tabs.has(x.tab)) return;
+      const at = ts(x.at); mx[x.tab] = Math.max(mx[x.tab] || 0, at);
+      if (x.by && x.by !== me && at > (s.t[x.tab] || s.b)) out[x.tab] = (out[x.tab] || 0) + 1;
+    });
+    S.news[gid] = out; S.newsMax[gid] = mx;
+  }
+  // Looking at a section clears it
+  function newsSeen(gid, tab){
+    if (!gid || !tab) return;
+    const s = seenOf(gid), at = Math.max(Date.now(), ((S.newsMax[gid] || {})[tab] || 0) + 1);
+    if ((s.t[tab] || 0) >= at - 1500 && !((S.news[gid] || {})[tab])) return;
+    s.t[tab] = at; seenSave(); if (S.news[gid]) delete S.news[gid][tab];
+    newsPaint();
+  }
+  function newsPaint(){
+    const pip = (el, n, cls) => { let d = el.querySelector(":scope > ." + cls); if (!n) { if (d) d.remove(); return; } if (!d) { d = document.createElement("span"); d.className = cls; d.setAttribute("aria-hidden", "true"); el.appendChild(d); } d.textContent = n > 9 ? "9+" : String(n); };
+    const root = $("#grpDetail"), gid = root && root.dataset.gid;
+    if (gid) {
+      const g = groupOf(gid), cur = g && curTab(g); if (cur && ((S.news[gid] || {})[cur])) { newsSeen(gid, cur); return; }
+      $$("#grpDetail .grp-tabs [role=tab]").forEach(b => { const n = (S.news[gid] || {})[b.dataset.t] || 0; pip(b, n, "grp-new"); b.setAttribute("aria-label", b.firstChild.textContent + (n ? `, ${n} new` : "")); });
+    }
+    $$("#view .grp-card [data-act=grp-open]").forEach(b => { const m = S.news[b.dataset.id] || {}; pip(b, Object.values(m).reduce((a, x) => a + x, 0), "grp-new"); });
+    updateNavBadge();
+  }
+  // What's been added, for every group: shared items, chat, whiteboards, project tasks and new members
+  let newsBusy = false, newsAt = 0;
+  async function newsFetch(force){
+    const gs = newsGroups();
+    if (newsBusy || !online() || !gs.length || (!force && Date.now() - newsAt < 60000)) return;
+    newsBusy = true; newsAt = Date.now();
+    const ids = gs.map(g => g.id), since = new Date(Math.min(...ids.map(id => seenOf(id).b)) - 1000).toISOString();
+    const safe = p => p.then(r => r || [], () => []);
+    try {
+      const [its, msgs, boards, tasks] = await Promise.all([
+        safe(q(cli().from("group_items").select("group_id,kind,user_id,title,created_at").in("group_id", ids).gt("created_at", since))),
+        safe(q(cli().from("group_messages").select("group_id,user_id,created_at").in("group_id", ids).gt("created_at", since).order("created_at", {ascending: false}).limit(500))),
+        safe(q(cli().from("group_boards").select("group_id,created_by,created_at").in("group_id", ids).eq("deleted", false).gt("created_at", since))),
+        safe(q(cli().from("group_tasks").select("group_id,created_by,created_at").in("group_id", ids).eq("deleted", false).gt("created_at", since)))]);
+      const raw = {}; ids.forEach(id => { raw[id] = []; });
+      const add = (gid, tab, at, by) => { if (raw[gid]) raw[gid].push({tab, at, by}); };
+      its.forEach(x => { const g = newsGroup(x.group_id); if (!g || x.title === "__icon__") return; add(x.group_id, KIND_TAB[isProj(g) ? "project" : "study"][x.kind], x.created_at, x.user_id); });
+      msgs.forEach(x => add(x.group_id, "chat", x.created_at, x.user_id));
+      boards.forEach(x => add(x.group_id, "boards", x.created_at, x.created_by));
+      tasks.forEach(x => { const g = newsGroup(x.group_id); if (g && isProj(g)) add(x.group_id, "tasks", x.created_at, x.created_by); });
+      ids.forEach(id => (S.members[id] || []).forEach(m => add(id, "members", m.joined_at, m.user_id)));
+      S.newsRaw = raw; ids.forEach(newsCount);
+    } catch (e) {}
+    newsBusy = false; newsPaint();
+  }
+  hook("render", () => { try { newsPaint(); } catch (e) {} });
+  setInterval(() => { if (!document.hidden) newsFetch(); }, 180000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) newsFetch(); });
 
   /* Pages */
   const groupOf = gid => (S.groups || []).find(g => g.id === gid);
@@ -25027,6 +25100,7 @@ hook("boot", boot);
     if (!g || !tabsOf(g).some(x => x[0] === t)) return false;
     S.tab[g.id] = t;
     $$("#grpDetail .grp-pane").forEach(p => { p.hidden = p.dataset.pane !== t; });
+    newsSeen(g.id, t);
     $$("#grpDetail .grp-tabs [role=tab]").forEach(b => { const on = b.dataset.t === t; b.classList.toggle("on", on); b.setAttribute("aria-selected", on); b.tabIndex = on ? 0 : -1; });
     refreshFab(); return true;
   }
@@ -27408,7 +27482,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
         try {
           const gs = await api.groups() || []; if (!gs.length) return;
           const n = markChanges(await api.stamps(gs.map(g => g.id)) || []);
-          updateNavBadge();
+          updateNavBadge(); S.newsGroups = gs; newsFetch(true);
           if (n && ui.tab !== "groups") toast(`${plural(n, "shared item")} changed in your study groups`, null, {label: "View", fn: () => openGroup(Object.keys(S.changed).length === 1 ? Object.keys(S.changed)[0] : null)});
         } catch(e) {}
       })();
@@ -76074,7 +76148,9 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
       const el = titleBox(); if (!el) return;
       const tab = (typeof ui !== "undefined" && ui.tab) || "board";
       const cur = document.querySelector('nav.tabs .in [aria-current="page"]');
-      const t = tab === "archive" ? "Archive" : (cur && cur.textContent.trim()) || label(tab) || (tab.charAt(0).toUpperCase() + tab.slice(1));
+      // the tab's name without its count badge
+      const navName = b => { const c = b.cloneNode(true); c.querySelectorAll(".grp-dot,.fc-navdue,.nm-dot").forEach(x => x.remove()); return c.textContent.trim(); };
+      const t = tab === "archive" ? "Archive" : (cur && navName(cur)) || label(tab) || (tab.charAt(0).toUpperCase() + tab.slice(1));
       const k = tab === "board" ? (document.getElementById("todayLabel") || {}).textContent || "" : "";
       el.querySelector(".ph-t").textContent = t;
       el.classList.toggle("ph-long", t.length > 8);
@@ -77008,7 +77084,8 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
     let el = box.querySelector(".top-sec");
     if (!el) { el = document.createElement("span"); el.className = "top-sec"; el.setAttribute("aria-hidden", "true"); brand.after(el); }
     const pick = document.querySelector("#view > .pview-tabs [aria-selected=true], #view .bview-tabs [aria-selected=true]") || document.querySelector("nav.tabs [aria-current=page]");
-    const t = pick ? pick.textContent.replace(/\s+/g, " ").trim() : "";
+    const name = pick && pick.cloneNode(true); if (name) name.querySelectorAll(".grp-dot,.fc-navdue,.nm-dot,.grp-new").forEach(x => x.remove());
+    const t = name ? name.textContent.replace(/\s+/g, " ").trim() : "";
     if (el.textContent !== t) el.textContent = t;
   }
   const soon = () => { if (!raf) raf = requestAnimationFrame(check); };

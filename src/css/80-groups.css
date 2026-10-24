@@ -2,6 +2,7 @@
 /* Share Decks and Study Groups */
 nav.tabs .in .nav-groups{display:none}
 @media (min-width:980px){nav.tabs .in .nav-groups{display:flex}}
+nav.tabs .nav-groups{position:relative}
 .nav-groups .grp-dot{position:absolute;top:5px;right:12px;min-width:18px;height:18px;border-radius:9px;background:var(--late);color:#fff;font:700 .66rem/18px var(--display);text-align:center;padding:0 4px}
 
 .grp-intro{margin:6px 0 0;color:var(--muted);font-size:.95rem}
@@ -452,3 +453,7 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;overflow:au
 .kb-btns .btn.small{min-height:36px}
 .kb-none{padding:10px;border:1px dashed var(--line);border-radius:10px;color:var(--muted);font-size:.85rem;text-align:center}
 
+/* New from other members */
+.grp-tabs [role=tab] > .grp-new{display:inline-grid;place-items:center;min-width:18px;height:18px;margin-left:6px;padding:0 5px;box-sizing:border-box;border-radius:9px;background:var(--late);color:#fff;font:700 .66rem/1 var(--display);vertical-align:2px;box-shadow:0 0 0 2px var(--surface)}
+.grp-card{position:relative}
+.grp-card .grp-main > .grp-new{position:absolute;top:10px;right:10px;z-index:3;display:grid;place-items:center;min-width:22px;height:22px;padding:0 6px;box-sizing:border-box;border-radius:11px;background:var(--late);color:#fff;font:800 .72rem/1 var(--display);box-shadow:0 0 0 2px var(--surface),0 2px 6px rgba(0,0,0,.2)}
