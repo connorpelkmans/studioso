@@ -46,7 +46,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(await page.locator(".deck .mastery[aria-label$='prepared']").count() === 1, "and a Prepared bar");
       const pre = Number((await page.getAttribute(".deck .mastery", "aria-label")).match(/\d+/)[0]);
       ok(pre > 0 && pre < 60, "a deck with cards you keep missing is not ready: " + pre + "%");
-      const ab = await page.locator(".deck .deck-actions button").evaluateAll(b => b.map(x => x.innerText.trim() || x.getAttribute("aria-label") || ""));
+      const ab = await page.locator(".deck .deck-actions button:not(.rv-grip)").evaluateAll(b => b.map(x => x.innerText.trim() || x.getAttribute("aria-label") || ""));
       ok(ab.join("|") === "Study|Share|Archive Cells", "Study, Share and Archive sit together at the bottom (card style is in Edit Deck, quizzes have their own tab): " + ab.join("|"));
       await page.click('.deck [data-act="fc-share"]'); await page.waitForTimeout(600);
       const shareSaid = await page.evaluate(() => [(document.querySelector("#toast") || {}).textContent || "", document.querySelector("#dlg").open ? document.querySelector("#dlg").innerText.slice(0, 120) : ""].join(" / "));

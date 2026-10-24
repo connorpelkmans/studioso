@@ -6191,8 +6191,8 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   .ph-t{font:800 1.7rem/1.1 var(--display);letter-spacing:-.015em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .top-row{flex-wrap:nowrap!important;align-items:flex-end}
   .head-actions{gap:6px;align-items:center}
-  .head-actions > .icon-btn,.head-actions > .pomo-btn:not(.run){width:40px;height:40px;min-width:40px;padding:0;border-radius:50%;justify-content:center}
-  .head-actions > .pomo-btn.run{height:40px;padding:0 12px}
+  .head-actions > .icon-btn,.head-actions > .pomo-btn:not(.active):not(.run){width:40px;height:40px;min-width:40px;padding:0;border-radius:50%;justify-content:center}
+  .head-actions > :is(.pomo-btn.run,.pomo-btn.active){width:auto;height:40px;padding:0 12px}
   .sync-guest{align-self:center;padding:7px 11px;font-size:.74rem}
   /* Bottom tabs: five, with the companion's seat in the middle */
   :root{--ph-bar-b:max(6px,calc(var(--sb-sai-bottom,env(safe-area-inset-bottom,0px)) - 8px))}
@@ -6229,7 +6229,7 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   .fab svg{width:26px;height:26px}
   /* Page switchers */
   #view > .pview-tabs,#view > .bview-row .bview-tabs{max-width:none;width:100%;margin:2px 0 12px}
-  #view > .pview-tabs button,#view > .bview-row .bview-tabs button{padding:8px 6px;font-size:1.04rem;min-height:42px;white-space:nowrap}
+  #view > .pview-tabs button,#view > .bview-row .bview-tabs button{padding:8px 6px;font-size:1.2rem;min-height:42px;white-space:nowrap}
   #view > .bview-row{margin-top:0}
   .ph-dup{display:none!important}
   #view .view-head:not(:has(> :not(h2.ph-dup))){display:none}
@@ -6617,6 +6617,8 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
 /* Header that firms up on scroll */
 .top-sec{display:none}
 @media (max-width:639px){
+  /* The header keeps its own space while it shrinks, so the browser must not shift the scroll for it */
+  html{overflow-anchor:none}
   header.top .brand img.logo{transition:width .2s ease}
   body.sb-scrolled header.top{padding-top:6px!important;padding-bottom:6px!important;background:color-mix(in srgb,var(--paper,var(--bg)) 96%,transparent)!important;-webkit-backdrop-filter:blur(18px) saturate(1.6)!important;backdrop-filter:blur(18px) saturate(1.6)!important;border-bottom:1px solid color-mix(in srgb,var(--line) 75%,transparent);box-shadow:0 6px 16px -12px rgba(8,20,50,.35)}
   body.sb-scrolled header.top .top-row > div:first-child{flex-direction:row!important;flex-wrap:nowrap;align-items:center!important;padding-top:0;min-width:0}

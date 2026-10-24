@@ -72905,9 +72905,18 @@ var SBWB = null;
   // A layout template (Cornell Notes, Week Plan...) is one fixed page
   const FREE = ["blank", "grid", "dots", "lines"];
   const fixedPage = () => { const n = noteOf(); return !!(n && n.wb && n.wb.tpl && !FREE.includes(n.wb.tpl)); };
+  // On phones the page is too small to use at its fit size, so it zooms and moves, kept inside the page
+  const PHONE = () => !!(window.matchMedia && matchMedia("(max-width:639px)").matches);
   function clampCam(){
-    const fx = fixedPage(); if (STAGE) STAGE.classList.toggle("wb-fixed", fx);
-    if (fx && fw > 0 && fh > 0) { const R = pageRect(noteOf().wb.pa); cam.z = Math.max(zMin(), Math.min(fw / R[2], fh / R[3])); cam.x = 0; cam.y = 0; return; }
+    const fx = fixedPage(), ph = fx && PHONE(); if (STAGE) STAGE.classList.toggle("wb-fixed", fx && !ph);
+    if (fx && fw > 0 && fh > 0) {
+      const R = pageRect(noteOf().wb.pa), zf = Math.max(zMin(), Math.min(fw / R[2], fh / R[3]));
+      if (!ph) { cam.z = zf; cam.x = 0; cam.y = 0; return; }
+      cam.z = clamp(cam.z, zf, ZMAX);
+      const pw = R[2] * cam.z, phh = R[3] * cam.z;
+      cam.x = pw <= fw ? 0 : clamp(cam.x, fw - pw, 0); cam.y = phh <= fh ? 0 : clamp(cam.y, fh - phh, 0);
+      return;
+    }
     cam.z = clamp(cam.z, zMin(), ZMAX);
     if (!(fw > 0 && fh > 0)) return;
     cam.x = clamp(cam.x, fw - BW * cam.z, 0); cam.y = clamp(cam.y, fh - BH * cam.z, 0);
@@ -75018,14 +75027,24 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
   }
   async function accessSheet(nid){
     const g = live(state.notes[nid]); if (!g) return;
-    openSheet(`<div class="sheet">${head("Who Has This Board")}<div class="sheet-body"><p class="mini" style="margin:0" role="status">Loading…</p></div></div>`);
-    const [a] = await Promise.all([access(g.bid, true), G() && G().loadMembers ? G().loadMembers(g.gid) : null]); if (!dlg.open) return;
-    const ids = [...new Set(((a && a.ids) || []).concat(me()))].sort((x, y) => (y === me()) - (x === me()));
-    $(".sheet-body", dlg).innerHTML = `<div class="wbg-from"><span class="wbg-from-t"><span class="mini">Shared from</span><b>${esc(g.gn || "your study group")}</b></span>${G() && G().openBoards ? `<button type="button" class="btn small" id="wbGoGroup">Go to Group</button>` : ""}</div>
+    const body = a => { const ids = [...new Set(((a && a.ids) || []).concat(me()))].sort((x, y) => (y === me()) - (x === me()));
+      return `<div class="wbg-from"><span class="wbg-from-t"><span class="mini">Shared from</span><b>${esc(g.gn || "your study group")}</b></span>${G() && G().openBoards ? `<button type="button" class="btn small" id="wbGoGroup">Go to Group</button>` : ""}</div>
       <p style="margin:0">Live: what anyone here draws or writes shows up for everyone as it happens.</p>
-      <ul class="wbg-people">${ids.map(id => { const nm = memberName(g.gid, id); return `<li>${faceOf(g.gid, id)}${esc(nm)}</li>`; }).join("")}</ul>
-      <p class="mini" style="margin:0">Anyone else in the group can add it from the group's Whiteboards tab. Deleting your copy only removes yours.</p>`;
-    const go = $("#wbGoGroup", dlg); if (go) go.addEventListener("click", () => { W.flush(); G().openBoards(g.gid); });
+      <ul class="wbg-people">${ids.map(id => `<li>${faceOf(g.gid, id)}${esc(memberName(g.gid, id))}</li>`).join("")}</ul>
+      <p class="mini" style="margin:0">Anyone else in the group can add it from the group's Whiteboards tab. Deleting your copy only removes yours.</p>`; };
+    const fetch = () => Promise.all([access(g.bid, true), G() && G().loadMembers ? G().loadMembers(g.gid) : null]).then(r => r[0]).catch(() => ACC.get(g.bid));
+    // Open once, with everything: cached people show at once, otherwise wait briefly for them
+    if (accessSheet.busy) return; accessSheet.busy = true;
+    let a = ACC.get(g.bid), html;
+    const p = fetch(), haveM = G() && G().members && (G().members(g.gid) || []).length;
+    if (!a || !haveM) a = await Promise.race([p, new Promise(r => setTimeout(() => r(ACC.get(g.bid)), 1500))]);
+    accessSheet.busy = false;
+    openSheet(`<div class="sheet">${head("Who Has This Board")}<div class="sheet-body">${html = body(a)}</div></div>`);
+    const wire = () => { const go = $("#wbGoGroup", dlg); if (go) go.addEventListener("click", () => { W.flush(); G().openBoards(g.gid); }); };
+    wire();
+    // quietly refresh only if someone new turned up
+    const fresh = await p; if (!dlg.open) return;
+    const next = body(fresh); if (next !== html && $(".wbg-people", dlg)) { $(".sheet-body", dlg).innerHTML = next; wire(); }
   }
   hook("wb-head", id => {
     const g = live(state.notes[id]); if (!g) return "";
@@ -76884,8 +76903,11 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
   function check(){
     raf = 0;
     const b = document.body; if (!b) return;
-    const on = PHONE.matches && window.scrollY > 4;
+    // Two thresholds so the header can't flip back and forth at the edge
+    const was = b.classList.contains("sb-scrolled"), y0 = window.scrollY;
+    const on = PHONE.matches && (was ? y0 > 2 : y0 > 12);
     b.classList.toggle("sb-scrolled", on);
+    keep();
     if (on) section();
     let y = false;
     const fab = PHONE.matches && document.getElementById("fab"), qa = fab && document.querySelector("#view .qa-bar");
@@ -76894,6 +76916,17 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
       y = q.height > 0 && q.bottom > f.top - 8 && q.top < f.bottom + 8;
     }
     b.classList.toggle("fab-yield", !!y);
+  }
+  // The shrinking header keeps its full space in the page, so the scroll spot never jumps
+  let full = 0, ro = null;
+  function keep(){
+    const h = document.querySelector("header.top"); if (!h) return;
+    if (!ro && window.ResizeObserver) { ro = new ResizeObserver(keep); ro.observe(h); }
+    const on = document.body.classList.contains("sb-scrolled"), cur = h.offsetHeight;
+    // While growing back, hold the gap until it reaches full size again
+    if (!on && cur >= full) { full = cur; h.style.marginBottom = ""; return; }
+    const gap = full ? Math.max(0, full - cur) : 0;
+    h.style.marginBottom = gap ? gap + "px" : "";
   }
   // The page's name next to the small logo
   function section(){
@@ -76908,7 +76941,8 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
   window.addEventListener("scroll", soon, {passive: true});
   window.addEventListener("resize", soon);
   if (PHONE.addEventListener) PHONE.addEventListener("change", soon);
-  hook("render", soon);
+  // A new page may have a shorter header: measure it again
+  hook("render", () => { if (!document.body.classList.contains("sb-scrolled")) full = 0; soon(); });
 })();
 // Placeholder text
 function phPh(long, short){
