@@ -72923,11 +72923,12 @@ var SBWB = null;
   function clampCam(){
     const fx = fixedPage(), ph = fx && PHONE(); if (STAGE) STAGE.classList.toggle("wb-fixed", fx && !ph);
     if (fx && fw > 0 && fh > 0) {
-      const R = pageRect(noteOf().wb.pa), zf = Math.max(zMin(), Math.min(fw / R[2], fh / R[3]));
-      if (!ph) { cam.z = zf; cam.x = 0; cam.y = 0; return; }
-      cam.z = clamp(cam.z, zf, ZMAX);
+      const R = pageRect(noteOf().wb.pa), fit = Math.min(fw / R[2], fh / R[3]);
+      if (!ph) { cam.z = Math.max(zMin(), fit); cam.x = 0; cam.y = 0; return; }
+      // zoom out as far as the whole page, centred when it's smaller than the frame
+      cam.z = clamp(cam.z, Math.max(ZMIN, fit), ZMAX);
       const pw = R[2] * cam.z, phh = R[3] * cam.z;
-      cam.x = pw <= fw ? 0 : clamp(cam.x, fw - pw, 0); cam.y = phh <= fh ? 0 : clamp(cam.y, fh - phh, 0);
+      cam.x = pw <= fw ? Math.round((fw - pw) / 2) : clamp(cam.x, fw - pw, 0); cam.y = phh <= fh ? Math.round((fh - phh) / 2) : clamp(cam.y, fh - phh, 0);
       return;
     }
     cam.z = clamp(cam.z, zMin(), ZMAX);
@@ -73194,6 +73195,18 @@ var SBWB = null;
     const wx = (GEST.m0[0] - c0.x) / c0.z, wy = (GEST.m0[1] - c0.y) / c0.z;
     cam.z = clamp(c0.z * d / GEST.d0, ZMIN, ZMAX); cam.x = m[0] - wx * cam.z; cam.y = m[1] - wy * cam.z; clampCam(); dirty(); camSave();
   }
+  // A rotation can drop a finger's lift (iOS), leaving a pinch stuck on and the page offset under full screen
+  function afterRotate(){
+    PTR.clear(); GEST = null; cancelDraw(); if (frame) frame.classList.remove("panning");
+    if (document.documentElement.classList.contains("board-max")) {
+      const fix = () => { try { window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; } catch (e) {}
+        const h = STAGE && STAGE.closest(".wb-host"); if (h) { h.style.transform = "translateZ(0)"; void h.offsetHeight; h.style.transform = ""; } };
+      fix(); requestAnimationFrame(fix); setTimeout(fix, 350);
+    }
+  }
+  let rotW = innerWidth;
+  addEventListener("orientationchange", afterRotate);
+  addEventListener("resize", () => { if (innerWidth !== rotW) { rotW = innerWidth; afterRotate(); } });
   function bindPointer(){
     frame.addEventListener("contextmenu", e => e.preventDefault());
     frame.addEventListener("pointerdown", e => {
@@ -73203,6 +73216,7 @@ var SBWB = null;
       PTR.set(e.pointerId, {x: e.clientX, y: e.clientY, type: e.pointerType});
       try { frame.setPointerCapture(e.pointerId); } catch (x) {}
       if (e.pointerType === "pen") penSeen = true;
+      if (e.pointerType === "touch" && e.isPrimary) [...PTR.keys()].forEach(id => { if (id !== e.pointerId && PTR.get(id).type === "touch") PTR.delete(id); });
       if (e.pointerType === "touch" && touchPts().length >= 2) { cancelDraw(); gestStart(); return; }
       if (GEST || D) return;
       e.preventDefault();
