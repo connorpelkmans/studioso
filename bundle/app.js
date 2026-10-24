@@ -76884,8 +76884,11 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
   function check(){
     raf = 0;
     const b = document.body; if (!b) return;
-    const on = PHONE.matches && window.scrollY > 4;
+    // Two thresholds so the header can't flip back and forth at the edge
+    const was = b.classList.contains("sb-scrolled"), y0 = window.scrollY;
+    const on = PHONE.matches && (was ? y0 > 2 : y0 > 12);
     b.classList.toggle("sb-scrolled", on);
+    keep();
     if (on) section();
     let y = false;
     const fab = PHONE.matches && document.getElementById("fab"), qa = fab && document.querySelector("#view .qa-bar");
@@ -76894,6 +76897,17 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
       y = q.height > 0 && q.bottom > f.top - 8 && q.top < f.bottom + 8;
     }
     b.classList.toggle("fab-yield", !!y);
+  }
+  // The shrinking header keeps its full space in the page, so the scroll spot never jumps
+  let full = 0, ro = null;
+  function keep(){
+    const h = document.querySelector("header.top"); if (!h) return;
+    if (!ro && window.ResizeObserver) { ro = new ResizeObserver(keep); ro.observe(h); }
+    const on = document.body.classList.contains("sb-scrolled"), cur = h.offsetHeight;
+    // While growing back, hold the gap until it reaches full size again
+    if (!on && cur >= full) { full = cur; h.style.marginBottom = ""; return; }
+    const gap = full ? Math.max(0, full - cur) : 0;
+    h.style.marginBottom = gap ? gap + "px" : "";
   }
   // The page's name next to the small logo
   function section(){
@@ -76908,7 +76922,8 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
   window.addEventListener("scroll", soon, {passive: true});
   window.addEventListener("resize", soon);
   if (PHONE.addEventListener) PHONE.addEventListener("change", soon);
-  hook("render", soon);
+  // A new page may have a shorter header: measure it again
+  hook("render", () => { if (!document.body.classList.contains("sb-scrolled")) full = 0; soon(); });
 })();
 // Placeholder text
 function phPh(long, short){
