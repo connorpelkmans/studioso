@@ -72905,9 +72905,18 @@ var SBWB = null;
   // A layout template (Cornell Notes, Week Plan...) is one fixed page
   const FREE = ["blank", "grid", "dots", "lines"];
   const fixedPage = () => { const n = noteOf(); return !!(n && n.wb && n.wb.tpl && !FREE.includes(n.wb.tpl)); };
+  // On phones the page is too small to use at its fit size, so it zooms and moves, kept inside the page
+  const PHONE = () => !!(window.matchMedia && matchMedia("(max-width:639px)").matches);
   function clampCam(){
-    const fx = fixedPage(); if (STAGE) STAGE.classList.toggle("wb-fixed", fx);
-    if (fx && fw > 0 && fh > 0) { const R = pageRect(noteOf().wb.pa); cam.z = Math.max(zMin(), Math.min(fw / R[2], fh / R[3])); cam.x = 0; cam.y = 0; return; }
+    const fx = fixedPage(), ph = fx && PHONE(); if (STAGE) STAGE.classList.toggle("wb-fixed", fx && !ph);
+    if (fx && fw > 0 && fh > 0) {
+      const R = pageRect(noteOf().wb.pa), zf = Math.max(zMin(), Math.min(fw / R[2], fh / R[3]));
+      if (!ph) { cam.z = zf; cam.x = 0; cam.y = 0; return; }
+      cam.z = clamp(cam.z, zf, ZMAX);
+      const pw = R[2] * cam.z, phh = R[3] * cam.z;
+      cam.x = pw <= fw ? 0 : clamp(cam.x, fw - pw, 0); cam.y = phh <= fh ? 0 : clamp(cam.y, fh - phh, 0);
+      return;
+    }
     cam.z = clamp(cam.z, zMin(), ZMAX);
     if (!(fw > 0 && fh > 0)) return;
     cam.x = clamp(cam.x, fw - BW * cam.z, 0); cam.y = clamp(cam.y, fh - BH * cam.z, 0);
