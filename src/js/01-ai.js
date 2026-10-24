@@ -512,11 +512,12 @@ async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0
 }
 async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, fast, ms, task, signal, search}){
   const T = aiTask(task, fast), models = geminiOrder(cfg.model, T.tier);
-  let thinking = true, lastErr = null;
+  let thinking = true, lastErr = null, roomy = false;
   const bodyFor = () => {
-    const gc = {temperature, maxOutputTokens: maxTokens};
+    // a retry after running out of room: twice the room, and less of it spent thinking
+    const gc = {temperature, maxOutputTokens: roomy ? Math.min(32768, maxTokens * 2) : maxTokens};
     if (!search) { gc.responseMimeType = "application/json"; if (schema) gc.responseSchema = schema; }
-    if (thinking) gc.thinkingConfig = {thinkingLevel: T.think};
+    if (thinking) gc.thinkingConfig = {thinkingLevel: roomy ? "low" : T.think};
     const body = {contents: [{role: "user", parts}], systemInstruction: {parts: [{text: system}]}, generationConfig: gc};
     if (search) body.tools = [{google_search: {}}];
     return JSON.stringify(body);
@@ -542,7 +543,11 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
         const sources = search ? (((cand.groundingMetadata || {}).groundingChunks) || []).map(c => c && c.web ? {url: String(c.web.uri || ""), title: String(c.web.title || "")} : null).filter(Boolean) : undefined;
         return {data, model: m, provider: "gemini", truncated: cand.finishReason === "MAX_TOKENS", sources};
       }
-      if (cand.finishReason === "MAX_TOKENS") throw aiErr("long", "That was too much to make in one go. Ask for fewer cards or questions, or use fewer files.");
+      // Out of room with nothing usable: thinking or a stuck, repeating answer can do this even on small jobs, so retry before giving up
+      if (cand.finishReason === "MAX_TOKENS") {
+        if (!roomy) { roomy = true; i--; continue; }
+        roomy = false; lastErr = aiErr("long", task === "photo" ? "Couldn't finish reading that. Try again, or use fewer photos at once." : "That was too much to make in one go. Ask for fewer cards or questions, or use fewer files."); continue;
+      }
       lastErr = aiErr("bad", "The AI's answer came back garbled. Try again.");
       continue;
     }
