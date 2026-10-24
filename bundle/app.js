@@ -53153,6 +53153,7 @@ var COMP_EXTRA = [];
   // The authority
   function clamp(why){
     if (!box || box.hidden || !cur || !front || guardDepth) return false;
+    if (dockFrozen()) return false;
     if (spotKind === "slot" && typeof ui !== "undefined" && ui.tab === "companion") return false;
     if (glideAnim && performance.now() < glideEnd) return false;
     const S = safeRect(true); if (S.r - S.l < 60 || S.b - S.t < 60) return false;
@@ -53560,9 +53561,19 @@ var COMP_EXTRA = [];
       if (act && mood === "idle" && !still()) { act.mouth("smile"); later(() => act && mood === "idle" && act.mouth("neutral"), 900); const r = box.getBoundingClientRect(); glanceAt(r.left + (dir > 0 ? -220 : r.width + 220), r.top + r.height * 0.4, 900); }
     };
   }
+  // Phones: while a sheet is open or the keyboard is up, the docked companion stays put
+  let fullH = 0, fullW = 0;
+  function dockFrozen(){
+    if (!phone() || spotKind !== "dock" || !box || !box.dataset.x) return false;
+    if (innerWidth !== fullW) { fullW = innerWidth; fullH = 0; }
+    const h = Math.max(innerHeight, (window.visualViewport && visualViewport.height) || 0);
+    if (h > fullH) fullH = h;
+    return !!document.querySelector("dialog[open]") || h < fullH - 100;
+  }
   function place(fresh){
     if (!box || !cur) return;
     if (press) return;
+    if (dockFrozen()) return;
     const s = choose(!!fresh);
     const prevKind = box.dataset.spot || "";
     const still1 = prevKind === s.kind && ((phone() && (s.kind === "pin" || s.kind === "dock")) || s.kind === "slot") && !travelAnim && !glideAnim;
@@ -54583,10 +54594,12 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   const refresh = ms => { clearTimeout(refreshT); refreshT = setTimeout(() => { try { passCacheReset(); build(); } catch (e) { console.warn("companion", e); } }, ms || 0); };
   new MutationObserver(() => refresh(60)).observe(document.documentElement, {attributes: true, attributeFilter: ["data-skin", "data-theme"]});
   // The placement guard's triggers (see clamp)
-  addEventListener("resize", () => { sAt = 0; try { clamp("resize"); } catch (e) {} placeSoon(200); });
+  // back from a frozen spell: settle in the same frame, so it never trails the tab bar
+  const dockNow = () => { if (phone() && spotKind === "dock" && !dockFrozen()) try { place(false); } catch (e) {} };
+  addEventListener("resize", () => { sAt = 0; dockNow(); try { clamp("resize"); } catch (e) {} placeSoon(200); });
   addEventListener("orientationchange", () => { sAt = 0; try { clamp("rotate"); } catch (e) {} placeSoon(350); guardSoon("rotate", 700); });
   addEventListener("pageshow", () => { sAt = 0; guardSoon("pageshow"); });
-  if (window.visualViewport) ["resize", "scroll"].forEach(k => visualViewport.addEventListener(k, () => { sAt = 0; guardSoon("viewport", 30); if (k === "resize") placeSoon(250); }));
+  if (window.visualViewport) ["resize", "scroll"].forEach(k => visualViewport.addEventListener(k, () => { sAt = 0; if (k === "resize") dockNow(); guardSoon("viewport", 30); if (k === "resize") placeSoon(250); }));
   document.addEventListener("focusin", () => { guardSoon("focus", 350); guardSoon("keyboard", 800); });
   document.addEventListener("focusout", () => guardSoon("blur", 350));
   new MutationObserver(() => { sAt = 0; vext = null; guardSoon("text-size", 100); placeSoon(150); }).observe(document.documentElement, {attributes: true, attributeFilter: ["data-ts", "data-hc"]});
@@ -54857,7 +54870,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const t = e.target; if (!t || !t.classList || !t.classList.contains("cp-tint-in") || !hexOk(t.value) || !ACC.some(x => x.id === t.dataset.acc)) return;
     setCfg({tint: {[t.dataset.acc]: t.value.toLowerCase()}}); curSig = ""; build(); refreshPicker();
   });
-  const DLG_CLOSE = () => { stopPreviews(); guardSoon("dialog", 80); };
+  const DLG_CLOSE = () => { stopPreviews(); dockNow(); guardSoon("dialog", 80); };
   dlg.addEventListener("close", DLG_CLOSE);
 
   hook("act", (a, el) => {
