@@ -183,3 +183,12 @@
 .sb-welc .sb-welc-go{width:100%;min-height:52px;border-radius:14px;font-size:1.05rem}
 .sb-welc .sb-welc-alt{display:block;margin:6px auto 0;min-height:44px;padding:0 12px;font-weight:700;font-size:.95rem}
 @media (max-width:639px){#view .c2-card .c2-files{gap:3px}}
+/* Phones: the header reaches up behind the clock and battery, so that strip is always the header's colour and the logo sits just below the clock */
+@media (max-width:639px){
+  :root{padding-top:0}
+  html{scroll-padding-top:0}
+  header.top{top:0!important}
+  header.top,body.sb-scrolled header.top{padding-top:calc(max(0px, env(safe-area-inset-top,0px) - 10px) + 4px)!important}
+  body.sb-scrolled header.top{padding-top:calc(max(0px, env(safe-area-inset-top,0px) - 10px) + 6px)!important}
+  header.top .top-row > div:first-child{padding-top:2px}
+}
