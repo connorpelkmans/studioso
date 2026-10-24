@@ -475,6 +475,11 @@ nav.tabs button{font-size:.75rem!important}
 .nb-sizer{width:100%;height:100%}
 .nb-sizer.zoomed{position:relative;overflow:hidden;width:auto;height:auto}
 .nb-sizer.zoomed > .nb-board{transform-origin:0 0}
+/* Zoomed, the cork is drawn on the unscaled frame behind the board: a scaled patterned layer shows seams on iPhone */
+.nb-sizer.zoomed{background-color:#C69C6D;background-image:radial-gradient(rgba(90,55,20,.28) 1px,transparent 1.4px),radial-gradient(rgba(255,235,200,.22) 1px,transparent 1.5px);background-size:calc(9px * var(--nbz,1)) calc(9px * var(--nbz,1)),calc(13px * var(--nbz,1)) calc(13px * var(--nbz,1));background-position:0 0,calc(5px * var(--nbz,1)) calc(7px * var(--nbz,1))}
+:root[data-theme="dark"] .nb-sizer.zoomed{background-color:#6E5238}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .nb-sizer.zoomed{background-color:#6E5238}}
+.nb-sizer.zoomed > .nb-board{background:none!important}
 .nb-zoom{position:absolute;top:14px;left:14px;z-index:6;display:flex;align-items:center;gap:2px;padding:3px;border-radius:999px;background:color-mix(in srgb,var(--surface) 88%,transparent);border:1px solid var(--line);box-shadow:0 2px 8px rgba(40,25,10,.18);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 .nb-zoom button{border:0;background:none;color:var(--ink);font:700 .82rem var(--display);min-width:30px;height:30px;padding:0 6px;border-radius:999px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:4px;font-variant-numeric:tabular-nums}
 .nb-zoom .nbz-b{font-size:1.05rem}
