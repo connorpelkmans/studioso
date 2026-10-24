@@ -231,12 +231,12 @@
 /* Page buttons sit level with the tabs, not the title */
 @media (min-width:640px){
   #view > .pg-head:not(.pg-solo){position:relative}
-  #view > .pg-head:not(.pg-solo) > .pg-right{position:absolute;right:0;top:calc(100% + 6px);height:40px;align-items:center;flex-wrap:nowrap;z-index:2}
+  #view > .pg-head:not(.pg-solo) > .pg-right{position:absolute;right:0;top:calc(100% + 46px);transform:translateY(-100%);align-items:center;flex-wrap:nowrap;z-index:2}
 }
 #view .tl-controls.tl-tools > :not(.pro-tab-btn) + .pro-tab-btn{margin-left:auto}
 /* Task Board: the tab line runs the full width, Group By sits on it like the other page buttons */
 @media (min-width:640px){
   #view > .bview-row:has(> .pg-tabs){position:relative;display:block}
   #view > .bview-row > .pg-tabs{width:100%}
-  #view > .bview-row:has(> .pg-tabs) > .board-ctl{position:absolute;right:0;top:6px;height:40px;margin:0;display:flex;align-items:center;gap:8px}
+  #view > .bview-row:has(> .pg-tabs) > .board-ctl{position:absolute;right:0;bottom:6px;margin:0;display:flex;align-items:center;gap:8px}
 }
