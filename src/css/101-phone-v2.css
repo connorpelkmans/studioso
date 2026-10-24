@@ -73,7 +73,7 @@
   .fab svg{width:26px;height:26px}
   /* Page switchers */
   #view > .pview-tabs,#view > .bview-row .bview-tabs{max-width:none;width:100%;margin:2px 0 12px}
-  #view > .pview-tabs button,#view > .bview-row .bview-tabs button{padding:8px 6px;font-size:1.04rem;min-height:42px;white-space:nowrap}
+  #view > .pview-tabs button,#view > .bview-row .bview-tabs button{padding:8px 6px;font-size:1.2rem;min-height:42px;white-space:nowrap}
   #view > .bview-row{margin-top:0}
   .ph-dup{display:none!important}
   #view .view-head:not(:has(> :not(h2.ph-dup))){display:none}
