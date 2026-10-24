@@ -4159,7 +4159,9 @@ const QA_SCHEMA = {type: "OBJECT", properties: {tasks: {type: "ARRAY", items: {t
   priority: {type: "STRING", enum: ["low", "med", "high", "urgent"]}, difficulty: {type: "STRING", enum: ["easy", "med", "hard"]},
   location: {type: "STRING"}, reading: {type: "STRING"}, notes: {type: "STRING"}}, required: ["title", "type", "due"]}}}, required: ["tasks"]};
 async function qaRun(text){
-  if (window.SBCAPTURE && SBCAPTURE.fast(text)) { ui.qa = null; ui.qaText = ""; render(); setTimeout(() => { const i = $("#qaIn"); if (i) i.focus(); }, 30); return; }
+  // Phones always show the check first: a mistyped date is easy to miss on a small screen
+  const phoneQa = !!(window.matchMedia && matchMedia("(max-width:639px)").matches);
+  if (!phoneQa && window.SBCAPTURE && SBCAPTURE.fast(text)) { ui.qa = null; ui.qaText = ""; render(); setTimeout(() => { const i = $("#qaIn"); if (i) i.focus(); }, 30); return; }
   ui.qa = {busy: true, text, items: []}; render();
   let items = null, by = "local", err = "";
   const loc = qaLocal(text), sure = qaConfident(text, loc);
@@ -76942,7 +76944,7 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
     // Two thresholds so the header can't flip back and forth at the edge
     const was = b.classList.contains("sb-scrolled"), y0 = window.scrollY;
     const on = PHONE.matches && (was ? y0 > 2 : y0 > 12);
-    b.classList.toggle("sb-scrolled", on);
+    if (on !== was) { if (on) section(); morph(() => b.classList.toggle("sb-scrolled", on), on); }
     keep();
     if (on) section();
     let y = false;
@@ -76952,6 +76954,23 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
       y = q.height > 0 && q.bottom > f.top - 8 && q.top < f.bottom + 8;
     }
     b.classList.toggle("fab-yield", !!y);
+  }
+  // Big and small header: everything glides from where it was (one animation on transforms, so it never stutters)
+  const RM = window.matchMedia ? matchMedia("(prefers-reduced-motion: reduce)") : {matches: false};
+  function morph(flip, on){
+    const h = document.querySelector("header.top");
+    if (!h || RM.matches || !h.animate || !PHONE.matches) { flip(); return; }
+    const q = sel => h.querySelector(sel), logo = q(".brand img.logo"), date = q("#todayLabel"), sec = q(".top-sec"), acts = q(".head-actions");
+    h.getAnimations({subtree: true}).forEach(a => a.finish());
+    const r = el => el && el.getBoundingClientRect(), h0 = h.getBoundingClientRect().height, L0 = r(logo), D0 = r(date), A0 = r(acts);
+    flip();
+    const h1 = h.getBoundingClientRect().height, L1 = r(logo), A1 = r(acts);
+    const o = {duration: 300, easing: "cubic-bezier(.22,.8,.24,1)"};
+    if (h0 && h1 && Math.abs(h0 - h1) > 0.5) h.animate([{height: h0 + "px"}, {height: h1 + "px"}], o);
+    if (L0 && L1 && L1.width) logo.animate([{transformOrigin: "0 0", transform: `translate(${L0.left - L1.left}px,${L0.top - L1.top}px) scale(${L0.width / L1.width})`}, {transformOrigin: "0 0", transform: "none"}], o);
+    if (A0 && A1) acts.animate([{transform: `translateY(${A0.top - A1.top}px)`}, {transform: "none"}], o);
+    if (!on && date && D0) date.animate([{opacity: 0, transform: "translateY(-6px)"}, {opacity: 1, transform: "none"}], Object.assign({}, o, {delay: 60, fill: "backwards"}));
+    if (on && sec) sec.animate([{opacity: 0, transform: "translateX(-8px)"}, {opacity: 1, transform: "none"}], Object.assign({}, o, {delay: 40, fill: "backwards"}));
   }
   // The shrinking header keeps its full space in the page, so the scroll spot never jumps
   let full = 0, ro = null;

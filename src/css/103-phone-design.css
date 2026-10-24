@@ -129,7 +129,7 @@
 @media (max-width:639px){
   /* The header keeps its own space while it shrinks, so the browser must not shift the scroll for it */
   html{overflow-anchor:none}
-  header.top .brand img.logo{transition:width .2s ease}
+  /* the size change is animated from script (see morph) */
   body.sb-scrolled header.top{padding-top:6px!important;padding-bottom:6px!important;background:color-mix(in srgb,var(--paper,var(--bg)) 96%,transparent)!important;-webkit-backdrop-filter:blur(18px) saturate(1.6)!important;backdrop-filter:blur(18px) saturate(1.6)!important;border-bottom:1px solid color-mix(in srgb,var(--line) 75%,transparent);box-shadow:0 6px 16px -12px rgba(8,20,50,.35)}
   body.sb-scrolled header.top .top-row > div:first-child{flex-direction:row!important;flex-wrap:nowrap;align-items:center!important;padding-top:0;min-width:0}
   body.sb-scrolled header.top .brand{flex:none}
@@ -138,7 +138,7 @@
   body.sb-scrolled header.top .top-sec{display:block;min-width:0;margin-left:8px;padding-left:8px;border-left:1px solid var(--line);font:800 .9rem/1.2 var(--display);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   body.sb-scrolled header.top .top-row{min-height:40px}
 }
-@media (max-width:639px) and (prefers-reduced-motion:reduce){header.top .brand img.logo{transition:none}}
+
 
 /* Lighter toggle buttons */
 .cf-pick .dot-all{display:none}

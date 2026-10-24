@@ -6397,6 +6397,8 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   #view > .bview-row > .pg-tabs{width:100%}
   #view > .bview-row:has(> .pg-tabs) > .board-ctl{position:absolute;right:0;bottom:6px;margin:0;display:flex;align-items:center;gap:8px}
 }
+/* Review's due count grows leftwards, clear of the companion's seat next to it */
+@media (max-width:639px){nav.tabs .in [data-tab="flashcards"] .fc-navdue{left:auto;right:calc(50% - 15px);margin-left:0;top:0;z-index:2}}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
@@ -6620,7 +6622,7 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
 @media (max-width:639px){
   /* The header keeps its own space while it shrinks, so the browser must not shift the scroll for it */
   html{overflow-anchor:none}
-  header.top .brand img.logo{transition:width .2s ease}
+  /* the size change is animated from script (see morph) */
   body.sb-scrolled header.top{padding-top:6px!important;padding-bottom:6px!important;background:color-mix(in srgb,var(--paper,var(--bg)) 96%,transparent)!important;-webkit-backdrop-filter:blur(18px) saturate(1.6)!important;backdrop-filter:blur(18px) saturate(1.6)!important;border-bottom:1px solid color-mix(in srgb,var(--line) 75%,transparent);box-shadow:0 6px 16px -12px rgba(8,20,50,.35)}
   body.sb-scrolled header.top .top-row > div:first-child{flex-direction:row!important;flex-wrap:nowrap;align-items:center!important;padding-top:0;min-width:0}
   body.sb-scrolled header.top .brand{flex:none}
@@ -6629,7 +6631,7 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
   body.sb-scrolled header.top .top-sec{display:block;min-width:0;margin-left:8px;padding-left:8px;border-left:1px solid var(--line);font:800 .9rem/1.2 var(--display);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   body.sb-scrolled header.top .top-row{min-height:40px}
 }
-@media (max-width:639px) and (prefers-reduced-motion:reduce){header.top .brand img.logo{transition:none}}
+
 
 /* Lighter toggle buttons */
 .cf-pick .dot-all{display:none}

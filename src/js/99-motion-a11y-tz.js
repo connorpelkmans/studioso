@@ -472,7 +472,7 @@
     // Two thresholds so the header can't flip back and forth at the edge
     const was = b.classList.contains("sb-scrolled"), y0 = window.scrollY;
     const on = PHONE.matches && (was ? y0 > 2 : y0 > 12);
-    b.classList.toggle("sb-scrolled", on);
+    if (on !== was) { if (on) section(); morph(() => b.classList.toggle("sb-scrolled", on), on); }
     keep();
     if (on) section();
     let y = false;
@@ -482,6 +482,23 @@
       y = q.height > 0 && q.bottom > f.top - 8 && q.top < f.bottom + 8;
     }
     b.classList.toggle("fab-yield", !!y);
+  }
+  // Big and small header: everything glides from where it was (one animation on transforms, so it never stutters)
+  const RM = window.matchMedia ? matchMedia("(prefers-reduced-motion: reduce)") : {matches: false};
+  function morph(flip, on){
+    const h = document.querySelector("header.top");
+    if (!h || RM.matches || !h.animate || !PHONE.matches) { flip(); return; }
+    const q = sel => h.querySelector(sel), logo = q(".brand img.logo"), date = q("#todayLabel"), sec = q(".top-sec"), acts = q(".head-actions");
+    h.getAnimations({subtree: true}).forEach(a => a.finish());
+    const r = el => el && el.getBoundingClientRect(), h0 = h.getBoundingClientRect().height, L0 = r(logo), D0 = r(date), A0 = r(acts);
+    flip();
+    const h1 = h.getBoundingClientRect().height, L1 = r(logo), A1 = r(acts);
+    const o = {duration: 300, easing: "cubic-bezier(.22,.8,.24,1)"};
+    if (h0 && h1 && Math.abs(h0 - h1) > 0.5) h.animate([{height: h0 + "px"}, {height: h1 + "px"}], o);
+    if (L0 && L1 && L1.width) logo.animate([{transformOrigin: "0 0", transform: `translate(${L0.left - L1.left}px,${L0.top - L1.top}px) scale(${L0.width / L1.width})`}, {transformOrigin: "0 0", transform: "none"}], o);
+    if (A0 && A1) acts.animate([{transform: `translateY(${A0.top - A1.top}px)`}, {transform: "none"}], o);
+    if (!on && date && D0) date.animate([{opacity: 0, transform: "translateY(-6px)"}, {opacity: 1, transform: "none"}], Object.assign({}, o, {delay: 60, fill: "backwards"}));
+    if (on && sec) sec.animate([{opacity: 0, transform: "translateX(-8px)"}, {opacity: 1, transform: "none"}], Object.assign({}, o, {delay: 40, fill: "backwards"}));
   }
   // The shrinking header keeps its full space in the page, so the scroll spot never jumps
   let full = 0, ro = null;
