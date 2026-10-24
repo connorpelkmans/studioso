@@ -89,6 +89,8 @@
   dialog#dlg > .sheet{border-radius:22px 22px 0 0}
   dialog#dlg .sheet-foot{flex-wrap:wrap;gap:8px}
   dialog#dlg .sheet-foot > .btn.primary:last-child,dialog#dlg .sheet-foot > [data-submit].primary{flex:1 1 140px}
+  /* nothing on the left: Cancel takes the left edge and the main button fills the rest */
+  dialog#dlg .sheet-foot > .spacer:first-child{display:none}
 }
 /* Course filter: one dropdown instead of a row of chips */
 #view .cf-chips{display:none!important}
