@@ -6191,8 +6191,8 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   .ph-t{font:800 1.7rem/1.1 var(--display);letter-spacing:-.015em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .top-row{flex-wrap:nowrap!important;align-items:flex-end}
   .head-actions{gap:6px;align-items:center}
-  .head-actions > .icon-btn,.head-actions > .pomo-btn:not(.run){width:40px;height:40px;min-width:40px;padding:0;border-radius:50%;justify-content:center}
-  .head-actions > .pomo-btn.run{height:40px;padding:0 12px}
+  .head-actions > .icon-btn,.head-actions > .pomo-btn:not(.active):not(.run){width:40px;height:40px;min-width:40px;padding:0;border-radius:50%;justify-content:center}
+  .head-actions > :is(.pomo-btn.run,.pomo-btn.active){width:auto;height:40px;padding:0 12px}
   .sync-guest{align-self:center;padding:7px 11px;font-size:.74rem}
   /* Bottom tabs: five, with the companion's seat in the middle */
   :root{--ph-bar-b:max(6px,calc(var(--sb-sai-bottom,env(safe-area-inset-bottom,0px)) - 8px))}
