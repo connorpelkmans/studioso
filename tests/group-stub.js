@@ -11,6 +11,7 @@ function stubInit(opts){
     group_task_lists: [], group_tasks: []
   };
   const nowIso = () => new Date().toISOString(); let n = 0; const id = p => p + (++n);
+  (opts.msgs || []).forEach(x => DB.group_messages.push(Object.assign({id: id("m"), group_id: "g1", author_name: "Sam"}, x)));
   (opts.items || []).forEach(x => DB.group_items.push(Object.assign({group_id: "g1", ref_id: "", created_at: "2026-02-01T00:00:00Z", updated_at: "2026-02-01T00:00:00Z"}, x)));
   if (opts.emptyList) DB.group_task_lists.push({id: "L1", group_id: "g1", title: "BIOL 201 Poster", course_code: "BIOL 201", created_by: "u1", created_at: "2026-02-01T00:00:00Z", archived: false});
   if (opts.seed) {
@@ -36,7 +37,7 @@ function stubInit(opts){
       return wait({data: out});
     };
     const api = {select() { return api; }, eq(c, v) { st.f.push(r => r[c] === v); return api; }, neq(c, v) { st.f.push(r => r[c] !== v); return api; }, in(c, v) { st.f.push(r => v.includes(r[c])); return api; },
-      gte(c, v) { st.f.push(r => r[c] >= v); return api; },
+      gte(c, v) { st.f.push(r => r[c] >= v); return api; }, gt(c, v) { st.f.push(r => String(r[c] || "") > String(v)); return api; },
       or(expr) { const ts = String(expr).split(",").map(x => { const i = x.indexOf("."), j = x.indexOf(".", i + 1); return [x.slice(0, i), x.slice(i + 1, j), x.slice(j + 1)]; });
         const t1 = ([c, op, v], r) => op === "eq" ? String(r[c]) === v : op === "neq" ? String(r[c]) !== v : op === "gte" ? String(r[c] || "") >= v : op === "is" ? (v === "null" ? r[c] == null : String(r[c]) === v) : false;
         st.f.push(r => ts.some(t => t1(t, r))); return api; },

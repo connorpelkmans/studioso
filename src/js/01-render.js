@@ -136,7 +136,7 @@ function nbZoomCtl(){
 function nbZoomApply(){
   const sc = $("#nbScroll"), sz = $("#nbSizer"), b = $("#nbBoard"); if (!sc || !sz || !b) return;
   if (Math.abs(NBZ - 1) < 0.001) { b.style.transform = ""; b.style.minWidth = b.style.minHeight = ""; sz.style.width = sz.style.height = ""; sz.classList.remove("zoomed"); return; }
-  sz.classList.add("zoomed");
+  sz.classList.add("zoomed"); sz.style.setProperty("--nbz", NBZ);
   b.style.transform = `scale(${NBZ})`;
   b.style.minWidth = (sc.clientWidth / NBZ) + "px"; b.style.minHeight = (sc.clientHeight / NBZ) + "px";
   sz.style.width = (b.offsetWidth * NBZ) + "px"; sz.style.height = (b.offsetHeight * NBZ) + "px";

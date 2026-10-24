@@ -413,11 +413,12 @@ var SBWB = null;
   function clampCam(){
     const fx = fixedPage(), ph = fx && PHONE(); if (STAGE) STAGE.classList.toggle("wb-fixed", fx && !ph);
     if (fx && fw > 0 && fh > 0) {
-      const R = pageRect(noteOf().wb.pa), zf = Math.max(zMin(), Math.min(fw / R[2], fh / R[3]));
-      if (!ph) { cam.z = zf; cam.x = 0; cam.y = 0; return; }
-      cam.z = clamp(cam.z, zf, ZMAX);
+      const R = pageRect(noteOf().wb.pa), fit = Math.min(fw / R[2], fh / R[3]);
+      if (!ph) { cam.z = Math.max(zMin(), fit); cam.x = 0; cam.y = 0; return; }
+      // zoom out as far as the whole page, centred when it's smaller than the frame
+      cam.z = clamp(cam.z, Math.max(ZMIN, fit), ZMAX);
       const pw = R[2] * cam.z, phh = R[3] * cam.z;
-      cam.x = pw <= fw ? 0 : clamp(cam.x, fw - pw, 0); cam.y = phh <= fh ? 0 : clamp(cam.y, fh - phh, 0);
+      cam.x = pw <= fw ? Math.round((fw - pw) / 2) : clamp(cam.x, fw - pw, 0); cam.y = phh <= fh ? Math.round((fh - phh) / 2) : clamp(cam.y, fh - phh, 0);
       return;
     }
     cam.z = clamp(cam.z, zMin(), ZMAX);
@@ -498,7 +499,7 @@ var SBWB = null;
     const tf = `translate(${cam.x}px,${cam.y}px) scale(${cam.z})`; back.style.transform = tf; front.style.transform = tf; STAGE.style.setProperty("--wb-inv", String(1 / cam.z));
     if (all) { all = false; paintInk(); }
     paintLive(); selbarPlace();
-    if (zoomEl) zoomEl.textContent = Math.round(cam.z * 100) + "%";
+    if (zoomEl) { zoomEl.textContent = Math.round(cam.z * 100) + "%"; const t = PHONE() ? "Fit to screen" : "Zoom to 100%"; if (zoomEl.getAttribute("aria-label") !== t) { zoomEl.setAttribute("aria-label", t); zoomEl.title = PHONE() ? "Fit to Screen" : ""; } }
   }
   const SELHIDE = () => SEL && SEL.drag ? SEL.ids : null;
   // A stroke, with the spots the eraser rubbed
@@ -684,6 +685,18 @@ var SBWB = null;
     const wx = (GEST.m0[0] - c0.x) / c0.z, wy = (GEST.m0[1] - c0.y) / c0.z;
     cam.z = clamp(c0.z * d / GEST.d0, ZMIN, ZMAX); cam.x = m[0] - wx * cam.z; cam.y = m[1] - wy * cam.z; clampCam(); dirty(); camSave();
   }
+  // A rotation can drop a finger's lift (iOS), leaving a pinch stuck on and the page offset under full screen
+  function afterRotate(){
+    PTR.clear(); GEST = null; cancelDraw(); if (frame) frame.classList.remove("panning");
+    if (document.documentElement.classList.contains("board-max")) {
+      const fix = () => { try { window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; } catch (e) {}
+        const h = STAGE && STAGE.closest(".wb-host"); if (h) { h.style.transform = "translateZ(0)"; void h.offsetHeight; h.style.transform = ""; } };
+      fix(); requestAnimationFrame(fix); setTimeout(fix, 350);
+    }
+  }
+  let rotW = innerWidth;
+  addEventListener("orientationchange", afterRotate);
+  addEventListener("resize", () => { if (innerWidth !== rotW) { rotW = innerWidth; afterRotate(); } });
   function bindPointer(){
     frame.addEventListener("contextmenu", e => e.preventDefault());
     frame.addEventListener("pointerdown", e => {
@@ -693,6 +706,7 @@ var SBWB = null;
       PTR.set(e.pointerId, {x: e.clientX, y: e.clientY, type: e.pointerType});
       try { frame.setPointerCapture(e.pointerId); } catch (x) {}
       if (e.pointerType === "pen") penSeen = true;
+      if (e.pointerType === "touch" && e.isPrimary) [...PTR.keys()].forEach(id => { if (id !== e.pointerId && PTR.get(id).type === "touch") PTR.delete(id); });
       if (e.pointerType === "touch" && touchPts().length >= 2) { cancelDraw(); gestStart(); return; }
       if (GEST || D) return;
       e.preventDefault();
@@ -1050,7 +1064,8 @@ var SBWB = null;
       case "sel-edit": { const k = [...SEL.ids][0], it = getI(k.slice(1)); select(null); if (it) editText(it); break; }
       case "zoom-in": zoomStep(1); break;
       case "zoom-out": zoomStep(-1); break;
-      case "zoom-reset": zoomAt(1); break;
+      // phones pinch to zoom, so the % fits the board to the screen instead
+      case "zoom-reset": if (PHONE()) { if (fixedPage()) zoomAt(ZMIN); else fit(); } else zoomAt(1); break;
       case "fit": fit(); break;
       case "theme": setBoardTheme(DK ? "light" : "dark"); themeBtn(); break;
       default: fire("wb-act", a, el, id); return;
@@ -1523,6 +1538,14 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
   .tl-controls.wb-head>.btn.small{white-space:nowrap}
   .wb-tip{display:none}
   .wb-zoom{top:6px;right:6px}
+  /* phones: one small pill in the corner, zoom %, light/dark and full screen */
+  .wb-stage .wb-zoom{left:auto;right:6px;top:6px;gap:0;padding:1px 32px 1px 1px;background:rgba(255,255,255,.82);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:0 1px 6px rgba(20,30,45,.14)}
+  .wb-dk.wb-stage .wb-zoom{background:rgba(38,45,54,.82)}
+  .wb-stage .wb-zoom :is([data-wb="zoom-out"],[data-wb="zoom-in"],[data-wb="fit"]){display:none}
+  .wb-stage .wb-zoom button{height:28px;min-width:28px;padding:0 7px;font-size:.74rem}
+  .wb-stage .wb-zoom svg{width:15px;height:15px}
+  .wb-stage .wb-max{top:7px;right:7px;width:30px;height:30px;background:none!important;border-color:transparent!important;box-shadow:none!important;z-index:4}
+  .wb-stage .wb-max svg{width:14px;height:14px}
   /* phones: the board picker with its options (⋯) on one row, then All Boards, Export and Notes and Cards evenly on the next */
   .tl-controls.wb-head{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,.85fr) minmax(0,1.45fr) 42px;gap:6px!important;align-items:center}
   .tl-controls.wb-head>*{margin:0!important;min-width:0;max-width:none!important;width:auto!important;flex:none!important}

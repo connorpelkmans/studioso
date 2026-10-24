@@ -3049,11 +3049,12 @@ async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0
 }
 async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, fast, ms, task, signal, search}){
   const T = aiTask(task, fast), models = geminiOrder(cfg.model, T.tier);
-  let thinking = true, lastErr = null;
+  let thinking = true, lastErr = null, roomy = false;
   const bodyFor = () => {
-    const gc = {temperature, maxOutputTokens: maxTokens};
+    // a retry after running out of room: twice the room, and less of it spent thinking
+    const gc = {temperature, maxOutputTokens: roomy ? Math.min(32768, maxTokens * 2) : maxTokens};
     if (!search) { gc.responseMimeType = "application/json"; if (schema) gc.responseSchema = schema; }
-    if (thinking) gc.thinkingConfig = {thinkingLevel: T.think};
+    if (thinking) gc.thinkingConfig = {thinkingLevel: roomy ? "low" : T.think};
     const body = {contents: [{role: "user", parts}], systemInstruction: {parts: [{text: system}]}, generationConfig: gc};
     if (search) body.tools = [{google_search: {}}];
     return JSON.stringify(body);
@@ -3079,7 +3080,11 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
         const sources = search ? (((cand.groundingMetadata || {}).groundingChunks) || []).map(c => c && c.web ? {url: String(c.web.uri || ""), title: String(c.web.title || "")} : null).filter(Boolean) : undefined;
         return {data, model: m, provider: "gemini", truncated: cand.finishReason === "MAX_TOKENS", sources};
       }
-      if (cand.finishReason === "MAX_TOKENS") throw aiErr("long", "That was too much to make in one go. Ask for fewer cards or questions, or use fewer files.");
+      // Out of room with nothing usable: thinking or a stuck, repeating answer can do this even on small jobs, so retry before giving up
+      if (cand.finishReason === "MAX_TOKENS") {
+        if (!roomy) { roomy = true; i--; continue; }
+        roomy = false; lastErr = aiErr("long", task === "photo" ? "Couldn't finish reading that. Try again, or use fewer photos at once." : "That was too much to make in one go. Ask for fewer cards or questions, or use fewer files."); continue;
+      }
       lastErr = aiErr("bad", "The AI's answer came back garbled. Try again.");
       continue;
     }
@@ -4159,7 +4164,9 @@ const QA_SCHEMA = {type: "OBJECT", properties: {tasks: {type: "ARRAY", items: {t
   priority: {type: "STRING", enum: ["low", "med", "high", "urgent"]}, difficulty: {type: "STRING", enum: ["easy", "med", "hard"]},
   location: {type: "STRING"}, reading: {type: "STRING"}, notes: {type: "STRING"}}, required: ["title", "type", "due"]}}}, required: ["tasks"]};
 async function qaRun(text){
-  if (window.SBCAPTURE && SBCAPTURE.fast(text)) { ui.qa = null; ui.qaText = ""; render(); setTimeout(() => { const i = $("#qaIn"); if (i) i.focus(); }, 30); return; }
+  // Phones always show the check first: a mistyped date is easy to miss on a small screen
+  const phoneQa = !!(window.matchMedia && matchMedia("(max-width:639px)").matches);
+  if (!phoneQa && window.SBCAPTURE && SBCAPTURE.fast(text)) { ui.qa = null; ui.qaText = ""; render(); setTimeout(() => { const i = $("#qaIn"); if (i) i.focus(); }, 30); return; }
   ui.qa = {busy: true, text, items: []}; render();
   let items = null, by = "local", err = "";
   const loc = qaLocal(text), sure = qaConfident(text, loc);
@@ -4802,9 +4809,12 @@ const PHOTO_SCHEMA = {type: "OBJECT", properties: {
   required: ["notes"]};
 // A phone or tablet (a touch screen as the main pointer)
 const phoneLike = () => { try { return window.matchMedia("(pointer:coarse)").matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || ""); } catch (e) { return false; } };
+// Tapping outside the sheet keeps the photos (and a finished note) until Save or Cancel
+let PN_DRAFT = null;
 function photoNoteSheet(file){
   if (!aiReady()) { aiSetupSheet(true); return; }
-  const S = {srcs: [], files: [], result: null};
+  const S = (!file && PN_DRAFT) || {srcs: [], files: [], result: null};
+  PN_DRAFT = S;
   openSheet(`<form class="sheet ai-sheet">${head("Photo to Note")}
     <div class="sheet-body" id="pnBody">
       <div class="drop" id="pnDrop"><p style="margin:0 0 10px"><strong>Take or choose photos of the whiteboard, a slide, or handwritten notes.</strong><br><span class="mini">They become clean, typed notes on your board. Dates written in them can be added as tasks.</span></p>
@@ -4816,10 +4826,15 @@ function photoNoteSheet(file){
       <p class="status-msg" id="pnStatus" style="margin:0" aria-live="polite"></p>
     </div>
     <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="pnGo">${AI_ICON} Make Note</button></div></form>`);
+  const form = dlg.querySelector("form.ai-sheet"), live = () => form.isConnected && dlg.open;
+  form.addEventListener("click", e => { if (e.target.closest && e.target.closest('[data-act="close"]')) PN_DRAFT = null; }, true);
   const status = $("#pnStatus");
-  const draw = () => { $("#pnSrcs").innerHTML = S.srcs.map((s, i) => `<li><span class="ficon">${s.kind === "PDF" ? "PDF" : "IMG"}</span><span class="nm">${esc(s.name)}</span><span class="mini">${fmtSize(s.size)}</span><button type="button" class="x-btn" data-rm="${i}" aria-label="Remove">${CLOSE}</button></li>`).join(""); };
+  if (S.course != null) $("#pnCourse").value = S.course;
+  $("#pnCourse").addEventListener("change", e => { S.course = e.target.value; });
+  const draw = () => { if (!live()) return; $("#pnSrcs").innerHTML = S.srcs.map((s, i) => `<li><span class="ficon">${s.kind === "PDF" ? "PDF" : "IMG"}</span><span class="nm">${esc(s.name)}</span><span class="mini">${fmtSize(s.size)}</span><button type="button" class="x-btn" data-rm="${i}" aria-label="Remove">${CLOSE}</button></li>`).join(""); };
   const add = async list => { for (const f of list) { try { S.srcs.push(await aiSourceFromFile(f)); S.files.push(f); } catch(e) { status.textContent = e.message; } } draw(); };
   if (file) add([file]).then(() => { const g = $("#pnGo"); if (g && S.srcs.length) g.click(); });
+  else if (S.srcs.length) draw();
   $("#pnPick").addEventListener("click", () => $("#pnFile").click());
   $("#pnFile").addEventListener("change", e => { const l = [...e.target.files]; e.target.value = ""; add(l); });
   const cam = $("#pnTake"); if (cam) { cam.addEventListener("click", () => $("#pnCam").click()); $("#pnCam").addEventListener("change", e => { const l = [...e.target.files]; e.target.value = ""; add(l); }); }
@@ -4839,19 +4854,22 @@ function photoNoteSheet(file){
         system: "You turn photos of whiteboards, lecture slides and handwritten notes into clean, organized typed study notes. Transcribe everything that matters, fix obvious typos, expand cryptic abbreviations only when you're sure, keep formulas and numbers exactly, and organize with short headings and bullets. If something is unreadable, write [unclear]. Describe diagrams briefly in words. List any due dates or exam dates you see, resolving them relative to today. Return JSON only."});
       const d = r.data, cSel = $("#pnCourse").value, guess = coursesArr().find(c => (c.code || c.name).toLowerCase() === String(d.course || "").toLowerCase());
       S.result = {title: String(d.title || "").trim(), notes: String(d.notes || "").trim(), courseId: cSel || (guess ? guess.id : ""), dates: (d.dates || []).filter(x => x && x.title && isDate(x.due)).map(x => ({title: String(x.title), type: TYPES.includes(x.type) ? x.type : "Assignment", due: x.due, time: /^\d\d:\d\d$/.test(x.time || "") ? x.time : "", on: true}))};
-      if (!S.result.notes) throw aiErr("empty", "Couldn't read anything in those photos. Try a clearer, closer photo.");
-      review();
-    } catch(e) { status.textContent = e.message || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy"); }
+      if (!S.result.notes) { S.result = null; throw aiErr("empty", "Couldn't read anything in those photos. Try a clearer, closer photo."); }
+      if (live()) review();
+    } catch(e) { if (!live()) return; status.textContent = e.message || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy"); }
   });
   const review = () => {
     const R = S.result;
-    $("#pnBody").innerHTML = `<label class="f"><span class="lh">Note</span><textarea id="pnText" rows="14" maxlength="8000">${esc((R.title ? R.title + "\n\n" : "") + R.notes)}</textarea></label>
+    $("#pnBody").innerHTML = `<label class="f"><span class="lh">Note</span><textarea id="pnText" rows="14" maxlength="8000">${esc(R.text != null ? R.text : (R.title ? R.title + "\n\n" : "") + R.notes)}</textarea></label>
       <label class="f">Course<select id="pnCourse2">${courseSelectHtml(R.courseId)}</select></label>
       ${R.dates.length ? `<fieldset><legend>Dates Found in the Photos</legend>${R.dates.map((x, i) => `<label class="mi-check"><input type="checkbox" data-pd="${i}" checked> ${esc(x.title)} <span class="mini">${esc(x.type)}, ${esc(fmtDate(x.due))}${x.time ? " " + esc(fmtTime(x.time)) : ""}</span></label>`).join("")}</fieldset>` : ""}
       ${caps.assets ? `<label class="mi-check"><input type="checkbox" id="pnKeep" checked> Also save the photos in the course's Lecture Notes folder</label>` : ""}`;
     $(".sheet-foot", dlg).innerHTML = `<button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="pnSave">Save Note${R.dates.length ? " and Tasks" : ""}</button>`;
+    $("#pnText").addEventListener("input", e => { R.text = e.target.value; });
+    $("#pnCourse2").addEventListener("change", e => { R.courseId = e.target.value; });
     $("#pnSave").addEventListener("click", async () => {
       const text = $("#pnText").value.trim(); if (!text) return;
+      PN_DRAFT = null;
       const cid = $("#pnCourse2").value;
       const tasks = R.dates.filter((x, i) => { const cb = dlg.querySelector(`[data-pd="${i}"]`); return cb && cb.checked; });
       const keep = $("#pnKeep") && $("#pnKeep").checked;
@@ -4863,6 +4881,7 @@ function photoNoteSheet(file){
       if (keep) uploadFiles(S.files, {courseId: cid, folderId: "notes"});
     });
   };
+  if (!file && S.result) review();
 }
 
 /* Ask your course materials */
@@ -8359,6 +8378,8 @@ function viewCalendar(){
 }
 
 /* Courses */
+// School sites name courses like "0 - Context of Nursing 1 - 44861": the card shows just the name
+const cardName = n => { const t = String(n || "").replace(/^\s*\d{1,3}\s*[-–:]\s*/, "").replace(/\s*[-–]\s*\d{4,}\s*$/, "").trim(); return t || n; };
 function viewCourses(){
   if (ui.courseId) {
     const c = courseOf(ui.courseId);
@@ -8379,11 +8400,11 @@ function viewCourses(){
       + (nFiles ? `<span class="c2-mini c2-files"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5l-7.8 7.8a5 5 0 0 1-7.1-7.1l8.2-8.2a3.4 3.4 0 0 1 4.8 4.8l-8.2 8.2a1.7 1.7 0 0 1-2.4-2.4l7.5-7.5"/></svg><span aria-hidden="true">${nFiles}</span><span class="sr">${nFiles} file${nFiles === 1 ? "" : "s"}</span></span>` : "");
     return `<div class="course-wrap" data-sort-id="${esc(c.id)}"><button class="course-card c2-card" style="--c:${esc(c.color)}" data-code="${esc(courseLabel(c))}" data-act="open-course" data-id="${esc(c.id)}">
       <span class="c2-band"><span class="g2-kick">${esc(courseLabel(c))}</span>${when ? `<span class="c2-sched">${esc(when)}</span>` : ""}</span>
-      <span class="c2-top"><span class="g2-ring c2-ring" aria-hidden="true">${courseRingHtml(c)}</span><h3>${esc(c.name)}<span class="c2-code">${esc(courseLabel(c))}</span></h3></span>
+      <span class="c2-top"><span class="g2-ring c2-ring" aria-hidden="true">${courseRingHtml(c)}</span><h3><span class="c2-name">${esc(cardName(c.name))}</span><span class="c2-code">${esc(courseLabel(c))}</span></h3></span>
       <span class="body">
         ${when ? `<span class="c2-when">${esc(when)}</span>` : ""}${courseNextHtml(open, today)}
         ${ts.length ? `<div class="prog" style="--c:${esc(c.color)}"><span class="track"><i style="width:${pct}%"></i></span>${doneN} of ${ts.length} done${nFiles ? `, ${nFiles} file${nFiles === 1 ? "" : "s"}` : ""}</div>` : ""}
-        ${gn || hrs > 0 || pill || mini ? `<span class="c2-foot${gn || hrs > 0 || pill ? "" : " c2-foot-m"}">${mini}${gn && gn.pct != null ? `<span class="c2-grade">Grade <b>${esc(gn.fmt(gn.pct))}</b>${gn.letter ? `<span class="c2-letter">${esc(gn.letter)}</span>` : ""}<span class="mini">· ${esc(gn.fmt(gn.marked))} marked</span></span>` : gn ? `<span class="mini">No marks yet</span>` : hrs > 0 ? `<span class="mini"><b>${fmtH(hrs)}</b> this week</span>` : "<span></span>"}${pill}</span>` : ""}
+        ${gn || hrs > 0 || pill || mini ? `<span class="c2-foot${gn || hrs > 0 || pill ? "" : " c2-foot-m"}">${mini}${gn && gn.pct != null ? `<span class="c2-grade">Grade <b>${esc(gn.fmt(gn.pct))}</b>${gn.letter ? `<span class="c2-letter">${esc(gn.letter)}</span>` : ""}<span class="mini">· ${esc(gn.fmt(gn.marked))} marked</span></span>` : gn ? `<span class="mini c2-nomarks">No marks yet</span>` : hrs > 0 ? `<span class="mini"><b>${fmtH(hrs)}</b> this week</span>` : "<span></span>"}${pill}</span>` : ""}
       </span></button></div>`;
   }).join("");
   return `<div class="view-head"><h2>Your Courses</h2>${proBtns("courses")}${trashBtn("course")}</div><div class="course-list" data-sortable="courses">${cards}</div>
@@ -10750,7 +10771,7 @@ function nbZoomCtl(){
 function nbZoomApply(){
   const sc = $("#nbScroll"), sz = $("#nbSizer"), b = $("#nbBoard"); if (!sc || !sz || !b) return;
   if (Math.abs(NBZ - 1) < 0.001) { b.style.transform = ""; b.style.minWidth = b.style.minHeight = ""; sz.style.width = sz.style.height = ""; sz.classList.remove("zoomed"); return; }
-  sz.classList.add("zoomed");
+  sz.classList.add("zoomed"); sz.style.setProperty("--nbz", NBZ);
   b.style.transform = `scale(${NBZ})`;
   b.style.minWidth = (sc.clientWidth / NBZ) + "px"; b.style.minHeight = (sc.clientHeight / NBZ) + "px";
   sz.style.width = (b.offsetWidth * NBZ) + "px"; sz.style.height = (b.offsetHeight * NBZ) + "px";
@@ -24832,6 +24853,7 @@ hook("boot", boot);
     if (ui.tab === "groups") render();
     updateNavBadge();
     reportStats();
+    newsFetch(true);
   }
   // Count shared items that changed since you copied them, per group
   function markChanges(stamps){
@@ -24856,7 +24878,7 @@ hook("boot", boot);
         indexItems(gid, S.items[gid]); delete S.errG[gid]; calSync(gid);
         const n = (S.items[gid] || []).filter(it => { const c = it.kind === "task" ? copyOfTask(it.id) : copyOfItem(it.id), ref = c && (c.groupRef || c.sharedFrom); return ref && it.user_id !== myId() && ts(it.updated_at) > ts(ref.v) + 1000; }).length;
         if (n) S.changed[gid] = n; else delete S.changed[gid];
-        updateNavBadge();
+        updateNavBadge(); newsAt = 0; setTimeout(() => newsFetch(true), 0);
       }
     } catch(e) { S.errG[gid] = e.message; }
     S.loadingG[gid] = false;
@@ -24888,13 +24910,85 @@ hook("boot", boot);
   }
   function updateNavBadge(){
     const b = $('nav.tabs [data-tab="groups"]'); if (!b) return;
-    const n = Object.values(S.changed).reduce((a, x) => a + x, 0);
+    const n = Object.values(S.changed).reduce((a, x) => a + x, 0) + newsTotal();
     let dot = $(".grp-dot", b);
     if (!n) { if (dot) dot.remove(); return; }
     if (!dot) { dot = document.createElement("span"); dot.className = "grp-dot"; b.appendChild(dot); }
     dot.textContent = n > 9 ? "9+" : String(n);
     b.setAttribute("aria-label", `Groups, ${n} update${n === 1 ? "" : "s"}`);
   }
+
+  /* New from other members: a count on the section tab, on the group's card and on the Groups icon.
+     When you last looked at each section is kept per device; a group you've never opened starts with nothing new. */
+  const NEWSK = () => "studyboard:grpSeen:" + (myId() || "x");
+  let SEEN = null, SEENU = "";
+  const seenAll = () => { if (!SEEN || SEENU !== NEWSK()) { SEENU = NEWSK(); try { SEEN = JSON.parse(localStorage.getItem(SEENU) || "{}") || {}; } catch (e) { SEEN = {}; } } return SEEN; };
+  const seenSave = () => { try { localStorage.setItem(SEENU, JSON.stringify(SEEN)); } catch (e) {} };
+  const seenOf = gid => { const a = seenAll(); if (!a[gid]) { a[gid] = {b: Date.now(), t: {}}; seenSave(); } return a[gid]; };
+  S.news = {}; S.newsMax = {}; S.newsRaw = {};
+  // before Groups has been opened, the list from the start-up check is enough
+  const newsGroups = () => S.groups && S.groups.length ? S.groups : (S.newsGroups || []);
+  const newsGroup = gid => newsGroups().find(g => g.id === gid);
+  // Which section each kind of shared thing lives in
+  const KIND_TAB = {study: {deck: "study", quiz: "study", qa: "study", answer: "study", task: "study", event: "sessions", battle: "challenge"},
+    project: {link: "files", gfile: "files", event: "meetings", minutes: "meetings"}};
+  const newsTotal = () => Object.values(S.news).reduce((a, m) => a + Object.values(m).reduce((x, y) => x + y, 0), 0);
+  function newsCount(gid){
+    const g = newsGroup(gid), raw = S.newsRaw[gid]; if (!g || !raw) { delete S.news[gid]; return; }
+    const tabs = new Set(tabsOf(g).map(x => x[0])), s = seenOf(gid), me = myId(), out = {}, mx = {};
+    raw.forEach(x => {
+      if (!x.tab || !tabs.has(x.tab)) return;
+      const at = ts(x.at); mx[x.tab] = Math.max(mx[x.tab] || 0, at);
+      if (x.by && x.by !== me && at > (s.t[x.tab] || s.b)) out[x.tab] = (out[x.tab] || 0) + 1;
+    });
+    S.news[gid] = out; S.newsMax[gid] = mx;
+  }
+  // Looking at a section clears it
+  function newsSeen(gid, tab){
+    if (!gid || !tab) return;
+    const s = seenOf(gid), at = Math.max(Date.now(), ((S.newsMax[gid] || {})[tab] || 0) + 1);
+    if ((s.t[tab] || 0) >= at - 1500 && !((S.news[gid] || {})[tab])) return;
+    s.t[tab] = at; seenSave(); if (S.news[gid]) delete S.news[gid][tab];
+    newsPaint();
+  }
+  function newsPaint(){
+    const pip = (el, n, cls) => { let d = el.querySelector(":scope > ." + cls); if (!n) { if (d) d.remove(); return; } if (!d) { d = document.createElement("span"); d.className = cls; d.setAttribute("aria-hidden", "true"); el.appendChild(d); } d.textContent = n > 9 ? "9+" : String(n); };
+    const root = $("#grpDetail"), gid = root && root.dataset.gid;
+    if (gid) {
+      const g = groupOf(gid), cur = g && curTab(g); if (cur && ((S.news[gid] || {})[cur])) { newsSeen(gid, cur); return; }
+      $$("#grpDetail .grp-tabs [role=tab]").forEach(b => { const n = (S.news[gid] || {})[b.dataset.t] || 0; pip(b, n, "grp-new"); b.setAttribute("aria-label", b.firstChild.textContent + (n ? `, ${n} new` : "")); });
+    }
+    $$("#view .grp-card [data-act=grp-open]").forEach(b => { const m = S.news[b.dataset.id] || {}; pip(b, Object.values(m).reduce((a, x) => a + x, 0), "grp-new"); });
+    updateNavBadge();
+  }
+  // What's been added, for every group: shared items, chat, whiteboards, project tasks and new members
+  let newsBusy = false, newsAt = 0;
+  async function newsFetch(force){
+    const gs = newsGroups();
+    if (newsBusy || !online() || !gs.length || (!force && Date.now() - newsAt < 60000)) return;
+    newsBusy = true; newsAt = Date.now();
+    const ids = gs.map(g => g.id), since = new Date(Math.min(...ids.map(id => seenOf(id).b)) - 1000).toISOString();
+    const safe = p => p.then(r => r || [], () => []);
+    try {
+      const [its, msgs, boards, tasks] = await Promise.all([
+        safe(q(cli().from("group_items").select("group_id,kind,user_id,title,created_at").in("group_id", ids).gt("created_at", since))),
+        safe(q(cli().from("group_messages").select("group_id,user_id,created_at").in("group_id", ids).gt("created_at", since).order("created_at", {ascending: false}).limit(500))),
+        safe(q(cli().from("group_boards").select("group_id,created_by,created_at").in("group_id", ids).eq("deleted", false).gt("created_at", since))),
+        safe(q(cli().from("group_tasks").select("group_id,created_by,created_at").in("group_id", ids).eq("deleted", false).gt("created_at", since)))]);
+      const raw = {}; ids.forEach(id => { raw[id] = []; });
+      const add = (gid, tab, at, by) => { if (raw[gid]) raw[gid].push({tab, at, by}); };
+      its.forEach(x => { const g = newsGroup(x.group_id); if (!g || x.title === "__icon__") return; add(x.group_id, KIND_TAB[isProj(g) ? "project" : "study"][x.kind], x.created_at, x.user_id); });
+      msgs.forEach(x => add(x.group_id, "chat", x.created_at, x.user_id));
+      boards.forEach(x => add(x.group_id, "boards", x.created_at, x.created_by));
+      tasks.forEach(x => { const g = newsGroup(x.group_id); if (g && isProj(g)) add(x.group_id, "tasks", x.created_at, x.created_by); });
+      ids.forEach(id => (S.members[id] || []).forEach(m => add(id, "members", m.joined_at, m.user_id)));
+      S.newsRaw = raw; ids.forEach(newsCount);
+    } catch (e) {}
+    newsBusy = false; newsPaint();
+  }
+  hook("render", () => { try { newsPaint(); } catch (e) {} });
+  setInterval(() => { if (!document.hidden) newsFetch(); }, 180000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) newsFetch(); });
 
   /* Pages */
   const groupOf = gid => (S.groups || []).find(g => g.id === gid);
@@ -25006,6 +25100,7 @@ hook("boot", boot);
     if (!g || !tabsOf(g).some(x => x[0] === t)) return false;
     S.tab[g.id] = t;
     $$("#grpDetail .grp-pane").forEach(p => { p.hidden = p.dataset.pane !== t; });
+    newsSeen(g.id, t);
     $$("#grpDetail .grp-tabs [role=tab]").forEach(b => { const on = b.dataset.t === t; b.classList.toggle("on", on); b.setAttribute("aria-selected", on); b.tabIndex = on ? 0 : -1; });
     refreshFab(); return true;
   }
@@ -27387,7 +27482,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
         try {
           const gs = await api.groups() || []; if (!gs.length) return;
           const n = markChanges(await api.stamps(gs.map(g => g.id)) || []);
-          updateNavBadge();
+          updateNavBadge(); S.newsGroups = gs; newsFetch(true);
           if (n && ui.tab !== "groups") toast(`${plural(n, "shared item")} changed in your study groups`, null, {label: "View", fn: () => openGroup(Object.keys(S.changed).length === 1 ? Object.keys(S.changed)[0] : null)});
         } catch(e) {}
       })();
@@ -29531,7 +29626,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
       return `<li class="gp-course${gr.risk ? " gr-" + gr.risk : ""}" style="--c:${esc(c.color)}">
         <button class="gp-main" data-act="g-open-course" data-id="${esc(c.id)}" aria-label="Open grades for ${esc(c.name)}">
           <span class="g2-ring gp-ring" aria-hidden="true">${courseRingHtml(c)}</span>
-          <span class="gp-who"><b class="gp-name">${esc(c.name)}</b><span class="mini">${esc(courseLabel(c))} · ${gr.ts.length ? `${fmtW(gr.wMarked)} marked` : "no graded work yet"}${gg ? ` · <b class="${gg.gap >= 0 ? "gr-ok" : ""}">${esc(gg.text)}</b>` : ""}</span></span>
+          <span class="gp-who"><b class="gp-name">${esc(typeof cardName === "function" ? cardName(c.name) : c.name)}</b><span class="mini">${esc(courseLabel(c))} · ${gr.ts.length ? `${fmtW(gr.wMarked)} marked` : "no graded work yet"}${gg ? ` · <b class="${gg.gap >= 0 ? "gr-ok" : ""}">${esc(gg.text)}</b>` : ""}</span></span>
           <span class="gp-bar" role="img" aria-label="${cur != null ? `Current grade ${fmtP(gr.current)}` : "No marks yet"}. Pass mark ${fmtP(g.pass)}${g.goal != null ? `, goal ${fmtP(g.goal)}` : ""}."><i class="gp-fill" style="width:${cur != null ? cur : 0}%"></i><i class="gp-pass" style="left:${clampP(g.pass)}%"></i>${g.goal != null ? `<i class="gp-goal" style="left:${clampP(g.goal)}%"></i>` : ""}</span>
           <span class="gp-grade">${gr.current != null ? `<b>${fmtP(gr.current)}</b>${L(gr.current) ? `<span class="c2-letter">${esc(L(gr.current))}</span>` : ""}` : `<span class="mini">Pass ${fmtP(g.pass)}</span>`}</span>
           <span class="gp-line mini">${esc(gradeLine(gr))}</span>${gr.risk ? riskPill(gr.risk) : ""}
@@ -53153,6 +53248,7 @@ var COMP_EXTRA = [];
   // The authority
   function clamp(why){
     if (!box || box.hidden || !cur || !front || guardDepth) return false;
+    if (dockFrozen()) return false;
     if (spotKind === "slot" && typeof ui !== "undefined" && ui.tab === "companion") return false;
     if (glideAnim && performance.now() < glideEnd) return false;
     const S = safeRect(true); if (S.r - S.l < 60 || S.b - S.t < 60) return false;
@@ -53560,9 +53656,21 @@ var COMP_EXTRA = [];
       if (act && mood === "idle" && !still()) { act.mouth("smile"); later(() => act && mood === "idle" && act.mouth("neutral"), 900); const r = box.getBoundingClientRect(); glanceAt(r.left + (dir > 0 ? -220 : r.width + 220), r.top + r.height * 0.4, 900); }
     };
   }
+  // Phones: while a sheet is open or the keyboard is up, the docked companion stays put
+  let fullH = 0, fullW = 0;
+  function dockFrozen(){
+    if (!phone() || spotKind !== "dock" || !box || !box.dataset.x) return false;
+    if (innerWidth !== fullW) { fullW = innerWidth; fullH = 0; }
+    const h = Math.max(innerHeight, (window.visualViewport && visualViewport.height) || 0);
+    if (h > fullH) fullH = h;
+    // a sheet is open, or one just closed and the keyboard is still sliding away
+    return !!document.querySelector("dialog[open]") || (performance.now() - dlgShut < 800 && h < fullH - 100);
+  }
+  let dlgShut = -1e9;
   function place(fresh){
     if (!box || !cur) return;
     if (press) return;
+    if (dockFrozen()) return;
     const s = choose(!!fresh);
     const prevKind = box.dataset.spot || "";
     const still1 = prevKind === s.kind && ((phone() && (s.kind === "pin" || s.kind === "dock")) || s.kind === "slot") && !travelAnim && !glideAnim;
@@ -54583,10 +54691,12 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   const refresh = ms => { clearTimeout(refreshT); refreshT = setTimeout(() => { try { passCacheReset(); build(); } catch (e) { console.warn("companion", e); } }, ms || 0); };
   new MutationObserver(() => refresh(60)).observe(document.documentElement, {attributes: true, attributeFilter: ["data-skin", "data-theme"]});
   // The placement guard's triggers (see clamp)
-  addEventListener("resize", () => { sAt = 0; try { clamp("resize"); } catch (e) {} placeSoon(200); });
+  // back from a frozen spell: settle in the same frame, so it never trails the tab bar
+  const dockNow = () => { if (phone() && spotKind === "dock" && !dockFrozen()) try { place(false); } catch (e) {} };
+  addEventListener("resize", () => { sAt = 0; dockNow(); try { clamp("resize"); } catch (e) {} placeSoon(200); });
   addEventListener("orientationchange", () => { sAt = 0; try { clamp("rotate"); } catch (e) {} placeSoon(350); guardSoon("rotate", 700); });
   addEventListener("pageshow", () => { sAt = 0; guardSoon("pageshow"); });
-  if (window.visualViewport) ["resize", "scroll"].forEach(k => visualViewport.addEventListener(k, () => { sAt = 0; guardSoon("viewport", 30); if (k === "resize") placeSoon(250); }));
+  if (window.visualViewport) ["resize", "scroll"].forEach(k => visualViewport.addEventListener(k, () => { sAt = 0; if (k === "resize") dockNow(); guardSoon("viewport", 30); if (k === "resize") placeSoon(250); }));
   document.addEventListener("focusin", () => { guardSoon("focus", 350); guardSoon("keyboard", 800); });
   document.addEventListener("focusout", () => guardSoon("blur", 350));
   new MutationObserver(() => { sAt = 0; vext = null; guardSoon("text-size", 100); placeSoon(150); }).observe(document.documentElement, {attributes: true, attributeFilter: ["data-ts", "data-hc"]});
@@ -54857,7 +54967,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const t = e.target; if (!t || !t.classList || !t.classList.contains("cp-tint-in") || !hexOk(t.value) || !ACC.some(x => x.id === t.dataset.acc)) return;
     setCfg({tint: {[t.dataset.acc]: t.value.toLowerCase()}}); curSig = ""; build(); refreshPicker();
   });
-  const DLG_CLOSE = () => { stopPreviews(); guardSoon("dialog", 80); };
+  const DLG_CLOSE = () => { stopPreviews(); dlgShut = performance.now(); dockNow(); setTimeout(dockNow, 850); guardSoon("dialog", 80); };
   dlg.addEventListener("close", DLG_CLOSE);
 
   hook("act", (a, el) => {
@@ -72910,11 +73020,12 @@ var SBWB = null;
   function clampCam(){
     const fx = fixedPage(), ph = fx && PHONE(); if (STAGE) STAGE.classList.toggle("wb-fixed", fx && !ph);
     if (fx && fw > 0 && fh > 0) {
-      const R = pageRect(noteOf().wb.pa), zf = Math.max(zMin(), Math.min(fw / R[2], fh / R[3]));
-      if (!ph) { cam.z = zf; cam.x = 0; cam.y = 0; return; }
-      cam.z = clamp(cam.z, zf, ZMAX);
+      const R = pageRect(noteOf().wb.pa), fit = Math.min(fw / R[2], fh / R[3]);
+      if (!ph) { cam.z = Math.max(zMin(), fit); cam.x = 0; cam.y = 0; return; }
+      // zoom out as far as the whole page, centred when it's smaller than the frame
+      cam.z = clamp(cam.z, Math.max(ZMIN, fit), ZMAX);
       const pw = R[2] * cam.z, phh = R[3] * cam.z;
-      cam.x = pw <= fw ? 0 : clamp(cam.x, fw - pw, 0); cam.y = phh <= fh ? 0 : clamp(cam.y, fh - phh, 0);
+      cam.x = pw <= fw ? Math.round((fw - pw) / 2) : clamp(cam.x, fw - pw, 0); cam.y = phh <= fh ? Math.round((fh - phh) / 2) : clamp(cam.y, fh - phh, 0);
       return;
     }
     cam.z = clamp(cam.z, zMin(), ZMAX);
@@ -72995,7 +73106,7 @@ var SBWB = null;
     const tf = `translate(${cam.x}px,${cam.y}px) scale(${cam.z})`; back.style.transform = tf; front.style.transform = tf; STAGE.style.setProperty("--wb-inv", String(1 / cam.z));
     if (all) { all = false; paintInk(); }
     paintLive(); selbarPlace();
-    if (zoomEl) zoomEl.textContent = Math.round(cam.z * 100) + "%";
+    if (zoomEl) { zoomEl.textContent = Math.round(cam.z * 100) + "%"; const t = PHONE() ? "Fit to screen" : "Zoom to 100%"; if (zoomEl.getAttribute("aria-label") !== t) { zoomEl.setAttribute("aria-label", t); zoomEl.title = PHONE() ? "Fit to Screen" : ""; } }
   }
   const SELHIDE = () => SEL && SEL.drag ? SEL.ids : null;
   // A stroke, with the spots the eraser rubbed
@@ -73181,6 +73292,18 @@ var SBWB = null;
     const wx = (GEST.m0[0] - c0.x) / c0.z, wy = (GEST.m0[1] - c0.y) / c0.z;
     cam.z = clamp(c0.z * d / GEST.d0, ZMIN, ZMAX); cam.x = m[0] - wx * cam.z; cam.y = m[1] - wy * cam.z; clampCam(); dirty(); camSave();
   }
+  // A rotation can drop a finger's lift (iOS), leaving a pinch stuck on and the page offset under full screen
+  function afterRotate(){
+    PTR.clear(); GEST = null; cancelDraw(); if (frame) frame.classList.remove("panning");
+    if (document.documentElement.classList.contains("board-max")) {
+      const fix = () => { try { window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; } catch (e) {}
+        const h = STAGE && STAGE.closest(".wb-host"); if (h) { h.style.transform = "translateZ(0)"; void h.offsetHeight; h.style.transform = ""; } };
+      fix(); requestAnimationFrame(fix); setTimeout(fix, 350);
+    }
+  }
+  let rotW = innerWidth;
+  addEventListener("orientationchange", afterRotate);
+  addEventListener("resize", () => { if (innerWidth !== rotW) { rotW = innerWidth; afterRotate(); } });
   function bindPointer(){
     frame.addEventListener("contextmenu", e => e.preventDefault());
     frame.addEventListener("pointerdown", e => {
@@ -73190,6 +73313,7 @@ var SBWB = null;
       PTR.set(e.pointerId, {x: e.clientX, y: e.clientY, type: e.pointerType});
       try { frame.setPointerCapture(e.pointerId); } catch (x) {}
       if (e.pointerType === "pen") penSeen = true;
+      if (e.pointerType === "touch" && e.isPrimary) [...PTR.keys()].forEach(id => { if (id !== e.pointerId && PTR.get(id).type === "touch") PTR.delete(id); });
       if (e.pointerType === "touch" && touchPts().length >= 2) { cancelDraw(); gestStart(); return; }
       if (GEST || D) return;
       e.preventDefault();
@@ -73547,7 +73671,8 @@ var SBWB = null;
       case "sel-edit": { const k = [...SEL.ids][0], it = getI(k.slice(1)); select(null); if (it) editText(it); break; }
       case "zoom-in": zoomStep(1); break;
       case "zoom-out": zoomStep(-1); break;
-      case "zoom-reset": zoomAt(1); break;
+      // phones pinch to zoom, so the % fits the board to the screen instead
+      case "zoom-reset": if (PHONE()) { if (fixedPage()) zoomAt(ZMIN); else fit(); } else zoomAt(1); break;
       case "fit": fit(); break;
       case "theme": setBoardTheme(DK ? "light" : "dark"); themeBtn(); break;
       default: fire("wb-act", a, el, id); return;
@@ -74020,6 +74145,14 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
   .tl-controls.wb-head>.btn.small{white-space:nowrap}
   .wb-tip{display:none}
   .wb-zoom{top:6px;right:6px}
+  /* phones: one small pill in the corner, zoom %, light/dark and full screen */
+  .wb-stage .wb-zoom{left:auto;right:6px;top:6px;gap:0;padding:1px 32px 1px 1px;background:rgba(255,255,255,.82);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:0 1px 6px rgba(20,30,45,.14)}
+  .wb-dk.wb-stage .wb-zoom{background:rgba(38,45,54,.82)}
+  .wb-stage .wb-zoom :is([data-wb="zoom-out"],[data-wb="zoom-in"],[data-wb="fit"]){display:none}
+  .wb-stage .wb-zoom button{height:28px;min-width:28px;padding:0 7px;font-size:.74rem}
+  .wb-stage .wb-zoom svg{width:15px;height:15px}
+  .wb-stage .wb-max{top:7px;right:7px;width:30px;height:30px;background:none!important;border-color:transparent!important;box-shadow:none!important;z-index:4}
+  .wb-stage .wb-max svg{width:14px;height:14px}
   /* phones: the board picker with its options (⋯) on one row, then All Boards, Export and Notes and Cards evenly on the next */
   .tl-controls.wb-head{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,.85fr) minmax(0,1.45fr) 42px;gap:6px!important;align-items:center}
   .tl-controls.wb-head>*{margin:0!important;min-width:0;max-width:none!important;width:auto!important;flex:none!important}
@@ -76017,7 +76150,9 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
       const el = titleBox(); if (!el) return;
       const tab = (typeof ui !== "undefined" && ui.tab) || "board";
       const cur = document.querySelector('nav.tabs .in [aria-current="page"]');
-      const t = tab === "archive" ? "Archive" : (cur && cur.textContent.trim()) || label(tab) || (tab.charAt(0).toUpperCase() + tab.slice(1));
+      // the tab's name without its count badge
+      const navName = b => { const c = b.cloneNode(true); c.querySelectorAll(".grp-dot,.fc-navdue,.nm-dot").forEach(x => x.remove()); return c.textContent.trim(); };
+      const t = tab === "archive" ? "Archive" : (cur && navName(cur)) || label(tab) || (tab.charAt(0).toUpperCase() + tab.slice(1));
       const k = tab === "board" ? (document.getElementById("todayLabel") || {}).textContent || "" : "";
       el.querySelector(".ph-t").textContent = t;
       el.classList.toggle("ph-long", t.length > 8);
@@ -76105,7 +76240,8 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
       const s = sig(), nav = document.querySelector("nav.tabs");
       const seat = s + "|" + (nav ? nav.dataset.fit || "" : "") + "|" + (document.querySelector('nav.tabs .in [data-tab="companion"]') ? 1 : 0);
       if (seat !== seatSig) { seatSig = seat; seatCut(); }
-      if (s !== tintSig) { tintSig = s; barTint(); }
+      // checked every time (cheap): a theme's colours can land a moment after the switch, which left the strip stale
+      tintSig = s; barTint();
     });
   }
   hook("render", () => { update(); fitChat(); later(false); });
@@ -76906,7 +77042,7 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
     // Two thresholds so the header can't flip back and forth at the edge
     const was = b.classList.contains("sb-scrolled"), y0 = window.scrollY;
     const on = PHONE.matches && (was ? y0 > 2 : y0 > 12);
-    b.classList.toggle("sb-scrolled", on);
+    if (on !== was) { if (on) section(); morph(() => b.classList.toggle("sb-scrolled", on), on); }
     keep();
     if (on) section();
     let y = false;
@@ -76916,6 +77052,23 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
       y = q.height > 0 && q.bottom > f.top - 8 && q.top < f.bottom + 8;
     }
     b.classList.toggle("fab-yield", !!y);
+  }
+  // Big and small header: everything glides from where it was (one animation on transforms, so it never stutters)
+  const RM = window.matchMedia ? matchMedia("(prefers-reduced-motion: reduce)") : {matches: false};
+  function morph(flip, on){
+    const h = document.querySelector("header.top");
+    if (!h || RM.matches || !h.animate || !PHONE.matches) { flip(); return; }
+    const q = sel => h.querySelector(sel), logo = q(".brand img.logo"), date = q("#todayLabel"), sec = q(".top-sec"), acts = q(".head-actions");
+    h.getAnimations({subtree: true}).forEach(a => a.finish());
+    const r = el => el && el.getBoundingClientRect(), h0 = h.getBoundingClientRect().height, L0 = r(logo), D0 = r(date), A0 = r(acts);
+    flip();
+    const h1 = h.getBoundingClientRect().height, L1 = r(logo), A1 = r(acts);
+    const o = {duration: 300, easing: "cubic-bezier(.22,.8,.24,1)"};
+    if (h0 && h1 && Math.abs(h0 - h1) > 0.5) h.animate([{height: h0 + "px"}, {height: h1 + "px"}], o);
+    if (L0 && L1 && L1.width) logo.animate([{transformOrigin: "0 0", transform: `translate(${L0.left - L1.left}px,${L0.top - L1.top}px) scale(${L0.width / L1.width})`}, {transformOrigin: "0 0", transform: "none"}], o);
+    if (A0 && A1) acts.animate([{transform: `translateY(${A0.top - A1.top}px)`}, {transform: "none"}], o);
+    if (!on && date && D0) date.animate([{opacity: 0, transform: "translateY(-6px)"}, {opacity: 1, transform: "none"}], Object.assign({}, o, {delay: 60, fill: "backwards"}));
+    if (on && sec) sec.animate([{opacity: 0, transform: "translateX(-8px)"}, {opacity: 1, transform: "none"}], Object.assign({}, o, {delay: 40, fill: "backwards"}));
   }
   // The shrinking header keeps its full space in the page, so the scroll spot never jumps
   let full = 0, ro = null;
@@ -76934,7 +77087,8 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
     let el = box.querySelector(".top-sec");
     if (!el) { el = document.createElement("span"); el.className = "top-sec"; el.setAttribute("aria-hidden", "true"); brand.after(el); }
     const pick = document.querySelector("#view > .pview-tabs [aria-selected=true], #view .bview-tabs [aria-selected=true]") || document.querySelector("nav.tabs [aria-current=page]");
-    const t = pick ? pick.textContent.replace(/\s+/g, " ").trim() : "";
+    const name = pick && pick.cloneNode(true); if (name) name.querySelectorAll(".grp-dot,.fc-navdue,.nm-dot,.grp-new").forEach(x => x.remove());
+    const t = name ? name.textContent.replace(/\s+/g, " ").trim() : "";
     if (el.textContent !== t) el.textContent = t;
   }
   const soon = () => { if (!raf) raf = requestAnimationFrame(check); };

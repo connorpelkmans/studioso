@@ -170,7 +170,7 @@ async function quizShare(browser){
   ok(errs.length === 0, "quiz share: no page errors " + errs.join(" | ")); await ctx.close();
 
   ({ctx, page, errs} = await boot(browser, 1280, {me: "u1"}));
-  await act(page, "grp-page"); await page.waitForSelector("[data-grp-list]");
+  await act(page, "grp-page"); await page.waitForSelector("[data-grp-list]", {state: "attached"});
   for (const [typed, want] of [["ABCD-EFGH", "ABCD-EFGH"], ["abcdefgh", "ABCD-EFGH"], ["Join my study group: ABCD-EFGH !", "ABCD-EFGH"], ["https://studyboardapp.com/?group=ABCD-EFGH", "ABCD-EFGH"], ["k7p4qd9x", "K7P4-QD9X"]]) {
     await act(page, "grp-code"); await sheet(page, ".grp-code-in");
     await page.focus("dialog[open] .grp-code-in");
@@ -285,7 +285,7 @@ async function studyGroup(browser, w){
   const bt = await txt(page, "#grpBattle"); ok(/Quiz Battle/.test(bt) && bt.indexOf("Sam") < bt.indexOf("Jo") && /90%/.test(bt) && /60%/.test(bt) && /Hasn't played yet/.test(bt), tag + " quiz battle ranks by average best score: " + bt);
   await noOverflow(page, tag + " challenge tab");
   await page.screenshot({path: path.join(shots, `gk-study-${w}-challenge.png`), fullPage: true});
-  await act(page, "grp-back"); await page.waitForSelector("[data-grp-list]"); await act(page, "grp-new"); await sheet(page, ".gk-kind-note");
+  await act(page, "grp-back"); await page.waitForSelector("[data-grp-list]", {state: "attached"}); await act(page, "grp-new"); await sheet(page, ".gk-kind-note");
   ok(/Quiz Battle/.test(await txt(page, "dialog .gk-kind-note:not([hidden])")) && await page.$$eval("dialog .gk-kind-note:not([hidden]) .gk-kind-tabs span", e => e.map(x => x.innerText).join()) === "Study,Sessions,Challenge,Whiteboards,Chat,Members", tag + " the study preview lists its tabs");
   await page.click('dialog .grp-kind [data-kind="project"]');
   ok(await page.$$eval("dialog .gk-kind-note:not([hidden]) .gk-kind-tabs span", e => e.map(x => x.innerText).join()) === "Overview,Tasks,Files,Meetings,Whiteboards,Chat,Members" && /Create Project/.test(await txt(page, "#grpSave")), tag + " the project preview lists its tabs");
@@ -435,7 +435,7 @@ async function hideFeatures(browser){
 
 async function createProject(browser){
   const {ctx, page, errs} = await boot(browser, 1280, {me: "u1"});
-  await act(page, "grp-page"); await page.waitForSelector("[data-grp-list]"); await act(page, "grp-new"); await sheet(page, ".grp-kind");
+  await act(page, "grp-page"); await page.waitForSelector("[data-grp-list]", {state: "attached"}); await act(page, "grp-new"); await sheet(page, ".grp-kind");
   await page.click('dialog .grp-kind [data-kind="project"]');
   await page.fill('dialog input[name="name"]', "History Paper"); await page.fill('dialog input[name="due"]', await page.evaluate(() => window.__day(20)));
   await page.click("dialog #grpSave"); await page.waitForSelector("#grpDetail", {timeout: 8000}); await page.waitForTimeout(800);
@@ -458,7 +458,7 @@ async function fromTemplate(browser){
   await page.evaluate(() => { const st = window.SBPINPICK.state(); st.settings = Object.assign({}, st.settings, {grpTemplates: [
     {id: "tp1", name: "Poster Project", kind: "project", course: "BIO 101", icon: "", hidden: ["meetings"], goal: 0, tasks: [{title: "Pick a topic", off: 10}, {title: "Print the poster", off: 1}], at: Date.now()},
     {id: "tp2", name: "Exam Crew", kind: "study", course: "CHEM 110", icon: "", hidden: [], goal: 90, tasks: [], at: Date.now()}]}); });
-  await act(page, "grp-page"); await page.waitForSelector("[data-grp-list]"); await act(page, "grp-new"); await sheet(page, ".grp-tpls");
+  await act(page, "grp-page"); await page.waitForSelector("[data-grp-list]", {state: "attached"}); await act(page, "grp-new"); await sheet(page, ".grp-tpls");
   eq(await page.locator("dialog .grp-tpls [data-tpl]").count(), 3, "New Group offers Blank and both saved templates");
   await page.click('dialog .grp-tpls [data-tpl="tp1"]'); await page.screenshot({path: shots + "/gk-new-from-template.png"});
   await page.click('dialog .grp-tpls [data-tpl="tp2"]');

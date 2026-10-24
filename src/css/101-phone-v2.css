@@ -74,6 +74,7 @@
   /* Page switchers */
   #view > .pview-tabs,#view > .bview-row .bview-tabs{max-width:none;width:100%;margin:2px 0 12px}
   #view > .pview-tabs button,#view > .bview-row .bview-tabs button{padding:8px 6px;font-size:1.2rem;min-height:42px;white-space:nowrap}
+  #view > .pview-tabs:has(> button:nth-of-type(4)) button,#view > .bview-row .bview-tabs:has(> button:nth-of-type(4)) button{font-size:1.1rem;padding:8px 4px;flex:1 1 auto;min-width:0}
   #view > .bview-row{margin-top:0}
   .ph-dup{display:none!important}
   #view .view-head:not(:has(> :not(h2.ph-dup))){display:none}
@@ -88,6 +89,8 @@
   dialog#dlg > .sheet{border-radius:22px 22px 0 0}
   dialog#dlg .sheet-foot{flex-wrap:wrap;gap:8px}
   dialog#dlg .sheet-foot > .btn.primary:last-child,dialog#dlg .sheet-foot > [data-submit].primary{flex:1 1 140px}
+  /* nothing on the left: Cancel takes the left edge and the main button fills the rest */
+  dialog#dlg .sheet-foot > .spacer:first-child{display:none}
 }
 /* Course filter: one dropdown instead of a row of chips */
 #view .cf-chips{display:none!important}
@@ -240,3 +243,9 @@
   #view > .bview-row > .pg-tabs{width:100%}
   #view > .bview-row:has(> .pg-tabs) > .board-ctl{position:absolute;right:0;bottom:6px;margin:0;display:flex;align-items:center;gap:8px}
 }
+/* Review's due count grows leftwards, clear of the companion's seat next to it */
+@media (max-width:639px){nav.tabs .in [data-tab="flashcards"] .fc-navdue{left:auto;right:calc(50% - 15px);margin-left:0;top:0;z-index:2}}
+/* Wide sheets are bottom sheets on phones too, full width like the rest */
+@media (max-width:639px){dialog:is(:has(.sheet.shop),:has(.sheet.mt-sheet),:has(.plan-sheet),:has(.sheet.ob),:has(.ph-sheet)){width:100%}}
+/* Courses: the school site button on the left, Insights and the bin on the right */
+@media (max-width:639px){#view .view-head > h2 + .btn[data-act$="-open"]{margin-right:auto}}

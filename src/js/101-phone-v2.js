@@ -21,7 +21,9 @@
       const el = titleBox(); if (!el) return;
       const tab = (typeof ui !== "undefined" && ui.tab) || "board";
       const cur = document.querySelector('nav.tabs .in [aria-current="page"]');
-      const t = tab === "archive" ? "Archive" : (cur && cur.textContent.trim()) || label(tab) || (tab.charAt(0).toUpperCase() + tab.slice(1));
+      // the tab's name without its count badge
+      const navName = b => { const c = b.cloneNode(true); c.querySelectorAll(".grp-dot,.fc-navdue,.nm-dot").forEach(x => x.remove()); return c.textContent.trim(); };
+      const t = tab === "archive" ? "Archive" : (cur && navName(cur)) || label(tab) || (tab.charAt(0).toUpperCase() + tab.slice(1));
       const k = tab === "board" ? (document.getElementById("todayLabel") || {}).textContent || "" : "";
       el.querySelector(".ph-t").textContent = t;
       el.classList.toggle("ph-long", t.length > 8);
@@ -109,7 +111,8 @@
       const s = sig(), nav = document.querySelector("nav.tabs");
       const seat = s + "|" + (nav ? nav.dataset.fit || "" : "") + "|" + (document.querySelector('nav.tabs .in [data-tab="companion"]') ? 1 : 0);
       if (seat !== seatSig) { seatSig = seat; seatCut(); }
-      if (s !== tintSig) { tintSig = s; barTint(); }
+      // checked every time (cheap): a theme's colours can land a moment after the switch, which left the strip stale
+      tintSig = s; barTint();
     });
   }
   hook("render", () => { update(); fitChat(); later(false); });
