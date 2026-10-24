@@ -98,7 +98,7 @@ function weakSheet(deckIds){
       const qz = {id: uid(), title: `Weak Spots, ${fmtShort(todayISO())}`, style: home.aiStyle || "", created: Date.now(), sources: ["Your missed cards and questions"], questions: qs, results: [], kind: "weak"};
       d.aiQuizzes = (d.aiQuizzes || []).concat(qz);
       dlg.close(); saveDeck(d, `Made a ${qs.length}-question weak spots quiz`); startAiQuiz(d.id, qz.id);
-    } catch(e) { if (!live()) return; status.textContent = e.message || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy"); }
+    } catch(e) { status.textContent = e.message || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy"); }
   });
 }
 
@@ -315,7 +315,7 @@ function photoNoteSheet(file){
       S.result = {title: String(d.title || "").trim(), notes: String(d.notes || "").trim(), courseId: cSel || (guess ? guess.id : ""), dates: (d.dates || []).filter(x => x && x.title && isDate(x.due)).map(x => ({title: String(x.title), type: TYPES.includes(x.type) ? x.type : "Assignment", due: x.due, time: /^\d\d:\d\d$/.test(x.time || "") ? x.time : "", on: true}))};
       if (!S.result.notes) { S.result = null; throw aiErr("empty", "Couldn't read anything in those photos. Try a clearer, closer photo."); }
       if (live()) review();
-    } catch(e) { status.textContent = e.message || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy"); }
+    } catch(e) { if (!live()) return; status.textContent = e.message || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy"); }
   });
   const review = () => {
     const R = S.result;

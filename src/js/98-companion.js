@@ -865,8 +865,10 @@
     if (innerWidth !== fullW) { fullW = innerWidth; fullH = 0; }
     const h = Math.max(innerHeight, (window.visualViewport && visualViewport.height) || 0);
     if (h > fullH) fullH = h;
-    return !!document.querySelector("dialog[open]") || h < fullH - 100;
+    // a sheet is open, or one just closed and the keyboard is still sliding away
+    return !!document.querySelector("dialog[open]") || (performance.now() - dlgShut < 800 && h < fullH - 100);
   }
+  let dlgShut = -1e9;
   function place(fresh){
     if (!box || !cur) return;
     if (press) return;
@@ -2167,7 +2169,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const t = e.target; if (!t || !t.classList || !t.classList.contains("cp-tint-in") || !hexOk(t.value) || !ACC.some(x => x.id === t.dataset.acc)) return;
     setCfg({tint: {[t.dataset.acc]: t.value.toLowerCase()}}); curSig = ""; build(); refreshPicker();
   });
-  const DLG_CLOSE = () => { stopPreviews(); dockNow(); guardSoon("dialog", 80); };
+  const DLG_CLOSE = () => { stopPreviews(); dlgShut = performance.now(); dockNow(); setTimeout(dockNow, 850); guardSoon("dialog", 80); };
   dlg.addEventListener("close", DLG_CLOSE);
 
   hook("act", (a, el) => {

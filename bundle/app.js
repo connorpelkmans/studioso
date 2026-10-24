@@ -4639,7 +4639,7 @@ function weakSheet(deckIds){
       const qz = {id: uid(), title: `Weak Spots, ${fmtShort(todayISO())}`, style: home.aiStyle || "", created: Date.now(), sources: ["Your missed cards and questions"], questions: qs, results: [], kind: "weak"};
       d.aiQuizzes = (d.aiQuizzes || []).concat(qz);
       dlg.close(); saveDeck(d, `Made a ${qs.length}-question weak spots quiz`); startAiQuiz(d.id, qz.id);
-    } catch(e) { if (!live()) return; status.textContent = e.message || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy"); }
+    } catch(e) { status.textContent = e.message || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy"); }
   });
 }
 
@@ -4856,7 +4856,7 @@ function photoNoteSheet(file){
       S.result = {title: String(d.title || "").trim(), notes: String(d.notes || "").trim(), courseId: cSel || (guess ? guess.id : ""), dates: (d.dates || []).filter(x => x && x.title && isDate(x.due)).map(x => ({title: String(x.title), type: TYPES.includes(x.type) ? x.type : "Assignment", due: x.due, time: /^\d\d:\d\d$/.test(x.time || "") ? x.time : "", on: true}))};
       if (!S.result.notes) { S.result = null; throw aiErr("empty", "Couldn't read anything in those photos. Try a clearer, closer photo."); }
       if (live()) review();
-    } catch(e) { status.textContent = e.message || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy"); }
+    } catch(e) { if (!live()) return; status.textContent = e.message || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy"); }
   });
   const review = () => {
     const R = S.result;
@@ -53663,8 +53663,10 @@ var COMP_EXTRA = [];
     if (innerWidth !== fullW) { fullW = innerWidth; fullH = 0; }
     const h = Math.max(innerHeight, (window.visualViewport && visualViewport.height) || 0);
     if (h > fullH) fullH = h;
-    return !!document.querySelector("dialog[open]") || h < fullH - 100;
+    // a sheet is open, or one just closed and the keyboard is still sliding away
+    return !!document.querySelector("dialog[open]") || (performance.now() - dlgShut < 800 && h < fullH - 100);
   }
+  let dlgShut = -1e9;
   function place(fresh){
     if (!box || !cur) return;
     if (press) return;
@@ -54965,7 +54967,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const t = e.target; if (!t || !t.classList || !t.classList.contains("cp-tint-in") || !hexOk(t.value) || !ACC.some(x => x.id === t.dataset.acc)) return;
     setCfg({tint: {[t.dataset.acc]: t.value.toLowerCase()}}); curSig = ""; build(); refreshPicker();
   });
-  const DLG_CLOSE = () => { stopPreviews(); dockNow(); guardSoon("dialog", 80); };
+  const DLG_CLOSE = () => { stopPreviews(); dlgShut = performance.now(); dockNow(); setTimeout(dockNow, 850); guardSoon("dialog", 80); };
   dlg.addEventListener("close", DLG_CLOSE);
 
   hook("act", (a, el) => {
