@@ -6711,3 +6711,9 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
   body.sb-scrolled header.top{padding-top:calc(max(0px, env(safe-area-inset-top,0px) - 10px) + 6px)!important}
   header.top .top-row > div:first-child{padding-top:2px}
 }
+/* Course card grade on phones: one line, on the right ("92% A"), no "Grade" word or marked share */
+@media (max-width:639px){
+  #view .c2-card .c2-foot > .c2-grade{margin-left:auto!important;flex:none;gap:5px;overflow:visible}
+  #view .c2-card .c2-grade :is(.c2-gl,.mini){display:none}
+  #view .c2-card .c2-grade .c2-letter{min-width:22px;height:20px;font-size:.72rem}
+}

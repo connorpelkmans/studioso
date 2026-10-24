@@ -136,7 +136,7 @@ function viewCourses(){
       <span class="body">
         ${when ? `<span class="c2-when">${esc(when)}</span>` : ""}${courseNextHtml(open, today)}
         ${ts.length ? `<div class="prog" style="--c:${esc(c.color)}"><span class="track"><i style="width:${pct}%"></i></span>${doneN} of ${ts.length} done${nFiles ? `, ${nFiles} file${nFiles === 1 ? "" : "s"}` : ""}</div>` : ""}
-        ${gn || hrs > 0 || pill || mini ? `<span class="c2-foot${gn || hrs > 0 || pill ? "" : " c2-foot-m"}">${mini}${gn && gn.pct != null ? `<span class="c2-grade">Grade <b>${esc(gn.fmt(gn.pct))}</b>${gn.letter ? `<span class="c2-letter">${esc(gn.letter)}</span>` : ""}<span class="mini">· ${esc(gn.fmt(gn.marked))} marked</span></span>` : gn ? `<span class="mini c2-nomarks">No marks yet</span>` : hrs > 0 ? `<span class="mini"><b>${fmtH(hrs)}</b> this week</span>` : "<span></span>"}${pill}</span>` : ""}
+        ${gn || hrs > 0 || pill || mini ? `<span class="c2-foot${gn || hrs > 0 || pill ? "" : " c2-foot-m"}">${mini}${gn && gn.pct != null ? `<span class="c2-grade"><span class="c2-gl">Grade </span><b>${esc(gn.fmt(gn.pct))}</b>${gn.letter ? `<span class="c2-letter">${esc(gn.letter)}</span>` : ""}<span class="mini">· ${esc(gn.fmt(gn.marked))} marked</span></span>` : gn ? `<span class="mini c2-nomarks">No marks yet</span>` : hrs > 0 ? `<span class="mini"><b>${fmtH(hrs)}</b> this week</span>` : "<span></span>"}${pill}</span>` : ""}
       </span></button></div>`;
   }).join("");
   return `<div class="view-head"><h2>Your Courses</h2>${proBtns("courses")}${trashBtn("course")}</div><div class="course-list" data-sortable="courses">${cards}</div>
