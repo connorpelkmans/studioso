@@ -2006,10 +2006,11 @@ body.stk-dragging,body.stk-dragging *{cursor:grabbing!important;user-select:none
   .env-head{clip-path:none;padding:10px 12px}
   .nb-wrap:has(.env:not(.closed)) .nb-main{padding-bottom:170px}
   .env-head::after{display:none}
-  .env-packs{display:flex;overflow-x:auto;gap:4px}
+  .env-packs{display:flex;overflow-x:auto;gap:4px;min-height:36px;scrollbar-width:none}
   .env-packs button{flex:none;width:34px}
-  .env-sheet{display:flex;overflow-x:auto;touch-action:pan-x}
-  .env-stk{flex:none;width:52px;touch-action:pan-x}
+  /* the whole pack wraps into rows, so nothing hides off to the side */
+  .env-sheet{display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:6px 4px}
+  .env-stk{width:auto;max-width:56px;justify-self:center;touch-action:none}
   .env-found{max-height:none}
 }
 /* shop */

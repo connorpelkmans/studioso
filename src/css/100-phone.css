@@ -23,9 +23,9 @@
   .note.dragging{transform:rotate(calc(var(--rot) + 3deg)) scale(.92)}
   .note.editing{transform:none}
   .env.closed{left:14px;right:auto}
-  .env:not(.closed){max-height:min(300px,40dvh)}
+  .env:not(.closed){max-height:min(380px,48dvh)}
   .env:not(.closed) .env-body{overflow:hidden auto}
-  .nb-wrap:has(.env:not(.closed)) .nb-main{padding-bottom:min(300px,40dvh)}
+  .nb-wrap:has(.env:not(.closed)) .nb-main{padding-bottom:min(380px,48dvh)}
   .env{transition:opacity .15s}
   body.stk-dragging .env{opacity:0}
 }
