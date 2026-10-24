@@ -98,7 +98,7 @@ function weakSheet(deckIds){
       const qz = {id: uid(), title: `Weak Spots, ${fmtShort(todayISO())}`, style: home.aiStyle || "", created: Date.now(), sources: ["Your missed cards and questions"], questions: qs, results: [], kind: "weak"};
       d.aiQuizzes = (d.aiQuizzes || []).concat(qz);
       dlg.close(); saveDeck(d, `Made a ${qs.length}-question weak spots quiz`); startAiQuiz(d.id, qz.id);
-    } catch(e) { status.textContent = e.message || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy"); }
+    } catch(e) { if (!live()) return; status.textContent = e.message || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy"); }
   });
 }
 
@@ -268,9 +268,12 @@ const PHOTO_SCHEMA = {type: "OBJECT", properties: {
   required: ["notes"]};
 // A phone or tablet (a touch screen as the main pointer)
 const phoneLike = () => { try { return window.matchMedia("(pointer:coarse)").matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || ""); } catch (e) { return false; } };
+// Tapping outside the sheet keeps the photos (and a finished note) until Save or Cancel
+let PN_DRAFT = null;
 function photoNoteSheet(file){
   if (!aiReady()) { aiSetupSheet(true); return; }
-  const S = {srcs: [], files: [], result: null};
+  const S = (!file && PN_DRAFT) || {srcs: [], files: [], result: null};
+  PN_DRAFT = S;
   openSheet(`<form class="sheet ai-sheet">${head("Photo to Note")}
     <div class="sheet-body" id="pnBody">
       <div class="drop" id="pnDrop"><p style="margin:0 0 10px"><strong>Take or choose photos of the whiteboard, a slide, or handwritten notes.</strong><br><span class="mini">They become clean, typed notes on your board. Dates written in them can be added as tasks.</span></p>
@@ -282,10 +285,15 @@ function photoNoteSheet(file){
       <p class="status-msg" id="pnStatus" style="margin:0" aria-live="polite"></p>
     </div>
     <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="pnGo">${AI_ICON} Make Note</button></div></form>`);
+  const form = dlg.querySelector("form.ai-sheet"), live = () => form.isConnected && dlg.open;
+  form.addEventListener("click", e => { if (e.target.closest && e.target.closest('[data-act="close"]')) PN_DRAFT = null; }, true);
   const status = $("#pnStatus");
-  const draw = () => { $("#pnSrcs").innerHTML = S.srcs.map((s, i) => `<li><span class="ficon">${s.kind === "PDF" ? "PDF" : "IMG"}</span><span class="nm">${esc(s.name)}</span><span class="mini">${fmtSize(s.size)}</span><button type="button" class="x-btn" data-rm="${i}" aria-label="Remove">${CLOSE}</button></li>`).join(""); };
+  if (S.course != null) $("#pnCourse").value = S.course;
+  $("#pnCourse").addEventListener("change", e => { S.course = e.target.value; });
+  const draw = () => { if (!live()) return; $("#pnSrcs").innerHTML = S.srcs.map((s, i) => `<li><span class="ficon">${s.kind === "PDF" ? "PDF" : "IMG"}</span><span class="nm">${esc(s.name)}</span><span class="mini">${fmtSize(s.size)}</span><button type="button" class="x-btn" data-rm="${i}" aria-label="Remove">${CLOSE}</button></li>`).join(""); };
   const add = async list => { for (const f of list) { try { S.srcs.push(await aiSourceFromFile(f)); S.files.push(f); } catch(e) { status.textContent = e.message; } } draw(); };
   if (file) add([file]).then(() => { const g = $("#pnGo"); if (g && S.srcs.length) g.click(); });
+  else if (S.srcs.length) draw();
   $("#pnPick").addEventListener("click", () => $("#pnFile").click());
   $("#pnFile").addEventListener("change", e => { const l = [...e.target.files]; e.target.value = ""; add(l); });
   const cam = $("#pnTake"); if (cam) { cam.addEventListener("click", () => $("#pnCam").click()); $("#pnCam").addEventListener("change", e => { const l = [...e.target.files]; e.target.value = ""; add(l); }); }
@@ -305,19 +313,22 @@ function photoNoteSheet(file){
         system: "You turn photos of whiteboards, lecture slides and handwritten notes into clean, organized typed study notes. Transcribe everything that matters, fix obvious typos, expand cryptic abbreviations only when you're sure, keep formulas and numbers exactly, and organize with short headings and bullets. If something is unreadable, write [unclear]. Describe diagrams briefly in words. List any due dates or exam dates you see, resolving them relative to today. Return JSON only."});
       const d = r.data, cSel = $("#pnCourse").value, guess = coursesArr().find(c => (c.code || c.name).toLowerCase() === String(d.course || "").toLowerCase());
       S.result = {title: String(d.title || "").trim(), notes: String(d.notes || "").trim(), courseId: cSel || (guess ? guess.id : ""), dates: (d.dates || []).filter(x => x && x.title && isDate(x.due)).map(x => ({title: String(x.title), type: TYPES.includes(x.type) ? x.type : "Assignment", due: x.due, time: /^\d\d:\d\d$/.test(x.time || "") ? x.time : "", on: true}))};
-      if (!S.result.notes) throw aiErr("empty", "Couldn't read anything in those photos. Try a clearer, closer photo.");
-      review();
+      if (!S.result.notes) { S.result = null; throw aiErr("empty", "Couldn't read anything in those photos. Try a clearer, closer photo."); }
+      if (live()) review();
     } catch(e) { status.textContent = e.message || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy"); }
   });
   const review = () => {
     const R = S.result;
-    $("#pnBody").innerHTML = `<label class="f"><span class="lh">Note</span><textarea id="pnText" rows="14" maxlength="8000">${esc((R.title ? R.title + "\n\n" : "") + R.notes)}</textarea></label>
+    $("#pnBody").innerHTML = `<label class="f"><span class="lh">Note</span><textarea id="pnText" rows="14" maxlength="8000">${esc(R.text != null ? R.text : (R.title ? R.title + "\n\n" : "") + R.notes)}</textarea></label>
       <label class="f">Course<select id="pnCourse2">${courseSelectHtml(R.courseId)}</select></label>
       ${R.dates.length ? `<fieldset><legend>Dates Found in the Photos</legend>${R.dates.map((x, i) => `<label class="mi-check"><input type="checkbox" data-pd="${i}" checked> ${esc(x.title)} <span class="mini">${esc(x.type)}, ${esc(fmtDate(x.due))}${x.time ? " " + esc(fmtTime(x.time)) : ""}</span></label>`).join("")}</fieldset>` : ""}
       ${caps.assets ? `<label class="mi-check"><input type="checkbox" id="pnKeep" checked> Also save the photos in the course's Lecture Notes folder</label>` : ""}`;
     $(".sheet-foot", dlg).innerHTML = `<button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="pnSave">Save Note${R.dates.length ? " and Tasks" : ""}</button>`;
+    $("#pnText").addEventListener("input", e => { R.text = e.target.value; });
+    $("#pnCourse2").addEventListener("change", e => { R.courseId = e.target.value; });
     $("#pnSave").addEventListener("click", async () => {
       const text = $("#pnText").value.trim(); if (!text) return;
+      PN_DRAFT = null;
       const cid = $("#pnCourse2").value;
       const tasks = R.dates.filter((x, i) => { const cb = dlg.querySelector(`[data-pd="${i}"]`); return cb && cb.checked; });
       const keep = $("#pnKeep") && $("#pnKeep").checked;
@@ -329,6 +340,7 @@ function photoNoteSheet(file){
       if (keep) uploadFiles(S.files, {courseId: cid, folderId: "notes"});
     });
   };
+  if (!file && S.result) review();
 }
 
 /* Ask your course materials */
