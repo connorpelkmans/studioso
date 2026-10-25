@@ -481,7 +481,7 @@
     if (d < 0.5 && (!sc || Math.abs(sc - 1) < 0.01)) return;
     if (glideAnim) try { glideAnim.cancel(); } catch (e) {}
     const me = glideAnim = box.animate([{transform: `translate(${f1(ox)}px,${f1(oy)}px)${sc ? ` scale(${f1(sc)})` : ""}`}, {transform: "translate(0px,0px) scale(1)"}], Object.assign({duration: ms, easing: "cubic-bezier(.22,.8,.3,1)"}, replace ? {} : {composite: "add"}));
-    glideEnd = performance.now() + ms; followBubble();
+    glideEnd = performance.now() + ms; followBubble(); if (window.SBSceneRest) SBSceneRest(ms + 120);
     const end = () => { if (glideAnim !== me) return; glideAnim = null; glideEnd = 0; try { clamp("glide-end"); } catch (e) {} const b = front && front.querySelector(".cp-bubble.on"); if (b) placeBubble(b); fitHitSoon(); };
     me.onfinish = me.oncancel = end;
   }
@@ -866,6 +866,7 @@
       for (let i = 1; i < 4; i++) later(() => spawnFx("sparkle", 1), dur * i / 4);
     }
     fitFrames(frames, to, px);
+    if (window.SBSceneRest) SBSceneRest(dur + 150);
     const me = travelAnim = box.animate(frames, {duration: dur, easing});
     box.dataset.travel = style;
     motionWatch(dur);

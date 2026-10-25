@@ -16707,7 +16707,9 @@ const SCN20 = (() => {
     const band = v.band.h ? `<div class="sc-band" style="top:${v.band.top * k}px;height:${v.band.h * k}px;background:${v.band.bg}"></div>` : "";
     el.innerHTML = band + layerHtml(v.far, true, v, k) + layerHtml(v.refl, true, v, k) + layerHtml(v.mid, true, v, k)
       + (eng ? `<canvas class="sc-cv sc-a"></canvas>` : "") + layerHtml(v.near, false, v, k) + (eng && eng.stat ? `<canvas class="sc-cv sc-s"></canvas>` : "") + (eng ? `<canvas class="sc-cv sc-b"></canvas>` : "");
-    const dpr = Math.min(g.W * g.H > BIG_AREA ? DPR_BIG : DPR_MAX, eng && eng.maxDpr || 9, window.devicePixelRatio || 1) * (MO() ? MO().dprScale() : 1), s = k * dpr;
+    // Phones draw the moving layers at one pixel per screen point: the particles and waves are soft, and it nearly halves what every frame costs
+    const phoneDpr = g.W < 640 ? 1 : 0;
+    const dpr = Math.min(phoneDpr || (g.W * g.H > BIG_AREA ? DPR_BIG : DPR_MAX), eng && eng.maxDpr || 9, window.devicePixelRatio || 1) * (MO() ? MO().dprScale() : 1), s = k * dpr;
     const cvs = eng ? [el.querySelector(".sc-a"), el.querySelector(".sc-b")] : [];
     cvs.forEach(c => { c.width = Math.round(g.W * dpr); c.height = Math.round(g.H * dpr); c.style.width = g.W + "px"; c.style.height = g.H + "px"; });
     const sCv = eng && eng.stat ? el.querySelector(".sc-s") : null;
@@ -16740,11 +16742,16 @@ const SCN20 = (() => {
     catch (e) { console.warn("scene engine " + (cur && cur.sc), e); if (cur) { broken.add(cur.sc); const id = cur.id; cur = null; build(id); } return false; }
   }
 
+  // The moving background rests for a moment while the page scrolls or the companion travels, so those stay smooth
+  let restUntil = 0;
+  window.SBSceneRest = ms => { restUntil = Math.max(restUntil, performance.now() + ms); };
+  addEventListener("scroll", () => { restUntil = Math.max(restUntil, performance.now() + 180); }, {passive: true, capture: true});
   function tick(ts){
     raf = 0;
     const c = cur; if (!c || !c.eng || document.hidden) return;
     const finishing = performance.now() < finUntil;
     if ((!liveOK() || popup) && !finishing) { last = 0; return; }
+    if (!finishing && performance.now() < restUntil) { raf = requestAnimationFrame(tick); return; }
     if (last && ts - last < (MO() ? MO().frameMs() : FRAME_MS)) { raf = nextFrame(); return; }
     const dt = last ? Math.min(0.1, (ts - last) / 1000) : 1 / 30; last = ts; T += dt;
     const t0 = performance.now();
@@ -53360,7 +53367,7 @@ var COMP_EXTRA = [];
     if (d < 0.5 && (!sc || Math.abs(sc - 1) < 0.01)) return;
     if (glideAnim) try { glideAnim.cancel(); } catch (e) {}
     const me = glideAnim = box.animate([{transform: `translate(${f1(ox)}px,${f1(oy)}px)${sc ? ` scale(${f1(sc)})` : ""}`}, {transform: "translate(0px,0px) scale(1)"}], Object.assign({duration: ms, easing: "cubic-bezier(.22,.8,.3,1)"}, replace ? {} : {composite: "add"}));
-    glideEnd = performance.now() + ms; followBubble();
+    glideEnd = performance.now() + ms; followBubble(); if (window.SBSceneRest) SBSceneRest(ms + 120);
     const end = () => { if (glideAnim !== me) return; glideAnim = null; glideEnd = 0; try { clamp("glide-end"); } catch (e) {} const b = front && front.querySelector(".cp-bubble.on"); if (b) placeBubble(b); fitHitSoon(); };
     me.onfinish = me.oncancel = end;
   }
@@ -53745,6 +53752,7 @@ var COMP_EXTRA = [];
       for (let i = 1; i < 4; i++) later(() => spawnFx("sparkle", 1), dur * i / 4);
     }
     fitFrames(frames, to, px);
+    if (window.SBSceneRest) SBSceneRest(dur + 150);
     const me = travelAnim = box.animate(frames, {duration: dur, easing});
     box.dataset.travel = style;
     motionWatch(dur);
@@ -76828,7 +76836,7 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
   function frameCost(ms, ts){
     if (!win.t0 || ts - win.last > 600) { win = {n: 0, cost: 0, t0: ts, last: ts}; badRuns = 0; }
     win.n++; win.cost += ms; win.last = ts;
-    if (ts - win.t0 < 3000 || win.n < 20) return;
+    if (ts - win.t0 < 1500 || win.n < 12) return;
     const avg = win.cost / win.n, interval = (ts - win.t0) / win.n, budget = frameMs();
     win = {n: 0, cost: 0, t0: ts, last: ts};
     if (avg > budget * 0.6 || interval > budget * 1.7) badRuns++; else badRuns = 0;

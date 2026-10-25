@@ -192,7 +192,9 @@
     const band = v.band.h ? `<div class="sc-band" style="top:${v.band.top * k}px;height:${v.band.h * k}px;background:${v.band.bg}"></div>` : "";
     el.innerHTML = band + layerHtml(v.far, true, v, k) + layerHtml(v.refl, true, v, k) + layerHtml(v.mid, true, v, k)
       + (eng ? `<canvas class="sc-cv sc-a"></canvas>` : "") + layerHtml(v.near, false, v, k) + (eng && eng.stat ? `<canvas class="sc-cv sc-s"></canvas>` : "") + (eng ? `<canvas class="sc-cv sc-b"></canvas>` : "");
-    const dpr = Math.min(g.W * g.H > BIG_AREA ? DPR_BIG : DPR_MAX, eng && eng.maxDpr || 9, window.devicePixelRatio || 1) * (MO() ? MO().dprScale() : 1), s = k * dpr;
+    // Phones draw the moving layers at one pixel per screen point: the particles and waves are soft, and it nearly halves what every frame costs
+    const phoneDpr = g.W < 640 ? 1 : 0;
+    const dpr = Math.min(phoneDpr || (g.W * g.H > BIG_AREA ? DPR_BIG : DPR_MAX), eng && eng.maxDpr || 9, window.devicePixelRatio || 1) * (MO() ? MO().dprScale() : 1), s = k * dpr;
     const cvs = eng ? [el.querySelector(".sc-a"), el.querySelector(".sc-b")] : [];
     cvs.forEach(c => { c.width = Math.round(g.W * dpr); c.height = Math.round(g.H * dpr); c.style.width = g.W + "px"; c.style.height = g.H + "px"; });
     const sCv = eng && eng.stat ? el.querySelector(".sc-s") : null;
@@ -225,11 +227,16 @@
     catch (e) { console.warn("scene engine " + (cur && cur.sc), e); if (cur) { broken.add(cur.sc); const id = cur.id; cur = null; build(id); } return false; }
   }
 
+  // The moving background rests for a moment while the page scrolls or the companion travels, so those stay smooth
+  let restUntil = 0;
+  window.SBSceneRest = ms => { restUntil = Math.max(restUntil, performance.now() + ms); };
+  addEventListener("scroll", () => { restUntil = Math.max(restUntil, performance.now() + 180); }, {passive: true, capture: true});
   function tick(ts){
     raf = 0;
     const c = cur; if (!c || !c.eng || document.hidden) return;
     const finishing = performance.now() < finUntil;
     if ((!liveOK() || popup) && !finishing) { last = 0; return; }
+    if (!finishing && performance.now() < restUntil) { raf = requestAnimationFrame(tick); return; }
     if (last && ts - last < (MO() ? MO().frameMs() : FRAME_MS)) { raf = nextFrame(); return; }
     const dt = last ? Math.min(0.1, (ts - last) / 1000) : 1 / 30; last = ts; T += dt;
     const t0 = performance.now();

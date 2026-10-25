@@ -77,7 +77,7 @@
   function frameCost(ms, ts){
     if (!win.t0 || ts - win.last > 600) { win = {n: 0, cost: 0, t0: ts, last: ts}; badRuns = 0; }
     win.n++; win.cost += ms; win.last = ts;
-    if (ts - win.t0 < 3000 || win.n < 20) return;
+    if (ts - win.t0 < 1500 || win.n < 12) return;
     const avg = win.cost / win.n, interval = (ts - win.t0) / win.n, budget = frameMs();
     win = {n: 0, cost: 0, t0: ts, last: ts};
     if (avg > budget * 0.6 || interval > budget * 1.7) badRuns++; else badRuns = 0;
