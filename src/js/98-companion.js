@@ -661,6 +661,26 @@
     for (let y = Math.min(innerHeight - px - 16, rg.B), ky = 0; y >= Math.max(30, rg.T, lowT); y -= px * 0.8, ky++) for (let x = R - 2, kx = 0; x >= L; x -= px * 0.8, kx++) out.push({left: Math.round(x), top: Math.round(y), kind: "open", score: 320 + kx * 5 + ky * (float ? 5 : 12)});
     return out;
   }
+  // Round seats (the Companion tab's ring, the phone dock) centre the whole drawing, so a companion
+  // that stands low in its picture is lifted until it sits level with the rest
+  const SEAT_LIFT = {};
+  function seatLift(c, px){
+    if (!c) return 0;
+    let u = SEAT_LIFT[c.id];
+    if (u === undefined) {
+      u = 0;
+      try {
+        const host = document.createElement("div"); host.style.cssText = "position:fixed;left:-999px;top:0;width:120px;height:120px;visibility:hidden;pointer-events:none";
+        host.innerHTML = rigSvg(c, {}).replace(/<g class="cp-zs">[\s\S]*?<\/g>/, ""); document.body.appendChild(host);
+        let top = 1e9, bot = -1e9;
+        host.querySelectorAll(".cp-p").forEach(g => { try { const b = g.getBBox(); if (b.width && b.height) { top = Math.min(top, b.y); bot = Math.max(bot, b.y + b.height); } } catch (e) {} });
+        host.remove();
+        if (bot > top) u = Math.max(0, Math.min(18, (top + bot) / 2 - 62));
+      } catch (e) {}
+      SEAT_LIFT[c.id] = u;
+    }
+    return Math.round(u / VB * px);
+  }
   let spotKind = "", spotSig = "";
   // fresh: choose from scratch (a new page)
   function slotSpot(px){
@@ -669,7 +689,7 @@
     const r = el.getBoundingClientRect();
     if (r.width < 20) return null;
     px = Math.max(px, Math.round(Math.min(r.width, r.height) * 1.02));
-    return {left: Math.round(r.left + (r.width - px) / 2), top: Math.round(r.top + (r.height - px) / 2), kind: "slot", px};
+    return {left: Math.round(r.left + (r.width - px) / 2), top: Math.round(r.top + (r.height - px) / 2 - seatLift(cur, px)), kind: "slot", px};
   }
   // Phones: its seat in the middle of the bottom tab bar
   function dockSpot(px){
@@ -677,7 +697,7 @@
     const el = document.querySelector('nav.tabs .in [data-tab="companion"]'); if (!el) return null;
     const r = el.getBoundingClientRect(); if (r.width < 20 || r.height < 20) return null;
     const seat = 56, cx = r.left + r.width / 2, seatTop = r.top - 16, sz = Math.round(seat * 0.86);
-    return {left: Math.round(cx - sz / 2), top: Math.round(seatTop + (seat - sz) / 2), kind: "dock", px: sz};
+    return {left: Math.round(cx - sz / 2), top: Math.round(seatTop + (seat - sz) / 2 - seatLift(cur, sz)), kind: "dock", px: sz};
   }
   function choose1(fresh){
     const px = sizePx(cur), f = fabRect();
@@ -938,7 +958,7 @@
     if (spotKind === "slot" && box && !slotRaf) slotRaf = requestAnimationFrame(() => {
       slotRaf = 0;
       const el = document.querySelector(".cpt-face-slot"); if (!el || travelAnim || glideAnim) return;
-      const px = +box.dataset.px || sizePx(cur), r = el.getBoundingClientRect(), left = Math.round(r.left + (r.width - px) / 2), top = Math.round(r.top + (r.height - px) / 2);
+      const px = +box.dataset.px || sizePx(cur), r = el.getBoundingClientRect(), left = Math.round(r.left + (r.width - px) / 2), top = Math.round(r.top + (r.height - px) / 2 - seatLift(cur, px));
       anchorFront(true); box.style.left = left + "px"; box.style.top = top + "px"; box.dataset.x = left; box.dataset.y = top; homeSig = [left, top, px].join(",");
     });
     placeSoon(320); guardSoon("scroll", 120);

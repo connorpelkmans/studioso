@@ -4471,27 +4471,31 @@ function headsHtml(){
   return `<div class="plan-heads" role="note"><span class="ph-label">Heads Up</span><ul>${list.map(h => `<li><span>${esc(h.text)}</span>${h.id ? `<button class="link-btn" data-act="edit-task" data-id="${esc(h.id)}">Open</button>` : ""}<button class="icon-btn sm ph-x" data-act="heads-hide" data-id="${esc(headKey(h))}" aria-label="Dismiss">${CLOSE}</button></li>`).join("")}</ul></div>`;
 }
 const nuBackBtn = () => ui.skipNext && ui.skipNext.day === todayISO() && ui.skipNext.ids.length ? `<button class="btn small" data-act="nu-back" title="Back to the suggestion before this one">Go Back</button>` : "";
+// On phones the reasons and next step sit behind a Details toggle so the card stays short
+const NU_CHEV = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+const nuOpenCls = () => ui.nuMore ? " nu-open" : "";
+const nuMoreBtn = () => `<button type="button" class="nu-more" data-act="nu-more" aria-expanded="${!!ui.nuMore}">Details${NU_CHEV}</button>`;
 function nextUpHtml(F, pre){
   const n = arguments.length > 1 ? pre : nextUp(F); if (!n) return "";
   const t = n.x.t, c = courseOf(t.courseId);
-  if (n.study) return `<div class="next-up nu-nochk" style="--c:${esc(colorOf(t.courseId))}">
+  if (n.study) return `<div class="next-up nu-nochk${nuOpenCls()}" style="--c:${esc(colorOf(t.courseId))}">
     <div class="nu-top"><span class="nu-label">Do This Next</span></div>
     <div class="nu-row">
       <div class="nu-body">
         <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">${nuRing(t)}Study for ${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>
-        <span class="nu-why">${n.why.map(r => `<span class="nu-chip${/tomorrow/.test(r) ? " soon" : ""}">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}</span>
+        ${nuMoreBtn()}<span class="nu-why">${n.why.map(r => `<span class="nu-chip${/tomorrow/.test(r) ? " soon" : ""}">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}</span>
         <span class="nu-step">${n.hasPlan ? "Review your weakest topics or flashcards for it." : "Review now, or let Plan My Prep spread short sessions over the days before it."}</span>
       </div>
       <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-study="1" data-id="${esc(t.id)}" data-mins="${n.mins}">${TOMATO}Study for ${n.mins}m</button>${n.hasPlan ? "" : `<button class="btn small" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button>`}<button class="btn small" data-act="nu-skip" data-id="study:${esc(t.id)}">Something Else</button>${nuBackBtn()}</div>
     </div>
   </div>`;
-  return `<div class="next-up" style="--c:${esc(colorOf(t.courseId))}">
+  return `<div class="next-up${nuOpenCls()}" style="--c:${esc(colorOf(t.courseId))}">
     <div class="nu-top"><span class="nu-label">Do This Next${n.ai ? ` <span class="nu-who">${AI_ICON} ${aiWho() ? esc(aiWho()) + "'s pick" : "AI pick"}</span>` : ""}</span>${n.x.alloc > 0 ? `<span class="nu-alloc" title="Suggested time today">${fmtHM(n.x.alloc)} today</span>` : ""}</div>
     <div class="nu-row">
       ${t.gt ? `<span class="check gt-dot" aria-hidden="true"></span>` : `<button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>`}
       <div class="nu-body">
         <button class="nu-title" ${gtOpenAttrs(t)}>${nuRing(t)}${esc(t.title)}${t.gt ? ` <span class="tag gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}${MILESTONE(t.type) ? ` <span class="tag rx-tag" title="${esc(remoteOf(t).why || "Can be taken from home")}">Take-home</span>` : ""}</button>
-        <span class="nu-why">${n.why.map(r => r.length <= 28 ? `<span class="nu-chip${/^Overdue/.test(r) ? " late" : /^Due (today|at)/.test(r) ? " soon" : ""}">${esc(r)}</span>` : `<span class="nu-note">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}${(sl => sl && sl.length ? `<span class="nu-chip nu-slot" title="${esc(availSlotText(sl))} in your free time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>${sl.map(x => esc(availMin(x.s))).join(" · ")}<span class="pt-sr"> in your free time</span></span>` : "")(F.slotsBy ? F.slotsBy[t.id] : null)}</span>
+        ${nuMoreBtn()}<span class="nu-why">${n.why.map(r => r.length <= 28 ? `<span class="nu-chip${/^Overdue/.test(r) ? " late" : /^Due (today|at)/.test(r) ? " soon" : ""}">${esc(r)}</span>` : `<span class="nu-note">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}${(sl => sl && sl.length ? `<span class="nu-chip nu-slot" title="${esc(availSlotText(sl))} in your free time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>${sl.map(x => esc(availMin(x.s))).join(" · ")}<span class="pt-sr"> in your free time</span></span>` : "")(F.slotsBy ? F.slotsBy[t.id] : null)}</span>
         ${n.step ? `<span class="nu-step">Next step: ${esc(n.step.text)}</span>` : ""}
       </div>
       ${lmsGoBtn(t)}
@@ -4507,12 +4511,12 @@ function nextUpSpare(F, inView){
   const ex = Object.values(F.info || {}).filter(x => x.fixed && inView(x) && x.t.status !== "done" && x.dl >= 1 && x.dl <= 14 && !planSessions(x.t.id).length).sort((a, b) => dueDate(a.t) - dueDate(b.t))[0];
   if (ex) {
     const t = ex.t, c = courseOf(t.courseId);
-    return `<div class="next-up nu-nochk" style="--c:${esc(colorOf(t.courseId))}">
+    return `<div class="next-up nu-nochk${nuOpenCls()}" style="--c:${esc(colorOf(t.courseId))}">
     <div class="nu-top"><span class="nu-label">Do This Next</span></div>
     <div class="nu-row">
       <div class="nu-body">
         <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">Study for ${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>
-        <span class="nu-why">${esc(`${t.type} ${ex.dl === 1 ? "tomorrow" : "in " + ex.dl + " days"}${t.time ? " at " + fmtTime(t.time) : ""}`)} · No study sessions planned yet</span>
+        ${nuMoreBtn()}<span class="nu-why">${esc(`${t.type} ${ex.dl === 1 ? "tomorrow" : "in " + ex.dl + " days"}${t.time ? " at " + fmtTime(t.time) : ""}`)} · No study sessions planned yet</span>
         <span class="nu-step">Plan My Prep spreads short review sessions over the days before it, and they show up here.</span>
       </div>
       <div class="nu-acts"><button class="btn primary small" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button></div>
@@ -4524,13 +4528,13 @@ function nextUpSpare(F, inView){
     .sort((a, b) => (b.status === "doing") - (a.status === "doing") || (p[a.priority] ?? 2) - (p[b.priority] ?? 2) || (a.created || 0) - (b.created || 0))[0];
   if (!t) return "";
   const c = courseOf(t.courseId), cl = (t.checklist || []).find(i => !i.done), mins = Number(pomoCfg().focus) || 25;
-  return `<div class="next-up" style="--c:${esc(colorOf(t.courseId))}">
+  return `<div class="next-up${nuOpenCls()}" style="--c:${esc(colorOf(t.courseId))}">
     <div class="nu-top"><span class="nu-label">Do This Next</span></div>
     <div class="nu-row">
       <button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>
       <div class="nu-body">
         <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">${nuRing(t)}${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>
-        <span class="nu-why">${t.status === "doing" ? "Already in progress · " : ""}Nothing has a due date yet, so this is a good place to start. Add a due date to plan it properly.</span>
+        ${nuMoreBtn()}<span class="nu-why">${t.status === "doing" ? "Already in progress · " : ""}Nothing has a due date yet, so this is a good place to start. Add a due date to plan it properly.</span>
         ${cl ? `<span class="nu-step">Next step: ${esc(cl.text)}</span>` : ""}
       </div>
       ${lmsGoBtn(t)}
@@ -5959,7 +5963,7 @@ function insightsHtml(){
   let list; try { list = insightsAll(); } catch(e) { console.warn(e); return ""; }
   if (!list.length) return "";
   const more = !!ui.insMore, shown = more ? list : list.slice(0, 3);
-  return `<div class="auto-ins" role="region" aria-label="Automatic AI suggestions"><div class="ai-top"><span class="ph-label">Suggestions</span><button class="link-btn" data-act="auto-panel" style="margin-left:auto">Manage</button></div>
+  return `<div class="auto-ins" role="region" aria-label="Automatic AI suggestions"><div class="ai-top"><span class="ph-label">Suggestions</span></div>
     <ul>${shown.map(e => { const x = insText(e); return `<li data-kind="${esc(e.kind)}"><div class="ins-body"><span class="ins-k">${esc(INS_LABEL[e.kind] || "")}${INS_AI[e.kind] && !e.fb ? " · AI draft" : ""}</span>${x.h ? `<b>${esc(x.h)}</b> ` : ""}<span>${esc(x.t)}</span>${x.more || ""}</div><div class="ins-acts">${e.kind === "remote" ? `<button class="btn small" data-act="rmt-set" data-id="${esc(e.tid)}" data-v="yes">Yes, From Home</button><button class="btn small" data-act="rmt-set" data-id="${esc(e.tid)}" data-v="no">No, In Person</button>` : x.btn ? (e.act ? `<button class="btn small" data-act="${esc(e.act)}" data-id="${esc(e.tid || "")}">${esc(x.btn)}</button>` : `<button class="btn small" data-act="ins-do" data-id="${esc(e.id)}">${esc(x.btn)}</button>`) : ""}<button class="icon-btn sm ph-x" data-act="ins-x" data-id="${esc(e.id)}" aria-label="Dismiss">${CLOSE}</button></div></li>`; }).join("")}</ul>
     ${list.length > 3 ? `<button class="link-btn" data-act="ins-more">${more ? "Show Fewer" : `Show ${list.length - 3} More`}</button>` : ""}</div>`;
 }
@@ -7333,6 +7337,7 @@ const AI_ACTS = {
   "qa-rm": el => { if (ui.qa) { ui.qa.items.splice(Number(el.dataset.i), 1); if (!ui.qa.items.length) ui.qa = null; render(); } },
   "tf-est": el => tfEstimate(el),
   "nu-skip": el => { if (ui.skipNext) ui.skipNext.ids.push(el.dataset.id); if (!/^study:/.test(el.dataset.id)) nufbAdd("skip", state.tasks[el.dataset.id]); render(); },
+  "nu-more": el => { ui.nuMore = !ui.nuMore; const c = el.closest(".next-up"); if (c) c.classList.toggle("nu-open", ui.nuMore); el.setAttribute("aria-expanded", String(!!ui.nuMore)); },
   "nu-back": () => { const id = ui.skipNext && ui.skipNext.ids.pop(); if (id && !/^study:/.test(id)) nufbDrop("skip", id); render(); },
   "heads-hide": el => { let h = {}; try { h = JSON.parse(localStorage.getItem(HEADS_HIDE) || "{}") || {}; } catch(e) {} Object.keys(h).forEach(k => { if (Date.now() - h[k] > 8 * 864e5 || h[k] === 1) delete h[k]; }); h[el.dataset.id] = Date.now(); try { localStorage.setItem(HEADS_HIDE, JSON.stringify(h)); } catch(e) {} render(); },
   "ai-explain": el => runExplain(el.dataset.key, el.dataset.given),
@@ -8144,6 +8149,27 @@ function planLead(rs){
   if (/% of your grade/.test(rs[0] || "")) { const d = rs.findIndex(r => /^(Due |Overdue|Past due)/.test(r)); if (d > 0) k = d; }
   return k;
 }
+// A phone-only strip above Do This Next: today's planned slots and free windows on one time line
+function dayTimelineHtml(F, todayList, heroId){
+  const a = F && F.avail, sb = (F && F.slotsBy) || {};
+  const blocks = [];
+  (todayList || []).forEach(x => (sb[x.t.id] || []).forEach(s => { if (s && s.e > s.s) blocks.push({s: s.s, e: s.e, t: x.t}); }));
+  if (!blocks.length) return "";
+  const free = a && a.show && a.res ? (a.res.windows || []).filter(w => w.e > w.s) : [];
+  const now = new Date(), nowM = now.getHours() * 60 + now.getMinutes();
+  let lo = Math.min(...blocks.map(b => b.s), ...free.map(w => w.s)), hi = Math.max(...blocks.map(b => b.e), ...free.map(w => w.e));
+  lo = Math.floor(lo / 60) * 60; hi = Math.ceil(hi / 60) * 60; if (hi - lo < 240) hi = lo + 240;
+  const span = hi - lo, pct = m => Math.max(0, Math.min(100, (m - lo) / span * 100)), step = Math.max(1, Math.ceil(span / 60 / 5));
+  const hr = m => { const h = Math.floor(m / 60) % 24; return (h % 12 || 12) + (h < 12 ? "a" : "p"); };
+  const ticks = []; for (let m = Math.ceil(lo / 60 / step) * step * 60; m <= hi; m += step * 60) ticks.push(`<span style="left:${pct(m).toFixed(2)}%">${hr(m)}</span>`);
+  const segs = free.map(w => `<i class="dtl-free" style="left:${pct(w.s).toFixed(2)}%;width:${(pct(w.e) - pct(w.s)).toFixed(2)}%" aria-hidden="true"></i>`).join("");
+  const blks = blocks.sort((p, q) => p.s - q.s).map(b => {
+    const w = pct(b.e) - pct(b.s), on = nowM >= b.s && nowM < b.e, hero = b.t.id === heroId, when = availRange(b.s, b.e);
+    return `<button type="button" class="dtl-blk${on ? " on" : ""}${hero ? " next" : ""}" ${gtOpenAttrs(b.t)} style="left:${pct(b.s).toFixed(2)}%;width:${w.toFixed(2)}%;--c:${esc(colorOf(b.t.courseId))}" title="${esc(b.t.title)}, ${esc(when)}" aria-label="${esc(b.t.title)}, ${esc(when)}">${w >= 20 ? `<span>${esc(b.t.title)}</span>` : ""}</button>`;
+  }).join("");
+  const nowMk = nowM >= lo && nowM <= hi ? `<i class="dtl-now" style="left:${pct(nowM).toFixed(2)}%" aria-hidden="true"></i>` : "";
+  return `<div class="dtl" role="group" aria-label="Today's timeline"><div class="dtl-track">${segs}${blks}${nowMk}</div><div class="dtl-ticks" aria-hidden="true">${ticks.join("")}</div></div>`;
+}
 function planRow(x, i, showScore, noRank){
   const t = x.t, c = courseOf(t.courseId);
   const rs = x.reasons || [], li = planLead(rs), lead = rs[li] || "", rest = rs.filter((r, k) => k !== li);
@@ -8247,7 +8273,7 @@ function focusHtml(){
   return `<section class="focus plan" aria-label="Today's Plan">
     <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? `<p class="plan-gap">${F.gapWhy.map(esc).join(" ")}</p>` : ""}</div>
       ${ptStats ? (autoChipHtml() ? `<div class="fh-ctl fh-chip">${autoChipHtml()}</div>` : "") : `<div class="fh-ctl"><div class="hours-ctl" role="group" aria-label="Study time available today"><span class="mini">Time Today</span><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button><b>${fmtHM(F.thSet) || "0m"}</b><button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></div>${autoChipHtml()}</div>`}</div>
-    ${ui.focusOpen ? `${window.SBPRO ? SBPRO.todayHtml() : ""}${nextUpHtml(F, hero)}${skipped}${spare}${warn}${pastHtml}${availStripHtml(F)}
+    ${ui.focusOpen ? `${window.SBPRO ? SBPRO.todayHtml() : ""}${dayTimelineHtml(F, todayList, heroId)}${nextUpHtml(F, hero)}${skipped}${spare}${warn}${pastHtml}${availStripHtml(F)}
       ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
       ${fixedHtml}
       ${extraHtml}
@@ -29561,7 +29587,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     // the tabs sit inside the course header (<!--cd-tabs-->); the page body starts at <!--cd-body-->
     const mb = html.indexOf("<!--cd-body-->");
     if (mb >= 0) {
-      const tabsM = courseTabs(tab, [["info", "Tasks and Info"], ["grades", "Grades"]].concat(window.SBLEC ? [["lectures", "Lectures"]] : []));
+      const tabsM = courseTabs(tab, [["info", "Overview"], ["grades", "Grades"]].concat(window.SBLEC ? [["lectures", "Lectures"]] : []));
       const head = html.slice(0, mb).replace("<!--cd-tabs-->", tabsM), body = html.slice(mb);
       if (tab === "grades") { try { return head + gradeCard(c); } catch (err) { console.warn("grades: card", err); return html; } }
       if (tab === "lectures") return head + SBLEC.listHtml(c);
@@ -29570,7 +29596,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const k = html.indexOf('<div class="row-actions">'), e = k >= 0 ? html.indexOf("</div>", k) : -1;
     if (e < 0) return html;
     const head = html.slice(0, e + 6), rest = html.slice(e + 6);
-    const tabs = courseTabs(tab, [["info", "Tasks and Info"], ["grades", "Grades"]].concat(window.SBLEC ? [["lectures", "Lectures"]] : []));
+    const tabs = courseTabs(tab, [["info", "Overview"], ["grades", "Grades"]].concat(window.SBLEC ? [["lectures", "Lectures"]] : []));
     if (tab === "lectures") return head + tabs + SBLEC.listHtml(c);
     if (tab === "grades") { try { return head + tabs + gradeCard(c); } catch (err) { console.warn("grades: card", err); return html; } }
     return head + tabs + rest;
@@ -32558,6 +32584,8 @@ body:has(#dlg[open]) #lmsRelog{display:none}
   let readMem = null;
   const readSet = () => { if (!readMem) { try { readMem = new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); } catch(e) { readMem = new Set(); } } return readMem; };
   const saveRead = () => { try { localStorage.setItem(KEY, JSON.stringify([...readSet()].slice(-600))); } catch(e) {} };
+  let restOpen = false;
+  document.addEventListener("toggle", e => { if (e.target && e.target.classList && e.target.classList.contains("ann-rest")) restOpen = e.target.open; }, true);
   let tab = HOME; try { tab = localStorage.getItem(TAB_KEY) || HOME; } catch(e) {}
   const setTab = k => { tab = k; try { localStorage.setItem(TAB_KEY, k); } catch(e) {} };
   // The last Check Now
@@ -32607,7 +32635,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
   const lastChecked = () => { const t = Math.max(0, ...plats().map(L => (L.cfg().last || 0))); return t > 1e11 ? t : 0; };
 
   function sheet(){
-    const body0 = dlg.querySelector(".ann-sheet .sheet-body"), top = body0 ? body0.scrollTop : 0, hadFocus = !!(document.activeElement && document.activeElement.closest && document.activeElement.closest(".ann-tabs"));
+    const body0 = dlg.querySelector(".ann-sheet .sheet-body"), top = body0 ? body0.scrollTop : 0, hadFocus = !!(document.activeElement && document.activeElement.closest && document.activeElement.closest(".ann-sel"));
     const rs = readSet(), all = items(), np = plats();
     const nUn = all.filter(n => isNew(n, rs)).length;
     const groups = [];
@@ -32616,21 +32644,19 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     groups.sort((a, b) => (!!b.un - !!a.un) || String(b.list[0].date).localeCompare(String(a.list[0].date)));
     if (tab !== HOME && !groups.some(g => g.k === tab)) tab = HOME;
     const cur = groups.find(g => g.k === tab);
-    const tid = k => "annTab_" + String(k).replace(/[^\w-]/g, "_");
     const row = (n, chip) => { const un = isNew(n, rs), when = n.date && !isNaN(Date.parse(n.date)) ? rel(n.date) : "";
       const ai = window.SBANN.info(n.key), AB = ai && ai.imp ? `<p class="ann-ai"><span class="ann-attn">Needs attention</span> ${ai.sum ? esc(ai.sum) : ""}</p>` : "";
       return `<li class="${un ? "unread" : ""}${ai && ai.imp ? " attn" : ""}">${chip ? `<span class="ann-chip" style="--c:${esc(n.color)}"${n.courseName && n.courseName !== n.course ? ` title="${esc(n.courseName)}"` : ""}><span class="sd"></span>${esc(n.course)}</span>` : ""}<b>${esc(n.title)}</b><span class="mini">${esc(n.plat)}${when ? ` · <span title="${esc(fmtShort(iso(new Date(n.date))))}">${esc(when)}</span>` : ""}${un ? " · New" : ""}</span>${AB}
         ${n.text ? (n.text.length > 200 || n.long ? `<details><summary>${esc(n.text.slice(0, 120).replace(/\s+/g, " "))}… Read more</summary><p class="ann-txt">${esc(n.text)}${n.long ? "…" : ""}</p></details>` : `<p class="ann-txt">${esc(n.text)}</p>`) : ""}
         <span class="bs-btns">${n.url ? `<button type="button" class="btn small" data-act="ann-go" data-key="${esc(n.key)}" data-url="${esc(n.url)}">Open in ${esc(n.plat)}</button>` : ""}<button type="button" class="btn small" data-act="ann-read" data-key="${esc(n.key)}">${un ? "Mark Read" : "Mark Unread"}</button></span></li>`; };
-    const tabBtn = (k, label, un, color, full) => `<button type="button" role="tab" class="ann-tab" id="${tid(k)}"${full && full !== label ? ` title="${esc(full)}"` : ""} data-act="ann-tab" data-ann="${esc(k)}" aria-selected="${tab === k}" aria-controls="annPanel" tabindex="${tab === k ? 0 : -1}"${un ? ` aria-label="${esc(label)}, ${un} unread"` : ""}>${color ? `<span class="sd" style="background:${esc(color)}"></span>` : ""}<span class="ann-tl">${esc(label)}</span>${un ? `<span class="ann-pill" aria-hidden="true">${un}</span>` : ""}</button>`;
+    const opt = (k, label, un) => `<option value="${esc(k)}"${tab === k ? " selected" : ""}>${esc(label)}${un ? ` · ${un} new` : ""}</option>`;
     let panel;
     if (!all.length) panel = "";
     else if (tab === HOME) {
       const recent = all.slice(0, 3);
-      panel = `<h3 class="ann-home-h">${recent.length === 1 ? "Most recent announcement" : `${recent.length} most recent announcements`}</h3>
-        <p class="mini ann-home-note">Newest first, from all your classes together. Pick a class tab above to see everything that class has posted.</p>
-        <ul class="ann-list">${recent.map(n => row(n, true)).join("")}</ul>
-        ${groups.length ? `<h3 class="ann-course" style="margin-top:14px">Browse by class</h3><div class="ann-browse">${groups.map(g => `<button type="button" class="ann-chip btn-chip" style="--c:${esc(g.color)}" data-act="ann-tab" data-ann="${esc(g.k)}"${g.full && g.full !== g.name ? ` title="${esc(g.full)}"` : ""}><span class="sd"></span>${esc(g.name)}<span class="n">${g.list.length}${g.un ? ` · ${g.un} new` : ""}</span></button>`).join("")}</div>` : ""}`;
+      const older = all.slice(3);
+      panel = `<ul class="ann-list">${recent.map(n => row(n, true)).join("")}</ul>
+        ${older.length ? `<details class="ann-rest"${restOpen ? " open" : ""}><summary>Older announcements<span class="ann-rest-n">${older.length}</span></summary><ul class="ann-list">${older.map(n => row(n, true)).join("")}</ul></details>` : ""}`;
     } else {
       panel = `<h3 class="ann-course" style="--c:${esc(cur.color)}"><span class="sd"></span>${esc(cur.name)}${cur.full && cur.full !== cur.name ? ` <span class="mini">${esc(cur.full)}</span>` : ""}<span class="n">${cur.list.length} announcement${cur.list.length === 1 ? "" : "s"}${cur.un ? `, ${cur.un} new` : ""}</span></h3>
         <ul class="ann-list">${cur.list.map(n => row(n, false)).join("")}</ul>`;
@@ -32640,14 +32666,14 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     const lc = lastChecked();
     openSheet(`<div class="sheet ann-sheet">${head("Class Announcements")}
       <div class="sheet-body">
-        ${np.length ? `<div class="ann-bar"><span class="mini">${nUn ? `${nUn} unread` : "All caught up"}${lc ? ` · checked ${esc(ago(lc))}` : ""}</span><span class="spacer"></span>${nUn ? `<button class="btn small" data-act="ann-readall">Mark All Read</button>` : ""}<button class="btn small" data-act="ann-check" ${st.busy ? "disabled" : ""}>${st.busy ? "Checking…" : "Check Now"}</button></div>${status}` : ""}
-        ${all.length ? `<div class="ann-tabs" role="tablist" aria-label="Announcements by class">${tabBtn(HOME, "Home", nUn)}${groups.map(g => tabBtn(g.k, g.name, g.un, g.color, g.full)).join("")}</div><div id="annPanel" role="tabpanel" aria-labelledby="${tid(tab)}" tabindex="0">${panel}</div>` : ""}
+        ${np.length ? `<p class="mini ann-bar">${nUn ? `${nUn} unread` : "All caught up"}${lc ? ` · checked ${esc(ago(lc))}` : ""}</p>` : ""}
+        ${np.length || all.length ? `<div class="ann-ctl">${all.length ? `<select class="ann-sel" id="annSel" aria-label="Show announcements for" aria-controls="annPanel">${opt(HOME, "All Classes", 0)}${groups.map(g => opt(g.k, g.name, g.un)).join("")}</select>` : ""}${np.length ? `${nUn ? `<button type="button" class="btn small" data-act="ann-readall">Mark All Read</button>` : ""}<button type="button" class="btn small" data-act="ann-check"${st.busy ? " disabled" : ""}>${st.busy ? "Syncing…" : "Sync"}</button>` : ""}</div>` : ""}${np.length ? status : ""}
+        ${all.length ? `<div id="annPanel" role="tabpanel" aria-labelledby="annSel" tabindex="0">${panel}</div>` : ""}
         ${!np.length ? `<div class="empty"><strong>No School Site Connected</strong>Connect Brightspace, Canvas or Blackboard in Settings and your class announcements show up here.</div>` : !all.length ? `<div class="empty"><strong>No Announcements Yet</strong>When your instructors post one, it shows up here after the next sync. ${bsDesk() ? "Press Check Now to look right away." : "Announcements come in through the Studyboard School Sync extension or the Studyboard app."}</div>` : ""}
       </div></div>`);
     if (!dlg.open) dlg.showModal();
     const b = dlg.querySelector(".ann-sheet .sheet-body"); if (b && top) b.scrollTop = top;
-    const act = dlg.querySelector(".ann-tab[aria-selected=true]");
-    if (act) { try { const bar = act.parentElement; bar.scrollLeft = Math.max(0, act.offsetLeft - bar.clientWidth / 2 + act.offsetWidth / 2); } catch(e) {} if (hadFocus) act.focus({preventScroll: true}); }
+    if (hadFocus) { const sel = dlg.querySelector(".ann-sel"); if (sel) sel.focus({preventScroll: true}); }
     badge();
   }
   const mark = (key, on) => { on ? readSet().add(key) : readSet().delete(key); saveRead(); };
@@ -32701,15 +32727,8 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     }
     return false;
   });
-  // Arrow keys, Home and End move between the tabs (the tab list is one stop in the Tab order)
-  document.addEventListener("keydown", e => {
-    const t = e.target && e.target.closest && e.target.closest(".ann-tab"); if (!t || e.altKey || e.ctrlKey || e.metaKey) return;
-    const tabs = [...t.parentElement.querySelectorAll(".ann-tab")], i = tabs.indexOf(t);
-    const j = e.key === "ArrowRight" ? (i + 1) % tabs.length : e.key === "ArrowLeft" ? (i - 1 + tabs.length) % tabs.length : e.key === "Home" ? 0 : e.key === "End" ? tabs.length - 1 : -1;
-    if (j < 0) return;
-    e.preventDefault(); setTab(tabs[j].dataset.ann); sheet();
-    const nt = dlg.querySelector(".ann-tab[aria-selected=true]"); if (nt) nt.focus({preventScroll: true});
-  });
+  // The class picker is a native dropdown
+  document.addEventListener("change", e => { const sel = e.target && e.target.closest && e.target.closest(".ann-sel"); if (sel) { setTab(sel.value || HOME); sheet(); } });
   hook("render", () => badge());
   hook("boot", () => { badge(); setTimeout(badge, 3000); });
 })();
@@ -53459,6 +53478,26 @@ var COMP_EXTRA = [];
     for (let y = Math.min(innerHeight - px - 16, rg.B), ky = 0; y >= Math.max(30, rg.T, lowT); y -= px * 0.8, ky++) for (let x = R - 2, kx = 0; x >= L; x -= px * 0.8, kx++) out.push({left: Math.round(x), top: Math.round(y), kind: "open", score: 320 + kx * 5 + ky * (float ? 5 : 12)});
     return out;
   }
+  // Round seats (the Companion tab's ring, the phone dock) centre the whole drawing, so a companion
+  // that stands low in its picture is lifted until it sits level with the rest
+  const SEAT_LIFT = {};
+  function seatLift(c, px){
+    if (!c) return 0;
+    let u = SEAT_LIFT[c.id];
+    if (u === undefined) {
+      u = 0;
+      try {
+        const host = document.createElement("div"); host.style.cssText = "position:fixed;left:-999px;top:0;width:120px;height:120px;visibility:hidden;pointer-events:none";
+        host.innerHTML = rigSvg(c, {}).replace(/<g class="cp-zs">[\s\S]*?<\/g>/, ""); document.body.appendChild(host);
+        let top = 1e9, bot = -1e9;
+        host.querySelectorAll(".cp-p").forEach(g => { try { const b = g.getBBox(); if (b.width && b.height) { top = Math.min(top, b.y); bot = Math.max(bot, b.y + b.height); } } catch (e) {} });
+        host.remove();
+        if (bot > top) u = Math.max(0, Math.min(18, (top + bot) / 2 - 62));
+      } catch (e) {}
+      SEAT_LIFT[c.id] = u;
+    }
+    return Math.round(u / VB * px);
+  }
   let spotKind = "", spotSig = "";
   // fresh: choose from scratch (a new page)
   function slotSpot(px){
@@ -53467,7 +53506,7 @@ var COMP_EXTRA = [];
     const r = el.getBoundingClientRect();
     if (r.width < 20) return null;
     px = Math.max(px, Math.round(Math.min(r.width, r.height) * 1.02));
-    return {left: Math.round(r.left + (r.width - px) / 2), top: Math.round(r.top + (r.height - px) / 2), kind: "slot", px};
+    return {left: Math.round(r.left + (r.width - px) / 2), top: Math.round(r.top + (r.height - px) / 2 - seatLift(cur, px)), kind: "slot", px};
   }
   // Phones: its seat in the middle of the bottom tab bar
   function dockSpot(px){
@@ -53475,7 +53514,7 @@ var COMP_EXTRA = [];
     const el = document.querySelector('nav.tabs .in [data-tab="companion"]'); if (!el) return null;
     const r = el.getBoundingClientRect(); if (r.width < 20 || r.height < 20) return null;
     const seat = 56, cx = r.left + r.width / 2, seatTop = r.top - 16, sz = Math.round(seat * 0.86);
-    return {left: Math.round(cx - sz / 2), top: Math.round(seatTop + (seat - sz) / 2), kind: "dock", px: sz};
+    return {left: Math.round(cx - sz / 2), top: Math.round(seatTop + (seat - sz) / 2 - seatLift(cur, sz)), kind: "dock", px: sz};
   }
   function choose1(fresh){
     const px = sizePx(cur), f = fabRect();
@@ -53736,7 +53775,7 @@ var COMP_EXTRA = [];
     if (spotKind === "slot" && box && !slotRaf) slotRaf = requestAnimationFrame(() => {
       slotRaf = 0;
       const el = document.querySelector(".cpt-face-slot"); if (!el || travelAnim || glideAnim) return;
-      const px = +box.dataset.px || sizePx(cur), r = el.getBoundingClientRect(), left = Math.round(r.left + (r.width - px) / 2), top = Math.round(r.top + (r.height - px) / 2);
+      const px = +box.dataset.px || sizePx(cur), r = el.getBoundingClientRect(), left = Math.round(r.left + (r.width - px) / 2), top = Math.round(r.top + (r.height - px) / 2 - seatLift(cur, px));
       anchorFront(true); box.style.left = left + "px"; box.style.top = top + "px"; box.dataset.x = left; box.dataset.y = top; homeSig = [left, top, px].join(",");
     });
     placeSoon(320); guardSoon("scroll", 120);
@@ -63598,9 +63637,10 @@ function decorateDeck(){
   const begin = () => {
     const r = st.item.getBoundingClientRect();
     st.dx = st.x0 - r.left; st.dy = st.y0 - r.top; st.on = true;
+    // The lifted copy lives inside #view so it keeps the card styles that are scoped to it
     st.ghost = st.item.cloneNode(true); st.ghost.classList.add("sort-ghost");
     Object.assign(st.ghost.style, {width: r.width + "px", height: r.height + "px", left: r.left + "px", top: r.top + "px"});
-    document.body.appendChild(st.ghost); st.item.classList.add("sort-hole"); document.body.classList.add("sorting");
+    (document.getElementById("view") || document.body).appendChild(st.ghost); st.item.classList.add("sort-hole"); document.body.classList.add("sorting");
     if (navigator.vibrate) try { navigator.vibrate(12); } catch (e) {}
   };
   const move = (x, y) => {
@@ -70822,7 +70862,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .lec-done{display:grid;justify-items:center;gap:6px;padding:18px 0;text-align:center}
 .lec-ok{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:var(--leaf);color:#fff;font-size:1.5rem}
 .lec-for{margin:0}
-/* the course tabs start their content the same distance under the header (Tasks and Info's first heading sits 22px down) */
+/* the course tabs start their content the same distance under the header (Overview's first heading sits 22px down) */
 .c2-head + .lec-tab{margin-top:-4px}
 .c2-head + .gr-card{margin-top:22px}
 .lec-btn{display:inline-flex;align-items:center;gap:6px}
@@ -73947,8 +73987,10 @@ var SBWB = null;
 .wb-zoom button:hover{background:rgba(0,0,0,.06)}
 .wb-zoom svg{width:17px;height:17px}
 .wb-fixed .wb-zoom [data-wb^="zoom"],.wb-fixed .wb-zoom [data-wb="fit"],.wb-fixed .wb-tray [data-wb="tool"][data-id="hand"]{display:none}
-.wb-selbar{position:absolute;z-index:4;display:flex;align-items:center;gap:3px;padding:4px;border-radius:12px;background:#fff;border:1px solid rgba(0,0,0,.12);box-shadow:0 6px 18px rgba(20,30,45,.2);color:#22262D}
+.wb-selbar{position:absolute;z-index:4;width:max-content;max-width:calc(100% - 12px);overflow-x:auto;scrollbar-width:none;display:flex;align-items:center;gap:3px;padding:4px;border-radius:12px;background:#fff;border:1px solid rgba(0,0,0,.12);box-shadow:0 6px 18px rgba(20,30,45,.2);color:#22262D}
 .wb-selbar.dragging{opacity:0;pointer-events:none}
+.wb-selbar::-webkit-scrollbar{display:none}
+.wb-selbar > *{flex:none;white-space:nowrap}
 .wb-selbar button{border:0;background:none;color:inherit;height:32px;min-width:32px;padding:0 8px;border-radius:8px;cursor:pointer;font:600 .85rem var(--display);display:inline-flex;align-items:center;justify-content:center;gap:4px}
 .wb-selbar button:hover{background:rgba(0,0,0,.06)}
 .wb-selbar .wb-dot{min-width:0;width:22px;height:22px;padding:0;border-radius:50%;background:var(--mk);box-shadow:inset 0 0 0 2px rgba(255,255,255,.6)}
@@ -73976,6 +74018,10 @@ var SBWB = null;
 .wb-dk .wb-cp-hex{color:#EEF1F4}
 .wb-selbar .wb-dot-orig{background:#F1F3F6;color:#4A5563;display:inline-flex;align-items:center;justify-content:center;box-shadow:inset 0 0 0 1.5px rgba(0,0,0,.18)}
 .wb-dk .wb-selbar .wb-dot-orig{background:#3A414B;color:#DDE3EA;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.2)}
+.wb-selbar .wb-dot:hover,.wb-selbar .wb-dot:active{background:var(--mk)}
+.wb-selbar .wb-dot-any:hover,.wb-selbar .wb-dot-any:active{background:conic-gradient(#FF3B30,#FF9500,#FFCC00,#34C759,#00C7BE,#007AFF,#AF52DE,#FF2D55,#FF3B30)}
+.wb-selbar .wb-dot-orig:hover,.wb-selbar .wb-dot-orig:active{background:#F1F3F6}
+.wb-dk .wb-selbar .wb-dot-orig:hover,.wb-dk .wb-selbar .wb-dot-orig:active{background:#3A414B}
 .wb-selbar .wb-dot[aria-pressed=true]{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--accent)}
 .wb-sep{width:1px;height:22px;background:rgba(0,0,0,.12);margin:0 3px}
 .wb-tray{display:flex;align-items:center;gap:10px;flex-wrap:nowrap;height:60px;box-sizing:border-box;flex:none;padding:6px 8px;border-radius:10px;background:linear-gradient(180deg,#F7F8FA,#DCE1E7);box-shadow:inset 0 1px 0 #fff,inset 0 -2px 0 rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.12);color:#22262D}

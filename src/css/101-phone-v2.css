@@ -63,8 +63,11 @@
   nav.tabs .in [data-tab="companion"][aria-current="page"]{background:transparent}
   nav.tabs,nav.tabs *{-webkit-tap-highlight-color:transparent}
   /* the tabs either side of the seat */
-  nav.tabs.ph-seatcut .in [data-tab="flashcards"][aria-current="page"]{border-radius:0;-webkit-mask:var(--ph-selm-l) 0 0/100% 100% no-repeat;mask:var(--ph-selm-l) 0 0/100% 100% no-repeat}
-  nav.tabs.ph-seatcut .in [data-tab="notes"][aria-current="page"]{border-radius:0;-webkit-mask:var(--ph-selm-r) 0 0/100% 100% no-repeat;mask:var(--ph-selm-r) 0 0/100% 100% no-repeat}
+  /* the cut-out is on a backing layer so the count badge on the button is never masked */
+  nav.tabs.ph-seatcut .in :is([data-tab="flashcards"],[data-tab="notes"])[aria-current="page"]{position:relative;background:transparent}
+  nav.tabs.ph-seatcut .in :is([data-tab="flashcards"],[data-tab="notes"])[aria-current="page"]::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:0;background:var(--spine-hi);pointer-events:none}
+  nav.tabs.ph-seatcut .in [data-tab="flashcards"][aria-current="page"]::before{-webkit-mask:var(--ph-selm-l) 0 0/100% 100% no-repeat;mask:var(--ph-selm-l) 0 0/100% 100% no-repeat}
+  nav.tabs.ph-seatcut .in [data-tab="notes"][aria-current="page"]::before{-webkit-mask:var(--ph-selm-r) 0 0/100% 100% no-repeat;mask:var(--ph-selm-r) 0 0/100% 100% no-repeat}
   nav.tabs .in [data-tab="companion"][aria-current="page"]::after{box-shadow:0 0 0 4px var(--accent-band,var(--accent)),0 0 0 7px color-mix(in srgb,var(--spine-bg,var(--spine)) 94%,transparent),0 8px 18px rgba(8,20,50,.28)}
   body.cp-docked nav.tabs .in [data-tab="companion"] svg{visibility:hidden}
   /* The Add button */
@@ -249,3 +252,61 @@
 @media (max-width:639px){dialog:is(:has(.sheet.shop),:has(.sheet.mt-sheet),:has(.plan-sheet),:has(.sheet.ob),:has(.ph-sheet)){width:100%}}
 /* Courses: the school site button on the left, Insights and the bin on the right */
 @media (max-width:639px){#view .view-head > h2 + .btn[data-act$="-open"]{margin-right:auto}}
+
+/* One rhythm on every tab: tab bar, 12px, the page's buttons, 14px, the content */
+@media (max-width:639px){
+  #view > .pview-tabs{margin-bottom:12px}
+  #view > .pview-tabs + .gp > .view-head{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:0 0 2px!important;padding:0!important;min-height:0}
+  #view > .pview-tabs + .gp > .view-head > .btn{margin-block:0!important}
+  #view > .pview-tabs + .gp > .view-head + *{margin-top:0!important}
+}
+
+/* Task board cards and Today's plan: no link-out button on phones */
+@media (max-width:639px){.card-foot .lms-go,.plan-side .lms-go{display:none}}
+
+/* Do This Next: reasons and next step behind a Details toggle on phones */
+.nu-more{display:none}
+@media (max-width:639px){
+  .next-up .nu-more{display:inline-flex;align-items:center;gap:4px;justify-self:start;border:0;background:none;padding:2px 0;color:var(--muted);font:700 .78rem var(--display);cursor:pointer}
+  .next-up .nu-more svg{transition:transform .2s}
+  .next-up.nu-open .nu-more svg{transform:rotate(180deg)}
+  .next-up:not(.nu-open) :is(.nu-why,.nu-step){display:none}
+}
+
+/* Heads Up: each note is its own card so they read as separate items */
+@media (max-width:639px){
+  .plan-heads ul{gap:8px}
+  .plan-heads li{align-items:center;padding:10px 8px 10px 12px;border-radius:12px;border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));border-left:3px solid var(--accent);background:color-mix(in srgb,var(--accent) 7%,var(--surface))}
+}
+
+/* Crunch: the weeks selector spans the full content width */
+@media (max-width:639px){
+  .cr2 .cr-head > .cr2-range{display:flex;flex:1 1 100%;width:100%;box-sizing:border-box}
+  .cr2 .cr-head > .cr2-range button{flex:1 1 0;min-width:0;justify-content:center;text-align:center}
+}
+
+/* Add menus (the + button): lift the last option clear of the screen's bottom edge */
+@media (max-width:639px){
+  .sheet.fab-menu .sheet-body{padding-bottom:calc(36px + env(safe-area-inset-bottom,0px))}
+}
+
+/* Today's plan: a little more room between the time and the focus button */
+@media (max-width:639px){
+  .plan-row > .plan-side{gap:10px}
+}
+
+/* Today's plan on phones: a timeline of the day above Do This Next */
+.dtl{display:none}
+@media (max-width:639px){
+  .dtl{display:block;margin:0 0 12px}
+  .dtl-track{position:relative;height:38px;border-radius:12px;background:color-mix(in srgb,var(--soft) 70%,var(--surface));border:1px solid var(--line);overflow:hidden}
+  .dtl-free{position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--accent) 20%,transparent)}
+  .dtl-blk{position:absolute;top:4px;bottom:4px;min-width:6px;padding:0 6px;border:0;border-radius:8px;background:var(--c,var(--accent));color:#fff;font:700 .7rem/1 var(--display);text-align:left;white-space:nowrap;overflow:hidden;cursor:pointer;box-shadow:0 0 0 1px var(--surface);opacity:.82}
+  .dtl-blk span{display:block;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+  .dtl-blk.next{opacity:1;box-shadow:0 0 0 1px var(--surface),0 0 0 3px color-mix(in srgb,var(--c,var(--accent)) 55%,transparent)}
+  .dtl-blk.on{opacity:1}
+  .dtl-now{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--late);pointer-events:none;z-index:1}
+  .dtl-ticks{position:relative;height:16px;margin-top:3px;font:600 .66rem/16px var(--display);color:var(--muted)}
+  .dtl-ticks span{position:absolute;transform:translateX(-50%)}
+  .dtl-ticks span:first-child{transform:none}
+}

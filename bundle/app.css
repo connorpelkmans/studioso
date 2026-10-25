@@ -158,8 +158,11 @@ body.wide .wrap{max-width:1180px}
 .ann-n{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--late,#C0392B);color:#fff;font:700 .68rem/18px var(--body);text-align:center;box-sizing:border-box}
 .nav-tool.ann-btn .ann-n{top:2px;right:calc(50% - 26px)}
 .ann-sheet .sheet-body{gap:10px;align-content:start;grid-auto-rows:max-content}
-.ann-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.ann-bar .spacer{flex:1}
+.ann-bar{margin:0}
+.ann-ctl{display:flex;align-items:center;gap:8px;flex:none}
+.ann-ctl .btn{flex:none;white-space:nowrap;padding-inline:11px;font-size:.78rem}
+.ann-sel{flex:1 1 0;min-width:96px;min-height:36px;padding:6px 8px 6px 12px;border-radius:999px;border:1px solid var(--line);background-color:var(--surface);color:var(--ink);font:600 .8rem var(--body);text-overflow:ellipsis;cursor:pointer}
+.ann-sel:focus-visible,#annPanel:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .ann-course{display:flex;align-items:center;gap:8px;margin:8px 0 0;font:700 .98rem var(--display)}
 .ann-course .sd{width:10px;height:10px;border-radius:50%;background:var(--c);flex:none}
 .ann-course .n{font:600 .75rem var(--body);color:var(--muted);margin-left:auto}
@@ -188,6 +191,13 @@ body.wide .wrap{max-width:1180px}
 .ann-chip .sd{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
 .ann-chip .n{color:var(--muted);font-weight:500}
 .ann-list li>.ann-chip{display:flex;width:max-content}
+.ann-rest{margin-top:14px;border-top:1px solid var(--line);padding-top:8px}
+.ann-rest > summary{display:flex;align-items:center;gap:8px;min-height:40px;cursor:pointer;font:700 .95rem var(--display);color:var(--ink);list-style:none}
+.ann-rest > summary::-webkit-details-marker{display:none}
+.ann-rest > summary::after{content:"";margin-left:auto;width:9px;height:9px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .2s}
+.ann-rest[open] > summary::after{transform:rotate(-135deg)}
+.ann-rest-n{font:600 .74rem var(--display);color:var(--muted);background:var(--field,var(--soft));border:1px solid var(--line);border-radius:99px;padding:1px 9px}
+.ann-rest > .ann-list{margin-top:6px}
 .ann-browse{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
 .ann-browse .btn-chip{cursor:pointer;padding:6px 11px;font-size:.8rem}
 .ann-browse .btn-chip:hover{border-color:var(--accent)}
@@ -350,6 +360,8 @@ dialog::backdrop{background:rgba(10,14,24,.5)}
   dialog{margin:auto 0 0;max-width:100%;width:100%;border-radius:20px 20px 0 0;max-height:90vh}
 }
 .sheet{display:flex;flex-direction:column;max-height:inherit}
+/* A sheet scrolls in its own body; the dialog around it never shows a second, stray scrollbar */
+dialog:has(> .sheet){overflow:hidden}
 .sheet-head{display:flex;align-items:center;gap:10px;padding:16px 18px 8px}
 .sheet-head h2{flex:1;margin:0;font:700 1.25rem var(--display)}
 .sheet-body{overflow:auto;padding:6px 18px 12px;display:grid;gap:14px}
@@ -854,7 +866,7 @@ ul.tasks,.plan-list,.flist,.fc-list{box-shadow:var(--shadow);border-color:var(--
 .col-head .n{background:var(--soft);border-radius:999px;padding:0 8px;font-weight:700;color:var(--muted)}
 .col-list{gap:12px}
 .card-grip{display:none}
-@media (pointer:coarse){.board .card{padding-right:34px}.board .card-grip{display:grid;place-items:center;position:absolute;right:2px;top:50%;transform:translateY(-50%);width:30px;height:44px;border-radius:10px;color:var(--muted);opacity:.7;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}.board .card-grip:active{background:var(--soft)}}
+@media (pointer:coarse){.board .card-grip{display:grid;place-items:center;position:absolute;right:0;top:50%;transform:translateY(-50%);width:24px;height:44px;border-radius:10px;color:var(--muted);opacity:.7;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}.board .card-grip:active{background:var(--soft)}}
 .card{border:1px solid var(--line);border-left:1px solid var(--line);background:var(--surface);border-radius:4px 12px 12px 12px;box-shadow:var(--shadow);padding:11px 12px 12px}
 .card.has-tab{margin-top:17px}
 .card-course{position:absolute;left:-1px;top:-18px;height:18px;max-width:75%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:1px 10px 0;border-radius:8px 8px 0 0;background:color-mix(in srgb,var(--c) 66%,#000);color:#fff;font:700 .68rem/17px var(--display);letter-spacing:.03em}
@@ -2374,7 +2386,7 @@ html.tips-off .tip-everyday{display:none!important}
 .sp-art.sc-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 /* Readability over the fuller scenes */
 html.sc-on #view :is(.view-head h2,.board-sec-head h2,.tl-controls h2,.sec .t,.sec .n,.board-ctl .mini,.sch-range,.fcrumb){text-shadow:0 0 2px var(--paper),0 0 6px var(--paper),0 0 12px var(--paper)}
-html.sc-on #view :is(.hint-line,.sch-legend,.tl-legend,.term-bar){background:color-mix(in srgb,var(--paper) 82%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-radius:10px;padding:4px 10px;width:fit-content;max-width:100%;box-sizing:border-box}
+html.sc-on #view :is(.hint-line,.sch-legend,.tl-legend,.term-bar){width:fit-content;max-width:100%;box-sizing:border-box}
 
 
 /* ===== module: 30-search.css ===== */
@@ -3868,6 +3880,8 @@ html.tpcss-loading [class*="cs-tp-"] .face *{visibility:hidden}
 .ui-shop .ui-sec.ui-held > .ui-sec-b,.ui-shop .ui-col.ui-held{display:none}
 .ui-cols-more{margin-top:0!important}
 .ui-shop .sheet-body{background:var(--surface)}
+
+
 /* Phone: keep the extras above the themes small so the previews come first */
 @media (max-width:600px){
   .ui-shop .shop-mode{gap:6px 10px;align-items:center}
@@ -3882,8 +3896,6 @@ html.tpcss-loading [class*="cs-tp-"] .face *{visibility:hidden}
   .ui-shop .ph-grid .ph-add .mini{display:none}
   .ui-shop .ph-grid .ph-add.full .mini,.ui-shop .ph-grid .ph-add.locked .mini{display:block;max-width:none}
 }
-
-
 /* ===== module: 97-ui.css ===== */
 /* ===== 97-ui: Settings in categories ===== */
 .us-sheet .us-back{display:none}
@@ -4178,7 +4190,7 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 html.ph-on body{background-image:none}
 /* Readability over the photo, like the scene themes */
 html.ph-on #view :is(.view-head h2,.board-sec-head h2,.tl-controls h2,.sec .t,.sec .n,.board-ctl .mini,.sch-range,.fcrumb){text-shadow:0 0 2px var(--paper),0 0 6px var(--paper),0 0 12px var(--paper)}
-html.ph-on #view :is(.hint-line,.sch-legend,.tl-legend,.term-bar){background:color-mix(in srgb,var(--paper) 84%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-radius:10px;padding:4px 10px;width:fit-content;max-width:100%;box-sizing:border-box}
+html.ph-on #view :is(.hint-line,.sch-legend,.tl-legend,.term-bar){width:fit-content;max-width:100%;box-sizing:border-box}
 /* Glass cards (a photo theme's "Glass" slider) */
 html.ph-glass #view :is(ul.tasks,.course-card,.card,.deck,.day,.notes,.facts,.focus,.ftree,.flist,.sch-wrap,.tl-scroll,.empty,.qod,.qa-bar,.done-card,.q-card,.arch-list){background:color-mix(in srgb,var(--ph-surf) var(--ph-gl,100%),transparent);-webkit-backdrop-filter:blur(var(--ph-glb,0px)) saturate(1.15);backdrop-filter:blur(var(--ph-glb,0px)) saturate(1.15)}
 /* Every theme: everything that was solid */
@@ -5128,8 +5140,9 @@ html[data-hc="1"] body{background-image:none!important}
 html[data-hc="1"]{--muted:color-mix(in srgb,var(--ink) 82%,var(--bg));--line:color-mix(in srgb,var(--ink) 38%,var(--bg))}
 html[data-hc="1"] .card,html[data-hc="1"] .task,html[data-hc="1"] header.top,html[data-hc="1"] nav.tabs,html[data-hc="1"] .sheet{background-color:var(--surface)!important;opacity:1}
 /* Text that sits straight on theme artwork gets a soft plate in the page colour */
-html.sc-on :is(.board-sec-head > h2,.board-ctl .mini,.hint-line,.tl-controls > h2,.view-head > h2,.fcrumb,.sec > .t,.sec > .n,.term-bar,.nudge,header.top .today){background:color-mix(in srgb,var(--paper) var(--scrim,92%),transparent);-webkit-box-decoration-break:clone;box-decoration-break:clone;border-radius:8px;padding-inline:.5rem;text-shadow:0 0 6px var(--paper)}
-html[data-hc="1"].sc-on{--scrim:96%}
+html.sc-on :is(.board-sec-head > h2,.board-ctl .mini,.hint-line,.tl-controls > h2,.view-head > h2,.fcrumb,.sec > .t,.sec > .n,.term-bar,.nudge,header.top .today){text-shadow:0 0 2px var(--paper),0 0 6px var(--paper),0 0 12px var(--paper)}
+/* High contrast keeps a solid backing behind text over scenes */
+html[data-hc="1"].sc-on :is(.board-sec-head > h2,.board-ctl .mini,.hint-line,.tl-controls > h2,.view-head > h2,.fcrumb,.sec > .t,.sec > .n,.term-bar,.nudge,header.top .today){background:color-mix(in srgb,var(--paper) 96%,transparent);-webkit-box-decoration-break:clone;box-decoration-break:clone;border-radius:8px;padding-inline:.5rem}
 /* Big text: the header may wrap instead of overlapping, tap targets grow with the text */
 .top-row{flex-wrap:wrap;row-gap:6px}
 .top-row > div:first-child{min-width:min(100%,8rem)!important}
@@ -6264,8 +6277,11 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   nav.tabs .in [data-tab="companion"][aria-current="page"]{background:transparent}
   nav.tabs,nav.tabs *{-webkit-tap-highlight-color:transparent}
   /* the tabs either side of the seat */
-  nav.tabs.ph-seatcut .in [data-tab="flashcards"][aria-current="page"]{border-radius:0;-webkit-mask:var(--ph-selm-l) 0 0/100% 100% no-repeat;mask:var(--ph-selm-l) 0 0/100% 100% no-repeat}
-  nav.tabs.ph-seatcut .in [data-tab="notes"][aria-current="page"]{border-radius:0;-webkit-mask:var(--ph-selm-r) 0 0/100% 100% no-repeat;mask:var(--ph-selm-r) 0 0/100% 100% no-repeat}
+  /* the cut-out is on a backing layer so the count badge on the button is never masked */
+  nav.tabs.ph-seatcut .in :is([data-tab="flashcards"],[data-tab="notes"])[aria-current="page"]{position:relative;background:transparent}
+  nav.tabs.ph-seatcut .in :is([data-tab="flashcards"],[data-tab="notes"])[aria-current="page"]::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:0;background:var(--spine-hi);pointer-events:none}
+  nav.tabs.ph-seatcut .in [data-tab="flashcards"][aria-current="page"]::before{-webkit-mask:var(--ph-selm-l) 0 0/100% 100% no-repeat;mask:var(--ph-selm-l) 0 0/100% 100% no-repeat}
+  nav.tabs.ph-seatcut .in [data-tab="notes"][aria-current="page"]::before{-webkit-mask:var(--ph-selm-r) 0 0/100% 100% no-repeat;mask:var(--ph-selm-r) 0 0/100% 100% no-repeat}
   nav.tabs .in [data-tab="companion"][aria-current="page"]::after{box-shadow:0 0 0 4px var(--accent-band,var(--accent)),0 0 0 7px color-mix(in srgb,var(--spine-bg,var(--spine)) 94%,transparent),0 8px 18px rgba(8,20,50,.28)}
   body.cp-docked nav.tabs .in [data-tab="companion"] svg{visibility:hidden}
   /* The Add button */
@@ -6450,6 +6466,64 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
 @media (max-width:639px){dialog:is(:has(.sheet.shop),:has(.sheet.mt-sheet),:has(.plan-sheet),:has(.sheet.ob),:has(.ph-sheet)){width:100%}}
 /* Courses: the school site button on the left, Insights and the bin on the right */
 @media (max-width:639px){#view .view-head > h2 + .btn[data-act$="-open"]{margin-right:auto}}
+
+/* One rhythm on every tab: tab bar, 12px, the page's buttons, 14px, the content */
+@media (max-width:639px){
+  #view > .pview-tabs{margin-bottom:12px}
+  #view > .pview-tabs + .gp > .view-head{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:0 0 2px!important;padding:0!important;min-height:0}
+  #view > .pview-tabs + .gp > .view-head > .btn{margin-block:0!important}
+  #view > .pview-tabs + .gp > .view-head + *{margin-top:0!important}
+}
+
+/* Task board cards and Today's plan: no link-out button on phones */
+@media (max-width:639px){.card-foot .lms-go,.plan-side .lms-go{display:none}}
+
+/* Do This Next: reasons and next step behind a Details toggle on phones */
+.nu-more{display:none}
+@media (max-width:639px){
+  .next-up .nu-more{display:inline-flex;align-items:center;gap:4px;justify-self:start;border:0;background:none;padding:2px 0;color:var(--muted);font:700 .78rem var(--display);cursor:pointer}
+  .next-up .nu-more svg{transition:transform .2s}
+  .next-up.nu-open .nu-more svg{transform:rotate(180deg)}
+  .next-up:not(.nu-open) :is(.nu-why,.nu-step){display:none}
+}
+
+/* Heads Up: each note is its own card so they read as separate items */
+@media (max-width:639px){
+  .plan-heads ul{gap:8px}
+  .plan-heads li{align-items:center;padding:10px 8px 10px 12px;border-radius:12px;border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));border-left:3px solid var(--accent);background:color-mix(in srgb,var(--accent) 7%,var(--surface))}
+}
+
+/* Crunch: the weeks selector spans the full content width */
+@media (max-width:639px){
+  .cr2 .cr-head > .cr2-range{display:flex;flex:1 1 100%;width:100%;box-sizing:border-box}
+  .cr2 .cr-head > .cr2-range button{flex:1 1 0;min-width:0;justify-content:center;text-align:center}
+}
+
+/* Add menus (the + button): lift the last option clear of the screen's bottom edge */
+@media (max-width:639px){
+  .sheet.fab-menu .sheet-body{padding-bottom:calc(36px + env(safe-area-inset-bottom,0px))}
+}
+
+/* Today's plan: a little more room between the time and the focus button */
+@media (max-width:639px){
+  .plan-row > .plan-side{gap:10px}
+}
+
+/* Today's plan on phones: a timeline of the day above Do This Next */
+.dtl{display:none}
+@media (max-width:639px){
+  .dtl{display:block;margin:0 0 12px}
+  .dtl-track{position:relative;height:38px;border-radius:12px;background:color-mix(in srgb,var(--soft) 70%,var(--surface));border:1px solid var(--line);overflow:hidden}
+  .dtl-free{position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--accent) 20%,transparent)}
+  .dtl-blk{position:absolute;top:4px;bottom:4px;min-width:6px;padding:0 6px;border:0;border-radius:8px;background:var(--c,var(--accent));color:#fff;font:700 .7rem/1 var(--display);text-align:left;white-space:nowrap;overflow:hidden;cursor:pointer;box-shadow:0 0 0 1px var(--surface);opacity:.82}
+  .dtl-blk span{display:block;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+  .dtl-blk.next{opacity:1;box-shadow:0 0 0 1px var(--surface),0 0 0 3px color-mix(in srgb,var(--c,var(--accent)) 55%,transparent)}
+  .dtl-blk.on{opacity:1}
+  .dtl-now{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--late);pointer-events:none;z-index:1}
+  .dtl-ticks{position:relative;height:16px;margin-top:3px;font:600 .66rem/16px var(--display);color:var(--muted)}
+  .dtl-ticks span{position:absolute;transform:translateX(-50%)}
+  .dtl-ticks span:first-child{transform:none}
+}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
@@ -6582,11 +6656,11 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
 .c2-card .c2-code,.c2-card .c2-mini,.c2-card .c2-when,.c2-card .c2-foot-m{display:none}
 @media (max-width:639px){
   #view .course-list{gap:10px;margin-top:12px}
-  #view .course-card.c2-card{display:grid;grid-template-columns:48px minmax(0,1fr);grid-template-areas:"ring top" "ring body";align-items:center;column-gap:12px;row-gap:2px;min-height:0;padding:12px 14px 12px 18px;border:1px solid var(--line);border-radius:18px!important;background:var(--surface);box-shadow:0 1px 2px rgba(14,42,86,.06);overflow:hidden;position:relative;text-align:left}
-  #view .c2-card .c2-band{position:absolute;inset:0 auto 0 0;width:6px;height:auto;padding:0;border-radius:0;background:var(--c)!important}
+  #view .course-card.c2-card{display:grid;grid-template-columns:48px minmax(0,1fr);grid-template-areas:"ring top" "ring body";align-items:center;column-gap:22px;row-gap:2px;min-height:0;padding:12px 14px 12px 8px;border:1px solid var(--line);border-radius:18px!important;background:var(--surface);box-shadow:0 1px 2px rgba(14,42,86,.06);overflow:hidden;position:relative;text-align:left}
+  #view .c2-card .c2-band{position:absolute;inset:0 auto 0 0;width:12px;height:auto;padding:0;border-radius:0;background:var(--c)!important}
   #view .c2-card .c2-band > *{display:none}
   #view .c2-card .c2-top{display:contents}
-  #view .c2-card .c2-ring{grid-area:ring;align-self:center;width:48px;height:48px;margin:0;font-size:.8rem;box-shadow:0 0 0 2.5px var(--c)!important}
+  #view .c2-card .c2-ring{grid-area:ring;position:relative;z-index:1;align-self:center;width:48px;height:48px;margin:0;font-size:.8rem;box-shadow:0 0 0 2.5px var(--c)!important}
   /* the code is a small label above the name; long names stop at two lines */
   #view .c2-card h3{grid-area:top;display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:0;margin:0!important;padding:0!important;font:800 1.06rem/1.25 var(--display)!important;overflow-wrap:normal}
   #view .c2-card h3 .c2-code{display:block;order:-1;font:800 .66rem/1.2 var(--display);letter-spacing:.06em;color:color-mix(in srgb,var(--c) 62%,var(--ink));white-space:nowrap}

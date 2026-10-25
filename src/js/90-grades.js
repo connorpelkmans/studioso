@@ -468,7 +468,7 @@
     // the tabs sit inside the course header (<!--cd-tabs-->); the page body starts at <!--cd-body-->
     const mb = html.indexOf("<!--cd-body-->");
     if (mb >= 0) {
-      const tabsM = courseTabs(tab, [["info", "Tasks and Info"], ["grades", "Grades"]].concat(window.SBLEC ? [["lectures", "Lectures"]] : []));
+      const tabsM = courseTabs(tab, [["info", "Overview"], ["grades", "Grades"]].concat(window.SBLEC ? [["lectures", "Lectures"]] : []));
       const head = html.slice(0, mb).replace("<!--cd-tabs-->", tabsM), body = html.slice(mb);
       if (tab === "grades") { try { return head + gradeCard(c); } catch (err) { console.warn("grades: card", err); return html; } }
       if (tab === "lectures") return head + SBLEC.listHtml(c);
@@ -477,7 +477,7 @@
     const k = html.indexOf('<div class="row-actions">'), e = k >= 0 ? html.indexOf("</div>", k) : -1;
     if (e < 0) return html;
     const head = html.slice(0, e + 6), rest = html.slice(e + 6);
-    const tabs = courseTabs(tab, [["info", "Tasks and Info"], ["grades", "Grades"]].concat(window.SBLEC ? [["lectures", "Lectures"]] : []));
+    const tabs = courseTabs(tab, [["info", "Overview"], ["grades", "Grades"]].concat(window.SBLEC ? [["lectures", "Lectures"]] : []));
     if (tab === "lectures") return head + tabs + SBLEC.listHtml(c);
     if (tab === "grades") { try { return head + tabs + gradeCard(c); } catch (err) { console.warn("grades: card", err); return html; } }
     return head + tabs + rest;

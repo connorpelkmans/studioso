@@ -414,6 +414,27 @@ function planLead(rs){
   if (/% of your grade/.test(rs[0] || "")) { const d = rs.findIndex(r => /^(Due |Overdue|Past due)/.test(r)); if (d > 0) k = d; }
   return k;
 }
+// A phone-only strip above Do This Next: today's planned slots and free windows on one time line
+function dayTimelineHtml(F, todayList, heroId){
+  const a = F && F.avail, sb = (F && F.slotsBy) || {};
+  const blocks = [];
+  (todayList || []).forEach(x => (sb[x.t.id] || []).forEach(s => { if (s && s.e > s.s) blocks.push({s: s.s, e: s.e, t: x.t}); }));
+  if (!blocks.length) return "";
+  const free = a && a.show && a.res ? (a.res.windows || []).filter(w => w.e > w.s) : [];
+  const now = new Date(), nowM = now.getHours() * 60 + now.getMinutes();
+  let lo = Math.min(...blocks.map(b => b.s), ...free.map(w => w.s)), hi = Math.max(...blocks.map(b => b.e), ...free.map(w => w.e));
+  lo = Math.floor(lo / 60) * 60; hi = Math.ceil(hi / 60) * 60; if (hi - lo < 240) hi = lo + 240;
+  const span = hi - lo, pct = m => Math.max(0, Math.min(100, (m - lo) / span * 100)), step = Math.max(1, Math.ceil(span / 60 / 5));
+  const hr = m => { const h = Math.floor(m / 60) % 24; return (h % 12 || 12) + (h < 12 ? "a" : "p"); };
+  const ticks = []; for (let m = Math.ceil(lo / 60 / step) * step * 60; m <= hi; m += step * 60) ticks.push(`<span style="left:${pct(m).toFixed(2)}%">${hr(m)}</span>`);
+  const segs = free.map(w => `<i class="dtl-free" style="left:${pct(w.s).toFixed(2)}%;width:${(pct(w.e) - pct(w.s)).toFixed(2)}%" aria-hidden="true"></i>`).join("");
+  const blks = blocks.sort((p, q) => p.s - q.s).map(b => {
+    const w = pct(b.e) - pct(b.s), on = nowM >= b.s && nowM < b.e, hero = b.t.id === heroId, when = availRange(b.s, b.e);
+    return `<button type="button" class="dtl-blk${on ? " on" : ""}${hero ? " next" : ""}" ${gtOpenAttrs(b.t)} style="left:${pct(b.s).toFixed(2)}%;width:${w.toFixed(2)}%;--c:${esc(colorOf(b.t.courseId))}" title="${esc(b.t.title)}, ${esc(when)}" aria-label="${esc(b.t.title)}, ${esc(when)}">${w >= 20 ? `<span>${esc(b.t.title)}</span>` : ""}</button>`;
+  }).join("");
+  const nowMk = nowM >= lo && nowM <= hi ? `<i class="dtl-now" style="left:${pct(nowM).toFixed(2)}%" aria-hidden="true"></i>` : "";
+  return `<div class="dtl" role="group" aria-label="Today's timeline"><div class="dtl-track">${segs}${blks}${nowMk}</div><div class="dtl-ticks" aria-hidden="true">${ticks.join("")}</div></div>`;
+}
 function planRow(x, i, showScore, noRank){
   const t = x.t, c = courseOf(t.courseId);
   const rs = x.reasons || [], li = planLead(rs), lead = rs[li] || "", rest = rs.filter((r, k) => k !== li);
@@ -517,7 +538,7 @@ function focusHtml(){
   return `<section class="focus plan" aria-label="Today's Plan">
     <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? `<p class="plan-gap">${F.gapWhy.map(esc).join(" ")}</p>` : ""}</div>
       ${ptStats ? (autoChipHtml() ? `<div class="fh-ctl fh-chip">${autoChipHtml()}</div>` : "") : `<div class="fh-ctl"><div class="hours-ctl" role="group" aria-label="Study time available today"><span class="mini">Time Today</span><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button><b>${fmtHM(F.thSet) || "0m"}</b><button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></div>${autoChipHtml()}</div>`}</div>
-    ${ui.focusOpen ? `${window.SBPRO ? SBPRO.todayHtml() : ""}${nextUpHtml(F, hero)}${skipped}${spare}${warn}${pastHtml}${availStripHtml(F)}
+    ${ui.focusOpen ? `${window.SBPRO ? SBPRO.todayHtml() : ""}${dayTimelineHtml(F, todayList, heroId)}${nextUpHtml(F, hero)}${skipped}${spare}${warn}${pastHtml}${availStripHtml(F)}
       ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
       ${fixedHtml}
       ${extraHtml}

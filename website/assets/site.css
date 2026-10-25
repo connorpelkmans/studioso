@@ -76,8 +76,8 @@ code{font:500 .9em ui-monospace,Consolas,monospace;background:var(--soft);paddin
 /* ===== Header and footer ===== */
 header.top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--paper) 86%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
 header.top .wrap{display:flex;align-items:center;gap:16px;min-height:64px}
-.brand{display:flex;align-items:center;text-decoration:none;border-radius:8px}
-.brand img{height:30px;width:auto}
+.brand{display:flex;align-items:center;text-decoration:none;border-radius:8px;flex:0 1 136px;min-width:0}
+.brand img{height:auto;width:100%;max-width:136px;max-height:30px;object-fit:contain;object-position:left center}
 nav.main{margin-left:auto;display:flex;align-items:center;gap:clamp(10px,2.2vw,24px)}
 nav.main a{font:500 .95rem var(--display);color:var(--ink);text-decoration:none;white-space:nowrap}
 nav.main a:hover{color:var(--accent)}
@@ -100,6 +100,7 @@ nav.main a.navbtn:hover{background:var(--btn-hover);color:var(--btn-ink)}
   nav.main a[aria-current="page"]{text-decoration:none}
 }
 @media (max-width:360px){nav.main a.navbtn{padding:9px 12px}}
+@media (max-width:520px){header.top .wrap{gap:10px}}
 footer.site{border-top:1px solid var(--line);padding-block:28px 40px;margin-top:20px}
 footer.site .wrap{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between;color:var(--muted);font-size:.92rem}
 footer.site img{height:24px;width:auto}

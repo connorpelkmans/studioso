@@ -568,9 +568,10 @@ function decorateDeck(){
   const begin = () => {
     const r = st.item.getBoundingClientRect();
     st.dx = st.x0 - r.left; st.dy = st.y0 - r.top; st.on = true;
+    // The lifted copy lives inside #view so it keeps the card styles that are scoped to it
     st.ghost = st.item.cloneNode(true); st.ghost.classList.add("sort-ghost");
     Object.assign(st.ghost.style, {width: r.width + "px", height: r.height + "px", left: r.left + "px", top: r.top + "px"});
-    document.body.appendChild(st.ghost); st.item.classList.add("sort-hole"); document.body.classList.add("sorting");
+    (document.getElementById("view") || document.body).appendChild(st.ghost); st.item.classList.add("sort-hole"); document.body.classList.add("sorting");
     if (navigator.vibrate) try { navigator.vibrate(12); } catch (e) {}
   };
   const move = (x, y) => {

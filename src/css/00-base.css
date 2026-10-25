@@ -158,8 +158,11 @@ body.wide .wrap{max-width:1180px}
 .ann-n{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--late,#C0392B);color:#fff;font:700 .68rem/18px var(--body);text-align:center;box-sizing:border-box}
 .nav-tool.ann-btn .ann-n{top:2px;right:calc(50% - 26px)}
 .ann-sheet .sheet-body{gap:10px;align-content:start;grid-auto-rows:max-content}
-.ann-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.ann-bar .spacer{flex:1}
+.ann-bar{margin:0}
+.ann-ctl{display:flex;align-items:center;gap:8px;flex:none}
+.ann-ctl .btn{flex:none;white-space:nowrap;padding-inline:11px;font-size:.78rem}
+.ann-sel{flex:1 1 0;min-width:96px;min-height:36px;padding:6px 8px 6px 12px;border-radius:999px;border:1px solid var(--line);background-color:var(--surface);color:var(--ink);font:600 .8rem var(--body);text-overflow:ellipsis;cursor:pointer}
+.ann-sel:focus-visible,#annPanel:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .ann-course{display:flex;align-items:center;gap:8px;margin:8px 0 0;font:700 .98rem var(--display)}
 .ann-course .sd{width:10px;height:10px;border-radius:50%;background:var(--c);flex:none}
 .ann-course .n{font:600 .75rem var(--body);color:var(--muted);margin-left:auto}
@@ -188,6 +191,13 @@ body.wide .wrap{max-width:1180px}
 .ann-chip .sd{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
 .ann-chip .n{color:var(--muted);font-weight:500}
 .ann-list li>.ann-chip{display:flex;width:max-content}
+.ann-rest{margin-top:14px;border-top:1px solid var(--line);padding-top:8px}
+.ann-rest > summary{display:flex;align-items:center;gap:8px;min-height:40px;cursor:pointer;font:700 .95rem var(--display);color:var(--ink);list-style:none}
+.ann-rest > summary::-webkit-details-marker{display:none}
+.ann-rest > summary::after{content:"";margin-left:auto;width:9px;height:9px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .2s}
+.ann-rest[open] > summary::after{transform:rotate(-135deg)}
+.ann-rest-n{font:600 .74rem var(--display);color:var(--muted);background:var(--field,var(--soft));border:1px solid var(--line);border-radius:99px;padding:1px 9px}
+.ann-rest > .ann-list{margin-top:6px}
 .ann-browse{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
 .ann-browse .btn-chip{cursor:pointer;padding:6px 11px;font-size:.8rem}
 .ann-browse .btn-chip:hover{border-color:var(--accent)}
@@ -350,6 +360,8 @@ dialog::backdrop{background:rgba(10,14,24,.5)}
   dialog{margin:auto 0 0;max-width:100%;width:100%;border-radius:20px 20px 0 0;max-height:90vh}
 }
 .sheet{display:flex;flex-direction:column;max-height:inherit}
+/* A sheet scrolls in its own body; the dialog around it never shows a second, stray scrollbar */
+dialog:has(> .sheet){overflow:hidden}
 .sheet-head{display:flex;align-items:center;gap:10px;padding:16px 18px 8px}
 .sheet-head h2{flex:1;margin:0;font:700 1.25rem var(--display)}
 .sheet-body{overflow:auto;padding:6px 18px 12px;display:grid;gap:14px}
@@ -854,7 +866,7 @@ ul.tasks,.plan-list,.flist,.fc-list{box-shadow:var(--shadow);border-color:var(--
 .col-head .n{background:var(--soft);border-radius:999px;padding:0 8px;font-weight:700;color:var(--muted)}
 .col-list{gap:12px}
 .card-grip{display:none}
-@media (pointer:coarse){.board .card{padding-right:34px}.board .card-grip{display:grid;place-items:center;position:absolute;right:2px;top:50%;transform:translateY(-50%);width:30px;height:44px;border-radius:10px;color:var(--muted);opacity:.7;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}.board .card-grip:active{background:var(--soft)}}
+@media (pointer:coarse){.board .card-grip{display:grid;place-items:center;position:absolute;right:0;top:50%;transform:translateY(-50%);width:24px;height:44px;border-radius:10px;color:var(--muted);opacity:.7;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}.board .card-grip:active{background:var(--soft)}}
 .card{border:1px solid var(--line);border-left:1px solid var(--line);background:var(--surface);border-radius:4px 12px 12px 12px;box-shadow:var(--shadow);padding:11px 12px 12px}
 .card.has-tab{margin-top:17px}
 .card-course{position:absolute;left:-1px;top:-18px;height:18px;max-width:75%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:1px 10px 0;border-radius:8px 8px 0 0;background:color-mix(in srgb,var(--c) 66%,#000);color:#fff;font:700 .68rem/17px var(--display);letter-spacing:.03em}
