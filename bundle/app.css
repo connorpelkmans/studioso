@@ -2286,6 +2286,11 @@ dialog:has(.plan-sheet){width:min(600px,calc(100% - 24px))}
 .cp-banner{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:12px;max-width:calc(100vw - 24px);padding:8px 8px 8px 16px;border-radius:999px;
   background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:0 8px 28px rgba(0,0,0,.35);font:600 .9rem var(--display)}
 .cp-banner .cp-txt{min-width:0;overflow-wrap:anywhere}
+@media (max-width:979px){
+  .cp-banner{left:12px;right:12px;transform:none;bottom:calc(96px + env(safe-area-inset-bottom,0px));justify-content:space-between;gap:10px;max-width:none;padding:8px 8px 8px 16px;border-radius:18px;font-size:.85rem;line-height:1.25}
+  .cp-banner .cp-txt{flex:1 1 auto;overflow-wrap:break-word}
+  .cp-banner .btn{flex:none;white-space:nowrap}
+}
 .cp-note{margin:6px 0 0}
 .plan-compare{display:grid;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--surface)}
 .pc-row{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) minmax(0,1.15fr);align-items:center;font-size:.9rem;border-top:1px solid var(--line)}
@@ -3863,6 +3868,20 @@ html.tpcss-loading [class*="cs-tp-"] .face *{visibility:hidden}
 .ui-shop .ui-sec.ui-held > .ui-sec-b,.ui-shop .ui-col.ui-held{display:none}
 .ui-cols-more{margin-top:0!important}
 .ui-shop .sheet-body{background:var(--surface)}
+/* Phone: keep the extras above the themes small so the previews come first */
+@media (max-width:600px){
+  .ui-shop .shop-mode{gap:6px 10px;align-items:center}
+  .ui-shop .shop-mode > .mini{display:none}
+  .ui-shop .shop-mode .segb button{min-height:34px;padding:4px 12px;font-size:.85rem}
+  .ui-shop .shop-mode .motion-tog{margin-left:0;font-size:.82rem;font-weight:600;color:var(--muted)}
+  .ui-shop .shop-mode .sc-moment{min-height:34px;padding:4px 12px;font-size:.82rem}
+  .ui-shop .ph-intro{display:none}
+  .ui-shop .ph-grid .ph-add{grid-column:1/-1;min-height:0;display:flex;align-items:center;justify-content:flex-start;text-align:left;gap:12px!important;padding:8px 12px}
+  .ui-shop .ph-grid .ph-add .ph-add-ic{width:36px;height:36px;flex:none}
+  .ui-shop .ph-grid .ph-add .ph-add-ic svg{width:20px;height:20px}
+  .ui-shop .ph-grid .ph-add .mini{display:none}
+  .ui-shop .ph-grid .ph-add.full .mini,.ui-shop .ph-grid .ph-add.locked .mini{display:block;max-width:none}
+}
 
 
 /* ===== module: 97-ui.css ===== */
@@ -5990,7 +6009,7 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
 }
 /* Companion chat */
 .cpt-log{max-height:max(240px,calc(100dvh - 456px))!important}
-.cpt-form{position:sticky;bottom:12px;z-index:3;padding:6px;margin-inline:-6px;border-radius:18px;background:color-mix(in srgb,var(--paper,var(--bg)) 86%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.cpt-form{position:sticky;bottom:12px;z-index:3;padding:6px;margin-inline:0;border-radius:18px;background:color-mix(in srgb,var(--paper,var(--bg)) 86%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
 @media (max-width:979px){.cpt-log{max-height:max(220px,calc(100dvh - 520px))!important}.cpt-form{bottom:calc(84px + env(safe-area-inset-bottom,0px))}}
 .fc-arch-btn{display:inline-flex;align-items:center;gap:6px}
 /* Review, Quizzes */
@@ -6658,7 +6677,7 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
   /* The header keeps its own space while it shrinks, so the browser must not shift the scroll for it */
   html{overflow-anchor:none}
   /* the size change is animated from script (see morph) */
-  body.sb-scrolled header.top{padding-top:6px!important;padding-bottom:6px!important;background:color-mix(in srgb,var(--paper,var(--bg)) 96%,transparent)!important;-webkit-backdrop-filter:blur(18px) saturate(1.6)!important;backdrop-filter:blur(18px) saturate(1.6)!important;border-bottom:1px solid color-mix(in srgb,var(--line) 75%,transparent);box-shadow:0 6px 16px -12px rgba(8,20,50,.35)}
+  body.sb-scrolled header.top{padding-top:6px!important;padding-bottom:6px!important;background:linear-gradient(to bottom,var(--paper) 0,color-mix(in srgb,var(--paper) 50%,transparent) 70%)!important;-webkit-backdrop-filter:blur(18px) saturate(1.6)!important;backdrop-filter:blur(18px) saturate(1.6)!important;border-bottom:1px solid color-mix(in srgb,var(--line) 75%,transparent);box-shadow:0 6px 16px -12px rgba(8,20,50,.35)}
   body.sb-scrolled header.top .top-row > div:first-child{flex-direction:row!important;flex-wrap:nowrap;align-items:center!important;padding-top:0;min-width:0}
   body.sb-scrolled header.top .brand{flex:none}
   body.sb-scrolled header.top .brand img.logo{width:92px}
