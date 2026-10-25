@@ -39,7 +39,7 @@
 @media (max-width:639px){
   #view .course-list{gap:10px;margin-top:12px}
   #view .course-card.c2-card{display:grid;grid-template-columns:48px minmax(0,1fr);grid-template-areas:"ring top" "ring body";align-items:center;column-gap:14px;row-gap:2px;min-height:0;padding:12px 14px 12px 8px;border:1px solid var(--line);border-radius:18px!important;background:var(--surface);box-shadow:0 1px 2px rgba(14,42,86,.06);overflow:hidden;position:relative;text-align:left}
-  #view .c2-card .c2-band{position:absolute;inset:0 auto 0 0;width:26px;height:auto;padding:0;border-radius:0;background:var(--c)!important}
+  #view .c2-card .c2-band{position:absolute;inset:0 auto 0 0;width:32px;height:auto;padding:0;border-radius:0;background:var(--c)!important}
   #view .c2-card .c2-band > *{display:none}
   #view .c2-card .c2-top{display:contents}
   #view .c2-card .c2-ring{grid-area:ring;position:relative;z-index:1;align-self:center;width:48px;height:48px;margin:0;font-size:.8rem;box-shadow:0 0 0 2.5px var(--c)!important}
