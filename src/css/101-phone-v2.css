@@ -365,3 +365,6 @@ dialog:has(> .sheet > .g2-sheet-head){background:transparent}
 @media (max-width:639px){
   .shop-mode .motion-tog,.shop-mode .sc-moment{display:none}
 }
+
+/* Style Shop flashcard previews: sized from the tile, not left to the browser's automatic sizing, so they sit centred in the box */
+.ui-shop .shop-tile > .cs-demo{box-sizing:border-box;width:calc(100% - 16px);max-width:calc(100% - 16px);margin:4px 8px 10px;justify-self:start}
