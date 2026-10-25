@@ -410,17 +410,17 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
 
 /* Phones: the cards and panels over a theme's artwork let more of it show through (a photo theme's own Glass slider still wins) */
 @media (max-width:639px){
-  html{--ph-gls:76%}
+  html{--ph-gls:84%}
 }
 
-/* Phones: every softly see-through surface lets more of the artwork behind it show (about three quarters solid) */
+/* Phones: every softly see-through surface lets more of the artwork behind it show (about five sixths solid) */
 @media (max-width:639px){
-  .col{background:color-mix(in srgb,var(--ph-surf,var(--surface)) 76%,transparent)}
-  .arch-term{background:color-mix(in srgb,var(--surface) 76%,transparent)}
-  html.sc-on .grp-file{background:color-mix(in srgb,var(--surface) 76%,transparent)}
-  .cpt-form{background:color-mix(in srgb,var(--paper,var(--bg)) 70%,transparent)}
-  .room-float small{background:color-mix(in srgb,var(--surface) 76%,transparent)}
-  .nb-zoom,.nb-target,.board-max-btn{background:color-mix(in srgb,var(--surface) 80%,transparent)}
-  .nb-main .nb-target{background:color-mix(in srgb,var(--surface) 80%,transparent)!important}
-  html:not(.ph-on) nav.tabs::before{opacity:.82}
+  .col{background:color-mix(in srgb,var(--ph-surf,var(--surface)) 84%,transparent)}
+  .arch-term{background:color-mix(in srgb,var(--surface) 84%,transparent)}
+  html.sc-on .grp-file{background:color-mix(in srgb,var(--surface) 84%,transparent)}
+  .cpt-form{background:color-mix(in srgb,var(--paper,var(--bg)) 78%,transparent)}
+  .room-float small{background:color-mix(in srgb,var(--surface) 84%,transparent)}
+  .nb-zoom,.nb-target,.board-max-btn{background:color-mix(in srgb,var(--surface) 86%,transparent)}
+  .nb-main .nb-target{background:color-mix(in srgb,var(--surface) 86%,transparent)!important}
+  html:not(.ph-on) nav.tabs::before{opacity:.88}
 }
