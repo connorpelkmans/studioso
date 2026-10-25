@@ -123,6 +123,29 @@
     document.body.appendChild(probe); const c = getComputedStyle(probe).color; probe.remove();
     if (c && m.getAttribute("content") !== c) m.setAttribute("content", c);
   }
+  // Course pickers on phones: a coloured dot, then just the course code. The phone's own picker can't colour text,
+  // so the dot is the closest coloured circle emoji to the course colour.
+  const dotFor = hex => {
+    const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "").trim()); if (!m) return "\u26AB";
+    const n = parseInt(m[1], 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+    if (d < 0.1) return l < 0.5 ? "\u26AB" : "\u26AA";
+    const sat = d / (1 - Math.abs(2 * l - 1));
+    let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h = (h * 60 + 360) % 360;
+    if (sat < 0.2) return l < 0.5 ? "\u26AB" : "\u26AA";
+    if (h >= 8 && h < 45 && l < 0.36) return "\uD83D\uDFE4";
+    return h < 12 || h >= 320 ? "\uD83D\uDD34" : h < 38 ? "\uD83D\uDFE0" : h < 70 ? "\uD83D\uDFE1" : h < 170 ? "\uD83D\uDFE2" : h < 255 ? "\uD83D\uDD35" : "\uD83D\uDFE3";
+  };
+  function courseDots(root){
+    if (!isPhone() || !root || !root.querySelectorAll) return;
+    root.querySelectorAll("select option").forEach(o => {
+      if (o.dataset.cd) return; o.dataset.cd = "1";
+      const c = state.courses && state.courses[o.value]; if (!c) return;
+      o.textContent = dotFor(c.color) + "\u2002" + courseLabel(c);
+    });
+  }
+  try { new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1) courseDots(n.tagName === "OPTION" ? n.parentNode : n.tagName === "SELECT" ? n : n); }))).observe(document.body, {childList: true, subtree: true}); } catch (e) {}
+  hook("render", () => courseDots(document));
   window.SBBARTINT = barTint;
   try { const mq = matchMedia("(prefers-color-scheme: dark)"); (mq.addEventListener ? mq.addEventListener("change", () => setTimeout(barTint, 50)) : mq.addListener(() => setTimeout(barTint, 50))); } catch (e) {}
   // The tabs either side of the companion's seat
