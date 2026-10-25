@@ -2036,7 +2036,10 @@ dialog:has(.sheet.shop){width:min(960px,calc(100% - 24px))}
 .shop-tabs button[aria-selected=true]{background:var(--sel);color:var(--sel-ink)}
 .shop-sec{margin:6px 0 0;display:flex;align-items:center;gap:6px}
 .shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-.shop-tile{border:1px solid var(--line);border-radius:14px;padding:10px;display:grid;gap:6px;align-content:start;background:var(--surface)}
+.shop-tile{border:1px solid var(--line);border-radius:14px;padding:10px;display:grid;grid-template-columns:minmax(0,1fr);min-width:0;gap:6px;align-content:start;background:var(--surface)}
+/* nothing inside a tile may be wider than the tile: text wraps, the button wraps rather than spill out */
+.shop-tile>*{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.shop-tile>.btn{white-space:normal;text-align:center;height:auto}
 .shop-tile.on{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent)}
 .shop-tile p{margin:0}
 .shop-tile>.btn{justify-self:start}
