@@ -6462,8 +6462,8 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   #view > .pview-tabs + .gp > .view-head + *{margin-top:0!important}
 }
 
-/* Task board cards: no link-out button on phones */
-@media (max-width:639px){.card-foot .lms-go{display:none}}
+/* Task board cards and Today's plan: no link-out button on phones */
+@media (max-width:639px){.card-foot .lms-go,.plan-side .lms-go{display:none}}
 
 /* Do This Next: reasons and next step behind a Details toggle on phones */
 .nu-more{display:none}
