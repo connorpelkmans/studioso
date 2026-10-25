@@ -192,9 +192,7 @@
     const band = v.band.h ? `<div class="sc-band" style="top:${v.band.top * k}px;height:${v.band.h * k}px;background:${v.band.bg}"></div>` : "";
     el.innerHTML = band + layerHtml(v.far, true, v, k) + layerHtml(v.refl, true, v, k) + layerHtml(v.mid, true, v, k)
       + (eng ? `<canvas class="sc-cv sc-a"></canvas>` : "") + layerHtml(v.near, false, v, k) + (eng && eng.stat ? `<canvas class="sc-cv sc-s"></canvas>` : "") + (eng ? `<canvas class="sc-cv sc-b"></canvas>` : "");
-    // Phones draw the moving layers at one pixel per screen point: the particles and waves are soft, and it nearly halves what every frame costs
-    const phoneDpr = g.W < 640 ? 1 : 0;
-    const dpr = Math.min(phoneDpr || (g.W * g.H > BIG_AREA ? DPR_BIG : DPR_MAX), eng && eng.maxDpr || 9, window.devicePixelRatio || 1) * (MO() ? MO().dprScale() : 1), s = k * dpr;
+    const dpr = Math.min(g.W * g.H > BIG_AREA ? DPR_BIG : DPR_MAX, eng && eng.maxDpr || 9, window.devicePixelRatio || 1) * (MO() ? MO().dprScale() : 1), s = k * dpr;
     const cvs = eng ? [el.querySelector(".sc-a"), el.querySelector(".sc-b")] : [];
     cvs.forEach(c => { c.width = Math.round(g.W * dpr); c.height = Math.round(g.H * dpr); c.style.width = g.W + "px"; c.style.height = g.H + "px"; });
     const sCv = eng && eng.stat ? el.querySelector(".sc-s") : null;

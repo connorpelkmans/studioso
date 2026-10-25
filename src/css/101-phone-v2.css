@@ -424,8 +424,4 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
   .nb-main .nb-target{background:color-mix(in srgb,var(--surface) 88%,transparent)!important}
 }
 
-/* Phones with an animated theme: nothing blurs the moving scene behind it (a live blur has to be redone every frame) */
-@media (max-width:639px){
-  html.sc-on .cpt-form{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
-}
 

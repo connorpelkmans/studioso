@@ -14,20 +14,20 @@
   let pref = ls(KEY); if (MODES.indexOf(pref) < 0) pref = "auto";
   let battery = null, saveData = false, desk = {onBattery: false, thermal: "unknown", locked: false};
   let blurred = false, idle = false, covered = false, lastInput = Date.now(), lastSig = "";
-  // The quality governor lives only in memory: a slow moment never sticks, and it recovers by itself
+  // Nothing lowers the picture on its own any more: Auto is full motion except on a low battery
   let gov = 0;
   const IDLE_MS = 5 * 60000;
 
   const reduceSys = () => !!(mqReduce && mqReduce.matches);
   const batLow = () => !!(battery && battery.charging === false && battery.level < 0.2);
   const batCritical = () => !!(battery && battery.charging === false && battery.level < 0.08);
-  const thermal = () => desk.thermal === "serious" || desk.thermal === "critical";
-  const lowPower = () => batLow() || saveData || !!(mqData && mqData.matches) || thermal() || nativeLow;
+  // Reduced motion in Auto: only for a low battery (under 20% and not charging, or the phone's Low Power Mode)
+  const lowPower = () => batLow() || nativeLow;
   function level(){
     if (pref === "off") return "static";
     let lv = "full";
     if (pref === "auto") {
-      if (reduceSys() || batCritical() || desk.thermal === "critical") lv = "static";
+      if (reduceSys() || batCritical()) lv = "static";
       else if (lowPower()) lv = "calm";
     } else if (pref === "calm") lv = "calm";
     if (gov >= 3) lv = "static";
@@ -35,18 +35,14 @@
   }
   const live = () => level() !== "static" && !blurred && !idle && !covered && !desk.locked && !document.hidden;
   // Full motion is always 60 frames a second (the 14 leaves room for timing jitter, and a 120 Hz screen still lands on 60).
-  // If the device struggles the governor lowers the picture quality, never the frame rate, and raises it again once things are calm.
   const frameMs = () => level() === "calm" ? 66 : 14;
-  const dprScale = () => level() === "calm" ? 0.7 : gov >= 3 ? 0.5 : gov >= 2 ? 0.6 : gov >= 1 ? 0.8 : 1;
+  const dprScale = () => level() === "calm" ? 0.7 : 1;
   const noParticles = () => level() !== "full";
   const pauseWhy = () => document.hidden ? "the tab is hidden" : blurred ? "the window isn't in front" : idle ? "no activity for a few minutes" : covered ? "a full-screen sheet is open" : "";
   function why(){
     const r = [];
     if (reduceSys()) r.push("your device's Reduce Motion is on");
     if (batLow()) r.push("battery is low");
-    if (saveData) r.push("Data Saver is on");
-    if (mqData && mqData.matches) r.push("reduced data is requested");
-    if (thermal()) r.push("the device is running hot");
     if (nativeLow) r.push("Low Power Mode is on");
     return r.join(", ");
   }
@@ -59,7 +55,7 @@
         : lv === "calm" ? `Auto: following your device. ${w ? w[0].toUpperCase() + w.slice(1) : "Power saving is on"}, so scenes run slower and gentler.`
         : `Auto: following your device. ${w ? w[0].toUpperCase() + w.slice(1) : "Motion is limited"}, so scenes are still.`;
     } else s = pref === "full" ? "Full: scenes always play." : pref === "calm" ? "Reduced: scenes drift slowly at a low frame rate." : "Off: scenes are still, with no confetti.";
-    if (gov > 0 && pref !== "off") s += " Picture quality was lowered for now because this device was struggling. It goes back up by itself.";
+    if (gov > 0 && pref !== "off") s += " ";
     if (p && lv !== "static") s += ` Paused for now because ${p}.`;
     return s;
   }
@@ -73,24 +69,9 @@
   }
   const setPref = p => { if (MODES.indexOf(p) < 0) return; pref = p; ls(KEY, p === "auto" ? null : p); if (p !== "auto" || gov) { gov = 0; } emit(true); };
 
-  // Quality governor
-  let win = {n: 0, cost: 0, t0: 0, last: 0}, badRuns = 0, goodRuns = 0, warmUntil = 0;
-  // A new scene is still settling for a few seconds, so those frames are not judged
-  function warm(ms){ warmUntil = performance.now() + (ms || 4000); win = {n: 0, cost: 0, t0: 0, last: 0}; badRuns = 0; goodRuns = 0; }
-  function frameCost(ms, ts){
-    if (performance.now() < warmUntil) return;
-    if (!win.t0 || ts - win.last > 600) { win = {n: 0, cost: 0, t0: ts, last: ts}; badRuns = 0; }
-    win.n++; win.cost += ms; win.last = ts;
-    if (ts - win.t0 < 2000 || win.n < 20) return;
-    const avg = win.cost / win.n, interval = (ts - win.t0) / win.n, budget = frameMs();
-    win = {n: 0, cost: 0, t0: ts, last: ts};
-    // slow = the drawing takes too long, or frames arrive late (the screen's own painting counts, not just our drawing commands)
-    const heavy = avg > budget * 0.7, bad = heavy || interval > budget * 1.7, good = avg < budget * 0.4 && interval < budget * 1.4;
-    if (bad) { badRuns++; goodRuns = 0; } else if (good) { goodRuns++; badRuns = 0; } else badRuns = 0;
-    // late frames alone lower the quality two steps at most; stopping the scene needs the drawing itself to be too heavy
-    if (badRuns >= 2 && gov < 3 && (gov < 2 || heavy) && pref !== "off") { gov++; badRuns = 0; goodRuns = 0; emit(true); }
-    else if (goodRuns >= 4 && gov > 0) { gov--; goodRuns = 0; emit(true); }
-  }
+  // (No automatic quality lowering: the picture stays as it is. These stay so the scenes can still report their frames.)
+  function warm(){}
+  function frameCost(){}
 
   // Signals
   try { if (navigator.getBattery) navigator.getBattery().then(b => { battery = b; const u = () => emit(true); ["levelchange", "chargingchange"].forEach(ev => b.addEventListener(ev, u)); u(); }).catch(() => {}); } catch (e) {}
