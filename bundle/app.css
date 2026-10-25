@@ -3704,6 +3704,8 @@ html.tpcss-loading [class*="cs-tp-"] .face *{visibility:hidden}
 .sb-dd-opt.on{background:color-mix(in srgb,var(--accent) 16%,transparent);font-weight:700}
 .sb-dd-opt[disabled]{opacity:.45;cursor:default}
 .sb-dd-ck{flex:none;color:var(--accent)}
+.sb-dd-dot,.sb-dd-gap{flex:none;width:10px;height:10px}
+.sb-dd-dot{border-radius:50%;background:var(--c)}
 .sb-dd-grp{padding:10px 12px 4px;font:800 .7rem/1.2 var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .sb-dd-grp:first-child{padding-top:4px}
 .env-tp-btn{display:flex;align-items:center;gap:8px;width:100%;min-height:36px;padding:6px 10px;border-radius:10px;border:1px solid rgba(74,48,20,.28);background:rgba(255,253,247,.85);color:#2A2418;font:600 .8rem/1.2 var(--display);text-align:left;cursor:pointer;box-shadow:0 1px 0 rgba(74,48,20,.06)}
@@ -6619,6 +6621,19 @@ dialog:has(> .sheet > .g2-sheet-head){background:transparent}
 
 /* Style Shop > Collections: Apply Theme and See All sit in the middle of the box */
 .ui-col .ui-col-act{justify-content:center;text-align:center}
+
+/* Course dropdowns: our own menu, with small flat dots */
+html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient(circle at 18px 50%,var(--cs-dot) 0 5px,transparent 5.5px);background-repeat:no-repeat}
+.cs-back{position:fixed;inset:0;z-index:9998;background:rgba(10,20,30,.22)}
+.cs-menu{position:fixed;z-index:9999;display:grid;gap:2px;align-content:start;overflow:auto;padding:6px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 36px rgba(0,0,0,.28)}
+.cs-menu.cs-sheet{left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));max-height:60vh;border-radius:18px}
+.cs-menu button{display:flex;align-items:center;gap:12px;width:100%;min-height:44px;padding:6px 12px;border:0;border-radius:10px;background:none;color:inherit;font:600 .95rem var(--display);text-align:left;cursor:pointer}
+.cs-menu button:hover{background:color-mix(in srgb,var(--ink) 7%,transparent)}
+.cs-menu button[aria-selected="true"]{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.cs-dot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--c)}
+.cs-gap{flex:none;width:10px;height:10px}
+.cs-tick{margin-left:auto;opacity:.8}
+
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
