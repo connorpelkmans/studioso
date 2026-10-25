@@ -190,7 +190,7 @@
   #view > .tl-controls:not(:has(> :not(h2,.segb))) > .segb button{flex:1 1 0;min-width:0;padding-inline:2px;font-size:.94rem}
   .plan .fh-ctl .hours-ctl{min-height:0;padding:4px 10px}
   /* A page's own buttons whose heading was hidden */
-  #view > .view-head.ph-btns,#view > section > .view-head.ph-btns{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:4px 0 14px!important;padding:0!important;min-height:0;height:auto;position:static!important;transform:none!important}
+  #view > .view-head.ph-btns,#view > section > .view-head.ph-btns{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:0 0 12px!important;padding:0!important;min-height:0;height:auto;position:static!important;transform:none!important}
   #view > .view-head.ph-btns + *,#view > section > .view-head.ph-btns + *{margin-top:0!important}
   /* breathing room between the header and the page's first row (the switcher or title pill) */
   header.top,body.sb-scrolled header.top{padding-top:4px!important;padding-bottom:6px!important;background:linear-gradient(to bottom,var(--paper) 0,color-mix(in srgb,var(--paper) 50%,transparent) 70%)!important;-webkit-backdrop-filter:blur(16px) saturate(1.5)!important;backdrop-filter:blur(16px) saturate(1.5)!important}
@@ -256,7 +256,7 @@
 /* One rhythm on every tab: tab bar, 12px, the page's buttons, 14px, the content */
 @media (max-width:639px){
   #view > .pview-tabs{margin-bottom:12px}
-  #view > .pview-tabs + .gp > .view-head{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:0 0 2px!important;padding:0!important;min-height:0}
+  #view > .pview-tabs + .gp > .view-head{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:0!important;padding:0!important;min-height:0}
   #view > .pview-tabs + .gp > .view-head > .btn{margin-block:0!important}
   #view > .pview-tabs + .gp > .view-head + *{margin-top:0!important}
 }
@@ -384,4 +384,11 @@ dialog:has(> .sheet > .g2-sheet-head){background:transparent}
   #view > .pview-tabs + .sch-top + *{margin-top:12px!important}
   #view > .pview-tabs + .cr{gap:12px}
   #view > .pview-tabs + .cr > .cr-head + *{margin-top:0!important}
+}
+
+/* One rhythm on every tab: 12px under the tab bar, 12px under a row of controls */
+@media (max-width:639px){
+  #view > .pview-tabs + *{margin-top:0!important}
+  #view > .cal-head{margin-bottom:12px!important}
+  #view > .bview-row + .bview{margin-top:12px}
 }
