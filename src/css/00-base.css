@@ -67,7 +67,6 @@ nav.tabs button[aria-current="page"] svg{color:var(--accent)}
 /* Sections */
 h2.sec{font:700 1.05rem/1.2 var(--display);margin:26px 0 10px;display:flex;align-items:baseline;gap:8px}
 h2.sec .n{font:500 .85rem var(--body);color:var(--muted)}
-h2.sec.hl span.t{background:linear-gradient(transparent 45%, var(--mark) 45%, var(--mark) 88%, transparent 88%);padding:0 3px;margin:0 -3px}
 h2.sec.late span.t{color:var(--late)}
 .summary{font:500 1.9rem/1.15 var(--display);letter-spacing:-.02em;margin:14px 0 4px;max-width:18ch}
 .summary-sub{color:var(--muted);margin:0 0 6px}
