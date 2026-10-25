@@ -6487,6 +6487,11 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   .cr2 .cr-head > .cr2-range{display:flex;flex:1 1 100%;width:100%;box-sizing:border-box}
   .cr2 .cr-head > .cr2-range button{flex:1 1 0;min-width:0;justify-content:center;text-align:center}
 }
+
+/* Add menus (the + button): lift the last option clear of the screen's bottom edge */
+@media (max-width:639px){
+  .sheet.fab-menu .sheet-body{padding-bottom:calc(36px + env(safe-area-inset-bottom,0px))}
+}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
