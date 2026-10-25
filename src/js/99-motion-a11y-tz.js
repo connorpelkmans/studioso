@@ -1,5 +1,5 @@
 /* ===== module: 99-motion-a11y-tz.js ===== */
-/* Animations governor (Auto / Full / Reduced / Off), low-power handling, text size */
+/* Animations governor (On / Off), low-power handling, text size */
 (() => {
   const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} return null; };
   const ss = (k, v) => { try { if (v === undefined) return sessionStorage.getItem(k); sessionStorage.setItem(k, v); } catch (e) {} return null; };
@@ -9,7 +9,7 @@
 
   /* ================= Animations governor ================= */
   const mqReduce = mm("(prefers-reduced-motion: reduce)"), mqData = mm("(prefers-reduced-data: reduce)"), mqPhone = mm("(max-width:719px)"), mqContrast = mm("(prefers-contrast: more)");
-  const MODES = ["full", "off"], RANK = {full: 0, calm: 1, static: 2}, KEY = "studyboard:anim";
+  const MODES = ["full", "off"], RANK = {full: 0, static: 1}, KEY = "studyboard:anim";
   const worse = (a, b) => RANK[a] >= RANK[b] ? a : b;
   // Animations are on (full) or off. Nothing lowers them by itself, and an older Auto or Reduced choice becomes On.
   let pref = ls(KEY); if (pref !== "off") { if (pref) ls(KEY, null); pref = "full"; }
@@ -26,9 +26,9 @@
   const lowPower = () => batLow() || nativeLow;
   function level(){ return pref === "off" ? "static" : "full"; }
   const live = () => level() !== "static" && !blurred && !idle && !covered && !desk.locked && !document.hidden;
-  // Full motion is always 60 frames a second (the 14 leaves room for timing jitter, and a 120 Hz screen still lands on 60).
-  const frameMs = () => level() === "calm" ? 66 : 14;
-  const dprScale = () => level() === "calm" ? 0.7 : 1;
+  // Scenes draw on every screen refresh: 60 on most phones, 120 on ProMotion iPhones and high-refresh Android (the 4 ms floor only ignores duplicate callbacks).
+  const frameMs = () => 4;
+  const dprScale = () => 1;
   const noParticles = () => level() !== "full";
   const pauseWhy = () => document.hidden ? "the tab is hidden" : blurred ? "the window isn't in front" : idle ? "no activity for a few minutes" : covered ? "a full-screen sheet is open" : "";
   function why(){

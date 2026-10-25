@@ -40678,7 +40678,7 @@ var TP_DATA = [];
   };
   const SUB_MIN = 5;
   // Extra words people might search for, per row
-  const SYN = {"theme-set": "dark light mode night", shop: "theme colors stickers pins cards", "anim-toggle": "motion confetti", "anim-mode": "reduce motion animation battery low power static still reduced saver", "text-size": "font bigger larger smaller accessibility dynamic type zoom", "lang-set": "language idioma espanol spanish translate locale", "a11y-contrast": "contrast accessibility readable calm background dim blur", "tz-shift": "timezone travel daylight saving dst clock",
+  const SYN = {"theme-set": "dark light mode night", shop: "theme colors stickers pins cards", "anim-toggle": "motion confetti", "anim-mode": "animation motion static still saver", "text-size": "font bigger larger smaller accessibility dynamic type zoom", "lang-set": "language idioma espanol spanish translate locale", "a11y-contrast": "contrast accessibility readable calm background dim blur", "tz-shift": "timezone travel daylight saving dst clock",
     "sb-connect": "sync cloud online login", "sb-signin": "sync login", "sb-issues": "conflict merge two devices edited resolve", "sb-signout": "log out logout", "plan-open": "pro upgrade subscription devices storage",
     "area-open": "major program field subject discipline degree", "bd-new-course": "milestones rubric breakdown", dailyIn: "study time plan", capIn: "weekly limit", "ai-setup": "gemini key chatbot", "sx-settings": "find ctrl k", "g-grades": "marks gpa", "wkr-open": "weekly review sunday summary recap week slipped", "fgs-open": "streak study days rest days habit gentle forgiving",
     "lms-open": "d2l lms school sites", "cal-export": "calendar ics google outlook apple", "import-syllabus": "pdf course", "sem-open": "semester first run start setup onboarding import syllabus week plan", "grp-page": "classmates share",
@@ -76743,7 +76743,7 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
   hook("render", () => { if (tipFor && !tipFor.isConnected) hideTip(); });
 })();
 /* ===== module: 99-motion-a11y-tz.js ===== */
-/* Animations governor (Auto / Full / Reduced / Off), low-power handling, text size */
+/* Animations governor (On / Off), low-power handling, text size */
 (() => {
   const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} return null; };
   const ss = (k, v) => { try { if (v === undefined) return sessionStorage.getItem(k); sessionStorage.setItem(k, v); } catch (e) {} return null; };
@@ -76753,7 +76753,7 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
 
   /* ================= Animations governor ================= */
   const mqReduce = mm("(prefers-reduced-motion: reduce)"), mqData = mm("(prefers-reduced-data: reduce)"), mqPhone = mm("(max-width:719px)"), mqContrast = mm("(prefers-contrast: more)");
-  const MODES = ["full", "off"], RANK = {full: 0, calm: 1, static: 2}, KEY = "studyboard:anim";
+  const MODES = ["full", "off"], RANK = {full: 0, static: 1}, KEY = "studyboard:anim";
   const worse = (a, b) => RANK[a] >= RANK[b] ? a : b;
   // Animations are on (full) or off. Nothing lowers them by itself, and an older Auto or Reduced choice becomes On.
   let pref = ls(KEY); if (pref !== "off") { if (pref) ls(KEY, null); pref = "full"; }
@@ -76770,9 +76770,9 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
   const lowPower = () => batLow() || nativeLow;
   function level(){ return pref === "off" ? "static" : "full"; }
   const live = () => level() !== "static" && !blurred && !idle && !covered && !desk.locked && !document.hidden;
-  // Full motion is always 60 frames a second (the 14 leaves room for timing jitter, and a 120 Hz screen still lands on 60).
-  const frameMs = () => level() === "calm" ? 66 : 14;
-  const dprScale = () => level() === "calm" ? 0.7 : 1;
+  // Scenes draw on every screen refresh: 60 on most phones, 120 on ProMotion iPhones and high-refresh Android (the 4 ms floor only ignores duplicate callbacks).
+  const frameMs = () => 4;
+  const dprScale = () => 1;
   const noParticles = () => level() !== "full";
   const pauseWhy = () => document.hidden ? "the tab is hidden" : blurred ? "the window isn't in front" : idle ? "no activity for a few minutes" : covered ? "a full-screen sheet is open" : "";
   function why(){
