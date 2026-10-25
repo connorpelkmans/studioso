@@ -6537,7 +6537,9 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
 
 /* Today's plan rows: the check circle is centred against the title only */
 @media (max-width:600px){
-  .plan-row,.plan-row:has(.pr-ring){grid-template-areas:"chk main side" ". why side" ". slot slot" ". more more"}
+  .plan-row,.plan-row:has(.pr-ring){grid-template-areas:"chk main side" ". chip side" ". why side" ". slot slot" ". more more"}
+  .plan-row .plan-main > .pr-chip:not(.gt-chip){display:none}
+  .plan-row .pr-chip-out{display:inline-flex;grid-area:chip;justify-self:start}
   .plan-row > .check{align-self:center;margin-top:0}
 }
 
@@ -6587,6 +6589,7 @@ dialog:has(> .sheet > .g2-sheet-head){background:transparent}
 
 /* Style Shop tiles: the Use button sits in the middle of the box */
 .ui-shop .shop-tile > .btn{justify-self:center}
+.pr-chip-out{display:none}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
