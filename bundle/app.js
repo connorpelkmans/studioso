@@ -14428,7 +14428,9 @@ function pomoAction(act, el){
     case "pomo-skip": pomoSkip(); return true;
     case "pomo-mode": pomoPickMode(el.dataset.id); return true;
     case "pomo-test": { const cfg = pomoCfg(); if (!playAlarm($("#psSound") ? $("#psSound").value : cfg.sound, $("#psVol") ? Number($("#psVol").value) : cfg.volume, 1)) toast("Sound isn't available in this browser"); return true; }
-    case "pomo-task": { const tk = state.tasks[el.dataset.id]; if (tk && !canDoNow(tk) && !el.dataset.study) { toast(`“${tk.title}” is taken in person, so it can't be started as a focus session. Start one of its study sessions instead.`); return true; } } if (ui.nextShown && ui.nextShown === el.dataset.id) { nufbAdd("accept", state.tasks[el.dataset.id]); ui.nextShown = null; } if (dlg.open) dlg.close(); openPomo(el.dataset.id); { const m = Math.round(Number(el.dataset.mins)); if (m >= 5 && m <= 180 && !pomo.running && !(pomo.left > 0) && pomo.mode === "focus") { pomo.preset = m; pomoSave(); renderPomo(); } }
+    case "pomo-task": { const tk = state.tasks[el.dataset.id]; if (tk && !canDoNow(tk) && !el.dataset.study) { toast(`“${tk.title}” is taken in person, so it can't be started as a focus session. Start one of its study sessions instead.`); return true; } } if (ui.nextShown && ui.nextShown === el.dataset.id) { nufbAdd("accept", state.tasks[el.dataset.id]); ui.nextShown = null; } if (dlg.open) dlg.close(); const prevTask = pomo.taskId; openPomo(el.dataset.id);
+      // A new session starts at the length asked for (or the default for a different task), never from an older paused one
+      { const m = Math.round(Number(el.dataset.mins)), ok = m >= 5 && m <= 180; if (!pomo.running) { if (ok) { pomo.mode = "focus"; pomo.left = 0; pomo.preset = m; pomoSave(); renderPomo(); } else if (prevTask !== el.dataset.id && pomo.mode === "focus") { pomo.left = 0; pomo.preset = 0; pomoSave(); renderPomo(); } } }
       if (!pomo.running) pomoStart(); return true;
   }
   return false;
