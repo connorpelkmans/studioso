@@ -6613,6 +6613,9 @@ dialog:has(> .sheet > .g2-sheet-head){background:transparent}
   #view > .cal-head{margin-bottom:12px!important}
   #view > .bview-row + .bview{margin-top:12px}
 }
+
+/* Style Shop > Collections: Apply Theme and See All sit in the middle of the box */
+.ui-col .ui-col-act{justify-content:center;text-align:center}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
