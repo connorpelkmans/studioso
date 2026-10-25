@@ -866,7 +866,7 @@ ul.tasks,.plan-list,.flist,.fc-list{box-shadow:var(--shadow);border-color:var(--
 .col-head .n{background:var(--soft);border-radius:999px;padding:0 8px;font-weight:700;color:var(--muted)}
 .col-list{gap:12px}
 .card-grip{display:none}
-@media (pointer:coarse){.board .card-grip{display:grid;place-items:center;position:absolute;right:0;top:50%;transform:translateY(-50%);width:24px;height:44px;border-radius:10px;color:var(--muted);opacity:.7;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}.board .card-grip:active{background:var(--soft)}}
+@media (pointer:coarse){.board .card{padding-right:28px}.board .card-grip{display:grid;place-items:center;position:absolute;right:0;top:50%;transform:translateY(-50%);width:24px;height:44px;border-radius:10px;color:var(--muted);opacity:.7;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}.board .card-grip:active{background:var(--soft)}}
 .card{border:1px solid var(--line);border-left:1px solid var(--line);background:var(--surface);border-radius:4px 12px 12px 12px;box-shadow:var(--shadow);padding:11px 12px 12px}
 .card.has-tab{margin-top:17px}
 .card-course{position:absolute;left:-1px;top:-18px;height:18px;max-width:75%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:1px 10px 0;border-radius:8px 8px 0 0;background:color-mix(in srgb,var(--c) 66%,#000);color:#fff;font:700 .68rem/17px var(--display);letter-spacing:.03em}
