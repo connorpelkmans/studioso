@@ -6573,6 +6573,11 @@ dialog:has(> .sheet > .g2-sheet-head){background:transparent}
 @media (max-width:639px){
   header.top .site-link{pointer-events:none;cursor:default}
 }
+
+/* Style Shop > Themes on phones: no animations checkbox or scene-moment button (both live elsewhere) */
+@media (max-width:639px){
+  .shop-mode .motion-tog,.shop-mode .sc-moment{display:none}
+}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
