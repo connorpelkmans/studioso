@@ -146,7 +146,7 @@ body.wide .wrap{max-width:1180px}
 .card-course{font-size:.75rem;font-weight:700;color:color-mix(in srgb,var(--c) 78%,var(--ink))}
 .card-title{font-weight:600;margin:2px 0 8px;overflow-wrap:anywhere;line-height:1.35}
 .card.is-done .card-title{text-decoration:line-through;color:var(--muted)}
-.card .card-title{display:flex;align-items:flex-start;gap:8px}
+.card .card-title{display:flex;align-items:center;gap:8px}
 .card .card-check{position:relative;flex:none;margin:0;width:22px;height:22px;border-color:color-mix(in srgb,var(--c) 75%,var(--muted));cursor:pointer}
 .card .card-check::after{content:"";position:absolute;inset:-9px}
 .card .card-check svg{width:12px;height:12px}
@@ -6523,6 +6523,12 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   .dtl-ticks{position:relative;height:16px;margin-top:3px;font:600 .66rem/16px var(--display);color:var(--muted)}
   .dtl-ticks span{position:absolute;transform:translateX(-50%)}
   .dtl-ticks span:first-child{transform:none}
+}
+
+/* Today's plan rows: the check circle is centred against all of the row's text, not level with its first line */
+@media (max-width:600px){
+  .plan-row,.plan-row:has(.pr-ring){grid-template-areas:"chk main side" "chk why side" "chk slot slot" ". more more"}
+  .plan-row > .check{align-self:center;margin-top:0}
 }
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
