@@ -6530,6 +6530,17 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   .plan-row,.plan-row:has(.pr-ring){grid-template-areas:"chk main side" "chk why side" "chk slot slot" ". more more"}
   .plan-row > .check{align-self:center;margin-top:0}
 }
+
+/* Do This Next on phones: the check sits level with the middle of the text, the course icon moves to the
+   top-right corner, and the course code is a colour-coded chip like the rows below it */
+@media (max-width:639px){
+  .next-up .nu-row > .check{align-self:center;top:0;margin:0}
+  .next-up .nu-row > .lms-go{display:none}
+  .next-up .nu-title{display:block;padding-right:40px}
+  .next-up .nu-title .nu-ic{position:absolute;right:16px;top:12px;width:30px!important;height:30px!important;margin:0;vertical-align:baseline!important}
+  .next-up .nu-title .tag:not(.gt-chip):not(.rx-tag){display:inline-flex;align-items:center;gap:5px;margin-left:6px;padding:3px 8px 3px 7px;border-radius:999px;font:700 .68rem/1 var(--body);letter-spacing:.03em;color:color-mix(in srgb,var(--c) 55%,var(--ink));background:color-mix(in srgb,var(--c) 13%,transparent);border:0;vertical-align:2px;white-space:nowrap}
+  .next-up .nu-title .tag:not(.gt-chip):not(.rx-tag)::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--c);flex:none}
+}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
