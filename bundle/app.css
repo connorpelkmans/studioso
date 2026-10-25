@@ -6638,6 +6638,18 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
 @media (max-width:639px){
   html{--ph-gls:76%}
 }
+
+/* Phones: every softly see-through surface lets more of the artwork behind it show (about three quarters solid) */
+@media (max-width:639px){
+  .col{background:color-mix(in srgb,var(--ph-surf,var(--surface)) 76%,transparent)}
+  .arch-term{background:color-mix(in srgb,var(--surface) 76%,transparent)}
+  html.sc-on .grp-file{background:color-mix(in srgb,var(--surface) 76%,transparent)}
+  .cpt-form{background:color-mix(in srgb,var(--paper,var(--bg)) 70%,transparent)}
+  .room-float small{background:color-mix(in srgb,var(--surface) 76%,transparent)}
+  .nb-zoom,.nb-target,.board-max-btn{background:color-mix(in srgb,var(--surface) 80%,transparent)}
+  .nb-main .nb-target{background:color-mix(in srgb,var(--surface) 80%,transparent)!important}
+  html:not(.ph-on) nav.tabs::before{opacity:.82}
+}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
