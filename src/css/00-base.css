@@ -1053,7 +1053,7 @@ html[data-motion="static"] .rv-ghost{transform:none}
 .check-list{display:grid;gap:8px}
 .check-list.row{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
 /* Focus timer */
-.pomo-sheet .sheet-body{justify-items:stretch}
+.pomo-sheet .sheet-body{justify-items:stretch;padding-bottom:calc(30px + env(safe-area-inset-bottom,0px))}
 .pomo-modes{justify-content:center}
 .pomo-modes button{flex:1}
 .pomo-dial{position:relative;width:min(240px,70vw);aspect-ratio:1;margin:4px auto 0}
