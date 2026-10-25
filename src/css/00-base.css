@@ -158,8 +158,11 @@ body.wide .wrap{max-width:1180px}
 .ann-n{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--late,#C0392B);color:#fff;font:700 .68rem/18px var(--body);text-align:center;box-sizing:border-box}
 .nav-tool.ann-btn .ann-n{top:2px;right:calc(50% - 26px)}
 .ann-sheet .sheet-body{gap:10px;align-content:start;grid-auto-rows:max-content}
-.ann-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.ann-bar .spacer{flex:1}
+.ann-bar{margin:0}
+.ann-ctl{display:flex;align-items:center;gap:8px;flex:none}
+.ann-ctl .btn{flex:none;white-space:nowrap;padding-inline:11px;font-size:.78rem}
+.ann-sel{flex:1 1 0;min-width:96px;min-height:36px;padding:6px 8px 6px 12px;border-radius:999px;border:1px solid var(--line);background-color:var(--surface);color:var(--ink);font:600 .8rem var(--body);text-overflow:ellipsis;cursor:pointer}
+.ann-sel:focus-visible,#annPanel:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .ann-course{display:flex;align-items:center;gap:8px;margin:8px 0 0;font:700 .98rem var(--display)}
 .ann-course .sd{width:10px;height:10px;border-radius:50%;background:var(--c);flex:none}
 .ann-course .n{font:600 .75rem var(--body);color:var(--muted);margin-left:auto}

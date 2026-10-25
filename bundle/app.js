@@ -32635,7 +32635,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
   const lastChecked = () => { const t = Math.max(0, ...plats().map(L => (L.cfg().last || 0))); return t > 1e11 ? t : 0; };
 
   function sheet(){
-    const body0 = dlg.querySelector(".ann-sheet .sheet-body"), top = body0 ? body0.scrollTop : 0, hadFocus = !!(document.activeElement && document.activeElement.closest && document.activeElement.closest(".ann-tabs"));
+    const body0 = dlg.querySelector(".ann-sheet .sheet-body"), top = body0 ? body0.scrollTop : 0, hadFocus = !!(document.activeElement && document.activeElement.closest && document.activeElement.closest(".ann-sel"));
     const rs = readSet(), all = items(), np = plats();
     const nUn = all.filter(n => isNew(n, rs)).length;
     const groups = [];
@@ -32644,13 +32644,12 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     groups.sort((a, b) => (!!b.un - !!a.un) || String(b.list[0].date).localeCompare(String(a.list[0].date)));
     if (tab !== HOME && !groups.some(g => g.k === tab)) tab = HOME;
     const cur = groups.find(g => g.k === tab);
-    const tid = k => "annTab_" + String(k).replace(/[^\w-]/g, "_");
     const row = (n, chip) => { const un = isNew(n, rs), when = n.date && !isNaN(Date.parse(n.date)) ? rel(n.date) : "";
       const ai = window.SBANN.info(n.key), AB = ai && ai.imp ? `<p class="ann-ai"><span class="ann-attn">Needs attention</span> ${ai.sum ? esc(ai.sum) : ""}</p>` : "";
       return `<li class="${un ? "unread" : ""}${ai && ai.imp ? " attn" : ""}">${chip ? `<span class="ann-chip" style="--c:${esc(n.color)}"${n.courseName && n.courseName !== n.course ? ` title="${esc(n.courseName)}"` : ""}><span class="sd"></span>${esc(n.course)}</span>` : ""}<b>${esc(n.title)}</b><span class="mini">${esc(n.plat)}${when ? ` · <span title="${esc(fmtShort(iso(new Date(n.date))))}">${esc(when)}</span>` : ""}${un ? " · New" : ""}</span>${AB}
         ${n.text ? (n.text.length > 200 || n.long ? `<details><summary>${esc(n.text.slice(0, 120).replace(/\s+/g, " "))}… Read more</summary><p class="ann-txt">${esc(n.text)}${n.long ? "…" : ""}</p></details>` : `<p class="ann-txt">${esc(n.text)}</p>`) : ""}
         <span class="bs-btns">${n.url ? `<button type="button" class="btn small" data-act="ann-go" data-key="${esc(n.key)}" data-url="${esc(n.url)}">Open in ${esc(n.plat)}</button>` : ""}<button type="button" class="btn small" data-act="ann-read" data-key="${esc(n.key)}">${un ? "Mark Read" : "Mark Unread"}</button></span></li>`; };
-    const tabBtn = (k, label, un, color, full) => `<button type="button" role="tab" class="ann-tab" id="${tid(k)}"${full && full !== label ? ` title="${esc(full)}"` : ""} data-act="ann-tab" data-ann="${esc(k)}" aria-selected="${tab === k}" aria-controls="annPanel" tabindex="${tab === k ? 0 : -1}"${un ? ` aria-label="${esc(label)}, ${un} unread"` : ""}>${color ? `<span class="sd" style="background:${esc(color)}"></span>` : ""}<span class="ann-tl">${esc(label)}</span>${un ? `<span class="ann-pill" aria-hidden="true">${un}</span>` : ""}</button>`;
+    const opt = (k, label, un) => `<option value="${esc(k)}"${tab === k ? " selected" : ""}>${esc(label)}${un ? ` · ${un} new` : ""}</option>`;
     let panel;
     if (!all.length) panel = "";
     else if (tab === HOME) {
@@ -32668,14 +32667,14 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     const lc = lastChecked();
     openSheet(`<div class="sheet ann-sheet">${head("Class Announcements")}
       <div class="sheet-body">
-        ${np.length ? `<div class="ann-bar"><span class="mini">${nUn ? `${nUn} unread` : "All caught up"}${lc ? ` · checked ${esc(ago(lc))}` : ""}</span><span class="spacer"></span>${nUn ? `<button class="btn small" data-act="ann-readall">Mark All Read</button>` : ""}<button class="btn small" data-act="ann-check" ${st.busy ? "disabled" : ""}>${st.busy ? "Checking…" : "Check Now"}</button></div>${status}` : ""}
-        ${all.length ? `<div class="ann-tabs" role="tablist" aria-label="Announcements by class">${tabBtn(HOME, "Home", nUn)}${groups.map(g => tabBtn(g.k, g.name, g.un, g.color, g.full)).join("")}</div><div id="annPanel" role="tabpanel" aria-labelledby="${tid(tab)}" tabindex="0">${panel}</div>` : ""}
+        ${np.length ? `<p class="mini ann-bar">${nUn ? `${nUn} unread` : "All caught up"}${lc ? ` · checked ${esc(ago(lc))}` : ""}</p>` : ""}
+        ${np.length || all.length ? `<div class="ann-ctl">${all.length ? `<select class="ann-sel" id="annSel" aria-label="Show announcements for" aria-controls="annPanel">${opt(HOME, "All Classes", 0)}${groups.map(g => opt(g.k, g.name, g.un)).join("")}</select>` : ""}${np.length ? `${nUn ? `<button type="button" class="btn small" data-act="ann-readall">Mark All Read</button>` : ""}<button type="button" class="btn small" data-act="ann-check"${st.busy ? " disabled" : ""}>${st.busy ? "Syncing…" : "Sync"}</button>` : ""}</div>` : ""}${np.length ? status : ""}
+        ${all.length ? `<div id="annPanel" role="tabpanel" aria-labelledby="annSel" tabindex="0">${panel}</div>` : ""}
         ${!np.length ? `<div class="empty"><strong>No School Site Connected</strong>Connect Brightspace, Canvas or Blackboard in Settings and your class announcements show up here.</div>` : !all.length ? `<div class="empty"><strong>No Announcements Yet</strong>When your instructors post one, it shows up here after the next sync. ${bsDesk() ? "Press Check Now to look right away." : "Announcements come in through the Studyboard School Sync extension or the Studyboard app."}</div>` : ""}
       </div></div>`);
     if (!dlg.open) dlg.showModal();
     const b = dlg.querySelector(".ann-sheet .sheet-body"); if (b && top) b.scrollTop = top;
-    const act = dlg.querySelector(".ann-tab[aria-selected=true]");
-    if (act) { try { const bar = act.parentElement; bar.scrollLeft = Math.max(0, act.offsetLeft - bar.clientWidth / 2 + act.offsetWidth / 2); } catch(e) {} if (hadFocus) act.focus({preventScroll: true}); }
+    if (hadFocus) { const sel = dlg.querySelector(".ann-sel"); if (sel) sel.focus({preventScroll: true}); }
     badge();
   }
   const mark = (key, on) => { on ? readSet().add(key) : readSet().delete(key); saveRead(); };
@@ -32729,15 +32728,8 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     }
     return false;
   });
-  // Arrow keys, Home and End move between the tabs (the tab list is one stop in the Tab order)
-  document.addEventListener("keydown", e => {
-    const t = e.target && e.target.closest && e.target.closest(".ann-tab"); if (!t || e.altKey || e.ctrlKey || e.metaKey) return;
-    const tabs = [...t.parentElement.querySelectorAll(".ann-tab")], i = tabs.indexOf(t);
-    const j = e.key === "ArrowRight" ? (i + 1) % tabs.length : e.key === "ArrowLeft" ? (i - 1 + tabs.length) % tabs.length : e.key === "Home" ? 0 : e.key === "End" ? tabs.length - 1 : -1;
-    if (j < 0) return;
-    e.preventDefault(); setTab(tabs[j].dataset.ann); sheet();
-    const nt = dlg.querySelector(".ann-tab[aria-selected=true]"); if (nt) nt.focus({preventScroll: true});
-  });
+  // The class picker is a native dropdown
+  document.addEventListener("change", e => { const sel = e.target && e.target.closest && e.target.closest(".ann-sel"); if (sel) { setTab(sel.value || HOME); sheet(); } });
   hook("render", () => badge());
   hook("boot", () => { badge(); setTimeout(badge, 3000); });
 })();
