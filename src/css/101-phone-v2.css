@@ -368,3 +368,6 @@ dialog:has(> .sheet > .g2-sheet-head){background:transparent}
 
 /* Style Shop flashcard previews: sized from the tile, not left to the browser's automatic sizing, so they sit centred in the box */
 .ui-shop .shop-tile > .cs-demo{box-sizing:border-box;width:calc(100% - 16px);max-width:calc(100% - 16px);margin:4px 8px 10px;justify-self:start}
+
+/* Style Shop flashcard tiles: the Use button sits in the middle of the box */
+.ui-shop .shop-tile:has(> .cs-demo) > .btn{justify-self:center}
