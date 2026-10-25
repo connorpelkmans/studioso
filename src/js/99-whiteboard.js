@@ -1340,8 +1340,10 @@ var SBWB = null;
 .wb-zoom button:hover{background:rgba(0,0,0,.06)}
 .wb-zoom svg{width:17px;height:17px}
 .wb-fixed .wb-zoom [data-wb^="zoom"],.wb-fixed .wb-zoom [data-wb="fit"],.wb-fixed .wb-tray [data-wb="tool"][data-id="hand"]{display:none}
-.wb-selbar{position:absolute;z-index:4;display:flex;align-items:center;gap:3px;padding:4px;border-radius:12px;background:#fff;border:1px solid rgba(0,0,0,.12);box-shadow:0 6px 18px rgba(20,30,45,.2);color:#22262D}
+.wb-selbar{position:absolute;z-index:4;width:max-content;max-width:calc(100% - 12px);overflow-x:auto;scrollbar-width:none;display:flex;align-items:center;gap:3px;padding:4px;border-radius:12px;background:#fff;border:1px solid rgba(0,0,0,.12);box-shadow:0 6px 18px rgba(20,30,45,.2);color:#22262D}
 .wb-selbar.dragging{opacity:0;pointer-events:none}
+.wb-selbar::-webkit-scrollbar{display:none}
+.wb-selbar > *{flex:none;white-space:nowrap}
 .wb-selbar button{border:0;background:none;color:inherit;height:32px;min-width:32px;padding:0 8px;border-radius:8px;cursor:pointer;font:600 .85rem var(--display);display:inline-flex;align-items:center;justify-content:center;gap:4px}
 .wb-selbar button:hover{background:rgba(0,0,0,.06)}
 .wb-selbar .wb-dot{min-width:0;width:22px;height:22px;padding:0;border-radius:50%;background:var(--mk);box-shadow:inset 0 0 0 2px rgba(255,255,255,.6)}
@@ -1369,6 +1371,10 @@ var SBWB = null;
 .wb-dk .wb-cp-hex{color:#EEF1F4}
 .wb-selbar .wb-dot-orig{background:#F1F3F6;color:#4A5563;display:inline-flex;align-items:center;justify-content:center;box-shadow:inset 0 0 0 1.5px rgba(0,0,0,.18)}
 .wb-dk .wb-selbar .wb-dot-orig{background:#3A414B;color:#DDE3EA;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.2)}
+.wb-selbar .wb-dot:hover,.wb-selbar .wb-dot:active{background:var(--mk)}
+.wb-selbar .wb-dot-any:hover,.wb-selbar .wb-dot-any:active{background:conic-gradient(#FF3B30,#FF9500,#FFCC00,#34C759,#00C7BE,#007AFF,#AF52DE,#FF2D55,#FF3B30)}
+.wb-selbar .wb-dot-orig:hover,.wb-selbar .wb-dot-orig:active{background:#F1F3F6}
+.wb-dk .wb-selbar .wb-dot-orig:hover,.wb-dk .wb-selbar .wb-dot-orig:active{background:#3A414B}
 .wb-selbar .wb-dot[aria-pressed=true]{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--accent)}
 .wb-sep{width:1px;height:22px;background:rgba(0,0,0,.12);margin:0 3px}
 .wb-tray{display:flex;align-items:center;gap:10px;flex-wrap:nowrap;height:60px;box-sizing:border-box;flex:none;padding:6px 8px;border-radius:10px;background:linear-gradient(180deg,#F7F8FA,#DCE1E7);box-shadow:inset 0 1px 0 #fff,inset 0 -2px 0 rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.12);color:#22262D}
