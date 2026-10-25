@@ -199,7 +199,7 @@
     cvs.forEach(c => { c.width = Math.round(g.W * dpr); c.height = Math.round(g.H * dpr); c.style.width = g.W + "px"; c.style.height = g.H + "px"; });
     const sCv = eng && eng.stat ? el.querySelector(".sc-s") : null;
     if (sCv) { sCv.width = eng.stat.width; sCv.height = eng.stat.height; sCv.style.width = g.W + "px"; sCv.style.height = g.H + "px"; sCv.getContext("2d").drawImage(eng.stat, 0, 0); eng.hosted = true; }
-    stopLoop(); last = 0; T = 0;
+    stopLoop(); last = 0; T = 0; if (MO() && MO().warm) MO().warm(4000);
     document.documentElement.classList.add("sc-on");
     cur = {id, sc, dk, sig: sigOf(id, dk, g), g, v, eng, s, el, dprK: MO() ? MO().dprScale() : 1, ctx: cvs.map(c => c.getContext("2d"))};
     if (eng) { safe(() => { eng.step(1 / 30, 0, feel()); T = 1 / 30; drawFrame(); }); }
@@ -227,16 +227,11 @@
     catch (e) { console.warn("scene engine " + (cur && cur.sc), e); if (cur) { broken.add(cur.sc); const id = cur.id; cur = null; build(id); } return false; }
   }
 
-  // The moving background rests for a moment while the page scrolls or the companion travels, so those stay smooth
-  let restUntil = 0;
-  window.SBSceneRest = ms => { restUntil = Math.max(restUntil, performance.now() + ms); };
-  addEventListener("scroll", () => { restUntil = Math.max(restUntil, performance.now() + 180); }, {passive: true, capture: true});
   function tick(ts){
     raf = 0;
     const c = cur; if (!c || !c.eng || document.hidden) return;
     const finishing = performance.now() < finUntil;
     if ((!liveOK() || popup) && !finishing) { last = 0; return; }
-    if (!finishing && performance.now() < restUntil) { raf = requestAnimationFrame(tick); return; }
     if (last && ts - last < (MO() ? MO().frameMs() : FRAME_MS)) { raf = nextFrame(); return; }
     const dt = last ? Math.min(0.1, (ts - last) / 1000) : 1 / 30; last = ts; T += dt;
     const t0 = performance.now();

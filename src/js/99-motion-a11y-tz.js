@@ -14,7 +14,8 @@
   let pref = ls(KEY); if (MODES.indexOf(pref) < 0) pref = "auto";
   let battery = null, saveData = false, desk = {onBattery: false, thermal: "unknown", locked: false};
   let blurred = false, idle = false, covered = false, lastInput = Date.now(), lastSig = "";
-  let gov = Math.max(0, Math.min(3, Number(ss("studyboard:animGov")) || 0));
+  // The quality governor lives only in memory: a slow moment never sticks, and it recovers by itself
+  let gov = 0;
   const IDLE_MS = 5 * 60000;
 
   const reduceSys = () => !!(mqReduce && mqReduce.matches);
@@ -29,14 +30,14 @@
       if (reduceSys() || batCritical() || desk.thermal === "critical") lv = "static";
       else if (lowPower()) lv = "calm";
     } else if (pref === "calm") lv = "calm";
-    if (gov >= 3) lv = "static"; else if (gov >= 2) lv = worse(lv, "calm");
+    if (gov >= 3) lv = "static";
     return lv;
   }
   const live = () => level() !== "static" && !blurred && !idle && !covered && !desk.locked && !document.hidden;
-  // Full motion aims for 60 frames a second (the 14 leaves room for timing jitter, and a 120 Hz screen still lands on 60).
-  // If the device struggles, the quality governor steps down: 30 frames a second, then slow and gentle, then still.
-  const frameMs = () => level() === "calm" ? 66 : gov >= 1 ? 31 : 14;
-  const dprScale = () => gov >= 2 ? 0.5 : level() === "calm" ? 0.7 : gov >= 1 ? 0.8 : 1;
+  // Full motion is always 60 frames a second (the 14 leaves room for timing jitter, and a 120 Hz screen still lands on 60).
+  // If the device struggles the governor lowers the picture quality, never the frame rate, and raises it again once things are calm.
+  const frameMs = () => level() === "calm" ? 66 : 14;
+  const dprScale = () => level() === "calm" ? 0.7 : gov >= 3 ? 0.5 : gov >= 2 ? 0.6 : gov >= 1 ? 0.8 : 1;
   const noParticles = () => level() !== "full";
   const pauseWhy = () => document.hidden ? "the tab is hidden" : blurred ? "the window isn't in front" : idle ? "no activity for a few minutes" : covered ? "a full-screen sheet is open" : "";
   function why(){
@@ -58,7 +59,7 @@
         : lv === "calm" ? `Auto: following your device. ${w ? w[0].toUpperCase() + w.slice(1) : "Power saving is on"}, so scenes run slower and gentler.`
         : `Auto: following your device. ${w ? w[0].toUpperCase() + w.slice(1) : "Motion is limited"}, so scenes are still.`;
     } else s = pref === "full" ? "Full: scenes always play." : pref === "calm" ? "Reduced: scenes drift slowly at a low frame rate." : "Off: scenes are still, with no confetti.";
-    if (gov > 0 && pref !== "off") s += " Quality was lowered automatically because this device was struggling (until you close the app).";
+    if (gov > 0 && pref !== "off") s += " Picture quality was lowered for now because this device was struggling. It goes back up by itself.";
     if (p && lv !== "static") s += ` Paused for now because ${p}.`;
     return s;
   }
@@ -70,18 +71,25 @@
     document.querySelectorAll("[data-anim-status]").forEach(el => { el.textContent = statusText(); });
     try { window.dispatchEvent(new CustomEvent("sb-motion", {detail: {level: lv, live: live(), pref, gov}})); } catch (e) {}
   }
-  const setPref = p => { if (MODES.indexOf(p) < 0) return; pref = p; ls(KEY, p === "auto" ? null : p); if (p !== "auto" || gov) { gov = 0; ss("studyboard:animGov", "0"); } emit(true); };
+  const setPref = p => { if (MODES.indexOf(p) < 0) return; pref = p; ls(KEY, p === "auto" ? null : p); if (p !== "auto" || gov) { gov = 0; } emit(true); };
 
   // Quality governor
-  let win = {n: 0, cost: 0, t0: 0, last: 0}, badRuns = 0;
+  let win = {n: 0, cost: 0, t0: 0, last: 0}, badRuns = 0, goodRuns = 0, warmUntil = 0;
+  // A new scene is still settling for a few seconds, so those frames are not judged
+  function warm(ms){ warmUntil = performance.now() + (ms || 4000); win = {n: 0, cost: 0, t0: 0, last: 0}; badRuns = 0; goodRuns = 0; }
   function frameCost(ms, ts){
+    if (performance.now() < warmUntil) return;
     if (!win.t0 || ts - win.last > 600) { win = {n: 0, cost: 0, t0: ts, last: ts}; badRuns = 0; }
     win.n++; win.cost += ms; win.last = ts;
-    if (ts - win.t0 < 1500 || win.n < 12) return;
+    if (ts - win.t0 < 2000 || win.n < 20) return;
     const avg = win.cost / win.n, interval = (ts - win.t0) / win.n, budget = frameMs();
     win = {n: 0, cost: 0, t0: ts, last: ts};
-    if (avg > budget * 0.6 || interval > budget * 1.7) badRuns++; else badRuns = 0;
-    if (badRuns >= 2 && gov < 3 && pref !== "off") { gov++; badRuns = 0; ss("studyboard:animGov", String(gov)); emit(true); }
+    // slow = the drawing takes too long, or frames arrive late (the screen's own painting counts, not just our drawing commands)
+    const heavy = avg > budget * 0.7, bad = heavy || interval > budget * 1.7, good = avg < budget * 0.4 && interval < budget * 1.4;
+    if (bad) { badRuns++; goodRuns = 0; } else if (good) { goodRuns++; badRuns = 0; } else badRuns = 0;
+    // late frames alone lower the quality two steps at most; stopping the scene needs the drawing itself to be too heavy
+    if (badRuns >= 2 && gov < 3 && (gov < 2 || heavy) && pref !== "off") { gov++; badRuns = 0; goodRuns = 0; emit(true); }
+    else if (goodRuns >= 4 && gov > 0) { gov--; goodRuns = 0; emit(true); }
   }
 
   // Signals
@@ -124,7 +132,7 @@
   // A native shell that knows more (iOS Low Power Mode is not visible to web pages) can say so
   let nativeLow = false;
   const setPower = o => { nativeLow = !!(o && o.lowPower); if (o && o.thermal) desk.thermal = String(o.thermal); emit(true); };
-  window.SBMotion = {level, live, frameMs, dprScale, noParticles, frameCost, flash, pref: () => pref, setPref, setPower, status: statusText, gov: () => gov, why: pauseWhy};
+  window.SBMotion = {level, live, frameMs, dprScale, noParticles, frameCost, warm, flash, pref: () => pref, setPref, setPower, status: statusText, gov: () => gov, why: pauseWhy};
   emit(true);
 
   /* ================= Text size and contrast ================= */
