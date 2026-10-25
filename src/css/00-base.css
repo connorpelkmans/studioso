@@ -67,7 +67,6 @@ nav.tabs button[aria-current="page"] svg{color:var(--accent)}
 /* Sections */
 h2.sec{font:700 1.05rem/1.2 var(--display);margin:26px 0 10px;display:flex;align-items:baseline;gap:8px}
 h2.sec .n{font:500 .85rem var(--body);color:var(--muted)}
-h2.sec.hl span.t{background:linear-gradient(transparent 45%, var(--mark) 45%, var(--mark) 88%, transparent 88%);padding:0 3px;margin:0 -3px}
 h2.sec.late span.t{color:var(--late)}
 .summary{font:500 1.9rem/1.15 var(--display);letter-spacing:-.02em;margin:14px 0 4px;max-width:18ch}
 .summary-sub{color:var(--muted);margin:0 0 6px}
@@ -157,7 +156,7 @@ body.wide .wrap{max-width:1180px}
 .ann-btn[hidden]{display:none}
 .ann-n{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--late,#C0392B);color:#fff;font:700 .68rem/18px var(--body);text-align:center;box-sizing:border-box}
 .nav-tool.ann-btn .ann-n{top:2px;right:calc(50% - 26px)}
-.ann-sheet .sheet-body{gap:10px;align-content:start;grid-auto-rows:max-content}
+.ann-sheet .sheet-body{gap:10px;align-content:start;grid-auto-rows:max-content;padding-bottom:calc(30px + env(safe-area-inset-bottom,0px))}
 .ann-bar{margin:0}
 .ann-ctl{display:flex;align-items:center;gap:8px;flex:none}
 .ann-ctl .btn{flex:none;white-space:nowrap;padding-inline:11px;font-size:.78rem}
@@ -191,7 +190,7 @@ body.wide .wrap{max-width:1180px}
 .ann-chip .sd{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
 .ann-chip .n{color:var(--muted);font-weight:500}
 .ann-list li>.ann-chip{display:flex;width:max-content}
-.ann-rest{margin-top:14px;border-top:1px solid var(--line);padding-top:8px}
+.ann-rest{margin-top:8px;padding-top:2px}
 .ann-rest > summary{display:flex;align-items:center;gap:8px;min-height:40px;cursor:pointer;font:700 .95rem var(--display);color:var(--ink);list-style:none}
 .ann-rest > summary::-webkit-details-marker{display:none}
 .ann-rest > summary::after{content:"";margin-left:auto;width:9px;height:9px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .2s}
@@ -866,7 +865,7 @@ ul.tasks,.plan-list,.flist,.fc-list{box-shadow:var(--shadow);border-color:var(--
 .col-head .n{background:var(--soft);border-radius:999px;padding:0 8px;font-weight:700;color:var(--muted)}
 .col-list{gap:12px}
 .card-grip{display:none}
-@media (pointer:coarse){.board .card{padding-right:28px}.board .card-grip{display:grid;place-items:center;position:absolute;right:0;top:50%;transform:translateY(-50%);width:24px;height:44px;border-radius:10px;color:var(--muted);opacity:.7;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}.board .card-grip:active{background:var(--soft)}}
+@media (pointer:coarse){.board .card,.board .card.has-tab{padding-right:30px!important}.board .card-grip{display:grid;place-items:center;position:absolute;right:0;top:50%;transform:translateY(-50%);width:24px;height:44px;border-radius:10px;color:var(--muted);opacity:.7;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}.board .card-grip:active{background:var(--soft)}}
 .card{border:1px solid var(--line);border-left:1px solid var(--line);background:var(--surface);border-radius:4px 12px 12px 12px;box-shadow:var(--shadow);padding:11px 12px 12px}
 .card.has-tab{margin-top:17px}
 .card-course{position:absolute;left:-1px;top:-18px;height:18px;max-width:75%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:1px 10px 0;border-radius:8px 8px 0 0;background:color-mix(in srgb,var(--c) 66%,#000);color:#fff;font:700 .68rem/17px var(--display);letter-spacing:.03em}
@@ -2037,7 +2036,10 @@ dialog:has(.sheet.shop){width:min(960px,calc(100% - 24px))}
 .shop-tabs button[aria-selected=true]{background:var(--sel);color:var(--sel-ink)}
 .shop-sec{margin:6px 0 0;display:flex;align-items:center;gap:6px}
 .shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-.shop-tile{border:1px solid var(--line);border-radius:14px;padding:10px;display:grid;gap:6px;align-content:start;background:var(--surface)}
+.shop-tile{border:1px solid var(--line);border-radius:14px;padding:10px;display:grid;grid-template-columns:minmax(0,1fr);min-width:0;gap:6px;align-content:start;background:var(--surface)}
+/* nothing inside a tile may be wider than the tile: text wraps, the button wraps rather than spill out */
+.shop-tile>*{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.shop-tile>.btn{white-space:normal;text-align:center;height:auto}
 .shop-tile.on{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent)}
 .shop-tile p{margin:0}
 .shop-tile>.btn{justify-self:start}

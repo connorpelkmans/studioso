@@ -67,7 +67,6 @@ nav.tabs button[aria-current="page"] svg{color:var(--accent)}
 /* Sections */
 h2.sec{font:700 1.05rem/1.2 var(--display);margin:26px 0 10px;display:flex;align-items:baseline;gap:8px}
 h2.sec .n{font:500 .85rem var(--body);color:var(--muted)}
-h2.sec.hl span.t{background:linear-gradient(transparent 45%, var(--mark) 45%, var(--mark) 88%, transparent 88%);padding:0 3px;margin:0 -3px}
 h2.sec.late span.t{color:var(--late)}
 .summary{font:500 1.9rem/1.15 var(--display);letter-spacing:-.02em;margin:14px 0 4px;max-width:18ch}
 .summary-sub{color:var(--muted);margin:0 0 6px}
@@ -157,7 +156,7 @@ body.wide .wrap{max-width:1180px}
 .ann-btn[hidden]{display:none}
 .ann-n{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--late,#C0392B);color:#fff;font:700 .68rem/18px var(--body);text-align:center;box-sizing:border-box}
 .nav-tool.ann-btn .ann-n{top:2px;right:calc(50% - 26px)}
-.ann-sheet .sheet-body{gap:10px;align-content:start;grid-auto-rows:max-content}
+.ann-sheet .sheet-body{gap:10px;align-content:start;grid-auto-rows:max-content;padding-bottom:calc(30px + env(safe-area-inset-bottom,0px))}
 .ann-bar{margin:0}
 .ann-ctl{display:flex;align-items:center;gap:8px;flex:none}
 .ann-ctl .btn{flex:none;white-space:nowrap;padding-inline:11px;font-size:.78rem}
@@ -191,7 +190,7 @@ body.wide .wrap{max-width:1180px}
 .ann-chip .sd{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
 .ann-chip .n{color:var(--muted);font-weight:500}
 .ann-list li>.ann-chip{display:flex;width:max-content}
-.ann-rest{margin-top:14px;border-top:1px solid var(--line);padding-top:8px}
+.ann-rest{margin-top:8px;padding-top:2px}
 .ann-rest > summary{display:flex;align-items:center;gap:8px;min-height:40px;cursor:pointer;font:700 .95rem var(--display);color:var(--ink);list-style:none}
 .ann-rest > summary::-webkit-details-marker{display:none}
 .ann-rest > summary::after{content:"";margin-left:auto;width:9px;height:9px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .2s}
@@ -866,7 +865,7 @@ ul.tasks,.plan-list,.flist,.fc-list{box-shadow:var(--shadow);border-color:var(--
 .col-head .n{background:var(--soft);border-radius:999px;padding:0 8px;font-weight:700;color:var(--muted)}
 .col-list{gap:12px}
 .card-grip{display:none}
-@media (pointer:coarse){.board .card{padding-right:28px}.board .card-grip{display:grid;place-items:center;position:absolute;right:0;top:50%;transform:translateY(-50%);width:24px;height:44px;border-radius:10px;color:var(--muted);opacity:.7;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}.board .card-grip:active{background:var(--soft)}}
+@media (pointer:coarse){.board .card,.board .card.has-tab{padding-right:30px!important}.board .card-grip{display:grid;place-items:center;position:absolute;right:0;top:50%;transform:translateY(-50%);width:24px;height:44px;border-radius:10px;color:var(--muted);opacity:.7;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}.board .card-grip:active{background:var(--soft)}}
 .card{border:1px solid var(--line);border-left:1px solid var(--line);background:var(--surface);border-radius:4px 12px 12px 12px;box-shadow:var(--shadow);padding:11px 12px 12px}
 .card.has-tab{margin-top:17px}
 .card-course{position:absolute;left:-1px;top:-18px;height:18px;max-width:75%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:1px 10px 0;border-radius:8px 8px 0 0;background:color-mix(in srgb,var(--c) 66%,#000);color:#fff;font:700 .68rem/17px var(--display);letter-spacing:.03em}
@@ -2037,7 +2036,10 @@ dialog:has(.sheet.shop){width:min(960px,calc(100% - 24px))}
 .shop-tabs button[aria-selected=true]{background:var(--sel);color:var(--sel-ink)}
 .shop-sec{margin:6px 0 0;display:flex;align-items:center;gap:6px}
 .shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-.shop-tile{border:1px solid var(--line);border-radius:14px;padding:10px;display:grid;gap:6px;align-content:start;background:var(--surface)}
+.shop-tile{border:1px solid var(--line);border-radius:14px;padding:10px;display:grid;grid-template-columns:minmax(0,1fr);min-width:0;gap:6px;align-content:start;background:var(--surface)}
+/* nothing inside a tile may be wider than the tile: text wraps, the button wraps rather than spill out */
+.shop-tile>*{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.shop-tile>.btn{white-space:normal;text-align:center;height:auto}
 .shop-tile.on{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent)}
 .shop-tile p{margin:0}
 .shop-tile>.btn{justify-self:start}
@@ -6404,7 +6406,7 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   #view > .tl-controls:not(:has(> :not(h2,.segb))) > .segb button{flex:1 1 0;min-width:0;padding-inline:2px;font-size:.94rem}
   .plan .fh-ctl .hours-ctl{min-height:0;padding:4px 10px}
   /* A page's own buttons whose heading was hidden */
-  #view > .view-head.ph-btns,#view > section > .view-head.ph-btns{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:4px 0 14px!important;padding:0!important;min-height:0;height:auto;position:static!important;transform:none!important}
+  #view > .view-head.ph-btns,#view > section > .view-head.ph-btns{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:0 0 12px!important;padding:0!important;min-height:0;height:auto;position:static!important;transform:none!important}
   #view > .view-head.ph-btns + *,#view > section > .view-head.ph-btns + *{margin-top:0!important}
   /* breathing room between the header and the page's first row (the switcher or title pill) */
   header.top,body.sb-scrolled header.top{padding-top:4px!important;padding-bottom:6px!important;background:linear-gradient(to bottom,var(--paper) 0,color-mix(in srgb,var(--paper) 50%,transparent) 70%)!important;-webkit-backdrop-filter:blur(16px) saturate(1.5)!important;backdrop-filter:blur(16px) saturate(1.5)!important}
@@ -6461,7 +6463,7 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   #view > .bview-row:has(> .pg-tabs) > .board-ctl{position:absolute;right:0;bottom:6px;margin:0;display:flex;align-items:center;gap:8px}
 }
 /* Review's due count grows leftwards, clear of the companion's seat next to it */
-@media (max-width:639px){nav.tabs .in [data-tab="flashcards"] .fc-navdue{left:auto;right:calc(50% - 15px);margin-left:0;top:0;z-index:2}}
+@media (max-width:639px){nav.tabs .in [data-tab="flashcards"] .fc-navdue{left:auto;right:calc(50% - 14px);margin-left:0;top:2px;z-index:2;min-width:14px;height:14px;font:700 .54rem/14px var(--display);padding:0 3px;box-shadow:0 0 0 1.5px var(--surface),0 1px 3px rgba(0,0,0,.2)}}
 /* Wide sheets are bottom sheets on phones too, full width like the rest */
 @media (max-width:639px){dialog:is(:has(.sheet.shop),:has(.sheet.mt-sheet),:has(.plan-sheet),:has(.sheet.ob),:has(.ph-sheet)){width:100%}}
 /* Courses: the school site button on the left, Insights and the bin on the right */
@@ -6470,7 +6472,7 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
 /* One rhythm on every tab: tab bar, 12px, the page's buttons, 14px, the content */
 @media (max-width:639px){
   #view > .pview-tabs{margin-bottom:12px}
-  #view > .pview-tabs + .gp > .view-head{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:0 0 2px!important;padding:0!important;min-height:0}
+  #view > .pview-tabs + .gp > .view-head{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:0!important;padding:0!important;min-height:0}
   #view > .pview-tabs + .gp > .view-head > .btn{margin-block:0!important}
   #view > .pview-tabs + .gp > .view-head + *{margin-top:0!important}
 }
@@ -6535,7 +6537,9 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
 
 /* Today's plan rows: the check circle is centred against the title only */
 @media (max-width:600px){
-  .plan-row,.plan-row:has(.pr-ring){grid-template-areas:"chk main side" ". why side" ". slot slot" ". more more"}
+  .plan-row,.plan-row:has(.pr-ring){grid-template-areas:"chk main side" ". chip side" ". why side" ". slot slot" ". more more"}
+  .plan-row .plan-main > .pr-chip:not(.gt-chip){display:none}
+  .plan-row .pr-chip-out{display:inline-flex;grid-area:chip;justify-self:start}
   .plan-row > .check{align-self:center;margin-top:0}
 }
 
@@ -6557,6 +6561,53 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
 }
 
 .nu-tag-out{display:none}
+
+/* Date and time boxes: iOS gives them a wide built-in size that spills over their neighbours; keep them in their column */
+@media (max-width:639px){
+  input[type=date],input[type=time],input[type=datetime-local]{display:block;width:100%;min-width:0;max-width:100%;-webkit-appearance:none;appearance:none;min-height:44px;text-align:left}
+  input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and-time-value,input[type=datetime-local]::-webkit-date-and-time-value{text-align:left;min-width:0}
+  .two>*{min-width:0}
+}
+
+/* Course sheets: the coloured top band reaches the rounded corners with no pale fringe (the sheet paints its own
+   surface only below the band, so nothing white sits under the curve) */
+dialog:has(> .sheet > .g2-sheet-head){background:transparent}
+.sheet:has(> .g2-sheet-head){background:linear-gradient(var(--surface),var(--surface)) 0 62px/100% calc(100% - 62px) no-repeat}
+
+/* Phones: the Studyboard logo in the header is just a logo, not a link to the website */
+@media (max-width:639px){
+  header.top .site-link{pointer-events:none;cursor:default}
+}
+
+/* Style Shop > Themes on phones: no animations checkbox or scene-moment button (both live elsewhere) */
+@media (max-width:639px){
+  .shop-mode .motion-tog,.shop-mode .sc-moment{display:none}
+}
+
+/* Style Shop flashcard previews: sized from the tile, not left to the browser's automatic sizing, so they sit centred in the box */
+.ui-shop .shop-tile > .cs-demo{box-sizing:border-box;width:calc(100% - 16px);max-width:calc(100% - 16px);margin:4px 8px 10px;justify-self:start}
+
+/* Style Shop tiles: the Use button sits in the middle of the box */
+.ui-shop .shop-tile > .btn{justify-self:center}
+.pr-chip-out{display:none}
+
+/* Calendar views (Due Dates, Schedule, Crunch): the same 12px above and below the control row under the tab bar */
+@media (max-width:639px){
+  #view > .pview-tabs + .cf-row{margin-top:12px!important;margin-bottom:12px!important}
+  #view > .pview-tabs + .cf-row + .cal-head{margin-top:0!important}
+  #view > .pview-tabs + .cal-head{margin-top:12px!important}
+  #view > .pview-tabs + .sch-top{margin-top:12px!important;margin-bottom:0!important}
+  #view > .pview-tabs + .sch-top + *{margin-top:12px!important}
+  #view > .pview-tabs + .cr{gap:12px}
+  #view > .pview-tabs + .cr > .cr-head + *{margin-top:0!important}
+}
+
+/* One rhythm on every tab: 12px under the tab bar, 12px under a row of controls */
+@media (max-width:639px){
+  #view > .pview-tabs + *{margin-top:0!important}
+  #view > .cal-head{margin-bottom:12px!important}
+  #view > .bview-row + .bview{margin-top:12px}
+}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
@@ -6689,7 +6740,7 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
 .c2-card .c2-code,.c2-card .c2-mini,.c2-card .c2-when,.c2-card .c2-foot-m{display:none}
 @media (max-width:639px){
   #view .course-list{gap:10px;margin-top:12px}
-  #view .course-card.c2-card{display:grid;grid-template-columns:48px minmax(0,1fr);grid-template-areas:"ring top" "ring body";align-items:center;column-gap:14px;row-gap:2px;min-height:0;padding:12px 14px 12px 22px;border:1px solid var(--line);border-radius:18px!important;background:var(--surface);box-shadow:0 1px 2px rgba(14,42,86,.06);overflow:hidden;position:relative;text-align:left}
+  #view .course-card.c2-card{display:grid;grid-template-columns:48px minmax(0,1fr);grid-template-areas:"ring top" "ring body";align-items:center;column-gap:28px;row-gap:2px;min-height:0;padding:12px 14px 12px 8px;border:1px solid var(--line);border-radius:18px!important;background:var(--surface);box-shadow:0 1px 2px rgba(14,42,86,.06);overflow:hidden;position:relative;text-align:left}
   #view .c2-card .c2-band{position:absolute;inset:0 auto 0 0;width:26px;height:auto;padding:0;border-radius:0;background:var(--c)!important}
   #view .c2-card .c2-band > *{display:none}
   #view .c2-card .c2-top{display:contents}

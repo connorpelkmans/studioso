@@ -190,7 +190,7 @@
   #view > .tl-controls:not(:has(> :not(h2,.segb))) > .segb button{flex:1 1 0;min-width:0;padding-inline:2px;font-size:.94rem}
   .plan .fh-ctl .hours-ctl{min-height:0;padding:4px 10px}
   /* A page's own buttons whose heading was hidden */
-  #view > .view-head.ph-btns,#view > section > .view-head.ph-btns{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:4px 0 14px!important;padding:0!important;min-height:0;height:auto;position:static!important;transform:none!important}
+  #view > .view-head.ph-btns,#view > section > .view-head.ph-btns{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:0 0 12px!important;padding:0!important;min-height:0;height:auto;position:static!important;transform:none!important}
   #view > .view-head.ph-btns + *,#view > section > .view-head.ph-btns + *{margin-top:0!important}
   /* breathing room between the header and the page's first row (the switcher or title pill) */
   header.top,body.sb-scrolled header.top{padding-top:4px!important;padding-bottom:6px!important;background:linear-gradient(to bottom,var(--paper) 0,color-mix(in srgb,var(--paper) 50%,transparent) 70%)!important;-webkit-backdrop-filter:blur(16px) saturate(1.5)!important;backdrop-filter:blur(16px) saturate(1.5)!important}
@@ -247,7 +247,7 @@
   #view > .bview-row:has(> .pg-tabs) > .board-ctl{position:absolute;right:0;bottom:6px;margin:0;display:flex;align-items:center;gap:8px}
 }
 /* Review's due count grows leftwards, clear of the companion's seat next to it */
-@media (max-width:639px){nav.tabs .in [data-tab="flashcards"] .fc-navdue{left:auto;right:calc(50% - 15px);margin-left:0;top:0;z-index:2}}
+@media (max-width:639px){nav.tabs .in [data-tab="flashcards"] .fc-navdue{left:auto;right:calc(50% - 14px);margin-left:0;top:2px;z-index:2;min-width:14px;height:14px;font:700 .54rem/14px var(--display);padding:0 3px;box-shadow:0 0 0 1.5px var(--surface),0 1px 3px rgba(0,0,0,.2)}}
 /* Wide sheets are bottom sheets on phones too, full width like the rest */
 @media (max-width:639px){dialog:is(:has(.sheet.shop),:has(.sheet.mt-sheet),:has(.plan-sheet),:has(.sheet.ob),:has(.ph-sheet)){width:100%}}
 /* Courses: the school site button on the left, Insights and the bin on the right */
@@ -256,7 +256,7 @@
 /* One rhythm on every tab: tab bar, 12px, the page's buttons, 14px, the content */
 @media (max-width:639px){
   #view > .pview-tabs{margin-bottom:12px}
-  #view > .pview-tabs + .gp > .view-head{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:0 0 2px!important;padding:0!important;min-height:0}
+  #view > .pview-tabs + .gp > .view-head{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:0!important;padding:0!important;min-height:0}
   #view > .pview-tabs + .gp > .view-head > .btn{margin-block:0!important}
   #view > .pview-tabs + .gp > .view-head + *{margin-top:0!important}
 }
@@ -321,7 +321,9 @@
 
 /* Today's plan rows: the check circle is centred against the title only */
 @media (max-width:600px){
-  .plan-row,.plan-row:has(.pr-ring){grid-template-areas:"chk main side" ". why side" ". slot slot" ". more more"}
+  .plan-row,.plan-row:has(.pr-ring){grid-template-areas:"chk main side" ". chip side" ". why side" ". slot slot" ". more more"}
+  .plan-row .plan-main > .pr-chip:not(.gt-chip){display:none}
+  .plan-row .pr-chip-out{display:inline-flex;grid-area:chip;justify-self:start}
   .plan-row > .check{align-self:center;margin-top:0}
 }
 
@@ -343,3 +345,50 @@
 }
 
 .nu-tag-out{display:none}
+
+/* Date and time boxes: iOS gives them a wide built-in size that spills over their neighbours; keep them in their column */
+@media (max-width:639px){
+  input[type=date],input[type=time],input[type=datetime-local]{display:block;width:100%;min-width:0;max-width:100%;-webkit-appearance:none;appearance:none;min-height:44px;text-align:left}
+  input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and-time-value,input[type=datetime-local]::-webkit-date-and-time-value{text-align:left;min-width:0}
+  .two>*{min-width:0}
+}
+
+/* Course sheets: the coloured top band reaches the rounded corners with no pale fringe (the sheet paints its own
+   surface only below the band, so nothing white sits under the curve) */
+dialog:has(> .sheet > .g2-sheet-head){background:transparent}
+.sheet:has(> .g2-sheet-head){background:linear-gradient(var(--surface),var(--surface)) 0 62px/100% calc(100% - 62px) no-repeat}
+
+/* Phones: the Studyboard logo in the header is just a logo, not a link to the website */
+@media (max-width:639px){
+  header.top .site-link{pointer-events:none;cursor:default}
+}
+
+/* Style Shop > Themes on phones: no animations checkbox or scene-moment button (both live elsewhere) */
+@media (max-width:639px){
+  .shop-mode .motion-tog,.shop-mode .sc-moment{display:none}
+}
+
+/* Style Shop flashcard previews: sized from the tile, not left to the browser's automatic sizing, so they sit centred in the box */
+.ui-shop .shop-tile > .cs-demo{box-sizing:border-box;width:calc(100% - 16px);max-width:calc(100% - 16px);margin:4px 8px 10px;justify-self:start}
+
+/* Style Shop tiles: the Use button sits in the middle of the box */
+.ui-shop .shop-tile > .btn{justify-self:center}
+.pr-chip-out{display:none}
+
+/* Calendar views (Due Dates, Schedule, Crunch): the same 12px above and below the control row under the tab bar */
+@media (max-width:639px){
+  #view > .pview-tabs + .cf-row{margin-top:12px!important;margin-bottom:12px!important}
+  #view > .pview-tabs + .cf-row + .cal-head{margin-top:0!important}
+  #view > .pview-tabs + .cal-head{margin-top:12px!important}
+  #view > .pview-tabs + .sch-top{margin-top:12px!important;margin-bottom:0!important}
+  #view > .pview-tabs + .sch-top + *{margin-top:12px!important}
+  #view > .pview-tabs + .cr{gap:12px}
+  #view > .pview-tabs + .cr > .cr-head + *{margin-top:0!important}
+}
+
+/* One rhythm on every tab: 12px under the tab bar, 12px under a row of controls */
+@media (max-width:639px){
+  #view > .pview-tabs + *{margin-top:0!important}
+  #view > .cal-head{margin-bottom:12px!important}
+  #view > .bview-row + .bview{margin-top:12px}
+}
