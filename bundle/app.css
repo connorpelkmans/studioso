@@ -6473,6 +6473,12 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   .next-up.nu-open .nu-more svg{transform:rotate(180deg)}
   .next-up:not(.nu-open) :is(.nu-why,.nu-step){display:none}
 }
+
+/* Heads Up: each note is its own card so they read as separate items */
+@media (max-width:639px){
+  .plan-heads ul{gap:8px}
+  .plan-heads li{align-items:center;padding:10px 8px 10px 12px;border-radius:12px;border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));border-left:3px solid var(--accent);background:color-mix(in srgb,var(--accent) 7%,var(--surface))}
+}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
