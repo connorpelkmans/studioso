@@ -156,7 +156,7 @@ body.wide .wrap{max-width:1180px}
 .ann-btn[hidden]{display:none}
 .ann-n{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--late,#C0392B);color:#fff;font:700 .68rem/18px var(--body);text-align:center;box-sizing:border-box}
 .nav-tool.ann-btn .ann-n{top:2px;right:calc(50% - 26px)}
-.ann-sheet .sheet-body{gap:10px;align-content:start;grid-auto-rows:max-content}
+.ann-sheet .sheet-body{gap:10px;align-content:start;grid-auto-rows:max-content;padding-bottom:calc(30px + env(safe-area-inset-bottom,0px))}
 .ann-bar{margin:0}
 .ann-ctl{display:flex;align-items:center;gap:8px;flex:none}
 .ann-ctl .btn{flex:none;white-space:nowrap;padding-inline:11px;font-size:.78rem}
@@ -190,7 +190,7 @@ body.wide .wrap{max-width:1180px}
 .ann-chip .sd{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
 .ann-chip .n{color:var(--muted);font-weight:500}
 .ann-list li>.ann-chip{display:flex;width:max-content}
-.ann-rest{margin-top:14px;border-top:1px solid var(--line);padding-top:8px}
+.ann-rest{margin-top:8px;padding-top:2px}
 .ann-rest > summary{display:flex;align-items:center;gap:8px;min-height:40px;cursor:pointer;font:700 .95rem var(--display);color:var(--ink);list-style:none}
 .ann-rest > summary::-webkit-details-marker{display:none}
 .ann-rest > summary::after{content:"";margin-left:auto;width:9px;height:9px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .2s}
