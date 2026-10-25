@@ -9345,15 +9345,21 @@ const availWhen = (day, today) => { for (let i = 1; i < day.length; i++) if (day
 function availPlan(av, ranked, th0, needToday, day, today, now){
   const res = av.res, a = availState();
   const nowMin = now.getHours() * 60 + now.getMinutes();
-  const tasks = ranked.filter(x => x.alloc > 0).map(x => ({id: x.t.id, min: Math.round(x.alloc * 60)}));
+  // A task you have done enough on today gets no more time today, and one you set aside with Something Else goes last
+  const skipped = new Set(typeof ui !== "undefined" && ui.skipNext && ui.skipNext.day === today ? ui.skipNext.ids : []);
+  const isEnough = x => { try { return typeof enoughToday === "function" && enoughToday(x.t, x); } catch (e) { return false; } };
+  const live = ranked.filter(x => x.alloc > 0 && !isEnough(x));
+  const enoughH = ranked.filter(x => x.alloc > 0 && isEnough(x)).reduce((t, x) => t + x.alloc, 0);
+  const tasks = live.filter(x => !skipped.has(x.t.id)).concat(live.filter(x => skipped.has(x.t.id))).map(x => ({id: x.t.id, min: Math.round(x.alloc * 60)}));
   const pl = AVAIL.place(res.windows, tasks, {cfg: a.cfg});
   const by = {}; pl.slots.forEach(s => { (by[s.id] = by[s.id] || []).push(s); });
   if (av.active) ranked.forEach(x => {
     if (!(x.alloc > 0)) return;
+    if (isEnough(x)) { x.alloc = 0; return; }
     const placed = (by[x.t.id] || []).reduce((t, s) => t + s.min, 0);
     if (placed < x.alloc * 60 - 1) { x.moved = x.alloc - placed / 60; x.alloc = placed / 60; }
   });
-  const planned = ranked.reduce((t, x) => t + (x.alloc || 0), 0), freeH = res.total / 60, wantH = Math.min(th0, needToday);
+  const planned = ranked.reduce((t, x) => t + (x.alloc || 0), 0), freeH = res.total / 60, wantH = Math.max(0, Math.min(th0, needToday) - enoughH);
   let note = "";
   if (av.active && wantH > planned + 0.2) {
     const over = wantH - planned, when = availWhen(day, today);
