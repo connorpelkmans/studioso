@@ -2040,6 +2040,11 @@ dialog:has(.sheet.shop){width:min(960px,calc(100% - 24px))}
 /* nothing inside a tile may be wider than the tile: text wraps, the button wraps rather than spill out */
 .shop-tile>*{min-width:0;max-width:100%;overflow-wrap:anywhere}
 .shop-tile>.btn{white-space:normal;text-align:center;height:auto}
+/* Tiles with a button: the button always sits at the bottom of the box, whatever the description's length */
+.shop-tile:has(>.btn){display:flex;flex-direction:column}
+.shop-tile:has(>.btn)>.btn{align-self:center;margin-top:auto}
+.shop-tile:has(>.btn)>.btn~.btn{margin-top:0}
+.shop-tile:has(>.btn)>.btn:first-of-type{margin-top:auto}
 .shop-tile.on{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent)}
 .shop-tile p{margin:0}
 .shop-tile>.btn{justify-self:start}
