@@ -4393,9 +4393,11 @@ function autoCleanNext(raw, back, ok, textOf){
    for the rest of the day even though it isn't finished. It is recorded in the task's own history, so it syncs. */
 const dayStartMs = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
 const workedToday = t => { const ds = dayStartMs(); return (t.history || []).reduce((m, h) => { const mm = /^(?:Focus session|Logged time):? (\d+)m/.exec(h.text || ""); return mm && h.at >= ds ? m + Number(mm[1]) : m; }, 0); };
-const markedEnough = t => { const ds = dayStartMs(); return (t.history || []).some(h => h.text === "Enough for today" && h.at >= ds); };
+// "Enough for today" lasts until 4 AM, so pressing it just after midnight doesn't carry over into the next day
+const enoughSinceMs = () => { const d = new Date(); if (d.getHours() < 4) d.setDate(d.getDate() - 1); d.setHours(4, 0, 0, 0); return d.getTime(); };
+const markedEnough = t => { const ds = enoughSinceMs(); return (t.history || []).some(h => h.text === "Enough for today" && h.at >= ds); };
 const enoughToday = (t, x) => {
-  if (!t) return false; if (markedEnough(t)) return true;
+  if (!t) return false; if ((x && x.enough) || markedEnough(t)) return true;
   const target = x && x.alloc > 0 ? Math.max(10, Math.round(x.alloc * 60)) : 0;
   return target > 0 && workedToday(t) >= target;
 };
@@ -8106,6 +8108,8 @@ function computeFocus(){
     x.need = n > 0 ? Math.max(0.25, Math.ceil(n * 4) / 4) : 0;
   });
   const left = splitToday(ranked, th, th >= thSet - doneToday - 0.001);
+  // A task you have done enough on today (or said was enough) has no time left today anywhere: not in the plan, the schedule or Do This Next
+  ranked.forEach(x => { if (x.alloc > 0 && enoughToday(x.t, x)) { x.enough = true; x.alloc = 0; x.need = 0; } });
   const needToday = ranked.reduce((s, x) => s + x.need, 0);
   let avail = null; if (av) { try { avail = availPlan(av, ranked, th0, needToday, day, today, now); } catch(e) { console.warn(e); } }
   const crunch = byDue.map(t => info[t.id]).find(x => x.behind >= 0.5 && x.dl >= 0);
@@ -8178,6 +8182,12 @@ function dayTimelineHtml(F, todayList, heroId){
       const s = toMin(o.start), e = toMin(o.end); if (e > s) items.push({k: "ev", s, e, title: o.title, label: o.label || (o.type === "meet" ? "Class" : "Event"), color: o.color || "var(--accent)", where: o.where || ""});
     });
   } catch (e) {}
+  // Do This Next always has a card: when the plan found it no slot, it starts right now for one session
+  const nowD = new Date(), nowMin = nowD.getHours() * 60 + nowD.getMinutes();
+  if (heroId && !items.some(x => x.k === "tk" && x.t.id === heroId)) {
+    const hx = F && F.info ? F.info[heroId] : null;
+    if (hx && hx.t) items.push({k: "tk", s: nowMin, e: Math.min(1439, nowMin + Math.max(5, focusMinsFor(heroId))), t: hx.t});
+  }
   if (!items.length) return "";
   const taken = items.filter(x => x.k === "tk").map(x => [x.s, x.e]).sort((p, q) => p[0] - q[0]);
   if (a && a.show && a.res) (a.res.windows || []).forEach(w => {
@@ -9345,12 +9355,13 @@ const availWhen = (day, today) => { for (let i = 1; i < day.length; i++) if (day
 function availPlan(av, ranked, th0, needToday, day, today, now){
   const res = av.res, a = availState();
   const nowMin = now.getHours() * 60 + now.getMinutes();
-  // A task you have done enough on today gets no more time today, and one you set aside with Something Else goes last
+  // A task you have done enough on today gets no more time today, and one you set aside with Something Else moves down behind the new first task
   const skipped = new Set(typeof ui !== "undefined" && ui.skipNext && ui.skipNext.day === today ? ui.skipNext.ids : []);
   const isEnough = x => { try { return typeof enoughToday === "function" && enoughToday(x.t, x); } catch (e) { return false; } };
   const live = ranked.filter(x => x.alloc > 0 && !isEnough(x));
   const enoughH = ranked.filter(x => x.alloc > 0 && isEnough(x)).reduce((t, x) => t + x.alloc, 0);
-  const tasks = live.filter(x => !skipped.has(x.t.id)).concat(live.filter(x => skipped.has(x.t.id))).map(x => ({id: x.t.id, min: Math.round(x.alloc * 60)}));
+  const fresh = live.filter(x => !skipped.has(x.t.id)), aside = live.filter(x => skipped.has(x.t.id));
+  const tasks = fresh.slice(0, 1).concat(aside, fresh.slice(1)).map(x => ({id: x.t.id, min: Math.round(x.alloc * 60)}));
   const pl = AVAIL.place(res.windows, tasks, {cfg: a.cfg});
   const by = {}; pl.slots.forEach(s => { (by[s.id] = by[s.id] || []).push(s); });
   if (av.active) ranked.forEach(x => {
