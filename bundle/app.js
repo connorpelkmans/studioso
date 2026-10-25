@@ -8151,27 +8151,37 @@ function planLead(rs){
   if (/% of your grade/.test(rs[0] || "")) { const d = rs.findIndex(r => /^(Due |Overdue|Past due)/.test(r)); if (d > 0) k = d; }
   return k;
 }
-// A phone-only strip above Do This Next: today's planned slots and free windows on one time line
+// A phone-only rail above Do This Next: today in order, with classes and calendar events, the tasks the plan
+// puts in your free time, and the gaps left open
 function dayTimelineHtml(F, todayList, heroId){
-  const a = F && F.avail, sb = (F && F.slotsBy) || {};
-  const blocks = [];
-  (todayList || []).forEach(x => (sb[x.t.id] || []).forEach(s => { if (s && s.e > s.s) blocks.push({s: s.s, e: s.e, t: x.t}); }));
-  if (!blocks.length) return "";
-  const free = a && a.show && a.res ? (a.res.windows || []).filter(w => w.e > w.s) : [];
+  const sb = (F && F.slotsBy) || {}, a = F && F.avail, items = [];
+  (todayList || []).forEach(x => (sb[x.t.id] || []).forEach(sl => { if (sl && sl.e > sl.s) items.push({k: "tk", s: sl.s, e: sl.e, t: x.t}); }));
+  try {
+    schOccurrences(todayISO(), todayISO()).forEach(o => {
+      if ((o.type !== "meet" && o.type !== "event") || o.skipped || o.allDay || !o.start || !o.end) return;
+      const s = toMin(o.start), e = toMin(o.end); if (e > s) items.push({k: "ev", s, e, title: o.title, label: o.label || (o.type === "meet" ? "Class" : "Event"), color: o.color || "var(--accent)", where: o.where || ""});
+    });
+  } catch (e) {}
+  if (!items.length) return "";
+  const taken = items.filter(x => x.k === "tk").map(x => [x.s, x.e]).sort((p, q) => p[0] - q[0]);
+  if (a && a.show && a.res) (a.res.windows || []).forEach(w => {
+    let cur = w.s; taken.concat([[w.e, w.e]]).forEach(([ts, te]) => { if (ts > cur) { const hi = Math.min(ts, w.e); if (hi - cur >= 30) items.push({k: "fr", s: cur, e: hi}); } cur = Math.max(cur, te); });
+  });
+  items.sort((p, q) => p.s - q.s || p.e - q.e);
   const now = new Date(), nowM = now.getHours() * 60 + now.getMinutes();
-  let lo = Math.min(...blocks.map(b => b.s), ...free.map(w => w.s)), hi = Math.max(...blocks.map(b => b.e), ...free.map(w => w.e));
-  lo = Math.floor(lo / 60) * 60; hi = Math.ceil(hi / 60) * 60; if (hi - lo < 240) hi = lo + 240;
-  const span = hi - lo, pct = m => Math.max(0, Math.min(100, (m - lo) / span * 100)), step = Math.max(1, Math.ceil(span / 60 / 5));
-  const hr = m => { const h = Math.floor(m / 60) % 24; return (h % 12 || 12) + (h < 12 ? "a" : "p"); };
-  const ticks = []; for (let m = Math.ceil(lo / 60 / step) * step * 60; m <= hi; m += step * 60) ticks.push(`<span style="left:${pct(m).toFixed(2)}%">${hr(m)}</span>`);
-  const segs = free.map(w => `<i class="dtl-free" style="left:${pct(w.s).toFixed(2)}%;width:${(pct(w.e) - pct(w.s)).toFixed(2)}%" aria-hidden="true"></i>`).join("");
-  const blks = blocks.sort((p, q) => p.s - q.s).map(b => {
-    const w = pct(b.e) - pct(b.s), on = nowM >= b.s && nowM < b.e, hero = b.t.id === heroId, when = availRange(b.s, b.e);
-    return `<button type="button" class="dtl-blk${on ? " on" : ""}${hero ? " next" : ""}" ${gtOpenAttrs(b.t)} style="left:${pct(b.s).toFixed(2)}%;width:${w.toFixed(2)}%;--c:${esc(colorOf(b.t.courseId))}" title="${esc(b.t.title)}, ${esc(when)}" aria-label="${esc(b.t.title)}, ${esc(when)}">${w >= 20 ? `<span>${esc(b.t.title)}</span>` : ""}</button>`;
+  const anchor = items.findIndex(x => x.e > nowM);
+  const cards = items.map((x, i) => {
+    const past = x.e <= nowM, on = x.s <= nowM && nowM < x.e, when = availRange(x.s, x.e), len = fmtHM((x.e - x.s) / 60) || "";
+    const cls = " dtl-c" + (past ? " past" : "") + (on ? " now" : ""), at = i === anchor ? " data-anchor" : "";
+    if (x.k === "fr") return `<div class="dtl-c fr${past ? " past" : ""}"${at}><span>Free</span><b>${esc(when)}</b></div>`;
+    if (x.k === "ev") return `<div class="${cls.trim()} ev" style="--c:${esc(x.color)}"${at}><span class="dtl-t">${esc(when)}</span><b class="dtl-n">${esc(x.title)}</b><span class="dtl-s">${esc(x.label)}${x.where ? " · " + esc(x.where) : ""}</span></div>`;
+    const hero = x.t.id === heroId;
+    return `<button type="button" class="${cls.trim()} tk${hero ? " next" : ""}" ${gtOpenAttrs(x.t)} style="--c:${esc(colorOf(x.t.courseId))}"${at} aria-label="${esc(x.t.title)}, ${esc(when)}"><span class="dtl-t">${esc(when)}${len ? " · " + esc(len) : ""}</span><b class="dtl-n">${esc(x.t.title)}</b>${hero ? `<span class="dtl-badge">Next</span>` : on ? `<span class="dtl-badge">Now</span>` : ""}</button>`;
   }).join("");
-  const nowMk = nowM >= lo && nowM <= hi ? `<i class="dtl-now" style="left:${pct(nowM).toFixed(2)}%" aria-hidden="true"></i>` : "";
-  return `<div class="dtl" role="group" aria-label="Today's timeline"><div class="dtl-track">${segs}${blks}${nowMk}</div><div class="dtl-ticks" aria-hidden="true">${ticks.join("")}</div></div>`;
+  return `<div class="dtl" role="group" aria-label="Today's schedule"><div class="dtl-rail">${cards}</div></div>`;
 }
+// Scroll the rail so what is happening now (or next) starts at the left edge
+hook("render", () => { document.querySelectorAll(".dtl-rail").forEach(r => { const t = r.querySelector("[data-anchor]"); if (t) r.scrollLeft = Math.max(0, t.offsetLeft - r.offsetLeft - 4); }); });
 function planRow(x, i, showScore, noRank){
   const t = x.t, c = courseOf(t.courseId);
   const rs = x.reasons || [], li = planLead(rs), lead = rs[li] || "", rest = rs.filter((r, k) => k !== li);
