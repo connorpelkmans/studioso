@@ -374,3 +374,14 @@ dialog:has(> .sheet > .g2-sheet-head){background:transparent}
 /* Style Shop tiles: the Use button sits in the middle of the box */
 .ui-shop .shop-tile > .btn{justify-self:center}
 .pr-chip-out{display:none}
+
+/* Calendar views (Due Dates, Schedule, Crunch): the same 12px above and below the control row under the tab bar */
+@media (max-width:639px){
+  #view > .pview-tabs + .cf-row{margin-top:12px!important;margin-bottom:12px!important}
+  #view > .pview-tabs + .cf-row + .cal-head{margin-top:0!important}
+  #view > .pview-tabs + .cal-head{margin-top:12px!important}
+  #view > .pview-tabs + .sch-top{margin-top:12px!important;margin-bottom:0!important}
+  #view > .pview-tabs + .sch-top + *{margin-top:12px!important}
+  #view > .pview-tabs + .cr{gap:12px}
+  #view > .pview-tabs + .cr > .cr-head + *{margin-top:0!important}
+}
