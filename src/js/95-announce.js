@@ -6,6 +6,8 @@
   let readMem = null;
   const readSet = () => { if (!readMem) { try { readMem = new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); } catch(e) { readMem = new Set(); } } return readMem; };
   const saveRead = () => { try { localStorage.setItem(KEY, JSON.stringify([...readSet()].slice(-600))); } catch(e) {} };
+  let restOpen = false;
+  document.addEventListener("toggle", e => { if (e.target && e.target.classList && e.target.classList.contains("ann-rest")) restOpen = e.target.open; }, true);
   let tab = HOME; try { tab = localStorage.getItem(TAB_KEY) || HOME; } catch(e) {}
   const setTab = k => { tab = k; try { localStorage.setItem(TAB_KEY, k); } catch(e) {} };
   // The last Check Now
@@ -75,10 +77,10 @@
     if (!all.length) panel = "";
     else if (tab === HOME) {
       const recent = all.slice(0, 3);
-      panel = `<h3 class="ann-home-h">${recent.length === 1 ? "Most recent announcement" : `${recent.length} most recent announcements`}</h3>
-        <p class="mini ann-home-note">Newest first, from all your classes together. Pick a class tab above to see everything that class has posted.</p>
-        <ul class="ann-list">${recent.map(n => row(n, true)).join("")}</ul>
-        ${groups.length ? `<h3 class="ann-course" style="margin-top:14px">Browse by class</h3><div class="ann-browse">${groups.map(g => `<button type="button" class="ann-chip btn-chip" style="--c:${esc(g.color)}" data-act="ann-tab" data-ann="${esc(g.k)}"${g.full && g.full !== g.name ? ` title="${esc(g.full)}"` : ""}><span class="sd"></span>${esc(g.name)}<span class="n">${g.list.length}${g.un ? ` · ${g.un} new` : ""}</span></button>`).join("")}</div>` : ""}`;
+      const older = all.slice(3);
+      panel = `<ul class="ann-list">${recent.map(n => row(n, true)).join("")}</ul>
+        ${groups.length ? `<h3 class="ann-course" style="margin-top:14px">Browse by class</h3><div class="ann-browse">${groups.map(g => `<button type="button" class="ann-chip btn-chip" style="--c:${esc(g.color)}" data-act="ann-tab" data-ann="${esc(g.k)}"${g.full && g.full !== g.name ? ` title="${esc(g.full)}"` : ""}><span class="sd"></span>${esc(g.name)}<span class="n">${g.list.length}${g.un ? ` · ${g.un} new` : ""}</span></button>`).join("")}</div>` : ""}
+        ${older.length ? `<details class="ann-rest"${restOpen ? " open" : ""}><summary>Older announcements<span class="ann-rest-n">${older.length}</span></summary><ul class="ann-list">${older.map(n => row(n, true)).join("")}</ul></details>` : ""}`;
     } else {
       panel = `<h3 class="ann-course" style="--c:${esc(cur.color)}"><span class="sd"></span>${esc(cur.name)}${cur.full && cur.full !== cur.name ? ` <span class="mini">${esc(cur.full)}</span>` : ""}<span class="n">${cur.list.length} announcement${cur.list.length === 1 ? "" : "s"}${cur.un ? `, ${cur.un} new` : ""}</span></h3>
         <ul class="ann-list">${cur.list.map(n => row(n, false)).join("")}</ul>`;

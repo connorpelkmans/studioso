@@ -188,6 +188,13 @@ body.wide .wrap{max-width:1180px}
 .ann-chip .sd{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
 .ann-chip .n{color:var(--muted);font-weight:500}
 .ann-list li>.ann-chip{display:flex;width:max-content}
+.ann-rest{margin-top:14px;border-top:1px solid var(--line);padding-top:8px}
+.ann-rest > summary{display:flex;align-items:center;gap:8px;min-height:40px;cursor:pointer;font:700 .95rem var(--display);color:var(--ink);list-style:none}
+.ann-rest > summary::-webkit-details-marker{display:none}
+.ann-rest > summary::after{content:"";margin-left:auto;width:9px;height:9px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .2s}
+.ann-rest[open] > summary::after{transform:rotate(-135deg)}
+.ann-rest-n{font:600 .74rem var(--display);color:var(--muted);background:var(--field,var(--soft));border:1px solid var(--line);border-radius:99px;padding:1px 9px}
+.ann-rest > .ann-list{margin-top:6px}
 .ann-browse{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
 .ann-browse .btn-chip{cursor:pointer;padding:6px 11px;font-size:.8rem}
 .ann-browse .btn-chip:hover{border-color:var(--accent)}
