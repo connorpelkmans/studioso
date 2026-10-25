@@ -410,22 +410,22 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
 
 /* Phones: the cards and panels over a theme's artwork let more of it show through (a photo theme's own Glass slider still wins) */
 @media (max-width:639px){
-  html{--ph-gls:84%}
+  html{--ph-gls:86%}
 }
 
 /* Phones: every softly see-through surface lets more of the artwork behind it show (about five sixths solid) */
 @media (max-width:639px){
-  .col{background:color-mix(in srgb,var(--ph-surf,var(--surface)) 84%,transparent)}
-  .arch-term{background:color-mix(in srgb,var(--surface) 84%,transparent)}
-  html.sc-on .grp-file{background:color-mix(in srgb,var(--surface) 84%,transparent)}
-  .cpt-form{background:color-mix(in srgb,var(--paper,var(--bg)) 78%,transparent)}
-  .room-float small{background:color-mix(in srgb,var(--surface) 84%,transparent)}
-  .nb-zoom,.nb-target,.board-max-btn{background:color-mix(in srgb,var(--surface) 86%,transparent)}
-  .nb-main .nb-target{background:color-mix(in srgb,var(--surface) 86%,transparent)!important}
+  .col{background:color-mix(in srgb,var(--ph-surf,var(--surface)) 86%,transparent)}
+  .arch-term{background:color-mix(in srgb,var(--surface) 86%,transparent)}
+  html.sc-on .grp-file{background:color-mix(in srgb,var(--surface) 86%,transparent)}
+  .cpt-form{background:color-mix(in srgb,var(--paper,var(--bg)) 80%,transparent)}
+  .room-float small{background:color-mix(in srgb,var(--surface) 86%,transparent)}
+  .nb-zoom,.nb-target,.board-max-btn{background:color-mix(in srgb,var(--surface) 88%,transparent)}
+  .nb-main .nb-target{background:color-mix(in srgb,var(--surface) 88%,transparent)!important}
 }
 
 /* Phones with an animated theme: nothing blurs the moving scene behind it (a live blur has to be redone every frame) */
 @media (max-width:639px){
-  html.sc-on header.top,html.sc-on .cpt-form{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+  html.sc-on .cpt-form{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
 }
 
