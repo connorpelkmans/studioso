@@ -289,3 +289,8 @@
 @media (max-width:639px){
   .sheet.fab-menu .sheet-body{padding-bottom:calc(36px + env(safe-area-inset-bottom,0px))}
 }
+
+/* Today's plan: a little more room between the time and the focus button */
+@media (max-width:639px){
+  .plan-row > .plan-side{gap:10px}
+}

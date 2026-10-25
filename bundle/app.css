@@ -6492,6 +6492,11 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
 @media (max-width:639px){
   .sheet.fab-menu .sheet-body{padding-bottom:calc(36px + env(safe-area-inset-bottom,0px))}
 }
+
+/* Today's plan: a little more room between the time and the focus button */
+@media (max-width:639px){
+  .plan-row > .plan-side{gap:10px}
+}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
