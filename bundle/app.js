@@ -4389,13 +4389,23 @@ function autoCleanNext(raw, back, ok, textOf){
   return out.slice(0, 5);
 }
 
+/* "Enough for today": a task you've worked for the time the plan gave it, or that you said was enough, steps aside
+   for the rest of the day even though it isn't finished. It is recorded in the task's own history, so it syncs. */
+const dayStartMs = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
+const workedToday = t => { const ds = dayStartMs(); return (t.history || []).reduce((m, h) => { const mm = /^(?:Focus session|Logged time):? (\d+)m/.exec(h.text || ""); return mm && h.at >= ds ? m + Number(mm[1]) : m; }, 0); };
+const markedEnough = t => { const ds = dayStartMs(); return (t.history || []).some(h => h.text === "Enough for today" && h.at >= ds); };
+const enoughToday = (t, x) => {
+  if (!t) return false; if (markedEnough(t)) return true;
+  const target = x && x.alloc > 0 ? Math.max(10, Math.round(x.alloc * 60)) : 0;
+  return target > 0 && workedToday(t) >= target;
+};
 /* Next Up: the one thing to do right now */
 function nextUp(F){
   const today = todayISO();
   if (!ui.skipNext || ui.skipNext.day !== today) ui.skipNext = {day: today, ids: []};
   const now = new Date(), hr = now.getHours(), hm = pad(hr) + ":" + pad(now.getMinutes());
   const recent = t => (t.history || []).some(h => /^Focus session/.test(h.text) && Date.now() - h.at < 3 * 3600000);
-  const pool = F.ranked.filter(x => inFilter(x.t) && canDoNow(x.t) && !ui.skipNext.ids.includes(x.t.id) && (x.R > 0 || x.dl <= 0));
+  const pool = F.ranked.filter(x => inFilter(x.t) && canDoNow(x.t) && !ui.skipNext.ids.includes(x.t.id) && (x.R > 0 || x.dl <= 0) && !enoughToday(x.t, x));
   const focusLen = Number(pomoCfg().focus) || 25;
   if (!pool.length) { const em = typeof SBEXAM !== "undefined" ? SBEXAM.rankNext(F, [], pool, focusLen) : null; return (em && em.study) || nextUpStudy(F, null, pool, focusLen); }
   let gapMin = null, gapWhat = "";
@@ -4438,7 +4448,9 @@ function nextUp(F){
   ui.nextShown = pick.x.t.id;
   const cl = (pick.x.t.checklist || []).find(i => !i.done);
   const step = aiPick && aiPick.step ? {text: aiPick.step} : cl;
-  let mins = aiPick && aiPick.min ? Math.round(aiPick.min / 5) * 5 : Math.max(focusLen, Math.min(focusLen * 2, Math.round(pick.sessionH * 60 / 5) * 5));
+  // Your chosen timer length, shortened only when this task's time today is less than that
+  const cap = aiPick && aiPick.min ? Math.round(aiPick.min / 5) * 5 : pick.x.alloc > 0 ? Math.round(pick.x.alloc * 60 / 5) * 5 : 0;
+  let mins = cap >= 5 && cap < focusLen ? cap : focusLen;
   if (gapMin != null && gapMin >= 15) mins = Math.max(10, Math.min(mins, Math.floor((gapMin - 5) / 5) * 5));
   const why = (aiPick && aiPick.why ? [aiPick.why] : pick.why.concat(pick.x.reasons)).filter((r, i, a) => a.indexOf(r) === i && !(r === "Due today" && a.some(y => /^Due at .* today$/.test(y)))).slice(0, aiPick ? 1 : 3);
   return (exm ? null : nextUpStudy(F, pick, pool, focusLen)) || {x: pick.x, why, step, mins, left: pool.length - 1, ai: !!aiPick};
@@ -4499,7 +4511,7 @@ function nextUpHtml(F, pre){
         ${n.step ? `<span class="nu-step">Next step: ${esc(n.step.text)}</span>` : ""}
       </div>
       ${lmsGoBtn(t)}
-      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-id="${t.gt ? "" : esc(t.id)}" data-mins="${n.mins}">${TOMATO}Start a ${n.mins}m Focus</button>${window.SBPREP ? SBPREP.matBtn(t) : ""}${t.type === "Study" && (t.studyDecks || []).length && !t.matKind ? `<button class="btn small" data-act="fc-study-plan" data-id="${esc(t.id)}">Study Cards</button>` : ""}${n.left ? `<button class="btn small" data-act="nu-skip" data-id="${esc(t.id)}">Something Else</button>` : ""}${nuBackBtn()}</div>
+      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-id="${t.gt ? "" : esc(t.id)}" data-mins="${n.mins}">${TOMATO}Start a ${n.mins}m Focus</button>${window.SBPREP ? SBPREP.matBtn(t) : ""}${t.type === "Study" && (t.studyDecks || []).length && !t.matKind ? `<button class="btn small" data-act="fc-study-plan" data-id="${esc(t.id)}">Study Cards</button>` : ""}${n.left ? `<button class="btn small" data-act="nu-skip" data-id="${esc(t.id)}">Something Else</button>` : ""}${t.gt ? "" : `<button class="btn small" data-act="nu-enough" data-id="${esc(t.id)}" title="You have done enough on this today, so move on. It stays on your list.">Enough for Today</button>`}${nuBackBtn()}</div>
     </div>
   </div>`;
 }
@@ -7338,6 +7350,7 @@ const AI_ACTS = {
   "tf-est": el => tfEstimate(el),
   "nu-skip": el => { if (ui.skipNext) ui.skipNext.ids.push(el.dataset.id); if (!/^study:/.test(el.dataset.id)) nufbAdd("skip", state.tasks[el.dataset.id]); render(); },
   "nu-more": el => { ui.nuMore = !ui.nuMore; const c = el.closest(".next-up"); if (c) c.classList.toggle("nu-open", ui.nuMore); el.setAttribute("aria-expanded", String(!!ui.nuMore)); },
+  "nu-enough": el => { const t = state.tasks[el.dataset.id]; if (!t) return; const n = clone(t); n.history = (n.history || []).concat({at: Date.now(), text: "Enough for today"}).slice(-30); applyChanges([{kind: "task", id: t.id, after: n}], null); toast(`Okay, moving on from “${t.title}” for today. It stays on your list.`); render(); },
   "nu-back": () => { const id = ui.skipNext && ui.skipNext.ids.pop(); if (id && !/^study:/.test(id)) nufbDrop("skip", id); render(); },
   "heads-hide": el => { let h = {}; try { h = JSON.parse(localStorage.getItem(HEADS_HIDE) || "{}") || {}; } catch(e) {} Object.keys(h).forEach(k => { if (Date.now() - h[k] > 8 * 864e5 || h[k] === 1) delete h[k]; }); h[el.dataset.id] = Date.now(); try { localStorage.setItem(HEADS_HIDE, JSON.stringify(h)); } catch(e) {} render(); },
   "ai-explain": el => runExplain(el.dataset.key, el.dataset.given),
@@ -8149,27 +8162,37 @@ function planLead(rs){
   if (/% of your grade/.test(rs[0] || "")) { const d = rs.findIndex(r => /^(Due |Overdue|Past due)/.test(r)); if (d > 0) k = d; }
   return k;
 }
-// A phone-only strip above Do This Next: today's planned slots and free windows on one time line
+// A phone-only rail above Do This Next: today in order, with classes and calendar events, the tasks the plan
+// puts in your free time, and the gaps left open
 function dayTimelineHtml(F, todayList, heroId){
-  const a = F && F.avail, sb = (F && F.slotsBy) || {};
-  const blocks = [];
-  (todayList || []).forEach(x => (sb[x.t.id] || []).forEach(s => { if (s && s.e > s.s) blocks.push({s: s.s, e: s.e, t: x.t}); }));
-  if (!blocks.length) return "";
-  const free = a && a.show && a.res ? (a.res.windows || []).filter(w => w.e > w.s) : [];
+  const sb = (F && F.slotsBy) || {}, a = F && F.avail, items = [];
+  (todayList || []).forEach(x => (sb[x.t.id] || []).forEach(sl => { if (sl && sl.e > sl.s) items.push({k: "tk", s: sl.s, e: sl.e, t: x.t}); }));
+  try {
+    schOccurrences(todayISO(), todayISO()).forEach(o => {
+      if ((o.type !== "meet" && o.type !== "event") || o.skipped || o.allDay || !o.start || !o.end) return;
+      const s = toMin(o.start), e = toMin(o.end); if (e > s) items.push({k: "ev", s, e, title: o.title, label: o.label || (o.type === "meet" ? "Class" : "Event"), color: o.color || "var(--accent)", where: o.where || ""});
+    });
+  } catch (e) {}
+  if (!items.length) return "";
+  const taken = items.filter(x => x.k === "tk").map(x => [x.s, x.e]).sort((p, q) => p[0] - q[0]);
+  if (a && a.show && a.res) (a.res.windows || []).forEach(w => {
+    let cur = w.s; taken.concat([[w.e, w.e]]).forEach(([ts, te]) => { if (ts > cur) { const hi = Math.min(ts, w.e); if (hi - cur >= 30) items.push({k: "fr", s: cur, e: hi}); } cur = Math.max(cur, te); });
+  });
+  items.sort((p, q) => p.s - q.s || p.e - q.e);
   const now = new Date(), nowM = now.getHours() * 60 + now.getMinutes();
-  let lo = Math.min(...blocks.map(b => b.s), ...free.map(w => w.s)), hi = Math.max(...blocks.map(b => b.e), ...free.map(w => w.e));
-  lo = Math.floor(lo / 60) * 60; hi = Math.ceil(hi / 60) * 60; if (hi - lo < 240) hi = lo + 240;
-  const span = hi - lo, pct = m => Math.max(0, Math.min(100, (m - lo) / span * 100)), step = Math.max(1, Math.ceil(span / 60 / 5));
-  const hr = m => { const h = Math.floor(m / 60) % 24; return (h % 12 || 12) + (h < 12 ? "a" : "p"); };
-  const ticks = []; for (let m = Math.ceil(lo / 60 / step) * step * 60; m <= hi; m += step * 60) ticks.push(`<span style="left:${pct(m).toFixed(2)}%">${hr(m)}</span>`);
-  const segs = free.map(w => `<i class="dtl-free" style="left:${pct(w.s).toFixed(2)}%;width:${(pct(w.e) - pct(w.s)).toFixed(2)}%" aria-hidden="true"></i>`).join("");
-  const blks = blocks.sort((p, q) => p.s - q.s).map(b => {
-    const w = pct(b.e) - pct(b.s), on = nowM >= b.s && nowM < b.e, hero = b.t.id === heroId, when = availRange(b.s, b.e);
-    return `<button type="button" class="dtl-blk${on ? " on" : ""}${hero ? " next" : ""}" ${gtOpenAttrs(b.t)} style="left:${pct(b.s).toFixed(2)}%;width:${w.toFixed(2)}%;--c:${esc(colorOf(b.t.courseId))}" title="${esc(b.t.title)}, ${esc(when)}" aria-label="${esc(b.t.title)}, ${esc(when)}">${w >= 20 ? `<span>${esc(b.t.title)}</span>` : ""}</button>`;
+  const anchor = items.findIndex(x => x.e > nowM);
+  const cards = items.map((x, i) => {
+    const past = x.e <= nowM, on = x.s <= nowM && nowM < x.e, when = availRange(x.s, x.e), len = fmtHM((x.e - x.s) / 60) || "";
+    const cls = " dtl-c" + (past ? " past" : "") + (on ? " now" : ""), at = i === anchor ? " data-anchor" : "";
+    if (x.k === "fr") return `<div class="dtl-c fr${past ? " past" : ""}"${at}><span>Free</span><b>${esc(when)}</b></div>`;
+    if (x.k === "ev") return `<div class="${cls.trim()} ev" style="--c:${esc(x.color)}"${at}><span class="dtl-t">${esc(when)}</span><b class="dtl-n">${esc(x.title)}</b><span class="dtl-s">${esc(x.label)}${x.where ? " · " + esc(x.where) : ""}</span></div>`;
+    const hero = x.t.id === heroId;
+    return `<button type="button" class="${cls.trim()} tk${hero ? " next" : ""}" ${gtOpenAttrs(x.t)} style="--c:${esc(colorOf(x.t.courseId))}"${at} aria-label="${esc(x.t.title)}, ${esc(when)}"><span class="dtl-t">${esc(when)}${len ? " · " + esc(len) : ""}</span><b class="dtl-n">${esc(x.t.title)}</b>${hero ? `<span class="dtl-badge">Next</span>` : on ? `<span class="dtl-badge">Now</span>` : ""}</button>`;
   }).join("");
-  const nowMk = nowM >= lo && nowM <= hi ? `<i class="dtl-now" style="left:${pct(nowM).toFixed(2)}%" aria-hidden="true"></i>` : "";
-  return `<div class="dtl" role="group" aria-label="Today's timeline"><div class="dtl-track">${segs}${blks}${nowMk}</div><div class="dtl-ticks" aria-hidden="true">${ticks.join("")}</div></div>`;
+  return `<div class="dtl" role="group" aria-label="Today's schedule"><div class="dtl-rail">${cards}</div></div>`;
 }
+// Scroll the rail so what is happening now (or next) starts at the left edge
+hook("render", () => { document.querySelectorAll(".dtl-rail").forEach(r => { const t = r.querySelector("[data-anchor]"); if (t) r.scrollLeft = Math.max(0, t.offsetLeft - r.offsetLeft - 4); }); });
 function planRow(x, i, showScore, noRank){
   const t = x.t, c = courseOf(t.courseId);
   const rs = x.reasons || [], li = planLead(rs), lead = rs[li] || "", rest = rs.filter((r, k) => k !== li);
@@ -14148,6 +14171,13 @@ const POMO_DEF = {focus: 25, short: 5, long: 15, every: 4, autoBreak: true, auto
 const POMO_LS = "studioso:pomo";
 const MODE_LABEL = {focus: "Focus", short: "Short Break", long: "Long Break"};
 const TOMATO = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 7.2c-4.6 0-8 2.9-8 6.7C4 17.8 7.6 21 12 21s8-3.2 8-7.1c0-3.8-3.4-6.7-8-6.7z" fill="currentColor"/><path d="M12 7.5V4.2M12 6.6c-1.4-1.6-3.4-1.9-4.8-1.3 1.2.4 2.4 1.3 3 2.6M12 6.6c1.4-1.6 3.4-1.9 4.8-1.3-1.2.4-2.4 1.3-3 2.6" fill="none" stroke="var(--leaf,#1E9E74)" stroke-width="1.8" stroke-linecap="round"/></svg>';
+// Minutes for a focus session on a task: the timer length you chose, cut short only when that would
+// run past the time the plan gives this task today (so the session ends as that work is done)
+function focusMinsFor(taskId){
+  const d = Math.round(Number(pomoCfg().focus) || 25), x = FOCUS && FOCUS.info && taskId ? FOCUS.info[taskId] : null;
+  const a = x && x.alloc > 0 ? Math.round(x.alloc * 60 / 5) * 5 : 0;
+  return a >= 5 && a < d ? a : d;
+}
 const pomoCfg = () => Object.assign({}, POMO_DEF, (state.settings && state.settings.pomo) || {});
 function pomoLoad(){
   const base = {mode: "focus", running: false, endAt: 0, left: 0, cycle: 0, taskId: "", day: "", sessions: 0, minutes: 0};
@@ -14253,6 +14283,7 @@ function pomoFinish(missed){
       const n = clone(t); n.pomos = (Number(n.pomos) || 0) + 1; n.focusMin = (Number(n.focusMin) || 0) + fm;
       n.history = (n.history || []).concat({at: Date.now(), text: `Focus session: ${fm}m`}).slice(-30);
       applyChanges([{kind: "task", id: t.id, after: n}], null);
+      try { const x = FOCUS && FOCUS.info ? FOCUS.info[t.id] : null; if (x && enoughToday(state.tasks[t.id], x)) toast(`That's the time planned for “${t.title}” today. Moving on to the next thing.`); } catch (e) {}
     }
   }
   const next = done === "focus" ? (pomo.cycle % (Number(cfg.every) || 4) === 0 ? "long" : "short") : "focus";
@@ -14428,7 +14459,9 @@ function pomoAction(act, el){
     case "pomo-skip": pomoSkip(); return true;
     case "pomo-mode": pomoPickMode(el.dataset.id); return true;
     case "pomo-test": { const cfg = pomoCfg(); if (!playAlarm($("#psSound") ? $("#psSound").value : cfg.sound, $("#psVol") ? Number($("#psVol").value) : cfg.volume, 1)) toast("Sound isn't available in this browser"); return true; }
-    case "pomo-task": { const tk = state.tasks[el.dataset.id]; if (tk && !canDoNow(tk) && !el.dataset.study) { toast(`“${tk.title}” is taken in person, so it can't be started as a focus session. Start one of its study sessions instead.`); return true; } } if (ui.nextShown && ui.nextShown === el.dataset.id) { nufbAdd("accept", state.tasks[el.dataset.id]); ui.nextShown = null; } if (dlg.open) dlg.close(); openPomo(el.dataset.id); { const m = Math.round(Number(el.dataset.mins)); if (m >= 5 && m <= 180 && !pomo.running && !(pomo.left > 0) && pomo.mode === "focus") { pomo.preset = m; pomoSave(); renderPomo(); } }
+    case "pomo-task": { const tk = state.tasks[el.dataset.id]; if (tk && !canDoNow(tk) && !el.dataset.study) { toast(`“${tk.title}” is taken in person, so it can't be started as a focus session. Start one of its study sessions instead.`); return true; } } if (ui.nextShown && ui.nextShown === el.dataset.id) { nufbAdd("accept", state.tasks[el.dataset.id]); ui.nextShown = null; } if (dlg.open) dlg.close(); const prevTask = pomo.taskId; openPomo(el.dataset.id);
+      // A new session starts at the length asked for (or the default for a different task), never from an older paused one
+      { let m = Math.round(Number(el.dataset.mins)); if (!(m >= 5 && m <= 180) && !el.dataset.study && el.dataset.id) m = focusMinsFor(el.dataset.id); const ok = m >= 5 && m <= 180; if (!pomo.running) { if (ok) { pomo.mode = "focus"; pomo.left = 0; pomo.preset = m; pomoSave(); renderPomo(); } else if (prevTask !== el.dataset.id && pomo.mode === "focus") { pomo.left = 0; pomo.preset = 0; pomoSave(); renderPomo(); } } }
       if (!pomo.running) pomoStart(); return true;
   }
   return false;
