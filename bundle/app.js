@@ -16051,7 +16051,7 @@ window.__sbPlanObj = () => PLAN;
   const siteUrl = (path, q) => { const u = new URL(siteBase() + path); Object.keys(q || {}).forEach(k => u.searchParams.set(k, q[k])); u.searchParams.set("src", "app"); return u.toString(); };
   const siteLinkOk = () => siteReady() && !DESK && !nativeStore() && !(typeof inPreview === "function" && inPreview());
   const siteLinks = () => document.querySelectorAll("a[data-site-link]").forEach(a => { if (siteLinkOk()) { a.href = siteBase() + "/"; a.setAttribute("aria-label", "Studyboard website"); } else { a.removeAttribute("href"); a.removeAttribute("title"); } });
-  document.addEventListener("click", e => { const a = e.target.closest && e.target.closest("a[data-site-link]"); if (!a) return; e.preventDefault(); if (siteLinkOk()) openExternal(siteUrl("/", {})); });
+  document.addEventListener("click", e => { const a = e.target.closest && e.target.closest("a[data-site-link]"); if (!a) return; e.preventDefault(); if (window.matchMedia && matchMedia("(max-width:639px)").matches) return; if (siteLinkOk()) openExternal(siteUrl("/", {})); });
   siteLinks(); window.addEventListener("load", siteLinks); setTimeout(siteLinks, 4000);
   function openExternal(url){
     try { const B = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser; if (B && B.open) { B.open({url}); return; } } catch (e) {}

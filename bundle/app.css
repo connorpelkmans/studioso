@@ -6568,6 +6568,11 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
    surface only below the band, so nothing white sits under the curve) */
 dialog:has(> .sheet > .g2-sheet-head){background:transparent}
 .sheet:has(> .g2-sheet-head){background:linear-gradient(var(--surface),var(--surface)) 0 62px/100% calc(100% - 62px) no-repeat}
+
+/* Phones: the Studyboard logo in the header is just a logo, not a link to the website */
+@media (max-width:639px){
+  header.top .site-link{pointer-events:none;cursor:default}
+}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
