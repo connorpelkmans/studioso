@@ -1943,7 +1943,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     applyVars(); fitHitSoon();
     const newTab = tab !== lastTab, first = !lastTab, wander = newTab && !first && !phone() && roamDue(0.2);
     if (wander) lastRoam = Date.now();
-    placeSoon(newTab ? 160 : 400, first || wander);
+    placeSoon(newTab ? (phone() ? 0 : 160) : 400, first || wander);
     if (newTab) { lastTab = tab; if (!first && wander) later(curious, 500); }
   });
   hook("boot", () => { lastTab = ui.tab; refresh(0); BR.knownTasks = new Set(Object.keys(state.tasks || {})); BR.doneIds = new Set(Object.values(state.tasks || {}).filter(t => t && t.status === "done").map(t => t.id)); });
