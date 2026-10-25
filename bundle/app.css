@@ -6634,6 +6634,10 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
 .cs-gap{flex:none;width:10px;height:10px}
 .cs-tick{margin-left:auto;opacity:.8}
 
+/* Phones: the cards and panels over a theme's artwork let more of it show through (a photo theme's own Glass slider still wins) */
+@media (max-width:639px){
+  html{--ph-gls:76%}
+}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
