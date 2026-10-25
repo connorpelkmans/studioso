@@ -1,5 +1,5 @@
 /* ===== module: 99-motion-a11y-tz.js ===== */
-/* Animations governor (Auto / Full / Reduced / Off), low-power handling, text size */
+/* Animations governor (On / Off), low-power handling, text size */
 (() => {
   const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} return null; };
   const ss = (k, v) => { try { if (v === undefined) return sessionStorage.getItem(k); sessionStorage.setItem(k, v); } catch (e) {} return null; };
@@ -9,56 +9,38 @@
 
   /* ================= Animations governor ================= */
   const mqReduce = mm("(prefers-reduced-motion: reduce)"), mqData = mm("(prefers-reduced-data: reduce)"), mqPhone = mm("(max-width:719px)"), mqContrast = mm("(prefers-contrast: more)");
-  const MODES = ["auto", "full", "calm", "off"], RANK = {full: 0, calm: 1, static: 2}, KEY = "studyboard:anim";
+  const MODES = ["full", "off"], RANK = {full: 0, static: 1}, KEY = "studyboard:anim";
   const worse = (a, b) => RANK[a] >= RANK[b] ? a : b;
-  let pref = ls(KEY); if (MODES.indexOf(pref) < 0) pref = "auto";
+  // Animations are on (full) or off. Nothing lowers them by itself, and an older Auto or Reduced choice becomes On.
+  let pref = ls(KEY); if (pref !== "off") { if (pref) ls(KEY, null); pref = "full"; }
   let battery = null, saveData = false, desk = {onBattery: false, thermal: "unknown", locked: false};
   let blurred = false, idle = false, covered = false, lastInput = Date.now(), lastSig = "";
-  let gov = Math.max(0, Math.min(3, Number(ss("studyboard:animGov")) || 0));
+  // Nothing lowers the picture on its own any more: Auto is full motion except on a low battery
+  let gov = 0;
   const IDLE_MS = 5 * 60000;
 
   const reduceSys = () => !!(mqReduce && mqReduce.matches);
   const batLow = () => !!(battery && battery.charging === false && battery.level < 0.2);
   const batCritical = () => !!(battery && battery.charging === false && battery.level < 0.08);
-  const thermal = () => desk.thermal === "serious" || desk.thermal === "critical";
-  const lowPower = () => batLow() || saveData || !!(mqData && mqData.matches) || thermal() || nativeLow;
-  function level(){
-    if (pref === "off") return "static";
-    let lv = "full";
-    if (pref === "auto") {
-      if (reduceSys() || batCritical() || desk.thermal === "critical") lv = "static";
-      else if (lowPower()) lv = "calm";
-    } else if (pref === "calm") lv = "calm";
-    if (gov >= 3) lv = "static"; else if (gov >= 2) lv = worse(lv, "calm");
-    return lv;
-  }
+  // Reduced motion in Auto: only for a low battery (under 20% and not charging, or the phone's Low Power Mode)
+  const lowPower = () => batLow() || nativeLow;
+  function level(){ return pref === "off" ? "static" : "full"; }
   const live = () => level() !== "static" && !blurred && !idle && !covered && !desk.locked && !document.hidden;
-  // Full motion aims for 60 frames a second (the 14 leaves room for timing jitter, and a 120 Hz screen still lands on 60).
-  // If the device struggles, the quality governor steps down: 30 frames a second, then slow and gentle, then still.
-  const frameMs = () => level() === "calm" ? 66 : gov >= 1 ? 31 : 14;
-  const dprScale = () => gov >= 2 ? 0.5 : level() === "calm" ? 0.7 : gov >= 1 ? 0.8 : 1;
+  // Scenes draw on every screen refresh: 60 on most phones, 120 on ProMotion iPhones and high-refresh Android (the 4 ms floor only ignores duplicate callbacks).
+  const frameMs = () => 4;
+  const dprScale = () => 1;
   const noParticles = () => level() !== "full";
   const pauseWhy = () => document.hidden ? "the tab is hidden" : blurred ? "the window isn't in front" : idle ? "no activity for a few minutes" : covered ? "a full-screen sheet is open" : "";
   function why(){
     const r = [];
     if (reduceSys()) r.push("your device's Reduce Motion is on");
     if (batLow()) r.push("battery is low");
-    if (saveData) r.push("Data Saver is on");
-    if (mqData && mqData.matches) r.push("reduced data is requested");
-    if (thermal()) r.push("the device is running hot");
     if (nativeLow) r.push("Low Power Mode is on");
     return r.join(", ");
   }
   function statusText(){
     const lv = level(), p = pauseWhy();
-    let s;
-    if (pref === "auto") {
-      const w = why();
-      s = lv === "full" ? "Auto: following your device. Nothing asks for less motion, so scenes play fully."
-        : lv === "calm" ? `Auto: following your device. ${w ? w[0].toUpperCase() + w.slice(1) : "Power saving is on"}, so scenes run slower and gentler.`
-        : `Auto: following your device. ${w ? w[0].toUpperCase() + w.slice(1) : "Motion is limited"}, so scenes are still.`;
-    } else s = pref === "full" ? "Full: scenes always play." : pref === "calm" ? "Reduced: scenes drift slowly at a low frame rate." : "Off: scenes are still, with no confetti.";
-    if (gov > 0 && pref !== "off") s += " Quality was lowered automatically because this device was struggling (until you close the app).";
+    let s = pref === "off" ? "Off: scenes are still, with no confetti." : "On: scenes always play.";
     if (p && lv !== "static") s += ` Paused for now because ${p}.`;
     return s;
   }
@@ -70,19 +52,11 @@
     document.querySelectorAll("[data-anim-status]").forEach(el => { el.textContent = statusText(); });
     try { window.dispatchEvent(new CustomEvent("sb-motion", {detail: {level: lv, live: live(), pref, gov}})); } catch (e) {}
   }
-  const setPref = p => { if (MODES.indexOf(p) < 0) return; pref = p; ls(KEY, p === "auto" ? null : p); if (p !== "auto" || gov) { gov = 0; ss("studyboard:animGov", "0"); } emit(true); };
+  const setPref = p => { if (MODES.indexOf(p) < 0) return; pref = p; ls(KEY, p === "full" ? null : p); emit(true); };
 
-  // Quality governor
-  let win = {n: 0, cost: 0, t0: 0, last: 0}, badRuns = 0;
-  function frameCost(ms, ts){
-    if (!win.t0 || ts - win.last > 600) { win = {n: 0, cost: 0, t0: ts, last: ts}; badRuns = 0; }
-    win.n++; win.cost += ms; win.last = ts;
-    if (ts - win.t0 < 3000 || win.n < 20) return;
-    const avg = win.cost / win.n, interval = (ts - win.t0) / win.n, budget = frameMs();
-    win = {n: 0, cost: 0, t0: ts, last: ts};
-    if (avg > budget * 0.6 || interval > budget * 1.7) badRuns++; else badRuns = 0;
-    if (badRuns >= 2 && gov < 3 && pref !== "off") { gov++; badRuns = 0; ss("studyboard:animGov", String(gov)); emit(true); }
-  }
+  // (No automatic quality lowering: the picture stays as it is. These stay so the scenes can still report their frames.)
+  function warm(){}
+  function frameCost(){}
 
   // Signals
   try { if (navigator.getBattery) navigator.getBattery().then(b => { battery = b; const u = () => emit(true); ["levelchange", "chargingchange"].forEach(ev => b.addEventListener(ev, u)); u(); }).catch(() => {}); } catch (e) {}
@@ -124,7 +98,7 @@
   // A native shell that knows more (iOS Low Power Mode is not visible to web pages) can say so
   let nativeLow = false;
   const setPower = o => { nativeLow = !!(o && o.lowPower); if (o && o.thermal) desk.thermal = String(o.thermal); emit(true); };
-  window.SBMotion = {level, live, frameMs, dprScale, noParticles, frameCost, flash, pref: () => pref, setPref, setPower, status: statusText, gov: () => gov, why: pauseWhy};
+  window.SBMotion = {level, live, frameMs, dprScale, noParticles, frameCost, warm, flash, pref: () => pref, setPref, setPower, status: statusText, gov: () => gov, why: pauseWhy};
   emit(true);
 
   /* ================= Text size and contrast ================= */
@@ -199,7 +173,7 @@
   const seg = (act, items, cur, label) => `<div class="segb" role="group" aria-label="${esc(label)}">${items.map(([k, l]) => `<button type="button" data-act="${act}" data-id="${k}" aria-pressed="${cur === k}">${esc(l)}</button>`).join("")}</div>`;
   hook("menu", () => {
     const tzr = homeZone(), cur = deviceZone(), differs = SBTZ_CORE.zoneChanged(tzr, cur);
-    return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Animations<span class="sub" data-anim-status>${esc(statusText())}</span><span class="sub">Auto follows your device's Reduce Motion setting and its power state. Reduced keeps scenes slow and calm. Off shows still scenery and replaces confetti with a quiet highlight. It also saves battery.</span></span>${seg("anim-mode", [["auto", "Auto"], ["full", "Full"], ["calm", "Reduced"], ["off", "Off"]], pref, "Animations")}</div>
+    return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Animations<span class="sub" data-anim-status>${esc(statusText())}</span><span class="sub">On plays the moving scenery and effects. Off shows still scenery and replaces confetti with a quiet highlight, which also saves battery. Your iPhone's own Low Power Mode slows things down by itself.</span></span>${seg("anim-mode", [["full", "On"], ["off", "Off"]], pref, "Animations")}</div>
     <div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Text Size<span class="sub">Makes all text and buttons bigger or smaller. Default follows your device's text size.</span></span>${seg("text-size", TS, tsNow(), "Text size")}</div>
     <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">High Contrast and Calm Backgrounds<span class="sub">Dims and blurs theme scenery and makes cards and text stronger. Turns on by itself if your device asks for more contrast.</span></span><label class="anim-tog"><input type="checkbox" data-act="a11y-contrast" ${hcPref() ? "checked" : ""}> On</label></div>
     <div class="cap-row sb-wide" data-group="app"><span style="flex:1;font-weight:600;min-width:12rem">Time Zone<span class="sub">Due dates and times stay as you set them when you travel or the clocks change. Home zone for school sites: <b>${esc(tzr || cur || "this device")}</b>.${differs ? ` This device is on ${esc(cur)} now.` : ""}</span></span>${differs ? `<button type="button" class="btn small" data-act="tz-shift">Use ${esc(city(cur))}</button>` : ""}</div>`;

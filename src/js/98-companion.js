@@ -306,7 +306,7 @@
 
   /* Conditions */
   const mq = window.matchMedia ? matchMedia("(prefers-reduced-motion: reduce)") : null;
-  const still = () => !!(mq && mq.matches) || (styleCfg() || {}).motion === false || !!(window.SBMotion && SBMotion.level() !== "full");
+  const still = () => (styleCfg() || {}).motion === false || !!(window.SBMotion && SBMotion.level() !== "full");
   const rand = (a, b) => a + Math.random() * (b - a);
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
