@@ -76348,7 +76348,7 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
     document.body.appendChild(probe); const c = getComputedStyle(probe).color; probe.remove();
     if (c && m.getAttribute("content") !== c) m.setAttribute("content", c);
   }
-  // Course pickers on phones: a coloured dot, then just the course code. The phone's own picker can't colour text,
+  // Course pickers: a coloured dot, then just the course code. A dropdown can't colour part of its text,
   // so the dot is the closest coloured circle emoji to the course colour.
   const dotFor = hex => {
     const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "").trim()); if (!m) return "\u26AB";
@@ -76362,7 +76362,7 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
     return h < 12 || h >= 320 ? "\uD83D\uDD34" : h < 38 ? "\uD83D\uDFE0" : h < 70 ? "\uD83D\uDFE1" : h < 170 ? "\uD83D\uDFE2" : h < 255 ? "\uD83D\uDD35" : "\uD83D\uDFE3";
   };
   function courseDots(root){
-    if (!isPhone() || !root || !root.querySelectorAll) return;
+    if (!root || !root.querySelectorAll) return;
     root.querySelectorAll("select option").forEach(o => {
       if (o.dataset.cd) return; o.dataset.cd = "1";
       const c = state.courses && state.courses[o.value]; if (!c) return;
