@@ -6497,6 +6497,22 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
 @media (max-width:639px){
   .plan-row > .plan-side{gap:10px}
 }
+
+/* Today's plan on phones: a timeline of the day above Do This Next */
+.dtl{display:none}
+@media (max-width:639px){
+  .dtl{display:block;margin:0 0 12px}
+  .dtl-track{position:relative;height:38px;border-radius:12px;background:color-mix(in srgb,var(--soft) 70%,var(--surface));border:1px solid var(--line);overflow:hidden}
+  .dtl-free{position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--accent) 20%,transparent)}
+  .dtl-blk{position:absolute;top:4px;bottom:4px;min-width:6px;padding:0 6px;border:0;border-radius:8px;background:var(--c,var(--accent));color:#fff;font:700 .7rem/1 var(--display);text-align:left;white-space:nowrap;overflow:hidden;cursor:pointer;box-shadow:0 0 0 1px var(--surface);opacity:.82}
+  .dtl-blk span{display:block;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+  .dtl-blk.next{opacity:1;box-shadow:0 0 0 1px var(--surface),0 0 0 3px color-mix(in srgb,var(--c,var(--accent)) 55%,transparent)}
+  .dtl-blk.on{opacity:1}
+  .dtl-now{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--late);pointer-events:none;z-index:1}
+  .dtl-ticks{position:relative;height:16px;margin-top:3px;font:600 .66rem/16px var(--display);color:var(--muted)}
+  .dtl-ticks span{position:absolute;transform:translateX(-50%)}
+  .dtl-ticks span:first-child{transform:none}
+}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
