@@ -5,6 +5,13 @@ const POMO_DEF = {focus: 25, short: 5, long: 15, every: 4, autoBreak: true, auto
 const POMO_LS = "studioso:pomo";
 const MODE_LABEL = {focus: "Focus", short: "Short Break", long: "Long Break"};
 const TOMATO = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 7.2c-4.6 0-8 2.9-8 6.7C4 17.8 7.6 21 12 21s8-3.2 8-7.1c0-3.8-3.4-6.7-8-6.7z" fill="currentColor"/><path d="M12 7.5V4.2M12 6.6c-1.4-1.6-3.4-1.9-4.8-1.3 1.2.4 2.4 1.3 3 2.6M12 6.6c1.4-1.6 3.4-1.9 4.8-1.3-1.2.4-2.4 1.3-3 2.6" fill="none" stroke="var(--leaf,#1E9E74)" stroke-width="1.8" stroke-linecap="round"/></svg>';
+// Minutes for a focus session on a task: the timer length you chose, cut short only when that would
+// run past the time the plan gives this task today (so the session ends as that work is done)
+function focusMinsFor(taskId){
+  const d = Math.round(Number(pomoCfg().focus) || 25), x = FOCUS && FOCUS.info && taskId ? FOCUS.info[taskId] : null;
+  const a = x && x.alloc > 0 ? Math.round(x.alloc * 60 / 5) * 5 : 0;
+  return a >= 5 && a < d ? a : d;
+}
 const pomoCfg = () => Object.assign({}, POMO_DEF, (state.settings && state.settings.pomo) || {});
 function pomoLoad(){
   const base = {mode: "focus", running: false, endAt: 0, left: 0, cycle: 0, taskId: "", day: "", sessions: 0, minutes: 0};
@@ -287,7 +294,7 @@ function pomoAction(act, el){
     case "pomo-test": { const cfg = pomoCfg(); if (!playAlarm($("#psSound") ? $("#psSound").value : cfg.sound, $("#psVol") ? Number($("#psVol").value) : cfg.volume, 1)) toast("Sound isn't available in this browser"); return true; }
     case "pomo-task": { const tk = state.tasks[el.dataset.id]; if (tk && !canDoNow(tk) && !el.dataset.study) { toast(`“${tk.title}” is taken in person, so it can't be started as a focus session. Start one of its study sessions instead.`); return true; } } if (ui.nextShown && ui.nextShown === el.dataset.id) { nufbAdd("accept", state.tasks[el.dataset.id]); ui.nextShown = null; } if (dlg.open) dlg.close(); const prevTask = pomo.taskId; openPomo(el.dataset.id);
       // A new session starts at the length asked for (or the default for a different task), never from an older paused one
-      { const m = Math.round(Number(el.dataset.mins)), ok = m >= 5 && m <= 180; if (!pomo.running) { if (ok) { pomo.mode = "focus"; pomo.left = 0; pomo.preset = m; pomoSave(); renderPomo(); } else if (prevTask !== el.dataset.id && pomo.mode === "focus") { pomo.left = 0; pomo.preset = 0; pomoSave(); renderPomo(); } } }
+      { let m = Math.round(Number(el.dataset.mins)); if (!(m >= 5 && m <= 180) && !el.dataset.study && el.dataset.id) m = focusMinsFor(el.dataset.id); const ok = m >= 5 && m <= 180; if (!pomo.running) { if (ok) { pomo.mode = "focus"; pomo.left = 0; pomo.preset = m; pomoSave(); renderPomo(); } else if (prevTask !== el.dataset.id && pomo.mode === "focus") { pomo.left = 0; pomo.preset = 0; pomoSave(); renderPomo(); } } }
       if (!pomo.running) pomoStart(); return true;
   }
   return false;

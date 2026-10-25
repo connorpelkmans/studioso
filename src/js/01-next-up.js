@@ -170,7 +170,9 @@ function nextUp(F){
   ui.nextShown = pick.x.t.id;
   const cl = (pick.x.t.checklist || []).find(i => !i.done);
   const step = aiPick && aiPick.step ? {text: aiPick.step} : cl;
-  let mins = aiPick && aiPick.min ? Math.round(aiPick.min / 5) * 5 : Math.max(focusLen, Math.min(focusLen * 2, Math.round(pick.sessionH * 60 / 5) * 5));
+  // Your chosen timer length, shortened only when this task's time today is less than that
+  const cap = aiPick && aiPick.min ? Math.round(aiPick.min / 5) * 5 : pick.x.alloc > 0 ? Math.round(pick.x.alloc * 60 / 5) * 5 : 0;
+  let mins = cap >= 5 && cap < focusLen ? cap : focusLen;
   if (gapMin != null && gapMin >= 15) mins = Math.max(10, Math.min(mins, Math.floor((gapMin - 5) / 5) * 5));
   const why = (aiPick && aiPick.why ? [aiPick.why] : pick.why.concat(pick.x.reasons)).filter((r, i, a) => a.indexOf(r) === i && !(r === "Due today" && a.some(y => /^Due at .* today$/.test(y)))).slice(0, aiPick ? 1 : 3);
   return (exm ? null : nextUpStudy(F, pick, pool, focusLen)) || {x: pick.x, why, step, mins, left: pool.length - 1, ai: !!aiPick};
