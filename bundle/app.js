@@ -76780,12 +76780,14 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
       if (reduceSys() || batCritical() || desk.thermal === "critical") lv = "static";
       else if (lowPower()) lv = "calm";
     } else if (pref === "calm") lv = "calm";
-    if (gov >= 3) lv = "static"; else if (gov >= 1) lv = worse(lv, "calm");
+    if (gov >= 3) lv = "static"; else if (gov >= 2) lv = worse(lv, "calm");
     return lv;
   }
   const live = () => level() !== "static" && !blurred && !idle && !covered && !desk.locked && !document.hidden;
-  const frameMs = () => level() === "calm" ? 66 : 31;
-  const dprScale = () => gov >= 2 ? 0.5 : level() === "calm" ? 0.7 : 1;
+  // Full motion aims for 60 frames a second (the 14 leaves room for timing jitter, and a 120 Hz screen still lands on 60).
+  // If the device struggles, the quality governor steps down: 30 frames a second, then slow and gentle, then still.
+  const frameMs = () => level() === "calm" ? 66 : gov >= 1 ? 31 : 14;
+  const dprScale = () => gov >= 2 ? 0.5 : level() === "calm" ? 0.7 : gov >= 1 ? 0.8 : 1;
   const noParticles = () => level() !== "full";
   const pauseWhy = () => document.hidden ? "the tab is hidden" : blurred ? "the window isn't in front" : idle ? "no activity for a few minutes" : covered ? "a full-screen sheet is open" : "";
   function why(){
@@ -76829,7 +76831,7 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
     if (ts - win.t0 < 3000 || win.n < 20) return;
     const avg = win.cost / win.n, interval = (ts - win.t0) / win.n, budget = frameMs();
     win = {n: 0, cost: 0, t0: ts, last: ts};
-    if (avg > budget * 0.45 || interval > budget * 1.8) badRuns++; else badRuns = 0;
+    if (avg > budget * 0.6 || interval > budget * 1.7) badRuns++; else badRuns = 0;
     if (badRuns >= 2 && gov < 3 && pref !== "off") { gov++; badRuns = 0; ss("studyboard:animGov", String(gov)); emit(true); }
   }
 
