@@ -5129,6 +5129,8 @@ html[data-hc="1"]{--muted:color-mix(in srgb,var(--ink) 82%,var(--bg));--line:col
 html[data-hc="1"] .card,html[data-hc="1"] .task,html[data-hc="1"] header.top,html[data-hc="1"] nav.tabs,html[data-hc="1"] .sheet{background-color:var(--surface)!important;opacity:1}
 /* Text that sits straight on theme artwork gets a soft plate in the page colour */
 html.sc-on :is(.board-sec-head > h2,.board-ctl .mini,.hint-line,.tl-controls > h2,.view-head > h2,.fcrumb,.sec > .t,.sec > .n,.term-bar,.nudge,header.top .today){background:color-mix(in srgb,var(--paper) var(--scrim,92%),transparent);-webkit-box-decoration-break:clone;box-decoration-break:clone;border-radius:8px;padding-inline:.5rem;text-shadow:0 0 6px var(--paper)}
+/* Day headings ("Due Sunday...") sit straight on the scene, with just the soft glow */
+html.sc-on :is(.sec > .t,.sec > .n){background:none;padding-inline:0;border-radius:0}
 html[data-hc="1"].sc-on{--scrim:96%}
 /* Big text: the header may wrap instead of overlapping, tap targets grow with the text */
 .top-row{flex-wrap:wrap;row-gap:6px}
