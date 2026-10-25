@@ -260,3 +260,6 @@
   #view > .pview-tabs + .gp > .view-head > .btn{margin-block:0!important}
   #view > .pview-tabs + .gp > .view-head + *{margin-top:0!important}
 }
+
+/* Task board cards: no link-out button on phones */
+@media (max-width:639px){.card-foot .lms-go{display:none}}
