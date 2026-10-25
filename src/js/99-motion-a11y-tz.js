@@ -462,19 +462,13 @@
   });
 })();
 
-/* Phones: frosted header once the page scrolls */
+/* Phones: the add button steps aside when it would cover the quick-add bar (the header looks the same at any scroll) */
 (() => {
   const PHONE = window.matchMedia ? matchMedia("(max-width:639px)") : {matches: false};
   let raf = 0;
   function check(){
     raf = 0;
     const b = document.body; if (!b) return;
-    // Two thresholds so the header can't flip back and forth at the edge
-    const was = b.classList.contains("sb-scrolled"), y0 = window.scrollY;
-    const on = PHONE.matches && (was ? y0 > 2 : y0 > 12);
-    if (on !== was) { if (on) section(); morph(() => b.classList.toggle("sb-scrolled", on), on); }
-    keep();
-    if (on) section();
     let y = false;
     const fab = PHONE.matches && document.getElementById("fab"), qa = fab && document.querySelector("#view .qa-bar");
     if (qa && fab.style.display !== "none") {
@@ -483,50 +477,11 @@
     }
     b.classList.toggle("fab-yield", !!y);
   }
-  // Big and small header: everything glides from where it was (one animation on transforms, so it never stutters)
-  const RM = window.matchMedia ? matchMedia("(prefers-reduced-motion: reduce)") : {matches: false};
-  function morph(flip, on){
-    const h = document.querySelector("header.top");
-    if (!h || RM.matches || !h.animate || !PHONE.matches) { flip(); return; }
-    const q = sel => h.querySelector(sel), logo = q(".brand img.logo"), date = q("#todayLabel"), sec = q(".top-sec"), acts = q(".head-actions");
-    h.getAnimations({subtree: true}).forEach(a => a.finish());
-    const r = el => el && el.getBoundingClientRect(), h0 = h.getBoundingClientRect().height, L0 = r(logo), D0 = r(date), A0 = r(acts);
-    flip();
-    const h1 = h.getBoundingClientRect().height, L1 = r(logo), A1 = r(acts);
-    const o = {duration: 300, easing: "cubic-bezier(.22,.8,.24,1)"};
-    if (h0 && h1 && Math.abs(h0 - h1) > 0.5) h.animate([{height: h0 + "px"}, {height: h1 + "px"}], o);
-    if (L0 && L1 && L1.width) logo.animate([{transformOrigin: "0 0", transform: `translate(${L0.left - L1.left}px,${L0.top - L1.top}px) scale(${L0.width / L1.width})`}, {transformOrigin: "0 0", transform: "none"}], o);
-    if (A0 && A1) acts.animate([{transform: `translateY(${A0.top - A1.top}px)`}, {transform: "none"}], o);
-    if (!on && date && D0) date.animate([{opacity: 0, transform: "translateY(-6px)"}, {opacity: 1, transform: "none"}], Object.assign({}, o, {delay: 60, fill: "backwards"}));
-    if (on && sec) sec.animate([{opacity: 0, transform: "translateX(-8px)"}, {opacity: 1, transform: "none"}], Object.assign({}, o, {delay: 40, fill: "backwards"}));
-  }
-  // The shrinking header keeps its full space in the page, so the scroll spot never jumps
-  let full = 0, ro = null;
-  function keep(){
-    const h = document.querySelector("header.top"); if (!h) return;
-    if (!ro && window.ResizeObserver) { ro = new ResizeObserver(keep); ro.observe(h); }
-    const on = document.body.classList.contains("sb-scrolled"), cur = h.offsetHeight;
-    // While growing back, hold the gap until it reaches full size again
-    if (!on && cur >= full) { full = cur; h.style.marginBottom = ""; return; }
-    const gap = full ? Math.max(0, full - cur) : 0;
-    h.style.marginBottom = gap ? gap + "px" : "";
-  }
-  // The page's name next to the small logo
-  function section(){
-    const box = document.querySelector("header.top .top-row > div:first-child"), brand = box && box.querySelector(".brand"); if (!brand) return;
-    let el = box.querySelector(".top-sec");
-    if (!el) { el = document.createElement("span"); el.className = "top-sec"; el.setAttribute("aria-hidden", "true"); brand.after(el); }
-    const pick = document.querySelector("#view > .pview-tabs [aria-selected=true], #view .bview-tabs [aria-selected=true]") || document.querySelector("nav.tabs [aria-current=page]");
-    const name = pick && pick.cloneNode(true); if (name) name.querySelectorAll(".grp-dot,.fc-navdue,.nm-dot,.grp-new").forEach(x => x.remove());
-    const t = name ? name.textContent.replace(/\s+/g, " ").trim() : "";
-    if (el.textContent !== t) el.textContent = t;
-  }
   const soon = () => { if (!raf) raf = requestAnimationFrame(check); };
   window.addEventListener("scroll", soon, {passive: true});
   window.addEventListener("resize", soon);
   if (PHONE.addEventListener) PHONE.addEventListener("change", soon);
-  // A new page may have a shorter header: measure it again
-  hook("render", () => { if (!document.body.classList.contains("sb-scrolled")) full = 0; soon(); });
+  hook("render", soon);
 })();
 // Placeholder text
 function phPh(long, short){
