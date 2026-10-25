@@ -422,7 +422,6 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
   .room-float small{background:color-mix(in srgb,var(--surface) 84%,transparent)}
   .nb-zoom,.nb-target,.board-max-btn{background:color-mix(in srgb,var(--surface) 86%,transparent)}
   .nb-main .nb-target{background:color-mix(in srgb,var(--surface) 86%,transparent)!important}
-  html:not(.ph-on) nav.tabs::before{opacity:.88}
 }
 
 /* Phones with an animated theme: nothing blurs the moving scene behind it (a live blur has to be redone every frame) */
