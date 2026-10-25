@@ -32656,7 +32656,6 @@ body:has(#dlg[open]) #lmsRelog{display:none}
       const recent = all.slice(0, 3);
       const older = all.slice(3);
       panel = `<ul class="ann-list">${recent.map(n => row(n, true)).join("")}</ul>
-        ${groups.length ? `<h3 class="ann-course" style="margin-top:14px">Browse by class</h3><div class="ann-browse">${groups.map(g => `<button type="button" class="ann-chip btn-chip" style="--c:${esc(g.color)}" data-act="ann-tab" data-ann="${esc(g.k)}"${g.full && g.full !== g.name ? ` title="${esc(g.full)}"` : ""}><span class="sd"></span>${esc(g.name)}<span class="n">${g.list.length}${g.un ? ` · ${g.un} new` : ""}</span></button>`).join("")}</div>` : ""}
         ${older.length ? `<details class="ann-rest"${restOpen ? " open" : ""}><summary>Older announcements<span class="ann-rest-n">${older.length}</span></summary><ul class="ann-list">${older.map(n => row(n, true)).join("")}</ul></details>` : ""}`;
     } else {
       panel = `<h3 class="ann-course" style="--c:${esc(cur.color)}"><span class="sd"></span>${esc(cur.name)}${cur.full && cur.full !== cur.name ? ` <span class="mini">${esc(cur.full)}</span>` : ""}<span class="n">${cur.list.length} announcement${cur.list.length === 1 ? "" : "s"}${cur.un ? `, ${cur.un} new` : ""}</span></h3>
