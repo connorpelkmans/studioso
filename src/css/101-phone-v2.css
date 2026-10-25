@@ -249,3 +249,11 @@
 @media (max-width:639px){dialog:is(:has(.sheet.shop),:has(.sheet.mt-sheet),:has(.plan-sheet),:has(.sheet.ob),:has(.ph-sheet)){width:100%}}
 /* Courses: the school site button on the left, Insights and the bin on the right */
 @media (max-width:639px){#view .view-head > h2 + .btn[data-act$="-open"]{margin-right:auto}}
+
+/* One rhythm on every tab: tab bar, 12px, the page's buttons, 14px, the content */
+@media (max-width:639px){
+  #view > .pview-tabs{margin-bottom:12px}
+  #view > .pview-tabs + .gp > .view-head{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:0 0 2px!important;padding:0!important;min-height:0}
+  #view > .pview-tabs + .gp > .view-head > .btn{margin-block:0!important}
+  #view > .pview-tabs + .gp > .view-head + *{margin-top:0!important}
+}
