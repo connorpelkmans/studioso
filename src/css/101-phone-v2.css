@@ -263,3 +263,12 @@
 
 /* Task board cards: no link-out button on phones */
 @media (max-width:639px){.card-foot .lms-go{display:none}}
+
+/* Do This Next: reasons and next step behind a Details toggle on phones */
+.nu-more{display:none}
+@media (max-width:639px){
+  .next-up .nu-more{display:inline-flex;align-items:center;gap:4px;justify-self:start;border:0;background:none;padding:2px 0;color:var(--muted);font:700 .78rem var(--display);cursor:pointer}
+  .next-up .nu-more svg{transition:transform .2s}
+  .next-up.nu-open .nu-more svg{transform:rotate(180deg)}
+  .next-up:not(.nu-open) :is(.nu-why,.nu-step){display:none}
+}

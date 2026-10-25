@@ -3868,6 +3868,8 @@ html.tpcss-loading [class*="cs-tp-"] .face *{visibility:hidden}
 .ui-shop .ui-sec.ui-held > .ui-sec-b,.ui-shop .ui-col.ui-held{display:none}
 .ui-cols-more{margin-top:0!important}
 .ui-shop .sheet-body{background:var(--surface)}
+
+
 /* Phone: keep the extras above the themes small so the previews come first */
 @media (max-width:600px){
   .ui-shop .shop-mode{gap:6px 10px;align-items:center}
@@ -3882,8 +3884,6 @@ html.tpcss-loading [class*="cs-tp-"] .face *{visibility:hidden}
   .ui-shop .ph-grid .ph-add .mini{display:none}
   .ui-shop .ph-grid .ph-add.full .mini,.ui-shop .ph-grid .ph-add.locked .mini{display:block;max-width:none}
 }
-
-
 /* ===== module: 97-ui.css ===== */
 /* ===== 97-ui: Settings in categories ===== */
 .us-sheet .us-back{display:none}
@@ -6464,6 +6464,15 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
 
 /* Task board cards: no link-out button on phones */
 @media (max-width:639px){.card-foot .lms-go{display:none}}
+
+/* Do This Next: reasons and next step behind a Details toggle on phones */
+.nu-more{display:none}
+@media (max-width:639px){
+  .next-up .nu-more{display:inline-flex;align-items:center;gap:4px;justify-self:start;border:0;background:none;padding:2px 0;color:var(--muted);font:700 .78rem var(--display);cursor:pointer}
+  .next-up .nu-more svg{transition:transform .2s}
+  .next-up.nu-open .nu-more svg{transform:rotate(180deg)}
+  .next-up:not(.nu-open) :is(.nu-why,.nu-step){display:none}
+}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */

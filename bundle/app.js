@@ -4471,27 +4471,31 @@ function headsHtml(){
   return `<div class="plan-heads" role="note"><span class="ph-label">Heads Up</span><ul>${list.map(h => `<li><span>${esc(h.text)}</span>${h.id ? `<button class="link-btn" data-act="edit-task" data-id="${esc(h.id)}">Open</button>` : ""}<button class="icon-btn sm ph-x" data-act="heads-hide" data-id="${esc(headKey(h))}" aria-label="Dismiss">${CLOSE}</button></li>`).join("")}</ul></div>`;
 }
 const nuBackBtn = () => ui.skipNext && ui.skipNext.day === todayISO() && ui.skipNext.ids.length ? `<button class="btn small" data-act="nu-back" title="Back to the suggestion before this one">Go Back</button>` : "";
+// On phones the reasons and next step sit behind a Details toggle so the card stays short
+const NU_CHEV = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+const nuOpenCls = () => ui.nuMore ? " nu-open" : "";
+const nuMoreBtn = () => `<button type="button" class="nu-more" data-act="nu-more" aria-expanded="${!!ui.nuMore}">Details${NU_CHEV}</button>`;
 function nextUpHtml(F, pre){
   const n = arguments.length > 1 ? pre : nextUp(F); if (!n) return "";
   const t = n.x.t, c = courseOf(t.courseId);
-  if (n.study) return `<div class="next-up nu-nochk" style="--c:${esc(colorOf(t.courseId))}">
+  if (n.study) return `<div class="next-up nu-nochk${nuOpenCls()}" style="--c:${esc(colorOf(t.courseId))}">
     <div class="nu-top"><span class="nu-label">Do This Next</span></div>
     <div class="nu-row">
       <div class="nu-body">
         <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">${nuRing(t)}Study for ${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>
-        <span class="nu-why">${n.why.map(r => `<span class="nu-chip${/tomorrow/.test(r) ? " soon" : ""}">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}</span>
+        ${nuMoreBtn()}<span class="nu-why">${n.why.map(r => `<span class="nu-chip${/tomorrow/.test(r) ? " soon" : ""}">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}</span>
         <span class="nu-step">${n.hasPlan ? "Review your weakest topics or flashcards for it." : "Review now, or let Plan My Prep spread short sessions over the days before it."}</span>
       </div>
       <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-study="1" data-id="${esc(t.id)}" data-mins="${n.mins}">${TOMATO}Study for ${n.mins}m</button>${n.hasPlan ? "" : `<button class="btn small" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button>`}<button class="btn small" data-act="nu-skip" data-id="study:${esc(t.id)}">Something Else</button>${nuBackBtn()}</div>
     </div>
   </div>`;
-  return `<div class="next-up" style="--c:${esc(colorOf(t.courseId))}">
+  return `<div class="next-up${nuOpenCls()}" style="--c:${esc(colorOf(t.courseId))}">
     <div class="nu-top"><span class="nu-label">Do This Next${n.ai ? ` <span class="nu-who">${AI_ICON} ${aiWho() ? esc(aiWho()) + "'s pick" : "AI pick"}</span>` : ""}</span>${n.x.alloc > 0 ? `<span class="nu-alloc" title="Suggested time today">${fmtHM(n.x.alloc)} today</span>` : ""}</div>
     <div class="nu-row">
       ${t.gt ? `<span class="check gt-dot" aria-hidden="true"></span>` : `<button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>`}
       <div class="nu-body">
         <button class="nu-title" ${gtOpenAttrs(t)}>${nuRing(t)}${esc(t.title)}${t.gt ? ` <span class="tag gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}${MILESTONE(t.type) ? ` <span class="tag rx-tag" title="${esc(remoteOf(t).why || "Can be taken from home")}">Take-home</span>` : ""}</button>
-        <span class="nu-why">${n.why.map(r => r.length <= 28 ? `<span class="nu-chip${/^Overdue/.test(r) ? " late" : /^Due (today|at)/.test(r) ? " soon" : ""}">${esc(r)}</span>` : `<span class="nu-note">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}${(sl => sl && sl.length ? `<span class="nu-chip nu-slot" title="${esc(availSlotText(sl))} in your free time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>${sl.map(x => esc(availMin(x.s))).join(" · ")}<span class="pt-sr"> in your free time</span></span>` : "")(F.slotsBy ? F.slotsBy[t.id] : null)}</span>
+        ${nuMoreBtn()}<span class="nu-why">${n.why.map(r => r.length <= 28 ? `<span class="nu-chip${/^Overdue/.test(r) ? " late" : /^Due (today|at)/.test(r) ? " soon" : ""}">${esc(r)}</span>` : `<span class="nu-note">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}${(sl => sl && sl.length ? `<span class="nu-chip nu-slot" title="${esc(availSlotText(sl))} in your free time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>${sl.map(x => esc(availMin(x.s))).join(" · ")}<span class="pt-sr"> in your free time</span></span>` : "")(F.slotsBy ? F.slotsBy[t.id] : null)}</span>
         ${n.step ? `<span class="nu-step">Next step: ${esc(n.step.text)}</span>` : ""}
       </div>
       ${lmsGoBtn(t)}
@@ -4507,12 +4511,12 @@ function nextUpSpare(F, inView){
   const ex = Object.values(F.info || {}).filter(x => x.fixed && inView(x) && x.t.status !== "done" && x.dl >= 1 && x.dl <= 14 && !planSessions(x.t.id).length).sort((a, b) => dueDate(a.t) - dueDate(b.t))[0];
   if (ex) {
     const t = ex.t, c = courseOf(t.courseId);
-    return `<div class="next-up nu-nochk" style="--c:${esc(colorOf(t.courseId))}">
+    return `<div class="next-up nu-nochk${nuOpenCls()}" style="--c:${esc(colorOf(t.courseId))}">
     <div class="nu-top"><span class="nu-label">Do This Next</span></div>
     <div class="nu-row">
       <div class="nu-body">
         <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">Study for ${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>
-        <span class="nu-why">${esc(`${t.type} ${ex.dl === 1 ? "tomorrow" : "in " + ex.dl + " days"}${t.time ? " at " + fmtTime(t.time) : ""}`)} · No study sessions planned yet</span>
+        ${nuMoreBtn()}<span class="nu-why">${esc(`${t.type} ${ex.dl === 1 ? "tomorrow" : "in " + ex.dl + " days"}${t.time ? " at " + fmtTime(t.time) : ""}`)} · No study sessions planned yet</span>
         <span class="nu-step">Plan My Prep spreads short review sessions over the days before it, and they show up here.</span>
       </div>
       <div class="nu-acts"><button class="btn primary small" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button></div>
@@ -4524,13 +4528,13 @@ function nextUpSpare(F, inView){
     .sort((a, b) => (b.status === "doing") - (a.status === "doing") || (p[a.priority] ?? 2) - (p[b.priority] ?? 2) || (a.created || 0) - (b.created || 0))[0];
   if (!t) return "";
   const c = courseOf(t.courseId), cl = (t.checklist || []).find(i => !i.done), mins = Number(pomoCfg().focus) || 25;
-  return `<div class="next-up" style="--c:${esc(colorOf(t.courseId))}">
+  return `<div class="next-up${nuOpenCls()}" style="--c:${esc(colorOf(t.courseId))}">
     <div class="nu-top"><span class="nu-label">Do This Next</span></div>
     <div class="nu-row">
       <button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>
       <div class="nu-body">
         <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">${nuRing(t)}${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>
-        <span class="nu-why">${t.status === "doing" ? "Already in progress · " : ""}Nothing has a due date yet, so this is a good place to start. Add a due date to plan it properly.</span>
+        ${nuMoreBtn()}<span class="nu-why">${t.status === "doing" ? "Already in progress · " : ""}Nothing has a due date yet, so this is a good place to start. Add a due date to plan it properly.</span>
         ${cl ? `<span class="nu-step">Next step: ${esc(cl.text)}</span>` : ""}
       </div>
       ${lmsGoBtn(t)}
@@ -7333,6 +7337,7 @@ const AI_ACTS = {
   "qa-rm": el => { if (ui.qa) { ui.qa.items.splice(Number(el.dataset.i), 1); if (!ui.qa.items.length) ui.qa = null; render(); } },
   "tf-est": el => tfEstimate(el),
   "nu-skip": el => { if (ui.skipNext) ui.skipNext.ids.push(el.dataset.id); if (!/^study:/.test(el.dataset.id)) nufbAdd("skip", state.tasks[el.dataset.id]); render(); },
+  "nu-more": el => { ui.nuMore = !ui.nuMore; const c = el.closest(".next-up"); if (c) c.classList.toggle("nu-open", ui.nuMore); el.setAttribute("aria-expanded", String(!!ui.nuMore)); },
   "nu-back": () => { const id = ui.skipNext && ui.skipNext.ids.pop(); if (id && !/^study:/.test(id)) nufbDrop("skip", id); render(); },
   "heads-hide": el => { let h = {}; try { h = JSON.parse(localStorage.getItem(HEADS_HIDE) || "{}") || {}; } catch(e) {} Object.keys(h).forEach(k => { if (Date.now() - h[k] > 8 * 864e5 || h[k] === 1) delete h[k]; }); h[el.dataset.id] = Date.now(); try { localStorage.setItem(HEADS_HIDE, JSON.stringify(h)); } catch(e) {} render(); },
   "ai-explain": el => runExplain(el.dataset.key, el.dataset.given),
