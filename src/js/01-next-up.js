@@ -127,7 +127,7 @@ const dayStartMs = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return 
 const workedToday = t => { const ds = dayStartMs(); return (t.history || []).reduce((m, h) => { const mm = /^(?:Focus session|Logged time):? (\d+)m/.exec(h.text || ""); return mm && h.at >= ds ? m + Number(mm[1]) : m; }, 0); };
 const markedEnough = t => { const ds = dayStartMs(); return (t.history || []).some(h => h.text === "Enough for today" && h.at >= ds); };
 const enoughToday = (t, x) => {
-  if (!t) return false; if (markedEnough(t)) return true;
+  if (!t) return false; if ((x && x.enough) || markedEnough(t)) return true;
   const target = x && x.alloc > 0 ? Math.max(10, Math.round(x.alloc * 60)) : 0;
   return target > 0 && workedToday(t) >= target;
 };
