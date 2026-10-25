@@ -310,3 +310,9 @@
   .dtl-ticks span{position:absolute;transform:translateX(-50%)}
   .dtl-ticks span:first-child{transform:none}
 }
+
+/* Today's plan rows: the check circle is centred against all of the row's text, not level with its first line */
+@media (max-width:600px){
+  .plan-row,.plan-row:has(.pr-ring){grid-template-areas:"chk main side" "chk why side" "chk slot slot" ". more more"}
+  .plan-row > .check{align-self:center;margin-top:0}
+}
