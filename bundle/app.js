@@ -8159,7 +8159,6 @@ function planGapWhy(F){
   if (F.doneToday >= 0.25) { const d = Math.min(rest, q(F.doneToday)); why.push(tr("plan.gap.done", "{time} of focus is already done today, so it comes off the {set} you set.", {time: fmtHM(d), set: fmtHM(F.thSet)})); rest -= d; }
   if (F.lateCap && rest >= 0.25) { why.push(tr("plan.gap.late", "It's late, so today's plan stops at about 1 am.")); rest = 0; }
   if (F.avail && F.avail.active && F.avail.note) rest = 0;
-  if (rest >= 0.25) why.push(tr("plan.gap.covered", "That covers everything due or ready to start, so the other {time} is free. Tasks that haven't started yet or are waiting on another task aren't counted.", {time: fmtHM(rest)}));
   return why;
 }
 // For tests: the plan as the app sees it right now
