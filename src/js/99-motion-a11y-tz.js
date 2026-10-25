@@ -9,9 +9,10 @@
 
   /* ================= Animations governor ================= */
   const mqReduce = mm("(prefers-reduced-motion: reduce)"), mqData = mm("(prefers-reduced-data: reduce)"), mqPhone = mm("(max-width:719px)"), mqContrast = mm("(prefers-contrast: more)");
-  const MODES = ["auto", "full", "calm", "off"], RANK = {full: 0, calm: 1, static: 2}, KEY = "studyboard:anim";
+  const MODES = ["full", "off"], RANK = {full: 0, calm: 1, static: 2}, KEY = "studyboard:anim";
   const worse = (a, b) => RANK[a] >= RANK[b] ? a : b;
-  let pref = ls(KEY); if (MODES.indexOf(pref) < 0) pref = "auto";
+  // Animations are on (full) or off. Nothing lowers them by itself, and an older Auto or Reduced choice becomes On.
+  let pref = ls(KEY); if (pref !== "off") { if (pref) ls(KEY, null); pref = "full"; }
   let battery = null, saveData = false, desk = {onBattery: false, thermal: "unknown", locked: false};
   let blurred = false, idle = false, covered = false, lastInput = Date.now(), lastSig = "";
   // Nothing lowers the picture on its own any more: Auto is full motion except on a low battery
@@ -23,16 +24,7 @@
   const batCritical = () => !!(battery && battery.charging === false && battery.level < 0.08);
   // Reduced motion in Auto: only for a low battery (under 20% and not charging, or the phone's Low Power Mode)
   const lowPower = () => batLow() || nativeLow;
-  function level(){
-    if (pref === "off") return "static";
-    let lv = "full";
-    if (pref === "auto") {
-      if (reduceSys() || batCritical()) lv = "static";
-      else if (lowPower()) lv = "calm";
-    } else if (pref === "calm") lv = "calm";
-    if (gov >= 3) lv = "static";
-    return lv;
-  }
+  function level(){ return pref === "off" ? "static" : "full"; }
   const live = () => level() !== "static" && !blurred && !idle && !covered && !desk.locked && !document.hidden;
   // Full motion is always 60 frames a second (the 14 leaves room for timing jitter, and a 120 Hz screen still lands on 60).
   const frameMs = () => level() === "calm" ? 66 : 14;
@@ -48,14 +40,7 @@
   }
   function statusText(){
     const lv = level(), p = pauseWhy();
-    let s;
-    if (pref === "auto") {
-      const w = why();
-      s = lv === "full" ? "Auto: following your device. Nothing asks for less motion, so scenes play fully."
-        : lv === "calm" ? `Auto: following your device. ${w ? w[0].toUpperCase() + w.slice(1) : "Power saving is on"}, so scenes run slower and gentler.`
-        : `Auto: following your device. ${w ? w[0].toUpperCase() + w.slice(1) : "Motion is limited"}, so scenes are still.`;
-    } else s = pref === "full" ? "Full: scenes always play." : pref === "calm" ? "Reduced: scenes drift slowly at a low frame rate." : "Off: scenes are still, with no confetti.";
-    if (gov > 0 && pref !== "off") s += " ";
+    let s = pref === "off" ? "Off: scenes are still, with no confetti." : "On: scenes always play.";
     if (p && lv !== "static") s += ` Paused for now because ${p}.`;
     return s;
   }
@@ -67,7 +52,7 @@
     document.querySelectorAll("[data-anim-status]").forEach(el => { el.textContent = statusText(); });
     try { window.dispatchEvent(new CustomEvent("sb-motion", {detail: {level: lv, live: live(), pref, gov}})); } catch (e) {}
   }
-  const setPref = p => { if (MODES.indexOf(p) < 0) return; pref = p; ls(KEY, p === "auto" ? null : p); if (p !== "auto" || gov) { gov = 0; } emit(true); };
+  const setPref = p => { if (MODES.indexOf(p) < 0) return; pref = p; ls(KEY, p === "full" ? null : p); emit(true); };
 
   // (No automatic quality lowering: the picture stays as it is. These stay so the scenes can still report their frames.)
   function warm(){}
@@ -188,7 +173,7 @@
   const seg = (act, items, cur, label) => `<div class="segb" role="group" aria-label="${esc(label)}">${items.map(([k, l]) => `<button type="button" data-act="${act}" data-id="${k}" aria-pressed="${cur === k}">${esc(l)}</button>`).join("")}</div>`;
   hook("menu", () => {
     const tzr = homeZone(), cur = deviceZone(), differs = SBTZ_CORE.zoneChanged(tzr, cur);
-    return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Animations<span class="sub" data-anim-status>${esc(statusText())}</span><span class="sub">Auto follows your device's Reduce Motion setting and its power state. Reduced keeps scenes slow and calm. Off shows still scenery and replaces confetti with a quiet highlight. It also saves battery.</span></span>${seg("anim-mode", [["auto", "Auto"], ["full", "Full"], ["calm", "Reduced"], ["off", "Off"]], pref, "Animations")}</div>
+    return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Animations<span class="sub" data-anim-status>${esc(statusText())}</span><span class="sub">On plays the moving scenery and effects. Off shows still scenery and replaces confetti with a quiet highlight, which also saves battery. Your iPhone's own Low Power Mode slows things down by itself.</span></span>${seg("anim-mode", [["full", "On"], ["off", "Off"]], pref, "Animations")}</div>
     <div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Text Size<span class="sub">Makes all text and buttons bigger or smaller. Default follows your device's text size.</span></span>${seg("text-size", TS, tsNow(), "Text size")}</div>
     <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">High Contrast and Calm Backgrounds<span class="sub">Dims and blurs theme scenery and makes cards and text stronger. Turns on by itself if your device asks for more contrast.</span></span><label class="anim-tog"><input type="checkbox" data-act="a11y-contrast" ${hcPref() ? "checked" : ""}> On</label></div>
     <div class="cap-row sb-wide" data-group="app"><span style="flex:1;font-weight:600;min-width:12rem">Time Zone<span class="sub">Due dates and times stay as you set them when you travel or the clocks change. Home zone for school sites: <b>${esc(tzr || cur || "this device")}</b>.${differs ? ` This device is on ${esc(cur)} now.` : ""}</span></span>${differs ? `<button type="button" class="btn small" data-act="tz-shift">Use ${esc(city(cur))}</button>` : ""}</div>`;

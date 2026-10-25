@@ -132,12 +132,8 @@
   };
 
   /* Conditions */
-  const mqReduce = window.matchMedia ? matchMedia("(prefers-reduced-motion: reduce)") : null;
-  const reduced = () => !!(mqReduce && mqReduce.matches);
-  let lowBattery = false;
-  try { if (navigator.getBattery) navigator.getBattery().then(b => { const u = () => { lowBattery = !b.charging && b.level < 0.2; syncRun(); }; b.addEventListener("levelchange", u); b.addEventListener("chargingchange", u); u(); }).catch(() => {}); } catch (e) {}
   const MO = () => window.SBMotion || null;
-  const liveOK = () => styleCfg().motion !== false && (!lowBattery || !!MO()) && (!reduced() || (!!MO() && MO().pref() === "full")) && (!MO() || MO().live());
+  const liveOK = () => styleCfg().motion !== false && (!MO() || MO().live());
 
   /* The scene on screen */
   let cur = null, raf = 0, rafT = 0, last = 0, T = 0, finUntil = 0, rebuildTimer = 0;
@@ -211,7 +207,7 @@
     const el = document.getElementById("sceneArt"); if (el) el.remove();
   }
 
-  const feel = () => reduced() ? F_GENTLE : F_BAL;
+  const feel = () => F_BAL;
   function drawFrame(){
     const c = cur; if (!c || !c.eng) return;
     if (c.drawn && c.eng.idle && c.eng.idle(T)) return;
@@ -246,7 +242,6 @@
   const origPause = ambientPause;
   ambientPause = function (on) { origPause.apply(this, arguments); popup = !!on; if (!on) syncRun(); };
   document.addEventListener("visibilitychange", () => { if (document.hidden) { stopLoop(); } else syncRun(); });
-  if (mqReduce) (mqReduce.addEventListener ? mqReduce.addEventListener("change", () => { stopLoop(); syncRun(); }) : mqReduce.addListener(syncRun));
   // The Animations governor changed something (mode, power, focus, idle, quality step)
   window.addEventListener("sb-motion", () => {
     stopLoop(); last = 0;
@@ -276,9 +271,8 @@
     if (!hasMoment() || document.hidden || (MO() && MO().level() === "static")) return false;
     const cfg = styleCfg();
     if (!byUser && (cfg.celebrate === false || cfg.motion === false)) return false;
-    const rm = reduced();
     if (!safe(() => cur.eng.finish(T))) return false;
-    finUntil = Math.max(finUntil, performance.now() + (rm ? 2200 : 6000));
+    finUntil = Math.max(finUntil, performance.now() + 6000);
     stopLoop(); syncRun();
     return true;
   }
