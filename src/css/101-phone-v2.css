@@ -350,3 +350,8 @@
   input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and-time-value,input[type=datetime-local]::-webkit-date-and-time-value{text-align:left;min-width:0}
   .two>*{min-width:0}
 }
+
+/* Course sheets: the coloured top band reaches the rounded corners with no pale fringe (the sheet paints its own
+   surface only below the band, so nothing white sits under the curve) */
+dialog:has(> .sheet > .g2-sheet-head){background:transparent}
+.sheet:has(> .g2-sheet-head){background:linear-gradient(var(--surface),var(--surface)) 0 62px/100% calc(100% - 62px) no-repeat}
