@@ -2045,6 +2045,9 @@ dialog:has(.sheet.shop){width:min(960px,calc(100% - 24px))}
 .shop-tile:has(>.btn)>.btn{align-self:center;margin-top:auto}
 .shop-tile:has(>.btn)>.btn~.btn{margin-top:0}
 .shop-tile:has(>.btn)>.btn:first-of-type{margin-top:auto}
+/* Same for tiles whose buttons sit in a row of their own (Collections, Your Photos) */
+.shop-tile.ui-col:not(.open):has(>.ui-col-act),.shop-tile:has(>.ph-acts){display:flex;flex-direction:column}
+.shop-tile.ui-col:not(.open)>.ui-col-act,.shop-tile>.ph-acts{margin-top:auto}
 .shop-tile.on{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent)}
 .shop-tile p{margin:0}
 .shop-tile>.btn{justify-self:start}
