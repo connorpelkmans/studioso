@@ -939,9 +939,14 @@
   let placeT = 0;
   let placeFresh = false;
   let recheckT = [];
+  let placeNow = false;
   const placeSoon = (ms, fresh) => {
-    if (fresh) placeFresh = true; clearTimeout(placeT);
+    if (fresh) placeFresh = true;
+    // A placement asked for at once (a tab change) is never pushed back by a later, slower request
+    if (placeNow) return;
+    clearTimeout(placeT); placeNow = ms === 0;
     placeT = setTimeout(() => {
+      placeNow = false;
       passCacheReset(); const f = placeFresh; placeFresh = false; place(f);
       if (f) { recheckT.forEach(clearTimeout); recheckT = [900, 2200].map(t => setTimeout(() => { if (!travelAnim && !press) { passCacheReset(); place(false); } }, t)); }
     }, ms == null ? 250 : ms);
