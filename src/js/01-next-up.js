@@ -176,7 +176,11 @@ function nextUp(F){
     const leap = scored.slice(0, idx).some(z => z.x.dl >= 0 && z.x.dl <= 3 && z.x.R > 0 && y.x.dl >= z.x.dl + 7 && (y.x.own || 0) < 0.75);
     if (urgent || leap || (idx > 5 && y.s < top.s * 0.6)) aiPick = null;
   }
-  const pick = aiPick ? scored.find(y => y.x.t.id === aiPick.id) : scored[0];
+  // Do This Next is whatever the day's timeline has scheduled now, or next: the two always agree
+  const nowM = hr * 60 + now.getMinutes(), sb = F.slotsBy || {};
+  const planned = scored.map(y => { const l = (sb[y.x.t.id] || []).filter(sl => sl && sl.e > nowM); return {y, at: l.length ? Math.min(...l.map(sl => Math.max(sl.s, nowM))) : null}; }).filter(o => o.at != null).sort((a, b) => a.at - b.at)[0];
+  if (planned && !(aiPick && aiPick.id === planned.y.x.t.id)) aiPick = null;
+  const pick = planned ? planned.y : aiPick ? scored.find(y => y.x.t.id === aiPick.id) : scored[0];
   ui.nextShown = pick.x.t.id;
   const cl = (pick.x.t.checklist || []).find(i => !i.done);
   const step = aiPick && aiPick.step ? {text: aiPick.step} : cl;
