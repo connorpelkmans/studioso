@@ -8182,6 +8182,12 @@ function dayTimelineHtml(F, todayList, heroId){
       const s = toMin(o.start), e = toMin(o.end); if (e > s) items.push({k: "ev", s, e, title: o.title, label: o.label || (o.type === "meet" ? "Class" : "Event"), color: o.color || "var(--accent)", where: o.where || ""});
     });
   } catch (e) {}
+  // Do This Next always has a card: when the plan found it no slot, it starts right now for one session
+  const nowD = new Date(), nowMin = nowD.getHours() * 60 + nowD.getMinutes();
+  if (heroId && !items.some(x => x.k === "tk" && x.t.id === heroId)) {
+    const hx = F && F.info ? F.info[heroId] : null;
+    if (hx && hx.t) items.push({k: "tk", s: nowMin, e: Math.min(1439, nowMin + Math.max(5, focusMinsFor(heroId))), t: hx.t});
+  }
   if (!items.length) return "";
   const taken = items.filter(x => x.k === "tk").map(x => [x.s, x.e]).sort((p, q) => p[0] - q[0]);
   if (a && a.show && a.res) (a.res.windows || []).forEach(w => {
