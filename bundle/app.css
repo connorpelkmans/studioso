@@ -6513,7 +6513,7 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
 .dtl{display:none}
 @media (max-width:639px){
   .dtl{display:block;margin:0 0 12px}
-  .dtl-rail{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none;padding:2px 2px 4px;margin:0 -2px;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+  .dtl-rail{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x proximity;scroll-padding-inline:8px;scrollbar-width:none;padding:4px 8px 6px;margin:0 -8px;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
   .dtl-rail::-webkit-scrollbar{display:none}
   .dtl-c{position:relative;flex:none;width:138px;display:grid;align-content:start;gap:4px;padding:8px 10px 9px;border-radius:12px;text-align:left;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;scroll-snap-align:start}
   button.dtl-c{cursor:pointer}
@@ -6528,25 +6528,35 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   .dtl-c.fr b{font:700 .72rem var(--display);color:var(--ink)}
   .dtl-c.past{opacity:.45}
   .dtl-c.now,.dtl-c.next{box-shadow:0 0 0 2px var(--c,var(--accent))}
-  .dtl-badge{position:absolute;right:8px;top:8px;font:800 .56rem/1 var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--c)}
+  .dtl-t{white-space:nowrap}
+  .dtl-m{display:flex;align-items:center;justify-content:space-between;gap:6px;font:700 .68rem/1.1 var(--display);color:color-mix(in srgb,var(--c) 50%,var(--ink))}
+  .dtl-badge{font:800 .56rem/1 var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--c)}
 }
 
-/* Today's plan rows: the check circle is centred against all of the row's text, not level with its first line */
+/* Today's plan rows: the check circle is centred against the title only */
 @media (max-width:600px){
-  .plan-row,.plan-row:has(.pr-ring){grid-template-areas:"chk main side" "chk why side" "chk slot slot" ". more more"}
+  .plan-row,.plan-row:has(.pr-ring){grid-template-areas:"chk main side" ". why side" ". slot slot" ". more more"}
   .plan-row > .check{align-self:center;margin-top:0}
 }
 
 /* Do This Next on phones: the check sits level with the middle of the text, the course icon moves to the
    top-right corner, and the course code is a colour-coded chip like the rows below it */
 @media (max-width:639px){
-  .next-up .nu-row > .check{align-self:center;top:0;margin:0}
+  .next-up .nu-row{display:grid;grid-template-columns:26px minmax(0,1fr);column-gap:12px;row-gap:3px;align-items:start}
+  .next-up .nu-body{display:contents}
+  .next-up .nu-row > .check{grid-column:1;grid-row:1;align-self:center;top:0;margin:0}
+  .next-up .nu-title{grid-column:2;grid-row:1}
+  .next-up .nu-body > :not(.nu-title){grid-column:2}
+  .next-up .nu-acts{grid-column:1/-1;margin-top:9px}
   .next-up .nu-row > .lms-go{display:none}
   .next-up .nu-title{display:block;padding-right:40px}
   .next-up .nu-title .nu-ic{position:absolute;right:16px;top:12px;width:30px!important;height:30px!important;margin:0;vertical-align:baseline!important}
-  .next-up .nu-title .tag:not(.gt-chip):not(.rx-tag){display:inline-flex;align-items:center;gap:5px;margin-left:6px;padding:3px 8px 3px 7px;border-radius:999px;font:700 .68rem/1 var(--body);letter-spacing:.03em;color:color-mix(in srgb,var(--c) 55%,var(--ink));background:color-mix(in srgb,var(--c) 13%,transparent);border:0;vertical-align:2px;white-space:nowrap}
-  .next-up .nu-title .tag:not(.gt-chip):not(.rx-tag)::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--c);flex:none}
+  .next-up .nu-title .tag:not(.gt-chip):not(.rx-tag){display:none}
+  .next-up .nu-tag-out{display:inline-flex;align-items:center;gap:5px;justify-self:start;margin:2px 0 0;padding:3px 8px 3px 7px;border-radius:999px;font:700 .68rem/1 var(--body);letter-spacing:.03em;color:color-mix(in srgb,var(--c) 55%,var(--ink));background:color-mix(in srgb,var(--c) 13%,transparent);border:0;white-space:nowrap}
+  .next-up .nu-tag-out::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--c);flex:none}
 }
+
+.nu-tag-out{display:none}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
@@ -6679,8 +6689,8 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
 .c2-card .c2-code,.c2-card .c2-mini,.c2-card .c2-when,.c2-card .c2-foot-m{display:none}
 @media (max-width:639px){
   #view .course-list{gap:10px;margin-top:12px}
-  #view .course-card.c2-card{display:grid;grid-template-columns:48px minmax(0,1fr);grid-template-areas:"ring top" "ring body";align-items:center;column-gap:16px;row-gap:2px;min-height:0;padding:12px 14px 12px 14px;border:1px solid var(--line);border-radius:18px!important;background:var(--surface);box-shadow:0 1px 2px rgba(14,42,86,.06);overflow:hidden;position:relative;text-align:left}
-  #view .c2-card .c2-band{position:absolute;inset:0 auto 0 0;width:18px;height:auto;padding:0;border-radius:0;background:var(--c)!important}
+  #view .course-card.c2-card{display:grid;grid-template-columns:48px minmax(0,1fr);grid-template-areas:"ring top" "ring body";align-items:center;column-gap:14px;row-gap:2px;min-height:0;padding:12px 14px 12px 22px;border:1px solid var(--line);border-radius:18px!important;background:var(--surface);box-shadow:0 1px 2px rgba(14,42,86,.06);overflow:hidden;position:relative;text-align:left}
+  #view .c2-card .c2-band{position:absolute;inset:0 auto 0 0;width:26px;height:auto;padding:0;border-radius:0;background:var(--c)!important}
   #view .c2-card .c2-band > *{display:none}
   #view .c2-card .c2-top{display:contents}
   #view .c2-card .c2-ring{grid-area:ring;position:relative;z-index:1;align-self:center;width:48px;height:48px;margin:0;font-size:.8rem;box-shadow:0 0 0 2.5px var(--c)!important}

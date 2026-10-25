@@ -4494,7 +4494,7 @@ function nextUpHtml(F, pre){
     <div class="nu-top"><span class="nu-label">Do This Next</span></div>
     <div class="nu-row">
       <div class="nu-body">
-        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">${nuRing(t)}Study for ${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>
+        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">${nuRing(t)}Study for ${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>${c ? `<span class="tag nu-tag-out">${esc(courseLabel(c))}</span>` : ""}
         ${nuMoreBtn()}<span class="nu-why">${n.why.map(r => `<span class="nu-chip${/tomorrow/.test(r) ? " soon" : ""}">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}</span>
         <span class="nu-step">${n.hasPlan ? "Review your weakest topics or flashcards for it." : "Review now, or let Plan My Prep spread short sessions over the days before it."}</span>
       </div>
@@ -4506,7 +4506,7 @@ function nextUpHtml(F, pre){
     <div class="nu-row">
       ${t.gt ? `<span class="check gt-dot" aria-hidden="true"></span>` : `<button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>`}
       <div class="nu-body">
-        <button class="nu-title" ${gtOpenAttrs(t)}>${nuRing(t)}${esc(t.title)}${t.gt ? ` <span class="tag gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}${MILESTONE(t.type) ? ` <span class="tag rx-tag" title="${esc(remoteOf(t).why || "Can be taken from home")}">Take-home</span>` : ""}</button>
+        <button class="nu-title" ${gtOpenAttrs(t)}>${nuRing(t)}${esc(t.title)}${t.gt ? ` <span class="tag gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}${MILESTONE(t.type) ? ` <span class="tag rx-tag" title="${esc(remoteOf(t).why || "Can be taken from home")}">Take-home</span>` : ""}</button>${c ? `<span class="tag nu-tag-out">${esc(courseLabel(c))}</span>` : ""}
         ${nuMoreBtn()}<span class="nu-why">${n.why.map(r => r.length <= 28 ? `<span class="nu-chip${/^Overdue/.test(r) ? " late" : /^Due (today|at)/.test(r) ? " soon" : ""}">${esc(r)}</span>` : `<span class="nu-note">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}${(sl => sl && sl.length ? `<span class="nu-chip nu-slot" title="${esc(availSlotText(sl))} in your free time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>${sl.map(x => esc(availMin(x.s))).join(" · ")}<span class="pt-sr"> in your free time</span></span>` : "")(F.slotsBy ? F.slotsBy[t.id] : null)}</span>
         ${n.step ? `<span class="nu-step">Next step: ${esc(n.step.text)}</span>` : ""}
       </div>
@@ -4527,7 +4527,7 @@ function nextUpSpare(F, inView){
     <div class="nu-top"><span class="nu-label">Do This Next</span></div>
     <div class="nu-row">
       <div class="nu-body">
-        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">Study for ${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>
+        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">Study for ${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>${c ? `<span class="tag nu-tag-out">${esc(courseLabel(c))}</span>` : ""}
         ${nuMoreBtn()}<span class="nu-why">${esc(`${t.type} ${ex.dl === 1 ? "tomorrow" : "in " + ex.dl + " days"}${t.time ? " at " + fmtTime(t.time) : ""}`)} · No study sessions planned yet</span>
         <span class="nu-step">Plan My Prep spreads short review sessions over the days before it, and they show up here.</span>
       </div>
@@ -4545,7 +4545,7 @@ function nextUpSpare(F, inView){
     <div class="nu-row">
       <button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>
       <div class="nu-body">
-        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">${nuRing(t)}${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>
+        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">${nuRing(t)}${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>${c ? `<span class="tag nu-tag-out">${esc(courseLabel(c))}</span>` : ""}
         ${nuMoreBtn()}<span class="nu-why">${t.status === "doing" ? "Already in progress · " : ""}Nothing has a due date yet, so this is a good place to start. Add a due date to plan it properly.</span>
         ${cl ? `<span class="nu-step">Next step: ${esc(cl.text)}</span>` : ""}
       </div>
@@ -4554,6 +4554,7 @@ function nextUpSpare(F, inView){
     </div>
   </div>`;
 }
+
 
 /* ===== module: 01-ai-study.js: the app's core, AI study helpers: explain, grade by meaning, weak spots, case studies, summaries, photos to notes, ask your course ===== */
 /* Explain this card or question */
@@ -8179,20 +8180,27 @@ function dayTimelineHtml(F, todayList, heroId){
     let cur = w.s; taken.concat([[w.e, w.e]]).forEach(([ts, te]) => { if (ts > cur) { const hi = Math.min(ts, w.e); if (hi - cur >= 30) items.push({k: "fr", s: cur, e: hi}); } cur = Math.max(cur, te); });
   });
   items.sort((p, q) => p.s - q.s || p.e - q.e);
+  // Back-to-back sessions of one task (split by short breaks) read as a single card
+  const rows = [];
+  items.forEach(x => {
+    const last = rows[rows.length - 1];
+    if (x.k === "tk" && last && last.k === "tk" && last.t.id === x.t.id && x.s - last.e <= 15) { last.e = Math.max(last.e, x.e); last.min += x.e - x.s; }
+    else { if (x.k === "tk") x.min = x.e - x.s; rows.push(x); }
+  });
   const now = new Date(), nowM = now.getHours() * 60 + now.getMinutes();
-  const anchor = items.findIndex(x => x.e > nowM);
-  const cards = items.map((x, i) => {
-    const past = x.e <= nowM, on = x.s <= nowM && nowM < x.e, when = availRange(x.s, x.e), len = fmtHM((x.e - x.s) / 60) || "";
+  const anchor = rows.findIndex(x => x.e > nowM);
+  const cards = rows.map((x, i) => {
+    const past = x.e <= nowM, on = x.s <= nowM && nowM < x.e, when = availRange(x.s, x.e), len = fmtHM((x.k === "tk" ? x.min : x.e - x.s) / 60) || "";
     const cls = " dtl-c" + (past ? " past" : "") + (on ? " now" : ""), at = i === anchor ? " data-anchor" : "";
     if (x.k === "fr") return `<div class="dtl-c fr${past ? " past" : ""}"${at}><span>Free</span><b>${esc(when)}</b></div>`;
     if (x.k === "ev") return `<div class="${cls.trim()} ev" style="--c:${esc(x.color)}"${at}><span class="dtl-t">${esc(when)}</span><b class="dtl-n">${esc(x.title)}</b><span class="dtl-s">${esc(x.label)}${x.where ? " · " + esc(x.where) : ""}</span></div>`;
     const hero = x.t.id === heroId;
-    return `<button type="button" class="${cls.trim()} tk${hero ? " next" : ""}" ${gtOpenAttrs(x.t)} style="--c:${esc(colorOf(x.t.courseId))}"${at} aria-label="${esc(x.t.title)}, ${esc(when)}"><span class="dtl-t">${esc(when)}${len ? " · " + esc(len) : ""}</span><b class="dtl-n">${esc(x.t.title)}</b>${hero ? `<span class="dtl-badge">Next</span>` : on ? `<span class="dtl-badge">Now</span>` : ""}</button>`;
+    return `<button type="button" class="${cls.trim()} tk${hero ? " next" : ""}" ${gtOpenAttrs(x.t)} style="--c:${esc(colorOf(x.t.courseId))}"${at} aria-label="${esc(x.t.title)}, ${esc(when)}"><span class="dtl-t">${esc(when)}</span><b class="dtl-n">${esc(x.t.title)}</b><span class="dtl-m"><span>${esc(len)}</span>${hero ? `<span class="dtl-badge">Next</span>` : on ? `<span class="dtl-badge">Now</span>` : ""}</span></button>`;
   }).join("");
   return `<div class="dtl" role="group" aria-label="Today's schedule"><div class="dtl-rail">${cards}</div></div>`;
 }
 // Scroll the rail so what is happening now (or next) starts at the left edge
-hook("render", () => { document.querySelectorAll(".dtl-rail").forEach(r => { const t = r.querySelector("[data-anchor]"); if (t) r.scrollLeft = Math.max(0, t.offsetLeft - r.offsetLeft - 4); }); });
+hook("render", () => { document.querySelectorAll(".dtl-rail").forEach(r => { const t = r.querySelector("[data-anchor]"); if (t) r.scrollLeft = Math.max(0, t.offsetLeft - r.offsetLeft - 8); }); });
 function planRow(x, i, showScore, noRank){
   const t = x.t, c = courseOf(t.courseId);
   const rs = x.reasons || [], li = planLead(rs), lead = rs[li] || "", rest = rs.filter((r, k) => k !== li);
@@ -77116,19 +77124,13 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
   });
 })();
 
-/* Phones: frosted header once the page scrolls */
+/* Phones: the add button steps aside when it would cover the quick-add bar (the header looks the same at any scroll) */
 (() => {
   const PHONE = window.matchMedia ? matchMedia("(max-width:639px)") : {matches: false};
   let raf = 0;
   function check(){
     raf = 0;
     const b = document.body; if (!b) return;
-    // Two thresholds so the header can't flip back and forth at the edge
-    const was = b.classList.contains("sb-scrolled"), y0 = window.scrollY;
-    const on = PHONE.matches && (was ? y0 > 2 : y0 > 12);
-    if (on !== was) { if (on) section(); morph(() => b.classList.toggle("sb-scrolled", on), on); }
-    keep();
-    if (on) section();
     let y = false;
     const fab = PHONE.matches && document.getElementById("fab"), qa = fab && document.querySelector("#view .qa-bar");
     if (qa && fab.style.display !== "none") {
@@ -77137,50 +77139,11 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
     }
     b.classList.toggle("fab-yield", !!y);
   }
-  // Big and small header: everything glides from where it was (one animation on transforms, so it never stutters)
-  const RM = window.matchMedia ? matchMedia("(prefers-reduced-motion: reduce)") : {matches: false};
-  function morph(flip, on){
-    const h = document.querySelector("header.top");
-    if (!h || RM.matches || !h.animate || !PHONE.matches) { flip(); return; }
-    const q = sel => h.querySelector(sel), logo = q(".brand img.logo"), date = q("#todayLabel"), sec = q(".top-sec"), acts = q(".head-actions");
-    h.getAnimations({subtree: true}).forEach(a => a.finish());
-    const r = el => el && el.getBoundingClientRect(), h0 = h.getBoundingClientRect().height, L0 = r(logo), D0 = r(date), A0 = r(acts);
-    flip();
-    const h1 = h.getBoundingClientRect().height, L1 = r(logo), A1 = r(acts);
-    const o = {duration: 300, easing: "cubic-bezier(.22,.8,.24,1)"};
-    if (h0 && h1 && Math.abs(h0 - h1) > 0.5) h.animate([{height: h0 + "px"}, {height: h1 + "px"}], o);
-    if (L0 && L1 && L1.width) logo.animate([{transformOrigin: "0 0", transform: `translate(${L0.left - L1.left}px,${L0.top - L1.top}px) scale(${L0.width / L1.width})`}, {transformOrigin: "0 0", transform: "none"}], o);
-    if (A0 && A1) acts.animate([{transform: `translateY(${A0.top - A1.top}px)`}, {transform: "none"}], o);
-    if (!on && date && D0) date.animate([{opacity: 0, transform: "translateY(-6px)"}, {opacity: 1, transform: "none"}], Object.assign({}, o, {delay: 60, fill: "backwards"}));
-    if (on && sec) sec.animate([{opacity: 0, transform: "translateX(-8px)"}, {opacity: 1, transform: "none"}], Object.assign({}, o, {delay: 40, fill: "backwards"}));
-  }
-  // The shrinking header keeps its full space in the page, so the scroll spot never jumps
-  let full = 0, ro = null;
-  function keep(){
-    const h = document.querySelector("header.top"); if (!h) return;
-    if (!ro && window.ResizeObserver) { ro = new ResizeObserver(keep); ro.observe(h); }
-    const on = document.body.classList.contains("sb-scrolled"), cur = h.offsetHeight;
-    // While growing back, hold the gap until it reaches full size again
-    if (!on && cur >= full) { full = cur; h.style.marginBottom = ""; return; }
-    const gap = full ? Math.max(0, full - cur) : 0;
-    h.style.marginBottom = gap ? gap + "px" : "";
-  }
-  // The page's name next to the small logo
-  function section(){
-    const box = document.querySelector("header.top .top-row > div:first-child"), brand = box && box.querySelector(".brand"); if (!brand) return;
-    let el = box.querySelector(".top-sec");
-    if (!el) { el = document.createElement("span"); el.className = "top-sec"; el.setAttribute("aria-hidden", "true"); brand.after(el); }
-    const pick = document.querySelector("#view > .pview-tabs [aria-selected=true], #view .bview-tabs [aria-selected=true]") || document.querySelector("nav.tabs [aria-current=page]");
-    const name = pick && pick.cloneNode(true); if (name) name.querySelectorAll(".grp-dot,.fc-navdue,.nm-dot,.grp-new").forEach(x => x.remove());
-    const t = name ? name.textContent.replace(/\s+/g, " ").trim() : "";
-    if (el.textContent !== t) el.textContent = t;
-  }
   const soon = () => { if (!raf) raf = requestAnimationFrame(check); };
   window.addEventListener("scroll", soon, {passive: true});
   window.addEventListener("resize", soon);
   if (PHONE.addEventListener) PHONE.addEventListener("change", soon);
-  // A new page may have a shorter header: measure it again
-  hook("render", () => { if (!document.body.classList.contains("sb-scrolled")) full = 0; soon(); });
+  hook("render", soon);
 })();
 // Placeholder text
 function phPh(long, short){
