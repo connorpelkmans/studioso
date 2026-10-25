@@ -29587,7 +29587,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     // the tabs sit inside the course header (<!--cd-tabs-->); the page body starts at <!--cd-body-->
     const mb = html.indexOf("<!--cd-body-->");
     if (mb >= 0) {
-      const tabsM = courseTabs(tab, [["info", "Tasks and Info"], ["grades", "Grades"]].concat(window.SBLEC ? [["lectures", "Lectures"]] : []));
+      const tabsM = courseTabs(tab, [["info", "Overview"], ["grades", "Grades"]].concat(window.SBLEC ? [["lectures", "Lectures"]] : []));
       const head = html.slice(0, mb).replace("<!--cd-tabs-->", tabsM), body = html.slice(mb);
       if (tab === "grades") { try { return head + gradeCard(c); } catch (err) { console.warn("grades: card", err); return html; } }
       if (tab === "lectures") return head + SBLEC.listHtml(c);
@@ -29596,7 +29596,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const k = html.indexOf('<div class="row-actions">'), e = k >= 0 ? html.indexOf("</div>", k) : -1;
     if (e < 0) return html;
     const head = html.slice(0, e + 6), rest = html.slice(e + 6);
-    const tabs = courseTabs(tab, [["info", "Tasks and Info"], ["grades", "Grades"]].concat(window.SBLEC ? [["lectures", "Lectures"]] : []));
+    const tabs = courseTabs(tab, [["info", "Overview"], ["grades", "Grades"]].concat(window.SBLEC ? [["lectures", "Lectures"]] : []));
     if (tab === "lectures") return head + tabs + SBLEC.listHtml(c);
     if (tab === "grades") { try { return head + tabs + gradeCard(c); } catch (err) { console.warn("grades: card", err); return html; } }
     return head + tabs + rest;
@@ -70868,7 +70868,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .lec-done{display:grid;justify-items:center;gap:6px;padding:18px 0;text-align:center}
 .lec-ok{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:var(--leaf);color:#fff;font-size:1.5rem}
 .lec-for{margin:0}
-/* the course tabs start their content the same distance under the header (Tasks and Info's first heading sits 22px down) */
+/* the course tabs start their content the same distance under the header (Overview's first heading sits 22px down) */
 .c2-head + .lec-tab{margin-top:-4px}
 .c2-head + .gr-card{margin-top:22px}
 .lec-btn{display:inline-flex;align-items:center;gap:6px}
