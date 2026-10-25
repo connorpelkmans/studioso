@@ -343,3 +343,10 @@
 }
 
 .nu-tag-out{display:none}
+
+/* Date and time boxes: iOS gives them a wide built-in size that spills over their neighbours; keep them in their column */
+@media (max-width:639px){
+  input[type=date],input[type=time],input[type=datetime-local]{display:block;width:100%;min-width:0;max-width:100%;-webkit-appearance:none;appearance:none;min-height:44px;text-align:left}
+  input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and-time-value,input[type=datetime-local]::-webkit-date-and-time-value{text-align:left;min-width:0}
+  .two>*{min-width:0}
+}

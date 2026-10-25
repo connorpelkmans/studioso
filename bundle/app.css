@@ -6556,6 +6556,13 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
 }
 
 .nu-tag-out{display:none}
+
+/* Date and time boxes: iOS gives them a wide built-in size that spills over their neighbours; keep them in their column */
+@media (max-width:639px){
+  input[type=date],input[type=time],input[type=datetime-local]{display:block;width:100%;min-width:0;max-width:100%;-webkit-appearance:none;appearance:none;min-height:44px;text-align:left}
+  input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and-time-value,input[type=datetime-local]::-webkit-date-and-time-value{text-align:left;min-width:0}
+  .two>*{min-width:0}
+}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
