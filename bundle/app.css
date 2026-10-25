@@ -6513,7 +6513,7 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
 .dtl{display:none}
 @media (max-width:639px){
   .dtl{display:block;margin:0 0 12px}
-  .dtl-rail{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none;padding:2px 2px 4px;margin:0 -2px;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+  .dtl-rail{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x proximity;scroll-padding-inline:8px;scrollbar-width:none;padding:4px 8px 6px;margin:0 -8px;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
   .dtl-rail::-webkit-scrollbar{display:none}
   .dtl-c{position:relative;flex:none;width:138px;display:grid;align-content:start;gap:4px;padding:8px 10px 9px;border-radius:12px;text-align:left;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;scroll-snap-align:start}
   button.dtl-c{cursor:pointer}
@@ -6528,7 +6528,9 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   .dtl-c.fr b{font:700 .72rem var(--display);color:var(--ink)}
   .dtl-c.past{opacity:.45}
   .dtl-c.now,.dtl-c.next{box-shadow:0 0 0 2px var(--c,var(--accent))}
-  .dtl-badge{position:absolute;right:8px;top:8px;font:800 .56rem/1 var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--c)}
+  .dtl-t{white-space:nowrap}
+  .dtl-m{display:flex;align-items:center;justify-content:space-between;gap:6px;font:700 .68rem/1.1 var(--display);color:color-mix(in srgb,var(--c) 50%,var(--ink))}
+  .dtl-badge{font:800 .56rem/1 var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--c)}
 }
 
 /* Today's plan rows: the check circle is centred against all of the row's text, not level with its first line */
