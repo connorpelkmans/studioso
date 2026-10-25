@@ -395,3 +395,32 @@ dialog:has(> .sheet > .g2-sheet-head){background:transparent}
 
 /* Style Shop > Collections: Apply Theme and See All sit in the middle of the box */
 .ui-col .ui-col-act{justify-content:center;text-align:center}
+
+/* Course dropdowns: our own menu, with small flat dots */
+html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient(circle at 18px 50%,var(--cs-dot) 0 5px,transparent 5.5px);background-repeat:no-repeat}
+.cs-back{position:fixed;inset:0;z-index:9998;background:rgba(10,20,30,.22)}
+.cs-menu{position:fixed;z-index:9999;display:grid;gap:2px;align-content:start;overflow:auto;padding:6px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 36px rgba(0,0,0,.28)}
+.cs-menu.cs-sheet{left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));max-height:60vh;border-radius:18px}
+.cs-menu button{display:flex;align-items:center;gap:12px;width:100%;min-height:44px;padding:6px 12px;border:0;border-radius:10px;background:none;color:inherit;font:600 .95rem var(--display);text-align:left;cursor:pointer}
+.cs-menu button:hover{background:color-mix(in srgb,var(--ink) 7%,transparent)}
+.cs-menu button[aria-selected="true"]{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.cs-dot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--c)}
+.cs-gap{flex:none;width:10px;height:10px}
+.cs-tick{margin-left:auto;opacity:.8}
+
+/* Phones: the cards and panels over a theme's artwork let more of it show through (a photo theme's own Glass slider still wins) */
+@media (max-width:639px){
+  html{--ph-gls:76%}
+}
+
+/* Phones: every softly see-through surface lets more of the artwork behind it show (about three quarters solid) */
+@media (max-width:639px){
+  .col{background:color-mix(in srgb,var(--ph-surf,var(--surface)) 76%,transparent)}
+  .arch-term{background:color-mix(in srgb,var(--surface) 76%,transparent)}
+  html.sc-on .grp-file{background:color-mix(in srgb,var(--surface) 76%,transparent)}
+  .cpt-form{background:color-mix(in srgb,var(--paper,var(--bg)) 70%,transparent)}
+  .room-float small{background:color-mix(in srgb,var(--surface) 76%,transparent)}
+  .nb-zoom,.nb-target,.board-max-btn{background:color-mix(in srgb,var(--surface) 80%,transparent)}
+  .nb-main .nb-target{background:color-mix(in srgb,var(--surface) 80%,transparent)!important}
+  html:not(.ph-on) nav.tabs::before{opacity:.82}
+}

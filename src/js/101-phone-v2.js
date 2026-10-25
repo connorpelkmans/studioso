@@ -123,28 +123,68 @@
     document.body.appendChild(probe); const c = getComputedStyle(probe).color; probe.remove();
     if (c && m.getAttribute("content") !== c) m.setAttribute("content", c);
   }
-  // Course pickers: a coloured dot, then just the course code. A dropdown can't colour part of its text,
-  // so the dot is the closest coloured circle emoji to the course colour.
-  const dotFor = hex => {
-    const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "").trim()); if (!m) return "\u26AB";
-    const n = parseInt(m[1], 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
-    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
-    if (d < 0.1) return l < 0.5 ? "\u26AB" : "\u26AA";
-    const sat = d / (1 - Math.abs(2 * l - 1));
-    let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h = (h * 60 + 360) % 360;
-    if (sat < 0.2) return l < 0.5 ? "\u26AB" : "\u26AA";
-    if (h >= 8 && h < 45 && l < 0.36) return "\uD83D\uDFE4";
-    return h < 12 || h >= 320 ? "\uD83D\uDD34" : h < 38 ? "\uD83D\uDFE0" : h < 70 ? "\uD83D\uDFE1" : h < 170 ? "\uD83D\uDFE2" : h < 255 ? "\uD83D\uDD35" : "\uD83D\uDFE3";
-  };
+  // Course pickers: a small flat coloured dot and just the course code, in a menu of our own (the phone's own picker
+  // can't colour anything). Each course dropdown keeps working as a normal one underneath.
   function courseDots(root){
     if (!root || !root.querySelectorAll) return;
-    root.querySelectorAll("select option").forEach(o => {
-      if (o.dataset.cd) return; o.dataset.cd = "1";
-      const c = state.courses && state.courses[o.value]; if (!c) return;
-      o.textContent = dotFor(c.color) + "\u2002" + courseLabel(c);
+    root.querySelectorAll("select").forEach(sel => {
+      if (sel.dataset.cs) return;
+      const opts = [...sel.options]; if (!opts.some(o => state.courses && state.courses[o.value])) return;
+      sel.dataset.cs = "1"; sel.classList.add("cs-custom");
+      opts.forEach(o => { const c = state.courses && state.courses[o.value]; if (c) o.textContent = courseLabel(c); });
+      csDot(sel);
+      sel.addEventListener("change", () => csDot(sel));
     });
   }
-  try { new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1) courseDots(n.tagName === "OPTION" ? n.parentNode : n.tagName === "SELECT" ? n : n); }))).observe(document.body, {childList: true, subtree: true}); } catch (e) {}
+  function csDot(sel){
+    const o = sel.options[sel.selectedIndex], c = o && state.courses && state.courses[o.value];
+    if (c) { sel.style.setProperty("--cs-dot", c.color); sel.classList.add("has-dot"); } else { sel.style.removeProperty("--cs-dot"); sel.classList.remove("has-dot"); }
+  }
+  let csOpen = null;
+  const csKey = e => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); csClose(); } };
+  function csClose(){ if (!csOpen) return; csOpen.back.remove(); csOpen.menu.remove(); document.removeEventListener("keydown", csKey, true); csOpen = null; }
+  function csShow(sel){
+    csClose();
+    const host = sel.closest("dialog[open]") || document.body, menu = document.createElement("div"), back = document.createElement("div");
+    menu.className = "cs-menu"; menu.setAttribute("role", "listbox"); back.className = "cs-back";
+    [...sel.options].filter(o => !o.disabled && !o.hidden).forEach(o => {
+      const c = state.courses && state.courses[o.value], b = document.createElement("button");
+      b.type = "button"; b.setAttribute("role", "option"); b.setAttribute("aria-selected", String(o.selected));
+      const d = document.createElement("i"); d.className = c ? "cs-dot" : "cs-gap"; if (c) d.style.setProperty("--c", c.color); b.appendChild(d);
+      const t = document.createElement("span"); t.textContent = o.textContent; b.appendChild(t);
+      if (o.selected) { const k = document.createElement("span"); k.className = "cs-tick"; k.setAttribute("aria-hidden", "true"); k.textContent = "\u2713"; b.appendChild(k); }
+      b.addEventListener("click", e => {
+        e.preventDefault(); e.stopPropagation(); csClose();
+        if (sel.value !== o.value) { sel.value = o.value; csDot(sel); sel.dispatchEvent(new Event("input", {bubbles: true})); sel.dispatchEvent(new Event("change", {bubbles: true})); }
+        try { sel.focus({preventScroll: true}); } catch (err) {}
+      });
+      menu.appendChild(b);
+    });
+    back.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); csClose(); });
+    host.appendChild(back); host.appendChild(menu);
+    if (innerWidth < 640) menu.classList.add("cs-sheet");
+    else {
+      const r = sel.getBoundingClientRect(), w = Math.max(r.width, 220);
+      menu.style.width = w + "px"; menu.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + "px"; menu.style.maxHeight = Math.min(innerHeight * 0.5, 360) + "px";
+      const h = menu.offsetHeight; menu.style.top = (r.bottom + 6 + h <= innerHeight - 8 ? r.bottom + 6 : Math.max(8, r.top - h - 6)) + "px";
+    }
+    csOpen = {menu, back}; document.addEventListener("keydown", csKey, true);
+    const cur = menu.querySelector('[aria-selected="true"]'); if (cur && cur.scrollIntoView) cur.scrollIntoView({block: "center"});
+  }
+  // Take over the tap on a course dropdown (a mouse click, or a touch that did not scroll)
+  // (on a mouse or trackpad the app's own dropdown already handles selects, and shows the dots too)
+  const csFine = () => !!(window.matchMedia && matchMedia("(pointer:fine)").matches);
+  const csIs = el => el && el.tagName === "SELECT" && el.classList.contains("cs-custom") && !el.disabled && !csFine();
+  let csT = null;
+  document.addEventListener("mousedown", e => { if (csIs(e.target) && e.button === 0) e.preventDefault(); }, true);
+  document.addEventListener("click", e => { if (csIs(e.target)) { e.preventDefault(); e.stopPropagation(); csShow(e.target); } }, true);
+  document.addEventListener("touchstart", e => { const t = e.touches[0]; csT = csIs(e.target) && t ? {x: t.clientX, y: t.clientY, el: e.target} : null; }, {capture: true, passive: true});
+  document.addEventListener("touchend", e => {
+    if (!csT || e.target !== csT.el) { csT = null; return; }
+    const t = e.changedTouches[0]; const moved = t ? Math.hypot(t.clientX - csT.x, t.clientY - csT.y) : 99, sel = csT.el; csT = null;
+    if (moved < 10) { e.preventDefault(); csShow(sel); }
+  }, {capture: true, passive: false});
+  try { new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1) courseDots(n.parentNode && n.tagName === "OPTION" ? n.parentNode : n); }))).observe(document.body, {childList: true, subtree: true}); } catch (e) {}
   hook("render", () => courseDots(document));
   window.SBBARTINT = barTint;
   try { const mq = matchMedia("(prefers-color-scheme: dark)"); (mq.addEventListener ? mq.addEventListener("change", () => setTimeout(barTint, 50)) : mq.addListener(() => setTimeout(barTint, 50))); } catch (e) {}
