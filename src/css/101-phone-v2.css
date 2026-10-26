@@ -478,3 +478,12 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
   .g2-head .grp-tabs button:last-child:nth-child(3n+1){grid-column:1/-1}
   .g2-head .grp-tabs button:last-child:nth-child(3n+2){grid-column:span 2}
 }
+
+/* Group events: the RSVP choices are one even row, the other actions a tidy row beneath */
+@media (max-width:639px){
+  .grp-item-btns:has([data-act="grp-rsvp"]){display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;justify-content:stretch;align-items:stretch;padding-left:0}
+  .grp-item-btns [data-act="grp-rsvp"]{justify-content:center;min-height:40px}
+  .grp-item-btns:has([data-act="grp-rsvp"]) > :not([data-act="grp-rsvp"]):not(.x-btn){grid-column:span 1;min-height:40px;justify-content:center;white-space:nowrap}
+  .grp-item-btns:has([data-act="grp-rsvp"]) > [data-act="grp-cal-add"]{grid-column:span 2}
+  .grp-item-btns:has([data-act="grp-rsvp"]) > .x-btn{justify-self:end;grid-column:-2/-1;align-self:center}
+}
