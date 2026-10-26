@@ -32,7 +32,7 @@
   "97-match.css",
   "97-pinpicker.css",
   "97-exammode.css",
-  "99-motion-a11y-tz.css",
+  "99-motion-a11y-tz.css", "99-smooth.css",
   "100-phone.css",
   "101-phone-v2.css",
   "102-qol.css",
@@ -215,7 +215,7 @@
   "100-phone.js",
   "101-phone-v2.js",
   "102-qol.js",
-  "99-motion-a11y-tz.js"
+  "99-motion-a11y-tz.js", "99-smooth.js"
  ],
  "lazy": {
   "scenes.js": [

@@ -5170,6 +5170,29 @@ nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-sy
 .pview-tabs button{padding-top:10.8px;padding-bottom:9.2px}
 .fab{padding-top:14.8px;padding-bottom:13.2px}
 .plan-sheet .sheet-foot .btn{padding-top:10.8px;padding-bottom:9.2px}
+/* ===== module: 99-smooth.css ===== */
+/* Smooth reveals: only opacity and transform, 160 to 260 ms, so they feel instant and still ease */
+:root{--sm-ease:cubic-bezier(.2,.8,.2,1)}
+@keyframes sm-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes sm-view{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes sm-sheet-up{from{opacity:.4;transform:translateY(34px)}to{opacity:1;transform:none}}
+@keyframes sm-sheet-pop{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes sm-back{from{opacity:0}to{opacity:1}}
+@keyframes sm-pop{from{opacity:0;transform:translateY(-6px) scale(.97)}to{opacity:1;transform:none}}
+html:not([data-motion="static"]) .sm-in{animation:sm-in .22s var(--sm-ease) backwards}
+html:not([data-motion="static"]) .sm-view{animation:sm-view .24s var(--sm-ease) backwards}
+/* Sheets and pop-ups */
+html:not([data-motion="static"]) dialog[open]:not(.tour):not(.sx-dlg){animation:sm-sheet-pop .24s var(--sm-ease) backwards}
+html:not([data-motion="static"]) dialog[open]::backdrop{animation:sm-back .22s ease-out backwards}
+@media (max-width:639px){
+  html:not([data-motion="static"]) dialog[open]:not(.tour):not(.sx-dlg){animation-name:sm-sheet-up;animation-duration:.28s}
+}
+/* Menus and dropdowns */
+html:not([data-motion="static"]) .sb-dd,html:not([data-motion="static"]) .cs-menu{animation:sm-pop .16s var(--sm-ease) backwards;transform-origin:top center}
+/* Native disclosure sections */
+html:not([data-motion="static"]) details[open] > :not(summary){animation:sm-in .22s var(--sm-ease) backwards}
+/* Buttons answer a tap right away */
+@media (hover:none){html:not([data-motion="static"]) :is(button,.btn):active{transform:scale(.97)}}
 /* ===== module: 100-phone.css ===== */
 /* Phone and tablet bar (the desktop side menu is untouched) */
 @media (max-width:979px){
