@@ -2498,7 +2498,7 @@
     const owner = isOwner(g), ext = extOf(g.id), today = todayISO();
     const mine = ms.find(m => m.user_id === myId());
     return `<section class="grp-sec" id="grpMembers"><h3 class="fsec">${ICON_GROUP}Members<span class="n">${ms.length}</span></h3>
-      ${mine ? `<div class="mc-me"><span class="mc-dot" style="--mc:${esc(memberHue(g.id, myId()))}" aria-hidden="true"></span><span class="mc-t"><b>Your Color</b>${mine.color ? `<span class="mini">Marks you across the group: your picture, messages, scores${isProj(g) ? " and tasks" : ""}</span>` : ""}</span><button type="button" class="btn small" data-act="grp-color" data-id="${esc(g.id)}">${mine.color ? "Change" : "Pick a Color"}</button></div>` : ""}
+      ${mine ? `<div class="mc-me"><span class="mc-dot" style="--mc:${esc(memberHue(g.id, myId()))}" aria-hidden="true"></span><span class="mc-t"><b>Your Color</b></span><button type="button" class="btn small" data-act="grp-color" data-id="${esc(g.id)}">${mine.color ? "Change" : "Pick a Color"}</button></div>` : ""}
       <ul class="grp-members">${ms.map(m => {
         const st = ext ? streakOf(ext, m.user_id) : 0, bd = ext ? badgesFor(g, m.user_id) : [], me2 = m.user_id === myId();
         if (!me2 && S.blocked.has(m.user_id)) return `<li class="blocked">${av(m.display_name, m.user_id)}<span class="nm">${esc(m.display_name || "Member")} <span class="pill">Blocked</span></span><button class="btn small" data-act="grp-unblock" data-id="${esc(m.user_id)}">Unblock</button>${owner ? `<button class="x-btn" data-act="grp-member-del" data-id="${esc(m.user_id)}" aria-label="Remove ${esc(m.display_name)} from the group">${CLOSE}</button>` : ""}</li>`;
