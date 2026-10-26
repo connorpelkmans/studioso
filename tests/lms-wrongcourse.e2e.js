@@ -237,6 +237,23 @@ const bsTask = (id, title, cid, ou, extra) => Object.assign({id, created: 1, tit
       ok(r["Week 8 Reflection Activity"] && r["Week 8 Reflection Activity"][0] === true, "a content entry for a discussion topic, named differently, follows that topic by its id: " + JSON.stringify(r["Week 8 Reflection Activity"]));
       await page.context().close(); }
 
+    // 11. Canvas and Blackboard: grades carry their item's day and when it was handed in; a submitted task keeps its submission time
+    { const page = await fresh([]);
+      const r = await page.evaluate(([due, sub]) => {
+        const item = (id, name, extra) => Object.assign({kind: "assignment", id, name, due, start: null, end: null, text: "", url: "", gid: id, outOf: 10, done: true, files: [], st: {subAt: sub, late: false, missing: false, excused: false, ext: false}}, extra || {});
+        const h = {ok: true, origin: "https://x.instructure.com", me: {}, all: [], errors: [], courses: [{ou: "501", code: "NURS300", name: "Community Nursing", news: [], events: [],
+          items: [item("71", "Care Plan"), item("72", "Undated Reflection", {due: null})],
+          grades: [{gid: "71", name: "Care Plan", num: 9, den: 10, weight: 10, shown: "9", at: new Date().toISOString()}, {gid: "72", name: "Undated Reflection", num: 4, den: 5, weight: 5, shown: "4", at: new Date().toISOString()}]}]};
+        const out = {}; [["canvas", SBLMS.canvas], ["blackboard", SBLMS.blackboard]].forEach(([k, L]) => { const d = L.fromApi(h);
+          out[k] = {grades: d.grades.map(g => [g.name, g.due || "", (g.when || "").slice(0, 10)]), rec: d.recs.filter(x => x.title === "Care Plan").map(x => (x.doneAt || "").slice(0, 10))}; });
+        return out; }, [iso(-5), iso(-6)]);
+      for (const k of ["canvas", "blackboard"]) {
+        const g = Object.fromEntries(r[k].grades.map(x => [x[0], x.slice(1)]));
+        ok(g["Care Plan"][0] === dateOf(-5) && g["Care Plan"][1] === dateOf(-6) && g["Undated Reflection"][0] === "" && g["Undated Reflection"][1] === dateOf(-6) && r[k].rec[0] === dateOf(-6),
+          `${k}: a grade is dated by its item's due day and submission, not the day it was marked; the task keeps its submission time: ` + JSON.stringify(r[k]));
+      }
+      await page.context().close(); }
+
     // 7. Same Exam? never pairs two courses' midterms on the same day
     { const page = await fresh([bsTask("e1", "BSNC 1030 Midterm Exam", "c20", "20"), Object.assign(bsTask("e2", "BSNC 1020 Midterm Exam", "c10", "10"), {bs: undefined})]);
       await page.evaluate(() => SBLMS_DUPES(false)); await page.waitForTimeout(500);

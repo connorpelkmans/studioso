@@ -32499,7 +32499,7 @@ function cleanFile(r) {
       add({ou, pid: x.id ? String(x.kind || "") + x.id : "", title: cleanTitle(x.name).title, type: typeFor(x.name, x.kind === "quiz" ? "quiz" : ""), due: due.date, time: due.time,
         start: x.kind !== "quiz" && st && st.date < due.date && st.date >= addDays(due.date, -45) ? st.date : "",
         notes: x.text || "", url: absUrl(origin, x.url), gid: x.gid || "", outOf: x.outOf, done: x.done === true, sub: x.done === true ? "yes" : x.done === false ? "no" : "", sure: true, lateUntil: x.due ? lateWin(x.due, x.end) : "",
-        rx: x.rx ? Object.assign({ul: x.start, ll: x.end}, x.rx) : undefined, st: x.st || null, fb: x.fb || null, rub: x.rub || null,
+        rx: x.rx ? Object.assign({ul: x.start, ll: x.end}, x.rx) : undefined, st: x.st || null, fb: x.fb || null, rub: x.rub || null, doneAt: (x.st && x.st.subAt) || x.at || "",
         files: (x.files || []).map(f => ({ou, folder: x.id, id: f.id, name: f.name, size: f.size || 0})),
         asRead: [x.due && "due " + x.due, x.start && "opens " + x.start, x.end && "closes " + x.end, said(x), why].filter(Boolean).join("; ")});
     };
@@ -32562,6 +32562,16 @@ function cleanFile(r) {
       const pair = recKey(r) + ">" + recKey(qr);
       if (!(cfg().merges || {})[pair]) out.ask.push({pair, ou, copy: r.title, real: qr.title, due: qr.due, done: !!qr.done});
     });
+    // A grade's item: its due day and when you handed it in, so a task made from the grade isn't dated by the day the mark was posted
+    (h.courses || []).forEach(c => out.grades.filter(g => g.ou === c.ou).forEach(g => {
+      const x = (c.items || []).find(y => y && ((g.gid && (y.gid === g.gid || String(y.id) === g.gid)) || (g.pid && String(y.kind || "") + y.id === g.pid)));
+      const r = x && out.recs.find(z => z.pid === String(x.kind || "") + x.id);
+      g.when = (r && r.doneAt) || (x && ((x.st && x.st.subAt) || x.at)) || "";
+      if (x && x.kind === "quiz") g.kind = "q";
+      const day = r && r.due ? {date: r.due, time: r.time || ""} : x && (x.due || x.end) ? localDT(x.due || x.end) : null;
+      if (day) { g.due = day.date; g.time = day.time || ""; }
+      if (r && !g.key) g.key = recKey(r);
+    }));
     out.und = undated.slice(0, 80).map(u => ({ou: u.ou, t: u.x.name, s: u.x.done === true ? "yes" : u.x.done === false ? "no" : "", m: (out.recs.find(r => r.pid === String(u.x.kind || "") + u.x.id) || {}).title || ""}));
     return out;
   }

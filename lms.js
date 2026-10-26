@@ -665,6 +665,18 @@ async function cvHarvest(o) {
     if (!due) return;
     c.items.push({ kind: t === "quiz" ? "quiz" : t === "discussion_topic" ? "discussion" : "other", id: String(p.plannable_id), name, due, start: null, end: null, text: "", url: String(p.html_url || ""), gid: "", outOf: null, done: doneP, files: [], rx: t === "quiz" ? { k: "quiz", st: ["online_quiz"] } : undefined });
   });
+  // An ungraded discussion has no submission, so the to-do list can't say you posted: look for your own reply in the topic
+  // (only yours: Canvas counts each student's post, in group discussions too). Graded ones are followed by their submission.
+  const meId = me && me.id != null ? String(me.id) : "", topics = [];
+  courses.forEach(c => (c.items || []).forEach(x => { const d = Date.parse(x.due || ""); if (x.kind === "discussion" && !x.gid && x.done !== true && (isNaN(d) || (d > now - 45 * 864e5 && d < now + 14 * 864e5))) topics.push({ c, x }); }));
+  for (let i = 0; meId && i < Math.min(topics.length, 24); i += 6) await Promise.all(topics.slice(i, Math.min(i + 6, 24)).map(async ({ c, x }) => {
+    // the topic's full view has every post and reply; top-level entries are the fallback
+    const v = await soft(`/api/v1/courses/${c.ou}/discussion_topics/${x.id}/view`, true), es = [];
+    const walk = (list, d) => (Array.isArray(list) ? list : []).forEach(e => { if (!e || d > 8 || es.length > 3000) return; es.push(e); walk(e.replies, d + 1); });
+    if (v && Array.isArray(v.view)) walk(v.view, 0); else es.push(...await pages(`/api/v1/courses/${c.ou}/discussion_topics/${x.id}/entries?per_page=100`, true, 3));
+    const mine = es.filter(e => e && String(e.user_id) === meId && !e.deleted);
+    if (mine.length) { x.done = true; x.at = mine.map(e => dt(e.created_at)).filter(Boolean).sort()[0] || null; x.st = { subAt: x.at, late: false, missing: false, excused: false, ext: false }; }
+  }));
   const mail = [];
   if (q.mail) {
     const convs = await soft("/api/v1/conversations?scope=inbox&per_page=20", true);
@@ -806,7 +818,7 @@ async function bbHarvest(o) {
       const fb = fbT || score != null ? { c: fbT ? [{ by: "Instructor", mine: false, at: dt(my && (my.modified || my.lastModified)), t: fbT }] : [], ra: [], sc: score, of: possible, g: shown.slice(0, 20), at: null } : null;
       const rub = rubOf(rubCol[k]);
       if (due || undatedN++ < 60) c.items.push({ kind: /\b(test|quiz|exam|midterm)\b/i.test(col.name || "") ? "quiz" : "assignment", id: String(col.id), name: String(col.name || ""), due, start: null, end: null, text: txt(col.description), url: courseUrl, gid: String(col.id), outOf: possible, done, files: [], rx: col.grading && col.grading.type ? { gt: String(col.grading.type).slice(0, 16) } : undefined, st, fb, rub });
-      if (score == null && possible && atScore[k] != null && atScore[k] >= 0 && atScore[k] <= possible * 2 && markOn("attemptScore")) c.marks.push({ kind: "column", id: k, num: atScore[k], den: possible, from: "attemptScore", how: "" });
+      if (score == null && possible && atScore[k] != null && !(col.availability && /^no$/i.test(String(col.availability.available || ""))) && !(col.grading && col.grading.anonymousGrading && col.grading.anonymousGrading.type && !/none/i.test(String(col.grading.anonymousGrading.type))) && atScore[k] >= 0 && atScore[k] <= possible * 2 && markOn("attemptScore")) c.marks.push({ kind: "column", id: k, num: atScore[k], den: possible, from: "attemptScore", how: "" });
       if (possible && (score != null || wOf(col) != null)) c.grades.push({ gid: String(col.id), name: String(col.name || ""), num: score, den: possible, weight: wOf(col), shown, at: dt(my && (my.modified || my.lastModified)), fb });
     });
     c.news = news.slice(0, 25).map(n => ({ id: String(n.id), title: String(n.title || ""), text: txt(n.body, 3000), date: dt(n.created) || dt(n.availability && n.availability.duration && n.availability.duration.start), url: `${location.origin}/ultra/courses/${id}/announcements` }));

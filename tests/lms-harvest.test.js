@@ -229,6 +229,27 @@ const BB = [
     assert(seen.some(u => /topics\/41\/View/.test(u)));
   });
 
+  await t("Canvas: an ungraded discussion you replied in is done (only your own post counts)", async () => {
+    const routes = CV.filter(([re]) => !/planner/.test(re.source)).concat([
+      [/^\/api\/v1\/planner\/items\?/, [{ course_id: 201, plannable_type: "discussion_topic", plannable_id: 66, plannable: { title: "Week 3 discussion", todo_date: iso(-1) }, html_url: "/courses/201/discussion_topics/66" },
+        { course_id: 201, plannable_type: "discussion_topic", plannable_id: 67, plannable: { title: "Week 4 group discussion", todo_date: iso(-1) }, html_url: "/courses/201/discussion_topics/67" }]],
+      [/\/discussion_topics\/66\/view$/, { participants: [], view: [{ id: 1, user_id: 12, created_at: iso(-3), replies: [{ id: 2, user_id: 13, replies: [{ id: 3, user_id: 9, created_at: iso(-2) }] }] }] }],
+      [/\/discussion_topics\/67\/view$/, { participants: [], view: [{ id: 4, user_id: 12, created_at: iso(-2) }] }]]);
+    const { out } = await runInjected("canvas", "https://x.instructure.com", routes);
+    const it = id => out.courses[0].items.find(x => x.id === id);
+    assert(it("66").done === true && it("66").at && it("66").st.subAt, "your reply, deep in a thread, counts, with when you posted: " + JSON.stringify(it("66")));
+    assert(it("67").done !== true, "a group discussion a classmate posted in isn't yours (Canvas counts each student's own post)");
+  });
+
+  await t("Blackboard: an attempt's score isn't used for a column students can't see", async () => {
+    const routes = BB.filter(([re]) => !/gradebook\\\/columns\\\?|gradebook\\\/users/.test(re.source)).concat([
+      [/^\/learn\/api\/public\/v2\/courses\/_301_1\/gradebook\/columns\?/, { results: [{ id: "_8_1", name: "Midterm exam", grading: { due: iso(-3), type: "Attempts" }, score: { possible: 50 }, availability: { available: "No" } }] }],
+      [/^\/learn\/api\/public\/v2\/courses\/_301_1\/gradebook\/users\/_5_1$/, { results: [] }],
+      [/gradebook\/columns\/_8_1\/attempts/, { results: [{ id: "a1", status: "Completed", score: 41, attemptDate: iso(-3) }] }]]);
+    const { out } = await runInjected("blackboard", "https://bb.example.edu", routes);
+    assert.strictEqual(out.courses[0].marks.length, 0, "a hidden column's score stays hidden: " + JSON.stringify(out.courses[0].marks));
+  });
+
   await t("Blackboard: a graded attempt's score counts when the gradebook cell is still empty", async () => {
     const routes = BB.filter(([re]) => !/gradebook\\\/columns\\\?|gradebook\\\/users/.test(re.source)).concat([
       [/^\/learn\/api\/public\/v2\/courses\/_301_1\/gradebook\/columns\?/, { results: [{ id: "_8_1", name: "Midterm exam", grading: { due: iso(-3), type: "Attempts" }, score: { possible: 50 } },
