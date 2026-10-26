@@ -208,6 +208,7 @@
     }, 0);
   }
   const isOn = () => cfg().on !== false;
+  const staysPut = () => cfg().still === true && !phone();
   const talkOn = () => cfg().talk !== false;
   const pro = () => { try { return typeof PLAN === "undefined" || !PLAN ? true : !!PLAN.isPro(); } catch (e) { return true; } };
   const paywall = () => { try { return !!(typeof PLAN !== "undefined" && PLAN && PLAN.paywall()); } catch (e) { return false; } };
@@ -703,6 +704,8 @@
     const px = sizePx(cur), f = fabRect();
     { const sl = slotSpot(px); if (sl) return Object.assign({px}, sl, {fab: f}); }
     { const dk = dockSpot(px); if (dk) return Object.assign({px}, dk, {fab: f}); }
+    // Desktop, "Companion Stays Put": always the bottom-left corner (the Companion page still seats it in its ring, above)
+    if (staysPut()) { const rg = range(px); return {left: Math.round(rg.L), top: Math.round(Math.max(rg.T, rg.B)), kind: "corner", px, fab: f}; }
     if (spotKind === "slot") fresh = true;
     if (phone()) {
       const rg = range(px), feet = px * (112 / 120), left = Math.round(Math.min(Math.max(rg.L, rg.R), Math.max(rg.L, f.shown ? f.left - 4 - px : f.right - px)));
@@ -1937,7 +1940,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   const roamDue = chance => Date.now() - lastRoam > 4 * 60000 && Math.random() < chance;
   // A stroll on its own every 12 to 25 minutes while you're around
   setInterval(() => {
-    if (!box || box.hidden || document.hidden || !isOn() || Date.now() < nextRoam || (dlg && dlg.open) || travelAnim || press || phone()) return;
+    if (!box || box.hidden || document.hidden || !isOn() || Date.now() < nextRoam || (dlg && dlg.open) || travelAnim || press || phone() || staysPut()) return;
     if (typeof pomo !== "undefined" && pomo && pomo.running) return;
     if (Date.now() - BR.input < 8000) return;
     nextRoam = Date.now() + rand(12, 25) * 60000; lastRoam = Date.now();
@@ -1946,7 +1949,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   hook("render", tab => {
     if (!layer) { if (isOn()) refresh(0); return; }
     applyVars(); fitHitSoon();
-    const newTab = tab !== lastTab, first = !lastTab, wander = newTab && !first && !phone() && roamDue(0.2);
+    const newTab = tab !== lastTab, first = !lastTab, wander = newTab && !first && !phone() && !staysPut() && roamDue(0.2);
     if (wander) lastRoam = Date.now();
     placeSoon(newTab ? (phone() ? 0 : 160) : 400, first || wander);
     if (newTab) { lastTab = tab; if (!first && wander) later(curious, 500); }
@@ -2242,8 +2245,9 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       return true;
     }
     if (a === "comp-set") {
-      const k = el.dataset.key; if (k !== "on" && k !== "talk" && k !== "ai") return true;
+      const k = el.dataset.key; if (k !== "on" && k !== "talk" && k !== "ai" && k !== "still") return true;
       setCfg({[k]: !!el.checked}); curSig = ""; build();
+      if (k === "still") { homeSig = ""; placeSoon(0, true); }
       if (k === "ai" && el.checked) aiMaybe("setting");
       if (k === "on" && el.checked) later(() => { if (act) { act.motion("hop"); spawnFx("heart", 2); } }, 300);
       return true;
@@ -2254,7 +2258,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   });
   hook("menu", () => {
     const c = current(); if (!c) return "";
-    return `<button data-act="comp-open" data-group="appearance"><span>Study Companion<span class="sub">${isOn() ? `${esc(nameOf(c))} the ${esc(c.kind || "companion")} lives in your theme` : "Turned off. A little friend who studies with you."}</span></span></button>`;
+    return `<button data-act="comp-open" data-group="appearance"><span>Study Companion<span class="sub">${isOn() ? `${esc(nameOf(c))} the ${esc(c.kind || "companion")} lives in your theme` : "Turned off. A little friend who studies with you."}</span></span></button>` + (phone() ? "" : `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Companion Stays Put<span class="sub">The companion stays in the bottom-left corner instead of moving around the page. It still moves into its circle when you open the Companion tab.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="still" ${cfg().still === true ? "checked" : ""}> On</label></div>`);
   });
 
   /* Style Shop: a Companions tab */
