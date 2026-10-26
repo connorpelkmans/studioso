@@ -35,7 +35,7 @@ const bsTask = (id, title, cid, ou, extra) => Object.assign({id, created: 1, tit
   const fresh = async tasks => {
     const ctx = await browser.newContext({viewport: {width: 1100, height: 900}, serviceWorkers: "block"});
     await ctx.route(/supabase\.co/, r => r.abort());
-    await ctx.addInitScript(s => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(s)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); } } catch (e) {} }, seed(tasks));
+    await ctx.addInitScript(s => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(s)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", '"local"'); } } catch (e) {} }, seed(tasks));
     const page = await ctx.newPage(); const errs = []; page.on("pageerror", e => errs.push(e.message));
     await page.goto(base); await page.waitForFunction(() => window.SBLMS && SBLMS.brightspace && SBLMS.st().courses.c10, null, {timeout: 40000});
     page.errs = errs; return page;
@@ -166,6 +166,75 @@ const bsTask = (id, title, cid, ou, extra) => Object.assign({id, created: 1, tit
       const asked = await sync(page, H()); await page.waitForTimeout(300);
       const k2 = await page.evaluate(() => SBLMS.st().tasks.k2);
       ok(!asked.length && k2.courseId === "c10" && k2.mark && k2.mark.got === 34, "no question, and the kept task gets the mark: " + JSON.stringify({asked, mark: k2.mark}));
+      await page.context().close(); }
+
+    // 8. Dates: the exam is on its calendar day (Friday), never the day of the read; a grade with no day stays undated
+    { const page = await fresh([]);
+      const fri = new Date(Date.now() - 3 * DAY); fri.setHours(8, 30, 0, 0); const friDay = dateOf(-3);
+      const noDates = (events, extra) => { const h = H(); const c = h.courses[1];
+        c.quizzes = [{id: "8", name: MID, due: null, start: null, end: null, done: true, gid: "", at: null}]; c.events = events; Object.assign(c, extra || {}); return h; };
+      const tied = [{id: "e8", title: "BSNC 1020 Midterm Exam", text: "", start: fri.toISOString(), end: new Date(fri.getTime() + 2 * 36e5).toISOString(), allDay: false, where: "", assoc: true, kind: "D2L.LE.Quizzing.Quiz", eid: "8", url: ""}];
+      const untied = [Object.assign({}, tied[0], {assoc: false, kind: "", eid: "", allDay: true, start: friDay + "T07:00:00.000Z", end: dateOf(-2) + "T07:00:00.000Z"})];
+      for (const [how, evs] of [["tied to the quiz", tied], ["a plain calendar entry", untied]]) {
+        const r = await page.evaluate(h => { const d = SBLMS.brightspace.fromApi(h); return d.recs.filter(x => x.pid === "q8").map(x => x.due); }, noDates(evs));
+        ok(r.length === 1 && r[0] === friDay, `the midterm with no dates of its own is on Friday, from ${how}: ` + JSON.stringify(r));
+      }
+      await page.evaluate(h => { const L = SBLMS.brightspace, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true); }, noDates(tied)); await closeDlg(page);
+      const t = await page.evaluate(m => { const t = Object.values(SBLMS.st().tasks).find(x => x.title === m); return {due: t.due, mark: t.mark && t.mark.got, doneAt: t.doneAt}; }, MID);
+      ok(t.due === friDay && t.mark === 34 && t.doneAt < Date.now() - DAY, "the task: Friday, 34 / 45, finished then and not today: " + JSON.stringify(t));
+      await page.context().close(); }
+    { const page = await fresh([{id: "old", created: Date.now() - 36e5, title: MID, courseId: "c10", type: "Exam", due: dateOf(0), time: "", status: "done", doneAt: Date.now() - 36e5, order: 1,
+        mark: {got: 34, outOf: 45, src: "bs", from: "quizPage"}, bs: {key: "10|midtermexamrequiresresponduslockdownbrowser", ou: "10", gid: "q8", last: {title: MID, courseId: "c10"}, seen: {api: Date.now() - 36e5}, doneSeen: true, ss: "done", fromGrade: true, madeAt: Date.now() - 36e5}}]);
+      const none = await page.evaluate(h => { const c = h.courses[1]; c.quizzes = [{id: "9", name: "Pop Quiz", due: null, start: null, end: null, done: true, gid: ""}]; c.marks = [{kind: "quiz", id: "9", num: 3, den: 5, from: "quizPage"}];
+        const L = SBLMS.brightspace, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true); const t = Object.values(SBLMS.st().tasks).find(x => x.title === "Pop Quiz"); return t && [t.due, t.mark && t.mark.got]; }, H());
+      ok(none && none[0] === "" && none[1] === 3, "a mark with nothing to date it is kept, undated rather than today: " + JSON.stringify(none));
+      await closeDlg(page);
+      const fixed = await page.evaluate(([h, fri]) => { const c = h.courses[1]; c.quizzes = [{id: "8", name: h.courses[1].quizzes[0].name, due: null, start: null, end: null, done: true, gid: ""}];
+        c.events = [{id: "e8", title: "BSNC 1020 Midterm Exam", text: "", start: fri + "T07:00:00.000Z", end: fri + "T09:00:00.000Z", allDay: true, where: "", assoc: true, kind: "D2L.LE.Quizzing.Quiz", eid: "8", url: ""}];
+        const L = SBLMS.brightspace, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true); return Object.values(SBLMS.st().tasks).filter(t => t.title === h.courses[1].quizzes[0].name).map(t => [t.id, t.due, t.doneAt < Date.now() - 864e5]); }, [H(), dateOf(-3)]);
+      ok(fixed.length === 1 && fixed[0][1] === dateOf(-3) && fixed[0][2], "an exam an earlier read dated today moves to Friday, finished then: " + JSON.stringify(fixed));
+      await page.context().close(); }
+
+    // 9. The Grades tab lists a mark with no weight, and the syllabus's "Midterm Exam" weight reaches the quiz
+    { const page = await fresh([]);
+      await sync(page, H()); await closeDlg(page);
+      const gradesTab = async () => {
+        await page.click('nav.tabs [data-tab="courses"]'); await page.waitForTimeout(150);
+        await page.evaluate(() => { const b = document.querySelector('[data-act="cf-view"][data-id="courses"]'); if (b) b.click(); });
+        await page.click('.course-card[data-act="open-course"][data-id="c10"]'); await page.waitForTimeout(150);
+        await page.click('[data-act="course-tab"][data-id="grades"]'); await page.waitForTimeout(250);
+        return (await page.textContent("#view")).replace(/\s+/g, " ");
+      };
+      const tab = await gradesTab();
+      ok(/Marked, No Weight Yet 1/.test(tab) && /Midterm Exam- Requires Respondus LockDown Browser/.test(tab) && /75\.6%/.test(tab), "the Grades tab lists the midterm's mark though it has no weight yet: " + tab.slice(0, 300));
+      const syl = "Course Evaluation\nMidterm Exam 30%\nFinal Exam 40%\nAssignments 30%\nThe minimum passing grade is 65%.";
+      const w = await page.evaluate(([h, syl]) => { h.courses[1].syl = [syl]; const L = SBLMS.brightspace, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true); return Object.values(SBLMS.st().tasks).filter(t => t.courseId === "c10").map(t => [t.title, t.weight]); }, [H(), syl]);
+      ok(w.some(([t, x]) => t === MID && Number(x) === 30), "the syllabus's Midterm Exam 30% goes on the quiz: " + JSON.stringify(w));
+      await closeDlg(page); const tab2 = await gradesTab();
+      ok(/Where You Stand/.test(tab2) && !/No Weight Yet/.test(tab2), "with its weight it counts in the course grade: " + tab2.slice(0, 200));
+      // later the mark is posted to Brightspace's Grades page, with the course's own weight: that mark and weight take over
+      const later = await page.evaluate(([h, syl, m]) => { h.courses[1].syl = [syl]; h.courses[1].quizzes[0].gid = "55";
+        h.courses[1].grades = [{gid: "55", name: m, type: 1, num: 36, den: 45, wnum: 20, wden: 25, shown: "80 %"}];
+        const L = SBLMS.brightspace, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true); const t = Object.values(SBLMS.st().tasks).find(x => x.title === m); return {w: t.weight, got: t.mark.got, from: t.mark.from || "grades"}; }, [H(), syl, MID]);
+      ok(later.w === 25 && later.got === 36 && later.from === "grades", "once on the Grades page: its mark (36 / 45) and Brightspace's weight (25%) replace the syllabus's: " + JSON.stringify(later));
+      await page.context().close(); }
+
+    // 10. Discussions: the course's "Module 6 Discussion post" entry is the topic "Module 6 Discussion"; a group topic your group posted in
+    { const page = await fresh([]);
+      const r = await page.evaluate(h => { const c = h.courses[1], due = new Date(Date.now() - 864e5).toISOString();
+        h.items = [{ou: "10", id: "61", name: "Module 6 Discussion post", type: 1, act: 1, url: "/d2l/le/content/10/viewContent/61/View", due, done: null, exempt: false},
+                   {ou: "10", id: "62", name: "Module 5 group Discussion (NCLEX Questions activity) PART A", type: 1, act: 1, url: "/d2l/le/content/10/viewContent/62/View", due, done: null, exempt: false},
+                   {ou: "10", id: "63", name: "Module 5 Discussion post", type: 1, act: 1, url: "/d2l/le/content/10/viewContent/63/View", due, done: null, exempt: false},
+                   {ou: "10", id: "308", name: "Week 8 Reflection Activity", type: 1, act: 6, url: "/d2l/le/content/10/viewContent/88/View", due, done: null, exempt: false}];
+        c.discussions = [{id: "306", name: "Module 6 Discussion", due: null, start: null, text: "", gid: "", outOf: null, posted: true, at: new Date(Date.now() - 2 * 864e5).toISOString()},
+          {id: "305", name: "Module 5 group Discussion (NCLEX Questions activity) PART A", due: null, start: null, text: "", gid: "", outOf: null, posted: false, group: true, groupPosted: true},
+          {id: "304", name: "Module 4 Discussion", due: null, start: null, text: "", gid: "", outOf: null, posted: true},
+          {id: "308", name: "Professionalism in Practice", due: null, start: null, text: "", gid: "", outOf: null, posted: true}];
+        const d = SBLMS.brightspace.fromApi(h); return Object.fromEntries(d.recs.filter(x => /Module|Week 8/.test(x.title)).map(x => [x.title, [x.done, x.doneAt ? x.doneAt.slice(0, 10) : ""]])); }, H());
+      ok(r["Module 6 Discussion post"] && r["Module 6 Discussion post"][0] === true && r["Module 6 Discussion post"][1] === dateOf(-2), "Module 6 Discussion post is done, from the topic, when you posted: " + JSON.stringify(r));
+      ok(r["Module 5 group Discussion (NCLEX Questions activity) PART A"][0] === true, "the group topic your group posted in is done");
+      ok(!r["Module 5 Discussion post"][0], "Module 5's entry isn't ticked by Module 4's or 6's topic");
+      ok(r["Week 8 Reflection Activity"] && r["Week 8 Reflection Activity"][0] === true, "a content entry for a discussion topic, named differently, follows that topic by its id: " + JSON.stringify(r["Week 8 Reflection Activity"]));
       await page.context().close(); }
 
     // 7. Same Exam? never pairs two courses' midterms on the same day

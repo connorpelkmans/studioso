@@ -264,12 +264,15 @@ async function bsHarvest(o) {
       c.subNote = `${c.code || c.name}: ${yes} submitted, ${no} not, ${unk} unknown` + (subFail ? `; API refused ${subFail} (${subWhy})` : "") + (subOdd ? `; ${subOdd} unreadable answers` : "") + (fromPage ? `; ${fromPage} from the Assignments page` : "");
     }
     const qrecent = quizzes.filter(x => { if (!x || x.IsActive === false) return false; const d = Date.parse(x.DueDate || x.EndDate || x.StartDate || ""); return isNaN(d) || (d > now - 60 * 864e5 && d < now + 240 * 864e5); }).slice(0, 40);
-    const tried = {};
+    const tried = {}, satAt = {};
     let qRefused = 0, qPage = 0, qPageStatus = "", qLinks = 0, qOwn = 0;
     await inBatches(qrecent, async x => {
       const a = await soft(`${b}/quizzes/${x.QuizId}/attempts/`, true);
       if (!a) qRefused++;
       if (a) tried[x.QuizId] = listOf(a).some(t => t && (t.AttemptId != null || t.AttemptNumber != null || t.TimeCompleted || t.DateCompleted || t.SubmittedDate || t.IsGraded === true || (t.Score != null && t.Score !== "")));
+      // when you finished it (your first attempt), so a task made from it is dated by that and not by the day it was read
+      const when = a ? listOf(a).map(t => t && (dt(t.TimeCompleted) || dt(t.DateCompleted) || dt(t.SubmittedDate) || dt(t.TimeStarted))).filter(Boolean).sort() : [];
+      if (when.length) satAt[x.QuizId] = when[0];
     });
     let qOnlyPage = 0;
     if (qrecent.some(x => tried[x.QuizId] !== true) || !quizzes.length) {
@@ -396,7 +399,7 @@ async function bsHarvest(o) {
     c.quizzes = quizzes.filter(x => x && x.IsActive !== false).slice(0, 120).map(x => ({ id: String(x.QuizId), name: String(x.Name || ""), due: dt(x.DueDate), start: dt(x.StartDate), end: dt(x.EndDate),
       gid: x.GradeItemId != null ? String(x.GradeItemId) : "", text: txt(x.Description || x.Instructions, 1500), limit: x.TimeLimitValue || (x.TimeLimit && x.TimeLimit.TimeLimitValue) || null,
       done: tried[x.QuizId] === true || (x.GradeItemId != null && graded.has(String(x.GradeItemId))) ? true : tried[x.QuizId] === undefined ? null : false,
-      }));
+      at: satAt[x.QuizId] || null }));
     c.quizzes.forEach(x => { x.st = stOf(x.due, x.end, x.done, null); });
     c.gradeN = listOf(grades).length;
     c.grades = listOf(grades).slice(0, 200).map(g => ({ gid: String(g.GradeObjectIdentifier || ""), name: String(g.GradeObjectName || ""), type: Number(g.GradeObjectType) || 0,
@@ -419,7 +422,7 @@ async function bsHarvest(o) {
       const pass = rg.find(r => !FAIL.test(r.sym));
       if (rg.some(r => FAIL.test(r.sym)) && pass && pass.at >= 30 && pass.at <= 90) c.passMark = { pct: Math.round(pass.at * 10) / 10, from: "scheme", name: String(sch.Name || "").slice(0, 80) };
     } catch (e) {}
-    const meId = String(me.Identifier || "");
+    const meId = String(me.Identifier || ""), meName = [me.FirstName, me.LastName].filter(Boolean).join(" ").trim().toLowerCase();
     const tops = [];
     // Every forum's topics (Brightspace lists the oldest first), then the ones nearest today: a weekly topic from yesterday must not be cut off
     await inBatches(listOf(forums).filter(f => f && !f.IsHidden).slice(0, 40), async f => {
@@ -428,26 +431,42 @@ async function bsHarvest(o) {
     });
     tops.sort((x, y) => (isNaN(x.at) - isNaN(y.at)) || Math.abs(x.at - now) - Math.abs(y.at - now));
     tops.splice(40);
-    c.discussions = [];
+    c.discussions = []; let postsRefused = 0, pageChecks = 0, fromTopicPage = 0;
     await inBatches(tops, async ({ f, t }) => {
       const gid = t.GradeItemId != null ? String(t.GradeItemId) : "";
       let posted = gid && graded.has(gid) ? true : null;
+      let postAt = null, others = 0;
+      // a group topic (one shared with your group): a post by a group member is your group's post
+      const grp = t.GroupTypeId != null || /\bgroups?\b/i.test(String(t.Name || ""));
       if (posted == null && meId) {
         // all of the topic's posts, page by page (a busy class topic can run past one page), until one of yours turns up
         for (let pg = 1; pg <= 6; pg++) {
           const ps = await soft(`${b}/discussions/forums/${f.ForumId}/topics/${t.TopicId}/posts/?pageSize=200&pageNumber=${pg}`, true) || (pg === 1 ? await soft(`${b}/discussions/forums/${f.ForumId}/topics/${t.TopicId}/posts/`, true) : null);
-          if (!ps) break;
+          if (!ps) { if (pg === 1) postsRefused++; break; }
           const l = listOf(ps);
-          if (l.some(p => p && String(p.PostingUserId) === meId)) { posted = true; break; }
+          // yours by your user id, or by your name where a school's posts give the id in another form
+          const mine = l.filter(p => p && (String(p.PostingUserId) === meId || (meName && String(p.PostingUserDisplayName || "").trim().toLowerCase() === meName)));
+          others += l.filter(p => p && p.PostingUserId != null && !mine.includes(p)).length;
+          if (mine.length) { posted = true; postAt = mine.map(p => dt(p.DatePosted)).filter(Boolean).sort()[0] || null; break; }
           posted = false;
           if (l.length < 200) break;
         }
       }
+      // The topic's own page says "Anna Bulawski posted Oct 25, 2026": for a recent topic the posts list didn't show (or refused) a post of yours
+      const dueAt = Date.parse(t.DueDate || t.EndDate || t.UnlockEndDate || "");
+      if (posted !== true && meName && pageChecks < 12 && (isNaN(dueAt) || (dueAt > now - 30 * 864e5 && dueAt < now + 14 * 864e5))) {
+        pageChecks++;
+        const pt = await page(`/d2l/le/${c.ou}/discussions/topics/${t.TopicId}/View`);
+        const esc = meName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+        const m = pt && pt.match(new RegExp(esc + "\\s+posted\\b\\s*(?:on\\s+)?([A-Z][a-z]{2,8}\\.?\\s+\\d{1,2},\\s*\\d{4}(?:\\s+\\d{1,2}:\\d{2}\\s*[AP]M)?)?", "i"));
+        if (m) { posted = true; fromTopicPage++; if (!postAt && m[1] && !isNaN(Date.parse(m[1].replace(/\./, "")))) postAt = new Date(Date.parse(m[1].replace(/\./, ""))).toISOString(); }
+        else if (pt && /\bposted\b/i.test(pt)) { if (posted == null) posted = false; others += (pt.match(/\bposted\b/gi) || []).length; }
+      }
       const due = dt(t.DueDate) || dt(t.EndDate) || dt(t.UnlockEndDate);
-      c.discussions.push({ id: String(t.TopicId), name: String(t.Name || ""), due, start: dt(t.StartDate) || dt(t.UnlockStartDate), text: txt(t.Description, 1500), gid, outOf: t.ScoreOutOf != null ? Number(t.ScoreOutOf) : null, posted,
+      c.discussions.push({ id: String(t.TopicId), name: String(t.Name || ""), due, start: dt(t.StartDate) || dt(t.UnlockStartDate), text: txt(t.Description, 1500), gid, outOf: t.ScoreOutOf != null ? Number(t.ScoreOutOf) : null, posted, at: postAt, group: grp, groupPosted: grp && posted === false && others > 0,
         st: stOf(due, null, posted, null) });
     });
-    if (tops.length) c.topicNote = `discussions: ${c.discussions.filter(d => d.posted === true).length} posted, ${c.discussions.filter(d => d.posted === false).length} not, ${c.discussions.filter(d => d.posted == null).length} unknown of ${tops.length} topics`;
+    if (tops.length) c.topicNote = `discussions: ${c.discussions.filter(d => d.posted === true).length} posted` + (c.discussions.some(d => d.groupPosted) ? ` (+${c.discussions.filter(d => d.groupPosted).length} by your group)` : "") + `, ${c.discussions.filter(d => d.posted === false && !d.groupPosted).length} not, ${c.discussions.filter(d => d.posted == null).length} unknown of ${tops.length} topics` + (postsRefused ? `; posts refused for ${postsRefused}` : "") + (fromTopicPage ? `; ${fromTopicPage} from the topic's page` : "");
     // 4. Discussions: the topic's own page, for a posted topic with a mark out of its known total (only "x / that total" after a label counts)
     if (markOn("discussionPage")) {
       const left = c.discussions.filter(d => d.posted === true && d.outOf > 0 && !hasMark(d.gid || null)).slice(0, 10);

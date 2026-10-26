@@ -206,6 +206,8 @@ function cleanFile(r) {
     const mine = lr && (lr.items || []).find(x => x.k === L.key);
     if (mine && mine.a) rows.push(["As read", mine.a]);
     if (lr && lr.notes && lr.notes[L.ou]) rows.push(["The read, this course", lr.notes[L.ou]]);
+    const tops = lr && lr.topics && lr.topics[L.ou];
+    if (tops && tops.length && (/discussion|forum|post|reply|respond/i.test(t.title || "") || t.type === "Discussion")) rows.push(["Discussion topics, same course", tops.map(x => `${x.t}${x.d ? " (" + x.d + ")" : ""}: ${x.p === "yes" ? "you posted" : x.p === "group" ? "your group posted" : x.p === "no" ? "no post of yours" : "posts not readable"}`).join("; ")]);
     if (t.mark && t.mark.src === f) rows.push(["Mark from", markLabel(t.mark.from)]);
     return `<dl class="lms-diag mini">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`;
   }
@@ -472,7 +474,7 @@ function cleanFile(r) {
   /* Reading the platform data into one shape */
   const makeAdd = (out, filesFirst) => {
     const byKey = {};
-    const merge = (p, r) => { ["due", "time", "start", "url", "notes", "gid", "outOf", "lateUntil", "rx", "location", "st", "fb", "rub"].forEach(f => { if (!p[f] && r[f]) p[f] = r[f]; }); if (r.done) p.done = true; if (r.sub === "yes" || (r.sub && !p.sub)) p.sub = r.sub; if (r.files && r.files.length && !(filesFirst && (p.files || []).length)) p.files = r.files; return p; };
+    const merge = (p, r) => { ["due", "time", "start", "url", "notes", "gid", "outOf", "lateUntil", "rx", "location", "st", "fb", "rub", "doneAt"].forEach(f => { if (!p[f] && r[f]) p[f] = r[f]; }); if (r.done) p.done = true; if (r.sub === "yes" || (r.sub && !p.sub)) p.sub = r.sub; if (r.files && r.files.length && !(filesFirst && (p.files || []).length)) p.files = r.files; return p; };
     const add = r => {
       const k = r.ou + "|" + titleKey(r.title), list = byKey[k] || (byKey[k] = []);
       const same = list.find(p => (r.pid && p.pid === r.pid) || (p.due === r.due && (!p.time || !r.time || p.time === r.time)));
@@ -485,6 +487,8 @@ function cleanFile(r) {
     return add;
   };
   const recKey = r => r.key || r.ou + "|" + titleKey(r.title);
+  // a discussion counts as posted by your post, or in a group topic by your group's
+  const postedOf = d => !!d && (d.posted === true || d.groupPosted === true);
   function foldCopies(out){
     const real = out.recs.filter(r => r.pid), said = cfg().merges || {};
     const gone = new Set(); out.ask = [];
@@ -531,12 +535,12 @@ function cleanFile(r) {
     out.diag = `Read ${(h.courses || []).length} of ${(h.all || []).length} courses (${(h.courses || []).map(c => c.code || c.name).slice(0, 20).join(", ")}).${subNotes.length ? " Assignments: " + subNotes.join(" | ") + "." : ""} Grade rows per course: ${(h.courses || []).map(c => c.gradeN == null ? "?" : c.gradeN).join(", ") || "none"}.${(h.errors || []).length ? " Problems: " + h.errors.slice(0, 4).join("; ") : ""}`;
     const add = makeAdd(out, false);
     out.notes = {}; (h.courses || []).forEach(c => { const n = [c.subNote, c.quizNote, c.topicNote, c.markNote].filter(x => typeof x === "string" && x).join("; "); if (n) out.notes[c.ou] = n.slice(0, 300); });
-    const undated = [], linked = [], openOnly = [], undatedD = [];
+    const undated = [], linked = [], openOnly = [], undatedD = [], examCal = [];
     const addFolder = (ou, f, due) => {
       const st = localDT(f.start);
       add({ou, asRead: [f.due && "due " + f.due, f.start && "opens " + f.start, f.end && "closes " + f.end, f.sub === true ? "submitted" : f.sub === false ? "not submitted" : "submitted: unknown"].filter(Boolean).join("; "), pid: "f" + f.id, title: cleanTitle(f.name).title, type: typeFor(f.name), due: due.date, time: due.time, start: st && st.date < due.date && st.date >= addDays(due.date, -45) ? st.date : "",
         notes: f.text || "", url: absUrl(origin, `/d2l/lms/dropbox/user/folder_submit_files.d2l?db=${f.id}&ou=${ou}`), gid: f.gid || "", outOf: f.outOf, done: f.sub === true, sub: f.sub === true ? "yes" : f.sub === false ? "no" : "", sure: true, lateUntil: f.due ? lateWin(f.due, f.end) : "",
-        rx: {k: "dropbox", sb: f.sbt, ul: f.start, ll: f.end}, st: f.st || null, fb: f.fb || null, rub: f.rub || null,
+        rx: {k: "dropbox", sb: f.sbt, ul: f.start, ll: f.end}, st: f.st || null, fb: f.fb || null, rub: f.rub || null, doneAt: (f.st && f.st.subAt) || "",
         files: (f.files || []).map(x => ({ou, folder: f.id, id: x.id, name: x.name, size: x.size}))});
     };
     const addQuiz = (ou, q, at) => {
@@ -545,7 +549,7 @@ function cleanFile(r) {
       const due = at || localDT(!staleDue && q.due || (sameDay ? q.start : q.end || q.start)); if (!due) return;
       const opens = localDT(q.start);
       const notes = [q.text, q.limit ? `Time limit: ${q.limit} minutes.` : "", opens && opens.date !== due.date ? `Opens ${fmtDate(opens.date)}${opens.time ? " at " + fmtTime(opens.time) : ""}.` : ""].filter(Boolean).join("\n");
-      add({ou, asRead: [q.due && "due " + q.due, q.start && "opens " + q.start, q.end && "closes " + q.end, q.done === true ? "sat" : q.done === false ? "not sat" : "sat: unknown", q.why].filter(Boolean).join("; "), pid: "q" + q.id, title: cleanTitle(q.name).title, type: typeFor(q.name, "quiz"), due: due.date, time: due.time, start: "", notes, url: absUrl(origin, `/d2l/lms/quizzing/user/quiz_summary.d2l?qi=${q.id}&ou=${ou}`), gid: q.gid || "", done: q.done === true, sub: q.done === true ? "yes" : q.done === false ? "no" : "", sure: true, lateUntil: q.due && !staleDue ? lateWin(q.due, q.end) : "", rx: {k: "quiz", tl: q.limit, ul: q.start, ll: q.end}, st: q.st || null});
+      add({ou, asRead: [q.due && "due " + q.due, q.start && "opens " + q.start, q.end && "closes " + q.end, q.done === true ? "sat" : q.done === false ? "not sat" : "sat: unknown", q.why].filter(Boolean).join("; "), pid: "q" + q.id, title: cleanTitle(q.name).title, type: typeFor(q.name, "quiz"), due: due.date, time: due.time, start: "", notes, url: absUrl(origin, `/d2l/lms/quizzing/user/quiz_summary.d2l?qi=${q.id}&ou=${ou}`), gid: q.gid || "", done: q.done === true, sub: q.done === true ? "yes" : q.done === false ? "no" : "", sure: true, lateUntil: q.due && !staleDue ? lateWin(q.due, q.end) : "", rx: {k: "quiz", tl: q.limit, ul: q.start, ll: q.end}, st: q.st || null, doneAt: q.at || ""});
     };
     const notOurs = notThisCourse(h);
     (h.courses || []).forEach(c => {
@@ -555,15 +559,24 @@ function cleanFile(r) {
         if (!localDT(f.due)) { undated.push({ou: c.ou, f}); return; }
         addFolder(c.ou, f, localDT(f.due));
       });
+      const qCal = {}, qIds = new Set((c.quizzes || []).map(q => String(q.id)));
+      (c.events || []).forEach(e => { if (!e || !localDT(e.start) || notOurs(c, e)) return;
+        if (e.assoc && !/dropbox|assignment|discussion|topic/i.test(e.kind || "")) examCal.push({ou: c.ou, title: cleanTitle(e.title).title, s: localDT(e.start), allDay: !!e.allDay});
+        if (e.assoc && e.eid && (/quiz/i.test(e.kind || "") || (!/dropbox|assignment|discussion|topic/i.test(e.kind || "") && qIds.has(String(e.eid))))) qCal[e.eid] = e; });
       (c.quizzes || []).forEach(q => {
-        if (!q.end && (!q.due || (q.start && Date.parse(q.due) <= Date.parse(q.start) + 60000))) { openOnly.push({ou: c.ou, q}); return; }
+        if (!q.end && (!q.due || (q.start && Date.parse(q.due) <= Date.parse(q.start) + 60000))) {
+          // its calendar entry, tied to the quiz itself, gives its day (an exam is often only "available on" a date, with the day on the calendar)
+          const ev = qCal[q.id], s = ev && localDT(ev.start);
+          if (s && (!q.start || s.date >= localDT(q.start).date)) { q.why = "dated by its calendar entry"; addQuiz(c.ou, q, ev.allDay ? {date: s.date, time: ""} : s); return; }
+          openOnly.push({ou: c.ou, q}); return; }
         addQuiz(c.ou, q);
       });
       (c.discussions || []).forEach(d => {
         const due = localDT(d.due); if (!due) { undatedD.push({ou: c.ou, d}); return; }
         const st = localDT(d.start);
         add({ou: c.ou, pid: "d" + d.id, title: cleanTitle(d.name).title, type: typeFor(d.name), due: due.date, time: due.time, start: st && st.date < due.date && st.date >= addDays(due.date, -45) ? st.date : "",
-          notes: d.text || "", url: absUrl(origin, `/d2l/le/${c.ou}/discussions/topics/${d.id}/View`), gid: d.gid || "", outOf: d.outOf, done: d.posted === true, sub: d.posted === true ? "yes" : d.posted === false ? "no" : "", st: d.st || null});
+          notes: d.text || "", url: absUrl(origin, `/d2l/le/${c.ou}/discussions/topics/${d.id}/View`), gid: d.gid || "", outOf: d.outOf, done: postedOf(d), doneAt: d.at || "", sub: postedOf(d) ? "yes" : d.posted === false ? "no" : "", st: d.groupPosted ? Object.assign({}, d.st || {}, {missing: false}) : d.st || null,
+          asRead: d.groupPosted ? "your group posted (no post of your own)" : ""});
       });
       (c.events || []).forEach(e => {
         if (notOurs(c, e)) return;
@@ -601,10 +614,10 @@ function cleanFile(r) {
       if (own && own.pid && own.pid[0] === "f" && own.due && due.date > own.due) { own.st = Object.assign({}, own.st || {}, {ext: true, was: own.due}); own.due = due.date; own.time = due.time; if (x.done) { own.done = true; own.sub = "yes"; } return; }
       const fo = x.act === 3 ? folderOf[x.ou + "|" + ((String(x.url || "").match(/[?&]db=(\d+)/) || [])[1] || x.id)] : null;
       const subd = !!x.done || !!(fo && fo.sub === true);
-      add({ou: x.ou, title: ct.title, type: typeFor(ct.title, actType(x.act)), due: due.date, time: due.time, start: "", notes: "", url: absUrl(origin, x.url), done: subd,
+      add({ou: x.ou, title: ct.title, type: typeFor(ct.title, actType(x.act)), due: due.date, time: due.time, start: "", notes: "", url: absUrl(origin, x.url), done: subd, tid: x.act === 6 ? String(x.id) : "",
         sub: subd ? "yes" : fo && fo.sub === false ? "no" : "", st: fo && fo.st || null, fb: fo && fo.fb || null, rub: fo && fo.rub || null, rx: x.act === 4 ? {k: "quiz"} : x.act === 3 ? {k: "dropbox"} : undefined});
     });
-    (h.completions || []).forEach(x => { const d = localDT(x.due || x.end), r = add.find(x.ou, cleanTitle(x.name).title, d && d.date); if (r && x.done) { r.done = true; r.sub = "yes"; } });
+    (h.completions || []).forEach(x => { const d = localDT(x.due || x.end), r = add.find(x.ou, cleanTitle(x.name).title, d && d.date); if (r && x.done) { r.done = true; r.sub = "yes"; if (!r.doneAt && typeof x.done === "string") r.doneAt = x.done; } });
     const best = (title, ou, pool) => {
       const exy = x => /\b(quiz|quizzes|test|exam|midterm|final)\b/i.test(String(x || ""));
       const cands = pool.filter(u => u.ou === ou && !u.used && window.SB_SAMEOK(title, u.f.name) && exy(cleanTitle(title).title) === exy(u.f.name)).map(u => ({u, n: likeN(cleanTitle(title).title, u.f.name)})).filter(x => x.n >= 2).sort((a, b) => b.n - a.n);
@@ -615,7 +628,7 @@ function cleanFile(r) {
       const u = best(r.title, r.ou, undated); if (!u) return;
       const f = u.f; u.used = true;
       r.pid = "f" + f.id;
-      if (f.sub === true) { r.done = true; r.sub = "yes"; } else if (f.sub === false && !r.done) r.sub = "no";
+      if (f.sub === true) { r.done = true; r.sub = "yes"; if (f.st && f.st.subAt && !r.doneAt) r.doneAt = f.st.subAt; } else if (f.sub === false && !r.done) r.sub = "no";
       r.url = absUrl(origin, `/d2l/lms/dropbox/user/folder_submit_files.d2l?db=${f.id}&ou=${r.ou}`);
       ["gid", "outOf", "st", "fb", "rub"].forEach(k => { if (!r[k] && f[k]) r[k] = f[k]; });
       if (!r.notes && f.text) r.notes = f.text;
@@ -629,8 +642,29 @@ function cleanFile(r) {
       const r = cands.length === 1 ? cands[0] : cands.find(x => titleKey(x.title) === k);
       if (!r) return;
       r.pid = "d" + d.id; r.gid = r.gid || d.gid || ""; if (d.outOf && !r.outOf) r.outOf = d.outOf;
-      if (d.posted === true) { r.done = true; r.sub = "yes"; } else if (d.posted === false && !r.done) r.sub = "no";
+      if (postedOf(d)) { r.done = true; r.sub = "yes"; if (d.at && !r.doneAt) r.doneAt = d.at; } else if (d.posted === false && !r.done) r.sub = "no";
       r.url = absUrl(origin, `/d2l/le/${ou}/discussions/topics/${d.id}/View`);
+    });
+    // A content or calendar entry for a discussion ("Module 6 Discussion post") takes the topic's posted status: by the topic in its link,
+    // else by a close name in the same course within a day (a different module number never counts)
+    out.topics = {};
+    (h.courses || []).forEach(c => {
+      const ds = (c.discussions || []).filter(Boolean); if (!ds.length) return;
+      out.topics[c.ou] = ds.slice(0, 40).map(d => ({t: String(d.name || "").slice(0, 120), d: d.due ? (localDT(d.due) || {}).date || "" : "", p: d.posted === true ? "yes" : d.groupPosted ? "group" : d.posted === false ? "no" : ""}));
+      out.recs.forEach(r => {
+        if (r.ou !== c.ou || (r.pid && r.pid[0] !== "i")) return;
+        // the content list's entry for a discussion topic carries the topic's own id (activity type 6), else the topic is in its link
+        const tid = r.tid || ((String(r.url || "").match(/\/discussions\/topics\/(\d+)|[?&](?:topicId|tid)=(\d+)/i) || []).slice(1).find(Boolean));
+        let d = tid && ds.find(x => String(x.id) === tid);
+        if (!d) {
+          const near = ds.filter(x => window.SB_SAMEOK(r.title, x.name) && likeN(cleanTitle(r.title).title, x.name) >= 2 && (!x.due || !r.due || Math.abs(dayDiff((localDT(x.due) || {}).date || r.due, r.due)) <= 1));
+          if (near.length === 1) d = near[0];
+        }
+        if (!d || r.pid === "d" + d.id) return;
+        r.asRead = [r.asRead, `the discussion topic ${d.name}: ${d.posted === true ? "you posted" : d.groupPosted ? "your group posted" : d.posted === false ? "no post of yours" : "posts not readable"}`].filter(Boolean).join("; ");
+        if (postedOf(d)) { r.done = true; r.sub = "yes"; if (d.at && !r.doneAt) r.doneAt = d.at; } else if (d.posted === false && !r.done) r.sub = "no";
+        if (!r.gid && d.gid) r.gid = d.gid; if (!r.outOf && d.outOf) r.outOf = d.outOf;
+      });
     });
     linked.forEach(({ou, e}) => {
       const u = undated.find(z => z.ou === ou && !z.used && (e.eid ? z.f.id === e.eid : titleKey(cleanTitle(e.title).title) === titleKey(cleanTitle(z.f.name).title)));
@@ -649,21 +683,38 @@ function cleanFile(r) {
       const fromTasks = Object.values(state.tasks || {}).filter(t => t && t[F] && t[F].key && t[F].key !== own && !inRead.has(t[F].key) && t[F].item !== true && t.status !== "done" && t.due && EXAMY.test(t.title)
           && (t[F].ou === ou || (cid && cid !== "skip" && cid !== "new" && t.courseId === cid)))
         .map(t => ({r: {title: t.title, due: t.due, time: t.time || "", location: t.location || "", key: t[F].key}, k: t[F].key}));
-      const cands = fromRead.concat(fromTasks).filter(x => !opens || x.r.due >= opens.date)
+      const fromCal = examCal.filter(x => x.ou === ou && EXAMY.test(x.title)).map(x => ({r: {title: x.title, due: x.s.date, time: x.allDay ? "" : x.s.time || "", location: "", key: ou + "|" + titleKey(x.title) + "|cal", cal: true}, k: ""}));
+      const cands = fromRead.concat(fromTasks, fromCal).filter(x => !opens || x.r.due >= opens.date)
         .filter(x => window.SB_SAMEOK(x.r.title, q.name))
         .map(x => ({r: x.r, n: likeN(x.r.title, q.name), extra: (x.r.location ? 2 : 0) + (x.r.time ? 1 : 0)})).filter(x => x.n >= 2)
         .sort((a, b) => b.n - a.n || b.extra - a.extra || String(a.r.due).localeCompare(String(b.r.due)));
       const tie = cands[1] && cands[1].n === cands[0].n && cands[1].extra === cands[0].extra && cands[1].r.due === cands[0].r.due;
-      const r = cands.length && !tie ? cands[0].r : null;
+      // two entries that fit equally but agree on the day still give the day (only which one is its copy is unclear)
+      const sameDay = tie && cands.filter(x => x.n === cands[0].n && x.extra === cands[0].extra).every(x => x.r.due === cands[0].r.due && (x.r.time || "") === (cands[0].r.time || ""));
+      const r = cands.length && (!tie || sameDay) ? cands[0].r : null;
       q.why = r ? "dated by " + r.title : cands.length ? "no date: " + cands.slice(0, 3).map(x => x.r.title).join(" and ") + " fit equally" : "no calendar exam like it in this course on or after it opens";
       if (!r) { addQuiz(ou, q); return; }
       addQuiz(ou, q, {date: r.due, time: r.time || ""});
       const qr = out.recs.find(x => x.pid === "q" + q.id); if (!qr) return;
       if (!qr.location && r.location) qr.location = r.location;
+      if (r.cal || tie) return;
       const pair = recKey(r) + ">" + recKey(qr), said = (cfg().merges || {})[pair];
       if (!said) out.ask.push({pair, ou, copy: r.title, real: qr.title, due: qr.due, done: !!qr.done});
     });
     out.grades.forEach(g => { if (g.pid) { const r = out.recs.find(x => x.pid === g.pid); if (r) g.key = recKey(r); } });
+    // A grade's item: its due day and when you handed it in, so a task made from the grade isn't dated by the day of the read
+    (h.courses || []).forEach(c => {
+      const items = [].concat((c.quizzes || []).map(x => ({gid: x.gid, pid: "q" + x.id, when: x.at, day: x.due || x.end})),
+        (c.folders || []).map(x => ({gid: x.gid, pid: "f" + x.id, when: x.st && x.st.subAt, day: x.due || x.end})),
+        (c.discussions || []).map(x => ({gid: x.gid, pid: "d" + x.id, when: x.at, day: x.due})));
+      out.grades.filter(g => g.ou === c.ou).forEach(g => {
+        const r = out.recs.find(x => x.ou === c.ou && ((g.pid && x.pid === g.pid) || (g.gid && x.gid === g.gid)));
+        const it = items.find(x => (g.pid && x.pid === g.pid) || (g.gid && x.gid && x.gid === g.gid));
+        g.when = (r && r.doneAt) || (it && it.when) || ""; if (it) g.kind = it.pid[0];
+        const day = r && r.due ? {date: r.due, time: r.time || ""} : it && it.day ? localDT(it.day) : null;
+        if (day) { g.due = day.date; g.time = day.time || ""; }
+      });
+    });
     return out;
   }
 
@@ -762,6 +813,13 @@ function cleanFile(r) {
       put("course", nc); rep.courses.push(nc.name); return id;
     };
     const tasks = allTasks(), dropped = new Set(c.dropped || []), apiOnly = new Set(c.apiOnly || []);
+    // When you handed something in, by the school site (never later than now); the time of this read only when the site doesn't say
+    // A task made from a grade: the item's due day, else when you handed it in, else when the mark was released; never just the day of the read
+    const gradeDay = g => { if (g.due) return {date: g.due, time: g.time || ""}; const w = localDT(g.when || g.at || ""); return w ? {date: w.date, time: ""} : {date: "", time: ""}; };
+    const whenDone = (x, day, time) => { const v = Date.parse(x || ""); if (v > 0 && v <= Date.now() + 6e4) return v;
+      const d = day && isDate(day) ? new Date(day + "T" + (time || "12:00")).getTime() : 0; return d > 0 && d < Date.now() ? d : Date.now(); };
+    // its done time was set by a read, not by you: the read's own time, the day it was made or ticked off
+    const autoDone = t => { const L = t[F] || {}, d = Number(t.doneAt) || 0; return !!d && (L.doneWhen ? Math.abs(d - L.doneWhen) < 6e4 : Math.abs(d - (Number(L.madeAt) || Number(t.created) || 0)) < 15 * 6e4 || (L.seen && Object.values(L.seen).some(v => Math.abs(d - Number(v)) < 15 * 6e4))); };
     const baseKey = t => titleKey(cleanTitle(t).title);
     const claimedT = new Set(), kTitle = k => String(k).split("|")[1] || "", twinKey = k => String(k).split("|").length > 2;
     const findTask = (r, cid, id, key) => {
@@ -852,13 +910,16 @@ function cleanFile(r) {
         if (r.due < from && !(r.done && r.gid)) return;
         const done = !!(r.done && o.markDone);
         const t = normTask({id, created: Date.now(), title: val.title, courseId: cid, type: val.type, due: val.due, time: val.time, start: val.start, notes: val.notes, link: val.link, location: val.location,
-          status: done ? "done" : "todo", doneAt: done ? Date.now() : null, pct: done ? 100 : 0, order: nextOrder(done ? "done" : "todo"),
+          status: done ? "done" : "todo", doneAt: done ? whenDone(r.doneAt, r.due, r.time) : null, pct: done ? 100 : 0, order: nextOrder(done ? "done" : "todo"),
           [F]: Object.assign({key, ou: r.ou, gid: r.gid || "", last: val, seen: {[data.src]: Date.now()}, doneSeen: !!r.done, ss: done ? "done" : "todo", files: r.files || [], made: data.via || data.src || "", madeAt: Date.now()}, data.src === "api" ? {item: !!r.pid} : {}, r.lateUntil ? {lateUntil: r.lateUntil} : {}, r.rx ? {rx: r.rx} : {},
             r.st ? {st: r.st} : {}, r.fb ? {fb: r.fb} : {}, r.rub ? {rub: r.rub} : {}, data.src === "api" ? {sub: r.sub || ""} : {})});
         if (r.outOf && !t[F].outOf) t[F].outOf = r.outOf;
         put("task", t); rep.added.push(t); return;
       }
-      const t = clone(prev), last = (prev[F] && prev[F].last) || null;
+      const t = clone(prev);
+      let last = (prev[F] && prev[F].last) || null;
+      // made from a grade by an earlier read that had no day for it, so it took the day of that read: that day is Studyboard's, not yours
+      if (last && prev[F].fromGrade && last.due === undefined && prev.due === iso(new Date(Number(prev.created) || 0))) last = Object.assign({}, last, {due: prev.due, time: prev.time || ""});
       const apiFresh = data.src !== "api" && prev[F] && prev[F].seen && prev[F].seen.api && Date.now() - prev[F].seen.api < 3 * 864e5;
       if (!apiFresh) TRACK.forEach(f => {
         const nv = val[f], have = t[f] == null ? "" : t[f];
@@ -871,7 +932,9 @@ function cleanFile(r) {
       });
       if (t.start && t.due && t.start > t.due) t.start = "";
       const wasDone = prev[F] && prev[F].doneSeen, sMine = statusMine(prev);
-      if (r.done && o.markDone && !wasDone && t.status !== "done" && !sMine) { t.status = "done"; t.doneAt = Date.now(); t.pct = 100; t.order = nextOrder("done"); rep.done.push(t); }
+      if (r.done && o.markDone && !wasDone && t.status !== "done" && !sMine) { t.status = "done"; t.doneAt = whenDone(r.doneAt, r.due, r.time); t.pct = 100; t.order = nextOrder("done"); rep.done.push(t); }
+      // ticked off by an earlier read before it knew when you handed it in (it took the time of that read): now the school site's time
+      else if (r.done && (r.doneAt || (r.due && r.due < todayISO())) && t.status === "done" && !sMine && prev[F] && prev[F].ss === "done" && autoDone(prev) && Math.abs(whenDone(r.doneAt, r.due, r.time) - Number(prev.doneAt)) > 6e4) t.doneAt = whenDone(r.doneAt, r.due, r.time);
       const seenMap = Object.assign({}, (prev[F] && prev[F].seen) || {}, {[data.src]: Date.now()});
       t[F] = Object.assign({}, prev[F] || {}, {key: keep ? prev[F].key : key, ou: keep ? prev[F].ou : r.ou, gid: r.gid || (prev[F] && prev[F].gid) || "", last: apiFresh ? last : Object.assign({}, last || {}, val), seen: seenMap, doneSeen: !!(wasDone || r.done)}, sMine ? {sm: true} : {ss: t.status});
       delete t[F].gradeOnly;
@@ -948,12 +1011,19 @@ function cleanFile(r) {
         const id = F + "_" + hid(key);
         if (cur("task", id)) t = cur("task", id);
         else {
-          const at = g.at ? localDT(g.at) : null;
-          t = normTask({id, created: Date.now(), title: g.name, courseId: cid, type: (x => x === "Assignment" && !WORKISH.test(g.name) ? "Other" : x)(typeFor(g.name)), due: at ? at.date : todayISO(), status: "done", doneAt: g.at ? Date.parse(g.at) : Date.now(), pct: 100, order: nextOrder("done"),
-            [F]: {key, ou: g.ou, gid: g.gid, last: {title: g.name, courseId: cid}, seen: {[data.src]: Date.now()}, doneSeen: true, ss: "done", fromGrade: true}});
+          const gd = gradeDay(g), doneAt = whenDone(g.when || g.at, gd.date, gd.time);
+          t = normTask({id, created: Date.now(), title: g.name, courseId: cid, type: g.kind === "q" ? typeFor(g.name, "quiz") : (x => x === "Assignment" && !WORKISH.test(g.name) ? "Other" : x)(typeFor(g.name)), due: gd.date, time: gd.time, status: "done", doneAt, pct: 100, order: nextOrder("done"),
+            [F]: {key, ou: g.ou, gid: g.gid, last: {title: g.name, courseId: cid, due: gd.date}, seen: {[data.src]: Date.now()}, doneSeen: true, ss: "done", fromGrade: true, doneWhen: doneAt}});
         }
       }
       const n = clone(t); let changed = false;
+      // a task made from a grade before the read knew the item's day: dated by the day it was read; now by the school site (unless you changed it)
+      if (n[F] && n[F].fromGrade && n.status === "done") {
+        const L = n[F], gd = gradeDay(g), auto = L.last && L.last.due !== undefined ? n.due === L.last.due : n.due === iso(new Date(Number(n.created) || 0));
+        if (auto && gd.date && gd.date !== n.due) { n.due = gd.date; n.time = gd.time; n[F] = Object.assign({}, L, {last: Object.assign({}, L.last || {}, {due: gd.date})}); changed = true; }
+        const wd = whenDone(g.when || g.at, n.due, n.time);
+        if ((g.when || g.at || (n.due && n.due < todayISO())) && autoDone(n) && Math.abs(wd - Number(n.doneAt)) > 6e4) { n.doneAt = wd; n[F] = Object.assign({}, n[F], {doneWhen: n.doneAt}); changed = true; }
+      }
       const from = g.from || "grades";
       if (g.got != null && g.outOf && (!n.mark || n.mark.src === F) && !(n.mark && n.mark.got === g.got && n.mark.outOf === g.outOf && (n.mark.from || "grades") === from)) {
         n.mark = Object.assign({got: g.got, outOf: g.outOf, src: F}, from !== "grades" ? {from} : {}); changed = true; if (!t.mark || t.mark.got !== g.got) rep.graded.push({t: n, g}); }
@@ -984,7 +1054,7 @@ function cleanFile(r) {
         b.syl[P.id + "|" + bc.ou] = {text: syl, url: bc.sylUrl || "", at: Date.now()}; saveBulk();
         meta.syl = {n: syl.length, url: bc.sylUrl || ""};
         const sig = hid(syl);
-        if (meta.sylSig !== sig) {
+        if (meta.sylSig !== sig || !Array.isArray(meta.sylWts)) {
           meta.sylSig = sig;
           let r = null; try { r = SY.parse(syl, todayISO()); } catch(e) { r = null; }
           const sc = r && r.course;
@@ -995,13 +1065,32 @@ function cleanFile(r) {
             if (!nc.schedule && sc.schedule && !(nc.meetings || []).length) nc.schedule = sc.schedule;
             if (!(nc.meetings || []).length) { const ms = parseMeetings(sc.schedule, "Lecture", nc.room || sc.room).concat(parseMeetings(sc.office, "Office Hours")); if (ms.length) { nc.meetings = ms; rep.meet = (rep.meet || 0) + 1; } }
           }
-          ((r && r.items) || []).forEach(it => {
-            if (!(it.weight > 0)) return;
-            const pool = allTasks().map(t => cur("task", t.id) || t).concat(ch.filter(x => x.kind === "task" && !state.tasks[x.id]).map(x => x.after));
-            const t = pool.find(t => t.courseId === cid && (t.weight == null || t.weight === "") && titleKey(t.title) === titleKey(it.title));
-            if (t) { const n = clone(t); n.weight = it.weight; put("task", normTask(n)); rep.sylW = (rep.sylW || 0) + 1; }
-          });
+          meta.sylWts = ((r && r.items) || []).filter(it => it.weight > 0 && it.title).slice(0, 60).map(it => ({t: String(it.title).slice(0, 160), w: Number(it.weight)}));
+          // the breakdown's one midterm and one final ("Midterm Exam 30%", "Final Exam 40%") when no dated item carries them
+          const bt = (r && r.byType) || {}, one = w => w && w.pct > 0 && w.pct <= 100 && (w.count == null || w.count <= 1) && w.each == null ? Number(w.pct) : null;
+          if (one(bt.Exam) != null && !meta.sylWts.some(x => /midterm|mid-term/i.test(x.t))) meta.sylWts.push({t: "Midterm Exam", w: one(bt.Exam), kind: "mid"});
+          if (one(bt.Final) != null && !meta.sylWts.some(x => /final/i.test(x.t))) meta.sylWts.push({t: "Final Exam", w: one(bt.Final), kind: "final"});
         }
+        // The syllabus's weights, every sync, for tasks with none yet (each task once, so a weight you clear stays cleared).
+        // "Midterm Exam" in the syllabus is the "Midterm Exam- Requires Respondus LockDown Browser" quiz.
+        const doneW = new Set(meta.sylDone || []);
+        (meta.sylWts || []).forEach(it => {
+          const pool = allTasks().map(t => cur("task", t.id) || t).concat(ch.filter(x => x.kind === "task" && x.after && !state.tasks[x.id]).map(x => x.after))
+            .filter(t => t && t.courseId === cid && (t.weight == null || t.weight === "") && !t.prepFor && !t.breakdownOf && !doneW.has(t.id));
+          // a breakdown line, not a named item: the course's only exam of that kind
+          if (it.kind) { const ex = pool.filter(t => t.type === "Exam" && (it.kind === "final" ? /\bfinal\b/i.test(t.title) : !/\bfinal\b/i.test(t.title)) && !/practice|mock|review/i.test(t.title));
+            const all = allTasks().filter(t => t.courseId === cid && t.type === "Exam" && (it.kind === "final" ? /\bfinal\b/i.test(t.title) : !/\bfinal\b/i.test(t.title)) && !/practice|mock|review/i.test(t.title) && !(t[F] && t[F].item === false));
+            if (ex.length === 1 && all.length === 1) { const n = clone(ex[0]); n.weight = it.w; if (n[F]) n[F] = Object.assign({}, n[F], {last: Object.assign({}, n[F].last || {}, {weight: it.w})}); put("task", normTask(n)); doneW.add(n.id); rep.sylW = (rep.sylW || 0) + 1; }
+            return; }
+          const k = titleKey(it.t), ex = EXAMY.test(it.t);
+          const exact = pool.filter(t => titleKey(t.title) === k);
+          let hit = exact.concat(k.length < 4 ? [] : pool.filter(t => { if (exact.includes(t)) return false; const tk = titleKey(cleanTitle(t.title).title); return window.SB_SAMEOK(t.title, it.t) && EXAMY.test(t.title) === ex && (tk.startsWith(k) || k.startsWith(tk) || likeN(it.t, t.title) >= 2); }));
+          // several fit (the exam, and its calendar copy): the school site's own item, the one with a mark, then the exact name
+          [t => t[F] && t[F].item === true, t => !!t.mark, t => exact.includes(t)].forEach(f => { if (hit.length > 1 && hit.filter(f).length >= 1) hit = hit.filter(f); });
+          if (hit.length !== 1) return;
+          const n = clone(hit[0]); n.weight = it.w; if (n[F]) n[F] = Object.assign({}, n[F], {last: Object.assign({}, n[F].last || {}, {weight: it.w})}); put("task", normTask(n)); doneW.add(n.id); rep.sylW = (rep.sylW || 0) + 1;
+        });
+        if (doneW.size) meta.sylDone = [...doneW].slice(-300);
       }
       nc[F] = meta;
       if (JSON.stringify(nc) !== was) put("course", nc);
@@ -1111,7 +1200,7 @@ function cleanFile(r) {
     if ((how === "api" || how === "grab") && p.readSub) {
       const b = bulk();
       b.lastRead = {at, subs: p.readSub, ous: (data.synced || []).slice(0, 60),
-        items: data.recs.filter(r => r.pid).slice(0, 500).map(r => ({k: recKey(r), ou: r.ou, t: String(r.title).slice(0, 160), d: r.due || "", s: r.done ? "yes" : r.sub || "", a: r.asRead || ""})), und: (data.und || []).slice(0, 80), notes: data.notes || {}};
+        items: data.recs.filter(r => r.pid || r.asRead).slice(0, 500).map(r => ({k: recKey(r), ou: r.ou, t: String(r.title).slice(0, 160), d: r.due || "", s: r.done ? "yes" : r.sub || "", a: r.asRead || ""})), und: (data.und || []).slice(0, 80), notes: data.notes || {}, topics: data.topics || {}};
       saveBulk();
     }
     save({map: newMap, courses, newsItems, finals, log, last: at, lastSrc: how, name: data.name || c.name, gone: [...new Set(c.gone.filter(id => state.tasks[id]).concat(goneIds))].slice(0, 30)});
@@ -1313,8 +1402,8 @@ function cleanFile(r) {
     const how = c.mode === "api" ? (bsDesk() ? (lmsOnPhone() ? "Signed in on this phone" : "Signed in on this computer") : c.lastSrc === "grab" ? `Read from ${P.name} in this browser` : "Synced from your computer's Studyboard app") : "Using your calendar link";
     if (running || reading) return `${how}. Syncing now…`;
     const when = c.last ? `Last synced ${ago(c.last)}` : "Not synced yet";
-    const ev = !bsDesk() && c.lastSrc === "grab" && window.SBEXT && SBEXT.on() ? SBEXT.version() : "", older = v => { const a = String(v).split(".").map(Number), b = [1, 0, 6]; for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== b[i]) return (a[i] || 0) < b[i]; } return false; };
-    const extOld = ev && older(ev) ? ` Your School Sync extension is version ${ev}: update it to 1.0.6 or later to bring in marks that aren't on ${P.name}'s Grades page (like quiz marks on a quiz's Submissions page).` : "";
+    const ev = !bsDesk() && c.lastSrc === "grab" && window.SBEXT && SBEXT.on() ? SBEXT.version() : "", older = v => { const a = String(v).split(".").map(Number), b = [1, 0, 7]; for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== b[i]) return (a[i] || 0) < b[i]; } return false; };
+    const extOld = ev && older(ev) ? ` Your School Sync extension is version ${ev}: update it to 1.0.7 or later to bring in marks that aren't on ${P.name}'s Grades page (like quiz marks on a quiz's Submissions page).` : "";
     return `${how}. ${when}.${extOld}${L.needLogin && bsDesk() && c.mode === "api" ? " Sign in again to keep syncing grades and announcements." : ""}${L.err ? " " + L.err : ""}`;
   }
   function shortStatus(){

@@ -182,6 +182,22 @@ const BB = [
     assert(/discussions: \d+ posted/.test(out.courses[0].topicNote), out.courses[0].topicNote);
   });
 
+  await t("Brightspace: your post is found by your name, or on the topic's page when the posts list is refused", async () => {
+    const routes = BS.concat([
+      [/^\/d2l\/api\/le\/1\.70\/101\/discussions\/forums\/$/, [{ ForumId: 1, Name: "Module Discussions", IsHidden: false }]],
+      [/\/discussions\/forums\/1\/topics\/$/, [{ TopicId: 306, Name: "Module 6 Discussion", DueDate: iso(-1), IsHidden: false },
+        { TopicId: 307, Name: "Module 7 Discussion", DueDate: iso(-1), IsHidden: false }, { TopicId: 305, Name: "Module 5 group Discussion PART A", DueDate: iso(-6), IsHidden: false }]],
+      [/\/topics\/307\/posts\//, [{ PostId: 1, PostingUserId: "u-42-x", PostingUserDisplayName: "Ana Lee", DatePosted: iso(-1.5) }]],
+      [/\/topics\/305\/posts\//, [{ PostId: 2, PostingUserId: 77, PostingUserDisplayName: "Joori Yum" }]],
+      [/\/d2l\/le\/101\/discussions\/topics\/306\/View/, "<div><a>Professionalism</a></div><div>Ana Lee posted Oct 25, 2026 11:34 AM \u2022 275 Words</div><div>Last post yesterday at 10:41 PM by Joori Yum</div><header>Ana Lee</header>", { "content-type": "text/html" }]]);
+    const { out } = await runInjected("brightspace", "https://learn.example.edu", routes);
+    const d = id => out.courses[0].discussions.find(x => x.id === String(id));
+    assert(d(306).posted === true && /^2026-10-25/.test(d(306).at || ""), "posts list refused: the topic's page says Ana Lee posted Oct 25: " + JSON.stringify(d(306)));
+    assert(d(307).posted === true, "a post whose id is in another form is yours by name");
+    assert(d(305).posted === false && d(305).groupPosted === true, "a group topic with a group member's post: your group posted");
+    assert(/from the topic's page/.test(out.courses[0].topicNote), out.courses[0].topicNote);
+  });
+
   await t("Brightspace: assignment and discussion marks that aren't in Grades: feedback, the Assignments page, the topic's page", async () => {
     const F = (Id, Name, GradeItemId, den) => ({ Id, Name, DueDate: iso(-4), IsHidden: false, GradeItemId, Assessment: { ScoreDenominator: den }, Attachments: [] });
     const list = `<table><tr><th>Assignment</th><th>Completion Status</th><th>Score</th><th>Evaluation Status</th><th>Due Date</th></tr>
