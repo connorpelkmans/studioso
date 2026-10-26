@@ -2,7 +2,8 @@
 /* Smooth reveals: only opacity and transform, 160 to 260 ms, so they feel instant and still ease */
 :root{--sm-ease:cubic-bezier(.2,.8,.2,1)}
 @keyframes sm-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-@keyframes sm-view{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+/* the page fades only: moving it would drag the companion and anything fixed inside it along */
+@keyframes sm-view{from{opacity:0}to{opacity:1}}
 @keyframes sm-sheet-up{from{opacity:.4;transform:translateY(34px)}to{opacity:1;transform:none}}
 @keyframes sm-sheet-pop{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}
 @keyframes sm-back{from{opacity:0}to{opacity:1}}
