@@ -6778,6 +6778,13 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
 @media (pointer:coarse){
   select.cs-custom{pointer-events:none}
 }
+
+/* Today's Plan / Task Board switch: the space under it matches the space above it */
+@media (max-width:639px){
+  #view > .bview-row{margin-bottom:14px!important}
+  #view > .bview-row + .bview{margin-top:0!important}
+  #view > .bview > :first-child,#view > .bview > .bpane > :first-child,#view > .bview .bpane-plan > :first-child,#view > .bview .bpane-board > :first-child{margin-top:0!important}
+}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
