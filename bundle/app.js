@@ -30841,7 +30841,7 @@ function cleanFile(r) {
   };
   const sameOk = (a, b) => window.SB_SAMEOK(a, b);
   const KINDQ = t => MILESTONE(t.type) || /\b(quiz|quizzes|test|exam|midterm|final)\b/i.test(t.title);
-  const DUPE_WORDS = s => new Set(String(s || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(w => w.length > 2 && !/^\d+$/.test(w) && !["requires", "the", "and", "for", "with"].includes(w)));
+  const DUPE_WORDS = s => new Set(String(s || "").replace(/\b[A-Za-z]{2,5}[\s_-]?\d{3,4}[A-Za-z]?\b/g, " ").toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(w => w.length > 2 && !/^\d+$/.test(w) && !["requires", "the", "and", "for", "with"].includes(w)));
   const lmsKeyOf = t => FIELDS.map(f => t[f] && t[f].key ? f : "").find(Boolean) || "";
   function examDupes(){
     const said = (state.settings && state.settings.sameItem) || {};
@@ -30854,6 +30854,7 @@ function cleanFile(r) {
       if (!lmsKeyOf(a)) return;
       ex.forEach(b => {
         if (b.id === a.id || (a.status === "done" && b.status === "done") || Math.abs(dayDiff(a.due, b.due)) > 1 || !sameOk(a.title, b.title)) return;
+        if ((a.courseId || b.courseId) && a.courseId !== b.courseId) return;
         if (lmsKeyOf(b) === lmsKeyOf(a) && isReal(a) && isReal(b)) return;
         const A = DUPE_WORDS(a.title), B = DUPE_WORDS(b.title); let n = 0; A.forEach(w => { if (B.has(w)) n++; });
         if (n < 2) return;
@@ -30920,6 +30921,8 @@ function cleanFile(r) {
     if (keep.weight == null && other.weight != null) keep.weight = other.weight;
     if (!keep.prep && other.prep) keep.prep = other.prep;
     FIELDS.forEach(f => { if (other[f] && other[f].key && LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard"}[f]]) LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard"}[f]].drop(other[f].key, "merge"); });
+    const kf = lmsKeyOf(keep);
+    if (kf) { const took = FIELDS.filter(f => other[f] && other[f].key && f === kf).map(f => other[f].key); if (took.length) keep[kf] = Object.assign({}, keep[kf], {merged: [...new Set((keep[kf].merged || []).concat(took))].slice(-8)}); }
     applyChanges([{kind: "task", id: keep.id, after: normTask(keep)}, {kind: "task", id: other.id, after: null}], `Merged ${other.title} into ${keep.title}`);
   }
   let dupeAsking = false;
@@ -30986,7 +30989,7 @@ function cleanFile(r) {
   const LS = "studyboard:" + P.id;
   const bsDesk = () => !!lmsBridge();
   const DEF = {host: "", feed: "", mode: "", auto: true, markDone: true, grades: true, news: true, aiNews: true, addGraded: true, pastDays: 14,
-    map: {}, courses: {}, log: [], newsItems: [], finals: {}, suggest: [], scanned: [], last: 0, lastSrc: "", name: "", gone: [], dropped: [], merges: {}, apiOnly: [], mergedDrops: []};
+    map: {}, courses: {}, log: [], newsItems: [], finals: {}, suggest: [], scanned: [], last: 0, lastSrc: "", name: "", gone: [], dropped: [], merges: {}, apiOnly: [], mergedDrops: [], wrongCourse: {}};
   const BULK_LS = LS + ":bulk", NEWS_KEEP = 20, NEWS_SNIP = 280;
   let bulkMem = null;
   const bulk = () => { if (!bulkMem) { try { bulkMem = JSON.parse(localStorage.getItem(BULK_LS) || "null"); } catch(e) {} bulkMem = Object.assign({log: [], scanned: [], texts: {}}, bulkMem || {}); } return bulkMem; };
@@ -31124,7 +31127,7 @@ function cleanFile(r) {
     const subNotes = (h.courses || []).map(c => typeof c.subNote === "string" ? c.subNote.slice(0, 160) : "").filter(Boolean);
     out.diag = `Read ${(h.courses || []).length} of ${(h.all || []).length} courses (${(h.courses || []).map(c => c.code || c.name).slice(0, 20).join(", ")}).${subNotes.length ? " Assignments: " + subNotes.join(" | ") + "." : ""} Grade rows per course: ${(h.courses || []).map(c => c.gradeN == null ? "?" : c.gradeN).join(", ") || "none"}.${(h.errors || []).length ? " Problems: " + h.errors.slice(0, 4).join("; ") : ""}`;
     const add = makeAdd(out, false);
-    out.notes = {}; (h.courses || []).forEach(c => { const n = [c.subNote, c.quizNote].filter(x => typeof x === "string" && x).join("; "); if (n) out.notes[c.ou] = n.slice(0, 300); });
+    out.notes = {}; (h.courses || []).forEach(c => { const n = [c.subNote, c.quizNote, c.quizScoreNote].filter(x => typeof x === "string" && x).join("; "); if (n) out.notes[c.ou] = n.slice(0, 300); });
     const undated = [], linked = [], openOnly = [];
     const addFolder = (ou, f, due) => {
       const st = localDT(f.start);
@@ -31178,6 +31181,15 @@ function cleanFile(r) {
       const wOf = g => weighted && isNum(g.wden) && Number(g.wden) > 0 ? Number(g.wden) : !weighted && pts > 0 && isNum(g.den) && Number(g.den) > 0 ? Math.round(Number(g.den) / pts * 10000) / 100 : null;
       num.forEach(g => out.grades.push({ou: c.ou, gid: g.gid, name: g.name, got: isNum(g.num) ? Number(g.num) : null, outOf: isNum(g.den) && Number(g.den) > 0 ? Number(g.den) : null,
         weight: wOf(g), shown: g.shown || "", at: g.at || null, fb: g.fb || null}));
+      // A quiz's mark read from its Submissions page, for quizzes whose mark isn't released in Grades
+      (c.quizzes || []).forEach(q => {
+        const s = q.score; if (!s || !isNum(s.num) || !isNum(s.den) || !(Number(s.den) > 0)) return;
+        const row = q.gid && out.grades.find(g => g.ou === c.ou && g.gid === q.gid);
+        if (row && row.got != null) return;
+        const shown = `${Number(s.num)} / ${Number(s.den)}`;
+        if (row) { row.got = Number(s.num); row.outOf = Number(s.den); row.shown = row.shown || shown; row.pid = "q" + q.id; return; }
+        out.grades.push({ou: c.ou, gid: q.gid || "q" + q.id, pid: "q" + q.id, name: cleanTitle(q.name).title, got: Number(s.num), outOf: Number(s.den), weight: null, shown, at: null, fb: null, quiz: true});
+      });
       if (c.final && (c.final.shown || isNum(c.final.num))) out.finals[c.ou] = {shown: c.final.shown || "", pct: isNum(c.final.num) && isNum(c.final.den) && Number(c.final.den) > 0 ? Math.round(Number(c.final.num) / Number(c.final.den) * 1000) / 10 : null, at: Date.now()};
       (c.news || []).forEach(n => out.news.push({ou: c.ou, id: n.id, title: n.title, text: String(n.text || "").slice(0, 900), long: String(n.text || "").length > 900, date: n.date, url: absUrl(origin, `/d2l/le/news/${c.ou}/${n.id}/view`)}));
     });
@@ -31244,6 +31256,7 @@ function cleanFile(r) {
       const pair = recKey(r) + ">" + recKey(qr), said = (cfg().merges || {})[pair];
       if (!said) out.ask.push({pair, ou, copy: r.title, real: qr.title, due: qr.due, done: !!qr.done});
     });
+    out.grades.forEach(g => { if (g.pid) { const r = out.recs.find(x => x.pid === g.pid); if (r) g.key = recKey(r); } });
     return out;
   }
 
@@ -31364,9 +31377,60 @@ function cleanFile(r) {
       yes.forEach(([left, right]) => { if (!keys.has(right) || left === right) return; const r = data.recs.find(x => recKey(x) === right); r.aka = [...new Set((r.aka || []).concat(left))].slice(0, 5); away.add(left); });
       if (away.size) { away.forEach(k => seen.add(k)); data = Object.assign({}, data, {recs: data.recs.filter(r => !away.has(recKey(r)) || (r.aka || []).length)}); }
     }
+    /* Wrong course? A task the read now places in another course is put to you (Move / Keep Here) instead of being copied there */
+    rep.wrong = [];
+    const wrongSaid = c.wrongCourse || {}, held = new Set(), mergedAway = new Set(c.mergedDrops || []);
+    const cidOf = ou => { const m = map[ou]; return !m || m === "skip" ? null : m === "new" ? F + "c_" + hid(ou) : m; };
+    const recByKey = {}; data.recs.forEach(r => { recByKey[recKey(r)] = r; });
+    const keeperOf = (key, cid, r) => {
+      const pool = tasks.filter(t => t.courseId === cid && !t.breakdownOf && !t.prepFor);
+      const took = pool.find(t => FIELDS.some(f => t[f] && (t[f].merged || []).includes(key))); if (took) return took;
+      if (!r || !r.due) return null;
+      const A = DUPE_WORDS(r.title), ex = /\b(quiz|quizzes|test|exam|midterm|final)\b/i.test(r.title);
+      const near = pool.filter(t => t.due && Math.abs(dayDiff(t.due, r.due)) <= 1 && sameOk(t.title, r.title) && KINDQ(t) === ex && [...DUPE_WORDS(t.title)].some(w => A.has(w)));
+      return near.length === 1 ? near[0] : null;
+    };
+    {
+      const readKeys = new Set(); data.recs.forEach(r => { readKeys.add(recKey(r)); (r.aka || []).forEach(k => readKeys.add(k)); });
+      const syncedOus = new Set(data.synced || []), up = x => codeOf(String(x || "").toUpperCase()).toUpperCase();
+      const codeAt = {}; data.courses.forEach(bc => { const k = up(bc.code) || up(bc.name); if (k) codeAt[k] = codeAt[k] && codeAt[k] !== bc.ou ? "many" : bc.ou; });
+      const named = s => [...new Set((String(s || "").match(new RegExp(CODE_RX.source, "gi")) || []).map(up).filter(Boolean))];
+      tasks.forEach(t => {
+        const L = t[F]; if (!L || !L.key || !t.courseId || !state.courses[t.courseId] || t.breakdownOf || t.prepFor || L.gradeOnly) return;
+        if (L.last && L.last.courseId && L.last.courseId !== t.courseId) return;
+        let to = null, r0 = null, why = "";
+        if (data.src === "api" && syncedOus.has(L.ou) && !readKeys.has(L.key)) {
+          const tk = titleKey(t.title), kk = kTitle(L.key);
+          const hits = data.recs.filter(r => r.ou !== L.ou && titleKey(r.title) && (titleKey(r.title) === tk || titleKey(r.title) === kk) && cidOf(r.ou) && cidOf(r.ou) !== t.courseId && (!t.due || !r.due || Math.abs(dayDiff(t.due, r.due)) <= 1));
+          const tos = [...new Set(hits.map(r => cidOf(r.ou)))];
+          if (tos.length === 1) { to = tos[0]; r0 = hits.length === 1 ? hits[0] : null; why = "read"; }
+        }
+        if (!to) {
+          const own = state.courses[t.courseId], ownBc = data.courses.filter(bc => cidOf(bc.ou) === t.courseId);
+          const mine = new Set([up(own.code), up(own.name)].concat(ownBc.map(bc => up(bc.code) || up(bc.name))).filter(Boolean));
+          const nm = named(t.title);
+          if (nm.length === 1 && !mine.has(nm[0]) && codeAt[nm[0]] && codeAt[nm[0]] !== "many") { const x = cidOf(codeAt[nm[0]]); if (x && x !== t.courseId) { to = x; why = "code"; } }
+        }
+        if (!to) return;
+        const pair = t.id + ">" + to;
+        if (wrongSaid[pair] === "keep") return;
+        seen.add(L.key);
+        if (r0) held.add(recKey(r0));
+        rep.wrong.push({pair, id: t.id, title: t.title, from: t.courseId, to, toOu: r0 ? r0.ou : "", key: r0 ? recKey(r0) : "", why});
+      });
+      // An item merged into a task in another course (before merges stayed within a course): offer to bring it back to its own course
+      if (data.src === "api") data.recs.forEach(r => {
+        const key = recKey(r), cid = cidOf(r.ou);
+        if (!r.pid || !cid || !mergedAway.has(key) || !dropped.has(key) || tasks.some(t => t[F] && t[F].key === key) || keeperOf(key, cid, r)) return;
+        const pair = "back>" + key;
+        if (wrongSaid[pair] === "keep") return;
+        rep.wrong.push({pair, back: true, title: r.title, to: cid, toOu: r.ou, key, why: "merged"});
+      });
+    }
     data.recs.forEach(r => {
       const key = r.key || r.ou + "|" + titleKey(r.title), id = F + "_" + hid(key);
       seen.add(key); (r.aka || []).forEach(k => seen.add(k));
+      if (held.has(key) && !cur("task", id) && !tasks.some(t => t[F] && t[F].key === key)) return;
       if (dropped.has(key) && !cur("task", id)) return;
       if (data.src !== "api" && apiOnly.has(key) && !cur("task", id) && !tasks.some(t => t[F] && t[F].key === key)) return;
       if (r.due < from && !r.done && !state.tasks[id] && !tasks.some(t => t[F] && t[F].key === key)) return;
@@ -31470,9 +31534,10 @@ function cleanFile(r) {
       const cid = courseFor(g.ou); if (!cid) return;
       const key = g.ou + "|" + titleKey(g.name);
       const pool = allTasks().map(t => cur("task", t.id) || t).concat(ch.filter(x => x.kind === "task" && !state.tasks[x.id]).map(x => x.after));
-      let t = pool.find(t => t.courseId === cid && t[F] && t[F].gid && t[F].gid === g.gid) || pool.find(t => t.courseId === cid && !t.breakdownOf && titleKey(t.title) === titleKey(g.name)) || null;
+      const gk = g.key || "";
+      let t = (gk && pool.find(t => t[F] && t[F].key === gk)) || (gk && mergedAway.has(gk) && (x => x && (cur("task", x.id) || x))(keeperOf(gk, cid, recByKey[gk]))) || pool.find(t => t.courseId === cid && t[F] && t[F].gid && t[F].gid === g.gid) || pool.find(t => t.courseId === cid && !t.breakdownOf && titleKey(t.title) === titleKey(g.name)) || null;
       if (!t) {
-        if (!o.addGraded || g.got == null || !g.outOf || dropped.has(key)) return;
+        if (!o.addGraded || g.got == null || !g.outOf || dropped.has(key) || (gk && (held.has(gk) || dropped.has(gk)))) return;
         const id = F + "_" + hid(key);
         if (cur("task", id)) t = cur("task", id);
         else {
@@ -31652,6 +31717,7 @@ function cleanFile(r) {
     scheduleRender();
     const loud = !quiet || !!(opt && opt.askLoud);
     if (data.ask && data.ask.length) askMerges(data.ask, !loud);
+    if (p.rep.wrong && p.rep.wrong.length) askWrong(p.rep.wrong, !loud);
     setTimeout(() => { if (window.SBLMS_DUPES) window.SBLMS_DUPES(!loud); }, 600);
     return p.rep;
   }
@@ -31693,6 +31759,52 @@ function cleanFile(r) {
     dlg.querySelectorAll("[data-mg]").forEach(b => b.addEventListener("click", () => {
       const i = Number(b.dataset.mg); pick[i] = b.dataset.v;
       dlg.querySelectorAll(`[data-mg="${i}"]`).forEach(x => x.setAttribute("aria-pressed", String(x.dataset.v === pick[i])));
+    }));
+  }
+  /* Wrong course */
+  let askingWrong = false;
+  function askWrong(list0, quiet){
+    const said = cfg().wrongCourse || {};
+    const list = list0.filter(w => !said[w.pair] && state.courses[w.to] && (w.back || (state.tasks[w.id] && state.tasks[w.id].courseId === w.from)));
+    if (!list.length || askingWrong) return;
+    if (quiet) { toast(`${P.name}: ${list.length === 1 ? "a task looks" : list.length + " tasks look"} like ${list.length === 1 ? "it's" : "they're"} in the wrong course`, null, {label: "Review", fn: () => askWrong(list, false)}); return; }
+    if (dlg.open) { dlg.addEventListener("close", () => setTimeout(() => askWrong(list, false), 400), {once: true}); return; }
+    askingWrong = true;
+    const pick = list.map(() => "move");
+    const why = w => w.back ? `It was merged into a task in another course, so it isn't in ${esc(cname(w.to))} now.` : w.why === "code" ? `Its name says ${esc(cname(w.to))}.` : `${esc(P.name)} now lists it in ${esc(cname(w.to))}, not in ${esc(cname(w.from))}.`;
+    const row = (w, i) => `<li class="mg-row"><div class="mg-main"><b>${esc(w.title)}</b><span class="mini">${w.back ? "Belongs in " + esc(cname(w.to)) : "In " + esc(cname(w.from)) + " · belongs in " + esc(cname(w.to))}</span><span class="mini">${why(w)}</span></div>
+      <span class="seg mg-seg" role="group" aria-label="Move to ${esc(cname(w.to))}?"><button type="button" class="btn small" data-wc="${i}" data-v="move" aria-pressed="true">${w.back ? "Bring Back" : "Move"}</button><button type="button" class="btn small" data-wc="${i}" data-v="keep" aria-pressed="false">${w.back ? "Leave Out" : "Keep Here"}</button></span></li>`;
+    openSheet(`<form class="sheet">${head("Wrong Course?")}
+      <div class="sheet-body"><p style="margin:0">${list.length === 1 ? "This task looks like it's" : "These tasks look like they're"} in the wrong course. Move ${list.length === 1 ? "it" : "them"} so ${list.length === 1 ? "it gets its" : "they get their"} grade and feedback from the right ${esc(P.name)} course. Your notes and progress stay with the task.</p>
+        <ul class="mg-list">${list.map(row).join("")}</ul></div>
+      <div class="sheet-foot"><button type="button" class="btn" data-act="close">Ask Me Later</button><span class="spacer"></span><button type="button" class="btn primary" data-submit>Save</button></div></form>`, () => {
+      const m = Object.assign({}, cfg().wrongCourse || {}), ch = [], back = [], twins = [];
+      list.forEach((w, i) => {
+        m[w.pair] = pick[i];
+        if (pick[i] !== "move") return;
+        if (w.back) { back.push(w.key); return; }
+        const t = state.tasks[w.id]; if (!t || !state.courses[w.to]) return;
+        const twin = w.key && Object.values(state.tasks).find(o => o && o.id !== t.id && o[F] && o[F].key === w.key && o.courseId === w.to);
+        if (twin) { twins.push([twin.id, t.id]); return; }
+        const n = clone(t); n.courseId = w.to;
+        n[F] = Object.assign({}, n[F], {last: Object.assign({}, n[F].last || {}, {courseId: w.to})});
+        if (w.key && !Object.values(state.tasks).some(o => o && o.id !== t.id && o[F] && o[F].key === w.key)) { n[F].key = w.key; n[F].ou = w.toOu; delete n[F].gone; }
+        ch.push({kind: "task", id: n.id, after: normTask(n)});
+      });
+      const keys = Object.keys(m); if (keys.length > 300) keys.slice(0, keys.length - 300).forEach(k => delete m[k]);
+      const c = cfg();
+      save(Object.assign({wrongCourse: m}, back.length ? {dropped: (c.dropped || []).filter(k => !back.includes(k)), mergedDrops: (c.mergedDrops || []).filter(k => !back.includes(k))} : {}));
+      dlg.close();
+      if (ch.length) applyChanges(ch, ch.length === 1 ? `Moved ${state.tasks[ch[0].id].title} to ${cname(ch[0].after.courseId)}` : `Moved ${ch.length} tasks to their courses`);
+      twins.forEach(([keepId, otherId]) => { if (state.tasks[keepId] && state.tasks[otherId]) mergeTasks(state.tasks[keepId], state.tasks[otherId]); });
+      if (lastRead) { const d = P.fromApi(lastRead); applyPlan(d, plan(d), cfg().lastSrc === "grab" ? "grab" : "api", true); }
+      else if (!ch.length) toast(back.length ? "It comes back with the next sync" : "Kept where they are");
+      return false;
+    });
+    dlg.addEventListener("close", () => { askingWrong = false; }, {once: true});
+    dlg.querySelectorAll("[data-wc]").forEach(b => b.addEventListener("click", () => {
+      const i = Number(b.dataset.wc); pick[i] = b.dataset.v;
+      dlg.querySelectorAll(`[data-wc="${i}"]`).forEach(x => x.setAttribute("aria-pressed", String(x.dataset.v === pick[i])));
     }));
   }
   function syncNow(opts){
@@ -32084,7 +32196,7 @@ function cleanFile(r) {
     const ch = p.go.map(x => ({kind: "task", id: x.t.id, after: null})).concat(p.evGo.map(e => ({kind: "event", id: e.id, after: null})));
     const inv = ch.length ? applyChanges(ch, "") : null;
     const back = ok.undrop ? before.dropped : before.mergedDrops;
-    save({feed: "", dropped: before.dropped.filter(k => !back.includes(k)), gone: [], merges: {}, mergedDrops: [], apiOnly: [...new Set((c.apiOnly || []).concat(back))].slice(-400)});
+    save({feed: "", dropped: before.dropped.filter(k => !back.includes(k)), gone: [], merges: {}, mergedDrops: [], wrongCourse: {}, apiOnly: [...new Set((c.apiOnly || []).concat(back))].slice(-400)});
     if (state.settings && state.settings.sameItem && Object.keys(state.settings.sameItem).length) { state.settings = Object.assign({}, state.settings, {sameItem: {}}); saveSettings(); }
     const undo = () => { if (inv && inv.length) applyChanges(inv, null); save({feed: before.feed, dropped: before.dropped, gone: before.gone, apiOnly: c.apiOnly || [], merges: before.merges, mergedDrops: before.mergedDrops}); state.settings = Object.assign({}, state.settings, {sameItem: before.sameItem}); saveSettings(); toast("Undone"); };
     const n = p.go.length + p.evGo.length, noRead = !(bsDesk() && c.mode === "api") && !(EXT.on && EXT.schools.some(x => x.id === P.id));
