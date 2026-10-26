@@ -6759,6 +6759,15 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
   .grp-item-btns:has([data-act="grp-rsvp"]) > [data-act="grp-cal-add"]{grid-column:span 2}
   .grp-item-btns:has([data-act="grp-rsvp"]) > .x-btn{justify-self:end;grid-column:-2/-1;align-self:center}
 }
+
+/* Time Today bar: thinner and full width */
+@media (max-width:639px){
+  .plan .fh-ctl:not(.fh-chip){width:100%!important;margin:0!important;display:block}
+  .plan .fh-ctl .hours-ctl{width:100%;box-sizing:border-box;min-height:30px!important;padding:0 6px 0 14px!important;justify-content:space-between}
+  .plan .fh-ctl .hours-ctl .mini{margin-right:auto;font-size:.8rem}
+  .plan .fh-ctl .hours-ctl .icon-btn.sm{width:28px;height:28px}
+  .plan .fh-ctl .hours-ctl b{min-width:54px}
+}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
