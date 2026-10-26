@@ -442,3 +442,11 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
   .nb-zoom{box-sizing:border-box;height:36px;padding:2px 4px}
   .nb-zoom button{height:30px;min-width:38px}
 }
+
+/* Notes and whiteboard floating buttons: more see-through */
+@media (max-width:639px){
+  .nb-zoom,.board-max-btn,.nb-main .nb-target:not(.hot),.nb-target:not(.hot){background:color-mix(in srgb,var(--surface) 68%,transparent)!important}
+  .wb-max{background:rgba(255,255,255,.68)!important}
+  .wb-dk .wb-max{background:rgba(38,45,54,.7)!important}
+  .wb-stage .wb-zoom{background:color-mix(in srgb,var(--surface) 68%,transparent)!important}
+}
