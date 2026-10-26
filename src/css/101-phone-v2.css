@@ -459,3 +459,10 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
   .next-up .nu-label .ai-ic{flex:none}
   .next-up .nu-alloc{flex:none;white-space:nowrap}
 }
+
+/* Phones stay upright: sideways shows a "turn your phone" screen, except in full-screen notes and whiteboard */
+@media (orientation:landscape) and (max-height:520px) and (pointer:coarse){
+  html:not(.board-max){overflow:hidden}
+  html:not(.board-max) body,html:not(.board-max) dialog,html:not(.board-max) .fab{visibility:hidden!important}
+  html:not(.board-max)::before{content:"Turn your phone upright to keep using Studyboard.\A Notes and the whiteboard can go sideways in full screen.";white-space:pre-wrap;position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px 48px;background:var(--bg,#f4f6fa);color:var(--ink,#1a2238);font:700 1.05rem/1.5 var(--display,system-ui)}
+}
