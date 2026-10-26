@@ -177,6 +177,18 @@
   const csFine = () => !!(window.matchMedia && matchMedia("(pointer:fine)").matches);
   const csIs = el => el && el.tagName === "SELECT" && el.classList.contains("cs-custom") && !el.disabled && !csFine();
   let csT = null;
+  // On a touch screen the dropdown itself ignores touches (CSS), so the phone's own picker can never open; a tap
+  // that lands on one (found by where it fell) opens our menu instead
+  const csAt = e => {
+    if (csFine() || !e.target || !e.target.closest || e.target.closest("button, a, input, textarea, .cs-menu, .cs-back")) return null;
+    for (const sel of document.querySelectorAll("select.cs-custom")) {
+      if (sel.disabled || !sel.offsetParent && getComputedStyle(sel).position !== "fixed") continue;
+      const r = sel.getBoundingClientRect();
+      if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom && (sel.parentElement || sel).contains(e.target)) return sel;
+    }
+    return null;
+  };
+  document.addEventListener("click", e => { const sel = csAt(e); if (sel) { e.preventDefault(); e.stopPropagation(); csShow(sel); } }, true);
   document.addEventListener("mousedown", e => { if (csIs(e.target) && e.button === 0) e.preventDefault(); }, true);
   document.addEventListener("click", e => { if (csIs(e.target)) { e.preventDefault(); e.stopPropagation(); csShow(e.target); } }, true);
   document.addEventListener("touchstart", e => { const t = e.touches[0]; csT = csIs(e.target) && t ? {x: t.clientX, y: t.clientY, el: e.target} : null; }, {capture: true, passive: true});
