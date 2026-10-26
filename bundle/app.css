@@ -5220,6 +5220,7 @@ html:not([data-motion="static"]) :is(.segb button,.chip,.ui-chip,.cf-pick,[role=
 
 /* Grades: the "Waiting for a Mark" list sits on a card so it reads over scenery */
 .gs-wait{background:var(--ph-surf,color-mix(in srgb,var(--surface) 90%,transparent));border:1px solid var(--line);border-radius:16px;padding:4px 14px}
+.gs-wait li:last-child{border-bottom:0}
 /* ===== module: 100-phone.css ===== */
 /* Phone and tablet bar (the desktop side menu is untouched) */
 @media (max-width:979px){
