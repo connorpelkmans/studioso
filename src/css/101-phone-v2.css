@@ -436,3 +436,9 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
 @media (max-width:639px){
   .g2-sheet-head:not(.sh-big) .sh-t .mini{display:none!important}
 }
+
+/* Notes board: the zoom pill is as thick as the folder, trash and expand circles beside it */
+@media (max-width:639px){
+  .nb-zoom{box-sizing:border-box;height:36px;padding:2px 4px}
+  .nb-zoom button{height:30px;min-width:38px}
+}
