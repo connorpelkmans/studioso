@@ -298,8 +298,7 @@
 }
 
 /* Today's plan on phones: a rail of today's classes, events, planned tasks and open time above Do This Next */
-.dtl{display:none}
-@media (max-width:639px){
+html[data-plan-top="week"] .dtl{display:none}
   .dtl{display:block;margin:0 0 12px}
   .dtl-rail{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x proximity;scroll-padding-inline:8px;scrollbar-width:none;padding:4px 8px 6px;margin:0 -8px;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
   .dtl-rail::-webkit-scrollbar{display:none}
@@ -319,7 +318,7 @@
   .dtl-t{white-space:nowrap}
   .dtl-m{display:flex;align-items:center;justify-content:space-between;gap:6px;font:700 .68rem/1.1 var(--display);color:color-mix(in srgb,var(--c) 50%,var(--ink))}
   .dtl-badge{font:800 .56rem/1 var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--c)}
-}
+/* a design switch: <html data-plan-top="week"> brings back the two-week ribbon beside a Planned Today tile instead */
 
 /* Today's plan rows: the check circle is centred against the title only */
 @media (max-width:600px){
@@ -508,3 +507,19 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
   #view > .bview-row + .bview{margin-top:0!important}
   #view > .bview > :first-child,#view > .bview > .bpane > :first-child,#view > .bview .bpane-plan > :first-child,#view > .bview .bpane-board > :first-child{margin-top:0!important}
 }
+
+/* Today's Plan, every screen: the day ribbon and one thin Time Today bar. The two-week ribbon with its Planned Today tile
+   stays in the code, off by default; <html data-plan-top="week"> turns it on. */
+.plan .pt-stats{display:none}
+html[data-plan-top="week"] .plan .pt-stats{display:flex}
+html[data-plan-top="week"] .plan .fh-ctl.has-stats .hours-ctl{display:none}
+.plan .focus-head{flex-wrap:wrap!important}
+.plan .fh-ctl:not(.fh-chip),.plan .fh-ctl.has-stats{width:100%!important;margin:0!important;display:block;background:none!important;border:0!important;padding:0!important}
+.plan .fh-ctl .hours-ctl{display:flex;width:100%;box-sizing:border-box;min-height:30px!important;padding:0 6px 0 14px!important;justify-content:space-between;align-items:center;border:1px solid var(--line)!important;border-radius:999px!important;background:transparent!important}
+.plan .fh-ctl .hours-ctl .mini{margin-right:auto;font-size:.8rem}
+.plan .fh-ctl .hours-ctl .icon-btn.sm{width:28px;height:28px}
+.plan .fh-ctl .hours-ctl b{min-width:54px;text-align:center}
+.plan .fh-ctl.has-stats > .auto-chip,.plan .fh-ctl > :not(.hours-ctl){margin-top:8px}
+html[data-plan-top="week"] .plan .fh-ctl.has-stats{width:auto!important}
+html[data-plan-top="week"] .plan .fh-ctl.has-stats .hours-ctl{display:none}
+.plan .focus-head .dtl,.plan > .dtl{margin-top:10px}
