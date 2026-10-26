@@ -450,3 +450,12 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
   .wb-dk .wb-max{background:rgba(38,45,54,.7)!important}
   .wb-stage .wb-zoom{background:color-mix(in srgb,var(--surface) 68%,transparent)!important}
 }
+
+/* Do This Next band: "Do This Next, Pip's pick" stays on one line beside the time */
+@media (max-width:639px){
+  .next-up .nu-top{flex-wrap:nowrap;gap:8px;align-items:center}
+  .next-up .nu-label{display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;font-size:.66rem;letter-spacing:.05em}
+  .next-up .nu-label .nu-who{display:inline-flex;align-items:center;gap:4px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.85}
+  .next-up .nu-label .ai-ic{flex:none}
+  .next-up .nu-alloc{flex:none;white-space:nowrap}
+}
