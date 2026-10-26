@@ -2237,6 +2237,8 @@ body.sch-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 .nb-main .nb-target.hot{transform:scale(1.35)}
 .nb-main .nb-target.trash.hot{background:color-mix(in srgb,var(--late) 18%,var(--surface))!important;border-color:var(--late)!important}
 .nb-main .nb-target:not(.trash).hot{background:color-mix(in srgb,var(--accent) 18%,var(--surface))!important;border-color:var(--accent)!important}
+/* Archive glows blue while a note is held over it (Trash stays red) */
+.nb-target[data-drop-note="archive"].hot,.nb-main .nb-target[data-drop-note="archive"].hot{border-color:#3b82f6!important;background:color-mix(in srgb,#3b82f6 18%,var(--surface))!important;color:#3b82f6;box-shadow:0 0 0 3px color-mix(in srgb,#3b82f6 28%,transparent),0 0 18px 4px color-mix(in srgb,#3b82f6 55%,transparent)}
 .wb-max{top:8px;right:8px;color:#22262D;background:rgba(255,255,255,.9);border-color:rgba(0,0,0,.1);box-shadow:0 2px 8px rgba(20,30,45,.16)}
 .wb-dk .wb-max{background:rgba(38,45,54,.95);border-color:rgba(255,255,255,.1);color:#E6EAEE}
 .wb-stage .wb-zoom{left:8px;right:auto}
