@@ -22,8 +22,10 @@ const seed = tasks => ({v: 2, updated: 1, tasks,
 // What the school site read: the midterm is a quiz in BSNC 1020, sat, and its mark is only on its Submissions page
 const H = (more) => ({ok: true, origin: "https://learn.example.edu", me: {name: "Ana"}, all: [], errors: [], items: [], completions: [], courses: [
   {ou: "20", code: "BSNC1030", name: "BSNC-1030-0 - Practice of Nursing 1", folders: [], quizzes: [], grades: [], news: [], discussions: [], staff: [], events: (more && more.ev20) || []},
-  {ou: "10", code: "BSNC1020", name: "BSNC-1020-0 - Context of Nursing and Health Care 1", folders: [], grades: (more && more.g10) || [], news: [], discussions: [], staff: [], events: [],
-    quizzes: [{id: "8", name: MID, due: iso(-3), start: iso(-3.1), end: null, done: true, gid: (more && more.gid) || "", score: {num: 34, den: 45, how: "highest attempt"}}]}]});
+  {ou: "10", code: "BSNC1020", name: "BSNC-1020-0 - Context of Nursing and Health Care 1", grades: (more && more.g10) || [], news: [], staff: [], events: [],
+    folders: (more && more.folders) || [], discussions: (more && more.topics) || [],
+    quizzes: [{id: "8", name: MID, due: iso(-3), start: iso(-3.1), end: null, done: true, gid: (more && more.gid) || ""}],
+    marks: [{kind: "quiz", id: "8", num: 34, den: 45, from: "quizPage", how: "highest attempt"}].concat((more && more.marks) || [])}]});
 const bsTask = (id, title, cid, ou, extra) => Object.assign({id, created: 1, title, courseId: cid, type: "Exam", due: dateOf(-3), time: "", status: "todo", order: 1,
   bs: {key: ou + "|" + title.toLowerCase().replace(/[^a-z0-9]/g, ""), ou, last: {title, courseId: cid}, seen: {api: 1}, item: true}}, extra || {});
 
@@ -53,6 +55,26 @@ const bsTask = (id, title, cid, ou, extra) => Object.assign({id, created: 1, tit
       const held = await page.evaluate(h => { const d = SBLMS.brightspace.fromApi(h); return d.grades.filter(g => g.ou === "10").map(g => g.got + "/" + g.outOf + " w" + g.weight); },
         H({gid: "55", g10: [{gid: "55", name: MID, type: 1, num: null, den: 45, wnum: null, wden: 20}]}));
       ok(JSON.stringify(held) === JSON.stringify(["34/45 w20"]), "a Grades row with no mark yet takes the Submissions page's mark and keeps its weight: " + JSON.stringify(held));
+      const sheet = await page.evaluate(m => SBLMS_TASK(Object.values(SBLMS.st().tasks).find(t => t.title === m)).replace(/<[^>]+>/g, " ").replace(/\s+/g, " "), MID);
+      ok(/Mark 34 \/ 45 read from the quiz(&#39;|')s Submissions page/.test(sheet) && /isn't on Brightspace's Grades page yet/.test(sheet), "the task says where its mark came from: " + sheet.slice(0, 160));
+      await sync(page, H({gid: "55", g10: [{gid: "55", name: MID, type: 1, num: 36, den: 45, shown: "80 %"}]})); await closeDlg(page);
+      const later = await page.evaluate(m => Object.values(SBLMS.st().tasks).filter(t => t.title === m).map(t => t.mark), MID);
+      ok(later.length === 1 && later[0].got === 36 && !later[0].from, "once Grades has the mark, it takes over: " + JSON.stringify(later));
+      ok(!page.errs.length, "no page errors: " + page.errs.join(" | "));
+      await page.context().close(); }
+
+    // 1b. Assignments and discussions too; a source switched off in app_flags is ignored
+    { const page = await fresh([]);
+      const more = {folders: [{id: "22", name: "Care Plan", due: iso(-4), end: null, sub: true, gid: "32", outOf: 20, files: []}],
+        topics: [{id: "41", name: "Week 6 Discussion", due: iso(-3), start: null, text: "", gid: "", outOf: 4, posted: true}],
+        marks: [{kind: "folder", id: "22", num: 18, den: 20, from: "assignmentsPage"}, {kind: "folder", id: "22", num: 17, den: 20, from: "assignmentFeedback"}, {kind: "topic", id: "41", num: 3.5, den: 4, from: "discussionPage"}]};
+      await sync(page, H(more)); await closeDlg(page);
+      const got = await page.evaluate(() => Object.fromEntries(Object.values(SBLMS.st().tasks).filter(t => t.mark).map(t => [t.title, t.mark.got + "/" + t.mark.outOf + " " + (t.mark.from || "")])));
+      ok(got["Care Plan"] === "17/20 assignmentFeedback" && got["Week 6 Discussion"] === "3.5/4 discussionPage", "assignment and discussion marks come in, the feedback's ahead of the Assignments page's: " + JSON.stringify(got));
+      const off = await page.evaluate(h => { localStorage.setItem("studyboard:appFlags", JSON.stringify({at: Date.now(), v: {marks_discussion_page: false}})); return true; }, null);
+      await page.reload(); await page.waitForFunction(() => window.SBLMS && SBLMS.brightspace, null, {timeout: 40000});
+      const d = await page.evaluate(h => SBLMS.brightspace.fromApi(h).grades.filter(g => g.from).map(g => g.name + " " + g.from), H(more));
+      ok(off && !d.some(x => /discussionPage/.test(x)) && d.some(x => /quizPage/.test(x)), "a source switched off in app_flags isn't used: " + JSON.stringify(d));
       ok(!page.errs.length, "no page errors: " + page.errs.join(" | "));
       await page.context().close(); }
 

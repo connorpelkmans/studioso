@@ -32,10 +32,10 @@ function fakeFetch(routes, seen) {
   };
 }
 // Runs the injected script the way Electron would
-async function runInjected(id, origin, routes) {
+async function runInjected(id, origin, routes, safe) {
   const seen = [];
   const ctx = vm.createContext({ fetch: fakeFetch(routes, seen), AbortController, setTimeout, clearTimeout, location: { origin }, console });
-  const script = L.harvestScript(L.P[id], SAFE);
+  const script = L.harvestScript(L.P[id], safe || SAFE);
   assert(typeof script === "string" && script.includes("function htmlText"), "the injected script carries htmlText");
   const out = await vm.runInContext(script, ctx, { filename: id + "-injected.js" });
   return { out, seen };
@@ -123,12 +123,57 @@ const BB = [
       [/quiz_submissions\.d2l\?qi=7&/, "<tr><td>Attempt 1</td><td>1 / 10</td></tr>", { "content-type": "text/html" }],
       [/quiz_submissions\.d2l\?qi=6&/, "<tr><td>Attempt 1</td><td>4 / 10</td></tr><tr><td>Attempt 2</td><td>7 / 10</td></tr><tr><td>Attempt 3</td><td>Pending Evaluation</td></tr>", { "content-type": "text/html" }]]);
     const { out, seen } = await runInjected("brightspace", "https://learn.example.edu", routes);
-    const q = id => out.courses[0].quizzes.find(x => x.id === id);
-    assert.deepStrictEqual(Object.assign({}, q("8").score), { num: 34, den: 45, how: "highest attempt" }, "the Overall Grade line");
-    assert.strictEqual(q("7").score, null, "Quiz 1's mark is in Grades (8 / 10), so its page isn't read for one");
+    const q = id => { const m = out.courses[0].marks.find(x => x.kind === "quiz" && x.id === id); return m ? Object.assign({}, m) : null; };
+    assert.deepStrictEqual(q("8"), { kind: "quiz", id: "8", num: 34, den: 45, from: "quizPage", how: "highest attempt" }, "the Overall Grade line");
+    assert.strictEqual(q("7"), null, "Quiz 1's mark is in Grades (8 / 10), so its page isn't read for one");
     assert(!seen.some(u => /quiz_submissions\.d2l\?qi=7&/.test(u)), "and isn't fetched");
-    assert.deepStrictEqual(Object.assign({}, q("6").score), { num: 7, den: 10, how: "highest attempt" }, "no Overall Grade line: the best attempt");
-    assert(/quiz marks from Submissions pages: 2 of 2/.test(out.courses[0].quizScoreNote), out.courses[0].quizScoreNote);
+    assert.deepStrictEqual(q("6"), { kind: "quiz", id: "6", num: 7, den: 10, from: "quizPage", how: "highest attempt" }, "no Overall Grade line: the best attempt");
+    assert(/quiz Submissions pages 2 of 2/.test(out.courses[0].markNote), out.courses[0].markNote);
+    const off = await runInjected("brightspace", "https://learn.example.edu", routes, Object.assign({}, SAFE, { marks: { quizPage: false } }));
+    assert(!off.out.courses[0].marks.length && !off.seen.some(u => /quiz_submissions\.d2l\?qi=8&/.test(u)), "switched off, the Submissions pages aren't read");
+  });
+
+  await t("Brightspace: assignment and discussion marks that aren't in Grades: feedback, the Assignments page, the topic's page", async () => {
+    const F = (Id, Name, GradeItemId, den) => ({ Id, Name, DueDate: iso(-4), IsHidden: false, GradeItemId, Assessment: { ScoreDenominator: den }, Attachments: [] });
+    const list = `<table><tr><th>Assignment</th><th>Completion Status</th><th>Score</th><th>Evaluation Status</th><th>Due Date</th></tr>
+      <tr><td><a href="folder_submit_files.d2l?db=22&amp;ou=101">Care Plan</a></td><td>1 Submission, 1 File</td><td>18 / 20 - 90 %</td><td>Feedback: Unread</td><td>Oct 20, 2026 11:59 PM</td></tr>
+      <tr><td><a href="folder_submit_files.d2l?db=23&amp;ou=101">Reflection 2</a></td><td>1 Submission, 1 File</td><td>-</td><td></td><td>Oct 21, 2026 11:59 PM</td></tr>
+      <tr><td><a href="folder_submit_files.d2l?db=24&amp;ou=101">Journal</a></td><td>1 Submission, 1 File</td><td></td><td></td><td>10/21/2026</td></tr></table>`;
+    const routes = BS.filter(([re]) => !/dropbox\\\/folders\\\/\$/.test(re.source)).concat([
+      [/^\/d2l\/api\/le\/1\.70\/101\/dropbox\/folders\/$/, [F(21, "Lab 2", 31, 10), F(22, "Care Plan", 32, 20), F(23, "Reflection 2", 33, 5), F(24, "Journal", 34, 10), F(25, "Lab 0 Redo", 9, 10)]],
+      [/\/dropbox\/folders\/21\/submissions\/mysubmissions\/$/, [{ Submissions: [{ SubmissionDate: iso(-5) }], Feedback: { Score: 9, Feedback: { Text: "Nice" } } }]],
+      [/\/dropbox\/folders\/(22|23|24|25)\/submissions\/mysubmissions\/$/, [{ Submissions: [{ SubmissionDate: iso(-5) }] }]],
+      [/folders_list\.d2l\?ou=101/, list, { "content-type": "text/html" }],
+      [/^\/d2l\/api\/le\/1\.70\/101\/discussions\/forums\/$/, [{ ForumId: 1, Name: "Weekly", IsHidden: false }]],
+      [/\/discussions\/forums\/1\/topics\/$/, [{ TopicId: 41, Name: "Week 6 Discussion", DueDate: iso(-3), IsHidden: false, ScoreOutOf: 4, GradeItemId: 51 },
+        { TopicId: 42, Name: "Week 7 Discussion", DueDate: iso(-2), IsHidden: false, ScoreOutOf: 4 }]],
+      [/\/discussions\/forums\/1\/topics\/(41|42)\/posts\/$/, [{ PostingUserId: 42, Message: { Text: "I'd rate this 3/4" } }]],
+      [/\/d2l\/le\/101\/discussions\/topics\/41\/View/, "<div>Week 6 Discussion</div><p>Ana: I'd give it 1 / 4 honestly</p><div class=\"score\">Score: 3.5 / 4</div>", { "content-type": "text/html" }],
+      [/\/d2l\/le\/101\/discussions\/topics\/42\/View/, "<p>Ana: Grade: 7 / 10 on my last essay</p>", { "content-type": "text/html" }]]);
+    const { out, seen } = await runInjected("brightspace", "https://learn.example.edu", routes);
+    const m = Object.fromEntries(out.courses[0].marks.map(x => [x.kind + x.id, x.num + "/" + x.den + " " + x.from]));
+    assert.strictEqual(m.folder21, "9/10 assignmentFeedback", "the score in the assignment's feedback");
+    assert.strictEqual(m.folder22, "18/20 assignmentsPage", "the Assignments page's Score column");
+    assert(!m.folder23 && !m.folder24, "no score on the page (a dash, a date) is no mark: " + JSON.stringify(m));
+    assert(!m.folder25, "an assignment whose mark is in Grades isn't looked for elsewhere");
+    assert.strictEqual(m.topic41, "3.5/4 discussionPage", "the topic page's labelled score, not a post's 1 / 4");
+    assert(!m.topic42, "a post's 'Grade: 7 / 10' isn't the topic's mark (the topic is out of 4)");
+    assert(/assignment feedback 1/.test(out.courses[0].markNote) && /Assignments page 1 of 3/.test(out.courses[0].markNote) && /discussion pages 1 of 2/.test(out.courses[0].markNote), out.courses[0].markNote);
+    const off = await runInjected("brightspace", "https://learn.example.edu", routes, Object.assign({}, SAFE, { marks: { assignmentFeedback: false, assignmentsPage: false, discussionPage: false } }));
+    assert(!off.out.courses[0].marks.length && !off.seen.some(u => /topics\/41\/View/.test(u)), "each source can be switched off");
+    assert(seen.some(u => /topics\/41\/View/.test(u)));
+  });
+
+  await t("Blackboard: a graded attempt's score counts when the gradebook cell is still empty", async () => {
+    const routes = BB.filter(([re]) => !/gradebook\\\/columns\\\?|gradebook\\\/users/.test(re.source)).concat([
+      [/^\/learn\/api\/public\/v2\/courses\/_301_1\/gradebook\/columns\?/, { results: [{ id: "_8_1", name: "Midterm exam", grading: { due: iso(-3), type: "Attempts" }, score: { possible: 50 } },
+        { id: "_8_2", name: "Quiz 2", grading: { due: iso(-2), type: "Attempts" }, score: { possible: 10 } }] }],
+      [/^\/learn\/api\/public\/v2\/courses\/_301_1\/gradebook\/users\/_5_1$/, { results: [{ columnId: "_8_1", status: "NeedsGrading" }] }],
+      [/gradebook\/columns\/_8_1\/attempts/, { results: [{ id: "a1", status: "Completed", score: 41, attemptDate: iso(-3) }] }],
+      [/gradebook\/columns\/_8_2\/attempts/, { results: [{ id: "a2", status: "NeedsGrading", score: 0, attemptDate: iso(-2) }] }]]);
+    const { out } = await runInjected("blackboard", "https://bb.example.edu", routes);
+    const m = out.courses[0].marks.map(x => x.id + " " + x.num + "/" + x.den + " " + x.from);
+    assert.strictEqual(JSON.stringify(m), JSON.stringify(["_8_1 41/50 attemptScore"]), "the graded attempt, not one still waiting to be graded: " + JSON.stringify(m));
   });
 
   await t("Brightspace: injected script runs in an empty page context and reads HTML text", async () => {

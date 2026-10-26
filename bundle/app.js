@@ -30770,6 +30770,22 @@ function cleanFile(r) {
         ${x.lv.length ? `<ul class="lms-lv">${x.lv.map(v => `<li class="${g && g.lv && g.lv === v.t ? "got" : ""}"><span class="lms-lv-t">${esc(v.t || "Level")}${v.pts != null ? ` <span class="mini">${esc(v.pts)}</span>` : ""}</span>${v.d ? `<span class="mini">${esc(v.d)}</span>` : ""}</li>`).join("")}</ul>` : ""}</li>`; }).join("")}</ol></details>`;
   }
   const FNAME = {bs: "Brightspace", cv: "Canvas", bb: "Blackboard"};
+  /* Where marks come from. "grades" is the platform's Grades page; the rest are places a mark can be when Grades doesn't show it (yet).
+     A read (lms.js) returns these as c.marks rows {kind, id, num, den, from, how}; addMarks() turns them into grades.
+     Order is priority: a mark from a higher source replaces one from a lower source. Each has a remote switch in app_flags (supabase-app-flags.sql).
+     To add a source: read it in the platform's harvest in lms.js (push to marks with a new `from`, guarded by markOn("<id>")),
+     add the id to MARK_KEYS in lms.js (and the lists in lms-mobile.src.js and extension/src/relay.js), then add a row here. */
+  const MARK_SOURCES = [
+    {id: "grades", label: "Grades"},
+    {id: "quizPage", flag: "marks_quiz_page", label: "the quiz's Submissions page"},
+    {id: "attemptScore", flag: "marks_attempt_score", label: "your graded attempt"},
+    {id: "assignmentFeedback", flag: "marks_assignment_feedback", label: "the assignment's feedback"},
+    {id: "assignmentsPage", flag: "marks_assignments_page", label: "the Assignments page"},
+    {id: "discussionPage", flag: "marks_discussion_page", label: "the discussion topic's page"}];
+  const markRank = from => { const i = MARK_SOURCES.findIndex(x => x.id === (from || "grades")); return i < 0 ? MARK_SOURCES.length : i; };
+  const markLabel = from => (MARK_SOURCES.find(x => x.id === (from || "grades")) || {label: "your school site"}).label;
+  // The switches the reads are given: a source switched off in app_flags isn't read at all
+  const markSwitches = () => Object.fromEntries(MARK_SOURCES.filter(x => x.flag).map(x => [x.id, appFlag(x.flag)]));
   function subLine(t, f, L){
     if (t.status === "done") return "";
     const nm = FNAME[f], lr = (LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard"}[f]] || {lastRead: () => null}).lastRead();
@@ -30819,12 +30835,14 @@ function cleanFile(r) {
     const mine = lr && (lr.items || []).find(x => x.k === L.key);
     if (mine && mine.a) rows.push(["As read", mine.a]);
     if (lr && lr.notes && lr.notes[L.ou]) rows.push(["The read, this course", lr.notes[L.ou]]);
+    if (t.mark && t.mark.src === f) rows.push(["Mark from", markLabel(t.mark.from)]);
     return `<dl class="lms-diag mini">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`;
   }
   window.SBLMS_TASK = t => {
     const f = t && FIELDS.find(k => t[k] && t[k].key), L = f && t[f]; if (!L) return "";
     const fb = L.fb && (fbHas(L.fb) || L.fb.sc != null) ? L.fb : null, pills = stPills(L.st, t.status === "done"), sl = subLine(t, f, L);
-    return `<section class="lms-task" aria-label="From your school site">${sl}${pills}${fb ? `<details class="lms-fbw"${fbHas(fb) ? " open" : ""}><summary><b>Feedback</b></summary>${fbHtml(fb)}</details>` : ""}${rubHtml(L.rub, L.fb, false)}${srcHtml(f, L)}</section>`;
+    const mk = t.mark && t.mark.src === f && t.mark.from && t.mark.from !== "grades" ? `<p class="mini lms-sub lms-markfrom">Mark ${esc(t.mark.got)} / ${esc(t.mark.outOf)} read from ${esc(markLabel(t.mark.from))}. It isn't on ${esc(FNAME[f])}'s Grades page yet, so it may still change.</p>` : "";
+    return `<section class="lms-task" aria-label="From your school site">${sl}${mk}${pills}${fb ? `<details class="lms-fbw"${fbHas(fb) ? " open" : ""}><summary><b>Feedback</b></summary>${fbHtml(fb)}</details>` : ""}${rubHtml(L.rub, L.fb, false)}${srcHtml(f, L)}</section>`;
   };
   const QUALIFIERS = ["practice", "review", "mock", "sample", "prep", "preparation", "session", "tutorial", "orientation", "info", "information",
     "retake", "rewrite", "makeup", "make", "deferred", "supplemental", "supplementary", "solutions", "answers", "results", "feedback", "draft", "outline", "proposal", "peer"];
@@ -30985,6 +31003,20 @@ function cleanFile(r) {
 
   function makeLms(P){
   const F = P.k, A = P.k;
+  // c.marks into out.grades: fills a Grades row that has no mark yet, or adds one; never replaces a mark Grades has
+  function addMarks(out, c, items){
+    const on = markSwitches();
+    (Array.isArray(c.marks) ? c.marks : []).slice().sort((x, y) => markRank(x && x.from) - markRank(y && y.from)).forEach(m => {
+      if (!m || on[m.from] === false || !isNum(m.num) || !isNum(m.den) || !(Number(m.den) > 0)) return;
+      const it = items(m); if (!it) return;
+      const got = Number(m.num), outOf = Number(m.den), shown = `${got} / ${outOf}`;
+      const row = it.gid && out.grades.find(g => g.ou === c.ou && g.gid === it.gid);
+      if (row && row.got != null) return;
+      if (row) { Object.assign(row, {got, outOf, shown: row.shown || shown, from: m.from, how: m.how || "", pid: it.pid}); return; }
+      if (out.grades.some(g => g.ou === c.ou && g.pid === it.pid && g.got != null)) return;
+      out.grades.push({ou: c.ou, gid: it.gid || it.pid, pid: it.pid, name: cleanTitle(it.name).title, got, outOf, weight: null, shown, at: null, fb: null, from: m.from, how: m.how || ""});
+    });
+  }
 
   const LS = "studyboard:" + P.id;
   const bsDesk = () => !!lmsBridge();
@@ -31127,7 +31159,7 @@ function cleanFile(r) {
     const subNotes = (h.courses || []).map(c => typeof c.subNote === "string" ? c.subNote.slice(0, 160) : "").filter(Boolean);
     out.diag = `Read ${(h.courses || []).length} of ${(h.all || []).length} courses (${(h.courses || []).map(c => c.code || c.name).slice(0, 20).join(", ")}).${subNotes.length ? " Assignments: " + subNotes.join(" | ") + "." : ""} Grade rows per course: ${(h.courses || []).map(c => c.gradeN == null ? "?" : c.gradeN).join(", ") || "none"}.${(h.errors || []).length ? " Problems: " + h.errors.slice(0, 4).join("; ") : ""}`;
     const add = makeAdd(out, false);
-    out.notes = {}; (h.courses || []).forEach(c => { const n = [c.subNote, c.quizNote, c.quizScoreNote].filter(x => typeof x === "string" && x).join("; "); if (n) out.notes[c.ou] = n.slice(0, 300); });
+    out.notes = {}; (h.courses || []).forEach(c => { const n = [c.subNote, c.quizNote, c.markNote].filter(x => typeof x === "string" && x).join("; "); if (n) out.notes[c.ou] = n.slice(0, 300); });
     const undated = [], linked = [], openOnly = [];
     const addFolder = (ou, f, due) => {
       const st = localDT(f.start);
@@ -31181,15 +31213,9 @@ function cleanFile(r) {
       const wOf = g => weighted && isNum(g.wden) && Number(g.wden) > 0 ? Number(g.wden) : !weighted && pts > 0 && isNum(g.den) && Number(g.den) > 0 ? Math.round(Number(g.den) / pts * 10000) / 100 : null;
       num.forEach(g => out.grades.push({ou: c.ou, gid: g.gid, name: g.name, got: isNum(g.num) ? Number(g.num) : null, outOf: isNum(g.den) && Number(g.den) > 0 ? Number(g.den) : null,
         weight: wOf(g), shown: g.shown || "", at: g.at || null, fb: g.fb || null}));
-      // A quiz's mark read from its Submissions page, for quizzes whose mark isn't released in Grades
-      (c.quizzes || []).forEach(q => {
-        const s = q.score; if (!s || !isNum(s.num) || !isNum(s.den) || !(Number(s.den) > 0)) return;
-        const row = q.gid && out.grades.find(g => g.ou === c.ou && g.gid === q.gid);
-        if (row && row.got != null) return;
-        const shown = `${Number(s.num)} / ${Number(s.den)}`;
-        if (row) { row.got = Number(s.num); row.outOf = Number(s.den); row.shown = row.shown || shown; row.pid = "q" + q.id; return; }
-        out.grades.push({ou: c.ou, gid: q.gid || "q" + q.id, pid: "q" + q.id, name: cleanTitle(q.name).title, got: Number(s.num), outOf: Number(s.den), weight: null, shown, at: null, fb: null, quiz: true});
-      });
+      // Marks not on the Grades page (quiz Submissions pages, assignment feedback, the Assignments page, discussion pages)
+      addMarks(out, c, m => { const list = {quiz: c.quizzes, folder: c.folders, topic: c.discussions}[m.kind], pre = {quiz: "q", folder: "f", topic: "d"}[m.kind];
+        const x = (list || []).find(y => y && String(y.id) === String(m.id)); return x ? {pid: pre + x.id, gid: x.gid || "", name: x.name} : null; });
       if (c.final && (c.final.shown || isNum(c.final.num))) out.finals[c.ou] = {shown: c.final.shown || "", pct: isNum(c.final.num) && isNum(c.final.den) && Number(c.final.den) > 0 ? Math.round(Number(c.final.num) / Number(c.final.den) * 1000) / 10 : null, at: Date.now()};
       (c.news || []).forEach(n => out.news.push({ou: c.ou, id: n.id, title: n.title, text: String(n.text || "").slice(0, 900), long: String(n.text || "").length > 900, date: n.date, url: absUrl(origin, `/d2l/le/news/${c.ou}/${n.id}/view`)}));
     });
@@ -31547,7 +31573,9 @@ function cleanFile(r) {
         }
       }
       const n = clone(t); let changed = false;
-      if (g.got != null && g.outOf && (!n.mark || n.mark.src === F) && !(n.mark && n.mark.got === g.got && n.mark.outOf === g.outOf)) { n.mark = {got: g.got, outOf: g.outOf, src: F}; changed = true; if (!t.mark || t.mark.got !== g.got) rep.graded.push({t: n, g}); }
+      const from = g.from || "grades";
+      if (g.got != null && g.outOf && (!n.mark || n.mark.src === F) && !(n.mark && n.mark.got === g.got && n.mark.outOf === g.outOf && (n.mark.from || "grades") === from)) {
+        n.mark = Object.assign({got: g.got, outOf: g.outOf, src: F}, from !== "grades" ? {from} : {}); changed = true; if (!t.mark || t.mark.got !== g.got) rep.graded.push({t: n, g}); }
       const lastW = n[F] && n[F].last ? n[F].last.weight : undefined;
       if (g.weight != null && (n.weight == null || n.weight === "" || (lastW !== undefined && Number(n.weight) === Number(lastW))) && Number(n.weight) !== g.weight) { n.weight = g.weight; changed = true; }
       if (n[F]) { n[F] = Object.assign({}, n[F], {gid: n[F].gid || g.gid, last: Object.assign({}, n[F].last || {}, {weight: g.weight})}); }
@@ -31660,7 +31688,7 @@ function cleanFile(r) {
       if (how === "api") {
         const skip = Object.entries(c.map).filter(([, v]) => v === "skip").map(([k]) => k);
         if (P.id === "blackboard") await loadFlags();
-        const h = await lmsBridge().sync(P.id, c.host, {pastDays: Math.max(60, Number(c.pastDays) || 0), grades: c.grades, news: c.news, skip, internal: appFlag("bb_internal")});
+        const h = await lmsBridge().sync(P.id, c.host, {pastDays: Math.max(60, Number(c.pastDays) || 0), grades: c.grades, news: c.news, skip, internal: appFlag("bb_internal"), marks: markSwitches()});
         if (!h) return {error: "none", text: "The desktop app didn't answer. Try again."};
         if (h.needLogin) return {needLogin: true};
         if (!h.ok) return {error: h.error, text: errText(h.error)};
@@ -32320,6 +32348,7 @@ function cleanFile(r) {
           endDate: e.allDay && en && en.date > s.date ? addDays(en.date, -1) : "", where: e.where || "", notes: e.text || "", url: absUrl(origin, e.url)});
       });
       (c.grades || []).forEach(g => { if (!g.name) return; out.grades.push({ou: c.ou, gid: g.gid, name: g.name, got: isNum(g.num) ? Number(g.num) : null, outOf: isNum(g.den) && Number(g.den) > 0 ? Number(g.den) : null, weight: isNum(g.weight) && Number(g.weight) > 0 ? Number(g.weight) : null, shown: g.shown || "", at: g.at || null, fb: g.fb || null}); });
+      addMarks(out, c, m => { const x = (c.items || []).find(y => y && String(y.id) === String(m.id)); return x ? {pid: String(x.kind || "") + x.id, gid: x.gid || String(x.id), name: x.name} : null; });
       if (c.final && (c.final.shown || isNum(c.final.pct))) out.finals[c.ou] = {shown: c.final.shown || "", pct: isNum(c.final.pct) ? Number(c.final.pct) : null, at: Date.now()};
       (c.news || []).forEach(n => out.news.push({ou: c.ou, id: n.id, title: n.title, text: String(n.text || "").slice(0, 900), long: String(n.text || "").length > 900, date: n.date, url: absUrl(origin, n.url)}));
     });
@@ -32595,7 +32624,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
       if (!r.ok) return;
       const v = {}; (await r.json() || []).forEach(x => { if (x && typeof x.key === "string") v[x.key] = !(x.value === false || x.value === "false"); });
       FLAGS = {at: Date.now(), v}; try { localStorage.setItem(FLAGS_KEY, JSON.stringify(FLAGS)); } catch (e) {}
-      if (EXT.on) extPost({type: "flags", bbInternal: appFlag("bb_internal")});
+      if (EXT.on) extPost({type: "flags", bbInternal: appFlag("bb_internal"), marks: markSwitches()});
     } catch (e) {}
   }
   window.SBFLAGS = {get: appFlag, load: () => { FLAGS.at = 0; return loadFlags(); }};
@@ -32655,7 +32684,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     window.addEventListener("message", ev => {
       if (ev.source !== window || ev.origin !== location.origin || !ev.data || typeof ev.data !== "object" || ev.data.source !== "studyboard-ext") return;
       const d = ev.data;
-      if (d.type === "ready") { EXT.on = true; EXT.version = String(d.version || "").slice(0, 20); extPost({type: "flags", bbInternal: appFlag("bb_internal")}); extPost({type: "get"}); if (!inPreview()) loadFlags(); }
+      if (d.type === "ready") { EXT.on = true; EXT.version = String(d.version || "").slice(0, 20); extPost({type: "flags", bbInternal: appFlag("bb_internal"), marks: markSwitches()}); extPost({type: "get"}); if (!inPreview()) loadFlags(); }
       else if (d.type === "data") {
         EXT.on = true; EXT.version = String(d.version || EXT.version).slice(0, 20);
         EXT.schools = (Array.isArray(d.schools) ? d.schools : []).slice(0, 6).filter(x => x && typeof x.id === "string").map(x => ({id: x.id, origin: String(x.origin || "").slice(0, 200), state: String(x.state || "").slice(0, 20), at: Number(x.at) || 0}));
