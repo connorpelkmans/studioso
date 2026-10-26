@@ -83,6 +83,7 @@
   #view .view-head:not(:has(> :not(h2.ph-dup))){display:none}
   #view > .view-head:has(> h2.ph-dup){justify-content:flex-end;min-height:0;margin-top:0}
   #view > .view-head:has(> h2.ph-dup + .btn[data-act$="-open"]){justify-content:flex-start}
+  #view > .view-head:has(> h2.ph-dup + .btn[data-act$="-open"]) > .btn[data-act$="-open"] + *{margin-left:auto}
   #view > .tl-controls:has(> h2.ph-dup){margin-top:0}
   /* Notices: one compact card, actions on one line */
   .wkr-card{padding:12px 14px}
@@ -435,4 +436,68 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
 /* Edit sheets: the task's name is already in the Title box, so the band's second line (it ran down over the form) is not shown */
 @media (max-width:639px){
   .g2-sheet-head:not(.sh-big) .sh-t .mini{display:none!important}
+}
+
+/* Notes board: the zoom pill is as thick as the folder, trash and expand circles beside it */
+@media (max-width:639px){
+  .nb-zoom{box-sizing:border-box;height:36px;padding:2px 4px}
+  .nb-zoom button{height:30px;min-width:38px}
+}
+
+/* Notes and whiteboard floating buttons: more see-through */
+@media (max-width:639px){
+  .nb-zoom,.board-max-btn,.nb-main .nb-target:not(.hot),.nb-target:not(.hot){background:color-mix(in srgb,var(--surface) 68%,transparent)!important}
+  .wb-max{background:rgba(255,255,255,.68)!important}
+  .wb-dk .wb-max{background:rgba(38,45,54,.7)!important}
+  .wb-stage .wb-zoom{background:color-mix(in srgb,var(--surface) 68%,transparent)!important}
+}
+
+/* Do This Next band: "Do This Next, Pip's pick" stays on one line beside the time */
+@media (max-width:639px){
+  .next-up .nu-top{flex-wrap:nowrap;gap:8px;align-items:center}
+  .next-up .nu-label{display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;font-size:clamp(.54rem,2.9vw,.66rem);letter-spacing:.04em}
+  .next-up .nu-label .nu-who{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;opacity:.85}
+  .next-up .nu-label .ai-ic{flex:none}
+  .next-up .nu-alloc{flex:none;white-space:nowrap}
+  .next-up .nu-label{overflow:visible}
+  @media (max-width:350px){.next-up .nu-alloc .nu-td{display:none}}
+}
+
+/* Phones stay upright: sideways shows a "turn your phone" screen, except in full-screen notes and whiteboard */
+@media (orientation:landscape) and (max-height:520px) and (pointer:coarse){
+  html:not(.board-max){overflow:hidden}
+  html:not(.board-max) body,html:not(.board-max) dialog,html:not(.board-max) .fab{visibility:hidden!important}
+  html:not(.board-max)::before{content:"Turn your phone upright to keep using Studyboard.\A Notes and the whiteboard can go sideways in full screen.";white-space:pre-wrap;position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px 48px;background:var(--bg,#f4f6fa);color:var(--ink,#1a2238);font:700 1.05rem/1.5 var(--display,system-ui)}
+}
+
+/* Group tabs: an even grid of equal, centred buttons */
+@media (max-width:639px){
+  .g2-head .grp-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 14px 14px;overflow:visible}
+  .g2-head .grp-tabs button{display:flex;align-items:center;justify-content:center;text-align:center;min-height:42px;padding:8px 6px;font-size:.88rem;white-space:nowrap;background:color-mix(in srgb,var(--ink) 5%,transparent)!important;border-radius:14px}
+  .g2-head .grp-tabs button.on{background:color-mix(in srgb,var(--c) 18%,var(--surface))!important}
+  .g2-head .grp-tabs button:last-child:nth-child(3n+1){grid-column:1/-1}
+  .g2-head .grp-tabs button:last-child:nth-child(3n+2){grid-column:span 2}
+}
+
+/* Group events: the RSVP choices are one even row, the other actions a tidy row beneath */
+@media (max-width:639px){
+  .grp-item-btns:has([data-act="grp-rsvp"]){display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;justify-content:stretch;align-items:stretch;padding-left:0}
+  .grp-item-btns [data-act="grp-rsvp"]{justify-content:center;min-height:40px}
+  .grp-item-btns:has([data-act="grp-rsvp"]) > :not([data-act="grp-rsvp"]):not(.x-btn){grid-column:span 1;min-height:40px;justify-content:center;white-space:nowrap}
+  .grp-item-btns:has([data-act="grp-rsvp"]) > [data-act="grp-cal-add"]{grid-column:span 2}
+  .grp-item-btns:has([data-act="grp-rsvp"]) > .x-btn{justify-self:end;grid-column:-2/-1;align-self:center}
+}
+
+/* Time Today bar: thinner and full width */
+@media (max-width:639px){
+  .plan .fh-ctl:not(.fh-chip){width:100%!important;margin:0!important;display:block}
+  .plan .fh-ctl .hours-ctl{width:100%;box-sizing:border-box;min-height:30px!important;padding:0 6px 0 14px!important;justify-content:space-between}
+  .plan .fh-ctl .hours-ctl .mini{margin-right:auto;font-size:.8rem}
+  .plan .fh-ctl .hours-ctl .icon-btn.sm{width:28px;height:28px}
+  .plan .fh-ctl .hours-ctl b{min-width:54px}
+}
+
+/* Touch screens: the course dropdown's own picker never opens; our menu (with the dots) does */
+@media (pointer:coarse){
+  select.cs-custom{pointer-events:none}
 }

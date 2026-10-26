@@ -1042,6 +1042,8 @@
     if (uid2 === myId() && week === wkStart()) { const w = myWeek(); v = Math.max(v, field === "quizzes" ? w.quizzes : w.focus); }
     return v;
   }
+  // Last week's most focused member wears a small golden crown after their name
+  const CHAMP_CROWN = `<svg class="grp-crown" viewBox="0 0 24 24" width="16" height="16" role="img" aria-label="Last week's champion"><title>Last week's champion: most focus time last week</title><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" fill="#F5B82E" stroke="#B9830A" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
   function badgesFor(g, uid2){
     const ext = extOf(g.id); if (!ext) return [];
     const out = [], st = streakOf(ext, uid2), its = S.items[g.id] || [];
@@ -1049,7 +1051,7 @@
     const goal = Number(g.weekly_goal) || 0;
     if (goal && weekVal(ext, g.id, uid2, wkStart(), "focus_min") >= goal) out.push(["goal", "Goal Met", `Reached the weekly goal of ${gMins(goal)}`]);
     const last = ext.stats.filter(s => s.week === addDays(wkStart(), -7) && s.focus_min > 0).sort((a, b) => b.focus_min - a.focus_min)[0];
-    if (last && last.user_id === uid2) out.push(["champ", "Last Week's Champ", `Most focus time last week (${gMins(last.focus_min)})`]);
+    if (last && last.user_id === uid2) out.push(["champ", "Last Week's Champion", `Most focus time last week (${gMins(last.focus_min)})`]);
     if (ext.scores.some(s => s.user_id === uid2 && s.best_total >= 5 && gPct(s.best_correct, s.best_total) >= 90)) out.push(["quiz", "Quiz Whiz", "Scored 90% or more on a shared quiz"]);
     return out;
   }
@@ -2496,11 +2498,11 @@
     const owner = isOwner(g), ext = extOf(g.id), today = todayISO();
     const mine = ms.find(m => m.user_id === myId());
     return `<section class="grp-sec" id="grpMembers"><h3 class="fsec">${ICON_GROUP}Members<span class="n">${ms.length}</span></h3>
-      ${mine ? `<div class="mc-me"><span class="mc-dot" style="--mc:${esc(memberHue(g.id, myId()))}" aria-hidden="true"></span><span class="mc-t"><b>Your Color</b><span class="mini">${mine.color ? `Marks you across the group: your picture, messages, scores${isProj(g) ? " and tasks" : ""}` : "Pick one so everyone can spot you at a glance across the group"}</span></span><button type="button" class="btn small" data-act="grp-color" data-id="${esc(g.id)}">${mine.color ? "Change" : "Pick a Color"}</button></div>` : ""}
+      ${mine ? `<div class="mc-me"><span class="mc-dot" style="--mc:${esc(memberHue(g.id, myId()))}" aria-hidden="true"></span><span class="mc-t"><b>Your Color</b></span><button type="button" class="btn small" data-act="grp-color" data-id="${esc(g.id)}">${mine.color ? "Change" : "Pick a Color"}</button></div>` : ""}
       <ul class="grp-members">${ms.map(m => {
         const st = ext ? streakOf(ext, m.user_id) : 0, bd = ext ? badgesFor(g, m.user_id) : [], me2 = m.user_id === myId();
         if (!me2 && S.blocked.has(m.user_id)) return `<li class="blocked">${av(m.display_name, m.user_id)}<span class="nm">${esc(m.display_name || "Member")} <span class="pill">Blocked</span></span><button class="btn small" data-act="grp-unblock" data-id="${esc(m.user_id)}">Unblock</button>${owner ? `<button class="x-btn" data-act="grp-member-del" data-id="${esc(m.user_id)}" aria-label="Remove ${esc(m.display_name)} from the group">${CLOSE}</button>` : ""}</li>`;
-        return `<li>${av(m.display_name, m.user_id)}<span class="nm">${esc(m.display_name || "Member")}${m.badge && typeof GX_STAR === "string" ? GX_STAR : ""}${me2 ? ` <span class="mini">(You)</span>` : ""}${bd.length ? `<span class="grp-badges">${bd.map(b => `<span class="grp-badge ${b[0]}" title="${esc(b[2])}">${esc(b[1])}</span>`).join("")}</span>` : ""}${st >= 2 && !bd.some(b => b[0] === "streak") ? `<span class="mini">${st}-day streak</span>` : ""}</span>${isProj(g) && roleOf(g.id, m.user_id) ? `<span class="pill gk-role">${esc(GK.roleLabel(roleOf(g.id, m.user_id)))}</span>` : ""}${m.role === "owner" ? `<span class="pill">Owner</span>` : ""}${me2 ? "" : `<details class="grp-more g2-mm"><summary class="g2-dots" aria-label="More for ${esc(m.display_name || "this member")}">⋯</summary><div class="grp-menu"><button class="btn" data-act="grp-report" data-kind="member" data-id="${esc(m.user_id)}">Report or Block</button>${owner ? `<button class="btn" data-act="grp-member-del" data-id="${esc(m.user_id)}">Remove from Group</button>` : ""}</div></details>`}</li>`; }).join("")}</ul>
+        return `<li>${av(m.display_name, m.user_id)}<span class="nm">${esc(m.display_name || "Member")}${m.badge && typeof GX_STAR === "string" ? GX_STAR : ""}${bd.some(b => b[0] === "champ") ? CHAMP_CROWN : ""}${me2 ? ` <span class="mini">(You)</span>` : ""}${bd.some(b => b[0] !== "champ") ? `<span class="grp-badges">${bd.filter(b => b[0] !== "champ").map(b => `<span class="grp-badge ${b[0]}" title="${esc(b[2])}">${esc(b[1])}</span>`).join("")}</span>` : ""}${st >= 2 && !bd.some(b => b[0] === "streak") ? `<span class="mini">${st}-day streak</span>` : ""}</span>${isProj(g) && roleOf(g.id, m.user_id) ? `<span class="pill gk-role">${esc(GK.roleLabel(roleOf(g.id, m.user_id)))}</span>` : ""}${m.role === "owner" ? `<span class="pill">Owner</span>` : ""}${me2 ? "" : `<details class="grp-more g2-mm"><summary class="g2-dots" aria-label="More for ${esc(m.display_name || "this member")}">⋯</summary><div class="grp-menu"><button class="btn" data-act="grp-report" data-kind="member" data-id="${esc(m.user_id)}">Report or Block</button>${owner ? `<button class="btn" data-act="grp-member-del" data-id="${esc(m.user_id)}">Remove from Group</button>` : ""}</div></details>`}</li>`; }).join("")}</ul>
       ${isOwner(g) && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !(PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro()) ? `<p class="mini" style="margin:8px 0 0">Free groups hold up to ${PLAN.limits().groupMembers} members (${ms.length} now). <button class="link-btn" data-act="grp-upgrade" data-r="Pro groups hold up to 100 members.">Go Pro</button> for up to 100.</p>` : ""}</section>`;
   }
   // Update parts of the open group page in place, so a message you're typing isn't lost

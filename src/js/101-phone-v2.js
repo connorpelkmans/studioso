@@ -151,7 +151,7 @@
     [...sel.options].filter(o => !o.disabled && !o.hidden).forEach(o => {
       const c = optCourse(o), b = document.createElement("button");
       b.type = "button"; b.setAttribute("role", "option"); b.setAttribute("aria-selected", String(o.selected));
-      const d = document.createElement("i"); d.className = c ? "cs-dot" : "cs-gap"; if (c) d.style.setProperty("--c", c.color); b.appendChild(d);
+      const ab = !c && window.SBAllDot ? SBAllDot(sel, o) : "", d = document.createElement("i"); d.className = c || ab ? "cs-dot" : "cs-gap"; if (c) d.style.setProperty("--c", c.color); else if (ab) d.style.background = ab; b.appendChild(d);
       const t = document.createElement("span"); t.textContent = o.textContent; b.appendChild(t);
       if (o.selected) { const k = document.createElement("span"); k.className = "cs-tick"; k.setAttribute("aria-hidden", "true"); k.textContent = "\u2713"; b.appendChild(k); }
       b.addEventListener("click", e => {
@@ -177,6 +177,18 @@
   const csFine = () => !!(window.matchMedia && matchMedia("(pointer:fine)").matches);
   const csIs = el => el && el.tagName === "SELECT" && el.classList.contains("cs-custom") && !el.disabled && !csFine();
   let csT = null;
+  // On a touch screen the dropdown itself ignores touches (CSS), so the phone's own picker can never open; a tap
+  // that lands on one (found by where it fell) opens our menu instead
+  const csAt = e => {
+    if (csFine() || !e.target || !e.target.closest || e.target.closest("button, a, input, textarea, .cs-menu, .cs-back")) return null;
+    for (const sel of document.querySelectorAll("select.cs-custom")) {
+      if (sel.disabled || !sel.offsetParent && getComputedStyle(sel).position !== "fixed") continue;
+      const r = sel.getBoundingClientRect();
+      if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom && (sel.parentElement || sel).contains(e.target)) return sel;
+    }
+    return null;
+  };
+  document.addEventListener("click", e => { const sel = csAt(e); if (sel) { e.preventDefault(); e.stopPropagation(); csShow(sel); } }, true);
   document.addEventListener("mousedown", e => { if (csIs(e.target) && e.button === 0) e.preventDefault(); }, true);
   document.addEventListener("click", e => { if (csIs(e.target)) { e.preventDefault(); e.stopPropagation(); csShow(e.target); } }, true);
   document.addEventListener("touchstart", e => { const t = e.touches[0]; csT = csIs(e.target) && t ? {x: t.clientX, y: t.clientY, el: e.target} : null; }, {capture: true, passive: true});

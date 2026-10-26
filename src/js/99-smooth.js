@@ -39,6 +39,13 @@
     if (changed) play(document.getElementById("view"), "sm-view");
   });
 
+  // Tab bar: the tapped tab shows as selected at once, so the highlight fades in with the tap instead of after the page is drawn
+  document.addEventListener("pointerup", e => {
+    const b = e.target.closest && e.target.closest("nav.tabs button[data-tab]"); if (!b || !on()) return;
+    b.parentNode.querySelectorAll('button[aria-current="page"]').forEach(o => { if (o !== b) o.setAttribute("aria-current", "false"); });
+    b.setAttribute("aria-current", "page");
+  }, true);
+
   // Anything the person taps may open something: for a moment after, new or revealed content eases in
   // The watcher only runs for that moment, so it costs nothing while scenes and the companion animate
   let stopT = 0;
@@ -64,7 +71,7 @@
         }
       } else if (m.type === "childList" && t !== view() && t.id !== "view") {
         // a small piece of the page filled in (an opened section, a menu list); whole-page redraws land on #view and are skipped
-        for (const a of m.addedNodes) if (a.nodeType === 1 && !a.classList.contains("sm-in") && n < 6 && !a.closest(".sm-skip") && !/^(SCRIPT|STYLE|CANVAS)$/.test(a.tagName)) { if (t.closest("#dlg") && t === document.getElementById("dlg")) continue; play(a, "sm-in"); n++; }
+        for (const a of m.addedNodes) if (a.nodeType === 1 && !a.classList.contains("sm-in") && n < 6 && !a.closest(".sm-skip, .g2-band, .detail-head, .view-head, .cf-row, nav, header") && !a.matches(".ra-more, .ph-more, .ph-menu") && !/^(SCRIPT|STYLE|CANVAS)$/.test(a.tagName)) { if (t.closest("#dlg") && t === document.getElementById("dlg")) continue; play(a, "sm-in"); n++; }
       }
     }
   });

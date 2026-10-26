@@ -20,7 +20,7 @@ html:not([data-motion="static"]) .sb-dd,html:not([data-motion="static"]) .cs-men
 /* Native disclosure sections */
 html:not([data-motion="static"]) details[open] > :not(summary){animation:sm-in .22s var(--sm-ease) backwards}
 /* Buttons answer a tap right away */
-@media (hover:none){html:not([data-motion="static"]) :is(button,.btn):active{transform:scale(.97)}}
+@media (hover:none){html:not([data-motion="static"]) :is(button,.btn):not(nav.tabs button):active{transform:scale(.97)}}
 dialog:focus,dialog:focus-visible{outline:none}
 dialog [tabindex="-1"]:focus,dialog [tabindex="-1"]:focus-visible{outline:none}
 .sm-focus{position:absolute;width:0;height:0;overflow:hidden;outline:none!important;pointer-events:none}
@@ -28,3 +28,19 @@ dialog [tabindex="-1"]:focus,dialog [tabindex="-1"]:focus-visible{outline:none}
 /* Text that sits straight on a scene gets the same soft glow as the other page headings */
 html.sc-on #view :is(h2,h3,h4,.fsec,.fsec .n,.grp-sec > h3,.hint,.hint-line,.empty,.view-head > :is(span,p,div):not(.btn),#view > p,section > .mini,.sec-head,.cf-sec-t,.lbl-sec,.board-sec-head,.tl-controls .mini,.cf-chips > .mini):not(:is(.card,.sheet,button,.btn,.tile,[class*="card"],.plan-hero,table,li) *){text-shadow:0 0 2px var(--paper),0 0 6px var(--paper),0 0 12px var(--paper)}
 html.sc-on #view :is(.fsec svg){filter:drop-shadow(0 0 3px var(--paper))}
+
+/* Selecting a tab or a choice: no tap flash, the highlight fades in and the icon lifts a touch */
+html:not([data-motion="static"]) :is(button,.btn,[role=button],[role=tab],summary){-webkit-tap-highlight-color:transparent}
+html:not([data-motion="static"]) nav.tabs .in button{transition:background-color .26s var(--sm-ease),color .22s ease,box-shadow .26s var(--sm-ease),transform .16s var(--sm-ease)!important}
+html:not([data-motion="static"]) nav.tabs .in button svg{transition:transform .28s var(--sm-ease),color .22s ease}
+html:not([data-motion="static"]) nav.tabs .in button[aria-current="page"] svg{transform:translateY(-1px) scale(1.06)}
+@media (hover:none){html:not([data-motion="static"]) nav.tabs .in button:active svg{opacity:.55}}
+html:not([data-motion="static"]) nav.tabs .in button svg{transition:transform .28s var(--sm-ease),color .22s ease,opacity .12s ease}
+html:not([data-motion="static"]) :is(.segb button,.chip,.ui-chip,.cf-pick,[role=tab],button[aria-pressed],button[aria-selected]){transition:background-color .22s var(--sm-ease),color .2s ease,border-color .22s ease,box-shadow .22s var(--sm-ease)}
+
+/* Text-only buttons: the label sits a hair lower so it looks centred in the pill */
+.btn:not(.small):not(:has(svg)):not(.icon-btn){padding-top:11px;padding-bottom:9px}
+.btn.small:not(:has(svg)):not(.icon-btn){padding-top:7px;padding-bottom:5px}
+
+/* Grades: the "Waiting for a Mark" list sits on a card so it reads over scenery */
+.gs-wait{background:var(--ph-surf,color-mix(in srgb,var(--surface) 90%,transparent));border:1px solid var(--line);border-radius:16px;padding:4px 14px}

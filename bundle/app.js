@@ -523,11 +523,14 @@ const TB = (() => {
 
 /* ---------- State ---------- */
 let state = {courses:{}, tasks:{}, files:{}, notes:{}, decks:{}, events:{}, trash:{}, settings:{capacity:15}, updated:0};
-const ui = {tab:"board", courseId:null, filter:"all", q:"", focusOpen:true, showOldDone:false,
+const ui = {tab:"board", courseId:null, q:"", focusOpen:true, showOldDone:false,
   planView: (() => { try { const v = localStorage.getItem("studyboard:planview"); return v === "schedule" || v === "crunch" ? v : "timeline"; } catch(e) { return "timeline"; } })(),
   tlMode: (() => { try { return localStorage.getItem("studyboard:tlmode") === "calendar" ? "calendar" : "bars"; } catch(e) { return "bars"; } })(),
   tlZoom: (() => { try { const v = localStorage.getItem("studyboard:tlzoom"); return v === "week" || v === "term" ? v : "month"; } catch(e) { return "month"; } })(), tlScroll:null, tlJump:true, calMonth:null, calDay:null,
   groupBy: (() => { try { return localStorage.getItem("coursework:group") || "none"; } catch(e) { return "none"; } })(), fCourse:"all", fFolder:"", fSort:"date"};
+// The course filter belongs to the section it was picked in: Board, the plan, Flashcards and the rest each keep their own
+{ const per = {}, key = () => (typeof isPlanTab === "function" && isPlanTab(ui.tab)) ? "plan" : ui.tab;
+  Object.defineProperty(ui, "filter", {enumerable: true, configurable: true, get(){ return per[key()] || "all"; }, set(v){ per[key()] = v || "all"; }}); }
 const caps = {downloads:null, assets:null};
 
 function normTask(t){
@@ -4508,7 +4511,7 @@ function nextUpHtml(F, pre){
     </div>
   </div>`;
   return `<div class="next-up${nuOpenCls()}" style="--c:${esc(colorOf(t.courseId))}">
-    <div class="nu-top"><span class="nu-label">Do This Next${n.ai ? ` <span class="nu-who">${AI_ICON} ${aiWho() ? esc(aiWho()) + "'s pick" : "AI pick"}</span>` : ""}</span>${n.x.alloc > 0 ? `<span class="nu-alloc" title="Suggested time today">${fmtHM(n.x.alloc)} today</span>` : ""}</div>
+    <div class="nu-top"><span class="nu-label">Do This Next${n.ai ? ` <span class="nu-who">${AI_ICON} ${aiWho() ? esc(aiWho()) + "'s pick" : "AI pick"}</span>` : ""}</span>${n.x.alloc > 0 ? `<span class="nu-alloc" title="Suggested time today">${fmtHM(n.x.alloc)}<span class="nu-td"> today</span></span>` : ""}</div>
     <div class="nu-row">
       ${t.gt ? `<span class="check gt-dot" aria-hidden="true"></span>` : `<button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>`}
       <div class="nu-body">
@@ -25330,6 +25333,8 @@ hook("boot", boot);
     if (uid2 === myId() && week === wkStart()) { const w = myWeek(); v = Math.max(v, field === "quizzes" ? w.quizzes : w.focus); }
     return v;
   }
+  // Last week's most focused member wears a small golden crown after their name
+  const CHAMP_CROWN = `<svg class="grp-crown" viewBox="0 0 24 24" width="16" height="16" role="img" aria-label="Last week's champion"><title>Last week's champion: most focus time last week</title><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" fill="#F5B82E" stroke="#B9830A" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
   function badgesFor(g, uid2){
     const ext = extOf(g.id); if (!ext) return [];
     const out = [], st = streakOf(ext, uid2), its = S.items[g.id] || [];
@@ -25337,7 +25342,7 @@ hook("boot", boot);
     const goal = Number(g.weekly_goal) || 0;
     if (goal && weekVal(ext, g.id, uid2, wkStart(), "focus_min") >= goal) out.push(["goal", "Goal Met", `Reached the weekly goal of ${gMins(goal)}`]);
     const last = ext.stats.filter(s => s.week === addDays(wkStart(), -7) && s.focus_min > 0).sort((a, b) => b.focus_min - a.focus_min)[0];
-    if (last && last.user_id === uid2) out.push(["champ", "Last Week's Champ", `Most focus time last week (${gMins(last.focus_min)})`]);
+    if (last && last.user_id === uid2) out.push(["champ", "Last Week's Champion", `Most focus time last week (${gMins(last.focus_min)})`]);
     if (ext.scores.some(s => s.user_id === uid2 && s.best_total >= 5 && gPct(s.best_correct, s.best_total) >= 90)) out.push(["quiz", "Quiz Whiz", "Scored 90% or more on a shared quiz"]);
     return out;
   }
@@ -26784,11 +26789,11 @@ hook("boot", boot);
     const owner = isOwner(g), ext = extOf(g.id), today = todayISO();
     const mine = ms.find(m => m.user_id === myId());
     return `<section class="grp-sec" id="grpMembers"><h3 class="fsec">${ICON_GROUP}Members<span class="n">${ms.length}</span></h3>
-      ${mine ? `<div class="mc-me"><span class="mc-dot" style="--mc:${esc(memberHue(g.id, myId()))}" aria-hidden="true"></span><span class="mc-t"><b>Your Color</b><span class="mini">${mine.color ? `Marks you across the group: your picture, messages, scores${isProj(g) ? " and tasks" : ""}` : "Pick one so everyone can spot you at a glance across the group"}</span></span><button type="button" class="btn small" data-act="grp-color" data-id="${esc(g.id)}">${mine.color ? "Change" : "Pick a Color"}</button></div>` : ""}
+      ${mine ? `<div class="mc-me"><span class="mc-dot" style="--mc:${esc(memberHue(g.id, myId()))}" aria-hidden="true"></span><span class="mc-t"><b>Your Color</b></span><button type="button" class="btn small" data-act="grp-color" data-id="${esc(g.id)}">${mine.color ? "Change" : "Pick a Color"}</button></div>` : ""}
       <ul class="grp-members">${ms.map(m => {
         const st = ext ? streakOf(ext, m.user_id) : 0, bd = ext ? badgesFor(g, m.user_id) : [], me2 = m.user_id === myId();
         if (!me2 && S.blocked.has(m.user_id)) return `<li class="blocked">${av(m.display_name, m.user_id)}<span class="nm">${esc(m.display_name || "Member")} <span class="pill">Blocked</span></span><button class="btn small" data-act="grp-unblock" data-id="${esc(m.user_id)}">Unblock</button>${owner ? `<button class="x-btn" data-act="grp-member-del" data-id="${esc(m.user_id)}" aria-label="Remove ${esc(m.display_name)} from the group">${CLOSE}</button>` : ""}</li>`;
-        return `<li>${av(m.display_name, m.user_id)}<span class="nm">${esc(m.display_name || "Member")}${m.badge && typeof GX_STAR === "string" ? GX_STAR : ""}${me2 ? ` <span class="mini">(You)</span>` : ""}${bd.length ? `<span class="grp-badges">${bd.map(b => `<span class="grp-badge ${b[0]}" title="${esc(b[2])}">${esc(b[1])}</span>`).join("")}</span>` : ""}${st >= 2 && !bd.some(b => b[0] === "streak") ? `<span class="mini">${st}-day streak</span>` : ""}</span>${isProj(g) && roleOf(g.id, m.user_id) ? `<span class="pill gk-role">${esc(GK.roleLabel(roleOf(g.id, m.user_id)))}</span>` : ""}${m.role === "owner" ? `<span class="pill">Owner</span>` : ""}${me2 ? "" : `<details class="grp-more g2-mm"><summary class="g2-dots" aria-label="More for ${esc(m.display_name || "this member")}">⋯</summary><div class="grp-menu"><button class="btn" data-act="grp-report" data-kind="member" data-id="${esc(m.user_id)}">Report or Block</button>${owner ? `<button class="btn" data-act="grp-member-del" data-id="${esc(m.user_id)}">Remove from Group</button>` : ""}</div></details>`}</li>`; }).join("")}</ul>
+        return `<li>${av(m.display_name, m.user_id)}<span class="nm">${esc(m.display_name || "Member")}${m.badge && typeof GX_STAR === "string" ? GX_STAR : ""}${bd.some(b => b[0] === "champ") ? CHAMP_CROWN : ""}${me2 ? ` <span class="mini">(You)</span>` : ""}${bd.some(b => b[0] !== "champ") ? `<span class="grp-badges">${bd.filter(b => b[0] !== "champ").map(b => `<span class="grp-badge ${b[0]}" title="${esc(b[2])}">${esc(b[1])}</span>`).join("")}</span>` : ""}${st >= 2 && !bd.some(b => b[0] === "streak") ? `<span class="mini">${st}-day streak</span>` : ""}</span>${isProj(g) && roleOf(g.id, m.user_id) ? `<span class="pill gk-role">${esc(GK.roleLabel(roleOf(g.id, m.user_id)))}</span>` : ""}${m.role === "owner" ? `<span class="pill">Owner</span>` : ""}${me2 ? "" : `<details class="grp-more g2-mm"><summary class="g2-dots" aria-label="More for ${esc(m.display_name || "this member")}">⋯</summary><div class="grp-menu"><button class="btn" data-act="grp-report" data-kind="member" data-id="${esc(m.user_id)}">Report or Block</button>${owner ? `<button class="btn" data-act="grp-member-del" data-id="${esc(m.user_id)}">Remove from Group</button>` : ""}</div></details>`}</li>`; }).join("")}</ul>
       ${isOwner(g) && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !(PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro()) ? `<p class="mini" style="margin:8px 0 0">Free groups hold up to ${PLAN.limits().groupMembers} members (${ms.length} now). <button class="link-btn" data-act="grp-upgrade" data-r="Pro groups hold up to 100 members.">Go Pro</button> for up to 100.</p>` : ""}</section>`;
   }
   // Update parts of the open group page in place, so a message you're typing isn't lost
@@ -74044,8 +74049,9 @@ var SBWB = null;
 .wb-host{position:relative;min-height:420px;margin-top:4px}
 .wb-stage{position:absolute;inset:0;display:flex;flex-direction:column;gap:8px;padding:10px 10px 8px;border-radius:18px;background:linear-gradient(180deg,#EEF1F4,#D4DAE1 60%,#C5CCD4);box-shadow:inset 0 1px 0 #fff,inset 0 -1px 0 rgba(0,0,0,.08),0 8px 24px rgba(20,30,45,.16)}
 .wb-stage.wb-dk{background:linear-gradient(180deg,#5B636E,#3E454E 60%,#353B43);box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 8px 24px rgba(0,0,0,.4)}
-.wb-frame{position:relative;flex:1;min-height:0;overflow:hidden;border-radius:10px;background:#FDFEFE;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12),inset 0 2px 8px rgba(0,0,0,.12);touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;outline:none;cursor:crosshair}
-.wb-frame:focus-visible{box-shadow:inset 0 0 0 1px rgba(0,0,0,.12),0 0 0 3px color-mix(in srgb,var(--accent) 55%,transparent)}
+.wb-frame{position:relative;flex:1;min-height:0;overflow:hidden;border-radius:10px;background:#FDFEFE;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;outline:none;cursor:crosshair}
+.wb-frame::after{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12),inset 0 2px 8px rgba(0,0,0,.12);pointer-events:none;z-index:2}
+.wb-frame:focus-visible{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 55%,transparent)}
 .wb-frame[data-tool=select]{cursor:default}.wb-frame[data-tool=text]{cursor:text}.wb-frame[data-tool=hand],.wb-frame.pan-ready{cursor:grab}.wb-frame.panning{cursor:grabbing}.wb-frame[data-tool=eraser]{cursor:none}
 .wb-world{position:absolute;left:0;top:0;width:${BW}px;height:${BH}px;transform-origin:0 0;pointer-events:none}
 .wb-back{background:#FDFEFE;background-image:linear-gradient(115deg,rgba(255,255,255,0) 30%,rgba(255,255,255,.75) 46%,rgba(255,255,255,0) 60%),linear-gradient(180deg,#FFFFFF,#F4F7F9)}
@@ -76404,7 +76410,7 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
     [...sel.options].filter(o => !o.disabled && !o.hidden).forEach(o => {
       const c = optCourse(o), b = document.createElement("button");
       b.type = "button"; b.setAttribute("role", "option"); b.setAttribute("aria-selected", String(o.selected));
-      const d = document.createElement("i"); d.className = c ? "cs-dot" : "cs-gap"; if (c) d.style.setProperty("--c", c.color); b.appendChild(d);
+      const ab = !c && window.SBAllDot ? SBAllDot(sel, o) : "", d = document.createElement("i"); d.className = c || ab ? "cs-dot" : "cs-gap"; if (c) d.style.setProperty("--c", c.color); else if (ab) d.style.background = ab; b.appendChild(d);
       const t = document.createElement("span"); t.textContent = o.textContent; b.appendChild(t);
       if (o.selected) { const k = document.createElement("span"); k.className = "cs-tick"; k.setAttribute("aria-hidden", "true"); k.textContent = "\u2713"; b.appendChild(k); }
       b.addEventListener("click", e => {
@@ -76430,6 +76436,18 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
   const csFine = () => !!(window.matchMedia && matchMedia("(pointer:fine)").matches);
   const csIs = el => el && el.tagName === "SELECT" && el.classList.contains("cs-custom") && !el.disabled && !csFine();
   let csT = null;
+  // On a touch screen the dropdown itself ignores touches (CSS), so the phone's own picker can never open; a tap
+  // that lands on one (found by where it fell) opens our menu instead
+  const csAt = e => {
+    if (csFine() || !e.target || !e.target.closest || e.target.closest("button, a, input, textarea, .cs-menu, .cs-back")) return null;
+    for (const sel of document.querySelectorAll("select.cs-custom")) {
+      if (sel.disabled || !sel.offsetParent && getComputedStyle(sel).position !== "fixed") continue;
+      const r = sel.getBoundingClientRect();
+      if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom && (sel.parentElement || sel).contains(e.target)) return sel;
+    }
+    return null;
+  };
+  document.addEventListener("click", e => { const sel = csAt(e); if (sel) { e.preventDefault(); e.stopPropagation(); csShow(sel); } }, true);
   document.addEventListener("mousedown", e => { if (csIs(e.target) && e.button === 0) e.preventDefault(); }, true);
   document.addEventListener("click", e => { if (csIs(e.target)) { e.preventDefault(); e.stopPropagation(); csShow(e.target); } }, true);
   document.addEventListener("touchstart", e => { const t = e.touches[0]; csT = csIs(e.target) && t ? {x: t.clientX, y: t.clientY, el: e.target} : null; }, {capture: true, passive: true});
@@ -76856,6 +76874,13 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
   // A native shell that knows more (iOS Low Power Mode is not visible to web pages) can say so
   let nativeLow = false;
   const setPower = o => { nativeLow = !!(o && o.lowPower); if (o && o.thermal) desk.thermal = String(o.thermal); emit(true); };
+  // The "All courses" row of a course picker wears the same multicoloured dot as the filter bar
+  window.SBAllDot = (sel, o) => {
+    if (!state.courses || !o || !(o.value === "all" || /^all\b/i.test((o.textContent || "").trim()))) return "";
+    if (![...sel.options].some(x => state.courses[x.dataset.course || x.value])) return "";
+    const cs = Object.values(state.courses).filter(c => c && c.color).slice(0, 6); if (!cs.length) return "";
+    return "conic-gradient(" + cs.map((c, i, a) => c.color + " " + Math.round(i / a.length * 100) + "% " + Math.round((i + 1) / a.length * 100) + "%").join(",") + ")";
+  };
   window.SBMotion = {level, live, frameMs, dprScale, noParticles, frameCost, warm, flash, pref: () => pref, setPref, setPower, status: statusText, gov: () => gov, why: pauseWhy};
   emit(true);
 
@@ -77245,7 +77270,8 @@ if (window.matchMedia) { const mq = matchMedia("(max-width:639px)"); const swap 
     if (sel.getAttribute("aria-label")) list.setAttribute("aria-label", sel.getAttribute("aria-label"));
     const opts = [...sel.options];
     // A course's small flat dot in front of its name (and a matching gap on the other rows)
-    const dotOf = o => { const c = state.courses && state.courses[o.dataset.course || o.value]; return c ? `<i class="sb-dd-dot" style="--c:${esc(c.color)}"></i>` : sel.classList.contains("cs-custom") ? `<i class="sb-dd-gap"></i>` : ""; };
+    const allBg = o => { try { return SBAllDot(sel, o); } catch (e) { return ""; } };
+    const dotOf = o => { const c = state.courses && state.courses[o.dataset.course || o.value]; if (!c && allBg(o)) return `<i class="sb-dd-dot" style="background:${esc(allBg(o))}"></i>`; return c ? `<i class="sb-dd-dot" style="--c:${esc(c.color)}"></i>` : sel.classList.contains("cs-custom") ? `<i class="sb-dd-gap"></i>` : ""; };
     const optHtml = o => { const i = opts.indexOf(o), on = i === sel.selectedIndex;
       return o.hidden ? "" : `<button type="button" role="option" class="sb-dd-opt${on ? " on" : ""}" data-i="${i}" aria-selected="${on}"${o.disabled ? " disabled" : ""}>${dotOf(o)}<span>${esc(o.textContent)}</span>${on ? CK : ""}</button>`; };
     list.innerHTML = [...sel.children].map(n => n.tagName === "OPTGROUP" ? `<div class="sb-dd-grp" role="presentation">${esc(n.label)}</div>${[...n.children].map(optHtml).join("")}` : n.tagName === "OPTION" ? optHtml(n) : "").join("");
@@ -77439,6 +77465,13 @@ ui._day = todayISO();
     if (changed) play(document.getElementById("view"), "sm-view");
   });
 
+  // Tab bar: the tapped tab shows as selected at once, so the highlight fades in with the tap instead of after the page is drawn
+  document.addEventListener("pointerup", e => {
+    const b = e.target.closest && e.target.closest("nav.tabs button[data-tab]"); if (!b || !on()) return;
+    b.parentNode.querySelectorAll('button[aria-current="page"]').forEach(o => { if (o !== b) o.setAttribute("aria-current", "false"); });
+    b.setAttribute("aria-current", "page");
+  }, true);
+
   // Anything the person taps may open something: for a moment after, new or revealed content eases in
   // The watcher only runs for that moment, so it costs nothing while scenes and the companion animate
   let stopT = 0;
@@ -77464,7 +77497,7 @@ ui._day = todayISO();
         }
       } else if (m.type === "childList" && t !== view() && t.id !== "view") {
         // a small piece of the page filled in (an opened section, a menu list); whole-page redraws land on #view and are skipped
-        for (const a of m.addedNodes) if (a.nodeType === 1 && !a.classList.contains("sm-in") && n < 6 && !a.closest(".sm-skip") && !/^(SCRIPT|STYLE|CANVAS)$/.test(a.tagName)) { if (t.closest("#dlg") && t === document.getElementById("dlg")) continue; play(a, "sm-in"); n++; }
+        for (const a of m.addedNodes) if (a.nodeType === 1 && !a.classList.contains("sm-in") && n < 6 && !a.closest(".sm-skip, .g2-band, .detail-head, .view-head, .cf-row, nav, header") && !a.matches(".ra-more, .ph-more, .ph-menu") && !/^(SCRIPT|STYLE|CANVAS)$/.test(a.tagName)) { if (t.closest("#dlg") && t === document.getElementById("dlg")) continue; play(a, "sm-in"); n++; }
       }
     }
   });
