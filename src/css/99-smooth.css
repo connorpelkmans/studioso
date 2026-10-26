@@ -46,3 +46,11 @@ html:not([data-motion="static"]) :is(.segb button,.chip,.ui-chip,.cf-pick,[role=
 /* Grades: the "Waiting for a Mark" list sits on a card so it reads over scenery */
 .gs-wait{background:var(--ph-surf,color-mix(in srgb,var(--surface) 90%,transparent));border:1px solid var(--line);border-radius:16px;padding:4px 14px}
 .gs-wait li:last-child{border-bottom:0}
+
+/* Desktop page tabs (Today's Plan / Task Board, Courses / Grades ...): one compact pill, a dark selected tab */
+@media (min-width:640px){
+  #view .pg-tabs{box-sizing:border-box!important;width:max-content!important;max-width:100%!important;align-self:flex-start;padding:5px!important;gap:4px!important;margin:12px 0 16px!important;background:color-mix(in srgb,var(--surface) 92%,transparent)!important;border:1px solid color-mix(in srgb,var(--ink) 8%,transparent)!important;border-radius:999px!important;box-shadow:0 4px 16px rgba(20,40,80,.16)!important}
+  #view .pg-tabs > button{flex:none!important;min-height:0!important;padding:9px 22px!important;margin:0!important;border:0!important;border-radius:999px!important;color:color-mix(in srgb,var(--ink) 68%,var(--surface))!important;font-size:1rem!important;font-weight:700!important;transition:background-color .24s var(--sm-ease),color .2s ease}
+  #view .pg-tabs > button:hover{color:var(--ink)!important;background:color-mix(in srgb,var(--ink) 7%,transparent)!important}
+  #view .pg-tabs > button[aria-selected="true"]{background:var(--ink)!important;color:var(--surface)!important;box-shadow:none!important}
+}
