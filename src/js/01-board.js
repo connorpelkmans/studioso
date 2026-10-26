@@ -319,6 +319,8 @@ function computeFocus(){
     if (x.stale && x.dl >= 0 && x.dl <= 14) mul(1.05);
     if (accOf() && x.dl >= 1 && x.dl <= 6 && x.R > 0 && p === 0 && !(Number(t.focusMin) > 0)) { const nz = accOf().startNudge(t); if (nz > 1) { mul(nz); x.nudged = true; } }
     x.score = score * 100;
+    // What is due today comes before anything already overdue (overdue work still ranks above what is due later)
+    if (x.dl === 0 && x.R > 0 && !x.dead && !x.fixed) x.score += 1000;
     x.W = W; x.p = p;
   });
   for (let pass = 0; pass < 3; pass++) {
