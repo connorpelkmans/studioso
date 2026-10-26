@@ -78,6 +78,14 @@ const bsTask = (id, title, cid, ou, extra) => Object.assign({id, created: 1, tit
       ok(!page.errs.length, "no page errors: " + page.errs.join(" | "));
       await page.context().close(); }
 
+    // 1c. A discussion with no due date of its own ticks off its content-list entry when you've posted
+    { const page = await fresh([]);
+      const r = await page.evaluate(h => { h.items = [{ou: "10", id: "77", name: "Introductions Discussion", type: 1, act: 5, url: "/d2l/le/content/10/viewContent/77/View", due: new Date(Date.now() - 864e5).toISOString(), done: null, exempt: false}];
+        h.courses[1].discussions = [{id: "200", name: "Introductions Discussion", due: null, start: null, text: "", gid: "", outOf: null, posted: true}];
+        const d = SBLMS.brightspace.fromApi(h); return d.recs.filter(x => /Introductions/.test(x.title)).map(x => [x.title, x.done, x.pid]); }, H());
+      ok(r.length === 1 && r[0][1] === true && r[0][2] === "d200", "the posted topic ticks off its entry: " + JSON.stringify(r));
+      await page.context().close(); }
+
     // 2. Filed in the wrong course: the next sync asks, and Move puts it right (no copy made meanwhile)
     { const page = await fresh([bsTask("w1", MID, "c20", "20", {notes: "Bring student ID"})]);
       const asked = await sync(page, H());

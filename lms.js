@@ -271,12 +271,22 @@ async function bsHarvest(o) {
       if (!a) qRefused++;
       if (a) tried[x.QuizId] = listOf(a).some(t => t && (t.AttemptId != null || t.AttemptNumber != null || t.TimeCompleted || t.DateCompleted || t.SubmittedDate || t.IsGraded === true || (t.Score != null && t.Score !== "")));
     });
-    if (qrecent.some(x => tried[x.QuizId] !== true)) {
+    let qOnlyPage = 0;
+    if (qrecent.some(x => tried[x.QuizId] !== true) || !quizzes.length) {
       try {
         const r = await fetch(`/d2l/lms/quizzing/user/quizzes_list.d2l?ou=${c.ou}`, { credentials: "include" });
         qPageStatus = String(r.status);
         if (r.ok) {
           const html = (await r.text()).slice(0, 3000000);
+          // A quiz on the Quizzes page that the quiz list API left out (some schools don't give students that API): read it from its own pages
+          const known = new Set(quizzes.map(x => x && String(x.QuizId)));
+          for (const m of html.matchAll(/quiz_summary\.d2l\?[^"'<>]*?\bqi=(\d+)[^>]*>([\s\S]{0,600}?)<\/a>/gi)) {
+            const name = htmlText(m[2], { line: true }).slice(0, 300);
+            if (!name || known.has(m[1]) || qrecent.length >= 40) continue;
+            known.add(m[1]); qOnlyPage++;
+            const x = { QuizId: Number(m[1]), Name: name, IsActive: true, fromPage: true };
+            quizzes.push(x); qrecent.push(x);
+          }
           html.split(/(?=[?&;]qi=\d)/).slice(1).forEach(part => {
             const m = part.match(/^[?&;]qi=(\d+)/); if (!m) return; qLinks++; if (tried[m[1]] === true) return;
             const all = [...htmlText(part.slice(0, 6000), { line: true }).matchAll(/(?<![\d/])(\d+)\s*\/\s*(?:\d+|unlimited)(?![\d/])/gi)], a = all[all.length - 1];
@@ -319,11 +329,11 @@ async function bsHarvest(o) {
         const best = rows.sort((a, b) => b.num / b.den - a.num / a.den)[0];
         return { num: best.num, den: best.den, how: rows.length > 1 ? "highest attempt" : "" };
       };
-      const toScore = qrecent.filter(x => tried[x.QuizId] === true && !hasMark(x.GradeItemId)).slice(0, 15);
+      const toScore = qrecent.filter(x => tried[x.QuizId] !== false && !hasMark(x.GradeItemId)).sort((a, b) => (tried[b.QuizId] === true) - (tried[a.QuizId] === true)).slice(0, 15);
       let got = 0;
       await inBatches(toScore, async x => {
         const t = submPage[x.QuizId] != null ? submPage[x.QuizId] : await page(`/d2l/lms/quizzing/user/quiz_submissions.d2l?qi=${x.QuizId}&ou=${c.ou}`);
-        const sc = t && scoreOf(t); if (sc) { mk("quiz", x.QuizId, sc, "quizPage"); got++; }
+        const sc = t && scoreOf(t); if (sc) { mk("quiz", x.QuizId, sc, "quizPage"); got++; tried[x.QuizId] = true; }
       });
       if (toScore.length) markNote.push(`quiz Submissions pages ${got} of ${toScore.length}`);
     }
@@ -353,7 +363,7 @@ async function bsHarvest(o) {
     }
     if (qrecent.length) {
       const sat = qrecent.filter(x => tried[x.QuizId] === true).length, not = qrecent.filter(x => tried[x.QuizId] === false).length;
-      c.quizNote = `quizzes: ${sat} sat, ${not} not, ${qrecent.length - sat - not} unknown` + (qRefused ? `; attempts API refused ${qRefused}` : "") + (qPageStatus ? `; Quizzes page ${qPageStatus}, ${qLinks} quiz links, ${qPage} sat from it` : "") + (qLeft.length ? `; ${qOwn} of ${qLeft.length} sat from their own pages` : "");
+      c.quizNote = `quizzes: ${sat} sat, ${not} not, ${qrecent.length - sat - not} unknown` + (qOnlyPage ? `; ${qOnlyPage} only on the Quizzes page` : "") + (qRefused ? `; attempts API refused ${qRefused}` : "") + (qPageStatus ? `; Quizzes page ${qPageStatus}, ${qLinks} quiz links, ${qPage} sat from it` : "") + (qLeft.length ? `; ${qOwn} of ${qLeft.length} sat from their own pages` : "");
     }
     const graded = new Set(listOf(grades).filter(g => g && g.GradeObjectIdentifier != null && g.PointsNumerator != null).map(g => String(g.GradeObjectIdentifier)));
     const rubOf = r => {
@@ -411,19 +421,33 @@ async function bsHarvest(o) {
     } catch (e) {}
     const meId = String(me.Identifier || "");
     const tops = [];
-    await Promise.all(listOf(forums).filter(f => f && !f.IsHidden).slice(0, 15).map(async f => {
+    // Every forum's topics (Brightspace lists the oldest first), then the ones nearest today: a weekly topic from yesterday must not be cut off
+    await inBatches(listOf(forums).filter(f => f && !f.IsHidden).slice(0, 40), async f => {
       const ts = await soft(`${b}/discussions/forums/${f.ForumId}/topics/`, true);
-      listOf(ts).forEach(t => { if (t && !t.IsHidden && inWin(t.DueDate || t.EndDate || t.UnlockEndDate)) tops.push({ f, t }); });
-    }));
+      listOf(ts).forEach(t => { if (!t || t.IsHidden) return; const d = t.DueDate || t.EndDate || t.UnlockEndDate; if (!d || inWin(d)) tops.push({ f, t, at: d ? Date.parse(d) : NaN }); });
+    });
+    tops.sort((x, y) => (isNaN(x.at) - isNaN(y.at)) || Math.abs(x.at - now) - Math.abs(y.at - now));
+    tops.splice(40);
     c.discussions = [];
-    for (let i = 0; i < Math.min(tops.length, 20); i += 6) await Promise.all(tops.slice(i, Math.min(i + 6, 20)).map(async ({ f, t }) => {
+    await inBatches(tops, async ({ f, t }) => {
       const gid = t.GradeItemId != null ? String(t.GradeItemId) : "";
       let posted = gid && graded.has(gid) ? true : null;
-      if (posted == null && meId) { const ps = await soft(`${b}/discussions/forums/${f.ForumId}/topics/${t.TopicId}/posts/`, true); if (ps) posted = listOf(ps).some(p => p && String(p.PostingUserId) === meId); }
+      if (posted == null && meId) {
+        // all of the topic's posts, page by page (a busy class topic can run past one page), until one of yours turns up
+        for (let pg = 1; pg <= 6; pg++) {
+          const ps = await soft(`${b}/discussions/forums/${f.ForumId}/topics/${t.TopicId}/posts/?pageSize=200&pageNumber=${pg}`, true) || (pg === 1 ? await soft(`${b}/discussions/forums/${f.ForumId}/topics/${t.TopicId}/posts/`, true) : null);
+          if (!ps) break;
+          const l = listOf(ps);
+          if (l.some(p => p && String(p.PostingUserId) === meId)) { posted = true; break; }
+          posted = false;
+          if (l.length < 200) break;
+        }
+      }
       const due = dt(t.DueDate) || dt(t.EndDate) || dt(t.UnlockEndDate);
       c.discussions.push({ id: String(t.TopicId), name: String(t.Name || ""), due, start: dt(t.StartDate) || dt(t.UnlockStartDate), text: txt(t.Description, 1500), gid, outOf: t.ScoreOutOf != null ? Number(t.ScoreOutOf) : null, posted,
         st: stOf(due, null, posted, null) });
-    }));
+    });
+    if (tops.length) c.topicNote = `discussions: ${c.discussions.filter(d => d.posted === true).length} posted, ${c.discussions.filter(d => d.posted === false).length} not, ${c.discussions.filter(d => d.posted == null).length} unknown of ${tops.length} topics`;
     // 4. Discussions: the topic's own page, for a posted topic with a mark out of its known total (only "x / that total" after a label counts)
     if (markOn("discussionPage")) {
       const left = c.discussions.filter(d => d.posted === true && d.outOf > 0 && !hasMark(d.gid || null)).slice(0, 10);
