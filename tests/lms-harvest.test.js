@@ -133,6 +133,55 @@ const BB = [
     assert(!off.out.courses[0].marks.length && !off.seen.some(u => /quiz_submissions\.d2l\?qi=8&/.test(u)), "switched off, the Submissions pages aren't read");
   });
 
+  await t("Brightspace: the midterm's mark is found even when the quiz list API refuses, or nothing says it was sat", async () => {
+    const list = `<table><tr><th>Current Quizzes</th><th>Evaluation Status</th><th>Attempts</th></tr>
+      <tr><td><a class="d2l-link" href="/d2l/lms/quizzing/user/quiz_summary.d2l?qi=1234&amp;ou=101" title="Midterm Exam- Requires Respondus LockDown Browser">Midterm Exam- Requires Respondus LockDown Browser</a></td><td>Feedback: On Attempt</td><td>1 / 1</td></tr>
+      <tr><td><a href="/d2l/lms/quizzing/user/quiz_summary.d2l?qi=1235&amp;ou=101">Final Exam</a><div>Available on Dec 10, 2026 8:00 AM</div></td><td></td><td>0 / 1</td></tr></table>`;
+    const subm = `<table class="d2l-table"><tr><th>Individual Attempts</th><th>Grade</th></tr><tr><td><a href="quiz_submissions_attempt.d2l?qi=1234&amp;ai=9">Attempt 1</a></td><td><label>34 / 45</label> - <label>75.56 %</label></td></tr>
+      <tr><td><strong>Overall Grade</strong> (highest attempt):</td><td>34&nbsp;/&nbsp;45&nbsp;-&nbsp;75.56&nbsp;%</td></tr></table><p>To view your results you must use the Respondus LockDown Browser</p>`;
+    const routes = BS.filter(([re]) => !/quizzes\\\/\$/.test(re.source)).concat([
+      [/^\/d2l\/api\/le\/1\.70\/101\/quizzes\/$/, {}, 403],
+      [/quizzes_list\.d2l\?ou=101/, list, { "content-type": "text/html" }],
+      [/quiz_submissions\.d2l\?qi=1234&/, subm, { "content-type": "text/html" }]]);
+    const r403 = routes.map(x => x[2] === 403 ? [x[0], () => { throw Object.assign(new Error("denied"), { status: 403 }); }] : x);
+    const { out } = await runInjected("brightspace", "https://learn.example.edu", r403);
+    const c = out.courses[0], q = c.quizzes.find(x => x.id === "1234");
+    assert(q && q.name === "Midterm Exam- Requires Respondus LockDown Browser" && q.done === true, "the midterm comes from the Quizzes page, sat: " + JSON.stringify(c.quizzes));
+    assert(!c.quizzes.some(x => x.id === "1235" && x.done === true), "the Final Exam (0 / 1) isn't sat");
+    const m = c.marks.find(x => x.id === "1234");
+    assert(m && m.num === 34 && m.den === 45 && m.from === "quizPage", "and its mark from the Submissions page: " + JSON.stringify(c.marks));
+    assert(/2 only on the Quizzes page/.test(c.quizNote), c.quizNote);
+    // the API lists it, but nothing says it was sat (attempts refused, no Quizzes page): its Submissions page says both
+    const r2 = BS.filter(([re]) => !/quizzes\\\/\$/.test(re.source)).concat([
+      [/^\/d2l\/api\/le\/1\.70\/101\/quizzes\/$/, { Objects: [{ QuizId: 1234, Name: "Midterm Exam- Requires Respondus LockDown Browser", StartDate: iso(-4), IsActive: true }], Next: null }],
+      [/quiz_submissions\.d2l\?qi=1234&/, subm, { "content-type": "text/html" }]]);
+    const two = await runInjected("brightspace", "https://learn.example.edu", r2);
+    const c2 = two.out.courses[0];
+    assert(c2.quizzes[0].done === true && c2.marks.some(x => x.id === "1234" && x.num === 34), "read from its Submissions page, it's sat and marked: " + JSON.stringify([c2.quizzes[0], c2.marks, c2.quizNote]));
+  });
+
+  await t("Brightspace: yesterday's discussion post is seen even with many older topics, a busy topic, or no due date", async () => {
+    const topics = [];
+    for (let i = 1; i <= 26; i++) topics.push({ TopicId: 100 + i, Name: "Week " + i + " Discussion", DueDate: iso(-27 + i), IsHidden: false });
+    topics.push({ TopicId: 200, Name: "Introductions", IsHidden: false });
+    const others = n => Array.from({ length: n }, (_, i) => ({ PostId: i, PostingUserId: 7000 + i }));
+    const routes = BS.concat([
+      [/^\/d2l\/api\/le\/1\.70\/101\/discussions\/forums\/$/, [{ ForumId: 1, Name: "Weekly Discussions", IsHidden: false }]],
+      [/\/discussions\/forums\/1\/topics\/$/, topics],
+      // Week 26 (due yesterday): 230 classmates' posts first, yours on page 2
+      [/\/topics\/126\/posts\/\?pageSize=200&pageNumber=1$/, others(200)],
+      [/\/topics\/126\/posts\/\?pageSize=200&pageNumber=2$/, others(30).concat([{ PostId: 999, PostingUserId: 42 }])],
+      [/\/topics\/125\/posts\//, others(12)],
+      [/\/topics\/200\/posts\//, [{ PostId: 5, PostingUserId: 42 }]],
+      [/\/topics\/\d+\/posts\//, []]]);
+    const { out } = await runInjected("brightspace", "https://learn.example.edu", routes);
+    const d = id => out.courses[0].discussions.find(x => x.id === String(id));
+    assert(d(126) && d(126).posted === true, "yesterday's topic, the last of 26 and with your post on the second page, is posted: " + JSON.stringify(d(126)));
+    assert(d(125) && d(125).posted === false, "the one before it, with no post of yours, isn't");
+    assert(d(200) && d(200).posted === true && d(200).due === null, "a topic with no due date is read too");
+    assert(/discussions: \d+ posted/.test(out.courses[0].topicNote), out.courses[0].topicNote);
+  });
+
   await t("Brightspace: assignment and discussion marks that aren't in Grades: feedback, the Assignments page, the topic's page", async () => {
     const F = (Id, Name, GradeItemId, den) => ({ Id, Name, DueDate: iso(-4), IsHidden: false, GradeItemId, Assessment: { ScoreDenominator: den }, Attachments: [] });
     const list = `<table><tr><th>Assignment</th><th>Completion Status</th><th>Score</th><th>Evaluation Status</th><th>Due Date</th></tr>

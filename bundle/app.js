@@ -31159,8 +31159,8 @@ function cleanFile(r) {
     const subNotes = (h.courses || []).map(c => typeof c.subNote === "string" ? c.subNote.slice(0, 160) : "").filter(Boolean);
     out.diag = `Read ${(h.courses || []).length} of ${(h.all || []).length} courses (${(h.courses || []).map(c => c.code || c.name).slice(0, 20).join(", ")}).${subNotes.length ? " Assignments: " + subNotes.join(" | ") + "." : ""} Grade rows per course: ${(h.courses || []).map(c => c.gradeN == null ? "?" : c.gradeN).join(", ") || "none"}.${(h.errors || []).length ? " Problems: " + h.errors.slice(0, 4).join("; ") : ""}`;
     const add = makeAdd(out, false);
-    out.notes = {}; (h.courses || []).forEach(c => { const n = [c.subNote, c.quizNote, c.markNote].filter(x => typeof x === "string" && x).join("; "); if (n) out.notes[c.ou] = n.slice(0, 300); });
-    const undated = [], linked = [], openOnly = [];
+    out.notes = {}; (h.courses || []).forEach(c => { const n = [c.subNote, c.quizNote, c.topicNote, c.markNote].filter(x => typeof x === "string" && x).join("; "); if (n) out.notes[c.ou] = n.slice(0, 300); });
+    const undated = [], linked = [], openOnly = [], undatedD = [];
     const addFolder = (ou, f, due) => {
       const st = localDT(f.start);
       add({ou, asRead: [f.due && "due " + f.due, f.start && "opens " + f.start, f.end && "closes " + f.end, f.sub === true ? "submitted" : f.sub === false ? "not submitted" : "submitted: unknown"].filter(Boolean).join("; "), pid: "f" + f.id, title: cleanTitle(f.name).title, type: typeFor(f.name), due: due.date, time: due.time, start: st && st.date < due.date && st.date >= addDays(due.date, -45) ? st.date : "",
@@ -31189,7 +31189,7 @@ function cleanFile(r) {
         addQuiz(c.ou, q);
       });
       (c.discussions || []).forEach(d => {
-        const due = localDT(d.due); if (!due) return;
+        const due = localDT(d.due); if (!due) { undatedD.push({ou: c.ou, d}); return; }
         const st = localDT(d.start);
         add({ou: c.ou, pid: "d" + d.id, title: cleanTitle(d.name).title, type: typeFor(d.name), due: due.date, time: due.time, start: st && st.date < due.date && st.date >= addDays(due.date, -45) ? st.date : "",
           notes: d.text || "", url: absUrl(origin, `/d2l/le/${c.ou}/discussions/topics/${d.id}/View`), gid: d.gid || "", outOf: d.outOf, done: d.posted === true, sub: d.posted === true ? "yes" : d.posted === false ? "no" : "", st: d.st || null});
@@ -31250,6 +31250,16 @@ function cleanFile(r) {
       if (!r.notes && f.text) r.notes = f.text;
       if ((f.files || []).length && !(r.files || []).length) r.files = f.files.map(x => ({ou: r.ou, folder: f.id, id: x.id, name: x.name, size: x.size}));
       r.rx = Object.assign({k: "dropbox", sb: f.sbt}, r.rx || {});
+    });
+    // A discussion with no date of its own: its calendar or content entry in the same course takes its posted status
+    undatedD.forEach(({ou, d}) => {
+      const k = titleKey(cleanTitle(d.name).title);
+      const cands = out.recs.filter(r => r.ou === ou && !r.pid && (titleKey(r.title) === k || (window.SB_SAMEOK(r.title, d.name) && likeN(cleanTitle(r.title).title, d.name) >= 2)));
+      const r = cands.length === 1 ? cands[0] : cands.find(x => titleKey(x.title) === k);
+      if (!r) return;
+      r.pid = "d" + d.id; r.gid = r.gid || d.gid || ""; if (d.outOf && !r.outOf) r.outOf = d.outOf;
+      if (d.posted === true) { r.done = true; r.sub = "yes"; } else if (d.posted === false && !r.done) r.sub = "no";
+      r.url = absUrl(origin, `/d2l/le/${ou}/discussions/topics/${d.id}/View`);
     });
     linked.forEach(({ou, e}) => {
       const u = undated.find(z => z.ou === ou && !z.used && (e.eid ? z.f.id === e.eid : titleKey(cleanTitle(e.title).title) === titleKey(cleanTitle(z.f.name).title)));
@@ -31932,7 +31942,9 @@ function cleanFile(r) {
     const how = c.mode === "api" ? (bsDesk() ? (lmsOnPhone() ? "Signed in on this phone" : "Signed in on this computer") : c.lastSrc === "grab" ? `Read from ${P.name} in this browser` : "Synced from your computer's Studyboard app") : "Using your calendar link";
     if (running || reading) return `${how}. Syncing now…`;
     const when = c.last ? `Last synced ${ago(c.last)}` : "Not synced yet";
-    return `${how}. ${when}.${L.needLogin && bsDesk() && c.mode === "api" ? " Sign in again to keep syncing grades and announcements." : ""}${L.err ? " " + L.err : ""}`;
+    const ev = !bsDesk() && c.lastSrc === "grab" && window.SBEXT && SBEXT.on() ? SBEXT.version() : "", older = v => { const a = String(v).split(".").map(Number), b = [1, 0, 6]; for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== b[i]) return (a[i] || 0) < b[i]; } return false; };
+    const extOld = ev && older(ev) ? ` Your School Sync extension is version ${ev}: update it to 1.0.6 or later to bring in marks that aren't on ${P.name}'s Grades page (like quiz marks on a quiz's Submissions page).` : "";
+    return `${how}. ${when}.${extOld}${L.needLogin && bsDesk() && c.mode === "api" ? " Sign in again to keep syncing grades and announcements." : ""}${L.err ? " " + L.err : ""}`;
   }
   function shortStatus(){
     const c = cfg(), L = local();
@@ -32698,6 +32710,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
   window.addEventListener("sb:signing-out", () => { if (EXT.on) extPost({type: "signout"}); });
   window.SBEXT = {
     on: () => EXT.on,
+    version: () => EXT.version || "",
     checked: () => EXT.checked || EXT.on,
     has: id => EXT.schools.some(x => x.id === id),
     html: name => {
