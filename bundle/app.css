@@ -5200,6 +5200,14 @@ dialog [tabindex="-1"]:focus,dialog [tabindex="-1"]:focus-visible{outline:none}
 /* Text that sits straight on a scene gets the same soft glow as the other page headings */
 html.sc-on #view :is(h2,h3,h4,.fsec,.fsec .n,.grp-sec > h3,.hint,.hint-line,.empty,.view-head > :is(span,p,div):not(.btn),#view > p,section > .mini,.sec-head,.cf-sec-t,.lbl-sec,.board-sec-head,.tl-controls .mini,.cf-chips > .mini):not(:is(.card,.sheet,button,.btn,.tile,[class*="card"],.plan-hero,table,li) *){text-shadow:0 0 2px var(--paper),0 0 6px var(--paper),0 0 12px var(--paper)}
 html.sc-on #view :is(.fsec svg){filter:drop-shadow(0 0 3px var(--paper))}
+
+/* Selecting a tab or a choice: no tap flash, the highlight fades in and the icon lifts a touch */
+html:not([data-motion="static"]) :is(button,.btn,[role=button],[role=tab],summary){-webkit-tap-highlight-color:transparent}
+html:not([data-motion="static"]) nav.tabs .in button{transition:background-color .26s var(--sm-ease),color .22s ease,box-shadow .26s var(--sm-ease),transform .16s var(--sm-ease)!important}
+html:not([data-motion="static"]) nav.tabs .in button svg{transition:transform .28s var(--sm-ease),color .22s ease}
+html:not([data-motion="static"]) nav.tabs .in button[aria-current="page"] svg{transform:translateY(-1px) scale(1.06)}
+@media (hover:none){html:not([data-motion="static"]) nav.tabs .in button:active{transform:scale(.94)}}
+html:not([data-motion="static"]) :is(.segb button,.chip,.ui-chip,.cf-pick,[role=tab],button[aria-pressed],button[aria-selected]){transition:background-color .22s var(--sm-ease),color .2s ease,border-color .22s ease,box-shadow .22s var(--sm-ease)}
 /* ===== module: 100-phone.css ===== */
 /* Phone and tablet bar (the desktop side menu is untouched) */
 @media (max-width:979px){

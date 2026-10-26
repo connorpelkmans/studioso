@@ -77439,6 +77439,13 @@ ui._day = todayISO();
     if (changed) play(document.getElementById("view"), "sm-view");
   });
 
+  // Tab bar: the tapped tab shows as selected at once, so the highlight fades in with the tap instead of after the page is drawn
+  document.addEventListener("pointerup", e => {
+    const b = e.target.closest && e.target.closest("nav.tabs button[data-tab]"); if (!b || !on()) return;
+    b.parentNode.querySelectorAll('button[aria-current="page"]').forEach(o => { if (o !== b) o.setAttribute("aria-current", "false"); });
+    b.setAttribute("aria-current", "page");
+  }, true);
+
   // Anything the person taps may open something: for a moment after, new or revealed content eases in
   // The watcher only runs for that moment, so it costs nothing while scenes and the companion animate
   let stopT = 0;
