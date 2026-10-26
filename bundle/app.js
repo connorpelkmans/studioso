@@ -4508,7 +4508,7 @@ function nextUpHtml(F, pre){
     </div>
   </div>`;
   return `<div class="next-up${nuOpenCls()}" style="--c:${esc(colorOf(t.courseId))}">
-    <div class="nu-top"><span class="nu-label">Do This Next${n.ai ? ` <span class="nu-who">${AI_ICON} ${aiWho() ? esc(aiWho()) + "'s pick" : "AI pick"}</span>` : ""}</span>${n.x.alloc > 0 ? `<span class="nu-alloc" title="Suggested time today">${fmtHM(n.x.alloc)} today</span>` : ""}</div>
+    <div class="nu-top"><span class="nu-label">Do This Next${n.ai ? ` <span class="nu-who">${AI_ICON} ${aiWho() ? esc(aiWho()) + "'s pick" : "AI pick"}</span>` : ""}</span>${n.x.alloc > 0 ? `<span class="nu-alloc" title="Suggested time today">${fmtHM(n.x.alloc)}<span class="nu-td"> today</span></span>` : ""}</div>
     <div class="nu-row">
       ${t.gt ? `<span class="check gt-dot" aria-hidden="true"></span>` : `<button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>`}
       <div class="nu-body">
