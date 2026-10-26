@@ -523,11 +523,14 @@ const TB = (() => {
 
 /* ---------- State ---------- */
 let state = {courses:{}, tasks:{}, files:{}, notes:{}, decks:{}, events:{}, trash:{}, settings:{capacity:15}, updated:0};
-const ui = {tab:"board", courseId:null, filter:"all", q:"", focusOpen:true, showOldDone:false,
+const ui = {tab:"board", courseId:null, q:"", focusOpen:true, showOldDone:false,
   planView: (() => { try { const v = localStorage.getItem("studyboard:planview"); return v === "schedule" || v === "crunch" ? v : "timeline"; } catch(e) { return "timeline"; } })(),
   tlMode: (() => { try { return localStorage.getItem("studyboard:tlmode") === "calendar" ? "calendar" : "bars"; } catch(e) { return "bars"; } })(),
   tlZoom: (() => { try { const v = localStorage.getItem("studyboard:tlzoom"); return v === "week" || v === "term" ? v : "month"; } catch(e) { return "month"; } })(), tlScroll:null, tlJump:true, calMonth:null, calDay:null,
   groupBy: (() => { try { return localStorage.getItem("coursework:group") || "none"; } catch(e) { return "none"; } })(), fCourse:"all", fFolder:"", fSort:"date"};
+// The course filter belongs to the section it was picked in: Board, the plan, Flashcards and the rest each keep their own
+{ const per = {}, key = () => (typeof isPlanTab === "function" && isPlanTab(ui.tab)) ? "plan" : ui.tab;
+  Object.defineProperty(ui, "filter", {enumerable: true, configurable: true, get(){ return per[key()] || "all"; }, set(v){ per[key()] = v || "all"; }}); }
 const caps = {downloads:null, assets:null};
 
 function normTask(t){
