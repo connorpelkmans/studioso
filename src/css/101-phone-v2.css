@@ -425,3 +425,8 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
 }
 
 
+
+/* Keyboard open: sheets rest on top of the keyboard and stay fully on screen (header never slides under the status bar) */
+@media (max-width:639px){
+  html.kb-open dialog#dlg{margin-bottom:var(--kb-h,0);max-height:calc(var(--vv-h,100dvh) - env(safe-area-inset-top,0px) - 8px)}
+}

@@ -13356,6 +13356,15 @@ function archiveSheet(){
   });
 }
 
+
+/* Keyboard open: every bottom sheet sits above the keyboard and never taller than what is visible */
+function dlgKbFit(){
+  const vv = window.visualViewport; if (!vv || !matchMedia("(max-width:639px)").matches) return;
+  const d = document.documentElement, kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop));
+  d.style.setProperty("--kb-h", kb + "px"); d.style.setProperty("--vv-h", Math.round(vv.height) + "px");
+  d.classList.toggle("kb-open", kb > 80);
+}
+if (window.visualViewport) { visualViewport.addEventListener("resize", dlgKbFit); visualViewport.addEventListener("scroll", dlgKbFit); }
 /* ===== module: 01-flashcards.js: the app's core, flashcards: decks, spaced repetition, quizzes ===== */
 /* Flashcards: decks, spaced-repetition study and auto-generated quizzes */
 const BOX_DAYS = [0, 1, 3, 7, 14, 30];
