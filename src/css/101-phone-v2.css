@@ -469,3 +469,12 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
   html:not(.board-max) body,html:not(.board-max) dialog,html:not(.board-max) .fab{visibility:hidden!important}
   html:not(.board-max)::before{content:"Turn your phone upright to keep using Studyboard.\A Notes and the whiteboard can go sideways in full screen.";white-space:pre-wrap;position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px 48px;background:var(--bg,#f4f6fa);color:var(--ink,#1a2238);font:700 1.05rem/1.5 var(--display,system-ui)}
 }
+
+/* Group tabs: an even grid of equal, centred buttons */
+@media (max-width:639px){
+  .g2-head .grp-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 14px 14px;overflow:visible}
+  .g2-head .grp-tabs button{display:flex;align-items:center;justify-content:center;text-align:center;min-height:42px;padding:8px 6px;font-size:.88rem;white-space:nowrap;background:color-mix(in srgb,var(--ink) 5%,transparent)!important;border-radius:14px}
+  .g2-head .grp-tabs button.on{background:color-mix(in srgb,var(--c) 18%,var(--surface))!important}
+  .g2-head .grp-tabs button:last-child:nth-child(3n+1){grid-column:1/-1}
+  .g2-head .grp-tabs button:last-child:nth-child(3n+2){grid-column:span 2}
+}
