@@ -82,6 +82,7 @@
   .ph-dup{display:none!important}
   #view .view-head:not(:has(> :not(h2.ph-dup))){display:none}
   #view > .view-head:has(> h2.ph-dup){justify-content:flex-end;min-height:0;margin-top:0}
+  #view > .view-head:has(> h2.ph-dup + .btn[data-act$="-open"]){justify-content:flex-start}
   #view > .tl-controls:has(> h2.ph-dup){margin-top:0}
   /* Notices: one compact card, actions on one line */
   .wkr-card{padding:12px 14px}
