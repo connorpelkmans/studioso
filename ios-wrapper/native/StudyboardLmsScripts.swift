@@ -2,7 +2,7 @@
 // The only scripts the StudyboardLms plugin will run in a school site: fixed pieces (UTF-8 byte length + SHA-256) with holes between them.
 let sbLmsScripts: [SBLmsScript] = [
     SBLmsScript(id: "brightspace", use: "who", lens: [580], hashes: ["696d419a0c8ae94e9108c13e1c8dfd6ebf2a082f7081401b0ec1ff134e9b296b"], holes: []),
-    SBLmsScript(id: "brightspace", use: "run", lens: [25944, 7], hashes: ["41efd354b96aadb54b14cf809ef0a80513b4678ca8191d8efdcba6c41d2442b8", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"], holes: ["json"]),
+    SBLmsScript(id: "brightspace", use: "run", lens: [27647, 7], hashes: ["908078c8a19ca836cc26028140800066f835c4cc795071361022c695d805cd61", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"], holes: ["json"]),
     SBLmsScript(id: "canvas", use: "who", lens: [285], hashes: ["dcceed04f724416604630fa0318da165c3aa00082d5e7470b10cda616b86d6f1"], holes: []),
     SBLmsScript(id: "canvas", use: "run", lens: [20741, 7], hashes: ["ddc88d000ccc8b89d5517f92d7ae9fdfbf5c4e755dddaa70c02d9f83665d8199", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"], holes: ["json"]),
     SBLmsScript(id: "blackboard", use: "who", lens: [448], hashes: ["0ee7783018c9c6998698f83c32a0bab586f6c9c8012cbb6322356e73a6423a3c"], holes: []),

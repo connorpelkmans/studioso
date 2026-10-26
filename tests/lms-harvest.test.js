@@ -111,6 +111,26 @@ const BB = [
     assert(/2 of 3 sat from their own pages/.test(out.courses[0].quizNote), out.courses[0].quizNote);
   });
 
+  await t("Brightspace: a quiz's mark that's only on its Submissions page is read, and Grades wins when it has one", async () => {
+    const subm = `<h1>Quiz Submissions - Midterm Exam- Requires Respondus LockDown Browser</h1><table><tr><th>Individual Attempts</th><th>Grade</th></tr>
+      <tr><td>Attempt 1</td><td>34 / 45 - 75.56 %</td></tr><tr><td><b>Overall Grade</b> (highest attempt):</td><td>34 / 45 - 75.56 %</td></tr></table>
+      <p>To view your results you must use the Respondus LockDown Browser</p>`;
+    const routes = BS.filter(([re]) => !/quizzes\\\/\$/.test(re.source)).concat([
+      [/^\/d2l\/api\/le\/1\.70\/101\/quizzes\/$/, { Objects: [{ QuizId: 8, Name: "Midterm Exam- Requires Respondus LockDown Browser", StartDate: iso(-5), DueDate: iso(-3), IsActive: true },
+        { QuizId: 7, Name: "Quiz 1", DueDate: iso(-2), IsActive: true, GradeItemId: 9 }, { QuizId: 6, Name: "Quiz 0", DueDate: iso(-2), IsActive: true }], Next: null }],
+      [/\/quizzes\/(8|7|6)\/attempts\/$/, [{ AttemptId: 4, AttemptNumber: 1 }]],
+      [/quiz_submissions\.d2l\?qi=8&/, subm, { "content-type": "text/html" }],
+      [/quiz_submissions\.d2l\?qi=7&/, "<tr><td>Attempt 1</td><td>1 / 10</td></tr>", { "content-type": "text/html" }],
+      [/quiz_submissions\.d2l\?qi=6&/, "<tr><td>Attempt 1</td><td>4 / 10</td></tr><tr><td>Attempt 2</td><td>7 / 10</td></tr><tr><td>Attempt 3</td><td>Pending Evaluation</td></tr>", { "content-type": "text/html" }]]);
+    const { out, seen } = await runInjected("brightspace", "https://learn.example.edu", routes);
+    const q = id => out.courses[0].quizzes.find(x => x.id === id);
+    assert.deepStrictEqual(Object.assign({}, q("8").score), { num: 34, den: 45, how: "highest attempt" }, "the Overall Grade line");
+    assert.strictEqual(q("7").score, null, "Quiz 1's mark is in Grades (8 / 10), so its page isn't read for one");
+    assert(!seen.some(u => /quiz_submissions\.d2l\?qi=7&/.test(u)), "and isn't fetched");
+    assert.deepStrictEqual(Object.assign({}, q("6").score), { num: 7, den: 10, how: "highest attempt" }, "no Overall Grade line: the best attempt");
+    assert(/quiz marks from Submissions pages: 2 of 2/.test(out.courses[0].quizScoreNote), out.courses[0].quizScoreNote);
+  });
+
   await t("Brightspace: injected script runs in an empty page context and reads HTML text", async () => {
     const { out, seen } = await runInjected("brightspace", "https://learn.example.edu", BS);
     assert.strictEqual(out.ok, true, JSON.stringify(out).slice(0, 300));

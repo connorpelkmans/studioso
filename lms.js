@@ -286,14 +286,33 @@ async function bsHarvest(o) {
       } catch (e) { qPageStatus = String(e && e.name || "error"); }
     }
     const qLeft = qrecent.filter(x => tried[x.QuizId] !== true).slice(0, 12);
+    const page = async u => { try { const r = await fetch(u, { credentials: "include" }); return r.ok ? htmlText((await r.text()).slice(0, 1500000), { line: true }) : ""; } catch (e) { return ""; } };
+    const submPage = {};
     await inBatches(qLeft, async x => {
-      const page = async u => { try { const r = await fetch(u, { credentials: "include" }); return r.ok ? htmlText((await r.text()).slice(0, 1500000), { line: true }) : ""; } catch (e) { return ""; } };
       const sum = await page(`/d2l/lms/quizzing/user/quiz_summary.d2l?qi=${x.QuizId}&ou=${c.ou}`);
       const done = sum.match(/\bcompleted\s*[-–:]\s*(\d+)(?![\d/:.,])/i);
       if (done && Number(done[1]) > 0) { tried[x.QuizId] = true; qOwn++; return; }
-      const subm = await page(`/d2l/lms/quizzing/user/quiz_submissions.d2l?qi=${x.QuizId}&ou=${c.ou}`);
+      const subm = submPage[x.QuizId] = await page(`/d2l/lms/quizzing/user/quiz_submissions.d2l?qi=${x.QuizId}&ou=${c.ou}`);
       if (/\battempt\s+\d+\b/i.test(subm)) { tried[x.QuizId] = true; qOwn++; }
     });
+    // A quiz's mark is often only on its Submissions page (Quizzes > the quiz > Submissions), not in Grades
+    const gradeRows = listOf(grades), hasMark = id => id != null && gradeRows.some(g => g && String(g.GradeObjectIdentifier) === String(id) && g.PointsNumerator != null);
+    const qScore = {};
+    const scoreOf = t => {
+      const n = v => { const x = Number(v); return isFinite(x) ? x : null; };
+      const over = t.match(/\boverall\s+grade\b[^:\n]{0,40}:\s*(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/i);
+      if (over && n(over[2]) > 0) return { num: n(over[1]), den: n(over[2]), how: (over[0].match(/\(([^)]{1,30})\)/) || [])[1] || "" };
+      const rows = [...t.matchAll(/\battempt\s+(\d+)\b[^\n]{0,80}?(?<![\d/])(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)(?![\d/])/gi)].map(m => ({ num: n(m[2]), den: n(m[3]) })).filter(x => x.den > 0 && x.num != null && x.num <= x.den * 2);
+      if (!rows.length) return null;
+      const best = rows.sort((a, b) => b.num / b.den - a.num / a.den)[0];
+      return { num: best.num, den: best.den, how: rows.length > 1 ? "highest attempt" : "" };
+    };
+    const toScore = qrecent.filter(x => tried[x.QuizId] === true && !hasMark(x.GradeItemId) && q.grades !== false).slice(0, 15);
+    await inBatches(toScore, async x => {
+      const t = submPage[x.QuizId] != null ? submPage[x.QuizId] : await page(`/d2l/lms/quizzing/user/quiz_submissions.d2l?qi=${x.QuizId}&ou=${c.ou}`);
+      const s = t && scoreOf(t); if (s) qScore[x.QuizId] = s;
+    });
+    if (toScore.length) c.quizScoreNote = `quiz marks from Submissions pages: ${Object.keys(qScore).length} of ${toScore.length}`;
     if (qrecent.length) {
       const sat = qrecent.filter(x => tried[x.QuizId] === true).length, not = qrecent.filter(x => tried[x.QuizId] === false).length;
       c.quizNote = `quizzes: ${sat} sat, ${not} not, ${qrecent.length - sat - not} unknown` + (qRefused ? `; attempts API refused ${qRefused}` : "") + (qPageStatus ? `; Quizzes page ${qPageStatus}, ${qLinks} quiz links, ${qPage} sat from it` : "") + (qLeft.length ? `; ${qOwn} of ${qLeft.length} sat from their own pages` : "");
@@ -328,7 +347,8 @@ async function bsHarvest(o) {
     c.folders.forEach(f => { const fe = fbk[f.id]; if (fe) f.fb = fbOf(fe, f.rub, f.outOf); });
     c.quizzes = quizzes.filter(x => x && x.IsActive !== false).slice(0, 120).map(x => ({ id: String(x.QuizId), name: String(x.Name || ""), due: dt(x.DueDate), start: dt(x.StartDate), end: dt(x.EndDate),
       gid: x.GradeItemId != null ? String(x.GradeItemId) : "", text: txt(x.Description || x.Instructions, 1500), limit: x.TimeLimitValue || (x.TimeLimit && x.TimeLimit.TimeLimitValue) || null,
-      done: tried[x.QuizId] === true || (x.GradeItemId != null && graded.has(String(x.GradeItemId))) ? true : tried[x.QuizId] === undefined ? null : false }));
+      done: tried[x.QuizId] === true || (x.GradeItemId != null && graded.has(String(x.GradeItemId))) ? true : tried[x.QuizId] === undefined ? null : false,
+      score: qScore[x.QuizId] || null }));
     c.quizzes.forEach(x => { x.st = stOf(x.due, x.end, x.done, null); });
     c.gradeN = listOf(grades).length;
     c.grades = listOf(grades).slice(0, 200).map(g => ({ gid: String(g.GradeObjectIdentifier || ""), name: String(g.GradeObjectName || ""), type: Number(g.GradeObjectType) || 0,
