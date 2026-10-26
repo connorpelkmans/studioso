@@ -1013,7 +1013,7 @@ function availToday(now){
 }
 const availWhen = (day, today) => { for (let i = 1; i < day.length; i++) if (day[i] >= 0.5) return i === 1 ? "tomorrow" : parse(addDays(today, i)).toLocaleDateString(undefined, {weekday: "long"}); return "the coming days"; };
 // Fill in what Today's Plan can say about free time
-function availPlan(av, ranked, th0, needToday, day, today, now){
+function availPlan(av, ranked, th0, needToday, day, today, now, lead){
   const res = av.res, a = availState();
   const nowMin = now.getHours() * 60 + now.getMinutes();
   // A task you have done enough on today gets no more time today, and one you set aside with Something Else moves down behind the new first task
@@ -1021,7 +1021,9 @@ function availPlan(av, ranked, th0, needToday, day, today, now){
   const isEnough = x => { try { return typeof enoughToday === "function" && enoughToday(x.t, x); } catch (e) { return false; } };
   const live = ranked.filter(x => x.alloc > 0 && !isEnough(x));
   const enoughH = ranked.filter(x => x.alloc > 0 && isEnough(x)).reduce((t, x) => t + x.alloc, 0);
-  const fresh = live.filter(x => !skipped.has(x.t.id)), aside = live.filter(x => skipped.has(x.t.id));
+  // What Do This Next would choose goes first, so the timeline and the card agree
+  const fresh0 = live.filter(x => !skipped.has(x.t.id)), aside = live.filter(x => skipped.has(x.t.id)), li = lead ? fresh0.findIndex(x => x.t.id === lead) : -1;
+  const fresh = li > 0 ? [fresh0[li]].concat(fresh0.slice(0, li), fresh0.slice(li + 1)) : fresh0;
   const tasks = fresh.slice(0, 1).concat(aside, fresh.slice(1)).map(x => ({id: x.t.id, min: Math.round(x.alloc * 60)}));
   const pl = AVAIL.place(res.windows, tasks, {cfg: a.cfg});
   const by = {}; pl.slots.forEach(s => { (by[s.id] = by[s.id] || []).push(s); });

@@ -182,6 +182,22 @@ const BB = [
     assert(/discussions: \d+ posted/.test(out.courses[0].topicNote), out.courses[0].topicNote);
   });
 
+  await t("Brightspace: your post is found by your name, or on the topic's page when the posts list is refused", async () => {
+    const routes = BS.concat([
+      [/^\/d2l\/api\/le\/1\.70\/101\/discussions\/forums\/$/, [{ ForumId: 1, Name: "Module Discussions", IsHidden: false }]],
+      [/\/discussions\/forums\/1\/topics\/$/, [{ TopicId: 306, Name: "Module 6 Discussion", DueDate: iso(-1), IsHidden: false },
+        { TopicId: 307, Name: "Module 7 Discussion", DueDate: iso(-1), IsHidden: false }, { TopicId: 305, Name: "Module 5 group Discussion PART A", DueDate: iso(-6), IsHidden: false }]],
+      [/\/topics\/307\/posts\//, [{ PostId: 1, PostingUserId: "u-42-x", PostingUserDisplayName: "Ana Lee", DatePosted: iso(-1.5) }]],
+      [/\/topics\/305\/posts\//, [{ PostId: 2, PostingUserId: 77, PostingUserDisplayName: "Joori Yum" }]],
+      [/\/d2l\/le\/101\/discussions\/topics\/306\/View/, "<div><a>Professionalism</a></div><div>Ana Lee posted Oct 25, 2026 11:34 AM \u2022 275 Words</div><div>Last post yesterday at 10:41 PM by Joori Yum</div><header>Ana Lee</header>", { "content-type": "text/html" }]]);
+    const { out } = await runInjected("brightspace", "https://learn.example.edu", routes);
+    const d = id => out.courses[0].discussions.find(x => x.id === String(id));
+    assert(d(306).posted === true && /^2026-10-25/.test(d(306).at || ""), "posts list refused: the topic's page says Ana Lee posted Oct 25: " + JSON.stringify(d(306)));
+    assert(d(307).posted === true, "a post whose id is in another form is yours by name");
+    assert(d(305).posted === false && d(305).groupPosted === true, "a group topic with a group member's post: your group posted");
+    assert(/from the topic's page/.test(out.courses[0].topicNote), out.courses[0].topicNote);
+  });
+
   await t("Brightspace: assignment and discussion marks that aren't in Grades: feedback, the Assignments page, the topic's page", async () => {
     const F = (Id, Name, GradeItemId, den) => ({ Id, Name, DueDate: iso(-4), IsHidden: false, GradeItemId, Assessment: { ScoreDenominator: den }, Attachments: [] });
     const list = `<table><tr><th>Assignment</th><th>Completion Status</th><th>Score</th><th>Evaluation Status</th><th>Due Date</th></tr>
@@ -211,6 +227,27 @@ const BB = [
     const off = await runInjected("brightspace", "https://learn.example.edu", routes, Object.assign({}, SAFE, { marks: { assignmentFeedback: false, assignmentsPage: false, discussionPage: false } }));
     assert(!off.out.courses[0].marks.length && !off.seen.some(u => /topics\/41\/View/.test(u)), "each source can be switched off");
     assert(seen.some(u => /topics\/41\/View/.test(u)));
+  });
+
+  await t("Canvas: an ungraded discussion you replied in is done (only your own post counts)", async () => {
+    const routes = CV.filter(([re]) => !/planner/.test(re.source)).concat([
+      [/^\/api\/v1\/planner\/items\?/, [{ course_id: 201, plannable_type: "discussion_topic", plannable_id: 66, plannable: { title: "Week 3 discussion", todo_date: iso(-1) }, html_url: "/courses/201/discussion_topics/66" },
+        { course_id: 201, plannable_type: "discussion_topic", plannable_id: 67, plannable: { title: "Week 4 group discussion", todo_date: iso(-1) }, html_url: "/courses/201/discussion_topics/67" }]],
+      [/\/discussion_topics\/66\/view$/, { participants: [], view: [{ id: 1, user_id: 12, created_at: iso(-3), replies: [{ id: 2, user_id: 13, replies: [{ id: 3, user_id: 9, created_at: iso(-2) }] }] }] }],
+      [/\/discussion_topics\/67\/view$/, { participants: [], view: [{ id: 4, user_id: 12, created_at: iso(-2) }] }]]);
+    const { out } = await runInjected("canvas", "https://x.instructure.com", routes);
+    const it = id => out.courses[0].items.find(x => x.id === id);
+    assert(it("66").done === true && it("66").at && it("66").st.subAt, "your reply, deep in a thread, counts, with when you posted: " + JSON.stringify(it("66")));
+    assert(it("67").done !== true, "a group discussion a classmate posted in isn't yours (Canvas counts each student's own post)");
+  });
+
+  await t("Blackboard: an attempt's score isn't used for a column students can't see", async () => {
+    const routes = BB.filter(([re]) => !/gradebook\\\/columns\\\?|gradebook\\\/users/.test(re.source)).concat([
+      [/^\/learn\/api\/public\/v2\/courses\/_301_1\/gradebook\/columns\?/, { results: [{ id: "_8_1", name: "Midterm exam", grading: { due: iso(-3), type: "Attempts" }, score: { possible: 50 }, availability: { available: "No" } }] }],
+      [/^\/learn\/api\/public\/v2\/courses\/_301_1\/gradebook\/users\/_5_1$/, { results: [] }],
+      [/gradebook\/columns\/_8_1\/attempts/, { results: [{ id: "a1", status: "Completed", score: 41, attemptDate: iso(-3) }] }]]);
+    const { out } = await runInjected("blackboard", "https://bb.example.edu", routes);
+    assert.strictEqual(out.courses[0].marks.length, 0, "a hidden column's score stays hidden: " + JSON.stringify(out.courses[0].marks));
   });
 
   await t("Blackboard: a graded attempt's score counts when the gradebook cell is still empty", async () => {

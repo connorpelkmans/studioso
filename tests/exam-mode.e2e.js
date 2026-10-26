@@ -67,7 +67,7 @@ const setTask = (page, id, patch) => page.evaluate(([id, p]) => { const S = wind
       ok(/Exam in 2 days/.test(await txt(page, ".next-up .nu-why")), "with the countdown chip");
       await page.click(".next-up [data-act=nu-skip]"); await page.waitForTimeout(250);
       ok(/Source list/.test(await txt(page, ".next-up .nu-title")), "then the source list (due after the exam, in the window)");
-      await page.evaluate(() => { window.__sbSync.ui.skipNext = null; window.__sbSync.render(); }); await page.waitForTimeout(150);
+      await page.evaluate(() => { localStorage.removeItem("studyboard:nextSkip"); window.__sbSync.ui.skipNext = null; window.__sbSync.render(); }); await page.waitForTimeout(150);
 
       await setTask(page, "lab4", {status: "done", doneAt: Date.now()}); await setTask(page, "ess", {status: "done", doneAt: Date.now()}); await toPlan(page);
       ok(/Study for Midterm 2/.test(await txt(page, ".next-up .nu-title")), "with the lab and essay done, Study for Midterm 2 leads Do This Next");
