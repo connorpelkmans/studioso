@@ -76406,7 +76406,7 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
     [...sel.options].filter(o => !o.disabled && !o.hidden).forEach(o => {
       const c = optCourse(o), b = document.createElement("button");
       b.type = "button"; b.setAttribute("role", "option"); b.setAttribute("aria-selected", String(o.selected));
-      const d = document.createElement("i"); d.className = c ? "cs-dot" : "cs-gap"; if (c) d.style.setProperty("--c", c.color); b.appendChild(d);
+      const ab = !c && window.SBAllDot ? SBAllDot(sel, o) : "", d = document.createElement("i"); d.className = c || ab ? "cs-dot" : "cs-gap"; if (c) d.style.setProperty("--c", c.color); else if (ab) d.style.background = ab; b.appendChild(d);
       const t = document.createElement("span"); t.textContent = o.textContent; b.appendChild(t);
       if (o.selected) { const k = document.createElement("span"); k.className = "cs-tick"; k.setAttribute("aria-hidden", "true"); k.textContent = "\u2713"; b.appendChild(k); }
       b.addEventListener("click", e => {
@@ -76858,6 +76858,13 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
   // A native shell that knows more (iOS Low Power Mode is not visible to web pages) can say so
   let nativeLow = false;
   const setPower = o => { nativeLow = !!(o && o.lowPower); if (o && o.thermal) desk.thermal = String(o.thermal); emit(true); };
+  // The "All courses" row of a course picker wears the same multicoloured dot as the filter bar
+  window.SBAllDot = (sel, o) => {
+    if (!state.courses || !o || !(o.value === "all" || /^all\b/i.test((o.textContent || "").trim()))) return "";
+    if (![...sel.options].some(x => state.courses[x.dataset.course || x.value])) return "";
+    const cs = Object.values(state.courses).filter(c => c && c.color).slice(0, 6); if (!cs.length) return "";
+    return "conic-gradient(" + cs.map((c, i, a) => c.color + " " + Math.round(i / a.length * 100) + "% " + Math.round((i + 1) / a.length * 100) + "%").join(",") + ")";
+  };
   window.SBMotion = {level, live, frameMs, dprScale, noParticles, frameCost, warm, flash, pref: () => pref, setPref, setPower, status: statusText, gov: () => gov, why: pauseWhy};
   emit(true);
 
@@ -77247,7 +77254,8 @@ if (window.matchMedia) { const mq = matchMedia("(max-width:639px)"); const swap 
     if (sel.getAttribute("aria-label")) list.setAttribute("aria-label", sel.getAttribute("aria-label"));
     const opts = [...sel.options];
     // A course's small flat dot in front of its name (and a matching gap on the other rows)
-    const dotOf = o => { const c = state.courses && state.courses[o.dataset.course || o.value]; return c ? `<i class="sb-dd-dot" style="--c:${esc(c.color)}"></i>` : sel.classList.contains("cs-custom") ? `<i class="sb-dd-gap"></i>` : ""; };
+    const allBg = o => { try { return SBAllDot(sel, o); } catch (e) { return ""; } };
+    const dotOf = o => { const c = state.courses && state.courses[o.dataset.course || o.value]; if (!c && allBg(o)) return `<i class="sb-dd-dot" style="background:${esc(allBg(o))}"></i>`; return c ? `<i class="sb-dd-dot" style="--c:${esc(c.color)}"></i>` : sel.classList.contains("cs-custom") ? `<i class="sb-dd-gap"></i>` : ""; };
     const optHtml = o => { const i = opts.indexOf(o), on = i === sel.selectedIndex;
       return o.hidden ? "" : `<button type="button" role="option" class="sb-dd-opt${on ? " on" : ""}" data-i="${i}" aria-selected="${on}"${o.disabled ? " disabled" : ""}>${dotOf(o)}<span>${esc(o.textContent)}</span>${on ? CK : ""}</button>`; };
     list.innerHTML = [...sel.children].map(n => n.tagName === "OPTGROUP" ? `<div class="sb-dd-grp" role="presentation">${esc(n.label)}</div>${[...n.children].map(optHtml).join("")}` : n.tagName === "OPTION" ? optHtml(n) : "").join("");

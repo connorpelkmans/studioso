@@ -151,7 +151,7 @@
     [...sel.options].filter(o => !o.disabled && !o.hidden).forEach(o => {
       const c = optCourse(o), b = document.createElement("button");
       b.type = "button"; b.setAttribute("role", "option"); b.setAttribute("aria-selected", String(o.selected));
-      const d = document.createElement("i"); d.className = c ? "cs-dot" : "cs-gap"; if (c) d.style.setProperty("--c", c.color); b.appendChild(d);
+      const ab = !c && window.SBAllDot ? SBAllDot(sel, o) : "", d = document.createElement("i"); d.className = c || ab ? "cs-dot" : "cs-gap"; if (c) d.style.setProperty("--c", c.color); else if (ab) d.style.background = ab; b.appendChild(d);
       const t = document.createElement("span"); t.textContent = o.textContent; b.appendChild(t);
       if (o.selected) { const k = document.createElement("span"); k.className = "cs-tick"; k.setAttribute("aria-hidden", "true"); k.textContent = "\u2713"; b.appendChild(k); }
       b.addEventListener("click", e => {
