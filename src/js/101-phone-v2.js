@@ -66,7 +66,7 @@
         row.innerHTML = `<label class="cf-pick on"><span class="cf-l"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg><select data-f-pick aria-label="Folder"></select></label>`;
         row.querySelector(".cf-l").textContent = cur ? nm(cur) : "All Files";
         const sel = row.querySelector("select");
-        nodes.forEach((b, i) => { const o = document.createElement("option"); o.value = String(i); o.textContent = "\u2003".repeat(depth(b)) + nm(b) + (cnt(b) ? ` (${cnt(b)})` : ""); if (b === cur) o.selected = true; sel.appendChild(o); });
+        nodes.forEach((b, i) => { const o = document.createElement("option"); o.value = String(i); o.textContent = "\u2003".repeat(depth(b)) + nm(b) + (cnt(b) ? ` (${cnt(b)})` : ""); if (b.dataset.c && b.dataset.c !== "all") o.dataset.course = b.dataset.c; if (b === cur) o.selected = true; sel.appendChild(o); });
         sel.addEventListener("change", () => { const b = nodes[Number(sel.value)]; if (b) b.click(); });
         if (ft) [...ft.children].filter(c => c.matches(".cl-btn, [data-act='trash-open'], .trash-btn")).forEach(c => { c.classList.add("ph-ic"); row.appendChild(c); });
         const sort = ft && ft.querySelector(":scope > .segb"); if (sort) row.appendChild(sort);
@@ -125,19 +125,20 @@
   }
   // Course pickers: a small flat coloured dot and just the course code, in a menu of our own (the phone's own picker
   // can't colour anything). Each course dropdown keeps working as a normal one underneath.
+  const optCourse = o => state.courses && (state.courses[o.dataset.course || o.value] || null);
   function courseDots(root){
     if (!root || !root.querySelectorAll) return;
     root.querySelectorAll("select").forEach(sel => {
       if (sel.dataset.cs) return;
-      const opts = [...sel.options]; if (!opts.some(o => state.courses && state.courses[o.value])) return;
+      const opts = [...sel.options]; if (!opts.some(optCourse)) return;
       sel.dataset.cs = "1"; sel.classList.add("cs-custom");
-      opts.forEach(o => { const c = state.courses && state.courses[o.value]; if (c) o.textContent = courseLabel(c); });
+      opts.forEach(o => { const c = optCourse(o); if (c && !o.dataset.course) o.textContent = courseLabel(c); });
       csDot(sel);
       sel.addEventListener("change", () => csDot(sel));
     });
   }
   function csDot(sel){
-    const o = sel.options[sel.selectedIndex], c = o && state.courses && state.courses[o.value];
+    const o = sel.options[sel.selectedIndex], c = o && optCourse(o);
     if (c) { sel.style.setProperty("--cs-dot", c.color); sel.classList.add("has-dot"); } else { sel.style.removeProperty("--cs-dot"); sel.classList.remove("has-dot"); }
   }
   let csOpen = null;
@@ -148,7 +149,7 @@
     const host = sel.closest("dialog[open]") || document.body, menu = document.createElement("div"), back = document.createElement("div");
     menu.className = "cs-menu"; menu.setAttribute("role", "listbox"); back.className = "cs-back";
     [...sel.options].filter(o => !o.disabled && !o.hidden).forEach(o => {
-      const c = state.courses && state.courses[o.value], b = document.createElement("button");
+      const c = optCourse(o), b = document.createElement("button");
       b.type = "button"; b.setAttribute("role", "option"); b.setAttribute("aria-selected", String(o.selected));
       const d = document.createElement("i"); d.className = c ? "cs-dot" : "cs-gap"; if (c) d.style.setProperty("--c", c.color); b.appendChild(d);
       const t = document.createElement("span"); t.textContent = o.textContent; b.appendChild(t);
