@@ -431,3 +431,8 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
 @media (max-width:639px){
   html.kb-open dialog#dlg{margin-bottom:var(--kb-h,0);max-height:calc(var(--vv-h,100dvh) - env(safe-area-inset-top,0px) - 16px)}
 }
+
+/* Edit sheets: the task's name is already in the Title box, so the band's second line (it ran down over the form) is not shown */
+@media (max-width:639px){
+  .g2-sheet-head:not(.sh-big) .sh-t .mini{display:none!important}
+}

@@ -77408,10 +77408,12 @@ ui._day = todayISO();
 
   // A pop-up opens with nothing highlighted: the browser would otherwise put focus (and its ring) on the first button, the close X
   const showModal0 = HTMLDialogElement.prototype.showModal;
+  // On a phone no sheet raises the keyboard by itself: the person taps the box they want to type in
+  const phoneW = () => matchMedia("(max-width:639px)").matches;
   const quiet = d => {
     try {
       const a = document.activeElement;
-      if (a && a !== d && d.open && d.contains(a) && !d.querySelector("[autofocus]") && !/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && !a.isContentEditable) {
+      if (a && a !== d && d.open && d.contains(a) && (phoneW() || !d.querySelector("[autofocus]")) && (phoneW() || !/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) && !a.isContentEditable) {
         let h = d.querySelector(":scope > .sm-focus");
         if (!h) { h = document.createElement("span"); h.className = "sm-focus"; h.tabIndex = -1; h.setAttribute("aria-hidden", "true"); d.append(h); }
         h.focus({preventScroll: true});
