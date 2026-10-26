@@ -5170,6 +5170,29 @@ nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-sy
 .pview-tabs button{padding-top:10.8px;padding-bottom:9.2px}
 .fab{padding-top:14.8px;padding-bottom:13.2px}
 .plan-sheet .sheet-foot .btn{padding-top:10.8px;padding-bottom:9.2px}
+/* ===== module: 99-smooth.css ===== */
+/* Smooth reveals: only opacity and transform, 160 to 260 ms, so they feel instant and still ease */
+:root{--sm-ease:cubic-bezier(.2,.8,.2,1)}
+@keyframes sm-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes sm-view{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes sm-sheet-up{from{opacity:.4;transform:translateY(34px)}to{opacity:1;transform:none}}
+@keyframes sm-sheet-pop{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes sm-back{from{opacity:0}to{opacity:1}}
+@keyframes sm-pop{from{opacity:0;transform:translateY(-6px) scale(.97)}to{opacity:1;transform:none}}
+html:not([data-motion="static"]) .sm-in{animation:sm-in .22s var(--sm-ease) backwards}
+html:not([data-motion="static"]) .sm-view{animation:sm-view .24s var(--sm-ease) backwards}
+/* Sheets and pop-ups */
+html:not([data-motion="static"]) dialog[open]:not(.tour):not(.sx-dlg){animation:sm-sheet-pop .24s var(--sm-ease) backwards}
+html:not([data-motion="static"]) dialog[open]::backdrop{animation:sm-back .22s ease-out backwards}
+@media (max-width:639px){
+  html:not([data-motion="static"]) dialog[open]:not(.tour):not(.sx-dlg){animation-name:sm-sheet-up;animation-duration:.28s}
+}
+/* Menus and dropdowns */
+html:not([data-motion="static"]) .sb-dd,html:not([data-motion="static"]) .cs-menu{animation:sm-pop .16s var(--sm-ease) backwards;transform-origin:top center}
+/* Native disclosure sections */
+html:not([data-motion="static"]) details[open] > :not(summary){animation:sm-in .22s var(--sm-ease) backwards}
+/* Buttons answer a tap right away */
+@media (hover:none){html:not([data-motion="static"]) :is(button,.btn):active{transform:scale(.97)}}
 /* ===== module: 100-phone.css ===== */
 /* Phone and tablet bar (the desktop side menu is untouched) */
 @media (max-width:979px){
@@ -6419,7 +6442,7 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   #view > .view-head.ph-btns,#view > section > .view-head.ph-btns{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:0 0 12px!important;padding:0!important;min-height:0;height:auto;position:static!important;transform:none!important}
   #view > .view-head.ph-btns + *,#view > section > .view-head.ph-btns + *{margin-top:0!important}
   /* breathing room between the header and the page's first row (the switcher or title pill) */
-  header.top,body.sb-scrolled header.top{padding-top:4px!important;padding-bottom:6px!important;background:linear-gradient(to bottom,var(--paper) 0,color-mix(in srgb,var(--paper) 50%,transparent) 70%)!important;-webkit-backdrop-filter:blur(16px) saturate(1.5)!important;backdrop-filter:blur(16px) saturate(1.5)!important}
+  header.top,body.sb-scrolled header.top{padding-top:4px!important;padding-bottom:6px!important;background:linear-gradient(to bottom,var(--paper) 0,color-mix(in srgb,var(--paper) 90%,transparent) 70%,color-mix(in srgb,var(--paper) 82%,transparent) 100%)!important;-webkit-backdrop-filter:blur(14px) saturate(1.5)!important;backdrop-filter:blur(14px) saturate(1.5)!important}
   #view{padding-top:6px!important}
   #view > .pview-tabs:first-child{margin-top:0!important}
   #view > .grp-grid{margin-top:16px}
@@ -6651,6 +6674,11 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
 }
 
 
+
+/* Keyboard open: sheets rest on top of the keyboard and stay fully on screen (header never slides under the status bar) */
+@media (max-width:639px){
+  html.kb-open dialog#dlg{margin-bottom:var(--kb-h,0);max-height:calc(var(--vv-h,100dvh) - env(safe-area-inset-top,0px) - 16px)}
+}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
@@ -6878,7 +6906,7 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
   /* The header keeps its own space while it shrinks, so the browser must not shift the scroll for it */
   html{overflow-anchor:none}
   /* the size change is animated from script (see morph) */
-  body.sb-scrolled header.top{padding-top:6px!important;padding-bottom:6px!important;background:linear-gradient(to bottom,var(--paper) 0,color-mix(in srgb,var(--paper) 50%,transparent) 70%)!important;-webkit-backdrop-filter:blur(18px) saturate(1.6)!important;backdrop-filter:blur(18px) saturate(1.6)!important;border-bottom:1px solid color-mix(in srgb,var(--line) 75%,transparent);box-shadow:0 6px 16px -12px rgba(8,20,50,.35)}
+  body.sb-scrolled header.top{padding-top:6px!important;padding-bottom:6px!important;background:linear-gradient(to bottom,var(--paper) 0,color-mix(in srgb,var(--paper) 90%,transparent) 70%,color-mix(in srgb,var(--paper) 82%,transparent) 100%)!important;-webkit-backdrop-filter:blur(14px) saturate(1.6)!important;backdrop-filter:blur(14px) saturate(1.6)!important;border-bottom:1px solid color-mix(in srgb,var(--line) 75%,transparent);box-shadow:0 6px 16px -12px rgba(8,20,50,.35)}
   body.sb-scrolled header.top .top-row > div:first-child{flex-direction:row!important;flex-wrap:nowrap;align-items:center!important;padding-top:0;min-width:0}
   body.sb-scrolled header.top .brand{flex:none}
   body.sb-scrolled header.top .brand img.logo{width:92px}

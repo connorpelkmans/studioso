@@ -13356,6 +13356,15 @@ function archiveSheet(){
   });
 }
 
+
+/* Keyboard open: every bottom sheet sits above the keyboard and never taller than what is visible */
+function dlgKbFit(){
+  const vv = window.visualViewport; if (!vv || !matchMedia("(max-width:639px)").matches) return;
+  const d = document.documentElement, kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop));
+  d.style.setProperty("--kb-h", kb + "px"); d.style.setProperty("--vv-h", Math.round(vv.height) + "px");
+  d.classList.toggle("kb-open", kb > 80);
+}
+if (window.visualViewport) { visualViewport.addEventListener("resize", dlgKbFit); visualViewport.addEventListener("scroll", dlgKbFit); }
 /* ===== module: 01-flashcards.js: the app's core, flashcards: decks, spaced repetition, quizzes ===== */
 /* Flashcards: decks, spaced-repetition study and auto-generated quizzes */
 const BOX_DAYS = [0, 1, 3, 7, 14, 30];
@@ -16653,7 +16662,9 @@ const SCN20 = (() => {
   let cur = null, raf = 0, rafT = 0, last = 0, T = 0, finUntil = 0, rebuildTimer = 0;
   const stopLoop = () => { cancelAnimationFrame(raf); clearTimeout(rafT); raf = 0; rafT = 0; };
   // Sleep between frames
-  const nextFrame = () => { const gap = MO() ? MO().frameMs() : FRAME_MS, wait = last ? gap - (performance.now() - last) + 1 : 0; if (gap > 45 && wait > 4) { rafT = setTimeout(() => { rafT = 0; if (raf === -1) raf = requestAnimationFrame(tick); }, wait); return -1; } return requestAnimationFrame(tick); };
+  let cost2 = 0, hold60 = 0;
+  const gapNow = () => (performance.now() < hold60 ? 14 : (MO() ? MO().frameMs() : FRAME_MS));
+  const nextFrame = () => { const gap = gapNow(), wait = last ? gap - (performance.now() - last) + 1 : 0; if (gap > 45 && wait > 4) { rafT = setTimeout(() => { rafT = 0; if (raf === -1) raf = requestAnimationFrame(tick); }, wait); return -1; } return requestAnimationFrame(tick); };
   const broken = new Set();
 
   function geometry(){
@@ -16740,11 +16751,13 @@ const SCN20 = (() => {
     const c = cur; if (!c || !c.eng || document.hidden) return;
     const finishing = performance.now() < finUntil;
     if ((!liveOK() || popup) && !finishing) { last = 0; return; }
-    if (last && ts - last < (MO() ? MO().frameMs() : FRAME_MS)) { raf = nextFrame(); return; }
+    if (last && ts - last < gapNow()) { raf = nextFrame(); return; }
     const dt = last ? Math.min(0.1, (ts - last) / 1000) : 1 / 30; last = ts; T += dt;
     const t0 = performance.now();
     safe(() => { c.eng.step(dt, T, feel()); drawFrame(); });
-    if (MO() && !finishing) MO().frameCost(performance.now() - t0, ts);
+    { const cost = performance.now() - t0; cost2 = cost2 * 0.9 + cost * 0.1;
+      // A scene that can't be drawn inside a 120 Hz frame (8 ms) with room to spare holds at 60 for a while, then tries 120 again
+      if (cost2 > 5 && ts > hold60) hold60 = ts + 15000; }
     if (!raf && cur === c) raf = nextFrame();
   }
   function syncRun(){
@@ -77384,4 +77397,50 @@ setInterval(() => { try { trashEnforce(); } catch(e) {} }, 36e5);
 setInterval(() => { const d = todayISO(); if (d !== ui._day) { ui._day = d; scheduleRender(); setTimeout(() => dailyQuote(false), 1000); } }, 60000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) setTimeout(() => dailyQuote(false), 800); });
 ui._day = todayISO();
+/* ===== module: 99-smooth.js ===== */
+/* Smooth reveals: tabs, sheets, menus and opened sections ease in (opacity and movement only, so they stay fast) */
+(function(){
+  const root = document.documentElement;
+  const on = () => root.dataset.motion !== "static" && styleCfg().motion !== false;
+  let lastKey = null, userAt = 0;
+  const play = (el, cls) => { if (!el || !on()) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); setTimeout(() => el.classList.remove(cls), 420); };
+
+  // A tab (or course / plan view) changed: the new page eases in. Re-draws from edits stay still.
+  hook("render", tab => {
+    const key = tab + "|" + (typeof ui !== "undefined" && ui.courseId || "");
+    const changed = lastKey !== null && key !== lastKey; lastKey = key;
+    if (changed) play(document.getElementById("view"), "sm-view");
+  });
+
+  // Anything the person taps may open something: for a moment after, new or revealed content eases in
+  // The watcher only runs for that moment, so it costs nothing while scenes and the companion animate
+  let stopT = 0;
+  const mark = () => { userAt = performance.now(); if (!stopT) watch(); clearTimeout(stopT); stopT = setTimeout(() => { stopT = 0; mo.disconnect(); }, 700); };
+  ["pointerdown", "keydown", "click"].forEach(t => document.addEventListener(t, mark, true));
+  const recent = () => performance.now() - userAt < 600;
+  const view = () => document.getElementById("view");
+  const mo = new MutationObserver(list => {
+    if (!recent() || !on()) return;
+    let n = 0;
+    for (const m of list) {
+      if (n > 6) break;
+      const t = m.target;
+      if (m.type === "attributes") {
+        if (!(t instanceof Element) || t.id === "view" || t.closest(".sm-skip")) continue;
+        const a = m.attributeName;
+        // hidden taken off, or open/expanded flags turned on, or a "shut" class removed
+        if ((a === "hidden" && !t.hidden) || (a === "open" && t.hasAttribute("open"))) { play(t, "sm-in"); n++; }
+        else if (a === "class") {
+          const was = (m.oldValue || "").split(/\s+/), now = [...t.classList];
+          if ((was.includes("shut") && !now.includes("shut")) || (was.includes("collapsed") && !now.includes("collapsed"))) { const b = t.querySelector(":scope > .ui-sec-b, :scope > .body, :scope > .sec-b") || t; play(b, "sm-in"); n++; }
+          else if (!was.includes("open") && now.includes("open") && /\b(ui-col|acc|drop|more|panel)/.test(t.className)) { play(t, "sm-in"); n++; }
+        }
+      } else if (m.type === "childList" && t !== view() && t.id !== "view") {
+        // a small piece of the page filled in (an opened section, a menu list); whole-page redraws land on #view and are skipped
+        for (const a of m.addedNodes) if (a.nodeType === 1 && !a.classList.contains("sm-in") && n < 6 && !a.closest(".sm-skip") && !/^(SCRIPT|STYLE|CANVAS)$/.test(a.tagName)) { if (t.closest("#dlg") && t === document.getElementById("dlg")) continue; play(a, "sm-in"); n++; }
+      }
+    }
+  });
+  const watch = () => mo.observe(document.body, {subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ["hidden", "open", "class"]});
+})();
 })();
