@@ -435,6 +435,12 @@ function dayTimelineHtml(F, todayList, heroId){
     if (hx && hx.t) items.push({k: "tk", s: nowMin, e: Math.min(1439, nowMin + Math.max(5, focusMinsFor(heroId))), t: hx.t});
   }
   if (!items.length) return "";
+  // The short breaks between one task's back-to-back sessions are not shown: those sessions read as one card
+  items.sort((p, q) => p.s - q.s || p.e - q.e);
+  for (let i = items.length - 1; i > 0; i--) {
+    const cur = items[i], prev = items[i - 1];
+    if (cur.k === "tk" && prev.k === "tk" && cur.t.id === prev.t.id && cur.s - prev.e <= 15) { prev.mn = (prev.mn || prev.e - prev.s) + (cur.mn || cur.e - cur.s); prev.e = Math.max(prev.e, cur.e); items.splice(i, 1); }
+  }
   // Anything between the day's start and end with no task, class or event in it is shown as Free
   let dayS = 420, dayE = 1380; try { const r = availFreeDay(todayISO(), 0); if (r && r.ws != null && r.we != null && r.we > r.ws) { dayS = r.ws; dayE = r.we; } } catch (e) {}
   { const busy = items.map(x => [Math.max(dayS, x.s), Math.min(dayE, x.e)]).filter(([s0, e0]) => e0 > s0).sort((p, q) => p[0] - q[0]);
@@ -448,7 +454,7 @@ function dayTimelineHtml(F, todayList, heroId){
   items.forEach(x => {
     const last = rows[rows.length - 1];
     if (x.k === "tk" && last && last.k === "tk" && last.t.id === x.t.id && x.s - last.e <= 15) { last.e = Math.max(last.e, x.e); last.min += x.e - x.s; }
-    else { if (x.k === "tk") x.min = x.e - x.s; rows.push(x); }
+    else { if (x.k === "tk") x.min = x.mn || x.e - x.s; rows.push(x); }
   });
   const now = new Date(), nowM = now.getHours() * 60 + now.getMinutes();
   const anchor = rows.findIndex(x => x.e > nowM);
