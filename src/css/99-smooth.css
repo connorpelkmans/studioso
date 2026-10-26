@@ -20,7 +20,7 @@ html:not([data-motion="static"]) .sb-dd,html:not([data-motion="static"]) .cs-men
 /* Native disclosure sections */
 html:not([data-motion="static"]) details[open] > :not(summary){animation:sm-in .22s var(--sm-ease) backwards}
 /* Buttons answer a tap right away */
-@media (hover:none){html:not([data-motion="static"]) :is(button,.btn):active{transform:scale(.97)}}
+@media (hover:none){html:not([data-motion="static"]) :is(button,.btn):not(nav.tabs button):active{transform:scale(.97)}}
 dialog:focus,dialog:focus-visible{outline:none}
 dialog [tabindex="-1"]:focus,dialog [tabindex="-1"]:focus-visible{outline:none}
 .sm-focus{position:absolute;width:0;height:0;overflow:hidden;outline:none!important;pointer-events:none}
@@ -34,5 +34,6 @@ html:not([data-motion="static"]) :is(button,.btn,[role=button],[role=tab],summar
 html:not([data-motion="static"]) nav.tabs .in button{transition:background-color .26s var(--sm-ease),color .22s ease,box-shadow .26s var(--sm-ease),transform .16s var(--sm-ease)!important}
 html:not([data-motion="static"]) nav.tabs .in button svg{transition:transform .28s var(--sm-ease),color .22s ease}
 html:not([data-motion="static"]) nav.tabs .in button[aria-current="page"] svg{transform:translateY(-1px) scale(1.06)}
-@media (hover:none){html:not([data-motion="static"]) nav.tabs .in button:active{transform:scale(.94)}}
+@media (hover:none){html:not([data-motion="static"]) nav.tabs .in button:active svg{opacity:.55}}
+html:not([data-motion="static"]) nav.tabs .in button svg{transition:transform .28s var(--sm-ease),color .22s ease,opacity .12s ease}
 html:not([data-motion="static"]) :is(.segb button,.chip,.ui-chip,.cf-pick,[role=tab],button[aria-pressed],button[aria-selected]){transition:background-color .22s var(--sm-ease),color .2s ease,border-color .22s ease,box-shadow .22s var(--sm-ease)}
