@@ -358,7 +358,7 @@ function computeFocus(){
   // A task you have done enough on today (or said was enough) has no time left today anywhere: not in the plan, the schedule or Do This Next
   ranked.forEach(x => { if (x.alloc > 0 && enoughToday(x.t, x)) { x.enough = true; x.alloc = 0; x.need = 0; } });
   const needToday = ranked.reduce((s, x) => s + x.need, 0);
-  let avail = null; if (av) { try { avail = availPlan(av, ranked, th0, needToday, day, today, now); } catch(e) { console.warn(e); } }
+  let avail = null; if (av) { try { avail = availPlan(av, ranked, th0, needToday, day, today, now, nuLead({ranked, info})); } catch(e) { console.warn(e); } }
   const crunch = byDue.map(t => info[t.id]).find(x => x.behind >= 0.5 && x.dl >= 0);
   Object.values(info).forEach(x => {
     const t = x.t, r = [];
