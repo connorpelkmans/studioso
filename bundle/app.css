@@ -5212,6 +5212,10 @@ html:not([data-motion="static"]) nav.tabs .in button[aria-current="page"] svg{tr
 @media (hover:none){html:not([data-motion="static"]) nav.tabs .in button:active svg{opacity:.55}}
 html:not([data-motion="static"]) nav.tabs .in button svg{transition:transform .28s var(--sm-ease),color .22s ease,opacity .12s ease}
 html:not([data-motion="static"]) :is(.segb button,.chip,.ui-chip,.cf-pick,[role=tab],button[aria-pressed],button[aria-selected]){transition:background-color .22s var(--sm-ease),color .2s ease,border-color .22s ease,box-shadow .22s var(--sm-ease)}
+
+/* Text-only buttons: the label sits a hair lower so it looks centred in the pill */
+.btn:not(.small):not(:has(svg)):not(.icon-btn){padding-top:11px;padding-bottom:9px}
+.btn.small:not(:has(svg)):not(.icon-btn){padding-top:7px;padding-bottom:5px}
 /* ===== module: 100-phone.css ===== */
 /* Phone and tablet bar (the desktop side menu is untouched) */
 @media (max-width:979px){
