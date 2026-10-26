@@ -6806,6 +6806,12 @@ html[data-plan-top="week"] .plan .fh-ctl.has-stats .hours-ctl{display:none}
 @media (min-width:900px){.dtl-rail{--k:1.9px}}
 .dtl-c{width:clamp(104px,calc(var(--m,60) * var(--k)),460px)}
 .dtl-c.fr{width:clamp(74px,calc(var(--m,60) * var(--k)),240px)}
+/* Desktop: the ribbon always runs the full width, each card taking its share of the time */
+@media (min-width:900px){
+  .dtl-rail{overflow-x:auto}
+  .dtl-c,.dtl-c.fr{flex:var(--m,60) 1 0;width:auto;max-width:none;min-width:104px}
+  .dtl-c.fr{min-width:74px}
+}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */

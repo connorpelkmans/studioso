@@ -440,7 +440,7 @@ function dayTimelineHtml(F, todayList, heroId){
   { const busy = items.map(x => [Math.max(dayS, x.s), Math.min(dayE, x.e)]).filter(([s0, e0]) => e0 > s0).sort((p, q) => p[0] - q[0]);
     let cur = dayS; const gaps = [];
     busy.concat([[dayE, dayE]]).forEach(([s0, e0]) => { if (s0 - cur >= 10) gaps.push([cur, s0]); cur = Math.max(cur, e0); });
-    gaps.forEach(([s0, e0]) => { if (e0 > nowMin) items.push({k: "fr", s: s0, e: e0}); else if (s0 > dayS) items.push({k: "fr", s: s0, e: e0}); });
+    gaps.forEach(([s0, e0]) => { if (e0 > nowMin) { if (e0 - Math.max(s0, nowMin) >= 10) items.push({k: "fr", s: Math.max(s0, nowMin), e: e0}); } else if (s0 > dayS) items.push({k: "fr", s: s0, e: e0}); });
   }
   items.sort((p, q) => p.s - q.s || p.e - q.e);
   // Back-to-back sessions of one task (split by short breaks) read as a single card
