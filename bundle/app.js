@@ -30871,6 +30871,12 @@ function cleanFile(r) {
     if (L.sub === "no") return `<p class="mini lms-sub">${esc(nm)} said nothing was handed in yet when it was read ${esc(when)}.</p>`;
     return `<p class="mini lms-sub">${esc(nm)} didn't say whether it's submitted when it was read ${esc(when)}${L.sub === undefined ? " (read with an older Studyboard)" : ""}. It may be tied to a calendar entry rather than the assignment itself.</p>${lr && (lr.items || []).length ? `<p style="margin:4px 0 0"><button type="button" class="btn small" data-act="lms-link" data-id="${esc(t.id)}">Link to a ${esc(nm)} Item</button></p>` : ""}`;
   }
+  // A calendar entry the last read of its course didn't have anymore (moved, deleted, or never this course's): offer to remove it, done or not
+  function staleLine(t, f, L){
+    const lr = (LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard"}[f]] || {lastRead: () => null}).lastRead();
+    if (!lr || L.item !== false || !L.key || !(lr.ous || []).includes(L.ou) || !Array.isArray(lr.keys) || lr.keys.includes(L.key) || !(L.seen && L.seen.api && L.seen.api < lr.at) || t.mark) return "";
+    return `<p class="mini lms-sub lms-stale">This came from a ${esc(FNAME[f])} calendar entry that isn't there anymore (read ${esc(fmtWhen(lr.at))}). If it isn't real, remove it.</p><p style="margin:4px 0 0"><button type="button" class="btn small" data-act="lms-stale-del" data-id="${esc(t.id)}">Remove</button></p>`;
+  }
   function linkSheet(id){
     const t = state.tasks[id], f = t && FIELDS.find(k => t[k] && t[k].key); if (!f) return;
     const pid = {bs: "brightspace", cv: "canvas", bb: "blackboard"}[f], Lm = LMS[pid], lr = Lm && Lm.lastRead(); if (!lr) return;
@@ -30916,8 +30922,9 @@ function cleanFile(r) {
   window.SBLMS_TASK = t => {
     const f = t && FIELDS.find(k => t[k] && t[k].key), L = f && t[f]; if (!L) return "";
     const fb = L.fb && (fbHas(L.fb) || L.fb.sc != null) ? L.fb : null, pills = stPills(L.st, t.status === "done"), sl = subLine(t, f, L);
+    const stale = staleLine(t, f, L);
     const mk = t.mark && t.mark.src === f && t.mark.from && t.mark.from !== "grades" ? `<p class="mini lms-sub lms-markfrom">Mark ${esc(t.mark.got)} / ${esc(t.mark.outOf)} read from ${esc(markLabel(t.mark.from))}. It isn't on ${esc(FNAME[f])}'s Grades page yet, so it may still change.</p>` : "";
-    return `<section class="lms-task" aria-label="From your school site">${sl}${mk}${pills}${fb ? `<details class="lms-fbw"${fbHas(fb) ? " open" : ""}><summary><b>Feedback</b></summary>${fbHtml(fb)}</details>` : ""}${rubHtml(L.rub, L.fb, false)}${srcHtml(f, L)}</section>`;
+    return `<section class="lms-task" aria-label="From your school site">${stale}${sl}${mk}${pills}${fb ? `<details class="lms-fbw"${fbHas(fb) ? " open" : ""}><summary><b>Feedback</b></summary>${fbHtml(fb)}</details>` : ""}${rubHtml(L.rub, L.fb, false)}${srcHtml(f, L)}</section>`;
   };
   const QUALIFIERS = ["practice", "review", "mock", "sample", "prep", "preparation", "session", "tutorial", "orientation", "info", "information",
     "retake", "rewrite", "makeup", "make", "deferred", "supplemental", "supplementary", "solutions", "answers", "results", "feedback", "draft", "outline", "proposal", "peer"];
@@ -31071,6 +31078,7 @@ function cleanFile(r) {
       return true;
     }
     if (act === "lms-link") { if (dlg.open) dlg.close(); setTimeout(() => linkSheet(el.dataset.id), 50); return true; }
+    if (act === "lms-stale-del") { const t = state.tasks[el.dataset.id]; if (dlg.open) dlg.close(); if (t) applyChanges([{kind: "task", id: t.id, after: null}], `Removed ${t.title}`); return true; }
     if (act === "lms-link-pick") { const Lm = LMS[el.dataset.p]; if (Lm && Lm.linkTask) Lm.linkTask(el.dataset.id, el.dataset.k); return true; }
     if (act === "lms-fb-edit") { const t = state.tasks[el.dataset.id]; if (dlg.open) dlg.close(); if (t) taskForm(t); return true; }
     return false;
@@ -31135,9 +31143,13 @@ function cleanFile(r) {
   const codeOf = s => { const m = String(s || "").match(CODE_RX); return m ? `${m[1]} ${m[2]}` : ""; };
   const notThisCourse = h => {
     const code = {}; (h.courses || []).forEach(c => { const k = codeOf(c.name) || codeOf(c.code); if (k) code[c.ou] = k.toUpperCase(); });
+    // A calendar entry with no course of its own (a personal one, or a program-wide one) comes back in every course's calendar:
+    // it belongs to none of them, so it isn't filed under whichever course was being read
+    const seenIn = {}; (h.courses || []).forEach(c => (c.events || []).forEach(e => { if (e && !e.ou && e.id) (seenIn[e.id] = seenIn[e.id] || new Set()).add(String(c.ou)); }));
     return (c, e) => {
       if (e.ou && String(e.ou) !== String(c.ou)) return true;
       const named = (String(e.title || "").match(new RegExp(CODE_RX.source, "gi")) || []).map(x => codeOf(x.toUpperCase()).toUpperCase()).filter(Boolean);
+      if (!e.ou && e.id && seenIn[e.id] && seenIn[e.id].size > 1) return !(code[c.ou] && named.includes(code[c.ou]));
       return named.length > 0 && !named.includes(code[c.ou]) && named.some(k => Object.keys(code).some(o => o !== String(c.ou) && code[o] === k));
     };
   };
@@ -31902,7 +31914,8 @@ function cleanFile(r) {
     if ((how === "api" || how === "grab") && p.readSub) {
       const b = bulk();
       b.lastRead = {at, subs: p.readSub, ous: (data.synced || []).slice(0, 60),
-        items: data.recs.filter(r => r.pid || r.asRead).slice(0, 500).map(r => ({k: recKey(r), ou: r.ou, t: String(r.title).slice(0, 160), d: r.due || "", s: r.done ? "yes" : r.sub || "", a: r.asRead || ""})), und: (data.und || []).slice(0, 80), notes: data.notes || {}, topics: data.topics || {}};
+        items: data.recs.filter(r => r.pid || r.asRead).slice(0, 500).map(r => ({k: recKey(r), ou: r.ou, t: String(r.title).slice(0, 160), d: r.due || "", s: r.done ? "yes" : r.sub || "", a: r.asRead || ""})), und: (data.und || []).slice(0, 80), notes: data.notes || {}, topics: data.topics || {},
+        keys: [...new Set(data.recs.flatMap(r => [recKey(r)].concat(r.aka || [])))].slice(0, 1500)};
       saveBulk();
     }
     save({map: newMap, courses, newsItems, finals, log, last: at, lastSrc: how, name: data.name || c.name, gone: [...new Set(c.gone.filter(id => state.tasks[id]).concat(goneIds))].slice(0, 30)});

@@ -254,6 +254,24 @@ const bsTask = (id, title, cid, ou, extra) => Object.assign({id, created: 1, tit
       }
       await page.context().close(); }
 
+    // 12. A calendar entry with no course of its own, returned in both courses' calendars, is filed in neither; a leftover offers removal
+    { const page = await fresh([{id: "k1", created: 1, title: "Midterm Clinical Evaluation", courseId: "c20", type: "Exam", due: dateOf(-3), time: "08:30", status: "done", doneAt: Date.now() - 2 * DAY, order: 1,
+        bs: {key: "20|midtermclinicalevaluation", ou: "20", item: false, last: {title: "Midterm Clinical Evaluation", courseId: "c20"}, seen: {api: Date.now() - 2 * DAY}, ss: "done"}}]);
+      const ev = {id: "900", title: "Midterm Clinical Evaluation", text: "", start: iso(-3), end: iso(-2.95), allDay: false, where: "", assoc: false, kind: "", url: ""};
+      const both = await page.evaluate(([h, ev]) => { h.courses[0].events = [ev]; h.courses[1].events = [ev]; return SBLMS.brightspace.fromApi(h).recs.filter(r => /Clinical/.test(r.title)).map(r => r.ou); }, [H(), ev]);
+      ok(!both.length, "an entry in both courses' calendars, with no course of its own, isn't filed under either: " + JSON.stringify(both));
+      const one = await page.evaluate(([h, ev]) => { h.courses[0].events = [ev]; return SBLMS.brightspace.fromApi(h).recs.filter(r => /Clinical/.test(r.title)).map(r => r.ou); }, [H(), ev]);
+      ok(JSON.stringify(one) === JSON.stringify(["20"]), "in one course's calendar only, it's that course's: " + JSON.stringify(one));
+      await page.evaluate(([h, ev]) => { h.courses[0].events = [ev]; h.courses[1].events = [ev]; const L = SBLMS.brightspace, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true); }, [H(), ev]); await closeDlg(page);
+      const line = await page.evaluate(() => SBLMS_TASK(SBLMS.st().tasks.k1).replace(/<[^>]+>/g, " ").replace(/\s+/g, " "));
+      ok(/calendar entry that isn't there anymore/.test(line) && /Remove/.test(line), "the leftover card says it's not on Brightspace anymore, with Remove: " + line.slice(0, 160));
+      const others = await page.evaluate(m => SBLMS_TASK(Object.values(SBLMS.st().tasks).find(t => t.title === m)).replace(/<[^>]+>/g, " "), MID);
+      ok(!/isn't there anymore/.test(others), "a task still on Brightspace doesn't say so");
+      await page.evaluate(() => { const d = document.querySelector("#dlg"); const b = document.createElement("button"); b.dataset.act = "lms-stale-del"; b.dataset.id = "k1"; document.body.appendChild(b); b.click(); b.remove(); });
+      await page.waitForFunction(() => !SBLMS.st().tasks.k1, null, {timeout: 5000});
+      ok(true, "Remove removes it");
+      await page.context().close(); }
+
     // 7. Same Exam? never pairs two courses' midterms on the same day
     { const page = await fresh([bsTask("e1", "BSNC 1030 Midterm Exam", "c20", "20"), Object.assign(bsTask("e2", "BSNC 1020 Midterm Exam", "c10", "10"), {bs: undefined})]);
       await page.evaluate(() => SBLMS_DUPES(false)); await page.waitForTimeout(500);
