@@ -5193,6 +5193,9 @@ html:not([data-motion="static"]) .sb-dd,html:not([data-motion="static"]) .cs-men
 html:not([data-motion="static"]) details[open] > :not(summary){animation:sm-in .22s var(--sm-ease) backwards}
 /* Buttons answer a tap right away */
 @media (hover:none){html:not([data-motion="static"]) :is(button,.btn):active{transform:scale(.97)}}
+dialog:focus,dialog:focus-visible{outline:none}
+dialog [tabindex="-1"]:focus,dialog [tabindex="-1"]:focus-visible{outline:none}
+.sm-focus{position:absolute;width:0;height:0;overflow:hidden;outline:none!important;pointer-events:none}
 /* ===== module: 100-phone.css ===== */
 /* Phone and tablet bar (the desktop side menu is untouched) */
 @media (max-width:979px){

@@ -6,6 +6,30 @@
   let lastKey = null, userAt = 0;
   const play = (el, cls) => { if (!el || !on()) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); setTimeout(() => el.classList.remove(cls), 420); };
 
+  // A pop-up opens with nothing highlighted: the browser would otherwise put focus (and its ring) on the first button, the close X
+  const showModal0 = HTMLDialogElement.prototype.showModal;
+  const quiet = d => {
+    try {
+      const a = document.activeElement;
+      if (a && a !== d && d.open && d.contains(a) && !d.querySelector("[autofocus]") && !/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && !a.isContentEditable) {
+        let h = d.querySelector(":scope > .sm-focus");
+        if (!h) { h = document.createElement("span"); h.className = "sm-focus"; h.tabIndex = -1; h.setAttribute("aria-hidden", "true"); d.append(h); }
+        h.focus({preventScroll: true});
+      }
+    } catch (e) {}
+  };
+  HTMLDialogElement.prototype.showModal = function(){
+    const r = showModal0.apply(this, arguments);
+    quiet(this); requestAnimationFrame(() => quiet(this));
+    return r;
+  };
+  // The main sheets carry their own showModal (99-release.js), so wrap those too
+  document.querySelectorAll("dialog").forEach(d => {
+    if (!Object.prototype.hasOwnProperty.call(d, "showModal")) return;
+    const f = d.showModal;
+    d.showModal = function(){ const r = f.apply(this, arguments); quiet(this); requestAnimationFrame(() => quiet(this)); return r; };
+  });
+
   // A tab (or course / plan view) changed: the new page eases in. Re-draws from edits stay still.
   hook("render", tab => {
     const key = tab + "|" + (typeof ui !== "undefined" && ui.courseId || "");
