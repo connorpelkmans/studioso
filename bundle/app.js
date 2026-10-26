@@ -25337,7 +25337,7 @@ hook("boot", boot);
     const goal = Number(g.weekly_goal) || 0;
     if (goal && weekVal(ext, g.id, uid2, wkStart(), "focus_min") >= goal) out.push(["goal", "Goal Met", `Reached the weekly goal of ${gMins(goal)}`]);
     const last = ext.stats.filter(s => s.week === addDays(wkStart(), -7) && s.focus_min > 0).sort((a, b) => b.focus_min - a.focus_min)[0];
-    if (last && last.user_id === uid2) out.push(["champ", "Last Week's Champ", `Most focus time last week (${gMins(last.focus_min)})`]);
+    if (last && last.user_id === uid2) out.push(["champ", "Last Week's Champion", `Most focus time last week (${gMins(last.focus_min)})`]);
     if (ext.scores.some(s => s.user_id === uid2 && s.best_total >= 5 && gPct(s.best_correct, s.best_total) >= 90)) out.push(["quiz", "Quiz Whiz", "Scored 90% or more on a shared quiz"]);
     return out;
   }
