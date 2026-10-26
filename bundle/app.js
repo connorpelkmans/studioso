@@ -53763,10 +53763,10 @@ var COMP_EXTRA = [];
       if (act && mood === "idle" && !still()) { act.mouth("smile"); later(() => act && mood === "idle" && act.mouth("neutral"), 900); const r = box.getBoundingClientRect(); glanceAt(r.left + (dir > 0 ? -220 : r.width + 220), r.top + r.height * 0.4, 900); }
     };
   }
-  // Phones: while a sheet is open or the keyboard is up, the docked companion stays put
+  // Phones: while a sheet is open or the keyboard is up, the companion stays exactly where it is, whatever circle it is in
   let fullH = 0, fullW = 0;
   function dockFrozen(){
-    if (!phone() || spotKind !== "dock" || !box || !box.dataset.x) return false;
+    if (!phone() || !box || !box.dataset.x) return false;
     if (innerWidth !== fullW) { fullW = innerWidth; fullH = 0; }
     const h = Math.max(innerHeight, (window.visualViewport && visualViewport.height) || 0);
     if (h > fullH) fullH = h;
@@ -54804,7 +54804,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   new MutationObserver(() => refresh(60)).observe(document.documentElement, {attributes: true, attributeFilter: ["data-skin", "data-theme"]});
   // The placement guard's triggers (see clamp)
   // back from a frozen spell: settle in the same frame, so it never trails the tab bar
-  const dockNow = () => { if (phone() && spotKind === "dock" && !dockFrozen()) try { place(false); } catch (e) {} };
+  const dockNow = () => { if (phone() && (spotKind === "dock" || spotKind === "pin" || spotKind === "slot") && !dockFrozen()) try { place(false); } catch (e) {} };
   addEventListener("resize", () => { sAt = 0; dockNow(); try { clamp("resize"); } catch (e) {} placeSoon(200); });
   addEventListener("orientationchange", () => { sAt = 0; try { clamp("rotate"); } catch (e) {} placeSoon(350); guardSoon("rotate", 700); });
   addEventListener("pageshow", () => { sAt = 0; guardSoon("pageshow"); });
