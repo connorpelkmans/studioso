@@ -14,11 +14,13 @@
   });
 
   // Anything the person taps may open something: for a moment after, new or revealed content eases in
-  const mark = () => { userAt = performance.now(); };
+  // The watcher only runs for that moment, so it costs nothing while scenes and the companion animate
+  let stopT = 0;
+  const mark = () => { userAt = performance.now(); if (!stopT) watch(); clearTimeout(stopT); stopT = setTimeout(() => { stopT = 0; mo.disconnect(); }, 700); };
   ["pointerdown", "keydown", "click"].forEach(t => document.addEventListener(t, mark, true));
   const recent = () => performance.now() - userAt < 600;
   const view = () => document.getElementById("view");
-  new MutationObserver(list => {
+  const mo = new MutationObserver(list => {
     if (!recent() || !on()) return;
     let n = 0;
     for (const m of list) {
@@ -39,5 +41,6 @@
         for (const a of m.addedNodes) if (a.nodeType === 1 && !a.classList.contains("sm-in") && n < 6 && !a.closest(".sm-skip") && !/^(SCRIPT|STYLE|CANVAS)$/.test(a.tagName)) { if (t.closest("#dlg") && t === document.getElementById("dlg")) continue; play(a, "sm-in"); n++; }
       }
     }
-  }).observe(document.body, {subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ["hidden", "open", "class"]});
+  });
+  const watch = () => mo.observe(document.body, {subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ["hidden", "open", "class"]});
 })();

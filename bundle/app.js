@@ -16662,7 +16662,9 @@ const SCN20 = (() => {
   let cur = null, raf = 0, rafT = 0, last = 0, T = 0, finUntil = 0, rebuildTimer = 0;
   const stopLoop = () => { cancelAnimationFrame(raf); clearTimeout(rafT); raf = 0; rafT = 0; };
   // Sleep between frames
-  const nextFrame = () => { const gap = MO() ? MO().frameMs() : FRAME_MS, wait = last ? gap - (performance.now() - last) + 1 : 0; if (gap > 45 && wait > 4) { rafT = setTimeout(() => { rafT = 0; if (raf === -1) raf = requestAnimationFrame(tick); }, wait); return -1; } return requestAnimationFrame(tick); };
+  let cost2 = 0, hold60 = 0;
+  const gapNow = () => (performance.now() < hold60 ? 14 : (MO() ? MO().frameMs() : FRAME_MS));
+  const nextFrame = () => { const gap = gapNow(), wait = last ? gap - (performance.now() - last) + 1 : 0; if (gap > 45 && wait > 4) { rafT = setTimeout(() => { rafT = 0; if (raf === -1) raf = requestAnimationFrame(tick); }, wait); return -1; } return requestAnimationFrame(tick); };
   const broken = new Set();
 
   function geometry(){
@@ -16749,11 +16751,13 @@ const SCN20 = (() => {
     const c = cur; if (!c || !c.eng || document.hidden) return;
     const finishing = performance.now() < finUntil;
     if ((!liveOK() || popup) && !finishing) { last = 0; return; }
-    if (last && ts - last < (MO() ? MO().frameMs() : FRAME_MS)) { raf = nextFrame(); return; }
+    if (last && ts - last < gapNow()) { raf = nextFrame(); return; }
     const dt = last ? Math.min(0.1, (ts - last) / 1000) : 1 / 30; last = ts; T += dt;
     const t0 = performance.now();
     safe(() => { c.eng.step(dt, T, feel()); drawFrame(); });
-    if (MO() && !finishing) MO().frameCost(performance.now() - t0, ts);
+    { const cost = performance.now() - t0; cost2 = cost2 * 0.9 + cost * 0.1;
+      // A scene that can't be drawn inside a 120 Hz frame (8 ms) with room to spare holds at 60 for a while, then tries 120 again
+      if (cost2 > 5 && ts > hold60) hold60 = ts + 15000; }
     if (!raf && cur === c) raf = nextFrame();
   }
   function syncRun(){
@@ -77409,11 +77413,13 @@ ui._day = todayISO();
   });
 
   // Anything the person taps may open something: for a moment after, new or revealed content eases in
-  const mark = () => { userAt = performance.now(); };
+  // The watcher only runs for that moment, so it costs nothing while scenes and the companion animate
+  let stopT = 0;
+  const mark = () => { userAt = performance.now(); if (!stopT) watch(); clearTimeout(stopT); stopT = setTimeout(() => { stopT = 0; mo.disconnect(); }, 700); };
   ["pointerdown", "keydown", "click"].forEach(t => document.addEventListener(t, mark, true));
   const recent = () => performance.now() - userAt < 600;
   const view = () => document.getElementById("view");
-  new MutationObserver(list => {
+  const mo = new MutationObserver(list => {
     if (!recent() || !on()) return;
     let n = 0;
     for (const m of list) {
@@ -77434,6 +77440,7 @@ ui._day = todayISO();
         for (const a of m.addedNodes) if (a.nodeType === 1 && !a.classList.contains("sm-in") && n < 6 && !a.closest(".sm-skip") && !/^(SCRIPT|STYLE|CANVAS)$/.test(a.tagName)) { if (t.closest("#dlg") && t === document.getElementById("dlg")) continue; play(a, "sm-in"); n++; }
       }
     }
-  }).observe(document.body, {subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ["hidden", "open", "class"]});
+  });
+  const watch = () => mo.observe(document.body, {subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ["hidden", "open", "class"]});
 })();
 })();
