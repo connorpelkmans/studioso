@@ -53763,10 +53763,10 @@ var COMP_EXTRA = [];
       if (act && mood === "idle" && !still()) { act.mouth("smile"); later(() => act && mood === "idle" && act.mouth("neutral"), 900); const r = box.getBoundingClientRect(); glanceAt(r.left + (dir > 0 ? -220 : r.width + 220), r.top + r.height * 0.4, 900); }
     };
   }
-  // Phones: while a sheet is open or the keyboard is up, the docked companion stays put
+  // Phones: while a sheet is open or the keyboard is up, the companion stays exactly where it is, whatever circle it is in
   let fullH = 0, fullW = 0;
   function dockFrozen(){
-    if (!phone() || spotKind !== "dock" || !box || !box.dataset.x) return false;
+    if (!phone() || !box || !box.dataset.x) return false;
     if (innerWidth !== fullW) { fullW = innerWidth; fullH = 0; }
     const h = Math.max(innerHeight, (window.visualViewport && visualViewport.height) || 0);
     if (h > fullH) fullH = h;
@@ -54804,7 +54804,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   new MutationObserver(() => refresh(60)).observe(document.documentElement, {attributes: true, attributeFilter: ["data-skin", "data-theme"]});
   // The placement guard's triggers (see clamp)
   // back from a frozen spell: settle in the same frame, so it never trails the tab bar
-  const dockNow = () => { if (phone() && spotKind === "dock" && !dockFrozen()) try { place(false); } catch (e) {} };
+  const dockNow = () => { if (phone() && (spotKind === "dock" || spotKind === "pin" || spotKind === "slot") && !dockFrozen()) try { place(false); } catch (e) {} };
   addEventListener("resize", () => { sAt = 0; dockNow(); try { clamp("resize"); } catch (e) {} placeSoon(200); });
   addEventListener("orientationchange", () => { sAt = 0; try { clamp("rotate"); } catch (e) {} placeSoon(350); guardSoon("rotate", 700); });
   addEventListener("pageshow", () => { sAt = 0; guardSoon("pageshow"); });
@@ -76319,7 +76319,7 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
         row.innerHTML = `<label class="cf-pick on"><span class="cf-l"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg><select data-f-pick aria-label="Folder"></select></label>`;
         row.querySelector(".cf-l").textContent = cur ? nm(cur) : "All Files";
         const sel = row.querySelector("select");
-        nodes.forEach((b, i) => { const o = document.createElement("option"); o.value = String(i); o.textContent = "\u2003".repeat(depth(b)) + nm(b) + (cnt(b) ? ` (${cnt(b)})` : ""); if (b === cur) o.selected = true; sel.appendChild(o); });
+        nodes.forEach((b, i) => { const o = document.createElement("option"); o.value = String(i); o.textContent = "\u2003".repeat(depth(b)) + nm(b) + (cnt(b) ? ` (${cnt(b)})` : ""); if (b.dataset.c && b.dataset.c !== "all") o.dataset.course = b.dataset.c; if (b === cur) o.selected = true; sel.appendChild(o); });
         sel.addEventListener("change", () => { const b = nodes[Number(sel.value)]; if (b) b.click(); });
         if (ft) [...ft.children].filter(c => c.matches(".cl-btn, [data-act='trash-open'], .trash-btn")).forEach(c => { c.classList.add("ph-ic"); row.appendChild(c); });
         const sort = ft && ft.querySelector(":scope > .segb"); if (sort) row.appendChild(sort);
@@ -76378,19 +76378,20 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
   }
   // Course pickers: a small flat coloured dot and just the course code, in a menu of our own (the phone's own picker
   // can't colour anything). Each course dropdown keeps working as a normal one underneath.
+  const optCourse = o => state.courses && (state.courses[o.dataset.course || o.value] || null);
   function courseDots(root){
     if (!root || !root.querySelectorAll) return;
     root.querySelectorAll("select").forEach(sel => {
       if (sel.dataset.cs) return;
-      const opts = [...sel.options]; if (!opts.some(o => state.courses && state.courses[o.value])) return;
+      const opts = [...sel.options]; if (!opts.some(optCourse)) return;
       sel.dataset.cs = "1"; sel.classList.add("cs-custom");
-      opts.forEach(o => { const c = state.courses && state.courses[o.value]; if (c) o.textContent = courseLabel(c); });
+      opts.forEach(o => { const c = optCourse(o); if (c && !o.dataset.course) o.textContent = courseLabel(c); });
       csDot(sel);
       sel.addEventListener("change", () => csDot(sel));
     });
   }
   function csDot(sel){
-    const o = sel.options[sel.selectedIndex], c = o && state.courses && state.courses[o.value];
+    const o = sel.options[sel.selectedIndex], c = o && optCourse(o);
     if (c) { sel.style.setProperty("--cs-dot", c.color); sel.classList.add("has-dot"); } else { sel.style.removeProperty("--cs-dot"); sel.classList.remove("has-dot"); }
   }
   let csOpen = null;
@@ -76401,7 +76402,7 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
     const host = sel.closest("dialog[open]") || document.body, menu = document.createElement("div"), back = document.createElement("div");
     menu.className = "cs-menu"; menu.setAttribute("role", "listbox"); back.className = "cs-back";
     [...sel.options].filter(o => !o.disabled && !o.hidden).forEach(o => {
-      const c = state.courses && state.courses[o.value], b = document.createElement("button");
+      const c = optCourse(o), b = document.createElement("button");
       b.type = "button"; b.setAttribute("role", "option"); b.setAttribute("aria-selected", String(o.selected));
       const d = document.createElement("i"); d.className = c ? "cs-dot" : "cs-gap"; if (c) d.style.setProperty("--c", c.color); b.appendChild(d);
       const t = document.createElement("span"); t.textContent = o.textContent; b.appendChild(t);
@@ -77244,7 +77245,7 @@ if (window.matchMedia) { const mq = matchMedia("(max-width:639px)"); const swap 
     if (sel.getAttribute("aria-label")) list.setAttribute("aria-label", sel.getAttribute("aria-label"));
     const opts = [...sel.options];
     // A course's small flat dot in front of its name (and a matching gap on the other rows)
-    const dotOf = o => { const c = state.courses && state.courses[o.value]; return c ? `<i class="sb-dd-dot" style="--c:${esc(c.color)}"></i>` : sel.classList.contains("cs-custom") ? `<i class="sb-dd-gap"></i>` : ""; };
+    const dotOf = o => { const c = state.courses && state.courses[o.dataset.course || o.value]; return c ? `<i class="sb-dd-dot" style="--c:${esc(c.color)}"></i>` : sel.classList.contains("cs-custom") ? `<i class="sb-dd-gap"></i>` : ""; };
     const optHtml = o => { const i = opts.indexOf(o), on = i === sel.selectedIndex;
       return o.hidden ? "" : `<button type="button" role="option" class="sb-dd-opt${on ? " on" : ""}" data-i="${i}" aria-selected="${on}"${o.disabled ? " disabled" : ""}>${dotOf(o)}<span>${esc(o.textContent)}</span>${on ? CK : ""}</button>`; };
     list.innerHTML = [...sel.children].map(n => n.tagName === "OPTGROUP" ? `<div class="sb-dd-grp" role="presentation">${esc(n.label)}</div>${[...n.children].map(optHtml).join("")}` : n.tagName === "OPTION" ? optHtml(n) : "").join("");
@@ -77404,6 +77405,32 @@ ui._day = todayISO();
   const on = () => root.dataset.motion !== "static" && styleCfg().motion !== false;
   let lastKey = null, userAt = 0;
   const play = (el, cls) => { if (!el || !on()) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); setTimeout(() => el.classList.remove(cls), 420); };
+
+  // A pop-up opens with nothing highlighted: the browser would otherwise put focus (and its ring) on the first button, the close X
+  const showModal0 = HTMLDialogElement.prototype.showModal;
+  // On a phone no sheet raises the keyboard by itself: the person taps the box they want to type in
+  const phoneW = () => matchMedia("(max-width:639px)").matches;
+  const quiet = d => {
+    try {
+      const a = document.activeElement;
+      if (a && a !== d && d.open && d.contains(a) && (phoneW() || !d.querySelector("[autofocus]")) && (phoneW() || !/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) && !a.isContentEditable) {
+        let h = d.querySelector(":scope > .sm-focus");
+        if (!h) { h = document.createElement("span"); h.className = "sm-focus"; h.tabIndex = -1; h.setAttribute("aria-hidden", "true"); d.append(h); }
+        h.focus({preventScroll: true});
+      }
+    } catch (e) {}
+  };
+  HTMLDialogElement.prototype.showModal = function(){
+    const r = showModal0.apply(this, arguments);
+    quiet(this); requestAnimationFrame(() => quiet(this));
+    return r;
+  };
+  // The main sheets carry their own showModal (99-release.js), so wrap those too
+  document.querySelectorAll("dialog").forEach(d => {
+    if (!Object.prototype.hasOwnProperty.call(d, "showModal")) return;
+    const f = d.showModal;
+    d.showModal = function(){ const r = f.apply(this, arguments); quiet(this); requestAnimationFrame(() => quiet(this)); return r; };
+  });
 
   // A tab (or course / plan view) changed: the new page eases in. Re-draws from edits stay still.
   hook("render", tab => {

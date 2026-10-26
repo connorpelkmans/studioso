@@ -5193,6 +5193,13 @@ html:not([data-motion="static"]) .sb-dd,html:not([data-motion="static"]) .cs-men
 html:not([data-motion="static"]) details[open] > :not(summary){animation:sm-in .22s var(--sm-ease) backwards}
 /* Buttons answer a tap right away */
 @media (hover:none){html:not([data-motion="static"]) :is(button,.btn):active{transform:scale(.97)}}
+dialog:focus,dialog:focus-visible{outline:none}
+dialog [tabindex="-1"]:focus,dialog [tabindex="-1"]:focus-visible{outline:none}
+.sm-focus{position:absolute;width:0;height:0;overflow:hidden;outline:none!important;pointer-events:none}
+
+/* Text that sits straight on a scene gets the same soft glow as the other page headings */
+html.sc-on #view :is(h2,h3,h4,.fsec,.fsec .n,.grp-sec > h3,.hint,.hint-line,.empty,.view-head > :is(span,p,div):not(.btn),#view > p,section > .mini,.sec-head,.cf-sec-t,.lbl-sec,.board-sec-head,.tl-controls .mini,.cf-chips > .mini):not(:is(.card,.sheet,button,.btn,.tile,[class*="card"],.plan-hero,table,li) *){text-shadow:0 0 2px var(--paper),0 0 6px var(--paper),0 0 12px var(--paper)}
+html.sc-on #view :is(.fsec svg){filter:drop-shadow(0 0 3px var(--paper))}
 /* ===== module: 100-phone.css ===== */
 /* Phone and tablet bar (the desktop side menu is untouched) */
 @media (max-width:979px){
@@ -6331,6 +6338,7 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   .ph-dup{display:none!important}
   #view .view-head:not(:has(> :not(h2.ph-dup))){display:none}
   #view > .view-head:has(> h2.ph-dup){justify-content:flex-end;min-height:0;margin-top:0}
+  #view > .view-head:has(> h2.ph-dup + .btn[data-act$="-open"]){justify-content:flex-start}
   #view > .tl-controls:has(> h2.ph-dup){margin-top:0}
   /* Notices: one compact card, actions on one line */
   .wkr-card{padding:12px 14px}
@@ -6442,7 +6450,7 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   #view > .view-head.ph-btns,#view > section > .view-head.ph-btns{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:0 0 12px!important;padding:0!important;min-height:0;height:auto;position:static!important;transform:none!important}
   #view > .view-head.ph-btns + *,#view > section > .view-head.ph-btns + *{margin-top:0!important}
   /* breathing room between the header and the page's first row (the switcher or title pill) */
-  header.top,body.sb-scrolled header.top{padding-top:4px!important;padding-bottom:6px!important;background:linear-gradient(to bottom,var(--paper) 0,color-mix(in srgb,var(--paper) 90%,transparent) 70%,color-mix(in srgb,var(--paper) 82%,transparent) 100%)!important;-webkit-backdrop-filter:blur(14px) saturate(1.5)!important;backdrop-filter:blur(14px) saturate(1.5)!important}
+  header.top,body.sb-scrolled header.top{padding-top:4px!important;padding-bottom:6px!important;background:linear-gradient(to bottom,var(--paper) 0,color-mix(in srgb,var(--paper) 80%,transparent) 70%,color-mix(in srgb,var(--paper) 70%,transparent) 100%)!important;-webkit-backdrop-filter:blur(14px) saturate(1.5)!important;backdrop-filter:blur(14px) saturate(1.5)!important}
   #view{padding-top:6px!important}
   #view > .pview-tabs:first-child{margin-top:0!important}
   #view > .grp-grid{margin-top:16px}
@@ -6679,6 +6687,11 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
 @media (max-width:639px){
   html.kb-open dialog#dlg{margin-bottom:var(--kb-h,0);max-height:calc(var(--vv-h,100dvh) - env(safe-area-inset-top,0px) - 16px)}
 }
+
+/* Edit sheets: the task's name is already in the Title box, so the band's second line (it ran down over the form) is not shown */
+@media (max-width:639px){
+  .g2-sheet-head:not(.sh-big) .sh-t .mini{display:none!important}
+}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
@@ -6906,7 +6919,7 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
   /* The header keeps its own space while it shrinks, so the browser must not shift the scroll for it */
   html{overflow-anchor:none}
   /* the size change is animated from script (see morph) */
-  body.sb-scrolled header.top{padding-top:6px!important;padding-bottom:6px!important;background:linear-gradient(to bottom,var(--paper) 0,color-mix(in srgb,var(--paper) 90%,transparent) 70%,color-mix(in srgb,var(--paper) 82%,transparent) 100%)!important;-webkit-backdrop-filter:blur(14px) saturate(1.6)!important;backdrop-filter:blur(14px) saturate(1.6)!important;border-bottom:1px solid color-mix(in srgb,var(--line) 75%,transparent);box-shadow:0 6px 16px -12px rgba(8,20,50,.35)}
+  body.sb-scrolled header.top{padding-top:6px!important;padding-bottom:6px!important;background:linear-gradient(to bottom,var(--paper) 0,color-mix(in srgb,var(--paper) 80%,transparent) 70%,color-mix(in srgb,var(--paper) 70%,transparent) 100%)!important;-webkit-backdrop-filter:blur(14px) saturate(1.6)!important;backdrop-filter:blur(14px) saturate(1.6)!important;border-bottom:1px solid color-mix(in srgb,var(--line) 75%,transparent);box-shadow:0 6px 16px -12px rgba(8,20,50,.35)}
   body.sb-scrolled header.top .top-row > div:first-child{flex-direction:row!important;flex-wrap:nowrap;align-items:center!important;padding-top:0;min-width:0}
   body.sb-scrolled header.top .brand{flex:none}
   body.sb-scrolled header.top .brand img.logo{width:92px}

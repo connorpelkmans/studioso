@@ -487,7 +487,7 @@ if (window.matchMedia) { const mq = matchMedia("(max-width:639px)"); const swap 
     if (sel.getAttribute("aria-label")) list.setAttribute("aria-label", sel.getAttribute("aria-label"));
     const opts = [...sel.options];
     // A course's small flat dot in front of its name (and a matching gap on the other rows)
-    const dotOf = o => { const c = state.courses && state.courses[o.value]; return c ? `<i class="sb-dd-dot" style="--c:${esc(c.color)}"></i>` : sel.classList.contains("cs-custom") ? `<i class="sb-dd-gap"></i>` : ""; };
+    const dotOf = o => { const c = state.courses && state.courses[o.dataset.course || o.value]; return c ? `<i class="sb-dd-dot" style="--c:${esc(c.color)}"></i>` : sel.classList.contains("cs-custom") ? `<i class="sb-dd-gap"></i>` : ""; };
     const optHtml = o => { const i = opts.indexOf(o), on = i === sel.selectedIndex;
       return o.hidden ? "" : `<button type="button" role="option" class="sb-dd-opt${on ? " on" : ""}" data-i="${i}" aria-selected="${on}"${o.disabled ? " disabled" : ""}>${dotOf(o)}<span>${esc(o.textContent)}</span>${on ? CK : ""}</button>`; };
     list.innerHTML = [...sel.children].map(n => n.tagName === "OPTGROUP" ? `<div class="sb-dd-grp" role="presentation">${esc(n.label)}</div>${[...n.children].map(optHtml).join("")}` : n.tagName === "OPTION" ? optHtml(n) : "").join("");

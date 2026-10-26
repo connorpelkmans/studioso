@@ -82,6 +82,7 @@
   .ph-dup{display:none!important}
   #view .view-head:not(:has(> :not(h2.ph-dup))){display:none}
   #view > .view-head:has(> h2.ph-dup){justify-content:flex-end;min-height:0;margin-top:0}
+  #view > .view-head:has(> h2.ph-dup + .btn[data-act$="-open"]){justify-content:flex-start}
   #view > .tl-controls:has(> h2.ph-dup){margin-top:0}
   /* Notices: one compact card, actions on one line */
   .wkr-card{padding:12px 14px}
@@ -193,7 +194,7 @@
   #view > .view-head.ph-btns,#view > section > .view-head.ph-btns{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:0 0 12px!important;padding:0!important;min-height:0;height:auto;position:static!important;transform:none!important}
   #view > .view-head.ph-btns + *,#view > section > .view-head.ph-btns + *{margin-top:0!important}
   /* breathing room between the header and the page's first row (the switcher or title pill) */
-  header.top,body.sb-scrolled header.top{padding-top:4px!important;padding-bottom:6px!important;background:linear-gradient(to bottom,var(--paper) 0,color-mix(in srgb,var(--paper) 90%,transparent) 70%,color-mix(in srgb,var(--paper) 82%,transparent) 100%)!important;-webkit-backdrop-filter:blur(14px) saturate(1.5)!important;backdrop-filter:blur(14px) saturate(1.5)!important}
+  header.top,body.sb-scrolled header.top{padding-top:4px!important;padding-bottom:6px!important;background:linear-gradient(to bottom,var(--paper) 0,color-mix(in srgb,var(--paper) 80%,transparent) 70%,color-mix(in srgb,var(--paper) 70%,transparent) 100%)!important;-webkit-backdrop-filter:blur(14px) saturate(1.5)!important;backdrop-filter:blur(14px) saturate(1.5)!important}
   #view{padding-top:6px!important}
   #view > .pview-tabs:first-child{margin-top:0!important}
   #view > .grp-grid{margin-top:16px}
@@ -429,4 +430,9 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
 /* Keyboard open: sheets rest on top of the keyboard and stay fully on screen (header never slides under the status bar) */
 @media (max-width:639px){
   html.kb-open dialog#dlg{margin-bottom:var(--kb-h,0);max-height:calc(var(--vv-h,100dvh) - env(safe-area-inset-top,0px) - 16px)}
+}
+
+/* Edit sheets: the task's name is already in the Title box, so the band's second line (it ran down over the form) is not shown */
+@media (max-width:639px){
+  .g2-sheet-head:not(.sh-big) .sh-t .mini{display:none!important}
 }
