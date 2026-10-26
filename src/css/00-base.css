@@ -172,6 +172,8 @@ body.wide .wrap{max-width:1180px}
 .ann-list li:not(.unread) b{font-weight:600;color:var(--muted)}
 .ann-list .mini{display:block}
 .ann-list details summary{cursor:pointer;color:var(--accent);font-size:.8rem;margin-top:4px}
+.ann-list details .ann-less,.ann-list details[open] .ann-pre{display:none}
+.ann-list details[open] .ann-less{display:inline}
 .ann-list .ann-txt{margin:4px 0 0;font-size:.88rem;white-space:pre-line;overflow-wrap:anywhere}
 .ann-list .bs-btns{margin-top:6px}
 .ann-tabs{flex:none;display:flex;gap:6px;overflow-x:auto;padding:2px 2px 8px;margin:0 -2px;scrollbar-width:thin;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;overscroll-behavior-x:contain}
