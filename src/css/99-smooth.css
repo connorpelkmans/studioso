@@ -41,3 +41,6 @@ html:not([data-motion="static"]) :is(.segb button,.chip,.ui-chip,.cf-pick,[role=
 /* Text-only buttons: the label sits a hair lower so it looks centred in the pill */
 .btn:not(.small):not(:has(svg)):not(.icon-btn){padding-top:11px;padding-bottom:9px}
 .btn.small:not(:has(svg)):not(.icon-btn){padding-top:7px;padding-bottom:5px}
+
+/* Grades: the "Waiting for a Mark" list sits on a card so it reads over scenery */
+.gs-wait{background:var(--ph-surf,color-mix(in srgb,var(--surface) 90%,transparent));border:1px solid var(--line);border-radius:16px;padding:4px 14px}
