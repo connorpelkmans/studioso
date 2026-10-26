@@ -953,6 +953,24 @@ update public.app_flags set value = 'false', updated_at = now() where key = 'bb_
 
 The website, desktop and phone apps pick it up within about 3 hours (or when they next open); the School Sync extension (version 1.0.4 or later) picks it up the next time the student opens the Studyboard website. Set it back to `'true'` to turn them on again.
 
+**Marks that aren't on the Grades page.** Some marks are released without showing on the platform's Grades page. Studyboard looks for them in these places, only for items the Grades page has no mark for. A mark on the Grades page always wins. The task shows where its mark came from ("read from the quiz's Submissions page"), and switches to the Grades mark once it's posted there.
+
+| Switch (`app_flags` key) | Platform | Where the mark is read |
+|---|---|---|
+| `marks_quiz_page` | Brightspace | The quiz's Submissions page: "Overall Grade", or the best attempt |
+| `marks_attempt_score` | Blackboard | A graded attempt's score, when the gradebook cell is empty |
+| `marks_assignment_feedback` | Brightspace | The score in the assignment's published feedback |
+| `marks_assignments_page` | Brightspace | The Score column on the Assignments page (only a score out of the assignment's total) |
+| `marks_discussion_page` | Brightspace | The discussion topic's page (only a labelled score out of the topic's total) |
+
+Canvas needs none of these: it gives each submission's score directly. To stop one source for everyone (for example if a school's pages read a wrong number), switch it off the same way:
+
+```sql
+update public.app_flags set value = 'false', updated_at = now() where key = 'marks_assignments_page';
+```
+
+The apps stop reading it within about 3 hours. The extension stops from version 1.0.5, the next time the student opens the Studyboard website. Adding a new source is described above `MARK_SOURCES` in `src/js/95-lms.js`.
+
 Studyboard can bring in everything from your school's learning platform on its own: **Brightspace** (D2L, the learning site many schools use), **Canvas** or **Blackboard Learn**. Assignments, quizzes, discussions and exams go on your Board and Timeline with their due dates, instructor calendar events go on your Schedule, and your grades go into the Grade Tracker. Open **Settings > Brightspace, Canvas and Blackboard**, or the **School Sites** button on the Courses page, and pick your platform. Using more than one? Connect each; they stay separate and nothing is added twice.
 
 Studyboard only ever **reads** from these sites. It never submits, posts or changes anything there.

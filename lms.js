@@ -244,12 +244,12 @@ async function bsHarvest(o) {
       const fe = s.map(x => x && x.Feedback).find(Boolean);
       if (fe) fbk[f.Id] = fe;
     });
-    let fromPage = 0;
+    let fromPage = 0, folderHtml = null;
     if (recent.some(f => subs[f.Id] === undefined)) {
       try {
         const r = await fetch(`/d2l/lms/dropbox/user/folders_list.d2l?ou=${c.ou}&isprv=0`, { credentials: "include" });
         if (r.ok) {
-          const html = (await r.text()).slice(0, 3000000);
+          const html = folderHtml = (await r.text()).slice(0, 3000000);
           html.split(/(?=folder_submit_files\.d2l\?)/).slice(1).forEach(part => {
             const m = part.match(/^folder_submit_files\.d2l\?[^"'<>]*?\bdb=(\d+)/); if (!m || subs[m[1]] !== undefined) return;
             const row = htmlText(part.slice(0, 6000), { line: true });
@@ -295,24 +295,62 @@ async function bsHarvest(o) {
       const subm = submPage[x.QuizId] = await page(`/d2l/lms/quizzing/user/quiz_submissions.d2l?qi=${x.QuizId}&ou=${c.ou}`);
       if (/\battempt\s+\d+\b/i.test(subm)) { tried[x.QuizId] = true; qOwn++; }
     });
-    // A quiz's mark is often only on its Submissions page (Quizzes > the quiz > Submissions), not in Grades
+    // Marks that aren't on the Grades page. Each source below fills `marks` ({kind, id, num, den, from, how}) for items Grades has no mark for;
+    // the app keeps Grades first, then these in the order of MARK_SOURCES in src/js/95-lms.js. Each can be switched off (q.marks[source] === false).
+    const markOn = k => !(q.marks && typeof q.marks === "object" && q.marks[k] === false) && q.grades !== false;
     const gradeRows = listOf(grades), hasMark = id => id != null && gradeRows.some(g => g && String(g.GradeObjectIdentifier) === String(id) && g.PointsNumerator != null);
-    const qScore = {};
-    const scoreOf = t => {
-      const n = v => { const x = Number(v); return isFinite(x) ? x : null; };
-      const over = t.match(/\boverall\s+grade\b[^:\n]{0,40}:\s*(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/i);
-      if (over && n(over[2]) > 0) return { num: n(over[1]), den: n(over[2]), how: (over[0].match(/\(([^)]{1,30})\)/) || [])[1] || "" };
-      const rows = [...t.matchAll(/\battempt\s+(\d+)\b[^\n]{0,80}?(?<![\d/])(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)(?![\d/])/gi)].map(m => ({ num: n(m[2]), den: n(m[3]) })).filter(x => x.den > 0 && x.num != null && x.num <= x.den * 2);
-      if (!rows.length) return null;
-      const best = rows.sort((a, b) => b.num / b.den - a.num / a.den)[0];
-      return { num: best.num, den: best.den, how: rows.length > 1 ? "highest attempt" : "" };
+    const marks = [], markNote = [], mk = (kind, id, sc, from) => { if (sc && sc.den > 0 && sc.num != null && sc.num >= 0 && sc.num <= sc.den * 2) marks.push({ kind, id: String(id), num: sc.num, den: sc.den, from, how: sc.how || "" }); };
+    const num = v => { const x = Number(v); return v != null && v !== "" && isFinite(x) ? x : null; };
+    // "34 / 45" after a label (Score, Grade, Overall Grade...). With `den`, only that denominator counts, so a date or a post's "3/4" isn't taken for a mark
+    const labelled = (t, den) => {
+      for (const m of String(t || "").matchAll(/\b(overall\s+grade|score|grade|mark|points|assessment|evaluation)\b[^\n\d]{0,40}?(?<![\d/.])(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)(?![\d/])/gi)) {
+        const n = num(m[2]), d = num(m[3]); if (n == null || !(d > 0) || (den > 0 && d !== den)) continue;
+        return { num: n, den: d, how: (m[0].match(/\(([^)]{1,30})\)/) || [])[1] || "" };
+      }
+      return null;
     };
-    const toScore = qrecent.filter(x => tried[x.QuizId] === true && !hasMark(x.GradeItemId) && q.grades !== false).slice(0, 15);
-    await inBatches(toScore, async x => {
-      const t = submPage[x.QuizId] != null ? submPage[x.QuizId] : await page(`/d2l/lms/quizzing/user/quiz_submissions.d2l?qi=${x.QuizId}&ou=${c.ou}`);
-      const s = t && scoreOf(t); if (s) qScore[x.QuizId] = s;
-    });
-    if (toScore.length) c.quizScoreNote = `quiz marks from Submissions pages: ${Object.keys(qScore).length} of ${toScore.length}`;
+    // 1. Quizzes: the quiz's Submissions page (Quizzes > the quiz > Submissions): "Overall Grade (highest attempt): 34 / 45", or the best attempt
+    if (markOn("quizPage")) {
+      const scoreOf = t => {
+        const over = t.match(/\boverall\s+grade\b[^:\n]{0,40}:\s*(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/i);
+        if (over && num(over[2]) > 0) return { num: num(over[1]), den: num(over[2]), how: (over[0].match(/\(([^)]{1,30})\)/) || [])[1] || "" };
+        const rows = [...t.matchAll(/\battempt\s+(\d+)\b[^\n]{0,80}?(?<![\d/])(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)(?![\d/])/gi)].map(m => ({ num: num(m[2]), den: num(m[3]) })).filter(x => x.den > 0 && x.num != null && x.num <= x.den * 2);
+        if (!rows.length) return null;
+        const best = rows.sort((a, b) => b.num / b.den - a.num / a.den)[0];
+        return { num: best.num, den: best.den, how: rows.length > 1 ? "highest attempt" : "" };
+      };
+      const toScore = qrecent.filter(x => tried[x.QuizId] === true && !hasMark(x.GradeItemId)).slice(0, 15);
+      let got = 0;
+      await inBatches(toScore, async x => {
+        const t = submPage[x.QuizId] != null ? submPage[x.QuizId] : await page(`/d2l/lms/quizzing/user/quiz_submissions.d2l?qi=${x.QuizId}&ou=${c.ou}`);
+        const sc = t && scoreOf(t); if (sc) { mk("quiz", x.QuizId, sc, "quizPage"); got++; }
+      });
+      if (toScore.length) markNote.push(`quiz Submissions pages ${got} of ${toScore.length}`);
+    }
+    // 2. Assignments: the score in the assignment's published feedback (Assignments > the assignment > View Feedback)
+    const outOfF = f => f && f.Assessment && num(f.Assessment.ScoreDenominator) > 0 ? num(f.Assessment.ScoreDenominator) : null;
+    const fUnmarked = fl.filter(f => !hasMark(f.GradeItemId));
+    if (markOn("assignmentFeedback")) {
+      let got = 0;
+      fUnmarked.forEach(f => { const fe = fbk[f.Id], sc = fe && num(fe.Score), den = outOfF(f); if (sc != null && den) { mk("folder", f.Id, { num: sc, den }, "assignmentFeedback"); got++; } });
+      if (got) markNote.push(`assignment feedback ${got}`);
+    }
+    // 3. Assignments: the Assignments page's Score column, for submitted ones still without a mark
+    if (markOn("assignmentsPage")) {
+      const left = fUnmarked.filter(f => (subs[f.Id] === true || !!fbk[f.Id]) && !marks.some(m => m.kind === "folder" && m.id === String(f.Id)));
+      if (left.length) {
+        if (folderHtml == null) { try { const r = await fetch(`/d2l/lms/dropbox/user/folders_list.d2l?ou=${c.ou}&isprv=0`, { credentials: "include" }); folderHtml = r.ok ? (await r.text()).slice(0, 3000000) : ""; } catch (e) { folderHtml = ""; } }
+        const rowOf = {}; folderHtml.split(/(?=[?&;]db=\d)/).slice(1).forEach(part => { const m = part.match(/^[?&;]db=(\d+)/); if (m && !rowOf[m[1]]) rowOf[m[1]] = htmlText(part.slice(0, 6000), { line: true }); });
+        let got = 0;
+        left.forEach(f => {
+          const row = rowOf[String(f.Id)], den = outOfF(f); if (!row) return;
+          // the row's own "8 / 10": with a known out-of only that denominator, else only after a label
+          const plain = den ? [...row.matchAll(/(?<![\d/.])(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)(?![\d/])/g)].map(m => ({ num: num(m[1]), den: num(m[2]) })).find(x => x.den === den) : null;
+          const sc = plain || labelled(row, den); if (sc) { mk("folder", f.Id, sc, "assignmentsPage"); got++; }
+        });
+        markNote.push(`Assignments page ${got} of ${left.length}`);
+      }
+    }
     if (qrecent.length) {
       const sat = qrecent.filter(x => tried[x.QuizId] === true).length, not = qrecent.filter(x => tried[x.QuizId] === false).length;
       c.quizNote = `quizzes: ${sat} sat, ${not} not, ${qrecent.length - sat - not} unknown` + (qRefused ? `; attempts API refused ${qRefused}` : "") + (qPageStatus ? `; Quizzes page ${qPageStatus}, ${qLinks} quiz links, ${qPage} sat from it` : "") + (qLeft.length ? `; ${qOwn} of ${qLeft.length} sat from their own pages` : "");
@@ -348,7 +386,7 @@ async function bsHarvest(o) {
     c.quizzes = quizzes.filter(x => x && x.IsActive !== false).slice(0, 120).map(x => ({ id: String(x.QuizId), name: String(x.Name || ""), due: dt(x.DueDate), start: dt(x.StartDate), end: dt(x.EndDate),
       gid: x.GradeItemId != null ? String(x.GradeItemId) : "", text: txt(x.Description || x.Instructions, 1500), limit: x.TimeLimitValue || (x.TimeLimit && x.TimeLimit.TimeLimitValue) || null,
       done: tried[x.QuizId] === true || (x.GradeItemId != null && graded.has(String(x.GradeItemId))) ? true : tried[x.QuizId] === undefined ? null : false,
-      score: qScore[x.QuizId] || null }));
+      }));
     c.quizzes.forEach(x => { x.st = stOf(x.due, x.end, x.done, null); });
     c.gradeN = listOf(grades).length;
     c.grades = listOf(grades).slice(0, 200).map(g => ({ gid: String(g.GradeObjectIdentifier || ""), name: String(g.GradeObjectName || ""), type: Number(g.GradeObjectType) || 0,
@@ -386,6 +424,15 @@ async function bsHarvest(o) {
       c.discussions.push({ id: String(t.TopicId), name: String(t.Name || ""), due, start: dt(t.StartDate) || dt(t.UnlockStartDate), text: txt(t.Description, 1500), gid, outOf: t.ScoreOutOf != null ? Number(t.ScoreOutOf) : null, posted,
         st: stOf(due, null, posted, null) });
     }));
+    // 4. Discussions: the topic's own page, for a posted topic with a mark out of its known total (only "x / that total" after a label counts)
+    if (markOn("discussionPage")) {
+      const left = c.discussions.filter(d => d.posted === true && d.outOf > 0 && !hasMark(d.gid || null)).slice(0, 10);
+      let got = 0;
+      await inBatches(left, async d => { const sc = labelled(await page(`/d2l/le/${c.ou}/discussions/topics/${d.id}/View`), d.outOf); if (sc) { mk("topic", d.id, sc, "discussionPage"); got++; } });
+      if (left.length) markNote.push(`discussion pages ${got} of ${left.length}`);
+    }
+    c.marks = marks.slice(0, 120);
+    if (markNote.length) c.markNote = "marks not in Grades, from: " + markNote.join(", ");
     const STAFF = /instructor|teacher|professor|lecturer|faculty|\bta\b|teaching assistant|tutor|course leader/i;
     c.staff = listOf(roster).filter(u => u && STAFF.test(String(u.ClasslistRoleDisplayName || u.RoleName || ""))).slice(0, 8)
       .map(u => ({ name: String(u.DisplayName || [u.FirstName, u.LastName].filter(Boolean).join(" ")).slice(0, 120), email: String(u.Email || "").slice(0, 160), role: /\bta\b|assistant|tutor/i.test(String(u.ClasslistRoleDisplayName || "")) ? "TA" : "Instructor" }));
@@ -653,7 +700,7 @@ async function bbHarvest(o) {
     const counts = col => !col.externalGrade && !(col.grading && col.grading.type === "Calculated") && col.includeInCalculations !== false && col.score && Number(col.score.possible) > 0;
     const tpts = cols.reduce((s, col) => s + (counts(col) ? Number(col.score.possible) : 0), 0);
     const wOf = col => counts(col) && tpts > 0 ? Math.round(Number(col.score.possible) / tpts * 10000) / 100 : null;
-    const tried = {}, atWhen = {}, atFb = {};
+    const tried = {}, atWhen = {}, atFb = {}, atScore = {};
     const open = cols.filter(col => { const d = Date.parse((col.grading && col.grading.due) || ""), my = g[String(col.id)]; if (col.externalGrade || (col.grading && col.grading.type === "Calculated")) return false;
       if (isNaN(d)) return !!(col.grading && col.grading.type === "Attempts") && !(my && my.score != null);
       return d > now - (q.pastDays || 60) * 864e5 && d < now + (q.aheadDays || 240) * 864e5 && (!(my && my.score != null) || d > now - 21 * 864e5); }).slice(0, 40);
@@ -666,6 +713,9 @@ async function bbHarvest(o) {
       if (when.length) atWhen[String(col.id)] = when[0];
       const fbA = ok.map(a => txt(a.feedback, 3000)).filter(Boolean).pop();
       if (fbA) atFb[String(col.id)] = fbA;
+      // a graded attempt's score, for when the gradebook cell is still empty (not posted to the Grades page yet)
+      const sc = ok.filter(a => a.score != null && a.score !== "" && isFinite(Number(a.score)) && String(a.status) !== "NeedsGrading").map(a => Number(a.score));
+      if (sc.length) atScore[String(col.id)] = Math.max(...sc);
     }));
     const rubById = {}; rubrics.forEach(r => { if (r && r.id) rubById[String(r.id)] = r; });
     const rubCol = {}; rubAssoc.forEach(a => { const col = a && (a.gradebookColumnId || a.columnId || (a.associatedEntity && a.associatedEntity.id)); const r = a && (a.rubric || rubById[String(a.rubricId || "")]); if (col && r) rubCol[String(col)] = r; });
@@ -697,7 +747,8 @@ async function bbHarvest(o) {
     c.syl = syl ? [syl.slice(0, 8000), syl.slice(8000, 16000), syl.slice(16000, 24000)].filter(Boolean) : [];
     c.sylUrl = sylUrl;
     const courseUrl = `${location.origin}/ultra/courses/${id}/outline`;
-    c.items = []; c.grades = []; c.final = null;
+    c.items = []; c.grades = []; c.final = null; c.marks = [];
+    const markOn = k => !(q.marks && typeof q.marks === "object" && q.marks[k] === false) && q.grades !== false;
     let undatedN = 0;
     cols.forEach(col => {
       const my = g[String(col.id)] || null, due = dt(col.grading && col.grading.due), possible = col.score && Number(col.score.possible) > 0 ? Number(col.score.possible) : null;
@@ -712,6 +763,7 @@ async function bbHarvest(o) {
       const fb = fbT || score != null ? { c: fbT ? [{ by: "Instructor", mine: false, at: dt(my && (my.modified || my.lastModified)), t: fbT }] : [], ra: [], sc: score, of: possible, g: shown.slice(0, 20), at: null } : null;
       const rub = rubOf(rubCol[k]);
       if (due || undatedN++ < 60) c.items.push({ kind: /\b(test|quiz|exam|midterm)\b/i.test(col.name || "") ? "quiz" : "assignment", id: String(col.id), name: String(col.name || ""), due, start: null, end: null, text: txt(col.description), url: courseUrl, gid: String(col.id), outOf: possible, done, files: [], rx: col.grading && col.grading.type ? { gt: String(col.grading.type).slice(0, 16) } : undefined, st, fb, rub });
+      if (score == null && possible && atScore[k] != null && atScore[k] >= 0 && atScore[k] <= possible * 2 && markOn("attemptScore")) c.marks.push({ kind: "column", id: k, num: atScore[k], den: possible, from: "attemptScore", how: "" });
       if (possible && (score != null || wOf(col) != null)) c.grades.push({ gid: String(col.id), name: String(col.name || ""), num: score, den: possible, weight: wOf(col), shown, at: dt(my && (my.modified || my.lastModified)), fb });
     });
     c.news = news.slice(0, 25).map(n => ({ id: String(n.id), title: String(n.title || ""), text: txt(n.body, 3000), date: dt(n.created) || dt(n.availability && n.availability.duration && n.availability.duration.start), url: `${location.origin}/ultra/courses/${id}/announcements` }));
@@ -768,6 +820,10 @@ const P = {
 const prov = id => (Object.prototype.hasOwnProperty.call(P, id) ? P[id] : null);
 // The exact script run in the school's page for a sync
 const harvestScript = (Pv, safe) => `(() => {\n${HARVEST_PRELUDE}\nreturn (${Pv.harvest.toString()})(${JSON.stringify(safe)});\n})()`;
+
+// Which places besides the Grades page a read may take marks from (see MARK_SOURCES in src/js/95-lms.js); off only when switched off
+const MARK_KEYS = ["quizPage", "assignmentFeedback", "assignmentsPage", "discussionPage", "attemptScore"];
+function markSwitches(m) { const out = {}; MARK_KEYS.forEach(k => { out[k] = !(m && typeof m === "object" && m[k] === false); }); return out; }
 
 // What comes back from the school's page
 const KEY_OK = /^[A-Za-z][A-Za-z0-9]{0,23}$/;
@@ -860,7 +916,7 @@ async function sync(id, host, opts) {
   const o = opts && typeof opts === "object" ? opts : {};
   const idOk = x => /^[\w.-]{1,40}$/.test(x);
   const safe = { pastDays: Math.min(365, Math.max(1, Number(o.pastDays) || 60)), aheadDays: Math.min(400, Math.max(7, Number(o.aheadDays) || 240)),
-    grades: o.grades !== false, news: o.news !== false, internal: o.internal !== false,
+    grades: o.grades !== false, news: o.news !== false, internal: o.internal !== false, marks: markSwitches(o.marks),
     only: Array.isArray(o.only) ? o.only.map(String).filter(idOk).slice(0, 40) : null,
     skip: Array.isArray(o.skip) ? o.skip.map(String).filter(idOk).slice(0, 200) : [] };
   busy[id] = (async () => {
@@ -1086,4 +1142,4 @@ function register(getMain, trusted) {
 }
 
 // harvestScript, cleanHarvest
-module.exports = { WHO, BS_FILE, CV_FILE, cvMail, HARVEST_PRELUDE, register, bsHarvest, cvHarvest, bbHarvest, originOf, feedOk, connect, sync, file, feed, signOut, ping, mail, harvestScript, cleanHarvest, cleanFile, privateIp, P };
+module.exports = { MARK_KEYS, markSwitches, WHO, BS_FILE, CV_FILE, cvMail, HARVEST_PRELUDE, register, bsHarvest, cvHarvest, bbHarvest, originOf, feedOk, connect, sync, file, feed, signOut, ping, mail, harvestScript, cleanHarvest, cleanFile, privateIp, P };

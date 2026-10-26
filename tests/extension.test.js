@@ -52,6 +52,19 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); };
   ok(files("safari")["background.js"] === files("firefox")["background.js"], "Safari runs the same background as Firefox");
   ok(m.chrome.description.length <= 132, "the description fits the Chrome Web Store's 132 characters");
 
+  // The website's switches for where marks are read reach the extension's reads (relay.js stores them, background.js passes them on)
+  { const stored = [], handlers = [];
+    const win = {location: {origin: "https://studyboardapp.com"}, postMessage: () => {}, addEventListener: (k, f) => { if (k === "message") handlers.push(f); }};
+    const chrome = {runtime: {getManifest: () => ({version: "1.0.5"}), sendMessage: () => Promise.resolve()}, storage: {local: {get: async () => ({}), set: async o => { stored.push(o); }}, onChanged: {addListener: () => {}}}};
+    const rctx = vm.createContext({window: win, location: win.location, chrome, Promise, Object});
+    vm.runInContext(files("chrome")["relay.js"], rctx);
+    const say = data => handlers.forEach(f => f({source: win, origin: "https://studyboardapp.com", data: Object.assign({source: "studyboard-app"}, data)}));
+    say({type: "flags", bbInternal: true, marks: {quizPage: false, assignmentsPage: true, evil: false, discussionPage: "no"}});
+    await new Promise(r => setTimeout(r, 0));
+    ok(stored.length === 1 && JSON.stringify(stored[0]) === JSON.stringify({flags: {bbInternal: true, marks: {quizPage: false}}}), "relay.js keeps only known mark switches that are off: " + JSON.stringify(stored));
+    ok(/marks: FLAGS\.marks && typeof FLAGS\.marks === "object" \? FLAGS\.marks : \{\}/.test(files("chrome")["background.js"]), "the background passes the mark switches to every read");
+    ok(/markSwitches\(o\.marks\)/.test(require("fs").readFileSync(require("path").join(__dirname, "..", "lms.js"), "utf8")), "the desktop app's reads take them too"); }
+
   const b = browser(CANVAS);
   const r = await b.send({op: "add", origin: "school.example.edu", platform: ""});
   ok(r.ok && r.id === "canvas", "the platform is found out by itself: " + JSON.stringify(r));
