@@ -459,3 +459,4 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;overflow:au
 .grp-card .grp-main > .grp-new{position:absolute;top:10px;right:10px;z-index:3;display:grid;place-items:center;min-width:22px;height:22px;padding:0 6px;box-sizing:border-box;border-radius:11px;background:var(--late);color:#fff;font:800 .72rem/1 var(--display);box-shadow:0 0 0 2px var(--surface),0 2px 6px rgba(0,0,0,.2)}
 /* Last week's champion: a small golden badge */
 .grp-badges .grp-badge.champ{background:color-mix(in srgb,#F5B82E 34%,var(--surface));color:#6B4A00;font-size:.64rem;line-height:1.5;padding:0 7px;letter-spacing:.01em}
+.grp-crown{display:inline-block;vertical-align:-2px;margin-left:5px;flex:none}
