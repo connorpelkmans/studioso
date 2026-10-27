@@ -54,35 +54,47 @@
       {
         id: "mexico-tito", name: "Tito", kind: "Axolotl", pose: "sit", sleepy: true, wearColor: "#2AAEB0",
         bio: "A smiley axolotl who regrows its motivation overnight.",
-        idle: ["finWiggle", "headTilt", "topBob"], cheer: "spin",
-        neck: [60, 76],
-        parts: {
-          tail: {svg: `${LG("mexico-tito-t", [[0, "#FFC2D4"], [1, "#F58AAE"]], 0, 0, 1, 0)}
-            <path d="M78 98C94 100 108 92 113 78C115 72 110 70 106 74C100 82 92 86 80 86Z" fill="url(#mexico-tito-t)" ${O}/>
-            <path d="M84 90Q98 88 108 77" fill="none" stroke="#FFE4EC" stroke-width="2" stroke-linecap="round" opacity=".85"/>`, pivot: [80, 92]},
-          feet: `<ellipse cx="44" cy="108" rx="9" ry="4.4" fill="#F7A6C0" ${O}/><ellipse cx="76" cy="108" rx="9" ry="4.4" fill="#F7A6C0" ${O}/>
-            <path d="M39 107v2.4M44 106.6v2.8M49 107v2.4M71 107v2.4M76 106.6v2.8M81 107v2.4" stroke="#D86A8E" stroke-width="1.1" stroke-linecap="round"/>`,
-          body: `${RG("mexico-tito-b", [[0, "#FFE2EA"], [0.6, "#FFC2D4"], [1, "#F59AB8"]], 0.45, 0.35, 0.8)}
-            <path d="M60 72C80 72 86 88 86 97C86 106 77 110.5 60 110.5C43 110.5 34 106 34 97C34 88 40 72 60 72Z" fill="url(#mexico-tito-b)" ${O}/>
-            <path d="M60 80C69 80 73 89 72 97C71 103 49 103 48 97C47 89 51 80 60 80Z" fill="#FFF0F4"/>
-            ${[[44, 86], [76, 86], [50, 104], [70, 104]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.8" fill="#E87AA0" opacity=".6"/>`).join("")}
-            <rect x="46" y="76" width="28" height="5" rx="2.5" fill="#2AAEB0" ${OW(1.6)}/>`,
-          armL: {svg: `<path d="M40 86C32 86 26 92 28 97C30 100 36 98 38 94" fill="#F7A6C0" ${O}/><path d="M27 97l-3 1M28 100l-2 2.6" stroke="#2B2233" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [41, 86]},
-          armR: {svg: `<path d="M80 86C88 86 94 92 92 97C90 100 84 98 82 94" fill="#F7A6C0" ${O}/><path d="M93 97l3 1M92 100l2 2.6" stroke="#2B2233" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [79, 86]},
-          head: `${RG("mexico-tito-h", [[0, "#FFE6EE"], [0.65, "#FFC6D6"], [1, "#F5A0BC"]], 0.45, 0.35, 0.78)}${LG("mexico-tito-gl", [[0, "#F0507E"], [1, "#C8306A"]], 0, 0, 1, 0)}${LG("mexico-tito-gr", [[0, "#C8306A"], [1, "#F0507E"]], 0, 0, 1, 0)}
-            ${[[38, 50, -150], [36, 60, -178], [38, 70, 152]].map(([x, y, a]) => `<g transform="rotate(${a} ${x} ${y})"><path d="M${x} ${y - 3}C${x + 10} ${y - 6} ${x + 20} ${y - 4} ${x + 24} ${y}C${x + 20} ${y + 4} ${x + 10} ${y + 6} ${x} ${y + 3}Z" fill="url(#mexico-tito-gl)" ${O2}/>${[6, 11, 16, 20].map(d => `<path d="M${x + d} ${y - 3.4}l1.6 -3.6M${x + d} ${y + 3.4}l1.6 3.6" stroke="#C8306A" stroke-width="2" stroke-linecap="round"/>`).join("")}</g>`).join("")}
-            ${[[82, 50, -30], [84, 60, -2], [82, 70, 28]].map(([x, y, a]) => `<g transform="rotate(${a} ${x} ${y})"><path d="M${x} ${y - 3}C${x + 10} ${y - 6} ${x + 20} ${y - 4} ${x + 24} ${y}C${x + 20} ${y + 4} ${x + 10} ${y + 6} ${x} ${y + 3}Z" fill="url(#mexico-tito-gr)" ${O2}/>${[6, 11, 16, 20].map(d => `<path d="M${x + d} ${y - 3.4}l1.6 -3.6M${x + d} ${y + 3.4}l1.6 3.6" stroke="#C8306A" stroke-width="2" stroke-linecap="round"/>`).join("")}</g>`).join("")}
-            <path d="M60 38C82 38 89 50 89 60C89 72 78 79 60 79C42 79 31 72 31 60C31 50 38 38 60 38Z" fill="url(#mexico-tito-h)" ${O}/>
-            <path d="M40 50Q44 43 52 41" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
-            <circle cx="70" cy="46" r="1.6" fill="#E87AA0" opacity=".7"/><circle cx="76" cy="50" r="1.2" fill="#E87AA0" opacity=".7"/>`,
-          top: {svg: `<path d="M56 40C52 30 54 24 57 23C60 27 60 34 59 40Z M64 40C68 30 66 24 63 23C60 27 60 34 61 40Z" fill="#F0507E" ${O2}/>
-            <path d="M55 31l-3-1M65 31l3-1M56 27l-2.4-2M64 27l2.4-2" stroke="#C8306A" stroke-width="1.8" stroke-linecap="round"/>
-            <circle cx="72" cy="22" r="3.4" fill="#BFF0F2" ${OW(1.4)}/><circle cx="71" cy="21" r="1" fill="#fff"/><circle cx="78" cy="15" r="2.2" fill="#BFF0F2" ${OW(1.2)}/>`, pivot: [60, 40]}
+        idle: ["finWiggle", "earTwitch", "headTilt", "topBob"], cheer: "spin",
+        neck: [60, 79],
+        parts: (() => {
+          // a soft, frilly gill frond: a long rounded lobe with a scalloped edge, base at (bx, by), pointing at angle a
+          const frond = (bx, by, a, L, w, n, fill) => {
+            const cx = L / 2 - 3, rx = L / 2 + 3, d0 = 0.5, pts = [];
+            for (let i = 0; i <= n; i++) { const t = Math.PI + d0 + i * (2 * Math.PI - 2 * d0) / n; pts.push([f1(cx + rx * Math.cos(t)), f1(w * Math.sin(t))]); }
+            let d = `M${pts[0][0]} ${pts[0][1]}`;
+            for (let i = 1; i < pts.length; i++) { const [x0, y0] = pts[i - 1], [x1, y1] = pts[i], br = f1(Math.hypot(x1 - x0, y1 - y0) / 2 * 1.3); d += `A${br} ${br} 0 0 1 ${x1} ${y1}`; }
+            return `<g transform="translate(${bx} ${by}) rotate(${a})"><path d="${d}Z" fill="${fill}" ${O}/><path d="M${f1(L * 0.18)} 0H${f1(L * 0.72)}" stroke="#FFC4D6" stroke-width="2.2" stroke-linecap="round"/></g>`;
+          };
+          const gills = (s, id) => `${LG(id, [[0, "#E2507F"], [1, "#FF8DB1"]], 0, 0, 1, 0)}${[[33, 66, 158], [29.5, 54, 182], [33, 42, 208]].map(([x, y, a]) => frond(s > 0 ? x : 120 - x, y, s > 0 ? a : 180 - a, 22, 6.2, 7, `url(#${id})`)).join("")}`;
+          return {
+            tail: {svg: `${LG("mexico-tito-t", [[0, "#F7A6C0"], [1, "#FFC8D8"]], 0, 0, 1, 0)}
+              <path d="M72 92C83 85.5 95 86.5 104.5 77.5C109 73 116.5 75 115.5 81.5C114.5 87 110.5 91.5 106 93L80 99Z" fill="#FFE3EC" ${O}/>
+              <path d="M70 91Q91 95 105.5 81Q109.5 77.5 111 81.5Q111.5 84 109 87Q96 103.5 70 103Z" fill="url(#mexico-tito-t)" ${O2}/>`, pivot: [78, 96]},
+            feet: `<ellipse cx="45" cy="107.5" rx="8" ry="4.6" fill="#F7A3BE" ${O}/><ellipse cx="75" cy="107.5" rx="8" ry="4.6" fill="#F7A3BE" ${O}/>`,
+            body: `${RG("mexico-tito-b", [[0, "#FFE8EF"], [0.6, "#FFC8D8"], [1, "#F7A3BE"]], 0.45, 0.3, 0.8)}
+              <path d="M60 66C75 66 83 82 83 95C83 105 74 110.5 60 110.5C46 110.5 37 105 37 95C37 82 45 66 60 66Z" fill="url(#mexico-tito-b)" ${O}/>
+              <ellipse cx="60" cy="96" rx="13" ry="10" fill="#FFF0F5"/>`,
+            armL: {svg: `<ellipse cx="38" cy="91" rx="4.8" ry="7" transform="rotate(30 38 91)" fill="#F9B0C8" ${O}/>`, pivot: [43, 87]},
+            armR: {svg: `<ellipse cx="82" cy="91" rx="4.8" ry="7" transform="rotate(-30 82 91)" fill="#F9B0C8" ${O}/>`, pivot: [77, 87]},
+            earL: {svg: gills(1, "mexico-tito-gl"), pivot: [30, 54]},
+            earR: {svg: gills(-1, "mexico-tito-gr"), pivot: [90, 54]},
+            head: `${RG("mexico-tito-h", [[0, "#FFEDF2"], [0.6, "#FFCBDA"], [1, "#F7A6C0"]], 0.42, 0.32, 0.8)}
+              <path d="M60 31C83 31 94 43 94 57C94 71 81 80.5 60 80.5C39 80.5 26 71 26 57C26 43 37 31 60 31Z" fill="url(#mexico-tito-h)" ${O}/>
+              <path d="M35.5 48Q38.5 40 47 36" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/><circle cx="51.5" cy="34.6" r="1.5" fill="#fff"/>`,
+            top: {svg: `<circle cx="89" cy="24" r="3.6" fill="#D6F6F8" ${OW(1.6)}/><circle cx="87.9" cy="22.9" r="1.1" fill="#fff"/>
+              <circle cx="95.5" cy="15" r="2.4" fill="#D6F6F8" ${OW(1.4)}/><circle cx="94.8" cy="14.3" r=".7" fill="#fff"/>`, pivot: [80, 32]}
+          };
+        })(),
+        eyes: {lx: 45, rx: 75, y: 55, r: 4.6, style: "sparkle", color: "#2A2026"},
+        mouths: {
+          neutral: `<path d="M52 63.5Q60 69 68 63.5" fill="none" stroke="#2A2026" stroke-width="2.6" stroke-linecap="round"/>`,
+          smile: `<path d="M50.5 62.8Q60 71.5 69.5 62.8" fill="none" stroke="#2A2026" stroke-width="2.8" stroke-linecap="round"/>`,
+          open: `<path d="M51.5 62.8Q60 64 68.5 62.8Q66.5 72 60 72Q53.5 72 51.5 62.8Z" fill="#2A2026" stroke="#2A2026" stroke-width="1.6" stroke-linejoin="round"/><path d="M55.5 69.4Q60 66.4 64.5 69.4Q60 72 55.5 69.4Z" fill="#FF8FA8"/>`,
+          sleepy: `<ellipse cx="60" cy="65.5" rx="2.2" ry="2.6" fill="#2A2026"/>`
         },
-        eyes: {lx: 47, rx: 73, y: 59, r: 3.8, style: "dot", color: "#2A2026"},
-        mouth: {x: 60, y: 67, w: 5.6, color: "#2A2026"},
-        cheeks: {lx: 40, rx: 80, y: 66, w: 4, h: 2.4, color: "#FF7A9C"},
-        anchors: {top: [60, 40, 0.85], neck: [60, 78, 1], chest: [60, 92, 0.6], back: [84, 90, 0.8], hands: [60, 100, 0.86]},
+        mouth: {x: 60, y: 64, w: 4, color: "#2A2026"},
+        cheeks: {lx: 37, rx: 83, y: 63, w: 4.6, h: 2.8, color: "#FF7A9C"},
+        anchors: {top: [60, 33, 0.95], neck: [60, 84, 1], chest: [60, 96, 0.6], back: [82, 88, 0.8], hands: [60, 99, 0.86]},
         lines: {
           tap: ["Hi! I'm smiling. I'm always smiling!", "Axolotls regrow anything. Even motivation!", "Mistakes? I'll just grow a new start!", "Swimming slowly, still getting there!", "My gills are wiggling with excitement!", "From the canals of Xochimilco, with love!", "You keep going, I'll keep cheering!", "Little paws, big dreams. Let's study!"],
           pet: ["Hehe! My gills went all fluffy!", "Aww, that's a very happy wiggle!"],
