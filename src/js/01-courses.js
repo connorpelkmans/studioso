@@ -1010,10 +1010,11 @@ function availDays(from, to){
   AV_DAYS = {k, v: out}; return out;
 }
 // The study day as the planner sees it: its start and end (an end after midnight is past 1440), now in it, and whether it's over.
-// Just after midnight, before a late end, it's still the evening's day. Without your own times: 7 am to 1 am.
+// Just after midnight, before a late end, it's still the evening's day. Always the times Availability > Study Time shows
+// (7:00 AM to 11:00 PM until you change them), so what the planner does matches what you see there.
 function studyDay(now){
   now = now || new Date();
-  const c = availState().cfg, set = !!c.set, start = set ? c.dayStart : 420, end = set ? c.dayEnd : 1500;
+  const c = availState().cfg, set = !!c.set, start = c.dayStart, end = c.dayEnd;
   const m = now.getHours() * 60 + now.getMinutes(), tail = end > 1440 && m < end - 1440, rel = tail ? m + 1440 : m;
   const past = rel >= end || (!tail && rel < start);
   return {start, end, now: rel, tail, night: !tail && rel < start, past, left: past ? 0 : end - Math.max(rel, start), date: tail ? addDays(todayISO(), -1) : todayISO(), set};
