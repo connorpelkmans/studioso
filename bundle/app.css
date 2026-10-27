@@ -3572,6 +3572,15 @@ h2.sec .pill{align-self:center}
 .gr-preset{display:inline-flex;align-items:center;gap:6px;font-size:.85rem;font-weight:600}
 .gr-preset select{min-height:40px;width:auto}
 .gr-goal-ask .link-btn{min-height:40px;padding:0 8px}
+
+/* New marks from a sync */
+nav.tabs [data-tab="courses"]{position:relative}
+nav.tabs [data-tab="courses"] > .nm-dot{position:absolute;top:5px;right:12px;min-width:18px;height:18px;border-radius:9px;background:var(--late);color:#fff;font:700 .66rem/18px var(--display);text-align:center;padding:0 4px;box-sizing:border-box;pointer-events:none}
+@media (max-width:820px){nav.tabs [data-tab="courses"] > .nm-dot{right:50%;margin-right:-22px;top:2px}}
+.nm-pip{display:inline-grid;place-items:center;min-width:18px;height:18px;margin-left:6px;padding:0 5px;box-sizing:border-box;border-radius:9px;background:var(--late);color:#fff;font:700 .66rem/1 var(--display);vertical-align:middle}
+.course-card,.gp-main{position:relative}
+.nm-card{position:absolute;top:10px;right:10px;z-index:3;display:grid;place-items:center;min-width:22px;height:22px;padding:0 6px;box-sizing:border-box;border-radius:11px;background:var(--late);color:#fff;font:800 .72rem/1 var(--display);box-shadow:0 1px 3px rgba(0,0,0,.25);pointer-events:none}
+.gr-newmark{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--late);margin-right:6px;vertical-align:middle;box-shadow:0 0 0 2px var(--surface)}
 /* ===== module: 92-estimates.css ===== */
 /* Estimate Times */
 .est-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}

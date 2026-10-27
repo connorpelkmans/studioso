@@ -29690,7 +29690,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
       const fbk = window.SBLMS_HASFB && SBLMS_HASFB(t);
       const open = !!(fbk && ui.grOpen && ui.grOpen[t.id]), L = fbk ? FIELDS_OF(t) : null, what = L && (L.feedback || L.rubric) ? "Feedback" : "Class Results";
       const nw = p != null && !hasWeight(t);
-      return `<li class="${fbk ? "gr-has-drop" : ""}${nw ? " gr-nw" : ""}"><button class="gr-row-main" data-act="${fbk ? "lms-fb" : "edit-task"}" data-id="${esc(t.id)}"${fbk ? ` aria-expanded="${open}"` : ""}><span class="gr-row-t">${esc(t.title)}${nw ? ` <span class="pill gr-nw-pill" title="Shown, but not counted in the course grade until it has a weight">No weight yet</span>` : ""}${fbk ? ` <span class="pill lms-fbpill">${what}<span class="gr-chev" aria-hidden="true">▾</span></span>` : ""}</span><span class="mini">${esc(t.type)}, worth ${fmtW(Number(t.weight))}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}${swingId === t.id ? ` <span class="pill gr-swing">Biggest swing</span>` : ""}</span></button>
+      return `<li class="${fbk ? "gr-has-drop" : ""}${nw ? " gr-nw" : ""}"><button class="gr-row-main" data-act="${fbk ? "lms-fb" : "edit-task"}" data-id="${esc(t.id)}"${fbk ? ` aria-expanded="${open}"` : ""}><span class="gr-row-t">${t.markNew && t.mark ? `<span class="gr-newmark" title="New mark from your last sync" aria-label="New mark"></span>` : ""}${esc(t.title)}${nw ? ` <span class="pill gr-nw-pill" title="Shown, but not counted in the course grade until it has a weight">No weight yet</span>` : ""}${fbk ? ` <span class="pill lms-fbpill">${what}<span class="gr-chev" aria-hidden="true">▾</span></span>` : ""}</span><span class="mini">${esc(t.type)}, ${hasWeight(t) ? `worth ${fmtW(Number(t.weight))}` : "not counted yet"}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}${swingId === t.id ? ` <span class="pill gr-swing">Biggest swing</span>` : ""}</span></button>
         ${p != null ? `<button class="gr-mk" data-act="g-mark" data-id="${esc(t.id)}" aria-label="Edit mark for ${esc(t.title)}"><b>${fmtP(p)}</b>${Number(t.mark.outOf) !== 100 ? `<span class="mini">${esc(fmtMark(t.mark))}</span>` : ""}</button>`
           : `<button class="btn small" data-act="g-mark" data-id="${esc(t.id)}">${t.status === "done" ? "Add Mark" : "Mark"}</button>`}${fbk ? `<div class="gr-drop" data-drop="${esc(t.id)}"${open ? "" : " hidden"}>${open && window.SBLMS_FBBODY ? SBLMS_FBBODY(t) : ""}</div>` : ""}</li>`;
     }).join("");
@@ -29707,6 +29707,35 @@ ${kindPreview("study")}${kindPreview("project")}`;
       : np <= 0 ? `Pass mark secured. ${g.goal != null ? (n => n <= 0 ? "Goal secured too." : n <= 100 ? `${fmtP(n)} on the rest for your goal.` : "Goal out of reach now.")(gr.need(g.goal)) : ""}`
       : `Needs ${fmtP(np)} on the remaining ${fmtW(gr.remaining)} to pass${g.goal != null ? (n => n <= 0 ? ", goal secured" : n <= 100 ? `, ${fmtP(n)} for your goal` : ", goal out of reach")(gr.need(g.goal)) : ""}.`;
   }
+  /* New marks from a sync: a red count on Courses, on the Grades switch, on each course with one (its card, its row on Grades,
+     its own Grades tab), and a red dot on the mark itself. Seen once you've had that course's Grades tab (or its marks on Grades) open and moved on. */
+  const newMarks = cid => tasksArr().filter(t => t && t.markNew && t.mark && t.mark.got != null && t.mark.got !== "" && (!cid || t.courseId === cid));
+  const pipOn = (el, n, cls, label) => {
+    if (!el) return; let d = el.querySelector(":scope > ." + cls);
+    if (!n) { if (d) d.remove(); return; }
+    if (!d) { d = document.createElement("span"); d.className = cls; d.setAttribute("aria-hidden", "true"); el.appendChild(d); }
+    d.textContent = n > 9 ? "9+" : String(n);
+    if (label) el.setAttribute("aria-label", label);
+  };
+  let markSeenPending = new Set();
+  function newMarkBadges(){
+    const all = newMarks(), byC = {}; all.forEach(t => { byC[t.courseId] = (byC[t.courseId] || 0) + 1; });
+    // what's on screen now counts as seen when you move on
+    const onCourse = ui.tab === "courses" && ui.courseId && ui.courseTab === "grades" && ui.courseTabFor === ui.courseId ? ui.courseId : null;
+    const onPage = ui.tab === "courses" && !ui.courseId && ui.courseTab === "grades" ? Object.keys(ui.gpOpen || {}).filter(k => ui.gpOpen[k]) : [];
+    const showing = new Set(all.filter(t => t.courseId === onCourse || onPage.includes(t.courseId)).map(t => t.id));
+    const gone = [...markSeenPending].filter(id => !showing.has(id) && state.tasks[id] && state.tasks[id].markNew);
+    markSeenPending = showing;
+    if (gone.length) { applyChanges(gone.map(id => { const n = clone(state.tasks[id]); delete n.markNew; return {kind: "task", id, after: n}; }), ""); return; }
+    const tab = document.querySelector('nav.tabs [data-tab="courses"]');
+    if (tab) { tab.classList.add("has-newmark"); let d = tab.querySelector(":scope > .nm-dot"); if (!all.length) { if (d) d.remove(); } else { if (!d) { d = document.createElement("span"); d.className = "nm-dot"; d.setAttribute("aria-hidden", "true"); tab.appendChild(d); } d.textContent = all.length > 9 ? "9+" : String(all.length); } }
+    pipOn(document.querySelector('.cf-tabs [data-act="cf-view"][data-id="grades"]'), all.length, "nm-pip");
+    document.querySelectorAll('.course-card[data-act="open-course"]').forEach(b => pipOn(b, byC[b.dataset.id] || 0, "nm-card"));
+    document.querySelectorAll('.gp-main[data-act="g-open-course"]').forEach(b => pipOn(b, byC[b.dataset.id] || 0, "nm-card"));
+    if (ui.courseId) pipOn(document.querySelector('[data-act="course-tab"][data-id="grades"]'), byC[ui.courseId] || 0, "nm-pip");
+  }
+  hook("render", () => { try { newMarkBadges(); } catch (e) { console.warn("new marks", e); } });
+  window.SBGRADES_NEW = {list: newMarks, badges: newMarkBadges};
   window.SBGRADES = {lines: () => grades().filter(gr => gr.ts.length).map(gr => `${courseLabel(gr.c)}: ${gr.current != null ? "current " + fmtP(gr.current) + (letterOf(gr.current, gr.g.scale) ? " (" + letterOf(gr.current, gr.g.scale) + ")" : "") + " on " + fmtW(gr.wMarked) + " marked" : "no marks yet"}; pass mark ${fmtP(gr.g.pass)}${gr.g.goal != null ? ", goal " + fmtP(gr.g.goal) : ""}. ${gradeLine(gr)}`)};
   // For the course cards and a course's header
   window.SBGRADES.schoolPass = list => {
@@ -31782,7 +31811,7 @@ function cleanFile(r) {
       }
       const from = g.from || "grades";
       if (g.got != null && g.outOf && (!n.mark || n.mark.src === F) && !(n.mark && n.mark.got === g.got && n.mark.outOf === g.outOf && (n.mark.from || "grades") === from)) {
-        n.mark = Object.assign({got: g.got, outOf: g.outOf, src: F}, from !== "grades" ? {from} : {}); changed = true; if (!t.mark || t.mark.got !== g.got) rep.graded.push({t: n, g}); }
+        n.mark = Object.assign({got: g.got, outOf: g.outOf, src: F}, from !== "grades" ? {from} : {}); changed = true; if (!t.mark || t.mark.got !== g.got) { rep.graded.push({t: n, g}); if (c.last) n.markNew = Date.now(); } }
       const lastW = n[F] && n[F].last ? n[F].last.weight : undefined;
       if (g.weight != null && (n.weight == null || n.weight === "" || (lastW !== undefined && Number(n.weight) === Number(lastW))) && Number(n.weight) !== g.weight) { n.weight = g.weight; changed = true; }
       if (n[F]) { n[F] = Object.assign({}, n[F], {gid: n[F].gid || g.gid, last: Object.assign({}, n[F].last || {}, {weight: g.weight})}); }

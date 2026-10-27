@@ -293,6 +293,35 @@ const bsTask = (id, title, cid, ou, extra) => Object.assign({id, created: 1, tit
       ok(fp.keep.some(([id, why]) => id === "m1" && /mark/.test(why)) && fp.go.includes("m2"), "Start Fresh keeps the marked midterm and says why, and still clears an untouched one: " + JSON.stringify(fp));
       await page.context().close(); }
 
+    // 15. A new mark from a sync: red counts on Courses, the Grades switch, the course, its Grades tab, and a dot on the mark; seen once looked at
+    { const page = await fresh([]);
+      await sync(page, H()); await closeDlg(page);
+      ok(!(await page.evaluate(() => window.SBGRADES_NEW.list().length)), "the first sync's marks aren't flagged as new (no flood when you connect)");
+      await page.evaluate(h => { h.courses[1].quizzes.push({id: "9", name: "Perfusion", due: new Date(Date.now() - 864e5).toISOString(), start: null, end: null, done: true, gid: ""}); h.courses[1].marks.push({kind: "quiz", id: "9", num: 4, den: 4, from: "quizPage"});
+        const L = SBLMS.brightspace, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true); }, H()); await closeDlg(page);
+      const nw = await page.evaluate(() => window.SBGRADES_NEW.list().map(t => t.title));
+      ok(JSON.stringify(nw) === JSON.stringify(["Perfusion"]), "the next sync's new mark is flagged: " + JSON.stringify(nw));
+      await page.waitForTimeout(300);
+      const navDot = await page.evaluate(() => (document.querySelector('nav.tabs [data-tab="courses"] > .nm-dot') || {}).textContent || "");
+      ok(navDot === "1", "the Courses tab has a red 1: " + navDot);
+      await page.click('nav.tabs [data-tab="courses"]'); await page.waitForTimeout(250);
+      await page.evaluate(() => { const b = document.querySelector('[data-act="cf-view"][data-id="courses"]'); if (b) b.click(); }); await page.waitForTimeout(250);
+      const grSw = await page.evaluate(() => (document.querySelector('.cf-tabs [data-id="grades"] > .nm-pip') || {}).textContent || "");
+      const card = await page.evaluate(() => (document.querySelector('.course-card[data-id="c10"] > .nm-card') || {}).textContent || "");
+      const other = await page.evaluate(() => !!document.querySelector('.course-card[data-id="c20"] > .nm-card'));
+      ok(grSw === "1" && card === "1" && !other, "the Grades switch and BSNC 1020's card have a red 1, BSNC 1030's none: " + JSON.stringify({grSw, card, other}));
+      await page.click('.cf-tabs [data-id="grades"]'); await page.waitForTimeout(250);
+      ok(await page.evaluate(() => ((document.querySelector('.gp-main[data-id="c10"] > .nm-card') || {}).textContent || "") === "1"), "on Grades, BSNC 1020's row has a red 1");
+      await page.click('.gp-main[data-id="c10"]'); await page.waitForTimeout(300);
+      const tabPip = await page.evaluate(() => (document.querySelector('[data-act="course-tab"][data-id="grades"] > .nm-pip') || {}).textContent || "");
+      const rowDot = await page.evaluate(() => [...document.querySelectorAll(".gr-work li")].filter(li => li.querySelector(".gr-newmark")).map(li => li.textContent.replace(/\s+/g, " ").trim().slice(0, 40)));
+      ok(tabPip === "1" && rowDot.length === 1 && /Perfusion/.test(rowDot[0]), "the course's Grades tab has a red 1 and Perfusion's row a red dot: " + JSON.stringify({tabPip, rowDot}));
+      await page.click('[data-act="course-tab"][data-id="info"]'); await page.waitForTimeout(400);
+      const after = await page.evaluate(() => ({n: window.SBGRADES_NEW.list().length, nav: !!document.querySelector('nav.tabs [data-tab="courses"] > .nm-dot')}));
+      ok(after.n === 0 && !after.nav, "seen once you leave the Grades tab: no more red counts: " + JSON.stringify(after));
+      ok(!page.errs.length, "no page errors: " + page.errs.join(" | "));
+      await page.context().close(); }
+
     // 7. Same Exam? never pairs two courses' midterms on the same day
     { const page = await fresh([bsTask("e1", "BSNC 1030 Midterm Exam", "c20", "20"), Object.assign(bsTask("e2", "BSNC 1020 Midterm Exam", "c10", "10"), {bs: undefined})]);
       await page.evaluate(() => SBLMS_DUPES(false)); await page.waitForTimeout(500);
