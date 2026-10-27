@@ -130,9 +130,9 @@ function viewCourses(){
     const gn = window.SBGRADES && SBGRADES.now(c), pill = courseStatusPill(open, today), when = courseTimesText(c), pct = ts.length ? (doneN / ts.length * 100).toFixed(0) : 0;
     const mini = (ts.length ? `<span class="c2-mini"><i><b style="width:${pct}%"></b></i><span aria-hidden="true">${doneN}/${ts.length}</span><span class="sr">${doneN} of ${ts.length} done</span></span>` : "")
       + (nFiles ? `<span class="c2-mini c2-files"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5l-7.8 7.8a5 5 0 0 1-7.1-7.1l8.2-8.2a3.4 3.4 0 0 1 4.8 4.8l-8.2 8.2a1.7 1.7 0 0 1-2.4-2.4l7.5-7.5"/></svg><span aria-hidden="true">${nFiles}</span><span class="sr">${nFiles} file${nFiles === 1 ? "" : "s"}</span></span>` : "");
-    return `<div class="course-wrap" data-sort-id="${esc(c.id)}"><button class="course-card c2-card" style="--c:${esc(c.color)}" data-code="${esc(courseLabel(c))}" data-act="open-course" data-id="${esc(c.id)}">
-      <span class="c2-band"><span class="g2-kick">${esc(courseLabel(c))}</span>${when ? `<span class="c2-sched">${esc(when)}</span>` : ""}</span>
-      <span class="c2-top"><span class="g2-ring c2-ring" aria-hidden="true">${courseRingHtml(c)}</span><h3><span class="c2-name">${esc(cardName(c.name))}</span><span class="c2-code">${esc(courseLabel(c))}</span></h3></span>
+    return `<div class="course-wrap" data-sort-id="${esc(c.id)}"><button class="course-card c2-card" style="--c:${esc(c.color)}" data-code="${esc(c.code || "")}" data-act="open-course" data-id="${esc(c.id)}">
+      <span class="c2-band"><span class="g2-kick">${esc(c.code || "")}</span>${when ? `<span class="c2-sched">${esc(when)}</span>` : ""}</span>
+      <span class="c2-top"><span class="g2-ring c2-ring" aria-hidden="true">${courseRingHtml(c)}</span><h3><span class="c2-name">${esc(cardName(c.name))}</span>${c.code ? `<span class="c2-code">${esc(c.code)}</span>` : ""}</h3></span>
       <span class="body">
         ${when ? `<span class="c2-when">${esc(when)}</span>` : ""}${courseNextHtml(open, today)}
         ${ts.length ? `<div class="prog" style="--c:${esc(c.color)}"><span class="track"><i style="width:${pct}%"></i></span>${doneN} of ${ts.length} done${nFiles ? `, ${nFiles} file${nFiles === 1 ? "" : "s"}` : ""}</div>` : ""}
@@ -476,7 +476,7 @@ function viewCourseDetail(c){
   const links = (c.links || []).filter(l => !isLms(l)).map(l => { const u = safeUrl(l.url); return u ? `<dt>${esc(l.label || "Link")}</dt><dd><a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(u.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a></dd>` : ""; }).join("");
   return `<button class="back" data-act="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>All Courses</button>
     <div class="detail-head c2-head" style="--c:${esc(c.color)}">
-      <div class="g2-band"><span class="g2-kick">${esc(kick || "Course")}</span>
+      <div class="g2-band"><span class="g2-kick">${esc(kick)}</span>
         <div class="row-actions">${(l => l ? `<button class="btn small" data-act="lms-go" data-url="${esc(l.url)}">Open in ${esc(l.name)}</button>` : "")(lmsCourseLink(c))}${inPreview() ? "" : `<button class="btn small ai-btn" data-act="ask-course" data-sx-ask="1" data-id="${esc(c.id)}">${AI_ICON} Ask About This Course</button>`}${window.SBLEC ? SBLEC.btn(c) : ""}<button class="btn small" data-act="import-syllabus" data-course="${esc(c.id)}">Import Syllabus</button><button class="btn small" data-act="edit-course" data-id="${esc(c.id)}">Edit Course</button></div></div>
       <div class="g2-low"><span class="g2-ring" aria-hidden="true">${courseRingHtml(c)}</span>
         <div class="g2-txt"><h2>${esc(c.name)}</h2><div class="g2-meta"><span>${esc(courseMetaLine(c))}</span></div></div></div>

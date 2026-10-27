@@ -6873,6 +6873,12 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
   html:not([data-plan-top="week"]) .plan .focus-head:has(> .fh-ctl.fh-only-hours) > .fh-txt{min-height:0!important;margin:0!important}
   html:not([data-plan-top="week"]) .plan .fh-ctl.fh-only-hours{margin:0!important;padding-top:0!important}
 }
+
+/* Grades: same gap under the Courses / Grades / Files switch as the Courses page */
+#view > .gp > .gp-hero:first-child{margin-top:0}
+
+/* Header buttons in the colour band stay clickable all the way down: the title block below overlaps them */
+.g2-band .row-actions,.g2-band .row-actions > *{position:relative;z-index:4}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
