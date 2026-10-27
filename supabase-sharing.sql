@@ -118,6 +118,20 @@ $$;
 revoke all on function public.agree_share_terms(text), public.my_share_terms() from public, anon;
 grant execute on function public.agree_share_terms(text), public.my_share_terms() to authenticated;
 
+-- Shared notes, quizzes and whiteboards carry no pictures, files or copied text either (sbg_payload_problem, supabase-groups.sql)
+create or replace function public.sbs_item_no_copies() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare why text;
+begin
+  if tg_op = 'UPDATE' and new.data is not distinct from old.data then return new; end if;
+  why := public.sbg_payload_problem(new.data);
+  if why is not null then raise exception '%', why; end if;
+  return new;
+end $$;
+revoke all on function public.sbs_item_no_copies() from public, anon, authenticated;
+drop trigger if exists sbs_item_no_copies on public.shared_items;
+create trigger sbs_item_no_copies before insert or update on public.shared_items for each row execute function public.sbs_item_no_copies();
+
 -- Helpers
 create or replace function public.sbs_lookup_ok() returns boolean
 language plpgsql volatile security definer set search_path = public as $$

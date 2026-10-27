@@ -117,6 +117,14 @@ function fake(opts){
       const evil = L1.items.find(i => i.id === "evil");
       ok(evil && evil.c === "ink" && await page.locator(".wb-t img").count() === 0 && (await page.locator('.wb-t[data-id="evil"]').textContent()).includes("<img"), "their text is checked like any saved text (shown as text, unknown colour made black)");
       ok(await page.evaluate(() => __DB.group_board_ops.length) === ops2.length + 1, "changes from others aren't sent back out");
+      // Pictures never travel through a group board: one sent by someone else is not taken in, and one added here stays here
+      await page.evaluate(() => { const ch = __DB.chans.find(c => /^sbwb-b1-/.test(c.name) && !c.closed); const row = {id: 901, board_id: "b1", group_id: "g1", user_id: "u2", tag: "other", ch: [{t: "i", id: "rpic", v: {k: "i", x: 10, y: 10, w: 100, h: 80, src: "data:image/png;base64,iVBORw0KGgo=", at: 3}}]};
+        __DB.group_board_ops.push(row); ch.subs.forEach(s => s.cb({new: row})); });
+      await page.waitForTimeout(200);
+      ok(!(await page.evaluate(() => SBWB.board().items.some(i => i.id === "rpic"))), "a picture sent by another member is not taken in");
+      const opsP = await page.evaluate(() => __DB.group_board_ops.length);
+      await page.evaluate(() => SBWB.set("i", "lpic", {id: "lpic", k: "i", x: 400, y: 300, w: 120, h: 90, src: "data:image/png;base64,iVBORw0KGgo=", at: 4})); await page.waitForTimeout(600);
+      ok(await page.evaluate(() => SBWB.board().items.some(i => i.id === "lpic")) && await page.evaluate(n => __DB.group_board_ops.slice(n).every(o => !o.ch.some(c => c.v && c.v.k === "i")), opsP), "a picture added to a live board stays on your copy and isn't sent");
       await page.evaluate(() => { const ch = __DB.chans.find(c => /^sbwb-b1-/.test(c.name) && !c.closed); const mine = __DB.group_board_ops.find(o => o.user_id === "u1" && o.ch.some(c => c.t === "s")); const echo = Object.assign({}, mine, {id: 950}); ch.subs.forEach(s => s.cb({new: echo})); });
       ok(true, "an echo of our own change is skipped (same tag)");
       await page.evaluate(() => SBWB.flush()); await page.waitForTimeout(100);

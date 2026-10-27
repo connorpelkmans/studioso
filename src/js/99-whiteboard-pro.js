@@ -90,13 +90,13 @@
       im.src = u;
     });
   }
-  // Pictures on a study group's board are seen by everyone in the group: confirm once per board that they're yours to share
-  const groupOk = new Set();
+  // Pictures on a study group's board stay on your copy only (they are never sent to the group): say so once per board
+  const groupSaid = new Set();
   async function add(files, at){
     if (locked()) { upsell(); return; }
     const b = W.board(); if (!b) return;
-    { const nb = state.notes[b.id], sh = window.SBGROUPS && SBGROUPS.share;
-      if (nb && nb.wb && nb.wb.g && !groupOk.has(b.id) && sh && sh.confirmRights) { const list = [...files]; sh.confirmRights(() => { groupOk.add(b.id); add(list, at); }, "pic"); return; } }
+    { const nb = state.notes[b.id];
+      if (nb && nb.wb && nb.wb.g && !groupSaid.has(b.id)) { groupSaid.add(b.id); toast("Pictures stay on your copy of this board. The group sees only what you draw and write."); } }
     files = [...files].filter(f => /^image\//.test(f.type || "") || /\.(jpe?g|png|gif|webp|heic)$/i.test(f.name || ""));
     if (!files.length) { toast("Choose a picture (JPG, PNG, GIF or WebP)."); return; }
     const room = MAX - count(); if (room <= 0) { toast(`A board can hold ${MAX} pictures.`); return; }

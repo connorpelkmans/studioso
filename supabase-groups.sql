@@ -1434,4 +1434,73 @@ begin
     end loop;
   end if;
 end $$;
+-- 1.17: Nothing that could be someone else's work is shared: no pictures, files or text copied word for word from a file,
+-- in a group, a link or a public page. Typed text, flashcards, quizzes and what students draw still share as before.
+-- sbg_payload_problem: why a shared payload can't be shared, or null when it's fine
+create or replace function public.sbg_payload_problem(p jsonb) returns text
+language sql immutable set search_path = public as $$
+  select case
+    when p is null then null
+    when jsonb_path_exists(p, 'lax $.** ? (@ like_regex "^data:[^,]*;base64," flag "i")')
+      or jsonb_path_exists(p, 'lax $.**.img') or jsonb_path_exists(p, 'lax $.**.image')
+      or jsonb_path_exists(p, 'lax $.**.src') or jsonb_path_exists(p, 'lax $.**.file')
+      or jsonb_path_exists(p, 'lax $.** ? (@.k == "i")')
+      then 'SB_NO_PICTURES: Pictures and files can''t be shared. Share what you wrote or drew yourself.'
+    when jsonb_path_exists(p, 'lax $.** ? (@.copied == true)')
+      then 'SB_COPIED: Cards copied word for word from a file can''t be shared.'
+  end
+$$;
+revoke all on function public.sbg_payload_problem(jsonb) from public, anon;
+
+create or replace function public.sbg_items_no_copies() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare why text;
+begin
+  if tg_op = 'INSERT' and new.kind = 'gfile' then
+    raise exception 'SB_NO_FILES: Files can''t be shared with a group. Share a link to a doc the group made instead.';
+  end if;
+  if tg_op = 'UPDATE' and new.data is not distinct from old.data then return new; end if;
+  why := public.sbg_payload_problem(new.data);
+  if why is not null then raise exception '%', why; end if;
+  return new;
+end $$;
+revoke all on function public.sbg_items_no_copies() from public, anon, authenticated;
+drop trigger if exists sbg_items_no_copies on public.group_items;
+create trigger sbg_items_no_copies before insert or update on public.group_items for each row execute function public.sbg_items_no_copies();
+
+-- Live boards share ink and text, never pictures
+create or replace function public.sbg_board_no_pictures() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare why text := public.sbg_payload_problem(new.ch);
+begin
+  if why is not null then raise exception '%', why; end if;
+  return new;
+end $$;
+revoke all on function public.sbg_board_no_pictures() from public, anon, authenticated;
+drop trigger if exists sbg_board_no_pictures on public.group_board_ops;
+create trigger sbg_board_no_pictures before insert on public.group_board_ops for each row execute function public.sbg_board_no_pictures();
+-- Pictures sent to group boards before this: their previews are cleared (they come back, without pictures, when someone draws)
+-- and the pictures are taken out of the board history
+update public.group_boards set preview = null, preview_dark = null
+  where id in (select board_id from public.group_board_ops where jsonb_path_exists(ch, 'lax $[*] ? (@.v.k == "i")'));
+delete from public.group_board_ops o
+  where jsonb_path_exists(o.ch, 'lax $[*] ? (@.v.k == "i")') and not jsonb_path_exists(o.ch, 'lax $[*] ? (!(@.v.k == "i"))');
+update public.group_board_ops o set ch = (select jsonb_agg(e) from jsonb_array_elements(o.ch) e where not coalesce(e -> 'v' ->> 'k' = 'i', false))
+  where jsonb_path_exists(o.ch, 'lax $[*] ? (@.v.k == "i")');
+
+-- Deck links and public decks (share_deck writes shared_decks)
+create or replace function public.sbg_deck_no_copies() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare why text;
+begin
+  if tg_op = 'UPDATE' and new.data is not distinct from old.data then return new; end if;
+  if octet_length(new.data::text) >= 3000000 then raise exception 'That deck is too big to share. Try a shorter one.'; end if;
+  why := public.sbg_payload_problem(new.data);
+  if why is not null then raise exception '%', why; end if;
+  return new;
+end $$;
+revoke all on function public.sbg_deck_no_copies() from public, anon, authenticated;
+drop trigger if exists sbg_deck_no_copies on public.shared_decks;
+create trigger sbg_deck_no_copies before insert or update on public.shared_decks for each row execute function public.sbg_deck_no_copies();
+
 notify pgrst, 'reload schema';

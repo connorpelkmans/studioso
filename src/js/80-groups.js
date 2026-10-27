@@ -494,7 +494,8 @@
   /* Deck payloads */
   function cleanQuiz(qz){
     const o = {id: str(qz.id, 60) || uid(), title: str(qz.title, 200) || "Practice Quiz", style: str(qz.style, 500),
-      questions: (qz.questions || []).map(x => { const c = clone(x); delete c.tries; delete c.miss; return c; })};
+      // text only: anything that could carry a picture or a file is left out
+      questions: (qz.questions || []).map(x => { const c = clone(x); ["tries", "miss", "img", "image", "src", "file", "copied"].forEach(k => delete c[k]); return c; })};
     if (qz.kind === "case") { o.kind = "case"; o.scenario = str(qz.scenario, 6000); }
     return o;
   }
@@ -508,14 +509,14 @@
     return bits.length ? `<p class="mini sh-pics" style="margin:0">Your ${bits.join(" and ")} stay private and are left out of the shared copy. Picture cards and copied text are never shared.</p>` : "";
   };
   // A short sheet that asks for the confirmation, for actions that share straight from a button
-  function confirmRights(then, kind){
+  function confirmRights(then){
     openSheet(`<form class="sheet">${head("Before You Share")}<div class="sheet-body">
-      <p style="margin:0">${kind === "pic" ? "Everyone in the group sees the pictures on this board. Only add pictures you took or made yourself, or have permission to share." : kind === "file" ? "Only share files you made or have permission to share. Slides, handouts, textbook pages and tests usually belong to your instructor, your school or a publisher." : "Only share what you made yourself or what AI wrote for you in its own words. Slides, handouts, textbook pages, pictures from them and your instructor's test questions belong to someone else."}</p>
-      ${rightsBox(kind)}</div>
+      <p style="margin:0">Only share what you made yourself or what AI wrote for you in its own words. Slides, handouts, textbook pages, pictures from them and your instructor's test questions belong to someone else.</p>
+      ${rightsBox()}</div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Continue</button></div></form>`, () => { if (!rightsOk()) return false; dlg.close(); then(); return false; });
   }
   // Before anything is shared: the person confirms it's their own work, not copied course material
-  const rightsBox = kind => `<label class="mi-check sh-rights"><input type="checkbox" id="shRights"> <span>${kind === "pic" ? "This is my own photo or drawing, or I have permission to share it. It isn't a picture of slides, handouts, textbook pages or tests." : kind === "file" ? "I made this file or have permission to share it. It isn't someone else's slides, handouts, textbook pages or tests." : "I made this myself, or AI rewrote it in its own words. It doesn't copy slides, textbooks or anyone else's work, or questions from my instructor's tests."}</span></label>`;
+  const rightsBox = () => `<label class="mi-check sh-rights"><input type="checkbox" id="shRights"> <span>I made this myself, or AI rewrote it in its own words. It doesn't copy slides, textbooks or anyone else's work, or questions from my instructor's tests.</span></label>`;
   const rightsOk = () => { const b = $("#shRights"); if (!b || b.checked) return true; toast("Tick the box to confirm this is your own work first."); b.focus(); return false; };
   function deckPayload(d, withQ){
     const c = courseOf(d.courseId);
@@ -898,7 +899,7 @@
   // Pro group features, in the same list with a PRO badge
   const GXFEAT = {
     study: [["weak", "Most-Missed Cards"], ["challenge", "Weekly Challenge"], ["topics", "Split Exam Topics"], ["livequiz", "Live Quiz"]],
-    project: [["split", "Split the Work"], ["rubric", "Rubric Checklist"], ["report", "Contribution Report"], ["uploads", "File Uploads"]]
+    project: [["split", "Split the Work"], ["rubric", "Rubric Checklist"], ["report", "Contribution Report"]]
   };
   const hiddenOf = g => new Set(g && Array.isArray(g.hidden_features) ? g.hidden_features.filter(x => typeof x === "string") : []);
   // Most-Missed Cards and Weekly Challenge moved to Pro
@@ -1437,17 +1438,15 @@
   const webLink = v => { const u = safeUrl(v); if (!u) return ""; try { const h = new URL(u).hostname; return /^([a-z0-9-]+\.)+[a-z][a-z0-9-]+$/i.test(h) || h === "localhost" ? u : ""; } catch(e) { return ""; } };
   function linksHtml(g){
     if (!isProj(g)) return `<div id="grpFiles"></div>`;
-    const its = kindItems(g.id, "link").map(it => ({it, url: webLink((it.data || {}).url), file: fileOf(it)})).filter(x => x.url || x.file);
+    // Files can't be shared with a group any more (they may be someone else's work); one uploaded before that is seen only by whoever added it
+    const its = kindItems(g.id, "link").map(it => ({it, url: webLink((it.data || {}).url), file: it.user_id === myId() ? fileOf(it) : null})).filter(x => x.url || x.file);
     const rows = its.map(({it, url, file}) => `<li class="grp-item"><div class="grp-item-main"><b>${esc(it.title)}</b><span class="mini">${file ? `${esc(fileSize(file.size))} file` : esc(GK.hostOf(url))} · Added by ${by(g, it)} ${esc(ago(it.created_at, 1))}</span>${(it.data || {}).note ? `<span class="mini">${esc(str(it.data.note, 200))}</span>` : ""}</div>
       <div class="grp-item-btns">${file ? `<a class="btn small primary" href="${esc(file.url)}" download="${esc(file.name)}">Download</a>` : `<a class="btn small primary" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Open</a><button class="btn small" data-act="grp-link-copy" data-id="${esc(it.id)}">Copy</button>`}${it.user_id === myId() ? "" : repBtn(it)}${canRemove(g, it) ? rmBtn(it) : ""}</div></li>`).join("");
     return `<section class="grp-sec" id="grpFiles">${secHead(I_LINK, "Files and Links", its.length)}
-      ${loadingLine(g.id) || (its.length ? `<ul class="grp-list">${rows}</ul>` : `<p class="grp-none">Keep the shared doc, data and sources in one place. Tap Add File at the bottom right to upload a file or add a link.</p>`)}
-      <p class="mini">Links open in a new tab. For files that change a lot, share a link so everyone always sees the latest version.</p></section>`;
+      ${loadingLine(g.id) || (its.length ? `<ul class="grp-list">${rows}</ul>` : `<p class="grp-none">Keep the shared doc, data and sources in one place. Tap Add Link at the bottom right to add one.</p>`)}
+      <p class="mini">Links open in a new tab. Files can't be uploaded to a group, so share a link to a doc the group made instead. Don't link to course files, like slides or handouts, that aren't yours to share.</p></section>`;
   }
-  // Course files you uploaded (lecture slides, handouts, readings) stay yours alone
-  const COURSE_FILE_MSG = "That's one of your course files. Course files you upload, like lecture slides, stay private to you, so they can't be shared with a group.";
-  // An uploaded file is kept inside the shared item itself (small files only)
-  const FILE_MAX = 1500000;
+  // A file kept inside a shared item (group files from before files were turned off)
   const fileSize = n => n >= 1e6 ? (n / 1e6).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1e3)) + " KB";
   function fileOf(it){
     const f = it && it.data && it.data.file; if (!f || typeof f.url !== "string" || typeof f.name !== "string") return null;
@@ -1455,33 +1454,6 @@
     const name = str(f.name, 120).replace(/[\\/:*?"<>|\u0000-\u001f‪-‮⁦-⁩]/g, "_").replace(/[.\s]+$/, "") || "file";
     if (/\.(exe|msi|msix|appx|bat|cmd|com|scr|pif|cpl|lnk|url|reg|vbs|vbe|js|jse|wsf|wsh|hta|ps1|psm1|jar|jnlp|app|command|tool|pkg|dmg|sh|py|apk|ipa|desktop|scpt|workflow|iso|img|vhd|vhdx|html?|svg|xhtml|mht|xml|xsl)$/i.test(name)) return null;
     return {name, url: "data:application/octet-stream;base64," + m[1], size: Number(f.size) || Math.round(m[1].length * .75)};
-  }
-  function fileAddSheet(g){
-    openSheet(`<div class="sheet">${head("Add a File or Link")}<div class="sheet-body"><div class="fm-list" style="display:grid;gap:10px">
-      <button type="button" class="btn" data-act="grp-file-pick" style="justify-content:flex-start;text-align:left;padding:14px 16px"><span><b>Upload a File</b><span class="sub" style="display:block;font-weight:400">A document, image or PDF up to ${fileSize(FILE_MAX)}</span></span></button>
-      <button type="button" class="btn" data-act="grp-link-new" data-id="${esc(g.id)}" style="justify-content:flex-start;text-align:left;padding:14px 16px"><span><b>Add a Link</b><span class="sub" style="display:block;font-weight:400">A shared Google Doc, slide deck or website</span></span></button></div></div>
-      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button></div></div>`);
-  }
-  function pickGroupFile(g){
-    const inp = document.createElement("input"); inp.type = "file"; inp.style.display = "none"; document.body.appendChild(inp);
-    inp.addEventListener("change", () => {
-      const f = inp.files && inp.files[0]; inp.remove(); if (!f) return;
-      if (isCourseFile(f)) { toast(COURSE_FILE_MSG); return; }
-      if (f.size > FILE_MAX) { toast(`That file is ${fileSize(f.size)}. Files can be up to ${fileSize(FILE_MAX)}. Share a link to a bigger one.`); return; }
-      const rd = new FileReader();
-      rd.onerror = () => toast("Couldn't read that file.");
-      rd.onload = () => {
-        const url = String(rd.result || ""), name = str(f.name, 120);
-        if (!/^data:[^;,]*;base64,/.test(url)) { toast("Couldn't read that file."); return; }
-        if (!fileOf({data: {file: {name, url}}})) { toast("That kind of file can't be shared here. Share a document, image or PDF."); return; }
-        confirmRights(() => ensureName(async () => {
-          try { addRows(g.id, await api.addItems([{group_id: g.id, kind: "link", ref_id: "", title: name, data: {v: 1, file: {name, size: f.size, url}}}])); if (dlg.open) dlg.close(); toast(`Added ${name}`); patch(g.id); }
-          catch(e) { toast(e.message); }
-        }), "file");
-      };
-      rd.readAsDataURL(f);
-    });
-    inp.click();
   }
   function linkSheet(g){
     openSheet(`<form class="sheet">${head("Add a Link")}<div class="sheet-body">${REQ_NOTE}
@@ -1846,8 +1818,7 @@
       case "grp-role-set": setRole(g, el.dataset.r); break;
       case "grp-battle": setBattle(g, el.dataset.on === "1"); break;
       case "grp-link-new": linkSheet(g); break;
-      case "grp-file-new": fileAddSheet(g); break;
-      case "grp-file-pick": pickGroupFile(g); break;
+      case "grp-file-new": linkSheet(g); break;
       case "grp-link-copy": { const it = itemOf(id), u = it && webLink((it.data || {}).url); if (u) copyText(u, "Link copied"); break; }
       case "grp-min-new": minutesSheet(g, null); break;
       case "grp-min-edit": { const it = itemOf(id); if (it && it.user_id === myId()) minutesSheet(g, it); break; }
@@ -3006,7 +2977,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
   window.SBGRPFAB = () => {
     const g = ui.grp ? groupOf(ui.grp) : null; if (!g || !isProj(g) || !$("#grpDetail")) return null;
     const t = curTab(g);
-    return t === "tasks" ? {act: "grp-pt-new", label: "Add Task"} : t === "files" ? {act: "grp-file-new", label: "Add File", id: g.id} : null;
+    return t === "tasks" ? {act: "grp-pt-new", label: "Add Task"} : t === "files" ? {act: "grp-file-new", label: "Add Link", id: g.id} : null;
   };
   function openGroup(gid){
     if (dlg.open) dlg.close();
@@ -3492,7 +3463,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const li = (t, s) => `<li><span class="pf-t"><b>${t}</b><span class="mini">${s}</span></span></li>`;
     openSheet(`<div class="sheet pro-sheet">${head("Assign Pro")}<div class="sheet-body">
       <p style="margin:0">Everyone in <b>${esc(g.name)}</b> gets these, even on the free plan, for as long as you're in the group and have Pro.</p>
-      <ul class="pro-feats">${proj ? li("Split the Work", "A fair split of tasks by role and free time") + li("Team Deadline", "An earlier date the group works toward") + li("Rubric Checklist and Review Before Done", "Nothing missed at submission") + li("Contribution Report", "A PDF of who did what, for your instructor") + li("Group Uploads", "Up to 2 GB of group files, from your own storage")
+      <ul class="pro-feats">${proj ? li("Split the Work", "A fair split of tasks by role and free time") + li("Team Deadline", "An earlier date the group works toward") + li("Rubric Checklist and Review Before Done", "Nothing missed at submission") + li("Contribution Report", "A PDF of who did what, for your instructor")
         : li("Split Exam Topics", "Each member covers a topic for everyone") + li("Live Quiz", "Quiz each other live in a session")}${li("Weekly Sessions", "Sessions and meetings that repeat")}${li("Up to 100 members, full chat history", "Instead of 5 members and 60 days")}</ul></div>
       <div class="sheet-foot"><span class="mini">Uses 1 of your ${GX_MAX} Pro groups (${GX_MAX - gxMine()} left). Unassign any time.</span><span class="spacer"></span><button type="button" class="btn gx-assign" data-act="gx-pro-on" data-id="${esc(g.id)}">Assign Pro</button></div></div>`);
   }
@@ -3776,32 +3747,16 @@ ${kindPreview("study")}${kindPreview("project")}`;
     $("#gxRepPrint").addEventListener("click", () => SBPRO.printRaw(html, null, false, {mode: "print", name}));
   }
 
-  /* Group Uploads (group projects) */
-  const MAXUP = 50 * 1048576;
+  /* Group Uploads (turned off: files may be someone else's work). Files uploaded before stay with their uploader, who can save or remove them. */
   function gxUploadsHtml(g){
-    const its = kindItems(g.id, "gfile"), me = myId();
+    const me = myId(), its = kindItems(g.id, "gfile").filter(it => it.user_id === me); if (!its.length) return `<div id="gxUploads"></div>`;
     const size = n => n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
-    return `<section class="grp-sec" id="gxUploads">${secHead(gi('<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>'), "Group Uploads", its.length || null, `<label class="btn small" style="position:relative;overflow:hidden">Upload<input type="file" data-gx-up="${esc(g.id)}" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label>`)}
-      ${its.length ? `<ul class="grp-list">${its.map(it => `<li class="grp-item"><div class="grp-item-main"><b>${esc(it.title)}</b><span class="mini">${esc(size(Number((it.data || {}).size) || 0))} · ${it.user_id === me ? "Added by you" : "Added by " + esc(it.author_name || "a member")}</span></div><div class="grp-item-btns"><button class="btn small" data-act="gx-up-open" data-id="${esc(it.id)}">Open</button>${it.user_id === me ? `<button class="x-btn" data-act="gx-up-del" data-id="${esc(it.id)}" aria-label="Remove ${esc(str(it.title, 60))}">${CLOSE}</button>` : ""}</div></li>`).join("")}</ul>`
-        : `<p class="grp-none">Files everyone in the group can open: drafts, data, images. Up to 2 GB for the group, counted in the uploader's own storage.</p>`}</section>`;
-  }
-  async function gxUpload(g, file, ok){
-    if (!file) return;
-    if (isCourseFile(file)) { toast(COURSE_FILE_MSG); return; }
-    if (!ok) { confirmRights(() => gxUpload(g, file, true), "file"); return; }
-    if (file.size > MAXUP) { toast("Files up to 50 MB can be uploaded to a group."); return; }
-    const c = cli(); if (!c || !c.storage) { toast("Uploading needs you to be signed in and online."); return; }
-    const safe = (file.name || "file").replace(/[^\w.\-]+/g, "_").slice(-80), path = `${myId()}/g/${g.id}/${uid()}-${safe}`;
-    toast(`Uploading ${file.name}…`);
-    try {
-      const {error} = await c.storage.from(SB_BUCKET).upload(path, file, {contentType: file.type || "application/octet-stream", upsert: false});
-      if (error) throw error;
-      const rows = await api.addItems([{group_id: g.id, kind: "gfile", ref_id: path, title: str(file.name, 200) || "File", data: {v: 1, path, size: file.size, type: file.type || ""}}]);
-      addRows(g.id, rows); patch(g.id); toast(`Uploaded ${file.name}`);
-    } catch(e) { const m = String(e && e.message || e); toast(/SB_GROUP_STORAGE/.test(m) ? "This group's uploads are full (2 GB). Remove some files first." : /SB_GROUP_PRO/.test(m) ? "Uploading to a group is part of Pro groups." : /SB_STORAGE_LIMIT/.test(m) ? "Your file storage is full." : /kind_check/.test(m) ? srvSetup("Group uploads", "groups.sql") : "Couldn't upload that file. Try again."); }
+    return `<section class="grp-sec" id="gxUploads">${secHead(gi('<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>'), "Your Earlier Uploads", its.length)}
+      <p class="mini">Files can't be shared with a group any more, so only you can see these. Save any you need, then remove them.</p>
+      <ul class="grp-list">${its.map(it => `<li class="grp-item"><div class="grp-item-main"><b>${esc(it.title)}</b><span class="mini">${esc(size(Number((it.data || {}).size) || 0))}</span></div><div class="grp-item-btns"><button class="btn small" data-act="gx-up-open" data-id="${esc(it.id)}">Save</button><button class="x-btn" data-act="gx-up-del" data-id="${esc(it.id)}" aria-label="Remove ${esc(str(it.title, 60))}">${CLOSE}</button></div></li>`).join("")}</ul></section>`;
   }
   async function gxOpenUpload(it){
-    const c = cli(), p = it && it.data && it.data.path; if (!c || !c.storage || !p) return;
+    const c = cli(), p = it && it.data && it.data.path; if (!c || !c.storage || !p || it.user_id !== myId()) return;
     try { const data = await sbDownload(p, c); saveBlob(it.title || "file", data, data.type || "application/octet-stream"); }
     catch(e) { toast("Couldn't open that file. Check your connection and try again."); }
   }
@@ -3915,7 +3870,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     if (k === "members") return `<div id="gxPro">${gxProBox(g)}</div>`;
     if (proj && k === "overview") return `<div id="gxOver" class="gx-over">${gxTeamCard(g)}<div class="gx-tools">${featOn(g, "split") ? `<button type="button" class="btn small" data-act="gx-split" data-id="${esc(g.id)}">Split the Work</button>` : ""}${featOn(g, "report") ? `<button type="button" class="btn small" data-act="gx-report" data-id="${esc(g.id)}">Contribution Report</button>` : ""}<button type="button" class="btn small" data-act="gx-tpl-save" data-id="${esc(g.id)}">Save as Template</button></div></div>`;
     if (proj && k === "tasks") return `<div id="gxTasks" class="gx-tools">${featOn(g, "rubric") ? `<button type="button" class="btn small" data-act="gx-rubric" data-id="${esc(g.id)}">Rubric Checklist</button>` : ""}${featOn(g, "split") ? `<button type="button" class="btn small" data-act="gx-split" data-id="${esc(g.id)}">Split the Work</button>` : ""}<button type="button" class="btn small" data-act="gx-tpl" data-id="${esc(g.id)}">Start From a Template</button></div>`;
-    if (proj && k === "files") return featOn(g, "uploads") ? gxUploadsHtml(g) : "";
+    if (proj && k === "files") return gxUploadsHtml(g);
     if (k === "meetings" || (!proj && k === "sessions")) return ftSec + (proj || !featOn(g, "livequiz") ? "" : lqHtml(g));
     if (!proj && k === "study") return featOn(g, "topics") ? gxTopicsHtml(g) : "";
     return "";
@@ -3936,11 +3891,6 @@ ${kindPreview("study")}${kindPreview("project")}`;
   const unsubscribeBase = unsubscribe;
   unsubscribe = function(){ unsubscribeBase(); if (!LQ.host) lqDisconnect(); };
 
-  document.addEventListener("change", e => {
-    const inp = e.target && e.target.closest && e.target.closest("[data-gx-up]"); if (!inp) return;
-    const g = groupOf(inp.dataset.gxUp); if (g && inp.files && inp.files[0]) gxUpload(g, inp.files[0]);
-    inp.value = "";
-  });
   hook("act", (act, el, id) => {
     if (!act.startsWith("gx-")) return false;
     const g = groupOf(id) || groupOf(ui.grp);

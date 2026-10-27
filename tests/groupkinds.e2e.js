@@ -341,7 +341,9 @@ async function projectGroup(browser, w){
     ok(/Write the outline/.test(behind) && /overdue/.test(behind) && /Jo/.test(behind) && await page.locator("#grpOverview .gk-behind li").count() === 1, tag + " What's Behind lists the late task and Jo: " + behind); }
   await page.screenshot({path: path.join(shots, `gk-project-${w}-overview.png`), fullPage: true});
   await tab(page, "files"); ok(/Keep everything in one place|Keep the shared doc/.test(await txt(page, "#grpFiles")), tag + " files empty state");
-  await page.click('[data-act="grp-file-new"]:visible'); await sheet(page, '[data-act="grp-link-new"]'); await page.click('dialog [data-act="grp-link-new"]'); await sheet(page, 'input[name="url"]');
+  ok(/Files can't be uploaded to a group/.test(await txt(page, "#grpFiles")), tag + " files says files can't be uploaded, only links");
+  await page.click('[data-act="grp-file-new"]:visible'); await sheet(page, 'input[name="url"]');
+  ok(!(await page.$('dialog [data-act="grp-file-pick"]')), tag + " Add Link goes straight to a link, with no file upload");
   await page.fill('dialog input[name="title"]', "Poster draft"); await page.fill('dialog input[name="url"]', "not a link at all"); await page.click("dialog [data-submit]"); await page.waitForTimeout(150);
   ok(await page.evaluate(() => !window.__DB.group_items.some(i => i.kind === "link")), tag + " a bad link is refused");
   await page.fill('dialog input[name="url"]', "javascript:alert(1)"); await page.click("dialog [data-submit]"); await page.waitForTimeout(150);
@@ -389,7 +391,7 @@ async function overdueAndSetup(browser){
   ok(r.errs.length === 0, "overdue: no page errors " + r.errs.join(" | ")); await r.ctx.close();
   r = await boot(browser, 1280, {me: "u1", kinds: ["deck", "task", "quiz", "event"]});
   await openGroup(r.page, "g2");
-  await tab(r.page, "files"); await r.page.click('[data-act="grp-file-new"]:visible'); await sheet(r.page, '[data-act="grp-link-new"]'); await r.page.click('dialog [data-act="grp-link-new"]'); await sheet(r.page, 'input[name="url"]');
+  await tab(r.page, "files"); await r.page.click('[data-act="grp-file-new"]:visible'); await sheet(r.page, 'input[name="url"]');
   await r.page.fill('dialog input[name="title"]', "x"); await r.page.fill('dialog input[name="url"]', "https://example.com"); await r.page.click("dialog [data-submit]"); await r.page.waitForTimeout(500);
   ok(/groups\.sql|setup|available yet/i.test(await r.page.evaluate(() => document.querySelector("#toast, .toast") ? document.querySelector("#toast, .toast").innerText : document.body.innerText)), "adding a link without the new SQL says what's missing");
   ok(await r.page.isVisible("#grpFiles"), "the page still works");

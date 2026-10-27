@@ -11,34 +11,14 @@
   const K_SEQ = "studyboard:wbSeq", TAG = uid();
   const live = n => (n && n.wb && n.wb.g) || null;
 
-  /* Pictures travel as small images inside the board */
-  const PIC = new Map();
-  const loadImg = u => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = u; });
-  async function picData(it){
-    if (it.src) return it.src;
-    if (!it.f) return null;
-    if (PIC.has(it.f)) return PIC.get(it.f);
-    const f = state.files[it.f]; if (!f || !f.revs || !f.revs.length) return null;
-    try {
-      const r = curRev(f), io = W.pictures && W.pictures.IO, b = await (io ? io.bytes(r.assetId) : assetBytes(r.assetId));
-      const u = URL.createObjectURL(new Blob([b], {type: r.type || "image/png"})), im = await loadImg(u); URL.revokeObjectURL(u);
-      for (const side of [900, 640, 420]) {
-        const k = Math.min(1, side / Math.max(im.naturalWidth, im.naturalHeight)), c = document.createElement("canvas");
-        c.width = Math.max(1, Math.round(im.naturalWidth * k)); c.height = Math.max(1, Math.round(im.naturalHeight * k)); c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
-        let url = c.toDataURL("image/webp", 0.8); if (!/^data:image\/webp/.test(url)) url = c.toDataURL("image/png");
-        if (url.length < 380000) { PIC.set(it.f, url); return url; }
-      }
-    } catch (e) {}
-    return null;
-  }
-  async function prepPictures(n){ await Promise.all(((n && n.wbItems) || []).filter(it => it.k === "i").map(picData)); }
-  const embedded = it => it.k !== "i" ? it : (it.src || PIC.get(it.f)) ? Object.assign({}, it, {src: it.src || PIC.get(it.f), f: undefined}) : null;
+  /* Pictures on a board never leave this device: they may come from slides, books or other people's work.
+     Links and study groups get only what the student drew and wrote. */
+  const isPic = it => !!(it && it.k === "i");
 
   /* Share a Copy (a link) */
   function shareSrc(id, g){
     const n = state.notes[id]; if (!n || !n.wb) return null;
-    // Pictures on the board are never shared: they may come from slides or books. Your drawing and text are.
-    const ink = n.wbInk || [], all = (n.wbItems || []).map(embedded).filter(it => it && it.k !== "i");
+    const ink = n.wbInk || [], all = (n.wbItems || []).filter(it => !isPic(it));
     if (!ink.length && !all.length) return null;
     const c = courseOf(n.courseId);
     let data = JSON.parse(JSON.stringify({v: 1, type: "board", name: W.boardName(n), tpl: n.wb.tpl || "blank", ink, items: all, course: c ? {code: c.code || "", name: c.name || ""} : null}));
@@ -53,7 +33,7 @@
   }
   function shareView(row, h){
     const d = row.data && typeof row.data === "object" ? row.data : {};
-    const tmp = {id: "shared-" + row.code, text: cut(row.name || d.name || "Whiteboard", 60), wb: {v: 1, tpl: d.tpl}, wbInk: d.ink, wbItems: d.items};
+    const tmp = {id: "shared-" + row.code, text: cut(row.name || d.name || "Whiteboard", 60), wb: {v: 1, tpl: d.tpl}, wbInk: d.ink, wbItems: Array.isArray(d.items) ? d.items.filter(it => !isPic(it)) : d.items};
     normWbNote(tmp);
     if (!tmp.wbInk && !tmp.wbItems) { h.msgSheet("Shared Whiteboard", "That whiteboard couldn't be read. Ask the person to share it again."); return; }
     const course = d.course && typeof d.course === "object" ? {code: cut(d.course.code, 40), name: cut(d.course.name, 120)} : null;
@@ -83,7 +63,8 @@
   // What arrives from others goes through the same checks as anything saved (normWbNote)
   function clean(list){
     if (!Array.isArray(list)) return [];
-    const ok = list.filter(c => c && (c.t === "s" || c.t === "i") && typeof c.id === "string" && /^[\w-]{1,40}$/.test(c.id)).slice(0, 200);
+    // a picture from someone else is never taken in (only its removal is)
+    const ok = list.filter(c => c && (c.t === "s" || c.t === "i") && typeof c.id === "string" && /^[\w-]{1,40}$/.test(c.id) && !(c.t === "i" && isPic(c.v))).slice(0, 200);
     const tmp = {wb: {v: 1}, wbInk: ok.filter(c => c.t === "s" && c.v).map(c => Object.assign({}, c.v, {id: c.id})), wbItems: ok.filter(c => c.t === "i" && c.v).map(c => Object.assign({}, c.v, {id: c.id}))};
     normWbNote(tmp);
     const S = new Map((tmp.wbInk || []).map(x => [x.id, x])), I = new Map((tmp.wbItems || []).map(x => [x.id, x]));
@@ -107,6 +88,12 @@
     return out;
   }
   let L = null;
+  // Pictures that came from other members before pictures stopped being shared (they carry their image, not a file of yours)
+  function dropReceived(nid){
+    const n = state.notes[nid]; if (!n || !(n.wbItems || []).some(it => isPic(it) && it.src && !it.f)) return;
+    const after = clone(n); after.wbItems = after.wbItems.filter(it => !(isPic(it) && it.src && !it.f));
+    applyChanges([{kind: "note", id: nid, after}], null);
+  }
   async function catchUp(nid, Lx){
     const g = live(state.notes[nid]); if (!g || !online()) return;
     const rows = await fetchOps(g.bid, seqGet(g.bid));
@@ -125,6 +112,7 @@
     const n = state.notes[nid], g = live(n);
     if (L && L.nid === nid) return;
     stop(); if (!g || !online()) return;
+    dropReceived(nid);
     const x = L = {nid, bid: g.bid, gid: g.gid, ch: null, q: [], timer: 0, sent: new Set(), seen: new Set(), on: false};
     const c = cli();
     if (c && typeof c.channel === "function") {
@@ -147,11 +135,8 @@
     clearTimeout(x.timer); x.timer = 0;
     const last = new Map(); x.q.splice(0).forEach(c => last.set(c.t + c.id, c));
     let list = [...last.values()];
-    list = await Promise.all(list.map(async c => {
-      if (!(c.t === "i" && c.v && c.v.k === "i")) return c;
-      const src = await picData(c.v); return src ? {t: c.t, id: c.id, v: Object.assign({}, c.v, {src, f: undefined})} : null;
-    }));
-    list = JSON.parse(JSON.stringify(list.filter(Boolean)));
+    // pictures stay on this device; removing one is still sent, so a picture shared before this change goes away for everyone
+    list = JSON.parse(JSON.stringify(list.filter(c => !(c.t === "i" && isPic(c.v)))));
     for (let i = 0; i < list.length;) {
       let n = Math.min(150, list.length - i), part = list.slice(i, i + n);
       while (n > 1 && JSON.stringify(part).length > 500000) { n = Math.ceil(n / 2); part = list.slice(i, i + n); }
@@ -190,7 +175,7 @@
     openSheet(`<form class="sheet">${head("Share With a Study Group")}<div class="sheet-body">
       <p style="margin:0">“${esc(W.boardName(n))}” shows up in the group's Whiteboards tab. Whoever adds it can draw on it with you, and what anyone draws or writes shows up for everyone as it happens.</p>
       <fieldset class="wb-grp-pick"><legend>Group</legend>${groups.map((g, i) => `<label class="mi-check"><input type="radio" name="gid" value="${esc(g.id)}"${i ? "" : " checked"}> ${esc(g.name)}</label>`).join("")}</fieldset>
-      <p class="mini" style="margin:0">Each person's copy is their own: deleting yours doesn't delete anyone else's.</p></div>
+      <p class="mini" style="margin:0">Pictures on the board stay on your copy: the group sees only what you draw and write. Each person's copy is their own: deleting yours doesn't delete anyone else's.</p></div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="submit" class="btn primary" data-submit>Share</button></div></form>`, fd => {
       const gid = String(fd.get("gid") || ""), g = groups.find(x => x.id === gid); if (!g) return false;
       makeLive(nid, g.id, g.name); return true;
@@ -209,7 +194,7 @@
     listen(nid);
     if (L && L.nid === nid) {
       (after.wbInk || []).forEach(s => L.q.push({t: "s", id: s.id, v: s}));
-      (after.wbItems || []).forEach(it => L.q.push({t: "i", id: it.id, v: it}));
+      (after.wbItems || []).filter(it => !isPic(it)).forEach(it => L.q.push({t: "i", id: it.id, v: it}));
       if (L.q.length) await send(L);
     }
     await addMe(row.id, gid); previewSoon(nid, true); GB.delete(gid);
@@ -255,7 +240,7 @@
     PV.set(g.bid, Date.now());
     setTimeout(async () => {
       try {
-        W.flush(); const pic = async dark => { const cv = await W.renderBoard(state.notes[nid] || n, {max: 520, dark}); let url = cv.toDataURL("image/jpeg", 0.72); if (url.length > 190000) url = cv.toDataURL("image/jpeg", 0.45); return url.length < 190000 ? url : null; };
+        W.flush(); const pic = async dark => { const cv = await W.renderBoard(state.notes[nid] || n, {max: 520, dark, noPics: true}); let url = cv.toDataURL("image/jpeg", 0.72); if (url.length > 190000) url = cv.toDataURL("image/jpeg", 0.45); return url.length < 190000 ? url : null; };
         const url = await pic(false), dk = await pic(true); if (!url) return;
         try { await q(cli().rpc("group_board_preview", {p_board: g.bid, p_preview: url, p_dark: dk})); }
         catch (e) { await q(cli().rpc("group_board_preview", {p_board: g.bid, p_preview: url})); }
@@ -379,7 +364,7 @@
     if (act === "grp-wb-share") { shareToGroupSheet(id); return true; }
     return false;
   });
-  Object.assign(W, {shareSrc, shareView, share: {discover: gid => loadGroup(gid, true), live: () => L, send: () => L && send(L), picData, access: bid => access(bid, true)}});
+  Object.assign(W, {shareSrc, shareView, share: {discover: gid => loadGroup(gid, true), live: () => L, send: () => L && send(L), access: bid => access(bid, true)}});
 
   const css = document.createElement("style");
   css.textContent = `

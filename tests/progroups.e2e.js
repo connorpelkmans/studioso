@@ -192,15 +192,14 @@ const DB = (page, f) => page.evaluate(f);
     ok(/Every week/.test(await txt(page, "#grpSessions")), "the meeting list says Every week");
 
     await tab(page, "files");
-    ok(await page.locator("#gxUploads").count() === 1, "Files has Group Uploads");
-    await page.evaluate(() => { __sbQadd.state().files.slides1 = {id: "slides1", name: "Lecture 5 slides.pdf", kind: "file", courseId: "", folderId: "notes", taskIds: [], revs: [{assetId: "a-s1", size: 13, type: "application/pdf", name: "Lecture 5 slides.pdf", at: 1}], created: 1, updated: 1}; });
-    await page.setInputFiles('#gxUploads input[type="file"]', {name: "Lecture 5 slides.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 abcd")}); await page.waitForTimeout(500);
-    ok(!(await page.$("dialog[open] #shRights")) && !(await DB(page, () => (window.__uploads || []).length)) && /course files/.test(await page.evaluate(() => document.querySelector("#toast").textContent)), "your uploaded lecture slides can't be uploaded to a group");
-    await page.evaluate(() => { delete __sbQadd.state().files.slides1; });
-    await page.setInputFiles('#gxUploads input[type="file"]', {name: "draft.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 test")}); await page.waitForSelector("dialog[open] #shRights");
-    ok(/permission to share/.test(await txt(page, "dialog[open]")) && !(await DB(page, () => (window.__uploads || []).length)), "an upload asks the person to confirm they may share the file first");
-    await page.check("dialog[open] #shRights"); await page.click("dialog[open] [data-submit]"); await page.waitForTimeout(800);
-    ok(await DB(page, () => (window.__uploads || []).some(p => /^u1\/g\/g1\/.+-draft\.pdf$/.test(p)) && window.__DB.group_items.some(i => i.kind === "gfile" && i.title === "draft.pdf")), "an upload goes to my own folder for this group and is listed");
+    ok(!(await txt(page, "#gxUploads")).trim() && !(await page.$('input[data-gx-up]')), "Files has no Group Uploads: files can't be shared with a group");
+    ok(!(await page.$('#gxPro input[data-f="uploads"], [data-feat="uploads"]')), "and File Uploads isn't a Pro group feature any more");
+    // files uploaded before uploads were turned off: only the uploader sees theirs, to save or remove it
+    await DB(page, () => { const gid = window.__DB.group_items.find(i => i.kind === "avail").group_id; window.__DB.group_items.push(
+      {id: "gf-me", group_id: gid, user_id: "u1", author_name: "Connor", kind: "gfile", ref_id: "u1/g/" + gid + "/x-mine.pdf", title: "mine.pdf", data: {v: 1, path: "u1/g/" + gid + "/x-mine.pdf", size: 2048}, created_at: new Date().toISOString()},
+      {id: "gf-sam", group_id: gid, user_id: "u2", author_name: "Sam", kind: "gfile", ref_id: "u2/g/" + gid + "/x-sams.pdf", title: "sams.pdf", data: {v: 1, path: "u2/g/" + gid + "/x-sams.pdf", size: 2048}, created_at: new Date().toISOString()}); });
+    await page.evaluate(() => window.__fire("group_items", "INSERT")); await page.waitForTimeout(1200); await tab(page, "files");
+    { const up = await txt(page, "#gxUploads"); ok(/mine\.pdf/.test(up) && !/sams\.pdf/.test(up) && /only you can see these/.test(up), "an earlier upload shows only to whoever uploaded it: " + up); }
 
     await tab(page, "overview");
     await page.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; }; });
