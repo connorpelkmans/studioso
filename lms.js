@@ -263,6 +263,7 @@ async function bsHarvest(o) {
       const yes = recent.filter(f => subs[f.Id] === true).length, no = recent.filter(f => subs[f.Id] === false).length, unk = recent.length - yes - no;
       c.subNote = `${c.code || c.name}: ${yes} submitted, ${no} not, ${unk} unknown` + (subFail ? `; API refused ${subFail} (${subWhy})` : "") + (subOdd ? `; ${subOdd} unreadable answers` : "") + (fromPage ? `; ${fromPage} from the Assignments page` : "");
     }
+    const quizApiN = quizzes.length;
     const qrecent = quizzes.filter(x => { if (!x || x.IsActive === false) return false; const d = Date.parse(x.DueDate || x.EndDate || x.StartDate || ""); return isNaN(d) || (d > now - 60 * 864e5 && d < now + 240 * 864e5); }).slice(0, 40);
     const tried = {}, satAt = {};
     let qRefused = 0, qPage = 0, qPageStatus = "", qLinks = 0, qOwn = 0;
@@ -278,7 +279,7 @@ async function bsHarvest(o) {
     if (qrecent.some(x => tried[x.QuizId] !== true) || !quizzes.length) {
       try {
         const r = await fetch(`/d2l/lms/quizzing/user/quizzes_list.d2l?ou=${c.ou}`, { credentials: "include" });
-        qPageStatus = String(r.status);
+        qPageStatus = String(r.status) + (r.redirected && /\/login|\/d2l\/lp\/auth|saml|sso|shibboleth/i.test(String(r.url || "")) ? " (sign-in page)" : "");
         if (r.ok) {
           const html = (await r.text()).slice(0, 3000000);
           // A quiz on the Quizzes page that the quiz list API left out (some schools don't give students that API): read it from its own pages
@@ -299,7 +300,17 @@ async function bsHarvest(o) {
       } catch (e) { qPageStatus = String(e && e.name || "error"); }
     }
     const qLeft = qrecent.filter(x => tried[x.QuizId] !== true).slice(0, 12);
-    const page = async u => { try { const r = await fetch(u, { credentials: "include" }); return r.ok ? htmlText((await r.text()).slice(0, 1500000), { line: true }) : ""; } catch (e) { return ""; } };
+    const pageSeen = {};
+    const page = async u => {
+      try {
+        const r = await fetch(u, { credentials: "include" });
+        const login = !!(r.redirected && /\/login|\/d2l\/lp\/auth|saml|sso|shibboleth/i.test(String(r.url || "")));
+        if (!r.ok || login) { pageSeen[u] = login ? "sign-in page" : "HTTP " + r.status; return ""; }
+        const t = htmlText((await r.text()).slice(0, 1500000), { line: true });
+        pageSeen[u] = "ok " + t.length + " chars" + (/\b(log ?in|sign ?in)\b[^.]{0,40}\b(password|username|user name)\b/i.test(t.slice(0, 4000)) ? ", looks like a sign-in page" : "");
+        return t;
+      } catch (e) { pageSeen[u] = "failed: " + (e && (e.name || e.message) || "error"); return ""; }
+    };
     const submPage = {};
     await inBatches(qLeft, async x => {
       const sum = await page(`/d2l/lms/quizzing/user/quiz_summary.d2l?qi=${x.QuizId}&ou=${c.ou}`);
@@ -335,7 +346,7 @@ async function bsHarvest(o) {
       const toScore = qrecent.filter(x => tried[x.QuizId] !== false && !hasMark(x.GradeItemId)).sort((a, b) => (tried[b.QuizId] === true) - (tried[a.QuizId] === true)).slice(0, 15);
       let got = 0;
       await inBatches(toScore, async x => {
-        const t = submPage[x.QuizId] != null ? submPage[x.QuizId] : await page(`/d2l/lms/quizzing/user/quiz_submissions.d2l?qi=${x.QuizId}&ou=${c.ou}`);
+        const t = submPage[x.QuizId] != null ? submPage[x.QuizId] : (submPage[x.QuizId] = await page(`/d2l/lms/quizzing/user/quiz_submissions.d2l?qi=${x.QuizId}&ou=${c.ou}`));
         const sc = t && scoreOf(t); if (sc) { mk("quiz", x.QuizId, sc, "quizPage"); got++; tried[x.QuizId] = true; }
       });
       if (toScore.length) markNote.push(`quiz Submissions pages ${got} of ${toScore.length}`);
@@ -432,18 +443,24 @@ async function bsHarvest(o) {
     tops.sort((x, y) => (isNaN(x.at) - isNaN(y.at)) || Math.abs(x.at - now) - Math.abs(y.at - now));
     tops.splice(40);
     c.discussions = []; let postsRefused = 0, pageChecks = 0, fromTopicPage = 0;
+    const topicDx = [];
     await inBatches(tops, async ({ f, t }) => {
       const gid = t.GradeItemId != null ? String(t.GradeItemId) : "";
       let posted = gid && graded.has(gid) ? true : null;
       let postAt = null, others = 0;
       // a group topic (one shared with your group): a post by a group member is your group's post
       const grp = t.GroupTypeId != null || /\bgroups?\b/i.test(String(t.Name || ""));
+      const tx = { id: String(t.TopicId), n: String(t.Name || "").slice(0, 70), due: String(t.DueDate || t.EndDate || t.UnlockEndDate || "").slice(0, 10), grp, graded: !!(gid && graded.has(gid)), posts: "not read", n0: 0, ids: [], page: "" };
       if (posted == null && meId) {
         // all of the topic's posts, page by page (a busy class topic can run past one page), until one of yours turns up
         for (let pg = 1; pg <= 6; pg++) {
-          const ps = await soft(`${b}/discussions/forums/${f.ForumId}/topics/${t.TopicId}/posts/?pageSize=200&pageNumber=${pg}`, true) || (pg === 1 ? await soft(`${b}/discussions/forums/${f.ForumId}/topics/${t.TopicId}/posts/`, true) : null);
-          if (!ps) { if (pg === 1) postsRefused++; break; }
+          const tryGet = async u => { try { return { b: await get(u) }; } catch (e) { return { e: String(e.status || e.name || "error") }; } };
+          let ans = await tryGet(`${b}/discussions/forums/${f.ForumId}/topics/${t.TopicId}/posts/?pageSize=200&pageNumber=${pg}`);
+          if (ans.e && pg === 1) { const a2 = await tryGet(`${b}/discussions/forums/${f.ForumId}/topics/${t.TopicId}/posts/`); if (!a2.e) ans = a2; else ans.e += ", plain " + a2.e; }
+          const ps = ans.b || null;
+          if (!ps) { if (pg === 1) { postsRefused++; tx.posts = "refused (" + ans.e + ")"; } break; }
           const l = listOf(ps);
+          tx.posts = "read"; tx.n0 += l.length; if (tx.ids.length < 3) l.slice(0, 3 - tx.ids.length).forEach(p => tx.ids.push(p ? typeof p.PostingUserId + ":" + String(p.PostingUserId) : "?"));
           // yours by your user id, or by your name where a school's posts give the id in another form
           const mine = l.filter(p => p && (String(p.PostingUserId) === meId || (meName && String(p.PostingUserDisplayName || "").trim().toLowerCase() === meName)));
           others += l.filter(p => p && p.PostingUserId != null && !mine.includes(p)).length;
@@ -456,12 +473,15 @@ async function bsHarvest(o) {
       const dueAt = Date.parse(t.DueDate || t.EndDate || t.UnlockEndDate || "");
       if (posted !== true && meName && pageChecks < 12 && (isNaN(dueAt) || (dueAt > now - 30 * 864e5 && dueAt < now + 14 * 864e5))) {
         pageChecks++;
-        const pt = await page(`/d2l/le/${c.ou}/discussions/topics/${t.TopicId}/View`);
+        const pu = `/d2l/le/${c.ou}/discussions/topics/${t.TopicId}/View`, pt = await page(pu);
+        tx.page = (pageSeen[pu] || "") + (pt ? `, "posted" ${(pt.match(/\bposted\b/gi) || []).length}x, your name ${pt.toLowerCase().includes(meName) ? "found" : "not found"}` : "");
         const esc = meName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
         const m = pt && pt.match(new RegExp(esc + "\\s+posted\\b\\s*(?:on\\s+)?([A-Z][a-z]{2,8}\\.?\\s+\\d{1,2},\\s*\\d{4}(?:\\s+\\d{1,2}:\\d{2}\\s*[AP]M)?)?", "i"));
         if (m) { posted = true; fromTopicPage++; if (!postAt && m[1] && !isNaN(Date.parse(m[1].replace(/\./, "")))) postAt = new Date(Date.parse(m[1].replace(/\./, ""))).toISOString(); }
         else if (pt && /\bposted\b/i.test(pt)) { if (posted == null) posted = false; others += (pt.match(/\bposted\b/gi) || []).length; }
       }
+      tx.result = posted === true ? "posted" : posted === false ? (grp && others > 0 ? "group posted" : "not posted") : "unknown";
+      topicDx.push(tx);
       const due = dt(t.DueDate) || dt(t.EndDate) || dt(t.UnlockEndDate);
       c.discussions.push({ id: String(t.TopicId), name: String(t.Name || ""), due, start: dt(t.StartDate) || dt(t.UnlockStartDate), text: txt(t.Description, 1500), gid, outOf: t.ScoreOutOf != null ? Number(t.ScoreOutOf) : null, posted, at: postAt, group: grp, groupPosted: grp && posted === false && others > 0,
         st: stOf(due, null, posted, null) });
@@ -475,6 +495,14 @@ async function bsHarvest(o) {
       if (left.length) markNote.push(`discussion pages ${got} of ${left.length}`);
     }
     c.marks = marks.slice(0, 120);
+    // What this read saw, step by step, for the sync report (Settings > Brightspace > Copy Sync Report)
+    c.dx = { me: { id: meId ? typeof me.Identifier + ":" + meId : "none", name: meName ? "yes" : "no" }, quizApi: quizApiN, quizPage: qPageStatus || "not read",
+      quizzes: qrecent.slice(0, 15).map(x => { const su = `/d2l/lms/quizzing/user/quiz_submissions.d2l?qi=${x.QuizId}&ou=${c.ou}`, st = submPage[x.QuizId] || "", mm = marks.find(m => m.kind === "quiz" && m.id === String(x.QuizId));
+        return { id: String(x.QuizId), n: String(x.Name || "").slice(0, 70), from: x.fromPage ? "Quizzes page" : "quiz list", gradeItem: x.GradeItemId != null ? String(x.GradeItemId) : "", inGrades: hasMark(x.GradeItemId),
+          sat: tried[x.QuizId] === true ? "yes" : tried[x.QuizId] === false ? "no" : "unknown", subm: pageSeen[su] || "not read",
+          overall: /\boverall\s+grade\b/i.test(st), attempts: (st.match(/\battempt\s+\d+/gi) || []).length, fractions: (st.match(/\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?/g) || []).slice(0, 4).join(" | "),
+          mark: mm ? mm.num + "/" + mm.den : "" }; }),
+      topics: topicDx.slice(0, 30) };
     if (markNote.length) c.markNote = "marks not in Grades, from: " + markNote.join(", ");
     const STAFF = /instructor|teacher|professor|lecturer|faculty|\bta\b|teaching assistant|tutor|course leader/i;
     c.staff = listOf(roster).filter(u => u && STAFF.test(String(u.ClasslistRoleDisplayName || u.RoleName || ""))).slice(0, 8)

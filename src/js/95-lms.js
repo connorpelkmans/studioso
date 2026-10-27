@@ -546,6 +546,7 @@ function cleanFile(r) {
     const subNotes = (h.courses || []).map(c => typeof c.subNote === "string" ? c.subNote.slice(0, 160) : "").filter(Boolean);
     out.diag = `Read ${(h.courses || []).length} of ${(h.all || []).length} courses (${(h.courses || []).map(c => c.code || c.name).slice(0, 20).join(", ")}).${subNotes.length ? " Assignments: " + subNotes.join(" | ") + "." : ""} Grade rows per course: ${(h.courses || []).map(c => c.gradeN == null ? "?" : c.gradeN).join(", ") || "none"}.${(h.errors || []).length ? " Problems: " + h.errors.slice(0, 4).join("; ") : ""}`;
     const add = makeAdd(out, false);
+    out.dx = {}; (h.courses || []).forEach(c => { if (c.dx && typeof c.dx === "object") out.dx[c.ou] = Object.assign({code: c.code || "", name: String(c.name || "").slice(0, 80)}, c.dx); });
     out.notes = {}; (h.courses || []).forEach(c => { const n = [c.subNote, c.quizNote, c.topicNote, c.markNote].filter(x => typeof x === "string" && x).join("; "); if (n) out.notes[c.ou] = n.slice(0, 300); });
     const undated = [], linked = [], openOnly = [], undatedD = [], examCal = [];
     const addFolder = (ou, f, due) => {
@@ -1213,7 +1214,7 @@ function cleanFile(r) {
       const b = bulk();
       b.lastRead = {at, subs: p.readSub, ous: (data.synced || []).slice(0, 60),
         items: data.recs.filter(r => r.pid || r.asRead).slice(0, 500).map(r => ({k: recKey(r), ou: r.ou, t: String(r.title).slice(0, 160), d: r.due || "", s: r.done ? "yes" : r.sub || "", a: r.asRead || ""})), und: (data.und || []).slice(0, 80), notes: data.notes || {}, topics: data.topics || {},
-        keys: [...new Set(data.recs.flatMap(r => [recKey(r)].concat(r.aka || [])))].slice(0, 1500)};
+        keys: [...new Set(data.recs.flatMap(r => [recKey(r)].concat(r.aka || [])))].slice(0, 1500), dx: data.dx || null, via: data.via || how, errors: (lastRead && lastRead.errors || []).slice(0, 12)};
       saveBulk();
     }
     save({map: newMap, courses, newsItems, finals, log, last: at, lastSrc: how, name: data.name || c.name, gone: [...new Set(c.gone.filter(id => state.tasks[id]).concat(goneIds))].slice(0, 30)});
@@ -1415,8 +1416,8 @@ function cleanFile(r) {
     const how = c.mode === "api" ? (bsDesk() ? (lmsOnPhone() ? "Signed in on this phone" : "Signed in on this computer") : c.lastSrc === "grab" ? `Read from ${P.name} in this browser` : "Synced from your computer's Studyboard app") : "Using your calendar link";
     if (running || reading) return `${how}. Syncing now…`;
     const when = c.last ? `Last synced ${ago(c.last)}` : "Not synced yet";
-    const ev = !bsDesk() && c.lastSrc === "grab" && window.SBEXT && SBEXT.on() ? SBEXT.version() : "", older = v => { const a = String(v).split(".").map(Number), b = [1, 0, 7]; for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== b[i]) return (a[i] || 0) < b[i]; } return false; };
-    const extOld = ev && older(ev) ? ` Your School Sync extension is version ${ev}: update it to 1.0.7 or later to bring in marks that aren't on ${P.name}'s Grades page (like quiz marks on a quiz's Submissions page).` : "";
+    const ev = !bsDesk() && c.lastSrc === "grab" && window.SBEXT && SBEXT.on() ? SBEXT.version() : "", older = v => { const a = String(v).split(".").map(Number), b = [1, 0, 8]; for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== b[i]) return (a[i] || 0) < b[i]; } return false; };
+    const extOld = ev && older(ev) ? ` Your School Sync extension is version ${ev}: update it to 1.0.8 or later to bring in marks that aren't on ${P.name}'s Grades page (like quiz marks on a quiz's Submissions page).` : "";
     return `${how}. ${when}.${extOld}${L.needLogin && bsDesk() && c.mode === "api" ? " Sign in again to keep syncing grades and announcements." : ""}${L.err ? " " + L.err : ""}`;
   }
   function shortStatus(){
@@ -1425,6 +1426,34 @@ function cleanFile(r) {
     if (L.needLogin && bsDesk() && c.mode === "api") return "Sign in again";
     if (extGone(c)) return "not syncing";
     return c.last ? `synced ${ago(c.last)}` : "not synced yet";
+  }
+  /* Sync report: what the last read saw, step by step, to send when something isn't detected */
+  function syncReport(){
+    const c = cfg(), lr = bulk().lastRead || {}, dx = lr.dx || {}, L = [];
+    const w = d => d ? new Date(d).toLocaleString() : "never";
+    L.push(`Studyboard sync report: ${P.name}`, `Made ${new Date().toLocaleString()}. Last read ${w(lr.at)} by ${lr.via || c.lastSrc || "?"}. Extension ${window.SBEXT && SBEXT.on() ? SBEXT.version() || "on, version unknown" : "not seen in this browser"}. Website build ${typeof SB_BUILD !== "undefined" ? SB_BUILD : (document.querySelector('script[src*="bundle/app.js"]') || {src: ""}).src.split("v=")[1] || "?"}.`);
+    if ((lr.errors || []).length) L.push("Read problems: " + lr.errors.join("; "));
+    const ous = Object.keys(dx);
+    if (!ous.length) L.push("", "This read has no step-by-step details. It was made by an older extension or app (the details come from School Sync 1.0.8 or later), or no read has happened since updating.");
+    ous.forEach(ou => {
+      const d = dx[ou], cid = (c.map || {})[ou], course = courseOf(cid);
+      L.push("", `== ${d.code || d.name || ou} (Brightspace ${ou}) -> ${course ? courseLabel(course) : "not imported"}`);
+      if (lr.notes && lr.notes[ou]) L.push("Summary: " + lr.notes[ou]);
+      L.push(`You: id ${d.me && d.me.id}, name ${d.me && d.me.name}. Quiz list gave ${d.quizApi} quizzes; Quizzes page: ${d.quizPage}.`);
+      (d.quizzes || []).forEach(q => L.push(`  Quiz "${q.n}" [${q.id}] from ${q.from}; sat ${q.sat}; grade item ${q.gradeItem || "none"}${q.inGrades ? " (marked in Grades)" : ""}; Submissions page: ${q.subm}${q.subm && q.subm.startsWith("ok") ? `, Overall Grade line ${q.overall ? "yes" : "no"}, ${q.attempts} attempt rows, fractions: ${q.fractions || "none"}` : ""}; mark read: ${q.mark || "none"}`));
+      (d.topics || []).forEach(t => L.push(`  Topic "${t.n}" [${t.id}] due ${t.due || "none"}${t.grp ? ", group" : ""}${t.graded ? ", graded" : ""}: posts ${t.posts}${t.posts === "read" ? ` (${t.n0}; ids ${(t.ids || []).join(", ") || "none"})` : ""}; topic page: ${t.page || "not read"}; result: ${t.result}`));
+      const ts = Object.values(state.tasks || {}).filter(t => t && t[F] && (t[F].ou === ou || (cid && t.courseId === cid))).sort((a, b) => String(b.due).localeCompare(String(a.due))).slice(0, 40);
+      if (ts.length) L.push("  Studyboard tasks:");
+      ts.forEach(t => { const it = (lr.items || []).find(x => x.k === t[F].key);
+        L.push(`   - "${t.title}" ${t.type}, due ${t.due || "none"}, ${t.status}${t.mark ? `, mark ${t.mark.got}/${t.mark.outOf}${t.mark.from ? " from " + t.mark.from : ""}` : ""}; ${t[F].item === true ? "the item itself" : t[F].item === false ? "a calendar entry" : "source unknown"}; key ${t[F].key}; ${(lr.keys || []).includes(t[F].key) ? "in the last read" : "not in the last read"}${it && it.a ? "; as read: " + it.a : ""}`); });
+    });
+    return L.join("\n");
+  }
+  function reportSheet(){
+    const text = syncReport();
+    openSheet(`<div class="sheet">${head("Sync Report")}<div class="sheet-body"><p style="margin:0">What the last read from ${esc(P.name)} saw, step by step. Send it to Studyboard support (or paste it in a chat) when something isn't detected. It has your course and work names and your own marks, nothing else.</p>
+      <textarea id="bsReport" readonly rows="14" style="width:100%;font:12px/1.4 ui-monospace,monospace" aria-label="Sync report">${esc(text)}</textarea></div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button><button type="button" class="btn primary" data-act="${A}-report-copy">Copy</button></div></div>`);
   }
   const diagHtmlBox = () => { const L = local(); return L.diag ? `<details class="bs-diag"><summary class="mini">Sync details</summary><p class="mini" style="margin:6px 0 0;overflow-wrap:anywhere">${esc(L.diag)}</p></details>` : ""; };
   function bsSheet(focus){
@@ -1441,7 +1470,7 @@ function cleanFile(r) {
         <div class="bs-status${needLogin || gone0 ? " warn" : ""}"><span class="bs-ico">${ICON}</span><div><b>${needLogin ? "Sign In Again" : gone0 ? "Not Syncing" : "Connected"}${c.name ? `<span class="mini"> as ${esc(c.name)}</span>` : ""}</b><span class="mini">${esc(statusLine())}</span>${diagHtmlBox()}</div></div>
         <div class="bs-acts">
           ${gone0 ? `<p class="mini" style="margin:0">${SBEXT.on() ? `Open the extension from Chrome's toolbar and connect ${P.name} again to keep syncing.` : chromeDesktop() ? `Add the extension back to keep syncing. What it already brought in stays in Studyboard.` : `Open Studyboard in desktop Chrome with the extension to keep syncing. What it already brought in stays in Studyboard.`}</p>` : ""}
-          ${onPhoneApi && !c.feed && c.lastSrc !== "grab" ? `<p class="mini" style="margin:0">Your computer's Studyboard app syncs ${P.name}, and changes show up here. To sync from this device too, add your calendar link below. It works like a password, so it stays on this device only.${chromeDesktop() && !(window.SBEXT && SBEXT.has(P.id)) ? ` For grades and announcements here too, add the Studyboard School Sync extension to Chrome.` : ""}</p>` : `<button class="btn primary" data-act="${A}-sync">Sync Now</button>`}
+          ${onPhoneApi && !c.feed && c.lastSrc !== "grab" ? `<p class="mini" style="margin:0">Your computer's Studyboard app syncs ${P.name}, and changes show up here. To sync from this device too, add your calendar link below. It works like a password, so it stays on this device only.${chromeDesktop() && !(window.SBEXT && SBEXT.has(P.id)) ? ` For grades and announcements here too, add the Studyboard School Sync extension to Chrome.` : ""}</p>` : `<button class="btn primary" data-act="${A}-sync">Sync Now</button>`}${bulk().lastRead ? `<button class="btn" data-act="${A}-report">Copy Sync Report</button>` : ""}
           ${grabOk() && chromeDesktop() && !(window.SBEXT && (SBEXT.has(P.id) || gone0 && SBEXT.on())) ? `<a class="btn${gone0 ? " primary" : ""}" href="${esc(EXT_CHROME_URL)}" target="_blank" rel="noopener noreferrer">${gone0 ? "Get the Extension" : "Get Grades and Announcements"}</a>` : ""}
           ${needLogin ? `<button class="btn" data-act="${A}-login">Sign In to ${P.name}</button>` : ""}
           <button class="btn" data-act="${A}-open-site">Open ${P.name}</button>
@@ -1722,7 +1751,7 @@ function cleanFile(r) {
   function readAgain(wait){
     const c = cfg();
     if (bsDesk() && c.mode === "api") { syncNow({force: true}); return; }
-    if (EXT.on && EXT.schools.some(x => x.id === P.id)) { try { localStorage.removeItem("studyboard:ext:" + P.id); } catch(e) {} extPost({type: "get"}); extPost({type: "sync"}); return; }
+    if (EXT.on && EXT.schools.some(x => x.id === P.id)) { try { localStorage.removeItem(extKey(P.id)); } catch(e) {} extPost({type: "get"}); extPost({type: "sync"}); return; }
     if (c.feed) { syncNow({force: true}); return; }
     setTimeout(() => toast(extNudge("to bring everything back"), null, extBtn()), wait || 0);
   }
@@ -1945,6 +1974,8 @@ function cleanFile(r) {
       case "fresh": if (dlg.open) dlg.close(); setTimeout(() => startFresh().catch(e => console.error(e)), 50); return true;
       case "syl": { const got = (bulk().syl || {})[el.dataset.k]; if (!got) return true; if (dlg.open) dlg.close(); importSheet(el.dataset.id, new File([got.text], `${P.name} syllabus.txt`, {type: "text/plain"})); return true; }
       case "sync": dlg.close(); syncNow(); return true;
+      case "report": reportSheet(); return true;
+      case "report-copy": { const el2 = $("#bsReport"), t = el2 ? el2.value : syncReport(); (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast("Sync report copied")).catch(() => { if (el2) { el2.focus(); el2.select(); } toast("Select the text and copy it"); }); return true; }
       case "login": doLogin().catch(e => { console.error(e); toast("Sign-in didn't work. Try again."); }); return true;
       case "feed-connect": { const v = $("#bsFeedIn") && $("#bsFeedIn").value; feedConnect(v).catch(e => { console.error(e); toast(errText(e)); }); return true; }
       case "feed-save": { const v = ($("#bsFeedIn") && $("#bsFeedIn").value.trim()) || ""; if (!v) { save({feed: ""}); toast(cfg().mode === "feed" ? "Add a calendar link, or disconnect instead" : "Calendar link removed"); if (cfg().mode !== "feed") bsSheet(); return true; } feedConnect(v, true); return true; }

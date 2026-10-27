@@ -151,6 +151,8 @@ const BB = [
     const m = c.marks.find(x => x.id === "1234");
     assert(m && m.num === 34 && m.den === 45 && m.from === "quizPage", "and its mark from the Submissions page: " + JSON.stringify(c.marks));
     assert(/2 only on the Quizzes page/.test(c.quizNote), c.quizNote);
+    const qx = c.dx.quizzes.find(x => x.id === "1234");
+    assert(qx && qx.from === "Quizzes page" && qx.sat === "yes" && /^ok /.test(qx.subm) && qx.overall === true && qx.mark === "34/45" && c.dx.quizApi === 0, "the sync report records each step: " + JSON.stringify(c.dx));
     // the API lists it, but nothing says it was sat (attempts refused, no Quizzes page): its Submissions page says both
     const r2 = BS.filter(([re]) => !/quizzes\\\/\$/.test(re.source)).concat([
       [/^\/d2l\/api\/le\/1\.70\/101\/quizzes\/$/, { Objects: [{ QuizId: 1234, Name: "Midterm Exam- Requires Respondus LockDown Browser", StartDate: iso(-4), IsActive: true }], Next: null }],
