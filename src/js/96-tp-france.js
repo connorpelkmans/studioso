@@ -83,7 +83,7 @@
           <path d="M3 21.6Q8 25 13 21.6Q18 25 23 21.6Q28 25 33 21.6Q38 25 43 21.6Q48 25 53 21.6Q58 25 63 21.6Q68 25 73 21.6Q78 25 82 21.6" fill="none" stroke="#7A2420" stroke-width=".8" opacity=".5"/>
           <circle cx="43" cy="12" r="8.4" fill="#FFF6E8"/>${tower(43, 19, 13, "#E2B04A", "#8A6420").replace(/stroke-width="1.8"/, 'stroke-width=".8"')}</svg>`}
     ],
-    card: {id: "tp-france", name: "Rive Gauche", desc: "Cream paper with a little tower in the corner and cafe-awning stripes along the bottom. Night-blue with a golden tower in dark mode."}
+    card: {id: "tp-france", name: "Rive Gauche", desc: "Cream paper under a striped cafe awning, with Paris rooftops and the tower along the bottom. Starry night with lit windows and a golden tower in dark mode."}
   });
 })();
 /* end of module 96-tp-france.js */

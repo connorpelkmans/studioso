@@ -85,7 +85,7 @@
         svg: `<svg viewBox="0 0 86 26"><path d="${tapeEdge}" fill="#FFFDF6" opacity=".95"/>
           ${[14, 33, 52, 71].map((x, i) => `<g transform="translate(${x} 13) scale(.78)"><rect x="-10" y="-10" width="20" height="20" rx="2" fill="${i % 2 ? "#2C9A70" : "#2A8FB8"}"/><path d="M0 -8L2.4 -2.4L8 0L2.4 2.4L0 8L-2.4 2.4L-8 0L-2.4 -2.4Z" fill="#F6C833"/><circle r="1.8" fill="#fff"/></g>`).join("")}</svg>`}
     ],
-    card: {id: "tp-italy", name: "Lemon Terrace", desc: "Warm cream paper with a lemon branch in the corner and a little boat on turquoise water below. Deep Amalfi night in dark mode."}
+    card: {id: "tp-italy", name: "Lemon Terrace", desc: "Sunny cream card framed in blue-and-yellow Amalfi majolica tiles, with lemon sprigs tucked into each corner. Deep Amalfi night in dark mode."}
   });
 })();
 /* end of module 96-tp-italy.js */
