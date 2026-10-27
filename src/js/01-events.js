@@ -107,6 +107,7 @@ document.addEventListener("click", e => {
       confirmSheet("Delete Course?", `${c.name} and its ${ts.length} task${ts.length === 1 ? "" : "s"}${ts.length >= 5 ? ` (${ts.filter(t => t.status === "done").length} finished)` : ""} will be moved to Recently Deleted. You can undo right after, or restore it from Settings for ${TB.KEEP_DAYS} days.`, "Delete Course", () => {
         if (ui.filter === id) ui.filter = "all";
         ui.courseId = null;
+        try { if (window.SBLMS_COURSE_GONE) SBLMS_COURSE_GONE(id); } catch (e) {}
         applyChanges([{kind:"course", id, after:null}, ...ts.map(t => ({kind:"task", id:t.id, after:null}))], `Deleted ${c.name}`);
       });
       break;
@@ -140,7 +141,9 @@ document.addEventListener("click", e => {
     case "fab-file": fabMenu("Add File", [...(caps.assets ? [["f-upload", "Upload File", "PDFs, slides, documents and images", "upload"], ["f-quick", "Quick Add", "Drop files and let " + aiWho("Studyboard") + " sort them into the right course and folder", "", true]] : []), ["f-link", "Add Link", "For files kept in OneDrive, Google Drive or Canvas", "link"]]); break;
     case "fab-note": if (noteEditing) saveNoteText(); newNoteAt(); break;
     case "fab-deck": fabMenu("Add Deck", [["fc-new", "New Deck", "Add cards yourself or paste a list", "deck"], ...(inPreview() ? [] : [["fc-ai-cards", "Create with " + aiWho("AI"), "Upload slides or notes and get flashcards", "", true]]), ["ia-open", "Import From Another App", "Anki, Quizlet or Notion decks, read on this device", "upload"]]); break;
-    case "qz-add": fabMenu("Add Quiz", [...(inPreview() ? [] : [["qz-ai", "From Slides or Notes", "Upload slides, notes or readings and get a practice quiz or case studies. No flashcards needed.", "", true]]), ["qz-from-deck", "From a Deck", aiReady() ? `${aiWho("AI")} writes questions from your flashcards` : "Questions from your flashcards", "deck"]]); break;
+    case "qz-add": fabMenu("Add Quiz", [...(inPreview() ? [] : [["qz-ai", "From Slides or Notes", "Upload slides, notes or readings and get a practice quiz or case studies. No flashcards needed.", "", true]]), ["qz-from-deck", "From a Deck", aiReady() ? `${aiWho("AI")} writes questions from your flashcards` : "Questions from your flashcards", "deck"], ["qz-write", "Write Your Own", "Type your own questions and answers", "write"]]); break;
+    case "qz-write": quizMaker(); break;
+    case "qz-edit": quizMaker(id); break;
     case "qz-from-deck": quizSheet(ui.filter !== "all" ? decksArr().filter(d => d.courseId === ui.filter && d.cards.length).slice(0, 1).map(d => d.id) : []); break;
     case "qz-ai": aiStudySheet(null, "quiz"); break;
     case "fc-ai-cards": aiStudySheet(id || null, "cards"); break;

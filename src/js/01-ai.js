@@ -1332,8 +1332,19 @@ const SYL_SCHEMA = {type: "OBJECT", properties: {
     hours: {type: "NUMBER", description: "Realistic hours of work for a typical student (0 for exams, quizzes and items without work)"},
     location: {type: "STRING"}, reading: {type: "STRING", description: "For readings: what to read"},
     note: {type: "STRING", description: "The syllabus line this came from, shortened"},
-    sure: {type: "BOOLEAN", description: "false if the date or details had to be guessed"}}, required: ["title", "type", "due"]}}},
+    sure: {type: "BOOLEAN", description: "false if the date or details had to be guessed"}}, required: ["title", "type", "due"]}},
+  rules: {type: "OBJECT", properties: {
+    drops: {type: "ARRAY", items: {type: "OBJECT", properties: {category: {type: "STRING", enum: ["Assignment", "Exam", "Quiz", "Reading", "Project", "Lab", "Other"]}, count: {type: "INTEGER", description: "How many of the lowest are dropped"}}, required: ["category", "count"]}},
+    bonus: {type: "NUMBER", description: "The most extra credit, in percentage points, that can be added to the final course grade, or 0"}}}},
   required: ["course", "items"]};
+// The AI's grading rules -> the Grades page's form, or null
+function aiSylRules(r){
+  r = r && typeof r === "object" ? r : {};
+  const seen = new Set(), drops = (Array.isArray(r.drops) ? r.drops : []).map(d => ({cat: String((d && d.category) || ""), n: Math.floor(Number(d && d.count)), src: "syllabus"}))
+    .filter(d => TYPES.includes(d.cat) && d.cat !== "Study" && d.n >= 1 && d.n <= 10 && !seen.has(d.cat) && seen.add(d.cat));
+  const b = Number(r.bonus), bonus = b > 0 && b <= 10 ? {pts: Math.round(b * 100) / 100, got: 0, src: "syllabus"} : null;
+  return drops.length || bonus ? {drops, bonus} : null;
+}
 async function aiReadSyllabus(parts, onStatus){
   const today = todayISO();
   const res = await aiCall({task: "syllabus", maxTokens: 32000, temperature: 0.1, onStatus, schema: SYL_SCHEMA, parts: parts.concat({text: `Today is ${today}. Read this course syllabus and extract the course details and every dated deliverable.`}),
@@ -1343,7 +1354,8 @@ Rules:
 - Resolve every date to YYYY-MM-DD. Use the term and year stated in the syllabus; if none, use the school term that contains or follows ${today}. Resolve "Week 5 Friday", "Class 12", or dates in schedule tables using the course calendar and meeting days.
 - Titles are short and specific, like "Homework 3", "Midterm 1", "Lab 4 Report", "Read Ch. 5".
 - time: due time or exam start time in 24-hour HH:MM if given. For exams held in class, use the class start time.
-- weight: the percent of the final grade for that single item. If a category is worth a total (e.g. "Quizzes 20%, 10 quizzes, lowest dropped"), divide it across the items. Use 0 if unknown.
+- weight: the percent of the final grade for that single item. If a category is worth a total, divide it evenly across every item in it, counting any that will be dropped (e.g. "Quizzes 20%, 10 quizzes, lowest 2 dropped" is 2% each). Use 0 if unknown.
+- rules: the grading policy's rules. drops: each "lowest N dropped" rule, with the category it applies to and how many are dropped (use Exam only when midterms or tests are dropped). Leave out rules where a later mark replaces an earlier one. bonus: the most extra credit, in percentage points, that can be added to the final course grade; 0 if there is none or it only counts inside one assignment or exam.
 - meetings: every regular class meeting (lecture, lab, discussion, tutorial) and the instructor's office hours, with days as numbers (0=Sunday) and 24-hour times.
 - sure=false when you had to infer the date.
 Return JSON only.`});
@@ -1358,7 +1370,7 @@ Return JSON only.`});
   const gate = aiGateSyllabus(items, today); items.length = 0; gate.items.forEach(i => items.push(i));
   items.sort((a, b) => (a.due || "9999") < (b.due || "9999") ? -1 : (a.due || "9999") > (b.due || "9999") ? 1 : 0);
   const gateNote = [gate.fixed ? `${gate.fixed} date${gate.fixed === 1 ? " looked" : "s looked"} wrong (far from the rest) and ${gate.fixed === 1 ? "was" : "were"} left blank for you to fill in.` : "", gate.dups ? `${gate.dups} repeated item${gate.dups === 1 ? " was" : "s were"} merged.` : ""].filter(Boolean).join(" ");
-  return {course, items, term: c.term ? {label: String(c.term)} : null, weightsFound: items.some(i => i.weight != null), ai: true, gateNote};
+  return {course, items, term: c.term ? {label: String(c.term)} : null, weightsFound: items.some(i => i.weight != null), ai: true, gateNote, rules: aiSylRules(d.rules)};
 }
 
 /* Settings: turning AI on and choosing a model */

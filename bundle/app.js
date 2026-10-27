@@ -3872,8 +3872,19 @@ const SYL_SCHEMA = {type: "OBJECT", properties: {
     hours: {type: "NUMBER", description: "Realistic hours of work for a typical student (0 for exams, quizzes and items without work)"},
     location: {type: "STRING"}, reading: {type: "STRING", description: "For readings: what to read"},
     note: {type: "STRING", description: "The syllabus line this came from, shortened"},
-    sure: {type: "BOOLEAN", description: "false if the date or details had to be guessed"}}, required: ["title", "type", "due"]}}},
+    sure: {type: "BOOLEAN", description: "false if the date or details had to be guessed"}}, required: ["title", "type", "due"]}},
+  rules: {type: "OBJECT", properties: {
+    drops: {type: "ARRAY", items: {type: "OBJECT", properties: {category: {type: "STRING", enum: ["Assignment", "Exam", "Quiz", "Reading", "Project", "Lab", "Other"]}, count: {type: "INTEGER", description: "How many of the lowest are dropped"}}, required: ["category", "count"]}},
+    bonus: {type: "NUMBER", description: "The most extra credit, in percentage points, that can be added to the final course grade, or 0"}}}},
   required: ["course", "items"]};
+// The AI's grading rules -> the Grades page's form, or null
+function aiSylRules(r){
+  r = r && typeof r === "object" ? r : {};
+  const seen = new Set(), drops = (Array.isArray(r.drops) ? r.drops : []).map(d => ({cat: String((d && d.category) || ""), n: Math.floor(Number(d && d.count)), src: "syllabus"}))
+    .filter(d => TYPES.includes(d.cat) && d.cat !== "Study" && d.n >= 1 && d.n <= 10 && !seen.has(d.cat) && seen.add(d.cat));
+  const b = Number(r.bonus), bonus = b > 0 && b <= 10 ? {pts: Math.round(b * 100) / 100, got: 0, src: "syllabus"} : null;
+  return drops.length || bonus ? {drops, bonus} : null;
+}
 async function aiReadSyllabus(parts, onStatus){
   const today = todayISO();
   const res = await aiCall({task: "syllabus", maxTokens: 32000, temperature: 0.1, onStatus, schema: SYL_SCHEMA, parts: parts.concat({text: `Today is ${today}. Read this course syllabus and extract the course details and every dated deliverable.`}),
@@ -3883,7 +3894,8 @@ Rules:
 - Resolve every date to YYYY-MM-DD. Use the term and year stated in the syllabus; if none, use the school term that contains or follows ${today}. Resolve "Week 5 Friday", "Class 12", or dates in schedule tables using the course calendar and meeting days.
 - Titles are short and specific, like "Homework 3", "Midterm 1", "Lab 4 Report", "Read Ch. 5".
 - time: due time or exam start time in 24-hour HH:MM if given. For exams held in class, use the class start time.
-- weight: the percent of the final grade for that single item. If a category is worth a total (e.g. "Quizzes 20%, 10 quizzes, lowest dropped"), divide it across the items. Use 0 if unknown.
+- weight: the percent of the final grade for that single item. If a category is worth a total, divide it evenly across every item in it, counting any that will be dropped (e.g. "Quizzes 20%, 10 quizzes, lowest 2 dropped" is 2% each). Use 0 if unknown.
+- rules: the grading policy's rules. drops: each "lowest N dropped" rule, with the category it applies to and how many are dropped (use Exam only when midterms or tests are dropped). Leave out rules where a later mark replaces an earlier one. bonus: the most extra credit, in percentage points, that can be added to the final course grade; 0 if there is none or it only counts inside one assignment or exam.
 - meetings: every regular class meeting (lecture, lab, discussion, tutorial) and the instructor's office hours, with days as numbers (0=Sunday) and 24-hour times.
 - sure=false when you had to infer the date.
 Return JSON only.`});
@@ -3898,7 +3910,7 @@ Return JSON only.`});
   const gate = aiGateSyllabus(items, today); items.length = 0; gate.items.forEach(i => items.push(i));
   items.sort((a, b) => (a.due || "9999") < (b.due || "9999") ? -1 : (a.due || "9999") > (b.due || "9999") ? 1 : 0);
   const gateNote = [gate.fixed ? `${gate.fixed} date${gate.fixed === 1 ? " looked" : "s looked"} wrong (far from the rest) and ${gate.fixed === 1 ? "was" : "were"} left blank for you to fill in.` : "", gate.dups ? `${gate.dups} repeated item${gate.dups === 1 ? " was" : "s were"} merged.` : ""].filter(Boolean).join(" ");
-  return {course, items, term: c.term ? {label: String(c.term)} : null, weightsFound: items.some(i => i.weight != null), ai: true, gateNote};
+  return {course, items, term: c.term ? {label: String(c.term)} : null, weightsFound: items.some(i => i.weight != null), ai: true, gateNote, rules: aiSylRules(d.rules)};
 }
 
 /* Settings: turning AI on and choosing a model */
@@ -4396,10 +4408,38 @@ function autoCleanNext(raw, back, ok, textOf){
   return out.slice(0, 5);
 }
 
+/* Time worked on a task, day by day: focus sessions and time you typed in.
+   Kept on the task as workLog [{id, d: "YYYY-MM-DD", m: minutes, k: "focus" | "log", at}], so it syncs and lasts.
+   A task from before the log existed reads its history lines instead */
+const CLOCK_IC = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+const WORK_RX = /^(Focus session|Logged time):? (\d+)m/;
+const isoDay = ms => { const x = new Date(ms); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
+function workEntries(t){
+  if (!t) return [];
+  if (Array.isArray(t.workLog)) return t.workLog.filter(e => e && Number(e.m) > 0 && /^\d{4}-\d{2}-\d{2}$/.test(e.d || "")).map(e => ({id: e.id || "", d: e.d, min: Number(e.m), kind: e.k === "log" ? "logged" : "focus", at: Number(e.at) || new Date(e.d + "T12:00").getTime()}));
+  return (t.history || []).map(h => { const m = h && typeof h.text === "string" && Number.isFinite(Number(h.at)) ? WORK_RX.exec(h.text) : null; return m ? {id: "", d: isoDay(Number(h.at)), min: Number(m[2]), kind: m[1] === "Logged time" ? "logged" : "focus", at: Number(h.at)} : null; }).filter(Boolean);
+}
+// Adds time to a copy of a task (n): its total, its day-by-day log and a history line. day defaults to today
+function addWork(n, min, kind, day, at){
+  min = Math.round(Number(min) || 0); if (!(min > 0)) return n;
+  day = /^\d{4}-\d{2}-\d{2}$/.test(day || "") ? day : todayISO();
+  at = Number(at) || (day === todayISO() ? Date.now() : new Date(day + "T12:00").getTime());
+  if (!Array.isArray(n.workLog)) n.workLog = workEntries(n).map(e => ({id: uid(), d: e.d, m: e.min, k: e.kind === "logged" ? "log" : "focus", at: e.at}));
+  n.workLog = n.workLog.concat({id: uid(), d: day, m: min, k: kind === "log" ? "log" : "focus", at}).slice(-500);
+  n.focusMin = (Number(n.focusMin) || 0) + min;
+  n.history = (n.history || []).concat({at, text: kind === "log" ? `Logged time: ${min}m` : `Focus session: ${min}m`}).slice(-30);
+  return n;
+}
+// Minutes per day for one task, newest day first: [{d, min, focus, logged, items}]
+function workByDay(t){
+  const by = {};
+  workEntries(t).forEach(e => { const r = by[e.d] || (by[e.d] = {d: e.d, min: 0, focus: 0, logged: 0, items: []}); r.min += e.min; r[e.kind === "logged" ? "logged" : "focus"] += e.min; r.items.push(e); });
+  return Object.values(by).sort((a, b) => a.d < b.d ? 1 : -1);
+}
 /* "Enough for today": a task you've worked for the time the plan gave it, or that you said was enough, steps aside
    for the rest of the day even though it isn't finished. It is recorded in the task's own history, so it syncs. */
 const dayStartMs = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
-const workedToday = t => { const ds = dayStartMs(); return (t.history || []).reduce((m, h) => { const mm = /^(?:Focus session|Logged time):? (\d+)m/.exec(h.text || ""); return mm && h.at >= ds ? m + Number(mm[1]) : m; }, 0); };
+const workedToday = t => { const d = todayISO(); return workEntries(t).reduce((m, e) => e.d === d ? m + e.min : m, 0); };
 // "Enough for today" lasts until 4 AM, so pressing it just after midnight doesn't carry over into the next day
 const enoughSinceMs = () => { const d = new Date(); if (d.getHours() < 4) d.setDate(d.getDate() - 1); d.setHours(4, 0, 0, 0); return d.getTime(); };
 const markedEnough = t => { const ds = enoughSinceMs(); return (t.history || []).some(h => h.text === "Enough for today" && h.at >= ds); };
@@ -4586,7 +4626,7 @@ function nextUpHtml(F, pre){
         ${n.step ? `<span class="nu-step">Next step: ${esc(n.step.text)}</span>` : ""}
       </div>
       ${lmsGoBtn(t)}
-      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-id="${t.gt ? "" : esc(t.id)}" data-mins="${n.mins}">${TOMATO}Start a ${n.mins}m Focus</button>${window.SBPREP ? SBPREP.matBtn(t) : ""}${t.type === "Study" && (t.studyDecks || []).length && !t.matKind ? `<button class="btn small" data-act="fc-study-plan" data-id="${esc(t.id)}">Study Cards</button>` : ""}${n.left ? `<button class="btn small" data-act="nu-skip" data-id="${esc(t.id)}">Something Else</button>` : ""}${t.gt ? "" : `<button class="btn small" data-act="nu-enough" data-id="${esc(t.id)}" title="You have done enough on this today, so move on. It stays on your list.">Enough for Today</button>`}${nuBackBtn()}</div>
+      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-id="${t.gt ? "" : esc(t.id)}" data-mins="${n.mins}">${TOMATO}Start a ${n.mins}m Focus</button>${window.SBPREP ? SBPREP.matBtn(t) : ""}${t.type === "Study" && (t.studyDecks || []).length && !t.matKind ? `<button class="btn small" data-act="fc-study-plan" data-id="${esc(t.id)}">Study Cards</button>` : ""}${n.left ? `<button class="btn small" data-act="nu-skip" data-id="${esc(t.id)}">Something Else</button>` : ""}${t.gt ? "" : `<button class="btn small" data-act="log-time" data-id="${esc(t.id)}" title="Type in time you worked on this">Log Time</button><button class="btn small" data-act="nu-enough" data-id="${esc(t.id)}" title="You have done enough on this today, so move on. It stays on your list.">Enough for Today</button>`}${nuBackBtn()}</div>
     </div>
   </div>`;
 }
@@ -7933,8 +7973,9 @@ function viewBoard(){
     }).join("");
   } else boardHtml = `<div class="board" id="board">${colsFor(ts, null)}</div>`;
   const bv = ui.bview || (() => { try { return localStorage.getItem("studyboard:bview") || "plan"; } catch(e) { return "plan"; } })();
-  const tabs = `<div class="bview-tabs" role="tablist" aria-label="Board view"><button role="tab" data-act="bview" data-id="plan" aria-selected="${bv === "plan"}">Today's Plan</button><button role="tab" data-act="bview" data-id="board" aria-selected="${bv === "board"}">Task Board</button></div>`, tabRow = `<div class="bview-row">${tabs}${bv === "board" ? groupCtl : ""}</div>`;
+  PLAN_HOURS = "";
   const planPane = hasAny && tasksArr().length ? (window.SBEXAM ? SBEXAM.todayHtml() : "") + focusHtml() : `<div class="empty bview-empty"><strong>Nothing Planned Yet</strong>Add tasks with due dates and Today's Plan will line up what to work on.</div>`;
+  const tabs = `<div class="bview-tabs" role="tablist" aria-label="Board view"><button role="tab" data-act="bview" data-id="plan" aria-selected="${bv === "plan"}">Today's Plan</button><button role="tab" data-act="bview" data-id="board" aria-selected="${bv === "board"}">Task Board</button></div>`, tabRow = `<div class="bview-row">${tabs}${bv === "board" ? groupCtl : PLAN_HOURS ? `<div class="bv-hours">${PLAN_HOURS}</div>` : ""}</div>`;
   return backupNudge() + (window.SBCRUNCH ? SBCRUNCH.cardHtml() : "") + `<div class="qa-wrap">${qaBarHtml()}</div>` + tabRow + `<div class="bview" data-bview="${bv}"><div class="bpane-plan">${planPane}</div><div class="bpane-board">` + banner + `<section class="board-sec" aria-label="Task Board">
     <div class="board-sec-head"><h2>Task Board</h2></div>
     ${chipsHtml(groupCtl)}${searchNote()}${boardHtml}
@@ -8058,10 +8099,15 @@ function splitToday(ranked, th, own){
   const q = h => Math.floor(h * 4 + 1e-9) / 4, BLOCK = 0.5, maxN = Math.max(1, Math.min(4, Math.round(left)));
   const urgent = x => x.dl <= 1 || (x.own || 0) >= 0.75 || (x.behind || 0) >= 0.5;
   const give = (x, a) => { a = q(Math.min(a, left)); if (a <= 0) return 0; x.alloc += a; left -= a; return a; };
-  ranked.forEach(x => { x.moved = 0; x.alloc = 0; });
+  ranked.forEach(x => { x.moved = 0; x.alloc = 0; x.far = false; });
+  // Work due well after the nearest deadline waits until the nearer work has its time, unless it's big enough to need steady time now
+  const d0 = ranked.reduce((m, x) => x.need > 0 && x.dl >= 0 && !x.dead ? Math.min(m, x.dl) : m, Infinity);
+  // needs early attention: a large share of the time left before it's due, a tight run of deadlines up to it, or simply a lot of work
+  const ahead = x => (x.own || 0) >= 0.3 || (x.rho || 0) >= 0.6 || (x.R || 0) >= 6;
+  ranked.forEach(x => { x.ahead = false; if (d0 < Infinity && x.dl > d0 + Math.max(5, d0) && !urgent(x)) { if (ahead(x)) x.ahead = true; else x.far = true; } });
   const picked = [];
   ranked.forEach(x => {
-    if (!(x.need > 0) || left < 0.25) return;
+    if (!(x.need > 0) || left < 0.25 || x.far) return;
     const u = urgent(x);
     if (!u && picked.length >= maxN) return;
     const block = u ? x.need : Math.min(x.R || x.need, Math.max(x.need, BLOCK));
@@ -8073,6 +8119,8 @@ function splitToday(ranked, th, own){
     if (left < BLOCK || picked.includes(x) || !(x.need > 0)) return;
     if (give(x, Math.min(x.R || x.need, Math.max(x.need, BLOCK)))) picked.push(x);
   });
+  // time still left once the nearer work is covered: work ahead on what was held back
+  picked.forEach(x => { if (x.far && left >= 0.25 && x.R > x.alloc + 0.125) give(x, Math.round((x.R - x.alloc) * 4) / 4); });
   return left;
 }
 // Group project tasks assigned to me, as plan entries
@@ -8195,6 +8243,7 @@ function computeFocus(){
     else if (x.own >= 1 && x.dl >= 0) r.push([93, "It needs more time than you have left before it's due, so start now"]);
     else if (x.rho >= 0.75 && x.dl >= 0 && x.dl <= 14) r.push([70, "Little spare time before it's due"]);
     if (x.own >= 0.5 && x.own < 1 && x.dl > 7) r.push([66, "Big enough that it needs steady time every day until it's due"]);
+    else if (x.ahead && x.alloc > 0) r.push([66, (x.rho || 0) >= 0.6 && (x.own || 0) < 0.3 ? "Due later, but there's little spare time before it once everything due first is done, so it helps to start now" : `Due later, but about ${fmtHM(x.R)} of work, so it helps to start well ahead`]);
     if (x.quick) r.push([44, "Quick to clear, and due soon"]);
     if (x.stale) r.push([33, "Started a while ago and hasn't moved since"]);
     if (hasWeight(t) || x.W >= 10 || PTS_W[t.id]) r.push([50 + x.W, `${hasWeight(t) ? "" : "About "}${Math.round(x.W * 10) / 10}% of your grade${!hasWeight(t) && PTS_W[t.id] ? " (from its points)" : ""}`]);
@@ -8312,7 +8361,7 @@ function planRow(x, i, showScore, noRank){
     ${t.gt ? `<span class="check gt-dot" aria-hidden="true"></span>` : `<button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>`}
     <button class="plan-main" ${gtOpenAttrs(t)} title="${esc(rs.join("\n"))}"><span class="task-title">${esc(t.title)}</span>${t.gt ? `<span class="pr-chip gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? `<span class="pr-chip">${esc(courseLabel(c))}</span>` : ""}</button>${c ? `<span class="pr-chip pr-chip-out">${esc(courseLabel(c))}</span>` : ""}
     ${lead ? rest.length ? `<button class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}" data-act="plan-why" data-id="${esc(key)}" aria-expanded="${open}" aria-controls="pw-${esc(key)}" title="${esc(lead)}. Show all ${rs.length} reasons"><span class="pr-lead">${esc(lead)}</span><span class="pr-n" aria-hidden="true">+${rest.length} more</span></button>` : `<span class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}"><span class="pr-lead">${esc(lead)}</span></span>` : `<span class="pr-why"></span>`}
-    <span class="plan-side">${lmsGoBtn(t)}${window.SBPREP ? SBPREP.matBtn(t) : ""}${side}${showScore || !canDoNow(t) ? "" : `<button class="focus-go" data-act="pomo-task" data-id="${t.gt ? "" : esc(t.id)}" aria-label="Start a focus session on ${esc(t.title)}" title="Start a focus session">${TOMATO}</button>`}</span>
+    <span class="plan-side">${lmsGoBtn(t)}${window.SBPREP ? SBPREP.matBtn(t) : ""}${side}${showScore || !canDoNow(t) ? "" : `<button class="focus-go" data-act="pomo-task" data-id="${t.gt ? "" : esc(t.id)}" aria-label="Start a focus session on ${esc(t.title)}" title="Start a focus session">${TOMATO}</button>`}${showScore || t.gt ? "" : `<button class="focus-go lt-go" data-act="log-time" data-id="${esc(t.id)}" aria-label="Log time on ${esc(t.title)}" title="Log time you worked on this">${CLOCK_IC}</button>`}</span>
     ${(sl => !showScore && ((sl && sl.length) || x.moved > 0.05) ? `<span class="pr-slot">${sl && sl.length ? `<b>${esc(availSlotText(sl))}</b>` : ""}${x.moved > 0.05 ? `${sl && sl.length ? " " : ""}<span class="mini">${esc(fmtHM(x.moved))} moved to a lighter day</span>` : ""}</span>` : "")(FOCUS && FOCUS.slotsBy ? FOCUS.slotsBy[t.id] : null)}
     ${rest.length ? `<ul class="pr-more" id="pw-${esc(key)}"${open ? "" : " hidden"}>${rest.map(r => `<li>${esc(r)}</li>`).join("")}</ul>` : ""}
   </li>`;
@@ -8357,6 +8406,8 @@ function ribbonHtml(week, pick, late){
   }).join("") + Object.entries(more).map(([i, n]) => { const iso = week[i].iso; return `<button type="button" class="rb-more" data-act="plan-tile" data-id="d:${iso}" style="left:${pct(+i + 0.5)}" aria-label="${esc(`${n} more due ${fmtDate(iso)}. Show only that day`)}">+${n}</button>`; }).join("");
   return `<div class="rb${late.n ? " has-late" : ""}${Object.keys(more).length ? " has-more" : ""}" role="group" aria-label="The next two weeks"><ol class="rb-days">${days}</ol><i class="rb-line" aria-hidden="true"></i><div class="rb-pins">${pins}</div></div>`;
 }
+// Time Today's control, for the row with Today's Plan / Task Board on wider screens (set by focusHtml; phones keep it in the plan box)
+let PLAN_HOURS = "";
 function focusHtml(){
   const F = FOCUS || computeFocus();
   const inView = x => inFilter(x.t) && matchesQ(x.t);
@@ -8404,7 +8455,7 @@ function focusHtml(){
   const ptStats = todayList.length || overdue || queued ? `<div class="pt-stats">${planTile}${ribbonHtml(week, pick, {n: overdue, title: ((lateRows[0] || pastFixed[0]) || {t: {}}).t.title || ""})}</div>` : "";
   return `<section class="focus plan" aria-label="Today's Plan">
     <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? `<p class="plan-gap">${F.gapWhy.map(esc).join(" ")}</p>` : ""}</div>
-      ${(hoursBar => `<div class="fh-ctl${ptStats ? " fh-chip has-stats" : ""}">${hoursBar}${autoChipHtml()}</div>`)(`<div class="hours-ctl" role="group" aria-label="Study time available today"><span class="mini">Time Today</span><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button><b${hoursTitle ? ` title="${esc(hoursTitle)}"` : ""}>${fmtHM(F.thSet) || "0m"}</b><button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></div>`)}</div>
+      ${(hoursBar => { PLAN_HOURS = hoursBar; return `<div class="fh-ctl${ptStats ? " fh-chip has-stats" : ""}${autoChipHtml() ? "" : " fh-only-hours"}">${hoursBar}${autoChipHtml()}</div>`; })(`<div class="hours-ctl" role="group" aria-label="Study time available today"><span class="mini">Time Today</span><span class="hc-row"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button><b${hoursTitle ? ` title="${esc(hoursTitle)}"` : ""}>${fmtHM(F.thSet) || "0m"}</b><button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></span></div>`)}</div>
     ${ui.focusOpen ? `${window.SBPRO ? SBPRO.todayHtml() : ""}${dayTimelineHtml(F, todayList, heroId)}${nextUpHtml(F, hero)}${skipped}${spare}${warn}${pastHtml}${availStripHtml(F)}
       ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
       ${fixedHtml}
@@ -8556,9 +8607,9 @@ function viewCourses(){
     const gn = window.SBGRADES && SBGRADES.now(c), pill = courseStatusPill(open, today), when = courseTimesText(c), pct = ts.length ? (doneN / ts.length * 100).toFixed(0) : 0;
     const mini = (ts.length ? `<span class="c2-mini"><i><b style="width:${pct}%"></b></i><span aria-hidden="true">${doneN}/${ts.length}</span><span class="sr">${doneN} of ${ts.length} done</span></span>` : "")
       + (nFiles ? `<span class="c2-mini c2-files"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5l-7.8 7.8a5 5 0 0 1-7.1-7.1l8.2-8.2a3.4 3.4 0 0 1 4.8 4.8l-8.2 8.2a1.7 1.7 0 0 1-2.4-2.4l7.5-7.5"/></svg><span aria-hidden="true">${nFiles}</span><span class="sr">${nFiles} file${nFiles === 1 ? "" : "s"}</span></span>` : "");
-    return `<div class="course-wrap" data-sort-id="${esc(c.id)}"><button class="course-card c2-card" style="--c:${esc(c.color)}" data-code="${esc(courseLabel(c))}" data-act="open-course" data-id="${esc(c.id)}">
-      <span class="c2-band"><span class="g2-kick">${esc(courseLabel(c))}</span>${when ? `<span class="c2-sched">${esc(when)}</span>` : ""}</span>
-      <span class="c2-top"><span class="g2-ring c2-ring" aria-hidden="true">${courseRingHtml(c)}</span><h3><span class="c2-name">${esc(cardName(c.name))}</span><span class="c2-code">${esc(courseLabel(c))}</span></h3></span>
+    return `<div class="course-wrap" data-sort-id="${esc(c.id)}"><button class="course-card c2-card" style="--c:${esc(c.color)}" data-code="${esc(c.code || "")}" data-act="open-course" data-id="${esc(c.id)}">
+      <span class="c2-band"><span class="g2-kick">${esc(c.code || "")}</span>${when ? `<span class="c2-sched">${esc(when)}</span>` : ""}</span>
+      <span class="c2-top"><span class="g2-ring c2-ring" aria-hidden="true">${courseRingHtml(c)}</span><h3><span class="c2-name">${esc(cardName(c.name))}</span>${c.code ? `<span class="c2-code">${esc(c.code)}</span>` : ""}</h3></span>
       <span class="body">
         ${when ? `<span class="c2-when">${esc(when)}</span>` : ""}${courseNextHtml(open, today)}
         ${ts.length ? `<div class="prog" style="--c:${esc(c.color)}"><span class="track"><i style="width:${pct}%"></i></span>${doneN} of ${ts.length} done${nFiles ? `, ${nFiles} file${nFiles === 1 ? "" : "s"}` : ""}</div>` : ""}
@@ -8902,7 +8953,7 @@ function viewCourseDetail(c){
   const links = (c.links || []).filter(l => !isLms(l)).map(l => { const u = safeUrl(l.url); return u ? `<dt>${esc(l.label || "Link")}</dt><dd><a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(u.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a></dd>` : ""; }).join("");
   return `<button class="back" data-act="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>All Courses</button>
     <div class="detail-head c2-head" style="--c:${esc(c.color)}">
-      <div class="g2-band"><span class="g2-kick">${esc(kick || "Course")}</span>
+      <div class="g2-band"><span class="g2-kick">${esc(kick)}</span>
         <div class="row-actions">${(l => l ? `<button class="btn small" data-act="lms-go" data-url="${esc(l.url)}">Open in ${esc(l.name)}</button>` : "")(lmsCourseLink(c))}${inPreview() ? "" : `<button class="btn small ai-btn" data-act="ask-course" data-sx-ask="1" data-id="${esc(c.id)}">${AI_ICON} Ask About This Course</button>`}${window.SBLEC ? SBLEC.btn(c) : ""}<button class="btn small" data-act="import-syllabus" data-course="${esc(c.id)}">Import Syllabus</button><button class="btn small" data-act="edit-course" data-id="${esc(c.id)}">Edit Course</button></div></div>
       <div class="g2-low"><span class="g2-ring" aria-hidden="true">${courseRingHtml(c)}</span>
         <div class="g2-txt"><h2>${esc(c.name)}</h2><div class="g2-meta"><span>${esc(courseMetaLine(c))}</span></div></div></div>
@@ -9036,6 +9087,7 @@ function newTermSheet(){
         <label class="mi-check"><input type="checkbox" name="decks" checked> Flashcard decks for these courses</label>
         <label class="mi-check"><input type="checkbox" name="notes" checked> Sticky notes for these courses</label>
       </fieldset>
+      ${window.SBGRADES && SBGRADES.snapCount && SBGRADES.snapCount(cs.map(c => c.id)) ? `<label class="mi-check"><input type="checkbox" name="hist" checked> Save Final Grades to Past Terms <span class="mini">keeps them for your cumulative GPA on the Grades page</span></label>` : ""}
       <label class="mi-check"><input type="checkbox" name="keep" checked> Keep Unfinished Work Due After Today${nAhead ? ` <span class="mini">${nAhead} task${nAhead === 1 ? "" : "s"}</span>` : ""}</label>
       <p class="mini" style="margin:0">Other open tasks are archived too. Move any you're carrying over back to To Do from the Archive.</p>
     </div>
@@ -9044,6 +9096,7 @@ function newTermSheet(){
     const label = String(fd.get("term") || "").trim(); if (!label) return false;
     const ids = new Set(fd.getAll("c")), now = Date.now(), ch = [];
     if (!ids.size && !fd.get("loose")) { toast("Pick at least one course"); return false; }
+    if (fd.get("hist") && window.SBGRADES && SBGRADES.snapTerm) { try { SBGRADES.snapTerm(label, [...ids]); } catch (e) { console.warn("past terms", e); } }
     ids.forEach(id => ch.push({kind: "course", id, after: Object.assign(clone(state.courses[id]), {archived: label, archivedAt: now})}));
     let nT = 0;
     const keep = !!fd.get("keep");
@@ -11089,6 +11142,7 @@ const FAB_IC = {
   mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
   link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
   note: '<path d="M4 4h16v10l-6 6H4z"/><path d="M14 20v-6h6"/>',
+  write: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4M14 20h6"/>',
   deck: '<rect x="3" y="7" width="14" height="13" rx="2"/><path d="M7 4h12a2 2 0 0 1 2 2v11"/>',
   group: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0M16 5.5a3 3 0 0 1 0 5.8M18 20a5.5 5.5 0 0 0-3-5"/>',
   project: '<rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v3M16 3v3M8 14h3"/>',
@@ -11950,7 +12004,8 @@ const SY = (() => {
       if (out[type]) return;
       const each = rest.match(/(\d{1,3}(?:\.\d+)?)\s*%\s*each/i);
       const pct = rest.match(/(\d{1,3}(?:\.\d+)?)\s*%/);
-      const cnt = rest.match(/\((\d{1,2})\)|\b(\d{1,2})\s*[x×]\b|\b(one|two|three|four|five|six|seven|eight|nine|ten|twelve)\b/i);
+      // "lowest two dropped" is a grading rule (gradeRules), not how many there are
+      const cnt = rest.replace(/\b(?:\d{1,2}|one|two|three|four|five)\s+lowest\b|\b(?:lowest|drop(?:s|ped|ping)?)\b[^,;)]*/gi, " ").match(/\((\d{1,2})\)|\b(\d{1,2})\s*[x×]\b|\b(one|two|three|four|five|six|seven|eight|nine|ten|twelve)\b/i);
       const count = cnt ? Number(cnt[1] || cnt[2]) || WORDN[(cnt[3] || "").toLowerCase()] : 0;
       if (each) { out[type] = {each: Number(each[1])}; return; }
       if (pct) { out[type] = {pct: Number(pct[1]), count}; return; }
@@ -11963,6 +12018,43 @@ const SY = (() => {
     });
     return out;
   }
+
+  // Grading rules: "the lowest quiz is dropped", "we drop your two lowest homework scores", "up to 2% extra credit on the final grade"
+  // -> {drops: [{cat, n, src}], bonus: {pts, got, src} or null}, or null when there are none
+  /*SYRULES-START*/
+  function gradeRules(text){
+    const NUM = {one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, single: 1};
+    const CAT = [[/\bquiz(?:zes)?\b/i, "Quiz"], [/\b(?:homeworks?|hw|assignments?|problem\s+sets?|psets?|worksheets?)\b/i, "Assignment"], [/\blabs?\b/i, "Lab"],
+      [/\b(?:mid-?terms?|tests?|exams?)\b/i, "Exam"], [/\breadings?\b|\breading\s+responses?\b/i, "Reading"], [/\bprojects?\b/i, "Project"]];
+    // Sentences, and lines that start a new entry (a capital, a number or a bullet); a line that wraps mid-sentence stays joined
+    const sents = String(text || "").replace(/\r/g, "").split(/[.!?;](?=\s|$)|\n(?=[ \t]*(?:[-•*·]|\d|[A-Z]))/).map(x => x.replace(/\s+/g, " ").trim()).filter(x => x && x.length < 320);
+    const drops = [], seen = new Set();
+    let bonus = 0;
+    sents.forEach(sn => {
+      const isDrop = /\blowest\b/i.test(sn) && /\b(?:drop(?:s|ped|ping)?|not\s+(?:be\s+)?count(?:ed)?|won't\s+count|excluded|thrown\s+out)\b/i.test(sn) && !/\breplace/i.test(sn) && !/\badd\s*\/\s*drop\b/i.test(sn);
+      if (isDrop) {
+        // Each "lowest" goes with the type closest to it (one after it wins a tie), and the count right by it
+        const hits = [];
+        CAT.forEach(([re, cat]) => { for (const m of sn.matchAll(new RegExp(re.source, "gi"))) hits.push([cat, m.index]); });
+        for (const lm of sn.matchAll(/\blowest\b/gi)) {
+          const li = lm.index;
+          let best = null;
+          hits.forEach(([cat, i]) => { const d = i > li ? i - li : (li - i) * 1.5; if (!best || d < best[1]) best = [cat, d]; });
+          if (!best || best[1] > 70 || seen.has(best[0])) continue;
+          const m = sn.slice(li).match(/^lowest\s+(\d{1,2}|one|two|three|four|five|six)\b/i) || sn.slice(0, li).match(/\b(\d{1,2}|one|two|three|four|five|six|single)\s+$/i);
+          const n = m ? Number(m[1]) || NUM[m[1].toLowerCase()] : 1;
+          if (!(n >= 1 && n <= 10)) continue;
+          seen.add(best[0]); drops.push({cat: best[0], n, src: "syllabus"});
+        }
+      }
+      if (/\b(?:extra[\s-]+credit|bonus)\b/i.test(sn) && (/\b(?:final|course|overall|total)\s+(?:course\s+)?(?:grade|mark)\b/i.test(sn) || /^(?:extra[\s-]+credit|bonus(?:\s+points?)?)\b/i.test(sn))) {
+        const m = sn.match(/(\d{1,2}(?:\.\d+)?)\s*(?:%|percent(?:age)?(?:\s+points?)?)/i), v = m ? Number(m[1]) : 0;
+        if (v > 0 && v <= 10) bonus = Math.max(bonus, v);
+      }
+    });
+    return drops.length || bonus ? {drops, bonus: bonus ? {pts: bonus, got: 0, src: "syllabus"} : null} : null;
+  }
+  /*SYRULES-END*/
 
   // Main entry: text -> {course, items, term}
   function parse(text, today){
@@ -12105,9 +12197,9 @@ const SY = (() => {
       const v = w.each != null ? w.each : w.pct / Math.max(1, w.count || (key === "Final" ? 1 : countOf(x.type)));
       if (v > 0 && v <= 100) x.weight = Math.round(v * 10) / 10;
     });
-    return {course, items: final, term, lineCount: lines.length, weightsFound: Object.keys(weights).length > 0 || own.length > 0, byType: weights};
+    return {course, items: final, term, lineCount: lines.length, weightsFound: Object.keys(weights).length > 0 || own.length > 0, byType: weights, rules: gradeRules(text)};
   }
-  return {parse, findDates, termInfo, findTime, meetingDays};
+  return {parse, findDates, termInfo, findTime, meetingDays, gradeRules};
 })();
 
 /* Syllabus import (PDF or text, parsed on this device) */
@@ -12268,6 +12360,7 @@ function importSheet(courseId, file){
 
   function show(text, from, pre, lead){
     const r = pre || SY.parse(text, todayISO());
+    if (!r.rules && text) r.rules = SY.gradeRules(text);
     result = r;
     const cs = coursesArr();
     const norm = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -12310,6 +12403,7 @@ function importSheet(courseId, file){
         </div>
         <label class="mi-check" id="impFillWrap"><input type="checkbox" id="impFill" checked> Fill in missing course details from the syllabus</label>
         ${srcFile && caps.assets ? `<label class="mi-check"><input type="checkbox" id="impSave" checked> Save the PDF in the course's Syllabus folder</label>` : ""}
+        ${r.rules && window.SBGRADES && SBGRADES.rulesText ? `<label class="mi-check imp-rules"><input type="checkbox" id="impRules" checked><span><b>Grading rules found:</b> ${esc(SBGRADES.rulesText(r.rules))}. <span class="mini">Count them in this course's grade. You can change them later in Grade Settings.</span></span></label>` : ""}
       </fieldset>
       ${r.items.length ? `<div class="imp-head"><strong>Tasks</strong><span class="spacer"></span><button type="button" class="link-btn" id="impAll">Select All</button><button type="button" class="link-btn" id="impNone">Select None</button></div><p class="mini imp-wsum" id="impWSum" role="status"></p><div id="impLists">${rows}</div>` : ""}`;
     $("#impAgain").addEventListener("click", () => { result = null; $("#impResult").innerHTML = ""; $("#impAdd").hidden = true; status.textContent = ""; $("#impDrop").hidden = false; $("#impPaste").hidden = false; $$(".ai-toggle", dlg).forEach(x => { x.hidden = false; }); });
@@ -12358,6 +12452,7 @@ function importSheet(courseId, file){
     if (!result) return;
     const changes = [];
     let cid = $("#impTarget").value;
+    const rules = result.rules && $("#impRules") && $("#impRules").checked ? result.rules : null;
     const val = id => $("#" + id).value.trim();
     if (cid === "new") {
       const name = val("icName") || val("icCode");
@@ -12365,6 +12460,7 @@ function importSheet(courseId, file){
       const used = coursesArr().map(x => x.color);
       const nc = {id: uid(), created: Date.now(), name, code: val("icCode"), instructor: val("icInstr"), schedule: val("icSched"), room: val("icRoom"), office: val("icOffice"), meetings: aiMeetings(val("icSched") === result.course.schedule, val("icOffice") === result.course.office, val("icRoom")) || parseMeetings(val("icSched"), "Lecture", val("icRoom")).concat(parseMeetings(val("icOffice"), "Office Hours")),
         color: COLORS.find(x => !used.includes(x)) || COLORS[used.length % COLORS.length], notes: "", links: result.course.links.slice(0, 8)};
+      if (rules) nc.grading = {rules};
       cid = nc.id;
       changes.push({kind:"course", id: nc.id, after: nc});
     } else if ($("#impFill").checked) {
@@ -12376,6 +12472,16 @@ function importSheet(courseId, file){
       const add = c.links.filter(l => !have.has(l.url));
       if (add.length) { ex.links = (ex.links || []).concat(add).slice(0, 12); changed = true; }
       if (changed) changes.push({kind:"course", id: cid, after: ex});
+    }
+    // Rules found in the syllabus join the course's own; ones the student set stay
+    if (rules && state.courses[cid]) {
+      let ch = changes.find(x => x.kind === "course" && x.id === cid);
+      if (!ch) { ch = {kind: "course", id: cid, after: clone(state.courses[cid])}; changes.push(ch); }
+      const g = ch.after.grading = Object.assign({}, ch.after.grading || {}), old = g.rules || {}, od = Array.isArray(old.drops) ? old.drops : [], ob = old.bonus;
+      const mine = d => d && d.src !== "syllabus";
+      const drops = od.filter(d => mine(d) || !rules.drops.some(x => x.cat === d.cat)).concat(rules.drops.filter(x => !od.some(d => mine(d) && d.cat === x.cat)));
+      const bonus = ob && mine(ob) && Number(ob.pts) > 0 ? ob : rules.bonus ? Object.assign({}, rules.bonus, {got: ob ? Number(ob.got) || 0 : 0}) : ob || null;
+      g.rules = {drops, bonus};
     }
     let order = nextOrder("todo");
     picked().forEach(i => {
@@ -13597,7 +13703,7 @@ function viewQuizDetail(d, qz){
   return `<button class="back" data-act="qz-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>All Quizzes</button>
     <div class="deck-head g2-head dk2" style="--c:${esc(colorOf(d.courseId))}">
       <div class="g2-band"><span class="g2-kick">${esc(c ? courseLabel(c) : "General")} · ${qz.kind === "case" ? "Case Study" : "Quiz"}</span>
-        <div class="row-actions"><button class="btn primary" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Start</button><button class="btn" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Share</button><button class="btn" data-act="qz-archive" data-id="${esc(ref)}">Archive</button><button class="btn" data-act="ai-quiz-del" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Delete</button></div></div>
+        <div class="row-actions"><button class="btn primary" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Start</button><button class="btn" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Share</button><button class="btn" data-act="qz-edit" data-id="${esc(ref)}">Edit</button><button class="btn" data-act="qz-archive" data-id="${esc(ref)}">Archive</button><button class="btn" data-act="ai-quiz-del" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Delete</button></div></div>
       <div class="g2-low"><span class="g2-ring" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>
         <div class="g2-txt"><h2>${esc(qz.title || "Practice Quiz")}</h2>
           <div class="deck-stats"><span><b>${qz.questions.length}</b> questions</span><span>from <b>${esc(quizFrom(d, qz))}</b></span>${last ? `<span>Last score <b>${last.score}/${last.total}</b></span><span>Best <b>${Math.round(best * 100)}%</b></span>` : ""}</div></div></div>
@@ -13616,7 +13722,7 @@ function viewQuizzes(){
       <div class="qz-acts"><button class="btn small primary" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Start</button><button class="btn small" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Share</button><span class="spacer"></span><button class="btn small deck-arch" data-act="qz-archive" data-id="${esc(d.id + ":" + qz.id)}" title="Put this quiz away" aria-label="Archive ${esc(qz.title || "quiz")}">${ARCHIVE.replace('width="26" height="26"', 'width="16" height="16"')}</button>${rvGrip(qz.title || "Practice Quiz")}</div></article>`; }).join("");
   return `<div class="view-head" data-qz-list><h2>Your Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${chipsHtml()}${q ? `<div class="search-note">Showing quizzes that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
-    ${list.length ? `<div class="qz-grid">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length ? "" : emptyArt()}<strong>${all.length ? "No Quizzes Match" : "No Quizzes Yet"}</strong>${all.length ? "Try another course or search." : (inPreview() ? "Make a quiz from one of your flashcard decks." : "Upload your slides, notes or readings and " + esc(aiWho("AI")) + " writes a practice quiz. Or make one from a flashcard deck.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px">${inPreview() || all.length ? "" : `<button class="btn primary ai-btn" data-act="qz-ai">${AI_ICON} From Slides or Notes</button>`}<button class="btn${inPreview() ? " primary" : ""}" data-act="qz-from-deck">From a Deck</button></div></div>`}
+    ${list.length ? `<div class="qz-grid">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length ? "" : emptyArt()}<strong>${all.length ? "No Quizzes Match" : "No Quizzes Yet"}</strong>${all.length ? "Try another course or search." : (inPreview() ? "Make a quiz from one of your flashcard decks." : "Upload your slides, notes or readings and " + esc(aiWho("AI")) + " writes a practice quiz. Or make one from a flashcard deck, or write your own.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px">${inPreview() || all.length ? "" : `<button class="btn primary ai-btn" data-act="qz-ai">${AI_ICON} From Slides or Notes</button>`}<button class="btn${inPreview() ? " primary" : ""}" data-act="qz-from-deck">From a Deck</button><button class="btn" data-act="qz-write">Write Your Own</button></div></div>`}
     <section class="grp-strip"><div class="grp-strip-txt">${QZ_GROUP_IC}<span><b>Study Together</b><span class="mini">Share quizzes with a study group: everyone takes them in their own app and sees the best scores.</span></span></div>
       <div class="grp-strip-btns"><button class="btn small" data-act="grp-page">Study Groups</button></div></section>
     <p class="hint-line tip-everyday">Make a quiz straight from your slides or notes with Add Quiz, or from a deck with Make a Quiz.</p>`;
@@ -14308,6 +14414,146 @@ document.addEventListener("keydown", e => {
   if (fcKey(e)) e.stopPropagation();
 }, true);
 
+
+/* Write your own quiz: questions you type yourself, saved and taken like any other quiz. Also edits an existing quiz */
+const QM_TYPES = [["single", "Multiple Choice"], ["multiple", "Select All That Apply"], ["truefalse", "True or False"], ["short", "Written Answer"], ["order", "Put in Order"]];
+let QM = null;
+const qmBlank = type => ({id: uid(), type: type || "single", stem: "", options: type === "truefalse" ? ["True", "False"] : type === "short" ? [] : ["", "", "", ""].slice(0, type === "order" ? 3 : 4), correct: type === "truefalse" ? [0] : [], answer: "", rationale: ""});
+// A saved question in editing form; a Put in Order question is listed in its right order
+const qmFromSaved = q => q.type === "order"
+  ? Object.assign({}, q, {options: q.correct.map(i => q.options[i]), correct: q.correct.map((x, k) => k)})
+  : Object.assign({}, q, {options: (q.options || []).slice(), correct: (q.correct || []).slice()});
+function qmQuestionHtml(q, i){
+  const typeSel = `<select class="qm-type" data-qm="type" aria-label="Question ${i + 1} type">${QM_TYPES.map(([v, l]) => `<option value="${v}"${q.type === v ? " selected" : ""}>${l}</option>`).join("")}</select>`;
+  const opt = (o, k) => {
+    const mark = q.type === "order" ? `<b class="qm-n" aria-hidden="true">${k + 1}.</b>`
+      : `<input type="${q.type === "multiple" ? "checkbox" : "radio"}" name="qmc${i}" data-qm="pick" data-k="${k}" aria-label="Right answer"${q.correct.includes(k) ? " checked" : ""}>`;
+    return `<li class="qm-opt">${mark}${q.type === "truefalse" ? `<span class="qm-tf">${esc(o)}</span>` : `<input type="text" data-qm="opt" data-k="${k}" maxlength="400" value="${esc(o)}" placeholder="${q.type === "order" ? "Step " + (k + 1) : "Option " + "ABCDEFGH"[k]}" data-noenter>${q.options.length > 2 ? `<button type="button" class="x-btn" data-qm="rmopt" data-k="${k}" aria-label="Remove">${CLOSE}</button>` : ""}`}</li>`;
+  };
+  const body = q.type === "short"
+    ? `<label class="f"><span class="lh">Answer</span><input type="text" data-qm="answer" maxlength="400" value="${esc(q.answer)}" placeholder="What a right answer says" data-noenter></label>`
+    : `<p class="mini qm-hint">${q.type === "order" ? "List the steps in the right order. They're mixed up when you take the quiz." : q.type === "multiple" ? "Tick every right answer." : "Pick the right answer."}</p>
+      <ul class="qm-opts">${q.options.map(opt).join("")}</ul>${q.type !== "truefalse" && q.options.length < 8 ? `<button type="button" class="link-btn" data-qm="addopt">+ Add ${q.type === "order" ? "Step" : "Option"}</button>` : ""}`;
+  return `<li class="qm-q" data-i="${i}"><div class="qm-top"><b>Question ${i + 1}</b>${typeSel}<span class="spacer"></span>${QM.qs.length > 1 ? `<button type="button" class="x-btn" data-qm="rmq" aria-label="Delete question ${i + 1}">${CLOSE}</button>` : ""}</div>
+    <textarea data-qm="stem" rows="2" maxlength="2000" placeholder="Type the question" aria-label="Question ${i + 1}">${esc(q.stem)}</textarea>
+    ${body}
+    <label class="f qm-why"><span class="lh">Explanation <span class="mini">(optional)</span></span><textarea data-qm="rationale" rows="2" maxlength="2000" placeholder="Why the answer is right">${esc(q.rationale || "")}</textarea></label></li>`;
+}
+function qmDraw(focus){
+  const ol = $("#qmList"); if (!ol) return;
+  ol.innerHTML = QM.qs.map(qmQuestionHtml).join("");
+  if (focus) { const el = ol.querySelector(focus); if (el) el.focus(); }
+}
+// Checks the questions; returns them in saved form, or shows what's missing
+function qmCollect(){
+  const out = [];
+  for (let i = 0; i < QM.qs.length; i++) {
+    const q = QM.qs[i], stem = q.stem.trim(), n = `Question ${i + 1}`;
+    const filled = q.type === "truefalse" ? q.options.map((o, k) => k) : q.options.map((o, k) => o.trim() ? k : -1).filter(k => k >= 0);
+    if (!stem && (q.type === "truefalse" || !filled.length) && !q.answer.trim()) continue; // left blank: skipped
+    const bad = msg => { toast(`${n}: ${msg}`); const li = $(`#qmList .qm-q[data-i="${i}"]`); if (li) li.scrollIntoView({block: "center"}); return null; };
+    if (!stem) return bad("type the question");
+    let options = [], correct = [], answer = "";
+    if (q.type === "short") { answer = q.answer.trim(); if (!answer) return bad("type the answer"); }
+    else {
+      if (filled.length < 2) return bad(q.type === "order" ? "add at least 2 steps" : "add at least 2 options");
+      options = filled.map(k => q.type === "truefalse" ? q.options[k] : q.options[k].trim());
+      if (q.type === "order") {
+        // Shown mixed up: options in a new order, correct lists them back in the right one
+        let mix = options.map((o, k) => k);
+        for (let t = 0; t < 8 && mix.every((v, k) => v === k); t++) mix = shuffle(mix.slice());
+        options = mix.map(k => options[k]); correct = options.map((o, k) => k).sort((a, b) => mix[a] - mix[b]);
+      } else {
+        correct = q.correct.map(k => filled.indexOf(k)).filter(k => k >= 0);
+        if (!correct.length) return bad(q.type === "multiple" ? "tick at least one right answer" : "pick the right answer");
+        if (q.type !== "multiple") correct = correct.slice(0, 1);
+      }
+    }
+    const old = q.old || {}, same = JSON.stringify(old.options || []) === JSON.stringify(options);
+    out.push(Object.assign({}, old, {id: q.id, type: q.type, stem, options, correct: q.type === "multiple" ? correct.sort((a, b) => a - b) : correct, answer, rationale: (q.rationale || "").trim(), notes: same ? (old.notes || []) : []}));
+  }
+  if (!out.length) { toast("Write at least one question"); return null; }
+  return out;
+}
+function quizMaker(ref){
+  const f = ref ? qzFind(ref) : null; if (ref && !f) return;
+  const holder = !f || isQuizHolder(f.d);
+  QM = {ref: f ? ref : "", qs: f ? f.qz.questions.map(q => Object.assign(qmFromSaved(q), {old: q})) : [qmBlank("single")]};
+  const course = f ? f.d.courseId : (ui.filter && ui.filter !== "all" && courseOf(ui.filter) ? ui.filter : "");
+  openSheet(`<form class="sheet qm-sheet">${head(f ? "Edit Quiz" : "Write Your Own Quiz")}
+    <div class="sheet-body">
+      <div class="two"><label class="f"><span class="lh">Quiz Name</span><input type="text" name="qmName" id="qmName" maxlength="120" value="${esc(f ? f.qz.title : "")}" placeholder="e.g. Cardiac Meds Practice"${f ? "" : " autofocus"}></label>
+        ${holder ? `<label class="f"><span class="lh">Course</span><select name="qmCourse">${courseSelectHtml(course)}</select></label>` : `<p class="mini" style="margin:auto 0 8px">Saved with the deck <b>${esc(f.d.name)}</b>.</p>`}</div>
+      <ol class="qm-list" id="qmList"></ol>
+      <div class="qm-add"><button type="button" class="btn" id="qmAdd">+ Add Question</button></div>
+    </div>
+    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>${f ? "Save Changes" : "Save Quiz"}</button></div>
+  </form>`, fd => {
+    const qs = qmCollect(); if (!qs) return false;
+    const name = String(fd.get("qmName") || "").trim().slice(0, 120), cid = holder ? String(fd.get("qmCourse") || "") : null;
+    let d, qid;
+    if (f) {
+      d = clone(state.decks[f.d.id]); if (!d) return false;
+      const qz = d.aiQuizzes.find(x => x.id === f.qz.id); if (!qz) return false;
+      if (name && name.toLowerCase() !== String(qz.title || "").toLowerCase()) qz.title = uniqueQuizTitle(name);
+      qz.questions = qs; qid = qz.id;
+      if (holder && cid !== null) d.courseId = cid;
+    } else {
+      const title = uniqueQuizTitle(name || "My Quiz");
+      d = normDeck({id: uid(), created: Date.now(), quizOnly: true, name: title, courseId: cid || ""});
+      qid = uid();
+      d.aiQuizzes = [{id: qid, title, style: "", created: Date.now(), sources: ["your own questions"], own: true, questions: qs, results: []}];
+    }
+    d.updated = Date.now();
+    QM = null; dlgGuard = null;
+    ui.tab = "flashcards"; rvSet("quizzes"); ui.fc = null; ui.deckId = null; ui.qzOpen = d.id + ":" + qid;
+    saveDeck(d, f ? "Saved your changes to the quiz" : "Saved your quiz to Quizzes");
+    window.scrollTo(0, 0);
+    return true;
+  });
+  qmDraw();
+  const start = JSON.stringify(QM.qs) + "|" + ($("#qmName") || {}).value;
+  dlgGuard = () => !!QM && JSON.stringify(QM.qs) + "|" + ($("#qmName") || {}).value !== start;
+  const ol = $("#qmList");
+  const at = el => { const li = el.closest(".qm-q"); return li ? QM.qs[Number(li.dataset.i)] : null; };
+  ol.addEventListener("input", e => {
+    const t = e.target, q = at(t), k = Number(t.dataset.k); if (!q) return;
+    if (t.dataset.qm === "stem") q.stem = t.value;
+    else if (t.dataset.qm === "answer") q.answer = t.value;
+    else if (t.dataset.qm === "rationale") q.rationale = t.value;
+    else if (t.dataset.qm === "opt") q.options[k] = t.value;
+  });
+  ol.addEventListener("change", e => {
+    const t = e.target, q = at(t), i = q ? QM.qs.indexOf(q) : -1; if (!q) return;
+    if (t.dataset.qm === "pick") {
+      const k = Number(t.dataset.k);
+      q.correct = q.type === "multiple" ? (t.checked ? [...new Set(q.correct.concat(k))] : q.correct.filter(x => x !== k)) : [k];
+    } else if (t.dataset.qm === "type") {
+      const nt = t.value, was = q.type; q.type = nt;
+      if (nt === "truefalse") { q.options = ["True", "False"]; q.correct = [0]; }
+      else if (nt === "short") { if (!q.answer && was !== "truefalse") q.answer = (q.options[q.correct[0]] || "").trim(); q.options = []; q.correct = []; }
+      else {
+        if (was === "truefalse" || was === "short" || !q.options.length) { q.options = qmBlank(nt).options; q.correct = []; }
+        if (nt === "order") q.correct = [];
+        else if (nt === "single" && q.correct.length > 1) q.correct = q.correct.slice(0, 1);
+      }
+      qmDraw(`.qm-q[data-i="${i}"] [data-qm="type"]`);
+    }
+  });
+  ol.addEventListener("click", e => {
+    const b = e.target.closest("button[data-qm]"); if (!b) return;
+    const q = at(b), i = QM.qs.indexOf(q), k = Number(b.dataset.k); if (!q) return;
+    if (b.dataset.qm === "addopt") { q.options.push(""); qmDraw(`.qm-q[data-i="${i}"] [data-qm="opt"][data-k="${q.options.length - 1}"]`); }
+    else if (b.dataset.qm === "rmopt") { q.options.splice(k, 1); q.correct = q.correct.filter(x => x !== k).map(x => x > k ? x - 1 : x); qmDraw(); }
+    else if (b.dataset.qm === "rmq") { QM.qs.splice(i, 1); qmDraw(); }
+  });
+  $("#qmAdd").addEventListener("click", () => {
+    const last = QM.qs[QM.qs.length - 1];
+    QM.qs.push(qmBlank(last && last.type !== "truefalse" ? last.type : "single"));
+    qmDraw(`.qm-q[data-i="${QM.qs.length - 1}"] [data-qm="stem"]`);
+    const li = $(`#qmList .qm-q[data-i="${QM.qs.length - 1}"]`); if (li) li.scrollIntoView({block: "nearest"});
+  });
+}
 /* ===== module: 01-focus.js: the app's core, the Pomodoro focus timer ===== */
 /* Pomodoro focus timer */
 const POMO_HOW = `<ol><li><b>Pick one task</b> and start a 25-minute focus session (one "pomodoro").</li><li><b>Work only on that task</b> until the timer rings. If something else comes up, jot it down for later.</li><li><b>Take a 5-minute break.</b> Stand up, stretch, get water: anything but work.</li><li><b>After four sessions, take a longer break</b> of 15 to 30 minutes.</li></ol><p>Short, timed bursts make it easier to start and keep your focus fresh, and counting sessions shows how long things really take. Studyboard's Classic routine uses these times. The method was created by Francesco Cirillo in the late 1980s.</p>`;
@@ -14424,8 +14670,7 @@ function pomoFinish(missed){
     pomo.cycle++; pomo.sessions++; pomo.minutes += fm;
     const t = pomo.taskId && state.tasks[pomo.taskId];
     if (t) {
-      const n = clone(t); n.pomos = (Number(n.pomos) || 0) + 1; n.focusMin = (Number(n.focusMin) || 0) + fm;
-      n.history = (n.history || []).concat({at: Date.now(), text: `Focus session: ${fm}m`}).slice(-30);
+      const n = addWork(clone(t), fm, "focus"); n.pomos = (Number(n.pomos) || 0) + 1;
       applyChanges([{kind: "task", id: t.id, after: n}], null);
       try { const x = FOCUS && FOCUS.info ? FOCUS.info[t.id] : null; if (x && enoughToday(state.tasks[t.id], x)) toast(`That's the time planned for “${t.title}” today. Moving on to the next thing.`); } catch (e) {}
     }
@@ -15272,6 +15517,7 @@ document.addEventListener("click", e => {
       confirmSheet("Delete Course?", `${c.name} and its ${ts.length} task${ts.length === 1 ? "" : "s"}${ts.length >= 5 ? ` (${ts.filter(t => t.status === "done").length} finished)` : ""} will be moved to Recently Deleted. You can undo right after, or restore it from Settings for ${TB.KEEP_DAYS} days.`, "Delete Course", () => {
         if (ui.filter === id) ui.filter = "all";
         ui.courseId = null;
+        try { if (window.SBLMS_COURSE_GONE) SBLMS_COURSE_GONE(id); } catch (e) {}
         applyChanges([{kind:"course", id, after:null}, ...ts.map(t => ({kind:"task", id:t.id, after:null}))], `Deleted ${c.name}`);
       });
       break;
@@ -15305,7 +15551,9 @@ document.addEventListener("click", e => {
     case "fab-file": fabMenu("Add File", [...(caps.assets ? [["f-upload", "Upload File", "PDFs, slides, documents and images", "upload"], ["f-quick", "Quick Add", "Drop files and let " + aiWho("Studyboard") + " sort them into the right course and folder", "", true]] : []), ["f-link", "Add Link", "For files kept in OneDrive, Google Drive or Canvas", "link"]]); break;
     case "fab-note": if (noteEditing) saveNoteText(); newNoteAt(); break;
     case "fab-deck": fabMenu("Add Deck", [["fc-new", "New Deck", "Add cards yourself or paste a list", "deck"], ...(inPreview() ? [] : [["fc-ai-cards", "Create with " + aiWho("AI"), "Upload slides or notes and get flashcards", "", true]]), ["ia-open", "Import From Another App", "Anki, Quizlet or Notion decks, read on this device", "upload"]]); break;
-    case "qz-add": fabMenu("Add Quiz", [...(inPreview() ? [] : [["qz-ai", "From Slides or Notes", "Upload slides, notes or readings and get a practice quiz or case studies. No flashcards needed.", "", true]]), ["qz-from-deck", "From a Deck", aiReady() ? `${aiWho("AI")} writes questions from your flashcards` : "Questions from your flashcards", "deck"]]); break;
+    case "qz-add": fabMenu("Add Quiz", [...(inPreview() ? [] : [["qz-ai", "From Slides or Notes", "Upload slides, notes or readings and get a practice quiz or case studies. No flashcards needed.", "", true]]), ["qz-from-deck", "From a Deck", aiReady() ? `${aiWho("AI")} writes questions from your flashcards` : "Questions from your flashcards", "deck"], ["qz-write", "Write Your Own", "Type your own questions and answers", "write"]]); break;
+    case "qz-write": quizMaker(); break;
+    case "qz-edit": quizMaker(id); break;
     case "qz-from-deck": quizSheet(ui.filter !== "all" ? decksArr().filter(d => d.courseId === ui.filter && d.cards.length).slice(0, 1).map(d => d.id) : []); break;
     case "qz-ai": aiStudySheet(null, "quiz"); break;
     case "fc-ai-cards": aiStudySheet(id || null, "cards"); break;
@@ -29315,7 +29563,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
   const G_SCALE = SCALES[scaleRegion()].scale;
   // The lowest passing letter on a scale
   const passOf = sc => { const p = sc.map(x => Number(x[1])).filter(v => v > 0); return p.length ? Math.min(...p) : 50; };
-  const gset = () => { const g = Object.assign({prompt: true, rescue: true, scale: null}, (state.settings && state.settings.grades) || {}); if (!isNum(g.pass)) g.pass = passOf(okScale(g.scale) ? g.scale : G_SCALE); return g; };
+  const gset = () => { const g = Object.assign({prompt: true, rescue: true, scale: null, cls: false}, (state.settings && state.settings.grades) || {}); if (!isNum(g.pass)) g.pass = passOf(okScale(g.scale) ? g.scale : G_SCALE); return g; };
   const saveG = patch => { state.settings = Object.assign({}, state.settings, {grades: Object.assign({}, (state.settings && state.settings.grades) || {}, patch)}); saveSettings(); };
   const okScale = s => Array.isArray(s) && s.length >= 2 && s.every(x => Array.isArray(x) && x[0] && isNum(x[1]));
   const clampP = v => Math.max(0, Math.min(100, Number(v)));
@@ -29344,25 +29592,125 @@ ${kindPreview("study")}${kindPreview("project")}`;
   const fmtMark = m => !m ? "" : Number(m.outOf) === 100 ? r1(m.got) + "%" : `${r1(m.got)}/${r1(m.outOf)}`;
   const markInput = m => !m ? "" : Number(m.outOf) === 100 ? String(r1(m.got)) + "%" : `${m.got}/${m.outOf}`;
 
+  /*GRULES-START*/
+  // Grading rules (drop the lowest, bonus points) and GPA. Uses no app state, so tests can load it alone.
+  const GRULES = (() => {
+    const num = v => v != null && v !== "" && isFinite(Number(v));
+    const CATS = ["Assignment", "Exam", "Quiz", "Reading", "Project", "Lab", "Other"];
+    // {drops: [{cat, n, src}], bonus: {pts, got, src}}, leaving out anything unreadable
+    function norm(r){
+      r = r && typeof r === "object" ? r : {};
+      const seen = new Set();
+      const drops = (Array.isArray(r.drops) ? r.drops : []).map(d => ({cat: String((d && d.cat) || ""), n: Math.floor(Number(d && d.n)), src: d && d.src === "syllabus" ? "syllabus" : "user"}))
+        .filter(d => CATS.includes(d.cat) && d.n >= 1 && d.n <= 20 && !seen.has(d.cat) && seen.add(d.cat));
+      const b = r.bonus && typeof r.bonus === "object" ? r.bonus : {};
+      const got = num(b.got) ? Math.max(0, Math.min(50, Number(b.got))) : 0, pts = Math.max(got, num(b.pts) ? Math.max(0, Math.min(50, Number(b.pts))) : 0);
+      return {drops, bonus: {pts, got, src: b.src === "syllabus" ? "syllabus" : "user"}};
+    }
+    // items: [{id, w, cat, fin, pct (null when unmarked)}]. A rule applies when its type has more items than it drops.
+    // A drop rule on exams never drops the final exam.
+    const groups = (items, R) => R.drops.map(d => ({d, its: items.filter(it => it.cat === d.cat && !(d.cat === "Exam" && it.fin))})).filter(x => x.its.length > x.d.n);
+    const active = (items, R) => groups(items, R).length > 0 || R.bonus.pts > 0;
+    // The final grade (percent) when every unmarked item scores `fill`. A type's weight is shared by the items it keeps.
+    function finalWith(items, R, D, fill){
+      const sc = it => it.pct != null ? it.pct : fill, inG = new Set();
+      let tot = 0;
+      groups(items, R).forEach(x => {
+        x.its.forEach(it => inG.add(it.id));
+        const kept = x.its.slice().sort((a, b) => sc(a) - sc(b)).slice(x.d.n);
+        const W = x.its.reduce((s, it) => s + it.w, 0), Wk = kept.reduce((s, it) => s + it.w, 0);
+        if (Wk > 0) tot += kept.reduce((s, it) => s + it.w * sc(it), 0) / Wk * W / 100;
+      });
+      items.forEach(it => { if (!inG.has(it.id)) tot += it.w * sc(it) / 100; });
+      return tot / D * 100 + R.bonus.got;
+    }
+    // The grade on marked work. In each rule's type the lowest marks drop, always keeping at least one.
+    function current(items, R){
+      const out = new Set(), f = {};
+      groups(items, R).forEach(x => {
+        const m = x.its.filter(it => it.pct != null).sort((a, b) => a.pct - b.pct);
+        m.slice(0, Math.max(0, Math.min(x.d.n, m.length - 1))).forEach(it => out.add(it.id));
+        x.its.forEach(it => { f[it.id] = x.its.length / (x.its.length - x.d.n); });
+      });
+      let w = 0, e = 0;
+      items.forEach(it => { if (it.pct == null || out.has(it.id)) return; const ew = it.w * (f[it.id] || 1); w += ew; e += ew * it.pct; });
+      return {pct: w > 0 ? e / w : null, out};
+    }
+    // The average needed on everything unmarked to finish on `target`: 0 when it's already secured, over 100 when out of reach
+    function need(items, R, D, target){
+      if (!items.some(it => it.pct == null && it.w > 0)) return null;
+      const lo = finalWith(items, R, D, 0), hi = finalWith(items, R, D, 100);
+      if (lo >= target - 1e-9) return 0;
+      if (hi < target - 1e-9) return 100 + (target - hi) / Math.max(1e-6, (hi - lo) / 100);
+      let a = 0, b = 100;
+      for (let i = 0; i < 40; i++) { const m = (a + b) / 2; if (finalWith(items, R, D, m) >= target - 1e-9) b = m; else a = m; }
+      return b;
+    }
+    // GPA points for a letter (A 4, A- 3.7, B+ 3.3 and so on; A+ is 4.3 on a 4.3 scale). null for letters that aren't A to F.
+    function points(letter, max){
+      const m = /^([A-F])([+-]?)$/.exec(String(letter || "").toUpperCase().trim()); if (!m) return null;
+      const base = {A: 4, B: 3, C: 2, D: 1, E: 0, F: 0}[m[1]];
+      if (!base) return 0;
+      if (m[2] === "+") return m[1] === "A" ? (Number(max) >= 4.3 ? 4.3 : 4) : Math.round((base + 0.3) * 10) / 10;
+      if (m[2] === "-") return Math.round((base - 0.3) * 10) / 10;
+      return base;
+    }
+    // Credits used for a row with none set: the middle of the credits that are set, or 1
+    function typical(crs){
+      const v = crs.filter(x => num(x) && Number(x) > 0).map(Number).sort((a, b) => a - b), k = v.length;
+      return !k ? 1 : k % 2 ? v[(k - 1) / 2] : (v[k / 2 - 1] + v[k / 2]) / 2;
+    }
+    // rows: [{v, cr}] -> the credit-weighted average of v. 0 credits leaves a row out; no credits counts as `def`.
+    function avg(rows, def){
+      let w = 0, s = 0;
+      rows.forEach(r => { if (!num(r.v)) return; const cw = num(r.cr) ? Number(r.cr) : def == null ? 1 : def; if (!(cw > 0)) return; w += cw; s += cw * Number(r.v); });
+      return w > 0 ? s / w : null;
+    }
+    return {norm, active, finalWith, current, need, points, typical, avg, CATS};
+  })();
+  /*GRULES-END*/
+
   /* Grade math */
-  function courseGrade(c, asOf){
-    const g = gradingOf(c);
+  const rulesOf = c => GRULES.norm(c && c.grading && c.grading.rules);
+  // pretend: {taskId: percent} for unmarked items (What If)
+  function courseGrade(c, asOf, pretend){
+    const g = gradingOf(c), R = rulesOf(c);
     const ts = allTasks().filter(t => t.courseId === c.id && hasWeight(t) && !t.prepFor);
-    const marked = ts.filter(t => markPct(t) != null && (!(asOf instanceof Set) || asOf.has(t.id))), open = ts.filter(t => !marked.includes(t));
+    const pctOf = t => { const p = markPct(t); if (p == null && pretend && isNum(pretend[t.id])) return Number(pretend[t.id]); return p != null && (!(asOf instanceof Set) || asOf.has(t.id)) ? p : null; };
+    const pm = new Map(ts.map(t => [t.id, pctOf(t)]));
+    const marked = ts.filter(t => pm.get(t.id) != null), open = ts.filter(t => pm.get(t.id) == null);
     const wMarked = marked.reduce((s, t) => s + Number(t.weight), 0);
-    const earned = marked.reduce((s, t) => s + Number(t.weight) * markPct(t) / 100, 0);
+    const earned = marked.reduce((s, t) => s + Number(t.weight) * pm.get(t.id) / 100, 0);
     const wAll = ts.reduce((s, t) => s + Number(t.weight), 0);
     const D = Math.max(100, wAll);
     const remaining = Math.max(0, D - wMarked), unlisted = Math.max(0, 100 - wAll);
-    const current = wMarked > 0 ? earned / wMarked * 100 : null;
-    const minFinal = earned / D * 100, maxFinal = (earned + remaining) / D * 100;
-    const need = target => remaining > 0.01 ? (target * D / 100 - earned) / remaining * 100 : null;
+    const items = ts.map(t => ({id: t.id, w: Number(t.weight), cat: t.type, fin: /\bfinal\b/i.test(t.title || ""), pct: pm.get(t.id)}));
+    if (unlisted > 0.001) items.push({id: "", w: unlisted, cat: "", fin: false, pct: null});
+    const ruled = GRULES.active(items, R);
+    let current, minFinal, maxFinal, need, dropped = new Set();
+    if (!ruled) {
+      current = wMarked > 0 ? earned / wMarked * 100 : null;
+      minFinal = earned / D * 100; maxFinal = (earned + remaining) / D * 100;
+      need = target => remaining > 0.01 ? (target * D / 100 - earned) / remaining * 100 : null;
+    } else {
+      const cu = GRULES.current(items, R); current = cu.pct; dropped = cu.out;
+      minFinal = GRULES.finalWith(items, R, D, 0); maxFinal = GRULES.finalWith(items, R, D, 100) + R.bonus.pts - R.bonus.got;
+      need = target => remaining > 0.01 ? GRULES.need(items, R, D, target) : null;
+    }
     const remShown = remaining / D * 100;
-    const projected = current == null ? null : remaining > 0.01 ? current : minFinal;
+    const projected = current == null ? null : remaining > 0.01 ? (ruled ? GRULES.finalWith(items, R, D, current) : current) : minFinal;
     const loose = allTasks().filter(t => t.courseId === c.id && !hasWeight(t) && !t.prepFor && markPct(t) != null);
-    const gr = {c, g, ts, loose, marked, open, wMarked: wMarked / D * 100, earned, wAll, D, remaining: remShown, unlisted, current, minFinal, maxFinal, projected, need, done: remaining <= 0.01};
+    const gr = {c, g, R, ruled, dropped, ts, loose, marked, open, wMarked: wMarked / D * 100, earned, wAll, D, remaining: remShown, unlisted, current, minFinal, maxFinal, projected, need, done: remaining <= 0.01};
     gr.risk = riskOf(gr);
     return gr;
+  }
+  // "Lowest 2 quizzes dropped, up to 3% bonus (1% earned)"
+  const CAT_PL = {Assignment: ["assignment", "assignments"], Exam: ["midterm or test", "midterms or tests"], Quiz: ["quiz", "quizzes"], Reading: ["reading", "readings"], Project: ["project", "projects"], Lab: ["lab", "labs"], Other: ["other item", "other items"]};
+  function rulesText(R){
+    const out = R.drops.map(d => `lowest ${d.n === 1 ? CAT_PL[d.cat][0] : d.n + " " + CAT_PL[d.cat][1]} dropped`);
+    if (R.bonus.pts > 0) out.push(R.bonus.got > 0 ? (R.bonus.got >= R.bonus.pts ? `${fmtW(R.bonus.got)} bonus earned` : `up to ${fmtW(R.bonus.pts)} bonus (${fmtW(R.bonus.got)} earned)`) : `up to ${fmtW(R.bonus.pts)} bonus`);
+    const s = out.join(", ");
+    return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
   }
   function riskOf(gr){
     if (!gr.marked.length || gr.done) return null;
@@ -29621,13 +29969,81 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const share = Number(t.weight) / gr.D * 100;
     return {t, share, per10: share / 10};
   }
+  /* Where the grade comes from */
+  const TYPE_PL = {Assignment: () => tr("gb.t.assignment", "Assignments"), Exam: () => tr("gb.t.exam", "Exams"), Quiz: () => tr("gb.t.quiz", "Quizzes"), Reading: () => tr("gb.t.reading", "Readings"),
+    Project: () => tr("gb.t.project", "Projects"), Lab: () => tr("gb.t.lab", "Labs"), Study: () => tr("gb.t.study", "Study"), Other: () => tr("gb.t.other", "Other")};
+  const typePl = ty => TYPE_PL[ty] ? TYPE_PL[ty]() : String(ty || "");
+  // The marked work of each type, weighted, highest first. left: how much of the course is still to come in that type
+  function byType(gr){
+    const m = {}, key = t => t.type || "Other";
+    gr.marked.forEach(t => { const w = Number(t.weight), o = m[key(t)] || (m[key(t)] = {type: key(t), w: 0, e: 0, n: 0, left: 0}); o.w += w; o.e += w * markPct(t); o.n++; });
+    gr.open.forEach(t => { const o = m[key(t)]; if (o) o.left += Number(t.weight); });
+    return Object.values(m).filter(o => o.w > 0).map(o => Object.assign(o, {pct: o.e / o.w, share: o.w / gr.D * 100, left: o.left / gr.D * 100})).sort((a, b) => b.pct - a.pct);
+  }
+  // How much each mark lifts or lowers the current grade (the grade with it, minus the grade without it)
+  function markImpact(gr){
+    if (gr.current == null || gr.marked.length < 3) return null;
+    const W = gr.marked.reduce((s, t) => s + Number(t.weight), 0), E = gr.marked.reduce((s, t) => s + Number(t.weight) * markPct(t), 0);
+    const all = gr.marked.map(t => { const w = Number(t.weight); return W - w > 0 ? {t, d: gr.current - (E - w * markPct(t)) / (W - w)} : null; }).filter(Boolean).sort((a, b) => b.d - a.d);
+    const boost = all[0] && all[0].d >= 0.5 ? all[0] : null, drag = all.length && all[all.length - 1].d <= -0.5 ? all[all.length - 1] : null;
+    return boost || drag ? {boost, drag} : null;
+  }
+  // A mark next to the class average, when the school site shares one (off unless turned on in Grade Options)
+  function vsClass(t){
+    const L = ["bs", "cv", "bb"].map(f => t && t[f]).find(Boolean), fb = L && L.fb, k = fb && fb.cls, p = markPct(t);
+    if (!k || !isNum(k.mean) || !(Number(fb.of) > 0) || p == null) return null;
+    const cls = Number(k.mean) / Number(fb.of) * 100;
+    return isFinite(cls) ? {mine: p, cls, d: r1(p - cls)} : null;
+  }
+  const vsTxt = v => v.d === 0 ? tr("gb.vs.same", "Class average") : tr("gb.vs", "{n} vs class", {n: (v.d > 0 ? "+" : "−") + r1(Math.abs(v.d))});
+  const vsPill = t => { if (!gset().cls) return ""; const v = vsClass(t); return v ? ` <span class="pill gr-vs${v.d > 0 ? " up" : v.d < 0 ? " down" : ""}" title="${esc(tr("gb.vs.tip", "You {mine}, class average {cls}", {mine: fmtP(v.mine), cls: fmtP(v.cls)}))}">${esc(vsTxt(v))}</span>` : ""; };
+  function breakdownHtml(gr){
+    const L = p => letterOf(p, gr.g.scale), types = byType(gr), lines = [];
+    if (types.length >= 2) {
+      const hi = types[0], lo = types[types.length - 1];
+      if (hi.pct - lo.pct >= 5) {
+        lines.push(esc(tr("gb.low", "Your lowest is {type}, at {pct}, {gap} points under {top}.", {type: typePl(lo.type), pct: fmtP(lo.pct), gap: r1(hi.pct - lo.pct), top: typePl(hi.type)}))
+          + (lo.left > 0.5 ? " " + esc(tr("gb.lowLeft", "{type} still make up {left} of the course to come.", {type: typePl(lo.type), left: fmtW(lo.left)})) : ""));
+      }
+    }
+    const im = markImpact(gr);
+    const imTxt = (k, v) => `<b>${esc(k)}</b> ${esc(tr("gb.imp", "{title} ({d} pts)", {title: v.t.title, d: (v.d > 0 ? "+" : "−") + r1(Math.abs(v.d))}))}`;
+    if (im && im.boost) lines.push(imTxt(tr("gb.boost", "Biggest boost:"), im.boost));
+    if (im && im.drag) lines.push(imTxt(tr("gb.drag", "Biggest drag:"), im.drag));
+    if (gset().cls) {
+      const vs = gr.marked.map(vsClass).filter(Boolean);
+      if (vs.length) {
+        const above = vs.filter(v => v.d > 0).length, avg = vs.reduce((s, v) => s + v.d, 0) / vs.length;
+        lines.push(esc(trn("gb.cls", vs.length, "Above the class average on {a} of {n} item with class results|Above the class average on {a} of {n} items with class results", {a: above}))
+          + esc(Math.abs(avg) >= 0.05 ? tr("gb.clsAvg", ", {d} points {dir} on average.", {d: r1(Math.abs(avg)), dir: avg > 0 ? tr("gb.above", "above") : tr("gb.below", "below")}) : "."));
+      }
+    }
+    if (types.length < 2 && !lines.length) return "";
+    const rows = types.length >= 2 ? `<ul class="gb-types">${types.map(o => `<li><span class="gb-name"><b>${esc(typePl(o.type))}</b><span class="mini">${esc(trn("gb.n", o.n, "{n} marked|{n} marked"))}, ${esc(tr("gb.worth", "worth {w}", {w: fmtW(o.share)}))}</span></span>
+        <span class="gb-bar" aria-hidden="true"><i style="width:${clampP(o.pct)}%"></i><i class="gb-pass" style="left:${clampP(gr.g.pass)}%"></i></span>
+        <span class="gb-v"><b>${fmtP(o.pct)}</b>${L(o.pct) ? `<span class="mini">${esc(L(o.pct))}</span>` : ""}</span></li>`).join("")}</ul>` : "";
+    return `<div class="gr-sub gb"><h4>${esc(tr("gb.title", "Where Your Grade Comes From"))}</h4>${rows}${lines.length ? `<ul class="gb-lines">${lines.map(x => `<li>${x}</li>`).join("")}</ul>` : ""}</div>`;
+  }
+  // Graded work due soon, per course, as a share of that course's grade
+  function comingUp(all, days){
+    const today = todayISO(), end = addDays(today, days - 1);
+    return all.map(gr => {
+      const its = gr.open.filter(t => t.status !== "done" && t.due && t.due >= today && t.due <= end && Number(t.weight) > 0).sort(sortTasks);
+      return {gr, its, share: its.reduce((s, t) => s + Number(t.weight), 0) / gr.D * 100};
+    }).filter(x => x.its.length).sort((a, b) => b.share - a.share);
+  }
+  function comingUpHtml(all){
+    const list = comingUp(all, 14); if (!list.length) return "";
+    return `<h3 class="fsec">${esc(tr("gb.soon", "Graded Work Coming Up"))}<span class="n">${esc(tr("gb.soon.when", "next 2 weeks"))}</span></h3><ul class="gs-wait gb-soon">${list.map(x => `<li style="--c:${esc(x.gr.c.color)}"><span class="gs-name"><span>${esc(tr("gb.soon.row", "{share} of {course} is due", {share: fmtW(x.share), course: courseLabel(x.gr.c)}))}</span>
+      <span class="mini">${x.its.slice(0, 4).map(t => esc(tr("gb.soon.item", "{title} ({w}, {due})", {title: t.title, w: fmtW(Number(t.weight)), due: fmtShort(t.due)}))).join(" · ")}${x.its.length > 4 ? " · " + esc(tr("gb.more", "+{n} more", {n: x.its.length - 4})) : ""}</span></span>
+      <button class="btn small" data-act="g-open-course" data-id="${esc(x.gr.c.id)}">${esc(tr("gb.open", "Open"))}</button></li>`).join("")}</ul>`;
+  }
   // What a course would look like with pretend marks
   function whatIf(gr, vals){
-    let e = gr.earned, wm = gr.marked.reduce((x, t) => x + Number(t.weight), 0), n = 0;
-    gr.open.forEach(t => { const v = vals && vals[t.id]; if (isNum(v)) { e += Number(t.weight) * Number(v) / 100; wm += Number(t.weight); n++; } });
-    const rem = Math.max(0, gr.D - wm), done = rem <= 0.01;
-    const need = target => done ? null : (target * gr.D / 100 - e) / rem * 100;
-    return {n, current: wm > 0 ? e / wm * 100 : null, minFinal: e / gr.D * 100, maxFinal: (e + rem) / gr.D * 100, rem: rem / gr.D * 100, done, need};
+    const p = {}; let n = 0;
+    gr.open.forEach(t => { const v = vals && vals[t.id]; if (isNum(v)) { p[t.id] = Number(v); n++; } });
+    const w = courseGrade(gr.c, null, p);
+    return {n, current: w.current, minFinal: w.minFinal, maxFinal: w.maxFinal, rem: w.remaining, done: w.done, need: w.need};
   }
   function whatIfOut(gr, vals){
     const w = whatIf(gr, vals), g = gr.g, L = p => letterOf(p, g.scale);
@@ -29685,13 +30101,13 @@ ${kindPreview("study")}${kindPreview("project")}`;
   }
   const FIELDS_OF = t => { const L = ["bs", "cv", "bb"].map(f => t[f]).find(Boolean) || {}; const fb = L.fb || null;
     return {feedback: !!(fb && ((fb.c || []).some(m => !m.mine) || (fb.ra || []).length)), rubric: !!L.rub}; };
-  function gradeRows(list, swingId){
+  function gradeRows(list, swingId, dropped){
     return list.slice().sort(sortTasks).map(t => {
       const p = markPct(t);
       const fbk = window.SBLMS_HASFB && SBLMS_HASFB(t);
       const open = !!(fbk && ui.grOpen && ui.grOpen[t.id]), L = fbk ? FIELDS_OF(t) : null, what = L && (L.feedback || L.rubric) ? "Feedback" : "Class Results";
       const nw = p != null && !hasWeight(t);
-      return `<li class="${fbk ? "gr-has-drop" : ""}${nw ? " gr-nw" : ""}"><button class="gr-row-main" data-act="${fbk ? "lms-fb" : "edit-task"}" data-id="${esc(t.id)}"${fbk ? ` aria-expanded="${open}"` : ""}><span class="gr-row-t">${t.markNew && t.mark ? `<span class="gr-newmark" title="New mark from your last sync" aria-label="New mark"></span>` : ""}${esc(t.title)}${nw ? ` <span class="pill gr-nw-pill" title="Shown, but not counted in the course grade until it has a weight">No weight yet</span>` : ""}${fbk ? ` <span class="pill lms-fbpill">${what}<span class="gr-chev" aria-hidden="true">▾</span></span>` : ""}</span><span class="mini">${esc(t.type)}, ${hasWeight(t) ? `worth ${fmtW(Number(t.weight))}` : "not counted yet"}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}${swingId === t.id ? ` <span class="pill gr-swing">Biggest swing</span>` : ""}</span></button>
+      return `<li class="${fbk ? "gr-has-drop" : ""}${nw ? " gr-nw" : ""}"><button class="gr-row-main" data-act="${fbk ? "lms-fb" : "edit-task"}" data-id="${esc(t.id)}"${fbk ? ` aria-expanded="${open}"` : ""}><span class="gr-row-t">${t.markNew && t.mark ? `<span class="gr-newmark" title="New mark from your last sync" aria-label="New mark"></span>` : ""}${esc(t.title)}${nw ? ` <span class="pill gr-nw-pill" title="Shown, but not counted in the course grade until it has a weight">No weight yet</span>` : ""}${fbk ? ` <span class="pill lms-fbpill">${what}<span class="gr-chev" aria-hidden="true">▾</span></span>` : ""}</span><span class="mini">${esc(t.type)}, ${hasWeight(t) ? `worth ${fmtW(Number(t.weight))}` : "not counted yet"}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}${p != null ? vsPill(t) : ""}${swingId === t.id ? ` <span class="pill gr-swing">Biggest swing</span>` : ""}${dropped && dropped.has(t.id) ? ` <span class="pill gr-dropped">Dropped</span>` : ""}</span></button>
         ${p != null ? `<button class="gr-mk" data-act="g-mark" data-id="${esc(t.id)}" aria-label="Edit mark for ${esc(t.title)}"><b>${fmtP(p)}</b>${Number(t.mark.outOf) !== 100 ? `<span class="mini">${esc(fmtMark(t.mark))}</span>` : ""}</button>`
           : `<button class="btn small" data-act="g-mark" data-id="${esc(t.id)}">${t.status === "done" ? "Add Mark" : "Mark"}</button>`}${fbk ? `<div class="gr-drop" data-drop="${esc(t.id)}"${open ? "" : " hidden"}>${open && window.SBLMS_FBBODY ? SBLMS_FBBODY(t) : ""}</div>` : ""}</li>`;
     }).join("");
@@ -29757,6 +30173,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const marked = gr.ts.filter(t => markPct(t) != null), unmarked = gr.ts.filter(t => markPct(t) == null);
     const need = needLines(gr), sw = biggestSwing(gr), gg = goalGap(gr);
     if (sw) need.push(`<b>Biggest swing:</b> ${esc(sw.t.title)} is worth ${fmtW(sw.share)} of the course. Every 10 points on it moves your final grade by ${r1(sw.per10)}.`);
+    if (gr.R.drops.length || gr.R.bonus.pts > 0) need.push(`<b>Grading rules:</b> ${esc(rulesText(gr.R))}. ${gr.ruled ? "These numbers already count them." : "They start counting once there are more items than the rule drops."} <button type="button" class="link-btn" data-act="g-course-set" data-id="${esc(c.id)}">Change</button>`);
     return `<section class="gr-card${gr.risk ? " gr-" + gr.risk : ""}" aria-label="Grades">
       <div class="gr-headrow"><h3>Where You Stand</h3>${riskPill(gr.risk)}<span class="spacer"></span>${settingsBtn}</div>
       <div class="gr-top">
@@ -29767,8 +30184,9 @@ ${kindPreview("study")}${kindPreview("project")}`;
       ${goalAsk(gr)}
       ${gradeBar(gr)}
       ${need.length ? `<div class="gr-sub"><h4>What You Need</h4><ul class="gr-need">${need.map(x => `<li>${x}</li>`).join("")}</ul></div>` : ""}
+      ${breakdownHtml(gr)}
       ${whatIfHtml(gr)}
-      <div class="gr-sub"><h4>Marked <span class="n">${marked.length + loose.length}</span></h4>${marked.length + loose.length ? `<ul class="gr-work">${gradeRows(marked)}${gradeRows(loose)}</ul>${looseNote}` : `<p class="mini" style="margin:0">Nothing marked yet.</p>`}</div>
+      <div class="gr-sub"><h4>Marked <span class="n">${marked.length + loose.length}</span></h4>${marked.length + loose.length ? `<ul class="gr-work">${gradeRows(marked, null, gr.dropped)}${gradeRows(loose)}</ul>${looseNote}` : `<p class="mini" style="margin:0">Nothing marked yet.</p>`}</div>
       <div class="gr-sub"><h4>Still to Mark <span class="n">${unmarked.length}</span></h4>${unmarked.length ? `<ul class="gr-work">${gradeRows(unmarked, sw && sw.t.id)}</ul>` : `<p class="mini" style="margin:0">Every graded item has a mark. Weights add up to ${fmtW(gr.wAll)}.</p>`}</div>
     </section>`;
   }
@@ -29821,6 +30239,211 @@ ${kindPreview("study")}${kindPreview("project")}`;
     if (ui.courseTab === "grades") { try { return gradesPage(); } catch (err) { console.warn("grades: page", err); return html; } }
     return html;
   };
+  /* GPA, credits and past terms */
+  // The GPA scale: 4 or 4.3, or 0 when GPA is off (the default for UK degree classes)
+  const gpaMax = () => { const v = gset().gpa; return v === "off" ? 0 : v === "4.3" ? 4.3 : v === "4.0" ? 4 : scaleRegion() === "uk" ? 0 : 4; };
+  const fmtG = v => v == null ? "" : (Math.round(v * 100) / 100).toFixed(2);
+  const fmtCr = v => String(Math.round(Number(v) * 100) / 100);
+  const terms = () => (Array.isArray(gset().terms) ? gset().terms : []).filter(t => t && typeof t === "object" && t.id).slice().sort((a, b) => (Number(b.at) || 0) - (Number(a.at) || 0));
+  // A course's grade now, and where it's heading (its final once everything is marked)
+  const nowOf = gr => gr.current == null ? null : gr.done ? gr.minFinal : gr.current;
+  const finalOf = gr => gr.current == null ? null : gr.done ? gr.minFinal : gr.projected;
+  // One stored term: {gpa, credits, rows}
+  function termGpa(t, def, max){
+    if (t.manual) { const ok = isNum(t.gpa) && Number(t.credits) > 0; return {gpa: isNum(t.gpa) ? Number(t.gpa) : null, credits: Number(t.credits) || 0, rows: ok ? [{v: Number(t.gpa), cr: Number(t.credits)}] : []}; }
+    const rows = max ? (t.courses || []).map(x => ({v: GRULES.points(x.letter, max), cr: isNum(x.credits) ? Number(x.credits) : def})).filter(r => r.v != null) : [];
+    return {gpa: GRULES.avg(rows, def), credits: rows.reduce((s, r) => s + (r.cr > 0 ? r.cr : 0), 0), rows};
+  }
+  // Averages, GPA and history across the term. Courses with no credits count as the typical credits of the rest.
+  function termStats(all){
+    const max = gpaMax(), T = terms();
+    const crs = all.map(gr => gr.c.credits).concat([].concat(...T.map(t => (t.courses || []).map(x => x.credits))));
+    const anyCr = crs.some(isNum), def = anyCr ? GRULES.typical(crs) : 1;
+    const marked = all.filter(gr => gr.current != null);
+    const ptsRows = f => marked.map(gr => ({v: GRULES.points(letterOf(f(gr), gr.g.scale), max), cr: isNum(gr.c.credits) ? Number(gr.c.credits) : def})).filter(r => r.v != null);
+    const nowRows = max ? ptsRows(nowOf) : [], projRows = max ? ptsRows(finalOf) : [];
+    const past = T.map(t => termGpa(t, def, max)), pastRows = [].concat(...past.map(p => p.rows));
+    return {max, def, anyCr, T, past, marked,
+      weighted: marked.some(gr => isNum(gr.c.credits)), noCr: all.filter(gr => gr.ts.length && !isNum(gr.c.credits)),
+      avg: GRULES.avg(marked.map(gr => ({v: gr.current, cr: gr.c.credits})), def),
+      n: nowRows.length, gpaNow: GRULES.avg(nowRows, def), gpaProj: GRULES.avg(projRows, def),
+      pastGpa: pastRows.length ? GRULES.avg(pastRows, def) : null, cum: pastRows.length ? GRULES.avg(pastRows.concat(projRows), def) : null};
+  }
+  // A term record from courses' grades now: finals, or projected finals where marks are still to come
+  function termRecord(name, ids){
+    const courses = ids.map(id => state.courses[id]).filter(Boolean).map(c => {
+      const gr = courseGrade(c), p = finalOf(gr); if (p == null) return null;
+      return {name: c.name || courseLabel(c), code: c.code || "", credits: isNum(c.credits) ? Number(c.credits) : null, pct: r1(p), letter: letterOf(p, gr.g.scale), est: !gr.done};
+    }).filter(Boolean);
+    return courses.length ? {id: uid(), name: String(name || "").trim().slice(0, 40) || "Past Term", at: Date.now(), courses} : null;
+  }
+  // Saving a term with the same name as a saved one replaces it
+  function saveTerm(rec){
+    const all = Array.isArray(gset().terms) ? gset().terms.slice() : [];
+    const k = all.findIndex(t => t && (t.id === rec.id || (!t.manual && !rec.manual && String(t.name).toLowerCase() === String(rec.name).toLowerCase())));
+    if (k >= 0) all[k] = Object.assign({}, rec, {id: all[k].id}); else all.push(rec);
+    saveG({terms: all.slice(-60)}); scheduleRender();
+  }
+  const dropTerm = id => { saveG({terms: (gset().terms || []).filter(t => t && t.id !== id)}); scheduleRender(); };
+  window.SBGRADES.rulesText = r => rulesText(GRULES.norm(r));
+  window.SBGRADES.snapCount = ids => ids.filter(id => { const c = state.courses[id]; return c && courseGrade(c).current != null; }).length;
+  window.SBGRADES.snapTerm = (name, ids) => { const r = termRecord(name, ids); if (r) saveTerm(r); return !!r; };
+
+  function gpaStrip(S){
+    if (!S.marked.length && S.pastGpa == null) return "";
+    const of = S.max === 4.3 ? "4.3" : "4.0";
+    const tile = (k, v, sub) => `<div class="gp-g"><span class="gr-k">${k}</span><span class="gr-v">${v}</span>${sub ? `<span class="mini">${sub}</span>` : ""}</div>`;
+    const tiles = (S.n ? tile("Term GPA", fmtG(S.gpaNow), `out of ${of}, from your grades now`) + tile("Projected Term GPA", fmtG(S.gpaProj), "if you keep this up") : "")
+      + (S.cum != null && S.max ? tile("Cumulative GPA", fmtG(S.cum), `with this term · past terms ${fmtG(S.pastGpa)}`) : "");
+    const k = S.noCr.length;
+    const note = !k ? "" : S.anyCr ? `${k} course${k === 1 ? " has" : "s have"} no credits yet, so ${k === 1 ? "it counts" : "they count"} as ${fmtCr(S.def)} credit${S.def === 1 ? "" : "s"}.` : "Add each course's credits to weight your average and GPA by course size.";
+    return `<div class="gp-gpa">${tiles}<div class="gp-gpa-foot">${note ? `<span class="mini">${note}</span>` : ""}<span class="spacer"></span><button type="button" class="btn small" data-act="gp-credits">${k ? "Add Credits" : "Credits"}</button></div></div>`;
+  }
+  function histHtml(S){
+    const T = S.T, show = !!S.max;
+    const rows = T.map((t, i) => { const p = S.past[i], est = (t.courses || []).some(x => x.est);
+      return `<li><button type="button" class="gp-term" data-act="gp-term" data-id="${esc(t.id)}"><span class="gp-term-n"><b>${esc(t.name)}</b><span class="mini">${t.manual ? "Earlier record" : `${(t.courses || []).length} course${(t.courses || []).length === 1 ? "" : "s"}`}${p.credits ? ` · ${fmtCr(p.credits)} credits` : ""}${est ? " · some grades were projected" : ""}</span></span>${show && p.gpa != null ? `<span class="gp-term-g"><b>${fmtG(p.gpa)}</b><span class="mini">GPA</span></span>` : ""}</button></li>`; }).join("");
+    return `<section class="gp-hist" aria-labelledby="gpHistH"><div class="gp-sec-h"><h3 class="fsec" id="gpHistH">Past Terms</h3><span class="spacer"></span><button type="button" class="btn small" data-act="gp-term-save">Save This Term</button><button type="button" class="btn small" data-act="gp-term-add">Add an Earlier Record</button></div>
+      ${T.length ? `<ul class="gp-terms">${rows}</ul>${show && S.pastGpa != null ? `<p class="mini" style="margin:8px 0 0">Cumulative GPA across past terms: <b>${fmtG(S.pastGpa)}</b>${S.cum != null && S.n ? `. With this term's projected grades: <b>${fmtG(S.cum)}</b>` : ""}.</p>` : ""}`
+        : `<p class="mini" style="margin:0">Keep each term's final grades here to see your cumulative GPA. Starting a new term saves them for you. Have grades from before Studyboard? Add them as an earlier record.</p>`}</section>`;
+  }
+  function creditsSheet(){
+    const cs = coursesArr(); if (!cs.length) return;
+    openSheet(`<form class="sheet">${head("Course Credits")}<div class="sheet-body">
+      <p class="mini" style="margin:0">Credits (or units) for each course, from your course calendar or transcript. They weight your average and GPA by course size. Leave one blank if you're not sure, or enter 0 to leave a course out, like one you're auditing.</p>
+      <div class="gp-cr-list">${cs.map(c => `<label class="gp-cr-row" style="--c:${esc(c.color)}"><span class="gp-cr-n"><b>${esc(courseLabel(c))}</b>${c.name && c.name !== courseLabel(c) ? ` <span class="mini">${esc(c.name)}</span>` : ""}</span><input type="number" name="cr-${esc(c.id)}" min="0" max="30" step="0.25" inputmode="decimal" value="${isNum(c.credits) ? esc(c.credits) : ""}" placeholder="—" aria-label="Credits for ${esc(c.name)}"></label>`).join("")}</div></div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Save</button></div></form>`, fd => {
+      const ch = [];
+      for (const c of cs) {
+        const v = String(fd.get("cr-" + c.id) || "").trim();
+        if (v && (!isNum(v) || Number(v) < 0 || Number(v) > 30)) { toast(`Enter credits between 0 and 30 for ${courseLabel(c)}`); return false; }
+        const nv = v ? Number(v) : null;
+        if ((isNum(c.credits) ? Number(c.credits) : null) !== nv) ch.push({kind: "course", id: c.id, after: Object.assign(clone(c), {credits: nv})});
+      }
+      if (ch.length) applyChanges(ch, "Credits saved");
+    });
+  }
+  // Save this term's grades to Past Terms
+  function termSaveSheet(){
+    const list = coursesArr().map(c => ({c, gr: courseGrade(c)})).filter(x => x.gr.current != null);
+    if (!list.length) { toast("Add a mark first. Past Terms keeps each course's final grade."); return; }
+    const guess = typeof seasonGuess === "function" ? seasonGuess() : "";
+    openSheet(`<form class="sheet">${head("Save This Term")}<div class="sheet-body">
+      <p class="mini" style="margin:0">Keeps a record of each course's grade for your cumulative GPA. Courses with marks still to come use their projected final; you can change any of it later. Your courses stay as they are.</p>
+      <label class="f"><span class="lh">Term Name ${REQ}</span><input type="text" name="term" required maxlength="40" value="${esc(guess)}"></label>
+      <fieldset><legend>Courses</legend><div class="nt-list">${list.map(({c, gr}) => { const p = finalOf(gr), L = letterOf(p, gr.g.scale);
+        return `<label class="mi-check nt-row" style="--c:${esc(c.color)}"><input type="checkbox" name="c" value="${esc(c.id)}" checked><span class="sd"></span><span><b>${esc(courseLabel(c))}</b> <span class="mini">${fmtP(p)}${L ? " " + esc(L) : ""}${gr.done ? ", final" : ", projected"}${isNum(c.credits) ? `, ${fmtCr(c.credits)} credits` : ""}</span></span></label>`; }).join("")}</div></fieldset></div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Save Term</button></div></form>`, fd => {
+      const ids = fd.getAll("c"); if (!ids.length) { toast("Pick at least one course"); return false; }
+      const name = String(fd.get("term") || "").trim(), had = terms().some(t => !t.manual && t.name.toLowerCase() === name.toLowerCase());
+      const r = termRecord(name, ids); if (!r) return false;
+      saveTerm(r); toast(had ? `${r.name} updated in Past Terms` : `${r.name} saved to Past Terms`);
+    });
+  }
+  // An earlier record (GPA and credits from before Studyboard), or editing a saved term
+  function termSheet(id){
+    const t = id ? terms().find(x => x.id === id) : {id: "", manual: true, name: "Before Studyboard", gpa: null, credits: null};
+    if (!t) return;
+    const max = gpaMax() || 4.3;
+    const body = t.manual ? `<p class="mini" style="margin:0">Your GPA and total credits so far, from your transcript. They count toward your cumulative GPA.</p>
+        <label class="f"><span class="lh">Name ${REQ}</span><input type="text" name="term" required maxlength="40" value="${esc(t.name)}"></label>
+        <label class="f"><span class="lh">GPA ${REQ} <span class="hint">out of ${max === 4.3 ? "4.3" : "4.0"}</span></span><input type="number" name="gpa" required min="0" max="${max}" step="0.01" inputmode="decimal" value="${isNum(t.gpa) ? esc(t.gpa) : ""}"></label>
+        <label class="f"><span class="lh">Credits ${REQ} <span class="hint">total credits that GPA covers</span></span><input type="number" name="credits" required min="0.25" max="999" step="0.25" inputmode="decimal" value="${isNum(t.credits) ? esc(t.credits) : ""}"></label>`
+      : `<label class="f"><span class="lh">Term Name ${REQ}</span><input type="text" name="term" required maxlength="40" value="${esc(t.name)}"></label>
+        <div class="gp-tc-head" aria-hidden="true"><span>Course</span><span>Letter</span><span>Credits</span><span></span></div>
+        <div class="gp-tc-list">${(t.courses || []).map((x, i) => `<div class="gp-tc-row"><span class="gp-tc-n"><b>${esc(x.code || x.name)}</b><span class="mini">${isNum(x.pct) ? fmtP(Number(x.pct)) : ""}${x.est ? " projected" : ""}</span></span>
+          <label><span class="sr">Letter for ${esc(x.name)}</span><input type="text" name="tl-${i}" maxlength="4" value="${esc(x.letter || "")}" autocapitalize="characters" spellcheck="false" data-noenter></label>
+          <label><span class="sr">Credits for ${esc(x.name)}</span><input type="number" name="tc-${i}" min="0" max="30" step="0.25" inputmode="decimal" value="${isNum(x.credits) ? esc(x.credits) : ""}" placeholder="—" data-noenter></label>
+          <label class="mi-check"><input type="checkbox" name="tx-${i}"><span class="sr">Remove ${esc(x.name)}</span><span aria-hidden="true">Remove</span></label></div>`).join("")}</div>
+        <p class="mini" style="margin:0">Change a letter to match your transcript. The GPA uses each letter and its credits.</p>`;
+    openSheet(`<form class="sheet">${head(id ? "Edit Past Term" : "Add an Earlier Record")}<div class="sheet-body">${body}</div>
+      <div class="sheet-foot">${id ? `<button type="button" class="btn danger" id="gpTermDel">Delete</button>` : ""}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Save</button></div></form>`, fd => {
+      const name = String(fd.get("term") || "").trim().slice(0, 40); if (!name) return false;
+      if (t.manual) {
+        const g = Number(fd.get("gpa")), cr = Number(fd.get("credits"));
+        if (!isNum(fd.get("gpa")) || g < 0 || g > max) { toast(`Enter a GPA from 0 to ${max}`); return false; }
+        if (!(cr > 0) || cr > 999) { toast("Enter the credits that GPA covers"); return false; }
+        saveTerm(Object.assign({}, t, {id: t.id || uid(), name, gpa: g, credits: cr, at: Number(t.at) || 0, manual: true}));
+        toast(id ? "Saved" : `${name} added to Past Terms`); return;
+      }
+      const courses = [];
+      for (let i = 0; i < (t.courses || []).length; i++) {
+        if (fd.get("tx-" + i)) continue;
+        const L = String(fd.get("tl-" + i) || "").trim().toUpperCase().replace(/\s+/g, ""), cv = String(fd.get("tc-" + i) || "").trim();
+        if (cv && (!isNum(cv) || Number(cv) < 0 || Number(cv) > 30)) { toast("Enter credits between 0 and 30"); return false; }
+        courses.push(Object.assign({}, t.courses[i], {letter: L.slice(0, 4), credits: cv ? Number(cv) : null}));
+      }
+      if (!courses.length) { dropTerm(t.id); toast(`${t.name} removed from Past Terms`); return; }
+      saveTerm(Object.assign({}, t, {name, courses})); toast("Saved");
+    });
+    const del = $("#gpTermDel");
+    if (del) del.addEventListener("click", () => { const was = clone(t); dlg.close(); dropTerm(t.id); toast(`${t.name} removed from Past Terms`, () => { saveTerm(was); toast("Undone"); }); });
+  }
+
+  /* Ask AI about my grades */
+  const AI_ASK = {
+    sum: {label: "Summarize My Term", sys: "Write 3 to 5 short bullet points on how the student's term is going: overall standing, the strongest and weakest courses, how marks have moved, and anything close to a pass mark or goal."},
+    focus: {label: "Where Should I Focus?", sys: "Write 2 to 4 short bullet points, most important first, on where to put effort next to protect or raise grades. Weigh how much each upcoming item is worth, how soon it's due, and how close each course is to its pass mark or goal. Each point names the course and the item and says why in one sentence."}
+  };
+  function aiContext(){
+    const all = grades(), S = termStats(all), L = [`Today is ${todayISO()}.`];
+    if (S.max && S.n) L.push(`Term GPA from grades now: ${fmtG(S.gpaNow)}; projected: ${fmtG(S.gpaProj)} (out of ${S.max}).`);
+    if (S.max && S.pastGpa != null) L.push(`Cumulative GPA from past terms: ${fmtG(S.pastGpa)}.`);
+    if (S.avg != null) L.push(`${S.weighted ? "Credit-weighted average" : "Average"} across courses with marks: ${fmtP(S.avg)}.`);
+    all.filter(gr => gr.ts.length).forEach(gr => {
+      const c = gr.c, g = gr.g, Lt = p => letterOf(p, g.scale) ? " " + letterOf(p, g.scale) : "";
+      const risk = {risk: "pass mark at risk", watch: "close to the pass mark", out: "pass mark out of reach"}[gr.risk];
+      const head = `COURSE ${courseLabel(c)}${c.name && c.name !== courseLabel(c) ? " (" + c.name + ")" : ""}${isNum(c.credits) ? ", " + fmtCr(c.credits) + " credits" : ""}: `
+        + (gr.current != null ? `current ${fmtP(gr.current)}${Lt(gr.current)} on ${fmtW(gr.wMarked)} of the course marked; ${gr.done ? "final" : "projected final"} ${fmtP(finalOf(gr))}${Lt(finalOf(gr))}; possible range ${fmtP(gr.minFinal)} to ${fmtP(gr.maxFinal)}` : "no marks yet")
+        + `; pass mark ${fmtP(g.pass)}${g.goal != null ? "; goal " + fmtP(g.goal) : ""}${risk ? "; " + risk : ""}. ${gradeLine(gr)}${rulesText(gr.R) ? " Grading rules: " + rulesText(gr.R) + "." : ""}`;
+      const mk = gr.marked.slice().sort(sortTasks).map(t => `${t.title} (${t.type}, worth ${fmtW(Number(t.weight))}${t.due ? ", " + t.due : ""}): ${fmtP(markPct(t))}${gr.dropped.has(t.id) ? ", dropped" : ""}`).join("; ");
+      const op = gr.open.slice().sort(sortTasks).slice(0, 10).map(t => `${t.title} (${t.type}, worth ${fmtW(Number(t.weight))}${t.due ? ", due " + t.due : ""}${t.status === "done" ? ", handed in, waiting for a mark" : ""})`).join("; ");
+      L.push(head + (mk ? "\n  Marked: " + mk : "") + (op ? "\n  Still to come: " + op : ""));
+    });
+    return L.join("\n");
+  }
+  const aiPaid = () => { try { const c = aiCfg(); return !isFreeModel(c.provider, c.model); } catch (e) { return false; } };
+  async function askAi(kind){
+    const A = AI_ASK[kind]; if (!A || (ui.gpAi && ui.gpAi.busy)) return;
+    if (aiPaid() && !ui.gpAiOk) return;
+    ui.gpAi = {kind, busy: true}; render();
+    try {
+      const r = await aiCall({task: "coach", fast: true, maxTokens: 1600, temperature: 0.4, schema: {type: "OBJECT", properties: {points: {type: "ARRAY", items: {type: "STRING"}}}, required: ["points"]},
+        parts: [{text: aiContext()}], system: "You're a kind, practical study coach looking at a student's grades. " + A.sys + " Use only the numbers, items and dates given, and never invent marks, dates or grading rules. Plain, warm words. No em dashes, and no medical or academic-policy claims. Return JSON only."});
+      const pts = ((r && r.data && r.data.points) || []).map(s => String(s || "").replace(/\s*[—–]\s*/g, ", ").replace(/^[\s•*-]+/, "").trim()).filter(Boolean).slice(0, 6);
+      ui.gpAi = pts.length ? {kind, pts} : {kind, err: "The AI didn't send anything back. Try again."};
+    } catch (e) { ui.gpAi = {kind, err: (e && e.message) || "Couldn't reach the AI right now. Try again in a moment."}; }
+    if (ui.tab === "courses" && !ui.courseId && ui.courseTab === "grades") render();
+  }
+  function aiHtml(all){
+    if (!all.some(gr => gr.ts.length)) return "";
+    try { if (inPreview()) return ""; } catch (e) { return ""; }
+    const h = `<h3 class="fsec" id="gpAiH">Ask AI About Your Grades</h3>`;
+    if (!aiReady()) return `<section class="gp-ai" aria-labelledby="gpAiH">${h}<p class="mini" style="margin:0">Get a short summary of your term, or advice on where to focus next. Set up AI in Settings (the free Gemini key works). <button type="button" class="link-btn" data-act="ai-setup">Set Up AI</button></p></section>`;
+    const st = ui.gpAi || {}, paid = aiPaid(), off = paid && !ui.gpAiOk;
+    let cfg = null; try { cfg = aiCfg(); } catch (e) {}
+    const out = st.busy ? `<p class="mini" style="margin:0">Reading your grades…</p>` : st.err ? `<p class="mini" style="margin:0">${esc(st.err)}</p>`
+      : st.pts ? `<p class="gp-ai-k">${esc(AI_ASK[st.kind].label.replace(/\?$/, ""))}</p><ul class="gp-ai-list">${st.pts.map(p => `<li>${esc(p)}</li>`).join("")}</ul>` : "";
+    return `<section class="gp-ai" aria-labelledby="gpAiH">${h}
+      <div class="gp-ai-acts">${Object.entries(AI_ASK).map(([k, a]) => `<button type="button" class="btn small ai-btn${st.busy && st.kind === k ? " busy" : ""}" data-act="gp-ai" data-id="${k}"${off || st.busy ? " disabled" : ""}>${AI_ICON} ${esc(a.label)}</button>`).join("")}</div>
+      ${paid && cfg && AI_PROVIDERS[cfg.provider] ? `<label class="mi-check"><input type="checkbox" id="gpAiOk"${ui.gpAiOk ? " checked" : ""}> This uses my paid ${esc(AI_PROVIDERS[cfg.provider].short)} account (${esc(aiModelName(cfg.provider, cfg.model))}) and may cost a little money.</label>` : ""}
+      <div class="gp-ai-out" role="status" aria-live="polite">${out}</div>
+      ${st.pts && window.SBCOMPTAB ? `<button type="button" class="link-btn" data-act="gp-ai-more" style="justify-self:start">Ask a Follow-Up</button>` : ""}
+      <p class="mini" style="margin:0">The AI sees your courses, weights and marks, and can make mistakes. The numbers on this page are exact.</p></section>`;
+  }
+  hook("act", (act, el, id) => {
+    switch (act) {
+      case "gp-credits": creditsSheet(); return true;
+      case "gp-term-save": termSaveSheet(); return true;
+      case "gp-term-add": termSheet(""); return true;
+      case "gp-term": termSheet(id); return true;
+      case "gp-ai": askAi(id); return true;
+      case "gp-ai-more": if (window.SBCOMPTAB) SBCOMPTAB.open(""); return true;
+    }
+    return false;
+  });
+  document.addEventListener("change", e => { const t = e.target; if (t && t.id === "gpAiOk") { ui.gpAiOk = t.checked; $$('[data-act="gp-ai"]').forEach(b => { b.disabled = !t.checked; }); } });
+
   // Every course side by side, then the marks still to enter, then options Grades B
   const GP_CAP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5"/><path d="M22 9v6"/></svg>';
   function gradesPage(){
@@ -29828,11 +30451,11 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const waiting = tasksArr().filter(t => t.status === "done" && hasWeight(t) && !t.mark && !t.prepFor).sort(sortTasks);
     const withMarks = all.filter(gr => gr.current != null), atRisk = all.filter(gr => gr.risk).length;
     const toCome = all.reduce((n, gr) => n + gr.open.length, 0) - waiting.length;
-    const avg = withMarks.length ? withMarks.reduce((a, gr) => a + gr.current, 0) / withMarks.length : null;
+    const S = termStats(all), avg = S.avg;
     const stat = (n, k, bad) => `<div class="gr-stat gp-tile${bad ? " gr-bad" : ""}"><span class="gr-v">${n}</span><span class="gr-k">${k}</span></div>`;
     const hero = `<div class="gp-hero-band">
         <span class="g2-ring gp-cap" aria-hidden="true">${GP_CAP}</span>
-        <div class="gp-hero-t"><span class="g2-kick">Average Across Courses</span>${avg != null ? `<span class="gp-avg">${fmtP(avg)}</span><span class="gp-hero-sub">${withMarks.length} course${withMarks.length === 1 ? "" : "s"} with marks · ${atRisk ? `${atRisk} need${atRisk === 1 ? "s" : ""} attention` : "all on track"}</span>` : `<span class="gp-avg gr-none">No Marks Yet</span><span class="gp-hero-sub">Marks you enter show up here</span>`}</div>
+        <div class="gp-hero-t"><span class="g2-kick">${S.weighted ? "Credit-Weighted Average" : "Average Across Courses"}</span>${avg != null ? `<span class="gp-avg">${fmtP(avg)}</span><span class="gp-hero-sub">${withMarks.length} course${withMarks.length === 1 ? "" : "s"} with marks · ${atRisk ? `${atRisk} need${atRisk === 1 ? "s" : ""} attention` : "all on track"}</span>` : `<span class="gp-avg gr-none">No Marks Yet</span><span class="gp-hero-sub">Marks you enter show up here</span>`}</div>
         <div class="gp-sum">${stat(atRisk, "Need attention", atRisk)}${stat(waiting.length, "Waiting for a mark")}${stat(Math.max(0, toCome), "Marks still to come")}</div></div>`;
     const tn = topNeed(all);
     const detailOf = gr => {
@@ -29853,7 +30476,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
         <div class="chips gp-calc-t" role="group" aria-label="Target">${tg.map(([k, v]) => `<button type="button" class="chip" data-act="gp-target" data-cid="${esc(c.id)}" data-id="${v}" aria-pressed="${Math.abs(v - want) < 0.01}">${esc(k)} ${r1(v)}%</button>`).join("")}</div>
         <div class="gp-calc-out" aria-live="polite">${res}</div></section>`;
       const marks = `<section class="gp-marks gp-d-marks"><h4 class="gp-d-h">Marks<span class="spacer"></span><button class="btn small" data-act="g-course-set" data-id="${esc(c.id)}">Weights</button></h4>
-        ${gr.ts.length + gr.loose.length ? `<ul class="gr-work">${gradeRows(gr.ts)}${gradeRows(gr.loose)}</ul>${gr.loose.length ? `<p class="mini" style="margin:6px 0 0">Marks with <b>No weight yet</b> are shown, not counted, until they have a weight.</p>` : ""}` : `<p class="mini" style="margin:0">No graded work yet.</p>`}
+        ${gr.ts.length + gr.loose.length ? `<ul class="gr-work">${gradeRows(gr.ts, null, gr.dropped)}${gradeRows(gr.loose)}</ul>${gr.loose.length ? `<p class="mini" style="margin:6px 0 0">Marks with <b>No weight yet</b> are shown, not counted, until they have a weight.</p>` : ""}` : `<p class="mini" style="margin:0">No graded work yet.</p>`}
         ${gr.unlisted > 0.5 ? `<p class="mini" style="margin:8px 0 0">Only ${fmtW(gr.wAll)} of ${esc(courseLabel(c))} is listed so far. <button class="link-btn" data-act="import-syllabus" data-course="${esc(c.id)}">Import the syllabus</button> to fill in the rest.</p>` : ""}</section>`;
       return `<div class="gp-drop" id="gpd-${esc(c.id)}"${ui.gpOpen && ui.gpOpen[c.id] ? "" : " hidden"}>${marks}${calc}</div>`;
     };
@@ -29874,11 +30497,12 @@ ${kindPreview("study")}${kindPreview("project")}`;
     }).join("");
     const wait = waiting.length ? `<h3 class="fsec">Waiting for a Mark</h3><ul class="gs-wait">${waiting.slice(0, 12).map(t => { const c = courseOf(t.courseId); return `<li style="--c:${esc(colorOf(t.courseId))}"><span class="gs-name">${esc(t.title)}<span class="mini">${c ? esc(courseLabel(c)) + ", " : ""}worth ${esc(fmtW(Number(t.weight)))}</span></span><button class="btn small" data-act="g-mark" data-id="${esc(t.id)}">Add Mark</button></li>`; }).join("")}</ul>` : "";
     return `<section class="gp" aria-label="Grades"><div class="view-head"><h2>Grades</h2>${proBtns("grades")}</div>
-      <div class="gp-hero">${hero}<ul class="gp-list">${rows}</ul></div>${low}${wait}
+      <div class="gp-hero">${hero}${gpaStrip(S)}<ul class="gp-list">${rows}</ul></div>${low}${wait}${comingUpHtml(all)}${aiHtml(all)}${histHtml(S)}
       <details class="gp-opts"${ui.gpOpts ? " open" : ""}><summary>Grade Options</summary><div class="menu-list">
-        <div class="cap-row"><label for="gPassIn" style="flex:1;font-weight:600">Default Pass Mark<span class="sub">For courses where you haven't set one. Check each course outline.</span></label><input type="number" id="gPassIn" min="0" max="100" step="0.5" value="${esc(r1(s.pass))}"> %</div>
+        <div class="cap-row"><label for="gPassIn" style="flex:1;font-weight:600">Default Pass Mark<span class="sub">For courses where you haven't set one. Check each course outline.</span></label><input type="number" id="gPassIn" min="0" max="100" step="0.5" value="${esc(r1(s.pass))}"> %</div>${gpaOpt()}
         <label class="mi-check gs-opt"><input type="checkbox" id="gAskIn" ${s.prompt ? "checked" : ""}><span>Ask for My Mark After I Finish Graded Work<span class="sub">A small note a few seconds later. Easy to skip.</span></span></label>
         <label class="mi-check gs-opt"><input type="checkbox" id="gRwIn" ${s.rescue ? "checked" : ""}><span>Offer Help When My Week Looks Too Full<span class="sub">A Rough Week banner on the Board</span></span></label>
+        <label class="mi-check gs-opt"><input type="checkbox" id="gClsIn" ${s.cls ? "checked" : ""}><span>${esc(tr("gb.opt", "Compare My Marks to the Class"))}<span class="sub">${esc(tr("gb.opt.s", "For school-synced courses that share class averages"))}</span></span></label>
         <button type="button" class="btn small" data-act="rw-open" style="justify-self:start">Plan a Rough Week</button></div></details></section>`;
   }
   document.addEventListener("change", e => { const t = e.target; if (t && t.classList && t.classList.contains("gp-calc-c")) { ui.gpCalc = {cid: t.value}; render(); } });
@@ -29904,11 +30528,14 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const out = box.querySelector(".gr-wi-out"); if (out) out.innerHTML = whatIfOut(courseGrade(c), clean);
     const clr = box.querySelector('[data-act="wi-clear"]'); if (clr) clr.hidden = !Object.keys(clean).length && ![...box.querySelectorAll("[data-wi]")].some(x => x.value.trim());
   });
+  const gpaOpt = () => { const v = gpaMax(); return `<div class="cap-row"><label for="gGpaIn" style="flex:1;font-weight:600">GPA Scale<span class="sub">How letter grades turn into GPA points. Off hides GPA.</span></label><select id="gGpaIn"><option value="4.0"${v === 4 ? " selected" : ""}>4.0 (A+ is 4.0)</option><option value="4.3"${v === 4.3 ? " selected" : ""}>4.3 (A+ is 4.3)</option><option value="off"${!v ? " selected" : ""}>Off</option></select></div>`; };
+  document.addEventListener("change", e => { const t = e.target; if (t && t.id === "gGpaIn") { saveG({gpa: t.value}); scheduleRender(); toast(t.value === "off" ? "GPA is off" : `GPA scale set to ${t.value}`); } });
   function wireGradeOpts(){
     const pi = $("#gPassIn"); if (!pi) return;
     pi.addEventListener("change", e => { const v = clampP(Number(e.target.value) || 0); saveG({pass: v, passSrc: "user"}); scheduleRender(); toast(`Default pass mark set to ${fmtP(v)}`); });
     $("#gAskIn").addEventListener("change", e => { saveG({prompt: e.target.checked}); toast(e.target.checked ? "Studyboard will ask for marks" : "Studyboard won't ask for marks"); });
     $("#gRwIn").addEventListener("change", e => { saveG({rescue: e.target.checked}); scheduleRender(); });
+    $("#gClsIn").addEventListener("change", e => { saveG({cls: e.target.checked}); scheduleRender(); });
   }
   hook("render", tab => { if (tab === "courses" && !ui.courseId && ui.courseTab === "grades") wireGradeOpts(); });
   hook("act", (act, el, id) => {
@@ -30025,6 +30652,8 @@ ${kindPreview("study")}${kindPreview("project")}`;
           <label class="mi-check"><input type="checkbox" name="passAll"> Use This Pass Mark for All My Courses</label>
         </div>
         <label class="f"><span class="lh">Your Goal <span class="hint">optional, the final grade you're aiming for</span></span><input type="number" name="goal" min="0" max="100" step="0.5" inputmode="decimal" value="${g.goal != null ? esc(r1(g.goal)) : ""}" placeholder="e.g. 80"></label>
+        <label class="f"><span class="lh">Credits <span class="hint">optional, for your GPA and a weighted average. 0 leaves this course out</span></span><input type="number" name="credits" min="0" max="30" step="0.25" inputmode="decimal" value="${isNum(c.credits) ? esc(c.credits) : ""}" placeholder="e.g. 3"></label>
+        ${rulesFields(c)}
         <div class="gr-scale">
           <span class="lh">${esc(tr("gr.sc.title", "Letter Scale"))} <span class="hint">${esc(tr("gr.sc.hint", "each letter and the lowest percent that earns it"))}</span></span>
           <div class="gr-school" id="gsSchool"></div>
@@ -30043,6 +30672,9 @@ ${kindPreview("study")}${kindPreview("project")}`;
       const pass = Number(fd.get("pass")), goalS = String(fd.get("goal") || "").trim();
       if (!isNum(pass) || pass < 0 || pass > 100) { toast("Enter a pass mark between 0 and 100"); return false; }
       if (goalS && (!isNum(goalS) || Number(goalS) <= 0 || Number(goalS) > 100)) { toast("Enter a goal between 1 and 100, or leave it blank"); return false; }
+      const crS = String(fd.get("credits") || "").trim();
+      if (crS && (!isNum(crS) || Number(crS) < 0 || Number(crS) > 30)) { toast("Enter credits between 0 and 30, or leave it blank"); return false; }
+      const rules = readRules(fd, c); if (rules === false) return false;
       const ls = fd.getAll("sl").map(x => String(x).trim().toUpperCase().replace(/\s+/g, "")), ps = fd.getAll("sp").map(x => String(x).trim());
       const scale = [], seenL = new Set();
       for (let i = 0; i < ls.length; i++) {
@@ -30064,15 +30696,58 @@ ${kindPreview("study")}${kindPreview("project")}`;
       if (fd.get("passAll")) {
         saveG({pass: r1(pass), passSrc: "user"});
         const chs = coursesArr().filter(x => x.id !== id).map(x => { const o = clone(x); o.grading = Object.assign({}, o.grading || {}, {pass: null, passSrc: "user", passFrom: ""}); return {kind: "course", id: x.id, after: o}; });
-        n.grading = {pass: null, passSrc: "user", passFrom: "", goal: goalS ? r1(Number(goalS)) : null, scale: all || isDef ? null : scale};
+        n.grading = {pass: null, passSrc: "user", passFrom: "", goal: goalS ? r1(Number(goalS)) : null, scale: all || isDef ? null : scale, rules};
+        n.credits = crS ? Number(crS) : null;
         applyChanges(chs.concat([{kind: "course", id, after: n}]), `Pass mark set to ${fmtP(pass)} for all your courses`);
         return;
       }
       n.grading = Object.assign({pass: r1(pass) === r1(gset().pass) && !mine ? null : r1(pass), goal: goalS ? r1(Number(goalS)) : null, scale: all || isDef ? null : scale},
-        mine ? {passSrc: "user", passFrom: ""} : {passSrc: was.passSrc || "", passFrom: was.passFrom || ""});
+        mine ? {passSrc: "user", passFrom: ""} : {passSrc: was.passSrc || "", passFrom: was.passFrom || ""}, {rules});
+      n.credits = crS ? Number(crS) : null;
       applyChanges([{kind: "course", id, after: n}], "Grade settings saved");
     });
     wireScale();
+    wireRules();
+  }
+  /* Grading rules in Grade Settings */
+  const CAT_OPT = {Quiz: "Quizzes", Assignment: "Assignments", Exam: "Midterms or Tests (Never the Final)", Lab: "Labs", Project: "Projects", Reading: "Readings", Other: "Other Items"};
+  const dropRow = d => `<div class="gr-drop-row"><span>Drop the Lowest</span><label><span class="sr">How many</span><input type="number" name="dn" min="1" max="20" step="1" inputmode="numeric" value="${esc(d ? d.n : 1)}" data-noenter></label><label><span class="sr">Of which type</span><select name="dc">${Object.entries(CAT_OPT).map(([k, l]) => `<option value="${k}"${d && d.cat === k ? " selected" : ""}>${esc(l)}</option>`).join("")}</select></label><button type="button" class="icon-btn gr-drop-del" aria-label="Remove this rule" title="Remove this rule"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
+  function rulesFields(c){
+    const R = rulesOf(c), fromSyl = R.drops.some(d => d.src === "syllabus") || (R.bonus.pts > 0 && R.bonus.src === "syllabus");
+    return `<fieldset class="gr-rules"><legend>Grading Rules <span class="hint">optional, from your course outline</span></legend>
+      <p class="mini" style="margin:0">${fromSyl ? "Found in your syllabus. Check them against your course outline." : "If the lowest quiz or homework is dropped, or there's bonus credit, add it here and every number on the Grades page counts it."}</p>
+      <div id="grDrops" class="gr-drops">${R.drops.map(dropRow).join("")}</div>
+      <button type="button" class="btn small" id="grDropAdd" style="justify-self:start">+ Drop the Lowest…</button>
+      <div class="gr-bonus"><label class="f"><span class="lh">Bonus Available <span class="hint">% of the final grade, like extra credit</span></span><input type="number" name="bpts" min="0" max="50" step="0.25" inputmode="decimal" value="${R.bonus.pts > 0 ? esc(r1(R.bonus.pts)) : ""}" placeholder="0"></label>
+        <label class="f"><span class="lh">Bonus Earned <span class="hint">% you've earned so far</span></span><input type="number" name="bgot" min="0" max="50" step="0.25" inputmode="decimal" value="${R.bonus.got > 0 ? esc(r1(R.bonus.got)) : ""}" placeholder="0"></label></div></fieldset>`;
+  }
+  function wireRules(){
+    const box = $("#grDrops"), add = $("#grDropAdd"); if (!box || !add) return;
+    add.addEventListener("click", () => {
+      const used = new Set($$('select[name="dc"]', box).map(x => x.value)), cat = Object.keys(CAT_OPT).find(k => !used.has(k));
+      if (!cat) return;
+      box.insertAdjacentHTML("beforeend", dropRow({n: 1, cat}));
+      const i = box.querySelector(".gr-drop-row:last-child input"); if (i) i.focus();
+    });
+    box.addEventListener("click", e => { const b = e.target.closest(".gr-drop-del"); if (!b) return; b.closest(".gr-drop-row").remove(); add.focus(); });
+  }
+  // The rules from the Grade Settings form, or false after telling the student what's wrong
+  function readRules(fd, c){
+    const old = rulesOf(c), ns = fd.getAll("dn"), cs = fd.getAll("dc"), drops = [], seen = new Set();
+    for (let i = 0; i < ns.length; i++) {
+      const n = Number(ns[i]), cat = String(cs[i] || "");
+      if (!Number.isInteger(n) || n < 1 || n > 20) { toast("Enter how many to drop, from 1 to 20"); return false; }
+      if (seen.has(cat)) { toast(`There are two rules for ${CAT_OPT[cat] || cat}`); return false; }
+      seen.add(cat);
+      const was = old.drops.find(d => d.cat === cat && d.n === n);
+      drops.push({cat, n, src: was ? was.src : "user"});
+    }
+    const bp = String(fd.get("bpts") || "").trim(), bg = String(fd.get("bgot") || "").trim();
+    if ((bp && (!isNum(bp) || Number(bp) < 0 || Number(bp) > 50)) || (bg && (!isNum(bg) || Number(bg) < 0 || Number(bg) > 50))) { toast("Enter bonus points between 0 and 50"); return false; }
+    const pts = bp ? Number(bp) : 0, got = bg ? Number(bg) : 0;
+    if (got > pts && pts > 0) { toast("Bonus earned can't be more than the bonus available"); return false; }
+    const bonus = pts > 0 || got > 0 ? {pts: Math.max(pts, got), got, src: pts === old.bonus.pts && old.bonus.src === "syllabus" ? "syllabus" : "user"} : null;
+    return drops.length || bonus ? {drops, bonus} : null;
   }
   // The scale boxes
   function wireScale(){
@@ -30167,15 +30842,17 @@ ${kindPreview("study")}${kindPreview("project")}`;
         ${waiting.length ? `<h3 class="fsec" style="margin:4px 0 0">Waiting for a Mark</h3><ul class="gs-wait">${waiting.slice(0, 12).map(t => { const c = courseOf(t.courseId); return `<li style="--c:${esc(colorOf(t.courseId))}"><span class="gs-name">${esc(t.title)}<span class="mini">${c ? esc(courseLabel(c)) + ", " : ""}worth ${fmtW(Number(t.weight))}</span></span><button class="btn small" data-act="g-mark" data-id="${esc(t.id)}" data-back="grades">Add Mark</button></li>`; }).join("")}</ul>` : ""}
         <h3 class="fsec" style="margin:4px 0 0">Options</h3>
         <div class="menu-list">
-          <div class="cap-row"><label for="gPassIn" style="flex:1;font-weight:600">Default Pass Mark<span class="sub">For courses where you haven't set one. Check each course outline.</span></label><input type="number" id="gPassIn" min="0" max="100" step="0.5" value="${esc(r1(s.pass))}"> %</div>
+          <div class="cap-row"><label for="gPassIn" style="flex:1;font-weight:600">Default Pass Mark<span class="sub">For courses where you haven't set one. Check each course outline.</span></label><input type="number" id="gPassIn" min="0" max="100" step="0.5" value="${esc(r1(s.pass))}"> %</div>${gpaOpt()}
           <label class="mi-check gs-opt"><input type="checkbox" id="gAskIn" ${s.prompt ? "checked" : ""}><span>Ask for My Mark After I Finish Graded Work<span class="sub">A small note a few seconds later. Easy to skip.</span></span></label>
           <label class="mi-check gs-opt"><input type="checkbox" id="gRwIn" ${s.rescue ? "checked" : ""}><span>Offer Help When My Week Looks Too Full<span class="sub">A Rough Week banner on the Board</span></span></label>
+        <label class="mi-check gs-opt"><input type="checkbox" id="gClsIn" ${s.cls ? "checked" : ""}><span>${esc(tr("gb.opt", "Compare My Marks to the Class"))}<span class="sub">${esc(tr("gb.opt.s", "For school-synced courses that share class averages"))}</span></span></label>
         </div>
       </div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="rw-open">Plan a Rough Week</button><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
     $("#gPassIn").addEventListener("change", e => { const v = clampP(Number(e.target.value) || 0); saveG({pass: v, passSrc: "user"}); scheduleRender(); toast(`Default pass mark set to ${fmtP(v)}`); });
     $("#gAskIn").addEventListener("change", e => { saveG({prompt: e.target.checked}); toast(e.target.checked ? "Studyboard will ask for marks" : "Studyboard won't ask for marks"); });
     $("#gRwIn").addEventListener("change", e => { saveG({rescue: e.target.checked}); scheduleRender(); });
+    $("#gClsIn").addEventListener("change", e => { saveG({cls: e.target.checked}); scheduleRender(); });
   }
   hook("menu", () => `<button data-act="g-grades"><span>Grades<span class="sub">Your marks, what you need on the rest, and pass marks</span></span></button>`);
 
@@ -31162,7 +31839,7 @@ function cleanFile(r) {
   const LS = "studyboard:" + P.id;
   const bsDesk = () => !!lmsBridge();
   const DEF = {host: "", feed: "", mode: "", auto: true, markDone: true, grades: true, news: true, aiNews: true, addGraded: true, pastDays: 14,
-    map: {}, courses: {}, log: [], newsItems: [], finals: {}, suggest: [], scanned: [], last: 0, lastSrc: "", name: "", gone: [], dropped: [], merges: {}, apiOnly: [], mergedDrops: [], wrongCourse: {}};
+    map: {}, courses: {}, log: [], newsItems: [], finals: {}, suggest: [], scanned: [], last: 0, lastSrc: "", name: "", gone: [], dropped: [], merges: {}, apiOnly: [], mergedDrops: [], wrongCourse: {}, goneCourses: {}};
   const BULK_LS = LS + ":bulk", NEWS_KEEP = 20, NEWS_SNIP = 280;
   let bulkMem = null;
   const bulk = () => { if (!bulkMem) { try { bulkMem = JSON.parse(localStorage.getItem(BULK_LS) || "null"); } catch(e) {} bulkMem = Object.assign({log: [], scanned: [], texts: {}}, bulkMem || {}); } return bulkMem; };
@@ -31560,14 +32237,40 @@ function cleanFile(r) {
     const c = cs.find(c => c.name && nm.length > 4 && (c.name.toLowerCase() === nm || sim(c.name, nm) >= 0.75));
     return c ? c.id : "";
   }
+  // A course you deleted stays deleted: syncing never brings it back. Restoring it from Recently Deleted picks it up again
+  const inTrash = id => trashList().some(e => (e.items || []).some(i => i && i.kind === "course" && i.id === id));
+  const linkedOus = id => { const c = cfg(), co = state.courses[id], ous = new Set();
+    Object.entries(c.map || {}).forEach(([ou, v]) => { if (v === id) ous.add(ou); });
+    if (co && co[F] && co[F].ou) ous.add(co[F].ou);
+    Object.keys(c.courses || {}).forEach(ou => { if (F + "c_" + hid(ou) === id) ous.add(ou); });
+    return [...ous]; };
+  function courseDeleted(id){
+    const ous = linkedOus(id); if (!ous.length) return;
+    const c = cfg(), map = Object.assign({}, c.map), gone = Object.assign({}, c.goneCourses);
+    ous.forEach(ou => { map[ou] = "skip"; gone[ou] = id; });
+    save({map, goneCourses: gone});
+  }
   function mapping(data, over){
-    const c = cfg(), out = {};
+    const c = cfg(), out = {}, gone = Object.assign({}, c.goneCourses || {});
+    let fix = null; const note = (ou, m) => { fix = fix || {map: Object.assign({}, c.map), goneCourses: gone}; if (m == null) delete fix.map[ou]; else fix.map[ou] = m; };
     data.courses.forEach(bc => {
-      let m = (over && over[bc.ou]) || c.map[bc.ou];
+      const ou = bc.ou, was = gone[ou];
+      let m = (over && over[ou]) || c.map[ou];
+      if (was && !(over && over[ou])) {
+        if (state.courses[was]) { m = was; delete gone[ou]; note(ou, was); }          // restored from Recently Deleted
+        else if (!m || m === "skip" || m === was) m = "skip";                          // still deleted
+        else { delete gone[ou]; fix = fix || {map: Object.assign({}, c.map), goneCourses: gone}; } // you picked another course for it since
+      }
+      // the course it went to was deleted (Recently Deleted holds it): keep it off rather than make a new one
+      const dflt = F + "c_" + hid(ou);
+      if (!(over && over[ou]) && m !== "skip" && ((m && m !== "new" && !state.courses[m] && inTrash(m)) || (!m && !state.courses[dflt] && inTrash(dflt)))) {
+        gone[ou] = m && m !== "new" ? m : dflt; m = "skip"; note(ou, "skip");
+      }
       if (m && m !== "new" && m !== "skip" && !state.courses[m]) m = "";
       if (!m) m = autoMatch(bc) || (state.courses[F + "c_" + hid(bc.ou)] ? F + "c_" + hid(bc.ou) : "new");
       out[bc.ou] = m;
     });
+    if (fix) save(fix);
     return out;
   }
 
@@ -32287,8 +32990,11 @@ function cleanFile(r) {
       <div class="sheet-foot"><button type="button" class="btn danger" data-act="${A}-disconnect">Disconnect</button><button type="button" class="btn" data-act="${A}-fresh">Start Fresh</button><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
     dlg.querySelectorAll("[data-bs-opt]").forEach(i => i.addEventListener("change", () => { save({[i.dataset.bsOpt]: i.checked}); if (i.dataset.bsOpt === "aiNews" && i.checked && !aiReady()) toast("Set up AI in Settings first, then this will work"); }));
     dlg.querySelectorAll("[data-bs-map]").forEach(s => s.addEventListener("change", () => {
-      const m = Object.assign({}, cfg().map); m[s.dataset.bsMap] = s.value === "new" ? "" : s.value; if (!m[s.dataset.bsMap]) delete m[s.dataset.bsMap];
-      save({map: m}); toast(s.value === "skip" ? "That course won't be imported. What's already here stays." : "Saved. It applies from the next sync.", null, {label: "Sync Now", fn: () => syncNow()});
+      const g = Object.assign({}, cfg().goneCourses), wasGone = !!g[s.dataset.bsMap] || cfg().map[s.dataset.bsMap] === "skip"; delete g[s.dataset.bsMap];
+      // a course you'd deleted and now want again: say so, so Recently Deleted doesn't keep it off
+      const m = Object.assign({}, cfg().map); m[s.dataset.bsMap] = s.value === "new" ? (wasGone ? "new" : "") : s.value; if (!m[s.dataset.bsMap]) delete m[s.dataset.bsMap];
+      const ou = s.dataset.bsMap, dr = cfg().dropped || [], back = wasGone && s.value !== "skip" ? dr.filter(k => String(k).split("|")[0] === ou) : [];
+      save(Object.assign({map: m, goneCourses: g}, back.length ? {dropped: dr.filter(k => !back.includes(k))} : {})); toast(s.value === "skip" ? "That course won't be imported. What's already here stays." : "Saved. It applies from the next sync.", null, {label: "Sync Now", fn: () => syncNow()});
     }));
     $("#bsPast").addEventListener("change", e => save({pastDays: Number(e.target.value) || 0}));
     const t = focus === "suggest" ? $("#bsSuggest") : focus === "log" ? $("#bsLog") : null;
@@ -32795,7 +33501,7 @@ function cleanFile(r) {
 
   return {P, cfg, save, connected, consented, askConsent, statusLine, shortStatus, bsSheet, connectSheet, syncNow, canSync: () => !!howNow(), autoTick, isRunning: () => !!running, courseCard, staffHtml, local,
     fromApi: P.fromApi, fromFeed, plan, applyPlan, cleanTitle, titleKey, codeOf, mapping, reviewSheet, scanNews, doLogin, feedConnect, importGrab, setLocal,
-    lastRead: () => bulk().lastRead || null, linkTask, startFresh, freshPlan, drop: (key, why) => { const c = cfg(); if (!(c.dropped || []).includes(key)) save({dropped: (c.dropped || []).concat(key).slice(-400)}); if (why === "merge" && !(c.mergedDrops || []).includes(key)) save({mergedDrops: (cfg().mergedDrops || []).concat(key).slice(-200)}); }};
+    lastRead: () => bulk().lastRead || null, linkTask, courseDeleted, startFresh, freshPlan, drop: (key, why) => { const c = cfg(); if (!(c.dropped || []).includes(key)) save({dropped: (c.dropped || []).concat(key).slice(-400)}); if (why === "merge" && !(c.mergedDrops || []).includes(key)) save({mergedDrops: (cfg().mergedDrops || []).concat(key).slice(-200)}); }};
   }
 
   /* The three platforms */
@@ -32865,6 +33571,8 @@ function cleanFile(r) {
   ];
   PROVIDERS.forEach(P => { LMS[P.id] = makeLms(P); });
   const ALL = () => PROVIDERS.map(P => LMS[P.id]);
+  // You deleted a course: every school site linked to it stops bringing it back
+  window.SBLMS_COURSE_GONE = id => ALL().forEach(L => { try { L.courseDeleted(id); } catch (e) {} });
 
   /* Desktop: staying signed in, and a quick way back in */
   const relogNeeded = () => ALL().filter(L => !!lmsBridge() && L.cfg().mode === "api" && L.connected() && L.local().needLogin);
@@ -41361,13 +42069,19 @@ var SBSTATS = (() => {
   const sess = () => (state.settings && state.settings.focusSess) || {};
   const bump = (map, d, n) => { const cur = Object.assign({}, map); cur[d] = (Number(cur[d]) || 0) + n; const keys = Object.keys(cur).sort(); if (keys.length > 800) keys.slice(0, keys.length - 800).forEach(k => delete cur[k]); return cur; };
   const sum = (map, from, to) => { let n = 0; Object.entries(map).forEach(([d, m]) => { if ((!from || d >= from) && (!to || d <= to)) n += Number(m) || 0; }); return n; };
-  function addFocus(minutes, source, session){
+  function addFocus(minutes, source, session, day){
     const m = Math.round(Number(minutes) || 0); if (m <= 0) return;
-    const d = todayISO(), patch = {focusDays: bump(days(), d, m)};
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(day || "") ? day : todayISO(), patch = {focusDays: bump(days(), d, m)};
     if (session) patch.focusSess = bump(sess(), d, 1);
     state.settings = Object.assign({}, state.settings, patch);
     saveSettings();
     fire("stats-focus", {minutes: m, source: source || "timer", day: d});
+  }
+  // Takes back time that was logged by mistake
+  function takeFocus(minutes, day){
+    const m = Math.round(Number(minutes) || 0), d = /^\d{4}-\d{2}-\d{2}$/.test(day || "") ? day : todayISO(); if (m <= 0) return;
+    const cur = Object.assign({}, days()); cur[d] = Math.max(0, (Number(cur[d]) || 0) - m); if (!cur[d]) delete cur[d];
+    state.settings = Object.assign({}, state.settings, {focusDays: cur}); saveSettings();
   }
   // Minutes between two dates (YYYY-MM-DD, inclusive)
   const focusMinutes = (from, to) => sum(days(), from, to);
@@ -41379,7 +42093,7 @@ var SBSTATS = (() => {
     return Math.max(logged, fromTasks);
   }
   hook("focus", e => { if (e && e.type === "end" && e.mode === "focus" && e.minutes) addFocus(e.minutes, "timer", true); });
-  return {addFocus, focusMinutes, focusSessions, totalFocusMinutes, focusDays: () => Object.assign({}, days())};
+  return {addFocus, takeFocus, focusMinutes, focusSessions, totalFocusMinutes, focusDays: () => Object.assign({}, days())};
 })();
 
 
@@ -62036,7 +62750,10 @@ const ACC = (() => {
     m = LOG_RX.exec(h.text); if (m) return {at: Number(h.at), min: Number(m[1]), kind: "logged"};
     return null;
   }
-  const entries = t => ((t && t.history) || []).map(entry).filter(Boolean);
+  // the task's day-by-day work log when it has one, else its history lines
+  const entries = t => Array.isArray(t && t.workLog)
+    ? t.workLog.filter(e => e && Number(e.m) > 0 && /^\d{4}-\d{2}-\d{2}$/.test(e.d || "")).map(e => ({at: Number(e.at) || new Date(e.d + "T12:00").getTime(), min: Number(e.m), kind: e.k === "log" ? "logged" : "focus"}))
+    : ((t && t.history) || []).map(entry).filter(Boolean);
   const bornDone = t => !!(t && t.created && t.doneAt && t.doneAt - t.created < 60000);
   // "90", "1h", "1.5h", "1h30", "1h 30m", "45m", "1:30" -> minutes (0 when it isn't a time)
   function parseDur(s){
@@ -62221,12 +62938,12 @@ const SBTIME = (() => {
 })();
 
 /* Logging time */
-function logTime(id, min, kind, label, at){
+function logTime(id, min, kind, label, at, day){
   const t = state.tasks[id]; min = Math.round(Number(min));
   if (!t || !(min > 0)) return false;
-  const n = clone(t);
-  n.focusMin = (Number(n.focusMin) || 0) + min;
-  n.history = (n.history || []).concat({at: at || Date.now(), text: kind === "focus" ? `Focus session: ${min}m` : `Logged time: ${min}m`}).slice(-30);
+  const n = addWork(clone(t), min, kind === "focus" ? "focus" : "log", day || (at ? isoDay(at) : ""), at);
+  // time you type in counts toward the day's study time, like a focus session (a focus session is already counted)
+  if (kind !== "focus") { try { SBSTATS.addFocus(min, "log", false, day || (at ? isoDay(at) : "")); } catch (e) {} }
   applyChanges([{kind: "task", id, after: n}], label || tr("acc.loggedToast", "Logged {t} on {title}", {t: fmtMins(min), title: t.title.length > 28 ? t.title.slice(0, 27) + "…" : t.title}));
   LEARN = null;
   return true;
@@ -62352,7 +63069,7 @@ function staleScan(){
 /* Log time on a task */
 const logHtml = t => `<div class="acc-log" id="accLog" data-id="${esc(t.id)}"><span class="lbl">${esc(tr("acc.logTime", "Log time"))}</span>
   <span class="acc-log-btns" role="group" aria-label="${esc(tr("acc.logAria", "Add time you spent on this task"))}"><button type="button" class="btn small" data-act="acc-log" data-id="${esc(t.id)}" data-min="15">+15m</button><button type="button" class="btn small" data-act="acc-log" data-id="${esc(t.id)}" data-min="30">+30m</button><button type="button" class="btn small" data-act="acc-log" data-id="${esc(t.id)}" data-min="60">+1h</button><button type="button" class="btn small" data-act="acc-log-custom" data-id="${esc(t.id)}">${esc(tr("acc.custom", "Custom"))}</button></span>
-  <span class="mini acc-log-tot" aria-live="polite">${logTotal(t)}</span></div>`;
+  <span class="mini acc-log-tot" aria-live="polite">${logTotal(t)}</span>${workDaysHtml(t, 5)}</div>`;
 function logTotal(t){
   const m = Number(t.focusMin) || 0;
   return m ? esc(tr("acc.logTotal", "{t} tracked so far", {t: fmtMins(m)})) : esc(tr("acc.logNone", "Nothing tracked yet"));
@@ -62360,6 +63077,62 @@ function logTotal(t){
 function refreshLog(id){
   const box = document.getElementById("accLog"); if (!box || box.dataset.id !== id || !state.tasks[id]) return;
   const tot = box.querySelector(".acc-log-tot"); if (tot) tot.innerHTML = logTotal(state.tasks[id]);
+  const old = box.querySelector(".tw-days"), h = document.createElement("div"); h.innerHTML = workDaysHtml(state.tasks[id], 5);
+  if (old) old.replaceWith(...h.childNodes); else box.append(...h.childNodes);
+}
+/* Time worked, day by day */
+const twDay = d => d === todayISO() ? tr("tw.today", "Today") : d === addDays(todayISO(), -1) ? tr("tw.yesterday", "Yesterday") : parse(d).toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"});
+// one line per day: when, how long, and how (focus or typed in); typed-in time can be taken back
+function workDaysHtml(t, max, edit){
+  const days = workByDay(t); if (!days.length) return "";
+  const shown = max ? days.slice(0, max) : days;
+  return `<ul class="tw-days" aria-label="${esc(tr("tw.aria", "Time worked by day"))}">${shown.map(r => `<li><span class="tw-d">${esc(twDay(r.d))}</span><b class="tw-m">${fmtMins(r.min)}</b><span class="tw-how mini">${r.focus && r.logged ? tr("tw.focus", "{t} focus", {t: fmtMins(r.focus)}) + " · " + tr("tw.logged", "{t} typed in", {t: fmtMins(r.logged)}) : r.focus ? tr("tw.focusOnly", "focus sessions") : tr("tw.loggedOnly", "typed in")}</span>${edit ? r.items.filter(e => e.kind === "logged" && e.id).map(e => `<button type="button" class="tw-x" data-act="tw-del" data-id="${esc(t.id)}" data-e="${esc(e.id)}" aria-label="${esc(tr("tw.delAria", "Remove {t} typed in for {day}", {t: fmtMins(e.min), day: twDay(r.d)}))}" >${esc(tr("tw.del", "Remove {t}", {t: fmtMins(e.min)}))}</button>`).join("") : ""}</li>`).join("")}</ul>${max && days.length > max ? `<p class="mini tw-more">${esc(tr("tw.more", "and {n} earlier days", {n: days.length - max}))}</p>` : ""}`;
+}
+// Takes back time typed in by mistake
+function removeWork(id, eid){
+  const t = state.tasks[id]; if (!t || !Array.isArray(t.workLog)) return false;
+  const e = t.workLog.find(x => x && x.id === eid && x.k === "log"); if (!e) return false;
+  const n = clone(t);
+  n.workLog = n.workLog.filter(x => x.id !== eid);
+  n.focusMin = Math.max(0, (Number(n.focusMin) || 0) - Number(e.m));
+  let gone = false; n.history = (n.history || []).filter(h => { if (!gone && h.at === e.at && h.text === `Logged time: ${e.m}m`) { gone = true; return false; } return true; });
+  try { SBSTATS.takeFocus(e.m, e.d); } catch (x) {}
+  applyChanges([{kind: "task", id, after: n}], tr("tw.removed", "Removed {t} from {title}", {t: fmtMins(e.m), title: short(t.title, 28)}));
+  LEARN = null;
+  return true;
+}
+// Log Time: how long you worked on a task, on which day
+function logTimeSheet(id){
+  const t = state.tasks[id]; if (!t) return;
+  const c = courseOf(t.courseId), today = todayISO(), yest = addDays(today, -1);
+  const chips = [[15, "15m"], [30, "30m"], [45, "45m"], [60, "1h"], [90, "1h 30m"], [120, "2h"]];
+  openSheet(`<form class="sheet lt-sheet">${head(tr("tw.title", "Log Time"))}
+    <div class="sheet-body">
+      <p class="lt-task"><b>${esc(t.title)}</b>${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</p>
+      <fieldset class="lt-f"><legend>${esc(tr("tw.howLong", "How long did you work on it?"))}</legend>
+        <div class="lt-chips" role="group">${chips.map(([m, l]) => `<button type="button" class="btn small lt-chip" data-lt="${m}" aria-pressed="false">${l}</button>`).join("")}</div>
+        <label class="f"><span class="lh">${esc(tr("tw.orType", "Or type it"))}</span><input type="text" name="ltMin" id="ltMin" maxlength="12" autocomplete="off" placeholder="${esc(tr("acc.exactPh", "e.g. 1h 30m"))}" autofocus></label></fieldset>
+      <fieldset class="lt-f"><legend>${esc(tr("tw.when", "When?"))}</legend>
+        ${seg("ltDay", [["today", esc(tr("tw.today", "Today"))], ["yest", esc(tr("tw.yesterday", "Yesterday"))], ["other", esc(tr("tw.earlier", "Earlier"))]], "today")}
+        <label class="f lt-date" hidden><span class="lh">${esc(tr("tw.day", "Day"))}</span><input type="date" name="ltDate" id="ltDate" max="${today}" value="${addDays(today, -2)}"></label></fieldset>
+      <section class="lt-past" id="ltPast">${ltPastHtml(t)}</section>
+    </div>
+    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">${esc(tr("cancel", "Cancel"))}</button><button type="button" class="btn primary" data-submit>${esc(tr("tw.save", "Log Time"))}</button></div>
+  </form>`, fd => {
+    const m = ACC.parseDur(fd.get("ltMin"));
+    if (!(m > 0 && m <= 1440)) { const i = $("#ltMin"); if (i) { i.setAttribute("aria-invalid", "true"); i.focus(); } toast(tr("acc.badTime", "Try a time like 45m or 1h 30m")); return false; }
+    const w = fd.get("ltDay"), day = w === "yest" ? yest : w === "other" ? String(fd.get("ltDate") || "") : today;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || day > today) { toast(tr("tw.badDay", "Pick a day up to today")); return false; }
+    return logTime(id, m, "log", tr("tw.logged.toast", "Logged {t} on {title}{when}", {t: fmtMins(m), title: short(t.title, 28), when: day === today ? "" : " (" + twDay(day) + ")"}), null, day);
+  });
+  const f = dlg.querySelector(".lt-sheet"), inp = $("#ltMin");
+  f.addEventListener("click", e => { const b = e.target.closest("[data-lt]"); if (!b) return; inp.value = fmtMins(Number(b.dataset.lt)); inp.removeAttribute("aria-invalid"); f.querySelectorAll("[data-lt]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); });
+  inp.addEventListener("input", () => f.querySelectorAll("[data-lt]").forEach(x => x.setAttribute("aria-pressed", "false")));
+  f.addEventListener("change", e => { if (e.target.name === "ltDay") f.querySelector(".lt-date").hidden = e.target.value !== "other"; });
+}
+function ltPastHtml(t){
+  const tot = Number(t.focusMin) || 0, list = workDaysHtml(t, 0, true);
+  return `<h3 class="fsec">${esc(tr("tw.worked", "Time Worked"))}<span class="spacer"></span><span class="mini">${tot ? esc(tr("tw.total", "{t} in all", {t: fmtMins(tot)})) : ""}</span></h3>${list || `<p class="mini" style="margin:0">${esc(tr("tw.none", "Nothing logged yet. Focus sessions and time you log show up here, day by day."))}</p>`}`;
 }
 function customLog(el){
   const box = el.closest(".acc-log"); if (!box) return;
@@ -62376,7 +63149,7 @@ function howHtml(){
 
 /* Wiring */
 hook("act", (a, el) => {
-  if (!a || a.slice(0, 4) !== "acc-") return false;
+  if (!a || (a.slice(0, 4) !== "acc-" && a !== "log-time" && a !== "tw-del")) return false;
   if (a === "acc-dismiss") { chipDismiss(); return true; }
   if (a === "acc-which") {
     const p = lsGet(LS_PEND, null), id = el.dataset.id; lsSet(LS_PEND, null); chipHide();
@@ -62391,6 +63164,8 @@ hook("act", (a, el) => {
     if (!(m > 0 && m <= 1440)) { if (i) { i.setAttribute("aria-invalid", "true"); i.focus(); } toast(tr("acc.badTime", "Try a time like 45m or 1h 30m")); return true; }
     answerTook({actualMin: m}); return true;
   }
+  if (a === "log-time") { logTimeSheet(el.dataset.id); return true; }
+  if (a === "tw-del") { if (removeWork(el.dataset.id, el.dataset.e)) { const p = document.getElementById("ltPast"); if (p && state.tasks[el.dataset.id]) p.innerHTML = ltPastHtml(state.tasks[el.dataset.id]); refreshLog(el.dataset.id); } return true; }
   if (a === "acc-log") { if (logTime(el.dataset.id, Number(el.dataset.min))) refreshLog(el.dataset.id); return true; }
   if (a === "acc-log-custom") { customLog(el); return true; }
   if (a === "acc-log-add") {

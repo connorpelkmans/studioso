@@ -123,7 +123,7 @@ function viewQuizDetail(d, qz){
   return `<button class="back" data-act="qz-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>All Quizzes</button>
     <div class="deck-head g2-head dk2" style="--c:${esc(colorOf(d.courseId))}">
       <div class="g2-band"><span class="g2-kick">${esc(c ? courseLabel(c) : "General")} · ${qz.kind === "case" ? "Case Study" : "Quiz"}</span>
-        <div class="row-actions"><button class="btn primary" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Start</button><button class="btn" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Share</button><button class="btn" data-act="qz-archive" data-id="${esc(ref)}">Archive</button><button class="btn" data-act="ai-quiz-del" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Delete</button></div></div>
+        <div class="row-actions"><button class="btn primary" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Start</button><button class="btn" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Share</button><button class="btn" data-act="qz-edit" data-id="${esc(ref)}">Edit</button><button class="btn" data-act="qz-archive" data-id="${esc(ref)}">Archive</button><button class="btn" data-act="ai-quiz-del" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Delete</button></div></div>
       <div class="g2-low"><span class="g2-ring" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>
         <div class="g2-txt"><h2>${esc(qz.title || "Practice Quiz")}</h2>
           <div class="deck-stats"><span><b>${qz.questions.length}</b> questions</span><span>from <b>${esc(quizFrom(d, qz))}</b></span>${last ? `<span>Last score <b>${last.score}/${last.total}</b></span><span>Best <b>${Math.round(best * 100)}%</b></span>` : ""}</div></div></div>
@@ -142,7 +142,7 @@ function viewQuizzes(){
       <div class="qz-acts"><button class="btn small primary" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Start</button><button class="btn small" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Share</button><span class="spacer"></span><button class="btn small deck-arch" data-act="qz-archive" data-id="${esc(d.id + ":" + qz.id)}" title="Put this quiz away" aria-label="Archive ${esc(qz.title || "quiz")}">${ARCHIVE.replace('width="26" height="26"', 'width="16" height="16"')}</button>${rvGrip(qz.title || "Practice Quiz")}</div></article>`; }).join("");
   return `<div class="view-head" data-qz-list><h2>Your Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${chipsHtml()}${q ? `<div class="search-note">Showing quizzes that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
-    ${list.length ? `<div class="qz-grid">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length ? "" : emptyArt()}<strong>${all.length ? "No Quizzes Match" : "No Quizzes Yet"}</strong>${all.length ? "Try another course or search." : (inPreview() ? "Make a quiz from one of your flashcard decks." : "Upload your slides, notes or readings and " + esc(aiWho("AI")) + " writes a practice quiz. Or make one from a flashcard deck.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px">${inPreview() || all.length ? "" : `<button class="btn primary ai-btn" data-act="qz-ai">${AI_ICON} From Slides or Notes</button>`}<button class="btn${inPreview() ? " primary" : ""}" data-act="qz-from-deck">From a Deck</button></div></div>`}
+    ${list.length ? `<div class="qz-grid">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length ? "" : emptyArt()}<strong>${all.length ? "No Quizzes Match" : "No Quizzes Yet"}</strong>${all.length ? "Try another course or search." : (inPreview() ? "Make a quiz from one of your flashcard decks." : "Upload your slides, notes or readings and " + esc(aiWho("AI")) + " writes a practice quiz. Or make one from a flashcard deck, or write your own.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px">${inPreview() || all.length ? "" : `<button class="btn primary ai-btn" data-act="qz-ai">${AI_ICON} From Slides or Notes</button>`}<button class="btn${inPreview() ? " primary" : ""}" data-act="qz-from-deck">From a Deck</button><button class="btn" data-act="qz-write">Write Your Own</button></div></div>`}
     <section class="grp-strip"><div class="grp-strip-txt">${QZ_GROUP_IC}<span><b>Study Together</b><span class="mini">Share quizzes with a study group: everyone takes them in their own app and sees the best scores.</span></span></div>
       <div class="grp-strip-btns"><button class="btn small" data-act="grp-page">Study Groups</button></div></section>
     <p class="hint-line tip-everyday">Make a quiz straight from your slides or notes with Add Quiz, or from a deck with Make a Quiz.</p>`;
@@ -834,3 +834,143 @@ document.addEventListener("keydown", e => {
   if (fcKey(e)) e.stopPropagation();
 }, true);
 
+
+/* Write your own quiz: questions you type yourself, saved and taken like any other quiz. Also edits an existing quiz */
+const QM_TYPES = [["single", "Multiple Choice"], ["multiple", "Select All That Apply"], ["truefalse", "True or False"], ["short", "Written Answer"], ["order", "Put in Order"]];
+let QM = null;
+const qmBlank = type => ({id: uid(), type: type || "single", stem: "", options: type === "truefalse" ? ["True", "False"] : type === "short" ? [] : ["", "", "", ""].slice(0, type === "order" ? 3 : 4), correct: type === "truefalse" ? [0] : [], answer: "", rationale: ""});
+// A saved question in editing form; a Put in Order question is listed in its right order
+const qmFromSaved = q => q.type === "order"
+  ? Object.assign({}, q, {options: q.correct.map(i => q.options[i]), correct: q.correct.map((x, k) => k)})
+  : Object.assign({}, q, {options: (q.options || []).slice(), correct: (q.correct || []).slice()});
+function qmQuestionHtml(q, i){
+  const typeSel = `<select class="qm-type" data-qm="type" aria-label="Question ${i + 1} type">${QM_TYPES.map(([v, l]) => `<option value="${v}"${q.type === v ? " selected" : ""}>${l}</option>`).join("")}</select>`;
+  const opt = (o, k) => {
+    const mark = q.type === "order" ? `<b class="qm-n" aria-hidden="true">${k + 1}.</b>`
+      : `<input type="${q.type === "multiple" ? "checkbox" : "radio"}" name="qmc${i}" data-qm="pick" data-k="${k}" aria-label="Right answer"${q.correct.includes(k) ? " checked" : ""}>`;
+    return `<li class="qm-opt">${mark}${q.type === "truefalse" ? `<span class="qm-tf">${esc(o)}</span>` : `<input type="text" data-qm="opt" data-k="${k}" maxlength="400" value="${esc(o)}" placeholder="${q.type === "order" ? "Step " + (k + 1) : "Option " + "ABCDEFGH"[k]}" data-noenter>${q.options.length > 2 ? `<button type="button" class="x-btn" data-qm="rmopt" data-k="${k}" aria-label="Remove">${CLOSE}</button>` : ""}`}</li>`;
+  };
+  const body = q.type === "short"
+    ? `<label class="f"><span class="lh">Answer</span><input type="text" data-qm="answer" maxlength="400" value="${esc(q.answer)}" placeholder="What a right answer says" data-noenter></label>`
+    : `<p class="mini qm-hint">${q.type === "order" ? "List the steps in the right order. They're mixed up when you take the quiz." : q.type === "multiple" ? "Tick every right answer." : "Pick the right answer."}</p>
+      <ul class="qm-opts">${q.options.map(opt).join("")}</ul>${q.type !== "truefalse" && q.options.length < 8 ? `<button type="button" class="link-btn" data-qm="addopt">+ Add ${q.type === "order" ? "Step" : "Option"}</button>` : ""}`;
+  return `<li class="qm-q" data-i="${i}"><div class="qm-top"><b>Question ${i + 1}</b>${typeSel}<span class="spacer"></span>${QM.qs.length > 1 ? `<button type="button" class="x-btn" data-qm="rmq" aria-label="Delete question ${i + 1}">${CLOSE}</button>` : ""}</div>
+    <textarea data-qm="stem" rows="2" maxlength="2000" placeholder="Type the question" aria-label="Question ${i + 1}">${esc(q.stem)}</textarea>
+    ${body}
+    <label class="f qm-why"><span class="lh">Explanation <span class="mini">(optional)</span></span><textarea data-qm="rationale" rows="2" maxlength="2000" placeholder="Why the answer is right">${esc(q.rationale || "")}</textarea></label></li>`;
+}
+function qmDraw(focus){
+  const ol = $("#qmList"); if (!ol) return;
+  ol.innerHTML = QM.qs.map(qmQuestionHtml).join("");
+  if (focus) { const el = ol.querySelector(focus); if (el) el.focus(); }
+}
+// Checks the questions; returns them in saved form, or shows what's missing
+function qmCollect(){
+  const out = [];
+  for (let i = 0; i < QM.qs.length; i++) {
+    const q = QM.qs[i], stem = q.stem.trim(), n = `Question ${i + 1}`;
+    const filled = q.type === "truefalse" ? q.options.map((o, k) => k) : q.options.map((o, k) => o.trim() ? k : -1).filter(k => k >= 0);
+    if (!stem && (q.type === "truefalse" || !filled.length) && !q.answer.trim()) continue; // left blank: skipped
+    const bad = msg => { toast(`${n}: ${msg}`); const li = $(`#qmList .qm-q[data-i="${i}"]`); if (li) li.scrollIntoView({block: "center"}); return null; };
+    if (!stem) return bad("type the question");
+    let options = [], correct = [], answer = "";
+    if (q.type === "short") { answer = q.answer.trim(); if (!answer) return bad("type the answer"); }
+    else {
+      if (filled.length < 2) return bad(q.type === "order" ? "add at least 2 steps" : "add at least 2 options");
+      options = filled.map(k => q.type === "truefalse" ? q.options[k] : q.options[k].trim());
+      if (q.type === "order") {
+        // Shown mixed up: options in a new order, correct lists them back in the right one
+        let mix = options.map((o, k) => k);
+        for (let t = 0; t < 8 && mix.every((v, k) => v === k); t++) mix = shuffle(mix.slice());
+        options = mix.map(k => options[k]); correct = options.map((o, k) => k).sort((a, b) => mix[a] - mix[b]);
+      } else {
+        correct = q.correct.map(k => filled.indexOf(k)).filter(k => k >= 0);
+        if (!correct.length) return bad(q.type === "multiple" ? "tick at least one right answer" : "pick the right answer");
+        if (q.type !== "multiple") correct = correct.slice(0, 1);
+      }
+    }
+    const old = q.old || {}, same = JSON.stringify(old.options || []) === JSON.stringify(options);
+    out.push(Object.assign({}, old, {id: q.id, type: q.type, stem, options, correct: q.type === "multiple" ? correct.sort((a, b) => a - b) : correct, answer, rationale: (q.rationale || "").trim(), notes: same ? (old.notes || []) : []}));
+  }
+  if (!out.length) { toast("Write at least one question"); return null; }
+  return out;
+}
+function quizMaker(ref){
+  const f = ref ? qzFind(ref) : null; if (ref && !f) return;
+  const holder = !f || isQuizHolder(f.d);
+  QM = {ref: f ? ref : "", qs: f ? f.qz.questions.map(q => Object.assign(qmFromSaved(q), {old: q})) : [qmBlank("single")]};
+  const course = f ? f.d.courseId : (ui.filter && ui.filter !== "all" && courseOf(ui.filter) ? ui.filter : "");
+  openSheet(`<form class="sheet qm-sheet">${head(f ? "Edit Quiz" : "Write Your Own Quiz")}
+    <div class="sheet-body">
+      <div class="two"><label class="f"><span class="lh">Quiz Name</span><input type="text" name="qmName" id="qmName" maxlength="120" value="${esc(f ? f.qz.title : "")}" placeholder="e.g. Cardiac Meds Practice"${f ? "" : " autofocus"}></label>
+        ${holder ? `<label class="f"><span class="lh">Course</span><select name="qmCourse">${courseSelectHtml(course)}</select></label>` : `<p class="mini" style="margin:auto 0 8px">Saved with the deck <b>${esc(f.d.name)}</b>.</p>`}</div>
+      <ol class="qm-list" id="qmList"></ol>
+      <div class="qm-add"><button type="button" class="btn" id="qmAdd">+ Add Question</button></div>
+    </div>
+    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>${f ? "Save Changes" : "Save Quiz"}</button></div>
+  </form>`, fd => {
+    const qs = qmCollect(); if (!qs) return false;
+    const name = String(fd.get("qmName") || "").trim().slice(0, 120), cid = holder ? String(fd.get("qmCourse") || "") : null;
+    let d, qid;
+    if (f) {
+      d = clone(state.decks[f.d.id]); if (!d) return false;
+      const qz = d.aiQuizzes.find(x => x.id === f.qz.id); if (!qz) return false;
+      if (name && name.toLowerCase() !== String(qz.title || "").toLowerCase()) qz.title = uniqueQuizTitle(name);
+      qz.questions = qs; qid = qz.id;
+      if (holder && cid !== null) d.courseId = cid;
+    } else {
+      const title = uniqueQuizTitle(name || "My Quiz");
+      d = normDeck({id: uid(), created: Date.now(), quizOnly: true, name: title, courseId: cid || ""});
+      qid = uid();
+      d.aiQuizzes = [{id: qid, title, style: "", created: Date.now(), sources: ["your own questions"], own: true, questions: qs, results: []}];
+    }
+    d.updated = Date.now();
+    QM = null; dlgGuard = null;
+    ui.tab = "flashcards"; rvSet("quizzes"); ui.fc = null; ui.deckId = null; ui.qzOpen = d.id + ":" + qid;
+    saveDeck(d, f ? "Saved your changes to the quiz" : "Saved your quiz to Quizzes");
+    window.scrollTo(0, 0);
+    return true;
+  });
+  qmDraw();
+  const start = JSON.stringify(QM.qs) + "|" + ($("#qmName") || {}).value;
+  dlgGuard = () => !!QM && JSON.stringify(QM.qs) + "|" + ($("#qmName") || {}).value !== start;
+  const ol = $("#qmList");
+  const at = el => { const li = el.closest(".qm-q"); return li ? QM.qs[Number(li.dataset.i)] : null; };
+  ol.addEventListener("input", e => {
+    const t = e.target, q = at(t), k = Number(t.dataset.k); if (!q) return;
+    if (t.dataset.qm === "stem") q.stem = t.value;
+    else if (t.dataset.qm === "answer") q.answer = t.value;
+    else if (t.dataset.qm === "rationale") q.rationale = t.value;
+    else if (t.dataset.qm === "opt") q.options[k] = t.value;
+  });
+  ol.addEventListener("change", e => {
+    const t = e.target, q = at(t), i = q ? QM.qs.indexOf(q) : -1; if (!q) return;
+    if (t.dataset.qm === "pick") {
+      const k = Number(t.dataset.k);
+      q.correct = q.type === "multiple" ? (t.checked ? [...new Set(q.correct.concat(k))] : q.correct.filter(x => x !== k)) : [k];
+    } else if (t.dataset.qm === "type") {
+      const nt = t.value, was = q.type; q.type = nt;
+      if (nt === "truefalse") { q.options = ["True", "False"]; q.correct = [0]; }
+      else if (nt === "short") { if (!q.answer && was !== "truefalse") q.answer = (q.options[q.correct[0]] || "").trim(); q.options = []; q.correct = []; }
+      else {
+        if (was === "truefalse" || was === "short" || !q.options.length) { q.options = qmBlank(nt).options; q.correct = []; }
+        if (nt === "order") q.correct = [];
+        else if (nt === "single" && q.correct.length > 1) q.correct = q.correct.slice(0, 1);
+      }
+      qmDraw(`.qm-q[data-i="${i}"] [data-qm="type"]`);
+    }
+  });
+  ol.addEventListener("click", e => {
+    const b = e.target.closest("button[data-qm]"); if (!b) return;
+    const q = at(b), i = QM.qs.indexOf(q), k = Number(b.dataset.k); if (!q) return;
+    if (b.dataset.qm === "addopt") { q.options.push(""); qmDraw(`.qm-q[data-i="${i}"] [data-qm="opt"][data-k="${q.options.length - 1}"]`); }
+    else if (b.dataset.qm === "rmopt") { q.options.splice(k, 1); q.correct = q.correct.filter(x => x !== k).map(x => x > k ? x - 1 : x); qmDraw(); }
+    else if (b.dataset.qm === "rmq") { QM.qs.splice(i, 1); qmDraw(); }
+  });
+  $("#qmAdd").addEventListener("click", () => {
+    const last = QM.qs[QM.qs.length - 1];
+    QM.qs.push(qmBlank(last && last.type !== "truefalse" ? last.type : "single"));
+    qmDraw(`.qm-q[data-i="${QM.qs.length - 1}"] [data-qm="stem"]`);
+    const li = $(`#qmList .qm-q[data-i="${QM.qs.length - 1}"]`); if (li) li.scrollIntoView({block: "nearest"});
+  });
+}

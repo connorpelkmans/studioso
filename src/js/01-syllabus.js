@@ -306,7 +306,8 @@ const SY = (() => {
       if (out[type]) return;
       const each = rest.match(/(\d{1,3}(?:\.\d+)?)\s*%\s*each/i);
       const pct = rest.match(/(\d{1,3}(?:\.\d+)?)\s*%/);
-      const cnt = rest.match(/\((\d{1,2})\)|\b(\d{1,2})\s*[x×]\b|\b(one|two|three|four|five|six|seven|eight|nine|ten|twelve)\b/i);
+      // "lowest two dropped" is a grading rule (gradeRules), not how many there are
+      const cnt = rest.replace(/\b(?:\d{1,2}|one|two|three|four|five)\s+lowest\b|\b(?:lowest|drop(?:s|ped|ping)?)\b[^,;)]*/gi, " ").match(/\((\d{1,2})\)|\b(\d{1,2})\s*[x×]\b|\b(one|two|three|four|five|six|seven|eight|nine|ten|twelve)\b/i);
       const count = cnt ? Number(cnt[1] || cnt[2]) || WORDN[(cnt[3] || "").toLowerCase()] : 0;
       if (each) { out[type] = {each: Number(each[1])}; return; }
       if (pct) { out[type] = {pct: Number(pct[1]), count}; return; }
@@ -319,6 +320,43 @@ const SY = (() => {
     });
     return out;
   }
+
+  // Grading rules: "the lowest quiz is dropped", "we drop your two lowest homework scores", "up to 2% extra credit on the final grade"
+  // -> {drops: [{cat, n, src}], bonus: {pts, got, src} or null}, or null when there are none
+  /*SYRULES-START*/
+  function gradeRules(text){
+    const NUM = {one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, single: 1};
+    const CAT = [[/\bquiz(?:zes)?\b/i, "Quiz"], [/\b(?:homeworks?|hw|assignments?|problem\s+sets?|psets?|worksheets?)\b/i, "Assignment"], [/\blabs?\b/i, "Lab"],
+      [/\b(?:mid-?terms?|tests?|exams?)\b/i, "Exam"], [/\breadings?\b|\breading\s+responses?\b/i, "Reading"], [/\bprojects?\b/i, "Project"]];
+    // Sentences, and lines that start a new entry (a capital, a number or a bullet); a line that wraps mid-sentence stays joined
+    const sents = String(text || "").replace(/\r/g, "").split(/[.!?;](?=\s|$)|\n(?=[ \t]*(?:[-•*·]|\d|[A-Z]))/).map(x => x.replace(/\s+/g, " ").trim()).filter(x => x && x.length < 320);
+    const drops = [], seen = new Set();
+    let bonus = 0;
+    sents.forEach(sn => {
+      const isDrop = /\blowest\b/i.test(sn) && /\b(?:drop(?:s|ped|ping)?|not\s+(?:be\s+)?count(?:ed)?|won't\s+count|excluded|thrown\s+out)\b/i.test(sn) && !/\breplace/i.test(sn) && !/\badd\s*\/\s*drop\b/i.test(sn);
+      if (isDrop) {
+        // Each "lowest" goes with the type closest to it (one after it wins a tie), and the count right by it
+        const hits = [];
+        CAT.forEach(([re, cat]) => { for (const m of sn.matchAll(new RegExp(re.source, "gi"))) hits.push([cat, m.index]); });
+        for (const lm of sn.matchAll(/\blowest\b/gi)) {
+          const li = lm.index;
+          let best = null;
+          hits.forEach(([cat, i]) => { const d = i > li ? i - li : (li - i) * 1.5; if (!best || d < best[1]) best = [cat, d]; });
+          if (!best || best[1] > 70 || seen.has(best[0])) continue;
+          const m = sn.slice(li).match(/^lowest\s+(\d{1,2}|one|two|three|four|five|six)\b/i) || sn.slice(0, li).match(/\b(\d{1,2}|one|two|three|four|five|six|single)\s+$/i);
+          const n = m ? Number(m[1]) || NUM[m[1].toLowerCase()] : 1;
+          if (!(n >= 1 && n <= 10)) continue;
+          seen.add(best[0]); drops.push({cat: best[0], n, src: "syllabus"});
+        }
+      }
+      if (/\b(?:extra[\s-]+credit|bonus)\b/i.test(sn) && (/\b(?:final|course|overall|total)\s+(?:course\s+)?(?:grade|mark)\b/i.test(sn) || /^(?:extra[\s-]+credit|bonus(?:\s+points?)?)\b/i.test(sn))) {
+        const m = sn.match(/(\d{1,2}(?:\.\d+)?)\s*(?:%|percent(?:age)?(?:\s+points?)?)/i), v = m ? Number(m[1]) : 0;
+        if (v > 0 && v <= 10) bonus = Math.max(bonus, v);
+      }
+    });
+    return drops.length || bonus ? {drops, bonus: bonus ? {pts: bonus, got: 0, src: "syllabus"} : null} : null;
+  }
+  /*SYRULES-END*/
 
   // Main entry: text -> {course, items, term}
   function parse(text, today){
@@ -461,9 +499,9 @@ const SY = (() => {
       const v = w.each != null ? w.each : w.pct / Math.max(1, w.count || (key === "Final" ? 1 : countOf(x.type)));
       if (v > 0 && v <= 100) x.weight = Math.round(v * 10) / 10;
     });
-    return {course, items: final, term, lineCount: lines.length, weightsFound: Object.keys(weights).length > 0 || own.length > 0, byType: weights};
+    return {course, items: final, term, lineCount: lines.length, weightsFound: Object.keys(weights).length > 0 || own.length > 0, byType: weights, rules: gradeRules(text)};
   }
-  return {parse, findDates, termInfo, findTime, meetingDays};
+  return {parse, findDates, termInfo, findTime, meetingDays, gradeRules};
 })();
 
 /* Syllabus import (PDF or text, parsed on this device) */
@@ -624,6 +662,7 @@ function importSheet(courseId, file){
 
   function show(text, from, pre, lead){
     const r = pre || SY.parse(text, todayISO());
+    if (!r.rules && text) r.rules = SY.gradeRules(text);
     result = r;
     const cs = coursesArr();
     const norm = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -666,6 +705,7 @@ function importSheet(courseId, file){
         </div>
         <label class="mi-check" id="impFillWrap"><input type="checkbox" id="impFill" checked> Fill in missing course details from the syllabus</label>
         ${srcFile && caps.assets ? `<label class="mi-check"><input type="checkbox" id="impSave" checked> Save the PDF in the course's Syllabus folder</label>` : ""}
+        ${r.rules && window.SBGRADES && SBGRADES.rulesText ? `<label class="mi-check imp-rules"><input type="checkbox" id="impRules" checked><span><b>Grading rules found:</b> ${esc(SBGRADES.rulesText(r.rules))}. <span class="mini">Count them in this course's grade. You can change them later in Grade Settings.</span></span></label>` : ""}
       </fieldset>
       ${r.items.length ? `<div class="imp-head"><strong>Tasks</strong><span class="spacer"></span><button type="button" class="link-btn" id="impAll">Select All</button><button type="button" class="link-btn" id="impNone">Select None</button></div><p class="mini imp-wsum" id="impWSum" role="status"></p><div id="impLists">${rows}</div>` : ""}`;
     $("#impAgain").addEventListener("click", () => { result = null; $("#impResult").innerHTML = ""; $("#impAdd").hidden = true; status.textContent = ""; $("#impDrop").hidden = false; $("#impPaste").hidden = false; $$(".ai-toggle", dlg).forEach(x => { x.hidden = false; }); });
@@ -714,6 +754,7 @@ function importSheet(courseId, file){
     if (!result) return;
     const changes = [];
     let cid = $("#impTarget").value;
+    const rules = result.rules && $("#impRules") && $("#impRules").checked ? result.rules : null;
     const val = id => $("#" + id).value.trim();
     if (cid === "new") {
       const name = val("icName") || val("icCode");
@@ -721,6 +762,7 @@ function importSheet(courseId, file){
       const used = coursesArr().map(x => x.color);
       const nc = {id: uid(), created: Date.now(), name, code: val("icCode"), instructor: val("icInstr"), schedule: val("icSched"), room: val("icRoom"), office: val("icOffice"), meetings: aiMeetings(val("icSched") === result.course.schedule, val("icOffice") === result.course.office, val("icRoom")) || parseMeetings(val("icSched"), "Lecture", val("icRoom")).concat(parseMeetings(val("icOffice"), "Office Hours")),
         color: COLORS.find(x => !used.includes(x)) || COLORS[used.length % COLORS.length], notes: "", links: result.course.links.slice(0, 8)};
+      if (rules) nc.grading = {rules};
       cid = nc.id;
       changes.push({kind:"course", id: nc.id, after: nc});
     } else if ($("#impFill").checked) {
@@ -732,6 +774,16 @@ function importSheet(courseId, file){
       const add = c.links.filter(l => !have.has(l.url));
       if (add.length) { ex.links = (ex.links || []).concat(add).slice(0, 12); changed = true; }
       if (changed) changes.push({kind:"course", id: cid, after: ex});
+    }
+    // Rules found in the syllabus join the course's own; ones the student set stay
+    if (rules && state.courses[cid]) {
+      let ch = changes.find(x => x.kind === "course" && x.id === cid);
+      if (!ch) { ch = {kind: "course", id: cid, after: clone(state.courses[cid])}; changes.push(ch); }
+      const g = ch.after.grading = Object.assign({}, ch.after.grading || {}), old = g.rules || {}, od = Array.isArray(old.drops) ? old.drops : [], ob = old.bonus;
+      const mine = d => d && d.src !== "syllabus";
+      const drops = od.filter(d => mine(d) || !rules.drops.some(x => x.cat === d.cat)).concat(rules.drops.filter(x => !od.some(d => mine(d) && d.cat === x.cat)));
+      const bonus = ob && mine(ob) && Number(ob.pts) > 0 ? ob : rules.bonus ? Object.assign({}, rules.bonus, {got: ob ? Number(ob.got) || 0 : 0}) : ob || null;
+      g.rules = {drops, bonus};
     }
     let order = nextOrder("todo");
     picked().forEach(i => {
