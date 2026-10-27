@@ -216,6 +216,51 @@ const BB = [
     assert(c.dx.quizzes.some(x => x.id === "4321" && x.from === "its calendar entry"), "and the report says where it came from");
   });
 
+  await t("Brightspace: a course that refuses the grades list (403) is read from its Grades page; a closed exam from the course content", async () => {
+    const page = `<table class="d2l-table d_gd" summary="List of grade items and their values">
+      <tr><th scope="col" colspan="2">Grade Item</th><th scope="col">Points</th><th scope="col">Weight Achieved</th><th scope="col">Grade</th><th scope="col">Comments and Assessments</th></tr>
+      <tr><th scope="row" colspan="2"><strong>Exams</strong></th><td></td><td><label>15.11 / 40</label></td><td><label>37.78 %</label></td><td></td></tr>
+      <tr><td class="d_gd_indent"></td><th scope="row"><label>Midterm Exam- Requires Respondus LockDown Browser</label></th><td><label>34 / 45</label></td><td><label>15.11 / 20</label></td><td><label>75.56 %</label></td><td></td></tr>
+      <tr><td class="d_gd_indent"></td><th scope="row"><label>Final Exam</label></th><td><label>- / 60</label></td><td><label>- / 20</label></td><td></td><td></td></tr>
+      <tr><th scope="row" colspan="2"><label>Professional Portfolio</label></th><td><label>18.5 / 20</label></td><td><label>9.25 / 10</label></td><td><label>92.5 %</label></td><td><a>View</a></td></tr></table>`;
+    const routes = BS.filter(([re]) => !/myGradeValues|quizzes\\\/\$|content/.test(re.source)).concat([
+      [/\/grades\/values\/myGradeValues\/$/, () => { throw Object.assign(new Error("denied"), { status: 403 }); }],
+      [/my_grades\/main\.d2l\?ou=101/, page, { "content-type": "text/html" }],
+      [/^\/d2l\/api\/le\/1\.70\/101\/quizzes\/$/, { Objects: [], Next: null }],
+      [/\/content\/toc$/, { Modules: [{ Title: "Exams", Topics: [{ TopicId: 1, Title: "Midterm Exam", Url: "/d2l/lms/quizzing/user/quiz_summary.d2l?qi=4321&ou=101", ActivityType: 4 }], Modules: [] }] }],
+      [/\/content\/myItems\/completions\//, { Objects: [], Next: null }], [/\/content\/myItems\//, { Objects: [], Next: null }],
+      [/quiz_submissions\.d2l\?qi=4321&/, "<h1>Quiz Submissions - Midterm Exam- Requires Respondus LockDown Browser</h1><p>Attempt 1 34 / 45 - 75.56 %</p><p>Overall Grade (highest attempt): 34 / 45</p>", { "content-type": "text/html" }]]);
+    const { out } = await runInjected("brightspace", "https://learn.example.edu", routes);
+    const c = out.courses[0], g = n => c.grades.find(x => x.name === n);
+    assert(g("Midterm Exam- Requires Respondus LockDown Browser") && g("Midterm Exam- Requires Respondus LockDown Browser").num === 34 && g("Midterm Exam- Requires Respondus LockDown Browser").den === 45 && g("Midterm Exam- Requires Respondus LockDown Browser").wden === 20, "the midterm's row, 34 / 45 worth 20: " + JSON.stringify(c.grades));
+    assert(g("Final Exam") && g("Final Exam").num == null && g("Final Exam").wden === 20, "an unmarked item keeps its weight");
+    assert(g("Professional Portfolio") && g("Professional Portfolio").num === 18.5, "a top-level item");
+    assert(g("Exams") && g("Exams").type === 9, "Exams is a category, not a grade item");
+    assert(/refused/.test(c.dx.grades.list) && /ok, 4 rows/.test(c.dx.grades.page), "the report says the list was refused and the page read: " + JSON.stringify(c.dx.grades));
+    assert(c.quizzes.some(x => x.id === "4321" && x.done === true) && c.dx.quizToc === 1, "the closed midterm is found through the course content: " + JSON.stringify(c.quizzes));
+  });
+
+  await t("Brightspace: an assignment's mark from the Assignments page's Score column (no out-of in the API) or its feedback link", async () => {
+    const F = (Id, Name) => ({ Id, Name, DueDate: iso(-4), IsHidden: false, GradeItemId: 900 + Id, Attachments: [] });
+    const list = `<table class="d2l-table"><tr><th>Assignment</th><th>Completion Status</th><th>Score</th><th>Evaluation Status</th><th>Due Date</th></tr>
+      <tr><th><a href="/d2l/lms/dropbox/user/folder_submit_files.d2l?db=31&amp;grpid=0&amp;isprv=0&amp;bp=0&amp;ou=101">Professional Development Plan</a></th><td>1 Submission, 1 File</td><td><label>8 / 10</label> - 80 %</td><td><a href="/d2l/lms/dropbox/user/folders_history.d2l?db=31&amp;ou=101">Feedback: Read</a></td><td>Oct 16, 2026 7:00 PM</td></tr>
+      <tr><th><a href="/d2l/lms/dropbox/user/folder_submit_files.d2l?db=32&amp;ou=101">Quality &amp; Safety Worksheet</a></th><td>1 Submission, 1 File</td><td></td><td><a href="/d2l/lms/dropbox/user/folders_history.d2l?db=32&amp;ou=101">Feedback: Unread</a></td><td>9/30/2026</td></tr>
+      <tr><th><a href="/d2l/lms/dropbox/user/folder_submit_files.d2l?db=33&amp;ou=101">Reflection</a></th><td>1 Submission, 1 File</td><td></td><td></td><td>10/2/2026</td></tr></table>`;
+    const routes = BS.filter(([re]) => !/dropbox\\\/folders\\\/\$/.test(re.source)).concat([
+      [/^\/d2l\/api\/le\/1\.70\/101\/dropbox\/folders\/$/, [F(31, "Professional Development Plan"), F(32, "Quality & Safety Worksheet"), F(33, "Reflection")]],
+      [/\/dropbox\/folders\/3[123]\/submissions\/mysubmissions\/$/, [{ Submissions: [{ SubmissionDate: iso(-5) }] }]],
+      [/\/dropbox\/folders\/32\/feedback\/user\/42$/, { Score: 17, OutOf: 20, IsGraded: true, Feedback: { Text: "Good" } }],
+      [/\/dropbox\/folders\/3[13]\/feedback\/user\/42$/, () => { throw Object.assign(new Error("denied"), { status: 403 }); }],
+      [/folders_list\.d2l\?ou=101/, list, { "content-type": "text/html" }]]);
+    const { out } = await runInjected("brightspace", "https://learn.example.edu", routes);
+    const c = out.courses[0], m = id => (c.marks.find(x => x.kind === "folder" && x.id === id) || {});
+    assert(m("31").num === 8 && m("31").den === 10 && m("31").from === "assignmentsPage", "Professional Development Plan: 8 / 10 from the Score column: " + JSON.stringify(c.marks));
+    assert(m("32").num === 17 && m("32").den === 20 && m("32").from === "assignmentFeedback", "Quality & Safety: 17 / 20 from its feedback link");
+    assert(m("33").num == null, "Reflection, no score anywhere, has no mark");
+    const x = id => c.dx.folders.find(f => f.id === id) || {};
+    assert(/refused \(403\)/.test(x("31").fbApi) && x("31").scoreCell === "8 / 10 - 80 %" && /ok, score 17/.test(x("32").fbApi) && /Reflection/.test(x("33").row), "the report has each step per assignment: " + JSON.stringify(c.dx.folders));
+  });
+
   await t("Brightspace: assignment and discussion marks that aren't in Grades: feedback, the Assignments page, the topic's page", async () => {
     const F = (Id, Name, GradeItemId, den) => ({ Id, Name, DueDate: iso(-4), IsHidden: false, GradeItemId, Assessment: { ScoreDenominator: den }, Attachments: [] });
     const list = `<table><tr><th>Assignment</th><th>Completion Status</th><th>Score</th><th>Evaluation Status</th><th>Due Date</th></tr>

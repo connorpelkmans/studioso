@@ -29334,7 +29334,8 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const need = target => remaining > 0.01 ? (target * D / 100 - earned) / remaining * 100 : null;
     const remShown = remaining / D * 100;
     const projected = current == null ? null : remaining > 0.01 ? current : minFinal;
-    const gr = {c, g, ts, marked, open, wMarked: wMarked / D * 100, earned, wAll, D, remaining: remShown, unlisted, current, minFinal, maxFinal, projected, need, done: remaining <= 0.01};
+    const loose = allTasks().filter(t => t.courseId === c.id && !hasWeight(t) && !t.prepFor && markPct(t) != null);
+    const gr = {c, g, ts, loose, marked, open, wMarked: wMarked / D * 100, earned, wAll, D, remaining: remShown, unlisted, current, minFinal, maxFinal, projected, need, done: remaining <= 0.01};
     gr.risk = riskOf(gr);
     return gr;
   }
@@ -29664,7 +29665,8 @@ ${kindPreview("study")}${kindPreview("project")}`;
       const p = markPct(t);
       const fbk = window.SBLMS_HASFB && SBLMS_HASFB(t);
       const open = !!(fbk && ui.grOpen && ui.grOpen[t.id]), L = fbk ? FIELDS_OF(t) : null, what = L && (L.feedback || L.rubric) ? "Feedback" : "Class Results";
-      return `<li class="${fbk ? "gr-has-drop" : ""}"><button class="gr-row-main" data-act="${fbk ? "lms-fb" : "edit-task"}" data-id="${esc(t.id)}"${fbk ? ` aria-expanded="${open}"` : ""}><span class="gr-row-t">${esc(t.title)}${fbk ? ` <span class="pill lms-fbpill">${what}<span class="gr-chev" aria-hidden="true">▾</span></span>` : ""}</span><span class="mini">${esc(t.type)}, worth ${fmtW(Number(t.weight))}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}${swingId === t.id ? ` <span class="pill gr-swing">Biggest swing</span>` : ""}</span></button>
+      const nw = p != null && !hasWeight(t);
+      return `<li class="${fbk ? "gr-has-drop" : ""}${nw ? " gr-nw" : ""}"><button class="gr-row-main" data-act="${fbk ? "lms-fb" : "edit-task"}" data-id="${esc(t.id)}"${fbk ? ` aria-expanded="${open}"` : ""}><span class="gr-row-t">${esc(t.title)}${nw ? ` <span class="pill gr-nw-pill" title="Shown, but not counted in the course grade until it has a weight">No weight yet</span>` : ""}${fbk ? ` <span class="pill lms-fbpill">${what}<span class="gr-chev" aria-hidden="true">▾</span></span>` : ""}</span><span class="mini">${esc(t.type)}, worth ${fmtW(Number(t.weight))}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}${swingId === t.id ? ` <span class="pill gr-swing">Biggest swing</span>` : ""}</span></button>
         ${p != null ? `<button class="gr-mk" data-act="g-mark" data-id="${esc(t.id)}" aria-label="Edit mark for ${esc(t.title)}"><b>${fmtP(p)}</b>${Number(t.mark.outOf) !== 100 ? `<span class="mini">${esc(fmtMark(t.mark))}</span>` : ""}</button>`
           : `<button class="btn small" data-act="g-mark" data-id="${esc(t.id)}">${t.status === "done" ? "Add Mark" : "Mark"}</button>`}${fbk ? `<div class="gr-drop" data-drop="${esc(t.id)}"${open ? "" : " hidden"}>${open && window.SBLMS_FBBODY ? SBLMS_FBBODY(t) : ""}</div>` : ""}</li>`;
     }).join("");
@@ -29694,9 +29696,9 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const gr = courseGrade(c), g = gr.g, L = p => letterOf(p, g.scale);
     const settingsBtn = `<button class="btn small" data-act="g-paste" data-id="${esc(c.id)}">Paste Grades</button> <button class="btn small" data-act="g-course-set" data-id="${esc(c.id)}">Grade Settings</button>`;
     // marks on work with no grade weight yet (like a quiz mark that isn't on the school site's Grades page): listed, not counted
-    const loose = allTasks().filter(t => t.courseId === c.id && !hasWeight(t) && !t.prepFor && markPct(t) != null);
-    const looseHtml = loose.length ? `<div class="gr-sub gr-loose"><h4>Marked, No Weight Yet <span class="n">${loose.length}</span></h4><p class="mini" style="margin:0 0 6px">Not counted in your grade until it has a weight. Open one and add its <b>Grade Weight</b> (in Advanced Settings), or use <b>Import Syllabus</b> to fill them in.</p><ul class="gr-work">${gradeRows(loose)}</ul></div>` : "";
-    if (!gr.ts.length && loose.length) return `<section class="gr-card" aria-label="Grades"><div class="gr-headrow"><h3>Your Marks</h3><span class="spacer"></span>${settingsBtn}</div>${looseHtml}<p class="mini" style="margin:8px 0 0">Pass mark: <b>${fmtP(g.pass)}</b>.</p></section>`;
+    const loose = gr.loose;
+    const looseNote = loose.length ? `<p class="mini gr-nw-note" style="margin:6px 0 0">${loose.length === 1 ? "The mark" : `The ${loose.length} marks`} marked <b>No weight yet</b> ${loose.length === 1 ? "isn't" : "aren't"} counted in your course grade. ${loose.length === 1 ? "It counts" : "They count"} as soon as ${loose.length === 1 ? "it has" : "they have"} a weight: from your school site's Grades page when it's posted there, from the syllabus, or added by you (Advanced Settings).</p>` : "";
+    if (!gr.ts.length && loose.length) return `<section class="gr-card" aria-label="Grades"><div class="gr-headrow"><h3>Your Marks</h3><span class="spacer"></span>${settingsBtn}</div><div class="gr-sub"><h4>Marked <span class="n">${loose.length}</span></h4><ul class="gr-work">${gradeRows(loose)}</ul>${looseNote}</div><p class="mini" style="margin:8px 0 0">Pass mark: <b>${fmtP(g.pass)}</b>.</p></section>`;
     if (!gr.ts.length) return `<section class="gr-card gr-empty" aria-label="Grades"><p style="margin:0">Add a <b>Grade Weight</b> to assignments, quizzes and exams (in Advanced Settings on each task) to track your grade and see what you need on the rest. Pass mark: <b>${fmtP(g.pass)}</b>.</p><div class="gr-acts">${settingsBtn}</div></section>`;
     const marked = gr.ts.filter(t => markPct(t) != null), unmarked = gr.ts.filter(t => markPct(t) == null);
     const need = needLines(gr), sw = biggestSwing(gr), gg = goalGap(gr);
@@ -29712,9 +29714,8 @@ ${kindPreview("study")}${kindPreview("project")}`;
       ${gradeBar(gr)}
       ${need.length ? `<div class="gr-sub"><h4>What You Need</h4><ul class="gr-need">${need.map(x => `<li>${x}</li>`).join("")}</ul></div>` : ""}
       ${whatIfHtml(gr)}
-      <div class="gr-sub"><h4>Marked <span class="n">${marked.length}</span></h4>${marked.length ? `<ul class="gr-work">${gradeRows(marked)}</ul>` : `<p class="mini" style="margin:0">Nothing marked yet.</p>`}</div>
+      <div class="gr-sub"><h4>Marked <span class="n">${marked.length + loose.length}</span></h4>${marked.length + loose.length ? `<ul class="gr-work">${gradeRows(marked)}${gradeRows(loose)}</ul>${looseNote}` : `<p class="mini" style="margin:0">Nothing marked yet.</p>`}</div>
       <div class="gr-sub"><h4>Still to Mark <span class="n">${unmarked.length}</span></h4>${unmarked.length ? `<ul class="gr-work">${gradeRows(unmarked, sw && sw.t.id)}</ul>` : `<p class="mini" style="margin:0">Every graded item has a mark. Weights add up to ${fmtW(gr.wAll)}.</p>`}</div>
-      ${looseHtml}
     </section>`;
   }
   // Once a course has marks and no goal, ask what the student is aiming for
@@ -29798,7 +29799,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
         <div class="chips gp-calc-t" role="group" aria-label="Target">${tg.map(([k, v]) => `<button type="button" class="chip" data-act="gp-target" data-cid="${esc(c.id)}" data-id="${v}" aria-pressed="${Math.abs(v - want) < 0.01}">${esc(k)} ${r1(v)}%</button>`).join("")}</div>
         <div class="gp-calc-out" aria-live="polite">${res}</div></section>`;
       const marks = `<section class="gp-marks gp-d-marks"><h4 class="gp-d-h">Marks<span class="spacer"></span><button class="btn small" data-act="g-course-set" data-id="${esc(c.id)}">Weights</button></h4>
-        ${gr.ts.length ? `<ul class="gr-work">${gradeRows(gr.ts)}</ul>` : `<p class="mini" style="margin:0">No graded work yet.</p>`}
+        ${gr.ts.length + gr.loose.length ? `<ul class="gr-work">${gradeRows(gr.ts)}${gradeRows(gr.loose)}</ul>${gr.loose.length ? `<p class="mini" style="margin:6px 0 0">Marks with <b>No weight yet</b> are shown, not counted, until they have a weight.</p>` : ""}` : `<p class="mini" style="margin:0">No graded work yet.</p>`}
         ${gr.unlisted > 0.5 ? `<p class="mini" style="margin:8px 0 0">Only ${fmtW(gr.wAll)} of ${esc(courseLabel(c))} is listed so far. <button class="link-btn" data-act="import-syllabus" data-course="${esc(c.id)}">Import the syllabus</button> to fill in the rest.</p>` : ""}</section>`;
       return `<div class="gp-drop" id="gpd-${esc(c.id)}"${ui.gpOpen && ui.gpOpen[c.id] ? "" : " hidden"}>${marks}${calc}</div>`;
     };
@@ -31097,6 +31098,9 @@ function cleanFile(r) {
       if (row && row.got != null) return;
       if (row) { Object.assign(row, {got, outOf, shown: row.shown || shown, from: m.from, how: m.how || "", pid: it.pid}); return; }
       if (out.grades.some(g => g.ou === c.ou && g.pid === it.pid && g.got != null)) return;
+      // the same item already marked by the Grades page (read by its name there): that mark, with its weight, stands
+      const named = out.grades.find(g => g.ou === c.ou && !g.from && g.got != null && titleKey(g.name) === titleKey(cleanTitle(it.name).title));
+      if (named) { if (!named.pid) named.pid = it.pid; return; }
       out.grades.push({ou: c.ou, gid: it.gid || it.pid, pid: it.pid, name: cleanTitle(it.name).title, got, outOf, weight: null, shown, at: null, fb: null, from: m.from, how: m.how || ""});
     });
   }
@@ -32131,8 +32135,8 @@ function cleanFile(r) {
     const how = c.mode === "api" ? (bsDesk() ? (lmsOnPhone() ? "Signed in on this phone" : "Signed in on this computer") : c.lastSrc === "grab" ? `Read from ${P.name} in this browser` : "Synced from your computer's Studyboard app") : "Using your calendar link";
     if (running || reading) return `${how}. Syncing now…`;
     const when = c.last ? `Last synced ${ago(c.last)}` : "Not synced yet";
-    const ev = !bsDesk() && c.lastSrc === "grab" && window.SBEXT && SBEXT.on() ? SBEXT.version() : "", older = v => { const a = String(v).split(".").map(Number), b = [1, 0, 9]; for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== b[i]) return (a[i] || 0) < b[i]; } return false; };
-    const extOld = ev && older(ev) ? ` Your School Sync extension is version ${ev}: update it to 1.0.9 or later to bring in marks that aren't on ${P.name}'s Grades page (like quiz marks on a quiz's Submissions page).` : "";
+    const ev = !bsDesk() && c.lastSrc === "grab" && window.SBEXT && SBEXT.on() ? SBEXT.version() : "", older = v => { const a = String(v).split(".").map(Number), b = [1, 0, 11]; for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== b[i]) return (a[i] || 0) < b[i]; } return false; };
+    const extOld = ev && older(ev) ? ` Your School Sync extension is version ${ev}: update it to 1.0.11 or later to bring in marks that aren't on ${P.name}'s Grades page (like quiz marks on a quiz's Submissions page).` : "";
     return `${how}. ${when}.${extOld}${L.needLogin && bsDesk() && c.mode === "api" ? " Sign in again to keep syncing grades and announcements." : ""}${L.err ? " " + L.err : ""}`;
   }
   function shortStatus(){
@@ -32158,7 +32162,11 @@ function cleanFile(r) {
       const d = dx[ou], cid = (c.map || {})[ou], course = courseOf(cid);
       L.push("", `== ${d.code || d.name || ou} (Brightspace ${ou}) -> ${course ? courseLabel(course) : "not imported"}`);
       if (lr.notes && lr.notes[ou]) L.push("Summary: " + lr.notes[ou]);
-      L.push(`You: id ${d.me && d.me.id}, name ${d.me && d.me.name}. Quiz list gave ${d.quizApi} quizzes; Quizzes page: ${d.quizPage}.`);
+      L.push(`You: id ${d.me && d.me.id}, name ${d.me && d.me.name}. Quiz list gave ${d.quizApi} quizzes; Quizzes page: ${d.quizPage}${d.quizToc != null ? `; from course content ${d.quizToc}, from calendar ${d.quizCal}` : ""}.`);
+      if (d.grades) { L.push(`Grades: list ${d.grades.list}; Grades page ${d.grades.page}; ${d.grades.rows} rows used.`); (d.grades.sample || []).forEach(x => L.push("  Grade " + x)); }
+      if ((d.calExams || []).length) L.push("Exam calendar entries: " + d.calExams.join("; "));
+      if ((d.calTied || []).length) L.push("Calendar entries tied to an item: " + d.calTied.join("; "));
+      (d.folders || []).forEach(f => L.push(`  Assignment "${f.n}" [${f.id}]: handed in ${f.sub}; grade item ${f.gradeItem || "none"}${f.inGrades ? " (marked in Grades)" : ""}; out of ${f.outOf == null ? "not given" : f.outOf}; feedback with submission: ${f.fb}${f.fbApi ? "; feedback link: " + f.fbApi : ""}${f.row ? `; Assignments page row: "${f.row}"` : ""}${f.scoreCell ? `; Score cell "${f.scoreCell}"` : ""}${(f.links || []).length ? "; links " + f.links.join(" ") : ""}${f.fbPage ? "; feedback page: " + f.fbPage : ""}; mark read: ${f.mark || "none"}`));
       (d.quizzes || []).forEach(q => L.push(`  Quiz "${q.n}" [${q.id}] from ${q.from}; sat ${q.sat}; grade item ${q.gradeItem || "none"}${q.inGrades ? " (marked in Grades)" : ""}; Submissions page: ${q.subm}${q.subm && q.subm.startsWith("ok") ? `, Overall Grade line ${q.overall ? "yes" : "no"}, ${q.attempts} attempt rows, fractions: ${q.fractions || "none"}` : ""}; mark read: ${q.mark || "none"}`));
       (d.topics || []).forEach(t => L.push(`  Topic "${t.n}"${t.forum ? ` (forum "${t.forum}")` : ""} [${t.id}] due ${t.due || "none"}${t.grp ? ", group" : ""}${t.graded ? ", graded" : ""}: posts ${t.posts}${t.posts === "read" ? ` (${t.n0}; ids ${(t.ids || []).join(", ") || "none"})` : ""}; topic page: ${t.page || "not read"}; result: ${t.result}`));
       const ts = Object.values(state.tasks || {}).filter(t => t && t[F] && (t[F].ou === ou || (cid && t.courseId === cid))).sort((a, b) => String(b.due).localeCompare(String(a.due))).slice(0, 40);
@@ -32427,7 +32435,8 @@ function cleanFile(r) {
   }
   function freshPlan(){
     const tasks = allTasks().filter(t => t[F] && t[F].key && !t[F].gradeOnly), go = [], keep = [];
-    tasks.forEach(t => { const why = changedBy(t); (why ? keep : go).push({t, why}); });
+    // a task with a mark keeps it: the school site may have hidden the item since (a closed exam), so a re-read can't bring the mark back
+    tasks.forEach(t => { const why = changedBy(t) || (t.mark && t.mark.got != null && t.mark.got !== "" ? "it has a mark (" + t.mark.got + "/" + t.mark.outOf + "), which the school site may not show again" : ""); (why ? keep : go).push({t, why}); });
     const evs = eventsArr().filter(e => e[F] && e[F].key), evGo = evs.filter(e => { const last = e[F].last || {}; return !["title", "date", "start", "end", "where", "notes"].some(f => last[f] !== undefined && String(e[f] == null ? "" : e[f]) !== String(last[f] == null ? "" : last[f])); });
     return {go, keep, evGo, evKeep: evs.length - evGo.length};
   }
