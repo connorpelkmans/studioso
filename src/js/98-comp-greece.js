@@ -16,62 +16,36 @@
         bio: "A sun-loving island cat who naps on warm walls and wakes up for every win.",
         idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "hop",
         neck: [60, 78],
-        parts: (() => {
-          const HEAD = "M60 30.5C77.5 30.5 89.5 41 90 55.5C90.3 63 88.6 68.4 85.4 72.4C80 78.6 70.6 81.4 60 81.4C49.4 81.4 40 78.6 34.6 72.4C31.4 68.4 29.7 63 30 55.5C30.5 41 42.5 30.5 60 30.5Z";
-          const BODY = "M60 69C71.5 69 79 77 81.6 87.5C87.6 91 90 99 88 104.6C86.6 108.6 82 110.4 76 110.4H44C38 110.4 33.4 108.6 32 104.6C30 99 32.4 91 38.4 87.5C41 77 48.5 69 60 69Z";
-          const TAIL = "M79 104C92 106.5 100.6 100.4 100.6 88.6C100.6 80 97 75 92.4 73";
-          const ear = (fill, x) => {
-            const m = v => f1(x ? 120 - v : v);
-            return `<path d="M${m(37)} 62C${m(31.6)} 48 ${m(31)} 32 ${m(34.6)} 21.4C${m(35.4)} 19 ${m(37.8)} 18.2 ${m(39.8)} 19.6C${m(46.4)} 24.2 ${m(52.4)} 30 ${m(57.4)} 36.4Z" fill="${fill}" ${O}/>
-              <path d="M${m(37.4)} 46C${m(36.6)} 38 ${m(37)} 30.6 ${m(38.6)} 25.4C${m(43)} 28.6 ${m(47.4)} 33 ${m(50.6)} 37.6Z" fill="url(#greece-kiki-in)"/>`;
-          };
-          const leg = x => `<path d="M${f1(x - 5.4)} 88.6V101C${f1(x - 6.8)} 103 ${f1(x - 7)} 109.8 ${x} 109.8C${f1(x + 7)} 109.8 ${f1(x + 6.8)} 103 ${f1(x + 5.4)} 101V88.6Z" fill="url(#greece-kiki-leg)"/>
-            <path d="M${f1(x - 5.4)} 92.4V101C${f1(x - 6.8)} 103 ${f1(x - 7)} 109.8 ${x} 109.8C${f1(x + 7)} 109.8 ${f1(x + 6.8)} 103 ${f1(x + 5.4)} 101V92.4" fill="none" ${O}/>
-            <path d="M${f1(x - 1.9)} 109V106.2M${f1(x + 1.9)} 109V106.2" stroke="#CDB8A4" stroke-width="1.4" stroke-linecap="round"/>`;
-          return {
-            tail: {svg: `<path d="${TAIL}" fill="none" stroke="${INK}" stroke-width="12.6" stroke-linecap="round"/>
-              <path d="${TAIL}" fill="none" stroke="#F0A65E" stroke-width="6.6" stroke-linecap="round"/>
-              <path d="${TAIL}" fill="none" stroke="#D27C36" stroke-width="6.6" stroke-dasharray="3.4 5.6" stroke-dashoffset="-13"/>
-              <path d="M95.4 74.6C94.5 73.9 93.5 73.4 92.4 73" fill="none" stroke="#FFFDF8" stroke-width="6.6" stroke-linecap="round"/>`, pivot: [82, 103]},
-            body: `${RG("greece-kiki-b", [[0, "#FFFFFF"], [0.62, "#FFF8EF"], [1, "#EADAC7"]], 0.45, 0.3, 0.8)}
-              <defs><clipPath id="greece-kiki-bc"><path d="${BODY}"/></clipPath></defs>
-              <path d="${BODY}" fill="url(#greece-kiki-b)"/>
-              <g clip-path="url(#greece-kiki-bc)">
-                <path d="M28 82C36 80.6 44.6 84 46.4 91.6C48 98.4 43.6 104.6 28 106Z" fill="#EFA05A"/>
-                <path d="M31 89.6q4.4 -1.4 7.6 1.2M30.6 96.8q4.6 -1 7.8 1.8" fill="none" stroke="#D27C36" stroke-width="2.2" stroke-linecap="round"/>
-                <path d="M81.6 87.5C78.6 92 77.6 99 79 106" fill="none" stroke="#E6D3BF" stroke-width="2.2" stroke-linecap="round"/>
-                <path d="M38.4 87.5C41.4 92 42.4 99 41 106" fill="none" stroke="#D88E48" stroke-width="2.2" stroke-linecap="round"/>
-                <path d="M36 79.4Q60 92.6 84 79.4" fill="none" stroke="${INK}" stroke-width="7.4" stroke-linecap="round"/>
-                <path d="M36 79.4Q60 92.6 84 79.4" fill="none" stroke="#2F6DB8" stroke-width="4.2" stroke-linecap="round"/>
-                <path d="M45 82.6Q52 85.4 56 85.8" fill="none" stroke="#7FA9E0" stroke-width="1.4" stroke-linecap="round"/>
-              </g>
-              <path d="${BODY}" fill="none" ${O}/>
-              ${RG("greece-kiki-bell", [[0, "#FFF2B8"], [0.5, "#F4C64A"], [1, "#D49A22"]], 0.38, 0.32, 0.72)}
-              <circle cx="60" cy="89.4" r="3.8" fill="url(#greece-kiki-bell)" ${OW(1.6)}/><path d="M58.4 90.6h3.2" stroke="#8A5E14" stroke-width="1.2" stroke-linecap="round"/>
-              <ellipse cx="38.6" cy="108.2" rx="6.8" ry="3.9" fill="#FFFDF8" ${O}/><ellipse cx="81.4" cy="108.2" rx="6.8" ry="3.9" fill="#FFFDF8" ${O}/>
-              <path d="M36.4 110.6V108.6M40.8 110.6V108.6M79.2 110.6V108.6M83.6 110.6V108.6" stroke="#CDB8A4" stroke-width="1.4" stroke-linecap="round"/>`,
-            armL: {svg: `${LG("greece-kiki-leg", [[0, "#FFF8EF"], [1, "#FFFFFF"]])}${leg(49)}`, pivot: [49, 86]},
-            armR: {svg: leg(71), pivot: [71, 86]},
-            earL: {svg: `${LG("greece-kiki-in", [[0, "#FFC4D2"], [1, "#FF9DB4"]])}${ear("#FFFDF8", 0)}`, pivot: [44, 42]},
-            earR: {svg: `${LG("greece-kiki-er", [[0, "#F5B36E"], [1, "#E08C45"]])}${ear("url(#greece-kiki-er)", 1)}`, pivot: [76, 42]},
-            head: `${RG("greece-kiki-h", [[0, "#FFFFFF"], [0.66, "#FFF9F1"], [1, "#EBDCCB"]], 0.42, 0.36, 0.72)}
-              ${RG("greece-kiki-p", [[0, "#F7B470"], [1, "#E58F45"]], 0.3, 0.6, 0.8)}
-              <defs><clipPath id="greece-kiki-hc"><path d="${HEAD}"/></clipPath></defs>
-              <path d="${HEAD}" fill="url(#greece-kiki-h)"/>
-              <g clip-path="url(#greece-kiki-hc)">
-                <path d="M57 26C59.4 33 63.6 37 62.6 43.4C61.6 49 63 56.4 68 61.6C73 66.4 80.6 66.4 86 63.4C88.6 62 91.6 62.6 94 64L96 24Z" fill="url(#greece-kiki-p)"/>
-                <path d="M66 28.6q0.4 5 -1.4 8.6M73 30q0.2 5 -2.2 8.2M80.4 33.4q-0.6 4.8 -3.4 7.4" fill="none" stroke="#D27C36" stroke-width="2.4" stroke-linecap="round"/>
-              </g>
-              <path d="${HEAD}" fill="none" ${O}/>
-              <path d="M37.2 52.4Q38.4 43.4 45.4 38.4" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/>`,
-            face: `<path d="M57.2 62.6Q60 61.6 62.8 62.6Q62 65.4 60 66Q58 65.4 57.2 62.6Z" fill="#FF8FA8" ${OW(1.4)}/>
-              <path d="M39.6 62.6L33.4 61.2M39.6 65.8L33.6 66.8M80.4 62.6L86.6 61.2M80.4 65.8L86.4 66.8" stroke="#B7A08C" stroke-width="1.4" stroke-linecap="round"/>`
-          };
-        })(),
-        eyes: {lx: 48.5, rx: 71.5, y: 56.8, r: 5.6, style: "round", color: "#3C6A2C"},
-        mouth: {x: 60, y: 67.8, w: 2.6, color: "#3A2A2A", style: "cat"},
-        cheeks: {lx: 41.4, rx: 78.6, y: 65.4, w: 4.2, h: 2.5, color: "#FFA6BA"},
-        anchors: {top: [60, 33, 0.95], neck: [60, 81, 1], chest: [60, 96, 0.62], back: [86, 88, 0.8], hands: [60, 101, 0.86]},
+        parts: {
+          tail: {svg: `${LG("greece-kiki-t", [[0, "#F2B06A"], [1, "#D9853E"]])}
+            <path d="M80 102C94 103 104 94 103 80C102 72 97 69 93.6 72.4C91.4 75 95.6 78 95.4 84C95 91 89 95 80 95Z" fill="url(#greece-kiki-t)" ${O}/>
+            <path d="M97 80.5l-5.2 1.2M99 88l-5.6 -0.6M93.6 95l-4 -3.4" fill="none" stroke="#C26E2C" stroke-width="2.2" stroke-linecap="round"/>
+            <path d="M95.2 73.6C97.4 72.2 100.4 73.6 101 77" fill="none" stroke="#FFF8EE" stroke-width="3" stroke-linecap="round"/>`, pivot: [82, 99]},
+          feet: `<ellipse cx="47" cy="107.6" rx="8.6" ry="4.6" fill="#FFFDF8" ${O}/><ellipse cx="73" cy="107.6" rx="8.6" ry="4.6" fill="#FFFDF8" ${O}/>
+            <path d="M44.6 109.4v-2.2M48.4 109.6v-2.2M70.6 109.6v-2.2M74.4 109.4v-2.2" stroke="#D8CFC6" stroke-width="1.2" stroke-linecap="round"/>`,
+          body: `${RG("greece-kiki-b", [[0, "#FFFFFF"], [0.7, "#FFF8EE"], [1, "#EEDFCF"]], 0.4, 0.35, 0.75)}
+            <path d="M60 68C76 68 84 81 84 94C84 106 76 110 60 110C44 110 36 106 36 94C36 81 44 68 60 68Z" fill="url(#greece-kiki-b)" ${O}/>
+            <path d="M73.6 75C81 80.6 84 91 82.8 101.4C78 98 73.8 89 72 79Z" fill="#EFA460"/>
+            <path d="M75.6 84l4.6 -1.2M76.6 91l4.8 -0.4" stroke="#D2823C" stroke-width="2" stroke-linecap="round"/>
+            <path d="M46 80Q60 86 74 80" fill="none" stroke="#2F6DB8" stroke-width="3.6" stroke-linecap="round"/>
+            <circle cx="60" cy="85.6" r="3.2" fill="#F2C24A" ${OW(1.5)}/><path d="M58.6 86.4h2.8" stroke="#A8761E" stroke-width="1" stroke-linecap="round"/>
+            <path d="M42 90Q42 80 48 75" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".9"/>`,
+          armL: {svg: `<ellipse cx="50.5" cy="100" rx="5.6" ry="7.4" fill="#FFFDF8" ${O}/><path d="M48.6 105.4v-2M52.4 105.4v-2" stroke="#D8CFC6" stroke-width="1.1" stroke-linecap="round"/>`, pivot: [50.5, 93]},
+          armR: {svg: `<ellipse cx="69.5" cy="100" rx="5.6" ry="7.4" fill="#FFFDF8" ${O}/><path d="M67.6 105.4v-2M71.4 105.4v-2" stroke="#D8CFC6" stroke-width="1.1" stroke-linecap="round"/>`, pivot: [69.5, 93]},
+          earL: {svg: `<path d="M37.6 46L39.4 23.6L55 37Z" fill="#FFFDF8" ${O}/><path d="M41.2 40.6L42 29.6L49.4 36.4Z" fill="#FFB6C6"/>`, pivot: [46, 40]},
+          earR: {svg: `<path d="M82.4 46L80.6 23.6L65 37Z" fill="#EFA460" ${O}/><path d="M78.8 40.6L78 29.6L70.6 36.4Z" fill="#FFB6C6"/>`, pivot: [74, 40]},
+          head: `${RG("greece-kiki-h", [[0, "#FFFFFF"], [0.72, "#FFF9F0"], [1, "#EEDFCF"]], 0.42, 0.34, 0.78)}
+            <path d="M60 33C78 33 87 44 87 57C87 71 76 79.5 60 79.5C44 79.5 33 71 33 57C33 44 42 33 60 33Z" fill="url(#greece-kiki-h)" ${O}/>
+            <path d="M64.4 34.4C76 35.6 84.6 44 85.8 55C79 52.4 71.4 46.6 67 40.6Z" fill="#EFA460"/>
+            <path d="M56 37.6l0.8 5.4M60 36.8v6M64 37.8l-0.4 4.6" stroke="#E29A55" stroke-width="2" stroke-linecap="round"/>
+            <path d="M39.4 51Q41.4 43 48 39.4" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>`,
+          face: `<path d="M57.6 62.4H62.4L60 65Z" fill="#FF94AC" ${OW(1.2)}/>
+            <path d="M42 63.6l-9 -1.8M42 67.2l-9 1M78 63.6l9 -1.8M78 67.2l9 1" stroke="${INK}" stroke-width="1.2" stroke-linecap="round" opacity=".55"/>`
+        },
+        eyes: {lx: 49.5, rx: 70.5, y: 56.5, r: 5, style: "round", color: "#3C6A2C"},
+        mouth: {x: 60, y: 67.6, w: 2.8, color: "#3A2A2A", style: "cat"},
+        cheeks: {lx: 42.5, rx: 77.5, y: 64.6, w: 4.2, h: 2.4, color: "#FFA6BA"},
+        anchors: {top: [60, 34, 0.95], neck: [60, 80, 1], chest: [60, 94, 0.62], back: [84, 88, 0.8], hands: [60, 100, 0.86]},
         lines: {
           tap: ["Yawn... oh, hello! I was just sunbathing.", "Every warm wall in Oia knows my name!", "You're doing great. I'm doing a nap. Teamwork!", "Purr... one page at a time, friend.", "I saved you the sunniest spot on the steps!", "Sea breeze, warm stones and you studying. Perfect.", "Blue doors, white walls, big brains. That's you!", "Slow blink for you. That means I like you!"],
           pet: ["Purrrr! Right behind the ears, yes!", "Mrrp! Warmer than a sunny wall!"],
