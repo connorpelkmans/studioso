@@ -6887,6 +6887,31 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
   #view > .pview-tabs + .cr > .cr-head > .cr2-range{margin:0!important}
   #view > .pview-tabs + .cr > .cr2-top{margin-top:2px}
 }
+
+/* Write Your Own Quiz */
+.qm-sheet{width:min(680px,100%)}
+.qm-list{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:12px}
+.qm-q{border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:12px 14px;display:grid;gap:8px;min-width:0}
+.qm-top{display:flex;align-items:center;gap:10px;flex-wrap:nowrap;min-width:0}
+.qm-top > b{flex:0 0 auto;white-space:nowrap}
+.qm-top > .spacer{flex:1 1 0}
+.qm-top > .x-btn{margin-left:auto}
+.qm-top > b{font:800 .95rem/1.2 var(--display)}
+.qm-top .qm-type{width:auto;flex:0 1 auto;min-width:0;max-width:100%;padding-block:6px}
+@media (max-width:600px){.qm-sheet .two{grid-template-columns:1fr}}
+.qm-q textarea,.qm-q input[type=text]{width:100%;box-sizing:border-box;min-width:0}
+.qm-q textarea{resize:vertical}
+.qm-hint{margin:0}
+.qm-opts{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.qm-opt{display:flex;align-items:center;gap:8px;min-width:0}
+.qm-opt > input[type=radio],.qm-opt > input[type=checkbox]{width:20px;height:20px;flex:0 0 auto;margin:0;accent-color:var(--accent,#2563eb)}
+.qm-opt > input[type=text]{flex:1 1 auto}
+.qm-opt .qm-n{flex:0 0 22px;text-align:right;color:var(--muted)}
+.qm-opt .qm-tf{font-weight:600}
+.qm-opt .x-btn,.qm-top .x-btn{flex:0 0 auto}
+.qm-q .link-btn{justify-self:start}
+.qm-why{margin:0}
+.qm-add{display:flex;justify-content:center;margin-top:12px}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
