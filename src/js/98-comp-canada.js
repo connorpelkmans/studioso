@@ -115,11 +115,12 @@
         idle: ["earTwitch", "headTilt", "tailSwish"], cheer: "bounce",
         neck: [60, 70],
         parts: {
-          tail: {svg: `<path d="M81 73C86 70 90.5 72 90 77C89.5 81 85.5 81.5 82.5 79Z" fill="#6E4628" ${O2}/>`, pivot: [81, 76]},
-          feet: `${[[42, 107.4, "#6E4628", 4.4], [78, 107.4, "#6E4628", 4.4], [51.5, 109.6, "#8A5A38", 5], [68.5, 109.6, "#8A5A38", 5]].map(([x, b, c, w]) => `<path d="M${x - w} 82V${b - 5}H${x + w}V82Z" fill="${c}" ${O}/><path d="M${f1(x - w - .6)} ${f1(b - 5.4)}H${f1(x + w + .6)}V${f1(b - 1.6)}Q${f1(x + w + .6)} ${b} ${f1(x + w - 1)} ${b}H${f1(x - w + 1)}Q${f1(x - w - .6)} ${b} ${f1(x - w - .6)} ${f1(b - 1.6)}Z" fill="#3E2C24" ${O}/><path d="M${x} ${f1(b - 4.4)}V${f1(b - .8)}" stroke="#7A645A" stroke-width="1.3" stroke-linecap="round"/>`).join("")}`,
-          body: `${LG("canada-mooska-b", [[0, "#A87248"], [1, "#74492C"]])}
-            <path d="M60 63C77 63 85 71 85 79.5C85 88.5 77 93 60 93C43 93 35 88.5 35 79.5C35 71 43 63 60 63Z" fill="url(#canada-mooska-b)" ${O}/>
-            <path d="M46 87.5Q60 92 74 87.5" fill="none" stroke="#C99A70" stroke-width="2.6" stroke-linecap="round"/>`,
+          tail: {svg: `<path d="M86 72C91 68.5 96 70.5 95.5 75.5C95 79.5 91 80 88 77.5Z" fill="#6E4628" ${O2}/>`, pivot: [87, 75]},
+          feet: `${[[48.5, 86, 110.4, 6.6, 5, "#8E5E3C"], [71.5, 86, 110.4, 6.6, 5, "#8E5E3C"]].map(([x, t, b, wt, wb, c]) => `<path d="M${f1(x - wt)} ${t}C${f1(x - wt)} ${f1((t + b) / 2)} ${f1(x - wb)} ${f1(b - 7)} ${f1(x - wb)} ${f1(b - 4)}H${f1(x + wb)}C${f1(x + wb)} ${f1(b - 7)} ${f1(x + wt)} ${f1((t + b) / 2)} ${f1(x + wt)} ${t}Z" fill="${c}" ${O}/><path d="M${f1(x - wb - .8)} ${f1(b - 5.2)}H${f1(x + wb + .8)}C${f1(x + wb + 1.2)} ${f1(b - 1.4)} ${f1(x + wb - 1)} ${b} ${x} ${b}C${f1(x - wb + 1)} ${b} ${f1(x - wb - 1.2)} ${f1(b - 1.4)} ${f1(x - wb - .8)} ${f1(b - 5.2)}Z" fill="#3E2C24" ${O}/><path d="M${x} ${f1(b - 3.8)}V${f1(b - 1)}" stroke="#7A645A" stroke-width="1.3" stroke-linecap="round"/>`).join("")}`,
+          body: `${RG("canada-mooska-b", [[0, "#B07A4E"], [0.6, "#91603C"], [1, "#6E4628"]], 0.4, 0.3, 0.8)}
+            <path d="M60 60C79 60 88 69.5 88 80C88 91 78 96 60 96C42 96 32 91 32 80C32 69.5 41 60 60 60Z" fill="url(#canada-mooska-b)" ${O}/>
+            <path d="M36.5 84Q36.5 76 41 71.5" fill="none" stroke="#C28C60" stroke-width="2.8" stroke-linecap="round"/>
+            <path d="M46 90Q60 94 74 90" fill="none" stroke="#C99A70" stroke-width="2.6" stroke-linecap="round"/>`,
           earL: {svg: `<path d="M44 35C37 29 26 29.5 20 35C25.5 41.5 36 42 44.5 40Z" fill="#8A5A38" ${O}/><path d="M39.5 36C34.5 33.6 29 33.6 25.4 35.4C29 38.4 35 38.8 39.5 38Z" fill="#EDB8A4"/>`, pivot: [42, 37]},
           earR: {svg: `<path d="M76 35C83 29 94 29.5 100 35C94.5 41.5 84 42 75.5 40Z" fill="#8A5A38" ${O}/><path d="M80.5 36C85.5 33.6 91 33.6 94.6 35.4C91 38.4 85 38.8 80.5 38Z" fill="#EDB8A4"/>`, pivot: [78, 37]},
           head: `${RG("canada-mooska-h", [[0, "#BC8658"], [0.6, "#96633E"], [1, "#74492C"]], 0.42, 0.3, 0.8)}
@@ -133,7 +134,7 @@
         eyes: {lx: 50, rx: 70, y: 41, r: 4.6, style: "sparkle", color: "#24140C"},
         mouth: {x: 60, y: 71.4, w: 2.6, color: "#3A2418"},
         cheeks: {lx: 43.6, rx: 76.4, y: 48.4, w: 3.8, h: 2.4, color: "#FF9A88"},
-        anchors: {top: [60, 23, 0.85], neck: [60, 80, 1], chest: [74, 82, 0.55], back: [80, 74, 0.8], hands: [60, 89, 0.85]},
+        anchors: {top: [60, 23, 0.85], neck: [60, 80, 1], chest: [77, 84, 0.55], back: [84, 74, 0.8], hands: [60, 90, 0.85]},
         lines: {
           tap: ["Hi... I wandered over from the lake to see you.", "Long legs, slow steps, steady progress.", "No rush. We'll get there together.", "You're doing really well. Truly.", "I'm small now, but I'll grow. So will you!", "Deep breath. The lake is calm, and so are we.", "One careful hoof at a time.", "I believe in you, as big as a moose!"],
           pet: ["Oh! My fuzzy ears are so happy.", "Mmm. That's nice. Thank you."],
