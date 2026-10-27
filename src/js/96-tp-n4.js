@@ -234,7 +234,7 @@
           <path d="M5 6Q43 14 81 6" fill="none" stroke="#E2B04A" stroke-width=".7"/>
           ${[10, 22, 34, 46, 58, 70, 80].map((x, i) => { const y = 6 + Math.sin(i / 6 * Math.PI) * 4 + 4; return `<path d="M${x} ${f1(y - 3)}V${f1(y)}" stroke="#E2B04A" stroke-width=".6"/><path d="${star(x, y + 2.4, 3.2, 1.4, 5)}" fill="${i % 2 ? "#FFF2C0" : "#F2C45A"}"/>`; }).join("")}</svg>`}
     ],
-    card: {id: "tp-ramadan", name: "Moonlit Arch", desc: "Warm sand paper framed by a pointed arch, with a fanous lantern and a crescent in the corners. Midnight blue at night."}
+    card: {id: "tp-ramadan", name: "Moonlit Arch", desc: "Warm sand paper framed by a full pointed arch, with a hanging fanous lantern and a starry crescent in the corners above it. Midnight blue at night."}
   });
 
   /* ================= MID-AUTUMN ================= */
@@ -307,7 +307,7 @@
           ${[[14, 13], [24, 11], [36, 13], [50, 16], [60, 15], [72, 11], [30, 18], [66, 8]].map(([x, y], i) => `<g transform="translate(${x} ${y}) rotate(${i * 25})">${petals(0, 0, 4, 1.4, 1.4, 1, "#F6B42A")}<circle r=".6" fill="#FFE9A0"/></g>`).join("")}
           <circle cx="78" cy="19" r="3" fill="#FFF0B8" opacity=".9"/></svg>`}
     ],
-    card: {id: "tp-midautumn", name: "Moonlit River", desc: "Pale gold paper with a big full moon in the corner and a lotus lantern drifting on the water below. Deep night blue in dark mode."}
+    card: {id: "tp-midautumn", name: "Moonlit River", desc: "Pale gold paper with a huge full moon rising off the corner behind wisps of cloud, and lotus lanterns drifting on a full-width misty river. Deep night blue in dark mode."}
   });
 })();
 /* end of module 96-tp-n4.js */

@@ -1222,7 +1222,9 @@ var SBWB = null;
   async function renderBoard(n, o){
     o = o || {};
     try { if (document.fonts && document.fonts.load) await Promise.all(FONTS.map(f => document.fonts.load(`40px ${f[2]}`))); } catch (e) {}
-    const ink = (B && n.id === B.id) ? strokes() : (n.wbInk || []), its = (B && n.id === B.id) ? items() : (n.wbItems || []), tpl = (n.wb && n.wb.tpl) || "blank";
+    const ink = (B && n.id === B.id) ? strokes() : (n.wbInk || []), tpl = (n.wb && n.wb.tpl) || "blank";
+    // o.noPics: only what the student drew or wrote (pictures, and marker redraws of pictures, are left out)
+    const its = ((B && n.id === B.id) ? items() : (n.wbItems || [])).filter(it => !(o.noPics && it.k === "i"));
     let bb = null; ink.forEach(s => { bb = bbJoin(bb, geo(s).bb); }); its.forEach(it => { bb = bbJoin(bb, itemBB(it)); });
     if (tpl !== "blank" && !o.full) { const R = pageRect(n.wb && n.wb.pa); bb = bbJoin(bb && [Math.max(0, bb[0] - 60), Math.max(0, bb[1] - 60), Math.min(BW, bb[2] + 60), Math.min(BH, bb[3] + 60)], [R[0], R[1], R[2], R[3]]); }
     else if (!bb || tpl !== "blank" || o.full) bb = tpl !== "blank" || !bb ? [0, 0, BW, BH] : (o.full ? [Math.max(0, bb[0] - 200), Math.max(0, bb[1] - 200), Math.min(BW, Math.max(bb[2] + 200, bb[0] + 900)), Math.min(BH, Math.max(bb[3] + 200, bb[1] + 600))] : bb);

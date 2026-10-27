@@ -96,7 +96,7 @@
           ${[[14, 12, "#FFFFFF"], [32, 14, "#FFC6D8"], [50, 11, "#FFFFFF"], [68, 13, "#FFC6D8"]].map(([x, y, c]) => `<g transform="translate(${x} ${y})">${petals(0, 0, 5, 2.8, 3, 1.7, c)}<circle r="1.2" fill="#FFC83A"/></g>`).join("")}
           ${[[23, 8], [41, 18], [59, 7], [77, 19]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx="4" ry="1.5" fill="#3E8E48" transform="rotate(-30 ${x} ${y})"/>`).join("")}</svg>`}
     ],
-    card: {id: "tp-thailand", name: "Andaman Bay", desc: "Sea-glass paper with a limestone island and golden chedi in the corner and a longtail boat on the water below. Moonlit blue in dark mode."}
+    card: {id: "tp-thailand", name: "Andaman Bay", desc: "A sunlit Andaman bay: limestone karsts rise from both edges, a golden chedi sits on a green islet and a longtail boat crosses the sea. Moonlit blue in dark mode."}
   });
 })();
 /* end of module 96-tp-thailand.js */

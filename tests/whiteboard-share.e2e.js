@@ -23,6 +23,7 @@ function fake(opts){
     if (fn === "get_public_share") { const i = (opts.shared || []).concat(DB.items).find(x => x.code === a.p_code); return i ? [{code: i.code, kind: i.kind, name: i.title, sharer_name: "Maya", card_count: 0, data: i.data, updated_at: i.updated_at, is_mine: false}] : []; }
     if (fn === "my_username") return "connor";
     if (fn === "my_age") return 20;
+    if (fn === "agree_share_terms") { DB.agreed = a.p_version; return null; }
     return null; };
   const mk = t => {
     const st = {f: [], op: "select", one: false, rows: null, lim: 0, gt: null};
@@ -77,10 +78,14 @@ function fake(opts){
       ok(await page.locator('dialog[open] [data-act="wb-share-group"]').count() === 1, "Board Options has Share a Copy and Share With a Study Group");
       await page.click('dialog[open] [data-act="wb-share-copy"]'); await page.waitForSelector("dialog[open] #shMake");
       ok(/Share Whiteboard/.test(await page.locator("dialog[open] h2").textContent()) && /see it/.test(await page.locator("dialog[open]").textContent()), "Share a Copy opens Share Whiteboard");
-      await page.click("dialog[open] #shMake"); await page.waitForSelector("dialog[open] #shLinkIn, dialog[open] .grp-code-big");
+      await page.click("dialog[open] #shMake"); await page.waitForSelector("dialog[open] #shRights");
+      await page.check("dialog[open] #shRights"); await page.click("dialog[open] [data-submit]");
+      await page.waitForSelector("dialog[open] #shLinkIn, dialog[open] .grp-code-big");
       sharedRow = await page.evaluate(() => __DB.items[0]);
       ok(sharedRow.kind === "board" && sharedRow.ref_id === "wb1" && sharedRow.title === "Cell Cycle" && sharedRow.data.ink.length === 1 && sharedRow.data.items[0].s === "G1 -> S -> G2 -> M" && sharedRow.data.tpl === "grid" && sharedRow.data.course.code === "BIO 101",
         "the link holds the board: its drawing, text, template and course");
+      ok(await page.evaluate(() => { const n = JSON.parse(JSON.stringify(__sbSync.state.notes.wb1 || Object.values(__sbSync.state.notes).find(x => x.id === "wb1"))); n.id = "wbPic"; n.wbItems = n.wbItems.concat({id: "p1", k: "i", x: 100, y: 100, w: 200, h: 150, src: "data:image/png;base64,iVBORw0KGgo=", at: 1});
+        __sbSync.state.notes.wbPic = n; const src = SBWB.shareSrc("wbPic"); delete __sbSync.state.notes.wbPic; return src && src.data.items.length === 1 && !src.data.items.some(it => it.k === "i"); }), "pictures on a board are never put in the shared copy");
       ok(await page.locator("dialog[open] .grp-code-big").textContent() === "WBRD-0001", "and shows the code to send");
       ok(((await S(page)).notes.wb1 || Object.values((await S(page)).notes).find(x => x.id === "wb1")).shared.code === "WBRD-0001", "the board remembers it's shared");
       await page.keyboard.press("Escape");
@@ -112,6 +117,14 @@ function fake(opts){
       const evil = L1.items.find(i => i.id === "evil");
       ok(evil && evil.c === "ink" && await page.locator(".wb-t img").count() === 0 && (await page.locator('.wb-t[data-id="evil"]').textContent()).includes("<img"), "their text is checked like any saved text (shown as text, unknown colour made black)");
       ok(await page.evaluate(() => __DB.group_board_ops.length) === ops2.length + 1, "changes from others aren't sent back out");
+      // Pictures never travel through a group board: one sent by someone else is not taken in, and one added here stays here
+      await page.evaluate(() => { const ch = __DB.chans.find(c => /^sbwb-b1-/.test(c.name) && !c.closed); const row = {id: 901, board_id: "b1", group_id: "g1", user_id: "u2", tag: "other", ch: [{t: "i", id: "rpic", v: {k: "i", x: 10, y: 10, w: 100, h: 80, src: "data:image/png;base64,iVBORw0KGgo=", at: 3}}]};
+        __DB.group_board_ops.push(row); ch.subs.forEach(s => s.cb({new: row})); });
+      await page.waitForTimeout(200);
+      ok(!(await page.evaluate(() => SBWB.board().items.some(i => i.id === "rpic"))), "a picture sent by another member is not taken in");
+      const opsP = await page.evaluate(() => __DB.group_board_ops.length);
+      await page.evaluate(() => SBWB.set("i", "lpic", {id: "lpic", k: "i", x: 400, y: 300, w: 120, h: 90, src: "data:image/png;base64,iVBORw0KGgo=", at: 4})); await page.waitForTimeout(600);
+      ok(await page.evaluate(() => SBWB.board().items.some(i => i.id === "lpic")) && await page.evaluate(n => __DB.group_board_ops.slice(n).every(o => !o.ch.some(c => c.v && c.v.k === "i")), opsP), "a picture added to a live board stays on your copy and isn't sent");
       await page.evaluate(() => { const ch = __DB.chans.find(c => /^sbwb-b1-/.test(c.name) && !c.closed); const mine = __DB.group_board_ops.find(o => o.user_id === "u1" && o.ch.some(c => c.t === "s")); const echo = Object.assign({}, mine, {id: 950}); ch.subs.forEach(s => s.cb({new: echo})); });
       ok(true, "an echo of our own change is skipped (same tag)");
       await page.evaluate(() => SBWB.flush()); await page.waitForTimeout(100);

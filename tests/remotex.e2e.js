@@ -106,7 +106,7 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       const qm = await p.locator(".rx-q").count();
       ok(qm === 1, tag + " one '?' hint on the unsure exam, none on the others (" + qm + ")");
       await p.evaluate(() => window.__sbAvail.view({tab: "board", bview: "plan"})); await p.waitForTimeout(200);
-      await p.evaluate(() => { const t = document.querySelector('.pt-tab[data-k="cal"]'); if (t) t.click(); }); await p.click('.plan-fixed [data-id="m1"]'); await p.waitForSelector("dialog[open] #rxFs");
+      await p.evaluate(() => { const t = document.querySelector('.pt-tab[data-k="cal"]'); if (t) t.click(); }); await p.click('.plan-fixed [data-id="m1"]'); await p.click("dialog[open] #tvEdit"); await p.waitForSelector("dialog[open] #rxFs");
       ok(await p.locator("dialog[open] #rxFs legend").textContent() === "Where is this taken?", tag + " edit sheet asks where it is taken");
       const note = await p.locator("dialog[open] #rxNote").textContent();
       ok(/In person/.test(note) && /Detected by:\s*Auto/.test(note) && /in class/i.test(note), tag + " evidence line: " + note);
@@ -145,7 +145,7 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       await p.waitForTimeout(200);
       ok(!(await p.evaluate(() => window.__sbAvail.pomo().running)) && /taken in person/.test(await p.textContent("#toastMsg")), tag + " a focus session can't be started on it");
       await p.evaluate(() => window.__sbAvail.view({tab: "board", bview: "plan"}));
-      await p.evaluate(() => { const t = document.querySelector('.pt-tab[data-k="cal"]'); if (t) t.click(); }); await p.click('.plan-fixed [data-id="m1"]'); await p.waitForSelector("dialog[open] #rxFs");
+      await p.evaluate(() => { const t = document.querySelector('.pt-tab[data-k="cal"]'); if (t) t.click(); }); await p.click('.plan-fixed [data-id="m1"]'); await p.click("dialog[open] #tvEdit"); await p.waitForSelector("dialog[open] #rxFs");
       await p.locator('dialog[open] input[name=remote][value="yes"]').check({force: true});
       ok(/You/.test(await p.locator("dialog[open] #rxNote").textContent()), tag + " note says you set it");
       await p.click("dialog[open] [data-submit]"); await p.waitForTimeout(500);

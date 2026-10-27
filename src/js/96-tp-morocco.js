@@ -97,7 +97,7 @@
           ${[19, 33, 47, 61, 75].map(x => `<path d="M${x} 9L${x + 2.4} 13L${x} 17L${x - 2.4} 13Z" fill="#3EAE8A"/>`).join("")}
           <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".4"/></svg>`}
     ],
-    card: {id: "tp-morocco", name: "Riad Courtyard", desc: "Warm plaster paper framed by a carved horseshoe arch, with a brass lantern and a strip of zellige stars. Deep indigo at night."}
+    card: {id: "tp-morocco", name: "Riad Courtyard", desc: "Warm plaster paper inside a carved horseshoe arch edged in blue-and-green zellige tiles, with two brass lanterns and a faint star-tile pattern. Deep indigo at night."}
   });
 })();
 /* end of module 96-tp-morocco.js */

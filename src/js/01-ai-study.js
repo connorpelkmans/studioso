@@ -92,7 +92,7 @@ function weakSheet(deckIds){
     try {
       const r = await aiCall({task: "quiz", maxTokens: 24000, schema: QUIZ_SCHEMA, onStatus: m => { status.textContent = m; }, parts: [{text: `Concepts this student keeps missing:\n${material}\n\nStyle: ${home.aiStyle || "Clear, exam-style questions"}\nWrite ${n} new questions.`}],
         system: "You write targeted practice questions on a student's weak spots. Test the SAME underlying concepts as the missed items but with new wording, new scenarios and different angles (application, comparison, 'which is NOT', cause and effect), so the student must understand rather than recognize. Mix types: 'single' (usually 4 options), 'multiple' (select all that apply, 5 or 6 options, 2 or more correct), 'order' when there's a sequence, and 'short'. 'correct' holds zero-based option indexes; for 'order' the indexes in the right order. Every question gets a rationale and one short note per option in 'optionNotes', plus a 'topic'. Return JSON only."});
-      const qs = aiCleanQuestions(r.data.questions);
+      const qs = aiDropCopiedQs(aiCleanQuestions(r.data.questions), aiCopiedCardsIndex(w.cards.map(x => x.c)));
       if (!qs.length) throw aiErr("empty", "The AI didn't write any usable questions. Try again.");
       const d = clone(state.decks[home.id]);
       const qz = {id: uid(), title: `Weak Spots, ${fmtShort(todayISO())}`, style: home.aiStyle || "", created: Date.now(), sources: ["Your missed cards and questions"], questions: qs, results: [], kind: "weak"};
@@ -151,7 +151,8 @@ async function caseFromDeck(deckId, caseStyle){
   try {
     const c = courseOf(d.courseId);
     const r = await aiCall({task: "cases", maxTokens: 16000, schema: CASE_SCHEMA, onStatus: m => st(m), parts: [{text: `Course: ${c ? c.name : d.name}\nStyle: ${d.aiStyle || "realistic, exam-style"}\n${aiCaseStyleText(caseStyle, c ? c.name : d.name)}\nMaterial (flashcards):\n${d.cards.slice(0, 120).map(x => `${x.front} => ${x.back}`).join("\n")}\n\nWrite 1 case study.`}], system: CASE_SYSTEM});
-    const cs = aiCleanCases(r.data.cases);
+    const cp = aiCopiedCardsIndex(d.cards);
+    const cs = aiCleanCases(r.data.cases).filter(x => !aiCopied(x.scenario, cp)).map(x => Object.assign(x, {questions: aiDropCopiedQs(x.questions, cp)})).filter(x => x.questions.length >= 2);
     if (!cs.length) throw aiErr("empty", "The AI couldn't write a case from these cards. Try again.");
     const nd = clone(state.decks[deckId]);
     const qz = Object.assign({id: uid(), created: Date.now(), style: d.aiStyle || "", sources: ["Your flashcards"], results: [], kind: "case"}, cs[0]);
@@ -243,9 +244,12 @@ async function summarizeFile(fid, again){
     const r = await aiCall({task: "summary", maxTokens: 8000, schema: SUM_SCHEMA, onStatus: m => st(m), parts: [src.part, {text: `Course: ${c ? c.name : "not given"}. Summarize this file for studying.`}],
       system: "You summarize course material for a student who will be tested on it. Be accurate and specific to the file (names, numbers, mechanisms, steps), not generic. Include the key terms with short definitions and the questions an instructor would most likely ask. Use only what the file says: never add facts, numbers or examples that are not in it. Write in the file's language, in plain text without markdown or LaTeX. Return JSON only."});
     const n = clone(state.files[fid]);
+    // Anything that copied the file word for word is left out: the summary restates it
+    if (src.copyText == null && src.pdfBytes) src.copyText = await aiPdfText(src.pdfBytes);
+    const copy = aiCopyIndex([typeof src.part.text === "string" ? src.part.text : "", src.copyText || ""].filter(Boolean)), own = x => !aiCopied(x, copy);
     const cut = (x, n) => String(x || "").replace(/\s+/g, " ").trim().slice(0, n);
-    n.summary = {at: Date.now(), model: r.model, provider: r.provider, overview: cut(r.data.overview, 1500), keyPoints: (r.data.keyPoints || []).slice(0, 14).map(x => cut(x, 400)).filter(Boolean),
-      keyTerms: (r.data.keyTerms || []).filter(k => k && k.term && k.definition).slice(0, 30).map(k => ({term: cut(k.term, 100), definition: cut(k.definition, 350)})), questions: (r.data.questions || []).slice(0, 10).map(x => cut(x, 300)).filter(Boolean)};
+    n.summary = {at: Date.now(), model: r.model, provider: r.provider, overview: cut(r.data.overview, 1500), keyPoints: (r.data.keyPoints || []).slice(0, 14).map(x => cut(x, 400)).filter(x => x && own(x)),
+      keyTerms: (r.data.keyTerms || []).filter(k => k && k.term && k.definition && own(k.definition)).slice(0, 30).map(k => ({term: cut(k.term, 100), definition: cut(k.definition, 350)})), questions: (r.data.questions || []).slice(0, 10).map(x => cut(x, 300)).filter(x => x && own(x))};
     applyChanges([{kind: "file", id: fid, after: n}], null);
     show();
   } catch(e) { st(e.message || "Couldn't summarize that file.", true); }
@@ -310,7 +314,7 @@ function photoNoteSheet(file){
     try {
       const today = todayISO(), courses = coursesArr().map(c => c.code || c.name).join("; ") || "none";
       const r = await aiCall({task: "photo", maxTokens: 8000, schema: PHOTO_SCHEMA, onStatus: m => { status.textContent = m; }, parts: S.srcs.map(s => s.part).concat({text: `Today is ${today}. Courses: ${courses}. Turn these class photos into study notes.`}),
-        system: "You turn photos of whiteboards, lecture slides and handwritten notes into clean, organized typed study notes. Transcribe everything that matters, fix obvious typos, expand cryptic abbreviations only when you're sure, keep formulas and numbers exactly, and organize with short headings and bullets. If something is unreadable, write [unclear]. Describe diagrams briefly in words. List any due dates or exam dates you see, resolving them relative to today. Return JSON only."});
+        system: "You turn photos of whiteboards, lecture slides and handwritten notes into clean, organized typed study notes. The student's own handwriting and whiteboard writing may be transcribed as written; anything printed (slides, handouts, textbook pages) must be restated in your own words as concise notes, never copied sentence by sentence. Cover everything that matters, fix obvious typos, expand cryptic abbreviations only when you're sure, keep formulas and numbers exactly, and organize with short headings and bullets. If something is unreadable, write [unclear]. Describe diagrams briefly in words. List any due dates or exam dates you see, resolving them relative to today. Return JSON only."});
       const d = r.data, cSel = $("#pnCourse").value, guess = coursesArr().find(c => (c.code || c.name).toLowerCase() === String(d.course || "").toLowerCase());
       S.result = {title: String(d.title || "").trim(), notes: String(d.notes || "").trim(), courseId: cSel || (guess ? guess.id : ""), dates: (d.dates || []).filter(x => x && x.title && isDate(x.due)).map(x => ({title: String(x.title), type: TYPES.includes(x.type) ? x.type : "Assignment", due: x.due, time: /^\d\d:\d\d$/.test(x.time || "") ? x.time : "", on: true}))};
       if (!S.result.notes) { S.result = null; throw aiErr("empty", "Couldn't read anything in those photos. Try a clearer, closer photo."); }
@@ -337,7 +341,7 @@ function photoNoteSheet(file){
       if (tasks.length) applyChanges(tasks.map(x => { const t = newTask({title: x.title, type: x.type, courseId: cid, due: x.due, time: x.time, start: MILESTONE(x.type) ? x.due : addDays(x.due, -(SPAN[x.type] ?? 3)) < todayISO() ? todayISO() : addDays(x.due, -(SPAN[x.type] ?? 3)), priority: x.type === "Exam" ? "high" : "med"}); return {kind: "task", id: t.id, after: t}; }), `Added ${tasks.length} task${tasks.length === 1 ? "" : "s"} from your photos`);
       ui.tab = "notes"; render();
       toast(tasks.length ? `Note saved, and ${tasks.length} task${tasks.length === 1 ? "" : "s"} added` : "Note saved to your board");
-      if (keep) uploadFiles(S.files, {courseId: cid, folderId: "notes"});
+      if (keep) uploadOkLater(() => uploadFiles(S.files, {courseId: cid, folderId: "notes"}), "The photos");
     });
   };
   if (!file && S.result) review();

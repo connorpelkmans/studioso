@@ -78,6 +78,60 @@ create table if not exists public.share_saves (
 alter table public.share_saves enable row level security;
 revoke all on public.share_saves from public, anon, authenticated;
 
+-- Agreeing to the sharing rules in the Terms: one row each time someone agrees, with the version of the Terms and when.
+-- Sharing with a link or publishing needs a row for the current version (sbs_terms_version). To ask everyone again
+-- after the sharing rules change, raise the version here and TERMS_V in src/js/97-sharing.js together.
+create table if not exists public.share_terms_agreements (
+  id bigint generated always as identity primary key,
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  version text not null check (char_length(version) between 1 and 40),
+  agreed_at timestamptz not null default now()
+);
+create index if not exists share_terms_agreements_user on public.share_terms_agreements (user_id, agreed_at desc);
+alter table public.share_terms_agreements enable row level security;   -- no policies: read and written only through the functions below
+
+create or replace function public.sbs_terms_version() returns text
+language sql immutable as $$ select '2026-10-27'::text $$;
+
+create or replace function public.sbs_terms_ok(p_user uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.share_terms_agreements where user_id = p_user and version = public.sbs_terms_version())
+$$;
+revoke all on function public.sbs_terms_ok(uuid) from public, anon, authenticated;
+
+create or replace function public.agree_share_terms(p_version text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'Sign in first'; end if;
+  if p_version is distinct from public.sbs_terms_version() then
+    raise exception 'Update Studyboard to the latest version, then try again.';
+  end if;
+  if public.sbs_terms_ok(auth.uid()) then return; end if;
+  insert into public.share_terms_agreements (user_id, version) values (auth.uid(), p_version);
+end $$;
+
+-- The version of the sharing rules you last agreed to, or null
+create or replace function public.my_share_terms() returns text
+language sql stable security definer set search_path = public as $$
+  select version from public.share_terms_agreements where user_id = auth.uid() order by agreed_at desc limit 1
+$$;
+revoke all on function public.agree_share_terms(text), public.my_share_terms() from public, anon;
+grant execute on function public.agree_share_terms(text), public.my_share_terms() to authenticated;
+
+-- Shared notes, quizzes and whiteboards carry no pictures, files or copied text either (sbg_payload_problem, supabase-groups.sql)
+create or replace function public.sbs_item_no_copies() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare why text;
+begin
+  if tg_op = 'UPDATE' and new.data is not distinct from old.data then return new; end if;
+  why := public.sbg_payload_problem(new.data);
+  if why is not null then raise exception '%', why; end if;
+  return new;
+end $$;
+revoke all on function public.sbs_item_no_copies() from public, anon, authenticated;
+drop trigger if exists sbs_item_no_copies on public.shared_items;
+create trigger sbs_item_no_copies before insert or update on public.shared_items for each row execute function public.sbs_item_no_copies();
+
 -- Helpers
 create or replace function public.sbs_lookup_ok() returns boolean
 language plpgsql volatile security definer set search_path = public as $$
@@ -98,18 +152,24 @@ begin
   if to_regprocedure('public.sbu_age_ok(uuid)') is not null and public.sbu_age_ok(auth.uid()) = 'young' then
     raise exception 'SB_UNDER13: Sharing publicly is for students 13 and older.';
   end if;
+  if not public.sbs_terms_ok(auth.uid()) then
+    raise exception 'SB_TERMS_NEEDED: Confirm that you have the right to share this first. If Studyboard doesn''t ask, update it to the latest version.';
+  end if;
   if to_regclass('public.group_suspended') is not null and exists (select 1 from public.group_suspended where user_id = auth.uid()) then
     raise exception 'Your account can''t share publicly after a report was reviewed. The rest of Studyboard works as usual.';
   end if;
 end $$;
 revoke all on function public.sbs_may_share() from public, anon, authenticated;
 
--- Deck links (share_deck, in supabase-groups.sql) follow the same age rule
+-- Deck links (share_deck, in supabase-groups.sql) follow the same age rule and need the sharing rules agreed to
 create or replace function public.sbs_deck_link_age() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
   if to_regprocedure('public.sbu_age_ok(uuid)') is not null and public.sbu_age_ok(new.owner_id) = 'young' then
     raise exception 'SB_UNDER13: Sharing publicly is for students 13 and older.';
+  end if;
+  if not public.sbs_terms_ok(new.owner_id) then
+    raise exception 'SB_TERMS_NEEDED: Confirm that you have the right to share this first. If Studyboard doesn''t ask, update it to the latest version.';
   end if;
   return new;
 end $$;

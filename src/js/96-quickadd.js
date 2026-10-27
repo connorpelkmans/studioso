@@ -555,7 +555,7 @@ const QADD = (() => {
   hook("act", (act, el, id) => {
     const cid = el.dataset.c || "";
     switch (act) {
-      case "f-quick": openQuick(); return true;
+      case "f-quick": uploadOk(() => openQuick()); return true;
       case "obj-done": { const c = courseOf(cid); if (c) saveObjs(cid, objsOf(c).map(o => o.id === id ? Object.assign({}, o, {done: !!el.checked}) : o), ""); return true; }
       case "obj-more": OB.all[cid] = !OB.all[cid]; render(); return true;
       case "obj-edit": editSheet(cid); return true;

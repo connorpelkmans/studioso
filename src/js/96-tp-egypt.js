@@ -87,7 +87,7 @@
           ${[[44, 22, 10], [56, 22, 8], [70, 22, 11]].map(([x, y, h]) => `<path d="M${x} ${y}V${y - h}" stroke="#5E8E46" stroke-width="1.2"/>${umbel(x, y - h, 5, "#5E8E46")}`).join("")}
           <circle cx="36" cy="8" r="3" fill="#FFF0B8" opacity=".95"/></svg>`}
     ],
-    card: {id: "tp-egypt", name: "Golden Giza", desc: "Warm papyrus paper with the pyramids and a low sun in the corner and a felucca on the Nile below. Deep lapis night in dark mode."}
+    card: {id: "tp-egypt", name: "Golden Giza", desc: "Warm papyrus sky under a lotus frieze, with the Giza pyramids on golden dunes before a low sun, and palms, papyrus and a felucca on the Nile below. Deep lapis night in dark mode."}
   });
 })();
 /* end of module 96-tp-egypt.js */

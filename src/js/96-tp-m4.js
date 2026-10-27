@@ -224,7 +224,7 @@
           <g transform="translate(68 3.5)" fill="#fff" opacity=".95"><path d="M0 0h3v3H0zM6 0h3v3H6zM3 3h3v3H3zM9 3h3v3H9zM0 6h3v3H0zM6 6h3v3H6zM3 9h3v3H3zM9 9h3v3H9zM0 12h3v3H0zM6 12h3v3H6zM3 15h3v3H3zM9 15h3v3H9z"/></g>
           <path d="M5 23H81" stroke="#fff" stroke-width="1" opacity=".4"/></svg>`}
     ],
-    card: {id: "tp-track", name: "Lane Line", desc: "A warm track lane runs along the edge, with a checkered finish in the corner and a gold medal on the bend."}
+    card: {id: "tp-track", name: "Lane Line", desc: "Warm cream paper over a full-width running track with numbered lanes and a checkered finish line, under a red and blue stripe. Night stadium in dark mode."}
   });
 
   /* ================= INFINITE GRID ================= */
@@ -321,7 +321,7 @@
           <rect x="11.5" y="13" width="2.4" height="32" rx="1.2" fill="#fff" opacity=".45"/>
           <circle cx="11" cy="45" r="1.3" fill="#FFF3C2"/></svg>`}
     ],
-    card: {id: "tp-math", name: "Graph Paper", desc: "Soft lavender graph paper with a golden spiral curling in one corner and floating pastel shapes in the other."}
+    card: {id: "tp-math", name: "Graph Paper", desc: "Soft lavender graph paper with plotted axes framing the card and a golden spiral rising out of the bottom corner. Neon chalkboard in dark mode."}
   });
 
   /* ================= CHEM LAB ================= */
@@ -424,7 +424,7 @@
           <circle cx="12" cy="30" r="1.2" fill="#fff" opacity=".8"/><circle cx="10" cy="36" r=".9" fill="#fff" opacity=".8"/><circle cx="12.5" cy="20" r="1" fill="#F6A8CC"/>
           <path d="M8.2 14V40" stroke="#fff" stroke-width="1.2" stroke-linecap="round" opacity=".75"/></svg>`}
     ],
-    card: {id: "tp-chem", name: "Lab Notebook", desc: "A mint lab notebook page with a bubbling flask in the corner, a floating molecule and a tiny periodic tile."}
+    card: {id: "tp-chem", name: "Lab Notebook", desc: "A mint lab notebook page with a ruled margin, a periodic table strip across the top and a benzene chain along the bottom. Midnight lab in dark mode."}
   });
 })();
 

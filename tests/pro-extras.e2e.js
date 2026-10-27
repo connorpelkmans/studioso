@@ -17,7 +17,7 @@ const day = off => { const d = new Date(); d.setDate(d.getDate() + off); return 
 const at = off => { const d = new Date(); d.setDate(d.getDate() + off); d.setHours(12, 0, 0, 0); return d.getTime(); };
 const T = (id, title, course, due, extra) => Object.assign({id, title, courseId: course, type: "Assignment", due, start: due, status: "todo", priority: "med", created: 1000 + Number(id.replace(/\D/g, ""))}, extra || {});
 const done = (id, title, course, due, doneOff, mark, w) => T(id, title, course, due, {status: "done", doneAt: at(doneOff), weight: w || null, mark: mark == null ? undefined : {got: mark, outOf: 100}});
-// A one-page PDF with a drawing (12 separate strokes) and four short labels spread around it
+// A one-page lecture PDF with a labelled diagram (12 separate strokes and four short labels): it must never become picture cards
 function diagramPdf(){
   const lines = []; for (let i = 0; i < 12; i++) lines.push(`${200 + i * 10} 300 m ${260 + i * 10} 480 l S`);
   const label = (x, y, t) => `BT /F1 14 Tf ${x} ${y} Td (${t}) Tj ET`;
@@ -106,7 +106,7 @@ function SEED(){
     // Flashcards: deck stats, Smart scheduling, image cards
     await page.click('nav.tabs [data-tab="flashcards"]').catch(() => {}); await page.waitForTimeout(300);
     await act(page, "fc-open", "d1"); await page.waitForTimeout(300);
-    ok(await page.locator('[data-act="pro-dk-stats"]').count() === 1 && await page.locator('[data-act="pro-cf-open"]').count() === 1, "the deck page has Stats and Image Cards");
+    ok(await page.locator('[data-act="pro-dk-stats"]').count() === 1 && await page.locator('[data-act="pro-cf-open"]').count() === 1, "the deck page has Stats and Picture Cards");
     await act(page, "pro-dk-stats", "d1"); await page.waitForTimeout(400);
     ok(/remembered/.test(await page.locator(".pro-dk-body").textContent()) && await page.locator(".pro-dk-body .dk-heat span").count() === 84, "deck stats show what you remember and 12 weeks of reviews");
     await page.click('[data-act="pro-dk-sched"][data-id="smart"]'); await page.waitForTimeout(300);
@@ -119,9 +119,38 @@ function SEED(){
     const rated = await page.evaluate(() => { const st = JSON.parse(localStorage.getItem("coursework:v2")); const d = (Array.isArray(st.decks) ? st.decks : Object.values(st.decks)).find(x => x.id === "d1"); return d.cards.find(c => c.fs); });
     ok(rated && rated.fs.s > 0 && rated.fs.d >= 1 && rated.due > day(0), "a Smart rating gives the card its own stability and a later due date (" + (rated && rated.due) + ", button said " + goodLbl + ")");
     await page.click('[data-act="fc-exit"]').catch(() => {}); await page.waitForTimeout(200);
-    const found = await page.evaluate(async bytes => { const items = await window.SBPRO.scanPdf(new Uint8Array(bytes), "Lecture 7"); return items.map(x => ({n: x.boxes.length, t: x.boxes.map(b => b.t), w: x.w, h: x.h, ok: x.boxes.every(b => b.x >= 0 && b.y >= 0 && b.x + b.w <= 1.02 && b.y + b.h <= 1.02)})); }, diagramPdf());
-    ok(found.length === 1 && found[0].n === 4 && !found[0].t.includes("An animal cell") && found[0].t.includes("Mitochondria") && found[0].t.includes("Cell membrane") && found[0].ok, "the diagram page and its labels are found: " + JSON.stringify(found));
-    await page.evaluate(async bytes => { const items = await window.SBPRO.scanPdf(new Uint8Array(bytes), "Lecture 7"); items.forEach(x => { x.found = true; }); window.SBPRO.openImageEditor("d1", items); }, diagramPdf());
+    // Picture cards are made only from the student's own pictures: never from Files-tab files, PDFs or slides
+    ok(await page.evaluate(() => typeof window.SBPRO.scanPdf === "undefined"), "there's no way to scan a PDF for picture cards");
+    const imgCount = () => page.evaluate(() => { const st = JSON.parse(localStorage.getItem("coursework:v2")); const d = (Array.isArray(st.decks) ? st.decks : Object.values(st.decks)).find(x => x.id === "d1"); return d.cards.filter(c => c.img).length; });
+    // An old "Do this for new uploads" flag is ignored: a new PDF in the deck's course doesn't become cards
+    // (the file's bytes are served straight from memory, so the old auto-scan would have found the diagram)
+    const upl = await page.evaluate(bytes => {
+      const B = window.__sbBreakdown, st = B.state(), d = B.clone(st.decks.d1); d.autoFiles = true; B.applyChanges([{kind: "deck", id: d.id, after: d}], null);
+      window.__sbQadd.setAssetBytes(async () => new Uint8Array(bytes));
+      const f = {id: "fpdf", name: "Lecture 7.pdf", courseId: "c1", folderId: "other", kind: "file", revs: [{assetId: "apdf", size: bytes.length, type: "application/pdf", at: Date.now(), name: "Lecture 7.pdf"}], taskIds: [], created: Date.now()};
+      B.applyChanges([{kind: "file", id: f.id, after: f}], ""); return B.state().files.fpdf ? 1 : 0;
+    }, diagramPdf());
+    await page.waitForTimeout(5500);
+    ok(upl === 1 && await imgCount() === 0 && await page.locator('[data-act="pro-ic-drafts"]').count() === 0, "a new lecture PDF upload doesn't become picture cards, even with an old auto flag (" + upl + ")");
+    await act(page, "pro-cf-open", "d1"); await page.waitForTimeout(400);
+    const cfText = await page.textContent("#dlg");
+    ok(await page.locator("#dlg [data-cf-file]").count() === 0 && await page.locator('#dlg [data-act="pro-cf-scan"]').count() === 0 && await page.locator("#dlg [data-cf-auto]").count() === 0 && !/Find Diagrams|Lecture 7|new uploads/i.test(cfText), "Picture Cards lists no files, has no Find Diagrams and no auto cards for new uploads");
+    ok(/Picture Cards/.test(cfText) && /can't be made from slides, PDFs/.test(cfText) && /From My Own Picture/.test(cfText), "Picture Cards says they come only from your own pictures");
+    ok(await page.locator("#dlg [data-cf-pick]").isDisabled() && await page.locator("#dlg [data-cf-own]").count() === 1 && !(await page.locator("#dlg [data-cf-own]").isChecked()), "From My Own Picture stays off until you confirm the picture is your own");
+    const png = await page.evaluate(() => { const c = document.createElement("canvas"); c.width = 400; c.height = 300; const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, 400, 300); g.strokeStyle = "#123"; g.lineWidth = 6; g.beginPath(); g.arc(200, 150, 90, 0, 7); g.stroke(); g.fillStyle = "#123"; g.font = "20px sans-serif"; g.fillText("Nucleus", 20, 40); return c.toDataURL("image/png").split(",")[1]; });
+    await page.locator("#dlg [data-cf-pick]").setInputFiles({name: "My notes.png", mimeType: "image/png", buffer: Buffer.from(png, "base64")}).catch(() => {});
+    await page.waitForTimeout(500);
+    ok(await page.locator(".oc-stage").count() === 0, "a picture can't be picked before confirming");
+    await page.check("#dlg [data-cf-own]"); await page.waitForTimeout(150);
+    ok(!(await page.locator("#dlg [data-cf-pick]").isDisabled()), "ticking This is my own photo or drawing turns on From My Own Picture");
+    await page.locator("#dlg [data-cf-pick]").setInputFiles({name: "My notes.png", mimeType: "image/png", buffer: Buffer.from(png, "base64")});
+    await page.waitForTimeout(800);
+    ok(await page.locator(".oc-stage").count() === 1 && /Picture Cards/.test(await page.textContent("#dlg")), "your own picture opens in the Picture Cards editor");
+    await page.evaluate(async () => {
+      const c = document.createElement("canvas"); c.width = 400; c.height = 300; const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, 400, 300);
+      const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.9));
+      window.SBPRO.openImageEditor("d1", [{blob, w: 400, h: 300, found: true, src: "My notes", boxes: [{x: 0.05, y: 0.1, w: 0.2, h: 0.06, t: "Nucleus"}, {x: 0.7, y: 0.1, w: 0.2, h: 0.06, t: "Ribosome"}, {x: 0.05, y: 0.8, w: 0.25, h: 0.06, t: "Cell membrane"}, {x: 0.7, y: 0.8, w: 0.25, h: 0.06, t: "Mitochondria"}]}]);
+    });
     await page.waitForTimeout(500);
     ok(await page.locator(".oc-stage .oc-box").count() >= 4 && await page.locator(".oc-list input").count() >= 4, "the editor shows a box and an answer for each label");
     await page.locator('.oc-list [data-act="pro-oc-del"]').first().click(); await page.waitForTimeout(200);
@@ -189,7 +218,7 @@ function SEED(){
     const pd = p3.locator("#pomoDlg"); if (await pd.evaluate(d => d.open)) await pd.evaluate(d => d.close());
     await p3.click('nav.tabs [data-tab="flashcards"]').catch(() => {}); await p3.waitForTimeout(300);
     await act(p3, "fc-open", "d1"); await p3.waitForTimeout(300);
-    ok(await p3.locator('[data-act="pro-cf-open"]').count() === 0 && /^Scheduling$/.test(((await p3.locator('[data-act="pro-dk-stats"]').allTextContents())[0] || "").trim()), "free: the deck page has Scheduling (free) but no Stats or Image Cards (Pro)");
+    ok(await p3.locator('[data-act="pro-cf-open"]').count() === 0 && /^Scheduling$/.test(((await p3.locator('[data-act="pro-dk-stats"]').allTextContents())[0] || "").trim()), "free: the deck page has Scheduling (free) but no Stats or Picture Cards (Pro)");
     await act(p3, "pro-dk-stats", "d1"); await p3.waitForTimeout(300);
     ok(await p3.locator('.pro-dk-body [data-act="pro-dk-sched"][data-id="smart"][aria-pressed="true"]').count() === 1 && await p3.locator(".pro-dk-body .dk-heat").count() === 0, "free: Smart scheduling is on by default, and deck stats stay Pro");
     await p3.evaluate(() => document.querySelector('.pro-dk-body [data-act="pro-dk-sched"][data-id="classic"]').click()); await p3.waitForTimeout(300);
@@ -197,7 +226,7 @@ function SEED(){
     await p3.keyboard.press("Escape"); await p3.waitForTimeout(200);
     for (const t of ["courses", "timeline", "schedule"]) { await p3.evaluate(t => { const b = document.querySelector(`nav.tabs [data-tab="${t}"]`); if (b) b.click(); }, t); await p3.waitForTimeout(300); ok(await p3.locator(".pro-tab-btn").count() === 0, `free: no Pro buttons on ${t}`); }
     await act(p3, "pro-cf-open", "d1"); await p3.waitForTimeout(400);
-    ok(await p3.locator("#dlg .plan-sheet").count() === 1, "free: Image Cards opens the Pro sheet");
+    ok(await p3.locator("#dlg .plan-sheet").count() === 1, "free: Picture Cards opens the Pro sheet");
     ok(p3.errs.length === 0, "no console errors on the free plan: " + p3.errs.join(" | "));
     if (process.env.SHOTS) { }
     console.log("\npro-extras.e2e: " + n + " checks passed");

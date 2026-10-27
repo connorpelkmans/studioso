@@ -15,10 +15,11 @@
     if (["42P01", "42883", "42703", "PGRST202", "PGRST205", "PGRST204"].includes(code) || /does not exist|Could not find the (function|table)|schema cache/i.test(m))
       return Object.assign(new Error(srvSetup("Public links and the Course Library", "supabase-sharing.sql")), {setup: true});
     if (/JWT|not authenticated|Sign in first/i.test(m)) return new Error("Sign in to Studyboard first, then try again.");
+    if (/SB_TERMS_NEEDED/.test(m)) return Object.assign(new Error("Confirm that you have the right to share this first."), {terms: true});
     return new Error(m.replace(/^SB_[A-Z_]+:\s*/, "") || "Something went wrong. Try again.");
   }
   async function rpc(fn, args){
-    if (window.__sbShareStub) return window.__sbShareStub(fn, args || {});
+    if (window.__sbShareStub) return window.__sbShareStub(fn, args || {}).catch(e => { throw /SB_TERMS_NEEDED/.test(String((e && e.message) || "")) ? shErr(e) : e; });
     const g = G(), c = g && g.online() ? g.cli() : sb;
     if (c) { const {data, error} = await c.rpc(fn, args || {}); if (error) throw shErr(error); return data; }
     const cfg = sbConfig() || (SB_HOSTED ? SB_DEFAULT : null);
@@ -31,6 +32,32 @@
     return j;
   }
   const rows = x => Array.isArray(x) ? x : x ? [x] : [];
+
+  /* The record that you agreed to the sharing rules in the Terms (agree_share_terms in supabase-sharing.sql): sent once per
+     version of the terms, only after you tick "I made this myself" on a share. The server refuses new links and publishing without it. */
+  const TERMS_V = "2026-10-27";   // keep in step with sbs_terms_version() in supabase-sharing.sql
+  const uid = () => (((window.__sbGroupsStub && window.__sbGroupsStub.user) || sbUser || {}).id) || "";
+  const TKEY = () => "studyboard:shareterms:" + uid();
+  const agreedHere = () => { try { return !!uid() && localStorage.getItem(TKEY()) === TERMS_V; } catch (e) { return false; } };
+  const keepAgreed = on => { try { if (!uid()) return; if (on) localStorage.setItem(TKEY(), TERMS_V); else localStorage.removeItem(TKEY()); } catch (e) {} };
+  async function recordAgree(){
+    if (agreedHere()) return;
+    try { await rpc("agree_share_terms", {p_version: TERMS_V}); keepAgreed(true); }
+    catch (e) { if (!e.setup && !/Could not find the function/.test(String(e.message || ""))) throw e; }   // a server without the record yet
+  }
+  // The box on the open sheet was ticked
+  const ticked = () => !!($("#shRights") || {}).checked;
+  // Runs a share, sending the record first when the box was ticked. If the server has no record after all (this device remembered
+  // wrongly), it is sent again and the share retried once. Without a tick the server's refusal comes back (e.terms) for reconfirm().
+  async function agreedThen(fn, tick){
+    if (tick) await recordAgree();
+    try { return await fn(); }
+    catch (e) { if (!e.terms || !tick) throw e; keepAgreed(false); await recordAgree(); return fn(); }
+  }
+  // Something shared before the record existed: confirm once, then try again
+  const reconfirm = () => confirmRights(async () => {
+    try { keepAgreed(false); await recordAgree(); if (dlg.open) dlg.close(); toast("Thanks. Now try that again."); } catch (e) { toast(e.message); }
+  });
 
   /* Sheets */
   const msgSheet = (title, msg) => openSheet(`<div class="sheet">${head(title)}<div class="sheet-body"><p style="margin:0">${esc(msg)}</p></div>
@@ -146,7 +173,7 @@
   }
 
   /* Reporting */
-  const REASONS = [["spam", "Spam or ads"], ["cheating", "Answers to a graded test or assignment"], ["harassment", "Bullying or harassment"], ["hate", "Hate"], ["sexual", "Sexual content"], ["privacy", "Someone's private information"], ["threat", "Threats or violence"], ["other", "Something else"]];
+  const REASONS = [["spam", "Spam or ads"], ["cheating", "Answers to a graded test or assignment"], ["harassment", "Bullying or harassment"], ["hate", "Hate"], ["sexual", "Sexual content"], ["privacy", "Someone's private information"], ["copyright", "Copied from course slides, a textbook or someone else's work"], ["threat", "Threats or violence"], ["other", "Something else"]];
   function reportSheet(code){
     if (!signedIn()) { toast("Sign in to report this. Thank you for keeping Studyboard safe."); return; }
     openSheet(`<form class="sheet">${head("Report This")}<div class="sheet-body">
@@ -154,7 +181,7 @@
       <label class="f">More Details <span class="hint">optional</span><textarea name="details" rows="2" maxlength="500"></textarea></label>
       <p class="mini" style="margin:0">We review reports and remove what breaks the rules. The person isn't told who reported it.</p></div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="submit" class="btn primary" data-submit>Send Report</button></div></form>`, fd => {
-      rpc("report_share", {p_code: code, p_reason: String(fd.get("reason") || "other"), p_details: String(fd.get("details") || "")})
+      rpc("report_share", (r => ({p_code: code, p_reason: r === "copyright" ? "other" : r, p_details: ((r === "copyright" ? "[copyright] " : "") + String(fd.get("details") || "")).slice(0, 500)}))(String(fd.get("reason") || "other")))
         .then(() => toast("Thanks. We'll review it soon.")).catch(e => toast(e.message));
     });
   }
@@ -200,7 +227,7 @@
     src = srcOf(kind, ref); if (!src) { dlg.close(); return; }
     if (!row) {
       openSheet(`<div class="sheet">${head(title)}<div class="sheet-body">
-        <p style="margin:0">Make a link for this ${what}. Anyone with the link can ${kind === "note" ? "read it" : kind === "board" ? "see it" : "take it"} in a browser, no account needed, and save their own copy.${kind === "board" ? " It's a copy: your changes after this show up for them when you update the link." : ""}${kind === "note" ? " Only the text is shared, not photos or stickers." : " They get the questions, not your scores."}</p>
+        <p style="margin:0">Make a link for this ${what}. Anyone with the link can ${kind === "note" ? "read it" : kind === "board" ? "see it" : "take it"} in a browser, no account needed, and save their own copy.${kind === "board" ? " It's a copy: your changes after this show up for them when you update the link. Only your drawing and text are shared, not pictures on the board." : ""}${kind === "note" ? " Only the text is shared, not photos or stickers." : " They get the questions, not your scores."}</p>
         <p class="mini" style="margin:0">They'll see your name as <b>${esc(g.myName())}</b>. You can update it or stop sharing any time.</p></div>
         <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="shMake">Create Link</button></div></div>`);
       $("#shMake").addEventListener("click", e => make(kind, ref, e.currentTarget));
@@ -226,16 +253,25 @@
       catch (e) { toast(e.message); }
     });
   }
-  async function make(kind, ref, btn){
+  // Nothing is shared until the person confirms it's their own work, not copied course material
+  function confirmRights(then){
+    const g = G();
+    openSheet(`<form class="sheet">${head("Before You Share")}<div class="sheet-body">
+      <p style="margin:0">Only share what you made yourself or what AI wrote for you in its own words. Slides, handouts, textbook pages, pictures from them and your instructor's test questions belong to someone else.</p>
+      ${g.rightsBox()}</div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Continue</button></div></form>`, () => { if (!g.rightsOk()) return false; then(); return false; });
+  }
+  async function make(kind, ref, btn, ok){
     const g = G(), src = srcOf(kind, ref); if (!src) return;
-    g.busyBtn(btn, true);
+    if (!ok) { confirmRights(() => make(kind, ref, null, true)); return; }
+    if (btn) g.busyBtn(btn, true); else g.loadingSheet("Sharing…");
     try {
-      const code = String(await rpc("share_item", {p_kind: kind, p_ref: ref, p_title: src.title, p_data: src.data}));
+      const code = String(await agreedThen(() => rpc("share_item", {p_kind: kind, p_ref: ref, p_title: src.title, p_data: src.data}), true));
       const had = src.cur();
       src.mark({code, h: src.h, at: Date.now()});
       toast(had && had.code === code ? "Shared copy updated" : `Link ready. Code ${code}`);
       itemSheet(kind, ref);
-    } catch (e) { g.busyBtn(btn, false); toast(e.message); }
+    } catch (e) { if (btn) g.busyBtn(btn, false); else if (dlg.open) dlg.close(); toast(e.message); }
   }
 
   /* Your school */
@@ -359,9 +395,9 @@
     const g = G(), d = state.decks[id]; if (!g || !d) return;
     if (notMine(d) && !(d.published && d.published.code)) { msgSheet("Not Your Deck", notMineText(d, true)); return; }
     if (!signedIn()) { signInSheet("Publish Deck", "Sign in to publish your deck. A free account is all it takes."); return; }
-    const n = d.cards.filter(c => !c.draft && String(c.front || "").trim() && String(c.back || "").trim()).length;
+    const n = d.cards.filter(c => !c.draft && !c.img && !c.copied && String(c.front || "").trim() && String(c.back || "").trim()).length;
     if (d.published && d.published.code) { managePub(id); return; }
-    if (n < 4) { toast("A deck needs at least 4 cards to be published."); return; }
+    if (n < 4) { toast(d.cards.some(c => c.img || c.copied) ? "A deck needs at least 4 cards to be published, not counting picture cards or copied cards, which are never shared." : "A deck needs at least 4 cards to be published."); return; }
     g.rememberWebUrl();
     g.ensureName(() => withUsername(() => ensureSchool(sc => confirmPub(id, sc))));
   }
@@ -413,7 +449,7 @@
     $("#pubLookGo").addEventListener("click", e => { const nd = clone(state.decks[id]); nd.pubLook = get(); saveDeck(nd, null); doPublish(id, e.currentTarget); });
   }
   function confirmPub(id, sc){
-    const d = state.decks[id], c = courseOf(d.courseId), n = d.cards.filter(x => !x.draft).length, L = lookOf(d);
+    const d = state.decks[id], c = courseOf(d.courseId), n = d.cards.filter(x => !x.draft && !x.img && !x.copied).length, L = lookOf(d);
     openSheet(`<div class="sheet">${head("Publish " + d.name)}<div class="sheet-body">
       <p style="margin:0">Publishing gives this deck its own page in Studyboard Flashcards. Anyone can find it by searching, on Google too, and add a copy.</p>
       <ul class="pub-sum"><li><span class="mini">Shows</span><b>${esc(plural(n, "card"))}</b></li><li><span class="mini">Course</span><b>${esc(c ? courseLabel(c) : "None")}</b></li>
@@ -421,19 +457,19 @@
       ${c ? "" : `<p class="mini" style="margin:0">Tip: put the deck in a course with a course code, so students searching that course find it.</p>`}
       <h3 class="fsec" style="margin:6px 0 0">On the Page</h3>
       <div class="pub-look-prev">${lookTile(d, L)}</div>${lookFields(L)}
-      <p class="mini" style="margin:0">Your study progress is never shared. You can update or unpublish it any time.</p></div>
+      <p class="mini" style="margin:0">Your study progress is never shared. You can update or unpublish it any time.</p>${G().picNote(d)}${G().rightsBox()}</div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="pubGo">Publish</button></div></div>`);
     const get = wireLook(dlg, L);
     $("#pubSch").addEventListener("click", () => schoolSheet(() => { const s2 = (state.settings || {}).school; if (s2 && s2.v) confirmPub(id, s2); }));
-    $("#pubGo").addEventListener("click", e => { const nd = clone(state.decks[id]); nd.pubLook = get(); saveDeck(nd, null); doPublish(id, e.currentTarget); });
+    $("#pubGo").addEventListener("click", e => { if (!G().rightsOk()) return; const nd = clone(state.decks[id]); nd.pubLook = get(); saveDeck(nd, null); doPublish(id, e.currentTarget); });
   }
   // Shares the deck (or updates the shared copy), then publishes it
   async function doPublish(id, btn){
-    const g = G(); let d = state.decks[id]; if (!d) return;
+    const g = G(), tick = ticked(); let d = state.decks[id]; if (!d) return;
     g.busyBtn(btn, true);
     try {
       const p = g.deckPayload(d, false);
-      const code = String(await rpc("share_deck", {p_deck_id: d.id, p_name: String(d.name || "Deck").slice(0, 200), p_data: p, p_count: p.cards.length}));
+      const code = String(await agreedThen(() => rpc("share_deck", {p_deck_id: d.id, p_name: String(d.name || "Deck").slice(0, 200), p_data: p, p_count: p.cards.length}), tick));
       await rpc("share_publish", {p_code: code, p_on: true});
       pubRefresh("deck", d.name, code, deckCourse(d));
       d = state.decks[id]; const nd = clone(d);
@@ -443,6 +479,7 @@
       managePub(id, true);
     } catch (e) {
       g.busyBtn(btn, false);
+      if (e.terms) { reconfirm(); return; }
       if (/SB_AGE_NEEDED|SB_UNDER13/.test(String(e.message))) { try { localStorage.removeItem("studyboard:age:" + (sbUser || {}).id); } catch (er) {} if (window.SBUNAME) SBUNAME.ensureAge(() => confirmPub(id, (state.settings || {}).school)); return; }
       if (/SB_USERNAME_NEEDED/.test(String(e.message))) { try { localStorage.removeItem("studyboard:uname:" + (sbUser || {}).id); } catch (er) {} withUsername(() => confirmPub(id, (state.settings || {}).school)); return; }
       if (/SB_SCHOOL/.test(String(e.message)) || /Pick your school/.test(e.message)) { ensureSchool(sc => confirmPub(id, sc)); return; }
@@ -456,12 +493,12 @@
     openSheet(`<div class="sheet">${head(fresh ? "Published" : "Published Deck")}<div class="sheet-body">
       ${fresh ? `<p style="margin:0"><b>${esc(d.name)}</b> is live in Studyboard Flashcards. It can take a few days to show up on Google.</p>` : `<p style="margin:0">Anyone can find <b>${esc(d.name)}</b> in Studyboard Flashcards${d.published.school ? ` under ${esc(d.published.school)}` : ""}.</p>`}
       <div class="grp-link"><input type="text" readonly value="${esc(url)}" aria-label="Public page" id="pubUrl2"><button type="button" class="btn small" id="pubCopy">Copy Link</button></div>
-      ${changed ? `<div class="grp-note">You've changed this deck since it was published. Update the page so it shows the latest cards.</div>` : ""}
+      ${changed ? `<div class="grp-note">You've changed this deck since it was published. Update the page so it shows the latest cards.</div>${G().picNote(d)}${G().rightsBox()}` : ""}
       <div class="pub-acts"><button type="button" class="btn small" id="pubLook">Change Color and Icon</button><button type="button" class="btn small danger" id="pubOff">Unpublish</button></div></div>
       <div class="sheet-foot"><span class="spacer"></span>${changed ? `<button type="button" class="btn primary" id="pubUpd">Update Page</button>` : ""}<button type="button" class="btn${changed ? "" : " primary"}" id="pubOpen">View Page</button></div></div>`);
     $("#pubCopy").addEventListener("click", () => G().copyText(url, "Link copied"));
     $("#pubOpen").addEventListener("click", () => openOut(url));
-    const up = $("#pubUpd"); if (up) up.addEventListener("click", e => doPublish(id, e.currentTarget));
+    const up = $("#pubUpd"); if (up) up.addEventListener("click", e => { if (G().rightsOk()) doPublish(id, e.currentTarget); });
     $("#pubLook").addEventListener("click", () => lookSheet(id));
     $("#pubOff").addEventListener("click", async () => {
       if (!(await askBox({title: "Unpublish?", text: "Its public page is taken down. People who added a copy keep it, and your share link keeps working.", yes: "Unpublish", danger: true}))) return;
@@ -592,7 +629,7 @@
         pubRefresh(kind, name, code, dd ? deckCourse(dd) : "");
         toast(want ? `Published. It can take a few days to show up on Google.` : "Unpublished. Its public page is gone."); fillPubRow(kind, code, name);
       }
-      catch (err) { box.checked = !want; box.disabled = false; if (/SB_SCHOOL/.test(String(err.message))) ensureSchool(() => {}); else toast(String(err.message).replace(/^SB_[A-Z]+:\s*/, "")); }
+      catch (err) { box.checked = !want; box.disabled = false; if (err.terms) reconfirm(); else if (/SB_SCHOOL/.test(String(err.message))) ensureSchool(() => {}); else toast(String(err.message).replace(/^SB_[A-Z]+:\s*/, "")); }
     });
   }
   const EXPLORE_IC = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>';
@@ -618,7 +655,7 @@
       try {
         await rpc("library_list", {p_code: code, p_listed: on, p_course_key: k, p_course_label: courseLabel(c), p_school_key: s2 ? s2.key : "", p_school_name: s2 ? s2.name : ""});
         COUNTS.at = 0; toast(on ? `Listed in the ${c.code || k} Course Library` : "Taken out of the Course Library");
-      } catch (err) { box.checked = !on; toast(err.message); }
+      } catch (err) { box.checked = !on; if (err.terms) reconfirm(); else toast(err.message); }
       box.disabled = false;
     });
   }
@@ -687,6 +724,6 @@
 `;
   document.head.appendChild(css);
 
-  window.SBSHARE = {can, open, shareRef, libRow, libBtn, exploreBtn, pubRow, pubUrl, courseHtml, libSheet, schoolOf, hostKey, schoolSheet, publishDeck, T: {rpc, COUNTS}};
+  window.SBSHARE = {can, open, shareRef, agreedThen, reconfirm, libRow, libBtn, exploreBtn, pubRow, pubUrl, courseHtml, libSheet, schoolOf, hostKey, schoolSheet, publishDeck, T: {rpc, COUNTS}};
 })();
 
