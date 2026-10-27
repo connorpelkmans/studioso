@@ -99,6 +99,7 @@ const typeAdd = async (p, text) => { await p.fill("#qaIn", text); await p.click(
       await view(p, {tab: "board", bview: "board"});
       await p.click('.card[data-id="t6"]');
       ok(await p.evaluate(() => document.querySelector("#dlg").open), "12: a board card opens right away on one click");
+      await p.click("#dlg #tvEdit"); await p.waitForSelector('#dlg select[name="repeat"]');
       await p.selectOption('#dlg select[name="repeat"]', "14"); await p.fill('#dlg input[name="until"]', "2026-11-21"); await p.dispatchEvent('#dlg input[name="until"]', "input");
       await p.click('#dlg [data-submit]'); await wait(300);
       const reads = (await stored(p)).filter(t => t.title === "Read ch 5").map(t => t.due).sort();
@@ -119,7 +120,7 @@ const typeAdd = async (p, text) => { await p.fill("#qaIn", text); await p.click(
       await p.fill("#qaIn", "");
       // 11: the toast waits while you point at it
       await p.clock.runFor(10000);
-      await p.click('.card[data-id="t5"]'); await p.waitForSelector("#dlg[open] form"); await p.click('#dlg [data-act="delete-task"]'); await wait(200);
+      await p.click('.card[data-id="t5"]'); await p.click("#dlg #tvEdit"); await p.waitForSelector("#dlg[open] form"); await p.click('#dlg [data-act="delete-task"]'); await wait(200);
       const shown = () => p.evaluate(() => document.querySelector("#toast").classList.contains("show") && /^Deleted/.test(document.querySelector("#toastMsg").textContent));
       await p.clock.runFor(1000); await p.hover("#toast"); await p.clock.runFor(12000);
       ok(await shown(), "11: the Undo toast stays while the pointer is on it");

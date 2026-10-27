@@ -168,7 +168,7 @@
           ${[[9, "#E3735F"], [21, "#EDB64C"], [33, "#4FA7A8"], [45, "#F29E8E"], [57, "#E3735F"], [69, "#EDB64C"]].map(([x, c], i) => { const y = 6 + 5 * Math.sin((x - 5) / 76 * Math.PI) * .8; return `<path d="M${x} ${y.toFixed(1)}h9l-4.5 ${10}z" fill="${c}" opacity=".95"/>`; }).join("")}
           <path d="M5 23H81" stroke="#fff" stroke-width="1" opacity=".45"/></svg>`}
     ],
-    card: {id: "tp-balloons", name: "Morning Drift", desc: "A soft sunrise sky with hot-air balloons drifting in the corner over rolling green hills."}
+    card: {id: "tp-balloons", name: "Morning Drift", desc: "A soft sunrise sky with clouds along the top and hot-air balloons rising over rolling green hills."}
   });
 
   /* ================= KOI POND ================= */
@@ -262,7 +262,7 @@
           <g transform="translate(62 12) rotate(170)"><path d="M-8 0C-8-3-3-4 2-2L7-5L6 0L7 5L2 2C-3 4-8 3-8 0z" fill="#FFF6EA"/><path d="M-3-2c2-1 4 0 4 2-2 .6-4 0-4-2z" fill="#E0533A"/></g>
           <path d="M5 23H81" stroke="#fff" stroke-width="1" opacity=".4"/></svg>`}
     ],
-    card: {id: "tp-koi", name: "Lily Pond", desc: "Pale jade water with soft ripples, a lotus on a lily pad and a koi gliding past the corner."}
+    card: {id: "tp-koi", name: "Lily Pond", desc: "Pale jade water with soft ripple rings, lily pads and a lotus drifting in from the edges and a koi gliding past."}
   });
 
   /* ================= RAINY WINDOW ================= */
@@ -437,7 +437,7 @@
           <path d="M8 26L11 19L14 26zM50 26L53 18L56 26zM78 26L81 20L84 26z" fill="#2F7A5A"/></g>
           <path d="M3 2L0 13L3 24M83 2L86 13L83 24" fill="none" stroke="#fff" stroke-width="0"/></svg>`}
     ],
-    card: {id: "tp-alpine", name: "Trail Postcard", desc: "A cream mountain postcard with a lake stamp, a postmark and snowy peaks mirrored along the bottom corner."}
+    card: {id: "tp-alpine", name: "Trail Postcard", desc: "A cream postcard with an airmail border, a postmark and snowy peaks mirrored in a lake across the bottom."}
   });
 })();
 

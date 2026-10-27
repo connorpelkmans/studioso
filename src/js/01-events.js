@@ -2,6 +2,14 @@
 /* Events */
 const proBtns = where => { try { return window.SBPRO && SBPRO.tabBtns ? SBPRO.tabBtns(where) : ""; } catch (e) { return ""; } };
 let suppressClick = false;
+function toggleTask(id, el){
+  const t = state.tasks[id]; if (!t) return;
+  const n = clone(t);
+  if (t.status === "done") { n.status = "todo"; n.doneAt = null; if (!MILESTONE(t.type) && n.pct >= 100) n.pct = 0; } else { n.status = "done"; n.doneAt = Date.now(); if (!MILESTONE(t.type)) n.pct = 100; }
+  n.order = nextOrder(n.status);
+  if (n.status === "done") { celebrate("check"); popDone(el); if (ui.nextShown === id) { nufbAdd("accept", t); ui.nextShown = null; } }
+  applyChanges([{kind:"task", id, after:n}], n.status === "done" ? `Completed ${t.title}` : `Moved ${t.title} back to To Do`, undefined, n.status === "done" ? {done: true} : undefined);
+}
 document.addEventListener("click", e => {
   if (suppressClick) { suppressClick = false; e.preventDefault(); e.stopPropagation(); return; }
   const tab = e.target.closest("[data-tab]");
@@ -68,16 +76,8 @@ document.addEventListener("click", e => {
       taskForm(null, {courseId: el.dataset.course || (ui.tab === "courses" && ui.courseId) || undefined,
         due: el.dataset.due || (ui.tab === "timeline" && ui.tlMode === "calendar" ? ui.calDay : ""), status: el.dataset.status});
       break;
-    case "edit-task": { const t = state.tasks[id]; if (t) taskForm(t); break; }
-    case "toggle": {
-      const t = state.tasks[id]; if (!t) break;
-      const n = clone(t);
-      if (t.status === "done") { n.status = "todo"; n.doneAt = null; if (!MILESTONE(t.type) && n.pct >= 100) n.pct = 0; } else { n.status = "done"; n.doneAt = Date.now(); if (!MILESTONE(t.type)) n.pct = 100; }
-      n.order = nextOrder(n.status);
-      if (n.status === "done") { celebrate("check"); popDone(el); if (ui.nextShown === id) { nufbAdd("accept", t); ui.nextShown = null; } }
-      applyChanges([{kind:"task", id, after:n}], n.status === "done" ? `Completed ${t.title}` : `Moved ${t.title} back to To Do`, undefined, n.status === "done" ? {done: true} : undefined);
-      break;
-    }
+    case "edit-task": { const t = state.tasks[id]; if (t) (el.dataset.edit ? taskForm : taskView)(t); break; }
+    case "toggle": toggleTask(id, el); break;
     case "delete-task": deleteTask(id); break;
     case "archive-open": ui.tab = "archive"; dlg.open && dlg.close(); render(); window.scrollTo(0, 0); break;
     case "archive-back": ui.tab = "board"; render(); window.scrollTo(0, 0); break;

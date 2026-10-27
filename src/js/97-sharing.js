@@ -146,7 +146,7 @@
   }
 
   /* Reporting */
-  const REASONS = [["spam", "Spam or ads"], ["cheating", "Answers to a graded test or assignment"], ["harassment", "Bullying or harassment"], ["hate", "Hate"], ["sexual", "Sexual content"], ["privacy", "Someone's private information"], ["threat", "Threats or violence"], ["other", "Something else"]];
+  const REASONS = [["spam", "Spam or ads"], ["cheating", "Answers to a graded test or assignment"], ["harassment", "Bullying or harassment"], ["hate", "Hate"], ["sexual", "Sexual content"], ["privacy", "Someone's private information"], ["copyright", "Copied from course slides, a textbook or someone else's work"], ["threat", "Threats or violence"], ["other", "Something else"]];
   function reportSheet(code){
     if (!signedIn()) { toast("Sign in to report this. Thank you for keeping Studyboard safe."); return; }
     openSheet(`<form class="sheet">${head("Report This")}<div class="sheet-body">
@@ -154,7 +154,7 @@
       <label class="f">More Details <span class="hint">optional</span><textarea name="details" rows="2" maxlength="500"></textarea></label>
       <p class="mini" style="margin:0">We review reports and remove what breaks the rules. The person isn't told who reported it.</p></div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="submit" class="btn primary" data-submit>Send Report</button></div></form>`, fd => {
-      rpc("report_share", {p_code: code, p_reason: String(fd.get("reason") || "other"), p_details: String(fd.get("details") || "")})
+      rpc("report_share", (r => ({p_code: code, p_reason: r === "copyright" ? "other" : r, p_details: ((r === "copyright" ? "[copyright] " : "") + String(fd.get("details") || "")).slice(0, 500)}))(String(fd.get("reason") || "other")))
         .then(() => toast("Thanks. We'll review it soon.")).catch(e => toast(e.message));
     });
   }

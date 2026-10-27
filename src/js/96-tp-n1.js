@@ -96,7 +96,7 @@
           ${[[23, 8], [41, 18], [59, 8], [77, 17], [8, 9]].map(([x, y]) => `<path d="M${x - 2.4} ${y}H${x + 2.4}M${x} ${y - 2.4}V${y + 2.4}M${x - 1.7} ${y - 1.7}L${x + 1.7} ${y + 1.7}M${x - 1.7} ${y + 1.7}L${x + 1.7} ${y - 1.7}" stroke="#CFE0FF" stroke-width=".8" stroke-linecap="round"/>`).join("")}
           <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".3"/></svg>`}
     ],
-    card: {id: "tp-onsen", name: "Yuzu Steam", desc: "Misty snow-blue paper with a steaming yuzu bath in the corner and a stone lantern below. Warm lantern-lit indigo in dark mode."}
+    card: {id: "tp-onsen", name: "Yuzu Steam", desc: "Misty snow-blue paper under a snowy eave, with a full-width hot spring of floating yuzu between snow-capped rocks and a stone lantern. Warm lantern-lit indigo in dark mode."}
   });
 
   /* ================= RAINFOREST CANOPY ================= */
@@ -174,7 +174,7 @@
           ${[[39, 20], [76, 6], [14, 20]].map(([x, y]) => `<path d="M${x} ${y}l-2.6 -2.2q-1 2.4 2.6 2.2l2.6 -2.2q1 2.4 -2.6 2.2z" fill="#7FC8FF"/>`).join("")}
           <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".3"/></svg>`}
     ],
-    card: {id: "tp-rainforest", name: "Canopy Leaf", desc: "Fresh leaf-green paper framed by a monstera and a hanging vine, with a little blue frog. Misty jungle teal in dark mode."}
+    card: {id: "tp-rainforest", name: "Canopy Leaf", desc: "Fresh leaf-green paper under a hanging canopy fringe with trailing vines, and big monstera leaves and a little blue frog along the bottom. Misty jungle teal in dark mode."}
   });
 
   /* ================= TIDE POOLS ================= */
@@ -243,7 +243,7 @@
           <circle cx="34" cy="7" r="1.4" fill="none" stroke="#fff" stroke-width=".7"/><circle cx="79" cy="19" r="1.4" fill="none" stroke="#fff" stroke-width=".7"/>
           <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".3"/></svg>`}
     ],
-    card: {id: "tp-tidepool", name: "Rock Pool", desc: "Clear sea-glass paper with an anemone pool in the corner and a sea star and shell below. Moonlit deep blue in dark mode."}
+    card: {id: "tp-tidepool", name: "Rock Pool", desc: "Clear sea-glass water with soft rippling light, framed by a pebble rock-pool rim with a shell, anemones, a sea star and swaying kelp. Moonlit deep blue in dark mode."}
   });
 
   /* ================= VOLCANO ISLAND ================= */
@@ -308,7 +308,7 @@
           ${[[14, 20], [36, 6], [56, 20], [76, 6]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.4" fill="#FFC24A"/>`).join("")}
           <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".2"/></svg>`}
     ],
-    card: {id: "tp-volcano", name: "Island Postcard", desc: "Sunny peach postcard paper with a little volcano in the corner and a hibiscus below. Lava-glow plum in dark mode."}
+    card: {id: "tp-volcano", name: "Island Postcard", desc: "A sunny peach postcard in a red-and-teal airmail border, with a little volcano island, palms and a hibiscus along a full-width turquoise sea. Lava-glow plum in dark mode."}
   });
 
   /* ================= SAVANNA SUNSET ================= */
@@ -391,7 +391,7 @@
           ${[[24, 12], [36, 11], [48, 12]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx="4" ry="2" fill="#6A4A2A"/><path d="M${x - 3} ${y + 1}v3M${x + 2.6} ${y + 1}v3M${x + 3.4} ${y - 1}l2 -2.4" stroke="#6A4A2A" stroke-width="1"/>`).join("")}
           <circle cx="72" cy="9" r="4" fill="#FFF0C0"/><path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".3"/></svg>`}
     ],
-    card: {id: "tp-savanna", name: "Golden Hour", desc: "Warm golden paper with an acacia against a huge low sun in the corner and tall grass below. Dusky violet with a rising moon in dark mode."}
+    card: {id: "tp-savanna", name: "Golden Hour", desc: "Warm golden-hour paper with an edge-to-edge savanna horizon: an acacia, giraffes against a low sun and tall grass. Dusky violet with a rising moon in dark mode."}
   });
 })();
 /* end of module 96-tp-n1.js */

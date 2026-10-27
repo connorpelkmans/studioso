@@ -18,7 +18,7 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     {id: "m3", title: "History paper: polish", courseId: "c2", type: "Assignment", due: plus(11), hours: 2, breakdownOf: "pp", step: "3/3", bdKind: "polish", bdDue: plus(11), bdHours: 2, status: "todo", start: plus(9)}],
   decks: [{id: "d1", name: "Cardiac Drugs", courseId: "c1", created: 1, cards: [{id: "k1", front: "Beta blocker", back: "Metoprolol", box: 0, due: "", seen: 0, right: 0, wrong: 0}]}],
   notes: [], files: [], events: [], settings: {capacity: 15, dailyHours: 3}, updated: 1};
-const act = (page, a, id) => page.evaluate(([a, i]) => { const b = document.createElement("button"); b.dataset.act = a; if (i) b.dataset.id = i; b.style.display = "none"; document.body.appendChild(b); b.click(); b.remove(); }, [a, id]);
+const act = (page, a, id, x) => page.evaluate(([a, i, x]) => { const b = document.createElement("button"); b.dataset.act = a; if (i) b.dataset.id = i; x && Object.entries(x).forEach(([k, v]) => { b.dataset[k] = v; }); b.style.display = "none"; document.body.appendChild(b); b.click(); b.remove(); }, [a, id, x]);
 const store = page => page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")));
 const vis = (page, sel) => page.evaluate(s => { const e = document.querySelector(s); return !!e && !!(e.offsetWidth || e.offsetHeight); }, sel);
 (async () => {
@@ -31,7 +31,7 @@ const vis = (page, sel) => page.evaluate(s => { const e = document.querySelector
       await ctx.addInitScript(seed => { try { if (!sessionStorage.getItem("seeded")) { sessionStorage.setItem("seeded", "1"); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("coursework:v2", JSON.stringify(seed)); } } catch (e) {} }, SEED);
       const page = await ctx.newPage(); const errs = []; page.on("pageerror", e => errs.push(e.message));
       await page.goto(FILE); await page.waitForTimeout(1500);
-      await act(page, "edit-task", "ex1"); await page.waitForTimeout(400);
+      await act(page, "edit-task", "ex1", {edit: "1"}); await page.waitForTimeout(400);
       const sheet = await page.evaluate(() => document.querySelector("#dlg").innerText);
       ok(/Where is this taken\?/i.test(sheet) || await vis(page, "input[name=remote]"), "the exam edit sheet has the Where is this taken? control");
       ok(await vis(page, ".pp-form") && /Plan My Prep/.test(await page.evaluate(() => document.querySelector(".pp-form").innerText)), "and the prep block, in the same sheet");

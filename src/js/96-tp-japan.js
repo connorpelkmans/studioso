@@ -65,7 +65,7 @@
           ${[0, 1, 2, 3, 4, 5, 6].map(i => [0, 1].map(j => { const x = 8 + i * 12 + j * 6, y = 10 + j * 8; return `<path d="M${x - 6} ${y}A6 6 0 0 1 ${x + 6} ${y}M${x - 4} ${y}A4 4 0 0 1 ${x + 4} ${y}M${x - 2} ${y}A2 2 0 0 1 ${x + 2} ${y}" fill="none" stroke="#9AB8E8" stroke-width=".8" opacity=".75"/>`; }).join("")).join("")}
           ${[[18, 8], [46, 16], [70, 9]].map(([x, y]) => sakura(x, y, 4, "#FFC2D4", .6)).join("")}</svg>`}
     ],
-    card: {id: "tp-japan", name: "Sakura Fuji", desc: "Soft washi paper with Mount Fuji and a cherry branch in the corner and a red bridge over the water below. Night indigo in dark mode."}
+    card: {id: "tp-japan", name: "Sakura Fuji", desc: "Soft washi paper with a cherry branch reaching in from the top edge and Mount Fuji rising over a seigaiha wave band. Night indigo in dark mode."}
   });
 })();
 /* end of module 96-tp-japan.js */

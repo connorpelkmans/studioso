@@ -75,7 +75,7 @@
           ${Array.from({length: 13}, (_, i) => `<rect x="${7 + i * 5.8}" y="3.4" width="3" height="2.6" rx=".6" fill="#F6F2EA"/><rect x="${7 + i * 5.8}" y="20" width="3" height="2.6" rx=".6" fill="#F6F2EA"/>`).join("")}
           ${[0, 1, 2, 3].map(i => `<rect x="${9 + i * 18.6}" y="8" width="15" height="10" rx="1.4" fill="${["#FFD86B", "#FF8FA8", "#8FD8F2", "#B8E08A"][i]}" opacity=".9"/>`).join("")}</svg>`}
     ],
-    card: {id: "tp-film", name: "Ticket Stub", desc: "A cream ticket with a perforated edge, a clapperboard in the corner and a strip of film along the bottom. Velvet red and gold in dark mode."}
+    card: {id: "tp-film", name: "Ticket Stub", desc: "A cinema ticket with a film strip down the left edge, a framed screen and a perforated stub with a star stamp and barcode. Velvet red and gold in dark mode."}
   });
 
   /* ================= TEST KITCHEN (Culinary Arts and Nutrition) ================= */
@@ -128,7 +128,7 @@
         svg: `<svg viewBox="0 0 86 26"><defs><clipPath id="n6-pp-gc"><path d="${tapeEdge}"/></clipPath></defs><path d="${tapeEdge}" fill="#FFF8F2" opacity=".95"/>
           <g clip-path="url(#n6-pp-gc)" fill="#E25A4A" opacity=".45">${Array.from({length: 11}, (_, i) => `<rect x="${4 + i * 8}" y="0" width="4" height="26"/>`).join("")}${Array.from({length: 4}, (_, i) => `<rect x="0" y="${2 + i * 6.4}" width="86" height="3.2"/>`).join("")}</g></svg>`}
     ],
-    card: {id: "tp-culinary", name: "Recipe Card", desc: "A lined recipe card with a whisk and herbs in the corner and a gingham edge. Warm slate with copper in dark mode."}
+    card: {id: "tp-culinary", name: "Recipe Card", desc: "A lined recipe card with a red gingham edge across the top, a wooden spoon and fresh herbs tucked into the bottom corners. Warm slate with copper in dark mode."}
   });
 
   /* ================= KELP FOREST (Marine Biology and Oceanography) ================= */
@@ -190,7 +190,7 @@
           <path d="M5 21Q11 17 17 21T29 21T41 21T53 21T65 21T77 21" fill="none" stroke="#8FE0D8" stroke-width="1.4" stroke-linecap="round"/>
           <circle cx="14" cy="7" r="1.6" fill="#fff"/><circle cx="40" cy="6" r="1.2" fill="#fff"/><circle cx="66" cy="7.4" r="1.6" fill="#fff"/></svg>`}
     ],
-    card: {id: "tp-marinebio", name: "Field Notebook", desc: "Waterproof field-notebook paper with kelp in the corner and waves along the bottom. Deep ocean teal in dark mode."}
+    card: {id: "tp-marinebio", name: "Field Notebook", desc: "Waterproof field-notebook grid paper with a ruler edge, kelp rising from the bottom and a labelled scallop sketch with a starfish. Deep ocean teal in dark mode."}
   });
 
 })();

@@ -55,6 +55,16 @@ ok(dateApp && dateApp === dateWeb, `effective date must match (app ${dateApp}, w
 const FACTS = [/supabase auth/, /salted hash/, /gemini/, /anthropic/, /openai/, /your own key/, /improve its products/, /not pass through our servers|does not pass through/, /anonymous crash report/, /send anonymous crash reports/, /not linked to you/, /export my data/, /recently deleted/, /capture token/,
   /bug report/, /stays on your device/, /stripe/, /app store/, /only your plan status|we receive only your plan status/, /email delivery provider/, /support@your-domain|support@studyboardapp\.com|your-domain/, /45 days/, /30 days/, /13 and over/, /up to 16/, /international transfers/, /standard contractual clauses/,
   /delete my account and data/, /export a backup file/, /cancel/, /no analytics, no ads, no tracking/, /your rights/];
+// The terms: same sections and date in the app and on the website, with the copyright rules
+{
+  const appTerms = app.slice(app.indexOf("const TERMS = () =>"), app.indexOf("const ABOUT = () =>"));
+  const webT = read("website/terms.html"), webTerms = webT.slice(webT.indexOf("<h1>Terms of Service</h1>"), webT.indexOf("</div></section>", webT.indexOf("<h1>Terms of Service</h1>")));
+  assert.deepStrictEqual(heads(appTerms), heads(webTerms), "in-app and website terms sections must be the same, in the same order");
+  const tApp = (app.match(/TERMS_UPDATED = "([^"]+)"/) || [])[1], tWeb = (webTerms.match(/Effective: ([A-Za-z]+ \d+, \d{4})/) || [])[1];
+  ok(tApp && tApp === tWeb, `terms effective date must match (app ${tApp}, website ${tWeb})`);
+  for (const re of [/course materials and copyright/, /you made it or have the right to share it/, /questions from your instructor's tests or quizzes/, /copyright complaints/, /without notice/, /repeatedly share content/, /in its own words/, /doesn't turn pictures from slides, pdfs or other course files into picture cards/])
+    { ok(re.test(norm(appTerms)), "in-app terms must say: " + re); ok(re.test(norm(webTerms)), "website terms must say: " + re); }
+}
 for (const re of FACTS) { ok(re.test(norm(appPrivacy)) || re.test(norm(appPrivacy.replace(/\$\{contact\(\)\}/g, "support@YOUR-DOMAIN"))), "in-app privacy must say: " + re); ok(re.test(norm(webPrivacy)), "website privacy must say: " + re); }
 // paragraph text of every section matches once placeholders are neutralized
 const body = h => norm(h.replace(/\$\{ph\("([^"]*)"\)\}/g, "$1").replace(/<h1>[\s\S]*?<\/h1>/, "").replace(/<p class="legal-meta">[\s\S]*?<\/p>/, "").replace(/<p class="muted">[\s\S]*?<\/p>/, "").replace(/<p class="msg">[\s\S]*?<\/p>/, "")).replace(/your name or company|your email provider|your region|support@your-domain|support@studyboardapp\.com/g, "").replace(/\s+/g, " ").trim();
