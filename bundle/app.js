@@ -45690,6 +45690,8 @@ var COMP_KIT = (() => {
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
+  // The pale chevron and midrib on a clover leaflet (in LEAF's coordinates)
+  const VEIN = "M-9 -20.5Q-4 -15.5 0 -13Q4 -15.5 9 -20.5M0 -5V-24";
   const f1 = v => Math.round(v * 10) / 10;
   // Points of a five-pointed star (outer radius R, inner radius r), top point up
   const starPts = (cx, cy, R, r) => Array.from({length: 10}, (_, i) => { const a = -Math.PI / 2 + i * Math.PI / 5, d = i % 2 ? r : R; return f1(cx + d * Math.cos(a)) + "," + f1(cy + d * Math.sin(a)); }).join(" ");
@@ -45704,18 +45706,19 @@ var COMP_KIT = (() => {
         bio: "A lucky little shamrock who floats along on three soft leaves.",
         idle: ["wingFlutter", "sparkle", "spin"], cheer: "spin",
         parts: {
-          tail: {svg: `${LINE("M60 99C60 104 63 107 68 106.5", "#3E9E5E", 3)}`, pivot: [60, 99]},
-          wingL: {svg: `${LG("stpatricks-shamrock-w", [[0, "#9BE8AE"], [0.55, "#4CC07A"], [1, "#2A9453"]])}<g transform="translate(53 84) rotate(-104) scale(1.12)"><path d="${LEAF}" fill="url(#stpatricks-shamrock-w)" ${O}/><path d="M0 -6V-21" stroke="#D4F5DC" stroke-width="1.8" stroke-linecap="round" opacity=".9"/></g>`, pivot: [52, 82]},
-          wingR: {svg: `<g transform="translate(67 84) rotate(104) scale(1.12)"><path d="${LEAF}" fill="url(#stpatricks-shamrock-w)" ${O}/><path d="M0 -6V-21" stroke="#D4F5DC" stroke-width="1.8" stroke-linecap="round" opacity=".9"/></g>`, pivot: [68, 82]},
-          body: `${RG("stpatricks-shamrock-g", [[0, "#C6F4D0"], [0.5, "#6ED48C"], [1, "#2E9E5B"]], 0.45, 0.38, 0.72)}
-            <path d="M58 100.3C50 95 32.5 84 31 66C29.5 52 38 42 48 42C54 42 58 45 60 49C62 45 66 42 72 42C82 42 90.5 52 89 66C87.5 84 70 95 62 100.3Q60 101.6 58 100.3Z" fill="url(#stpatricks-shamrock-g)" ${O}/>
-            <path d="M37.5 62Q38 51 46 47" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" opacity=".9"/>
-            <path d="M50 91Q60 96.5 70 91" fill="none" stroke="#2A9453" stroke-width="2.2" stroke-linecap="round" opacity=".5"/>`
+          back: `${LG("stpatricks-shamrock-w", [[0, "#A6EDB5"], [0.5, "#55C77F"], [1, "#2E9A57"]])}
+            <g transform="translate(60 52) scale(1.36 1.22)"><path d="${LEAF}" fill="url(#stpatricks-shamrock-w)" ${OW(2.3)}/><path d="${VEIN}" fill="none" stroke="#DDF8E3" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></g>`,
+          tail: {svg: `${LINE("M60 78C60 90 62 99 69 106", "#3E9E5E", 3.2)}`, pivot: [60, 80]},
+          wingL: {svg: `<g transform="translate(50.5 68.5) rotate(-120) scale(1.36 1.22)"><path d="${LEAF}" fill="url(#stpatricks-shamrock-w)" ${OW(2.3)}/><path d="${VEIN}" fill="none" stroke="#DDF8E3" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></g>`, pivot: [51, 68]},
+          wingR: {svg: `<g transform="translate(69.5 68.5) rotate(120) scale(1.36 1.22)"><path d="${LEAF}" fill="url(#stpatricks-shamrock-w)" ${OW(2.3)}/><path d="${VEIN}" fill="none" stroke="#DDF8E3" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></g>`, pivot: [69, 68]},
+          body: `${RG("stpatricks-shamrock-g", [[0, "#DDF9E2"], [0.6, "#90DEA5"], [1, "#52B975"]], 0.42, 0.36, 0.7)}
+            <circle cx="60" cy="63" r="19.5" fill="url(#stpatricks-shamrock-g)" ${O}/>
+            <path d="M45.5 60Q46 51.5 52.5 48" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>`
         },
-        eyes: {lx: 50, rx: 70, y: 66, r: 5, style: "dot", color: "#1C3324"},
-        mouth: {x: 60, y: 75, w: 3.2, color: "#1C3324"},
-        cheeks: {lx: 42, rx: 78, y: 74, w: 4.6, h: 2.8, color: "#FF9FB0"},
-        anchors: {top: [60, 46, 0.9], neck: [60, 86, 0.95], chest: [70, 88, 0.66], back: [84, 60, 0.8], hands: [60, 88, 0.85]},
+        eyes: {lx: 52.5, rx: 67.5, y: 62, r: 4.6, style: "sparkle", color: "#1C3324"},
+        mouth: {x: 60, y: 69.5, w: 3, color: "#1C3324"},
+        cheeks: {lx: 47, rx: 73, y: 68.5, w: 3.8, h: 2.4, color: "#FF8FA8"},
+        anchors: {top: [60, 22, 0.72], neck: [60, 82, 0.75], chest: [69, 76, 0.5], back: [80, 50, 0.8], hands: [60, 84, 0.8]},
         lines: {
           tap: ["Hi! So happy to see you!", "Lucky me, you're here!", "You make your own luck!", "Cheering you on, leaf by leaf!", "Green light! Keep going!", "A little extra luck for you!", "Look at you, showing up again!"],
           pet: ["Hehe! Lucky tickles!", "My leaves are all a-flutter!"],
@@ -46343,6 +46346,8 @@ var COMP_KIT = (() => {
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
+  // A webbed frog foot with three round toes, centred on 0,0 with the toes pointing down
+  const WEB = "M0 -4.5C-4.5 -4.5 -10.5 0.5 -10.5 4C-10.5 6.8 -7.6 7.4 -6 5.6C-5 8.4 -1.6 9 0 6.8C1.6 9 5 8.4 6 5.6C7.6 7.4 10.5 6.8 10.5 4C10.5 0.5 4.5 -4.5 0 -4.5Z";
 
   /* Diwali */
   COMP_DATA.push({
@@ -46629,25 +46634,41 @@ var COMP_KIT = (() => {
         idle: ["bounce", "finWiggle", "sway"], cheer: "hop",
         neck: [60, 76],
         parts: {
-          feet: `${LG("koi-frog-p", [[0, "#5FB07A"], [1, "#3E8A5F"]])}
-            <path d="M60 99.5C83 99.5 101 102.5 101 107.5C101 112 83 114 60 114C37 114 19 112 19 107.5C19 104 30 101.3 44 100.2L54 106.5Z" fill="url(#koi-frog-p)" ${O}/>
-            <path d="M68 102.5Q84 103 94 106" fill="none" stroke="#8FD0A2" stroke-width="2.4" stroke-linecap="round"/>
-            <ellipse cx="38" cy="104" rx="10" ry="5" fill="#86C96A" ${O}/><ellipse cx="82" cy="104" rx="10" ry="5" fill="#86C96A" ${O}/>`,
-          body: `${LG("koi-frog-b", [[0, "#A8DD86"], [1, "#72B85E"]])}
-            <path d="M60 70C77 70 85 83 85 94C85 103 76 106.5 60 106.5C44 106.5 35 103 35 94C35 83 43 70 60 70Z" fill="url(#koi-frog-b)" ${O}/>
-            <ellipse cx="60" cy="95" rx="15" ry="10" fill="#EEF7C9"/>`,
-          armL: {svg: `<path d="M44 84C40 91 40 98 43 103.5C47 104.5 50 103 50 100C49 95 49 90 50 86Z" fill="#8FCD6E" ${O}/>`, pivot: [47, 85]},
-          armR: {svg: `<path d="M76 84C80 91 80 98 77 103.5C73 104.5 70 103 70 100C71 95 71 90 70 86Z" fill="#8FCD6E" ${O}/>`, pivot: [73, 85]},
-          head: `${LG("koi-frog-h", [[0, "#B6E592"], [1, "#7CC063"]])}
-            <g ${O}><circle cx="45" cy="46" r="11"/><circle cx="75" cy="46" r="11"/><ellipse cx="60" cy="61" rx="31" ry="18"/></g>
-            <g fill="url(#koi-frog-h)"><circle cx="45" cy="46" r="11"/><circle cx="75" cy="46" r="11"/><ellipse cx="60" cy="61" rx="31" ry="18"/></g>
-            <path d="M37.5 41Q40 36.5 45 35.5" fill="none" stroke="#E6F7C8" stroke-width="2.8" stroke-linecap="round"/>
-            <path d="M52 49.5Q60 47.5 68 49.5" fill="none" stroke="#6AAE56" stroke-width="2" stroke-linecap="round" opacity=".7"/>`
+          back: `${LG("koi-frog-p", [[0, "#8EE0AE"], [0.6, "#53B783"], [1, "#3A9468"]])}${LG("koi-frog-l", [[0, "#FFE3EE"], [0.6, "#FFA6C6"], [1, "#F27BA6"]])}
+            <path d="M50 104L39.7 114.4A50 13 0 1 1 53 115.4Z" fill="url(#koi-frog-p)" ${O}/>
+            <path d="M60 102.5L18 104M60 102.5L20.5 98.5M60 102.5L102 104M60 102.5L99.5 98.5" stroke="#7FD4A2" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M64 113.2Q76 113 85.5 111" fill="none" stroke="#B6EECB" stroke-width="2.4" stroke-linecap="round"/>
+            <path d="M12 99C7 92 8 84 14.5 77C21 84 22 92 17 99Z" fill="url(#koi-frog-l)" ${O2}/>
+            <path d="M12 99C6.5 98 4 93.5 4.5 89C9.5 89.5 12.5 93.5 14 98Z" fill="#FFB8D2" ${O2}/>
+            <path d="M17 99C22.5 98 25 93.5 24.5 89C19.5 89.5 16.5 93.5 15 98Z" fill="#FFB8D2" ${O2}/>
+            <path d="M11.7 88Q11.9 84 13.5 81.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>`,
+          feet: `${LG("koi-frog-t", [[0, "#9FE07E"], [1, "#5DB45E"]])}
+            <ellipse cx="36" cy="96.5" rx="12" ry="9.5" transform="rotate(-25 36 96.5)" fill="url(#koi-frog-t)" ${O}/>
+            <ellipse cx="84" cy="96.5" rx="12" ry="9.5" transform="rotate(25 84 96.5)" fill="url(#koi-frog-t)" ${O}/>
+            <path transform="translate(28.5 103.5) rotate(48)" d="${WEB}" fill="#7CCB6A" ${O2}/>
+            <path transform="translate(91.5 103.5) rotate(-48)" d="${WEB}" fill="#7CCB6A" ${O2}/>`,
+          body: `${LG("koi-frog-b", [[0, "#A9E688"], [1, "#62BA62"]])}
+            <path d="M60 66C78 66 86.5 80 86.5 92C86.5 102 76.5 107.5 60 107.5C43.5 107.5 33.5 102 33.5 92C33.5 80 42 66 60 66Z" fill="url(#koi-frog-b)" ${O}/>
+            <ellipse cx="60" cy="94" rx="15.5" ry="11.5" fill="#FFF7DC" stroke="#D5EBA6" stroke-width="1.8"/>`,
+          armL: {svg: `<ellipse cx="44.5" cy="89.5" rx="5.4" ry="10" transform="rotate(12 44.5 89.5)" fill="#86D06C" ${O}/><path transform="translate(42.5 100.5) scale(.68)" d="${WEB}" fill="#86D06C" ${OW(3.2)}/>`, pivot: [47, 81]},
+          armR: {svg: `<ellipse cx="75.5" cy="89.5" rx="5.4" ry="10" transform="rotate(-12 75.5 89.5)" fill="#86D06C" ${O}/><path transform="translate(77.5 100.5) scale(.68)" d="${WEB}" fill="#86D06C" ${OW(3.2)}/>`, pivot: [73, 81]},
+          head: `${LG("koi-frog-h", [[0, "#B9EE92"], [0.6, "#8FD772"], [1, "#6CC064"]])}
+            <g stroke="${INK}" stroke-width="6" stroke-linejoin="round"><circle cx="40" cy="44" r="12.5"/><circle cx="80" cy="44" r="12.5"/><ellipse cx="60" cy="60" rx="35" ry="19"/></g>
+            <g fill="url(#koi-frog-h)"><circle cx="40" cy="44" r="12.5"/><circle cx="80" cy="44" r="12.5"/><ellipse cx="60" cy="60" rx="35" ry="19"/></g>
+            <circle cx="56" cy="55.5" r="1.2" fill="#3F8A4E"/><circle cx="64" cy="55.5" r="1.2" fill="#3F8A4E"/>
+            <path d="M29.5 63Q28.5 56 32 51.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>`,
+          face: `<circle cx="40" cy="44.5" r="8.4" fill="#FFFBEA" ${OW(2)}/><circle cx="80" cy="44.5" r="8.4" fill="#FFFBEA" ${OW(2)}/>`
         },
-        eyes: {lx: 45, rx: 75, y: 47, r: 5.4, style: "dot"},
-        mouth: {x: 60, y: 64, w: 4},
-        cheeks: {lx: 38, rx: 82, y: 63, w: 5, h: 3, color: "#FF9FB0"},
-        anchors: {top: [60, 45, 0.9], neck: [60, 78, 1.1], chest: [70, 92, 0.72], back: [86, 88, 0.9], hands: [60, 94, 0.9]},
+        eyes: {lx: 40, rx: 80, y: 44.8, r: 5.4, style: "sparkle", color: "#1E2B22"},
+        mouths: {
+          neutral: `<path d="M49 62Q60 68.5 71 62" fill="none" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/>`,
+          smile: `<path d="M47 61Q60 71.5 73 61" fill="none" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/><path d="M45.5 59.5L48 62M74.5 59.5L72 62" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>`,
+          open: `<path d="M48 61.5Q60 63.5 72 61.5Q68 74 60 74Q52 74 48 61.5Z" fill="${INK}" ${OW(2)}/><ellipse cx="60" cy="70.4" rx="5.2" ry="2.6" fill="#FF8FA8"/>`,
+          sleepy: `<path d="M54 63.5Q60 66.5 66 63.5" fill="none" stroke="${INK}" stroke-width="2.4" stroke-linecap="round"/>`
+        },
+        mouth: {x: 60, y: 63, w: 3.4},
+        cheeks: {lx: 35, rx: 85, y: 62, w: 5, h: 3, color: "#FF8DB0"},
+        anchors: {top: [60, 37, 0.78], neck: [60, 81.5, 1.05], chest: [60, 92, 0.6], back: [88, 84, 0.9], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Ribbit! So happy to see you!", "You're doing amazing today!", "Look at you, hopping along!", "Big hops of cheer for you!", "You've got this, friend!", "You make my lily pad bounce!", "Best company on the pond!"],
           pet: ["Ribbit! That's so nice!", "Hehe! I'm all hoppy now!"],
