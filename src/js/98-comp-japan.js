@@ -16,29 +16,37 @@
         idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "hop",
         neck: [60, 76],
         parts: {
-          tail: {svg: `<path d="M84 98C100 98 104 80 95 73C87 67 77 74 82 82C85 87 92 85 91 79" fill="none" stroke="#2B2233" stroke-width="13" stroke-linecap="round"/>
-            <path d="M84 98C100 98 104 80 95 73C87 67 77 74 82 82C85 87 92 85 91 79" fill="none" stroke="#E39A4C" stroke-width="7.6" stroke-linecap="round"/>
-            <path d="M86 95C96 94 99 82 94 77" fill="none" stroke="#FFF2DE" stroke-width="2.6" stroke-linecap="round"/>`, pivot: [82, 98]},
-          feet: `<ellipse cx="36" cy="105" rx="11" ry="6.4" fill="#E39A4C" ${O}/><ellipse cx="84" cy="105" rx="11" ry="6.4" fill="#E39A4C" ${O}/>`,
+          tail: {svg: `${LG("japan-kuri-t", [[0, "#F2B060"], [1, "#D9853A"]])}
+            <circle cx="90" cy="79" r="12.5" fill="url(#japan-kuri-t)" ${O}/>
+            <path d="M90.5 79.5A2.6 2.6 0 1 1 93 82.4A6 6 0 1 1 97.4 74.8" fill="none" stroke="#FFF4E2" stroke-width="3.2" stroke-linecap="round"/>`, pivot: [84, 92]},
           body: `${LG("japan-kuri-b", [[0, "#F2B060"], [1, "#D9853A"]])}
-            <path d="M60 70C80 70 90 86 90 98C90 107 80 110.5 60 110.5C40 110.5 30 107 30 98C30 86 40 70 60 70Z" fill="url(#japan-kuri-b)" ${O}/>
-            <path d="M60 76C70 76 74 88 72 100C70 108 50 108 48 100C46 88 50 76 60 76Z" fill="#FFF4E2"/>
-            <path d="M44 74L76 74L64 88Q60 91 56 88Z" fill="#D8402E" ${OW(2.4)}/><circle cx="51" cy="78" r="1.6" fill="#FFF4E2"/><circle cx="68" cy="79" r="1.6" fill="#FFF4E2"/><circle cx="60" cy="84" r="1.4" fill="#FFF4E2"/>`,
-          armL: {svg: `<path d="M44 84Q41 95 42 104Q46 109 52 105Q53 96 51 85Z" fill="#E8A052" ${O}/><path d="M42.6 101Q46 107 51.6 103.4L52 105Q46 109 42 104Z" fill="#FFF4E2"/><path d="M45.4 105.4v-2.2M48.6 105.6v-2.2" stroke="#B0723A" stroke-width="1.1" stroke-linecap="round"/>`, pivot: [47, 86]},
-          armR: {svg: `<path d="M76 84Q79 95 78 104Q74 109 68 105Q67 96 69 85Z" fill="#E8A052" ${O}/><path d="M77.4 101Q74 107 68.4 103.4L68 105Q74 109 78 104Z" fill="#FFF4E2"/><path d="M74.6 105.4v-2.2M71.4 105.6v-2.2" stroke="#B0723A" stroke-width="1.1" stroke-linecap="round"/>`, pivot: [73, 86]},
+            <path d="M60 64C77 64 86 78 87.5 93C89 105 79 110.5 60 110.5C41 110.5 31 105 32.5 93C34 78 43 64 60 64Z" fill="url(#japan-kuri-b)" ${O}/>
+            <path d="M60 74C67.5 74 70.5 84 70 96C69.5 104 50.5 104 50 96C49.5 84 52.5 74 60 74Z" fill="#FFF4E2"/>
+            <ellipse cx="39" cy="97" rx="10" ry="12" transform="rotate(-12 39 97)" fill="url(#japan-kuri-b)" ${O}/>
+            <ellipse cx="81" cy="97" rx="10" ry="12" transform="rotate(12 81 97)" fill="url(#japan-kuri-b)" ${O}/>
+            <ellipse cx="36" cy="107.4" rx="6.4" ry="4" fill="#FFF4E2" ${O}/><ellipse cx="84" cy="107.4" rx="6.4" ry="4" fill="#FFF4E2" ${O}/>
+            <path d="M34.4 109v-1.8M37.6 109v-1.8M82.4 109v-1.8M85.6 109v-1.8" stroke="#B0723A" stroke-width="1.2" stroke-linecap="round"/>
+            <path d="M44 74L76 74L62.2 90.4Q60 92.6 57.8 90.4Z" fill="#D8402E" ${OW(2.4)}/><circle cx="52" cy="78.4" r="1.5" fill="#FFF4E2"/><circle cx="68" cy="78.4" r="1.5" fill="#FFF4E2"/><circle cx="60" cy="85" r="1.4" fill="#FFF4E2"/>
+            <path d="M33.6 94Q34.4 90 37.6 88.4" fill="none" stroke="#FFE0B0" stroke-width="2.4" stroke-linecap="round"/>`,
+          armL: {svg: `${LG("japan-kuri-l", [[0, "#F0AC5C"], [1, "#DE8E40"]])}
+            <path d="M43.5 87C43.5 81.5 54.5 81.5 54.5 87L55 103H43Z" fill="url(#japan-kuri-l)" ${O}/>
+            <ellipse cx="49" cy="105.6" rx="6.6" ry="4.6" fill="#FFF4E2" ${O}/><path d="M47.2 107.4v-2M50.8 107.4v-2" stroke="#B0723A" stroke-width="1.3" stroke-linecap="round"/>`, pivot: [49, 85]},
+          armR: {svg: `${LG("japan-kuri-r", [[0, "#F0AC5C"], [1, "#DE8E40"]])}
+            <path d="M65.5 87C65.5 81.5 76.5 81.5 76.5 87L77 103H65Z" fill="url(#japan-kuri-r)" ${O}/>
+            <ellipse cx="71" cy="105.6" rx="6.6" ry="4.6" fill="#FFF4E2" ${O}/><path d="M69.2 107.4v-2M72.8 107.4v-2" stroke="#B0723A" stroke-width="1.3" stroke-linecap="round"/>`, pivot: [71, 85]},
           earL: {svg: `<path d="M35 48C32 38 33 26 38 20C45 24 53 32 56 38Z" fill="#E39A4C" ${O}/><path d="M38.6 42C37 35 38 29 40 26C44 29 48 33 50 37Z" fill="#FFD9C2"/>`, pivot: [44, 42]},
           earR: {svg: `<path d="M85 48C88 38 87 26 82 20C75 24 67 32 64 38Z" fill="#E39A4C" ${O}/><path d="M81.4 42C83 35 82 29 80 26C76 29 72 33 70 37Z" fill="#FFD9C2"/>`, pivot: [76, 42]},
           head: `${RG("japan-kuri-h", [[0, "#F8BE72"], [0.7, "#EBA052"], [1, "#D6853A"]], 0.42, 0.32, 0.8)}
             <path d="M60 32C80 32 90 44 90 56C90 70 78 80 60 80C42 80 30 70 30 56C30 44 40 32 60 32Z" fill="url(#japan-kuri-h)" ${O}/>
             <path d="M33 60C36 52 46 52 52 58C56 62 64 62 68 58C74 52 84 52 87 60C86 72 74 79 60 79C46 79 34 72 33 60Z" fill="#FFF4E2"/>
             <ellipse cx="48" cy="46" rx="3.6" ry="2.4" fill="#FFF4E2"/><ellipse cx="72" cy="46" rx="3.6" ry="2.4" fill="#FFF4E2"/>
-            <path d="M40 40Q45 35 52 34" fill="none" stroke="#FFE0B0" stroke-width="2.6" stroke-linecap="round"/>`,
+            <path d="M40.5 43Q45 38.4 51.5 37" fill="none" stroke="#FFE0B0" stroke-width="2.6" stroke-linecap="round"/>`,
           face: `<path d="M56.4 61.4Q60 59.6 63.6 61.4Q63 64.6 60 65.4Q57 64.6 56.4 61.4Z" fill="#2B2233"/><ellipse cx="59" cy="61.6" rx="1.2" ry=".7" fill="#fff" opacity=".7"/>`
         },
         eyes: {lx: 49, rx: 71, y: 54, r: 4.4, style: "dot", color: "#2B2233"},
         mouth: {x: 60, y: 68, w: 3.2, color: "#2B2233", style: "cat"},
         cheeks: {lx: 41, rx: 79, y: 63, w: 4.4, h: 2.6, color: "#FF9A9A"},
-        anchors: {top: [60, 32, 0.95], neck: [60, 78, 1], chest: [66, 94, 0.6], back: [84, 86, 0.8], hands: [60, 100, 0.86]},
+        anchors: {top: [60, 32, 0.95], neck: [60, 80, 1], chest: [60, 85, 0.5], back: [84, 86, 0.8], hands: [60, 92, 0.72]},
         lines: {
           tap: ["Woof! Your deadlines are safe with me!", "Tail curled up tight, ready to help!", "I sniffed out your next task. Let's go!", "Shiba smile for you! You've got this!", "Big ears, big heart, big cheers!", "I'll keep watch while you study!", "One task at a time, like one treat at a time!", "You make my tail spin in circles!"],
           pet: ["Hehe! Right behind the ears, please!", "Aww! My tail is wagging so fast!"],
