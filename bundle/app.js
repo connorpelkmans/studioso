@@ -51145,23 +51145,27 @@ var COMP_KIT = (() => {
       {
         id: "marinebio-dolly", name: "Dolly", kind: "Dolphin Calf", pose: "float", wearColor: "#F2A33A",
         bio: "A playful dolphin calf who clicks happily when you finish a chapter.",
-        idle: ["finWiggle", "tailSwish", "topBob"], cheer: "spin",
+        idle: ["finWiggle", "tailSwish", "sway"], cheer: "spin",
         parts: {
-          tail: {svg: `<g transform="translate(0 -3)"><path d="M84 90C92 94 100 92 106 86C104 96 98 102 90 102C96 106 98 112 94 114C88 108 80 104 76 98Z" fill="#6E9AC8" ${O}/></g>`, pivot: [80, 93]},
-          top: {svg: `<g transform="translate(0 -3)"><path d="M70 38C72 30 78 26 85 27C82 32 81 37 81 42Z" fill="#6E9AC8" ${O}/></g>`, pivot: [75, 39]},
-          body: `<g transform="translate(0 -3)">${LG("marinebio-dolly-mar-dol-g", [[0, "#9CC6EE"], [0.6, "#6E9AC8"], [1, "#5A84B4"]])}
-            <path d="M24 66C22 48 40 34 60 34C80 34 92 48 92 66C92 88 80 102 60 102C42 102 26 88 24 66Z" fill="url(#marinebio-dolly-mar-dol-g)" ${O}/>
-            <path d="M36 74C40 90 52 96 62 96C74 96 82 90 84 80C76 86 66 88 58 86C48 84 40 80 36 74Z" fill="#EEF7FC"/>
-            <path d="M27 62C16 60 6 64 6 69C8 75 18 76 28 73Z" fill="#8EB8E2" ${O}/><path d="M9 70Q16 72 26 70" fill="none" stroke="${INK}" stroke-width="1.6" stroke-linecap="round" opacity=".6"/>
-            <path d="M34 50Q38 42 48 39" fill="none" stroke="#D6ECFF" stroke-width="3" stroke-linecap="round"/>
-            <ellipse cx="54" cy="37" rx="3" ry="1.6" fill="#4A74A4"/></g>`,
-          wingL: {svg: `<g transform="translate(0 -3)"><path d="M34 82C26 84 22 92 24 98C30 96 36 90 38 86Z" fill="#6E9AC8" ${O}/></g>`, pivot: [36, 81]},
-          wingR: {svg: `<g transform="translate(0 -3)"><path d="M84 82C92 84 96 92 94 98C88 96 82 90 80 86Z" fill="#6E9AC8" ${O}/></g>`, pivot: [82, 81]}
+          // facing you: dorsal fin peeking up behind, flukes curling up behind on the right
+          back: `<path d="M56 40C60 26 70 15 86 11C82 19 80 30 81 48Z" fill="#5E8CC0" ${O}/><path d="M68 25C72 20 77 16 82 15" fill="none" stroke="#9CC6EE" stroke-width="2" stroke-linecap="round"/>`,
+          tail: {svg: `<path d="M72 99C82 106 92 107 99 102" fill="none" stroke="#2B2233" stroke-width="11" stroke-linecap="round"/><path d="M72 99C82 106 92 107 99 102" fill="none" stroke="#6E9AC8" stroke-width="6" stroke-linecap="round"/>
+            <path d="M98 103C95 95 97 88 102 85C104 91 104 96 102 99C106 95 112 95 117 97C113 103 106 106 98 103Z" fill="#6E9AC8" ${O}/><path d="M101 99C101 94 101 91 102 89" fill="none" stroke="#9CC6EE" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [76, 100]},
+          wingL: {svg: `<path d="M35 72C27 72 19 78 15 87C24 89 32 86 38 80Z" fill="#6E9AC8" ${O}/><path d="M20 85C25 82 30 79 35 77" fill="none" stroke="#9CC6EE" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [37, 76]},
+          wingR: {svg: `<path d="M85 72C93 72 101 78 105 87C96 89 88 86 82 80Z" fill="#6E9AC8" ${O}/><path d="M100 85C95 82 90 79 85 77" fill="none" stroke="#9CC6EE" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [83, 76]},
+          body: `${LG("marinebio-dolly-mar-dol-g", [[0, "#A6CEF2"], [0.55, "#78A4D2"], [1, "#5A84B4"]])}
+            <path d="M60 28C80 28 90 44 90 62C90 84 80 104 60 104C40 104 30 84 30 62C30 44 40 28 60 28Z" fill="url(#marinebio-dolly-mar-dol-g)" ${O}/>
+            <path d="M60 70C72 70 80 80 80 90C80 98 72 103 60 103C48 103 40 98 40 90C40 80 48 70 60 70Z" fill="#EEF7FC"/>
+            <path d="M38 46Q42 36 52 33" fill="none" stroke="#DDEEFF" stroke-width="3.2" stroke-linecap="round"/>
+            <ellipse cx="60" cy="33.5" rx="3.4" ry="1.6" fill="#4A74A4"/>`,
+          // the beak sits under the eyes, pointing at you
+          face: `<path d="M47 68C47 62 53 60 60 60C67 60 73 62 73 68C73 74 67 77 60 77C53 77 47 74 47 68Z" fill="#B8D8F4" ${O}/>
+            <path d="M51 64Q55 62 59 62" fill="none" stroke="#E4F2FF" stroke-width="2" stroke-linecap="round"/>`
         },
-        eyes: {lx: 46, rx: 64, y: 57, r: 5, style: "sparkle", color: "#1A2A44"},
-        mouth: {x: 55, y: 68, w: 3.4, color: "#1A2A44"},
-        cheeks: {lx: 38, rx: 72, y: 66, w: 4.2, h: 2.6, color: "#FF9AB8"},
-        anchors: {top: [56, 31, 0.85], neck: [57, 81, 1], chest: [66, 83, 0.6], back: [84, 53, 0.8], hands: [57, 85, 0.82]},
+        eyes: {lx: 47, rx: 73, y: 51, r: 5, style: "sparkle", color: "#1A2A44"},
+        mouth: {x: 60, y: 70.5, w: 3.6, color: "#1A2A44"},
+        cheeks: {lx: 39, rx: 81, y: 60, w: 4.4, h: 2.6, color: "#FF9AB8"},
+        anchors: {top: [60, 29, 0.85], neck: [60, 80, 1], chest: [60, 90, 0.6], back: [84, 56, 0.8], hands: [60, 88, 0.82]},
         lines: {
           tap: ["Click click! Hi, friend!", "You make waves wherever you go!", "Splashing with joy that you're here!", "Smart and playful, just like dolphins!", "Leap into it! You've got this!", "Swimming happy circles around you!", "Eee-eee! That means you're awesome!"],
           pet: ["Eee! Splashy happy!", "Hehe! That tickles my flippers!"],
@@ -53109,7 +53113,8 @@ var COMP_KIT = (() => {
           armL: {svg: `<ellipse cx="27" cy="91" rx="5" ry="7.4" transform="rotate(40 27 91)" fill="#F6CC3A" ${O}/>`, pivot: [32, 87]},
           armR: {svg: `<ellipse cx="93" cy="91" rx="5" ry="7.4" transform="rotate(-40 93 91)" fill="#F6CC3A" ${O}/>`, pivot: [88, 87]},
           body: `${RG("italy-limo-g", [[0, "#FFF7B8"], [0.55, "#FFDD4A"], [1, "#EDB018"]], 0.4, 0.33, 0.78)}
-            <path d="M60 38C79 38 91 50 95 63Q104 65 110 70Q104 75 95 77C91 91 79 102 60 102C41 102 29 91 25 77Q16 75 10 70Q16 65 25 63C29 50 41 38 60 38Z" fill="url(#italy-limo-g)" ${O}/>
+            <path d="M60 38C78 38 89 48.6 93.6 62C96.2 64 97.8 66.8 97.8 70C97.8 73.2 96.2 76 93.6 78C89 91.4 78 102 60 102C42 102 31 91.4 26.4 78C23.8 76 22.2 73.2 22.2 70C22.2 66.8 23.8 64 26.4 62C31 48.6 42 38 60 38Z" fill="url(#italy-limo-g)" ${O}/>
+            <path d="M94.6 67Q96 69 95.6 71.4M25.4 67Q24 69 24.4 71.4" fill="none" stroke="#FFF4B0" stroke-width="1.4" stroke-linecap="round"/>
             ${[[40, 52], [76, 50], [86, 82], [34, 86], [62, 96], [50, 44], [82, 64]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.1" fill="#E0A818" opacity=".7"/>`).join("")}
             <path d="M36 56Q40 46 52 42" fill="none" stroke="#FFFBE0" stroke-width="3.6" stroke-linecap="round"/><circle cx="33" cy="64" r="2" fill="#FFFBE0"/>
             <path d="M44 99Q60 104 76 99" fill="none" stroke="#D89A14" stroke-width="2" stroke-linecap="round" opacity=".55"/>`,
