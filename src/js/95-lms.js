@@ -1055,7 +1055,7 @@ function cleanFile(r) {
       }
       const from = g.from || "grades";
       if (g.got != null && g.outOf && (!n.mark || n.mark.src === F) && !(n.mark && n.mark.got === g.got && n.mark.outOf === g.outOf && (n.mark.from || "grades") === from)) {
-        n.mark = Object.assign({got: g.got, outOf: g.outOf, src: F}, from !== "grades" ? {from} : {}); changed = true; if (!t.mark || t.mark.got !== g.got) rep.graded.push({t: n, g}); }
+        n.mark = Object.assign({got: g.got, outOf: g.outOf, src: F}, from !== "grades" ? {from} : {}); changed = true; if (!t.mark || t.mark.got !== g.got) { rep.graded.push({t: n, g}); if (c.last) n.markNew = Date.now(); } }
       const lastW = n[F] && n[F].last ? n[F].last.weight : undefined;
       if (g.weight != null && (n.weight == null || n.weight === "" || (lastW !== undefined && Number(n.weight) === Number(lastW))) && Number(n.weight) !== g.weight) { n.weight = g.weight; changed = true; }
       if (n[F]) { n[F] = Object.assign({}, n[F], {gid: n[F].gid || g.gid, last: Object.assign({}, n[F].last || {}, {weight: g.weight})}); }

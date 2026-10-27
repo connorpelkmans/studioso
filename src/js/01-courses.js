@@ -709,9 +709,12 @@ const AVAIL = (() => {
   }
   function normCfg(c){
     c = c && typeof c === "object" ? c : {};
-    const tm = v => isT(v) ? toMin(v) : Number.isInteger(v) && v >= 0 && v <= 1440 ? v : null;
-    const ds = tm(c.dayStart) == null ? 420 : tm(c.dayStart), de = tm(c.dayEnd) == null ? 1380 : tm(c.dayEnd);
-    const ok = de - ds >= 120;
+    const tm = v => isT(v) ? toMin(v) : Number.isInteger(v) && v >= 0 && v < 2880 ? v : null;
+    const ds = tm(c.dayStart) == null ? 420 : tm(c.dayStart);
+    let de = tm(c.dayEnd) == null ? 1380 : tm(c.dayEnd);
+    // An end at or before the start is after midnight (students work late): 1:00 AM is 25:00 of the day, and must be before the next day starts
+    if (de <= ds) de += 1440;
+    const ok = de - ds >= 120 && de < ds + 1440;
     return {dayStart: ok ? ds : 420, dayEnd: ok ? de : 1380, minChunk: clampInt(c.minChunk, 5, 180, 25), maxSession: clampInt(c.maxSession, 15, 240, 90),
       breakMin: clampInt(c.breakMin, 0, 60, 10), defBuf: clampInt(c.defBuf, 0, 120, 0), recover: !!c.recover, set: !!c.set};
   }
@@ -776,7 +779,7 @@ const AVAIL = (() => {
   const CLINICAL = /clinical|practicum|placement|internship|co-?op|field ?work|preceptor|\bshift\b|practice (day|experience)|hospital|sim(ulation)? lab|site visit/i;
 
   function busy(date, blocks, cfg, ext, done){
-    const iv = [], add = (s, e, kind, title) => { s = Math.max(0, s); e = Math.min(1440, e); if (e > s) iv.push({s, e, kind, title: title || TYPES[kind] && TYPES[kind].label || kind}); };
+    const cap = Math.max(1440, cfg && cfg.dayEnd || 0), iv = [], add = (s, e, kind, title) => { s = Math.max(0, s); e = Math.min(cap, e); if (e > s) iv.push({s, e, kind, title: title || TYPES[kind] && TYPES[kind].label || kind}); };
     const dn = dnum(date);
     raw(blocks, addD(date, -1), addD(date, 1)).forEach(o => {
       if (o.skipped) return;
@@ -823,7 +826,7 @@ const AVAIL = (() => {
       cur = Math.max(cur, m.e);
     }
     if (cur < we) raw0.push([cur, we]);
-    const windows = raw0.map(([s, e]) => ({s, e, min: realMin(date, s, e), a: toT(s), b: e >= 1440 ? "24:00" : toT(e)})).filter(w => w.min >= cfg.minChunk);
+    const windows = raw0.map(([s, e]) => ({s, e, min: realMin(date, s, e), a: toT(s % 1440), b: e === 1440 ? "24:00" : toT(e % 1440)})).filter(w => w.min >= cfg.minChunk);
     const total = windows.reduce((t, w) => t + w.min, 0);
     return {date, windows, total, largest: windows.reduce((m, w) => Math.max(m, w.min), 0), none: total === 0, busy: mb, ws: cfg.dayStart, we, lo};
   }
@@ -970,7 +973,7 @@ function restoreSettingsFrom(src){
   } catch(e) { console.warn("settings restore", e); }
 }
 function availRestore(v){ availSet(v == null ? null : AVAIL.normAvail(v)); }
-const availMin = m => m >= 1440 ? "midnight" : fmtTime(AVAIL.toT(m));
+const availMin = m => m === 1440 ? "midnight" : fmtTime(AVAIL.toT(m % 1440));
 function availRange(s, e){
   const a = availMin(s), b = availMin(e), sx = x => ((x.match(/\s?[AP]M$/i) || [""])[0]).trim().toLowerCase();
   return (sx(a) && sx(a) === sx(b) ? a.replace(/\s?[AP]M$/i, "") : a) + "\u2013" + b;
@@ -1006,16 +1009,26 @@ function availDays(from, to){
   for (let d = from; d <= to; d = addDays(d, 1)) out[d] = availFreeDay(d, null, ext).total / 60;
   AV_DAYS = {k, v: out}; return out;
 }
-// Today's window, from now on
+// The study day as the planner sees it: its start and end (an end after midnight is past 1440), now in it, and whether it's over.
+// Just after midnight, before a late end, it's still the evening's day. Without your own times: 7 am to 1 am.
+function studyDay(now){
+  now = now || new Date();
+  const c = availState().cfg, set = !!c.set, start = set ? c.dayStart : 420, end = set ? c.dayEnd : 1500;
+  const m = now.getHours() * 60 + now.getMinutes(), tail = end > 1440 && m < end - 1440, rel = tail ? m + 1440 : m;
+  const past = rel >= end || (!tail && rel < start);
+  return {start, end, now: rel, tail, night: !tail && rel < start, past, left: past ? 0 : end - Math.max(rel, start), date: tail ? addDays(todayISO(), -1) : todayISO(), set};
+}
+// Today's window, from now on (just after midnight, before a late end: the rest of the evening's day)
 function availToday(now){
-  const res = availFreeDay(todayISO(), now.getHours() * 60 + now.getMinutes());
-  return {res, active: availActive()};
+  const sd = studyDay(now);
+  const res = availFreeDay(sd.date, sd.now);
+  return {res, active: availActive(), sd};
 }
 const availWhen = (day, today) => { for (let i = 1; i < day.length; i++) if (day[i] >= 0.5) return i === 1 ? "tomorrow" : parse(addDays(today, i)).toLocaleDateString(undefined, {weekday: "long"}); return "the coming days"; };
 // Fill in what Today's Plan can say about free time
 function availPlan(av, ranked, th0, needToday, day, today, now, lead){
   const res = av.res, a = availState();
-  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const nowMin = av.sd ? av.sd.now : now.getHours() * 60 + now.getMinutes();
   // A task you have done enough on today gets no more time today, and one you set aside with Something Else moves down behind the new first task
   const skipped = new Set(typeof ui !== "undefined" && ui.skipNext && ui.skipNext.day === today ? ui.skipNext.ids : []);
   const isEnough = x => { try { return typeof enoughToday === "function" && enoughToday(x.t, x); } catch (e) { return false; } };
@@ -1084,7 +1097,8 @@ function availManager(){
       <ul class="av-list">${rows}</ul>
       <button type="button" class="btn small" data-act="avail-add">+ Add Shift or Work</button>
       <fieldset class="av-set"><legend>Study Time</legend>
-        <div class="two"><label class="f">Day starts<input type="time" name="dayStart" value="${esc(AVAIL.toT(c.dayStart))}" required></label><label class="f">Day ends<input type="time" name="dayEnd" value="${esc(AVAIL.toT(c.dayEnd))}" required></label></div>
+        <div class="two"><label class="f">Day starts<input type="time" name="dayStart" value="${esc(AVAIL.toT(c.dayStart))}" required></label><label class="f">Day ends<input type="time" name="dayEnd" value="${esc(AVAIL.toT(c.dayEnd % 1440))}" required></label></div>
+        <p class="mini" style="margin:-2px 0 6px">Working late? An end after midnight (like 1:00 AM) is fine, as long as it's before your day starts again.</p>
         <div class="two"><label class="f">Shortest useful gap (min)<input type="number" name="minChunk" min="5" max="180" step="5" value="${c.minChunk}"></label><label class="f">Longest single session (min)<input type="number" name="maxSession" min="15" max="240" step="5" value="${c.maxSession}"></label></div>
         <div class="two"><label class="f">Break between sessions (min)<input type="number" name="breakMin" min="0" max="60" step="5" value="${c.breakMin}"></label><label class="f">Usual travel time for new shifts and work (min)<input type="number" name="defBuf" min="0" max="120" step="5" value="${c.defBuf}"></label></div>
         <label class="mi-check"><input type="checkbox" name="recover" ${c.recover ? "checked" : ""}> Treat the morning after an overnight shift as recovery (no study before noon)</label>
@@ -1094,7 +1108,9 @@ function availManager(){
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button><button type="button" class="btn primary" data-submit>Save Settings</button></div>
   </form>`, fd => {
     const ds = String(fd.get("dayStart")), de = String(fd.get("dayEnd"));
-    if (!AVAIL.isT(ds) || !AVAIL.isT(de) || AVAIL.toMin(de) - AVAIL.toMin(ds) < 120) { toast("Your day needs to be at least 2 hours long"); return false; }
+    const span = AVAIL.isT(ds) && AVAIL.isT(de) ? (AVAIL.toMin(de) <= AVAIL.toMin(ds) ? AVAIL.toMin(de) + 1440 : AVAIL.toMin(de)) - AVAIL.toMin(ds) : 0;
+    if (!AVAIL.isT(ds) || !AVAIL.isT(de) || AVAIL.toMin(de) === AVAIL.toMin(ds)) { toast("Your day needs a start and an end that aren't the same time"); return false; }
+    if (span < 120) { toast("Your day needs to be at least 2 hours long"); return false; }
     const cfg = {dayStart: ds, dayEnd: de, minChunk: Number(fd.get("minChunk")), maxSession: Number(fd.get("maxSession")), breakMin: Number(fd.get("breakMin")), defBuf: Number(fd.get("defBuf")), recover: !!fd.get("recover"), set: true};
     availCommit({blocks: availBlocks(), cfg}, "Availability settings saved");
   });
@@ -1259,7 +1275,7 @@ function avSetSkip(b, key, val, label){
   availCommit({blocks: availBlocks().map(x => x.id === b.id ? n : x), cfg: availCfg()}, label);
 }
 // Test and crunch-view hook
-window.__sbAvail = {state: () => availState(), free: (d, nowMin) => availFreeDay(d, nowMin == null ? null : nowMin), occ: (a, b) => availOccs(a, b), plan: () => (FOCUS || computeFocus()).avail,
+window.__sbAvail = {studyDay: () => studyDay(), state: () => availState(), free: (d, nowMin) => availFreeDay(d, nowMin == null ? null : nowMin), occ: (a, b) => availOccs(a, b), plan: () => (FOCUS || computeFocus()).avail,
   // for tests
   view: o => { Object.assign(ui, o); render(); }, pomo: () => ({running: pomo.running, preset: pomo.preset, endAt: pomo.endAt, mode: pomo.mode, taskId: pomo.taskId}), pomoReset: () => { pomoReset(); const d = $("#pomoDlg"); if (d.open) d.close(); },
   exportArrays: () => exportArrays(), restore: availRestore, day: () => (FOCUS || computeFocus()).day.slice(0, 6)};

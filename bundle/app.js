@@ -8088,7 +8088,9 @@ function computeFocus(){
   const today = todayISO(), dh0 = dailyHours(), thSet = todayHours(), now = new Date();
   const dh = dh0 * (accOf() ? accOf().capScale() : 1);
   let doneToday = 0; try { if (typeof SBSTATS !== "undefined") doneToday = SBSTATS.focusMinutes(today, today) / 60; } catch(e) {}
-  const th0 = Math.max(0, Math.min(thSet - doneToday, 25 - now.getHours() - now.getMinutes() / 60));
+  // the time left in your study day (it may end after midnight); before the day starts, the whole coming day
+  const sd = studyDay(now), leftH = (sd.night ? sd.end - sd.start : sd.left) / 60;
+  const th0 = Math.max(0, Math.min(thSet - doneToday, leftH));
   let av = null; try { av = availToday(now); } catch(e) {}
   const th = av && av.active ? Math.min(th0, av.res.total / 60) : th0;
   const open = tasksArr().filter(t => t.status !== "done" && t.due).concat(groupPlanTasks());
@@ -8216,8 +8218,8 @@ function computeFocus(){
     if (t.start && t.start > today && !MILESTONE(t.type)) r.push([20, `Starts ${fmtDate(t.start)}`]);
     x.reasons = r.sort((a, b) => b[0] - a[0]).map(y => y[1]);
   });
-  const lateCap = thSet - doneToday > 25 - now.getHours() - now.getMinutes() / 60 + 0.01;
-  FOCUS = {info, ranked, blocked, later, today, th, thSet, doneToday, dh: dh0, planned: avail && avail.active ? avail.planned : th - Math.max(0, left), needToday, crunch, busy: B, day, avail, slotsBy: avail ? avail.by : {}, av, th0, now, lateCap};
+  const lateCap = thSet - doneToday > leftH + 0.01;
+  FOCUS = {sd, info, ranked, blocked, later, today, th, thSet, doneToday, dh: dh0, planned: avail && avail.active ? avail.planned : th - Math.max(0, left), needToday, crunch, busy: B, day, avail, slotsBy: avail ? avail.by : {}, av, th0, now, lateCap};
   FOCUS.gapWhy = planGapWhy(FOCUS);
   return FOCUS;
 }
@@ -8228,7 +8230,7 @@ function planGapWhy(F){
   if (gap < 0.25) return why;
   let rest = gap;
   if (F.doneToday >= 0.25) { const d = Math.min(rest, q(F.doneToday)); why.push(tr("plan.gap.done", "{time} of focus is already done today, so it comes off the {set} you set.", {time: fmtHM(d), set: fmtHM(F.thSet)})); rest -= d; }
-  if (F.lateCap && rest >= 0.25) { why.push(tr("plan.gap.late", "It's late, so today's plan stops at about 1 am.")); rest = 0; }
+  if (F.lateCap && rest >= 0.25) { const end = F.sd ? fmtTime(AVAIL.toT(F.sd.end % 1440)) : "1:00 AM"; why.push(F.sd && F.sd.past && !F.sd.night ? tr("plan.gap.over", "Your study day ended at {end}, so today's plan is done.", {end}) : tr("plan.gap.late", "It's late, so today's plan stops at {end}, your end of day.", {end})); rest = 0; }
   if (F.avail && F.avail.active && F.avail.note) rest = 0;
   return why;
 }
@@ -8244,19 +8246,25 @@ function planLead(rs){
 // A phone-only rail above Do This Next: today in order, with classes and calendar events, the tasks the plan
 // puts in your free time, and the gaps left open
 function dayTimelineHtml(F, todayList, heroId){
+  // Your study day: its end may be after midnight; once it's over (or before it starts) nothing is put in it
+  const sd = (F && F.sd) || studyDay(), atT = m => fmtTime(AVAIL.toT(m % 1440));
+  if (sd.past) return `<div class="dtl dtl-over" role="group" aria-label="Today's schedule"><div class="dtl-rail"><div class="dtl-c fr dtl-end" data-anchor><span>Past your end of day</span><b>${esc(sd.night ? `Your day starts at ${atT(sd.start)}` : `Your day ended at ${atT(sd.end)}`)}</b></div></div></div>`;
   const sb = (F && F.slotsBy) || {}, a = F && F.avail, items = [];
   (todayList || []).forEach(x => (sb[x.t.id] || []).forEach(sl => { if (sl && sl.e > sl.s) items.push({k: "tk", s: sl.s, e: sl.e, t: x.t}); }));
   try {
+    // just after midnight, today's calendar is the late part of the evening's day
+    const off = sd.tail ? 1440 : 0;
     schOccurrences(todayISO(), todayISO()).forEach(o => {
       if ((o.type !== "meet" && o.type !== "event") || o.skipped || o.allDay || !o.start || !o.end) return;
-      const s = toMin(o.start), e = toMin(o.end); if (e > s) items.push({k: "ev", s, e, title: o.title, label: o.label || (o.type === "meet" ? "Class" : "Event"), color: o.color || "var(--accent)", where: o.where || ""});
+      const s = toMin(o.start) + off, e = toMin(o.end) + off; if (e > s) items.push({k: "ev", s, e, title: o.title, label: o.label || (o.type === "meet" ? "Class" : "Event"), color: o.color || "var(--accent)", where: o.where || ""});
     });
   } catch (e) {}
   // Do This Next always has a card: when the plan found it no slot, it starts right now for one session
-  const nowD = new Date(), nowMin = nowD.getHours() * 60 + nowD.getMinutes();
+  // ...for the time Today's Plan gives it today (the same as Do This Next says), up to your end of day
+  const nowMin = Math.max(sd.now, sd.start);
   if (heroId && !items.some(x => x.k === "tk" && x.t.id === heroId)) {
-    const hx = F && F.info ? F.info[heroId] : null;
-    if (hx && hx.t) items.push({k: "tk", s: nowMin, e: Math.min(1439, nowMin + Math.max(5, focusMinsFor(heroId))), t: hx.t});
+    const hx = F && F.info ? F.info[heroId] : null, want = hx && hx.alloc > 0 ? Math.round(hx.alloc * 60) : focusMinsFor(heroId);
+    if (hx && hx.t) items.push({k: "tk", s: nowMin, e: Math.min(sd.end, nowMin + Math.max(5, want)), t: hx.t});
   }
   if (!items.length) return "";
   // The short breaks between one task's back-to-back sessions are not shown: those sessions read as one card
@@ -8266,7 +8274,7 @@ function dayTimelineHtml(F, todayList, heroId){
     if (cur.k === "tk" && prev.k === "tk" && cur.t.id === prev.t.id && cur.s - prev.e <= 15) { prev.mn = (prev.mn || prev.e - prev.s) + (cur.mn || cur.e - cur.s); prev.e = Math.max(prev.e, cur.e); items.splice(i, 1); }
   }
   // Anything between the day's start and end with no task, class or event in it is shown as Free
-  let dayS = 420, dayE = 1380; try { const r = availFreeDay(todayISO(), 0); if (r && r.ws != null && r.we != null && r.we > r.ws) { dayS = r.ws; dayE = r.we; } } catch (e) {}
+  const dayS = sd.start, dayE = sd.end;
   { const busy = items.map(x => [Math.max(dayS, x.s), Math.min(dayE, x.e)]).filter(([s0, e0]) => e0 > s0).sort((p, q) => p[0] - q[0]);
     let cur = dayS; const gaps = [];
     busy.concat([[dayE, dayE]]).forEach(([s0, e0]) => { if (s0 - cur >= 10) gaps.push([cur, s0]); cur = Math.max(cur, e0); });
@@ -8280,7 +8288,7 @@ function dayTimelineHtml(F, todayList, heroId){
     if (x.k === "tk" && last && last.k === "tk" && last.t.id === x.t.id && x.s - last.e <= 15) { last.e = Math.max(last.e, x.e); last.min += x.e - x.s; }
     else { if (x.k === "tk") x.min = x.mn || x.e - x.s; rows.push(x); }
   });
-  const now = new Date(), nowM = now.getHours() * 60 + now.getMinutes();
+  const nowM = sd.now;
   const anchor = rows.findIndex(x => x.e > nowM);
   const cards = rows.map((x, i) => {
     const past = x.e <= nowM, on = x.s <= nowM && nowM < x.e, when = availRange(x.s, x.e), len = fmtHM((x.k === "tk" ? x.min : x.e - x.s) / 60) || "";
@@ -9127,9 +9135,12 @@ const AVAIL = (() => {
   }
   function normCfg(c){
     c = c && typeof c === "object" ? c : {};
-    const tm = v => isT(v) ? toMin(v) : Number.isInteger(v) && v >= 0 && v <= 1440 ? v : null;
-    const ds = tm(c.dayStart) == null ? 420 : tm(c.dayStart), de = tm(c.dayEnd) == null ? 1380 : tm(c.dayEnd);
-    const ok = de - ds >= 120;
+    const tm = v => isT(v) ? toMin(v) : Number.isInteger(v) && v >= 0 && v < 2880 ? v : null;
+    const ds = tm(c.dayStart) == null ? 420 : tm(c.dayStart);
+    let de = tm(c.dayEnd) == null ? 1380 : tm(c.dayEnd);
+    // An end at or before the start is after midnight (students work late): 1:00 AM is 25:00 of the day, and must be before the next day starts
+    if (de <= ds) de += 1440;
+    const ok = de - ds >= 120 && de < ds + 1440;
     return {dayStart: ok ? ds : 420, dayEnd: ok ? de : 1380, minChunk: clampInt(c.minChunk, 5, 180, 25), maxSession: clampInt(c.maxSession, 15, 240, 90),
       breakMin: clampInt(c.breakMin, 0, 60, 10), defBuf: clampInt(c.defBuf, 0, 120, 0), recover: !!c.recover, set: !!c.set};
   }
@@ -9194,7 +9205,7 @@ const AVAIL = (() => {
   const CLINICAL = /clinical|practicum|placement|internship|co-?op|field ?work|preceptor|\bshift\b|practice (day|experience)|hospital|sim(ulation)? lab|site visit/i;
 
   function busy(date, blocks, cfg, ext, done){
-    const iv = [], add = (s, e, kind, title) => { s = Math.max(0, s); e = Math.min(1440, e); if (e > s) iv.push({s, e, kind, title: title || TYPES[kind] && TYPES[kind].label || kind}); };
+    const cap = Math.max(1440, cfg && cfg.dayEnd || 0), iv = [], add = (s, e, kind, title) => { s = Math.max(0, s); e = Math.min(cap, e); if (e > s) iv.push({s, e, kind, title: title || TYPES[kind] && TYPES[kind].label || kind}); };
     const dn = dnum(date);
     raw(blocks, addD(date, -1), addD(date, 1)).forEach(o => {
       if (o.skipped) return;
@@ -9241,7 +9252,7 @@ const AVAIL = (() => {
       cur = Math.max(cur, m.e);
     }
     if (cur < we) raw0.push([cur, we]);
-    const windows = raw0.map(([s, e]) => ({s, e, min: realMin(date, s, e), a: toT(s), b: e >= 1440 ? "24:00" : toT(e)})).filter(w => w.min >= cfg.minChunk);
+    const windows = raw0.map(([s, e]) => ({s, e, min: realMin(date, s, e), a: toT(s % 1440), b: e === 1440 ? "24:00" : toT(e % 1440)})).filter(w => w.min >= cfg.minChunk);
     const total = windows.reduce((t, w) => t + w.min, 0);
     return {date, windows, total, largest: windows.reduce((m, w) => Math.max(m, w.min), 0), none: total === 0, busy: mb, ws: cfg.dayStart, we, lo};
   }
@@ -9388,7 +9399,7 @@ function restoreSettingsFrom(src){
   } catch(e) { console.warn("settings restore", e); }
 }
 function availRestore(v){ availSet(v == null ? null : AVAIL.normAvail(v)); }
-const availMin = m => m >= 1440 ? "midnight" : fmtTime(AVAIL.toT(m));
+const availMin = m => m === 1440 ? "midnight" : fmtTime(AVAIL.toT(m % 1440));
 function availRange(s, e){
   const a = availMin(s), b = availMin(e), sx = x => ((x.match(/\s?[AP]M$/i) || [""])[0]).trim().toLowerCase();
   return (sx(a) && sx(a) === sx(b) ? a.replace(/\s?[AP]M$/i, "") : a) + "\u2013" + b;
@@ -9424,16 +9435,26 @@ function availDays(from, to){
   for (let d = from; d <= to; d = addDays(d, 1)) out[d] = availFreeDay(d, null, ext).total / 60;
   AV_DAYS = {k, v: out}; return out;
 }
-// Today's window, from now on
+// The study day as the planner sees it: its start and end (an end after midnight is past 1440), now in it, and whether it's over.
+// Just after midnight, before a late end, it's still the evening's day. Without your own times: 7 am to 1 am.
+function studyDay(now){
+  now = now || new Date();
+  const c = availState().cfg, set = !!c.set, start = set ? c.dayStart : 420, end = set ? c.dayEnd : 1500;
+  const m = now.getHours() * 60 + now.getMinutes(), tail = end > 1440 && m < end - 1440, rel = tail ? m + 1440 : m;
+  const past = rel >= end || (!tail && rel < start);
+  return {start, end, now: rel, tail, night: !tail && rel < start, past, left: past ? 0 : end - Math.max(rel, start), date: tail ? addDays(todayISO(), -1) : todayISO(), set};
+}
+// Today's window, from now on (just after midnight, before a late end: the rest of the evening's day)
 function availToday(now){
-  const res = availFreeDay(todayISO(), now.getHours() * 60 + now.getMinutes());
-  return {res, active: availActive()};
+  const sd = studyDay(now);
+  const res = availFreeDay(sd.date, sd.now);
+  return {res, active: availActive(), sd};
 }
 const availWhen = (day, today) => { for (let i = 1; i < day.length; i++) if (day[i] >= 0.5) return i === 1 ? "tomorrow" : parse(addDays(today, i)).toLocaleDateString(undefined, {weekday: "long"}); return "the coming days"; };
 // Fill in what Today's Plan can say about free time
 function availPlan(av, ranked, th0, needToday, day, today, now, lead){
   const res = av.res, a = availState();
-  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const nowMin = av.sd ? av.sd.now : now.getHours() * 60 + now.getMinutes();
   // A task you have done enough on today gets no more time today, and one you set aside with Something Else moves down behind the new first task
   const skipped = new Set(typeof ui !== "undefined" && ui.skipNext && ui.skipNext.day === today ? ui.skipNext.ids : []);
   const isEnough = x => { try { return typeof enoughToday === "function" && enoughToday(x.t, x); } catch (e) { return false; } };
@@ -9502,7 +9523,8 @@ function availManager(){
       <ul class="av-list">${rows}</ul>
       <button type="button" class="btn small" data-act="avail-add">+ Add Shift or Work</button>
       <fieldset class="av-set"><legend>Study Time</legend>
-        <div class="two"><label class="f">Day starts<input type="time" name="dayStart" value="${esc(AVAIL.toT(c.dayStart))}" required></label><label class="f">Day ends<input type="time" name="dayEnd" value="${esc(AVAIL.toT(c.dayEnd))}" required></label></div>
+        <div class="two"><label class="f">Day starts<input type="time" name="dayStart" value="${esc(AVAIL.toT(c.dayStart))}" required></label><label class="f">Day ends<input type="time" name="dayEnd" value="${esc(AVAIL.toT(c.dayEnd % 1440))}" required></label></div>
+        <p class="mini" style="margin:-2px 0 6px">Working late? An end after midnight (like 1:00 AM) is fine, as long as it's before your day starts again.</p>
         <div class="two"><label class="f">Shortest useful gap (min)<input type="number" name="minChunk" min="5" max="180" step="5" value="${c.minChunk}"></label><label class="f">Longest single session (min)<input type="number" name="maxSession" min="15" max="240" step="5" value="${c.maxSession}"></label></div>
         <div class="two"><label class="f">Break between sessions (min)<input type="number" name="breakMin" min="0" max="60" step="5" value="${c.breakMin}"></label><label class="f">Usual travel time for new shifts and work (min)<input type="number" name="defBuf" min="0" max="120" step="5" value="${c.defBuf}"></label></div>
         <label class="mi-check"><input type="checkbox" name="recover" ${c.recover ? "checked" : ""}> Treat the morning after an overnight shift as recovery (no study before noon)</label>
@@ -9512,7 +9534,9 @@ function availManager(){
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button><button type="button" class="btn primary" data-submit>Save Settings</button></div>
   </form>`, fd => {
     const ds = String(fd.get("dayStart")), de = String(fd.get("dayEnd"));
-    if (!AVAIL.isT(ds) || !AVAIL.isT(de) || AVAIL.toMin(de) - AVAIL.toMin(ds) < 120) { toast("Your day needs to be at least 2 hours long"); return false; }
+    const span = AVAIL.isT(ds) && AVAIL.isT(de) ? (AVAIL.toMin(de) <= AVAIL.toMin(ds) ? AVAIL.toMin(de) + 1440 : AVAIL.toMin(de)) - AVAIL.toMin(ds) : 0;
+    if (!AVAIL.isT(ds) || !AVAIL.isT(de) || AVAIL.toMin(de) === AVAIL.toMin(ds)) { toast("Your day needs a start and an end that aren't the same time"); return false; }
+    if (span < 120) { toast("Your day needs to be at least 2 hours long"); return false; }
     const cfg = {dayStart: ds, dayEnd: de, minChunk: Number(fd.get("minChunk")), maxSession: Number(fd.get("maxSession")), breakMin: Number(fd.get("breakMin")), defBuf: Number(fd.get("defBuf")), recover: !!fd.get("recover"), set: true};
     availCommit({blocks: availBlocks(), cfg}, "Availability settings saved");
   });
@@ -9677,7 +9701,7 @@ function avSetSkip(b, key, val, label){
   availCommit({blocks: availBlocks().map(x => x.id === b.id ? n : x), cfg: availCfg()}, label);
 }
 // Test and crunch-view hook
-window.__sbAvail = {state: () => availState(), free: (d, nowMin) => availFreeDay(d, nowMin == null ? null : nowMin), occ: (a, b) => availOccs(a, b), plan: () => (FOCUS || computeFocus()).avail,
+window.__sbAvail = {studyDay: () => studyDay(), state: () => availState(), free: (d, nowMin) => availFreeDay(d, nowMin == null ? null : nowMin), occ: (a, b) => availOccs(a, b), plan: () => (FOCUS || computeFocus()).avail,
   // for tests
   view: o => { Object.assign(ui, o); render(); }, pomo: () => ({running: pomo.running, preset: pomo.preset, endAt: pomo.endAt, mode: pomo.mode, taskId: pomo.taskId}), pomoReset: () => { pomoReset(); const d = $("#pomoDlg"); if (d.open) d.close(); },
   exportArrays: () => exportArrays(), restore: availRestore, day: () => (FOCUS || computeFocus()).day.slice(0, 6)};
@@ -29666,7 +29690,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
       const fbk = window.SBLMS_HASFB && SBLMS_HASFB(t);
       const open = !!(fbk && ui.grOpen && ui.grOpen[t.id]), L = fbk ? FIELDS_OF(t) : null, what = L && (L.feedback || L.rubric) ? "Feedback" : "Class Results";
       const nw = p != null && !hasWeight(t);
-      return `<li class="${fbk ? "gr-has-drop" : ""}${nw ? " gr-nw" : ""}"><button class="gr-row-main" data-act="${fbk ? "lms-fb" : "edit-task"}" data-id="${esc(t.id)}"${fbk ? ` aria-expanded="${open}"` : ""}><span class="gr-row-t">${esc(t.title)}${nw ? ` <span class="pill gr-nw-pill" title="Shown, but not counted in the course grade until it has a weight">No weight yet</span>` : ""}${fbk ? ` <span class="pill lms-fbpill">${what}<span class="gr-chev" aria-hidden="true">▾</span></span>` : ""}</span><span class="mini">${esc(t.type)}, worth ${fmtW(Number(t.weight))}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}${swingId === t.id ? ` <span class="pill gr-swing">Biggest swing</span>` : ""}</span></button>
+      return `<li class="${fbk ? "gr-has-drop" : ""}${nw ? " gr-nw" : ""}"><button class="gr-row-main" data-act="${fbk ? "lms-fb" : "edit-task"}" data-id="${esc(t.id)}"${fbk ? ` aria-expanded="${open}"` : ""}><span class="gr-row-t">${t.markNew && t.mark ? `<span class="gr-newmark" title="New mark from your last sync" aria-label="New mark"></span>` : ""}${esc(t.title)}${nw ? ` <span class="pill gr-nw-pill" title="Shown, but not counted in the course grade until it has a weight">No weight yet</span>` : ""}${fbk ? ` <span class="pill lms-fbpill">${what}<span class="gr-chev" aria-hidden="true">▾</span></span>` : ""}</span><span class="mini">${esc(t.type)}, ${hasWeight(t) ? `worth ${fmtW(Number(t.weight))}` : "not counted yet"}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}${swingId === t.id ? ` <span class="pill gr-swing">Biggest swing</span>` : ""}</span></button>
         ${p != null ? `<button class="gr-mk" data-act="g-mark" data-id="${esc(t.id)}" aria-label="Edit mark for ${esc(t.title)}"><b>${fmtP(p)}</b>${Number(t.mark.outOf) !== 100 ? `<span class="mini">${esc(fmtMark(t.mark))}</span>` : ""}</button>`
           : `<button class="btn small" data-act="g-mark" data-id="${esc(t.id)}">${t.status === "done" ? "Add Mark" : "Mark"}</button>`}${fbk ? `<div class="gr-drop" data-drop="${esc(t.id)}"${open ? "" : " hidden"}>${open && window.SBLMS_FBBODY ? SBLMS_FBBODY(t) : ""}</div>` : ""}</li>`;
     }).join("");
@@ -29683,6 +29707,35 @@ ${kindPreview("study")}${kindPreview("project")}`;
       : np <= 0 ? `Pass mark secured. ${g.goal != null ? (n => n <= 0 ? "Goal secured too." : n <= 100 ? `${fmtP(n)} on the rest for your goal.` : "Goal out of reach now.")(gr.need(g.goal)) : ""}`
       : `Needs ${fmtP(np)} on the remaining ${fmtW(gr.remaining)} to pass${g.goal != null ? (n => n <= 0 ? ", goal secured" : n <= 100 ? `, ${fmtP(n)} for your goal` : ", goal out of reach")(gr.need(g.goal)) : ""}.`;
   }
+  /* New marks from a sync: a red count on Courses, on the Grades switch, on each course with one (its card, its row on Grades,
+     its own Grades tab), and a red dot on the mark itself. Seen once you've had that course's Grades tab (or its marks on Grades) open and moved on. */
+  const newMarks = cid => tasksArr().filter(t => t && t.markNew && t.mark && t.mark.got != null && t.mark.got !== "" && (!cid || t.courseId === cid));
+  const pipOn = (el, n, cls, label) => {
+    if (!el) return; let d = el.querySelector(":scope > ." + cls);
+    if (!n) { if (d) d.remove(); return; }
+    if (!d) { d = document.createElement("span"); d.className = cls; d.setAttribute("aria-hidden", "true"); el.appendChild(d); }
+    d.textContent = n > 9 ? "9+" : String(n);
+    if (label) el.setAttribute("aria-label", label);
+  };
+  let markSeenPending = new Set();
+  function newMarkBadges(){
+    const all = newMarks(), byC = {}; all.forEach(t => { byC[t.courseId] = (byC[t.courseId] || 0) + 1; });
+    // what's on screen now counts as seen when you move on
+    const onCourse = ui.tab === "courses" && ui.courseId && ui.courseTab === "grades" && ui.courseTabFor === ui.courseId ? ui.courseId : null;
+    const onPage = ui.tab === "courses" && !ui.courseId && ui.courseTab === "grades" ? Object.keys(ui.gpOpen || {}).filter(k => ui.gpOpen[k]) : [];
+    const showing = new Set(all.filter(t => t.courseId === onCourse || onPage.includes(t.courseId)).map(t => t.id));
+    const gone = [...markSeenPending].filter(id => !showing.has(id) && state.tasks[id] && state.tasks[id].markNew);
+    markSeenPending = showing;
+    if (gone.length) { applyChanges(gone.map(id => { const n = clone(state.tasks[id]); delete n.markNew; return {kind: "task", id, after: n}; }), ""); return; }
+    const tab = document.querySelector('nav.tabs [data-tab="courses"]');
+    if (tab) { tab.classList.add("has-newmark"); let d = tab.querySelector(":scope > .nm-dot"); if (!all.length) { if (d) d.remove(); } else { if (!d) { d = document.createElement("span"); d.className = "nm-dot"; d.setAttribute("aria-hidden", "true"); tab.appendChild(d); } d.textContent = all.length > 9 ? "9+" : String(all.length); } }
+    pipOn(document.querySelector('.cf-tabs [data-act="cf-view"][data-id="grades"]'), all.length, "nm-pip");
+    document.querySelectorAll('.course-card[data-act="open-course"]').forEach(b => pipOn(b, byC[b.dataset.id] || 0, "nm-card"));
+    document.querySelectorAll('.gp-main[data-act="g-open-course"]').forEach(b => pipOn(b, byC[b.dataset.id] || 0, "nm-card"));
+    if (ui.courseId) pipOn(document.querySelector('[data-act="course-tab"][data-id="grades"]'), byC[ui.courseId] || 0, "nm-pip");
+  }
+  hook("render", () => { try { newMarkBadges(); } catch (e) { console.warn("new marks", e); } });
+  window.SBGRADES_NEW = {list: newMarks, badges: newMarkBadges};
   window.SBGRADES = {lines: () => grades().filter(gr => gr.ts.length).map(gr => `${courseLabel(gr.c)}: ${gr.current != null ? "current " + fmtP(gr.current) + (letterOf(gr.current, gr.g.scale) ? " (" + letterOf(gr.current, gr.g.scale) + ")" : "") + " on " + fmtW(gr.wMarked) + " marked" : "no marks yet"}; pass mark ${fmtP(gr.g.pass)}${gr.g.goal != null ? ", goal " + fmtP(gr.g.goal) : ""}. ${gradeLine(gr)}`)};
   // For the course cards and a course's header
   window.SBGRADES.schoolPass = list => {
@@ -31758,7 +31811,7 @@ function cleanFile(r) {
       }
       const from = g.from || "grades";
       if (g.got != null && g.outOf && (!n.mark || n.mark.src === F) && !(n.mark && n.mark.got === g.got && n.mark.outOf === g.outOf && (n.mark.from || "grades") === from)) {
-        n.mark = Object.assign({got: g.got, outOf: g.outOf, src: F}, from !== "grades" ? {from} : {}); changed = true; if (!t.mark || t.mark.got !== g.got) rep.graded.push({t: n, g}); }
+        n.mark = Object.assign({got: g.got, outOf: g.outOf, src: F}, from !== "grades" ? {from} : {}); changed = true; if (!t.mark || t.mark.got !== g.got) { rep.graded.push({t: n, g}); if (c.last) n.markNew = Date.now(); } }
       const lastW = n[F] && n[F].last ? n[F].last.weight : undefined;
       if (g.weight != null && (n.weight == null || n.weight === "" || (lastW !== undefined && Number(n.weight) === Number(lastW))) && Number(n.weight) !== g.weight) { n.weight = g.weight; changed = true; }
       if (n[F]) { n[F] = Object.assign({}, n[F], {gid: n[F].gid || g.gid, last: Object.assign({}, n[F].last || {}, {weight: g.weight})}); }
