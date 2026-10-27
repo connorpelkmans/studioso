@@ -44124,10 +44124,10 @@ var COMP_KIT = (() => {
             <path d="M60 29.6L57.6 45" stroke="${INK}" stroke-width="7.4" opacity=".28"/><path d="M60 29.6L57.6 45" stroke="#F79AD9" stroke-width="5" opacity=".75"/>
             <rect x="28" y="43" width="64" height="7" rx="3.5" fill="#DCD8F8" ${O}/>
             <path d="M38 40Q42 34 49 32.5" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
-            <ellipse cx="60" cy="29.6" rx="5.6" ry="2.4" fill="#7E64C8" ${OW(2)}/>`,
+            <ellipse cx="60" cy="29.6" rx="5.8" ry="2.3" fill="#CFC4F4" ${OW(2)}/>`,
           armL: {svg: `<ellipse cx="33" cy="74" rx="4.6" ry="6" transform="rotate(24 33 74)" fill="#C6B2F6" ${O}/>`, pivot: [38, 72]},
           armR: {svg: `<ellipse cx="87" cy="74" rx="4.6" ry="6" transform="rotate(-24 87 74)" fill="#C6B2F6" ${O}/>`, pivot: [82, 72]},
-          top: {svg: `<path d="M60 29.6L63.6 6.6" stroke="${INK}" stroke-width="8.6"/><circle cx="63.6" cy="6.6" r="4.3" fill="${INK}"/><path d="M60 29.6L63.6 6.6" stroke="#FF6FD2" stroke-width="5"/><circle cx="63.6" cy="6.6" r="2.5" fill="#FF6FD2"/><path d="M60.9 24.5L63 11" stroke="#FFC4EE" stroke-width="1.6" stroke-linecap="round"/><path d="M54.4 29.6Q60 28.6 65.6 29.6A5.6 2.4 0 0 1 54.4 29.6Z" fill="#E6E0FF" ${OW(2)}/>`, pivot: [60, 29.6]}
+          top: {svg: `<path d="M59.65 31.8L63.6 6.6" stroke="${INK}" stroke-width="8.6"/><circle cx="63.6" cy="6.6" r="4.3" fill="${INK}"/><path d="M59.65 31.8L63.6 6.6" stroke="#FF6FD2" stroke-width="5"/><circle cx="63.6" cy="6.6" r="2.5" fill="#FF6FD2"/><path d="M60.9 24.5L63 11" stroke="#FFC4EE" stroke-width="1.6" stroke-linecap="round"/><path d="M54.2 29.6A5.8 2.3 0 0 0 65.8 29.6" fill="none" ${OW(2)}/>`, pivot: [60, 29.6]}
         },
         eyes: {lx: 50, rx: 70, y: 68, r: 5, style: "dot", color: "#231F3F"},
         mouth: {x: 60, y: 77, w: 3.2, color: "#231F3F"},
