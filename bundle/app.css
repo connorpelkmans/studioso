@@ -4269,6 +4269,9 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-tq-a:empty{display:none}
 
 
+/* Companions as still pictures in long lists (every theme's companions) */
+.cp-still-box{display:block;width:64px;height:64px;flex:none}
+.cp-still{display:block;max-width:none;pointer-events:none;-webkit-user-drag:none}
 /* ===== module: 98-photo.css ===== */
 /* ===== Your Photo themes ===== */
 /* The photo sits behind the page (left of the desktop sidebar) as one fixed */
@@ -5824,6 +5827,7 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .cp-oth-d{border:1px solid var(--line);border-radius:14px;padding:0 12px;background:var(--surface)}
 .cp-oth-d > summary{cursor:pointer;min-height:46px;display:flex;align-items:center;font:700 .95rem var(--display)}
 .cp-oth-d[open]{display:grid;gap:10px;padding-bottom:12px}
+.cp-oth-g{content-visibility:auto;contain-intrinsic-size:auto 260px}
 .cp-oth-g h4{margin:6px 0;font:700 .88rem var(--display);display:flex;align-items:center;gap:6px}
 .cp-oth-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
 .cp-oth{display:grid;justify-items:center;gap:4px;padding:8px 4px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:inherit;font:600 .78rem var(--display);cursor:pointer}

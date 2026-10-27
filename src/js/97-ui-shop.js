@@ -89,11 +89,16 @@
     queue = front ? todo.concat(queue.filter(k => !todo.includes(k))) : queue.concat(todo);
     pump();
   }
+  // Background work waits while something is scrolling, so scrolling stays smooth
+  let lastScroll = 0;
+  document.addEventListener("scroll", () => { lastScroll = performance.now(); }, {capture: true, passive: true});
+  const calm = async () => { while (performance.now() - lastScroll < 350) await new Promise(r => setTimeout(r, 200)); };
   async function pump(){
     if (pumping) return; pumping = true;
     try {
       await load();
       while (queue.length) {
+        await calm();
         const t0 = performance.now();
         while (queue.length && performance.now() - t0 < 12) { const k = queue.shift(); if (!sharp(BMP.get(k))) { try { await raster(k); } catch (e) { BMP.set(k, {px: Infinity, url: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(stkSvg(k, "o"))}); swap(k); } } }
         persist();
@@ -177,6 +182,7 @@
       await thLoad();
       while (thQueue.length && shopOpen()) {
         await new Promise(r => (window.requestIdleCallback ? requestIdleCallback(r) : setTimeout(r, 50)));
+        await calm();
         if (!shopOpen()) break;
         const k = thQueue.shift(); if (!k) break;
         try { await thRaster(k); } catch (e) { TH.set(k, {px: 0, url: thSrc.get(k).url}); }
@@ -197,6 +203,7 @@
     if (!thQueue.includes(key)) { thQueue.push(key); thPump(); }
     return h;
   };
+  window.SBUI = Object.assign(window.SBUI, {cacheGet, cacheSet});
   window.SBUI = Object.assign(window.SBUI, {thumbReady: async () => { await thLoad(); SKINS.filter(s => !s.photo).forEach(s => { artThumb(s.id, false); artThumb(s.id, true); }); while (thQueue.length) { const k = thQueue.shift(); try { await thRaster(k); } catch (e) {} } return TH.size; }});
 
   // The Stickers tab, drawn here (with cached sticker images) instead of by the app
