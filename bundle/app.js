@@ -15416,6 +15416,7 @@ document.addEventListener("click", e => {
       confirmSheet("Delete Course?", `${c.name} and its ${ts.length} task${ts.length === 1 ? "" : "s"}${ts.length >= 5 ? ` (${ts.filter(t => t.status === "done").length} finished)` : ""} will be moved to Recently Deleted. You can undo right after, or restore it from Settings for ${TB.KEEP_DAYS} days.`, "Delete Course", () => {
         if (ui.filter === id) ui.filter = "all";
         ui.courseId = null;
+        try { if (window.SBLMS_COURSE_GONE) SBLMS_COURSE_GONE(id); } catch (e) {}
         applyChanges([{kind:"course", id, after:null}, ...ts.map(t => ({kind:"task", id:t.id, after:null}))], `Deleted ${c.name}`);
       });
       break;
@@ -31382,7 +31383,7 @@ function cleanFile(r) {
   const LS = "studyboard:" + P.id;
   const bsDesk = () => !!lmsBridge();
   const DEF = {host: "", feed: "", mode: "", auto: true, markDone: true, grades: true, news: true, aiNews: true, addGraded: true, pastDays: 14,
-    map: {}, courses: {}, log: [], newsItems: [], finals: {}, suggest: [], scanned: [], last: 0, lastSrc: "", name: "", gone: [], dropped: [], merges: {}, apiOnly: [], mergedDrops: [], wrongCourse: {}};
+    map: {}, courses: {}, log: [], newsItems: [], finals: {}, suggest: [], scanned: [], last: 0, lastSrc: "", name: "", gone: [], dropped: [], merges: {}, apiOnly: [], mergedDrops: [], wrongCourse: {}, goneCourses: {}};
   const BULK_LS = LS + ":bulk", NEWS_KEEP = 20, NEWS_SNIP = 280;
   let bulkMem = null;
   const bulk = () => { if (!bulkMem) { try { bulkMem = JSON.parse(localStorage.getItem(BULK_LS) || "null"); } catch(e) {} bulkMem = Object.assign({log: [], scanned: [], texts: {}}, bulkMem || {}); } return bulkMem; };
@@ -31780,14 +31781,40 @@ function cleanFile(r) {
     const c = cs.find(c => c.name && nm.length > 4 && (c.name.toLowerCase() === nm || sim(c.name, nm) >= 0.75));
     return c ? c.id : "";
   }
+  // A course you deleted stays deleted: syncing never brings it back. Restoring it from Recently Deleted picks it up again
+  const inTrash = id => trashList().some(e => (e.items || []).some(i => i && i.kind === "course" && i.id === id));
+  const linkedOus = id => { const c = cfg(), co = state.courses[id], ous = new Set();
+    Object.entries(c.map || {}).forEach(([ou, v]) => { if (v === id) ous.add(ou); });
+    if (co && co[F] && co[F].ou) ous.add(co[F].ou);
+    Object.keys(c.courses || {}).forEach(ou => { if (F + "c_" + hid(ou) === id) ous.add(ou); });
+    return [...ous]; };
+  function courseDeleted(id){
+    const ous = linkedOus(id); if (!ous.length) return;
+    const c = cfg(), map = Object.assign({}, c.map), gone = Object.assign({}, c.goneCourses);
+    ous.forEach(ou => { map[ou] = "skip"; gone[ou] = id; });
+    save({map, goneCourses: gone});
+  }
   function mapping(data, over){
-    const c = cfg(), out = {};
+    const c = cfg(), out = {}, gone = Object.assign({}, c.goneCourses || {});
+    let fix = null; const note = (ou, m) => { fix = fix || {map: Object.assign({}, c.map), goneCourses: gone}; if (m == null) delete fix.map[ou]; else fix.map[ou] = m; };
     data.courses.forEach(bc => {
-      let m = (over && over[bc.ou]) || c.map[bc.ou];
+      const ou = bc.ou, was = gone[ou];
+      let m = (over && over[ou]) || c.map[ou];
+      if (was && !(over && over[ou])) {
+        if (state.courses[was]) { m = was; delete gone[ou]; note(ou, was); }          // restored from Recently Deleted
+        else if (!m || m === "skip" || m === was) m = "skip";                          // still deleted
+        else { delete gone[ou]; fix = fix || {map: Object.assign({}, c.map), goneCourses: gone}; } // you picked another course for it since
+      }
+      // the course it went to was deleted (Recently Deleted holds it): keep it off rather than make a new one
+      const dflt = F + "c_" + hid(ou);
+      if (!(over && over[ou]) && m !== "skip" && ((m && m !== "new" && !state.courses[m] && inTrash(m)) || (!m && !state.courses[dflt] && inTrash(dflt)))) {
+        gone[ou] = m && m !== "new" ? m : dflt; m = "skip"; note(ou, "skip");
+      }
       if (m && m !== "new" && m !== "skip" && !state.courses[m]) m = "";
       if (!m) m = autoMatch(bc) || (state.courses[F + "c_" + hid(bc.ou)] ? F + "c_" + hid(bc.ou) : "new");
       out[bc.ou] = m;
     });
+    if (fix) save(fix);
     return out;
   }
 
@@ -32507,8 +32534,11 @@ function cleanFile(r) {
       <div class="sheet-foot"><button type="button" class="btn danger" data-act="${A}-disconnect">Disconnect</button><button type="button" class="btn" data-act="${A}-fresh">Start Fresh</button><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
     dlg.querySelectorAll("[data-bs-opt]").forEach(i => i.addEventListener("change", () => { save({[i.dataset.bsOpt]: i.checked}); if (i.dataset.bsOpt === "aiNews" && i.checked && !aiReady()) toast("Set up AI in Settings first, then this will work"); }));
     dlg.querySelectorAll("[data-bs-map]").forEach(s => s.addEventListener("change", () => {
-      const m = Object.assign({}, cfg().map); m[s.dataset.bsMap] = s.value === "new" ? "" : s.value; if (!m[s.dataset.bsMap]) delete m[s.dataset.bsMap];
-      save({map: m}); toast(s.value === "skip" ? "That course won't be imported. What's already here stays." : "Saved. It applies from the next sync.", null, {label: "Sync Now", fn: () => syncNow()});
+      const g = Object.assign({}, cfg().goneCourses), wasGone = !!g[s.dataset.bsMap] || cfg().map[s.dataset.bsMap] === "skip"; delete g[s.dataset.bsMap];
+      // a course you'd deleted and now want again: say so, so Recently Deleted doesn't keep it off
+      const m = Object.assign({}, cfg().map); m[s.dataset.bsMap] = s.value === "new" ? (wasGone ? "new" : "") : s.value; if (!m[s.dataset.bsMap]) delete m[s.dataset.bsMap];
+      const ou = s.dataset.bsMap, dr = cfg().dropped || [], back = wasGone && s.value !== "skip" ? dr.filter(k => String(k).split("|")[0] === ou) : [];
+      save(Object.assign({map: m, goneCourses: g}, back.length ? {dropped: dr.filter(k => !back.includes(k))} : {})); toast(s.value === "skip" ? "That course won't be imported. What's already here stays." : "Saved. It applies from the next sync.", null, {label: "Sync Now", fn: () => syncNow()});
     }));
     $("#bsPast").addEventListener("change", e => save({pastDays: Number(e.target.value) || 0}));
     const t = focus === "suggest" ? $("#bsSuggest") : focus === "log" ? $("#bsLog") : null;
@@ -33015,7 +33045,7 @@ function cleanFile(r) {
 
   return {P, cfg, save, connected, consented, askConsent, statusLine, shortStatus, bsSheet, connectSheet, syncNow, canSync: () => !!howNow(), autoTick, isRunning: () => !!running, courseCard, staffHtml, local,
     fromApi: P.fromApi, fromFeed, plan, applyPlan, cleanTitle, titleKey, codeOf, mapping, reviewSheet, scanNews, doLogin, feedConnect, importGrab, setLocal,
-    lastRead: () => bulk().lastRead || null, linkTask, startFresh, freshPlan, drop: (key, why) => { const c = cfg(); if (!(c.dropped || []).includes(key)) save({dropped: (c.dropped || []).concat(key).slice(-400)}); if (why === "merge" && !(c.mergedDrops || []).includes(key)) save({mergedDrops: (cfg().mergedDrops || []).concat(key).slice(-200)}); }};
+    lastRead: () => bulk().lastRead || null, linkTask, courseDeleted, startFresh, freshPlan, drop: (key, why) => { const c = cfg(); if (!(c.dropped || []).includes(key)) save({dropped: (c.dropped || []).concat(key).slice(-400)}); if (why === "merge" && !(c.mergedDrops || []).includes(key)) save({mergedDrops: (cfg().mergedDrops || []).concat(key).slice(-200)}); }};
   }
 
   /* The three platforms */
@@ -33085,6 +33115,8 @@ function cleanFile(r) {
   ];
   PROVIDERS.forEach(P => { LMS[P.id] = makeLms(P); });
   const ALL = () => PROVIDERS.map(P => LMS[P.id]);
+  // You deleted a course: every school site linked to it stops bringing it back
+  window.SBLMS_COURSE_GONE = id => ALL().forEach(L => { try { L.courseDeleted(id); } catch (e) {} });
 
   /* Desktop: staying signed in, and a quick way back in */
   const relogNeeded = () => ALL().filter(L => !!lmsBridge() && L.cfg().mode === "api" && L.connected() && L.local().needLogin);

@@ -107,6 +107,7 @@ document.addEventListener("click", e => {
       confirmSheet("Delete Course?", `${c.name} and its ${ts.length} task${ts.length === 1 ? "" : "s"}${ts.length >= 5 ? ` (${ts.filter(t => t.status === "done").length} finished)` : ""} will be moved to Recently Deleted. You can undo right after, or restore it from Settings for ${TB.KEEP_DAYS} days.`, "Delete Course", () => {
         if (ui.filter === id) ui.filter = "all";
         ui.courseId = null;
+        try { if (window.SBLMS_COURSE_GONE) SBLMS_COURSE_GONE(id); } catch (e) {}
         applyChanges([{kind:"course", id, after:null}, ...ts.map(t => ({kind:"task", id:t.id, after:null}))], `Deleted ${c.name}`);
       });
       break;
