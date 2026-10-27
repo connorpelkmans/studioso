@@ -272,6 +272,20 @@ const bsTask = (id, title, cid, ou, extra) => Object.assign({id, created: 1, tit
       ok(true, "Remove removes it");
       await page.context().close(); }
 
+    // 13. Copy Sync Report: what the read saw, step by step
+    { const page = await fresh([]);
+      await page.evaluate(h => { h.courses[1].dx = {me: {id: "string:42", name: "yes"}, quizApi: 0, quizPage: "200",
+          quizzes: [{id: "8", n: "Midterm Exam- Requires Respondus LockDown Browser", from: "Quizzes page", gradeItem: "", inGrades: false, sat: "yes", subm: "sign-in page", overall: false, attempts: 0, fractions: "", mark: ""}],
+          topics: [{id: "306", n: "Module 6 Discussion", due: "2026-10-25", grp: false, graded: false, posts: "refused (403, plain 403)", n0: 0, ids: [], page: "ok 5120 chars, \"posted\" 3x, your name not found", result: "not posted"}]};
+        const L = SBLMS.brightspace, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true); }, H()); await closeDlg(page);
+      await page.evaluate(() => SBLMS.brightspace.bsSheet());
+      await page.click('dialog[open] [data-act="bs-report"]');
+      const rep = await page.inputValue("#bsReport");
+      ok(/Midterm Exam- Requires Respondus LockDown Browser" \[8\] from Quizzes page; sat yes/.test(rep) && /Submissions page: sign-in page/.test(rep) && /posts refused \(403, plain 403\)/.test(rep) && /your name not found/.test(rep) && /Studyboard tasks:/.test(rep),
+        "the report says what each step got: " + rep.slice(0, 600));
+      ok(!page.errs.length, "no page errors: " + page.errs.join(" | "));
+      await page.context().close(); }
+
     // 7. Same Exam? never pairs two courses' midterms on the same day
     { const page = await fresh([bsTask("e1", "BSNC 1030 Midterm Exam", "c20", "20"), Object.assign(bsTask("e2", "BSNC 1020 Midterm Exam", "c10", "10"), {bs: undefined})]);
       await page.evaluate(() => SBLMS_DUPES(false)); await page.waitForTimeout(500);
