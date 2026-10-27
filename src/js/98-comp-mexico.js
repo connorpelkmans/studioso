@@ -54,7 +54,7 @@
       {
         id: "mexico-tito", name: "Tito", kind: "Axolotl", pose: "sit", sleepy: true, wearColor: "#2AAEB0",
         bio: "A smiley axolotl who regrows its motivation overnight.",
-        idle: ["finWiggle", "earTwitch", "headTilt", "topBob"], cheer: "spin",
+        idle: ["earTwitch", "finWiggle", "topBob"], cheer: "spin",
         neck: [60, 79],
         parts: (() => {
           // a soft, frilly gill frond: a long rounded lobe with a scalloped edge, base at (bx, by), pointing at angle a
