@@ -3428,9 +3428,9 @@ html :is(.tl-controls.f-title,.pview-tabs + .tl-controls:has(> .segb)) > h2{flex
 .gr-legend .k.sec{background:var(--accent)}
 .gr-legend .k.pos{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--accent) 45%,transparent) 0 3px,color-mix(in srgb,var(--accent) 18%,transparent) 3px 6px)}
 .gr-bar+.gr-legend{margin-top:16px}
-.gr-need{margin:0;padding:0;list-style:none;display:grid;gap:6px}
-.gr-need li{font-size:.93rem;padding-left:14px;position:relative}
-.gr-need li::before{content:"";position:absolute;left:2px;top:.55em;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.gr-need,.gb-lines{margin:0;padding:0;list-style:none;display:grid;gap:6px}
+.gr-need li,.gb-lines li{font-size:.93rem;padding-left:14px;position:relative}
+.gr-need li::before,.gb-lines li::before{content:"";position:absolute;left:2px;top:.55em;width:6px;height:6px;border-radius:50%;background:var(--accent)}
 .gr-kind{display:block;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--mark) 22%,var(--surface));border:1px solid color-mix(in srgb,var(--mark) 50%,var(--line))}
 .gr-list summary{cursor:pointer;font-weight:600;font-size:.9rem;padding:6px 0;min-height:32px}
 .gr-list ul{list-style:none;margin:4px 0 0;padding:0}
@@ -3566,6 +3566,20 @@ h2.sec .pill{align-self:center}
 .gr-preset{display:inline-flex;align-items:center;gap:6px;font-size:.85rem;font-weight:600}
 .gr-preset select{min-height:40px;width:auto}
 .gr-goal-ask .link-btn{min-height:40px;padding:0 8px}
+/* Where Your Grade Comes From, class comparison, graded work coming up */
+.gb-types{list-style:none;margin:0 0 4px;padding:0;display:grid;gap:8px}
+.gb-types li{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(60px,1fr) auto;align-items:center;gap:12px}
+.gb-name{display:grid;gap:1px;min-width:0}
+.gb-name b{font-size:.93rem}
+.gb-bar{position:relative;height:10px;border-radius:99px;background:color-mix(in srgb,var(--accent) 14%,var(--surface))}
+.gb-bar > i{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:var(--accent)}
+.gb-bar > i.gb-pass{left:auto;top:-3px;bottom:-3px;width:2px;margin-left:-1px;border-radius:2px;background:var(--ink);opacity:.7}
+.gb-v{display:flex;align-items:baseline;gap:5px;min-width:4.6rem;justify-content:flex-end;font-variant-numeric:tabular-nums}
+.gr-vs{margin-left:6px;background:var(--soft);color:var(--ink);font-variant-numeric:tabular-nums}
+.gr-vs.up{background:color-mix(in srgb,var(--leaf) 16%,transparent)}
+.gr-vs.down{background:color-mix(in srgb,var(--late) 14%,transparent)}
+.gb-soon li .gs-name{display:grid;gap:2px}
+@media (max-width:420px){.gb-types li{grid-template-columns:minmax(0,1fr) auto}.gb-bar{grid-column:1/-1;grid-row:2}}
 /* ===== module: 92-estimates.css ===== */
 /* Estimate Times */
 .est-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
