@@ -31922,7 +31922,7 @@ function cleanFile(r) {
     return g;
   };
   const absUrl = (origin, u) => { if (!u) return ""; if (/^https?:\/\//i.test(u)) return u; return origin ? origin + (u.startsWith("/") ? "" : "/") + u : ""; };
-  const courseName = (name, code) => { let n = String(name || "").trim(); if (code) n = n.replace(new RegExp(`^\\s*${code.replace(" ", "[\\s_-]?")}\\s*[-–:]?\\s*`, "i"), ""); return n.trim() || String(name || code || `${P.name} Course`); };
+  const courseName = (name, code) => { let n = String(name || "").trim(); if (code) n = n.replace(new RegExp(`^\\s*${code.replace(" ", "[\\s_-]?")}(?:-[A-Z]?\\d{1,3}[A-Z]?)?\\s*[-–:]?\\s*`, "i"), ""); return n.trim() || String(name || code || `${P.name} Course`); };
 
   /* Reading the platform data into one shape */
   const makeAdd = (out, filesFirst) => {
@@ -32235,12 +32235,18 @@ function cleanFile(r) {
 
   /* Matching the platform courses to yours */
   function autoMatch(bc){
-    const cs = coursesArr(), code = bc.code || codeOf(bc.name);
-    if (code) { const k = codeKey(code); const c = cs.find(c => c.code && codeKey(c.code) === k) || cs.find(c => codeKey(c.name).includes(k) || (c.code && codeKey(c.code).includes(k))); if (c) return c.id; }
-    const nm = courseName(bc.name, code).toLowerCase();
-    const c = cs.find(c => c.name && nm.length > 4 && (c.name.toLowerCase() === nm || sim(c.name, nm) >= 0.75));
-    return c ? c.id : "";
+    const code = bc.code || codeOf(bc.name);
+    // your active courses first; an archived one before ever making a second copy of a course you already have
+    for (const cs of [coursesArr(), allCourses().filter(c => c.archived)]) {
+      if (code) { const k = codeKey(code); const c = cs.find(c => c.code && codeKey(c.code) === k) || cs.find(c => codeKey(c.name).includes(k) || (c.code && codeKey(c.code).includes(k))); if (c) return c.id; }
+      const nm = courseName(bc.name, code).toLowerCase();
+      const c = cs.find(c => c.name && nm.length > 4 && (c.name.toLowerCase() === nm || sim(c.name, nm) >= 0.75));
+      if (c) return c.id;
+    }
+    return "";
   }
+  // What makes two school courses the same course: the course code, else the name
+  const sameKey = bc => { const code = cleanCourseCode(bc.code, bc.name) || codeOf(bc.code) || codeOf(bc.name); return code ? "c:" + codeKey(code) : "n:" + courseName(bc.name, "").toLowerCase().replace(/[^a-z0-9]/g, ""); };
   // A course you deleted stays deleted: syncing never brings it back. Restoring it from Recently Deleted picks it up again
   const inTrash = id => trashList().some(e => (e.items || []).some(i => i && i.kind === "course" && i.id === id));
   const linkedOus = id => { const c = cfg(), co = state.courses[id], ous = new Set();
@@ -32248,6 +32254,12 @@ function cleanFile(r) {
     if (co && co[F] && co[F].ou) ous.add(co[F].ou);
     Object.keys(c.courses || {}).forEach(ou => { if (F + "c_" + hid(ou) === id) ous.add(ou); });
     return [...ous]; };
+  // Courses merged (from -> to): the school courses that went to the copy now go to the course that stays
+  function repoint(to){
+    const c = cfg(), map = Object.assign({}, c.map); let n = 0;
+    Object.keys(c.courses || {}).concat(Object.keys(map)).forEach(ou => { const v = map[ou] || (to[F + "c_" + hid(ou)] ? F + "c_" + hid(ou) : ""); if (v && to[v] && map[ou] !== to[v]) { map[ou] = to[v]; n++; } });
+    if (n) save({map});
+  }
   function courseDeleted(id){
     const ous = linkedOus(id); if (!ous.length) return;
     const c = cfg(), map = Object.assign({}, c.map), gone = Object.assign({}, c.goneCourses);
@@ -32272,6 +32284,9 @@ function cleanFile(r) {
       }
       if (m && m !== "new" && m !== "skip" && !state.courses[m]) m = "";
       if (!m) m = autoMatch(bc) || (state.courses[F + "c_" + hid(bc.ou)] ? F + "c_" + hid(bc.ou) : "new");
+      // the same course listed twice by the school site (two sections, or an old and a new shell): one Studyboard course
+      if (m === "new" && !(over && over[ou])) { const k = sameKey(bc), first = k.length > 3 && data.courses.find(x => x !== bc && x.ou !== ou && sameKey(x) === k && out[x.ou] && out[x.ou] !== "skip");
+        if (first) m = out[first.ou] === "new" ? F + "c_" + hid(first.ou) : out[first.ou]; }
       out[bc.ou] = m;
     });
     if (fix) save(fix);
@@ -32291,6 +32306,7 @@ function cleanFile(r) {
     const courseFor = ou => {
       const m = map[ou]; if (!m || m === "skip") return null;
       if (m !== "new") {
+        if (!cur("course", m)) { const src = data.courses.find(x => x.ou !== ou && F + "c_" + hid(x.ou) === m && map[x.ou] === "new"); if (src) return courseFor(src.ou); }
         const ex = cur("course", m), home = data.origin && P.courseHome(data.origin, ou);
         if (ex && home && !(ex[F] && ex[F].home) && !(ex.links || []).some(l => l && l.url === home)) {
           const nc = clone(ex); nc.links = (nc.links || []).concat([{label: P.name, url: home}]).slice(0, 12); nc[F] = Object.assign({}, nc[F] || {}, {ou, home: 1}); put("course", nc);
@@ -32684,6 +32700,7 @@ function cleanFile(r) {
     const newsItems = data.src === "api" && c.news ? c.newsItems.filter(n => !data.synced.includes(n.ou)).concat(data.news.filter(n => p.map[n.ou] !== "skip")).sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 40) : c.newsItems;
     const finals = Object.assign({}, c.finals, data.finals);
     const inv = p.changes.length ? applyChanges(p.changes, "") : null;
+    try { if (window.SBLMS_DEDUPE) setTimeout(() => SBLMS_DEDUPE(false), 0); } catch (e) {}
     const lines = logLines(p.rep);
     if (had.size || c.last) fresh.slice(0, 8).forEach(n => lines.push({k: "news", ou: n.ou, text: `New announcement${courses[n.ou] && courses[n.ou].code ? " in " + courses[n.ou].code : ""}: ${n.title}`}));
     const at = Date.now();
@@ -33505,7 +33522,7 @@ function cleanFile(r) {
 
   return {P, cfg, save, connected, consented, askConsent, statusLine, shortStatus, bsSheet, connectSheet, syncNow, canSync: () => !!howNow(), autoTick, isRunning: () => !!running, courseCard, staffHtml, local,
     fromApi: P.fromApi, fromFeed, plan, applyPlan, cleanTitle, titleKey, codeOf, mapping, reviewSheet, scanNews, doLogin, feedConnect, importGrab, setLocal,
-    lastRead: () => bulk().lastRead || null, linkTask, courseDeleted, startFresh, freshPlan, drop: (key, why) => { const c = cfg(); if (!(c.dropped || []).includes(key)) save({dropped: (c.dropped || []).concat(key).slice(-400)}); if (why === "merge" && !(c.mergedDrops || []).includes(key)) save({mergedDrops: (cfg().mergedDrops || []).concat(key).slice(-200)}); }};
+    lastRead: () => bulk().lastRead || null, linkTask, courseDeleted, repoint, startFresh, freshPlan, drop: (key, why) => { const c = cfg(); if (!(c.dropped || []).includes(key)) save({dropped: (c.dropped || []).concat(key).slice(-400)}); if (why === "merge" && !(c.mergedDrops || []).includes(key)) save({mergedDrops: (cfg().mergedDrops || []).concat(key).slice(-200)}); }};
   }
 
   /* The three platforms */
@@ -33575,6 +33592,50 @@ function cleanFile(r) {
   ];
   PROVIDERS.forEach(P => { LMS[P.id] = makeLms(P); });
   const ALL = () => PROVIDERS.map(P => LMS[P.id]);
+  /* Duplicate courses: a copy a school sync made of a course you already have is folded into the one you had first.
+     Its tasks, events, files, notes and decks move across, blank details are filled in from it, and each school site's
+     course list points at the one that stays. Two courses you made yourself are never merged */
+  const synced = c => FIELDS.some(f => c && c[f] && typeof c[f] === "object");
+  const dupKey = c => { const code = cleanCourseCode(c.code, c.name); return code ? "c:" + codeKey(code) : synced(c) ? "n:" + String(c.name || "").toLowerCase().replace(/[^a-z0-9]/g, "") : ""; };
+  const blank = v => v == null || v === "" || (Array.isArray(v) && !v.length);
+  function dupePlan(){
+    const groups = {};
+    allCourses().forEach(c => { const k = dupKey(c); if (k.length > 3) (groups[k] = groups[k] || []).push(c); });
+    const out = [];
+    Object.values(groups).forEach(g => {
+      if (g.length < 2 || !g.some(synced)) return;
+      // the one that stays: one you made yourself, else an active one, else the oldest
+      const rank = c => (synced(c) ? 2 : 0) + (c.archived ? 1 : 0);
+      const keep = g.slice().sort((a, b) => rank(a) - rank(b) || (Number(a.created) || 0) - (Number(b.created) || 0) || String(a.id).localeCompare(String(b.id)))[0];
+      g.filter(c => c !== keep && synced(c)).forEach(c => out.push({keep, dup: c}));
+    });
+    return out;
+  }
+  function mergeDupes(quiet){
+    const pairs = dupePlan(); if (!pairs.length) return 0;
+    const ch = [], kept = {}, to = {};
+    pairs.forEach(({keep, dup}) => {
+      to[dup.id] = keep.id;
+      const k = kept[keep.id] || (kept[keep.id] = clone(keep));
+      Object.keys(dup).forEach(f => { if (["id", "created", "name", "color", "order", "archived", "updated"].includes(f)) return; if (blank(k[f]) && !blank(dup[f])) k[f] = clone(dup[f]); });
+      const urls = new Set((k.links || []).map(l => l && l.url)); k.links = (k.links || []).concat((dup.links || []).filter(l => l && l.url && !urls.has(l.url))).slice(0, 12);
+      ch.push({kind: "course", id: dup.id, after: null});
+    });
+    Object.values(kept).forEach(k => { k.updated = Date.now(); ch.push({kind: "course", id: k.id, after: k}); });
+    const move = (kind, list) => list.forEach(x => { if (!x || !to[x.courseId]) return; const n = clone(x); n.courseId = to[x.courseId];
+      FIELDS.forEach(f => { if (n[f] && n[f].last && to[n[f].last.courseId]) n[f].last.courseId = to[n[f].last.courseId]; }); ch.push({kind, id: x.id, after: n}); });
+    move("task", Object.values(state.tasks || {})); move("event", Object.values(state.events || {})); move("file", Object.values(state.files || {})); move("note", Object.values(state.notes || {})); move("deck", Object.values(state.decks || {}));
+    if (ui.filter && to[ui.filter]) ui.filter = to[ui.filter];
+    if (ui.courseId && to[ui.courseId]) ui.courseId = to[ui.courseId];
+    const names = [...new Set(pairs.map(x => courseLabel(x.keep)))];
+    applyChanges(ch, quiet ? "" : `Merged a duplicate of ${names.join(", ")}`);
+    // each school site's course list points at the course that stays
+    ALL().forEach(L => { try { L.repoint(to); } catch (e) {} });
+    return pairs.length;
+  }
+  window.SBLMS_DEDUPE = mergeDupes;
+  // and once after the app opens, for copies made before this (or on another device)
+  setTimeout(() => { try { if (typeof state !== "undefined" && state && state.courses) mergeDupes(false); } catch (e) { console.warn("dedupe", e); } }, 2500);
   // You deleted a course: every school site linked to it stops bringing it back
   window.SBLMS_COURSE_GONE = id => ALL().forEach(L => { try { L.courseDeleted(id); } catch (e) {} });
 
