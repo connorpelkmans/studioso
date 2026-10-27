@@ -5051,7 +5051,7 @@ function photoNoteSheet(file){
       if (tasks.length) applyChanges(tasks.map(x => { const t = newTask({title: x.title, type: x.type, courseId: cid, due: x.due, time: x.time, start: MILESTONE(x.type) ? x.due : addDays(x.due, -(SPAN[x.type] ?? 3)) < todayISO() ? todayISO() : addDays(x.due, -(SPAN[x.type] ?? 3)), priority: x.type === "Exam" ? "high" : "med"}); return {kind: "task", id: t.id, after: t}; }), `Added ${tasks.length} task${tasks.length === 1 ? "" : "s"} from your photos`);
       ui.tab = "notes"; render();
       toast(tasks.length ? `Note saved, and ${tasks.length} task${tasks.length === 1 ? "" : "s"} added` : "Note saved to your board");
-      if (keep) uploadFiles(S.files, {courseId: cid, folderId: "notes"});
+      if (keep) uploadOkLater(() => uploadFiles(S.files, {courseId: cid, folderId: "notes"}), "The photos");
     });
   };
   if (!file && S.result) review();
@@ -12644,7 +12644,7 @@ function importSheet(courseId, file){
     dlg.close();
     ui.tab = "courses"; ui.courseId = cid;
     applyChanges(changes, nTasks ? `Added ${nTasks} task${nTasks === 1 ? "" : "s"} from the syllabus` : "Course added");
-    if (saveIt) { const f = srcFile; setTimeout(() => uploadFiles([f], {courseId: cid, folderId: "syllabus", quiet: true}), 1500); }
+    if (saveIt) { const f = srcFile; setTimeout(() => uploadOkLater(() => uploadFiles([f], {courseId: cid, folderId: "syllabus", quiet: true}), "The syllabus"), 1500); }
   });
 }
 
@@ -12724,6 +12724,45 @@ async function shrinkForUpload(f, type){
     const name = out === "image/jpeg" ? f.name.replace(/\.(png|webp|jpe?g)$/i, "") + ".jpg" : f.name.replace(/\.webp$/i, ".png");
     return {file: new File([blob], name, {type: out, lastModified: f.lastModified || Date.now()}), type: out};
   } catch (e) { return {file: f, type}; }
+}
+// Course files (slides, handouts, readings) stay private to the person who uploads them, and they take
+// responsibility for having the right to. Asked once per account before the first course-file upload; the answer syncs.
+const UPLOAD_TERMS_V = 1;
+const uploadAgreed = () => { const u = (state.settings || {}).uploadTerms; return !!(u && u.v >= UPLOAD_TERMS_V && u.at); };
+function uploadOk(then){
+  if (uploadAgreed() || inPreview()) { then(); return; }
+  openSheet(`<form class="sheet">${head("Your Course Files")}<div class="sheet-body">
+    <p style="margin:0">Files you upload, like lecture slides, handouts and readings, stay private to your account. No one else can open them, and Studyboard never shares or publishes them.</p>
+    <p style="margin:0">Course materials usually belong to your instructor, your school or a publisher. Only upload what you're allowed to use for your own study.</p>
+    <label class="mi-check up-rights"><input type="checkbox" id="upRights"> <span>I'm responsible for what I upload, and I'll only upload course materials I'm allowed to use for my own study.</span></label></div>
+    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Continue</button></div></form>`, () => {
+    const b = $("#upRights"); if (!b || !b.checked) { toast("Tick the box to continue."); if (b) b.focus(); return false; }
+    state.settings.uploadTerms = {v: UPLOAD_TERMS_V, at: Date.now()}; saveSettings();
+    dlg.close(); then(); return false;
+  });
+}
+// For saves that happen on their own a moment later: never covers a sheet the person is using
+function uploadOkLater(then, what){
+  if (uploadAgreed() || inPreview()) { then(); return; }
+  if (!dlg.open) { uploadOk(then); return; }
+  toast(`${what || "The file"} wasn't saved to Files. To keep a copy, upload it from the Files tab.`);
+}
+// Files that are course material (not the student's own work): never sent to anyone else
+const COURSE_FOLDERS = new Set(["syllabus", "notes", "exams", "lectures"]);
+function courseFileIds(){
+  const ids = new Set();
+  Object.values(state.files || {}).forEach(f => {
+    if (!f) return;
+    if (COURSE_FOLDERS.has(f.folderId) || /\.(pptx?|key|odp)$/i.test(f.name || "")) ids.add(f.id);
+    ((f.lec && f.lec.att) || []).forEach(a => { if (a && a.k === "file") ids.add(a.id); });
+  });
+  return ids;
+}
+// true when a file picked on the device is one of your uploaded course files (same name and size)
+function isCourseFile(file){
+  if (!file) return false;
+  const ids = courseFileIds(), nm = String(file.name || "").toLowerCase();
+  return [...ids].some(id => { const f = state.files[id]; return f && (f.revs || []).some(r => r && Number(r.size) === Number(file.size) && String(r.name || f.name || "").toLowerCase() === nm); });
 }
 async function uploadFiles(list, opts){
   if (opts && opts.cloud && window.SBCLOUD && SBCLOUD.target()) return SBCLOUD.uploadFiles(list, opts);
@@ -13021,9 +13060,9 @@ document.addEventListener("drop", e => {
   if (fid && node) { moveFile(fid, node.dataset.drop); return; }
   const list = [...(e.dataTransfer.files || [])];
   if (list.length) {
-    if (node) { const [cid, folderId] = node.dataset.drop.split("|"); uploadFiles(list, {courseId: cid, folderId, cloud: true}); }
-    else if (ui.fCourse === "all" && window.SBQADD && caps.assets) SBQADD.open(list);
-    else uploadFiles(list, Object.assign(uploadTarget(), {cloud: true}));
+    if (node) { const [cid, folderId] = node.dataset.drop.split("|"); uploadOk(() => uploadFiles(list, {courseId: cid, folderId, cloud: true})); }
+    else if (ui.fCourse === "all" && window.SBQADD && caps.assets) uploadOk(() => SBQADD.open(list));
+    else uploadOk(() => uploadFiles(list, Object.assign(uploadTarget(), {cloud: true})));
   }
 });
 
@@ -15689,7 +15728,7 @@ document.addEventListener("click", e => {
     case "f-nav": ui.fCourse = el.dataset.c; ui.fFolder = el.dataset.f || ""; render(); break;
     case "f-go": ui.tab = "files"; ui.fCourse = el.dataset.c; ui.fFolder = el.dataset.f || ""; ui.courseId = null; render(); window.scrollTo(0, 0); break;
     case "f-open": { const f = state.files[id]; if (f) fileSheet(f); break; }
-    case "f-upload": if (dlg.open) dlg.close(); $("#fUploadIn").click(); break;
+    case "f-upload": if (dlg.open) dlg.close(); uploadOk(() => $("#fUploadIn").click()); break;
     case "fab-course": fabMenu("Add Course", [["new-course", "Add Course", "Name, code, color and class times", "course"], ["import-syllabus", "Import a Syllabus", "Upload a PDF to add the course and its deadlines", "syllabus"], ["lms-open", "Connect Canvas, Brightspace or Blackboard", "Bring in your courses, due dates and grades", "school"]]); break;
     case "fab-file": fabMenu("Add File", [...(caps.assets ? [["f-upload", "Upload File", "PDFs, slides, documents and images", "upload"], ["f-quick", "Quick Add", "Drop files and let " + aiWho("Studyboard") + " sort them into the right course and folder", "", true]] : []), ["f-link", "Add Link", "For files kept in OneDrive, Google Drive or Canvas", "link"]]); break;
     case "fab-note": if (noteEditing) saveNoteText(); newNoteAt(); break;
@@ -25296,12 +25335,12 @@ hook("boot", boot);
   // A short sheet that asks for the confirmation, for actions that share straight from a button
   function confirmRights(then, kind){
     openSheet(`<form class="sheet">${head("Before You Share")}<div class="sheet-body">
-      <p style="margin:0">${kind === "file" ? "Only share files you made or have permission to share. Slides, handouts, textbook pages and tests usually belong to your instructor, your school or a publisher." : "Only share what you made yourself or what AI wrote for you in its own words. Slides, handouts, textbook pages, pictures from them and your instructor's test questions belong to someone else."}</p>
+      <p style="margin:0">${kind === "pic" ? "Everyone in the group sees the pictures on this board. Only add pictures you took or made yourself, or have permission to share." : kind === "file" ? "Only share files you made or have permission to share. Slides, handouts, textbook pages and tests usually belong to your instructor, your school or a publisher." : "Only share what you made yourself or what AI wrote for you in its own words. Slides, handouts, textbook pages, pictures from them and your instructor's test questions belong to someone else."}</p>
       ${rightsBox(kind)}</div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Continue</button></div></form>`, () => { if (!rightsOk()) return false; dlg.close(); then(); return false; });
   }
   // Before anything is shared: the person confirms it's their own work, not copied course material
-  const rightsBox = kind => `<label class="mi-check sh-rights"><input type="checkbox" id="shRights"> <span>${kind === "file" ? "I made this file or have permission to share it. It isn't someone else's slides, handouts, textbook pages or tests." : "I made this myself, or AI rewrote it in its own words. It doesn't copy slides, textbooks or anyone else's work, or questions from my instructor's tests."}</span></label>`;
+  const rightsBox = kind => `<label class="mi-check sh-rights"><input type="checkbox" id="shRights"> <span>${kind === "pic" ? "This is my own photo or drawing, or I have permission to share it. It isn't a picture of slides, handouts, textbook pages or tests." : kind === "file" ? "I made this file or have permission to share it. It isn't someone else's slides, handouts, textbook pages or tests." : "I made this myself, or AI rewrote it in its own words. It doesn't copy slides, textbooks or anyone else's work, or questions from my instructor's tests."}</span></label>`;
   const rightsOk = () => { const b = $("#shRights"); if (!b || b.checked) return true; toast("Tick the box to confirm this is your own work first."); b.focus(); return false; };
   function deckPayload(d, withQ){
     const c = courseOf(d.courseId);
@@ -26230,6 +26269,8 @@ hook("boot", boot);
       ${loadingLine(g.id) || (its.length ? `<ul class="grp-list">${rows}</ul>` : `<p class="grp-none">Keep the shared doc, data and sources in one place. Tap Add File at the bottom right to upload a file or add a link.</p>`)}
       <p class="mini">Links open in a new tab. For files that change a lot, share a link so everyone always sees the latest version.</p></section>`;
   }
+  // Course files you uploaded (lecture slides, handouts, readings) stay yours alone
+  const COURSE_FILE_MSG = "That's one of your course files. Course files you upload, like lecture slides, stay private to you, so they can't be shared with a group.";
   // An uploaded file is kept inside the shared item itself (small files only)
   const FILE_MAX = 1500000;
   const fileSize = n => n >= 1e6 ? (n / 1e6).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1e3)) + " KB";
@@ -26250,6 +26291,7 @@ hook("boot", boot);
     const inp = document.createElement("input"); inp.type = "file"; inp.style.display = "none"; document.body.appendChild(inp);
     inp.addEventListener("change", () => {
       const f = inp.files && inp.files[0]; inp.remove(); if (!f) return;
+      if (isCourseFile(f)) { toast(COURSE_FILE_MSG); return; }
       if (f.size > FILE_MAX) { toast(`That file is ${fileSize(f.size)}. Files can be up to ${fileSize(FILE_MAX)}. Share a link to a bigger one.`); return; }
       const rd = new FileReader();
       rd.onerror = () => toast("Couldn't read that file.");
@@ -28568,6 +28610,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
   }
   async function gxUpload(g, file, ok){
     if (!file) return;
+    if (isCourseFile(file)) { toast(COURSE_FILE_MSG); return; }
     if (!ok) { confirmRights(() => gxUpload(g, file, true), "file"); return; }
     if (file.size > MAXUP) { toast("Files up to 50 MB can be uploaded to a group."); return; }
     const c = cli(); if (!c || !c.storage) { toast("Uploading needs you to be signed in and online."); return; }
@@ -28823,7 +28866,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
   document.addEventListener("toggle", e => { const d = e.target; if (d && d.matches && d.matches("details.grp-more") && d.open) closeMenus(d); }, true);
   window.SBGROUPS = {known: () => Array.isArray(S.groups) ? S.groups.length : null, probe: async () => online() ? ((await api.groups()) || []).length : null};
   // For 97-sharing.js (public links and the Course Library)
-  window.SBGROUPS.share = {picCards, picNote, rightsBox, rightsOk, online, cli, myId, ensureName, rememberWebUrl, linkFor, normCode, cleanPayload, cleanQuizPayload, quizPayload, deckPayload, addDeckCopy, previewSheet,
+  window.SBGROUPS.share = {picCards, picNote, rightsBox, rightsOk, confirmRights, online, cli, myId, ensureName, rememberWebUrl, linkFor, normCode, cleanPayload, cleanQuizPayload, quizPayload, deckPayload, addDeckCopy, previewSheet,
     deckShareSheet, matchCourse, codeKey, copyText, sendText, busyBtn, hashOf, loadingSheet, myName: () => S.name || "",
     // members of a group (for who has a shared whiteboard) and the groups you're in
     members: gid => (S.members[gid] || []).map(m => ({id: m.user_id, name: m.display_name || "", color: m.color || ""})),
@@ -57650,7 +57693,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
         summarizeFile(f.id); mark("Summarizing " + f.name);
       } else if (a.type === "save_file") {
         const srcs = await srcsOf(m.at); if (!srcs) { toast("I can't find the file for this one any more. Attach it again."); return; }
-        await uploadFiles(srcs.map(fileFrom), {courseId: course ? course.id : "", folderId: ""}); mark(`Saved ${srcs.length} file${srcs.length === 1 ? "" : "s"} to Files`);
+        await new Promise(res => uploadOk(async () => { await uploadFiles(srcs.map(fileFrom), {courseId: course ? course.id : "", folderId: ""}); mark(`Saved ${srcs.length} file${srcs.length === 1 ? "" : "s"} to Files`); res(); }));
       } else {
         let srcs = await srcsOf(m.at);
         if (!srcs) srcs = a.text.length >= 80 ? [{name: a.deckName || "Chat material", kind: "Text", size: a.text.length, part: {text: a.text}}] : null;
@@ -67405,7 +67448,7 @@ const QADD = (() => {
   hook("act", (act, el, id) => {
     const cid = el.dataset.c || "";
     switch (act) {
-      case "f-quick": openQuick(); return true;
+      case "f-quick": uploadOk(() => openQuick()); return true;
       case "obj-done": { const c = courseOf(cid); if (c) saveObjs(cid, objsOf(c).map(o => o.id === id ? Object.assign({}, o, {done: !!el.checked}) : o), ""); return true; }
       case "obj-more": OB.all[cid] = !OB.all[cid]; render(); return true;
       case "obj-edit": editSheet(cid); return true;
@@ -68263,7 +68306,7 @@ window.SBSTREAK = {on: gentleOn, line: () => streakLineText(streakNow()), state:
     <p>Keep your password private; you are responsible for what happens under your account. Everything you put into Studyboard is yours. You give us a worldwide, non-exclusive, royalty-free permission to store, copy, process, sync and show it so Studyboard can work: back to you, to the people you share it with and, when you publish something, to anyone. We use it for nothing else. The permission ends when you delete it, except for copies other people already saved and backups we keep for a short time. You can export it or delete it at any time (see the Privacy Policy). Keep your own backups of anything important. You must be 13 or older to make an account yourself; a parent or guardian can make one for a younger student and agrees to these Terms for them. Accounts for students under 13 can't publish or share with a link. Only publish sets you made or have the right to share, and never answers to graded work; we remove what is reported.</p>
 
     <h3>Course materials and copyright</h3>
-    <p>Slides, handouts, readings, tests and other course materials usually belong to your instructor, your school or a publisher. You may add them to Studyboard to study from them yourself, as your school allows; Studyboard doesn't make them public. When you share or publish anything in Studyboard (a deck, a quiz, notes, a whiteboard, a file or a link, in a group or with a link), you promise that you made it or have the right to share it, and that sharing it doesn't break anyone's copyright or other rights or your school's rules. Share the cards and questions you wrote, or that AI wrote for you in its own words. Don't share uploaded slides or handouts, pictures taken from them, wording copied from them, questions from your instructor's tests or quizzes, or answers to graded work, unless you have permission.</p>
+    <p>Slides, handouts, readings, tests and other course materials usually belong to your instructor, your school or a publisher. You may upload them to Studyboard to study from them yourself, as your school allows. Course files you upload, such as lecture slides, stay private to your account: no one else can open them, and Studyboard never shares or publishes them or lets you share them with a group. You alone are responsible for having the right to upload them; the first time you upload course files you confirm this, and the date is kept with your account. When you share or publish anything in Studyboard (a deck, a quiz, notes, a whiteboard, a file or a link, in a group or with a link), you promise that you made it or have the right to share it, and that sharing it doesn't break anyone's copyright or other rights or your school's rules. Share the cards and questions you wrote, or that AI wrote for you in its own words. Don't share uploaded slides or handouts, pictures taken from them, wording copied from them, questions from your instructor's tests or quizzes, or answers to graded work, unless you have permission.</p>
     <p><b>Copyright complaints:</b> If you think something shared in Studyboard copies your work, use Report on it, or email ${contact()} with: your name and how to reach you; the work you own; where it appears in Studyboard (a link or share code); and a statement that you believe in good faith the use isn't allowed, that your complaint is accurate, and that you own the work or may act for the owner. We may remove or disable anything shared in Studyboard when we receive a complaint, without notice. If we removed something you shared and you think that was a mistake, write to us and explain why. We stop people who repeatedly share content that breaks other people's rights from sharing, and may close their accounts.</p>
 
     <h3>Study groups and shared content</h3>
@@ -72426,8 +72469,9 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       const made = await uploadFiles(list, {courseId: f.courseId || "", folderId: "notes", cloud: true});
       const cur = state.files[fid]; if (!cur || !made || !made.length) return;
       setAtt(fid, lecAtt(cur).concat(made.map(x => ({k: "file", id: x.id}))), "");
+      if (!dlg.open) lectureSheet(fid);
     });
-    document.body.appendChild(inp); inp.click();
+    document.body.appendChild(inp); uploadOk(() => inp.click());
   }
   function drawLecture(fid, doc){
     const f = state.files[fid], b = dlg.querySelector(".lec-view"), ft = dlg.querySelector(".lec-vfoot"); if (!f || !b || !ft) return;
@@ -76172,9 +76216,13 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
       im.src = u;
     });
   }
+  // Pictures on a study group's board are seen by everyone in the group: confirm once per board that they're yours to share
+  const groupOk = new Set();
   async function add(files, at){
     if (locked()) { upsell(); return; }
     const b = W.board(); if (!b) return;
+    { const nb = state.notes[b.id], sh = window.SBGROUPS && SBGROUPS.share;
+      if (nb && nb.wb && nb.wb.g && !groupOk.has(b.id) && sh && sh.confirmRights) { const list = [...files]; sh.confirmRights(() => { groupOk.add(b.id); add(list, at); }, "pic"); return; } }
     files = [...files].filter(f => /^image\//.test(f.type || "") || /\.(jpe?g|png|gif|webp|heic)$/i.test(f.name || ""));
     if (!files.length) { toast("Choose a picture (JPG, PNG, GIF or WebP)."); return; }
     const room = MAX - count(); if (room <= 0) { toast(`A board can hold ${MAX} pictures.`); return; }

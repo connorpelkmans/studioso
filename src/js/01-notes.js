@@ -75,6 +75,45 @@ async function shrinkForUpload(f, type){
     return {file: new File([blob], name, {type: out, lastModified: f.lastModified || Date.now()}), type: out};
   } catch (e) { return {file: f, type}; }
 }
+// Course files (slides, handouts, readings) stay private to the person who uploads them, and they take
+// responsibility for having the right to. Asked once per account before the first course-file upload; the answer syncs.
+const UPLOAD_TERMS_V = 1;
+const uploadAgreed = () => { const u = (state.settings || {}).uploadTerms; return !!(u && u.v >= UPLOAD_TERMS_V && u.at); };
+function uploadOk(then){
+  if (uploadAgreed() || inPreview()) { then(); return; }
+  openSheet(`<form class="sheet">${head("Your Course Files")}<div class="sheet-body">
+    <p style="margin:0">Files you upload, like lecture slides, handouts and readings, stay private to your account. No one else can open them, and Studyboard never shares or publishes them.</p>
+    <p style="margin:0">Course materials usually belong to your instructor, your school or a publisher. Only upload what you're allowed to use for your own study.</p>
+    <label class="mi-check up-rights"><input type="checkbox" id="upRights"> <span>I'm responsible for what I upload, and I'll only upload course materials I'm allowed to use for my own study.</span></label></div>
+    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Continue</button></div></form>`, () => {
+    const b = $("#upRights"); if (!b || !b.checked) { toast("Tick the box to continue."); if (b) b.focus(); return false; }
+    state.settings.uploadTerms = {v: UPLOAD_TERMS_V, at: Date.now()}; saveSettings();
+    dlg.close(); then(); return false;
+  });
+}
+// For saves that happen on their own a moment later: never covers a sheet the person is using
+function uploadOkLater(then, what){
+  if (uploadAgreed() || inPreview()) { then(); return; }
+  if (!dlg.open) { uploadOk(then); return; }
+  toast(`${what || "The file"} wasn't saved to Files. To keep a copy, upload it from the Files tab.`);
+}
+// Files that are course material (not the student's own work): never sent to anyone else
+const COURSE_FOLDERS = new Set(["syllabus", "notes", "exams", "lectures"]);
+function courseFileIds(){
+  const ids = new Set();
+  Object.values(state.files || {}).forEach(f => {
+    if (!f) return;
+    if (COURSE_FOLDERS.has(f.folderId) || /\.(pptx?|key|odp)$/i.test(f.name || "")) ids.add(f.id);
+    ((f.lec && f.lec.att) || []).forEach(a => { if (a && a.k === "file") ids.add(a.id); });
+  });
+  return ids;
+}
+// true when a file picked on the device is one of your uploaded course files (same name and size)
+function isCourseFile(file){
+  if (!file) return false;
+  const ids = courseFileIds(), nm = String(file.name || "").toLowerCase();
+  return [...ids].some(id => { const f = state.files[id]; return f && (f.revs || []).some(r => r && Number(r.size) === Number(file.size) && String(r.name || f.name || "").toLowerCase() === nm); });
+}
 async function uploadFiles(list, opts){
   if (opts && opts.cloud && window.SBCLOUD && SBCLOUD.target()) return SBCLOUD.uploadFiles(list, opts);
   const assets = await getAssets();
@@ -371,9 +410,9 @@ document.addEventListener("drop", e => {
   if (fid && node) { moveFile(fid, node.dataset.drop); return; }
   const list = [...(e.dataTransfer.files || [])];
   if (list.length) {
-    if (node) { const [cid, folderId] = node.dataset.drop.split("|"); uploadFiles(list, {courseId: cid, folderId, cloud: true}); }
-    else if (ui.fCourse === "all" && window.SBQADD && caps.assets) SBQADD.open(list);
-    else uploadFiles(list, Object.assign(uploadTarget(), {cloud: true}));
+    if (node) { const [cid, folderId] = node.dataset.drop.split("|"); uploadOk(() => uploadFiles(list, {courseId: cid, folderId, cloud: true})); }
+    else if (ui.fCourse === "all" && window.SBQADD && caps.assets) uploadOk(() => SBQADD.open(list));
+    else uploadOk(() => uploadFiles(list, Object.assign(uploadTarget(), {cloud: true})));
   }
 });
 

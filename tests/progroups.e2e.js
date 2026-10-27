@@ -193,6 +193,10 @@ const DB = (page, f) => page.evaluate(f);
 
     await tab(page, "files");
     ok(await page.locator("#gxUploads").count() === 1, "Files has Group Uploads");
+    await page.evaluate(() => { __sbQadd.state().files.slides1 = {id: "slides1", name: "Lecture 5 slides.pdf", kind: "file", courseId: "", folderId: "notes", taskIds: [], revs: [{assetId: "a-s1", size: 13, type: "application/pdf", name: "Lecture 5 slides.pdf", at: 1}], created: 1, updated: 1}; });
+    await page.setInputFiles('#gxUploads input[type="file"]', {name: "Lecture 5 slides.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 abcd")}); await page.waitForTimeout(500);
+    ok(!(await page.$("dialog[open] #shRights")) && !(await DB(page, () => (window.__uploads || []).length)) && /course files/.test(await page.evaluate(() => document.querySelector("#toast").textContent)), "your uploaded lecture slides can't be uploaded to a group");
+    await page.evaluate(() => { delete __sbQadd.state().files.slides1; });
     await page.setInputFiles('#gxUploads input[type="file"]', {name: "draft.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 test")}); await page.waitForSelector("dialog[open] #shRights");
     ok(/permission to share/.test(await txt(page, "dialog[open]")) && !(await DB(page, () => (window.__uploads || []).length)), "an upload asks the person to confirm they may share the file first");
     await page.check("dialog[open] #shRights"); await page.click("dialog[open] [data-submit]"); await page.waitForTimeout(800);

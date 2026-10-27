@@ -805,7 +805,7 @@ function importSheet(courseId, file){
     dlg.close();
     ui.tab = "courses"; ui.courseId = cid;
     applyChanges(changes, nTasks ? `Added ${nTasks} task${nTasks === 1 ? "" : "s"} from the syllabus` : "Course added");
-    if (saveIt) { const f = srcFile; setTimeout(() => uploadFiles([f], {courseId: cid, folderId: "syllabus", quiet: true}), 1500); }
+    if (saveIt) { const f = srcFile; setTimeout(() => uploadOkLater(() => uploadFiles([f], {courseId: cid, folderId: "syllabus", quiet: true}), "The syllabus"), 1500); }
   });
 }
 

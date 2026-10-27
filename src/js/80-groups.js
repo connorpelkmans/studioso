@@ -509,12 +509,12 @@
   // A short sheet that asks for the confirmation, for actions that share straight from a button
   function confirmRights(then, kind){
     openSheet(`<form class="sheet">${head("Before You Share")}<div class="sheet-body">
-      <p style="margin:0">${kind === "file" ? "Only share files you made or have permission to share. Slides, handouts, textbook pages and tests usually belong to your instructor, your school or a publisher." : "Only share what you made yourself or what AI wrote for you in its own words. Slides, handouts, textbook pages, pictures from them and your instructor's test questions belong to someone else."}</p>
+      <p style="margin:0">${kind === "pic" ? "Everyone in the group sees the pictures on this board. Only add pictures you took or made yourself, or have permission to share." : kind === "file" ? "Only share files you made or have permission to share. Slides, handouts, textbook pages and tests usually belong to your instructor, your school or a publisher." : "Only share what you made yourself or what AI wrote for you in its own words. Slides, handouts, textbook pages, pictures from them and your instructor's test questions belong to someone else."}</p>
       ${rightsBox(kind)}</div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Continue</button></div></form>`, () => { if (!rightsOk()) return false; dlg.close(); then(); return false; });
   }
   // Before anything is shared: the person confirms it's their own work, not copied course material
-  const rightsBox = kind => `<label class="mi-check sh-rights"><input type="checkbox" id="shRights"> <span>${kind === "file" ? "I made this file or have permission to share it. It isn't someone else's slides, handouts, textbook pages or tests." : "I made this myself, or AI rewrote it in its own words. It doesn't copy slides, textbooks or anyone else's work, or questions from my instructor's tests."}</span></label>`;
+  const rightsBox = kind => `<label class="mi-check sh-rights"><input type="checkbox" id="shRights"> <span>${kind === "pic" ? "This is my own photo or drawing, or I have permission to share it. It isn't a picture of slides, handouts, textbook pages or tests." : kind === "file" ? "I made this file or have permission to share it. It isn't someone else's slides, handouts, textbook pages or tests." : "I made this myself, or AI rewrote it in its own words. It doesn't copy slides, textbooks or anyone else's work, or questions from my instructor's tests."}</span></label>`;
   const rightsOk = () => { const b = $("#shRights"); if (!b || b.checked) return true; toast("Tick the box to confirm this is your own work first."); b.focus(); return false; };
   function deckPayload(d, withQ){
     const c = courseOf(d.courseId);
@@ -1443,6 +1443,8 @@
       ${loadingLine(g.id) || (its.length ? `<ul class="grp-list">${rows}</ul>` : `<p class="grp-none">Keep the shared doc, data and sources in one place. Tap Add File at the bottom right to upload a file or add a link.</p>`)}
       <p class="mini">Links open in a new tab. For files that change a lot, share a link so everyone always sees the latest version.</p></section>`;
   }
+  // Course files you uploaded (lecture slides, handouts, readings) stay yours alone
+  const COURSE_FILE_MSG = "That's one of your course files. Course files you upload, like lecture slides, stay private to you, so they can't be shared with a group.";
   // An uploaded file is kept inside the shared item itself (small files only)
   const FILE_MAX = 1500000;
   const fileSize = n => n >= 1e6 ? (n / 1e6).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1e3)) + " KB";
@@ -1463,6 +1465,7 @@
     const inp = document.createElement("input"); inp.type = "file"; inp.style.display = "none"; document.body.appendChild(inp);
     inp.addEventListener("change", () => {
       const f = inp.files && inp.files[0]; inp.remove(); if (!f) return;
+      if (isCourseFile(f)) { toast(COURSE_FILE_MSG); return; }
       if (f.size > FILE_MAX) { toast(`That file is ${fileSize(f.size)}. Files can be up to ${fileSize(FILE_MAX)}. Share a link to a bigger one.`); return; }
       const rd = new FileReader();
       rd.onerror = () => toast("Couldn't read that file.");
@@ -3781,6 +3784,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
   }
   async function gxUpload(g, file, ok){
     if (!file) return;
+    if (isCourseFile(file)) { toast(COURSE_FILE_MSG); return; }
     if (!ok) { confirmRights(() => gxUpload(g, file, true), "file"); return; }
     if (file.size > MAXUP) { toast("Files up to 50 MB can be uploaded to a group."); return; }
     const c = cli(); if (!c || !c.storage) { toast("Uploading needs you to be signed in and online."); return; }
@@ -4036,7 +4040,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
   document.addEventListener("toggle", e => { const d = e.target; if (d && d.matches && d.matches("details.grp-more") && d.open) closeMenus(d); }, true);
   window.SBGROUPS = {known: () => Array.isArray(S.groups) ? S.groups.length : null, probe: async () => online() ? ((await api.groups()) || []).length : null};
   // For 97-sharing.js (public links and the Course Library)
-  window.SBGROUPS.share = {picCards, picNote, rightsBox, rightsOk, online, cli, myId, ensureName, rememberWebUrl, linkFor, normCode, cleanPayload, cleanQuizPayload, quizPayload, deckPayload, addDeckCopy, previewSheet,
+  window.SBGROUPS.share = {picCards, picNote, rightsBox, rightsOk, confirmRights, online, cli, myId, ensureName, rememberWebUrl, linkFor, normCode, cleanPayload, cleanQuizPayload, quizPayload, deckPayload, addDeckCopy, previewSheet,
     deckShareSheet, matchCourse, codeKey, copyText, sendText, busyBtn, hashOf, loadingSheet, myName: () => S.name || "",
     // members of a group (for who has a shared whiteboard) and the groups you're in
     members: gid => (S.members[gid] || []).map(m => ({id: m.user_id, name: m.display_name || "", color: m.color || ""})),

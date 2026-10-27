@@ -3286,8 +3286,9 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       const made = await uploadFiles(list, {courseId: f.courseId || "", folderId: "notes", cloud: true});
       const cur = state.files[fid]; if (!cur || !made || !made.length) return;
       setAtt(fid, lecAtt(cur).concat(made.map(x => ({k: "file", id: x.id}))), "");
+      if (!dlg.open) lectureSheet(fid);
     });
-    document.body.appendChild(inp); inp.click();
+    document.body.appendChild(inp); uploadOk(() => inp.click());
   }
   function drawLecture(fid, doc){
     const f = state.files[fid], b = dlg.querySelector(".lec-view"), ft = dlg.querySelector(".lec-vfoot"); if (!f || !b || !ft) return;
