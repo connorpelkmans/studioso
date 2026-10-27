@@ -425,23 +425,52 @@ async function bsHarvest(o) {
     // 2. Assignments: the score in the assignment's published feedback (Assignments > the assignment > View Feedback)
     const outOfF = f => f && f.Assessment && num(f.Assessment.ScoreDenominator) > 0 ? num(f.Assessment.ScoreDenominator) : null;
     const fUnmarked = fl.filter(f => !hasMark(f.GradeItemId));
+    const fx = {}; const fxOf = f => fx[f.Id] = fx[f.Id] || { id: String(f.Id), n: String(f.Name || "").slice(0, 70), sub: subs[f.Id] === true ? "yes" : subs[f.Id] === false ? "no" : "unknown", gradeItem: f.GradeItemId != null ? String(f.GradeItemId) : "", inGrades: hasMark(f.GradeItemId), outOf: outOfF(f), fb: fbk[f.Id] ? (fbk[f.Id].Score != null ? "score " + fbk[f.Id].Score : "no score") : "none" };
+    const tryGetS = async u => { try { return { b: await get(u) }; } catch (e) { return { e: String(e.status || e.name || e.message || "error") }; } };
+    const meIdent = String(me.Identifier || "");
+    const handedIn = f => subs[f.Id] === true || !!fbk[f.Id];
     if (markOn("assignmentFeedback")) {
       let got = 0;
       fUnmarked.forEach(f => { const fe = fbk[f.Id], sc = fe && num(fe.Score), den = outOfF(f); if (sc != null && den) { mk("folder", f.Id, { num: sc, den }, "assignmentFeedback"); got++; } });
+      // the feedback link for you, for handed-in ones the submissions answer had no score for
+      const ask = fUnmarked.filter(f => handedIn(f) && !marks.some(m => m.kind === "folder" && m.id === String(f.Id))).slice(0, 15);
+      if (meIdent) await inBatches(ask, async f => {
+        if (!spend()) return;
+        const r = await tryGetS(`${b}/dropbox/folders/${f.Id}/feedback/user/${meIdent}`), x = fxOf(f);
+        if (r.e) { x.fbApi = "refused (" + r.e + ")"; return; }
+        const fe = r.b && typeof r.b === "object" ? r.b : null, sc = fe && num(fe.Score), den = outOfF(f) || (fe && fe.OutOf != null ? num(fe.OutOf) : null);
+        x.fbApi = fe ? "ok" + (sc != null ? ", score " + sc : ", no score") + (fe.IsGraded === false ? ", not graded" : "") : "empty";
+        if (fe && !fbk[f.Id]) fbk[f.Id] = fe;
+        if (sc != null && den) { mk("folder", f.Id, { num: sc, den }, "assignmentFeedback"); got++; }
+      });
       if (got) markNote.push(`assignment feedback ${got}`);
     }
-    // 3. Assignments: the Assignments page's Score column, for submitted ones still without a mark
+    // 3. Assignments: the Assignments page's Score column (by its heading), else the assignment's View Feedback page, for handed-in ones still without a mark
     if (markOn("assignmentsPage") && spend()) {
-      const left = fUnmarked.filter(f => (subs[f.Id] === true || !!fbk[f.Id]) && !marks.some(m => m.kind === "folder" && m.id === String(f.Id)));
+      const left = fUnmarked.filter(f => handedIn(f) && !marks.some(m => m.kind === "folder" && m.id === String(f.Id)));
       if (left.length) {
         if (folderHtml == null) { try { const r = await fetch(`/d2l/lms/dropbox/user/folders_list.d2l?ou=${c.ou}&isprv=0`, { credentials: "include" }); folderHtml = r.ok ? (await r.text()).slice(0, 3000000) : ""; } catch (e) { folderHtml = ""; } }
-        const rowOf = {}; folderHtml.split(/(?=[?&;]db=\d)/).slice(1).forEach(part => { const m = part.match(/^[?&;]db=(\d+)/); if (m && !rowOf[m[1]]) rowOf[m[1]] = htmlText(part.slice(0, 6000), { line: true }); });
+        const cellsOf = row => [...String(row).matchAll(/<(t[hd])\b([^>]*)>([\s\S]*?)<\/\1\s*>/gi)].map(m => ({ t: htmlText(m[3], { line: true }), span: Number((m[2].match(/colspan\s*=\s*["']?(\d+)/i) || [])[1]) || 1 }));
+        const expand = cs => { const o = []; cs.forEach(c2 => { o.push(c2.t); for (let k = 1; k < Math.min(c2.span, 8); k++) o.push(""); }); return o; };
+        const scoreIn = t => { const m = String(t || "").match(/(?<![\d/.])(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)(?![\d/])/); return m && num(m[2]) > 0 ? { num: num(m[1]), den: num(m[2]) } : null; };
+        const rowOf = {}; let scoreCol = -1;
+        String(folderHtml).split(/<tr\b/i).slice(1).forEach(raw => {
+          const cs = expand(cellsOf(raw)), low = cs.map(x => x.toLowerCase());
+          if (scoreCol < 0 && low.some(x => /^score$/.test(x))) { scoreCol = low.findIndex(x => /^score$/.test(x)); return; }
+          const m = raw.match(/[?&;](?:amp;)?db=(\d+)/); if (!m || rowOf[m[1]]) return;
+          rowOf[m[1]] = { text: htmlText(raw, { line: true }).slice(0, 240), score: scoreCol >= 0 ? cs[scoreCol] || "" : "",
+            links: [...raw.matchAll(/href\s*=\s*["']([^"']+)["']/gi)].map(x => x[1].replace(/&amp;/g, "&")).filter(h => /feedback|history|folder_user/i.test(h)).slice(0, 3) };
+        });
         let got = 0;
-        left.forEach(f => {
-          const row = rowOf[String(f.Id)], den = outOfF(f); if (!row) return;
-          // the row's own "8 / 10": with a known out-of only that denominator, else only after a label
-          const plain = den ? [...row.matchAll(/(?<![\d/.])(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)(?![\d/])/g)].map(m => ({ num: num(m[1]), den: num(m[2]) })).find(x => x.den === den) : null;
-          const sc = plain || labelled(row, den); if (sc) { mk("folder", f.Id, sc, "assignmentsPage"); got++; }
+        await inBatches(left, async f => {
+          const row = rowOf[String(f.Id)], den = outOfF(f), x = fxOf(f);
+          x.row = row ? row.text : "not on the page"; x.scoreCell = row ? row.score : ""; x.links = row ? row.links : [];
+          let sc = row && row.score ? scoreIn(row.score) : null;
+          if (!sc && row && den) { const all = [...row.text.matchAll(/(?<![\d/.])(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)(?![\d/])/g)].map(m => ({ num: num(m[1]), den: num(m[2]) })); sc = all.find(y => y.den === den) || null; }
+          if (!sc && row) sc = labelled(row.text, den);
+          // its View Feedback page: the score after "Score" there
+          if (!sc && row && row.links.length && spend()) { const fu = row.links[0].charAt(0) === "/" ? row.links[0] : "/d2l/lms/dropbox/user/" + row.links[0]; const t = await page(fu); x.fbPage = (pageSeen[fu] || "") + (t ? `, "score" ${(t.match(/\bscore\b/gi) || []).length}x` : ""); sc = t ? (labelled(t, den) || (den ? null : scoreIn((t.match(/\bscore\b[^\n]{0,60}/i) || [""])[0]))) : null; }
+          if (sc && (!den || sc.den === den)) { mk("folder", f.Id, sc, "assignmentsPage"); got++; }
         });
         markNote.push(`Assignments page ${got} of ${left.length}`);
       }
@@ -574,7 +603,7 @@ async function bsHarvest(o) {
     }
     c.marks = marks.slice(0, 120);
     // What this read saw, step by step, for the sync report (Settings > Brightspace > Copy Sync Report)
-    c.dx = { grades: gx, calTied, calExams, quizToc: qFromToc, quizCal: qFromCal, timeLeft: Math.round((budgetEnd - Date.now()) / 1000) + " s", skipped: outOfTime, me: { id: meId ? typeof me.Identifier + ":" + meId : "none", name: meName ? "yes" : "no" }, quizApi: quizApiN, quizPage: qPageStatus || "not read",
+    c.dx = { folders: fl.filter(f => handedIn(f) || fx[f.Id]).slice(0, 25).map(f => Object.assign(fxOf(f), { mark: (marks.find(m => m.kind === "folder" && m.id === String(f.Id)) || {}).num != null ? marks.find(m => m.kind === "folder" && m.id === String(f.Id)).num + "/" + marks.find(m => m.kind === "folder" && m.id === String(f.Id)).den : "" })), grades: gx, calTied, calExams, quizToc: qFromToc, quizCal: qFromCal, timeLeft: Math.round((budgetEnd - Date.now()) / 1000) + " s", skipped: outOfTime, me: { id: meId ? typeof me.Identifier + ":" + meId : "none", name: meName ? "yes" : "no" }, quizApi: quizApiN, quizPage: qPageStatus || "not read",
       quizzes: qrecent.slice(0, 15).map(x => { const su = `/d2l/lms/quizzing/user/quiz_submissions.d2l?qi=${x.QuizId}&ou=${c.ou}`, st = submPage[x.QuizId] || "", mm = marks.find(m => m.kind === "quiz" && m.id === String(x.QuizId));
         return { id: String(x.QuizId), n: String(x.Name || "").slice(0, 70), from: x.fromCal ? "its calendar entry" : x.fromToc ? "the course content" : x.fromPage ? "Quizzes page" : "quiz list", gradeItem: x.GradeItemId != null ? String(x.GradeItemId) : "", inGrades: hasMark(x.GradeItemId),
           sat: tried[x.QuizId] === true ? "yes" : tried[x.QuizId] === false ? "no" : "unknown", subm: pageSeen[su] || "not read",

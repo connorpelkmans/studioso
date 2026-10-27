@@ -240,6 +240,27 @@ const BB = [
     assert(c.quizzes.some(x => x.id === "4321" && x.done === true) && c.dx.quizToc === 1, "the closed midterm is found through the course content: " + JSON.stringify(c.quizzes));
   });
 
+  await t("Brightspace: an assignment's mark from the Assignments page's Score column (no out-of in the API) or its feedback link", async () => {
+    const F = (Id, Name) => ({ Id, Name, DueDate: iso(-4), IsHidden: false, GradeItemId: 900 + Id, Attachments: [] });
+    const list = `<table class="d2l-table"><tr><th>Assignment</th><th>Completion Status</th><th>Score</th><th>Evaluation Status</th><th>Due Date</th></tr>
+      <tr><th><a href="/d2l/lms/dropbox/user/folder_submit_files.d2l?db=31&amp;grpid=0&amp;isprv=0&amp;bp=0&amp;ou=101">Professional Development Plan</a></th><td>1 Submission, 1 File</td><td><label>8 / 10</label> - 80 %</td><td><a href="/d2l/lms/dropbox/user/folders_history.d2l?db=31&amp;ou=101">Feedback: Read</a></td><td>Oct 16, 2026 7:00 PM</td></tr>
+      <tr><th><a href="/d2l/lms/dropbox/user/folder_submit_files.d2l?db=32&amp;ou=101">Quality &amp; Safety Worksheet</a></th><td>1 Submission, 1 File</td><td></td><td><a href="/d2l/lms/dropbox/user/folders_history.d2l?db=32&amp;ou=101">Feedback: Unread</a></td><td>9/30/2026</td></tr>
+      <tr><th><a href="/d2l/lms/dropbox/user/folder_submit_files.d2l?db=33&amp;ou=101">Reflection</a></th><td>1 Submission, 1 File</td><td></td><td></td><td>10/2/2026</td></tr></table>`;
+    const routes = BS.filter(([re]) => !/dropbox\\\/folders\\\/\$/.test(re.source)).concat([
+      [/^\/d2l\/api\/le\/1\.70\/101\/dropbox\/folders\/$/, [F(31, "Professional Development Plan"), F(32, "Quality & Safety Worksheet"), F(33, "Reflection")]],
+      [/\/dropbox\/folders\/3[123]\/submissions\/mysubmissions\/$/, [{ Submissions: [{ SubmissionDate: iso(-5) }] }]],
+      [/\/dropbox\/folders\/32\/feedback\/user\/42$/, { Score: 17, OutOf: 20, IsGraded: true, Feedback: { Text: "Good" } }],
+      [/\/dropbox\/folders\/3[13]\/feedback\/user\/42$/, () => { throw Object.assign(new Error("denied"), { status: 403 }); }],
+      [/folders_list\.d2l\?ou=101/, list, { "content-type": "text/html" }]]);
+    const { out } = await runInjected("brightspace", "https://learn.example.edu", routes);
+    const c = out.courses[0], m = id => (c.marks.find(x => x.kind === "folder" && x.id === id) || {});
+    assert(m("31").num === 8 && m("31").den === 10 && m("31").from === "assignmentsPage", "Professional Development Plan: 8 / 10 from the Score column: " + JSON.stringify(c.marks));
+    assert(m("32").num === 17 && m("32").den === 20 && m("32").from === "assignmentFeedback", "Quality & Safety: 17 / 20 from its feedback link");
+    assert(m("33").num == null, "Reflection, no score anywhere, has no mark");
+    const x = id => c.dx.folders.find(f => f.id === id) || {};
+    assert(/refused \(403\)/.test(x("31").fbApi) && x("31").scoreCell === "8 / 10 - 80 %" && /ok, score 17/.test(x("32").fbApi) && /Reflection/.test(x("33").row), "the report has each step per assignment: " + JSON.stringify(c.dx.folders));
+  });
+
   await t("Brightspace: assignment and discussion marks that aren't in Grades: feedback, the Assignments page, the topic's page", async () => {
     const F = (Id, Name, GradeItemId, den) => ({ Id, Name, DueDate: iso(-4), IsHidden: false, GradeItemId, Assessment: { ScoreDenominator: den }, Attachments: [] });
     const list = `<table><tr><th>Assignment</th><th>Completion Status</th><th>Score</th><th>Evaluation Status</th><th>Due Date</th></tr>

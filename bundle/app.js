@@ -32134,8 +32134,8 @@ function cleanFile(r) {
     const how = c.mode === "api" ? (bsDesk() ? (lmsOnPhone() ? "Signed in on this phone" : "Signed in on this computer") : c.lastSrc === "grab" ? `Read from ${P.name} in this browser` : "Synced from your computer's Studyboard app") : "Using your calendar link";
     if (running || reading) return `${how}. Syncing now…`;
     const when = c.last ? `Last synced ${ago(c.last)}` : "Not synced yet";
-    const ev = !bsDesk() && c.lastSrc === "grab" && window.SBEXT && SBEXT.on() ? SBEXT.version() : "", older = v => { const a = String(v).split(".").map(Number), b = [1, 0, 10]; for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== b[i]) return (a[i] || 0) < b[i]; } return false; };
-    const extOld = ev && older(ev) ? ` Your School Sync extension is version ${ev}: update it to 1.0.10 or later to bring in marks that aren't on ${P.name}'s Grades page (like quiz marks on a quiz's Submissions page).` : "";
+    const ev = !bsDesk() && c.lastSrc === "grab" && window.SBEXT && SBEXT.on() ? SBEXT.version() : "", older = v => { const a = String(v).split(".").map(Number), b = [1, 0, 11]; for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== b[i]) return (a[i] || 0) < b[i]; } return false; };
+    const extOld = ev && older(ev) ? ` Your School Sync extension is version ${ev}: update it to 1.0.11 or later to bring in marks that aren't on ${P.name}'s Grades page (like quiz marks on a quiz's Submissions page).` : "";
     return `${how}. ${when}.${extOld}${L.needLogin && bsDesk() && c.mode === "api" ? " Sign in again to keep syncing grades and announcements." : ""}${L.err ? " " + L.err : ""}`;
   }
   function shortStatus(){
@@ -32165,6 +32165,7 @@ function cleanFile(r) {
       if (d.grades) { L.push(`Grades: list ${d.grades.list}; Grades page ${d.grades.page}; ${d.grades.rows} rows used.`); (d.grades.sample || []).forEach(x => L.push("  Grade " + x)); }
       if ((d.calExams || []).length) L.push("Exam calendar entries: " + d.calExams.join("; "));
       if ((d.calTied || []).length) L.push("Calendar entries tied to an item: " + d.calTied.join("; "));
+      (d.folders || []).forEach(f => L.push(`  Assignment "${f.n}" [${f.id}]: handed in ${f.sub}; grade item ${f.gradeItem || "none"}${f.inGrades ? " (marked in Grades)" : ""}; out of ${f.outOf == null ? "not given" : f.outOf}; feedback with submission: ${f.fb}${f.fbApi ? "; feedback link: " + f.fbApi : ""}${f.row ? `; Assignments page row: "${f.row}"` : ""}${f.scoreCell ? `; Score cell "${f.scoreCell}"` : ""}${(f.links || []).length ? "; links " + f.links.join(" ") : ""}${f.fbPage ? "; feedback page: " + f.fbPage : ""}; mark read: ${f.mark || "none"}`));
       (d.quizzes || []).forEach(q => L.push(`  Quiz "${q.n}" [${q.id}] from ${q.from}; sat ${q.sat}; grade item ${q.gradeItem || "none"}${q.inGrades ? " (marked in Grades)" : ""}; Submissions page: ${q.subm}${q.subm && q.subm.startsWith("ok") ? `, Overall Grade line ${q.overall ? "yes" : "no"}, ${q.attempts} attempt rows, fractions: ${q.fractions || "none"}` : ""}; mark read: ${q.mark || "none"}`));
       (d.topics || []).forEach(t => L.push(`  Topic "${t.n}"${t.forum ? ` (forum "${t.forum}")` : ""} [${t.id}] due ${t.due || "none"}${t.grp ? ", group" : ""}${t.graded ? ", graded" : ""}: posts ${t.posts}${t.posts === "read" ? ` (${t.n0}; ids ${(t.ids || []).join(", ") || "none"})` : ""}; topic page: ${t.page || "not read"}; result: ${t.result}`));
       const ts = Object.values(state.tasks || {}).filter(t => t && t[F] && (t[F].ou === ou || (cid && t.courseId === cid))).sort((a, b) => String(b.due).localeCompare(String(a.due))).slice(0, 40);
