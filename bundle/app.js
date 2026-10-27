@@ -29098,7 +29098,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
   }
 
   /* Reporting */
-  const REASONS = [["spam", "Spam or ads"], ["cheating", "Answers to a graded test or assignment"], ["harassment", "Bullying or harassment"], ["hate", "Hate"], ["sexual", "Sexual content"], ["privacy", "Someone's private information"], ["threat", "Threats or violence"], ["other", "Something else"]];
+  const REASONS = [["spam", "Spam or ads"], ["cheating", "Answers to a graded test or assignment"], ["harassment", "Bullying or harassment"], ["hate", "Hate"], ["sexual", "Sexual content"], ["privacy", "Someone's private information"], ["copyright", "Copied from course slides, a textbook or someone else's work"], ["threat", "Threats or violence"], ["other", "Something else"]];
   function reportSheet(code){
     if (!signedIn()) { toast("Sign in to report this. Thank you for keeping Studyboard safe."); return; }
     openSheet(`<form class="sheet">${head("Report This")}<div class="sheet-body">
@@ -29106,7 +29106,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
       <label class="f">More Details <span class="hint">optional</span><textarea name="details" rows="2" maxlength="500"></textarea></label>
       <p class="mini" style="margin:0">We review reports and remove what breaks the rules. The person isn't told who reported it.</p></div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="submit" class="btn primary" data-submit>Send Report</button></div></form>`, fd => {
-      rpc("report_share", {p_code: code, p_reason: String(fd.get("reason") || "other"), p_details: String(fd.get("details") || "")})
+      rpc("report_share", (r => ({p_code: code, p_reason: r === "copyright" ? "other" : r, p_details: ((r === "copyright" ? "[copyright] " : "") + String(fd.get("details") || "")).slice(0, 500)}))(String(fd.get("reason") || "other")))
         .then(() => toast("Thanks. We'll review it soon.")).catch(e => toast(e.message));
     });
   }
@@ -67954,7 +67954,7 @@ window.SBSTREAK = {on: gentleOn, line: () => streakLineText(streakNow()), state:
   const VERSION = "1.15.1";
   // The support address shown in the policies and About
   const SUPPORT = "support@studyboardapp.com";
-  const UPDATED = "October 23, 2026";
+  const UPDATED = "October 23, 2026", TERMS_UPDATED = "October 27, 2026";
   const FIRST_YEAR = 2026;
   const contact = () => `<a href="mailto:${esc(SUPPORT)}">${esc(SUPPORT)}</a>`;
   const year = () => { const y = new Date().getFullYear(); return y > FIRST_YEAR ? FIRST_YEAR + "–" + y : String(FIRST_YEAR); };
@@ -68061,7 +68061,7 @@ window.SBSTREAK = {on: gentleOn, line: () => streakLineText(streakNow()), state:
 `;
 
   const TERMS = () => `
-    <p class="legal-meta">Effective ${UPDATED}</p>
+    <p class="legal-meta">Effective ${TERMS_UPDATED}</p>
     <p>These terms are the agreement between you and Connor Pelkmans, who publishes Studyboard ("we"), for using Studyboard: the app and its website. By using Studyboard you agree to them. If you do not agree, please do not use it. Questions: ${contact()}.</p>
 
     <h3>Using Studyboard</h3>
@@ -68070,11 +68070,15 @@ window.SBSTREAK = {on: gentleOn, line: () => streakLineText(streakNow()), state:
     <h3>Your account and your content</h3>
     <p>Keep your password private; you are responsible for what happens under your account. Everything you put into Studyboard is yours. You allow us to store it, sync it and show it back to you (and to the people you choose to share it with) so the app can work, and for nothing else. You can export it or delete it at any time (see the Privacy Policy). Keep your own backups of anything important. You must be 13 or older to make an account yourself; a parent or guardian can make one for a younger student and agrees to these Terms for them. Accounts for students under 13 can't publish or share with a link. Only publish sets you made or have the right to share, and never answers to graded work; we remove what is reported.</p>
 
+    <h3>Course materials and copyright</h3>
+    <p>Slides, handouts, readings, tests and other course materials usually belong to your instructor, your school or a publisher. You may add them to Studyboard to study from them yourself, as your school allows; Studyboard doesn't make them public. When you share or publish anything in Studyboard (a deck, a quiz, notes, a whiteboard, a file or a link, in a group or with a link), you promise that you made it or have the right to share it, and that sharing it doesn't break anyone's copyright or other rights or your school's rules. Share the cards and questions you wrote, or that AI wrote for you in its own words. Don't share uploaded slides or handouts, pictures taken from them, wording copied from them, questions from your instructor's tests or quizzes, or answers to graded work, unless you have permission.</p>
+    <p><b>Copyright complaints:</b> If you think something shared in Studyboard copies your work, use Report on it, or email ${contact()} with: your name and how to reach you; the work you own; where it appears in Studyboard (a link or share code); and a statement that you believe in good faith the use isn't allowed, that your complaint is accurate, and that you own the work or may act for the owner. We may remove or disable anything shared in Studyboard when we receive a complaint, without notice. If we removed something you shared and you think that was a mistake, write to us and explain why. We stop people who repeatedly share content that breaks other people's rights from sharing, and may close their accounts.</p>
+
     <h3>Study groups and shared content</h3>
     <p>Study groups, study rooms and shared decks let you post content other people see. There is zero tolerance for objectionable content or abusive users: no harassment, bullying, hate, threats, sexual content, spam, cheating services or sharing other people's personal information. Use Report on a group message, a shared item or a group member to tell us, and Block (in the group's member list) to stop seeing someone's messages straight away. We review reports within 24 hours, remove content that breaks these rules and remove people who post it.</p>
 
     <h3>AI features</h3>
-    <p>AI features are optional. They use either your own key from a provider you choose, whose terms and any costs are between you and that provider, or, if you are signed in without a key, a small number of free trial requests answered by an open AI model run on Cloudflare (see the Privacy Policy). AI answers can be wrong or out of date. Check dates, grades and facts before you rely on them, and use AI only as your school and instructors allow.</p>
+    <p>AI features are optional. They use either your own key from a provider you choose, whose terms and any costs are between you and that provider, or, if you are signed in without a key, a small number of free trial requests answered by an open AI model run on Cloudflare (see the Privacy Policy). AI answers can be wrong or out of date. Check dates, grades and facts before you rely on them, and use AI only as your school and instructors allow. When AI makes flashcards, quizzes or other study material from your slides, notes or files, Studyboard tells it to restate the facts and ideas in its own words instead of copying the wording, and not to copy your instructor's test or quiz questions. Picture cards are made only from pictures you take or draw yourself, such as a photo of your own notes or a whiteboard; Studyboard doesn't turn pictures from slides, PDFs or other course files into picture cards. Check what AI makes before you share it.</p>
 
     <h3>Your school and other services</h3>
     <p>Connecting a school learning platform, calendar or other service is your choice. You're responsible for using it as your school's rules allow. Studyboard only reads from those sites. Studyboard is not affiliated with Brightspace, Canvas, Blackboard, Google, Anthropic, OpenAI, Apple or any school.</p>
