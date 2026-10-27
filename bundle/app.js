@@ -8059,10 +8059,15 @@ function splitToday(ranked, th, own){
   const q = h => Math.floor(h * 4 + 1e-9) / 4, BLOCK = 0.5, maxN = Math.max(1, Math.min(4, Math.round(left)));
   const urgent = x => x.dl <= 1 || (x.own || 0) >= 0.75 || (x.behind || 0) >= 0.5;
   const give = (x, a) => { a = q(Math.min(a, left)); if (a <= 0) return 0; x.alloc += a; left -= a; return a; };
-  ranked.forEach(x => { x.moved = 0; x.alloc = 0; });
+  ranked.forEach(x => { x.moved = 0; x.alloc = 0; x.far = false; });
+  // Work due well after the nearest deadline waits until the nearer work has its time, unless it's big enough to need steady time now
+  const d0 = ranked.reduce((m, x) => x.need > 0 && x.dl >= 0 && !x.dead ? Math.min(m, x.dl) : m, Infinity);
+  // needs early attention: a large share of the time left before it's due, a tight run of deadlines up to it, or simply a lot of work
+  const ahead = x => (x.own || 0) >= 0.3 || (x.rho || 0) >= 0.6 || (x.R || 0) >= 6;
+  ranked.forEach(x => { x.ahead = false; if (d0 < Infinity && x.dl > d0 + Math.max(5, d0) && !urgent(x)) { if (ahead(x)) x.ahead = true; else x.far = true; } });
   const picked = [];
   ranked.forEach(x => {
-    if (!(x.need > 0) || left < 0.25) return;
+    if (!(x.need > 0) || left < 0.25 || x.far) return;
     const u = urgent(x);
     if (!u && picked.length >= maxN) return;
     const block = u ? x.need : Math.min(x.R || x.need, Math.max(x.need, BLOCK));
@@ -8074,6 +8079,8 @@ function splitToday(ranked, th, own){
     if (left < BLOCK || picked.includes(x) || !(x.need > 0)) return;
     if (give(x, Math.min(x.R || x.need, Math.max(x.need, BLOCK)))) picked.push(x);
   });
+  // time still left once the nearer work is covered: work ahead on what was held back
+  picked.forEach(x => { if (x.far && left >= 0.25 && x.R > x.alloc + 0.125) give(x, Math.round((x.R - x.alloc) * 4) / 4); });
   return left;
 }
 // Group project tasks assigned to me, as plan entries
@@ -8196,6 +8203,7 @@ function computeFocus(){
     else if (x.own >= 1 && x.dl >= 0) r.push([93, "It needs more time than you have left before it's due, so start now"]);
     else if (x.rho >= 0.75 && x.dl >= 0 && x.dl <= 14) r.push([70, "Little spare time before it's due"]);
     if (x.own >= 0.5 && x.own < 1 && x.dl > 7) r.push([66, "Big enough that it needs steady time every day until it's due"]);
+    else if (x.ahead && x.alloc > 0) r.push([66, (x.rho || 0) >= 0.6 && (x.own || 0) < 0.3 ? "Due later, but there's little spare time before it once everything due first is done, so it helps to start now" : `Due later, but about ${fmtHM(x.R)} of work, so it helps to start well ahead`]);
     if (x.quick) r.push([44, "Quick to clear, and due soon"]);
     if (x.stale) r.push([33, "Started a while ago and hasn't moved since"]);
     if (hasWeight(t) || x.W >= 10 || PTS_W[t.id]) r.push([50 + x.W, `${hasWeight(t) ? "" : "About "}${Math.round(x.W * 10) / 10}% of your grade${!hasWeight(t) && PTS_W[t.id] ? " (from its points)" : ""}`]);
