@@ -65,7 +65,7 @@
       {id: "tp-spring-tulip", name: "Tulip Pin", kind: "badge", desc: "A glossy pink tulip bud.", svg: `<svg viewBox="0 0 30 30"><defs>${LG("s1-pn-g", "#FFC2D8", "#D8336E")}</defs><path d="M9 22c-5-1-7-5-6-8 4 0 7 3 8 7zM21 22c5-1 7-5 6-8-4 0-7 3-8 7z" fill="#6CBF5A" stroke="#2F6B2A" stroke-width="1"/><path d="M5 5.5l5 4.5 5-8 5 8 5-4.5v10a10 10 0 0 1-20 0z" fill="url(#s1-pn-g)" stroke="#8A1F4A" stroke-width="1.1" stroke-linejoin="round"/><path d="M15 2v14" stroke="#B82A60" stroke-width=".9" opacity=".6"/><ellipse cx="9.5" cy="14" rx="2" ry="3.4" fill="#fff" opacity=".7" transform="rotate(-12 9.5 14)"/></svg>`},
       {id: "tp-spring-gingham", name: "Gingham Washi", kind: "tape", desc: "Mint gingham tape with tiny pink blooms.", svg: `<svg viewBox="0 0 86 26"><defs><clipPath id="s1-gw-c"><path d="${tapeZig()}"/></clipPath></defs><path d="${tapeZig()}" fill="rgba(210,240,198,.8)"/><g clip-path="url(#s1-gw-c)"><g fill="rgba(92,168,72,.32)">${Array.from({length: 11}, (_, i) => `<rect x="${3 + i * 8}" y="0" width="4" height="26"/>`).join("")}${[3, 11, 19].map(y => `<rect x="0" y="${y}" width="86" height="4"/>`).join("")}</g>${[[16, 13], [43, 13], [70, 13]].map(([x, y]) => `<g transform="translate(${x} ${y})">${[0, 72, 144, 216, 288].map(a => `<ellipse cx="0" cy="-2.6" rx="1.9" ry="2.6" fill="#F28BB8" transform="rotate(${a})"/>`).join("")}<circle r="1.3" fill="#FFE066"/></g>`).join("")}</g></svg>`}
     ],
-    card: {id: "tp-spring", name: "Tulip Border", desc: "Fresh garden paper with tulips growing along the edge and a visiting butterfly."}
+    card: {id: "tp-spring", name: "Tulip Border", desc: "Morning garden paper with a full row of tulips growing along the bottom edge."}
   });
 
   /* ======================= SUMMER ======================= */
@@ -134,7 +134,7 @@
       {id: "tp-ocean-float", name: "Glass Float", kind: "badge", desc: "An old sea-glass fishing float in a rope net.", svg: `<svg viewBox="0 0 30 30"><defs>${RG("o1-pn-g", [[0, "#E4FFFB"], [.45, "#6BDCEA"], [1, "#0A7F92"]], .36, .3, .8)}<clipPath id="o1-pn-c"><circle cx="15" cy="15" r="12.3"/></clipPath></defs><circle cx="15" cy="15" r="12.5" fill="url(#o1-pn-g)" stroke="#0B4F5C" stroke-width="1.1"/><g clip-path="url(#o1-pn-c)" fill="none" stroke="#C8A06A" stroke-width="1.1"><path d="M3 9l12 12 12-12M3 21l12-12 12 12M15 1L1 15l14 14 14-14z"/></g><circle cx="15" cy="2.8" r="1.8" fill="#C8A06A" stroke="#7A5A2E" stroke-width=".7"/><ellipse cx="10" cy="9" rx="3.2" ry="2" fill="#fff" opacity=".8" transform="rotate(-35 10 9)"/></svg>`},
       {id: "tp-ocean-wave", name: "Wave Washi", kind: "tape", desc: "Sea-green tape with rolling white waves.", svg: `<svg viewBox="0 0 86 26"><defs><clipPath id="o1-ww-c"><path d="${tapeSlant}"/></clipPath></defs><path d="${tapeSlant}" fill="rgba(20,167,189,.6)"/><g clip-path="url(#o1-ww-c)" fill="none" stroke="#fff" stroke-linecap="round"><path d="M-2 10${Array.from({length: 12}, () => "q4-5 8 0").join("")}" stroke-width="1.6" opacity=".9"/><path d="M2 18${Array.from({length: 12}, () => "q4-5 8 0").join("")}" stroke-width="1.6" opacity=".6"/></g>${[12, 30, 48, 66].map(x => `<circle cx="${x}" cy="14.5" r=".9" fill="#fff" opacity=".8"/>`).join("")}</svg>`}
     ],
-    card: {id: "tp-ocean", name: "Tide Line", desc: "Pale sea-foam paper with soft layered waves along the bottom and a leaping fish."}
+    card: {id: "tp-ocean", name: "Tide Line", desc: "Pale sea-foam paper over a full-width tide of layered waves, with a fish leaping from the surf."}
   });
 
   /* ======================= SAKURA ======================= */
@@ -154,7 +154,7 @@
       {id: "tp-sakura-petal", name: "Petal Washi", kind: "tape", desc: "Blush washi scattered with cherry petals.", svg: `<svg viewBox="0 0 86 26"><path d="${tapeZig()}" fill="rgba(255,190,214,.7)"/>${[[12, 10, 20, "#E8688A"], [24, 17, -30, "#fff"], [37, 9, 60, "#F27AA8"], [50, 16, 10, "#fff"], [62, 9, -40, "#E8688A"], [74, 16, 30, "#fff"]].map(([x, y, r, c]) => `<g transform="translate(${x} ${y}) rotate(${r})"><path d="${petal(5.4, 3.6)}" transform="translate(0 2.7)" fill="${c}" opacity=".95"/></g>`).join("")}<path d="M3 3H83" stroke="#fff" stroke-width="1" opacity=".45"/></svg>`},
       {id: "tp-sakura-kanzashi", name: "Kanzashi Pin", kind: "clip", desc: "A lacquered hairpin with a blossom and dangling petals.", svg: `<svg viewBox="0 0 22 50"><defs>${LG("k1-kz-g", "#A8456F", "#5A2240", 1, 0)}</defs><rect x="9.6" y="12" width="2.8" height="37" rx="1.4" fill="url(#k1-kz-g)" stroke="#3B1D2B" stroke-width=".7"/><path d="M4.5 16v12M7 17v16" stroke="#E6C15A" stroke-width=".8"/><ellipse cx="4.5" cy="29.5" rx="1.6" ry="2.2" fill="#FFB3CF" stroke="#C9427A" stroke-width=".6"/><ellipse cx="7" cy="34.5" rx="1.6" ry="2.2" fill="#FFB3CF" stroke="#C9427A" stroke-width=".6"/>${BLOSSOM(11, 9.5, 7.2, "#FFC6DA", .9, 0)}<circle cx="11" cy="9.5" r="1.4" fill="#F2C84A"/><ellipse cx="8.3" cy="4.8" rx="1.6" ry=".9" fill="#fff" opacity=".8" transform="rotate(-30 8.3 4.8)"/></svg>`}
     ],
-    card: {id: "tp-sakura", name: "Hanami Washi", desc: "Soft pink washi paper with a cherry branch reaching in from the corner."}
+    card: {id: "tp-sakura", name: "Hanami Washi", desc: "Cream paper framed in blossom-print washi tape, with a cherry branch reaching along the top."}
   });
 })();
 
