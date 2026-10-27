@@ -34210,7 +34210,7 @@ var TP_DATA = [];
       {id: "tp-spring-tulip", name: "Tulip Pin", kind: "badge", desc: "A glossy pink tulip bud.", svg: `<svg viewBox="0 0 30 30"><defs>${LG("s1-pn-g", "#FFC2D8", "#D8336E")}</defs><path d="M9 22c-5-1-7-5-6-8 4 0 7 3 8 7zM21 22c5-1 7-5 6-8-4 0-7 3-8 7z" fill="#6CBF5A" stroke="#2F6B2A" stroke-width="1"/><path d="M5 5.5l5 4.5 5-8 5 8 5-4.5v10a10 10 0 0 1-20 0z" fill="url(#s1-pn-g)" stroke="#8A1F4A" stroke-width="1.1" stroke-linejoin="round"/><path d="M15 2v14" stroke="#B82A60" stroke-width=".9" opacity=".6"/><ellipse cx="9.5" cy="14" rx="2" ry="3.4" fill="#fff" opacity=".7" transform="rotate(-12 9.5 14)"/></svg>`},
       {id: "tp-spring-gingham", name: "Gingham Washi", kind: "tape", desc: "Mint gingham tape with tiny pink blooms.", svg: `<svg viewBox="0 0 86 26"><defs><clipPath id="s1-gw-c"><path d="${tapeZig()}"/></clipPath></defs><path d="${tapeZig()}" fill="rgba(210,240,198,.8)"/><g clip-path="url(#s1-gw-c)"><g fill="rgba(92,168,72,.32)">${Array.from({length: 11}, (_, i) => `<rect x="${3 + i * 8}" y="0" width="4" height="26"/>`).join("")}${[3, 11, 19].map(y => `<rect x="0" y="${y}" width="86" height="4"/>`).join("")}</g>${[[16, 13], [43, 13], [70, 13]].map(([x, y]) => `<g transform="translate(${x} ${y})">${[0, 72, 144, 216, 288].map(a => `<ellipse cx="0" cy="-2.6" rx="1.9" ry="2.6" fill="#F28BB8" transform="rotate(${a})"/>`).join("")}<circle r="1.3" fill="#FFE066"/></g>`).join("")}</g></svg>`}
     ],
-    card: {id: "tp-spring", name: "Tulip Border", desc: "Fresh garden paper with tulips growing along the edge and a visiting butterfly."}
+    card: {id: "tp-spring", name: "Tulip Border", desc: "Morning garden paper with a full row of tulips growing along the bottom edge."}
   });
 
   /* ======================= SUMMER ======================= */
@@ -34279,7 +34279,7 @@ var TP_DATA = [];
       {id: "tp-ocean-float", name: "Glass Float", kind: "badge", desc: "An old sea-glass fishing float in a rope net.", svg: `<svg viewBox="0 0 30 30"><defs>${RG("o1-pn-g", [[0, "#E4FFFB"], [.45, "#6BDCEA"], [1, "#0A7F92"]], .36, .3, .8)}<clipPath id="o1-pn-c"><circle cx="15" cy="15" r="12.3"/></clipPath></defs><circle cx="15" cy="15" r="12.5" fill="url(#o1-pn-g)" stroke="#0B4F5C" stroke-width="1.1"/><g clip-path="url(#o1-pn-c)" fill="none" stroke="#C8A06A" stroke-width="1.1"><path d="M3 9l12 12 12-12M3 21l12-12 12 12M15 1L1 15l14 14 14-14z"/></g><circle cx="15" cy="2.8" r="1.8" fill="#C8A06A" stroke="#7A5A2E" stroke-width=".7"/><ellipse cx="10" cy="9" rx="3.2" ry="2" fill="#fff" opacity=".8" transform="rotate(-35 10 9)"/></svg>`},
       {id: "tp-ocean-wave", name: "Wave Washi", kind: "tape", desc: "Sea-green tape with rolling white waves.", svg: `<svg viewBox="0 0 86 26"><defs><clipPath id="o1-ww-c"><path d="${tapeSlant}"/></clipPath></defs><path d="${tapeSlant}" fill="rgba(20,167,189,.6)"/><g clip-path="url(#o1-ww-c)" fill="none" stroke="#fff" stroke-linecap="round"><path d="M-2 10${Array.from({length: 12}, () => "q4-5 8 0").join("")}" stroke-width="1.6" opacity=".9"/><path d="M2 18${Array.from({length: 12}, () => "q4-5 8 0").join("")}" stroke-width="1.6" opacity=".6"/></g>${[12, 30, 48, 66].map(x => `<circle cx="${x}" cy="14.5" r=".9" fill="#fff" opacity=".8"/>`).join("")}</svg>`}
     ],
-    card: {id: "tp-ocean", name: "Tide Line", desc: "Pale sea-foam paper with soft layered waves along the bottom and a leaping fish."}
+    card: {id: "tp-ocean", name: "Tide Line", desc: "Pale sea-foam paper over a full-width tide of layered waves, with a fish leaping from the surf."}
   });
 
   /* ======================= SAKURA ======================= */
@@ -34299,7 +34299,7 @@ var TP_DATA = [];
       {id: "tp-sakura-petal", name: "Petal Washi", kind: "tape", desc: "Blush washi scattered with cherry petals.", svg: `<svg viewBox="0 0 86 26"><path d="${tapeZig()}" fill="rgba(255,190,214,.7)"/>${[[12, 10, 20, "#E8688A"], [24, 17, -30, "#fff"], [37, 9, 60, "#F27AA8"], [50, 16, 10, "#fff"], [62, 9, -40, "#E8688A"], [74, 16, 30, "#fff"]].map(([x, y, r, c]) => `<g transform="translate(${x} ${y}) rotate(${r})"><path d="${petal(5.4, 3.6)}" transform="translate(0 2.7)" fill="${c}" opacity=".95"/></g>`).join("")}<path d="M3 3H83" stroke="#fff" stroke-width="1" opacity=".45"/></svg>`},
       {id: "tp-sakura-kanzashi", name: "Kanzashi Pin", kind: "clip", desc: "A lacquered hairpin with a blossom and dangling petals.", svg: `<svg viewBox="0 0 22 50"><defs>${LG("k1-kz-g", "#A8456F", "#5A2240", 1, 0)}</defs><rect x="9.6" y="12" width="2.8" height="37" rx="1.4" fill="url(#k1-kz-g)" stroke="#3B1D2B" stroke-width=".7"/><path d="M4.5 16v12M7 17v16" stroke="#E6C15A" stroke-width=".8"/><ellipse cx="4.5" cy="29.5" rx="1.6" ry="2.2" fill="#FFB3CF" stroke="#C9427A" stroke-width=".6"/><ellipse cx="7" cy="34.5" rx="1.6" ry="2.2" fill="#FFB3CF" stroke="#C9427A" stroke-width=".6"/>${BLOSSOM(11, 9.5, 7.2, "#FFC6DA", .9, 0)}<circle cx="11" cy="9.5" r="1.4" fill="#F2C84A"/><ellipse cx="8.3" cy="4.8" rx="1.6" ry=".9" fill="#fff" opacity=".8" transform="rotate(-30 8.3 4.8)"/></svg>`}
     ],
-    card: {id: "tp-sakura", name: "Hanami Washi", desc: "Soft pink washi paper with a cherry branch reaching in from the corner."}
+    card: {id: "tp-sakura", name: "Hanami Washi", desc: "Cream paper framed in blossom-print washi tape, with a cherry branch reaching along the top."}
   });
 })();
 
@@ -34373,7 +34373,7 @@ var TP_DATA = [];
       {id: "tp-forest-pines", name: "Pine Washi", kind: "tape", desc: "Sage washi tape with a row of little pine trees.",
         svg: PIN("0 0 86 26", `<path d="${TAPE_D}" fill="rgba(143,196,140,.7)" stroke="rgba(47,122,69,.35)" stroke-width=".8"/>${[12, 27, 42, 57, 72].map((x, i) => `<path d="M${x} 6L${x + 5} 12.5H${x + 2.5}L${x + 6} 18H${x - 6}L${x - 2.5} 12.5H${x - 5}Z" fill="${i % 2 ? "rgba(31,90,50,.62)" : "rgba(47,122,69,.55)"}"/><rect x="${x - 1}" y="18" width="2" height="2.5" fill="rgba(90,60,30,.5)"/>`).join("")}${[19.5, 34.5, 49.5, 64.5].map(x => `<circle cx="${x}" cy="8" r="1.1" fill="rgba(255,248,170,.95)"/>`).join("")}<path d="M5 4.5H81" stroke="rgba(255,255,255,.4)" stroke-width="1.2"/>`)}
     ],
-    card: {id: "tp-forest", name: "Misty Ridge", desc: "Soft sage paper with misty ridges, a pine treeline and a few fireflies."}
+    card: {id: "tp-forest", name: "Misty Ridge", desc: "Pale sage sky over layered misty ridges, a pine treeline running edge to edge and a few fireflies."}
   });
 
   /* ================= GALAXY ================= */
@@ -34734,7 +34734,7 @@ var TP_DATA = [];
       {id: "tp-cats-kitty", name: "Kitty Magnet", kind: "badge", desc: "A glossy orange tabby face with pink ears.", svg: `<svg viewBox="0 0 30 30"><defs>${RG("b4cp-k", "#FFD19A", "#E88A3E")}</defs><path d="M5 13L4.5 2.5l8 5zM25 13l.5-10.5-8 5z" fill="#EE9A50" stroke="#9A4E24" stroke-width="1.1" stroke-linejoin="round"/><path d="M6.3 5.5l.3 3.8M23.7 5.5l-.3 3.8" stroke="#F79AAE" stroke-width="1.8" stroke-linecap="round"/><circle cx="15" cy="17" r="11" fill="url(#b4cp-k)" stroke="#9A4E24" stroke-width="1.1"/><path d="M15 7.5v3M11.8 8.2l.6 2.4M18.2 8.2l-.6 2.4" stroke="#C9672F" stroke-width="1.4" stroke-linecap="round"/><circle cx="11" cy="17" r="1.6" fill="${D}"/><circle cx="19" cy="17" r="1.6" fill="${D}"/><path d="M14 20h2l-1 1.2z" fill="#E8637E"/><path d="M12.8 22q1.1 1.2 2.2 0q1.1 1.2 2.2 0" fill="none" stroke="${D}" stroke-width="1" stroke-linecap="round"/><ellipse cx="9" cy="20.5" rx="2" ry="1.3" fill="#FF8FA8" opacity=".7"/><ellipse cx="21" cy="20.5" rx="2" ry="1.3" fill="#FF8FA8" opacity=".7"/><ellipse cx="10.5" cy="11" rx="3" ry="1.6" fill="#fff" opacity=".7" transform="rotate(-25 10.5 11)"/></svg>`},
       {id: "tp-cats-paws", name: "Paw Print Washi", kind: "tape", desc: "Creamy peach washi tape with a trail of little paw prints.", svg: `<svg viewBox="0 0 86 26"><path d="${TAPE}" fill="#FBE3D4" fill-opacity=".86" stroke="#D9A088" stroke-width=".8" stroke-opacity=".6"/><g fill="#C4624A" opacity=".8">${[[14, 15], [30, 10], [46, 15], [62, 10], [76, 15]].map(([x, y]) => `<ellipse cx="${x}" cy="${y + 2.2}" rx="3" ry="2.5"/><circle cx="${x - 3}" cy="${y - 1.4}" r="1.3"/><circle cx="${x - 1}" cy="${y - 2.9}" r="1.3"/><circle cx="${x + 1.3}" cy="${y - 2.9}" r="1.3"/><circle cx="${x + 3.2}" cy="${y - 1.4}" r="1.3"/>`).join("")}</g><rect x="4" y="3" width="78" height="3" fill="#fff" opacity=".35"/></svg>`}
     ],
-    card: {id: "tp-cats", name: "Catnap", desc: "Warm cream paper with a stitched border, a trail of paw prints and a tabby curled up asleep in the corner."}
+    card: {id: "tp-cats", name: "Catnap", desc: "Warm cream paper inside a stitched border, with a sleepy tabby's paws and striped tail dangling over the top edge and a trail of paw prints along the bottom."}
   });
 
   /* Music Room */
@@ -34802,7 +34802,7 @@ var TP_DATA = [];
       {id: "tp-music-clef", name: "Treble Clef Clip", kind: "clip", desc: "A shiny gold treble clef that clips the note like a paperclip.", svg: `<svg viewBox="0 0 22 50"><defs>${G("b4mp-cf", "#FFE7A0", "#D9A21E", 1, 1)}</defs><g fill="none" stroke-linecap="round" stroke-linejoin="round"><path id="b4mp-cfp" d="M10.5 44.5q-2.5 3.5-5.5 2-2.5-1.6-.5-4 2.5-2 4.5.5L12 7q.5-4.5 3.5-3.5 3.5 1.5-.5 9.5L5.5 24q-4 6 0 10.5 4 4 9 1.5 4.5-3 1.5-7.5-3-3.5-7-1-3 2.5-.5 5.5" stroke="#8A6512" stroke-width="4.6"/><path d="M10.5 44.5q-2.5 3.5-5.5 2-2.5-1.6-.5-4 2.5-2 4.5.5L12 7q.5-4.5 3.5-3.5 3.5 1.5-.5 9.5L5.5 24q-4 6 0 10.5 4 4 9 1.5 4.5-3 1.5-7.5-3-3.5-7-1-3 2.5-.5 5.5" stroke="url(#b4mp-cf)" stroke-width="2.6"/></g><circle cx="5.2" cy="44" r="2.2" fill="#F2C24A" stroke="#8A6512" stroke-width="1"/><path d="M13 6.5q.8-2 2-1.6" stroke="#fff" stroke-width="1" fill="none" stroke-linecap="round"/></svg>`},
       {id: "tp-music-keys", name: "Piano Key Tape", kind: "tape", desc: "Lavender-edged washi tape printed with a row of piano keys.", svg: `<svg viewBox="0 0 86 26"><defs><clipPath id="b4mp-kc"><path d="${TAPE}"/></clipPath></defs><path d="${TAPE}" fill="#FBFAFF" fill-opacity=".9"/><g clip-path="url(#b4mp-kc)"><rect x="0" y="0" width="86" height="4.5" fill="#8C6FF5" opacity=".75"/><rect x="0" y="21.5" width="86" height="5" fill="#8C6FF5" opacity=".75"/><g stroke="#B9A9EE" stroke-width=".8">${Array.from({length: 13}, (_, i) => `<path d="M${4 + i * 6.5} 4.5V21.5"/>`).join("")}</g><g fill="#2E2650" opacity=".85">${[0, 1, 3, 4, 5, 7, 8, 10, 11].map(i => `<rect x="${8.3 + i * 6.5}" y="4.5" width="3.6" height="10" rx=".8"/>`).join("")}</g></g><path d="${TAPE}" fill="none" stroke="#9E8FD8" stroke-width=".7" stroke-opacity=".6"/></svg>`}
     ],
-    card: {id: "tp-music", name: "Recital Program", desc: "Soft lavender manuscript paper with a flowing staff of notes along the bottom and a gold treble clef."}
+    card: {id: "tp-music", name: "Recital Program", desc: "Soft lavender manuscript paper with a staff of notes and a gold treble clef across the top and a row of piano keys along the bottom edge."}
   });
 
   /* Reading Nook */
@@ -35223,7 +35223,7 @@ var TP_DATA = [];
         <g fill="#4E9E4A" opacity=".9">${[10, 24, 38, 52, 66, 80].map((x, i) => i % 2 ? `<path d="M${x} 14q-4 4-1 7 4-2 1-7z"/>` : `<path d="M${x} 11q-4-4-1-7 4 2 1 7z"/>`).join("")}</g>
         <g fill="#F28BB8">${[17, 45, 73].map(x => `<circle cx="${x}" cy="14" r="1.8"/>`).join("")}</g></svg>`}
     ],
-    card: {id: "tp-gardening", name: "Ivy Trellis", desc: "Seed packet cream paper with trailing ivy and a little potted sprout."}
+    card: {id: "tp-gardening", name: "Ivy Trellis", desc: "Seed packet cream paper with an ivy garland swagged along a lattice trellis at the top and a row of sprouts in the soil below."}
   });
 
   /* Game Night */
@@ -35690,7 +35690,7 @@ var TP_DATA = [];
       {id: "tp-stpatricks-rainbow", name: "Rainbow Washi", kind: "tape", desc: "Pastel rainbow washi tape with gold flecks.",
         svg: TAPE("sp-rw-c", `${rbC.map((c, i) => `<rect x="0" y="${f1(1 + i * 4.8)}" width="86" height="4.9" fill="${c}" opacity=".62"/>`).join("")}<g fill="#FFF6C8">${[12, 30, 48, 66].map((x, i) => SPARK(x + (i % 2) * 4, i % 2 ? 8 : 18, 2.4, "#FFF4B8")).join("")}</g><rect x="0" y="1" width="86" height="3" fill="#fff" opacity=".3"/>`)}
     ],
-    card: {id: "tp-stpatricks", name: "Rainbow's End", desc: "Soft clover paper with a corner rainbow and a sprig of shamrocks."}
+    card: {id: "tp-stpatricks", name: "Rainbow's End", desc: "Soft clover paper with a rainbow arching across the top and a pot of gold in a shamrock meadow."}
   });
 
   /* ================= Easter ================= */
@@ -35712,7 +35712,7 @@ var TP_DATA = [];
       {id: "tp-easter-carrot", name: "Carrot Peg", kind: "clip", desc: "A crunchy carrot clip with leafy tops.",
         svg: `<svg viewBox="0 0 22 50">${GR("ea-pc-g", "#FFB860", "#EE7418", 1, 0)}<ellipse cx="7" cy="8" rx="2.6" ry="6.5" fill="#6CBF6A" stroke="#2F7A3A" stroke-width="1" transform="rotate(-25 7 8)"/><ellipse cx="15" cy="8" rx="2.6" ry="6.5" fill="#6CBF6A" stroke="#2F7A3A" stroke-width="1" transform="rotate(25 15 8)"/><ellipse cx="11" cy="6.5" rx="2.8" ry="6.5" fill="#85D47E" stroke="#2F7A3A" stroke-width="1"/><path d="M2.5 14.5Q11 10 19.5 14.5Q18 33 11 48.5Q4 33 2.5 14.5Z" fill="url(#ea-pc-g)" stroke="#B5561A" stroke-width="1.1"/><path d="M5 22h3M17 28h-3M7 35h2.5M15 40h-2" stroke="#C8561C" stroke-width="1.2" stroke-linecap="round"/><path d="M6 16Q6 24 8 30" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".6"/></svg>`}
     ],
-    card: {id: "tp-easter", name: "Bunny Peek", desc: "Lilac paper with a stitched edge, a peeking bunny and a patch of tulips."}
+    card: {id: "tp-easter", name: "Bunny Peek", desc: "Lilac paper with a stitched edge and a bunny peeking up from spring grass dotted with painted eggs."}
   });
 
   /* ================= Fourth of July ================= */
@@ -35760,7 +35760,7 @@ var TP_DATA = [];
       {id: "tp-halloween-bats", name: "Bat Washi", kind: "tape", desc: "Pumpkin-orange washi with little flying bats.",
         svg: TAPE("hw-pt-c", `<rect width="86" height="26" fill="#F5923A" opacity=".8"/><path d="M0 4H86M0 22H86" stroke="#3A2A4A" stroke-width="1.4" stroke-dasharray="3 3" opacity=".9"/>${[[18, 13, 1], [43, 12, -1], [68, 13.5, 1]].map(([x, y, s]) => `<g transform="translate(${x} ${y}) scale(${.27 * s} .27) translate(-32 -32)"><path d="${batWing}" fill="#2C1A3C"/><path d="${batWing}" fill="#2C1A3C" transform="translate(64 0) scale(-1 1)"/><circle cx="32" cy="32" r="10" fill="#2C1A3C"/><path d="M24 27L24 17L30 23ZM40 27L40 17L34 23Z" fill="#2C1A3C"/><circle cx="28" cy="31" r="2.4" fill="#FFD84A"/><circle cx="36" cy="31" r="2.4" fill="#FFD84A"/></g>`).join("")}`)}
     ],
-    card: {id: "tp-halloween", name: "Pumpkin Glow", desc: "A dusky plum card with a harvest moon, bats and a glowing jack-o'-lantern."}
+    card: {id: "tp-halloween", name: "Pumpkin Glow", desc: "A dusky plum night with a harvest moon and bats in the corner and a glowing pumpkin patch along the bottom."}
   });
 
   /* ================= Thanksgiving ================= */
@@ -35982,7 +35982,7 @@ var TP_DATA = [];
           ${[[9, "#E3735F"], [21, "#EDB64C"], [33, "#4FA7A8"], [45, "#F29E8E"], [57, "#E3735F"], [69, "#EDB64C"]].map(([x, c], i) => { const y = 6 + 5 * Math.sin((x - 5) / 76 * Math.PI) * .8; return `<path d="M${x} ${y.toFixed(1)}h9l-4.5 ${10}z" fill="${c}" opacity=".95"/>`; }).join("")}
           <path d="M5 23H81" stroke="#fff" stroke-width="1" opacity=".45"/></svg>`}
     ],
-    card: {id: "tp-balloons", name: "Morning Drift", desc: "A soft sunrise sky with hot-air balloons drifting in the corner over rolling green hills."}
+    card: {id: "tp-balloons", name: "Morning Drift", desc: "A soft sunrise sky with clouds along the top and hot-air balloons rising over rolling green hills."}
   });
 
   /* ================= KOI POND ================= */
@@ -36076,7 +36076,7 @@ var TP_DATA = [];
           <g transform="translate(62 12) rotate(170)"><path d="M-8 0C-8-3-3-4 2-2L7-5L6 0L7 5L2 2C-3 4-8 3-8 0z" fill="#FFF6EA"/><path d="M-3-2c2-1 4 0 4 2-2 .6-4 0-4-2z" fill="#E0533A"/></g>
           <path d="M5 23H81" stroke="#fff" stroke-width="1" opacity=".4"/></svg>`}
     ],
-    card: {id: "tp-koi", name: "Lily Pond", desc: "Pale jade water with soft ripples, a lotus on a lily pad and a koi gliding past the corner."}
+    card: {id: "tp-koi", name: "Lily Pond", desc: "Pale jade water with soft ripple rings, lily pads and a lotus drifting in from the edges and a koi gliding past."}
   });
 
   /* ================= RAINY WINDOW ================= */
@@ -36251,7 +36251,7 @@ var TP_DATA = [];
           <path d="M8 26L11 19L14 26zM50 26L53 18L56 26zM78 26L81 20L84 26z" fill="#2F7A5A"/></g>
           <path d="M3 2L0 13L3 24M83 2L86 13L83 24" fill="none" stroke="#fff" stroke-width="0"/></svg>`}
     ],
-    card: {id: "tp-alpine", name: "Trail Postcard", desc: "A cream mountain postcard with a lake stamp, a postmark and snowy peaks mirrored along the bottom corner."}
+    card: {id: "tp-alpine", name: "Trail Postcard", desc: "A cream postcard with an airmail border, a postmark and snowy peaks mirrored in a lake across the bottom."}
   });
 })();
 
@@ -36286,7 +36286,7 @@ var TP_DATA = [];
       {id: "tp-dunes-compass", name: "Desert Compass", kind: "badge", desc: "A little brass compass pointing the way.", svg: `<svg viewBox="0 0 30 30"><defs><linearGradient id="du-pc-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFE39A"/><stop offset=".55" stop-color="#D9953A"/><stop offset="1" stop-color="#9A5A1E"/></linearGradient></defs><circle cx="15" cy="15" r="13" fill="url(#du-pc-g)" stroke="#6E3218" stroke-width="1.1"/><circle cx="15" cy="15" r="9.2" fill="#FFF6E4" stroke="#8A4527" stroke-width="1"/><path d="M15 6.8l2.4 8.2h-4.8z" fill="#C4452A"/><path d="M15 23.2l2.4-8.2h-4.8z" fill="#3A2F5C"/><circle cx="15" cy="15" r="1.6" fill="#D9953A" stroke="#6E3218" stroke-width=".8"/><ellipse cx="10" cy="7.5" rx="3.4" ry="1.8" fill="#fff" opacity=".7" transform="rotate(-30 10 7.5)"/></svg>`},
       {id: "tp-dunes-washi", name: "Dune Washi", kind: "tape", desc: "Sandy washi tape with rolling dunes and tiny stars.", svg: `<svg viewBox="0 0 86 26"><defs><clipPath id="du-pw-c"><path d="M4 2l-3 3 3 3-3 3 3 3-3 3 3 3-3 3 3 3h78l3-3-3-3 3-3-3-3 3-3-3-3 3-3-3-3 3-3z"/></clipPath></defs><g clip-path="url(#du-pw-c)" opacity=".86"><rect width="86" height="26" fill="#F2D09A"/><path d="M0 18q10-8 22-2t22-2 22 2 22-3v13H0z" fill="#E4A96A"/><path d="M0 22q14-5 28-1t28 0 30-2v7H0z" fill="#C97F4A"/>${TW(14, 7, 2.6, "#FFF6DC")}${TW(46, 6, 2.2, "#FFF6DC")}${TW(70, 9, 2.8, "#FFF6DC")}<circle cx="30" cy="10" r=".9" fill="#FFF6DC"/><circle cx="58" cy="11" r=".9" fill="#FFF6DC"/><rect width="86" height="3" fill="#fff" opacity=".35"/></g></svg>`}
     ],
-    card: {id: "tp-dunes", name: "Sand Ripple", desc: "Warm sandstone paper with wind ripples, a low sun and dunes along the edge."}
+    card: {id: "tp-dunes", name: "Sand Ripple", desc: "Warm sandstone sky with faint wind ripples and a low sun setting behind layered dunes."}
   });
 
   /* Jellyfish Drift */
@@ -36306,7 +36306,7 @@ var TP_DATA = [];
       {id: "tp-jelly-pearl", name: "Glow Pearl", kind: "badge", desc: "A pearly bubble that shimmers pink and aqua.", svg: `<svg viewBox="0 0 30 30"><defs><radialGradient id="je-pp-g" cx=".36" cy=".3" r=".8"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".4" stop-color="#FFE0F0"/><stop offset=".75" stop-color="#B8E8F4"/><stop offset="1" stop-color="#9A88E0"/></radialGradient></defs><circle cx="15" cy="15" r="12.5" fill="url(#je-pp-g)" stroke="#6A4C9E" stroke-width="1.1"/><path d="M6 17q2 6 8 7.5" fill="none" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".8"/><ellipse cx="10.5" cy="9.5" rx="3.6" ry="2.2" fill="#fff" opacity=".9" transform="rotate(-35 10.5 9.5)"/><circle cx="20" cy="8" r="1.1" fill="#fff"/></svg>`},
       {id: "tp-jelly-washi", name: "Jelly Washi", kind: "tape", desc: "Sea-glass washi tape with tiny drifting jellies.", svg: `<svg viewBox="0 0 86 26"><defs><clipPath id="je-pw-c"><path d="M5 0L1 26h80l4-26z"/></clipPath></defs><g clip-path="url(#je-pw-c)" opacity=".85"><rect width="86" height="26" fill="#BFE8EF"/><path d="M0 20q11-4 22 0t22 0 22 0 22 0v6H0z" fill="#8FD4E4"/>${[[16, "#E07AB0"], [42, "#A884F0"], [68, "#E07AB0"]].map(([x, c], i) => `<path d="M${x - 5} ${12 - (i % 2) * 3}a5 5 0 0 1 10 0z" fill="${c}"/><path d="M${x - 3} ${13 - (i % 2) * 3}v4M${x} ${13 - (i % 2) * 3}v5M${x + 3} ${13 - (i % 2) * 3}v4" stroke="${c}" stroke-width="1.3" stroke-linecap="round"/>`).join("")}<circle cx="29" cy="6" r="1.6" fill="none" stroke="#fff" stroke-width="1"/><circle cx="56" cy="16" r="1.4" fill="none" stroke="#fff" stroke-width="1"/><rect width="86" height="3" fill="#fff" opacity=".4"/></g></svg>`}
     ],
-    card: {id: "tp-jelly", name: "Sunlit Shallows", desc: "Clear aqua water with rays of sunlight and little jellies drifting at the corners."}
+    card: {id: "tp-jelly", name: "Sunlit Shallows", desc: "Clear aqua water under a rippling surface, with rays of sunlight and jellyfish drifting in from the edges."}
   });
 
   /* Bamboo Grove */
@@ -36366,7 +36366,7 @@ var TP_DATA = [];
       {id: "tp-rooftops-moon", name: "Moon Magnet", kind: "badge", desc: "A night-sky magnet with a golden crescent moon.", svg: `<svg viewBox="0 0 30 30"><defs><radialGradient id="rt-pm-g" cx=".38" cy=".3" r=".8"><stop offset="0" stop-color="#5A5494"/><stop offset=".7" stop-color="#26244A"/><stop offset="1" stop-color="#141230"/></radialGradient></defs><circle cx="15" cy="15" r="13" fill="url(#rt-pm-g)" stroke="#0E0C22" stroke-width="1.1"/><path d="M17 7.5a8 8 0 1 0 6.4 12.4A6.6 6.6 0 0 1 17 7.5z" fill="#FFD27F" stroke="#C99A3A" stroke-width=".8"/><path d="M9 9l.7 1.5 1.5.7-1.5.7L9 13.4l-.7-1.5-1.5-.7 1.5-.7z" fill="#FFE3A8"/><circle cx="21.5" cy="9" r=".9" fill="#FFE3A8"/><ellipse cx="10" cy="6.8" rx="3.2" ry="1.5" fill="#fff" opacity=".35" transform="rotate(-30 10 6.8)"/></svg>`},
       {id: "tp-rooftops-brick", name: "Brick Tape", kind: "tape", desc: "Washi tape printed with a warm red brick wall.", svg: `<svg viewBox="0 0 86 26"><defs><pattern id="rt-pb-p" width="16" height="8" patternUnits="userSpaceOnUse"><rect width="16" height="8" fill="#E6B8A2"/><rect x=".6" y=".6" width="14.8" height="3" rx=".6" fill="#C9654A"/><rect x="-7.4" y="4.6" width="14.8" height="3" rx=".6" fill="#B8502E"/><rect x="8.6" y="4.6" width="14.8" height="3" rx=".6" fill="#D0765A"/></pattern><clipPath id="rt-pb-c"><path d="M2 0l3 4-3 4 3 5-3 4 3 5-3 4h82l-3-4 3-5-3-4 3-4-3-5 3-4z"/></clipPath></defs><g clip-path="url(#rt-pb-c)" opacity=".85"><rect width="86" height="26" fill="url(#rt-pb-p)"/><rect width="86" height="3" fill="#fff" opacity=".35"/></g></svg>`}
     ],
-    card: {id: "tp-rooftops", name: "City Lights", desc: "A night sky over a brick skyline, with warm windows glowing along the bottom."}
+    card: {id: "tp-rooftops", name: "City Lights", desc: "A starry night with string lights draped across the top over a skyline of glowing windows."}
   });
 })();
 
@@ -36480,7 +36480,7 @@ var TP_DATA = [];
           <path d="M33 13l2-1.5 2 1 1.6-2" fill="none" stroke="#FFD36B" stroke-width="1.1" stroke-linecap="round"/>
           <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".25"/></svg>`}
     ],
-    card: {id: "tp-business", name: "Bull Run", desc: "Crisp ledger paper with a rising green chart in the corner and a little stack of gold coins. Glows on navy at night."}
+    card: {id: "tp-business", name: "Bull Run", desc: "Crisp ledger paper with a green ruled header and a rising bar chart running along the bottom, anchored by a stack of gold coins. Glows on navy at night."}
   });
 
   /* ================= NURSING: Night Shift ================= */
@@ -36568,7 +36568,7 @@ var TP_DATA = [];
           <g fill="#FF8FA8"><path d="${heartD(42, 7.5, .25)}"/><path d="${heartD(11, 20, .22)}"/><path d="${heartD(74, 20, .22)}"/></g>
           <path d="M5 23H81" stroke="#fff" stroke-width="1" opacity=".45"/></svg>`}
     ],
-    card: {id: "tp-nursing", name: "Heartbeat Notes", desc: "Soft blush paper with a mint heartbeat line that draws a little heart in the corner, and a sleepy moon on night shifts."}
+    card: {id: "tp-nursing", name: "Heartbeat Notes", desc: "Soft blush ECG grid paper with a mint heartbeat line sweeping across the bottom into a little pink heart; a glowing monitor after dark."}
   });
 
   /* ================= PSYCHOLOGY: Mind Garden ================= */
@@ -36653,7 +36653,7 @@ var TP_DATA = [];
           <g fill="#FFD3E6"><circle cx="28" cy="20" r="1.2"/><circle cx="66" cy="7" r="1.2"/><circle cx="42" cy="6" r="1"/></g>
           <path d="M5 23H81" stroke="#fff" stroke-width="1" opacity=".45"/></svg>`}
     ],
-    card: {id: "tp-psych", name: "Daydream Page", desc: "Dreamy lavender paper with thought bubble clouds drifting past a soft spiral, and an inkblot butterfly resting in the corner."}
+    card: {id: "tp-psych", name: "Daydream Page", desc: "Dreamy lavender paper framed by puffy thought-bubble clouds along the top and bottom, with a trail of little thought bubbles drifting down."}
   });
 
   /* ================= BIOLOGY: Cell Garden ================= */
@@ -36863,7 +36863,7 @@ var TP_DATA = [];
           <g font-family="Lexend,Arial Rounded MT Bold,Arial,sans-serif" font-weight="800" font-size="11" fill="#FF7FAE"><text x="31" y="17.5">&lt;/&gt;</text></g>
           <path d="M5 3.5H81" stroke="#fff" stroke-width="1.2" opacity=".45"/></svg>`}
     ],
-    card: {id: "tp-compsci", name: "Circuit Board", desc: "A clean mint circuit board with glowing traces and a little chip in the corner, lit up in neon after dark."}
+    card: {id: "tp-compsci", name: "Circuit Board", desc: "A clean mint circuit board with traces that wrap around the card edges into a little chip, lit up in neon after dark."}
   });
 
   /* ================= GEAR WORKS (engineering) ================= */
@@ -36953,7 +36953,7 @@ var TP_DATA = [];
           <rect x="9" y="22" width="4" height="12" rx="2" fill="#E8693A" stroke="#8A3A1E" stroke-width=".7"/>
           <path d="M9.5 18v2" stroke="#fff" stroke-width="1" stroke-linecap="round" opacity=".7"/></svg>`}
     ],
-    card: {id: "tp-engineering", name: "Drafting Sheet", desc: "Pale blue drafting paper with turning gears and a pencil sketch of a truss bridge; blueprint blue after dark."}
+    card: {id: "tp-engineering", name: "Drafting Sheet", desc: "Pale blue drafting sheet with a ruled border, a truss bridge sketch, a title block and gears peeking in from the corner; blueprint blue after dark."}
   });
 
   /* ================= SUNNY CLASSROOM (education) ================= */
@@ -37044,7 +37044,7 @@ var TP_DATA = [];
           <path d="${star(18, 18.5, 3.2, 1.5, 5)}${star(58, 18.5, 3.2, 1.5, 5)}" fill="#fff"/><path d="${star(38, 19, 3.2, 1.5, 5)}${star(77, 19, 3.2, 1.5, 5)}" fill="#E8693A" opacity=".8"/>
           <path d="M5 23H81" stroke="#fff" stroke-width="1" opacity=".45"/></svg>`}
     ],
-    card: {id: "tp-education", name: "Gold Star Notes", desc: "Ruled notebook paper with a red margin, gold stars and an apple for the teacher; a chalkboard after dark."}
+    card: {id: "tp-education", name: "Gold Star Notes", desc: "Ruled notebook paper with a red margin, gold stars and a full-length pencil with an apple along the bottom; a chalkboard with chalk tray after dark."}
   });
 
   /* ================= ON AIR (comms) ================= */
@@ -37131,7 +37131,7 @@ var TP_DATA = [];
           <g stroke-linecap="round" stroke-width="2.2">${[3, 6, 10, 5, 8, 12, 7, 4, 9, 13, 6, 3, 8, 11, 5, 9, 4, 7].map((h, i) => `<path d="M${9 + i * 4} ${13 - h / 2}v${h}" stroke="${i % 2 ? "#FF7FAE" : "#FFFFFF"}"/>`).join("")}</g>
           <path d="M5 3.5H81" stroke="#fff" stroke-width="1.2" opacity=".45"/></svg>`}
     ],
-    card: {id: "tp-comms", name: "Studio Wave", desc: "Soft lilac studio foam with a glowing ON AIR sign and a sound wave along the bottom; a warm red glow after dark."}
+    card: {id: "tp-comms", name: "Studio Wave", desc: "Soft lilac studio foam with an ON AIR sign hanging from the top edge and a pink-to-mint sound wave across the bottom; glows after dark."}
   });
 })();
 
@@ -37371,7 +37371,7 @@ var TP_DATA = [];
           <path d="M6 40V8.5a5 5 0 0 1 10 0V42a7 7 0 0 1-14 0V14" fill="none" stroke="url(#m3js-pc-g)" stroke-width="2.2" stroke-linecap="round"/>
           <path d="M16.6 10v14" stroke="#FFF6D0" stroke-width=".7" opacity=".8"/></svg>`}
     ],
-    card: {id: "tp-justice", name: "Case File", desc: "A manila case folder with a red string clue in the corner and a brass clip, warm under the desk lamp at night."}
+    card: {id: "tp-justice", name: "Case File", desc: "A manila case folder with a tab across the top, a brass paperclip on the edge and red string pinned along the bottom, warm under the desk lamp at night."}
   });
 
   /* ================= WRITER'S RETREAT ================= */
@@ -37473,7 +37473,7 @@ var TP_DATA = [];
           <path d="M4 1H82L79 4.5L82 8L79 11.5L82 15L79 18.5L82 22L79 25H4L7 21.5L4 18L7 14.5L4 11L7 7.5L4 4z" fill="url(#m3wr-pt-s)"/>
           <path d="M12 1V25" stroke="#F2A0A0" stroke-width=".9" opacity=".9"/></svg>`}
     ],
-    card: {id: "tp-writing", name: "Manuscript Page", desc: "Cream ruled paper with a red margin, an ink pot and quill in the corner and paper birds taking flight."}
+    card: {id: "tp-writing", name: "Manuscript Page", desc: "Cream ruled paper with a red margin and bookmark ribbon, and an ink pot with a quill rising from the bottom corner."}
   });
 })();
 
@@ -37703,7 +37703,7 @@ var TP_DATA = [];
           <g transform="translate(68 3.5)" fill="#fff" opacity=".95"><path d="M0 0h3v3H0zM6 0h3v3H6zM3 3h3v3H3zM9 3h3v3H9zM0 6h3v3H0zM6 6h3v3H6zM3 9h3v3H3zM9 9h3v3H9zM0 12h3v3H0zM6 12h3v3H6zM3 15h3v3H3zM9 15h3v3H9z"/></g>
           <path d="M5 23H81" stroke="#fff" stroke-width="1" opacity=".4"/></svg>`}
     ],
-    card: {id: "tp-track", name: "Lane Line", desc: "A warm track lane runs along the edge, with a checkered finish in the corner and a gold medal on the bend."}
+    card: {id: "tp-track", name: "Lane Line", desc: "Warm cream paper over a full-width running track with numbered lanes and a checkered finish line, under a red and blue stripe. Night stadium in dark mode."}
   });
 
   /* ================= INFINITE GRID ================= */
@@ -37800,7 +37800,7 @@ var TP_DATA = [];
           <rect x="11.5" y="13" width="2.4" height="32" rx="1.2" fill="#fff" opacity=".45"/>
           <circle cx="11" cy="45" r="1.3" fill="#FFF3C2"/></svg>`}
     ],
-    card: {id: "tp-math", name: "Graph Paper", desc: "Soft lavender graph paper with a golden spiral curling in one corner and floating pastel shapes in the other."}
+    card: {id: "tp-math", name: "Graph Paper", desc: "Soft lavender graph paper with plotted axes framing the card and a golden spiral rising out of the bottom corner. Neon chalkboard in dark mode."}
   });
 
   /* ================= CHEM LAB ================= */
@@ -37903,7 +37903,7 @@ var TP_DATA = [];
           <circle cx="12" cy="30" r="1.2" fill="#fff" opacity=".8"/><circle cx="10" cy="36" r=".9" fill="#fff" opacity=".8"/><circle cx="12.5" cy="20" r="1" fill="#F6A8CC"/>
           <path d="M8.2 14V40" stroke="#fff" stroke-width="1.2" stroke-linecap="round" opacity=".75"/></svg>`}
     ],
-    card: {id: "tp-chem", name: "Lab Notebook", desc: "A mint lab notebook page with a bubbling flask in the corner, a floating molecule and a tiny periodic tile."}
+    card: {id: "tp-chem", name: "Lab Notebook", desc: "A mint lab notebook page with a ruled margin, a periodic table strip across the top and a benzene chain along the bottom. Midnight lab in dark mode."}
   });
 })();
 
@@ -38014,7 +38014,7 @@ var TP_DATA = [];
           <circle cx="44" cy="20" r=".9" fill="#fff"/><circle cx="26" cy="21" r=".8" fill="#fff"/><circle cx="80" cy="18" r=".8" fill="#fff"/><circle cx="14" cy="6" r=".8" fill="#fff"/>
           <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".3"/></svg>`}
     ],
-    card: {id: "tp-observatory", name: "Star Chart", desc: "Dawn lavender paper with a ringed planet in the corner and a constellation and crescent moon below. Deep night blue in dark mode."}
+    card: {id: "tp-observatory", name: "Star Chart", desc: "Dawn lavender star chart framed by graduated scale ticks, with star corners, a ringed planet seal on the top edge and a faint starfield. Deep night blue in dark mode."}
   });
 
   /* ================= ANCIENT RUINS (History) ================= */
@@ -38243,7 +38243,7 @@ var TP_DATA = [];
           ${[[9, 10, -30], [40, 8, 20], [50, 13, -50], [76, 9, 30]].map(([x, y, r]) => `<path d="M0 3Q-3 0 0 -4Q3 0 0 3z" fill="#3F8F4E" transform="translate(${x} ${y}) rotate(${r})"/>`).join("")}
           <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".4"/></svg>`}
     ],
-    card: {id: "tp-valley", name: "Meadow Notes", desc: "Fresh mint paper with rolling hills and a wind turbine in the corner and a leafy sprig above. Firefly night in dark mode."}
+    card: {id: "tp-valley", name: "Meadow Notes", desc: "Fresh mint paper with rolling hills sweeping edge to edge, a pair of wind turbines and a band of daisies. Firefly night in dark mode."}
   });
 
   /* ================= SKETCH CITY (Architecture) ================= */
@@ -38340,7 +38340,7 @@ var TP_DATA = [];
           <path d="M6.5 13V45" stroke="#fff" stroke-width="1" opacity=".55"/>
           <circle cx="8.6" cy="44.5" r="1.4" fill="#4F86D6"/></svg>`}
     ],
-    card: {id: "tp-sketchcity", name: "Drafting Sheet", desc: "Crisp drafting paper with a blue grid, a pencil skyline in the corner and a set square up top. Blueprint blue in dark mode."}
+    card: {id: "tp-sketchcity", name: "Drafting Sheet", desc: "Crisp drafting paper with a blue grid, an inner border with registration marks and a line-drawn skyline running along the bottom. Blueprint blue in dark mode."}
   });
 })();
 
@@ -38472,7 +38472,7 @@ var TP_DATA = [];
           ${[[23, 8], [41, 18], [59, 8], [77, 17], [8, 9]].map(([x, y]) => `<path d="M${x - 2.4} ${y}H${x + 2.4}M${x} ${y - 2.4}V${y + 2.4}M${x - 1.7} ${y - 1.7}L${x + 1.7} ${y + 1.7}M${x - 1.7} ${y + 1.7}L${x + 1.7} ${y - 1.7}" stroke="#CFE0FF" stroke-width=".8" stroke-linecap="round"/>`).join("")}
           <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".3"/></svg>`}
     ],
-    card: {id: "tp-onsen", name: "Yuzu Steam", desc: "Misty snow-blue paper with a steaming yuzu bath in the corner and a stone lantern below. Warm lantern-lit indigo in dark mode."}
+    card: {id: "tp-onsen", name: "Yuzu Steam", desc: "Misty snow-blue paper under a snowy eave, with a full-width hot spring of floating yuzu between snow-capped rocks and a stone lantern. Warm lantern-lit indigo in dark mode."}
   });
 
   /* ================= RAINFOREST CANOPY ================= */
@@ -38550,7 +38550,7 @@ var TP_DATA = [];
           ${[[39, 20], [76, 6], [14, 20]].map(([x, y]) => `<path d="M${x} ${y}l-2.6 -2.2q-1 2.4 2.6 2.2l2.6 -2.2q1 2.4 -2.6 2.2z" fill="#7FC8FF"/>`).join("")}
           <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".3"/></svg>`}
     ],
-    card: {id: "tp-rainforest", name: "Canopy Leaf", desc: "Fresh leaf-green paper framed by a monstera and a hanging vine, with a little blue frog. Misty jungle teal in dark mode."}
+    card: {id: "tp-rainforest", name: "Canopy Leaf", desc: "Fresh leaf-green paper under a hanging canopy fringe with trailing vines, and big monstera leaves and a little blue frog along the bottom. Misty jungle teal in dark mode."}
   });
 
   /* ================= TIDE POOLS ================= */
@@ -38619,7 +38619,7 @@ var TP_DATA = [];
           <circle cx="34" cy="7" r="1.4" fill="none" stroke="#fff" stroke-width=".7"/><circle cx="79" cy="19" r="1.4" fill="none" stroke="#fff" stroke-width=".7"/>
           <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".3"/></svg>`}
     ],
-    card: {id: "tp-tidepool", name: "Rock Pool", desc: "Clear sea-glass paper with an anemone pool in the corner and a sea star and shell below. Moonlit deep blue in dark mode."}
+    card: {id: "tp-tidepool", name: "Rock Pool", desc: "Clear sea-glass water with soft rippling light, framed by a pebble rock-pool rim with a shell, anemones, a sea star and swaying kelp. Moonlit deep blue in dark mode."}
   });
 
   /* ================= VOLCANO ISLAND ================= */
@@ -38684,7 +38684,7 @@ var TP_DATA = [];
           ${[[14, 20], [36, 6], [56, 20], [76, 6]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.4" fill="#FFC24A"/>`).join("")}
           <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".2"/></svg>`}
     ],
-    card: {id: "tp-volcano", name: "Island Postcard", desc: "Sunny peach postcard paper with a little volcano in the corner and a hibiscus below. Lava-glow plum in dark mode."}
+    card: {id: "tp-volcano", name: "Island Postcard", desc: "A sunny peach postcard in a red-and-teal airmail border, with a little volcano island, palms and a hibiscus along a full-width turquoise sea. Lava-glow plum in dark mode."}
   });
 
   /* ================= SAVANNA SUNSET ================= */
@@ -38767,7 +38767,7 @@ var TP_DATA = [];
           ${[[24, 12], [36, 11], [48, 12]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx="4" ry="2" fill="#6A4A2A"/><path d="M${x - 3} ${y + 1}v3M${x + 2.6} ${y + 1}v3M${x + 3.4} ${y - 1}l2 -2.4" stroke="#6A4A2A" stroke-width="1"/>`).join("")}
           <circle cx="72" cy="9" r="4" fill="#FFF0C0"/><path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".3"/></svg>`}
     ],
-    card: {id: "tp-savanna", name: "Golden Hour", desc: "Warm golden paper with an acacia against a huge low sun in the corner and tall grass below. Dusky violet with a rising moon in dark mode."}
+    card: {id: "tp-savanna", name: "Golden Hour", desc: "Warm golden-hour paper with an edge-to-edge savanna horizon: an acacia, giraffes against a low sun and tall grass. Dusky violet with a rising moon in dark mode."}
   });
 })();
 /* end of module 96-tp-n1.js */
@@ -38898,7 +38898,7 @@ var TP_DATA = [];
         svg: `<svg viewBox="0 0 20 46"><rect x="5" y="1" width="10" height="7" rx="2" fill="#2E4A8A" stroke="#121E40" stroke-width=".9"/><path d="M10 8V22" stroke="#C88A1A" stroke-width="2"/><circle cx="10" cy="22" r="3" fill="#F2B83A" stroke="#A8701A" stroke-width=".8"/>
           <path d="M6 24H14L16 44H4z" fill="#F2B83A" stroke="#A8701A" stroke-width=".8" stroke-linejoin="round"/><path d="M7 26L6 43M10 26V43M13 26L14 43" stroke="#C88A1A" stroke-width=".8"/><path d="M6.4 25.4H13.6" stroke="#FFF0B0" stroke-width="1.4"/></svg>`}
     ],
-    card: {id: "tp-graduation", name: "Diploma Paper", desc: "Warm parchment with a fine gold border, a ribbon seal in the corner and a little mortarboard. Navy and gold in dark mode."}
+    card: {id: "tp-graduation", name: "Diploma Paper", desc: "Warm parchment framed by a fine gold diploma border with corner flourishes and a gold ribbon seal on the bottom edge. Navy and gold in dark mode."}
   });
 
   /* ================= BIRTHDAY BASH ================= */
@@ -38949,7 +38949,7 @@ var TP_DATA = [];
       {id: "tp-birthday-confetti", name: "Confetti Washi", kind: "tape", desc: "Pastel pink washi tape sprinkled with confetti.",
         svg: `<svg viewBox="0 0 86 26"><path d="${tapeEdge}" fill="#FFD6E6" opacity=".92"/>${[[10, 7, 0], [18, 16, 1], [27, 9, 2], [36, 18, 3], [44, 6, 4], [52, 14, 0], [61, 8, 1], [69, 17, 2], [76, 10, 3], [14, 20, 4], [40, 12, 1], [64, 20, 4]].map(([x, y, k]) => `<rect x="${x}" y="${y}" width="4" height="2.2" rx=".6" fill="${["#FFD45A", "#7FD8C0", "#B58CF2", "#7FC8F0", "#FF7FA8"][k]}" transform="rotate(${(x * 7) % 60 - 30} ${x + 2} ${y + 1})"/>`).join("")}<path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".5"/></svg>`}
     ],
-    card: {id: "tp-birthday", name: "Party Confetti", desc: "Sugar-pink card sprinkled with confetti, with a balloon bunch in the corner and a slice of cake. Plum party lights in dark mode."}
+    card: {id: "tp-birthday", name: "Party Confetti", desc: "Sugar-pink card with a garland of party bunting across the top, sprinkled confetti and a bunch of balloons. Plum party lights in dark mode."}
   });
 
   /* ================= CRYSTAL CAVE ================= */
@@ -38994,7 +38994,7 @@ var TP_DATA = [];
         svg: `<svg viewBox="0 0 86 26"><defs><clipPath id="n5-gps-c"><path d="${tapeEdge}"/></clipPath></defs><g clip-path="url(#n5-gps-c)" opacity=".92">${["#E8C6A0", "#C9AEC4", "#B9A0C4", "#D8B890", "#9884B2"].map((c, i) => `<path d="M0 ${i * 5.4}Q20 ${i * 5.4 - 2} 43 ${i * 5.4 + 1}T86 ${i * 5.4}V${i * 5.4 + 6}H0z" fill="${c}"/>`).join("")}</g>
           <path d="M20 14L22 9L24 14z" fill="#B07AF0"/><path d="M50 18L52 12L54 18z" fill="#5CCFD8"/><path d="M68 10L70 5L72 10z" fill="#FF8FC8"/></svg>`}
     ],
-    card: {id: "tp-geology", name: "Rock Strata", desc: "Pale lavender stone with layered strata along the bottom and a crystal cluster in the corner. Glowing cave purple in dark mode."}
+    card: {id: "tp-geology", name: "Rock Strata", desc: "Pale lavender stone with faint contour lines and banded rock strata along the bottom, with an amethyst geode and an ammonite set into the layers. Glowing cave purple in dark mode."}
   });
 
 })();
@@ -39082,7 +39082,7 @@ var TP_DATA = [];
           ${Array.from({length: 13}, (_, i) => `<rect x="${7 + i * 5.8}" y="3.4" width="3" height="2.6" rx=".6" fill="#F6F2EA"/><rect x="${7 + i * 5.8}" y="20" width="3" height="2.6" rx=".6" fill="#F6F2EA"/>`).join("")}
           ${[0, 1, 2, 3].map(i => `<rect x="${9 + i * 18.6}" y="8" width="15" height="10" rx="1.4" fill="${["#FFD86B", "#FF8FA8", "#8FD8F2", "#B8E08A"][i]}" opacity=".9"/>`).join("")}</svg>`}
     ],
-    card: {id: "tp-film", name: "Ticket Stub", desc: "A cream ticket with a perforated edge, a clapperboard in the corner and a strip of film along the bottom. Velvet red and gold in dark mode."}
+    card: {id: "tp-film", name: "Ticket Stub", desc: "A cinema ticket with a film strip down the left edge, a framed screen and a perforated stub with a star stamp and barcode. Velvet red and gold in dark mode."}
   });
 
   /* ================= TEST KITCHEN (Culinary Arts and Nutrition) ================= */
@@ -39135,7 +39135,7 @@ var TP_DATA = [];
         svg: `<svg viewBox="0 0 86 26"><defs><clipPath id="n6-pp-gc"><path d="${tapeEdge}"/></clipPath></defs><path d="${tapeEdge}" fill="#FFF8F2" opacity=".95"/>
           <g clip-path="url(#n6-pp-gc)" fill="#E25A4A" opacity=".45">${Array.from({length: 11}, (_, i) => `<rect x="${4 + i * 8}" y="0" width="4" height="26"/>`).join("")}${Array.from({length: 4}, (_, i) => `<rect x="0" y="${2 + i * 6.4}" width="86" height="3.2"/>`).join("")}</g></svg>`}
     ],
-    card: {id: "tp-culinary", name: "Recipe Card", desc: "A lined recipe card with a whisk and herbs in the corner and a gingham edge. Warm slate with copper in dark mode."}
+    card: {id: "tp-culinary", name: "Recipe Card", desc: "A lined recipe card with a red gingham edge across the top, a wooden spoon and fresh herbs tucked into the bottom corners. Warm slate with copper in dark mode."}
   });
 
   /* ================= KELP FOREST (Marine Biology and Oceanography) ================= */
@@ -39197,7 +39197,7 @@ var TP_DATA = [];
           <path d="M5 21Q11 17 17 21T29 21T41 21T53 21T65 21T77 21" fill="none" stroke="#8FE0D8" stroke-width="1.4" stroke-linecap="round"/>
           <circle cx="14" cy="7" r="1.6" fill="#fff"/><circle cx="40" cy="6" r="1.2" fill="#fff"/><circle cx="66" cy="7.4" r="1.6" fill="#fff"/></svg>`}
     ],
-    card: {id: "tp-marinebio", name: "Field Notebook", desc: "Waterproof field-notebook paper with kelp in the corner and waves along the bottom. Deep ocean teal in dark mode."}
+    card: {id: "tp-marinebio", name: "Field Notebook", desc: "Waterproof field-notebook grid paper with a ruler edge, kelp rising from the bottom and a labelled scallop sketch with a starfish. Deep ocean teal in dark mode."}
   });
 
 })();
@@ -39289,7 +39289,7 @@ var TP_DATA = [];
           ${[[23, 9], [45, 17], [66, 8], [7, 7], [82, 16]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.1" fill="#FFF4C2"/>`).join("")}
           <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".3"/></svg>`}
     ],
-    card: {id: "tp-mushrooms", name: "Forest Floor", desc: "Mossy cream paper with a red toadstool in the corner and ferns below. Deep glowing blue in dark mode."}
+    card: {id: "tp-mushrooms", name: "Forest Floor", desc: "Mossy cream paper with a full-width forest floor of rolling grass, a cluster of red toadstools and a curling fern. Deep glowing blue in dark mode."}
   });
 
   /* ================= SUNFLOWER FIELD ================= */
@@ -39350,7 +39350,7 @@ var TP_DATA = [];
           ${[28, 56].map(x => `<ellipse cx="${x}" cy="14" rx="3.4" ry="2.4" fill="#FFD23F"/><path d="M${x - 1} 11.8v4.4M${x + 1.2} 11.8v4.4" stroke="#3A2A20" stroke-width="1"/><ellipse cx="${x - 1}" cy="10.6" rx="1.6" ry="1.1" fill="#fff"/>`).join("")}
           <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".35"/></svg>`}
     ],
-    card: {id: "tp-sunflowers", name: "Field Notes", desc: "Sunny cream paper with a sunflower peeking in and a row of blooms along the bottom. Twilight blue in dark mode."}
+    card: {id: "tp-sunflowers", name: "Field Notes", desc: "Sunny dotted paper with a warm glow up top and big sunflowers bleeding in from the bottom corners. Twilight blue in dark mode."}
   });
 
   /* ================= NIGHT TRAIN ================= */
@@ -39416,7 +39416,7 @@ var TP_DATA = [];
           <rect x="18" y="10" width="12" height="7" rx="1.5" fill="#E8584A"/><rect x="31" y="11" width="10" height="6" rx="1.2" fill="#F6D27A"/><rect x="42" y="11" width="10" height="6" rx="1.2" fill="#8FD8FF"/><rect x="20" y="6" width="3" height="4" fill="#E8584A"/>
           ${[21, 27, 34, 39, 45, 50].map(x => `<circle cx="${x}" cy="17.6" r="1.2" fill="#1A1A2A"/>`).join("")}<circle cx="64" cy="7" r="2.4" fill="#FFF6DA"/><circle cx="10" cy="7" r=".9" fill="#fff"/><circle cx="76" cy="12" r=".8" fill="#fff"/></svg>`}
     ],
-    card: {id: "tp-nighttrain", name: "Train Ticket", desc: "Warm ticket paper with a punched edge, a little steam engine and a rail line along the bottom. Plum night in dark mode."}
+    card: {id: "tp-nighttrain", name: "Train Ticket", desc: "A ticket with a starry night-sky header where a lit-up train crosses under the moon, and a perforated stub along the bottom. Plum night in dark mode."}
   });
 
   /* ================= RAMEN SHOP ================= */
@@ -39752,7 +39752,7 @@ var TP_DATA = [];
           ${spark(20, 6, 1.8, "#FFE27A")}${spark(50, 5, 1.6, "#FFE27A")}<circle cx="70" cy="6" r="1" fill="#fff"/><circle cx="32" cy="5" r=".9" fill="#fff"/>
           <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".25"/></svg>`}
     ],
-    card: {id: "tp-campfire", name: "Camp Journal", desc: "Kraft-paper journal page with a campfire in the corner and a ridge of pines along the bottom. Starry navy at night."}
+    card: {id: "tp-campfire", name: "Camp Journal", desc: "Kraft-paper journal with a stitched border and a full-width valley of mountains and pines around a glowing campfire. Starry navy at night."}
   });
 
   /* ================= AQUARIUM TUNNEL ================= */
@@ -39835,7 +39835,7 @@ var TP_DATA = [];
           <circle cx="30" cy="7" r="1.6" fill="none" stroke="#fff" stroke-width=".7"/><circle cx="58" cy="6" r="1.2" fill="none" stroke="#fff" stroke-width=".7"/><circle cx="8" cy="8" r="1.1" fill="none" stroke="#fff" stroke-width=".7"/>
           <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".35"/></svg>`}
     ],
-    card: {id: "tp-aquarium", name: "Tank Window", desc: "Sunlit aqua water with rising bubbles, a clownfish in the corner and a reef along the bottom. Glowing deep blue at night."}
+    card: {id: "tp-aquarium", name: "Tank Window", desc: "A framed tank of sunlit aqua water with light rays, rising bubbles, swaying kelp, coral and a clownfish over a sandy bottom. Glowing deep blue at night."}
   });
 
 })();
@@ -40078,7 +40078,7 @@ var TP_DATA = [];
           <path d="M5 6Q43 14 81 6" fill="none" stroke="#E2B04A" stroke-width=".7"/>
           ${[10, 22, 34, 46, 58, 70, 80].map((x, i) => { const y = 6 + Math.sin(i / 6 * Math.PI) * 4 + 4; return `<path d="M${x} ${f1(y - 3)}V${f1(y)}" stroke="#E2B04A" stroke-width=".6"/><path d="${star(x, y + 2.4, 3.2, 1.4, 5)}" fill="${i % 2 ? "#FFF2C0" : "#F2C45A"}"/>`; }).join("")}</svg>`}
     ],
-    card: {id: "tp-ramadan", name: "Moonlit Arch", desc: "Warm sand paper framed by a pointed arch, with a fanous lantern and a crescent in the corners. Midnight blue at night."}
+    card: {id: "tp-ramadan", name: "Moonlit Arch", desc: "Warm sand paper framed by a full pointed arch, with a hanging fanous lantern and a starry crescent in the corners above it. Midnight blue at night."}
   });
 
   /* ================= MID-AUTUMN ================= */
@@ -40151,7 +40151,7 @@ var TP_DATA = [];
           ${[[14, 13], [24, 11], [36, 13], [50, 16], [60, 15], [72, 11], [30, 18], [66, 8]].map(([x, y], i) => `<g transform="translate(${x} ${y}) rotate(${i * 25})">${petals(0, 0, 4, 1.4, 1.4, 1, "#F6B42A")}<circle r=".6" fill="#FFE9A0"/></g>`).join("")}
           <circle cx="78" cy="19" r="3" fill="#FFF0B8" opacity=".9"/></svg>`}
     ],
-    card: {id: "tp-midautumn", name: "Moonlit River", desc: "Pale gold paper with a big full moon in the corner and a lotus lantern drifting on the water below. Deep night blue in dark mode."}
+    card: {id: "tp-midautumn", name: "Moonlit River", desc: "Pale gold paper with a huge full moon rising off the corner behind wisps of cloud, and lotus lanterns drifting on a full-width misty river. Deep night blue in dark mode."}
   });
 })();
 /* end of module 96-tp-n4.js */
@@ -40248,7 +40248,7 @@ var TP_DATA = [];
           <path d="M3 21.6Q8 25 13 21.6Q18 25 23 21.6Q28 25 33 21.6Q38 25 43 21.6Q48 25 53 21.6Q58 25 63 21.6Q68 25 73 21.6Q78 25 82 21.6" fill="none" stroke="#7A2420" stroke-width=".8" opacity=".5"/>
           <circle cx="43" cy="12" r="8.4" fill="#FFF6E8"/>${tower(43, 19, 13, "#E2B04A", "#8A6420").replace(/stroke-width="1.8"/, 'stroke-width=".8"')}</svg>`}
     ],
-    card: {id: "tp-france", name: "Rive Gauche", desc: "Cream paper with a little tower in the corner and cafe-awning stripes along the bottom. Night-blue with a golden tower in dark mode."}
+    card: {id: "tp-france", name: "Rive Gauche", desc: "Cream paper under a striped cafe awning, with Paris rooftops and the tower along the bottom. Starry night with lit windows and a golden tower in dark mode."}
   });
 })();
 /* end of module 96-tp-france.js */
@@ -40321,7 +40321,7 @@ var TP_DATA = [];
           ${[0, 1, 2, 3, 4, 5, 6].map(i => [0, 1].map(j => { const x = 8 + i * 12 + j * 6, y = 10 + j * 8; return `<path d="M${x - 6} ${y}A6 6 0 0 1 ${x + 6} ${y}M${x - 4} ${y}A4 4 0 0 1 ${x + 4} ${y}M${x - 2} ${y}A2 2 0 0 1 ${x + 2} ${y}" fill="none" stroke="#9AB8E8" stroke-width=".8" opacity=".75"/>`; }).join("")).join("")}
           ${[[18, 8], [46, 16], [70, 9]].map(([x, y]) => sakura(x, y, 4, "#FFC2D4", .6)).join("")}</svg>`}
     ],
-    card: {id: "tp-japan", name: "Sakura Fuji", desc: "Soft washi paper with Mount Fuji and a cherry branch in the corner and a red bridge over the water below. Night indigo in dark mode."}
+    card: {id: "tp-japan", name: "Sakura Fuji", desc: "Soft washi paper with a cherry branch reaching in from the top edge and Mount Fuji rising over a seigaiha wave band. Night indigo in dark mode."}
   });
 })();
 /* end of module 96-tp-japan.js */
@@ -40426,7 +40426,7 @@ var TP_DATA = [];
           ${[19, 33, 47, 61, 75].map(x => `<path d="M${x} 9L${x + 2.4} 13L${x} 17L${x - 2.4} 13Z" fill="#3EAE8A"/>`).join("")}
           <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".4"/></svg>`}
     ],
-    card: {id: "tp-morocco", name: "Riad Courtyard", desc: "Warm plaster paper framed by a carved horseshoe arch, with a brass lantern and a strip of zellige stars. Deep indigo at night."}
+    card: {id: "tp-morocco", name: "Riad Courtyard", desc: "Warm plaster paper inside a carved horseshoe arch edged in blue-and-green zellige tiles, with two brass lanterns and a faint star-tile pattern. Deep indigo at night."}
   });
 })();
 /* end of module 96-tp-morocco.js */
@@ -40530,7 +40530,7 @@ var TP_DATA = [];
           ${[[14, 12, "#FFFFFF"], [32, 14, "#FFC6D8"], [50, 11, "#FFFFFF"], [68, 13, "#FFC6D8"]].map(([x, y, c]) => `<g transform="translate(${x} ${y})">${petals(0, 0, 5, 2.8, 3, 1.7, c)}<circle r="1.2" fill="#FFC83A"/></g>`).join("")}
           ${[[23, 8], [41, 18], [59, 7], [77, 19]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx="4" ry="1.5" fill="#3E8E48" transform="rotate(-30 ${x} ${y})"/>`).join("")}</svg>`}
     ],
-    card: {id: "tp-thailand", name: "Andaman Bay", desc: "Sea-glass paper with a limestone island and golden chedi in the corner and a longtail boat on the water below. Moonlit blue in dark mode."}
+    card: {id: "tp-thailand", name: "Andaman Bay", desc: "A sunlit Andaman bay: limestone karsts rise from both edges, a golden chedi sits on a green islet and a longtail boat crosses the sea. Moonlit blue in dark mode."}
   });
 })();
 /* end of module 96-tp-thailand.js */
@@ -40623,7 +40623,7 @@ var TP_DATA = [];
         svg: `<svg viewBox="0 0 86 26"><path d="${tapeEdge}" fill="#FFFDF6" opacity=".95"/>
           ${[14, 33, 52, 71].map((x, i) => `<g transform="translate(${x} 13) scale(.78)"><rect x="-10" y="-10" width="20" height="20" rx="2" fill="${i % 2 ? "#2C9A70" : "#2A8FB8"}"/><path d="M0 -8L2.4 -2.4L8 0L2.4 2.4L0 8L-2.4 2.4L-8 0L-2.4 -2.4Z" fill="#F6C833"/><circle r="1.8" fill="#fff"/></g>`).join("")}</svg>`}
     ],
-    card: {id: "tp-italy", name: "Lemon Terrace", desc: "Warm cream paper with a lemon branch in the corner and a little boat on turquoise water below. Deep Amalfi night in dark mode."}
+    card: {id: "tp-italy", name: "Lemon Terrace", desc: "Sunny cream card framed in blue-and-yellow Amalfi majolica tiles, with lemon sprigs tucked into each corner. Deep Amalfi night in dark mode."}
   });
 })();
 /* end of module 96-tp-italy.js */
@@ -40724,7 +40724,7 @@ var TP_DATA = [];
           ${meander(8, 66, 4, "#FFFFFF", 1)}${meander(8, 66, 16, "#FFFFFF", 1)}
           ${bract(74, 9, 7, "#E0378C", 10)}${bract(72, 18, 6, "#F05AA6", 50)}</svg>`}
     ],
-    card: {id: "tp-greece", name: "Caldera View", desc: "Crisp white paper with a blue-domed chapel and a windmill in the corner and Aegean waves along the bottom. Deep night blue in dark mode."}
+    card: {id: "tp-greece", name: "Caldera View", desc: "Whitewashed houses, blue domes and a windmill cascading down the caldera cliff, with the Aegean and its volcano island on the horizon and a Greek-key border along the bottom. Deep night blue in dark mode."}
   });
 })();
 /* end of module 96-tp-greece.js */
@@ -40819,7 +40819,7 @@ var TP_DATA = [];
           ${[[44, 22, 10], [56, 22, 8], [70, 22, 11]].map(([x, y, h]) => `<path d="M${x} ${y}V${y - h}" stroke="#5E8E46" stroke-width="1.2"/>${umbel(x, y - h, 5, "#5E8E46")}`).join("")}
           <circle cx="36" cy="8" r="3" fill="#FFF0B8" opacity=".95"/></svg>`}
     ],
-    card: {id: "tp-egypt", name: "Golden Giza", desc: "Warm papyrus paper with the pyramids and a low sun in the corner and a felucca on the Nile below. Deep lapis night in dark mode."}
+    card: {id: "tp-egypt", name: "Golden Giza", desc: "Warm papyrus sky under a lotus frieze, with the Giza pyramids on golden dunes before a low sun, and palms, papyrus and a felucca on the Nile below. Deep lapis night in dark mode."}
   });
 })();
 /* end of module 96-tp-egypt.js */
@@ -40923,7 +40923,7 @@ var TP_DATA = [];
           ${[0, 1, 2].map(j => `<rect x="0" y="${j * 12}" width="86" height="6" fill="#1E1A1E" opacity=".55"/>`).join("")}
           ${[0, 1, 2, 3, 4, 5, 6, 7].map(i => `<path d="M${i * 12 + 9} 0V26" stroke="#F2D2A0" stroke-width=".5" opacity=".5"/>`).join("")}</g></svg>`}
     ],
-    card: {id: "tp-canada", name: "Lakeside Maple", desc: "Crisp glacier-blue paper with snowy Rocky peaks and a maple branch in the corner and a red canoe on turquoise water below. Northern lights in dark mode."}
+    card: {id: "tp-canada", name: "Lakeside Maple", desc: "Crisp glacier-blue sky over snowy Rocky peaks, pine forest framing a turquoise lake with a red canoe, and a maple bough reaching in from the top edge. Northern lights in dark mode."}
   });
 })();
 /* end of module 96-tp-canada.js */
@@ -41023,7 +41023,7 @@ var TP_DATA = [];
           <g clip-path="url(#ve-pin-c)" opacity=".9">${Array.from({length: 12}, (_, i) => `<path d="M${i * 8 - 4} 26L${i * 8 + 6} 0H${i * 8 + 10}L${i * 8} 26Z" fill="#D8443C"/>`).join("")}<path d="M0 20Q8 17 16 20Q24 23 32 20Q40 17 48 20Q56 23 64 20Q72 17 80 20Q84 21 86 20V26H0Z" fill="#4E9A92"/></g>
           <ellipse cx="43" cy="12" rx="14" ry="8" fill="#E6F4F2"/>${gondola(43, 15, 24, "#26263A").replace(/stroke-width="1.6"/, 'stroke-width=".8"')}</svg>`}
     ],
-    card: {id: "tp-venice", name: "Canal Postcard", desc: "Cream paper with a little gondola under a Gothic window and canal ripples along the bottom. Lantern-lit night blue in dark mode."}
+    card: {id: "tp-venice", name: "Canal Postcard", desc: "A view through a rose-stone Gothic window onto the canal, with a gondola and striped mooring poles. Moonlit night blue in dark mode."}
   });
 })();
 /* end of module 96-tp-venice.js */
@@ -41188,7 +41188,7 @@ var TP_DATA = [];
         svg: `<svg viewBox="0 0 86 26"><defs><clipPath id="tp-brazil-calcadao-c"><path d="${tapeEdge}"/></clipPath></defs><path d="${tapeEdge}" fill="#F8F5EE" opacity=".95"/>
           <g clip-path="url(#tp-brazil-calcadao-c)">${waves(0, 86, 1.5, 24.5, 3, 14, "#2C2B32")}</g></svg>`}
     ],
-    card: {id: "tp-brazil", name: "Rio Beach", desc: "Sunny paper with Sugarloaf and its cable car in the corner and the beach, umbrellas and wave mosaic below. Night blue in dark mode."}
+    card: {id: "tp-brazil", name: "Rio Beach", desc: "Sunny sky over Guanabara Bay: Sugarloaf and its cable car rise from the right edge, a palm and beach umbrella stand on the sand, and a Copacabana wave-mosaic promenade runs along the bottom. Night blue in dark mode."}
   });
 })();
 /* end of module 96-tp-brazil.js */
