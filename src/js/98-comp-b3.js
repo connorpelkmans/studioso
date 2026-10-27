@@ -17,15 +17,15 @@
             <path d="M30 86C24 62 34 38 58 30C68 26.5 78 22 84 14C90 26 96 44 94 62C92 80 80 94 60 96C44 97 33 94 30 86Z" fill="url(#sunset-crab-s)" ${O}/>
             <path d="M84 16C80 32 70 40 56 42M92 40C86 54 72 60 52 58" fill="none" stroke="#D9668A" stroke-width="3" stroke-linecap="round"/>
             <path d="M40 60Q42 46 54 38" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" opacity=".9"/>`,
-          earL: {svg: `${LINE("M50 64C48 58 45 55 42 51", "#F0664F", 2.4)}<circle cx="41" cy="49.5" r="3.4" fill="#FF8A6A" ${OW(2)}/>`, pivot: [51, 66]},
-          earR: {svg: `${LINE("M70 64C72 58 75 55 78 51", "#F0664F", 2.4)}<circle cx="79" cy="49.5" r="3.4" fill="#FF8A6A" ${OW(2)}/>`, pivot: [69, 66]},
+          earL: {svg: `${LINE("M51 71C49 61 45.5 55.5 42 51", "#F0664F", 2.4)}<circle cx="41" cy="49.5" r="3.4" fill="#FF8A6A" ${OW(2)}/>`, pivot: [51, 68]},
+          earR: {svg: `${LINE("M69 71C71 61 74.5 55.5 78 51", "#F0664F", 2.4)}<circle cx="79" cy="49.5" r="3.4" fill="#FF8A6A" ${OW(2)}/>`, pivot: [69, 68]},
+          wingL: {svg: `${LINE("M44 97C37 98.5 29.5 96.5 23.5 89.5", "#F0664F", 4.6)}<g transform="translate(16.5 84) rotate(-14) scale(.86) translate(-26 -96)"><path d="M31 106C22 108.5 14.5 103 14.5 96C14.5 90 17.5 86.5 21 85.5L25.5 92L26 84.5C32.5 84.5 37 89.5 37 96C37 101 35 104 31 106Z" fill="#FF7A5E" ${O}/><path d="M18.5 96Q19 101 24 103" fill="none" stroke="#FFC2A8" stroke-width="2" stroke-linecap="round"/></g>`, pivot: [42, 96]},
+          wingR: {svg: `${LINE("M76 97C83 98.5 90.5 96.5 96.5 89.5", "#F0664F", 4.6)}<g transform="translate(103.5 84) rotate(14) scale(.86) translate(-94 -96)"><path d="M89 106C98 108.5 105.5 103 105.5 96C105.5 90 102.5 86.5 99 85.5L94.5 92L94 84.5C87.5 84.5 83 89.5 83 96C83 101 85 104 89 106Z" fill="#FF7A5E" ${O}/><path d="M101.5 96Q101 101 96 103" fill="none" stroke="#FFC2A8" stroke-width="2" stroke-linecap="round"/></g>`, pivot: [78, 96]},
           feet: `<g fill="#F0664F" ${O2}><ellipse cx="44" cy="107.5" rx="3.8" ry="5" transform="rotate(20 44 107.5)"/><ellipse cx="53" cy="109" rx="3.6" ry="4.6" transform="rotate(8 53 109)"/><ellipse cx="67" cy="109" rx="3.6" ry="4.6" transform="rotate(-8 67 109)"/><ellipse cx="76" cy="107.5" rx="3.8" ry="5" transform="rotate(-20 76 107.5)"/></g>`,
           body: `${LG("sunset-crab-g", [[0, "#FFB08A"], [0.6, "#FF8A6A"], [1, "#E8605A"]])}
             <path d="M60 62C78 62 88 74 88 88C88 101 78 108 60 108C42 108 32 101 32 88C32 74 42 62 60 62Z" fill="url(#sunset-crab-g)" ${O}/>
             <path d="M40 80Q43 70 52 66" fill="none" stroke="#FFD9C2" stroke-width="3" stroke-linecap="round"/>
-            <path d="M44 102Q60 107 76 102" fill="none" stroke="#D95050" stroke-width="2.2" stroke-linecap="round" opacity=".55"/>`,
-          armL: {svg: `<g transform="translate(-4 5) translate(26 96) scale(.86) translate(-26 -96)"><path d="M31 106C22 108.5 14.5 103 14.5 96C14.5 90 17.5 86.5 21 85.5L25.5 92L26 84.5C32.5 84.5 37 89.5 37 96C37 101 35 104 31 106Z" fill="#FF7A5E" ${O}/><path d="M18.5 96Q19 101 24 103" fill="none" stroke="#FFC2A8" stroke-width="2" stroke-linecap="round"/></g>`, pivot: [34, 96]},
-          armR: {svg: `<g transform="translate(4 5) translate(94 96) scale(.86) translate(-94 -96)"><path d="M89 106C98 108.5 105.5 103 105.5 96C105.5 90 102.5 86.5 99 85.5L94.5 92L94 84.5C87.5 84.5 83 89.5 83 96C83 101 85 104 89 106Z" fill="#FF7A5E" ${O}/><path d="M101.5 96Q101 101 96 103" fill="none" stroke="#FFC2A8" stroke-width="2" stroke-linecap="round"/></g>`, pivot: [86, 96]}
+            <path d="M44 102Q60 107 76 102" fill="none" stroke="#D95050" stroke-width="2.2" stroke-linecap="round" opacity=".55"/>`
         },
         eyes: {lx: 51.5, rx: 68.5, y: 82, r: 4.7, style: "dot", color: "#3A1A2A"},
         mouth: {x: 60, y: 90.5, w: 3, color: "#3A1A2A"},
@@ -46,20 +46,29 @@
       {
         id: "sunset-starfish", name: "Stella", kind: "Little Starfish", pose: "stand",
         bio: "A bright little starfish who waves hello from the warm sand.",
-        idle: ["wave", "sway", "sparkle"], cheer: "spin",
-        parts: {
-          feet: `<ellipse cx="37" cy="106.5" rx="7" ry="4.6" fill="#F4687A" ${O}/><ellipse cx="83" cy="106.5" rx="7" ry="4.6" fill="#F4687A" ${O}/>`,
-          body: `${LG("sunset-starfish-g", [[0, "#FFC49A"], [0.55, "#FF9A7E"], [1, "#F2667A"]])}
-            <path d="M60 22C65 22 67 28 69 36L73 50C75 55 79 57 84 59C84 66 83 72 84 78L89 97C91 104 86 108 81 105L65 95C62 93 58 93 55 95L39 105C34 108 29 104 31 97L36 78C37 72 36 66 36 59C41 57 45 55 47 50L51 36C53 28 55 22 60 22Z" fill="url(#sunset-starfish-g)" ${O}/>
-            <circle cx="60" cy="32" r="2" fill="#FFE6D2"/><circle cx="60" cy="40" r="1.6" fill="#FFE6D2"/><circle cx="41" cy="97" r="1.8" fill="#FFE6D2"/><circle cx="79" cy="97" r="1.8" fill="#FFE6D2"/>
-            <path d="M52 42Q54 34 57 29" fill="none" stroke="#FFF1E6" stroke-width="2.8" stroke-linecap="round" opacity=".9"/>`,
-          armL: {svg: `<path d="M44 58C34 52 24 48 16 50C10 52 11 60 17 62C26 65 36 68 44 70Z" fill="#FF9C80"/><circle cx="43.5" cy="63.5" r="6.4" fill="#FF9C80"/><path d="M44 58C34 52 24 48 16 50C10 52 11 60 17 62C26 65 36 68 44 70" fill="none" ${O}/><circle cx="21" cy="56" r="1.8" fill="#FFE6D2"/><circle cx="29" cy="58" r="1.4" fill="#FFE6D2"/>`, pivot: [43.5, 63.5]},
-          armR: {svg: `<path d="M76 58C86 52 96 48 104 50C110 52 109 60 103 62C94 65 84 68 76 70Z" fill="#FF9C80"/><circle cx="76.5" cy="63.5" r="6.4" fill="#FF9C80"/><path d="M76 58C86 52 96 48 104 50C110 52 109 60 103 62C94 65 84 68 76 70" fill="none" ${O}/><circle cx="99" cy="56" r="1.8" fill="#FFE6D2"/><circle cx="91" cy="58" r="1.4" fill="#FFE6D2"/>`, pivot: [76.5, 63.5]}
-        },
-        eyes: {lx: 51.5, rx: 68.5, y: 69, r: 4.6, style: "dot", color: "#3A1A2A"},
-        mouth: {x: 60, y: 77.5, w: 3, color: "#3A1A2A"},
-        cheeks: {lx: 45, rx: 75, y: 76.5, w: 3.8, h: 2.5, color: "#FF5F7E"},
-        anchors: {top: [60, 30, 0.7], neck: [60, 84, 0.95], chest: [70, 88, 0.6], back: [82, 72, 0.8], hands: [60, 88, 0.85]},
+        idle: ["sway", "sparkle", "bounce"], cheer: "spin",
+        parts: (() => {
+          // One continuous, chubby five-armed outline: round tips joined by soft, rounded valleys
+          const C = [60, 71], R = 47, rt = 7.6, ri = 27, s1 = 11, s2 = 9, f = v => Math.round(v * 10) / 10;
+          const P = (o, d, r) => [o[0] + Math.cos(d * Math.PI / 180) * r, o[1] + Math.sin(d * Math.PI / 180) * r];
+          const xy = p => `${f(p[0])} ${f(p[1])}`;
+          const arms = [-90, -18, 54, 126, 198];
+          let d = `M${xy(P(C, -126, ri))}`;
+          arms.forEach(a => {
+            const pv = P(C, a - 36, ri), nv = P(C, a + 36, ri), T = P(C, a, R - rt), L = P(T, a - 90, rt), Rt = P(T, a + 90, rt);
+            d += `C${xy(P(pv, a + 54, s2))} ${xy(P(L, a + 180, s1))} ${xy(L)}A${rt} ${rt} 0 0 1 ${xy(Rt)}C${xy(P(Rt, a + 180, s1))} ${xy(P(nv, a - 54, s2))} ${xy(nv)}`;
+          });
+          const dots = arms.map(a => { const p1 = P(C, a, 33), p2 = P(C, a, 40); return `<circle cx="${f(p1[0])}" cy="${f(p1[1])}" r="2" fill="#FFE6D2"/><circle cx="${f(p2[0])}" cy="${f(p2[1])}" r="1.5" fill="#FFE6D2"/>`; }).join("");
+          return {
+            body: `${LG("sunset-starfish-g", [[0, "#FFC49A"], [0.55, "#FF9A7E"], [1, "#F2667A"]])}
+              <path d="${d}Z" fill="url(#sunset-starfish-g)" ${O}/>${dots}
+              <path d="M53.5 47Q54.2 38.5 57 32.5" fill="none" stroke="#FFF1E6" stroke-width="2.8" stroke-linecap="round" opacity=".9"/>`
+          };
+        })(),
+        eyes: {lx: 51.5, rx: 68.5, y: 71, r: 4.6, style: "dot", color: "#3A1A2A"},
+        mouth: {x: 60, y: 79.5, w: 3, color: "#3A1A2A"},
+        cheeks: {lx: 45, rx: 75, y: 78.5, w: 3.8, h: 2.5, color: "#FF5F7E"},
+        anchors: {top: [60, 31, 0.7], neck: [60, 87, 0.95], chest: [70, 90, 0.6], back: [82, 74, 0.8], hands: [60, 90, 0.85]},
         lines: {
           tap: ["Hi! So nice to see you!", "You're doing really, really well!", "Reach for it, one arm at a time!", "The sand's warm and you're here! Yay!", "Nice and steady! You're amazing!", "Look at you, glowing!", "Five arms of cheering, all for you!"],
           pet: ["Hehe, that tickles! Yay!", "Hehe, I'm all a-sparkle!"],
@@ -366,17 +375,23 @@
         idle: ["topBob", "bounce", "finWiggle"], cheer: "hop",
         parts: {
           body: `${LG("neon-boba-g", [[0, "#E4D8FF"], [0.5, "#C6B2F6"], [1, "#9F86E6"]])}
-            <path d="M34 46H86L80.5 104C80 108 77 110 73 110H47C43 110 40 108 39.5 104Z" fill="url(#neon-boba-g)" ${O}/>
+            <defs><clipPath id="neon-boba-cup"><path d="M34 46H86L80.5 104C80 108 77 110 73 110H47C43 110 40 108 39.5 104Z"/></clipPath><clipPath id="neon-boba-dome"><path d="M30 46C30 34 43 29 60 29C77 29 90 34 90 46Z"/></clipPath></defs>
+            <path d="M34 46H86L80.5 104C80 108 77 110 73 110H47C43 110 40 108 39.5 104Z" fill="url(#neon-boba-g)"/>
+            <g clip-path="url(#neon-boba-cup)" stroke-linecap="round"><path d="M71.8 44L78.2 92.5" stroke="#8E72DA" stroke-width="6.6"/><path d="M71.8 44L78.2 92.5" stroke="#F4A6E6" stroke-width="3.6"/></g>
             <path d="M35 50H85" stroke="#F2EEFF" stroke-width="5" opacity=".7"/>
-            <g fill="#3A2A4A"><circle cx="48" cy="100" r="3.6"/><circle cx="56.5" cy="103" r="3.6"/><circle cx="65" cy="100.5" r="3.6"/><circle cx="73" cy="102.5" r="3.4"/><circle cx="52" cy="94.5" r="3.2"/><circle cx="69.5" cy="94.5" r="3.2"/></g>
+            <g fill="#3A2A4A"><circle cx="48" cy="100" r="3.6"/><circle cx="56.5" cy="103" r="3.6"/><circle cx="65" cy="100.5" r="3.6"/><circle cx="73" cy="102.5" r="3.4"/><circle cx="52" cy="94.5" r="3.2"/><circle cx="69.5" cy="94.5" r="3.2"/><circle cx="77.2" cy="96.6" r="3"/></g>
             <g fill="#fff" opacity=".6"><circle cx="47" cy="99" r="1"/><circle cx="55.5" cy="102" r="1"/><circle cx="64" cy="99.5" r="1"/><circle cx="72" cy="101.5" r="1"/></g>
             <path d="M40 58L43.5 96" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".8"/>
-            <path d="M30 46C30 34 43 29 60 29C77 29 90 34 90 46Z" fill="#F4F2FF" fill-opacity=".92" ${O}/>
+            <path d="M34 46H86L80.5 104C80 108 77 110 73 110H47C43 110 40 108 39.5 104Z" fill="none" ${O}/>
+            <path d="M30 46C30 34 43 29 60 29C77 29 90 34 90 46Z" fill="#F4F2FF" fill-opacity=".92"/>
+            <g clip-path="url(#neon-boba-dome)" stroke-linecap="round"><path d="M70 30L72.2 47" stroke="#B9A4EE" stroke-width="6.6"/><path d="M70 30L72.2 47" stroke="#FFC6EF" stroke-width="3.6"/></g>
+            <path d="M30 46C30 34 43 29 60 29C77 29 90 34 90 46Z" fill="none" ${O}/>
             <rect x="28" y="43" width="64" height="7" rx="3.5" fill="#DCD8F8" ${O}/>
-            <path d="M38 40Q42 34 52 32.5" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>`,
+            <path d="M38 40Q42 34 52 32.5" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+            <ellipse cx="70" cy="30.6" rx="5.6" ry="2.4" fill="#7E64C8" ${OW(2)}/>`,
           armL: {svg: `<ellipse cx="33" cy="74" rx="4.6" ry="6" transform="rotate(24 33 74)" fill="#C6B2F6" ${O}/>`, pivot: [38, 72]},
           armR: {svg: `<ellipse cx="87" cy="74" rx="4.6" ry="6" transform="rotate(-24 87 74)" fill="#C6B2F6" ${O}/>`, pivot: [82, 72]},
-          top: {svg: `<path d="M61.5 33L69 8" stroke="${INK}" stroke-width="8.6" stroke-linecap="round"/><path d="M61.5 33L69 8" stroke="#FF6FD2" stroke-width="5" stroke-linecap="round"/><path d="M63 27L68 10.5" stroke="#FFC4EE" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [62, 34]}
+          top: {svg: `<path d="M70 30.6L66.9 7" stroke="${INK}" stroke-width="8.6"/><circle cx="66.9" cy="7" r="4.3" fill="${INK}"/><path d="M70 30.6L66.9 7" stroke="#FF6FD2" stroke-width="5"/><circle cx="66.9" cy="7" r="2.5" fill="#FF6FD2"/><path d="M68.4 25.5L66.6 11.5" stroke="#FFC4EE" stroke-width="1.6" stroke-linecap="round"/><path d="M64.4 30.6Q70 29.6 75.6 30.6A5.6 2.4 0 0 1 64.4 30.6Z" fill="#E6E0FF" ${OW(2)}/>`, pivot: [70, 30.6]}
         },
         eyes: {lx: 50, rx: 70, y: 68, r: 5, style: "dot", color: "#231F3F"},
         mouth: {x: 60, y: 77, w: 3.2, color: "#231F3F"},
