@@ -144,10 +144,8 @@
             <g fill="#F6EAD2" ${OW(1.6)}><path d="M41 108.5Q40 112 42.4 113.4Q43.4 111 43.6 108.5Z"/><path d="M45.4 109.2Q45 112.6 47.4 113.6Q48.2 111.4 48 109.2Z"/><path d="M79 108.5Q80 112 77.6 113.4Q76.6 111 76.4 108.5Z"/><path d="M74.6 109.2Q75 112.6 72.6 113.6Q71.8 111.4 72 109.2Z"/></g>
             <path d="M36 104C36 98 42 95.5 47 96.5C52 97.5 55 101.5 54 105.5C53 109.5 48 110.8 43 110.4C39 110 36 108 36 104Z" fill="#94704E" ${O}/>
             <path d="M84 104C84 98 78 95.5 73 96.5C68 97.5 65 101.5 66 105.5C67 109.5 72 110.8 77 110.4C81 110 84 108 84 104Z" fill="#94704E" ${O}/>`,
-          armL: {svg: `${LG("rainforest-mosey-al", [[0, "#A57C56"], [1, "#7E5A3A"]])}<g fill="#F6EAD2" ${OW(1.6)}><path d="M46.6 92.4Q51.8 91.6 53.6 94.8Q50.6 94.4 47.4 95.4Z"/><path d="M47.2 95.8Q52.4 95.8 53.8 99.2Q50.8 98.4 47.2 98.8Z"/><path d="M45.6 98.8Q50 99.8 50.8 103Q47.8 101.6 44.6 101.2Z"/></g>
-            <path d="M47 69.5C37 71.5 29.6 79 29.4 87.6C29.2 95 35 99.6 42.6 100.2C47.6 100.6 50.4 96.6 48.4 93.2C46.6 90.2 41 90.4 38.8 86.4C36.8 82.6 41 76 52 71Z" fill="url(#rainforest-mosey-al)" ${O}/>`, pivot: [44, 74]},
-          armR: {svg: `${LG("rainforest-mosey-ar", [[0, "#A57C56"], [1, "#7E5A3A"]])}<g fill="#F6EAD2" ${OW(1.6)}><path d="M73.4 92.4Q68.2 91.6 66.4 94.8Q69.4 94.4 72.6 95.4Z"/><path d="M72.8 95.8Q67.6 95.8 66.2 99.2Q69.2 98.4 72.8 98.8Z"/><path d="M74.4 98.8Q70 99.8 69.2 103Q72.2 101.6 75.4 101.2Z"/></g>
-            <path d="M73 69.5C83 71.5 90.4 79 90.6 87.6C90.8 95 85 99.6 77.4 100.2C72.4 100.6 69.6 96.6 71.6 93.2C73.4 90.2 79 90.4 81.2 86.4C83.2 82.6 79 76 68 71Z" fill="url(#rainforest-mosey-ar)" ${O}/>`, pivot: [76, 74]},
+          armL: {svg: `${LG("rainforest-mosey-al", [[0, "#A57C56"], [1, "#7E5A3A"]])}<g transform="rotate(30 30.6 88)"><ellipse cx="30.6" cy="88" rx="5.4" ry="7.6" fill="url(#rainforest-mosey-al)"/><ellipse cx="30.6" cy="88" rx="5.4" ry="7.6" fill="none" ${O}/><g fill="#F6EAD2" ${OW(1.3)}><path d="M25.9 92Q26.1 97.2 27.9 98.6Q29.5 95.8 29.3 92Z"/><path d="M28.9 92Q29.1 97.2 30.9 98.6Q32.5 95.8 32.3 92Z"/><path d="M31.9 92Q32.1 97.2 33.9 98.6Q35.5 95.8 35.3 92Z"/></g></g>`, pivot: [37.6, 81]},
+          armR: {svg: `${LG("rainforest-mosey-ar", [[0, "#A57C56"], [1, "#7E5A3A"]])}<g transform="rotate(-30 89.4 88)"><ellipse cx="89.4" cy="88" rx="5.4" ry="7.6" fill="url(#rainforest-mosey-ar)"/><ellipse cx="89.4" cy="88" rx="5.4" ry="7.6" fill="none" ${O}/><g fill="#F6EAD2" ${OW(1.3)}><path d="M84.7 92Q84.9 97.2 86.7 98.6Q88.3 95.8 88.1 92Z"/><path d="M87.7 92Q87.9 97.2 89.7 98.6Q91.3 95.8 91.1 92Z"/><path d="M90.7 92Q90.9 97.2 92.7 98.6Q94.3 95.8 94.1 92Z"/></g></g>`, pivot: [82.4, 81]},
           head: `${RG("rainforest-mosey-h", [[0, "#CBA67E"], [0.6, "#AD865F"], [1, "#86643F"]], 0.45, 0.28, 0.8)}
             <defs><clipPath id="rainforest-mosey-hc"><ellipse cx="60" cy="46" rx="31" ry="27"/></clipPath></defs>
             <ellipse cx="60" cy="46" rx="31" ry="27" fill="url(#rainforest-mosey-h)"/>
@@ -221,20 +219,15 @@
         bio: "A bright blue tree frog who holds on to every task with its sticky toes.",
         idle: ["bounce", "wave", "sparkle"], cheer: "hop",
         parts: {
-          feet: `<ellipse cx="37" cy="106.6" rx="8.6" ry="4.8" fill="#3A86E4" ${O}/><ellipse cx="83" cy="106.6" rx="8.6" ry="4.8" fill="#3A86E4" ${O}/>
-            <g fill="#FF9A3A" ${OW(1.8)}><circle cx="31.2" cy="109.6" r="2.4"/><circle cx="37" cy="111.2" r="2.4"/><circle cx="42.8" cy="109.6" r="2.4"/><circle cx="88.8" cy="109.6" r="2.4"/><circle cx="83" cy="111.2" r="2.4"/><circle cx="77.2" cy="109.6" r="2.4"/></g>`,
+          feet: `<ellipse cx="45.5" cy="105.4" rx="8.4" ry="4.8" fill="#3A86E4" ${O}/><ellipse cx="74.5" cy="105.4" rx="8.4" ry="4.8" fill="#3A86E4" ${O}/><g fill="#FF9A3A" ${OW(1.8)}><circle cx="40.3" cy="108.4" r="2.3"/><circle cx="45.5" cy="109.8" r="2.3"/><circle cx="50.7" cy="108.4" r="2.3"/></g><g fill="#FF9A3A" ${OW(1.8)}><circle cx="69.3" cy="108.4" r="2.3"/><circle cx="74.5" cy="109.8" r="2.3"/><circle cx="79.7" cy="108.4" r="2.3"/></g>`,
           body: `${RG("rainforest-dart-b", [[0, "#9AD8FF"], [0.55, "#4A9EF2"], [1, "#2460CC"]], 0.4, 0.28, 0.8)}
             ${LG("rainforest-dart-l", [[0, "#5AAEF4"], [1, "#2A64CE"]])}
             <path d="M33.54 61.87A13 13 0 1 1 54.98 51.31A33 27 0 0 1 65.02 51.31A13 13 0 1 1 86.46 61.87A33 27 0 1 1 33.54 61.87Z" fill="url(#rainforest-dart-b)" ${O}/>
             <ellipse cx="60" cy="91" rx="16.5" ry="11" fill="#D6F0FF"/>
-            <ellipse cx="34.6" cy="97" rx="11.5" ry="8.6" transform="rotate(-28 34.6 97)" fill="url(#rainforest-dart-l)" ${O}/>
-            <ellipse cx="85.4" cy="97" rx="11.5" ry="8.6" transform="rotate(28 85.4 97)" fill="url(#rainforest-dart-l)" ${O}/>
-            <g fill="#1C2A58"><circle cx="32.4" cy="95.6" r="2"/><circle cx="87.6" cy="95.6" r="2"/></g>
+            <g fill="#1C2A58"><circle cx="40" cy="96.6" r="1.9"/><circle cx="80" cy="96.6" r="1.9"/><circle cx="35.4" cy="80.6" r="1.4"/><circle cx="84.6" cy="80.6" r="1.4"/></g>
             ${shine(35.4, 44.6, 3.4, 1.8, -40)}`,
-          armL: {svg: `<path d="M37 72.6C31 75 28.4 84 31.6 90.6C34.4 96 40.6 98.6 45.4 98C49 97.6 49.6 93.6 46.6 92.4C43 91 40 88.4 39.2 84.4C38.4 80 39.6 76.6 42.2 74.8C41 72.6 39 71.8 37 72.6Z" fill="url(#rainforest-dart-l)" ${O}/><circle cx="34.4" cy="81.6" r="1.9" fill="#1C2A58"/>
-            <g fill="#FF9A3A" ${OW(1.6)}><circle cx="48.8" cy="92.8" r="2.1"/><circle cx="50.4" cy="96.2" r="2.1"/><circle cx="48.2" cy="99.4" r="2.1"/></g>`, pivot: [37, 76]},
-          armR: {svg: `<path d="M83 72.6C89 75 91.6 84 88.4 90.6C85.6 96 79.4 98.6 74.6 98C71 97.6 70.4 93.6 73.4 92.4C77 91 80 88.4 80.8 84.4C81.6 80 80.4 76.6 77.8 74.8C79 72.6 81 71.8 83 72.6Z" fill="url(#rainforest-dart-l)" ${O}/><circle cx="85.6" cy="81.6" r="1.9" fill="#1C2A58"/>
-            <g fill="#FF9A3A" ${OW(1.6)}><circle cx="71.2" cy="92.8" r="2.1"/><circle cx="69.6" cy="96.2" r="2.1"/><circle cx="71.8" cy="99.4" r="2.1"/></g>`, pivot: [83, 76]}
+          armL: {svg: `<g transform="rotate(30 29.4 86)"><ellipse cx="29.4" cy="86" rx="5.2" ry="7.4" fill="url(#rainforest-dart-l)"/><ellipse cx="29.4" cy="86" rx="5.2" ry="7.4" fill="none" ${O}/><circle cx="29.4" cy="83.8" r="1.6" fill="#1C2A58"/><g fill="#FF9A3A" ${OW(1.6)}><circle cx="26.6" cy="92" r="1.9"/><circle cx="29.4" cy="93.4" r="1.9"/><circle cx="32.2" cy="92" r="1.9"/></g></g>`, pivot: [36.4, 79]},
+          armR: {svg: `<g transform="rotate(-30 90.6 86)"><ellipse cx="90.6" cy="86" rx="5.2" ry="7.4" fill="url(#rainforest-dart-l)"/><ellipse cx="90.6" cy="86" rx="5.2" ry="7.4" fill="none" ${O}/><circle cx="90.6" cy="83.8" r="1.6" fill="#1C2A58"/><g fill="#FF9A3A" ${OW(1.6)}><circle cx="87.8" cy="92" r="1.9"/><circle cx="90.6" cy="93.4" r="1.9"/><circle cx="93.4" cy="92" r="1.9"/></g></g>`, pivot: [83.6, 79]}
         },
         eyes: {lx: 42, rx: 78, y: 53, r: 7.4, style: "round", color: "#141826"},
         mouth: {x: 60, y: 70, w: 4.8, color: "#14284E"},
@@ -432,17 +425,16 @@
         parts: {
           tail: {svg: `<g fill="url(#volcano-iggy-s)" ${OW(2.4)}><path d="M94 72L96 61L102 70Z"/><path d="M103 70L111 64L108 76Z"/></g>
             <path d="M80 90C90 92 98 91 100 86C102 81 99 78 96 79C93 80 91 77 93 74C96 69 106 69 108 79C110 92 100 104 82 105Z" fill="#5C6C78" ${O}/>`, pivot: [82, 98]},
+          feet: `<ellipse cx="45" cy="107.6" rx="8.4" ry="4.8" fill="#5C6C78" ${O}/><ellipse cx="75" cy="107.6" rx="8.4" ry="4.8" fill="#5C6C78" ${O}/><g fill="#4A5864" ${OW(2)}><circle cx="40.4" cy="111" r="2.2"/><circle cx="45" cy="112" r="2.2"/><circle cx="49.6" cy="111" r="2.2"/></g><g fill="#4A5864" ${OW(2)}><circle cx="70.4" cy="111" r="2.2"/><circle cx="75" cy="112" r="2.2"/><circle cx="79.6" cy="111" r="2.2"/></g>`,
           body: `${LG("volcano-iggy-s", [[0, "#FFD27A"], [0.55, "#FF9A3A"], [1, "#E8552A"]])}
             ${RG("volcano-iggy-b", [[0, "#9DB0BA"], [0.55, "#6C7E8A"], [1, "#465460"]], 0.4, 0.3, 0.85)}
             <g fill="url(#volcano-iggy-s)" ${OW(2.4)}><path d="M77 69L88 63L84 77Z"/><path d="M84 79L95 76L88 90Z"/></g>
             <path d="M60 64C78 64 89 80 89 96C89 106 81 110.5 60 110.5C39 110.5 31 106 31 96C31 80 42 64 60 64Z" fill="url(#volcano-iggy-b)" ${O}/>
             <path d="M60 77C70 77 77 87 77 97C77 104 71 108 60 108C49 108 43 104 43 97C43 87 50 77 60 77Z" fill="#F3D3A4"/>
             <path d="M47 89Q60 93 73 89M45 97Q60 101 75 97M47 104Q60 107 73 104" fill="none" stroke="#DDB07A" stroke-width="2" stroke-linecap="round"/>
-            <path d="M28 108Q27 99 34 97L41 96Q48 97 48 103Q48 108 45 110Z" fill="#5C6C78" ${O}/><path d="M92 108Q93 99 86 97L79 96Q72 97 72 103Q72 108 75 110Z" fill="#5C6C78" ${O}/>
-            <g fill="#4A5864" ${OW(2.2)}><circle cx="29" cy="109" r="3"/><circle cx="35" cy="110.2" r="3"/><circle cx="41" cy="110" r="3"/><circle cx="91" cy="109" r="3"/><circle cx="85" cy="110.2" r="3"/><circle cx="79" cy="110" r="3"/></g>
             <g fill="#FF9A3A"><circle cx="38" cy="80" r="1.8"/><circle cx="42.5" cy="74.5" r="1.3"/><circle cx="82" cy="88" r="1.6"/></g>`,
-          armL: {svg: `<g fill="#4A5864" ${OW(2.2)}><circle cx="38.5" cy="92.5" r="2.6"/><circle cx="43.5" cy="94" r="2.6"/><circle cx="48.5" cy="92.5" r="2.6"/></g><path d="M38 78C34 82 35 90 41 92C47 93 50 89 48 84C46 78 42 76 38 78Z" fill="#6A7C88" ${O}/>`, pivot: [42, 79]},
-          armR: {svg: `<g fill="#4A5864" ${OW(2.2)}><circle cx="81.5" cy="92.5" r="2.6"/><circle cx="76.5" cy="94" r="2.6"/><circle cx="71.5" cy="92.5" r="2.6"/></g><path d="M82 78C86 82 85 90 79 92C73 93 70 89 72 84C74 78 78 76 82 78Z" fill="#6A7C88" ${O}/>`, pivot: [78, 79]},
+          armL: {svg: `<g transform="rotate(30 32.8 87.4)"><g fill="#4A5864" ${OW(1.8)}><circle cx="30" cy="94.2" r="1.9"/><circle cx="32.8" cy="95.2" r="1.9"/><circle cx="35.6" cy="94.2" r="1.9"/></g><ellipse cx="32.8" cy="87.4" rx="5.2" ry="7.4" fill="#6A7C88"/><ellipse cx="32.8" cy="87.4" rx="5.2" ry="7.4" fill="none" ${O}/></g>`, pivot: [39.8, 80.4]},
+          armR: {svg: `<g transform="rotate(-30 87.2 87.4)"><g fill="#4A5864" ${OW(1.8)}><circle cx="84.4" cy="94.2" r="1.9"/><circle cx="87.2" cy="95.2" r="1.9"/><circle cx="90" cy="94.2" r="1.9"/></g><ellipse cx="87.2" cy="87.4" rx="5.2" ry="7.4" fill="#6A7C88"/><ellipse cx="87.2" cy="87.4" rx="5.2" ry="7.4" fill="none" ${O}/></g>`, pivot: [80.2, 80.4]},
           head: `${RG("volcano-iggy-h", [[0, "#A9BCC4"], [0.55, "#73868F"], [1, "#4A5862"]], 0.42, 0.3, 0.85)}
             <g fill="url(#volcano-iggy-s)" ${OW(2.6)}><path d="M44 32Q41 19 46 14Q51 19 55 28Z"/><path d="M53 28Q55 11 60 7Q65 11 67 28Z"/><path d="M76 32Q79 19 74 14Q69 19 65 28Z"/></g>
             <path d="M60 24C79 24 92 36 92 51C92 66 79 73 60 73C41 73 28 66 28 51C28 36 41 24 60 24Z" fill="url(#volcano-iggy-h)" ${O}/>

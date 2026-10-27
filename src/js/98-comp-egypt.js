@@ -100,18 +100,17 @@
           tail: {svg: `${LINE("M78 106Q97 108.5 101 95Q103.5 84.5 97 79Q94.5 77 91.5 77.6", "#D3D6DC", 5.4)}
             <path d="M84 107Q97 108.5 101 95Q103.5 84.5 97 79" fill="none" stroke="#5E626E" stroke-width="5.4" stroke-dasharray="2.4 5"/>
             <path d="M96.4 78.6Q94.5 77 91.5 77.6" fill="none" stroke="#4A4E58" stroke-width="5.4" stroke-linecap="round"/>`, pivot: [82, 104]},
-          feet: `<ellipse cx="40" cy="108.6" rx="5.6" ry="3.4" fill="#E6E8EC" ${O}/><ellipse cx="80" cy="108.6" rx="5.6" ry="3.4" fill="#E6E8EC" ${O}/>`,
+          feet: `<ellipse cx="45" cy="108" rx="8" ry="4.6" fill="#F7F8FA" ${O}/><ellipse cx="75" cy="108" rx="8" ry="4.6" fill="#F7F8FA" ${O}/>`,
           body: `${LG("egypt-miu-b", [[0, "#F3F4F6"], [1, "#BCC0C8"]])}
             <path d="M60 70C76 70 85 83 87 95C88.5 105.5 82 110.5 72 110.5H48C38 110.5 31.5 105.5 33 95C35 83 44 70 60 70Z" fill="url(#egypt-miu-b)" ${O}/>
-            <path d="M60 78C68 78 73.4 88 73.4 106H46.6C46.6 88 52 78 60 78Z" fill="#FFFFFF"/>
+            <path d="M60 78C68 78 73.4 88 73.4 98C73.4 104 67.4 107.4 60 107.4C52.6 107.4 46.6 104 46.6 98C46.6 88 52 78 60 78Z" fill="#FFFFFF"/>
             ${[[43, 83.6, 2.2, 1.7, -20], [38.4, 91.4, 2.6, 2, 10], [39.6, 101.4, 2.4, 1.9, 15]].map(([x, y, rx, ry, r]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" transform="rotate(${r} ${x} ${y})" fill="#5E626E"/><ellipse cx="${f1(120 - x)}" cy="${y}" rx="${rx}" ry="${ry}" transform="rotate(${-r} ${f1(120 - x)} ${y})" fill="#5E626E"/>`).join("")}
             <path d="M36.6 99Q38.6 89 46.4 89.6M83.4 99Q81.4 89 73.6 89.6" fill="none" stroke="#9AA0AA" stroke-width="2" stroke-linecap="round"/>
-            <path d="M47 92Q46.4 99 46.8 105M73 92Q73.6 99 73.2 105M60 96V105" fill="none" stroke="#2B2233" stroke-width="2.2" stroke-linecap="round"/>
-            <ellipse cx="52.6" cy="107.4" rx="7" ry="4" fill="#F7F8FA" ${O}/><ellipse cx="67.4" cy="107.4" rx="7" ry="4" fill="#F7F8FA" ${O}/>
-            <path d="M51 106v2.2M54.2 106v2.2M65.8 106v2.2M69 106v2.2" stroke="#A9AEB8" stroke-width="1.2" stroke-linecap="round"/>
             <path d="M38 73Q60 101 82 73L79.5 71Q60 91 40.5 71Z" fill="#2E5FA8" ${OW(2.2)}/>
             <path d="M39.6 75.4Q60 97.4 80.4 75.4" fill="none" stroke="#F2C24A" stroke-width="2.4" stroke-linecap="round"/>
             <path d="M60 86.4Q64.2 90.6 60 95.4Q55.8 90.6 60 86.4Z" fill="#F2C24A" ${OW(1.8)}/>`,
+          armL: {svg: `<g transform="rotate(30 34.6 91)"><ellipse cx="34.6" cy="91" rx="5" ry="7.2" fill="#E6E8EC"/><path d="M30.1 94.2A5 7.2 0 0 0 39.1 94.2Q34.6 92.6 30.1 94.2Z" fill="#FFFFFF"/><ellipse cx="34.6" cy="91" rx="5" ry="7.2" fill="none" ${O}/></g>`, pivot: [41.6, 84]},
+          armR: {svg: `<g transform="rotate(-30 85.4 91)"><ellipse cx="85.4" cy="91" rx="5" ry="7.2" fill="#E6E8EC"/><path d="M80.9 94.2A5 7.2 0 0 0 89.9 94.2Q85.4 92.6 80.9 94.2Z" fill="#FFFFFF"/><ellipse cx="85.4" cy="91" rx="5" ry="7.2" fill="none" ${O}/></g>`, pivot: [78.4, 84]},
           earL: {svg: `<path d="M35 47Q30 28 31.5 18Q33.5 14.5 37 16.5Q47 24 56 34Z" fill="#D9DBE0" ${O}/><path d="M38.4 41Q35.4 29 36.4 21.6Q43.6 27.4 49.6 34Z" fill="#F7BDC8"/>`, pivot: [44, 40]},
           earR: {svg: `<path d="M85 47Q90 28 88.5 18Q86.5 14.5 83 16.5Q73 24 64 34Z" fill="#D9DBE0" ${O}/><path d="M81.6 41Q84.6 29 83.6 21.6Q76.4 27.4 70.4 34Z" fill="#F7BDC8"/>`, pivot: [76, 40]},
           head: `${RG("egypt-miu-h", [[0, "#FFFFFF"], [0.68, "#EBECEF"], [1, "#C6CAD1"]], 0.42, 0.32, 0.8)}

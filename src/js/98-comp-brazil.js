@@ -96,8 +96,8 @@
             <g clip-path="url(#brazil-mico-bc)"><ellipse cx="60" cy="96" rx="13" ry="16" fill="#FFDF9C"/></g>
             <path d="${MICO_BODY}" fill="none" ${O}/>
             <ellipse cx="47" cy="106" rx="7.4" ry="4.4" fill="#7A4A34" ${O}/><ellipse cx="73" cy="106" rx="7.4" ry="4.4" fill="#7A4A34" ${O}/>`,
-          armL: {svg: `${LG("brazil-mico-a", [[0, "#F7A838"], [1, "#E08420"]])}<path d="M42.5 78C37.5 84 38 92 44 95.5C48 97.6 52.6 95.4 52 91.4C49.6 88.6 48 84.4 48.4 79.6Z" fill="url(#brazil-mico-a)" ${O}/><ellipse cx="51.6" cy="93.4" rx="4.6" ry="4" transform="rotate(-20 51.6 93.4)" fill="#7A4A34" ${O}/>`, pivot: [45, 81]},
-          armR: {svg: `<path d="M77.5 78C82.5 84 82 92 76 95.5C72 97.6 67.4 95.4 68 91.4C70.4 88.6 72 84.4 71.6 79.6Z" fill="url(#brazil-mico-a)" ${O}/><ellipse cx="68.4" cy="93.4" rx="4.6" ry="4" transform="rotate(20 68.4 93.4)" fill="#7A4A34" ${O}/>`, pivot: [75, 81]},
+          armL: {svg: `${LG("brazil-mico-a", [[0, "#F7A838"], [1, "#E08420"]])}<g transform="rotate(30 36.4 90.4)"><ellipse cx="36.4" cy="90.4" rx="5" ry="7.2" fill="url(#brazil-mico-a)"/><path d="M31.7 93A5 7.2 0 0 0 41.1 93Q36.4 91.4 31.7 93Z" fill="#7A4A34"/><ellipse cx="36.4" cy="90.4" rx="5" ry="7.2" fill="none" ${O}/></g>`, pivot: [43.4, 83.4]},
+          armR: {svg: `<g transform="rotate(-30 83.6 90.4)"><ellipse cx="83.6" cy="90.4" rx="5" ry="7.2" fill="url(#brazil-mico-a)"/><path d="M78.9 93A5 7.2 0 0 0 88.3 93Q83.6 91.4 78.9 93Z" fill="#7A4A34"/><ellipse cx="83.6" cy="90.4" rx="5" ry="7.2" fill="none" ${O}/></g>`, pivot: [76.6, 83.4]},
           head: `${RG("brazil-mico-m", [[0, "#FFD983"], [0.55, "#F9AE40"], [1, "#E58A22"]], 0.42, 0.34, 0.75)}
             <path d="${puff(60, 46, 30, 14, 1.2)}" fill="url(#brazil-mico-m)" ${O}/>
             <path d="${puff(60, 48, 21, 11, 1.25)}" fill="#FFC85E"/>

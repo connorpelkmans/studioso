@@ -25,8 +25,6 @@
             return `<path d="M${m(37)} 62C${m(31.6)} 48 ${m(31)} 32 ${m(34.6)} 21.4C${m(35.4)} 19 ${m(37.8)} 18.2 ${m(39.8)} 19.6C${m(46.4)} 24.2 ${m(52.4)} 30 ${m(57.4)} 36.4Z" fill="${fill}" ${O}/>
               <path d="M${m(37.4)} 46C${m(36.6)} 38 ${m(37)} 30.6 ${m(38.6)} 25.4C${m(43)} 28.6 ${m(47.4)} 33 ${m(50.6)} 37.6Z" fill="url(#greece-kiki-in)"/>`;
           };
-          const leg = x => `<path d="M${f1(x - 5.8)} 95C${f1(x - 5.8)} 91.6 ${f1(x - 3.4)} 89.6 ${x} 89.6C${f1(x + 3.4)} 89.6 ${f1(x + 5.8)} 91.6 ${f1(x + 5.8)} 95V100.6C${f1(x + 6.8)} 102.6 ${f1(x + 7)} 109.8 ${x} 109.8C${f1(x - 7)} 109.8 ${f1(x - 6.8)} 102.6 ${f1(x - 5.8)} 100.6Z" fill="url(#greece-kiki-leg)" ${O}/>
-            <path d="M${f1(x - 1.9)} 109V106.2M${f1(x + 1.9)} 109V106.2" stroke="#CDB8A4" stroke-width="1.4" stroke-linecap="round"/>`;
           return {
             tail: {svg: `<path d="${TAIL}" fill="none" stroke="${INK}" stroke-width="12.6" stroke-linecap="round"/>
               <path d="${TAIL}" fill="none" stroke="#F0A65E" stroke-width="6.6" stroke-linecap="round"/>
@@ -47,10 +45,10 @@
               <path d="${BODY}" fill="none" ${O}/>
               ${RG("greece-kiki-bell", [[0, "#FFF2B8"], [0.5, "#F4C64A"], [1, "#D49A22"]], 0.38, 0.32, 0.72)}
               <circle cx="60" cy="89.4" r="3.8" fill="url(#greece-kiki-bell)" ${OW(1.6)}/><path d="M58.4 90.6h3.2" stroke="#8A5E14" stroke-width="1.2" stroke-linecap="round"/>
-              <ellipse cx="38.6" cy="108.2" rx="6.8" ry="3.9" fill="#FFFDF8" ${O}/><ellipse cx="81.4" cy="108.2" rx="6.8" ry="3.9" fill="#FFFDF8" ${O}/>
-              <path d="M36.4 110.6V108.6M40.8 110.6V108.6M79.2 110.6V108.6M83.6 110.6V108.6" stroke="#CDB8A4" stroke-width="1.4" stroke-linecap="round"/>`,
-            armL: {svg: `${LG("greece-kiki-leg", [[0, "#FFF8EF"], [1, "#FFFFFF"]])}${leg(48.5)}`, pivot: [48.5, 93]},
-            armR: {svg: leg(71.5), pivot: [71.5, 93]},
+              <ellipse cx="45" cy="108.2" rx="7.2" ry="4.1" fill="#FFFDF8" ${O}/><ellipse cx="75" cy="108.2" rx="7.2" ry="4.1" fill="#FFFDF8" ${O}/>
+              <path d="M42.8 110.6V108.6M47.2 110.6V108.6M72.8 110.6V108.6M77.2 110.6V108.6" stroke="#CDB8A4" stroke-width="1.4" stroke-linecap="round"/>`,
+            armL: {svg: `<g transform="rotate(30 36.4 90.4)"><ellipse cx="36.4" cy="90.4" rx="5" ry="7.2" fill="#FFFDF8"/><path d="M31.9 93.6A5 7.2 0 0 0 40.9 93.6Q36.4 92 31.9 93.6Z" fill="#FFE6EC" opacity="0.9"/><ellipse cx="36.4" cy="90.4" rx="5" ry="7.2" fill="none" ${O}/></g>`, pivot: [43.4, 83.4]},
+            armR: {svg: `<g transform="rotate(-30 83.6 90.4)"><ellipse cx="83.6" cy="90.4" rx="5" ry="7.2" fill="#FFFDF8"/><path d="M79.1 93.6A5 7.2 0 0 0 88.1 93.6Q83.6 92 79.1 93.6Z" fill="#FFE6EC" opacity="0.9"/><ellipse cx="83.6" cy="90.4" rx="5" ry="7.2" fill="none" ${O}/></g>`, pivot: [76.6, 83.4]},
             earL: {svg: `${LG("greece-kiki-in", [[0, "#FFC4D2"], [1, "#FF9DB4"]])}${ear("#FFFDF8", 0)}`, pivot: [44, 42]},
             earR: {svg: `${LG("greece-kiki-er", [[0, "#F5B36E"], [1, "#E08C45"]])}${ear("url(#greece-kiki-er)", 1)}`, pivot: [76, 42]},
             head: `${RG("greece-kiki-h", [[0, "#FFFFFF"], [0.66, "#FFF9F1"], [1, "#EBDCCB"]], 0.42, 0.36, 0.72)}

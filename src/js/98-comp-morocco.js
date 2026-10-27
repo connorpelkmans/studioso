@@ -69,14 +69,14 @@
             <path d="M80 70Q84 66 88 69Q91 64 95 68Q99 64 102 69Q105 66 110 69L112 40L78 40Z" fill="#4A3530" clip-path="url(#morocco-fenn-tc)"/>
             <path d="M98 95Q105.5 87 104 74" fill="none" stroke="#FFF1DA" stroke-width="2.8" stroke-linecap="round"/>
             <path d="${FENN_TAIL}" fill="none" ${O}/>`, pivot: [78, 100]},
-          feet: `<ellipse cx="34.5" cy="107.4" rx="8.4" ry="4.6" fill="#F3D3A4" ${O}/><ellipse cx="85.5" cy="107.4" rx="8.4" ry="4.6" fill="#F3D3A4" ${O}/>`,
+          feet: `<ellipse cx="45" cy="108" rx="8" ry="4.6" fill="#F3D3A4" ${O}/><ellipse cx="75" cy="108" rx="8" ry="4.6" fill="#F3D3A4" ${O}/>`,
           body: `${LG("morocco-fenn-b", [[0, "#F8E0B6"], [1, "#E2AE72"]])}
             <path d="M60 71C75 71 82 83 84.5 95C86.5 105 81 110.5 72 110.5H48C39 110.5 33.5 105 35.5 95C38 83 45 71 60 71Z" fill="url(#morocco-fenn-b)" ${O}/>
             <path d="M48 80Q60 86 72 80C74 91 69 101 60 103C51 101 46 91 48 80Z" fill="#FFF5E4"/>
             ${LINE("M44 78Q60 95 76 78", "#C8642E", 3.4)}
             <path d="M60 88.6L63.4 92.6L60 96.6L56.6 92.6Z" fill="#F2C24E" ${OW(1.8)}/><circle cx="59" cy="91.5" r=".9" fill="#fff"/>`,
-          armL: {svg: `${LG("morocco-fenn-l", [[0, "#F6D8AA"], [1, "#EBC28C"]])}<path d="M41.6 92Q41.6 87.6 47 87.6Q52.4 87.6 52.4 92L52.6 103Q55 104.2 55 106.6Q55 110.4 47 110.4Q39 110.4 39 106.6Q39 104.2 41.4 103Z" fill="url(#morocco-fenn-l)" ${O}/><path d="M44.6 106.8v2.4M49.4 106.8v2.4" stroke="#C98E52" stroke-width="1.4" stroke-linecap="round"/>`, pivot: [47, 92]},
-          armR: {svg: `<path d="M78.4 92Q78.4 87.6 73 87.6Q67.6 87.6 67.6 92L67.4 103Q65 104.2 65 106.6Q65 110.4 73 110.4Q81 110.4 81 106.6Q81 104.2 78.6 103Z" fill="url(#morocco-fenn-l)" ${O}/><path d="M70.6 106.8v2.4M75.4 106.8v2.4" stroke="#C98E52" stroke-width="1.4" stroke-linecap="round"/>`, pivot: [73, 92]},
+          armL: {svg: `${LG("morocco-fenn-l", [[0, "#F6D8AA"], [1, "#EBC28C"]])}<g transform="rotate(30 36.6 91)"><ellipse cx="36.6" cy="91" rx="5" ry="7.2" fill="url(#morocco-fenn-l)"/><path d="M32.1 94.2A5 7.2 0 0 0 41.1 94.2Q36.6 92.6 32.1 94.2Z" fill="#FFF5E4"/><ellipse cx="36.6" cy="91" rx="5" ry="7.2" fill="none" ${O}/></g>`, pivot: [43.6, 84]},
+          armR: {svg: `<g transform="rotate(-30 83.4 91)"><ellipse cx="83.4" cy="91" rx="5" ry="7.2" fill="url(#morocco-fenn-l)"/><path d="M78.9 94.2A5 7.2 0 0 0 87.9 94.2Q83.4 92.6 78.9 94.2Z" fill="#FFF5E4"/><ellipse cx="83.4" cy="91" rx="5" ry="7.2" fill="none" ${O}/></g>`, pivot: [76.4, 84]},
           earL: {svg: `${LG("morocco-fenn-e", [[0, "#E9B77C"], [1, "#F4D3A2"]], 0, 0, 1, 1)}${LG("morocco-fenn-ei", [[0, "#F2A99A"], [0.55, "#FAD3C4"], [1, "#FFF3E2"]], 0, 0, 1, 1)}${FENN_EAR}`, pivot: [46, 47]},
           earR: {svg: `<g transform="matrix(-1 0 0 1 120 0)">${FENN_EAR}</g>`, pivot: [74, 47]},
           head: `${RG("morocco-fenn-h", [[0, "#FDEACB"], [0.65, "#F4D3A2"], [1, "#E5B47A"]], 0.42, 0.3, 0.8)}<defs><clipPath id="morocco-fenn-hc"><path d="${FENN_HEAD}"/></clipPath></defs>
@@ -89,7 +89,7 @@
         eyes: {lx: 47.5, rx: 72.5, y: 59.5, r: 5, style: "round", color: "#2A2026"},
         mouth: {x: 60, y: 74.6, w: 2.6, color: "#2A2026", style: "cat"},
         cheeks: {lx: 40.5, rx: 79.5, y: 68, w: 4, h: 2.4, color: "#FFA2A2"},
-        anchors: {top: [60, 40, 0.9], neck: [60, 81, 1], chest: [60, 94, 0.6], back: [82, 90, 0.8], hands: [60, 99, 0.72]},
+        anchors: {top: [60, 40, 0.9], neck: [60, 81, 1], chest: [60, 94, 0.6], back: [82, 90, 0.8], hands: [60, 100, 0.84]},
         lines: {
           tap: ["My ears heard you studying from the desert!", "Big ears, big plans, little paws. Let's go!", "I hear a deadline... and you're way ahead of it!", "Desert foxes keep cool. So can you!", "Every grain of sand adds up to a dune!", "Listen closely: you're doing great!", "I dug a cozy spot right next to your notes.", "Sharp ears, sharp mind. That's you!"],
           pet: ["Hehe! Scratch behind the big ears!", "Aww, my tail is wagging all by itself!"],

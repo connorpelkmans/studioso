@@ -81,8 +81,8 @@
             <ellipse cx="60" cy="94" rx="17" ry="14" fill="#E2C098"/>
             <ellipse cx="45" cy="107.4" rx="9.4" ry="5" fill="#6A4430" ${O}/><ellipse cx="75" cy="107.4" rx="9.4" ry="5" fill="#6A4430" ${O}/>
             <path d="M40.6 105.6v2.6M45 105.2v3M49.4 105.6v2.6M70.6 105.6v2.6M75 105.2v3M79.4 105.6v2.6" stroke="#A47A5E" stroke-width="1.5" stroke-linecap="round"/>`,
-          armL: {svg: `<ellipse cx="47.5" cy="87" rx="6.4" ry="8.6" transform="rotate(-28 47.5 87)" fill="#5E3C28" ${O}/><path d="M48.8 93.8l1.2 -1.4M51.6 92l1.4 -1.2" stroke="#C9A07A" stroke-width="1.4" stroke-linecap="round"/>`, pivot: [43, 80]},
-          armR: {svg: `<ellipse cx="72.5" cy="87" rx="6.4" ry="8.6" transform="rotate(28 72.5 87)" fill="#5E3C28" ${O}/><path d="M71.2 93.8l-1.2 -1.4M68.4 92l-1.4 -1.2" stroke="#C9A07A" stroke-width="1.4" stroke-linecap="round"/>`, pivot: [77, 80]},
+          armL: {svg: `<g transform="rotate(30 31 89)"><ellipse cx="31" cy="89" rx="5.2" ry="7.4" fill="#6A4430"/><ellipse cx="31" cy="89" rx="5.2" ry="7.4" fill="none" ${O}/><path d="M29.2 94.8v-2M32.8 94.8v-2" stroke="#C9A07A" stroke-width="1.2" stroke-linecap="round"/></g>`, pivot: [38, 82]},
+          armR: {svg: `<g transform="rotate(-30 89 89)"><ellipse cx="89" cy="89" rx="5.2" ry="7.4" fill="#6A4430"/><ellipse cx="89" cy="89" rx="5.2" ry="7.4" fill="none" ${O}/><path d="M87.2 94.8v-2M90.8 94.8v-2" stroke="#C9A07A" stroke-width="1.2" stroke-linecap="round"/></g>`, pivot: [82, 82]},
           earL: {svg: `<circle cx="39.5" cy="30.5" r="7.4" fill="#865636" ${O}/><circle cx="40.6" cy="31.6" r="3.6" fill="#5A3A26"/>`, pivot: [44, 35]},
           earR: {svg: `<circle cx="80.5" cy="30.5" r="7.4" fill="#865636" ${O}/><circle cx="79.4" cy="31.6" r="3.6" fill="#5A3A26"/>`, pivot: [76, 35]},
           head: `${RG("canada-bucky-h", [[0, "#C9946A"], [0.6, "#A06C44"], [1, "#7C4E2E"]], 0.4, 0.3, 0.8)}

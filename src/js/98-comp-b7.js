@@ -307,8 +307,8 @@
           body: `${LG("koi-frog-b", [[0, "#A9E688"], [1, "#62BA62"]])}
             <path d="M60 66C78 66 86.5 80 86.5 92C86.5 102 76.5 107.5 60 107.5C43.5 107.5 33.5 102 33.5 92C33.5 80 42 66 60 66Z" fill="url(#koi-frog-b)" ${O}/>
             <ellipse cx="60" cy="94" rx="15.5" ry="11.5" fill="#FFF7DC" stroke="#D5EBA6" stroke-width="1.8"/>`,
-          armL: {svg: `<ellipse cx="44.5" cy="89.5" rx="5.4" ry="10" transform="rotate(12 44.5 89.5)" fill="#86D06C" ${O}/><path transform="translate(42.5 100.5) scale(.68)" d="${WEB}" fill="#86D06C" ${OW(3.2)}/>`, pivot: [47, 81]},
-          armR: {svg: `<ellipse cx="75.5" cy="89.5" rx="5.4" ry="10" transform="rotate(-12 75.5 89.5)" fill="#86D06C" ${O}/><path transform="translate(77.5 100.5) scale(.68)" d="${WEB}" fill="#86D06C" ${OW(3.2)}/>`, pivot: [73, 81]},
+          armL: {svg: `<g transform="rotate(30 36 84)"><ellipse cx="36" cy="84" rx="4.8" ry="7" fill="#86D06C"/><path d="M31.7 87.2A4.8 7 0 0 0 40.3 87.2Q36 85.6 31.7 87.2Z" fill="#C4EEA8"/><ellipse cx="36" cy="84" rx="4.8" ry="7" fill="none" ${O}/></g>`, pivot: [43, 77]},
+          armR: {svg: `<g transform="rotate(-30 84 84)"><ellipse cx="84" cy="84" rx="4.8" ry="7" fill="#86D06C"/><path d="M79.7 87.2A4.8 7 0 0 0 88.3 87.2Q84 85.6 79.7 87.2Z" fill="#C4EEA8"/><ellipse cx="84" cy="84" rx="4.8" ry="7" fill="none" ${O}/></g>`, pivot: [77, 77]},
           head: `${LG("koi-frog-h", [[0, "#B9EE92"], [0.6, "#8FD772"], [1, "#6CC064"]])}
             <g stroke="${INK}" stroke-width="6" stroke-linejoin="round"><circle cx="40" cy="44" r="12.5"/><circle cx="80" cy="44" r="12.5"/><ellipse cx="60" cy="60" rx="35" ry="19"/></g>
             <g fill="url(#koi-frog-h)"><circle cx="40" cy="44" r="12.5"/><circle cx="80" cy="44" r="12.5"/><ellipse cx="60" cy="60" rx="35" ry="19"/></g>
