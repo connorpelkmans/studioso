@@ -144,7 +144,8 @@ function SEED(){
     await act(page, "fc-open", "d3"); await page.waitForTimeout(200);
     ok(await page.locator('[data-act="pro-dp-open"]').count() === 1, "the deck page offers Practice Diagram");
     await act(page, "pro-cf-open", "d3"); await page.waitForTimeout(400);
-    ok(/Pictures in This Deck/.test(await page.textContent("#dlg")) && await page.locator('#dlg .ic-sets [data-act="pro-ic-edit"]').count() === 1, "Image Cards lists the deck's pictures, with Edit");
+    ok(/Pictures in This Deck/.test(await page.textContent("#dlg")) && await page.locator('#dlg .ic-sets [data-act="pro-ic-edit"]').count() === 1, "Picture Cards lists the deck's pictures, with Edit");
+    ok(await page.locator("#dlg [data-cf-file], #dlg [data-cf-auto], #dlg [data-act=\"pro-cf-scan\"]").count() === 0 && !/Find Diagrams|lecture slides, PDFs or pictures you've uploaded/.test(await page.textContent("#dlg")), "Picture Cards offers no Files-tab files, PDFs or slides to make cards from");
     await page.click('#dlg .ic-sets [data-act="pro-ic-edit"]'); await page.waitForTimeout(400);
     ok(await page.locator(".oc-stage .oc-box").count() === 5 && await page.locator(".oc-list li").count() === 4 && await page.locator(".oc-stage ellipse").count() === 1, "Edit opens the picture with its boxes, shapes and groups");
     ok(await page.locator('input[name="ocMode"][value="tap"]').isChecked() && (await page.textContent("#ocSkip")).trim() === "Cancel", "the study mode is kept, and the picture can be left unchanged");
@@ -190,15 +191,15 @@ function SEED(){
     ok(await page.locator("#dlg .dp-pin.ok").count() === 0 && await page.locator("#dlg .dp-lab").count() === 4, "Try Again starts a fresh round");
     await page.keyboard.press("Escape"); await page.waitForTimeout(200);
 
-    // A box you draw takes the page's own text under it
+    // A box you draw takes the text read in your own photo under it
     await page.evaluate(async () => {
       const cv = document.createElement("canvas"); cv.width = 400; cv.height = 300; cv.getContext("2d").fillRect(0, 0, 4, 4);
       const blob = await new Promise(r => cv.toBlob(r, "image/jpeg", 0.9));
-      window.SBPRO.openImageEditor("d1", [{blob, w: 400, h: 300, boxes: [], src: "Slide", words: [{x: 0.32, y: 0.1, w: 0.2, h: 0.06, t: "body"}, {x: 0.1, y: 0.1, w: 0.2, h: 0.06, t: "Golgi"}, {x: 0.7, y: 0.7, w: 0.2, h: 0.06, t: "Elsewhere"}]}]);
+      window.SBPRO.openImageEditor("d1", [{blob, w: 400, h: 300, boxes: [], src: "My notes", words: [{x: 0.32, y: 0.1, w: 0.2, h: 0.06, t: "body"}, {x: 0.1, y: 0.1, w: 0.2, h: 0.06, t: "Golgi"}, {x: 0.7, y: 0.7, w: 0.2, h: 0.06, t: "Elsewhere"}]}]);
     });
     await page.waitForTimeout(400);
     await drag([0.05, 0.05], [0.6, 0.22]);
-    ok(await page.locator(".oc-list input").last().inputValue() === "Golgi body", "a drawn box is filled in from the PDF's text under it, in reading order");
+    ok(await page.locator(".oc-list input").last().inputValue() === "Golgi body", "a drawn box is filled in from the text read in your photo under it, in reading order");
     await page.click("#ocSkip"); await page.waitForTimeout(300);
     ok((await deck(page, "d1")).cards.length === 2, "skipping the picture adds nothing");
     ok(page.errs.length === 0, "no console errors: " + page.errs.join(" | "));

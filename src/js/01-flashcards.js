@@ -6,6 +6,8 @@ function normDeck(d){
   d = Object.assign({name: "Untitled Deck", courseId: "", cards: [], quizzes: []}, d);
   if (!Array.isArray(d.cards)) d.cards = [];
   d.cards = d.cards.filter(c => c && c.id).map(c => Object.assign({front: "", back: "", box: 0, due: "", seen: 0, right: 0, wrong: 0}, c));
+  // copied: the card's text came straight from a course file (a PDF highlight), so it stays private (kept when the card is edited)
+  d.cards.forEach(c => { if ("copied" in c) { if (c.copied) c.copied = true; else delete c.copied; } });
   if (!Array.isArray(d.quizzes)) d.quizzes = [];
   if (!Array.isArray(d.aiQuizzes)) d.aiQuizzes = [];
   d.aiQuizzes = d.aiQuizzes.filter(q => q && q.id && Array.isArray(q.questions)).map(q => Object.assign({title: "Practice Quiz", style: "", results: [], sources: []}, q, {questions: q.questions.filter(x => x && x.id).map(x => Object.assign({type: "single", stem: "", options: [], correct: [], answer: "", rationale: "", notes: [], topic: "", source: ""}, x))}));
