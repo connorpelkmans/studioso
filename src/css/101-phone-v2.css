@@ -579,3 +579,11 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
 
 /* Header buttons in the colour band stay clickable all the way down: the title block below overlaps them */
 .g2-band .row-actions,.g2-band .row-actions > *{position:relative;z-index:4}
+
+/* Crunch: the Next 6 Weeks / Whole Term switch sits beside the view tabs; the content starts the same distance below the tabs as Due Dates */
+@media (min-width:760px){
+  #view > .pview-tabs + .cr{position:relative}
+  #view > .pview-tabs + .cr > .cr-head{position:absolute;right:0;top:-59px;margin:0!important;padding:0;min-height:0}
+  #view > .pview-tabs + .cr > .cr-head > .cr2-range{margin:0!important}
+  #view > .pview-tabs + .cr > .cr2-top{margin-top:2px}
+}
