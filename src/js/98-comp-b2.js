@@ -465,14 +465,15 @@
           feet: `<ellipse cx="49" cy="106.5" rx="7.6" ry="4.6" fill="#5A3A2A" ${O}/><ellipse cx="71" cy="106.5" rx="7.6" ry="4.6" fill="#5A3A2A" ${O}/><path d="M49 106V110M71 106V110" stroke="#2B2233" stroke-width="1.6" stroke-linecap="round"/><path d="M44 106.5Q45 104.8 47 104.6M66 106.5Q67 104.8 69 104.6" fill="none" stroke="#8C6450" stroke-width="1.4" stroke-linecap="round"/>`,
           body: `${LG("xmas-reindeer-b", [[0, "#C99062"], [1, "#9C653F"]])}<defs><clipPath id="xmas-reindeer-clip"><path d="M60 66C75 66 85 77 85 90C85 99 78 103.5 60 103.5C42 103.5 35 99 35 90C35 77 45 66 60 66Z"/></clipPath></defs>
             <path d="M60 66C75 66 85 77 85 90C85 99 78 103.5 60 103.5C42 103.5 35 99 35 90C35 77 45 66 60 66Z" fill="url(#xmas-reindeer-b)"/>
-            <g clip-path="url(#xmas-reindeer-clip)"><ellipse cx="60" cy="91.5" rx="15" ry="11.5" fill="#F6E0C3"/>
-              <path d="M30 70Q60 83 90 70V77Q60 90 30 77Z" fill="#D9443A"/><path d="M30 70Q60 83 90 70M30 77Q60 90 90 77" fill="none" stroke="${INK}" stroke-width="2.2"/></g>
+            <g clip-path="url(#xmas-reindeer-clip)"><ellipse cx="60" cy="92.5" rx="15" ry="11" fill="#F6E0C3"/></g>
             <path d="M60 66C75 66 85 77 85 90C85 99 78 103.5 60 103.5C42 103.5 35 99 35 90C35 77 45 66 60 66Z" fill="none" ${O}/>
-            <path d="M38 88Q39 79 45 74" fill="none" stroke="#E2B88E" stroke-width="2.6" stroke-linecap="round" opacity=".9"/>
-            <path d="M58.4 81.4L58.6 79.6H61.4L61.6 81.4Z" fill="#E0A21E" ${OW(1.6)}/>
-            <circle cx="60" cy="86" r="4.8" fill="#F7C744" ${O2}/><path d="M57.2 87.6H62.8" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/><circle cx="60" cy="88.9" r=".9" fill="${INK}"/><circle cx="58.3" cy="84.4" r="1.1" fill="#fff"/>`,
-          armL: {svg: `<g transform="rotate(-12 40.5 78)"><rect x="35.5" y="76.5" width="10" height="14.5" rx="5" fill="#A8704A"/><path d="M35.56 86.8H45.44A5 5 0 0 1 35.56 86.8Z" fill="#4E3226"/><rect x="35.5" y="76.5" width="10" height="14.5" rx="5" fill="none" ${O}/></g>`, pivot: [41, 79]},
-          armR: {svg: `<g transform="rotate(12 79.5 78)"><rect x="74.5" y="76.5" width="10" height="14.5" rx="5" fill="#A8704A"/><path d="M74.56 86.8H84.44A5 5 0 0 1 74.56 86.8Z" fill="#4E3226"/><rect x="74.5" y="76.5" width="10" height="14.5" rx="5" fill="none" ${O}/></g>`, pivot: [79, 79]},
+            <path d="M42.5 63C45 75.5 52 81.5 60 81.5C68 81.5 75 75.5 77.5 63" fill="none" stroke="${INK}" stroke-width="9.8" stroke-linecap="round"/>
+            <path d="M42.5 63C45 75.5 52 81.5 60 81.5C68 81.5 75 75.5 77.5 63" fill="none" stroke="#D9443A" stroke-width="6.6" stroke-linecap="round"/>
+            <path d="M47.5 74.5Q52.5 79.6 60 80" fill="none" stroke="#F58A7E" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M58.2 85.6L58.5 83.4H61.5L61.8 85.6Z" fill="#E0A21E" ${OW(1.6)}/>
+            <circle cx="60" cy="89.6" r="4.8" fill="#F7C744" ${O2}/><path d="M57.2 91.2H62.8" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/><circle cx="60" cy="92.5" r=".9" fill="${INK}"/><circle cx="58.3" cy="88" r="1.1" fill="#fff"/>`,
+          armL: {svg: `<g transform="rotate(30 36.5 92)"><defs><clipPath id="xmas-reindeer-al"><ellipse cx="36.5" cy="92" rx="5.4" ry="7.8"/></clipPath></defs><ellipse cx="36.5" cy="92" rx="5.4" ry="7.8" fill="#B47A4E"/><rect x="30.5" y="95.6" width="12" height="6" fill="#4E3226" clip-path="url(#xmas-reindeer-al)"/><ellipse cx="36.5" cy="92" rx="5.4" ry="7.8" fill="none" ${O}/></g>`, pivot: [41, 87]},
+          armR: {svg: `<g transform="rotate(-30 83.5 92)"><defs><clipPath id="xmas-reindeer-ar"><ellipse cx="83.5" cy="92" rx="5.4" ry="7.8"/></clipPath></defs><ellipse cx="83.5" cy="92" rx="5.4" ry="7.8" fill="#B47A4E"/><rect x="77.5" y="95.6" width="12" height="6" fill="#4E3226" clip-path="url(#xmas-reindeer-ar)"/><ellipse cx="83.5" cy="92" rx="5.4" ry="7.8" fill="none" ${O}/></g>`, pivot: [79, 87]},
           head: `${RG("xmas-reindeer-h", [[0, "#DDA978"], [0.6, "#C08654"], [1, "#A56E45"]], 0.42, 0.35, 0.7)}
             ${LINE("M50 34C48.5 27 48.5 19 51 11M49.2 26.5C45 25.5 41 23.5 38.5 20M49 19.5C46.5 18.5 44 16.5 42.5 13.5", "#F2D6A2", 4.6)}${LINE("M70 34C71.5 27 71.5 19 69 11M70.8 26.5C75 25.5 79 23.5 81.5 20M71 19.5C73.5 18.5 76 16.5 77.5 13.5", "#F2D6A2", 4.6)}
             <ellipse cx="60" cy="51.5" rx="26" ry="23.5" fill="url(#xmas-reindeer-h)" ${O}/>
