@@ -535,3 +535,7 @@ html[data-plan-top="week"] .plan .fh-ctl.has-stats .hours-ctl{display:none}
   .dtl-c,.dtl-c.fr{flex:var(--m,60) 1 0;width:auto;max-width:none;min-width:104px}
   .dtl-c.fr{min-width:74px}
 }
+/* Past your end of day: one card across the whole row, its words side by side */
+.dtl-over .dtl-rail{overflow:visible}
+.dtl-over .dtl-c.dtl-end,.dtl-over .dtl-c.fr.dtl-end{flex:1 1 100%;width:auto;min-width:0;max-width:none;display:flex;flex-wrap:wrap;align-items:baseline;justify-content:center;gap:4px 10px;padding:12px 16px;text-align:center;font:600 .82rem/1.35 var(--display)}
+.dtl-over .dtl-c.dtl-end b{font:700 .86rem/1.35 var(--display)}
