@@ -6866,6 +6866,13 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
   html:not([data-plan-top="week"]) .plan .fh-ctl > .hours-ctl{display:none}
   html:not([data-plan-top="week"]) .plan .fh-ctl.fh-only-hours{display:none}
 }
+/* Phones: Time Today sits close to the top of the plan box */
+@media (max-width:639px){
+  html:not([data-plan-top="week"]) .plan.focus{padding-top:6px!important}
+  html:not([data-plan-top="week"]) .plan .focus-head:has(> .fh-ctl.fh-only-hours){min-height:0!important;margin-top:0!important;padding-top:0!important;align-items:center!important;row-gap:0!important}
+  html:not([data-plan-top="week"]) .plan .focus-head:has(> .fh-ctl.fh-only-hours) > .fh-txt{min-height:0!important;margin:0!important}
+  html:not([data-plan-top="week"]) .plan .fh-ctl.fh-only-hours{margin:0!important;padding-top:0!important}
+}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
