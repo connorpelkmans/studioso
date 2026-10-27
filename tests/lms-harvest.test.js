@@ -171,8 +171,8 @@ const BB = [
       [/^\/d2l\/api\/le\/1\.70\/101\/discussions\/forums\/$/, [{ ForumId: 1, Name: "Weekly Discussions", IsHidden: false }]],
       [/\/discussions\/forums\/1\/topics\/$/, topics],
       // Week 26 (due yesterday): 230 classmates' posts first, yours on page 2
-      [/\/topics\/126\/posts\/\?pageSize=200&pageNumber=1$/, others(200)],
-      [/\/topics\/126\/posts\/\?pageSize=200&pageNumber=2$/, others(30).concat([{ PostId: 999, PostingUserId: 42 }])],
+      [/\/topics\/126\/posts\/$/, others(100)],
+      [/\/topics\/126\/posts\/\?pageSize=100&pageNumber=2$/, others(30).map(p => Object.assign({}, p, { PostId: p.PostId + 500 })).concat([{ PostId: 999, PostingUserId: 42 }])],
       [/\/topics\/125\/posts\//, others(12)],
       [/\/topics\/200\/posts\//, [{ PostId: 5, PostingUserId: 42 }]],
       [/\/topics\/\d+\/posts\//, []]]);
@@ -198,6 +198,22 @@ const BB = [
     assert(d(307).posted === true, "a post whose id is in another form is yours by name");
     assert(d(305).posted === false && d(305).groupPosted === true, "a group topic with a group member's post: your group posted");
     assert(/from the topic's page/.test(out.courses[0].topicNote), out.courses[0].topicNote);
+  });
+
+  await t("Brightspace: a closed exam gone from the quiz list is found through its calendar entry, with its name and mark", async () => {
+    const subm = `<nav>Anna Bulawski</nav><h1>Quiz Submissions - Midterm Exam- Requires Respondus LockDown Browser</h1><table><tr><th>Individual Attempts</th><th>Grade</th></tr><tr><td>Attempt 1</td><td>34 / 45 - 75.56 %</td></tr>
+      <tr><td><b>Overall Grade</b> (highest attempt):</td><td>34 / 45 - 75.56 %</td></tr></table>`;
+    const routes = BS.filter(([re]) => !/quizzes\\\/\$|calendar/.test(re.source)).concat([
+      [/^\/d2l\/api\/le\/1\.70\/101\/quizzes\/$/, { Objects: [], Next: null }],
+      [/quizzes_list\.d2l\?ou=101/, "<p>There are no quizzes</p>", { "content-type": "text/html" }],
+      [/\/calendar\/events\/myEvents\//, { Objects: [{ CalendarEventId: 70, OrgUnitId: 101, Title: "BSNC 1020 Midterm Exam", StartDateTime: iso(-4), EndDateTime: iso(-3.9), IsAllDayEvent: true,
+        IsAssociatedWithEntity: true, AssociatedEntity: { AssociatedEntityType: "D2L.LE.Quizzing.Quiz", AssociatedEntityId: 4321 } }], Next: null }],
+      [/quiz_submissions\.d2l\?qi=4321&/, subm, { "content-type": "text/html" }]]);
+    const { out } = await runInjected("brightspace", "https://learn.example.edu", routes);
+    const c = out.courses[0], q = c.quizzes.find(x => x.id === "4321");
+    assert(q && q.name === "Midterm Exam- Requires Respondus LockDown Browser" && q.done === true && q.due && q.due.slice(0, 10) === iso(-4).slice(0, 10), "the midterm, from its calendar entry: " + JSON.stringify(c.quizzes));
+    assert(c.marks.some(m => m.id === "4321" && m.num === 34 && m.den === 45), "with its 34 / 45: " + JSON.stringify(c.marks));
+    assert(c.dx.quizzes.some(x => x.id === "4321" && x.from === "its calendar entry"), "and the report says where it came from");
   });
 
   await t("Brightspace: assignment and discussion marks that aren't in Grades: feedback, the Assignments page, the topic's page", async () => {

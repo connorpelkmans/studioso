@@ -219,22 +219,23 @@ const bsTask = (id, title, cid, ou, extra) => Object.assign({id, created: 1, tit
       ok(later.w === 25 && later.got === 36 && later.from === "grades", "once on the Grades page: its mark (36 / 45) and Brightspace's weight (25%) replace the syllabus's: " + JSON.stringify(later));
       await page.context().close(); }
 
-    // 10. Discussions: the course's "Module 6 Discussion post" entry is the topic "Module 6 Discussion"; a group topic your group posted in
+    // 10. Discussions, as BCIT's BSNC 1055 has them: the course's calendar entries ("Module 6 Discussion post") and the topics ("Professionalism"
+    // in a "Module 6" forum) have different names; numbers decide, and a different number never fits
     { const page = await fresh([]);
-      const r = await page.evaluate(h => { const c = h.courses[1], due = new Date(Date.now() - 864e5).toISOString();
-        h.items = [{ou: "10", id: "61", name: "Module 6 Discussion post", type: 1, act: 1, url: "/d2l/le/content/10/viewContent/61/View", due, done: null, exempt: false},
-                   {ou: "10", id: "62", name: "Module 5 group Discussion (NCLEX Questions activity) PART A", type: 1, act: 1, url: "/d2l/le/content/10/viewContent/62/View", due, done: null, exempt: false},
-                   {ou: "10", id: "63", name: "Module 5 Discussion post", type: 1, act: 1, url: "/d2l/le/content/10/viewContent/63/View", due, done: null, exempt: false},
-                   {ou: "10", id: "308", name: "Week 8 Reflection Activity", type: 1, act: 6, url: "/d2l/le/content/10/viewContent/88/View", due, done: null, exempt: false}];
-        c.discussions = [{id: "306", name: "Module 6 Discussion", due: null, start: null, text: "", gid: "", outOf: null, posted: true, at: new Date(Date.now() - 2 * 864e5).toISOString()},
-          {id: "305", name: "Module 5 group Discussion (NCLEX Questions activity) PART A", due: null, start: null, text: "", gid: "", outOf: null, posted: false, group: true, groupPosted: true},
-          {id: "304", name: "Module 4 Discussion", due: null, start: null, text: "", gid: "", outOf: null, posted: true},
-          {id: "308", name: "Professionalism in Practice", due: null, start: null, text: "", gid: "", outOf: null, posted: true}];
-        const d = SBLMS.brightspace.fromApi(h); return Object.fromEntries(d.recs.filter(x => /Module|Week 8/.test(x.title)).map(x => [x.title, [x.done, x.doneAt ? x.doneAt.slice(0, 10) : ""]])); }, H());
-      ok(r["Module 6 Discussion post"] && r["Module 6 Discussion post"][0] === true && r["Module 6 Discussion post"][1] === dateOf(-2), "Module 6 Discussion post is done, from the topic, when you posted: " + JSON.stringify(r));
-      ok(r["Module 5 group Discussion (NCLEX Questions activity) PART A"][0] === true, "the group topic your group posted in is done");
-      ok(!r["Module 5 Discussion post"][0], "Module 5's entry isn't ticked by Module 4's or 6's topic");
-      ok(r["Week 8 Reflection Activity"] && r["Week 8 Reflection Activity"][0] === true, "a content entry for a discussion topic, named differently, follows that topic by its id: " + JSON.stringify(r["Week 8 Reflection Activity"]));
+      const r = await page.evaluate(h => { const c = h.courses[1], ago = d => new Date(Date.now() - d * 864e5).toISOString();
+        const it = (id, name, d, act) => ({ou: "10", id, name, type: 1, act: act || 1, url: "/d2l/le/content/10/viewContent/" + id + "/View", due: ago(d), done: null, exempt: false});
+        h.items = [it("71", "Module 6 Discussion post", 1), it("72", "Module 5 group Discussion (NCLEX Questions activity) PART A", 8), it("73", "Module 5 group Discussion (NCLEX Questions activity) PART B and PART C", 6),
+          it("74", "Module 8 Week 10 group Discussion (Cultural Safety in Health Care) post", -13), it("75", "Module 7 Discussion post", -6), it("308", "Week 8 Reflection Activity", 1, 6)];
+        const T = (id, name, forum, posted, extra) => Object.assign({id, name, forum, due: null, start: null, text: "", gid: "", outOf: null, posted}, extra || {});
+        c.discussions = [T("526443", "Professionalism", "Module 6: Professional Practice", true, {at: ago(2)}), T("526442", "Module 5 NCLEX Practice Questions", "Module 5", true),
+          T("526444", "Week 10 Cultural Safety in Health Care", "Module 8", false), T("526436", "Course Café", "Course Café", false), T("308", "Professionalism in Practice", "Week 8", true)];
+        const d = SBLMS.brightspace.fromApi(h); return Object.fromEntries(d.recs.filter(x => /Module|Week 8/.test(x.title)).map(x => [x.title, [x.done, x.doneAt ? x.doneAt.slice(0, 10) : "", x.asRead || ""]])); }, H());
+      const got = t => r[t] || [];
+      ok(got("Module 6 Discussion post")[0] === true && got("Module 6 Discussion post")[1] === dateOf(-2), "Module 6 Discussion post is done: you posted in Professionalism (forum Module 6), on that day: " + JSON.stringify(r));
+      ok(got("Module 5 group Discussion (NCLEX Questions activity) PART A")[0] === true && got("Module 5 group Discussion (NCLEX Questions activity) PART B and PART C")[0] === true, "both Module 5 NCLEX parts follow Module 5 NCLEX Practice Questions");
+      ok(!got("Module 8 Week 10 group Discussion (Cultural Safety in Health Care) post")[0] && /Week 10 Cultural Safety/.test(got("Module 8 Week 10 group Discussion (Cultural Safety in Health Care) post")[2]), "Week 10's entry follows its topic, not posted yet");
+      ok(!got("Module 7 Discussion post")[0], "Module 7's entry isn't ticked by Module 5's or 6's topic");
+      ok(got("Week 8 Reflection Activity")[0] === true, "a content entry for a discussion topic follows that topic by its id");
       await page.context().close(); }
 
     // 11. Canvas and Blackboard: grades carry their item's day and when it was handed in; a submitted task keeps its submission time

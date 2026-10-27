@@ -9,7 +9,7 @@
     try { all = await chrome.storage.local.get(null); } catch (e) { return; }
     const list = Object.keys(all).filter(k => /^result:(canvas|brightspace|blackboard)$/.test(k)).map(k => all[k]).filter(Boolean);
     const status = all.status || {}, schools = all.schools || {};
-    post({ type: "data", v: 1, version, list, schools: Object.keys(schools).map(id => ({ id, origin: schools[id].origin, state: (status[id] || {}).state || "", at: (status[id] || {}).lastOk || 0 })) });
+    post({ type: "data", v: 1, version, list, schools: Object.keys(schools).map(id => ({ id, origin: schools[id].origin, state: (status[id] || {}).state || "", at: (status[id] || {}).lastOk || 0, tried: (status[id] || {}).at || 0, error: String((status[id] || {}).error || "").slice(0, 160) })) });
   }
   // Only the page itself (same window, same site) can ask, and it can only ask for the data
   window.addEventListener("message", e => {
