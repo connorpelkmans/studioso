@@ -46693,8 +46693,8 @@ var COMP_KIT = (() => {
           body: `${LG("koi-frog-b", [[0, "#A9E688"], [1, "#62BA62"]])}
             <path d="M60 66C78 66 86.5 80 86.5 92C86.5 102 76.5 107.5 60 107.5C43.5 107.5 33.5 102 33.5 92C33.5 80 42 66 60 66Z" fill="url(#koi-frog-b)" ${O}/>
             <ellipse cx="60" cy="94" rx="15.5" ry="11.5" fill="#FFF7DC" stroke="#D5EBA6" stroke-width="1.8"/>`,
-          armL: {svg: `<ellipse cx="44.5" cy="89.5" rx="5.4" ry="10" transform="rotate(12 44.5 89.5)" fill="#86D06C" ${O}/><path transform="translate(42.5 100.5) scale(.68)" d="${WEB}" fill="#86D06C" ${OW(3.2)}/>`, pivot: [47, 81]},
-          armR: {svg: `<ellipse cx="75.5" cy="89.5" rx="5.4" ry="10" transform="rotate(-12 75.5 89.5)" fill="#86D06C" ${O}/><path transform="translate(77.5 100.5) scale(.68)" d="${WEB}" fill="#86D06C" ${OW(3.2)}/>`, pivot: [73, 81]},
+          armL: {svg: `<g transform="rotate(30 36 84)"><ellipse cx="36" cy="84" rx="4.8" ry="7" fill="#86D06C"/><path d="M31.7 87.2A4.8 7 0 0 0 40.3 87.2Q36 85.6 31.7 87.2Z" fill="#C4EEA8"/><ellipse cx="36" cy="84" rx="4.8" ry="7" fill="none" ${O}/></g>`, pivot: [43, 77]},
+          armR: {svg: `<g transform="rotate(-30 84 84)"><ellipse cx="84" cy="84" rx="4.8" ry="7" fill="#86D06C"/><path d="M79.7 87.2A4.8 7 0 0 0 88.3 87.2Q84 85.6 79.7 87.2Z" fill="#C4EEA8"/><ellipse cx="84" cy="84" rx="4.8" ry="7" fill="none" ${O}/></g>`, pivot: [77, 77]},
           head: `${LG("koi-frog-h", [[0, "#B9EE92"], [0.6, "#8FD772"], [1, "#6CC064"]])}
             <g stroke="${INK}" stroke-width="6" stroke-linejoin="round"><circle cx="40" cy="44" r="12.5"/><circle cx="80" cy="44" r="12.5"/><ellipse cx="60" cy="60" rx="35" ry="19"/></g>
             <g fill="url(#koi-frog-h)"><circle cx="40" cy="44" r="12.5"/><circle cx="80" cy="44" r="12.5"/><ellipse cx="60" cy="60" rx="35" ry="19"/></g>
@@ -50085,10 +50085,8 @@ var COMP_KIT = (() => {
             <g fill="#F6EAD2" ${OW(1.6)}><path d="M41 108.5Q40 112 42.4 113.4Q43.4 111 43.6 108.5Z"/><path d="M45.4 109.2Q45 112.6 47.4 113.6Q48.2 111.4 48 109.2Z"/><path d="M79 108.5Q80 112 77.6 113.4Q76.6 111 76.4 108.5Z"/><path d="M74.6 109.2Q75 112.6 72.6 113.6Q71.8 111.4 72 109.2Z"/></g>
             <path d="M36 104C36 98 42 95.5 47 96.5C52 97.5 55 101.5 54 105.5C53 109.5 48 110.8 43 110.4C39 110 36 108 36 104Z" fill="#94704E" ${O}/>
             <path d="M84 104C84 98 78 95.5 73 96.5C68 97.5 65 101.5 66 105.5C67 109.5 72 110.8 77 110.4C81 110 84 108 84 104Z" fill="#94704E" ${O}/>`,
-          armL: {svg: `${LG("rainforest-mosey-al", [[0, "#A57C56"], [1, "#7E5A3A"]])}<g fill="#F6EAD2" ${OW(1.6)}><path d="M46.6 92.4Q51.8 91.6 53.6 94.8Q50.6 94.4 47.4 95.4Z"/><path d="M47.2 95.8Q52.4 95.8 53.8 99.2Q50.8 98.4 47.2 98.8Z"/><path d="M45.6 98.8Q50 99.8 50.8 103Q47.8 101.6 44.6 101.2Z"/></g>
-            <path d="M47 69.5C37 71.5 29.6 79 29.4 87.6C29.2 95 35 99.6 42.6 100.2C47.6 100.6 50.4 96.6 48.4 93.2C46.6 90.2 41 90.4 38.8 86.4C36.8 82.6 41 76 52 71Z" fill="url(#rainforest-mosey-al)" ${O}/>`, pivot: [44, 74]},
-          armR: {svg: `${LG("rainforest-mosey-ar", [[0, "#A57C56"], [1, "#7E5A3A"]])}<g fill="#F6EAD2" ${OW(1.6)}><path d="M73.4 92.4Q68.2 91.6 66.4 94.8Q69.4 94.4 72.6 95.4Z"/><path d="M72.8 95.8Q67.6 95.8 66.2 99.2Q69.2 98.4 72.8 98.8Z"/><path d="M74.4 98.8Q70 99.8 69.2 103Q72.2 101.6 75.4 101.2Z"/></g>
-            <path d="M73 69.5C83 71.5 90.4 79 90.6 87.6C90.8 95 85 99.6 77.4 100.2C72.4 100.6 69.6 96.6 71.6 93.2C73.4 90.2 79 90.4 81.2 86.4C83.2 82.6 79 76 68 71Z" fill="url(#rainforest-mosey-ar)" ${O}/>`, pivot: [76, 74]},
+          armL: {svg: `${LG("rainforest-mosey-al", [[0, "#A57C56"], [1, "#7E5A3A"]])}<g transform="rotate(30 30.6 88)"><ellipse cx="30.6" cy="88" rx="5.4" ry="7.6" fill="url(#rainforest-mosey-al)"/><ellipse cx="30.6" cy="88" rx="5.4" ry="7.6" fill="none" ${O}/><g fill="#F6EAD2" ${OW(1.3)}><path d="M25.9 92Q26.1 97.2 27.9 98.6Q29.5 95.8 29.3 92Z"/><path d="M28.9 92Q29.1 97.2 30.9 98.6Q32.5 95.8 32.3 92Z"/><path d="M31.9 92Q32.1 97.2 33.9 98.6Q35.5 95.8 35.3 92Z"/></g></g>`, pivot: [37.6, 81]},
+          armR: {svg: `${LG("rainforest-mosey-ar", [[0, "#A57C56"], [1, "#7E5A3A"]])}<g transform="rotate(-30 89.4 88)"><ellipse cx="89.4" cy="88" rx="5.4" ry="7.6" fill="url(#rainforest-mosey-ar)"/><ellipse cx="89.4" cy="88" rx="5.4" ry="7.6" fill="none" ${O}/><g fill="#F6EAD2" ${OW(1.3)}><path d="M84.7 92Q84.9 97.2 86.7 98.6Q88.3 95.8 88.1 92Z"/><path d="M87.7 92Q87.9 97.2 89.7 98.6Q91.3 95.8 91.1 92Z"/><path d="M90.7 92Q90.9 97.2 92.7 98.6Q94.3 95.8 94.1 92Z"/></g></g>`, pivot: [82.4, 81]},
           head: `${RG("rainforest-mosey-h", [[0, "#CBA67E"], [0.6, "#AD865F"], [1, "#86643F"]], 0.45, 0.28, 0.8)}
             <defs><clipPath id="rainforest-mosey-hc"><ellipse cx="60" cy="46" rx="31" ry="27"/></clipPath></defs>
             <ellipse cx="60" cy="46" rx="31" ry="27" fill="url(#rainforest-mosey-h)"/>
@@ -50162,20 +50160,15 @@ var COMP_KIT = (() => {
         bio: "A bright blue tree frog who holds on to every task with its sticky toes.",
         idle: ["bounce", "wave", "sparkle"], cheer: "hop",
         parts: {
-          feet: `<ellipse cx="37" cy="106.6" rx="8.6" ry="4.8" fill="#3A86E4" ${O}/><ellipse cx="83" cy="106.6" rx="8.6" ry="4.8" fill="#3A86E4" ${O}/>
-            <g fill="#FF9A3A" ${OW(1.8)}><circle cx="31.2" cy="109.6" r="2.4"/><circle cx="37" cy="111.2" r="2.4"/><circle cx="42.8" cy="109.6" r="2.4"/><circle cx="88.8" cy="109.6" r="2.4"/><circle cx="83" cy="111.2" r="2.4"/><circle cx="77.2" cy="109.6" r="2.4"/></g>`,
+          feet: `<ellipse cx="45.5" cy="105.4" rx="8.4" ry="4.8" fill="#3A86E4" ${O}/><ellipse cx="74.5" cy="105.4" rx="8.4" ry="4.8" fill="#3A86E4" ${O}/><g fill="#FF9A3A" ${OW(1.8)}><circle cx="40.3" cy="108.4" r="2.3"/><circle cx="45.5" cy="109.8" r="2.3"/><circle cx="50.7" cy="108.4" r="2.3"/></g><g fill="#FF9A3A" ${OW(1.8)}><circle cx="69.3" cy="108.4" r="2.3"/><circle cx="74.5" cy="109.8" r="2.3"/><circle cx="79.7" cy="108.4" r="2.3"/></g>`,
           body: `${RG("rainforest-dart-b", [[0, "#9AD8FF"], [0.55, "#4A9EF2"], [1, "#2460CC"]], 0.4, 0.28, 0.8)}
             ${LG("rainforest-dart-l", [[0, "#5AAEF4"], [1, "#2A64CE"]])}
             <path d="M33.54 61.87A13 13 0 1 1 54.98 51.31A33 27 0 0 1 65.02 51.31A13 13 0 1 1 86.46 61.87A33 27 0 1 1 33.54 61.87Z" fill="url(#rainforest-dart-b)" ${O}/>
             <ellipse cx="60" cy="91" rx="16.5" ry="11" fill="#D6F0FF"/>
-            <ellipse cx="34.6" cy="97" rx="11.5" ry="8.6" transform="rotate(-28 34.6 97)" fill="url(#rainforest-dart-l)" ${O}/>
-            <ellipse cx="85.4" cy="97" rx="11.5" ry="8.6" transform="rotate(28 85.4 97)" fill="url(#rainforest-dart-l)" ${O}/>
-            <g fill="#1C2A58"><circle cx="32.4" cy="95.6" r="2"/><circle cx="87.6" cy="95.6" r="2"/></g>
+            <g fill="#1C2A58"><circle cx="40" cy="96.6" r="1.9"/><circle cx="80" cy="96.6" r="1.9"/><circle cx="35.4" cy="80.6" r="1.4"/><circle cx="84.6" cy="80.6" r="1.4"/></g>
             ${shine(35.4, 44.6, 3.4, 1.8, -40)}`,
-          armL: {svg: `<path d="M37 72.6C31 75 28.4 84 31.6 90.6C34.4 96 40.6 98.6 45.4 98C49 97.6 49.6 93.6 46.6 92.4C43 91 40 88.4 39.2 84.4C38.4 80 39.6 76.6 42.2 74.8C41 72.6 39 71.8 37 72.6Z" fill="url(#rainforest-dart-l)" ${O}/><circle cx="34.4" cy="81.6" r="1.9" fill="#1C2A58"/>
-            <g fill="#FF9A3A" ${OW(1.6)}><circle cx="48.8" cy="92.8" r="2.1"/><circle cx="50.4" cy="96.2" r="2.1"/><circle cx="48.2" cy="99.4" r="2.1"/></g>`, pivot: [37, 76]},
-          armR: {svg: `<path d="M83 72.6C89 75 91.6 84 88.4 90.6C85.6 96 79.4 98.6 74.6 98C71 97.6 70.4 93.6 73.4 92.4C77 91 80 88.4 80.8 84.4C81.6 80 80.4 76.6 77.8 74.8C79 72.6 81 71.8 83 72.6Z" fill="url(#rainforest-dart-l)" ${O}/><circle cx="85.6" cy="81.6" r="1.9" fill="#1C2A58"/>
-            <g fill="#FF9A3A" ${OW(1.6)}><circle cx="71.2" cy="92.8" r="2.1"/><circle cx="69.6" cy="96.2" r="2.1"/><circle cx="71.8" cy="99.4" r="2.1"/></g>`, pivot: [83, 76]}
+          armL: {svg: `<g transform="rotate(30 29.4 86)"><ellipse cx="29.4" cy="86" rx="5.2" ry="7.4" fill="url(#rainforest-dart-l)"/><ellipse cx="29.4" cy="86" rx="5.2" ry="7.4" fill="none" ${O}/><circle cx="29.4" cy="83.8" r="1.6" fill="#1C2A58"/><g fill="#FF9A3A" ${OW(1.6)}><circle cx="26.6" cy="92" r="1.9"/><circle cx="29.4" cy="93.4" r="1.9"/><circle cx="32.2" cy="92" r="1.9"/></g></g>`, pivot: [36.4, 79]},
+          armR: {svg: `<g transform="rotate(-30 90.6 86)"><ellipse cx="90.6" cy="86" rx="5.2" ry="7.4" fill="url(#rainforest-dart-l)"/><ellipse cx="90.6" cy="86" rx="5.2" ry="7.4" fill="none" ${O}/><circle cx="90.6" cy="83.8" r="1.6" fill="#1C2A58"/><g fill="#FF9A3A" ${OW(1.6)}><circle cx="87.8" cy="92" r="1.9"/><circle cx="90.6" cy="93.4" r="1.9"/><circle cx="93.4" cy="92" r="1.9"/></g></g>`, pivot: [83.6, 79]}
         },
         eyes: {lx: 42, rx: 78, y: 53, r: 7.4, style: "round", color: "#141826"},
         mouth: {x: 60, y: 70, w: 4.8, color: "#14284E"},
@@ -50373,17 +50366,16 @@ var COMP_KIT = (() => {
         parts: {
           tail: {svg: `<g fill="url(#volcano-iggy-s)" ${OW(2.4)}><path d="M94 72L96 61L102 70Z"/><path d="M103 70L111 64L108 76Z"/></g>
             <path d="M80 90C90 92 98 91 100 86C102 81 99 78 96 79C93 80 91 77 93 74C96 69 106 69 108 79C110 92 100 104 82 105Z" fill="#5C6C78" ${O}/>`, pivot: [82, 98]},
+          feet: `<ellipse cx="45" cy="107.6" rx="8.4" ry="4.8" fill="#5C6C78" ${O}/><ellipse cx="75" cy="107.6" rx="8.4" ry="4.8" fill="#5C6C78" ${O}/><g fill="#4A5864" ${OW(2)}><circle cx="40.4" cy="111" r="2.2"/><circle cx="45" cy="112" r="2.2"/><circle cx="49.6" cy="111" r="2.2"/></g><g fill="#4A5864" ${OW(2)}><circle cx="70.4" cy="111" r="2.2"/><circle cx="75" cy="112" r="2.2"/><circle cx="79.6" cy="111" r="2.2"/></g>`,
           body: `${LG("volcano-iggy-s", [[0, "#FFD27A"], [0.55, "#FF9A3A"], [1, "#E8552A"]])}
             ${RG("volcano-iggy-b", [[0, "#9DB0BA"], [0.55, "#6C7E8A"], [1, "#465460"]], 0.4, 0.3, 0.85)}
             <g fill="url(#volcano-iggy-s)" ${OW(2.4)}><path d="M77 69L88 63L84 77Z"/><path d="M84 79L95 76L88 90Z"/></g>
             <path d="M60 64C78 64 89 80 89 96C89 106 81 110.5 60 110.5C39 110.5 31 106 31 96C31 80 42 64 60 64Z" fill="url(#volcano-iggy-b)" ${O}/>
             <path d="M60 77C70 77 77 87 77 97C77 104 71 108 60 108C49 108 43 104 43 97C43 87 50 77 60 77Z" fill="#F3D3A4"/>
             <path d="M47 89Q60 93 73 89M45 97Q60 101 75 97M47 104Q60 107 73 104" fill="none" stroke="#DDB07A" stroke-width="2" stroke-linecap="round"/>
-            <path d="M28 108Q27 99 34 97L41 96Q48 97 48 103Q48 108 45 110Z" fill="#5C6C78" ${O}/><path d="M92 108Q93 99 86 97L79 96Q72 97 72 103Q72 108 75 110Z" fill="#5C6C78" ${O}/>
-            <g fill="#4A5864" ${OW(2.2)}><circle cx="29" cy="109" r="3"/><circle cx="35" cy="110.2" r="3"/><circle cx="41" cy="110" r="3"/><circle cx="91" cy="109" r="3"/><circle cx="85" cy="110.2" r="3"/><circle cx="79" cy="110" r="3"/></g>
             <g fill="#FF9A3A"><circle cx="38" cy="80" r="1.8"/><circle cx="42.5" cy="74.5" r="1.3"/><circle cx="82" cy="88" r="1.6"/></g>`,
-          armL: {svg: `<g fill="#4A5864" ${OW(2.2)}><circle cx="38.5" cy="92.5" r="2.6"/><circle cx="43.5" cy="94" r="2.6"/><circle cx="48.5" cy="92.5" r="2.6"/></g><path d="M38 78C34 82 35 90 41 92C47 93 50 89 48 84C46 78 42 76 38 78Z" fill="#6A7C88" ${O}/>`, pivot: [42, 79]},
-          armR: {svg: `<g fill="#4A5864" ${OW(2.2)}><circle cx="81.5" cy="92.5" r="2.6"/><circle cx="76.5" cy="94" r="2.6"/><circle cx="71.5" cy="92.5" r="2.6"/></g><path d="M82 78C86 82 85 90 79 92C73 93 70 89 72 84C74 78 78 76 82 78Z" fill="#6A7C88" ${O}/>`, pivot: [78, 79]},
+          armL: {svg: `<g transform="rotate(30 32.8 87.4)"><g fill="#4A5864" ${OW(1.8)}><circle cx="30" cy="94.2" r="1.9"/><circle cx="32.8" cy="95.2" r="1.9"/><circle cx="35.6" cy="94.2" r="1.9"/></g><ellipse cx="32.8" cy="87.4" rx="5.2" ry="7.4" fill="#6A7C88"/><ellipse cx="32.8" cy="87.4" rx="5.2" ry="7.4" fill="none" ${O}/></g>`, pivot: [39.8, 80.4]},
+          armR: {svg: `<g transform="rotate(-30 87.2 87.4)"><g fill="#4A5864" ${OW(1.8)}><circle cx="84.4" cy="94.2" r="1.9"/><circle cx="87.2" cy="95.2" r="1.9"/><circle cx="90" cy="94.2" r="1.9"/></g><ellipse cx="87.2" cy="87.4" rx="5.2" ry="7.4" fill="#6A7C88"/><ellipse cx="87.2" cy="87.4" rx="5.2" ry="7.4" fill="none" ${O}/></g>`, pivot: [80.2, 80.4]},
           head: `${RG("volcano-iggy-h", [[0, "#A9BCC4"], [0.55, "#73868F"], [1, "#4A5862"]], 0.42, 0.3, 0.85)}
             <g fill="url(#volcano-iggy-s)" ${OW(2.6)}><path d="M44 32Q41 19 46 14Q51 19 55 28Z"/><path d="M53 28Q55 11 60 7Q65 11 67 28Z"/><path d="M76 32Q79 19 74 14Q69 19 65 28Z"/></g>
             <path d="M60 24C79 24 92 36 92 51C92 66 79 73 60 73C41 73 28 66 28 51C28 36 41 24 60 24Z" fill="url(#volcano-iggy-h)" ${O}/>
@@ -52851,18 +52843,12 @@ var COMP_KIT = (() => {
           body: `${LG("japan-kuri-b", [[0, "#F2B060"], [1, "#D9853A"]])}
             <path d="M60 64C77 64 86 78 87.5 93C89 105 79 110.5 60 110.5C41 110.5 31 105 32.5 93C34 78 43 64 60 64Z" fill="url(#japan-kuri-b)" ${O}/>
             <path d="M60 74C67.5 74 70.5 84 70 96C69.5 104 50.5 104 50 96C49.5 84 52.5 74 60 74Z" fill="#FFF4E2"/>
-            <ellipse cx="39" cy="97" rx="10" ry="12" transform="rotate(-12 39 97)" fill="url(#japan-kuri-b)" ${O}/>
-            <ellipse cx="81" cy="97" rx="10" ry="12" transform="rotate(12 81 97)" fill="url(#japan-kuri-b)" ${O}/>
-            <ellipse cx="36" cy="107.4" rx="6.4" ry="4" fill="#FFF4E2" ${O}/><ellipse cx="84" cy="107.4" rx="6.4" ry="4" fill="#FFF4E2" ${O}/>
-            <path d="M34.4 109v-1.8M37.6 109v-1.8M82.4 109v-1.8M85.6 109v-1.8" stroke="#B0723A" stroke-width="1.2" stroke-linecap="round"/>
+            <ellipse cx="45" cy="107.6" rx="7.4" ry="4.3" fill="#FFF4E2" ${O}/><ellipse cx="75" cy="107.6" rx="7.4" ry="4.3" fill="#FFF4E2" ${O}/>
+            <path d="M43.2 109.6v-1.8M46.8 109.6v-1.8M73.2 109.6v-1.8M76.8 109.6v-1.8" stroke="#B0723A" stroke-width="1.2" stroke-linecap="round"/>
             <path d="M44 74L76 74L62.2 90.4Q60 92.6 57.8 90.4Z" fill="#D8402E" ${OW(2.4)}/><circle cx="52" cy="78.4" r="1.5" fill="#FFF4E2"/><circle cx="68" cy="78.4" r="1.5" fill="#FFF4E2"/><circle cx="60" cy="85" r="1.4" fill="#FFF4E2"/>
             <path d="M33.6 94Q34.4 90 37.6 88.4" fill="none" stroke="#FFE0B0" stroke-width="2.4" stroke-linecap="round"/>`,
-          armL: {svg: `${LG("japan-kuri-l", [[0, "#F0AC5C"], [1, "#DE8E40"]])}
-            <path d="M43.5 87C43.5 81.5 54.5 81.5 54.5 87L55 103H43Z" fill="url(#japan-kuri-l)" ${O}/>
-            <ellipse cx="49" cy="105.6" rx="6.6" ry="4.6" fill="#FFF4E2" ${O}/><path d="M47.2 107.4v-2M50.8 107.4v-2" stroke="#B0723A" stroke-width="1.3" stroke-linecap="round"/>`, pivot: [49, 85]},
-          armR: {svg: `${LG("japan-kuri-r", [[0, "#F0AC5C"], [1, "#DE8E40"]])}
-            <path d="M65.5 87C65.5 81.5 76.5 81.5 76.5 87L77 103H65Z" fill="url(#japan-kuri-r)" ${O}/>
-            <ellipse cx="71" cy="105.6" rx="6.6" ry="4.6" fill="#FFF4E2" ${O}/><path d="M69.2 107.4v-2M72.8 107.4v-2" stroke="#B0723A" stroke-width="1.3" stroke-linecap="round"/>`, pivot: [71, 85]},
+          armL: {svg: `<g transform="rotate(30 33.4 90.6)"><ellipse cx="33.4" cy="90.6" rx="5.2" ry="7.4" fill="#E8A052"/><path d="M28.7 93.8A5.2 7.4 0 0 0 38.1 93.8Q33.4 92.2 28.7 93.8Z" fill="#FFF4E2"/><ellipse cx="33.4" cy="90.6" rx="5.2" ry="7.4" fill="none" ${O}/></g>`, pivot: [40.4, 83.6]},
+          armR: {svg: `<g transform="rotate(-30 86.6 90.6)"><ellipse cx="86.6" cy="90.6" rx="5.2" ry="7.4" fill="#E8A052"/><path d="M81.9 93.8A5.2 7.4 0 0 0 91.3 93.8Q86.6 92.2 81.9 93.8Z" fill="#FFF4E2"/><ellipse cx="86.6" cy="90.6" rx="5.2" ry="7.4" fill="none" ${O}/></g>`, pivot: [79.6, 83.6]},
           earL: {svg: `<path d="M35 48C32 38 33 26 38 20C45 24 53 32 56 38Z" fill="#E39A4C" ${O}/><path d="M38.6 42C37 35 38 29 40 26C44 29 48 33 50 37Z" fill="#FFD9C2"/>`, pivot: [44, 42]},
           earR: {svg: `<path d="M85 48C88 38 87 26 82 20C75 24 67 32 64 38Z" fill="#E39A4C" ${O}/><path d="M81.4 42C83 35 82 29 80 26C76 29 72 33 70 37Z" fill="#FFD9C2"/>`, pivot: [76, 42]},
           head: `${RG("japan-kuri-h", [[0, "#F8BE72"], [0.7, "#EBA052"], [1, "#D6853A"]], 0.42, 0.32, 0.8)}
@@ -52875,7 +52861,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 54, r: 4.4, style: "dot", color: "#2B2233"},
         mouth: {x: 60, y: 68, w: 3.2, color: "#2B2233", style: "cat"},
         cheeks: {lx: 41, rx: 79, y: 63, w: 4.4, h: 2.6, color: "#FF9A9A"},
-        anchors: {top: [60, 32, 0.95], neck: [60, 80, 1], chest: [60, 85, 0.5], back: [84, 86, 0.8], hands: [60, 92, 0.72]},
+        anchors: {top: [60, 32, 0.95], neck: [60, 80, 1], chest: [60, 85, 0.5], back: [84, 86, 0.8], hands: [60, 100, 0.84]},
         lines: {
           tap: ["Woof! Your deadlines are safe with me!", "Tail curled up tight, ready to help!", "I sniffed out your next task. Let's go!", "Shiba smile for you! You've got this!", "Big ears, big heart, big cheers!", "I'll keep watch while you study!", "One task at a time, like one treat at a time!", "You make my tail spin in circles!"],
           pet: ["Hehe! Right behind the ears, please!", "Aww! My tail is wagging so fast!"],
@@ -53033,14 +53019,14 @@ var COMP_KIT = (() => {
             <path d="M80 70Q84 66 88 69Q91 64 95 68Q99 64 102 69Q105 66 110 69L112 40L78 40Z" fill="#4A3530" clip-path="url(#morocco-fenn-tc)"/>
             <path d="M98 95Q105.5 87 104 74" fill="none" stroke="#FFF1DA" stroke-width="2.8" stroke-linecap="round"/>
             <path d="${FENN_TAIL}" fill="none" ${O}/>`, pivot: [78, 100]},
-          feet: `<ellipse cx="34.5" cy="107.4" rx="8.4" ry="4.6" fill="#F3D3A4" ${O}/><ellipse cx="85.5" cy="107.4" rx="8.4" ry="4.6" fill="#F3D3A4" ${O}/>`,
+          feet: `<ellipse cx="45" cy="108" rx="8" ry="4.6" fill="#F3D3A4" ${O}/><ellipse cx="75" cy="108" rx="8" ry="4.6" fill="#F3D3A4" ${O}/>`,
           body: `${LG("morocco-fenn-b", [[0, "#F8E0B6"], [1, "#E2AE72"]])}
             <path d="M60 71C75 71 82 83 84.5 95C86.5 105 81 110.5 72 110.5H48C39 110.5 33.5 105 35.5 95C38 83 45 71 60 71Z" fill="url(#morocco-fenn-b)" ${O}/>
             <path d="M48 80Q60 86 72 80C74 91 69 101 60 103C51 101 46 91 48 80Z" fill="#FFF5E4"/>
             ${LINE("M44 78Q60 95 76 78", "#C8642E", 3.4)}
             <path d="M60 88.6L63.4 92.6L60 96.6L56.6 92.6Z" fill="#F2C24E" ${OW(1.8)}/><circle cx="59" cy="91.5" r=".9" fill="#fff"/>`,
-          armL: {svg: `${LG("morocco-fenn-l", [[0, "#F6D8AA"], [1, "#EBC28C"]])}<path d="M41.6 92Q41.6 87.6 47 87.6Q52.4 87.6 52.4 92L52.6 103Q55 104.2 55 106.6Q55 110.4 47 110.4Q39 110.4 39 106.6Q39 104.2 41.4 103Z" fill="url(#morocco-fenn-l)" ${O}/><path d="M44.6 106.8v2.4M49.4 106.8v2.4" stroke="#C98E52" stroke-width="1.4" stroke-linecap="round"/>`, pivot: [47, 92]},
-          armR: {svg: `<path d="M78.4 92Q78.4 87.6 73 87.6Q67.6 87.6 67.6 92L67.4 103Q65 104.2 65 106.6Q65 110.4 73 110.4Q81 110.4 81 106.6Q81 104.2 78.6 103Z" fill="url(#morocco-fenn-l)" ${O}/><path d="M70.6 106.8v2.4M75.4 106.8v2.4" stroke="#C98E52" stroke-width="1.4" stroke-linecap="round"/>`, pivot: [73, 92]},
+          armL: {svg: `${LG("morocco-fenn-l", [[0, "#F6D8AA"], [1, "#EBC28C"]])}<g transform="rotate(30 36.6 91)"><ellipse cx="36.6" cy="91" rx="5" ry="7.2" fill="url(#morocco-fenn-l)"/><path d="M32.1 94.2A5 7.2 0 0 0 41.1 94.2Q36.6 92.6 32.1 94.2Z" fill="#FFF5E4"/><ellipse cx="36.6" cy="91" rx="5" ry="7.2" fill="none" ${O}/></g>`, pivot: [43.6, 84]},
+          armR: {svg: `<g transform="rotate(-30 83.4 91)"><ellipse cx="83.4" cy="91" rx="5" ry="7.2" fill="url(#morocco-fenn-l)"/><path d="M78.9 94.2A5 7.2 0 0 0 87.9 94.2Q83.4 92.6 78.9 94.2Z" fill="#FFF5E4"/><ellipse cx="83.4" cy="91" rx="5" ry="7.2" fill="none" ${O}/></g>`, pivot: [76.4, 84]},
           earL: {svg: `${LG("morocco-fenn-e", [[0, "#E9B77C"], [1, "#F4D3A2"]], 0, 0, 1, 1)}${LG("morocco-fenn-ei", [[0, "#F2A99A"], [0.55, "#FAD3C4"], [1, "#FFF3E2"]], 0, 0, 1, 1)}${FENN_EAR}`, pivot: [46, 47]},
           earR: {svg: `<g transform="matrix(-1 0 0 1 120 0)">${FENN_EAR}</g>`, pivot: [74, 47]},
           head: `${RG("morocco-fenn-h", [[0, "#FDEACB"], [0.65, "#F4D3A2"], [1, "#E5B47A"]], 0.42, 0.3, 0.8)}<defs><clipPath id="morocco-fenn-hc"><path d="${FENN_HEAD}"/></clipPath></defs>
@@ -53053,7 +53039,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 47.5, rx: 72.5, y: 59.5, r: 5, style: "round", color: "#2A2026"},
         mouth: {x: 60, y: 74.6, w: 2.6, color: "#2A2026", style: "cat"},
         cheeks: {lx: 40.5, rx: 79.5, y: 68, w: 4, h: 2.4, color: "#FFA2A2"},
-        anchors: {top: [60, 40, 0.9], neck: [60, 81, 1], chest: [60, 94, 0.6], back: [82, 90, 0.8], hands: [60, 99, 0.72]},
+        anchors: {top: [60, 40, 0.9], neck: [60, 81, 1], chest: [60, 94, 0.6], back: [82, 90, 0.8], hands: [60, 100, 0.84]},
         lines: {
           tap: ["My ears heard you studying from the desert!", "Big ears, big plans, little paws. Let's go!", "I hear a deadline... and you're way ahead of it!", "Desert foxes keep cool. So can you!", "Every grain of sand adds up to a dune!", "Listen closely: you're doing great!", "I dug a cozy spot right next to your notes.", "Sharp ears, sharp mind. That's you!"],
           pet: ["Hehe! Scratch behind the big ears!", "Aww, my tail is wagging all by itself!"],
@@ -53395,8 +53381,6 @@ var COMP_KIT = (() => {
             return `<path d="M${m(37)} 62C${m(31.6)} 48 ${m(31)} 32 ${m(34.6)} 21.4C${m(35.4)} 19 ${m(37.8)} 18.2 ${m(39.8)} 19.6C${m(46.4)} 24.2 ${m(52.4)} 30 ${m(57.4)} 36.4Z" fill="${fill}" ${O}/>
               <path d="M${m(37.4)} 46C${m(36.6)} 38 ${m(37)} 30.6 ${m(38.6)} 25.4C${m(43)} 28.6 ${m(47.4)} 33 ${m(50.6)} 37.6Z" fill="url(#greece-kiki-in)"/>`;
           };
-          const leg = x => `<path d="M${f1(x - 5.8)} 95C${f1(x - 5.8)} 91.6 ${f1(x - 3.4)} 89.6 ${x} 89.6C${f1(x + 3.4)} 89.6 ${f1(x + 5.8)} 91.6 ${f1(x + 5.8)} 95V100.6C${f1(x + 6.8)} 102.6 ${f1(x + 7)} 109.8 ${x} 109.8C${f1(x - 7)} 109.8 ${f1(x - 6.8)} 102.6 ${f1(x - 5.8)} 100.6Z" fill="url(#greece-kiki-leg)" ${O}/>
-            <path d="M${f1(x - 1.9)} 109V106.2M${f1(x + 1.9)} 109V106.2" stroke="#CDB8A4" stroke-width="1.4" stroke-linecap="round"/>`;
           return {
             tail: {svg: `<path d="${TAIL}" fill="none" stroke="${INK}" stroke-width="12.6" stroke-linecap="round"/>
               <path d="${TAIL}" fill="none" stroke="#F0A65E" stroke-width="6.6" stroke-linecap="round"/>
@@ -53417,10 +53401,10 @@ var COMP_KIT = (() => {
               <path d="${BODY}" fill="none" ${O}/>
               ${RG("greece-kiki-bell", [[0, "#FFF2B8"], [0.5, "#F4C64A"], [1, "#D49A22"]], 0.38, 0.32, 0.72)}
               <circle cx="60" cy="89.4" r="3.8" fill="url(#greece-kiki-bell)" ${OW(1.6)}/><path d="M58.4 90.6h3.2" stroke="#8A5E14" stroke-width="1.2" stroke-linecap="round"/>
-              <ellipse cx="38.6" cy="108.2" rx="6.8" ry="3.9" fill="#FFFDF8" ${O}/><ellipse cx="81.4" cy="108.2" rx="6.8" ry="3.9" fill="#FFFDF8" ${O}/>
-              <path d="M36.4 110.6V108.6M40.8 110.6V108.6M79.2 110.6V108.6M83.6 110.6V108.6" stroke="#CDB8A4" stroke-width="1.4" stroke-linecap="round"/>`,
-            armL: {svg: `${LG("greece-kiki-leg", [[0, "#FFF8EF"], [1, "#FFFFFF"]])}${leg(48.5)}`, pivot: [48.5, 93]},
-            armR: {svg: leg(71.5), pivot: [71.5, 93]},
+              <ellipse cx="45" cy="108.2" rx="7.2" ry="4.1" fill="#FFFDF8" ${O}/><ellipse cx="75" cy="108.2" rx="7.2" ry="4.1" fill="#FFFDF8" ${O}/>
+              <path d="M42.8 110.6V108.6M47.2 110.6V108.6M72.8 110.6V108.6M77.2 110.6V108.6" stroke="#CDB8A4" stroke-width="1.4" stroke-linecap="round"/>`,
+            armL: {svg: `<g transform="rotate(30 36.4 90.4)"><ellipse cx="36.4" cy="90.4" rx="5" ry="7.2" fill="#FFFDF8"/><path d="M31.9 93.6A5 7.2 0 0 0 40.9 93.6Q36.4 92 31.9 93.6Z" fill="#FFE6EC" opacity="0.9"/><ellipse cx="36.4" cy="90.4" rx="5" ry="7.2" fill="none" ${O}/></g>`, pivot: [43.4, 83.4]},
+            armR: {svg: `<g transform="rotate(-30 83.6 90.4)"><ellipse cx="83.6" cy="90.4" rx="5" ry="7.2" fill="#FFFDF8"/><path d="M79.1 93.6A5 7.2 0 0 0 88.1 93.6Q83.6 92 79.1 93.6Z" fill="#FFE6EC" opacity="0.9"/><ellipse cx="83.6" cy="90.4" rx="5" ry="7.2" fill="none" ${O}/></g>`, pivot: [76.6, 83.4]},
             earL: {svg: `${LG("greece-kiki-in", [[0, "#FFC4D2"], [1, "#FF9DB4"]])}${ear("#FFFDF8", 0)}`, pivot: [44, 42]},
             earR: {svg: `${LG("greece-kiki-er", [[0, "#F5B36E"], [1, "#E08C45"]])}${ear("url(#greece-kiki-er)", 1)}`, pivot: [76, 42]},
             head: `${RG("greece-kiki-h", [[0, "#FFFFFF"], [0.66, "#FFF9F1"], [1, "#EBDCCB"]], 0.42, 0.36, 0.72)}
@@ -53638,18 +53622,17 @@ var COMP_KIT = (() => {
           tail: {svg: `${LINE("M78 106Q97 108.5 101 95Q103.5 84.5 97 79Q94.5 77 91.5 77.6", "#D3D6DC", 5.4)}
             <path d="M84 107Q97 108.5 101 95Q103.5 84.5 97 79" fill="none" stroke="#5E626E" stroke-width="5.4" stroke-dasharray="2.4 5"/>
             <path d="M96.4 78.6Q94.5 77 91.5 77.6" fill="none" stroke="#4A4E58" stroke-width="5.4" stroke-linecap="round"/>`, pivot: [82, 104]},
-          feet: `<ellipse cx="40" cy="108.6" rx="5.6" ry="3.4" fill="#E6E8EC" ${O}/><ellipse cx="80" cy="108.6" rx="5.6" ry="3.4" fill="#E6E8EC" ${O}/>`,
+          feet: `<ellipse cx="45" cy="108" rx="8" ry="4.6" fill="#F7F8FA" ${O}/><ellipse cx="75" cy="108" rx="8" ry="4.6" fill="#F7F8FA" ${O}/>`,
           body: `${LG("egypt-miu-b", [[0, "#F3F4F6"], [1, "#BCC0C8"]])}
             <path d="M60 70C76 70 85 83 87 95C88.5 105.5 82 110.5 72 110.5H48C38 110.5 31.5 105.5 33 95C35 83 44 70 60 70Z" fill="url(#egypt-miu-b)" ${O}/>
-            <path d="M60 78C68 78 73.4 88 73.4 106H46.6C46.6 88 52 78 60 78Z" fill="#FFFFFF"/>
+            <path d="M60 78C68 78 73.4 88 73.4 98C73.4 104 67.4 107.4 60 107.4C52.6 107.4 46.6 104 46.6 98C46.6 88 52 78 60 78Z" fill="#FFFFFF"/>
             ${[[43, 83.6, 2.2, 1.7, -20], [38.4, 91.4, 2.6, 2, 10], [39.6, 101.4, 2.4, 1.9, 15]].map(([x, y, rx, ry, r]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" transform="rotate(${r} ${x} ${y})" fill="#5E626E"/><ellipse cx="${f1(120 - x)}" cy="${y}" rx="${rx}" ry="${ry}" transform="rotate(${-r} ${f1(120 - x)} ${y})" fill="#5E626E"/>`).join("")}
             <path d="M36.6 99Q38.6 89 46.4 89.6M83.4 99Q81.4 89 73.6 89.6" fill="none" stroke="#9AA0AA" stroke-width="2" stroke-linecap="round"/>
-            <path d="M47 92Q46.4 99 46.8 105M73 92Q73.6 99 73.2 105M60 96V105" fill="none" stroke="#2B2233" stroke-width="2.2" stroke-linecap="round"/>
-            <ellipse cx="52.6" cy="107.4" rx="7" ry="4" fill="#F7F8FA" ${O}/><ellipse cx="67.4" cy="107.4" rx="7" ry="4" fill="#F7F8FA" ${O}/>
-            <path d="M51 106v2.2M54.2 106v2.2M65.8 106v2.2M69 106v2.2" stroke="#A9AEB8" stroke-width="1.2" stroke-linecap="round"/>
             <path d="M38 73Q60 101 82 73L79.5 71Q60 91 40.5 71Z" fill="#2E5FA8" ${OW(2.2)}/>
             <path d="M39.6 75.4Q60 97.4 80.4 75.4" fill="none" stroke="#F2C24A" stroke-width="2.4" stroke-linecap="round"/>
             <path d="M60 86.4Q64.2 90.6 60 95.4Q55.8 90.6 60 86.4Z" fill="#F2C24A" ${OW(1.8)}/>`,
+          armL: {svg: `<g transform="rotate(30 34.6 91)"><ellipse cx="34.6" cy="91" rx="5" ry="7.2" fill="#E6E8EC"/><path d="M30.1 94.2A5 7.2 0 0 0 39.1 94.2Q34.6 92.6 30.1 94.2Z" fill="#FFFFFF"/><ellipse cx="34.6" cy="91" rx="5" ry="7.2" fill="none" ${O}/></g>`, pivot: [41.6, 84]},
+          armR: {svg: `<g transform="rotate(-30 85.4 91)"><ellipse cx="85.4" cy="91" rx="5" ry="7.2" fill="#E6E8EC"/><path d="M80.9 94.2A5 7.2 0 0 0 89.9 94.2Q85.4 92.6 80.9 94.2Z" fill="#FFFFFF"/><ellipse cx="85.4" cy="91" rx="5" ry="7.2" fill="none" ${O}/></g>`, pivot: [78.4, 84]},
           earL: {svg: `<path d="M35 47Q30 28 31.5 18Q33.5 14.5 37 16.5Q47 24 56 34Z" fill="#D9DBE0" ${O}/><path d="M38.4 41Q35.4 29 36.4 21.6Q43.6 27.4 49.6 34Z" fill="#F7BDC8"/>`, pivot: [44, 40]},
           earR: {svg: `<path d="M85 47Q90 28 88.5 18Q86.5 14.5 83 16.5Q73 24 64 34Z" fill="#D9DBE0" ${O}/><path d="M81.6 41Q84.6 29 83.6 21.6Q76.4 27.4 70.4 34Z" fill="#F7BDC8"/>`, pivot: [76, 40]},
           head: `${RG("egypt-miu-h", [[0, "#FFFFFF"], [0.68, "#EBECEF"], [1, "#C6CAD1"]], 0.42, 0.32, 0.8)}
@@ -53764,8 +53747,8 @@ var COMP_KIT = (() => {
             <ellipse cx="60" cy="94" rx="17" ry="14" fill="#E2C098"/>
             <ellipse cx="45" cy="107.4" rx="9.4" ry="5" fill="#6A4430" ${O}/><ellipse cx="75" cy="107.4" rx="9.4" ry="5" fill="#6A4430" ${O}/>
             <path d="M40.6 105.6v2.6M45 105.2v3M49.4 105.6v2.6M70.6 105.6v2.6M75 105.2v3M79.4 105.6v2.6" stroke="#A47A5E" stroke-width="1.5" stroke-linecap="round"/>`,
-          armL: {svg: `<ellipse cx="47.5" cy="87" rx="6.4" ry="8.6" transform="rotate(-28 47.5 87)" fill="#5E3C28" ${O}/><path d="M48.8 93.8l1.2 -1.4M51.6 92l1.4 -1.2" stroke="#C9A07A" stroke-width="1.4" stroke-linecap="round"/>`, pivot: [43, 80]},
-          armR: {svg: `<ellipse cx="72.5" cy="87" rx="6.4" ry="8.6" transform="rotate(28 72.5 87)" fill="#5E3C28" ${O}/><path d="M71.2 93.8l-1.2 -1.4M68.4 92l-1.4 -1.2" stroke="#C9A07A" stroke-width="1.4" stroke-linecap="round"/>`, pivot: [77, 80]},
+          armL: {svg: `<g transform="rotate(30 31 89)"><ellipse cx="31" cy="89" rx="5.2" ry="7.4" fill="#6A4430"/><ellipse cx="31" cy="89" rx="5.2" ry="7.4" fill="none" ${O}/><path d="M29.2 94.8v-2M32.8 94.8v-2" stroke="#C9A07A" stroke-width="1.2" stroke-linecap="round"/></g>`, pivot: [38, 82]},
+          armR: {svg: `<g transform="rotate(-30 89 89)"><ellipse cx="89" cy="89" rx="5.2" ry="7.4" fill="#6A4430"/><ellipse cx="89" cy="89" rx="5.2" ry="7.4" fill="none" ${O}/><path d="M87.2 94.8v-2M90.8 94.8v-2" stroke="#C9A07A" stroke-width="1.2" stroke-linecap="round"/></g>`, pivot: [82, 82]},
           earL: {svg: `<circle cx="39.5" cy="30.5" r="7.4" fill="#865636" ${O}/><circle cx="40.6" cy="31.6" r="3.6" fill="#5A3A26"/>`, pivot: [44, 35]},
           earR: {svg: `<circle cx="80.5" cy="30.5" r="7.4" fill="#865636" ${O}/><circle cx="79.4" cy="31.6" r="3.6" fill="#5A3A26"/>`, pivot: [76, 35]},
           head: `${RG("canada-bucky-h", [[0, "#C9946A"], [0.6, "#A06C44"], [1, "#7C4E2E"]], 0.4, 0.3, 0.8)}
@@ -54227,8 +54210,8 @@ var COMP_KIT = (() => {
             <g clip-path="url(#brazil-mico-bc)"><ellipse cx="60" cy="96" rx="13" ry="16" fill="#FFDF9C"/></g>
             <path d="${MICO_BODY}" fill="none" ${O}/>
             <ellipse cx="47" cy="106" rx="7.4" ry="4.4" fill="#7A4A34" ${O}/><ellipse cx="73" cy="106" rx="7.4" ry="4.4" fill="#7A4A34" ${O}/>`,
-          armL: {svg: `${LG("brazil-mico-a", [[0, "#F7A838"], [1, "#E08420"]])}<path d="M42.5 78C37.5 84 38 92 44 95.5C48 97.6 52.6 95.4 52 91.4C49.6 88.6 48 84.4 48.4 79.6Z" fill="url(#brazil-mico-a)" ${O}/><ellipse cx="51.6" cy="93.4" rx="4.6" ry="4" transform="rotate(-20 51.6 93.4)" fill="#7A4A34" ${O}/>`, pivot: [45, 81]},
-          armR: {svg: `<path d="M77.5 78C82.5 84 82 92 76 95.5C72 97.6 67.4 95.4 68 91.4C70.4 88.6 72 84.4 71.6 79.6Z" fill="url(#brazil-mico-a)" ${O}/><ellipse cx="68.4" cy="93.4" rx="4.6" ry="4" transform="rotate(20 68.4 93.4)" fill="#7A4A34" ${O}/>`, pivot: [75, 81]},
+          armL: {svg: `${LG("brazil-mico-a", [[0, "#F7A838"], [1, "#E08420"]])}<g transform="rotate(30 36.4 90.4)"><ellipse cx="36.4" cy="90.4" rx="5" ry="7.2" fill="url(#brazil-mico-a)"/><path d="M31.7 93A5 7.2 0 0 0 41.1 93Q36.4 91.4 31.7 93Z" fill="#7A4A34"/><ellipse cx="36.4" cy="90.4" rx="5" ry="7.2" fill="none" ${O}/></g>`, pivot: [43.4, 83.4]},
+          armR: {svg: `<g transform="rotate(-30 83.6 90.4)"><ellipse cx="83.6" cy="90.4" rx="5" ry="7.2" fill="url(#brazil-mico-a)"/><path d="M78.9 93A5 7.2 0 0 0 88.3 93Q83.6 91.4 78.9 93Z" fill="#7A4A34"/><ellipse cx="83.6" cy="90.4" rx="5" ry="7.2" fill="none" ${O}/></g>`, pivot: [76.6, 83.4]},
           head: `${RG("brazil-mico-m", [[0, "#FFD983"], [0.55, "#F9AE40"], [1, "#E58A22"]], 0.42, 0.34, 0.75)}
             <path d="${puff(60, 46, 30, 14, 1.2)}" fill="url(#brazil-mico-m)" ${O}/>
             <path d="${puff(60, 48, 21, 11, 1.25)}" fill="#FFC85E"/>
