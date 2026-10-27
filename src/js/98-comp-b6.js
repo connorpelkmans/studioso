@@ -3,6 +3,8 @@
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
+  // The pale chevron and midrib on a clover leaflet (in LEAF's coordinates)
+  const VEIN = "M-9 -20.5Q-4 -15.5 0 -13Q4 -15.5 9 -20.5M0 -5V-24";
   const f1 = v => Math.round(v * 10) / 10;
   // Points of a five-pointed star (outer radius R, inner radius r), top point up
   const starPts = (cx, cy, R, r) => Array.from({length: 10}, (_, i) => { const a = -Math.PI / 2 + i * Math.PI / 5, d = i % 2 ? r : R; return f1(cx + d * Math.cos(a)) + "," + f1(cy + d * Math.sin(a)); }).join(" ");
@@ -17,18 +19,19 @@
         bio: "A lucky little shamrock who floats along on three soft leaves.",
         idle: ["wingFlutter", "sparkle", "spin"], cheer: "spin",
         parts: {
-          tail: {svg: `${LINE("M60 99C60 104 63 107 68 106.5", "#3E9E5E", 3)}`, pivot: [60, 99]},
-          wingL: {svg: `${LG("stpatricks-shamrock-w", [[0, "#9BE8AE"], [0.55, "#4CC07A"], [1, "#2A9453"]])}<g transform="translate(53 84) rotate(-104) scale(1.12)"><path d="${LEAF}" fill="url(#stpatricks-shamrock-w)" ${O}/><path d="M0 -6V-21" stroke="#D4F5DC" stroke-width="1.8" stroke-linecap="round" opacity=".9"/></g>`, pivot: [52, 82]},
-          wingR: {svg: `<g transform="translate(67 84) rotate(104) scale(1.12)"><path d="${LEAF}" fill="url(#stpatricks-shamrock-w)" ${O}/><path d="M0 -6V-21" stroke="#D4F5DC" stroke-width="1.8" stroke-linecap="round" opacity=".9"/></g>`, pivot: [68, 82]},
-          body: `${RG("stpatricks-shamrock-g", [[0, "#C6F4D0"], [0.5, "#6ED48C"], [1, "#2E9E5B"]], 0.45, 0.38, 0.72)}
-            <path d="M58 100.3C50 95 32.5 84 31 66C29.5 52 38 42 48 42C54 42 58 45 60 49C62 45 66 42 72 42C82 42 90.5 52 89 66C87.5 84 70 95 62 100.3Q60 101.6 58 100.3Z" fill="url(#stpatricks-shamrock-g)" ${O}/>
-            <path d="M37.5 62Q38 51 46 47" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" opacity=".9"/>
-            <path d="M50 91Q60 96.5 70 91" fill="none" stroke="#2A9453" stroke-width="2.2" stroke-linecap="round" opacity=".5"/>`
+          back: `${LG("stpatricks-shamrock-w", [[0, "#A6EDB5"], [0.5, "#55C77F"], [1, "#2E9A57"]])}
+            <g transform="translate(60 52) scale(1.36 1.22)"><path d="${LEAF}" fill="url(#stpatricks-shamrock-w)" ${OW(2.3)}/><path d="${VEIN}" fill="none" stroke="#DDF8E3" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></g>`,
+          tail: {svg: `${LINE("M60 78C60 90 62 99 69 106", "#3E9E5E", 3.2)}`, pivot: [60, 80]},
+          wingL: {svg: `<g transform="translate(50.5 68.5) rotate(-120) scale(1.36 1.22)"><path d="${LEAF}" fill="url(#stpatricks-shamrock-w)" ${OW(2.3)}/><path d="${VEIN}" fill="none" stroke="#DDF8E3" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></g>`, pivot: [51, 68]},
+          wingR: {svg: `<g transform="translate(69.5 68.5) rotate(120) scale(1.36 1.22)"><path d="${LEAF}" fill="url(#stpatricks-shamrock-w)" ${OW(2.3)}/><path d="${VEIN}" fill="none" stroke="#DDF8E3" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></g>`, pivot: [69, 68]},
+          body: `${RG("stpatricks-shamrock-g", [[0, "#DDF9E2"], [0.6, "#90DEA5"], [1, "#52B975"]], 0.42, 0.36, 0.7)}
+            <circle cx="60" cy="63" r="19.5" fill="url(#stpatricks-shamrock-g)" ${O}/>
+            <path d="M45.5 60Q46 51.5 52.5 48" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>`
         },
-        eyes: {lx: 50, rx: 70, y: 66, r: 5, style: "dot", color: "#1C3324"},
-        mouth: {x: 60, y: 75, w: 3.2, color: "#1C3324"},
-        cheeks: {lx: 42, rx: 78, y: 74, w: 4.6, h: 2.8, color: "#FF9FB0"},
-        anchors: {top: [60, 46, 0.9], neck: [60, 86, 0.95], chest: [70, 88, 0.66], back: [84, 60, 0.8], hands: [60, 88, 0.85]},
+        eyes: {lx: 52.5, rx: 67.5, y: 62, r: 4.6, style: "sparkle", color: "#1C3324"},
+        mouth: {x: 60, y: 69.5, w: 3, color: "#1C3324"},
+        cheeks: {lx: 47, rx: 73, y: 68.5, w: 3.8, h: 2.4, color: "#FF8FA8"},
+        anchors: {top: [60, 22, 0.72], neck: [60, 82, 0.75], chest: [69, 76, 0.5], back: [80, 50, 0.8], hands: [60, 84, 0.8]},
         lines: {
           tap: ["Hi! So happy to see you!", "Lucky me, you're here!", "You make your own luck!", "Cheering you on, leaf by leaf!", "Green light! Keep going!", "A little extra luck for you!", "Look at you, showing up again!"],
           pet: ["Hehe! Lucky tickles!", "My leaves are all a-flutter!"],
