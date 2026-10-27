@@ -52837,6 +52837,12 @@ var COMP_KIT = (() => {
   const star = (cx, cy, R, r, n, rot = 0) => { let d = ""; for (let i = 0; i < n * 2; i++) { const a = rot - Math.PI / 2 + i * Math.PI / n, q = i % 2 ? r : R; d += (i ? "L" : "M") + f1(cx + q * Math.cos(a)) + " " + f1(cy + q * Math.sin(a)); } return d + "Z"; };
   const blossom = (x, y, r, c = "#FFFFFF") => `${ring(x, y, 5, r * 0.62, (px, py) => `<circle cx="${px}" cy="${py}" r="${f1(r * 0.55)}" fill="${c}" ${OW(1.1)}/>`)}<circle cx="${x}" cy="${y}" r="${f1(r * 0.36)}" fill="#F6D24A"/>`;
 
+  // Zaki the fennec: shared outlines
+  const FENN_HEAD = "M60 38C78 38 88 48 88 60C88 63.5 87.2 66.6 85.8 69.4L90.5 73.2C87 75.4 83 76.4 79.4 76.6C74.4 80.8 67.4 82.8 60 82.8C52.6 82.8 45.6 80.8 40.6 76.6C37 76.4 33 75.4 29.5 73.2L34.2 69.4C32.8 66.6 32 63.5 32 60C32 48 42 38 60 38Z";
+  const FENN_TAIL = "M72 106C90 111 108 102 109.5 85C110.5 72 106 59 97.5 53C90.5 48 82 52.5 84 60C85.6 66 86.5 74 78 86L74 96Z";
+  const FENN_EAR = `<path d="M37 59C29 46 19 26 16.5 13C15.8 8.6 18.6 6.4 22.6 8C35 14 50 27 59 42Z" fill="url(#morocco-fenn-e)" ${O}/>
+    <path d="M40 55C34 44 27 30 23.4 17C33 22.6 45 32.6 53 44.4Z" fill="url(#morocco-fenn-ei)"/>
+    <path d="M39.4 55C37.6 50 35.4 46 33 42C36 42.6 37.4 41 37.2 38.6C39.8 40.4 41.8 39.6 42.4 37.4C44 39.8 46.2 40.2 47.8 38.8C48.6 41.6 50.6 43.2 53 44.4Z" fill="#FFF8EE"/>`;
   COMP_DATA.push({
     theme: "morocco",
     companions: [
@@ -52884,31 +52890,34 @@ var COMP_KIT = (() => {
         id: "morocco-fenn", name: "Zaki", kind: "Riad Fennec Kit", pose: "sit", sleepy: true, wearColor: "#C8642E",
         bio: "A fennec fox kit from the riad whose giant ears hear every deadline coming.",
         idle: ["earTwitch", "tailSwish", "headTilt"], cheer: "hop",
-        neck: [60, 76],
+        neck: [60, 78],
         parts: {
-          tail: {svg: `${LG("morocco-fenn-t", [[0, "#F4D6A8"], [1, "#D8A266"]], 0, 1, 1, 0)}
-            <path d="M76 104C100 108 116 90 112 66C110 55 95 52 92 63C90 78 86 86 72 88Z" fill="url(#morocco-fenn-t)" ${O}/>
-            <path d="M112 66C110 55 95 52 92 63C97 67 106 68 112 66Z" fill="#3A2A26"/><path d="M112 66C110 55 95 52 92 63" fill="none" ${O}/>
-            <path d="M86 98Q100 92 104 76" fill="none" stroke="#FFF2DC" stroke-width="2.4" stroke-linecap="round" opacity=".8"/>`, pivot: [80, 98]},
-          feet: `<ellipse cx="45" cy="108" rx="9.6" ry="4.8" fill="#F8E6C8" ${O}/><ellipse cx="75" cy="108" rx="9.6" ry="4.8" fill="#F8E6C8" ${O}/>
-            <path d="M41 106.6v2.6M45 106.4v2.8M71 106.4v2.8M75 106.6v2.6" stroke="#C8A27A" stroke-width="1.2" stroke-linecap="round"/>`,
-          body: `${LG("morocco-fenn-b", [[0, "#F6DCB0"], [1, "#E2B47A"]])}
-            <path d="M60 72C80 72 86 88 86 98C86 107 78 110.5 60 110.5C42 110.5 34 107 34 98C34 88 40 72 60 72Z" fill="url(#morocco-fenn-b)" ${O}/>
-            <path d="M60 78C70 78 74 88 72 98C70 104 50 104 48 98C46 88 50 78 60 78Z" fill="#FFF6E8"/>
-            <path d="M46 84Q60 90 74 84" fill="none" stroke="#C8642E" stroke-width="3.6" stroke-linecap="round"/><path d="${star(60, 90, 4.2, 2, 8)}" fill="#2C5FA8" ${OW(1.3)}/>`,
-          earL: {svg: `${LG("morocco-fenn-e", [[0, "#F2CE9C"], [1, "#E4B27A"]])}<path d="M44 44C32 32 20 10 25 3C34 2 52 22 55 39Z" fill="url(#morocco-fenn-e)" ${O}/><path d="M44 37C36 27 29 14 30.5 9.6C36 11 46 24 49 34Z" fill="#FFC6C2"/><path d="M38 25Q40 28 41 31M34 18Q36 21 37 24" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".8"/>`, pivot: [49, 41]},
-          earR: {svg: `<path d="M76 44C88 32 100 10 95 3C86 2 68 22 65 39Z" fill="url(#morocco-fenn-e)" ${O}/><path d="M76 37C84 27 91 14 89.5 9.6C84 11 74 24 71 34Z" fill="#FFC6C2"/><path d="M82 25Q80 28 79 31M86 18Q84 21 83 24" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".8"/>`, pivot: [71, 41]},
-          head: `${RG("morocco-fenn-h", [[0, "#FCE8C6"], [0.7, "#F2D2A2"], [1, "#E2B47A"]], 0.42, 0.32, 0.78)}
-            <path d="M60 36C80 36 87 49 87 60C87 72 75 81 60 81C45 81 33 72 33 60C33 49 40 36 60 36Z" fill="url(#morocco-fenn-h)" ${O}/>
-            <path d="M47 70C49 63 55 62 60 64C65 62 71 63 73 70C70 78 50 78 47 70Z" fill="#FFF8EC"/>
-            <path d="M40 48Q44 41 52 39" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
-            <path d="M44 54Q48 52 52 54M68 54Q72 52 76 54" fill="none" stroke="#C8925A" stroke-width="1.4" stroke-linecap="round" opacity=".7"/>`,
-          face: `<ellipse cx="60" cy="67" rx="3.6" ry="2.6" fill="#3A2A26"/><circle cx="59" cy="66.2" r=".9" fill="#fff"/>`
+          tail: {svg: `${LG("morocco-fenn-t", [[0, "#F8DDB2"], [1, "#DCA567"]], 0, 0, 1, 1)}<defs><clipPath id="morocco-fenn-tc"><path d="${FENN_TAIL}"/></clipPath></defs>
+            <path d="${FENN_TAIL}" fill="url(#morocco-fenn-t)"/>
+            <path d="M80 70Q84 66 88 69Q91 64 95 68Q99 64 102 69Q105 66 110 69L112 40L78 40Z" fill="#4A3530" clip-path="url(#morocco-fenn-tc)"/>
+            <path d="M98 95Q105.5 87 104 74" fill="none" stroke="#FFF1DA" stroke-width="2.8" stroke-linecap="round"/>
+            <path d="${FENN_TAIL}" fill="none" ${O}/>`, pivot: [78, 100]},
+          feet: `<ellipse cx="34.5" cy="107.4" rx="8.4" ry="4.6" fill="#F3D3A4" ${O}/><ellipse cx="85.5" cy="107.4" rx="8.4" ry="4.6" fill="#F3D3A4" ${O}/>`,
+          body: `${LG("morocco-fenn-b", [[0, "#F8E0B6"], [1, "#E2AE72"]])}
+            <path d="M60 71C75 71 82 83 84.5 95C86.5 105 81 110.5 72 110.5H48C39 110.5 33.5 105 35.5 95C38 83 45 71 60 71Z" fill="url(#morocco-fenn-b)" ${O}/>
+            <path d="M48 80Q60 86 72 80C74 91 69 101 60 103C51 101 46 91 48 80Z" fill="#FFF5E4"/>
+            ${LINE("M44 78Q60 95 76 78", "#C8642E", 3.4)}
+            <path d="M60 88.6L63.4 92.6L60 96.6L56.6 92.6Z" fill="#F2C24E" ${OW(1.8)}/><circle cx="59" cy="91.5" r=".9" fill="#fff"/>`,
+          armL: {svg: `${LG("morocco-fenn-l", [[0, "#F6D8AA"], [1, "#EBC28C"]])}<path d="M41.6 92Q41.6 87.6 47 87.6Q52.4 87.6 52.4 92L52.6 103Q55 104.2 55 106.6Q55 110.4 47 110.4Q39 110.4 39 106.6Q39 104.2 41.4 103Z" fill="url(#morocco-fenn-l)" ${O}/><path d="M44.6 106.8v2.4M49.4 106.8v2.4" stroke="#C98E52" stroke-width="1.4" stroke-linecap="round"/>`, pivot: [47, 92]},
+          armR: {svg: `<path d="M78.4 92Q78.4 87.6 73 87.6Q67.6 87.6 67.6 92L67.4 103Q65 104.2 65 106.6Q65 110.4 73 110.4Q81 110.4 81 106.6Q81 104.2 78.6 103Z" fill="url(#morocco-fenn-l)" ${O}/><path d="M70.6 106.8v2.4M75.4 106.8v2.4" stroke="#C98E52" stroke-width="1.4" stroke-linecap="round"/>`, pivot: [73, 92]},
+          earL: {svg: `${LG("morocco-fenn-e", [[0, "#E9B77C"], [1, "#F4D3A2"]], 0, 0, 1, 1)}${LG("morocco-fenn-ei", [[0, "#F2A99A"], [0.55, "#FAD3C4"], [1, "#FFF3E2"]], 0, 0, 1, 1)}${FENN_EAR}`, pivot: [46, 47]},
+          earR: {svg: `<g transform="matrix(-1 0 0 1 120 0)">${FENN_EAR}</g>`, pivot: [74, 47]},
+          head: `${RG("morocco-fenn-h", [[0, "#FDEACB"], [0.65, "#F4D3A2"], [1, "#E5B47A"]], 0.42, 0.3, 0.8)}<defs><clipPath id="morocco-fenn-hc"><path d="${FENN_HEAD}"/></clipPath></defs>
+            <path d="${FENN_HEAD}" fill="url(#morocco-fenn-h)"/>
+            <path d="M28 71C35 64 44 62 52 65.5C55 63 57.5 62.4 60 62.4C62.5 62.4 65 63 68 65.5C76 62 85 64 92 71L92 90L28 90Z" fill="#FFF7EA" clip-path="url(#morocco-fenn-hc)"/>
+            <path d="M40 51Q43 43.5 51 40.5" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/>
+            <path d="${FENN_HEAD}" fill="none" ${O}/>`,
+          face: `<path d="M55.2 67.2Q60 65.4 64.8 67.2Q64 71.4 60 72.4Q56 71.4 55.2 67.2Z" fill="#3A2A26" ${OW(1.2)}/><ellipse cx="58.4" cy="67.6" rx="1.4" ry=".8" fill="#fff"/>`
         },
-        eyes: {lx: 49, rx: 71, y: 60, r: 4.4, style: "round", color: "#2A2026"},
-        mouth: {x: 60, y: 72.5, w: 2.6, color: "#2A2026", style: "cat"},
-        cheeks: {lx: 42, rx: 78, y: 67, w: 3.6, h: 2.2, color: "#FFA2A2"},
-        anchors: {top: [60, 37, 0.9], neck: [60, 80, 1], chest: [60, 92, 0.6], back: [84, 90, 0.8], hands: [60, 100, 0.86]},
+        eyes: {lx: 47.5, rx: 72.5, y: 59.5, r: 5, style: "round", color: "#2A2026"},
+        mouth: {x: 60, y: 74.6, w: 2.6, color: "#2A2026", style: "cat"},
+        cheeks: {lx: 40.5, rx: 79.5, y: 68, w: 4, h: 2.4, color: "#FFA2A2"},
+        anchors: {top: [60, 40, 0.9], neck: [60, 81, 1], chest: [60, 94, 0.6], back: [82, 90, 0.8], hands: [60, 99, 0.72]},
         lines: {
           tap: ["My ears heard you studying from the desert!", "Big ears, big plans, little paws. Let's go!", "I hear a deadline... and you're way ahead of it!", "Desert foxes keep cool. So can you!", "Every grain of sand adds up to a dune!", "Listen closely: you're doing great!", "I dug a cozy spot right next to your notes.", "Sharp ears, sharp mind. That's you!"],
           pet: ["Hehe! Scratch behind the big ears!", "Aww, my tail is wagging all by itself!"],
