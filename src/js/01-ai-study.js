@@ -92,7 +92,7 @@ function weakSheet(deckIds){
     try {
       const r = await aiCall({task: "quiz", maxTokens: 24000, schema: QUIZ_SCHEMA, onStatus: m => { status.textContent = m; }, parts: [{text: `Concepts this student keeps missing:\n${material}\n\nStyle: ${home.aiStyle || "Clear, exam-style questions"}\nWrite ${n} new questions.`}],
         system: "You write targeted practice questions on a student's weak spots. Test the SAME underlying concepts as the missed items but with new wording, new scenarios and different angles (application, comparison, 'which is NOT', cause and effect), so the student must understand rather than recognize. Mix types: 'single' (usually 4 options), 'multiple' (select all that apply, 5 or 6 options, 2 or more correct), 'order' when there's a sequence, and 'short'. 'correct' holds zero-based option indexes; for 'order' the indexes in the right order. Every question gets a rationale and one short note per option in 'optionNotes', plus a 'topic'. Return JSON only."});
-      const qs = aiCleanQuestions(r.data.questions);
+      const qs = aiDropCopiedQs(aiCleanQuestions(r.data.questions), aiCopiedCardsIndex(w.cards.map(x => x.c)));
       if (!qs.length) throw aiErr("empty", "The AI didn't write any usable questions. Try again.");
       const d = clone(state.decks[home.id]);
       const qz = {id: uid(), title: `Weak Spots, ${fmtShort(todayISO())}`, style: home.aiStyle || "", created: Date.now(), sources: ["Your missed cards and questions"], questions: qs, results: [], kind: "weak"};
@@ -151,7 +151,8 @@ async function caseFromDeck(deckId, caseStyle){
   try {
     const c = courseOf(d.courseId);
     const r = await aiCall({task: "cases", maxTokens: 16000, schema: CASE_SCHEMA, onStatus: m => st(m), parts: [{text: `Course: ${c ? c.name : d.name}\nStyle: ${d.aiStyle || "realistic, exam-style"}\n${aiCaseStyleText(caseStyle, c ? c.name : d.name)}\nMaterial (flashcards):\n${d.cards.slice(0, 120).map(x => `${x.front} => ${x.back}`).join("\n")}\n\nWrite 1 case study.`}], system: CASE_SYSTEM});
-    const cs = aiCleanCases(r.data.cases);
+    const cp = aiCopiedCardsIndex(d.cards);
+    const cs = aiCleanCases(r.data.cases).filter(x => !aiCopied(x.scenario, cp)).map(x => Object.assign(x, {questions: aiDropCopiedQs(x.questions, cp)})).filter(x => x.questions.length >= 2);
     if (!cs.length) throw aiErr("empty", "The AI couldn't write a case from these cards. Try again.");
     const nd = clone(state.decks[deckId]);
     const qz = Object.assign({id: uid(), created: Date.now(), style: d.aiStyle || "", sources: ["Your flashcards"], results: [], kind: "case"}, cs[0]);

@@ -408,6 +408,9 @@ function aiCopied(text, idx){
   for (let i = 0; i + AI_COPY_RUN <= w.length; i++) if (idx.has(w.slice(i, i + AI_COPY_RUN).join(" "))) return true;
   return false;
 }
+// Cards copied word for word from a file (c.copied): AI writing from a deck must not repeat them either
+const aiCopiedCardsIndex = cards => aiCopyIndex((cards || []).filter(c => c && c.copied).map(c => `${c.front || ""}\n${c.back || ""}`));
+const aiDropCopiedQs = (qs, idx) => idx ? qs.filter(q => ![q.stem, q.answer, q.rationale].concat(q.options || [], q.notes || []).some(t => aiCopied(t, idx))) : qs;
 // Flashcard quality gate
 function aiGateCards(list, opts){
   opts = opts || {}; const max = opts.max > 0 ? opts.max : 60, seen = [], keys = new Set(), out = [], dropped = {dup: 0, long: 0, empty: 0, copied: 0};

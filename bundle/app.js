@@ -2948,6 +2948,9 @@ function aiCopied(text, idx){
   for (let i = 0; i + AI_COPY_RUN <= w.length; i++) if (idx.has(w.slice(i, i + AI_COPY_RUN).join(" "))) return true;
   return false;
 }
+// Cards copied word for word from a file (c.copied): AI writing from a deck must not repeat them either
+const aiCopiedCardsIndex = cards => aiCopyIndex((cards || []).filter(c => c && c.copied).map(c => `${c.front || ""}\n${c.back || ""}`));
+const aiDropCopiedQs = (qs, idx) => idx ? qs.filter(q => ![q.stem, q.answer, q.rationale].concat(q.options || [], q.notes || []).some(t => aiCopied(t, idx))) : qs;
 // Flashcard quality gate
 function aiGateCards(list, opts){
   opts = opts || {}; const max = opts.max > 0 ? opts.max : 60, seen = [], keys = new Set(), out = [], dropped = {dup: 0, long: 0, empty: 0, copied: 0};
@@ -4803,7 +4806,7 @@ function weakSheet(deckIds){
     try {
       const r = await aiCall({task: "quiz", maxTokens: 24000, schema: QUIZ_SCHEMA, onStatus: m => { status.textContent = m; }, parts: [{text: `Concepts this student keeps missing:\n${material}\n\nStyle: ${home.aiStyle || "Clear, exam-style questions"}\nWrite ${n} new questions.`}],
         system: "You write targeted practice questions on a student's weak spots. Test the SAME underlying concepts as the missed items but with new wording, new scenarios and different angles (application, comparison, 'which is NOT', cause and effect), so the student must understand rather than recognize. Mix types: 'single' (usually 4 options), 'multiple' (select all that apply, 5 or 6 options, 2 or more correct), 'order' when there's a sequence, and 'short'. 'correct' holds zero-based option indexes; for 'order' the indexes in the right order. Every question gets a rationale and one short note per option in 'optionNotes', plus a 'topic'. Return JSON only."});
-      const qs = aiCleanQuestions(r.data.questions);
+      const qs = aiDropCopiedQs(aiCleanQuestions(r.data.questions), aiCopiedCardsIndex(w.cards.map(x => x.c)));
       if (!qs.length) throw aiErr("empty", "The AI didn't write any usable questions. Try again.");
       const d = clone(state.decks[home.id]);
       const qz = {id: uid(), title: `Weak Spots, ${fmtShort(todayISO())}`, style: home.aiStyle || "", created: Date.now(), sources: ["Your missed cards and questions"], questions: qs, results: [], kind: "weak"};
@@ -4862,7 +4865,8 @@ async function caseFromDeck(deckId, caseStyle){
   try {
     const c = courseOf(d.courseId);
     const r = await aiCall({task: "cases", maxTokens: 16000, schema: CASE_SCHEMA, onStatus: m => st(m), parts: [{text: `Course: ${c ? c.name : d.name}\nStyle: ${d.aiStyle || "realistic, exam-style"}\n${aiCaseStyleText(caseStyle, c ? c.name : d.name)}\nMaterial (flashcards):\n${d.cards.slice(0, 120).map(x => `${x.front} => ${x.back}`).join("\n")}\n\nWrite 1 case study.`}], system: CASE_SYSTEM});
-    const cs = aiCleanCases(r.data.cases);
+    const cp = aiCopiedCardsIndex(d.cards);
+    const cs = aiCleanCases(r.data.cases).filter(x => !aiCopied(x.scenario, cp)).map(x => Object.assign(x, {questions: aiDropCopiedQs(x.questions, cp)})).filter(x => x.questions.length >= 2);
     if (!cs.length) throw aiErr("empty", "The AI couldn't write a case from these cards. Try again.");
     const nd = clone(state.decks[deckId]);
     const qz = Object.assign({id: uid(), created: Date.now(), style: d.aiStyle || "", sources: ["Your flashcards"], results: [], kind: "case"}, cs[0]);
@@ -5275,7 +5279,7 @@ async function autoPractice(t){
   if (!deckIds.length || (cards.length < 5 && !topics.length)) { const n = clone(state.tasks[t.id]); n.practiceQuiz = {none: true}; applyChanges([{kind: "task", id: t.id, after: n}], null); return; }
   const r = await aiCall({task: "practice", auto: true, maxTokens: 24000, schema: QUIZ_SCHEMA, parts: [{text: `Course: ${c ? c.name : ""}\nExam: ${ex.title || ""}, format: ${ex.planStyle || "exam-style"}\nTopics (and how well the student knows them): ${topics.join("; ") || "see cards"}\nMaterial (flashcards):\n${cards.map(x => `${x.front} => ${x.back}`).join("\n")}\n\nWrite a 15-question practice test.`}],
     system: "You write a realistic practice test for an upcoming exam in its format, weighted toward the student's shaky topics. Mix types: 'single' (usually 4 options), 'multiple' (select all that apply), 'order' for sequences, and a few 'short'. 'correct' holds zero-based option indexes; for 'order' the indexes in the right order. Every question gets a rationale, one short note per option in 'optionNotes', and a 'topic'. Return JSON only."});
-  const qs = aiCleanQuestions((r.data || {}).questions);
+  const qs = aiDropCopiedQs(aiCleanQuestions((r.data || {}).questions), aiCopiedCardsIndex(cards));
   const n = clone(state.tasks[t.id]); if (!n) return;
   if (!qs.length) { n.practiceQuiz = {none: true}; applyChanges([{kind: "task", id: t.id, after: n}], null); return; }
   const d = clone(state.decks[deckIds[0]]);
@@ -71780,7 +71784,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     if (!front) { toast("Write the front first"); $("#pdrFront").focus(); return; }
     const card = {id: uid(), front, back: back || h.t.slice(0, 1200), box: 0, due: "", seen: 0, right: 0, wrong: 0, src: {f: f.id, p: h.p}};
     // Text straight from the PDF (not restated by AI) is marked copied, so it's never shared
-    if (!back || R.cardAi !== h.id) card.copied = true;
+    // and so is a card whose words repeat the passage (8 or more words in a row), even after AI or the student wrote it
+    if (!back || R.cardAi !== h.id || aiCopied(front + "\n" + back, aiCopyIndex(h.t))) card.copied = true;
     let d = did && state.decks[did] ? clone(state.decks[did]) : null;
     if (!d) d = normDeck({id: uid(), name: newName, courseId: f.courseId || "", created: Date.now(), cards: []});
     d.cards = d.cards.concat([card]); d.updated = Date.now();

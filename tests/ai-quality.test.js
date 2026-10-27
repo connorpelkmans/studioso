@@ -2,7 +2,7 @@
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const src = require("../scripts/app-files").source();
 const block = src.slice(src.indexOf("/* AI-QUALITY-START"), src.indexOf("/* AI-QUALITY-END */"));
-const api = new Function(block + "; return {aiRepairJson, aiTidyText, aiGateCards, aiGateQuestions, aiGateSyllabus, aiCleanCites, aiCorpus, aiGroundNote, qaConfident, aiCopyIndex, aiCopied};")();
+const api = new Function(block + "; return {aiRepairJson, aiTidyText, aiGateCards, aiGateQuestions, aiGateSyllabus, aiCleanCites, aiCorpus, aiGroundNote, qaConfident, aiCopyIndex, aiCopied, aiCopiedCardsIndex, aiDropCopiedQs};")();
 let n = 0; const t = (name, fn) => { fn(); n++; console.log("ok -", name); };
 
 t("repairs cut-off JSON, keeping complete cards", () => {
@@ -83,6 +83,17 @@ t("copy check: 8 or more words in a row from the material is copied; restating i
   assert.ok(!api.aiCopied("Mitochondria make most of a cell's usable energy, which drives its chemical reactions.", idx));
   assert.ok(!api.aiCopied("anything at all", null), "no material, nothing to compare");
   assert.strictEqual(api.aiCopyIndex(["too short"]), null);
+});
+t("practice and case questions made from a deck never repeat its copied cards", () => {
+  const cards = [{front: "Mitochondria", back: "Mitochondria are membrane-bound organelles that generate most of the chemical energy", copied: true},
+    {front: "Ribosome", back: "A small machine in the cell that builds proteins from amino acids in a chain", copied: false}];
+  const idx = api.aiCopiedCardsIndex(cards);
+  const qs = [{stem: "Which are membrane-bound organelles that generate most of the chemical energy?", options: ["Mitochondria", "Ribosome"]},
+    {stem: "What does a mitochondrion mainly do?", options: ["Makes most of a cell's usable energy", "Stores DNA"]},
+    {stem: "What builds proteins?", options: ["A small machine in the cell that builds proteins from amino acids", "Golgi"]}];
+  assert.deepStrictEqual(api.aiDropCopiedQs(qs, idx).map(q => q.stem), ["What does a mitochondrion mainly do?", "What builds proteins?"], "only text from copied cards counts, in the stem or the options");
+  assert.strictEqual(api.aiCopiedCardsIndex([{front: "a", back: "b c d e f g h i j", copied: false}]), null, "no copied cards, nothing to check");
+  assert.strictEqual(api.aiDropCopiedQs(qs, null).length, 3);
 });
 t("gates drop copied cards and questions and count them", () => {
   const src = "The sinoatrial node is the natural pacemaker of the heart and sets the rhythm of every heartbeat in a healthy adult.";
