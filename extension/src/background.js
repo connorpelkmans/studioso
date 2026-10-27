@@ -38,7 +38,7 @@ const errText = e => String((e && e.message) || e || "error").slice(0, 160);
 let FLAGS = {};
 chrome.storage.local.get("flags").then(r => { FLAGS = (r && r.flags) || {}; }).catch(() => {});
 chrome.storage.onChanged.addListener((ch, area) => { if (area === "local" && ch.flags) FLAGS = ch.flags.newValue || {}; });
-const OPTS = id => ({ pastDays: 60, aheadDays: 240, grades: true, news: true, only: null, skip: [], mail: id === "canvas", internal: FLAGS.bbInternal !== false, marks: FLAGS.marks && typeof FLAGS.marks === "object" ? FLAGS.marks : {} });
+const OPTS = id => ({ pastDays: 60, aheadDays: 240, grades: true, news: true, only: null, skip: [], mail: id === "canvas", internal: FLAGS.bbInternal !== false, marks: FLAGS.marks && typeof FLAGS.marks === "object" ? FLAGS.marks : {}, budget: 120000 });
 
 // fetch for the background read
 function schoolFetch(origin) {

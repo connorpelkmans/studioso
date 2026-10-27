@@ -499,6 +499,19 @@ function cleanFile(r) {
     return add;
   };
   const recKey = r => r.key || r.ou + "|" + titleKey(r.title);
+  /* How well a course entry ("Module 6 Discussion post") fits a discussion topic ("Professionalism" in the forum "Module 6"):
+     the module/week numbers must agree (a different number never fits), then shared words other than "discussion", "post", "group"... */
+  const TOPIC_GEN = new Set(["discussion", "discussions", "post", "posts", "posting", "group", "groups", "module", "modules", "week", "weeks", "unit", "chapter", "lesson", "topic", "topics", "forum", "activity", "part", "and", "the", "for", "with", "initial", "reply", "replies", "response", "responses", "due", "board", "assignment", "your", "from", "about"]);
+  const topicUnits = s => { const o = {}; for (const m of String(s || "").toLowerCase().matchAll(/\b(module|mod|week|wk|unit|chapter|ch|lesson|session)\.?\s*#?\s*(\d{1,2})\b/g)) { const k = ({mod: "module", wk: "week", ch: "chapter"})[m[1]] || m[1]; (o[k] = o[k] || new Set()).add(m[2]); } return o; };
+  const topicWords = s => new Set(String(s || "").toLowerCase().replace(/\b[a-z]{2,5}\s?-?\d{3,4}\b/g, " ").replace(/[^a-z ]/g, " ").split(/\s+/).filter(w => w.length > 2 && !TOPIC_GEN.has(w)));
+  const topicFit = (r, d) => {
+    const ru = topicUnits(r.title), du = topicUnits([d.name, d.forum, String(d.text || "").slice(0, 300)].join(" "));
+    let hit = 0;
+    for (const k of Object.keys(ru)) { if (!du[k]) continue; if ([...ru[k]].some(v => du[k].has(v))) hit++; else return 0; }
+    if (r.due && d.due) { const dd = (localDT(d.due) || {}).date; if (dd && Math.abs(dayDiff(dd, r.due)) > 1) return 0; }
+    const rw = topicWords(cleanTitle(r.title).title), dw = topicWords([d.name, d.forum].join(" ")); let shared = 0; rw.forEach(w => { if (dw.has(w)) shared++; });
+    return Object.keys(ru).length ? (hit ? 10 * hit + shared : 0) : shared >= 2 ? shared : 0;
+  };
   // a discussion counts as posted by your post, or in a group topic by your group's
   const postedOf = d => !!d && (d.posted === true || d.groupPosted === true);
   function foldCopies(out){
@@ -670,8 +683,8 @@ function cleanFile(r) {
         const tid = r.tid || ((String(r.url || "").match(/\/discussions\/topics\/(\d+)|[?&](?:topicId|tid)=(\d+)/i) || []).slice(1).find(Boolean));
         let d = tid && ds.find(x => String(x.id) === tid);
         if (!d) {
-          const near = ds.filter(x => window.SB_SAMEOK(r.title, x.name) && likeN(cleanTitle(r.title).title, x.name) >= 2 && (!x.due || !r.due || Math.abs(dayDiff((localDT(x.due) || {}).date || r.due, r.due)) <= 1));
-          if (near.length === 1) d = near[0];
+          const sc = ds.map(x => ({x, n: topicFit(r, x)})).filter(z => z.n > 0).sort((a, b) => b.n - a.n);
+          if (sc.length && !(sc[1] && sc[1].n === sc[0].n)) d = sc[0].x;
         }
         if (!d || r.pid === "d" + d.id) return;
         r.asRead = [r.asRead, `the discussion topic ${d.name}: ${d.posted === true ? "you posted" : d.groupPosted ? "your group posted" : d.posted === false ? "no post of yours" : "posts not readable"}`].filter(Boolean).join("; ");
@@ -1416,8 +1429,8 @@ function cleanFile(r) {
     const how = c.mode === "api" ? (bsDesk() ? (lmsOnPhone() ? "Signed in on this phone" : "Signed in on this computer") : c.lastSrc === "grab" ? `Read from ${P.name} in this browser` : "Synced from your computer's Studyboard app") : "Using your calendar link";
     if (running || reading) return `${how}. Syncing now…`;
     const when = c.last ? `Last synced ${ago(c.last)}` : "Not synced yet";
-    const ev = !bsDesk() && c.lastSrc === "grab" && window.SBEXT && SBEXT.on() ? SBEXT.version() : "", older = v => { const a = String(v).split(".").map(Number), b = [1, 0, 8]; for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== b[i]) return (a[i] || 0) < b[i]; } return false; };
-    const extOld = ev && older(ev) ? ` Your School Sync extension is version ${ev}: update it to 1.0.8 or later to bring in marks that aren't on ${P.name}'s Grades page (like quiz marks on a quiz's Submissions page).` : "";
+    const ev = !bsDesk() && c.lastSrc === "grab" && window.SBEXT && SBEXT.on() ? SBEXT.version() : "", older = v => { const a = String(v).split(".").map(Number), b = [1, 0, 9]; for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== b[i]) return (a[i] || 0) < b[i]; } return false; };
+    const extOld = ev && older(ev) ? ` Your School Sync extension is version ${ev}: update it to 1.0.9 or later to bring in marks that aren't on ${P.name}'s Grades page (like quiz marks on a quiz's Submissions page).` : "";
     return `${how}. ${when}.${extOld}${L.needLogin && bsDesk() && c.mode === "api" ? " Sign in again to keep syncing grades and announcements." : ""}${L.err ? " " + L.err : ""}`;
   }
   function shortStatus(){
@@ -1430,8 +1443,12 @@ function cleanFile(r) {
   /* Sync report: what the last read saw, step by step, to send when something isn't detected */
   function syncReport(){
     const c = cfg(), lr = bulk().lastRead || {}, dx = lr.dx || {}, L = [];
+    if (!lr.at) return `Studyboard sync report: ${P.name}\nNo read from ${P.name} in this browser yet. Press Sync Now, wait until it says it's done, then copy the report again.\nExtension ${window.SBEXT && SBEXT.on() ? SBEXT.version() || "on, version unknown" : "not seen in this browser"}.`;
     const w = d => d ? new Date(d).toLocaleString() : "never";
     L.push(`Studyboard sync report: ${P.name}`, `Made ${new Date().toLocaleString()}. Last read ${w(lr.at)} by ${lr.via || c.lastSrc || "?"}. Extension ${window.SBEXT && SBEXT.on() ? SBEXT.version() || "on, version unknown" : "not seen in this browser"}. Website build ${typeof SB_BUILD !== "undefined" ? SB_BUILD : (document.querySelector('script[src*="bundle/app.js"]') || {src: ""}).src.split("v=")[1] || "?"}.`);
+    const xs = window.SBEXT && SBEXT.school ? SBEXT.school(P.id) : null;
+    if (xs) L.push(`Extension's own reads: ${xs.state || "?"}; last good read ${w(xs.at)}; last try ${w(xs.tried)}${xs.error ? "; error: " + xs.error : ""}.`);
+    if (xs && xs.at && lr.at && xs.at < lr.at - 6e4 && xs.tried > xs.at) L.push("The extension's newest reads failed, so this website still has its older read.");
     if ((lr.errors || []).length) L.push("Read problems: " + lr.errors.join("; "));
     const ous = Object.keys(dx);
     if (!ous.length) L.push("", "This read has no step-by-step details. It was made by an older extension or app (the details come from School Sync 1.0.8 or later), or no read has happened since updating.");
@@ -1441,7 +1458,7 @@ function cleanFile(r) {
       if (lr.notes && lr.notes[ou]) L.push("Summary: " + lr.notes[ou]);
       L.push(`You: id ${d.me && d.me.id}, name ${d.me && d.me.name}. Quiz list gave ${d.quizApi} quizzes; Quizzes page: ${d.quizPage}.`);
       (d.quizzes || []).forEach(q => L.push(`  Quiz "${q.n}" [${q.id}] from ${q.from}; sat ${q.sat}; grade item ${q.gradeItem || "none"}${q.inGrades ? " (marked in Grades)" : ""}; Submissions page: ${q.subm}${q.subm && q.subm.startsWith("ok") ? `, Overall Grade line ${q.overall ? "yes" : "no"}, ${q.attempts} attempt rows, fractions: ${q.fractions || "none"}` : ""}; mark read: ${q.mark || "none"}`));
-      (d.topics || []).forEach(t => L.push(`  Topic "${t.n}" [${t.id}] due ${t.due || "none"}${t.grp ? ", group" : ""}${t.graded ? ", graded" : ""}: posts ${t.posts}${t.posts === "read" ? ` (${t.n0}; ids ${(t.ids || []).join(", ") || "none"})` : ""}; topic page: ${t.page || "not read"}; result: ${t.result}`));
+      (d.topics || []).forEach(t => L.push(`  Topic "${t.n}"${t.forum ? ` (forum "${t.forum}")` : ""} [${t.id}] due ${t.due || "none"}${t.grp ? ", group" : ""}${t.graded ? ", graded" : ""}: posts ${t.posts}${t.posts === "read" ? ` (${t.n0}; ids ${(t.ids || []).join(", ") || "none"})` : ""}; topic page: ${t.page || "not read"}; result: ${t.result}`));
       const ts = Object.values(state.tasks || {}).filter(t => t && t[F] && (t[F].ou === ou || (cid && t.courseId === cid))).sort((a, b) => String(b.due).localeCompare(String(a.due))).slice(0, 40);
       if (ts.length) L.push("  Studyboard tasks:");
       ts.forEach(t => { const it = (lr.items || []).find(x => x.k === t[F].key);
@@ -1470,7 +1487,7 @@ function cleanFile(r) {
         <div class="bs-status${needLogin || gone0 ? " warn" : ""}"><span class="bs-ico">${ICON}</span><div><b>${needLogin ? "Sign In Again" : gone0 ? "Not Syncing" : "Connected"}${c.name ? `<span class="mini"> as ${esc(c.name)}</span>` : ""}</b><span class="mini">${esc(statusLine())}</span>${diagHtmlBox()}</div></div>
         <div class="bs-acts">
           ${gone0 ? `<p class="mini" style="margin:0">${SBEXT.on() ? `Open the extension from Chrome's toolbar and connect ${P.name} again to keep syncing.` : chromeDesktop() ? `Add the extension back to keep syncing. What it already brought in stays in Studyboard.` : `Open Studyboard in desktop Chrome with the extension to keep syncing. What it already brought in stays in Studyboard.`}</p>` : ""}
-          ${onPhoneApi && !c.feed && c.lastSrc !== "grab" ? `<p class="mini" style="margin:0">Your computer's Studyboard app syncs ${P.name}, and changes show up here. To sync from this device too, add your calendar link below. It works like a password, so it stays on this device only.${chromeDesktop() && !(window.SBEXT && SBEXT.has(P.id)) ? ` For grades and announcements here too, add the Studyboard School Sync extension to Chrome.` : ""}</p>` : `<button class="btn primary" data-act="${A}-sync">Sync Now</button>`}${bulk().lastRead ? `<button class="btn" data-act="${A}-report">Copy Sync Report</button>` : ""}
+          ${onPhoneApi && !c.feed && c.lastSrc !== "grab" ? `<p class="mini" style="margin:0">Your computer's Studyboard app syncs ${P.name}, and changes show up here. To sync from this device too, add your calendar link below. It works like a password, so it stays on this device only.${chromeDesktop() && !(window.SBEXT && SBEXT.has(P.id)) ? ` For grades and announcements here too, add the Studyboard School Sync extension to Chrome.` : ""}</p>` : `<button class="btn primary" data-act="${A}-sync">Sync Now</button>`}<button class="btn" data-act="${A}-report">Copy Sync Report</button>
           ${grabOk() && chromeDesktop() && !(window.SBEXT && (SBEXT.has(P.id) || gone0 && SBEXT.on())) ? `<a class="btn${gone0 ? " primary" : ""}" href="${esc(EXT_CHROME_URL)}" target="_blank" rel="noopener noreferrer">${gone0 ? "Get the Extension" : "Get Grades and Announcements"}</a>` : ""}
           ${needLogin ? `<button class="btn" data-act="${A}-login">Sign In to ${P.name}</button>` : ""}
           <button class="btn" data-act="${A}-open-site">Open ${P.name}</button>
@@ -2213,7 +2230,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
       if (d.type === "ready") { EXT.on = true; EXT.version = String(d.version || "").slice(0, 20); extPost({type: "flags", bbInternal: appFlag("bb_internal"), marks: markSwitches()}); extPost({type: "get"}); if (!inPreview()) loadFlags(); }
       else if (d.type === "data") {
         EXT.on = true; EXT.version = String(d.version || EXT.version).slice(0, 20);
-        EXT.schools = (Array.isArray(d.schools) ? d.schools : []).slice(0, 6).filter(x => x && typeof x.id === "string").map(x => ({id: x.id, origin: String(x.origin || "").slice(0, 200), state: String(x.state || "").slice(0, 20), at: Number(x.at) || 0}));
+        EXT.schools = (Array.isArray(d.schools) ? d.schools : []).slice(0, 6).filter(x => x && typeof x.id === "string").map(x => ({id: x.id, origin: String(x.origin || "").slice(0, 200), state: String(x.state || "").slice(0, 20), at: Number(x.at) || 0, tried: Number(x.tried) || 0, error: String(x.error || "").replace(/[<>]/g, "").slice(0, 160)}));
         (Array.isArray(d.list) ? d.list : []).slice(0, 3).forEach(x => { extChain = extChain.then(() => extImport(x)).catch(err => console.warn("extension import", err)); });
       }
     });
@@ -2225,6 +2242,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
   window.SBEXT = {
     on: () => EXT.on,
     version: () => EXT.version || "",
+    school: id => EXT.schools.find(x => x.id === id) || null,
     checked: () => EXT.checked || EXT.on,
     has: id => EXT.schools.some(x => x.id === id),
     html: name => {
