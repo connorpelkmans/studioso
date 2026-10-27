@@ -43,7 +43,10 @@ begin
   insert into public.study_profiles (user_id, display_name, username, username_set_at) values (owner, 'Studyboard', 'studyboard', now())
     on conflict (user_id) do update set username = 'studyboard', display_name = 'Studyboard';
   -- Publishing needs the sharing rules agreed to (supabase-sharing.sql); these sets are our own, written for Studyboard
-  if not public.sbs_terms_ok(owner) then insert into public.share_terms_agreements (user_id, version) values (owner, public.sbs_terms_version()); end if;
+  -- (skipped when supabase-sharing.sql hasn't been run yet; run it, then this file again)
+  if to_regclass('public.share_terms_agreements') is not null and to_regprocedure('public.sbs_terms_ok(uuid)') is not null then
+    execute 'insert into public.share_terms_agreements (user_id, version) select $1, public.sbs_terms_version() where not public.sbs_terms_ok($1)' using owner;
+  end if;
 end $$;
 
 -- Each set's text is base64 below: the SQL Editor scans for statements that make tables, and plain card text like "divides the body

@@ -91,9 +91,15 @@
   // Pictures that came from other members before pictures stopped being shared (they carry their image, not a file of yours)
   function dropReceived(nid){
     const n = state.notes[nid]; if (!n || !(n.wbItems || []).some(it => isPic(it) && it.src && !it.f)) return;
-    const after = clone(n); after.wbItems = after.wbItems.filter(it => !(isPic(it) && it.src && !it.f));
+    const after = clone(n); after.wbItems = after.wbItems.filter(it => !(isPic(it) && it.src && !it.f)); after.updated = Date.now();
     applyChanges([{kind: "note", id: nid, after}], null);
   }
+  // ...on every live board as soon as the app opens, so their thumbnails don't show them either
+  let purged = "";
+  hook("render", () => {
+    const who = (G() && G().myId && G().myId()) || "local"; if (purged === who) return; purged = who;
+    setTimeout(() => Object.values(state.notes || {}).filter(n => live(n)).forEach(n => dropReceived(n.id)), 0);
+  });
   async function catchUp(nid, Lx){
     const g = live(state.notes[nid]); if (!g || !online()) return;
     const rows = await fetchOps(g.bid, seqGet(g.bid));
@@ -242,8 +248,7 @@
       try {
         W.flush(); const pic = async dark => { const cv = await W.renderBoard(state.notes[nid] || n, {max: 520, dark, noPics: true}); let url = cv.toDataURL("image/jpeg", 0.72); if (url.length > 190000) url = cv.toDataURL("image/jpeg", 0.45); return url.length < 190000 ? url : null; };
         const url = await pic(false), dk = await pic(true); if (!url) return;
-        try { await q(cli().rpc("group_board_preview", {p_board: g.bid, p_preview: url, p_dark: dk})); }
-        catch (e) { await q(cli().rpc("group_board_preview", {p_board: g.bid, p_preview: url})); }
+        await q(cli().rpc("group_board_preview_nopics", {p_board: g.bid, p_preview: url, p_dark: dk}));
       } catch (e) {}
     }, 300);
   }

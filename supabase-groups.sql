@@ -1368,8 +1368,10 @@ alter table public.group_boards add column if not exists preview text check (pre
 alter table public.group_boards add column if not exists preview_at timestamptz;
 -- the same preview as a dark whiteboard shows it, for members whose whiteboards are dark
 alter table public.group_boards add column if not exists preview_dark text check (preview_dark is null or (char_length(preview_dark) < 200000 and preview_dark like 'data:image/%'));
+-- 1.17: previews are drawn without the board's pictures. The old name is dropped so an older app (which drew pictures in) can't set one.
 drop function if exists public.group_board_preview(uuid, text);
-create or replace function public.group_board_preview(p_board uuid, p_preview text, p_dark text default null) returns void
+drop function if exists public.group_board_preview(uuid, text, text);
+create or replace function public.group_board_preview_nopics(p_board uuid, p_preview text, p_dark text default null) returns void
 language plpgsql security definer set search_path = public as $$
 declare g uuid;
 begin
@@ -1380,8 +1382,8 @@ begin
   if p_dark is not null and (char_length(p_dark) >= 200000 or p_dark not like 'data:image/%') then p_dark := null; end if;
   update public.group_boards set preview = p_preview, preview_dark = p_dark, preview_at = now() where id = p_board;
 end $$;
-revoke all on function public.group_board_preview(uuid, text, text) from public, anon;
-grant execute on function public.group_board_preview(uuid, text, text) to authenticated;
+revoke all on function public.group_board_preview_nopics(uuid, text, text) from public, anon;
+grant execute on function public.group_board_preview_nopics(uuid, text, text) to authenticated;
 
 create table if not exists public.group_board_people (
   board_id uuid not null references public.group_boards(id) on delete cascade,

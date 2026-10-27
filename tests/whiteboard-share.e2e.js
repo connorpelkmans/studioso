@@ -45,7 +45,7 @@ function fake(opts){
       then(res, rej) { return run().then(res, rej); }};
     return api;
   };
-  const client = {from: mk, rpc: async (fn, a) => { if (fn === "group_board_preview") { const b = DB.group_boards.find(x => x.id === a.p_board); if (b) { b.preview = a.p_preview; b.preview_dark = a.p_dark || null; } DB.calls.push(fn); return {data: null, error: null}; }
+  const client = {from: mk, rpc: async (fn, a) => { if (fn === "group_board_preview_nopics") { const b = DB.group_boards.find(x => x.id === a.p_board); if (b) { b.preview = a.p_preview; b.preview_dark = a.p_dark || null; } DB.calls.push(fn); return {data: null, error: null}; }
       return {data: fn === "my_username" ? "connor" : fn === "my_age" ? 20 : null, error: null}; }, removeChannel(c) { c.closed = true; },
     channel: name => { const c = {name, subs: [], on(ev, f, cb) { c.subs.push({f, cb}); return c; }, subscribe(cb) { if (cb) cb("SUBSCRIBED"); return c; }}; DB.chans.push(c); return c; }};
   window.__sbGroupsStub = {user: {id: opts.me, email: opts.me + "@x.com"}, client};
@@ -100,7 +100,7 @@ function fake(opts){
       const st = await S(page), wb = Object.values(st.notes).find(x => x.id === "wb1");
       ok(wb.wb.g && wb.wb.g.bid === "b1" && wb.wb.g.gn === "Bio Squad" && await page.locator(".wb-livechip.on").count() === 1 && /Live with Bio Squad/.test(await page.locator(".wb-livechip").textContent()), "the board shows Live with Bio Squad");
       await page.waitForTimeout(700);
-      ok(await page.evaluate(() => __DB.group_board_people.some(r => r.board_id === "b1" && r.user_id === "u1") && __DB.calls.includes("group_board_preview") && /^data:image\/jpeg/.test(__DB.group_boards[0].preview || "")), "sharing puts you on its list and sends a preview picture for the group's Whiteboards tab");
+      ok(await page.evaluate(() => __DB.group_board_people.some(r => r.board_id === "b1" && r.user_id === "u1") && __DB.calls.includes("group_board_preview_nopics") && /^data:image\/jpeg/.test(__DB.group_boards[0].preview || "")), "sharing puts you on its list and sends a preview picture for the group's Whiteboards tab");
       const lum = await page.evaluate(async () => { const b = __DB.group_boards[0], m = async u => { if (!u) return -1; const im = new Image(); im.src = u; await im.decode(); const c = document.createElement("canvas"); c.width = 20; c.height = 20; const x = c.getContext("2d"); x.drawImage(im, 0, 0, 20, 20); const d = x.getImageData(0, 0, 20, 20).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2]; return s / (d.length / 4) / 3; }; return [await m(b.preview), await m(b.preview_dark)]; });
       ok(lum[0] > 180 && lum[1] >= 0 && lum[1] < 90, "it sends a light preview and a dark one (for members whose whiteboards are dark): " + lum.map(Math.round));
       const F = await page.evaluate(() => { const r = document.querySelector(".wb-frame").getBoundingClientRect(); return {x: r.left, y: r.top}; });
@@ -187,6 +187,18 @@ function fake(opts){
       const cp = Object.values(st.notes).find(x => x.wb && x.sharedFrom && x.sharedFrom.code === "WBRD-0001");
       ok(cp && cp.text === "Cell Cycle" && cp.courseId === "c1" && cp.wbInk.length === 1 && cp.wbItems[0].s === "G1 -> S -> G2 -> M" && await page.evaluate(id => SBWB.curId() === id && SBWB.on(), cp.id), "Save to My Whiteboards adds the copy (in the matching course) and opens it");
       ok(!page.errs.length, "no page errors (member): " + page.errs.join(" | "));
+      await ctx.close();
+    }
+    {
+      // A live group board that still holds a picture another member sent before pictures stopped being shared:
+      // it's gone as soon as the app opens, so the board's thumbnail never shows it. Your own pictures (a file of yours) stay.
+      const live = {id: "wbL", text: "Group Board", wb: {v: 1, tpl: "blank", g: {gid: "g1", bid: "b5", seq: 0, gn: "Bio Squad"}}, courseId: "", created: 1, updated: 1,
+        wbInk: [{id: "k1", t: "pen", c: "red", w: 70, d: "gHgHgBgB", at: 1}],
+        wbItems: [{id: "theirs", k: "i", x: 10, y: 10, w: 100, h: 80, src: "data:image/png;base64,iVBORw0KGgo=", at: 1}, {id: "mine", k: "i", x: 300, y: 10, w: 100, h: 80, f: "myfile", at: 1}, {id: "t1", k: "t", x: 50, y: 300, s: "Label", at: 1}]};
+      const {ctx, page} = await boot({me: "u2", seed: Object.assign({}, SEED, {notes: [live]}), groups: [{id: "g1", name: "Bio Squad"}], boards: [{id: "b5", group_id: "g1", name: "Group Board", tpl: "blank", deleted: false, created_by: "u1"}]});
+      const ids = await page.evaluate(() => (__sbSync.state.notes.wbL.wbItems || []).map(i => i.id).sort());
+      ok(JSON.stringify(ids) === JSON.stringify(["mine", "t1"]), "on opening the app, pictures other members sent to a live board are removed before its thumbnail is drawn: " + ids.join(", "));
+      ok(!page.errs.length, "no page errors (old pictures): " + page.errs.join(" | "));
       await ctx.close();
     }
     console.log(`whiteboard-share.e2e: ${n} checks passed`);

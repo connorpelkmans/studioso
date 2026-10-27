@@ -267,7 +267,7 @@
         ${li("Record a Lecture", "live captions, then AI study notes and flashcards")}
         ${li("Two-Way Calendar Sync", "with Google Calendar or Outlook")}
         ${li("PDF Reader with Highlights", "and decks read aloud with Listen")}
-        ${li("Picture Cards", "from photos of your own notes, drawings and whiteboards")}
+        ${li("Picture Cards", "and cards made from the diagrams in your PDFs and pictures")}
         ${li("Insights, Term Recap and Your Own Focus Routines")}
       </ul>
       <p class="ob-note mini">${gift ? "" : account ? "It starts as soon as you confirm your email address. " : "It starts when you make your free account. You can do that at the end of setup. "}Storage and backups stay at the Free amounts during the week.</p>`;

@@ -28,7 +28,7 @@
         <fieldset class="wb-ai-k" aria-label="What to make">
           <label class="mi-check"><input type="radio" name="wbaK" value="notes" checked> Typed notes <span class="mini">A clean, typed copy of the board, saved as a note</span></label>
           <label class="mi-check"><input type="radio" name="wbaK" value="cards"> Typed notes and flashcards <span class="mini">Then draft cards from them for you to check</span></label>
-          <label class="mi-check"><input type="radio" name="wbaK" value="pics"> Picture flashcards${picLocked() ? " " + PRO_BADGE : ""} <span class="mini">Your own drawing and writing on the board, with its labels hidden, to guess. Pictures you added aren't included.</span></label>
+          <label class="mi-check"><input type="radio" name="wbaK" value="pics"> Picture flashcards${picLocked() ? " " + PRO_BADGE : ""} <span class="mini">The board as a picture with its labels hidden, to guess</span></label>
         </fieldset>
         <label class="f">Course<select id="wbaCourse">${courseSelectHtml(n.courseId || "")}</select></label>
         <label class="f" id="wbaDeckL" hidden>Deck<select id="wbaDeck"></select></label>
@@ -62,22 +62,16 @@
   // Picture flashcards (Pro)
   const picLocked = () => { try { return !!(window.SBPRO && SBPRO.locked()); } catch (e) { return true; } };
   async function picCards(id, n, cid, deckSel){
-    if (picLocked()) { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Picture flashcards from your whiteboards are part of Studyboard Pro: what you drew and wrote on the board becomes a picture card with its labels hidden, to guess."); return; }
+    if (picLocked()) { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Picture flashcards from your whiteboards are part of Studyboard Pro: the board becomes a picture card with its labels hidden, to guess."); return; }
     if (!window.SBPRO || !SBPRO.scanImage || !SBPRO.openImageEditor) { toast("Picture cards aren't available here."); return; }
-    // Picture cards come only from what the student drew or wrote: pictures on the board (and marker redraws of them) are left out
-    const nn = state.notes[id] || n, live = W.board(), b = live && live.id === id ? live : {strokes: nn.wbInk || [], items: nn.wbItems || []};
-    const pics = b.items.filter(it => it && it.k === "i").length, own = b.strokes.length + b.items.filter(it => it && it.k !== "i").length;
-    const status = $("#wbaStatus");
-    if (!own) { status.textContent = "Picture cards are made only from what you draw or write yourself. This board only has pictures on it, so draw or write your own labels first."; return; }
-    const go = $("#wbaGo"); go.disabled = true; go.classList.add("busy"); status.textContent = "Finding the labels on your board…";
+    const go = $("#wbaGo"), status = $("#wbaStatus"); go.disabled = true; go.classList.add("busy"); status.textContent = "Finding the labels on your board…";
     try {
       let deckId = deckSel;
       if (!deckId || deckId === "__new" || !state.decks[deckId]) { const d = normDeck({id: uid(), name: W.boardName(n), courseId: cid || "", cards: [], created: Date.now()}); applyChanges([{kind: "deck", id: d.id, after: d}], null); deckId = d.id; }
-      const cv = await W.renderBoard(state.notes[id] || n, {max: 2000, noPics: true}), blob = await new Promise(r => cv.toBlob(r, "image/jpeg", 0.92));
+      const cv = await W.renderBoard(state.notes[id] || n, {max: 2000}), blob = await new Promise(r => cv.toBlob(r, "image/jpeg", 0.92));
       const it = await SBPRO.scanImage(blob, W.boardName(n)); it.found = it.boxes.length > 0;
       if (dlg.open) dlg.close();
       SBPRO.openImageEditor(deckId, [it]);
-      if (pics) toast(`Left out ${pics} picture${pics === 1 ? "" : "s"} on the board. Picture cards use only what you drew or wrote.`);
     } catch (e) { status.textContent = (e && e.message) || "Couldn't make picture cards. Try again."; go.disabled = false; go.classList.remove("busy"); }
   }
   function review(id, title, notes, cid, cards){
