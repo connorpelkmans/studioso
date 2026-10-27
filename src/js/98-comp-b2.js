@@ -462,18 +462,18 @@
         parts: {
           earL: {svg: `<path d="M41 41C33 36.5 23 37.5 17.5 44C22.5 50 33 51 41.5 47.5Z" fill="#B47A4E" ${O}/><path d="M37.5 43C32 41 26 41.5 22.5 44.3C26 47.2 32 47.6 37 46.4Z" fill="#FFC9BE"/>`, pivot: [40, 44]},
           earR: {svg: `<path d="M79 41C87 36.5 97 37.5 102.5 44C97.5 50 87 51 78.5 47.5Z" fill="#B47A4E" ${O}/><path d="M82.5 43C88 41 94 41.5 97.5 44.3C94 47.2 88 47.6 83 46.4Z" fill="#FFC9BE"/>`, pivot: [80, 44]},
-          feet: `<ellipse cx="49" cy="106.5" rx="7.6" ry="4.6" fill="#5A3A2A" ${O}/><ellipse cx="71" cy="106.5" rx="7.6" ry="4.6" fill="#5A3A2A" ${O}/><path d="M49 106V110M71 106V110" stroke="#2B2233" stroke-width="1.6" stroke-linecap="round"/><path d="M44 106.5Q45 104.8 47 104.6M66 106.5Q67 104.8 69 104.6" fill="none" stroke="#8C6450" stroke-width="1.4" stroke-linecap="round"/>`,
-          body: `${LG("xmas-reindeer-b", [[0, "#C99062"], [1, "#9C653F"]])}<defs><clipPath id="xmas-reindeer-clip"><path d="M60 66C75 66 85 77 85 90C85 99 78 103.5 60 103.5C42 103.5 35 99 35 90C35 77 45 66 60 66Z"/></clipPath></defs>
-            <path d="M60 66C75 66 85 77 85 90C85 99 78 103.5 60 103.5C42 103.5 35 99 35 90C35 77 45 66 60 66Z" fill="url(#xmas-reindeer-b)"/>
-            <g clip-path="url(#xmas-reindeer-clip)"><ellipse cx="60" cy="92.5" rx="15" ry="11" fill="#F6E0C3"/></g>
-            <path d="M60 66C75 66 85 77 85 90C85 99 78 103.5 60 103.5C42 103.5 35 99 35 90C35 77 45 66 60 66Z" fill="none" ${O}/>
-            <path d="M42.5 63C45 75.5 52 81.5 60 81.5C68 81.5 75 75.5 77.5 63" fill="none" stroke="${INK}" stroke-width="9.8" stroke-linecap="round"/>
-            <path d="M42.5 63C45 75.5 52 81.5 60 81.5C68 81.5 75 75.5 77.5 63" fill="none" stroke="#D9443A" stroke-width="6.6" stroke-linecap="round"/>
-            <path d="M47.5 74.5Q52.5 79.6 60 80" fill="none" stroke="#F58A7E" stroke-width="1.8" stroke-linecap="round"/>
-            <path d="M58.2 85.6L58.5 83.4H61.5L61.8 85.6Z" fill="#E0A21E" ${OW(1.6)}/>
-            <circle cx="60" cy="89.6" r="4.8" fill="#F7C744" ${O2}/><path d="M57.2 91.2H62.8" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/><circle cx="60" cy="92.5" r=".9" fill="${INK}"/><circle cx="58.3" cy="88" r="1.1" fill="#fff"/>`,
-          armL: {svg: `<g transform="rotate(30 36.5 92)"><defs><clipPath id="xmas-reindeer-al"><ellipse cx="36.5" cy="92" rx="5.4" ry="7.8"/></clipPath></defs><ellipse cx="36.5" cy="92" rx="5.4" ry="7.8" fill="#B47A4E"/><rect x="30.5" y="95.6" width="12" height="6" fill="#4E3226" clip-path="url(#xmas-reindeer-al)"/><ellipse cx="36.5" cy="92" rx="5.4" ry="7.8" fill="none" ${O}/></g>`, pivot: [41, 87]},
-          armR: {svg: `<g transform="rotate(-30 83.5 92)"><defs><clipPath id="xmas-reindeer-ar"><ellipse cx="83.5" cy="92" rx="5.4" ry="7.8"/></clipPath></defs><ellipse cx="83.5" cy="92" rx="5.4" ry="7.8" fill="#B47A4E"/><rect x="77.5" y="95.6" width="12" height="6" fill="#4E3226" clip-path="url(#xmas-reindeer-ar)"/><ellipse cx="83.5" cy="92" rx="5.4" ry="7.8" fill="none" ${O}/></g>`, pivot: [79, 87]},
+          feet: `<ellipse cx="51" cy="106.5" rx="6.8" ry="4.6" fill="#5A3A2A" ${O}/><ellipse cx="69" cy="106.5" rx="6.8" ry="4.6" fill="#5A3A2A" ${O}/><path d="M51 106V110M69 106V110" stroke="#2B2233" stroke-width="1.6" stroke-linecap="round"/><path d="M46.5 106.5Q47.5 104.8 49.2 104.6M64.5 106.5Q65.5 104.8 67.2 104.6" fill="none" stroke="#8C6450" stroke-width="1.4" stroke-linecap="round"/>`,
+          body: `${LG("xmas-reindeer-b", [[0, "#C99062"], [1, "#9C653F"]])}<defs><clipPath id="xmas-reindeer-clip"><path d="M60 67C72.5 67 80.5 78.5 80.5 91C80.5 99.5 74.5 103.5 60 103.5C45.5 103.5 39.5 99.5 39.5 91C39.5 78.5 47.5 67 60 67Z"/></clipPath></defs>
+            <path d="M60 67C72.5 67 80.5 78.5 80.5 91C80.5 99.5 74.5 103.5 60 103.5C45.5 103.5 39.5 99.5 39.5 91C39.5 78.5 47.5 67 60 67Z" fill="url(#xmas-reindeer-b)"/>
+            <g clip-path="url(#xmas-reindeer-clip)"><ellipse cx="60" cy="93.5" rx="12.5" ry="10.5" fill="#F6E0C3"/></g>
+            <path d="M60 67C72.5 67 80.5 78.5 80.5 91C80.5 99.5 74.5 103.5 60 103.5C45.5 103.5 39.5 99.5 39.5 91C39.5 78.5 47.5 67 60 67Z" fill="none" ${O}/>
+            <path d="M44 63.5C46.5 72.5 52 77.6 60 77.6C68 77.6 73.5 72.5 76 63.5" fill="none" stroke="${INK}" stroke-width="6" stroke-linecap="round"/>
+            <path d="M44 63.5C46.5 72.5 52 77.6 60 77.6C68 77.6 73.5 72.5 76 63.5" fill="none" stroke="#D9443A" stroke-width="3.4" stroke-linecap="round"/>
+            <path d="M50.5 75.6Q55 77.2 59 77.1" fill="none" stroke="#F79A8F" stroke-width="1.1" stroke-linecap="round"/>
+            <path d="M58.4 81.6L58.7 79.6H61.3L61.6 81.6Z" fill="#E0A21E" ${OW(1.6)}/>
+            <circle cx="60" cy="85.4" r="4.4" fill="#F7C744" ${O2}/><path d="M57.4 86.9H62.6" stroke="${INK}" stroke-width="1.3" stroke-linecap="round"/><circle cx="60" cy="88.1" r=".85" fill="${INK}"/><circle cx="58.4" cy="84" r="1" fill="#fff"/>`,
+          armL: {svg: `<g transform="rotate(28 41 91.5)"><defs><clipPath id="xmas-reindeer-al"><ellipse cx="41" cy="91.5" rx="4.9" ry="7.2"/></clipPath></defs><ellipse cx="41" cy="91.5" rx="4.9" ry="7.2" fill="#B47A4E"/><rect x="35" y="94.7" width="12" height="6" fill="#4E3226" clip-path="url(#xmas-reindeer-al)"/><ellipse cx="41" cy="91.5" rx="4.9" ry="7.2" fill="none" ${O}/></g>`, pivot: [44.5, 86.5]},
+          armR: {svg: `<g transform="rotate(-28 79 91.5)"><defs><clipPath id="xmas-reindeer-ar"><ellipse cx="79" cy="91.5" rx="4.9" ry="7.2"/></clipPath></defs><ellipse cx="79" cy="91.5" rx="4.9" ry="7.2" fill="#B47A4E"/><rect x="73" y="94.7" width="12" height="6" fill="#4E3226" clip-path="url(#xmas-reindeer-ar)"/><ellipse cx="79" cy="91.5" rx="4.9" ry="7.2" fill="none" ${O}/></g>`, pivot: [75.5, 86.5]},
           head: `${RG("xmas-reindeer-h", [[0, "#DDA978"], [0.6, "#C08654"], [1, "#A56E45"]], 0.42, 0.35, 0.7)}
             ${LINE("M50 34C48.5 27 48.5 19 51 11M49.2 26.5C45 25.5 41 23.5 38.5 20M49 19.5C46.5 18.5 44 16.5 42.5 13.5", "#F2D6A2", 4.6)}${LINE("M70 34C71.5 27 71.5 19 69 11M70.8 26.5C75 25.5 79 23.5 81.5 20M71 19.5C73.5 18.5 76 16.5 77.5 13.5", "#F2D6A2", 4.6)}
             <ellipse cx="60" cy="51.5" rx="26" ry="23.5" fill="url(#xmas-reindeer-h)" ${O}/>
@@ -484,7 +484,7 @@
         eyes: {lx: 47.5, rx: 72.5, y: 50, r: 5, style: "sparkle", color: "#2B1A10"},
         mouth: {x: 60, y: 66, w: 2.6, color: "#2B1A10"},
         cheeks: {lx: 40.5, rx: 79.5, y: 60, w: 4.4, h: 2.7},
-        anchors: {top: [60, 30, 0.9], neck: [60, 78, 1.0], chest: [72, 93, 0.6], back: [84, 86, 0.9], hands: [60, 95, 0.9]},
+        anchors: {top: [60, 30, 0.9], neck: [60, 77, 0.95], chest: [70.5, 94, 0.55], back: [84, 86, 0.9], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Jingle jingle! Hi, friend!", "You show up every day! I love that!", "You've got this! Jingle!", "Tiny hooves, big leaps! Go you!", "Merry and bright, that's you!", "Warm cocoa and a stretch? Yes please!", "Look at those twinkly lights! So fun!"],
           pet: ["Jingle! That tickles! Hehe!", "Look, my nose is glowing for you!"],
