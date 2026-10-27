@@ -19,7 +19,7 @@
   const G_SCALE = SCALES[scaleRegion()].scale;
   // The lowest passing letter on a scale
   const passOf = sc => { const p = sc.map(x => Number(x[1])).filter(v => v > 0); return p.length ? Math.min(...p) : 50; };
-  const gset = () => { const g = Object.assign({prompt: true, rescue: true, scale: null}, (state.settings && state.settings.grades) || {}); if (!isNum(g.pass)) g.pass = passOf(okScale(g.scale) ? g.scale : G_SCALE); return g; };
+  const gset = () => { const g = Object.assign({prompt: true, rescue: true, scale: null, cls: false}, (state.settings && state.settings.grades) || {}); if (!isNum(g.pass)) g.pass = passOf(okScale(g.scale) ? g.scale : G_SCALE); return g; };
   const saveG = patch => { state.settings = Object.assign({}, state.settings, {grades: Object.assign({}, (state.settings && state.settings.grades) || {}, patch)}); saveSettings(); };
   const okScale = s => Array.isArray(s) && s.length >= 2 && s.every(x => Array.isArray(x) && x[0] && isNum(x[1]));
   const clampP = v => Math.max(0, Math.min(100, Number(v)));
@@ -155,7 +155,8 @@
     }
     const remShown = remaining / D * 100;
     const projected = current == null ? null : remaining > 0.01 ? (ruled ? GRULES.finalWith(items, R, D, current) : current) : minFinal;
-    const gr = {c, g, R, ruled, dropped, ts, marked, open, wMarked: wMarked / D * 100, earned, wAll, D, remaining: remShown, unlisted, current, minFinal, maxFinal, projected, need, done: remaining <= 0.01};
+    const loose = allTasks().filter(t => t.courseId === c.id && !hasWeight(t) && !t.prepFor && markPct(t) != null);
+    const gr = {c, g, R, ruled, dropped, ts, loose, marked, open, wMarked: wMarked / D * 100, earned, wAll, D, remaining: remShown, unlisted, current, minFinal, maxFinal, projected, need, done: remaining <= 0.01};
     gr.risk = riskOf(gr);
     return gr;
   }
@@ -424,6 +425,75 @@
     const share = Number(t.weight) / gr.D * 100;
     return {t, share, per10: share / 10};
   }
+  /* Where the grade comes from */
+  const TYPE_PL = {Assignment: () => tr("gb.t.assignment", "Assignments"), Exam: () => tr("gb.t.exam", "Exams"), Quiz: () => tr("gb.t.quiz", "Quizzes"), Reading: () => tr("gb.t.reading", "Readings"),
+    Project: () => tr("gb.t.project", "Projects"), Lab: () => tr("gb.t.lab", "Labs"), Study: () => tr("gb.t.study", "Study"), Other: () => tr("gb.t.other", "Other")};
+  const typePl = ty => TYPE_PL[ty] ? TYPE_PL[ty]() : String(ty || "");
+  // The marked work of each type, weighted, highest first. left: how much of the course is still to come in that type
+  function byType(gr){
+    const m = {}, key = t => t.type || "Other";
+    gr.marked.forEach(t => { const w = Number(t.weight), o = m[key(t)] || (m[key(t)] = {type: key(t), w: 0, e: 0, n: 0, left: 0}); o.w += w; o.e += w * markPct(t); o.n++; });
+    gr.open.forEach(t => { const o = m[key(t)]; if (o) o.left += Number(t.weight); });
+    return Object.values(m).filter(o => o.w > 0).map(o => Object.assign(o, {pct: o.e / o.w, share: o.w / gr.D * 100, left: o.left / gr.D * 100})).sort((a, b) => b.pct - a.pct);
+  }
+  // How much each mark lifts or lowers the current grade (the grade with it, minus the grade without it)
+  function markImpact(gr){
+    if (gr.current == null || gr.marked.length < 3) return null;
+    const W = gr.marked.reduce((s, t) => s + Number(t.weight), 0), E = gr.marked.reduce((s, t) => s + Number(t.weight) * markPct(t), 0);
+    const all = gr.marked.map(t => { const w = Number(t.weight); return W - w > 0 ? {t, d: gr.current - (E - w * markPct(t)) / (W - w)} : null; }).filter(Boolean).sort((a, b) => b.d - a.d);
+    const boost = all[0] && all[0].d >= 0.5 ? all[0] : null, drag = all.length && all[all.length - 1].d <= -0.5 ? all[all.length - 1] : null;
+    return boost || drag ? {boost, drag} : null;
+  }
+  // A mark next to the class average, when the school site shares one (off unless turned on in Grade Options)
+  function vsClass(t){
+    const L = ["bs", "cv", "bb"].map(f => t && t[f]).find(Boolean), fb = L && L.fb, k = fb && fb.cls, p = markPct(t);
+    if (!k || !isNum(k.mean) || !(Number(fb.of) > 0) || p == null) return null;
+    const cls = Number(k.mean) / Number(fb.of) * 100;
+    return isFinite(cls) ? {mine: p, cls, d: r1(p - cls)} : null;
+  }
+  const vsTxt = v => v.d === 0 ? tr("gb.vs.same", "Class average") : tr("gb.vs", "{n} vs class", {n: (v.d > 0 ? "+" : "−") + r1(Math.abs(v.d))});
+  const vsPill = t => { if (!gset().cls) return ""; const v = vsClass(t); return v ? ` <span class="pill gr-vs${v.d > 0 ? " up" : v.d < 0 ? " down" : ""}" title="${esc(tr("gb.vs.tip", "You {mine}, class average {cls}", {mine: fmtP(v.mine), cls: fmtP(v.cls)}))}">${esc(vsTxt(v))}</span>` : ""; };
+  function breakdownHtml(gr){
+    const L = p => letterOf(p, gr.g.scale), types = byType(gr), lines = [];
+    if (types.length >= 2) {
+      const hi = types[0], lo = types[types.length - 1];
+      if (hi.pct - lo.pct >= 5) {
+        lines.push(esc(tr("gb.low", "Your lowest is {type}, at {pct}, {gap} points under {top}.", {type: typePl(lo.type), pct: fmtP(lo.pct), gap: r1(hi.pct - lo.pct), top: typePl(hi.type)}))
+          + (lo.left > 0.5 ? " " + esc(tr("gb.lowLeft", "{type} still make up {left} of the course to come.", {type: typePl(lo.type), left: fmtW(lo.left)})) : ""));
+      }
+    }
+    const im = markImpact(gr);
+    const imTxt = (k, v) => `<b>${esc(k)}</b> ${esc(tr("gb.imp", "{title} ({d} pts)", {title: v.t.title, d: (v.d > 0 ? "+" : "−") + r1(Math.abs(v.d))}))}`;
+    if (im && im.boost) lines.push(imTxt(tr("gb.boost", "Biggest boost:"), im.boost));
+    if (im && im.drag) lines.push(imTxt(tr("gb.drag", "Biggest drag:"), im.drag));
+    if (gset().cls) {
+      const vs = gr.marked.map(vsClass).filter(Boolean);
+      if (vs.length) {
+        const above = vs.filter(v => v.d > 0).length, avg = vs.reduce((s, v) => s + v.d, 0) / vs.length;
+        lines.push(esc(trn("gb.cls", vs.length, "Above the class average on {a} of {n} item with class results|Above the class average on {a} of {n} items with class results", {a: above}))
+          + esc(Math.abs(avg) >= 0.05 ? tr("gb.clsAvg", ", {d} points {dir} on average.", {d: r1(Math.abs(avg)), dir: avg > 0 ? tr("gb.above", "above") : tr("gb.below", "below")}) : "."));
+      }
+    }
+    if (types.length < 2 && !lines.length) return "";
+    const rows = types.length >= 2 ? `<ul class="gb-types">${types.map(o => `<li><span class="gb-name"><b>${esc(typePl(o.type))}</b><span class="mini">${esc(trn("gb.n", o.n, "{n} marked|{n} marked"))}, ${esc(tr("gb.worth", "worth {w}", {w: fmtW(o.share)}))}</span></span>
+        <span class="gb-bar" aria-hidden="true"><i style="width:${clampP(o.pct)}%"></i><i class="gb-pass" style="left:${clampP(gr.g.pass)}%"></i></span>
+        <span class="gb-v"><b>${fmtP(o.pct)}</b>${L(o.pct) ? `<span class="mini">${esc(L(o.pct))}</span>` : ""}</span></li>`).join("")}</ul>` : "";
+    return `<div class="gr-sub gb"><h4>${esc(tr("gb.title", "Where Your Grade Comes From"))}</h4>${rows}${lines.length ? `<ul class="gb-lines">${lines.map(x => `<li>${x}</li>`).join("")}</ul>` : ""}</div>`;
+  }
+  // Graded work due soon, per course, as a share of that course's grade
+  function comingUp(all, days){
+    const today = todayISO(), end = addDays(today, days - 1);
+    return all.map(gr => {
+      const its = gr.open.filter(t => t.status !== "done" && t.due && t.due >= today && t.due <= end && Number(t.weight) > 0).sort(sortTasks);
+      return {gr, its, share: its.reduce((s, t) => s + Number(t.weight), 0) / gr.D * 100};
+    }).filter(x => x.its.length).sort((a, b) => b.share - a.share);
+  }
+  function comingUpHtml(all){
+    const list = comingUp(all, 14); if (!list.length) return "";
+    return `<h3 class="fsec">${esc(tr("gb.soon", "Graded Work Coming Up"))}<span class="n">${esc(tr("gb.soon.when", "next 2 weeks"))}</span></h3><ul class="gs-wait gb-soon">${list.map(x => `<li style="--c:${esc(x.gr.c.color)}"><span class="gs-name"><span>${esc(tr("gb.soon.row", "{share} of {course} is due", {share: fmtW(x.share), course: courseLabel(x.gr.c)}))}</span>
+      <span class="mini">${x.its.slice(0, 4).map(t => esc(tr("gb.soon.item", "{title} ({w}, {due})", {title: t.title, w: fmtW(Number(t.weight)), due: fmtShort(t.due)}))).join(" · ")}${x.its.length > 4 ? " · " + esc(tr("gb.more", "+{n} more", {n: x.its.length - 4})) : ""}</span></span>
+      <button class="btn small" data-act="g-open-course" data-id="${esc(x.gr.c.id)}">${esc(tr("gb.open", "Open"))}</button></li>`).join("")}</ul>`;
+  }
   // What a course would look like with pretend marks
   function whatIf(gr, vals){
     const p = {}; let n = 0;
@@ -492,7 +562,8 @@
       const p = markPct(t);
       const fbk = window.SBLMS_HASFB && SBLMS_HASFB(t);
       const open = !!(fbk && ui.grOpen && ui.grOpen[t.id]), L = fbk ? FIELDS_OF(t) : null, what = L && (L.feedback || L.rubric) ? "Feedback" : "Class Results";
-      return `<li class="${fbk ? "gr-has-drop" : ""}"><button class="gr-row-main" data-act="${fbk ? "lms-fb" : "edit-task"}" data-id="${esc(t.id)}"${fbk ? ` aria-expanded="${open}"` : ""}><span class="gr-row-t">${esc(t.title)}${fbk ? ` <span class="pill lms-fbpill">${what}<span class="gr-chev" aria-hidden="true">▾</span></span>` : ""}</span><span class="mini">${esc(t.type)}, worth ${fmtW(Number(t.weight))}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}${swingId === t.id ? ` <span class="pill gr-swing">Biggest swing</span>` : ""}${dropped && dropped.has(t.id) ? ` <span class="pill gr-dropped">Dropped</span>` : ""}</span></button>
+      const nw = p != null && !hasWeight(t);
+      return `<li class="${fbk ? "gr-has-drop" : ""}${nw ? " gr-nw" : ""}"><button class="gr-row-main" data-act="${fbk ? "lms-fb" : "edit-task"}" data-id="${esc(t.id)}"${fbk ? ` aria-expanded="${open}"` : ""}><span class="gr-row-t">${t.markNew && t.mark ? `<span class="gr-newmark" title="New mark from your last sync" aria-label="New mark"></span>` : ""}${esc(t.title)}${nw ? ` <span class="pill gr-nw-pill" title="Shown, but not counted in the course grade until it has a weight">No weight yet</span>` : ""}${fbk ? ` <span class="pill lms-fbpill">${what}<span class="gr-chev" aria-hidden="true">▾</span></span>` : ""}</span><span class="mini">${esc(t.type)}, ${hasWeight(t) ? `worth ${fmtW(Number(t.weight))}` : "not counted yet"}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}${p != null ? vsPill(t) : ""}${swingId === t.id ? ` <span class="pill gr-swing">Biggest swing</span>` : ""}${dropped && dropped.has(t.id) ? ` <span class="pill gr-dropped">Dropped</span>` : ""}</span></button>
         ${p != null ? `<button class="gr-mk" data-act="g-mark" data-id="${esc(t.id)}" aria-label="Edit mark for ${esc(t.title)}"><b>${fmtP(p)}</b>${Number(t.mark.outOf) !== 100 ? `<span class="mini">${esc(fmtMark(t.mark))}</span>` : ""}</button>`
           : `<button class="btn small" data-act="g-mark" data-id="${esc(t.id)}">${t.status === "done" ? "Add Mark" : "Mark"}</button>`}${fbk ? `<div class="gr-drop" data-drop="${esc(t.id)}"${open ? "" : " hidden"}>${open && window.SBLMS_FBBODY ? SBLMS_FBBODY(t) : ""}</div>` : ""}</li>`;
     }).join("");
@@ -509,6 +580,35 @@
       : np <= 0 ? `Pass mark secured. ${g.goal != null ? (n => n <= 0 ? "Goal secured too." : n <= 100 ? `${fmtP(n)} on the rest for your goal.` : "Goal out of reach now.")(gr.need(g.goal)) : ""}`
       : `Needs ${fmtP(np)} on the remaining ${fmtW(gr.remaining)} to pass${g.goal != null ? (n => n <= 0 ? ", goal secured" : n <= 100 ? `, ${fmtP(n)} for your goal` : ", goal out of reach")(gr.need(g.goal)) : ""}.`;
   }
+  /* New marks from a sync: a red count on Courses, on the Grades switch, on each course with one (its card, its row on Grades,
+     its own Grades tab), and a red dot on the mark itself. Seen once you've had that course's Grades tab (or its marks on Grades) open and moved on. */
+  const newMarks = cid => tasksArr().filter(t => t && t.markNew && t.mark && t.mark.got != null && t.mark.got !== "" && (!cid || t.courseId === cid));
+  const pipOn = (el, n, cls, label) => {
+    if (!el) return; let d = el.querySelector(":scope > ." + cls);
+    if (!n) { if (d) d.remove(); return; }
+    if (!d) { d = document.createElement("span"); d.className = cls; d.setAttribute("aria-hidden", "true"); el.appendChild(d); }
+    d.textContent = n > 9 ? "9+" : String(n);
+    if (label) el.setAttribute("aria-label", label);
+  };
+  let markSeenPending = new Set();
+  function newMarkBadges(){
+    const all = newMarks(), byC = {}; all.forEach(t => { byC[t.courseId] = (byC[t.courseId] || 0) + 1; });
+    // what's on screen now counts as seen when you move on
+    const onCourse = ui.tab === "courses" && ui.courseId && ui.courseTab === "grades" && ui.courseTabFor === ui.courseId ? ui.courseId : null;
+    const onPage = ui.tab === "courses" && !ui.courseId && ui.courseTab === "grades" ? Object.keys(ui.gpOpen || {}).filter(k => ui.gpOpen[k]) : [];
+    const showing = new Set(all.filter(t => t.courseId === onCourse || onPage.includes(t.courseId)).map(t => t.id));
+    const gone = [...markSeenPending].filter(id => !showing.has(id) && state.tasks[id] && state.tasks[id].markNew);
+    markSeenPending = showing;
+    if (gone.length) { applyChanges(gone.map(id => { const n = clone(state.tasks[id]); delete n.markNew; return {kind: "task", id, after: n}; }), ""); return; }
+    const tab = document.querySelector('nav.tabs [data-tab="courses"]');
+    if (tab) { tab.classList.add("has-newmark"); let d = tab.querySelector(":scope > .nm-dot"); if (!all.length) { if (d) d.remove(); } else { if (!d) { d = document.createElement("span"); d.className = "nm-dot"; d.setAttribute("aria-hidden", "true"); tab.appendChild(d); } d.textContent = all.length > 9 ? "9+" : String(all.length); } }
+    pipOn(document.querySelector('.cf-tabs [data-act="cf-view"][data-id="grades"]'), all.length, "nm-pip");
+    document.querySelectorAll('.course-card[data-act="open-course"]').forEach(b => pipOn(b, byC[b.dataset.id] || 0, "nm-card"));
+    document.querySelectorAll('.gp-main[data-act="g-open-course"]').forEach(b => pipOn(b, byC[b.dataset.id] || 0, "nm-card"));
+    if (ui.courseId) pipOn(document.querySelector('[data-act="course-tab"][data-id="grades"]'), byC[ui.courseId] || 0, "nm-pip");
+  }
+  hook("render", () => { try { newMarkBadges(); } catch (e) { console.warn("new marks", e); } });
+  window.SBGRADES_NEW = {list: newMarks, badges: newMarkBadges};
   window.SBGRADES = {lines: () => grades().filter(gr => gr.ts.length).map(gr => `${courseLabel(gr.c)}: ${gr.current != null ? "current " + fmtP(gr.current) + (letterOf(gr.current, gr.g.scale) ? " (" + letterOf(gr.current, gr.g.scale) + ")" : "") + " on " + fmtW(gr.wMarked) + " marked" : "no marks yet"}; pass mark ${fmtP(gr.g.pass)}${gr.g.goal != null ? ", goal " + fmtP(gr.g.goal) : ""}. ${gradeLine(gr)}`)};
   // For the course cards and a course's header
   window.SBGRADES.schoolPass = list => {
@@ -521,6 +621,10 @@
   function gradeCard(c){
     const gr = courseGrade(c), g = gr.g, L = p => letterOf(p, g.scale);
     const settingsBtn = `<button class="btn small" data-act="g-paste" data-id="${esc(c.id)}">Paste Grades</button> <button class="btn small" data-act="g-course-set" data-id="${esc(c.id)}">Grade Settings</button>`;
+    // marks on work with no grade weight yet (like a quiz mark that isn't on the school site's Grades page): listed, not counted
+    const loose = gr.loose;
+    const looseNote = loose.length ? `<p class="mini gr-nw-note" style="margin:6px 0 0">${loose.length === 1 ? "The mark" : `The ${loose.length} marks`} marked <b>No weight yet</b> ${loose.length === 1 ? "isn't" : "aren't"} counted in your course grade. ${loose.length === 1 ? "It counts" : "They count"} as soon as ${loose.length === 1 ? "it has" : "they have"} a weight: from your school site's Grades page when it's posted there, from the syllabus, or added by you (Advanced Settings).</p>` : "";
+    if (!gr.ts.length && loose.length) return `<section class="gr-card" aria-label="Grades"><div class="gr-headrow"><h3>Your Marks</h3><span class="spacer"></span>${settingsBtn}</div><div class="gr-sub"><h4>Marked <span class="n">${loose.length}</span></h4><ul class="gr-work">${gradeRows(loose)}</ul>${looseNote}</div><p class="mini" style="margin:8px 0 0">Pass mark: <b>${fmtP(g.pass)}</b>.</p></section>`;
     if (!gr.ts.length) return `<section class="gr-card gr-empty" aria-label="Grades"><p style="margin:0">Add a <b>Grade Weight</b> to assignments, quizzes and exams (in Advanced Settings on each task) to track your grade and see what you need on the rest. Pass mark: <b>${fmtP(g.pass)}</b>.</p><div class="gr-acts">${settingsBtn}</div></section>`;
     const marked = gr.ts.filter(t => markPct(t) != null), unmarked = gr.ts.filter(t => markPct(t) == null);
     const need = needLines(gr), sw = biggestSwing(gr), gg = goalGap(gr);
@@ -536,8 +640,9 @@
       ${goalAsk(gr)}
       ${gradeBar(gr)}
       ${need.length ? `<div class="gr-sub"><h4>What You Need</h4><ul class="gr-need">${need.map(x => `<li>${x}</li>`).join("")}</ul></div>` : ""}
+      ${breakdownHtml(gr)}
       ${whatIfHtml(gr)}
-      <div class="gr-sub"><h4>Marked <span class="n">${marked.length}</span></h4>${marked.length ? `<ul class="gr-work">${gradeRows(marked, null, gr.dropped)}</ul>` : `<p class="mini" style="margin:0">Nothing marked yet.</p>`}</div>
+      <div class="gr-sub"><h4>Marked <span class="n">${marked.length + loose.length}</span></h4>${marked.length + loose.length ? `<ul class="gr-work">${gradeRows(marked, null, gr.dropped)}${gradeRows(loose)}</ul>${looseNote}` : `<p class="mini" style="margin:0">Nothing marked yet.</p>`}</div>
       <div class="gr-sub"><h4>Still to Mark <span class="n">${unmarked.length}</span></h4>${unmarked.length ? `<ul class="gr-work">${gradeRows(unmarked, sw && sw.t.id)}</ul>` : `<p class="mini" style="margin:0">Every graded item has a mark. Weights add up to ${fmtW(gr.wAll)}.</p>`}</div>
     </section>`;
   }
@@ -827,7 +932,7 @@
         <div class="chips gp-calc-t" role="group" aria-label="Target">${tg.map(([k, v]) => `<button type="button" class="chip" data-act="gp-target" data-cid="${esc(c.id)}" data-id="${v}" aria-pressed="${Math.abs(v - want) < 0.01}">${esc(k)} ${r1(v)}%</button>`).join("")}</div>
         <div class="gp-calc-out" aria-live="polite">${res}</div></section>`;
       const marks = `<section class="gp-marks gp-d-marks"><h4 class="gp-d-h">Marks<span class="spacer"></span><button class="btn small" data-act="g-course-set" data-id="${esc(c.id)}">Weights</button></h4>
-        ${gr.ts.length ? `<ul class="gr-work">${gradeRows(gr.ts, null, gr.dropped)}</ul>` : `<p class="mini" style="margin:0">No graded work yet.</p>`}
+        ${gr.ts.length + gr.loose.length ? `<ul class="gr-work">${gradeRows(gr.ts, null, gr.dropped)}${gradeRows(gr.loose)}</ul>${gr.loose.length ? `<p class="mini" style="margin:6px 0 0">Marks with <b>No weight yet</b> are shown, not counted, until they have a weight.</p>` : ""}` : `<p class="mini" style="margin:0">No graded work yet.</p>`}
         ${gr.unlisted > 0.5 ? `<p class="mini" style="margin:8px 0 0">Only ${fmtW(gr.wAll)} of ${esc(courseLabel(c))} is listed so far. <button class="link-btn" data-act="import-syllabus" data-course="${esc(c.id)}">Import the syllabus</button> to fill in the rest.</p>` : ""}</section>`;
       return `<div class="gp-drop" id="gpd-${esc(c.id)}"${ui.gpOpen && ui.gpOpen[c.id] ? "" : " hidden"}>${marks}${calc}</div>`;
     };
@@ -848,11 +953,12 @@
     }).join("");
     const wait = waiting.length ? `<h3 class="fsec">Waiting for a Mark</h3><ul class="gs-wait">${waiting.slice(0, 12).map(t => { const c = courseOf(t.courseId); return `<li style="--c:${esc(colorOf(t.courseId))}"><span class="gs-name">${esc(t.title)}<span class="mini">${c ? esc(courseLabel(c)) + ", " : ""}worth ${esc(fmtW(Number(t.weight)))}</span></span><button class="btn small" data-act="g-mark" data-id="${esc(t.id)}">Add Mark</button></li>`; }).join("")}</ul>` : "";
     return `<section class="gp" aria-label="Grades"><div class="view-head"><h2>Grades</h2>${proBtns("grades")}</div>
-      <div class="gp-hero">${hero}${gpaStrip(S)}<ul class="gp-list">${rows}</ul></div>${low}${wait}${aiHtml(all)}${histHtml(S)}
+      <div class="gp-hero">${hero}${gpaStrip(S)}<ul class="gp-list">${rows}</ul></div>${low}${wait}${comingUpHtml(all)}${aiHtml(all)}${histHtml(S)}
       <details class="gp-opts"${ui.gpOpts ? " open" : ""}><summary>Grade Options</summary><div class="menu-list">
         <div class="cap-row"><label for="gPassIn" style="flex:1;font-weight:600">Default Pass Mark<span class="sub">For courses where you haven't set one. Check each course outline.</span></label><input type="number" id="gPassIn" min="0" max="100" step="0.5" value="${esc(r1(s.pass))}"> %</div>${gpaOpt()}
         <label class="mi-check gs-opt"><input type="checkbox" id="gAskIn" ${s.prompt ? "checked" : ""}><span>Ask for My Mark After I Finish Graded Work<span class="sub">A small note a few seconds later. Easy to skip.</span></span></label>
         <label class="mi-check gs-opt"><input type="checkbox" id="gRwIn" ${s.rescue ? "checked" : ""}><span>Offer Help When My Week Looks Too Full<span class="sub">A Rough Week banner on the Board</span></span></label>
+        <label class="mi-check gs-opt"><input type="checkbox" id="gClsIn" ${s.cls ? "checked" : ""}><span>${esc(tr("gb.opt", "Compare My Marks to the Class"))}<span class="sub">${esc(tr("gb.opt.s", "For school-synced courses that share class averages"))}</span></span></label>
         <button type="button" class="btn small" data-act="rw-open" style="justify-self:start">Plan a Rough Week</button></div></details></section>`;
   }
   document.addEventListener("change", e => { const t = e.target; if (t && t.classList && t.classList.contains("gp-calc-c")) { ui.gpCalc = {cid: t.value}; render(); } });
@@ -885,6 +991,7 @@
     pi.addEventListener("change", e => { const v = clampP(Number(e.target.value) || 0); saveG({pass: v, passSrc: "user"}); scheduleRender(); toast(`Default pass mark set to ${fmtP(v)}`); });
     $("#gAskIn").addEventListener("change", e => { saveG({prompt: e.target.checked}); toast(e.target.checked ? "Studyboard will ask for marks" : "Studyboard won't ask for marks"); });
     $("#gRwIn").addEventListener("change", e => { saveG({rescue: e.target.checked}); scheduleRender(); });
+    $("#gClsIn").addEventListener("change", e => { saveG({cls: e.target.checked}); scheduleRender(); });
   }
   hook("render", tab => { if (tab === "courses" && !ui.courseId && ui.courseTab === "grades") wireGradeOpts(); });
   hook("act", (act, el, id) => {
@@ -1059,8 +1166,8 @@
     wireRules();
   }
   /* Grading rules in Grade Settings */
-  const CAT_OPT = {Quiz: "quizzes", Assignment: "assignments", Exam: "midterms or tests (never the final)", Lab: "labs", Project: "projects", Reading: "readings", Other: "other items"};
-  const dropRow = d => `<div class="gr-drop-row"><span>Drop the lowest</span><label><span class="sr">How many</span><input type="number" name="dn" min="1" max="20" step="1" inputmode="numeric" value="${esc(d ? d.n : 1)}" data-noenter></label><label><span class="sr">Of which type</span><select name="dc">${Object.entries(CAT_OPT).map(([k, l]) => `<option value="${k}"${d && d.cat === k ? " selected" : ""}>${esc(l)}</option>`).join("")}</select></label><button type="button" class="icon-btn gr-drop-del" aria-label="Remove this rule" title="Remove this rule"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
+  const CAT_OPT = {Quiz: "Quizzes", Assignment: "Assignments", Exam: "Midterms or Tests (Never the Final)", Lab: "Labs", Project: "Projects", Reading: "Readings", Other: "Other Items"};
+  const dropRow = d => `<div class="gr-drop-row"><span>Drop the Lowest</span><label><span class="sr">How many</span><input type="number" name="dn" min="1" max="20" step="1" inputmode="numeric" value="${esc(d ? d.n : 1)}" data-noenter></label><label><span class="sr">Of which type</span><select name="dc">${Object.entries(CAT_OPT).map(([k, l]) => `<option value="${k}"${d && d.cat === k ? " selected" : ""}>${esc(l)}</option>`).join("")}</select></label><button type="button" class="icon-btn gr-drop-del" aria-label="Remove this rule" title="Remove this rule"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
   function rulesFields(c){
     const R = rulesOf(c), fromSyl = R.drops.some(d => d.src === "syllabus") || (R.bonus.pts > 0 && R.bonus.src === "syllabus");
     return `<fieldset class="gr-rules"><legend>Grading Rules <span class="hint">optional, from your course outline</span></legend>
@@ -1194,12 +1301,14 @@
           <div class="cap-row"><label for="gPassIn" style="flex:1;font-weight:600">Default Pass Mark<span class="sub">For courses where you haven't set one. Check each course outline.</span></label><input type="number" id="gPassIn" min="0" max="100" step="0.5" value="${esc(r1(s.pass))}"> %</div>${gpaOpt()}
           <label class="mi-check gs-opt"><input type="checkbox" id="gAskIn" ${s.prompt ? "checked" : ""}><span>Ask for My Mark After I Finish Graded Work<span class="sub">A small note a few seconds later. Easy to skip.</span></span></label>
           <label class="mi-check gs-opt"><input type="checkbox" id="gRwIn" ${s.rescue ? "checked" : ""}><span>Offer Help When My Week Looks Too Full<span class="sub">A Rough Week banner on the Board</span></span></label>
+        <label class="mi-check gs-opt"><input type="checkbox" id="gClsIn" ${s.cls ? "checked" : ""}><span>${esc(tr("gb.opt", "Compare My Marks to the Class"))}<span class="sub">${esc(tr("gb.opt.s", "For school-synced courses that share class averages"))}</span></span></label>
         </div>
       </div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="rw-open">Plan a Rough Week</button><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
     $("#gPassIn").addEventListener("change", e => { const v = clampP(Number(e.target.value) || 0); saveG({pass: v, passSrc: "user"}); scheduleRender(); toast(`Default pass mark set to ${fmtP(v)}`); });
     $("#gAskIn").addEventListener("change", e => { saveG({prompt: e.target.checked}); toast(e.target.checked ? "Studyboard will ask for marks" : "Studyboard won't ask for marks"); });
     $("#gRwIn").addEventListener("change", e => { saveG({rescue: e.target.checked}); scheduleRender(); });
+    $("#gClsIn").addEventListener("change", e => { saveG({cls: e.target.checked}); scheduleRender(); });
   }
   hook("menu", () => `<button data-act="g-grades"><span>Grades<span class="sub">Your marks, what you need on the rest, and pass marks</span></span></button>`);
 

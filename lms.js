@@ -158,6 +158,10 @@ const WHO = {
 // Brightspace: read everything (runs inside a hidden Brightspace page)
 async function bsHarvest(o) {
   const q = o || {}, now = Date.now(), T0 = now;
+  // The extras (quiz and topic pages, every topic's posts) stop when this runs out, so a big term still finishes inside the caller's
+  // limit and keeps what it read; the essentials (courses, dates, submissions, Grades) come first
+  const budgetEnd = T0 + Math.max(30000, Math.min(600000, Number(q.budget) || 120000)), hasTime = () => Date.now() < budgetEnd;
+  let outOfTime = 0; const spend = () => { if (hasTime()) return true; outOfTime++; return false; };
   const fromISO = new Date(now - (q.pastDays || 60) * 864e5).toISOString();
   const toISO = new Date(now + (q.aheadDays || 240) * 864e5).toISOString();
   const enc = encodeURIComponent, errors = [];
@@ -187,6 +191,28 @@ async function bsHarvest(o) {
     if (h && typeof h === "object") h = h.Text || h.Html || "";
     return htmlText(h, { max: n || 4000 });
   };
+  // The Grades page as the student sees it (Grades in the course navbar): one row per grade item, read by its column headings
+  // ("Points", "Weight Achieved", "Grade"). Category rows (no points of their own) are kept as categories.
+  const gradesFromPage = html => {
+    const cellsOf = row => [...String(row).matchAll(/<(t[hd])\b([^>]*)>([\s\S]*?)<\/\1\s*>/gi)].map(m => ({ t: htmlText(m[3], { line: true }), span: Number((m[2].match(/colspan\s*=\s*["']?(\d+)/i) || [])[1]) || 1 }));
+    const expand = cs => { const o = []; cs.forEach(c => { o.push(c.t); for (let k = 1; k < Math.min(c.span, 8); k++) o.push(""); }); return o; };
+    const frac = t => { const m = String(t || "").match(/^\s*(-|–|[\d.]+)\s*\/\s*([\d.]+)\s*$/); return m ? { n: /^[\d.]+$/.test(m[1]) ? Number(m[1]) : null, d: Number(m[2]) } : null; };
+    const out = []; let head = null;
+    const table = (String(html).match(/<table\b[^>]*\bd_gd\b[\s\S]*?<\/table>/i) || String(html).match(/<table\b[\s\S]*?Grade Item[\s\S]*?<\/table>/i) || [""])[0];
+    String(table).split(/<tr\b/i).slice(1).forEach(row => {
+      const cs = expand(cellsOf(row)); if (!cs.length) return;
+      const low = cs.map(x => x.toLowerCase());
+      if (!head && (low.some(x => /^points$/.test(x)) || low.some(x => /^grade item$/.test(x)))) { head = { pts: low.findIndex(x => /^points$/.test(x)), w: low.findIndex(x => /weight achieved/.test(x)), g: low.findIndex(x => /^grade$/.test(x)) }; return; }
+      const name = cs.find(x => x && !frac(x) && !/^[\d.\s%-]+$/.test(x)); if (!name || name.length > 200) return;
+      const pts = head && head.pts >= 0 ? frac(cs[head.pts]) : cs.map(frac).find(Boolean) || null;
+      const w = head && head.w >= 0 ? frac(cs[head.w]) : (cs.map(frac).filter(Boolean)[1] || null);
+      const shown = (head && head.g >= 0 ? cs[head.g] : cs.find(x => /^[\d.]+\s*%$/.test(x))) || "";
+      if (!pts && !w && !shown) return;
+      out.push({ GradeObjectIdentifier: "gp" + out.length + ":" + name.toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 40), GradeObjectName: name.trim(), GradeObjectType: pts ? 1 : 9,
+        PointsNumerator: pts ? pts.n : null, PointsDenominator: pts ? pts.d : null, WeightedNumerator: w ? w.n : null, WeightedDenominator: w ? w.d : null, DisplayedGrade: String(shown).trim(), fromPage: true });
+    });
+    return out.slice(0, 200);
+  };
   const dt = x => (x && typeof x === "string" && !isNaN(Date.parse(x))) ? x : null;
 
   let vs = null;
@@ -215,10 +241,11 @@ async function bsHarvest(o) {
 
   const detail = async c => {
     const b = `/d2l/api/le/${le}/${c.ou}`;
-    const [folders, quizzes, grades, fin, news, events, forums, roster, over, toc] = await Promise.all([
+    let gradesErr = "";
+    const [folders, quizzes, gradesApi, fin, news, events, forums, roster, over, toc] = await Promise.all([
       soft(`${b}/dropbox/folders/`),
       pages(`${b}/quizzes/`, true),
-      q.grades === false ? null : soft(`${b}/grades/values/myGradeValues/`),
+      q.grades === false ? null : get(`${b}/grades/values/myGradeValues/`).catch(e => { gradesErr = String(e.status || e.name || e.message); errors.push(`${c.code || c.ou}: grades list ${gradesErr}`); return null; }),
       q.grades === false ? null : soft(`${b}/grades/final/values/myGradeValue`, true),
       q.news === false ? null : soft(`${b}/news/`, true),
       pages(`${b}/calendar/events/myEvents/?startDateTime=${enc(fromISO)}&endDateTime=${enc(toISO)}`, true),
@@ -228,6 +255,23 @@ async function bsHarvest(o) {
       soft(`${b}/content/toc`, true)
     ]);
     const inWin = d => { const x = Date.parse(d || ""); return !isNaN(x) && x > now - 60 * 864e5 && x < now + 240 * 864e5; };
+    // Your marks: the grades list, or, when a course refuses it (403) or it's empty, the course's Grades page as you see it
+    let grades = gradesApi;
+    const gx = { list: q.grades === false ? "off" : gradesApi ? "ok, " + listOf(gradesApi).length + " rows" : "refused (" + (gradesErr || "?") + ")", page: "not read", rows: 0, sample: [] };
+    if (q.grades !== false && !listOf(gradesApi).length) {
+      try {
+        const r = await fetch(`/d2l/lms/grades/my_grades/main.d2l?ou=${c.ou}`, { credentials: "include" });
+        const login = !!(r.redirected && /\/login|\/d2l\/lp\/auth|saml|sso|shibboleth/i.test(String(r.url || "")));
+        gx.page = login ? "sign-in page" : r.ok ? "ok" : "HTTP " + r.status;
+        if (r.ok && !login) {
+          const rows = gradesFromPage((await r.text()).slice(0, 3000000));
+          gx.page += ", " + rows.length + " rows";
+          if (rows.length) grades = rows;
+        }
+      } catch (e) { gx.page = "failed: " + (e && (e.name || e.message) || "error"); }
+    }
+    gx.rows = listOf(grades).length;
+    gx.sample = listOf(grades).slice(0, 40).map(g => `${String(g.GradeObjectName || "").slice(0, 60)}${g.GradeObjectType === 9 ? " (category)" : ""}: ${g.PointsNumerator == null ? "-" : g.PointsNumerator} / ${g.PointsDenominator == null ? "-" : g.PointsDenominator}${g.WeightedDenominator != null ? ", weight " + (g.WeightedNumerator == null ? "-" : g.WeightedNumerator) + " / " + g.WeightedDenominator : ""}`);
     const fl = listOf(folders).filter(f => f && !f.IsHidden);
     const recent = fl.filter(f => { const d = Date.parse(f.DueDate || (f.Availability && f.Availability.EndDate) || ""); return isNaN(d) || (d > now - 60 * 864e5 && d < now + 240 * 864e5); }).slice(0, 60);
     const subs = {}, subAt = {}, fbk = {};
@@ -244,12 +288,12 @@ async function bsHarvest(o) {
       const fe = s.map(x => x && x.Feedback).find(Boolean);
       if (fe) fbk[f.Id] = fe;
     });
-    let fromPage = 0;
+    let fromPage = 0, folderHtml = null;
     if (recent.some(f => subs[f.Id] === undefined)) {
       try {
         const r = await fetch(`/d2l/lms/dropbox/user/folders_list.d2l?ou=${c.ou}&isprv=0`, { credentials: "include" });
         if (r.ok) {
-          const html = (await r.text()).slice(0, 3000000);
+          const html = folderHtml = (await r.text()).slice(0, 3000000);
           html.split(/(?=folder_submit_files\.d2l\?)/).slice(1).forEach(part => {
             const m = part.match(/^folder_submit_files\.d2l\?[^"'<>]*?\bdb=(\d+)/); if (!m || subs[m[1]] !== undefined) return;
             const row = htmlText(part.slice(0, 6000), { line: true });
@@ -263,20 +307,58 @@ async function bsHarvest(o) {
       const yes = recent.filter(f => subs[f.Id] === true).length, no = recent.filter(f => subs[f.Id] === false).length, unk = recent.length - yes - no;
       c.subNote = `${c.code || c.name}: ${yes} submitted, ${no} not, ${unk} unknown` + (subFail ? `; API refused ${subFail} (${subWhy})` : "") + (subOdd ? `; ${subOdd} unreadable answers` : "") + (fromPage ? `; ${fromPage} from the Assignments page` : "");
     }
+    const quizApiN = quizzes.length;
+    // A closed exam drops off the quiz list and the Quizzes page, but its calendar entry is still tied to it (and carries its id):
+    // read it from there, on the exam's day, so its Submissions page (and mark) can still be found
+    let qFromCal = 0, qFromToc = 0;
+    const qKnown = new Set(quizzes.map(x => x && String(x.QuizId)));
+    const tocTopics = []; const tocWalk = (ms, d) => (ms || []).forEach(m => { if (!m || d > 5) return; (m.Topics || []).forEach(t => tocTopics.push(t)); tocWalk(m.Modules, d + 1); });
+    tocWalk(toc && toc.Modules, 0);
+    tocTopics.forEach(t => {
+      const qi = (String(t.Url || "").match(/[?&]qi=(\d+)/) || [])[1] || (Number(t.ActivityType) === 4 || /quiz/i.test(String(t.TypeIdentifier || "")) ? (t.ToolItemId != null ? String(t.ToolItemId) : "") : "");
+      if (!qi || qKnown.has(qi) || qFromToc >= 10 || t.IsHidden) return;
+      qKnown.add(qi); qFromToc++;
+      quizzes.push({ QuizId: Number(qi) || qi, Name: String(t.Title || "Quiz").trim(), DueDate: t.EndDateTime || t.DueDate || null, StartDate: t.StartDateTime || null, EndDate: null, IsActive: true, fromToc: true, GradeItemId: t.GradeItemId != null ? t.GradeItemId : null });
+    });
+    const calTied = events.filter(e => e && String(e.OrgUnitId) === String(c.ou) && (e.IsAssociatedWithEntity || e.AssociatedEntity)).slice(0, 12)
+      .map(e => `${String(e.Title || "").slice(0, 60)} [${e.AssociatedEntity ? String(e.AssociatedEntity.AssociatedEntityType || "?") + " " + String(e.AssociatedEntity.AssociatedEntityId) : "no id"}]`);
+    const calExams = events.filter(e => e && String(e.OrgUnitId) === String(c.ou) && /\b(quiz|exam|midterm|final|test)\b/i.test(String(e.Title || ""))).slice(0, 8)
+      .map(e => `${String(e.Title || "").slice(0, 60)} (${String(e.StartDateTime || "").slice(0, 10)}${e.IsAssociatedWithEntity || e.AssociatedEntity ? ", tied" : ""})`);
+    events.filter(e => e && String(e.OrgUnitId) === String(c.ou) && e.AssociatedEntity && e.AssociatedEntity.AssociatedEntityId != null).forEach(e => {
+      const ty = String(e.AssociatedEntity.AssociatedEntityType || ""), id = String(e.AssociatedEntity.AssociatedEntityId), title = String(e.Title || "");
+      if (qKnown.has(id) || qFromCal >= 8) return;
+      if (!(/quiz/i.test(ty) || (!/dropbox|assignment|discussion|topic|content|checklist|survey|grade/i.test(ty) && /\b(quiz|exam|midterm|final|test)\b/i.test(title)))) return;
+      qKnown.add(id); qFromCal++;
+      quizzes.push({ QuizId: Number(id) || id, Name: title.replace(/^\s*[A-Z]{2,5}[\s_-]?\d{3,4}[A-Z]?\s*[-–:]?\s*/, "").replace(/\s*[-–:]\s*(due|available|availability ends|ends|closes)\s*$/i, "").trim() || title, DueDate: e.StartDateTime, StartDate: null, EndDate: null, IsActive: true, fromCal: true, GradeItemId: null });
+    });
     const qrecent = quizzes.filter(x => { if (!x || x.IsActive === false) return false; const d = Date.parse(x.DueDate || x.EndDate || x.StartDate || ""); return isNaN(d) || (d > now - 60 * 864e5 && d < now + 240 * 864e5); }).slice(0, 40);
-    const tried = {};
+    const tried = {}, satAt = {};
     let qRefused = 0, qPage = 0, qPageStatus = "", qLinks = 0, qOwn = 0;
     await inBatches(qrecent, async x => {
+      if (!spend()) return;
       const a = await soft(`${b}/quizzes/${x.QuizId}/attempts/`, true);
       if (!a) qRefused++;
       if (a) tried[x.QuizId] = listOf(a).some(t => t && (t.AttemptId != null || t.AttemptNumber != null || t.TimeCompleted || t.DateCompleted || t.SubmittedDate || t.IsGraded === true || (t.Score != null && t.Score !== "")));
+      // when you finished it (your first attempt), so a task made from it is dated by that and not by the day it was read
+      const when = a ? listOf(a).map(t => t && (dt(t.TimeCompleted) || dt(t.DateCompleted) || dt(t.SubmittedDate) || dt(t.TimeStarted))).filter(Boolean).sort() : [];
+      if (when.length) satAt[x.QuizId] = when[0];
     });
-    if (qrecent.some(x => tried[x.QuizId] !== true)) {
+    let qOnlyPage = 0;
+    if (qrecent.some(x => tried[x.QuizId] !== true) || !quizzes.length) {
       try {
         const r = await fetch(`/d2l/lms/quizzing/user/quizzes_list.d2l?ou=${c.ou}`, { credentials: "include" });
-        qPageStatus = String(r.status);
+        qPageStatus = String(r.status) + (r.redirected && /\/login|\/d2l\/lp\/auth|saml|sso|shibboleth/i.test(String(r.url || "")) ? " (sign-in page)" : "");
         if (r.ok) {
           const html = (await r.text()).slice(0, 3000000);
+          // A quiz on the Quizzes page that the quiz list API left out (some schools don't give students that API): read it from its own pages
+          const known = new Set(quizzes.map(x => x && String(x.QuizId)));
+          for (const m of html.matchAll(/quiz_summary\.d2l\?[^"'<>]*?\bqi=(\d+)[^>]*>([\s\S]{0,600}?)<\/a>/gi)) {
+            const name = htmlText(m[2], { line: true }).slice(0, 300);
+            if (!name || known.has(m[1]) || qrecent.length >= 40) continue;
+            known.add(m[1]); qOnlyPage++;
+            const x = { QuizId: Number(m[1]), Name: name, IsActive: true, fromPage: true };
+            quizzes.push(x); qrecent.push(x);
+          }
           html.split(/(?=[?&;]qi=\d)/).slice(1).forEach(part => {
             const m = part.match(/^[?&;]qi=(\d+)/); if (!m) return; qLinks++; if (tried[m[1]] === true) return;
             const all = [...htmlText(part.slice(0, 6000), { line: true }).matchAll(/(?<![\d/])(\d+)\s*\/\s*(?:\d+|unlimited)(?![\d/])/gi)], a = all[all.length - 1];
@@ -286,17 +368,116 @@ async function bsHarvest(o) {
       } catch (e) { qPageStatus = String(e && e.name || "error"); }
     }
     const qLeft = qrecent.filter(x => tried[x.QuizId] !== true).slice(0, 12);
+    const pageSeen = {};
+    const page = async u => {
+      try {
+        const r = await fetch(u, { credentials: "include" });
+        const login = !!(r.redirected && /\/login|\/d2l\/lp\/auth|saml|sso|shibboleth/i.test(String(r.url || "")));
+        if (!r.ok || login) { pageSeen[u] = login ? "sign-in page" : "HTTP " + r.status; return ""; }
+        const t = htmlText((await r.text()).slice(0, 1500000), { line: true });
+        pageSeen[u] = "ok " + t.length + " chars" + (/\b(log ?in|sign ?in)\b[^.]{0,40}\b(password|username|user name)\b/i.test(t.slice(0, 4000)) ? ", looks like a sign-in page" : "");
+        return t;
+      } catch (e) { pageSeen[u] = "failed: " + (e && (e.name || e.message) || "error"); return ""; }
+    };
+    const submPage = {};
     await inBatches(qLeft, async x => {
-      const page = async u => { try { const r = await fetch(u, { credentials: "include" }); return r.ok ? htmlText((await r.text()).slice(0, 1500000), { line: true }) : ""; } catch (e) { return ""; } };
+      if (!spend()) return;
       const sum = await page(`/d2l/lms/quizzing/user/quiz_summary.d2l?qi=${x.QuizId}&ou=${c.ou}`);
       const done = sum.match(/\bcompleted\s*[-–:]\s*(\d+)(?![\d/:.,])/i);
       if (done && Number(done[1]) > 0) { tried[x.QuizId] = true; qOwn++; return; }
-      const subm = await page(`/d2l/lms/quizzing/user/quiz_submissions.d2l?qi=${x.QuizId}&ou=${c.ou}`);
+      const subm = submPage[x.QuizId] = await page(`/d2l/lms/quizzing/user/quiz_submissions.d2l?qi=${x.QuizId}&ou=${c.ou}`);
       if (/\battempt\s+\d+\b/i.test(subm)) { tried[x.QuizId] = true; qOwn++; }
     });
+    // Marks that aren't on the Grades page. Each source below fills `marks` ({kind, id, num, den, from, how}) for items Grades has no mark for;
+    // the app keeps Grades first, then these in the order of MARK_SOURCES in src/js/95-lms.js. Each can be switched off (q.marks[source] === false).
+    const markOn = k => !(q.marks && typeof q.marks === "object" && q.marks[k] === false) && q.grades !== false;
+    const gradeRows = listOf(grades), hasMark = id => id != null && gradeRows.some(g => g && String(g.GradeObjectIdentifier) === String(id) && g.PointsNumerator != null);
+    const marks = [], markNote = [], mk = (kind, id, sc, from) => { if (sc && sc.den > 0 && sc.num != null && sc.num >= 0 && sc.num <= sc.den * 2) marks.push({ kind, id: String(id), num: sc.num, den: sc.den, from, how: sc.how || "" }); };
+    const num = v => { const x = Number(v); return v != null && v !== "" && isFinite(x) ? x : null; };
+    // "34 / 45" after a label (Score, Grade, Overall Grade...). With `den`, only that denominator counts, so a date or a post's "3/4" isn't taken for a mark
+    const labelled = (t, den) => {
+      for (const m of String(t || "").matchAll(/\b(overall\s+grade|score|grade|mark|points|assessment|evaluation)\b[^\n\d]{0,40}?(?<![\d/.])(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)(?![\d/])/gi)) {
+        const n = num(m[2]), d = num(m[3]); if (n == null || !(d > 0) || (den > 0 && d !== den)) continue;
+        return { num: n, den: d, how: (m[0].match(/\(([^)]{1,30})\)/) || [])[1] || "" };
+      }
+      return null;
+    };
+    // 1. Quizzes: the quiz's Submissions page (Quizzes > the quiz > Submissions): "Overall Grade (highest attempt): 34 / 45", or the best attempt
+    if (markOn("quizPage")) {
+      const scoreOf = t => {
+        const over = t.match(/\boverall\s+grade\b[^:\n]{0,40}:\s*(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/i);
+        if (over && num(over[2]) > 0) return { num: num(over[1]), den: num(over[2]), how: (over[0].match(/\(([^)]{1,30})\)/) || [])[1] || "" };
+        const rows = [...t.matchAll(/\battempt\s+(\d+)\b[^\n]{0,80}?(?<![\d/])(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)(?![\d/])/gi)].map(m => ({ num: num(m[2]), den: num(m[3]) })).filter(x => x.den > 0 && x.num != null && x.num <= x.den * 2);
+        if (!rows.length) return null;
+        const best = rows.sort((a, b) => b.num / b.den - a.num / a.den)[0];
+        return { num: best.num, den: best.den, how: rows.length > 1 ? "highest attempt" : "" };
+      };
+      const toScore = qrecent.filter(x => tried[x.QuizId] !== false && !hasMark(x.GradeItemId)).sort((a, b) => (tried[b.QuizId] === true) - (tried[a.QuizId] === true)).slice(0, 15);
+      let got = 0;
+      await inBatches(toScore, async x => {
+        if (!spend()) return;
+        const t = submPage[x.QuizId] != null ? submPage[x.QuizId] : (submPage[x.QuizId] = await page(`/d2l/lms/quizzing/user/quiz_submissions.d2l?qi=${x.QuizId}&ou=${c.ou}`));
+        const sc = t && scoreOf(t); if (sc) { mk("quiz", x.QuizId, sc, "quizPage"); got++; tried[x.QuizId] = true; }
+        if (t && x.fromCal) { const nm = t.match(/\bquiz submissions\s*[-–:]\s*(.{3,160}?)\s+(?:individual attempts|attempt\s+\d|overall grade|there are no|no submissions)/i); if (nm) x.Name = nm[1].trim(); if (/\battempt\s+\d+\b/i.test(t)) tried[x.QuizId] = true; }
+      });
+      if (toScore.length) markNote.push(`quiz Submissions pages ${got} of ${toScore.length}`);
+    }
+    // 2. Assignments: the score in the assignment's published feedback (Assignments > the assignment > View Feedback)
+    const outOfF = f => f && f.Assessment && num(f.Assessment.ScoreDenominator) > 0 ? num(f.Assessment.ScoreDenominator) : null;
+    const fUnmarked = fl.filter(f => !hasMark(f.GradeItemId));
+    const fx = {}; const fxOf = f => fx[f.Id] = fx[f.Id] || { id: String(f.Id), n: String(f.Name || "").slice(0, 70), sub: subs[f.Id] === true ? "yes" : subs[f.Id] === false ? "no" : "unknown", gradeItem: f.GradeItemId != null ? String(f.GradeItemId) : "", inGrades: hasMark(f.GradeItemId), outOf: outOfF(f), fb: fbk[f.Id] ? (fbk[f.Id].Score != null ? "score " + fbk[f.Id].Score : "no score") : "none" };
+    const tryGetS = async u => { try { return { b: await get(u) }; } catch (e) { return { e: String(e.status || e.name || e.message || "error") }; } };
+    const meIdent = String(me.Identifier || "");
+    const handedIn = f => subs[f.Id] === true || !!fbk[f.Id];
+    if (markOn("assignmentFeedback")) {
+      let got = 0;
+      fUnmarked.forEach(f => { const fe = fbk[f.Id], sc = fe && num(fe.Score), den = outOfF(f); if (sc != null && den) { mk("folder", f.Id, { num: sc, den }, "assignmentFeedback"); got++; } });
+      // the feedback link for you, for handed-in ones the submissions answer had no score for
+      const ask = fUnmarked.filter(f => handedIn(f) && !marks.some(m => m.kind === "folder" && m.id === String(f.Id))).slice(0, 15);
+      if (meIdent) await inBatches(ask, async f => {
+        if (!spend()) return;
+        const r = await tryGetS(`${b}/dropbox/folders/${f.Id}/feedback/user/${meIdent}`), x = fxOf(f);
+        if (r.e) { x.fbApi = "refused (" + r.e + ")"; return; }
+        const fe = r.b && typeof r.b === "object" ? r.b : null, sc = fe && num(fe.Score), den = outOfF(f) || (fe && fe.OutOf != null ? num(fe.OutOf) : null);
+        x.fbApi = fe ? "ok" + (sc != null ? ", score " + sc : ", no score") + (fe.IsGraded === false ? ", not graded" : "") : "empty";
+        if (fe && !fbk[f.Id]) fbk[f.Id] = fe;
+        if (sc != null && den) { mk("folder", f.Id, { num: sc, den }, "assignmentFeedback"); got++; }
+      });
+      if (got) markNote.push(`assignment feedback ${got}`);
+    }
+    // 3. Assignments: the Assignments page's Score column (by its heading), else the assignment's View Feedback page, for handed-in ones still without a mark
+    if (markOn("assignmentsPage") && spend()) {
+      const left = fUnmarked.filter(f => handedIn(f) && !marks.some(m => m.kind === "folder" && m.id === String(f.Id)));
+      if (left.length) {
+        if (folderHtml == null) { try { const r = await fetch(`/d2l/lms/dropbox/user/folders_list.d2l?ou=${c.ou}&isprv=0`, { credentials: "include" }); folderHtml = r.ok ? (await r.text()).slice(0, 3000000) : ""; } catch (e) { folderHtml = ""; } }
+        const cellsOf = row => [...String(row).matchAll(/<(t[hd])\b([^>]*)>([\s\S]*?)<\/\1\s*>/gi)].map(m => ({ t: htmlText(m[3], { line: true }), span: Number((m[2].match(/colspan\s*=\s*["']?(\d+)/i) || [])[1]) || 1 }));
+        const expand = cs => { const o = []; cs.forEach(c2 => { o.push(c2.t); for (let k = 1; k < Math.min(c2.span, 8); k++) o.push(""); }); return o; };
+        const scoreIn = t => { const m = String(t || "").match(/(?<![\d/.])(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)(?![\d/])/); return m && num(m[2]) > 0 ? { num: num(m[1]), den: num(m[2]) } : null; };
+        const rowOf = {}; let scoreCol = -1;
+        String(folderHtml).split(/<tr\b/i).slice(1).forEach(raw => {
+          const cs = expand(cellsOf(raw)), low = cs.map(x => x.toLowerCase());
+          if (scoreCol < 0 && low.some(x => /^score$/.test(x))) { scoreCol = low.findIndex(x => /^score$/.test(x)); return; }
+          const m = raw.match(/[?&;](?:amp;)?db=(\d+)/); if (!m || rowOf[m[1]]) return;
+          rowOf[m[1]] = { text: htmlText(raw, { line: true }).slice(0, 240), score: scoreCol >= 0 ? cs[scoreCol] || "" : "",
+            links: [...raw.matchAll(/href\s*=\s*["']([^"']+)["']/gi)].map(x => x[1].replace(/&amp;/g, "&")).filter(h => /feedback|history|folder_user/i.test(h)).slice(0, 3) };
+        });
+        let got = 0;
+        await inBatches(left, async f => {
+          const row = rowOf[String(f.Id)], den = outOfF(f), x = fxOf(f);
+          x.row = row ? row.text : "not on the page"; x.scoreCell = row ? row.score : ""; x.links = row ? row.links : [];
+          let sc = row && row.score ? scoreIn(row.score) : null;
+          if (!sc && row && den) { const all = [...row.text.matchAll(/(?<![\d/.])(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)(?![\d/])/g)].map(m => ({ num: num(m[1]), den: num(m[2]) })); sc = all.find(y => y.den === den) || null; }
+          if (!sc && row) sc = labelled(row.text, den);
+          // its View Feedback page: the score after "Score" there
+          if (!sc && row && row.links.length && spend()) { const fu = row.links[0].charAt(0) === "/" ? row.links[0] : "/d2l/lms/dropbox/user/" + row.links[0]; const t = await page(fu); x.fbPage = (pageSeen[fu] || "") + (t ? `, "score" ${(t.match(/\bscore\b/gi) || []).length}x` : ""); sc = t ? (labelled(t, den) || (den ? null : scoreIn((t.match(/\bscore\b[^\n]{0,60}/i) || [""])[0]))) : null; }
+          if (sc && (!den || sc.den === den)) { mk("folder", f.Id, sc, "assignmentsPage"); got++; }
+        });
+        markNote.push(`Assignments page ${got} of ${left.length}`);
+      }
+    }
     if (qrecent.length) {
       const sat = qrecent.filter(x => tried[x.QuizId] === true).length, not = qrecent.filter(x => tried[x.QuizId] === false).length;
-      c.quizNote = `quizzes: ${sat} sat, ${not} not, ${qrecent.length - sat - not} unknown` + (qRefused ? `; attempts API refused ${qRefused}` : "") + (qPageStatus ? `; Quizzes page ${qPageStatus}, ${qLinks} quiz links, ${qPage} sat from it` : "") + (qLeft.length ? `; ${qOwn} of ${qLeft.length} sat from their own pages` : "");
+      c.quizNote = `quizzes: ${sat} sat, ${not} not, ${qrecent.length - sat - not} unknown` + (qOnlyPage ? `; ${qOnlyPage} only on the Quizzes page` : "") + (qRefused ? `; attempts API refused ${qRefused}` : "") + (qPageStatus ? `; Quizzes page ${qPageStatus}, ${qLinks} quiz links, ${qPage} sat from it` : "") + (qLeft.length ? `; ${qOwn} of ${qLeft.length} sat from their own pages` : "");
     }
     const graded = new Set(listOf(grades).filter(g => g && g.GradeObjectIdentifier != null && g.PointsNumerator != null).map(g => String(g.GradeObjectIdentifier)));
     const rubOf = r => {
@@ -328,16 +509,17 @@ async function bsHarvest(o) {
     c.folders.forEach(f => { const fe = fbk[f.id]; if (fe) f.fb = fbOf(fe, f.rub, f.outOf); });
     c.quizzes = quizzes.filter(x => x && x.IsActive !== false).slice(0, 120).map(x => ({ id: String(x.QuizId), name: String(x.Name || ""), due: dt(x.DueDate), start: dt(x.StartDate), end: dt(x.EndDate),
       gid: x.GradeItemId != null ? String(x.GradeItemId) : "", text: txt(x.Description || x.Instructions, 1500), limit: x.TimeLimitValue || (x.TimeLimit && x.TimeLimit.TimeLimitValue) || null,
-      done: tried[x.QuizId] === true || (x.GradeItemId != null && graded.has(String(x.GradeItemId))) ? true : tried[x.QuizId] === undefined ? null : false }));
+      done: tried[x.QuizId] === true || (x.GradeItemId != null && graded.has(String(x.GradeItemId))) ? true : tried[x.QuizId] === undefined ? null : false,
+      at: satAt[x.QuizId] || null }));
     c.quizzes.forEach(x => { x.st = stOf(x.due, x.end, x.done, null); });
     c.gradeN = listOf(grades).length;
     c.grades = listOf(grades).slice(0, 200).map(g => ({ gid: String(g.GradeObjectIdentifier || ""), name: String(g.GradeObjectName || ""), type: Number(g.GradeObjectType) || 0,
       num: g.PointsNumerator, den: g.PointsDenominator, wnum: g.WeightedNumerator, wden: g.WeightedDenominator, shown: String(g.DisplayedGrade || "").trim(), at: dt(g.ReleasedDate || g.LastModified),
       fb: txt(g.Comments, 3000) ? { c: [{ by: "Instructor", mine: false, at: dt(g.ReleasedDate || g.LastModified), t: txt(g.Comments, 3000) }], ra: [], sc: g.PointsNumerator != null ? Number(g.PointsNumerator) : null, of: g.PointsDenominator != null ? Number(g.PointsDenominator) : null, g: String(g.DisplayedGrade || "").trim().slice(0, 20), at: null } : null }));
-    const marked = c.grades.filter(g => g.gid && g.num != null).slice(0, 25);
+    const marked = c.grades.filter(g => g.gid && !/^gp\d/.test(g.gid) && g.num != null).slice(0, 25);
     if (marked.length) {
       const num = v => v != null && isFinite(Number(v)) ? Number(v) : null;
-      const statsOf = async g => { const r = await soft(`${b}/grades/${g.gid}/statistics`, true); if (r && num(r.Average) != null) g.cls = { mean: num(r.Average), median: num(r.Median), lo: num(r.Minimum), hi: num(r.Maximum) }; return !!r; };
+      const statsOf = async g => { if (!spend()) return false; const r = await soft(`${b}/grades/${g.gid}/statistics`, true); if (r && num(r.Average) != null) g.cls = { mean: num(r.Average), median: num(r.Median), lo: num(r.Minimum), hi: num(r.Maximum) }; return !!r; };
       if (await statsOf(marked[0])) await inBatches(marked.slice(1), statsOf);
     }
     try {
@@ -351,21 +533,84 @@ async function bsHarvest(o) {
       const pass = rg.find(r => !FAIL.test(r.sym));
       if (rg.some(r => FAIL.test(r.sym)) && pass && pass.at >= 30 && pass.at <= 90) c.passMark = { pct: Math.round(pass.at * 10) / 10, from: "scheme", name: String(sch.Name || "").slice(0, 80) };
     } catch (e) {}
-    const meId = String(me.Identifier || "");
+    const meId = String(me.Identifier || ""), meName = [me.FirstName, me.LastName].filter(Boolean).join(" ").trim().toLowerCase();
     const tops = [];
-    await Promise.all(listOf(forums).filter(f => f && !f.IsHidden).slice(0, 15).map(async f => {
+    // Every forum's topics (Brightspace lists the oldest first), then the ones nearest today: a weekly topic from yesterday must not be cut off
+    await inBatches(listOf(forums).filter(f => f && !f.IsHidden).slice(0, 40), async f => {
       const ts = await soft(`${b}/discussions/forums/${f.ForumId}/topics/`, true);
-      listOf(ts).forEach(t => { if (t && !t.IsHidden && inWin(t.DueDate || t.EndDate || t.UnlockEndDate)) tops.push({ f, t }); });
-    }));
-    c.discussions = [];
-    for (let i = 0; i < Math.min(tops.length, 20); i += 6) await Promise.all(tops.slice(i, Math.min(i + 6, 20)).map(async ({ f, t }) => {
+      listOf(ts).forEach(t => { if (!t || t.IsHidden) return; const d = t.DueDate || t.EndDate || t.UnlockEndDate; if (!d || inWin(d)) tops.push({ f, t, at: d ? Date.parse(d) : NaN }); });
+    });
+    tops.sort((x, y) => (isNaN(x.at) - isNaN(y.at)) || Math.abs(x.at - now) - Math.abs(y.at - now));
+    tops.splice(40);
+    c.discussions = []; let postsRefused = 0, pageChecks = 0, fromTopicPage = 0;
+    const topicDx = [];
+    await inBatches(tops, async ({ f, t }) => {
       const gid = t.GradeItemId != null ? String(t.GradeItemId) : "";
       let posted = gid && graded.has(gid) ? true : null;
-      if (posted == null && meId) { const ps = await soft(`${b}/discussions/forums/${f.ForumId}/topics/${t.TopicId}/posts/`, true); if (ps) posted = listOf(ps).some(p => p && String(p.PostingUserId) === meId); }
+      let postAt = null, others = 0;
+      // a group topic (one shared with your group): a post by a group member is your group's post
+      const grp = t.GroupTypeId != null || /\bgroups?\b/i.test(String(t.Name || ""));
+      const tx = { id: String(t.TopicId), n: String(t.Name || "").slice(0, 70), forum: String(f.Name || "").slice(0, 70), due: String(t.DueDate || t.EndDate || t.UnlockEndDate || "").slice(0, 10), grp, graded: !!(gid && graded.has(gid)), posts: "not read", n0: 0, ids: [], page: "" };
+      const dueAt0 = Date.parse(t.DueDate || t.EndDate || t.UnlockEndDate || ""), near = isNaN(dueAt0) || (dueAt0 > now - 45 * 864e5 && dueAt0 < now + 14 * 864e5);
+      if (posted == null && meId && !near) tx.posts = "not read (not due near now)";
+      else if (posted == null && meId && !spend()) tx.posts = "not read (out of time)";
+      else if (posted == null && meId) {
+        // all of the topic's posts, page by page (a busy class topic can run past one page), until one of yours turns up
+        let prevFirst = null;
+        for (let pg = 1; pg <= 6; pg++) {
+          const tryGet = async u => { try { return { b: await get(u) }; } catch (e) { return { e: String(e.status || e.name || "error") }; } };
+          // the documented link first; a further page only when the first one looks full
+          let ans = pg === 1 ? await tryGet(`${b}/discussions/forums/${f.ForumId}/topics/${t.TopicId}/posts/`) : await tryGet(`${b}/discussions/forums/${f.ForumId}/topics/${t.TopicId}/posts/?pageSize=100&pageNumber=${pg}`);
+          if (ans.e && pg === 1) { const a2 = await tryGet(`${b}/discussions/forums/${f.ForumId}/topics/${t.TopicId}/posts/?pageSize=100&pageNumber=1`); if (!a2.e) ans = a2; else ans.e += ", paged " + a2.e; }
+          const ps = ans.b || null;
+          if (!ps) { if (pg === 1) { postsRefused++; tx.posts = "refused (" + ans.e + ")"; } break; }
+          const l = listOf(ps);
+          if (pg > 1 && l.length && prevFirst != null && l[0] && l[0].PostId === prevFirst) break;
+          prevFirst = l[0] ? l[0].PostId : null;
+          tx.posts = "read"; tx.n0 += l.length; if (tx.ids.length < 3) l.slice(0, 3 - tx.ids.length).forEach(p => tx.ids.push(p ? typeof p.PostingUserId + ":" + String(p.PostingUserId) : "?"));
+          // yours by your user id, or by your name where a school's posts give the id in another form
+          const mine = l.filter(p => p && (String(p.PostingUserId) === meId || (meName && String(p.PostingUserDisplayName || "").trim().toLowerCase() === meName)));
+          others += l.filter(p => p && p.PostingUserId != null && !mine.includes(p)).length;
+          if (mine.length) { posted = true; postAt = mine.map(p => dt(p.DatePosted)).filter(Boolean).sort()[0] || null; break; }
+          posted = false;
+          if (l.length < 100 || !spend()) break;
+        }
+      }
+      // The topic's own page says "Anna Bulawski posted Oct 25, 2026": for a recent topic the posts list didn't show (or refused) a post of yours
+      const dueAt = Date.parse(t.DueDate || t.EndDate || t.UnlockEndDate || "");
+      if (posted !== true && meName && pageChecks < 12 && (tx.posts.startsWith("refused") || posted == null) && near && spend() && (isNaN(dueAt) || (dueAt > now - 30 * 864e5 && dueAt < now + 14 * 864e5))) {
+        pageChecks++;
+        const pu = `/d2l/le/${c.ou}/discussions/topics/${t.TopicId}/View`, pt = await page(pu);
+        tx.page = (pageSeen[pu] || "") + (pt ? `, "posted" ${(pt.match(/\bposted\b/gi) || []).length}x, your name ${pt.toLowerCase().includes(meName) ? "found" : "not found"}` : "");
+        const esc = meName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+        const m = pt && pt.match(new RegExp(esc + "\\s+posted\\b\\s*(?:on\\s+)?([A-Z][a-z]{2,8}\\.?\\s+\\d{1,2},\\s*\\d{4}(?:\\s+\\d{1,2}:\\d{2}\\s*[AP]M)?)?", "i"));
+        if (m) { posted = true; fromTopicPage++; if (!postAt && m[1] && !isNaN(Date.parse(m[1].replace(/\./, "")))) postAt = new Date(Date.parse(m[1].replace(/\./, ""))).toISOString(); }
+        else if (pt && /\bposted\b/i.test(pt)) { if (posted == null) posted = false; others += (pt.match(/\bposted\b/gi) || []).length; }
+      }
+      tx.result = posted === true ? "posted" : posted === false ? (grp && others > 0 ? "group posted" : "not posted") : "unknown";
+      topicDx.push(tx);
       const due = dt(t.DueDate) || dt(t.EndDate) || dt(t.UnlockEndDate);
-      c.discussions.push({ id: String(t.TopicId), name: String(t.Name || ""), due, start: dt(t.StartDate) || dt(t.UnlockStartDate), text: txt(t.Description, 1500), gid, outOf: t.ScoreOutOf != null ? Number(t.ScoreOutOf) : null, posted,
+      c.discussions.push({ id: String(t.TopicId), name: String(t.Name || ""), forum: String(f.Name || "").slice(0, 160), due, start: dt(t.StartDate) || dt(t.UnlockStartDate), text: txt(t.Description, 1500), gid, outOf: t.ScoreOutOf != null ? Number(t.ScoreOutOf) : null, posted, at: postAt, group: grp, groupPosted: grp && posted === false && others > 0,
         st: stOf(due, null, posted, null) });
-    }));
+    });
+    if (tops.length) c.topicNote = `discussions: ${c.discussions.filter(d => d.posted === true).length} posted` + (c.discussions.some(d => d.groupPosted) ? ` (+${c.discussions.filter(d => d.groupPosted).length} by your group)` : "") + `, ${c.discussions.filter(d => d.posted === false && !d.groupPosted).length} not, ${c.discussions.filter(d => d.posted == null).length} unknown of ${tops.length} topics` + (postsRefused ? `; posts refused for ${postsRefused}` : "") + (fromTopicPage ? `; ${fromTopicPage} from the topic's page` : "");
+    // 4. Discussions: the topic's own page, for a posted topic with a mark out of its known total (only "x / that total" after a label counts)
+    if (markOn("discussionPage") && spend()) {
+      const left = c.discussions.filter(d => d.posted === true && d.outOf > 0 && !hasMark(d.gid || null)).slice(0, 10);
+      let got = 0;
+      await inBatches(left, async d => { const sc = labelled(await page(`/d2l/le/${c.ou}/discussions/topics/${d.id}/View`), d.outOf); if (sc) { mk("topic", d.id, sc, "discussionPage"); got++; } });
+      if (left.length) markNote.push(`discussion pages ${got} of ${left.length}`);
+    }
+    c.marks = marks.slice(0, 120);
+    // What this read saw, step by step, for the sync report (Settings > Brightspace > Copy Sync Report)
+    c.dx = { folders: fl.filter(f => handedIn(f) || fx[f.Id]).slice(0, 25).map(f => Object.assign(fxOf(f), { mark: (marks.find(m => m.kind === "folder" && m.id === String(f.Id)) || {}).num != null ? marks.find(m => m.kind === "folder" && m.id === String(f.Id)).num + "/" + marks.find(m => m.kind === "folder" && m.id === String(f.Id)).den : "" })), grades: gx, calTied, calExams, quizToc: qFromToc, quizCal: qFromCal, timeLeft: Math.round((budgetEnd - Date.now()) / 1000) + " s", skipped: outOfTime, me: { id: meId ? typeof me.Identifier + ":" + meId : "none", name: meName ? "yes" : "no" }, quizApi: quizApiN, quizPage: qPageStatus || "not read",
+      quizzes: qrecent.slice(0, 15).map(x => { const su = `/d2l/lms/quizzing/user/quiz_submissions.d2l?qi=${x.QuizId}&ou=${c.ou}`, st = submPage[x.QuizId] || "", mm = marks.find(m => m.kind === "quiz" && m.id === String(x.QuizId));
+        return { id: String(x.QuizId), n: String(x.Name || "").slice(0, 70), from: x.fromCal ? "its calendar entry" : x.fromToc ? "the course content" : x.fromPage ? "Quizzes page" : "quiz list", gradeItem: x.GradeItemId != null ? String(x.GradeItemId) : "", inGrades: hasMark(x.GradeItemId),
+          sat: tried[x.QuizId] === true ? "yes" : tried[x.QuizId] === false ? "no" : "unknown", subm: pageSeen[su] || "not read",
+          overall: /\boverall\s+grade\b/i.test(st), attempts: (st.match(/\battempt\s+\d+/gi) || []).length, fractions: (st.match(/\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?/g) || []).slice(0, 4).join(" | "),
+          mark: mm ? mm.num + "/" + mm.den : "" }; }),
+      topics: topicDx.slice(0, 30) };
+    if (markNote.length) c.markNote = "marks not in Grades, from: " + markNote.join(", ");
     const STAFF = /instructor|teacher|professor|lecturer|faculty|\bta\b|teaching assistant|tutor|course leader/i;
     c.staff = listOf(roster).filter(u => u && STAFF.test(String(u.ClasslistRoleDisplayName || u.RoleName || ""))).slice(0, 8)
       .map(u => ({ name: String(u.DisplayName || [u.FirstName, u.LastName].filter(Boolean).join(" ")).slice(0, 120), email: String(u.Email || "").slice(0, 160), role: /\bta\b|assistant|tutor/i.test(String(u.ClasslistRoleDisplayName || "")) ? "TA" : "Instructor" }));
@@ -555,6 +800,18 @@ async function cvHarvest(o) {
     if (!due) return;
     c.items.push({ kind: t === "quiz" ? "quiz" : t === "discussion_topic" ? "discussion" : "other", id: String(p.plannable_id), name, due, start: null, end: null, text: "", url: String(p.html_url || ""), gid: "", outOf: null, done: doneP, files: [], rx: t === "quiz" ? { k: "quiz", st: ["online_quiz"] } : undefined });
   });
+  // An ungraded discussion has no submission, so the to-do list can't say you posted: look for your own reply in the topic
+  // (only yours: Canvas counts each student's post, in group discussions too). Graded ones are followed by their submission.
+  const meId = me && me.id != null ? String(me.id) : "", topics = [];
+  courses.forEach(c => (c.items || []).forEach(x => { const d = Date.parse(x.due || ""); if (x.kind === "discussion" && !x.gid && x.done !== true && (isNaN(d) || (d > now - 45 * 864e5 && d < now + 14 * 864e5))) topics.push({ c, x }); }));
+  for (let i = 0; meId && i < Math.min(topics.length, 24); i += 6) await Promise.all(topics.slice(i, Math.min(i + 6, 24)).map(async ({ c, x }) => {
+    // the topic's full view has every post and reply; top-level entries are the fallback
+    const v = await soft(`/api/v1/courses/${c.ou}/discussion_topics/${x.id}/view`, true), es = [];
+    const walk = (list, d) => (Array.isArray(list) ? list : []).forEach(e => { if (!e || d > 8 || es.length > 3000) return; es.push(e); walk(e.replies, d + 1); });
+    if (v && Array.isArray(v.view)) walk(v.view, 0); else es.push(...await pages(`/api/v1/courses/${c.ou}/discussion_topics/${x.id}/entries?per_page=100`, true, 3));
+    const mine = es.filter(e => e && String(e.user_id) === meId && !e.deleted);
+    if (mine.length) { x.done = true; x.at = mine.map(e => dt(e.created_at)).filter(Boolean).sort()[0] || null; x.st = { subAt: x.at, late: false, missing: false, excused: false, ext: false }; }
+  }));
   const mail = [];
   if (q.mail) {
     const convs = await soft("/api/v1/conversations?scope=inbox&per_page=20", true);
@@ -633,7 +890,7 @@ async function bbHarvest(o) {
     const counts = col => !col.externalGrade && !(col.grading && col.grading.type === "Calculated") && col.includeInCalculations !== false && col.score && Number(col.score.possible) > 0;
     const tpts = cols.reduce((s, col) => s + (counts(col) ? Number(col.score.possible) : 0), 0);
     const wOf = col => counts(col) && tpts > 0 ? Math.round(Number(col.score.possible) / tpts * 10000) / 100 : null;
-    const tried = {}, atWhen = {}, atFb = {};
+    const tried = {}, atWhen = {}, atFb = {}, atScore = {};
     const open = cols.filter(col => { const d = Date.parse((col.grading && col.grading.due) || ""), my = g[String(col.id)]; if (col.externalGrade || (col.grading && col.grading.type === "Calculated")) return false;
       if (isNaN(d)) return !!(col.grading && col.grading.type === "Attempts") && !(my && my.score != null);
       return d > now - (q.pastDays || 60) * 864e5 && d < now + (q.aheadDays || 240) * 864e5 && (!(my && my.score != null) || d > now - 21 * 864e5); }).slice(0, 40);
@@ -646,6 +903,9 @@ async function bbHarvest(o) {
       if (when.length) atWhen[String(col.id)] = when[0];
       const fbA = ok.map(a => txt(a.feedback, 3000)).filter(Boolean).pop();
       if (fbA) atFb[String(col.id)] = fbA;
+      // a graded attempt's score, for when the gradebook cell is still empty (not posted to the Grades page yet)
+      const sc = ok.filter(a => a.score != null && a.score !== "" && isFinite(Number(a.score)) && String(a.status) !== "NeedsGrading").map(a => Number(a.score));
+      if (sc.length) atScore[String(col.id)] = Math.max(...sc);
     }));
     const rubById = {}; rubrics.forEach(r => { if (r && r.id) rubById[String(r.id)] = r; });
     const rubCol = {}; rubAssoc.forEach(a => { const col = a && (a.gradebookColumnId || a.columnId || (a.associatedEntity && a.associatedEntity.id)); const r = a && (a.rubric || rubById[String(a.rubricId || "")]); if (col && r) rubCol[String(col)] = r; });
@@ -677,7 +937,8 @@ async function bbHarvest(o) {
     c.syl = syl ? [syl.slice(0, 8000), syl.slice(8000, 16000), syl.slice(16000, 24000)].filter(Boolean) : [];
     c.sylUrl = sylUrl;
     const courseUrl = `${location.origin}/ultra/courses/${id}/outline`;
-    c.items = []; c.grades = []; c.final = null;
+    c.items = []; c.grades = []; c.final = null; c.marks = [];
+    const markOn = k => !(q.marks && typeof q.marks === "object" && q.marks[k] === false) && q.grades !== false;
     let undatedN = 0;
     cols.forEach(col => {
       const my = g[String(col.id)] || null, due = dt(col.grading && col.grading.due), possible = col.score && Number(col.score.possible) > 0 ? Number(col.score.possible) : null;
@@ -692,6 +953,7 @@ async function bbHarvest(o) {
       const fb = fbT || score != null ? { c: fbT ? [{ by: "Instructor", mine: false, at: dt(my && (my.modified || my.lastModified)), t: fbT }] : [], ra: [], sc: score, of: possible, g: shown.slice(0, 20), at: null } : null;
       const rub = rubOf(rubCol[k]);
       if (due || undatedN++ < 60) c.items.push({ kind: /\b(test|quiz|exam|midterm)\b/i.test(col.name || "") ? "quiz" : "assignment", id: String(col.id), name: String(col.name || ""), due, start: null, end: null, text: txt(col.description), url: courseUrl, gid: String(col.id), outOf: possible, done, files: [], rx: col.grading && col.grading.type ? { gt: String(col.grading.type).slice(0, 16) } : undefined, st, fb, rub });
+      if (score == null && possible && atScore[k] != null && !(col.availability && /^no$/i.test(String(col.availability.available || ""))) && !(col.grading && col.grading.anonymousGrading && col.grading.anonymousGrading.type && !/none/i.test(String(col.grading.anonymousGrading.type))) && atScore[k] >= 0 && atScore[k] <= possible * 2 && markOn("attemptScore")) c.marks.push({ kind: "column", id: k, num: atScore[k], den: possible, from: "attemptScore", how: "" });
       if (possible && (score != null || wOf(col) != null)) c.grades.push({ gid: String(col.id), name: String(col.name || ""), num: score, den: possible, weight: wOf(col), shown, at: dt(my && (my.modified || my.lastModified)), fb });
     });
     c.news = news.slice(0, 25).map(n => ({ id: String(n.id), title: String(n.title || ""), text: txt(n.body, 3000), date: dt(n.created) || dt(n.availability && n.availability.duration && n.availability.duration.start), url: `${location.origin}/ultra/courses/${id}/announcements` }));
@@ -748,6 +1010,10 @@ const P = {
 const prov = id => (Object.prototype.hasOwnProperty.call(P, id) ? P[id] : null);
 // The exact script run in the school's page for a sync
 const harvestScript = (Pv, safe) => `(() => {\n${HARVEST_PRELUDE}\nreturn (${Pv.harvest.toString()})(${JSON.stringify(safe)});\n})()`;
+
+// Which places besides the Grades page a read may take marks from (see MARK_SOURCES in src/js/95-lms.js); off only when switched off
+const MARK_KEYS = ["quizPage", "assignmentFeedback", "assignmentsPage", "discussionPage", "attemptScore"];
+function markSwitches(m) { const out = {}; MARK_KEYS.forEach(k => { out[k] = !(m && typeof m === "object" && m[k] === false); }); return out; }
 
 // What comes back from the school's page
 const KEY_OK = /^[A-Za-z][A-Za-z0-9]{0,23}$/;
@@ -840,7 +1106,7 @@ async function sync(id, host, opts) {
   const o = opts && typeof opts === "object" ? opts : {};
   const idOk = x => /^[\w.-]{1,40}$/.test(x);
   const safe = { pastDays: Math.min(365, Math.max(1, Number(o.pastDays) || 60)), aheadDays: Math.min(400, Math.max(7, Number(o.aheadDays) || 240)),
-    grades: o.grades !== false, news: o.news !== false, internal: o.internal !== false,
+    grades: o.grades !== false, news: o.news !== false, internal: o.internal !== false, marks: markSwitches(o.marks), budget: 170000,
     only: Array.isArray(o.only) ? o.only.map(String).filter(idOk).slice(0, 40) : null,
     skip: Array.isArray(o.skip) ? o.skip.map(String).filter(idOk).slice(0, 200) : [] };
   busy[id] = (async () => {
@@ -1066,4 +1332,4 @@ function register(getMain, trusted) {
 }
 
 // harvestScript, cleanHarvest
-module.exports = { WHO, BS_FILE, CV_FILE, cvMail, HARVEST_PRELUDE, register, bsHarvest, cvHarvest, bbHarvest, originOf, feedOk, connect, sync, file, feed, signOut, ping, mail, harvestScript, cleanHarvest, cleanFile, privateIp, P };
+module.exports = { MARK_KEYS, markSwitches, WHO, BS_FILE, CV_FILE, cvMail, HARVEST_PRELUDE, register, bsHarvest, cvHarvest, bbHarvest, originOf, feedOk, connect, sync, file, feed, signOut, ping, mail, harvestScript, cleanHarvest, cleanFile, privateIp, P };

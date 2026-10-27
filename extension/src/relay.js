@@ -9,7 +9,7 @@
     try { all = await chrome.storage.local.get(null); } catch (e) { return; }
     const list = Object.keys(all).filter(k => /^result:(canvas|brightspace|blackboard)$/.test(k)).map(k => all[k]).filter(Boolean);
     const status = all.status || {}, schools = all.schools || {};
-    post({ type: "data", v: 1, version, list, schools: Object.keys(schools).map(id => ({ id, origin: schools[id].origin, state: (status[id] || {}).state || "", at: (status[id] || {}).lastOk || 0 })) });
+    post({ type: "data", v: 1, version, list, schools: Object.keys(schools).map(id => ({ id, origin: schools[id].origin, state: (status[id] || {}).state || "", at: (status[id] || {}).lastOk || 0, tried: (status[id] || {}).at || 0, error: String((status[id] || {}).error || "").slice(0, 160) })) });
   }
   // Only the page itself (same window, same site) can ask, and it can only ask for the data
   window.addEventListener("message", e => {
@@ -17,7 +17,11 @@
     if (e.data.type === "hello" || e.data.type === "get") send();
     else if (e.data.type === "sync") chrome.runtime.sendMessage({ op: "sync" }).catch(() => {});
     else if (e.data.type === "signout") chrome.runtime.sendMessage({ op: "forget" }).catch(() => {});
-    else if (e.data.type === "flags" && typeof e.data.bbInternal === "boolean") chrome.storage.local.set({ flags: { bbInternal: e.data.bbInternal } }).catch(() => {});
+    else if (e.data.type === "flags" && typeof e.data.bbInternal === "boolean") {
+      const marks = {};
+      if (e.data.marks && typeof e.data.marks === "object") ["quizPage", "assignmentFeedback", "assignmentsPage", "discussionPage", "attemptScore"].forEach(k => { if (e.data.marks[k] === false) marks[k] = false; });
+      chrome.storage.local.set({ flags: { bbInternal: e.data.bbInternal, marks } }).catch(() => {});
+    }
   });
   chrome.storage.onChanged.addListener((ch, area) => { if (area === "local" && Object.keys(ch).some(k => k.startsWith("result:") || k === "status")) send(); });
   post({ type: "ready", version });
