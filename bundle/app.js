@@ -31097,6 +31097,9 @@ function cleanFile(r) {
       if (row && row.got != null) return;
       if (row) { Object.assign(row, {got, outOf, shown: row.shown || shown, from: m.from, how: m.how || "", pid: it.pid}); return; }
       if (out.grades.some(g => g.ou === c.ou && g.pid === it.pid && g.got != null)) return;
+      // the same item already marked by the Grades page (read by its name there): that mark, with its weight, stands
+      const named = out.grades.find(g => g.ou === c.ou && !g.from && g.got != null && titleKey(g.name) === titleKey(cleanTitle(it.name).title));
+      if (named) { if (!named.pid) named.pid = it.pid; return; }
       out.grades.push({ou: c.ou, gid: it.gid || it.pid, pid: it.pid, name: cleanTitle(it.name).title, got, outOf, weight: null, shown, at: null, fb: null, from: m.from, how: m.how || ""});
     });
   }
@@ -32131,8 +32134,8 @@ function cleanFile(r) {
     const how = c.mode === "api" ? (bsDesk() ? (lmsOnPhone() ? "Signed in on this phone" : "Signed in on this computer") : c.lastSrc === "grab" ? `Read from ${P.name} in this browser` : "Synced from your computer's Studyboard app") : "Using your calendar link";
     if (running || reading) return `${how}. Syncing now…`;
     const when = c.last ? `Last synced ${ago(c.last)}` : "Not synced yet";
-    const ev = !bsDesk() && c.lastSrc === "grab" && window.SBEXT && SBEXT.on() ? SBEXT.version() : "", older = v => { const a = String(v).split(".").map(Number), b = [1, 0, 9]; for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== b[i]) return (a[i] || 0) < b[i]; } return false; };
-    const extOld = ev && older(ev) ? ` Your School Sync extension is version ${ev}: update it to 1.0.9 or later to bring in marks that aren't on ${P.name}'s Grades page (like quiz marks on a quiz's Submissions page).` : "";
+    const ev = !bsDesk() && c.lastSrc === "grab" && window.SBEXT && SBEXT.on() ? SBEXT.version() : "", older = v => { const a = String(v).split(".").map(Number), b = [1, 0, 10]; for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== b[i]) return (a[i] || 0) < b[i]; } return false; };
+    const extOld = ev && older(ev) ? ` Your School Sync extension is version ${ev}: update it to 1.0.10 or later to bring in marks that aren't on ${P.name}'s Grades page (like quiz marks on a quiz's Submissions page).` : "";
     return `${how}. ${when}.${extOld}${L.needLogin && bsDesk() && c.mode === "api" ? " Sign in again to keep syncing grades and announcements." : ""}${L.err ? " " + L.err : ""}`;
   }
   function shortStatus(){
@@ -32158,7 +32161,10 @@ function cleanFile(r) {
       const d = dx[ou], cid = (c.map || {})[ou], course = courseOf(cid);
       L.push("", `== ${d.code || d.name || ou} (Brightspace ${ou}) -> ${course ? courseLabel(course) : "not imported"}`);
       if (lr.notes && lr.notes[ou]) L.push("Summary: " + lr.notes[ou]);
-      L.push(`You: id ${d.me && d.me.id}, name ${d.me && d.me.name}. Quiz list gave ${d.quizApi} quizzes; Quizzes page: ${d.quizPage}.`);
+      L.push(`You: id ${d.me && d.me.id}, name ${d.me && d.me.name}. Quiz list gave ${d.quizApi} quizzes; Quizzes page: ${d.quizPage}${d.quizToc != null ? `; from course content ${d.quizToc}, from calendar ${d.quizCal}` : ""}.`);
+      if (d.grades) { L.push(`Grades: list ${d.grades.list}; Grades page ${d.grades.page}; ${d.grades.rows} rows used.`); (d.grades.sample || []).forEach(x => L.push("  Grade " + x)); }
+      if ((d.calExams || []).length) L.push("Exam calendar entries: " + d.calExams.join("; "));
+      if ((d.calTied || []).length) L.push("Calendar entries tied to an item: " + d.calTied.join("; "));
       (d.quizzes || []).forEach(q => L.push(`  Quiz "${q.n}" [${q.id}] from ${q.from}; sat ${q.sat}; grade item ${q.gradeItem || "none"}${q.inGrades ? " (marked in Grades)" : ""}; Submissions page: ${q.subm}${q.subm && q.subm.startsWith("ok") ? `, Overall Grade line ${q.overall ? "yes" : "no"}, ${q.attempts} attempt rows, fractions: ${q.fractions || "none"}` : ""}; mark read: ${q.mark || "none"}`));
       (d.topics || []).forEach(t => L.push(`  Topic "${t.n}"${t.forum ? ` (forum "${t.forum}")` : ""} [${t.id}] due ${t.due || "none"}${t.grp ? ", group" : ""}${t.graded ? ", graded" : ""}: posts ${t.posts}${t.posts === "read" ? ` (${t.n0}; ids ${(t.ids || []).join(", ") || "none"})` : ""}; topic page: ${t.page || "not read"}; result: ${t.result}`));
       const ts = Object.values(state.tasks || {}).filter(t => t && t[F] && (t[F].ou === ou || (cid && t.courseId === cid))).sort((a, b) => String(b.due).localeCompare(String(a.due))).slice(0, 40);
@@ -32427,7 +32433,8 @@ function cleanFile(r) {
   }
   function freshPlan(){
     const tasks = allTasks().filter(t => t[F] && t[F].key && !t[F].gradeOnly), go = [], keep = [];
-    tasks.forEach(t => { const why = changedBy(t); (why ? keep : go).push({t, why}); });
+    // a task with a mark keeps it: the school site may have hidden the item since (a closed exam), so a re-read can't bring the mark back
+    tasks.forEach(t => { const why = changedBy(t) || (t.mark && t.mark.got != null && t.mark.got !== "" ? "it has a mark (" + t.mark.got + "/" + t.mark.outOf + "), which the school site may not show again" : ""); (why ? keep : go).push({t, why}); });
     const evs = eventsArr().filter(e => e[F] && e[F].key), evGo = evs.filter(e => { const last = e[F].last || {}; return !["title", "date", "start", "end", "where", "notes"].some(f => last[f] !== undefined && String(e[f] == null ? "" : e[f]) !== String(last[f] == null ? "" : last[f])); });
     return {go, keep, evGo, evKeep: evs.length - evGo.length};
   }

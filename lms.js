@@ -191,6 +191,28 @@ async function bsHarvest(o) {
     if (h && typeof h === "object") h = h.Text || h.Html || "";
     return htmlText(h, { max: n || 4000 });
   };
+  // The Grades page as the student sees it (Grades in the course navbar): one row per grade item, read by its column headings
+  // ("Points", "Weight Achieved", "Grade"). Category rows (no points of their own) are kept as categories.
+  const gradesFromPage = html => {
+    const cellsOf = row => [...String(row).matchAll(/<(t[hd])\b([^>]*)>([\s\S]*?)<\/\1\s*>/gi)].map(m => ({ t: htmlText(m[3], { line: true }), span: Number((m[2].match(/colspan\s*=\s*["']?(\d+)/i) || [])[1]) || 1 }));
+    const expand = cs => { const o = []; cs.forEach(c => { o.push(c.t); for (let k = 1; k < Math.min(c.span, 8); k++) o.push(""); }); return o; };
+    const frac = t => { const m = String(t || "").match(/^\s*(-|–|[\d.]+)\s*\/\s*([\d.]+)\s*$/); return m ? { n: /^[\d.]+$/.test(m[1]) ? Number(m[1]) : null, d: Number(m[2]) } : null; };
+    const out = []; let head = null;
+    const table = (String(html).match(/<table\b[^>]*\bd_gd\b[\s\S]*?<\/table>/i) || String(html).match(/<table\b[\s\S]*?Grade Item[\s\S]*?<\/table>/i) || [""])[0];
+    String(table).split(/<tr\b/i).slice(1).forEach(row => {
+      const cs = expand(cellsOf(row)); if (!cs.length) return;
+      const low = cs.map(x => x.toLowerCase());
+      if (!head && (low.some(x => /^points$/.test(x)) || low.some(x => /^grade item$/.test(x)))) { head = { pts: low.findIndex(x => /^points$/.test(x)), w: low.findIndex(x => /weight achieved/.test(x)), g: low.findIndex(x => /^grade$/.test(x)) }; return; }
+      const name = cs.find(x => x && !frac(x) && !/^[\d.\s%-]+$/.test(x)); if (!name || name.length > 200) return;
+      const pts = head && head.pts >= 0 ? frac(cs[head.pts]) : cs.map(frac).find(Boolean) || null;
+      const w = head && head.w >= 0 ? frac(cs[head.w]) : (cs.map(frac).filter(Boolean)[1] || null);
+      const shown = (head && head.g >= 0 ? cs[head.g] : cs.find(x => /^[\d.]+\s*%$/.test(x))) || "";
+      if (!pts && !w && !shown) return;
+      out.push({ GradeObjectIdentifier: "gp" + out.length + ":" + name.toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 40), GradeObjectName: name.trim(), GradeObjectType: pts ? 1 : 9,
+        PointsNumerator: pts ? pts.n : null, PointsDenominator: pts ? pts.d : null, WeightedNumerator: w ? w.n : null, WeightedDenominator: w ? w.d : null, DisplayedGrade: String(shown).trim(), fromPage: true });
+    });
+    return out.slice(0, 200);
+  };
   const dt = x => (x && typeof x === "string" && !isNaN(Date.parse(x))) ? x : null;
 
   let vs = null;
@@ -219,10 +241,11 @@ async function bsHarvest(o) {
 
   const detail = async c => {
     const b = `/d2l/api/le/${le}/${c.ou}`;
-    const [folders, quizzes, grades, fin, news, events, forums, roster, over, toc] = await Promise.all([
+    let gradesErr = "";
+    const [folders, quizzes, gradesApi, fin, news, events, forums, roster, over, toc] = await Promise.all([
       soft(`${b}/dropbox/folders/`),
       pages(`${b}/quizzes/`, true),
-      q.grades === false ? null : soft(`${b}/grades/values/myGradeValues/`),
+      q.grades === false ? null : get(`${b}/grades/values/myGradeValues/`).catch(e => { gradesErr = String(e.status || e.name || e.message); errors.push(`${c.code || c.ou}: grades list ${gradesErr}`); return null; }),
       q.grades === false ? null : soft(`${b}/grades/final/values/myGradeValue`, true),
       q.news === false ? null : soft(`${b}/news/`, true),
       pages(`${b}/calendar/events/myEvents/?startDateTime=${enc(fromISO)}&endDateTime=${enc(toISO)}`, true),
@@ -232,6 +255,23 @@ async function bsHarvest(o) {
       soft(`${b}/content/toc`, true)
     ]);
     const inWin = d => { const x = Date.parse(d || ""); return !isNaN(x) && x > now - 60 * 864e5 && x < now + 240 * 864e5; };
+    // Your marks: the grades list, or, when a course refuses it (403) or it's empty, the course's Grades page as you see it
+    let grades = gradesApi;
+    const gx = { list: q.grades === false ? "off" : gradesApi ? "ok, " + listOf(gradesApi).length + " rows" : "refused (" + (gradesErr || "?") + ")", page: "not read", rows: 0, sample: [] };
+    if (q.grades !== false && !listOf(gradesApi).length) {
+      try {
+        const r = await fetch(`/d2l/lms/grades/my_grades/main.d2l?ou=${c.ou}`, { credentials: "include" });
+        const login = !!(r.redirected && /\/login|\/d2l\/lp\/auth|saml|sso|shibboleth/i.test(String(r.url || "")));
+        gx.page = login ? "sign-in page" : r.ok ? "ok" : "HTTP " + r.status;
+        if (r.ok && !login) {
+          const rows = gradesFromPage((await r.text()).slice(0, 3000000));
+          gx.page += ", " + rows.length + " rows";
+          if (rows.length) grades = rows;
+        }
+      } catch (e) { gx.page = "failed: " + (e && (e.name || e.message) || "error"); }
+    }
+    gx.rows = listOf(grades).length;
+    gx.sample = listOf(grades).slice(0, 40).map(g => `${String(g.GradeObjectName || "").slice(0, 60)}${g.GradeObjectType === 9 ? " (category)" : ""}: ${g.PointsNumerator == null ? "-" : g.PointsNumerator} / ${g.PointsDenominator == null ? "-" : g.PointsDenominator}${g.WeightedDenominator != null ? ", weight " + (g.WeightedNumerator == null ? "-" : g.WeightedNumerator) + " / " + g.WeightedDenominator : ""}`);
     const fl = listOf(folders).filter(f => f && !f.IsHidden);
     const recent = fl.filter(f => { const d = Date.parse(f.DueDate || (f.Availability && f.Availability.EndDate) || ""); return isNaN(d) || (d > now - 60 * 864e5 && d < now + 240 * 864e5); }).slice(0, 60);
     const subs = {}, subAt = {}, fbk = {};
@@ -270,8 +310,20 @@ async function bsHarvest(o) {
     const quizApiN = quizzes.length;
     // A closed exam drops off the quiz list and the Quizzes page, but its calendar entry is still tied to it (and carries its id):
     // read it from there, on the exam's day, so its Submissions page (and mark) can still be found
-    let qFromCal = 0;
+    let qFromCal = 0, qFromToc = 0;
     const qKnown = new Set(quizzes.map(x => x && String(x.QuizId)));
+    const tocTopics = []; const tocWalk = (ms, d) => (ms || []).forEach(m => { if (!m || d > 5) return; (m.Topics || []).forEach(t => tocTopics.push(t)); tocWalk(m.Modules, d + 1); });
+    tocWalk(toc && toc.Modules, 0);
+    tocTopics.forEach(t => {
+      const qi = (String(t.Url || "").match(/[?&]qi=(\d+)/) || [])[1] || (Number(t.ActivityType) === 4 || /quiz/i.test(String(t.TypeIdentifier || "")) ? (t.ToolItemId != null ? String(t.ToolItemId) : "") : "");
+      if (!qi || qKnown.has(qi) || qFromToc >= 10 || t.IsHidden) return;
+      qKnown.add(qi); qFromToc++;
+      quizzes.push({ QuizId: Number(qi) || qi, Name: String(t.Title || "Quiz").trim(), DueDate: t.EndDateTime || t.DueDate || null, StartDate: t.StartDateTime || null, EndDate: null, IsActive: true, fromToc: true, GradeItemId: t.GradeItemId != null ? t.GradeItemId : null });
+    });
+    const calTied = events.filter(e => e && String(e.OrgUnitId) === String(c.ou) && (e.IsAssociatedWithEntity || e.AssociatedEntity)).slice(0, 12)
+      .map(e => `${String(e.Title || "").slice(0, 60)} [${e.AssociatedEntity ? String(e.AssociatedEntity.AssociatedEntityType || "?") + " " + String(e.AssociatedEntity.AssociatedEntityId) : "no id"}]`);
+    const calExams = events.filter(e => e && String(e.OrgUnitId) === String(c.ou) && /\b(quiz|exam|midterm|final|test)\b/i.test(String(e.Title || ""))).slice(0, 8)
+      .map(e => `${String(e.Title || "").slice(0, 60)} (${String(e.StartDateTime || "").slice(0, 10)}${e.IsAssociatedWithEntity || e.AssociatedEntity ? ", tied" : ""})`);
     events.filter(e => e && String(e.OrgUnitId) === String(c.ou) && e.AssociatedEntity && e.AssociatedEntity.AssociatedEntityId != null).forEach(e => {
       const ty = String(e.AssociatedEntity.AssociatedEntityType || ""), id = String(e.AssociatedEntity.AssociatedEntityId), title = String(e.Title || "");
       if (qKnown.has(id) || qFromCal >= 8) return;
@@ -435,7 +487,7 @@ async function bsHarvest(o) {
     c.grades = listOf(grades).slice(0, 200).map(g => ({ gid: String(g.GradeObjectIdentifier || ""), name: String(g.GradeObjectName || ""), type: Number(g.GradeObjectType) || 0,
       num: g.PointsNumerator, den: g.PointsDenominator, wnum: g.WeightedNumerator, wden: g.WeightedDenominator, shown: String(g.DisplayedGrade || "").trim(), at: dt(g.ReleasedDate || g.LastModified),
       fb: txt(g.Comments, 3000) ? { c: [{ by: "Instructor", mine: false, at: dt(g.ReleasedDate || g.LastModified), t: txt(g.Comments, 3000) }], ra: [], sc: g.PointsNumerator != null ? Number(g.PointsNumerator) : null, of: g.PointsDenominator != null ? Number(g.PointsDenominator) : null, g: String(g.DisplayedGrade || "").trim().slice(0, 20), at: null } : null }));
-    const marked = c.grades.filter(g => g.gid && g.num != null).slice(0, 25);
+    const marked = c.grades.filter(g => g.gid && !/^gp\d/.test(g.gid) && g.num != null).slice(0, 25);
     if (marked.length) {
       const num = v => v != null && isFinite(Number(v)) ? Number(v) : null;
       const statsOf = async g => { if (!spend()) return false; const r = await soft(`${b}/grades/${g.gid}/statistics`, true); if (r && num(r.Average) != null) g.cls = { mean: num(r.Average), median: num(r.Median), lo: num(r.Minimum), hi: num(r.Maximum) }; return !!r; };
@@ -522,9 +574,9 @@ async function bsHarvest(o) {
     }
     c.marks = marks.slice(0, 120);
     // What this read saw, step by step, for the sync report (Settings > Brightspace > Copy Sync Report)
-    c.dx = { timeLeft: Math.round((budgetEnd - Date.now()) / 1000) + " s", skipped: outOfTime, me: { id: meId ? typeof me.Identifier + ":" + meId : "none", name: meName ? "yes" : "no" }, quizApi: quizApiN, quizPage: qPageStatus || "not read",
+    c.dx = { grades: gx, calTied, calExams, quizToc: qFromToc, quizCal: qFromCal, timeLeft: Math.round((budgetEnd - Date.now()) / 1000) + " s", skipped: outOfTime, me: { id: meId ? typeof me.Identifier + ":" + meId : "none", name: meName ? "yes" : "no" }, quizApi: quizApiN, quizPage: qPageStatus || "not read",
       quizzes: qrecent.slice(0, 15).map(x => { const su = `/d2l/lms/quizzing/user/quiz_submissions.d2l?qi=${x.QuizId}&ou=${c.ou}`, st = submPage[x.QuizId] || "", mm = marks.find(m => m.kind === "quiz" && m.id === String(x.QuizId));
-        return { id: String(x.QuizId), n: String(x.Name || "").slice(0, 70), from: x.fromCal ? "its calendar entry" : x.fromPage ? "Quizzes page" : "quiz list", gradeItem: x.GradeItemId != null ? String(x.GradeItemId) : "", inGrades: hasMark(x.GradeItemId),
+        return { id: String(x.QuizId), n: String(x.Name || "").slice(0, 70), from: x.fromCal ? "its calendar entry" : x.fromToc ? "the course content" : x.fromPage ? "Quizzes page" : "quiz list", gradeItem: x.GradeItemId != null ? String(x.GradeItemId) : "", inGrades: hasMark(x.GradeItemId),
           sat: tried[x.QuizId] === true ? "yes" : tried[x.QuizId] === false ? "no" : "unknown", subm: pageSeen[su] || "not read",
           overall: /\boverall\s+grade\b/i.test(st), attempts: (st.match(/\battempt\s+\d+/gi) || []).length, fractions: (st.match(/\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?/g) || []).slice(0, 4).join(" | "),
           mark: mm ? mm.num + "/" + mm.den : "" }; }),

@@ -275,16 +275,22 @@ const bsTask = (id, title, cid, ou, extra) => Object.assign({id, created: 1, tit
 
     // 13. Copy Sync Report: what the read saw, step by step
     { const page = await fresh([]);
-      await page.evaluate(h => { h.courses[1].dx = {me: {id: "string:42", name: "yes"}, quizApi: 0, quizPage: "200",
+      await page.evaluate(h => { h.courses[1].dx = {grades: {list: "refused (403)", page: "ok, 4 rows", rows: 4, sample: ["Midterm Exam: 34 / 45, weight 15.11 / 20"]}, calExams: ["BSNC 1020 Midterm Exam (2026-10-23, tied)"], calTied: [], quizToc: 1, quizCal: 0, me: {id: "string:42", name: "yes"}, quizApi: 0, quizPage: "200",
           quizzes: [{id: "8", n: "Midterm Exam- Requires Respondus LockDown Browser", from: "Quizzes page", gradeItem: "", inGrades: false, sat: "yes", subm: "sign-in page", overall: false, attempts: 0, fractions: "", mark: ""}],
           topics: [{id: "306", n: "Module 6 Discussion", due: "2026-10-25", grp: false, graded: false, posts: "refused (403, plain 403)", n0: 0, ids: [], page: "ok 5120 chars, \"posted\" 3x, your name not found", result: "not posted"}]};
         const L = SBLMS.brightspace, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true); }, H()); await closeDlg(page);
       await page.evaluate(() => SBLMS.brightspace.bsSheet());
       await page.click('dialog[open] [data-act="bs-report"]');
       const rep = await page.inputValue("#bsReport");
-      ok(/Midterm Exam- Requires Respondus LockDown Browser" \[8\] from Quizzes page; sat yes/.test(rep) && /Submissions page: sign-in page/.test(rep) && /posts refused \(403, plain 403\)/.test(rep) && /your name not found/.test(rep) && /Studyboard tasks:/.test(rep),
+      ok(/Midterm Exam- Requires Respondus LockDown Browser" \[8\] from Quizzes page; sat yes/.test(rep) && /Submissions page: sign-in page/.test(rep) && /posts refused \(403, plain 403\)/.test(rep) && /your name not found/.test(rep) && /Studyboard tasks:/.test(rep) && /Grades: list refused \(403\); Grades page ok, 4 rows/.test(rep) && /Grade Midterm Exam: 34 \/ 45/.test(rep) && /Exam calendar entries: BSNC 1020 Midterm Exam/.test(rep),
         "the report says what each step got: " + rep.slice(0, 600));
       ok(!page.errs.length, "no page errors: " + page.errs.join(" | "));
+      await page.context().close(); }
+
+    // 14. Start Fresh keeps a task with a mark (the school site may have hidden a closed exam since)
+    { const page = await fresh([Object.assign(bsTask("m1", MID, "c10", "10", {status: "done", mark: {got: 34, outOf: 45, src: "bs", from: "quizPage"}}), {}), bsTask("m2", "Unmarked Quiz", "c10", "10")]);
+      const fp = await page.evaluate(() => { const p = SBLMS.brightspace.freshPlan(); return {keep: p.keep.map(k => [k.t.id, k.why]), go: p.go.map(k => k.t.id)}; });
+      ok(fp.keep.some(([id, why]) => id === "m1" && /mark/.test(why)) && fp.go.includes("m2"), "Start Fresh keeps the marked midterm and says why, and still clears an untouched one: " + JSON.stringify(fp));
       await page.context().close(); }
 
     // 7. Same Exam? never pairs two courses' midterms on the same day
