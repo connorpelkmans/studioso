@@ -193,7 +193,9 @@ const DB = (page, f) => page.evaluate(f);
 
     await tab(page, "files");
     ok(await page.locator("#gxUploads").count() === 1, "Files has Group Uploads");
-    await page.setInputFiles('#gxUploads input[type="file"]', {name: "draft.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 test")}); await page.waitForTimeout(800);
+    await page.setInputFiles('#gxUploads input[type="file"]', {name: "draft.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 test")}); await page.waitForSelector("dialog[open] #shRights");
+    ok(/permission to share/.test(await txt(page, "dialog[open]")) && !(await DB(page, () => (window.__uploads || []).length)), "an upload asks the person to confirm they may share the file first");
+    await page.check("dialog[open] #shRights"); await page.click("dialog[open] [data-submit]"); await page.waitForTimeout(800);
     ok(await DB(page, () => (window.__uploads || []).some(p => /^u1\/g\/g1\/.+-draft\.pdf$/.test(p)) && window.__DB.group_items.some(i => i.kind === "gfile" && i.title === "draft.pdf")), "an upload goes to my own folder for this group and is listed");
 
     await tab(page, "overview");

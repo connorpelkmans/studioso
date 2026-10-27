@@ -37,18 +37,18 @@
   /* Share a Copy (a link) */
   function shareSrc(id, g){
     const n = state.notes[id]; if (!n || !n.wb) return null;
-    const ink = n.wbInk || [], all = (n.wbItems || []).map(embedded).filter(Boolean);
+    // Pictures on the board are never shared: they may come from slides or books. Your drawing and text are.
+    const ink = n.wbInk || [], all = (n.wbItems || []).map(embedded).filter(it => it && it.k !== "i");
     if (!ink.length && !all.length) return null;
     const c = courseOf(n.courseId);
     let data = JSON.parse(JSON.stringify({v: 1, type: "board", name: W.boardName(n), tpl: n.wb.tpl || "blank", ink, items: all, course: c ? {code: c.code || "", name: c.name || ""} : null}));
-    if (JSON.stringify(data).length > 950000) data.items = all.filter(it => it.k !== "i");
     return {title: W.boardName(n), data, h: g ? g.hashOf(JSON.stringify(data)) : "",
       cur: () => (state.notes[id] || {}).shared,
       mark: m => { const cur = state.notes[id]; if (!cur) return; const nn = clone(cur); if (m) nn.shared = m; else delete nn.shared; applyChanges([{kind: "note", id, after: nn}], ""); }};
   }
   async function shareCopy(id){
     if (!window.SBSHARE) { toast("Sharing isn't available here."); return; }
-    W.flush(); await prepPictures(state.notes[id]);
+    W.flush();
     SBSHARE.shareRef("board", id);
   }
   function shareView(row, h){

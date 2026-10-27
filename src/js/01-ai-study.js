@@ -243,9 +243,12 @@ async function summarizeFile(fid, again){
     const r = await aiCall({task: "summary", maxTokens: 8000, schema: SUM_SCHEMA, onStatus: m => st(m), parts: [src.part, {text: `Course: ${c ? c.name : "not given"}. Summarize this file for studying.`}],
       system: "You summarize course material for a student who will be tested on it. Be accurate and specific to the file (names, numbers, mechanisms, steps), not generic. Include the key terms with short definitions and the questions an instructor would most likely ask. Use only what the file says: never add facts, numbers or examples that are not in it. Write in the file's language, in plain text without markdown or LaTeX. Return JSON only."});
     const n = clone(state.files[fid]);
+    // Anything that copied the file word for word is left out: the summary restates it
+    if (src.copyText == null && src.pdfBytes) src.copyText = await aiPdfText(src.pdfBytes);
+    const copy = aiCopyIndex([typeof src.part.text === "string" ? src.part.text : "", src.copyText || ""].filter(Boolean)), own = x => !aiCopied(x, copy);
     const cut = (x, n) => String(x || "").replace(/\s+/g, " ").trim().slice(0, n);
-    n.summary = {at: Date.now(), model: r.model, provider: r.provider, overview: cut(r.data.overview, 1500), keyPoints: (r.data.keyPoints || []).slice(0, 14).map(x => cut(x, 400)).filter(Boolean),
-      keyTerms: (r.data.keyTerms || []).filter(k => k && k.term && k.definition).slice(0, 30).map(k => ({term: cut(k.term, 100), definition: cut(k.definition, 350)})), questions: (r.data.questions || []).slice(0, 10).map(x => cut(x, 300)).filter(Boolean)};
+    n.summary = {at: Date.now(), model: r.model, provider: r.provider, overview: cut(r.data.overview, 1500), keyPoints: (r.data.keyPoints || []).slice(0, 14).map(x => cut(x, 400)).filter(x => x && own(x)),
+      keyTerms: (r.data.keyTerms || []).filter(k => k && k.term && k.definition && own(k.definition)).slice(0, 30).map(k => ({term: cut(k.term, 100), definition: cut(k.definition, 350)})), questions: (r.data.questions || []).slice(0, 10).map(x => cut(x, 300)).filter(x => x && own(x))};
     applyChanges([{kind: "file", id: fid, after: n}], null);
     show();
   } catch(e) { st(e.message || "Couldn't summarize that file.", true); }
@@ -310,7 +313,7 @@ function photoNoteSheet(file){
     try {
       const today = todayISO(), courses = coursesArr().map(c => c.code || c.name).join("; ") || "none";
       const r = await aiCall({task: "photo", maxTokens: 8000, schema: PHOTO_SCHEMA, onStatus: m => { status.textContent = m; }, parts: S.srcs.map(s => s.part).concat({text: `Today is ${today}. Courses: ${courses}. Turn these class photos into study notes.`}),
-        system: "You turn photos of whiteboards, lecture slides and handwritten notes into clean, organized typed study notes. Transcribe everything that matters, fix obvious typos, expand cryptic abbreviations only when you're sure, keep formulas and numbers exactly, and organize with short headings and bullets. If something is unreadable, write [unclear]. Describe diagrams briefly in words. List any due dates or exam dates you see, resolving them relative to today. Return JSON only."});
+        system: "You turn photos of whiteboards, lecture slides and handwritten notes into clean, organized typed study notes. The student's own handwriting and whiteboard writing may be transcribed as written; anything printed (slides, handouts, textbook pages) must be restated in your own words as concise notes, never copied sentence by sentence. Cover everything that matters, fix obvious typos, expand cryptic abbreviations only when you're sure, keep formulas and numbers exactly, and organize with short headings and bullets. If something is unreadable, write [unclear]. Describe diagrams briefly in words. List any due dates or exam dates you see, resolving them relative to today. Return JSON only."});
       const d = r.data, cSel = $("#pnCourse").value, guess = coursesArr().find(c => (c.code || c.name).toLowerCase() === String(d.course || "").toLowerCase());
       S.result = {title: String(d.title || "").trim(), notes: String(d.notes || "").trim(), courseId: cSel || (guess ? guess.id : ""), dates: (d.dates || []).filter(x => x && x.title && isDate(x.due)).map(x => ({title: String(x.title), type: TYPES.includes(x.type) ? x.type : "Assignment", due: x.due, time: /^\d\d:\d\d$/.test(x.time || "") ? x.time : "", on: true}))};
       if (!S.result.notes) { S.result = null; throw aiErr("empty", "Couldn't read anything in those photos. Try a clearer, closer photo."); }

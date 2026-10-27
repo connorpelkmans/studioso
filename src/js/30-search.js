@@ -1012,7 +1012,8 @@ Return JSON only.`;
     return {kind: "paid", ok: sxCfg().paidOk === `${c.provider}|${c.model}`, name: aiModelName(c.provider, c.model), P: AI_PROVIDERS[c.provider], sig: `${c.provider}|${c.model}`};
   }
   const planOk = p => !!p && !(p.kind === "paid" && !p.ok);
-  const callPlan = (plan, args) => plan.kind === "gemini" ? geminiCall(plan.cfg, Object.assign({ms: args.timeout || 90000}, args)) : aiCall(args);
+  // Answers from the student's files restate them in the AI's own words (the copyright rule in aiCall), on every route
+  const callPlan = (plan, args) => { args = Object.assign({}, args, {task: args.task || "ask"}); args.system = aiCopyRule(args.system, args.task); return plan.kind === "gemini" ? geminiCall(plan.cfg, Object.assign({ms: args.timeout || 90000}, args)) : aiCall(args); };
   const proLocked = () => !!(window.SBPRO && SBPRO.locked && SBPRO.locked());
   const SENT = 8;
   const bodyOf = x => { const d = x.doc; return x.text || (d.type === "chunk" ? d.text : [d.title, d.text].filter(Boolean).join("\n")); };

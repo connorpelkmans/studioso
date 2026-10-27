@@ -77,10 +77,14 @@ function fake(opts){
       ok(await page.locator('dialog[open] [data-act="wb-share-group"]').count() === 1, "Board Options has Share a Copy and Share With a Study Group");
       await page.click('dialog[open] [data-act="wb-share-copy"]'); await page.waitForSelector("dialog[open] #shMake");
       ok(/Share Whiteboard/.test(await page.locator("dialog[open] h2").textContent()) && /see it/.test(await page.locator("dialog[open]").textContent()), "Share a Copy opens Share Whiteboard");
-      await page.click("dialog[open] #shMake"); await page.waitForSelector("dialog[open] #shLinkIn, dialog[open] .grp-code-big");
+      await page.click("dialog[open] #shMake"); await page.waitForSelector("dialog[open] #shRights");
+      await page.check("dialog[open] #shRights"); await page.click("dialog[open] [data-submit]");
+      await page.waitForSelector("dialog[open] #shLinkIn, dialog[open] .grp-code-big");
       sharedRow = await page.evaluate(() => __DB.items[0]);
       ok(sharedRow.kind === "board" && sharedRow.ref_id === "wb1" && sharedRow.title === "Cell Cycle" && sharedRow.data.ink.length === 1 && sharedRow.data.items[0].s === "G1 -> S -> G2 -> M" && sharedRow.data.tpl === "grid" && sharedRow.data.course.code === "BIO 101",
         "the link holds the board: its drawing, text, template and course");
+      ok(await page.evaluate(() => { const n = JSON.parse(JSON.stringify(__sbSync.state.notes.wb1 || Object.values(__sbSync.state.notes).find(x => x.id === "wb1"))); n.id = "wbPic"; n.wbItems = n.wbItems.concat({id: "p1", k: "i", x: 100, y: 100, w: 200, h: 150, src: "data:image/png;base64,iVBORw0KGgo=", at: 1});
+        __sbSync.state.notes.wbPic = n; const src = SBWB.shareSrc("wbPic"); delete __sbSync.state.notes.wbPic; return src && src.data.items.length === 1 && !src.data.items.some(it => it.k === "i"); }), "pictures on a board are never put in the shared copy");
       ok(await page.locator("dialog[open] .grp-code-big").textContent() === "WBRD-0001", "and shows the code to send");
       ok(((await S(page)).notes.wb1 || Object.values((await S(page)).notes).find(x => x.id === "wb1")).shared.code === "WBRD-0001", "the board remembers it's shared");
       await page.keyboard.press("Escape");

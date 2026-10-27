@@ -2,7 +2,7 @@
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const src = require("../scripts/app-files").source();
 const block = src.slice(src.indexOf("/* AI-QUALITY-START"), src.indexOf("/* AI-QUALITY-END */"));
-const api = new Function(block + "; return {aiRepairJson, aiTidyText, aiGateCards, aiGateQuestions, aiGateSyllabus, aiCleanCites, aiCorpus, aiGroundNote, qaConfident};")();
+const api = new Function(block + "; return {aiRepairJson, aiTidyText, aiGateCards, aiGateQuestions, aiGateSyllabus, aiCleanCites, aiCorpus, aiGroundNote, qaConfident, aiCopyIndex, aiCopied};")();
 let n = 0; const t = (name, fn) => { fn(); n++; console.log("ok -", name); };
 
 t("repairs cut-off JSON, keeping complete cards", () => {
@@ -74,5 +74,23 @@ t("quick add confidence", () => {
   assert.ok(!ok("essay due end of the month", "Essay end of the month"));
   assert.ok(!ok("x".repeat(200), "x"));
   assert.ok(!ok("", ""));
+});
+t("copy check: 8 or more words in a row from the material is copied; restating is not", () => {
+  const src = "Mitochondria are membrane-bound organelles that generate most of the chemical energy needed to power the cell's biochemical reactions.";
+  const idx = api.aiCopyIndex([src]);
+  assert.ok(api.aiCopied("Mitochondria are membrane-bound organelles that generate most of the chemical energy", idx));
+  assert.ok(api.aiCopied("MITOCHONDRIA ARE  membrane bound organelles, that generate most of the chemical energy!", idx), "case, spacing and punctuation don't hide a copy");
+  assert.ok(!api.aiCopied("Mitochondria make most of a cell's usable energy, which drives its chemical reactions.", idx));
+  assert.ok(!api.aiCopied("anything at all", null), "no material, nothing to compare");
+  assert.strictEqual(api.aiCopyIndex(["too short"]), null);
+});
+t("gates drop copied cards and questions and count them", () => {
+  const src = "The sinoatrial node is the natural pacemaker of the heart and sets the rhythm of every heartbeat in a healthy adult.";
+  const copy = api.aiCopyIndex([src]);
+  const g = api.aiGateCards([{front: "What is the SA node?", back: "The sinoatrial node is the natural pacemaker of the heart and sets the rhythm"}, {front: "Which structure sets the heart's rhythm?", back: "The SA node, the heart's built-in pacemaker."}], {copy});
+  assert.deepStrictEqual(g.cards.map(c => c.front), ["Which structure sets the heart's rhythm?"]); assert.strictEqual(g.dropped.copied, 1);
+  const q = api.aiGateQuestions([{type: "single", stem: "The sinoatrial node is the natural pacemaker of the heart and sets what?", options: ["Rhythm", "Pressure"], correct: [0], rationale: "", answer: "", notes: []},
+    {type: "single", stem: "Which structure acts as the heart's pacemaker?", options: ["SA node", "AV node"], correct: [0], rationale: "It starts each beat.", answer: "", notes: []}], {copy});
+  assert.strictEqual(q.questions.length, 1); assert.strictEqual(q.dropped.copied, 1);
 });
 console.log(n + " tests passed");

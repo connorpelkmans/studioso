@@ -200,7 +200,7 @@
     src = srcOf(kind, ref); if (!src) { dlg.close(); return; }
     if (!row) {
       openSheet(`<div class="sheet">${head(title)}<div class="sheet-body">
-        <p style="margin:0">Make a link for this ${what}. Anyone with the link can ${kind === "note" ? "read it" : kind === "board" ? "see it" : "take it"} in a browser, no account needed, and save their own copy.${kind === "board" ? " It's a copy: your changes after this show up for them when you update the link." : ""}${kind === "note" ? " Only the text is shared, not photos or stickers." : " They get the questions, not your scores."}</p>
+        <p style="margin:0">Make a link for this ${what}. Anyone with the link can ${kind === "note" ? "read it" : kind === "board" ? "see it" : "take it"} in a browser, no account needed, and save their own copy.${kind === "board" ? " It's a copy: your changes after this show up for them when you update the link. Only your drawing and text are shared, not pictures on the board." : ""}${kind === "note" ? " Only the text is shared, not photos or stickers." : " They get the questions, not your scores."}</p>
         <p class="mini" style="margin:0">They'll see your name as <b>${esc(g.myName())}</b>. You can update it or stop sharing any time.</p></div>
         <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="shMake">Create Link</button></div></div>`);
       $("#shMake").addEventListener("click", e => make(kind, ref, e.currentTarget));
@@ -226,16 +226,25 @@
       catch (e) { toast(e.message); }
     });
   }
-  async function make(kind, ref, btn){
+  // Nothing is shared until the person confirms it's their own work, not copied course material
+  function confirmRights(then){
+    const g = G();
+    openSheet(`<form class="sheet">${head("Before You Share")}<div class="sheet-body">
+      <p style="margin:0">Only share what you made yourself or what AI wrote for you in its own words. Slides, handouts, textbook pages, pictures from them and your instructor's test questions belong to someone else.</p>
+      ${g.rightsBox()}</div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Continue</button></div></form>`, () => { if (!g.rightsOk()) return false; then(); return false; });
+  }
+  async function make(kind, ref, btn, ok){
     const g = G(), src = srcOf(kind, ref); if (!src) return;
-    g.busyBtn(btn, true);
+    if (!ok) { confirmRights(() => make(kind, ref, null, true)); return; }
+    if (btn) g.busyBtn(btn, true); else g.loadingSheet("Sharing…");
     try {
       const code = String(await rpc("share_item", {p_kind: kind, p_ref: ref, p_title: src.title, p_data: src.data}));
       const had = src.cur();
       src.mark({code, h: src.h, at: Date.now()});
       toast(had && had.code === code ? "Shared copy updated" : `Link ready. Code ${code}`);
       itemSheet(kind, ref);
-    } catch (e) { g.busyBtn(btn, false); toast(e.message); }
+    } catch (e) { if (btn) g.busyBtn(btn, false); else if (dlg.open) dlg.close(); toast(e.message); }
   }
 
   /* Your school */
@@ -359,9 +368,9 @@
     const g = G(), d = state.decks[id]; if (!g || !d) return;
     if (notMine(d) && !(d.published && d.published.code)) { msgSheet("Not Your Deck", notMineText(d, true)); return; }
     if (!signedIn()) { signInSheet("Publish Deck", "Sign in to publish your deck. A free account is all it takes."); return; }
-    const n = d.cards.filter(c => !c.draft && String(c.front || "").trim() && String(c.back || "").trim()).length;
+    const n = d.cards.filter(c => !c.draft && !c.img && !c.copied && String(c.front || "").trim() && String(c.back || "").trim()).length;
     if (d.published && d.published.code) { managePub(id); return; }
-    if (n < 4) { toast("A deck needs at least 4 cards to be published."); return; }
+    if (n < 4) { toast(d.cards.some(c => c.img || c.copied) ? "A deck needs at least 4 cards to be published, not counting picture cards or copied cards, which are never shared." : "A deck needs at least 4 cards to be published."); return; }
     g.rememberWebUrl();
     g.ensureName(() => withUsername(() => ensureSchool(sc => confirmPub(id, sc))));
   }
@@ -413,7 +422,7 @@
     $("#pubLookGo").addEventListener("click", e => { const nd = clone(state.decks[id]); nd.pubLook = get(); saveDeck(nd, null); doPublish(id, e.currentTarget); });
   }
   function confirmPub(id, sc){
-    const d = state.decks[id], c = courseOf(d.courseId), n = d.cards.filter(x => !x.draft).length, L = lookOf(d);
+    const d = state.decks[id], c = courseOf(d.courseId), n = d.cards.filter(x => !x.draft && !x.img && !x.copied).length, L = lookOf(d);
     openSheet(`<div class="sheet">${head("Publish " + d.name)}<div class="sheet-body">
       <p style="margin:0">Publishing gives this deck its own page in Studyboard Flashcards. Anyone can find it by searching, on Google too, and add a copy.</p>
       <ul class="pub-sum"><li><span class="mini">Shows</span><b>${esc(plural(n, "card"))}</b></li><li><span class="mini">Course</span><b>${esc(c ? courseLabel(c) : "None")}</b></li>
@@ -421,11 +430,11 @@
       ${c ? "" : `<p class="mini" style="margin:0">Tip: put the deck in a course with a course code, so students searching that course find it.</p>`}
       <h3 class="fsec" style="margin:6px 0 0">On the Page</h3>
       <div class="pub-look-prev">${lookTile(d, L)}</div>${lookFields(L)}
-      <p class="mini" style="margin:0">Your study progress is never shared. You can update or unpublish it any time.</p></div>
+      <p class="mini" style="margin:0">Your study progress is never shared. You can update or unpublish it any time.</p>${G().picNote(d)}${G().rightsBox()}</div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="pubGo">Publish</button></div></div>`);
     const get = wireLook(dlg, L);
     $("#pubSch").addEventListener("click", () => schoolSheet(() => { const s2 = (state.settings || {}).school; if (s2 && s2.v) confirmPub(id, s2); }));
-    $("#pubGo").addEventListener("click", e => { const nd = clone(state.decks[id]); nd.pubLook = get(); saveDeck(nd, null); doPublish(id, e.currentTarget); });
+    $("#pubGo").addEventListener("click", e => { if (!G().rightsOk()) return; const nd = clone(state.decks[id]); nd.pubLook = get(); saveDeck(nd, null); doPublish(id, e.currentTarget); });
   }
   // Shares the deck (or updates the shared copy), then publishes it
   async function doPublish(id, btn){
@@ -456,12 +465,12 @@
     openSheet(`<div class="sheet">${head(fresh ? "Published" : "Published Deck")}<div class="sheet-body">
       ${fresh ? `<p style="margin:0"><b>${esc(d.name)}</b> is live in Studyboard Flashcards. It can take a few days to show up on Google.</p>` : `<p style="margin:0">Anyone can find <b>${esc(d.name)}</b> in Studyboard Flashcards${d.published.school ? ` under ${esc(d.published.school)}` : ""}.</p>`}
       <div class="grp-link"><input type="text" readonly value="${esc(url)}" aria-label="Public page" id="pubUrl2"><button type="button" class="btn small" id="pubCopy">Copy Link</button></div>
-      ${changed ? `<div class="grp-note">You've changed this deck since it was published. Update the page so it shows the latest cards.</div>` : ""}
+      ${changed ? `<div class="grp-note">You've changed this deck since it was published. Update the page so it shows the latest cards.</div>${G().picNote(d)}${G().rightsBox()}` : ""}
       <div class="pub-acts"><button type="button" class="btn small" id="pubLook">Change Color and Icon</button><button type="button" class="btn small danger" id="pubOff">Unpublish</button></div></div>
       <div class="sheet-foot"><span class="spacer"></span>${changed ? `<button type="button" class="btn primary" id="pubUpd">Update Page</button>` : ""}<button type="button" class="btn${changed ? "" : " primary"}" id="pubOpen">View Page</button></div></div>`);
     $("#pubCopy").addEventListener("click", () => G().copyText(url, "Link copied"));
     $("#pubOpen").addEventListener("click", () => openOut(url));
-    const up = $("#pubUpd"); if (up) up.addEventListener("click", e => doPublish(id, e.currentTarget));
+    const up = $("#pubUpd"); if (up) up.addEventListener("click", e => { if (G().rightsOk()) doPublish(id, e.currentTarget); });
     $("#pubLook").addEventListener("click", () => lookSheet(id));
     $("#pubOff").addEventListener("click", async () => {
       if (!(await askBox({title: "Unpublish?", text: "Its public page is taken down. People who added a copy keep it, and your share link keeps working.", yes: "Unpublish", danger: true}))) return;
