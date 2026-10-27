@@ -457,31 +457,33 @@
       {
         id: "xmas-reindeer", name: "Cocoa", kind: "Baby Reindeer", pose: "stand",
         bio: "A little reindeer with a rosy nose and a jingly bell collar.",
-        idle: ["earTwitch", "hop", "wave"], cheer: "spin",
+        idle: ["earTwitch", "headTilt", "wave"], cheer: "spin",
         neck: [60, 72],
         parts: {
-          earL: {svg: `${LINE("M47.5 33C44.5 26 43 20 44.5 12.5M45 24C40.5 22 37.5 18.5 36.5 14", "#E8C896", 3.2)}
-            <path d="M42 43C34 42.5 27.5 39 25 34.5C31 32 39 34 45.5 38Z" fill="#B27A50" ${O}/><path d="M39 40C34.5 39.5 31 38 29.5 36C33 35.5 37 36.5 40.5 38.5Z" fill="#FFC6BC"/>`, pivot: [46, 40]},
-          earR: {svg: `${LINE("M72.5 33C75.5 26 77 20 75.5 12.5M75 24C79.5 22 82.5 18.5 83.5 14", "#E8C896", 3.2)}
-            <path d="M78 43C86 42.5 92.5 39 95 34.5C89 32 81 34 74.5 38Z" fill="#B27A50" ${O}/><path d="M81 40C85.5 39.5 89 38 90.5 36C87 35.5 83 36.5 79.5 38.5Z" fill="#FFC6BC"/>`, pivot: [74, 40]},
-          feet: `<ellipse cx="50" cy="108.5" rx="7" ry="4.4" fill="#5A3420" ${O}/><ellipse cx="70" cy="108.5" rx="7" ry="4.4" fill="#5A3420" ${O}/>`,
-          body: `${LG("xmas-reindeer-b", [[0, "#C48A5E"], [1, "#94603C"]])}
-            <path d="M60 70C77 70 85 83 85 95C85 105 77 109.5 60 109.5C43 109.5 35 105 35 95C35 83 43 70 60 70Z" fill="url(#xmas-reindeer-b)" ${O}/>
-            <ellipse cx="60" cy="96" rx="13" ry="10" fill="#F4DDBF"/>
-            ${LINE("M44 76.5Q60 82.5 76 76.5", "#D9443A", 3.6)}
-            <circle cx="60" cy="83.5" r="4" fill="#F5C242" ${O2}/><path d="M58 84.8h4" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/>`,
-          armL: {svg: `<ellipse cx="40" cy="88" rx="5.6" ry="8.6" transform="rotate(22 40 88)" fill="#A8704A" ${O}/>`, pivot: [45, 80]},
-          armR: {svg: `<ellipse cx="80" cy="88" rx="5.6" ry="8.6" transform="rotate(-22 80 88)" fill="#A8704A" ${O}/>`, pivot: [75, 80]},
-          head: `${LG("xmas-reindeer-h", [[0, "#D39C6E"], [1, "#A06A43"]])}
-            <circle cx="60" cy="52" r="23" fill="url(#xmas-reindeer-h)" ${O}/>
-            <path d="M43 43Q47 35 55 32" fill="none" stroke="#F1CDA6" stroke-width="3" stroke-linecap="round"/>`,
-          face: `<ellipse cx="60" cy="64" rx="11" ry="8" fill="#F6E2C8"/>
-            <ellipse cx="60" cy="59.8" rx="4.4" ry="3.3" fill="#E0463C" ${O2}/><circle cx="58.6" cy="58.9" r="1" fill="#fff"/>`
+          earL: {svg: `<path d="M41 41C33 36.5 23 37.5 17.5 44C22.5 50 33 51 41.5 47.5Z" fill="#B47A4E" ${O}/><path d="M37.5 43C32 41 26 41.5 22.5 44.3C26 47.2 32 47.6 37 46.4Z" fill="#FFC9BE"/>`, pivot: [40, 44]},
+          earR: {svg: `<path d="M79 41C87 36.5 97 37.5 102.5 44C97.5 50 87 51 78.5 47.5Z" fill="#B47A4E" ${O}/><path d="M82.5 43C88 41 94 41.5 97.5 44.3C94 47.2 88 47.6 83 46.4Z" fill="#FFC9BE"/>`, pivot: [80, 44]},
+          feet: `<ellipse cx="49" cy="106.5" rx="7.6" ry="4.6" fill="#5A3A2A" ${O}/><ellipse cx="71" cy="106.5" rx="7.6" ry="4.6" fill="#5A3A2A" ${O}/><path d="M49 106V110M71 106V110" stroke="#2B2233" stroke-width="1.6" stroke-linecap="round"/><path d="M44 106.5Q45 104.8 47 104.6M66 106.5Q67 104.8 69 104.6" fill="none" stroke="#8C6450" stroke-width="1.4" stroke-linecap="round"/>`,
+          body: `${LG("xmas-reindeer-b", [[0, "#C99062"], [1, "#9C653F"]])}<defs><clipPath id="xmas-reindeer-clip"><path d="M60 66C75 66 85 77 85 90C85 99 78 103.5 60 103.5C42 103.5 35 99 35 90C35 77 45 66 60 66Z"/></clipPath></defs>
+            <path d="M60 66C75 66 85 77 85 90C85 99 78 103.5 60 103.5C42 103.5 35 99 35 90C35 77 45 66 60 66Z" fill="url(#xmas-reindeer-b)"/>
+            <g clip-path="url(#xmas-reindeer-clip)"><ellipse cx="60" cy="91.5" rx="15" ry="11.5" fill="#F6E0C3"/>
+              <path d="M30 70Q60 83 90 70V77Q60 90 30 77Z" fill="#D9443A"/><path d="M30 70Q60 83 90 70M30 77Q60 90 90 77" fill="none" stroke="${INK}" stroke-width="2.2"/></g>
+            <path d="M60 66C75 66 85 77 85 90C85 99 78 103.5 60 103.5C42 103.5 35 99 35 90C35 77 45 66 60 66Z" fill="none" ${O}/>
+            <path d="M38 88Q39 79 45 74" fill="none" stroke="#E2B88E" stroke-width="2.6" stroke-linecap="round" opacity=".9"/>
+            <path d="M58.4 81.4L58.6 79.6H61.4L61.6 81.4Z" fill="#E0A21E" ${OW(1.6)}/>
+            <circle cx="60" cy="86" r="4.8" fill="#F7C744" ${O2}/><path d="M57.2 87.6H62.8" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/><circle cx="60" cy="88.9" r=".9" fill="${INK}"/><circle cx="58.3" cy="84.4" r="1.1" fill="#fff"/>`,
+          armL: {svg: `<g transform="rotate(-12 40.5 78)"><rect x="35.5" y="76.5" width="10" height="14.5" rx="5" fill="#A8704A"/><path d="M35.56 86.8H45.44A5 5 0 0 1 35.56 86.8Z" fill="#4E3226"/><rect x="35.5" y="76.5" width="10" height="14.5" rx="5" fill="none" ${O}/></g>`, pivot: [41, 79]},
+          armR: {svg: `<g transform="rotate(12 79.5 78)"><rect x="74.5" y="76.5" width="10" height="14.5" rx="5" fill="#A8704A"/><path d="M74.56 86.8H84.44A5 5 0 0 1 74.56 86.8Z" fill="#4E3226"/><rect x="74.5" y="76.5" width="10" height="14.5" rx="5" fill="none" ${O}/></g>`, pivot: [79, 79]},
+          head: `${RG("xmas-reindeer-h", [[0, "#DDA978"], [0.6, "#C08654"], [1, "#A56E45"]], 0.42, 0.35, 0.7)}
+            ${LINE("M50 34C48.5 27 48.5 19 51 11M49.2 26.5C45 25.5 41 23.5 38.5 20M49 19.5C46.5 18.5 44 16.5 42.5 13.5", "#F2D6A2", 4.6)}${LINE("M70 34C71.5 27 71.5 19 69 11M70.8 26.5C75 25.5 79 23.5 81.5 20M71 19.5C73.5 18.5 76 16.5 77.5 13.5", "#F2D6A2", 4.6)}
+            <ellipse cx="60" cy="51.5" rx="26" ry="23.5" fill="url(#xmas-reindeer-h)" ${O}/>
+            <path d="M42 40Q46 32.5 54 30.5" fill="none" stroke="#F4D6B2" stroke-width="3.2" stroke-linecap="round"/><circle cx="58.5" cy="30" r="1.5" fill="#F4D6B2"/>`,
+          face: `<ellipse cx="60" cy="63.5" rx="13.5" ry="9.5" fill="#F7E4CB"/>
+            <ellipse cx="60" cy="58.4" rx="5.2" ry="3.9" fill="#E5443A" ${O2}/><ellipse cx="58.3" cy="57.3" rx="1.6" ry="1" fill="#fff" opacity=".9"/>`
         },
-        eyes: {lx: 48, rx: 72, y: 51, r: 4.6, style: "dot", color: "#2B1A10"},
-        mouth: {x: 60, y: 67.5, w: 2.6, style: "cat", color: "#2B1A10"},
-        cheeks: {lx: 41, rx: 79, y: 60, w: 4.2, h: 2.6},
-        anchors: {top: [60, 30, 0.95], neck: [60, 78, 1.0], chest: [70, 93, 0.72], back: [84, 88, 0.9], hands: [60, 95, 0.95]},
+        eyes: {lx: 47.5, rx: 72.5, y: 50, r: 5, style: "sparkle", color: "#2B1A10"},
+        mouth: {x: 60, y: 66, w: 2.6, color: "#2B1A10"},
+        cheeks: {lx: 40.5, rx: 79.5, y: 60, w: 4.4, h: 2.7},
+        anchors: {top: [60, 30, 0.9], neck: [60, 78, 1.0], chest: [72, 93, 0.6], back: [84, 86, 0.9], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Jingle jingle! Hi, friend!", "You show up every day! I love that!", "You've got this! Jingle!", "Tiny hooves, big leaps! Go you!", "Merry and bright, that's you!", "Warm cocoa and a stretch? Yes please!", "Look at those twinkly lights! So fun!"],
           pet: ["Jingle! That tickles! Hehe!", "Look, my nose is glowing for you!"],
