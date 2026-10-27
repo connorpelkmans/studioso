@@ -58262,7 +58262,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     if (id === "cards") return CARD_STYLES.filter(c => c.id !== "theme" && shown(c)).length;
     if (id === "notes") return NOTE_SHAPES.length;
     if (id === "pins") return PINS.filter(shown).length;
-    if (id === "stickers") return STICKER_PACKS.filter(shown).length + " packs";
+    if (id === "stickers") return STICKER_PACKS.filter(shown).length;
     if (id === "companions") { const hid = window.SBThemes && !SBThemes.all() ? new Set(SBThemes.hidden()) : new Set(); return window.SBCOMP && SBCOMP.all ? SBCOMP.all().filter(c => !hid.has(c.theme)).length : ""; }
   } catch (e) {} return ""; };
   function railify(){
