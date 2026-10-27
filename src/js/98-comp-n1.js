@@ -370,21 +370,24 @@
       {
         id: "volcano-pumi", name: "Pumi", kind: "Pumice Pebble", pose: "float", wearColor: "#E0533A",
         bio: "A light little pumice pebble who floats along through every study session.",
-        idle: ["topBob", "sway", "headTilt"], cheer: "spin",
-        neck: [60, 92],
+        idle: ["topBob", "finWiggle", "sway"], cheer: "spin", hatTop: true,
         parts: {
-          back: `<ellipse cx="60" cy="96" rx="38" ry="9" fill="#8ED8D2" ${O}/>`,
-          body: `<path d="M26 96q6-3 12 0M82 97q6-3 12 0" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>`,
-          head: `${RG("volcano-pumi-b", [[0, "#FAF6F0"], [0.6, "#DCD2C8"], [1, "#B0A498"]], 0.38, 0.3, 0.8)}
-            <path d="M30 74C28 55 42 45 60 45C80 45 92 55 90 74C88 92 32 93 30 74Z" fill="url(#volcano-pumi-b)" ${O}/>
-            <g fill="#A89C92">${[[40, 60, 2.4], [80, 58, 2], [78, 78, 2.6], [42, 80, 1.8], [62, 52, 1.6], [86, 70, 1.4], [34, 70, 1.6], [52, 84, 1.4]].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join("")}</g>
-            ${shine(44, 52, 6, 3, -25)}`,
-          top: {svg: `${LINE("M60 46V39", "#5DAA62", 2.4)}<path d="M60 41C56 33 47 33 44 37C48 43 56 44 60 41Z" fill="#8AD08A" ${O2}/><path d="M60 40C64 32 73 32 76 36C72 42 64 43 60 40Z" fill="#9BDA95" ${O2}/>`, pivot: [60, 47]}
+          feet: `<ellipse cx="49" cy="103" rx="6.4" ry="5" fill="#D6CEC4" ${O}/><ellipse cx="71" cy="103" rx="6.4" ry="5" fill="#D6CEC4" ${O}/>`,
+          body: `${RG("volcano-pumi-b", [[0, "#FFFFFF"], [0.5, "#EEEAE4"], [1, "#BCB2A6"]], 0.4, 0.3, 0.82)}
+            <path d="M60 40C80 39.5 95 53 95 72C95 91 80 101.5 60 101.5C40 101.5 25 91 25 72C25 53 40 40.5 60 40Z" fill="url(#volcano-pumi-b)" ${O}/>
+            ${[[68, 49, 4.4, 3.2], [82, 58, 4, 3.2], [89.5, 72, 2.6, 2.2], [56.5, 47, 2.2, 1.7], [31, 66, 2.6, 2.2], [85, 87, 3.4, 2.6], [72, 95, 4.2, 3], [59, 97, 2.2, 1.6], [45, 93, 3.6, 2.6], [32.5, 84, 2.4, 2]].map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#BCA992"/><ellipse cx="${x}" cy="${f1(y - ry * 0.32)}" rx="${f1(rx * 0.8)}" ry="${f1(ry * 0.66)}" fill="#8E7B67"/>`).join("")}
+            <path d="M34 90Q60 104 86 90" fill="none" stroke="#D2C2B0" stroke-width="2.4" stroke-linecap="round" opacity=".8"/>
+            <ellipse cx="39.5" cy="55" rx="7.4" ry="4" transform="rotate(-40 39.5 55)" fill="#fff"/><circle cx="48.5" cy="48" r="2" fill="#fff"/>`,
+          armL: {svg: `<ellipse cx="25" cy="81" rx="5.2" ry="7" transform="rotate(28 25 81)" fill="#E6E0D8" ${O}/>`, pivot: [31, 78]},
+          armR: {svg: `<ellipse cx="95" cy="81" rx="5.2" ry="7" transform="rotate(-28 95 81)" fill="#E6E0D8" ${O}/>`, pivot: [89, 78]},
+          top: {svg: `${LINE("M60 42C60 37 59.5 33 61 28.5", "#5DAA62", 2.6)}
+            <path d="M60.5 31C55 23.5 46 23.5 42.5 28C47 34 55 35.5 60.5 31Z" fill="#8AD08A" ${O2}/><path d="M59 30.6Q52 27.4 46 28" fill="none" stroke="#5DAA62" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M61 30C63.5 21 72 18 77.5 21.5C75 29 67.5 32.5 61 30Z" fill="#9BDA95" ${O2}/><path d="M63 29Q69.5 25 75 22.6" fill="none" stroke="#5DAA62" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [60, 42]}
         },
-        eyes: {lx: 50, rx: 70, y: 66, r: 3.8, style: "dot", color: "#2B2233"},
-        mouth: {x: 60, y: 75, w: 2.7},
-        cheeks: {lx: 43, rx: 77, y: 73, w: 4.2, h: 2.6, color: "#FF9A9A"},
-        anchors: {top: [60, 40, 0.85], neck: [60, 90, 1], chest: [72, 84, 0.6], back: [86, 62, 0.8], hands: [60, 90, 0.85]},
+        eyes: {lx: 49, rx: 71, y: 71, r: 5.2, style: "round", color: "#3A2A2A"},
+        mouth: {x: 60, y: 80.5, w: 3, color: "#3A2A2A"},
+        cheeks: {lx: 39, rx: 81, y: 79, w: 4.8, h: 2.9, color: "#FF9E9E"},
+        anchors: {top: [60, 43, 0.95], neck: [60, 93, 1.1], chest: [74, 92, 0.65], back: [90, 66, 0.85], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Hi! Look, I'm floating! Is this swimming?", "Light as air, strong as rock. Like you!", "You're doing great, I can tell from here!", "Drifting along, cheering you on!", "Little pebble, big belief in you!", "Keep it light, keep it going!", "You make hard things look easy!"],
           pet: ["Hehe! I'm bobbing with joy!", "Ooh, I almost floated away!"],
@@ -400,30 +403,34 @@
       {
         id: "volcano-iggy", name: "Iggy", kind: "Marine Iguana", pose: "sit", wearColor: "#2EA2A0",
         bio: "A sunny marine iguana who basks on the warm rocks between your tasks.",
-        idle: ["tailSwish", "headTilt", "earTwitch"], cheer: "bounce",
-        neck: [60, 74],
+        idle: ["tailSwish", "headTilt", "wave"], cheer: "bounce",
+        neck: [60, 72],
         parts: {
-          tail: {svg: LINE("M82 102C98 106 108 96 106 84C105 77 98 78 100 85", "#6E7C84", 6.4), pivot: [82, 100]},
-          feet: `<path d="M38 104l-6 6M42 106l-3 6M46 106v6M82 104l6 6M78 106l3 6M74 106v6" stroke="${INK}" stroke-width="2.4" stroke-linecap="round"/><ellipse cx="42" cy="104" rx="8" ry="4" fill="#5E6C74" ${OW(2.2)}/><ellipse cx="78" cy="104" rx="8" ry="4" fill="#5E6C74" ${OW(2.2)}/>`,
-          body: `${RG("volcano-iggy-b", [[0, "#A8B8BC"], [0.6, "#6E7C84"], [1, "#46525A"]], 0.42, 0.3, 0.8)}
-            <path d="M34 106C30 90 38 76 60 74C82 76 90 90 86 106Z" fill="url(#volcano-iggy-b)" ${O}/>
-            <ellipse cx="60" cy="94" rx="13" ry="10" fill="#B8D0C8"/>
-            <g fill="#E07A5A" opacity=".75"><ellipse cx="40" cy="90" rx="3.6" ry="2.4"/><ellipse cx="80" cy="88" rx="3.2" ry="2.2"/></g>
-            <g fill="#4FB8A8" opacity=".6"><circle cx="46" cy="80" r="2"/><circle cx="74" cy="80" r="2"/></g>`,
-          armL: {svg: `<ellipse cx="40" cy="92" rx="5" ry="8" transform="rotate(18 40 92)" fill="#6E7C84" ${O}/>`, pivot: [43, 86]},
-          armR: {svg: `<ellipse cx="80" cy="92" rx="5" ry="8" transform="rotate(-18 80 92)" fill="#6E7C84" ${O}/>`, pivot: [77, 86]},
-          earL: {svg: `<path d="M42 36L38 22L49 31Z" fill="#E8A040" ${O2}/><path d="M50 32L50 18L57 29Z" fill="#E8A040" ${O2}/>`, pivot: [48, 34]},
-          earR: {svg: `<path d="M78 36L82 22L71 31Z" fill="#E8A040" ${O2}/><path d="M70 32L70 18L63 29Z" fill="#E8A040" ${O2}/>`, pivot: [72, 34]},
-          head: `${RG("volcano-iggy-h", [[0, "#B0C0C4"], [0.6, "#76848C"], [1, "#4A565E"]], 0.42, 0.3, 0.8)}
-            <path d="M34 54C34 38 46 30 60 30C74 30 86 38 86 54C86 68 76 76 60 76C44 76 34 68 34 54Z" fill="url(#volcano-iggy-h)" ${O}/>
-            <g fill="#F4FAFA"><circle cx="50" cy="36" r="2"/><circle cx="58" cy="33.4" r="1.6"/><circle cx="66" cy="34" r="2.2"/><circle cx="73" cy="38" r="1.4"/><circle cx="62" cy="38" r="1.2"/></g>
-            <g fill="#5A6870" opacity=".55"><circle cx="40" cy="60" r="1.6"/><circle cx="80" cy="60" r="1.6"/><circle cx="44" cy="67" r="1.3"/><circle cx="76" cy="67" r="1.3"/></g>`,
-          face: `<ellipse cx="55" cy="60" rx="1.4" ry="1" fill="${INK}"/><ellipse cx="65" cy="60" rx="1.4" ry="1" fill="${INK}"/>`
+          tail: {svg: `<g fill="url(#volcano-iggy-s)" ${OW(2.4)}><path d="M94 72L96 61L102 70Z"/><path d="M103 70L111 64L108 76Z"/></g>
+            <path d="M80 90C90 92 98 91 100 86C102 81 99 78 96 79C93 80 91 77 93 74C96 69 106 69 108 79C110 92 100 104 82 105Z" fill="#5C6C78" ${O}/>`, pivot: [82, 98]},
+          body: `${LG("volcano-iggy-s", [[0, "#FFD27A"], [0.55, "#FF9A3A"], [1, "#E8552A"]])}
+            ${RG("volcano-iggy-b", [[0, "#9DB0BA"], [0.55, "#6C7E8A"], [1, "#465460"]], 0.4, 0.3, 0.85)}
+            <g fill="url(#volcano-iggy-s)" ${OW(2.4)}><path d="M77 69L88 63L84 77Z"/><path d="M84 79L95 76L88 90Z"/></g>
+            <path d="M60 64C78 64 89 80 89 96C89 106 81 110.5 60 110.5C39 110.5 31 106 31 96C31 80 42 64 60 64Z" fill="url(#volcano-iggy-b)" ${O}/>
+            <path d="M60 77C70 77 77 87 77 97C77 104 71 108 60 108C49 108 43 104 43 97C43 87 50 77 60 77Z" fill="#F3D3A4"/>
+            <path d="M47 89Q60 93 73 89M45 97Q60 101 75 97M47 104Q60 107 73 104" fill="none" stroke="#DDB07A" stroke-width="2" stroke-linecap="round"/>
+            <path d="M28 108Q27 99 34 97L41 96Q48 97 48 103Q48 108 45 110Z" fill="#5C6C78" ${O}/><path d="M92 108Q93 99 86 97L79 96Q72 97 72 103Q72 108 75 110Z" fill="#5C6C78" ${O}/>
+            <g fill="#4A5864" ${OW(2.2)}><circle cx="29" cy="109" r="3"/><circle cx="35" cy="110.2" r="3"/><circle cx="41" cy="110" r="3"/><circle cx="91" cy="109" r="3"/><circle cx="85" cy="110.2" r="3"/><circle cx="79" cy="110" r="3"/></g>
+            <g fill="#FF9A3A"><circle cx="38" cy="80" r="1.8"/><circle cx="42.5" cy="74.5" r="1.3"/><circle cx="82" cy="88" r="1.6"/></g>`,
+          armL: {svg: `<g fill="#4A5864" ${OW(2.2)}><circle cx="38.5" cy="92.5" r="2.6"/><circle cx="43.5" cy="94" r="2.6"/><circle cx="48.5" cy="92.5" r="2.6"/></g><path d="M38 78C34 82 35 90 41 92C47 93 50 89 48 84C46 78 42 76 38 78Z" fill="#6A7C88" ${O}/>`, pivot: [42, 79]},
+          armR: {svg: `<g fill="#4A5864" ${OW(2.2)}><circle cx="81.5" cy="92.5" r="2.6"/><circle cx="76.5" cy="94" r="2.6"/><circle cx="71.5" cy="92.5" r="2.6"/></g><path d="M82 78C86 82 85 90 79 92C73 93 70 89 72 84C74 78 78 76 82 78Z" fill="#6A7C88" ${O}/>`, pivot: [78, 79]},
+          head: `${RG("volcano-iggy-h", [[0, "#A9BCC4"], [0.55, "#73868F"], [1, "#4A5862"]], 0.42, 0.3, 0.85)}
+            <g fill="url(#volcano-iggy-s)" ${OW(2.6)}><path d="M44 32Q41 19 46 14Q51 19 55 28Z"/><path d="M53 28Q55 11 60 7Q65 11 67 28Z"/><path d="M76 32Q79 19 74 14Q69 19 65 28Z"/></g>
+            <path d="M60 24C79 24 92 36 92 51C92 66 79 73 60 73C41 73 28 66 28 51C28 36 41 24 60 24Z" fill="url(#volcano-iggy-h)" ${O}/>
+            <path d="M60 56C71 56 79 60 79 65C79 70 71 72.5 60 72.5C49 72.5 41 70 41 65C41 60 49 56 60 56Z" fill="#94A6AE" opacity=".7"/>
+            <g fill="#FF9A3A"><circle cx="49" cy="33" r="1.6"/><circle cx="71" cy="33" r="1.6"/><circle cx="60" cy="31" r="1.3"/></g>
+            <path d="M36 42Q40 33 49 30" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".8"/>`,
+          face: `<ellipse cx="56" cy="61" rx="1.4" ry="1" fill="${INK}"/><ellipse cx="64" cy="61" rx="1.4" ry="1" fill="${INK}"/>`
         },
-        eyes: {lx: 48, rx: 72, y: 50, r: 5, style: "round", color: "#2B1A10"},
-        mouth: {x: 60, y: 66, w: 4.2},
-        cheeks: {lx: 41, rx: 79, y: 60, w: 4.2, h: 2.6, color: "#FF8F8F"},
-        anchors: {top: [60, 28, 0.95], neck: [60, 76, 1.05], chest: [72, 96, 0.68], back: [86, 88, 0.8], hands: [60, 98, 0.85]},
+        eyes: {lx: 46, rx: 74, y: 49, r: 6, style: "sparkle", color: "#2B1A10"},
+        mouth: {x: 60, y: 66, w: 3.8},
+        cheeks: {lx: 37, rx: 83, y: 59, w: 4.6, h: 2.8, color: "#FF8F7A"},
+        anchors: {top: [60, 25, 1], neck: [60, 73, 1.1], chest: [60, 84, 0.6], back: [86, 82, 0.8], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Hi! Just sunbathing between study sessions.", "Achoo! Sorry, that's a happy salt sneeze!", "You're doing great, mate!", "Slow blink of approval.", "Warm rocks, warm heart, warm wishes!", "Let's dive into the next one!", "You're tougher than lava rock!"],
           pet: ["Achoo! Hehe, happy sneeze!", "Ooh, right on the spiky bits!"],
