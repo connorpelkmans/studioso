@@ -8709,6 +8709,15 @@ SCENES.morocco = function (W, H, dk, rnd) {
     win += morocco_pg(morocco_archPts(mx - mw * 0.14, py + pph + mw * 0.32, mw * 0.14, mw * 0.24, 1.1).slice(0)) + morocco_pg(morocco_archPts(mx + mw * 0.14, py + pph + mw * 0.32, mw * 0.14, mw * 0.24, 1.1)); }
   add(bg, 'c', cityA, C.cityA); add(bg, 'd', cityB, C.cityB); add(bg, 'e', mina, C.mina); add(bg, 'f', palmD, C.palm); add(bg, 'g', trunkD + win, C.trunk); add(bg, 'h', minG, C.gold);
   stk(bg, 's', minL, dk ? 'rgba(20,10,40,0.5)' : 'rgba(150,80,50,0.5)', ph ? 0.8 : 1.1);
+  // the Moroccan flag on a rooftop pole beside the minaret: red, with the green interlaced star
+  var fgx = ph ? W * 0.4 : mx - mw * 2.2, fpt = yw - H * (ph ? 0.1 : 0.125), fw = (ph ? 30 : 46) * (ph ? 1 : S), fh = fw * 2 / 3, fpts = [], fwave = function (u) { return Math.sin(u * 5.2) * fh * 0.08 * u; };
+  for (j = 0; j <= 12; j++) fpts.push([fgx + 1.5 + j / 12 * fw, fpt + fwave(j / 12)]);
+  for (j = 12; j >= 0; j--) fpts.push([fgx + 1.5 + j / 12 * fw, fpt + fh + fwave(j / 12)]);
+  var flagRed = morocco_pg(fpts), flagStar = '', fcx = fgx + 1.5 + fw / 2, fcy = fpt + fh / 2 + fwave(0.5), frr = fh * 0.3, fsp = [], flw = Math.max(0.9, frr * 0.14);
+  for (j = 0; j < 5; j++) { var fa = -Math.PI / 2 + j * 2 * Math.PI / 5; fsp.push([fcx + Math.cos(fa) * frr, fcy + Math.sin(fa) * frr]); }
+  for (j = 0; j < 5; j++) { var fA = fsp[j], fB = fsp[(j + 2) % 5], fdx = fB[0] - fA[0], fdy = fB[1] - fA[1], fL = Math.sqrt(fdx * fdx + fdy * fdy), fnx = -fdy / fL * flw / 2, fny = fdx / fL * flw / 2;
+    flagStar += morocco_pg([[fA[0] + fnx, fA[1] + fny], [fB[0] + fnx, fB[1] + fny], [fB[0] - fnx, fB[1] - fny], [fA[0] - fnx, fA[1] - fny]]); }
+  var flagPole = rect(fgx - 1.2, fpt - 2, 2.4, yw - fpt + 2) + morocco_c(fgx, fpt - 3, ph ? 2 : 2.8);
   // the courtyard
   var wall = rect(-10, yw, W + 20, yf - yw + 2), cream = '', cob = '', grn = '', white = '', cedar = '', shade = '', open = '', wl = '', wc = '';
   var eh = (ph ? 10 : 16) * (ph ? 1 : S);
@@ -8860,7 +8869,7 @@ SCENES.morocco = function (W, H, dk, rnd) {
     nor += rect(jx0 + (sd < 0 ? 20 : 0), zt - 5, pw, 4);
     if (!ph) { var cx = sd < 0 ? pw - 9 : W - pw + 9; ncream += rect(cx - 5, ARC.cy + 40 * S, 10, zt - ARC.cy - 46 * S); nc += seg(cx - 2, ARC.cy + 48 * S, cx - 2, zt - 10) + seg(cx + 2, ARC.cy + 48 * S, cx + 2, zt - 10); gold += rect(cx - 8, ARC.cy + 34 * S, 16, 7) + rect(cx - 7, zt - 12, 14, 5); nsh += rect(cx + 1.5, ARC.cy + 41 * S, 3.5, zt - ARC.cy - 53 * S) + rect(cx + 3, ARC.cy + 34 * S, 5, 7) + rect(cx + 2.5, zt - 12, 4.5, 5); }
     nsh += rect(sd < 0 ? pw - 3 : W - pw, aOpen[1][1], 3, H + 20 - aOpen[1][1]); });
-  add(mid, 'g', gsh, C.shade); add(near, 'a', rug, C.rug); add(near, 'b', water, C.water); add(near, 'c', ncob, C.cob); add(near, 'd', ncream, C.ncream); add(near, 'e', ngrn, C.grn); add(near, 'f', nor, C.norange); add(near, 'g', gold, C.gold); add(near, 'h', nsh, C.nshade);
+  add(mid, 'g', gsh, C.shade); add(near, 'a', rug + flagRed, C.rug); add(near, 'b', water, C.water); add(near, 'c', ncob, C.cob); add(near, 'd', ncream, C.ncream); add(near, 'e', ngrn + flagStar, C.grn); add(near, 'f', nor, C.norange); add(near, 'g', gold + flagPole, C.gold); add(near, 'h', nsh, C.nshade);
   stk(near, 's', ng, C.grout, ph ? 0.7 : 1); stk(near, 't', nc, C.carve, ph ? 0.8 : 1.2);
   if (ANIM) { ANIM.C = C; ANIM.stars = stars; ANIM.lan = lan; ANIM.trees = tdat; ANIM.arches = arches; ANIM.candles = candles; ANIM.yw = yw; ANIM.yf = yf; ANIM.ARC = ARC; ANIM.pw = pw; ANIM.soffit = [aOpen, aIn];
     ANIM.fount = {x: fx, y: fyy, rx: frx - rim * 0.55, ry: fry - rim * 0.28, rimRx: frx + rim, rimRy: fry + rim * 0.45, bowlY: bowlY, brx: brx, bry: bry, spout: bowlY - 12 * S, s: S, fh: fh}; }

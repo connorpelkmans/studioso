@@ -1,14 +1,41 @@
 /* ===== module: 98-comp-brazil.js ===== */
 /* Study Companions, Around the World */
 (() => {
-  const {O, OW, LG, RG} = COMP_KIT;
+  const {O, OW, LG, RG, puff} = COMP_KIT;
   const f1 = v => Math.round(v * 10) / 10;
   const ring = (cx, cy, n, r, fn) => Array.from({length: n}, (_, i) => { const a = i / n * Math.PI * 2; return fn(f1(cx + Math.cos(a) * r), f1(cy + Math.sin(a) * r), a * 180 / Math.PI, i); }).join("");
   // a little hibiscus
   const hibiscus = (x, y, r, c = "#FF5A6A", mid = "#FFD23A") => `<g>${ring(x, y, 5, r * 0.52, (px, py, a) => `<ellipse cx="${px}" cy="${py}" rx="${f1(r * 0.55)}" ry="${f1(r * 0.42)}" transform="rotate(${f1(a)} ${px} ${py})" fill="${c}" ${OW(1)}/>`)}<circle cx="${x}" cy="${y}" r="${f1(r * 0.22)}" fill="${mid}"/></g>`;
-  // the shaggy edge of the tamarin's golden mane
-  const mane = (cx, cy, rx, ry, n) => { let d = ""; for (let i = 0; i <= n; i++) { const a = i / n * Math.PI * 2, b = (i + 0.5) / n * Math.PI * 2, k = 1.16 + (i % 2) * 0.05;
-    d += `${i ? "Q" : "M"}${i ? `${f1(cx + Math.cos(b - Math.PI / n) * rx * k)} ${f1(cy + Math.sin(b - Math.PI / n) * ry * k)} ` : ""}${f1(cx + Math.cos(a) * rx)} ${f1(cy + Math.sin(a) * ry)}`; } return d + "Z"; };
+  // a tapered, outlined ribbon along a centre line (for tails), with a round tip
+  const ribbon = (pts, w0, w1) => {
+    const n = pts.length - 1, L = [], R = [];
+    pts.forEach((p, i) => {
+      const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], m = Math.hypot(dx, dy) || 1, w = (w0 + (w1 - w0) * i / n) / 2;
+      L.push([p[0] - dy / m * w, p[1] + dx / m * w]); R.push([p[0] + dy / m * w, p[1] - dx / m * w]);
+    });
+    const P = q => `${f1(q[0])} ${f1(q[1])}`;
+    return `M${L.map(P).join("L")}A${f1(w1 / 2)} ${f1(w1 / 2)} 0 0 0 ${P(R[n])}L${R.reverse().map(P).join("L")}Z`;
+  };
+  // points along a cubic, then a spiral curl that carries on from its end
+  const bez = (p0, p1, p2, p3, k) => Array.from({length: k + 1}, (_, i) => { const t = i / k, u = 1 - t; return [0, 1].map(j => u * u * u * p0[j] + 3 * u * u * t * p1[j] + 3 * u * t * t * p2[j] + t * t * t * p3[j]); });
+  const curl = (end, dir, r0, r1, turn, k, side = 1) => {
+    const m = Math.hypot(dir[0], dir[1]), c = [end[0] + side * dir[1] / m * r0, end[1] - side * dir[0] / m * r0], a0 = Math.atan2(end[1] - c[1], end[0] - c[0]);
+    return Array.from({length: k}, (_, i) => { const t = (i + 1) / k, a = a0 - side * turn * t, r = r0 + (r1 - r0) * t; return [c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r]; });
+  };
+  // Tuca's beak, pointing out at you: a big rounded upper bill over the crescent of the lower bill.
+  // Closed, smiling or open (the lower bill drops); its gradients live in the face part
+  const BEAK_U = "M44 52C44 43.6 76 43.6 76 52C76 61 73 68 67.6 73C64.6 75.8 62 77.4 60 79.6C58 77.4 55.4 75.8 52.4 73C47 68 44 61 44 52Z";
+  const BEAK_L = "M47 59C45 71 52 82.6 60 84.6C68 82.6 75 71 73 59C71 68 66 74.6 60 76.6C54 74.6 49 68 47 59Z";
+  const beak = (open, smile) => `${open ? `<path d="M46.6 60C46.6 72 53 84 60 86.6C67 84 73.4 72 73.4 60Z" fill="#B8243A" ${OW(2.2)}/><ellipse cx="60" cy="81.6" rx="6.4" ry="3.4" fill="#FF8FA8"/>` : ""}
+    <path d="${BEAK_L}" fill="url(#brazil-tuca-bl)" ${O}${open ? ` transform="translate(0 6)"` : ""}/>
+    <path d="${BEAK_U}" fill="url(#brazil-tuca-bk)" ${O}/>
+    <path d="M48.6 52C49.4 48.8 53 47.4 57 47.2" fill="none" stroke="#FFF6C4" stroke-width="2.6" stroke-linecap="round"/>
+    ${smile ? `<path d="M41.4 56Q42.4 61.6 47.4 62.8M78.6 56Q77.6 61.6 72.6 62.8" fill="none" stroke="#2B2233" stroke-width="2.2" stroke-linecap="round"/>` : ""}`;
+  const TUCA_HEAD = "M60 19C77 19 88 31 88 45C88 60 76 70 60 70C44 70 32 60 32 45C32 31 43 19 60 19Z";
+  const TUCA_BODY = "M60 62C76 62 86 76 86 88C86 99 76 104 60 104C44 104 34 99 34 88C34 76 44 62 60 62Z";
+  // Mico's body and long curling tail
+  const MICO_BODY = "M60 68C76 68 84 82 84 94C84 104 76 108 60 108C44 108 36 104 36 94C36 82 44 68 60 68Z";
+  const micoTail = (() => { const a = bez([78, 102], [94, 108], [108, 100], [106, 84], 14); return ribbon(a.concat(curl(a[a.length - 1], [-2, -16], 9, 3.6, 4.6, 26)), 10, 5.6); })();
 
   COMP_DATA.push({
     theme: "brazil",
@@ -17,32 +44,33 @@
         id: "brazil-tuca", name: "Tuca", kind: "Toco Toucan Chick", pose: "stand", wearColor: "#FF8A1E",
         bio: "A toco toucan chick with a big beak and the loudest cheer on the beach.",
         idle: ["headTilt", "wingFlutter", "topBob"], cheer: "wingFlutter",
-        neck: [60, 74],
+        neck: [60, 68],
         parts: {
-          feet: `<path d="M44 104q-4 4 -1 5h10q2-2-1-5ZM68 104q-4 4 -1 5h10q2-2-1-5Z" fill="#6A8ACF" ${O}/>`,
-          wingL: {svg: `<path d="M38 76C27 79 22 92 26 104C31 106 38 101 41 94Z" fill="#26232E" ${O}/><path d="M30 92Q31 99 35 101" fill="none" stroke="#4A4656" stroke-width="2" stroke-linecap="round"/>`, pivot: [38, 78]},
-          wingR: {svg: `<path d="M82 76C93 79 98 92 94 104C89 106 82 101 79 94Z" fill="#26232E" ${O}/><path d="M90 92Q89 99 85 101" fill="none" stroke="#4A4656" stroke-width="2" stroke-linecap="round"/>`, pivot: [82, 78]},
-          body: `${RG("brazil-tuca-b", [[0, "#3E3A48"], [0.7, "#24212C"], [1, "#16141C"]], 0.4, 0.3, 0.8)}
-            <path d="M60 66C79 66 87 82 87 94C87 104 77 109 60 109C43 109 33 104 33 94C33 82 41 66 60 66Z" fill="url(#brazil-tuca-b)" ${O}/>
-            <path d="M60 72C70 72 75 81 74 91C73 99 67 103 60 103C53 103 47 99 46 91C45 81 50 72 60 72Z" fill="#FFF6D8"/>
-            <path d="M50 96Q60 101 70 96Q68 103 60 104Q52 103 50 96Z" fill="#FFD23A"/>
-            <ellipse cx="60" cy="108" rx="9" ry="2.6" fill="#E2302A"/>`,
-          head: `${RG("brazil-tuca-h", [[0, "#423E4E"], [0.7, "#26232E"], [1, "#18161E"]], 0.4, 0.3, 0.8)}
-            <path d="M60 24C80 24 88 38 88 50C88 64 76 72 60 72C44 72 32 64 32 50C32 38 40 24 60 24Z" fill="url(#brazil-tuca-h)" ${O}/>
-            <path d="M42 34Q48 28 56 27" fill="none" stroke="#5A5668" stroke-width="2.6" stroke-linecap="round"/>
-            <ellipse cx="49" cy="50" rx="7.4" ry="7" fill="#FF9A2A"/><ellipse cx="71" cy="50" rx="7.4" ry="7" fill="#FF9A2A"/>
-            <ellipse cx="49" cy="50" rx="5.6" ry="5.4" fill="#5AA8F0"/><ellipse cx="71" cy="50" rx="5.6" ry="5.4" fill="#5AA8F0"/>`,
-          face: `${LG("brazil-tuca-k", [[0, "#FFC23A"], [0.55, "#FF8A1E"], [1, "#F2601A"]])}
-            <path d="M47 58C50 54 70 54 73 58C76 62 74 70 68 76C64 80 61 82 60 82C59 82 56 80 52 76C46 70 44 62 47 58Z" fill="url(#brazil-tuca-k)" ${O}/>
-            <path d="M54 76.6C57 80 59 82 60 82C61 82 63 80 66 76.6C63 78.4 57 78.4 54 76.6Z" fill="#26232E"/>
-            <path d="M50 58.6Q60 55.6 70 58.6" fill="none" stroke="#E2302A" stroke-width="1.8" stroke-linecap="round"/>
-            <ellipse cx="55" cy="60.6" rx="3" ry="1.4" fill="#FFF2C0" opacity=".8"/>`,
-          top: {svg: `<path d="M56 26C54 18 57 13 61 12C60 16 61 20 62 25ZM62 26C64 19 68 16 72 17C69 20 67 23 65 27Z" fill="#26232E" ${OW(2)}/>${hibiscus(70, 28, 6.4)}`, pivot: [60, 27]}
+          feet: `<path d="M43 109C42 104 46 101 50.5 101C55 101 59 104 58 109C54 110.6 47 110.6 43 109Z" fill="#7C95CF" ${O}/><path d="M48 109.4V106.4M53 109.4V106.4" stroke="#4E6AA8" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M62 109C61 104 65 101 69.5 101C74 101 78 104 77 109C73 110.6 66 110.6 62 109Z" fill="#7C95CF" ${O}/><path d="M67 109.4V106.4M72 109.4V106.4" stroke="#4E6AA8" stroke-width="1.6" stroke-linecap="round"/>`,
+          body: `${RG("brazil-tuca-b", [[0, "#4A4558"], [0.65, "#2E2A38"], [1, "#1E1B26"]], 0.4, 0.3, 0.8)}
+            ${LG("brazil-tuca-bib", [[0, "#FFF6DC"], [0.62, "#FFF0C6"], [1, "#FFD24A"]])}
+            <defs><clipPath id="brazil-tuca-bc"><path d="${TUCA_BODY}"/></clipPath></defs>
+            <path d="${TUCA_BODY}" fill="url(#brazil-tuca-b)"/>
+            <g clip-path="url(#brazil-tuca-bc)"><ellipse cx="60" cy="80" rx="14" ry="19" fill="url(#brazil-tuca-bib)"/></g>
+            <path d="${TUCA_BODY}" fill="none" ${O}/>`,
+          armL: {svg: `${LG("brazil-tuca-w", [[0, "#55506A"], [1, "#322E3E"]])}<path d="M41 72C32 75 27 87 29.5 98C32 101.5 37 100 40.5 95C44.5 89 45.5 79 41 72Z" fill="url(#brazil-tuca-w)" ${O}/><path d="M34 90Q35 95 37.5 97" fill="none" stroke="#7A7590" stroke-width="2" stroke-linecap="round"/>`, pivot: [41, 75]},
+          armR: {svg: `<path d="M79 72C88 75 93 87 90.5 98C88 101.5 83 100 79.5 95C75.5 89 74.5 79 79 72Z" fill="url(#brazil-tuca-w)" ${O}/><path d="M86 90Q85 95 82.5 97" fill="none" stroke="#7A7590" stroke-width="2" stroke-linecap="round"/>`, pivot: [79, 75]},
+          head: `${RG("brazil-tuca-h", [[0, "#4E495E"], [0.65, "#2E2A38"], [1, "#1E1B26"]], 0.4, 0.3, 0.8)}
+            <defs><clipPath id="brazil-tuca-hc"><path d="${TUCA_HEAD}"/></clipPath></defs>
+            <path d="${TUCA_HEAD}" fill="url(#brazil-tuca-h)"/>
+            <g clip-path="url(#brazil-tuca-hc)"><path d="M24 49C38 57 82 57 96 49V80H24Z" fill="#FFF6DC"/></g>
+            <path d="${TUCA_HEAD}" fill="none" ${O}/>
+            <path d="M37 46Q37.5 38 41.5 33" fill="none" stroke="#6E6884" stroke-width="2.8" stroke-linecap="round"/>
+            <circle cx="47" cy="40" r="6.6" fill="#7CCBF2"/><circle cx="73" cy="40" r="6.6" fill="#7CCBF2"/>`,
+          face: `${LG("brazil-tuca-bk", [[0, "#FFE15A"], [0.4, "#FFB02E"], [0.7, "#FF7A1E"], [0.9, "#EE3A2A"], [1, "#E02A2A"]])}${LG("brazil-tuca-bl", [[0, "#FFC23A"], [1, "#F2741E"]])}`,
+          top: {svg: `<path d="M47 31Q43 24 36 24Q39 31 47 31Z" fill="#4CB05A" ${OW(1.8)}/>${hibiscus(43, 24, 7.2)}`, pivot: [48, 30]}
         },
-        eyes: {lx: 49, rx: 71, y: 50, r: 3.6, style: "dot", color: "#1A1820"},
-        mouth: {x: 60, y: 68, w: 3, color: "#7A2A10"},
-        cheeks: {lx: 40, rx: 80, y: 60, w: 3.6, h: 2.2, color: "#FF8A9A"},
-        anchors: {top: [60, 24, 0.95], neck: [60, 72, 1], chest: [68, 90, 0.6], back: [86, 84, 0.8], hands: [60, 98, 0.86]},
+        eyes: {lx: 47, rx: 73, y: 40, r: 4.2, style: "sparkle", color: "#1A1820"},
+        mouths: {neutral: beak(false, false), smile: beak(false, true), open: beak(true, false), sleepy: beak(false, false)},
+        mouth: {x: 60, y: 76, w: 3, color: "#7A2A10"},
+        cheeks: {lx: 38, rx: 82, y: 54, w: 4, h: 2.4, color: "#FF8A9A"},
+        anchors: {top: [60, 21, 0.95], neck: [60, 80, 1], chest: [70, 87, 0.55], back: [84, 80, 0.8], hands: [60, 96, 0.86]},
         lines: {
           tap: ["Bom dia! Ready to make some noise?", "My beak is big, but my cheers are bigger!", "Let's fly through this list together!", "Toco! That's toucan for 'you've got this'!", "One task at a time, like fruit for breakfast!", "I spy a finish line from my branch!", "You bring the focus, I'll bring the color!", "Every page gets you closer to the beach!"],
           pet: ["Hehe! Mind the beak, it's ticklish!", "Aww! My feathers are all fluffed up!"],
@@ -58,33 +86,32 @@
       {
         id: "brazil-mico", name: "Mico", kind: "Golden Lion Tamarin", pose: "sit", wearColor: "#2E9A5A",
         bio: "A golden lion tamarin with a tiny golden mane and a big love of learning.",
-        idle: ["tailSwish", "headTilt", "earTwitch"], cheer: "hop",
-        neck: [60, 76],
+        idle: ["tailSwish", "headTilt", "topBob"], cheer: "hop",
+        neck: [60, 74],
         parts: {
-          tail: {svg: `<path d="M82 100C98 100 106 88 104 74C102 62 108 52 114 50" fill="none" stroke="#2B2233" stroke-width="11" stroke-linecap="round"/>
-            <path d="M82 100C98 100 106 88 104 74C102 62 108 52 114 50" fill="none" stroke="#F29A2A" stroke-width="6" stroke-linecap="round"/>
-            <path d="M108 56C110 52 112 51 114 50" fill="none" stroke="#C8701A" stroke-width="6" stroke-linecap="round"/>`, pivot: [82, 100]},
-          feet: `<ellipse cx="44" cy="106" rx="9" ry="5" fill="#E8902A" ${O}/><ellipse cx="76" cy="106" rx="9" ry="5" fill="#E8902A" ${O}/><path d="M40 108.6v-2.4M44 109v-2.6M48 108.6v-2.4M72 108.6v-2.4M76 109v-2.6M80 108.6v-2.4" stroke="#6A3A2A" stroke-width="1.1" stroke-linecap="round"/>`,
-          body: `${RG("brazil-mico-b", [[0, "#FFC25A"], [0.7, "#F29A2A"], [1, "#D87A1A"]], 0.4, 0.3, 0.8)}
-            <path d="M60 70C78 70 86 86 86 97C86 106 76 110 60 110C44 110 34 106 34 97C34 86 42 70 60 70Z" fill="url(#brazil-mico-b)" ${O}/>
-            <path d="M60 78C68 78 72 88 70 98C69 104 51 104 50 98C48 88 52 78 60 78Z" fill="#FFD88A"/>
-            <path d="M42 84Q46 80 50 82M70 82Q74 80 78 84" fill="none" stroke="#FFE2A8" stroke-width="2" stroke-linecap="round"/>`,
-          armL: {svg: `<path d="M44 82Q38 92 40 104Q45 108 50 104Q50 94 51 84Z" fill="#F2A23A" ${O}/><path d="M40 101Q45 107 50 103L50 104Q45 108 40 104Z" fill="#6A3A2A"/>`, pivot: [47, 84]},
-          armR: {svg: `<path d="M76 82Q82 92 80 104Q75 108 70 104Q70 94 69 84Z" fill="#F2A23A" ${O}/><path d="M80 101Q75 107 70 103L70 104Q75 108 80 104Z" fill="#6A3A2A"/>`, pivot: [73, 84]},
-          earL: {svg: `<ellipse cx="24" cy="48" rx="6.4" ry="7.6" fill="#8A5A42" ${O}/><ellipse cx="24.8" cy="48.6" rx="3.2" ry="4.4" fill="#C88A6A"/>`, pivot: [30, 52]},
-          earR: {svg: `<ellipse cx="96" cy="48" rx="6.4" ry="7.6" fill="#8A5A42" ${O}/><ellipse cx="95.2" cy="48.6" rx="3.2" ry="4.4" fill="#C88A6A"/>`, pivot: [90, 52]},
-          head: `${RG("brazil-mico-m", [[0, "#FFD27A"], [0.6, "#F7A53A"], [1, "#E0801E"]], 0.45, 0.35, 0.8)}
-            <path d="${mane(60, 50, 31, 29, 22)}" fill="url(#brazil-mico-m)" ${O}/>
-            <path d="M40 30Q48 22 58 22M66 22Q76 24 82 32" fill="none" stroke="#FFE2A0" stroke-width="2.4" stroke-linecap="round"/>
-            ${RG("brazil-mico-f", [[0, "#C8906E"], [1, "#9A6650"]], 0.45, 0.35, 0.8)}
-            <path d="M60 36C72 36 77 45 77 55C77 66 70 73 60 73C50 73 43 66 43 55C43 45 48 36 60 36Z" fill="url(#brazil-mico-f)" ${OW(2.4)}/>
-            <ellipse cx="51" cy="52" rx="6.4" ry="6" fill="#F2DCC8"/><ellipse cx="69" cy="52" rx="6.4" ry="6" fill="#F2DCC8"/>`,
-          face: `<path d="M57 61Q60 59.4 63 61Q62 63.4 60 63.6Q58 63.4 57 61Z" fill="#4A2A22"/>${hibiscus(80, 30, 6, "#FF5A8A")}`
+          tail: {svg: `${LG("brazil-mico-t", [[0, "#FFB23E"], [0.6, "#F29A2A"], [1, "#C9681A"]], 0, 1, 1, 0)}<path d="${micoTail}" fill="url(#brazil-mico-t)" ${O}/>`, pivot: [80, 101]},
+          body: `${RG("brazil-mico-b", [[0, "#FFCB66"], [0.65, "#F5A23A"], [1, "#DE821E"]], 0.4, 0.3, 0.8)}
+            <defs><clipPath id="brazil-mico-bc"><path d="${MICO_BODY}"/></clipPath></defs>
+            <path d="${MICO_BODY}" fill="url(#brazil-mico-b)"/>
+            <g clip-path="url(#brazil-mico-bc)"><ellipse cx="60" cy="96" rx="13" ry="16" fill="#FFDF9C"/></g>
+            <path d="${MICO_BODY}" fill="none" ${O}/>
+            <ellipse cx="47" cy="106" rx="7.4" ry="4.4" fill="#7A4A34" ${O}/><ellipse cx="73" cy="106" rx="7.4" ry="4.4" fill="#7A4A34" ${O}/>`,
+          armL: {svg: `${LG("brazil-mico-a", [[0, "#F7A838"], [1, "#E08420"]])}<g transform="rotate(30 36.4 90.4)"><ellipse cx="36.4" cy="90.4" rx="5" ry="7.2" fill="url(#brazil-mico-a)"/><path d="M31.7 93A5 7.2 0 0 0 41.1 93Q36.4 91.4 31.7 93Z" fill="#7A4A34"/><ellipse cx="36.4" cy="90.4" rx="5" ry="7.2" fill="none" ${O}/></g>`, pivot: [43.4, 83.4]},
+          armR: {svg: `<g transform="rotate(-30 83.6 90.4)"><ellipse cx="83.6" cy="90.4" rx="5" ry="7.2" fill="url(#brazil-mico-a)"/><path d="M78.9 93A5 7.2 0 0 0 88.3 93Q83.6 91.4 78.9 93Z" fill="#7A4A34"/><ellipse cx="83.6" cy="90.4" rx="5" ry="7.2" fill="none" ${O}/></g>`, pivot: [76.6, 83.4]},
+          head: `${RG("brazil-mico-m", [[0, "#FFD983"], [0.55, "#F9AE40"], [1, "#E58A22"]], 0.42, 0.34, 0.75)}
+            <path d="${puff(60, 46, 30, 14, 1.2)}" fill="url(#brazil-mico-m)" ${O}/>
+            <path d="${puff(60, 48, 21, 11, 1.25)}" fill="#FFC85E"/>
+            <path d="M39 26Q46 19 55 18" fill="none" stroke="#FFF0C4" stroke-width="2.8" stroke-linecap="round"/>
+            ${RG("brazil-mico-f", [[0, "#B47A58"], [1, "#84533C"]], 0.45, 0.35, 0.8)}
+            <path d="M60 33C71 33 76 41 76 50C76 61 69 67 60 67C51 67 44 61 44 50C44 41 49 33 60 33Z" fill="url(#brazil-mico-f)" ${OW(2.6)}/>
+            <ellipse cx="60" cy="60" rx="8.6" ry="6" fill="#D5A383"/>`,
+          face: `<path d="M57.4 56.4Q60 55 62.6 56.4Q61.8 58.6 60 58.8Q58.2 58.6 57.4 56.4Z" fill="#4A2A22"/>`,
+          top: {svg: `<path d="M80 26Q86 20 92 22Q88 28 80 26Z" fill="#4CB05A" ${OW(1.8)}/>${hibiscus(80, 22, 6.6, "#FF5A8A")}`, pivot: [76, 28]}
         },
-        eyes: {lx: 51, rx: 69, y: 52, r: 3.8, style: "sparkle", color: "#24161A"},
-        mouth: {x: 60, y: 67, w: 3, color: "#4A2A22", style: "cat"},
-        cheeks: {lx: 46, rx: 74, y: 62, w: 3.4, h: 2, color: "#FF8A8A"},
-        anchors: {top: [60, 20, 0.9], neck: [60, 78, 1], chest: [66, 92, 0.6], back: [84, 88, 0.8], hands: [60, 100, 0.86]},
+        eyes: {lx: 53, rx: 67, y: 49, r: 4.2, style: "sparkle", color: "#24161A"},
+        mouth: {x: 60, y: 62, w: 2.6, color: "#4A2A22", style: "cat"},
+        cheeks: {lx: 49, rx: 71, y: 57, w: 3.4, h: 2, color: "#FF8A8A"},
+        anchors: {top: [60, 19, 0.95], neck: [60, 79, 1], chest: [63, 86, 0.55], back: [84, 88, 0.8], hands: [60, 100, 0.86]},
         lines: {
           tap: ["Hi! I'm small, but I study big!", "My mane is golden, and so are your ideas!", "Swing from task to task with me!", "Let's go! The forest is cheering for you!", "I'm hungry for knowledge! And fruit!", "Tiny steps make a long, long trail!", "Curious minds climb the highest trees!", "You've got this, I've got snacks!"],
           pet: ["Hehe! You fluffed up my mane!", "Aww! Golden-hug time!"],
