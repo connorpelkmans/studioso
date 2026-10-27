@@ -44121,6 +44121,7 @@ var COMP_KIT = (() => {
             <g fill="#fff" opacity=".6"><circle cx="47" cy="99" r="1"/><circle cx="55.5" cy="102" r="1"/><circle cx="64" cy="99.5" r="1"/><circle cx="72" cy="101.5" r="1"/></g>
             <path d="M40 58L43.5 96" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".8"/>
             <path d="M30 46C30 34 43 29 60 29C77 29 90 34 90 46Z" fill="#F4F2FF" fill-opacity=".92" ${O}/>
+            <path d="M60 29.6L57.6 45" stroke="${INK}" stroke-width="7.4" opacity=".28"/><path d="M60 29.6L57.6 45" stroke="#F79AD9" stroke-width="5" opacity=".75"/>
             <rect x="28" y="43" width="64" height="7" rx="3.5" fill="#DCD8F8" ${O}/>
             <path d="M38 40Q42 34 49 32.5" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
             <ellipse cx="60" cy="29.6" rx="5.6" ry="2.4" fill="#7E64C8" ${OW(2)}/>`,
