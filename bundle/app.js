@@ -7933,8 +7933,9 @@ function viewBoard(){
     }).join("");
   } else boardHtml = `<div class="board" id="board">${colsFor(ts, null)}</div>`;
   const bv = ui.bview || (() => { try { return localStorage.getItem("studyboard:bview") || "plan"; } catch(e) { return "plan"; } })();
-  const tabs = `<div class="bview-tabs" role="tablist" aria-label="Board view"><button role="tab" data-act="bview" data-id="plan" aria-selected="${bv === "plan"}">Today's Plan</button><button role="tab" data-act="bview" data-id="board" aria-selected="${bv === "board"}">Task Board</button></div>`, tabRow = `<div class="bview-row">${tabs}${bv === "board" ? groupCtl : ""}</div>`;
+  PLAN_HOURS = "";
   const planPane = hasAny && tasksArr().length ? (window.SBEXAM ? SBEXAM.todayHtml() : "") + focusHtml() : `<div class="empty bview-empty"><strong>Nothing Planned Yet</strong>Add tasks with due dates and Today's Plan will line up what to work on.</div>`;
+  const tabs = `<div class="bview-tabs" role="tablist" aria-label="Board view"><button role="tab" data-act="bview" data-id="plan" aria-selected="${bv === "plan"}">Today's Plan</button><button role="tab" data-act="bview" data-id="board" aria-selected="${bv === "board"}">Task Board</button></div>`, tabRow = `<div class="bview-row">${tabs}${bv === "board" ? groupCtl : PLAN_HOURS ? `<div class="bv-hours">${PLAN_HOURS}</div>` : ""}</div>`;
   return backupNudge() + (window.SBCRUNCH ? SBCRUNCH.cardHtml() : "") + `<div class="qa-wrap">${qaBarHtml()}</div>` + tabRow + `<div class="bview" data-bview="${bv}"><div class="bpane-plan">${planPane}</div><div class="bpane-board">` + banner + `<section class="board-sec" aria-label="Task Board">
     <div class="board-sec-head"><h2>Task Board</h2></div>
     ${chipsHtml(groupCtl)}${searchNote()}${boardHtml}
@@ -8357,6 +8358,8 @@ function ribbonHtml(week, pick, late){
   }).join("") + Object.entries(more).map(([i, n]) => { const iso = week[i].iso; return `<button type="button" class="rb-more" data-act="plan-tile" data-id="d:${iso}" style="left:${pct(+i + 0.5)}" aria-label="${esc(`${n} more due ${fmtDate(iso)}. Show only that day`)}">+${n}</button>`; }).join("");
   return `<div class="rb${late.n ? " has-late" : ""}${Object.keys(more).length ? " has-more" : ""}" role="group" aria-label="The next two weeks"><ol class="rb-days">${days}</ol><i class="rb-line" aria-hidden="true"></i><div class="rb-pins">${pins}</div></div>`;
 }
+// Time Today's control, for the row with Today's Plan / Task Board (set by focusHtml; the two-week strip has its own)
+let PLAN_HOURS = "";
 function focusHtml(){
   const F = FOCUS || computeFocus();
   const inView = x => inFilter(x.t) && matchesQ(x.t);
@@ -8404,7 +8407,7 @@ function focusHtml(){
   const ptStats = todayList.length || overdue || queued ? `<div class="pt-stats">${planTile}${ribbonHtml(week, pick, {n: overdue, title: ((lateRows[0] || pastFixed[0]) || {t: {}}).t.title || ""})}</div>` : "";
   return `<section class="focus plan" aria-label="Today's Plan">
     <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? `<p class="plan-gap">${F.gapWhy.map(esc).join(" ")}</p>` : ""}</div>
-      ${(hoursBar => `<div class="fh-ctl${ptStats ? " fh-chip has-stats" : ""}">${hoursBar}${autoChipHtml()}</div>`)(`<div class="hours-ctl" role="group" aria-label="Study time available today"><span class="mini">Time Today</span><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button><b${hoursTitle ? ` title="${esc(hoursTitle)}"` : ""}>${fmtHM(F.thSet) || "0m"}</b><button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></div>`)}</div>
+      ${(hoursBar => { PLAN_HOURS = hoursBar; const rest = autoChipHtml(); return rest ? `<div class="fh-ctl${ptStats ? " fh-chip has-stats" : ""}">${rest}</div>` : ""; })(`<div class="hours-ctl" role="group" aria-label="Study time available today"><span class="mini">Time Today</span><span class="hc-row"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button><b${hoursTitle ? ` title="${esc(hoursTitle)}"` : ""}>${fmtHM(F.thSet) || "0m"}</b><button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></span></div>`)}</div>
     ${ui.focusOpen ? `${window.SBPRO ? SBPRO.todayHtml() : ""}${dayTimelineHtml(F, todayList, heroId)}${nextUpHtml(F, hero)}${skipped}${spare}${warn}${pastHtml}${availStripHtml(F)}
       ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
       ${fixedHtml}
