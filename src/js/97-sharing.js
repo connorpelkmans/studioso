@@ -257,7 +257,7 @@
   function confirmRights(then){
     const g = G();
     openSheet(`<form class="sheet">${head("Before You Share")}<div class="sheet-body">
-      <p style="margin:0">Only share what you made yourself or what AI wrote for you in its own words. Slides, handouts, textbook pages, pictures from them and your instructor's test questions belong to someone else.</p>
+      <p style="margin:0">Share what you made yourself or what AI wrote for you in its own words. Slides, handouts, textbook pages and test questions usually belong to someone else, so share them only if you have permission or they're free to share.</p>
       ${g.rightsBox()}</div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Continue</button></div></form>`, () => { if (!g.rightsOk()) return false; then(); return false; });
   }
