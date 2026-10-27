@@ -635,3 +635,9 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
 .plan-side .lt-go svg{width:17px;height:17px}
 .focus-go.lt-go{color:var(--muted)}
 .focus-go.lt-go:hover,.plan-row .focus-go.lt-go:hover,.plan-row .focus-go.lt-go:focus-visible{color:var(--ink);border-color:var(--line);background:var(--surface)}
+
+/* Task Board on wider screens: All Courses sits just left of Group By, on the tab line */
+@media (min-width:640px){
+  #view > .bview-row > .board-ctl .cf-pick{margin-right:6px}
+  #view > .bview-row:has(> .pg-tabs) + .bview .bpane-board > .board-sec{margin-top:0}
+}

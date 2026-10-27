@@ -111,13 +111,17 @@ function viewBoard(){
   const bv = ui.bview || (() => { try { return localStorage.getItem("studyboard:bview") || "plan"; } catch(e) { return "plan"; } })();
   PLAN_HOURS = "";
   const planPane = hasAny && tasksArr().length ? (window.SBEXAM ? SBEXAM.todayHtml() : "") + focusHtml() : `<div class="empty bview-empty"><strong>Nothing Planned Yet</strong>Add tasks with due dates and Today's Plan will line up what to work on.</div>`;
-  const tabs = `<div class="bview-tabs" role="tablist" aria-label="Board view"><button role="tab" data-act="bview" data-id="plan" aria-selected="${bv === "plan"}">Today's Plan</button><button role="tab" data-act="bview" data-id="board" aria-selected="${bv === "board"}">Task Board</button></div>`, tabRow = `<div class="bview-row">${tabs}${bv === "board" ? groupCtl : PLAN_HOURS ? `<div class="bv-hours">${PLAN_HOURS}</div>` : ""}</div>`;
+  const tabs = `<div class="bview-tabs" role="tablist" aria-label="Board view"><button role="tab" data-act="bview" data-id="plan" aria-selected="${bv === "plan"}">Today's Plan</button><button role="tab" data-act="bview" data-id="board" aria-selected="${bv === "board"}">Task Board</button></div>`, wideBoard = boardWide(),
+    tabRow = `<div class="bview-row">${tabs}${bv === "board" ? (wideBoard ? groupCtl.replace('<div class="board-ctl">', `<div class="board-ctl">${coursePickHtml()}`) : groupCtl) : PLAN_HOURS ? `<div class="bv-hours">${PLAN_HOURS}</div>` : ""}</div>`;
   return backupNudge() + (window.SBCRUNCH ? SBCRUNCH.cardHtml() : "") + `<div class="qa-wrap">${qaBarHtml()}</div>` + tabRow + `<div class="bview" data-bview="${bv}"><div class="bpane-plan">${planPane}</div><div class="bpane-board">` + banner + `<section class="board-sec" aria-label="Task Board">
     <div class="board-sec-head"><h2>Task Board</h2></div>
-    ${chipsHtml(groupCtl)}${searchNote()}${boardHtml}
+    ${wideBoard && bv === "board" ? "" : chipsHtml(groupCtl)}${searchNote()}${boardHtml}
     <p class="hint-line tip-everyday">Drag cards between columns to change status.</p></section></div></div>`;
 }
 
+// Wide enough for All Courses to sit on the tab line next to Group By (narrower, it keeps its own row)
+const boardWide = () => !!(window.matchMedia && matchMedia("(min-width:760px)").matches);
+{ let was = null; addEventListener("resize", () => { const w = boardWide(); if (was !== null && w !== was && typeof ui !== "undefined" && ui.tab === "board") scheduleRender(); was = w; }); }
 /* Focus engine: what to work on today */
 const TYPE_DEFAULTS = {Assignment:{w:5, h:3}, Project:{w:15, h:10}, Lab:{w:5, h:4}, Reading:{w:1, h:1.5}, Exam:{w:20, h:8}, Quiz:{w:3, h:2}, Study:{w:2, h:1}, Other:{w:2, h:1.5}};
 const DIFF_M = {easy:0.7, med:1, hard:1.5};
