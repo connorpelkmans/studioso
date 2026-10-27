@@ -264,7 +264,9 @@ function computeFocus(){
   const today = todayISO(), dh0 = dailyHours(), thSet = todayHours(), now = new Date();
   const dh = dh0 * (accOf() ? accOf().capScale() : 1);
   let doneToday = 0; try { if (typeof SBSTATS !== "undefined") doneToday = SBSTATS.focusMinutes(today, today) / 60; } catch(e) {}
-  const th0 = Math.max(0, Math.min(thSet - doneToday, 25 - now.getHours() - now.getMinutes() / 60));
+  // the time left in your study day (it may end after midnight); before the day starts, the whole coming day
+  const sd = studyDay(now), leftH = (sd.night ? sd.end - sd.start : sd.left) / 60;
+  const th0 = Math.max(0, Math.min(thSet - doneToday, leftH));
   let av = null; try { av = availToday(now); } catch(e) {}
   const th = av && av.active ? Math.min(th0, av.res.total / 60) : th0;
   const open = tasksArr().filter(t => t.status !== "done" && t.due).concat(groupPlanTasks());
@@ -392,8 +394,8 @@ function computeFocus(){
     if (t.start && t.start > today && !MILESTONE(t.type)) r.push([20, `Starts ${fmtDate(t.start)}`]);
     x.reasons = r.sort((a, b) => b[0] - a[0]).map(y => y[1]);
   });
-  const lateCap = thSet - doneToday > 25 - now.getHours() - now.getMinutes() / 60 + 0.01;
-  FOCUS = {info, ranked, blocked, later, today, th, thSet, doneToday, dh: dh0, planned: avail && avail.active ? avail.planned : th - Math.max(0, left), needToday, crunch, busy: B, day, avail, slotsBy: avail ? avail.by : {}, av, th0, now, lateCap};
+  const lateCap = thSet - doneToday > leftH + 0.01;
+  FOCUS = {sd, info, ranked, blocked, later, today, th, thSet, doneToday, dh: dh0, planned: avail && avail.active ? avail.planned : th - Math.max(0, left), needToday, crunch, busy: B, day, avail, slotsBy: avail ? avail.by : {}, av, th0, now, lateCap};
   FOCUS.gapWhy = planGapWhy(FOCUS);
   return FOCUS;
 }
@@ -404,7 +406,7 @@ function planGapWhy(F){
   if (gap < 0.25) return why;
   let rest = gap;
   if (F.doneToday >= 0.25) { const d = Math.min(rest, q(F.doneToday)); why.push(tr("plan.gap.done", "{time} of focus is already done today, so it comes off the {set} you set.", {time: fmtHM(d), set: fmtHM(F.thSet)})); rest -= d; }
-  if (F.lateCap && rest >= 0.25) { why.push(tr("plan.gap.late", "It's late, so today's plan stops at about 1 am.")); rest = 0; }
+  if (F.lateCap && rest >= 0.25) { const end = F.sd ? fmtTime(AVAIL.toT(F.sd.end % 1440)) : "1:00 AM"; why.push(F.sd && F.sd.past && !F.sd.night ? tr("plan.gap.over", "Your study day ended at {end}, so today's plan is done.", {end}) : tr("plan.gap.late", "It's late, so today's plan stops at {end}, your end of day.", {end})); rest = 0; }
   if (F.avail && F.avail.active && F.avail.note) rest = 0;
   return why;
 }
@@ -420,19 +422,25 @@ function planLead(rs){
 // A phone-only rail above Do This Next: today in order, with classes and calendar events, the tasks the plan
 // puts in your free time, and the gaps left open
 function dayTimelineHtml(F, todayList, heroId){
+  // Your study day: its end may be after midnight; once it's over (or before it starts) nothing is put in it
+  const sd = (F && F.sd) || studyDay(), atT = m => fmtTime(AVAIL.toT(m % 1440));
+  if (sd.past) return `<div class="dtl dtl-over" role="group" aria-label="Today's schedule"><div class="dtl-rail"><div class="dtl-c fr dtl-end" data-anchor><span>Past your end of day</span><b>${esc(sd.night ? `Your day starts at ${atT(sd.start)}` : `Your day ended at ${atT(sd.end)}`)}</b></div></div></div>`;
   const sb = (F && F.slotsBy) || {}, a = F && F.avail, items = [];
   (todayList || []).forEach(x => (sb[x.t.id] || []).forEach(sl => { if (sl && sl.e > sl.s) items.push({k: "tk", s: sl.s, e: sl.e, t: x.t}); }));
   try {
+    // just after midnight, today's calendar is the late part of the evening's day
+    const off = sd.tail ? 1440 : 0;
     schOccurrences(todayISO(), todayISO()).forEach(o => {
       if ((o.type !== "meet" && o.type !== "event") || o.skipped || o.allDay || !o.start || !o.end) return;
-      const s = toMin(o.start), e = toMin(o.end); if (e > s) items.push({k: "ev", s, e, title: o.title, label: o.label || (o.type === "meet" ? "Class" : "Event"), color: o.color || "var(--accent)", where: o.where || ""});
+      const s = toMin(o.start) + off, e = toMin(o.end) + off; if (e > s) items.push({k: "ev", s, e, title: o.title, label: o.label || (o.type === "meet" ? "Class" : "Event"), color: o.color || "var(--accent)", where: o.where || ""});
     });
   } catch (e) {}
   // Do This Next always has a card: when the plan found it no slot, it starts right now for one session
-  const nowD = new Date(), nowMin = nowD.getHours() * 60 + nowD.getMinutes();
+  // ...for the time Today's Plan gives it today (the same as Do This Next says), up to your end of day
+  const nowMin = Math.max(sd.now, sd.start);
   if (heroId && !items.some(x => x.k === "tk" && x.t.id === heroId)) {
-    const hx = F && F.info ? F.info[heroId] : null;
-    if (hx && hx.t) items.push({k: "tk", s: nowMin, e: Math.min(1439, nowMin + Math.max(5, focusMinsFor(heroId))), t: hx.t});
+    const hx = F && F.info ? F.info[heroId] : null, want = hx && hx.alloc > 0 ? Math.round(hx.alloc * 60) : focusMinsFor(heroId);
+    if (hx && hx.t) items.push({k: "tk", s: nowMin, e: Math.min(sd.end, nowMin + Math.max(5, want)), t: hx.t});
   }
   if (!items.length) return "";
   // The short breaks between one task's back-to-back sessions are not shown: those sessions read as one card
@@ -442,7 +450,7 @@ function dayTimelineHtml(F, todayList, heroId){
     if (cur.k === "tk" && prev.k === "tk" && cur.t.id === prev.t.id && cur.s - prev.e <= 15) { prev.mn = (prev.mn || prev.e - prev.s) + (cur.mn || cur.e - cur.s); prev.e = Math.max(prev.e, cur.e); items.splice(i, 1); }
   }
   // Anything between the day's start and end with no task, class or event in it is shown as Free
-  let dayS = 420, dayE = 1380; try { const r = availFreeDay(todayISO(), 0); if (r && r.ws != null && r.we != null && r.we > r.ws) { dayS = r.ws; dayE = r.we; } } catch (e) {}
+  const dayS = sd.start, dayE = sd.end;
   { const busy = items.map(x => [Math.max(dayS, x.s), Math.min(dayE, x.e)]).filter(([s0, e0]) => e0 > s0).sort((p, q) => p[0] - q[0]);
     let cur = dayS; const gaps = [];
     busy.concat([[dayE, dayE]]).forEach(([s0, e0]) => { if (s0 - cur >= 10) gaps.push([cur, s0]); cur = Math.max(cur, e0); });
@@ -456,7 +464,7 @@ function dayTimelineHtml(F, todayList, heroId){
     if (x.k === "tk" && last && last.k === "tk" && last.t.id === x.t.id && x.s - last.e <= 15) { last.e = Math.max(last.e, x.e); last.min += x.e - x.s; }
     else { if (x.k === "tk") x.min = x.mn || x.e - x.s; rows.push(x); }
   });
-  const now = new Date(), nowM = now.getHours() * 60 + now.getMinutes();
+  const nowM = sd.now;
   const anchor = rows.findIndex(x => x.e > nowM);
   const cards = rows.map((x, i) => {
     const past = x.e <= nowM, on = x.s <= nowM && nowM < x.e, when = availRange(x.s, x.e), len = fmtHM((x.k === "tk" ? x.min : x.e - x.s) / 60) || "";
