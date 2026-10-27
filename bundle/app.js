@@ -7768,7 +7768,7 @@ function card(t){
     ${c ? `<div class="card-course"><span class="cc-ic" aria-hidden="true">${courseRingHtml(c)}</span>${esc(courseLabel(c))}</div>` : ""}
     <div class="card-title"><button type="button" class="check card-check" data-act="toggle" data-id="${esc(t.id)}" aria-label="${t.status === "done" ? "Mark not done" : "Mark complete"}: ${esc(t.title)}" aria-pressed="${t.status === "done"}">${CHECK}</button><span>${esc(t.title)}</span></div>
     ${(t.reading && t.type === "Reading") || (t.location && (MILESTONE(t.type) || t.type === "Lab")) ? `<div class="card-sub">${esc(t.type === "Reading" ? t.reading : t.location)}</div>` : ""}
-    <div class="card-foot">${t.priority && t.priority !== "med" ? prioBadge(t.priority) : ""}${(() => { if (!t.due) return ""; if (late) return `<span class="soon late">${esc(relDue(t))}</span>`; const sb = soonBadge(t); return sb ? sb + (t.time && !/Due in \d+h/.test(sb) ? `<span>${esc(fmtTime(t.time))}</span>` : "") : ""; })()}${statusBadges(t)}<span>${esc(t.type || "Task")}</span>${MILESTONE(t.type) && t.status !== "done" && !remoteOf(t).v ? `<button type="button" class="rx-q" data-act="edit-task" data-id="${esc(t.id)}" title="Not sure if this can be taken from home. Open it to say where it is taken." aria-label="Not sure where ${esc(t.title)} is taken. Open it to set that">?</button>` : ""}${t.due && !late && !soonBadge(t) ? `<span>${esc(relDue(t).replace(/^Due /, ""))}</span>` : ""}${isNum(t.hours) && !MILESTONE(t.type) ? `<span>${fmtH(Number(t.hours))}</span>` : ""}${t.seriesId ? `<span title="Repeats">${REPEAT}</span>` : ""}${nf ? `<span title="${nf} attached file${nf === 1 ? "" : "s"}">${CLIP}${nf}</span>` : ""}${(nn => nn ? `<span class="note-count" title="${nn} sticky note${nn === 1 ? "" : "s"}">${NOTE_ICON}${nn}</span>` : "")(notesOfTask(t.id).length)}${t.pomos ? `<span class="pomo-count" title="${t.pomos} focus session${t.pomos === 1 ? "" : "s"}, ${fmtMins(t.focusMin)}">${TOMATO}${t.pomos}</span>` : ""}${lmsGoBtn(t)}</div>
+    <div class="card-foot">${t.priority && t.priority !== "med" ? prioBadge(t.priority) : ""}${(() => { if (!t.due) return ""; if (late) return `<span class="soon late">${esc(relDue(t))}</span>`; const sb = soonBadge(t); return sb ? sb + (t.time && !/Due in \d+h/.test(sb) ? `<span>${esc(fmtTime(t.time))}</span>` : "") : ""; })()}${statusBadges(t)}<span>${esc(t.type || "Task")}</span>${MILESTONE(t.type) && t.status !== "done" && !remoteOf(t).v ? `<button type="button" class="rx-q" data-act="edit-task" data-edit="1" data-id="${esc(t.id)}" title="Not sure if this can be taken from home. Open it to say where it is taken." aria-label="Not sure where ${esc(t.title)} is taken. Open it to set that">?</button>` : ""}${t.due && !late && !soonBadge(t) ? `<span>${esc(relDue(t).replace(/^Due /, ""))}</span>` : ""}${isNum(t.hours) && !MILESTONE(t.type) ? `<span>${fmtH(Number(t.hours))}</span>` : ""}${t.seriesId ? `<span title="Repeats">${REPEAT}</span>` : ""}${nf ? `<span title="${nf} attached file${nf === 1 ? "" : "s"}">${CLIP}${nf}</span>` : ""}${(nn => nn ? `<span class="note-count" title="${nn} sticky note${nn === 1 ? "" : "s"}">${NOTE_ICON}${nn}</span>` : "")(notesOfTask(t.id).length)}${t.pomos ? `<span class="pomo-count" title="${t.pomos} focus session${t.pomos === 1 ? "" : "s"}, ${fmtMins(t.focusMin)}">${TOMATO}${t.pomos}</span>` : ""}${lmsGoBtn(t)}</div>
     ${t.breakdownOf && window.SBBREAK ? `<div class="card-sub">${SBBREAK.rowMeta(t)}</div>` : ""}
     ${p.prep ? (t.status !== "done" ? `<div class="prog"><span class="track"><i style="width:${(p.frac * 100).toFixed(0)}%"></i></span>${Math.round(p.frac * 100)}% prepared</div>` : "") : p.total ? `<div class="prog"><span class="track"><i style="width:${(p.frac * 100).toFixed(0)}%"></i></span>${p.done}/${p.total}</div>` : (t.status !== "done" && p.frac > 0 ? `<div class="prog"><span class="track"><i style="width:${(p.frac * 100).toFixed(0)}%"></i></span>${Math.round(p.frac * 100)}%</div>` : "")}
   </div>`;
@@ -11025,6 +11025,102 @@ function gcalLink(t){
   } else dates = d + "/" + addDays(t.due, 1).replace(/-/g, "");
   const details = [t.type, "Priority: " + PRIO[t.priority], t.notes].filter(Boolean).join("\n");
   return "https://calendar.google.com/calendar/render?action=TEMPLATE&text=" + encodeURIComponent(text) + "&dates=" + dates + "&details=" + encodeURIComponent(details);
+}
+
+// Clicking a task shows it first; Edit opens the full form. The progress bar can be dragged right here.
+let tvRedraw = null;
+hook("changed", changes => { if (tvRedraw && dlg.open && dlg.querySelector(".tv") && !dlg.querySelector(".tv-bar.drag")) tvRedraw(changes); });
+function taskView(t0){
+  const id = t0.id, PSTEP = 5;
+  const ic = d => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const I = {cal: ic('<rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/>'), start: ic('<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>'), clock: ic('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+    pin: ic('<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>'), book: ic('<path d="M4 19V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M8 7h7"/>'),
+    person: ic('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c1-3.5 3.5-5 6.5-5s5.5 1.5 6.5 5M16 4.5a3.5 3.5 0 0 1 0 7M18 15c2 .6 3.2 2.2 3.8 5"/>'), link: ic('<path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/>'),
+    note: ic('<path d="M5 3h10l4 4v14H5z"/><path d="M9 11h6M9 15h6"/>'), lock: ic('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>'), rep: ic('<path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/>')};
+  const draw = () => {
+    const t = state.tasks[id]; if (!t) { if (dlg.open) dlg.close(); return; }
+    const c = courseOf(t.courseId), cfg = cfgOf(t.type), ms = MILESTONE(t.type), done = t.status === "done", today = todayISO();
+    const items = t.checklist || [], p = progress(t), fromCl = !ms && items.length > 0, drag = !fromCl && !p.ms;
+    const val = drag ? Math.max(0, Math.min(100, Math.round(Number(t.pct) || 0))) : Math.round(p.frac * 100);
+    const rows = [];
+    if (t.due) {
+      const n = dayDiff(today, t.due);
+      rows.push([I.cal, esc(parse(t.due).toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"})) + (t.time && cfg.time ? ", " + esc(fmtTime(t.time)) : ""),
+        esc(cfg.due) + (done ? "" : n === 0 ? " · Today" : n === 1 ? " · Tomorrow" : n > 1 ? ` · In ${n} days` : ` · ${-n} day${n === -1 ? "" : "s"} late`)]);
+    } else rows.push([I.cal, "No due date", ""]);
+    const st = !cfg.single && (t.start || startOf(t));
+    if (st && st !== t.due) rows.push([I.start, esc(fmtDate(st)), esc(cfg.start || "Start Date")]);
+    if (cfg.hours && isNum(t.hours) && !ms) rows.push([I.clock, esc(fmtH(Number(t.hours))), esc(cfg.hours) + (t.focusMin ? ` · ${esc(fmtMins(t.focusMin))} focused so far` : "")]);
+    else if (t.focusMin) rows.push([I.clock, esc(fmtMins(t.focusMin)) + " focused", `${t.pomos || 0} focus session${t.pomos === 1 ? "" : "s"}`]);
+    if (cfg.reading && t.reading) rows.push([I.book, esc(t.reading), esc(cfg.reading)]);
+    if (cfg.location && t.location) rows.push([I.pin, esc(t.location), esc(cfg.location)]);
+    if (cfg.team && t.team) rows.push([I.person, esc(t.team), esc(cfg.team)]);
+    const url = cfg.link && t.link ? safeUrl(t.link) : "";
+    if (url) rows.push([I.link, `<button type="button" class="link-btn" data-act="lms-go" data-url="${esc(url)}">Open in ${esc(lmsSite(t) || "browser")}</button>`, esc(cfg.link)]);
+    const bl = blockers(t); if (bl.length && !done) rows.push([I.lock, esc(bl.map(x => x.title).join(", ")), "Finish first"]);
+    if (t.seriesId) rows.push([I.rep, "Repeats", "Part of a repeating series"]);
+    if (t.notes && t.notes.trim()) rows.push([I.note, `<span class="occv-notes">${esc(t.notes.trim())}</span>`, esc(cfg.notes)]);
+    const late = !done && t.due && t.due < today;
+    const tags = [`<span class="occv-tag">${esc(t.type || "Task")}</span>`, `<span class="occv-tag${done ? " ok" : ""}">${esc(statusLabels(t.type)[t.status] || t.status)}</span>`,
+      t.priority && t.priority !== "med" ? `<span class="occv-tag${t.priority === "urgent" || t.priority === "high" ? " warn" : ""}">${esc((ms ? "Importance: " : "") + PRIO[t.priority])}</span>` : "", late ? `<span class="occv-tag warn">Late</span>` : ""].join("");
+    const band = c ? `<span class="occv-ic" aria-hidden="true">${courseRingHtml(c)}</span><b>${esc(courseLabel(c))}</b>` : `<span class="occv-ic" aria-hidden="true">${typeIcon(t.type)}</span><b>${esc(t.type || "Task")}</b>`;
+    const hint = !drag ? (p.ms ? `Progress comes from its milestones: ${p.done} of ${p.total} done.` : `Progress comes from the checklist: ${items.filter(i => i.done).length} of ${items.length} done.`)
+      : "";
+    const prog = `<div class="tv-prog${drag ? "" : " ro"}"><div class="tv-prog-h"><b>${esc(cfg.prog || "Progress")}</b><span id="tvPct">${val}%</span></div>
+      <div class="tv-bar" id="tvBar" ${drag ? `title="${ms ? "Drag to say how ready you feel" : "Drag to update your progress"}" role="slider" tabindex="0" aria-label="${esc(cfg.prog || "Progress")}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${val}" aria-valuetext="${val}%"` : `role="progressbar" aria-label="${esc(cfg.prog || "Progress")}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${val}"`} style="--v:${val}%"><i class="tv-fill"></i>${drag ? `<span class="tv-knob" aria-hidden="true"></span>` : ""}</div>
+      ${hint ? `<p class="mini tv-hint">${esc(hint)}</p>` : ""}</div>`;
+    const cl = items.length ? `<div class="tv-cl"><h3>${esc(cfg.checklist || "Checklist")} <span class="mini">${items.filter(i => i.done).length}/${items.length}</span></h3><ul>${items.map((i, k) => `<li class="${i.done ? "done" : ""}"><label><input type="checkbox" data-tv-cl="${k}" ${i.done ? "checked" : ""}><span>${esc(i.text)}</span></label></li>`).join("")}</ul></div>` : "";
+    const prepBtn = ms && t.due > today && !done ? (ps => `<button type="button" class="btn" data-act="exam-plan" data-id="${esc(id)}">${ps.length ? `Prep Plan (${ps.filter(x => x.status === "done").length}/${ps.length})` : "Plan My Prep"}</button>`)(planSessions(id)) : "";
+    const keep = document.activeElement && document.activeElement.id === "tvBar" && dlg.contains(document.activeElement), sc = dlg.querySelector(".occv-body"), top = sc ? sc.scrollTop : 0;
+    openSheet(`<div class="sheet occv tv" style="--c:${esc(colorOf(t.courseId))}">
+      <div class="occv-band">${band}<button type="button" class="icon-btn occv-x" data-act="close" aria-label="Close">${CLOSE}</button></div>
+      <div class="sheet-body occv-body">
+        <h2 class="occv-title">${esc(t.title)}</h2>
+        <div class="occv-tags">${tags}</div>
+        <ul class="occv-rows">${rows.map(([i, a, b]) => `<li><span class="occv-ri">${i}</span><div><b>${a}</b>${b ? `<span>${b}</span>` : ""}</div></li>`).join("")}</ul>
+        ${cl}
+        ${prog}
+      </div>
+      <div class="sheet-foot">${!done && canDoNow(t) ? `<button type="button" class="btn focus-btn" data-act="pomo-task" data-id="${esc(id)}">${TOMATO}Focus</button>` : ""}${prepBtn}<span class="spacer"></span><button type="button" class="btn" id="tvDone">${done ? "Mark Not Done" : "Mark Done"}</button><button type="button" class="btn primary" id="tvEdit">Edit</button></div>
+    </div>`);
+    const sc2 = dlg.querySelector(".occv-body"); if (sc2) sc2.scrollTop = top;
+    $("#tvEdit").addEventListener("click", () => { const x = state.tasks[id]; if (x) taskForm(x); });
+    $("#tvDone").addEventListener("click", () => { dlg.close(); toggleTask(id); });
+    dlg.querySelectorAll("[data-tv-cl]").forEach(cb => cb.addEventListener("change", () => {
+      const x = state.tasks[id]; if (!x) return; const n = clone(x), k = Number(cb.dataset.tvCl); if (!n.checklist[k]) return;
+      n.checklist[k].done = cb.checked; applyChanges([{kind: "task", id, after: n}], cb.checked ? "Step done" : "Step not done");
+    }));
+    if (drag) wire($("#tvBar"), val, keep);
+  };
+  tvRedraw = changes => { if (changes.some(c => c.kind === "task" && c.id === id)) draw(); };
+  // Pointer drag (mouse, touch, pen) plus arrow keys; the change saves when you let go
+  const wire = (bar, start, refocus) => {
+    let v = start, timer = 0, dragging = false;
+    const show = x => { v = x; bar.style.setProperty("--v", x + "%"); bar.setAttribute("aria-valuenow", x); bar.setAttribute("aria-valuetext", x + "%"); $("#tvPct").textContent = x + "%"; };
+    const at = e => { const r = bar.getBoundingClientRect(); return Math.max(0, Math.min(100, Math.round((e.clientX - r.left) / Math.max(1, r.width) * 100 / PSTEP) * PSTEP)); };
+    bar.addEventListener("pointerdown", e => { if (e.button > 0) return; e.preventDefault(); dragging = true; bar.classList.add("drag"); try { bar.setPointerCapture(e.pointerId); } catch (err) {} bar.focus({preventScroll: true}); show(at(e)); });
+    bar.addEventListener("pointermove", e => { if (dragging) show(at(e)); });
+    const end = () => { if (!dragging) return; dragging = false; bar.classList.remove("drag"); commit(v); };
+    bar.addEventListener("pointerup", end); bar.addEventListener("pointercancel", end); bar.addEventListener("lostpointercapture", end);
+    bar.addEventListener("keydown", e => {
+      const d = {ArrowRight: PSTEP, ArrowUp: PSTEP, ArrowLeft: -PSTEP, ArrowDown: -PSTEP, PageUp: 10, PageDown: -10}[e.key];
+      let x = d != null ? v + d : e.key === "Home" ? 0 : e.key === "End" ? 100 : null; if (x == null) return;
+      e.preventDefault(); show(Math.max(0, Math.min(100, x))); clearTimeout(timer); timer = setTimeout(() => commit(v), 600);
+    });
+    if (refocus) bar.focus({preventScroll: true});
+  };
+  const commit = v => {
+    const x = state.tasks[id]; if (!x || !dlg.open || v === Math.round(Number(x.pct) || 0)) return;
+    const n = clone(x); n.pct = v;
+    let finished = false;
+    if (!MILESTONE(x.type)) {
+      const s = v >= 100 ? "done" : v > 0 ? "doing" : "todo";
+      if (s !== x.status) { n.status = s; n.order = nextOrder(s); n.doneAt = s === "done" ? Date.now() : null; finished = s === "done"; }
+    }
+    if (finished) celebrate("check");
+    applyChanges([{kind: "task", id, after: n}], finished ? `Completed ${x.title}` : `${x.title}: ${v}%`, undefined, finished ? {done: true} : undefined);
+  };
+  draw();
 }
 
 function taskForm(t, preset = {}){
@@ -15074,6 +15170,14 @@ $("#importFile").addEventListener("change", async e => {
 /* Events */
 const proBtns = where => { try { return window.SBPRO && SBPRO.tabBtns ? SBPRO.tabBtns(where) : ""; } catch (e) { return ""; } };
 let suppressClick = false;
+function toggleTask(id, el){
+  const t = state.tasks[id]; if (!t) return;
+  const n = clone(t);
+  if (t.status === "done") { n.status = "todo"; n.doneAt = null; if (!MILESTONE(t.type) && n.pct >= 100) n.pct = 0; } else { n.status = "done"; n.doneAt = Date.now(); if (!MILESTONE(t.type)) n.pct = 100; }
+  n.order = nextOrder(n.status);
+  if (n.status === "done") { celebrate("check"); popDone(el); }
+  applyChanges([{kind:"task", id, after:n}], n.status === "done" ? `Completed ${t.title}` : `Moved ${t.title} back to To Do`, undefined, n.status === "done" ? {done: true} : undefined);
+}
 document.addEventListener("click", e => {
   if (suppressClick) { suppressClick = false; e.preventDefault(); e.stopPropagation(); return; }
   const tab = e.target.closest("[data-tab]");
@@ -15140,16 +15244,8 @@ document.addEventListener("click", e => {
       taskForm(null, {courseId: el.dataset.course || (ui.tab === "courses" && ui.courseId) || undefined,
         due: el.dataset.due || (ui.tab === "timeline" && ui.tlMode === "calendar" ? ui.calDay : ""), status: el.dataset.status});
       break;
-    case "edit-task": { const t = state.tasks[id]; if (t) taskForm(t); break; }
-    case "toggle": {
-      const t = state.tasks[id]; if (!t) break;
-      const n = clone(t);
-      if (t.status === "done") { n.status = "todo"; n.doneAt = null; if (!MILESTONE(t.type) && n.pct >= 100) n.pct = 0; } else { n.status = "done"; n.doneAt = Date.now(); if (!MILESTONE(t.type)) n.pct = 100; }
-      n.order = nextOrder(n.status);
-      if (n.status === "done") { celebrate("check"); popDone(el); }
-      applyChanges([{kind:"task", id, after:n}], n.status === "done" ? `Completed ${t.title}` : `Moved ${t.title} back to To Do`, undefined, n.status === "done" ? {done: true} : undefined);
-      break;
-    }
+    case "edit-task": { const t = state.tasks[id]; if (t) (el.dataset.edit ? taskForm : taskView)(t); break; }
+    case "toggle": toggleTask(id, el); break;
     case "delete-task": deleteTask(id); break;
     case "archive-open": ui.tab = "archive"; dlg.open && dlg.close(); render(); window.scrollTo(0, 0); break;
     case "archive-back": ui.tab = "board"; render(); window.scrollTo(0, 0); break;
@@ -62684,7 +62780,7 @@ function drawView(){
   const agenda = Object.keys(byDate).sort().map(d => `<li class="pp-day${d === today ? " is-today" : ""}${d < today ? " is-past" : ""}" ${d === today ? 'aria-current="date"' : ""}><div class="ep-day-head"><b>${esc(fmtDate(d))}</b>${d === today ? `<span class="pp-badge">Today</span>` : ""}<span class="mini">${fmtHM(byDate[d].reduce((a, x) => a + minOf(x), 0) / 60)}</span></div>
       <ul>${byDate[d].map(s => `<li class="pp-sess${s.status === "done" ? " is-done" : ""}${s.status !== "done" && d < today ? " is-missed" : ""}">
         <div class="pp-sess-top"><button type="button" class="check pp-check" data-act="prep-done" data-id="${esc(s.id)}" aria-label="${s.status === "done" ? "Mark not done" : "Mark done"}: ${esc(s.title)}">${CHECK}</button>
-          <span class="pp-sess-t"><b>${esc(s.kind === "past" || s.kind === "light" ? EXAMPREP.KIND_LABEL[s.kind] : (s.topic || "Topic") + ": " + (KLOW[s.kind] || s.kind))}</b><span class="mini">${minOf(s)} min${s.slot ? " · " + esc(fmtTime(s.slot)) : ""}${s.status !== "done" && d < today ? " · missed" : ""}</span></span>${matBtn(s)}<button type="button" class="btn small" data-act="edit-task" data-id="${esc(s.id)}">Edit</button></div>
+          <span class="pp-sess-t"><b>${esc(s.kind === "past" || s.kind === "light" ? EXAMPREP.KIND_LABEL[s.kind] : (s.topic || "Topic") + ": " + (KLOW[s.kind] || s.kind))}</b><span class="mini">${minOf(s)} min${s.slot ? " · " + esc(fmtTime(s.slot)) : ""}${s.status !== "done" && d < today ? " · missed" : ""}</span></span>${matBtn(s)}<button type="button" class="btn small" data-act="edit-task" data-edit="1" data-id="${esc(s.id)}">Edit</button></div>
         <p class="pp-sess-x">${esc(s.notes || "")}</p></li>`).join("")}</ul></li>`).join("");
   body.innerHTML = `
     <div class="pp-head"><p class="pp-line"><b>${esc(sm.line)}</b></p>

@@ -91,7 +91,7 @@
   .wkr-acts .btn{min-height:44px;padding:6px 14px;font-size:.86rem;flex:0 0 auto}
   .wkr-acts .btn:not(.primary):last-child{border-color:transparent;background:none;box-shadow:none;color:var(--muted);text-decoration:underline;padding-inline:6px}
   /* Sheets: the main action easy to reach */
-  dialog#dlg > .sheet{border-radius:22px 22px 0 0}
+  dialog#dlg > .sheet{border-radius:inherit}
   dialog#dlg .sheet-foot{flex-wrap:wrap;gap:8px}
   dialog#dlg .sheet-foot > .btn.primary:last-child,dialog#dlg .sheet-foot > [data-submit].primary{flex:1 1 140px}
   /* nothing on the left: Cancel takes the left edge and the main button fills the rest */

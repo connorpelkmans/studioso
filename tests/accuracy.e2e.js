@@ -112,7 +112,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await board(page);
 
       // Log time on the task sheet
-      await page.evaluate(() => { document.querySelector('[data-act="edit-task"][data-id="t1"]').click(); });
+      await page.evaluate(() => { document.querySelector('[data-act="edit-task"][data-id="t1"]').click(); document.querySelector("#tvEdit").click(); });
       await page.waitForSelector("#dlg #accLog");
       await page.click('#dlg [data-act="acc-log"][data-min="30"]'); await page.waitForTimeout(250);
       let t1 = await task(page, "t1");
@@ -125,7 +125,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await page.click('#dlg [data-act="acc-log-custom"]'); await page.fill("#accLogIn", "banana"); await page.click('#dlg [data-act="acc-log-add"]');
       t1 = await task(page, "t1"); ok(t1.focusMin === 105, "a bad time logs nothing");
       await page.evaluate(() => { document.querySelector("#dlg .sheet-head [data-act=close]").click(); });
-      await page.evaluate(() => { document.querySelector('[data-act="edit-task"][data-id="t5"]').click(); });
+      await page.evaluate(() => { document.querySelector('[data-act="edit-task"][data-id="t5"]').click(); document.querySelector("#tvEdit").click(); });
       await page.waitForSelector("#dlg #accHint", {state: "attached"});
       await page.waitForFunction(() => !document.querySelector("#accHint").hidden);
       const hint = await page.textContent("#accHint");
