@@ -32424,7 +32424,7 @@ function cleanFile(r) {
   function readAgain(wait){
     const c = cfg();
     if (bsDesk() && c.mode === "api") { syncNow({force: true}); return; }
-    if (EXT.on && EXT.schools.some(x => x.id === P.id)) { try { localStorage.removeItem("studyboard:ext:" + P.id); } catch(e) {} extPost({type: "get"}); extPost({type: "sync"}); return; }
+    if (EXT.on && EXT.schools.some(x => x.id === P.id)) { try { localStorage.removeItem(extKey(P.id)); } catch(e) {} extPost({type: "get"}); extPost({type: "sync"}); return; }
     if (c.feed) { syncNow({force: true}); return; }
     setTimeout(() => toast(extNudge("to bring everything back"), null, extBtn()), wait || 0);
   }
