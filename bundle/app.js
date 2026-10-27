@@ -54065,16 +54065,17 @@ var COMP_KIT = (() => {
     const m = Math.hypot(dir[0], dir[1]), c = [end[0] + side * dir[1] / m * r0, end[1] - side * dir[0] / m * r0], a0 = Math.atan2(end[1] - c[1], end[0] - c[0]);
     return Array.from({length: k}, (_, i) => { const t = (i + 1) / k, a = a0 - side * turn * t, r = r0 + (r1 - r0) * t; return [c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r]; });
   };
-  // Tuca's beak (upper and lower bill), closed, smiling or open; its gradient lives in the face part
-  const BEAK_U = "M56 50C70 43 93 46 103 63C106 68 106 73 104 77C95 68 76 61 55 61C53 57 53 53 56 50Z";
-  const BEAK_L = "M55 60C75 61 95 68 104 77C97 75 85 71 71 70.5C64 70 59 69 56 67C54.6 64.6 54.5 62 55 60Z";
-  const beak = (open, smile) => `${open ? `<path d="M55 60C75 61 95 68 104 77L99.5 86C88 79 72 71 56 66Z" fill="#B8243A" ${OW(2.2)}/><path d="M62 66C72 68 82 72 90 77C80 76 70 73 62 70Z" fill="#FF8FA8"/>` : ""}
-    <path d="${BEAK_L}" fill="url(#brazil-tuca-bk)" ${O}${open ? ` transform="rotate(13 56 62)"` : ""}/>
+  // Tuca's beak, pointing out at you: a big rounded upper bill over the crescent of the lower bill.
+  // Closed, smiling or open (the lower bill drops); its gradients live in the face part
+  const BEAK_U = "M44 52C44 43.6 76 43.6 76 52C76 61 73 68 67.6 73C64.6 75.8 62 77.4 60 79.6C58 77.4 55.4 75.8 52.4 73C47 68 44 61 44 52Z";
+  const BEAK_L = "M47 59C45 71 52 82.6 60 84.6C68 82.6 75 71 73 59C71 68 66 74.6 60 76.6C54 74.6 49 68 47 59Z";
+  const beak = (open, smile) => `${open ? `<path d="M46.6 60C46.6 72 53 84 60 86.6C67 84 73.4 72 73.4 60Z" fill="#B8243A" ${OW(2.2)}/><ellipse cx="60" cy="81.6" rx="6.4" ry="3.4" fill="#FF8FA8"/>` : ""}
+    <path d="${BEAK_L}" fill="url(#brazil-tuca-bl)" ${O}${open ? ` transform="translate(0 6)"` : ""}/>
     <path d="${BEAK_U}" fill="url(#brazil-tuca-bk)" ${O}/>
-    <path d="M63 51.5C73 47.6 85 48.4 93 54" fill="none" stroke="#FFF4B8" stroke-width="2.6" stroke-linecap="round"/>
-    ${smile ? `<path d="M51.4 59.4Q51.8 63.6 56 64.6" fill="none" stroke="#2B2233" stroke-width="2" stroke-linecap="round"/>` : ""}`;
-  const TUCA_HEAD = "M50 19C67 19 78 31 78 45C78 60 66 70 50 70C34 70 22 60 22 45C22 31 33 19 50 19Z";
-  const TUCA_BODY = "M50 62C66 62 76 76 76 88C76 99 66 104 50 104C34 104 24 99 24 88C24 76 34 62 50 62Z";
+    <path d="M48.6 52C49.4 48.8 53 47.4 57 47.2" fill="none" stroke="#FFF6C4" stroke-width="2.6" stroke-linecap="round"/>
+    ${smile ? `<path d="M41.4 56Q42.4 61.6 47.4 62.8M78.6 56Q77.6 61.6 72.6 62.8" fill="none" stroke="#2B2233" stroke-width="2.2" stroke-linecap="round"/>` : ""}`;
+  const TUCA_HEAD = "M60 19C77 19 88 31 88 45C88 60 76 70 60 70C44 70 32 60 32 45C32 31 43 19 60 19Z";
+  const TUCA_BODY = "M60 62C76 62 86 76 86 88C86 99 76 104 60 104C44 104 34 99 34 88C34 76 44 62 60 62Z";
   // Mico's body and long curling tail
   const MICO_BODY = "M60 68C76 68 84 82 84 94C84 104 76 108 60 108C44 108 36 104 36 94C36 82 44 68 60 68Z";
   const micoTail = (() => { const a = bez([78, 102], [94, 108], [108, 100], [106, 84], 14); return ribbon(a.concat(curl(a[a.length - 1], [-2, -16], 9, 3.6, 4.6, 26)), 10, 5.6); })();
@@ -54086,33 +54087,33 @@ var COMP_KIT = (() => {
         id: "brazil-tuca", name: "Tuca", kind: "Toco Toucan Chick", pose: "stand", wearColor: "#FF8A1E",
         bio: "A toco toucan chick with a big beak and the loudest cheer on the beach.",
         idle: ["headTilt", "wingFlutter", "topBob"], cheer: "wingFlutter",
-        neck: [50, 68],
+        neck: [60, 68],
         parts: {
-          feet: `<path d="M33 109C32 104 36 101 40.5 101C45 101 49 104 48 109C44 110.6 37 110.6 33 109Z" fill="#7C95CF" ${O}/><path d="M38 109.4V106.4M43 109.4V106.4" stroke="#4E6AA8" stroke-width="1.6" stroke-linecap="round"/>
-            <path d="M52 109C51 104 55 101 59.5 101C64 101 68 104 67 109C63 110.6 56 110.6 52 109Z" fill="#7C95CF" ${O}/><path d="M57 109.4V106.4M62 109.4V106.4" stroke="#4E6AA8" stroke-width="1.6" stroke-linecap="round"/>`,
+          feet: `<path d="M43 109C42 104 46 101 50.5 101C55 101 59 104 58 109C54 110.6 47 110.6 43 109Z" fill="#7C95CF" ${O}/><path d="M48 109.4V106.4M53 109.4V106.4" stroke="#4E6AA8" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M62 109C61 104 65 101 69.5 101C74 101 78 104 77 109C73 110.6 66 110.6 62 109Z" fill="#7C95CF" ${O}/><path d="M67 109.4V106.4M72 109.4V106.4" stroke="#4E6AA8" stroke-width="1.6" stroke-linecap="round"/>`,
           body: `${RG("brazil-tuca-b", [[0, "#4A4558"], [0.65, "#2E2A38"], [1, "#1E1B26"]], 0.4, 0.3, 0.8)}
             ${LG("brazil-tuca-bib", [[0, "#FFF6DC"], [0.62, "#FFF0C6"], [1, "#FFD24A"]])}
             <defs><clipPath id="brazil-tuca-bc"><path d="${TUCA_BODY}"/></clipPath></defs>
             <path d="${TUCA_BODY}" fill="url(#brazil-tuca-b)"/>
-            <g clip-path="url(#brazil-tuca-bc)"><ellipse cx="50" cy="78" rx="13" ry="19" fill="url(#brazil-tuca-bib)"/></g>
+            <g clip-path="url(#brazil-tuca-bc)"><ellipse cx="60" cy="80" rx="14" ry="19" fill="url(#brazil-tuca-bib)"/></g>
             <path d="${TUCA_BODY}" fill="none" ${O}/>`,
-          armL: {svg: `${LG("brazil-tuca-w", [[0, "#55506A"], [1, "#322E3E"]])}<path d="M31 72C22 75 17 87 19.5 98C22 101.5 27 100 30.5 95C34.5 89 35.5 79 31 72Z" fill="url(#brazil-tuca-w)" ${O}/><path d="M24 90Q25 95 27.5 97" fill="none" stroke="#7A7590" stroke-width="2" stroke-linecap="round"/>`, pivot: [31, 75]},
-          armR: {svg: `<path d="M69 72C78 75 83 87 80.5 98C78 101.5 73 100 69.5 95C65.5 89 64.5 79 69 72Z" fill="url(#brazil-tuca-w)" ${O}/><path d="M76 90Q75 95 72.5 97" fill="none" stroke="#7A7590" stroke-width="2" stroke-linecap="round"/>`, pivot: [69, 75]},
+          armL: {svg: `${LG("brazil-tuca-w", [[0, "#55506A"], [1, "#322E3E"]])}<path d="M41 72C32 75 27 87 29.5 98C32 101.5 37 100 40.5 95C44.5 89 45.5 79 41 72Z" fill="url(#brazil-tuca-w)" ${O}/><path d="M34 90Q35 95 37.5 97" fill="none" stroke="#7A7590" stroke-width="2" stroke-linecap="round"/>`, pivot: [41, 75]},
+          armR: {svg: `<path d="M79 72C88 75 93 87 90.5 98C88 101.5 83 100 79.5 95C75.5 89 74.5 79 79 72Z" fill="url(#brazil-tuca-w)" ${O}/><path d="M86 90Q85 95 82.5 97" fill="none" stroke="#7A7590" stroke-width="2" stroke-linecap="round"/>`, pivot: [79, 75]},
           head: `${RG("brazil-tuca-h", [[0, "#4E495E"], [0.65, "#2E2A38"], [1, "#1E1B26"]], 0.4, 0.3, 0.8)}
             <defs><clipPath id="brazil-tuca-hc"><path d="${TUCA_HEAD}"/></clipPath></defs>
             <path d="${TUCA_HEAD}" fill="url(#brazil-tuca-h)"/>
-            <g clip-path="url(#brazil-tuca-hc)"><path d="M14 51C26 58 44 60 62 53V80H14Z" fill="#FFF6DC"/></g>
+            <g clip-path="url(#brazil-tuca-hc)"><path d="M24 49C38 57 82 57 96 49V80H24Z" fill="#FFF6DC"/></g>
             <path d="${TUCA_HEAD}" fill="none" ${O}/>
-            <path d="M27 46Q27.5 38 31.5 33" fill="none" stroke="#6E6884" stroke-width="2.8" stroke-linecap="round"/>
-            <circle cx="37" cy="42" r="6.6" fill="#7CCBF2"/><circle cx="58" cy="41" r="6.6" fill="#7CCBF2"/>`,
-          face: LG("brazil-tuca-bk", [[0, "#FFE15A"], [0.35, "#FFB02E"], [0.72, "#FF7A1E"], [1, "#E8322A"]], 0, 0, 1, 0.25),
-          top: {svg: `<path d="M37 31Q33 24 26 24Q29 31 37 31Z" fill="#4CB05A" ${OW(1.8)}/>${hibiscus(33, 24, 7.2)}`, pivot: [38, 30]}
+            <path d="M37 46Q37.5 38 41.5 33" fill="none" stroke="#6E6884" stroke-width="2.8" stroke-linecap="round"/>
+            <circle cx="47" cy="40" r="6.6" fill="#7CCBF2"/><circle cx="73" cy="40" r="6.6" fill="#7CCBF2"/>`,
+          face: `${LG("brazil-tuca-bk", [[0, "#FFE15A"], [0.4, "#FFB02E"], [0.7, "#FF7A1E"], [0.9, "#EE3A2A"], [1, "#E02A2A"]])}${LG("brazil-tuca-bl", [[0, "#FFC23A"], [1, "#F2741E"]])}`,
+          top: {svg: `<path d="M47 31Q43 24 36 24Q39 31 47 31Z" fill="#4CB05A" ${OW(1.8)}/>${hibiscus(43, 24, 7.2)}`, pivot: [48, 30]}
         },
-        eyes: {lx: 37, rx: 58, y: 42, r: 4.2, style: "sparkle", color: "#1A1820"},
+        eyes: {lx: 47, rx: 73, y: 40, r: 4.2, style: "sparkle", color: "#1A1820"},
         mouths: {neutral: beak(false, false), smile: beak(false, true), open: beak(true, false), sleepy: beak(false, false)},
-        mouth: {x: 58, y: 62, w: 3, color: "#7A2A10"},
-        cheeks: {lx: 29, rx: 68, y: 54, w: 4, h: 2.4, color: "#FF8A9A"},
-        anchors: {top: [50, 21, 0.95], neck: [50, 71, 1], chest: [57, 84, 0.6], back: [74, 80, 0.8], hands: [50, 94, 0.86]},
+        mouth: {x: 60, y: 76, w: 3, color: "#7A2A10"},
+        cheeks: {lx: 38, rx: 82, y: 54, w: 4, h: 2.4, color: "#FF8A9A"},
+        anchors: {top: [60, 21, 0.95], neck: [60, 80, 1], chest: [70, 87, 0.55], back: [84, 80, 0.8], hands: [60, 96, 0.86]},
         lines: {
           tap: ["Bom dia! Ready to make some noise?", "My beak is big, but my cheers are bigger!", "Let's fly through this list together!", "Toco! That's toucan for 'you've got this'!", "One task at a time, like fruit for breakfast!", "I spy a finish line from my branch!", "You bring the focus, I'll bring the color!", "Every page gets you closer to the beach!"],
           pet: ["Hehe! Mind the beak, it's ticklish!", "Aww! My feathers are all fluffed up!"],
