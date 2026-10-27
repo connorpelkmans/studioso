@@ -79,40 +79,53 @@
         }
       },
       {
-        id: "stpatricks-foal", name: "Rory", kind: "Rainbow Foal", pose: "stand",
-        bio: "A little foal with a pastel rainbow mane who gallops after good luck.",
-        idle: ["earTwitch", "tailSwish", "headTilt"], cheer: "hop",
-        neck: [60, 72],
+        id: "stpatricks-leprechaun", name: "Finn", kind: "Little Leprechaun", pose: "stand", hatTop: true, wearColor: "#F2B83A",
+        bio: "A merry little leprechaun who swaps his gold for your good habits.",
+        idle: ["topBob", "wave", "bounce"], cheer: "hop",
+        neck: [60, 74],
         parts: {
-          back: `<path d="M63 31C78 28 89.5 39 88 54C87.5 61 89 67 92.5 71.5C82 72.5 76.5 64 77 55Z" fill="#FFB8C8" ${O2}/><path d="M77 55C77.5 62 80.5 68 86 71C80 75.5 73 70 72 63Z" fill="#FFE08A" ${O2}/><path d="M85 44C88.5 49 88 55 87.5 60" fill="none" stroke="#FFD3DE" stroke-width="2" stroke-linecap="round"/>`,
-          tail: {svg: `<path d="M79 87C91 83 100.5 91 98.5 103C94.5 97 88.5 95 80 96Z" fill="#FFB8C8" ${O2}/><path d="M80 94C88.5 93.5 94 99 93.5 107C89.5 102.5 85 100.5 80 100.5Z" fill="#AEE6C0" ${O2}/>`, pivot: [79, 92]},
-          earL: {svg: `<path d="M45.5 40L41.5 21L56 33.5Z" fill="#FBF3EA" ${O}/><path d="M46 35L44 25.5L51.5 32.5Z" fill="#FFC1D2"/>`, pivot: [48, 37]},
-          earR: {svg: `<path d="M74.5 40L78.5 21L64 33.5Z" fill="#FBF3EA" ${O}/><path d="M74 35L76 25.5L68.5 32.5Z" fill="#FFC1D2"/>`, pivot: [72, 37]},
-          feet: `<rect x="44.5" y="90" width="11" height="20" rx="5.5" fill="#F8EFE6" ${O}/><rect x="64.5" y="90" width="11" height="20" rx="5.5" fill="#F8EFE6" ${O}/>
-            <path d="M44.5 103.5H55.5V104.5Q55.5 110 50 110Q44.5 110 44.5 104.5Z" fill="#C7B3F2" ${O2}/><path d="M64.5 103.5H75.5V104.5Q75.5 110 70 110Q64.5 110 64.5 104.5Z" fill="#C7B3F2" ${O2}/>`,
-          body: `${LG("stpatricks-foal-b", [[0, "#FFFFFF"], [1, "#EADCCD"]])}
-            <path d="M60 70C75 70 81 81 81 91C81 99 75 102 60 102C45 102 39 99 39 91C39 81 45 70 60 70Z" fill="url(#stpatricks-foal-b)" ${O}/>
-            <path d="M43.5 88Q44 80 49 76" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round"/>`,
-          head: `${LG("stpatricks-foal-h", [[0, "#FFFFFF"], [0.7, "#FBF4EC"], [1, "#EEDFCF"]])}
-            <ellipse cx="60" cy="54.5" rx="22.5" ry="21" fill="url(#stpatricks-foal-h)" ${O}/>
-            <path d="M40.5 53Q41 45 46 40.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>`,
-          face: `<ellipse cx="60" cy="66.5" rx="13" ry="8.6" fill="#F4DFCB"/><ellipse cx="54.6" cy="64.2" rx="1.2" ry="1.7" transform="rotate(-18 54.6 64.2)" fill="#B98A72"/><ellipse cx="65.4" cy="64.2" rx="1.2" ry="1.7" transform="rotate(18 65.4 64.2)" fill="#B98A72"/>`,
-          top: {svg: `<path d="M48 39C45 30 51 24 58.5 25.5C55 28.5 54 32.5 55.5 38.5Z" fill="#FFB8C8" ${O2}/><path d="M54.5 37C54 28 62 23 68.5 27C63.5 28.5 61.5 32 62 37.5Z" fill="#FFE08A" ${O2}/><path d="M61 37.5C62 30.5 69 27.5 74 31C70 32.5 68 35.5 68.5 40Z" fill="#AEE6C0" ${O2}/><path d="M66.5 40C68.5 35 73 33.5 76.5 36C74 37.5 72.5 39.5 72.5 42Z" fill="#AFCFFF" ${O2}/>`, pivot: [60, 37]}
+          feet: `<path d="M53.5 101V109.5Q53.5 113.5 49.5 113.5H42.5Q36.5 113.5 36.5 110.2Q36.5 106.5 41.5 106L45.5 101Z" fill="#4E3A2E" ${O}/><path d="M66.5 101V109.5Q66.5 113.5 70.5 113.5H77.5Q83.5 113.5 83.5 110.2Q83.5 106.5 78.5 106L74.5 101Z" fill="#4E3A2E" ${O}/>
+            <rect x="44.4" y="107.4" width="6" height="4.6" rx="1.2" fill="#FFD34D" ${OW(1.6)}/><rect x="69.6" y="107.4" width="6" height="4.6" rx="1.2" fill="#FFD34D" ${OW(1.6)}/>`,
+          body: `${LG("stpatricks-leprechaun-b", [[0, "#5ED184"], [1, "#2F9653"]])}
+            <path d="M60 72C74 72 80.5 84 80.5 94C80.5 103 72 106.5 60 106.5C48 106.5 39.5 103 39.5 94C39.5 84 46 72 60 72Z" fill="url(#stpatricks-leprechaun-b)" ${O}/>
+            <path d="M40 92.5Q60 98 80 92.5L80.3 98.5Q60 104 39.7 98.5Z" fill="#3A2E2A" ${OW(2)}/>
+            <rect x="54.5" y="92.2" width="11" height="8.6" rx="2" fill="#FFD34D" ${OW(2)}/><rect x="57.7" y="94.6" width="4.6" height="3.8" rx="0.8" fill="#3A2E2A"/>
+            <circle cx="60" cy="88" r="1.8" fill="#FFD34D" ${OW(1.4)}/>
+            <path d="M44.5 91Q44.5 83 49 78.5" fill="none" stroke="#B4F0C6" stroke-width="2.6" stroke-linecap="round"/>`,
+          armL: {svg: `<ellipse cx="40.5" cy="88" rx="5.6" ry="8.4" transform="rotate(30 40.5 88)" fill="#47B86C" ${O}/><circle cx="36.2" cy="95.2" r="4" fill="#FFDCC2" ${O2}/>`, pivot: [45, 82]},
+          armR: {svg: `<ellipse cx="79.5" cy="88" rx="5.6" ry="8.4" transform="rotate(-30 79.5 88)" fill="#47B86C" ${O}/>
+            <circle cx="88.5" cy="92" r="6.4" fill="#FFD34D" ${O2}/><circle cx="88.5" cy="92" r="3.6" fill="none" stroke="#E8A21A" stroke-width="1.6"/><path d="M85.6 89.6Q86.8 88 88.6 87.8" fill="none" stroke="#FFF6C8" stroke-width="1.5" stroke-linecap="round"/>
+            <circle cx="83.8" cy="95.2" r="4" fill="#FFDCC2" ${O2}/>`, pivot: [75, 82]},
+          head: `${RG("stpatricks-leprechaun-h", [[0, "#FFF1E4"], [0.7, "#FFDCC2"], [1, "#F2BE9C"]], 0.42, 0.38, 0.7)}${LG("stpatricks-leprechaun-r", [[0, "#F59A4E"], [1, "#C9581F"]])}
+            <g stroke="${INK}" stroke-width="6"><circle cx="39" cy="38" r="6.5"/><circle cx="35.5" cy="46.5" r="5.5"/><circle cx="81" cy="38" r="6.5"/><circle cx="84.5" cy="46.5" r="5.5"/></g>
+            <g fill="url(#stpatricks-leprechaun-r)"><circle cx="39" cy="38" r="6.5"/><circle cx="35.5" cy="46.5" r="5.5"/><circle cx="81" cy="38" r="6.5"/><circle cx="84.5" cy="46.5" r="5.5"/></g>
+            <circle cx="60" cy="52" r="23" fill="url(#stpatricks-leprechaun-h)" ${O}/>
+            <path d="M37.2 51C36 66 44 82.5 60 84.5C76 82.5 84 66 82.8 51C79.5 58 76 65.5 70.5 68.5C66 71.5 54 71.5 49.5 68.5C44 65.5 40.5 58 37.2 51Z" fill="url(#stpatricks-leprechaun-r)" ${O}/>
+            <path d="M44 72Q47 76 51 77M76 72Q73 76 69 77M57 79Q60 81 63 79" fill="none" stroke="#A9471A" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M42 50Q42.5 43 47 39.5" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round"/>`,
+          face: `<ellipse cx="60" cy="60.2" rx="3.4" ry="2.8" fill="#FFC4A8" ${OW(1.8)}/>`,
+          top: {svg: `${LG("stpatricks-leprechaun-t", [[0, "#5ED184"], [1, "#257F45"]])}
+            <ellipse cx="60" cy="33" rx="27.5" ry="5.6" fill="#2E9A57" ${O}/>
+            <path d="M43.6 33.4Q60 37.6 76.4 33.4L79.2 10.6Q60 6.4 40.8 10.6Z" fill="url(#stpatricks-leprechaun-t)" ${O}/>
+            <path d="M42.9 26.6Q60 30.8 77.1 26.6L76.5 32Q60 36.2 43.5 32Z" fill="#3A2E2A" ${OW(2)}/>
+            <rect x="54.4" y="25.6" width="11.2" height="9" rx="2" fill="#FFD34D" ${OW(2)}/><rect x="57.6" y="28.1" width="4.8" height="4" rx="0.8" fill="#3A2E2A"/>
+            <g transform="translate(71 27)"><path d="M0 0C-1.5 -3 -6 -4.5 -6.2 -1.4C-6.4 1.2 -3 1.6 0 0ZM0 0C3 -1.6 3.2 -6.2 0.2 -6.6C-2.8 -7 -3 -2.6 0 0ZM0 0C1.6 3 6.2 3.2 6.4 0.2C6.6 -2.8 2.2 -3 0 0Z" fill="#8FE0A6" ${OW(1.6)}/></g>
+            <path d="M46 23Q45.4 16 46.6 11.6" fill="none" stroke="#B4F0C6" stroke-width="2.6" stroke-linecap="round"/>`, pivot: [60, 33]}
         },
-        eyes: {lx: 49.5, rx: 70.5, y: 51.5, r: 4.6, style: "dot", color: "#2B2233"},
-        mouth: {x: 60, y: 69.2, w: 2.6},
-        cheeks: {lx: 42, rx: 78, y: 60, w: 4.2, h: 2.6, color: "#FF9FB7"},
-        anchors: {top: [60, 35, 0.95], neck: [60, 74, 1.0], chest: [70, 89, 0.66], back: [82, 84, 0.85], hands: [60, 92, 0.88]},
+        eyes: {lx: 51, rx: 69, y: 52.5, r: 4.6, style: "sparkle", color: "#2B2233"},
+        mouth: {x: 60, y: 65.6, w: 2.8},
+        cheeks: {lx: 45, rx: 75, y: 59.6, w: 3.8, h: 2.4, color: "#FF8FA8"},
+        anchors: {top: [60, 31, 1], neck: [60, 85, 0.9], chest: [70, 90, 0.6], back: [80, 86, 0.85], hands: [60, 93, 0.85]},
         lines: {
-          tap: ["Neigh! Hi friend! So glad you're here!", "Chasing rainbows with you!", "You're galloping along beautifully!", "Look at you, showing up again!", "Lucky me, I found you!", "Trot, trot! You're doing great!", "Every step is a lucky one!"],
-          pet: ["Hehe! My mane is all fluffy!", "Hehe! Rainbow cuddles!"],
-          hello: ["Hi! Welcome back! Hooray!", "Hi! I galloped right over!"],
-          morning: ["Good morning! Green hills await!", "Morning, lucky one! Let's gallop!"],
-          night: ["Sleepy hooves now... rest soon?", "Stars over the hills. Bedtime?"],
-          focus: ["Steady trot! You've got this!", "Quiet hooves! Heads down, let's go."],
-          done: ["What a gallop! Amazing!", "Session done! You were fantastic!"],
-          task: ["Neigh! DONE!", "Over that hurdle! Woohoo!", "Galloped right through! Yes!", "Lucky and checked off! Hooray!"],
-          break: ["Stretch those legs! Big stretch!", "Water and a snack break! Yum!"]
+          tap: ["Top o' the morning! Grand to see you!", "Your effort is pure gold, friend!", "Sure, you're doing brilliantly!", "Every page is a coin in your pot!", "Hello there! Feeling lucky today?", "You make your own luck, you know!", "A wee bit of study goes a long way!"],
+          pet: ["Hehe! That tickles me beard!", "Ah, you're a gem! Thank you!"],
+          hello: ["You're back! Grand, just grand!", "Hello! I kept your gold safe!"],
+          morning: ["Top o' the morning to you!", "Morning! A rainbow of a day ahead!"],
+          night: ["Hat off, lights out. Rest soon?", "Off to the end of the rainbow. Sleep well!"],
+          focus: ["Quiet as a wee mouse! You've got this!", "Heads down! I'll mind the gold."],
+          done: ["A golden session! Well done!", "Done! Worth a whole pot of gold!"],
+          task: ["Ha ha! DONE!", "Another coin for the pot! Woohoo!", "Lucky? No, that was skill! Yes!", "Checked off! Jig of joy!"],
+          break: ["Time for a wee jig! Stretch!", "Break time! A sip and a snack!"]
         }
       }
     ]
