@@ -13,6 +13,8 @@ begin
   -- "studyboard" is a reserved username, so only this account can have it (set here, not through the app)
   insert into public.study_profiles (user_id, display_name, username, username_set_at) values (owner, 'Studyboard', 'studyboard', now())
     on conflict (user_id) do update set username = 'studyboard', display_name = 'Studyboard';
+  -- Publishing needs the sharing rules agreed to (supabase-sharing.sql); these sets are our own, written for Studyboard
+  if not public.sbs_terms_ok(owner) then insert into public.share_terms_agreements (user_id, version) values (owner, public.sbs_terms_version()); end if;
 end $$;
 
 -- Each set's text is base64 below: the SQL Editor scans for statements that make tables, and plain card text like "divides the body

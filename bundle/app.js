@@ -24838,6 +24838,7 @@ hook("boot", boot);
     const m = String((e && (e.message || e.error_description || e.details)) || e || "");
     const code = String((e && e.code) || "");
     if (/fetch|network|Load failed|timed? ?out/i.test(m)) return new Error("Couldn't reach Studyboard. Check your internet connection and try again.");
+    if (/SB_TERMS_NEEDED/.test(m)) return Object.assign(new Error("Confirm that you have the right to share this first."), {terms: true});
     if (["42P01", "42883", "PGRST202", "PGRST205", "PGRST200"].includes(code) || /does not exist|Could not find the (function|table)|schema cache/i.test(m))
       return Object.assign(new Error(srvSetup("Study Groups", "groups.sql")), {setup: true});
     if (/Sign in first|JWT|not authenticated/i.test(m)) return new Error("Sign in to Studyboard first, then try again.");
@@ -27455,14 +27456,16 @@ hook("boot", boot);
     d = state.decks[d.id] || d;
     const p = deckPayload(d, withQ);
     if (!p.cards.length && !p.quizzes.length) { toast("Add some cards to this deck first"); return; }
+    const tick = !!($("#shRights") || {}).checked;
     busyBtn(btn, true);
     try {
-      const code = await api.shareDeck(d.id, str(d.name, 200) || "Deck", p, p.cards.length);
+      const send = () => api.shareDeck(d.id, str(d.name, 200) || "Deck", p, p.cards.length);
+      const code = await (window.SBSHARE && SBSHARE.agreedThen ? SBSHARE.agreedThen(send, tick) : send());
       const nd = clone(state.decks[d.id]); nd.shared = {code: String(code), h: p.hash, q: withQ ? 1 : 0, at: Date.now()};
       saveDeck(nd, null); S.shares = null;
       toast(d.shared && d.shared.code === code ? "Shared copy updated" : `Link ready. Code ${code}`);
       deckShareSheet(nd);
-    } catch(e) { busyBtn(btn, false); toast(e.message); }
+    } catch(e) { busyBtn(btn, false); if (e.terms && window.SBSHARE && SBSHARE.reconfirm) SBSHARE.reconfirm(); else toast(e.message); }
   }
   async function stopShare(code){
     try {
@@ -29078,10 +29081,11 @@ ${kindPreview("study")}${kindPreview("project")}`;
     if (["42P01", "42883", "42703", "PGRST202", "PGRST205", "PGRST204"].includes(code) || /does not exist|Could not find the (function|table)|schema cache/i.test(m))
       return Object.assign(new Error(srvSetup("Public links and the Course Library", "supabase-sharing.sql")), {setup: true});
     if (/JWT|not authenticated|Sign in first/i.test(m)) return new Error("Sign in to Studyboard first, then try again.");
+    if (/SB_TERMS_NEEDED/.test(m)) return Object.assign(new Error("Confirm that you have the right to share this first."), {terms: true});
     return new Error(m.replace(/^SB_[A-Z_]+:\s*/, "") || "Something went wrong. Try again.");
   }
   async function rpc(fn, args){
-    if (window.__sbShareStub) return window.__sbShareStub(fn, args || {});
+    if (window.__sbShareStub) return window.__sbShareStub(fn, args || {}).catch(e => { throw /SB_TERMS_NEEDED/.test(String((e && e.message) || "")) ? shErr(e) : e; });
     const g = G(), c = g && g.online() ? g.cli() : sb;
     if (c) { const {data, error} = await c.rpc(fn, args || {}); if (error) throw shErr(error); return data; }
     const cfg = sbConfig() || (SB_HOSTED ? SB_DEFAULT : null);
@@ -29094,6 +29098,32 @@ ${kindPreview("study")}${kindPreview("project")}`;
     return j;
   }
   const rows = x => Array.isArray(x) ? x : x ? [x] : [];
+
+  /* The record that you agreed to the sharing rules in the Terms (agree_share_terms in supabase-sharing.sql): sent once per
+     version of the terms, only after you tick "I made this myself" on a share. The server refuses new links and publishing without it. */
+  const TERMS_V = "2026-10-27";   // keep in step with sbs_terms_version() in supabase-sharing.sql
+  const uid = () => (((window.__sbGroupsStub && window.__sbGroupsStub.user) || sbUser || {}).id) || "";
+  const TKEY = () => "studyboard:shareterms:" + uid();
+  const agreedHere = () => { try { return !!uid() && localStorage.getItem(TKEY()) === TERMS_V; } catch (e) { return false; } };
+  const keepAgreed = on => { try { if (!uid()) return; if (on) localStorage.setItem(TKEY(), TERMS_V); else localStorage.removeItem(TKEY()); } catch (e) {} };
+  async function recordAgree(){
+    if (agreedHere()) return;
+    try { await rpc("agree_share_terms", {p_version: TERMS_V}); keepAgreed(true); }
+    catch (e) { if (!e.setup && !/Could not find the function/.test(String(e.message || ""))) throw e; }   // a server without the record yet
+  }
+  // The box on the open sheet was ticked
+  const ticked = () => !!($("#shRights") || {}).checked;
+  // Runs a share, sending the record first when the box was ticked. If the server has no record after all (this device remembered
+  // wrongly), it is sent again and the share retried once. Without a tick the server's refusal comes back (e.terms) for reconfirm().
+  async function agreedThen(fn, tick){
+    if (tick) await recordAgree();
+    try { return await fn(); }
+    catch (e) { if (!e.terms || !tick) throw e; keepAgreed(false); await recordAgree(); return fn(); }
+  }
+  // Something shared before the record existed: confirm once, then try again
+  const reconfirm = () => confirmRights(async () => {
+    try { keepAgreed(false); await recordAgree(); if (dlg.open) dlg.close(); toast("Thanks. Now try that again."); } catch (e) { toast(e.message); }
+  });
 
   /* Sheets */
   const msgSheet = (title, msg) => openSheet(`<div class="sheet">${head(title)}<div class="sheet-body"><p style="margin:0">${esc(msg)}</p></div>
@@ -29302,7 +29332,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     if (!ok) { confirmRights(() => make(kind, ref, null, true)); return; }
     if (btn) g.busyBtn(btn, true); else g.loadingSheet("Sharing…");
     try {
-      const code = String(await rpc("share_item", {p_kind: kind, p_ref: ref, p_title: src.title, p_data: src.data}));
+      const code = String(await agreedThen(() => rpc("share_item", {p_kind: kind, p_ref: ref, p_title: src.title, p_data: src.data}), true));
       const had = src.cur();
       src.mark({code, h: src.h, at: Date.now()});
       toast(had && had.code === code ? "Shared copy updated" : `Link ready. Code ${code}`);
@@ -29501,11 +29531,11 @@ ${kindPreview("study")}${kindPreview("project")}`;
   }
   // Shares the deck (or updates the shared copy), then publishes it
   async function doPublish(id, btn){
-    const g = G(); let d = state.decks[id]; if (!d) return;
+    const g = G(), tick = ticked(); let d = state.decks[id]; if (!d) return;
     g.busyBtn(btn, true);
     try {
       const p = g.deckPayload(d, false);
-      const code = String(await rpc("share_deck", {p_deck_id: d.id, p_name: String(d.name || "Deck").slice(0, 200), p_data: p, p_count: p.cards.length}));
+      const code = String(await agreedThen(() => rpc("share_deck", {p_deck_id: d.id, p_name: String(d.name || "Deck").slice(0, 200), p_data: p, p_count: p.cards.length}), tick));
       await rpc("share_publish", {p_code: code, p_on: true});
       pubRefresh("deck", d.name, code, deckCourse(d));
       d = state.decks[id]; const nd = clone(d);
@@ -29515,6 +29545,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
       managePub(id, true);
     } catch (e) {
       g.busyBtn(btn, false);
+      if (e.terms) { reconfirm(); return; }
       if (/SB_AGE_NEEDED|SB_UNDER13/.test(String(e.message))) { try { localStorage.removeItem("studyboard:age:" + (sbUser || {}).id); } catch (er) {} if (window.SBUNAME) SBUNAME.ensureAge(() => confirmPub(id, (state.settings || {}).school)); return; }
       if (/SB_USERNAME_NEEDED/.test(String(e.message))) { try { localStorage.removeItem("studyboard:uname:" + (sbUser || {}).id); } catch (er) {} withUsername(() => confirmPub(id, (state.settings || {}).school)); return; }
       if (/SB_SCHOOL/.test(String(e.message)) || /Pick your school/.test(e.message)) { ensureSchool(sc => confirmPub(id, sc)); return; }
@@ -29664,7 +29695,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
         pubRefresh(kind, name, code, dd ? deckCourse(dd) : "");
         toast(want ? `Published. It can take a few days to show up on Google.` : "Unpublished. Its public page is gone."); fillPubRow(kind, code, name);
       }
-      catch (err) { box.checked = !want; box.disabled = false; if (/SB_SCHOOL/.test(String(err.message))) ensureSchool(() => {}); else toast(String(err.message).replace(/^SB_[A-Z]+:\s*/, "")); }
+      catch (err) { box.checked = !want; box.disabled = false; if (err.terms) reconfirm(); else if (/SB_SCHOOL/.test(String(err.message))) ensureSchool(() => {}); else toast(String(err.message).replace(/^SB_[A-Z]+:\s*/, "")); }
     });
   }
   const EXPLORE_IC = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>';
@@ -29690,7 +29721,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
       try {
         await rpc("library_list", {p_code: code, p_listed: on, p_course_key: k, p_course_label: courseLabel(c), p_school_key: s2 ? s2.key : "", p_school_name: s2 ? s2.name : ""});
         COUNTS.at = 0; toast(on ? `Listed in the ${c.code || k} Course Library` : "Taken out of the Course Library");
-      } catch (err) { box.checked = !on; toast(err.message); }
+      } catch (err) { box.checked = !on; if (err.terms) reconfirm(); else toast(err.message); }
       box.disabled = false;
     });
   }
@@ -29759,7 +29790,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
 `;
   document.head.appendChild(css);
 
-  window.SBSHARE = {can, open, shareRef, libRow, libBtn, exploreBtn, pubRow, pubUrl, courseHtml, libSheet, schoolOf, hostKey, schoolSheet, publishDeck, T: {rpc, COUNTS}};
+  window.SBSHARE = {can, open, shareRef, agreedThen, reconfirm, libRow, libBtn, exploreBtn, pubRow, pubUrl, courseHtml, libSheet, schoolOf, hostKey, schoolSheet, publishDeck, T: {rpc, COUNTS}};
 })();
 
 /* ===== module: 90-grades.js ===== */
@@ -68189,7 +68220,7 @@ window.SBSTREAK = {on: gentleOn, line: () => streakLineText(streakNow()), state:
   const VERSION = "1.15.1";
   // The support address shown in the policies and About
   const SUPPORT = "support@studyboardapp.com";
-  const UPDATED = "October 23, 2026", TERMS_UPDATED = "October 27, 2026";
+  const UPDATED = "October 27, 2026", TERMS_UPDATED = "October 27, 2026";
   const FIRST_YEAR = 2026;
   const contact = () => `<a href="mailto:${esc(SUPPORT)}">${esc(SUPPORT)}</a>`;
   const year = () => { const y = new Date().getFullYear(); return y > FIRST_YEAR ? FIRST_YEAR + "–" + y : String(FIRST_YEAR); };
@@ -68231,7 +68262,7 @@ window.SBSTREAK = {on: gentleOn, line: () => streakLineText(streakNow()), state:
 <p>If you paste a calendar link instead, it is saved on that device only. It works like a password to your calendar, so it is never synced to your account and never put in a backup or export. On the website and phone the link is passed through a small function on our server that fetches the calendar for you and stores nothing. Studyboard does not ask for or use Canvas access tokens. A token an earlier version saved on a device is deleted from it, and you can also delete it in Canvas (Account, Settings). Studyboard only reads from your school's site. What it brings in (due dates, grades, announcements) becomes part of your planner and syncs to your account like everything else if you have one.</p>
 
 <h3>Optional: reminders, calendar link, study groups</h3>
-<p><b>Phone and desktop reminders</b> need your device's push address and your upcoming reminders (task titles and times for the next two weeks) to be stored on our server so a notification can arrive when Studyboard is closed. The notification itself is delivered by your browser or phone maker's push service (Google, Apple or Mozilla). <b>Calendar Sync</b> stores a private link token and your choices so your calendar app can fetch your deadlines. <b>Study groups, shared decks and Study Together rooms</b> share the display name and the decks, deadlines and messages you choose to share with the people in that group. Members of a group can see what is posted in it and who posted it, including messages, shared tasks, quiz scores, check-ins and focus time. Someone with a group's invite code can see only its name, course, member count and owner's name before joining. If you report something in a group, the report keeps a short copy of what was reported so we can review it. Turn any of these off, or leave a group, and it stops. <b>Voice and shortcut capture</b> (optional, for example "Hey Siri, add a task") stores a private capture token (only a hash of it, shown to you once) and the short notes you send, in an inbox on our server until your app collects them; you can revoke the token any time, and everything is deleted with your account. <b>Email to Studyboard</b> (Pro, optional) gives you a private email address. An email you forward to it passes through our email service (Cloudflare) and waits in the same inbox on our server, as its subject, the sender's address and up to 6,000 characters of its text, until your app collects it (it is then deleted within 7 days, and after 30 days at the latest). Your app reads it, with your AI provider if you have agreed to that, and shows you what it found before anything is added. You can make a new address or turn it off at any time. <b>Two-way calendar sync</b> (Pro, optional) connects your Google or Outlook calendar when you ask it to. We keep that account's sign-in, encrypted, so Studyboard can keep a calendar called Studyboard up to date there; it only ever writes to that calendar. For Outlook, if you choose, it also reads your other events (with their titles, or as busy times only); for Google Calendar it doesn&rsquo;t read your other events so your plan can work around them, and they are saved in your planner like your other events. Disconnect any time, which also removes our access; it is deleted with your account. <b>Record a Lecture</b> (Pro, optional) uses your microphone only while you are recording. Live captions use your browser's own speech service, which may send the audio to the browser's maker (Google, in Chrome). A recording you choose to keep is stored with your files, and Transcribe with AI sends the audio to Google with your own key, like other AI features. <b>Share links and the Course Library:</b> when you make a link for a deck, note or quiz, anyone who has the link can see its text and your display name, without an account, until you stop sharing it. A deck you list in the Course Library can be found by anyone who looks up that course code; it shows your display name, the school you picked and how many people saved a copy. <b>Published flashcards and quizzes:</b> if you choose Publish on a shared deck or quiz, it gets a public page on studyboardapp.com that anyone can find, including through search engines such as Google, showing its cards or questions, your username, your school and when it was updated, until you unpublish it. Your username is chosen by you, unique, and also visible to people you share with. Your study progress, photos and stickers are never shared. Shared items can be reported, and we review reports.</p>
+<p><b>Phone and desktop reminders</b> need your device's push address and your upcoming reminders (task titles and times for the next two weeks) to be stored on our server so a notification can arrive when Studyboard is closed. The notification itself is delivered by your browser or phone maker's push service (Google, Apple or Mozilla). <b>Calendar Sync</b> stores a private link token and your choices so your calendar app can fetch your deadlines. <b>Study groups, shared decks and Study Together rooms</b> share the display name and the decks, deadlines and messages you choose to share with the people in that group. Members of a group can see what is posted in it and who posted it, including messages, shared tasks, quiz scores, check-ins and focus time. Someone with a group's invite code can see only its name, course, member count and owner's name before joining. If you report something in a group, the report keeps a short copy of what was reported so we can review it. Turn any of these off, or leave a group, and it stops. <b>Voice and shortcut capture</b> (optional, for example "Hey Siri, add a task") stores a private capture token (only a hash of it, shown to you once) and the short notes you send, in an inbox on our server until your app collects them; you can revoke the token any time, and everything is deleted with your account. <b>Email to Studyboard</b> (Pro, optional) gives you a private email address. An email you forward to it passes through our email service (Cloudflare) and waits in the same inbox on our server, as its subject, the sender's address and up to 6,000 characters of its text, until your app collects it (it is then deleted within 7 days, and after 30 days at the latest). Your app reads it, with your AI provider if you have agreed to that, and shows you what it found before anything is added. You can make a new address or turn it off at any time. <b>Two-way calendar sync</b> (Pro, optional) connects your Google or Outlook calendar when you ask it to. We keep that account's sign-in, encrypted, so Studyboard can keep a calendar called Studyboard up to date there; it only ever writes to that calendar. For Outlook, if you choose, it also reads your other events (with their titles, or as busy times only); for Google Calendar it doesn&rsquo;t read your other events so your plan can work around them, and they are saved in your planner like your other events. Disconnect any time, which also removes our access; it is deleted with your account. <b>Record a Lecture</b> (Pro, optional) uses your microphone only while you are recording. Live captions use your browser's own speech service, which may send the audio to the browser's maker (Google, in Chrome). A recording you choose to keep is stored with your files, and Transcribe with AI sends the audio to Google with your own key, like other AI features. <b>Share links and the Course Library:</b> when you make a link for a deck, note or quiz, anyone who has the link can see its text and your display name, without an account, until you stop sharing it. A deck you list in the Course Library can be found by anyone who looks up that course code; it shows your display name, the school you picked and how many people saved a copy. <b>Published flashcards and quizzes:</b> if you choose Publish on a shared deck or quiz, it gets a public page on studyboardapp.com that anyone can find, including through search engines such as Google, showing its cards or questions, your username, your school and when it was updated, until you unpublish it. Your username is chosen by you, unique, and also visible to people you share with. Your study progress, photos and stickers are never shared. Shared items can be reported, and we review reports. The first time you share with a link or publish, we keep a record that you agreed to the sharing rules in the Terms, with the date and the version of the Terms.</p>
 
 <h3>Optional: Google Drive and OneDrive</h3>
 <p>If you connect Google Drive or OneDrive, Studyboard can save your files, lecture recordings and (if you turn it on) automatic backups there instead of in Studyboard&rsquo;s storage, and open them again when you ask. Our server keeps the sign-in Google or Microsoft gives us, encrypted, and uses it only to give your own Studyboard a short-lived key; your files travel straight between your device and Google or Microsoft, never through our server. Studyboard keeps only each file&rsquo;s name, size, link and where you filed it, with your other data.</p>
@@ -68306,8 +68337,9 @@ window.SBSTREAK = {on: gentleOn, line: () => streakLineText(streakNow()), state:
     <p>Keep your password private; you are responsible for what happens under your account. Everything you put into Studyboard is yours. You give us a worldwide, non-exclusive, royalty-free permission to store, copy, process, sync and show it so Studyboard can work: back to you, to the people you share it with and, when you publish something, to anyone. We use it for nothing else. The permission ends when you delete it, except for copies other people already saved and backups we keep for a short time. You can export it or delete it at any time (see the Privacy Policy). Keep your own backups of anything important. You must be 13 or older to make an account yourself; a parent or guardian can make one for a younger student and agrees to these Terms for them. Accounts for students under 13 can't publish or share with a link. Only publish sets you made or have the right to share, and never answers to graded work; we remove what is reported.</p>
 
     <h3>Course materials and copyright</h3>
-    <p>Slides, handouts, readings, tests and other course materials usually belong to your instructor, your school or a publisher. You may upload them to Studyboard to study from them yourself, as your school allows. Course files you upload, such as lecture slides, stay private to your account: no one else can open them, and Studyboard never shares or publishes them or lets you share them with a group. You alone are responsible for having the right to upload them; the first time you upload course files you confirm this, and the date is kept with your account. When you share or publish anything in Studyboard (a deck, a quiz, notes, a whiteboard, a file or a link, in a group or with a link), you promise that you made it or have the right to share it, and that sharing it doesn't break anyone's copyright or other rights or your school's rules. Share the cards and questions you wrote, or that AI wrote for you in its own words. Don't share uploaded slides or handouts, pictures taken from them, wording copied from them, questions from your instructor's tests or quizzes, or answers to graded work, unless you have permission.</p>
-    <p><b>Copyright complaints:</b> If you think something shared in Studyboard copies your work, use Report on it, or email ${contact()} with: your name and how to reach you; the work you own; where it appears in Studyboard (a link or share code); and a statement that you believe in good faith the use isn't allowed, that your complaint is accurate, and that you own the work or may act for the owner. We may remove or disable anything shared in Studyboard when we receive a complaint, without notice. If we removed something you shared and you think that was a mistake, write to us and explain why. We stop people who repeatedly share content that breaks other people's rights from sharing, and may close their accounts.</p>
+    <p>Slides, handouts, readings, tests and other course materials usually belong to your instructor, your school or a publisher. You may upload them to Studyboard to study from them yourself, as your school allows. Course files you upload, such as lecture slides, stay private to your account: no one else can open them, and Studyboard never shares or publishes them or lets you share them with a group. You alone are responsible for having the right to upload them; the first time you upload course files you confirm this, and the date is kept with your account. When you share or publish anything in Studyboard (a deck, a quiz, notes, a whiteboard, a file or a link, in a group or with a link), you promise that you made it or have the right to share it, and that sharing it doesn't break anyone's copyright or other rights or your school's rules. You confirm this each time you share or publish, and we keep a record of when you agreed and to which version of these terms. Share the cards and questions you wrote, or that AI wrote for you in its own words. Don't share uploaded slides or handouts, pictures taken from them, wording copied from them, questions from your instructor's tests or quizzes, or answers to graded work, unless you have permission.</p>
+    <p><b>Copyright complaints:</b> If you think something shared in Studyboard copies your work, use Report on it for a quick review, or send a formal notice to our copyright agent at ${contact()} with: your physical or electronic signature; your name, postal address, phone number and email; the work you own; where the copy appears in Studyboard (a link or share code); a statement that you believe in good faith the use isn't allowed by the owner, its agent or the law; and a statement that your notice is accurate and, under penalty of perjury, that you own the work or may act for the owner. We may remove or disable anything shared in Studyboard when we receive a complaint, without notice, and we tell the person who shared it. We stop people who repeatedly share content that breaks other people's rights from sharing, and may close their accounts.</p>
+    <p><b>If we removed something you shared:</b> If you think it was removed by mistake or misidentified, send a counter-notice to ${contact()} with: your physical or electronic signature; your name, postal address and phone number; what was removed and where it was (a link or share code); a statement, under penalty of perjury, that you believe in good faith it was removed by mistake or misidentification; and a statement that you consent to the jurisdiction of the federal district court for your address (or, if you live outside the United States, any judicial district where we may be found) and will accept service of legal papers from the person who complained. We send your counter-notice, with your contact details, to the person who complained. Unless they tell us they have started a court case to stop it being shared, we may put it back 10 to 14 business days after we receive your counter-notice. Anyone who knowingly makes a false notice or counter-notice can be liable for damages.</p>
 
     <h3>Study groups and shared content</h3>
     <p>Study groups, study rooms and shared decks let you post content other people see. There is zero tolerance for objectionable content or abusive users: no harassment, bullying, hate, threats, sexual content, spam, cheating services or sharing other people's personal information. Use Report on a group message, a shared item or a group member to tell us, and Block (in the group's member list) to stop seeing someone's messages straight away. We review reports within 24 hours, remove content that breaks these rules and remove people who post it. We don't check what people share before it appears and we aren't responsible for it; content made by other people is theirs, not ours, and you use it at your own risk. Anyone who can see something you share or publish can save a copy, and unpublishing or deleting it doesn't remove the copies they already saved.</p>

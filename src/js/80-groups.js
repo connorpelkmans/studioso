@@ -12,6 +12,7 @@
     const m = String((e && (e.message || e.error_description || e.details)) || e || "");
     const code = String((e && e.code) || "");
     if (/fetch|network|Load failed|timed? ?out/i.test(m)) return new Error("Couldn't reach Studyboard. Check your internet connection and try again.");
+    if (/SB_TERMS_NEEDED/.test(m)) return Object.assign(new Error("Confirm that you have the right to share this first."), {terms: true});
     if (["42P01", "42883", "PGRST202", "PGRST205", "PGRST200"].includes(code) || /does not exist|Could not find the (function|table)|schema cache/i.test(m))
       return Object.assign(new Error(srvSetup("Study Groups", "groups.sql")), {setup: true});
     if (/Sign in first|JWT|not authenticated/i.test(m)) return new Error("Sign in to Studyboard first, then try again.");
@@ -2629,14 +2630,16 @@
     d = state.decks[d.id] || d;
     const p = deckPayload(d, withQ);
     if (!p.cards.length && !p.quizzes.length) { toast("Add some cards to this deck first"); return; }
+    const tick = !!($("#shRights") || {}).checked;
     busyBtn(btn, true);
     try {
-      const code = await api.shareDeck(d.id, str(d.name, 200) || "Deck", p, p.cards.length);
+      const send = () => api.shareDeck(d.id, str(d.name, 200) || "Deck", p, p.cards.length);
+      const code = await (window.SBSHARE && SBSHARE.agreedThen ? SBSHARE.agreedThen(send, tick) : send());
       const nd = clone(state.decks[d.id]); nd.shared = {code: String(code), h: p.hash, q: withQ ? 1 : 0, at: Date.now()};
       saveDeck(nd, null); S.shares = null;
       toast(d.shared && d.shared.code === code ? "Shared copy updated" : `Link ready. Code ${code}`);
       deckShareSheet(nd);
-    } catch(e) { busyBtn(btn, false); toast(e.message); }
+    } catch(e) { busyBtn(btn, false); if (e.terms && window.SBSHARE && SBSHARE.reconfirm) SBSHARE.reconfirm(); else toast(e.message); }
   }
   async function stopShare(code){
     try {

@@ -15,10 +15,11 @@
     if (["42P01", "42883", "42703", "PGRST202", "PGRST205", "PGRST204"].includes(code) || /does not exist|Could not find the (function|table)|schema cache/i.test(m))
       return Object.assign(new Error(srvSetup("Public links and the Course Library", "supabase-sharing.sql")), {setup: true});
     if (/JWT|not authenticated|Sign in first/i.test(m)) return new Error("Sign in to Studyboard first, then try again.");
+    if (/SB_TERMS_NEEDED/.test(m)) return Object.assign(new Error("Confirm that you have the right to share this first."), {terms: true});
     return new Error(m.replace(/^SB_[A-Z_]+:\s*/, "") || "Something went wrong. Try again.");
   }
   async function rpc(fn, args){
-    if (window.__sbShareStub) return window.__sbShareStub(fn, args || {});
+    if (window.__sbShareStub) return window.__sbShareStub(fn, args || {}).catch(e => { throw /SB_TERMS_NEEDED/.test(String((e && e.message) || "")) ? shErr(e) : e; });
     const g = G(), c = g && g.online() ? g.cli() : sb;
     if (c) { const {data, error} = await c.rpc(fn, args || {}); if (error) throw shErr(error); return data; }
     const cfg = sbConfig() || (SB_HOSTED ? SB_DEFAULT : null);
@@ -31,6 +32,32 @@
     return j;
   }
   const rows = x => Array.isArray(x) ? x : x ? [x] : [];
+
+  /* The record that you agreed to the sharing rules in the Terms (agree_share_terms in supabase-sharing.sql): sent once per
+     version of the terms, only after you tick "I made this myself" on a share. The server refuses new links and publishing without it. */
+  const TERMS_V = "2026-10-27";   // keep in step with sbs_terms_version() in supabase-sharing.sql
+  const uid = () => (((window.__sbGroupsStub && window.__sbGroupsStub.user) || sbUser || {}).id) || "";
+  const TKEY = () => "studyboard:shareterms:" + uid();
+  const agreedHere = () => { try { return !!uid() && localStorage.getItem(TKEY()) === TERMS_V; } catch (e) { return false; } };
+  const keepAgreed = on => { try { if (!uid()) return; if (on) localStorage.setItem(TKEY(), TERMS_V); else localStorage.removeItem(TKEY()); } catch (e) {} };
+  async function recordAgree(){
+    if (agreedHere()) return;
+    try { await rpc("agree_share_terms", {p_version: TERMS_V}); keepAgreed(true); }
+    catch (e) { if (!e.setup && !/Could not find the function/.test(String(e.message || ""))) throw e; }   // a server without the record yet
+  }
+  // The box on the open sheet was ticked
+  const ticked = () => !!($("#shRights") || {}).checked;
+  // Runs a share, sending the record first when the box was ticked. If the server has no record after all (this device remembered
+  // wrongly), it is sent again and the share retried once. Without a tick the server's refusal comes back (e.terms) for reconfirm().
+  async function agreedThen(fn, tick){
+    if (tick) await recordAgree();
+    try { return await fn(); }
+    catch (e) { if (!e.terms || !tick) throw e; keepAgreed(false); await recordAgree(); return fn(); }
+  }
+  // Something shared before the record existed: confirm once, then try again
+  const reconfirm = () => confirmRights(async () => {
+    try { keepAgreed(false); await recordAgree(); if (dlg.open) dlg.close(); toast("Thanks. Now try that again."); } catch (e) { toast(e.message); }
+  });
 
   /* Sheets */
   const msgSheet = (title, msg) => openSheet(`<div class="sheet">${head(title)}<div class="sheet-body"><p style="margin:0">${esc(msg)}</p></div>
@@ -239,7 +266,7 @@
     if (!ok) { confirmRights(() => make(kind, ref, null, true)); return; }
     if (btn) g.busyBtn(btn, true); else g.loadingSheet("Sharing…");
     try {
-      const code = String(await rpc("share_item", {p_kind: kind, p_ref: ref, p_title: src.title, p_data: src.data}));
+      const code = String(await agreedThen(() => rpc("share_item", {p_kind: kind, p_ref: ref, p_title: src.title, p_data: src.data}), true));
       const had = src.cur();
       src.mark({code, h: src.h, at: Date.now()});
       toast(had && had.code === code ? "Shared copy updated" : `Link ready. Code ${code}`);
@@ -438,11 +465,11 @@
   }
   // Shares the deck (or updates the shared copy), then publishes it
   async function doPublish(id, btn){
-    const g = G(); let d = state.decks[id]; if (!d) return;
+    const g = G(), tick = ticked(); let d = state.decks[id]; if (!d) return;
     g.busyBtn(btn, true);
     try {
       const p = g.deckPayload(d, false);
-      const code = String(await rpc("share_deck", {p_deck_id: d.id, p_name: String(d.name || "Deck").slice(0, 200), p_data: p, p_count: p.cards.length}));
+      const code = String(await agreedThen(() => rpc("share_deck", {p_deck_id: d.id, p_name: String(d.name || "Deck").slice(0, 200), p_data: p, p_count: p.cards.length}), tick));
       await rpc("share_publish", {p_code: code, p_on: true});
       pubRefresh("deck", d.name, code, deckCourse(d));
       d = state.decks[id]; const nd = clone(d);
@@ -452,6 +479,7 @@
       managePub(id, true);
     } catch (e) {
       g.busyBtn(btn, false);
+      if (e.terms) { reconfirm(); return; }
       if (/SB_AGE_NEEDED|SB_UNDER13/.test(String(e.message))) { try { localStorage.removeItem("studyboard:age:" + (sbUser || {}).id); } catch (er) {} if (window.SBUNAME) SBUNAME.ensureAge(() => confirmPub(id, (state.settings || {}).school)); return; }
       if (/SB_USERNAME_NEEDED/.test(String(e.message))) { try { localStorage.removeItem("studyboard:uname:" + (sbUser || {}).id); } catch (er) {} withUsername(() => confirmPub(id, (state.settings || {}).school)); return; }
       if (/SB_SCHOOL/.test(String(e.message)) || /Pick your school/.test(e.message)) { ensureSchool(sc => confirmPub(id, sc)); return; }
@@ -601,7 +629,7 @@
         pubRefresh(kind, name, code, dd ? deckCourse(dd) : "");
         toast(want ? `Published. It can take a few days to show up on Google.` : "Unpublished. Its public page is gone."); fillPubRow(kind, code, name);
       }
-      catch (err) { box.checked = !want; box.disabled = false; if (/SB_SCHOOL/.test(String(err.message))) ensureSchool(() => {}); else toast(String(err.message).replace(/^SB_[A-Z]+:\s*/, "")); }
+      catch (err) { box.checked = !want; box.disabled = false; if (err.terms) reconfirm(); else if (/SB_SCHOOL/.test(String(err.message))) ensureSchool(() => {}); else toast(String(err.message).replace(/^SB_[A-Z]+:\s*/, "")); }
     });
   }
   const EXPLORE_IC = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>';
@@ -627,7 +655,7 @@
       try {
         await rpc("library_list", {p_code: code, p_listed: on, p_course_key: k, p_course_label: courseLabel(c), p_school_key: s2 ? s2.key : "", p_school_name: s2 ? s2.name : ""});
         COUNTS.at = 0; toast(on ? `Listed in the ${c.code || k} Course Library` : "Taken out of the Course Library");
-      } catch (err) { box.checked = !on; toast(err.message); }
+      } catch (err) { box.checked = !on; if (err.terms) reconfirm(); else toast(err.message); }
       box.disabled = false;
     });
   }
@@ -696,6 +724,6 @@
 `;
   document.head.appendChild(css);
 
-  window.SBSHARE = {can, open, shareRef, libRow, libBtn, exploreBtn, pubRow, pubUrl, courseHtml, libSheet, schoolOf, hostKey, schoolSheet, publishDeck, T: {rpc, COUNTS}};
+  window.SBSHARE = {can, open, shareRef, agreedThen, reconfirm, libRow, libBtn, exploreBtn, pubRow, pubUrl, courseHtml, libSheet, schoolOf, hostKey, schoolSheet, publishDeck, T: {rpc, COUNTS}};
 })();
 

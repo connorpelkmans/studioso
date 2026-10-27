@@ -17,7 +17,7 @@ function serverInit(opts){
       data: {v: 1, type: "note", text: "Lecture 3 summary\nCells use [[Glycolysis|glycolysis]] for energy.", color: "blue", course: {code: "BIOL 201", name: "Biology"}}},
       {code: "QUIZ-DDDD", owner: "u2", kind: "quiz", ref_id: "d:q", title: "Cell Quiz", sharer_name: "Sam", updated_at: "2026-10-03T00:00:00Z", saves: 0,
         data: {v: 1, type: "quiz", course: {code: "BIOL 201", name: "Biology"}, quiz: {id: "q1", title: "Cell Quiz", questions: [{id: "qq1", type: "single", stem: "Which organelle makes ATP?", options: ["Nucleus", "Mitochondria"], correct: [1], rationale: "It's the powerhouse."}]}}}],
-    calls: [], reports: [], saves: []
+    calls: [], reports: [], saves: [], terms: null
   };
   const me = () => opts.me || null;
   const wait = v => new Promise(r => setTimeout(() => r(v), 15));
@@ -27,7 +27,7 @@ function serverInit(opts){
     get_public_share: a => { const k = norm(a.p_code), d = SV.decks.find(x => x.code === k && !x.hidden);
       if (d) return [{code: d.code, kind: "deck", name: d.name, sharer_name: d.sharer_name, card_count: d.card_count, data: d.data, updated_at: d.updated_at, is_mine: d.owner === me()}];
       const i = SV.items.find(x => x.code === k && !x.hidden); return i ? [{code: i.code, kind: i.kind, name: i.title, sharer_name: i.sharer_name, card_count: 0, data: i.data, updated_at: i.updated_at, is_mine: i.owner === me()}] : []; },
-    share_item: a => { if (!me()) throw {message: "Sign in first"}; let i = SV.items.find(x => x.owner === me() && x.kind === a.p_kind && x.ref_id === a.p_ref);
+    share_item: a => { if (!me()) throw {message: "Sign in first"}; if (!SV.terms) throw {message: "SB_TERMS_NEEDED: Confirm that you have the right to share this first."}; let i = SV.items.find(x => x.owner === me() && x.kind === a.p_kind && x.ref_id === a.p_ref);
       if (i) Object.assign(i, {title: a.p_title, data: a.p_data, updated_at: new Date().toISOString()});
       else { i = {code: "MINE-000" + (++n), owner: me(), kind: a.p_kind, ref_id: a.p_ref, title: a.p_title, data: a.p_data, sharer_name: "Connor", updated_at: new Date().toISOString(), saves: 0}; SV.items.push(i); }
       return i.code; },
@@ -43,6 +43,7 @@ function serverInit(opts){
     share_saved: a => { if (me()) SV.saves.push(a.p_code); return null; },
     report_share: a => { SV.reports.push(a); return null; },
     my_username: () => SV.username || null,
+    agree_share_terms: a => { if (a.p_version !== "2026-10-27") throw {message: "Update Studyboard to the latest version, then try again."}; SV.terms = a.p_version; return null; },
     my_age: () => SV.age === undefined ? 20 : SV.age,
     set_birthdate: a => { const b = new Date(a.p_date + "T12:00:00"), n = new Date(); let y = n.getFullYear() - b.getFullYear(); if (n < new Date(n.getFullYear(), b.getMonth(), b.getDate())) y--; SV.age = y; SV.bday = a.p_date; return y; },
     username_check: a => [{ok: !/fuck|admin/i.test(a.p_name) && a.p_name.toLowerCase() !== "taken_name", reason: /fuck/i.test(a.p_name) ? "That name isn't allowed. Pick another." : "That username is taken."}],
@@ -328,9 +329,35 @@ async function sharer(browser){
   ok(!errs.length, "no errors (school picker): " + errs.join(" | ")); await ctx.close();
 }
 
+// Ticking "I made this myself" sends the server a record of agreeing to the sharing rules, once per version of the terms
+async function agreement(browser){
+  const {ctx, page, errs} = await boot(browser, 390, {me: "u1", seed: SEED});
+  await act(page, "share-link", {kind: "note", ref: "n1"}); await page.waitForSelector("dialog[open] #shMake");
+  await page.click("#shMake"); await confirmRights(page); await page.waitForSelector("dialog[open] #shStop");
+  const seq = (await page.evaluate(() => window.__SV.calls.map(c => c[0]))).filter(f => f === "agree_share_terms" || f === "share_item");
+  ok(seq.join() === "agree_share_terms,share_item" && (await calls(page, "agree_share_terms"))[0][1].p_version === "2026-10-27", "after the box is ticked, the agreement is recorded on the server, then the link is made");
+  ok(await page.evaluate(() => localStorage.getItem("studyboard:shareterms:u1") === "2026-10-27"), "this device remembers it was recorded");
+  await page.evaluate(() => dlg.close());
+  await act(page, "share-link", {kind: "quiz", ref: "d1:q1"}); await page.waitForSelector("dialog[open] #shMake");
+  await page.click("#shMake"); await confirmRights(page); await page.waitForSelector("dialog[open] #shStop");
+  ok((await calls(page, "agree_share_terms")).length === 1 && (await calls(page, "share_item")).length === 2, "the next share still asks for the tick but doesn't send the record again");
+  // The server has no record after all (for example the terms changed): it refuses, the record is sent again and the share goes through
+  await page.evaluate(() => { window.__SV.terms = null; const n = __sbSync.clone(__sbSync.state.notes.n1); n.text += "\nMore."; __sbSync.applyChanges([{kind: "note", id: "n1", after: n}], ""); dlg.close(); });
+  await act(page, "share-link", {kind: "note", ref: "n1"}); await page.waitForSelector("dialog[open] #shUpd");
+  await page.click("#shUpd"); await confirmRights(page); await page.waitForTimeout(400);
+  ok((await calls(page, "agree_share_terms")).length === 2 && await page.evaluate(() => window.__SV.terms === "2026-10-27" && /More\./.test(window.__SV.items.find(i => i.code === "MINE-0001").data.text)), "a refusal sends the record again and the update goes through");
+  // Something shared before the record existed: the server refuses and the app asks to confirm once
+  await page.evaluate(() => { window.__SV.terms = null; localStorage.removeItem("studyboard:shareterms:u1"); dlg.close(); SBSHARE.reconfirm(); });
+  await page.waitForSelector("dialog[open] #shRights"); await page.click("dialog[open] [data-submit]"); await page.waitForTimeout(200);
+  ok((await calls(page, "agree_share_terms")).length === 2, "confirming again needs the tick too");
+  await confirmRights(page); await page.waitForTimeout(300);
+  ok((await calls(page, "agree_share_terms")).length === 3 && await page.evaluate(() => window.__SV.terms === "2026-10-27"), "after the tick the record is sent");
+  ok(!errs.length, "no errors (sharing agreement): " + errs.join(" | ")); await ctx.close();
+}
+
 (async () => {
   const browser = await chromium.launch({executablePath});
-  try { await visitor(browser); await sharer(browser); }
+  try { await visitor(browser); await sharer(browser); await agreement(browser); }
   finally { await browser.close(); }
   console.log(`sharing.e2e: ${checks} checks passed`);
 })().catch(e => { console.error("FAILED:", e.message); process.exit(1); });

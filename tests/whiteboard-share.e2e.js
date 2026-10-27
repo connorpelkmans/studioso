@@ -23,6 +23,7 @@ function fake(opts){
     if (fn === "get_public_share") { const i = (opts.shared || []).concat(DB.items).find(x => x.code === a.p_code); return i ? [{code: i.code, kind: i.kind, name: i.title, sharer_name: "Maya", card_count: 0, data: i.data, updated_at: i.updated_at, is_mine: false}] : []; }
     if (fn === "my_username") return "connor";
     if (fn === "my_age") return 20;
+    if (fn === "agree_share_terms") { DB.agreed = a.p_version; return null; }
     return null; };
   const mk = t => {
     const st = {f: [], op: "select", one: false, rows: null, lim: 0, gt: null};
