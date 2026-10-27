@@ -42565,19 +42565,24 @@ var COMP_KIT = (() => {
         bio: "A flaky little croissant with a warm, buttery heart.",
         idle: ["sway", "bounce", "sparkle"], cheer: "hop",
         parts: {
-          feet: `<ellipse cx="52" cy="106" rx="5.4" ry="6" fill="#8A5A2B" ${O}/><ellipse cx="68" cy="106" rx="5.4" ry="6" fill="#8A5A2B" ${O}/>`,
-          body: `${LG("cafe-croissant-m", [[0, "#FAD68F"], [0.55, "#EEB05A"], [1, "#CF8434"]])}
-            <path d="M19 99C16 74 37 49 60 49C83 49 104 74 101 99C96 94.5 88 90.5 79 92C72 96.5 67 99.5 60 99.5C53 99.5 48 96.5 41 92C32 90.5 24 94.5 19 99Z" fill="url(#cafe-croissant-m)" ${O}/>
-            <path d="M31 67Q39 77 35 92.5M89 67Q81 77 85 92.5" fill="none" stroke="#B86A28" stroke-width="2.6" stroke-linecap="round"/>
-            <path d="M44 55Q49.5 71 45.5 94M76 55Q70.5 71 74.5 94" fill="none" stroke="#B86A28" stroke-width="2.6" stroke-linecap="round"/>
-            <path d="M24.5 80Q27 85 26 93M95.5 80Q93 85 94 93" fill="none" stroke="#B86A28" stroke-width="2" stroke-linecap="round" opacity=".75"/>
-            <path d="M50.5 57Q55 53 61 52.5" fill="none" stroke="#FFE7B8" stroke-width="3" stroke-linecap="round"/><path d="M34 64Q37 60 40.5 59M80 59Q83.5 60 86 64" fill="none" stroke="#FFE3AE" stroke-width="2.4" stroke-linecap="round" opacity=".9"/>
-            <circle cx="66" cy="93" r="1.1" fill="#FFF3D6"/><circle cx="30" cy="84" r="1" fill="#FFF3D6"/><circle cx="89" cy="85" r="1" fill="#FFF3D6"/>`
+          armL: {svg: `<ellipse cx="38" cy="89.5" rx="4.4" ry="6.6" transform="rotate(48 38 89.5)" fill="#F2BA68" ${O}/>`, pivot: [43, 87]},
+          armR: {svg: `<ellipse cx="82" cy="89.5" rx="4.4" ry="6.6" transform="rotate(-48 82 89.5)" fill="#F2BA68" ${O}/>`, pivot: [77, 87]},
+          body: `${LG("cafe-croissant-t", [[0, "#EDAE5C"], [1, "#BE6F2E"]], 0.2, 0, 0.8, 1)}${LG("cafe-croissant-s", [[0, "#FBD38C"], [0.55, "#EDA851"], [1, "#CB7C35"]], 0.3, 0, 0.7, 1)}${RG("cafe-croissant-c", [[0, "#FFEDB8"], [0.5, "#F8C672"], [1, "#DF9545"]], 0.42, 0.3, 0.75)}
+            <path d="M31 100C29 93 25 87.5 19 87.5C12.5 88.5 8.5 96 8.5 103C8.5 107.5 10.5 109.5 14 109C20 108 27 105.5 31 100Z" fill="url(#cafe-croissant-t)" ${O}/>
+            <path d="M89 100C91 93 95 87.5 101 87.5C107.5 88.5 111.5 96 111.5 103C111.5 107.5 109.5 109.5 106 109C100 108 93 105.5 89 100Z" fill="url(#cafe-croissant-t)" ${O}/>
+            <path d="M52 98C50 80 46 63 36 61C26 60 18 72 18.5 86C19 96 24 102 31 102C39 102 46 100 52 98Z" fill="url(#cafe-croissant-s)" ${O}/>
+            <path d="M68 98C70 80 74 63 84 61C94 60 102 72 101.5 86C101 96 96 102 89 102C81 102 74 100 68 98Z" fill="url(#cafe-croissant-s)" ${O}/>
+            <path d="M32 68.5Q28.5 82 31 98M88 68.5Q91.5 82 89 98M15 95Q18 101 23.5 104.5M105 95Q102 101 96.5 104.5" fill="none" stroke="#C47630" stroke-width="2.2" stroke-linecap="round"/>
+            <path d="M40 95.5C34 78 36.5 51 49 45C52.5 43.3 56 42.5 60 42.5C64 42.5 67.5 43.3 71 45C83.5 51 86 78 80 95.5C79.5 98 78 99 75 99.5C67 100.5 53 100.5 45 99.5C42 99 40.5 98 40 95.5Z" fill="url(#cafe-croissant-c)" ${O}/>
+            <path d="M44.5 60Q46 50 53.5 46.5" fill="none" stroke="#FFF6DE" stroke-width="3.4" stroke-linecap="round"/><circle cx="59.5" cy="46" r="1.6" fill="#FFF6DE"/>
+            <path d="M22.5 76Q24 69.5 28.5 66.5" fill="none" stroke="#FFE7B4" stroke-width="2.6" stroke-linecap="round"/><path d="M97.5 76Q96 69.5 91.5 66.5" fill="none" stroke="#FFE7B4" stroke-width="2.6" stroke-linecap="round"/>
+            <ellipse cx="72" cy="51" rx="1.6" ry="0.95" transform="rotate(30 72 51)" fill="#FFF3D6"/><ellipse cx="76" cy="57.5" rx="1.4" ry="0.85" transform="rotate(60 76 57.5)" fill="#FFF3D6"/>
+            <ellipse cx="24.5" cy="87" rx="1.3" ry="0.8" transform="rotate(-20 24.5 87)" fill="#FFF3D6"/><ellipse cx="95.5" cy="87" rx="1.3" ry="0.8" transform="rotate(20 95.5 87)" fill="#FFF3D6"/>`
         },
-        eyes: {lx: 51.5, rx: 68.5, y: 72, r: 4.4, style: "dot", color: "#2B1A10"},
-        mouth: {x: 60, y: 80, w: 3, color: "#2B1A10"},
-        cheeks: {lx: 45, rx: 75, y: 79, w: 4.2, h: 2.6, color: "#FF8F8F"},
-        anchors: {top: [60, 52, 0.9], neck: [60, 90, 1.05], chest: [72, 92, 0.7], back: [60, 60, 0.9], hands: [60, 92, 0.85]},
+        eyes: {lx: 51.5, rx: 68.5, y: 68, r: 4.6, style: "dot", color: "#2B1A10"},
+        mouth: {x: 60, y: 76.5, w: 3, color: "#2B1A10"},
+        cheeks: {lx: 45.5, rx: 74.5, y: 75, w: 4.2, h: 2.6, color: "#FF8F8F"},
+        anchors: {top: [60, 45, 0.9], neck: [60, 86, 0.9], chest: [70, 88, 0.65], back: [60, 62, 0.9], hands: [60, 92, 0.85]},
         lines: {
           tap: ["Bonjour! Hi hi!", "You're on a roll! Literally!", "Steady and golden, that's you!", "Layer by layer, you've got this!", "A warm and buttery hello!", "Rise and shine, just like dough!", "All those crumbs of progress add up!"],
           pet: ["Hehe, crumbs everywhere! So happy!", "Oh la la, merci beaucoup!"],
@@ -43737,15 +43742,15 @@ var COMP_KIT = (() => {
             <path d="M30 86C24 62 34 38 58 30C68 26.5 78 22 84 14C90 26 96 44 94 62C92 80 80 94 60 96C44 97 33 94 30 86Z" fill="url(#sunset-crab-s)" ${O}/>
             <path d="M84 16C80 32 70 40 56 42M92 40C86 54 72 60 52 58" fill="none" stroke="#D9668A" stroke-width="3" stroke-linecap="round"/>
             <path d="M40 60Q42 46 54 38" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" opacity=".9"/>`,
-          earL: {svg: `${LINE("M50 64C48 58 45 55 42 51", "#F0664F", 2.4)}<circle cx="41" cy="49.5" r="3.4" fill="#FF8A6A" ${OW(2)}/>`, pivot: [51, 66]},
-          earR: {svg: `${LINE("M70 64C72 58 75 55 78 51", "#F0664F", 2.4)}<circle cx="79" cy="49.5" r="3.4" fill="#FF8A6A" ${OW(2)}/>`, pivot: [69, 66]},
+          earL: {svg: `${LINE("M51 71C49 61 45.5 55.5 42 51", "#F0664F", 2.4)}<circle cx="41" cy="49.5" r="3.4" fill="#FF8A6A" ${OW(2)}/>`, pivot: [51, 68]},
+          earR: {svg: `${LINE("M69 71C71 61 74.5 55.5 78 51", "#F0664F", 2.4)}<circle cx="79" cy="49.5" r="3.4" fill="#FF8A6A" ${OW(2)}/>`, pivot: [69, 68]},
+          wingL: {svg: `${LINE("M44 97C37 98.5 29.5 96.5 23.5 89.5", "#F0664F", 4.6)}<g transform="translate(16.5 84) rotate(-14) scale(.86) translate(-26 -96)"><path d="M31 106C22 108.5 14.5 103 14.5 96C14.5 90 17.5 86.5 21 85.5L25.5 92L26 84.5C32.5 84.5 37 89.5 37 96C37 101 35 104 31 106Z" fill="#FF7A5E" ${O}/><path d="M18.5 96Q19 101 24 103" fill="none" stroke="#FFC2A8" stroke-width="2" stroke-linecap="round"/></g>`, pivot: [42, 96]},
+          wingR: {svg: `${LINE("M76 97C83 98.5 90.5 96.5 96.5 89.5", "#F0664F", 4.6)}<g transform="translate(103.5 84) rotate(14) scale(.86) translate(-94 -96)"><path d="M89 106C98 108.5 105.5 103 105.5 96C105.5 90 102.5 86.5 99 85.5L94.5 92L94 84.5C87.5 84.5 83 89.5 83 96C83 101 85 104 89 106Z" fill="#FF7A5E" ${O}/><path d="M101.5 96Q101 101 96 103" fill="none" stroke="#FFC2A8" stroke-width="2" stroke-linecap="round"/></g>`, pivot: [78, 96]},
           feet: `<g fill="#F0664F" ${O2}><ellipse cx="44" cy="107.5" rx="3.8" ry="5" transform="rotate(20 44 107.5)"/><ellipse cx="53" cy="109" rx="3.6" ry="4.6" transform="rotate(8 53 109)"/><ellipse cx="67" cy="109" rx="3.6" ry="4.6" transform="rotate(-8 67 109)"/><ellipse cx="76" cy="107.5" rx="3.8" ry="5" transform="rotate(-20 76 107.5)"/></g>`,
           body: `${LG("sunset-crab-g", [[0, "#FFB08A"], [0.6, "#FF8A6A"], [1, "#E8605A"]])}
             <path d="M60 62C78 62 88 74 88 88C88 101 78 108 60 108C42 108 32 101 32 88C32 74 42 62 60 62Z" fill="url(#sunset-crab-g)" ${O}/>
             <path d="M40 80Q43 70 52 66" fill="none" stroke="#FFD9C2" stroke-width="3" stroke-linecap="round"/>
-            <path d="M44 102Q60 107 76 102" fill="none" stroke="#D95050" stroke-width="2.2" stroke-linecap="round" opacity=".55"/>`,
-          armL: {svg: `<g transform="translate(-4 5) translate(26 96) scale(.86) translate(-26 -96)"><path d="M31 106C22 108.5 14.5 103 14.5 96C14.5 90 17.5 86.5 21 85.5L25.5 92L26 84.5C32.5 84.5 37 89.5 37 96C37 101 35 104 31 106Z" fill="#FF7A5E" ${O}/><path d="M18.5 96Q19 101 24 103" fill="none" stroke="#FFC2A8" stroke-width="2" stroke-linecap="round"/></g>`, pivot: [34, 96]},
-          armR: {svg: `<g transform="translate(4 5) translate(94 96) scale(.86) translate(-94 -96)"><path d="M89 106C98 108.5 105.5 103 105.5 96C105.5 90 102.5 86.5 99 85.5L94.5 92L94 84.5C87.5 84.5 83 89.5 83 96C83 101 85 104 89 106Z" fill="#FF7A5E" ${O}/><path d="M101.5 96Q101 101 96 103" fill="none" stroke="#FFC2A8" stroke-width="2" stroke-linecap="round"/></g>`, pivot: [86, 96]}
+            <path d="M44 102Q60 107 76 102" fill="none" stroke="#D95050" stroke-width="2.2" stroke-linecap="round" opacity=".55"/>`
         },
         eyes: {lx: 51.5, rx: 68.5, y: 82, r: 4.7, style: "dot", color: "#3A1A2A"},
         mouth: {x: 60, y: 90.5, w: 3, color: "#3A1A2A"},
@@ -43766,20 +43771,29 @@ var COMP_KIT = (() => {
       {
         id: "sunset-starfish", name: "Stella", kind: "Little Starfish", pose: "stand",
         bio: "A bright little starfish who waves hello from the warm sand.",
-        idle: ["wave", "sway", "sparkle"], cheer: "spin",
-        parts: {
-          feet: `<ellipse cx="37" cy="106.5" rx="7" ry="4.6" fill="#F4687A" ${O}/><ellipse cx="83" cy="106.5" rx="7" ry="4.6" fill="#F4687A" ${O}/>`,
-          body: `${LG("sunset-starfish-g", [[0, "#FFC49A"], [0.55, "#FF9A7E"], [1, "#F2667A"]])}
-            <path d="M60 22C65 22 67 28 69 36L73 50C75 55 79 57 84 59C84 66 83 72 84 78L89 97C91 104 86 108 81 105L65 95C62 93 58 93 55 95L39 105C34 108 29 104 31 97L36 78C37 72 36 66 36 59C41 57 45 55 47 50L51 36C53 28 55 22 60 22Z" fill="url(#sunset-starfish-g)" ${O}/>
-            <circle cx="60" cy="32" r="2" fill="#FFE6D2"/><circle cx="60" cy="40" r="1.6" fill="#FFE6D2"/><circle cx="41" cy="97" r="1.8" fill="#FFE6D2"/><circle cx="79" cy="97" r="1.8" fill="#FFE6D2"/>
-            <path d="M52 42Q54 34 57 29" fill="none" stroke="#FFF1E6" stroke-width="2.8" stroke-linecap="round" opacity=".9"/>`,
-          armL: {svg: `<path d="M44 58C34 52 24 48 16 50C10 52 11 60 17 62C26 65 36 68 44 70Z" fill="#FF9C80"/><circle cx="43.5" cy="63.5" r="6.4" fill="#FF9C80"/><path d="M44 58C34 52 24 48 16 50C10 52 11 60 17 62C26 65 36 68 44 70" fill="none" ${O}/><circle cx="21" cy="56" r="1.8" fill="#FFE6D2"/><circle cx="29" cy="58" r="1.4" fill="#FFE6D2"/>`, pivot: [43.5, 63.5]},
-          armR: {svg: `<path d="M76 58C86 52 96 48 104 50C110 52 109 60 103 62C94 65 84 68 76 70Z" fill="#FF9C80"/><circle cx="76.5" cy="63.5" r="6.4" fill="#FF9C80"/><path d="M76 58C86 52 96 48 104 50C110 52 109 60 103 62C94 65 84 68 76 70" fill="none" ${O}/><circle cx="99" cy="56" r="1.8" fill="#FFE6D2"/><circle cx="91" cy="58" r="1.4" fill="#FFE6D2"/>`, pivot: [76.5, 63.5]}
-        },
-        eyes: {lx: 51.5, rx: 68.5, y: 69, r: 4.6, style: "dot", color: "#3A1A2A"},
-        mouth: {x: 60, y: 77.5, w: 3, color: "#3A1A2A"},
-        cheeks: {lx: 45, rx: 75, y: 76.5, w: 3.8, h: 2.5, color: "#FF5F7E"},
-        anchors: {top: [60, 30, 0.7], neck: [60, 84, 0.95], chest: [70, 88, 0.6], back: [82, 72, 0.8], hands: [60, 88, 0.85]},
+        idle: ["sway", "sparkle", "bounce"], cheer: "spin",
+        parts: (() => {
+          // One continuous, chubby five-armed outline: round tips joined by soft, rounded valleys
+          const C = [60, 71], R = 47, rt = 7.6, ri = 27, s1 = 11, s2 = 9, f = v => Math.round(v * 10) / 10;
+          const P = (o, d, r) => [o[0] + Math.cos(d * Math.PI / 180) * r, o[1] + Math.sin(d * Math.PI / 180) * r];
+          const xy = p => `${f(p[0])} ${f(p[1])}`;
+          const arms = [-90, -18, 54, 126, 198];
+          let d = `M${xy(P(C, -126, ri))}`;
+          arms.forEach(a => {
+            const pv = P(C, a - 36, ri), nv = P(C, a + 36, ri), T = P(C, a, R - rt), L = P(T, a - 90, rt), Rt = P(T, a + 90, rt);
+            d += `C${xy(P(pv, a + 54, s2))} ${xy(P(L, a + 180, s1))} ${xy(L)}A${rt} ${rt} 0 0 1 ${xy(Rt)}C${xy(P(Rt, a + 180, s1))} ${xy(P(nv, a - 54, s2))} ${xy(nv)}`;
+          });
+          const dots = arms.map(a => { const p1 = P(C, a, 33), p2 = P(C, a, 40); return `<circle cx="${f(p1[0])}" cy="${f(p1[1])}" r="2" fill="#FFE6D2"/><circle cx="${f(p2[0])}" cy="${f(p2[1])}" r="1.5" fill="#FFE6D2"/>`; }).join("");
+          return {
+            body: `${LG("sunset-starfish-g", [[0, "#FFC49A"], [0.55, "#FF9A7E"], [1, "#F2667A"]])}
+              <path d="${d}Z" fill="url(#sunset-starfish-g)" ${O}/>${dots}
+              <path d="M53.5 47Q54.2 38.5 57 32.5" fill="none" stroke="#FFF1E6" stroke-width="2.8" stroke-linecap="round" opacity=".9"/>`
+          };
+        })(),
+        eyes: {lx: 51.5, rx: 68.5, y: 71, r: 4.6, style: "dot", color: "#3A1A2A"},
+        mouth: {x: 60, y: 79.5, w: 3, color: "#3A1A2A"},
+        cheeks: {lx: 45, rx: 75, y: 78.5, w: 3.8, h: 2.5, color: "#FF5F7E"},
+        anchors: {top: [60, 31, 0.7], neck: [60, 87, 0.95], chest: [70, 90, 0.6], back: [82, 74, 0.8], hands: [60, 90, 0.85]},
         lines: {
           tap: ["Hi! So nice to see you!", "You're doing really, really well!", "Reach for it, one arm at a time!", "The sand's warm and you're here! Yay!", "Nice and steady! You're amazing!", "Look at you, glowing!", "Five arms of cheering, all for you!"],
           pet: ["Hehe, that tickles! Yay!", "Hehe, I'm all a-sparkle!"],
@@ -44086,17 +44100,23 @@ var COMP_KIT = (() => {
         idle: ["topBob", "bounce", "finWiggle"], cheer: "hop",
         parts: {
           body: `${LG("neon-boba-g", [[0, "#E4D8FF"], [0.5, "#C6B2F6"], [1, "#9F86E6"]])}
-            <path d="M34 46H86L80.5 104C80 108 77 110 73 110H47C43 110 40 108 39.5 104Z" fill="url(#neon-boba-g)" ${O}/>
+            <defs><clipPath id="neon-boba-cup"><path d="M34 46H86L80.5 104C80 108 77 110 73 110H47C43 110 40 108 39.5 104Z"/></clipPath><clipPath id="neon-boba-dome"><path d="M30 46C30 34 43 29 60 29C77 29 90 34 90 46Z"/></clipPath></defs>
+            <path d="M34 46H86L80.5 104C80 108 77 110 73 110H47C43 110 40 108 39.5 104Z" fill="url(#neon-boba-g)"/>
+            <g clip-path="url(#neon-boba-cup)" stroke-linecap="round"><path d="M71.8 44L78.2 92.5" stroke="#8E72DA" stroke-width="6.6"/><path d="M71.8 44L78.2 92.5" stroke="#F4A6E6" stroke-width="3.6"/></g>
             <path d="M35 50H85" stroke="#F2EEFF" stroke-width="5" opacity=".7"/>
-            <g fill="#3A2A4A"><circle cx="48" cy="100" r="3.6"/><circle cx="56.5" cy="103" r="3.6"/><circle cx="65" cy="100.5" r="3.6"/><circle cx="73" cy="102.5" r="3.4"/><circle cx="52" cy="94.5" r="3.2"/><circle cx="69.5" cy="94.5" r="3.2"/></g>
+            <g fill="#3A2A4A"><circle cx="48" cy="100" r="3.6"/><circle cx="56.5" cy="103" r="3.6"/><circle cx="65" cy="100.5" r="3.6"/><circle cx="73" cy="102.5" r="3.4"/><circle cx="52" cy="94.5" r="3.2"/><circle cx="69.5" cy="94.5" r="3.2"/><circle cx="77.2" cy="96.6" r="3"/></g>
             <g fill="#fff" opacity=".6"><circle cx="47" cy="99" r="1"/><circle cx="55.5" cy="102" r="1"/><circle cx="64" cy="99.5" r="1"/><circle cx="72" cy="101.5" r="1"/></g>
             <path d="M40 58L43.5 96" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".8"/>
-            <path d="M30 46C30 34 43 29 60 29C77 29 90 34 90 46Z" fill="#F4F2FF" fill-opacity=".92" ${O}/>
+            <path d="M34 46H86L80.5 104C80 108 77 110 73 110H47C43 110 40 108 39.5 104Z" fill="none" ${O}/>
+            <path d="M30 46C30 34 43 29 60 29C77 29 90 34 90 46Z" fill="#F4F2FF" fill-opacity=".92"/>
+            <g clip-path="url(#neon-boba-dome)" stroke-linecap="round"><path d="M70 30L72.2 47" stroke="#B9A4EE" stroke-width="6.6"/><path d="M70 30L72.2 47" stroke="#FFC6EF" stroke-width="3.6"/></g>
+            <path d="M30 46C30 34 43 29 60 29C77 29 90 34 90 46Z" fill="none" ${O}/>
             <rect x="28" y="43" width="64" height="7" rx="3.5" fill="#DCD8F8" ${O}/>
-            <path d="M38 40Q42 34 52 32.5" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>`,
+            <path d="M38 40Q42 34 52 32.5" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+            <ellipse cx="70" cy="30.6" rx="5.6" ry="2.4" fill="#7E64C8" ${OW(2)}/>`,
           armL: {svg: `<ellipse cx="33" cy="74" rx="4.6" ry="6" transform="rotate(24 33 74)" fill="#C6B2F6" ${O}/>`, pivot: [38, 72]},
           armR: {svg: `<ellipse cx="87" cy="74" rx="4.6" ry="6" transform="rotate(-24 87 74)" fill="#C6B2F6" ${O}/>`, pivot: [82, 72]},
-          top: {svg: `<path d="M61.5 33L69 8" stroke="${INK}" stroke-width="8.6" stroke-linecap="round"/><path d="M61.5 33L69 8" stroke="#FF6FD2" stroke-width="5" stroke-linecap="round"/><path d="M63 27L68 10.5" stroke="#FFC4EE" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [62, 34]}
+          top: {svg: `<path d="M70 30.6L66.9 7" stroke="${INK}" stroke-width="8.6"/><circle cx="66.9" cy="7" r="4.3" fill="${INK}"/><path d="M70 30.6L66.9 7" stroke="#FF6FD2" stroke-width="5"/><circle cx="66.9" cy="7" r="2.5" fill="#FF6FD2"/><path d="M68.4 25.5L66.6 11.5" stroke="#FFC4EE" stroke-width="1.6" stroke-linecap="round"/><path d="M64.4 30.6Q70 29.6 75.6 30.6A5.6 2.4 0 0 1 64.4 30.6Z" fill="#E6E0FF" ${OW(2)}/>`, pivot: [70, 30.6]}
         },
         eyes: {lx: 50, rx: 70, y: 68, r: 5, style: "dot", color: "#231F3F"},
         mouth: {x: 60, y: 77, w: 3.2, color: "#231F3F"},
@@ -45690,6 +45710,8 @@ var COMP_KIT = (() => {
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
+  // The pale chevron and midrib on a clover leaflet (in LEAF's coordinates)
+  const VEIN = "M-9 -20.5Q-4 -15.5 0 -13Q4 -15.5 9 -20.5M0 -5V-24";
   const f1 = v => Math.round(v * 10) / 10;
   // Points of a five-pointed star (outer radius R, inner radius r), top point up
   const starPts = (cx, cy, R, r) => Array.from({length: 10}, (_, i) => { const a = -Math.PI / 2 + i * Math.PI / 5, d = i % 2 ? r : R; return f1(cx + d * Math.cos(a)) + "," + f1(cy + d * Math.sin(a)); }).join(" ");
@@ -45704,18 +45726,19 @@ var COMP_KIT = (() => {
         bio: "A lucky little shamrock who floats along on three soft leaves.",
         idle: ["wingFlutter", "sparkle", "spin"], cheer: "spin",
         parts: {
-          tail: {svg: `${LINE("M60 99C60 104 63 107 68 106.5", "#3E9E5E", 3)}`, pivot: [60, 99]},
-          wingL: {svg: `${LG("stpatricks-shamrock-w", [[0, "#9BE8AE"], [0.55, "#4CC07A"], [1, "#2A9453"]])}<g transform="translate(53 84) rotate(-104) scale(1.12)"><path d="${LEAF}" fill="url(#stpatricks-shamrock-w)" ${O}/><path d="M0 -6V-21" stroke="#D4F5DC" stroke-width="1.8" stroke-linecap="round" opacity=".9"/></g>`, pivot: [52, 82]},
-          wingR: {svg: `<g transform="translate(67 84) rotate(104) scale(1.12)"><path d="${LEAF}" fill="url(#stpatricks-shamrock-w)" ${O}/><path d="M0 -6V-21" stroke="#D4F5DC" stroke-width="1.8" stroke-linecap="round" opacity=".9"/></g>`, pivot: [68, 82]},
-          body: `${RG("stpatricks-shamrock-g", [[0, "#C6F4D0"], [0.5, "#6ED48C"], [1, "#2E9E5B"]], 0.45, 0.38, 0.72)}
-            <path d="M58 100.3C50 95 32.5 84 31 66C29.5 52 38 42 48 42C54 42 58 45 60 49C62 45 66 42 72 42C82 42 90.5 52 89 66C87.5 84 70 95 62 100.3Q60 101.6 58 100.3Z" fill="url(#stpatricks-shamrock-g)" ${O}/>
-            <path d="M37.5 62Q38 51 46 47" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" opacity=".9"/>
-            <path d="M50 91Q60 96.5 70 91" fill="none" stroke="#2A9453" stroke-width="2.2" stroke-linecap="round" opacity=".5"/>`
+          back: `${LG("stpatricks-shamrock-w", [[0, "#A6EDB5"], [0.5, "#55C77F"], [1, "#2E9A57"]])}
+            <g transform="translate(60 52) scale(1.36 1.22)"><path d="${LEAF}" fill="url(#stpatricks-shamrock-w)" ${OW(2.3)}/><path d="${VEIN}" fill="none" stroke="#DDF8E3" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></g>`,
+          tail: {svg: `${LINE("M60 78C60 90 62 99 69 106", "#3E9E5E", 3.2)}`, pivot: [60, 80]},
+          wingL: {svg: `<g transform="translate(50.5 68.5) rotate(-120) scale(1.36 1.22)"><path d="${LEAF}" fill="url(#stpatricks-shamrock-w)" ${OW(2.3)}/><path d="${VEIN}" fill="none" stroke="#DDF8E3" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></g>`, pivot: [51, 68]},
+          wingR: {svg: `<g transform="translate(69.5 68.5) rotate(120) scale(1.36 1.22)"><path d="${LEAF}" fill="url(#stpatricks-shamrock-w)" ${OW(2.3)}/><path d="${VEIN}" fill="none" stroke="#DDF8E3" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></g>`, pivot: [69, 68]},
+          body: `${RG("stpatricks-shamrock-g", [[0, "#DDF9E2"], [0.6, "#90DEA5"], [1, "#52B975"]], 0.42, 0.36, 0.7)}
+            <circle cx="60" cy="63" r="19.5" fill="url(#stpatricks-shamrock-g)" ${O}/>
+            <path d="M45.5 60Q46 51.5 52.5 48" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>`
         },
-        eyes: {lx: 50, rx: 70, y: 66, r: 5, style: "dot", color: "#1C3324"},
-        mouth: {x: 60, y: 75, w: 3.2, color: "#1C3324"},
-        cheeks: {lx: 42, rx: 78, y: 74, w: 4.6, h: 2.8, color: "#FF9FB0"},
-        anchors: {top: [60, 46, 0.9], neck: [60, 86, 0.95], chest: [70, 88, 0.66], back: [84, 60, 0.8], hands: [60, 88, 0.85]},
+        eyes: {lx: 52.5, rx: 67.5, y: 62, r: 4.6, style: "sparkle", color: "#1C3324"},
+        mouth: {x: 60, y: 69.5, w: 3, color: "#1C3324"},
+        cheeks: {lx: 47, rx: 73, y: 68.5, w: 3.8, h: 2.4, color: "#FF8FA8"},
+        anchors: {top: [60, 22, 0.72], neck: [60, 82, 0.75], chest: [69, 76, 0.5], back: [80, 50, 0.8], hands: [60, 84, 0.8]},
         lines: {
           tap: ["Hi! So happy to see you!", "Lucky me, you're here!", "You make your own luck!", "Cheering you on, leaf by leaf!", "Green light! Keep going!", "A little extra luck for you!", "Look at you, showing up again!"],
           pet: ["Hehe! Lucky tickles!", "My leaves are all a-flutter!"],
@@ -46343,6 +46366,8 @@ var COMP_KIT = (() => {
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
+  // A webbed frog foot with three round toes, centred on 0,0 with the toes pointing down
+  const WEB = "M0 -4.5C-4.5 -4.5 -10.5 0.5 -10.5 4C-10.5 6.8 -7.6 7.4 -6 5.6C-5 8.4 -1.6 9 0 6.8C1.6 9 5 8.4 6 5.6C7.6 7.4 10.5 6.8 10.5 4C10.5 0.5 4.5 -4.5 0 -4.5Z";
 
   /* Diwali */
   COMP_DATA.push({
@@ -46629,25 +46654,41 @@ var COMP_KIT = (() => {
         idle: ["bounce", "finWiggle", "sway"], cheer: "hop",
         neck: [60, 76],
         parts: {
-          feet: `${LG("koi-frog-p", [[0, "#5FB07A"], [1, "#3E8A5F"]])}
-            <path d="M60 99.5C83 99.5 101 102.5 101 107.5C101 112 83 114 60 114C37 114 19 112 19 107.5C19 104 30 101.3 44 100.2L54 106.5Z" fill="url(#koi-frog-p)" ${O}/>
-            <path d="M68 102.5Q84 103 94 106" fill="none" stroke="#8FD0A2" stroke-width="2.4" stroke-linecap="round"/>
-            <ellipse cx="38" cy="104" rx="10" ry="5" fill="#86C96A" ${O}/><ellipse cx="82" cy="104" rx="10" ry="5" fill="#86C96A" ${O}/>`,
-          body: `${LG("koi-frog-b", [[0, "#A8DD86"], [1, "#72B85E"]])}
-            <path d="M60 70C77 70 85 83 85 94C85 103 76 106.5 60 106.5C44 106.5 35 103 35 94C35 83 43 70 60 70Z" fill="url(#koi-frog-b)" ${O}/>
-            <ellipse cx="60" cy="95" rx="15" ry="10" fill="#EEF7C9"/>`,
-          armL: {svg: `<path d="M44 84C40 91 40 98 43 103.5C47 104.5 50 103 50 100C49 95 49 90 50 86Z" fill="#8FCD6E" ${O}/>`, pivot: [47, 85]},
-          armR: {svg: `<path d="M76 84C80 91 80 98 77 103.5C73 104.5 70 103 70 100C71 95 71 90 70 86Z" fill="#8FCD6E" ${O}/>`, pivot: [73, 85]},
-          head: `${LG("koi-frog-h", [[0, "#B6E592"], [1, "#7CC063"]])}
-            <g ${O}><circle cx="45" cy="46" r="11"/><circle cx="75" cy="46" r="11"/><ellipse cx="60" cy="61" rx="31" ry="18"/></g>
-            <g fill="url(#koi-frog-h)"><circle cx="45" cy="46" r="11"/><circle cx="75" cy="46" r="11"/><ellipse cx="60" cy="61" rx="31" ry="18"/></g>
-            <path d="M37.5 41Q40 36.5 45 35.5" fill="none" stroke="#E6F7C8" stroke-width="2.8" stroke-linecap="round"/>
-            <path d="M52 49.5Q60 47.5 68 49.5" fill="none" stroke="#6AAE56" stroke-width="2" stroke-linecap="round" opacity=".7"/>`
+          back: `${LG("koi-frog-p", [[0, "#8EE0AE"], [0.6, "#53B783"], [1, "#3A9468"]])}${LG("koi-frog-l", [[0, "#FFE3EE"], [0.6, "#FFA6C6"], [1, "#F27BA6"]])}
+            <path d="M50 104L39.7 114.4A50 13 0 1 1 53 115.4Z" fill="url(#koi-frog-p)" ${O}/>
+            <path d="M60 102.5L18 104M60 102.5L20.5 98.5M60 102.5L102 104M60 102.5L99.5 98.5" stroke="#7FD4A2" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M64 113.2Q76 113 85.5 111" fill="none" stroke="#B6EECB" stroke-width="2.4" stroke-linecap="round"/>
+            <path d="M12 99C7 92 8 84 14.5 77C21 84 22 92 17 99Z" fill="url(#koi-frog-l)" ${O2}/>
+            <path d="M12 99C6.5 98 4 93.5 4.5 89C9.5 89.5 12.5 93.5 14 98Z" fill="#FFB8D2" ${O2}/>
+            <path d="M17 99C22.5 98 25 93.5 24.5 89C19.5 89.5 16.5 93.5 15 98Z" fill="#FFB8D2" ${O2}/>
+            <path d="M11.7 88Q11.9 84 13.5 81.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>`,
+          feet: `${LG("koi-frog-t", [[0, "#9FE07E"], [1, "#5DB45E"]])}
+            <ellipse cx="36" cy="96.5" rx="12" ry="9.5" transform="rotate(-25 36 96.5)" fill="url(#koi-frog-t)" ${O}/>
+            <ellipse cx="84" cy="96.5" rx="12" ry="9.5" transform="rotate(25 84 96.5)" fill="url(#koi-frog-t)" ${O}/>
+            <path transform="translate(28.5 103.5) rotate(48)" d="${WEB}" fill="#7CCB6A" ${O2}/>
+            <path transform="translate(91.5 103.5) rotate(-48)" d="${WEB}" fill="#7CCB6A" ${O2}/>`,
+          body: `${LG("koi-frog-b", [[0, "#A9E688"], [1, "#62BA62"]])}
+            <path d="M60 66C78 66 86.5 80 86.5 92C86.5 102 76.5 107.5 60 107.5C43.5 107.5 33.5 102 33.5 92C33.5 80 42 66 60 66Z" fill="url(#koi-frog-b)" ${O}/>
+            <ellipse cx="60" cy="94" rx="15.5" ry="11.5" fill="#FFF7DC" stroke="#D5EBA6" stroke-width="1.8"/>`,
+          armL: {svg: `<ellipse cx="44.5" cy="89.5" rx="5.4" ry="10" transform="rotate(12 44.5 89.5)" fill="#86D06C" ${O}/><path transform="translate(42.5 100.5) scale(.68)" d="${WEB}" fill="#86D06C" ${OW(3.2)}/>`, pivot: [47, 81]},
+          armR: {svg: `<ellipse cx="75.5" cy="89.5" rx="5.4" ry="10" transform="rotate(-12 75.5 89.5)" fill="#86D06C" ${O}/><path transform="translate(77.5 100.5) scale(.68)" d="${WEB}" fill="#86D06C" ${OW(3.2)}/>`, pivot: [73, 81]},
+          head: `${LG("koi-frog-h", [[0, "#B9EE92"], [0.6, "#8FD772"], [1, "#6CC064"]])}
+            <g stroke="${INK}" stroke-width="6" stroke-linejoin="round"><circle cx="40" cy="44" r="12.5"/><circle cx="80" cy="44" r="12.5"/><ellipse cx="60" cy="60" rx="35" ry="19"/></g>
+            <g fill="url(#koi-frog-h)"><circle cx="40" cy="44" r="12.5"/><circle cx="80" cy="44" r="12.5"/><ellipse cx="60" cy="60" rx="35" ry="19"/></g>
+            <circle cx="56" cy="55.5" r="1.2" fill="#3F8A4E"/><circle cx="64" cy="55.5" r="1.2" fill="#3F8A4E"/>
+            <path d="M29.5 63Q28.5 56 32 51.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>`,
+          face: `<circle cx="40" cy="44.5" r="8.4" fill="#FFFBEA" ${OW(2)}/><circle cx="80" cy="44.5" r="8.4" fill="#FFFBEA" ${OW(2)}/>`
         },
-        eyes: {lx: 45, rx: 75, y: 47, r: 5.4, style: "dot"},
-        mouth: {x: 60, y: 64, w: 4},
-        cheeks: {lx: 38, rx: 82, y: 63, w: 5, h: 3, color: "#FF9FB0"},
-        anchors: {top: [60, 45, 0.9], neck: [60, 78, 1.1], chest: [70, 92, 0.72], back: [86, 88, 0.9], hands: [60, 94, 0.9]},
+        eyes: {lx: 40, rx: 80, y: 44.8, r: 5.4, style: "sparkle", color: "#1E2B22"},
+        mouths: {
+          neutral: `<path d="M49 62Q60 68.5 71 62" fill="none" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/>`,
+          smile: `<path d="M47 61Q60 71.5 73 61" fill="none" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/><path d="M45.5 59.5L48 62M74.5 59.5L72 62" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>`,
+          open: `<path d="M48 61.5Q60 63.5 72 61.5Q68 74 60 74Q52 74 48 61.5Z" fill="${INK}" ${OW(2)}/><ellipse cx="60" cy="70.4" rx="5.2" ry="2.6" fill="#FF8FA8"/>`,
+          sleepy: `<path d="M54 63.5Q60 66.5 66 63.5" fill="none" stroke="${INK}" stroke-width="2.4" stroke-linecap="round"/>`
+        },
+        mouth: {x: 60, y: 63, w: 3.4},
+        cheeks: {lx: 35, rx: 85, y: 62, w: 5, h: 3, color: "#FF8DB0"},
+        anchors: {top: [60, 37, 0.78], neck: [60, 81.5, 1.05], chest: [60, 92, 0.6], back: [88, 84, 0.9], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Ribbit! So happy to see you!", "You're doing amazing today!", "Look at you, hopping along!", "Big hops of cheer for you!", "You've got this, friend!", "You make my lily pad bounce!", "Best company on the pond!"],
           pet: ["Ribbit! That's so nice!", "Hehe! I'm all hoppy now!"],
@@ -50247,21 +50288,24 @@ var COMP_KIT = (() => {
       {
         id: "volcano-pumi", name: "Pumi", kind: "Pumice Pebble", pose: "float", wearColor: "#E0533A",
         bio: "A light little pumice pebble who floats along through every study session.",
-        idle: ["topBob", "sway", "headTilt"], cheer: "spin",
-        neck: [60, 92],
+        idle: ["topBob", "finWiggle", "sway"], cheer: "spin", hatTop: true,
         parts: {
-          back: `<ellipse cx="60" cy="96" rx="38" ry="9" fill="#8ED8D2" ${O}/>`,
-          body: `<path d="M26 96q6-3 12 0M82 97q6-3 12 0" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>`,
-          head: `${RG("volcano-pumi-b", [[0, "#FAF6F0"], [0.6, "#DCD2C8"], [1, "#B0A498"]], 0.38, 0.3, 0.8)}
-            <path d="M30 74C28 55 42 45 60 45C80 45 92 55 90 74C88 92 32 93 30 74Z" fill="url(#volcano-pumi-b)" ${O}/>
-            <g fill="#A89C92">${[[40, 60, 2.4], [80, 58, 2], [78, 78, 2.6], [42, 80, 1.8], [62, 52, 1.6], [86, 70, 1.4], [34, 70, 1.6], [52, 84, 1.4]].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join("")}</g>
-            ${shine(44, 52, 6, 3, -25)}`,
-          top: {svg: `${LINE("M60 46V39", "#5DAA62", 2.4)}<path d="M60 41C56 33 47 33 44 37C48 43 56 44 60 41Z" fill="#8AD08A" ${O2}/><path d="M60 40C64 32 73 32 76 36C72 42 64 43 60 40Z" fill="#9BDA95" ${O2}/>`, pivot: [60, 47]}
+          feet: `<ellipse cx="49" cy="103" rx="6.4" ry="5" fill="#D6CEC4" ${O}/><ellipse cx="71" cy="103" rx="6.4" ry="5" fill="#D6CEC4" ${O}/>`,
+          body: `${RG("volcano-pumi-b", [[0, "#FFFFFF"], [0.5, "#EEEAE4"], [1, "#BCB2A6"]], 0.4, 0.3, 0.82)}
+            <path d="M60 40C80 39.5 95 53 95 72C95 91 80 101.5 60 101.5C40 101.5 25 91 25 72C25 53 40 40.5 60 40Z" fill="url(#volcano-pumi-b)" ${O}/>
+            ${[[68, 49, 4.4, 3.2], [82, 58, 4, 3.2], [89.5, 72, 2.6, 2.2], [56.5, 47, 2.2, 1.7], [31, 66, 2.6, 2.2], [85, 87, 3.4, 2.6], [72, 95, 4.2, 3], [59, 97, 2.2, 1.6], [45, 93, 3.6, 2.6], [32.5, 84, 2.4, 2]].map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#BCA992"/><ellipse cx="${x}" cy="${f1(y - ry * 0.32)}" rx="${f1(rx * 0.8)}" ry="${f1(ry * 0.66)}" fill="#8E7B67"/>`).join("")}
+            <path d="M34 90Q60 104 86 90" fill="none" stroke="#D2C2B0" stroke-width="2.4" stroke-linecap="round" opacity=".8"/>
+            <ellipse cx="39.5" cy="55" rx="7.4" ry="4" transform="rotate(-40 39.5 55)" fill="#fff"/><circle cx="48.5" cy="48" r="2" fill="#fff"/>`,
+          armL: {svg: `<ellipse cx="25" cy="81" rx="5.2" ry="7" transform="rotate(28 25 81)" fill="#E6E0D8" ${O}/>`, pivot: [31, 78]},
+          armR: {svg: `<ellipse cx="95" cy="81" rx="5.2" ry="7" transform="rotate(-28 95 81)" fill="#E6E0D8" ${O}/>`, pivot: [89, 78]},
+          top: {svg: `${LINE("M60 42C60 37 59.5 33 61 28.5", "#5DAA62", 2.6)}
+            <path d="M60.5 31C55 23.5 46 23.5 42.5 28C47 34 55 35.5 60.5 31Z" fill="#8AD08A" ${O2}/><path d="M59 30.6Q52 27.4 46 28" fill="none" stroke="#5DAA62" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M61 30C63.5 21 72 18 77.5 21.5C75 29 67.5 32.5 61 30Z" fill="#9BDA95" ${O2}/><path d="M63 29Q69.5 25 75 22.6" fill="none" stroke="#5DAA62" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [60, 42]}
         },
-        eyes: {lx: 50, rx: 70, y: 66, r: 3.8, style: "dot", color: "#2B2233"},
-        mouth: {x: 60, y: 75, w: 2.7},
-        cheeks: {lx: 43, rx: 77, y: 73, w: 4.2, h: 2.6, color: "#FF9A9A"},
-        anchors: {top: [60, 40, 0.85], neck: [60, 90, 1], chest: [72, 84, 0.6], back: [86, 62, 0.8], hands: [60, 90, 0.85]},
+        eyes: {lx: 49, rx: 71, y: 71, r: 5.2, style: "round", color: "#3A2A2A"},
+        mouth: {x: 60, y: 80.5, w: 3, color: "#3A2A2A"},
+        cheeks: {lx: 39, rx: 81, y: 79, w: 4.8, h: 2.9, color: "#FF9E9E"},
+        anchors: {top: [60, 43, 0.95], neck: [60, 93, 1.1], chest: [74, 92, 0.65], back: [90, 66, 0.85], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Hi! Look, I'm floating! Is this swimming?", "Light as air, strong as rock. Like you!", "You're doing great, I can tell from here!", "Drifting along, cheering you on!", "Little pebble, big belief in you!", "Keep it light, keep it going!", "You make hard things look easy!"],
           pet: ["Hehe! I'm bobbing with joy!", "Ooh, I almost floated away!"],
@@ -50277,30 +50321,34 @@ var COMP_KIT = (() => {
       {
         id: "volcano-iggy", name: "Iggy", kind: "Marine Iguana", pose: "sit", wearColor: "#2EA2A0",
         bio: "A sunny marine iguana who basks on the warm rocks between your tasks.",
-        idle: ["tailSwish", "headTilt", "earTwitch"], cheer: "bounce",
-        neck: [60, 74],
+        idle: ["tailSwish", "headTilt", "wave"], cheer: "bounce",
+        neck: [60, 72],
         parts: {
-          tail: {svg: LINE("M82 102C98 106 108 96 106 84C105 77 98 78 100 85", "#6E7C84", 6.4), pivot: [82, 100]},
-          feet: `<path d="M38 104l-6 6M42 106l-3 6M46 106v6M82 104l6 6M78 106l3 6M74 106v6" stroke="${INK}" stroke-width="2.4" stroke-linecap="round"/><ellipse cx="42" cy="104" rx="8" ry="4" fill="#5E6C74" ${OW(2.2)}/><ellipse cx="78" cy="104" rx="8" ry="4" fill="#5E6C74" ${OW(2.2)}/>`,
-          body: `${RG("volcano-iggy-b", [[0, "#A8B8BC"], [0.6, "#6E7C84"], [1, "#46525A"]], 0.42, 0.3, 0.8)}
-            <path d="M34 106C30 90 38 76 60 74C82 76 90 90 86 106Z" fill="url(#volcano-iggy-b)" ${O}/>
-            <ellipse cx="60" cy="94" rx="13" ry="10" fill="#B8D0C8"/>
-            <g fill="#E07A5A" opacity=".75"><ellipse cx="40" cy="90" rx="3.6" ry="2.4"/><ellipse cx="80" cy="88" rx="3.2" ry="2.2"/></g>
-            <g fill="#4FB8A8" opacity=".6"><circle cx="46" cy="80" r="2"/><circle cx="74" cy="80" r="2"/></g>`,
-          armL: {svg: `<ellipse cx="40" cy="92" rx="5" ry="8" transform="rotate(18 40 92)" fill="#6E7C84" ${O}/>`, pivot: [43, 86]},
-          armR: {svg: `<ellipse cx="80" cy="92" rx="5" ry="8" transform="rotate(-18 80 92)" fill="#6E7C84" ${O}/>`, pivot: [77, 86]},
-          earL: {svg: `<path d="M42 36L38 22L49 31Z" fill="#E8A040" ${O2}/><path d="M50 32L50 18L57 29Z" fill="#E8A040" ${O2}/>`, pivot: [48, 34]},
-          earR: {svg: `<path d="M78 36L82 22L71 31Z" fill="#E8A040" ${O2}/><path d="M70 32L70 18L63 29Z" fill="#E8A040" ${O2}/>`, pivot: [72, 34]},
-          head: `${RG("volcano-iggy-h", [[0, "#B0C0C4"], [0.6, "#76848C"], [1, "#4A565E"]], 0.42, 0.3, 0.8)}
-            <path d="M34 54C34 38 46 30 60 30C74 30 86 38 86 54C86 68 76 76 60 76C44 76 34 68 34 54Z" fill="url(#volcano-iggy-h)" ${O}/>
-            <g fill="#F4FAFA"><circle cx="50" cy="36" r="2"/><circle cx="58" cy="33.4" r="1.6"/><circle cx="66" cy="34" r="2.2"/><circle cx="73" cy="38" r="1.4"/><circle cx="62" cy="38" r="1.2"/></g>
-            <g fill="#5A6870" opacity=".55"><circle cx="40" cy="60" r="1.6"/><circle cx="80" cy="60" r="1.6"/><circle cx="44" cy="67" r="1.3"/><circle cx="76" cy="67" r="1.3"/></g>`,
-          face: `<ellipse cx="55" cy="60" rx="1.4" ry="1" fill="${INK}"/><ellipse cx="65" cy="60" rx="1.4" ry="1" fill="${INK}"/>`
+          tail: {svg: `<g fill="url(#volcano-iggy-s)" ${OW(2.4)}><path d="M94 72L96 61L102 70Z"/><path d="M103 70L111 64L108 76Z"/></g>
+            <path d="M80 90C90 92 98 91 100 86C102 81 99 78 96 79C93 80 91 77 93 74C96 69 106 69 108 79C110 92 100 104 82 105Z" fill="#5C6C78" ${O}/>`, pivot: [82, 98]},
+          body: `${LG("volcano-iggy-s", [[0, "#FFD27A"], [0.55, "#FF9A3A"], [1, "#E8552A"]])}
+            ${RG("volcano-iggy-b", [[0, "#9DB0BA"], [0.55, "#6C7E8A"], [1, "#465460"]], 0.4, 0.3, 0.85)}
+            <g fill="url(#volcano-iggy-s)" ${OW(2.4)}><path d="M77 69L88 63L84 77Z"/><path d="M84 79L95 76L88 90Z"/></g>
+            <path d="M60 64C78 64 89 80 89 96C89 106 81 110.5 60 110.5C39 110.5 31 106 31 96C31 80 42 64 60 64Z" fill="url(#volcano-iggy-b)" ${O}/>
+            <path d="M60 77C70 77 77 87 77 97C77 104 71 108 60 108C49 108 43 104 43 97C43 87 50 77 60 77Z" fill="#F3D3A4"/>
+            <path d="M47 89Q60 93 73 89M45 97Q60 101 75 97M47 104Q60 107 73 104" fill="none" stroke="#DDB07A" stroke-width="2" stroke-linecap="round"/>
+            <path d="M28 108Q27 99 34 97L41 96Q48 97 48 103Q48 108 45 110Z" fill="#5C6C78" ${O}/><path d="M92 108Q93 99 86 97L79 96Q72 97 72 103Q72 108 75 110Z" fill="#5C6C78" ${O}/>
+            <g fill="#4A5864" ${OW(2.2)}><circle cx="29" cy="109" r="3"/><circle cx="35" cy="110.2" r="3"/><circle cx="41" cy="110" r="3"/><circle cx="91" cy="109" r="3"/><circle cx="85" cy="110.2" r="3"/><circle cx="79" cy="110" r="3"/></g>
+            <g fill="#FF9A3A"><circle cx="38" cy="80" r="1.8"/><circle cx="42.5" cy="74.5" r="1.3"/><circle cx="82" cy="88" r="1.6"/></g>`,
+          armL: {svg: `<g fill="#4A5864" ${OW(2.2)}><circle cx="38.5" cy="92.5" r="2.6"/><circle cx="43.5" cy="94" r="2.6"/><circle cx="48.5" cy="92.5" r="2.6"/></g><path d="M38 78C34 82 35 90 41 92C47 93 50 89 48 84C46 78 42 76 38 78Z" fill="#6A7C88" ${O}/>`, pivot: [42, 79]},
+          armR: {svg: `<g fill="#4A5864" ${OW(2.2)}><circle cx="81.5" cy="92.5" r="2.6"/><circle cx="76.5" cy="94" r="2.6"/><circle cx="71.5" cy="92.5" r="2.6"/></g><path d="M82 78C86 82 85 90 79 92C73 93 70 89 72 84C74 78 78 76 82 78Z" fill="#6A7C88" ${O}/>`, pivot: [78, 79]},
+          head: `${RG("volcano-iggy-h", [[0, "#A9BCC4"], [0.55, "#73868F"], [1, "#4A5862"]], 0.42, 0.3, 0.85)}
+            <g fill="url(#volcano-iggy-s)" ${OW(2.6)}><path d="M44 32Q41 19 46 14Q51 19 55 28Z"/><path d="M53 28Q55 11 60 7Q65 11 67 28Z"/><path d="M76 32Q79 19 74 14Q69 19 65 28Z"/></g>
+            <path d="M60 24C79 24 92 36 92 51C92 66 79 73 60 73C41 73 28 66 28 51C28 36 41 24 60 24Z" fill="url(#volcano-iggy-h)" ${O}/>
+            <path d="M60 56C71 56 79 60 79 65C79 70 71 72.5 60 72.5C49 72.5 41 70 41 65C41 60 49 56 60 56Z" fill="#94A6AE" opacity=".7"/>
+            <g fill="#FF9A3A"><circle cx="49" cy="33" r="1.6"/><circle cx="71" cy="33" r="1.6"/><circle cx="60" cy="31" r="1.3"/></g>
+            <path d="M36 42Q40 33 49 30" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".8"/>`,
+          face: `<ellipse cx="56" cy="61" rx="1.4" ry="1" fill="${INK}"/><ellipse cx="64" cy="61" rx="1.4" ry="1" fill="${INK}"/>`
         },
-        eyes: {lx: 48, rx: 72, y: 50, r: 5, style: "round", color: "#2B1A10"},
-        mouth: {x: 60, y: 66, w: 4.2},
-        cheeks: {lx: 41, rx: 79, y: 60, w: 4.2, h: 2.6, color: "#FF8F8F"},
-        anchors: {top: [60, 28, 0.95], neck: [60, 76, 1.05], chest: [72, 96, 0.68], back: [86, 88, 0.8], hands: [60, 98, 0.85]},
+        eyes: {lx: 46, rx: 74, y: 49, r: 6, style: "sparkle", color: "#2B1A10"},
+        mouth: {x: 60, y: 66, w: 3.8},
+        cheeks: {lx: 37, rx: 83, y: 59, w: 4.6, h: 2.8, color: "#FF8F7A"},
+        anchors: {top: [60, 25, 1], neck: [60, 73, 1.1], chest: [60, 84, 0.6], back: [86, 82, 0.8], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Hi! Just sunbathing between study sessions.", "Achoo! Sorry, that's a happy salt sneeze!", "You're doing great, mate!", "Slow blink of approval.", "Warm rocks, warm heart, warm wishes!", "Let's dive into the next one!", "You're tougher than lava rock!"],
           pet: ["Achoo! Hehe, happy sneeze!", "Ooh, right on the spiky bits!"],
@@ -52709,29 +52757,37 @@ var COMP_KIT = (() => {
         idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "hop",
         neck: [60, 76],
         parts: {
-          tail: {svg: `<path d="M84 98C100 98 104 80 95 73C87 67 77 74 82 82C85 87 92 85 91 79" fill="none" stroke="#2B2233" stroke-width="13" stroke-linecap="round"/>
-            <path d="M84 98C100 98 104 80 95 73C87 67 77 74 82 82C85 87 92 85 91 79" fill="none" stroke="#E39A4C" stroke-width="7.6" stroke-linecap="round"/>
-            <path d="M86 95C96 94 99 82 94 77" fill="none" stroke="#FFF2DE" stroke-width="2.6" stroke-linecap="round"/>`, pivot: [82, 98]},
-          feet: `<ellipse cx="36" cy="105" rx="11" ry="6.4" fill="#E39A4C" ${O}/><ellipse cx="84" cy="105" rx="11" ry="6.4" fill="#E39A4C" ${O}/>`,
+          tail: {svg: `${LG("japan-kuri-t", [[0, "#F2B060"], [1, "#D9853A"]])}
+            <circle cx="90" cy="79" r="12.5" fill="url(#japan-kuri-t)" ${O}/>
+            <path d="M90.5 79.5A2.6 2.6 0 1 1 93 82.4A6 6 0 1 1 97.4 74.8" fill="none" stroke="#FFF4E2" stroke-width="3.2" stroke-linecap="round"/>`, pivot: [84, 92]},
           body: `${LG("japan-kuri-b", [[0, "#F2B060"], [1, "#D9853A"]])}
-            <path d="M60 70C80 70 90 86 90 98C90 107 80 110.5 60 110.5C40 110.5 30 107 30 98C30 86 40 70 60 70Z" fill="url(#japan-kuri-b)" ${O}/>
-            <path d="M60 76C70 76 74 88 72 100C70 108 50 108 48 100C46 88 50 76 60 76Z" fill="#FFF4E2"/>
-            <path d="M44 74L76 74L64 88Q60 91 56 88Z" fill="#D8402E" ${OW(2.4)}/><circle cx="51" cy="78" r="1.6" fill="#FFF4E2"/><circle cx="68" cy="79" r="1.6" fill="#FFF4E2"/><circle cx="60" cy="84" r="1.4" fill="#FFF4E2"/>`,
-          armL: {svg: `<path d="M44 84Q41 95 42 104Q46 109 52 105Q53 96 51 85Z" fill="#E8A052" ${O}/><path d="M42.6 101Q46 107 51.6 103.4L52 105Q46 109 42 104Z" fill="#FFF4E2"/><path d="M45.4 105.4v-2.2M48.6 105.6v-2.2" stroke="#B0723A" stroke-width="1.1" stroke-linecap="round"/>`, pivot: [47, 86]},
-          armR: {svg: `<path d="M76 84Q79 95 78 104Q74 109 68 105Q67 96 69 85Z" fill="#E8A052" ${O}/><path d="M77.4 101Q74 107 68.4 103.4L68 105Q74 109 78 104Z" fill="#FFF4E2"/><path d="M74.6 105.4v-2.2M71.4 105.6v-2.2" stroke="#B0723A" stroke-width="1.1" stroke-linecap="round"/>`, pivot: [73, 86]},
+            <path d="M60 64C77 64 86 78 87.5 93C89 105 79 110.5 60 110.5C41 110.5 31 105 32.5 93C34 78 43 64 60 64Z" fill="url(#japan-kuri-b)" ${O}/>
+            <path d="M60 74C67.5 74 70.5 84 70 96C69.5 104 50.5 104 50 96C49.5 84 52.5 74 60 74Z" fill="#FFF4E2"/>
+            <ellipse cx="39" cy="97" rx="10" ry="12" transform="rotate(-12 39 97)" fill="url(#japan-kuri-b)" ${O}/>
+            <ellipse cx="81" cy="97" rx="10" ry="12" transform="rotate(12 81 97)" fill="url(#japan-kuri-b)" ${O}/>
+            <ellipse cx="36" cy="107.4" rx="6.4" ry="4" fill="#FFF4E2" ${O}/><ellipse cx="84" cy="107.4" rx="6.4" ry="4" fill="#FFF4E2" ${O}/>
+            <path d="M34.4 109v-1.8M37.6 109v-1.8M82.4 109v-1.8M85.6 109v-1.8" stroke="#B0723A" stroke-width="1.2" stroke-linecap="round"/>
+            <path d="M44 74L76 74L62.2 90.4Q60 92.6 57.8 90.4Z" fill="#D8402E" ${OW(2.4)}/><circle cx="52" cy="78.4" r="1.5" fill="#FFF4E2"/><circle cx="68" cy="78.4" r="1.5" fill="#FFF4E2"/><circle cx="60" cy="85" r="1.4" fill="#FFF4E2"/>
+            <path d="M33.6 94Q34.4 90 37.6 88.4" fill="none" stroke="#FFE0B0" stroke-width="2.4" stroke-linecap="round"/>`,
+          armL: {svg: `${LG("japan-kuri-l", [[0, "#F0AC5C"], [1, "#DE8E40"]])}
+            <path d="M43.5 87C43.5 81.5 54.5 81.5 54.5 87L55 103H43Z" fill="url(#japan-kuri-l)" ${O}/>
+            <ellipse cx="49" cy="105.6" rx="6.6" ry="4.6" fill="#FFF4E2" ${O}/><path d="M47.2 107.4v-2M50.8 107.4v-2" stroke="#B0723A" stroke-width="1.3" stroke-linecap="round"/>`, pivot: [49, 85]},
+          armR: {svg: `${LG("japan-kuri-r", [[0, "#F0AC5C"], [1, "#DE8E40"]])}
+            <path d="M65.5 87C65.5 81.5 76.5 81.5 76.5 87L77 103H65Z" fill="url(#japan-kuri-r)" ${O}/>
+            <ellipse cx="71" cy="105.6" rx="6.6" ry="4.6" fill="#FFF4E2" ${O}/><path d="M69.2 107.4v-2M72.8 107.4v-2" stroke="#B0723A" stroke-width="1.3" stroke-linecap="round"/>`, pivot: [71, 85]},
           earL: {svg: `<path d="M35 48C32 38 33 26 38 20C45 24 53 32 56 38Z" fill="#E39A4C" ${O}/><path d="M38.6 42C37 35 38 29 40 26C44 29 48 33 50 37Z" fill="#FFD9C2"/>`, pivot: [44, 42]},
           earR: {svg: `<path d="M85 48C88 38 87 26 82 20C75 24 67 32 64 38Z" fill="#E39A4C" ${O}/><path d="M81.4 42C83 35 82 29 80 26C76 29 72 33 70 37Z" fill="#FFD9C2"/>`, pivot: [76, 42]},
           head: `${RG("japan-kuri-h", [[0, "#F8BE72"], [0.7, "#EBA052"], [1, "#D6853A"]], 0.42, 0.32, 0.8)}
             <path d="M60 32C80 32 90 44 90 56C90 70 78 80 60 80C42 80 30 70 30 56C30 44 40 32 60 32Z" fill="url(#japan-kuri-h)" ${O}/>
             <path d="M33 60C36 52 46 52 52 58C56 62 64 62 68 58C74 52 84 52 87 60C86 72 74 79 60 79C46 79 34 72 33 60Z" fill="#FFF4E2"/>
             <ellipse cx="48" cy="46" rx="3.6" ry="2.4" fill="#FFF4E2"/><ellipse cx="72" cy="46" rx="3.6" ry="2.4" fill="#FFF4E2"/>
-            <path d="M40 40Q45 35 52 34" fill="none" stroke="#FFE0B0" stroke-width="2.6" stroke-linecap="round"/>`,
+            <path d="M40.5 43Q45 38.4 51.5 37" fill="none" stroke="#FFE0B0" stroke-width="2.6" stroke-linecap="round"/>`,
           face: `<path d="M56.4 61.4Q60 59.6 63.6 61.4Q63 64.6 60 65.4Q57 64.6 56.4 61.4Z" fill="#2B2233"/><ellipse cx="59" cy="61.6" rx="1.2" ry=".7" fill="#fff" opacity=".7"/>`
         },
         eyes: {lx: 49, rx: 71, y: 54, r: 4.4, style: "dot", color: "#2B2233"},
         mouth: {x: 60, y: 68, w: 3.2, color: "#2B2233", style: "cat"},
         cheeks: {lx: 41, rx: 79, y: 63, w: 4.4, h: 2.6, color: "#FF9A9A"},
-        anchors: {top: [60, 32, 0.95], neck: [60, 78, 1], chest: [66, 94, 0.6], back: [84, 86, 0.8], hands: [60, 100, 0.86]},
+        anchors: {top: [60, 32, 0.95], neck: [60, 80, 1], chest: [60, 85, 0.5], back: [84, 86, 0.8], hands: [60, 92, 0.72]},
         lines: {
           tap: ["Woof! Your deadlines are safe with me!", "Tail curled up tight, ready to help!", "I sniffed out your next task. Let's go!", "Shiba smile for you! You've got this!", "Big ears, big heart, big cheers!", "I'll keep watch while you study!", "One task at a time, like one treat at a time!", "You make my tail spin in circles!"],
           pet: ["Hehe! Right behind the ears, please!", "Aww! My tail is wagging so fast!"],
@@ -52829,6 +52885,12 @@ var COMP_KIT = (() => {
   const star = (cx, cy, R, r, n, rot = 0) => { let d = ""; for (let i = 0; i < n * 2; i++) { const a = rot - Math.PI / 2 + i * Math.PI / n, q = i % 2 ? r : R; d += (i ? "L" : "M") + f1(cx + q * Math.cos(a)) + " " + f1(cy + q * Math.sin(a)); } return d + "Z"; };
   const blossom = (x, y, r, c = "#FFFFFF") => `${ring(x, y, 5, r * 0.62, (px, py) => `<circle cx="${px}" cy="${py}" r="${f1(r * 0.55)}" fill="${c}" ${OW(1.1)}/>`)}<circle cx="${x}" cy="${y}" r="${f1(r * 0.36)}" fill="#F6D24A"/>`;
 
+  // Zaki the fennec: shared outlines
+  const FENN_HEAD = "M60 38C78 38 88 48 88 60C88 63.5 87.2 66.6 85.8 69.4L90.5 73.2C87 75.4 83 76.4 79.4 76.6C74.4 80.8 67.4 82.8 60 82.8C52.6 82.8 45.6 80.8 40.6 76.6C37 76.4 33 75.4 29.5 73.2L34.2 69.4C32.8 66.6 32 63.5 32 60C32 48 42 38 60 38Z";
+  const FENN_TAIL = "M72 106C90 111 108 102 109.5 85C110.5 72 106 59 97.5 53C90.5 48 82 52.5 84 60C85.6 66 86.5 74 78 86L74 96Z";
+  const FENN_EAR = `<path d="M37 59C29 46 19 26 16.5 13C15.8 8.6 18.6 6.4 22.6 8C35 14 50 27 59 42Z" fill="url(#morocco-fenn-e)" ${O}/>
+    <path d="M40 55C34 44 27 30 23.4 17C33 22.6 45 32.6 53 44.4Z" fill="url(#morocco-fenn-ei)"/>
+    <path d="M39.4 55C37.6 50 35.4 46 33 42C36 42.6 37.4 41 37.2 38.6C39.8 40.4 41.8 39.6 42.4 37.4C44 39.8 46.2 40.2 47.8 38.8C48.6 41.6 50.6 43.2 53 44.4Z" fill="#FFF8EE"/>`;
   COMP_DATA.push({
     theme: "morocco",
     companions: [
@@ -52876,31 +52938,34 @@ var COMP_KIT = (() => {
         id: "morocco-fenn", name: "Zaki", kind: "Riad Fennec Kit", pose: "sit", sleepy: true, wearColor: "#C8642E",
         bio: "A fennec fox kit from the riad whose giant ears hear every deadline coming.",
         idle: ["earTwitch", "tailSwish", "headTilt"], cheer: "hop",
-        neck: [60, 76],
+        neck: [60, 78],
         parts: {
-          tail: {svg: `${LG("morocco-fenn-t", [[0, "#F4D6A8"], [1, "#D8A266"]], 0, 1, 1, 0)}
-            <path d="M76 104C100 108 116 90 112 66C110 55 95 52 92 63C90 78 86 86 72 88Z" fill="url(#morocco-fenn-t)" ${O}/>
-            <path d="M112 66C110 55 95 52 92 63C97 67 106 68 112 66Z" fill="#3A2A26"/><path d="M112 66C110 55 95 52 92 63" fill="none" ${O}/>
-            <path d="M86 98Q100 92 104 76" fill="none" stroke="#FFF2DC" stroke-width="2.4" stroke-linecap="round" opacity=".8"/>`, pivot: [80, 98]},
-          feet: `<ellipse cx="45" cy="108" rx="9.6" ry="4.8" fill="#F8E6C8" ${O}/><ellipse cx="75" cy="108" rx="9.6" ry="4.8" fill="#F8E6C8" ${O}/>
-            <path d="M41 106.6v2.6M45 106.4v2.8M71 106.4v2.8M75 106.6v2.6" stroke="#C8A27A" stroke-width="1.2" stroke-linecap="round"/>`,
-          body: `${LG("morocco-fenn-b", [[0, "#F6DCB0"], [1, "#E2B47A"]])}
-            <path d="M60 72C80 72 86 88 86 98C86 107 78 110.5 60 110.5C42 110.5 34 107 34 98C34 88 40 72 60 72Z" fill="url(#morocco-fenn-b)" ${O}/>
-            <path d="M60 78C70 78 74 88 72 98C70 104 50 104 48 98C46 88 50 78 60 78Z" fill="#FFF6E8"/>
-            <path d="M46 84Q60 90 74 84" fill="none" stroke="#C8642E" stroke-width="3.6" stroke-linecap="round"/><path d="${star(60, 90, 4.2, 2, 8)}" fill="#2C5FA8" ${OW(1.3)}/>`,
-          earL: {svg: `${LG("morocco-fenn-e", [[0, "#F2CE9C"], [1, "#E4B27A"]])}<path d="M44 44C32 32 20 10 25 3C34 2 52 22 55 39Z" fill="url(#morocco-fenn-e)" ${O}/><path d="M44 37C36 27 29 14 30.5 9.6C36 11 46 24 49 34Z" fill="#FFC6C2"/><path d="M38 25Q40 28 41 31M34 18Q36 21 37 24" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".8"/>`, pivot: [49, 41]},
-          earR: {svg: `<path d="M76 44C88 32 100 10 95 3C86 2 68 22 65 39Z" fill="url(#morocco-fenn-e)" ${O}/><path d="M76 37C84 27 91 14 89.5 9.6C84 11 74 24 71 34Z" fill="#FFC6C2"/><path d="M82 25Q80 28 79 31M86 18Q84 21 83 24" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".8"/>`, pivot: [71, 41]},
-          head: `${RG("morocco-fenn-h", [[0, "#FCE8C6"], [0.7, "#F2D2A2"], [1, "#E2B47A"]], 0.42, 0.32, 0.78)}
-            <path d="M60 36C80 36 87 49 87 60C87 72 75 81 60 81C45 81 33 72 33 60C33 49 40 36 60 36Z" fill="url(#morocco-fenn-h)" ${O}/>
-            <path d="M47 70C49 63 55 62 60 64C65 62 71 63 73 70C70 78 50 78 47 70Z" fill="#FFF8EC"/>
-            <path d="M40 48Q44 41 52 39" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
-            <path d="M44 54Q48 52 52 54M68 54Q72 52 76 54" fill="none" stroke="#C8925A" stroke-width="1.4" stroke-linecap="round" opacity=".7"/>`,
-          face: `<ellipse cx="60" cy="67" rx="3.6" ry="2.6" fill="#3A2A26"/><circle cx="59" cy="66.2" r=".9" fill="#fff"/>`
+          tail: {svg: `${LG("morocco-fenn-t", [[0, "#F8DDB2"], [1, "#DCA567"]], 0, 0, 1, 1)}<defs><clipPath id="morocco-fenn-tc"><path d="${FENN_TAIL}"/></clipPath></defs>
+            <path d="${FENN_TAIL}" fill="url(#morocco-fenn-t)"/>
+            <path d="M80 70Q84 66 88 69Q91 64 95 68Q99 64 102 69Q105 66 110 69L112 40L78 40Z" fill="#4A3530" clip-path="url(#morocco-fenn-tc)"/>
+            <path d="M98 95Q105.5 87 104 74" fill="none" stroke="#FFF1DA" stroke-width="2.8" stroke-linecap="round"/>
+            <path d="${FENN_TAIL}" fill="none" ${O}/>`, pivot: [78, 100]},
+          feet: `<ellipse cx="34.5" cy="107.4" rx="8.4" ry="4.6" fill="#F3D3A4" ${O}/><ellipse cx="85.5" cy="107.4" rx="8.4" ry="4.6" fill="#F3D3A4" ${O}/>`,
+          body: `${LG("morocco-fenn-b", [[0, "#F8E0B6"], [1, "#E2AE72"]])}
+            <path d="M60 71C75 71 82 83 84.5 95C86.5 105 81 110.5 72 110.5H48C39 110.5 33.5 105 35.5 95C38 83 45 71 60 71Z" fill="url(#morocco-fenn-b)" ${O}/>
+            <path d="M48 80Q60 86 72 80C74 91 69 101 60 103C51 101 46 91 48 80Z" fill="#FFF5E4"/>
+            ${LINE("M44 78Q60 95 76 78", "#C8642E", 3.4)}
+            <path d="M60 88.6L63.4 92.6L60 96.6L56.6 92.6Z" fill="#F2C24E" ${OW(1.8)}/><circle cx="59" cy="91.5" r=".9" fill="#fff"/>`,
+          armL: {svg: `${LG("morocco-fenn-l", [[0, "#F6D8AA"], [1, "#EBC28C"]])}<path d="M41.6 92Q41.6 87.6 47 87.6Q52.4 87.6 52.4 92L52.6 103Q55 104.2 55 106.6Q55 110.4 47 110.4Q39 110.4 39 106.6Q39 104.2 41.4 103Z" fill="url(#morocco-fenn-l)" ${O}/><path d="M44.6 106.8v2.4M49.4 106.8v2.4" stroke="#C98E52" stroke-width="1.4" stroke-linecap="round"/>`, pivot: [47, 92]},
+          armR: {svg: `<path d="M78.4 92Q78.4 87.6 73 87.6Q67.6 87.6 67.6 92L67.4 103Q65 104.2 65 106.6Q65 110.4 73 110.4Q81 110.4 81 106.6Q81 104.2 78.6 103Z" fill="url(#morocco-fenn-l)" ${O}/><path d="M70.6 106.8v2.4M75.4 106.8v2.4" stroke="#C98E52" stroke-width="1.4" stroke-linecap="round"/>`, pivot: [73, 92]},
+          earL: {svg: `${LG("morocco-fenn-e", [[0, "#E9B77C"], [1, "#F4D3A2"]], 0, 0, 1, 1)}${LG("morocco-fenn-ei", [[0, "#F2A99A"], [0.55, "#FAD3C4"], [1, "#FFF3E2"]], 0, 0, 1, 1)}${FENN_EAR}`, pivot: [46, 47]},
+          earR: {svg: `<g transform="matrix(-1 0 0 1 120 0)">${FENN_EAR}</g>`, pivot: [74, 47]},
+          head: `${RG("morocco-fenn-h", [[0, "#FDEACB"], [0.65, "#F4D3A2"], [1, "#E5B47A"]], 0.42, 0.3, 0.8)}<defs><clipPath id="morocco-fenn-hc"><path d="${FENN_HEAD}"/></clipPath></defs>
+            <path d="${FENN_HEAD}" fill="url(#morocco-fenn-h)"/>
+            <path d="M28 71C35 64 44 62 52 65.5C55 63 57.5 62.4 60 62.4C62.5 62.4 65 63 68 65.5C76 62 85 64 92 71L92 90L28 90Z" fill="#FFF7EA" clip-path="url(#morocco-fenn-hc)"/>
+            <path d="M40 51Q43 43.5 51 40.5" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/>
+            <path d="${FENN_HEAD}" fill="none" ${O}/>`,
+          face: `<path d="M55.2 67.2Q60 65.4 64.8 67.2Q64 71.4 60 72.4Q56 71.4 55.2 67.2Z" fill="#3A2A26" ${OW(1.2)}/><ellipse cx="58.4" cy="67.6" rx="1.4" ry=".8" fill="#fff"/>`
         },
-        eyes: {lx: 49, rx: 71, y: 60, r: 4.4, style: "round", color: "#2A2026"},
-        mouth: {x: 60, y: 72.5, w: 2.6, color: "#2A2026", style: "cat"},
-        cheeks: {lx: 42, rx: 78, y: 67, w: 3.6, h: 2.2, color: "#FFA2A2"},
-        anchors: {top: [60, 37, 0.9], neck: [60, 80, 1], chest: [60, 92, 0.6], back: [84, 90, 0.8], hands: [60, 100, 0.86]},
+        eyes: {lx: 47.5, rx: 72.5, y: 59.5, r: 5, style: "round", color: "#2A2026"},
+        mouth: {x: 60, y: 74.6, w: 2.6, color: "#2A2026", style: "cat"},
+        cheeks: {lx: 40.5, rx: 79.5, y: 68, w: 4, h: 2.4, color: "#FFA2A2"},
+        anchors: {top: [60, 40, 0.9], neck: [60, 81, 1], chest: [60, 94, 0.6], back: [82, 90, 0.8], hands: [60, 99, 0.72]},
         lines: {
           tap: ["My ears heard you studying from the desert!", "Big ears, big plans, little paws. Let's go!", "I hear a deadline... and you're way ahead of it!", "Desert foxes keep cool. So can you!", "Every grain of sand adds up to a dune!", "Listen closely: you're doing great!", "I dug a cozy spot right next to your notes.", "Sharp ears, sharp mind. That's you!"],
           pet: ["Hehe! Scratch behind the big ears!", "Aww, my tail is wagging all by itself!"],
@@ -53233,36 +53298,61 @@ var COMP_KIT = (() => {
         bio: "A sun-loving island cat who naps on warm walls and wakes up for every win.",
         idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "hop",
         neck: [60, 78],
-        parts: {
-          tail: {svg: `${LG("greece-kiki-t", [[0, "#F2B06A"], [1, "#D9853E"]])}
-            <path d="M80 102C94 103 104 94 103 80C102 72 97 69 93.6 72.4C91.4 75 95.6 78 95.4 84C95 91 89 95 80 95Z" fill="url(#greece-kiki-t)" ${O}/>
-            <path d="M97 80.5l-5.2 1.2M99 88l-5.6 -0.6M93.6 95l-4 -3.4" fill="none" stroke="#C26E2C" stroke-width="2.2" stroke-linecap="round"/>
-            <path d="M95.2 73.6C97.4 72.2 100.4 73.6 101 77" fill="none" stroke="#FFF8EE" stroke-width="3" stroke-linecap="round"/>`, pivot: [82, 99]},
-          feet: `<ellipse cx="47" cy="107.6" rx="8.6" ry="4.6" fill="#FFFDF8" ${O}/><ellipse cx="73" cy="107.6" rx="8.6" ry="4.6" fill="#FFFDF8" ${O}/>
-            <path d="M44.6 109.4v-2.2M48.4 109.6v-2.2M70.6 109.6v-2.2M74.4 109.4v-2.2" stroke="#D8CFC6" stroke-width="1.2" stroke-linecap="round"/>`,
-          body: `${RG("greece-kiki-b", [[0, "#FFFFFF"], [0.7, "#FFF8EE"], [1, "#EEDFCF"]], 0.4, 0.35, 0.75)}
-            <path d="M60 68C76 68 84 81 84 94C84 106 76 110 60 110C44 110 36 106 36 94C36 81 44 68 60 68Z" fill="url(#greece-kiki-b)" ${O}/>
-            <path d="M73.6 75C81 80.6 84 91 82.8 101.4C78 98 73.8 89 72 79Z" fill="#EFA460"/>
-            <path d="M75.6 84l4.6 -1.2M76.6 91l4.8 -0.4" stroke="#D2823C" stroke-width="2" stroke-linecap="round"/>
-            <path d="M46 80Q60 86 74 80" fill="none" stroke="#2F6DB8" stroke-width="3.6" stroke-linecap="round"/>
-            <circle cx="60" cy="85.6" r="3.2" fill="#F2C24A" ${OW(1.5)}/><path d="M58.6 86.4h2.8" stroke="#A8761E" stroke-width="1" stroke-linecap="round"/>
-            <path d="M42 90Q42 80 48 75" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".9"/>`,
-          armL: {svg: `<ellipse cx="50.5" cy="100" rx="5.6" ry="7.4" fill="#FFFDF8" ${O}/><path d="M48.6 105.4v-2M52.4 105.4v-2" stroke="#D8CFC6" stroke-width="1.1" stroke-linecap="round"/>`, pivot: [50.5, 93]},
-          armR: {svg: `<ellipse cx="69.5" cy="100" rx="5.6" ry="7.4" fill="#FFFDF8" ${O}/><path d="M67.6 105.4v-2M71.4 105.4v-2" stroke="#D8CFC6" stroke-width="1.1" stroke-linecap="round"/>`, pivot: [69.5, 93]},
-          earL: {svg: `<path d="M37.6 46L39.4 23.6L55 37Z" fill="#FFFDF8" ${O}/><path d="M41.2 40.6L42 29.6L49.4 36.4Z" fill="#FFB6C6"/>`, pivot: [46, 40]},
-          earR: {svg: `<path d="M82.4 46L80.6 23.6L65 37Z" fill="#EFA460" ${O}/><path d="M78.8 40.6L78 29.6L70.6 36.4Z" fill="#FFB6C6"/>`, pivot: [74, 40]},
-          head: `${RG("greece-kiki-h", [[0, "#FFFFFF"], [0.72, "#FFF9F0"], [1, "#EEDFCF"]], 0.42, 0.34, 0.78)}
-            <path d="M60 33C78 33 87 44 87 57C87 71 76 79.5 60 79.5C44 79.5 33 71 33 57C33 44 42 33 60 33Z" fill="url(#greece-kiki-h)" ${O}/>
-            <path d="M64.4 34.4C76 35.6 84.6 44 85.8 55C79 52.4 71.4 46.6 67 40.6Z" fill="#EFA460"/>
-            <path d="M56 37.6l0.8 5.4M60 36.8v6M64 37.8l-0.4 4.6" stroke="#E29A55" stroke-width="2" stroke-linecap="round"/>
-            <path d="M39.4 51Q41.4 43 48 39.4" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>`,
-          face: `<path d="M57.6 62.4H62.4L60 65Z" fill="#FF94AC" ${OW(1.2)}/>
-            <path d="M42 63.6l-9 -1.8M42 67.2l-9 1M78 63.6l9 -1.8M78 67.2l9 1" stroke="${INK}" stroke-width="1.2" stroke-linecap="round" opacity=".55"/>`
-        },
-        eyes: {lx: 49.5, rx: 70.5, y: 56.5, r: 5, style: "round", color: "#3C6A2C"},
-        mouth: {x: 60, y: 67.6, w: 2.8, color: "#3A2A2A", style: "cat"},
-        cheeks: {lx: 42.5, rx: 77.5, y: 64.6, w: 4.2, h: 2.4, color: "#FFA6BA"},
-        anchors: {top: [60, 34, 0.95], neck: [60, 80, 1], chest: [60, 94, 0.62], back: [84, 88, 0.8], hands: [60, 100, 0.86]},
+        parts: (() => {
+          const HEAD = "M60 30.5C77.5 30.5 89.5 41 90 55.5C90.3 63 88.6 68.4 85.4 72.4C80 78.6 70.6 81.4 60 81.4C49.4 81.4 40 78.6 34.6 72.4C31.4 68.4 29.7 63 30 55.5C30.5 41 42.5 30.5 60 30.5Z";
+          const BODY = "M60 69C71.5 69 79 77 81.6 87.5C87.6 91 90 99 88 104.6C86.6 108.6 82 110.4 76 110.4H44C38 110.4 33.4 108.6 32 104.6C30 99 32.4 91 38.4 87.5C41 77 48.5 69 60 69Z";
+          const TAIL = "M79 104C92 106.5 100.6 100.4 100.6 88.6C100.6 80 97 75 92.4 73";
+          const ear = (fill, x) => {
+            const m = v => f1(x ? 120 - v : v);
+            return `<path d="M${m(37)} 62C${m(31.6)} 48 ${m(31)} 32 ${m(34.6)} 21.4C${m(35.4)} 19 ${m(37.8)} 18.2 ${m(39.8)} 19.6C${m(46.4)} 24.2 ${m(52.4)} 30 ${m(57.4)} 36.4Z" fill="${fill}" ${O}/>
+              <path d="M${m(37.4)} 46C${m(36.6)} 38 ${m(37)} 30.6 ${m(38.6)} 25.4C${m(43)} 28.6 ${m(47.4)} 33 ${m(50.6)} 37.6Z" fill="url(#greece-kiki-in)"/>`;
+          };
+          const leg = x => `<path d="M${f1(x - 5.8)} 95C${f1(x - 5.8)} 91.6 ${f1(x - 3.4)} 89.6 ${x} 89.6C${f1(x + 3.4)} 89.6 ${f1(x + 5.8)} 91.6 ${f1(x + 5.8)} 95V100.6C${f1(x + 6.8)} 102.6 ${f1(x + 7)} 109.8 ${x} 109.8C${f1(x - 7)} 109.8 ${f1(x - 6.8)} 102.6 ${f1(x - 5.8)} 100.6Z" fill="url(#greece-kiki-leg)" ${O}/>
+            <path d="M${f1(x - 1.9)} 109V106.2M${f1(x + 1.9)} 109V106.2" stroke="#CDB8A4" stroke-width="1.4" stroke-linecap="round"/>`;
+          return {
+            tail: {svg: `<path d="${TAIL}" fill="none" stroke="${INK}" stroke-width="12.6" stroke-linecap="round"/>
+              <path d="${TAIL}" fill="none" stroke="#F0A65E" stroke-width="6.6" stroke-linecap="round"/>
+              <path d="${TAIL}" fill="none" stroke="#D27C36" stroke-width="6.6" stroke-dasharray="3.4 5.6" stroke-dashoffset="-13"/>
+              <path d="M95.4 74.6C94.5 73.9 93.5 73.4 92.4 73" fill="none" stroke="#FFFDF8" stroke-width="6.6" stroke-linecap="round"/>`, pivot: [82, 103]},
+            body: `${RG("greece-kiki-b", [[0, "#FFFFFF"], [0.62, "#FFF8EF"], [1, "#EADAC7"]], 0.45, 0.3, 0.8)}
+              <defs><clipPath id="greece-kiki-bc"><path d="${BODY}"/></clipPath></defs>
+              <path d="${BODY}" fill="url(#greece-kiki-b)"/>
+              <g clip-path="url(#greece-kiki-bc)">
+                <path d="M28 82C35 80.6 40.6 84 41.6 91.6C42.4 98.4 39.6 104.6 28 106Z" fill="#EFA05A"/>
+                <path d="M31 89.6q4.4 -1.4 7.6 1.2M30.6 96.8q4.6 -1 7.8 1.8" fill="none" stroke="#D27C36" stroke-width="2.2" stroke-linecap="round"/>
+                <path d="M81.6 87.5C78.6 92 77.6 99 79 106" fill="none" stroke="#E6D3BF" stroke-width="2.2" stroke-linecap="round"/>
+                <path d="M38.4 87.5C41.4 92 42.4 99 41 106" fill="none" stroke="#D88E48" stroke-width="2.2" stroke-linecap="round"/>
+                <path d="M36 79.4Q60 92.6 84 79.4" fill="none" stroke="${INK}" stroke-width="7.4" stroke-linecap="round"/>
+                <path d="M36 79.4Q60 92.6 84 79.4" fill="none" stroke="#2F6DB8" stroke-width="4.2" stroke-linecap="round"/>
+                <path d="M45 82.6Q52 85.4 56 85.8" fill="none" stroke="#7FA9E0" stroke-width="1.4" stroke-linecap="round"/>
+              </g>
+              <path d="${BODY}" fill="none" ${O}/>
+              ${RG("greece-kiki-bell", [[0, "#FFF2B8"], [0.5, "#F4C64A"], [1, "#D49A22"]], 0.38, 0.32, 0.72)}
+              <circle cx="60" cy="89.4" r="3.8" fill="url(#greece-kiki-bell)" ${OW(1.6)}/><path d="M58.4 90.6h3.2" stroke="#8A5E14" stroke-width="1.2" stroke-linecap="round"/>
+              <ellipse cx="38.6" cy="108.2" rx="6.8" ry="3.9" fill="#FFFDF8" ${O}/><ellipse cx="81.4" cy="108.2" rx="6.8" ry="3.9" fill="#FFFDF8" ${O}/>
+              <path d="M36.4 110.6V108.6M40.8 110.6V108.6M79.2 110.6V108.6M83.6 110.6V108.6" stroke="#CDB8A4" stroke-width="1.4" stroke-linecap="round"/>`,
+            armL: {svg: `${LG("greece-kiki-leg", [[0, "#FFF8EF"], [1, "#FFFFFF"]])}${leg(48.5)}`, pivot: [48.5, 93]},
+            armR: {svg: leg(71.5), pivot: [71.5, 93]},
+            earL: {svg: `${LG("greece-kiki-in", [[0, "#FFC4D2"], [1, "#FF9DB4"]])}${ear("#FFFDF8", 0)}`, pivot: [44, 42]},
+            earR: {svg: `${LG("greece-kiki-er", [[0, "#F5B36E"], [1, "#E08C45"]])}${ear("url(#greece-kiki-er)", 1)}`, pivot: [76, 42]},
+            head: `${RG("greece-kiki-h", [[0, "#FFFFFF"], [0.66, "#FFF9F1"], [1, "#EBDCCB"]], 0.42, 0.36, 0.72)}
+              ${RG("greece-kiki-p", [[0, "#F7B470"], [1, "#E58F45"]], 0.3, 0.6, 0.8)}
+              <defs><clipPath id="greece-kiki-hc"><path d="${HEAD}"/></clipPath></defs>
+              <path d="${HEAD}" fill="url(#greece-kiki-h)"/>
+              <g clip-path="url(#greece-kiki-hc)">
+                <path d="M57 26C59.4 33 63.6 37 62.6 43.4C61.6 49 63 56.4 68 61.6C73 66.4 80.6 66.4 86 63.4C88.6 62 91.6 62.6 94 64L96 24Z" fill="url(#greece-kiki-p)"/>
+                <path d="M66 28.6q0.4 5 -1.4 8.6M73 30q0.2 5 -2.2 8.2M80.4 33.4q-0.6 4.8 -3.4 7.4" fill="none" stroke="#D27C36" stroke-width="2.4" stroke-linecap="round"/>
+              </g>
+              <path d="${HEAD}" fill="none" ${O}/>
+              <path d="M37.2 52.4Q38.4 43.4 45.4 38.4" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/>`,
+            face: `<path d="M57.2 62.6Q60 61.6 62.8 62.6Q62 65.4 60 66Q58 65.4 57.2 62.6Z" fill="#FF8FA8" ${OW(1.4)}/>
+              <path d="M39.6 62.6L33.4 61.2M39.6 65.8L33.6 66.8M80.4 62.6L86.6 61.2M80.4 65.8L86.4 66.8" stroke="#B7A08C" stroke-width="1.4" stroke-linecap="round"/>`
+          };
+        })(),
+        eyes: {lx: 48.5, rx: 71.5, y: 56.8, r: 5.6, style: "round", color: "#3C6A2C"},
+        mouth: {x: 60, y: 67.8, w: 2.6, color: "#3A2A2A", style: "cat"},
+        cheeks: {lx: 41.4, rx: 78.6, y: 65.4, w: 4.2, h: 2.5, color: "#FFA6BA"},
+        anchors: {top: [60, 33, 0.95], neck: [60, 81, 1], chest: [60, 96, 0.62], back: [86, 88, 0.8], hands: [60, 101, 0.86]},
         lines: {
           tap: ["Yawn... oh, hello! I was just sunbathing.", "Every warm wall in Oia knows my name!", "You're doing great. I'm doing a nap. Teamwork!", "Purr... one page at a time, friend.", "I saved you the sunniest spot on the steps!", "Sea breeze, warm stones and you studying. Perfect.", "Blue doors, white walls, big brains. That's you!", "Slow blink for you. That means I like you!"],
           pet: ["Purrrr! Right behind the ears, yes!", "Mrrp! Warmer than a sunny wall!"],
@@ -53365,8 +53455,6 @@ var COMP_KIT = (() => {
   const O2 = OW(2.2);
   const f1 = v => Math.round(v * 10) / 10;
   const ring = (cx, cy, n, r, fn) => Array.from({length: n}, (_, i) => { const a = i / n * Math.PI * 2; return fn(f1(cx + Math.cos(a) * r), f1(cy + Math.sin(a) * r), a * 180 / Math.PI, i); }).join("");
-  // a broad bead collar along an arc under the chin
-  const collar = (cx, cy, rx, ry, n, r) => Array.from({length: n}, (_, i) => { const a = Math.PI * (0.15 + 0.7 * i / (n - 1)), x = f1(cx + Math.cos(a) * rx), y = f1(cy + Math.sin(a) * ry); return `<circle cx="${x}" cy="${y}" r="${r}" fill="${i % 2 ? "#2E5FA8" : "#F2C24A"}" ${OW(1.2)}/>`; }).join("");
 
   COMP_DATA.push({
     theme: "egypt",
@@ -53412,33 +53500,35 @@ var COMP_KIT = (() => {
         id: "egypt-jamal", name: "Jamal", kind: "Camel Calf", pose: "stand", wearColor: "#C8503A",
         bio: "A long-lashed camel calf with stamina for the longest study sessions.",
         idle: ["earTwitch", "tailSwish", "headTilt"], cheer: "hop",
-        neck: [60, 74],
+        neck: [44, 64],
         parts: {
-          tail: {svg: `${LINE("M90 82Q100 86 101 96", "#D8A46C", 2.6)}<path d="M101 94Q106 100 101 106Q96 101 101 94Z" fill="#8A5A36" ${OW(1.8)}/>`, pivot: [90, 82]},
-          feet: `<path d="M40 90V108M80 90V108" stroke="#C48C58" stroke-width="7" stroke-linecap="round"/>
-            <path d="M48 92Q47 102 48 107M72 92Q73 102 72 107" fill="none" stroke="#2B2233" stroke-width="11" stroke-linecap="round"/><path d="M48 92Q47 102 48 107M72 92Q73 102 72 107" fill="none" stroke="#E6BC86" stroke-width="7" stroke-linecap="round"/>
-            <ellipse cx="48" cy="109" rx="6.4" ry="3.6" fill="#7A5236" ${OW(2.2)}/><ellipse cx="72" cy="109" rx="6.4" ry="3.6" fill="#7A5236" ${OW(2.2)}/>
-            <ellipse cx="40" cy="108.6" rx="5" ry="3" fill="#6A4630" ${OW(2)}/><ellipse cx="80" cy="108.6" rx="5" ry="3" fill="#6A4630" ${OW(2)}/>`,
-          body: `${RG("egypt-jamal-b", [[0, "#F6D6A4"], [0.7, "#E6B57C"], [1, "#CC9460"]], 0.4, 0.3, 0.8)}
-            <path d="M66 70C68 52 88 50 92 70Z" fill="url(#egypt-jamal-b)" ${O}/>
-            <path d="M60 66C82 66 95 74 95 86C95 97 83 100 60 100C37 100 25 97 25 86C25 74 38 66 60 66Z" fill="url(#egypt-jamal-b)" ${O}/>
-            <path d="M64 64C72 60 86 60 92 68L94 82Q78 86 62 80Z" fill="#C8503A" ${OW(2.2)}/><path d="M64 70Q78 74 93 72M63 76Q78 80 94 77" fill="none" stroke="#F2C24A" stroke-width="2" stroke-linecap="round"/>
-            <path d="M66 81L65 87M72 82.6L71.4 88.6M78 83L78 89M84 82.6L84.6 88.6M90 81.4L91.4 87" stroke="#2E5FA8" stroke-width="2.4" stroke-linecap="round"/>
-            <path d="M34 78Q40 72 50 71" fill="none" stroke="#FFF2D8" stroke-width="2.6" stroke-linecap="round" opacity=".8"/>`,
-          earL: {svg: `<ellipse cx="35" cy="40" rx="5" ry="8" transform="rotate(-40 35 40)" fill="#E2AE76" ${O}/><ellipse cx="35.6" cy="40.6" rx="2.2" ry="4.6" transform="rotate(-40 35.6 40.6)" fill="#B87A52"/>`, pivot: [40, 44]},
-          earR: {svg: `<ellipse cx="85" cy="40" rx="5" ry="8" transform="rotate(40 85 40)" fill="#E2AE76" ${O}/><ellipse cx="84.4" cy="40.6" rx="2.2" ry="4.6" transform="rotate(40 84.4 40.6)" fill="#B87A52"/>`, pivot: [80, 44]},
-          head: `${RG("egypt-jamal-h", [[0, "#FBE2B8"], [0.7, "#EDC28C"], [1, "#D8A46C"]], 0.42, 0.3, 0.8)}
-            <path d="M60 28C76 28 84 38 84 50C84 58 81 64 78 68C76 74 70 78 60 78C50 78 44 74 42 68C39 64 36 58 36 50C36 38 44 28 60 28Z" fill="url(#egypt-jamal-h)" ${O}/>
-            <ellipse cx="60" cy="68" rx="15" ry="9.6" fill="#F8DDB4" ${OW(2.2)}/>
-            <path d="M48 31C49 22 56 24 58 28C60 21 68 22 68 29C73 27 76 32 72 35Q60 30 48 35C44 33 45 29 48 31Z" fill="#B8804E" ${OW(2)}/>
-            <path d="M41 42Q44 37 50 35" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" opacity=".8"/>
-            <path d="M44.6 44.6L43 41.6M47.6 43.6L47 40.4M50.8 43.4L51.2 40.2M75.4 44.6L77 41.6M72.4 43.6L73 40.4M69.2 43.4L68.8 40.2" stroke="#2B2233" stroke-width="1.6" stroke-linecap="round"/>`,
-          face: `<path d="M54 66Q55 64 57 65M66 66Q65 64 63 65" fill="none" stroke="#7A5236" stroke-width="1.8" stroke-linecap="round"/>`
+          tail: {svg: `${LINE("M97 70Q104 75 103.5 86", "#D8A46C", 2.6)}<path d="M103.5 83.5Q108.5 90 104 96.5Q98.5 90.5 103.5 83.5Z" fill="#9A6A42" ${OW(2.2)}/>`, pivot: [98, 71]},
+          feet: `${[[81, "#D6A26C"], [93, "#D6A26C"], [40, "#E8BE88"], [54, "#E8BE88"]].map(([x, c]) => `<path d="M${x - 4.6} 84V103.5Q${x - 4.6} 106.5 ${x} 106.5Q${x + 4.6} 106.5 ${x + 4.6} 103.5V84Z" fill="${c}" ${O}/><path d="M${x - 6.4} 108.6Q${x - 6.4} 104.6 ${x} 104.6Q${x + 6.4} 104.6 ${x + 6.4} 108.6Q${x + 6.4} 110.6 ${x} 110.6Q${x - 6.4} 110.6 ${x - 6.4} 108.6Z" fill="#7A5236" ${OW(2.4)}/><path d="M${x} 106.4V109.6" stroke="#2B2233" stroke-width="1.6" stroke-linecap="round"/>`).join("")}`,
+          body: `${RG("egypt-jamal-b", [[0, "#F8DCAE"], [0.65, "#E9BC84"], [1, "#D29C66"]], 0.4, 0.3, 0.8)}
+            <defs><clipPath id="egypt-jamal-c"><path d="M34 58C33 66 31 74 31 83C31 90 35 94 42 94H88C96 94 101 89 101 81C101 72 98 66 93 62C90 52 85 46 79 46C72 46 67 52 64 60C62 64 58 66 55 64C54 62 54 60 54 57Z"/></clipPath></defs>
+            <path d="M34 58C33 66 31 74 31 83C31 90 35 94 42 94H88C96 94 101 89 101 81C101 72 98 66 93 62C90 52 85 46 79 46C72 46 67 52 64 60C62 64 58 66 55 64C54 62 54 60 54 57Z" fill="url(#egypt-jamal-b)"/>
+            <g clip-path="url(#egypt-jamal-c)">
+              <path d="M57 69Q80 55 104 69V83Q80 95 57 83Z" fill="#C8503A" stroke="#2B2233" stroke-width="2.4" stroke-linejoin="round"/>
+              <path d="M58 74.5Q80 62 103 74.5" fill="none" stroke="#F2C24A" stroke-width="2.4"/><path d="M58 79Q80 89.5 103 79" fill="none" stroke="#F2C24A" stroke-width="2.4"/>
+              ${[66, 73, 80, 87, 94].map(x => `<path d="M${x} 73.4l2.6 3.1l-2.6 3.1l-2.6 -3.1Z" fill="#2E5FA8"/>`).join("")}
+            </g>
+            <path d="M34 58C33 66 31 74 31 83C31 90 35 94 42 94H88C96 94 101 89 101 81C101 72 98 66 93 62C90 52 85 46 79 46C72 46 67 52 64 60C62 64 58 66 55 64" fill="none" ${O}/>
+            ${[64, 72, 80, 88, 96].map(x => { const t = (x - 57) / 47, y = f1(83 + 24 * t * (1 - t) - 0.6); return `<path d="M${x} ${y}V${f1(y + 3)}" stroke="#2B2233" stroke-width="1.4"/><path d="M${x} ${f1(y + 2.4)}Q${x + 2.6} ${f1(y + 5.6)} ${x} ${f1(y + 7.4)}Q${x - 2.6} ${f1(y + 5.6)} ${x} ${f1(y + 2.4)}Z" fill="#F2C24A" ${OW(1.4)}/>`; }).join("")}
+            <path d="M70.5 55Q73 49.5 78.5 48.6" fill="none" stroke="#FFF4DE" stroke-width="2.6" stroke-linecap="round"/>`,
+          earL: {svg: `<path d="M30 29Q19 18.5 14.5 22.5Q12.5 30 27 35.5Z" fill="#E2AE76" ${O}/><path d="M26.5 30.6Q20 25 17.4 25.6Q17 29.6 24.6 33Z" fill="#B87A52"/>`, pivot: [27, 32]},
+          earR: {svg: `<path d="M58 29Q69 18.5 73.5 22.5Q75.5 30 61 35.5Z" fill="#E2AE76" ${O}/><path d="M61.5 30.6Q68 25 70.6 25.6Q71 29.6 63.4 33Z" fill="#B87A52"/>`, pivot: [61, 32]},
+          head: `${RG("egypt-jamal-h", [[0, "#FCE6C0"], [0.7, "#EEC48E"], [1, "#DAA66E"]], 0.42, 0.3, 0.8)}
+            <path d="M44 18C58 18 65 27 65 39C65 45 63.5 49 61.5 52C64.5 56 64.5 62 60.5 65C57 67.5 51 68.5 44 68.5C37 68.5 31 67.5 27.5 65C23.5 62 23.5 56 26.5 52C24.5 49 23 45 23 39C23 27 30 18 44 18Z" fill="url(#egypt-jamal-h)" ${O}/>
+            <path d="M44 51.5C53 51.5 59.5 54.5 59.5 59.5C59.5 64.5 53 67 44 67C35 67 28.5 64.5 28.5 59.5C28.5 54.5 35 51.5 44 51.5Z" fill="#F9E2C0"/>
+            <path d="M34 24C32.5 16.5 39.5 13.5 43 17.5C45.5 11.5 53.5 13 53.5 18.5C58.5 17 60.5 23 56.5 25.5Q44 20.5 31.5 25.5C29.5 24 30.5 21.5 34 24Z" fill="#B8804E" ${OW(2.2)}/>
+            <path d="M28 37Q29.5 31 34.5 28" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+            <path d="M31.8 38.2Q30.4 37.4 29.2 35.8M33.4 36.6Q32.6 35.2 32.4 33.6M56.2 38.2Q57.6 37.4 58.8 35.8M54.6 36.6Q55.4 35.2 55.6 33.6" fill="none" stroke="#2B2233" stroke-width="1.6" stroke-linecap="round"/>`,
+          face: `<ellipse cx="39.4" cy="56.2" rx="1.3" ry="2.3" transform="rotate(-38 39.4 56.2)" fill="#8A5A36"/><ellipse cx="48.6" cy="56.2" rx="1.3" ry="2.3" transform="rotate(38 48.6 56.2)" fill="#8A5A36"/>`
         },
-        eyes: {lx: 49, rx: 71, y: 50, r: 4.8, style: "round", color: "#2A1C14"},
-        mouth: {x: 60, y: 71, w: 3, color: "#2A1C14"},
-        cheeks: {lx: 42, rx: 78, y: 58, w: 3.8, h: 2.2, color: "#FF9A8A"},
-        anchors: {top: [60, 30, 0.9], neck: [60, 77, 1], chest: [52, 88, 0.6], back: [80, 70, 0.8], hands: [60, 92, 0.8]},
+        eyes: {lx: 36, rx: 52, y: 41, r: 4.6, style: "round", color: "#2A1C14"},
+        mouth: {x: 44, y: 61.5, w: 2.8, color: "#2A1C14"},
+        cheeks: {lx: 29.6, rx: 58.4, y: 48.5, w: 3.6, h: 2.2, color: "#FF9A8A"},
+        anchors: {top: [44, 21, 0.85], neck: [44, 69, 0.85], chest: [40, 84, 0.55], back: [80, 54, 0.8], hands: [46, 88, 0.75]},
         lines: {
           tap: ["Long legs, long lashes, long study sessions!", "Slow and steady crosses any desert.", "I store snacks in my hump. Kidding! Mostly.", "One step, then another. That's the caravan way.", "The oasis is just past this chapter!", "Hehe, you're doing so well! Keep plodding!", "I never get thirsty for knowledge. Never!", "Every dune looks smaller once you're on top."],
           pet: ["Hehe! My lashes are fluttering!", "Aww, scratch right behind the ear, please!"],
@@ -53457,29 +53547,34 @@ var COMP_KIT = (() => {
         idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "bounce",
         neck: [60, 76],
         parts: {
-          tail: {svg: `${LINE("M84 102Q100 100 102 86Q103 76 96 72", "#CFC4B2", 5)}<path d="M101 82l-4 -.4M100 77l-4 .6" stroke="#5E5248" stroke-width="2" stroke-linecap="round"/><circle cx="96" cy="72" r="3.2" fill="#3E342E" ${OW(1.6)}/>`, pivot: [84, 100]},
-          feet: `<ellipse cx="49" cy="108" rx="7.6" ry="4.6" fill="#F2ECE2" ${O}/><ellipse cx="71" cy="108" rx="7.6" ry="4.6" fill="#F2ECE2" ${O}/><path d="M47 106.6v2.4M51 106.6v2.4M69 106.6v2.4M73 106.6v2.4" stroke="#B8AC9C" stroke-width="1.2" stroke-linecap="round"/>`,
-          body: `${LG("egypt-miu-b", [[0, "#F0EBE2"], [1, "#CABFAE"]])}
-            <path d="M60 66C78 66 86 82 86 96C86 106 76 110.5 60 110.5C44 110.5 34 106 34 96C34 82 42 66 60 66Z" fill="url(#egypt-miu-b)" ${O}/>
-            <path d="M60 76C68 76 72 88 70 104H50C48 88 52 76 60 76Z" fill="#FAF7F2"/>
-            ${[[40, 84, 3, 2.2], [44, 94, 3.4, 2.4], [38, 100, 2.4, 1.8], [80, 84, 3, 2.2], [76, 94, 3.4, 2.4], [82, 100, 2.4, 1.8], [46, 76, 2.2, 1.6], [74, 76, 2.2, 1.6]].map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#6E6052"/>`).join("")}
-            <path d="M42 76Q60 90 78 76" fill="none" stroke="#2E5FA8" stroke-width="5" stroke-linecap="round"/>${collar(60, 72, 19, 13, 9, 2.3)}
-            <path d="M58 86L60 90L62 86Z" fill="#F2C24A" ${OW(1.2)}/>`,
-          earL: {svg: `<path d="M36 46L31 16L55 34Z" fill="#DCD3C4" ${O}/><path d="M38 40L35.4 22L49 33Z" fill="#F8C0C8"/>`, pivot: [44, 40]},
-          earR: {svg: `<path d="M84 46L89 16L65 34Z" fill="#DCD3C4" ${O}/><path d="M82 40L84.6 22L71 33Z" fill="#F8C0C8"/>`, pivot: [76, 40]},
-          head: `${RG("egypt-miu-h", [[0, "#FBF8F3"], [0.7, "#E8E1D5"], [1, "#CFC5B4"]], 0.42, 0.32, 0.8)}
+          tail: {svg: `${LINE("M78 106Q97 108.5 101 95Q103.5 84.5 97 79Q94.5 77 91.5 77.6", "#D3D6DC", 5.4)}
+            <path d="M84 107Q97 108.5 101 95Q103.5 84.5 97 79" fill="none" stroke="#5E626E" stroke-width="5.4" stroke-dasharray="2.4 5"/>
+            <path d="M96.4 78.6Q94.5 77 91.5 77.6" fill="none" stroke="#4A4E58" stroke-width="5.4" stroke-linecap="round"/>`, pivot: [82, 104]},
+          feet: `<ellipse cx="40" cy="108.6" rx="5.6" ry="3.4" fill="#E6E8EC" ${O}/><ellipse cx="80" cy="108.6" rx="5.6" ry="3.4" fill="#E6E8EC" ${O}/>`,
+          body: `${LG("egypt-miu-b", [[0, "#F3F4F6"], [1, "#BCC0C8"]])}
+            <path d="M60 70C76 70 85 83 87 95C88.5 105.5 82 110.5 72 110.5H48C38 110.5 31.5 105.5 33 95C35 83 44 70 60 70Z" fill="url(#egypt-miu-b)" ${O}/>
+            <path d="M60 78C68 78 73.4 88 73.4 106H46.6C46.6 88 52 78 60 78Z" fill="#FFFFFF"/>
+            ${[[43, 83.6, 2.2, 1.7, -20], [38.4, 91.4, 2.6, 2, 10], [39.6, 101.4, 2.4, 1.9, 15]].map(([x, y, rx, ry, r]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" transform="rotate(${r} ${x} ${y})" fill="#5E626E"/><ellipse cx="${f1(120 - x)}" cy="${y}" rx="${rx}" ry="${ry}" transform="rotate(${-r} ${f1(120 - x)} ${y})" fill="#5E626E"/>`).join("")}
+            <path d="M36.6 99Q38.6 89 46.4 89.6M83.4 99Q81.4 89 73.6 89.6" fill="none" stroke="#9AA0AA" stroke-width="2" stroke-linecap="round"/>
+            <path d="M47 92Q46.4 99 46.8 105M73 92Q73.6 99 73.2 105M60 96V105" fill="none" stroke="#2B2233" stroke-width="2.2" stroke-linecap="round"/>
+            <ellipse cx="52.6" cy="107.4" rx="7" ry="4" fill="#F7F8FA" ${O}/><ellipse cx="67.4" cy="107.4" rx="7" ry="4" fill="#F7F8FA" ${O}/>
+            <path d="M51 106v2.2M54.2 106v2.2M65.8 106v2.2M69 106v2.2" stroke="#A9AEB8" stroke-width="1.2" stroke-linecap="round"/>
+            <path d="M38 73Q60 101 82 73L79.5 71Q60 91 40.5 71Z" fill="#2E5FA8" ${OW(2.2)}/>
+            <path d="M39.6 75.4Q60 97.4 80.4 75.4" fill="none" stroke="#F2C24A" stroke-width="2.4" stroke-linecap="round"/>
+            <path d="M60 86.4Q64.2 90.6 60 95.4Q55.8 90.6 60 86.4Z" fill="#F2C24A" ${OW(1.8)}/>`,
+          earL: {svg: `<path d="M35 47Q30 28 31.5 18Q33.5 14.5 37 16.5Q47 24 56 34Z" fill="#D9DBE0" ${O}/><path d="M38.4 41Q35.4 29 36.4 21.6Q43.6 27.4 49.6 34Z" fill="#F7BDC8"/>`, pivot: [44, 40]},
+          earR: {svg: `<path d="M85 47Q90 28 88.5 18Q86.5 14.5 83 16.5Q73 24 64 34Z" fill="#D9DBE0" ${O}/><path d="M81.6 41Q84.6 29 83.6 21.6Q76.4 27.4 70.4 34Z" fill="#F7BDC8"/>`, pivot: [76, 40]},
+          head: `${RG("egypt-miu-h", [[0, "#FFFFFF"], [0.68, "#EBECEF"], [1, "#C6CAD1"]], 0.42, 0.32, 0.8)}
             <path d="M60 30C80 30 90 42 90 56C90 70 78 79 60 79C42 79 30 70 30 56C30 42 40 30 60 30Z" fill="url(#egypt-miu-h)" ${O}/>
-            <path d="M52 42L54 34L57 40L60 33L63 40L66 34L68 42" fill="none" stroke="#6E6052" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M31 54Q36 54 40 56M31 60Q36 59 40 60M89 54Q84 54 80 56M89 60Q84 59 80 60" fill="none" stroke="#7E7064" stroke-width="1.8" stroke-linecap="round"/>
-            <path d="M42 46Q46 44 49 45M78 46Q74 44 71 45" fill="none" stroke="#7E7064" stroke-width="1.6" stroke-linecap="round"/>
-            <ellipse cx="60" cy="66" rx="9" ry="6" fill="#FFFFFF" opacity=".75"/>
-            <path d="M37 44Q40 37 47 34" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" opacity=".85"/>`,
-          face: `<path d="M57 61.6H63L60 64.6Z" fill="#F29AAA" ${OW(1.2)}/><path d="M48 66H38M48 68.6L39 71M72 66H82M72 68.6L81 71" stroke="#8A7E72" stroke-width="1" stroke-linecap="round" opacity=".8"/>`
+            <path d="M51 45.4L53.6 38L60 43.6L66.4 38L69 45.4M57 33.4L57.8 37.6M63 33.4L62.2 37.6" fill="none" stroke="#5E626E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M60 62.4C56 61.2 50.4 62.4 50.4 66.6C50.4 70.4 55 71.4 60 69.6C65 71.4 69.6 70.4 69.6 66.6C69.6 62.4 64 61.2 60 62.4Z" fill="#FFFFFF"/>
+            <path d="M37 44Q40 37 47 34" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>`,
+          face: `<path d="M57 61.4H63Q63 62.4 60 64.6Q57 62.4 57 61.4Z" fill="#F29AAA" ${OW(1.4)}/><path d="M50 66.4L40.5 65M50.4 68.6L41.5 70.6M70 66.4L79.5 65M69.6 68.6L78.5 70.6" stroke="#9A9FA9" stroke-width="1.2" stroke-linecap="round"/>`
         },
-        eyes: {lx: 48.5, rx: 71.5, y: 54, r: 5.4, style: "round", color: "#2E6A2E"},
-        mouth: {x: 60, y: 67, w: 3, color: "#3A2E28", style: "cat"},
-        cheeks: {lx: 41, rx: 79, y: 62, w: 3.8, h: 2.2, color: "#FFA6B4"},
-        anchors: {top: [60, 30, 0.95], neck: [60, 76, 1], chest: [70, 92, 0.6], back: [84, 84, 0.8], hands: [60, 100, 0.84]},
+        eyes: {lx: 48.5, rx: 71.5, y: 54, r: 5.4, style: "round", color: "#2F7A36"},
+        mouth: {x: 60, y: 67, w: 3, color: "#3A3440", style: "cat"},
+        cheeks: {lx: 41, rx: 79, y: 62.6, w: 3.8, h: 2.2, color: "#FFA6B4"},
+        anchors: {top: [60, 30, 0.95], neck: [60, 78, 1], chest: [70, 92, 0.6], back: [84, 84, 0.8], hands: [60, 100, 0.84]},
         lines: {
           tap: ["Mrrp! Hello, honored student!", "My ancestors napped in palaces. I nap on notes.", "Curious about everything? Me too!", "Spots, whiskers and big ideas. That's us!", "A proper cat studies with great dignity.", "Purr... you're doing beautifully.", "Is that a new chapter? Let me sit on it.", "Golden collar, golden effort!"],
           pet: ["Purrrr... how gentle. Thank you!", "Mrrp! A royal scratch, how kind!"],
@@ -53510,6 +53605,26 @@ var COMP_KIT = (() => {
   // the beaver's mouth
   const teeth = (y, h) => `<path d="M56.4 ${y}H63.6V${f1(y + h - 1.4)}Q63.6 ${f1(y + h)} 62.2 ${f1(y + h)}H57.8Q56.4 ${f1(y + h)} 56.4 ${f1(y + h - 1.4)}Z" fill="#FFFDF4" ${OW(1.6)}/><path d="M60 ${y}V${f1(y + h)}" stroke="${INK}" stroke-width="1.1"/>`;
 
+  // Bucky's mouths, drawn from the line under the nose (y)
+  const buckyMouths = y => ({
+    neutral: `<path d="M56 ${y}Q58 ${f1(y + 1.6)} 60 ${f1(y + .2)}Q62 ${f1(y + 1.6)} 64 ${y}" fill="none" stroke="#2E1E16" stroke-width="1.6" stroke-linecap="round"/>${teeth(f1(y + .8), 5.4)}`,
+    smile: `<path d="M54.6 ${f1(y - .6)}Q57.4 ${f1(y + 2.6)} 60 ${f1(y + .4)}Q62.6 ${f1(y + 2.6)} 65.4 ${f1(y - .6)}" fill="none" stroke="#2E1E16" stroke-width="1.8" stroke-linecap="round"/>${teeth(f1(y + 1.2), 5.6)}`,
+    open: `<path d="M55 ${f1(y + .2)}Q60 ${f1(y - .8)} 65 ${f1(y + .2)}Q64.4 ${f1(y + 8.2)} 60 ${f1(y + 8.6)}Q55.6 ${f1(y + 8.2)} 55 ${f1(y + .2)}Z" fill="#7A2A2A" ${OW(1.6)}/><path d="M57 ${f1(y + 6.6)}Q60 ${f1(y + 4.6)} 63 ${f1(y + 6.6)}Q60 ${f1(y + 8.6)} 57 ${f1(y + 6.6)}Z" fill="#E87A7A"/>${teeth(f1(y + .4), 4.2)}`,
+    sleepy: `<path d="M57.4 ${f1(y + .2)}Q60 ${f1(y + 1.2)} 62.6 ${f1(y + .2)}" fill="none" stroke="#2E1E16" stroke-width="1.5" stroke-linecap="round"/>${teeth(f1(y + .8), 4.6)}`
+  });
+  // the beaver's paddle tail, and a scale grid kept inside it by a clip
+  const tailD = "M72 101C78 96 86 88 96 83C106 78 114 84 112.5 93C111 101 101 107 89 108C82 108.5 76 106.5 72 104Z";
+  const tailGrid = (() => {
+    // criss-cross lines (slope ±1.2, 6 apart), cut to the paddle's box so nothing reaches past it
+    const X0 = 72, X1 = 113, Y0 = 79, Y1 = 108.5;
+    let d = "";
+    [1.2, -1.2].forEach(s => { for (let c = -200; c <= 300; c += 7.2) {
+      const xa = Math.max(X0, Math.min((Y0 - c) / s, (Y1 - c) / s)), xb = Math.min(X1, Math.max((Y0 - c) / s, (Y1 - c) / s));
+      if (xb - xa > 1) d += `M${f1(xa)} ${f1(s * xa + c)}L${f1(xb)} ${f1(s * xb + c)}`;
+    } });
+    return d;
+  })();
+
   COMP_DATA.push({
     theme: "canada",
     companions: [
@@ -53519,15 +53634,15 @@ var COMP_KIT = (() => {
         idle: ["sway", "sparkle", "topBob"], cheer: "spin",
         neck: [60, 82],
         parts: {
-          top: {svg: `${LG("canada-mapleton-k", [[0, "#F6D27A"], [1, "#D89A3A"]])}
-            <path d="M60 22C55 14 47 10 41 12C40 16 46 20 55 22Z" fill="url(#canada-mapleton-k)" ${O2}/><path d="M60 22C65 14 73 10 79 12C80 16 74 20 65 22Z" fill="url(#canada-mapleton-k)" ${O2}/>
-            <path d="M45 14Q50 15 54 19M75 14Q70 15 66 19" fill="none" stroke="#C07A2A" stroke-width="1.2" stroke-linecap="round" opacity=".8"/>
-            <circle cx="56.4" cy="22" r="3.4" fill="#C8842E" ${OW(1.8)}/><circle cx="63.6" cy="22" r="3.4" fill="#C8842E" ${OW(1.8)}/>`, pivot: [60, 24]},
-          body: `${RG("canada-mapleton-g", [[0, "#FF7A52"], [0.55, "#E23A2A"], [1, "#B0221A"]], 0.42, 0.32, 0.8)}
-            <path d="M60 92Q60 100 64 106" fill="none" stroke="${INK}" stroke-width="5.4" stroke-linecap="round"/><path d="M60 92Q60 100 64 106" fill="none" stroke="#8A3A22" stroke-width="2.6" stroke-linecap="round"/>
+          top: {svg: `${LG("canada-mapleton-k", [[0, "#F8D88A"], [1, "#DDA046"]])}
+            <path d="M58.4 22C54 14.4 46.4 10.2 40.6 11.6C39.4 16.4 46.6 21.4 55 23.4Z" fill="url(#canada-mapleton-k)" ${O2}/><path d="M61.6 22C66 14.4 73.6 10.2 79.4 11.6C80.6 16.4 73.4 21.4 65 23.4Z" fill="url(#canada-mapleton-k)" ${O2}/>
+            <path d="M44.4 14.4Q50 15.6 54.6 20M75.6 14.4Q70 15.6 65.4 20" fill="none" stroke="#C4842F" stroke-width="1.3" stroke-linecap="round"/>
+            <circle cx="56.6" cy="23" r="3.6" fill="#C8842E" ${OW(1.8)}/><circle cx="63.4" cy="23" r="3.6" fill="#C8842E" ${OW(1.8)}/>`, pivot: [60, 25]},
+          body: `${RG("canada-mapleton-g", [[0, "#FF7A52"], [0.55, "#E8402C"], [1, "#BC2A1E"]], 0.42, 0.34, 0.75)}
+            <path d="M60 90Q60 99 64.5 105.5" fill="none" stroke="${INK}" stroke-width="6" stroke-linecap="round"/><path d="M60 90Q60 99 64.5 105.5" fill="none" stroke="#8A3A22" stroke-width="2.8" stroke-linecap="round"/>
             <path d="${leafD(60, 61, 40)}" fill="url(#canada-mapleton-g)" ${O}/>
-            <path d="M60 88V73M60 80L74 69M60 80L46 69M60 84L72 76M60 84L48 76M60 52V32M66 47L82 42M54 47L38 42" fill="none" stroke="#FF9E7A" stroke-width="1.8" stroke-linecap="round" opacity=".55"/>
-            <path d="M40 36Q44 32 50 33" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".7"/><path d="M28 59Q30 56 34 56" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" opacity=".55"/>`
+            <path d="M60 76.5V88.5" fill="none" stroke="#B82A1E" stroke-width="2" stroke-linecap="round"/>
+            <path d="M55 40.5L57.6 32" fill="none" stroke="#FFC2A8" stroke-width="3" stroke-linecap="round"/>`
         },
         eyes: {lx: 50.5, rx: 69.5, y: 58, r: 4.6, style: "sparkle", color: "#3A1210"},
         mouth: {x: 60, y: 68, w: 3, color: "#3A1210"},
@@ -53551,34 +53666,32 @@ var COMP_KIT = (() => {
         idle: ["tailSwish", "headTilt", "earTwitch"], cheer: "hop",
         neck: [60, 74],
         parts: {
-          tail: {svg: `${LG("canada-bucky-t", [[0, "#6E5444"], [1, "#3E2C22"]], 0, 0, 1, 1)}<path d="M76 100C82 106 96 108 104 100C110 94 110 84 104 80C98 76 90 80 86 86C82 92 78 96 76 100Z" fill="url(#canada-bucky-t)" ${O}/>
-            <path d="M88 86L100 96M94 82L106 92M84 92L96 102M92 84L84 98M100 82L90 102M106 88L98 104" fill="none" stroke="#8A6E5A" stroke-width="1.2" stroke-linecap="round" opacity=".75"/>`, pivot: [80, 100]},
-          feet: `<ellipse cx="47" cy="108" rx="9" ry="4.4" fill="#5A3A26" ${O}/><ellipse cx="73" cy="108" rx="9" ry="4.4" fill="#5A3A26" ${O}/><path d="M43 107v-2.2M47 107.4v-2.4M51 107v-2.2M69 107v-2.2M73 107.4v-2.4M77 107v-2.2" stroke="#8A6448" stroke-width="1.2" stroke-linecap="round"/>`,
-          body: `${RG("canada-bucky-b", [[0, "#B88456"], [0.65, "#96643E"], [1, "#74482A"]], 0.45, 0.35, 0.8)}
-            <path d="M60 70C77 70 85 84 85 96C85 106 77 110.5 60 110.5C43 110.5 35 106 35 96C35 84 43 70 60 70Z" fill="url(#canada-bucky-b)" ${O}/>
-            <path d="M60 80C69 80 73 88 73 96C73 104 67 108 60 108C53 108 47 104 47 96C47 88 51 80 60 80Z" fill="#D8B48C"/>
-            <path d="M52 90q2 -2 4 0M64 90q2 -2 4 0M57 98q2 -2 4 0" fill="none" stroke="#C49C72" stroke-width="1.4" stroke-linecap="round"/>`,
-          armL: {svg: `<path d="M49 84Q42 90 44 98Q48 101 52 98Q53 92 54 87Z" fill="#8A5A38" ${O}/><path d="M45.4 98l.6 -1.8M48.6 99.4l.2 -1.9" stroke="#C49C72" stroke-width="1.2" stroke-linecap="round"/>`, pivot: [51, 85]},
-          armR: {svg: `<path d="M71 84Q78 90 76 98Q72 101 68 98Q67 92 66 87Z" fill="#8A5A38" ${O}/><path d="M74.6 98l-.6 -1.8M71.4 99.4l-.2 -1.9" stroke="#C49C72" stroke-width="1.2" stroke-linecap="round"/>`, pivot: [69, 85]},
-          earL: {svg: `<circle cx="41" cy="38" r="6.6" fill="#8A5A38" ${O}/><circle cx="41.4" cy="38.6" r="3.2" fill="#5A3A26"/>`, pivot: [45, 41]},
-          earR: {svg: `<circle cx="79" cy="38" r="6.6" fill="#8A5A38" ${O}/><circle cx="78.6" cy="38.6" r="3.2" fill="#5A3A26"/>`, pivot: [75, 41]},
-          head: `${RG("canada-bucky-h", [[0, "#C08A5C"], [0.65, "#9C6A42"], [1, "#7A4C2E"]], 0.42, 0.3, 0.8)}
-            <path d="M60 32C75 32 84 42 84 55C84 68 74 77 60 77C46 77 36 68 36 55C36 42 45 32 60 32Z" fill="url(#canada-bucky-h)" ${O}/>
-            <path d="M44 42Q49 36 57 35" fill="none" stroke="#D8A878" stroke-width="2.6" stroke-linecap="round" opacity=".8"/>
-            <path d="M60 56C69 56 74 61 74 66C74 72 68 75 60 75C52 75 46 72 46 66C46 61 51 56 60 56Z" fill="#D8B48C" ${OW(2)}/>
-            <path d="M48 64H40M48 67.6L41 69.6M72 64H80M72 67.6L79 69.6" stroke="#5A3A26" stroke-width="1.1" stroke-linecap="round" opacity=".7"/>`,
-          face: `<path d="M55.4 59.4Q60 56.6 64.6 59.4Q63.6 63 60 63.4Q56.4 63 55.4 59.4Z" fill="#2E1E16" ${OW(1)}/><ellipse cx="58.4" cy="59.4" rx="1.2" ry=".6" fill="#fff" opacity=".6"/>`
+          tail: {svg: `${LG("canada-bucky-t", [[0, "#7A5C48"], [1, "#4A3428"]], 0, 0, 1, 1)}<defs><clipPath id="canada-bucky-tc"><path d="${tailD}"/></clipPath></defs>
+            <path d="${tailD}" fill="url(#canada-bucky-t)"/>
+            <path d="${tailGrid}" clip-path="url(#canada-bucky-tc)" fill="none" stroke="#33241C" stroke-width="1.3"/>
+            <path d="M96 87.5Q103 84.5 107.5 87" fill="none" stroke="#A88470" stroke-width="2.4" stroke-linecap="round"/>
+            <path d="${tailD}" fill="none" ${O}/>`, pivot: [78, 102]},
+          body: `${RG("canada-bucky-b", [[0, "#BE8A5A"], [0.6, "#9A6640"], [1, "#77492A"]], 0.45, 0.32, 0.8)}
+            <path d="M60 63C80 63 90 79 90 94C90 106 80 110.5 60 110.5C40 110.5 30 106 30 94C30 79 40 63 60 63Z" fill="url(#canada-bucky-b)" ${O}/>
+            <ellipse cx="60" cy="94" rx="17" ry="14" fill="#E2C098"/>
+            <ellipse cx="45" cy="107.4" rx="9.4" ry="5" fill="#6A4430" ${O}/><ellipse cx="75" cy="107.4" rx="9.4" ry="5" fill="#6A4430" ${O}/>
+            <path d="M40.6 105.6v2.6M45 105.2v3M49.4 105.6v2.6M70.6 105.6v2.6M75 105.2v3M79.4 105.6v2.6" stroke="#A47A5E" stroke-width="1.5" stroke-linecap="round"/>`,
+          armL: {svg: `<ellipse cx="47.5" cy="87" rx="6.4" ry="8.6" transform="rotate(-28 47.5 87)" fill="#5E3C28" ${O}/><path d="M48.8 93.8l1.2 -1.4M51.6 92l1.4 -1.2" stroke="#C9A07A" stroke-width="1.4" stroke-linecap="round"/>`, pivot: [43, 80]},
+          armR: {svg: `<ellipse cx="72.5" cy="87" rx="6.4" ry="8.6" transform="rotate(28 72.5 87)" fill="#5E3C28" ${O}/><path d="M71.2 93.8l-1.2 -1.4M68.4 92l-1.4 -1.2" stroke="#C9A07A" stroke-width="1.4" stroke-linecap="round"/>`, pivot: [77, 80]},
+          earL: {svg: `<circle cx="39.5" cy="30.5" r="7.4" fill="#865636" ${O}/><circle cx="40.6" cy="31.6" r="3.6" fill="#5A3A26"/>`, pivot: [44, 35]},
+          earR: {svg: `<circle cx="80.5" cy="30.5" r="7.4" fill="#865636" ${O}/><circle cx="79.4" cy="31.6" r="3.6" fill="#5A3A26"/>`, pivot: [76, 35]},
+          head: `${RG("canada-bucky-h", [[0, "#C9946A"], [0.6, "#A06C44"], [1, "#7C4E2E"]], 0.4, 0.3, 0.8)}
+            <path d="M60 21C76 21 87 32 87 47C87 63 76 74.5 60 74.5C44 74.5 33 63 33 47C33 32 44 21 60 21Z" fill="url(#canada-bucky-h)" ${O}/>
+            <path d="M40.5 38Q44 29.5 52 26.5" fill="none" stroke="#E3BA90" stroke-width="3" stroke-linecap="round"/>
+            <ellipse cx="60" cy="61.5" rx="14.5" ry="10" fill="#E2C098"/>
+            <circle cx="51" cy="62.5" r=".9" fill="#8A6448"/><circle cx="48.4" cy="60.4" r=".9" fill="#8A6448"/><circle cx="69" cy="62.5" r=".9" fill="#8A6448"/><circle cx="71.6" cy="60.4" r=".9" fill="#8A6448"/>`,
+          face: `<path d="M55.4 55.4Q60 52.6 64.6 55.4Q63.6 59 60 59.4Q56.4 59 55.4 55.4Z" fill="#2E1E16" ${OW(1.2)}/><ellipse cx="58.2" cy="55.2" rx="1.3" ry=".7" fill="#fff"/>`
         },
-        eyes: {lx: 51, rx: 69, y: 50, r: 3.8, style: "dot", color: "#24140C"},
-        mouth: {x: 60, y: 66, w: 2.6, color: "#2E1E16"},
-        mouths: {
-          neutral: `<path d="M56 65.4Q58 67 60 65.6Q62 67 64 65.4" fill="none" stroke="#2E1E16" stroke-width="1.6" stroke-linecap="round"/>${teeth(66.2, 5.4)}`,
-          smile: `<path d="M54.6 64.8Q57.4 68 60 65.8Q62.6 68 65.4 64.8" fill="none" stroke="#2E1E16" stroke-width="1.8" stroke-linecap="round"/>${teeth(66.6, 5.6)}`,
-          open: `<path d="M55 65.6Q60 64.6 65 65.6Q64.4 73.6 60 74Q55.6 73.6 55 65.6Z" fill="#7A2A2A" ${OW(1.6)}/><path d="M57 72Q60 70 63 72Q60 74 57 72Z" fill="#E87A7A"/>${teeth(65.8, 4.2)}`,
-          sleepy: `<path d="M57.4 65.6Q60 66.6 62.6 65.6" fill="none" stroke="#2E1E16" stroke-width="1.5" stroke-linecap="round"/>${teeth(66.2, 4.6)}`
-        },
-        cheeks: {lx: 44.4, rx: 75.6, y: 58, w: 3.6, h: 2.3, color: "#FF9A88"},
-        anchors: {top: [60, 33, 0.9], neck: [60, 76, 1], chest: [70, 94, 0.6], back: [84, 86, 0.8], hands: [60, 96, 0.85]},
+        eyes: {lx: 49.5, rx: 70.5, y: 46, r: 4.4, style: "dot", color: "#24140C"},
+        mouth: {x: 60, y: 62, w: 2.6, color: "#2E1E16"},
+        mouths: buckyMouths(61.4),
+        cheeks: {lx: 42.5, rx: 77.5, y: 56, w: 3.8, h: 2.4, color: "#FF9A88"},
+        anchors: {top: [60, 23, 0.95], neck: [60, 76, 1.05], chest: [81, 81, 0.55], back: [86, 82, 0.85], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Hi! I've been building you a study dam!", "One stick at a time. That's how dams get built!", "Busy as a beaver, and so are you!", "Chomp chomp! That task didn't stand a chance.", "Slap slap! That's my tail cheering for you!", "Let's build something great today!", "Keep at it! Every twig counts.", "You've got real beaver energy today!"],
           pet: ["Hehe! Right between the ears!", "Ooh, my fur's all fluffy now!"],
@@ -53595,32 +53708,28 @@ var COMP_KIT = (() => {
         id: "canada-mooska", name: "Mooska", kind: "Moose Yearling", pose: "stand", sleepy: true, wearColor: "#2E9AA0",
         bio: "A gangly moose yearling with a gentle heart and enormous patience.",
         idle: ["earTwitch", "headTilt", "tailSwish"], cheer: "bounce",
-        neck: [60, 62],
+        neck: [60, 70],
         parts: {
-          tail: {svg: `<path d="M78 70C84 68 88 72 87 78C86 82 82 82 80 79C79 76 78 73 78 70Z" fill="#6A4630" ${O2}/>`, pivot: [79, 72]},
-          feet: `${["M47 84V106", "M54 86V107", "M66 86V107", "M73 84V106"].map(d => `<path d="${d}" stroke="${INK}" stroke-width="8.4" stroke-linecap="round"/><path d="${d}" stroke="#7A5638" stroke-width="5" stroke-linecap="round"/>`).join("")}
-            <path d="M47 92V100M54 94V101M66 94V101M73 92V100" stroke="#A88064" stroke-width="2" stroke-linecap="round" opacity=".55"/>
-            <g fill="#3A2A22" ${OW(1.6)}><path d="M43.4 104H50.6L51 110.6H43Z"/><path d="M50.4 105H57.6L58 111H50Z"/><path d="M62.4 105H69.6L70 111H62Z"/><path d="M69.4 104H76.6L77 110.6H69Z"/></g>
-            <path d="M47 104.4V110.4M54 105.4V110.8M66 105.4V110.8M73 104.4V110.4" stroke="#6A5448" stroke-width=".9"/>`,
-          body: `${LG("canada-mooska-b", [[0, "#9A6A44"], [1, "#6E4628"]])}
-            <path d="M60 58C76 58 84 66 84 75C84 85 76 90 60 90C44 90 36 85 36 75C36 66 44 58 60 58Z" fill="url(#canada-mooska-b)" ${O}/>
-            <path d="M50 60Q60 56 70 60L68 64Q60 61 52 64Z" fill="#5A3A24"/>
-            <path d="M44 72Q47 66 54 64" fill="none" stroke="#B88A60" stroke-width="2.6" stroke-linecap="round"/>
-            <path d="M52 86Q60 82 68 86" fill="none" stroke="#5A3A24" stroke-width="1.8" stroke-linecap="round" opacity=".6"/>`,
-          earL: {svg: `<path d="M46 34C40 30 30 28 26 31C28 36 36 39 45 39Z" fill="#8A5E3E" ${O2}/><path d="M43 35.4C38 33 33 32 30.6 32.8C32 35 37 36.6 42.6 36.8Z" fill="#E6B8A0"/>`, pivot: [46, 36]},
-          earR: {svg: `<path d="M74 34C80 30 90 28 94 31C92 36 84 39 75 39Z" fill="#8A5E3E" ${O2}/><path d="M77 35.4C82 33 87 32 89.4 32.8C88 35 83 36.6 77.4 36.8Z" fill="#E6B8A0"/>`, pivot: [74, 36]},
-          head: `${RG("canada-mooska-h", [[0, "#B07C52"], [0.65, "#8E603E"], [1, "#6E4628"]], 0.42, 0.28, 0.85)}
-            <path d="M53 64Q55 74 60 76Q65 74 67 64Z" fill="#6A4630" ${O2}/>
-            <path d="M60 22C71 22 76 30 76 40C76 46 75 50 76 54C78 60 76 68 68 70C64 71 56 71 52 70C44 68 42 60 44 54C45 50 44 46 44 40C44 30 49 22 60 22Z" fill="url(#canada-mooska-h)" ${O}/>
-            <path d="M48 52C48 47 53 45 60 45C67 45 72 47 72 52C74 58 72 66 66 68C62 69 58 69 54 68C48 66 46 58 48 52Z" fill="#B88A66" ${OW(2)}/>
-            <ellipse cx="54.4" cy="58" rx="2.4" ry="3.2" fill="#3A2418" transform="rotate(-12 54.4 58)"/><ellipse cx="65.6" cy="58" rx="2.4" ry="3.2" fill="#3A2418" transform="rotate(12 65.6 58)"/>
-            <path d="M52 27Q55 23 60 23" fill="none" stroke="#C49468" stroke-width="2.4" stroke-linecap="round"/>
-            <ellipse cx="51" cy="25.6" rx="3" ry="2.2" fill="#C8A878" ${OW(1.6)}/><ellipse cx="69" cy="25.6" rx="3" ry="2.2" fill="#C8A878" ${OW(1.6)}/>`
+          tail: {svg: `<path d="M86 72C91 68.5 96 70.5 95.5 75.5C95 79.5 91 80 88 77.5Z" fill="#6E4628" ${O2}/>`, pivot: [87, 75]},
+          feet: `${[[48.5, 86, 110.4, 6.6, 5, "#8E5E3C"], [71.5, 86, 110.4, 6.6, 5, "#8E5E3C"]].map(([x, t, b, wt, wb, c]) => `<path d="M${f1(x - wt)} ${t}C${f1(x - wt)} ${f1((t + b) / 2)} ${f1(x - wb)} ${f1(b - 7)} ${f1(x - wb)} ${f1(b - 4)}H${f1(x + wb)}C${f1(x + wb)} ${f1(b - 7)} ${f1(x + wt)} ${f1((t + b) / 2)} ${f1(x + wt)} ${t}Z" fill="${c}" ${O}/><path d="M${f1(x - wb - .8)} ${f1(b - 5.2)}H${f1(x + wb + .8)}C${f1(x + wb + 1.2)} ${f1(b - 1.4)} ${f1(x + wb - 1)} ${b} ${x} ${b}C${f1(x - wb + 1)} ${b} ${f1(x - wb - 1.2)} ${f1(b - 1.4)} ${f1(x - wb - .8)} ${f1(b - 5.2)}Z" fill="#3E2C24" ${O}/><path d="M${x} ${f1(b - 3.8)}V${f1(b - 1)}" stroke="#7A645A" stroke-width="1.3" stroke-linecap="round"/>`).join("")}`,
+          body: `${RG("canada-mooska-b", [[0, "#B07A4E"], [0.6, "#91603C"], [1, "#6E4628"]], 0.4, 0.3, 0.8)}
+            <path d="M60 60C79 60 88 69.5 88 80C88 91 78 96 60 96C42 96 32 91 32 80C32 69.5 41 60 60 60Z" fill="url(#canada-mooska-b)" ${O}/>
+            <path d="M36.5 84Q36.5 76 41 71.5" fill="none" stroke="#C28C60" stroke-width="2.8" stroke-linecap="round"/>
+            <path d="M46 90Q60 94 74 90" fill="none" stroke="#C99A70" stroke-width="2.6" stroke-linecap="round"/>`,
+          earL: {svg: `<path d="M44 35C37 29 26 29.5 20 35C25.5 41.5 36 42 44.5 40Z" fill="#8A5A38" ${O}/><path d="M39.5 36C34.5 33.6 29 33.6 25.4 35.4C29 38.4 35 38.8 39.5 38Z" fill="#EDB8A4"/>`, pivot: [42, 37]},
+          earR: {svg: `<path d="M76 35C83 29 94 29.5 100 35C94.5 41.5 84 42 75.5 40Z" fill="#8A5A38" ${O}/><path d="M80.5 36C85.5 33.6 91 33.6 94.6 35.4C91 38.4 85 38.8 80.5 38Z" fill="#EDB8A4"/>`, pivot: [78, 37]},
+          head: `${RG("canada-mooska-h", [[0, "#BC8658"], [0.6, "#96633E"], [1, "#74492C"]], 0.42, 0.3, 0.8)}
+            <path d="M49 27L43.5 15.5M45.2 19L38.5 16.5" fill="none" stroke="${INK}" stroke-width="8.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M49 27L43.5 15.5M45.2 19L38.5 16.5" fill="none" stroke="#E2C394" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M71 27L76.5 15.5M74.8 19L81.5 16.5" fill="none" stroke="${INK}" stroke-width="8.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M71 27L76.5 15.5M74.8 19L81.5 16.5" fill="none" stroke="#E2C394" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M60 21C74.5 21 84 29.5 84 40.5C84 48 79.5 52.5 76 56.5C79.5 62 79 72.5 70 76.5C64 79 56 79 50 76.5C41 72.5 40.5 62 44 56.5C40.5 52.5 36 48 36 40.5C36 29.5 45.5 21 60 21Z" fill="url(#canada-mooska-h)" ${O}/>
+            <path d="M42 34Q45.5 26.5 53.5 24" fill="none" stroke="#D9AA7E" stroke-width="3" stroke-linecap="round"/>
+            <path d="M60 56.5C69 56.5 75.5 60.5 75.5 66.5C75.5 73 69 76.6 60 76.6C51 76.6 44.5 73 44.5 66.5C44.5 60.5 51 56.5 60 56.5Z" fill="#C99A72"/>
+            <ellipse cx="53.6" cy="65" rx="2.4" ry="3.3" transform="rotate(-18 53.6 65)" fill="#3A2418"/><ellipse cx="66.4" cy="65" rx="2.4" ry="3.3" transform="rotate(18 66.4 65)" fill="#3A2418"/>
+            <path d="M54 59.6Q60 57.6 66 59.6" fill="none" stroke="#E2BC96" stroke-width="2.2" stroke-linecap="round"/>`
         },
-        eyes: {lx: 52, rx: 68, y: 37.6, r: 3.6, style: "sparkle", color: "#24140C"},
-        mouth: {x: 60, y: 64, w: 2.6, color: "#3A2418"},
-        cheeks: {lx: 47, rx: 73, y: 44.4, w: 3.2, h: 2, color: "#FF9A88"},
-        anchors: {top: [60, 23, 0.85], neck: [60, 72, 0.85], chest: [66, 80, 0.56], back: [76, 68, 0.72], hands: [60, 84, 0.8]},
+        eyes: {lx: 50, rx: 70, y: 41, r: 4.6, style: "sparkle", color: "#24140C"},
+        mouth: {x: 60, y: 71.4, w: 2.6, color: "#3A2418"},
+        cheeks: {lx: 43.6, rx: 76.4, y: 48.4, w: 3.8, h: 2.4, color: "#FF9A88"},
+        anchors: {top: [60, 23, 0.85], neck: [60, 80, 1], chest: [77, 84, 0.55], back: [84, 74, 0.8], hands: [60, 90, 0.85]},
         lines: {
           tap: ["Hi... I wandered over from the lake to see you.", "Long legs, slow steps, steady progress.", "No rush. We'll get there together.", "You're doing really well. Truly.", "I'm small now, but I'll grow. So will you!", "Deep breath. The lake is calm, and so are we.", "One careful hoof at a time.", "I believe in you, as big as a moose!"],
           pet: ["Oh! My fuzzy ears are so happy.", "Mmm. That's nice. Thank you."],
@@ -53923,14 +54032,40 @@ var COMP_KIT = (() => {
 /* ===== module: 98-comp-brazil.js ===== */
 /* Study Companions, Around the World */
 (() => {
-  const {O, OW, LG, RG} = COMP_KIT;
+  const {O, OW, LG, RG, puff} = COMP_KIT;
   const f1 = v => Math.round(v * 10) / 10;
   const ring = (cx, cy, n, r, fn) => Array.from({length: n}, (_, i) => { const a = i / n * Math.PI * 2; return fn(f1(cx + Math.cos(a) * r), f1(cy + Math.sin(a) * r), a * 180 / Math.PI, i); }).join("");
   // a little hibiscus
   const hibiscus = (x, y, r, c = "#FF5A6A", mid = "#FFD23A") => `<g>${ring(x, y, 5, r * 0.52, (px, py, a) => `<ellipse cx="${px}" cy="${py}" rx="${f1(r * 0.55)}" ry="${f1(r * 0.42)}" transform="rotate(${f1(a)} ${px} ${py})" fill="${c}" ${OW(1)}/>`)}<circle cx="${x}" cy="${y}" r="${f1(r * 0.22)}" fill="${mid}"/></g>`;
-  // the shaggy edge of the tamarin's golden mane
-  const mane = (cx, cy, rx, ry, n) => { let d = ""; for (let i = 0; i <= n; i++) { const a = i / n * Math.PI * 2, b = (i + 0.5) / n * Math.PI * 2, k = 1.16 + (i % 2) * 0.05;
-    d += `${i ? "Q" : "M"}${i ? `${f1(cx + Math.cos(b - Math.PI / n) * rx * k)} ${f1(cy + Math.sin(b - Math.PI / n) * ry * k)} ` : ""}${f1(cx + Math.cos(a) * rx)} ${f1(cy + Math.sin(a) * ry)}`; } return d + "Z"; };
+  // a tapered, outlined ribbon along a centre line (for tails), with a round tip
+  const ribbon = (pts, w0, w1) => {
+    const n = pts.length - 1, L = [], R = [];
+    pts.forEach((p, i) => {
+      const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], m = Math.hypot(dx, dy) || 1, w = (w0 + (w1 - w0) * i / n) / 2;
+      L.push([p[0] - dy / m * w, p[1] + dx / m * w]); R.push([p[0] + dy / m * w, p[1] - dx / m * w]);
+    });
+    const P = q => `${f1(q[0])} ${f1(q[1])}`;
+    return `M${L.map(P).join("L")}A${f1(w1 / 2)} ${f1(w1 / 2)} 0 0 0 ${P(R[n])}L${R.reverse().map(P).join("L")}Z`;
+  };
+  // points along a cubic, then a spiral curl that carries on from its end
+  const bez = (p0, p1, p2, p3, k) => Array.from({length: k + 1}, (_, i) => { const t = i / k, u = 1 - t; return [0, 1].map(j => u * u * u * p0[j] + 3 * u * u * t * p1[j] + 3 * u * t * t * p2[j] + t * t * t * p3[j]); });
+  const curl = (end, dir, r0, r1, turn, k, side = 1) => {
+    const m = Math.hypot(dir[0], dir[1]), c = [end[0] + side * dir[1] / m * r0, end[1] - side * dir[0] / m * r0], a0 = Math.atan2(end[1] - c[1], end[0] - c[0]);
+    return Array.from({length: k}, (_, i) => { const t = (i + 1) / k, a = a0 - side * turn * t, r = r0 + (r1 - r0) * t; return [c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r]; });
+  };
+  // Tuca's beak (upper and lower bill), closed, smiling or open; its gradient lives in the face part
+  const BEAK_U = "M56 50C70 43 93 46 103 63C106 68 106 73 104 77C95 68 76 61 55 61C53 57 53 53 56 50Z";
+  const BEAK_L = "M55 60C75 61 95 68 104 77C97 75 85 71 71 70.5C64 70 59 69 56 67C54.6 64.6 54.5 62 55 60Z";
+  const beak = (open, smile) => `${open ? `<path d="M55 60C75 61 95 68 104 77L99.5 86C88 79 72 71 56 66Z" fill="#B8243A" ${OW(2.2)}/><path d="M62 66C72 68 82 72 90 77C80 76 70 73 62 70Z" fill="#FF8FA8"/>` : ""}
+    <path d="${BEAK_L}" fill="url(#brazil-tuca-bk)" ${O}${open ? ` transform="rotate(13 56 62)"` : ""}/>
+    <path d="${BEAK_U}" fill="url(#brazil-tuca-bk)" ${O}/>
+    <path d="M63 51.5C73 47.6 85 48.4 93 54" fill="none" stroke="#FFF4B8" stroke-width="2.6" stroke-linecap="round"/>
+    ${smile ? `<path d="M51.4 59.4Q51.8 63.6 56 64.6" fill="none" stroke="#2B2233" stroke-width="2" stroke-linecap="round"/>` : ""}`;
+  const TUCA_HEAD = "M50 19C67 19 78 31 78 45C78 60 66 70 50 70C34 70 22 60 22 45C22 31 33 19 50 19Z";
+  const TUCA_BODY = "M50 62C66 62 76 76 76 88C76 99 66 104 50 104C34 104 24 99 24 88C24 76 34 62 50 62Z";
+  // Mico's body and long curling tail
+  const MICO_BODY = "M60 68C76 68 84 82 84 94C84 104 76 108 60 108C44 108 36 104 36 94C36 82 44 68 60 68Z";
+  const micoTail = (() => { const a = bez([78, 102], [94, 108], [108, 100], [106, 84], 14); return ribbon(a.concat(curl(a[a.length - 1], [-2, -16], 9, 3.6, 4.6, 26)), 10, 5.6); })();
 
   COMP_DATA.push({
     theme: "brazil",
@@ -53939,32 +54074,33 @@ var COMP_KIT = (() => {
         id: "brazil-tuca", name: "Tuca", kind: "Toco Toucan Chick", pose: "stand", wearColor: "#FF8A1E",
         bio: "A toco toucan chick with a big beak and the loudest cheer on the beach.",
         idle: ["headTilt", "wingFlutter", "topBob"], cheer: "wingFlutter",
-        neck: [60, 74],
+        neck: [50, 68],
         parts: {
-          feet: `<path d="M44 104q-4 4 -1 5h10q2-2-1-5ZM68 104q-4 4 -1 5h10q2-2-1-5Z" fill="#6A8ACF" ${O}/>`,
-          wingL: {svg: `<path d="M38 76C27 79 22 92 26 104C31 106 38 101 41 94Z" fill="#26232E" ${O}/><path d="M30 92Q31 99 35 101" fill="none" stroke="#4A4656" stroke-width="2" stroke-linecap="round"/>`, pivot: [38, 78]},
-          wingR: {svg: `<path d="M82 76C93 79 98 92 94 104C89 106 82 101 79 94Z" fill="#26232E" ${O}/><path d="M90 92Q89 99 85 101" fill="none" stroke="#4A4656" stroke-width="2" stroke-linecap="round"/>`, pivot: [82, 78]},
-          body: `${RG("brazil-tuca-b", [[0, "#3E3A48"], [0.7, "#24212C"], [1, "#16141C"]], 0.4, 0.3, 0.8)}
-            <path d="M60 66C79 66 87 82 87 94C87 104 77 109 60 109C43 109 33 104 33 94C33 82 41 66 60 66Z" fill="url(#brazil-tuca-b)" ${O}/>
-            <path d="M60 72C70 72 75 81 74 91C73 99 67 103 60 103C53 103 47 99 46 91C45 81 50 72 60 72Z" fill="#FFF6D8"/>
-            <path d="M50 96Q60 101 70 96Q68 103 60 104Q52 103 50 96Z" fill="#FFD23A"/>
-            <ellipse cx="60" cy="108" rx="9" ry="2.6" fill="#E2302A"/>`,
-          head: `${RG("brazil-tuca-h", [[0, "#423E4E"], [0.7, "#26232E"], [1, "#18161E"]], 0.4, 0.3, 0.8)}
-            <path d="M60 24C80 24 88 38 88 50C88 64 76 72 60 72C44 72 32 64 32 50C32 38 40 24 60 24Z" fill="url(#brazil-tuca-h)" ${O}/>
-            <path d="M42 34Q48 28 56 27" fill="none" stroke="#5A5668" stroke-width="2.6" stroke-linecap="round"/>
-            <ellipse cx="49" cy="50" rx="7.4" ry="7" fill="#FF9A2A"/><ellipse cx="71" cy="50" rx="7.4" ry="7" fill="#FF9A2A"/>
-            <ellipse cx="49" cy="50" rx="5.6" ry="5.4" fill="#5AA8F0"/><ellipse cx="71" cy="50" rx="5.6" ry="5.4" fill="#5AA8F0"/>`,
-          face: `${LG("brazil-tuca-k", [[0, "#FFC23A"], [0.55, "#FF8A1E"], [1, "#F2601A"]])}
-            <path d="M47 58C50 54 70 54 73 58C76 62 74 70 68 76C64 80 61 82 60 82C59 82 56 80 52 76C46 70 44 62 47 58Z" fill="url(#brazil-tuca-k)" ${O}/>
-            <path d="M54 76.6C57 80 59 82 60 82C61 82 63 80 66 76.6C63 78.4 57 78.4 54 76.6Z" fill="#26232E"/>
-            <path d="M50 58.6Q60 55.6 70 58.6" fill="none" stroke="#E2302A" stroke-width="1.8" stroke-linecap="round"/>
-            <ellipse cx="55" cy="60.6" rx="3" ry="1.4" fill="#FFF2C0" opacity=".8"/>`,
-          top: {svg: `<path d="M56 26C54 18 57 13 61 12C60 16 61 20 62 25ZM62 26C64 19 68 16 72 17C69 20 67 23 65 27Z" fill="#26232E" ${OW(2)}/>${hibiscus(70, 28, 6.4)}`, pivot: [60, 27]}
+          feet: `<path d="M33 109C32 104 36 101 40.5 101C45 101 49 104 48 109C44 110.6 37 110.6 33 109Z" fill="#7C95CF" ${O}/><path d="M38 109.4V106.4M43 109.4V106.4" stroke="#4E6AA8" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M52 109C51 104 55 101 59.5 101C64 101 68 104 67 109C63 110.6 56 110.6 52 109Z" fill="#7C95CF" ${O}/><path d="M57 109.4V106.4M62 109.4V106.4" stroke="#4E6AA8" stroke-width="1.6" stroke-linecap="round"/>`,
+          body: `${RG("brazil-tuca-b", [[0, "#4A4558"], [0.65, "#2E2A38"], [1, "#1E1B26"]], 0.4, 0.3, 0.8)}
+            ${LG("brazil-tuca-bib", [[0, "#FFF6DC"], [0.62, "#FFF0C6"], [1, "#FFD24A"]])}
+            <defs><clipPath id="brazil-tuca-bc"><path d="${TUCA_BODY}"/></clipPath></defs>
+            <path d="${TUCA_BODY}" fill="url(#brazil-tuca-b)"/>
+            <g clip-path="url(#brazil-tuca-bc)"><ellipse cx="50" cy="78" rx="13" ry="19" fill="url(#brazil-tuca-bib)"/></g>
+            <path d="${TUCA_BODY}" fill="none" ${O}/>`,
+          armL: {svg: `${LG("brazil-tuca-w", [[0, "#55506A"], [1, "#322E3E"]])}<path d="M31 72C22 75 17 87 19.5 98C22 101.5 27 100 30.5 95C34.5 89 35.5 79 31 72Z" fill="url(#brazil-tuca-w)" ${O}/><path d="M24 90Q25 95 27.5 97" fill="none" stroke="#7A7590" stroke-width="2" stroke-linecap="round"/>`, pivot: [31, 75]},
+          armR: {svg: `<path d="M69 72C78 75 83 87 80.5 98C78 101.5 73 100 69.5 95C65.5 89 64.5 79 69 72Z" fill="url(#brazil-tuca-w)" ${O}/><path d="M76 90Q75 95 72.5 97" fill="none" stroke="#7A7590" stroke-width="2" stroke-linecap="round"/>`, pivot: [69, 75]},
+          head: `${RG("brazil-tuca-h", [[0, "#4E495E"], [0.65, "#2E2A38"], [1, "#1E1B26"]], 0.4, 0.3, 0.8)}
+            <defs><clipPath id="brazil-tuca-hc"><path d="${TUCA_HEAD}"/></clipPath></defs>
+            <path d="${TUCA_HEAD}" fill="url(#brazil-tuca-h)"/>
+            <g clip-path="url(#brazil-tuca-hc)"><path d="M14 51C26 58 44 60 62 53V80H14Z" fill="#FFF6DC"/></g>
+            <path d="${TUCA_HEAD}" fill="none" ${O}/>
+            <path d="M27 46Q27.5 38 31.5 33" fill="none" stroke="#6E6884" stroke-width="2.8" stroke-linecap="round"/>
+            <circle cx="37" cy="42" r="6.6" fill="#7CCBF2"/><circle cx="58" cy="41" r="6.6" fill="#7CCBF2"/>`,
+          face: LG("brazil-tuca-bk", [[0, "#FFE15A"], [0.35, "#FFB02E"], [0.72, "#FF7A1E"], [1, "#E8322A"]], 0, 0, 1, 0.25),
+          top: {svg: `<path d="M37 31Q33 24 26 24Q29 31 37 31Z" fill="#4CB05A" ${OW(1.8)}/>${hibiscus(33, 24, 7.2)}`, pivot: [38, 30]}
         },
-        eyes: {lx: 49, rx: 71, y: 50, r: 3.6, style: "dot", color: "#1A1820"},
-        mouth: {x: 60, y: 68, w: 3, color: "#7A2A10"},
-        cheeks: {lx: 40, rx: 80, y: 60, w: 3.6, h: 2.2, color: "#FF8A9A"},
-        anchors: {top: [60, 24, 0.95], neck: [60, 72, 1], chest: [68, 90, 0.6], back: [86, 84, 0.8], hands: [60, 98, 0.86]},
+        eyes: {lx: 37, rx: 58, y: 42, r: 4.2, style: "sparkle", color: "#1A1820"},
+        mouths: {neutral: beak(false, false), smile: beak(false, true), open: beak(true, false), sleepy: beak(false, false)},
+        mouth: {x: 58, y: 62, w: 3, color: "#7A2A10"},
+        cheeks: {lx: 29, rx: 68, y: 54, w: 4, h: 2.4, color: "#FF8A9A"},
+        anchors: {top: [50, 21, 0.95], neck: [50, 71, 1], chest: [57, 84, 0.6], back: [74, 80, 0.8], hands: [50, 94, 0.86]},
         lines: {
           tap: ["Bom dia! Ready to make some noise?", "My beak is big, but my cheers are bigger!", "Let's fly through this list together!", "Toco! That's toucan for 'you've got this'!", "One task at a time, like fruit for breakfast!", "I spy a finish line from my branch!", "You bring the focus, I'll bring the color!", "Every page gets you closer to the beach!"],
           pet: ["Hehe! Mind the beak, it's ticklish!", "Aww! My feathers are all fluffed up!"],
@@ -53980,33 +54116,32 @@ var COMP_KIT = (() => {
       {
         id: "brazil-mico", name: "Mico", kind: "Golden Lion Tamarin", pose: "sit", wearColor: "#2E9A5A",
         bio: "A golden lion tamarin with a tiny golden mane and a big love of learning.",
-        idle: ["tailSwish", "headTilt", "earTwitch"], cheer: "hop",
-        neck: [60, 76],
+        idle: ["tailSwish", "headTilt", "topBob"], cheer: "hop",
+        neck: [60, 74],
         parts: {
-          tail: {svg: `<path d="M82 100C98 100 106 88 104 74C102 62 108 52 114 50" fill="none" stroke="#2B2233" stroke-width="11" stroke-linecap="round"/>
-            <path d="M82 100C98 100 106 88 104 74C102 62 108 52 114 50" fill="none" stroke="#F29A2A" stroke-width="6" stroke-linecap="round"/>
-            <path d="M108 56C110 52 112 51 114 50" fill="none" stroke="#C8701A" stroke-width="6" stroke-linecap="round"/>`, pivot: [82, 100]},
-          feet: `<ellipse cx="44" cy="106" rx="9" ry="5" fill="#E8902A" ${O}/><ellipse cx="76" cy="106" rx="9" ry="5" fill="#E8902A" ${O}/><path d="M40 108.6v-2.4M44 109v-2.6M48 108.6v-2.4M72 108.6v-2.4M76 109v-2.6M80 108.6v-2.4" stroke="#6A3A2A" stroke-width="1.1" stroke-linecap="round"/>`,
-          body: `${RG("brazil-mico-b", [[0, "#FFC25A"], [0.7, "#F29A2A"], [1, "#D87A1A"]], 0.4, 0.3, 0.8)}
-            <path d="M60 70C78 70 86 86 86 97C86 106 76 110 60 110C44 110 34 106 34 97C34 86 42 70 60 70Z" fill="url(#brazil-mico-b)" ${O}/>
-            <path d="M60 78C68 78 72 88 70 98C69 104 51 104 50 98C48 88 52 78 60 78Z" fill="#FFD88A"/>
-            <path d="M42 84Q46 80 50 82M70 82Q74 80 78 84" fill="none" stroke="#FFE2A8" stroke-width="2" stroke-linecap="round"/>`,
-          armL: {svg: `<path d="M44 82Q38 92 40 104Q45 108 50 104Q50 94 51 84Z" fill="#F2A23A" ${O}/><path d="M40 101Q45 107 50 103L50 104Q45 108 40 104Z" fill="#6A3A2A"/>`, pivot: [47, 84]},
-          armR: {svg: `<path d="M76 82Q82 92 80 104Q75 108 70 104Q70 94 69 84Z" fill="#F2A23A" ${O}/><path d="M80 101Q75 107 70 103L70 104Q75 108 80 104Z" fill="#6A3A2A"/>`, pivot: [73, 84]},
-          earL: {svg: `<ellipse cx="24" cy="48" rx="6.4" ry="7.6" fill="#8A5A42" ${O}/><ellipse cx="24.8" cy="48.6" rx="3.2" ry="4.4" fill="#C88A6A"/>`, pivot: [30, 52]},
-          earR: {svg: `<ellipse cx="96" cy="48" rx="6.4" ry="7.6" fill="#8A5A42" ${O}/><ellipse cx="95.2" cy="48.6" rx="3.2" ry="4.4" fill="#C88A6A"/>`, pivot: [90, 52]},
-          head: `${RG("brazil-mico-m", [[0, "#FFD27A"], [0.6, "#F7A53A"], [1, "#E0801E"]], 0.45, 0.35, 0.8)}
-            <path d="${mane(60, 50, 31, 29, 22)}" fill="url(#brazil-mico-m)" ${O}/>
-            <path d="M40 30Q48 22 58 22M66 22Q76 24 82 32" fill="none" stroke="#FFE2A0" stroke-width="2.4" stroke-linecap="round"/>
-            ${RG("brazil-mico-f", [[0, "#C8906E"], [1, "#9A6650"]], 0.45, 0.35, 0.8)}
-            <path d="M60 36C72 36 77 45 77 55C77 66 70 73 60 73C50 73 43 66 43 55C43 45 48 36 60 36Z" fill="url(#brazil-mico-f)" ${OW(2.4)}/>
-            <ellipse cx="51" cy="52" rx="6.4" ry="6" fill="#F2DCC8"/><ellipse cx="69" cy="52" rx="6.4" ry="6" fill="#F2DCC8"/>`,
-          face: `<path d="M57 61Q60 59.4 63 61Q62 63.4 60 63.6Q58 63.4 57 61Z" fill="#4A2A22"/>${hibiscus(80, 30, 6, "#FF5A8A")}`
+          tail: {svg: `${LG("brazil-mico-t", [[0, "#FFB23E"], [0.6, "#F29A2A"], [1, "#C9681A"]], 0, 1, 1, 0)}<path d="${micoTail}" fill="url(#brazil-mico-t)" ${O}/>`, pivot: [80, 101]},
+          body: `${RG("brazil-mico-b", [[0, "#FFCB66"], [0.65, "#F5A23A"], [1, "#DE821E"]], 0.4, 0.3, 0.8)}
+            <defs><clipPath id="brazil-mico-bc"><path d="${MICO_BODY}"/></clipPath></defs>
+            <path d="${MICO_BODY}" fill="url(#brazil-mico-b)"/>
+            <g clip-path="url(#brazil-mico-bc)"><ellipse cx="60" cy="96" rx="13" ry="16" fill="#FFDF9C"/></g>
+            <path d="${MICO_BODY}" fill="none" ${O}/>
+            <ellipse cx="47" cy="106" rx="7.4" ry="4.4" fill="#7A4A34" ${O}/><ellipse cx="73" cy="106" rx="7.4" ry="4.4" fill="#7A4A34" ${O}/>`,
+          armL: {svg: `${LG("brazil-mico-a", [[0, "#F7A838"], [1, "#E08420"]])}<path d="M42.5 78C37.5 84 38 92 44 95.5C48 97.6 52.6 95.4 52 91.4C49.6 88.6 48 84.4 48.4 79.6Z" fill="url(#brazil-mico-a)" ${O}/><ellipse cx="51.6" cy="93.4" rx="4.6" ry="4" transform="rotate(-20 51.6 93.4)" fill="#7A4A34" ${O}/>`, pivot: [45, 81]},
+          armR: {svg: `<path d="M77.5 78C82.5 84 82 92 76 95.5C72 97.6 67.4 95.4 68 91.4C70.4 88.6 72 84.4 71.6 79.6Z" fill="url(#brazil-mico-a)" ${O}/><ellipse cx="68.4" cy="93.4" rx="4.6" ry="4" transform="rotate(20 68.4 93.4)" fill="#7A4A34" ${O}/>`, pivot: [75, 81]},
+          head: `${RG("brazil-mico-m", [[0, "#FFD983"], [0.55, "#F9AE40"], [1, "#E58A22"]], 0.42, 0.34, 0.75)}
+            <path d="${puff(60, 46, 30, 14, 1.2)}" fill="url(#brazil-mico-m)" ${O}/>
+            <path d="${puff(60, 48, 21, 11, 1.25)}" fill="#FFC85E"/>
+            <path d="M39 26Q46 19 55 18" fill="none" stroke="#FFF0C4" stroke-width="2.8" stroke-linecap="round"/>
+            ${RG("brazil-mico-f", [[0, "#B47A58"], [1, "#84533C"]], 0.45, 0.35, 0.8)}
+            <path d="M60 33C71 33 76 41 76 50C76 61 69 67 60 67C51 67 44 61 44 50C44 41 49 33 60 33Z" fill="url(#brazil-mico-f)" ${OW(2.6)}/>
+            <ellipse cx="60" cy="60" rx="8.6" ry="6" fill="#D5A383"/>`,
+          face: `<path d="M57.4 56.4Q60 55 62.6 56.4Q61.8 58.6 60 58.8Q58.2 58.6 57.4 56.4Z" fill="#4A2A22"/>`,
+          top: {svg: `<path d="M80 26Q86 20 92 22Q88 28 80 26Z" fill="#4CB05A" ${OW(1.8)}/>${hibiscus(80, 22, 6.6, "#FF5A8A")}`, pivot: [76, 28]}
         },
-        eyes: {lx: 51, rx: 69, y: 52, r: 3.8, style: "sparkle", color: "#24161A"},
-        mouth: {x: 60, y: 67, w: 3, color: "#4A2A22", style: "cat"},
-        cheeks: {lx: 46, rx: 74, y: 62, w: 3.4, h: 2, color: "#FF8A8A"},
-        anchors: {top: [60, 20, 0.9], neck: [60, 78, 1], chest: [66, 92, 0.6], back: [84, 88, 0.8], hands: [60, 100, 0.86]},
+        eyes: {lx: 53, rx: 67, y: 49, r: 4.2, style: "sparkle", color: "#24161A"},
+        mouth: {x: 60, y: 62, w: 2.6, color: "#4A2A22", style: "cat"},
+        cheeks: {lx: 49, rx: 71, y: 57, w: 3.4, h: 2, color: "#FF8A8A"},
+        anchors: {top: [60, 19, 0.95], neck: [60, 79, 1], chest: [63, 86, 0.55], back: [84, 88, 0.8], hands: [60, 100, 0.86]},
         lines: {
           tap: ["Hi! I'm small, but I study big!", "My mane is golden, and so are your ideas!", "Swing from task to task with me!", "Let's go! The forest is cheering for you!", "I'm hungry for knowledge! And fruit!", "Tiny steps make a long, long trail!", "Curious minds climb the highest trees!", "You've got this, I've got snacks!"],
           pet: ["Hehe! You fluffed up my mane!", "Aww! Golden-hug time!"],
