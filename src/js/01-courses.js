@@ -610,6 +610,7 @@ function newTermSheet(){
         <label class="mi-check"><input type="checkbox" name="decks" checked> Flashcard decks for these courses</label>
         <label class="mi-check"><input type="checkbox" name="notes" checked> Sticky notes for these courses</label>
       </fieldset>
+      ${window.SBGRADES && SBGRADES.snapCount && SBGRADES.snapCount(cs.map(c => c.id)) ? `<label class="mi-check"><input type="checkbox" name="hist" checked> Save Final Grades to Past Terms <span class="mini">keeps them for your cumulative GPA on the Grades page</span></label>` : ""}
       <label class="mi-check"><input type="checkbox" name="keep" checked> Keep Unfinished Work Due After Today${nAhead ? ` <span class="mini">${nAhead} task${nAhead === 1 ? "" : "s"}</span>` : ""}</label>
       <p class="mini" style="margin:0">Other open tasks are archived too. Move any you're carrying over back to To Do from the Archive.</p>
     </div>
@@ -618,6 +619,7 @@ function newTermSheet(){
     const label = String(fd.get("term") || "").trim(); if (!label) return false;
     const ids = new Set(fd.getAll("c")), now = Date.now(), ch = [];
     if (!ids.size && !fd.get("loose")) { toast("Pick at least one course"); return false; }
+    if (fd.get("hist") && window.SBGRADES && SBGRADES.snapTerm) { try { SBGRADES.snapTerm(label, [...ids]); } catch (e) { console.warn("past terms", e); } }
     ids.forEach(id => ch.push({kind: "course", id, after: Object.assign(clone(state.courses[id]), {archived: label, archivedAt: now})}));
     let nT = 0;
     const keep = !!fd.get("keep");
