@@ -42726,34 +42726,32 @@ var COMP_KIT = (() => {
         id: "summer-turtle", name: "Shelby", kind: "Baby Sea Turtle", pose: "sit", sleepy: true,
         bio: "A sandy baby sea turtle who likes slow, steady beach days.",
         idle: ["finWiggle", "headTilt", "waddle"], cheer: "hop",
-        neck: [60, 63],
+        neck: [60, 68],
         parts: {
-          feet: `<ellipse cx="35" cy="105.5" rx="9.5" ry="5.6" transform="rotate(-12 35 105.5)" fill="#8ED6A0" ${O}/><ellipse cx="85" cy="105.5" rx="9.5" ry="5.6" transform="rotate(12 85 105.5)" fill="#8ED6A0" ${O}/>
-            <circle cx="28.5" cy="106.5" r="1.1" fill="#5FAE78"/><circle cx="31.5" cy="109" r="1.1" fill="#5FAE78"/><circle cx="91.5" cy="106.5" r="1.1" fill="#5FAE78"/><circle cx="88.5" cy="109" r="1.1" fill="#5FAE78"/>`,
-          body: `${LG("summer-turtle-s", [[0, "#FAD08A"], [0.6, "#EFAE5C"], [1, "#DC8E3E"]])}<defs><clipPath id="summer-turtle-clip"><path d="M19 94C19 77 37 65 60 65C83 65 101 77 101 94Q101 99 95 99H25Q19 99 19 94Z"/></clipPath></defs>
-            <path d="M50.5 48H69.5L72 74H48Z" fill="#8FD49F" ${O}/>
-            <path d="M33 96H87V100.5Q87 109.5 76 109.5H44Q33 109.5 33 100.5Z" fill="#FFF1D2" ${O}/><path d="M60 100V107.5M46 100V106.5M74 100V106.5" fill="none" stroke="#EBCF9C" stroke-width="2" stroke-linecap="round"/>
-            <path d="M19 94C19 77 37 65 60 65C83 65 101 77 101 94Q101 99 95 99H25Q19 99 19 94Z" fill="url(#summer-turtle-s)"/>
+          feet: `<ellipse cx="40.5" cy="107.5" rx="7.4" ry="4.4" transform="rotate(-10 40.5 107.5)" fill="#8ED6A0" ${O}/><ellipse cx="79.5" cy="107.5" rx="7.4" ry="4.4" transform="rotate(10 79.5 107.5)" fill="#8ED6A0" ${O}/>
+            <circle cx="35.5" cy="108.6" r="1" fill="#5FAE78"/><circle cx="84.5" cy="108.6" r="1" fill="#5FAE78"/>`,
+          body: `${LG("summer-turtle-s", [[0, "#F2B45E"], [1, "#D9893C"]])}<defs><clipPath id="summer-turtle-clip"><path d="M60 55C80 55 93 70 93 87.5C93 96 89 101.5 82 101.5H38C31 101.5 27 96 27 87.5C27 70 40 55 60 55Z"/></clipPath></defs>
+            <path d="M40 98H80Q80 109.5 68 109.5H52Q40 109.5 40 98Z" fill="#FFF1D2" ${O}/><path d="M50 104.5Q60 106.5 70 104.5" fill="none" stroke="#EBCF9C" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M60 55C80 55 93 70 93 87.5C93 96 89 101.5 82 101.5H38C31 101.5 27 96 27 87.5C27 70 40 55 60 55Z" fill="url(#summer-turtle-s)"/>
             <g clip-path="url(#summer-turtle-clip)">
-              <path d="M68.23 81.75L60 86.5L51.77 81.75L51.77 72.25L60 67.5L68.23 72.25ZM49.86 89.25L42.5 93.5L35.14 89.25L35.14 80.75L42.5 76.5L49.86 80.75ZM84.86 89.25L77.5 93.5L70.14 89.25L70.14 80.75L77.5 76.5L84.86 80.75Z" fill="#FBD995" stroke="#C97A35" stroke-width="2.2" stroke-linejoin="round"/>
-              <path d="M60 86.5V97M60 67.5V60M51.8 72.25L46 65M68.2 72.25L74 65M51.8 81.75L49.86 80.75M68.2 81.75L70.14 80.75M35.14 80.75L25 76M84.86 80.75L95 76M42.5 76.5L39 67M77.5 76.5L81 67" fill="none" stroke="#C97A35" stroke-width="2.2" stroke-linecap="round"/>
-              <path d="M16 89Q60 99 104 89V102H16Z" fill="#C97A35"/>
-              <path d="M16 89Q60 99 104 89" fill="none" stroke="${INK}" stroke-width="2.4"/>
-              <path d="M30 93.2V96M45 95.8V98.5M60 96.6V99.3M75 95.8V98.5M90 93.2V96" stroke="#E9A55A" stroke-width="1.8" stroke-linecap="round"/>
+              <path d="M40.17 107.75L32.98 111.9L25.79 107.75L25.79 99.45L32.98 95.3L40.17 99.45ZM58.18 107.75L50.99 111.9L43.81 107.75L43.81 99.45L50.99 95.3L58.18 99.45ZM76.19 107.75L69.01 111.9L61.82 107.75L61.82 99.45L69.01 95.3L76.19 99.45ZM94.21 107.75L87.02 111.9L79.83 107.75L79.83 99.45L87.02 95.3L94.21 99.45ZM31.16 92.15L23.97 96.3L16.79 92.15L16.79 83.85L23.97 79.7L31.16 83.85ZM49.17 92.15L41.99 96.3L34.8 92.15L34.8 83.85L41.99 79.7L49.17 83.85ZM67.19 92.15L60 96.3L52.81 92.15L52.81 83.85L60 79.7L67.19 83.85ZM85.2 92.15L78.01 96.3L70.83 92.15L70.83 83.85L78.01 79.7L85.2 83.85ZM103.21 92.15L96.03 96.3L88.84 92.15L88.84 83.85L96.03 79.7L103.21 83.85ZM40.17 76.55L32.98 80.7L25.79 76.55L25.79 68.25L32.98 64.1L40.17 68.25ZM58.18 76.55L50.99 80.7L43.81 76.55L43.81 68.25L50.99 64.1L58.18 68.25ZM76.19 76.55L69.01 80.7L61.82 76.55L61.82 68.25L69.01 64.1L76.19 68.25ZM94.21 76.55L87.02 80.7L79.83 76.55L79.83 68.25L87.02 64.1L94.21 68.25ZM31.16 60.95L23.97 65.1L16.79 60.95L16.79 52.65L23.97 48.5L31.16 52.65ZM49.17 60.95L41.99 65.1L34.8 60.95L34.8 52.65L41.99 48.5L49.17 52.65ZM67.19 60.95L60 65.1L52.81 60.95L52.81 52.65L60 48.5L67.19 52.65ZM85.2 60.95L78.01 65.1L70.83 60.95L70.83 52.65L78.01 48.5L85.2 52.65ZM103.21 60.95L96.03 65.1L88.84 60.95L88.84 52.65L96.03 48.5L103.21 52.65ZM40.17 45.35L32.98 49.5L25.79 45.35L25.79 37.05L32.98 32.9L40.17 37.05ZM58.18 45.35L50.99 49.5L43.81 45.35L43.81 37.05L50.99 32.9L58.18 37.05ZM76.19 45.35L69.01 49.5L61.82 45.35L61.82 37.05L69.01 32.9L76.19 37.05ZM94.21 45.35L87.02 49.5L79.83 45.35L79.83 37.05L87.02 32.9L94.21 37.05Z" fill="#FAD38A" stroke="#FCE3AE" stroke-width="1.2" stroke-linejoin="round"/>
+              <path d="M20 92Q60 101 100 92V104H20Z" fill="#C47634"/>
+              <path d="M20 92Q60 101 100 92" fill="none" stroke="${INK}" stroke-width="2.4"/>
+              <path d="M33 95.2V98.6M46.5 97.4V100.8M60 98V101.4M73.5 97.4V100.8M87 95.2V98.6" stroke="#E9A55A" stroke-width="1.8" stroke-linecap="round"/>
             </g>
-            <path d="M19 94C19 77 37 65 60 65C83 65 101 77 101 94Q101 99 95 99H25Q19 99 19 94Z" fill="none" ${O}/>
-            <path d="M29 83Q33.5 73.5 43 69" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".7"/>`,
-          armL: {svg: `<ellipse cx="21" cy="91" rx="6.6" ry="11.5" transform="rotate(46 21 91)" fill="#8ED6A0" ${O}/><path d="M15 93Q18.5 95.5 23 95" fill="none" stroke="#6CC085" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [27, 85]},
-          armR: {svg: `<ellipse cx="99" cy="91" rx="6.6" ry="11.5" transform="rotate(-46 99 91)" fill="#8ED6A0" ${O}/><path d="M105 93Q101.5 95.5 97 95" fill="none" stroke="#6CC085" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [93, 85]},
-          head: `${RG("summer-turtle-h", [[0, "#D2F5CF"], [0.6, "#A7E3B0"], [1, "#7FCB93"]], 0.42, 0.35, 0.7)}
-            <ellipse cx="60" cy="37.5" rx="25.5" ry="21" fill="url(#summer-turtle-h)" ${O}/>
-            <path d="M41 31Q44.5 22.5 53.5 19.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".9"/>
-            <circle cx="68" cy="22.5" r="2.4" fill="#86CF98"/><circle cx="75.5" cy="26.5" r="1.8" fill="#86CF98"/><circle cx="62" cy="20" r="1.4" fill="#86CF98"/>`
+            <path d="M60 55C80 55 93 70 93 87.5C93 96 89 101.5 82 101.5H38C31 101.5 27 96 27 87.5C27 70 40 55 60 55Z" fill="none" ${O}/>
+            <path d="M32.5 80Q35 69 43 62.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".8"/>`,
+          armL: {svg: `<ellipse cx="27" cy="98" rx="5.6" ry="9" transform="rotate(52 27 98)" fill="#8ED6A0" ${O}/><path d="M22 99.5Q25 101 29 100.5" fill="none" stroke="#6CC085" stroke-width="1.5" stroke-linecap="round"/>`, pivot: [32, 95]},
+          armR: {svg: `<ellipse cx="93" cy="98" rx="5.6" ry="9" transform="rotate(-52 93 98)" fill="#8ED6A0" ${O}/><path d="M98 99.5Q95 101 91 100.5" fill="none" stroke="#6CC085" stroke-width="1.5" stroke-linecap="round"/>`, pivot: [88, 95]},
+          head: `${RG("summer-turtle-h", [[0, "#D4F6D1"], [0.6, "#A7E3B0"], [1, "#80CC94"]], 0.42, 0.35, 0.7)}
+            <ellipse cx="60" cy="50" rx="23.5" ry="20.5" fill="url(#summer-turtle-h)" ${O}/>
+            <path d="M43 43Q46 35.5 54 32.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".9"/>
+            <circle cx="68" cy="35" r="2.2" fill="#86CF98"/><circle cx="74.5" cy="38.5" r="1.6" fill="#86CF98"/><circle cx="62.5" cy="32.5" r="1.3" fill="#86CF98"/>`
         },
-        eyes: {lx: 49, rx: 71, y: 39, r: 5.4, style: "dot"},
-        mouth: {x: 60, y: 48, w: 3.2},
-        cheeks: {lx: 40, rx: 80, y: 46, w: 4.4, h: 2.8, color: "#FF9A9A"},
-        anchors: {top: [60, 18, 1.0], neck: [60, 62, 0.95], chest: [76, 82, 0.6], back: [92, 78, 0.9], hands: [60, 94, 0.9]},
+        eyes: {lx: 50, rx: 70, y: 51, r: 5.2, style: "dot"},
+        mouth: {x: 60, y: 59.5, w: 3},
+        cheeks: {lx: 42, rx: 78, y: 57.5, w: 4.2, h: 2.7, color: "#FF9A9A"},
+        anchors: {top: [60, 31, 0.95], neck: [60, 71, 0.95], chest: [79, 85, 0.55], back: [90, 74, 0.85], hands: [60, 90, 0.85]},
         lines: {
           tap: ["Hi! Warm sand, happy shell, happy me!", "Slow and steady, like the tide! Love it!", "Look at all that progress! Wow!", "Sending you the sunniest thoughts!", "Every wave brings you closer!", "Water, snack, then back to it?", "Turtle pace is a winning pace!"],
           pet: ["Hehe, shell tickles!", "Aww, a big sunny hug!"],
@@ -43633,14 +43631,15 @@ var COMP_KIT = (() => {
           feet: `<ellipse cx="49" cy="106.5" rx="7.6" ry="4.6" fill="#5A3A2A" ${O}/><ellipse cx="71" cy="106.5" rx="7.6" ry="4.6" fill="#5A3A2A" ${O}/><path d="M49 106V110M71 106V110" stroke="#2B2233" stroke-width="1.6" stroke-linecap="round"/><path d="M44 106.5Q45 104.8 47 104.6M66 106.5Q67 104.8 69 104.6" fill="none" stroke="#8C6450" stroke-width="1.4" stroke-linecap="round"/>`,
           body: `${LG("xmas-reindeer-b", [[0, "#C99062"], [1, "#9C653F"]])}<defs><clipPath id="xmas-reindeer-clip"><path d="M60 66C75 66 85 77 85 90C85 99 78 103.5 60 103.5C42 103.5 35 99 35 90C35 77 45 66 60 66Z"/></clipPath></defs>
             <path d="M60 66C75 66 85 77 85 90C85 99 78 103.5 60 103.5C42 103.5 35 99 35 90C35 77 45 66 60 66Z" fill="url(#xmas-reindeer-b)"/>
-            <g clip-path="url(#xmas-reindeer-clip)"><ellipse cx="60" cy="91.5" rx="15" ry="11.5" fill="#F6E0C3"/>
-              <path d="M30 70Q60 83 90 70V77Q60 90 30 77Z" fill="#D9443A"/><path d="M30 70Q60 83 90 70M30 77Q60 90 90 77" fill="none" stroke="${INK}" stroke-width="2.2"/></g>
+            <g clip-path="url(#xmas-reindeer-clip)"><ellipse cx="60" cy="92.5" rx="15" ry="11" fill="#F6E0C3"/></g>
             <path d="M60 66C75 66 85 77 85 90C85 99 78 103.5 60 103.5C42 103.5 35 99 35 90C35 77 45 66 60 66Z" fill="none" ${O}/>
-            <path d="M38 88Q39 79 45 74" fill="none" stroke="#E2B88E" stroke-width="2.6" stroke-linecap="round" opacity=".9"/>
-            <path d="M58.4 81.4L58.6 79.6H61.4L61.6 81.4Z" fill="#E0A21E" ${OW(1.6)}/>
-            <circle cx="60" cy="86" r="4.8" fill="#F7C744" ${O2}/><path d="M57.2 87.6H62.8" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/><circle cx="60" cy="88.9" r=".9" fill="${INK}"/><circle cx="58.3" cy="84.4" r="1.1" fill="#fff"/>`,
-          armL: {svg: `<g transform="rotate(-12 40.5 78)"><rect x="35.5" y="76.5" width="10" height="14.5" rx="5" fill="#A8704A"/><path d="M35.56 86.8H45.44A5 5 0 0 1 35.56 86.8Z" fill="#4E3226"/><rect x="35.5" y="76.5" width="10" height="14.5" rx="5" fill="none" ${O}/></g>`, pivot: [41, 79]},
-          armR: {svg: `<g transform="rotate(12 79.5 78)"><rect x="74.5" y="76.5" width="10" height="14.5" rx="5" fill="#A8704A"/><path d="M74.56 86.8H84.44A5 5 0 0 1 74.56 86.8Z" fill="#4E3226"/><rect x="74.5" y="76.5" width="10" height="14.5" rx="5" fill="none" ${O}/></g>`, pivot: [79, 79]},
+            <path d="M42.5 63C45 75.5 52 81.5 60 81.5C68 81.5 75 75.5 77.5 63" fill="none" stroke="${INK}" stroke-width="9.8" stroke-linecap="round"/>
+            <path d="M42.5 63C45 75.5 52 81.5 60 81.5C68 81.5 75 75.5 77.5 63" fill="none" stroke="#D9443A" stroke-width="6.6" stroke-linecap="round"/>
+            <path d="M47.5 74.5Q52.5 79.6 60 80" fill="none" stroke="#F58A7E" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M58.2 85.6L58.5 83.4H61.5L61.8 85.6Z" fill="#E0A21E" ${OW(1.6)}/>
+            <circle cx="60" cy="89.6" r="4.8" fill="#F7C744" ${O2}/><path d="M57.2 91.2H62.8" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/><circle cx="60" cy="92.5" r=".9" fill="${INK}"/><circle cx="58.3" cy="88" r="1.1" fill="#fff"/>`,
+          armL: {svg: `<g transform="rotate(30 36.5 92)"><defs><clipPath id="xmas-reindeer-al"><ellipse cx="36.5" cy="92" rx="5.4" ry="7.8"/></clipPath></defs><ellipse cx="36.5" cy="92" rx="5.4" ry="7.8" fill="#B47A4E"/><rect x="30.5" y="95.6" width="12" height="6" fill="#4E3226" clip-path="url(#xmas-reindeer-al)"/><ellipse cx="36.5" cy="92" rx="5.4" ry="7.8" fill="none" ${O}/></g>`, pivot: [41, 87]},
+          armR: {svg: `<g transform="rotate(-30 83.5 92)"><defs><clipPath id="xmas-reindeer-ar"><ellipse cx="83.5" cy="92" rx="5.4" ry="7.8"/></clipPath></defs><ellipse cx="83.5" cy="92" rx="5.4" ry="7.8" fill="#B47A4E"/><rect x="77.5" y="95.6" width="12" height="6" fill="#4E3226" clip-path="url(#xmas-reindeer-ar)"/><ellipse cx="83.5" cy="92" rx="5.4" ry="7.8" fill="none" ${O}/></g>`, pivot: [79, 87]},
           head: `${RG("xmas-reindeer-h", [[0, "#DDA978"], [0.6, "#C08654"], [1, "#A56E45"]], 0.42, 0.35, 0.7)}
             ${LINE("M50 34C48.5 27 48.5 19 51 11M49.2 26.5C45 25.5 41 23.5 38.5 20M49 19.5C46.5 18.5 44 16.5 42.5 13.5", "#F2D6A2", 4.6)}${LINE("M70 34C71.5 27 71.5 19 69 11M70.8 26.5C75 25.5 79 23.5 81.5 20M71 19.5C73.5 18.5 76 16.5 77.5 13.5", "#F2D6A2", 4.6)}
             <ellipse cx="60" cy="51.5" rx="26" ry="23.5" fill="url(#xmas-reindeer-h)" ${O}/>
