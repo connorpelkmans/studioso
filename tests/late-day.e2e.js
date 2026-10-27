@@ -53,6 +53,14 @@ const LATE = {dayStart: "07:00", dayEnd: "01:00", minChunk: 25, maxSession: 90, 
       const rail = (await p.locator(".dtl").first().textContent().catch(() => "")).replace(/\s+/g, " ");
       ok(/Past your end of day/.test(rail) && /ended at 11:00\s?PM/.test(rail), "a day that ended at 11:00 PM: past it at 11:35 PM: " + rail);
       await p.context().close(); }
+    // Never saved Study Time: the planner uses the times the form shows (7:00 AM to 11:00 PM), not a hidden 1 AM
+    for (const when of ["2026-10-26T23:35:00-07:00", "2026-10-27T00:41:00-07:00"]) {
+      const p = await at(browser, when, null);
+      const d = await p.evaluate(() => window.__sbAvail.studyDay()), rail = (await p.locator(".dtl").first().textContent().catch(() => "")).replace(/\s+/g, " ");
+      const gap = (await p.evaluate(() => window.__sbPlan().gapWhy || [])).join(" ");
+      ok(d.end === 1380 && d.past && /Past your end of day/.test(rail) && !/1:00 AM/.test(gap + rail), `unsaved times at ${when.slice(11, 16)}: the day ended at 11:00 PM, as the form shows: ` + JSON.stringify({d, rail, gap}));
+      await p.context().close();
+    }
     // The Availability form takes an end after midnight, and refuses one that reaches the next day's start
     { const p = await at(browser, "2026-10-26T15:00:00-07:00", null);
       const save = async (ds, de) => p.evaluate(async ([ds, de]) => {
