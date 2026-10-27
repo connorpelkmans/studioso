@@ -125,10 +125,38 @@ function autoCleanNext(raw, back, ok, textOf){
   return out.slice(0, 5);
 }
 
+/* Time worked on a task, day by day: focus sessions and time you typed in.
+   Kept on the task as workLog [{id, d: "YYYY-MM-DD", m: minutes, k: "focus" | "log", at}], so it syncs and lasts.
+   A task from before the log existed reads its history lines instead */
+const CLOCK_IC = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+const WORK_RX = /^(Focus session|Logged time):? (\d+)m/;
+const isoDay = ms => { const x = new Date(ms); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
+function workEntries(t){
+  if (!t) return [];
+  if (Array.isArray(t.workLog)) return t.workLog.filter(e => e && Number(e.m) > 0 && /^\d{4}-\d{2}-\d{2}$/.test(e.d || "")).map(e => ({id: e.id || "", d: e.d, min: Number(e.m), kind: e.k === "log" ? "logged" : "focus", at: Number(e.at) || new Date(e.d + "T12:00").getTime()}));
+  return (t.history || []).map(h => { const m = h && typeof h.text === "string" && Number.isFinite(Number(h.at)) ? WORK_RX.exec(h.text) : null; return m ? {id: "", d: isoDay(Number(h.at)), min: Number(m[2]), kind: m[1] === "Logged time" ? "logged" : "focus", at: Number(h.at)} : null; }).filter(Boolean);
+}
+// Adds time to a copy of a task (n): its total, its day-by-day log and a history line. day defaults to today
+function addWork(n, min, kind, day, at){
+  min = Math.round(Number(min) || 0); if (!(min > 0)) return n;
+  day = /^\d{4}-\d{2}-\d{2}$/.test(day || "") ? day : todayISO();
+  at = Number(at) || (day === todayISO() ? Date.now() : new Date(day + "T12:00").getTime());
+  if (!Array.isArray(n.workLog)) n.workLog = workEntries(n).map(e => ({id: uid(), d: e.d, m: e.min, k: e.kind === "logged" ? "log" : "focus", at: e.at}));
+  n.workLog = n.workLog.concat({id: uid(), d: day, m: min, k: kind === "log" ? "log" : "focus", at}).slice(-500);
+  n.focusMin = (Number(n.focusMin) || 0) + min;
+  n.history = (n.history || []).concat({at, text: kind === "log" ? `Logged time: ${min}m` : `Focus session: ${min}m`}).slice(-30);
+  return n;
+}
+// Minutes per day for one task, newest day first: [{d, min, focus, logged, items}]
+function workByDay(t){
+  const by = {};
+  workEntries(t).forEach(e => { const r = by[e.d] || (by[e.d] = {d: e.d, min: 0, focus: 0, logged: 0, items: []}); r.min += e.min; r[e.kind === "logged" ? "logged" : "focus"] += e.min; r.items.push(e); });
+  return Object.values(by).sort((a, b) => a.d < b.d ? 1 : -1);
+}
 /* "Enough for today": a task you've worked for the time the plan gave it, or that you said was enough, steps aside
    for the rest of the day even though it isn't finished. It is recorded in the task's own history, so it syncs. */
 const dayStartMs = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
-const workedToday = t => { const ds = dayStartMs(); return (t.history || []).reduce((m, h) => { const mm = /^(?:Focus session|Logged time):? (\d+)m/.exec(h.text || ""); return mm && h.at >= ds ? m + Number(mm[1]) : m; }, 0); };
+const workedToday = t => { const d = todayISO(); return workEntries(t).reduce((m, e) => e.d === d ? m + e.min : m, 0); };
 // "Enough for today" lasts until 4 AM, so pressing it just after midnight doesn't carry over into the next day
 const enoughSinceMs = () => { const d = new Date(); if (d.getHours() < 4) d.setDate(d.getDate() - 1); d.setHours(4, 0, 0, 0); return d.getTime(); };
 const markedEnough = t => { const ds = enoughSinceMs(); return (t.history || []).some(h => h.text === "Enough for today" && h.at >= ds); };
@@ -315,7 +343,7 @@ function nextUpHtml(F, pre){
         ${n.step ? `<span class="nu-step">Next step: ${esc(n.step.text)}</span>` : ""}
       </div>
       ${lmsGoBtn(t)}
-      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-id="${t.gt ? "" : esc(t.id)}" data-mins="${n.mins}">${TOMATO}Start a ${n.mins}m Focus</button>${window.SBPREP ? SBPREP.matBtn(t) : ""}${t.type === "Study" && (t.studyDecks || []).length && !t.matKind ? `<button class="btn small" data-act="fc-study-plan" data-id="${esc(t.id)}">Study Cards</button>` : ""}${n.left ? `<button class="btn small" data-act="nu-skip" data-id="${esc(t.id)}">Something Else</button>` : ""}${t.gt ? "" : `<button class="btn small" data-act="nu-enough" data-id="${esc(t.id)}" title="You have done enough on this today, so move on. It stays on your list.">Enough for Today</button>`}${nuBackBtn()}</div>
+      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-id="${t.gt ? "" : esc(t.id)}" data-mins="${n.mins}">${TOMATO}Start a ${n.mins}m Focus</button>${window.SBPREP ? SBPREP.matBtn(t) : ""}${t.type === "Study" && (t.studyDecks || []).length && !t.matKind ? `<button class="btn small" data-act="fc-study-plan" data-id="${esc(t.id)}">Study Cards</button>` : ""}${n.left ? `<button class="btn small" data-act="nu-skip" data-id="${esc(t.id)}">Something Else</button>` : ""}${t.gt ? "" : `<button class="btn small" data-act="log-time" data-id="${esc(t.id)}" title="Type in time you worked on this">Log Time</button><button class="btn small" data-act="nu-enough" data-id="${esc(t.id)}" title="You have done enough on this today, so move on. It stays on your list.">Enough for Today</button>`}${nuBackBtn()}</div>
     </div>
   </div>`;
 }

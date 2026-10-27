@@ -4408,10 +4408,38 @@ function autoCleanNext(raw, back, ok, textOf){
   return out.slice(0, 5);
 }
 
+/* Time worked on a task, day by day: focus sessions and time you typed in.
+   Kept on the task as workLog [{id, d: "YYYY-MM-DD", m: minutes, k: "focus" | "log", at}], so it syncs and lasts.
+   A task from before the log existed reads its history lines instead */
+const CLOCK_IC = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+const WORK_RX = /^(Focus session|Logged time):? (\d+)m/;
+const isoDay = ms => { const x = new Date(ms); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
+function workEntries(t){
+  if (!t) return [];
+  if (Array.isArray(t.workLog)) return t.workLog.filter(e => e && Number(e.m) > 0 && /^\d{4}-\d{2}-\d{2}$/.test(e.d || "")).map(e => ({id: e.id || "", d: e.d, min: Number(e.m), kind: e.k === "log" ? "logged" : "focus", at: Number(e.at) || new Date(e.d + "T12:00").getTime()}));
+  return (t.history || []).map(h => { const m = h && typeof h.text === "string" && Number.isFinite(Number(h.at)) ? WORK_RX.exec(h.text) : null; return m ? {id: "", d: isoDay(Number(h.at)), min: Number(m[2]), kind: m[1] === "Logged time" ? "logged" : "focus", at: Number(h.at)} : null; }).filter(Boolean);
+}
+// Adds time to a copy of a task (n): its total, its day-by-day log and a history line. day defaults to today
+function addWork(n, min, kind, day, at){
+  min = Math.round(Number(min) || 0); if (!(min > 0)) return n;
+  day = /^\d{4}-\d{2}-\d{2}$/.test(day || "") ? day : todayISO();
+  at = Number(at) || (day === todayISO() ? Date.now() : new Date(day + "T12:00").getTime());
+  if (!Array.isArray(n.workLog)) n.workLog = workEntries(n).map(e => ({id: uid(), d: e.d, m: e.min, k: e.kind === "logged" ? "log" : "focus", at: e.at}));
+  n.workLog = n.workLog.concat({id: uid(), d: day, m: min, k: kind === "log" ? "log" : "focus", at}).slice(-500);
+  n.focusMin = (Number(n.focusMin) || 0) + min;
+  n.history = (n.history || []).concat({at, text: kind === "log" ? `Logged time: ${min}m` : `Focus session: ${min}m`}).slice(-30);
+  return n;
+}
+// Minutes per day for one task, newest day first: [{d, min, focus, logged, items}]
+function workByDay(t){
+  const by = {};
+  workEntries(t).forEach(e => { const r = by[e.d] || (by[e.d] = {d: e.d, min: 0, focus: 0, logged: 0, items: []}); r.min += e.min; r[e.kind === "logged" ? "logged" : "focus"] += e.min; r.items.push(e); });
+  return Object.values(by).sort((a, b) => a.d < b.d ? 1 : -1);
+}
 /* "Enough for today": a task you've worked for the time the plan gave it, or that you said was enough, steps aside
    for the rest of the day even though it isn't finished. It is recorded in the task's own history, so it syncs. */
 const dayStartMs = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
-const workedToday = t => { const ds = dayStartMs(); return (t.history || []).reduce((m, h) => { const mm = /^(?:Focus session|Logged time):? (\d+)m/.exec(h.text || ""); return mm && h.at >= ds ? m + Number(mm[1]) : m; }, 0); };
+const workedToday = t => { const d = todayISO(); return workEntries(t).reduce((m, e) => e.d === d ? m + e.min : m, 0); };
 // "Enough for today" lasts until 4 AM, so pressing it just after midnight doesn't carry over into the next day
 const enoughSinceMs = () => { const d = new Date(); if (d.getHours() < 4) d.setDate(d.getDate() - 1); d.setHours(4, 0, 0, 0); return d.getTime(); };
 const markedEnough = t => { const ds = enoughSinceMs(); return (t.history || []).some(h => h.text === "Enough for today" && h.at >= ds); };
@@ -4598,7 +4626,7 @@ function nextUpHtml(F, pre){
         ${n.step ? `<span class="nu-step">Next step: ${esc(n.step.text)}</span>` : ""}
       </div>
       ${lmsGoBtn(t)}
-      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-id="${t.gt ? "" : esc(t.id)}" data-mins="${n.mins}">${TOMATO}Start a ${n.mins}m Focus</button>${window.SBPREP ? SBPREP.matBtn(t) : ""}${t.type === "Study" && (t.studyDecks || []).length && !t.matKind ? `<button class="btn small" data-act="fc-study-plan" data-id="${esc(t.id)}">Study Cards</button>` : ""}${n.left ? `<button class="btn small" data-act="nu-skip" data-id="${esc(t.id)}">Something Else</button>` : ""}${t.gt ? "" : `<button class="btn small" data-act="nu-enough" data-id="${esc(t.id)}" title="You have done enough on this today, so move on. It stays on your list.">Enough for Today</button>`}${nuBackBtn()}</div>
+      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-id="${t.gt ? "" : esc(t.id)}" data-mins="${n.mins}">${TOMATO}Start a ${n.mins}m Focus</button>${window.SBPREP ? SBPREP.matBtn(t) : ""}${t.type === "Study" && (t.studyDecks || []).length && !t.matKind ? `<button class="btn small" data-act="fc-study-plan" data-id="${esc(t.id)}">Study Cards</button>` : ""}${n.left ? `<button class="btn small" data-act="nu-skip" data-id="${esc(t.id)}">Something Else</button>` : ""}${t.gt ? "" : `<button class="btn small" data-act="log-time" data-id="${esc(t.id)}" title="Type in time you worked on this">Log Time</button><button class="btn small" data-act="nu-enough" data-id="${esc(t.id)}" title="You have done enough on this today, so move on. It stays on your list.">Enough for Today</button>`}${nuBackBtn()}</div>
     </div>
   </div>`;
 }
@@ -8333,7 +8361,7 @@ function planRow(x, i, showScore, noRank){
     ${t.gt ? `<span class="check gt-dot" aria-hidden="true"></span>` : `<button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>`}
     <button class="plan-main" ${gtOpenAttrs(t)} title="${esc(rs.join("\n"))}"><span class="task-title">${esc(t.title)}</span>${t.gt ? `<span class="pr-chip gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? `<span class="pr-chip">${esc(courseLabel(c))}</span>` : ""}</button>${c ? `<span class="pr-chip pr-chip-out">${esc(courseLabel(c))}</span>` : ""}
     ${lead ? rest.length ? `<button class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}" data-act="plan-why" data-id="${esc(key)}" aria-expanded="${open}" aria-controls="pw-${esc(key)}" title="${esc(lead)}. Show all ${rs.length} reasons"><span class="pr-lead">${esc(lead)}</span><span class="pr-n" aria-hidden="true">+${rest.length} more</span></button>` : `<span class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}"><span class="pr-lead">${esc(lead)}</span></span>` : `<span class="pr-why"></span>`}
-    <span class="plan-side">${lmsGoBtn(t)}${window.SBPREP ? SBPREP.matBtn(t) : ""}${side}${showScore || !canDoNow(t) ? "" : `<button class="focus-go" data-act="pomo-task" data-id="${t.gt ? "" : esc(t.id)}" aria-label="Start a focus session on ${esc(t.title)}" title="Start a focus session">${TOMATO}</button>`}</span>
+    <span class="plan-side">${lmsGoBtn(t)}${window.SBPREP ? SBPREP.matBtn(t) : ""}${side}${showScore || !canDoNow(t) ? "" : `<button class="focus-go" data-act="pomo-task" data-id="${t.gt ? "" : esc(t.id)}" aria-label="Start a focus session on ${esc(t.title)}" title="Start a focus session">${TOMATO}</button>`}${showScore || t.gt ? "" : `<button class="focus-go lt-go" data-act="log-time" data-id="${esc(t.id)}" aria-label="Log time on ${esc(t.title)}" title="Log time you worked on this">${CLOCK_IC}</button>`}</span>
     ${(sl => !showScore && ((sl && sl.length) || x.moved > 0.05) ? `<span class="pr-slot">${sl && sl.length ? `<b>${esc(availSlotText(sl))}</b>` : ""}${x.moved > 0.05 ? `${sl && sl.length ? " " : ""}<span class="mini">${esc(fmtHM(x.moved))} moved to a lighter day</span>` : ""}</span>` : "")(FOCUS && FOCUS.slotsBy ? FOCUS.slotsBy[t.id] : null)}
     ${rest.length ? `<ul class="pr-more" id="pw-${esc(key)}"${open ? "" : " hidden"}>${rest.map(r => `<li>${esc(r)}</li>`).join("")}</ul>` : ""}
   </li>`;
@@ -14642,8 +14670,7 @@ function pomoFinish(missed){
     pomo.cycle++; pomo.sessions++; pomo.minutes += fm;
     const t = pomo.taskId && state.tasks[pomo.taskId];
     if (t) {
-      const n = clone(t); n.pomos = (Number(n.pomos) || 0) + 1; n.focusMin = (Number(n.focusMin) || 0) + fm;
-      n.history = (n.history || []).concat({at: Date.now(), text: `Focus session: ${fm}m`}).slice(-30);
+      const n = addWork(clone(t), fm, "focus"); n.pomos = (Number(n.pomos) || 0) + 1;
       applyChanges([{kind: "task", id: t.id, after: n}], null);
       try { const x = FOCUS && FOCUS.info ? FOCUS.info[t.id] : null; if (x && enoughToday(state.tasks[t.id], x)) toast(`That's the time planned for “${t.title}” today. Moving on to the next thing.`); } catch (e) {}
     }
@@ -42042,13 +42069,19 @@ var SBSTATS = (() => {
   const sess = () => (state.settings && state.settings.focusSess) || {};
   const bump = (map, d, n) => { const cur = Object.assign({}, map); cur[d] = (Number(cur[d]) || 0) + n; const keys = Object.keys(cur).sort(); if (keys.length > 800) keys.slice(0, keys.length - 800).forEach(k => delete cur[k]); return cur; };
   const sum = (map, from, to) => { let n = 0; Object.entries(map).forEach(([d, m]) => { if ((!from || d >= from) && (!to || d <= to)) n += Number(m) || 0; }); return n; };
-  function addFocus(minutes, source, session){
+  function addFocus(minutes, source, session, day){
     const m = Math.round(Number(minutes) || 0); if (m <= 0) return;
-    const d = todayISO(), patch = {focusDays: bump(days(), d, m)};
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(day || "") ? day : todayISO(), patch = {focusDays: bump(days(), d, m)};
     if (session) patch.focusSess = bump(sess(), d, 1);
     state.settings = Object.assign({}, state.settings, patch);
     saveSettings();
     fire("stats-focus", {minutes: m, source: source || "timer", day: d});
+  }
+  // Takes back time that was logged by mistake
+  function takeFocus(minutes, day){
+    const m = Math.round(Number(minutes) || 0), d = /^\d{4}-\d{2}-\d{2}$/.test(day || "") ? day : todayISO(); if (m <= 0) return;
+    const cur = Object.assign({}, days()); cur[d] = Math.max(0, (Number(cur[d]) || 0) - m); if (!cur[d]) delete cur[d];
+    state.settings = Object.assign({}, state.settings, {focusDays: cur}); saveSettings();
   }
   // Minutes between two dates (YYYY-MM-DD, inclusive)
   const focusMinutes = (from, to) => sum(days(), from, to);
@@ -42060,7 +42093,7 @@ var SBSTATS = (() => {
     return Math.max(logged, fromTasks);
   }
   hook("focus", e => { if (e && e.type === "end" && e.mode === "focus" && e.minutes) addFocus(e.minutes, "timer", true); });
-  return {addFocus, focusMinutes, focusSessions, totalFocusMinutes, focusDays: () => Object.assign({}, days())};
+  return {addFocus, takeFocus, focusMinutes, focusSessions, totalFocusMinutes, focusDays: () => Object.assign({}, days())};
 })();
 
 
@@ -62717,7 +62750,10 @@ const ACC = (() => {
     m = LOG_RX.exec(h.text); if (m) return {at: Number(h.at), min: Number(m[1]), kind: "logged"};
     return null;
   }
-  const entries = t => ((t && t.history) || []).map(entry).filter(Boolean);
+  // the task's day-by-day work log when it has one, else its history lines
+  const entries = t => Array.isArray(t && t.workLog)
+    ? t.workLog.filter(e => e && Number(e.m) > 0 && /^\d{4}-\d{2}-\d{2}$/.test(e.d || "")).map(e => ({at: Number(e.at) || new Date(e.d + "T12:00").getTime(), min: Number(e.m), kind: e.k === "log" ? "logged" : "focus"}))
+    : ((t && t.history) || []).map(entry).filter(Boolean);
   const bornDone = t => !!(t && t.created && t.doneAt && t.doneAt - t.created < 60000);
   // "90", "1h", "1.5h", "1h30", "1h 30m", "45m", "1:30" -> minutes (0 when it isn't a time)
   function parseDur(s){
@@ -62902,12 +62938,12 @@ const SBTIME = (() => {
 })();
 
 /* Logging time */
-function logTime(id, min, kind, label, at){
+function logTime(id, min, kind, label, at, day){
   const t = state.tasks[id]; min = Math.round(Number(min));
   if (!t || !(min > 0)) return false;
-  const n = clone(t);
-  n.focusMin = (Number(n.focusMin) || 0) + min;
-  n.history = (n.history || []).concat({at: at || Date.now(), text: kind === "focus" ? `Focus session: ${min}m` : `Logged time: ${min}m`}).slice(-30);
+  const n = addWork(clone(t), min, kind === "focus" ? "focus" : "log", day || (at ? isoDay(at) : ""), at);
+  // time you type in counts toward the day's study time, like a focus session (a focus session is already counted)
+  if (kind !== "focus") { try { SBSTATS.addFocus(min, "log", false, day || (at ? isoDay(at) : "")); } catch (e) {} }
   applyChanges([{kind: "task", id, after: n}], label || tr("acc.loggedToast", "Logged {t} on {title}", {t: fmtMins(min), title: t.title.length > 28 ? t.title.slice(0, 27) + "…" : t.title}));
   LEARN = null;
   return true;
@@ -63033,7 +63069,7 @@ function staleScan(){
 /* Log time on a task */
 const logHtml = t => `<div class="acc-log" id="accLog" data-id="${esc(t.id)}"><span class="lbl">${esc(tr("acc.logTime", "Log time"))}</span>
   <span class="acc-log-btns" role="group" aria-label="${esc(tr("acc.logAria", "Add time you spent on this task"))}"><button type="button" class="btn small" data-act="acc-log" data-id="${esc(t.id)}" data-min="15">+15m</button><button type="button" class="btn small" data-act="acc-log" data-id="${esc(t.id)}" data-min="30">+30m</button><button type="button" class="btn small" data-act="acc-log" data-id="${esc(t.id)}" data-min="60">+1h</button><button type="button" class="btn small" data-act="acc-log-custom" data-id="${esc(t.id)}">${esc(tr("acc.custom", "Custom"))}</button></span>
-  <span class="mini acc-log-tot" aria-live="polite">${logTotal(t)}</span></div>`;
+  <span class="mini acc-log-tot" aria-live="polite">${logTotal(t)}</span>${workDaysHtml(t, 5)}</div>`;
 function logTotal(t){
   const m = Number(t.focusMin) || 0;
   return m ? esc(tr("acc.logTotal", "{t} tracked so far", {t: fmtMins(m)})) : esc(tr("acc.logNone", "Nothing tracked yet"));
@@ -63041,6 +63077,62 @@ function logTotal(t){
 function refreshLog(id){
   const box = document.getElementById("accLog"); if (!box || box.dataset.id !== id || !state.tasks[id]) return;
   const tot = box.querySelector(".acc-log-tot"); if (tot) tot.innerHTML = logTotal(state.tasks[id]);
+  const old = box.querySelector(".tw-days"), h = document.createElement("div"); h.innerHTML = workDaysHtml(state.tasks[id], 5);
+  if (old) old.replaceWith(...h.childNodes); else box.append(...h.childNodes);
+}
+/* Time worked, day by day */
+const twDay = d => d === todayISO() ? tr("tw.today", "Today") : d === addDays(todayISO(), -1) ? tr("tw.yesterday", "Yesterday") : parse(d).toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"});
+// one line per day: when, how long, and how (focus or typed in); typed-in time can be taken back
+function workDaysHtml(t, max, edit){
+  const days = workByDay(t); if (!days.length) return "";
+  const shown = max ? days.slice(0, max) : days;
+  return `<ul class="tw-days" aria-label="${esc(tr("tw.aria", "Time worked by day"))}">${shown.map(r => `<li><span class="tw-d">${esc(twDay(r.d))}</span><b class="tw-m">${fmtMins(r.min)}</b><span class="tw-how mini">${r.focus && r.logged ? tr("tw.focus", "{t} focus", {t: fmtMins(r.focus)}) + " · " + tr("tw.logged", "{t} typed in", {t: fmtMins(r.logged)}) : r.focus ? tr("tw.focusOnly", "focus sessions") : tr("tw.loggedOnly", "typed in")}</span>${edit ? r.items.filter(e => e.kind === "logged" && e.id).map(e => `<button type="button" class="tw-x" data-act="tw-del" data-id="${esc(t.id)}" data-e="${esc(e.id)}" aria-label="${esc(tr("tw.delAria", "Remove {t} typed in for {day}", {t: fmtMins(e.min), day: twDay(r.d)}))}" >${esc(tr("tw.del", "Remove {t}", {t: fmtMins(e.min)}))}</button>`).join("") : ""}</li>`).join("")}</ul>${max && days.length > max ? `<p class="mini tw-more">${esc(tr("tw.more", "and {n} earlier days", {n: days.length - max}))}</p>` : ""}`;
+}
+// Takes back time typed in by mistake
+function removeWork(id, eid){
+  const t = state.tasks[id]; if (!t || !Array.isArray(t.workLog)) return false;
+  const e = t.workLog.find(x => x && x.id === eid && x.k === "log"); if (!e) return false;
+  const n = clone(t);
+  n.workLog = n.workLog.filter(x => x.id !== eid);
+  n.focusMin = Math.max(0, (Number(n.focusMin) || 0) - Number(e.m));
+  let gone = false; n.history = (n.history || []).filter(h => { if (!gone && h.at === e.at && h.text === `Logged time: ${e.m}m`) { gone = true; return false; } return true; });
+  try { SBSTATS.takeFocus(e.m, e.d); } catch (x) {}
+  applyChanges([{kind: "task", id, after: n}], tr("tw.removed", "Removed {t} from {title}", {t: fmtMins(e.m), title: short(t.title, 28)}));
+  LEARN = null;
+  return true;
+}
+// Log Time: how long you worked on a task, on which day
+function logTimeSheet(id){
+  const t = state.tasks[id]; if (!t) return;
+  const c = courseOf(t.courseId), today = todayISO(), yest = addDays(today, -1);
+  const chips = [[15, "15m"], [30, "30m"], [45, "45m"], [60, "1h"], [90, "1h 30m"], [120, "2h"]];
+  openSheet(`<form class="sheet lt-sheet">${head(tr("tw.title", "Log Time"))}
+    <div class="sheet-body">
+      <p class="lt-task"><b>${esc(t.title)}</b>${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</p>
+      <fieldset class="lt-f"><legend>${esc(tr("tw.howLong", "How long did you work on it?"))}</legend>
+        <div class="lt-chips" role="group">${chips.map(([m, l]) => `<button type="button" class="btn small lt-chip" data-lt="${m}" aria-pressed="false">${l}</button>`).join("")}</div>
+        <label class="f"><span class="lh">${esc(tr("tw.orType", "Or type it"))}</span><input type="text" name="ltMin" id="ltMin" maxlength="12" autocomplete="off" placeholder="${esc(tr("acc.exactPh", "e.g. 1h 30m"))}" autofocus></label></fieldset>
+      <fieldset class="lt-f"><legend>${esc(tr("tw.when", "When?"))}</legend>
+        ${seg("ltDay", [["today", esc(tr("tw.today", "Today"))], ["yest", esc(tr("tw.yesterday", "Yesterday"))], ["other", esc(tr("tw.earlier", "Earlier"))]], "today")}
+        <label class="f lt-date" hidden><span class="lh">${esc(tr("tw.day", "Day"))}</span><input type="date" name="ltDate" id="ltDate" max="${today}" value="${addDays(today, -2)}"></label></fieldset>
+      <section class="lt-past" id="ltPast">${ltPastHtml(t)}</section>
+    </div>
+    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">${esc(tr("cancel", "Cancel"))}</button><button type="button" class="btn primary" data-submit>${esc(tr("tw.save", "Log Time"))}</button></div>
+  </form>`, fd => {
+    const m = ACC.parseDur(fd.get("ltMin"));
+    if (!(m > 0 && m <= 1440)) { const i = $("#ltMin"); if (i) { i.setAttribute("aria-invalid", "true"); i.focus(); } toast(tr("acc.badTime", "Try a time like 45m or 1h 30m")); return false; }
+    const w = fd.get("ltDay"), day = w === "yest" ? yest : w === "other" ? String(fd.get("ltDate") || "") : today;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || day > today) { toast(tr("tw.badDay", "Pick a day up to today")); return false; }
+    return logTime(id, m, "log", tr("tw.logged.toast", "Logged {t} on {title}{when}", {t: fmtMins(m), title: short(t.title, 28), when: day === today ? "" : " (" + twDay(day) + ")"}), null, day);
+  });
+  const f = dlg.querySelector(".lt-sheet"), inp = $("#ltMin");
+  f.addEventListener("click", e => { const b = e.target.closest("[data-lt]"); if (!b) return; inp.value = fmtMins(Number(b.dataset.lt)); inp.removeAttribute("aria-invalid"); f.querySelectorAll("[data-lt]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); });
+  inp.addEventListener("input", () => f.querySelectorAll("[data-lt]").forEach(x => x.setAttribute("aria-pressed", "false")));
+  f.addEventListener("change", e => { if (e.target.name === "ltDay") f.querySelector(".lt-date").hidden = e.target.value !== "other"; });
+}
+function ltPastHtml(t){
+  const tot = Number(t.focusMin) || 0, list = workDaysHtml(t, 0, true);
+  return `<h3 class="fsec">${esc(tr("tw.worked", "Time Worked"))}<span class="spacer"></span><span class="mini">${tot ? esc(tr("tw.total", "{t} in all", {t: fmtMins(tot)})) : ""}</span></h3>${list || `<p class="mini" style="margin:0">${esc(tr("tw.none", "Nothing logged yet. Focus sessions and time you log show up here, day by day."))}</p>`}`;
 }
 function customLog(el){
   const box = el.closest(".acc-log"); if (!box) return;
@@ -63057,7 +63149,7 @@ function howHtml(){
 
 /* Wiring */
 hook("act", (a, el) => {
-  if (!a || a.slice(0, 4) !== "acc-") return false;
+  if (!a || (a.slice(0, 4) !== "acc-" && a !== "log-time" && a !== "tw-del")) return false;
   if (a === "acc-dismiss") { chipDismiss(); return true; }
   if (a === "acc-which") {
     const p = lsGet(LS_PEND, null), id = el.dataset.id; lsSet(LS_PEND, null); chipHide();
@@ -63072,6 +63164,8 @@ hook("act", (a, el) => {
     if (!(m > 0 && m <= 1440)) { if (i) { i.setAttribute("aria-invalid", "true"); i.focus(); } toast(tr("acc.badTime", "Try a time like 45m or 1h 30m")); return true; }
     answerTook({actualMin: m}); return true;
   }
+  if (a === "log-time") { logTimeSheet(el.dataset.id); return true; }
+  if (a === "tw-del") { if (removeWork(el.dataset.id, el.dataset.e)) { const p = document.getElementById("ltPast"); if (p && state.tasks[el.dataset.id]) p.innerHTML = ltPastHtml(state.tasks[el.dataset.id]); refreshLog(el.dataset.id); } return true; }
   if (a === "acc-log") { if (logTime(el.dataset.id, Number(el.dataset.min))) refreshLog(el.dataset.id); return true; }
   if (a === "acc-log-custom") { customLog(el); return true; }
   if (a === "acc-log-add") {
