@@ -206,12 +206,12 @@ const bsTask = (id, title, cid, ou, extra) => Object.assign({id, created: 1, tit
         return (await page.textContent("#view")).replace(/\s+/g, " ");
       };
       const tab = await gradesTab();
-      ok(/Marked, No Weight Yet 1/.test(tab) && /Midterm Exam- Requires Respondus LockDown Browser/.test(tab) && /75\.6%/.test(tab), "the Grades tab lists the midterm's mark though it has no weight yet: " + tab.slice(0, 300));
+      ok(/Marked 1/.test(tab) && /Midterm Exam- Requires Respondus LockDown Browser No weight yet/.test(tab) && /75\.6%/.test(tab) && /isn't counted in your course grade/.test(tab), "the Grades tab lists the midterm's mark in Marked, marked No weight yet and not counted: " + tab.slice(0, 400));
       const syl = "Course Evaluation\nMidterm Exam 30%\nFinal Exam 40%\nAssignments 30%\nThe minimum passing grade is 65%.";
       const w = await page.evaluate(([h, syl]) => { h.courses[1].syl = [syl]; const L = SBLMS.brightspace, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true); return Object.values(SBLMS.st().tasks).filter(t => t.courseId === "c10").map(t => [t.title, t.weight]); }, [H(), syl]);
       ok(w.some(([t, x]) => t === MID && Number(x) === 30), "the syllabus's Midterm Exam 30% goes on the quiz: " + JSON.stringify(w));
       await closeDlg(page); const tab2 = await gradesTab();
-      ok(/Where You Stand/.test(tab2) && !/No Weight Yet/.test(tab2), "with its weight it counts in the course grade: " + tab2.slice(0, 200));
+      ok(/Where You Stand/.test(tab2) && !/No weight yet/.test(tab2) && /75\.6%/.test(tab2), "with its weight it counts in the course grade: " + tab2.slice(0, 200));
       // later the mark is posted to Brightspace's Grades page, with the course's own weight: that mark and weight take over
       const later = await page.evaluate(([h, syl, m]) => { h.courses[1].syl = [syl]; h.courses[1].quizzes[0].gid = "55";
         h.courses[1].grades = [{gid: "55", name: m, type: 1, num: 36, den: 45, wnum: 20, wden: 25, shown: "80 %"}];
