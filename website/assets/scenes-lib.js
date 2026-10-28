@@ -3994,7 +3994,9 @@ SCENES.thanksgiving = function (W, H, dk, rnd) {
   add(bg, 'g', tSh, dk ? 'rgba(30,10,6,0.35)' : 'rgba(120,50,20,0.22)'); add(bg, 'h', tHi, dk ? 'rgba(255,200,140,0.1)' : 'rgba(255,240,200,0.28)');
   // the red barn with a gambrel roof, white trim, an X-braced door and a glowing hayloft, and a silo beside it
   var bi = Math.round((bx + 60) / 10), byb = hA[bi][1] + 6, sxL = bx - bw * 0.74, sw2 = bw * 0.28, sH = bh * 1.5;
-  add(bg, 'i', RR(sxL - sw2 / 2, byb - sH, sw2, sH), dk ? '#4E4448' : '#B8AEA6');
+  // the silo stands on the hill under its own footprint (the lowest point it covers), sunk in a little so it never floats
+  var sGround = function (x) { return hA[Math.max(0, Math.min(hA.length - 1, Math.round((x + 60) / 10)))][1]; }, syb = Math.max(sGround(sxL - sw2 / 2), sGround(sxL), sGround(sxL + sw2 / 2)) + 6, sTop = byb - sH;
+  add(bg, 'i', RR(sxL - sw2 / 2, sTop, sw2, syb - sTop), dk ? '#4E4448' : '#B8AEA6');
   var dome = []; for (var di = 0; di <= 12; di++) { var da = Math.PI + di / 12 * Math.PI; dome.push([sxL + Math.cos(da) * sw2 * 0.56, byb - sH + Math.sin(da) * sw2 * 0.5]); }
   var roofL = [[bx - bw / 2 - 2, byb - bh + 1], [bx - bw * 0.42, byb - bh - bw * 0.27], [bx, byb - bh - bw * 0.44], [bx + bw * 0.42, byb - bh - bw * 0.27], [bx + bw / 2 + 2, byb - bh + 1]], rt = bw * 0.08;
   add(bg, 'j', b2_polyA(dome) + b2_polyA(roofL.concat(roofL.slice().reverse().map(function (q) { return [q[0], q[1] + rt]; }))), dk ? '#3A2626' : '#6E4A42');
