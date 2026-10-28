@@ -13968,7 +13968,11 @@ ENGINES.sunset = function (A, v, dk) {
       crabs.forEach(function (C) { drawCrab(cb, C, t); });
       if (fronds.length) { var d = b1_dpr(cb); if (!nuts || Math.abs(d - fd) > 0.01) buildFronds(d);
         var ox = Math.round((crown[0] - fR) * fd), oy = Math.round((crown[1] - fR) * fd); cb.save(); cb.setTransform(1, 0, 0, 1, 0, 0);
-        fronds.forEach(function (F) { var a = (Math.sin(t * 0.55 + F.ph) * 1.6 + Math.sin(t * 0.21 + F.ph * 1.7) * 1.1) * F.k * Math.PI / 180, m = a * F.len * 0.45 * fd; b1_blit(cb, F.t, ox - Math.sin(F.ang) * m, oy + Math.cos(F.ang) * m); });
+        // each frond swings about the crown (its base stays put), so nothing slides or jitters where they meet
+        var cxp = crown[0] * fd, cyp = crown[1] * fd;
+        fronds.forEach(function (F) { var a = (Math.sin(t * 0.55 + F.ph) * 1.6 + Math.sin(t * 0.21 + F.ph * 1.7) * 1.1) * F.k * Math.PI / 180;
+          cb.setTransform(Math.cos(a), Math.sin(a), -Math.sin(a), Math.cos(a), cxp, cyp); F.t.forEach(function (T) { cb.drawImage(T.cv, T.x - fR * fd, T.y - fR * fd); }); });
+        cb.setTransform(1, 0, 0, 1, 0, 0);
         b1_blit(cb, nuts, ox, oy); cb.restore(); }
     },
     finish: function (t) { if (active) queue = Math.min(queue + 1, 2); else start(t); }
