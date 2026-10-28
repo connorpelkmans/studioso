@@ -1932,46 +1932,145 @@ SCENES.music = function (W, H, dk, rnd) {
   var R = b5_room(W, H, dk, rnd, c), ph = R.ph, far = R.far, mid = R.mid, near = R.near, fy = R.fy, w = R.win;
   if (dk) add(far, 'a', ell(w.x + w.w / 2, w.y + w.h / 2, w.w * 0.8, w.h * 0.6), 'rgba(140,130,240,0.2)');
   else add(far, 'a', poly([[w.x, w.y + w.h], [w.x + w.w, w.y + w.h], [w.x + w.w * 0.8, H], [w.x - w.w * 0.5, H]]), 'rgba(255,244,220,0.55)');
-  var dark = '', wood = '', cream = '', honey = '', lav = '', leaves = '', lines = '', nearDark = '', cush = '', shade = '';
-  var px = ph ? W * 0.03 : W * 0.1, pw = ph ? W * 0.52 : W * 0.31, top = fy - H * (ph ? 0.21 : 0.33), bot = fy + (ph ? 14 : 20), ky = fy - H * (ph ? 0.095 : 0.14);
-  dark += rect(px, top, pw, bot - top) + rrect(px - 8, top - 12, pw + 16, 16, 4) + rect(px - 12, ky, 14, bot - ky) + rect(px + pw - 2, ky, 14, bot - ky);
-  wood += rrect(px + pw * 0.06, top + (ph ? 12 : 22), pw * 0.88, ky - top - (ph ? 34 : 56), 6) + rect(px - 14, ky + (ph ? 10 : 14), pw + 28, ph ? 9 : 12) + rrect(px + pw * 0.08, ky + (ph ? 24 : 36), pw * 0.84, bot - ky - (ph ? 34 : 52), 5);
-  var kh = ph ? 10 : 14; cream += rect(px, ky, pw, kh);
-  var nk = Math.floor(pw / (ph ? 7 : 9)), kw = pw / nk; for (var i = 0; i < nk; i++) { if ([0, 1, 3, 4, 5].indexOf(i % 7) >= 0) nearDark += rect(px + (i + 0.68) * kw, ky, kw * 0.62, kh * 0.6); lines += seg(px + i * kw, ky + 1, px + i * kw, ky + kh); }
+  // ---- the room's details: an upright piano, records, a plant, lamp, bench, guitar and rug ----
+  var P = {c: '', d: '', e: '', f: '', g: '', h: '', i: '', j: '', k: '', l: '', m: '', n: '', o: '', p: ''}, lines = '', folds = '';
+  var px = ph ? W * 0.03 : W * 0.1, pw = ph ? W * 0.52 : W * 0.31, top = fy - H * (ph ? 0.21 : 0.33), bot = fy + (ph ? 14 : 20), ky = fy - H * (ph ? 0.095 : 0.14), u = ph ? 0.62 : 1;
+  var kh = ph ? 10 : 14, lidH = 13 * u, armW = 15 * u;
+  function R4(x0, y0, x1, y1) { return b2_polyA([[x0, y0], [x1, y0], [x1, y1], [x0, y1]]); }
+  // contact shadows on the floor and wall
+  P.c += b2_ellA(px + pw / 2, bot + 1, pw * 0.6, 9 * u) + b2_polyA([[px + pw, top - lidH + 4], [px + pw + 12 * u, top - lidH + 10], [px + pw + 12 * u, bot - 4], [px + pw, bot]]);
+  // cabinet, lid, key-bed arms, key bed, toe blocks
+  P.d += R4(px, top, px + pw, bot) + R4(px - 8 * u, top - lidH, px + pw + 8 * u, top);
+  P.d += R4(px - armW, ky - 7 * u, px + 2, bot) + R4(px + pw - 2, ky - 7 * u, px + pw + armW, bot);
+  P.d += R4(px - 14 * u, ky + kh, px + pw + 14 * u, ky + kh + 13 * u);
+  [px - armW - 3 * u, px + pw - 2].forEach(function (tx) { P.d += R4(tx, bot - 9 * u, tx + armW + 5 * u, bot + 2); });
+  // highlights: lid top (seen from above), moulded panel frames, fallboard, key slip, arm tops
+  var h1y = top + (ph ? 10 : 18), h1h = ky - top - (ph ? 50 : 80), l1y = ky + kh + 13 * u + (ph ? 8 : 12), l1h = bot - l1y - (ph ? 12 : 18);
+  P.e += b2_polyA([[px - 6 * u, top - lidH - 5 * u], [px + pw + 6 * u, top - lidH - 5 * u], [px + pw + 8 * u, top - lidH], [px - 8 * u, top - lidH]]);
+  [[h1y, h1h], [l1y, l1h]].forEach(function (q) { P.e += R4(px + pw * 0.06, q[0], px + pw * 0.94, q[0] + q[1]); P.f += R4(px + pw * 0.06 + 5 * u, q[0] + 5 * u, px + pw * 0.94 - 5 * u, q[0] + q[1] - 5 * u); P.g += R4(px + pw * 0.06 + 5 * u, q[0] + 5 * u, px + pw * 0.94 - 5 * u, q[0] + 8 * u); });
+  P.e += R4(px + 4, ky - 17 * u, px + pw - 4, ky - 3 * u) + R4(px - 14 * u, ky + kh, px + pw + 14 * u, ky + kh + 3 * u);
+  P.e += R4(px - armW, ky - 7 * u, px + 2, ky - 4 * u) + R4(px + pw - 2, ky - 7 * u, px + pw + armW, ky - 4 * u);
+  // shadow lines: under the lid, above the keys, under the key bed, at the kick board
+  P.g += R4(px, top, px + pw, top + 4 * u) + R4(px + 2, ky - 3 * u, px + pw - 2, ky) + R4(px - 14 * u, ky + kh + 13 * u, px + pw + 14 * u, ky + kh + 17 * u) + R4(px + 2, bot - 4 * u, px + pw - 2, bot);
+  // keys: white keys with a darker front lip, black keys with a top sheen
+  P.h += R4(px, ky, px + pw, ky + kh);
+  P.g += R4(px, ky + kh - 2.4 * u, px + pw, ky + kh);
+  var nk = Math.floor(pw / (ph ? 7 : 9)), kw = pw / nk;
+  for (var i = 0; i < nk; i++) { if ([0, 1, 3, 4, 5].indexOf(i % 7) >= 0 && i < nk - 1) { var bx0 = px + (i + 0.68) * kw, bkw = kw * 0.62; P.i += R4(bx0, ky, bx0 + bkw, ky + kh * 0.6); P.m += R4(bx0 + bkw * 0.2, ky + 0.5, bx0 + bkw * 0.45, ky + kh * 0.48); } if (i) lines += seg(px + i * kw, ky + 1, px + i * kw, ky + kh - 1); }
   if (ANIM) ANIM.keys = {x: px, y: ky, w: pw, h: kh, n: nk};
-  var sx = px + pw * 0.33, sw2 = pw * 0.34, sy = ky - (ph ? 34 : 56), sh2 = ph ? 30 : 48; cream += poly([[sx, sy], [sx + sw2 / 2, sy + 3], [sx + sw2, sy], [sx + sw2, sy + sh2], [sx + sw2 / 2, sy + sh2 + 3], [sx, sy + sh2]]);
-  for (var l = 0; l < 3; l++) for (var m = 0; m < 5; m++) { var ly = sy + sh2 * (0.2 + l * 0.28) + m * (ph ? 1.8 : 2.6); lines += seg(sx + 4, ly, sx + sw2 / 2 - 3, ly) + seg(sx + sw2 / 2 + 3, ly, sx + sw2 - 4, ly); }
-  honey += rect(px + pw * 0.44, bot - (ph ? 6 : 9), 5, ph ? 6 : 9) + rect(px + pw * 0.52, bot - (ph ? 6 : 9), 5, ph ? 6 : 9);
-  var tpx = px + pw * 0.8; honey += b5_pot(tpx, top - 12, ph ? 20 : 30, ph ? 16 : 24); leaves += b5_plant(tpx, top - 12 - (ph ? 14 : 22), ph ? 26 : 42, rnd, 7, 160);
-  var mx = px + pw * 0.18, mh = ph ? 30 : 46; wood += poly([[mx - mh * 0.3, top - 12], [mx + mh * 0.3, top - 12], [mx + mh * 0.08, top - 12 - mh], [mx - mh * 0.08, top - 12 - mh]]); if (ANIM) ANIM.met = {x: mx, y: top - 16, len: Math.hypot(mh * 0.18, mh * 0.9 - 4), w: ph ? 1 : 1.4}; else lines += seg(mx, top - 16, mx + mh * 0.18, top - 12 - mh * 0.9);
-  var ptx = px + pw * 0.45; lav += rect(ptx, top - 12 - (ph ? 26 : 40), ph ? 22 : 34, ph ? 26 : 40); cream += rect(ptx + 4, top - 12 - (ph ? 22 : 34), ph ? 14 : 26, ph ? 18 : 28);
-  var bx = px + pw * 0.28, bw = pw * 0.44, by = fy + (ph ? 40 : 62); nearDark += rect(bx + 6, by, 7, ph ? 26 : 38) + rect(bx + bw - 13, by, 7, ph ? 26 : 38) + rect(bx, by - 6, bw, 10); cush += rrect(bx - 3, by - 16, bw + 6, 12, 5);
-  var recs = ph ? [] : [[W * 0.49, H * 0.14, 40], [W * 0.452, H * 0.3, 34], [W * 0.475, H * 0.45, 30]];
-  if (ph) recs = [[W * 0.2, H * 0.455, 16]];
-  recs.forEach(function (r) { dark += circ(r[0], r[1], r[2]); lines += circ(r[0], r[1], r[2] * 0.7) + circ(r[0], r[1], r[2] * 0.85); lav += circ(r[0], r[1], r[2] * 0.36); cream += circ(r[0], r[1], 2); });
-  var gx = ph ? W * 0.86 : W * 0.9, gs = ph ? 58 : 92, gy = fy + (ph ? 40 : 52), ga = ph ? -6 : 7, G = b5_guitar(gx, gy, gs, ga);
-  var gStr = '', gTop = function (pts) { return poly(rotp(pts.map(function (q) { return [q[0] * gs, q[1] * gs]; }), gx, gy, ga)); }, gHole = rotp([[0, -1.18 * gs]], gx, gy, ga)[0];
-  [-0.04, 0, 0.04].forEach(function (o) { gStr += gTop([[o - 0.004, -0.4], [o + 0.004, -0.4], [o + 0.004, -3.08], [o - 0.004, -3.08]]); });
-  var gBody = G.body, gDeco = circ(gHole[0], gHole[1], 0.14 * gs) + gTop([[-0.18, -0.42], [0.18, -0.42], [0.18, -0.36], [-0.18, -0.36]]) + gStr;
-  dark += G.dark; wood += poly([[gx - gs * 0.5, gy + 2], [gx - gs * 0.44, gy + 2], [gx - gs * 0.1, gy - gs * 0.9], [gx - gs * 0.16, gy - gs * 0.9]]) + poly([[gx + gs * 0.5, gy + 2], [gx + gs * 0.44, gy + 2], [gx + gs * 0.1, gy - gs * 0.9], [gx + gs * 0.16, gy - gs * 0.9]]);
-  var lpx = W * 0.55, lpy = fy + 30, lh = H * 0.46;
-  if (!ph) { wood += rect(lpx - 2.5, lpy - lh, 5, lh) + ell(lpx, lpy, 26, 6); shade += poly([[lpx - 28, lpy - lh - 46], [lpx + 28, lpy - lh - 46], [lpx + 42, lpy - lh + 4], [lpx - 42, lpy - lh + 4]]); add(far, 'c', circ(lpx, lpy - lh, dk ? 170 : 110) + ell(lpx, fy + 70, 200, 50), dk ? 'rgba(255,190,120,0.34)' : 'rgba(255,236,200,0.5)'); }
-  else if (dk) add(far, 'c', circ(tpx - pw * 0.35, top - 30, 70), 'rgba(255,190,120,0.3)');
+  // music desk and an open book of sheet music with staves and notes
+  var sx = px + pw * 0.33, sw2 = pw * 0.34, sy = ky - (ph ? 38 : 62), sh2 = ph ? 30 : 48;
+  P.e += R4(px + pw * 0.24, sy + sh2 - 1, px + pw * 0.76, sy + sh2 + 6 * u);
+  P.g += R4(px + pw * 0.24, sy + sh2 + 6 * u, px + pw * 0.76, sy + sh2 + 8.5 * u);
+  P.h += b2_polyA([[sx, sy], [sx + sw2 / 2, sy + 3 * u], [sx + sw2, sy], [sx + sw2, sy + sh2], [sx + sw2 / 2, sy + sh2 + 3 * u], [sx, sy + sh2]]);
+  P.g += R4(sx + sw2 / 2 - 0.8, sy + 3 * u, sx + sw2 / 2 + 0.8, sy + sh2 + 3 * u);
+  for (var l = 0; l < 3; l++) { for (var m = 0; m < 5; m++) { var ly = sy + sh2 * (0.18 + l * 0.29) + m * (ph ? 1.7 : 2.5); lines += seg(sx + 4, ly, sx + sw2 / 2 - 3, ly) + seg(sx + sw2 / 2 + 3, ly, sx + sw2 - 4, ly); }
+    for (var nn = 0; nn < 6; nn++) { var nxp = sx + 7 * u + nn * (sw2 - 14 * u) / 5.4 + (nn >= 3 ? 5 * u : 0), nyp = sy + sh2 * (0.18 + l * 0.29) + ((nn * 3 + l * 2) % 5) * (ph ? 0.9 : 1.25); P.i += b2_ellA(nxp, nyp, 1.5 * u, 1.1 * u) + R4(nxp + 1.2 * u, nyp - 6 * u, nxp + 1.7 * u, nyp); } }
+  // brass pedals in a shadowed pedal box, casters
+  var pb = bot - 9 * u;
+  P.g += R4(px + pw * 0.38, pb - 4 * u, px + pw * 0.62, pb + 1 * u);
+  [0.44, 0.5, 0.56].forEach(function (f) { var pxx = px + pw * f; P.j += b2_polyA([[pxx - 6 * u, pb + 2 * u], [pxx + 6 * u, pb + 2 * u], [pxx + 7 * u, pb + 6 * u], [pxx - 7 * u, pb + 6 * u]]) + R4(pxx - 1.4 * u, pb - 3 * u, pxx + 1.4 * u, pb + 2 * u); });
+  P.j += b2_ellA(px - armW / 2 - 1, bot + 3, 4 * u, 2 * u) + b2_ellA(px + pw + armW / 2 + 1, bot + 3, 4 * u, 2 * u) + b2_ellA(px + pw * 0.5, ky - 10 * u, 3 * u, 1.6 * u);
+  // a soft sheen across the lid and upper panel
+  P.m += b2_polyA([[px + pw * 0.6, top - lidH - 5 * u], [px + pw * 0.7, top - lidH - 5 * u], [px + pw * 0.48, h1y + h1h], [px + pw * 0.4, h1y + h1h]]);
+  // on top: metronome, a brass planter with a leafy plant, a lavender vase with sprigs
+  var mx = px + pw * 0.18, mh = ph ? 30 : 46, mtop = top - lidH - 5 * u;
+  P.e += b2_polyA([[mx - mh * 0.3, mtop], [mx + mh * 0.3, mtop], [mx + mh * 0.08, mtop - mh], [mx - mh * 0.08, mtop - mh]]);
+  P.h += b2_polyA([[mx - mh * 0.17, mtop - mh * 0.2], [mx + mh * 0.17, mtop - mh * 0.2], [mx + mh * 0.06, mtop - mh * 0.85], [mx - mh * 0.06, mtop - mh * 0.85]]);
+  P.g += b2_polyA([[mx - mh * 0.32, mtop - mh * 0.12], [mx + mh * 0.32, mtop - mh * 0.12], [mx + mh * 0.33, mtop], [mx - mh * 0.33, mtop]]);
+  if (ANIM) ANIM.met = {x: mx, y: mtop - mh * 0.2, len: mh * 0.62, w: ph ? 1 : 1.4}; else lines += seg(mx, mtop - mh * 0.2, mx + mh * 0.12, mtop - mh * 0.8);
+  var tpx = px + pw * 0.8, potW = ph ? 20 : 30, potH = ph ? 16 : 24;
+  P.j += b2_polyA([[tpx - potW / 2, mtop - potH], [tpx + potW / 2, mtop - potH], [tpx + potW * 0.38, mtop], [tpx - potW * 0.38, mtop]]);
+  P.p += R4(tpx - potW / 2, mtop - potH, tpx + potW / 2, mtop - potH + 3 * u);
+  P.m += b2_polyA([[tpx - potW * 0.32, mtop - potH + 4 * u], [tpx - potW * 0.2, mtop - potH + 4 * u], [tpx - potW * 0.14, mtop - 3 * u], [tpx - potW * 0.24, mtop - 3 * u]]);
+  var lvs = '', lvH = '', pl0 = mtop - potH + 2 * u, nL = 8;
+  for (var q = 0; q < nL; q++) { var ang = -90 + (q / (nL - 1) - 0.5) * 170 + (rnd() - 0.5) * 12, len = (ph ? 26 : 42) * (0.6 + rnd() * 0.4) * (1 - Math.abs(q / (nL - 1) - 0.5) * 0.5), wd = len * 0.22, hp = [];
+    lvs += leaf(tpx, pl0, len, wd, ang);
+    for (var t = 0; t <= 12; t++) { var tt = t / 12; hp.push([tt * len, wd * Math.sin(Math.PI * tt) * (1 - 0.35 * tt)]); } lvH += b2_polyA(rotp(hp, tpx, pl0, ang)); }
+  P.k += lvs; P.n += lvH;
+  var vx = px + pw * 0.48, vh = ph ? 22 : 34, vw = ph ? 12 : 18, sprig = '';
+  for (q = 0; q < 5; q++) { var sa = (-90 + (q - 2) * 13) * Math.PI / 180, sl2 = vh * (0.9 + (q % 2) * 0.35), sxe = vx + Math.cos(sa) * sl2, sye = mtop - vh * 0.8 + Math.sin(sa) * sl2; sprig += b2_limb([vx, mtop - vh * 0.7], [(vx + sxe) / 2, (mtop - vh * 0.7 + sye) / 2 + 2], [sxe, sye], 1.4 * u, 0.9 * u);
+    for (var bb = 0; bb < 5; bb++) { var bt = 0.55 + bb * 0.1; P.l += b2_ellA(lerp(vx, sxe, bt) + (bb % 2 ? 1.6 : -1.6) * u, lerp(mtop - vh * 0.7, sye, bt), 1.6 * u, 2.4 * u); } }
+  P.k += sprig;
+  var vp = []; for (q = 0; q <= 16; q++) { var vv = q / 16, vr = vw / 2 * (0.55 + 0.45 * Math.sin(Math.PI * Math.min(1, vv * 1.1 + 0.05))); vp.push([vx + vr, mtop - vv * vh]); }
+  var vq = vp.map(function (p2) { return [2 * vx - p2[0], p2[1]]; }).reverse();
+  P.l += b2_polyA(vp.concat(vq)); P.m += b2_polyA([[vx - vw * 0.3, mtop - vh * 0.75], [vx - vw * 0.18, mtop - vh * 0.75], [vx - vw * 0.2, mtop - vh * 0.15], [vx - vw * 0.32, mtop - vh * 0.15]]);
+  // records on the wall, each in a square wooden frame with a dark mat, a label and groove sheen
+  var recs = ph ? [[W * 0.2, H * 0.455, 16]] : [[W * 0.49, H * 0.14, 40], [W * 0.452, H * 0.3, 34], [W * 0.475, H * 0.45, 30]];
+  recs.forEach(function (r) { var R0 = r[2], fs2 = R0 + 9 * u, ms = R0 + 5 * u;
+    P.c += R4(r[0] - fs2 + 4 * u, r[1] - fs2 + 5 * u, r[0] + fs2 + 4 * u, r[1] + fs2 + 5 * u);
+    P.e += R4(r[0] - fs2, r[1] - fs2, r[0] + fs2, r[1] + fs2);
+    P.f += R4(r[0] - ms, r[1] - ms, r[0] + ms, r[1] + ms);
+    P.g += b2_ellA(r[0], r[1], R0, R0); P.l += b2_ellA(r[0], r[1], R0 * 0.34, R0 * 0.34); P.p += b2_ellA(r[0], r[1], R0 * 0.05 + 0.8, R0 * 0.05 + 0.8);
+    var a1 = [], a2 = []; for (var q2 = 0; q2 <= 10; q2++) { var aa = Math.PI * (1.12 + q2 / 10 * 0.36); a1.push([r[0] + Math.cos(aa) * R0 * 0.86, r[1] + Math.sin(aa) * R0 * 0.86]); a2.unshift([r[0] + Math.cos(aa) * R0 * 0.62, r[1] + Math.sin(aa) * R0 * 0.62]); } P.m += b2_polyA(a1.concat(a2));
+    for (var g2 = 0.5; g2 < 0.96; g2 += 0.11) lines += circ(r[0], r[1], R0 * g2); });
+  // curtain folds and brass tie-backs (the curtains themselves come from the shared room)
+  var fr = R.fr, cwid = w.w * (ph ? 0.2 : 0.22), cTop = w.y - fr * 2.5, cBot = R.sill.y + (ph ? 20 : 36), tie = w.y + w.h * 0.55;
+  [[w.x - fr - cwid * 0.6, 0], [w.x + w.w + fr - cwid * 0.4, 1]].forEach(function (q3) { var cx2 = q3[0], R1 = q3[1];
+    // a curtain hanging behind the piano: its folds stop at the piano's top (the folds are strokes, drawn over every fill)
+    var behind = cx2 < px + pw + armW + 4 && cx2 + cwid > px - armW, fBot = behind ? Math.min(cBot, mtop - 2) : cBot, fTie = Math.min(tie, fBot);
+    [0.22, 0.48, 0.74].forEach(function (f) { var xt = cx2 + cwid * f, xm = R1 ? cx2 + cwid * (0.45 + 0.55 * f) : cx2 + cwid * 0.55 * f, xb = R1 ? cx2 + cwid * (0.1 + 0.9 * f) : cx2 + cwid * 0.9 * f;
+      folds += 'M' + PT(xt, cTop + 6) + ' Q' + PT(xt, (cTop + fTie) / 2) + ' ' + PT(xm, fTie) + ' '; if (fBot > tie + 4) folds += 'Q' + PT(xm, (tie + fBot) / 2) + ' ' + PT(lerp(xm, xb, (fBot - tie) / (cBot - tie)), fBot - 3) + ' '; });
+    var tl = R1 ? cx2 + cwid * 0.45 : cx2, tr2 = R1 ? cx2 + cwid : cx2 + cwid * 0.55, tm = (tl + tr2) / 2;
+    P.j += R4(tl - 2, tie - 4 * u, tr2 + 2, tie + 4 * u) + b2_ellA(tm, tie, 4 * u, 4 * u) + b2_polyA([[tm - 2.5 * u, tie + 3 * u], [tm + 2.5 * u, tie + 3 * u], [tm + 4 * u, tie + 16 * u], [tm - 4 * u, tie + 16 * u]]); });
+  // floorboard grain
+  var grain = ''; for (q = 0; q < (ph ? 14 : 26); q++) { var gx0 = rnd() * W, gy0 = fy + 20 + Math.pow(rnd(), 0.8) * (H - fy - 20), gl = 30 + rnd() * 70, gq = (gy0 - fy) / (H - fy); grain += 'M' + PT(gx0, gy0) + ' q' + n1(gl * 0.5) + ' ' + n1(-2 - gq * 2) + ' ' + n1(gl) + ' 0 '; }
+  stk(R.refl, 's', grain);
+  var col = dk ? {c: 'rgba(0,0,0,0.32)', d: '#2A2136', e: '#3E3150', f: '#2F2540', g: '#17121F', h: '#D6CDBE', i: '#100C16', j: '#B88A46', k: '#3E6A4A', l: '#7E70D8', m: 'rgba(200,185,255,0.12)', n: '#5E8E68', p: '#120E18'}
+    : {c: 'rgba(60,40,60,0.18)', d: '#4A3440', e: '#6A4C56', f: '#563C46', g: '#2E1F27', h: '#FBF6EC', i: '#221A20', j: '#D9A750', k: '#4E8A56', l: '#8F84E0', m: 'rgba(255,255,255,0.2)', n: '#7DB474', p: '#2A1E24'};
+  'cdefghijklmnp'.split('').forEach(function (k2) { if (P[k2]) add(mid, k2, P[k2], col[k2]); });
+  stk(mid, 's', lines, dk ? 'rgba(10,6,20,0.55)' : 'rgba(60,40,45,0.45)', 1);
+  stk(mid, 't', folds, dk ? 'rgba(14,10,36,0.42)' : 'rgba(70,60,170,0.3)', ph ? 1.2 : 1.6);
+  // ---- in front: rug, lamp, bench, guitar ----
+  var NK = 'abcdefghijklmnopABCDEFG', N = {}; NK.split('').forEach(function (k2) { N[k2] = ''; if (!near[k2]) near[k2] = E(); });
   var rx = ph ? W * 0.52 : W * 0.6, ry = ph ? fy + 88 : fy + 110, rw = ph ? W * 0.6 : W * 0.34, rh = ph ? 46 : 64;
-  add(near, 'a', ell(rx, ry, rw, rh), dk ? '#3A3060' : '#A79CE4');
-  add(near, 'b', ell(rx, ry, rw * 0.86, rh * 0.78), dk ? '#2C2548' : '#D9D3F4');
-  add(mid, 'c', dark, dk ? '#2B2238' : '#4E3A44');
-  add(mid, 'd', wood, dk ? '#3E3048' : '#7A5A56');
-  add(mid, 'e', cream, dk ? '#CFC6B8' : '#FBF6EC');
-  add(mid, 'f', honey, dk ? '#9A6A40' : '#DDA45E');
-  add(mid, 'g', lav, dk ? '#7E70D8' : '#8F84E0');
-  add(mid, 'h', leaves, dk ? '#4F7A5A' : '#6FA06A');
-  stk(mid, 's', lines, dk ? 'rgba(20,14,30,0.55)' : 'rgba(70,50,50,0.45)', 1);
-  add(near, 'c', nearDark, dk ? '#1E1828' : '#3E2E36');
-  add(near, 'd', cush, dk ? '#6A5CC8' : '#6D61D2');
-  add(near, 'e', shade, dk ? '#F6CB84' : '#F1D6A0');
-  add(near, 'f', gBody, dk ? '#9A6A40' : '#DDA45E');
-  add(near, 'g', gDeco, dk ? '#2B2238' : '#4E3A44');
+  N.a += b2_ellA(rx, ry, rw, rh); N.b += b2_ellA(rx, ry, rw * 0.86, rh * 0.78);
+  for (q = 0; q < 40; q++) { var ra = q / 40 * Math.PI * 2, dxr = rx + Math.cos(ra) * rw * 0.93, dyr = ry + Math.sin(ra) * rh * 0.89, ds = (ph ? 3 : 4.5) * (0.75 + 0.25 * Math.sin(ra)); N.c += b2_polyA([[dxr, dyr - ds * 0.6], [dxr + ds, dyr], [dxr, dyr + ds * 0.6], [dxr - ds, dyr]]); }
+  var inA = [], inB = []; for (q = 0; q < 48; q++) { ra = q / 48 * Math.PI * 2; inA.push([rx + Math.cos(ra) * rw * 0.8, ry + Math.sin(ra) * rh * 0.7]); inB.push([rx + Math.cos(ra) * rw * 0.77, ry + Math.sin(ra) * rh * 0.66]); }
+  N.c += b3_annulus(inA, inB) + b2_polyA([[rx - rw * 0.12, ry], [rx, ry - rh * 0.22], [rx + rw * 0.12, ry], [rx, ry + rh * 0.22]]);
+  [-1, 1].forEach(function (sg) { for (var f2 = -0.36; f2 <= 0.361; f2 += 0.06) { var fyp = ry + f2 * rh * 2, edge = rx + sg * rw * Math.sqrt(Math.max(0, 1 - f2 * f2 * 4)); N.d += b2_polyA([[edge, fyp - 0.8], [edge + sg * (ph ? 6 : 10), fyp - 0.4], [edge + sg * (ph ? 6 : 10), fyp + 0.4], [edge, fyp + 0.8]]); } });
+  if (!ph) { var lpx = W * 0.55, lpy = fy + 30, lh = H * 0.46, shT = lpy - lh - 46, shB = lpy - lh + 4, swT = 26, swB = 42;
+    N.e += b2_ellA(lpx + 6, lpy + 3, 34, 7);
+    N.f += R4(lpx - 2.5, shB, lpx + 2.5, lpy - 6) + b2_ellA(lpx, lpy, 24, 6) + b2_polyA([[lpx - 12, lpy - 1], [lpx + 12, lpy - 1], [lpx + 8, lpy - 8], [lpx - 8, lpy - 8]]);
+    N.g += R4(lpx - 1.6, shB, lpx - 0.4, lpy - 8) + b2_ellA(lpx - 5, lpy - 4, 4, 1.4);
+    var sb3 = []; for (q = 0; q <= 20; q++) { ra = Math.PI * q / 20; sb3.push([lpx + Math.cos(ra) * swB, shB + Math.sin(ra) * 5]); }
+    N.h += b2_polyA([[lpx - swT, shT], [lpx + swT, shT]].concat(sb3)); N.i += b2_ellA(lpx, shB, swB - 2, 4.2);
+    var rimT = [], rimB = []; for (q = 0; q <= 20; q++) { ra = Math.PI * q / 20; rimT.push([lpx - Math.cos(ra) * swT, shT + Math.sin(ra) * 3]); rimB.push([lpx - Math.cos(ra) * swB, shB + Math.sin(ra) * 5]); }
+    N.G += b2_band(rimT, 2.4) + b2_band(rimB, 2.6) + b2_ellA(lpx, shT - 5, 3.2, 3.2);
+    N.m += b2_polyA([[lpx - swT * 0.6, shT + 3], [lpx - swT * 0.35, shT + 3], [lpx - swB * 0.5, shB - 2], [lpx - swB * 0.78, shB - 2]]);
+    add(far, 'e', b2_polyA([[lpx - swB + 4, shB], [lpx + swB - 4, shB], [lpx + 150, fy + 80], [lpx - 150, fy + 80]]), dk ? 'rgba(255,200,130,0.16)' : 'rgba(255,240,205,0.35)'); }
+  // bench: four turned legs (the back pair higher), an apron, a deep cushion with piping and buttons
+  var bx = px + pw * 0.28, bw = pw * 0.44, by = fy + (ph ? 40 : 62), lg = ph ? 26 : 38;
+  N.e += b2_ellA(bx + bw / 2 + 4, by + lg + 1, bw * 0.58, 5 * u);
+  [[bx + 10 * u, by + lg - 7 * u, 4.2], [bx + bw - 10 * u, by + lg - 7 * u, 4.2], [bx + 5 * u, by + lg, 5], [bx + bw - 5 * u, by + lg, 5]].forEach(function (lq) { var lx2 = lq[0], lb = lq[1], lw2 = lq[2] * u; N.j += b2_polyA([[lx2 - lw2, by], [lx2 + lw2, by], [lx2 + lw2 * 0.5, lb], [lx2 - lw2 * 0.5, lb]]) + b2_ellA(lx2, by + (lb - by) * 0.3, lw2 * 1.15, 2 * u); });
+  N.k += R4(bx, by - 4 * u, bx + bw, by + 6 * u);
+  N.l += b2_polyA([[bx - 4 * u, by - 12 * u], [bx + bw + 4 * u, by - 12 * u], [bx + bw + 4 * u, by - 5 * u], [bx + bw, by - 3 * u], [bx, by - 3 * u], [bx - 4 * u, by - 5 * u]]);
+  var ct = []; for (q = 0; q <= 16; q++) { var cu2 = q / 16; ct.push([bx - 4 * u + cu2 * (bw + 8 * u), by - 12 * u]); } for (q = 16; q >= 0; q--) { cu2 = q / 16; ct.push([bx - 1 * u + cu2 * (bw + 2 * u), by - 16 * u - Math.sin(Math.PI * cu2) * 2 * u]); }
+  N.n += b2_polyA(ct);
+  N.m += b2_band([[bx - 4 * u, by - 12 * u], [bx + bw + 4 * u, by - 12 * u]], 1.4 * u); for (q = 1; q < 5; q++) N.o += b2_ellA(bx + bw * q / 5, by - 14.5 * u, 1.6 * u, 0.9 * u);
+  // acoustic guitar on a stand
+  var gx = ph ? W * 0.86 : W * 0.9, gs = ph ? 58 : 92, gy = fy + (ph ? 40 : 52), ga = ph ? -6 : 7;
+  function GP(a2, b2) { return rotp([[a2 * gs, b2 * gs]], gx, gy, ga)[0]; }
+  function GPoly(pts) { return b2_polyA(pts.map(function (p2) { return GP(p2[0], p2[1]); })); }
+  // body outline: lower and upper bouts as circles, joined at a smooth waist
+  var HW = []; for (var z0 = 0; z0 <= 60; z0++) { var v0 = 1.8 * z0 / 60, c1 = 0.5 * 0.5 - Math.pow(v0 - 0.52, 2), c2 = 0.39 * 0.39 - Math.pow(v0 - 1.37, 2); HW.push(Math.max(c1 > 0 ? Math.sqrt(c1) : 0, c2 > 0 ? Math.sqrt(c2) : 0, v0 > 0.75 && v0 < 1.2 ? 0.31 : 0)); }
+  for (var ps = 0; ps < 4; ps++) HW = HW.map(function (h0, z1) { return z1 === 0 || z1 === 60 ? h0 : (HW[z1 - 1] + 2 * h0 + HW[z1 + 1]) / 4; });
+  function bodyPts(sc2, dx, dy) { var rp = [], lp = []; for (var z = 0; z <= 60; z++) { var v = 1.8 * z / 60, hw2 = HW[z] * sc2, yv = -0.9 - (v - 0.9) * sc2 + dy; rp.push([hw2 + dx, yv]); lp.unshift([-hw2 + dx, yv]); } return rp.concat(lp); }
+  N.o += b2_limb([gx, gy - gs * 0.12], [gx + gs * 0.05, gy - gs * 0.06], [gx + gs * 0.12, gy - 6 * u], 4 * u, 3 * u) + b2_limb(GP(0, -0.1), GP(0, -1.2), GP(0, -2.3), 3 * u, 2.5 * u) + GPoly([[-0.14, -2.34], [0.14, -2.34], [0.14, -2.28], [-0.14, -2.28]]);
+  [-1, 1].forEach(function (sg) { N.o += b2_limb([gx + sg * gs * 0.12, gy - gs * 0.12], [gx + sg * gs * 0.3, gy - gs * 0.05], [gx + sg * gs * 0.48, gy + 3], 4 * u, 3.4 * u) + b2_ellA(gx + sg * gs * 0.48, gy + 3, 5 * u, 2 * u); });
+  N.e += b2_ellA(gx + 4 * u, gy + 4, gs * 0.6, 5 * u);
+  N.p += GPoly(bodyPts(1.03, 0.025, 0.03)); N.A += GPoly(bodyPts(1, 0, 0)); N.B += GPoly(bodyPts(0.86, -0.04, -0.03));
+  var hole = GP(0, -1.2), rosO = [], rosI = []; for (q = 0; q < 28; q++) { ra = q / 28 * Math.PI * 2; rosO.push(GP(Math.cos(ra) * 0.215, -1.2 + Math.sin(ra) * 0.215)); rosI.push(GP(Math.cos(ra) * 0.17, -1.2 + Math.sin(ra) * 0.17)); }
+  N.C += b2_ellA(hole[0], hole[1], 0.15 * gs, 0.15 * gs) + GPoly([[-0.09, -1.75], [0.09, -1.75], [0.065, -3.08], [-0.065, -3.08]]) + GPoly([[-0.11, -3.06], [0.11, -3.06], [0.13, -3.52], [0, -3.58], [-0.13, -3.52]]);
+  N.D += GPoly([[-0.075, -1.32], [0.075, -1.32], [0.06, -3.06], [-0.06, -3.06]]) + GPoly([[-0.2, -0.47], [0.2, -0.47], [0.21, -0.39], [-0.21, -0.39]]) + b3_annulus(rosO, rosI);
+  for (q = 1; q <= 9; q++) { var fv = -1.75 - (1 - Math.pow(0.86, q)) * 1.47; N.E += GPoly([[-0.068, fv], [0.068, fv], [0.068, fv - 0.012], [-0.068, fv - 0.012]]); }
+  N.E += GPoly([[-0.07, -3.06], [0.07, -3.06], [0.07, -3.035], [-0.07, -3.035]]) + GPoly([[-0.15, -0.45], [0.15, -0.45], [0.15, -0.43], [-0.15, -0.43]]);
+  [-0.045, -0.015, 0.015, 0.045].forEach(function (o2) { N.F += GPoly([[o2 - 0.004, -0.44], [o2 + 0.004, -0.44], [o2 * 0.85 + 0.004, -3.05], [o2 * 0.85 - 0.004, -3.05]]); });
+  [-3.18, -3.3, -3.42].forEach(function (pv) { [-1, 1].forEach(function (sg) { var pp = GP(sg * 0.165, pv); N.G += b2_ellA(pp[0], pp[1], 0.04 * gs, 0.03 * gs); }); });
+  N.F += GPoly([[-0.34, -0.5], [-0.26, -0.52], [-0.24, -0.95], [-0.31, -0.92]]);
+  var ncol = dk ? {a: '#3A3060', b: '#2C2548', c: '#5A4C98', d: '#4A4078', e: 'rgba(0,0,0,0.3)', f: '#2A2436', g: '#8A6A3A', h: '#E8B870', i: '#FFE2A6', j: '#1E1828', k: '#2E2440', l: '#4F43A0', m: 'rgba(220,210,255,0.16)', n: '#8E82E8', o: '#14101C', p: '#6E4A2C', A: '#9A6A40', B: '#AC7A4C', C: '#1E1610', D: '#3A2A1E', E: '#B8B0A8', F: 'rgba(240,232,224,0.8)', G: '#C8A050'}
+    : {a: '#A79CE4', b: '#D9D3F4', c: '#8F84E0', d: '#EDE8FA', e: 'rgba(60,40,70,0.18)', f: '#4A4256', g: '#8A8090', h: '#F4D9A2', i: '#FFF4D6', j: '#3E2E36', k: '#5A4048', l: '#5A4FC0', m: 'rgba(255,255,255,0.32)', n: '#8F84E0', o: '#3A3440', p: '#A86A34', A: '#DDA45E', B: '#E8B676', C: '#3A2618', D: '#5E4030', E: '#C8C0B8', F: 'rgba(255,250,244,0.85)', G: '#D9A750'};
+  NK.split('').forEach(function (k2) { if (N[k2]) add(near, k2, N[k2], ncol[k2]); });
   var gap = ph ? 7 : 9.5, y0 = fy + (H - fy) * (ph ? 0.4 : 0.56), A = ph ? 16 : 26;
   function by0(x) { return y0 + A * Math.sin(x / (ph ? 90 : 190) + 0.6) + A * 0.4 * Math.sin(x / 70 + 2); }
   var staff = '', notes = '', ng = '', bars = '';
@@ -1992,7 +2091,7 @@ SCENES.music = function (W, H, dk, rnd) {
   add(far, 'd', ng, dk ? 'rgba(169,155,255,0.28)' : 'rgba(255,255,255,0.55)');
   stk(near, 's', staff + bars, dk ? 'rgba(190,178,255,0.75)' : 'rgba(91,79,201,0.55)', ph ? 1.2 : 1.5);
   stk(near, 't', clef, dk ? '#BDB1FF' : '#5B4FC9', ph ? 2 : 2.8);
-  add(near, 'h', notes, dk ? '#BDB1FF' : '#5B4FC9');
+  near.H = E(); add(near, 'H', notes, dk ? '#BDB1FF' : '#5B4FC9');
   if (ANIM) ANIM.col = {note: dk ? '#BDB1FF' : '#5B4FC9', met: dk ? 'rgba(20,14,30,0.55)' : 'rgba(70,50,50,0.45)', key: dk ? 'rgba(150,130,255,0.75)' : 'rgba(91,79,201,0.7)', glow: dk ? 'rgba(190,178,255,' : 'rgba(255,255,255,'};
   return {sky: R.sky, band: R.band, far: far, refl: R.refl, mid: mid, near: near};
 };
