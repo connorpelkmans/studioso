@@ -1895,6 +1895,9 @@ SCENES.xmas = function (W, H, dk, rnd) {
   for (var t = 0; t < tiers; t++) TT.push({top: tb - th + t * th * 0.12, bot: tb - th + (t + 1) * th * 0.19, hb: tw * (0.2 + 0.8 * (t + 1) / tiers) / 2});
   function hwAt(T, y) { return T.hb * Math.max(0, Math.min(1, (y - T.top) / (T.bot - T.top))); }
   function halfAt(y) { var m = 0; TT.forEach(function (T) { if (y >= T.top && y <= T.bot + 6) m = Math.max(m, hwAt(T, y)); }); return m; }
+  // where the presents will stand, so no bauble or bulb hangs in front of them
+  var PRES = [[-0.44, 44, 34, 0], [-0.3, 32, 24, 1], [0.27, 40, 30, 1], [0.42, 30, 22, 0], [0.12, 26, 18, 0]], gs0 = ph ? 0.8 : 1;
+  function hidByGift(px, py, pr) { return PRES.some(function (q, i) { var w = q[1] * gs0, h = q[2] * gs0, cxq = tx + tw * q[0], bq = tb + 12 + (i % 2) * 4 * gs0, dq = w * 0.26 * (cxq > W / 2 ? -1 : 1); return px + pr > Math.min(cxq - w / 2, cxq - w / 2 + dq) - 2 && px - pr < Math.max(cxq + w / 2, cxq + w / 2 + dq) + 2 && py + pr > bq - h - Math.abs(dq) * 0.55 - 6; }); }
   var tD = '', tL = '', tShB = '', tSn = '', gar = '', tglow = '', bl = ['', '', '', ''], orn = ['', '', ''], oSh = '', oHi = '', caps = '', cane = '', caneSt = '';
   TT.forEach(function (T, t) {
     var hb = T.hb, n = 4 + t * 2, rs = [], bot = [], q, u;
@@ -1908,8 +1911,8 @@ SCENES.xmas = function (W, H, dk, rnd) {
     for (q = 0; q < 2 + t; q++) { var sy0 = T.top + (T.bot - T.top) * (0.3 + rnd() * 0.4), sw0 = hwAt(T, sy0) * 0.8; tSn += b2_ellA(tx - sw0 + rnd() * 2 * sw0, sy0, (3 + rnd() * 3) * u0, 1.6 * u0); }
     if (t > 0) { var ya = T.top + (T.bot - T.top) * 0.48, yb = T.top + (T.bot - T.top) * 0.8; if (t % 2 === 0) { var tmp = ya; ya = yb; yb = tmp; } var xa = tx - hwAt(T, ya) * 0.9, xb = tx + hwAt(T, yb) * 0.9; gar += b2_band(b4_qpts(xa, ya, (xa + xb) / 2, (ya + yb) / 2 + 16 * u0, xb, yb, 18), 3.2 * u0); }
     var yr = T.top + (T.bot - T.top) * (t ? 0.66 : 0.7), wr = hwAt(T, yr) * 0.86, nb = 5 + t * 2;
-    for (q = 0; q <= nb; q++) { u = q / nb; var bx = tx - wr + u * 2 * wr, by = yr + Math.sin(Math.PI * u) * 8 + (t % 2 ? -3 : 3) * (u - 0.5), c = (q + t) % 4; bl[c] += b2_ellA(bx, by, 2.6 * u0, 3.3 * u0); tglow += circ(bx, by, 11); if (ANIM) ANIM.tree.push({x: bx, y: by, g: t, u: u, c: c}); }
-    bot.filter(function (p, j) { return j % 2 === 0 && Math.abs(p[0] - tx) < hb * 0.86; }).forEach(function (p, j) { if ((j + t) % 2) return; var r = (4 + t * 0.5) * u0, ox = p[0], oy = p[1] + r + 1.5, kk = (j + t * 3) % 3;
+    for (q = 0; q <= nb; q++) { u = q / nb; var bx = tx - wr + u * 2 * wr, by = yr + Math.sin(Math.PI * u) * 8 + (t % 2 ? -3 : 3) * (u - 0.5), c = (q + t) % 4; if (hidByGift(bx, by, 4)) continue; bl[c] += b2_ellA(bx, by, 2.6 * u0, 3.3 * u0); tglow += circ(bx, by, 11); if (ANIM) ANIM.tree.push({x: bx, y: by, g: t, u: u, c: c}); }
+    bot.filter(function (p, j) { return j % 2 === 0 && Math.abs(p[0] - tx) < hb * 0.86; }).forEach(function (p, j) { if ((j + t) % 2) return; var r = (4 + t * 0.5) * u0, ox = p[0], oy = p[1] + r + 1.5, kk = (j + t * 3) % 3; if (hidByGift(ox, oy, r + 3)) return;
       orn[kk] += b2_ellA(ox, oy, r, r); caps += R4(ox - 1.6 * u0, oy - r - 2, 3.2 * u0, 2.8); oSh += b2_cres(ox, oy, r, ox - r * 0.35, oy - r * 0.35, r * 1.02); oHi += b2_ellA(ox - r * 0.35, oy - r * 0.38, r * 0.28, r * 0.2); });
     if (t === 1 || t === 3 || (!ph && t === 2)) { var cy2 = T.top + (T.bot - T.top) * 0.62, cx2 = tx + (t % 2 ? -1 : 1) * hwAt(T, cy2) * 0.42, cp = caneD(cx2, cy2, 15 * u0, 3.6 * u0, 2.4 * u0); cane += cp.body; caneSt += cp.st; } });
   var sy = TT[0].top - 10 * u0, sR = 20 * u0, sr = 8.5 * u0, sp = [], sSh = '';
@@ -1923,13 +1926,13 @@ SCENES.xmas = function (W, H, dk, rnd) {
 
   // presents: boxes with a lit top and a shaded side, ribbons over the top and sides, bows with loops, dots or stripes
   var gs = ph ? 0.8 : 1, pG = '', pR = '', rib = '', pat = '', pSh = '', pTop = '';
-  [[-0.44, 44, 34, 0], [-0.3, 32, 24, 1], [0.27, 40, 30, 1], [0.42, 30, 22, 0], [0.12, 26, 18, 0]].forEach(function (p, i) {
+  PRES.forEach(function (p, i) {
     var w = p[1] * gs, h = p[2] * gs, cxp = tx + tw * p[0], base = tb + 12 + (i % 2) * 4 * gs, x0 = cxp - w / 2, y0 = base - h, sg = cxp > W / 2 ? -1 : 1, dd = w * 0.26 * sg, dyy = Math.abs(dd) * 0.55, xs = sg > 0 ? x0 + w : x0;
     var front = b2_polyA([[x0, y0], [x0 + w, y0], [x0 + w, base], [x0, base]]), side = b2_polyA([[xs, y0], [xs + dd, y0 - dyy], [xs + dd, base - dyy], [xs, base]]), top = b2_polyA([[x0, y0], [x0 + w, y0], [x0 + w + dd, y0 - dyy], [x0 + dd, y0 - dyy]]);
     if (p[3]) pG += front + side + top; else pR += front + side + top;
     pSh += side; pTop += top; shad += b2_ellA(cxp + dd * 0.4, base + 1, w * 0.62, 4 * gs);
     var ym = (y0 + base) / 2, bxo = cxp + dd / 2, byo = y0 - dyy / 2;
-    rib += R4(cxp - 2.5 * gs, y0, 5 * gs, h) + b2_polyA([[cxp - 2.5 * gs, y0], [cxp + 2.5 * gs, y0], [cxp + 2.5 * gs + dd, y0 - dyy], [cxp - 2.5 * gs + dd, y0 - dyy]]) + b2_polyA([[x0 + dd / 2, byo - 1.4 * gs], [x0 + w + dd / 2, byo - 1.4 * gs], [x0 + w + dd / 2, byo + 1.4 * gs], [x0 + dd / 2, byo + 1.4 * gs]]) + b2_polyA([[xs, ym - 2.5 * gs], [xs + dd, ym - dyy - 2.5 * gs], [xs + dd, ym - dyy + 2.5 * gs], [xs, ym + 2.5 * gs]]);
+    rib += R4(cxp - 2.5 * gs, y0, 5 * gs, h) + b2_polyA([[cxp - 2.5 * gs, y0], [cxp + 2.5 * gs, y0], [cxp + 2.5 * gs + dd, y0 - dyy], [cxp - 2.5 * gs + dd, y0 - dyy]]) + b2_polyA([[x0 + dd / 2, byo - 1.4 * gs], [x0 + w + dd / 2, byo - 1.4 * gs], [x0 + w + dd / 2, byo + 1.4 * gs], [x0 + dd / 2, byo + 1.4 * gs]]) + (function () { var f0 = 0.5 - 2.5 * gs / Math.abs(dd), f1 = 0.5 + 2.5 * gs / Math.abs(dd); function SP(f, v) { return [xs + dd * f, y0 - dyy * f + v * h]; } return b2_polyA([SP(f0, 0), SP(f1, 0), SP(f1, 1), SP(f0, 1)]); })(); /* the left-right ribbon runs down the side face */
     rib += rotE(bxo - 5 * gs, byo - 3 * gs, 5.5 * gs, 3.2 * gs, 25) + rotE(bxo + 5 * gs, byo - 3 * gs, 5.5 * gs, 3.2 * gs, -25) + b2_ellA(bxo, byo - 1.5 * gs, 2.2 * gs, 2 * gs) + b2_polyA([[bxo - 1, byo - 1], [bxo + 1, byo - 1], [bxo - 3 * gs, byo + 6 * gs], [bxo - 5 * gs, byo + 5 * gs]]) + b2_polyA([[bxo - 1, byo - 1], [bxo + 1, byo - 1], [bxo + 5 * gs, byo + 5 * gs], [bxo + 3 * gs, byo + 6 * gs]]);
     pSh += rotE(bxo - 5.5 * gs, byo - 3 * gs, 2.4 * gs, 1.2 * gs, 25) + rotE(bxo + 5.5 * gs, byo - 3 * gs, 2.4 * gs, 1.2 * gs, -25);
     if (p[3]) { [0.3, 0.7].forEach(function (f) { var yy = y0 + h * f; pat += R4(x0 + 2, yy - 1, w / 2 - 6 * gs, 2 * gs) + R4(cxp + 4 * gs, yy - 1, w / 2 - 6 * gs, 2 * gs); }); }
@@ -3660,7 +3663,7 @@ SCENES.halloween = function (W, H, dk, rnd) {
   add(refl, 'k', winL, dk ? '#FFC870' : '#F2C27A'); add(refl, 'l', winF, dk ? '#1C1026' : '#8E7598');
   if (dk) add(mid, 'c', b2_ellA(hx - 5 * hs, hb - 20 * hs, 40 * hs, 30 * hs), 'rgba(255,170,80,0.35)');
   // a wrought-iron fence along the hill: spear-topped bars, two rails, posts with ball finials and an arched gate below the house
-  var fs = ph ? 0.8 : 1, fence = '', gx = hx - 10 * hs;
+  var fs = ph ? 0.8 : 1, fence = '', gx = hx + 44 * hs; // the gate sits off to the side, so a full run of bars passes in front of the door
   function fy(x) { return h1y(x) + 24 * fs; }
   function vis(x, top) { return top < h2y(x) - 3; }
   for (var fx = -10, fi = 0; fx < W + 10; fx += 7 * fs, fi++) { var b0 = fy(fx); if (!vis(fx, b0 - 2)) continue; if (Math.abs(fx - gx) < 15 * fs) continue;

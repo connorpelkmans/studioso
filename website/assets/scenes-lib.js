@@ -1894,6 +1894,9 @@ SCENES.xmas = function (W, H, dk, rnd) {
   for (var t = 0; t < tiers; t++) TT.push({top: tb - th + t * th * 0.12, bot: tb - th + (t + 1) * th * 0.19, hb: tw * (0.2 + 0.8 * (t + 1) / tiers) / 2});
   function hwAt(T, y) { return T.hb * Math.max(0, Math.min(1, (y - T.top) / (T.bot - T.top))); }
   function halfAt(y) { var m = 0; TT.forEach(function (T) { if (y >= T.top && y <= T.bot + 6) m = Math.max(m, hwAt(T, y)); }); return m; }
+  // where the presents will stand, so no bauble or bulb hangs in front of them
+  var PRES = [[-0.44, 44, 34, 0], [-0.3, 32, 24, 1], [0.27, 40, 30, 1], [0.42, 30, 22, 0], [0.12, 26, 18, 0]], gs0 = ph ? 0.8 : 1;
+  function hidByGift(px, py, pr) { return PRES.some(function (q, i) { var w = q[1] * gs0, h = q[2] * gs0, cxq = tx + tw * q[0], bq = tb + 12 + (i % 2) * 4 * gs0, dq = w * 0.26 * (cxq > W / 2 ? -1 : 1); return px + pr > Math.min(cxq - w / 2, cxq - w / 2 + dq) - 2 && px - pr < Math.max(cxq + w / 2, cxq + w / 2 + dq) + 2 && py + pr > bq - h - Math.abs(dq) * 0.55 - 6; }); }
   var tD = '', tL = '', tShB = '', tSn = '', gar = '', tglow = '', bl = ['', '', '', ''], orn = ['', '', ''], oSh = '', oHi = '', caps = '', cane = '', caneSt = '';
   TT.forEach(function (T, t) {
     var hb = T.hb, n = 4 + t * 2, rs = [], bot = [], q, u;
@@ -1907,8 +1910,8 @@ SCENES.xmas = function (W, H, dk, rnd) {
     for (q = 0; q < 2 + t; q++) { var sy0 = T.top + (T.bot - T.top) * (0.3 + rnd() * 0.4), sw0 = hwAt(T, sy0) * 0.8; tSn += b2_ellA(tx - sw0 + rnd() * 2 * sw0, sy0, (3 + rnd() * 3) * u0, 1.6 * u0); }
     if (t > 0) { var ya = T.top + (T.bot - T.top) * 0.48, yb = T.top + (T.bot - T.top) * 0.8; if (t % 2 === 0) { var tmp = ya; ya = yb; yb = tmp; } var xa = tx - hwAt(T, ya) * 0.9, xb = tx + hwAt(T, yb) * 0.9; gar += b2_band(b4_qpts(xa, ya, (xa + xb) / 2, (ya + yb) / 2 + 16 * u0, xb, yb, 18), 3.2 * u0); }
     var yr = T.top + (T.bot - T.top) * (t ? 0.66 : 0.7), wr = hwAt(T, yr) * 0.86, nb = 5 + t * 2;
-    for (q = 0; q <= nb; q++) { u = q / nb; var bx = tx - wr + u * 2 * wr, by = yr + Math.sin(Math.PI * u) * 8 + (t % 2 ? -3 : 3) * (u - 0.5), c = (q + t) % 4; bl[c] += b2_ellA(bx, by, 2.6 * u0, 3.3 * u0); tglow += circ(bx, by, 11); if (ANIM) ANIM.tree.push({x: bx, y: by, g: t, u: u, c: c}); }
-    bot.filter(function (p, j) { return j % 2 === 0 && Math.abs(p[0] - tx) < hb * 0.86; }).forEach(function (p, j) { if ((j + t) % 2) return; var r = (4 + t * 0.5) * u0, ox = p[0], oy = p[1] + r + 1.5, kk = (j + t * 3) % 3;
+    for (q = 0; q <= nb; q++) { u = q / nb; var bx = tx - wr + u * 2 * wr, by = yr + Math.sin(Math.PI * u) * 8 + (t % 2 ? -3 : 3) * (u - 0.5), c = (q + t) % 4; if (hidByGift(bx, by, 4)) continue; bl[c] += b2_ellA(bx, by, 2.6 * u0, 3.3 * u0); tglow += circ(bx, by, 11); if (ANIM) ANIM.tree.push({x: bx, y: by, g: t, u: u, c: c}); }
+    bot.filter(function (p, j) { return j % 2 === 0 && Math.abs(p[0] - tx) < hb * 0.86; }).forEach(function (p, j) { if ((j + t) % 2) return; var r = (4 + t * 0.5) * u0, ox = p[0], oy = p[1] + r + 1.5, kk = (j + t * 3) % 3; if (hidByGift(ox, oy, r + 3)) return;
       orn[kk] += b2_ellA(ox, oy, r, r); caps += R4(ox - 1.6 * u0, oy - r - 2, 3.2 * u0, 2.8); oSh += b2_cres(ox, oy, r, ox - r * 0.35, oy - r * 0.35, r * 1.02); oHi += b2_ellA(ox - r * 0.35, oy - r * 0.38, r * 0.28, r * 0.2); });
     if (t === 1 || t === 3 || (!ph && t === 2)) { var cy2 = T.top + (T.bot - T.top) * 0.62, cx2 = tx + (t % 2 ? -1 : 1) * hwAt(T, cy2) * 0.42, cp = caneD(cx2, cy2, 15 * u0, 3.6 * u0, 2.4 * u0); cane += cp.body; caneSt += cp.st; } });
   var sy = TT[0].top - 10 * u0, sR = 20 * u0, sr = 8.5 * u0, sp = [], sSh = '';
@@ -1922,13 +1925,13 @@ SCENES.xmas = function (W, H, dk, rnd) {
 
   // presents: boxes with a lit top and a shaded side, ribbons over the top and sides, bows with loops, dots or stripes
   var gs = ph ? 0.8 : 1, pG = '', pR = '', rib = '', pat = '', pSh = '', pTop = '';
-  [[-0.44, 44, 34, 0], [-0.3, 32, 24, 1], [0.27, 40, 30, 1], [0.42, 30, 22, 0], [0.12, 26, 18, 0]].forEach(function (p, i) {
+  PRES.forEach(function (p, i) {
     var w = p[1] * gs, h = p[2] * gs, cxp = tx + tw * p[0], base = tb + 12 + (i % 2) * 4 * gs, x0 = cxp - w / 2, y0 = base - h, sg = cxp > W / 2 ? -1 : 1, dd = w * 0.26 * sg, dyy = Math.abs(dd) * 0.55, xs = sg > 0 ? x0 + w : x0;
     var front = b2_polyA([[x0, y0], [x0 + w, y0], [x0 + w, base], [x0, base]]), side = b2_polyA([[xs, y0], [xs + dd, y0 - dyy], [xs + dd, base - dyy], [xs, base]]), top = b2_polyA([[x0, y0], [x0 + w, y0], [x0 + w + dd, y0 - dyy], [x0 + dd, y0 - dyy]]);
     if (p[3]) pG += front + side + top; else pR += front + side + top;
     pSh += side; pTop += top; shad += b2_ellA(cxp + dd * 0.4, base + 1, w * 0.62, 4 * gs);
     var ym = (y0 + base) / 2, bxo = cxp + dd / 2, byo = y0 - dyy / 2;
-    rib += R4(cxp - 2.5 * gs, y0, 5 * gs, h) + b2_polyA([[cxp - 2.5 * gs, y0], [cxp + 2.5 * gs, y0], [cxp + 2.5 * gs + dd, y0 - dyy], [cxp - 2.5 * gs + dd, y0 - dyy]]) + b2_polyA([[x0 + dd / 2, byo - 1.4 * gs], [x0 + w + dd / 2, byo - 1.4 * gs], [x0 + w + dd / 2, byo + 1.4 * gs], [x0 + dd / 2, byo + 1.4 * gs]]) + b2_polyA([[xs, ym - 2.5 * gs], [xs + dd, ym - dyy - 2.5 * gs], [xs + dd, ym - dyy + 2.5 * gs], [xs, ym + 2.5 * gs]]);
+    rib += R4(cxp - 2.5 * gs, y0, 5 * gs, h) + b2_polyA([[cxp - 2.5 * gs, y0], [cxp + 2.5 * gs, y0], [cxp + 2.5 * gs + dd, y0 - dyy], [cxp - 2.5 * gs + dd, y0 - dyy]]) + b2_polyA([[x0 + dd / 2, byo - 1.4 * gs], [x0 + w + dd / 2, byo - 1.4 * gs], [x0 + w + dd / 2, byo + 1.4 * gs], [x0 + dd / 2, byo + 1.4 * gs]]) + (function () { var f0 = 0.5 - 2.5 * gs / Math.abs(dd), f1 = 0.5 + 2.5 * gs / Math.abs(dd); function SP(f, v) { return [xs + dd * f, y0 - dyy * f + v * h]; } return b2_polyA([SP(f0, 0), SP(f1, 0), SP(f1, 1), SP(f0, 1)]); })(); /* the left-right ribbon runs down the side face */
     rib += rotE(bxo - 5 * gs, byo - 3 * gs, 5.5 * gs, 3.2 * gs, 25) + rotE(bxo + 5 * gs, byo - 3 * gs, 5.5 * gs, 3.2 * gs, -25) + b2_ellA(bxo, byo - 1.5 * gs, 2.2 * gs, 2 * gs) + b2_polyA([[bxo - 1, byo - 1], [bxo + 1, byo - 1], [bxo - 3 * gs, byo + 6 * gs], [bxo - 5 * gs, byo + 5 * gs]]) + b2_polyA([[bxo - 1, byo - 1], [bxo + 1, byo - 1], [bxo + 5 * gs, byo + 5 * gs], [bxo + 3 * gs, byo + 6 * gs]]);
     pSh += rotE(bxo - 5.5 * gs, byo - 3 * gs, 2.4 * gs, 1.2 * gs, 25) + rotE(bxo + 5.5 * gs, byo - 3 * gs, 2.4 * gs, 1.2 * gs, -25);
     if (p[3]) { [0.3, 0.7].forEach(function (f) { var yy = y0 + h * f; pat += R4(x0 + 2, yy - 1, w / 2 - 6 * gs, 2 * gs) + R4(cxp + 4 * gs, yy - 1, w / 2 - 6 * gs, 2 * gs); }); }
@@ -3659,7 +3662,7 @@ SCENES.halloween = function (W, H, dk, rnd) {
   add(refl, 'k', winL, dk ? '#FFC870' : '#F2C27A'); add(refl, 'l', winF, dk ? '#1C1026' : '#8E7598');
   if (dk) add(mid, 'c', b2_ellA(hx - 5 * hs, hb - 20 * hs, 40 * hs, 30 * hs), 'rgba(255,170,80,0.35)');
   // a wrought-iron fence along the hill: spear-topped bars, two rails, posts with ball finials and an arched gate below the house
-  var fs = ph ? 0.8 : 1, fence = '', gx = hx - 10 * hs;
+  var fs = ph ? 0.8 : 1, fence = '', gx = hx + 44 * hs; // the gate sits off to the side, so a full run of bars passes in front of the door
   function fy(x) { return h1y(x) + 24 * fs; }
   function vis(x, top) { return top < h2y(x) - 3; }
   for (var fx = -10, fi = 0; fx < W + 10; fx += 7 * fs, fi++) { var b0 = fy(fx); if (!vis(fx, b0 - 2)) continue; if (Math.abs(fx - gx) < 15 * fs) continue;
@@ -3734,11 +3737,15 @@ SCENES.halloween = function (W, H, dk, rnd) {
   var lanterns = [];
   function pumpkin(x, y, r, kind, face, leafy) { var cy = y - r * 0.86;
     S.sh += b2_ellA(x + r * 0.12, y, r * 1.15, r * 0.2);
-    var back = [[-0.56, 0.48, 0.76], [0.56, 0.48, 0.76]], side = [[-0.3, 0.44, 0.86], [0.3, 0.44, 0.86]], front = [[0, 0.34, 0.9]];
-    function lob(l) { return b2_ellA(x + l[0] * r, cy, l[1] * r, l[2] * r); }
-    if (kind === 'ghost') { back.concat(side, front).forEach(function (l) { S.ghost += lob(l); }); [back[1], side[1], front[0]].forEach(function (l) { S.ghostS += hw_rim(x + l[0] * r, cy, l[1] * r, l[2] * r, 0.72, 1); }); S.ghostS += b2_ellA(x, cy - r * 0.78, r * 0.2, r * 0.06); }
-    else { back.forEach(function (l) { S.pkB += lob(l); }); side.forEach(function (l) { S.pkM += lob(l); }); S.pkF += lob(front[0]);
-      [back[1], side[1], side[0], front[0]].forEach(function (l) { S.rib += hw_rim(x + l[0] * r, cy, l[1] * r, l[2] * r, 0.74, 1); }); S.rib += b2_ellA(x, cy - r * 0.79, r * 0.22, r * 0.07); }
+    // one solid body; the lobes are fuller lighter bands inside it, so the grooves read as dark seams (no see-through overlapping circles)
+    var RX = r * 1.02, RY = r * 0.84;
+    function hgt(u) { return Math.sqrt(Math.max(0, 1 - u * u)) * RY; }
+    function lobe(u, w, bend) { var A = [], B = [], h = hgt(u) * 0.97, xc0 = x + u * RX; for (var j = 0; j <= 14; j++) { var t = j / 14, sn = Math.pow(Math.sin(Math.PI * t), 0.55), yy = cy - h + 2 * h * t, xc = xc0 + bend * Math.sin(Math.PI * t); A.push([xc - w * sn / 2, yy]); B.unshift([xc + w * sn / 2, yy]); } return b2_polyA(A.concat(B)); }
+    var bodyP = []; for (var j0 = 0; j0 <= 40; j0++) { var an0 = j0 / 40 * Math.PI * 2, ux = Math.cos(an0), uy = Math.sin(an0), dip = Math.pow(Math.max(0, 1 - Math.abs(ux) * 2.6), 2) * (uy < 0 ? 0.1 : 0.05) * r; bodyP.push([x + ux * RX, cy + uy * RY + (uy < 0 ? dip : -dip)]); }
+    if (kind === 'ghost') { S.ghost += b2_polyA(bodyP); [-0.47, -0.16, 0.16, 0.47].forEach(function (u) { S.ghostS += lobe(u, r * 0.035, u * r * 0.06); }); }
+    else { S.pkB += b2_polyA(bodyP); [[-0.62, 0.3, -0.07], [0.62, 0.3, 0.07], [-0.31, 0.36, -0.03], [0.31, 0.36, 0.03]].forEach(function (l) { S.pkM += lobe(l[0], l[1] * r, l[2] * r); }); S.pkF += lobe(0, 0.36 * r, 0) + lobe(-0.31, 0.2 * r, -0.03 * r);
+      S.rib += lobe(0.62, 0.3 * r, 0.07 * r); }
+    S.rib += b2_ellA(x, cy - RY * 0.9, r * 0.2, r * 0.06);
     S.hi += hw_lens(x - r * 0.13, cy - r * 0.62, cy + r * 0.2, r * 0.07, -r * 0.03) + hw_lens(x - r * 0.44, cy - r * 0.45, cy + r * 0.25, r * 0.05, -r * 0.04);
     S.stem += b2_limb([x, cy - r * 0.72], [x - r * 0.06, cy - r * 0.98], [x + r * 0.07, cy - r * 1.13], r * 0.17, r * 0.1, 8); S.hi += b2_ellA(x + r * 0.07, cy - r * 1.13, r * 0.05, r * 0.025);
     var curl = [[x + r * 0.03, cy - r * 0.9]]; for (var j = 0; j <= 22; j++) { var t2 = j / 22, an = Math.PI * (1 + 3.2 * t2), rad = r * 0.12 * (1 - t2 * 0.75); curl.push([x + r * 0.24 + Math.cos(an) * rad, cy - r * 0.95 + Math.sin(an) * rad]); } vines += pline(curl);
@@ -3755,7 +3762,7 @@ SCENES.halloween = function (W, H, dk, rnd) {
     else if (kind === 1) { [-1, 1].forEach(function (sg) { holes.push(F(arc(sg * 0.25, -0.08, 0.15, 0.17, Math.PI, 2 * Math.PI, 10).concat(arc(sg * 0.25, -0.06, 0.07, 0.07, 2 * Math.PI, Math.PI, 8)))); });
       holes.push(F([[-0.06, 0.1], [0, 0.02], [0.06, 0.1]]));
       holes.push(F(arc(0, 0.12, 0.44, 0.34, 0.15, Math.PI - 0.15, 16).concat(arc(0, 0.12, 0.38, 0.17, Math.PI - 0.22, 0.22, 14)))); }
-    else { holes.push(F([[-0.42, -0.24], [-0.12, -0.1], [-0.18, 0.0], [-0.38, -0.02]]), F(arc(0.26, -0.06, 0.15, 0.07, 0.1, Math.PI - 0.1, 10).concat(arc(0.26, -0.03, 0.12, 0.03, Math.PI - 0.2, 0.2, 8))), F([[-0.05, 0.12], [0.02, 0.03], [0.07, 0.13]]));
+    else { holes.push(F([[-0.42, -0.24], [-0.12, -0.1], [-0.18, 0.0], [-0.38, -0.02]]), F([[0.42, -0.24], [0.12, -0.1], [0.18, 0.0], [0.38, -0.02]]), F([[-0.05, 0.12], [0.02, 0.03], [0.07, 0.13]]));
       var z = [[-0.46, 0.2], [-0.34, 0.27], [-0.25, 0.2], [-0.13, 0.28], [-0.02, 0.2], [0.1, 0.28], [0.21, 0.2], [0.33, 0.27], [0.44, 0.18]]; z = z.concat(arc(0, 0.2, 0.45, 0.3, 0.08, Math.PI - 0.08, 14)); holes.push(F(z)); }
     holes.forEach(function (h) { S.rind += b2_polyA(h.map(function (p) { return [p[0] + r * 0.015, p[1] + r * 0.035]; })); S.glow += b2_polyA(h); }); }
   var jl = ph ? [[0.265, 0.86, 48, 1], [0.6, 0.875, 58, 0], [0.875, 0.83, 35, 2]] : [[0.62, 0.86, 70, 1], [0.78, 0.88, 88, 0], [0.93, 0.84, 56, 2]];
@@ -3876,7 +3883,14 @@ function tg_turkey(L, x, fy, s, dk) {
   add(L, 'j', prim + tg_taper([[x + 18 * s, fy - 80 * s], [x - 2 * s, fy - 70 * s], [x - 26 * s, fy - 56 * s]], 2.4 * s, 1 * s), C.bar);
   add(L, 'k', b2_ellA(x + 24 * s, fy - 74 * s, 13 * s, 21 * s), C.brh);
   // neck and head, beak, the red snood and wattle, the eye with a glint
-  add(L, 'l', b2_limb([x + 16 * s, fy - 90 * s], [x + 40 * s, fy - 100 * s], [x + 38 * s, fy - 128 * s], 22 * s, 15 * s) + b2_ellA(x + 40 * s, fy - 134 * s, 14 * s, 14 * s), C.head);
+  add(L, 'l', b2_limb([x + 18 * s, fy - 80 * s], [x + 40 * s, fy - 100 * s], [x + 38 * s, fy - 128 * s], 30 * s, 15 * s) + b2_ellA(x + 40 * s, fy - 134 * s, 14 * s, 14 * s), C.head);
+  // the near side of the body comes back over the neck's root: body, its scalloped feathers and the breast light, below a feathered edge
+  ['A', 'B', 'C'].forEach(function (k) { if (!L[k]) L[k] = E(); });
+  var fxc = x + 18 * s, fyc = fy - 66 * s, frx = 30 * s, fry = 36 * s, cut = fy - 90 * s, front;
+  front = b2_polyA((function () { var pts = []; for (var j = 0; j <= 48; j++) { var an2 = j / 48 * Math.PI * 2, px2 = fxc + Math.cos(an2) * frx, py2 = fyc + Math.sin(an2) * fry; pts.push([px2, Math.max(py2, cut + (j % 2 ? 3.2 * s : 0))]); } return pts; })());
+  add(L, 'A', front, C.body);
+  var sc2 = ''; for (var row2 = 0; row2 < 10; row2++) { var yy2 = fy - 100 * s + row2 * 8.4 * s; if (yy2 < cut) continue; for (var xx2 = x - 44 * s + (row2 % 2) * 4.6 * s; xx2 < x + 48 * s; xx2 += 9.2 * s) { if (Math.pow((xx2 - fxc) / (frx - 3 * s), 2) + Math.pow((yy2 + r0 - fyc) / (fry - 3 * s), 2) >= 1) continue; var U2 = []; for (var k3 = 0; k3 <= 8; k3++) { var a3 = k3 / 8 * Math.PI; U2.push([xx2 + Math.cos(a3) * r0, yy2 + Math.sin(a3) * r0 * 0.9]); } for (k3 = 8; k3 >= 0; k3--) { a3 = k3 / 8 * Math.PI; U2.push([xx2 + Math.cos(a3) * r0 * 0.7, yy2 + Math.sin(a3) * r0 * 0.55]); } sc2 += b2_polyA(U2); } }
+  add(L, 'B', sc2, C.scal); add(L, 'C', b2_ellA(x + 24 * s, fy - 70 * s, 12 * s, 16 * s), C.brh);
   add(L, 'm', b2_polyA([[x + 51 * s, fy - 139.5 * s], [x + 64 * s, fy - 134 * s], [x + 51 * s, fy - 129 * s]]), C.beak);
   add(L, 'n', b2_limb([x + 50 * s, fy - 142 * s], [x + 59 * s, fy - 143 * s], [x + 57 * s, fy - 125 * s], 4.4 * s, 2.6 * s) + b2_ellA(x + 47 * s, fy - 118 * s, 6 * s, 11 * s) + b2_ellA(x + 42 * s, fy - 111 * s, 5 * s, 8 * s) + b2_ellA(x + 35 * s, fy - 121 * s, 3 * s, 3 * s) + b2_ellA(x + 33 * s, fy - 113 * s, 2.6 * s, 2.6 * s), C.red);
   add(L, 'o', b2_ellA(x + 45.4 * s, fy - 138.4 * s, 1.3 * s, 1.3 * s), C.eyeHi);
@@ -3992,7 +4006,7 @@ SCENES.thanksgiving = function (W, H, dk, rnd) {
   var col = dk ? {d: '#D2742E', e: '#B83A30', f: '#D8A444', g: '#6A3E7A', h: '#4A2E18', t: '#B88A3E'} : {d: '#EC8A36', e: '#CC3B32', f: '#EBC05A', g: '#7E4E96', h: '#6A4020', t: '#C9993E'};
   var green = dk ? '#6E7A2E' : '#7E8E34', my = hn.my, wheat = '', wheatD = '';
   if (ANIM) { ANIM.horn = {mx: mx, my: my, R: R, gy: gyH, apple: col.e, stem: col.h, leaf: green}; ANIM.gy = gy; ANIM.leaves = []; ANIM.veinC = dk ? 'rgba(50,20,8,0.4)' : 'rgba(110,40,10,0.32)'; }
-  for (k = 0; k < 5; k++) { var a = (-150 + k * 11) * Math.PI / 180, l = R * (1.35 + (k % 2) * 0.3), x0 = mx - R * 0.05, y0 = my - R * 0.45, x1 = x0 + Math.cos(a) * l, y1 = y0 + Math.sin(a) * l, l0 = R * 0.33, ad = a * 180 / Math.PI, px1 = -Math.sin(a), py1 = Math.cos(a);
+  for (k = 0; k < 5; k++) { var a = (-150 + k * 11) * Math.PI / 180, l = R * (1.75 + (k % 2) * 0.3), x0 = mx + R * 0.02, y0 = my + R * 0.55, x1 = x0 + Math.cos(a) * l, y1 = y0 + Math.sin(a) * l, l0 = R * 0.05, ad = a * 180 / Math.PI, px1 = -Math.sin(a), py1 = Math.cos(a);
     wheat += tg_taper([[x0 + Math.cos(a) * l0, y0 + Math.sin(a) * l0], [x1, y1]], R * 0.035, R * 0.02);
     for (var g = 0; g < 6; g++) { var t = 0.6 + g * 0.075, gx = lerp(x0, x1, t), gyy = lerp(y0, y1, t); [-1, 1].forEach(function (sd) { var ex = gx + px1 * sd * R * 0.035, ey = gyy + py1 * sd * R * 0.035; wheat += tg_rell(ex, ey, R * 0.06, R * 0.028, ad + sd * 24); wheatD += tg_rell(ex + px1 * sd * R * 0.008, ey + py1 * sd * R * 0.008, R * 0.04, R * 0.014, ad + sd * 24);
         wheatD += tg_taper([[ex + Math.cos((ad + sd * 24) * Math.PI / 180) * R * 0.05, ey + Math.sin((ad + sd * 24) * Math.PI / 180) * R * 0.05], [ex + Math.cos((ad + sd * 30) * Math.PI / 180) * R * 0.17, ey + Math.sin((ad + sd * 30) * Math.PI / 180) * R * 0.17]], R * 0.008, R * 0.004); }); }
@@ -4017,7 +4031,7 @@ SCENES.thanksgiving = function (W, H, dk, rnd) {
   hi += tg_rell(pxr - R * 0.12, gyH - R * 0.26, R * 0.05, R * 0.1, 10);
   var stems = b2_limb([pxr + R * 0.02, gyH - R * 0.57], [pxr + R * 0.03, gyH - R * 0.65], [pxr + R * 0.08, gyH - R * 0.7], R * 0.035, R * 0.025), greens = b2_polyA(b8_lfp(pxr + R * 0.05, gyH - R * 0.64, R * 0.2, R * 0.07, -20));
   var pk = tg_pumpkin(mx - R * 1.12, gyH, R * 0.72, R * 0.48);
-  var apl = [tg_apple(mx - R * 0.02, my - R * 0.36, R * 0.3), tg_apple(mx - R * 2.05, gyH - R * 0.26, R * 0.26), tg_apple(mx - R * 1.72, gyH - R * 0.2, R * 0.2)], apB = '';
+  var apl = [tg_apple(mx - R * 0.02, my + R * 0.5, R * 0.3) /* rests on the lower lip of the mouth */, tg_apple(mx - R * 2.05, gyH - R * 0.26, R * 0.26), tg_apple(mx - R * 1.72, gyH - R * 0.2, R * 0.2)], apB = '';
   apl.forEach(function (o) { apB += o.b; hi += o.h; stems += o.s; greens += o.l; });
   // little pumpkins, acorns and pinecones scattered at the front
   var smallP = (ph ? [[0.78, 0.975, 14]] : [[0.14, 0.96, 24], [0.53, 0.975, 18]]).map(function (q) { return tg_pumpkin(W * q[0], H * q[1], q[2], q[2] * 0.68); });
@@ -15967,7 +15981,7 @@ function b8_env(u, a, b, c, d) { return u < a || u > d ? 0 : u < b ? b8_ease((u 
 // Thanksgiving
 ENGINES.thanksgiving = function (A, v, dk) {
   var W = v.bw, H = v.bh, T = A.turkey, s = T.s, tx = T.x, fy = T.fy, hn = A.horn, R = hn.R, gy = A.gy;
-  var tk = b8_lp(T.L), tail = ['a', 'b', 'c', 'd', 'e', 'f'], body = ['g', 'h', 'i', 'j', 'k'], head = ['l', 'm', 'n', 'o', 't'], legs = ['s'];
+  var tk = b8_lp(T.L), tail = ['a', 'b', 'c', 'd', 'e', 'f'], body = ['g', 'h', 'i', 'j', 'k'], head = ['l', 'A', 'B', 'C', 'm', 'n', 'o', 't'], legs = ['s'];
   var tp = [tx - 8 * s, fy - 88 * s], hp = [tx + 22 * s, fy - 86 * s];
   var leaves = A.leaves.map(function (l, i) { var LD = tg_leafD(0, 0, l.s, 0, l.kind || 0); return {x: l.x, y: l.y, p: new Path2D(LD.d), pv: new Path2D(LD.v), c: l.c, rot: l.a * Math.PI / 180, sp: (hash(i + 1) - 0.5) * 1.6, fl: hash(i + 7) * 6.28, k: 0.6 + l.k * 0.8, ph: hash(i + 3) * 6.28, a: 1}; });
   var back = (A.backLeaves || []).map(function (l) { return {p: new Path2D(l.d), pv: l.v ? new Path2D(l.v) : null, c: l.c}; }), veinC = A.veinC || 'rgba(110,40,10,0.32)';
