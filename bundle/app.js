@@ -18876,8 +18876,13 @@ const THEME_REGROUP = {
   pottery: "hobby", film: "hobby", culinary: "hobby",
   diadelosmuertos: "holiday", holi: "holiday", ramadan: "holiday", midautumn: "holiday", xmas: "holiday"
 };
+// Holidays in the order they come round in the year (moving dates placed where they usually fall)
+const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatricks", "easter", "july4", "midautumn", "halloween", "diadelosmuertos", "diwali", "thanksgiving", "hanukkah", "xmas", "newyear"];
 (() => {
   Object.entries(THEME_REGROUP).forEach(([id, g]) => { const s = SKINS.find(x => x.id === id); if (s) s.group = g; });
+  (() => { const at = [], hol = []; SKINS.forEach((s, i) => { if (s.group === "holiday") { at.push(i); hol.push(s); } });
+    const rank = s => { const k = HOLIDAY_ORDER.indexOf(s.id); return k < 0 ? 1e3 + hol.indexOf(s) : k; };
+    hol.sort((a, b) => rank(a) - rank(b)).forEach((s, j) => { SKINS[at[j]] = s; }); })();
   const KEY = "studyboard:theme-access", hidden = new Set(HIDDEN_THEMES), stash = [];
   const order = new Map(SKINS.map((s, i) => [s.id, i]));
   let all = false, uid = null, checkedAt = 0, fake = null;
