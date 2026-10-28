@@ -3629,93 +3629,220 @@ function b8_ellc(x, y, rx, ry) { return 'M' + PT(x - rx, y) + ' a' + n1(rx) + ' 
 function b8_hex(x, y, r) { var t1 = [], t2 = []; for (var i = 0; i < 3; i++) { var a = -Math.PI / 2 + i * 2 * Math.PI / 3; t1.push([x + r * Math.cos(a), y + r * Math.sin(a)]); t2.push([x + r * Math.cos(a + Math.PI), y + r * Math.sin(a + Math.PI)]); } return poly(t1) + poly(t2); }
 
 // Thanksgiving
-function b8_turkey(L, x, fy, s, dk) {
-  var C = dk ? ['#9A4A28', '#B8873C', '#5E3820', '#6E4228', '#4E2E1A', '#CBA785', '#D08E34', '#B0302A', '#1A100C', '#C88A38'] : ['#BC5A2E', '#DDA44C', '#7C4A2A', '#8E5733', '#693C22', '#EBCBA6', '#E6A23C', '#C9352C', '#2A1A14', '#D99A3C'];
-  var cx = x - 8 * s, cy = fy - 88 * s, n = 11, i, a, keys = ['a', 'b', 'c'];
-  for (i = 0; i < n; i++) { a = -172 + i * 164 / (n - 1); var r = a * Math.PI / 180; add(L, keys[i % 3], rotEll(cx + Math.cos(r) * 60 * s, cy + Math.sin(r) * 60 * s, 58 * s, 15 * s, a), C[i % 3]); }
-  for (i = 0; i < n - 1; i++) { a = -164 + i * 148 / (n - 2); var r2 = a * Math.PI / 180; add(L, keys[(i + 1) % 3], rotEll(cx + Math.cos(r2) * 40 * s, cy + Math.sin(r2) * 40 * s, 38 * s, 12 * s, a), C[(i + 1) % 3]); }
-  add(L, 'd', ell(x, fy - 60 * s, 44 * s, 46 * s) + ell(x + 18 * s, fy - 66 * s, 30 * s, 36 * s), C[3]);
-  add(L, 'e', leaf(x + 14 * s, fy - 70 * s, 56 * s, 17 * s, 172) + ell(x + 26 * s, fy - 44 * s, 5 * s, 3 * s) + ell(x + 14 * s, fy - 34 * s, 5 * s, 3 * s) + ell(x + 32 * s, fy - 58 * s, 4 * s, 2.6 * s), C[4]);
-  add(L, 'f', poly([[x + 36 * s, fy - 84 * s], [x + 46 * s, fy - 124 * s], [x + 28 * s, fy - 126 * s], [x + 12 * s, fy - 90 * s]]) + ell(x + 24 * s, fy - 87 * s, 12.5 * s, 5 * s) + circ(x + 38 * s, fy - 132 * s, 16 * s), C[5]);
-  add(L, 'g', poly([[x + 50 * s, fy - 138 * s], [x + 64 * s, fy - 131 * s], [x + 50 * s, fy - 126 * s]]), C[6]);
-  add(L, 'h', ell(x + 50 * s, fy - 117 * s, 4.5 * s, 10 * s) + circ(x + 53 * s, fy - 140 * s, 3 * s), C[7]);
-  stk(L, 't', circ(x + 43 * s, fy - 136 * s, 0.4), C[8], 6 * s);
-  var legs = ''; [-10, 14].forEach(function (o) { var lx = x + o * s; legs += seg(lx, fy - 18 * s, lx - 2 * s, fy) + seg(lx - 2 * s, fy, lx - 12 * s, fy + 2 * s) + seg(lx - 2 * s, fy, lx + 8 * s, fy + 2 * s) + seg(lx - 2 * s, fy, lx - 4 * s, fy + 4 * s); });
-  stk(L, 's', legs, C[9], 4 * s);
+// small helpers: a rotated ellipse and a tapered ribbon, both with one fixed winding so overlaps stay solid
+function tg_rell(x, y, rx, ry, ang) { var p = []; for (var i = 0; i < 20; i++) { var t = i / 20 * Math.PI * 2; p.push([rx * Math.cos(t), ry * Math.sin(t)]); } return b2_polyA(rotp(p, x, y, ang || 0)); }
+function tg_taper(p, w0, w1) { var A = [], B = [], n = p.length; for (var i = 0; i < n; i++) { var a = p[Math.max(0, i - 1)], b = p[Math.min(n - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, w = lerp(w0, w1, i / (n - 1)) / 2; A.push([p[i][0] - dy / l * w, p[i][1] + dx / l * w]); B.unshift([p[i][0] + dy / l * w, p[i][1] - dx / l * w]); } return b2_polyA(A.concat(B)); }
+// the stretch t0..t1 of one tail feather that starts at (cx, cy) and points along ang (degrees); the tip is rounded
+function tg_feather(cx, cy, ang, L, w, t0, t1) { var A = [], B = []; for (var i = 0; i <= 12; i++) { var t = lerp(t0, t1, i / 12), hw = w * (0.32 + 0.68 * t) * Math.pow(Math.max(0, Math.sin(Math.PI * (0.08 + 0.92 * t))), 0.5) / 2; A.push([t * L, -hw]); B.unshift([t * L, hw]); } return b2_polyA(rotp(A.concat(B), cx, cy, ang)); }
+// an autumn leaf: kind 0 maple, 1 oak; d is the leaf with its stem, v the veins
+function tg_leafD(x, y, s, a, kind) {
+  function V(p, w0, w1) { return tg_taper(rotp(p.map(function (q) { return [q[0] * s, q[1] * s]; }), x, y, a), w0 * s, w1 * s); }
+  if (kind) { var d = b2_oak(x, y, s * 1.1, a) + V([[-0.22, 0], [0.02, 0]], 0.07, 0.05), v = V([[0.02, 0], [0.55, 0], [1.02, 0]], 0.045, 0.012);
+    [0.28, 0.5, 0.72].forEach(function (t) { v += V([[t * 1.1, 0], [t * 1.1 + 0.12, -0.2]], 0.03, 0.008) + V([[t * 1.1, 0], [t * 1.1 + 0.12, 0.2]], 0.03, 0.008); }); return {d: d, v: v}; }
+  return {d: b2_maple(x, y, s, a) + V([[-0.24, 0.02], [0.04, 0]], 0.07, 0.05),
+    v: V([[0.04, 0], [0.5, 0], [0.92, 0]], 0.045, 0.012) + V([[0.06, 0], [0.32, -0.22], [0.58, -0.5]], 0.035, 0.01) + V([[0.06, 0], [0.32, 0.22], [0.58, 0.5]], 0.035, 0.01) + V([[0.04, 0], [0.12, -0.18], [0.12, -0.36]], 0.03, 0.008) + V([[0.04, 0], [0.12, 0.18], [0.12, 0.36]], 0.03, 0.008)};
 }
-function b8_horn(L, mx, gy, R, len, dk) {
+function tg_apple(x, y, r) { return {b: b2_ellA(x - 0.12 * r, y, 0.95 * r, 0.92 * r) + b2_ellA(x + 0.12 * r, y + 0.02 * r, 0.92 * r, 0.9 * r), h: tg_rell(x - 0.4 * r, y - 0.32 * r, 0.22 * r, 0.12 * r, -32),
+  s: b2_limb([x, y - 0.74 * r], [x + 0.04 * r, y - 1.0 * r], [x + 0.16 * r, y - 1.18 * r], 0.12 * r, 0.08 * r), l: b2_polyA(b8_lfp(x + 0.12 * r, y - 1.04 * r, 0.62 * r, 0.24 * r, -24))}; }
+// a ribbed pumpkin standing on yb: lobes, rib grooves, a highlight, a curved stem and a leaf with a curly tendril
+function tg_pumpkin(x, yb, rx, ry) { var c = yb - ry, o = {b: '', r: '', h: '', s: '', l: ''};
+  [[-0.5, 0.52, 0.92], [0.5, 0.52, 0.92], [-0.2, 0.55, 1], [0.2, 0.55, 1]].forEach(function (q) { o.b += b2_ellA(x + q[0] * rx, c, q[1] * rx, q[2] * ry); });
+  [-0.66, -0.27, 0.27, 0.66].forEach(function (k) { var top = [x + k * rx * 0.55, c - 0.86 * ry], mid = [x + k * rx * 1.05, c], bot = [x + k * rx * 0.6, c + 0.9 * ry];
+    o.r += b2_limb(top, [(top[0] + mid[0]) / 2 + k * rx * 0.08, (top[1] + mid[1]) / 2], mid, 0.02 * rx, 0.075 * rx) + b2_limb(mid, [(mid[0] + bot[0]) / 2 + k * rx * 0.06, (mid[1] + bot[1]) / 2], bot, 0.075 * rx, 0.02 * rx); });
+  o.h = tg_rell(x - 0.42 * rx, c - 0.32 * ry, 0.12 * rx, 0.34 * ry, -14) + tg_rell(x + 0.04 * rx, c - 0.5 * ry, 0.07 * rx, 0.24 * ry, -6);
+  o.s = b2_limb([x, c - 0.82 * ry], [x + 0.02 * rx, c - 1.12 * ry], [x + 0.14 * rx, c - 1.24 * ry], 0.17 * rx, 0.11 * rx);
+  var tw = []; for (var i = 0; i <= 14; i++) { var u = i / 14, a = u * Math.PI * 3.2; tw.push([x + 0.2 * rx + u * 0.28 * rx + Math.cos(a) * 0.07 * rx * (1 - u * 0.5), c - 1.0 * ry - Math.sin(a) * 0.07 * rx * (1 - u * 0.5) - u * 0.08 * ry]); }
+  o.l = b2_polyA(b8_lfp(x - 0.04 * rx, c - 0.92 * ry, 0.46 * rx, 0.17 * rx, 196)) + tg_taper(tw, 0.035 * rx, 0.015 * rx);
+  return o; }
+function tg_turkey(L, x, fy, s, dk) {
+  var C = dk ? {a: '#5A2C18', b: '#8E4424', c: '#B8803A', band: '#2E160C', tip: '#E2CFAC', shaft: 'rgba(255,232,200,0.35)', body: '#5A3620', scal: '#3A2214', wing: '#4A2C18', bar: '#2A1810', brh: 'rgba(255,214,170,0.14)', head: '#C9A48A', beak: '#D08E34', red: '#B0302A', eye: '#1A100C', eyeHi: '#FFFFFF', leg: '#C88A38'}
+    : {a: '#7A3E22', b: '#B8582C', c: '#D99A42', band: '#4A2614', tip: '#F4E6CC', shaft: 'rgba(255,244,224,0.6)', body: '#7C4A2A', scal: '#5A3218', wing: '#62381E', bar: '#3E2212', brh: 'rgba(255,226,190,0.22)', head: '#EAC6A6', beak: '#E6A23C', red: '#C9352C', eye: '#2A1A14', eyeHi: '#FFFFFF', leg: '#D99A3C'};
+  var cx = x - 8 * s, cy = fy - 88 * s, rows = [['a', 13, -176, -4, 84, 15, 0.82, 0.88, 0.8], ['b', 11, -166, -14, 66, 14, 0.74, 0.82, 0.7], ['c', 9, -156, -24, 46, 12, 0.66, 0.76, 0.3]], bands = '', tips = '', shafts = '';
+  // the tail fan: three rows of feathers, each with a dark band, a pale tip and a light shaft where it shows
+  rows.forEach(function (rw) { var d = ''; for (var i = 0; i < rw[1]; i++) { var a = lerp(rw[2], rw[3], i / (rw[1] - 1)), Lf = rw[4] * s, wf = rw[5] * s; d += tg_feather(cx, cy, a, Lf, wf, 0, 1);
+      bands += tg_feather(cx, cy, a, Lf, wf, rw[6], rw[7]); tips += tg_feather(cx, cy, a, Lf, wf, 0.92, 1);
+      shafts += tg_taper(rotp([[rw[8] * Lf, 0], [0.95 * Lf, 0]], cx, cy, a), wf * 0.09, wf * 0.03); }
+    add(L, rw[0], d, C[rw[0]]); });
+  add(L, 'd', bands, C.band); add(L, 'e', tips, C.tip); add(L, 'f', shafts, C.shaft);
+  // the body, rows of scalloped feather edges, the wing with its dark primaries, a soft light on the breast
+  add(L, 'g', b2_ellA(x, fy - 60 * s, 44 * s, 46 * s) + b2_ellA(x + 18 * s, fy - 66 * s, 30 * s, 36 * s), C.body);
+  function inBody(px, py) { return Math.pow((px - x) / (40 * s), 2) + Math.pow((py - fy + 60 * s) / (42 * s), 2) < 1 || Math.pow((px - x - 18 * s) / (26 * s), 2) + Math.pow((py - fy + 66 * s) / (32 * s), 2) < 1; }
+  var sc = '', r0 = 4.4 * s; for (var row = 0; row < 10; row++) { var yy = fy - 100 * s + row * 8.4 * s; for (var xx = x - 44 * s + (row % 2) * 4.6 * s; xx < x + 48 * s; xx += 9.2 * s) { if (!inBody(xx, yy + r0)) continue; var U = []; for (var k = 0; k <= 8; k++) { var aa = k / 8 * Math.PI; U.push([xx + Math.cos(aa) * r0, yy + Math.sin(aa) * r0 * 0.9]); } for (k = 8; k >= 0; k--) { aa = k / 8 * Math.PI; U.push([xx + Math.cos(aa) * r0 * 0.62, yy - 0.6 * s + Math.sin(aa) * r0 * 0.5]); } sc += b2_polyA(U); } }
+  add(L, 'h', sc, C.scal);
+  add(L, 'i', b2_polyA(b8_lfp(x + 26 * s, fy - 84 * s, 64 * s, 21 * s, 158)), C.wing);
+  var prim = ''; for (var q = 0; q < 4; q++) prim += tg_rell(x - 12 * s - q * 6 * s, fy - 58 * s + q * 2.2 * s, 13 * s, 3.2 * s, 150 + q * 8);
+  add(L, 'j', prim + tg_taper([[x + 18 * s, fy - 80 * s], [x - 2 * s, fy - 70 * s], [x - 26 * s, fy - 56 * s]], 2.4 * s, 1 * s), C.bar);
+  add(L, 'k', b2_ellA(x + 24 * s, fy - 74 * s, 13 * s, 21 * s), C.brh);
+  // neck and head, beak, the red snood and wattle, the eye with a glint
+  add(L, 'l', b2_limb([x + 16 * s, fy - 90 * s], [x + 40 * s, fy - 100 * s], [x + 38 * s, fy - 128 * s], 22 * s, 15 * s) + b2_ellA(x + 40 * s, fy - 134 * s, 14 * s, 14 * s), C.head);
+  add(L, 'm', b2_polyA([[x + 51 * s, fy - 139.5 * s], [x + 64 * s, fy - 134 * s], [x + 51 * s, fy - 129 * s]]), C.beak);
+  add(L, 'n', b2_limb([x + 50 * s, fy - 142 * s], [x + 59 * s, fy - 143 * s], [x + 57 * s, fy - 125 * s], 4.4 * s, 2.6 * s) + b2_ellA(x + 47 * s, fy - 118 * s, 6 * s, 11 * s) + b2_ellA(x + 42 * s, fy - 111 * s, 5 * s, 8 * s) + b2_ellA(x + 35 * s, fy - 121 * s, 3 * s, 3 * s) + b2_ellA(x + 33 * s, fy - 113 * s, 2.6 * s, 2.6 * s), C.red);
+  add(L, 'o', b2_ellA(x + 45.4 * s, fy - 138.4 * s, 1.3 * s, 1.3 * s), C.eyeHi);
+  stk(L, 't', circ(x + 44 * s, fy - 137 * s, 0.4), C.eye, 6 * s);
+  // legs with three toes forward and one back
+  var legs = ''; [-10, 14].forEach(function (o) { var lx = x + o * s; legs += seg(lx, fy - 16 * s, lx - 2 * s, fy) + seg(lx - 2 * s, fy, lx - 13 * s, fy + 2 * s) + seg(lx - 2 * s, fy, lx + 9 * s, fy + 2.5 * s) + seg(lx - 2 * s, fy, lx - 4 * s, fy + 4.5 * s) + seg(lx - 2 * s, fy, lx + 3 * s, fy - 3 * s); });
+  stk(L, 's', legs, C.leg, 4 * s);
+}
+// the woven horn: wicker body with a shaded side, dark ribs and light diagonal strands, a dark mouth and a rolled rim
+function tg_horn(L, mx, gy, R, len, dk) {
   var my = gy - R, N = 40, pts = [], x = mx, y = my, i;
   for (i = 0; i <= N; i++) { var t = i / N, hd = (6 - 262 * Math.pow(t, 2.3)) * Math.PI / 180; pts.push([x, y, t, hd]); x += Math.cos(hd) * len / N; y += Math.sin(hd) * len / N; }
-  var A = [], B = [], nrm = [];
-  pts.forEach(function (p) { var r = R * Math.pow(1 - p[2], 1.05) + R * 0.05, nx = -Math.sin(p[3]), ny = Math.cos(p[3]); nrm.push([nx, ny, r]); A.push([p[0] + nx * r, p[1] + ny * r]); B.unshift([p[0] - nx * r, p[1] - ny * r]); });
-  add(L, 'b', poly(A.concat(B)), dk ? '#9A6434' : '#C98C4E');
-  var w = '', ww = R > 60 ? 2.2 : 1.7;
+  var A = [], B = [], nrm = [], SA = [], SB = [];
+  pts.forEach(function (p) { var r = R * Math.pow(1 - p[2], 1.05) + R * 0.05, nx = -Math.sin(p[3]), ny = Math.cos(p[3]); nrm.push([nx, ny, r]); A.push([p[0] + nx * r, p[1] + ny * r]); B.unshift([p[0] - nx * r, p[1] - ny * r]); SA.push([p[0] + nx * r, p[1] + ny * r]); SB.unshift([p[0] + nx * r * 0.2, p[1] + ny * r * 0.2]); });
+  add(L, 'f', b2_polyA(A.concat(B)), dk ? '#9A6434' : '#C98C4E');
+  add(L, 'g', b2_polyA(SA.concat(SB)), dk ? 'rgba(40,20,8,0.35)' : 'rgba(110,60,20,0.26)');
+  var dark = '', lite = '';
   for (i = 3; i < N - 2; i += 3) { var p = pts[i], q = nrm[i], r = q[2], tx = Math.cos(p[3]), ty = Math.sin(p[3]), a0 = [p[0] + q[0] * r, p[1] + q[1] * r], c0 = [p[0] - tx * r * 0.45, p[1] - ty * r * 0.45], b0 = [p[0] - q[0] * r, p[1] - q[1] * r], qp = [];
     for (var j = 0; j <= 10; j++) { var u = j / 10; qp.push([(1 - u) * (1 - u) * a0[0] + 2 * (1 - u) * u * c0[0] + u * u * b0[0], (1 - u) * (1 - u) * a0[1] + 2 * (1 - u) * u * c0[1] + u * u * b0[1]]); }
-    w += b8_taper(qp, ww, ww);
-    if (i + 3 < N - 2) { var p2 = pts[i + 3], r2 = nrm[i + 3][2]; for (var k = -1; k <= 1; k++) { var f = k * 0.55; w += b8_taper([[p[0] + q[0] * r * f, p[1] + q[1] * r * f], [p2[0] + q[0] * r2 * (f + 0.25), p2[1] + q[1] * r2 * (f + 0.25)]], ww, ww); } } }
-  add(L, 'c', w + ell(mx, my, R * 0.36, R * 0.97), dk ? '#4A2C18' : '#74461F');
+    dark += tg_taper(qp, Math.max(1.2, r * 0.07), Math.max(1.2, r * 0.07));
+    if (i + 3 < N - 2) { var p2 = pts[i + 3], q2 = nrm[i + 3], r2 = q2[2], par = (i / 3) % 2 ? 1 : -1;
+      for (var f = -0.78; f <= 0.8; f += 0.26) { var s0 = [p[0] + q[0] * r * f, p[1] + q[1] * r * f], e0 = [p2[0] + q2[0] * r2 * (f + 0.13 * par), p2[1] + q2[1] * r2 * (f + 0.13 * par)], s1 = [lerp(s0[0], e0[0], 0.16), lerp(s0[1], e0[1], 0.16)], e1 = [lerp(s0[0], e0[0], 0.84), lerp(s0[1], e0[1], 0.84)];
+        lite += b2_limb(s1, [(s1[0] + e1[0]) / 2, (s1[1] + e1[1]) / 2], e1, r * 0.1, r * 0.1); } } }
+  add(L, 'h', dark, dk ? '#4A2C18' : '#74461F'); add(L, 'i', lite, dk ? 'rgba(255,210,150,0.22)' : 'rgba(255,236,196,0.42)');
+  add(L, 'j', b2_ellA(mx, my, R * 0.36, R * 0.97), dk ? '#24120A' : '#4A2A14');
+  var ro = [], ri = []; for (i = 0; i < 40; i++) { var aa = i / 40 * Math.PI * 2; ro.push([mx + Math.cos(aa) * R * 0.46, my + Math.sin(aa) * R * 1.04]); ri.push([mx + Math.cos(aa) * R * 0.35, my + Math.sin(aa) * R * 0.96]); }
+  add(L, 'k', b3_annulus(ro, ri), dk ? '#B07840' : '#DCA463');
   return {mx: mx, my: my};
 }
 SCENES.thanksgiving = function (W, H, dk, rnd) {
   var ph = H > W, hz = H * 0.5, far = Lay(16), bg = Lay(1.1), mid = Lay(0.4), near = Lay(0), P = function (y) { return Math.round(y / H * 100); };
+  'ABCDEFGHIJKLMNOP'.split('').forEach(function (k) { bg[k] = E(); near[k] = E(); });
+  function RR(x, y, w, h) { return b2_polyA([[x, y], [x + w, y], [x + w, y + h], [x, y + h]]); }
   var sky = dk ? 'linear-gradient(180deg,#1A1322 0%,#33202E ' + P(hz * 0.6) + '%,#7E4630 ' + P(hz) + '%,#2A1A14 100%)' : 'linear-gradient(180deg,#EAD6C0 0%,#F4E3CE ' + P(hz * 0.6) + '%,#FBE4C2 ' + P(hz) + '%,#E6CB9E 100%)';
-  var sx = W * (ph ? 0.72 : 0.76), sy = hz - (ph ? 62 : 110);
-  add(far, 'a', circ(sx, sy, ph ? 95 : 150), dk ? 'rgba(255,170,90,0.32)' : 'rgba(255,214,150,0.9)');
-  add(near, 'a', circ(sx, sy, ph ? 26 : 40), dk ? '#F6CB86' : '#FFF2D8');
-  var sr0 = ph ? 26 : 40, cl = [];
-  spread(0, 0, W, hz * 0.8, ph ? 220 : 340, ph ? 150 : 170, rnd, 0.8).forEach(function (c) { if (c.q < 0.6) { var s = 0.6 + c.r * 0.7; if (Math.abs(c.y - sy) < sr0 + 30 * s && c.x + 104 * s > sx - sr0 - 8 && c.x - 104 * s < sx + sr0 + 8) return; cl.push([c.x, c.y - 4 * s, 110 * s, 34 * s]); add(far, 'b', ell(c.x, c.y, 80 * s, 16 * s) + ell(c.x - 26 * s, c.y - 10 * s, 36 * s, 16 * s) + ell(c.x + 22 * s, c.y - 12 * s, 40 * s, 18 * s), dk ? 'rgba(120,76,100,0.35)' : 'rgba(255,248,236,0.85)'); } });
+  // the harvest moon (sun by day) with a soft halo and a few craters
+  var sx = W * (ph ? 0.72 : 0.76), sy = hz - (ph ? 62 : 110), sr0 = ph ? 26 : 40, cl = [];
+  add(far, 'a', circ(sx, sy, ph ? 95 : 150), dk ? 'rgba(255,170,90,0.32)' : 'rgba(255,214,150,0.9)'); add(far, 'd', circ(sx, sy, sr0 * 1.5), dk ? 'rgba(255,200,130,0.28)' : 'rgba(255,236,200,0.6)');
+  add(near, 'a', b2_ellA(sx, sy, sr0, sr0), dk ? '#F6CB86' : '#FFF2D8');
+  add(near, 'N', b2_ellA(sx - sr0 * 0.32, sy - sr0 * 0.2, sr0 * 0.2, sr0 * 0.17) + b2_ellA(sx + sr0 * 0.34, sy + sr0 * 0.14, sr0 * 0.14, sr0 * 0.12) + b2_ellA(sx - sr0 * 0.06, sy + sr0 * 0.44, sr0 * 0.11, sr0 * 0.09) + b2_ellA(sx + sr0 * 0.16, sy - sr0 * 0.46, sr0 * 0.08, sr0 * 0.07), dk ? 'rgba(196,120,60,0.26)' : 'rgba(232,196,150,0.4)');
+  spread(0, 0, W, hz * 0.8, ph ? 220 : 340, ph ? 150 : 170, rnd, 0.8).forEach(function (c) { if (c.q < 0.6) { var s = 0.6 + c.r * 0.7; if (Math.abs(c.y - sy) < sr0 + 30 * s && c.x + 104 * s > sx - sr0 - 8 && c.x - 104 * s < sx + sr0 + 8) return; cl.push([c.x, c.y - 4 * s, 110 * s, 34 * s]);
+    add(far, 'b', ell(c.x, c.y, 80 * s, 16 * s) + ell(c.x - 26 * s, c.y - 10 * s, 36 * s, 16 * s) + ell(c.x + 22 * s, c.y - 12 * s, 40 * s, 18 * s), dk ? 'rgba(120,76,100,0.35)' : 'rgba(255,248,236,0.85)');
+    add(far, 'c', ell(c.x + 6 * s, c.y + 6 * s, 70 * s, 8 * s), dk ? 'rgba(60,30,50,0.3)' : 'rgba(230,200,180,0.5)'); } });
   if (dk) spread(0, 0, W, hz * 0.75, 44, 44, rnd, 1).forEach(function (c) { if (c.q < 0.4 && !cl.some(function (k) { return Math.pow((c.x - k[0]) / k[2], 2) + Math.pow((c.y - k[1]) / k[3], 2) < 1; }) && Math.hypot(c.x - sx, c.y - sy) > (ph ? 95 : 150) * 0.8) add(near, 'a', circ(c.x, c.y, 0.6 + c.r), ''); });
+  // the far ridge: a hazy back row, then round autumn trees with trunks, shade below and light on the upper left
   var hA = ridge(W, hz, [[14, 200, 0.3], [6, 85, 1.4]], 10);
   add(bg, 'a', below(hA, H + 10), dk ? '#4A2C2A' : '#DDBE94');
-  var tc = dk ? ['#8A4A2A', '#7A3226', '#8E6A2E'] : ['#D98A45', '#C0583A', '#E0B04E'], tk = ['c', 'd', 'e'], trunks = '';
-  hA.forEach(function (p, i) { if (i % 2 || rnd() > 0.8) return; var s = (ph ? 8 : 12) + rnd() * (ph ? 6 : 10), k = Math.floor(rnd() * 3), y = p[1] + 3; add(bg, tk[k], circ(p[0], y - s * 1.1, s) + circ(p[0] - s * 0.55, y - s * 0.6, s * 0.72) + circ(p[0] + s * 0.55, y - s * 0.6, s * 0.72), tc[k]); trunks += seg(p[0], y - s * 0.3, p[0], y + 2); });
-  var bx = W * (ph ? 0.2 : 0.5), bi = Math.round((bx + 60) / 10), byb = hA[bi][1] + 6, bw = ph ? 40 : 58, bh = bw * 0.62;
-  add(bg, 'f', poly([[bx - bw / 2, byb], [bx - bw / 2, byb - bh], [bx - bw * 0.4, byb - bh - bw * 0.26], [bx, byb - bh - bw * 0.42], [bx + bw * 0.4, byb - bh - bw * 0.26], [bx + bw / 2, byb - bh], [bx + bw / 2, byb]]), dk ? '#5E2622' : '#B24A34');
-  add(bg, 'g', rect(bx - bw * 0.1, byb - bh - bw * 0.2, bw * 0.2, bw * 0.14), dk ? '#FFCF7A' : '#F6EAD8');
-  stk(bg, 's', pline([[bx - bw / 2 - 2, byb - bh + 1], [bx - bw * 0.4, byb - bh - bw * 0.26], [bx, byb - bh - bw * 0.42], [bx + bw * 0.4, byb - bh - bw * 0.26], [bx + bw / 2 + 2, byb - bh + 1]]) + rect(bx - bw * 0.18, byb - bh * 0.62, bw * 0.36, bh * 0.62) + seg(bx - bw * 0.18, byb - bh * 0.62, bx + bw * 0.18, byb) + seg(bx + bw * 0.18, byb - bh * 0.62, bx - bw * 0.18, byb), dk ? '#9A6A5A' : '#F6EAD8', ph ? 1.1 : 1.5);
-  if (dk) add(far, 'c', circ(bx, byb - bh - bw * 0.13, 26), 'rgba(255,190,110,0.55)');
+  var backRow = ''; hA.forEach(function (p, i) { if (i % 3) return; var r0 = (ph ? 6 : 9) * (0.8 + 0.4 * Math.abs(Math.sin(i * 1.7))); backRow += b2_ellA(p[0], p[1] - r0 * 0.5, r0 * 1.4, r0); });
+  add(bg, 'b', backRow, dk ? '#3E2626' : '#D2AE84');
+  var tc = dk ? ['#8A4A2A', '#7A3226', '#8E6A2E'] : ['#D98A45', '#C0583A', '#E0B04E'], tk = ['d', 'e', 'f'], trunks = '', tSh = '', tHi = '';
+  var bx = W * (ph ? 0.2 : 0.5), bw = ph ? 40 : 58, bh = bw * 0.62;
+  hA.forEach(function (p, i) { if (i % 2 || rnd() > 0.8) return; var s = (ph ? 8 : 12) + rnd() * (ph ? 6 : 10), k = Math.floor(rnd() * 3), y = p[1] + 3, cy0 = y - s * 1.1, can = '';
+    trunks += b2_polyA([[p[0] - s * 0.1, y + 2], [p[0] - s * 0.06, y - s * 0.7], [p[0] + s * 0.06, y - s * 0.7], [p[0] + s * 0.1, y + 2]]);
+    [[0, 0, 1], [-0.58, 0.42, 0.72], [0.58, 0.42, 0.72], [-0.26, -0.5, 0.6], [0.3, -0.44, 0.56]].forEach(function (l) { var lx = p[0] + l[0] * s, ly = cy0 + l[1] * s, lr = l[2] * s; can += b2_ellA(lx, ly, lr, lr); tHi += b2_ellA(lx - lr * 0.26, ly - lr * 0.28, lr * 0.55, lr * 0.5); });
+    add(bg, tk[k], can, tc[k]); tSh += b2_ellA(p[0] + s * 0.1, cy0 + s * 0.78, s * 1.05, s * 0.36); });
+  add(bg, 'c', trunks, dk ? '#3A2218' : '#7A4E30');
+  add(bg, 'g', tSh, dk ? 'rgba(30,10,6,0.35)' : 'rgba(120,50,20,0.22)'); add(bg, 'h', tHi, dk ? 'rgba(255,200,140,0.1)' : 'rgba(255,240,200,0.28)');
+  // the red barn with a gambrel roof, white trim, an X-braced door and a glowing hayloft, and a silo beside it
+  var bi = Math.round((bx + 60) / 10), byb = hA[bi][1] + 6, sxL = bx - bw * 0.74, sw2 = bw * 0.28, sH = bh * 1.5;
+  add(bg, 'i', RR(sxL - sw2 / 2, byb - sH, sw2, sH), dk ? '#4E4448' : '#B8AEA6');
+  var dome = []; for (var di = 0; di <= 12; di++) { var da = Math.PI + di / 12 * Math.PI; dome.push([sxL + Math.cos(da) * sw2 * 0.56, byb - sH + Math.sin(da) * sw2 * 0.5]); }
+  var roofL = [[bx - bw / 2 - 2, byb - bh + 1], [bx - bw * 0.42, byb - bh - bw * 0.27], [bx, byb - bh - bw * 0.44], [bx + bw * 0.42, byb - bh - bw * 0.27], [bx + bw / 2 + 2, byb - bh + 1]], rt = bw * 0.08;
+  add(bg, 'j', b2_polyA(dome) + b2_polyA(roofL.concat(roofL.slice().reverse().map(function (q) { return [q[0], q[1] + rt]; }))), dk ? '#3A2626' : '#6E4A42');
+  add(bg, 'k', b2_polyA([[bx - bw / 2, byb], [bx - bw / 2, byb - bh], [bx - bw * 0.4, byb - bh - bw * 0.26], [bx, byb - bh - bw * 0.42], [bx + bw * 0.4, byb - bh - bw * 0.26], [bx + bw / 2, byb - bh], [bx + bw / 2, byb]]), dk ? '#5E2622' : '#B24A34');
+  var tw = Math.max(1.1, bw * 0.03), dx0 = bx - bw * 0.18, dy0 = byb - bh * 0.64, dwd = bw * 0.36, dht = bh * 0.64;
+  var trim = RR(dx0, dy0, dwd, tw) + RR(dx0, dy0, tw, dht) + RR(dx0 + dwd - tw, dy0, tw, dht) + RR(bx - tw / 2, dy0, tw, dht) + tg_taper([[dx0, dy0], [bx, byb]], tw, tw) + tg_taper([[bx, dy0], [dx0, byb]], tw, tw) + tg_taper([[bx, dy0], [dx0 + dwd, byb]], tw, tw) + tg_taper([[dx0 + dwd, dy0], [bx, byb]], tw, tw)
+    + RR(bx - bw / 2, byb - bh, tw * 1.2, bh) + RR(bx + bw / 2 - tw * 1.2, byb - bh, tw * 1.2, bh) + RR(bx - bw * 0.13, byb - bh - bw * 0.23, bw * 0.26, tw) + RR(bx - bw * 0.13, byb - bh - bw * 0.06, bw * 0.26, tw);
+  add(bg, 'l', trim, dk ? '#9A6A5A' : '#F6EAD8');
+  add(bg, 'm', RR(bx - bw * 0.1, byb - bh - bw * 0.2, bw * 0.2, bw * 0.14) + RR(sxL - sw2 * 0.18, byb - sH * 0.78, sw2 * 0.36, sw2 * 0.3), dk ? '#FFCF7A' : '#F6EAD8');
+  if (dk) add(far, 'e', circ(bx, byb - bh - bw * 0.13, 26), 'rgba(255,190,110,0.55)');
+  // the middle field: rows that widen toward you, a split-rail fence, corn shocks, a scarecrow and hay bales
   var gy = H * (ph ? 0.76 : 0.8), hB = ridge(W, hz + H * (ph ? 0.05 : 0.07), [[10, 230, 2.1], [5, 95, 0.6]], 12);
-  add(bg, 'b', below(hB, H + 10), dk ? '#3E2620' : '#E8C992');
-  var bales = (ph ? [[0.56, 26], [0.84, 40]] : [[0.62, 30], [0.72, 52], [0.9, 28]]).map(function (h) { var x = W * h[0]; return [x, hB[Math.round((x + 60) / 12)][1] + h[1], ph ? 10 : 15]; });
-  var inBale = function (px, py) { return bales.some(function (b) { var r = b[2] + 1.5, x = b[0], y = b[1], cr = r * 0.5, qx = Math.max(x - r * 1.3 + cr, Math.min(x + r * 1.1 - cr, px)), qy = Math.max(y - r * 2 + cr, Math.min(y - cr, py)); return Math.hypot(px - qx, py - qy) < cr + 1; }); };
-  for (var k = 1; k <= 7; k++) { var off = Math.pow(k / 7, 1.5) * (gy - hB[0][1] - 26), run = [];
+  function hBy(x) { return hB[Math.max(0, Math.min(hB.length - 1, Math.round((x + 60) / 12)))][1]; }
+  add(bg, 'n', below(hB, H + 10), dk ? '#3E2620' : '#E8C992');
+  var bales = (ph ? [[0.56, 26], [0.84, 40]] : [[0.62, 30], [0.72, 52], [0.9, 28]]).map(function (h) { var x = W * h[0]; return [x, hBy(x) + h[1], (ph ? 10 : 15) * (0.85 + h[1] / 160)]; });
+  var crow = ph ? [W * 0.7, 18, 0.62] : [W * 0.55, 22, 0.85], shocks = (ph ? [[0.42, 16]] : [[0.41, 18], [0.47, 30]]).map(function (q) { var x = W * q[0]; return [x, hBy(x) + q[1], (ph ? 0.65 : 0.9) * (0.85 + q[1] / 120)]; });
+  function inThing(px, py) { if (bales.some(function (b) { var r = b[2] + 2; return px > b[0] - r * 1.6 && px < b[0] + r * 1.7 && py > b[1] - r * 2.1 && py < b[1] + 2; })) return true;
+    if (shocks.some(function (q) { return Math.abs(px - q[0]) < 14 * q[2] && py > q[1] - 44 * q[2] && py < q[1] + 2; })) return true;
+    var cx0 = crow[0], cy0 = hBy(cx0) + crow[1]; return Math.abs(px - cx0) < 6 * crow[2] && py > cy0 - 30 * crow[2] && py < cy0 + 2; }
+  var furrow = ''; for (var k = 1; k <= 7; k++) { var off = Math.pow(k / 7, 1.5) * (gy - hB[0][1] - 26), run = [], th = (ph ? 0.6 : 0.8) + k * (ph ? 0.22 : 0.32);
     for (var fi = 0; fi < hB.length - 1; fi++) for (var fs = 0; fs < 4; fs++) { var fx = lerp(hB[fi][0], hB[fi + 1][0], fs / 4), fyy = lerp(hB[fi][1], hB[fi + 1][1], fs / 4) + off + Math.sin(fx / 260 + k) * 3;
-      if (inBale(fx, fyy)) { if (run.length > 1) trunks += pline(run); run = []; } else run.push([fx, fyy]); }
-    if (run.length > 1) trunks += pline(run); }
-  stk(bg, 't', trunks, dk ? 'rgba(120,70,40,0.55)' : 'rgba(150,96,50,0.4)', ph ? 1.2 : 1.6);
-  var baleL = '';
-  bales.forEach(function (h) { var x = h[0], y = h[1], r = h[2]; add(bg, 'e', rrect(x - r * 1.3, y - r * 2, r * 2.4, r * 2, r * 0.5) + b8_ellc(x - r * 1.3 + r * 0.4, y - r, r * 0.55, r), tc[2]); baleL += ell(x - r * 0.9, y - r, r * 0.55, r) + ell(x - r * 0.9, y - r, r * 0.28, r * 0.5); });
-  stk(bg, 't', baleL, '', 0);
+      if (inThing(fx, fyy)) { if (run.length > 1) furrow += b2_band(run, th); run = []; } else run.push([fx, fyy]); }
+    if (run.length > 1) furrow += b2_band(run, th); }
+  add(bg, 'o', furrow, dk ? 'rgba(120,70,40,0.5)' : 'rgba(150,96,50,0.36)');
+  var fence = '', fs2 = ph ? 0.7 : 1, fx0 = W * 0.01, fx1 = W * (ph ? 0.3 : 0.33), rail1 = [], rail2 = [];
+  for (var px = fx0; px <= fx1; px += 34 * fs2) { var pb = hBy(px) + 26 * fs2; fence += b2_polyA([[px - 2.4 * fs2, pb], [px - 2.4 * fs2, pb - 22 * fs2], [px, pb - 25 * fs2], [px + 2.4 * fs2, pb - 22 * fs2], [px + 2.4 * fs2, pb]]); }
+  for (px = fx0; px <= fx1; px += 6) { var pb2 = hBy(px) + 26 * fs2; rail1.push([px, pb2 - 17 * fs2]); rail2.push([px, pb2 - 8 * fs2]); }
+  fence += b2_band(rail1, 3 * fs2) + b2_band(rail2, 3 * fs2);
+  add(bg, 'p', fence, dk ? '#5A3A26' : '#A0724A');
+  var straw = '', strawD = '', shirt = '', dark = '';
+  shocks.forEach(function (q) { var x = q[0], y = q[1], s = q[2], pts = [[x - 13 * s, y], [x - 5 * s, y - 26 * s]]; for (var j = 0; j <= 8; j++) { var u = j / 8; pts.push([x - 5 * s + u * 10 * s + (j % 2 ? 0 : 1.5 * s), y - 26 * s - (j % 2 ? 16 : 10) * s * Math.sin(Math.PI * u)]); } pts.push([x + 5 * s, y - 26 * s], [x + 13 * s, y]);
+    straw += b2_polyA(pts); strawD += RR(x - 6 * s, y - 25 * s, 12 * s, 2.6 * s); for (j = -2; j <= 2; j++) strawD += tg_taper([[x + j * 2.6 * s, y - 22 * s], [x + j * 5 * s, y - 1 * s]], 1 * s, 1.3 * s); });
+  (function () { var x = crow[0], s = crow[2], yb = hBy(x) + crow[1];
+    dark += RR(x - 1.4 * s, yb - 46 * s, 2.8 * s, 46 * s) + RR(x - 16 * s, yb - 36 * s, 32 * s, 2.4 * s) + b2_polyA([[x - 9 * s, yb - 52 * s], [x + 9 * s, yb - 52 * s], [x + 6 * s, yb - 59 * s], [x - 6 * s, yb - 59 * s]]) + RR(x - 12 * s, yb - 53 * s, 24 * s, 2 * s);
+    shirt += b2_polyA([[x - 17 * s, yb - 38 * s], [x + 17 * s, yb - 38 * s], [x + 17 * s, yb - 32 * s], [x + 7 * s, yb - 32 * s], [x + 8 * s, yb - 20 * s], [x - 8 * s, yb - 20 * s], [x - 7 * s, yb - 32 * s], [x - 17 * s, yb - 32 * s]]);
+    straw += b2_ellA(x, yb - 45 * s, 5.5 * s, 6 * s) + b2_polyA([[x - 19 * s, yb - 37 * s], [x - 17 * s, yb - 38.5 * s], [x - 17 * s, yb - 31.5 * s], [x - 20 * s, yb - 32 * s]]) + b2_polyA([[x + 19 * s, yb - 37 * s], [x + 17 * s, yb - 38.5 * s], [x + 17 * s, yb - 31.5 * s], [x + 20 * s, yb - 32 * s]]) + b2_polyA([[x - 6 * s, yb - 20 * s], [x + 6 * s, yb - 20 * s], [x + 4 * s, yb - 15 * s], [x, yb - 18 * s], [x - 4 * s, yb - 15 * s]]);
+    strawD += RR(x - 7 * s, yb - 33 * s, 14 * s, 1.3 * s) + RR(x - 0.6 * s, yb - 38 * s, 1.2 * s, 18 * s) + b2_ellA(x - 2 * s, yb - 46 * s, 0.8 * s, 0.8 * s) + b2_ellA(x + 2 * s, yb - 46 * s, 0.8 * s, 0.8 * s) + RR(x - 1.6 * s, yb - 42.6 * s, 3.2 * s, 0.7 * s); })();
+  add(bg, 'A', straw, dk ? '#A8823E' : '#E2BA62'); add(bg, 'C', shirt, dk ? '#7A3028' : '#C4483A');
+  var bale = '', baleF = '', baleD = '';
+  bales.forEach(function (h) { var x = h[0], y = h[1], r = h[2]; bale += RR(x - r * 0.9, y - 2 * r, r * 1.95, 2 * r) + b2_ellA(x + r * 1.05, y - r, r * 0.5, r);
+    baleF += b2_ellA(x - r * 0.9, y - r, r * 0.55, r); var sp = []; for (var j = 0; j <= 30; j++) { var u = j / 30, a = u * Math.PI * 5.2, rr = r * 0.9 * u; sp.push([x - r * 0.9 + Math.cos(a) * rr * 0.55, y - r + Math.sin(a) * rr]); }
+    baleD += tg_taper(sp, Math.max(0.8, r * 0.06), Math.max(0.8, r * 0.09)) + b2_polyA([[x - r * 0.4, y - 0.15 * r], [x + r * 1.05, y - 0.15 * r], [x + r * 1.4, y - r * 0.6], [x + r * 1.5, y - r], [x + r * 1.3, y - r * 0.2], [x + r * 1.05, y], [x - r * 0.4, y]]) + RR(x - r * 0.2, y - 2 * r, r * 0.12, 2 * r) + RR(x + r * 0.5, y - 2 * r, r * 0.12, 2 * r); });
+  add(bg, 'F', bale, dk ? '#8E6A2E' : '#E0B04E'); add(bg, 'G', baleF, dk ? '#B08840' : '#F2D07A');
+  add(bg, 'B', strawD, dk ? '#5E4220' : '#A8782E'); add(bg, 'H', baleD, dk ? 'rgba(60,36,12,0.55)' : 'rgba(140,90,30,0.5)'); add(bg, 'E', dark, dk ? '#2E1A10' : '#6E4424');
   var hC = ridge(W, gy, [[7, 260, 1.2], [3, 110, 0.2]], 12);
-  add(bg, 'h', below(hC, H + 10), dk ? '#2E1C14' : '#D9AE74');
+  add(bg, 'I', below(hC, H + 10), dk ? '#2E1C14' : '#D9AE74');
+  // the turkey, with a soft shadow on the ground under it
   var tx = ph ? W * 0.27 : W * 0.24, tfy = ph ? gy - 8 : H * 0.88, ts = ph ? 0.62 : 1.05;
-  var TKL = ANIM ? Lay(0) : mid; b8_turkey(TKL, tx, tfy, ts, dk); if (ANIM) ANIM.turkey = {L: TKL, x: tx, fy: tfy, s: ts};
+  add(bg, 'J', b2_ellA(tx + 4 * ts, tfy + 3 * ts, 46 * ts, 7 * ts), dk ? 'rgba(10,4,2,0.45)' : 'rgba(110,60,20,0.25)');
+  var TKL = ANIM ? Lay(0) : mid; tg_turkey(TKL, tx, tfy, ts, dk); if (ANIM) ANIM.turkey = {L: TKL, x: tx, fy: tfy, s: ts};
+  // the cornucopia and its harvest
   var R = ph ? 44 : 70, gyH = ph ? H * 0.885 : H * 0.9, mx = ph ? W * 0.5 : W * 0.72;
-  var hn = b8_horn(near, mx, gyH, R, ph ? 170 : 280, dk);
+  var hn = tg_horn(near, mx, gyH, R, ph ? 170 : 280, dk);
   var col = dk ? {d: '#D2742E', e: '#B83A30', f: '#D8A444', g: '#6A3E7A', h: '#4A2E18', t: '#B88A3E'} : {d: '#EC8A36', e: '#CC3B32', f: '#EBC05A', g: '#7E4E96', h: '#6A4020', t: '#C9993E'};
-  var my = hn.my, st = '', sh = '';
-  if (ANIM) { ANIM.horn = {mx: mx, my: my, R: R, gy: gyH, apple: col.e, stem: col.h, leaf: dk ? '#6E7A2E' : '#7E8E34'}; ANIM.gy = gy; ANIM.leaves = []; }
-  for (k = 0; k < 5; k++) { var a = (-150 + k * 11) * Math.PI / 180, l = R * (1.35 + (k % 2) * 0.3), x0 = mx - R * 0.05, y0 = my - R * 0.45, x1 = x0 + Math.cos(a) * l, y1 = y0 + Math.sin(a) * l, l0 = R * 0.33; st += seg(x0 + Math.cos(a) * l0, y0 + Math.sin(a) * l0, x1, y1);
-    for (var g = 0; g < 5; g++) { var t = 0.62 + g * 0.08, gx = lerp(x0, x1, t), gyy = lerp(y0, y1, t), ad = a * 180 / Math.PI; sh += leaf(gx, gyy, R * 0.13, R * 0.04, ad - 28) + leaf(gx, gyy, R * 0.13, R * 0.04, ad + 28); } sh += leaf(x1, y1, R * 0.12, R * 0.04, a * 180 / Math.PI); }
-  stk(near, 't', st, col.t, ph ? 1.3 : 1.8);
-  add(near, 'f', sh + ell(mx - R * 0.2, my + R * 0.3, R * 0.42, R * 0.26), col.f);
-  add(near, 'e', circ(mx - R * 0.02, my - R * 0.36, R * 0.3) + circ(mx - R * 2.05, gyH - R * 0.26, R * 0.26) + circ(mx - R * 1.72, gyH - R * 0.2, R * 0.2), col.e);
-  var gr = '', gcx = mx - R * 0.42, gcy = my + R * 0.05; for (var rr = 0; rr < 4; rr++) for (var cc = 0; cc < 4 - rr; cc++) gr += circ(gcx + (cc - (3 - rr) / 2) * R * 0.17 - rr * R * 0.06, gcy + rr * R * 0.15, R * 0.1);
-  add(near, 'g', gr, col.g);
-  var px = mx - R * 1.12, py = gyH - R * 0.48, prx = R * 0.72, pry = R * 0.48;
-  add(near, 'd', ell(px - prx * 0.42, py + pry * 0.04, prx * 0.55, pry * 0.95) + ell(px + prx * 0.42, py + pry * 0.04, prx * 0.55, pry * 0.95) + ell(px, py, prx * 0.55, pry), col.d);
-  stk(near, 's', 'M' + PT(px - prx * 0.18, py - pry * 0.9) + ' Q' + PT(px - prx * 0.36, py) + ' ' + PT(px - prx * 0.18, py + pry * 0.9) + ' M' + PT(px + prx * 0.18, py - pry * 0.9) + ' Q' + PT(px + prx * 0.36, py) + ' ' + PT(px + prx * 0.18, py + pry * 0.9) + ' ', dk ? '#8A4A1E' : '#B8601E', R > 60 ? 2.4 : 1.8);
-  var stems = rrect(px - R * 0.05, py - pry - R * 0.14, R * 0.1, R * 0.2, 2) + rect(mx - R * 0.03, my - R * 0.72, R * 0.05, R * 0.1) + rect(mx - R * 2.07, gyH - R * 0.6, R * 0.04, R * 0.1) + seg(0, 0, 0, 0);
-  var ac = '', an = ''; (ph ? [[0.08, 0.9], [0.9, 0.95], [0.16, 0.95]] : [[0.41, 0.955], [0.49, 0.965], [0.95, 0.94], [0.05, 0.93]]).forEach(function (q) { var x = W * q[0], y = H * q[1], r = ph ? 6 : 8; an += ell(x, y, r * 0.8, r); ac += b8_ellc(x, y - r * 0.7, r, r * 0.5) + rect(x - 1, y - r * 1.5, 2, r * 0.5); });
-  add(near, 'h', stems + ac, col.h);
-  add(near, 'f', an, '');
-  var lk = [['d', col.d], ['e', col.e], ['f', col.f]];
-  spread(0, 0, W, gy - 20, ph ? 105 : 160, ph ? 115 : 140, rnd, 0.9).forEach(function (c) { if (c.q > 0.5) return; var z = lk[Math.floor(c.k * 3)]; if (ANIM) { ANIM.leaves.push({x: c.x, y: c.y, s: (ph ? 12 : 17) + c.r * 9, a: c.k * 360, c: z[1], k: c.r}); return; } add(near, z[0], b8_aleaf(c.x, c.y, (ph ? 12 : 17) + c.r * 9, c.k * 360), z[1]); });
-  spread(0, gy + 14, W, H - gy - 20, ph ? 90 : 130, 70, rnd, 0.9).forEach(function (c) { if (c.q > 0.35) return; var z = lk[Math.floor(c.k * 3)], d = b8_aleaf(c.x, c.y, (ph ? 10 : 14) + c.r * 6, c.r < 0.5 ? -20 - c.k * 40 : 200 + c.k * 40);
-    if (c.y < gyH + 2 && c.x > mx - R * 2.5 && c.x < mx + R * 1.7) return;
-    if (ANIM) { (ANIM.gl = ANIM.gl || []).push([c.x | 0, c.y | 0]); if (c.y < tfy + 4 * ts && c.x > tx - 130 * ts && c.x < mx - R * 0.2) { (ANIM.backLeaves = ANIM.backLeaves || []).push({d: d, c: z[1]}); return; } }
-    add(near, z[0], d, z[1]); });
+  var green = dk ? '#6E7A2E' : '#7E8E34', my = hn.my, wheat = '', wheatD = '';
+  if (ANIM) { ANIM.horn = {mx: mx, my: my, R: R, gy: gyH, apple: col.e, stem: col.h, leaf: green}; ANIM.gy = gy; ANIM.leaves = []; ANIM.veinC = dk ? 'rgba(50,20,8,0.4)' : 'rgba(110,40,10,0.32)'; }
+  for (k = 0; k < 5; k++) { var a = (-150 + k * 11) * Math.PI / 180, l = R * (1.35 + (k % 2) * 0.3), x0 = mx - R * 0.05, y0 = my - R * 0.45, x1 = x0 + Math.cos(a) * l, y1 = y0 + Math.sin(a) * l, l0 = R * 0.33, ad = a * 180 / Math.PI, px1 = -Math.sin(a), py1 = Math.cos(a);
+    wheat += tg_taper([[x0 + Math.cos(a) * l0, y0 + Math.sin(a) * l0], [x1, y1]], R * 0.035, R * 0.02);
+    for (var g = 0; g < 6; g++) { var t = 0.6 + g * 0.075, gx = lerp(x0, x1, t), gyy = lerp(y0, y1, t); [-1, 1].forEach(function (sd) { var ex = gx + px1 * sd * R * 0.035, ey = gyy + py1 * sd * R * 0.035; wheat += tg_rell(ex, ey, R * 0.06, R * 0.028, ad + sd * 24); wheatD += tg_rell(ex + px1 * sd * R * 0.008, ey + py1 * sd * R * 0.008, R * 0.04, R * 0.014, ad + sd * 24);
+        wheatD += tg_taper([[ex + Math.cos((ad + sd * 24) * Math.PI / 180) * R * 0.05, ey + Math.sin((ad + sd * 24) * Math.PI / 180) * R * 0.05], [ex + Math.cos((ad + sd * 30) * Math.PI / 180) * R * 0.17, ey + Math.sin((ad + sd * 30) * Math.PI / 180) * R * 0.17]], R * 0.008, R * 0.004); }); }
+    wheat += tg_rell(x1 + Math.cos(a) * R * 0.03, y1 + Math.sin(a) * R * 0.03, R * 0.065, R * 0.028, ad); }
+  add(near, 'l', wheat, col.t); add(near, 'm', wheatD, dk ? 'rgba(90,56,16,0.5)' : 'rgba(150,100,30,0.45)');
+  // a corn cob spilling from the mouth with its husks peeled back, and a gourd on the ground
+  var ca = 168, cbx = mx - R * 0.28, cby = my + R * 0.5, cL = R * 0.95, cw = R * 0.3, cdx = Math.cos(ca * Math.PI / 180), cdy = Math.sin(ca * Math.PI / 180), ccx = cbx + cdx * cL / 2, ccy = cby + cdy * cL / 2;
+  var kern = tg_rell(ccx, ccy, cL / 2, cw / 2, ca), grid = '';
+  for (var gu = 0.1; gu < 0.92; gu += 0.085) { var gq = [cbx + cdx * cL * gu, cby + cdy * cL * gu], hw2 = cw / 2 * Math.sqrt(Math.max(0, 1 - Math.pow(gu * 2 - 1, 2))) * 0.92; grid += tg_taper([[gq[0] + cdy * hw2, gq[1] - cdx * hw2], [gq[0] - cdy * hw2, gq[1] + cdx * hw2]], R * 0.012, R * 0.012); }
+  [-0.17, 0.02, 0.2].forEach(function (v) { var pts = []; for (var j = 0; j <= 8; j++) { var u = 0.08 + j / 8 * 0.84, hw3 = cw / 2 * Math.sqrt(Math.max(0, 1 - Math.pow(u * 2 - 1, 2))) * v / 0.25; pts.push([cbx + cdx * cL * u - cdy * hw3, cby + cdy * cL * u + cdx * hw3]); } grid += tg_taper(pts, R * 0.012, R * 0.012); });
+  var husk = b2_polyA(b8_lfp(cbx + cdx * cL * 0.08, cby + cdy * cL * 0.08, cL * 0.6, R * 0.13, ca + 180 - 30)) + b2_polyA(b8_lfp(cbx + cdx * cL * 0.08, cby + cdy * cL * 0.08, cL * 0.55, R * 0.12, ca + 180 + 34)) + b2_polyA(b8_lfp(cbx, cby, cL * 0.5, R * 0.11, ca + 180 + 4));
+  var gx2 = mx - R * 0.55, gy2 = gyH - R * 0.17, gourd = b2_ellA(gx2, gy2, R * 0.26, R * 0.17) + tg_rell(gx2 + R * 0.27, gy2 - R * 0.06, R * 0.17, R * 0.085, -14);
+  var gStripe = b2_ellA(gx2 + R * 0.43, gy2 - R * 0.1, R * 0.05, R * 0.06) + b2_limb([gx2 - R * 0.2, gy2 - R * 0.08], [gx2, gy2 - R * 0.17], [gx2 + R * 0.2, gy2 - R * 0.09], R * 0.022, R * 0.016) + b2_limb([gx2 - R * 0.22, gy2 + R * 0.04], [gx2, gy2 + R * 0.01], [gx2 + R * 0.22, gy2 + R * 0.03], R * 0.02, R * 0.014);
+  add(near, 'n', kern + gourd, dk ? '#D8A83A' : '#F2C94C'); add(near, 'o', grid, dk ? 'rgba(120,70,10,0.5)' : 'rgba(170,110,20,0.45)'); add(near, 'p', husk + gStripe, dk ? '#8E9A5A' : '#B8C48A');
+  // grapes hanging from the mouth: each grape has a dark rim and a lighter face
+  var grD = '', grL = '', hi = '', gcx = mx - R * 0.42, gcy = my + R * 0.05;
+  for (var rr = 0; rr < 4; rr++) for (var cc = 0; cc < 4 - rr; cc++) { var gxx = gcx + (cc - (3 - rr) / 2) * R * 0.17 - rr * R * 0.06, gyc = gcy + rr * R * 0.15, gr0 = R * 0.1; grD += b2_ellA(gxx, gyc, gr0, gr0); grL += b2_ellA(gxx - gr0 * 0.14, gyc - gr0 * 0.16, gr0 * 0.74, gr0 * 0.74); hi += b2_ellA(gxx - gr0 * 0.38, gyc - gr0 * 0.4, gr0 * 0.18, gr0 * 0.14); }
+  add(near, 'A', grD, dk ? '#4A2858' : '#5E3474'); add(near, 'B', grL, col.g);
+  // a pear, the pumpkin, apples on the ground and one in the mouth
+  var pxr = mx - R * 2.55, pear = b2_ellA(pxr, gyH - R * 0.2, R * 0.25, R * 0.2) + b2_ellA(pxr + R * 0.02, gyH - R * 0.42, R * 0.15, R * 0.17) + b2_polyA([[pxr - R * 0.24, gyH - R * 0.24], [pxr - R * 0.13, gyH - R * 0.45], [pxr + R * 0.17, gyH - R * 0.45], [pxr + R * 0.25, gyH - R * 0.22]]);
+  add(near, 'C', pear, dk ? '#B8A43A' : '#D6C85A');
+  hi += tg_rell(pxr - R * 0.12, gyH - R * 0.26, R * 0.05, R * 0.1, 10);
+  var stems = b2_limb([pxr + R * 0.02, gyH - R * 0.57], [pxr + R * 0.03, gyH - R * 0.65], [pxr + R * 0.08, gyH - R * 0.7], R * 0.035, R * 0.025), greens = b2_polyA(b8_lfp(pxr + R * 0.05, gyH - R * 0.64, R * 0.2, R * 0.07, -20));
+  var pk = tg_pumpkin(mx - R * 1.12, gyH, R * 0.72, R * 0.48);
+  var apl = [tg_apple(mx - R * 0.02, my - R * 0.36, R * 0.3), tg_apple(mx - R * 2.05, gyH - R * 0.26, R * 0.26), tg_apple(mx - R * 1.72, gyH - R * 0.2, R * 0.2)], apB = '';
+  apl.forEach(function (o) { apB += o.b; hi += o.h; stems += o.s; greens += o.l; });
+  // little pumpkins, acorns and pinecones scattered at the front
+  var smallP = (ph ? [[0.78, 0.975, 14]] : [[0.14, 0.96, 24], [0.53, 0.975, 18]]).map(function (q) { return tg_pumpkin(W * q[0], H * q[1], q[2], q[2] * 0.68); });
+  var pkB = pk.b, pkR = pk.r, pkH = pk.h; smallP.forEach(function (o) { pkB += o.b; pkR += o.r; pkH += o.h; stems += o.s; greens += o.l; });
+  pk.l && (greens += pk.l); stems += pk.s;
+  add(near, 'D', pkB, col.d); add(near, 'E', pkR, dk ? 'rgba(120,50,10,0.45)' : 'rgba(170,70,10,0.4)'); add(near, 'F', pkH, dk ? 'rgba(255,200,140,0.28)' : 'rgba(255,236,200,0.5)');
+  add(near, 'G', apB, col.e); add(near, 'H', hi, dk ? 'rgba(255,240,230,0.35)' : 'rgba(255,255,255,0.55)');
+  var nut = '', cap = '';
+  (ph ? [[0.08, 0.9], [0.9, 0.95], [0.16, 0.95]] : [[0.41, 0.955], [0.49, 0.965], [0.95, 0.94], [0.05, 0.93]]).forEach(function (q) { var x = W * q[0], y = H * q[1], r = ph ? 6 : 8, np = [];
+    for (var j = 0; j < 22; j++) { var aa = j / 22 * Math.PI * 2, sn = Math.sin(aa); np.push([x + Math.cos(aa) * r * 0.78 * (sn > 0 ? 1 - 0.35 * sn * sn : 1), y + sn * r * (sn > 0 ? 1.15 : 0.6)]); }
+    nut += b2_polyA(np); hi += tg_rell(x - r * 0.3, y + r * 0.1, r * 0.12, r * 0.3, 0);
+    var cp = []; for (j = 0; j <= 12; j++) { var ca2 = Math.PI + j / 12 * Math.PI; cp.push([x + Math.cos(ca2) * r * 0.98, y - r * 0.15 + Math.sin(ca2) * r * 0.62]); } cp.push([x + r * 0.98, y - r * 0.02], [x - r * 0.98, y - r * 0.02]);
+    cap += b2_polyA(cp) + RR(x - r * 0.1, y - r * 1.12, r * 0.2, r * 0.4); });
+  add(near, 'I', nut, dk ? '#9A6A38' : '#C48C4E'); add(near, 'J', stems + cap, col.h); add(near, 'K', greens, green);
+  var cone = '', coneL = '';
+  (ph ? [[0.05, 0.975, -18]] : [[0.33, 0.972, -16], [0.985, 0.975, 200]]).forEach(function (q) { var x = W * q[0], y = H * q[1], rx2 = ph ? 9 : 12, ry2 = rx2 * 0.55, ang = q[2]; cone += tg_rell(x, y, rx2, ry2, ang);
+    for (var u = -0.7; u <= 0.71; u += 0.28) for (var vv = -0.5; vv <= 0.51; vv += 0.5) { var ch = rotp([[u * rx2 - 2, vv * ry2 - 1.6], [u * rx2 + 1.4, vv * ry2], [u * rx2 - 2, vv * ry2 + 1.6]], x, y, ang); coneL += tg_taper(ch, 1, 1); } });
+  add(near, 'L', cone, dk ? '#5A3A22' : '#8A5A34'); add(near, 'M', coneL, dk ? 'rgba(220,170,110,0.45)' : 'rgba(240,200,140,0.7)');
+  // falling and fallen leaves: maples and oaks with veins
+  var lk = [['b', col.d], ['c', col.e], ['d', col.f]], veins = '';
+  spread(0, 0, W, gy - 20, ph ? 105 : 160, ph ? 115 : 140, rnd, 0.9).forEach(function (c) { if (c.q > 0.5) return; var z = lk[Math.floor(c.k * 3)], kind = c.r < 0.45 ? 1 : 0, sz = (ph ? 12 : 17) + c.r * 9;
+    if (ANIM) { ANIM.leaves.push({x: c.x, y: c.y, s: sz, a: c.k * 360, c: z[1], k: c.r, kind: kind}); return; } var L2 = tg_leafD(c.x, c.y, sz, c.k * 360, kind); add(near, z[0], L2.d, z[1]); veins += L2.v; });
+  spread(0, gy + 14, W, H - gy - 20, ph ? 90 : 130, 70, rnd, 0.9).forEach(function (c) { if (c.q > 0.35) return; var z = lk[Math.floor(c.k * 3)], L2 = tg_leafD(c.x, c.y, (ph ? 10 : 14) + c.r * 6, c.r < 0.5 ? -20 - c.k * 40 : 200 + c.k * 40, c.k < 0.4 ? 1 : 0);
+    if (c.y < gyH + 2 && c.x > mx - R * 2.9 && c.x < mx + R * 1.7) return;
+    if (ANIM) { if (c.y < tfy + 4 * ts && c.x > tx - 130 * ts && c.x < mx - R * 0.2) { (ANIM.backLeaves = ANIM.backLeaves || []).push({d: L2.d, v: L2.v, c: z[1]}); return; } }
+    add(near, z[0], L2.d, z[1]); veins += L2.v; });
+  add(near, 'e', veins, dk ? 'rgba(50,20,8,0.4)' : 'rgba(110,40,10,0.32)');
   return {sky: sky, far: far, refl: bg, mid: mid, near: near};
 };
 
@@ -15609,10 +15736,10 @@ function b8_env(u, a, b, c, d) { return u < a || u > d ? 0 : u < b ? b8_ease((u 
 // Thanksgiving
 ENGINES.thanksgiving = function (A, v, dk) {
   var W = v.bw, H = v.bh, T = A.turkey, s = T.s, tx = T.x, fy = T.fy, hn = A.horn, R = hn.R, gy = A.gy;
-  var tk = b8_lp(T.L), tail = ['a', 'b', 'c'], body = ['d', 'e'], head = ['f', 'g', 'h', 't'], legs = ['s'];
+  var tk = b8_lp(T.L), tail = ['a', 'b', 'c', 'd', 'e', 'f'], body = ['g', 'h', 'i', 'j', 'k'], head = ['l', 'm', 'n', 'o', 't'], legs = ['s'];
   var tp = [tx - 8 * s, fy - 88 * s], hp = [tx + 22 * s, fy - 86 * s];
-  var leaves = A.leaves.map(function (l, i) { return {x: l.x, y: l.y, p: new Path2D(b8_aleaf(0, 0, l.s, 0)), c: l.c, rot: l.a * Math.PI / 180, sp: (hash(i + 1) - 0.5) * 1.6, fl: hash(i + 7) * 6.28, k: 0.6 + l.k * 0.8, ph: hash(i + 3) * 6.28, a: 1}; });
-  var back = (A.backLeaves || []).map(function (l) { return {p: new Path2D(l.d), c: l.c}; });
+  var leaves = A.leaves.map(function (l, i) { var LD = tg_leafD(0, 0, l.s, 0, l.kind || 0); return {x: l.x, y: l.y, p: new Path2D(LD.d), pv: new Path2D(LD.v), c: l.c, rot: l.a * Math.PI / 180, sp: (hash(i + 1) - 0.5) * 1.6, fl: hash(i + 7) * 6.28, k: 0.6 + l.k * 0.8, ph: hash(i + 3) * 6.28, a: 1}; });
+  var back = (A.backLeaves || []).map(function (l) { return {p: new Path2D(l.d), pv: l.v ? new Path2D(l.v) : null, c: l.c}; }), veinC = A.veinC || 'rgba(110,40,10,0.32)';
   var ar = R * 0.24, apples = [], react = -99, pend = 0;
   var aBody = new Path2D(circ(0, 0, ar)), aStem = new Path2D(rect(-ar * 0.07, -ar * 1.28, ar * 0.14, ar * 0.4)), aLeaf = new Path2D(leaf(ar * 0.05, -ar * 1.05, ar * 0.62, ar * 0.24, -30)), aHi = new Path2D(ell(-ar * 0.38, -ar * 0.35, ar * 0.2, ar * 0.13));
   function wind(t) { return 16 + 30 * Math.pow(0.5 + 0.5 * Math.sin(t * 0.21), 3) + 7 * Math.sin(t * 0.53 + 1); }
@@ -15636,7 +15763,7 @@ ENGINES.thanksgiving = function (A, v, dk) {
       if (pend && t - react > 3.2 && !apples.some(function (a) { return !a.done; })) { pend--; this.finish(t); }
     },
     draw: function (ca, cb, t, f) {
-      back.forEach(function (l) { ca.fillStyle = l.c; ca.fill(l.p); });
+      back.forEach(function (l) { ca.fillStyle = l.c; ca.fill(l.p); if (l.pv) { ca.fillStyle = veinC; ca.fill(l.pv); } });
       var u = t - react, fan = b8_env(u, 0, 0.35, 2.3, 3.1), hop = u > 0 && u < 0.45 ? Math.sin(u / 0.45 * Math.PI) * 7 * s : 0;
       var bob = Math.sin(t * 1.5 * f.s) * 1.4 * s * f.a - hop, nod = Math.sin(t * 1.2 * f.s + 0.6) * 0.07 * f.a;
       nod += 0.32 * (b8_env(u, 0.45, 0.65, 0.75, 1.0) + b8_env(u, 1.15, 1.35, 1.45, 1.75));
@@ -15649,7 +15776,7 @@ ENGINES.thanksgiving = function (A, v, dk) {
       ca.save(); ca.translate(0, -hop); b8_dl(ca, tk, legs); ca.restore();
       apples.forEach(function (a) { ca.save(); ca.globalAlpha = a.alpha; ca.translate(a.x, a.y); ca.rotate(a.rot); ca.fillStyle = hn.apple; ca.fill(aBody); ca.fillStyle = 'rgba(255,255,255,0.3)'; ca.fill(aHi); ca.fillStyle = hn.stem; ca.fill(aStem); ca.fillStyle = hn.leaf; ca.fill(aLeaf); ca.restore(); });
       var cz = v.desk ? function (L) { return 0.55 + 0.45 * b8_ease(Math.max((L.x - W * 0.44) / 60, (L.y - H * 0.48) / 60) + 0.5); } : function (L) { return 0.6 + 0.4 * b8_ease((L.y - H * 0.43) / 60 + 0.5); };
-      leaves.forEach(function (L) { if (L.a <= 0) return; cb.save(); cb.globalAlpha = L.a * cz(L); cb.translate(L.x, L.y); cb.rotate(L.rot); cb.scale(1, 0.35 + 0.65 * Math.abs(Math.cos(L.fl))); cb.fillStyle = L.c; cb.fill(L.p); cb.restore(); });
+      leaves.forEach(function (L) { if (L.a <= 0) return; cb.save(); cb.globalAlpha = L.a * cz(L); cb.translate(L.x, L.y); cb.rotate(L.rot); cb.scale(1, 0.35 + 0.65 * Math.abs(Math.cos(L.fl))); cb.fillStyle = L.c; cb.fill(L.p); cb.fillStyle = veinC; cb.fill(L.pv); cb.restore(); });
     },
     finish: function (t) {
       if (apples.some(function (a) { return !a.done; }) || t - react < 3.2) { pend = Math.min(pend + 1, 2); return; }
