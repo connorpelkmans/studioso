@@ -892,6 +892,9 @@
     const h = Math.max(innerHeight, (window.visualViewport && visualViewport.height) || 0);
     if (h > fullH) fullH = h;
     // a sheet is open, or one just closed and the keyboard is still sliding away
+    // or the keyboard is up (typing on the whiteboard or in a note)
+    const vv = window.visualViewport;
+    if (vv && vv.height < fullH - 100) return true;
     return !!document.querySelector("dialog[open]") || (performance.now() - dlgShut < 800 && h < fullH - 100);
   }
   let dlgShut = -1e9;

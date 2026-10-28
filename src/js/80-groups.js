@@ -2497,7 +2497,7 @@
       <ul class="grp-members">${ms.map(m => {
         const st = ext ? streakOf(ext, m.user_id) : 0, bd = ext ? badgesFor(g, m.user_id) : [], me2 = m.user_id === myId();
         if (!me2 && S.blocked.has(m.user_id)) return `<li class="blocked">${av(m.display_name, m.user_id)}<span class="nm">${esc(m.display_name || "Member")} <span class="pill">Blocked</span></span><button class="btn small" data-act="grp-unblock" data-id="${esc(m.user_id)}">Unblock</button>${owner ? `<button class="x-btn" data-act="grp-member-del" data-id="${esc(m.user_id)}" aria-label="Remove ${esc(m.display_name)} from the group">${CLOSE}</button>` : ""}</li>`;
-        return `<li>${av(m.display_name, m.user_id)}<span class="nm">${esc(m.display_name || "Member")}${m.badge && typeof GX_STAR === "string" ? GX_STAR : ""}${bd.some(b => b[0] === "champ") ? CHAMP_CROWN : ""}${me2 ? ` <span class="mini">(You)</span>` : ""}${bd.some(b => b[0] !== "champ") ? `<span class="grp-badges">${bd.filter(b => b[0] !== "champ").map(b => `<span class="grp-badge ${b[0]}" title="${esc(b[2])}">${esc(b[1])}</span>`).join("")}</span>` : ""}${st >= 2 && !bd.some(b => b[0] === "streak") ? `<span class="mini">${st}-day streak</span>` : ""}</span>${isProj(g) && roleOf(g.id, m.user_id) ? `<span class="pill gk-role">${esc(GK.roleLabel(roleOf(g.id, m.user_id)))}</span>` : ""}${m.role === "owner" ? `<span class="pill">Owner</span>` : ""}${me2 ? "" : `<details class="grp-more g2-mm"><summary class="g2-dots" aria-label="More for ${esc(m.display_name || "this member")}">⋯</summary><div class="grp-menu"><button class="btn" data-act="grp-report" data-kind="member" data-id="${esc(m.user_id)}">Report or Block</button>${owner ? `<button class="btn" data-act="grp-member-del" data-id="${esc(m.user_id)}">Remove from Group</button>` : ""}</div></details>`}</li>`; }).join("")}</ul>
+        return `<li>${av(m.display_name, m.user_id)}<span class="nm">${esc(m.display_name || "Member")}${m.badge ? gxBadgeIcon(m) : ""}${bd.some(b => b[0] === "champ") ? CHAMP_CROWN : ""}${me2 ? ` <span class="mini">(You)</span>` : ""}${bd.some(b => b[0] !== "champ") || gxBadgeLabel(m) ? `<span class="grp-badges">${gxBadgeLabel(m)}${bd.filter(b => b[0] !== "champ").map(b => `<span class="grp-badge ${b[0]}" title="${esc(b[2])}">${esc(b[1])}</span>`).join("")}</span>` : ""}${st >= 2 && !bd.some(b => b[0] === "streak") ? `<span class="mini">${st}-day streak</span>` : ""}</span>${isProj(g) && roleOf(g.id, m.user_id) ? `<span class="pill gk-role">${esc(GK.roleLabel(roleOf(g.id, m.user_id)))}</span>` : ""}${m.role === "owner" ? `<span class="pill">Owner</span>` : ""}${me2 ? "" : `<details class="grp-more g2-mm"><summary class="g2-dots" aria-label="More for ${esc(m.display_name || "this member")}">⋯</summary><div class="grp-menu"><button class="btn" data-act="grp-report" data-kind="member" data-id="${esc(m.user_id)}">Report or Block</button>${owner ? `<button class="btn" data-act="grp-member-del" data-id="${esc(m.user_id)}">Remove from Group</button>` : ""}</div></details>`}</li>`; }).join("")}</ul>
       ${isOwner(g) && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !(PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro()) ? `<p class="mini" style="margin:8px 0 0">Free groups hold up to ${PLAN.limits().groupMembers} members (${ms.length} now). <button class="link-btn" data-act="grp-upgrade" data-r="Pro groups hold up to 100 members.">Go Pro</button> for up to 100.</p>` : ""}</section>`;
   }
   // Update parts of the open group page in place, so a message you're typing isn't lost
@@ -3396,6 +3396,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
   // Members with their badge
   const membersBase = api.members;
   api.members = async ids => {
+    try { return await q(cli().from("group_members").select("group_id,user_id,role,display_name,joined_at,badge,badge_kind,color,face").in("group_id", ids).order("joined_at")); } catch(e00) {}
     try { return await q(cli().from("group_members").select("group_id,user_id,role,display_name,joined_at,badge,color,face").in("group_id", ids).order("joined_at")); } catch(e0) {}
     try { return await q(cli().from("group_members").select("group_id,user_id,role,display_name,joined_at,badge,color").in("group_id", ids).order("joined_at")); }
     catch(e) { try { return await q(cli().from("group_members").select("group_id,user_id,role,display_name,joined_at,badge").in("group_id", ids).order("joined_at")); } catch(e2) { return membersBase(ids); } }
@@ -3429,12 +3430,21 @@ ${kindPreview("study")}${kindPreview("project")}`;
   let badgeDone = false;
   async function gxBadgeSync(force){
     if ((badgeDone && !force) || !online()) return; badgeDone = true;
-    const want = !!(state.settings && state.settings.badge) && meIsPro();
+    // Founders and Early Supporters keep their badge after Pro ends
+    const early = window.SBEARLY ? SBEARLY.kind() : null;
+    const want = !!(state.settings && state.settings.badge) && (meIsPro() || !!early);
+    const kind = want ? early || "pro" : null;
     const mine = Object.values(S.members || {}).flat().filter(m => m.user_id === myId());
-    if (!force && mine.every(m => !!m.badge === want)) return;
-    try { await api.setBadge(want); mine.forEach(m => { m.badge = want; }); if (ui.tab === "groups" && ui.grp) patch(ui.grp); } catch(e) { }
+    if (!force && mine.every(m => !!m.badge === want && (!("badge_kind" in m) || (m.badge_kind || null) === kind))) return;
+    try { await api.setBadge(want); mine.forEach(m => { m.badge = want; m.badge_kind = kind; }); if (ui.tab === "groups" && ui.grp) patch(ui.grp); } catch(e) { }
   }
   hook("pro-badge", () => gxBadgeSync(true));
+  hook("early-changed", () => gxBadgeSync(true));
+  // Founder (a gold rosette), Early Supporter (a seedling) or Pro (the star)
+  const GX_FOUNDER = `<svg class="gx-star gx-founder" viewBox="0 0 24 24" width="17" height="17" role="img" aria-label="Founder"><title>A Founder of Studyboard</title><path d="M8.2 15.5 6 23l3.4-1.6L11 24l1-7.6z" fill="#7C4DDB"/><path d="M15.8 15.5 18 23l-3.4-1.6L13 24l-1-7.6z" fill="#9B6BF0"/><path d="M12 .8l2 1.6 2.6-.4 1 2.4 2.4 1-.4 2.6 1.6 2-1.6 2 .4 2.6-2.4 1-1 2.4-2.6-.4-2 1.6-2-1.6-2.6.4-1-2.4-2.4-1 .4-2.6-1.6-2 1.6-2-.4-2.6 2.4-1 1-2.4 2.6.4z" fill="#F5B82E" stroke="#C98A0B" stroke-width=".8"/><circle cx="12" cy="10" r="5.6" fill="none" stroke="#FFF3CF" stroke-width=".9" opacity=".9"/><path d="M12 5.9l1.1 2.8 3 .2-2.3 1.9.7 2.9-2.5-1.6-2.5 1.6.7-2.9-2.3-1.9 3-.2z" fill="#fff"/></svg>`;
+  const GX_EARLY = `<svg class="gx-star gx-early" viewBox="0 0 24 24" width="16" height="16" role="img" aria-label="Early Supporter"><title>An Early Supporter of Studyboard</title><circle cx="12" cy="12" r="11" fill="#1FA58F"/><path d="M12 19v-7" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="M12 13c0-3.4-2.3-5.6-5.8-5.6 0 3.4 2.3 5.6 5.8 5.6z" fill="#D9FFF6"/><path d="M12 11.2c0-3 2-5 5.2-5 0 3-2 5-5.2 5z" fill="#fff"/></svg>`;
+  function gxBadgeIcon(m){ return m.badge_kind === "founder" ? GX_FOUNDER : m.badge_kind === "early" ? GX_EARLY : GX_STAR; }
+  function gxBadgeLabel(m){ return !m || !m.badge ? "" : m.badge_kind === "founder" ? `<span class="grp-badge founder">Founder</span>` : m.badge_kind === "early" ? `<span class="grp-badge early">Early Supporter</span>` : ""; }
   const GX_STAR = `<svg class="gx-star" viewBox="0 0 24 24" width="14" height="14" role="img" aria-label="Supports Studyboard"><title>Supports Studyboard with Pro</title><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.2 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z" fill="#FF8A5C"/></svg>`;
 
   /* Header chip, and the Pro group box in Members */
@@ -3953,6 +3963,16 @@ ${kindPreview("study")}${kindPreview("project")}`;
 .gx-ct{display:grid;gap:2px;flex:1;min-width:0}
 .gx-big{font:600 1.25rem var(--display)}
 .gx-star{vertical-align:-2px;margin-left:4px}
+.gx-star.gx-founder{vertical-align:-3px;margin-left:5px}
+.grp-badge.founder{position:relative;overflow:hidden;color:#2A1650;background:linear-gradient(115deg,#FFA8D6 0%,#8FE6FF 20%,#C3A8FF 40%,#FFE58A 60%,#93FFD0 80%,#FFA8D6 100%);background-size:250% 100%;box-shadow:inset 0 0 0 1px rgba(255,255,255,.75),0 0 0 1px rgba(124,77,219,.35),0 1px 4px rgba(124,77,219,.25);animation:gx-holo 6s linear infinite}
+.grp-badge.founder::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(105deg,transparent 38%,rgba(255,255,255,.8) 50%,transparent 62%);background-size:300% 100%;mix-blend-mode:soft-light;animation:gx-shine 3.4s ease-in-out infinite}
+@keyframes gx-holo{to{background-position:250% 0}}
+@keyframes gx-shine{0%{background-position:150% 0}55%,100%{background-position:-150% 0}}
+@media (prefers-reduced-motion:reduce){.grp-badge.founder,.grp-badge.founder::after{animation:none}}
+html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.founder::after{animation:none}
+.grp-badge.early{background:color-mix(in srgb,#1FA58F 20%,var(--surface));color:color-mix(in srgb,#0B5B4F 85%,var(--ink))}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .grp-badge.early{color:#9DEBDD}}
+:root[data-theme=dark] .grp-badge.early{color:#9DEBDD}
 .gx-split{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--surface);display:grid;gap:6px}
 .gx-sh{display:flex;align-items:center;gap:8px}
 .gx-sh .mini{margin-left:auto}

@@ -7,7 +7,10 @@ type Apply = {
   state: "active" | "extend" | "ended" | "renew_off" | "revoke" | "unrevoke" | "lifetime";
   uid_hint?: string; trust_hint?: boolean; customer?: string; pro_until?: string | null; trial_until?: string | null;
   will_renew?: boolean; external_id?: string; fresh?: boolean;
+  // A real payment (money taken, not a trial), and how long the plan is: these decide the Founders and Early Supporters
+  paid?: boolean; term?: Term;
 };
+type Term = "monthly" | "semester" | "yearly";
 
 const GRACE_MS = 3 * 86400_000;
 const TOLERANCE_S = 300;
@@ -77,6 +80,23 @@ export function priceAllowed(d: Deps, ids: string[]): boolean {
   const allow = new Set([...list.split(","), d.env("STRIPE_PRICE_MONTHLY"), d.env("STRIPE_PRICE_SEMESTER"), d.env("STRIPE_PRICE_YEARLY")].map(s => s.trim()).filter(Boolean));
   return ids.some(id => allow.has(id));
 }
+// How long a plan is: its price id first (STRIPE_PRICE_*), then the length of the period paid for
+export const termFromDays = (days: number): Term | undefined => !(days > 0) ? undefined : days >= 300 ? "yearly" : days >= 90 ? "semester" : "monthly";
+export function termOf(d: Deps, priceIds: string[], days: number): Term | undefined {
+  const named: [string, Term][] = [["STRIPE_PRICE_YEARLY", "yearly"], ["STRIPE_PRICE_SEMESTER", "semester"], ["STRIPE_PRICE_MONTHLY", "monthly"]];
+  for (const [k, t] of named) { const v = d.env(k).trim(); if (v && priceIds.includes(v)) return t; }
+  return termFromDays(days);
+}
+const DAY_S = 86400;
+const recurringDays = (r: any): number => {
+  const n = Number(r?.interval_count) || 1;
+  return ({ year: 365, month: 30, week: 7, day: 1 } as Record<string, number>)[String(r?.interval || "")] * n || 0;
+};
+function subTerm(d: Deps, sub: any): Term | undefined {
+  const item = sub?.items?.data?.[0];
+  const start = Number(sub?.current_period_start || item?.current_period_start || 0), end = periodEnd(sub);
+  return termOf(d, subPrices(sub), recurringDays(item?.price?.recurring || item?.plan) || (start && end > start ? (end - start) / DAY_S : 0));
+}
 const subPrices = (sub: any): string[] => ((sub?.items?.data || []) as any[]).map(i => idOf(i?.price || i?.plan));
 // Invoice lines name the price as line.price
 const linePrices = (inv: any): string[] => ((inv?.lines?.data || []) as any[]).map(l => idOf(l?.pricing?.price_details?.price || l?.price || l?.plan));
@@ -123,7 +143,9 @@ async function handleStripe(req: Request, d: Deps, raw: string): Promise<Respons
       if (sub && idOf(sub.customer) !== customer) return json({ ignored: "customer mismatch" });
       const st = sub ? subscriptionState(sub, d) : { state: "active" as const, pro_until: iso(d.now() + 35 * 86400_000), trial_until: null, will_renew: true };
       if (!st || st.state !== "active") return json({ ignored: "subscription not active" });
-      return done({ ...base, ...st, uid_hint: uid, trust_hint: true, customer, external_id: customer, fresh: true });
+      // Money was taken now (a checkout trial is not a payment)
+      const paid = o.payment_status === "paid" && Number(o.amount_total) > 0 && (!sub || sub.status === "active");
+      return done({ ...base, ...st, uid_hint: uid, trust_hint: true, customer, external_id: customer, fresh: true, ...(paid ? { paid: true, term: sub ? subTerm(d, sub) : undefined } : {}) });
     }
     case "customer.subscription.created":
     case "customer.subscription.updated":
@@ -142,7 +164,11 @@ async function handleStripe(req: Request, d: Deps, raw: string): Promise<Respons
       const end = Math.max(0, ...((o.lines?.data || []) as any[]).map(l => Number(l?.period?.end || 0))) * 1000;
       if (!end) return json({ ignored: "no period on invoice" });
       if (!priceAllowed(d, linePrices(o))) return json({ ignored: "price not allowed" });
-      return done({ ...base, state: "extend", customer, external_id: customer, pro_until: iso(end + GRACE_MS) });
+      const lines = (o.lines?.data || []) as any[];
+      const start = Math.min(...lines.map(l => Number(l?.period?.start || 0)).filter(Boolean)) || 0;
+      const paid = Number(o.amount_paid) > 0;
+      return done({ ...base, state: "extend", customer, external_id: customer, pro_until: iso(end + GRACE_MS),
+        ...(paid ? { paid: true, term: termOf(d, linePrices(o), start && end / 1000 > start ? (end / 1000 - start) / DAY_S : 0) } : {}) });
     }
     case "charge.refunded": {
       const customer = idOf(o.customer);
@@ -201,7 +227,15 @@ async function handleRevenueCat(req: Request, d: Deps, raw: string): Promise<Res
 
   switch (e.type) {
     case "INITIAL_PURCHASE":
-    case "RENEWAL":
+    case "RENEWAL": {
+      if (!exp) return json({ ignored: "no expiry on event" });
+      // A store trial is not a payment; a price of 0 isn't either
+      const paid = e.period_type !== "TRIAL" && !(typeof e.price === "number" && e.price <= 0) && !(typeof e.price_in_purchased_currency === "number" && e.price_in_purchased_currency <= 0);
+      const bought = Number(e.purchased_at_ms) || 0;
+      return done({ ...base, event_id: e.id, state: "active", uid_hint: uid, pro_until: iso(exp + GRACE_MS), will_renew: true, external_id: ext,
+        fresh: e.type === "INITIAL_PURCHASE", ...(e.period_type === "TRIAL" ? { trial_until: iso(exp) } : {}),
+        ...(paid ? { paid: true, term: termFromDays(bought && exp > bought ? (exp - bought) / 86400e3 : 0) } : {}) });
+    }
     case "UNCANCELLATION":
     case "PRODUCT_CHANGE":
     case "SUBSCRIPTION_EXTENDED":

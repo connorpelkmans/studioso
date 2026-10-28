@@ -6372,6 +6372,9 @@ html .fhead .fcrumb{background:none!important;padding-inline:0!important;text-sh
 .gt-dot{display:inline-block;border-style:dashed!important;opacity:.7;pointer-events:none}
 .gt-chip{background:color-mix(in srgb,#C9702B 18%,var(--surface))!important;color:color-mix(in srgb,#C9702B 70%,var(--ink))!important}
 .sort-ghost{position:fixed!important;z-index:200;pointer-events:none;margin:0!important;transform:rotate(1.5deg) scale(1.02);box-shadow:0 18px 40px rgba(0,0,0,.35);opacity:.95;transition:none!important}
+/* The lifted copy has no frosted backdrop: Safari paints it square-cornered for a moment before the rounded clip catches up */
+.sort-ghost,.sort-ghost *{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+.sort-ghost.grp-card{background:var(--surface)!important;border-radius:18px!important;overflow:hidden;will-change:transform}
 .sort-hole{opacity:.25;outline:2px dashed var(--line);outline-offset:4px;border-radius:18px}
 body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important;-webkit-user-select:none!important}
 /* A long press reorders: the browser's own long-press preview, text selection and drag of a link or picture must not start first */
@@ -6672,6 +6675,7 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
 @media (max-width:639px){dialog:is(:has(.sheet.shop),:has(.sheet.mt-sheet),:has(.plan-sheet),:has(.sheet.ob),:has(.ph-sheet)){width:100%}}
 /* Courses: the school site button on the left, Insights and the bin on the right */
 @media (max-width:639px){#view .view-head > h2 + .btn[data-act$="-open"]{margin-right:auto}}
+@media (max-width:639px){:is(#view > .view-head,#view > section > .view-head).ph-btns .btn.small[data-act$="-open"]:first-of-type,:is(#view > .view-head,#view > section > .view-head).ph-btns > h2 + .btn.small[data-act$="-open"]{margin-right:auto!important}}
 
 /* One rhythm on every tab: tab bar, 12px, the page's buttons, 14px, the content */
 @media (max-width:639px){
@@ -6947,11 +6951,14 @@ html[data-plan-top="week"] .plan .fh-ctl.has-stats .hours-ctl{display:none}
 @media (min-width:900px){.dtl-rail{--k:1.9px}}
 .dtl-c{width:clamp(104px,calc(var(--m,60) * var(--k)),460px)}
 .dtl-c.fr{width:clamp(74px,calc(var(--m,60) * var(--k)),240px)}
+/* A card beside free time borrows some of it, so a short task keeps more of its title */
+.dtl-c:not(.fr):is(.fr + .dtl-c,:has(+ .dtl-c.fr)){width:clamp(156px,calc(var(--m,60) * var(--k)),460px)}
 /* Desktop: the ribbon always runs the full width, each card taking its share of the time */
 @media (min-width:900px){
   .dtl-rail{overflow-x:auto}
   .dtl-c,.dtl-c.fr{flex:var(--m,60) 1 0;width:auto;max-width:none;min-width:104px}
   .dtl-c.fr{min-width:74px}
+  .dtl-c:not(.fr):is(.fr + .dtl-c,:has(+ .dtl-c.fr)){min-width:156px}
 }
 /* Past your end of day: one card across the whole row, its words side by side */
 .dtl-over .dtl-rail{overflow:visible}
