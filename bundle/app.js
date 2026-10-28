@@ -33225,7 +33225,7 @@ function cleanFile(r) {
     const c = cfg(), lr = bulk().lastRead || {}, dx = lr.dx || {}, L = [];
     if (!lr.at) return `Studyboard sync report: ${P.name}\nNo read from ${P.name} in this browser yet. Press Sync Now, wait until it says it's done, then copy the report again.\nExtension ${window.SBEXT && SBEXT.on() ? SBEXT.version() || "on, version unknown" : "not seen in this browser"}.`;
     const w = d => d ? new Date(d).toLocaleString() : "never";
-    L.push(`Studyboard sync report: ${P.name}`, `Made ${new Date().toLocaleString()}. Last read ${w(lr.at)} by ${lr.via || c.lastSrc || "?"}. Extension ${window.SBEXT && SBEXT.on() ? SBEXT.version() || "on, version unknown" : "not seen in this browser"}. Website build ${typeof SB_BUILD !== "undefined" ? SB_BUILD : (document.querySelector('script[src*="bundle/app.js"]') || {src: ""}).src.split("v=")[1] || "?"}.`);
+    L.push(`Studyboard sync report: ${P.name}`, `Made ${new Date().toLocaleString()}. Last read ${w(lr.at)} by ${lr.via || c.lastSrc || "?"}. Extension ${window.SBEXT && SBEXT.on() ? SBEXT.version() || "on, version unknown" : "not seen in this browser"}. Website build ${window.SB_BUILD ? window.SB_BUILD : (document.querySelector('script[src*="bundle/app.js"]') || {src: ""}).src.split("v=")[1] || "?"}.`);
     const xs = window.SBEXT && SBEXT.school ? SBEXT.school(P.id) : null;
     if (xs) L.push(`Extension's own reads: ${xs.state || "?"}; last good read ${w(xs.at)}; last try ${w(xs.tried)}${xs.error ? "; error: " + xs.error : ""}.`);
     if (xs && xs.at && lr.at && xs.at < lr.at - 6e4 && xs.tried > xs.at) L.push("The extension's newest reads failed, so this website still has its older read.");
@@ -57286,7 +57286,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const ey = num(c.eyes && c.eyes.y) ? c.eyes.y : 60, size = 90, y = Math.max(0, Math.min(VB - size, ey - 50));
       return svg.replace(`viewBox="0 0 ${VB} ${VB}"`, `viewBox="${(VB - size) / 2} ${f1(y)} ${size} ${size}"`);
     },
-    check, gallery, rigSvg: (id, o) => BYID[id] ? rigSvg(BYID[id], o) : "", stillUrl: id => BYID[id] ? stillUrl(BYID[id]) : "", wearColor: id => BYID[id] ? wearColor(BYID[id]) : "",
+    check, gallery, rigSvg: (id, o) => BYID[id] ? rigSvg(BYID[id], o) : "", stillUrl: id => BYID[id] ? stillUrl(BYID[id]) : "", wearColorOf: id => BYID[id] ? wearColor(BYID[id]) : "",
     themes: () => Object.keys(REG), list: k => (REG[k] ? REG[k].list : []).map(c => ({id: c.id, name: c.name, kind: c.kind, pose: c.pose})),
     // Every companion, for the Your Photo theme editor's "Companions" picker
     all: () => Object.keys(REG).flatMap(k => REG[k].list.map(c => ({id: c.id, name: c.name, kind: c.kind || "", theme: k, owned: canComp(c)}))),
