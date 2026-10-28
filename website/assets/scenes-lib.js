@@ -7954,10 +7954,10 @@ SCENES.geology = function (W, H, dk, rnd) {
   (ph ? [0.15, 0.4, 0.86] : [0.17, 0.26, 0.44, 0.6, 0.84, 0.9]).forEach(function (f, j) { var gx = W * f, gy = yF(gx) + 4, h = (ph ? 30 : 46) * (0.6 + (j % 3) * 0.3), cn = n5_cone(gx, gy, h * 0.3, h, -1, (j % 2 ? 1 : -1) * 2); stal += cn.all; stD += cn.dark; stH += cn.hi; });
   // ---- wall crystals (pink): faceted prisms on rocky ledges ----
   var glow = [], wc = {mid: '', lit: '', dk: '', edge: '', glow: '', base: '', boss: '', bossLit: '', bossSh: '', wallSh: ''};
-  [[wl, 0.42, 1, 42], [wr, 0.36, -1, -44], [wl, 0.66, 1, 34], [wr, 0.62, -1, -36]].forEach(function (q, j) { var yy = H * q[1], xx = q[0](yy) - q[2] * (ph ? 4 : 6), sz = (ph ? 34 : 58) * (j < 2 ? 1 : 0.8), C = n5_crys2(xx, yy, sz, q[3], 4, rnd);
+  [[wl, 0.42, 1, 42], [wr, 0.36, -1, -44], [wl, 0.66, 1, 34], [wr, 0.62, -1, -36]].forEach(function (q, j) { var yy = H * q[1], xx = q[0](yy) + q[2] * (ph ? 34 : 58) * (j < 2 ? 1 : 0.8) * 0.24, sz = (ph ? 34 : 58) * (j < 2 ? 1 : 0.8), C = n5_crys2(xx, yy, sz, q[3], 4, rnd);
     ['mid', 'lit', 'dk', 'edge', 'glow'].forEach(function (kk) { wc[kk] += C[kk]; });
     // a rocky boss bulging out of the wall that the cluster's roots grow out of
-    var we = q[0](yy + 4), d = q[2], bp = [], top = [], bot = [], i, back = sz * 0.9, out = sz * 0.38, y0 = yy + sz * 0.04;
+    var we = q[0](yy + 4), d = q[2], bp = [], top = [], bot = [], i, back = sz * 0.9, out = sz * 0.62, y0 = yy + sz * 0.04;
     for (i = 0; i <= 14; i++) { var u = i / 14, xq = we - d * back + d * (back + out) * u; top.push([xq, y0 - Math.sin(Math.PI * Math.min(1, u * 1.15)) * sz * 0.08 + u * sz * 0.02 + Math.sin(i * 1.7 + j) * 1.2]); }
     for (i = 14; i >= 0; i--) { u = i / 14; xq = we - d * back + d * (back + out) * u; bot.push([xq, y0 + sz * (0.06 + 0.24 * Math.pow(1 - u, 0.7)) * (u > 0.9 ? (1 - u) * 10 : 1)]); }
     bp = top.concat(bot);
