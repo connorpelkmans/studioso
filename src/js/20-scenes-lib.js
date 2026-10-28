@@ -876,15 +876,51 @@ function b3_bean(x, y, r, ang) {
   for (var i = 0; i <= 6; i++) { var t = i / 6 - 0.5; cr.push([t * r * 1.5, Math.sin(t * Math.PI * 2) * r * 0.14]); }
   return {body: body, line: pline(rotp(cr, x, y, ang))};
 }
-// A wrapped candy
+// A wrapped candy: a round body with stripes that follow its curve, crinkled twisted ends,
+// a shaded underside and a gloss; each part is a fixed-winding fill so parts can share a slot
 function b3_candy(x, y, s, ang) {
-  var body = [], i; for (i = 0; i < 18; i++) { var t = i / 18 * Math.PI * 2; body.push([s * Math.cos(t), s * 0.72 * Math.sin(t)]); }
-  var endR = [[s * 0.82, -s * 0.2], [s * 1.55, -s * 0.62], [s * 1.42, -s * 0.28], [s * 1.62, 0], [s * 1.42, s * 0.28], [s * 1.55, s * 0.62], [s * 0.82, s * 0.2]];
-  var endL = endR.map(function (p) { return [-p[0], p[1]]; });
-  var st = seg(-s * 0.35, -s * 0.66, s * 0.05, s * 0.7) + seg(s * 0.2, -s * 0.7, s * 0.55, s * 0.5);
-  var stp = []; [[-s * 0.35, -s * 0.66, s * 0.05, s * 0.7], [s * 0.15, -s * 0.7, s * 0.5, s * 0.52]].forEach(function (q) { stp.push(pline(rotp([[q[0], q[1]], [q[2], q[3]]], x, y, ang))); });
-  return {fill: poly(rotp(body, x, y, ang)) + poly(rotp(endR, x, y, ang)) + poly(rotp(endL, x, y, ang)), stripe: stp.join(''), hi: poly(rotp([[-s * 0.55, -s * 0.28], [-s * 0.3, -s * 0.5], [-s * 0.12, -s * 0.44], [-s * 0.4, -s * 0.2]], x, y, ang))};
+  var ry = s * 0.72, i, t;
+  function R(pts) { return b2_polyA(rotp(pts, x, y, ang)); }
+  var body = []; for (i = 0; i < 28; i++) { t = i / 28 * Math.PI * 2; body.push([s * Math.cos(t), ry * Math.sin(t)]); }
+  // crinkled fan ends: pinched at the body, zigzag outer edge, pleat lines from the pinch
+  var ends = '', pleat = '', knot = '';
+  [1, -1].forEach(function (sg) {
+    var fan = [[sg * s * 0.86, -s * 0.17]], n = 7;
+    for (i = 0; i <= n; i++) { var v = -1 + 2 * i / n, out = (i % 2 ? 1.42 : 1.62) - Math.abs(v) * 0.08; fan.push([sg * s * out, v * s * 0.64]); }
+    fan.push([sg * s * 0.86, s * 0.17]); ends += R(fan);
+    for (i = 1; i < n; i += 2) { var v2 = -1 + 2 * i / n; pleat += pline(rotp([[sg * s * 0.9, v2 * s * 0.1], [sg * s * 1.38, v2 * s * 0.6]], x, y, ang)); }
+    knot += R([[sg * s * 0.78, -s * 0.22], [sg * s * 0.95, -s * 0.16], [sg * s * 0.95, s * 0.16], [sg * s * 0.78, s * 0.22]]);
+  });
+  // stripes as bands between two meridians of the round body
+  var stripe = '';
+  [[-0.62, -0.32], [0.08, 0.38]].forEach(function (m) { var L = [], Rr = [];
+    for (i = 0; i <= 12; i++) { var yy = -1 + 2 * i / 12, k = Math.sqrt(Math.max(0, 1 - yy * yy)); L.push([s * Math.sin(m[0]) * k + yy * s * 0.12, yy * ry * 0.98]); Rr.unshift([s * Math.sin(m[1]) * k + yy * s * 0.12, yy * ry * 0.98]); }
+    stripe += R(L.concat(Rr)); });
+  var shade = [], gl = [];
+  for (i = 0; i <= 16; i++) { t = 0.06 * Math.PI + i / 16 * 0.88 * Math.PI; shade.push([s * Math.cos(t), ry * Math.sin(t)]); }
+  for (i = 16; i >= 0; i--) { t = 0.06 * Math.PI + i / 16 * 0.88 * Math.PI; shade.push([s * 0.9 * Math.cos(t), ry * (0.42 * Math.sin(t) + 0.3)]); }
+  for (i = 0; i <= 10; i++) { t = 1.08 * Math.PI + i / 10 * 0.5 * Math.PI; gl.push([s * 0.78 * Math.cos(t), ry * 0.74 * Math.sin(t)]); }
+  for (i = 10; i >= 0; i--) { t = 1.08 * Math.PI + i / 10 * 0.5 * Math.PI; gl.push([s * 0.62 * Math.cos(t), ry * 0.52 * Math.sin(t)]); }
+  var dot = rotp([[s * 0.2, -ry * 0.58]], x, y, ang)[0];
+  return {body: R(body), ends: ends, knot: knot, stripe: stripe, pleat: pleat, shade: R(shade), hi: R(gl) + b2_ellA(dot[0], dot[1], s * 0.07, s * 0.06)};
 }
+// Lollipop swirl: n curling bands from the centre to the rim (fills, for a lighter colour over the disc)
+function b3_swirl(x, y, r, n, rot) {
+  var d = '', turn = Math.PI * 1.7, w = Math.PI / n, N = 18;
+  for (var k = 0; k < n; k++) { var a0 = rot + k * 2 * Math.PI / n, pts = [], i;
+    for (i = 0; i <= N; i++) { var t = i / N; pts.push([x + Math.cos(a0 + t * turn) * r * t, y + Math.sin(a0 + t * turn) * r * t]); }
+    for (i = 1; i < 5; i++) { var aa = a0 + turn + w * i / 5; pts.push([x + Math.cos(aa) * r, y + Math.sin(aa) * r]); }
+    for (i = N; i >= 1; i--) { t = i / N; pts.push([x + Math.cos(a0 + w + t * turn) * r * t, y + Math.sin(a0 + w + t * turn) * r * t]); }
+    d += b2_polyA(pts); }
+  return d;
+}
+// Lollipop shading (lower right) and a gloss arc (upper left)
+function b3_popShade(x, y, r) { return b2_cres(x, y, r, x - r * 0.2, y - r * 0.24, r * 1.02); }
+function b3_popGloss(x, y, r) { var pts = [], i, t; for (i = 0; i <= 10; i++) { t = 1.05 * Math.PI + i / 10 * 0.42 * Math.PI; pts.push([x + Math.cos(t) * r * 0.8, y + Math.sin(t) * r * 0.8]); } for (i = 10; i >= 0; i--) { t = 1.05 * Math.PI + i / 10 * 0.42 * Math.PI; pts.push([x + Math.cos(t) * r * 0.64, y + Math.sin(t) * r * 0.64]); } return b2_polyA(pts) + b2_ellA(x - r * 0.12, y - r * 0.74, r * 0.07, r * 0.07); }
+// A ribbon bow tied under a lollipop at (x, y)
+function b3_bow(x, y, r) { function P(u, v) { return [x + u * r, y + v * r]; }
+  return {ribbon: b2_polyA([P(0, 0), P(-0.5, -0.3), P(-0.6, 0.06), P(-0.42, 0.2)]) + b2_polyA([P(0, 0), P(0.42, 0.2), P(0.6, 0.06), P(0.5, -0.3)]) + b2_polyA([P(-0.04, 0.04), P(-0.3, 0.62), P(-0.18, 0.66), P(0.02, 0.1)]) + b2_polyA([P(0.04, 0.04), P(0.24, 0.6), P(0.36, 0.56), P(0.08, 0.02)]),
+    knot: b2_ellA(x, y + r * 0.02, r * 0.1, r * 0.09)}; }
 function b3_spiral(x, y, r, turns, rot) { var pts = []; for (var i = 0; i <= turns * 22; i++) { var t = i / (turns * 22), a = rot + t * turns * Math.PI * 2; pts.push([x + Math.cos(a) * r * t, y + Math.sin(a) * r * t]); } return pline(pts); }
 // Scalloped ice-cream ridge
 function b3_scoops(W, base, r, rnd) {
@@ -1163,22 +1199,32 @@ SCENES.candy = function (W, H, dk, rnd) {
   [[h2, 0.55, 'refl'], [h3, 0.85, 'mid']].forEach(function (row, ri) { var pts = row[0]; for (var x = -20 + rnd() * lp2; x < W + 20; x += lp2 * (ri ? 1.9 : 1.1) * (0.8 + rnd() * 0.5)) { var yb = pts[Math.max(0, Math.min(pts.length - 1, Math.round((x + 60) / 10)))][1] + 4, sz = (ri ? 26 : 15) * u * (0.8 + rnd() * 0.4); if (Math.abs(x - px((yb > py(1) ? Math.pow((H + 10 - yb) / (H + 10 - py(1)), 1 / 0.75) : 1))) < pw(0.5) * 0.6 && ri) continue; lol.push({x: x, y: yb, s: sz, c: Math.floor(rnd() * 3), L: ri}); } });
   var spotsC = ph ? [[0.12, 0.66, 1], [0.86, 0.62, 0.9], [0.2, 0.9, 1.3], [0.8, 0.86, 1.2], [0.5, 0.97, 1.1], [0.66, 0.54, 0.6]] : [[0.36, 0.78, 1.1], [0.86, 0.66, 1], [0.34, 0.95, 1.4], [0.92, 0.92, 1.3], [0.62, 0.9, 1.0], [0.78, 0.54, 0.6], [0.48, 0.56, 0.55], [0.07, 0.86, 1.2], [0.2, 0.7, 0.8]];
   lol = lol.filter(function (l) { return !spotsC.some(function (sp) { var cs0 = 28 * u * sp[2], sx = W * sp[0], sy = H * sp[1]; return Math.abs(l.x - sx) < cs0 * 1.7 + l.s && sy > l.y - l.s * 4.2 - cs0 && sy < l.y + cs0 * 0.8; }); });
-  var sticks = ['', ''], disc = [['', '', ''], ['', '', '']], sw = ['', ''];
-  lol.forEach(function (l) { var h = l.s * 3.2, cx = l.x, cy = l.y - h; sticks[l.L] += rect(cx - l.s * 0.07, cy, l.s * 0.14, h); disc[l.L][l.c] += circ(cx, cy, l.s); sw[l.L] += b3_spiral(cx, cy, l.s * 0.88, 2.2, l.c * 2); if (dk) add(far, 'd', circ(cx, cy, l.s * 2.2), 'rgba(255,150,220,0.28)'); });
+  var sticks = ['', ''], disc = [['', '', ''], ['', '', '']], sw = ['', ''], shd = ['', ''], gls = ['', ''], stS = ['', ''], bowR = '', bowK = '';
+  var PC = {sw: dk ? 'rgba(255,236,248,0.72)' : 'rgba(255,255,255,0.82)', sh: dk ? 'rgba(20,0,30,0.3)' : 'rgba(120,40,110,0.16)', gl: dk ? 'rgba(255,245,255,0.5)' : 'rgba(255,255,255,0.75)', st: dk ? 'rgba(80,60,100,0.45)' : 'rgba(170,140,190,0.35)', rib: dk ? '#4E9E98' : '#6ECFC2', knot: dk ? '#3A7E7A' : '#4FB3A6', pleat: dk ? 'rgba(30,0,40,0.35)' : 'rgba(120,50,110,0.28)'};
+  lol.forEach(function (l, li) { var h = l.s * 3.2, cx = l.x, cy = l.y - h; sticks[l.L] += rect(cx - l.s * 0.07, cy, l.s * 0.14, h); stS[l.L] += b2_polyA([[cx + l.s * 0.01, cy + l.s * 0.9], [cx + l.s * 0.07, cy + l.s * 0.9], [cx + l.s * 0.07, cy + h], [cx + l.s * 0.01, cy + h]]); disc[l.L][l.c] += circ(cx, cy, l.s);
+    sw[l.L] += b3_swirl(cx, cy, l.s * 0.95, 3, l.c * 2 + li); shd[l.L] += b3_popShade(cx, cy, l.s); gls[l.L] += b3_popGloss(cx, cy, l.s);
+    if (l.L && li % 3 === 0) { var bw = b3_bow(cx, cy + l.s * 1.12, l.s * 0.7); bowR += bw.ribbon; bowK += bw.knot; } if (dk) add(far, 'd', circ(cx, cy, l.s * 2.2), 'rgba(255,150,220,0.28)'); });
   var dcol = dk ? ['#D06AA8', '#5CB8B0', '#D8B45A'] : ['#F58EC0', '#7FD6CB', '#FFCF6B'];
   if (ANIM) ANIM.gum = dk ? ['#9A4A8A', '#6A58B0', '#3F8C88'] : ['#F5A3C7', '#C6B2F7', '#9EDFD2'];
-  add(refl, 'd', sticks[0], dk ? '#D8C8E6' : '#FFFFFF'); add(refl, 'e', disc[0][0], dcol[0]); add(refl, 'f', disc[0][1], dcol[1]); add(refl, 'g', disc[0][2], dcol[2]); stk(refl, 's', sw[0], 'rgba(255,255,255,0.7)', 1.6 * u);
-  add(mid, 'f', sticks[1], dk ? '#D8C8E6' : '#FFFFFF'); add(mid, 'g', disc[1][0] + disc[1][2], dcol[0]); add(mid, 'h', disc[1][1], dcol[1]); stk(mid, 's', sw[1], 'rgba(255,255,255,0.75)', 2.4 * u);
+  add(refl, 'd', sticks[0], dk ? '#D8C8E6' : '#FFFFFF'); add(refl, 'e', disc[0][0], dcol[0]); add(refl, 'f', disc[0][1], dcol[1]); add(refl, 'g', disc[0][2], dcol[2]); add(refl, 'i', sw[0], PC.sw); add(refl, 'j', shd[0], PC.sh); add(refl, 'k', gls[0], PC.gl);
+  add(mid, 'f', sticks[1], dk ? '#D8C8E6' : '#FFFFFF'); add(mid, 'g', disc[1][0] + disc[1][2], dcol[0]); add(mid, 'h', disc[1][1], dcol[1]); add(mid, 'i', stS[1], PC.st); add(mid, 'j', sw[1], PC.sw); add(mid, 'k', shd[1], PC.sh); add(mid, 'l', gls[1], PC.gl);
   if (dk) { mid.h.d = mid.h.d; }
   var gum = ['', '', ''], sug = '';
   spread(0, hz + H * 0.24, W, H * 0.8 - hz, ph ? 90 : 120, 80, rnd, 1).forEach(function (c) { if (c.q > 0.5) return; var tt = 0, best = 1e9; for (var q = 0; q <= 1; q += 0.02) { var d = Math.abs(py(q) - c.y); if (d < best) { best = d; tt = q; } } if (Math.abs(c.x - px(tt)) < pw(tt) * 1.3) return; var r = (9 + c.r * 7) * u * (0.6 + (c.y - hz) / (H - hz)); gum[Math.floor(c.k * 3)] += 'M' + PT(c.x - r, c.y) + ' a' + n1(r) + ' ' + n1(r * 1.15) + ' 0 0 1 ' + n1(2 * r) + ' 0 Z '; sug += circ(c.x - r * 0.3, c.y - r * 0.7, r * 0.12) + circ(c.x + r * 0.25, c.y - r * 0.45, r * 0.1); });
   add(near, 'a', gum[0], dk ? '#9A4A8A' : '#F5A3C7'); add(near, 'b', gum[1], dk ? '#6A58B0' : '#C6B2F7'); add(near, 'c', gum[2], dk ? '#3F8C88' : '#9EDFD2');
-  var cs = ['', '', ''], stp = '', hi = '', spots = spotsC;
-  spots.forEach(function (sp, i) { var cd = b3_candy(W * sp[0], H * sp[1], 28 * u * sp[2], (rnd() - 0.5) * 50); if (ANIM) (ANIM.spots = ANIM.spots || []).push({x: W * sp[0], y: H * sp[1], s: 28 * u * sp[2]}); cs[i % 3] += cd.fill; stp += cd.stripe; hi += cd.hi; if (dk) add(far, 'e', circ(W * sp[0], H * sp[1], 50 * sp[2] * u), 'rgba(200,140,255,0.3)'); });
+  var cs = ['', '', ''], stp = '', hi = '', csh = '', pl = '', nsw = '', nst = '', bowNR = '', bowNK = '', spots = spotsC;
+  spots.forEach(function (sp, i) { var cd = b3_candy(W * sp[0], H * sp[1], 28 * u * sp[2], (rnd() - 0.5) * 50); if (ANIM) (ANIM.spots = ANIM.spots || []).push({x: W * sp[0], y: H * sp[1], s: 28 * u * sp[2]}); cs[i % 3] += cd.body + cd.ends; stp += cd.stripe; hi += cd.hi; csh += cd.shade + cd.knot; pl += cd.pleat; if (dk) add(far, 'e', circ(W * sp[0], H * sp[1], 50 * sp[2] * u), 'rgba(200,140,255,0.3)'); });
   var big = ph ? [[W + 20, H * 0.6, 58], [-24, H * 0.74, 50]] : [[W - 40, H * 0.5, 80], [W * 0.43, H * 0.66, 50]], bst = '', bsw = '';
-  big.forEach(function (b, i) { var r = b[2] * u; bst += rrect(b[0] - r * 0.08, b[1] + r * 0.97, r * 0.16, H, r * 0.08); cs[(i + 1) % 3] += circ(b[0], b[1], r); if (ANIM) (ANIM.pops = ANIM.pops || []).push({x: b[0], y: b[1], r: r * 0.9, i: i, w: 5 * u}); else bsw += b3_spiral(b[0], b[1], r * 0.9, 2.6, i); if (dk) add(far, 'f', circ(b[0], b[1], r * 2), 'rgba(255,140,210,0.3)'); });
+  big.forEach(function (b, i) { var r = b[2] * u; bst += rrect(b[0] - r * 0.08, b[1] + r * 0.97, r * 0.16, H, r * 0.08); nst += b2_polyA([[b[0] + r * 0.01, b[1] + r * 0.97], [b[0] + r * 0.08, b[1] + r * 0.97], [b[0] + r * 0.08, H + 10], [b[0] + r * 0.01, H + 10]]); cs[(i + 1) % 3] += circ(b[0], b[1], r);
+    var bw = b3_bow(b[0], b[1] + r * 1.1, r * 0.62); bowNR += bw.ribbon; bowNK += bw.knot;
+    if (ANIM) (ANIM.pops = ANIM.pops || []).push({x: b[0], y: b[1], r: r, i: i, sh: b3_popShade(0, 0, r), gl: b3_popGloss(0, 0, r)}); else { nsw += b3_swirl(b[0], b[1], r * 0.96, 4, i * 0.7); csh += b3_popShade(b[0], b[1], r); hi += b3_popGloss(b[0], b[1], r); } if (dk) add(far, 'f', circ(b[0], b[1], r * 2), 'rgba(255,140,210,0.3)'); });
   add(near, 'd', cs[0], dk ? '#A070E0' : '#B58CF5'); add(near, 'e', cs[1], dk ? '#E0609E' : '#F37DB5'); add(near, 'f', cs[2], dk ? '#E6B84E' : '#F9C74F');
-  add(near, 'g', hi + bst, dk ? '#F2E4F4' : '#FFFFFF'); stk(near, 's', stp, 'rgba(255,255,255,0.75)', 3.2 * u); stk(near, 't', bsw, 'rgba(255,255,255,0.8)', 5 * u);
+  if (ANIM) ANIM.popC = PC;
+  add(near, 'g', bst, dk ? '#F2E4F4' : '#FFFFFF');
+  // candy and lollipop details: stripes and swirls, shading, gloss, stick shade, ribbon bows
+  add(near, 'i', stp + nsw, PC.sw); add(near, 'j', csh, PC.sh); add(near, 'k', hi, PC.gl); add(near, 'l', nst, PC.st);
+  add(near, 'm', bowNR, PC.rib); add(near, 'n', bowNK, PC.knot); add(mid, 'm', bowR, PC.rib); add(mid, 'n', bowK, PC.knot);
+  stk(near, 's', pl, PC.pleat, 1.3 * u);
   return b3_out({sky: sky, far: far, refl: refl, mid: mid, near: near});
 };
 
@@ -12583,7 +12629,7 @@ ENGINES.candy = function (A, v, dk) {
   function newS(p, first) { p.x = Math.random() * W; p.y = first ? Math.random() * H : -10; p.v = 14 + Math.random() * 12; p.c = cols[Math.floor(Math.random() * cols.length)]; p.a = Math.random() * 6.28; p.w = (Math.random() - 0.5) * 1.6; p.ph = Math.random() * 6.28; p.x0 = p.x; return p; }
   for (var i = 0; i < ns; i++) spr.push(newS({}, true));
   var sp = new Path2D(rrect(-4.5 * u, -1.4 * u, 9 * u, 2.8 * u, 1.4 * u));
-  var pops = (A.pops || []).map(function (p) { return {x: p.x, y: p.y, w: p.w, path: new Path2D(b3_spiral(0, 0, p.r, 2.6, p.i)), dir: p.i ? -1 : 1}; });
+  var PC = A.popC, pops = (A.pops || []).map(function (p) { return {x: p.x, y: p.y, path: new Path2D(b3_swirl(0, 0, p.r * 0.96, 4, p.i * 0.7)), sh: new Path2D(p.sh), gl: new Path2D(p.gl), dir: p.i ? -1 : 1}; });
   var stones = A.stones.slice().reverse(), path = [];
   for (i = Math.floor(stones.length * 0.4); i < stones.length; i++) path.push(i);
   if (path[path.length - 1] !== stones.length - 1) path.push(stones.length - 1);
@@ -12617,7 +12663,7 @@ ENGINES.candy = function (A, v, dk) {
         ca.fillStyle = g.c; ca.fill(gum); ca.fillStyle = 'rgba(255,255,255,0.75)'; ca.fill(sugar); ca.restore(); ca = ca0; });
       spr.forEach(function (p) { var low = (v.desk && p.x < W * 0.45 && p.y < H * 0.47) ? 0.4 : 0.9; cb.globalAlpha = low; cb.save(); cb.translate(p.x, p.y); cb.rotate(p.a); cb.fillStyle = p.c; cb.fill(sp); cb.restore(); });
       cb.globalAlpha = 1;
-      pops.forEach(function (p) { cb.save(); cb.translate(p.x, p.y); cb.rotate(t * 0.35 * f.s * p.dir); cb.strokeStyle = 'rgba(255,255,255,0.8)'; cb.lineWidth = p.w; cb.lineCap = 'round'; cb.stroke(p.path); cb.restore(); });
+      pops.forEach(function (p) { cb.save(); cb.translate(p.x, p.y); cb.save(); cb.rotate(t * 0.35 * f.s * p.dir); cb.fillStyle = PC.sw; cb.fill(p.path); cb.restore(); cb.fillStyle = PC.sh; cb.fill(p.sh); cb.fillStyle = PC.gl; cb.fill(p.gl); cb.restore(); });
     },
     finish: function () { if (hops.length >= 3) return; hops.push({k: hops.length ? -0.5 * hops.length : 0, c: A.gum[Math.floor(Math.random() * A.gum.length)]}); }
   };
