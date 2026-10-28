@@ -1585,9 +1585,9 @@ SCENES.neon = function (W, H, dk, rnd) {
     lamp += poly([[lx - 12, T0 - 13], [lx, T0 - 22], [lx + 12, T0 - 13]]) + rect(lx - 1.4, T0 - 27, 2.8, 6) + rect(lx - 11, T0 - 14, 22, 2.4) + poly([[lx - 10, T0 - 12], [lx - 9, T0 - 12], [lx - 6.5, T0 + 2], [lx - 7.5, T0 + 2]]) + poly([[lx + 9, T0 - 12], [lx + 10, T0 - 12], [lx + 7.5, T0 + 2], [lx + 6.5, T0 + 2]]) + rect(lx - 0.7, T0 - 12, 1.4, 14) + rrect(lx - 8, T0 + 1, 16, 4, 1.5);
     lampLit += poly([[lx - 9, T0 - 12], [lx + 9, T0 - 12], [lx + 6.5, T0 + 2], [lx - 6.5, T0 + 2]]);
     lampGlow += circ(lx, T0 - 6, 40); lampRefl += ell(lx, gy + swH + 60, 9, 52) + ell(lx, gy + swH + 30, 30, 10); });
-  add(near, 'a', walk, dk ? '#2C2652' : '#C9C3E4'); add(near, 'e', curb, dk ? '#19153A' : '#8F8ABE'); add(near, 'f', lamp, dk ? '#0C0A22' : '#4A4680');
+  add(near, 'a', walk, dk ? '#2C2652' : '#C9C3E4'); add(near, 'e', curb, dk ? '#19153A' : '#8F8ABE'); near.A = E(); near.B = E(); add(near, 'A', lamp, dk ? '#0C0A22' : '#4A4680'); // lamps after the awnings (slots A, B draw after p) so the posts pass in front
   add(refl, 'b', lampGlow, dk ? 'rgba(255,214,150,0.45)' : 'rgba(255,236,200,0.8)'); add(refl, 'i', lampRefl, dk ? 'rgba(255,214,150,0.4)' : 'rgba(255,240,210,0.7)');
-  add(near, 'g', lampLit, dk ? '#FFE6B0' : '#FFF4DA');
+  add(near, 'B', lampLit, dk ? '#FFE6B0' : '#FFF4DA');
   var sh = '', pud = ''; spread(0, gy + swH + 14, W, H - gy - swH - 18, 110, 24, rnd, 1).forEach(function (c) { if (c.q < 0.55) sh += seg(c.x, c.y, c.x + 14 + c.r * 50, c.y); else if (c.q > 0.93) pud += b2_ellA(c.x, c.y, 30 + c.r * 50, 4 + c.r * 4); });
   add(mid, 'c', pud, dk ? 'rgba(150,130,255,0.14)' : 'rgba(255,255,255,0.2)');
   add(mid, 'b', sh.replace(/M(\S+) (\S+) L(\S+) (\S+) /g, function (m, a, b, c2, d) { return rect(+a, +b, +c2 - +a, 1.6); }), dk ? 'rgba(170,160,255,0.22)' : 'rgba(255,255,255,0.45)');
