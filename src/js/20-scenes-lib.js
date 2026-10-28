@@ -927,7 +927,14 @@ SCENES.lemonade = function (W, H, dk, rnd) {
   var pl = ''; for (var k = 0; k < 3; k++) pl += rect(sx - sw / 2 + 8 * u, ct + 8 * u + k * (ch - 4 * u) / 3, sw - 16 * u, (ch - 4 * u) / 3 - 6 * u);
   add(near, 'd', pl, woodL);
   var aw = sw + 40 * u, ax = sx - aw / 2, n = ph ? 7 : 9, stw = aw / n, ah = 38 * u, wS = '', yS = '';
-  add(near, 'd', rect(lp + 12 * u, ay + ah, rp - lp - 12 * u, ct - ay - ah), woodL);
+  // little windows in the back wall: the wall has holes (wound the other way) so the orchard behind shows through,
+  // and the frames sit in the darker wood slot, which is drawn under the wall and so only shows inside the holes
+  function rectR(x, y, w, h) { return 'M' + PT(x, y) + ' v' + n1(h) + ' h' + n1(w) + ' v' + n1(-h) + ' Z '; }
+  var wl0 = lp + 12 * u, wl1 = rp, wy0 = ay + ah + stw / 2 + 7 * u, wy1 = ct - 24 * u, wwn = (ph ? 58 : 72) * u, holes = '', frames = '', fb = 3.2 * u;
+  [0.2, 0.5, 0.8].forEach(function (f) { var cxw = lerp(wl0, wl1, f), x0 = cxw - wwn / 2, hh = wy1 - wy0, pw = (wwn - fb * 3) / 2;
+    holes += rectR(x0, wy0, wwn, hh); frames += rect(x0, wy0, wwn, hh) + rectR(x0 + fb, wy0 + fb, pw, hh - fb * 2.6) + rectR(x0 + fb * 2 + pw, wy0 + fb, pw, hh - fb * 2.6); });
+  add(near, 'd', rect(lp + 12 * u, ay + ah, rp - lp - 12 * u, ct - ay - ah) + holes, woodL);
+  add(near, 'c', frames, woodD);
   var vpl = ''; for (var xx = lp + 22 * u; xx < rp; xx += 26 * u) vpl += seg(xx, ay + ah + 4, xx, ct - 12 * u);
   add(near, 'e', poly([[ax + 18 * u, ay - 34 * u], [ax + aw - 18 * u, ay - 34 * u], [ax + aw, ay], [ax, ay]]), awW);
   for (var i = 0; i < n; i++) { var sp0 = [[ax + i * stw, ay], [ax + (i + 1) * stw, ay]]; for (var q = 0; q <= 10; q++) { var aa = q / 10 * Math.PI; sp0.push([ax + i * stw + stw / 2 + Math.cos(aa) * stw / 2, ay + ah + Math.sin(aa) * stw / 2]); } var d = poly(sp0); if (i % 2) wS += d; else yS += d; }
@@ -935,12 +942,38 @@ SCENES.lemonade = function (W, H, dk, rnd) {
   add(near, 'e', wS, awW); add(near, 'f', yS + roofStripes, awY);
   var px = sx - sw * 0.28, tS = '';
   if (ANIM) { ANIM.u = u; ANIM.ph = ph; ANIM.col = {rind: rind, seg: segc, pith: pith, str: dk ? '#C9A57A' : '#8A6A42', leaf: dk ? '#233018' : '#5E9A4A'}; ANIM.garland = []; ANIM.branch = []; ANIM.fizz = [[px - 19 * u, ct - 50 * u, px + 19 * u, ct - 14 * u]]; ANIM.awn = {x0: ax + 18 * u, x1: ax + aw - 18 * u, y: ay - 34 * u}; ANIM.stand = {x: sx, y: ay - 20 * u, w: sw}; }
-  add(near, 'e', poly([[px - 24 * u, ct - 10 * u], [px + 24 * u, ct - 10 * u], [px + 20 * u, ct - 70 * u], [px - 20 * u, ct - 70 * u]]), awW);
-  add(near, 'g', poly([[px - 22 * u, ct - 12 * u], [px + 22 * u, ct - 12 * u], [px + 19 * u, ct - 54 * u], [px - 19 * u, ct - 54 * u]]), rind);
-  tS += 'M' + PT(px + 20 * u, ct - 62 * u) + ' q' + n1(18 * u) + ' ' + n1(6 * u) + ' ' + n1(2 * u) + ' ' + n1(34 * u) + ' ';
-  [0.0, 0.14].forEach(function (f) { var gx = sx + sw * f; add(near, 'e', rect(gx - 11 * u, ct - 42 * u, 22 * u, 32 * u), awW); add(near, 'g', rect(gx - 9 * u, ct - 34 * u, 18 * u, 22 * u), rind); tS += seg(gx + 3 * u, ct - 30 * u, gx + 10 * u, ct - 58 * u); if (ANIM) ANIM.fizz.push([gx - 8 * u, ct - 32 * u, gx + 8 * u, ct - 14 * u]); b3_slice(near, gx - 10 * u, ct - 42 * u, 9 * u, 0.3, rind, segc, pith); });
-  var bx = sx + sw * 0.34; add(near, 'c', 'M' + PT(bx + 34 * u, ct - 22 * u) + ' a' + n1(34 * u) + ' ' + n1(20 * u) + ' 0 0 1 ' + n1(-68 * u) + ' 0 Z ');
-  add(near, 'g', ell(bx - 16 * u, ct - 26 * u, 15 * u, 11 * u) + ell(bx + 14 * u, ct - 26 * u, 15 * u, 11 * u) + ell(bx, ct - 38 * u, 15 * u, 11 * u));
+  // the counter top the pitcher, glasses and lemons stand on, with soft contact shadows
+  var ctx0 = lp + 12 * u, ctx1 = rp, top0 = ct - 19 * u, foot = ct - 13 * u, shad = '', glass = '', juice = '', segs = '', pithS = '', subm = '';
+  add(near, 'i', poly([[ctx0, top0], [ctx1, top0], [ctx1 + 6 * u, ct - 10 * u], [ctx0 - 6 * u, ct - 10 * u]]), dk ? '#5E432C' : '#E2B988');
+  function slice2(x, y, r, rot) { juice += b2_ellA(x, y, r, r); for (var i = 0; i < 8; i++) { var a0 = rot + i * Math.PI / 4, pts = [[x, y]]; for (var k = 0; k <= 5; k++) { var a = a0 + 0.07 + k / 5 * (Math.PI / 4 - 0.14); pts.push([x + r * 0.8 * Math.cos(a), y + r * 0.8 * Math.sin(a)]); } segs += b2_polyA(pts); pithS += seg(x, y, x + r * 0.84 * Math.cos(a0), y + r * 0.84 * Math.sin(a0)); } pithS += circ(x, y, r * 0.87); }
+  // pitcher
+  shad += b2_ellA(px + 4 * u, foot, 30 * u, 3.6 * u);
+  glass += b2_polyA([[px - 24 * u, foot], [px + 24 * u, foot], [px + 20 * u, ct - 73 * u], [px - 20 * u, ct - 73 * u]]);
+  juice += b2_polyA([[px - 22 * u, foot - 2 * u], [px + 22 * u, foot - 2 * u], [px + 19 * u, ct - 57 * u], [px - 19 * u, ct - 57 * u]]);
+  tS += 'M' + PT(px + 20 * u, ct - 65 * u) + ' q' + n1(18 * u) + ' ' + n1(6 * u) + ' ' + n1(2 * u) + ' ' + n1(34 * u) + ' ';
+  if (ANIM) ANIM.fizz[0] = [px - 19 * u, ct - 53 * u, px + 19 * u, ct - 17 * u];
+  // glasses: the straw reaches down through the lemonade to near the bottom
+  [0.0, 0.14].forEach(function (f) { var gx = sx + sw * f, gt = ct - 46 * u, lt = ct - 38 * u;
+    shad += b2_ellA(gx + 3 * u, foot, 15 * u, 2.6 * u);
+    glass += b2_polyA([[gx - 10 * u, foot], [gx + 10 * u, foot], [gx + 11.5 * u, gt], [gx - 11.5 * u, gt]]);
+    juice += b2_polyA([[gx - 8.4 * u, foot - 2 * u], [gx + 8.4 * u, foot - 2 * u], [gx + 9.6 * u, lt], [gx - 9.6 * u, lt]]);
+    var b0 = [gx - 2 * u, foot - 3.5 * u], b1 = [gx + 10 * u, ct - 64 * u], k = (b0[1] - lt) / (b0[1] - b1[1]), m = [lerp(b0[0], b1[0], k), lt];
+    subm += b2_limb(b0, [(b0[0] + m[0]) / 2, (b0[1] + m[1]) / 2], m, 2.2 * u, 2.2 * u, 4); tS += seg(m[0], m[1], b1[0], b1[1]);
+    if (ANIM) ANIM.fizz.push([gx - 7 * u, lt + 2 * u, gx + 7 * u, foot - 3 * u]);
+    slice2(gx - 10 * u, gt, 9 * u, 0.3); });
+  // a bowl of lemons
+  var bx = sx + sw * 0.34, bt2 = ct - 30 * u, bowl = [[bx - 37 * u, bt2]];
+  for (var q2 = 0; q2 <= 12; q2++) { var aa2 = q2 / 12 * Math.PI; bowl.push([bx - Math.cos(aa2) * 37 * u, bt2 + Math.sin(aa2) * (foot - bt2)]); }
+  shad += b2_ellA(bx + 4 * u, foot, 34 * u, 3.6 * u);
+  juice += b2_ellA(bx - 17 * u, bt2 - 3 * u, 15 * u, 11 * u) + b2_ellA(bx + 15 * u, bt2 - 2 * u, 15 * u, 11 * u) + b2_ellA(bx - 1 * u, bt2 - 13 * u, 15 * u, 11 * u);
+  add(near, 'j', shad, dk ? 'rgba(20,10,4,0.35)' : 'rgba(110,62,24,0.22)');
+  add(near, 'k', glass, awW);
+  add(near, 'l', juice, rind);
+  add(near, 'm', subm, dk ? '#A88A50' : '#C59A4E');
+  add(near, 'n', segs, segc);
+  add(near, 'o', b2_polyA(bowl), dk ? '#D8CDB0' : '#FFFFFF');
+  add(near, 'p', b2_band([[bx - 35.5 * u, bt2 + 4 * u], [bx, bt2 + 4.6 * u], [bx + 35.5 * u, bt2 + 4 * u]], 2.4 * u), awY);
+  stk(near, 's', pithS, pith);
   b3_slice(near, sx, ct + ch * 0.46, ch * 0.3, 0.2, rind, segc, pith);
   var gy0 = ay + ah + stw / 2 + 4 * u, sag = 12 * u, gl = 'M' + PT(lp + 6 * u, gy0) + ' Q' + PT(sx, gy0 + sag * 2) + ' ' + PT(rp + 6 * u, gy0) + ' ';
   var ns = ph ? 5 : 7;
@@ -1130,7 +1163,8 @@ SCENES.mint = function (W, H, dk, rnd) {
   add(near, 'c', '', dk ? '#1C6E4A' : '#2A8C5C'); add(near, 'd', '', dk ? '#2A9064' : '#48B07A'); stk(near, 't', '', dk ? 'rgba(160,240,200,0.3)' : 'rgba(215,250,230,0.55)', 1.1);
   var cu = '', cuh = ''; (ph ? [[0.32, 0.86], [0.76, 0.84]] : [[0.4, 0.9], [0.8, 0.86], [0.6, 0.96], [0.2, 0.94]]).forEach(function (p) { var x = W * p[0], y = H * p[1], r = 16 * u + rnd() * 8; var a1 = (rnd() - 0.5) * 50, a2 = a1 + 40 + rnd() * 50; cu += rotEll(x, y, r * 1.1, r * 0.42, a1) + rotEll(x + r * 2, y + 6, r * 0.85, r * 0.36, a2); cuh += rotEll(x - r * 0.1, y - r * 0.14, r * 0.8, r * 0.1, a1) + rotEll(x + r * 1.9, y + 6 - r * 0.12, r * 0.6, r * 0.08, a2) + circ(x + r * 0.95, y, r * 0.22) + circ(x + r * 2.7, y + 6, r * 0.18); });
   if (ANIM) ANIM.curls = {d: cu, h: cuh, c: dk ? '#3A2418' : '#5A3A28', ch: dk ? '#5A3A28' : '#8A6048'};
-  else { add(near, 'e', cu, dk ? '#3A2418' : '#5A3A28'); add(near, 'f', cuh, dk ? '#5A3A28' : '#8A6048'); }
+  // chocolate curls sit behind the mint plants: on the layer under them (or the canvas under them when animated)
+  else { add(mid, 'i', cu, dk ? '#3A2418' : '#5A3A28'); add(mid, 'j', cuh, dk ? '#5A3A28' : '#8A6048'); }
   return b3_out({sky: sky, far: far, refl: refl, mid: mid, near: near});
 };
 
@@ -12557,6 +12591,7 @@ ENGINES.mint = function (A, v, dk) {
         cb.globalAlpha = low; cb.save(); cb.transform(c * p.s, sn * p.s, -sn * sy, c * sy, p.x, p.y); cb.drawImage(sp.c, sp.x, sp.y, sp.w, sp.h); cb.restore(); });
       cb.globalAlpha = 1;
       var T = cb.getTransform(), sc = Math.abs(T.a) || 1; if (Math.abs(sc - sScale) > 0.01) buildSprites(sc);
+      if (curlD) { ca.fillStyle = A.curls.c; ca.fill(curlD); ca.fillStyle = A.curls.ch; ca.fill(curlH); }
       sprigs.forEach(function (S) {
         var B = sprigBend(S, t, f), h = S.h;
         function off(tt) { return S.lean * tt * tt + B * h * tt * tt; }
@@ -12568,7 +12603,6 @@ ENGINES.mint = function (A, v, dk) {
         cb.setTransform(T);
       });
 
-      if (curlD) { cb.fillStyle = A.curls.c; cb.fill(curlD); cb.fillStyle = A.curls.ch; cb.fill(curlH); }
       if (flies) { cb.fillStyle = '#D8FFB0'; cb.fill(flies); }
     },
     finish: function () { if (spoon) queue = Math.min(2, queue + 1); else spoon = {k: 0}; }
