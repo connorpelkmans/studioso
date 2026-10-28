@@ -6477,6 +6477,8 @@ const STORE = (() => {
 })();
 const svgUrl = svg => `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 const SVGH = (vb, body, ar = "none") => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='${vb}' preserveAspectRatio='${ar}'>${body}</svg>`;
+// Founder themes: when you pick a Founder's suggestion (studyboard_founder_theme_pick), add it here like any Pro theme,
+// with the same id, group: "founders" and tier: "pro". It shows under Founder Themes, and its Founder keeps it without Pro.
 // Theme colors: [paper, grid, surface, ink, muted, line, soft, field, accent, accent-2
 const SKINS = [
   {id: "classic", name: "Classic", tier: "free", group: "plain", desc: "The original notebook blue on graph paper."},
@@ -7135,6 +7137,8 @@ const itemTier = (kind, id) => ((STYLE_LISTS[kind] || []).find(x => x.id === id)
 const owns = (kind, id) => {
   if (!STORE.paywall || itemTier(kind, id) === "free") return true;
   if (typeof PLAN !== "undefined" && !!PLAN && (PLAN.isPro() || (PLAN.styleGrace && PLAN.styleGrace()))) return true;
+  // A Founder keeps the theme made from their suggestion, with or without Pro
+  if (kind === "skin" && window.SBEARLY && SBEARLY.keeps(id)) return true;
   if (cpAllows(kind, id)) return true;
   if (kind === "comp") { const it = (STYLE_LISTS.comp || []).find(x => x.id === id); if (it && it.theme && cpAllows("skin", it.theme)) return true; }
   return false;
@@ -7284,7 +7288,7 @@ function styleShop(tab){
   let body = "";
   if (ui.shopTab === "themes") {
     body = `<div class="shop-mode"><span class="mini">Preview in</span>${themeRow().replace(/^[\s\S]*?(<div class="segb)/, "$1").replace(/<\/div>\s*$/, "")}<label class="motion-tog"><input type="checkbox" id="motionTog" data-act="motion-toggle" ${cfg.motion !== false ? "checked" : ""}> Background Animations</label></div>
-      ${[["plain", "Free · Plain Colors"], ["world", `${PRO_BADGE} Pro · Around the World`], ["ideas", `${PRO_BADGE} Pro · New Theme Ideas`], ["season", `${PRO_BADGE} Pro · Seasons`], ["pro", `${PRO_BADGE} Pro · Scenes`], ["majors", `${PRO_BADGE} Pro · Fields`], ["hobby", `${PRO_BADGE} Pro · Hobbies`], ["holiday", `${PRO_BADGE} Pro · Holidays`]].map(([g, t]) => section(t, SKINS.filter(s => (s.group || "plain") === g || (g === "pro" && s.group === "newscenes")), s => `<div class="shop-tile ${cfg.skin === s.id ? "on" : ""}"><div class="skin-pair">${skinPreview(s, false)}${skinPreview(s, true)}</div>${nameRow(s)}${btnFor("skin", s, cfg.skin === s.id)}</div>`)).join("")}`;
+      ${[["plain", "Free · Plain Colors"], ["world", `${PRO_BADGE} Pro · Around the World`], ["ideas", `${PRO_BADGE} Pro · New Theme Ideas`], ["season", `${PRO_BADGE} Pro · Seasons`], ["pro", `${PRO_BADGE} Pro · Scenes`], ["majors", `${PRO_BADGE} Pro · Fields`], ["hobby", `${PRO_BADGE} Pro · Hobbies`], ["holiday", `${PRO_BADGE} Pro · Holidays`], ["founders", `${PRO_BADGE} Pro · Founder Themes`]].map(([g, t]) => section(t, SKINS.filter(s => (s.group || "plain") === g || (g === "pro" && s.group === "newscenes")), s => `<div class="shop-tile ${cfg.skin === s.id ? "on" : ""}"><div class="skin-pair">${skinPreview(s, false)}${skinPreview(s, true)}</div>${nameRow(s)}${btnFor("skin", s, cfg.skin === s.id)}</div>`)).join("")}`;
   } else if (ui.shopTab === "cards") {
     body = `<p class="mini" style="margin:0">How flashcards look while you study. You can also give one deck its own style under Edit Deck.</p>
       ${split(CARD_STYLES.filter(c => c.id !== "theme" || themeKit()), c => `<div class="shop-tile ${cardStyleOf(null) === c.id ? "on" : ""}"><div class="cs-demo cs-${c.id}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div>${nameRow(c)}${btnFor("card", c, cardStyleOf(null) === c.id, "Use for All Decks")}</div>`)}`;
@@ -16589,7 +16593,7 @@ window.__sbPlanObj = () => PLAN;
       let r = null;
       try { const {data, error} = await sb.rpc("studyboard_redeem_code", {p_code: code}); r = error ? {error: /could not find|does not exist/i.test(error.message || "") ? "missing" : "network"} : data; } catch (err) { r = {error: "network"}; }
       go.disabled = false;
-      const ERR = {invalid: "That code doesn't work. Check it and try again.", expired: "That code has expired.", used_up: "That code has already been used.", already: "You've already used this code.",
+      const ERR = {invalid: "That code doesn't work. Check it and try again.", expired: "That code has expired.", used_up: "That code has already been used.", already: "You've already used this code.", own_code: "That's one of your own friend codes. Send it to a friend instead!",
         slow_down: "Too many tries. Wait a while, then try again.", sign_in: "Sign in first, then redeem your code.", missing: "Codes aren't set up on this Studyboard server yet.", network: "Couldn't check the code. Check your connection and try again."};
       if (!r || !r.ok) { msg.textContent = ERR[r && r.error] || ERR.invalid; inp.select(); return; }
       dlg.close();
@@ -16969,6 +16973,7 @@ window.__sbPlanObj = () => PLAN;
       <div class="sheet-body">
         ${reason ? `<p class="plan-reason" role="status">${IC.info}<span>${esc(reason)}</span></p>` : ""}
         <div class="plan-hero${pro ? " is-pro" : ""}"><span class="plan-orb" aria-hidden="true">${IC.spark}</span><div><b>${esc(st.title)}</b>${st.sub ? `<p class="mini">${esc(st.sub)}</p>` : ""}</div></div>
+        ${window.SBEARLY ? SBEARLY.sheetHtml() : ""}
         ${pro ? `<div class="plan-actions"><button type="button" class="btn primary" data-act="plan-manage">Manage Plan</button><button type="button" class="btn" data-act="plan-devices">Your Devices</button></div>${usageHtml}` : ""}
         ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get a Week of Pro</b><span class="mini">Every Pro theme and feature for 7 days. No card needed, and everything you make stays when the week ends.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
         ${paywall() ? `<p class="plan-state mini" role="status"><b>Plan:</b> ${esc(planLabel())}</p>` : ""}
@@ -27447,7 +27452,7 @@ hook("boot", boot);
       <ul class="grp-members">${ms.map(m => {
         const st = ext ? streakOf(ext, m.user_id) : 0, bd = ext ? badgesFor(g, m.user_id) : [], me2 = m.user_id === myId();
         if (!me2 && S.blocked.has(m.user_id)) return `<li class="blocked">${av(m.display_name, m.user_id)}<span class="nm">${esc(m.display_name || "Member")} <span class="pill">Blocked</span></span><button class="btn small" data-act="grp-unblock" data-id="${esc(m.user_id)}">Unblock</button>${owner ? `<button class="x-btn" data-act="grp-member-del" data-id="${esc(m.user_id)}" aria-label="Remove ${esc(m.display_name)} from the group">${CLOSE}</button>` : ""}</li>`;
-        return `<li>${av(m.display_name, m.user_id)}<span class="nm">${esc(m.display_name || "Member")}${m.badge && typeof GX_STAR === "string" ? GX_STAR : ""}${bd.some(b => b[0] === "champ") ? CHAMP_CROWN : ""}${me2 ? ` <span class="mini">(You)</span>` : ""}${bd.some(b => b[0] !== "champ") ? `<span class="grp-badges">${bd.filter(b => b[0] !== "champ").map(b => `<span class="grp-badge ${b[0]}" title="${esc(b[2])}">${esc(b[1])}</span>`).join("")}</span>` : ""}${st >= 2 && !bd.some(b => b[0] === "streak") ? `<span class="mini">${st}-day streak</span>` : ""}</span>${isProj(g) && roleOf(g.id, m.user_id) ? `<span class="pill gk-role">${esc(GK.roleLabel(roleOf(g.id, m.user_id)))}</span>` : ""}${m.role === "owner" ? `<span class="pill">Owner</span>` : ""}${me2 ? "" : `<details class="grp-more g2-mm"><summary class="g2-dots" aria-label="More for ${esc(m.display_name || "this member")}">⋯</summary><div class="grp-menu"><button class="btn" data-act="grp-report" data-kind="member" data-id="${esc(m.user_id)}">Report or Block</button>${owner ? `<button class="btn" data-act="grp-member-del" data-id="${esc(m.user_id)}">Remove from Group</button>` : ""}</div></details>`}</li>`; }).join("")}</ul>
+        return `<li>${av(m.display_name, m.user_id)}<span class="nm">${esc(m.display_name || "Member")}${m.badge ? gxBadgeIcon(m) : ""}${bd.some(b => b[0] === "champ") ? CHAMP_CROWN : ""}${me2 ? ` <span class="mini">(You)</span>` : ""}${bd.some(b => b[0] !== "champ") || gxBadgeLabel(m) ? `<span class="grp-badges">${gxBadgeLabel(m)}${bd.filter(b => b[0] !== "champ").map(b => `<span class="grp-badge ${b[0]}" title="${esc(b[2])}">${esc(b[1])}</span>`).join("")}</span>` : ""}${st >= 2 && !bd.some(b => b[0] === "streak") ? `<span class="mini">${st}-day streak</span>` : ""}</span>${isProj(g) && roleOf(g.id, m.user_id) ? `<span class="pill gk-role">${esc(GK.roleLabel(roleOf(g.id, m.user_id)))}</span>` : ""}${m.role === "owner" ? `<span class="pill">Owner</span>` : ""}${me2 ? "" : `<details class="grp-more g2-mm"><summary class="g2-dots" aria-label="More for ${esc(m.display_name || "this member")}">⋯</summary><div class="grp-menu"><button class="btn" data-act="grp-report" data-kind="member" data-id="${esc(m.user_id)}">Report or Block</button>${owner ? `<button class="btn" data-act="grp-member-del" data-id="${esc(m.user_id)}">Remove from Group</button>` : ""}</div></details>`}</li>`; }).join("")}</ul>
       ${isOwner(g) && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !(PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro()) ? `<p class="mini" style="margin:8px 0 0">Free groups hold up to ${PLAN.limits().groupMembers} members (${ms.length} now). <button class="link-btn" data-act="grp-upgrade" data-r="Pro groups hold up to 100 members.">Go Pro</button> for up to 100.</p>` : ""}</section>`;
   }
   // Update parts of the open group page in place, so a message you're typing isn't lost
@@ -28346,6 +28351,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
   // Members with their badge
   const membersBase = api.members;
   api.members = async ids => {
+    try { return await q(cli().from("group_members").select("group_id,user_id,role,display_name,joined_at,badge,badge_kind,color,face").in("group_id", ids).order("joined_at")); } catch(e00) {}
     try { return await q(cli().from("group_members").select("group_id,user_id,role,display_name,joined_at,badge,color,face").in("group_id", ids).order("joined_at")); } catch(e0) {}
     try { return await q(cli().from("group_members").select("group_id,user_id,role,display_name,joined_at,badge,color").in("group_id", ids).order("joined_at")); }
     catch(e) { try { return await q(cli().from("group_members").select("group_id,user_id,role,display_name,joined_at,badge").in("group_id", ids).order("joined_at")); } catch(e2) { return membersBase(ids); } }
@@ -28379,12 +28385,21 @@ ${kindPreview("study")}${kindPreview("project")}`;
   let badgeDone = false;
   async function gxBadgeSync(force){
     if ((badgeDone && !force) || !online()) return; badgeDone = true;
-    const want = !!(state.settings && state.settings.badge) && meIsPro();
+    // Founders and Early Supporters keep their badge after Pro ends
+    const early = window.SBEARLY ? SBEARLY.kind() : null;
+    const want = !!(state.settings && state.settings.badge) && (meIsPro() || !!early);
+    const kind = want ? early || "pro" : null;
     const mine = Object.values(S.members || {}).flat().filter(m => m.user_id === myId());
-    if (!force && mine.every(m => !!m.badge === want)) return;
-    try { await api.setBadge(want); mine.forEach(m => { m.badge = want; }); if (ui.tab === "groups" && ui.grp) patch(ui.grp); } catch(e) { }
+    if (!force && mine.every(m => !!m.badge === want && (!("badge_kind" in m) || (m.badge_kind || null) === kind))) return;
+    try { await api.setBadge(want); mine.forEach(m => { m.badge = want; m.badge_kind = kind; }); if (ui.tab === "groups" && ui.grp) patch(ui.grp); } catch(e) { }
   }
   hook("pro-badge", () => gxBadgeSync(true));
+  hook("early-changed", () => gxBadgeSync(true));
+  // Founder (a gold rosette), Early Supporter (a seedling) or Pro (the star)
+  const GX_FOUNDER = `<svg class="gx-star gx-founder" viewBox="0 0 24 24" width="17" height="17" role="img" aria-label="Founder"><title>A Founder of Studyboard</title><path d="M8.2 15.5 6 23l3.4-1.6L11 24l1-7.6z" fill="#7C4DDB"/><path d="M15.8 15.5 18 23l-3.4-1.6L13 24l-1-7.6z" fill="#9B6BF0"/><path d="M12 .8l2 1.6 2.6-.4 1 2.4 2.4 1-.4 2.6 1.6 2-1.6 2 .4 2.6-2.4 1-1 2.4-2.6-.4-2 1.6-2-1.6-2.6.4-1-2.4-2.4-1 .4-2.6-1.6-2 1.6-2-.4-2.6 2.4-1 1-2.4 2.6.4z" fill="#F5B82E" stroke="#C98A0B" stroke-width=".8"/><circle cx="12" cy="10" r="5.6" fill="none" stroke="#FFF3CF" stroke-width=".9" opacity=".9"/><path d="M12 5.9l1.1 2.8 3 .2-2.3 1.9.7 2.9-2.5-1.6-2.5 1.6.7-2.9-2.3-1.9 3-.2z" fill="#fff"/></svg>`;
+  const GX_EARLY = `<svg class="gx-star gx-early" viewBox="0 0 24 24" width="16" height="16" role="img" aria-label="Early Supporter"><title>An Early Supporter of Studyboard</title><circle cx="12" cy="12" r="11" fill="#1FA58F"/><path d="M12 19v-7" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="M12 13c0-3.4-2.3-5.6-5.8-5.6 0 3.4 2.3 5.6 5.8 5.6z" fill="#D9FFF6"/><path d="M12 11.2c0-3 2-5 5.2-5 0 3-2 5-5.2 5z" fill="#fff"/></svg>`;
+  function gxBadgeIcon(m){ return m.badge_kind === "founder" ? GX_FOUNDER : m.badge_kind === "early" ? GX_EARLY : GX_STAR; }
+  function gxBadgeLabel(m){ return !m || !m.badge ? "" : m.badge_kind === "founder" ? `<span class="grp-badge founder">Founder</span>` : m.badge_kind === "early" ? `<span class="grp-badge early">Early Supporter</span>` : ""; }
   const GX_STAR = `<svg class="gx-star" viewBox="0 0 24 24" width="14" height="14" role="img" aria-label="Supports Studyboard"><title>Supports Studyboard with Pro</title><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.2 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z" fill="#FF8A5C"/></svg>`;
 
   /* Header chip, and the Pro group box in Members */
@@ -28903,6 +28918,16 @@ ${kindPreview("study")}${kindPreview("project")}`;
 .gx-ct{display:grid;gap:2px;flex:1;min-width:0}
 .gx-big{font:600 1.25rem var(--display)}
 .gx-star{vertical-align:-2px;margin-left:4px}
+.gx-star.gx-founder{vertical-align:-3px;margin-left:5px}
+.grp-badge.founder{position:relative;overflow:hidden;color:#2A1650;background:linear-gradient(115deg,#FFA8D6 0%,#8FE6FF 20%,#C3A8FF 40%,#FFE58A 60%,#93FFD0 80%,#FFA8D6 100%);background-size:250% 100%;box-shadow:inset 0 0 0 1px rgba(255,255,255,.75),0 0 0 1px rgba(124,77,219,.35),0 1px 4px rgba(124,77,219,.25);animation:gx-holo 6s linear infinite}
+.grp-badge.founder::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(105deg,transparent 38%,rgba(255,255,255,.8) 50%,transparent 62%);background-size:300% 100%;mix-blend-mode:soft-light;animation:gx-shine 3.4s ease-in-out infinite}
+@keyframes gx-holo{to{background-position:250% 0}}
+@keyframes gx-shine{0%{background-position:150% 0}55%,100%{background-position:-150% 0}}
+@media (prefers-reduced-motion:reduce){.grp-badge.founder,.grp-badge.founder::after{animation:none}}
+html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.founder::after{animation:none}
+.grp-badge.early{background:color-mix(in srgb,#1FA58F 20%,var(--surface));color:color-mix(in srgb,#0B5B4F 85%,var(--ink))}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .grp-badge.early{color:#9DEBDD}}
+:root[data-theme=dark] .grp-badge.early{color:#9DEBDD}
 .gx-split{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--surface);display:grid;gap:6px}
 .gx-sh{display:flex;align-items:center;gap:8px}
 .gx-sh .mini{margin-left:auto}
@@ -41716,7 +41741,7 @@ var TP_DATA = [];
 
   const CHEV = `<svg class="ui-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`;
   // The order of the filters and of the sections under them (Your Photos and Free come first)
-  const GROUPS = [["scenes", "Scenes"], ["majors", "Fields"], ["holidays", "Holidays"], ["seasons", "Seasons"], ["world", "World"], ["hobby", "Hobbies"], ["ideas", "New Ideas"]];
+  const GROUPS = [["scenes", "Scenes"], ["majors", "Fields"], ["holidays", "Holidays"], ["seasons", "Seasons"], ["world", "World"], ["hobby", "Hobbies"], ["ideas", "New Ideas"]].concat(SKINS.some(s => s.group === "founders") ? [["founders", "Founders"]] : []);
   const CHIPS = {
     themes: [["all", "All"], ["free", "Free"]].concat(GROUPS),
     collections: [["all", "All"]].concat(GROUPS),
@@ -41725,13 +41750,13 @@ var TP_DATA = [];
     pins: [["all", "All"], ["free", "Free"], ["pro", "Pro"], ["collections", "Theme Collections"]],
     stickers: [["all", "All"], ["free", "Free"], ["pro", "Pro"], ["collections", "Theme Collections"]]
   };
-  const skinGroup = s => ({plain: "free", world: "world", ideas: "ideas", season: "seasons", pro: "scenes", newscenes: "scenes", majors: "majors", hobby: "hobby", holiday: "holidays"})[(s && s.group) || "plain"] || "scenes";
+  const skinGroup = s => ({plain: "free", world: "world", ideas: "ideas", season: "seasons", pro: "scenes", newscenes: "scenes", majors: "majors", hobby: "hobby", holiday: "holidays", founders: "founders"})[(s && s.group) || "plain"] || "scenes";
   // Where a theme sits in the Style Shop
   window.SBUI.themeRank = id => { const i = SKINS.findIndex(x => x.id === id); if (i < 0) return 1e6; const g = skinGroup(SKINS[i]), k = g === "free" ? -1 : GROUPS.findIndex(x => x[0] === g); return (k < 0 ? 99 : k + 1) * 1e4 + i; };
   const secKind = (tab, title, tp) => {
     if (tp) return "collections";
     const t = title.toLowerCase();
-    if (tab === "themes") return /plain/.test(t) ? "free" : /around the world/.test(t) ? "world" : /idea/.test(t) ? "ideas" : /season/.test(t) ? "seasons" : /field/.test(t) ? "majors" : /hobb|cozy/.test(t) ? "hobby" : /holiday/.test(t) ? "holidays" : "scenes";
+    if (tab === "themes") return /plain/.test(t) ? "free" : /around the world/.test(t) ? "world" : /idea/.test(t) ? "ideas" : /season/.test(t) ? "seasons" : /field/.test(t) ? "majors" : /hobb|cozy/.test(t) ? "hobby" : /holiday/.test(t) ? "holidays" : /founder/.test(t) ? "founders" : "scenes";
     return /^\s*free/.test(t) ? "free" : /^\s*all pins/.test(t) ? "mixed" : "pro";
   };
   const slug = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -69577,7 +69602,7 @@ var SBPRO = null;
     const sw = (act, on, label) => `<button type="button" class="pro-sw" role="switch" aria-checked="${!!on}" data-act="${act}" aria-label="${esc(label)}"><i></i></button>`;
     const extras = pro || (typeof PLAN !== "undefined" && PLAN && !PLAN.paywall()) ? `<h3 class="fsec">Extras</h3><ul class="pro-feats">
         <li><span class="pf-t"><b>Try New Features First</b><span class="mini">Preview features reach you a few weeks early, marked Preview.${S().early ? ` <button type="button" class="link-btn" data-act="bug-open">Send Feedback</button>` : ""}</span></span>${sw("pro-early", S().early, "Try new features first")}</li>
-        <li><span class="pf-t"><b>Show My Badge in Groups</b><span class="mini">A small star beside your name in study groups, so others know you support Studyboard.</span></span>${sw("pro-badge", S().badge, "Show my supporter badge in groups")}</li></ul>` : "";
+        ${window.SBEARLY && SBEARLY.kind() ? "" : `<li><span class="pf-t"><b>Show My Badge in Groups</b><span class="mini">A small star beside your name in study groups, so others know you support Studyboard.</span></span>${sw("pro-badge", S().badge, "Show my supporter badge in groups")}</li>`}</ul>` : "";
     return `<h3 class="fsec">What Pro Adds</h3><ul class="pro-feats">${rows}</ul>${extras}`;
   }
   const compareRows = () => FEATURES.filter(f => f.compare !== false).map(f => [f.name, f.free || "—", f.pro || "Included"]);
@@ -74042,6 +74067,195 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   document.head.appendChild(css);
 })();
 
+/* ===== module: 99-early.js ===== */
+/* Founders and Early Supporters (PRO-PLANS-GUIDE.md, "Founders and Early Supporters") */
+var SBEARLY = null;
+(() => {
+  const K = "studyboard:early", K_SEEN = "studyboard:earlySeen";
+  const read = k => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } };
+  const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+  const S = () => state.settings || {};
+  const uidNow = () => (typeof sbUser !== "undefined" && sbUser ? sbUser.id : null);
+  const paywall = () => typeof PLAN !== "undefined" && !!PLAN && PLAN.paywall();
+  const paid = () => typeof PLAN !== "undefined" && !!PLAN && PLAN.paywall() && PLAN.isPro();
+  const dateStr = v => { const t = Date.parse(v || ""); return isNaN(t) ? "" : new Date(t).toLocaleDateString(undefined, {month: "short", day: "numeric", year: "numeric"}); };
+  const errText = e => String((e && e.message) || "").replace(/^SB_\w+:\s*/, "").slice(0, 160);
+
+  // The last answer, per account (so badges and kept themes work offline)
+  let E = (() => { const c = read(K); return c && c.d && typeof c.d === "object" ? c : {uid: null, d: null, at: 0}; })();
+  const mine = () => (E.d && E.d.member && E.uid && E.uid === uidNow()) ? E.d : null;
+  const status = () => E.d || {on: false};
+  const kind = () => { const d = mine(); return d ? (d.founder ? "founder" : "early") : null; };
+  const keeps = id => { const d = mine(); return !!d && Array.isArray(d.keep) && d.keep.includes(id); };
+
+  let loading = false, lastLoad = 0;
+  async function load(force){
+    if (loading || typeof sb === "undefined" || !sb || !sb.rpc) return;
+    if (!force && Date.now() - lastLoad < 10 * 60000) return;
+    if (typeof inPreview === "function" && inPreview()) return;
+    loading = true; lastLoad = Date.now();
+    const before = JSON.stringify([kind(), (mine() || {}).keep, status().foundersLeft, status().supportersLeft, (mine() || {}).codes, (mine() || {}).themes]);
+    try {
+      const uid = uidNow();
+      const {data, error} = await sb.rpc(uid ? "studyboard_my_early" : "studyboard_early_status");
+      if (error) {
+        if (/could not find|does not exist|schema cache/i.test(String(error.message || "")) || error.code === "PGRST202") E = {uid, d: {on: false}, at: Date.now()};
+        return;
+      }
+      E = {uid, d: data && typeof data === "object" ? data : {on: false}, at: Date.now()};
+      write(K, E);
+    } catch (e) { return; }
+    finally { loading = false; }
+    if (JSON.stringify([kind(), (mine() || {}).keep, status().foundersLeft, status().supportersLeft, (mine() || {}).codes, (mine() || {}).themes]) !== before) {
+      fire("early-changed", kind());
+      try { if (typeof applySkin === "function") applySkin(); } catch (e) {}
+      if (dlg.open && dlg.querySelector(".plan-sheet") && typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("");
+      scheduleRender();
+    }
+    welcome();
+  }
+
+  /* Pictures */
+  const ROSETTE = (px = 30) => `<svg viewBox="0 0 24 24" width="${px}" height="${px}" aria-hidden="true"><path d="M8.2 15.5 6 23l3.4-1.6L11 24l1-7.6z" fill="#7C4DDB"/><path d="M15.8 15.5 18 23l-3.4-1.6L13 24l-1-7.6z" fill="#9B6BF0"/><path d="M12 .8l2 1.6 2.6-.4 1 2.4 2.4 1-.4 2.6 1.6 2-1.6 2 .4 2.6-2.4 1-1 2.4-2.6-.4-2 1.6-2-1.6-2.6.4-1-2.4-2.4-1 .4-2.6-1.6-2 1.6-2-.4-2.6 2.4-1 1-2.4 2.6.4z" fill="#F5B82E" stroke="#C98A0B" stroke-width=".8"/><circle cx="12" cy="10" r="5.6" fill="none" stroke="#FFF3CF" stroke-width=".9" opacity=".9"/><path d="M12 5.9l1.1 2.8 3 .2-2.3 1.9.7 2.9-2.5-1.6-2.5 1.6.7-2.9-2.3-1.9 3-.2z" fill="#fff"/></svg>`;
+  const SEEDLING = (px = 28) => `<svg viewBox="0 0 24 24" width="${px}" height="${px}" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#1FA58F"/><path d="M12 19v-7" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="M12 13c0-3.4-2.3-5.6-5.8-5.6 0 3.4 2.3 5.6 5.8 5.6z" fill="#D9FFF6"/><path d="M12 11.2c0-3 2-5 5.2-5 0 3-2 5-5.2 5z" fill="#fff"/></svg>`;
+  const sw = (act, on, label) => `<button type="button" class="pro-sw" role="switch" aria-checked="${!!on}" data-act="${act}" aria-label="${esc(label)}"><i></i></button>`;
+
+  /* Settings > Studyboard Pro */
+  function themeLine(d){
+    const t = Array.isArray(d.themes) ? d.themes : [];
+    const picked = t.find(x => x.status === "picked");
+    if (picked) {
+      const live = picked.themeId && typeof SKINS !== "undefined" && SKINS.some(s => s.id === picked.themeId);
+      return `<p class="mini" style="margin:0"><b>${esc(picked.name)}</b> was picked! ${live ? "It's in the Style Shop under Founder Themes, and it's yours to keep." : "It's being made now. When it's ready it appears in the Style Shop, and it's yours to keep, with or without Pro."}</p>`;
+    }
+    return `<p class="mini" style="margin:0">${t.length ? `You've suggested ${t.length} of 3. One will be built into Studyboard for every Pro user, and it's yours to keep, with or without Pro.` : "Suggest up to 3 themes. One will be built into Studyboard for every Pro user, and it's yours to keep, with or without Pro."}</p>`;
+  }
+  function codesHtml(d){
+    const c = Array.isArray(d.codes) ? d.codes : [];
+    if (!c.length) return "";
+    const until = c.find(x => x.until) ? ` Each one works once, until ${esc(dateStr(c.find(x => x.until).until))}.` : "";
+    return `<div class="ec-sec"><b>Pro for Your Friends</b><p class="mini" style="margin:0">Give each code to a friend for a month of Pro. They redeem it in Studyboard Pro, Redeem a Code.${until}</p>
+      <ul class="ec-codes">${c.map(x => `<li><code>${esc(x.code)}</code>${x.used ? `<span class="pill">Used</span>` : x.off ? `<span class="pill">Stopped</span>` : `<button type="button" class="btn small" data-act="early-copy" data-id="${esc(x.code)}">Copy</button>${navigator.share ? `<button type="button" class="btn small" data-act="early-share" data-id="${esc(x.code)}">Share</button>` : ""}`}</li>`).join("")}</ul></div>`;
+  }
+  function sheetHtml(){
+    const d = mine(), st = status();
+    if (d) {
+      const f = !!d.founder;
+      return `<section class="early-card ${f ? "founder" : "early"}">
+        <div class="ec-top">${f ? ROSETTE() : SEEDLING()}<div><b>${f ? `Founder #${esc(d.founderNumber || "")}` : `Early Supporter #${esc(d.number || "")}`}</b><span class="mini">${f ? "One of the first 10 people on a Semester or Yearly plan. Thank you for helping build Studyboard!" : "One of Studyboard's first 100 Pro members. Thank you!"}</span></div></div>
+        <div class="ec-row"><span><b>Show My ${f ? "Founder" : "Early Supporter"} Badge in Groups</b><span class="mini">Beside your name in study groups. It stays even if your Pro ends.</span></span>${sw("pro-badge", S().badge, "Show my badge in groups")}</div>
+        ${f ? `<div class="ec-sec"><b>Your Founder Theme</b>${themeLine(d)}<button type="button" class="btn small" data-act="early-themes">${(d.themes || []).length ? "See Your Suggestions" : "Suggest Themes"}</button></div>` : ""}
+        ${codesHtml(d)}
+      </section>`;
+    }
+    if (!st.on || !paywall() || paid()) return "";
+    const fl = +st.foundersLeft || 0, sl = +st.supportersLeft || 0;
+    if (!fl && !sl) return "";
+    return `<section class="early-offer">${fl ? ROSETTE(34) : SEEDLING(30)}<div>
+      ${fl ? `<b>Become a Founder</b><span>The first ${esc(st.founders)} people on a Semester or Yearly plan get a Founder badge in groups and suggest a theme that's built into Studyboard, theirs to keep. <b>${fl} of ${esc(st.founders)} places left.</b></span>` : ""}
+      ${sl ? `<span>${fl ? "Then the" : "The"} first ${esc(st.supporters)} on any plan get an Early Supporter badge and a month of Pro for ${(st.friendCodes || 3) === 1 ? "a friend" : "friends"}. <b>${sl} left.</b></span>` : ""}
+    </div></section>`;
+  }
+
+  /* Founder theme suggestions */
+  function themesSheet(){
+    const d = mine();
+    if (!d || !d.founder) { toast("Theme suggestions are for Studyboard's Founders."); return; }
+    const t = Array.isArray(d.themes) ? d.themes : [], at = n => t.find(x => x.slot === n) || {};
+    const locked = t.some(x => x.status === "picked");
+    openSheet(`<form class="sheet" id="earlyThemes">${head("Your Founder Themes")}<div class="sheet-body">
+      <p style="margin:0">${locked ? "One of your themes was picked. Thank you! Your suggestions are final now." : "Describe up to 3 themes you'd love to study with: colors, a scene, a mood. We'll build one of them into Studyboard for every Pro user, and it's yours to keep for good."}</p>
+      ${[1, 2, 3].map(n => { const x = at(n), p = x.status === "picked"; return `<fieldset class="ec-theme${p ? " picked" : ""}"><legend>${p ? "Picked: " : ""}Theme ${n}</legend>
+        <label class="f">Name<input type="text" name="n${n}" maxlength="40" value="${esc(x.name || "")}" placeholder="${["Ocean Glass", "Library at Night", "Cherry Blossom Rain"][n - 1]}"${locked ? " disabled" : ""}></label>
+        <label class="f">Description<textarea name="d${n}" maxlength="500" rows="3" placeholder="What it looks like, and how it should feel"${locked ? " disabled" : ""}>${esc(x.description || "")}</textarea></label></fieldset>`; }).join("")}
+      <p class="mini" id="ecMsg" aria-live="polite" style="margin:0"></p>
+    </div><div class="sheet-foot"><button type="button" class="btn" data-act="plan-open">Back</button><span class="spacer"></span>${locked ? `<button type="button" class="btn primary" data-act="close">Done</button>` : `<button type="submit" class="btn primary" id="ecSave">Save</button>`}</div></form>`);
+    const f = $("#earlyThemes"); if (!f || locked) return;
+    f.addEventListener("submit", async e => {
+      e.preventDefault();
+      const msg = $("#ecMsg"), go = $("#ecSave"); go.disabled = true; msg.textContent = "Saving…";
+      // Check every suggestion first, then send only what changed since the last save
+      const saved = n => (((mine() || {}).themes || []).find(x => x.slot === n)) || {};
+      const rows = [1, 2, 3].map(n => ({n, name: f.elements["n" + n].value.trim(), desc: f.elements["d" + n].value.trim()}));
+      const bad = rows.find(r => r.name && !r.desc);
+      if (bad) { go.disabled = false; msg.textContent = `Add a short description for theme ${bad.n}.`; return; }
+      try {
+        for (const r of rows) {
+          const x = saved(r.n);
+          if (r.name === (x.name || "") && (r.desc === (x.description || "") || !r.name)) continue;
+          const {error} = await sb.rpc("founder_theme_save", {p_slot: r.n, p_name: r.name, p_description: r.desc});
+          if (error) throw error;
+        }
+      } catch (err) { go.disabled = false; msg.textContent = errText(err) || "Couldn't save. Check your connection and try again."; load(true); return; }
+      await load(true);
+      toast("Your theme suggestions are saved. Thank you!");
+      if (dlg.open && dlg.querySelector("#earlyThemes")) dlg.close();
+    });
+  }
+
+  /* A one-time hello when someone gets a place */
+  function welcome(){
+    const d = mine(), uid = uidNow();
+    if (!d || !uid || typeof qodPop !== "function") return;
+    const seen = read(K_SEEN) || {}, key = uid + ":" + (d.founder ? "founder" : "early");
+    if (seen[key]) return;
+    seen[key] = Date.now(); if (d.founder) seen[uid + ":early"] = Date.now(); write(K_SEEN, seen);
+    const f = !!d.founder;
+    setTimeout(() => qodPop(`<div class="qod-eyebrow">${f ? "Founder" : "Early Supporter"}</div><div style="display:flex;justify-content:center;margin:4px 0 8px">${f ? ROSETTE(56) : SEEDLING(52)}</div>
+      <h2 id="qodT">${f ? `You're Founder #${esc(d.founderNumber || "")}!` : `You're Early Supporter #${esc(d.number || "")}!`}</h2>
+      <p class="qod-q" style="font-size:1.02rem">${f ? "You're one of the first 10 people to back Studyboard on a longer plan." : "You're one of Studyboard's first 100 Pro members."}</p>
+      <p class="mini">${f ? "A Founder badge for your groups, a theme you get to suggest (and keep), and" : "An Early Supporter badge for your groups, and"} ${(d.codes || []).length ? `${(d.codes || []).length} month${(d.codes || []).length === 1 ? "" : "s"} of Pro to give friends.` : "our thanks."} It's all in Settings, Studyboard Pro.</p>
+      <div class="qod-foot"><button type="button" class="btn" data-qod-close data-act="plan-open">See It All</button><button type="button" class="btn primary" data-qod-close data-act="early-badge-on">Show My Badge</button></div>`, "reward"), 900);
+  }
+
+  async function copy(code){
+    try { await navigator.clipboard.writeText(code); toast("Code copied. Send it to a friend!"); }
+    catch (e) { toast(code); }
+  }
+  hook("act", (act, el, id) => {
+    switch (act) {
+      case "early-copy": copy(id); return true;
+      case "early-share": navigator.share({title: "A month of Studyboard Pro", text: `Here's a month of Studyboard Pro on me. In Studyboard, open Settings, Studyboard Pro, Redeem a Code, and type ${id}`}).catch(() => {}); return true;
+      case "early-themes": themesSheet(); return true;
+      case "early-badge-on": if (!S().badge) { state.settings = Object.assign({}, state.settings, {badge: true}); saveSettings(); fire("pro-badge", true); } toast("Your badge shows in your groups."); return true;
+    }
+    return false;
+  });
+  let lastUid;
+  hook("render", () => { const u = uidNow(); if (u !== lastUid) { lastUid = u; load(true); } });
+  hook("plan-changed", () => load(false));
+  hook("boot", () => {
+    load(true);
+    setInterval(() => load(false), 6 * 3600000);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) load(false); });
+  });
+
+  const css = document.createElement("style");
+  css.textContent = `
+.early-card{display:grid;gap:12px;border-radius:4px 14px 14px 14px;padding:14px;border:1px solid var(--line);background:var(--surface)}
+.early-card.founder{background:linear-gradient(135deg,color-mix(in srgb,#F5B82E 16%,var(--surface)),color-mix(in srgb,#8B5CF6 12%,var(--surface)));border-color:color-mix(in srgb,#C9971E 40%,var(--line))}
+.early-card.early{background:color-mix(in srgb,#1FA58F 10%,var(--surface));border-color:color-mix(in srgb,#1FA58F 35%,var(--line))}
+.ec-top{display:flex;gap:12px;align-items:center}
+.ec-top>div{display:grid;gap:2px}
+.ec-top b{font:600 1.1rem var(--display)}
+.ec-row{display:flex;gap:12px;align-items:center;justify-content:space-between}
+.ec-row>span{display:grid;gap:2px}
+.ec-sec{display:grid;gap:6px;justify-items:start}
+.ec-codes{list-style:none;margin:0;padding:0;display:grid;gap:6px;width:100%}
+.ec-codes li{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ec-codes code{font:600 .95rem ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.04em;background:var(--soft);border-radius:6px;padding:3px 8px;flex:1;min-width:0}
+.early-offer{display:flex;gap:12px;align-items:flex-start;border-radius:12px;padding:12px 14px;margin:0;background:linear-gradient(135deg,color-mix(in srgb,#F5B82E 14%,var(--surface)),color-mix(in srgb,#8B5CF6 10%,var(--surface)));border:1px solid color-mix(in srgb,#C9971E 35%,var(--line))}
+.early-offer svg{flex:none}
+.early-offer>div{display:grid;gap:4px;font-size:.92rem;line-height:1.4}
+.ec-theme{border:1px solid var(--line);border-radius:10px;padding:8px 12px 10px;margin:0;display:grid;gap:8px}
+.ec-theme legend{font-weight:700;padding:0 4px}
+.ec-theme.picked{border-color:#C9971E;background:color-mix(in srgb,#F5B82E 10%,var(--surface))}
+`;
+  document.head.appendChild(css);
+
+  SBEARLY = {kind, keeps, status, mine, sheetHtml, themesSheet, refresh: () => load(true)};
+  window.SBEARLY = SBEARLY;
+})();
 /* ===== module: 99-linked.js ===== */
 /* Linked items: one compact row of chips on a task (its edit sheet) and on a deck page */
 (() => {
