@@ -6278,12 +6278,12 @@ SCENES.volcano = function (W, H, dk, rnd) {
   // lava only at night: three streams run from the crater all the way down to the water, with steam where they meet the sea
   function shoreY(x) { var fu = Math.max(0, Math.min(1, (x - (vx - hw - 14)) / (2 * hw + 28))); return base + 1 + Math.sin(Math.PI * fu) * 8 * S; }
   var lava = [], lavaD = '', steamD = '', hissD = '';
-  if (dk) [[-0.5, -0.5, 0], [0.4, 0.42, 1], [0.0, 0.1, 2]].forEach(function (q) { var pts = [], n = 30, x0 = vx + q[0] * rimW, y0 = coneY(x0) + 2;
-    for (var k = 0; k <= n; k++) { var u = k / n, x = x0 + q[1] * hw * Math.pow(u, 1.15) + (Math.sin(u * 7 + q[0] * 5) * 8 + Math.sin(u * 17 + q[2] * 2) * 4 + Math.sin(u * 37 + q[2]) * 1.5) * S * (1 - u * 0.4), y = lerp(y0, shoreY(x) - 1, Math.pow(u, 0.95)); y = Math.max(y, coneY(x) + 3); pts.push([x, Math.min(y, shoreY(x) - 1)]); }
+  if (dk) [[-0.5, -0.5, 0], [0.4, 0.42, 1], [0.0, 0.1, 2]].forEach(function (q) { var pts = [], n = 30, x0 = vx + q[0] * rimW, rdx = (x0 - vx) / (rimW * 0.92), y0 = top + 3 + cry * Math.sqrt(Math.max(0, 1 - rdx * rdx)) + 1; // starts on the crater's front lip
+    for (var k = 0; k <= n; k++) { var u = k / n, x = x0 + q[1] * hw * Math.pow(u, 1.15) + (Math.sin(u * 7 + q[0] * 5) * 8 + Math.sin(u * 17 + q[2] * 2) * 4 + Math.sin(u * 37 + q[2]) * 1.5) * S * (1 - u * 0.4), y = lerp(y0, shoreY(x) - 1, Math.pow(u, 0.95)); if (k) y = Math.max(y, coneY(x) + 3); pts.push([x, Math.min(y, shoreY(x) - 1)]); }
     lava.push(pts); lavaD += pline(pts); var e = pts[pts.length - 1];
     hissD += n1_E(e[0], e[1] + 3 * S, 26 * S, 4 * S);
     for (var j = 0; j < 4; j++) steamD += n1_C(e[0] + (j - 1.5) * 7 * S + Math.sin(j * 2 + q[2]) * 4 * S, e[1] - (8 + j * 9) * S, (6 + j * 3) * S); });
-  if (dk) { stk(refl, 't', lavaD, '#C8502C', (ph ? 2.4 : 4) * S + 1); add(refl, 'l', hissD, 'rgba(255,120,60,0.35)'); if (!ANIM) add(refl, 'm', steamD, 'rgba(235,210,220,0.2)'); }
+  if (dk) { stk(refl, 't', lavaD, '#C8502C', (ph ? 3.6 : 6) * S + 1.4); add(refl, 'l', hissD, 'rgba(255,120,60,0.35)'); if (!ANIM) add(refl, 'm', steamD, 'rgba(235,210,220,0.2)'); }
   var vc = ''; if (!dk) [[vx - hw * 0.62, top + (base - top) * 0.3, 1], [vx + hw * 0.7, top + (base - top) * 0.2, 0.8]].forEach(function (q) { var s = q[2] * (ph ? 0.7 : 1.1); vc += n1_E(q[0], q[1], 54 * s, 10 * s) + n1_C(q[0] - 14 * s, q[1] - 6 * s, 14 * s) + n1_C(q[0] + 12 * s, q[1] - 9 * s, 18 * s); });
   add(refl, 'g', vc, 'rgba(255,255,255,0.9)');
   var reef = ''; spread(0, hz + H * 0.05, W, H * 0.17, ph ? 160 : 260, H * 0.06, rnd, 0.9).forEach(function (c) { if (c.q < 0.45 && Math.abs(c.x - sx) > W * 0.06) { var rw = (ph ? 30 : 60) * (0.6 + c.r * 0.8); reef += n1_E(c.x, c.y, rw, rw * 0.09) + n1_E(c.x + rw * 0.5, c.y + rw * 0.05, rw * 0.5, rw * 0.06); } });
@@ -17847,7 +17847,7 @@ ENGINES.volcano = function (A, v, dk) {
     },
     draw: function (ca, cb, t, f) {
       var tt = t * f.s, i, j;
-      if (dk) { ca.save(); ca.lineCap = 'round'; ca.lineJoin = 'round'; A.lava.forEach(function (pts, k) { ca.strokeStyle = 'rgba(255,110,40,0.85)'; ca.lineWidth = (ph ? 2 : 3.2) * S + 0.6; ca.beginPath(); pts.forEach(function (p, m) { if (m) ca.lineTo(p[0], p[1]); else ca.moveTo(p[0], p[1]); }); ca.stroke();
+      if (dk) { ca.save(); ca.lineCap = 'round'; ca.lineJoin = 'round'; A.lava.forEach(function (pts, k) { ca.strokeStyle = 'rgba(255,110,40,0.85)'; ca.lineWidth = (ph ? 3 : 4.8) * S + 0.9; ca.beginPath(); pts.forEach(function (p, m) { if (m) ca.lineTo(p[0], p[1]); else ca.moveTo(p[0], p[1]); }); ca.stroke();
           ca.globalCompositeOperation = 'lighter'; for (j = 0; j < 7; j++) { var u = ((tt * 0.035 + j / 7 + k * 0.13) % 1), p = along(pts, u); n1_dot(ca, lavaG, p[0], p[1], (10 + 6 * Math.sin(tt + j)) * S, 0.8 * (1 - u * 0.5)); ca.fillStyle = 'rgba(255,230,140,' + (0.9 * (1 - u * 0.6)) + ')'; ca.beginPath(); ca.arc(p[0], p[1], 1.6 * S + 0.5, 0, 7); ca.fill(); } ca.globalCompositeOperation = 'source-over'; });
         ca.globalCompositeOperation = 'lighter'; n1_dot(ca, hotG, Cr[0], Cr[1], Cr[2] * 2.4, 0.6 + 0.2 * Math.sin(tt * 1.3)); for (j = 0; j < 6; j++) n1_dot(ca, lavaG, Cr[0] + Math.sin(tt * 0.3 + j) * 30 * S, A.hz + 6 + j * j * 3, (30 + j * 8) * S, 0.25, 0.12); ca.restore(); }
       puffs.forEach(function (q) { var k = (t - q.t0) / q.life, x = q.x + q.vx * (t - q.t0) + Math.sin(tt * 0.5 + q.ph) * 6 * k, y = Cr[1] - q.vy * (t - q.t0) * (1 - k * 0.35), r = q.r * (1 + k * 5), al = Math.min(1, k * 6) * (1 - k);
