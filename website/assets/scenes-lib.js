@@ -1880,15 +1880,29 @@ SCENES.newyear = function (W, H, dk, rnd) {
   var stars = []; if (dk) spread(0, 0, W, base * 0.9, 46, 46, rnd, 1).forEach(function (c) { if (c.q < 0.35) stars.push([c.x, c.y, 0.5 + c.r * 0.8]); });
   var bursts = ph ? [[0.28, 0.45, 70, 0], [0.74, 0.5, 64, 1], [0.52, 0.6, 50, 2], [0.2, 0.1, 60, 3], [0.8, 0.2, 58, 2], [0.9, 0.62, 36, 3], [0.1, 0.62, 34, 1]]
                    : [[0.56, 0.2, 110, 0], [0.8, 0.13, 86, 1], [0.93, 0.4, 70, 2], [0.68, 0.44, 64, 3], [0.2, 0.55, 58, 2], [0.4, 0.5, 48, 1], [0.12, 0.12, 80, 3], [0.36, 0.09, 60, 1]];
-  var rays = ['', '', '', ''], tips = ['', '', '', ''], glow = ['', '', '', ''], rr = ['', '', '', ''];
+  // the still picture's bursts: sparks with tapered tails that droop with gravity, bright heads, an inner ring in a second colour,
+  // a few twinkles; styles alternate peony, chrysanthemum (long thin trails), golden willow and ring
+  var rays = ['', '', '', ''], tips = ['', '', '', ''], glow = ['', '', '', ''], rr = ['', '', '', ''], sparkW = '';
   bursts.forEach(function (b, bi) { var x = W * b[0], y = H * b[1], R = b[2], c = b[3], n = R > 70 ? 30 : 22, a0 = rnd() * 6; if (ANIM) (ANIM.bursts = ANIM.bursts || []).push({x: x, y: y, R: R, c: c, n: n, a0: a0});
-    glow[c] += circ(x, y, R * 0.95);
-    for (var i = 0; i < n; i++) { var a = a0 + i / n * Math.PI * 2, r1 = R * (0.82 + rnd() * 0.18), r0 = R * 0.28, ca = Math.cos(a), sa = Math.sin(a), px = -sa, py = ca, w = R > 70 ? 1.6 : 1.3;
-      rays[c] += poly([[x + ca * r0, y + sa * r0], [x + ca * r1 + px * w, y + sa * r1 + py * w + 2], [x + ca * r1 - px * w, y + sa * r1 - py * w + 2]]);
-      tips[c] += circ(x + ca * r1, y + sa * r1 + 3, R > 70 ? 2.6 : 2); if (i % 2) tips[(c + 1) % 4] += circ(x + ca * r1 * 0.6, y + sa * r1 * 0.6 + 1, 1.3); }
-    var mx = x, my = base + (base - y) * 0.45; if (my < H) rr[c] += ell(mx, my, R * 0.1, R * 0.5); });
-  if (ANIM) { ANIM.C = C; ANIM.TIP = TIP; ANIM.base = base; glow = rays = tips = rr = ['', '', '', '']; }
+    if (ANIM) return;
+    var st = bi % 4, cw = st === 2 ? 0 : c, ci = (c + 2) % 4, tilt = 0.5 + rnd() * 0.3, rot = (rnd() - 0.5) * 0.8;
+    glow[cw] += circ(x, y, R * (st === 2 ? 1.05 : 0.9));
+    var m = st === 2 ? Math.round(n * 0.8) : st === 3 ? n + 6 : n + 4;
+    for (var i = 0; i < m; i++) { var a = a0 + i / m * Math.PI * 2 + (rnd() - 0.5) * 0.05, ca = Math.cos(a), sa = Math.sin(a), ex = ca, ey = sa;
+      if (st === 3) { var rx = ca, ry = sa * tilt; ex = rx * Math.cos(rot) - ry * Math.sin(rot); ey = rx * Math.sin(rot) + ry * Math.cos(rot); }
+      var r1 = R * (st === 3 ? 0.92 : 0.8 + rnd() * 0.2), dr = st === 2 ? R * (0.55 + 0.35 * Math.max(0, ex * ex)) : R * 0.12 * (r1 / R) * (r1 / R),
+        r0 = st === 1 ? R * 0.12 : st === 2 ? R * 0.18 : st === 3 ? R * 0.78 : R * 0.5,
+        hx = x + ex * r1, hy = y + ey * r1 + dr, tx = x + ex * r0, ty = y + ey * r0, mx = (hx + tx) / 2, my = (hy + ty) / 2 - dr * 0.35;
+      if (st === 2) { mx = x + ex * r1 * 0.85; my = y + ey * r1 * 0.85 + dr * 0.15; }
+      rays[cw] += b2_limb([tx, ty], [mx, my], [hx, hy], st === 1 ? 0.2 : 0.3, st === 2 ? 1.0 : R > 70 ? 1.9 : 1.5, st === 2 ? 6 : 4);
+      tips[cw] += circ(hx, hy, st === 2 ? 1.3 : R > 70 ? 2.4 : 1.9);
+      if (st === 0 && i % 2 === 0) { var r2 = R * (0.42 + rnd() * 0.08), ix = x + ex * r2, iy = y + ey * r2 + dr * 0.3; rays[ci] += b2_limb([x + ex * r2 * 0.75, y + ey * r2 * 0.75], [x + ex * r2 * 0.88, y + ey * r2 * 0.88 + dr * 0.1], [ix, iy], 0.2, 1.2, 3); tips[ci] += circ(ix, iy, 1.4); }
+      if (st !== 2 && rnd() < 0.18) { var sx = x + ex * r1 * (1.04 + rnd() * 0.1), sy = y + ey * r1 * (1.04 + rnd() * 0.1) + dr * 1.4, sr = 1.8 + rnd() * 1.6; sparkW += poly([[sx, sy - sr * 2], [sx + sr * 0.4, sy - sr * 0.4], [sx + sr * 2, sy], [sx + sr * 0.4, sy + sr * 0.4], [sx, sy + sr * 2], [sx - sr * 0.4, sy + sr * 0.4], [sx - sr * 2, sy], [sx - sr * 0.4, sy - sr * 0.4]]); } }
+    if (st === 3) for (var k3 = 0; k3 < 8; k3++) { var aa = rnd() * 6.28, rk = R * 0.3 * rnd(); tips[(c + 1) % 4] += circ(x + Math.cos(aa) * rk, y + Math.sin(aa) * rk, 1.3); }
+    var mx2 = x, my2 = base + (base - y) * 0.45; if (my2 < H) rr[cw] += ell(mx2, my2, R * 0.12, R * 0.5); });
+  if (ANIM) { ANIM.C = C; ANIM.TIP = TIP; ANIM.base = base; }
   ['a', 'b', 'c', 'd'].forEach(function (k, i) { add(far, k, glow[i], dk ? b4_hexA(C[i], 0.3) : b4_hexA(C[i], 0.18)); add(mid, k, rays[i], C[i]); add(mid, ['e', 'f', 'g', 'h'][i], tips[i], TIP[i]); add(refl, k, rr[i], b4_hexA(C[i], dk ? 0.35 : 0.3)); });
+  add(mid, 'i', sparkW, dk ? '#FFFFFF' : 'rgba(255,255,255,0.95)');
   var skF = '', skN = '', winF = '', winN = '', spire = '', occ = [];
   for (var x = -10; x < W + 10;) { var w = 26 + rnd() * 40, h = H * (0.06 + rnd() * 0.12); skF += rect(x, base - h, w, h + 2); occ.push([x, base - h, w]); for (var wy = base - h + 8; wy < base - 6; wy += 10) for (var wx = x + 5; wx < x + w - 6; wx += 9) if (rnd() < 0.18) winF += rect(wx, wy, 3, 4); x += w + 2; }
   for (x = -20; x < W + 20;) { var w2 = 40 + rnd() * 60, h2 = H * (0.04 + rnd() * 0.08) + (rnd() < 0.15 ? H * 0.08 : 0); skN += rect(x, base - h2, w2, h2 + 2); occ.push([x, base - h2, w2]); if (rnd() < 0.25 && occ.push([x + w2 / 2 - 5, base - h2 - 30, 10])) spire += poly([[x + w2 / 2 - 5, base - h2], [x + w2 / 2, base - h2 - 30], [x + w2 / 2 + 5, base - h2]]); for (var wy2 = base - h2 + 10; wy2 < base - 6; wy2 += 13) for (var wx2 = x + 6; wx2 < x + w2 - 8; wx2 += 12) if (rnd() < 0.3) winN += rect(wx2, wy2, 5, 6); x += w2 + 4; }
@@ -14431,65 +14445,126 @@ ENGINES.xmas = function (A, v, dk) {
 };
 
 // New Year's Eve
+// New Year: shells rise with a spark trail and burst in several styles (peony, chrysanthemum, willow, ring, heart, palm, crackle);
+// particles fall with gravity and drag, twinkle as they fade, light the sky and shimmer in the river; smoke drifts off.
+// finish = the tower lights floor by floor, fires a rocket and a finale of bursts ends in a golden willow canopy
+function nye_rand(s) { var x = Math.sin(s * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
 ENGINES.newyear = function (A, v, dk) {
-  var W = v.bw, H = v.bh, C = A.C, TIP = A.TIP, base = A.base, T = A.tower, bursts = [], shows = [];
+  var W = v.bw, H = v.bh, C = A.C, TIP = A.TIP, base = A.base, T = A.tower, ph = !v.desk, shows = [];
   var stars = new Path2D(); (A.stars || []).forEach(function (s) { stars.moveTo(s.x + s.r, s.y); stars.arc(s.x, s.y, s.r, 0, 6.29); });
-  var spr = C.map(function (c) { return b4_sprite(c, 0.3); }), sprW = b4_sprite(dk ? '#FFF4D6' : '#FFFFFF', 0.2), win = dk ? '#F2C862' : '#FFE9A0';
-  (A.bursts || []).forEach(function (b, i) {
-    var calm = v.desk ? (b.x < W * 0.44 && b.y < H * 0.5) : b.y < H * 0.42, P = 4.8 + hash(i + 1) * 2.4, rays = [];
-    for (var j = 0; j < b.n; j++) rays.push([Math.cos(b.a0 + j / b.n * 6.283), Math.sin(b.a0 + j / b.n * 6.283), 0.84 + 0.16 * hash(i * 40 + j)]);
-    bursts.push({x: b.x, y: b.y, R: b.R, c: b.c, rays: rays, P: P, off: hash(i + 13) * P, dim: calm ? 0.5 : 1});
-  });
-  function drawBurst(c, x, y, R, e, a, col, tip, inner, droop, t) {
-    var r = R * (0.15 + 0.85 * e), r0 = r * 0.3, rt = this.rot || 0, cs = Math.cos(rt), sn = Math.sin(rt), rays = this.rays;
-    c.globalAlpha = a; c.strokeStyle = col; c.lineWidth = R > 70 ? 1.8 : 1.4; c.beginPath();
-    rays.forEach(function (q) { var qx = q[0] * cs - q[1] * sn, qy = q[0] * sn + q[1] * cs, rr = r * q[2], d = droop * (rr / R); c.moveTo(x + qx * r0, y + qy * r0); c.lineTo(x + qx * rr, y + qy * rr + d); }); c.stroke();
-    c.fillStyle = tip; c.beginPath(); rays.forEach(function (q) { var qx = q[0] * cs - q[1] * sn, qy = q[0] * sn + q[1] * cs, rr = r * q[2], px = x + qx * rr, py = y + qy * rr + droop * (rr / R) + 2; c.moveTo(px + 2.4, py); c.arc(px, py, R > 70 ? 2.4 : 1.9, 0, 6.29); }); c.fill();
-    c.fillStyle = inner; c.beginPath(); rays.forEach(function (q, j) { if (j % 2) return; var qx = q[0] * cs - q[1] * sn, qy = q[0] * sn + q[1] * cs, rr = r * 0.6, px = x + qx * rr, py = y + qy * rr + droop * 0.6; c.moveTo(px + 1.4, py); c.arc(px, py, 1.4, 0, 6.29); }); c.fill();
+  // six colours: the scene's gold, magenta, cyan and violet, plus white and green
+  var COL = C.concat(dk ? ['#F4F2FF', '#7CF0A0'] : ['#8A8FB8', '#2FA866']), HEAD = TIP.concat(dk ? ['#FFFFFF', '#DFFFE8'] : ['#FFFFFF', '#D8FFE6']);
+  var spr = COL.map(function (c) { return b4_sprite(c, 0.3); }), sprW = b4_sprite(dk ? '#FFF4D6' : '#FFFFFF', 0.2), smokeS = b4_sprite(dk ? '#6E6890' : '#FFFFFF', 0.45), win = dk ? '#F2C862' : '#FFE9A0';
+  var MAXP = ph ? 650 : 1200, NK = ph ? 0.65 : 1, parts = [], shells = [], smoke = [], flashes = [], clk = 0, warm = false;
+  var bursts = (A.bursts || []).map(function (b, i) { var calm = v.desk ? (b.x < W * 0.44 && b.y < H * 0.5) : b.y < H * 0.42;
+    return {x: b.x, y: b.y, R: b.R, c: b.c, P: (4.6 + nye_rand(i + 1) * 2.4), next: 0.4 + nye_rand(i + 13) * 6, cyc: 0, dim: calm ? 0.5 : 1, i: i}; });
+  function add(p) { if (parts.length < MAXP) parts.push(p); }
+  function P(x, y, vx, vy, o) { return {x: x, y: y, vx: vx, vy: vy, age: 0, life: o.life, c: o.c, tr: o.tr, w: o.w, g: o.g, dr: o.dr, tw: o.tw, ck: o.ck, dim: o.dim, glow: o.glow, sh: o.sh, ph: Math.random() * 6.28}; }
+  function puff(x, y, r, life, a) { if (smoke.length < 46) smoke.push({x: x, y: y, r: r, age: 0, life: life, a: a, vx: 5 + Math.random() * 6, vy: -2 - Math.random() * 3}); }
+  // one burst. style: 0 peony, 1 chrysanthemum, 2 willow, 3 ring, 4 heart, 5 palm, 6 crackle
+  function explode(x, y, R, st, ci, dim) {
+    var c2 = (ci + 1 + Math.floor(Math.random() * 3)) % 6, k, n, a, s;
+    flashes.push({x: x, y: y, R: R, c: ci, age: 0, dim: dim, life: st === 2 ? 3.4 : 2.2});
+    for (k = 0; k < 3; k++) puff(x + (Math.random() - 0.5) * R * 0.5, y + (Math.random() - 0.3) * R * 0.4, R * (0.25 + Math.random() * 0.2), 6 + Math.random() * 3, dk ? 0.16 : 0.13);
+    var sp = R * 3.1;
+    if (st === 0 || st === 1 || st === 6) {
+      n = Math.round((R > 70 ? 96 : 70) * NK);
+      for (k = 0; k < n; k++) { a = k / n * 6.283 + Math.random() * 0.08; var z = Math.random() * 2 - 1, f = Math.sqrt(1 - z * z) * (0.92 + Math.random() * 0.08); s = sp * f;
+        add(P(x, y, Math.cos(a) * s, Math.sin(a) * s, st === 6 ? {life: 1.0 + Math.random() * 0.3, c: 0, tr: 0.04, w: 1.5, g: 55, dr: 2.4, ck: 1, dim: dim}
+          : {life: 1.7 + Math.random() * 0.6, c: ci, tr: st === 1 ? 0.15 : 0.06, w: st === 1 ? 1.5 : 2.1, g: 60, dr: 2.2, tw: 1, ck: st === 1 ? 1 : 0, dim: dim, glow: k % 3 === 0})); }
+      if (st !== 6) for (k = 0; k < n * 0.4; k++) { a = Math.random() * 6.283; s = sp * (0.35 + Math.random() * 0.15); add(P(x, y, Math.cos(a) * s, Math.sin(a) * s, {life: 1.3 + Math.random() * 0.4, c: c2, tr: 0.04, w: 1.6, g: 55, dr: 2.4, tw: 1, dim: dim})); }
+    } else if (st === 2) {
+      n = Math.round(80 * NK);
+      for (k = 0; k < n; k++) { a = k / n * 6.283; s = R * 2.1 * (0.85 + Math.random() * 0.15); add(P(x, y, Math.cos(a) * s, Math.sin(a) * s - R * 0.25, {life: 3.2 + Math.random() * 0.8, c: 0, tr: 0.38, w: 1.5, g: 42, dr: 1.6, tw: 1, dim: dim * 0.9})); }
+    } else if (st === 3 || st === 4) {
+      n = Math.round(64 * NK); var rot = (Math.random() - 0.5) * 1.2, tilt = st === 3 ? 0.45 + Math.random() * 0.4 : 1, cr = Math.cos(rot), sr = Math.sin(rot);
+      for (k = 0; k < n; k++) { var u = k / n * 6.283, ex, ey; if (st === 3) { ex = Math.cos(u); ey = Math.sin(u) * tilt; } else { ex = Math.pow(Math.sin(u), 3); ey = -(13 * Math.cos(u) - 5 * Math.cos(2 * u) - 2 * Math.cos(3 * u) - Math.cos(4 * u)) / 16; }
+        s = sp * 0.95; add(P(x, y, (ex * cr - ey * sr) * s, (ex * sr + ey * cr) * s, {life: 1.8 + Math.random() * 0.3, c: st === 4 ? 1 : ci, tr: 0.05, w: 2, g: 40, dr: 2.3, tw: 1, dim: dim, glow: k % 3 === 0})); }
+      for (k = 0; k < 10; k++) { a = Math.random() * 6.283; s = R * 0.5 * Math.random(); add(P(x, y, Math.cos(a) * s, Math.sin(a) * s, {life: 1.2, c: 4, tr: 0.02, w: 1.2, g: 30, dr: 2.5, tw: 1, dim: dim})); }
+    } else {
+      n = ph ? 7 : 9;
+      for (k = 0; k < n; k++) { a = -Math.PI / 2 + (k / (n - 1) - 0.5) * 3.6 + (Math.random() - 0.5) * 0.15; s = sp * 1.05; add(P(x, y, Math.cos(a) * s, Math.sin(a) * s, {life: 2.3, c: 0, tr: 0.22, w: 3, g: 70, dr: 1.7, sh: 1, dim: dim, glow: true})); }
+    }
   }
-  var LAUNCH = 1.05;
+  function launch(x0, x1, y1, R, st, ci, dim, dur) { shells.push({x0: x0, x1: x1, y1: y1, age: 0, dur: dur || 1.1, R: R, st: st, c: ci, dim: dim, sx: x0, sy: base}); }
   function rise(k) { return 1 - Math.pow(1 - b4_cl(k), 2.2); }
-  function shell(c, x0, y0, x1, y1, k, dur, col, sp, a) {
-    c.fillStyle = col; for (var j = 9; j >= 1; j--) { var kk = k - j * 0.035 / dur; if (kk <= 0) continue; var q = rise(kk); c.globalAlpha = a * (0.1 + 0.7 * (1 - j / 9)); c.beginPath(); c.arc(x0 + (x1 - x0) * q, y0 + (y1 - y0) * q, 0.5 + 1.1 * (1 - j / 9), 0, 6.29); c.fill(); }
-    var p = rise(k), hx = x0 + (x1 - x0) * p, hy = y0 + (y1 - y0) * p; b4_glow(c, sp, hx, hy, 14, a); c.globalAlpha = a; c.beginPath(); c.arc(hx, hy, 1.6, 0, 6.29); c.fill();
+  function pickStyle(i, cyc) { var h = nye_rand(i * 7.3 + cyc * 3.1); return h < 0.24 ? 0 : h < 0.44 ? 1 : h < 0.58 ? 2 : h < 0.7 ? 3 : h < 0.77 ? 4 : h < 0.88 ? 5 : 6; }
+  function physics(sd) {
+    shells.forEach(function (s) { s.age += sd; var k = s.age / s.dur, q = rise(k); s.sx = s.x0 + (s.x1 - s.x0) * q + Math.sin(s.age * 9) * 0.6; s.sy = base + (s.y1 - base) * q;
+      if (Math.random() < sd * 38) add(P(s.sx, s.sy, (Math.random() - 0.5) * 18, 10 + Math.random() * 25, {life: 0.45 + Math.random() * 0.3, c: 0, tr: 0.02, w: 1, g: 60, dr: 1.5, dim: s.dim * 0.8}));
+      if (Math.random() < sd * 6) puff(s.sx, s.sy, 3 + Math.random() * 2, 2.5, dk ? 0.1 : 0.14);
+      if (k >= 1) { s.done = 1; explode(s.x1, s.y1, s.R, s.st, s.c, s.dim); } });
+    shells = shells.filter(function (s) { return !s.done; });
+    for (var i = parts.length - 1; i >= 0; i--) { var p = parts[i], d = Math.exp(-p.dr * sd); p.vx *= d; p.vy = p.vy * d + p.g * sd; p.x += p.vx * sd; p.y += p.vy * sd; p.age += sd;
+      if (p.sh && Math.random() < sd * 30 && p.age < p.life * 0.8) add(P(p.x, p.y, p.vx * 0.1 + (Math.random() - 0.5) * 12, p.vy * 0.1 + 8, {life: 0.6 + Math.random() * 0.4, c: 0, tr: 0.02, w: 1, g: 50, dr: 2, tw: 1, dim: p.dim * 0.8}));
+      if (p.ck === 1 && p.age > p.life * 0.82) { p.ck = 2; for (var j = 0; j < 2; j++) add(P(p.x, p.y, (Math.random() - 0.5) * 70, (Math.random() - 0.5) * 70, {life: 0.25 + Math.random() * 0.2, c: 4, tr: 0, w: 1.8, g: 0, dr: 6, dim: p.dim, ck: 3})); }
+      if (p.age >= p.life) parts.splice(i, 1); }
+    smoke.forEach(function (s) { s.age += sd; s.x += s.vx * sd; s.y += s.vy * sd; }); smoke = smoke.filter(function (s) { return s.age < s.life; });
+    flashes.forEach(function (fl) { fl.age += sd; }); flashes = flashes.filter(function (fl) { return fl.age < fl.life; });
   }
-  var bigRings = [], NR = [18, 24, 30, 36];
-  for (var k = 0; k < 4; k++) { var rr = []; for (var j = 0; j < NR[k]; j++) rr.push([Math.cos(k * 0.4 + j / NR[k] * 6.283), Math.sin(k * 0.4 + j / NR[k] * 6.283), 0.9 + 0.1 * hash(k * 50 + j)]); bigRings.push({rays: rr}); }
   var bx = W * (v.desk ? 0.7 : 0.48), by = H * (v.desk ? 0.26 : 0.5), BR = v.desk ? 150 : 100;
   var floors = []; for (var fy = base - 10; fy > T.top + 6; fy -= 12) for (var fx = -12; fx <= 8; fx += 10) floors.push([T.x + fx, fy]);
+  // binned drawing: one path per colour and brightness step
+  var LV = 5, bins = [];
+  function drawParts(c, t, refl) {
+    var i, j, b; for (i = 0; i < 6 * LV; i++) bins[i] = {s: [], h: []};
+    parts.forEach(function (p) { var k = p.age / p.life, a = (k < 0.7 ? 1 : (1 - k) / 0.3) * p.dim;
+      if (p.tw && k > 0.45) a *= Math.sin(t * 26 + p.ph) > -0.2 ? 1 : 0.25;
+      if (p.ck === 3) a *= Math.sin(t * 60 + p.ph) > 0 ? 1 : 0.15;
+      if (refl) { a *= 0.22; if (a < 0.02 || base + (base - p.y) * 0.45 > H + 10) return; }
+      var L = Math.min(LV - 1, Math.floor(a * LV)); if (L < 0) return; bins[p.c * LV + L][p.age < 0.12 ? 'h' : 's'].push(p); });
+    for (i = 0; i < 6; i++) for (j = 0; j < LV; j++) { b = bins[i * LV + j]; if (!b.s.length && !b.h.length) continue;
+      c.globalAlpha = (j + 0.5) / LV;
+      [b.s, b.h].forEach(function (list, hot) { if (!list.length) return; c.strokeStyle = hot ? HEAD[i] : COL[i];
+        list.forEach(function (p) { var y = refl ? base + (base - p.y) * 0.45 : p.y, vy = refl ? -p.vy * 0.45 : p.vy, x = p.x + (refl ? Math.sin(t * 3 + p.y * 0.08) * 2.5 : 0); c.lineWidth = p.w * (refl ? 0.8 : 1); c.beginPath(); c.moveTo(x - p.vx * p.tr, y - vy * p.tr); c.lineTo(x + 0.01, y); c.stroke(); }); });
+      if (refl) continue;
+      [b.s, b.h].forEach(function (list, hot) { if (!list.length) return; c.fillStyle = hot ? HEAD[i] : COL[i]; c.beginPath(); list.forEach(function (p) { var r = p.w * (hot ? 0.8 : 1.05); c.moveTo(p.x + r, p.y); c.arc(p.x, p.y, r, 0, 6.29); }); c.fill(); });
+      c.fillStyle = HEAD[i]; c.globalAlpha *= 0.8; c.beginPath(); b.s.forEach(function (p) { if (p.w < 1.4) return; var r = p.w * 0.45; c.moveTo(p.x + r, p.y); c.arc(p.x, p.y, r, 0, 6.29); }); c.fill(); }
+    if (!refl) parts.forEach(function (p) { if (!p.glow) return; var k = p.age / p.life; b4_glow(c, spr[p.c], p.x, p.y, p.sh ? 20 : 13, (k < 0.6 ? 0.55 : (1 - k) * 1.4) * p.dim * (dk ? 1 : 0.6)); });
+    c.globalAlpha = 1;
+  }
+  function prewarm() { [0, 1, 2].forEach(function (k) { var b = bursts[(k * 3) % Math.max(1, bursts.length)]; if (!b) return; explode(b.x, b.y, b.R, [0, 1, 3][k], b.c, b.dim); }); for (var k2 = 0; k2 < 18; k2++) physics(1 / 30); }
   return {
-    step: function (dt, t, f) { shows = shows.filter(function (s) { return t - s.t0 < 6.9; }); },
+    step: function (dt, t, f) {
+      if (!warm) { warm = true; prewarm(); }
+      var sd = Math.min(dt, 0.05) * f.s; clk += sd;
+      bursts.forEach(function (b) { if (clk >= b.next) { b.cyc++; b.next = clk + b.P; var R = b.R * (0.86 + 0.26 * nye_rand(b.cyc * 1.7 + b.i * 5)); launch(b.x + (nye_rand(b.cyc + b.i) - 0.5) * 24, b.x + (nye_rand(b.cyc * 2 + b.i) - 0.5) * 40, b.y + (nye_rand(b.cyc * 3 + b.i) - 0.5) * 30, R, pickStyle(b.i, b.cyc), (b.c + b.cyc) % 6, b.dim, 0.95 + nye_rand(b.cyc + b.i * 2) * 0.35); } });
+      shows.forEach(function (s) { var u = t - s.t0; s.ev.forEach(function (e) { if (!e.done && u >= e.at) { e.done = 1; if (e.tower) launch(T.x, s.x, s.y, BR, 3, 4, 1, 1.2); else launch(e.x0, e.x, e.y, e.R, e.st, e.c, 1, e.d); } }); });
+      shows = shows.filter(function (s) { return t - s.t0 < 9; });
+      physics(sd);
+    },
     draw: function (ca, cb, t, f) {
       if (dk) { ca.fillStyle = 'rgba(255,250,235,0.7)'; ca.fill(stars); }
-      ca.lineCap = 'round';
-      bursts.forEach(function (b) {
-        var uu = t * f.s + b.off, u = uu % b.P, cyc = Math.floor(uu / b.P), RR = b.R * (0.86 + 0.24 * hash(cyc * 1.7 + b.off * 5)), rot = (hash(cyc * 3.1 + b.off * 2) - 0.5) * 1.3;
-        if (u < LAUNCH) { shell(ca, b.x, base, b.x, b.y, u / LAUNCH, LAUNCH, TIP[b.c], spr[b.c], 0.8 * b.dim * (1 - u / LAUNCH * 0.3)); return; }
-        var w = u - LAUNCH; if (w > 3.4) return;
-        var e = b4_ease(w / 1.1), a = (w < 0.6 ? 1 : Math.pow(Math.max(0, 1 - (w - 0.6) / 2.8), 1.2)) * b.dim;
-        b4_glow(ca, spr[b.c], b.x, b.y, RR * 1.8 * (0.4 + 0.6 * e), a * (dk ? 0.4 : 0.26) + (w < 0.25 ? (0.25 - w) * 2 : 0));
-        b.rot = rot; drawBurst.call(b, ca, b.x, b.y, RR, e, a, C[b.c], TIP[b.c], C[(b.c + 1) % 4], w * w * 5, t);
-        var my = base + (base - b.y) * 0.45; if (my < H + RR * 0.3) b4_glow(ca, spr[b.c], b.x, my, RR * 0.7, a * (dk ? 0.34 : 0.24));
-      });
-      ca.globalAlpha = 1;
-      shows.forEach(function (s, si) {
-        var u = t - s.t0, x = s.x, y = s.y;
-        var lit = b4_cl(u / 0.6), fade = u < 4 ? 1 : b4_cl(1 - (u - 4) / 1.5);
+      ca.save(); if (dk) ca.globalCompositeOperation = 'lighter';
+      // the sky lights up for a moment around each new burst
+      flashes.forEach(function (fl) { var k = Math.max(0, 1 - fl.age / 0.6); if (k > 0) { b4_glow(ca, spr[fl.c], fl.x, fl.y, fl.R * 4.2, k * k * fl.dim * (dk ? 0.22 : 0.14)); b4_glow(ca, sprW, fl.x, fl.y, fl.R * 0.55, k * k * k * fl.dim * 0.35); }
+        var g = Math.max(0, 1 - fl.age / fl.life); b4_glow(ca, spr[fl.c], fl.x, fl.y, fl.R * 1.9, g * g * fl.dim * (dk ? 0.16 : 0.1)); });
+      ca.restore(); ca.globalAlpha = 1;
+      // smoke drifting off
+      smoke.forEach(function (s) { var k = s.age / s.life, a = Math.min(1, s.age * 2) * (1 - k) * s.a; b4_glow(ca, smokeS, s.x, s.y, s.r * 2 * (1 + k * 2.2), a); }); ca.globalAlpha = 1;
+      ca.save(); ca.lineCap = 'round'; if (dk) ca.globalCompositeOperation = 'lighter';
+      // rockets: a bright head with a short glowing tail
+      shells.forEach(function (s) { ca.globalAlpha = 0.8 * s.dim; ca.strokeStyle = HEAD[0]; ca.lineWidth = 2; ca.beginPath(); ca.moveTo(s.sx, s.sy + 10); ca.lineTo(s.sx, s.sy); ca.stroke(); b4_glow(ca, spr[s.c], s.sx, s.sy, 18, 0.8 * s.dim); b4_glow(ca, sprW, s.sx, s.sy, 7, s.dim); });
+      drawParts(ca, t, false);
+      // the river: glow and sparks mirrored below the skyline, rippling
+      ca.beginPath(); ca.rect(-20, base + 3, W + 40, H); ca.clip();
+      flashes.forEach(function (fl) { var g = Math.max(0, 1 - fl.age / fl.life), my = base + (base - fl.y) * 0.45; if (my > H + fl.R) return; ca.globalAlpha = g * fl.dim * (dk ? 0.35 : 0.22); ca.drawImage(spr[fl.c], fl.x - fl.R * 0.35, my - fl.R * 0.7, fl.R * 0.7, fl.R * 1.4); });
+      drawParts(ca, t, true);
+      ca.restore(); ca.globalAlpha = 1;
+      // the tower lights up floor by floor for a show
+      shows.forEach(function (s) { var u = t - s.t0, lit = b4_cl(u / 0.6), fade = u < 6 ? 1 : b4_cl(1 - (u - 6) / 1.5);
         cb.fillStyle = win; floors.forEach(function (p) { var h = (base - p[1]) / (base - T.top); if (h > lit) return; cb.globalAlpha = fade * (0.6 + 0.4 * Math.sin(t * 3 + p[0])); cb.fillRect(p[0], p[1], 4, 6); });
-        cb.globalAlpha = 1; if (u > 0.55 && u < 0.75) b4_glow(cb, sprW, T.x, T.tip, 40, 1 - Math.abs(u - 0.65) * 10);
-        if (u > 0.6 && u < 1.8) { shell(ca, T.x, T.tip, x, y, (u - 0.6) / 1.2, 1.2, dk ? '#FFF0C8' : '#FFF6DE', sprW, 1); var q = rise((u - 0.6) / 1.2); b4_glow(ca, sprW, T.x + (x - T.x) * q, T.tip + (y - T.tip) * q, 26, 0.7); }
-        var w = u - 1.8; if (w < 0 || w > 4.8) return;
-        var e = b4_ease(w / 1.3), a = w < 1.8 ? 1 : Math.pow(Math.max(0, 1 - (w - 1.8) / 3), 1.1);
-        b4_glow(ca, sprW, x, y, BR * 1.1, (w < 0.4 ? (0.4 - w) * 1.3 : 0));
-        b4_glow(ca, spr[si % 4], x, y, BR * 2 * e, a * (dk ? 0.3 : 0.2));
-        for (var k = 0; k < 4; k++) { var ci = (k + si) % 4;
-          var tw = w > 1.2 ? 0.6 + 0.4 * Math.sin(t * 11 + k * 2) : 1;
-          drawBurst.call(bigRings[k], ca, x, y, BR * (0.4 + 0.2 * k), e, a * tw, C[ci], TIP[ci], C[(ci + 2) % 4], w * w * 7, t); }
-        var my = base + (base - y) * 0.45; if (my < H + 40) b4_glow(ca, sprW, x, my, BR * 0.9, a * 0.25);
-      });
-      ca.globalAlpha = 1; cb.globalAlpha = 1;
+        cb.globalAlpha = 1; if (u > 0.55 && u < 0.75) b4_glow(cb, sprW, T.x, T.tip, 40, 1 - Math.abs(u - 0.65) * 10); });
+      cb.globalAlpha = 1;
     },
-    finish: function (t) { if (shows.length && t - shows[shows.length - 1].t0 < 1.2) return; var n = shows.length; shows.push({t0: t, x: bx + (n ? (hash(t) - 0.5) * BR : 0), y: by + (n ? (hash(t + 1) - 0.5) * BR * 0.4 : 0)}); }
+    finish: function (t) {
+      if (shows.length && t - shows[shows.length - 1].t0 < 1.2) return;
+      var n = shows.length, x = bx + (n ? (nye_rand(t) - 0.5) * BR : 0), y = by + (n ? (nye_rand(t + 1) - 0.5) * BR * 0.4 : 0), ev = [{at: 0.6, tower: 1}];
+      // the finale: a ring from the tower, then a volley of bursts around it, then a golden willow canopy over everything
+      [[0.9, -0.9, 0.25, 0.7, 0, 1], [1.25, 0.95, 0.1, 0.65, 1, 2], [1.6, -0.4, -0.35, 0.6, 6, 5], [1.85, 0.5, -0.4, 0.6, 0, 3], [2.15, -1.1, -0.1, 0.55, 5, 0], [2.4, 1.15, -0.25, 0.55, 1, 4], [2.7, 0, 0.35, 0.7, 4, 1], [3.1, 0, -0.15, 1.25, 2, 0]].forEach(function (q) {
+        var ex = x + q[1] * BR, ey = y + q[2] * BR; ev.push({at: q[0] + 1.2, x0: ex + (Math.random() - 0.5) * 30, x: ex, y: ey, R: BR * q[3], st: q[4], c: q[5], d: 0.9 + Math.random() * 0.3}); });
+      shows.push({t0: t, x: x, y: y, ev: ev});
+    }
   };
 };
 
