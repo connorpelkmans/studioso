@@ -788,6 +788,10 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
 .pw-ic{display:grid;place-items:center;width:22px;height:22px;flex:none;border-radius:50%;background:var(--late);color:#fff;font:900 .8rem/1 var(--display)}
 .pw-main{flex:1 1 300px;min-width:0}
 .pw-tip{margin-left:auto;color:var(--muted);font-size:.8rem}
+.plan-busy{background:color-mix(in srgb,var(--accent) 9%,var(--surface))!important;border-color:color-mix(in srgb,var(--accent) 35%,transparent)!important}
+.plan-busy .pw-ic{background:var(--accent)!important;color:var(--accent-ink,#fff)!important}
+.pw-acts{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+@media (max-width:600px){.plan-busy .pw-main{flex:1 1 calc(100% - 40px)}.pw-acts{flex-basis:100%;margin-left:32px}}
 .plan-tabs{margin:16px 0 6px}
 .pt-bar{display:flex;flex-wrap:wrap;gap:4px;padding:4px;border:1px solid var(--line);border-radius:22px;background:color-mix(in srgb,var(--soft) 60%,var(--surface));width:max-content;max-width:100%}
 .pt-bar::-webkit-scrollbar{display:none}

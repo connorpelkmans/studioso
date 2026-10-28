@@ -537,6 +537,7 @@ function normTask(t){
   t = Object.assign({title:"Untitled", courseId:"", type:"Assignment", start:"", due:"", time:"", priority:"med", status:"todo", notes:"", hours:null, checklist:[], pct:0, dependsOn:[], history:[], location:"", link:"", team:"", reading:"", weight:null, difficulty:"med", late:"unknown"}, t);
   if (!DIFF_M[t.difficulty]) t.difficulty = "med";
   if (!LATE_M[t.late]) t.late = "unknown";
+  if (t.latePen != null) { const v = Number(t.latePen); if (t.late === "penalty" && isFinite(v) && v > 0) t.latePen = Math.min(100, v); else delete t.latePen; }
   if (!Array.isArray(t.dependsOn)) t.dependsOn = [];
   if (!Array.isArray(t.history)) t.history = [];
   t.pct = Math.max(0, Math.min(100, Number(t.pct) || 0));
@@ -4404,15 +4405,18 @@ const enoughToday = (t, x) => {
   const target = x && x.alloc > 0 ? Math.max(10, Math.round(x.alloc * 60)) : 0;
   return target > 0 && workedToday(t) >= target;
 };
-/* Next Up: the one thing to do right now */
-function nextUp(F){
+/* Next Up: the one thing to do right now.
+   nowRank takes the plan's ranking and adjusts it for right now: something due later today, a class coming up, what you were
+   just working on, hard work at your best hours, short tasks late at night, and how you've answered past suggestions. It picks
+   from what the plan gives time today, and its pick also leads today's timeline (see availPlan), so the two always agree. */
+function nowRank(F){
   const today = todayISO();
   if (!ui.skipNext || ui.skipNext.day !== today) ui.skipNext = {day: today, ids: []};
   const now = new Date(), hr = now.getHours(), hm = pad(hr) + ":" + pad(now.getMinutes());
   const recent = t => (t.history || []).some(h => /^Focus session/.test(h.text) && Date.now() - h.at < 3 * 3600000);
-  const pool = F.ranked.filter(x => inFilter(x.t) && canDoNow(x.t) && !ui.skipNext.ids.includes(x.t.id) && (x.R > 0 || x.dl <= 0) && !enoughToday(x.t, x));
+  const pool = F.ranked.filter(x => inFilter(x.t) && canDoNow(x.t) && !x.dead && !ui.skipNext.ids.includes(x.t.id) && (x.R > 0 || x.dl <= 0) && !enoughToday(x.t, x));
   const focusLen = Number(pomoCfg().focus) || 25;
-  if (!pool.length) { const em = typeof SBEXAM !== "undefined" ? SBEXAM.rankNext(F, [], pool, focusLen) : null; return (em && em.study) || nextUpStudy(F, null, pool, focusLen); }
+  if (!pool.length) return {pool, scored: [], focusLen, gapMin: null};
   let gapMin = null, gapWhat = "";
   try {
     const nowMin = hr * 60 + now.getMinutes();
@@ -4423,46 +4427,63 @@ function nextUp(F){
   tasksArr().forEach(t => (t.history || []).forEach(h => { const mm = /^Focus session:? (\d+)m/.exec(h.text || ""); if (mm && h.at >= dayStart && t.courseId) courseMin[t.courseId] = (courseMin[t.courseId] || 0) + Number(mm[1]); }));
   const fbW = nufbWeights(nufbLoad(), Date.now());
   const pk = accOf() ? accOf().peak(Date.now()) : null;
+  // Work kept to save the most marks today (band 2) stays in its order; nothing about right now moves anything across bands
+  const band = x => x.tier ? (x.tierSkip ? 1 : 2) : 0;
   const scored = pool.map(x => {
-    const t = x.t, why = [];
+    const t = x.t, why = [], b = band(x);
     let s = x.score * (x.alloc > 0 ? 1 : 0.8);
     const sessionH = Math.min(x.alloc > 0 ? x.alloc : x.R, focusLen * 2 / 60);
-    if (x.dl === 0 && t.time && t.time > hm) { s *= 1.25; why.push(`Due at ${fmtTime(t.time)} today`); }
+    if (x.dl === 0 && t.time && t.time > hm) why.push(`Due at ${fmtTime(t.time)} today`);
+    if (b === 2) return {x, s, why, sessionH, b};
     if (recent(t)) { s *= 1.15; why.push("You were just working on this, so it's quick to pick back up"); }
     if ((pk ? pk.hours.includes(hr) : hr < 12) && diffOf(t) === "hard") { s *= 1.1; why.push(pk ? tr("acc.peakHard", "Hard, and this is when you usually do your best work") : "Hard, so it's best done now while you're fresh"); }
     if (hr >= 21) { if (diffOf(t) === "hard" && x.dl > 1 && !(pk && pk.hours.includes(hr))) s *= 0.8; if (sessionH <= 0.75) { s *= 1.1; why.push("Short enough to finish tonight"); } }
     if (gapMin != null && gapMin >= 15) { if (x.R * 60 <= gapMin + 5) { s *= 1.3; why.push(`Fits in the ${gapMin} minutes before ${gapWhat}`); } else if (diffOf(t) === "hard") s *= 0.85; }
-    if (t.prepFor) why.push("Part of your exam study plan");
-    if (accOf()) { const ub = accOf().underBoost(t); if (ub > 1 && x.dl > 0) { s *= ub; why.push(tr("acc.underWhy", "These usually take you longer than you estimate")); } }
+    if (t.prepFor && !t.xs) why.push("Part of your exam study plan");
+    if (accOf() && !t.xs) { const ub = accOf().underBoost(t); if (ub > 1 && x.dl > 0) { s *= ub; why.push(tr("acc.underWhy", "These usually take you longer than you estimate")); } }
     if (x.dl > 0 && t.courseId && (courseMin[t.courseId] || 0) >= 120) s *= 0.92;
     s *= nufbMult(fbW, t.type, t.courseId, t.id, x.dl);
-    return {x, s, why, sessionH};
+    return {x, s, why, sessionH, b};
   });
   deadlineGuard(scored, y => y.x, "s");
-  scored.sort((a, b) => b.s - a.s);
+  scored.sort((a, b) => b.b - a.b || b.s - a.s);
   const exm = typeof SBEXAM !== "undefined" ? SBEXAM.rankNext(F, scored, pool, focusLen) : null;
-  if (exm && exm.study) return exm.study;
-  let aiPick = !exm && autoPlanOn() && AUTO.next && AUTO.next.day === today && Date.now() - (AUTO.next.at || 0) < 8 * 3600000 ? (AUTO.next.list || []).find(x => scored.some(y => y.x.t.id === x.id)) : null;
+  if (exm && exm.study) return {pool, scored, exm, focusLen, gapMin};
+  // Today's Plan decides what gets time today; right now picks among that
+  const planned = scored.filter(y => y.x.alloc > 0), base = planned.length ? planned : scored;
+  let aiPick = !exm && autoPlanOn() && AUTO.next && AUTO.next.day === today && Date.now() - (AUTO.next.at || 0) < 8 * 3600000 ? (AUTO.next.list || []).find(x => base.some(y => y.x.t.id === x.id)) : null;
   if (aiPick) {
-    const idx = scored.findIndex(y => y.x.t.id === aiPick.id), y = scored[idx], top = scored[0];
+    const idx = scored.findIndex(y => y.x.t.id === aiPick.id), y = scored[idx], top = base[0];
     const urgent = top.x.dl <= 0 && top.x.R > 0 && (top.x.behind > 0 || top.x.rho >= 0.9) && y.x.dl > 0;
     const leap = scored.slice(0, idx).some(z => z.x.dl >= 0 && z.x.dl <= 3 && z.x.R > 0 && y.x.dl >= z.x.dl + 7 && (y.x.own || 0) < 0.75);
-    if (urgent || leap || (idx > 5 && y.s < top.s * 0.6)) aiPick = null;
+    if (urgent || leap || y.b < top.b || (idx > 5 && y.s < top.s * 0.6)) aiPick = null;
   }
-  // Do This Next is whatever the day's timeline has scheduled now, or next: the two always agree
-  const nowM = hr * 60 + now.getMinutes(), sb = F.slotsBy || {};
-  const planned = scored.map(y => { const l = (sb[y.x.t.id] || []).filter(sl => sl && sl.e > nowM); return {y, at: l.length ? Math.min(...l.map(sl => Math.max(sl.s, nowM))) : null}; }).filter(o => o.at != null).sort((a, b) => a.at - b.at)[0];
-  if (planned && !(aiPick && aiPick.id === planned.y.x.t.id)) aiPick = null;
-  const pick = planned ? planned.y : aiPick ? scored.find(y => y.x.t.id === aiPick.id) : scored[0];
-  ui.nextShown = pick.x.t.id;
-  const cl = (pick.x.t.checklist || []).find(i => !i.done);
+  const pick = aiPick ? scored.find(y => y.x.t.id === aiPick.id) : base[0];
+  return {pool, scored, exm, aiPick, pick, focusLen, gapMin};
+}
+// The task that leads today's timeline: Do This Next's pick
+function nowLead(F){
+  if (typeof ui === "undefined") return "";
+  const keep = ui.nextShown;
+  try { const r = nowRank(F); return r.pick && !(r.exm && r.exm.study) ? r.pick.x.t.id : ""; } catch (e) { return ""; } finally { ui.nextShown = keep; }
+}
+function nextUp(F){
+  const r = nowRank(F), pool = r.pool, focusLen = r.focusLen;
+  if (!pool.length) { const em = typeof SBEXAM !== "undefined" ? SBEXAM.rankNext(F, [], pool, focusLen) : null; return (em && em.study) || nextUpStudy(F, null, pool, focusLen); }
+  if (r.exm && r.exm.study) return r.exm.study;
+  const pick = r.pick, aiPick = r.aiPick, gapMin = r.gapMin, t = pick.x.t;
+  ui.nextShown = planTaskId(t);
+  const cl = (t.checklist || []).find(i => !i.done);
   const step = aiPick && aiPick.step ? {text: aiPick.step} : cl;
   // Your chosen timer length, shortened only when this task's time today is less than that
   const cap = aiPick && aiPick.min ? Math.round(aiPick.min / 5) * 5 : pick.x.alloc > 0 ? Math.round(pick.x.alloc * 60 / 5) * 5 : 0;
   let mins = cap >= 5 && cap < focusLen ? cap : focusLen;
   if (gapMin != null && gapMin >= 15) mins = Math.max(10, Math.min(mins, Math.floor((gapMin - 5) / 5) * 5));
   const why = (aiPick && aiPick.why ? [aiPick.why] : pick.why.concat(pick.x.reasons)).filter((r, i, a) => a.indexOf(r) === i && !(r === "Due today" && a.some(y => /^Due at .* today$/.test(y)))).slice(0, aiPick ? 1 : 3);
-  return (exm ? null : nextUpStudy(F, pick, pool, focusLen)) || {x: pick.x, why, step, mins, left: pool.length - 1, ai: !!aiPick};
+  // Studying for an in-person exam: the study card, with this plan's time for it
+  if (t.xs) { const w2 = pick.why.concat(pick.x.reasons).filter((r, i, a) => a.indexOf(r) === i && !a.some(o => o !== r && o.startsWith(r))).slice(0, 3); why.splice(0, why.length, ...(aiPick && aiPick.why ? [aiPick.why] : w2)); }
+  if (t.xs) { const ex = state.tasks[t.xs.id] || {title: t.title.replace(/^Study for /, "")}; return {x: pick.x, why, step: null, mins, left: pool.length - 1, ai: !!aiPick, study: true, xs: true, hasPlan: false, label: "Study for " + ex.title}; }
+  return (r.exm ? null : nextUpStudy(F, pick, pool, focusLen)) || {x: pick.x, why, step, mins, left: pool.length - 1, ai: !!aiPick};
 }
 // An in-person exam or quiz can't be done now, but studying for it can
 function nextUpStudy(F, top, pool, focusLen){
@@ -4498,13 +4519,13 @@ const nuOpenCls = () => ui.nuMore ? " nu-open" : "";
 const nuMoreBtn = () => `<button type="button" class="nu-more" data-act="nu-more" aria-expanded="${!!ui.nuMore}">Details${NU_CHEV}</button>`;
 function nextUpHtml(F, pre){
   const n = arguments.length > 1 ? pre : nextUp(F); if (!n) return "";
-  const t = n.x.t, c = courseOf(t.courseId);
+  const t0 = n.x.t, t = n.xs && t0.xs ? state.tasks[t0.xs.id] || t0 : t0, c = courseOf(t.courseId);
   if (n.study) return `<div class="next-up nu-nochk${nuOpenCls()}" style="--c:${esc(colorOf(t.courseId))}">
-    <div class="nu-top"><span class="nu-label">Do This Next</span></div>
+    <div class="nu-top"><span class="nu-label">Do This Next</span>${n.xs && n.x.alloc > 0 ? `<span class="nu-alloc" title="Suggested study time today">${fmtHM(n.x.alloc)}<span class="nu-td"> today</span></span>` : ""}</div>
     <div class="nu-row">
       <div class="nu-body">
         <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">${nuRing(t)}Study for ${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>${c ? `<span class="tag nu-tag-out">${esc(courseLabel(c))}</span>` : ""}
-        ${nuMoreBtn()}<span class="nu-why">${n.why.map(r => `<span class="nu-chip${/tomorrow/.test(r) ? " soon" : ""}">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}</span>
+        ${nuMoreBtn()}<span class="nu-why">${n.why.map(r => r.length <= 28 ? `<span class="nu-chip${/tomorrow/.test(r) ? " soon" : ""}">${esc(r)}</span>` : `<span class="nu-note">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}</span>
         <span class="nu-step">${n.hasPlan ? "Review your weakest topics or flashcards for it." : "Review now, or let Plan My Prep spread short sessions over the days before it."}</span>
       </div>
       <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-study="1" data-id="${esc(t.id)}" data-mins="${n.mins}">${TOMATO}Study for ${n.mins}m</button>${n.hasPlan ? "" : `<button class="btn small" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button>`}<button class="btn small" data-act="nu-skip" data-id="study:${esc(t.id)}">Something Else</button>${nuBackBtn()}</div>
@@ -7963,13 +7984,79 @@ function dueDayFrac(t){
   if (!t.time) return 0.75;
   return t.time < "12:00" ? 0 : t.time < "18:00" ? 0.4 : 0.75;
 }
-// Study hours available from now until the task is due
-function capacityUntil(t, today, dh, th, cum, day){
+// Study hours available from now until the task is due. On the due day itself only the time before the due time counts
+// (free time from your availability when there is some, else the clock).
+function capacityUntil(t, today, dh, th, cum, day, now, freeBefore){
   const dl = dayDiff(today, t.due);
   if (dl < 0) return 0;
-  if (dl === 0) return th * (MILESTONE(t.type) ? 0.25 : 1);
+  if (dl === 0) {
+    let c = th * (MILESTONE(t.type) ? 0.25 : 1);
+    if (t.time && now) { const dm = dueDate(t).getTime(), left = Math.max(0, (dm - now.getTime()) / 36e5); c = Math.min(c, freeBefore ? Math.min(left, freeBefore(dm)) : left); }
+    return c;
+  }
   if (cum && dl < cum.length) return cum[dl] + day[dl] * dueDayFrac(t);
   return th + dh * (dl - 1) + dh * dueDayFrac(t);
+}
+// Late work: your penalty per day (a share of the item), else a typical 10%
+const LATE_PEN_DEF = 0.1;
+const hasLatePen = t => isNum(t.latePen) && Number(t.latePen) > 0;
+const latePenOf = t => hasLatePen(t) ? Math.min(1, Number(t.latePen) / 100) : LATE_PEN_DEF;
+// "YYYY-MM-DD HH:MM" as a time
+const stampMs = s => { const d = parse(String(s).slice(0, 10)), [h, m] = (String(s).slice(11) || "23:59").split(":").map(Number); d.setHours(h || 0, m || 0, 0, 0); return d.getTime(); };
+// Most marks you can keep from a set of tasks with the hours you have (each task done in full or not at all).
+// items: [{h, v}], cap in hours; returns the indexes kept.
+function keepMost(items, cap){
+  const U = 4, C = Math.max(0, Math.floor(cap * U + 1e-9)), w = items.map(x => Math.max(1, Math.ceil(x.h * U - 1e-9)));
+  if (!items.length) return new Set();
+  if (w.reduce((s, x) => s + x, 0) <= C) return new Set(items.map((x, i) => i));
+  const best = new Float64Array(C + 1), take = items.map(() => new Uint8Array(C + 1));
+  items.forEach((x, i) => { for (let c = C; c >= w[i]; c--) { const v = best[c - w[i]] + x.v; if (v > best[c] + 1e-9) { best[c] = v; take[i][c] = 1; } } });
+  const keep = new Set(); let c = C;
+  for (let i = items.length - 1; i >= 0; i--) if (take[i][c]) { keep.add(i); c -= w[i]; }
+  return keep;
+}
+/* In-person exams and quizzes: their study time is a plan entry of its own, "Study for <exam>" (id "study:<exam id>").
+   Study starts one to two weeks before an exam (half that for a quiz): sooner when the course is near or below its pass
+   mark, and sooner the less prepared you've marked yourself. An exam with its own prep plan already has study sessions. */
+const XS_ID = "study:";
+function examLead(ex){
+  const p = progress(ex).frac, gr = courseRisk(ex.courseId), risk = gr && gr.risk;
+  const byCourse = risk === "risk" || risk === "out" ? 4 : risk === "watch" ? 2 : 0, byPrep = p < 0.25 ? 3 : p < 0.5 ? 2 : p < 0.75 ? 1 : 0;
+  const quiz = ex.type === "Quiz", days = quiz ? Math.max(3, Math.ceil((7 + byCourse + byPrep) / 2)) : 7 + byCourse + byPrep;
+  return {days, risk: byCourse ? risk : "", p, quiz};
+}
+function examStudyTasks(today){
+  const out = [];
+  tasksArr().forEach(ex => {
+    if (!MILESTONE(ex.type) || ex.status === "done" || !ex.due || ex.prepFor || canDoNow(ex) || dayDiff(today, ex.due) < 1 || planSessions(ex.id).length) return;
+    const L = examLead(ex), eff = effortOf(ex) * (L.risk === "risk" || L.risk === "out" ? 1.2 : L.risk === "watch" ? 1.1 : 1), fm = (Number(ex.focusMin) || 0) / 60;
+    const h = eff * (1 - Math.max(L.p, Math.min(1, fm / Math.max(eff, 0.25))));
+    if (!(h >= 0.25)) return;
+    out.push({id: XS_ID + ex.id, title: "Study for " + ex.title, type: "Study", courseId: ex.courseId || "", due: ex.due, time: ex.time || "", start: addDays(ex.due, -L.days),
+      status: "todo", priority: ex.priority || "med", hours: Math.round(h * 4) / 4, weight: weightOf(ex), difficulty: ex.difficulty || "med", late: "unknown", notes: "",
+      checklist: [], dependsOn: [], history: ex.history || [], focusMin: 0, pct: 0, prepFor: ex.id, xs: {id: ex.id, lead: L}});
+  });
+  return out;
+}
+// The real task behind a plan entry (an exam's study entry stands for the exam)
+const planTaskId = t => t && t.xs ? t.xs.id : t ? t.id : "";
+// A step with no due date that a dated task waits on is due early enough to leave time for the task after it
+function prereqDue(open, today, dh){
+  const have = {}; open.forEach(t => { have[t.id] = t; });
+  for (let pass = 0, grew = true; grew && pass < 6; pass++) {
+    grew = false;
+    open.slice().sort((a, b) => dueDate(a) - dueDate(b)).forEach(t => (t.dependsOn || []).forEach(id => {
+      const p = state.tasks[id];
+      if (!p || p.status === "done" || p.due) return;
+      let due = addDays(t.due, -Math.max(1, Math.ceil(remainingOf(t) / Math.max(0.5, dh))));
+      if (due < today) due = today;
+      const cur = have[id];
+      if (cur && cur.due <= due) return;
+      if (cur) { cur.due = due; cur.dueFor = t.id; grew = true; return; }
+      const c = Object.assign({}, p, {due, time: "", dueFor: t.id});
+      have[id] = c; open.push(c); grew = true;
+    }));
+  }
 }
 const fmtHM = h => { const m = Math.round(h * 60 / 15) * 15; const hh = Math.floor(m / 60), mm = m % 60; return hh && mm ? `${hh}h ${mm}m` : hh ? `${hh}h` : `${mm}m`; };
 const fmtMins = n => { const m = Math.max(0, Math.round(Number(n) || 0)), hh = Math.floor(m / 60), mm = m % 60; return hh && mm ? `${hh}h ${mm}m` : hh ? `${hh}h` : `${mm}m`; };
@@ -8017,7 +8104,9 @@ function groupPlanTasks(){
     return {id: "gt:" + r.id, title: r.title, due: r.due, time: "", type: "Assignment", status: r.status === "doing" ? "doing" : "todo", priority: r.priority || "med", courseId: c ? c.id : "", hours: Number(r.hours) > 0 ? Number(r.hours) : 1, notes: r.notes || "", checklist: [], taskIds: [], gt: {gid: r.gid, listId: r.listId, id: r.id, name: r.groupName || r.listTitle || "Group project"}};
   });
 }
-const gtOpenAttrs = t => t.gt ? `data-act="grp-pt-open" data-g="${esc(t.gt.gid)}" data-l="${esc(t.gt.listId)}" data-id="${esc(t.gt.id)}"` : `data-act="edit-task" data-id="${esc(t.id)}"`;
+const gtOpenAttrs = t => t.gt ? `data-act="grp-pt-open" data-g="${esc(t.gt.gid)}" data-l="${esc(t.gt.listId)}" data-id="${esc(t.gt.id)}"` : `data-act="edit-task" data-id="${esc(planTaskId(t))}"`;
+// What a focus button starts: the task itself, or study time for the exam a study entry stands for (none for group tasks)
+const focusAttrs = t => t.gt ? `data-id=""` : t.xs ? `data-id="${esc(t.xs.id)}" data-study="1"` : `data-id="${esc(t.id)}"`;
 function computeFocus(){
   const today = todayISO(), dh0 = dailyHours(), thSet = todayHours(), now = new Date();
   const dh = dh0 * (accOf() ? accOf().capScale() : 1);
@@ -8025,44 +8114,57 @@ function computeFocus(){
   const th0 = Math.max(0, Math.min(thSet - doneToday, 25 - now.getHours() - now.getMinutes() / 60));
   let av = null; try { av = availToday(now); } catch(e) {}
   const th = av && av.active ? Math.min(th0, av.res.total / 60) : th0;
-  const open = tasksArr().filter(t => t.status !== "done" && t.due).concat(groupPlanTasks());
-  const info = {};
   PTS_W = pointsWeights();
+  const open = tasksArr().filter(t => t.status !== "done" && t.due).concat(groupPlanTasks(), examStudyTasks(today));
+  prereqDue(open, today, dh);
+  const info = {};
   const horizon = Math.min(90, Math.max(14, open.reduce((m, t) => Math.max(m, dayDiff(today, t.due)), 0) + 1));
   const B = busyDays(today, addDays(today, horizon));
   const day = [th], cum = [0];
   let AD = null; if (av && av.active) { try { AD = availDays(addDays(today, 1), addDays(today, horizon)); } catch(e) {} }
   for (let i = 1; i <= horizon; i++) { const d = addDays(today, i); day.push(Math.min(dh * (accOf() ? accOf().wkScale(d) : 1) * busyFactor(B.m[d] || 0), AD && AD[d] != null ? AD[d] : Infinity)); }
   for (let i = 1; i <= horizon; i++) cum.push(cum[i - 1] + day[i - 1]);
-  const stamp = nowStamp();
-  const byDue = open.slice().sort((a, b) => dueDate(a) - dueDate(b));
+  const stamp = nowStamp(), nowMs = now.getTime(), nowMin = now.getHours() * 60 + now.getMinutes();
+  // Free hours from now until a time later today, from today's free windows when there are some
+  const freeBefore = av && av.res && av.res.windows ? ms => { const d = new Date(ms), e = d.getHours() * 60 + d.getMinutes(); return Math.min(th, av.res.windows.reduce((s, w) => s + Math.max(0, Math.min(w.e, e) - Math.max(w.s, nowMin)), 0) / 60); } : null;
+  // When each task really has to be in. Past its due time: when late work closes, or now when every late day costs marks.
+  // Work that is past due with no late work accepted (or the late window closed) is closed: it gets no time.
+  const when = t => {
+    const lu = lateUntilOf(t), lp = lateOf(t), dueMs = dueDate(t).getTime(), past = dueMs <= nowMs;
+    const dead = past && (lp === "none" || !!(lu && lu < stamp));
+    let eff = dueMs;
+    if (past && !dead) eff = lp === "free" ? (lu ? stampMs(lu) : nowMs + 3 * 864e5) : lu ? Math.min(stampMs(lu), nowMs) : nowMs;
+    return {lu, lp, dueMs, past, dead, eff};
+  };
+  const W0 = {}; open.forEach(t => { W0[t.id] = when(t); });
+  const byDue = open.slice().sort((a, b) => W0[a.id].eff - W0[b.id].eff || W0[a.id].dueMs - W0[b.id].dueMs);
   let load = 0;
   byDue.forEach(t => {
-    const fx = MILESTONE(t.type) && !canDoNow(t);
+    const w = W0[t.id], fx = MILESTONE(t.type) && !canDoNow(t);
     const R = fx ? 0 : remainingOf(t);
-    const lu = lateUntilOf(t), lp = lateOf(t);
-    const dead = dayDiff(today, t.due) < 0 && (lp === "none" || (lu && lu < stamp));
-    if (!dead) load += R;
-    const A = capacityUntil(t, today, dh, th, cum, day);
-    info[t.id] = {t, R, L: load, A, rho: load / Math.max(A, 0.25), behind: Math.max(0, load - A), dl: dayDiff(today, t.due), late: lp, lateUntil: lu, dead, fixed: fx};
+    if (!w.dead) load += R;
+    const freeLate = w.past && !w.dead && w.lp === "free";
+    const A = w.past ? (freeLate ? Math.max(0, (w.eff - nowMs) / 864e5) * dh : 0) : capacityUntil(t, today, dh, th, cum, day, now, freeBefore);
+    const dl = dayDiff(today, t.due), edl = w.past && !w.dead ? Math.max(0, dayDiff(today, iso(new Date(w.eff)))) : Math.max(0, dl);
+    info[t.id] = {t, R, L: load, A, rho: load / Math.max(A, 0.25), behind: Math.max(0, load - A), dl, edl, late: w.lp, lateUntil: w.lu, dead: w.dead, past: w.past, eff: w.eff, dueMs: w.dueMs, fixed: fx};
   });
-  const nowMs = now.getTime();
   Object.values(info).forEach(x => {
-    const t = x.t, W = weightOf(t), p = progress(t).frac, ms = MILESTONE(t.type);
-    const dd = Math.max(0, (dueDate(t).getTime() - nowMs) / 864e5);
+    const t = x.t, W = weightOf(t), p = progress(t).frac, ms = MILESTONE(t.type), on = !x.past;
+    const dd = Math.max(0, (x.eff - nowMs) / 864e5);
     x.dd = dd;
     const T = 1 / Math.pow(1 + dd / 2, 1.6);
     x.own = x.R > 0 ? x.R / Math.max(x.A, 0.25) : 0;
     const S = x.own >= 1 ? 1 : 0.6 * Math.pow(x.own, 2.5);
     let urg = 1 - (1 - T) * (1 - S);
-    if (x.dl < 0) urg = x.dead ? 0.12 : 1.15;
+    if (x.dead) urg = 0.12;
+    else if (x.past && x.late !== "free") urg = 1.15 * (1 + latePenOf(t));
     const I = Math.max(0.6, Math.min(1.9, 0.6 + 0.35 * Math.log(1 + W / 3)));
     let score = urg * I;
     const m = [];
     const mul = (f, why) => { score *= f; if (why) m.push(why); };
     mul(PRIO_M[t.priority] || 1);
-    if (x.dl >= 0) mul(x.late === "none" ? 1.15 : x.late === "free" ? 0.85 : 1);
-    if (x.own >= 1 && x.dl >= 0) mul(1.15, "fit");
+    if (on) mul(x.late === "none" ? 1.15 : x.late === "free" ? 0.85 : 1);
+    if (x.own >= 1 && on) mul(1.15, "fit");
     x.early = !ms && x.dl >= 1 && EARLY_STEP_RX.test(t.notes || "");
     if (x.early) mul(1.06);
     const fullDay = [1, 2].map(i => addDays(today, i)).find(d => d <= t.due && (B.m[d] || 0) >= 7);
@@ -8070,17 +8172,51 @@ function computeFocus(){
     if (ms && x.dl >= 0 && x.dl <= 7) mul(1.1);
     if (t.status === "doing") mul(1.05);
     if (!ms && p >= 0.7) mul(1.08);
-    if (!ms && x.R > 0 && x.R <= 0.5 && x.dl >= 0 && x.dl <= 2) { mul(1.08); x.quick = true; }
-    if (diffOf(t) === "hard" && x.dl >= 0 && x.dl <= 5) mul(1.06);
+    if (!ms && x.R > 0 && x.R <= 0.5 && on && x.dl <= 2) { mul(1.08); x.quick = true; }
+    if (diffOf(t) === "hard" && on && x.dl <= 5) mul(1.06);
     const hl = t.history || [];
-    x.stale = t.status === "doing" && hl.length && Date.now() - hl[hl.length - 1].at > 5 * 864e5;
-    if (x.stale && x.dl >= 0 && x.dl <= 14) mul(1.05);
+    x.stale = !t.xs && t.status === "doing" && hl.length && Date.now() - hl[hl.length - 1].at > 5 * 864e5;
+    if (x.stale && on && x.dl <= 14) mul(1.05);
     if (accOf() && x.dl >= 1 && x.dl <= 6 && x.R > 0 && p === 0 && !(Number(t.focusMin) > 0)) { const nz = accOf().startNudge(t); if (nz > 1) { mul(nz); x.nudged = true; } }
     x.score = score * 100;
-    // What is due today comes before anything already overdue (overdue work still ranks above what is due later)
-    if (x.dl === 0 && x.R > 0 && !x.dead && !x.fixed) x.score += 1000;
     x.W = W; x.p = p;
   });
+  /* Due now: what is due later today, and late work that loses marks for every day it waits (or whose late window closes today).
+     It all comes before anything due later. When it doesn't all fit in today's time, what is kept is what saves the most marks,
+     and among what is kept, the earliest cut-off goes first. */
+  const endToday = new Date(now); endToday.setHours(23, 59, 59, 999);
+  const tier = Object.values(info).filter(x => x.R > 0 && !x.dead && !x.fixed && (x.past ? x.late !== "free" || x.eff <= endToday.getTime() : x.dl === 0));
+  tier.forEach(x => {
+    const W = x.W, pen = latePenOf(x.t), daysLate = Math.max(1, Math.ceil((nowMs - x.dueMs) / 864e5));
+    const closesToday = !!x.lateUntil && stampMs(x.lateUntil) <= endToday.getTime();
+    x.tier = true;
+    x.stake = !x.past ? (x.late === "none" ? W : x.late === "penalty" ? W * pen : x.late === "free" ? W * 0.05 : W * 0.5)
+      : closesToday ? W * Math.max(0.1, 1 - (x.late === "free" ? 0 : pen * daysLate)) : W * pen;
+    // The next moment it costs marks: its due time, the next late day, or when late work closes
+    let cut = x.past ? x.dueMs + daysLate * 864e5 : x.dueMs;
+    if (x.lateUntil) cut = Math.min(cut, stampMs(x.lateUntil));
+    x.cut = cut; x.closesToday = closesToday;
+  });
+  const keep = keepMost(tier.map(x => ({h: x.R, v: x.stake})), th);
+  const kept = tier.filter((x, i) => keep.has(i)).sort((a, b) => a.cut - b.cut), left0 = tier.filter((x, i) => !keep.has(i)).sort((a, b) => b.stake - a.stake);
+  const tierShort = left0.length > 0;
+  kept.forEach((x, i) => { x.score = 3000 - i * 10 + Math.min(9, x.score / 100); x.tierKeep = tierShort; });
+  left0.forEach((x, i) => { x.score = 2000 - i * 10 + Math.min(9, x.score / 100); x.tierSkip = true; });
+  /* Short of time: when the work due by some date can't all fit before it, the tasks that give the fewest marks for the time
+     go last, and the plan says which */
+  let drop = null;
+  {
+    const cr = byDue.map(t => info[t.id]).find(x => x.behind >= 0.5 && !x.past && !x.dead);
+    if (cr) {
+      // Leave for last the work worth clearly fewer marks per hour than the rest, lowest first, until the rest fits
+      const win = byDue.map(t => info[t.id]).filter(x => x.R > 0 && !x.dead && !x.fixed && x.eff <= cr.eff);
+      const avg = win.reduce((s2, x) => s2 + x.W, 0) / Math.max(0.25, win.reduce((s2, x) => s2 + x.R, 0)), out = [];
+      let over = win.reduce((s2, x) => s2 + x.R, 0) - cr.A;
+      win.filter(x => !x.tier && x.W / x.R < avg * 0.6).sort((a, b) => a.W / a.R - b.W / b.R).forEach(x => { if (over > 0.01) { out.push(x); over -= x.R; } });
+      out.forEach(x => { x.score *= 0.75; x.drop = true; });
+      if (out.length) drop = {by: cr.t.due, short: cr.behind, items: out};
+    }
+  }
   for (let pass = 0; pass < 3; pass++) {
     Object.values(info).forEach(x => (x.t.dependsOn || []).forEach(id => {
       const d = info[id];
@@ -8098,37 +8234,63 @@ function computeFocus(){
   ranked.sort((a, b) => b.score - a.score);
   ranked.forEach(x => {
     const t = x.t, R = x.R;
-    let n = 0;
-    if (R > 0) {
-      if (x.dl <= 0) n = R;
-      else if (MILESTONE(t.type)) n = x.dl > 7 ? 0 : R / Math.min(x.dl, 7);
+    let n = 0, flat = 0;
+    if (R > 0 && !x.dead) {
+      if (x.edl <= 0) n = flat = R;
+      else if (MILESTONE(t.type)) n = flat = x.edl > 7 ? 0 : R / Math.min(x.edl, 7);
       else {
-        const days = x.dl + (dueDayFrac(t) >= 0.4 ? 1 : 0);
-        n = R / Math.max(1, days);
-        n = Math.max(n, R - dh * Math.max(0, days - 1));
-        if (diffOf(t) === "hard") n *= 1.3;
+        const days = x.edl + (!x.past && dueDayFrac(t) >= 0.4 ? 1 : 0);
+        n = flat = R / Math.max(1, days);
+        flat = Math.max(flat, R - dh * Math.max(0, days - 1));
+        // Today's share from the free hours really left before it's due (long class, shift and placement days count less),
+        // less the work due before it that today's time doesn't cover
+        n = Math.max(n, R - Math.max(0, Math.max(0, x.A - th) - Math.max(0, x.L - R - th)));
+        if (diffOf(t) === "hard") { n *= 1.3; flat *= 1.3; }
       }
-      n = Math.min(R, n);
+      n = Math.min(R, n); flat = Math.min(R, flat);
     }
     x.need = n > 0 ? Math.max(0.25, Math.ceil(n * 4) / 4) : 0;
+    x.needFlat = flat > 0 ? Math.max(0.25, Math.ceil(flat * 4) / 4) : 0;
   });
   const left = splitToday(ranked, th, th >= thSet - doneToday - 0.001);
   // A task you have done enough on today (or said was enough) has no time left today anywhere: not in the plan, the schedule or Do This Next
   ranked.forEach(x => { if (x.alloc > 0 && enoughToday(x.t, x)) { x.enough = true; x.alloc = 0; x.need = 0; } });
   const needToday = ranked.reduce((s, x) => s + x.need, 0);
-  let avail = null; if (av) { try { avail = availPlan(av, ranked, th0, needToday, day, today, now); } catch(e) { console.warn(e); } }
-  const crunch = byDue.map(t => info[t.id]).find(x => x.behind >= 0.5 && x.dl >= 0);
+  // Busy days coming up: they push more of the work into today than your usual pace would. When that is more than today's time, the plan offers to add it.
+  let busyAhead = null;
+  {
+    const flatToday = ranked.reduce((s, x) => s + (x.enough ? 0 : x.needFlat), 0), extra = needToday - Math.max(flatToday, th);
+    const dayLeft = Math.max(0, 24 - now.getHours() - now.getMinutes() / 60 - 0.5), add = Math.min(Math.ceil(extra * 2) / 2, Math.max(1, Math.ceil(thSet)), Math.floor(Math.max(0, Math.min(10, dayLeft + doneToday) - thSet) * 2) / 2);
+    if (extra >= 0.5 && add >= 0.5) {
+      const low = []; for (let i = 1; i <= 7 && low.length < 3; i++) { if (day[i] < dh * 0.6) { const d = addDays(today, i); low.push({d, what: (B.what[d] || [])[0] || ""}); } }
+      if (low.length) busyAhead = {add, to: thSet + add, days: low, all: add + 0.01 >= Math.ceil(extra * 2) / 2};
+    }
+  }
+  const crunch = byDue.map(t => info[t.id]).find(x => x.behind >= 0.5 && !x.past && !x.dead);
+  const pct = n => Math.round(n * 10) / 10;
   Object.values(info).forEach(x => {
     const t = x.t, r = [];
     const luD = x.lateUntil ? x.lateUntil.slice(0, 10) : "", luT = x.lateUntil ? x.lateUntil.slice(11) : "";
-    if (x.dl < 0) r.push([100, x.dead ? `Past due, and late work isn't accepted. Check with your instructor.` : luD ? `Overdue. Late submissions close ${fmtDate(luD)}${luT && luT !== "23:59" ? " at " + fmtTime(luT) : ""}` : `Overdue by ${-x.dl} day${x.dl === -1 ? "" : "s"}`]);
-    else r.push([x.dl <= 1 ? 90 : 60 - x.dl, x.dl === 0 ? "Due today" : x.dl === 1 ? "Due tomorrow" : `Due in ${x.dl} days`]);
-    if (x.behind >= 0.5 && x.dl >= 0) r.push([95, `About ${fmtHM(x.behind)} short of time before this is due, counting everything due first`]);
-    else if (x.own >= 1 && x.dl >= 0) r.push([93, "It needs more time than you have left before it's due, so start now"]);
-    else if (x.rho >= 0.75 && x.dl >= 0 && x.dl <= 14) r.push([70, "Little spare time before it's due"]);
+    const penTxt = `Late work loses ${hasLatePen(t) ? "" : "about "}${Math.round(latePenOf(t) * 100)}% a day${hasLatePen(t) ? "" : " (a typical penalty; set the real one in the task)"}${x.W ? `, about ${pct(x.W * latePenOf(t))}% of your grade` : ""}`;
+    if (x.dead) r.push([100, `Past due, and late work isn't accepted. It isn't in today's plan: talk to your instructor if you still want to hand it in`]);
+    else if (x.past && x.dl === 0 && t.time) r.push([100, `Was due at ${fmtTime(t.time)} today${x.late === "free" ? ", and late work is accepted" : ""}`]);
+    else if (x.past) r.push([100, luD ? `Overdue. Late submissions close ${fmtDate(luD)}${luT && luT !== "23:59" ? " at " + fmtTime(luT) : ""}` : `Overdue by ${-x.dl} day${x.dl === -1 ? "" : "s"}`]);
+    else if (!t.dueFor && !t.xs) r.push([x.dl <= 1 ? 90 : 60 - x.dl, x.dl === 0 ? (t.time ? `Due at ${fmtTime(t.time)} today` : "Due today") : x.dl === 1 ? "Due tomorrow" : `Due in ${x.dl} days`]);
+    if (x.past && !x.dead && x.late !== "free" && x.R > 0) r.push([97, penTxt]);
+    if (x.tierKeep) r.push([96, "Not everything due now fits in today's time, and finishing this saves the most marks"]);
+    if (x.tierSkip) r.push([96, x.R > th + 0.01 ? "It can't be finished today, so what can be finished today comes first" : "Not everything due now fits in today's time, and the others save more marks"]);
+    if (x.behind >= 0.5 && !x.past && !x.tier) r.push([95, `About ${fmtHM(x.behind)} short of time before this is due, counting everything due first`]);
+    else if (x.own >= 1 && !x.past) r.push([93, x.dl === 0 && t.time ? `It needs more time than is left before ${fmtTime(t.time)}, so start now` : "It needs more time than you have left before it's due, so start now"]);
+    else if (x.rho >= 0.75 && !x.past && x.dl <= 14 && !x.tier) r.push([70, "Little spare time before it's due"]);
+    if (x.drop) r.push([94, `You're short of time before ${fmtDate(drop.by)}, and this gives the fewest marks for the time, so it comes after the rest`]);
     if (x.own >= 0.5 && x.own < 1 && x.dl > 7) r.push([66, "Big enough that it needs steady time every day until it's due"]);
     if (x.quick) r.push([44, "Quick to clear, and due soon"]);
     if (x.stale) r.push([33, "Started a while ago and hasn't moved since"]);
+    if (t.xs) {
+      const ex = state.tasks[t.xs.id] || {}, L = t.xs.lead, why = [L.risk ? (L.risk === "watch" ? "the course is close to its pass mark" : "the course is below its pass mark") : "", L.p < 0.75 ? `you marked yourself ${Math.round(L.p * 100)}% prepared` : ""].filter(Boolean);
+      r.push([85, `${ex.type || "Exam"} ${x.dl === 1 ? "tomorrow" : `in ${x.dl} days`}${ex.time ? " at " + fmtTime(ex.time) : ""}, in person. Study starts ${L.days} days before it${why.length ? " because " + why.join(" and ") : ""}`]);
+    }
+    if (t.dueFor) { const d = state.tasks[t.dueFor] || info[t.dueFor] && info[t.dueFor].t; r.push([85, `No due date, but ${d ? d.title : "another task"} needs it first, so aim to finish by ${fmtDate(t.due)}`]); }
     if (hasWeight(t) || x.W >= 10 || PTS_W[t.id]) r.push([50 + x.W, `${hasWeight(t) ? "" : "About "}${Math.round(x.W * 10) / 10}% of your grade${!hasWeight(t) && PTS_W[t.id] ? " (from its points)" : ""}`]);
     if (x.fullDay) r.push([72, `${dayDiff(today, x.fullDay) === 1 ? "Tomorrow" : parse(x.fullDay).toLocaleDateString(undefined, {weekday: "long"})} is a full day${(B.what[x.fullDay] || [])[0] ? ` (${B.what[x.fullDay][0]})` : ""}, so it helps to get ahead`]);
     if (x.early) r.push([68, "The instructions mention an earlier step (like a draft or pre-lab). Check for a sooner deadline"]);
@@ -8136,12 +8298,12 @@ function computeFocus(){
     if (pr && pr.ai) r.push([56, `About ${pr.ai.pct}% ready${pr.ai.note ? ": " + pr.ai.note : ""}`]);
     else if (x.fixed) r.push([55, `${remoteOf(t).v === "no" ? "Taken in person" : "Not confirmed as take-home"}, so it is a fixed event, not a task to do now${x.p > 0 ? ` (${Math.round(x.p * 100)}% prepared)` : ""}`]);
     else if (MILESTONE(t.type)) r.push([55, progress(t).plan ? `${Math.round(x.p * 100)}% prepared, following your study plan` : `${Math.round(x.p * 100)}% prepared, about ${fmtHM(x.R)} of study left`]);
-    else if (x.R > 0) r.push([40, `About ${fmtHM(x.R)} of work left`]);
-    if (accOf() && x.R > 0 && isNum(t.hours) && !MILESTONE(t.type)) { const ex = accOf().explain(t); if (ex) r.push([39, ex + " " + tr("acc.planAllows", "Today's Plan allows for it.")]); }
+    else if (x.R > 0) r.push([40, t.xs ? `About ${fmtHM(x.R)} of study left` : `About ${fmtHM(x.R)} of work left`]);
+    if (accOf() && x.R > 0 && isNum(t.hours) && !MILESTONE(t.type) && !t.xs) { const ex = accOf().explain(t); if (ex) r.push([39, ex + " " + tr("acc.planAllows", "Today's Plan allows for it.")]); }
     if (x.nudged) r.push([36, tr("acc.startSooner", "You often finish close to the deadline, so starting a little early helps")]);
-    if (x.unblocks) r.push([80, `Needed before ${x.unblocks.title}`]);
-    if (x.late === "none" && x.dl >= 0) r.push([45, t.late === "none" ? "No late work accepted" : "Submissions close at the due time"]);
-    else if (luD && x.dl >= 0 && t.late !== "penalty" && t.late !== "free") r.push([25, `Late submissions accepted until ${fmtDate(luD)}`]);
+    if (x.unblocks && !t.dueFor) r.push([80, `Needed before ${x.unblocks.title}`]);
+    if (x.late === "none" && !x.past) r.push([45, t.late === "none" ? "No late work accepted" : "Submissions close at the due time"]);
+    else if (luD && !x.past && t.late !== "penalty" && t.late !== "free") r.push([25, `Late submissions accepted until ${fmtDate(luD)}`]);
     if (!MILESTONE(t.type) && x.p >= 0.7) r.push([42, "Almost done"]);
     if (t.status === "doing") r.push([30, "Already in progress"]);
     if (diffOf(t) === "hard") r.push([35, t.difficulty === "hard" ? "Hard, so it helps to start early" : "Looks demanding, so it helps to start early"]);
@@ -8150,8 +8312,9 @@ function computeFocus(){
     if (t.start && t.start > today && !MILESTONE(t.type)) r.push([20, `Starts ${fmtDate(t.start)}`]);
     x.reasons = r.sort((a, b) => b[0] - a[0]).map(y => y[1]);
   });
+  let avail = null; if (av) { try { avail = availPlan(av, ranked, th0, needToday, day, today, now, nowLead({info, ranked, today})); } catch(e) { console.warn(e); } }
   const lateCap = thSet - doneToday > 25 - now.getHours() - now.getMinutes() / 60 + 0.01;
-  FOCUS = {info, ranked, blocked, later, today, th, thSet, doneToday, dh: dh0, planned: avail && avail.active ? avail.planned : th - Math.max(0, left), needToday, crunch, busy: B, day, avail, slotsBy: avail ? avail.by : {}, av, th0, now, lateCap};
+  FOCUS = {info, ranked, blocked, later, today, th, thSet, doneToday, dh: dh0, planned: avail && avail.active ? avail.planned : th - Math.max(0, left), needToday, crunch, drop, busyAhead, busy: B, day, avail, slotsBy: avail ? avail.by : {}, av, th0, now, lateCap};
   FOCUS.gapWhy = planGapWhy(FOCUS);
   return FOCUS;
 }
@@ -8167,7 +8330,9 @@ function planGapWhy(F){
   return why;
 }
 // For tests: the plan as the app sees it right now
-window.__sbPlan = () => { const F = computeFocus(), n = nextUp(F); const pick = x => ({id: x.t.id, title: x.t.title, score: Math.round(x.score), alloc: x.alloc, R: x.R, W: x.W, late: x.late, dead: !!x.dead, fixed: !!x.fixed, reasons: x.reasons}); return {th: F.th, thSet: F.thSet, doneToday: F.doneToday, gapWhy: F.gapWhy, day: F.day.slice(0, 5), ranked: F.ranked.map(pick), later: F.later.map(x => x.t.id), next: n ? {id: n.x.t.id, why: n.why, mins: n.mins, ai: n.ai, study: !!n.study} : null, est: id => localEstimate(state.tasks[id])}; };
+window.__sbPlan = () => { const F = computeFocus(), n = nextUp(F); const pick = x => ({id: x.t.id, title: x.t.title, due: x.t.due, start: x.t.start || "", score: Math.round(x.score), alloc: x.alloc, need: x.need, R: x.R, W: x.W, late: x.late, dead: !!x.dead, past: !!x.past, fixed: !!x.fixed, tier: !!x.tier, drop: !!x.drop, reasons: x.reasons});
+  const first = Object.entries(F.slotsBy || {}).map(([id, l]) => ({id, s: Math.min(...l.map(z => z.s))})).sort((a, b) => a.s - b.s)[0];
+  return {th: F.th, thSet: F.thSet, doneToday: F.doneToday, gapWhy: F.gapWhy, day: F.day.slice(0, 5), ranked: F.ranked.map(pick), later: F.later.map(x => x.t.id), laterRows: F.later.map(pick), blocked: F.blocked.map(x => x.t.id), firstSlot: first ? first.id : "", busyAhead: F.busyAhead, drop: F.drop ? {by: F.drop.by, ids: F.drop.items.map(x => x.t.id)} : null, next: n ? {id: n.x.t.id, why: n.why, mins: n.mins, ai: n.ai, study: !!n.study} : null, est: id => localEstimate(state.tasks[id])}; };
 // Pick the one reason a row shows up front
 function planLead(rs){
   rs = rs || [];
@@ -8235,10 +8400,10 @@ function planRow(x, i, showScore, noRank){
   const side = showScore ? `<span class="score" title="Focus score" aria-label="Focus score ${Math.round(x.score)}">${Math.round(x.score)}</span>`
     : x.alloc > 0 ? `<span class="alloc" title="Time Today's Plan suggests for this today">${fmtHM(x.alloc)}<small class="alloc-l"> today</small></span>` : `<span class="alloc idle">Later</span>`;
   return `<li class="plan-row${open ? " why-open" : ""}" style="--c:${esc(colorOf(t.courseId))}">
-    ${t.gt ? `<span class="check gt-dot" aria-hidden="true"></span>` : `<button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>`}
+    ${t.gt || t.xs ? `<span class="check gt-dot" aria-hidden="true"></span>` : `<button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>`}
     <button class="plan-main" ${gtOpenAttrs(t)} title="${esc(rs.join("\n"))}"><span class="task-title">${esc(t.title)}</span>${t.gt ? `<span class="pr-chip gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? `<span class="pr-chip">${esc(courseLabel(c))}</span>` : ""}</button>${c ? `<span class="pr-chip pr-chip-out">${esc(courseLabel(c))}</span>` : ""}
     ${lead ? rest.length ? `<button class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}" data-act="plan-why" data-id="${esc(key)}" aria-expanded="${open}" aria-controls="pw-${esc(key)}" title="${esc(lead)}. Show all ${rs.length} reasons"><span class="pr-lead">${esc(lead)}</span><span class="pr-n" aria-hidden="true">+${rest.length} more</span></button>` : `<span class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}"><span class="pr-lead">${esc(lead)}</span></span>` : `<span class="pr-why"></span>`}
-    <span class="plan-side">${lmsGoBtn(t)}${window.SBPREP ? SBPREP.matBtn(t) : ""}${side}${showScore || !canDoNow(t) ? "" : `<button class="focus-go" data-act="pomo-task" data-id="${t.gt ? "" : esc(t.id)}" aria-label="Start a focus session on ${esc(t.title)}" title="Start a focus session">${TOMATO}</button>`}</span>
+    <span class="plan-side">${lmsGoBtn(t)}${window.SBPREP ? SBPREP.matBtn(t) : ""}${side}${showScore || !canDoNow(t) ? "" : `<button class="focus-go" data-act="pomo-task" ${focusAttrs(t)} aria-label="Start a focus session on ${esc(t.title)}" title="Start a focus session">${TOMATO}</button>`}</span>
     ${(sl => !showScore && ((sl && sl.length) || x.moved > 0.05) ? `<span class="pr-slot">${sl && sl.length ? `<b>${esc(availSlotText(sl))}</b>` : ""}${x.moved > 0.05 ? `${sl && sl.length ? " " : ""}<span class="mini">${esc(fmtHM(x.moved))} moved to a lighter day</span>` : ""}</span>` : "")(FOCUS && FOCUS.slotsBy ? FOCUS.slotsBy[t.id] : null)}
     ${rest.length ? `<ul class="pr-more" id="pw-${esc(key)}"${open ? "" : " hidden"}>${rest.map(r => `<li>${esc(r)}</li>`).join("")}</ul>` : ""}
   </li>`;
@@ -8246,7 +8411,7 @@ function planRow(x, i, showScore, noRank){
 /* Today's Plan: the next two weeks */
 const RB_DAYS = 14;
 function weekAhead(F, inView){
-  const today = todayISO(), all = Object.values(F.info).filter(x => inView(x) && x.t.status !== "done");
+  const today = todayISO(), all = Object.values(F.info).filter(x => inView(x) && x.t.status !== "done" && !x.t.xs && !x.t.dueFor);
   return Array.from({length: RB_DAYS}, (_, i) => {
     const iso = addDays(today, i), rows = all.filter(x => x.t.due === iso).sort((a, b) => dueDate(a.t) - dueDate(b.t));
     return {i, iso, rows, hours: rows.reduce((s, x) => s + (x.R || 0), 0)};
@@ -8283,6 +8448,29 @@ function ribbonHtml(week, pick, late){
   }).join("") + Object.entries(more).map(([i, n]) => { const iso = week[i].iso; return `<button type="button" class="rb-more" data-act="plan-tile" data-id="d:${iso}" style="left:${pct(+i + 0.5)}" aria-label="${esc(`${n} more due ${fmtDate(iso)}. Show only that day`)}">+${n}</button>`; }).join("");
   return `<div class="rb${late.n ? " has-late" : ""}${Object.keys(more).length ? " has-more" : ""}" role="group" aria-label="The next two weeks"><ol class="rb-days">${days}</ol><i class="rb-line" aria-hidden="true"></i><div class="rb-pins">${pins}</div></div>`;
 }
+// Closed work (past due, and late work isn't accepted) gets no time. It is mentioned once, until you mark it done or tap Got It.
+const CLOSED_LS = "studyboard:closedSeen", BUSY_LS = "studyboard:busyHide";
+const lsObj = k => { try { return JSON.parse(localStorage.getItem(k) || "{}") || {}; } catch (e) { return {}; } };
+function closedHtml(F, inView){
+  const seen = lsObj(CLOSED_LS), list = Object.values(F.info).filter(x => x.dead && !x.fixed && !x.t.gt && inView(x) && x.t.status !== "done" && !seen[x.t.id]).sort((a, b) => b.dueMs - a.dueMs);
+  if (!list.length) return "";
+  return `<div class="plan-past plan-closed" role="region" aria-label="Past due, late work not accepted"><ul>${list.slice(0, 3).map(x => { const t = x.t, c = courseOf(t.courseId);
+    return `<li style="--c:${esc(colorOf(t.courseId))}"><span class="pp-q"><button class="link-btn" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}</button> is past due, and late work isn't accepted<span class="mini">Due ${esc(fmtDate(t.due))}${c ? " · " + esc(courseLabel(c)) : ""}. It isn't in today's plan. Talk to your instructor if you still want to hand it in.</span></span><span class="pp-acts"><button class="btn small primary" data-act="toggle" data-id="${esc(t.id)}">Mark Done</button><button class="btn small" data-act="closed-ok" data-id="${esc(t.id)}">Got It</button></span></li>`; }).join("")}</ul>${list.length > 3 ? `<p class="mini">${list.length - 3} more past due with no late work accepted.</p>` : ""}</div>`;
+}
+// Busy days coming up push more of the work into today than your usual pace. The plan uses the time you set; this offers to add the difference.
+function busyAheadHtml(F){
+  const b = F.busyAhead; if (!b) return "";
+  try { if (localStorage.getItem(BUSY_LS) === todayISO()) return ""; } catch (e) {}
+  const name = d => dayDiff(todayISO(), d.d) === 1 ? "Tomorrow" : parse(d.d).toLocaleDateString(undefined, {weekday: "long"});
+  const days = b.days.map(d => name(d) + (d.what ? ` (${d.what})` : "")), list = days.length > 1 ? days.slice(0, -1).join(", ") + " and " + days[days.length - 1] : days[0];
+  return `<div class="plan-warn plan-busy" role="note"><span class="pw-ic" aria-hidden="true">!</span><span class="pw-main"><b>Busy days ahead.</b> ${esc(list)} ${days.length > 1 ? "leave" : "leaves"} little study time, so more of your work needs doing today. Adding <b>${fmtHM(b.add)}</b> today ${b.all ? "keeps you on track" : "helps you keep up"}.</span><span class="pw-acts"><button class="btn small primary" data-act="today-set" data-id="${b.to}">Make Today ${fmtHM(b.to)}</button><button class="btn small" data-act="busy-hide">Not Today</button></span></div>`;
+}
+// Short of time: which tasks give the fewest marks for the time
+function dropTxt(F){
+  const d = F.drop; if (!d || !d.items.length) return "";
+  const its = d.items.slice(0, 2).map(x => `<b>${esc(x.t.title)}</b> (${Math.round(x.W * 10) / 10}% for about ${fmtHM(x.R)})`);
+  return `Fewest marks for the time: ${its.join(" and ")}. ${d.items.length === 1 ? "It's" : "They're"} planned last, so you could do a quick version, ask for an extension, or add study time.`;
+}
 function focusHtml(){
   const F = FOCUS || computeFocus();
   const inView = x => inFilter(x.t) && matchesQ(x.t);
@@ -8293,7 +8481,7 @@ function focusHtml(){
   let hero = null; if (ui.focusOpen) { try { hero = nextUp(F); } catch (e) { hero = null; } }
   const heroId = hero ? hero.x.t.id : "";
   const pastFixed = Object.values(F.info).filter(x => x.fixed && inView(x) && x.t.status !== "done" && x.dl < 0).sort((a, b) => b.dl - a.dl);
-  const lateRows = workable.filter(x => x.dl < 0), soonRows = workable.filter(x => !(x.alloc > 0));
+  const lateRows = workable.filter(x => x.dl < 0 || x.past), soonRows = workable.filter(x => !(x.alloc > 0));
   const overdue = lateRows.length + pastFixed.length, queued = soonRows.length;
   const week = weekAhead(F, inView), pickDay = /^d:/.test(ui.planTile || "") ? week.find(w => w.iso === ui.planTile.slice(2)) : null;
   if ((ui.planTile === "late" && !overdue) || (/^d:/.test(ui.planTile || "") && !pickDay) || (ui.planTile && ui.planTile !== "late" && !/^d:/.test(ui.planTile))) ui.planTile = "";
@@ -8308,7 +8496,8 @@ function focusHtml(){
   const fixedEv = Object.values(F.info).filter(x => x.fixed && inView(x) && x.t.status !== "done" && x.dl >= 0 && x.dl <= 7).sort((a, b) => dueDate(a.t) - dueDate(b.t)).slice(0, 3);
   const fixedHtml = fixedEv.length ? `<div class="plan-fixed" role="region" aria-label="Exams and quizzes on the calendar"><h3 class="plan-sub">On the Calendar</h3><ul>${fixedEv.map(x => { const t = x.t, e = remoteOf(t); return `<li style="--c:${esc(colorOf(t.courseId))}"><button class="plan-main" data-act="edit-task" data-id="${esc(t.id)}"><span class="task-title">${esc(t.title)}</span></button><span class="pf-when">${x.dl === 0 ? "Today" : x.dl === 1 ? "Tomorrow" : esc(fmtShort(t.due))}${t.time ? " " + esc(fmtTime(t.time)) : ""}</span><span class="rx-chip${e.v ? "" : " unk"}" title="${esc(e.v === "no" ? "Taken in person, so it is not suggested as something to do now." : "Not confirmed as take-home, so it is not suggested as something to do now. Open it to say where it is taken.")}">${e.v === "no" ? "In person" : "Not sure"}</span></li>`; }).join("")}</ul></div>` : "";
   if (queued) sum.push(`${queued} more lined up for the coming days`);
-  const warn = F.crunch && inView(F.crunch) ? `<p class="plan-warn"><span class="pw-ic" aria-hidden="true">!</span><span class="pw-main">${"From now to " + (d => d === todayISO() ? "the end of today" : d === addDays(todayISO(), 1) ? "tomorrow" : esc(fmtDate(d)))(F.crunch.t.due)}, ${Math.abs((F.thSet == null ? F.dh : F.thSet) - F.dh) < 0.01 ? `at ${fmtHM(F.dh)} a day` : `with ${fmtHM(F.thSet)} today and ${fmtHM(F.dh)} a day after`}, you're about <b>${fmtHM(F.crunch.behind)}</b> short for what's due by then.</span> <span class="pw-tip">Add study time, start sooner, or talk to your instructor early.</span></p>` : "";
+  const dropT = dropTxt(F);
+  const warn = F.crunch && inView(F.crunch) ? `<p class="plan-warn"><span class="pw-ic" aria-hidden="true">!</span><span class="pw-main">${"From now to " + (d => d === todayISO() ? "the end of today" : d === addDays(todayISO(), 1) ? "tomorrow" : esc(fmtDate(d)))(F.crunch.t.due)}, ${Math.abs((F.thSet == null ? F.dh : F.thSet) - F.dh) < 0.01 ? `at ${fmtHM(F.dh)} a day` : `with ${fmtHM(F.thSet)} today and ${fmtHM(F.dh)} a day after`}, you're about <b>${fmtHM(F.crunch.behind)}</b> short for what's due by then.${dropT ? " " + dropT : ""}</span>${dropT ? "" : ` <span class="pw-tip">Add study time, start sooner, or talk to your instructor early.</span>`}</p>` : "";
   const nBlk = F.blocked.filter(inView).length, nLater = F.later.filter(inView).length;
   const more = ranked.length > show.length + (heroId ? 1 : 0) || nBlk || nLater;
   const listLabel = pick === "late" ? "Overdue" : pickDay ? (pickDay.i === 0 ? "Due Today" : "Due " + esc(fmtDate(pickDay.iso))) : heroId ? (show.some(x => x.alloc > 0) ? "Also Today" : "Then") : "";
@@ -8331,7 +8520,7 @@ function focusHtml(){
   return `<section class="focus plan" aria-label="Today's Plan">
     <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? `<p class="plan-gap">${F.gapWhy.map(esc).join(" ")}</p>` : ""}</div>
       ${(hoursBar => `<div class="fh-ctl${ptStats ? " fh-chip has-stats" : ""}">${hoursBar}${autoChipHtml()}</div>`)(`<div class="hours-ctl" role="group" aria-label="Study time available today"><span class="mini">Time Today</span><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button><b${hoursTitle ? ` title="${esc(hoursTitle)}"` : ""}>${fmtHM(F.thSet) || "0m"}</b><button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></div>`)}</div>
-    ${ui.focusOpen ? `${window.SBPRO ? SBPRO.todayHtml() : ""}${dayTimelineHtml(F, todayList, heroId)}${nextUpHtml(F, hero)}${skipped}${spare}${warn}${pastHtml}${availStripHtml(F)}
+    ${ui.focusOpen ? `${window.SBPRO ? SBPRO.todayHtml() : ""}${dayTimelineHtml(F, todayList, heroId)}${nextUpHtml(F, hero)}${skipped}${spare}${busyAheadHtml(F)}${warn}${closedHtml(F, inView)}${pastHtml}${availStripHtml(F)}
       ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
       ${fixedHtml}
       ${extraHtml}
@@ -8343,8 +8532,8 @@ function focusHtml(){
         ${nLater ? `<h3 class="fsec">Not Started Yet</h3><ul class="plan-list">${F.later.filter(inView).map((x, i) => planRow(x, i, true, true)).join("")}</ul>` : ""}
       </div>` : ""}
       <div class="plan-how" id="plan-how" role="region" aria-label="How This Is Ranked"${howOpen ? "" : " hidden"}>
-        <p><b>Deadlines come first.</b> Each task's score starts from how close its exact due time is: something due tomorrow counts about five times as much as something due in a week, and dozens of times more than something due in a month. Anything due in the next week always stays above work due 10 or more days after it. The one exception is a big task that needs most of your study time before its deadline (or more than you have), which climbs early so it gets started in time. <b>Grade weight</b> then fine-tunes the order between similar deadlines (a 40% project counts about twice as much as a 1% reading, not more). After that it adjusts for your priority, the late-work policy, tasks already in progress or nearly done, small tasks due soon, hard tasks, work left alone for days, a full placement or class day coming up, and tasks that others depend on.</p>
-        <p>${aiWho() ? `${esc(aiWho())}, your study companion, uses this ranking to choose Do This Next and the ideas it offers you. ` : ""}Today's time is split in score order. Each task gets its fair share of the days left before it's due, more if it can't fit otherwise. Hard tasks are front-loaded, and exam studying is spread over the week before. Work left comes from your hours estimate and progress, minus time you've already spent in focus sessions. When a task has no estimate, Studyboard uses how long your past tasks of that type actually took, and if you usually take longer than you estimate, it allows for that. <b>Do This Next</b> picks from the top of the ranking for right now: something due later today first, what you were just working on, hard tasks in the morning, and shorter ones late at night.${AUTO_ON ? " <b>Automatic AI is on</b>, so the AI also reads your whole list a few times a day: it picks Do This Next and the alternatives, estimates hours for tasks you didn't estimate (using how long your past tasks took), estimates the work left on started tasks from your focus time and progress, judges how ready you are for each exam from your study sessions, flashcards and quizzes, tunes the next study sessions to what you keep missing, and prepares the practice test for practice days. Each part can be turned off under Suggestions, Manage." : ""} For exams and quizzes, work left comes from difficulty, grade weight and how prepared you are. It also reads your Schedule (long class, lab and placement days leave less study time, and it suggests something short when a class is coming up), takes off the focus time you've already done today, and uses what school sync knows: when late submissions close, how many points each item is worth when the gradebook isn't weighted, and word or page counts in the instructions for time estimates. An exam or quiz is only Do This Next when it can be taken from home (Studyboard checks your school site and the instructions, and asks you if it can't tell); in-person ones show under On the Calendar, and their study sessions are what gets suggested.${AUTO_ON ? " The AI also reads your instructions, recent announcements, your schedule and your course standings, and lists anything easy to miss under Heads Up." : ""} Set your usual study hours per day in Settings.</p>
+        <p><b>Deadlines come first.</b> Each task's score starts from how close its exact due time is: something due tomorrow counts about five times as much as something due in a week, and dozens of times more than something due in a month. Anything due in the next week always stays above work due 10 or more days after it. The one exception is a big task that needs most of your study time before its deadline (or more than you have), which climbs early so it gets started in time. <b>Work due now comes before everything else:</b> what's due later today, and late work that loses marks for every day it waits (or whose late window closes today). If it can't all fit in today's time, the plan keeps what saves the most marks and says so. Past its due time, a task is late even on its due day, and on the due day only the time before its due time counts. Work past due that can't be handed in (no late work accepted, or the late window has closed) gets no time: the plan mentions it once so you can talk to your instructor. Late work with no penalty waits like normal work, until its late window. Set a task's penalty per day under Late Work; otherwise about 10% a day is assumed. <b>Grade weight</b> then fine-tunes the order between similar deadlines (a 40% project counts about twice as much as a 1% reading, not more). After that it adjusts for your priority, the late-work policy, tasks already in progress or nearly done, small tasks due soon, hard tasks, work left alone for days, a full placement or class day coming up, and tasks that others depend on.</p>
+        <p>${aiWho() ? `${esc(aiWho())}, your study companion, uses this ranking to choose Do This Next and the ideas it offers you. ` : ""}Today's time is split in score order. Each task gets its fair share of the days left before it's due, more if it can't fit otherwise. That counts the free time really left on each day (long class, shift and placement days count less), and when busy days ahead push more work into today than the time you set, the plan offers to add it. When you can't fit everything due by some date, the work that gives the fewest marks for the time goes last, and the plan names it. A step with no due date that another task waits on is due early enough to leave time for the task after it. Hard tasks are front-loaded, and exam studying is spread over the week before. Work left comes from your hours estimate and progress, minus time you've already spent in focus sessions. When a task has no estimate, Studyboard uses how long your past tasks of that type actually took, and if you usually take longer than you estimate, it allows for that. <b>Do This Next</b> picks from today's plan for right now: what you were just working on, something short that fits before your next class, hard tasks at your best hours, shorter ones late at night, and what you've said to past suggestions. Today's timeline always starts with it.${AUTO_ON ? " <b>Automatic AI is on</b>, so the AI also reads your whole list a few times a day: it picks Do This Next and the alternatives, estimates hours for tasks you didn't estimate (using how long your past tasks took), estimates the work left on started tasks from your focus time and progress, judges how ready you are for each exam from your study sessions, flashcards and quizzes, tunes the next study sessions to what you keep missing, and prepares the practice test for practice days. Each part can be turned off under Suggestions, Manage." : ""} For exams and quizzes, work left comes from difficulty, grade weight and how prepared you are. It also reads your Schedule (long class, lab and placement days leave less study time, and it suggests something short when a class is coming up), takes off the focus time you've already done today, and uses what school sync knows: when late submissions close, how many points each item is worth when the gradebook isn't weighted, and word or page counts in the instructions for time estimates. An exam or quiz is only Do This Next when it can be taken from home (Studyboard checks your school site and the instructions, and asks you if it can't tell); in-person ones show under On the Calendar, and studying for them is planned instead: "Study for" the exam gets time starting one to two weeks before it (half that for a quiz), sooner when the course is near or below its pass mark and the less prepared you've marked yourself. Plan My Prep turns that into study sessions you choose.${AUTO_ON ? " The AI also reads your instructions, recent announcements, your schedule and your course standings, and lists anything easy to miss under Heads Up." : ""} Set your usual study hours per day in Settings.</p>
       ${accOf() ? accOf().howHtml() : ""}
       <${"!--"}plan-how-end--></div>` : ""}
   </section>`;
@@ -9365,16 +9554,18 @@ function availToday(now){
 }
 const availWhen = (day, today) => { for (let i = 1; i < day.length; i++) if (day[i] >= 0.5) return i === 1 ? "tomorrow" : parse(addDays(today, i)).toLocaleDateString(undefined, {weekday: "long"}); return "the coming days"; };
 // Fill in what Today's Plan can say about free time
-function availPlan(av, ranked, th0, needToday, day, today, now){
+function availPlan(av, ranked, th0, needToday, day, today, now, lead){
   const res = av.res, a = availState();
   const nowMin = now.getHours() * 60 + now.getMinutes();
-  // A task you have done enough on today gets no more time today, and one you set aside with Something Else moves down behind the new first task
+  // A task you have done enough on today gets no more time today, and one you set aside with Something Else moves down behind the new first task.
+  // The first task is Do This Next's pick (lead), so the timeline and Do This Next always agree.
   const skipped = new Set(typeof ui !== "undefined" && ui.skipNext && ui.skipNext.day === today ? ui.skipNext.ids : []);
   const isEnough = x => { try { return typeof enoughToday === "function" && enoughToday(x.t, x); } catch (e) { return false; } };
   const live = ranked.filter(x => x.alloc > 0 && !isEnough(x));
   const enoughH = ranked.filter(x => x.alloc > 0 && isEnough(x)).reduce((t, x) => t + x.alloc, 0);
   const fresh = live.filter(x => !skipped.has(x.t.id)), aside = live.filter(x => skipped.has(x.t.id));
-  const tasks = fresh.slice(0, 1).concat(aside, fresh.slice(1)).map(x => ({id: x.t.id, min: Math.round(x.alloc * 60)}));
+  const first = (lead && fresh.find(x => x.t.id === lead)) || fresh[0];
+  const tasks = (first ? [first] : []).concat(aside, fresh.filter(x => x !== first)).map(x => ({id: x.t.id, min: Math.round(x.alloc * 60)}));
   const pl = AVAIL.place(res.windows, tasks, {cfg: a.cfg});
   const by = {}; pl.slots.forEach(s => { (by[s.id] = by[s.id] || []).push(s); });
   if (av.active) ranked.forEach(x => {
@@ -11082,6 +11273,7 @@ function taskForm(t, preset = {}){
               <label class="f"><span class="lh">Grade Weight <span class="hint">% of course grade</span></span><input type="number" name="weight" min="0" max="100" step="0.5" inputmode="decimal" value="${hasWeight(t) ? esc(t.weight) : ""}"></label>
               <label class="f">Late Work<select name="late">${Object.entries(LATE_LABEL).map(([k, l]) => `<option value="${k}" ${k === t.late ? "selected" : ""}>${l}</option>`).join("")}</select></label>
             </div>
+            <label class="f" id="latePenWrap"${t.late === "penalty" ? "" : " hidden"}><span class="lh">Late Penalty <span class="hint">% off for each day late</span></span><input type="number" name="latePen" min="0" max="100" step="1" inputmode="decimal" value="${hasLatePen(t) ? esc(t.latePen) : ""}" placeholder="10"></label>
             <div><span class="lbl" style="font-size:.88rem;font-weight:600">Difficulty</span>${seg("difficulty", [["easy","Easy"],["med","Medium"],["hard","Hard"]], t.difficulty)}</div>
             <p class="plan-hint" id="planHint" aria-live="polite"></p>
           </fieldset>
@@ -11122,6 +11314,7 @@ function taskForm(t, preset = {}){
       pct: Number(fd.get("pct") || 0), dependsOn: deps.slice(),
       weight: isNum(fd.get("weight")) && Number(fd.get("weight")) > 0 ? Math.min(100, Number(fd.get("weight"))) : null,
       difficulty: fd.get("difficulty") || "med", late: fd.get("late") || "unknown",
+      latePen: fd.get("late") === "penalty" && isNum(fd.get("latePen")) && Number(fd.get("latePen")) > 0 ? Math.min(100, Number(fd.get("latePen"))) : null,
       location: cfg.location ? txt("location") : "", team: cfg.team ? txt("team") : "", reading: cfg.reading ? txt("reading") : "", link
     };
     if (MILESTONE(type)) {
@@ -11261,6 +11454,7 @@ function taskForm(t, preset = {}){
   };
   dlg.querySelectorAll("input[name=remote]").forEach(r => r.addEventListener("change", drawRx));
   drawRx();
+  { const ls = dlg.querySelector("select[name=late]"), pw = $("#latePenWrap"); if (ls && pw) ls.addEventListener("change", () => { pw.hidden = ls.value !== "penalty"; }); }
   const planHint = () => {
     const f = new FormData(dlg.querySelector("form"));
     const probe = normTask(Object.assign(clone(t), {type: f.get("type"), hours: f.get("hours") === "" ? null : Number(f.get("hours")), pct: Number(f.get("pct") || 0),
@@ -11270,7 +11464,8 @@ function taskForm(t, preset = {}){
     const ms = MILESTONE(probe.type);
     const x = FOCUS && FOCUS.info[t.id];
     const rankTxt = x ? (() => { const i = FOCUS.ranked.indexOf(x); return i >= 0 ? ` Currently #${i + 1} in Today's Plan${x.alloc > 0 ? `, with ${fmtHM(x.alloc)} suggested today` : ""}.` : ""; })() : "";
-    $("#planHint").innerHTML = (ms ? `Estimated <b>${fmtHM(R)}</b> of studying left, based on difficulty, grade weight and preparedness.`
+    const inPerson = ms && !canDoNow(probe) && !planSessions(t.id).length, lead = inPerson ? examLead(probe) : null;
+    $("#planHint").innerHTML = (ms ? `Estimated <b>${fmtHM(R)}</b> of studying left, based on difficulty, grade weight and preparedness.${lead ? ` Today's Plan starts study time for it ${lead.days} days before${lead.risk ? ", sooner because of your standing in the course" : ""}${lead.p < 0.75 ? `${lead.risk ? " and" : ", sooner"} because of how prepared you are` : ""}.` : ""}`
       : `Estimated <b>${fmtHM(R)}</b> of work left${isNum(probe.hours) && probe.hours > 0 ? "" : " (a typical amount for this type; add Hours Needed for a better plan)"}.`) + rankTxt;
   };
   tForm.addEventListener("input", planHint); tForm.addEventListener("change", planHint);
@@ -11356,7 +11551,7 @@ function repeatDates(due, every, until){
 function repeatCopies(base, every, until){
   const off = dayDiff(base.start || base.due, base.due);
   return repeatDates(base.due, every, until).map((d, i) => {
-    const keep = {}; ["title", "courseId", "type", "time", "priority", "notes", "hours", "weight", "difficulty", "late", "location", "team", "reading", "link", "seriesId"].forEach(k => { if (base[k] !== undefined) keep[k] = clone(base[k]); });
+    const keep = {}; ["title", "courseId", "type", "time", "priority", "notes", "hours", "weight", "difficulty", "late", "latePen", "location", "team", "reading", "link", "seriesId"].forEach(k => { if (base[k] !== undefined) keep[k] = clone(base[k]); });
     const x = newTask(Object.assign(keep, {due: d, start: addDays(d, -off), status: "todo", checklist: (base.checklist || []).map(i => ({id: uid(), text: i.text, done: false}))}));
     x.order += i + 1;
     return {kind: "task", id: x.id, after: x};
@@ -14440,7 +14635,7 @@ function renderPomo(){
   const cfg = pomoCfg(), d = $("#pomoDlg");
   pomoToday();
   const R = 92, C = 2 * Math.PI * R;
-  const openTasks = (FOCUS ? FOCUS.ranked.map(x => x.t) : []).concat(tasksArr().filter(t => t.status !== "done").sort(sortTasks)).filter((t, i, a) => a.indexOf(t) === i && t.status !== "done" && (canDoNow(t) || t.id === pomo.taskId));
+  const openTasks = (FOCUS ? FOCUS.ranked.map(x => x.t).filter(t => !t.xs) : []).concat(tasksArr().filter(t => t.status !== "done").sort(sortTasks)).filter((t, i, a) => a.indexOf(t) === i && t.status !== "done" && (canDoNow(t) || t.id === pomo.taskId));
   const every = Number(cfg.every) || 4, inCycle = pomo.cycle % every;
   const fa = d.contains(document.activeElement) ? document.activeElement : null;
   const keep = !fa ? "" : fa.closest(".pomo-ctl .big") ? ".pomo-ctl .big" : fa.id ? "#" + fa.id : fa.dataset.act ? `[data-act="${fa.dataset.act}"]${fa.dataset.id ? `[data-id="${fa.dataset.id}"]` : ""}` : "";
@@ -15128,6 +15323,9 @@ document.addEventListener("click", e => {
     case "sb-retry": sbRetryNow(); toast("Trying again…"); break;
     case "nudge-later": try { localStorage.setItem("studioso:nudge", String(Date.now())); } catch(err) {} render(); break;
     case "today-h": { const v = Math.max(0, Math.min(16, todayHours() + Number(id))); setTodayHours(v); render(); break; }
+    case "today-set": { const v = Math.max(0, Math.min(16, Number(id) || 0)); setTodayHours(v); toast(`Today's study time is now ${fmtHM(v)}`); render(); break; }
+    case "busy-hide": try { localStorage.setItem("studyboard:busyHide", todayISO()); } catch (err) {} render(); break;
+    case "closed-ok": { try { const k = "studyboard:closedSeen", o = JSON.parse(localStorage.getItem(k) || "{}") || {}; o[id] = Date.now(); Object.keys(o).forEach(x => { if (!state.tasks[x]) delete o[x]; }); localStorage.setItem(k, JSON.stringify(o)); } catch (err) {} render(); break; }
     case "focus-toggle": ui.focusOpen = !ui.focusOpen; render(); break;
     case "plan-rows": ui.planAllToday = !ui.planAllToday; render(); break;
     case "plan-tile": ui.planTile = id && ui.planTile !== id ? id : ""; render(); requestAnimationFrame(() => { const l = ui.planTile && document.querySelector("#view .plan .plan-past, #view .plan #planListLbl"); if (l && l.scrollIntoView) l.scrollIntoView({block: "nearest", behavior: "smooth"}); }); break;
@@ -16846,7 +17044,7 @@ const SCN20 = (() => {
     const F = FOCUS; if (!F || !hasMoment()) return;
     const done = changes.filter(c => c.kind === "task" && c.after && c.after.status === "done" && F.info[c.id]);
     if (!done.length) return;
-    const planned = F.ranked.filter(x => x.alloc > 0).map(x => x.t.id);
+    const planned = F.ranked.filter(x => x.alloc > 0 && !x.t.xs).map(x => x.t.id);
     if (!planned.length || !done.some(c => planned.includes(c.id))) return;
     if (planned.every(id => state.tasks[id] && state.tasks[id].status === "done")) later(2600);
   });
@@ -24063,7 +24261,7 @@ hook("boot", boot);
   function dayList(){
     const today = todayISO(), F = computeFocus(), seen = new Set(), out = [];
     const add = (t, x) => { if (!t || seen.has(t.id)) return; seen.add(t.id); out.push({t, x}); };
-    (F.ranked || []).filter(x => x.alloc > 0 || x.dl <= 0).forEach(x => add(x.t, x));
+    (F.ranked || []).filter(x => (x.alloc > 0 || x.dl <= 0) && !x.t.xs && !x.dead).forEach(x => add(x.t, x));
     tasksArr().filter(t => t.status !== "done" && t.due && t.due <= today).sort((a, b) => (a.due + (a.time || "")).localeCompare(b.due + (b.time || ""))).forEach(t => add(t, null));
     tasksArr().filter(isDoneToday).sort((a, b) => a.doneAt - b.doneAt).forEach(t => add(t, null));
     return {F, list: out};
@@ -30068,7 +30266,9 @@ ${kindPreview("study")}${kindPreview("project")}`;
     Object.values(F.info).forEach(x => {
       const t = x.t, gr = risk[t.courseId];
       if (!gr || !(hasWeight(t) || PTS_W[t.id]) || markPct(t) != null || x.dl > 21 || (x.dl < 0 && x.dead)) return;
-      x.score *= BOOST[gr.risk]; x.passBoost = gr.risk; any = true;
+      // Work due now keeps its own order (what saves the most marks today), so only its reason changes
+      if (!x.tier) x.score *= BOOST[gr.risk];
+      x.passBoost = gr.risk; any = true;
       const np = gr.need(gr.g.pass), nm = courseLabel(gr.c);
       const why = gr.risk === "risk" ? `Helps you pass ${nm}: you need about ${Math.round(np)}% on what's left` : gr.risk === "watch" ? `${nm} is close to its ${r1(gr.g.pass)}% pass mark` : `Every mark counts in ${nm}`;
       x.reasons = (x.reasons || []).slice(); x.reasons.splice(Math.min(1, x.reasons.length), 0, why);
@@ -30078,7 +30278,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     if (typeof deadlineGuard === "function") { deadlineGuard(F.ranked, x => x, "score"); F.ranked.sort((a, b) => b.score - a.score); }
     const left = splitToday(F.ranked, F.th, F.th >= F.thSet - F.doneToday - 0.001);
     F.planned = F.th - Math.max(0, left);
-    if (F.av) { try { F.avail = availPlan(F.av, F.ranked, F.th0, F.ranked.reduce((t, x) => t + (x.need || 0), 0), F.day, F.today, F.now); F.slotsBy = F.avail.by; if (F.avail.active) F.planned = F.avail.planned; } catch (e) { console.warn(e); } }
+    if (F.av) { try { F.avail = availPlan(F.av, F.ranked, F.th0, F.ranked.reduce((t, x) => t + (x.need || 0), 0), F.day, F.today, F.now, typeof nowLead === "function" ? nowLead(F) : ""); F.slotsBy = F.avail.by; if (F.avail.active) F.planned = F.avail.planned; } catch (e) { console.warn(e); } }
     F.gapWhy = planGapWhy(F);
   }
   const origFocusHtml = focusHtml;
@@ -54444,7 +54644,7 @@ var COMP_EXTRA = [];
     const est = estIdea(); if (est) return est;
     if (plan && plan.idea) { const i = plan.idea; if (ideaValid(i)) return i; }
     try {
-      const F = FOCUS || computeFocus(), top = F && F.ranked && F.ranked.find(x => x.alloc > 0 && x.t.status !== "done" && canDoNow(x.t));
+      const F = FOCUS || computeFocus(), top = F && F.ranked && F.ranked.find(x => x.alloc > 0 && x.t.status !== "done" && canDoNow(x.t) && !x.t.xs);
       if (top) return {text: fitsT(top.t.title, 30) ? `I picked ${cleanT(top.t.title)} for you! Focus on it together?` : "I picked your next task! Want to focus on it together?", action: "focus", taskId: top.t.id, local: true};
       const n = allDueCount(); if (n >= 5) return {text: `${n} flashcards are ready! Review them together?`, action: "review", local: true};
     } catch (e) {}
@@ -61836,7 +62036,7 @@ function pending(p){
 function showPending(){
   const p = lsGet(LS_PEND, null);
   if (!p || Date.now() - p.at > 30 * 60000) { if (p) lsSet(LS_PEND, null); return; }
-  let list = []; try { list = (FOCUS ? FOCUS.ranked.map(x => x.t) : []).filter(t => canDoNow(t)); } catch (e) { list = []; }
+  let list = []; try { list = (FOCUS ? FOCUS.ranked.map(x => x.t) : []).filter(t => canDoNow(t) && !t.xs); } catch (e) { list = []; }
   if (list.length < 3) list = list.concat(tasksArr().filter(t => t.status !== "done" && canDoNow(t)).sort(sortTasks)).filter((t, i, a) => a.indexOf(t) === i);
   const opts = list.filter(t => t.status !== "done").slice(0, 3);
   if (!opts.length) { lsSet(LS_PEND, null); return; }

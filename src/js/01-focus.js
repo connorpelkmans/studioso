@@ -223,7 +223,7 @@ function renderPomo(){
   const cfg = pomoCfg(), d = $("#pomoDlg");
   pomoToday();
   const R = 92, C = 2 * Math.PI * R;
-  const openTasks = (FOCUS ? FOCUS.ranked.map(x => x.t) : []).concat(tasksArr().filter(t => t.status !== "done").sort(sortTasks)).filter((t, i, a) => a.indexOf(t) === i && t.status !== "done" && (canDoNow(t) || t.id === pomo.taskId));
+  const openTasks = (FOCUS ? FOCUS.ranked.map(x => x.t).filter(t => !t.xs) : []).concat(tasksArr().filter(t => t.status !== "done").sort(sortTasks)).filter((t, i, a) => a.indexOf(t) === i && t.status !== "done" && (canDoNow(t) || t.id === pomo.taskId));
   const every = Number(cfg.every) || 4, inCycle = pomo.cycle % every;
   const fa = d.contains(document.activeElement) ? document.activeElement : null;
   const keep = !fa ? "" : fa.closest(".pomo-ctl .big") ? ".pomo-ctl .big" : fa.id ? "#" + fa.id : fa.dataset.act ? `[data-act="${fa.dataset.act}"]${fa.dataset.id ? `[data-id="${fa.dataset.id}"]` : ""}` : "";

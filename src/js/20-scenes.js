@@ -309,7 +309,7 @@
     const F = FOCUS; if (!F || !hasMoment()) return;
     const done = changes.filter(c => c.kind === "task" && c.after && c.after.status === "done" && F.info[c.id]);
     if (!done.length) return;
-    const planned = F.ranked.filter(x => x.alloc > 0).map(x => x.t.id);
+    const planned = F.ranked.filter(x => x.alloc > 0 && !x.t.xs).map(x => x.t.id);
     if (!planned.length || !done.some(c => planned.includes(c.id))) return;
     if (planned.every(id => state.tasks[id] && state.tasks[id].status === "done")) later(2600);
   });

@@ -273,7 +273,7 @@ function pending(p){
 function showPending(){
   const p = lsGet(LS_PEND, null);
   if (!p || Date.now() - p.at > 30 * 60000) { if (p) lsSet(LS_PEND, null); return; }
-  let list = []; try { list = (FOCUS ? FOCUS.ranked.map(x => x.t) : []).filter(t => canDoNow(t)); } catch (e) { list = []; }
+  let list = []; try { list = (FOCUS ? FOCUS.ranked.map(x => x.t) : []).filter(t => canDoNow(t) && !t.xs); } catch (e) { list = []; }
   if (list.length < 3) list = list.concat(tasksArr().filter(t => t.status !== "done" && canDoNow(t)).sort(sortTasks)).filter((t, i, a) => a.indexOf(t) === i);
   const opts = list.filter(t => t.status !== "done").slice(0, 3);
   if (!opts.length) { lsSet(LS_PEND, null); return; }
