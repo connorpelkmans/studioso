@@ -7919,7 +7919,7 @@ SCENES.geology = function (W, H, dk, rnd) {
   var dm = '', dmS = ''; spread(0, H * 0.6, W, H * 0.16, 70, 40, rnd, 0.8).forEach(function (c) { var h = 30 + c.r * 50, cn = n5_cone(c.x, yF(c.x) - 18, 10 + c.r * 4, h, -1, (c.k - 0.5) * 6); dm += cn.all; dmS += cn.dark; });
   add(far, 'e', dm, dk ? '#150F2A' : '#8E7AA6'); add(far, 'g', dmS, dk ? 'rgba(6,2,16,0.35)' : 'rgba(80,60,110,0.22)');
   // ---- light from the opening: nested shafts give it soft, feathered edges and a brighter core ----
-  function shaftP(wA, wB) { var ca = ox - orx * 0.1, cb2 = W * (ph ? 0.35 : 0.35), a0 = ca - orx * 0.6 * wA, a1 = ca + orx * 0.6 * wA, b0 = cb2 - W * (ph ? 0.25 : 0.15) * wB, b1 = cb2 + W * (ph ? 0.25 : 0.15) * wB; return poly([[a0, ory * 0.65], [a1, ory * 0.75], [b1, H * 0.95], [b0, H * 0.95]]); }
+  function shaftP(wA, wB) { var ca = ox - orx * 0.1, cb2 = W * (ph ? 0.35 : 0.35), a0 = ca - orx * 0.6 * wA, a1 = ca + orx * 0.6 * wA, b0 = cb2 - W * (ph ? 0.25 : 0.15) * wB, b1 = cb2 + W * (ph ? 0.25 : 0.15) * wB; return poly([[a0, Math.max(0, oy(a0)) + 2], [a1, Math.max(0, oy(a1)) + 2], [b1, H * 0.95], [b0, H * 0.95]]); } // starts at the rim of the opening, not above it
   add(refl, 'a', shaftP(1.15, 1.2), dk ? 'rgba(170,160,255,0.025)' : 'rgba(255,248,225,0.12)');
   add(refl, 'b', shaftP(0.9, 0.95), dk ? 'rgba(170,160,255,0.03)' : 'rgba(255,248,225,0.14)');
   add(refl, 'c', shaftP(0.62, 0.66), dk ? 'rgba(180,170,255,0.035)' : 'rgba(255,250,235,0.16)');
