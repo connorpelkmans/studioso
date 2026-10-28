@@ -5824,30 +5824,87 @@ SCENES.rainforest = function (W, H, dk, rnd) {
     var st = ''; spread(0, 0, W, H * 0.45, 36, 36, rnd, 1).forEach(function (c) { if (c.q < 0.5 && Math.hypot(c.x - mx, c.y - my) > mr * 2) st += n1_C(c.x, c.y, 0.5 + c.r); }); add(far, 'b', st, 'rgba(230,255,240,0.75)'); }
   else { add(far, 'a', n1_C(mx, my, mr * 3), 'rgba(255,255,230,0.5)'); add(far, 'c', n1_C(mx, my, mr), 'rgba(255,255,240,1)');
     var cl = ''; spread(0, H * 0.04, W, H * 0.22, ph ? 190 : 330, 110, rnd, 0.8).forEach(function (c) { if (c.q < 0.6 && Math.hypot(c.x - mx, c.y - my) > 90) { var s = 0.7 + c.r * 0.6; cl += n1_E(c.x, c.y, 60 * s, 13 * s) + n1_C(c.x - 18 * s, c.y - 9 * s, 18 * s) + n1_C(c.x + 15 * s, c.y - 13 * s, 23 * s); } }); add(far, 'b', cl, 'rgba(255,255,255,0.8)'); }
-  var wx = W * 0.7, cT = H * (ph ? 0.24 : 0.2), cB = H * (ph ? 0.56 : 0.6), cw = W * (ph ? 0.36 : 0.26), ww = W * (ph ? 0.05 : 0.032);
-  var cliff = [[wx - cw * 0.62, cB + 30], [wx - cw * 0.56, cT + H * 0.1], [wx - cw * 0.48, cT + H * 0.03], [wx - cw * 0.3, cT], [wx, cT + 4], [wx + cw * 0.3, cT - H * 0.01], [wx + cw * 0.5, cT + H * 0.04], [wx + cw * 0.58, cT + H * 0.14], [wx + cw * 0.66, cB + 30]];
-  add(far, 'e', n1_P(cliff), dk ? '#24504A' : '#8DBBA6');
-  var cs = n1_P([[wx + ww * 0.6, cT + 6], [wx + cw * 0.3, cT - H * 0.005], [wx + cw * 0.5, cT + H * 0.04], [wx + cw * 0.58, cT + H * 0.14], [wx + cw * 0.66, cB + 30], [wx + ww * 0.6, cB + 30]]);
-  var ctop = ''; for (i = 0; i < 12; i++) { var tx = wx - cw * 0.5 + i * cw * 1.05 / 11, ty = cT + 2; if (Math.abs(tx - wx) > ww * 0.9) ctop += n1_C(tx, ty, (ph ? 8 : 12) + rnd() * 6); }
-  add(far, 'f', cs + ctop, dk ? 'rgba(14,40,36,0.5)' : 'rgba(70,130,105,0.45)');
-  add(far, 'g', n1_P([[wx - ww / 2, cT + 2], [wx + ww / 2, cT + 2], [wx + ww * 0.62, cB], [wx - ww * 0.62, cB]]), dk ? '#A6CCC8' : '#F4FBF8');
-  var mist = ''; for (i = 0; i < 7; i++) mist += n1_C(wx + (i - 3) * ww * 0.9, cB - 6 + Math.abs(i - 3) * 4, ww * (1.1 - Math.abs(i - 3) * 0.12)); add(far, 'h', mist, dk ? 'rgba(170,210,205,0.55)' : 'rgba(255,255,255,0.85)');
-  var row1 = '', r1b = [], y1 = H * (ph ? 0.5 : 0.54); for (x = -40; x < W + 60; x += (ph ? 26 : 38)) { var yb1 = y1 + Math.sin(x * 0.03) * 10 + rnd() * 10, rb1 = (ph ? 22 : 32) + rnd() * 14; row1 += n1_C(x, yb1, rb1); r1b.push([x, yb1, rb1]); }
-  add(far, 'd', row1 + rect(-60, y1 + 10, W + 120, H), dk ? '#1C4842' : '#A8D7B4');
-  var r1hi = ''; r1b.forEach(function (q, j) { r1hi += n1_E(q[0] - q[2] * 0.22, q[1] - q[2] * 0.5, q[2] * 0.5, q[2] * 0.26) + (j % 3 === 1 ? n1_C(q[0] + q[2] * 0.35, q[1] - q[2] * 0.15, q[2] * 0.3) : ''); });
-  var row2 = '', hi2 = '', sh2 = '', r2b = [], y2 = H * (ph ? 0.6 : 0.64);
-  for (x = -40; x < W + 60; x += (ph ? 30 : 44)) { var r = (ph ? 26 : 38) + rnd() * 16, yy = y2 + Math.sin(x * 0.021 + 1) * 14 + rnd() * 12; row2 += n1_C(x, yy, r); hi2 += n1_C(x - r * 0.25, yy - r * 0.35, r * 0.55) + n1_C(x - r * 0.42, yy - r * 0.62, r * 0.16); sh2 += n1_E(x + r * 0.18, yy + r * 0.62, r * 0.78, r * 0.3); r2b.push([x, yy, r]); }
+  // extra fill slots (i..p draw after h); created on demand so this works with older layer objects too
+  function slot(L, k, d, c) { if (!L[k]) L[k] = E(); add(L, k, d, c); }
+  var wx = W * 0.7, cT = H * (ph ? 0.24 : 0.2), cB = H * (ph ? 0.56 : 0.6), cw = W * (ph ? 0.36 : 0.26), ww = W * (ph ? 0.05 : 0.032), y1 = H * (ph ? 0.5 : 0.54), y2 = H * (ph ? 0.6 : 0.64);
+  // far away: two hazy mountain ranges, lighter and bluer the farther they are
+  function range(base, hgt, ph0, step) { var pts = [[-60, H * 0.7]]; for (x = -60; x <= W + 60; x += step) { var v1 = Math.abs(Math.sin(x / (W * 0.21) + ph0)), v2 = Math.abs(Math.sin(x / (W * 0.083) + ph0 * 2.3)), v3 = Math.sin(x / 17 + ph0) * 0.5 + Math.sin(x / 7.3) * 0.3; pts.push([x, base - hgt * (0.55 * v1 + 0.3 * v2) - v3 * hgt * 0.025]); } pts.push([W + 60, H * 0.7]); return n1_P(pts); }
+  add(far, 'd', range(H * 0.5, H * (ph ? 0.2 : 0.28), 0.7, 8), dk ? '#1E4542' : '#B9DBCB');
+  add(far, 'e', range(H * (ph ? 0.53 : 0.55), H * (ph ? 0.14 : 0.2), 2.2, 7), dk ? '#1A3D3A' : '#A3CDB8');
+  add(far, 'f', rect(-60, H * (ph ? 0.4 : 0.42), W + 120, H * 0.08) + n1_E(W * 0.5, H * (ph ? 0.47 : 0.5), W * 0.8, H * 0.06), dk ? 'rgba(70,120,110,0.18)' : 'rgba(240,252,238,0.45)');
+  // the far canopy: rounded crowns, tall emergent trees and a few palms poking above it
+  var row1 = '', r1b = [], r1hi = '';
+  for (x = -40; x < W + 60; x += (ph ? 26 : 38)) { var yb1 = y1 + Math.sin(x * 0.03) * 10 + rnd() * 10, rb1 = (ph ? 22 : 32) + rnd() * 14; row1 += n1_C(x, yb1, rb1); r1b.push([x, yb1, rb1]); }
+  r1b.forEach(function (q, j) { r1hi += n1_E(q[0] - q[2] * 0.22, q[1] - q[2] * 0.5, q[2] * 0.5, q[2] * 0.26) + (j % 3 === 1 ? n1_C(q[0] + q[2] * 0.35, q[1] - q[2] * 0.15, q[2] * 0.3) : ''); });
+  for (x = W * 0.02 + rnd() * 40; x < W; x += (ph ? 70 : 120) + rnd() * 60) { if (Math.abs(x - wx) < cw * 0.9) continue; var eh = H * (0.09 + rnd() * 0.06) * (ph ? 0.8 : 1), ey = y1 - eh, es = (ph ? 0.7 : 1) * (0.8 + rnd() * 0.4);
+    if (rnd() < 0.55) { row1 += n1_P([[x - 3 * es, y1], [x - 1.4 * es, ey], [x + 1.4 * es, ey], [x + 3 * es, y1]]); for (var kk = -2; kk <= 2; kk++) row1 += n1_E(x + kk * 13 * es, ey + Math.abs(kk) * 3 * es, 15 * es, 8 * es); r1hi += n1_E(x - 8 * es, ey - 4 * es, 12 * es, 4 * es); }
+    else { var lean = (rnd() - 0.5) * 16 * es; row1 += n1_limb(x, y1, x + lean, ey, 2.4 * es, 1.4 * es, lean * 0.3); for (kk = 0; kk < 7; kk++) row1 += n1_leaf(x + lean, ey, (20 + rnd() * 6) * es, 4 * es, -170 + kk * 27 + (rnd() - 0.5) * 8, 0.25); } }
+  add(far, 'g', row1 + rect(-60, y1 + 10, W + 120, H), dk ? '#1C4842' : '#A8D7B4');
+  add(far, 'h', r1hi, dk ? 'rgba(120,200,170,0.08)' : 'rgba(255,255,255,0.16)');
+  // the cliff: a jagged plateau with a lower step on the left, faceted rock columns, ledges with moss and hanging plants
+  var tpC = [[-0.82, cB - H * 0.03], [-0.76, cT + H * 0.21], [-0.66, cT + H * 0.17], [-0.56, cT + H * 0.165], [-0.5, cT + H * 0.07], [-0.36, cT + H * 0.012], [-0.14, cT], [-0.03, cT + H * 0.006], [0.03, cT + H * 0.006], [0.14, cT - H * 0.004], [0.36, cT - H * 0.01], [0.52, cT + H * 0.03], [0.62, cT + H * 0.1], [0.72, cT + H * 0.125], [0.8, cT + H * 0.23], [0.88, cB - H * 0.03]];
+  function tp(xx) { var u = (xx - wx) / cw; if (u <= tpC[0][0]) return tpC[0][1]; for (var j = 1; j < tpC.length; j++) if (u <= tpC[j][0]) { var a = tpC[j - 1], b = tpC[j], k = (u - a[0]) / (b[0] - a[0]); return a[1] + (b[1] - a[1]) * k; } return tpC[tpC.length - 1][1]; }
+  var cbot = cB + H * 0.06, cl = [], xL = wx + tpC[0][0] * cw, xR = wx + tpC[tpC.length - 1][0] * cw;
+  for (x = xL; x <= xR; x += 6) cl.push([x, tp(x) + (Math.abs(x - wx) < ww * 0.7 ? 0 : (rnd() - 0.5) * H * 0.008)]);
+  var rim = cl.filter(function (p) { return Math.abs(p[0] - wx) > ww * 0.6; });
+  cl.push([xR + cw * 0.04, cbot], [xL - cw * 0.04, cbot]);
+  var lit = '', shd = '', crev = '', moss = '', hang = '', ctop = '', fallX = function (xx) { return Math.abs(xx - wx) < ww * 0.75; };
+  for (x = xL + 4; x < xR - 4;) { var cwid = cw * (0.05 + rnd() * 0.05), xa = x, xb = Math.min(xR - 2, x + cwid), ta = tp(xa) + 3, tb = tp(xb) + 3; x = xb;
+    if (fallX(xa) || fallX(xb)) continue;
+    var sx1 = xa + (xb - xa) * (0.32 + rnd() * 0.15), sx2 = xa + (xb - xa) * (0.78 + rnd() * 0.1), tm = tp(sx1) + 3, tn = tp(sx2) + 3;
+    var la = ta + (rnd() < 0.4 ? H * rnd() * 0.12 : 0), lb2 = Math.min(cbot, la + H * (0.12 + rnd() * 0.3)), sa = tn + H * rnd() * 0.08, sb = Math.min(cbot, sa + H * (0.1 + rnd() * 0.3)), sk = (rnd() - 0.5) * cwid * 0.4;
+    lit += n1_P([[xa, la], [sx1, la + (tm - ta)], [sx1 - 2 + sk, lb2], [xa + sk * 0.5, lb2 + H * 0.01]]);
+    shd += n1_P([[sx2, sa], [xb, sa + (tb - tn)], [xb + sk * 0.3, sb], [sx2 + 2 + sk, sb - H * 0.012]]);
+    if (rnd() < 0.45) { var cy0 = Math.max(ta, tb) + H * (0.03 + rnd() * 0.1), cy1 = Math.min(cB - H * 0.05, cy0 + H * (0.06 + rnd() * 0.14)); if (cy1 > cy0) crev += 'M' + PT(xb, cy0) + ' L' + PT(xb + (rnd() - 0.5) * 4, (cy0 + cy1) / 2) + ' L' + PT(xb + (rnd() - 0.5) * 3, cy1) + ' '; } }
+  for (var ri = 1; ri < rim.length; ri++) { var r0p = rim[ri - 1], r1p = rim[ri]; if (r1p[0] - r0p[0] > 8) continue; lit += n1_P([r0p, r1p, [r1p[0], r1p[1] + 3 + (ri % 5)], [r0p[0], r0p[1] + 3 + ((ri - 1) % 5)]]); }
+  [0.1, 0.22, 0.31].forEach(function (lv) { for (x = xL + rnd() * cw * 0.1; x < xR; x += cw * (0.16 + rnd() * 0.16)) { var lw2 = cw * (0.05 + rnd() * 0.09), ly = cT + H * (lv + (rnd() - 0.5) * 0.05); if (ly < tp(x) + H * 0.03 || ly < tp(x + lw2) + H * 0.03 || fallX(x) || fallX(x + lw2) || (x < wx && x + lw2 > wx)) continue;
+      shd += n1_P([[x, ly], [x + lw2, ly + 1], [x + lw2 - 2, ly + H * 0.012], [x + 2, ly + H * 0.01]]);
+      for (var m = 0; m < 3; m++) moss += n1_E(x + lw2 * (0.2 + m * 0.3), ly - 1, lw2 * 0.22, H * 0.006 + 1.5);
+      if (rnd() < 0.7) for (m = 0; m < 3; m++) { var hx = x + lw2 * (0.15 + m * 0.33 + rnd() * 0.1), hl = H * (0.02 + rnd() * 0.05); hang += n1_P([[hx - 2.2, ly], [hx + 2.2, ly], [hx + 0.8 + Math.sin(m) * 2, ly + hl], [hx - 0.4, ly + hl * 1.04]]); } } });
+  for (x = xL + 8; x < xR - 8; x += (ph ? 9 : 13) + rnd() * 10) { if (Math.abs(x - wx) < ww * 0.9) continue; var ty0 = tp(x) + 4, cr0 = (ph ? 6 : 9) + rnd() * 7; ctop += n1_C(x, ty0 - cr0 * 0.35, cr0);
+    if (rnd() < 0.45) { var hl2 = H * (0.03 + rnd() * 0.09); hang += n1_P([[x - 3, ty0], [x + 3, ty0], [x + 1 + rnd() * 2, ty0 + hl2], [x - 1, ty0 + hl2 * 1.05]]); } }
+  // the waterfall pours over a rounded lip and spreads as it falls into a misty plunge pool; a thinner fall drops from the left step
+  var lipY = tp(wx) + 2, water = '', bright = '', mist = '', rings = '';
+  function fall(fx, top, bot, w, n, lip) { var Lp = [], Rp = [], j; for (j = 0; j <= 12; j++) { var u = j / 12, sp = w / 2 * (1 + 0.28 * Math.pow(u, 1.4)), y = top + (bot - top) * u, wob = Math.sin(u * 5 + fx) * w * 0.03; Lp.push([fx - sp + wob, y]); Rp.unshift([fx + sp + wob, y]); }
+    var hump = []; for (j = 7; j >= 1; j--) { var a = j / 8; hump.push([fx - w / 2 * Math.cos(Math.PI * a), top - lip * Math.sin(Math.PI * a)]); }
+    water += n1_P(Lp.concat(Rp, hump));
+    bright += n1_P([[fx - w * 0.46, top + 1], [fx - w * 0.3, top - lip * 0.8], [fx, top - lip * 1.0], [fx + w * 0.3, top - lip * 0.8], [fx + w * 0.46, top + 1], [fx + w * 0.3, top - lip * 0.35], [fx, top - lip * 0.45], [fx - w * 0.3, top - lip * 0.35]]);
+    for (j = 0; j < n; j++) { var q = (j + 0.5) / n + (rnd() - 0.5) * 0.4 / n, sw = w * (0.04 + rnd() * 0.09), len = 0.45 + rnd() * 0.55, y0s = top + (bot - top) * rnd() * 0.25, y1s = Math.min(bot, y0s + (bot - top) * len), xs = fx + (q - 0.5) * w;
+      bright += n1_P([[xs - sw / 2, y0s], [xs + sw / 2, y0s], [xs + sw * 0.7 + (q - 0.5) * w * 0.25, y1s], [xs - sw * 0.3 + (q - 0.5) * w * 0.25, y1s]]); } }
+  fall(wx, lipY, cB, ww, ph ? 6 : 8, H * 0.008);
+  var f2x = wx - cw * 0.61, f2t = tp(f2x) + 2, f2w = ww * 0.36; fall(f2x, f2t, cB - H * 0.01, f2w, 3, H * 0.004);
+  for (mi = 0; mi < 11; mi++) { var fa = (mi - 5) / 5; water += n1_C(wx + fa * ww * 2.1, cB + H * 0.008 + Math.abs(fa) * H * 0.006, ww * (0.42 - Math.abs(fa) * 0.18) + rnd() * ww * 0.12); }
+  var mi; for (mi = 0; mi < 9; mi++) { var ma = (mi - 4) / 4; mist += n1_E(wx + ma * ww * 1.7, cB - H * 0.004 - (1 - Math.abs(ma)) * H * 0.02, ww * (0.75 - Math.abs(ma) * 0.25), H * (0.026 - Math.abs(ma) * 0.01)); }
+  mist += n1_E(f2x, cB - H * 0.012, f2w * 1.6, H * 0.012) + n1_E(wx, cB - H * 0.05, ww * 0.7, H * 0.03);
+  if (!ANIM) rings += n1_E(wx, cB + H * 0.024, ww * 2.2, H * 0.006 + 1);
+  for (mi = 0; mi < 14; mi++) bright += n1_C(wx + (rnd() - 0.5) * ww * 2.6, cB - rnd() * H * 0.04, 1 + rnd() * 1.6);
+  add(refl, 'a', n1_P(cl), dk ? '#244C47' : '#80AF9B');
+  add(refl, 'b', lit, dk ? '#2E5C55' : '#9ACAB3');
+  add(refl, 'c', shd, dk ? 'rgba(6,24,22,0.42)' : 'rgba(40,92,76,0.3)');
+  add(refl, 'd', moss + ctop, dk ? '#1E4C3C' : '#6EAA78');
+  add(refl, 'e', hang, dk ? '#1A4436' : '#5A9A66');
+  add(refl, 'f', water, dk ? '#8DBAB6' : '#E2F4F1');
+  add(refl, 'g', bright, dk ? '#C6E6E2' : '#FFFFFF');
+  add(refl, 'h', mist, dk ? 'rgba(170,210,205,0.4)' : 'rgba(255,255,255,0.72)');
+  stk(refl, 's', crev, dk ? 'rgba(4,18,16,0.55)' : 'rgba(46,96,80,0.45)', ph ? 1 : 1.4);
+  stk(refl, 't', rings, dk ? 'rgba(200,235,232,0.5)' : 'rgba(120,175,170,0.55)', 1.1);
+  // the nearer canopy, with palms and tall trees; an opening in front of the plunge pool
+  var row2 = '', hi2 = '', sh2 = '', r2b = [];
+  for (x = -40; x < W + 60; x += (ph ? 30 : 44)) { var r = (ph ? 26 : 38) + rnd() * 16, yy = y2 + Math.sin(x * 0.021 + 1) * 14 + rnd() * 12; if (Math.abs(x - wx) < ww * 1.3) { yy += r * 0.55; r *= 0.7; } row2 += n1_C(x, yy, r); hi2 += n1_C(x - r * 0.25, yy - r * 0.35, r * 0.55) + n1_C(x - r * 0.42, yy - r * 0.62, r * 0.16); sh2 += n1_E(x + r * 0.18, yy + r * 0.62, r * 0.78, r * 0.3); r2b.push([x, yy, r]); }
   var trunks = '', crowns = '', ch = '', bloom = '';
   (ph ? [[0.12, 0.38], [0.92, 0.42]] : [[0.08, 0.3], [0.3, 0.42], [0.95, 0.34]]).forEach(function (q, ti) { var x0 = W * q[0], y0 = H * q[1], r0 = (ph ? 34 : 54), tw = ph ? 5 : 8;
     trunks += n1_P([[x0 - tw, y2 + 30], [x0 - tw * 0.45, y0 + 6], [x0 + tw * 0.45, y0 + 6], [x0 + tw, y2 + 30]]) + n1_limb(x0, y0 + r0 * 0.7, x0 - r0 * 0.62, y0 + r0 * 0.02, tw * 0.45, tw * 0.22, -r0 * 0.05) + n1_limb(x0, y0 + r0 * 0.55, x0 + r0 * 0.66, y0 - r0 * 0.04, tw * 0.42, tw * 0.2, r0 * 0.05) + n1_limb(x0, y0 + r0 * 0.4, x0 + r0 * 0.1, y0 - r0 * 0.2, tw * 0.35, tw * 0.18, 0);
     var lobes = []; for (var kk = -3; kk <= 3; kk++) lobes.push([x0 + kk * r0 * 0.36, y0 + Math.abs(kk) * r0 * 0.05 + Math.sin(kk * 2.1 + ti) * r0 * 0.04, r0 * (0.34 - Math.abs(kk) * 0.025), r0 * 0.22]);
     for (kk = -1; kk <= 1; kk++) lobes.push([x0 + kk * r0 * 0.42 + r0 * 0.05, y0 - r0 * 0.2 + Math.abs(kk) * r0 * 0.04, r0 * 0.3, r0 * 0.2]);
     lobes.forEach(function (l) { crowns += n1_E(l[0], l[1], l[2], l[3]); ch += n1_E(l[0] - l[2] * 0.22, l[1] - l[3] * 0.38, l[2] * 0.55, l[3] * 0.42); }); });
+  (ph ? [[0.34, 0.47, 1], [0.97, 0.5, -1]] : [[0.19, 0.5, 1], [0.5, 0.47, -1], [0.88, 0.52, 1]]).forEach(function (q) { var x0 = W * q[0], top = H * q[1], lean = q[2] * (ph ? 10 : 16), ps = ph ? 0.75 : 1, tx = x0 + lean;
+    trunks += n1_limb(x0, y2 + 20, tx, top, 4 * ps, 2.4 * ps, lean * 0.4);
+    for (var kk = 0; kk < 9; kk++) { var ang = -175 + kk * 22 + (kk % 2 ? 6 : -6), len = (30 + (kk % 3) * 6) * ps; crowns += n1_leaf(tx, top, len, 6 * ps, ang, 0.3); if (kk % 2) ch += n1_leaf(tx, top - 1, len * 0.7, 3 * ps, ang - 3, 0.3); }
+    crowns += n1_C(tx, top + 2 * ps, 4 * ps); });
   r2b.forEach(function (q, j) { if (j % (ph ? 4 : 5) !== 2 || Math.abs(q[0] - wx) < cw * 0.55) return; for (var m = 0; m < 7; m++) { var a2 = m / 7 * 6.283 + j, rr2 = m % 2 ? 0.36 : 0.2; bloom += n1_C(q[0] - q[2] * 0.1 + Math.cos(a2) * q[2] * rr2, q[1] - q[2] * 0.7 + Math.sin(a2) * q[2] * rr2 * 0.55, q[2] * (m % 2 ? 0.1 : 0.13)); } });
-  add(refl, 'a', r1hi, dk ? 'rgba(120,200,170,0.08)' : 'rgba(255,255,255,0.14)');
-  add(refl, 'b', trunks, dk ? '#2A3A34' : '#8A7A62'); add(refl, 'c', crowns, dk ? '#18443A' : '#5FA276'); add(refl, 'd', ch, dk ? '#1F5244' : '#79B88A');
-  add(refl, 'e', row2 + rect(-60, y2 + 10, W + 120, H), dk ? '#163E38' : '#74B488'); add(refl, 'f', hi2, dk ? '#1C4A42' : '#8CC79A');
-  add(refl, 'g', sh2, dk ? 'rgba(6,24,20,0.35)' : 'rgba(40,100,70,0.22)'); add(refl, 'h', bloom, dk ? '#5A4466' : '#E9AFC8');
+  slot(refl, 'i', trunks, dk ? '#2A3A34' : '#8A7A62'); slot(refl, 'j', crowns, dk ? '#18443A' : '#5FA276'); slot(refl, 'k', ch, dk ? '#1F5244' : '#79B88A');
+  slot(refl, 'l', row2 + rect(-60, y2 + 10, W + 120, H), dk ? '#163E38' : '#74B488'); slot(refl, 'm', hi2, dk ? '#1C4A42' : '#8CC79A');
+  slot(refl, 'n', sh2, dk ? 'rgba(6,24,20,0.35)' : 'rgba(40,100,70,0.22)'); slot(refl, 'o', bloom, dk ? '#5A4466' : '#E9AFC8');
   var row3 = '', hi3 = '', y3 = H * (ph ? 0.78 : 0.8);
   for (x = -40; x < W + 60; x += (ph ? 36 : 56)) { var r3 = (ph ? 32 : 48) + rnd() * 20, y33 = y3 + Math.sin(x * 0.017 + 2) * 18 + rnd() * 14; row3 += n1_C(x, y33, r3); hi3 += n1_C(x - r3 * 0.3, y33 - r3 * 0.4, r3 * 0.45); }
   add(mid, 'a', row3 + rect(-60, y3 + 20, W + 120, H), dk ? '#0F302A' : '#3F8C5E'); add(mid, 'b', hi3, dk ? '#143A32' : '#57A570');
@@ -5876,7 +5933,7 @@ SCENES.rainforest = function (W, H, dk, rnd) {
   stk(near, 's', n1_veins(LV), dk ? 'rgba(90,170,130,0.28)' : 'rgba(220,250,200,0.38)', ph ? 1 : 1.4);
   if (ANIM) {
     ANIM.tips = LV.tips.filter(function (p) { return p[0] > 4 && p[0] < W - 4 && p[1] > 4 && p[1] < H - 4; });
-    ANIM.fall = {x: wx, top: cT, bot: cB, w: ww}; ANIM.moon = [mx, my, mr]; ANIM.S = S * (ph ? 0.85 : 1);
+    ANIM.fall = {x: wx, top: lipY, bot: cB, w: ww}; ANIM.fall2 = {x: f2x, top: f2t, bot: cB - H * 0.01, w: f2w}; ANIM.moon = [mx, my, mr]; ANIM.S = S * (ph ? 0.85 : 1);
     var perch = []; [[B1.top, 0.2, 0.8], [B2.top, 0.35, 0.92]].forEach(function (q, bi) { for (var j = 0; j < 4; j++) { var p = q[0][Math.floor((q[0].length - 1) * (q[1] + (q[2] - q[1]) * j / 3))]; perch.push({x: p[0], y: p[1] + 2, b: bi}); } }); ANIM.perch = perch;
     ANIM.frogs = [B2.top[Math.floor((B2.top.length - 1) * 0.24)], B1.top[Math.floor((B1.top.length - 1) * 0.035)]].map(function (p) { return [p[0], p[1] + 3]; });
     ANIM.occ = B1.body + moss1; ANIM.occL = {d: liana1, w: ph ? 3 : 4.5};
@@ -17382,7 +17439,8 @@ ENGINES.rainforest = function (A, v, dk) {
   var W = v.bw, H = v.bh, ph = !v.desk, S = A.S, F = A.fall, i;
   var mistG = n1_rg(dk ? 'rgba(150,210,200,0.32)' : 'rgba(255,255,255,0.7)', [0.5, 0.45]), mushG = n1_rg('rgba(120,255,225,0.7)', [0.3, 0.3]), flyG = n1_rg('rgba(210,255,140,0.75)', [0.25, 0.3]), frogG = n1_rg('rgba(90,220,255,0.6)', [0.3, 0.3]), sunG = n1_rg('rgba(255,250,210,0.55)', [0.4, 0.3]);
   var drips = A.tips.map(function (p, j) { return {x: p[0], y: p[1], g: hash(j + 1), rate: 0.18 + hash(j + 7) * 0.22}; }), falling = [];
-  var fl = []; for (i = 0; i < (ph ? 18 : 34); i++) fl.push({u: hash(i + 3), sp: 0.5 + hash(i + 5) * 0.6, x: hash(i + 11)});
+  var fl = []; for (i = 0; i < (ph ? 22 : 40); i++) fl.push({u: hash(i + 3), sp: 0.5 + hash(i + 5) * 0.6, x: hash(i + 11), w: 0.6 + hash(i + 13) * 1.6, L: 14 + hash(i + 17) * 26, F: A.fall2 && i % 5 === 4 ? A.fall2 : F});
+  var rings = []; for (i = 0; i < 4; i++) rings.push({ph: i / 4, x: (hash(i + 61) - 0.5) * 1.6});
   var bugs = []; for (i = 0; i < (dk ? (ph ? 9 : 16) : (ph ? 2 : 3)); i++) bugs.push({x0: W * (0.08 + hash(i + 30) * 0.84), y0: H * (dk ? 0.35 + hash(i + 40) * 0.6 : 0.62 + hash(i + 40) * 0.3), ph: hash(i + 50) * 6.28});
   var frogs = A.frogs, occ = [new Path2D(A.occ), {p: new Path2D(A.occL.d), w: A.occL.w + 1}];
   var P = A.perch, tc = {i: P.length - 2, x: P[P.length - 2].x, y: P[P.length - 2].y, dir: -1, mv: null, wait: 2};
@@ -17399,9 +17457,14 @@ ENGINES.rainforest = function (A, v, dk) {
     },
     draw: function (ca, cb, t, f) {
       var tt = t * f.s, i;
-      n1_occl(ca, occ, function (g) { g.save(); g.beginPath(); g.rect(F.x - F.w * 0.7, F.top, F.w * 1.4, F.bot - F.top - 6); g.clip(); g.lineCap = 'round';
-        fl.forEach(function (q) { var u = (q.u + tt * q.sp * 0.5) % 1, y = F.top + u * (F.bot - F.top), x = F.x + (q.x - 0.5) * F.w * (1 + u * 0.25); g.strokeStyle = dk ? 'rgba(200,235,235,' + (0.5 * Math.sin(Math.PI * u)) + ')' : 'rgba(170,215,215,' + (0.55 * Math.sin(Math.PI * u)) + ')'; g.lineWidth = 1.6 * S + 1; g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + 22 * S); g.stroke(); });
+      n1_occl(ca, occ, function (g) { g.save(); g.beginPath(); [F, A.fall2].forEach(function (Q) { if (!Q) return; g.moveTo(Q.x - Q.w * 0.5, Q.top); g.lineTo(Q.x + Q.w * 0.5, Q.top); g.lineTo(Q.x + Q.w * 0.66, Q.bot - 4); g.lineTo(Q.x - Q.w * 0.66, Q.bot - 4); g.closePath(); }); g.clip(); g.lineCap = 'round';
+        // water strands slide down the sheet, spreading with it and fading in at the lip and out in the spray
+        fl.forEach(function (q) { var Q = q.F, u = (q.u + tt * q.sp * 0.5) % 1, y = Q.top + u * u * 0.35 * (Q.bot - Q.top) + u * 0.65 * (Q.bot - Q.top), sp = 1 + 0.28 * Math.pow(u, 1.4), x = Q.x + (q.x - 0.5) * Q.w * sp, a = Math.sin(Math.PI * u) * (Q === F ? 1 : 0.8);
+          g.strokeStyle = dk ? 'rgba(220,245,242,' + (0.55 * a) + ')' : 'rgba(255,255,255,' + (0.85 * a) + ')'; g.lineWidth = (q.w * S + 0.6) * (Q === F ? 1 : 0.6); g.beginPath(); g.moveTo(x, y); g.lineTo(x + (q.x - 0.5) * 2, y + q.L * S * (0.6 + u)); g.stroke();
+          if (q.w < 1) { g.strokeStyle = dk ? 'rgba(90,150,150,' + (0.3 * a) + ')' : 'rgba(150,200,200,' + (0.35 * a) + ')'; g.lineWidth = 1; g.beginPath(); g.moveTo(x + Q.w * 0.12, y + 6); g.lineTo(x + Q.w * 0.12, y + 6 + q.L * S * 0.5); g.stroke(); } });
         g.restore();
+        // splash rings spreading on the plunge pool
+        g.lineWidth = 1.2; rings.forEach(function (r) { var k = (tt * 0.45 + r.ph) % 1, rx = F.w * (0.6 + k * 1.9); g.strokeStyle = dk ? 'rgba(200,235,232,' + (0.5 * (1 - k)) + ')' : 'rgba(110,170,165,' + (0.55 * (1 - k)) + ')'; g.beginPath(); g.ellipse(F.x + r.x * F.w * 0.6, F.bot + H * 0.022, rx, rx * 0.16 + 1, 0, 0, 7); g.stroke(); });
         if (rb) { var T = t - rb.t0, k = n1_env(T, 0.3, 1.8, 8, 10.5); if (k > 0) { var R0 = ph ? W * 0.42 : W * 0.21, cx = F.x, cy = F.bot + H * 0.02, bw = (ph ? 6 : 9) * S + 2, cols = ['#FF6A6A', '#FFA94A', '#FFE05A', '#7EDB6A', '#5AB8F2', '#9A7BF0'];
           g.save(); g.beginPath(); g.rect(-10, -10, W + 20, F.bot + H * 0.03); g.clip(); g.globalAlpha = k * (dk ? 0.3 : 0.5); g.lineWidth = bw;
           cols.forEach(function (col, j) { g.strokeStyle = col; g.beginPath(); g.arc(cx, cy, R0 - j * bw, Math.PI, 2 * Math.PI); g.stroke(); }); g.restore(); } } });
