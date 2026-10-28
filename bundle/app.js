@@ -6468,7 +6468,7 @@ const SKINS = [
     light: ["#F3FAFD", "transparent", "#FFFFFF", "#13283A", "#587084", "#D4E8F2", "#E3F2F9", "#F9FCFE", "#0E86C9", "#4AA4D6", "#FFFFFF", "#11496C", "#1580B8", "#BDDBEB", "#FFF3A3"],
     dark: ["#081722", "transparent", "#0F2231", "#E4F2FA", "#8FAFC4", "#1D3A4E", "#0F2837", "#0C1C2A", "#4FC3F7", "#72CFF9", "#04202E", "#2F7697", "#0E4466", "#BCCBD4", "#5C5214"],
     glow: ["radial-gradient(80% 60% at 100% 0%, rgba(255,200,80,.34), transparent 62%), radial-gradient(90% 70% at 0% 100%, rgba(40,175,215,.26), transparent 62%), #EEF6FA", "radial-gradient(80% 60% at 100% 0%, rgba(255,200,80,.10), transparent 62%), radial-gradient(90% 70% at 0% 100%, rgba(30,140,190,.22), transparent 62%), #081722"], spine: ["linear-gradient(180deg,#1580B8,#0D5A85)", "linear-gradient(180deg,#0E4466,#050E15)"], btn: ["linear-gradient(135deg,#0E86C9,#23B5D3)", "linear-gradient(135deg,#4FC3F7,#7FE0F0)"]},
-  {id: "autumn", name: "Autumn Leaves", tier: "pro", group: "season", desc: "Drifting leaves in warm light.",
+  {id: "autumn", name: "Fall", tier: "pro", group: "season", desc: "Drifting leaves in warm light.",
     light: ["#FBF3EA", "rgba(200,100,30,.11)", "#FFFDF9", "#33200F", "#80644C", "#EFDCC7", "#F8E8D6", "#FEF9F3", "#C8561C", "#E07A2E", "#FFFFFF", "#6B2E14", "#6B2E14", "#F4D5BC", "#FFCF6B"],
     dark: ["#1A0F08", "rgba(255,140,60,.08)", "#26170D", "#F9ECDF", "#C8A387", "#45301F", "#362314", "#1F130A", "#FF8A47", "#FFA56B", "#2E1203", "#A8481C", "#100904", "#E6C2A5", "#6E4A10"],
     glow: ["radial-gradient(90% 70% at 100% 0%, rgba(255,207,107,.32), transparent 62%), radial-gradient(80% 60% at 0% 100%, rgba(224,122,46,.16), transparent 62%), #FBF3EA", "radial-gradient(90% 70% at 100% 0%, rgba(255,165,107,.13), transparent 62%), radial-gradient(80% 60% at 0% 100%, rgba(168,72,28,.22), transparent 62%), #1A0F08"], spine: ["linear-gradient(180deg,#8A3A18,#5A2410)", "linear-gradient(180deg,#4A1F0C,#100904)"], btn: ["linear-gradient(135deg,#C8561C,#E0942E)", "linear-gradient(135deg,#C8561C,#E0942E)"]},
@@ -17183,7 +17183,7 @@ const SCN20 = (() => {
   let blurN = 0;
   function layerHtml(Ly, pad, v, k){
     let inner = "";
-    "abcdefgh".split("").forEach(key => { if (Ly[key].d) inner += `<path d="${Ly[key].d}" fill="${Ly[key].c}"/>`; });
+    "abcdefghijklmnopABCDEFGH".split("").forEach(key => { if (Ly[key] && Ly[key].d) inner += `<path d="${Ly[key].d}" fill="${Ly[key].c}"/>`; });
     ["s", "t"].forEach(key => { if (Ly[key].d) inner += `<path d="${Ly[key].d}" fill="none" stroke="${Ly[key].c}" stroke-width="${Ly[key].w}" stroke-linecap="round" stroke-linejoin="round"/>`; });
     if (!inner) return "";
     const box = pad ? `left:${-40 * k}px;top:${-40 * k}px;width:${v.pw * k}px;height:${v.phh * k}px` : `left:0;top:0;width:${v.bw * k}px;height:${v.bh * k}px`;
@@ -17394,7 +17394,7 @@ const SCN20 = (() => {
     let defs = sky.defs + band.defs, body = sky.rects + band.rects;
     ["far", "refl", "mid", "near"].forEach(n => {
       const Ly = v[n]; let inner = "";
-      "abcdefgh".split("").forEach(key => { if (Ly[key].d) inner += `<path d="${Ly[key].d}" fill="${Ly[key].c}"/>`; });
+      "abcdefghijklmnopABCDEFGH".split("").forEach(key => { if (Ly[key] && Ly[key].d) inner += `<path d="${Ly[key].d}" fill="${Ly[key].c}"/>`; });
       ["s", "t"].forEach(key => { if (Ly[key].d) inner += `<path d="${Ly[key].d}" fill="none" stroke="${Ly[key].c}" stroke-width="${Ly[key].w}" stroke-linecap="round" stroke-linejoin="round"/>`; });
       if (!inner) return;
       if (Ly.blur) { defs += `<filter id="f${n}" filterUnits="userSpaceOnUse" x="-60" y="-60" width="${TH_W + 120}" height="${TH_H + 120}"><feGaussianBlur stdDeviation="${Ly.blur / 2}"/></filter>`; body += `<g filter="url(#f${n})">${inner}</g>`; }

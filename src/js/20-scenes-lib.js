@@ -578,6 +578,35 @@ SCENES.autumn = function (W, H, dk, rnd) {
   var bc = ['', '', ''];
   spread(tx - (ph ? 170 : 240), tt - (ph ? 120 : 160), ph ? 190 : 290, ph ? 190 : 250, ph ? 44 : 56, ph ? 40 : 50, rnd, 1).forEach(function (c) { var d = Math.hypot(c.x - tx + 60, (c.y - tt) * 1.2); if (d > (ph ? 150 : 210)) return; bc[Math.floor(c.k * 3)] += circ(c.x, c.y, (ph ? 22 : 30) + c.r * 12); });
   add(near, 'd', bc[0] + bc[2] + circ(tx + 4, tt + 6, ph ? 26 : 32), dk ? '#8E3E1E' : '#DE6E2A'); add(near, 'e', bc[1], dk ? '#A87428' : '#EAB040');
+  // The foreground: trees in red, orange, yellow, brown and green on both sides of the path, with leaf piles, pumpkins and hay bales.
+  // The two back rows go in the middle layer and the two front rows in the near one, so nearer trees always stand in front.
+  'ijklmnopABCDEFGH'.split('').forEach(function (k) { mid[k] = E(); near[k] = E(); });
+  var FC = dk ? {trunk: '#2A1610', red: '#8E2E22', orange: '#A04C1E', yellow: '#9C7626', brown: '#5E3A22', green: '#2E4A2C', pump: '#A85A1E', hay: '#7A6234', line: 'rgba(20,10,5,0.55)'}
+    : {trunk: '#6A4430', red: '#C8402E', orange: '#E27A2C', yellow: '#EDB43C', brown: '#9A6236', green: '#5E8A3C', pump: '#EE8A2E', hay: '#E4C47C', line: 'rgba(110,60,25,0.45)'};
+  var SLS = {m: {tr: 'i', red: 'j', orange: 'k', yellow: 'l', brown: 'm', green: 'n', pump: 'o', hay: 'p'}, n: {tr: 'i', red: 'j', orange: 'k', yellow: 'l', brown: 'm', green: 'n', pump: 'o', hay: 'p'}, f: {tr: 'A', red: 'B', orange: 'C', yellow: 'D', brown: 'E', green: 'F', pump: 'G', hay: 'H'}};
+  var TC = ['red', 'orange', 'yellow', 'brown', 'green'], fTr = {m: '', n: '', f: ''}, fLn = {m: '', n: '', f: ''}, pickC = function () { var q = rnd(); return q < 0.22 ? 0 : q < 0.42 ? 1 : q < 0.6 ? 2 : q < 0.76 ? 3 : 4; };
+  var pathAt = function (y) { for (var q = 0; q < pl.length - 1; q++) { var a1 = pl[q], a2 = pl[q + 1]; if (y <= a1[1] && y >= a2[1]) { var u = (y - a1[1]) / ((a2[1] - a1[1]) || 1), b1 = pr[pr.length - 1 - q], b2 = pr[pr.length - 2 - q]; return [lerp(a1[0], a2[0], u), lerp(b1[0], b2[0], u)]; } } return [W * 0.5, W * 0.5]; };
+  var keepOut = [[bxp - 54 * bs, byp - 44 * bs, bxp + 50 * bs, byp + 6 * bs], [lx - 14 * bs, byp - 150 * bs, lx + 14 * bs, byp + 6 * bs], [tx - (ph ? 50 : 90), tt, W + 60, H + 20]];
+  var takenL = {m: [], n: [], f: []}, hit = function (list, b) { return list.some(function (o) { return b[2] > o[0] && b[0] < o[2] && b[3] > o[1] && b[1] < o[3]; }); };
+  function fTree(L, key, x, y, r, ci) { var SL = SLS[key], col = TC[ci], k = SL[col];
+    fTr[key] += poly([[x - r * 0.12, y + 2], [x - r * 0.07, y - r * 1.15], [x + r * 0.07, y - r * 1.15], [x + r * 0.12, y + 2]]);
+    if (col === 'green') { for (var t3 = 0; t3 < 3; t3++) { var tw = r * (1.05 - t3 * 0.24), ty = y - r * (0.7 + t3 * 0.62); add(L, k, poly([[x - tw, ty], [x, ty - r * 1.05], [x + tw, ty]])); } }
+    else { var c2 = y - r * 1.5; add(L, k, circ(x, c2, r) + circ(x - r * 0.72, c2 + r * 0.32, r * 0.7) + circ(x + r * 0.74, c2 + r * 0.26, r * 0.68) + circ(x + r * 0.18, c2 - r * 0.62, r * 0.72)); }
+    var pile = TC[(ci + 1 + Math.floor(rnd() * 3)) % 4]; add(L, SL[pile], ell(x + r * 0.15, y + 1, r * 0.8, r * 0.17)); }
+  [0.16, 0.4, 0.66, 0.97].forEach(function (f, rw) { var L = rw < 2 ? mid : near, key = rw < 2 ? 'm' : rw < 3 ? 'n' : 'f', ry0 = hz + 14 + (H - hz - 20) * f, rr2 = (ph ? 13 : 17) + f * (ph ? 30 : 44);
+    for (var xx = -rr2 * 0.4 + rnd() * rr2; xx < W + rr2; xx += rr2 * (2.2 + rnd() * 1.3)) { var ry = Math.min(H + 6, ry0 + (rnd() - 0.5) * rr2 * 0.6), pth = pathAt(Math.min(ry, H));
+      if (xx + rr2 * 1.1 > pth[0] - 8 && xx - rr2 * 1.1 < pth[1] + 8) continue;
+      var bb2 = [xx - rr2 * 1.2, ry - rr2 * 2.5, xx + rr2 * 1.2, ry + 4]; if (hit(keepOut, bb2) || hit(takenL[key], bb2)) continue;
+      takenL[key].push(bb2); fTree(L, key, xx, ry, rr2 * (0.85 + rnd() * 0.3), pickC()); } });
+  // pumpkins and hay bales at the edges of the path
+  for (var pk = 0; pk < (ph ? 4 : 7); pk++) { var py2 = hz + (H - hz) * (0.3 + rnd() * 0.65), pe = pathAt(py2), side = pk % 2, pr2 = (ph ? 8 : 11) * (0.7 + (py2 - hz) / (H - hz) * 0.9), px2 = side ? pe[1] + pr2 * (3 + rnd() * 2.6) : pe[0] - pr2 * (3 + rnd() * 2.6);
+    var PL = py2 > hz + (H - hz) * 0.53 ? near : mid, pkey = PL === near ? 'n' : 'm', pb = [px2 - pr2 * 2.4, py2 - pr2 * 2.2, px2 + pr2 * 2.4, py2 + 2];
+    if (hit(keepOut, pb) || hit(takenL[pkey], pb) || (pb[2] > pe[0] - 4 && pb[0] < pe[1] + 4)) continue; takenL[pkey].push(pb);
+    if (pk % 3 === 2) { var hw = pr2 * 3.2, hh = pr2 * 1.9; add(PL, SLS[pkey].hay, rrect(px2 - hw / 2, py2 - hh, hw, hh, hh * 0.22)); for (var hl = 1; hl < 4; hl++) fLn[pkey] += seg(px2 - hw / 2 + 2, py2 - hh * hl / 4, px2 + hw / 2 - 2, py2 - hh * hl / 4); continue; }
+    [[0, 1], [pr2 * 1.5, 0.7], [-pr2 * 1.2, 0.6]].slice(0, 1 + Math.floor(rnd() * 3)).forEach(function (o) { var r3 = pr2 * o[1], cx3 = px2 + o[0], cy3 = py2 - r3 * 0.8;
+      add(PL, SLS[pkey].pump, ell(cx3, cy3, r3 * 1.2, r3 * 0.85)); fLn[pkey] += 'M' + PT(cx3, cy3 - r3 * 0.8) + ' Q' + PT(cx3 - r3 * 0.55, cy3) + ' ' + PT(cx3, cy3 + r3 * 0.8) + ' M' + PT(cx3, cy3 - r3 * 0.8) + ' Q' + PT(cx3 + r3 * 0.55, cy3) + ' ' + PT(cx3, cy3 + r3 * 0.8) + ' ';
+      add(PL, SLS[pkey].green, rect(cx3 - r3 * 0.12, cy3 - r3 * 1.15, r3 * 0.24, r3 * 0.42)); }); }
+  [[mid, 'm'], [near, 'n'], [near, 'f']].forEach(function (q) { var L = q[0], S2 = SLS[q[1]]; add(L, S2.tr, fTr[q[1]], FC.trunk); ['red', 'orange', 'yellow', 'brown', 'green', 'pump', 'hay'].forEach(function (c) { L[S2[c]].c = FC[c]; }); if (fLn[q[1]]) stk(L, 't', fLn[q[1]], FC.line, 1.1); });
   var dl = ['', '', ''], stems = '';
   if (ANIM) { ANIM.leaves = []; ANIM.cols = dk ? ['#C4642A', '#A8402A', '#C89434'] : ['#E0772E', '#C8452E', '#E8AE3E']; ANIM.stem = dk ? '#5A3020' : '#8A4A28'; ANIM.path = pl.map(function (p, i) { var q = pr[pr.length - 1 - i]; return [(p[0] + q[0]) / 2, p[1], (q[0] - p[0]) / 2]; }); }
   spread(0, 0, W, H * 0.95, ph ? 110 : 150, ph ? 120 : 130, rnd, 1).forEach(function (c) {
