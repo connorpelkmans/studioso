@@ -435,8 +435,9 @@ function computeFocus(){
   const keep = keepMost(tier.map(x => ({h: x.R, v: x.stake})), th);
   const kept = tier.filter((x, i) => keep.has(i)).sort((a, b) => a.cut - b.cut), left0 = tier.filter((x, i) => !keep.has(i)).sort((a, b) => b.stake - a.stake);
   const tierShort = left0.length > 0;
-  kept.forEach((x, i) => { x.score = 3000 - i * 10 + Math.min(9, x.score / 100); x.tierKeep = tierShort; });
-  left0.forEach((x, i) => { x.score = 2000 - i * 10 + Math.min(9, x.score / 100); x.tierSkip = true; });
+  // Scores: 3000 + a place for what is kept, 2000 + a place for the rest due now (Do This Next reads these bands)
+  kept.forEach((x, i) => { x.score = 3000 + Math.max(1, 900 - i * 10 + Math.min(9, x.score / 100)); x.tierKeep = tierShort; });
+  left0.forEach((x, i) => { x.score = 2000 + Math.max(1, 900 - i * 10 + Math.min(9, x.score / 100)); x.tierSkip = true; });
   /* Short of time: when the work due by some date can't all fit before it, the tasks that give the fewest marks for the time
      go last, and the plan says which */
   let drop = null;
@@ -455,7 +456,9 @@ function computeFocus(){
   for (let pass = 0; pass < 3; pass++) {
     Object.values(info).forEach(x => (x.t.dependsOn || []).forEach(id => {
       const d = info[id];
-      if (d && d.score < x.score * 0.9) { d.score = x.score * 0.9; d.unblocks = x.t; }
+      // A step that work due now waits on is due now too, just ahead of it
+      if (d && x.tier && !d.dead && (!d.tier || d.score <= x.score)) { d.tier = true; d.tierSkip = x.tierSkip; d.tierKeep = x.tierKeep; d.score = x.score + 0.5; d.unblocks = x.t; }
+      else if (d && d.score < x.score * 0.9) { d.score = x.score * 0.9; d.unblocks = x.t; }
     }));
   }
   const ranked = [], blocked = [], later = [];
@@ -548,7 +551,7 @@ function computeFocus(){
     if (t.start && t.start > today && !MILESTONE(t.type)) r.push([20, `Starts ${fmtDate(t.start)}`]);
     x.reasons = r.sort((a, b) => b[0] - a[0]).map(y => y[1]);
   });
-  let avail = null; if (av) { try { avail = availPlan(av, ranked, th0, needToday, day, today, now, nuLead({info, ranked, today})); } catch(e) { console.warn(e); } }
+  let avail = null; if (av) { try { avail = availPlan(av, ranked, th0, needToday, day, today, now, nuLead({ranked, info})); } catch(e) { console.warn(e); } }
   const lateCap = thSet - doneToday > leftH + 0.01;
   FOCUS = {sd, info, ranked, blocked, later, today, th, thSet, doneToday, dh: dh0, planned: avail && avail.active ? avail.planned : th - Math.max(0, left), needToday, crunch, drop, busyAhead, busy: B, day, avail, slotsBy: avail ? avail.by : {}, av, th0, now, lateCap};
   FOCUS.gapWhy = planGapWhy(FOCUS);

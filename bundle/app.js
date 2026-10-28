@@ -4572,7 +4572,9 @@ const nuSubmit = x => !(x.R > 0) && x.dl > 0 && !x.fixed && !MILESTONE(x.t.type)
 // else (0). The nudges below never move a task across bands, and inside band 2 they change nothing, so the order that
 // saves the most marks (earliest cut-off first) holds.
 const NU_TIER = 1e5;
-const nuBand = x => x.tier ? (x.tierSkip ? 1 : 2) : 0;
+const nuBand = x => x.tier ? (x.tierSkip ? 1 : 2) : x.score >= 1000 ? 1 : 0;
+// The part of a score that is the band's own offset (computeFocus scores due-now work 2000 or 3000 plus its place)
+const nuOff = x => x.tier ? (x.tierSkip ? 2000 : 3000) : x.score >= 1000 ? 1000 : 0;
 // The task already shown stays first unless another beats it by this much, so Do This Next doesn't flip as the clock moves
 const NU_STICK = 1.15;
 const nuSig = () => (typeof state !== "undefined" && state ? state.updated || 0 : 0) + "|" + todayISO();
@@ -4602,7 +4604,7 @@ function nuScore(F){
   const fbW = nufbWeights(nufbLoad(), Date.now());
   const pk = accOf() ? accOf().peak(Date.now()) : null;
   const scored = pool.map(x => {
-    const t = x.t, why = [], tier = nuBand(x), base = x.score, submit = !(x.R > 0) && x.dl > 0;
+    const t = x.t, why = [], tier = nuBand(x), base = x.score - nuOff(x), submit = !(x.R > 0) && x.dl > 0;
     let m = x.alloc > 0 ? 1 : 0.8;
     const sessionH = Math.min(x.alloc > 0 ? x.alloc : x.R, focusLen * 2 / 60);
     if (submit) { m *= 0.5; why.push("Nothing left to do but check it over and hand it in"); }
@@ -4663,7 +4665,7 @@ function nextUp(F){
   const planned = scored.map(y => { const l = (sb[y.x.t.id] || []).filter(sl => sl && sl.e > nowM); return {y, at: l.length ? Math.min(...l.map(sl => Math.max(sl.s, nowM))) : null}; }).filter(o => o.at != null).sort((a, b) => a.at - b.at)[0];
   if (planned && !(aiPick && aiPick.id === planned.y.x.t.id)) aiPick = null;
   const pick = planned ? planned.y : aiPick ? scored.find(y => y.x.t.id === aiPick.id) : scored[0];
-  ui.nextShown = planTaskId(pick.x.t);
+  ui.nextShown = pick.x.t.xs ? pick.x.t.xs.id : pick.x.t.id;
   const L = ui.nuLast, sig = nuSig();
   ui.nuLast = {id: pick.x.t.id, sig, at: L && L.id === pick.x.t.id && L.sig === sig ? L.at : Date.now()};
   const submit = !(pick.x.R > 0) && pick.x.dl > 0;
@@ -8442,8 +8444,9 @@ function computeFocus(){
   const keep = keepMost(tier.map(x => ({h: x.R, v: x.stake})), th);
   const kept = tier.filter((x, i) => keep.has(i)).sort((a, b) => a.cut - b.cut), left0 = tier.filter((x, i) => !keep.has(i)).sort((a, b) => b.stake - a.stake);
   const tierShort = left0.length > 0;
-  kept.forEach((x, i) => { x.score = 3000 - i * 10 + Math.min(9, x.score / 100); x.tierKeep = tierShort; });
-  left0.forEach((x, i) => { x.score = 2000 - i * 10 + Math.min(9, x.score / 100); x.tierSkip = true; });
+  // Scores: 3000 + a place for what is kept, 2000 + a place for the rest due now (Do This Next reads these bands)
+  kept.forEach((x, i) => { x.score = 3000 + Math.max(1, 900 - i * 10 + Math.min(9, x.score / 100)); x.tierKeep = tierShort; });
+  left0.forEach((x, i) => { x.score = 2000 + Math.max(1, 900 - i * 10 + Math.min(9, x.score / 100)); x.tierSkip = true; });
   /* Short of time: when the work due by some date can't all fit before it, the tasks that give the fewest marks for the time
      go last, and the plan says which */
   let drop = null;
@@ -8462,7 +8465,9 @@ function computeFocus(){
   for (let pass = 0; pass < 3; pass++) {
     Object.values(info).forEach(x => (x.t.dependsOn || []).forEach(id => {
       const d = info[id];
-      if (d && d.score < x.score * 0.9) { d.score = x.score * 0.9; d.unblocks = x.t; }
+      // A step that work due now waits on is due now too, just ahead of it
+      if (d && x.tier && !d.dead && (!d.tier || d.score <= x.score)) { d.tier = true; d.tierSkip = x.tierSkip; d.tierKeep = x.tierKeep; d.score = x.score + 0.5; d.unblocks = x.t; }
+      else if (d && d.score < x.score * 0.9) { d.score = x.score * 0.9; d.unblocks = x.t; }
     }));
   }
   const ranked = [], blocked = [], later = [];
@@ -8555,7 +8560,7 @@ function computeFocus(){
     if (t.start && t.start > today && !MILESTONE(t.type)) r.push([20, `Starts ${fmtDate(t.start)}`]);
     x.reasons = r.sort((a, b) => b[0] - a[0]).map(y => y[1]);
   });
-  let avail = null; if (av) { try { avail = availPlan(av, ranked, th0, needToday, day, today, now, nuLead({info, ranked, today})); } catch(e) { console.warn(e); } }
+  let avail = null; if (av) { try { avail = availPlan(av, ranked, th0, needToday, day, today, now, nuLead({ranked, info})); } catch(e) { console.warn(e); } }
   const lateCap = thSet - doneToday > leftH + 0.01;
   FOCUS = {sd, info, ranked, blocked, later, today, th, thSet, doneToday, dh: dh0, planned: avail && avail.active ? avail.planned : th - Math.max(0, left), needToday, crunch, drop, busyAhead, busy: B, day, avail, slotsBy: avail ? avail.by : {}, av, th0, now, lateCap};
   FOCUS.gapWhy = planGapWhy(FOCUS);

@@ -184,7 +184,9 @@ const nuSubmit = x => !(x.R > 0) && x.dl > 0 && !x.fixed && !MILESTONE(x.t.type)
 // else (0). The nudges below never move a task across bands, and inside band 2 they change nothing, so the order that
 // saves the most marks (earliest cut-off first) holds.
 const NU_TIER = 1e5;
-const nuBand = x => x.tier ? (x.tierSkip ? 1 : 2) : 0;
+const nuBand = x => x.tier ? (x.tierSkip ? 1 : 2) : x.score >= 1000 ? 1 : 0;
+// The part of a score that is the band's own offset (computeFocus scores due-now work 2000 or 3000 plus its place)
+const nuOff = x => x.tier ? (x.tierSkip ? 2000 : 3000) : x.score >= 1000 ? 1000 : 0;
 // The task already shown stays first unless another beats it by this much, so Do This Next doesn't flip as the clock moves
 const NU_STICK = 1.15;
 const nuSig = () => (typeof state !== "undefined" && state ? state.updated || 0 : 0) + "|" + todayISO();
@@ -214,7 +216,7 @@ function nuScore(F){
   const fbW = nufbWeights(nufbLoad(), Date.now());
   const pk = accOf() ? accOf().peak(Date.now()) : null;
   const scored = pool.map(x => {
-    const t = x.t, why = [], tier = nuBand(x), base = x.score, submit = !(x.R > 0) && x.dl > 0;
+    const t = x.t, why = [], tier = nuBand(x), base = x.score - nuOff(x), submit = !(x.R > 0) && x.dl > 0;
     let m = x.alloc > 0 ? 1 : 0.8;
     const sessionH = Math.min(x.alloc > 0 ? x.alloc : x.R, focusLen * 2 / 60);
     if (submit) { m *= 0.5; why.push("Nothing left to do but check it over and hand it in"); }
@@ -275,7 +277,7 @@ function nextUp(F){
   const planned = scored.map(y => { const l = (sb[y.x.t.id] || []).filter(sl => sl && sl.e > nowM); return {y, at: l.length ? Math.min(...l.map(sl => Math.max(sl.s, nowM))) : null}; }).filter(o => o.at != null).sort((a, b) => a.at - b.at)[0];
   if (planned && !(aiPick && aiPick.id === planned.y.x.t.id)) aiPick = null;
   const pick = planned ? planned.y : aiPick ? scored.find(y => y.x.t.id === aiPick.id) : scored[0];
-  ui.nextShown = planTaskId(pick.x.t);
+  ui.nextShown = pick.x.t.xs ? pick.x.t.xs.id : pick.x.t.id;
   const L = ui.nuLast, sig = nuSig();
   ui.nuLast = {id: pick.x.t.id, sig, at: L && L.id === pick.x.t.id && L.sig === sig ? L.at : Date.now()};
   const submit = !(pick.x.R > 0) && pick.x.dl > 0;

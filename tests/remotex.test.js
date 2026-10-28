@@ -133,7 +133,7 @@ t("autoCleanNext drops anything the 'ok' gate refuses (ineligible exams), keeps 
 });
 // nextUp itself, with its helpers stubbed (the Do This Next code is several small functions and constants)
 const lineOf = name => { const m = new RegExp("^const " + name + " = .*$", "m").exec(src); assert(m, name); return m[0]; };
-const NU_SRC = () => ["NU_TIER", "nuBand", "NU_STICK", "nuSig", "nuSubmit"].map(lineOf).concat(["nuSkips", "nuStick", "nuScore", "nuAiPick", "nextUp", "nextUpStudy"].map(fnText)).join("\n");
+const NU_SRC = () => ["NU_TIER", "nuBand", "nuOff", "NU_STICK", "nuSig", "nuSubmit"].map(lineOf).concat(["nuSkips", "nuStick", "nuScore", "nuAiPick", "nextUp", "nextUpStudy"].map(fnText)).join("\n");
 const mkNext = eff => {
   const ctx = {
     todayISO: () => "2026-10-05", ui: {}, inFilter: () => true, pad: x => String(x).padStart(2, "0"), pomoCfg: () => ({focus: 25}), schOccurrences: () => [], tasksArr: () => [],
