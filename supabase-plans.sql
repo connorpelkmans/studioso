@@ -662,6 +662,8 @@ declare
   v_until timestamptz := (p ->> 'pro_until')::timestamptz;
   v_trial timestamptz := (p ->> 'trial_until')::timestamptz;
   v_renew boolean := coalesce((p ->> 'will_renew')::boolean, true);
+  v_paid boolean := coalesce((p ->> 'paid')::boolean, false);   -- money was taken (not a trial): counts for Founders and Early Supporters
+  v_term text := p ->> 'term';
   v_uid uuid; v_mapped uuid; v_out text := 'ignored'; v_cur_family text; v_cur_live boolean; v_new_until timestamptz;
   r public.studyboard_entitlements;
 begin
@@ -755,6 +757,15 @@ begin
   end blk;
 
   update public.studyboard_billing_events set outcome = v_out, user_id = v_uid where family = v_family and event_id = v_event;
+  -- Founders and Early Supporters (below). A problem there must never stop a payment from counting
+  if v_uid is not null and (v_out = 'revoked' or (v_paid and v_out not like 'ignored%' and v_out not like 'rejected%')) then
+    begin
+      if v_out = 'revoked' then perform public.plans_early_revoke(v_uid);
+      else perform public.plans_early_claim(v_uid, v_term, v_source); end if;
+    exception when undefined_function then null;
+    when others then raise warning 'studyboard: early supporter step skipped: %', sqlerrm;
+    end;
+  end if;
   return v_out;
 end $$;
 
@@ -954,24 +965,30 @@ do $$
 begin
   if to_regclass('public.group_members') is not null then
     execute 'alter table public.group_members add column if not exists badge boolean not null default false';
+    execute 'alter table public.group_members add column if not exists badge_kind text';
   end if;
 end $$;
+create or replace function public.plans_early_kind(p_uid uuid) returns text
+language sql stable security definer set search_path = public, pg_temp as $$ select null::text $$;   -- replaced below, once its table exists
+-- Its kind: founder, early (an Early Supporter) or pro. Founders and Early Supporters keep theirs after Pro ends
 create or replace function public.set_supporter_badge(p_on boolean) returns boolean
 language plpgsql security definer set search_path = public, pg_temp as $$
-declare me uuid := auth.uid(); v boolean;
+declare me uuid := auth.uid(); v boolean; k text;
 begin
   if me is null then raise exception 'Sign in first'; end if;
-  v := coalesce(p_on, false) and (not public.studyboard_paywall() or public.studyboard_is_pro(me));
-  update public.group_members set badge = v where user_id = me and badge is distinct from v;
+  k := case when to_regprocedure('public.plans_early_kind(uuid)') is not null then public.plans_early_kind(me) end;
+  v := coalesce(p_on, false) and (k is not null or not public.studyboard_paywall() or public.studyboard_is_pro(me));
+  k := case when v then coalesce(k, 'pro') end;
+  update public.group_members set badge = v, badge_kind = k where user_id = me and (badge is distinct from v or badge_kind is distinct from k);
   return v;
 end $$;
--- A badge stays only while its owner has Pro (run nightly, below)
+-- A badge stays only while its owner has Pro, or is a Founder or Early Supporter (run nightly, below)
 create or replace function public.plans_badge_tidy() returns integer
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare n integer;
 begin
   if not public.studyboard_paywall() then return 0; end if;
-  update public.group_members set badge = false where badge and not public.studyboard_is_pro(user_id);
+  update public.group_members set badge = false, badge_kind = null where badge and not public.studyboard_is_pro(user_id) and public.plans_early_kind(user_id) is null;
   get diagnostics n = row_count; return n;
 end $$;
 revoke all on function public.set_supporter_badge(boolean), public.plans_badge_tidy() from public, anon, authenticated;
@@ -1140,6 +1157,7 @@ begin
   if not found or c.disabled then return jsonb_build_object('error', 'invalid'); end if;
   if c.valid_until is not null and c.valid_until < now() then return jsonb_build_object('error', 'expired'); end if;
   if exists (select 1 from public.studyboard_promo_redemptions r where r.code_id = c.id and r.user_id = me) then return jsonb_build_object('error', 'already'); end if;
+  if (to_jsonb(c) ->> 'owner_id') = me::text then return jsonb_build_object('error', 'own_code'); end if;   -- a friend code is for a friend
   if c.max_uses is not null and c.uses >= c.max_uses then return jsonb_build_object('error', 'used_up'); end if;
   if c.kind = 'forever' then
     insert into public.studyboard_entitlements as e (user_id, plan, will_renew, promo_lifetime, updated_at) values (me, 'free', false, true, now())
@@ -1156,6 +1174,358 @@ begin
   return jsonb_build_object('ok', true, 'kind', c.kind, 'until', until);
 end $$;
 
+-- Founders and Early Supporters (PRO-PLANS-GUIDE.md, "Founders and Early Supporters")
+-- Off until you run: select public.studyboard_early_program(true);
+-- While on, the first paid Pro sign-ups (not trials, codes or gifts) are numbered:
+--   * the first 100 (any plan) are Early Supporters: a badge in groups and one-month Pro codes for friends;
+--   * the first 10 on a semester or yearly plan are Founders: a Founder badge, and they suggest up to 3 themes,
+--     you build one into Studyboard for every Pro user, and its Founder keeps it even after their Pro ends.
+-- A refund or a disputed payment takes the place away and gives it to the next person in line (who paid while the places
+-- were full, and still pays). Cancelling without a refund doesn't: the badge and the theme stay.
+insert into public.studyboard_config (key, value) values
+  ('early_program', '{"on": false, "founders": 10, "supporters": 100, "friendCodes": 3}'::jsonb)
+on conflict (key) do nothing;
+
+create table if not exists public.studyboard_early_supporters (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  founder boolean not null default false,
+  term text check (term is null or term in ('monthly', 'semester', 'yearly')),
+  source text,                                    -- stripe, apple, google, revenuecat, or manual (added by you)
+  joined_at timestamptz not null default now(),   -- the order people are numbered in
+  founder_at timestamptz,
+  revoked_at timestamptz,                         -- refunded or removed: the place went to the next in line
+  waiting boolean not null default false,         -- paid while every place was taken: next in line, in joined_at order
+  long_at timestamptz                             -- first paid for a semester or yearly plan (the line for a Founder place)
+);
+alter table public.studyboard_early_supporters add column if not exists waiting boolean not null default false;
+alter table public.studyboard_early_supporters add column if not exists long_at timestamptz;
+create index if not exists studyboard_early_supporters_order_idx on public.studyboard_early_supporters (joined_at, user_id) where revoked_at is null and not waiting;
+-- Friend codes (the codes themselves, so their owner can see and share them)
+create table if not exists public.studyboard_early_codes (
+  code_id bigint primary key references public.studyboard_promo_codes(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  code text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists studyboard_early_codes_user_idx on public.studyboard_early_codes (user_id);
+-- A friend code can't be redeemed by the person it was given to
+alter table public.studyboard_promo_codes add column if not exists owner_id uuid references auth.users(id) on delete set null;
+-- Founder theme suggestions
+create table if not exists public.studyboard_founder_themes (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  slot smallint not null check (slot between 1 and 3),
+  name text not null check (char_length(name) between 1 and 40),
+  description text not null check (char_length(description) between 1 and 500),
+  status text not null default 'suggested' check (status in ('suggested', 'picked')),
+  theme_id text check (theme_id is null or theme_id ~ '^[a-z0-9-]{2,40}$'),   -- the theme's id in the app, once you build it
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, slot)
+);
+do $$
+declare t text;
+begin
+  foreach t in array array['studyboard_early_supporters', 'studyboard_early_codes', 'studyboard_founder_themes'] loop
+    execute format('alter table public.%I enable row level security', t);   -- no policies: the app reads these through the functions below
+    execute format('revoke all on public.%I from public, anon, authenticated', t);
+    if exists (select 1 from pg_roles where rolname = 'service_role') then execute format('grant all on public.%I to service_role', t); end if;
+  end loop;
+end $$;
+do $$
+begin
+  if to_regclass('public.group_members') is not null then
+    execute 'alter table public.group_members add column if not exists badge_kind text';
+    execute 'alter table public.group_members drop constraint if exists group_members_badge_kind_check';
+    execute 'alter table public.group_members add constraint group_members_badge_kind_check check (badge_kind is null or badge_kind in (''pro'', ''early'', ''founder''))';
+  end if;
+end $$;
+
+create or replace function public.plans_early_cfg() returns jsonb
+language sql stable security definer set search_path = public, pg_temp as $$
+  select '{"on": false, "founders": 10, "supporters": 100, "friendCodes": 3}'::jsonb || coalesce((select value from public.studyboard_config where key = 'early_program' and jsonb_typeof(value) = 'object'), '{}'::jsonb)
+$$;
+create or replace function public.plans_early_on() returns boolean
+language sql stable security definer set search_path = public, pg_temp as $$
+  select coalesce((public.plans_early_cfg() ->> 'on')::boolean, false)
+$$;
+-- 'founder', 'early' or null
+create or replace function public.plans_early_kind(p_uid uuid) returns text
+language sql stable security definer set search_path = public, pg_temp as $$
+  select case when s.founder then 'founder' else 'early' end from public.studyboard_early_supporters s where s.user_id = p_uid and s.revoked_at is null and not s.waiting
+$$;
+
+-- Puts the right badge on someone's group rows (after joining, a refund or a change of plan)
+create or replace function public.plans_early_badges(p_uid uuid) returns void
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare k text := public.plans_early_kind(p_uid); keep boolean;
+begin
+  if to_regclass('public.group_members') is null then return; end if;
+  keep := k is not null or not public.studyboard_paywall() or public.studyboard_is_pro(p_uid);
+  update public.group_members set badge = badge and keep, badge_kind = case when badge and keep then coalesce(k, 'pro') end
+    where user_id = p_uid and (badge_kind is distinct from case when badge and keep then coalesce(k, 'pro') end or (badge and not keep));
+end $$;
+
+-- Gives someone their friend codes (once per person, ever)
+create or replace function public.plans_early_codes(p_uid uuid) returns integer
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare n int := least(greatest(coalesce((public.plans_early_cfg() ->> 'friendCodes')::int, 3), 0), 10); c record; made int := 0;
+begin
+  if n = 0 or exists (select 1 from public.studyboard_early_codes where user_id = p_uid) then return 0; end if;
+  for c in select * from public.studyboard_make_codes('month', n, 1, 365, 'Friend code from an Early Supporter') loop
+    update public.studyboard_promo_codes set owner_id = p_uid where code_hash = public.plans_promo_hash(c.code);
+    insert into public.studyboard_early_codes (code_id, user_id, code)
+      select p.id, p_uid, c.code from public.studyboard_promo_codes p where p.code_hash = public.plans_promo_hash(c.code);
+    made := made + 1;
+  end loop;
+  return made;
+end $$;
+
+-- Still paying for Pro (a gift, code or trial doesn't count): only they move up the line
+create or replace function public.plans_early_paying(p_uid uuid) returns boolean
+language sql stable security definer set search_path = public, pg_temp as $$
+  select exists (select 1 from public.studyboard_entitlements e where e.user_id = p_uid and e.billing_revoked_at is null
+                 and (e.plan = 'lifetime' or (e.plan = 'pro' and (e.pro_until is null or e.pro_until > now()))))
+$$;
+
+-- Gives open places to the next in line: a Founder place to the first Early Supporter (or waiting person) on a semester or
+-- yearly plan, by when they first paid for one; an Early Supporter place to the first person waiting, by when they paid
+create or replace function public.plans_early_fill() returns integer
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare cfg jsonb := public.plans_early_cfg(); r public.studyboard_early_supporters; moved int := 0;
+begin
+  perform pg_advisory_xact_lock(hashtextextended('sb-early', 0));
+  loop
+    exit when (select count(*) from public.studyboard_early_supporters where revoked_at is null and not waiting and founder) >= (cfg ->> 'founders')::int;
+    select * into r from public.studyboard_early_supporters s
+      where s.revoked_at is null and not s.founder and s.long_at is not null and public.plans_early_paying(s.user_id)
+      order by s.long_at, s.joined_at, s.user_id limit 1 for update;
+    exit when not found;
+    update public.studyboard_early_supporters set founder = true, founder_at = clock_timestamp(), waiting = false where user_id = r.user_id;
+    if r.waiting then perform public.plans_early_codes(r.user_id); end if;
+    perform public.plans_early_badges(r.user_id);
+    moved := moved + 1;
+  end loop;
+  loop
+    exit when (select count(*) from public.studyboard_early_supporters where revoked_at is null and not waiting) >= (cfg ->> 'supporters')::int;
+    select * into r from public.studyboard_early_supporters s
+      where s.revoked_at is null and s.waiting and public.plans_early_paying(s.user_id)
+      order by s.joined_at, s.user_id limit 1 for update;
+    exit when not found;
+    update public.studyboard_early_supporters set waiting = false where user_id = r.user_id;
+    perform public.plans_early_codes(r.user_id);
+    perform public.plans_early_badges(r.user_id);
+    moved := moved + 1;
+  end loop;
+  return moved;
+end $$;
+
+-- A paid sign-up takes a place if one is left, or joins the line (called by studyboard_apply_billing, or by you with p_force)
+create or replace function public.plans_early_claim(p_uid uuid, p_term text, p_source text, p_force boolean default false, p_founder boolean default null) returns text
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare cfg jsonb := public.plans_early_cfg(); r public.studyboard_early_supporters; nf int; ns int; long boolean; f boolean; t text; was boolean;
+begin
+  if p_uid is null or not (p_force or coalesce((cfg ->> 'on')::boolean, false)) then return 'off'; end if;
+  perform pg_advisory_xact_lock(hashtextextended('sb-early', 0));   -- two payments at once can't both take the last place
+  t := case when p_term in ('monthly', 'semester', 'yearly') then p_term end;
+  long := t in ('semester', 'yearly');
+  select count(*) filter (where founder), count(*) into nf, ns from public.studyboard_early_supporters where revoked_at is null and not waiting;
+  select * into r from public.studyboard_early_supporters where user_id = p_uid for update;
+  was := found and r.revoked_at is null;
+  if was and not r.waiting then
+    -- Already in: an Early Supporter who moves to a semester or yearly plan becomes a Founder if a place is left
+    if long and r.long_at is null then update public.studyboard_early_supporters set long_at = clock_timestamp() where user_id = p_uid; end if;
+    if r.founder or not coalesce(p_founder, long) or (not p_force and nf >= (cfg ->> 'founders')::int) then return 'kept'; end if;
+    update public.studyboard_early_supporters set founder = true, founder_at = clock_timestamp(), term = coalesce(t, term) where user_id = p_uid;
+    perform public.plans_early_badges(p_uid);
+    return 'founder';
+  end if;
+  f := coalesce(p_founder, long and nf < (cfg ->> 'founders')::int);
+  if not p_force and not f and ns >= (cfg ->> 'supporters')::int then
+    -- Every place is taken: wait in line (a renewal keeps their spot in it)
+    if was then
+      update public.studyboard_early_supporters set term = coalesce(t, term), long_at = coalesce(long_at, case when long then clock_timestamp() end) where user_id = p_uid;
+    else
+      insert into public.studyboard_early_supporters as s (user_id, founder, term, source, joined_at, long_at, revoked_at, waiting)
+      values (p_uid, false, t, left(p_source, 20), clock_timestamp(), case when long then clock_timestamp() end, null, true)
+      on conflict (user_id) do update set founder = false, term = excluded.term, source = excluded.source, joined_at = excluded.joined_at,
+        long_at = excluded.long_at, founder_at = null, revoked_at = null, waiting = true;
+    end if;
+    return 'waiting';
+  end if;
+  if was then   -- from the line straight into a place
+    update public.studyboard_early_supporters set waiting = false, founder = f, founder_at = case when f then clock_timestamp() end, term = coalesce(t, term),
+      long_at = coalesce(long_at, case when long then clock_timestamp() end) where user_id = p_uid;
+  else
+    insert into public.studyboard_early_supporters as s (user_id, founder, term, source, joined_at, founder_at, long_at, revoked_at, waiting)
+    values (p_uid, f, t, left(p_source, 20), clock_timestamp(), case when f then clock_timestamp() end, case when long then clock_timestamp() end, null, false)
+    on conflict (user_id) do update set founder = excluded.founder, term = excluded.term, source = excluded.source, joined_at = excluded.joined_at,
+      founder_at = excluded.founder_at, long_at = excluded.long_at, revoked_at = null, waiting = false;
+  end if;
+  perform public.plans_early_codes(p_uid);
+  perform public.plans_early_badges(p_uid);
+  return case when f then 'founder' else 'supporter' end;
+end $$;
+
+-- A refund or a lost dispute takes the place (or the spot in line) away, the friend codes nobody used stop working,
+-- and the place goes to the next in line
+create or replace function public.plans_early_revoke(p_uid uuid) returns text
+language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  update public.studyboard_early_supporters set revoked_at = now(), founder = false, waiting = false where user_id = p_uid and revoked_at is null;
+  if not found then return 'not in'; end if;
+  update public.studyboard_promo_codes p set disabled = true from public.studyboard_early_codes c where c.code_id = p.id and c.user_id = p_uid and p.uses = 0;
+  perform public.plans_early_badges(p_uid);
+  perform public.plans_early_fill();
+  return 'revoked';
+end $$;
+
+-- The app: how many places are left (no account needed)
+create or replace function public.studyboard_early_status() returns jsonb
+language sql stable security definer set search_path = public, pg_temp as $$
+  select case when not coalesce((c ->> 'on')::boolean, false) then jsonb_build_object('on', false) else jsonb_build_object('on', true,
+    'founders', (c ->> 'founders')::int, 'supporters', (c ->> 'supporters')::int,
+    'foundersLeft', greatest((c ->> 'founders')::int - (select count(*) from public.studyboard_early_supporters where revoked_at is null and not waiting and founder), 0),
+    'supportersLeft', greatest((c ->> 'supporters')::int - (select count(*) from public.studyboard_early_supporters where revoked_at is null and not waiting), 0)) end
+  from (select public.plans_early_cfg() as c) x
+$$;
+
+-- The app: your own place, friend codes and theme suggestions
+create or replace function public.studyboard_my_early() returns jsonb
+language plpgsql stable security definer set search_path = public, pg_temp as $$
+declare me uuid := auth.uid(); r public.studyboard_early_supporters; st jsonb := public.studyboard_early_status();
+begin
+  if me is null then return st || jsonb_build_object('member', false); end if;
+  select * into r from public.studyboard_early_supporters where user_id = me and revoked_at is null and not waiting;
+  if not found then return st || jsonb_build_object('member', false); end if;
+  return st || jsonb_build_object('member', true, 'founder', r.founder, 'term', r.term, 'since', r.joined_at,
+    'number', (select count(*) from public.studyboard_early_supporters s where s.revoked_at is null and not s.waiting and (s.joined_at, s.user_id) <= (r.joined_at, r.user_id)),
+    'founderNumber', case when r.founder then (select count(*) from public.studyboard_early_supporters s where s.revoked_at is null and not s.waiting and s.founder
+                                                  and (s.founder_at, s.user_id) <= (r.founder_at, r.user_id)) end,
+    'codes', coalesce((select jsonb_agg(jsonb_build_object('code', c.code, 'used', p.uses >= coalesce(p.max_uses, 1), 'off', p.disabled,
+                                                           'until', p.valid_until) order by c.created_at, c.code_id)
+                       from public.studyboard_early_codes c join public.studyboard_promo_codes p on p.id = c.code_id where c.user_id = me), '[]'::jsonb),
+    'themes', coalesce((select jsonb_agg(jsonb_build_object('slot', t.slot, 'name', t.name, 'description', t.description, 'status', t.status, 'themeId', t.theme_id) order by t.slot)
+                        from public.studyboard_founder_themes t where t.user_id = me), '[]'::jsonb),
+    'keep', coalesce((select jsonb_agg(t.theme_id) from public.studyboard_founder_themes t where t.user_id = me and t.status = 'picked' and t.theme_id is not null), '[]'::jsonb));
+end $$;
+
+-- The app: a Founder saves (or clears, with an empty name) one of their 3 suggestions
+create or replace function public.founder_theme_save(p_slot int, p_name text, p_description text) returns jsonb
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare me uuid := auth.uid(); n text; d text;
+begin
+  if me is null then raise exception 'SB_AUTH: Sign in first, then try again.' using errcode = 'P0001'; end if;
+  if not public.studyboard_plan_rate_hit('founder-theme:' || me::text, 30, 3600) then raise exception 'SB_SLOW_DOWN: That''s a lot of changes. Try again in a while.' using errcode = 'P0001'; end if;
+  if public.plans_early_kind(me) is distinct from 'founder' then raise exception 'SB_NOT_FOUNDER: Theme suggestions are for Studyboard''s Founders.' using errcode = 'P0001'; end if;
+  if p_slot is null or p_slot not between 1 and 3 then raise exception 'SB_BAD_SLOT: Pick suggestion 1, 2 or 3.' using errcode = 'P0001'; end if;
+  if exists (select 1 from public.studyboard_founder_themes where user_id = me and status = 'picked') then
+    raise exception 'SB_FOUNDER_PICKED: One of your themes has already been picked, so your suggestions are final.' using errcode = 'P0001';
+  end if;
+  n := btrim(regexp_replace(regexp_replace(coalesce(p_name, ''), '[[:cntrl:]]', ' ', 'g'), '\s+', ' ', 'g'));
+  d := btrim(regexp_replace(regexp_replace(regexp_replace(coalesce(p_description, ''), E'\r\n?', E'\n', 'g'), E'[\\x01-\\x09\\x0B-\\x1F\\x7F]', ' ', 'g'), E'\n{3,}', E'\n\n', 'g'));
+  if n = '' then
+    delete from public.studyboard_founder_themes where user_id = me and slot = p_slot;
+    return jsonb_build_object('ok', true, 'removed', true);
+  end if;
+  if char_length(n) > 40 then raise exception 'SB_TOO_LONG: Keep the name to 40 characters.' using errcode = 'P0001'; end if;
+  if d = '' then raise exception 'SB_NEED_DESC: Add a short description of the theme.' using errcode = 'P0001'; end if;
+  if char_length(d) > 500 then raise exception 'SB_TOO_LONG: Keep the description to 500 characters.' using errcode = 'P0001'; end if;
+  insert into public.studyboard_founder_themes as t (user_id, slot, name, description) values (me, p_slot, n, d)
+  on conflict (user_id, slot) do update set name = excluded.name, description = excluded.description, updated_at = now();
+  return jsonb_build_object('ok', true);
+end $$;
+
+-- For you in the SQL Editor
+create or replace function public.studyboard_early_program(p_on boolean) returns text
+language plpgsql volatile security definer set search_path = '' as $$
+begin
+  perform public.plans_deny_clients();
+  insert into public.studyboard_config (key, value) values ('early_program', jsonb_build_object('on', coalesce(p_on, false)))
+  on conflict (key) do update set value = public.plans_early_cfg() || jsonb_build_object('on', coalesce(p_on, false))
+    || case when p_on and not (public.plans_early_cfg() ? 'since') then jsonb_build_object('since', now()) else '{}'::jsonb end, updated_at = now();
+  return case when p_on then 'Founders and Early Supporters is ON: the next paid sign-ups take the places that are left.' else 'Founders and Early Supporters is OFF: nobody new gets a place. Everyone who has one keeps it.' end;
+end $$;
+
+drop function if exists public.studyboard_early_list();
+create or replace function public.studyboard_early_list()
+returns table (place bigint, email text, founder boolean, founder_place bigint, waiting boolean, term text, source text, joined_at timestamptz, revoked_at timestamptz, codes_used bigint, codes bigint)
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  perform public.plans_deny_clients();
+  return query
+    select case when s.revoked_at is null and not s.waiting then row_number() over (partition by s.revoked_at is null and not s.waiting order by s.joined_at, s.user_id) end,
+           u.email::text, s.founder,
+           case when s.founder and s.revoked_at is null and not s.waiting then row_number() over (partition by s.founder and s.revoked_at is null and not s.waiting order by s.founder_at, s.user_id) end,
+           s.waiting and s.revoked_at is null, s.term, s.source, s.joined_at, s.revoked_at,
+           (select count(*) from public.studyboard_early_codes c join public.studyboard_promo_codes p on p.id = c.code_id where c.user_id = s.user_id and p.uses > 0),
+           (select count(*) from public.studyboard_early_codes c where c.user_id = s.user_id)
+    from public.studyboard_early_supporters s left join auth.users u on u.id = s.user_id
+    order by s.revoked_at is not null, s.waiting, s.joined_at;
+end $$;
+
+-- Add someone by hand (for example a payment made before you switched it on); p_founder true makes them a Founder
+create or replace function public.studyboard_early_add(p_email text, p_founder boolean default false) returns text
+language plpgsql volatile security definer set search_path = '' as $$
+declare uid uuid; r text;
+begin
+  perform public.plans_deny_clients();
+  select id into uid from auth.users where lower(email) = lower(btrim(p_email));
+  if uid is null then return 'No account uses ' || coalesce(p_email, '(nothing)'); end if;
+  r := public.plans_early_claim(uid, null, 'manual', true, coalesce(p_founder, false));
+  return case r when 'founder' then p_email || ' is a Founder' when 'supporter' then p_email || ' is an Early Supporter' else p_email || ' already has a place' end;
+end $$;
+
+create or replace function public.studyboard_early_remove(p_email text) returns text
+language plpgsql volatile security definer set search_path = '' as $$
+declare uid uuid;
+begin
+  perform public.plans_deny_clients();
+  select id into uid from auth.users where lower(email) = lower(btrim(p_email));
+  if uid is null then return 'No account uses ' || coalesce(p_email, '(nothing)'); end if;
+  return case public.plans_early_revoke(uid) when 'revoked' then 'Removed. Their unused friend codes stop working, and their place went to the next in line (if anyone is waiting).' else p_email || ' doesn''t have a place' end;
+end $$;
+
+create or replace function public.studyboard_founder_themes()
+returns table (id bigint, founder_place bigint, email text, slot smallint, name text, description text, status text, theme_id text, updated_at timestamptz)
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  perform public.plans_deny_clients();
+  return query
+    select t.id, (select count(*) from public.studyboard_early_supporters s2 where s2.revoked_at is null and not s2.waiting and s2.founder and (s2.founder_at, s2.user_id) <= (s.founder_at, s.user_id)),
+           u.email::text, t.slot, t.name, t.description, t.status, t.theme_id, t.updated_at
+    from public.studyboard_founder_themes t join public.studyboard_early_supporters s on s.user_id = t.user_id
+    left join auth.users u on u.id = t.user_id
+    where s.revoked_at is null and not s.waiting and s.founder
+    order by s.founder_at, t.slot;
+end $$;
+
+-- Pick one suggestion (by its id from studyboard_founder_themes()) and name the theme id you'll give it in the app
+create or replace function public.studyboard_founder_theme_pick(p_id bigint, p_theme_id text) returns text
+language plpgsql volatile security definer set search_path = '' as $$
+declare t public.studyboard_founder_themes;
+begin
+  perform public.plans_deny_clients();
+  if p_theme_id is null or p_theme_id !~ '^[a-z0-9-]{2,40}$' then return 'The theme id needs 2 to 40 lower-case letters, digits or dashes, like founder-ocean-glass'; end if;
+  select * into t from public.studyboard_founder_themes where id = p_id;
+  if not found then return 'No suggestion has that id'; end if;
+  update public.studyboard_founder_themes set status = 'suggested', theme_id = null, updated_at = now() where user_id = t.user_id and id <> p_id and status = 'picked';
+  update public.studyboard_founder_themes set status = 'picked', theme_id = p_theme_id, updated_at = now() where id = p_id;
+  return 'Picked "' || t.name || '". Add a theme with id: "' || p_theme_id || '", group: "founders" to SKINS in src/js/01-style-shop.js; its Founder keeps it for good.';
+end $$;
+
+create or replace function public.studyboard_founder_theme_unpick(p_id bigint) returns text
+language plpgsql volatile security definer set search_path = '' as $$
+begin
+  perform public.plans_deny_clients();
+  update public.studyboard_founder_themes set status = 'suggested', theme_id = null, updated_at = now() where id = p_id;
+  return case when found then 'Back to a suggestion. Its Founder can edit their suggestions again.' else 'No suggestion has that id' end;
+end $$;
+
+revoke all on function public.studyboard_early_status(), public.studyboard_my_early(), public.founder_theme_save(int, text, text) from public, anon, authenticated;
+grant execute on function public.studyboard_early_status() to anon, authenticated;
+grant execute on function public.studyboard_my_early(), public.founder_theme_save(int, text, text) to authenticated;
+
 -- Lock down: who may run what, and what is visible live
 do $$
 declare f record;
@@ -1165,7 +1535,9 @@ begin
     where n.nspname = 'public'
       and (p.proname like 'plans\_%' or p.proname in ('studyboard_is_pro', 'studyboard_limit', 'studyboard_prune_group_messages', 'studyboard_prune_billing', 'studyboard_prune_backups',
            'studyboard_apply_billing', 'studyboard_plan_rate_hit', 'studyboard_grant_pro', 'studyboard_grant_pro_uid', 'studyboard_revoke_pro', 'studyboard_revoke_pro_uid',
-           'studyboard_make_code', 'studyboard_make_codes', 'studyboard_list_codes', 'studyboard_disable_code', 'studyboard_revoke_promo', 'studyboard_redeem_code'))
+           'studyboard_make_code', 'studyboard_make_codes', 'studyboard_list_codes', 'studyboard_disable_code', 'studyboard_revoke_promo', 'studyboard_redeem_code',
+           'studyboard_early_status', 'studyboard_my_early', 'founder_theme_save', 'studyboard_early_program', 'studyboard_early_list', 'studyboard_early_add',
+           'studyboard_early_remove', 'studyboard_founder_themes', 'studyboard_founder_theme_pick', 'studyboard_founder_theme_unpick'))
   loop
     execute format('revoke all on function %s from public, anon, authenticated', f.sig);
     if exists (select 1 from pg_roles where rolname = 'service_role') then execute format('grant execute on function %s to service_role', f.sig); end if;
@@ -1174,6 +1546,8 @@ end $$;
 revoke all on function public.studyboard_paywall() from public;
 grant execute on function public.studyboard_paywall() to anon, authenticated;
 grant execute on function public.studyboard_redeem_code(text) to authenticated;   -- the one promo function the app calls (it checks who is asking)
+grant execute on function public.studyboard_early_status() to anon, authenticated;   -- places left (counts only)
+grant execute on function public.studyboard_my_early(), public.founder_theme_save(int, text, text) to authenticated;   -- each checks who is asking
 revoke all on function public.studyboard_start_trial() from public, anon;
 grant execute on function public.studyboard_start_trial() to authenticated;
 
@@ -1182,13 +1556,15 @@ declare t text;
 begin
   if exists (select 1 from pg_roles where rolname = 'service_role') then
     foreach t in array array['studyboard_config', 'studyboard_entitlements', 'studyboard_devices', 'studyboard_usage', 'studyboard_billing_customers',
-                              'studyboard_billing_events', 'studyboard_pro_grants', 'studyboard_plan_rate', 'studyboard_device_removals', 'studyboard_trial_uses'] loop
+                              'studyboard_billing_events', 'studyboard_pro_grants', 'studyboard_plan_rate', 'studyboard_device_removals', 'studyboard_trial_uses',
+                              'studyboard_early_supporters', 'studyboard_early_codes', 'studyboard_founder_themes'] loop
       execute format('grant all on public.%I to service_role', t);
     end loop;
   end if;
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime' and not puballtables) then
     foreach t in array array['studyboard_config', 'studyboard_entitlements', 'studyboard_usage', 'studyboard_billing_customers', 'studyboard_billing_events',
-                              'studyboard_pro_grants', 'studyboard_plan_rate', 'studyboard_device_removals', 'studyboard_trial_uses'] loop
+                              'studyboard_pro_grants', 'studyboard_plan_rate', 'studyboard_device_removals', 'studyboard_trial_uses',
+                              'studyboard_early_supporters', 'studyboard_early_codes', 'studyboard_founder_themes'] loop
       if exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
         execute format('alter publication supabase_realtime drop table public.%I', t);
       end if;

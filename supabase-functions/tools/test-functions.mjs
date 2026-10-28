@@ -247,7 +247,54 @@ await test("stripe: STRIPE_PRICE_IDS (optional) limits which prices give Pro; un
   await wh.handle(await stripeReq({ id: "evt_cc", type: "checkout.session.completed", created: S, data: { object: { mode: "subscription", payment_status: "paid", customer: "cus_1", subscription: "sub_1", client_reference_id: UID, metadata: { uid: UID } } } }), w.deps);
   assert.equal(w.applied.length, 0, "a checkout for another price gives nothing");
 });
+await test("stripe: only money taken counts for Founders and Early Supporters, with the plan's length", async () => {
+  const inv = (o) => ({ id: "evt_pay", type: "invoice.paid", created: S, data: { object: { customer: "cus_1", subscription: "sub_1", ...o } } });
+  const line = (days, price) => ({ period: { start: S, end: S + days * 86400 }, ...(price ? { price: { id: price } } : {}) });
+  let { deps, applied } = whDeps();
+  await wh.handle(await stripeReq(inv({ amount_paid: 2999, lines: { data: [line(365)] } })), deps);
+  assert.equal(applied[0].paid, true); assert.equal(applied[0].term, "yearly");
+  ({ deps, applied } = whDeps());
+  await wh.handle(await stripeReq(inv({ amount_paid: 1299, lines: { data: [line(122)] } })), deps);
+  assert.equal(applied[0].term, "semester");
+  ({ deps, applied } = whDeps());
+  await wh.handle(await stripeReq(inv({ amount_paid: 399, lines: { data: [line(31)] } })), deps);
+  assert.equal(applied[0].term, "monthly");
+  ({ deps, applied } = whDeps({ env: { STRIPE_PRICE_YEARLY: "price_y" } }));
+  await wh.handle(await stripeReq(inv({ amount_paid: 2999, lines: { data: [line(20, "price_y")] } })), deps);
+  assert.equal(applied[0].term, "yearly", "the price id wins over the period length");
+  ({ deps, applied } = whDeps());
+  await wh.handle(await stripeReq(inv({ amount_paid: 0, lines: { data: [line(365)] } })), deps);
+  assert.equal(applied[0].state, "extend"); assert.equal(applied[0].paid, undefined, "a $0 invoice (trial) is not a payment");
+  // Checkout: a paid yearly checkout counts; a trial checkout doesn't
+  const sub = (status) => ({ status, customer: "cus_1", current_period_start: S, current_period_end: S + 365 * 86400, items: { data: [{ price: { id: "price_x", recurring: { interval: "year", interval_count: 1 } } }] } });
+  const co = (o) => ({ id: "evt_co", type: "checkout.session.completed", created: S, data: { object: { mode: "subscription", customer: "cus_1", subscription: "sub_1", client_reference_id: UID, metadata: { uid: UID }, ...o } } });
+  ({ deps, applied } = whDeps({ stripe: () => sub("active") }));
+  await wh.handle(await stripeReq(co({ payment_status: "paid", amount_total: 2999 })), deps);
+  assert.equal(applied[0].paid, true); assert.equal(applied[0].term, "yearly");
+  ({ deps, applied } = whDeps({ stripe: () => sub("trialing") }));
+  await wh.handle(await stripeReq(co({ payment_status: "no_payment_required", amount_total: 0 })), deps);
+  assert.equal(applied[0].paid, undefined);
+  // Subscription updates never count on their own
+  ({ deps, applied } = whDeps());
+  await wh.handle(await stripeReq({ id: "evt_su", type: "customer.subscription.updated", created: S, data: { object: { customer: "cus_1", status: "active", current_period_end: S + 86400 } } }), deps);
+  assert.equal(applied[0].paid, undefined);
+});
 const rcReq = (event, auth = "Bearer rc-secret-rc-secret-rc") => new Request("https://x/functions/v1/billing-webhook/revenuecat", { method: "POST", headers: { authorization: auth }, body: JSON.stringify({ event }) });
+await test("revenuecat: a paid purchase counts with its length; a store trial or a $0 price doesn't", async () => {
+  const base = { app_user_id: UID, store: "APP_STORE", event_timestamp_ms: NOW, environment: "PRODUCTION", purchased_at_ms: NOW };
+  let { deps, applied } = whDeps();
+  await wh.handle(rcReq({ ...base, id: "rcp1", type: "INITIAL_PURCHASE", period_type: "NORMAL", price: 29.99, expiration_at_ms: NOW + 365 * 86400e3 }), deps);
+  assert.equal(applied[0].paid, true); assert.equal(applied[0].term, "yearly");
+  ({ deps, applied } = whDeps());
+  await wh.handle(rcReq({ ...base, id: "rcp2", type: "RENEWAL", period_type: "NORMAL", price: 3.99, expiration_at_ms: NOW + 30 * 86400e3 }), deps);
+  assert.equal(applied[0].term, "monthly");
+  ({ deps, applied } = whDeps());
+  await wh.handle(rcReq({ ...base, id: "rcp3", type: "INITIAL_PURCHASE", period_type: "TRIAL", price: 0, expiration_at_ms: NOW + 7 * 86400e3 }), deps);
+  assert.equal(applied[0].paid, undefined);
+  ({ deps, applied } = whDeps());
+  await wh.handle(rcReq({ ...base, id: "rcp4", type: "UNCANCELLATION", expiration_at_ms: NOW + 30 * 86400e3 }), deps);
+  assert.equal(applied[0].paid, undefined);
+});
 await test("revenuecat: authorization is checked (constant time), sandbox ignored, events mapped", async () => {
   const ev = { id: "rc1", type: "INITIAL_PURCHASE", app_user_id: UID, store: "APP_STORE", expiration_at_ms: NOW + 86400e3, event_timestamp_ms: NOW, environment: "PRODUCTION", period_type: "TRIAL" };
   for (const auth of ["", "Bearer wrong", "Bearer rc-secret-rc-secret-r", "rc-secret-rc-secret-rcX"]) {

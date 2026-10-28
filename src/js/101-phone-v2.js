@@ -248,6 +248,7 @@
   document.addEventListener("change", e => {
     const s = e.target; if (!s || !s.matches || !s.matches("select[data-nb-pick]")) return;
     const b = s.value === "__new" ? document.querySelector('.nb-boards [data-act="nb-new"]') : [...document.querySelectorAll('.nb-boards [data-act="nb-pick"]')].find(x => (x.dataset.id || "") === s.value);
+    s.blur();
     if (b) b.click();
     if (s.value === "__new") setTimeout(() => { try { render(); } catch (x) {} }, 0);
   });

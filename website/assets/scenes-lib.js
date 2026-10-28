@@ -792,7 +792,7 @@ SCENES.autumn = function (W, H, dk, rnd) {
     else { put(lay, ks[1], base, P3[1]); put(lay, ks[2], sh + tx2, P3[2]); put(lay, ks[0], li, P3[0]); }
   }
   function pine(lay, x0, y0, r, hzk) {
-    var Bd = band(lay), S2 = Bd || SL[lay], ks = Bd ? [Bd.lit, Bd.base.pine, Bd.shade] : S2.pine; P3 = PINE.map(function (c) { return hzk ? hz2(c, hzk) : c; }), h = r * 2.9, n = 4, base = '', sh = '', li = '';
+    var Bd = band(lay), S2 = Bd || SL[lay], ks = Bd ? [Bd.lit, Bd.base.pine, Bd.shade] : S2.pine, P3 = PINE.map(function (c) { return hzk ? hz2(c, hzk) : c; }), h = r * 2.9, n = 4, base = '', sh = '', li = '';
     var LP = Bd ? 'mid' : lay;
     put(LP, S2.sh, b2_ellA(x0 + r * 0.2, y0 + r * 0.03, r * 0.75, r * 0.14));
     put(LP, S2.tr, b2_polyA([[x0 - r * 0.1, y0 + 1], [x0 - r * 0.07, y0 - r * 0.6], [x0 + r * 0.07, y0 - r * 0.6], [x0 + r * 0.1, y0 + 1]]));

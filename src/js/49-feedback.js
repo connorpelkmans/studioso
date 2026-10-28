@@ -1,7 +1,7 @@
 /* ===== module: 49-feedback.js ===== */
 /* Report a Bug or Send Feedback */
 (() => {
-  const APP_VERSION = "1.15.1";
+  const APP_VERSION = "1.15.2";
   const QKEY = "studyboard:bugq", CID = "studyboard:bugcid", LASTSEND = "studyboard:bugsent";
   const MAX_SHOT = 280000;
   let shot = "", busy = false, flushing = false;
