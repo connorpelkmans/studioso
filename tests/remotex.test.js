@@ -133,12 +133,12 @@ t("autoCleanNext drops anything the 'ok' gate refuses (ineligible exams), keeps 
 });
 // nextUp itself, with its helpers stubbed (the Do This Next code is several small functions and constants)
 const lineOf = name => { const m = new RegExp("^const " + name + " = .*$", "m").exec(src); assert(m, name); return m[0]; };
-const NU_SRC = () => ["NU_TIER", "NU_STICK", "nuSig", "nuSubmit"].map(lineOf).concat(["nuSkips", "nuStick", "nuScore", "nuAiPick", "nextUp", "nextUpStudy"].map(fnText)).join("\n");
+const NU_SRC = () => ["NU_TIER", "nuBand", "nuOff", "NU_STICK", "nuSig", "nuSubmit"].map(lineOf).concat(["nuSkips", "nuStick", "nuScore", "nuAiPick", "nextUp", "nextUpStudy"].map(fnText)).join("\n");
 const mkNext = eff => {
   const ctx = {
     todayISO: () => "2026-10-05", ui: {}, inFilter: () => true, pad: x => String(x).padStart(2, "0"), pomoCfg: () => ({focus: 25}), schOccurrences: () => [], tasksArr: () => [],
     nufbLoad: () => ({}), nufbWeights: () => ({}), nufbMult: () => 1, diffOf: () => "med", deadlineGuard: () => {}, autoPlanOn: () => false, AUTO: {}, fmtTime: x => x,
-    enoughToday: () => false, canDoNow: t => R.canDoNow(t, {v: eff[t.id] || ""}), accOf: () => null, Date, Number, Math
+    enoughToday: () => false, planTaskId: t => t.id, state: {tasks: {}}, canDoNow: t => R.canDoNow(t, {v: eff[t.id] || ""}), accOf: () => null, Date, Number, Math
   };
   vm.createContext(ctx); vm.runInContext(NU_SRC(), ctx); return F => ctx.nextUp(F);
 };
@@ -163,7 +163,7 @@ t("nextUp: a Study prep task for the exam is still suggested", () => {
 // Studying for an in-person exam (never the exam itself) when nothing is due before it
 const mkStudy = () => {
   const ctx = {todayISO: () => "2026-10-05", ui: {}, inFilter: () => true, pad: x => String(x).padStart(2, "0"), pomoCfg: () => ({focus: 25}), schOccurrences: () => [], tasksArr: () => [], nufbLoad: () => ({}), nufbWeights: () => ({}), nufbMult: () => 1, diffOf: () => "med", deadlineGuard: () => {},
-    autoPlanOn: () => false, AUTO: {}, fmtTime: x => x, enoughToday: () => false, canDoNow: t => R.canDoNow(t, {v: ""}), accOf: () => null, planSessions: () => [], dueDate: t => t.due, Date, Number, Math};
+    autoPlanOn: () => false, AUTO: {}, fmtTime: x => x, enoughToday: () => false, planTaskId: t => t.id, state: {tasks: {}}, canDoNow: t => R.canDoNow(t, {v: ""}), accOf: () => null, planSessions: () => [], dueDate: t => t.due, Date, Number, Math};
   vm.createContext(ctx); vm.runInContext(NU_SRC(), ctx); return F => ctx.nextUp(F);
 };
 const EX = (id, dl) => ({t: {id, type: "Exam", title: "Midterm", due: "2026-10-0" + (5 + dl), history: []}, fixed: true, dl});
@@ -184,7 +184,7 @@ t("nextUp: the alternatives (left) never count an ineligible exam", () => {
 });
 t("nextUp: the AI's stored pick can't bring back an exam that has become ineligible", () => {
   const ctx = {todayISO: () => "2026-10-05", ui: {}, inFilter: () => true, pad: x => String(x).padStart(2, "0"), pomoCfg: () => ({focus: 25}), schOccurrences: () => [], tasksArr: () => [], nufbLoad: () => ({}), nufbWeights: () => ({}), nufbMult: () => 1, diffOf: () => "med", deadlineGuard: () => {},
-    autoPlanOn: () => true, AUTO: {next: {day: "2026-10-05", at: Date.now(), list: [{id: "m", why: "x"}]}}, fmtTime: x => x, enoughToday: () => false, canDoNow: t => R.canDoNow(t, {v: ""}), accOf: () => null, Date, Number, Math};
+    autoPlanOn: () => true, AUTO: {next: {day: "2026-10-05", at: Date.now(), list: [{id: "m", why: "x"}]}}, fmtTime: x => x, enoughToday: () => false, planTaskId: t => t.id, state: {tasks: {}}, canDoNow: t => R.canDoNow(t, {v: ""}), accOf: () => null, Date, Number, Math};
   vm.createContext(ctx); vm.runInContext(NU_SRC(), ctx);
   const r = ctx.nextUp({ranked: [X("m", "Exam", 99), X("hw", "Assignment", 40)]}); assert.strictEqual(r.x.t.id, "hw"); assert.strictEqual(r.ai, false);
 });

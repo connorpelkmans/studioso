@@ -144,11 +144,7 @@ SCENES.summer = function (W, H, dk, rnd) {
     det += circ(x, y, 7); if (ANIM) (ANIM.umb = ANIM.umb || []).push({x: x, y: y, r: rr * 0.95}); });
   (ph ? spread(0, 20, W, H * 0.45, 130, 110, rnd, 0.6) : spread(0, 0, W, H, 160, 150, rnd, 0.7)).forEach(function (c) { var o = offAt(c.x, c.y); if (c.q > 0.8) return;
     if (o > 70 && o < 200 && c.r < 0.75) { if (ANIM) { (ANIM.rings = ANIM.rings || []).push({x: c.x, y: c.y}); return; } ring += circ(c.x, c.y, 8); det += circ(c.x, c.y, 4); }
-    else if (o > 250 && c.r < 0.55) { var dg = ang + 90 + (c.k - 0.5) * 40, L = ph ? 58 : 74, bb = rotp([[-L / 2, 0]], c.x, c.y, dg)[0];
-      if (ANIM) { (ANIM.boats = ANIM.boats || []).push({x: c.x, y: c.y, dg: dg, L: L}); return; }
-      hulls += leaf(bb[0], bb[1], L, L * 0.22, dg); deck += leaf(bb[0] + (c.x - bb[0]) * 0.18, bb[1] + (c.y - bb[1]) * 0.18, L * 0.72, L * 0.13, dg);
-      var tail = rotp([[-L * 0.5, 0], [-L * 1.8, -L * 0.45], [-L * 1.8, L * 0.45]], c.x, c.y, dg); var t1 = rotp([[-L * 1.8, -L * 0.36], [-L * 1.8, L * 0.36]], c.x, c.y, dg); wake += poly([tail[0], tail[1], t1[0]]) + poly([tail[0], tail[2], t1[1]]);
-      if (dk) glow += circ(c.x, c.y, 20); }
+    else if (o > 250 && c.r < 0.55) { /* no boats out on the water */ }
     else if (o > 120 && o < 260 && c.k < 0.5) { var dg2 = ang + 90 + (c.k - 0.25) * 60; hulls += b1_rr(c.x, c.y, 10, 46, dg2); det += circ(c.x, c.y, 4); } });
   if (dk) {
     var fp = null, best = -1, pal = ph ? [[0.1, 0.93], [0.92, 0.76]] : [[0.05, 0.7], [0.22, 0.95], [0.08, 0.98]];

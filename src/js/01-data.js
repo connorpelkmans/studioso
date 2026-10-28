@@ -248,6 +248,7 @@ function normTask(t){
   t = Object.assign({title:"Untitled", courseId:"", type:"Assignment", start:"", due:"", time:"", priority:"med", status:"todo", notes:"", hours:null, checklist:[], pct:0, dependsOn:[], history:[], location:"", link:"", team:"", reading:"", weight:null, difficulty:"med", late:"unknown"}, t);
   if (!DIFF_M[t.difficulty]) t.difficulty = "med";
   if (!LATE_M[t.late]) t.late = "unknown";
+  if (t.latePen != null) { const v = Number(t.latePen); if (t.late === "penalty" && isFinite(v) && v > 0) t.latePen = Math.min(100, v); else delete t.latePen; }
   if (!Array.isArray(t.dependsOn)) t.dependsOn = [];
   if (!Array.isArray(t.history)) t.history = [];
   t.pct = Math.max(0, Math.min(100, Number(t.pct) || 0));

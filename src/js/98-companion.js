@@ -1552,7 +1552,7 @@
     const est = estIdea(); if (est) return est;
     if (plan && plan.idea) { const i = plan.idea; if (ideaValid(i)) return i; }
     try {
-      const F = FOCUS || computeFocus(), top = F && F.ranked && F.ranked.find(x => x.alloc > 0 && x.t.status !== "done" && canDoNow(x.t));
+      const F = FOCUS || computeFocus(), top = F && F.ranked && F.ranked.find(x => x.alloc > 0 && x.t.status !== "done" && canDoNow(x.t) && !x.t.xs);
       if (top) return {text: fitsT(top.t.title, 30) ? `I picked ${cleanT(top.t.title)} for you! Focus on it together?` : "I picked your next task! Want to focus on it together?", action: "focus", taskId: top.t.id, local: true};
       const n = allDueCount(); if (n >= 5) return {text: `${n} flashcards are ready! Review them together?`, action: "review", local: true};
     } catch (e) {}

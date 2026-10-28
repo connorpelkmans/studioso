@@ -180,9 +180,13 @@ function nuSkips(){
 function nuSkipSave(){ try { if (ui.skipNext) localStorage.setItem(NUSKIP_LS, JSON.stringify(ui.skipNext)); } catch(e) {} }
 // Work with nothing left that isn't marked done yet: it only needs checking over and handing in
 const nuSubmit = x => !(x.R > 0) && x.dl > 0 && !x.fixed && !MILESTONE(x.t.type);
-// Anything due today ranks in a tier of its own (computeFocus adds 1000 to its score). The nudges below scale only
-// the task's own score, never that offset, so a small nudge can't lift a minor task over a much more important one
-const NU_TIER = 1000;
+// Work due now ranks in bands of its own: kept to save the most marks today (2), then the rest due now (1), then everything
+// else (0). The nudges below never move a task across bands, and inside band 2 they change nothing, so the order that
+// saves the most marks (earliest cut-off first) holds.
+const NU_TIER = 1e5;
+const nuBand = x => x.tier ? (x.tierSkip ? 1 : 2) : x.score >= 1000 ? 1 : 0;
+// The part of a score that is the band's own offset (computeFocus scores due-now work 2000 or 3000 plus its place)
+const nuOff = x => x.tier ? (x.tierSkip ? 2000 : 3000) : x.score >= 1000 ? 1000 : 0;
 // The task already shown stays first unless another beats it by this much, so Do This Next doesn't flip as the clock moves
 const NU_STICK = 1.15;
 const nuSig = () => (typeof state !== "undefined" && state ? state.updated || 0 : 0) + "|" + todayISO();
@@ -191,14 +195,14 @@ function nuStick(scored){
   if (!L || L.sig !== nuSig() || Date.now() - L.at > 3 * 36e5 || scored.length < 2) return;
   const i = scored.findIndex(y => y.x.t.id === L.id); if (i <= 0) return;
   const y = scored[i], top = scored[0], own = z => z.s - z.tier * NU_TIER;
-  if (y.tier !== top.tier || y.x.guarded) return;
+  if (y.tier !== top.tier || y.tier === 2 || y.x.guarded) return;
   if (own(y) * NU_STICK >= own(top)) { scored.splice(i, 1); scored.unshift(y); }
 }
 // Scores what can be done now for this moment: the time of day, the next class, what you just worked on and your feedback
 function nuScore(F){
   const sk = nuSkips(), now = new Date(), hr = now.getHours(), hm = pad(hr) + ":" + pad(now.getMinutes());
   const recent = t => (t.history || []).some(h => /^Focus session/.test(h.text) && Date.now() - h.at < 3 * 3600000);
-  const pool = F.ranked.filter(x => inFilter(x.t) && canDoNow(x.t) && !sk.ids.includes(x.t.id) && (x.R > 0 || x.dl <= 0 || nuSubmit(x)) && !enoughToday(x.t, x));
+  const pool = F.ranked.filter(x => inFilter(x.t) && canDoNow(x.t) && !x.dead && !sk.ids.includes(x.t.id) && (x.R > 0 || x.dl <= 0 || nuSubmit(x)) && !enoughToday(x.t, x));
   const focusLen = Number(pomoCfg().focus) || 25;
   let gapMin = null, gapWhat = "";
   if (!pool.length) return {pool, scored: [], gapMin, gapWhat, focusLen, now};
@@ -212,7 +216,7 @@ function nuScore(F){
   const fbW = nufbWeights(nufbLoad(), Date.now());
   const pk = accOf() ? accOf().peak(Date.now()) : null;
   const scored = pool.map(x => {
-    const t = x.t, why = [], tier = x.score >= NU_TIER ? 1 : 0, base = x.score - tier * NU_TIER, submit = !(x.R > 0) && x.dl > 0;
+    const t = x.t, why = [], tier = nuBand(x), base = x.score - nuOff(x), submit = !(x.R > 0) && x.dl > 0;
     let m = x.alloc > 0 ? 1 : 0.8;
     const sessionH = Math.min(x.alloc > 0 ? x.alloc : x.R, focusLen * 2 / 60);
     if (submit) { m *= 0.5; why.push("Nothing left to do but check it over and hand it in"); }
@@ -226,11 +230,11 @@ function nuScore(F){
       else if (x.alloc > 0 && sessionH * 60 <= gapMin + 5) { m *= 1.1; why.push(`A session fits in the ${gapMin} minutes before ${gapWhat}`); }
       else if (diffOf(t) === "hard") m *= 0.85;
     }
-    if (t.prepFor) why.push("Part of your exam study plan");
-    if (accOf()) { const ub = accOf().underBoost(t); if (ub > 1 && x.dl > 0) { m *= ub; why.push(tr("acc.underWhy", "These usually take you longer than you estimate")); } }
+    if (t.prepFor && !t.xs) why.push("Part of your exam study plan");
+    if (accOf() && !t.xs) { const ub = accOf().underBoost(t); if (ub > 1 && x.dl > 0) { m *= ub; why.push(tr("acc.underWhy", "These usually take you longer than you estimate")); } }
     if (x.dl > 0 && t.courseId && (courseMin[t.courseId] || 0) >= 120) m *= 0.92;
     m *= nufbMult(fbW, t.type, t.courseId, t.id, x.dl);
-    const s = tier * NU_TIER + (tier ? base * m : Math.min(base * m, NU_TIER - 1));
+    const s = tier * NU_TIER + Math.min(tier === 2 ? base : base * m, NU_TIER - 1);
     return {x, s, why, sessionH, tier};
   });
   deadlineGuard(scored, y => y.x, "s");
@@ -246,7 +250,7 @@ function nuAiPick(scored, exm){
     const idx = scored.findIndex(y => y.x.t.id === ai.id), y = scored[idx], top = scored[0];
     const urgent = top.x.dl <= 0 && top.x.R > 0 && (top.x.behind > 0 || top.x.rho >= 0.9) && y.x.dl > 0;
     const leap = scored.slice(0, idx).some(z => z.x.dl >= 0 && z.x.dl <= 3 && z.x.R > 0 && y.x.dl >= z.x.dl + 7 && (y.x.own || 0) < 0.75);
-    if (urgent || leap || (idx > 5 && y.s < top.s * 0.6)) ai = null;
+    if (urgent || leap || y.tier < top.tier || (idx > 5 && y.s < top.s * 0.6)) ai = null;
   }
   return ai;
 }
@@ -257,8 +261,9 @@ function nuLead(F){
     const r = nuScore(F); if (!r.scored.length) return "";
     const exm = typeof SBEXAM !== "undefined" ? SBEXAM.rankNext(F, r.scored, r.pool, r.focusLen) : null;
     if (exm && exm.study) return "";
-    const ai = nuAiPick(r.scored, exm);
-    return ai ? ai.id : r.scored[0].x.t.id;
+    // Today's Plan decides what gets time today; right now picks among that
+    const today = r.scored.filter(y => y.x.alloc > 0), list = today.length ? today : r.scored, ai = nuAiPick(list, exm);
+    return ai ? ai.id : list[0].x.t.id;
   } catch(e) { console.warn("next up lead", e); return ""; } finally { ui.nextShown = keep; }
 }
 function nextUp(F){
@@ -272,7 +277,7 @@ function nextUp(F){
   const planned = scored.map(y => { const l = (sb[y.x.t.id] || []).filter(sl => sl && sl.e > nowM); return {y, at: l.length ? Math.min(...l.map(sl => Math.max(sl.s, nowM))) : null}; }).filter(o => o.at != null).sort((a, b) => a.at - b.at)[0];
   if (planned && !(aiPick && aiPick.id === planned.y.x.t.id)) aiPick = null;
   const pick = planned ? planned.y : aiPick ? scored.find(y => y.x.t.id === aiPick.id) : scored[0];
-  ui.nextShown = pick.x.t.id;
+  ui.nextShown = pick.x.t.xs ? pick.x.t.xs.id : pick.x.t.id;
   const L = ui.nuLast, sig = nuSig();
   ui.nuLast = {id: pick.x.t.id, sig, at: L && L.id === pick.x.t.id && L.sig === sig ? L.at : Date.now()};
   const submit = !(pick.x.R > 0) && pick.x.dl > 0;
@@ -284,6 +289,12 @@ function nextUp(F){
   if (submit) mins = Math.min(mins, 15);
   if (gapMin != null && gapMin >= 15) mins = Math.max(10, Math.min(mins, Math.floor((gapMin - 5) / 5) * 5));
   const why = (aiPick && aiPick.why ? [aiPick.why] : pick.why.concat(pick.x.reasons)).filter((r, i, a) => a.indexOf(r) === i && !(r === "Due today" && a.some(y => /^Due at .* today$/.test(y)))).slice(0, aiPick ? 1 : 3);
+  // Studying for an in-person exam: the study card, with this plan's time for it
+  if (pick.x.t.xs) {
+    const t = pick.x.t, ex = state.tasks[t.xs.id] || {title: t.title.replace(/^Study for /, "")};
+    const w2 = aiPick && aiPick.why ? [aiPick.why] : pick.why.concat(pick.x.reasons).filter((r, i, a) => a.indexOf(r) === i && !a.some(o => o !== r && o.startsWith(r))).slice(0, 3);
+    return {x: pick.x, why: w2, step: null, mins, left: pool.length - 1, ai: !!aiPick, study: true, xs: true, hasPlan: false, label: "Study for " + ex.title};
+  }
   // Exam study only steps in when no timeline is deciding, so the card and the timeline never disagree
   return (exm || planned ? null : nextUpStudy(F, pick, pool, focusLen)) || {x: pick.x, why, step, mins, left: pool.length - 1, ai: !!aiPick};
 }
@@ -321,13 +332,13 @@ const nuOpenCls = () => ui.nuMore ? " nu-open" : "";
 const nuMoreBtn = () => `<button type="button" class="nu-more" data-act="nu-more" aria-expanded="${!!ui.nuMore}">Details${NU_CHEV}</button>`;
 function nextUpHtml(F, pre){
   const n = arguments.length > 1 ? pre : nextUp(F); if (!n) return "";
-  const t = n.x.t, c = courseOf(t.courseId);
+  const t0 = n.x.t, t = n.xs && t0.xs ? state.tasks[t0.xs.id] || t0 : t0, c = courseOf(t.courseId);
   if (n.study) return `<div class="next-up nu-nochk${nuOpenCls()}" style="--c:${esc(colorOf(t.courseId))}">
-    <div class="nu-top"><span class="nu-label">Do This Next</span></div>
+    <div class="nu-top"><span class="nu-label">Do This Next</span>${n.xs && n.x.alloc > 0 ? `<span class="nu-alloc" title="Suggested study time today">${fmtHM(n.x.alloc)}<span class="nu-td"> today</span></span>` : ""}</div>
     <div class="nu-row">
       <div class="nu-body">
         <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">${nuRing(t)}Study for ${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>${c ? `<span class="tag nu-tag-out">${esc(courseLabel(c))}</span>` : ""}
-        ${nuMoreBtn()}<span class="nu-why">${n.why.map(r => `<span class="nu-chip${/tomorrow/.test(r) ? " soon" : ""}">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}</span>
+        ${nuMoreBtn()}<span class="nu-why">${n.why.map(r => r.length <= 28 ? `<span class="nu-chip${/tomorrow/.test(r) ? " soon" : ""}">${esc(r)}</span>` : `<span class="nu-note">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}</span>
         <span class="nu-step">${n.hasPlan ? "Review your weakest topics or flashcards for it." : "Review now, or let Plan My Prep spread short sessions over the days before it."}</span>
       </div>
       <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-study="1" data-id="${esc(t.id)}" data-mins="${n.mins}">${TOMATO}Study for ${n.mins}m</button>${n.hasPlan ? "" : `<button class="btn small" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button>`}${nuBackBtn()}</div>

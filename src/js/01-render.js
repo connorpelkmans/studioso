@@ -453,6 +453,7 @@ function taskForm(t, preset = {}){
               <label class="f"><span class="lh">Grade Weight <span class="hint">% of course grade</span></span><input type="number" name="weight" min="0" max="100" step="0.5" inputmode="decimal" value="${hasWeight(t) ? esc(t.weight) : ""}"></label>
               <label class="f">Late Work<select name="late">${Object.entries(LATE_LABEL).map(([k, l]) => `<option value="${k}" ${k === t.late ? "selected" : ""}>${l}</option>`).join("")}</select></label>
             </div>
+            <label class="f" id="latePenWrap"${t.late === "penalty" ? "" : " hidden"}><span class="lh">Late Penalty <span class="hint">% off for each day late</span></span><input type="number" name="latePen" min="0" max="100" step="1" inputmode="decimal" value="${hasLatePen(t) ? esc(t.latePen) : ""}" placeholder="10"></label>
             <div><span class="lbl" style="font-size:.88rem;font-weight:600">Difficulty</span>${seg("difficulty", [["easy","Easy"],["med","Medium"],["hard","Hard"]], t.difficulty)}</div>
             <p class="plan-hint" id="planHint" aria-live="polite"></p>
           </fieldset>
@@ -493,6 +494,7 @@ function taskForm(t, preset = {}){
       pct: Number(fd.get("pct") || 0), dependsOn: deps.slice(),
       weight: isNum(fd.get("weight")) && Number(fd.get("weight")) > 0 ? Math.min(100, Number(fd.get("weight"))) : null,
       difficulty: fd.get("difficulty") || "med", late: fd.get("late") || "unknown",
+      latePen: fd.get("late") === "penalty" && isNum(fd.get("latePen")) && Number(fd.get("latePen")) > 0 ? Math.min(100, Number(fd.get("latePen"))) : null,
       location: cfg.location ? txt("location") : "", team: cfg.team ? txt("team") : "", reading: cfg.reading ? txt("reading") : "", link
     };
     if (MILESTONE(type)) {
@@ -632,6 +634,7 @@ function taskForm(t, preset = {}){
   };
   dlg.querySelectorAll("input[name=remote]").forEach(r => r.addEventListener("change", drawRx));
   drawRx();
+  { const ls = dlg.querySelector("select[name=late]"), pw = $("#latePenWrap"); if (ls && pw) ls.addEventListener("change", () => { pw.hidden = ls.value !== "penalty"; }); }
   const planHint = () => {
     const f = new FormData(dlg.querySelector("form"));
     const probe = normTask(Object.assign(clone(t), {type: f.get("type"), hours: f.get("hours") === "" ? null : Number(f.get("hours")), pct: Number(f.get("pct") || 0),
@@ -641,7 +644,8 @@ function taskForm(t, preset = {}){
     const ms = MILESTONE(probe.type);
     const x = FOCUS && FOCUS.info[t.id];
     const rankTxt = x ? (() => { const i = FOCUS.ranked.indexOf(x); return i >= 0 ? ` Currently #${i + 1} in Today's Plan${x.alloc > 0 ? `, with ${fmtHM(x.alloc)} suggested today` : ""}.` : ""; })() : "";
-    $("#planHint").innerHTML = (ms ? `Estimated <b>${fmtHM(R)}</b> of studying left, based on difficulty, grade weight and preparedness.`
+    const inPerson = ms && !canDoNow(probe) && !planSessions(t.id).length, lead = inPerson ? examLead(probe) : null;
+    $("#planHint").innerHTML = (ms ? `Estimated <b>${fmtHM(R)}</b> of studying left, based on difficulty, grade weight and preparedness.${lead ? ` Today's Plan starts study time for it ${lead.days} days before${lead.risk ? ", sooner because of your standing in the course" : ""}${lead.p < 0.75 ? `${lead.risk ? " and" : ", sooner"} because of how prepared you are` : ""}.` : ""}`
       : `Estimated <b>${fmtHM(R)}</b> of work left${isNum(probe.hours) && probe.hours > 0 ? "" : " (a typical amount for this type; add Hours Needed for a better plan)"}.`) + rankTxt;
   };
   tForm.addEventListener("input", planHint); tForm.addEventListener("change", planHint);
@@ -727,7 +731,7 @@ function repeatDates(due, every, until){
 function repeatCopies(base, every, until){
   const off = dayDiff(base.start || base.due, base.due);
   return repeatDates(base.due, every, until).map((d, i) => {
-    const keep = {}; ["title", "courseId", "type", "time", "priority", "notes", "hours", "weight", "difficulty", "late", "location", "team", "reading", "link", "seriesId"].forEach(k => { if (base[k] !== undefined) keep[k] = clone(base[k]); });
+    const keep = {}; ["title", "courseId", "type", "time", "priority", "notes", "hours", "weight", "difficulty", "late", "latePen", "location", "team", "reading", "link", "seriesId"].forEach(k => { if (base[k] !== undefined) keep[k] = clone(base[k]); });
     const x = newTask(Object.assign(keep, {due: d, start: addDays(d, -off), status: "todo", checklist: (base.checklist || []).map(i => ({id: uid(), text: i.text, done: false}))}));
     x.order += i + 1;
     return {kind: "task", id: x.id, after: x};

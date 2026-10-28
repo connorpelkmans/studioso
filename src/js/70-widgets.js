@@ -11,7 +11,7 @@
   function dayList(){
     const today = todayISO(), F = computeFocus(), seen = new Set(), out = [];
     const add = (t, x) => { if (!t || seen.has(t.id)) return; seen.add(t.id); out.push({t, x}); };
-    (F.ranked || []).filter(x => x.alloc > 0 || x.dl <= 0).forEach(x => add(x.t, x));
+    (F.ranked || []).filter(x => (x.alloc > 0 || x.dl <= 0) && !x.t.xs && !x.dead).forEach(x => add(x.t, x));
     tasksArr().filter(t => t.status !== "done" && t.due && t.due <= today).sort((a, b) => (a.due + (a.time || "")).localeCompare(b.due + (b.time || ""))).forEach(t => add(t, null));
     tasksArr().filter(isDoneToday).sort((a, b) => a.doneAt - b.doneAt).forEach(t => add(t, null));
     return {F, list: out};

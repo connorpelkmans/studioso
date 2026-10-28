@@ -65,6 +65,9 @@ document.addEventListener("click", e => {
     case "sb-retry": sbRetryNow(); toast("Trying again…"); break;
     case "nudge-later": try { localStorage.setItem("studioso:nudge", String(Date.now())); } catch(err) {} render(); break;
     case "today-h": { const v = Math.max(0, Math.min(16, todayHours() + Number(id))); setTodayHours(v); render(); break; }
+    case "today-set": { const v = Math.max(0, Math.min(16, Number(id) || 0)); setTodayHours(v); toast(`Today's study time is now ${fmtHM(v)}`); render(); break; }
+    case "busy-hide": try { localStorage.setItem("studyboard:busyHide", todayISO()); } catch (err) {} render(); break;
+    case "closed-ok": { try { const k = "studyboard:closedSeen", o = JSON.parse(localStorage.getItem(k) || "{}") || {}; o[id] = Date.now(); Object.keys(o).forEach(x => { if (!state.tasks[x]) delete o[x]; }); localStorage.setItem(k, JSON.stringify(o)); } catch (err) {} render(); break; }
     case "focus-toggle": ui.focusOpen = !ui.focusOpen; render(); break;
     case "plan-rows": ui.planAllToday = !ui.planAllToday; render(); break;
     case "plan-tile": ui.planTile = id && ui.planTile !== id ? id : ""; render(); requestAnimationFrame(() => { const l = ui.planTile && document.querySelector("#view .plan .plan-past, #view .plan #planListLbl"); if (l && l.scrollIntoView) l.scrollIntoView({block: "nearest", behavior: "smooth"}); }); break;
