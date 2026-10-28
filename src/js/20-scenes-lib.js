@@ -3877,7 +3877,14 @@ function tg_turkey(L, x, fy, s, dk) {
   add(L, 'j', prim + tg_taper([[x + 18 * s, fy - 80 * s], [x - 2 * s, fy - 70 * s], [x - 26 * s, fy - 56 * s]], 2.4 * s, 1 * s), C.bar);
   add(L, 'k', b2_ellA(x + 24 * s, fy - 74 * s, 13 * s, 21 * s), C.brh);
   // neck and head, beak, the red snood and wattle, the eye with a glint
-  add(L, 'l', b2_limb([x + 16 * s, fy - 90 * s], [x + 40 * s, fy - 100 * s], [x + 38 * s, fy - 128 * s], 22 * s, 15 * s) + b2_ellA(x + 40 * s, fy - 134 * s, 14 * s, 14 * s), C.head);
+  add(L, 'l', b2_limb([x + 18 * s, fy - 80 * s], [x + 40 * s, fy - 100 * s], [x + 38 * s, fy - 128 * s], 30 * s, 15 * s) + b2_ellA(x + 40 * s, fy - 134 * s, 14 * s, 14 * s), C.head);
+  // the near side of the body comes back over the neck's root: body, its scalloped feathers and the breast light, below a feathered edge
+  ['A', 'B', 'C'].forEach(function (k) { if (!L[k]) L[k] = E(); });
+  var fxc = x + 18 * s, fyc = fy - 66 * s, frx = 30 * s, fry = 36 * s, cut = fy - 90 * s, front;
+  front = b2_polyA((function () { var pts = []; for (var j = 0; j <= 48; j++) { var an2 = j / 48 * Math.PI * 2, px2 = fxc + Math.cos(an2) * frx, py2 = fyc + Math.sin(an2) * fry; pts.push([px2, Math.max(py2, cut + (j % 2 ? 3.2 * s : 0))]); } return pts; })());
+  add(L, 'A', front, C.body);
+  var sc2 = ''; for (var row2 = 0; row2 < 10; row2++) { var yy2 = fy - 100 * s + row2 * 8.4 * s; if (yy2 < cut) continue; for (var xx2 = x - 44 * s + (row2 % 2) * 4.6 * s; xx2 < x + 48 * s; xx2 += 9.2 * s) { if (Math.pow((xx2 - fxc) / (frx - 3 * s), 2) + Math.pow((yy2 + r0 - fyc) / (fry - 3 * s), 2) >= 1) continue; var U2 = []; for (var k3 = 0; k3 <= 8; k3++) { var a3 = k3 / 8 * Math.PI; U2.push([xx2 + Math.cos(a3) * r0, yy2 + Math.sin(a3) * r0 * 0.9]); } for (k3 = 8; k3 >= 0; k3--) { a3 = k3 / 8 * Math.PI; U2.push([xx2 + Math.cos(a3) * r0 * 0.7, yy2 + Math.sin(a3) * r0 * 0.55]); } sc2 += b2_polyA(U2); } }
+  add(L, 'B', sc2, C.scal); add(L, 'C', b2_ellA(x + 24 * s, fy - 70 * s, 12 * s, 16 * s), C.brh);
   add(L, 'm', b2_polyA([[x + 51 * s, fy - 139.5 * s], [x + 64 * s, fy - 134 * s], [x + 51 * s, fy - 129 * s]]), C.beak);
   add(L, 'n', b2_limb([x + 50 * s, fy - 142 * s], [x + 59 * s, fy - 143 * s], [x + 57 * s, fy - 125 * s], 4.4 * s, 2.6 * s) + b2_ellA(x + 47 * s, fy - 118 * s, 6 * s, 11 * s) + b2_ellA(x + 42 * s, fy - 111 * s, 5 * s, 8 * s) + b2_ellA(x + 35 * s, fy - 121 * s, 3 * s, 3 * s) + b2_ellA(x + 33 * s, fy - 113 * s, 2.6 * s, 2.6 * s), C.red);
   add(L, 'o', b2_ellA(x + 45.4 * s, fy - 138.4 * s, 1.3 * s, 1.3 * s), C.eyeHi);
@@ -3993,7 +4000,7 @@ SCENES.thanksgiving = function (W, H, dk, rnd) {
   var col = dk ? {d: '#D2742E', e: '#B83A30', f: '#D8A444', g: '#6A3E7A', h: '#4A2E18', t: '#B88A3E'} : {d: '#EC8A36', e: '#CC3B32', f: '#EBC05A', g: '#7E4E96', h: '#6A4020', t: '#C9993E'};
   var green = dk ? '#6E7A2E' : '#7E8E34', my = hn.my, wheat = '', wheatD = '';
   if (ANIM) { ANIM.horn = {mx: mx, my: my, R: R, gy: gyH, apple: col.e, stem: col.h, leaf: green}; ANIM.gy = gy; ANIM.leaves = []; ANIM.veinC = dk ? 'rgba(50,20,8,0.4)' : 'rgba(110,40,10,0.32)'; }
-  for (k = 0; k < 5; k++) { var a = (-150 + k * 11) * Math.PI / 180, l = R * (1.35 + (k % 2) * 0.3), x0 = mx - R * 0.05, y0 = my - R * 0.45, x1 = x0 + Math.cos(a) * l, y1 = y0 + Math.sin(a) * l, l0 = R * 0.33, ad = a * 180 / Math.PI, px1 = -Math.sin(a), py1 = Math.cos(a);
+  for (k = 0; k < 5; k++) { var a = (-150 + k * 11) * Math.PI / 180, l = R * (1.35 + (k % 2) * 0.3), x0 = mx - R * 0.05, y0 = my + R * 0.15, x1 = x0 + Math.cos(a) * l, y1 = y0 + Math.sin(a) * l, l0 = R * 0.33, ad = a * 180 / Math.PI, px1 = -Math.sin(a), py1 = Math.cos(a);
     wheat += tg_taper([[x0 + Math.cos(a) * l0, y0 + Math.sin(a) * l0], [x1, y1]], R * 0.035, R * 0.02);
     for (var g = 0; g < 6; g++) { var t = 0.6 + g * 0.075, gx = lerp(x0, x1, t), gyy = lerp(y0, y1, t); [-1, 1].forEach(function (sd) { var ex = gx + px1 * sd * R * 0.035, ey = gyy + py1 * sd * R * 0.035; wheat += tg_rell(ex, ey, R * 0.06, R * 0.028, ad + sd * 24); wheatD += tg_rell(ex + px1 * sd * R * 0.008, ey + py1 * sd * R * 0.008, R * 0.04, R * 0.014, ad + sd * 24);
         wheatD += tg_taper([[ex + Math.cos((ad + sd * 24) * Math.PI / 180) * R * 0.05, ey + Math.sin((ad + sd * 24) * Math.PI / 180) * R * 0.05], [ex + Math.cos((ad + sd * 30) * Math.PI / 180) * R * 0.17, ey + Math.sin((ad + sd * 30) * Math.PI / 180) * R * 0.17]], R * 0.008, R * 0.004); }); }
@@ -4018,7 +4025,7 @@ SCENES.thanksgiving = function (W, H, dk, rnd) {
   hi += tg_rell(pxr - R * 0.12, gyH - R * 0.26, R * 0.05, R * 0.1, 10);
   var stems = b2_limb([pxr + R * 0.02, gyH - R * 0.57], [pxr + R * 0.03, gyH - R * 0.65], [pxr + R * 0.08, gyH - R * 0.7], R * 0.035, R * 0.025), greens = b2_polyA(b8_lfp(pxr + R * 0.05, gyH - R * 0.64, R * 0.2, R * 0.07, -20));
   var pk = tg_pumpkin(mx - R * 1.12, gyH, R * 0.72, R * 0.48);
-  var apl = [tg_apple(mx - R * 0.02, my - R * 0.36, R * 0.3), tg_apple(mx - R * 2.05, gyH - R * 0.26, R * 0.26), tg_apple(mx - R * 1.72, gyH - R * 0.2, R * 0.2)], apB = '';
+  var apl = [tg_apple(mx - R * 0.02, my + R * 0.5, R * 0.3) /* rests on the lower lip of the mouth */, tg_apple(mx - R * 2.05, gyH - R * 0.26, R * 0.26), tg_apple(mx - R * 1.72, gyH - R * 0.2, R * 0.2)], apB = '';
   apl.forEach(function (o) { apB += o.b; hi += o.h; stems += o.s; greens += o.l; });
   // little pumpkins, acorns and pinecones scattered at the front
   var smallP = (ph ? [[0.78, 0.975, 14]] : [[0.14, 0.96, 24], [0.53, 0.975, 18]]).map(function (q) { return tg_pumpkin(W * q[0], H * q[1], q[2], q[2] * 0.68); });
@@ -15968,7 +15975,7 @@ function b8_env(u, a, b, c, d) { return u < a || u > d ? 0 : u < b ? b8_ease((u 
 // Thanksgiving
 ENGINES.thanksgiving = function (A, v, dk) {
   var W = v.bw, H = v.bh, T = A.turkey, s = T.s, tx = T.x, fy = T.fy, hn = A.horn, R = hn.R, gy = A.gy;
-  var tk = b8_lp(T.L), tail = ['a', 'b', 'c', 'd', 'e', 'f'], body = ['g', 'h', 'i', 'j', 'k'], head = ['l', 'm', 'n', 'o', 't'], legs = ['s'];
+  var tk = b8_lp(T.L), tail = ['a', 'b', 'c', 'd', 'e', 'f'], body = ['g', 'h', 'i', 'j', 'k'], head = ['l', 'A', 'B', 'C', 'm', 'n', 'o', 't'], legs = ['s'];
   var tp = [tx - 8 * s, fy - 88 * s], hp = [tx + 22 * s, fy - 86 * s];
   var leaves = A.leaves.map(function (l, i) { var LD = tg_leafD(0, 0, l.s, 0, l.kind || 0); return {x: l.x, y: l.y, p: new Path2D(LD.d), pv: new Path2D(LD.v), c: l.c, rot: l.a * Math.PI / 180, sp: (hash(i + 1) - 0.5) * 1.6, fl: hash(i + 7) * 6.28, k: 0.6 + l.k * 0.8, ph: hash(i + 3) * 6.28, a: 1}; });
   var back = (A.backLeaves || []).map(function (l) { return {p: new Path2D(l.d), pv: l.v ? new Path2D(l.v) : null, c: l.c}; }), veinC = A.veinC || 'rgba(110,40,10,0.32)';
