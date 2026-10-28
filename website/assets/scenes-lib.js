@@ -1963,7 +1963,7 @@ SCENES.xmas = function (W, H, dk, rnd) {
     for (q = 0; q < 7; q++) { var bx = sx - 33 + q * 11, by = sy2 + 4 + Math.sin(q * 1.7) * 8, d = b2_ellA(bx, by, 2.4, 3); if (ANIM) ANIM.bulbs.push({x: bx, y: by, c: [0, 2, 3][q % 3], sw: 0.6}); if (q % 3 === 0) bD += d; else if (q % 3 === 1) bE += d; else bF += d; gHi += b2_ellA(bx - 0.8, by - 1, 0.6, 1.1); } });
 
   // strings of bulbs across the top: sockets on a sagging wire, bulbs with a pointed tip and a glint
-  var swY = ph ? H * 0.43 : H * 0.05, swDrop = ph ? 40 : 70, nS = ph ? 2 : 3, wire = '', strB = ['', '', ''], sgl = ['', '', ''], sock = '';
+  var swY = ph ? H * 0.43 : -2, swDrop = ph ? 40 : 70, nS = ph ? 2 : 3, wire = '', strB = ['', '', ''], sgl = ['', '', ''], sock = '';
   if (ph) { swY = TT[0].top + 20; swDrop = 26; }
   for (var sI = 0; sI < nS; sI++) { var x0s = -20 + sI * (W + 40) / nS, x1s = -20 + (sI + 1) * (W + 40) / nS, y0s = swY, y1s = swY;
     if (ph) { var ay = TT[0].top + 38, ah = halfAt(ay) - 3; if (sI === 0) { x1s = tx - ah; y1s = ay; } else { x0s = tx + ah; y0s = ay; } }
