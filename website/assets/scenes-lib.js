@@ -2201,7 +2201,7 @@ SCENES.music = function (W, H, dk, rnd) {
     N.m += b2_polyA([[lpx - swT * 0.6, shT + 3], [lpx - swT * 0.35, shT + 3], [lpx - swB * 0.5, shB - 2], [lpx - swB * 0.78, shB - 2]]);
     add(far, 'e', b2_polyA([[lpx - swB + 4, shB], [lpx + swB - 4, shB], [lpx + 150, fy + 80], [lpx - 150, fy + 80]]), dk ? 'rgba(255,200,130,0.16)' : 'rgba(255,240,205,0.35)'); }
   // bench: four turned legs (the back pair higher), an apron, a deep cushion with piping and buttons
-  var bx = px + pw * 0.28, bw = pw * 0.44, by = fy + (ph ? 40 : 62), lg = ph ? 26 : 38;
+  var bx = px + pw * 0.28, bw = pw * 0.44, by = fy + (ph ? 26 : 40), lg = ph ? 26 : 38; // tucked up close to the piano
   N.e += b2_ellA(bx + bw / 2 + 4, by + lg + 1, bw * 0.58, 5 * u);
   [[bx + 10 * u, by + lg - 7 * u, 4.2], [bx + bw - 10 * u, by + lg - 7 * u, 4.2], [bx + 5 * u, by + lg, 5], [bx + bw - 5 * u, by + lg, 5]].forEach(function (lq) { var lx2 = lq[0], lb = lq[1], lw2 = lq[2] * u; N.j += b2_polyA([[lx2 - lw2, by], [lx2 + lw2, by], [lx2 + lw2 * 0.5, lb], [lx2 - lw2 * 0.5, lb]]) + b2_ellA(lx2, by + (lb - by) * 0.3, lw2 * 1.15, 2 * u); });
   N.k += R4(bx, by - 4 * u, bx + bw, by + 6 * u);
