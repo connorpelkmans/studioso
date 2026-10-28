@@ -1,5 +1,4 @@
-// node tools/capture-site-screens.js [outDir] [--companions | --overlays | --themes | --store]
-// --store: Microsoft Store listing screenshots, 1920x1080 PNG (a 1280x720 window at 1.5x)
+// node tools/capture-site-screens.js [outDir] [--companions | --overlays | --themes]
 const http = require("http"), fs = require("fs"), path = require("path"), os = require("os");
 const {chromium, executablePath} = require("../tests/pw");
 const root = path.join(__dirname, ".."), OUT = process.argv.slice(2).find(a => !a.startsWith("--")) || fs.mkdtempSync(path.join(os.tmpdir(), "sbshots-"));
@@ -57,9 +56,8 @@ const dismiss = async page => {
     await page.waitForTimeout(250);
   }
 };
-const STORE = process.argv.includes("--store");
 async function capture(browser, scheme, compId) {
-  const ctx = await browser.newContext({viewport: STORE ? {width: 1280, height: 720} : {width: 1280, height: 800}, colorScheme: scheme, deviceScaleFactor: STORE ? 1.5 : 1, serviceWorkers: "block"});
+  const ctx = await browser.newContext({viewport: {width: 1280, height: 800}, colorScheme: scheme, deviceScaleFactor: 1, serviceWorkers: "block"});
   await ctx.clock.setFixedTime(NOW);
   await ctx.addInitScript(([seed, scheme]) => { try { if (!localStorage.getItem("coursework:v2")) {
     localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("studioso:theme", scheme); localStorage.setItem("studyboard:tips", "off");
@@ -150,4 +148,4 @@ async function captureOverlays(browser, scheme) {
   await page.addStyleTag({content: ".cp-layer,.cp-front,.cp,.cp-bubble{visibility:hidden!important}"}); await page.waitForTimeout(300);
   await page.screenshot({path: path.join(OUT, `hero-${scheme}.png`)}); console.log("saved", `hero-${scheme}.png`, JSON.stringify(GEO.hero[scheme].comp)); await ctx.close();
 }
-(async () => { await new Promise(r => server.listen(0, r)); const browser = await chromium.launch({executablePath}); try { if (STORE) { for (const s of ["light", "dark"]) await capture(browser, s); return; } if (process.argv.includes("--themes")) { for (const s of ["light", "dark"]) await captureThemes(browser, s); return; } if (process.argv.includes("--overlays")) { for (const s of ["light", "dark"]) await captureOverlays(browser, s); fs.writeFileSync(path.join(OUT, "geometry.json"), JSON.stringify(GEO, null, 1)); return; } const comps = async () => { for (const s of ["light", "dark"]) for (const id of PLAIN) await capture(browser, s, id); }; if (process.argv.includes("--companions")) { await comps(); return; } for (const s of ["light", "dark"]) { await captureHero(browser, s); await captureThemes(browser, s); } for (const s of ["light", "dark"]) await capture(browser, s); await comps(); } finally { await browser.close(); server.close(); } console.log("done:", OUT); })().catch(e => { console.error(e); process.exit(1); });
+(async () => { await new Promise(r => server.listen(0, r)); const browser = await chromium.launch({executablePath}); try { if (process.argv.includes("--themes")) { for (const s of ["light", "dark"]) await captureThemes(browser, s); return; } if (process.argv.includes("--overlays")) { for (const s of ["light", "dark"]) await captureOverlays(browser, s); fs.writeFileSync(path.join(OUT, "geometry.json"), JSON.stringify(GEO, null, 1)); return; } const comps = async () => { for (const s of ["light", "dark"]) for (const id of PLAIN) await capture(browser, s, id); }; if (process.argv.includes("--companions")) { await comps(); return; } for (const s of ["light", "dark"]) { await captureHero(browser, s); await captureThemes(browser, s); } for (const s of ["light", "dark"]) await capture(browser, s); await comps(); } finally { await browser.close(); server.close(); } console.log("done:", OUT); })().catch(e => { console.error(e); process.exit(1); });

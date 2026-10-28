@@ -1,0 +1,72 @@
+<!doctype html>
+<!-- The Microsoft Store banner (first screenshot). tools/capture-store-screens.js fills in the app screenshot, Packy and the stickers, then saves it at 3840x2160. -->
+<html lang="en"><head><meta charset="utf-8"><title>Studyboard banner</title>
+<link rel="stylesheet" href="../website/assets/fonts.css">
+<style>
+  :root{--navy:#14295C;--ink:#16223F;--soft:#C9D5F2;--yellow:#FFCF5C}
+  *{box-sizing:border-box;margin:0}
+  html,body{width:1920px;height:1080px;overflow:hidden}
+  body{font-family:Lexend,sans-serif;color:#fff;position:relative;
+    background:
+      radial-gradient(900px 600px at 0% 100%,rgba(255,140,120,.22),transparent 70%),
+      radial-gradient(1100px 700px at 75% 0%,rgba(90,140,255,.28),transparent 70%),
+      linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px) 0 0/48px 48px,
+      linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px) 0 0/48px 48px,
+      linear-gradient(160deg,#1B3A7E,#14295C 55%,#112250)}
+  .logo{position:absolute;left:120px;top:118px;height:86px}
+  h1{position:absolute;left:120px;top:258px;font-weight:800;font-size:108px;line-height:1.02;letter-spacing:-3px}
+  h1 .hl{display:inline-block;background:var(--yellow);color:var(--ink);border-radius:18px;padding:0 16px 6px;margin:4px 0 4px -14px;transform:rotate(-1deg)}
+  .lead{position:absolute;left:120px;top:628px;width:780px;font-size:31px;line-height:1.55;color:var(--soft);font-weight:400}
+  .lead b{color:#fff;font-weight:700}
+  .chips{position:absolute;left:120px;top:822px;width:980px;display:flex;flex-wrap:wrap;gap:16px}
+  .chip{display:flex;align-items:center;gap:14px;padding:11px 24px;border-radius:999px;border:2px solid rgba(255,255,255,.18);background:rgba(255,255,255,.07);font-size:27px;font-weight:600}
+  .chip i{width:16px;height:16px;border-radius:50%}
+  .foot{position:absolute;left:120px;top:1010px;font-size:29px;font-weight:600;color:#A9BCEB;letter-spacing:.5px}
+  .foot .g{color:#5BE39A}
+  .win{position:absolute;left:990px;top:205px;width:1180px;border-radius:26px;background:#F4F6FB;overflow:hidden;
+    box-shadow:0 50px 120px rgba(5,12,40,.55),0 0 0 2px rgba(255,255,255,.25);transform:perspective(2400px) rotateY(-13deg) rotateZ(-3.5deg);transform-origin:0 50%}
+  .win .bar{height:44px;display:flex;gap:12px;align-items:center;padding-left:22px;background:#E8ECF5}
+  .win .bar i{width:14px;height:14px;border-radius:50%;background:#C3CAD9}
+  .win img{display:block;width:100%}
+  .note{position:absolute;padding:58px 40px 34px;box-shadow:0 26px 50px rgba(5,12,40,.4);font-weight:700;color:#2B2233;border-radius:6px}
+  .note .pin{position:absolute;top:18px;left:50%;width:34px;height:34px;margin-left:-17px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#FF8A8A,#E0262E 60%,#A3121A);box-shadow:0 5px 8px rgba(0,0,0,.3)}
+  .note .big{font-size:35px;line-height:1.25}
+  .note .small{font-size:24px;font-weight:500;color:#4A3F55;margin-top:14px;line-height:1.35}
+  .note svg{position:absolute;width:80px;height:80px}
+  .pink{left:1632px;top:62px;width:275px;height:255px;background:#FFC2D6;transform:rotate(5deg)}
+  .pink svg{right:6px;bottom:4px}
+  .yellow{left:918px;top:640px;width:290px;height:250px;background:#FFE27A;transform:rotate(-6deg)}
+  .yellow svg{right:16px;bottom:10px}
+  .bubble{position:absolute;left:1422px;top:560px;padding:26px 42px;background:#fff;color:var(--ink);border-radius:34px;font-size:36px;font-weight:700;transform:rotate(3deg);box-shadow:0 24px 50px rgba(5,12,40,.4)}
+  .bubble:after{content:"";position:absolute;right:90px;bottom:-22px;border:22px solid transparent;border-top-color:#fff;border-bottom:0}
+  .spark{position:absolute;width:56px;height:56px;fill:#FFCF3D}
+  .toast{position:absolute;left:1150px;top:880px;display:flex;align-items:center;gap:22px;padding:24px 40px 24px 28px;background:#fff;color:var(--ink);border-radius:22px;font-size:33px;font-weight:700;transform:rotate(-3deg);box-shadow:0 24px 50px rgba(5,12,40,.45)}
+  .toast i{width:52px;height:52px;border-radius:50%;background:#22A06B;display:grid;place-items:center}
+  .packy{position:absolute;left:1610px;top:690px;width:290px;height:290px;filter:drop-shadow(0 26px 30px rgba(5,12,40,.45))}
+  .packy svg{width:100%;height:100%}
+</style></head>
+<body>
+  <img class="logo" src="../website/assets/logo-dark.webp" alt="Studyboard">
+  <h1>Your whole<br><span class="hl">semester</span><br>on one board.</h1>
+  <p class="lead">Deadlines sync from <b>Canvas, Brightspace &amp; Blackboard</b>, and Today's Plan tells you <b>what to work on next</b>.</p>
+  <div class="chips">
+    <span class="chip"><i style="background:#FF7A6B"></i>Today's Plan</span>
+    <span class="chip"><i style="background:#4C8DFF"></i>School Sync</span><span style="flex-basis:100%;height:0"></span>
+    <span class="chip"><i style="background:#3DD68C"></i>Flashcards &amp; Quizzes</span>
+    <span class="chip"><i style="background:#FFC53D"></i>Grades</span>
+    <span class="chip"><i style="background:#B78CFF"></i>Focus Timer</span>
+  </div>
+  <div class="foot"><span class="g">Free</span> &nbsp;·&nbsp; Windows · Mac · Web &nbsp;·&nbsp; Syncs Everywhere</div>
+
+  <div class="win"><div class="bar"><i></i><i></i><i></i></div><img id="today" alt=""></div>
+
+  <div class="note pink"><span class="pin"></span><div class="big">Midterm<br>Friday!</div><div class="small">Study plan is<br>ready</div><svg id="brain" viewBox="0 0 64 64"></svg></div>
+  <div class="note yellow"><span class="pin"></span><div class="big">Lab report<br>done ✓</div><div class="small">Synced from<br>Canvas</div><svg id="flask" viewBox="0 0 64 64"></svg></div>
+
+  <div class="bubble">You've got this!</div>
+  <svg class="spark" style="left:1520px;top:520px" viewBox="0 0 24 24"><path d="M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z"/></svg>
+  <svg class="spark" style="left:1880px;top:612px;width:40px;height:40px" viewBox="0 0 24 24"><path d="M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z"/></svg>
+
+  <div class="toast"><i><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i>Essay draft submitted</div>
+  <div class="packy" id="packy"></div>
+</body></html>
