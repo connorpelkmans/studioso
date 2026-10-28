@@ -57,7 +57,7 @@ This repository is a flat copy of an intended layout. Nothing was moved or renam
 | "undefined", "NaN", "[object Object]" and "null": scanned visible text, placeholders, titles and aria-labels on every tab, every Settings category and the task form with an empty profile and with a badly broken one (missing names, bad dates, wrong types). None found | Done |
 | AI errors (no key, rejected key, quota/credit, rate limit, busy, offline, too big, garbled) already have plain messages for Gemini, Claude and ChatGPT | Done (reviewed) |
 | Naming: "Studioso" appears only in internal storage keys (kept so existing data keeps working), never on screen | Done |
-| "Early access" wording in the Style Shop, welcome tour and Pro sheet is shown while the paywall is off | Owner: turn the paywall on, or reword before launch |
+| "Early access" wording in the Style Shop, welcome tour and Pro sheet is shown while the paywall is off | Done: `PRO_ENFORCED = true` (`src/js/01-style-shop.js`), so the paywall is on and none of that wording shows. Checked in a browser on 2026-10-28 |
 | Dev/test hooks (`studyboard:search:debug`, `STUDYBOARD_BS_TEST`) are off unless set by hand | Done (reviewed) |
 
 ## 5. Legal and store readiness
@@ -70,7 +70,7 @@ This repository is a flat copy of an intended layout. Nothing was moved or renam
 | PDF.js 6.4.299 (legacy ES-module build) vendored in `vendor/pdfjs/` (deploy this folder with the web page; `prepare.js` stages it for the desktop app); re-test a PDF syllabus import after any pdf.js update | Done |
 | **Delete My Account and Data** (Settings > Account and Sync, signed-in only): explains what is removed, offers an export first, requires typing DELETE, optionally erases this device's copy, clear messages for "server not set up", offline and signed-out. Calls `studyboard_delete_my_account()` after removing the user's files through the Storage API. Tested with a stubbed server (3 outcomes) | Done |
 | `studyboard_delete_my_account()` in `supabase-lean.sql`: SECURITY DEFINER, `search_path` set, acts on `auth.uid()` only, execute granted to `authenticated` only, safe to run twice, tolerates Supabase blocking SQL deletes on storage | Done. Owner: run `supabase-lean.sql` and test with a spare account |
-| Contact address is the clearly marked placeholder `support@YOUR-DOMAIN` (one constant, `SUPPORT`, in `src/js/99-release.js`) | Owner: replace it |
+| Contact address (one constant, `SUPPORT`, in `src/js/99-release.js`) | Done: `support@studyboardapp.com` |
 | The policy texts match what the app does today but are not legal advice | Owner: have them reviewed for your country or state; add your legal name and governing law |
 | Deleting an account does not cancel a Stripe or app-store subscription (the sheet tells people to cancel first) | Owner: decide the process for cancel-on-request |
 | App Store / Google Play: privacy label and data-safety form, age rating, screenshots | Owner (only if shipping store apps) |
@@ -105,7 +105,7 @@ Measured with Playwright (Chromium, file load, local data): first contentful pai
 
 ## 9. Before you launch (short list)
 
-1. Replace `support@YOUR-DOMAIN`.
+1. ~~Replace `support@YOUR-DOMAIN`.~~ Done (`support@studyboardapp.com`).
 2. Run the SQL files in order, ending with `supabase-lean.sql`; test Delete My Account with a spare account.
 3. Custom SMTP and the email templates; confirm email on.
 4. Decide the paywall and the "early access" wording.
