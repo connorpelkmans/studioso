@@ -11490,10 +11490,11 @@ function b1_dpr(c) { return c.getTransform ? c.getTransform().a : 1; }
 // cut a painted layer into its non-empty T x T tiles; each tile is a whole small image
 function b1_tiles(cv, T) { var out = [], w = cv.width, h = cv.height, id = cv.getContext('2d').getImageData(0, 0, w, h).data;
   for (var ty = 0; ty < h; ty += T) for (var tx = 0; tx < w; tx += T) { var tw = Math.min(T, w - tx), th = Math.min(T, h - ty), any = false;
-    for (var r = ty; r < ty + th && !any; r += 2) for (var x = tx; x < tx + tw; x += 2) if (id[(r * w + x) * 4 + 3] > 0) { any = true; break; }
+    for (var r = ty; r < ty + th && !any; r++) for (var x = tx; x < tx + tw; x++) if (id[(r * w + x) * 4 + 3] > 0) { any = true; break; }
     if (any) { var c = b1_scratch(tw, th); c.getContext('2d').drawImage(cv, -tx, -ty); out.push({cv: c, x: tx, y: ty}); } }
   return out; }
-function b1_blit(c, tiles, dx, dy) { for (var i = 0; i < tiles.length; i++) c.drawImage(tiles[i].cv, tiles[i].x + dx, tiles[i].y + dy); }
+// Whole pixels only: tiles drawn at fractional positions show faint seams between them
+function b1_blit(c, tiles, dx, dy) { dx = Math.round(dx); dy = Math.round(dy); for (var i = 0; i < tiles.length; i++) c.drawImage(tiles[i].cv, tiles[i].x + dx, tiles[i].y + dy); }
 function b1_scratch(w, h) { var cv = document.createElement('canvas'); cv.width = Math.max(1, Math.ceil(w)); cv.height = Math.max(1, Math.ceil(h)); return cv; }
 
 // 1. Ocean Waves
@@ -11715,7 +11716,7 @@ ENGINES.summer = function (A, v, dk) {
     },
     draw: function (ca, cb, t, f) {
       var d = b1_dpr(ca); if (!spr || Math.abs(d - sd) > 0.01) buildSurf(d);
-      var o1 = 7 * Math.sin(t * 0.45) + 2.5 * Math.sin(t * 0.171 + 1), o2 = 9 * Math.sin(t * 0.39 - 1.1) + 3 * Math.sin(t * 0.137 + 2.3);
+      var o1 = 7 * Math.sin(t * 0.72) + 2.5 * Math.sin(t * 0.27 + 1), o2 = 9 * Math.sin(t * 0.62 - 1.1) + 3 * Math.sin(t * 0.22 + 2.3);
       ca.lineCap = 'round'; ca.lineJoin = 'round';
       for (k = 0; k < 4; k++) { ca.fillStyle = cSp + ((dk ? 0.35 : 0.75) * (0.25 + 0.75 * Math.pow(0.5 + 0.5 * Math.sin(t * 0.9 + k * 1.7), 2))) + ')'; ca.fill(sp[k]); }
       ca.save(); ca.setTransform(1, 0, 0, 1, 0, 0);
