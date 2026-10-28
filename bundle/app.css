@@ -218,6 +218,8 @@ li.task>.lms-go{align-self:center;margin-right:12px}
 .card-foot .late{color:var(--late);font-weight:600}
 .placeholder{border:2px dashed var(--accent);border-radius:12px;background:color-mix(in srgb,var(--accent) 8%,transparent)}
 .ghost{position:fixed;z-index:50;pointer-events:none;margin:0;transform:rotate(2deg) scale(1.03);box-shadow:0 14px 30px rgba(0,0,0,.28);cursor:grabbing;will-change:transform}
+/* a dragged copy is tilted from the first frame: the card's own entrance animation must not run on it */
+.ghost,.sort-ghost,.kb-ghost{animation:none!important;transition:none!important}
 .prio{font-size:.72rem;font-weight:700;border-radius:6px;padding:1px 7px;white-space:nowrap}
 .prio.low{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
 .prio.med{background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent)}
@@ -6317,7 +6319,8 @@ html .fhead .fcrumb{background:none!important;padding-inline:0!important;text-sh
 .sort-ghost{position:fixed!important;z-index:200;pointer-events:none;margin:0!important;transform:rotate(1.5deg) scale(1.02);box-shadow:0 18px 40px rgba(0,0,0,.35);opacity:.95;transition:none!important}
 .sort-hole{opacity:.25;outline:2px dashed var(--line);outline-offset:4px;border-radius:18px}
 body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important;-webkit-user-select:none!important}
-[data-sortable] > [data-sort-id]{-webkit-touch-callout:none}
+/* A long press reorders: the browser's own long-press preview, text selection and drag of a link or picture must not start first */
+[data-sortable] > [data-sort-id],[data-sortable] > [data-sort-id] *{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-user-drag:none}
 .ci-ai-btn{display:grid;place-items:center;align-content:center;gap:2px;aspect-ratio:1;border:2px dashed var(--line);border-radius:50%;background:none;color:var(--accent);font:800 .62rem var(--display);cursor:pointer;position:relative;padding:0}
 .ci-ai-btn svg{width:26px;height:26px}
 .ci-ai-btn .cp-ai-face.ai-ic{width:32px;height:32px;min-width:32px;margin:0;vertical-align:0;justify-self:center;display:grid;place-items:center}

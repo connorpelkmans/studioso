@@ -734,10 +734,15 @@ function trashAssets(entries){
   const ids = (entries || []).flatMap(e => (e.items || []).filter(i => i.kind === "file").flatMap(i => (i.data.revs || []).map(r => r.assetId))).filter(Boolean);
   if (ids.length) cleanupAssets([...new Set(ids)], 0);
 }
+// A note with nothing in it (no text, drawing, photo or sticker) isn't worth keeping in Recently Deleted
+const trashHas = v => Array.isArray(v) ? v.length > 0 : !!(v && typeof v === "object" && Object.keys(v).length);
+const emptyNote = d => !!d && !d.wb && !String(d.text || "").trim() && !trashHas(d.ink) && !trashHas(d.photos) && !trashHas(d.stickers);
+const emptyEntry = e => (e.items || []).length > 0 && e.items.every(i => i && i.kind === "note" && emptyNote(i.data));
 // 30 days, then it's gone
 function trashEnforce(){
   let skewMs = 0; try { skewMs = Number(localStorage.getItem("studioso:skew")) || 0; } catch(e) {}
   const r = TB.purge(trashList(), Date.now() + skewMs);
+  trashList().forEach(e => { if (emptyEntry(e) && !r.dropped.includes(e)) r.dropped.push(e); });
   if (!r.dropped.length) return 0;
   r.dropped.forEach(e => { if (e && e.id && state.trash[e.id]) { delete state.trash[e.id]; try { queueWrite("trash", e.id, null); } catch(x) {} } });
   trashAssets(r.dropped.filter(e => e && Date.now() + skewMs >= TB.expiresAt(e)));
@@ -755,7 +760,7 @@ function trashCapture(changes, label){
   changes.forEach(c => {
     if (c.kind === "trash") return;
     const cur = getItem(c.kind, c.id); if (!cur) return;
-    if (c.after === null) deleted.push({kind: c.kind, id: c.id, data: clone(cur)});
+    if (c.after === null) { if (!(c.kind === "note" && emptyNote(cur))) deleted.push({kind: c.kind, id: c.id, data: clone(cur)}); }
     else if (c.kind === "deck") {
       const keepC = new Set((c.after.cards || []).map(x => x.id)), keepQ = new Set((c.after.aiQuizzes || []).map(x => x.id)), par = {kind: "deck", id: cur.id, name: cur.name};
       (cur.cards || []).filter(x => !keepC.has(x.id) && !inDecks.has(x.id)).slice(0, 2000).forEach(x => deleted.push({kind: "card", id: x.id, data: clone(x), parent: par}));
@@ -6468,7 +6473,7 @@ const SKINS = [
     light: ["#F3FAFD", "transparent", "#FFFFFF", "#13283A", "#587084", "#D4E8F2", "#E3F2F9", "#F9FCFE", "#0E86C9", "#4AA4D6", "#FFFFFF", "#11496C", "#1580B8", "#BDDBEB", "#FFF3A3"],
     dark: ["#081722", "transparent", "#0F2231", "#E4F2FA", "#8FAFC4", "#1D3A4E", "#0F2837", "#0C1C2A", "#4FC3F7", "#72CFF9", "#04202E", "#2F7697", "#0E4466", "#BCCBD4", "#5C5214"],
     glow: ["radial-gradient(80% 60% at 100% 0%, rgba(255,200,80,.34), transparent 62%), radial-gradient(90% 70% at 0% 100%, rgba(40,175,215,.26), transparent 62%), #EEF6FA", "radial-gradient(80% 60% at 100% 0%, rgba(255,200,80,.10), transparent 62%), radial-gradient(90% 70% at 0% 100%, rgba(30,140,190,.22), transparent 62%), #081722"], spine: ["linear-gradient(180deg,#1580B8,#0D5A85)", "linear-gradient(180deg,#0E4466,#050E15)"], btn: ["linear-gradient(135deg,#0E86C9,#23B5D3)", "linear-gradient(135deg,#4FC3F7,#7FE0F0)"]},
-  {id: "autumn", name: "Autumn Leaves", tier: "pro", group: "season", desc: "Drifting leaves in warm light.",
+  {id: "autumn", name: "Fall", tier: "pro", group: "season", desc: "Drifting leaves in warm light.",
     light: ["#FBF3EA", "rgba(200,100,30,.11)", "#FFFDF9", "#33200F", "#80644C", "#EFDCC7", "#F8E8D6", "#FEF9F3", "#C8561C", "#E07A2E", "#FFFFFF", "#6B2E14", "#6B2E14", "#F4D5BC", "#FFCF6B"],
     dark: ["#1A0F08", "rgba(255,140,60,.08)", "#26170D", "#F9ECDF", "#C8A387", "#45301F", "#362314", "#1F130A", "#FF8A47", "#FFA56B", "#2E1203", "#A8481C", "#100904", "#E6C2A5", "#6E4A10"],
     glow: ["radial-gradient(90% 70% at 100% 0%, rgba(255,207,107,.32), transparent 62%), radial-gradient(80% 60% at 0% 100%, rgba(224,122,46,.16), transparent 62%), #FBF3EA", "radial-gradient(90% 70% at 100% 0%, rgba(255,165,107,.13), transparent 62%), radial-gradient(80% 60% at 0% 100%, rgba(168,72,28,.22), transparent 62%), #1A0F08"], spine: ["linear-gradient(180deg,#8A3A18,#5A2410)", "linear-gradient(180deg,#4A1F0C,#100904)"], btn: ["linear-gradient(135deg,#C8561C,#E0942E)", "linear-gradient(135deg,#C8561C,#E0942E)"]},
@@ -17183,7 +17188,7 @@ const SCN20 = (() => {
   let blurN = 0;
   function layerHtml(Ly, pad, v, k){
     let inner = "";
-    "abcdefgh".split("").forEach(key => { if (Ly[key].d) inner += `<path d="${Ly[key].d}" fill="${Ly[key].c}"/>`; });
+    "abcdefghijklmnopABCDEFGHIJKLMNOP".split("").forEach(key => { if (Ly[key] && Ly[key].d) inner += `<path d="${Ly[key].d}" fill="${Ly[key].c}"/>`; });
     ["s", "t"].forEach(key => { if (Ly[key].d) inner += `<path d="${Ly[key].d}" fill="none" stroke="${Ly[key].c}" stroke-width="${Ly[key].w}" stroke-linecap="round" stroke-linejoin="round"/>`; });
     if (!inner) return "";
     const box = pad ? `left:${-40 * k}px;top:${-40 * k}px;width:${v.pw * k}px;height:${v.phh * k}px` : `left:0;top:0;width:${v.bw * k}px;height:${v.bh * k}px`;
@@ -17394,7 +17399,7 @@ const SCN20 = (() => {
     let defs = sky.defs + band.defs, body = sky.rects + band.rects;
     ["far", "refl", "mid", "near"].forEach(n => {
       const Ly = v[n]; let inner = "";
-      "abcdefgh".split("").forEach(key => { if (Ly[key].d) inner += `<path d="${Ly[key].d}" fill="${Ly[key].c}"/>`; });
+      "abcdefghijklmnopABCDEFGHIJKLMNOP".split("").forEach(key => { if (Ly[key] && Ly[key].d) inner += `<path d="${Ly[key].d}" fill="${Ly[key].c}"/>`; });
       ["s", "t"].forEach(key => { if (Ly[key].d) inner += `<path d="${Ly[key].d}" fill="none" stroke="${Ly[key].c}" stroke-width="${Ly[key].w}" stroke-linecap="round" stroke-linejoin="round"/>`; });
       if (!inner) return;
       if (Ly.blur) { defs += `<filter id="f${n}" filterUnits="userSpaceOnUse" x="-60" y="-60" width="${TH_W + 120}" height="${TH_H + 120}"><feGaussianBlur stdDeviation="${Ly.blur / 2}"/></filter>`; body += `<g filter="url(#f${n})">${inner}</g>`; }
@@ -18871,8 +18876,13 @@ const THEME_REGROUP = {
   pottery: "hobby", film: "hobby", culinary: "hobby",
   diadelosmuertos: "holiday", holi: "holiday", ramadan: "holiday", midautumn: "holiday", xmas: "holiday"
 };
+// Holidays in the order they come round in the year (moving dates placed where they usually fall)
+const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatricks", "easter", "july4", "midautumn", "halloween", "diadelosmuertos", "diwali", "thanksgiving", "hanukkah", "xmas", "newyear"];
 (() => {
   Object.entries(THEME_REGROUP).forEach(([id, g]) => { const s = SKINS.find(x => x.id === id); if (s) s.group = g; });
+  (() => { const at = [], hol = []; SKINS.forEach((s, i) => { if (s.group === "holiday") { at.push(i); hol.push(s); } });
+    const rank = s => { const k = HOLIDAY_ORDER.indexOf(s.id); return k < 0 ? 1e3 + hol.indexOf(s) : k; };
+    hol.sort((a, b) => rank(a) - rank(b)).forEach((s, j) => { SKINS[at[j]] = s; }); })();
   const KEY = "studyboard:theme-access", hidden = new Set(HIDDEN_THEMES), stash = [];
   const order = new Map(SKINS.map((s, i) => [s.id, i]));
   let all = false, uid = null, checkedAt = 0, fake = null;
@@ -65578,6 +65588,7 @@ function decorateDeck(){
   document.addEventListener("pointercancel", e => { if (st && e.pointerId === st.id) end(false); });
   document.addEventListener("click", e => { if (Date.now() - noClick < 350 && e.target.closest && e.target.closest("[data-sortable]")) { e.preventDefault(); e.stopPropagation(); } }, true);
   document.addEventListener("contextmenu", e => { if (st && st.touch && e.target.closest && e.target.closest("[data-sortable]")) e.preventDefault(); });
+  document.addEventListener("dragstart", e => { if (e.target.closest && e.target.closest("[data-sortable] > [data-sort-id]")) e.preventDefault(); });
 })();
 const RA_MQ = matchMedia("(max-width:600px)");
 // A flashcard deck does the same on every screen size

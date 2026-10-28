@@ -23,7 +23,7 @@ You can do the setup below any time before launch (in any order). While the payw
 **Pro** ($3.99 a month, $12.99 a semester (every 4 months, website only) or $29.99 a year). Every new account gets a **free week of Pro** with no card (see "The free week" below). There's no card trial at checkout (turn one on with `prices.checkoutTrialDays` in `studyboard_config`):
 - Unlimited devices.
 - **10 GB** of cloud file storage and **250 MB** of synced data.
-- Every premium theme, including the 4 seasons (Winter, Spring, Summer and Autumn Leaves), plus every premium card style, note shape, pin and sticker pack, and all 46 Theme Collections.
+- Every premium theme, including the 4 seasons (Winter, Spring, Summer and Fall), plus every premium card style, note shape, pin and sticker pack, and all 46 Theme Collections.
 - 30 days of online backup history.
 - Study groups of up to **100 members** with unlimited message history.
 - **Insights** (in the Weekly Review) and a **Term Recap** you can save as an image. Free accounts get neither.
