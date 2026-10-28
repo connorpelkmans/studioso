@@ -1,7 +1,7 @@
 /* ===== module: 49-apptour.js ===== */
 /* App Tour: a coach-mark walk around the app */
 (() => {
-  const KEY = "studyboard:tour", OB = "sb:onboarded";
+  const KEY = "studyboard:tour";
   // Remembered per device and per account, like the welcome setup
   const acctKey = () => typeof sbUser !== "undefined" && sbUser && sbUser.id ? KEY + ":" + sbUser.id : "";
   const newAccount = () => { try { const t = Date.parse((sbUser && sbUser.created_at) || ""); return t > 0 && Date.now() - t < 2 * 864e5; } catch (e) { return false; } };
@@ -258,7 +258,6 @@
     render(); window.scrollTo(0, s.scrollY || 0);
     if (opened && opened.isConnected) { try { opened.focus({preventScroll: true}); } catch (e) {} }
     saved = null; opened = null;
-    if (window.SBSEM) SBSEM.afterTour();
     if (completed && ui.tab === "board") setTimeout(() => { const q = $("#qaIn"); if (q && !dlg.open) { const bar = q.closest(".qa-bar"); if (bar) { bar.classList.add("ob-glow"); setTimeout(() => bar.classList.remove("ob-glow"), 2600); } } }, 200);
   }
 
@@ -277,25 +276,7 @@
     show();
   }
 
-  /* When to show it on its own */
-  let poll = 0, sawSetup = false;
-  const setupOpen = () => dlg.open && !!dlg.querySelector(".sheet.ob");
-  function check(){
-    if (flag() === "done") { stop(); return; }
-    if (setupOpen()) { sawSetup = true; return; }
-    try { if (!sawSetup && localStorage.getItem(OB) && !(window.SBOB && SBOB.pending())) { setFlag("done"); stop(); return; } } catch (e) {}
-    if (!sawSetup) return;
-    if (dlg.open || document.hidden || document.getElementById("qod") || active) return;
-    stop(); setTimeout(() => { if (flag() !== "done" && !dlg.open) { start(); } }, 700);
-  }
-  function stop(){ clearInterval(poll); poll = 0; }
-  hook("boot", () => {
-    if (flag() === "done") return;
-    poll = setInterval(check, 700);
-  });
-  // Someone signed up or signed in after the page loaded
-  let seenUid = "";
-  hook("render", () => { const u = typeof sbUser !== "undefined" && sbUser && sbUser.id; if (!u || u === seenUid) return; seenUid = u; if (!poll && flag() !== "done") { sawSetup = false; poll = setInterval(check, 700); } });
+  /* It never starts on its own: the welcome setup's last page and Settings offer it */
 
   /* Settings row */
   window.SBTOUR = {start, active: () => active, taken: () => flag() === "done"};

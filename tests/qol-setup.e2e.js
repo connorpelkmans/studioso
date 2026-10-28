@@ -103,7 +103,10 @@ const PLANNER = () => ({v: 2, updated: 1, settings: {capacity: 15, dailyHours: 3
       ok(await page.evaluate(() => Object.values(JSON.parse(localStorage.getItem("coursework:v2")).courses || {}).some(c => c.code === "CHEM 110")), "a course typed in the setup is added on Next");
       const go = await page.locator(".sheet.ob .ob-go").boundingBox();
       ok(go.height >= 40 && go.height <= 60, "Add My First Task is a normal-size button on a phone (" + Math.round(go.height) + "px)");
-      await page.click('.sheet.ob [data-ob="semester"]'); await page.waitForSelector(".sem-sheet");
+      ok(await page.locator('.sheet.ob [data-ob="semester"]').count() === 0, "the last page doesn't send you into a second setup");
+      await page.click('.sheet.ob .ob-go'); await page.waitForTimeout(400);
+      ok(await page.locator(".sem-card-b").count() === 0, "no Set Up Your Semester card right after the welcome setup");
+      await act(page, "sem-open"); await page.waitForSelector(".sem-sheet");
       ok(await page.getAttribute(".sem-st.cur", "data-id") === "work", "the semester setup starts at bringing in work, without asking for courses again");
       await page.click('.sem-sheet [data-sem="goto"][data-id="courses"]'); await page.waitForTimeout(150);
       await page.fill("#semCode", "PHYS 120"); await page.click('.sem-sheet [data-sem="next"]'); await page.waitForTimeout(200);

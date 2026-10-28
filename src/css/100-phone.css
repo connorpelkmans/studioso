@@ -597,6 +597,23 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 /* short classes */
 @container (max-height:44px){.sch-b span:nth-of-type(2),.sch-b span:nth-of-type(3){display:none}}
 @container (max-height:24px){.sch-b span{display:none}}
+/* short cards with a course band (an hour or less): a slimmer band, then the title and time on one line */
+@container (max-height:72px){
+  .sch-b > .sch-band{padding:2px 8px}
+  .sch-b > .sch-band .cc-ic{width:14px;height:14px}
+  .sch-b:has(> .sch-band) > .sch-bd{display:flex;align-items:baseline;gap:6px;min-width:0;padding:3px 8px}
+  .sch-b > .sch-bd > span{flex:none;font-size:.7rem}
+  .sch-b > .sch-bd > .sch-t{flex:0 1 auto;min-width:0;font-size:.76rem}
+  .sch-b > .sch-bd > span:nth-of-type(3){display:none}
+}
+/* too narrow for both: the title only (the time is on the grid) */
+@container (max-height:72px) and (max-width:240px){.sch-b > .sch-bd > span:nth-of-type(2){display:none}}
+/* half an hour or less: no band, the title in the card's course colour */
+@container (max-height:44px){
+  .sch-b > .sch-band{display:none}
+  .sch-b:has(> .sch-band) > .sch-bd{display:flex;align-items:center;height:100%;padding:0 8px 0 11px;box-shadow:inset 4px 0 0 var(--c)}
+  .sch-b > .sch-bd > .sch-t{display:block}
+}
 .sch-chip{border-radius:8px!important;border-left-width:4px!important;padding:4px 7px!important;background:color-mix(in srgb,var(--c) 12%,var(--surface))!important;font-weight:700!important}
 .sch-nav .btn,.view-head .sch-nav .btn{border-radius:999px}
 .sch-now{height:2px!important}

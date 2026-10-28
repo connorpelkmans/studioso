@@ -32,10 +32,10 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       if (s === "courses") { await page.fill("#obCode", "BIOL 101"); await page.fill("#obName", "Biology"); }
       await page.click('[data-ob="next"]'); await page.waitForTimeout(120);
     }
-    ok(first.join() === "welcome,area,courses,hours,done", "the first-run setup asks only the essentials: " + first.join(", "));
+    ok(first.join() === "area,courses,hours,done", "the first-run setup asks only the essentials: " + first.join(", "));
     ok(await page.evaluate(() => Object.values(SBLMS.st().courses).some(c => c.code === "BIOL 101")), "a course typed but not added yet comes along on Next");
-    await page.click('[data-ob="finish"]'); await page.waitForTimeout(300);
-    ok(await page.locator(".ob-more-b").count() === 0 && await page.locator('.sem-card-b [data-act="sem-open"]').count() === 1, "the rest isn't pushed on the same day; an empty planner gets the Set Up Your Semester card");
+    await page.click('.sheet.ob .ob-go'); await page.waitForTimeout(300);
+    ok(await page.locator(".ob-more-b").count() === 0 && await page.locator(".sem-card-b").count() === 0, "nothing more is pushed on the same day: no A Few More Things card and no second setup card");
     const later = async pg => { await pg.waitForTimeout(1600); if (await pg.evaluate(() => window.SBTOUR && SBTOUR.active())) { await pg.keyboard.press("Escape"); await pg.waitForTimeout(300); }
       await pg.evaluate(() => { const k = "sb:onboarded:more", m = JSON.parse(localStorage.getItem(k) || "{}"); m.at = Date.now() - 2 * 864e5; localStorage.setItem(k, JSON.stringify(m)); });
       await pg.click('nav.tabs [data-tab="courses"]'); await pg.waitForTimeout(150); await pg.click('nav.tabs [data-tab="board"]'); await pg.waitForTimeout(250);
@@ -62,12 +62,12 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     ok(!/is on us/.test(await b.page.textContent(".sheet.ob")) && await b.page.locator(".ob-gift").count() === 0, "no free week, no gift card");
     await b.page.evaluate(() => { window.__said = 0; SBOB.T.plan = {welcomeWeek: () => ({until: "2026-10-27T12:00:00Z", date: "Oct 27, 2026"}), welcomeSaid: () => { window.__said++; }};
       const segs = document.querySelectorAll(".ob-seg"); segs[segs.length - 1].click(); });
-    await b.page.waitForTimeout(250);
+    await b.page.waitForTimeout(250); await b.page.click(".sheet.ob .ob-go"); await b.page.waitForTimeout(250);
     const last = await b.page.textContent(".sheet.ob");
     ok(/Welcome to Studyboard!/.test(last) && await b.page.locator(".ob-gift").count() === 1 && /until Oct 27, 2026/.test(last), "the last page welcomes them and mentions the free week: " + last.replace(/\s+/g, " ").slice(0, 300));
     ok(await b.page.evaluate(() => window.__said > 0), "and marks the welcome as said, so it doesn't also pop up");
     ok(await b.page.locator("#toast.show, .toast.show").count() === 0, "no bottom pop-up about it");
-    await b.page.click('[data-ob="finish"]'); await b.page.waitForTimeout(300);
+    await b.page.click('.sheet.ob .ob-go'); await b.page.waitForTimeout(300);
     await b.page.evaluate(() => { SBOB.T.plan = null; });
     await later(b.page);
     await b.page.click('.ob-more-b [data-act="ob-more"]'); await b.page.waitForSelector(".sheet.ob");
@@ -77,7 +77,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     ok(!(await b.page.textContent(".sheet.ob")).includes("Backing up to"), "and the last page doesn't mention it");
     if (more.includes("pro")) {
       await b.page.evaluate(() => { SBOB.T.plan = {welcomeWeek: () => ({until: "2026-10-27T12:00:00Z", date: "Oct 27, 2026"}), welcomeSaid: () => {}};
-        const segs = document.querySelectorAll(".ob-seg"); segs[segs.length - 2].click(); });
+        const segs = document.querySelectorAll(".ob-seg"); segs[segs.length - 1].click(); });
       await b.page.waitForTimeout(250);
       const proPage = await b.page.textContent(".sheet.ob");
       ok((await b.page.getAttribute(".sheet.ob", "data-step")) === "pro" && /Your First Week of Pro Is On Us/.test(proPage) && /No card needed/.test(proPage), "the free week has its own page in the later setup");

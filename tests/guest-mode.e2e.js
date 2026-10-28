@@ -34,8 +34,8 @@ const DAY = 864e5;
       if ((await page.getAttribute(".sheet.ob", "data-step")) === "courses") { await page.fill("#obCode", "BIOL 101"); await page.fill("#obName", "Biology"); await page.click('[data-ob="add-course"]'); await page.waitForTimeout(150); }
       await page.click('[data-ob="next"]'); await page.waitForTimeout(120);
     }
-    ok(/Keep Your Planner Safe/.test(await page.textContent(".sheet.ob")) && await page.locator('[data-ob="account"]').count() === 1, "the tour's last page offers a free account");
-    await page.click('[data-ob="finish"]'); await page.waitForTimeout(400);
+    ok(await page.locator('.sheet.ob .ob-foot .btn.primary').count() === 1 && await page.locator('[data-ob="account"]').count() === 0, "the setup's last page has one main button (the account offer stays in Settings)");
+    await page.click('.sheet.ob .ob-go'); await page.waitForTimeout(400);
     ok(await page.evaluate(() => Object.keys(SBLMS.st().courses).length === 1), "the course added in the tour is there, on this device");
     await page.click('nav.tabs .nav-tool[data-act="menu"]');
     await page.waitForSelector('dialog[open] [data-act="sb-signin"]', {timeout: 5000});
