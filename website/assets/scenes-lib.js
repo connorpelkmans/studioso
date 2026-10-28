@@ -1124,10 +1124,11 @@ function b3_cup2(L, x, y, u, C) {
   add(L, 'k', b2_ellA(x + 2 * u, y + 0.8 * u, 47 * u, 8.6 * u), C.under);
   add(L, 'l', b2_ellA(x + 2 * u, y - 1.8 * u, 48 * u, 8.8 * u) + body + b2_ellA(x, bot, 19 * u, 4 * u) + b2_polyA(ha.concat(hb)) + b2_ellA(x, top, 31 * u, 7 * u), C.cup);
   var sh = []; for (i = 0; i <= N; i++) sh.push(R[i]); for (i = N; i >= 0; i--) { var q = R[i], k = i / N; sh.push([x + (q[0] - x) * (0.55 + 0.15 * k), q[1]]); }
-  // contact shadow on the saucer: only the part below the cup's foot, so it never sits on the cup itself
-  var cs2 = [], cx2 = x + 2 * u, cy2 = y - 2.6 * u, rx2 = 27 * u, ry2 = 4.4 * u;
-  for (i = 0; i <= 24; i++) { var a3 = i / 24 * Math.PI; cs2.push([cx2 + Math.cos(a3) * rx2, cy2 + Math.sin(a3) * ry2]); }
-  for (i = 24; i >= 0; i--) { var xx3 = cx2 - rx2 + i / 24 * 2 * rx2, d3 = (xx3 - x) / (19 * u), fy = Math.abs(d3) < 1 ? bot + 4 * u * Math.sqrt(1 - d3 * d3) : -1e9; cs2.push([xx3, Math.max(cy2, fy)]); }
+  // contact shadow on the saucer: an oval wrapping the cup's foot (sides and front), cut away wherever the cup itself is
+  var cs2 = [], cx2 = x + 1.5 * u, cy2 = y - 3.6 * u, rx2 = 30 * u, ry2 = 6 * u, hwB = 31 * u * 0.7, N2 = 48;
+  function cupBot(xx) { var d = (xx - x) / (19 * u); if (Math.abs(d) < 1) return Math.max(bot, bot + 4 * u * Math.sqrt(1 - d * d)); return Math.abs(xx - x) <= hwB ? bot : -1e9; }
+  for (i = 0; i <= N2; i++) { var xa = cx2 - rx2 + i / N2 * 2 * rx2, ea = (xa - cx2) / rx2, ue = cy2 - ry2 * Math.sqrt(Math.max(0, 1 - ea * ea)); cs2.push([xa, Math.max(ue, cupBot(xa))]); }
+  for (i = N2; i >= 0; i--) { var xb = cx2 - rx2 + i / N2 * 2 * rx2, eb = (xb - cx2) / rx2; cs2.push([xb, cy2 + ry2 * Math.sqrt(Math.max(0, 1 - eb * eb))]); }
   add(L, 'm', b2_polyA(sh) + b2_ellA(x, top + 0.4 * u, 28.8 * u, 6.1 * u) + b2_polyA(cs2), C.shade);
   add(L, 'n', b2_ellA(x, top + 1.2 * u, 27 * u, 5.4 * u), C.cof);
   var ring = [], inner = []; for (i = 0; i < 30; i++) { var a2 = i / 30 * Math.PI * 2; ring.push([x + Math.cos(a2) * 26.4 * u, top + 1.2 * u + Math.sin(a2) * 5.2 * u]); inner.push([x + Math.cos(a2) * 23.6 * u, top + 1.2 * u + Math.sin(a2) * 4.4 * u]); }
