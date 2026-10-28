@@ -72,7 +72,7 @@ What to try in the packaged app:
   > Optional AI features (Google Gemini, Anthropic Claude or OpenAI ChatGPT) use your own API key: they summarize files, answer questions about your own notes, plan your day and make flashcards. AI answers are written by the model you choose from what you send it, can be wrong, and can be reported from the answer itself or in Settings, AI Features. Studyboard Pro is an optional subscription bought on the Studyboard website.
 
 * Features (short lines): Task board and Today's Plan · Courses, grades and syllabus import · Flashcards and practice quizzes · Study groups and shared decks · Brightspace, Canvas and Blackboard sync (read-only) · Reminders, tray icon and a Today widget · Screenshot to task (Ctrl+Shift+Alt+C) · Optional AI with your own key.
-* **Screenshots:** at least 1, up to 10, at least 1366×768 (1920×1080 recommended). The light and dark board images from the website (`website/assets/screens/`) are a good start; capture the rest from the packaged app.
+* **Screenshots:** `build-resources/msstore-listing/screenshots/` holds ten 1920×1080 PNGs (the Store's maximum), numbered in upload order. They show the real app with made-up student data. After the app's look changes, make them again with `node tools/capture-site-screens.js <folder> --store` and copy the ones you want into that folder with the same names.
 * **Store logos:** `build-resources/msstore-listing/BoxArt-1080x1080.png` (1:1), `Poster-720x1080.png` (2:3) and `Logo-300x300.png`.
 
 **Notes for certification** (paste into the submission's notes field):
