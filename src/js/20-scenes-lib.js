@@ -3995,6 +3995,47 @@ function m1_cell(type, r, seed, X, Y, A) {
   return P;
 }
 var m1_BIOKEY = {cyto: 'a', cyto2: 'b', vac: 'b', flagB: 'b', nuc: 'c', nuc2: 'd', eye: 'd', mito: 'e', chl: 'f', dia: 'g', ves: 'h', mem: 's', nucR: 's', er: 's', mito2: 's', flagR: 's', wall: 't', diaR: 't', chl2: 't'};
+// Microbes (bacteria and viruses) for Cell Garden, in local units around (0, 0); u is the size unit.
+// Parts: b = body outline (filled + outlined), l = detail line (outline colour), d = dot [x, y, r] (outline colour),
+// w = waving flagellum or tail leg [x, y, angle, length, amplitude] (drawn live when animated, at rest when still)
+function m1_ring(x, y, rx, ry, n) { var p = []; for (var i = 0; i < n; i++) { var a = i / n * Math.PI * 2; p.push([x + Math.cos(a) * rx, y + Math.sin(a) * ry]); } return p; }
+function m1_capPts(L, w, cx, cy) { var p = [], i, a; for (i = 0; i <= 7; i++) { a = -Math.PI / 2 + i / 7 * Math.PI; p.push([(cx || 0) + L / 2 - w / 2 + Math.cos(a) * w / 2, (cy || 0) + Math.sin(a) * w / 2]); } for (i = 0; i <= 7; i++) { a = Math.PI / 2 + i / 7 * Math.PI; p.push([(cx || 0) - L / 2 + w / 2 + Math.cos(a) * w / 2, (cy || 0) + Math.sin(a) * w / 2]); } return p; }
+function m1_tube(cl, w) { var L = [], R = [], n = cl.length; for (var i = 0; i < n; i++) { var a = cl[Math.max(0, i - 1)], b = cl[Math.min(n - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], m = Math.hypot(dx, dy) || 1, k = w / 2 * Math.sqrt(Math.sin(Math.PI * (0.08 + 0.84 * i / (n - 1)))); L.push([cl[i][0] - dy / m * k, cl[i][1] + dx / m * k]); R.unshift([cl[i][0] + dy / m * k, cl[i][1] - dx / m * k]); } return L.concat(R); }
+function m1_microbe(kind, u, seed) {
+  var R = SR(seed), P = {b: [], l: [], d: [], w: []}, i, a;
+  if (kind === 'bacillus' || kind === 'divide') {
+    var L = u * 2.4, w = u * 0.9;
+    if (kind === 'bacillus') P.b.push(m1_capPts(L, w)); else { P.b.push(m1_capPts(L * 0.56, w, -L * 0.24, 0)); P.b.push(m1_capPts(L * 0.56, w, L * 0.24, 0)); P.l.push([[0, -w * 0.32], [0, w * 0.32]]); }
+    for (i = 0; i < 3; i++) P.d.push([(R() - 0.5) * L * 0.55, (R() - 0.5) * w * 0.35, u * 0.07]);
+    var pr = m1_ring((R() - 0.5) * L * 0.3, 0, u * 0.18, u * 0.12, 10); pr.push(pr[0]); P.l.push(pr);
+    for (i = 0; i < 12; i++) { var t = i / 12, x = -L / 2 + w / 2 + t * (L - w), sd = i % 2 ? 1 : -1; P.l.push([[x, sd * w / 2], [x + (R() - 0.5) * u * 0.2, sd * (w / 2 + u * 0.22)]]); }
+    P.w.push([L / 2, 0, 0, u * 2.2, u * 0.22]); if (kind === 'divide') P.w.push([-L / 2, 0, Math.PI, u * 1.8, u * 0.2]);
+  } else if (kind === 'strep') { for (i = 0; i < 5; i++) { a = (i - 2) * 0.3; P.b.push(m1_ring(Math.sin(a) * u * 3.2, (1 - Math.cos(a)) * u * 3.2 - u * 0.4, u * 0.55, u * 0.52, 14)); } }
+  else if (kind === 'staph') { [[0, 0], [1, 0], [0.5, -0.86], [-0.5, -0.86], [-1, 0], [-0.5, 0.86], [0.5, 0.86], [1.5, -0.86]].forEach(function (q) { P.b.push(m1_ring(q[0] * u * 0.95, q[1] * u * 0.95, u * 0.55, u * 0.55, 14)); }); }
+  else if (kind === 'spirillum') { var cl = []; for (i = 0; i <= 26; i++) { var tt = i / 26; cl.push([(tt - 0.5) * u * 4.6, Math.sin(tt * Math.PI * 3) * u * 0.55]); } P.b.push(m1_tube(cl, u * 0.55)); P.w.push([cl[26][0], cl[26][1], 0.3, u * 1.6, u * 0.18], [cl[26][0], cl[26][1], -0.3, u * 1.5, u * 0.18], [cl[0][0], cl[0][1], Math.PI + 0.3, u * 1.5, u * 0.18]); }
+  else if (kind === 'vibrio') { var cv = []; for (i = 0; i <= 14; i++) { a = Math.PI * (1.15 + i / 14 * 0.7); cv.push([Math.cos(a) * u * 1.7, Math.sin(a) * u * 1.7 + u * 1.3]); } P.b.push(m1_tube(cv, u * 1.0)); P.d.push([0, -u * 0.25, u * 0.08], [-u * 0.6, -u * 0.05, u * 0.07]); var e = cv[14], e2 = cv[13]; P.w.push([e[0], e[1], Math.atan2(e[1] - e2[1], e[0] - e2[0]), u * 2.4, u * 0.25]); }
+  else if (kind === 'phage') {
+    var hx = [], hr = u * 0.9; for (i = 0; i < 6; i++) { a = Math.PI / 6 + i / 6 * Math.PI * 2; hx.push([Math.cos(a) * hr, -u * 1.9 + Math.sin(a) * hr * 1.05]); } P.b.push(hx);
+    P.l.push([hx[2], [0, -u * 1.9], hx[0]], [[0, -u * 1.9], hx[4]]);
+    P.b.push([[-u * 0.24, -u * 0.98], [u * 0.24, -u * 0.98], [u * 0.24, -u * 0.76], [-u * 0.24, -u * 0.76]]);
+    P.b.push([[-u * 0.17, -u * 0.76], [u * 0.17, -u * 0.76], [u * 0.17, u * 0.55], [-u * 0.17, u * 0.55]]);
+    for (i = 0; i < 4; i++) P.l.push([[-u * 0.17, -u * 0.5 + i * u * 0.28], [u * 0.17, -u * 0.5 + i * u * 0.28]]);
+    P.b.push([[-u * 0.42, u * 0.55], [u * 0.42, u * 0.55], [u * 0.36, u * 0.72], [-u * 0.36, u * 0.72]]);
+    [-1, -0.4, 0.4, 1].forEach(function (q) { P.w.push([q * u * 0.36, u * 0.68, Math.PI / 2 + q * 0.9, u * 1.1, u * 0.12]); });
+  } else if (kind === 'corona') { P.b.push(m1_ring(0, 0, u, u, 24)); for (i = 0; i < 12; i++) { a = i / 12 * Math.PI * 2 + R() * 0.2; P.l.push([[Math.cos(a) * u, Math.sin(a) * u], [Math.cos(a) * u * 1.45, Math.sin(a) * u * 1.45]]); P.d.push([Math.cos(a) * u * 1.55, Math.sin(a) * u * 1.55, u * 0.15]); } for (i = 0; i < 4; i++) P.d.push([(R() - 0.5) * u, (R() - 0.5) * u, u * 0.1]); }
+  else if (kind === 'adeno') { var hv = []; for (i = 0; i < 6; i++) { a = i / 6 * Math.PI * 2; hv.push([Math.cos(a) * u, Math.sin(a) * u]); } P.b.push(hv); P.l.push([hv[0], [0, 0], hv[2]], [[0, 0], hv[4]], [hv[1], hv[3], hv[5], hv[1]]); hv.forEach(function (q) { var fa = Math.atan2(q[1], q[0]); P.l.push([q, [Math.cos(fa) * u * 1.7, Math.sin(fa) * u * 1.7]]); P.d.push([Math.cos(fa) * u * 1.78, Math.sin(fa) * u * 1.78, u * 0.14]); }); }
+  else if (kind === 'tmv') { P.b.push(m1_capPts(u * 3.6, u * 0.6)); for (i = 1; i < 9; i++) { var xr = -u * 1.8 + i * u * 0.4; P.l.push([[xr, -u * 0.3], [xr - u * 0.08, u * 0.3]]); } }
+  else if (kind === 'filo') { var fl = []; for (i = 0; i <= 30; i++) { var q2 = i / 30; fl.push([(q2 - 0.5) * u * 5, Math.sin(q2 * Math.PI * 1.6) * u * 0.5]); } for (i = 1; i <= 10; i++) { a = -Math.PI / 2 + i / 10 * Math.PI * 1.3; fl.push([u * 2.5 + Math.cos(a) * u * 0.6, fl[30][1] + u * 0.6 + Math.sin(a) * u * 0.6]); } P.b.push(m1_tube(fl, u * 0.4)); }
+  return P;
+}
+// a waving filament from (x, y) along angle a, as points; ph moves the wave
+function m1_wave(q, ph) { var pts = [], n = 10; for (var i = 0; i <= n; i++) { var t = i / n, along = t * q[3], off = Math.sin(t * 7 - ph) * q[4] * t * 1.2; pts.push([q[0] + Math.cos(q[2]) * along - Math.sin(q[2]) * off, q[1] + Math.sin(q[2]) * along + Math.cos(q[2]) * off]); } return pts; }
+// a line as filled quads (the still picture has one fill slot per colour)
+function m1_thick(pts, w, closed) { var d = '', n = pts.length, m = closed ? n : n - 1; for (var i = 0; i < m; i++) { var a = pts[i], b = pts[(i + 1) % n], dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, ux = dx / L * w / 2, uy = dy / L * w / 2; d += b2_polyA([[a[0] - ux - uy, a[1] - uy + ux], [b[0] + ux - uy, b[1] + uy + ux], [b[0] + ux + uy, b[1] + uy - ux], [a[0] - ux + uy, a[1] - uy - ux]]); } return d; }
+function m1_microC(dk) { var H = ['92,242,196', '255,110,199', '184,140,255', '255,214,106', '110,200,255', '255,150,110'];
+  return dk ? H.map(function (h) { return {f: 'rgba(' + h + ',0.13)', s: 'rgba(' + h + ',0.92)', s2: 'rgba(' + h + ',0.5)'}; })
+    : [['rgba(176,240,208,0.6)', 'rgba(52,170,126,0.9)'], ['rgba(255,190,212,0.6)', 'rgba(226,96,146,0.9)'], ['rgba(212,194,255,0.6)', 'rgba(130,92,214,0.9)'], ['rgba(255,236,150,0.66)', 'rgba(210,150,24,0.9)'], ['rgba(190,222,255,0.6)', 'rgba(70,140,214,0.9)'], ['rgba(255,208,176,0.6)', 'rgba(228,122,74,0.9)']].map(function (q) { return {f: q[0], s: q[1], s2: q[1].replace('0.9)', '0.55)')}; }); }
+var M1_MICROBES = ['bacillus', 'bacillus', 'divide', 'strep', 'staph', 'spirillum', 'vibrio', 'phage', 'phage', 'corona', 'adeno', 'tmv', 'filo'];
 SCENES.biology = function (W, H, dk, rnd) {
   var ph = H > W, far = Lay(5), mid = Lay(0.8), near = Lay(16), BC = m1_bioC(dk), cx = W / 2, cy = H * 0.47;
   var sky = dk ? 'radial-gradient(' + (ph ? '80% 60%' : '70% 74%') + ' at 50% 47%,#1E2E72 0%,#141E52 48%,#0C1238 78%,#070A20 100%)' : 'radial-gradient(' + (ph ? '80% 60%' : '70% 74%') + ' at 50% 47%,#FFFEF6 0%,#FEF2EE 46%,#F6E2EC 76%,#E4D0E6 100%)';
@@ -4007,15 +4048,36 @@ SCENES.biology = function (W, H, dk, rnd) {
   placed.push([hero.x, hero.y, hero.r * 1.25]);
   spread(0, 0, W, H, ph ? 120 : 200, ph ? 140 : 190, rnd, 0.9).forEach(function (c) {
     var d = Math.hypot((c.x - cx) / (W / 2), (c.y - cy) / (H / 2)); if (d < 0.5 && c.q < 0.75) return; if (c.q > 0.85) return;
-    var type = c.k < 0.38 ? 'animal' : c.k < 0.6 ? 'plant' : c.k < 0.72 ? 'centric' : c.k < 0.84 ? 'pennate' : 'flag', r = base * (0.45 + 0.6 * Math.min(1.2, d)) * (type === 'centric' ? 0.6 : type === 'pennate' ? 0.95 : type === 'flag' ? 0.7 : type === 'plant' ? 0.8 : 1) * (0.85 + c.r * 0.3);
+    if (c.k >= 0.6 && c.k < 0.84) return; // no diatoms: their room goes to bacteria and viruses
+    var type = c.k < 0.38 ? 'animal' : c.k < 0.6 ? 'plant' : 'flag', r = base * (0.45 + 0.6 * Math.min(1.2, d)) * (type === 'centric' ? 0.6 : type === 'pennate' ? 0.95 : type === 'flag' ? 0.7 : type === 'plant' ? 0.8 : 1) * (0.85 + c.r * 0.3);
     var ext = r * (type === 'plant' ? 1.3 : type === 'pennate' || type === 'flag' ? 1 : 1.15);
     if (placed.some(function (p) { return Math.hypot(p[0] - c.x, p[1] - c.y) < (p[2] + ext) * 0.92; })) return; placed.push([c.x, c.y, ext]);
     cells.push({type: type, x: c.x, y: c.y, r: r, rot: c.q * 360, seed: Math.floor(c.r * 1e6) + 7});
   });
   for (var sw = 0; sw < (ph ? 2 : 3); sw++) { for (var tries = 0; tries < 30; tries++) { var fx = W * (0.08 + rnd() * 0.84), fy = H * (0.08 + rnd() * 0.84), fr = base * (0.5 + rnd() * 0.2); if (!placed.some(function (p) { return Math.hypot(p[0] - fx, p[1] - fy) < (p[2] + fr) * 0.9; })) { placed.push([fx, fy, fr]); cells.push({type: 'flag', x: fx, y: fy, r: fr, rot: rnd() * 360, seed: 900 + sw * 31}); break; } } }
-  var deb = '', bac = '';
-  spread(0, 0, W, H, 40, 40, rnd, 1).forEach(function (c) { if (c.q < 0.35) deb += circ(c.x, c.y, 0.8 + c.r * 1.6); else if (c.q > 0.975) { var ba = c.k * 3.14; for (var b = 0; b < 3; b++) bac += m1_capsule(c.x + Math.cos(ba) * b * 11, c.y + Math.sin(ba) * b * 11, 10, 3.6, ba * 180 / Math.PI + (b - 1) * 8); } });
-  add(mid, 'a', deb, dk ? 'rgba(160,200,255,0.4)' : 'rgba(150,120,110,0.35)'); add(mid, 'b', bac, dk ? 'rgba(200,140,255,0.7)' : 'rgba(170,110,190,0.55)');
+  var deb = '';
+  spread(0, 0, W, H, 40, 40, rnd, 1).forEach(function (c) { if (c.q < 0.35) deb += circ(c.x, c.y, 0.8 + c.r * 1.6); });
+  add(mid, 'a', deb, dk ? 'rgba(160,200,255,0.4)' : 'rgba(150,120,110,0.35)');
+  // bacteria and viruses: sharp ones among the cells, smaller blurred ones further back (their own random stream)
+  var mr = SR(ph ? 6151 : 6157), microbes = [], MC = m1_microC(dk);
+  [[ph ? 16 : 30, 'mid'], [ph ? 7 : 12, 'far']].forEach(function (grp) {
+    for (var n = 0, tries = 0; n < grp[0] && tries < 500; tries++) {
+      var kind = M1_MICROBES[Math.floor(mr() * M1_MICROBES.length)], virus = /phage|corona|adeno|tmv|filo/.test(kind), u = (virus ? 9.5 : 12) * (grp[1] === 'far' ? 0.7 : 1) * (0.85 + mr() * 0.4) * (ph ? 0.85 : 1), ext = u * 3, x = W * (0.03 + mr() * 0.94), y = H * (0.04 + mr() * 0.92), rt = mr() * 6.283, ci = Math.floor(mr() * MC.length), sd = 300 + Math.floor(mr() * 1e5), fc = mr();
+      if (grp[1] === 'mid' && placed.some(function (p) { return Math.hypot(p[0] - x, p[1] - y) < p[2] + ext; })) continue;
+      if (microbes.some(function (o) { return Math.hypot(o.x - x, o.y - y) < (o.u + u) * 3.2; })) continue;
+      microbes.push({kind: kind, x: x, y: y, u: u, rot: rt, ci: ci, seed: sd, layer: grp[1], face: !virus && grp[1] === 'mid' && fc < 0.35}); n++;
+    } });
+  if (ANIM) ANIM.microbes = microbes;
+  else {
+    var slotsM = {mid: [['i', 'j'], ['k', 'l'], ['m', 'n'], ['o', 'p']], far: [['d', 'e'], ['f', 'g'], ['h', 'i'], ['j', 'k']]}, bodies = {mid: ['', '', '', ''], far: ['', '', '', '']}, lines = {mid: ['', '', '', ''], far: ['', '', '', '']};
+    microbes.forEach(function (o) { var P = m1_microbe(o.kind, o.u, o.seed), ci = o.ci % 4, c = Math.cos(o.rot), sn = Math.sin(o.rot), lw = Math.max(1, o.u * 0.14);
+      function tp(q) { return [o.x + q[0] * c - q[1] * sn, o.y + q[0] * sn + q[1] * c]; }
+      P.b.forEach(function (pp) { var w = pp.map(tp); bodies[o.layer][ci] += b2_polyA(w); lines[o.layer][ci] += m1_thick(w, lw * 1.2, true); });
+      P.l.forEach(function (pp) { lines[o.layer][ci] += m1_thick(pp.map(tp), lw, false); });
+      P.d.forEach(function (q) { var w = tp(q); lines[o.layer][ci] += b2_circA(w[0], w[1], q[2]); });
+      P.w.forEach(function (q) { lines[o.layer][ci] += m1_thick(m1_wave(q, o.seed).map(tp), lw * 0.8, false); }); });
+    ['mid', 'far'].forEach(function (ly) { var L = ly === 'mid' ? mid : far; slotsM[ly].forEach(function (sl, ci) { add(L, sl[0], bodies[ly][ci], MC[ci].f); add(L, sl[1], lines[ly][ci], ly === 'far' ? MC[ci].s2 : MC[ci].s); }); });
+  }
   if (ANIM) { ANIM.cells = cells; ANIM.hero = hero; ANIM.cx = cx; ANIM.cy = cy; }
   else cells.concat([hero]).forEach(function (cl) { m1_cell(cl.type, cl.r, cl.seed, cl.x, cl.y, cl.rot || 0).forEach(function (p) { var k = m1_BIOKEY[p[0]]; if (k === 's' || k === 't') stk(mid, k, p[2], k === 's' ? BC.mem : BC.wall, 1.4); else add(mid, k, p[2], BC[p[0]]); }); });
   var vx = W * (ph ? 0.66 : 0.56), vy = H * (ph ? 0.54 : 0.6);
@@ -16006,6 +16068,23 @@ function m1_bioLife(A, v, dk) {
 // Cell Garden: cells and algae drift and slowly turn, swimmers beat their flagella
 ENGINES.biology = function (A, v, dk) {
   var W = v.bw, H = v.bh, ph = !v.desk, BC = m1_bioC(dk), K = Math.min(1.5, Math.max(1.15, (window.devicePixelRatio || 1) * 0.9)), D = A.dna, cells = [], extras = [], T0 = -99, sparks = [], ax = 0;
+  // bacteria and viruses: each body is painted once into a sprite; flagella and phage legs wave live on top
+  var MCOL = m1_microC(dk), mics = (A.microbes || []).map(function (o, i) { var P = m1_microbe(o.kind, o.u, o.seed), col = MCOL[o.ci], far = o.layer === 'far', ext = o.u * 6.5, S = Math.ceil(ext * 2), O = m1_off(S, S, K), x = O.o, lw = Math.max(1, o.u * 0.14);
+    x.translate(S / 2, S / 2); x.lineCap = x.lineJoin = 'round'; if (far && typeof x.filter === 'string') x.filter = 'blur(1.6px)';
+    if (dk) { x.shadowBlur = far ? 3 : 6; x.shadowColor = col.s; }
+    P.b.forEach(function (pp) { x.beginPath(); pp.forEach(function (q, j) { if (j) x.lineTo(q[0], q[1]); else x.moveTo(q[0], q[1]); }); x.closePath(); x.fillStyle = col.f; x.fill(); x.strokeStyle = far ? col.s2 : col.s; x.lineWidth = lw * 1.2; x.stroke(); });
+    x.shadowBlur = 0; x.strokeStyle = far ? col.s2 : col.s; x.lineWidth = lw; P.l.forEach(function (pp) { x.beginPath(); pp.forEach(function (q, j) { if (j) x.lineTo(q[0], q[1]); else x.moveTo(q[0], q[1]); }); x.stroke(); });
+    x.fillStyle = far ? col.s2 : col.s; P.d.forEach(function (q) { x.beginPath(); x.arc(q[0], q[1], q[2], 0, 7); x.fill(); });
+    var h = Math.sin(o.seed * 12.9898) * 43758.5453; h -= Math.floor(h);
+    return {x: o.x, y: o.y, rot: o.rot, u: o.u, kind: o.kind, far: far, w: P.w, col: col, lw: lw, cv: O.cv, S: S, face: o.face, ph: h * 6.283, vr: (h - 0.5) * (o.kind === 'phage' ? 0.5 : 0.18), sp: (far ? 4 : 7) + h * 6, hd: h * 6.283}; });
+  function drawMics(c, t, f, far) { mics.forEach(function (m) { if (m.far !== far) return; var bob = Math.sin(t * 0.9 + m.ph) * m.u * 0.25;
+    c.save(); c.translate(m.x, m.y + bob); c.rotate(m.rot + Math.sin(t * 0.6 + m.ph) * 0.08); if (far) c.globalAlpha = 0.75; c.drawImage(m.cv, -m.S / 2, -m.S / 2, m.S, m.S);
+    if (!far && m.w.length) { c.strokeStyle = m.col.s; c.lineWidth = m.lw * 0.8; c.lineCap = 'round'; var rate = m.kind === 'phage' ? 2 : 9; m.w.forEach(function (q, j) { var pts = m1_wave(m.kind === 'phage' ? [q[0], q[1], q[2] + Math.sin(t * rate + j) * 0.12, q[3], q[4]] : q, t * rate * f.s + m.ph + j); c.beginPath(); pts.forEach(function (p, k) { if (k) c.lineTo(p[0], p[1]); else c.moveTo(p[0], p[1]); }); c.stroke(); }); }
+    c.restore(); if (m.face) m1_face(c, m.x, m.y + bob, Math.max(5, m.u * 0.7), {blink: m1_blinkAt(t, m.ph), ink: dk ? '#FFFFFF' : '#4A2A4A', nomouth: m.u < 8}); c.globalAlpha = 1; }); }
+  function stepMics(dt, t, f, fx, fy) { mics.forEach(function (m) { var mg = m.u * 7; m.hd += Math.sin(t * 0.21 + m.ph) * 0.3 * dt;
+    var swim = /bacillus|divide|spirillum|vibrio/.test(m.kind); if (swim) { m.x += (Math.cos(m.rot) * m.sp * f.s + fx * 0.5) * dt; m.y += (Math.sin(m.rot) * m.sp * f.s + fy * 0.5) * dt; m.rot += Math.sin(t * 0.3 + m.ph) * 0.25 * dt; }
+    else { m.x += (fx * (m.far ? 0.5 : 0.8) + Math.cos(m.hd) * m.sp * 0.4) * dt; m.y += (fy * 0.8 + Math.sin(m.hd) * m.sp * 0.4) * dt; m.rot += m.vr * dt * f.s; }
+    if (m.x > W + mg) m.x -= W + 2 * mg; if (m.x < -mg) m.x += W + 2 * mg; if (m.y > H + mg) m.y -= H + 2 * mg; if (m.y < -mg) m.y += H + 2 * mg; }); }
   var life = m1_bioLife(A, v, dk), GLOWS = {mem: 7, wall: 6, diaR: 5, flagR: 6, nucR: 5, mito: 4, chl: 4, nuc2: 4, eye: 4, ves: 3};
   var VAR = dk ? [['#5CF2C4'], ['#FF6EC7'], ['#B88CFF'], ['#FFE66A'], ['#6EC8FF']] : [['rgba(255,190,212,0.62)', 'rgba(238,104,150,0.9)'], ['rgba(176,240,208,0.62)', 'rgba(52,186,136,0.9)'], ['rgba(212,194,255,0.62)', 'rgba(136,96,222,0.9)'], ['rgba(255,236,150,0.68)', 'rgba(226,164,30,0.9)'], ['rgba(255,208,176,0.62)', 'rgba(238,132,84,0.9)']];
   function vcol(vi) { var q = VAR[vi]; if (dk) { var n = parseInt(q[0].slice(1), 16), rgb = (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255); return {cyto: 'rgba(' + rgb + ',0.12)', mem: 'rgba(' + rgb + ',0.95)', cyto2: 'rgba(' + rgb + ',0.1)', wall: 'rgba(' + rgb + ',0.9)'}; } return {cyto: q[0], mem: q[1], cyto2: q[0], wall: q[1]}; }
@@ -16040,6 +16119,7 @@ ENGINES.biology = function (A, v, dk) {
     step: function (dt, t, f) {
       life.step(dt, t, f);
       var fx = (3 + 2 * Math.sin(t * 0.05)) * f.s, fy = 1.4 * Math.sin(t * 0.037 + 1) * f.s;
+      stepMics(dt, t, f, fx, fy);
       cells.forEach(function (c) {
         var m = c.r * 1.4 + 12;
         if (c.type === 'flag') { c.hd += (Math.sin(t * 0.25 + c.ph) * 0.35) * dt; c.x += (Math.cos(c.hd) * c.spd * f.s + fx * 0.4) * dt; c.y += (Math.sin(c.hd) * c.spd * f.s + fy * 0.4) * dt; c.rot = c.hd; }
@@ -16063,6 +16143,7 @@ ENGINES.biology = function (A, v, dk) {
       ca.lineCap = 'round'; ca.lineWidth = 2; for (i = 0; i < rungs.length; i++) { ca.strokeStyle = (i % 2 ? dnaG[0] : dnaG[1]) + (dk ? 0.28 : 0.3) + ')'; ca.beginPath(); ca.moveTo(rungs[i][0], rungs[i][1]); ca.lineTo(rungs[i][0], rungs[i][2]); ca.stroke(); }
       [s1, s2].forEach(function (S, k) { ca.strokeStyle = dnaG[k] + (dk ? 0.55 : 0.5) + ')'; ca.lineWidth = 3.4; ca.beginPath(); ca.moveTo(S[0][0], S[0][1]); for (var j = 1; j < S.length; j++) ca.lineTo(S[j][0], S[j][1]); ca.stroke(); });
       ca.fillStyle = speckC; specks.forEach(function (s) { if (dk) m1_glowAt(ca, speckG, s.x, s.y, s.r * 3, 0.7); else { ca.beginPath(); ca.arc(s.x, s.y, s.r, 0, 7); ca.fill(); } });
+      drawMics(ca, t, f, true);
       cells.forEach(function (c) {
         var wig = t - T0 > 0 && t - T0 < 5 ? Math.sin((t - T0) / 5 * Math.PI) : 0, br = 1 + 0.025 * Math.sin(t * 0.7 * f.s + c.ph) + 0.07 * wig * Math.sin(t * 9 + c.ph), S = c.sp.S;
         ca.save(); ca.globalAlpha = c.a; ca.translate(c.x, c.y); ca.rotate(c.rot); ca.scale(br, 2 - br); ca.drawImage(c.sp.cv, -S / 2, -S / 2, S, S);
@@ -16070,6 +16151,7 @@ ENGINES.biology = function (A, v, dk) {
         ca.restore();
         if (c.face) { ca.globalAlpha = c.a; m1_face(ca, c.x - c.r * 0.22, c.y + c.r * 0.22 - wig * Math.abs(Math.sin(t * 9 + c.ph)) * 4, Math.max(6, c.r * 0.38), {blink: m1_blinkAt(t, c.fseed), happy: wig > 0.15, ink: dk ? '#FFFFFF' : '#5A2A4A', blushC: dk ? 'rgba(255,120,200,0.5)' : 'rgba(255,110,140,0.5)'}); ca.globalAlpha = 1; }
       });
+      drawMics(ca, t, f, false);
       life.draw(ca, t, f);
       var T = t - T0, r = R0 * hero.gr;
       ca.save(); ca.translate(hero.x, hero.y); ca.rotate(ax); ca.lineJoin = 'round';
