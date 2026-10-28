@@ -313,7 +313,7 @@ function nextUpStudy(F, top, pool, focusLen){
   const t = ex.t, hasPlan = planSessions(t.id).length > 0;
   const why = [`${t.type} ${ex.dl === 1 ? "tomorrow" : "in " + ex.dl + " days"}${t.time ? " at " + fmtTime(t.time) : ""}`, hasPlan ? "Extra review before it" : "No study plan yet"];
   ui.nextShown = "study:" + t.id;
-  return {x: ex, why, step: null, mins: Math.max(focusLen, Math.min(focusLen * 2, ex.dl <= 1 ? focusLen * 2 : focusLen)), left: pool.length, ai: false, study: true, hasPlan, label: "Study for " + t.title};
+  return {x: ex, why, step: null, mins: ex.dl <= 1 ? Math.min(focusLen, 30) : focusLen, left: pool.length, ai: false, study: true, hasPlan, label: "Study for " + t.title};
 }
 // Heads Up: things the automatic AI noticed that are easy to miss
 const HEADS_HIDE = "studyboard:heads:hide";
@@ -339,9 +339,9 @@ function nextUpHtml(F, pre){
       <div class="nu-body">
         <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">${nuRing(t)}Study for ${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>${c ? `<span class="tag nu-tag-out">${esc(courseLabel(c))}</span>` : ""}
         ${nuMoreBtn()}<span class="nu-why">${n.why.map(r => r.length <= 28 ? `<span class="nu-chip${/tomorrow/.test(r) ? " soon" : ""}">${esc(r)}</span>` : `<span class="nu-note">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}</span>
-        <span class="nu-step">${n.hasPlan ? "Review your weakest topics or flashcards for it." : "Review now, or let Plan My Prep spread short sessions over the days before it."}</span>
+        <span class="nu-step">${n.x.dl === 1 || n.x.lightEve ? "The day before: light review only. Skim your summary or a few flashcards, then stop early and sleep." : n.hasPlan ? "Test yourself on your weakest topics: flashcards or practice questions, not rereading." : "Test yourself (flashcards or practice questions), or let Plan My Prep spread short sessions over the days before it."}</span>
       </div>
-      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-study="1" data-id="${esc(t.id)}" data-mins="${n.mins}">${TOMATO}Study for ${n.mins}m</button>${n.hasPlan ? "" : `<button class="btn small" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button>`}${nuBackBtn()}</div>
+      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-study="1" data-id="${esc(t.id)}" data-mins="${n.mins}">${TOMATO}Study for ${n.mins}m</button>${t.courseId && deckListArr().some(x => x.courseId === t.courseId && x.cards.some(c => !c.draft)) ? `<button class="btn small" data-act="fc-study-course" data-course="${esc(t.courseId)}">${FC_ICON}Test Yourself</button>` : ""}${n.hasPlan ? "" : `<button class="btn small" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button>`}${nuBackBtn()}</div>
     </div>
   </div>`;
   return `<div class="next-up${nuOpenCls()}" style="--c:${esc(colorOf(t.courseId))}">

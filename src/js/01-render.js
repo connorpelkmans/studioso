@@ -341,7 +341,14 @@ function taskView(t0){
     const band = c ? `<span class="occv-ic" aria-hidden="true">${courseRingHtml(c)}</span><b>${esc(courseLabel(c))}</b>` : `<span class="occv-ic" aria-hidden="true">${typeIcon(t.type)}</span><b>${esc(t.type || "Task")}</b>`;
     const hint = !drag ? (p.ms ? `Progress comes from its milestones: ${p.done} of ${p.total} done.` : `Progress comes from the checklist: ${items.filter(i => i.done).length} of ${items.length} done.`)
       : "";
-    const prog = `<div class="tv-prog${drag ? "" : " ro"}"><div class="tv-prog-h"><b>${esc(cfg.prog || "Progress")}</b><span id="tvPct">${val}%</span></div>
+    // Exams: readiness measured from your results comes first; the slider is how ready you feel, and a big gap between them is pointed out
+    const xr = ms && !done ? examReadiness(t) : null, feelLbl = ms ? "How Ready You Feel" : cfg.prog || "Progress";
+    const ready = !xr ? "" : xr.measured != null ? `<div class="tv-prog ro tv-ready"><div class="tv-prog-h"><b>Readiness From Your Results</b><span>${xr.measured}%</span></div>
+      <div class="tv-bar" role="progressbar" aria-label="Readiness from your results" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${xr.measured}" style="--v:${xr.measured}%"><i class="tv-fill"></i></div>
+      <p class="mini tv-hint">From ${esc(readinessSource(xr))}.${xr.from === "both" ? " With a little more studying it will rely on these alone." : ""}</p>
+      ${xr.gap ? `<p class="tv-gap ${xr.gap > 0 ? "over" : "under"}" role="note">${esc(readinessGapText(xr))}</p>` : ""}</div>`
+      : `<p class="mini tv-hint tv-noready">Nothing measures your readiness yet. Study this course's flashcards or take a practice quiz and Studyboard will use your results instead of how ready you feel.</p>`;
+    const prog = ready + (window.SBWRAP ? SBWRAP.viewHtml(t) : "") + `<div class="tv-prog${drag ? "" : " ro"}"><div class="tv-prog-h"><b>${esc(feelLbl)}</b><span id="tvPct">${val}%</span></div>
       <div class="tv-bar" id="tvBar" ${drag ? `title="${ms ? "Drag to say how ready you feel" : "Drag to update your progress"}" role="slider" tabindex="0" aria-label="${esc(cfg.prog || "Progress")}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${val}" aria-valuetext="${val}%"` : `role="progressbar" aria-label="${esc(cfg.prog || "Progress")}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${val}"`} style="--v:${val}%"><i class="tv-fill"></i>${drag ? `<span class="tv-knob" aria-hidden="true"></span>` : ""}</div>
       ${hint ? `<p class="mini tv-hint">${esc(hint)}</p>` : ""}</div>`;
     const cl = items.length ? `<div class="tv-cl"><h3>${esc(cfg.checklist || "Checklist")} <span class="mini">${items.filter(i => i.done).length}/${items.length}</span></h3><ul>${items.map((i, k) => `<li class="${i.done ? "done" : ""}"><label><input type="checkbox" data-tv-cl="${k}" ${i.done ? "checked" : ""}><span>${esc(i.text)}</span></label></li>`).join("")}</ul></div>` : "";
@@ -567,7 +574,8 @@ function taskForm(t, preset = {}){
   const pctIn = dlg.querySelector("input[name=pct]");
   const pctHint = () => {
     const v = Number(pctIn.value);
-    $("#pctHint").textContent = MILESTONE(curType()) ? (v >= 90 ? "Ready" : v >= 60 ? "Mostly ready, a few topics to review" : v >= 30 ? "Getting there" : "Just starting to study") : "";
+    const xr = MILESTONE(curType()) && state.tasks[t.id] ? examReadiness(state.tasks[t.id]) : null;
+    $("#pctHint").textContent = MILESTONE(curType()) ? (v >= 90 ? "Ready" : v >= 60 ? "Mostly ready, a few topics to review" : v >= 30 ? "Getting there" : "Just starting to study") + (xr && xr.measured != null ? `. Your results say about ${xr.measured}%, and those count first.` : "") : "";
   };
   const setStatus = v => { const r = dlg.querySelector(`input[name=status][value="${v}"]`); if (r && !r.checked) r.checked = true; };
   pctIn.addEventListener("input", () => {
@@ -645,7 +653,7 @@ function taskForm(t, preset = {}){
     const x = FOCUS && FOCUS.info[t.id];
     const rankTxt = x ? (() => { const i = FOCUS.ranked.indexOf(x); return i >= 0 ? ` Currently #${i + 1} in Today's Plan${x.alloc > 0 ? `, with ${fmtHM(x.alloc)} suggested today` : ""}.` : ""; })() : "";
     const inPerson = ms && !canDoNow(probe) && !planSessions(t.id).length, lead = inPerson ? examLead(probe) : null;
-    $("#planHint").innerHTML = (ms ? `Estimated <b>${fmtHM(R)}</b> of studying left, based on difficulty, grade weight and preparedness.${lead ? ` Today's Plan starts study time for it ${lead.days} days before${lead.risk ? ", sooner because of your standing in the course" : ""}${lead.p < 0.75 ? `${lead.risk ? " and" : ", sooner"} because of how prepared you are` : ""}.` : ""}`
+    $("#planHint").innerHTML = (ms ? `Estimated <b>${fmtHM(R)}</b> of studying left, based on difficulty, grade weight and preparedness.${lead ? ` Today's Plan starts study time for it ${lead.days} days before${lead.risk ? ", sooner because of your standing in the course" : ""}${lead.p < 0.75 ? `${lead.risk ? " and" : ", sooner"} because ${esc(readyWords(lead.from, lead.p))}` : ""}.` : ""}`
       : `Estimated <b>${fmtHM(R)}</b> of work left${isNum(probe.hours) && probe.hours > 0 ? "" : " (a typical amount for this type; add Hours Needed for a better plan)"}.`) + rankTxt;
   };
   tForm.addEventListener("input", planHint); tForm.addEventListener("change", planHint);

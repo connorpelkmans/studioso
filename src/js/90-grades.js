@@ -207,7 +207,9 @@
       const n = clone(cur); n.mark = v;
       dlg.close();
       applyChanges([{kind: "task", id, after: n}], v ? `Mark saved: ${fmtMark(v)}` : "Mark removed");
-      if (back) setTimeout(back, 40);
+      // After an exam or quiz's first mark: a one-minute reflection (the exam wrapper), then back to where you were
+      if (v && !cur.mark && window.SBWRAP && SBWRAP.should(id)) setTimeout(() => SBWRAP.open(id, back), 60);
+      else if (back) setTimeout(back, 40);
     };
     const out = () => { const v = parseMark($("#gmIn").value); $("#gmOut").innerHTML = markPreview(v, t, g); };
     $("#gmIn").addEventListener("input", out); out();

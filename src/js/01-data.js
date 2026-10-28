@@ -248,6 +248,12 @@ function normTask(t){
   t = Object.assign({title:"Untitled", courseId:"", type:"Assignment", start:"", due:"", time:"", priority:"med", status:"todo", notes:"", hours:null, checklist:[], pct:0, dependsOn:[], history:[], location:"", link:"", team:"", reading:"", weight:null, difficulty:"med", late:"unknown"}, t);
   if (!DIFF_M[t.difficulty]) t.difficulty = "med";
   if (!LATE_M[t.late]) t.late = "unknown";
+  if (t.wrap != null) {
+    const w = t.wrap, num = v => isNum(v) && Number(v) >= 0 && Number(v) <= 150 ? Math.round(Number(v)) : null;
+    if (!w || typeof w !== "object") delete t.wrap;
+    else t.wrap = {at: Number(w.at) > 0 ? Number(w.at) : 0, methods: (Array.isArray(w.methods) ? w.methods : []).filter(k => typeof k === "string" && /^[a-z]{2,12}$/.test(k)).slice(0, 12),
+      start: typeof w.start === "string" && /^[a-z]{2,12}$/.test(w.start) ? w.start : "", next: String(w.next || "").replace(/<[^>]*>/g, "").slice(0, 200), felt: num(w.felt), measured: num(w.measured), mark: num(w.mark)};
+  }
   if (t.latePen != null) { const v = Number(t.latePen); if (t.late === "penalty" && isFinite(v) && v > 0) t.latePen = Math.min(100, v); else delete t.latePen; }
   if (!Array.isArray(t.dependsOn)) t.dependsOn = [];
   if (!Array.isArray(t.history)) t.history = [];
