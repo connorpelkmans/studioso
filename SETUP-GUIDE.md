@@ -1180,13 +1180,13 @@ Only work you finish counts. Tasks that arrive already done (from your school si
 **Getting Started**
 - **Hello, New Term:** your page opens.
 - **First Course Added:** add a course for this term.
-- **First Task Done:** finish your first task this term.
+- **First Study Day:** study on any day this term (finish a task, focus, tick a step or review flashcards).
 - **First Week Planned:** have 5 tasks with due dates in one week.
 
-**Tasks**
-- **10, 25, 50 and 100 Tasks Done:** finish that many tasks this term (bronze, silver, gold and rainbow ribbons).
+**Study Habits**
+- **10, 25, 40 and 60 Study Days:** study on that many different days this term (bronze, silver, gold and rainbow ribbons). Stickers follow effort and consistency, never how many tasks you tick off.
 - **Clean Sweep Week:** finish every task due in one week by its due date (at least 3 tasks).
-- **Early Bird:** finish 5 tasks at least 2 days before they're due.
+- **Early Bird:** start studying for an exam or quiz 5 or more days before it, and study for it on 3 different days.
 - **Study Plan Made:** make a Study Plan for an exam or quiz.
 - **Study Plan Complete:** finish every session in a Study Plan (3 or more) before the exam.
 - **Exam Day Done:** mark an exam or quiz as done.

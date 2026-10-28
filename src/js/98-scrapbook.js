@@ -48,17 +48,17 @@
   const edit = fn => { const sc = clone(SC()); if (!sc) return null; fn(sc); saveSc(sc); return sc; };
 
   /* Milestones */
-  const CATS = [["start", "Getting Started"], ["goals", "Term Goals"], ["tasks", "Tasks"], ["grades", "Grades"], ["streaks", "Streaks"], ["focus", "Focus"], ["cards", "Flashcards and Practice"], ["together", "Together"], ["term", "Term"]];
+  const CATS = [["start", "Getting Started"], ["goals", "Term Goals"], ["tasks", "Study Habits"], ["grades", "Grades"], ["streaks", "Streaks"], ["focus", "Focus"], ["cards", "Flashcards and Practice"], ["together", "Together"], ["term", "Term"]];
   const pctTxt = v => Math.round(v) + "%";
   const cnt = (need, unit, key) => ({need, unit, v: c => c[key]});
   /* Term Goals: Bronze, Silver and Gold stickers you can reach down several different paths */
   const GOAL_TIERS = [["bronze", "Bronze"], ["silver", "Silver"], ["gold", "Gold"]];
   const cntSt = (v, n, unit) => ({p: Math.min(1, v / n), text: `${Math.min(v, n).toLocaleString()} of ${n.toLocaleString()} ${unit}`});
   const GOAL_PATHS = [
-    {k: "tasks", name: "Tasks", t: [18, 40, 70], st: (c, n) => cntSt(c.nDone, n, "tasks done")},
-    {k: "ontime", name: "On-Time Rate", t: [10, 22, 36], r: [70, 80, 90], st: (c, n, r) => {
-      const rate = c.nDue ? c.nOnTime / c.nDue * 100 : 0;
-      return {p: Math.min(1, c.nOnTime / n, rate / r), text: `${Math.min(c.nOnTime, n)} of ${n} tasks done on time, ${c.nDue ? Math.round(rate) : 0}% so far (need ${r}%)`}; }},
+    // Rewards follow effort and consistency (days you studied, weeks you kept up), never how many tasks were ticked off:
+    // counting tasks rewards splitting work into trivial pieces
+    {k: "days", name: "Study Days", t: [15, 35, 55], st: (c, n) => cntSt(c.studyDays, n, "study days")},
+    {k: "ontime", name: "On-Time Weeks", t: [3, 6, 10], st: (c, n) => cntSt(c.ontimeWeeks, n, "weeks with everything handed in on time")},
     {k: "focus", name: "Focus", t: [8, 20, 40], st: (c, n) => cntSt(Math.floor(c.focusMin / 6) / 10, n, "focus hours")},
     {k: "streak", name: "Streak", t: [5, 14, 28], half: true, st: (c, n) => cntSt(c.streak, n, "days in a row")},
     {k: "cards", name: "Flashcards", t: [150, 400, 900], st: (c, n) => cntSt(c.reviewed, n, "cards reviewed")},
@@ -80,18 +80,19 @@
   const M = [
     {id: "term-start", cat: "start", name: "Hello, New Term", goal: "Earned when your term's page opens.", need: 1, v: () => 1},
     {id: "first-course", cat: "start", name: "First Course Added", goal: "Add a course for this term.", need: 1, v: c => c.courses ? 1 : 0},
-    {id: "first-task", cat: "start", name: "First Task Done", goal: "Finish your first task this term.", need: 1, v: c => c.done.length},
+    {id: "first-task", cat: "start", name: "First Study Day", goal: "Study on any day this term: finish a task, focus, tick a step or review flashcards.", need: 1, v: c => c.studyDays},
     {id: "week-planned", cat: "start", name: "First Week Planned", goal: "Have 5 tasks with due dates in one week.", need: 5, unit: "tasks due in one week", v: c => c.bestWeekPlanned},
-    goalTier(0, "term-bronze", "Bronze Term Goal", "Reach any one Bronze path: tasks, on-time rate, focus, streak, flashcards, quizzes or marks."),
+    goalTier(0, "term-bronze", "Bronze Term Goal", "Reach any one Bronze path: study days, on-time weeks, focus, streak, flashcards, quizzes or marks."),
     goalTier(1, "term-silver", "Silver Term Goal", "Reach any one Silver path. A steady term, your way."),
     goalTier(2, "term-gold", "Gold Term Goal", "Reach any one Gold path. A standout term."),
-    Object.assign({id: "tasks-10", cat: "tasks", name: "10 Tasks Done", goal: "Finish 10 tasks this term."}, cnt(10, "tasks done", "nDone")),
-    Object.assign({id: "tasks-25", cat: "tasks", name: "25 Tasks Done", goal: "Finish 25 tasks this term."}, cnt(25, "tasks done", "nDone")),
-    Object.assign({id: "tasks-50", cat: "tasks", name: "50 Tasks Done", goal: "Finish 50 tasks this term."}, cnt(50, "tasks done", "nDone")),
-    Object.assign({id: "tasks-100", cat: "tasks", name: "100 Tasks Done", goal: "Finish 100 tasks this term.", special: true}, cnt(100, "tasks done", "nDone")),
+    Object.assign({id: "tasks-10", cat: "tasks", name: "10 Study Days", goal: "Study on 10 different days this term."}, cnt(10, "study days", "studyDays")),
+    Object.assign({id: "tasks-25", cat: "tasks", name: "25 Study Days", goal: "Study on 25 different days this term."}, cnt(25, "study days", "studyDays")),
+    Object.assign({id: "tasks-50", cat: "tasks", name: "40 Study Days", goal: "Study on 40 different days this term."}, cnt(40, "study days", "studyDays")),
+    Object.assign({id: "tasks-100", cat: "tasks", name: "60 Study Days", goal: "Study on 60 different days this term. Rest days are part of it.", special: true}, cnt(60, "study days", "studyDays")),
     {id: "clean-sweep", cat: "tasks", name: "Clean Sweep Week", goal: "Finish every task due in one week by its due date (at least 3 tasks).", need: 1, v: c => c.sweep ? 1 : 0,
       prog: c => c.weekNow.n ? `This week: ${c.weekNow.ok} of ${c.weekNow.n} done on time` : "No tasks due this week yet"},
-    Object.assign({id: "early-bird", cat: "tasks", name: "Early Bird", goal: "Finish 5 tasks at least 2 days before they're due."}, cnt(5, "done early", "nEarly")),
+    {id: "early-bird", cat: "tasks", name: "Early Bird", goal: "Start studying for an exam or quiz 5 or more days before it, and study for it on 3 different days.", need: 1, v: c => c.nSpread,
+      prog: c => c.spreadBest ? `Best so far: ${c.spreadBest[1]}, studied on ${c.spreadBest[0]} day${c.spreadBest[0] === 1 ? "" : "s"}` : "Study for an upcoming exam a little on several days"},
     {id: "study-plan", cat: "tasks", name: "Study Plan Made", goal: "Make a Study Plan for an exam or quiz.", need: 1, v: c => c.plans ? 1 : 0},
     {id: "plan-follow", cat: "tasks", name: "Study Plan Complete", goal: "Finish every session in a Study Plan (3 or more) before the exam.", need: 1, v: c => c.planDone ? 1 : 0,
       prog: c => c.planBest ? `Best plan so far: ${c.planBest[0]} of ${c.planBest[1]} sessions done` : "Make a Study Plan first"},
@@ -151,6 +152,8 @@
     const c = {start, today, done, nDone: done.length, courses: liveCourses.length > 0,
       flag: k => sc.f && sc.f[k] >= startMin ? 1 : 0};
     c.nEarly = done.filter(t => t.doneAt && t.due && !t.prepFor && dayOf(t.doneAt) <= addDays(t.due, -2)).length;
+    // Study days this term: any day with a task finished, focus or logged time, a checklist step or flashcards
+    c.studyDays = window.SBSTREAK && SBSTREAK.studyDays ? SBSTREAK.studyDays(start, today).length : new Set(done.map(t => dayOf(doneTime(t)))).size;
     c.nExams = done.filter(t => MILESTONE(t.type)).length;
     const dueDone = done.filter(t => t.due && !t.prepFor);
     c.nDue = dueDone.length; c.nOnTime = dueDone.filter(t => t.doneAt && dayOf(t.doneAt) <= t.due).length;
@@ -159,17 +162,21 @@
     c.scale = c.termWeeks / 15;
     const onTime = t => t.status === "done" && (t.doneAt ? dayOf(t.doneAt) <= t.due : true);
     const weeks = []; for (let m = mondayOf(start); m <= addDays(mondayOf(today), 7); m = addDays(m, 7)) weeks.push(m);
-    c.bestWeekPlanned = 0; c.sweep = false; c.weekNow = {n: 0, ok: 0};
+    c.bestWeekPlanned = 0; c.sweep = false; c.weekNow = {n: 0, ok: 0}; c.ontimeWeeks = 0;
     weeks.forEach(m => {
       const e = addDays(m, 6), due = active.filter(t => t.due >= m && t.due <= e && t.due >= start);
       c.bestWeekPlanned = Math.max(c.bestWeekPlanned, due.length);
       if (m > today) return;
       const ok = due.filter(onTime).length;
       if (due.length >= 3 && ok === due.length) c.sweep = true;
+      if (e < today && due.length >= 1 && ok === due.length) c.ontimeWeeks++;
       if (m === mondayOf(today)) c.weekNow = {n: due.length, ok};
     });
     const exams = active.filter(t => MILESTONE(t.type) && t.due >= start);
     const sessions = id => active.filter(t => t.prepFor === id);
+    // Exams studied for on 3+ days, starting 5+ days before (spacing)
+    c.nSpread = 0; c.spreadBest = null;
+    exams.forEach(ex => { const n = typeof examStudyDays === "function" ? examStudyDays(ex).length : 0; if (typeof examSpread === "function" && examSpread(ex)) c.nSpread++; if (n && (!c.spreadBest || n > c.spreadBest[0])) c.spreadBest = [n, ex.title]; });
     c.plans = active.some(t => t.prepFor && (t.due >= start || (t.created || 0) >= startMs));
     c.planDone = false; c.planBest = null;
     exams.forEach(ex => { const ss = sessions(ex.id); if (!ss.length) return; const n = ss.filter(t => t.status === "done" && (!t.doneAt || dayOf(t.doneAt) <= ex.due)).length;

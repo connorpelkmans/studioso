@@ -243,13 +243,16 @@ function keepMost(items, cap){
 }
 /* In-person exams and quizzes: their study time is a plan entry of its own, "Study for <exam>" (id "study:<exam id>").
    Study starts one to two weeks before an exam (half that for a quiz): sooner when the course is near or below its pass
-   mark, and sooner the less prepared you've marked yourself. An exam with its own prep plan already has study sessions. */
+   mark, and sooner the less ready you are (measured from flashcards and quizzes first, how ready you feel second; see
+   examReadiness). An exam with its own prep plan already has study sessions. */
 const XS_ID = "study:";
+// "your results put you at 40% ready", or "you rate yourself 40% ready" when there is nothing measured yet
+const readyWords = (from, p) => `${from === "results" ? "your flashcards and quizzes put you at" : from === "both" ? "you're about" : from === "feel" ? "you rate yourself" : "you're about"} ${Math.round(p * 100)}% ready`;
 function examLead(ex){
-  const p = progress(ex).frac, gr = courseRisk(ex.courseId), risk = gr && gr.risk;
+  const p = progress(ex).frac, xr = examReadiness(ex), gr = courseRisk(ex.courseId), risk = gr && gr.risk;
   const byCourse = risk === "risk" || risk === "out" ? 4 : risk === "watch" ? 2 : 0, byPrep = p < 0.25 ? 3 : p < 0.5 ? 2 : p < 0.75 ? 1 : 0;
   const quiz = ex.type === "Quiz", days = quiz ? Math.max(3, Math.ceil((7 + byCourse + byPrep) / 2)) : 7 + byCourse + byPrep;
-  return {days, risk: byCourse ? risk : "", p, quiz};
+  return {days, risk: byCourse ? risk : "", p, quiz, from: xr ? xr.from : "none"};
 }
 function examStudyTasks(today){
   const out = [];
@@ -304,7 +307,8 @@ function splitToday(ranked, th, own){
   let left = Math.max(0, th); left = own ? Math.round(left * 4) / 4 : Math.floor(left * 4 + 1e-9) / 4;
   const q = h => Math.floor(h * 4 + 1e-9) / 4, BLOCK = 0.5, maxN = Math.max(1, Math.min(4, Math.round(left)));
   const urgent = x => x.dl <= 1 || (x.own || 0) >= 0.75 || (x.behind || 0) >= 0.5;
-  const give = (x, a) => { a = q(Math.min(a, left)); if (a <= 0) return 0; x.alloc += a; left -= a; return a; };
+  // capToday: the most a task may have today (the day before an exam, studying for it is light review only)
+  const give = (x, a) => { if (x.capToday != null) a = Math.min(a, x.capToday - x.alloc); a = q(Math.min(a, left)); if (a <= 0) return 0; x.alloc += a; left -= a; return a; };
   ranked.forEach(x => { x.moved = 0; x.alloc = 0; x.far = false; });
   // Work due well after the nearest deadline waits until the nearer work has its time, unless it's big enough to need steady time now
   const d0 = ranked.reduce((m, x) => x.need > 0 && x.dl >= 0 && !x.dead ? Math.min(m, x.dl) : m, Infinity);
@@ -340,6 +344,7 @@ function groupPlanTasks(){
 const gtOpenAttrs = t => t.gt ? `data-act="grp-pt-open" data-g="${esc(t.gt.gid)}" data-l="${esc(t.gt.listId)}" data-id="${esc(t.gt.id)}"` : `data-act="edit-task" data-id="${esc(planTaskId(t))}"`;
 // What a focus button starts: the task itself, or study time for the exam a study entry stands for (none for group tasks)
 const focusAttrs = t => t.gt ? `data-id=""` : t.xs ? `data-id="${esc(t.xs.id)}" data-study="1"` : `data-id="${esc(t.id)}"`;
+const LIGHT_EVE = 0.5;
 function computeFocus(){
   const today = todayISO(), dh0 = dailyHours(), thSet = todayHours(), now = new Date();
   const dh = dh0 * (accOf() ? accOf().capScale() : 1);
@@ -483,7 +488,22 @@ function computeFocus(){
   ranked.forEach(x => {
     const t = x.t, R = x.R;
     let n = 0, flat = 0;
-    if (R > 0 && !x.dead) {
+    x.capToday = null; x.lightEve = false;
+    if (R > 0 && !x.dead && t.xs && x.dl <= 1) {
+      // The day before an exam: light review only, then sleep (sleep after studying helps you remember it; a late night costs more than it gains)
+      n = flat = Math.min(R, LIGHT_EVE); x.capToday = LIGHT_EVE; x.lightEve = true;
+    }
+    else if (R > 0 && !x.dead && t.xs) {
+      // Studying for an exam is spread over the days before the day before it, which is kept light
+      const days = Math.max(1, x.dl - 1), eve = x.dl - 1;
+      let fut = 0; for (let i = 1; i < eve && i < day.length; i++) fut += day[i];
+      if (eve >= 1) fut += Math.min(LIGHT_EVE, day[eve] || 0);
+      n = flat = R / days;
+      n = Math.max(n, R - Math.max(0, fut - Math.max(0, x.L - R - th)));
+      if (diffOf(t) === "hard") { n *= 1.3; flat *= 1.3; }
+      n = Math.min(R, n); flat = Math.min(R, flat);
+    }
+    else if (R > 0 && !x.dead) {
       if (x.edl <= 0) n = flat = R;
       else if (MILESTONE(t.type)) n = flat = x.edl > 7 ? 0 : R / Math.min(x.edl, 7);
       else {
@@ -527,7 +547,8 @@ function computeFocus(){
     if (x.past && !x.dead && x.late !== "free" && x.R > 0) r.push([97, penTxt]);
     if (x.tierKeep) r.push([96, "Not everything due now fits in today's time, and finishing this saves the most marks"]);
     if (x.tierSkip) r.push([96, x.R > th + 0.01 ? "It can't be finished today, so what can be finished today comes first" : "Not everything due now fits in today's time, and the others save more marks"]);
-    if (x.behind >= 0.5 && !x.past && !x.tier) r.push([95, `About ${fmtHM(x.behind)} short of time before this is due, counting everything due first`]);
+    if (x.lightEve) {}
+    else if (x.behind >= 0.5 && !x.past && !x.tier) r.push([95, `About ${fmtHM(x.behind)} short of time before this is due, counting everything due first`]);
     else if (x.own >= 1 && !x.past) r.push([93, x.dl === 0 && t.time ? `It needs more time than is left before ${fmtTime(t.time)}, so start now` : "It needs more time than you have left before it's due, so start now"]);
     else if (x.rho >= 0.75 && !x.past && x.dl <= 14 && !x.tier) r.push([70, "Little spare time before it's due"]);
     if (x.drop) r.push([94, `You're short of time before ${fmtDate(drop.by)}, and this gives the fewest marks for the time, so it comes after the rest`]);
@@ -536,10 +557,13 @@ function computeFocus(){
     if (x.quick) r.push([44, "Quick to clear, and due soon"]);
     if (x.stale) r.push([33, "Started a while ago and hasn't moved since"]);
     if (t.xs) {
-      const ex = state.tasks[t.xs.id] || {}, L = t.xs.lead, why = [L.risk ? (L.risk === "watch" ? "the course is close to its pass mark" : "the course is below its pass mark") : "", L.p < 0.75 ? `you marked yourself ${Math.round(L.p * 100)}% prepared` : ""].filter(Boolean);
+      const ex = state.tasks[t.xs.id] || {}, L = t.xs.lead, why = [L.risk ? (L.risk === "watch" ? "the course is close to its pass mark" : "the course is below its pass mark") : "", L.p < 0.75 ? readyWords(L.from, L.p) : ""].filter(Boolean);
       r.push([85, `${ex.type || "Exam"} ${x.dl === 1 ? "tomorrow" : `in ${x.dl} days`}${ex.time ? " at " + fmtTime(ex.time) : ""}, in person. Study starts ${L.days} days before it${why.length ? " because " + why.join(" and ") : ""}`]);
+      if (x.lightEve) r.push([86, "Light review only today (30 minutes at most), then stop early and sleep: a good night's sleep helps you remember more than a late night"]);
       if (x.afterWork) r.push([84, "Work due before the exam (or later that day) comes first, then the rest of today's time goes to studying"]);
     }
+    { const xr = MILESTONE(t.type) ? examReadiness(t) : t.xs && state.tasks[t.xs.id] ? examReadiness(state.tasks[t.xs.id]) : null;
+      if (xr && xr.gap) r.push([88, xr.gap > 0 ? `You feel ${xr.self}% ready, but your flashcards and quizzes say about ${xr.measured}%` : `Your flashcards and quizzes say about ${xr.measured}%, more than the ${xr.self}% you feel`]); }
     if (t.dueFor) { const d = state.tasks[t.dueFor] || info[t.dueFor] && info[t.dueFor].t; r.push([85, `No due date, but ${d ? d.title : "another task"} needs it first, so aim to finish by ${fmtDate(t.due)}`]); }
     if (hasWeight(t) || x.W >= 10 || PTS_W[t.id]) r.push([50 + x.W, `${hasWeight(t) ? "" : "About "}${Math.round(x.W * 10) / 10}% of your grade${!hasWeight(t) && PTS_W[t.id] ? " (from its points)" : ""}`]);
     if (x.fullDay) r.push([72, `${dayDiff(today, x.fullDay) === 1 ? "Tomorrow" : parse(x.fullDay).toLocaleDateString(undefined, {weekday: "long"})} is a full day${(B.what[x.fullDay] || [])[0] ? ` (${B.what[x.fullDay][0]})` : ""}, so it helps to get ahead`]);

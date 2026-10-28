@@ -120,7 +120,7 @@ function rankNext(F, scored, pool, focusLen){
   ui.nextShown = "study:" + ex.id;
   const why = [`${chip}${ex.time ? " at " + fmtTime(ex.time) : ""}`, "Exam Mode"];
   if (!hasPlan) why.push("No study plan yet");
-  return {study: {x, why, step: null, mins: Math.max(focusLen, Math.min(focusLen * 2, m.days <= 1 ? focusLen * 2 : focusLen)), left: pool.length, ai: false, study: true, hasPlan, label: "Study for " + ex.title, exam: true}};
+  return {study: {x, why, step: null, mins: m.days <= 1 ? Math.min(focusLen, 30) : focusLen, left: pool.length, ai: false, study: true, hasPlan, label: "Study for " + ex.title, exam: true}};
 }
 // The task the Focus timer suggests
 function focusPick(){
@@ -159,8 +159,14 @@ function study(id){
 }
 
 /* Today: one card with a countdown tile */
-// How far along the prep is: the prep plan's readiness, else the course's decks
+// How ready you are: measured from your prep plan, flashcards and quizzes first (examReadiness), how ready you feel second
 function prepLine(ex, sm){
+  const xr = typeof examReadiness === "function" ? examReadiness(ex) : null;
+  if (xr && xr.pct != null) {
+    const n = sm ? `${sm.done} of ${sm.total} study block${sm.total === 1 ? "" : "s"} done` : "";
+    const src = xr.from === "feel" ? "how ready you feel; nothing measured yet" : xr.from === "both" ? "your results so far and how ready you feel" : "your results";
+    return {pct: xr.pct, text: `${xr.pct}% ready (from ${src})${n ? " · " + n : ""}`, gap: readinessGapText(xr)};
+  }
   if (sm) {
     const pct = sm.pct != null ? sm.pct : Math.round(sm.done / Math.max(1, sm.total) * 100);
     return {pct, text: `${pct}% prepared · ${sm.done} of ${sm.total} study block${sm.total === 1 ? "" : "s"} done`};
@@ -185,7 +191,7 @@ function todayHtml(){
   const count = m.days === 0 && ex.time ? (hrs > 1 ? `In about ${Math.round(hrs)} hour${Math.round(hrs) === 1 ? "" : "s"}` : hrs > 0 ? "Starting soon" : "Happening now") : m.days === 0 ? "Today" : m.days === 1 ? "Tomorrow" : `In ${m.days} days`;
   const when = `${m.days <= 1 ? "" : esc(fmtDate(ex.due))}${ex.time ? `${m.days <= 1 ? "" : " at "}${esc(fmtTime(ex.time))}` : ""}`;
   const cd = countTile(ex, m, hrs), pr = prepLine(ex, sm), pct = Math.max(0, Math.min(100, pr.pct));
-  const prep = `<div class="exm-prep"><span class="exm-bar" role="img" aria-label="${pct} percent prepared"><i style="width:${pct}%"></i></span><span class="exm-pl">${esc(pr.text)}</span></div>`;
+  const prep = `<div class="exm-prep"><span class="exm-bar" role="img" aria-label="${pct} percent prepared"><i style="width:${pct}%"></i></span><span class="exm-pl">${esc(pr.text)}</span></div>${pr.gap ? `<p class="exm-gap" role="note">${esc(pr.gap)}</p>` : ""}`;
   const othersH = m.others.length ? `<p class="exm-others">Also coming up: ${m.others.map(t => `<button type="button" class="link-btn" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}</button>${courseTag(t) ? ` (${esc(courseTag(t))})` : ""}, ${esc(whenText(t))}`).join("; ")}.</p>` : "";
   const planBtn = !sm && m.days >= 1 && window.SBPREP ? `<button type="button" class="btn" data-act="exam-plan" data-id="${esc(ex.id)}">Plan My Prep</button>` : "";
   return `<section class="exm-card" role="region" aria-label="Exam Mode" style="--c:${esc(colorOf(ex.courseId))}">

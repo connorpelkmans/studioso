@@ -124,6 +124,77 @@ function startOf(t){
   if (t.due && s && s < addDays(t.due, -START_SPAN_DAYS)) s = addDays(t.due, -START_SPAN_DAYS);
   return s;
 }
+/* Exam readiness: measured first, your own feeling second.
+   Feeling ready is a poor guide on its own: material you've read feels learned even when you can't recall it (illusions of
+   competence). So readiness comes from what you can actually do: your exam prep plan's sessions, cards and quizzes when there
+   is a plan, otherwise your flashcards for the course (cards never studied count as not known), recent practice quizzes, and
+   the automatic AI's read of both. The Preparedness slider (how ready you feel) only fills in while there is little evidence,
+   and when the two disagree by 20 points or more, the gap is shown: noticing it is how you learn to judge yourself better. */
+const XR_GAP = 20, XR_FULL = 30, XR_DAYS = 30;
+let XR_CACHE = {k: "", m: {}};
+function examReadiness(t){
+  if (!t || !MILESTONE(t.type)) return null;
+  const today = todayISO(), k = today + "|" + (typeof state !== "undefined" ? state.updated || 0 : 0);
+  if (XR_CACHE.k !== k) XR_CACHE = {k, m: {}};
+  const ck = [t.id, t.pct, t.aiPrep && t.aiPrep.at, t.status, t.courseId].join("|");
+  if (t.id && XR_CACHE.m[ck]) return XR_CACHE.m[ck];
+  const self = Number(t.pct) > 0 ? Math.max(0, Math.min(100, Math.round(Number(t.pct)))) : null;
+  const parts = {}, ws = [];
+  let n = 0;
+  // A prep plan's readiness already weighs its sessions, linked flashcards and quiz scores
+  const ps = t.id ? allTasks().filter(x => x.prepFor === t.id) : [];
+  const plan = ps.length && t.prep && window.SBPREP ? SBPREP.pct(t) : null;
+  if (plan != null) { parts.plan = plan; n += XR_FULL; }
+  else {
+    const decks = t.courseId && typeof deckListArr === "function" ? deckListArr().filter(d => d.courseId === t.courseId) : [];
+    const cards = decks.flatMap(d => (d.cards || []).filter(c => !c.draft)), seen = cards.filter(c => c.seen > 0).length;
+    if (cards.length >= 5 && seen >= Math.min(10, cards.length)) { parts.cards = typeof DR !== "undefined" ? DR.deck(cards, today) : null; parts.cardsSeen = seen; parts.cardsAll = cards.length; if (parts.cards != null) { ws.push([parts.cards, 1]); n += seen; } }
+    const since = Date.now() - XR_DAYS * 864e5;
+    const qs = decks.flatMap(d => (d.quizzes || []).filter(q => q && Number(q.total) > 0 && Number(q.at) >= since)).sort((a, b) => b.at - a.at).slice(0, 5);
+    if (qs.length) { parts.quiz = Math.round(qs.reduce((s2, q) => s2 + Number(q.score) / Number(q.total), 0) / qs.length * 100); parts.quizN = qs.length; ws.push([parts.quiz, 1.5]); n += 6 * qs.length; }
+    const ai = typeof autoPlanOn === "function" && autoPlanOn() && t.status !== "done" && t.aiPrep && autoFresh(t.aiPrep, 4) ? t.aiPrep : null;
+    if (ai) { parts.ai = Math.round(Number(ai.pct) || 0); ws.push([parts.ai, 1]); n += 10; }
+  }
+  const measured = parts.plan != null ? parts.plan : ws.length ? Math.round(ws.reduce((s2, w) => s2 + w[0] * w[1], 0) / ws.reduce((s2, w) => s2 + w[1], 0)) : null;
+  const conf = measured == null ? 0 : Math.min(1, n / XR_FULL);
+  const pct = measured == null ? self : self == null ? measured : Math.round(conf * measured + (1 - conf) * self);
+  const gap = measured != null && self != null && n >= 10 && Math.abs(self - measured) >= XR_GAP ? self - measured : 0;
+  const from = measured == null ? (self == null ? "none" : "feel") : conf >= 0.999 || self == null ? "results" : "both";
+  const out = {pct, measured, self, conf, from, gap, parts, n};
+  if (t.id) XR_CACHE.m[ck] = out;
+  return out;
+}
+// What the measured readiness is made of, in words
+function readinessSource(r){
+  if (!r || !r.parts) return "";
+  const p = r.parts, bits = [];
+  if (p.plan != null) bits.push("your prep plan's sessions, flashcards and quizzes");
+  if (p.cards != null) bits.push(`your flashcards (${p.cardsSeen} of ${p.cardsAll} studied)`);
+  if (p.quiz != null) bits.push(`${p.quizN === 1 ? "a practice quiz" : p.quizN + " practice quizzes"} (${p.quiz}% average)`);
+  if (p.ai != null && p.plan == null) bits.push("the AI's read of your study");
+  return bits.length > 1 ? bits.slice(0, -1).join(", ") + " and " + bits[bits.length - 1] : bits[0] || "";
+}
+// The gap between how ready you feel and what your results say, as one sentence (empty when they roughly agree)
+function readinessGapText(r){
+  if (!r || !r.gap) return "";
+  return r.gap > 0 ? `You rate yourself ${r.self}% ready, but your results say about ${r.measured}%. Testing yourself on the cards you miss is the quickest way to close the gap.`
+    : `Your results say about ${r.measured}%, more than the ${r.self}% you rate yourself. You may be further along than you think.`;
+}
+// The different days you studied for an exam before it: focus or logged time on the exam or its study sessions,
+// study sessions finished, and flashcard reviews in its course. Spreading study over several days is what makes it stick.
+const STUDY_TIME_RX = /^(?:Focus session|Logged time):? (\d+)m/;
+function examStudyDays(ex){
+  if (!ex || !ex.due) return [];
+  const days = new Set(), before = d => d && d < ex.due, dayOfMs = ms => iso(new Date(Number(ms)));
+  allTasks().filter(t => t.id === ex.id || t.prepFor === ex.id).forEach(t => {
+    (t.history || []).forEach(h => { const m = STUDY_TIME_RX.exec((h && h.text) || ""); if (m && Number(m[1]) >= 5 && Number(h.at) > 0) { const d = dayOfMs(h.at); if (before(d)) days.add(d); } });
+    if (t.prepFor && t.status === "done" && Number(t.doneAt) > 0) { const d = dayOfMs(t.doneAt); if (before(d)) days.add(d); }
+  });
+  if (ex.courseId) Object.values(state.decks || {}).filter(d => d.courseId === ex.courseId && d.rv).forEach(d => Object.keys(d.rv).forEach(k => { if (before(k) && Number(d.rv[k]) >= 5 && k >= addDays(ex.due, -30)) days.add(k); }));
+  return [...days].sort();
+}
+// Studied for it on 3 or more days, starting 5 or more days before
+const examSpread = ex => { const ds = examStudyDays(ex); return ds.length >= 3 && ds[0] <= addDays(ex.due, -5); };
 function progress(t){
   if (t.breakdownParent) { const k = allTasks().filter(x => x.breakdownOf === t.id); if (k.length) { const d = k.filter(x => x.status === "done").length; return {total: k.length, done: d, frac: t.status === "done" ? 1 : d / k.length, ms: true}; } }
   const total = (t.checklist || []).length, done = (t.checklist || []).filter(i => i.done).length;
@@ -131,8 +202,10 @@ function progress(t){
     const ps = t.status === "done" ? [] : allTasks().filter(x => x.prepFor === t.id);
     const pm = ps.reduce((s, x) => s + (Number(x.hours) || 0), 0), dm = ps.filter(x => x.status === "done").reduce((s, x) => s + (Number(x.hours) || 0), 0);
     const ai = autoPlanOn() && t.status !== "done" && t.aiPrep && autoFresh(t.aiPrep, 4) ? t.aiPrep : null;
-    const pr = ps.length && t.prep && window.SBPREP ? SBPREP.pct(t) : null;
-    return {total, done, frac: t.status === "done" ? 1 : pr != null ? pr / 100 : ai ? ai.pct / 100 : Math.max((Number(t.pct) || 0) / 100, pm ? dm / pm : 0), prep: true, plan: ps.length, ai};
+    const xr = examReadiness(t), sess = pm ? dm / pm : 0;
+    // Measured readiness leads; with no evidence at all, how ready you feel (or the share of planned sessions done)
+    const frac = t.status === "done" ? 1 : xr && xr.measured != null ? xr.pct / 100 : Math.max((Number(t.pct) || 0) / 100, sess);
+    return {total, done, frac, prep: true, plan: ps.length, ai, xr};
   }
   return {total, done, frac: total ? done / total : (t.status === "done" ? 1 : (Number(t.pct) || 0) / 100)};
 }
