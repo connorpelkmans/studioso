@@ -8076,14 +8076,42 @@ function n3_branch(x, y, s, rnd, depth, ang, len) { if (depth === undefined) { d
 // a sea fan: a half disc on a short stalk
 function n3_fan(x, y, s) { var o = [[x, y]], i, d; for (i = 0; i <= 16; i++) { var a = Math.PI + i / 16 * Math.PI; o.push([x + Math.cos(a) * 30 * s, y - 6 * s + Math.sin(a) * 36 * s]); } d = n3_P(o);
   [[0.3, 3], [0.47, 5], [0.63, 7], [0.79, 9], [0.92, 11]].forEach(function (r, j) { for (var k = 0; k < r[1]; k++) { var a = Math.PI + (k + 0.5) / r[1] * Math.PI; d += ell(x + Math.cos(a) * 30 * s * r[0], y - 6 * s + Math.sin(a) * 36 * s * r[0], (1.7 - j * 0.15) * s, (1.3 - j * 0.1) * s); } }); return d; }
+// x range where a closed outline crosses the horizontal line y (for fitting shapes into the tunnel's far opening)
+function n3_spanAt(pts, y) { var lo = Infinity, hi = -Infinity; for (var i = 0; i < pts.length; i++) { var a = pts[i], b = pts[(i + 1) % pts.length]; if ((a[1] - y) * (b[1] - y) <= 0 && a[1] !== b[1]) { var x = a[0] + (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]); lo = Math.min(lo, x); hi = Math.max(hi, x); } } return [lo, hi]; }
+// fish outline points in fish space (nose at +L, tail toward -L), shared by the still picture and the animation
+function n3_FISHG(kind, L, Hh) {
+  var top = n3_bz([L, 0], [L * 0.92, -Hh * 1.05], [-L * 0.2, -Hh * 1.18], [-L * 0.76, -Hh * 0.26], 10), bot = n3_bz([-L * 0.76, Hh * 0.26], [-L * 0.2, Hh * 1.08], [L * 0.92, Hh * 0.98], [L, 0], 10);
+  var fork = kind === 0 || kind === 2 || kind === 4;
+  var tail = fork ? [[-L * 0.68, 0], [-L * 1.28, -Hh * 1.0], [-L * 1.06, 0], [-L * 1.28, Hh * 1.0]] : n3_bz([-L * 0.68, 0], [-L * 1.15, -Hh * 1.25], [-L * 1.45, -Hh * 0.3], [-L * 1.3, 0], 6).concat(n3_bz([-L * 1.3, 0], [-L * 1.45, Hh * 0.3], [-L * 1.15, Hh * 1.25], [-L * 0.68, 0], 6).slice(1));
+  var dh = kind === 2 ? 1.25 : kind === 0 ? 1.55 : 1.7;
+  var dors = n3_bz([-L * 0.55, -Hh * 0.7], [-L * 0.35, -Hh * dh], [L * 0.12, -Hh * dh], [L * 0.38, -Hh * 0.88], 8);
+  var anal = [[-L * 0.5, Hh * 0.7], [-L * 0.28, Hh * (kind === 2 ? 1.05 : 1.3)], [L * 0.02, Hh * 0.9]];
+  var belly = bot.concat(bot.slice().reverse().map(function (p) { return [p[0], Math.min(p[1], Hh * 0.22)]; }));
+  var mark = null;
+  if (kind === 0) mark = n3_bz([L * 0.42, -Hh * 0.38], [L * 0.05, -Hh * 0.95], [-L * 0.45, -Hh * 0.75], [-L * 0.7, -Hh * 0.18], 8).concat(n3_bz([-L * 0.7, -Hh * 0.18], [-L * 0.35, -Hh * 0.38], [L * 0.05, -Hh * 0.42], [L * 0.42, -Hh * 0.38], 8).slice(1));
+  else if (kind === 3) mark = [[L * 0.5, -Hh * 1.0], [L * 0.68, -Hh * 0.95], [L * 0.68, Hh * 0.95], [L * 0.5, Hh * 1.0]];
+  else if (kind === 2) mark = [[L * 0.85, -Hh * 0.1], [-L * 0.72, -Hh * 0.05], [-L * 0.72, Hh * 0.05], [L * 0.85, Hh * 0.12]];
+  return {body: top.concat(bot.slice(1)), tail: tail, dors: dors, anal: anal, belly: belly, mark: mark};
+}
+// a fish for the still picture, heading ang (radians), always upright: adds to o.body/fin/mark/belly/eye/pup
+function n3_fishSVG(x, y, ang, s, kind, o) {
+  var K = n3_FISH[kind], L = K[2] * s, Hh = K[3] * s, fl = Math.cos(ang) < 0 ? -1 : 1, ca = Math.cos(ang), sa = Math.sin(ang);
+  function T(p) { var px = p[0], py = p[1] * fl; return [x + px * ca - py * sa, y + px * sa + py * ca]; }
+  function PP(pts) { return n3_P(pts.map(T)); }
+  var G = n3_FISHG(kind, L, Hh);
+  o.fin += PP(G.tail) + PP(G.dors) + PP(G.anal); o.body += PP(G.body); o.belly += PP(G.belly);
+  if (G.mark) o.mark += PP(G.mark);
+  var e = T([L * 0.6, -Hh * 0.18]); o.eye += n3_C(e[0], e[1], Hh * 0.28); o.pup += n3_C(e[0] + ca * Hh * 0.04, e[1] + sa * Hh * 0.04, Hh * 0.17); }
 SCENES.aquarium = function (W, H, dk, rnd) {
   var ph = H > W, far = Lay(6), refl = Lay(0), mid = Lay(0.3), near = Lay(0);
+  [refl, mid, near].forEach(function (Ly) { 'ABCDEFGH'.split('').forEach(function (k) { Ly[k] = E(); }); });
   var sky = dk ? 'linear-gradient(180deg,#06142A 0%,#081A33 28%,#0E2E52 62%,#1E4A6E 100%)' : 'linear-gradient(180deg,#4FB3D6 0%,#6FC3DF 26%,#A9E0EE 62%,#D7F1F4 100%)';
   var vx = W * 0.5, vy = H * (ph ? 0.46 : 0.47), a0 = W * (ph ? 0.2 : 0.11), fB = H * (ph ? 0.07 : 0.085), R0 = a0 * 1.05, af = a0 * 0.58;
   function P(m, x, y) { return [vx + x * m, vy + y * m]; }
   function rib(m, n) { var side = n3_bz([-af, fB], [-a0 * 0.98, fB * 0.9], [-a0, fB * 0.35], [-a0, 0], 8), o = side.map(function (q) { return P(m, q[0], q[1]); }); for (var i = 1; i < n; i++) { var t = Math.PI + i / n * Math.PI; o.push(P(m, Math.cos(t) * a0, Math.sin(t) * R0)); } side.slice().reverse().forEach(function (q) { o.push(P(m, -q[0], q[1])); }); return o; }
-  // far water: a glow at the tunnel's end, light rays from the surface
+  // far water: a glow around the tunnel's end, light rays from the surface
   add(far, 'a', n3_E(vx, vy - R0 * 0.2, a0 * 2, R0 * 1.5), dk ? 'rgba(60,140,200,0.25)' : 'rgba(240,255,255,0.42)');
+  add(far, 'e', n3_E(vx, vy - R0 * 0.1, a0 * 1.05, R0 * 0.85), dk ? 'rgba(120,210,255,0.3)' : 'rgba(255,255,255,0.5)');
   var rays = ''; [[-0.35, 0.05], [-0.12, 0.08], [0.15, 0.05], [0.4, 0.07], [0.7, 0.04]].forEach(function (r) { var x = W * (0.5 + r[0]), w = W * r[1]; rays += n3_P([[x, -40], [x + w, -40], [x + w * 0.4 + W * 0.12, H * 0.62], [x + W * 0.12 - w * 0.4, H * 0.62]]); });
   add(far, 'b', rays, dk ? 'rgba(120,180,255,0.07)' : 'rgba(255,255,255,0.22)');
   var frocks = ''; for (var x = -40; x < W + 40; x += 30 + rnd() * 40) { if (Math.abs(x - vx) < a0 * 1.2) continue; var r = 14 + rnd() * 26; frocks += n3_E(x, vy + 4, r * 1.6, r * 0.9); }
@@ -8095,70 +8123,109 @@ SCENES.aquarium = function (W, H, dk, rnd) {
   add(refl, 'c', n3_below(sand, H + 20), dk ? '#1D4058' : '#E4D3A6');
   var dunes = ''; for (var k = 0; k < 9; k++) { var m = 1.2 * Math.pow(1.35, k), y = vy + fB * m * 0.92; [-1, 1].forEach(function (sd) { var x0 = vx + sd * a0 * m * 1.15, w2 = W * 0.18 * Math.min(2.5, m * 0.5); dunes += n3_E(x0 + sd * w2 * 0.6, y, w2, 3 + m * 1.6) + n3_E(x0 + sd * w2 * 1.5, y + fB * m * 0.1, w2 * 0.6, 2 + m); }); }
   add(refl, 'd', dunes, dk ? '#234B66' : '#CDB98A');
-  // the tunnel
-  var far1 = rib(1, 30);
-  add(refl, 'b', n3_P(far1), dk ? 'rgba(80,160,220,0.28)' : 'rgba(255,255,255,0.35)');
-  add(refl, 'e', n3_P(rib(0.55, 24)), dk ? '#4AB8E0' : '#E6FAFF');
-  var seams = '', thin = '';
-  var seamL = []; [1, 1.32, 1.78, 2.45, 3.45, 5, 7.4].forEach(function (m) { seamL.push(rib(m, 40)); });
-  for (k = 0; k <= 10; k++) { var t = Math.PI + k / 10 * Math.PI, p0 = P(1, Math.cos(t) * a0, Math.sin(t) * R0); thin += seg(p0[0], p0[1], vx + (p0[0] - vx) * 9, vy + (p0[1] - vy) * 9); }
+  // the tunnel's end: a framed doorway onto brighter open water, with rays, drifting motes and far kelp beyond it
+  add(refl, 'b', n3_P(rib(1, 30)), dk ? 'rgba(80,160,220,0.22)' : 'rgba(255,255,255,0.3)');
+  var OM = 0.55, op = rib(OM, 30), opTop = vy - R0 * OM, opBot = vy + fB * OM;
+  add(refl, 'e', n3_P(op), dk ? '#2D86B4' : '#A8E2F2');
+  add(refl, 'f', n3_P(rib(OM * 0.86, 24).map(function (p) { return [p[0], p[1] - R0 * OM * 0.12]; })), dk ? '#4FB4DE' : '#DDF6FC');
+  var inner = '', yl = vy + fB * OM * 0.15, sp = n3_spanAt(op, yl), sb = n3_spanAt(op, opBot - 1);
+  inner += n3_P([[sp[0], yl], [sp[1], yl], [sb[1], opBot], [sb[0], opBot]]);
+  [-0.62, -0.38, 0.3, 0.55].forEach(function (u, i) { var kx = vx + u * a0 * OM, kh2 = R0 * OM * (0.45 + 0.2 * (i % 2)); inner += n3_tube(n3_bz([kx, yl + 2], [kx + 4, yl - kh2 * 0.4], [kx - 4, yl - kh2 * 0.7], [kx + 2, yl - kh2], 8), 3.2, 1.2); });
+  add(refl, 'h', inner, dk ? '#246A92' : '#8CCFE0');
+  var glim = ''; [-0.55, -0.22, 0.12, 0.42].forEach(function (u) { var xa = vx + u * a0 * OM, w = a0 * OM * 0.07, cu = Math.min(0.95, Math.abs(u) + 0.15), top = vy - R0 * OM * Math.sqrt(1 - cu * cu) + 3;
+    glim += n3_P([[xa, top], [xa + w, top], [xa + w * 0.4 + a0 * OM * 0.1, yl], [xa + a0 * OM * 0.1 - w * 0.4, yl]]); });
+  for (k = 0; k < 14; k++) { var px = vx + (rnd() - 0.5) * a0 * OM * 1.4, py = vy + (rnd() - 0.8) * R0 * OM * 0.9; if (Math.pow((px - vx) / (a0 * OM * 0.9), 2) + Math.pow((py - vy) / (R0 * OM * 0.9), 2) < 1 && py < yl) glim += n3_C(px, py, 0.7 + rnd() * 1.1); }
+  add(refl, 'g', glim, dk ? 'rgba(200,240,255,0.22)' : 'rgba(255,255,255,0.45)');
+  // the doorway frame: a deep ring with a lit inner lip (refl F, G draw after the far reef)
+  add(refl, 'F', n3_band(rib(OM * 1.16, 30), rib(OM, 30)), dk ? '#123050' : '#5A86A6');
+  add(refl, 'G', n3_band(rib(OM * 1.03, 30), rib(OM, 30)), dk ? 'rgba(140,225,255,0.75)' : 'rgba(255,255,255,0.85)');
+  // the glass: ribs and the faint radial seams; the two farthest ribs fade into the glow
+  var seamL = []; [1, 1.32, 1.78, 2.45, 3.45, 5, 7.4].forEach(function (m) { seamL.push({m: m, pts: rib(m, 40)}); });
+  var thin = ''; for (k = 0; k <= 10; k++) { var t = Math.PI + k / 10 * Math.PI, p0 = P(1, Math.cos(t) * a0, Math.sin(t) * R0); thin += seg(p0[0], p0[1], vx + (p0[0] - vx) * 9, vy + (p0[1] - vy) * 9); }
 
-  // coral gardens on both sides, outside the glass
-  var cB = {rock: '', hi: '', pink: '', orange: '', purple: '', kelp: '', yel: '', teal: ''};
+  // the reef outside the glass, in three depth bands (each in its own layer, so nearer reef always covers farther reef)
+  // slots: 0 shadow, 1 rock, 2 brain coral, 3 sponge, 4 coral grooves/holes, 5 bubble coral, 6 sea grass, 7 branch coral, 8 anemone, 9 pale tips, 10 kelp, 11 kelp light, 12 highlights
+  var RC = dk ? ['rgba(0,10,25,0.35)', '#16324A', '#C46A3A', '#B09A3A', '#8A4626', '#6A4EA8', '#2A8C8A', '#B8507A', '#B0605A', '#D88AAA', '#1E5A4A', '#2C7660', 'rgba(110,180,230,0.2)']
+    : ['rgba(40,70,90,0.2)', '#9DB4BC', '#F59A4A', '#F2CC4A', '#C9692C', '#9B7BE0', '#3FC1B0', '#F27BA0', '#F58C7A', '#FFC6D8', '#4FA07A', '#7CC495', 'rgba(255,255,255,0.32)'];
+  var bands = [{L: refl, k: 'ijklmnopABCDE'}, {L: mid, k: 'abcdefghijklm'}, {L: near, k: 'lmnopABCDEFGH'}], D = bands.map(function () { return ['', '', '', '', '', '', '', '', '', '', '', '', '']; });
+  var a1 = af * 1.06, placed = [];
+  function branch(o, x, y, s, depth, ang, len) { var a = ang * Math.PI / 180, x2 = x + Math.cos(a) * len * s, y2 = y + Math.sin(a) * len * s; o[7] += n3_tube([[x, y], [(x + x2) / 2 + Math.sin(a) * 2 * s, (y + y2) / 2], [x2, y2]], (2.2 + depth * 1.4) * s, (1.6 + depth) * s) + n3_C(x2, y2, (1 + depth * 0.7) * s);
+    if (depth > 0) { branch(o, x2, y2, s, depth - 1, ang - 22 - rnd() * 16, len * 0.72); branch(o, x2, y2, s, depth - 1, ang + 22 + rnd() * 16, len * 0.72); } else o[9] += n3_C(x2, y2 - 0.6 * s, 1.5 * s); }
+  var KINDS = [['brain', 26], ['bubble', 22], ['sponge', 16], ['grass', 18], ['branch', 26], ['anem', 14], ['kelp', 12], ['brain', 26], ['branch', 24]];
   [-1, 1].forEach(function (sd) {
-    for (var m = 1.1; m < 6; m *= 1.15) {
-      var n = m < 2 ? 3 : 4; for (var j = 0; j < n; j++) {
-        var wx = sd * (af * 1.3 + j * a0 * (m < 2 ? 0.8 : 0.5) + rnd() * a0 * 0.4), p = P(m * (1 + rnd() * 0.08), wx, fB), s = m * (ph ? 0.6 : 0.85) * (0.8 + rnd() * 0.4), x = p[0], y = p[1] - (Math.abs(x - vx) / (W * 0.5)) * (Math.abs(x - vx) / (W * 0.5)) * H * 0.025;
-        if (x < -60 * s || x > W + 60 * s || y > H + 40) continue;
-        cB.rock += n3_E(x, y, 26 * s, 14 * s) + n3_E(x + 14 * s * sd, y + 2 * s, 18 * s, 10 * s); cB.hi += n3_E(x - 6 * s, y - 8 * s, 12 * s, 4 * s);
-        var kind = Math.floor(rnd() * 6);
-        if (kind === 0) cB.pink += n3_branch(x, y - 8 * s, s * 0.8, rnd);
-        else if (kind === 1) cB.orange += n3_fan(x, y - 8 * s, s * 0.9);
-        else if (kind === 2) { cB.purple += n3_C(x, y - 14 * s, 14 * s); cB.hi += n3_E(x - 4 * s, y - 20 * s, 6 * s, 3 * s); }
-        else if (kind === 3) { for (var q = 0; q < 4; q++) cB.yel += rrect(x - 12 * s + q * 6 * s, y - (18 + q * 5 % 11) * s - 8 * s, 5 * s, (18 + q * 5 % 11) * s, 2.4 * s); }
-        else if (kind === 4) { for (q = 0; q < 9; q++) { var aa = -160 + q * 17.5; cB.teal += n3_leaf(x, y - 8 * s, 14 * s, 2.4 * s, aa, 0.2); } }
-        else { for (q = 0; q < 4; q++) { var kx = x + (q - 1.5) * 6 * s, kh2 = (50 + rnd() * 40) * s; cB.kelp += n3_tube(n3_bz([kx, y - 4 * s], [kx + 9 * s, y - kh2 * 0.35], [kx - 8 * s, y - kh2 * 0.7], [kx + 3 * s, y - kh2], 12), 5 * s, 2.2 * s); } }
+    for (var m = 1.15; m < 6.5; m *= 1.13) {
+      for (var j = 0; j < 4; j++) {
+        var wx = sd * (af * 1.25 + rnd() * a0 * 1.7), mm = m * (1 + rnd() * 0.06), p = P(mm, wx, fB), s = mm * (ph ? 0.55 : 0.8) * (0.8 + rnd() * 0.4), x = p[0], dd = (x - vx) / (W * 0.5), y = p[1] - dd * dd * H * 0.025, K = KINDS[Math.floor(rnd() * KINDS.length)], rr = K[1] * s;
+        if (x < -40 * s || x > W + 40 * s || y > H + 30) continue;
+        if (sd * (x - vx) - rr * 1.15 < a1 * mm + 6) continue;
+        if (placed.some(function (q) { return Math.hypot(q[0] - x, (q[1] - y) * 2.2) < (q[2] + rr) * 0.72; })) continue;
+        placed.push([x, y, rr]);
+        var o = D[mm < 1.6 ? 0 : mm < 3 ? 1 : 2], q2;
+        o[0] += n3_E(x + sd * 3 * s, y + 1.5 * s, rr * 1.15, rr * 0.24);
+        if (K[0] === 'brain' || K[0] === 'bubble' || (K[0] === 'sponge' && rnd() < 0.5)) { o[1] += n3_E(x, y - 3 * s, 19 * s, 6.5 * s) + n3_E(x + 10 * s * sd, y - 1.5 * s, 11 * s, 5 * s); o[12] += n3_E(x - 5 * s, y - 7.5 * s, 8 * s, 1.8 * s); }
+        if (K[0] === 'brain') { var dome = []; for (q2 = 0; q2 <= 18; q2++) { var aa = Math.PI + q2 / 18 * Math.PI; dome.push([x + Math.cos(aa) * 24 * s, y - 6 * s + Math.sin(aa) * 20 * s]); } o[2] += n3_P(dome);
+          var shade = []; for (q2 = 0; q2 <= 12; q2++) { var xx = x - 24 * s + q2 / 12 * 48 * s, dy = 20 * s * Math.sqrt(Math.max(0, 1 - Math.pow((xx - x) / (24 * s), 2))); shade.push([xx, Math.max(y - 6 * s - dy, y - 11 * s)]); } shade.push([x + 24 * s, y - 6 * s], [x - 24 * s, y - 6 * s]); o[4] += n3_P(shade);
+          for (var rw = 0; rw < 3; rw++) { var yr = y - 6 * s - (6 + rw * 4.6) * s, hw = 24 * s * Math.sqrt(Math.max(0, 1 - Math.pow((y - 6 * s - yr) / (20 * s), 2))) * 0.82, pts = []; for (q2 = 0; q2 <= 10; q2++) pts.push([x - hw + q2 / 10 * hw * 2, yr + Math.sin(q2 * 1.7 + rw * 2) * 1.6 * s]); o[4] += n3_tube(pts, 1.3 * s, 1.3 * s); }
+          o[12] += n3_E(x - 8 * s, y - 20 * s, 8 * s, 2.6 * s); }
+        else if (K[0] === 'bubble') { for (q2 = 0; q2 < 7; q2++) { var bx = x + (q2 % 4 - 1.5) * 7 * s + (q2 > 3 ? 3.5 * s : 0), by = y - (q2 > 3 ? 19 : 11) * s, br = (6.5 + (q2 * 7 % 3)) * s * (q2 > 3 ? 0.85 : 1); o[5] += n3_C(bx, by, br); o[12] += n3_C(bx - br * 0.35, by - br * 0.4, br * 0.32); } }
+        else if (K[0] === 'sponge') { for (q2 = 0; q2 < 4; q2++) { var tx = x + (q2 - 1.5) * 6 * s, th2 = (16 + (q2 * 5 % 11)) * s; o[3] += rrect(tx - 2.6 * s, y - 8 * s - th2, 5.2 * s, th2 + 2 * s, 2.4 * s); o[4] += n3_E(tx, y - 8 * s - th2 + 1.2 * s, 1.7 * s, 0.9 * s); } }
+        else if (K[0] === 'grass') { for (q2 = 0; q2 < 9; q2++) o[6] += n3_leaf(x + (q2 - 4) * 1.6 * s, y, (18 + (q2 * 7 % 9)) * s, 2.1 * s, -90 + (q2 - 4) * 11, 0.08 * (q2 % 2 ? 1 : -1)); }
+        else if (K[0] === 'branch') branch(o, x, y - 6 * s, s * 0.8, 3, -90 + (rnd() - 0.5) * 16, 26);
+        else if (K[0] === 'anem') { o[8] += rrect(x - 6 * s, y - 13 * s, 12 * s, 11 * s, 3 * s); for (q2 = 0; q2 < 11; q2++) { var an = -170 + q2 * 16; o[8] += n3_leaf(x, y - 12 * s, 11 * s, 1.6 * s, an, 0.1); o[9] += n3_C(x + Math.cos(an * Math.PI / 180) * 11 * s, y - 12 * s + Math.sin(an * Math.PI / 180) * 11 * s, 1.4 * s); } }
+        else { for (q2 = 0; q2 < 2; q2++) { var kx = x + (q2 - 0.5) * 12 * s, lean = (q2 ? 1 : -1) * (6 + rnd() * 8) * s, kh3 = (70 + rnd() * 50) * s * (q2 ? 0.8 : 1), stem = n3_bz([kx, y], [kx + lean + 10 * s, y - kh3 * 0.35], [kx + lean - 10 * s, y - kh3 * 0.7], [kx + lean * 1.4, y - kh3], 16); o[10] += n3_tube(stem, 2.2 * s, 0.9 * s);
+          for (var bl = 2; bl < 16; bl += 3) { var sp2 = stem[bl], side = (bl / 3 | 0) % 2 ? 1 : -1, la = (side > 0 ? -28 : -152) + (rnd() - 0.5) * 20, ln = (20 - bl * 0.6) * s; o[10] += n3_leaf(sp2[0], sp2[1], ln, 3.6 * s, la, 0.22 * side); o[11] += n3_leaf(sp2[0], sp2[1], ln * 0.85, 1.2 * s, la, 0.22 * side); }
+          o[11] += n3_E(stem[16][0], stem[16][1], 1.5 * s, 2 * s); } }
       }
     }
   });
-  var C = dk ? {rock: '#16324A', hi: 'rgba(90,170,220,0.18)', pink: '#B8507A', orange: '#C46A3A', purple: '#6A4EA8', kelp: '#1E5A4A', yel: '#B09A3A', teal: '#2A8C8A'} : {rock: '#6A8FA0', hi: 'rgba(255,255,255,0.3)', pink: '#F27BA0', orange: '#F59A4A', purple: '#9B7BE0', kelp: '#4FA07A', yel: '#F2CC4A', teal: '#3FC1B0'};
-  add(mid, 'f', cB.kelp, C.kelp); add(mid, 'a', cB.rock, C.rock); add(mid, 'b', cB.hi, C.hi); add(mid, 'c', cB.pink, C.pink); add(mid, 'd', cB.orange, C.orange); add(mid, 'e', cB.purple, C.purple); add(mid, 'g', cB.yel, C.yel); add(mid, 'h', cB.teal, C.teal);
-  // the walkway, its base ledges and LED strips
-  var M = 12, wl = [P(1, -af, fB), P(1, af, fB), P(M, af, fB), P(M, -af, fB)];
+  bands.forEach(function (b, i) { b.k.split('').forEach(function (key, j) { add(b.L, key, D[i][j], RC[j]); }); });
+  // the walkway, from deep in the light right up to you, with its base ledges and LED strips
+  var M = 12, m0 = OM, wl = [P(m0, -af, fB), P(m0, af, fB), P(M, af, fB), P(M, -af, fB)];
   add(near, 'a', n3_P(wl), dk ? '#1A3150' : '#4A6884');
-  add(near, 'f', n3_P([P(1, -af * 0.5, fB), P(1, af * 0.5, fB), P(M, af * 0.5, fB), P(M, -af * 0.5, fB)]), dk ? '#132848' : '#2E4C6E');
-  add(near, 'g', n3_P([P(1, -af * 0.5, fB), P(1, -af * 0.46, fB), P(M, -af * 0.46, fB), P(M, -af * 0.5, fB)]) + n3_P([P(1, af * 0.46, fB), P(1, af * 0.5, fB), P(M, af * 0.5, fB), P(M, af * 0.46, fB)]), dk ? '#2E8FB0' : '#7FD8EE');
-  var hL = H * 0.016, a1 = af * 1.06, ledge = n3_P([P(1, -a1, fB), P(1, -a1, fB - hL), P(M, -a1, fB - hL), P(M, -a1, fB)]) + n3_P([P(1, a1, fB - hL), P(1, a1, fB), P(M, a1, fB), P(M, a1, fB - hL)]);
-  var ledgeTop = n3_P([P(1, -a1, fB - hL), P(1, -af * 0.95, fB - hL * 0.4), P(M, -af * 0.95, fB - hL * 0.4), P(M, -a1, fB - hL)]) + n3_P([P(1, af * 0.95, fB - hL * 0.4), P(1, a1, fB - hL), P(M, a1, fB - hL), P(M, af * 0.95, fB - hL * 0.4)]);
+  add(near, 'f', n3_P([P(m0, -af * 0.5, fB), P(m0, af * 0.5, fB), P(M, af * 0.5, fB), P(M, -af * 0.5, fB)]), dk ? '#132848' : '#2E4C6E');
+  add(near, 'g', n3_P([P(m0, -af * 0.5, fB), P(m0, -af * 0.46, fB), P(M, -af * 0.46, fB), P(M, -af * 0.5, fB)]) + n3_P([P(m0, af * 0.46, fB), P(m0, af * 0.5, fB), P(M, af * 0.5, fB), P(M, af * 0.46, fB)]), dk ? '#2E8FB0' : '#7FD8EE');
+  var hL = H * 0.016, ledge = n3_P([P(m0, -a1, fB), P(m0, -a1, fB - hL), P(M, -a1, fB - hL), P(M, -a1, fB)]) + n3_P([P(m0, a1, fB - hL), P(m0, a1, fB), P(M, a1, fB), P(M, a1, fB - hL)]);
+  var ledgeTop = n3_P([P(m0, -a1, fB - hL), P(m0, -af * 0.95, fB - hL * 0.4), P(M, -af * 0.95, fB - hL * 0.4), P(M, -a1, fB - hL)]) + n3_P([P(m0, af * 0.95, fB - hL * 0.4), P(m0, a1, fB - hL), P(M, a1, fB - hL), P(M, af * 0.95, fB - hL * 0.4)]);
   add(near, 'b', ledge + ledgeTop, dk ? '#1A2A40' : '#2E465C');
-  var leds = n3_P([P(1, -af * 0.95, fB - hL * 0.4), P(1, -af * 0.91, fB - hL * 0.4), P(M, -af * 0.91, fB - hL * 0.4), P(M, -af * 0.95, fB - hL * 0.4)]) + n3_P([P(1, af * 0.91, fB - hL * 0.4), P(1, af * 0.95, fB - hL * 0.4), P(M, af * 0.95, fB - hL * 0.4), P(M, af * 0.91, fB - hL * 0.4)]);
+  var leds = n3_P([P(m0, -af * 0.95, fB - hL * 0.4), P(m0, -af * 0.91, fB - hL * 0.4), P(M, -af * 0.91, fB - hL * 0.4), P(M, -af * 0.95, fB - hL * 0.4)]) + n3_P([P(m0, af * 0.91, fB - hL * 0.4), P(m0, af * 0.95, fB - hL * 0.4), P(M, af * 0.95, fB - hL * 0.4), P(M, af * 0.91, fB - hL * 0.4)]);
   add(near, 'c', leds, dk ? '#5FE0FF' : '#9FEFFF');
-  var stripes = ''; for (k = 0; k < 14; k++) { var m1 = Math.pow(1.22, k), m2 = m1 * 1.06; stripes += n3_P([P(m1, -af * 0.85, fB), P(m1, af * 0.85, fB), P(m2, af * 0.85, fB), P(m2, -af * 0.85, fB)]); }
+  var stripes = ''; for (k = -3; k < 14; k++) { var m1 = Math.pow(1.22, k), m2 = m1 * 1.06; if (m1 < m0) continue; stripes += n3_P([P(m1, -af * 0.85, fB), P(m1, af * 0.85, fB), P(m2, af * 0.85, fB), P(m2, -af * 0.85, fB)]); }
   add(near, 'd', stripes, dk ? 'rgba(120,190,255,0.1)' : 'rgba(255,255,255,0.1)');
-  var bTop = '', bSide = '', bPolys = [], sh = fB * 0.2, st = fB * 0.028;
+  // the far walkway melts into the light
+  var fogQ = function (mA, mB) { return n3_P([P(mA, -a1 * 1.02, fB - hL), P(mA, a1 * 1.02, fB - hL), P(mB, a1 * 1.02, fB - hL), P(mB, a1 * 1.02, fB), P(mB, -a1 * 1.02, fB), P(mB, -a1 * 1.02, fB - hL)]); };
+  add(near, 'j', fogQ(m0, 0.8), dk ? 'rgba(90,190,235,0.4)' : 'rgba(225,250,255,0.6)');
+  add(near, 'k', fogQ(m0, 1.12), dk ? 'rgba(90,190,235,0.18)' : 'rgba(225,250,255,0.28)');
+  // benches: legs and side faces first, then the seat top, then the slat gaps, so no leg ever shows through the seat
+  var bLeg = '', bFace = '', bTop = '', bSlat = '', bPolys = [], sh = fB * 0.2, st = fB * 0.028;
   [[-1, ph ? 1.7 : 1.9, ph ? 2.5 : 2.8], [1, 1.25, 1.6]].forEach(function (b) { var sd = b[0], m1 = b[1], m2 = b[2], xi = sd * af * 0.6, xo = sd * af * 0.86, y = fB - sh;
     bTop += n3_P([P(m1, xo, y), P(m1, xi, y), P(m2, xi, y), P(m2, xo, y)]); bPolys.push([P(m1, xo, y), P(m1, xi, y), P(m2, xi, y), P(m2, xo, y)]);
-    bSide += n3_P([P(m1, xi, y), P(m2, xi, y), P(m2, xi, y + st), P(m1, xi, y + st)]) + n3_P([P(m2, xo, y), P(m2, xi, y), P(m2, xi, y + st), P(m2, xo, y + st)]);
-    [0.36, 0.64].forEach(function (u) { var xs = xi + (xo - xi) * u; bSide += n3_P([P(m1, xs - sd * af * 0.008, y), P(m1, xs + sd * af * 0.008, y), P(m2, xs + sd * af * 0.008, y), P(m2, xs - sd * af * 0.008, y)]); });
+    bFace += n3_P([P(m1, xi, y), P(m2, xi, y), P(m2, xi, y + st), P(m1, xi, y + st)]) + n3_P([P(m2, xo, y), P(m2, xi, y), P(m2, xi, y + st), P(m2, xo, y + st)]);
+    [0.36, 0.64].forEach(function (u) { var xs = xi + (xo - xi) * u; bSlat += n3_P([P(m1, xs - sd * af * 0.008, y), P(m1, xs + sd * af * 0.008, y), P(m2, xs + sd * af * 0.008, y), P(m2, xs - sd * af * 0.008, y)]); });
     [0.12, 0.84].forEach(function (u) { var ma = m1 + (m2 - m1) * u, mb = ma + (m2 - m1) * 0.04, xl = sd * af * 0.67, xr = sd * af * 0.79;
-      bSide += n3_P([P(ma, xl, y + st), P(mb, xl, y + st), P(mb, xl, fB), P(ma, xl, fB)]) + n3_P([P(mb, xl, y + st), P(mb, xr, y + st), P(mb, xr, fB), P(mb, xl, fB)]); bPolys.push([P(ma, xl, y + st), P(mb, xl, y + st), P(mb, xl, fB), P(ma, xl, fB)], [P(mb, xl, y + st), P(mb, xr, y + st), P(mb, xr, fB), P(mb, xl, fB)]); });
+      bLeg += n3_P([P(ma, xl, y + st), P(mb, xl, y + st), P(mb, xl, fB), P(ma, xl, fB)]) + n3_P([P(mb, xl, y + st), P(mb, xr, y + st), P(mb, xr, fB), P(mb, xl, fB)]); bPolys.push([P(ma, xl, y + st), P(mb, xl, y + st), P(mb, xl, fB), P(ma, xl, fB)], [P(mb, xl, y + st), P(mb, xr, y + st), P(mb, xr, fB), P(mb, xl, fB)]); });
     bPolys.push([P(m2, xo, y), P(m2, xi, y), P(m2, xi, y + st), P(m2, xo, y + st)]); });
+  add(near, 'e', bLeg + bFace, dk ? '#0E1E34' : '#2A4660'); add(near, 'h', bTop, dk ? '#2C5478' : '#8FB4CC'); add(near, 'i', bSlat, dk ? '#0E1E34' : '#2A4660');
   var inB = function (x, y) { return bPolys.some(function (P2) { var c = false; for (var i2 = 0, j2 = P2.length - 1; i2 < P2.length; j2 = i2++) { var a2 = P2[i2], b2 = P2[j2]; if ((a2[1] > y) !== (b2[1] > y) && x < (b2[0] - a2[0]) * (y - a2[1]) / (b2[1] - a2[1]) + a2[0]) c = !c; } return c; }); };
-  seamL.forEach(function (pl) { var run = []; for (var s2 = 1; s2 < pl.length; s2++) { var a = pl[s2 - 1], b = pl[s2], n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 3)); for (var q = s2 === 1 ? 0 : 1; q <= n; q++) { var px = a[0] + (b[0] - a[0]) * q / n, py = a[1] + (b[1] - a[1]) * q / n;
-    if (inB(px, py)) { if (run.length > 1) seams += pline(run); run = []; } else run.push([px, py]); } } if (run.length > 1) seams += pline(run); });
+  var seams = '', seamsFar = '';
+  seamL.forEach(function (R) { var pl = R.pts, out = '', run = []; for (var s2 = 1; s2 < pl.length; s2++) { var a = pl[s2 - 1], b = pl[s2], n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 3)); for (var q = s2 === 1 ? 0 : 1; q <= n; q++) { var px2 = a[0] + (b[0] - a[0]) * q / n, py2 = a[1] + (b[1] - a[1]) * q / n;
+    if (inB(px2, py2)) { if (run.length > 1) out += pline(run); run = []; } else run.push([px2, py2]); } } if (run.length > 1) out += pline(run); if (R.m < 1.5) seamsFar += out; else seams += out; });
   stk(near, 's', seams, dk ? 'rgba(120,200,255,0.3)' : 'rgba(255,255,255,0.55)', 2.4);
-  stk(near, 't', thin, dk ? 'rgba(120,200,255,0.12)' : 'rgba(255,255,255,0.28)', 1.2);
-  add(near, 'e', bTop, dk ? '#2C5478' : '#8FB4CC');
-  add(near, 'h', bSide, dk ? '#0E1E34' : '#2A4660');
+  stk(near, 't', seamsFar, dk ? 'rgba(160,225,255,0.2)' : 'rgba(255,255,255,0.4)', 1.8);
+  stk(mid, 's', thin, dk ? 'rgba(120,200,255,0.12)' : 'rgba(255,255,255,0.28)', 1.2);
   if (ANIM) {
-    ANIM.vp = [vx, vy]; ANIM.tun = {a0: a0, af: af, fB: fB, R0: R0}; ANIM.floor = wl; ANIM.ph = ph; ANIM.benches = bTop + bSide;
+    ANIM.vp = [vx, vy]; ANIM.tun = {a0: a0, af: af, fB: fB, R0: R0}; ANIM.floor = wl; ANIM.ph = ph; ANIM.benches = bLeg + bFace + bTop;
     ANIM.bubbles = [P(1.6, -a0 * 1.6, fB), P(2.6, a0 * 1.9, fB), P(1.25, a0 * 1.4, fB)].map(function (p, i) { return {x: p[0], y: p[1] - 6, s: [1.6, 2.6, 1.25][i] * (ph ? 0.5 : 0.7)}; });
   } else {
-    var fish = '', fin = '', eye = '', pup = '', fs2 = ph ? 1 : 1.5; [[0.2, 0.16, 1, 0], [0.62, 0.1, -1, 1], [0.8, 0.3, -1, 0], [0.38, 0.28, 1, 1]].forEach(function (sc) { for (var q = 0; q < 7; q++) { var x = W * sc[0] + (q % 4) * 22 * fs2 * sc[2] * -1 + (rnd() - 0.5) * 16, y = H * sc[1] + Math.floor(q / 4) * 16 * fs2 + (rnd() - 0.5) * 10, d = sc[2], k = fs2 * (sc[3] ? 0.95 : 1);
-      var body = n3_E(x, y, 10 * k, (sc[3] ? 7 : 5.5) * k), tail = n3_P([[x - d * 7 * k, y], [x - d * 15 * k, y - 5.5 * k], [x - d * 13 * k, y], [x - d * 15 * k, y + 5.5 * k]]), dors = n3_P([[x - d * 3 * k, y - 4.4 * k], [x + d * 1 * k, y - (sc[3] ? 11 : 9) * k], [x + d * 4 * k, y - 4.6 * k]]);
-      if (sc[3]) fin += body + tail + dors; else { fish += body; fin += tail + dors; }
-      eye += n3_C(x + d * 5.5 * k, y - 1 * k, 1.9 * k); pup += n3_C(x + d * 6 * k, y - 1 * k, 1.2 * k); } });
-    add(refl, 'a', fish, dk ? '#2A5A8A' : '#3E7FE0'); add(refl, 'f', fin, dk ? '#B09A3A' : '#F2D24A'); add(refl, 'g', eye, dk ? '#C8D8E8' : '#FFFFFF'); add(refl, 'h', pup, '#1E2A3A');
+    // still picture: schools curving over the tunnel outside the glass, each fish facing along its arc
+    var FO = [0, 1, 2].map(function () { return {body: '', fin: '', mark: '', belly: '', eye: '', pup: ''}; });
+    var fsS = ph ? 1.05 : 1.6, plan = [[0, ph ? 2.2 : 1.7, -0.95, 0.12, 1, 7], [3, ph ? 2.8 : 2.15, 0.25, 0.1, -1, 6], [2, ph ? 1.9 : 1.45, -0.35, 0.06, 1, 12]];
+    plan.forEach(function (pl, si) { for (var q = 0; q < pl[5]; q++) { var th = Math.PI * 1.5 + pl[2] - q * pl[3] * pl[4] + (rnd() - 0.5) * 0.04, kk = 1.16 + (rnd() - 0.5) * 0.12, mm = pl[1] * (1 + (rnd() - 0.5) * 0.06), xx = vx + Math.cos(th) * a0 * mm * kk, yy = vy + Math.sin(th) * R0 * mm * kk;
+      if (yy < -10 || xx < -10 || xx > W + 10) continue; var ang = Math.atan2(Math.cos(th) * R0 * pl[4], -Math.sin(th) * a0 * pl[4]); ang = Math.atan2(Math.sin(ang) * 0.8, Math.cos(ang));
+      n3_fishSVG(xx, yy, ang, fsS * (pl[0] === 2 ? 0.95 : 1.25) * Math.max(0.5, mm / 2.1), pl[0], FO[si]); } });
+    var dkm = function (c) { return dk ? mix(c, '#0A1A33', 0.35) : c; };
+    add(mid, 'A', FO[0].fin + FO[1].fin + FO[1].body, dkm('#F2D24A')); add(mid, 'B', FO[0].body, dkm('#3E7FE0')); add(mid, 'C', FO[2].fin, dkm('#AFC4D8')); add(mid, 'D', FO[2].body, dkm('#D2DEEA'));
+    add(mid, 'E', FO[0].belly + FO[1].belly + FO[2].belly, dk ? 'rgba(220,235,255,0.22)' : 'rgba(255,255,255,0.42)');
+    add(mid, 'F', FO[0].mark + FO[1].mark, dk ? '#0E1A3A' : '#1C2E6E'); add(mid, 'G', FO[0].eye + FO[1].eye + FO[2].eye + FO[2].mark, dk ? '#C8D8E8' : '#FFFFFF'); add(mid, 'H', FO[0].pup + FO[1].pup + FO[2].pup, '#1E2A3A');
   }
   return {sky: sky, far: far, refl: refl, mid: mid, near: near};
 };
@@ -19817,29 +19884,47 @@ ENGINES.campfire = function (A, v, dk) {
 UIC.campfire = {L: ['#3E6A5A', '#27463C', 'rgba(255,255,252,0.86)', '#18261F', '#55665C', '#C2582A', '#C2582A', '#D9783A', '#FFFFFF'], D: ['#1E2844', '#0E1326', 'rgba(16,20,40,0.80)', '#F2EEE6', '#B4B2C2', '#F5A04E', '#F5A04E', '#F8C27A', '#1A1220']};
 
 // Aquarium Tunnel
+var n3_FISHP = {};
+function n3_fishPaths(kind) { if (n3_FISHP[kind]) return n3_FISHP[kind]; var K = n3_FISH[kind], L = K[2], Hh = K[3], G = n3_FISHG(kind, L, Hh), sh = function (pts, dx) { return n3_path(pts.map(function (q) { return [q[0] - (dx || 0), q[1]]; })); };
+  return (n3_FISHP[kind] = {L: L, H: Hh, body: sh(G.body), tail: sh(G.tail, -L * 0.7), dors: sh(G.dors), anal: sh(G.anal), belly: sh(G.belly), mark: G.mark ? sh(G.mark) : null}); }
 function n3_fish(c, x, y, ang, s, kind, dk, t, ph) {
+  var F = n3_fishPaths(kind), K = n3_FISH[kind], L = F.L, Hh = F.H, body = dk ? mix(K[0], '#0A1A33', 0.35) : K[0], fin = dk ? mix(K[1], '#0A1A33', 0.3) : K[1], wag = Math.sin(t * 8 + ph) * 0.32;
   c.save(); c.translate(x, y); c.rotate(ang); if (Math.cos(ang) < 0) c.scale(1, -1); c.scale(s, s);
-  var wag = Math.sin(t * 9 + ph) * 0.3, K = n3_FISH[kind], body = dk ? mix(K[0], '#0A1A33', 0.35) : K[0], fin = dk ? mix(K[1], '#0A1A33', 0.3) : K[1];
-  c.fillStyle = fin; c.beginPath(); c.moveTo(-K[2] * 0.8, 0); c.lineTo(-K[2] * 1.45, -K[3] * 0.9 + wag * 3); c.lineTo(-K[2] * 1.3, 0); c.lineTo(-K[2] * 1.45, K[3] * 0.9 + wag * 3); c.closePath(); c.fill();
-  if (kind !== 2) { c.beginPath(); c.moveTo(-K[2] * 0.3, -K[3] * 0.8); c.quadraticCurveTo(0, -K[3] * 1.6, K[2] * 0.3, -K[3] * 0.85); c.fill(); }
-  c.fillStyle = body; c.beginPath(); c.ellipse(0, 0, K[2], K[3], 0, 0, 7); c.fill();
-  if (kind === 1) { c.fillStyle = dk ? '#C8D4E0' : '#FFFFFF'; c.fillRect(K[2] * 0.25, -K[3] * 0.95, K[2] * 0.2, K[3] * 1.9); c.fillRect(-K[2] * 0.4, -K[3] * 0.9, K[2] * 0.18, K[3] * 1.8); }
-  if (kind === 2) { c.fillStyle = dk ? 'rgba(120,170,220,0.6)' : '#5A8ACB'; c.fillRect(-K[2] * 0.8, -K[3] * 0.7, K[2] * 1.6, K[3] * 0.5); }
-  if (kind === 3) { c.fillStyle = '#2A2A3A'; c.fillRect(K[2] * 0.25, -K[3] * 0.9, K[2] * 0.14, K[3] * 1.8); }
-  c.fillStyle = dk ? '#E6F2FF' : '#FFFFFF'; c.beginPath(); c.arc(K[2] * 0.55, -K[3] * 0.15, K[3] * 0.32, 0, 7); c.fill(); c.fillStyle = n3_INK; c.beginPath(); c.arc(K[2] * 0.6, -K[3] * 0.15, K[3] * 0.2, 0, 7); c.fill();
+  c.fillStyle = fin; c.save(); c.translate(-L * 0.7, 0); c.rotate(wag); c.fill(F.tail); c.restore();
+  c.fillStyle = kind === 0 ? body : fin; c.fill(F.dors); c.fill(F.anal);
+  c.fillStyle = body; c.fill(F.body);
+  c.save(); c.clip(F.body);
+  c.fillStyle = dk ? 'rgba(0,10,30,0.28)' : 'rgba(10,30,70,0.18)'; c.fillRect(-L * 1.2, -Hh * 1.4, L * 2.4, Hh * 0.75);
+  c.fillStyle = dk ? 'rgba(220,235,255,0.2)' : 'rgba(255,255,255,0.42)'; c.fill(F.belly);
+  if (kind === 1) { c.fillStyle = dk ? '#C8D4E0' : '#FFFFFF'; c.strokeStyle = '#2A2030'; c.lineWidth = 0.6; [L * 0.32, -L * 0.18, -L * 0.6].forEach(function (bx, i) { var w = L * (i === 1 ? 0.2 : 0.15); c.fillRect(bx - w / 2, -Hh * 1.3, w, Hh * 2.6); c.strokeRect(bx - w / 2, -Hh * 1.3, w, Hh * 2.6); }); }
+  else if (F.mark) { c.fillStyle = kind === 2 ? (dk ? 'rgba(220,235,255,0.4)' : 'rgba(255,255,255,0.75)') : (dk ? '#0E1A3A' : kind === 0 ? '#1C2E6E' : '#2A2A3A'); c.fill(F.mark); }
+  if (kind === 3) { c.fillStyle = '#2A2A3A'; c.beginPath(); c.arc(-L * 0.42, -Hh * 0.35, Hh * 0.22, 0, 7); c.fill(); }
+  if (kind === 4) { c.fillStyle = dk ? 'rgba(255,220,235,0.25)' : 'rgba(255,240,245,0.6)'; [[-L * 0.1, -Hh * 0.3], [-L * 0.4, Hh * 0.05], [L * 0.15, Hh * 0.1]].forEach(function (q) { c.beginPath(); c.arc(q[0], q[1], Hh * 0.13, 0, 7); c.fill(); }); }
+  c.restore();
+  c.fillStyle = fin; c.globalAlpha *= 0.85; c.save(); c.translate(L * 0.18, Hh * 0.28); c.rotate(0.6 + Math.sin(t * 5 + ph) * 0.35); c.beginPath(); c.ellipse(-L * 0.12, 0, L * 0.16, Hh * 0.18, 0, 0, 7); c.fill(); c.restore(); c.globalAlpha /= 0.85;
+  c.fillStyle = dk ? '#E6F2FF' : '#FFFFFF'; c.beginPath(); c.arc(L * 0.6, -Hh * 0.18, Hh * 0.28, 0, 7); c.fill(); c.fillStyle = n3_INK; c.beginPath(); c.arc(L * 0.64, -Hh * 0.17, Hh * 0.17, 0, 7); c.fill();
+  c.fillStyle = '#FFFFFF'; c.beginPath(); c.arc(L * 0.58, -Hh * 0.26, Hh * 0.07, 0, 7); c.fill();
   c.restore(); }
 var n3_FISH = [['#3E7FE0', '#F2D24A', 10, 5.5], ['#FF8A3A', '#FF8A3A', 9, 5], ['#D2DEEA', '#AFC4D8', 9, 2.4], ['#F7D23A', '#F7D23A', 7.5, 6], ['#F27BA0', '#C9579A', 8, 4.5]];
 ENGINES.aquarium = function (A, v, dk) {
   var W = v.bw, H = v.bh, ph = !v.desk, T0 = -99, i, j, vx = A.vp[0], vy = A.vp[1], Tn = A.tun;
   var bubG = n3_rg(dk ? 'rgba(160,220,255,0.5)' : 'rgba(255,255,255,0.8)', [0.6, dk ? 0.15 : 0.3]), jellyG = [n3_rg('rgba(255,120,220,0.7)', [0.35, 0.3]), n3_rg('rgba(110,240,255,0.7)', [0.35, 0.3]), n3_rg('rgba(180,140,255,0.7)', [0.35, 0.3])], shadeG = n3_rg('rgba(0,20,40,0.5)', [0.5, 0.35]);
   var fs = ph ? 1.05 : 1.6, benchP = new Path2D(A.benches || '');
-  var schools = [], kinds = dk ? [2, 0, 3] : [0, 2, 1, 3, 4];
-  kinds.forEach(function (kd, k) { var n = kd === 2 ? (ph ? 12 : 22) : (ph ? 5 : 9), sc = {kind: kd, sp: 0.06 + hash(k + 3) * 0.05, p1: hash(k) * 6.28, p2: hash(k + 7) * 6.28, yc: H * (0.14 + 0.08 * (k % 3)), yA: H * (0.06 + 0.05 * hash(k + 11)), m: []};
-    for (j = 0; j < n; j++) sc.m.push({lag: j * (kd === 2 ? 0.55 : 0.9) + hash(j + k * 13) * 0.4, dx: (hash(j * 3 + k) - 0.5) * 30, dy: (hash(j * 5 + k + 1) - 0.5) * (kd === 2 ? 26 : 34), ph: hash(j + 40) * 6.28, s: fs * (kd === 2 ? 0.95 : 1.25) * (0.8 + hash(j + 9) * 0.4)});
+  // fish swim outside the glass, around the tunnel: a point at angle th on the tunnel's cross-section at depth m (k > 1 = just outside the glass)
+  function tun(th, m, k) { return [vx + Math.cos(th) * Tn.a0 * m * k, vy + Math.sin(th) * Tn.R0 * m * k]; }
+  var schools = [], kinds = dk ? [2, 0, 3] : [0, 2, 1, 3, 4], mList = (ph ? [1.8, 2.6, 3.3, 2.2, 2.9] : [1.4, 2.0, 2.5, 1.7, 2.25]), along = -1;
+  kinds.forEach(function (kd, k) { if (kd === 2 && along < 0) along = k;
+    var n = kd === 2 ? (ph ? 12 : 22) : (ph ? 5 : 9), sc = {kind: kd, along: along === k, dir: k % 2 ? -1 : 1, sp: 0.06 + hash(k + 3) * 0.05, p1: hash(k) * 6.28, p2: hash(k + 7) * 6.28, m0: mList[k % mList.length], m: []};
+    for (j = 0; j < n; j++) sc.m.push({lag: j * (kd === 2 ? 0.55 : 0.9) + hash(j + k * 13) * 0.4, dth: (hash(j * 3 + k) - 0.5) * (kd === 2 ? 0.1 : 0.14), dk: (hash(j * 5 + k + 1) - 0.5) * (kd === 2 ? 0.1 : 0.14), dm: (hash(j * 7 + k + 2) - 0.5) * 0.08, ph: hash(j + 40) * 6.28, s: fs * (kd === 2 ? 0.95 : 1.25) * (0.8 + hash(j + 9) * 0.4)});
     schools.push(sc); });
-  function lead(sc, t) { return [vx + W * 0.5 * Math.sin(t * sc.sp + sc.p1) + W * 0.06 * Math.sin(t * sc.sp * 3.1 + sc.p2), sc.yc + sc.yA * Math.sin(t * sc.sp * 2 + sc.p2)]; }
+  // arc schools sweep over the crown from one side of the tunnel to the other and back; the silver school streams along the top toward the viewer
+  function lead(sc, t) {
+    if (sc.along) { var fr = (t * sc.sp * 0.55 + sc.p1) % 1; if (fr < 0) fr += 1; return {th: Math.PI * 1.5 + 0.55 * Math.sin(t * sc.sp * 1.3 + sc.p2), m: 1.15 * Math.pow(ph ? 4 : 3, fr), fr: fr}; }
+    var fa = (t * sc.sp * 0.33 + sc.p1) % 1; if (fa < 0) fa += 1; var u = sc.dir > 0 ? fa : 1 - fa;
+    return {th: Math.PI + 0.36 + (Math.PI - 0.72) * u, m: sc.m0 * (1 + 0.06 * Math.sin(t * sc.sp * 2.3 + sc.p2)), fr: fa}; }
+  function fishAt(sc, F, tl, tt) { var L = lead(sc, tl), m = L.m * (1 + F.dm), p = tun(L.th + F.dth, m, 1.16 + F.dk); return {x: p[0] + Math.sin(tt * 1.3 + F.ph) * 2.5 * m / 2, y: p[1] + Math.sin(tt * 1.7 + F.ph) * 2 * m / 2, m: m, fr: L.fr}; }
   var bubbles = [], manta = null, nextManta = 7;
-  var jellies = []; if (dk) for (i = 0; i < (ph ? 4 : 7); i++) jellies.push({x: W * (0.08 + 0.84 * hash(i + 2)), y: H * (0.08 + 0.4 * hash(i + 5)), s: (ph ? 0.8 : 1.2) * (0.7 + hash(i + 8) * 0.6), ph: hash(i + 3) * 6.28, k: i % 3});
+  var jellies = []; if (dk) for (i = 0; i < (ph ? 4 : 7); i++) jellies.push({th: Math.PI * 1.5 + (Math.PI / 2 - 0.4) * (hash(i + 2) * 2 - 1), m: (ph ? 1.6 : 1.3) + hash(i + 5) * (ph ? 1.8 : 1.4), s: (ph ? 0.8 : 1.2) * (0.7 + hash(i + 8) * 0.6), ph: hash(i + 3) * 6.28, k: i % 3});
   var caus = []; for (i = 0; i < (ph ? 26 : 44); i++) caus.push({u: Math.random(), v: Math.random(), ph: Math.random() * 6.28, r: 0.4 + Math.random() * 0.6});
   function floorPt(u, vv) { var m = Math.pow(12, vv), x = (u * 2 - 1) * Tn.af * 0.95; return [vx + x * m, vy + Tn.fB * m, m]; }
   function shark(c, x, y, L, t) { var und = Math.sin(t * 1.4) * 0.06, tail = Math.sin(t * 1.4 + 1) * L * 0.08;
@@ -19870,16 +19955,18 @@ ENGINES.aquarium = function (A, v, dk) {
     draw: function (ca, cb, t, f) {
       var tt = t * f.s, T = t - T0, Sk = n3_env(T, 0, 0.01, 11.5, 11.6) > 0 ? (T / 11.5) : -1, ring = n3_env(T, 0.8, 2.4, 9.5, 11.5);
       var Lsh = W * (ph ? 0.95 : 0.52), sx = -Lsh * 0.65 + (W + Lsh * 1.3) * Math.max(0, Sk), sy = H * (ph ? 0.2 : 0.24) + Math.sin(tt * 0.5) * 8;
-      jellies.forEach(function (J, k) { var pu = 0.5 + 0.5 * Math.sin(tt * 1.6 + J.ph), x = J.x + Math.sin(tt * 0.12 + J.ph) * 30, y = J.y - ((tt * 4 + J.ph * 40) % (H * 0.6)) * 0 + Math.sin(tt * 0.3 + J.ph) * 20, s = J.s, col = ['rgba(255,150,225,', 'rgba(120,240,255,', 'rgba(190,160,255,'][J.k];
+      jellies.forEach(function (J, k) { var pu = 0.5 + 0.5 * Math.sin(tt * 1.6 + J.ph), jp = tun(J.th + 0.1 * Math.sin(tt * 0.05 + J.ph), J.m, 1.3 + 0.05 * Math.sin(tt * 0.2 + J.ph)), x = jp[0], y = jp[1] + Math.sin(tt * 0.3 + J.ph) * 8 * J.m / 2, s = J.s * Math.max(0.55, Math.min(1.6, J.m / 2)), col = ['rgba(255,150,225,', 'rgba(120,240,255,', 'rgba(190,160,255,'][J.k];
         ca.save(); ca.globalCompositeOperation = 'lighter'; n3_dot(ca, jellyG[J.k], x, y, 34 * s, 0.6 + 0.3 * pu); ca.restore();
         ca.strokeStyle = col + '0.5)'; ca.lineWidth = 1.2; for (var q = 0; q < 5; q++) { ca.beginPath(); ca.moveTo(x - 8 * s + q * 4 * s, y + 4 * s); for (var z = 1; z <= 6; z++) ca.lineTo(x - 8 * s + q * 4 * s + Math.sin(tt * 2 + z * 0.8 + q) * 3 * s, y + 4 * s + z * 6 * s * (1.1 - pu * 0.2)); ca.stroke(); }
         ca.fillStyle = col + '0.75)'; ca.beginPath(); ca.ellipse(x, y + 2 * s, (12 + pu * 2) * s, (11 - pu * 2) * s, 0, Math.PI, 0); ca.quadraticCurveTo(x, y + 7 * s, x - (12 + pu * 2) * s, y + 2 * s); ca.fill();
         ca.fillStyle = 'rgba(255,255,255,0.5)'; ca.beginPath(); ca.ellipse(x - 4 * s, y - 4 * s, 3 * s, 2 * s, -0.5, 0, 7); ca.fill(); n3_eyes(ca, x, y - 1 * s, 3.2 * s, 1.1 * s, n3_blinkAt(tt, k), false); });
       if (manta) { var mu = (t - manta.t0) / manta.d, mx2 = manta.dir > 0 ? -120 + (W + 240) * mu : W + 120 - (W + 240) * mu; ca.save(); if (manta.dir < 0) { ca.translate(mx2, 0); ca.scale(-1, 1); ca.translate(-mx2, 0); } mantaDraw(ca, mx2, manta.y + Math.sin(mu * 6) * 14, ph ? 0.9 : 1.5, tt); ca.restore(); }
       if (Sk >= 0) shark(ca, sx, sy, Lsh, tt);
-      schools.forEach(function (sc, k) { sc.m.forEach(function (F, q) { var tl = tt - F.lag, p = lead(sc, tl), p2 = lead(sc, tl - 0.05), x = p[0] + F.dx + Math.sin(tt * 1.3 + F.ph) * 5, y = p[1] + F.dy + Math.sin(tt * 1.7 + F.ph) * 4, ang = Math.atan2(p[1] - p2[1], p[0] - p2[0]);
+      // fish are outside the glass: a touch dimmer the farther down the tunnel they are, and they turn to follow the arch
+      schools.forEach(function (sc, k) { sc.m.forEach(function (F, q) { var tl = tt - F.lag, P0 = fishAt(sc, F, tl, tt), P1 = fishAt(sc, F, tl - 0.08, tt - 0.08), x = P0.x, y = P0.y, ang = Math.atan2((P0.y - P1.y) * 0.8, P0.x - P1.x), fade = sc.along ? Math.min(1, P0.fr / 0.08) : Math.min(1, P0.fr / 0.09, (1 - P0.fr) / 0.09), sz = F.s * Math.max(0.45, Math.min(2.4, P0.m / 2.1));
+        if (P1.fr > P0.fr) fade = 0;
         if (ring > 0) { var th = q / sc.m.length * 6.283 + tt * (0.7 + k * 0.1) * (k % 2 ? -1 : 1), rr = Lsh * (0.36 + k * 0.06), rx = sx + Math.cos(th) * rr, ry = sy + Math.sin(th) * rr * 0.42, ra = th + (k % 2 ? -1 : 1) * Math.PI / 2; x = x + (rx - x) * ring; y = y + (ry - y) * ring; if (ring > 0.5) ang = ra; }
-        n3_fish(ca, x, y, ang, F.s, sc.kind, dk, tt, F.ph); }); });
+        if (fade <= 0.01) return; ca.globalAlpha = fade * (0.72 + 0.26 * Math.min(1, (P0.m - 1) / 2.4)); n3_fish(ca, x, y, ang, ring > 0.5 ? F.s : sz, sc.kind, dk, tt, F.ph); }); }); ca.globalAlpha = 1;
       bubbles.forEach(function (b) { var x = b.x + Math.sin(tt * 3 + b.ph + b.y * 0.03) * 3; n3_dot(ca, bubG, x, b.y, b.r, 0.9); ca.strokeStyle = dk ? 'rgba(180,230,255,0.5)' : 'rgba(255,255,255,0.8)'; ca.lineWidth = 0.8; ca.beginPath(); ca.arc(x, b.y, b.r, 0, 7); ca.stroke(); });
       cb.save(); var fl = A.floor; cb.beginPath(); cb.moveTo(fl[0][0], fl[0][1]); for (i = 1; i < 4; i++) cb.lineTo(fl[i][0], fl[i][1]); cb.closePath(); cb.clip();
       cb.globalCompositeOperation = 'lighter'; cb.strokeStyle = dk ? 'rgba(90,190,255,0.13)' : 'rgba(200,250,255,0.17)';
