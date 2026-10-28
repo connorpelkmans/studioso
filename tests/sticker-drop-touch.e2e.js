@@ -17,7 +17,9 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {},
     const cdp = await ctx.newCDPSession(page);
     const touch = (type, x, y) => cdp.send("Input.dispatchTouchEvent", {type, touchPoints: type === "touchEnd" ? [] : [{x, y}]});
     const stickers = id => page.evaluate(id => (JSON.parse(localStorage.getItem("coursework:v2")).notes.find(x => x.id === id).stickers || []).length, id);
+    const envOpen = () => page.evaluate(() => !!document.querySelector(".env:not(.closed)"));
     for (const id of ["n1", "n2", "n3"]) {
+      if (!(await envOpen())) { await page.click(".env-head"); await page.waitForSelector(".env:not(.closed) [data-stk-src]"); await page.waitForTimeout(300); }
       const s = await page.locator(".env-sheet [data-stk-src]").nth(1).boundingBox();
       const t = await page.evaluate(id => { const q = document.querySelector(`.nb-board .note[data-note="${id}"]`).getBoundingClientRect(); return {x: q.left + q.width / 2, y: q.top + q.height / 2}; }, id);
       const x0 = s.x + s.width / 2, y0 = s.y + s.height / 2;
@@ -25,6 +27,7 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {},
       for (let i = 1; i <= 12; i++) { await touch("touchMove", x0 + (t.x - x0) * i / 12, y0 + (t.y - y0) * i / 12); await page.waitForTimeout(16); }
       await touch("touchEnd"); await page.waitForTimeout(400);
       ok(await stickers(id) === 1, `a sticker dragged by finger onto ${id} sticks to it`);
+      ok(!(await envOpen()), `and the sticker envelope stays closed after the drop`);
     }
     ok(!errs.length, "no page errors: " + errs.join(" | "));
     await ctx.close();
