@@ -1120,7 +1120,7 @@ function b3_cup2(L, x, y, u, C) {
   var R = [], Lf = [], i, N = 16, top = y - 52 * u, bot = y - 5 * u;
   for (i = 0; i <= N; i++) { var t = i / N, yy = top + t * (bot - top), hw = u * 31 * (1 - 0.3 * Math.pow(t, 2.4)); R.push([x + hw, yy]); Lf.unshift([x - hw, yy]); }
   var body = b2_polyA(R.concat(Lf)), ha = [], hb = [];
-  for (i = 0; i <= 12; i++) { var a = -1.3 + i / 12 * 2.6; ha.push([x + 26 * u + Math.cos(a) * 15 * u, top + 20 * u + Math.sin(a) * 13 * u]); hb.unshift([x + 26 * u + Math.cos(a) * 9 * u, top + 20 * u + Math.sin(a) * 7.5 * u]); }
+  for (i = 0; i <= 16; i++) { var a = -1.8 + i / 16 * 3.6; ha.push([x + 27 * u + Math.cos(a) * 15 * u, top + 20 * u + Math.sin(a) * 13 * u]); hb.unshift([x + 27 * u + Math.cos(a) * 9 * u, top + 20 * u + Math.sin(a) * 7.5 * u]); } // both ends tuck into the cup body
   add(L, 'j', b2_ellA(x + 9 * u, y + 2.5 * u, 52 * u, 8.5 * u), C.shadow);
   add(L, 'k', b2_ellA(x + 2 * u, y + 0.8 * u, 47 * u, 8.6 * u), C.under);
   add(L, 'l', b2_ellA(x + 2 * u, y - 1.8 * u, 48 * u, 8.8 * u) + body + b2_ellA(x, bot, 19 * u, 4 * u) + b2_polyA(ha.concat(hb)) + b2_ellA(x, top, 31 * u, 7 * u), C.cup);
