@@ -355,14 +355,76 @@ SCENES.arctic = function (W, H, dk, rnd) {
   var pn = '', pn2 = '', pines = [], groups = ph ? [[0.02, 5, 1.3], [0.97, 3, 1.1]] : [[0.03, 6, 1.5], [0.97, 4, 1.3], [0.62, 3, 0.8]];
   groups.forEach(function (g) { for (var i = 0; i < g[1]; i++) { var x = W * g[0] + (i - g[1] / 2) * 26 * g[2] + (rnd() - 0.5) * 12, h = (70 + rnd() * 60) * g[2] * (ph ? 0.8 : 1), yb = sy + 10 + rnd() * 24; pines.push([x, yb, h]); if (i % 2) pn += b1_pine(x, yb, h); else pn2 += b1_pine(x, yb, h); } });
   add(near, 'c', pn, dk ? '#0B1A24' : '#3E6A64'); add(near, 'd', pn2, dk ? '#10222E' : '#4F7C72');
-  var cx = W * (ph ? 0.64 : 0.78), cy = sy + 18, cw = ph ? 54 : 70, chh = cw * 0.55;
-  add(near, 'e', rect(cx - cw / 2, cy - chh, cw, chh) + rect(cx + cw * 0.18, cy - chh * 2.1, cw * 0.12, chh * 0.8), dk ? '#3A2A2E' : '#9A5A48');
-  add(near, 'f', poly([[cx - cw * 0.62, cy - chh + 2], [cx, cy - chh * 1.9], [cx + cw * 0.62, cy - chh + 2], [cx + cw * 0.62, cy - chh + 8], [cx - cw * 0.62, cy - chh + 8]]), dk ? '#C9D8EA' : '#FFFFFF');
-  add(near, 'g', rect(cx - cw * 0.3, cy - chh * 0.7, cw * 0.2, chh * 0.4) + rect(cx + cw * 0.08, cy - chh * 0.7, cw * 0.2, chh * 0.4), dk ? '#FFD27F' : '#F6E7C0');
+  var cx = W * (ph ? 0.64 : 0.78), cy = sy + 18, cw = ph ? 54 : 70, chh = cw * 0.55, u = cw / 70, things = [];
+  // cabin: log walls with seams and round log ends, a front gable, a dark eave under thick snow, a stone chimney, framed windows, a door
+  var wl = cx - cw / 2, wr = cx + cw / 2, wt = cy - chh, ry = cy - chh * 1.95, eL = [cx - cw * 0.68, wt + 3], eR = [cx + cw * 0.68, wt + 3], eA = [cx, ry];
+  var win = [[cx - cw * 0.3, cy - chh * 0.7, cw * 0.2, chh * 0.4], [cx + cw * 0.08, cy - chh * 0.7, cw * 0.2, chh * 0.4]], door = [cx + cw * 0.31, cy - chh * 0.72, cw * 0.15, chh * 0.72];
+  var seams = '', ends = '', frames = '', dark = '', stone = '', stoneD = '', snow = '', shade = '', glass = '';
+  function gapSeg(y, h) { var xs = [wl], cuts = win.concat([door]).filter(function (r) { return y + h > r[1] - 1.5 && y < r[1] + r[3] + 1.5; }).map(function (r) { return [r[0] - 1.5, r[0] + r[2] + 1.5]; }).sort(function (a, b) { return a[0] - b[0]; }), x = wl, d = '';
+    cuts.forEach(function (c) { if (c[0] > x) d += rect(x, y, c[0] - x, h); x = Math.max(x, c[1]); }); if (wr > x) d += rect(x, y, wr - x, h); return d; }
+  for (var lg = 1; lg < 6; lg++) seams += gapSeg(wt + chh * lg / 6 - 0.6, 1.2);
+  for (lg = 0; lg < 6; lg++) { var ly = wt + chh * (lg + 0.5) / 6; ends += b2_ellA(wl - 0.5, ly, chh / 12 + 0.6, chh / 12) + b2_ellA(wr + 0.5, ly, chh / 12 + 0.6, chh / 12); }
+  var gable = b2_polyA([[wl + 2, wt + 0.5], [cx, ry + 3], [wr - 2, wt + 0.5]]);
+  for (lg = 1; lg < 3; lg++) { var gy = wt - (wt - ry) * lg / 3.2, gw = (cw / 2 - 2) * (1 - lg / 3.2); seams += rect(cx - gw, gy, gw * 2, 1.1); }
+  win.forEach(function (r) { var b = 1.6 * u + 0.6; frames += rect(r[0] - b, r[1] - b, r[2] + 2 * b, b) + rect(r[0] - b, r[1] + r[3], r[2] + 2 * b, b * 1.4) + rect(r[0] - b, r[1], b, r[3]) + rect(r[0] + r[2], r[1], b, r[3]) + rect(r[0] + r[2] / 2 - 0.6, r[1], 1.2, r[3]) + rect(r[0], r[1] + r[3] / 2 - 0.6, r[2], 1.2);
+    snow += b2_ellA(r[0] + r[2] / 2, r[1] + r[3] + b * 1.2, r[2] / 2 + b * 0.6, 0.9 * u + 0.3); });
+  var aw = cw * 0.1, ah = chh * 0.24, ax = cx - aw / 2, ay = wt - (wt - ry) * 0.42 - ah / 2; glass += rect(ax, ay, aw, ah); frames += rect(ax - 1.4, ay - 1.4, aw + 2.8, 1.4) + rect(ax - 1.4, ay + ah, aw + 2.8, 1.4) + rect(ax - 1.4, ay, 1.4, ah) + rect(ax + aw, ay, 1.4, ah);
+  frames += rect(door[0] - 1.4, door[1] - 1.4, door[2] + 2.8, door[3] + 1.4) + rect(door[0] - 4 * u, cy - 2, door[2] + 8 * u, 3);
+  dark += rrect(door[0], door[1], door[2], door[3], 1.2);
+  seams += rect(door[0] + door[2] * 0.33, door[1] + 1, 0.9, door[3] - 1) + rect(door[0] + door[2] * 0.66, door[1] + 1, 0.9, door[3] - 1);
+  var eave = b2_polyA([eL, eA, eR, [eR[0], eR[1] + 4 * u], [cx, ry + 5 * u], [eL[0], eL[1] + 4 * u]]);
+  dark += eave;
+  var chx = cx + cw * 0.18, chw = cw * 0.12, cht = cy - chh * 2.1;
+  function roofY(x) { return ry + (x - cx) / (cw * 0.68) * (wt + 3 - ry) - 3 * u; }
+  stone += b2_polyA([[chx, cht], [chx + chw, cht], [chx + chw, roofY(chx + chw)], [chx, roofY(chx)]]); stoneD += rect(chx - 1.2, cht - 2, chw + 2.4, 2.6) + rect(chx, cht + chh * 0.25, chw * 0.55, 1) + rect(chx + chw * 0.4, cht + chh * 0.45, chw * 0.6, 1);
+  snow += b2_ellA(chx + chw / 2, cht - 2.2, chw / 2 + 1.6, 1.8);
+  snow += b2_polyA([[eL[0] - 2.5 * u, eL[1] + 1], [eL[0] - 1.5 * u, eL[1] - 3.5 * u], [cx, ry - 6 * u], [eR[0] + 1.5 * u, eR[1] - 3.5 * u], [eR[0] + 2.5 * u, eR[1] + 1], [eR[0] - 2, eR[1] - 0.5], [cx, ry + 0.5], [eL[0] + 2, eL[1] - 0.5]]);
+  [0.15, 0.4, 0.62, 0.85].forEach(function (f, i) { [eL, eR].forEach(function (e, j) { var x = lerp(e[0], cx, f), y = lerp(e[1], ry, f) + 1; snow += b2_ellA(x, y + 1.2 * u, 2 * u + 0.4, (1.4 + (i % 2) * 0.8) * u + 0.4); }); });
+  for (var dx = wl - 6 * u; dx < wr + 6 * u; dx += 7 * u) snow += b2_ellA(dx + 3.5 * u, cy + 1, 5 * u, (2.2 + Math.abs(Math.sin(dx)) * 1.4) * u);
+  // woodpile under a little snow by the left wall, and a lantern by the door
+  var wpx = wl - 16 * u, wpr = 2.7 * u;
+  for (var row = 0; row < 3; row++) for (var q = 0; q < 4 - row; q++) { var lx = wpx + (q - (3 - row) / 2) * wpr * 2.05, lyy = cy - wpr - row * wpr * 1.8; ends += b2_ellA(lx, lyy, wpr, wpr); dark += b2_ellA(lx, lyy, wpr * 0.32, wpr * 0.32); }
+  snow += b2_ellA(wpx, cy - wpr * 5.7, wpr * 3.4, wpr * 0.8);
+  var lnx = door[0] + door[2] + 4 * u, lny = door[1] + door[3] * 0.3; dark += rect(lnx - 2.4 * u, lny - 4.4 * u, 4.8 * u, 1.4 * u) + rect(lnx - 2 * u, lny + 3 * u, 4 * u, 1.2 * u); glass += rect(lnx - 1.6 * u, lny - 3 * u, 3.2 * u, 6 * u);
+  things.push([wpx - 12 * u, cy - 20 * u, wpx + 12 * u, cy + 3]);
+  // foreground: a little dock running into the lake, snowy rocks, snow-capped shrubs and footprints from the door
+  var dkx = W * (ph ? 0.24 : 0.4), dB = sy + 6, dT = sy - (ph ? 16 : 22), dwB = ph ? 40 : 58, dwT = dwB * 0.7, planks = '', posts = '';
+  for (var pk = 0; pk < 11; pk++) { var y0 = lerp(dB, dT, pk / 11), y1 = lerp(dB, dT, (pk + 0.78) / 11), w0 = lerp(dwB, dwT, pk / 11) / 2, w1 = lerp(dwB, dwT, (pk + 0.78) / 11) / 2; planks += b2_polyA([[dkx - w0, y0], [dkx + w0, y0], [dkx + w1, y1], [dkx - w1, y1]]); }
+  [[-1, dT, dwT], [1, dT, dwT], [-1, lerp(dB, dT, 0.5), lerp(dwB, dwT, 0.5)], [1, lerp(dB, dT, 0.5), lerp(dwB, dwT, 0.5)]].forEach(function (pp) { var px = dkx + pp[0] * (pp[2] / 2 + 1.5), pw = 3.2 * (pp[2] / dwB) + 1; posts += rect(px - pw / 2, pp[1] - pw * 2.4, pw, pw * 2.4 + 6 * pp[2] / dwB); snow += b2_ellA(px, pp[1] - pw * 2.4, pw * 0.75, pw * 0.4); });
+  frames += planks; dark += posts;
+  snow += b2_ellA(dkx - dwB * 0.12, lerp(dB, dT, 0.25), dwB * 0.2, 2) + b2_ellA(dkx + dwB * 0.15, lerp(dB, dT, 0.62), dwT * 0.2, 1.6);
+  add(refl, 'g', rect(dkx - dwT / 2 - 3, dT, dwT + 6, ph ? 10 : 14), dk ? 'rgba(6,14,24,0.35)' : 'rgba(90,110,140,0.22)');
+  things.push([dkx - dwB / 2 - 4, dT - 12, dkx + dwB / 2 + 4, dB + 4]);
+  (ph ? [[0.08, 0.9, 20], [0.42, 0.96, 28], [0.86, 0.91, 18]] : [[0.24, 0.89, 34], [0.3, 0.93, 22], [0.55, 0.94, 40], [0.9, 0.96, 28]]).forEach(function (r, i) { var x = W * r[0], y = H * r[1], R = r[2], pts = [];
+    for (var k2 = 0; k2 < 9; k2++) { var a = Math.PI + k2 / 8 * Math.PI, rr = R * (0.85 + 0.25 * Math.sin(k2 * 2.3 + i)); pts.push([x + Math.cos(a) * rr * 1.2, y + Math.sin(a) * rr * 1.0]); }
+    stone += b2_polyA(pts); stoneD += b2_polyA([[x - R * 0.2, y], [x + R * 0.15, y - R * 0.45], [x + R * 0.6, y - R * 0.7], [x + R * 1.05, y - R * 0.45], [x + R * 1.22, y]]);
+    snow += b2_polyA([[x - R * 1.0, y - R * 0.38], [x - R * 0.7, y - R * 0.72], [x - R * 0.1, y - R * 0.92], [x + R * 0.6, y - R * 0.74], [x + R * 1.05, y - R * 0.36], [x + R * 0.55, y - R * 0.48], [x + R * 0.1, y - R * 0.42], [x - R * 0.45, y - R * 0.5]]);
+    shade += b2_ellA(x + R * 0.5, y + 1, R * 1.5, R * 0.18); things.push([x - R * 1.4, y - R, x + R * 2, y + 4]); });
+  var shr = '';
+  (ph ? [[0.22, 0.87, 16], [0.7, 0.92, 18]] : [[0.17, 0.91, 24], [0.47, 0.885, 18], [0.66, 0.92, 22]]).forEach(function (b, i) { var x = W * b[0], y = H * b[1], R = b[2];
+    shr += b2_ellA(x, y - R * 0.45, R, R * 0.6) + b2_ellA(x - R * 0.8, y - R * 0.25, R * 0.6, R * 0.4) + b2_ellA(x + R * 0.85, y - R * 0.3, R * 0.65, R * 0.45);
+    snow += b2_ellA(x - R * 0.1, y - R * 0.9, R * 0.75, R * 0.28) + b2_ellA(x + R * 0.8, y - R * 0.62, R * 0.4, R * 0.16) + b2_ellA(x - R * 0.85, y - R * 0.55, R * 0.35, R * 0.14);
+    shade += b2_ellA(x + R * 0.4, y + 1, R * 1.4, R * 0.16); things.push([x - R * 1.5, y - R * 1.2, x + R * 1.6, y + 3]); });
+  for (var fp = 0; fp < 30; fp++) { var tt = fp / 29, fx = lerp(door[0] + door[2] / 2, cx - W * (ph ? 0.12 : 0.18), tt) + Math.sin(tt * 3.2) * 18, fy = lerp(cy + 3, H + 6, Math.pow(tt, 1.25)), fs = 0.8 + tt * 1.6, side = fp % 2 ? 1 : -1;
+    shade += rotEll(fx + side * 2.2 * fs, fy, 1.1 * fs, 2.2 * fs * 0.5, 0); }
+  // soft shading under the crest of the front drift
+  shade += b2_polyA(sh2.map(function (p) { return [p[0], p[1] + 1]; }).concat(sh2.slice().reverse().map(function (p) { return [p[0], p[1] + 9]; })));
+  add(near, 'd', shr, dk ? '#10222E' : '#4F7C72');
+  add(near, 'e', rect(wl, wt, cw, chh) + gable, dk ? '#3A2A2E' : '#9A5A48');
+  add(near, 'f', shade, dk ? 'rgba(4,10,22,0.35)' : 'rgba(110,140,190,0.22)');
+  add(near, 'g', win.map(function (r) { return rect(r[0], r[1], r[2], r[3]); }).join(''), dk ? '#FFD27F' : '#F6E7C0');
+  add(near, 'i', seams, dk ? '#24181C' : '#6E3C2E');
+  add(near, 'j', ends + frames, dk ? '#5E4640' : '#C99068');
+  add(near, 'k', dark, dk ? '#1E1418' : '#4E3028');
+  add(near, 'l', stone, dk ? '#46506A' : '#8F96A6');
+  add(near, 'm', stoneD, dk ? '#2C3448' : '#6C7486');
+  add(near, 'n', snow, dk ? '#C9D8EA' : '#FFFFFF');
+  add(near, 'p', glass, dk ? '#FFE6A0' : '#F8DFA0');
+  if (dk) add(far, 'h', circ(lnx, lny, 26), 'rgba(255,200,120,0.4)');
   if (dk) { add(far, 'f', circ(cx, cy - chh * 0.5, 50), 'rgba(255,200,120,0.5)'); add(far, 'g', ell(cx, cy + 12, 60, 12), 'rgba(255,200,120,0.35)'); }
   var smk = '', sx0 = cx + cw * 0.24, sy0 = cy - chh * 2.1; for (var k = 0; k < 2; k++) { var pts = []; for (var t = 0; t <= 1; t += 0.05) pts.push([sx0 + k * 4 + Math.sin(t * 7 + k) * 6 * (0.4 + t) + t * 20, sy0 - t * (ph ? 60 : 80)]); smk += pline(pts); }
   if (ANIM) ANIM.cabin = {x: cx, y: cy, w: cw, h: chh, sx: sx0, sy: sy0, sh: ph ? 60 : 80}; else stk(near, 's', smk, dk ? 'rgba(200,215,235,0.3)' : 'rgba(255,255,255,0.8)', 3.5);
-  function onThing(x, y) { if (Math.abs(x - cx) < cw * 0.62 + 3 && y > cy - chh * 2.2 && y < cy + 3) return true;
+  function onThing(x, y) { if (Math.abs(x - cx) < cw * 0.62 + 3 && y > cy - chh * 2.2 && y < cy + 3) return true; if (things.some(function (b) { return x > b[0] && x < b[2] && y > b[1] && y < b[3]; })) return true;
     return pines.some(function (p) { var top = p[1] - p[2] * 0.96; return y < p[1] + 3 && y > top && Math.abs(x - p[0]) < p[2] * 0.36 * (y - top) / (p[1] - top) + 3; }); }
   var gl = ''; spread(0, sy + 10, W, H - sy - 10, 60, 40, rnd, 1).forEach(function (c) { if (c.q < 0.35 && !onThing(c.x, c.y)) gl += circ(c.x, c.y, 0.9 + c.r); });
 
@@ -1051,6 +1113,26 @@ function b3_cup(L, x, y, u, cupC, cofC, latC) {
   add(L, 'd', ell(x, yt + 0.5 * u, 26.5 * u, 5.2 * u), cofC);
   add(L, 'e', ell(x - 4 * u, yt - 0.6 * u, 5 * u, 2.2 * u) + ell(x + 4 * u, yt - 0.6 * u, 5 * u, 2.2 * u) + poly([[x - 8.8 * u, yt], [x + 8.8 * u, yt], [x, yt + 3.6 * u]]), latC);
 }
+// A ring as one polygon (outer loop, then the inner loop backwards, joined by a hairline), so no winding rule can fill its hole
+function b3_annulus(o, i) { return poly(o.concat([o[0]], [i[0]], i.slice(1).reverse(), [i[0]])); }
+// A cup and saucer with shading, a crema ring and latte heart, into slots j..p of a layer
+function b3_cup2(L, x, y, u, C) {
+  var R = [], Lf = [], i, N = 16, top = y - 52 * u, bot = y - 5 * u;
+  for (i = 0; i <= N; i++) { var t = i / N, yy = top + t * (bot - top), hw = u * 31 * (1 - 0.3 * Math.pow(t, 2.4)); R.push([x + hw, yy]); Lf.unshift([x - hw, yy]); }
+  var body = b2_polyA(R.concat(Lf)), ha = [], hb = [];
+  for (i = 0; i <= 12; i++) { var a = -1.3 + i / 12 * 2.6; ha.push([x + 26 * u + Math.cos(a) * 15 * u, top + 20 * u + Math.sin(a) * 13 * u]); hb.unshift([x + 26 * u + Math.cos(a) * 9 * u, top + 20 * u + Math.sin(a) * 7.5 * u]); }
+  add(L, 'j', b2_ellA(x + 9 * u, y + 2.5 * u, 52 * u, 8.5 * u), C.shadow);
+  add(L, 'k', b2_ellA(x + 2 * u, y + 0.8 * u, 47 * u, 8.6 * u), C.under);
+  add(L, 'l', b2_ellA(x + 2 * u, y - 1.8 * u, 48 * u, 8.8 * u) + body + b2_ellA(x, bot, 19 * u, 4 * u) + b2_polyA(ha.concat(hb)) + b2_ellA(x, top, 31 * u, 7 * u), C.cup);
+  var sh = []; for (i = 0; i <= N; i++) sh.push(R[i]); for (i = N; i >= 0; i--) { var q = R[i], k = i / N; sh.push([x + (q[0] - x) * (0.55 + 0.15 * k), q[1]]); }
+  add(L, 'm', b2_polyA(sh) + b2_ellA(x, top + 0.4 * u, 28.8 * u, 6.1 * u) + b2_ellA(x + 2 * u, y - 2.6 * u, 27 * u, 4.4 * u), C.shade);
+  add(L, 'n', b2_ellA(x, top + 1.2 * u, 27 * u, 5.4 * u), C.cof);
+  var ring = [], inner = []; for (i = 0; i < 30; i++) { var a2 = i / 30 * Math.PI * 2; ring.push([x + Math.cos(a2) * 26.4 * u, top + 1.2 * u + Math.sin(a2) * 5.2 * u]); inner.push([x + Math.cos(a2) * 23.6 * u, top + 1.2 * u + Math.sin(a2) * 4.4 * u]); }
+  var heart = []; for (i = 0; i < 36; i++) { var th = i / 36 * Math.PI * 2, hx = 16 * Math.pow(Math.sin(th), 3), hy = -(13 * Math.cos(th) - 5 * Math.cos(2 * th) - 2 * Math.cos(3 * th) - Math.cos(4 * th)); heart.push([x + hx * 0.62 * u, top + 1.6 * u + hy * 0.2 * u]); }
+  add(L, 'o', b3_annulus(ring, inner) + b2_polyA(heart), C.lat);
+  var hl = []; for (i = 2; i <= 12; i++) hl.push(Lf[N - i]); for (i = 12; i >= 2; i--) { var p2 = Lf[N - i]; hl.push([p2[0] + (5 + 3 * Math.sin(i / 12 * Math.PI)) * u, p2[1]]); }
+  add(L, 'p', b2_polyA(hl.map(function (q) { return [q[0] + 4 * u, q[1]]; })) + b2_polyA([[x - 22 * u, top - 5.2 * u], [x - 6 * u, top - 6.9 * u], [x - 6 * u, top - 6.1 * u], [x - 21 * u, top - 4.4 * u]]) + b2_polyA([[x - 38 * u, y - 5.5 * u], [x - 22 * u, y - 8.4 * u], [x - 22 * u, y - 7.4 * u], [x - 36 * u, y - 4.6 * u]]), C.hi);
+}
 SCENES.cafe = function (W, H, dk, rnd) {
   var ph = H > W, u = ph ? 0.8 : 1, ct = H * (ph ? 0.73 : 0.75), cs = 24 * u, cu = ph ? 0.95 : 1.3;
   var far = Lay(6), refl = Lay(12), mid = Lay(1.6), near = Lay(0);
@@ -1087,7 +1169,8 @@ SCENES.cafe = function (W, H, dk, rnd) {
   var cupC = dk ? '#E4D4BE' : '#F8F1E6', cofC = dk ? '#4A2C18' : '#5B3721', latC = dk ? '#D9B48A' : '#E8C9A0', sy = ct + cs * 0.55;
   var cups = ph ? [W * 0.28, W * 0.66] : [W * 0.55, W * 0.72], stm = '', halo = '';
   if (ANIM) { ANIM.cu = cu; ANIM.ph = ph; ANIM.cups = []; ANIM.latC = latC; }
-  cups.forEach(function (cx, i) { b3_cup(near, cx, sy, cu, cupC, cofC, latC);
+  var CC = {cup: cupC, cof: cofC, lat: latC, under: dk ? '#B6A38A' : '#E0D0BA', shade: dk ? 'rgba(70,40,20,0.3)' : 'rgba(120,80,45,0.17)', shadow: dk ? 'rgba(0,0,0,0.32)' : 'rgba(90,55,25,0.2)', hi: dk ? 'rgba(255,245,230,0.4)' : 'rgba(255,255,255,0.85)'};
+  cups.forEach(function (cx, i) { b3_cup2(near, cx, sy, cu, CC);
     var top = sy - 56 * cu, dr = (i % 2 ? 1 : -1) * 20 * cu;
     if (ANIM) { ANIM.cups.push({x: cx, top: top, i: i}); return; }
     stm += b3_wisp(cx - 7 * cu, top, (ph ? 170 : 230) * cu * 0.8, 7 * cu, 16 * cu, 0.4 + i, dr);
@@ -1097,21 +1180,40 @@ SCENES.cafe = function (W, H, dk, rnd) {
   add(mid, 'h', stm, dk ? 'rgba(255,236,214,0.3)' : 'rgba(255,255,255,0.7)');
   add(refl, 'b', halo, dk ? 'rgba(255,230,200,0.12)' : 'rgba(255,255,255,0.45)');
   var ju = ph ? 0.8 : 1.2, jx = ph ? W * 0.9 : W * 0.88, jb = sy + 2, jw = 84 * ju, jh = 124 * ju, beans = '', crease = '';
-  var jarBeans = spread(jx - jw / 2 + 6, jb - jh * 0.78, jw - 12, jh * 0.76, 15 * ju, 11 * ju, rnd, 0.6);
-  jarBeans.forEach(function (c) { var b = b3_bean(c.x, c.y, 7 * ju, c.r * 180); beans += b.body; crease += b.line; });
-  add(near, 'f', rrect(jx - jw / 2, jb - jh, jw, jh, 16 * ju), dk ? 'rgba(255,230,200,0.12)' : 'rgba(255,255,255,0.3)');
-  add(near, 'g', rrect(jx - jw / 2 + 5, jb - jh - 14 * ju, jw - 10, 17 * ju, 6 * ju), dk ? '#2F4636' : '#3E5E48');
-  add(near, 'h', rrect(jx - jw / 2 + 10 * ju, jb - jh + 14 * ju, 7 * ju, jh * 0.6, 3.5 * ju), dk ? 'rgba(255,238,200,0.35)' : 'rgba(255,255,255,0.7)');
+  // the jar: glass, a dark heap of beans packed in rows up to a mounded top, a green lid, glass edges and highlights
+  var jl = jx - jw / 2 + 5 * ju, jr = jx + jw / 2 - 5 * ju, jf = jb - jh * 0.8, mound = [];
+  for (var mi = 0; mi <= 10; mi++) { var mx2 = lerp(jl, jr, mi / 10); mound.push([mx2, jf - Math.sin(mi / 10 * Math.PI) * 9 * ju + Math.sin(mi * 2.1) * 2 * ju]); }
+  var jarFill = b2_polyA(mound.concat([[jr, jb - 12 * ju], [jr - 8 * ju, jb - 5 * ju], [jl + 8 * ju, jb - 5 * ju], [jl, jb - 12 * ju]]));
+  var br2 = 6.4 * ju, rowH = br2 * 1.4;
+  for (var ry = jb - 9 * ju, rw = 0; ry > jf - 8 * ju; ry -= rowH, rw++) { var off = rw % 2 ? br2 * 0.95 : 0;
+    for (var bx2 = jl + br2 + off; bx2 < jr - br2 * 0.7; bx2 += br2 * 2.15) { var mtop = mound[Math.max(0, Math.min(10, Math.round((bx2 - jl) / (jr - jl) * 10)))][1]; if (ry < mtop + br2 * 0.4) continue;
+      var b = b3_bean(bx2 + (rnd() - 0.5) * 2 * ju, ry + (rnd() - 0.5) * 2 * ju, br2 * (0.92 + rnd() * 0.12), (rw % 2 ? 22 : -22) + (rnd() - 0.5) * 50); beans += b.body; crease += b.line; } }
+  add(near, 'c', jarFill, dk ? '#1E120C' : '#3A2416');
+  add(near, 'f', rrect(jx - jw / 2, jb - jh, jw, jh, 16 * ju) + rect(jx - jw / 2 + 7 * ju, jb - jh - 6 * ju, jw - 14 * ju, 8 * ju), dk ? 'rgba(255,230,200,0.12)' : 'rgba(255,255,255,0.3)');
+  add(near, 'g', rrect(jx - jw / 2 + 4 * ju, jb - jh - 16 * ju, jw - 8 * ju, 15 * ju, 4 * ju) + rrect(jx - jw / 2 + 2 * ju, jb - jh - 5 * ju, jw - 4 * ju, 5 * ju, 2 * ju), dk ? '#2F4636' : '#3E5E48');
+  add(near, 'h', rrect(jx - jw / 2 + 8 * ju, jb - jh + 12 * ju, 5 * ju, jh * 0.62, 2.5 * ju) + rrect(jx - jw / 2 + 15 * ju, jb - jh + 14 * ju, 2 * ju, jh * 0.3, 1 * ju) + rrect(jx + jw / 2 - 11 * ju, jb - jh * 0.42, 3 * ju, jh * 0.26, 1.5 * ju) + rrect(jx - jw / 2 + 8 * ju, jb - jh - 13 * ju, jw - 30 * ju, 2.4 * ju, 1.2 * ju), dk ? 'rgba(255,238,200,0.35)' : 'rgba(255,255,255,0.7)');
+  add(near, 'm', b2_polyA([[jx - jw / 2, jb - jh + 14 * ju], [jx - jw / 2 + 2.4 * ju, jb - jh + 14 * ju], [jx - jw / 2 + 2.4 * ju, jb - 12 * ju], [jx - jw / 2 + 12 * ju, jb - 2.4 * ju], [jx + jw / 2 - 12 * ju, jb - 2.4 * ju], [jx + jw / 2 - 2.4 * ju, jb - 12 * ju], [jx + jw / 2 - 2.4 * ju, jb - jh + 14 * ju], [jx + jw / 2, jb - jh + 14 * ju], [jx + jw / 2, jb - 10 * ju], [jx + jw / 2 - 10 * ju, jb], [jx - jw / 2 + 10 * ju, jb], [jx - jw / 2, jb - 10 * ju]]));
+  add(near, 'j', b2_ellA(jx + 8 * ju, jb + 2 * ju, jw * 0.62, 6 * ju));
   var scat = ph ? [[0.08, 0], [0.13, 6], [0.46, 3], [0.5, 9], [0.83, 8], [0.76, 4]] : [[0.43, 4], [0.46, 10], [0.64, 6], [0.62, 12], [0.8, 3], [0.82, 11], [0.97, 8], [0.36, 8]];
   scat.forEach(function (p) { var bxp = W * p[0], byp = ct + 6 + p[1] * u; if (cups.some(function (cx) { return Math.abs(bxp - cx - 2 * cu) < 48 * cu + 9 * u; }) || Math.abs(bxp - jx) < jw / 2 + 9 * u) return; var b = b3_bean(W * p[0], ct + 6 + p[1] * u, 7.5 * u, rnd() * 180); beans += b.body; crease += b.line; });
   add(near, 'd', beans, cofC); stk(near, 's', crease, dk ? '#7A5436' : '#C79B6C', 1.3);
   var lamps = ph ? [[W * 0.8, H * 0.45]] : [[W * 0.62, H * 0.2], [W * 0.84, H * 0.2]], cords = '', shades = '', bulbs = '';
   lamps.forEach(function (l) { var r = 34 * u; cords += seg(l[0], -10, l[0], l[1] - r * 0.95); shades += 'M' + PT(l[0] - r, l[1]) + ' a' + n1(r) + ' ' + n1(r * 0.85) + ' 0 0 1 ' + n1(2 * r) + ' 0 Z ' + rrect(l[0] - 5 * u, l[1] - r * 0.95, 10 * u, 8 * u, 2); bulbs += ell(l[0], l[1] + 2 * u, r * 0.38, r * 0.2);
     if (dk) { add(refl, 'a', circ(l[0], l[1] + 30, 110 * u), 'rgba(255,190,110,0.3)'); add(far, 'h', circ(l[0], l[1] + 10, 40)); } });
-  add(near, 'g', shades); add(near, 'h', bulbs);
+  // the bulb's glow sits under the shade: shades go in a slot drawn after the bulbs
+  add(near, 'h', bulbs); add(near, 'i', shades, dk ? '#2F4636' : '#3E5E48');
   if (dk) add(refl, 'd', ell(W * 0.65, ct + 4, W * 0.45, 40 * u), 'rgba(255,180,100,0.22)');
-  var st = ''; stools.forEach(function (x) { var y = sty; add(near, 'g', ell(x, y, 60, 15) + rect(x - 60, y, 120, 14) + ell(x, y + 14, 60, 15)); st += 'M' + PT(x - 58, y + 2) + ' a58 13 0 0 0 116 0 ' + seg(x - 40, y + 26, x - 52, H + 10) + seg(x + 40, y + 26, x + 52, H + 10) + seg(x - 46, y + 110, x + 46, y + 110); });
-  stk(near, 't', gr + cords + st, dk ? '#24170F' : '#5E3E26', 2.2);
+  // stools: splayed tapered legs with a footrest ring, a cushioned seat with a darker side, a lighter top and a sheen
+  var legs = '', sside = '', stop = '', shine = '';
+  stools.forEach(function (x) { var y = sty;
+    [[-26, -30, 4.5], [26, 30, 4.5]].forEach(function (l) { legs += b2_polyA([[x + l[0] - 3, y + 16], [x + l[0] + 3, y + 16], [x + l[1] + 2.2, H + 10], [x + l[1] - 2.2, H + 10]]); });
+    [[-42, -56, 6], [42, 56, 6]].forEach(function (l) { legs += b2_polyA([[x + l[0] - l[2] / 2, y + 18], [x + l[0] + l[2] / 2, y + 18], [x + l[1] + l[2] * 0.4, H + 10], [x + l[1] - l[2] * 0.4, H + 10]]); });
+    var ro = [], ri = []; for (var q = 0; q < 32; q++) { var a = q / 32 * Math.PI * 2; ro.push([x + Math.cos(a) * 49, y + 50 + Math.sin(a) * 9]); ri.push([x + Math.cos(a) * 44.5, y + 50 + Math.sin(a) * 6.4]); }
+    legs += b3_annulus(ro, ri);
+    sside += b2_ellA(x, y + 14, 61, 15) + b2_polyA([[x - 61, y], [x + 61, y], [x + 61, y + 14], [x - 61, y + 14]]);
+    stop += b2_ellA(x, y, 61, 15); var sh2 = []; for (var q2 = 0; q2 <= 12; q2++) { var a2 = Math.PI * (1.08 + q2 / 12 * 0.5); sh2.push([x + Math.cos(a2) * 50, y - 1 + Math.sin(a2) * 10.5]); } for (q2 = 12; q2 >= 0; q2--) { a2 = Math.PI * (1.08 + q2 / 12 * 0.5); sh2.push([x + Math.cos(a2) * 46, y + 0.5 + Math.sin(a2) * 8.2]); } shine += b2_polyA(sh2); });
+  add(near, 'c', legs); add(near, 'e', sside, dk ? '#1F3026' : '#2E4636'); add(near, 'g', stop); add(near, 'h', shine);
+  stk(near, 't', gr + cords, dk ? '#24170F' : '#5E3E26', 2.2);
   return b3_out({sky: sky, far: far, refl: refl, mid: mid, near: near});
 };
 
