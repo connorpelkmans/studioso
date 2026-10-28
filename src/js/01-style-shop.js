@@ -1016,11 +1016,25 @@ function noteLocalPoint(noteEl, px, py){
   return {x: Math.round(Math.max(-8, Math.min(108, (lx + w / 2) / w * 100))), yp: Math.round(Math.max(-14, Math.min(h + 14, ly + h / 2)))};
 }
 let sDrag = null, stkClickBlock = 0;
-function stkNoteAt(x, y){ const el = document.elementFromPoint(x, y); return el && el.closest ? el.closest(".nb-board .note") : null; }
+// The note under a screen point. Where something else covers the board (the sticker tray on a phone), the point is tested against the notes themselves
+function stkNoteAt(x, y){
+  const el = document.elementFromPoint(x, y), hit = el && el.closest ? el.closest(".nb-board .note") : null;
+  if (hit) return hit;
+  const sc = document.querySelector(".nb-scroll"); if (sc) { const r = sc.getBoundingClientRect(); if (x < r.left || x > r.right || y < r.top || y > r.bottom) return null; }
+  const zk = nbZ(); let best = null, bz = -1e9;
+  document.querySelectorAll(".nb-board .note").forEach(n => {
+    const r = n.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, w = n.offsetWidth, h = n.offsetHeight;
+    const rot = (parseFloat(n.style.getPropertyValue("--rot")) || 0) * Math.PI / 180, dx = (x - cx) / zk, dy = (y - cy) / zk;
+    const lx = dx * Math.cos(-rot) - dy * Math.sin(-rot), ly = dx * Math.sin(-rot) + dy * Math.cos(-rot);
+    const z = parseInt(getComputedStyle(n).zIndex, 10) || 0;
+    if (Math.abs(lx) <= w / 2 && Math.abs(ly) <= h / 2 && z >= bz) { best = n; bz = z; }
+  });
+  return best;
+}
 function stkEnd(ok, e){
   const d = sDrag; sDrag = null; if (!d) return;
   // Find the note while the tray is still out of the way, before the drag styling comes off
-  const target = ok && d.moved ? stkNoteAt(e.clientX, e.clientY) : null;
+  const target = ok && d.moved ? stkNoteAt(e.clientX, e.clientY) || d.hover : null;
   document.body.classList.remove("stk-dragging");
   $$(".note.stk-target").forEach(n => n.classList.remove("stk-target"));
   if (d.ghost) d.ghost.remove();
@@ -1089,7 +1103,10 @@ document.addEventListener("pointermove", e => {
     if (sDrag.el) sDrag.el.style.opacity = "0";
   }
   sDrag.ghost.style.left = e.clientX + "px"; sDrag.ghost.style.top = e.clientY + "px";
-  const t = stkNoteAt(e.clientX, e.clientY);
+  // Over empty cork near the edge of the board, it scrolls so notes further down or across can be reached
+  const sc = !stkNoteAt(e.clientX, e.clientY) && document.querySelector(".nb-scroll");
+  if (sc) { const r = sc.getBoundingClientRect(); if (e.clientX > r.left && e.clientX < r.right) { if (e.clientY > r.bottom - 60) sc.scrollTop += 10; else if (e.clientY < r.top + 60) sc.scrollTop -= 10; } }
+  const t = stkNoteAt(e.clientX, e.clientY); sDrag.hover = t;
   $$(".note.stk-target").forEach(n => { if (n !== t) n.classList.remove("stk-target"); });
   if (t) t.classList.add("stk-target");
   e.preventDefault(); e.stopPropagation();
