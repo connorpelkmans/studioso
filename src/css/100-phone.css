@@ -27,7 +27,7 @@
   .env:not(.closed) .env-body{overflow:hidden auto}
   .nb-wrap:has(.env:not(.closed)) .nb-main{padding-bottom:min(380px,48dvh)}
   .env{transition:opacity .15s}
-  body.stk-dragging .env{opacity:0}
+  body.stk-dragging .env{opacity:0;pointer-events:none}
 }
 /* Crunch Forecast on a phone */
 @media (max-width:600px){
@@ -46,7 +46,7 @@
 .bn-more:hover{color:var(--ink);border-style:solid}
 .bn-more svg{width:14px;height:14px;transition:transform .15s}
 .bn-more{margin:0 0 10px;border-style:solid;color:var(--ink)}
-.bn-n{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--late,#D93B3B);color:#fff;font:800 .74rem/1 var(--display);box-shadow:0 0 0 2px var(--surface)}
+.bn-n{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--late,#D93B3B);color:#fff;font:800 .74rem/1 var(--display);box-shadow:0 0 0 2px var(--surface);text-shadow:none}
 .bn-more[aria-expanded="true"] svg{transform:rotate(180deg)}
 /* Heavy week and Rough week folded into one card */
 .rw-banner.rw-crunch{border-left:6px solid var(--cr3,#F29A4A)}
@@ -522,6 +522,7 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .cp-oth-d{border:1px solid var(--line);border-radius:14px;padding:0 12px;background:var(--surface)}
 .cp-oth-d > summary{cursor:pointer;min-height:46px;display:flex;align-items:center;font:700 .95rem var(--display)}
 .cp-oth-d[open]{display:grid;gap:10px;padding-bottom:12px}
+.cp-oth-g{content-visibility:auto;contain-intrinsic-size:auto 260px}
 .cp-oth-g h4{margin:6px 0;font:700 .88rem var(--display);display:flex;align-items:center;gap:6px}
 .cp-oth-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
 .cp-oth{display:grid;justify-items:center;gap:4px;padding:8px 4px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:inherit;font:600 .78rem var(--display);cursor:pointer}
@@ -596,6 +597,23 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 /* short classes */
 @container (max-height:44px){.sch-b span:nth-of-type(2),.sch-b span:nth-of-type(3){display:none}}
 @container (max-height:24px){.sch-b span{display:none}}
+/* short cards with a course band (an hour or less): a slimmer band, then the title and time on one line */
+@container (max-height:72px){
+  .sch-b > .sch-band{padding:2px 8px}
+  .sch-b > .sch-band .cc-ic{width:14px;height:14px}
+  .sch-b:has(> .sch-band) > .sch-bd{display:flex;align-items:baseline;gap:6px;min-width:0;padding:3px 8px}
+  .sch-b > .sch-bd > span{flex:none;font-size:.7rem}
+  .sch-b > .sch-bd > .sch-t{flex:0 1 auto;min-width:0;font-size:.76rem}
+  .sch-b > .sch-bd > span:nth-of-type(3){display:none}
+}
+/* too narrow for both: the title only (the time is on the grid) */
+@container (max-height:72px) and (max-width:240px){.sch-b > .sch-bd > span:nth-of-type(2){display:none}}
+/* half an hour or less: no band, the title in the card's course colour */
+@container (max-height:44px){
+  .sch-b > .sch-band{display:none}
+  .sch-b:has(> .sch-band) > .sch-bd{display:flex;align-items:center;height:100%;padding:0 8px 0 11px;box-shadow:inset 4px 0 0 var(--c)}
+  .sch-b > .sch-bd > .sch-t{display:block}
+}
 .sch-chip{border-radius:8px!important;border-left-width:4px!important;padding:4px 7px!important;background:color-mix(in srgb,var(--c) 12%,var(--surface))!important;font-weight:700!important}
 .sch-nav .btn,.view-head .sch-nav .btn{border-radius:999px}
 .sch-now{height:2px!important}
@@ -1013,9 +1031,13 @@ html .fhead .fcrumb{background:none!important;padding-inline:0!important;text-sh
 .gt-dot{display:inline-block;border-style:dashed!important;opacity:.7;pointer-events:none}
 .gt-chip{background:color-mix(in srgb,#C9702B 18%,var(--surface))!important;color:color-mix(in srgb,#C9702B 70%,var(--ink))!important}
 .sort-ghost{position:fixed!important;z-index:200;pointer-events:none;margin:0!important;transform:rotate(1.5deg) scale(1.02);box-shadow:0 18px 40px rgba(0,0,0,.35);opacity:.95;transition:none!important}
+/* The lifted copy has no frosted backdrop: Safari paints it square-cornered for a moment before the rounded clip catches up */
+.sort-ghost,.sort-ghost *{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+.sort-ghost.grp-card{background:var(--surface)!important;border-radius:18px!important;overflow:hidden;will-change:transform}
 .sort-hole{opacity:.25;outline:2px dashed var(--line);outline-offset:4px;border-radius:18px}
 body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important;-webkit-user-select:none!important}
-[data-sortable] > [data-sort-id]{-webkit-touch-callout:none}
+/* A long press reorders: the browser's own long-press preview, text selection and drag of a link or picture must not start first */
+[data-sortable] > [data-sort-id],[data-sortable] > [data-sort-id] *{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-user-drag:none}
 .ci-ai-btn{display:grid;place-items:center;align-content:center;gap:2px;aspect-ratio:1;border:2px dashed var(--line);border-radius:50%;background:none;color:var(--accent);font:800 .62rem var(--display);cursor:pointer;position:relative;padding:0}
 .ci-ai-btn svg{width:26px;height:26px}
 .ci-ai-btn .cp-ai-face.ai-ic{width:32px;height:32px;min-width:32px;margin:0;vertical-align:0;justify-self:center;display:grid;place-items:center}

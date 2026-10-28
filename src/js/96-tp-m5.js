@@ -105,7 +105,7 @@
           <circle cx="44" cy="20" r=".9" fill="#fff"/><circle cx="26" cy="21" r=".8" fill="#fff"/><circle cx="80" cy="18" r=".8" fill="#fff"/><circle cx="14" cy="6" r=".8" fill="#fff"/>
           <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".3"/></svg>`}
     ],
-    card: {id: "tp-observatory", name: "Star Chart", desc: "Dawn lavender paper with a ringed planet in the corner and a constellation and crescent moon below. Deep night blue in dark mode."}
+    card: {id: "tp-observatory", name: "Star Chart", desc: "Dawn lavender star chart framed by graduated scale ticks, with star corners, a ringed planet seal on the top edge and a faint starfield. Deep night blue in dark mode."}
   });
 
   /* ================= ANCIENT RUINS (History) ================= */
@@ -334,7 +334,7 @@
           ${[[9, 10, -30], [40, 8, 20], [50, 13, -50], [76, 9, 30]].map(([x, y, r]) => `<path d="M0 3Q-3 0 0 -4Q3 0 0 3z" fill="#3F8F4E" transform="translate(${x} ${y}) rotate(${r})"/>`).join("")}
           <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".4"/></svg>`}
     ],
-    card: {id: "tp-valley", name: "Meadow Notes", desc: "Fresh mint paper with rolling hills and a wind turbine in the corner and a leafy sprig above. Firefly night in dark mode."}
+    card: {id: "tp-valley", name: "Meadow Notes", desc: "Fresh mint paper with rolling hills sweeping edge to edge, a pair of wind turbines and a band of daisies. Firefly night in dark mode."}
   });
 
   /* ================= SKETCH CITY (Architecture) ================= */
@@ -431,7 +431,7 @@
           <path d="M6.5 13V45" stroke="#fff" stroke-width="1" opacity=".55"/>
           <circle cx="8.6" cy="44.5" r="1.4" fill="#4F86D6"/></svg>`}
     ],
-    card: {id: "tp-sketchcity", name: "Drafting Sheet", desc: "Crisp drafting paper with a blue grid, a pencil skyline in the corner and a set square up top. Blueprint blue in dark mode."}
+    card: {id: "tp-sketchcity", name: "Drafting Sheet", desc: "Crisp drafting paper with a blue grid, an inner border with registration marks and a line-drawn skyline running along the bottom. Blueprint blue in dark mode."}
   });
 })();
 

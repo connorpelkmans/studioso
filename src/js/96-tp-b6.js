@@ -56,7 +56,7 @@
       {id: "tp-stpatricks-rainbow", name: "Rainbow Washi", kind: "tape", desc: "Pastel rainbow washi tape with gold flecks.",
         svg: TAPE("sp-rw-c", `${rbC.map((c, i) => `<rect x="0" y="${f1(1 + i * 4.8)}" width="86" height="4.9" fill="${c}" opacity=".62"/>`).join("")}<g fill="#FFF6C8">${[12, 30, 48, 66].map((x, i) => SPARK(x + (i % 2) * 4, i % 2 ? 8 : 18, 2.4, "#FFF4B8")).join("")}</g><rect x="0" y="1" width="86" height="3" fill="#fff" opacity=".3"/>`)}
     ],
-    card: {id: "tp-stpatricks", name: "Rainbow's End", desc: "Soft clover paper with a corner rainbow and a sprig of shamrocks."}
+    card: {id: "tp-stpatricks", name: "Rainbow's End", desc: "Soft clover paper with a rainbow arching across the top and a pot of gold in a shamrock meadow."}
   });
 
   /* ================= Easter ================= */
@@ -78,7 +78,7 @@
       {id: "tp-easter-carrot", name: "Carrot Peg", kind: "clip", desc: "A crunchy carrot clip with leafy tops.",
         svg: `<svg viewBox="0 0 22 50">${GR("ea-pc-g", "#FFB860", "#EE7418", 1, 0)}<ellipse cx="7" cy="8" rx="2.6" ry="6.5" fill="#6CBF6A" stroke="#2F7A3A" stroke-width="1" transform="rotate(-25 7 8)"/><ellipse cx="15" cy="8" rx="2.6" ry="6.5" fill="#6CBF6A" stroke="#2F7A3A" stroke-width="1" transform="rotate(25 15 8)"/><ellipse cx="11" cy="6.5" rx="2.8" ry="6.5" fill="#85D47E" stroke="#2F7A3A" stroke-width="1"/><path d="M2.5 14.5Q11 10 19.5 14.5Q18 33 11 48.5Q4 33 2.5 14.5Z" fill="url(#ea-pc-g)" stroke="#B5561A" stroke-width="1.1"/><path d="M5 22h3M17 28h-3M7 35h2.5M15 40h-2" stroke="#C8561C" stroke-width="1.2" stroke-linecap="round"/><path d="M6 16Q6 24 8 30" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".6"/></svg>`}
     ],
-    card: {id: "tp-easter", name: "Bunny Peek", desc: "Lilac paper with a stitched edge, a peeking bunny and a patch of tulips."}
+    card: {id: "tp-easter", name: "Bunny Peek", desc: "Lilac paper with a stitched edge and a bunny peeking up from spring grass dotted with painted eggs."}
   });
 
   /* ================= Fourth of July ================= */
@@ -126,7 +126,7 @@
       {id: "tp-halloween-bats", name: "Bat Washi", kind: "tape", desc: "Pumpkin-orange washi with little flying bats.",
         svg: TAPE("hw-pt-c", `<rect width="86" height="26" fill="#F5923A" opacity=".8"/><path d="M0 4H86M0 22H86" stroke="#3A2A4A" stroke-width="1.4" stroke-dasharray="3 3" opacity=".9"/>${[[18, 13, 1], [43, 12, -1], [68, 13.5, 1]].map(([x, y, s]) => `<g transform="translate(${x} ${y}) scale(${.27 * s} .27) translate(-32 -32)"><path d="${batWing}" fill="#2C1A3C"/><path d="${batWing}" fill="#2C1A3C" transform="translate(64 0) scale(-1 1)"/><circle cx="32" cy="32" r="10" fill="#2C1A3C"/><path d="M24 27L24 17L30 23ZM40 27L40 17L34 23Z" fill="#2C1A3C"/><circle cx="28" cy="31" r="2.4" fill="#FFD84A"/><circle cx="36" cy="31" r="2.4" fill="#FFD84A"/></g>`).join("")}`)}
     ],
-    card: {id: "tp-halloween", name: "Pumpkin Glow", desc: "A dusky plum card with a harvest moon, bats and a glowing jack-o'-lantern."}
+    card: {id: "tp-halloween", name: "Pumpkin Glow", desc: "A dusky plum night with a harvest moon and bats in the corner and a glowing pumpkin patch along the bottom."}
   });
 
   /* ================= Thanksgiving ================= */

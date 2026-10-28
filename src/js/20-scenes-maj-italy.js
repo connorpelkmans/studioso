@@ -20,7 +20,7 @@
   });
 
   MAJ_THEMES.push({
-    skin: {id: "italy", name: "Amalfi Coast", group: "world", desc: "A pastel cliff town tumbling down to a turquoise cove.",
+    skin: {id: "italy", name: "Italy", group: "world", desc: "A pastel cliff town tumbling down to a turquoise cove.",
       light: ["#F3F8FA", "rgba(38,138,176,.10)", "#FFFFFF", "#1E2C38", "#56656F", "#D6E6EC", "#E6F0F3", "#FAFCFD", "#C4522F", "#D7744F", "#FFFFFF", "#7A2E18", "#1E5778", "#D2EAF2", "#FFE6A0"],
       dark: ["#0F1630", "rgba(246,200,74,.08)", "#18203E", "#F2F2FA", "#B6B8D2", "#2C3460", "#232A52", "#141A36", "#F6C84A", "#FADB86", "#1A2040", "#7A6A32", "#101C3A", "#D4D6EE", "#6A5A2A"],
       glow: ["linear-gradient(180deg,#9FD3F0,#DDF0F7 45%,#FCEBD0)", "linear-gradient(180deg,#101C3A,#22305A 45%,#5A3C5E)"],

@@ -12,7 +12,7 @@
 
   const CHEV = `<svg class="ui-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`;
   // The order of the filters and of the sections under them (Your Photos and Free come first)
-  const GROUPS = [["scenes", "Scenes"], ["majors", "Fields"], ["holidays", "Holidays"], ["seasons", "Seasons"], ["world", "World"], ["hobby", "Hobbies"], ["ideas", "New Ideas"]];
+  const GROUPS = [["scenes", "Scenes"], ["majors", "Fields"], ["holidays", "Holidays"], ["seasons", "Seasons"], ["world", "World"], ["hobby", "Hobbies"], ["ideas", "New Ideas"]].concat(SKINS.some(s => s.group === "founders") ? [["founders", "Founders"]] : []);
   const CHIPS = {
     themes: [["all", "All"], ["free", "Free"]].concat(GROUPS),
     collections: [["all", "All"]].concat(GROUPS),
@@ -21,13 +21,13 @@
     pins: [["all", "All"], ["free", "Free"], ["pro", "Pro"], ["collections", "Theme Collections"]],
     stickers: [["all", "All"], ["free", "Free"], ["pro", "Pro"], ["collections", "Theme Collections"]]
   };
-  const skinGroup = s => ({plain: "free", world: "world", ideas: "ideas", season: "seasons", pro: "scenes", newscenes: "scenes", majors: "majors", hobby: "hobby", holiday: "holidays"})[(s && s.group) || "plain"] || "scenes";
+  const skinGroup = s => ({plain: "free", world: "world", ideas: "ideas", season: "seasons", pro: "scenes", newscenes: "scenes", majors: "majors", hobby: "hobby", holiday: "holidays", founders: "founders"})[(s && s.group) || "plain"] || "scenes";
   // Where a theme sits in the Style Shop
   window.SBUI.themeRank = id => { const i = SKINS.findIndex(x => x.id === id); if (i < 0) return 1e6; const g = skinGroup(SKINS[i]), k = g === "free" ? -1 : GROUPS.findIndex(x => x[0] === g); return (k < 0 ? 99 : k + 1) * 1e4 + i; };
   const secKind = (tab, title, tp) => {
     if (tp) return "collections";
     const t = title.toLowerCase();
-    if (tab === "themes") return /plain/.test(t) ? "free" : /around the world/.test(t) ? "world" : /idea/.test(t) ? "ideas" : /season/.test(t) ? "seasons" : /field/.test(t) ? "majors" : /hobb|cozy/.test(t) ? "hobby" : /holiday/.test(t) ? "holidays" : "scenes";
+    if (tab === "themes") return /plain/.test(t) ? "free" : /around the world/.test(t) ? "world" : /idea/.test(t) ? "ideas" : /season/.test(t) ? "seasons" : /field/.test(t) ? "majors" : /hobb|cozy/.test(t) ? "hobby" : /holiday/.test(t) ? "holidays" : /founder/.test(t) ? "founders" : "scenes";
     return /^\s*free/.test(t) ? "free" : /^\s*all pins/.test(t) ? "mixed" : "pro";
   };
   const slug = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -46,8 +46,11 @@
   const stkSvg = (k, id, px) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-STK_PAD} ${-STK_PAD} ${BOX} ${BOX}"${px ? ` width="${px}" height="${px}"` : ""} aria-hidden="true"><defs>${stkFilter(id)}</defs><g filter="url(#${id})">${STICKERS[k].svg}</g></svg>`;
   const isText = k => /<text/.test(STICKERS[k].svg);
   const hashOf = k => { const t = STICKERS[k].svg + "|v1"; let h = 5381; for (let i = 0; i < t.length; i++) h = (Math.imul(h, 33) ^ t.charCodeAt(i)) >>> 0; return h.toString(36); };
-  // bitmap size: the shop shows a sticker (with its edge) at up to about 76 CSS px
-  const needPx = () => Math.round(76 * Math.min(3, Math.max(1, window.devicePixelRatio || 1)));
+  // bitmap size: a shop cell can grow to about 90 CSS px and the picture spills 25% past it, so about 112 CSS px,
+  // at the screen's pixel density (at least 2x, so zooming in a little stays sharp)
+  const needPx = () => Math.round(112 * Math.min(3, Math.max(2, window.devicePixelRatio || 1)));
+  // a bitmap made for a lower-density screen (or before zooming in) is made again
+  const sharp = b => !!b && (b.px === Infinity || b.px >= needPx());
   const BMP = new Map();
   const LIVE = new Map();
   const IDB_KEY = "studyboard:stkBitmaps:v1";
@@ -72,6 +75,7 @@
     c.getContext("2d").drawImage(img, 0, 0, px, px);
     const blob = await new Promise(r => c.toBlob(r, "image/png"));
     if (!blob) return;
+    const old = BMP.get(k); if (old && old.url && old.blob) setTimeout(() => { try { URL.revokeObjectURL(old.url); } catch (e) {} }, 4000);
     BMP.set(k, {px, h: hashOf(k), blob, url: URL.createObjectURL(blob)});
     dirty = true; swap(k);
   }
@@ -80,23 +84,31 @@
     saveT = setTimeout(() => { if (!dirty) return; dirty = false; const o = {}; BMP.forEach((v, k) => { o[k] = {px: v.px, h: v.h, blob: v.blob}; }); cacheSet(IDB_KEY, o).catch(() => {}); }, queue.length ? 8000 : 1500);
   }
   function want(keys, front){
-    const todo = keys.filter(k => STICKERS[k] && !isText(k) && !BMP.has(k) && (front || !queue.includes(k)));
+    const todo = keys.filter(k => STICKERS[k] && !isText(k) && !sharp(BMP.get(k)) && (front || !queue.includes(k)));
     if (!todo.length) return;
     queue = front ? todo.concat(queue.filter(k => !todo.includes(k))) : queue.concat(todo);
     pump();
   }
+  // Background work waits while something is scrolling, so scrolling stays smooth
+  let lastScroll = 0;
+  document.addEventListener("scroll", () => { lastScroll = performance.now(); }, {capture: true, passive: true});
+  const calm = async () => { while (performance.now() - lastScroll < 350) await new Promise(r => setTimeout(r, 200)); };
   async function pump(){
     if (pumping) return; pumping = true;
     try {
       await load();
       while (queue.length) {
+        await calm();
         const t0 = performance.now();
-        while (queue.length && performance.now() - t0 < 12) { const k = queue.shift(); if (!BMP.has(k)) { try { await raster(k); } catch (e) { BMP.set(k, {px: 0, url: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(stkSvg(k, "o"))}); swap(k); } } }
+        while (queue.length && performance.now() - t0 < 12) { const k = queue.shift(); if (!sharp(BMP.get(k))) { try { await raster(k); } catch (e) { BMP.set(k, {px: Infinity, url: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(stkSvg(k, "o"))}); swap(k); } } }
         persist();
         await new Promise(r => (window.requestIdleCallback ? requestIdleCallback(r) : setTimeout(r, 50)));
       }
     } finally { pumping = false; if (!queue.length && readyRes) readyRes(true); }
   }
+  // Zooming in (or moving to a sharper screen): the stickers on show are made again at the new density
+  const watchDpr = () => { try { matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`).addEventListener("change", () => { const ks = [...new Set([...document.querySelectorAll("img[data-stk]")].map(i => i.dataset.stk))]; if (ks.length) want(ks, true); watchDpr(); }, {once: true}); } catch (e) {} };
+  watchDpr();
   // Warm the cache quietly after start-up, so the shop is quick the first time too
   hook("boot", () => setTimeout(() => {
     const warm = () => {
@@ -114,7 +126,7 @@
       return LIVE.get(k);
     }
     const b = BMP.get(k);
-    if (!b) want([k]);
+    if (!sharp(b)) want([k]);
     return `<span class="stk-cell ui-stk"><img data-stk="${esc(k)}" ${b ? `src="${b.url}"` : `class="ui-wait"`} alt="" draggable="false" loading="lazy"></span>`;
   }
   // A pack's grid of stickers, filled in just before it scrolls into view
@@ -170,6 +182,7 @@
       await thLoad();
       while (thQueue.length && shopOpen()) {
         await new Promise(r => (window.requestIdleCallback ? requestIdleCallback(r) : setTimeout(r, 50)));
+        await calm();
         if (!shopOpen()) break;
         const k = thQueue.shift(); if (!k) break;
         try { await thRaster(k); } catch (e) { TH.set(k, {px: 0, url: thSrc.get(k).url}); }
@@ -190,6 +203,7 @@
     if (!thQueue.includes(key)) { thQueue.push(key); thPump(); }
     return h;
   };
+  window.SBUI = Object.assign(window.SBUI, {cacheGet, cacheSet});
   window.SBUI = Object.assign(window.SBUI, {thumbReady: async () => { await thLoad(); SKINS.filter(s => !s.photo).forEach(s => { artThumb(s.id, false); artThumb(s.id, true); }); while (thQueue.length) { const k = thQueue.shift(); try { await thRaster(k); } catch (e) {} } return TH.size; }});
 
   // The Stickers tab, drawn here (with cached sticker images) instead of by the app

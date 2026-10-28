@@ -295,13 +295,10 @@ var SBWB = null;
     const now = Date.now();
     const n = Object.assign({id: uid(), text: name || "Untitled Whiteboard", wb: {v: 1, tpl: TPL.some(t => t[0] === tpl) ? tpl : "blank", pa: pageAspect()}, courseId: courseId || "", board: "", created: now, updated: now}, extra || {});
     applyChanges([{kind: "note", id: n.id, after: n}], "");
-    if (!made()) { state.settings = Object.assign({}, state.settings, {wbMade: true}); saveSettings(); }
     ui.wbCur = n.id; lsSet(K_CUR, n.id); setView("wb");
     return n.id;
   }
   // Someone who has made a whiteboard before
-  const made = () => !!((state.settings || {}).wbMade) || Object.values(state.notes || {}).some(n => n && n.wb) || ((typeof trashVisible === "function" ? trashVisible() : []).some(e => e.kind === "note" && /^Whiteboard: /.test(e.label || "")));
-  let askedNew = false;
   // The shape of the board's frame (or what it will be, before it's on the page)
   function pageAspect(){
     let w = fw, h = fh;
@@ -1093,7 +1090,8 @@ var SBWB = null;
     if (!B || B.id !== id) openBoard(id);
     const typing = ED && document.activeElement === ED.ta;
     const mb = STAGE.querySelector(".wb-max"); if (mb) mb.outerHTML = boardMaxBtn("wb-max");
-    host.appendChild(STAGE); sizeHost(host); resize(); trayDraw();
+    if (STAGE.parentNode !== host) host.appendChild(STAGE);
+    sizeHost(host); resize(); trayDraw();
     if (B.fitNext && fw > 0) { B.fitNext = false; fit(true); }
     if (typing) try { ED.ta.focus({preventScroll: true}); } catch (e) {}
     const n = state.notes[id];
@@ -1110,8 +1108,7 @@ var SBWB = null;
   hook("render", tab => {
     if (tab === "notes" && on()) {
       mount();
-      if (!askedNew) { askedNew = true; if (!boards().length && made() && !dlg.open) setTimeout(() => { if (!dlg.open && ui.tab === "notes" && on() && !boards().length) newSheet(); }, 0); }
-    } else { askedNew = false; if (B) { endText(); flush(); } }
+    } else if (B) { endText(); flush(); }
   });
   window.addEventListener("pagehide", () => { endText(); flush(); });
   const SUN = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/></svg>';
@@ -1122,7 +1119,7 @@ var SBWB = null;
   try { new MutationObserver(themeCheck).observe(document.documentElement, {attributes: true, attributeFilter: ["data-theme", "class"]}); } catch (e) {}
   try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", themeCheck); } catch (e) {}
   document.addEventListener("visibilitychange", () => { if (document.hidden) { endText(); flush(); } });
-  window.addEventListener("resize", () => { const h = document.getElementById("wbHost"); if (h && STAGE && h.contains(STAGE)) { sizeHost(h); resize(); } });
+  window.addEventListener("resize", () => { const h = document.getElementById("wbHost"); if (h && STAGE && h.contains(STAGE)) { if (ED && phone()) return; sizeHost(h); resize(); } });
 
   /* The page */
   function picker(list, cur){
@@ -1140,7 +1137,6 @@ var SBWB = null;
     const tab = b => { const bc = courseOf(b.courseId), on = b.id === cur; return `<button type="button" role="tab" class="nb-tab${on ? " on" : ""}" aria-selected="${on}" data-act="wb-go" data-id="${esc(b.id)}" style="--c:${esc(bc ? bc.color : "var(--muted)")}"><span class="sd"></span><span class="nb-tn">${esc(boardName(b))}</span></button>${on ? `<button type="button" class="icon-btn sm" data-act="wb-opts" aria-label="Board options" title="Board options">${DOTS}</button>` : ""}`; };
     const strip = list.length ? `<div class="nb-boards wb-boards" role="tablist" aria-label="Whiteboards">${list.map(tab).join("")}</div>` : "";
     const headHtml = `<div class="tl-controls f-title wb-head"><h2>Whiteboard</h2>${list.length ? `${picker(list, cur)}<button class="btn small" data-act="wb-all">All Boards</button>${extra}<button class="btn small" data-act="wb-export">Export</button><button class="btn small wb-optbtn" data-act="wb-opts" aria-label="Board options" title="Board options"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18.5" cy="12" r="1.8"/></svg></button>` : ""}</div>${strip}`;
-    if (!list.length && made()) return headHtml + `<div class="wb-empty wb-none"><div class="wb-empty-in"><p>You don't have any whiteboards right now.</p><button type="button" class="btn primary" data-act="wb-new">+ New Whiteboard</button></div></div>`;
     if (!list.length) return headHtml + `<div class="wb-empty"><div class="wb-empty-in"><h3>Start a Whiteboard</h3><p>Sketch, write and plan with markers on a big board you can zoom around.</p>
       <button type="button" class="wb-blank-go" data-act="wb-quick" data-id="blank"><span class="wb-tpv"></span><span><b>Blank Board</b><span class="mini">Start from a clean white board</span></span></button>
       <h4 class="wb-or">Or Start From a Template</h4><div class="wb-tiles">${tiles("", "", true, true)}</div></div></div>`;
@@ -1222,7 +1218,9 @@ var SBWB = null;
   async function renderBoard(n, o){
     o = o || {};
     try { if (document.fonts && document.fonts.load) await Promise.all(FONTS.map(f => document.fonts.load(`40px ${f[2]}`))); } catch (e) {}
-    const ink = (B && n.id === B.id) ? strokes() : (n.wbInk || []), its = (B && n.id === B.id) ? items() : (n.wbItems || []), tpl = (n.wb && n.wb.tpl) || "blank";
+    const ink = (B && n.id === B.id) ? strokes() : (n.wbInk || []), tpl = (n.wb && n.wb.tpl) || "blank";
+    // o.noPics: only what the student drew or wrote (pictures, and marker redraws of pictures, are left out)
+    const its = ((B && n.id === B.id) ? items() : (n.wbItems || [])).filter(it => !(o.noPics && it.k === "i"));
     let bb = null; ink.forEach(s => { bb = bbJoin(bb, geo(s).bb); }); its.forEach(it => { bb = bbJoin(bb, itemBB(it)); });
     if (tpl !== "blank" && !o.full) { const R = pageRect(n.wb && n.wb.pa); bb = bbJoin(bb && [Math.max(0, bb[0] - 60), Math.max(0, bb[1] - 60), Math.min(BW, bb[2] + 60), Math.min(BH, bb[3] + 60)], [R[0], R[1], R[2], R[3]]); }
     else if (!bb || tpl !== "blank" || o.full) bb = tpl !== "blank" || !bb ? [0, 0, BW, BH] : (o.full ? [Math.max(0, bb[0] - 200), Math.max(0, bb[1] - 200), Math.min(BW, Math.max(bb[2] + 200, bb[0] + 900)), Math.min(BH, Math.max(bb[3] + 200, bb[1] + 600))] : bb);
@@ -1476,7 +1474,6 @@ var SBWB = null;
 .wb-empty-in{border-radius:10px;background:linear-gradient(115deg,rgba(255,255,255,0) 30%,rgba(255,255,255,.8) 46%,rgba(255,255,255,0) 60%),#FBFCFD;padding:28px 24px;color:#22262D;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
 .wb-empty-in h3{font-family:${MARKER};font-weight:400;font-size:2rem;margin:0 0 6px;color:#1D5BD6}
 .wb-empty-in p{margin:0 0 16px;color:#4A576E}
-.wb-none .wb-empty-in{display:flex;flex-direction:column;align-items:center;text-align:center;padding:48px 24px}
 .wb-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:10px}
 .wb-tile{display:flex;flex-direction:column;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:7px;cursor:pointer;font:600 .85rem var(--display);color:var(--ink);text-align:left;position:relative}
 .wb-empty .wb-tile{background:#fff;color:#22262D;border-color:rgba(0,0,0,.1)}

@@ -17,7 +17,7 @@ function serverInit(opts){
       data: {v: 1, type: "note", text: "Lecture 3 summary\nCells use [[Glycolysis|glycolysis]] for energy.", color: "blue", course: {code: "BIOL 201", name: "Biology"}}},
       {code: "QUIZ-DDDD", owner: "u2", kind: "quiz", ref_id: "d:q", title: "Cell Quiz", sharer_name: "Sam", updated_at: "2026-10-03T00:00:00Z", saves: 0,
         data: {v: 1, type: "quiz", course: {code: "BIOL 201", name: "Biology"}, quiz: {id: "q1", title: "Cell Quiz", questions: [{id: "qq1", type: "single", stem: "Which organelle makes ATP?", options: ["Nucleus", "Mitochondria"], correct: [1], rationale: "It's the powerhouse."}]}}}],
-    calls: [], reports: [], saves: []
+    calls: [], reports: [], saves: [], terms: null
   };
   const me = () => opts.me || null;
   const wait = v => new Promise(r => setTimeout(() => r(v), 15));
@@ -27,7 +27,7 @@ function serverInit(opts){
     get_public_share: a => { const k = norm(a.p_code), d = SV.decks.find(x => x.code === k && !x.hidden);
       if (d) return [{code: d.code, kind: "deck", name: d.name, sharer_name: d.sharer_name, card_count: d.card_count, data: d.data, updated_at: d.updated_at, is_mine: d.owner === me()}];
       const i = SV.items.find(x => x.code === k && !x.hidden); return i ? [{code: i.code, kind: i.kind, name: i.title, sharer_name: i.sharer_name, card_count: 0, data: i.data, updated_at: i.updated_at, is_mine: i.owner === me()}] : []; },
-    share_item: a => { if (!me()) throw {message: "Sign in first"}; let i = SV.items.find(x => x.owner === me() && x.kind === a.p_kind && x.ref_id === a.p_ref);
+    share_item: a => { if (!me()) throw {message: "Sign in first"}; if (!SV.terms) throw {message: "SB_TERMS_NEEDED: Confirm that you have the right to share this first."}; let i = SV.items.find(x => x.owner === me() && x.kind === a.p_kind && x.ref_id === a.p_ref);
       if (i) Object.assign(i, {title: a.p_title, data: a.p_data, updated_at: new Date().toISOString()});
       else { i = {code: "MINE-000" + (++n), owner: me(), kind: a.p_kind, ref_id: a.p_ref, title: a.p_title, data: a.p_data, sharer_name: "Connor", updated_at: new Date().toISOString(), saves: 0}; SV.items.push(i); }
       return i.code; },
@@ -43,6 +43,7 @@ function serverInit(opts){
     share_saved: a => { if (me()) SV.saves.push(a.p_code); return null; },
     report_share: a => { SV.reports.push(a); return null; },
     my_username: () => SV.username || null,
+    agree_share_terms: a => { if (a.p_version !== "2026-10-27") throw {message: "Update Studyboard to the latest version, then try again."}; SV.terms = a.p_version; return null; },
     my_age: () => SV.age === undefined ? 20 : SV.age,
     set_birthdate: a => { const b = new Date(a.p_date + "T12:00:00"), n = new Date(); let y = n.getFullYear() - b.getFullYear(); if (n < new Date(n.getFullYear(), b.getMonth(), b.getDate())) y--; SV.age = y; SV.bday = a.p_date; return y; },
     username_check: a => [{ok: !/fuck|admin/i.test(a.p_name) && a.p_name.toLowerCase() !== "taken_name", reason: /fuck/i.test(a.p_name) ? "That name isn't allowed. Pick another." : "That username is taken."}],
@@ -87,7 +88,7 @@ function serverInit(opts){
 const SEED = {v: 2, updated: 1, courses: [{id: "c1", name: "Biology", code: "BIOL 201", color: "#3B6FE0"}], tasks: [],
   settings: {capacity: 15, dailyHours: 3, webUrl: "https://app.example.edu/", brightspace: {host: "learn.uwaterloo.ca"}},
   notes: [{id: "n1", text: "Krebs cycle\nHappens in the mitochondria.", color: "yellow", x: 40, y: 40, z: 1, rot: 0, courseId: "c1"}],
-  decks: [{id: "d3", name: "Organelles", courseId: "c1", created: 3, cards: ["Nucleus|DNA", "Ribosome|Protein", "Golgi|Packaging", "Lysosome|Waste", "Vacuole|Storage"].map((x, i) => ({id: "o" + i, front: x.split("|")[0], back: x.split("|")[1], box: 0, due: "", seen: 0, right: 0, wrong: 0}))},
+  decks: [{id: "d3", name: "Organelles", courseId: "c1", created: 3, cards: ["Nucleus|DNA", "Ribosome|Protein", "Golgi|Packaging", "Lysosome|Waste", "Vacuole|Storage"].map((x, i) => ({id: "o" + i, front: x.split("|")[0], back: x.split("|")[1], box: 0, due: "", seen: 0, right: 0, wrong: 0})).concat([{id: "pic1", front: "Name the hidden label", back: "Nucleus", img: {k: "i:x", w: 400, h: 300, m: [[0.1, 0.1, 0.2, 0.1]], i: 0, mode: "all", src: "My photo"}, box: 0, due: "", seen: 0, right: 0, wrong: 0}, {id: "cp1", front: "Golgi apparatus", back: "Copied straight from the lecture PDF", copied: true, box: 0, due: "", seen: 0, right: 0, wrong: 0}])},
     {id: "d1", name: "My Cells", courseId: "c1", created: 1, cards: [{id: "k1", front: "Cell wall", back: "Plants have it", box: 0, due: "", seen: 0, right: 0, wrong: 0}],
     aiQuizzes: [{id: "q1", title: "Krebs Quiz", questions: [{id: "z1", type: "single", stem: "Where does the Krebs cycle happen?", options: ["Mitochondria", "Nucleus"], correct: [0]}]}]}]};
 
@@ -151,11 +152,18 @@ async function visitor(browser){
 }
 
 // Signed in: share a note and a quiz with a link, list a deck in the library, browse it
+// Sharing asks the person to confirm the content is their own; nothing is sent until they tick the box
+const rights = async page => { await page.waitForSelector("dialog[open] #shRights"); await page.check("dialog[open] #shRights"); };
+const confirmRights = async page => { await rights(page); await page.click("dialog[open] [data-submit]"); };
 async function sharer(browser){
   let {ctx, page, errs} = await boot(browser, 1280, {me: "u1", seed: SEED});
   await act(page, "share-link", {kind: "note", ref: "n1"}); await page.waitForSelector("dialog[open] #shMake");
   ok(/Only the text is shared/.test(await txt(page, "dialog[open]")), "sharing a note says what is shared");
-  await page.click("#shMake"); await page.waitForSelector("dialog[open] #shStop");
+  await page.click("#shMake"); await page.waitForSelector("dialog[open] #shRights");
+  ok(/Before You Share/.test(await txt(page, "dialog[open]")) && !(await calls(page, "share_item")).length, "Create Link first asks the person to confirm it's their own work");
+  await page.click("dialog[open] [data-submit]"); await page.waitForTimeout(200);
+  ok(await page.$("dialog[open] #shRights") && !(await calls(page, "share_item")).length, "without ticking the box nothing is shared");
+  await confirmRights(page); await page.waitForSelector("dialog[open] #shStop");
   const si = await calls(page, "share_item");
   ok(si.length === 1 && si[0][1].p_kind === "note" && si[0][1].p_title === "Krebs cycle" && /mitochondria/.test(si[0][1].p_data.text), "Create Link sends the note's text and title");
   ok(/MINE-0001/.test(await txt(page, ".grp-code-big")) && (await page.inputValue("#shLinkIn")) === "https://app.example.edu/?shared=MINE-0001", "the link opens the website with ?shared=");
@@ -164,19 +172,19 @@ async function sharer(browser){
   await page.evaluate(() => { const n = __sbSync.clone(__sbSync.state.notes.n1); n.text += "\nAnd makes NADH."; __sbSync.applyChanges([{kind: "note", id: "n1", after: n}], ""); });
   await act(page, "share-link", {kind: "note", ref: "n1"}); await page.waitForSelector("dialog[open] #shUpd");
   ok(/You've changed this note/.test(await txt(page, "dialog[open]")), "after an edit it offers Update Shared Copy");
-  await page.click("#shUpd"); await page.waitForTimeout(300);
+  await page.click("#shUpd"); await confirmRights(page); await page.waitForTimeout(300);
   ok((await calls(page, "share_item")).length === 2 && await page.evaluate(() => /NADH/.test(window.__SV.items.find(x => x.code === "MINE-0001").data.text)), "Update sends the new text to the same link");
   await page.click("#shStop"); await page.waitForSelector("#askDlg[open]"); await page.click("#askYes"); await page.waitForTimeout(300);
   ok(await page.evaluate(() => !window.__SV.items.some(x => x.code === "MINE-0001") && !__sbSync.state.notes.n1.shared), "Stop Sharing removes the link");
 
   await actStay(page, "qz-share", {deck: "d1", id: "q1"}); await page.waitForSelector("dialog[open] #shMake", {timeout: 5000});
-  await page.click("#shMake"); await page.waitForSelector("dialog[open] #shStop");
+  await page.click("#shMake"); await confirmRights(page); await page.waitForSelector("dialog[open] #shStop");
   ok(await page.evaluate(() => { const x = window.__SV.items.find(i => i.kind === "quiz" && i.owner === "u1"); return !!x && x.ref_id === "d1:q1" && x.data.quiz.questions.length === 1; }), "a quiz gets a link with its questions");
   ok(await page.evaluate(() => !!__sbSync.state.decks.d1.aiQuizzes[0].shared), "the quiz remembers it's shared");
   await page.evaluate(() => __sbSync.dlg.close());
 
   await actStay(page, "fc-share", {id: "d1"}); await page.waitForTimeout(400);
-  if (await page.$("dialog[open] #grpMake")) { await page.click("dialog[open] #grpMake"); }
+  if (await page.$("dialog[open] #grpMake")) { await rights(page); await page.click("dialog[open] #grpMake"); }
   await page.waitForSelector("dialog[open] #libOn", {timeout: 6000});
   ok(/BIOL 201 Course Library/.test(await txt(page, "#libRow")) && /uwaterloo\.ca|University of Waterloo/.test(await txt(page, "#libRow")), "the deck's link sheet offers its course library, at the school from the school site");
   await page.check("#libOn"); await page.waitForTimeout(300);
@@ -222,10 +230,14 @@ async function sharer(browser){
   ok(await page.evaluate(() => { const t = document.querySelector("#pubLookTile"); return t.style.getPropertyValue("--c") === "#9A4FD1" && /<path/.test(t.querySelector(".fc-ic").innerHTML) && document.querySelector('dialog[open] input[name="pubIcon"]:checked').value === "psych"; }), "picking a colour and an icon updates the preview");
   await page.screenshot({path: shots + "/publish-look.png"});
   const refreshed = []; await page.route("**/flashcards/refresh", r => { refreshed.push(r.request().postData()); r.fulfill({status: 204, body: ""}); });
-  await page.click("#pubGo"); await page.waitForSelector("dialog[open] #pubOff");
+  ok(/picture card and 1 card copied straight from a file stay private/.test(await txt(page, "dialog[open]")), "the publish sheet says the picture card and the copied card stay private");
+  await page.click("#pubGo"); await page.waitForTimeout(300);
+  ok(!(await page.$("dialog[open] #pubOff")) && !(await page.evaluate(() => window.__SV.decks.some(x => x.deck_id === "d3"))), "Publish does nothing until the box is ticked");
+  await rights(page); await page.click("#pubGo"); await page.waitForSelector("dialog[open] #pubOff");
   await page.waitForTimeout(200);
   ok(refreshed.some(x => /"code":"PUBD-/.test(x) && /"name":"Organelles"/.test(x) && /"course":"BIOL 201"/.test(x)), "publishing tells the website to refresh its cached pages");
   ok(await page.evaluate(() => { const d = window.__SV.decks.find(x => x.deck_id === "d3"); return !!d && d.published === true && d.card_count === 5; }), "it shares the deck and publishes it in one step");
+  ok(await page.evaluate(() => { const d = window.__SV.decks.find(x => x.deck_id === "d3"); return d.data.cards.length === 5 && !d.data.cards.some(c => c.id === "pic1" || c.id === "cp1" || c.img || /hidden label|Copied straight/.test(c.front + c.back)); }), "picture cards and copied cards are removed before the deck is uploaded");
   ok(await page.evaluate(() => { const d = window.__SV.decks.find(x => x.deck_id === "d3"); return d.data.look && d.data.look.color === "#9A4FD1" && d.data.look.icon === "psych" && __sbSync.state.decks.d3.courseId === "c1"; }), "the page gets the picked colour and icon; the deck in the app keeps its course");
   await page.click("#pubLook"); await page.waitForSelector("dialog[open] #pubLookGo");
   ok(await page.evaluate(() => document.querySelector('dialog[open] input[name="pubColor"]:checked').value === "#9A4FD1"), "Change Color and Icon opens with the current picks");
@@ -317,9 +329,35 @@ async function sharer(browser){
   ok(!errs.length, "no errors (school picker): " + errs.join(" | ")); await ctx.close();
 }
 
+// Ticking "I made this myself" sends the server a record of agreeing to the sharing rules, once per version of the terms
+async function agreement(browser){
+  const {ctx, page, errs} = await boot(browser, 390, {me: "u1", seed: SEED});
+  await act(page, "share-link", {kind: "note", ref: "n1"}); await page.waitForSelector("dialog[open] #shMake");
+  await page.click("#shMake"); await confirmRights(page); await page.waitForSelector("dialog[open] #shStop");
+  const seq = (await page.evaluate(() => window.__SV.calls.map(c => c[0]))).filter(f => f === "agree_share_terms" || f === "share_item");
+  ok(seq.join() === "agree_share_terms,share_item" && (await calls(page, "agree_share_terms"))[0][1].p_version === "2026-10-27", "after the box is ticked, the agreement is recorded on the server, then the link is made");
+  ok(await page.evaluate(() => localStorage.getItem("studyboard:shareterms:u1") === "2026-10-27"), "this device remembers it was recorded");
+  await page.evaluate(() => dlg.close());
+  await act(page, "share-link", {kind: "quiz", ref: "d1:q1"}); await page.waitForSelector("dialog[open] #shMake");
+  await page.click("#shMake"); await confirmRights(page); await page.waitForSelector("dialog[open] #shStop");
+  ok((await calls(page, "agree_share_terms")).length === 1 && (await calls(page, "share_item")).length === 2, "the next share still asks for the tick but doesn't send the record again");
+  // The server has no record after all (for example the terms changed): it refuses, the record is sent again and the share goes through
+  await page.evaluate(() => { window.__SV.terms = null; const n = __sbSync.clone(__sbSync.state.notes.n1); n.text += "\nMore."; __sbSync.applyChanges([{kind: "note", id: "n1", after: n}], ""); dlg.close(); });
+  await act(page, "share-link", {kind: "note", ref: "n1"}); await page.waitForSelector("dialog[open] #shUpd");
+  await page.click("#shUpd"); await confirmRights(page); await page.waitForTimeout(400);
+  ok((await calls(page, "agree_share_terms")).length === 2 && await page.evaluate(() => window.__SV.terms === "2026-10-27" && /More\./.test(window.__SV.items.find(i => i.code === "MINE-0001").data.text)), "a refusal sends the record again and the update goes through");
+  // Something shared before the record existed: the server refuses and the app asks to confirm once
+  await page.evaluate(() => { window.__SV.terms = null; localStorage.removeItem("studyboard:shareterms:u1"); dlg.close(); SBSHARE.reconfirm(); });
+  await page.waitForSelector("dialog[open] #shRights"); await page.click("dialog[open] [data-submit]"); await page.waitForTimeout(200);
+  ok((await calls(page, "agree_share_terms")).length === 2, "confirming again needs the tick too");
+  await confirmRights(page); await page.waitForTimeout(300);
+  ok((await calls(page, "agree_share_terms")).length === 3 && await page.evaluate(() => window.__SV.terms === "2026-10-27"), "after the tick the record is sent");
+  ok(!errs.length, "no errors (sharing agreement): " + errs.join(" | ")); await ctx.close();
+}
+
 (async () => {
   const browser = await chromium.launch({executablePath});
-  try { await visitor(browser); await sharer(browser); }
+  try { await visitor(browser); await sharer(browser); await agreement(browser); }
   finally { await browser.close(); }
   console.log(`sharing.e2e: ${checks} checks passed`);
 })().catch(e => { console.error("FAILED:", e.message); process.exit(1); });

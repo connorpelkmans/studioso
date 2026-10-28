@@ -133,19 +133,26 @@ t("vetAi: plain text, grounded, deduped, capped; counts what it dropped", () => 
   const v = NC.vetAi(raw, SOURCE, {max: 3, tidy: Q.aiTidyText});
   assert.deepStrictEqual(v.cards.map(c => c.front), ["Where does photosynthesis happen?", "What color of light does chlorophyll absorb?", "What do the light reactions make?"]);
   assert.strictEqual(v.cards[0].back, "In the chloroplasts"); assert(v.cards.every(c => c.kind === "ai"));
-  assert.deepStrictEqual(v.dropped, {ungrounded: 2, invalid: 4, dup: 1, over: 0});
+  assert.deepStrictEqual(v.dropped, {ungrounded: 2, invalid: 4, dup: 1, over: 0, copied: 0});
   const cap = NC.vetAi(raw, SOURCE, {max: 1}); assert.strictEqual(cap.cards.length, 1); assert(cap.dropped.over >= 1);
   assert.deepStrictEqual(NC.vetAi(null, SOURCE).cards, []); assert.deepStrictEqual(NC.vetAi({cards: "no"}, SOURCE).cards, []);
   assert.deepStrictEqual(NC.vetAi([{front: "Q?? long", back: "x".repeat(900)}], SOURCE).dropped.invalid, 1, "oversized backs are dropped");
 });
 t("vetAi output also passes the app's card gate (aiGateCards)", () => {
   const v = NC.vetAi([{front: "Where does photosynthesis take place?", back: "In the chloroplasts"}, {front: "What absorbs red and blue light?", back: "Chlorophyll"}], SOURCE, {tidy: Q.aiTidyText});
-  const g = Q.aiGateCards(v.cards, {max: 10}); assert.strictEqual(g.cards.length, 2); assert.deepStrictEqual(g.dropped, {dup: 0, long: 0, empty: 0});
+  const g = Q.aiGateCards(v.cards, {max: 10}); assert.strictEqual(g.cards.length, 2); assert.deepStrictEqual(g.dropped, {dup: 0, long: 0, empty: 0, copied: 0});
 });
 t("the source of the module follows the repo conventions", () => {
   assert(/\/\* ===== module: 97-notecards\.js ===== \*\/[\s\S]*\/\* ===== module: 97-breakdown\.js ===== \*\//.test(src) && src.indexOf("module: 97-notecards.js") < src.indexOf("module: 97-breakdown.js"), "js module sits before 97-breakdown.js");
   assert(src.indexOf("module: 97-notecards.css") < src.indexOf("module: 99-motion-a11y-tz.css"), "css module sits before 99-motion-a11y-tz.css");
   const mod = src.slice(src.indexOf("module: 97-notecards.js"), src.indexOf("module: 97-breakdown.js"));
   assert(/srcNote: noteId/.test(mod), "new cards carry srcNote");
+});
+t("AI cards that copy the notes word for word are left out", () => {
+  const src = "Osmosis is the movement of water across a semipermeable membrane from an area of low solute concentration to high solute concentration.";
+  const v = NC.vetAi([{front: "What is osmosis?", back: "Osmosis is the movement of water across a semipermeable membrane from an area of low solute concentration", quote: "Osmosis is the movement of water"},
+    {front: "What is osmosis?", back: "Water moves across a semipermeable membrane toward higher solute concentration.", quote: "Osmosis is the movement of water across a semipermeable membrane"}], src);
+  assert.strictEqual(v.dropped.copied, 1); assert.strictEqual(v.cards.length, 1);
+  assert(/toward higher/.test(v.cards[0].back));
 });
 console.log(`notecards: ${n} checks passed`);

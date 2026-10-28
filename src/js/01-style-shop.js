@@ -37,6 +37,8 @@ const STORE = (() => {
 })();
 const svgUrl = svg => `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 const SVGH = (vb, body, ar = "none") => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='${vb}' preserveAspectRatio='${ar}'>${body}</svg>`;
+// Founder themes: when you pick a Founder's suggestion (studyboard_founder_theme_pick), add it here like any Pro theme,
+// with the same id, group: "founders" and tier: "pro". It shows under Founder Themes, and its Founder keeps it without Pro.
 // Theme colors: [paper, grid, surface, ink, muted, line, soft, field, accent, accent-2
 const SKINS = [
   {id: "classic", name: "Classic", tier: "free", group: "plain", desc: "The original notebook blue on graph paper."},
@@ -91,7 +93,7 @@ const SKINS = [
     light: ["#F3FAFD", "transparent", "#FFFFFF", "#13283A", "#587084", "#D4E8F2", "#E3F2F9", "#F9FCFE", "#0E86C9", "#4AA4D6", "#FFFFFF", "#11496C", "#1580B8", "#BDDBEB", "#FFF3A3"],
     dark: ["#081722", "transparent", "#0F2231", "#E4F2FA", "#8FAFC4", "#1D3A4E", "#0F2837", "#0C1C2A", "#4FC3F7", "#72CFF9", "#04202E", "#2F7697", "#0E4466", "#BCCBD4", "#5C5214"],
     glow: ["radial-gradient(80% 60% at 100% 0%, rgba(255,200,80,.34), transparent 62%), radial-gradient(90% 70% at 0% 100%, rgba(40,175,215,.26), transparent 62%), #EEF6FA", "radial-gradient(80% 60% at 100% 0%, rgba(255,200,80,.10), transparent 62%), radial-gradient(90% 70% at 0% 100%, rgba(30,140,190,.22), transparent 62%), #081722"], spine: ["linear-gradient(180deg,#1580B8,#0D5A85)", "linear-gradient(180deg,#0E4466,#050E15)"], btn: ["linear-gradient(135deg,#0E86C9,#23B5D3)", "linear-gradient(135deg,#4FC3F7,#7FE0F0)"]},
-  {id: "autumn", name: "Autumn Leaves", tier: "pro", group: "season", desc: "Drifting leaves in warm light.",
+  {id: "autumn", name: "Fall", tier: "pro", group: "season", desc: "Drifting leaves in warm light.",
     light: ["#FBF3EA", "rgba(200,100,30,.11)", "#FFFDF9", "#33200F", "#80644C", "#EFDCC7", "#F8E8D6", "#FEF9F3", "#C8561C", "#E07A2E", "#FFFFFF", "#6B2E14", "#6B2E14", "#F4D5BC", "#FFCF6B"],
     dark: ["#1A0F08", "rgba(255,140,60,.08)", "#26170D", "#F9ECDF", "#C8A387", "#45301F", "#362314", "#1F130A", "#FF8A47", "#FFA56B", "#2E1203", "#A8481C", "#100904", "#E6C2A5", "#6E4A10"],
     glow: ["radial-gradient(90% 70% at 100% 0%, rgba(255,207,107,.32), transparent 62%), radial-gradient(80% 60% at 0% 100%, rgba(224,122,46,.16), transparent 62%), #FBF3EA", "radial-gradient(90% 70% at 100% 0%, rgba(255,165,107,.13), transparent 62%), radial-gradient(80% 60% at 0% 100%, rgba(168,72,28,.22), transparent 62%), #1A0F08"], spine: ["linear-gradient(180deg,#8A3A18,#5A2410)", "linear-gradient(180deg,#4A1F0C,#100904)"], btn: ["linear-gradient(135deg,#C8561C,#E0942E)", "linear-gradient(135deg,#C8561C,#E0942E)"]},
@@ -695,6 +697,8 @@ const itemTier = (kind, id) => ((STYLE_LISTS[kind] || []).find(x => x.id === id)
 const owns = (kind, id) => {
   if (!STORE.paywall || itemTier(kind, id) === "free") return true;
   if (typeof PLAN !== "undefined" && !!PLAN && (PLAN.isPro() || (PLAN.styleGrace && PLAN.styleGrace()))) return true;
+  // A Founder keeps the theme made from their suggestion, with or without Pro
+  if (kind === "skin" && window.SBEARLY && SBEARLY.keeps(id)) return true;
   if (cpAllows(kind, id)) return true;
   if (kind === "comp") { const it = (STYLE_LISTS.comp || []).find(x => x.id === id); if (it && it.theme && cpAllows("skin", it.theme)) return true; }
   return false;
@@ -844,7 +848,7 @@ function styleShop(tab){
   let body = "";
   if (ui.shopTab === "themes") {
     body = `<div class="shop-mode"><span class="mini">Preview in</span>${themeRow().replace(/^[\s\S]*?(<div class="segb)/, "$1").replace(/<\/div>\s*$/, "")}<label class="motion-tog"><input type="checkbox" id="motionTog" data-act="motion-toggle" ${cfg.motion !== false ? "checked" : ""}> Background Animations</label></div>
-      ${[["plain", "Free · Plain Colors"], ["world", `${PRO_BADGE} Pro · Around the World`], ["ideas", `${PRO_BADGE} Pro · New Theme Ideas`], ["season", `${PRO_BADGE} Pro · Seasons`], ["pro", `${PRO_BADGE} Pro · Scenes`], ["majors", `${PRO_BADGE} Pro · Fields`], ["hobby", `${PRO_BADGE} Pro · Hobbies`], ["holiday", `${PRO_BADGE} Pro · Holidays`]].map(([g, t]) => section(t, SKINS.filter(s => (s.group || "plain") === g || (g === "pro" && s.group === "newscenes")), s => `<div class="shop-tile ${cfg.skin === s.id ? "on" : ""}"><div class="skin-pair">${skinPreview(s, false)}${skinPreview(s, true)}</div>${nameRow(s)}${btnFor("skin", s, cfg.skin === s.id)}</div>`)).join("")}`;
+      ${[["plain", "Free · Plain Colors"], ["world", `${PRO_BADGE} Pro · Around the World`], ["ideas", `${PRO_BADGE} Pro · New Theme Ideas`], ["season", `${PRO_BADGE} Pro · Seasons`], ["pro", `${PRO_BADGE} Pro · Scenes`], ["majors", `${PRO_BADGE} Pro · Fields`], ["hobby", `${PRO_BADGE} Pro · Hobbies`], ["holiday", `${PRO_BADGE} Pro · Holidays`], ["founders", `${PRO_BADGE} Pro · Founder Themes`]].map(([g, t]) => section(t, SKINS.filter(s => (s.group || "plain") === g || (g === "pro" && s.group === "newscenes")), s => `<div class="shop-tile ${cfg.skin === s.id ? "on" : ""}"><div class="skin-pair">${skinPreview(s, false)}${skinPreview(s, true)}</div>${nameRow(s)}${btnFor("skin", s, cfg.skin === s.id)}</div>`)).join("")}`;
   } else if (ui.shopTab === "cards") {
     body = `<p class="mini" style="margin:0">How flashcards look while you study. You can also give one deck its own style under Edit Deck.</p>
       ${split(CARD_STYLES.filter(c => c.id !== "theme" || themeKit()), c => `<div class="shop-tile ${cardStyleOf(null) === c.id ? "on" : ""}"><div class="cs-demo cs-${c.id}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div>${nameRow(c)}${btnFor("card", c, cardStyleOf(null) === c.id, "Use for All Decks")}</div>`)}`;
@@ -1012,9 +1016,25 @@ function noteLocalPoint(noteEl, px, py){
   return {x: Math.round(Math.max(-8, Math.min(108, (lx + w / 2) / w * 100))), yp: Math.round(Math.max(-14, Math.min(h + 14, ly + h / 2)))};
 }
 let sDrag = null, stkClickBlock = 0;
-function stkNoteAt(x, y){ const el = document.elementFromPoint(x, y); return el && el.closest ? el.closest(".nb-board .note") : null; }
+// The note under a screen point. Where something else covers the board (the sticker tray on a phone), the point is tested against the notes themselves
+function stkNoteAt(x, y){
+  const el = document.elementFromPoint(x, y), hit = el && el.closest ? el.closest(".nb-board .note") : null;
+  if (hit) return hit;
+  const sc = document.querySelector(".nb-scroll"); if (sc) { const r = sc.getBoundingClientRect(); if (x < r.left || x > r.right || y < r.top || y > r.bottom) return null; }
+  const zk = nbZ(); let best = null, bz = -1e9;
+  document.querySelectorAll(".nb-board .note").forEach(n => {
+    const r = n.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, w = n.offsetWidth, h = n.offsetHeight;
+    const rot = (parseFloat(n.style.getPropertyValue("--rot")) || 0) * Math.PI / 180, dx = (x - cx) / zk, dy = (y - cy) / zk;
+    const lx = dx * Math.cos(-rot) - dy * Math.sin(-rot), ly = dx * Math.sin(-rot) + dy * Math.cos(-rot);
+    const z = parseInt(getComputedStyle(n).zIndex, 10) || 0;
+    if (Math.abs(lx) <= w / 2 && Math.abs(ly) <= h / 2 && z >= bz) { best = n; bz = z; }
+  });
+  return best;
+}
 function stkEnd(ok, e){
   const d = sDrag; sDrag = null; if (!d) return;
+  // Find the note while the tray is still out of the way, before the drag styling comes off
+  const target = ok && d.moved ? stkNoteAt(e.clientX, e.clientY) || d.hover : null;
   document.body.classList.remove("stk-dragging");
   $$(".note.stk-target").forEach(n => n.classList.remove("stk-target"));
   if (d.ghost) d.ghost.remove();
@@ -1026,7 +1046,7 @@ function stkEnd(ok, e){
     else toast("Drag the sticker onto a sticky note");
     return;
   }
-  const target = stkNoteAt(e.clientX, e.clientY), tid = target && target.dataset.note;
+  const tid = target && target.dataset.note;
   const changes = [];
   let moved = null;
   if (d.fromNote) {
@@ -1041,6 +1061,8 @@ function stkEnd(ok, e){
   const s = Object.assign(moved || {k: d.k, r: Math.round(Math.random() * 30 - 15), s: 1}, noteLocalPoint(target, e.clientX, e.clientY)); delete s.y;
   t.stickers = (t.stickers || []).concat(s).slice(-16);
   changes.push({kind: "note", id: tid, after: t});
+  // On a phone the envelope covers the board, so it stays tucked away once a sticker from it lands
+  if (!d.fromNote && window.matchMedia && window.matchMedia("(max-width:700px)").matches) { ui.envOpen = false; try { localStorage.setItem("studyboard:env", "0"); } catch(err) {} }
   applyChanges(changes, "");
 }
 // Turning a sticker
@@ -1083,7 +1105,10 @@ document.addEventListener("pointermove", e => {
     if (sDrag.el) sDrag.el.style.opacity = "0";
   }
   sDrag.ghost.style.left = e.clientX + "px"; sDrag.ghost.style.top = e.clientY + "px";
-  const t = stkNoteAt(e.clientX, e.clientY);
+  // Over empty cork near the edge of the board, it scrolls so notes further down or across can be reached
+  const sc = !stkNoteAt(e.clientX, e.clientY) && document.querySelector(".nb-scroll");
+  if (sc) { const r = sc.getBoundingClientRect(); if (e.clientX > r.left && e.clientX < r.right) { if (e.clientY > r.bottom - 60) sc.scrollTop += 10; else if (e.clientY < r.top + 60) sc.scrollTop -= 10; } }
+  const t = stkNoteAt(e.clientX, e.clientY); sDrag.hover = t;
   $$(".note.stk-target").forEach(n => { if (n !== t) n.classList.remove("stk-target"); });
   if (t) t.classList.add("stk-target");
   e.preventDefault(); e.stopPropagation();
@@ -1132,10 +1157,10 @@ const AI_ACTS = {
   "qa-add": () => qaAdd(), "qa-full": () => qaFull(), "qa-cancel": () => { ui.qa = null; render(); },
   "qa-rm": el => { if (ui.qa) { ui.qa.items.splice(Number(el.dataset.i), 1); if (!ui.qa.items.length) ui.qa = null; render(); } },
   "tf-est": el => tfEstimate(el),
-  "nu-skip": el => { if (ui.skipNext) ui.skipNext.ids.push(el.dataset.id); if (!/^study:/.test(el.dataset.id)) nufbAdd("skip", state.tasks[el.dataset.id]); render(); },
+  "nu-skip": el => { nuSkips().ids.push(el.dataset.id); nuSkipSave(); if (!/^study:/.test(el.dataset.id)) nufbAdd("skip", state.tasks[el.dataset.id]); render(); },
   "nu-more": el => { ui.nuMore = !ui.nuMore; const c = el.closest(".next-up"); if (c) c.classList.toggle("nu-open", ui.nuMore); el.setAttribute("aria-expanded", String(!!ui.nuMore)); },
   "nu-enough": el => { const t = state.tasks[el.dataset.id]; if (!t) return; const n = clone(t); n.history = (n.history || []).concat({at: Date.now(), text: "Enough for today"}).slice(-30); applyChanges([{kind: "task", id: t.id, after: n}], null); toast(`Okay, moving on from “${t.title}” for today. It stays on your list.`); render(); },
-  "nu-back": () => { const id = ui.skipNext && ui.skipNext.ids.pop(); if (id && !/^study:/.test(id)) nufbDrop("skip", id); render(); },
+  "nu-back": () => { const id = nuSkips().ids.pop(); nuSkipSave(); ui.nuLast = null; if (id && !/^study:/.test(id)) nufbDrop("skip", id); render(); },
   "heads-hide": el => { let h = {}; try { h = JSON.parse(localStorage.getItem(HEADS_HIDE) || "{}") || {}; } catch(e) {} Object.keys(h).forEach(k => { if (Date.now() - h[k] > 8 * 864e5 || h[k] === 1) delete h[k]; }); h[el.dataset.id] = Date.now(); try { localStorage.setItem(HEADS_HIDE, JSON.stringify(h)); } catch(e) {} render(); },
   "ai-explain": el => runExplain(el.dataset.key, el.dataset.given),
   "fc-weak": el => weakSheet(el.dataset.id ? [el.dataset.id] : decksArr().filter(d => ui.filter === "all" || d.courseId === ui.filter).map(d => d.id)),

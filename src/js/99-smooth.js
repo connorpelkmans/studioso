@@ -13,7 +13,8 @@
   const quiet = d => {
     try {
       const a = document.activeElement;
-      if (a && a !== d && d.open && d.contains(a) && (phoneW() || !d.querySelector("[autofocus]")) && (phoneW() || !/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) && !a.isContentEditable) {
+      // A heading the sheet focused on purpose stays focused, so screen readers start there
+      if (a && a !== d && d.open && d.contains(a) && !/^H[1-6]$/.test(a.tagName) && (phoneW() || !d.querySelector("[autofocus]")) && (phoneW() || !/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) && !a.isContentEditable) {
         let h = d.querySelector(":scope > .sm-focus");
         if (!h) { h = document.createElement("span"); h.className = "sm-focus"; h.tabIndex = -1; h.setAttribute("aria-hidden", "true"); d.append(h); }
         h.focus({preventScroll: true});

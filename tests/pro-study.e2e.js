@@ -194,6 +194,15 @@ function SEED(){
     const card = await page.evaluate(() => state.decks.d1.cards.find(c => c.src && c.src.f === "f1"));
     ok(card && card.front === "What makes most of a cell's ATP?" && card.back === "Mitochondria produce most" && card.src.p === 1, "Card adds a flashcard to the course's deck, from the page");
     ok(await page.locator(".pdr-list li").first().locator("text=Card made").count() === 1, "the panel shows the card was made");
+    ok(card && card.copied === true, "a card whose back is the PDF's own text is marked copied (so it's never shared)");
+    await page.click('.pdr-list li:nth-child(2) [data-act="pdr-hl-card"]'); await page.waitForTimeout(200);
+    const nAi = page.context().aiBodies.length;
+    await page.click('[data-act="pdr-card-ai"]'); await page.waitForFunction(() => document.getElementById("pdrFront") && document.getElementById("pdrFront").value === "Q", null, {timeout: 10000});
+    const askCard = page.context().aiBodies.slice(nAi).find(x => /You write one flashcard from a passage/.test(x)) || "";
+    ok(/in your own words/.test(askCard) && /Don't copy the passage's sentences/.test(askCard), "Write the Question asks the AI to restate the passage in its own words");
+    await page.click('[data-act="pdr-card-save"]'); await page.waitForTimeout(300);
+    const aiCard = await page.evaluate(() => state.decks.d1.cards.find(c => c.src && c.src.f === "f1" && c.front === "Q"));
+    ok(aiCard && aiCard.back === "A" && !aiCard.copied, "a card the AI wrote in its own words isn't marked copied");
     const box = await page.locator('.pdr-hl i').first().boundingBox();
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2); await page.waitForTimeout(200);
     ok(await page.locator('.pdr-pop [data-act="pdr-hl-del"]').count() === 1, "tapping a highlight offers its choices");
@@ -205,6 +214,11 @@ function SEED(){
     await page.waitForSelector(".pdr-page .textLayer span", {timeout: 15000}); await page.waitForTimeout(300);
     ok(await page.evaluate(() => !!window.__sbProStudy.reader() && window.__sbProStudy.reader().fid === "f1"), "a note's page link opens the reader");
     await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
+    await tab(page, "flashcards"); await act(page, "fc-open", "d1"); await page.waitForTimeout(250);
+    await act(page, "fc-card", card.id); await page.waitForTimeout(250);
+    await page.fill('#dlg textarea[name="back"]', "Mitochondria make most of the ATP"); await page.click("#dlg [data-submit]"); await page.waitForTimeout(300);
+    const edited = await page.evaluate(id => state.decks.d1.cards.find(c => c.id === id), card.id);
+    ok(edited && edited.back === "Mitochondria make most of the ATP" && edited.copied === true, "editing a copied card keeps it marked copied");
     ok(page.errs.length === 0, "no console errors (reader): " + page.errs.join(" | "));
 
     /* Course icons made with AI */

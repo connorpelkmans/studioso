@@ -22,7 +22,10 @@ const ACC = (() => {
     m = LOG_RX.exec(h.text); if (m) return {at: Number(h.at), min: Number(m[1]), kind: "logged"};
     return null;
   }
-  const entries = t => ((t && t.history) || []).map(entry).filter(Boolean);
+  // the task's day-by-day work log when it has one, else its history lines
+  const entries = t => Array.isArray(t && t.workLog)
+    ? t.workLog.filter(e => e && Number(e.m) > 0 && /^\d{4}-\d{2}-\d{2}$/.test(e.d || "")).map(e => ({at: Number(e.at) || new Date(e.d + "T12:00").getTime(), min: Number(e.m), kind: e.k === "log" ? "logged" : "focus"}))
+    : ((t && t.history) || []).map(entry).filter(Boolean);
   const bornDone = t => !!(t && t.created && t.doneAt && t.doneAt - t.created < 60000);
   // "90", "1h", "1.5h", "1h30", "1h 30m", "45m", "1:30" -> minutes (0 when it isn't a time)
   function parseDur(s){
@@ -207,12 +210,12 @@ const SBTIME = (() => {
 })();
 
 /* Logging time */
-function logTime(id, min, kind, label, at){
+function logTime(id, min, kind, label, at, day){
   const t = state.tasks[id]; min = Math.round(Number(min));
   if (!t || !(min > 0)) return false;
-  const n = clone(t);
-  n.focusMin = (Number(n.focusMin) || 0) + min;
-  n.history = (n.history || []).concat({at: at || Date.now(), text: kind === "focus" ? `Focus session: ${min}m` : `Logged time: ${min}m`}).slice(-30);
+  const n = addWork(clone(t), min, kind === "focus" ? "focus" : "log", day || (at ? isoDay(at) : ""), at);
+  // time you type in counts toward the day's study time, like a focus session (a focus session is already counted)
+  if (kind !== "focus") { try { SBSTATS.addFocus(min, "log", false, day || (at ? isoDay(at) : "")); } catch (e) {} }
   applyChanges([{kind: "task", id, after: n}], label || tr("acc.loggedToast", "Logged {t} on {title}", {t: fmtMins(min), title: t.title.length > 28 ? t.title.slice(0, 27) + "…" : t.title}));
   LEARN = null;
   return true;
@@ -338,7 +341,7 @@ function staleScan(){
 /* Log time on a task */
 const logHtml = t => `<div class="acc-log" id="accLog" data-id="${esc(t.id)}"><span class="lbl">${esc(tr("acc.logTime", "Log time"))}</span>
   <span class="acc-log-btns" role="group" aria-label="${esc(tr("acc.logAria", "Add time you spent on this task"))}"><button type="button" class="btn small" data-act="acc-log" data-id="${esc(t.id)}" data-min="15">+15m</button><button type="button" class="btn small" data-act="acc-log" data-id="${esc(t.id)}" data-min="30">+30m</button><button type="button" class="btn small" data-act="acc-log" data-id="${esc(t.id)}" data-min="60">+1h</button><button type="button" class="btn small" data-act="acc-log-custom" data-id="${esc(t.id)}">${esc(tr("acc.custom", "Custom"))}</button></span>
-  <span class="mini acc-log-tot" aria-live="polite">${logTotal(t)}</span></div>`;
+  <span class="mini acc-log-tot" aria-live="polite">${logTotal(t)}</span>${workDaysHtml(t, 5)}</div>`;
 function logTotal(t){
   const m = Number(t.focusMin) || 0;
   return m ? esc(tr("acc.logTotal", "{t} tracked so far", {t: fmtMins(m)})) : esc(tr("acc.logNone", "Nothing tracked yet"));
@@ -346,6 +349,62 @@ function logTotal(t){
 function refreshLog(id){
   const box = document.getElementById("accLog"); if (!box || box.dataset.id !== id || !state.tasks[id]) return;
   const tot = box.querySelector(".acc-log-tot"); if (tot) tot.innerHTML = logTotal(state.tasks[id]);
+  const old = box.querySelector(".tw-days"), h = document.createElement("div"); h.innerHTML = workDaysHtml(state.tasks[id], 5);
+  if (old) old.replaceWith(...h.childNodes); else box.append(...h.childNodes);
+}
+/* Time worked, day by day */
+const twDay = d => d === todayISO() ? tr("tw.today", "Today") : d === addDays(todayISO(), -1) ? tr("tw.yesterday", "Yesterday") : parse(d).toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"});
+// one line per day: when, how long, and how (focus or typed in); typed-in time can be taken back
+function workDaysHtml(t, max, edit){
+  const days = workByDay(t); if (!days.length) return "";
+  const shown = max ? days.slice(0, max) : days;
+  return `<ul class="tw-days" aria-label="${esc(tr("tw.aria", "Time worked by day"))}">${shown.map(r => `<li><span class="tw-d">${esc(twDay(r.d))}</span><b class="tw-m">${fmtMins(r.min)}</b><span class="tw-how mini">${r.focus && r.logged ? tr("tw.focus", "{t} focus", {t: fmtMins(r.focus)}) + " · " + tr("tw.logged", "{t} typed in", {t: fmtMins(r.logged)}) : r.focus ? tr("tw.focusOnly", "focus sessions") : tr("tw.loggedOnly", "typed in")}</span>${edit ? r.items.filter(e => e.kind === "logged" && e.id).map(e => `<button type="button" class="tw-x" data-act="tw-del" data-id="${esc(t.id)}" data-e="${esc(e.id)}" aria-label="${esc(tr("tw.delAria", "Remove {t} typed in for {day}", {t: fmtMins(e.min), day: twDay(r.d)}))}" >${esc(tr("tw.del", "Remove {t}", {t: fmtMins(e.min)}))}</button>`).join("") : ""}</li>`).join("")}</ul>${max && days.length > max ? `<p class="mini tw-more">${esc(tr("tw.more", "and {n} earlier days", {n: days.length - max}))}</p>` : ""}`;
+}
+// Takes back time typed in by mistake
+function removeWork(id, eid){
+  const t = state.tasks[id]; if (!t || !Array.isArray(t.workLog)) return false;
+  const e = t.workLog.find(x => x && x.id === eid && x.k === "log"); if (!e) return false;
+  const n = clone(t);
+  n.workLog = n.workLog.filter(x => x.id !== eid);
+  n.focusMin = Math.max(0, (Number(n.focusMin) || 0) - Number(e.m));
+  let gone = false; n.history = (n.history || []).filter(h => { if (!gone && h.at === e.at && h.text === `Logged time: ${e.m}m`) { gone = true; return false; } return true; });
+  try { SBSTATS.takeFocus(e.m, e.d); } catch (x) {}
+  applyChanges([{kind: "task", id, after: n}], tr("tw.removed", "Removed {t} from {title}", {t: fmtMins(e.m), title: short(t.title, 28)}));
+  LEARN = null;
+  return true;
+}
+// Log Time: how long you worked on a task, on which day
+function logTimeSheet(id){
+  const t = state.tasks[id]; if (!t) return;
+  const c = courseOf(t.courseId), today = todayISO(), yest = addDays(today, -1);
+  const chips = [[15, "15m"], [30, "30m"], [45, "45m"], [60, "1h"], [90, "1h 30m"], [120, "2h"]];
+  openSheet(`<form class="sheet lt-sheet">${head(tr("tw.title", "Log Time"))}
+    <div class="sheet-body">
+      <p class="lt-task"><b>${esc(t.title)}</b>${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</p>
+      <fieldset class="lt-f"><legend>${esc(tr("tw.howLong", "How long did you work on it?"))}</legend>
+        <div class="lt-chips" role="group">${chips.map(([m, l]) => `<button type="button" class="btn small lt-chip" data-lt="${m}" aria-pressed="false">${l}</button>`).join("")}</div>
+        <label class="f"><span class="lh">${esc(tr("tw.orType", "Or type it"))}</span><input type="text" name="ltMin" id="ltMin" maxlength="12" autocomplete="off" placeholder="${esc(tr("acc.exactPh", "e.g. 1h 30m"))}" autofocus></label></fieldset>
+      <fieldset class="lt-f"><legend>${esc(tr("tw.when", "When?"))}</legend>
+        ${seg("ltDay", [["today", esc(tr("tw.today", "Today"))], ["yest", esc(tr("tw.yesterday", "Yesterday"))], ["other", esc(tr("tw.earlier", "Earlier"))]], "today")}
+        <label class="f lt-date" hidden><span class="lh">${esc(tr("tw.day", "Day"))}</span><input type="date" name="ltDate" id="ltDate" max="${today}" value="${addDays(today, -2)}"></label></fieldset>
+      <section class="lt-past" id="ltPast">${ltPastHtml(t)}</section>
+    </div>
+    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">${esc(tr("cancel", "Cancel"))}</button><button type="button" class="btn primary" data-submit>${esc(tr("tw.save", "Log Time"))}</button></div>
+  </form>`, fd => {
+    const m = ACC.parseDur(fd.get("ltMin"));
+    if (!(m > 0 && m <= 1440)) { const i = $("#ltMin"); if (i) { i.setAttribute("aria-invalid", "true"); i.focus(); } toast(tr("acc.badTime", "Try a time like 45m or 1h 30m")); return false; }
+    const w = fd.get("ltDay"), day = w === "yest" ? yest : w === "other" ? String(fd.get("ltDate") || "") : today;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || day > today) { toast(tr("tw.badDay", "Pick a day up to today")); return false; }
+    return logTime(id, m, "log", tr("tw.logged.toast", "Logged {t} on {title}{when}", {t: fmtMins(m), title: short(t.title, 28), when: day === today ? "" : " (" + twDay(day) + ")"}), null, day);
+  });
+  const f = dlg.querySelector(".lt-sheet"), inp = $("#ltMin");
+  f.addEventListener("click", e => { const b = e.target.closest("[data-lt]"); if (!b) return; inp.value = fmtMins(Number(b.dataset.lt)); inp.removeAttribute("aria-invalid"); f.querySelectorAll("[data-lt]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); });
+  inp.addEventListener("input", () => f.querySelectorAll("[data-lt]").forEach(x => x.setAttribute("aria-pressed", "false")));
+  f.addEventListener("change", e => { if (e.target.name === "ltDay") f.querySelector(".lt-date").hidden = e.target.value !== "other"; });
+}
+function ltPastHtml(t){
+  const tot = Number(t.focusMin) || 0, list = workDaysHtml(t, 0, true);
+  return `<h3 class="fsec">${esc(tr("tw.worked", "Time Worked"))}<span class="spacer"></span><span class="mini">${tot ? esc(tr("tw.total", "{t} in all", {t: fmtMins(tot)})) : ""}</span></h3>${list || `<p class="mini" style="margin:0">${esc(tr("tw.none", "Nothing logged yet. Focus sessions and time you log show up here, day by day."))}</p>`}`;
 }
 function customLog(el){
   const box = el.closest(".acc-log"); if (!box) return;
@@ -362,7 +421,7 @@ function howHtml(){
 
 /* Wiring */
 hook("act", (a, el) => {
-  if (!a || a.slice(0, 4) !== "acc-") return false;
+  if (!a || (a.slice(0, 4) !== "acc-" && a !== "log-time" && a !== "tw-del")) return false;
   if (a === "acc-dismiss") { chipDismiss(); return true; }
   if (a === "acc-which") {
     const p = lsGet(LS_PEND, null), id = el.dataset.id; lsSet(LS_PEND, null); chipHide();
@@ -377,6 +436,8 @@ hook("act", (a, el) => {
     if (!(m > 0 && m <= 1440)) { if (i) { i.setAttribute("aria-invalid", "true"); i.focus(); } toast(tr("acc.badTime", "Try a time like 45m or 1h 30m")); return true; }
     answerTook({actualMin: m}); return true;
   }
+  if (a === "log-time") { logTimeSheet(el.dataset.id); return true; }
+  if (a === "tw-del") { if (removeWork(el.dataset.id, el.dataset.e)) { const p = document.getElementById("ltPast"); if (p && state.tasks[el.dataset.id]) p.innerHTML = ltPastHtml(state.tasks[el.dataset.id]); refreshLog(el.dataset.id); } return true; }
   if (a === "acc-log") { if (logTime(el.dataset.id, Number(el.dataset.min))) refreshLog(el.dataset.id); return true; }
   if (a === "acc-log-custom") { customLog(el); return true; }
   if (a === "acc-log-add") {

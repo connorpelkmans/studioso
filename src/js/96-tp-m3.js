@@ -234,7 +234,7 @@
           <path d="M6 40V8.5a5 5 0 0 1 10 0V42a7 7 0 0 1-14 0V14" fill="none" stroke="url(#m3js-pc-g)" stroke-width="2.2" stroke-linecap="round"/>
           <path d="M16.6 10v14" stroke="#FFF6D0" stroke-width=".7" opacity=".8"/></svg>`}
     ],
-    card: {id: "tp-justice", name: "Case File", desc: "A manila case folder with a red string clue in the corner and a brass clip, warm under the desk lamp at night."}
+    card: {id: "tp-justice", name: "Case File", desc: "A manila case folder with a tab across the top, a brass paperclip on the edge and red string pinned along the bottom, warm under the desk lamp at night."}
   });
 
   /* ================= WRITER'S RETREAT ================= */
@@ -336,7 +336,7 @@
           <path d="M4 1H82L79 4.5L82 8L79 11.5L82 15L79 18.5L82 22L79 25H4L7 21.5L4 18L7 14.5L4 11L7 7.5L4 4z" fill="url(#m3wr-pt-s)"/>
           <path d="M12 1V25" stroke="#F2A0A0" stroke-width=".9" opacity=".9"/></svg>`}
     ],
-    card: {id: "tp-writing", name: "Manuscript Page", desc: "Cream ruled paper with a red margin, an ink pot and quill in the corner and paper birds taking flight."}
+    card: {id: "tp-writing", name: "Manuscript Page", desc: "Cream ruled paper with a red margin and bookmark ribbon, and an ink pot with a quill rising from the bottom corner."}
   });
 })();
 

@@ -67,7 +67,7 @@
       {id: "tp-forest-pines", name: "Pine Washi", kind: "tape", desc: "Sage washi tape with a row of little pine trees.",
         svg: PIN("0 0 86 26", `<path d="${TAPE_D}" fill="rgba(143,196,140,.7)" stroke="rgba(47,122,69,.35)" stroke-width=".8"/>${[12, 27, 42, 57, 72].map((x, i) => `<path d="M${x} 6L${x + 5} 12.5H${x + 2.5}L${x + 6} 18H${x - 6}L${x - 2.5} 12.5H${x - 5}Z" fill="${i % 2 ? "rgba(31,90,50,.62)" : "rgba(47,122,69,.55)"}"/><rect x="${x - 1}" y="18" width="2" height="2.5" fill="rgba(90,60,30,.5)"/>`).join("")}${[19.5, 34.5, 49.5, 64.5].map(x => `<circle cx="${x}" cy="8" r="1.1" fill="rgba(255,248,170,.95)"/>`).join("")}<path d="M5 4.5H81" stroke="rgba(255,255,255,.4)" stroke-width="1.2"/>`)}
     ],
-    card: {id: "tp-forest", name: "Misty Ridge", desc: "Soft sage paper with misty ridges, a pine treeline and a few fireflies."}
+    card: {id: "tp-forest", name: "Misty Ridge", desc: "Pale sage sky over layered misty ridges, a pine treeline running edge to edge and a few fireflies."}
   });
 
   /* ================= GALAXY ================= */

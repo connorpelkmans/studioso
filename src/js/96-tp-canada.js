@@ -96,7 +96,7 @@
           ${[0, 1, 2].map(j => `<rect x="0" y="${j * 12}" width="86" height="6" fill="#1E1A1E" opacity=".55"/>`).join("")}
           ${[0, 1, 2, 3, 4, 5, 6, 7].map(i => `<path d="M${i * 12 + 9} 0V26" stroke="#F2D2A0" stroke-width=".5" opacity=".5"/>`).join("")}</g></svg>`}
     ],
-    card: {id: "tp-canada", name: "Lakeside Maple", desc: "Crisp glacier-blue paper with snowy Rocky peaks and a maple branch in the corner and a red canoe on turquoise water below. Northern lights in dark mode."}
+    card: {id: "tp-canada", name: "Lakeside Maple", desc: "Crisp glacier-blue sky over snowy Rocky peaks, pine forest framing a turquoise lake with a red canoe, and a maple bough reaching in from the top edge. Northern lights in dark mode."}
   });
 })();
 /* end of module 96-tp-canada.js */

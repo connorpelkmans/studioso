@@ -80,7 +80,7 @@ const STUB = () => {
   const openTask = async (page, id) => {
     const row = page.locator(`#view [data-act="edit-task"][data-id="${id}"]:visible`);
     if (!(await row.count())) await page.evaluate(() => { const b = document.querySelector('[data-act="bview"][data-id="board"]'); if (b) b.click(); });
-    await row.first().click(); await page.waitForSelector("#dlg[open]");
+    await row.first().click(); await page.click("#dlg #tvEdit"); await page.waitForSelector("#dlg[open] form.sheet");
   };
   const openBreakdown = async page => { await page.evaluate(() => { document.querySelectorAll("dialog[open]").forEach(d => d.close()); }); await openTask(page, "t1"); await page.click('#dlg [data-act="bd-open"]'); await page.waitForSelector("#bdList li"); };
   const openAi = async page => { await page.evaluate(() => { document.querySelectorAll("dialog[open]").forEach(d => d.close()); const b = document.createElement("button"); b.dataset.act = "ai-setup"; document.body.appendChild(b); b.click(); b.remove(); }); await page.waitForSelector('#dlg[open] [data-key="gemini"]'); };

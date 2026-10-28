@@ -5,7 +5,7 @@ let autoBackupDone = false;
 const DEV_BACKUP_DAYS = 14;
 const cloudBackupsOn = () => cloud.on && (inPreview() || typeof PLAN === "undefined" || !PLAN || PLAN.can("cloud-backups"));
 const backupSnap = () => ({at: Date.now(), courses: Object.values(state.courses), tasks: Object.values(state.tasks), files: Object.values(state.files), notes: Object.values(state.notes), decks: Object.values(state.decks || {}), events: Object.values(state.events || {}), avail: (state.settings && state.settings.avail) || null,
-  keep: (() => { const st = state.settings || {}, o = {}; ["noteBoards", "noteBoardsGone", "photoThemes", "photoGone", "style", "comp", "owned"].forEach(k => { if (st[k] !== undefined) o[k] = clone(st[k]); }); return o; })()});
+  keep: (() => { const o = clone(syncSettings(state.settings || {})); delete o.ai; o.all = true; return o; })()});
 async function deviceBackups(){
   let arr = await SBC.all("backups");
   try { arr = arr.concat(JSON.parse(localStorage.getItem(LSB) || "[]").map(b => Object.assign({where: "device"}, b))); } catch(e) {}

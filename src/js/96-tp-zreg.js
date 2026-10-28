@@ -107,11 +107,12 @@
     return html.replace(`<div class="env-name">`, pick + `<div class="env-name">`);
   };
   // The theme pack list floats over everything
-  const tpClose = () => { $$(".env-tp-list").forEach(l => { if (!l.hidden) { l.hidden = true; const b = l.parentNode && l.parentNode.querySelector(".env-tp-btn"); if (b) b.setAttribute("aria-expanded", "false"); } }); };
+  let tpIsOpen = false;
+  const tpClose = () => { if (!tpIsOpen) return; tpIsOpen = false; $$(".env-tp-list").forEach(l => { if (!l.hidden) { l.hidden = true; const b = l.parentNode && l.parentNode.querySelector(".env-tp-btn"); if (b) b.setAttribute("aria-expanded", "false"); } }); };
   const tpOpen = btn => {
     const list = btn.parentNode.querySelector(".env-tp-list"); if (!list) return;
     const r = btn.getBoundingClientRect(), w = Math.max(r.width, 270), room = innerHeight - r.bottom - 12, up = room < 240 && r.top > room;
-    list.hidden = false; btn.setAttribute("aria-expanded", "true");
+    list.hidden = false; tpIsOpen = true; btn.setAttribute("aria-expanded", "true");
     Object.assign(list.style, {position: "fixed", width: w + "px", left: Math.max(8, Math.min(r.left, innerWidth - w - 8)) + "px", maxHeight: Math.max(180, Math.min(380, (up ? r.top : innerHeight - r.bottom) - 16)) + "px", top: up ? "" : (r.bottom + 6) + "px", bottom: up ? (innerHeight - r.top + 6) + "px" : ""});
     const on = list.querySelector(".env-tp-opt.on") || list.querySelector(".env-tp-opt"); if (on) { on.scrollIntoView({block: "nearest"}); on.focus({preventScroll: true}); }
   };

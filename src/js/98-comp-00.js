@@ -394,19 +394,24 @@ var COMP_KIT = (() => {
         bio: "A flaky little croissant with a warm, buttery heart.",
         idle: ["sway", "bounce", "sparkle"], cheer: "hop",
         parts: {
-          feet: `<ellipse cx="52" cy="106" rx="5.4" ry="6" fill="#8A5A2B" ${O}/><ellipse cx="68" cy="106" rx="5.4" ry="6" fill="#8A5A2B" ${O}/>`,
-          body: `${LG("cafe-croissant-m", [[0, "#FAD68F"], [0.55, "#EEB05A"], [1, "#CF8434"]])}
-            <path d="M19 99C16 74 37 49 60 49C83 49 104 74 101 99C96 94.5 88 90.5 79 92C72 96.5 67 99.5 60 99.5C53 99.5 48 96.5 41 92C32 90.5 24 94.5 19 99Z" fill="url(#cafe-croissant-m)" ${O}/>
-            <path d="M31 67Q39 77 35 92.5M89 67Q81 77 85 92.5" fill="none" stroke="#B86A28" stroke-width="2.6" stroke-linecap="round"/>
-            <path d="M44 55Q49.5 71 45.5 94M76 55Q70.5 71 74.5 94" fill="none" stroke="#B86A28" stroke-width="2.6" stroke-linecap="round"/>
-            <path d="M24.5 80Q27 85 26 93M95.5 80Q93 85 94 93" fill="none" stroke="#B86A28" stroke-width="2" stroke-linecap="round" opacity=".75"/>
-            <path d="M50.5 57Q55 53 61 52.5" fill="none" stroke="#FFE7B8" stroke-width="3" stroke-linecap="round"/><path d="M34 64Q37 60 40.5 59M80 59Q83.5 60 86 64" fill="none" stroke="#FFE3AE" stroke-width="2.4" stroke-linecap="round" opacity=".9"/>
-            <circle cx="66" cy="93" r="1.1" fill="#FFF3D6"/><circle cx="30" cy="84" r="1" fill="#FFF3D6"/><circle cx="89" cy="85" r="1" fill="#FFF3D6"/>`
+          armL: {svg: `<ellipse cx="38" cy="89.5" rx="4.4" ry="6.6" transform="rotate(48 38 89.5)" fill="#F2BA68" ${O}/>`, pivot: [43, 87]},
+          armR: {svg: `<ellipse cx="82" cy="89.5" rx="4.4" ry="6.6" transform="rotate(-48 82 89.5)" fill="#F2BA68" ${O}/>`, pivot: [77, 87]},
+          body: `${LG("cafe-croissant-t", [[0, "#EDAE5C"], [1, "#BE6F2E"]], 0.2, 0, 0.8, 1)}${LG("cafe-croissant-s", [[0, "#FBD38C"], [0.55, "#EDA851"], [1, "#CB7C35"]], 0.3, 0, 0.7, 1)}${RG("cafe-croissant-c", [[0, "#FFEDB8"], [0.5, "#F8C672"], [1, "#DF9545"]], 0.42, 0.3, 0.75)}
+            <path d="M31 100C29 93 25 87.5 19 87.5C12.5 88.5 8.5 96 8.5 103C8.5 107.5 10.5 109.5 14 109C20 108 27 105.5 31 100Z" fill="url(#cafe-croissant-t)" ${O}/>
+            <path d="M89 100C91 93 95 87.5 101 87.5C107.5 88.5 111.5 96 111.5 103C111.5 107.5 109.5 109.5 106 109C100 108 93 105.5 89 100Z" fill="url(#cafe-croissant-t)" ${O}/>
+            <path d="M52 98C50 80 46 63 36 61C26 60 18 72 18.5 86C19 96 24 102 31 102C39 102 46 100 52 98Z" fill="url(#cafe-croissant-s)" ${O}/>
+            <path d="M68 98C70 80 74 63 84 61C94 60 102 72 101.5 86C101 96 96 102 89 102C81 102 74 100 68 98Z" fill="url(#cafe-croissant-s)" ${O}/>
+            <path d="M32 68.5Q28.5 82 31 98M88 68.5Q91.5 82 89 98M15 95Q18 101 23.5 104.5M105 95Q102 101 96.5 104.5" fill="none" stroke="#C47630" stroke-width="2.2" stroke-linecap="round"/>
+            <path d="M40 95.5C34 78 36.5 51 49 45C52.5 43.3 56 42.5 60 42.5C64 42.5 67.5 43.3 71 45C83.5 51 86 78 80 95.5C79.5 98 78 99 75 99.5C67 100.5 53 100.5 45 99.5C42 99 40.5 98 40 95.5Z" fill="url(#cafe-croissant-c)" ${O}/>
+            <path d="M44.5 60Q46 50 53.5 46.5" fill="none" stroke="#FFF6DE" stroke-width="3.4" stroke-linecap="round"/><circle cx="59.5" cy="46" r="1.6" fill="#FFF6DE"/>
+            <path d="M22.5 76Q24 69.5 28.5 66.5" fill="none" stroke="#FFE7B4" stroke-width="2.6" stroke-linecap="round"/><path d="M97.5 76Q96 69.5 91.5 66.5" fill="none" stroke="#FFE7B4" stroke-width="2.6" stroke-linecap="round"/>
+            <ellipse cx="72" cy="51" rx="1.6" ry="0.95" transform="rotate(30 72 51)" fill="#FFF3D6"/><ellipse cx="76" cy="57.5" rx="1.4" ry="0.85" transform="rotate(60 76 57.5)" fill="#FFF3D6"/>
+            <ellipse cx="24.5" cy="87" rx="1.3" ry="0.8" transform="rotate(-20 24.5 87)" fill="#FFF3D6"/><ellipse cx="95.5" cy="87" rx="1.3" ry="0.8" transform="rotate(20 95.5 87)" fill="#FFF3D6"/>`
         },
-        eyes: {lx: 51.5, rx: 68.5, y: 72, r: 4.4, style: "dot", color: "#2B1A10"},
-        mouth: {x: 60, y: 80, w: 3, color: "#2B1A10"},
-        cheeks: {lx: 45, rx: 75, y: 79, w: 4.2, h: 2.6, color: "#FF8F8F"},
-        anchors: {top: [60, 52, 0.9], neck: [60, 90, 1.05], chest: [72, 92, 0.7], back: [60, 60, 0.9], hands: [60, 92, 0.85]},
+        eyes: {lx: 51.5, rx: 68.5, y: 68, r: 4.6, style: "dot", color: "#2B1A10"},
+        mouth: {x: 60, y: 76.5, w: 3, color: "#2B1A10"},
+        cheeks: {lx: 45.5, rx: 74.5, y: 75, w: 4.2, h: 2.6, color: "#FF8F8F"},
+        anchors: {top: [60, 45, 0.9], neck: [60, 86, 0.9], chest: [70, 88, 0.65], back: [60, 62, 0.9], hands: [60, 92, 0.85]},
         lines: {
           tap: ["Bonjour! Hi hi!", "You're on a roll! Literally!", "Steady and golden, that's you!", "Layer by layer, you've got this!", "A warm and buttery hello!", "Rise and shine, just like dough!", "All those crumbs of progress add up!"],
           pet: ["Hehe, crumbs everywhere! So happy!", "Oh la la, merci beaucoup!"],

@@ -46,9 +46,9 @@ declare
   r text; n bigint; f record; t text; msg text;
   tables text[] := array['studyboard_config', 'studyboard_entitlements', 'studyboard_devices', 'studyboard_usage', 'studyboard_billing_customers',
                          'studyboard_billing_events', 'studyboard_pro_grants', 'studyboard_plan_rate', 'studyboard_device_removals', 'studyboard_trial_uses', 'studyboard_trial_blocked_domains',
-                         'studyboard_promo_codes', 'studyboard_promo_redemptions'];
-  secret_tables text[] := array['studyboard_promo_codes', 'studyboard_promo_redemptions', 'studyboard_billing_customers', 'studyboard_billing_events', 'studyboard_pro_grants', 'studyboard_plan_rate', 'studyboard_device_removals', 'studyboard_trial_uses', 'studyboard_trial_blocked_domains'];
-  allowed_fn text[] := array['studyboard_paywall', 'studyboard_start_trial', 'studyboard_redeem_code'];
+                         'studyboard_promo_codes', 'studyboard_promo_redemptions', 'studyboard_early_supporters', 'studyboard_early_codes', 'studyboard_founder_themes'];
+  secret_tables text[] := array['studyboard_early_supporters', 'studyboard_early_codes', 'studyboard_founder_themes', 'studyboard_promo_codes', 'studyboard_promo_redemptions', 'studyboard_billing_customers', 'studyboard_billing_events', 'studyboard_pro_grants', 'studyboard_plan_rate', 'studyboard_device_removals', 'studyboard_trial_uses', 'studyboard_trial_blocked_domains'];
+  allowed_fn text[] := array['studyboard_paywall', 'studyboard_start_trial', 'studyboard_redeem_code', 'studyboard_early_status', 'studyboard_my_early', 'founder_theme_save'];
   gid uuid := gen_random_uuid();
 begin
   -- Set-up (as you, the owner)
@@ -234,7 +234,8 @@ begin
       and (p.proname like 'plans\_%' or p.proname in ('studyboard_is_pro', 'studyboard_limit', 'studyboard_prune_group_messages', 'studyboard_prune_billing', 'studyboard_prune_backups',
            'studyboard_apply_billing', 'studyboard_plan_rate_hit', 'studyboard_grant_pro', 'studyboard_grant_pro_uid', 'studyboard_revoke_pro', 'studyboard_revoke_pro_uid',
            'studyboard_paywall', 'studyboard_start_trial', 'studyboard_make_code', 'studyboard_make_codes', 'studyboard_list_codes', 'studyboard_disable_code',
-           'studyboard_revoke_promo', 'studyboard_redeem_code'))
+           'studyboard_revoke_promo', 'studyboard_redeem_code', 'studyboard_early_status', 'studyboard_my_early', 'founder_theme_save', 'studyboard_early_program',
+           'studyboard_early_list', 'studyboard_early_add', 'studyboard_early_remove', 'studyboard_founder_themes', 'studyboard_founder_theme_pick', 'studyboard_founder_theme_unpick'))
   loop
     if not (f.proname = any (allowed_fn)) then
       perform public.sbt_ok(not has_function_privilege('anon', f.oid, 'execute'), 'anon can execute ' || f.sig::text);
@@ -722,7 +723,7 @@ begin
     if to_regclass('storage.objects') is not null and exists (select 1 from pg_trigger where tgname = 'plans_group_upload') then
       perform set_config('request.jwt.claims', jsonb_build_object('sub', ua, 'role', 'authenticated')::text, true);
       r := 'ok'; begin insert into storage.objects (bucket_id, name, owner, metadata) values ('studioso-files', ua || '/g/' || gq || '/x.pdf', ua, '{"size": 10}'); exception when others then r := sqlerrm; end;
-      perform public.sbt_ok(r like 'SB_GROUP_PRO%', 'a file was uploaded to a free group (got ' || r || ')');
+      perform public.sbt_ok(r like 'SB_NO_FILES%', 'a file was uploaded to a group (got ' || r || ')');
       r := 'ok'; begin insert into storage.objects (bucket_id, name, owner, metadata) values ('studioso-files', ub || '/g/' || gp || '/x.pdf', ua, '{"size": 10}'); exception when others then r := sqlerrm; end;
       perform public.sbt_ok(r like 'SB_STORAGE_PATH%', 'a file was put in someone else''s folder (got ' || r || ')');
       perform set_config('request.jwt.claims', '', true);
@@ -853,6 +854,187 @@ begin
     perform public.studyboard_revoke_promo('sbt-promo-2-' || p2 || '@example.invalid');
     perform public.sbt_ok(not public.studyboard_is_pro(p2), 'revoking promo Pro left Pro on');
   end;
+
+  -- 13. Founders and Early Supporters
+  if to_regclass('public.studyboard_early_supporters') is null then
+    raise notice 'Founders and Early Supporters not found (run supabase-plans.sql again): section 13 skipped.';
+  else
+  declare
+    f1 uuid := gen_random_uuid(); f2 uuid := gen_random_uuid(); f3 uuid := gen_random_uuid(); m1 uuid := gen_random_uuid(); m2 uuid := gen_random_uuid();
+    t1 uuid := gen_random_uuid(); x1 uuid := gen_random_uuid(); fr uuid := gen_random_uuid(); g13 uuid := gen_random_uuid();
+    j jsonb; k int; code1 text; tag text := substr(replace(gen_random_uuid()::text, '-', ''), 1, 8);
+    pay constant text := 'select public.studyboard_apply_billing(jsonb_build_object(''event_id'', %L, ''family'', ''stripe'', ''source'', ''stripe'', ''state'', ''active'', ''uid_hint'', %L, ''trust_hint'', true, ''customer'', %L, ''pro_until'', now() + interval ''30 days'', ''paid'', %s, ''term'', %L, ''event_at'', now() + interval ''20 minutes''))';
+  begin
+    perform set_config('request.jwt.claims', '', true);
+    update public.studyboard_config set value = 'true' where key = 'paywall';
+    delete from public.studyboard_early_supporters;
+    insert into auth.users (id, instance_id, aud, role, email, created_at, updated_at)
+      select v.u, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'sbt-early-' || v.nm || '-' || tag || '@example.invalid', now(), now()
+      from unnest(array[f1, f2, f3, m1, m2, t1, x1, fr], array['f1', 'f2', 'f3', 'm1', 'm2', 't1', 'x1', 'fr']) as v(u, nm);
+
+    -- Off by default: a paid sign-up gets nothing
+    perform public.sbt_ok(not coalesce((public.plans_early_cfg() ->> 'on')::boolean, false) or exists (select 1 from public.studyboard_config where key = 'early_program' and (value ->> 'on')::boolean),
+                          'the early program reads its switch');
+    update public.studyboard_config set value = value || '{"on": false}' where key = 'early_program';
+    execute format(pay, 'sbt-early-off', f1, 'cus_sbt_f1', 'true', 'yearly');
+    perform public.sbt_ok(not exists (select 1 from public.studyboard_early_supporters where user_id = f1), 'a payment took a place while the program was off');
+    perform public.sbt_ok(public.studyboard_early_status() = '{"on": false}'::jsonb, 'the status said the program was on while it was off');
+
+    -- On, with small limits for the test: 2 Founders, 3 Early Supporters, 2 friend codes each
+    perform public.studyboard_early_program(true);
+    update public.studyboard_config set value = value || '{"founders": 2, "supporters": 3, "friendCodes": 2}' where key = 'early_program';
+    perform public.sbt_ok((select value ? 'since' from public.studyboard_config where key = 'early_program'), 'turning the program on recorded when');
+    execute format(pay, 'sbt-early-t1', t1, 'cus_sbt_t1', 'false', 'yearly');
+    perform public.sbt_ok(not exists (select 1 from public.studyboard_early_supporters where user_id = t1), 'a trial (no payment) took a place');
+    execute format(pay, 'sbt-early-m1', m1, 'cus_sbt_m1', 'true', 'monthly');
+    execute format(pay, 'sbt-early-f1', f1, 'cus_sbt_f1', 'true', 'yearly');
+    perform public.sbt_ok(public.plans_early_kind(m1) = 'early' and public.plans_early_kind(f1) = 'founder', 'monthly made an Early Supporter and yearly a Founder');
+    execute format(pay, 'sbt-early-f1b', f1, 'cus_sbt_f1', 'true', 'yearly');
+    perform public.sbt_ok((select count(*) from public.studyboard_early_supporters where user_id = f1) = 1 and (select count(*) from public.studyboard_early_codes where user_id = f1) = 2,
+                          'a renewal took a second place or more friend codes');
+    perform public.sbt_ok((select bool_and(p.owner_id = f1 and p.kind = 'month' and p.max_uses = 1) from public.studyboard_early_codes c join public.studyboard_promo_codes p on p.id = c.code_id where c.user_id = f1),
+                          'friend codes are single-use one-month codes owned by their supporter');
+    -- An Early Supporter who moves to yearly becomes a Founder while a Founder place is left
+    execute format(pay, 'sbt-early-m1y', m1, 'cus_sbt_m1', 'true', 'semester');
+    perform public.sbt_ok(public.plans_early_kind(m1) = 'founder', 'an Early Supporter on a semester plan didn''t become a Founder');
+    execute format(pay, 'sbt-early-f2', f2, 'cus_sbt_f2', 'true', 'yearly');
+    perform public.sbt_ok(public.plans_early_kind(f2) = 'early', 'a 3rd yearly payment became a Founder past the limit of 2');
+    execute format(pay, 'sbt-early-x1', x1, 'cus_sbt_x1', 'true', 'monthly');
+    perform public.sbt_ok(public.plans_early_kind(x1) is null, 'a 4th payment took an Early Supporter place past the limit of 3');
+    perform public.sbt_ok((select waiting from public.studyboard_early_supporters where user_id = x1), 'a 4th payment didn''t join the line');
+    j := public.studyboard_early_status();
+    perform public.sbt_ok((j ->> 'foundersLeft')::int = 0 and (j ->> 'supportersLeft')::int = 0, 'the places-left counts are wrong: ' || j::text);
+    -- Unknown plan length can't make a Founder
+    perform public.sbt_ok(public.plans_early_claim(t1, 'weekly', 'stripe') = 'waiting' and public.plans_early_kind(t1) is null, 'an unknown plan length was accepted');
+    perform public.plans_early_revoke(t1);
+
+    -- The app, signed in
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', f1, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    j := public.studyboard_my_early();
+    execute 'reset role';
+    perform public.sbt_ok((j ->> 'member')::boolean and (j ->> 'founder')::boolean and (j ->> 'number')::int = 2 and (j ->> 'founderNumber')::int = 1
+                          and jsonb_array_length(j -> 'codes') = 2, 'studyboard_my_early is wrong for a Founder: ' || j::text);
+    code1 := j -> 'codes' -> 0 ->> 'code';
+    execute 'set local role authenticated';
+    j := public.studyboard_redeem_code(code1);
+    execute 'reset role'; perform public.sbt_ok(j ->> 'error' = 'own_code', 'a supporter redeemed their own friend code: ' || j::text);
+    execute 'set local role authenticated';
+    r := public.sbt_try('select * from public.studyboard_early_codes');
+    execute 'reset role'; perform public.sbt_ok(r like 'err:%', 'a signed-in user read the friend code table'); execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.plans_early_claim(%L, ''yearly'', ''stripe'', true, true)', ua));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a signed-in user gave themselves a place'); execute 'set local role authenticated';
+    r := public.sbt_try('select public.studyboard_early_add(''x@example.com'', true)');
+    execute 'reset role'; perform public.sbt_blocked(r, 'a signed-in user ran studyboard_early_add'); execute 'set local role authenticated';
+    r := public.sbt_try('select public.studyboard_early_program(true)');
+    execute 'reset role'; perform public.sbt_blocked(r, 'a signed-in user switched the early program'); execute 'set local role authenticated';
+    r := public.sbt_try('select public.studyboard_founder_theme_pick(1, ''evil'')');
+    execute 'reset role'; perform public.sbt_blocked(r, 'a signed-in user picked a founder theme');
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', fr, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    j := public.studyboard_redeem_code(code1);
+    execute 'reset role';
+    perform public.sbt_ok((j ->> 'ok')::boolean and public.studyboard_is_pro(fr), 'a friend couldn''t redeem a friend code: ' || j::text);
+    execute 'set local role authenticated';
+    j := public.studyboard_my_early();
+    execute 'reset role'; perform public.sbt_ok(not (j ->> 'member')::boolean and j -> 'codes' is null, 'a non-member saw member details: ' || j::text);
+    perform set_config('request.jwt.claims', '', true);
+    execute 'set local role anon';
+    r := public.sbt_try('select public.studyboard_early_status()');
+    execute 'reset role'; perform public.sbt_ok(r like 'ok:%', 'the public key can''t read the places left'); execute 'set local role anon';
+    r := public.sbt_try('select public.studyboard_my_early()');
+    execute 'reset role'; perform public.sbt_ok(r like 'err:%', 'the public key ran studyboard_my_early'); execute 'set local role anon';
+    r := public.sbt_try('select public.founder_theme_save(1, ''x'', ''y'')');
+    execute 'reset role'; perform public.sbt_ok(r like 'err:%', 'the public key saved a founder theme');
+
+    -- Theme suggestions: Founders only, 3 slots, final once one is picked
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', f2, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    r := public.sbt_try('select public.founder_theme_save(1, ''Not a founder'', ''Should fail'')');
+    execute 'reset role'; perform public.sbt_blocked(r, 'an Early Supporter (not a Founder) saved a theme suggestion');
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', f1, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    perform public.founder_theme_save(1, '  Ocean   Glass ', E'Sea glass greens\r\nwith soft waves.');
+    perform public.founder_theme_save(2, 'Library at Night', 'Warm lamps and dark wood.');
+    perform public.founder_theme_save(3, 'Cherry Blossom Rain', 'Pink petals falling.');
+    r := public.sbt_try('select public.founder_theme_save(4, ''Fourth'', ''Too many'')');
+    execute 'reset role'; perform public.sbt_blocked(r, 'a 4th theme suggestion was saved'); execute 'set local role authenticated';
+    r := public.sbt_try('select public.founder_theme_save(2, ' || quote_literal(repeat('x', 41)) || ', ''Long'')');
+    execute 'reset role'; perform public.sbt_blocked(r, 'a 41-character theme name was saved'); execute 'set local role authenticated';
+    r := public.sbt_try('select public.founder_theme_save(2, ''No description'', ''  '')');
+    execute 'reset role'; perform public.sbt_blocked(r, 'a theme without a description was saved'); execute 'set local role authenticated';
+    r := public.sbt_try(format('update public.studyboard_founder_themes set status = ''picked'', theme_id = ''mine'' where user_id = %L', f1));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a Founder picked their own theme directly');
+    perform public.sbt_ok((select name = 'Ocean Glass' and description = E'Sea glass greens\nwith soft waves.' from public.studyboard_founder_themes where user_id = f1 and slot = 1),
+                          'a theme name or description wasn''t tidied');
+    perform public.sbt_ok((select count(*) from public.studyboard_founder_themes where user_id = f1) = 3, 'a Founder couldn''t save 3 suggestions');
+    perform set_config('request.jwt.claims', '', true);
+    perform public.sbt_ok((select count(*) from public.studyboard_founder_themes() where email like 'sbt-early-f1-%') = 3, 'studyboard_founder_themes() doesn''t list the suggestions');
+    perform public.studyboard_founder_theme_pick((select id from public.studyboard_founder_themes where user_id = f1 and slot = 2), 'founder-library-night');
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', f1, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    r := public.sbt_try('select public.founder_theme_save(1, ''Changed'', ''After the pick'')');
+    execute 'reset role'; perform public.sbt_blocked(r, 'a Founder changed suggestions after one was picked'); execute 'set local role authenticated';
+    j := public.studyboard_my_early();
+    execute 'reset role';
+    perform public.sbt_ok(j -> 'keep' = '["founder-library-night"]'::jsonb, 'the picked theme isn''t kept: ' || j::text);
+
+    -- Badges: a Founder keeps theirs without Pro; a refund gives the place back
+    if to_regclass('public.group_members') is not null and to_regclass('public.study_groups') is not null then
+      perform set_config('request.jwt.claims', '', true);
+      insert into public.study_groups (id, owner_id, name, invite_code) values (g13, f1, 'early', 'EA-' || substr(g13::text, 1, 4));
+      update public.studyboard_config set value = 'false' where key = 'paywall';   -- a free group holds 3; this one needs 4
+      insert into public.group_members (group_id, user_id, role) values (g13, f1, 'owner'), (g13, f2, 'member'), (g13, x1, 'member'), (g13, t1, 'member');
+      update public.studyboard_config set value = 'true' where key = 'paywall';
+      -- f1 (Founder) cancelled without a refund and their Pro ran out; t1 never paid
+      update public.studyboard_entitlements set plan = 'free', pro_until = now() - interval '1 day', trial_until = null where user_id in (f1, t1);
+      perform set_config('request.jwt.claims', jsonb_build_object('sub', f1, 'role', 'authenticated')::text, true);
+      execute 'set local role authenticated'; perform public.set_supporter_badge(true); execute 'reset role';
+      perform set_config('request.jwt.claims', jsonb_build_object('sub', f2, 'role', 'authenticated')::text, true);
+      execute 'set local role authenticated'; perform public.set_supporter_badge(true); execute 'reset role';
+      perform set_config('request.jwt.claims', jsonb_build_object('sub', x1, 'role', 'authenticated')::text, true);
+      execute 'set local role authenticated'; perform public.set_supporter_badge(true); execute 'reset role';
+      perform set_config('request.jwt.claims', jsonb_build_object('sub', t1, 'role', 'authenticated')::text, true);
+      execute 'set local role authenticated'; perform public.set_supporter_badge(true); execute 'reset role';
+      perform set_config('request.jwt.claims', '', true);
+      perform public.sbt_ok((select badge and badge_kind = 'founder' from public.group_members where user_id = f1 and group_id = g13), 'a Founder who cancelled (no refund) lost the Founder badge');
+      perform public.sbt_ok(public.plans_early_kind(f1) = 'founder', 'a Founder who cancelled (no refund) lost their place');
+      perform public.sbt_ok((select badge and badge_kind = 'early' from public.group_members where user_id = f2 and group_id = g13), 'an Early Supporter has no Early Supporter badge');
+      perform public.sbt_ok((select badge and badge_kind = 'pro' from public.group_members where user_id = x1 and group_id = g13), 'someone waiting in line (with Pro) doesn''t show the plain Pro star');
+      perform public.sbt_ok((select not badge and badge_kind is null from public.group_members where user_id = t1 and group_id = g13), 'someone with no place and no Pro got a badge');
+      perform public.plans_badge_tidy();
+      perform public.sbt_ok((select badge from public.group_members where user_id = f1 and group_id = g13), 'the nightly tidy took a Founder''s badge');
+      perform public.studyboard_apply_billing(jsonb_build_object('event_id', 'sbt-early-refund', 'family', 'stripe', 'source', 'stripe', 'state', 'revoke', 'customer', 'cus_sbt_f1', 'event_at', now() + interval '30 minutes'));
+      perform public.sbt_ok(public.plans_early_kind(f1) is null, 'a refunded Founder kept their place');
+      perform public.sbt_ok((select not badge from public.group_members where user_id = f1 and group_id = g13), 'a refunded Founder kept their badge');
+      perform public.sbt_ok((select count(*) from public.studyboard_early_codes c join public.studyboard_promo_codes p on p.id = c.code_id where c.user_id = f1 and not p.disabled) = 1,
+                            'a refund didn''t stop the unused friend codes (or stopped a used one)');
+      -- The next in line: f2 (an Early Supporter on yearly) becomes a Founder, and x1 (waiting) gets f2's... the freed Early Supporter place
+      perform public.sbt_ok(public.plans_early_kind(f2) = 'founder', 'the freed Founder place didn''t go to the Early Supporter next in line');
+      perform public.sbt_ok((select badge_kind = 'founder' from public.group_members where user_id = f2 and group_id = g13), 'the promoted Founder''s badge didn''t change');
+      perform public.sbt_ok(public.plans_early_kind(x1) = 'early', 'the freed Early Supporter place didn''t go to the first person waiting');
+      perform public.sbt_ok((select count(*) from public.studyboard_early_codes where user_id = x1) = 2 and (select badge_kind = 'early' from public.group_members where user_id = x1 and group_id = g13),
+                            'the person promoted from the line didn''t get friend codes and the Early Supporter badge');
+      perform public.sbt_ok((public.studyboard_early_status() ->> 'foundersLeft')::int = 0 and (public.studyboard_early_status() ->> 'supportersLeft')::int = 0, 'places were left open while people waited');
+      -- Someone waiting who stops paying is skipped
+      execute format(pay, 'sbt-early-f3', f3, 'cus_sbt_f3', 'true', 'yearly');
+      execute format(pay, 'sbt-early-m2', m2, 'cus_sbt_m2', 'true', 'monthly');
+      perform public.sbt_ok(public.plans_early_kind(f3) is null and public.plans_early_kind(m2) is null, 'a payment took a place while every place was full');
+      update public.studyboard_entitlements set plan = 'free', pro_until = now() - interval '1 day' where user_id = f3;
+      perform public.studyboard_apply_billing(jsonb_build_object('event_id', 'sbt-early-refund2', 'family', 'stripe', 'source', 'stripe', 'state', 'revoke', 'customer', 'cus_sbt_x1', 'event_at', now() + interval '31 minutes'));
+      perform public.sbt_ok(public.plans_early_kind(f3) is null and public.plans_early_kind(m2) = 'early', 'the place didn''t skip someone in line who stopped paying');
+    end if;
+
+    -- By hand
+    perform public.sbt_ok(public.studyboard_early_add('sbt-early-fr-' || tag || '@example.invalid', true) like '%is a Founder', 'studyboard_early_add didn''t add a Founder past the limit');
+    perform public.sbt_ok(public.studyboard_early_remove('sbt-early-fr-' || tag || '@example.invalid') like 'Removed%', 'studyboard_early_remove didn''t answer');
+    perform public.sbt_ok(public.plans_early_kind(fr) is null, 'studyboard_early_remove didn''t remove');
+    perform public.sbt_ok((select count(*) from public.studyboard_early_list() where email like 'sbt-early-%' || tag || '%') >= 5, 'studyboard_early_list doesn''t list everyone');
+    perform public.studyboard_early_program(false);
+    perform public.sbt_ok(public.plans_early_kind(m1) = 'founder', 'switching the program off took places away');
+    perform set_config('request.jwt.claims', '', true);
+  end;
+  end if;
 
   -- Done
   select count(*) into n from public.sbt_log;

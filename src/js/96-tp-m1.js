@@ -106,7 +106,7 @@
           <path d="M33 13l2-1.5 2 1 1.6-2" fill="none" stroke="#FFD36B" stroke-width="1.1" stroke-linecap="round"/>
           <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".25"/></svg>`}
     ],
-    card: {id: "tp-business", name: "Bull Run", desc: "Crisp ledger paper with a rising green chart in the corner and a little stack of gold coins. Glows on navy at night."}
+    card: {id: "tp-business", name: "Bull Run", desc: "Crisp ledger paper with a green ruled header and a rising bar chart running along the bottom, anchored by a stack of gold coins. Glows on navy at night."}
   });
 
   /* ================= NURSING: Night Shift ================= */
@@ -194,7 +194,7 @@
           <g fill="#FF8FA8"><path d="${heartD(42, 7.5, .25)}"/><path d="${heartD(11, 20, .22)}"/><path d="${heartD(74, 20, .22)}"/></g>
           <path d="M5 23H81" stroke="#fff" stroke-width="1" opacity=".45"/></svg>`}
     ],
-    card: {id: "tp-nursing", name: "Heartbeat Notes", desc: "Soft blush paper with a mint heartbeat line that draws a little heart in the corner, and a sleepy moon on night shifts."}
+    card: {id: "tp-nursing", name: "Heartbeat Notes", desc: "Soft blush ECG grid paper with a mint heartbeat line sweeping across the bottom into a little pink heart; a glowing monitor after dark."}
   });
 
   /* ================= PSYCHOLOGY: Mind Garden ================= */
@@ -279,7 +279,7 @@
           <g fill="#FFD3E6"><circle cx="28" cy="20" r="1.2"/><circle cx="66" cy="7" r="1.2"/><circle cx="42" cy="6" r="1"/></g>
           <path d="M5 23H81" stroke="#fff" stroke-width="1" opacity=".45"/></svg>`}
     ],
-    card: {id: "tp-psych", name: "Daydream Page", desc: "Dreamy lavender paper with thought bubble clouds drifting past a soft spiral, and an inkblot butterfly resting in the corner."}
+    card: {id: "tp-psych", name: "Daydream Page", desc: "Dreamy lavender paper framed by puffy thought-bubble clouds along the top and bottom, with a trail of little thought bubbles drifting down."}
   });
 
   /* ================= BIOLOGY: Cell Garden ================= */
