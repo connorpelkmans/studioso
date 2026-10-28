@@ -153,8 +153,8 @@ const typeAdd = async (p, text) => { await p.fill("#qaIn", text); await p.click(
       await p.click('[data-act="plan-tile"][data-id=""]'); await wait(300);
       ok(!(await p.locator("#planListLbl", {hasText: /^Due /}).count()), "21: Back to Today's Plan clears the filter");
       const first = await p.getAttribute(".next-up .nu-title", "data-id");
-      await p.click('.next-up [data-act="nu-skip"]'); await wait(200);
-      ok(await p.getAttribute(".next-up .nu-title", "data-id") !== first, "22: Something Else picks another task");
+      await p.evaluate(() => { const b = document.createElement("button"), pb = document.querySelector(".next-up [data-act=pomo-task]"), id = document.querySelector(".next-up .nu-title").dataset.id; b.dataset.act = "nu-skip"; b.dataset.id = pb && pb.dataset.study ? "study:" + id : id; b.hidden = true; document.body.appendChild(b); b.click(); b.remove(); }); await wait(200);
+      ok(await p.getAttribute(".next-up .nu-title", "data-id") !== first, "22: skipping picks another task");
       await p.click('.next-up [data-act="nu-back"]'); await wait(200);
       ok(await p.getAttribute(".next-up .nu-title", "data-id") === first && !(await p.locator('.next-up [data-act="nu-back"]').count()), "22: Go Back returns to the first pick");
       await p.click('.plan-past [data-act="toggle"]'); await wait(300);

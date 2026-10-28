@@ -1032,7 +1032,7 @@ const availWhen = (day, today) => { for (let i = 1; i < day.length; i++) if (day
 function availPlan(av, ranked, th0, needToday, day, today, now, lead){
   const res = av.res, a = availState();
   const nowMin = av.sd ? av.sd.now : now.getHours() * 60 + now.getMinutes();
-  // A task you have done enough on today gets no more time today, and one you set aside with Something Else moves down behind the new first task
+  // A task you have done enough on today gets no more time today, and one you set aside moves down behind the new first task
   const skipped = new Set(typeof ui !== "undefined" && ui.skipNext && ui.skipNext.day === today ? ui.skipNext.ids : []);
   const isEnough = x => { try { return typeof enoughToday === "function" && enoughToday(x.t, x); } catch (e) { return false; } };
   const live = ranked.filter(x => x.alloc > 0 && !isEnough(x));
