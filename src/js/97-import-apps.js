@@ -588,7 +588,7 @@ const IA = (() => {
     if (!changes.length) return;
     try {
       const have = (localStorage.getItem(LS2) || "").length, adding = JSON.stringify(changes.map(c => c.after)).length;
-      if (have + adding > 4.6e6) { const m = $("#iaMsg"); if (m) m.textContent = tr("ia.err.space", "That's more than Studyboard can keep on this device at once. Untick a few decks and import the rest afterwards."); return; }
+      if (!spillOk() && have + adding > 4.6e6) { const m = $("#iaMsg"); if (m) m.textContent = tr("ia.err.space", "That's more than Studyboard can keep on this device at once. Untick a few decks and import the rest afterwards."); return; }
     } catch (e) { }
     const what = [made.deck ? decksW(made.deck) + " (" + cardsW(made.card) + ")" : "", made.task ? tasksW(made.task) : "", made.note ? notesW(made.note) : ""].filter(Boolean).join(", ");
     dlg.close();

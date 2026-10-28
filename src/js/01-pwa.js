@@ -89,7 +89,9 @@ function saveBlob(filename, data, type){
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 const inPreview = () => !!(window.claude && typeof window.claude.use === "function");
-async function exportBackup(){
+// The main backup includes your uploaded files whenever there are any (a ZIP); "data only" skips them
+async function exportBackup(opts){
+  if (!(opts && opts.dataOnly) && hasStoredFiles()) return exportFullBackup();
   const data = JSON.stringify(Object.assign({app:"studyboard"}, exportArrays()), null, 2);
   try {
     const dl = caps.downloads || await useCap("downloads");
@@ -129,7 +131,7 @@ $("#importFile").addEventListener("change", async e => {
       }
       applyChanges(replaceAllChanges(cs, ts, fs, ns, ds, es), msg);
       if (d.settings && d.settings.avail !== undefined) { try { availRestore(d.settings.avail); } catch(e) {} }
-      restoreSettingsFrom(d.settings);
+      if (raw.settings && typeof raw.settings === "object" && !Array.isArray(raw.settings)) restoreSettingsFrom(d.settings, "file");
       if (has("trash")) trashMerge(Object.values(d.trash));
     });
   } catch(err) { toast(/compressed/.test(String(err && err.message)) ? "That zip wasn't made by Studyboard" : "That file isn't a Studyboard backup"); }

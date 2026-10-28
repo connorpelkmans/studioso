@@ -58,6 +58,7 @@ document.addEventListener("click", e => {
     case "fsb-resume": dlg.close(); resumeFolderBackup(); break;
     case "fsb-stop": dlg.close(); stopFolderBackup(); break;
     case "export-full": dlg.close(); exportFullBackup(); break;
+    case "export-json": dlg.close(); exportBackup({dataOnly: true}); break;
     case "sb-connect": dlg.close(); setTimeout(() => SB_HOSTED && !sbCustom() ? sbAsk() : sbSetupSheet(), 30); break;
     case "sb-signin": dlg.close(); setTimeout(sbAsk, 30); break;
     case "sb-signout": dlg.close(); setTimeout(sbSignOut, 30); break;

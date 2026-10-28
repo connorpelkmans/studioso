@@ -584,6 +584,7 @@ if (DESK) { try { await Promise.race([deskBoot(), sleep(6000)]); } catch(e) { co
 try { pwaBoot(); } catch(e) {}
 try { applyTheme(); } catch(e) {}
 try { applySkin(); } catch(e) {}
+try { await spillLoad(); } catch(e) { console.warn("device copy", e); }
 loadLocal();
 try { noteDraftRecover(); } catch(e) { console.warn("note draft", e); }
 setTimeout(async () => {
