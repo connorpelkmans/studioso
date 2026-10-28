@@ -6803,11 +6803,21 @@ SCENES.marinebio = function (W, H, dk, rnd) {
   var rocks = '', rockL = '', rockD = '', urch = '', star = '', anem = [], shells = '';
   var rk = ph ? [[0.08, 1.2], [0.32, 0.7], [0.92, 1.3], [0.7, 0.8]] : [[0.035, 1.6], [0.13, 1.0], [0.4, 0.8], [0.68, 0.9], [0.83, 1.4], [0.95, 1.1]];
   rk.forEach(function (q, i) { var x0 = W * q[0], r0 = (ph ? 34 : 48) * q[1], y0 = floorY + 22 + (i % 2) * 10; rocks += n6_ell(x0, y0, r0 * 1.3, r0 * 0.8) + n6_ell(x0 + r0 * 0.9, y0 + r0 * 0.15, r0 * 0.8, r0 * 0.55); rockL += n6_ell(x0 - r0 * 0.4, y0 - r0 * 0.42, r0 * 0.6, r0 * 0.22); rockD += n6_ell(x0 + r0 * 0.5, y0 + r0 * 0.5, r0 * 1.1, r0 * 0.3);
-    if (i % 2 === 0) urch += n6_urchin(x0 + r0 * 0.4, y0 - r0 * 0.66, r0 * 0.16); if (i % 3 === 1) star += n6_starfish(x0 - r0 * 0.5, y0 - r0 * 0.1, r0 * 0.28, 0.3 * i); if (i % 2 === 1 || i === 0) anem.push([x0 - r0 * 0.1 + r0 * 0.4 * (i % 2), y0 - r0 * 0.7, r0 * 0.34]); });
+  });
   var onRock = function (x, y) { return rk.some(function (q, i) { var x0 = W * q[0], r0 = (ph ? 34 : 48) * q[1], y0 = floorY + 22 + (i % 2) * 10; return Math.pow((x - x0) / (r0 * 1.3 + 8), 2) + Math.pow((y - y0) / (r0 * 0.8 + 6), 2) < 1 || Math.pow((x - x0 - r0 * 0.9) / (r0 * 0.8 + 8), 2) + Math.pow((y - y0 - r0 * 0.15) / (r0 * 0.55 + 6), 2) < 1; }); };
+  // anemones, urchins and starfish sit on the sand between the rocks, not on top of them
+  var used = [], u0 = ph ? 34 : 48;
+  function freeSpot(x, y, r) { if (onRock(x - r, y) || onRock(x + r, y) || onRock(x, y - r * 1.4)) return false; return !used.some(function (q) { return Math.hypot(q[0] - x, q[1] - y) < q[2] + r + 10; }); }
+  [['a', ph ? 3 : 5], ['u', ph ? 3 : 5], ['s', ph ? 3 : 5]].forEach(function (kind, ki) {
+    for (var n = 0, tries = 0; n < kind[1] && tries < 60; tries++) {
+      var gx = W * (0.04 + rnd() * 0.92), gy = floorY + 24 + rnd() * (H - floorY - (ph ? 60 : 80)), sc = 0.75 + 0.5 * (gy - floorY) / (H - floorY), r = u0 * sc * (kind[0] === 'a' ? 0.34 : kind[0] === 'u' ? 0.17 : 0.3);
+      if (!freeSpot(gx, gy, r)) continue; used.push([gx, gy, r]); n++;
+      if (kind[0] === 'a') anem.push([gx, gy, r]); else if (kind[0] === 'u') urch += n6_urchin(gx, gy - r * 0.2, r); else star += n6_starfish(gx, gy, r, rnd() * 6.28);
+    } });
+  anem.sort(function (p, q) { return p[1] - q[1]; });
   for (k = 0; k < (ph ? 4 : 8); k++) { x = W * (k + 0.5) / (ph ? 4 : 8) + (rnd() - 0.5) * 60; y = floorY + 30 + rnd() * (H - floorY - 50); if (onRock(x, y)) continue;
     shells += n6_arc(x, y, 0, 7, Math.PI, Math.PI * 2, 8) + rect(x - 2, y, 4, 2); }
-  if (!ANIM) { var sb = ph ? [W * 0.62, H * 0.24, W * 0.3] : [W * 0.6, H * 0.18, W * 0.15], L = sb[2]; P.f(dk ? '#C89A22' : '#F2C230', n6_ell(sb[0], sb[1], L * 0.5, L * 0.22) + rrect(sb[0] - L * 0.12, sb[1] - L * 0.36, L * 0.26, L * 0.18, L * 0.05) + n6_poly([[sb[0] - L * 0.48, sb[1]], [sb[0] - L * 0.6, sb[1] - L * 0.12], [sb[0] - L * 0.6, sb[1] + L * 0.12]])).f(dk ? '#FFD88A' : '#BFE8F2', n6_circ(sb[0] + L * 0.24, sb[1] - L * 0.01, L * 0.11) + n6_circ(sb[0] - L * 0.12, sb[1], L * 0.05) + n6_circ(sb[0] - L * 0.27, sb[1], L * 0.05)); }
+  // (no submarine)
   P.f(C.rockD, rockD);
   var OT = ph ? [W * 0.25, H * 0.03, 0.8] : [W * 0.47, H * 0.035, 1.15];
   if (!ANIM) {
@@ -6819,9 +6829,8 @@ SCENES.marinebio = function (W, H, dk, rnd) {
     fishes.forEach(function (q) { var fs = ph ? 1.15 : 1.7, fx = W * q[0], fyy = H * q[1], d = q[2], P2 = function (px, py) { return [fx + px * fs * d, fyy + py * fs]; };
       var body = n6_ell(fx, fyy, 10 * fs, 6.5 * fs), fin = n6_poly([P2(-8, 0), P2(-15, -6), P2(-14, 0), P2(-15, 6)]) + n6_poly([P2(-2, -6), P2(2, -11.5), P2(6, -6)]);
       if (q[3]) fy += body; else fo += body; ff += fin; eyes.push({e: [fx + 5 * fs * d, fyy - 1 * fs, 1.5 * fs, 1.5 * fs]}); });
-    P.f('#8A5A3A', oBrown).f('#C89A72', oLight).f(dk ? '#C8B8A0' : '#FFF4E4', oShell).f('#7A4C30', oPaw);
     P.f(dk ? '#E8743A' : '#FF8A3A', fo).f(dk ? '#F2C230' : '#FFD23A', fy).f(dk ? '#C85A2A' : '#F06A2A', ff);
-    P.s('#3A2A3A', 2, n6_hatch(eyes, 2) + 'M' + PT(O(28, -7)[0], O(28, -7)[1]) + 'L' + PT(O(31.5, -7)[0], O(31.5, -7)[1]) + 'M' + PT(O(38.5, -7)[0], O(38.5, -7)[1]) + 'L' + PT(O(42, -7)[0], O(42, -7)[1]));
+    P.s('#3A2A3A', 2, n6_hatch(eyes.slice(1), 2));
   }
   var hold = '', rockHit = function (x, y) { return rk.some(function (q, i) { var x0 = W * q[0], r0 = (ph ? 34 : 48) * q[1], y0 = floorY + 22 + (i % 2) * 10; return Math.pow((x - x0) / (r0 * 1.3), 2) + Math.pow((y - y0) / (r0 * 0.8), 2) < 1 || Math.pow((x - x0 - r0 * 0.9) / (r0 * 0.8), 2) + Math.pow((y - y0 - r0 * 0.15) / (r0 * 0.55), 2) < 1; }); };
   kelps.forEach(function (q) { var bx = q.x + Math.sin(q.seed) * q.h * 0.012, by = q.y; if (rockHit(bx, by - 4)) return;
@@ -18576,21 +18585,17 @@ ENGINES.marinebio = function (A, v, dk) {
         var pA = new Path2D(), pB = new Path2D(), pC = new Path2D();
         g.bl.forEach(function (b, i) { var fl = Math.sin(t * 1.3 * f.s + i * 0.7 + k.ph) * 9, an = (b[4] + fl) * Math.PI / 180, co = Math.cos(an), si = Math.sin(an); (i % 3 ? pB : pA).addPath(k.blades[i].p, {a: co, b: si, c: -si, d: co, e: b[0], f: b[1]}); var cx = b[0] + co * q.w * 0.8, cy = b[1] + si * q.w * 0.8; pC.moveTo(cx + q.w * 0.5, cy); pC.arc(cx, cy, q.w * 0.5, 0, 7); });
         ca.fillStyle = kelpCol[0]; ca.fill(pA); ca.fillStyle = kelpCol[1]; ca.fill(pB); ca.fillStyle = kelpCol[2]; ca.fill(pC); });
-      // canvas B: anemone tentacles, fish, bubbles, the sub (and its lights), the otter
+      // canvas B: anemone tentacles, fish, bubbles, the finish dolphins
       A.anem.forEach(function (a, n) { for (var jj = -4; jj <= 4; jj++) { var sw = Math.sin(t * 1.6 * f.s + n + jj * 0.4) * 10; cb.save(); cb.translate(a[0] + jj * a[2] * 0.15, a[1] - a[2] * 0.62); cb.rotate((-90 + jj * 14 + sw) * Math.PI / 180); cb.fillStyle = C.anemL; cb.beginPath(); cb.ellipse(a[2] * 0.4, 0, a[2] * 0.42, a[2] * 0.1, 0, 0, 7); cb.fill(); cb.fillStyle = '#FFFFFF'; cb.globalAlpha = 0.6; cb.beginPath(); cb.arc(a[2] * 0.8, 0, a[2] * 0.06, 0, 7); cb.fill(); cb.restore(); } });
       fishes.forEach(function (fi) { var u = t * fi.sp * f.s + fi.ph, x = fi.x0 + Math.sin(u) * fi.ax, y = fi.y0 + Math.sin(u * 2.1) * fi.ay, dir = Math.cos(u) >= 0 ? 1 : -1; n6_fish(cb, x, y, fi.s, dir, t, fi.c[0], fi.c[1], fi.ph); });
       cb.strokeStyle = dk ? 'rgba(190,240,255,0.5)' : 'rgba(255,255,255,0.8)'; cb.lineWidth = 1; cb.beginPath(); bubbles.forEach(function (b) { cb.moveTo(b.x + b.r, b.y); cb.arc(b.x, b.y, b.r, 0, 7); }); cb.stroke();
       cb.fillStyle = dk ? 'rgba(190,240,255,0.5)' : 'rgba(255,255,255,0.9)'; cb.beginPath(); bubbles.forEach(function (b) { var r = b.r * 0.3; cb.moveTo(b.x - b.r * 0.35 + r, b.y - b.r * 0.35); cb.arc(b.x - b.r * 0.35, b.y - b.r * 0.35, r, 0, 7); }); cb.fill();
-      var sx = SB[0], sy = SB[1] + Math.sin(t * 0.9) * 5, L = SB[2], s = L / 150, beam = Math.sin(t * 0.35 * f.s) * 0.35 + 0.15;
-      cb.save(); cb.globalCompositeOperation = 'lighter'; cb.translate(sx + 68 * s, sy + 8 * s); cb.rotate(beam);
-      var bg = cb.createLinearGradient(0, 0, W * 0.4, 0); bg.addColorStop(0, dk ? 'rgba(255,246,200,0.45)' : 'rgba(255,255,240,0.25)'); bg.addColorStop(1, 'rgba(255,246,200,0)'); cb.fillStyle = bg; cb.beginPath(); cb.moveTo(0, -4); cb.lineTo(W * 0.4, -W * 0.09); cb.lineTo(W * 0.4, W * 0.09); cb.lineTo(0, 4); cb.fill(); cb.restore();
-      if (dk) { cb.save(); cb.globalCompositeOperation = 'lighter'; n6_dot(cb, lightG, sx + 68 * s, sy + 8 * s, 18, 0.9); [[-40, 0], [-18, 0]].forEach(function (q) { n6_dot(cb, n6_rg('rgba(255,210,130,0.6)', 1), sx + q[0] * s, sy + q[1] * s, 16 * s, 0.7); }); cb.restore(); }
+      // no sub or otter: the finish dolphins and rings still centre on where the sub used to be
+      var sx = SB[0], sy = SB[1];
       var orb = function (d) { var e = n6_env(T, 0.6, 2, 5, 6.6), ang = d.a + (T - 0.6) * 1.5, rx = W * (ph ? 0.38 : 0.22) * (1 + (1 - e) * 2.2), ry = H * (ph ? 0.08 : 0.12) * (1 + (1 - e) * 0.6), x = sx + Math.cos(ang) * rx + (T > 5 ? (T - 5) * W * 0.3 : 0), y = sy + Math.sin(ang) * ry, dx = -Math.sin(ang) * rx, dy = Math.cos(ang) * ry; return {x: x, y: y, dir: dx >= 0 ? 1 : -1, tilt: Math.atan2(dy, Math.abs(dx)) * 0.5, back: Math.sin(ang) < 0}; };
       dol.forEach(function (d) { var p = orb(d); if (p.back) n6_dolphin(cb, p.x, p.y, (ph ? 1.2 : 2) * 0.88, p.dir, p.tilt, t + d.k, T > 2 && T < 5); });
-      sub(cb, sx, sy, L, t, T > 0 && T < 7 ? 1 : 0);
       dol.forEach(function (d) { var p = orb(d); if (!p.back) n6_dolphin(cb, p.x, p.y, (ph ? 1.2 : 2) * 1.08, p.dir, p.tilt, t + d.k, T > 2 && T < 5); });
       if (T >= 0 && T < 4) { cb.save(); cb.globalCompositeOperation = dk ? 'lighter' : 'source-over'; for (j = 0; j < 3; j++) { var u = (T - j * 0.8) / 1.8; if (u < 0 || u > 1) continue; var R = 20 + u * W * (ph ? 0.5 : 0.32); cb.strokeStyle = dk ? 'rgba(150,255,230,' + (1 - u) * 0.8 + ')' : 'rgba(255,255,255,' + (1 - u) * 0.95 + ')'; cb.lineWidth = 3 * (1 - u) + 1; cb.beginPath(); cb.ellipse(sx, sy, R, R * 0.6, 0, 0, 7); cb.stroke(); if (u < 0.3) n6_dot(cb, pingG, sx, sy, 40, (0.3 - u) * 2); } cb.restore(); }
-      otter(cb, OT[0], OT[1], OT[2], t, dk);
     },
     finish: function (t) { T0 = t; }
   };
