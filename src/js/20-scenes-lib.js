@@ -9014,8 +9014,8 @@ SCENES.greenhouse = function (W, H, dk, rnd) {
     }
   });
   (ph ? [[-1, 1.6, 0.3]] : [[-1, 1.55, 0.25], [1, 2.05, 0.3]]).forEach(function (q) { var sd = q[0], m = q[1], base = P(m, sd * -L + (sd * Ae - sd * -L) * q[2], B - hE), s = m * (ph ? 0.5 : 0.62), x = base[0], y = base[1], topY = H * (ph ? 0.14 : 0.1), th = y - topY;
-    var trunk = []; for (var i = 0; i <= 12; i++) { var t = i / 12; trunk.push([x + Math.sin(t * 2.4) * 14 * s * sd, y - th * t]); }
-    trunks += n3_tube(trunk, 14 * s, 9 * s); var tx = trunk[12][0], ty = trunk[12][1];
+    var trunk = []; y += 8 * s; th += 8 * s; for (var i = 0; i <= 12; i++) { var t = i / 12; trunk.push([x + Math.sin(t * 2.4) * 14 * s * sd, y - th * t]); }
+    trunks += n3_tube(trunk, 14 * s, 9 * s) + n3_E(x, y - 2 * s, 13 * s, 4 * s); /* sunk into the soil with a little root flare */ var tx = trunk[12][0], ty = trunk[12][1];
     for (var f = 0; f < 10; f++) { var ang = -180 + f * 20 + (rnd() - 0.5) * 8; n3_fernFrond(tx, ty, (96 + rnd() * 30) * s, ang, 11 * s, 0.45 + Math.abs(Math.cos(ang * Math.PI / 180)) * 0.35, Mo, f % 2 ? 'mid' : 'dark', f % 2 ? 'light' : 'mid'); }
     for (var k = 0; k < 5; k++) trunks += n3_RE(trunk[k * 2 + 1][0], trunk[k * 2 + 1][1], 8 * s, 2.6 * s, 0); });
   add(mid, 'a', Mo.dark, G.dark); add(mid, 'b', Mo.mid + Mo.stem, G.mid); add(mid, 'c', Mo.light, G.light); add(mid, 'd', Mo.yel, G.yel);
@@ -9029,7 +9029,7 @@ SCENES.greenhouse = function (W, H, dk, rnd) {
     if (Math.abs(fxx) < Ae * 0.3 && Math.abs(fm - (ph ? 2.5 : 2.6)) < 0.5) continue;
     if (lr() < 0.55) fallen += n3_P(flat(n3_leafPts(fp[0], fp[1], 9 * sz, 3 * sz, lr() * 360, 0.1), fp[1], 0.45));
     else for (var pq = 0; pq < 3; pq++) petals += n3_E(fp[0] + (lr() - 0.5) * 8 * sz, fp[1] + (lr() - 0.5) * 2 * sz, 2.2 * sz, 1 * sz); }
-  add(mid, 'e', Mo.acc1 + petals, G.acc1); add(mid, 'f', Mo.acc2, G.acc2); add(mid, 'p', trunks, dk ? '#4A3A2C' : '#A47A55'); add(mid, 'c', fallen);
+  add(mid, 'e', Mo.acc1 + petals, G.acc1); add(mid, 'f', Mo.acc2, G.acc2); add(refl, 'k', trunks, dk ? '#4A3A2C' : '#A47A55'); /* behind the bed's plants, so the ones in front hide its base */ add(mid, 'c', fallen);
   // hanging baskets, grow lamps and misting nozzles hang from the ribs
   var baskets = []; (ph ? [[1.72, -0.6], [1.3, 0.62], [1.72, 0.12]] : [[1.3, -0.46], [1.3, 0.56], [1.72, -0.74], [1.72, 0.28], [2.38, -0.16]]).forEach(function (q, j) { var m = q[0], a = arch(m, q[1]), s = m * (ph ? 0.6 : 0.8);
     baskets.push({x: a[0], y: Math.max(-12, a[1]), len: (30 + (j % 3) * 20) * s, s: s, k: j, m: m}); });
@@ -21293,7 +21293,9 @@ ENGINES.greenhouse = function (A, v, dk) {
       function basket(b) { var s = b.s, sw = Math.sin(tt * 0.55 + b.k * 1.3) * 0.045 + Math.sin(tt * 1.15 + b.k) * 0.012, bx = b.x + Math.sin(sw) * b.len, by = b.y + Math.cos(sw) * b.len, turn = b.k * 1.1, drift = Math.sin(tt * 0.5 + b.k) * 0.06; // the basket no longer spins: each vine keeps its place and colour
         cb.strokeStyle = dk ? 'rgba(150,170,160,0.7)' : 'rgba(110,116,110,0.85)'; cb.lineWidth = 1; cb.beginPath(); cb.moveTo(b.x, b.y); cb.lineTo(bx - 14 * s, by); cb.moveTo(b.x, b.y); cb.lineTo(bx + 14 * s, by); cb.moveTo(b.x, b.y); cb.lineTo(bx + Math.cos(turn) * 4 * s, by - 2 * s); cb.stroke();
         var strands = []; for (var j = 0; j < 8; j++) { var th = j / 8 * 6.283 + turn + 0.2, z = Math.sin(th); strands.push({x: Math.cos(th + drift * (Math.abs(z) > 0.3 ? 1 : 0)) * 12 * s, z: z, l: (22 + ((j * 13 + b.k * 7) % 26)) * s, j: j}); }
-        function vine(st) { var n = 7, px = bx + st.x * (st.z < 0 ? 0.9 : 0.8), py = by + (st.z < 0 ? 1 : 3) * s, dark = st.z < 0; cb.strokeStyle = dark ? (dk ? '#24493A' : '#3C7E52') : (dk ? '#2F5E46' : '#4E9E5C'); cb.lineWidth = 1.2 * s; cb.beginPath(); cb.moveTo(px, py); var pts = [];
+        // each vine grows out of the foliage on top, curls over the rim and then hangs
+        function vine(st) { var n = 7, dark = st.z < 0, rx = bx + st.x * 1.12, px = rx, py = by + 1 * s; cb.strokeStyle = dark ? (dk ? '#24493A' : '#3C7E52') : (dk ? '#2F5E46' : '#4E9E5C'); cb.lineWidth = 1.7 * s; cb.lineCap = 'round'; cb.lineJoin = 'round'; cb.beginPath();
+          cb.moveTo(bx + st.x * 0.7, by - 4 * s); cb.quadraticCurveTo(bx + st.x * 1.15, by - 4.5 * s, px, py); var pts = [[bx + st.x * 0.95, by - 3.5 * s]];
           for (var q = 1; q <= n; q++) { var u = q / n, xx = px + Math.sin(q * 0.7 + tt * 0.9 + st.j) * 2.4 * s * u + Math.sin(sw) * st.l * u * 0.5, yy = py + st.l * u; cb.lineTo(xx, yy); pts.push([xx, yy]); } cb.stroke();
           cb.fillStyle = dark ? (dk ? '#2A5240' : '#3F8A55') : (dk ? '#3A7050' : '#6CBB6E'); pts.forEach(function (p, q) { if (q % 1) return; cb.beginPath(); cb.ellipse(p[0] + (q % 2 ? 2.5 : -2.5) * s, p[1], 2.6 * s, 1.6 * s, q % 2 ? 0.5 : -0.5, 0, 7); cb.fill(); }); }
         strands.filter(function (q) { return q.z < 0; }).forEach(vine);
