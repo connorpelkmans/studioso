@@ -7867,7 +7867,6 @@ function n5_crys2(x, y, s, ang, n, rnd) {
     o.lit += b2_polyA([P(-2, -c1), P(Ls + w * 0.18, -c1), T, P(Ls + w * 0.18, c1), P(-2, c1)]);
     o.dk += b2_polyA([P(-2, c1), P(Ls + w * 0.18, c1), T, P(Ls, w / 2), P(-2, w / 2)]);
     o.edge += b2_polyA([P(2, -c1 - 0.6), P(Ls + w * 0.18, -c1 - 0.6), T, P(Ls + w * 0.16, -c1 + 0.9), P(2, -c1 + 0.9)]) + b2_polyA([P(Ls + w * 0.1, -w / 2 + 0.8), P(Ls + w * 0.22, -w * 0.3), T]);
-    var gp = P(L * 0.24, 0); o.glow += b2_ellA(gp[0], gp[1], Math.max(1.5, w * 0.16), Math.max(2, L * 0.15));
     o.tips.push(T); rb.push([bx, by, w]);
   }
   // the rock the cluster grows from: a lumpy mound spanning the crystal bases
