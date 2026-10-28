@@ -3700,7 +3700,7 @@ SCENES.halloween = function (W, H, dk, rnd) {
   var fog = ''; for (var fx2 = -60; fx2 < W + 60; fx2 += 170) { fog += b2_ellA(fx2 + rnd() * 60, h2y(fx2) + 46, 110 + rnd() * 50, 8 + rnd() * 4) + b2_ellA(fx2 + 80, y3 + 16 + rnd() * 10, 120 + rnd() * 60, 9 + rnd() * 4); }
   add(mid, 'g', fog, dk ? 'rgba(170,140,200,0.18)' : 'rgba(255,255,255,0.32)');
   // ---- near: slot order is the draw order ----
-  var S = {sh: '', lfA: '', lfB: '', lfC: '', bwing: '', sil: '', bark: '', mStem: '', mCap: '', post: '', board: '', owl: '', owlW: '', owlF: '', eye: '', pkB: '', pkM: '', pkF: '', ghost: '', gourd: '', rib: '', ghostS: '', stripe: '', stem: '', hi: '', pLeaf: '', rind: '', glow: '', dark: '', gold: '', candy: '', ff: ''};
+  var S = {sh: '', lfA: '', lfB: '', bwing: '', sil: '', bark: '', mStem: '', mCap: '', owl: '', owlW: '', board: '', owlF: '', eye: '', pkB: '', pkM: '', pkF: '', pkH: '', ghost: '', ghostM: '', ghostS: '', gourd: '', rib: '', ghostG: '', stem: '', hi: '', pLeaf: '', rind: '', glow: '', glowC: '', dark: '', candy: '', ff: ''};
   var vines = '', veins = '', boxes = [];
   function onThing(x, y, m) { m = m || 0; return boxes.some(function (b) { return x > b[0] - m && x < b[2] + m && y > b[1] - m && y < b[3] + m; }); }
   // the gnarled tree: a twisting trunk with roots, tapering branches with twigs, bark lines and a knot
@@ -3727,32 +3727,60 @@ SCENES.halloween = function (W, H, dk, rnd) {
     S.eye += b2_ellA(ox - 3.7 * os, oy - 18 * os, 3.3 * os, 3.3 * os) + b2_ellA(ox + 3.7 * os, oy - 18 * os, 3.3 * os, 3.3 * os);
     S.dark += b2_ellA(ox - 3.5 * os, oy - 17.6 * os, 1.7 * os, 1.9 * os) + b2_ellA(ox + 3.9 * os, oy - 17.6 * os, 1.7 * os, 1.9 * os);
     S.ff += b2_ellA(ox - 4.1 * os, oy - 18.5 * os, 0.6 * os, 0.6 * os) + b2_ellA(ox + 3.3 * os, oy - 18.5 * os, 0.6 * os, 0.6 * os);
-    S.gold += b2_polyA([O(-1.5, -15.5), O(1.5, -15.5), O(0, -12)]) + b2_ellA(ox - 3 * os, oy, 2 * os, 1.2 * os) + b2_ellA(ox + 3 * os, oy, 2 * os, 1.2 * os);
+    S.eye += b2_polyA([O(-1.5, -15.5), O(1.5, -15.5), O(0, -12)]) + b2_ellA(ox - 3 * os, oy, 2 * os, 1.2 * os) + b2_ellA(ox + 3 * os, oy, 2 * os, 1.2 * os);
     [[-2, -8], [2, -8], [0, -5], [-2.4, -3], [2.4, -3]].forEach(function (c) { veins += 'M' + PT(ox + (c[0] - 1) * os, oy + c[1] * os) + ' L' + PT(ox + c[0] * os, oy + (c[1] + 1) * os) + ' L' + PT(ox + (c[0] + 1) * os, oy + c[1] * os) + ' '; }); }
   // mushrooms by the tree's roots
   function mush(x, y, s) { S.sh += b2_ellA(x + 1, y + 0.5, 7 * s, 1.6 * s); S.mStem += b2_polyA([[x - 1.6 * s, y], [x + 1.6 * s, y], [x + 1.2 * s, y - 6 * s], [x - 1.2 * s, y - 6 * s]]);
     var cap = []; for (var j = 0; j <= 12; j++) { var an = Math.PI + j / 12 * Math.PI; cap.push([x + Math.cos(an) * 5 * s, y - 6 * s + Math.sin(an) * 4.4 * s]); } cap.push([x + 4.6 * s, y - 5 * s], [x - 4.6 * s, y - 5 * s]); S.mCap += b2_polyA(cap);
     S.hi += b2_ellA(x - 2 * s, y - 8.4 * s, 0.9 * s, 0.7 * s) + b2_ellA(x + 1.6 * s, y - 9.2 * s, 0.7 * s, 0.6 * s) + b2_ellA(x + 3, y - 7 * s, 0.6 * s, 0.5 * s); }
   var ms = ph ? 1 : 1.4; mush(tx + tw * 1.05, ty + 4, ms); mush(tx + tw * 1.45, ty + 6, ms * 0.7); mush(tx + tw * 0.55, ty + 7, ms * 0.55);
-  // pumpkins: ribbed lobes (back, side, front) with shading and highlights, a curved stem, a curly tendril and sometimes a leaf
+  // pumpkins: opaque lobes built as vertical segments that meet at the stem socket and the flat base, each cel-shaded in lit, mid and shaded
+  // bands (darker towards the right and along the bottom), with tapered groove creases, highlight streaks, a curved stem, a curly tendril and sometimes a leaf
   var lanterns = [];
-  function pumpkin(x, y, r, kind, face, leafy) { var cy = y - r * 0.86;
-    S.sh += b2_ellA(x + r * 0.12, y, r * 1.15, r * 0.2);
-    // five solid lobes drawn back to front (outer pair darkest, then the middle pair, then the front), with solid groove lines where they meet
-    function E(u, rx, ry) { return b2_ellA(x + u * r, cy + (1 - ry / 0.9) * r * 0.06, rx * r, ry * r); }
-    if (kind === 'ghost') { S.ghost += E(-0.5, 0.5, 0.78) + E(0.5, 0.5, 0.78) + E(-0.26, 0.42, 0.85) + E(0.26, 0.42, 0.85) + E(0, 0.32, 0.9);
-      S.ghostS += hw_rim(x - 0.26 * r, cy, 0.42 * r, 0.82 * r, 0.9, -1) + hw_rim(x + 0.26 * r, cy, 0.42 * r, 0.82 * r, 0.9, 1) + hw_rim(x, cy, 0.32 * r, 0.87 * r, 0.88, -1) + hw_rim(x, cy, 0.32 * r, 0.87 * r, 0.88, 1); }
-    else { S.pkB += E(-0.5, 0.5, 0.78) + E(0.5, 0.5, 0.78); S.pkM += E(-0.26, 0.42, 0.85) + E(0.26, 0.42, 0.85); S.pkF += E(0, 0.32, 0.9);
-      // lit stripes on the left lobes
-      S.pkF += hw_lens(x - 0.42 * r, cy - 0.66 * r, cy + 0.6 * r, 0.09 * r, -0.04 * r) + hw_lens(x - 0.7 * r, cy - 0.5 * r, cy + 0.45 * r, 0.06 * r, -0.05 * r);
-      S.rib += hw_rim(x - 0.26 * r, cy, 0.42 * r, 0.82 * r, 0.9, -1) + hw_rim(x + 0.26 * r, cy, 0.42 * r, 0.82 * r, 0.9, 1) + hw_rim(x, cy, 0.32 * r, 0.87 * r, 0.88, -1) + hw_rim(x, cy, 0.32 * r, 0.87 * r, 0.88, 1)
-        + hw_rim(x + 0.5 * r, cy + 0.01 * r, 0.5 * r, 0.76 * r, 0.8, 1); }
-    S.rib += b2_ellA(x, cy - r * 0.78, r * 0.2, r * 0.06);
-    S.stem += b2_limb([x, cy - r * 0.72], [x - r * 0.06, cy - r * 0.98], [x + r * 0.07, cy - r * 1.13], r * 0.17, r * 0.1, 8); S.hi += b2_ellA(x + r * 0.07, cy - r * 1.13, r * 0.05, r * 0.025);
-    var curl = [[x + r * 0.03, cy - r * 0.9]]; for (var j = 0; j <= 22; j++) { var t2 = j / 22, an = Math.PI * (1 + 3.2 * t2), rad = r * 0.12 * (1 - t2 * 0.75); curl.push([x + r * 0.24 + Math.cos(an) * rad, cy - r * 0.95 + Math.sin(an) * rad]); } vines += pline(curl);
-    if (leafy) { var la = 200 + (x % 30), lx = x - r * 0.05, ly = cy - r * 0.86; S.pLeaf += b8_aleaf(lx, ly, r * 0.36, la); [0, -42, 42].forEach(function (d) { var e = rotp([[r * (d ? 0.26 : 0.32), 0]], lx, ly, la + d)[0]; veins += seg(lx, ly, e[0], e[1]); }); }
+  var PK_LOBES = {
+    big: {b: [-1, -0.78, -0.48, -0.16, 0.16, 0.48, 0.78, 1], t: [[3, 2, 1], [4, 3, 2], [3, 3, 2], [3, 3, 2], [3, 2, 2], [2, 2, 1], [2, 1, 1]], hl: [1, 2]},
+    small: {b: [-1, -0.66, -0.22, 0.22, 0.66, 1], t: [[3, 2, 1], [4, 3, 2], [3, 3, 2], [3, 2, 1], [2, 1, 1]], hl: [1, 2]}
+  };
+  function pumpkin(x, y, r, kind, face, leafy) { var Rx = r * 1.08, Ry = r * 0.86, cy = y - Ry, L = PK_LOBES[r < 30 ? 'small' : 'big'], B = L.b, nL = B.length - 1;
+    // tone ramp: groove, shade, mid, lit, bright
+    var tone = kind === 'ghost' ? ['ghostG', 'ghostS', 'ghostM', 'ghost', 'ghost'] : ['rib', 'pkB', 'pkM', 'pkF', 'pkH'];
+    S.sh += b2_ellA(x + r * 0.12, y, r * 1.2, r * 0.2);
+    function lobeOf(s) { for (var i = 0; i < nL - 1 && s > B[i + 1]; i++); return i; }
+    function gw(v) { v = Math.max(-1, Math.min(1, v)); return v < 0 ? 0.2 + 0.8 * Math.pow(Math.max(0, 1 - Math.pow(-v, 2.2)), 1 / 2.2) : 0.32 + 0.68 * Math.pow(Math.max(0, 1 - Math.pow(v, 2.6)), 1 / 2.6); }
+    // body point for lobe coordinate s (-1 left edge .. 1 right edge) and height v (-1 top .. 1 bottom): lobes hump up at the shoulders, dip at the stem
+    function P(s, v) { var i = lobeOf(s), f = (s - B[i]) / (B[i + 1] - B[i]), bump = Math.sin(Math.PI * Math.min(1, Math.max(0, f)));
+      var X = s * gw(v) * (1 + 0.035 * bump * Math.abs(s)), eT = Math.pow(Math.max(0, -v), 6), eB = Math.pow(Math.max(0, v), 8);
+      var Y = v - eT * 0.075 * bump + eT * 0.12 * Math.pow(Math.max(0, 1 - Math.abs(X) / 0.26), 2) + eB * 0.035 * bump;
+      return [x + X * Rx, cy + Y * Ry]; }
+    // closed region from s1 to s2 between the curves v = va(s) and v = vb(s)
+    // (edges are sampled more densely near their ends, where the outline curves fastest)
+    function ez(t) { return (1 - Math.cos(Math.PI * t)) / 2; }
+    function cell(s1, s2, va, vb) { var o = [], n = 24, m = Math.max(3, Math.ceil((s2 - s1) * 16)), j;
+      for (j = 0; j <= n; j++) o.push(P(s1, lerp(va(s1), vb(s1), ez(j / n))));
+      for (j = 1; j <= m; j++) o.push(P(lerp(s1, s2, j / m), vb(lerp(s1, s2, j / m))));
+      for (j = n - 1; j >= 0; j--) o.push(P(s2, lerp(va(s2), vb(s2), ez(j / n))));
+      for (j = m - 1; j > 0; j--) o.push(P(lerp(s1, s2, j / m), va(lerp(s1, s2, j / m))));
+      return b2_polyA(o); }
+    function top() { return -1; } function bot() { return 1; }
+    // the bottom shade line, higher on the right and dipping a little across the middle of each lobe
+    function cut(s) { var i = lobeOf(s), f = (s - B[i]) / (B[i + 1] - B[i]); return 0.84 - 0.24 * Math.pow(Math.max(0, (s + 0.3) / 1.3), 1.4) + 0.05 * Math.sin(Math.PI * Math.min(1, Math.max(0, f))); }
+    for (var i = 0; i < nL; i++) { var a = B[i], b = B[i + 1], w = b - a, sp = [a, a + w * 0.26, b - w * 0.3, b];
+      for (var k = 0; k < 3; k++) { var tn = Math.min(3, L.t[i][k]); S[tone[tn]] += cell(sp[k], sp[k + 1], top, cut); S[tone[Math.max(1, tn - 1)]] += cell(sp[k], sp[k + 1], cut, bot); }
+      // a highlight streak on the upper-left lobes
+      if (L.hl.indexOf(i) >= 0) { var h0 = a + w * 0.12, h1 = a + w * 0.21, hm = (h0 + h1) / 2, hb = i === L.hl[0] ? 0.05 : -0.2;
+        S[kind === 'ghost' ? 'ff' : 'pkH'] += cell(h0, h1, function (s) { return -0.72 + Math.abs(s - hm) * 3; }, function (s) { return hb - Math.abs(s - hm) * 3; }); }
+      // the groove crease on the right edge of each lobe, widest at the middle and fading out towards the top and bottom
+      if (i < nL - 1) { var gwp = Math.max(1.1, r * 0.05), gA = [], gB = [];
+        for (var j = 0; j <= 18; j++) { var v = lerp(-0.93, 0.96, j / 18), ds = gwp * Math.pow(Math.max(0, Math.sin(Math.PI * (v + 0.93) / 1.89)), 1.4) / (Rx * gw(v));
+          gA.push(P(b - ds * 0.4, v)); gB.unshift(P(b + ds * 0.6, v)); }
+        S[tone[0]] += b2_polyA(gA.concat(gB)); } }
+    // the stem socket: a darker ring around the base of the stem
+    var sk = P(0, -1); S[tone[0]] += b2_ellA(sk[0], sk[1] + r * 0.01, r * 0.19, r * 0.065);
+    S.stem += b2_limb([x, sk[1] + r * 0.04], [x - r * 0.06, sk[1] - r * 0.2], [x + r * 0.07, sk[1] - r * 0.35], r * 0.16, r * 0.1, 8); S.hi += b2_ellA(x + r * 0.07, sk[1] - r * 0.35, r * 0.05, r * 0.025);
+    var curl = [[x + r * 0.03, sk[1] - r * 0.12]]; for (var jj = 0; jj <= 22; jj++) { var t2 = jj / 22, an = Math.PI * (1 + 3.2 * t2), rad = r * 0.12 * (1 - t2 * 0.75); curl.push([x + r * 0.24 + Math.cos(an) * rad, sk[1] - r * 0.17 + Math.sin(an) * rad]); } vines += pline(curl);
+    if (leafy) { var la = 200 + (x % 30), lx = x - r * 0.05, ly = sk[1] - r * 0.06; S.pLeaf += b8_aleaf(lx, ly, r * 0.36, la); [0, -42, 42].forEach(function (d) { var e = rotp([[r * (d ? 0.26 : 0.32), 0]], lx, ly, la + d)[0]; veins += seg(lx, ly, e[0], e[1]); }); }
     if (face !== undefined) carve(x, cy, r, face);
-    boxes.push([x - r * 1.05, cy - r * 1.2, x + r * 1.05, y + 4]);
+    boxes.push([x - r * 1.12, cy - r * 1.2, x + r * 1.12, y + 4]);
     return cy; }
   // carved faces: each hole shows its glowing inside, with the cut rind lit just below it
   function carve(x, cy, r, kind) { var holes = [];
@@ -3765,7 +3793,20 @@ SCENES.halloween = function (W, H, dk, rnd) {
       holes.push(F(arc(0, 0.12, 0.44, 0.34, 0.15, Math.PI - 0.15, 16).concat(arc(0, 0.12, 0.38, 0.17, Math.PI - 0.22, 0.22, 14)))); }
     else { holes.push(F([[-0.42, -0.24], [-0.12, -0.1], [-0.18, 0.0], [-0.38, -0.02]]), F([[0.42, -0.24], [0.12, -0.1], [0.18, 0.0], [0.38, -0.02]]), F([[-0.05, 0.12], [0.02, 0.03], [0.07, 0.13]]));
       var z = [[-0.46, 0.2], [-0.34, 0.27], [-0.25, 0.2], [-0.13, 0.28], [-0.02, 0.2], [0.1, 0.28], [0.21, 0.2], [0.33, 0.27], [0.44, 0.18]]; z = z.concat(arc(0, 0.2, 0.45, 0.3, 0.08, Math.PI - 0.08, 14)); holes.push(F(z)); }
-    holes.forEach(function (h) { S.rind += b2_polyA(h.map(function (p) { return [p[0] + r * 0.015, p[1] + r * 0.035]; })); S.glow += b2_polyA(h); }); }
+    // the cut rind shows as a thick lip along the lower side of each hole; the inside glows, brightest in a band through the middle
+    function inset(h, d) { var n = h.length, ar = 0, o = [], q; for (q = 0; q < n; q++) { var p0 = h[q], p1 = h[(q + 1) % n]; ar += p0[0] * p1[1] - p1[0] * p0[1]; }
+      var sg = ar > 0 ? 1 : -1;
+      for (q = 0; q < n; q++) { var pa = h[(q + n - 1) % n], pb = h[q], pc = h[(q + 1) % n], e1 = [pb[0] - pa[0], pb[1] - pa[1]], e2 = [pc[0] - pb[0], pc[1] - pb[1]], l1 = Math.hypot(e1[0], e1[1]) || 1, l2 = Math.hypot(e2[0], e2[1]) || 1;
+        var n1 = [-e1[1] / l1 * sg, e1[0] / l1 * sg], n2 = [-e2[1] / l2 * sg, e2[0] / l2 * sg], m = [n1[0] + n2[0], n1[1] + n2[1]], ml = Math.hypot(m[0], m[1]) || 1, c = Math.max(0.45, (m[0] * n1[0] + m[1] * n1[1]) / ml);
+        // never move further than about half way across the hole along this direction, so thin tips stay inside
+        var ux = m[0] / ml, uy = m[1] / ml, far = 1e9;
+        for (var e = 0; e < n; e++) { var qa = h[e], qb = h[(e + 1) % n]; if (e === q || (e + 1) % n === q) continue;
+          var sx = qb[0] - qa[0], sy = qb[1] - qa[1], den = ux * sy - uy * sx; if (Math.abs(den) < 1e-9) continue;
+          var tt = ((qa[0] - pb[0]) * sy - (qa[1] - pb[1]) * sx) / den, uu = ((qa[0] - pb[0]) * uy - (qa[1] - pb[1]) * ux) / den;
+          if (tt > 0 && uu >= 0 && uu <= 1) far = Math.min(far, tt); }
+        var dd = Math.min(d / c, far * 0.42), pt = [pb[0] + ux * dd, pb[1] + uy * dd]; o.push(inside(h, pt) ? pt : pb.slice()); } return o; }
+    function inside(h, p) { for (var c = false, i = 0, j = h.length - 1; i < h.length; j = i++) if ((h[i][1] > p[1]) !== (h[j][1] > p[1]) && p[0] < (h[j][0] - h[i][0]) * (p[1] - h[i][1]) / (h[j][1] - h[i][1]) + h[i][0]) c = !c; return c; }
+    holes.forEach(function (h) { S.glow += b2_polyA(h); S.glowC += b2_polyA(inset(h, r * 0.03).map(function (p) { return [p[0], p[1] - r * 0.008]; })); }); }
   var jl = ph ? [[0.265, 0.86, 48, 1], [0.6, 0.875, 58, 0], [0.875, 0.83, 35, 2]] : [[0.62, 0.86, 70, 1], [0.78, 0.88, 88, 0], [0.93, 0.84, 56, 2]];
   var little = ph ? [[0.065, 0.78, 19, 'o', 1], [0.44, 0.75, 14, 'ghost', 0]] : [[0.22, 0.86, 26, 'o', 1], [0.36, 0.9, 20, 'ghost', 0], [0.48, 0.83, 18, 'o', 0]];
   little.forEach(function (q) { pumpkin(q[0] * W, q[1] * H, q[2], q[3], undefined, q[4]); });
@@ -3774,11 +3815,11 @@ SCENES.halloween = function (W, H, dk, rnd) {
   // a bottle gourd standing beside the small pumpkin, with green stripes
   if (!ph) { var gx2 = W * 0.27, gy2 = H * 0.875, gh2 = 30, gp = []; function grad(t) { return t < 0.55 ? 10 * Math.sin(Math.PI * (0.25 + t / 0.55 * 0.75)) + 2 : lerp(6, 3.6, (t - 0.55) / 0.45) + (t > 0.62 && t < 0.75 ? 0.5 : 0); }
     for (var gi = 0; gi <= 14; gi++) { var gt2 = gi / 14; gp.push([gx2 + grad(gt2), gy2 - gt2 * gh2]); } for (gi = 14; gi >= 0; gi--) { gt2 = gi / 14; gp.push([gx2 - grad(gt2), gy2 - gt2 * gh2]); }
-    S.gourd += b2_polyA(gp); S.sh += b2_ellA(gx2 + 2, gy2, 13, 2.6); S.stripe += hw_lens(gx2 - 4.6, gy2 - 18, gy2 - 1, 1.6, -1.2) + hw_lens(gx2 + 1, gy2 - 20, gy2 - 0.5, 1.8, 0.3) + hw_lens(gx2 - 1.2, gy2 - 29, gy2 - 17, 1.1, 0);
+    S.gourd += b2_polyA(gp); S.sh += b2_ellA(gx2 + 2, gy2, 13, 2.6); S.pLeaf += hw_lens(gx2 - 4.6, gy2 - 18, gy2 - 1, 1.6, -1.2) + hw_lens(gx2 + 1, gy2 - 20, gy2 - 0.5, 1.8, 0.3) + hw_lens(gx2 - 1.2, gy2 - 29, gy2 - 17, 1.1, 0);
     S.stem += b2_limb([gx2, gy2 - gh2 + 1], [gx2 + 1, gy2 - gh2 - 3], [gx2 + 3, gy2 - gh2 - 5], 2.2, 1.4, 5); S.hi += hw_lens(gx2 - 5.5, gy2 - 16, gy2 - 4, 1.4, -0.6); boxes.push([gx2 - 13, gy2 - 36, gx2 + 13, gy2 + 3]); }
   // a crooked signpost with two arrow boards (desktop)
   if (!ph) { var sx = W * 0.13, sy = H * 0.985, ss = 1.1;
-    S.sh += b2_ellA(sx + 4, sy, 16, 3); S.post += b2_limb([sx, sy + 2], [sx + 2, sy - 55 * ss], [sx - 2, sy - 112 * ss], 6.5 * ss, 5 * ss, 8);
+    S.sh += b2_ellA(sx + 4, sy, 16, 3); S.owlW += b2_limb([sx, sy + 2], [sx + 2, sy - 55 * ss], [sx - 2, sy - 112 * ss], 6.5 * ss, 5 * ss, 8);
     [[-96, 1, -6, 70], [-74, -1, 8, 60]].forEach(function (b) { var bw = b[3] * ss, bh = 15 * ss, bx = sx + b[1] * bw * 0.3, by = sy + b[0] * ss, d = b[1];
       var pts = [[-bw / 2, -bh / 2], [bw / 2 - bh * 0.5, -bh / 2], [bw / 2, 0], [bw / 2 - bh * 0.5, bh / 2], [-bw / 2, bh / 2]].map(function (p) { return [p[0] * d, p[1]]; });
       S.board += b2_polyA(rotp(pts, bx, by, b[2])); S.hi += b2_polyA(rotp([[-bw / 2 * d + d * 2, -bh / 2 + 1.5], [(bw / 2 - bh * 0.6) * d, -bh / 2 + 1.5], [(bw / 2 - bh * 0.6) * d, -bh / 2 + 3], [-bw / 2 * d + d * 2, -bh / 2 + 3]], bx, by, b[2]));
@@ -3794,14 +3835,14 @@ SCENES.halloween = function (W, H, dk, rnd) {
   S.dark += b2_ellA(bx3, by3 - 28 * bs, 16 * bs, 3.4 * bs) + b2_polyA([B(-10, -18), B(-6, -24), B(-3, -18)]) + b2_polyA([B(3, -18), B(6, -24), B(10, -18)]) + b2_polyA([B(-9, -12), B(-5, -10), B(-2, -12), B(2, -10), B(5, -12), B(9, -10), B(7, -6), B(0, -5), B(-7, -6)]);
   S.dark += b2_limb(B(-15, -26), B(0, -54), B(15, -26), 1.6 * bs, 1.6 * bs, 14);
   function candy(cx, cy, a, slot) { var p = rotp([[-4.5, 0], [-7.5, -2.6], [-7.5, 2.6]], cx, cy, a), q = rotp([[4.5, 0], [7.5, -2.6], [7.5, 2.6]], cx, cy, a); S[slot] += b2_polyA(rotp([[-4.5, -2.6], [4.5, -2.6], [4.5, 2.6], [-4.5, 2.6]].map(function (z) { return [z[0] * 1, z[1]]; }), cx, cy, a)) + b2_polyA(p) + b2_polyA(q); }
-  candy(bx3 - 6 * bs, by3 - 30 * bs, -25, 'candy'); candy(bx3 + 6 * bs, by3 - 32 * bs, 30, 'gold'); candy(bx3, by3 - 29 * bs, 5, 'candy'); candy(bx3 + 24 * bs, by3 - 1, 12, 'gold');
+  candy(bx3 - 6 * bs, by3 - 30 * bs, -25, 'candy'); candy(bx3 + 6 * bs, by3 - 32 * bs, 30, 'eye'); candy(bx3, by3 - 29 * bs, 5, 'candy'); candy(bx3 + 24 * bs, by3 - 1, 12, 'eye');
   boxes.push([bx3 - 22 * bs, by3 - 56 * bs, bx3 + 34 * bs, by3 + 4]);
   // fallen leaves with a centre vein, squashed onto the ground, and grass tufts
   var gr = '';
   spread(0, y2 + 24, W, H - y2 - 24, 70, 50, rnd, 1).forEach(function (c) { if (onThing(c.x, c.y, 8)) return;
     if (c.q < 0.34) { var s = (7 + c.r * 6) * (ph ? 0.9 : 1.1), a = c.k * 360, pts;
       if (c.k < 0.55) pts = b8_sq(rotp(B2_MAPLE.map(function (p) { return [p[0] * s, p[1] * s]; }), c.x, c.y, a), c.y, 0.55); else pts = b8_sq(b8_lfp(c.x, c.y, s, s * 0.38, a), c.y, 0.55);
-      S[['lfA', 'lfB', 'lfC'][Math.floor(c.r * 3) % 3]] += b2_polyA(pts); var e = b8_sq(rotp([[s * (c.k < 0.55 ? 0.85 : 0.9), 0]], c.x, c.y, a), c.y, 0.55)[0]; veins += seg(c.x, c.y, e[0], e[1]); }
+      S[['lfA', 'lfB', 'gourd'][Math.floor(c.r * 3) % 3]] += b2_polyA(pts); var e = b8_sq(rotp([[s * (c.k < 0.55 ? 0.85 : 0.9), 0]], c.x, c.y, a), c.y, 0.55)[0]; veins += seg(c.x, c.y, e[0], e[1]); }
     else if (c.q < 0.6) { var g = (6 + c.r * 7) * (ph ? 0.85 : 1); gr += 'M' + PT(c.x - 3, c.y) + ' Q' + PT(c.x - 4, c.y - g * 0.5) + ' ' + PT(c.x - 6, c.y - g * 0.9) + ' M' + PT(c.x, c.y) + ' L' + PT(c.x + 0.5, c.y - g * 1.2) + ' M' + PT(c.x + 3, c.y) + ' Q' + PT(c.x + 4, c.y - g * 0.5) + ' ' + PT(c.x + 6, c.y - g * 0.8) + ' '; } });
   // bats: static ones are drawn here; the animation flies its own
   (ph ? [[0.45, 0.46, 28, -8, 0.1], [0.84, 0.55, 24, 10, -0.05], [0.22, 0.52, 20, 6, 0.08], [0.72, 0.4, 20, -6, 0.05]] : [[0.6, 0.14, 40, -8, 0.1], [0.88, 0.1, 32, 12, -0.05], [0.7, 0.38, 30, -4, 0.08], [0.95, 0.46, 24, 8, 0], [0.46, 0.52, 26, 6, -0.04], [0.34, 0.08, 28, -10, 0.06]]).forEach(function (q) { var s = q[2] * (ph ? 1.7 : 2.1);
@@ -3809,11 +3850,12 @@ SCENES.halloween = function (W, H, dk, rnd) {
     var bt = hw_bat(q[0] * W, q[1] * H, s, q[3], q[4]); S.bwing += bt.wing; S.sil += bt.body; S.eye += bt.eye; });
   if (dk && !ANIM) spread(0, y2, W, H - y2, 140, 90, rnd, 1).forEach(function (c) { if (c.q < 0.3 && !onThing(c.x, c.y, 6)) { add(mid, 'h', b2_ellA(c.x, c.y, 9, 9), 'rgba(230,255,150,0.4)'); S.ff += b2_ellA(c.x, c.y, 1.6, 1.6); } });
   var leafC = dk ? ['#A8501E', '#8A3A2C', '#B8862A'] : ['#D9722E', '#B8483A', '#E0A83A'];
-  var order = [['sh', dk ? 'rgba(0,0,0,0.4)' : 'rgba(60,30,60,0.22)'], ['lfA', leafC[0]], ['lfB', leafC[1]], ['lfC', leafC[2]], ['bwing', dk ? '#1C1226' : '#6E4C86'], ['sil', sil], ['bark', dk ? '#241830' : '#664282'],
-    ['mStem', dk ? '#CFC2B0' : '#F4ECDC'], ['mCap', dk ? '#8E3448' : '#C8506A'], ['post', dk ? '#3A2A22' : '#7A5A40'], ['board', dk ? '#54402E' : '#9E7A58'], ['owl', dk ? '#4A3436' : '#8A6650'], ['owlW', dk ? '#33242A' : '#6A4C3E'], ['owlF', dk ? '#6E5654' : '#C8A890'],
-    ['eye', dk ? '#FFC24A' : '#F2B33A'], ['pkB', dk ? '#A84812' : '#D9661F'], ['pkM', dk ? '#C85E1C' : '#EE8030'], ['pkF', dk ? '#DC742A' : '#F7A04A'], ['ghost', dk ? '#CFC7D6' : '#F4EFE6'], ['gourd', dk ? '#B8902A' : '#E8B83A'], ['rib', dk ? '#8A3A0C' : '#C0561A'],
-    ['ghostS', dk ? '#A49CB0' : '#D8D0D6'], ['stripe', dk ? '#4A6A2E' : '#6E9A3E'], ['stem', dk ? '#4A5A2A' : '#6E7A3A'], ['hi', dk ? 'rgba(255,215,170,0.3)' : 'rgba(255,240,215,0.42)'], ['pLeaf', dk ? '#3E5A2A' : '#5E8A3A'],
-    ['rind', dk ? '#E8A048' : '#B8541A'], ['glow', dk ? '#FFE07A' : '#FFC24A'], ['dark', sil], ['gold', dk ? '#E0A040' : '#F2B33A'], ['candy', dk ? '#9A6ADA' : '#A878E8'], ['ff', dk ? '#F6FFC8' : '#FFFFFF']];
+  var order = [['sh', dk ? 'rgba(0,0,0,0.4)' : 'rgba(60,30,60,0.22)'], ['lfA', leafC[0]], ['lfB', leafC[1]], ['bwing', dk ? '#1C1226' : '#6E4C86'], ['sil', sil], ['bark', dk ? '#241830' : '#664282'],
+    ['mStem', dk ? '#CFC2B0' : '#F4ECDC'], ['mCap', dk ? '#8E3448' : '#C8506A'], ['owl', dk ? '#4A3436' : '#8A6650'], ['owlW', dk ? '#36262A' : '#72523E'], ['board', dk ? '#54402E' : '#9E7A58'], ['owlF', dk ? '#6E5654' : '#C8A890'],
+    ['eye', dk ? '#FFC24A' : '#F2B33A'], ['pkB', dk ? '#A84812' : '#D9661F'], ['pkM', dk ? '#C85E1C' : '#EE8030'], ['pkF', dk ? '#DC742A' : '#F7A04A'], ['pkH', dk ? '#EA8C3C' : '#FBB866'],
+    ['ghost', dk ? '#CFC7D6' : '#F4EFE6'], ['ghostM', dk ? '#BAB2C4' : '#E6DEDC'], ['ghostS', dk ? '#A49CB0' : '#D4CACE'], ['gourd', dk ? '#B8902A' : '#E8B83A'], ['rib', dk ? '#8A3A0C' : '#B84C14'], ['ghostG', dk ? '#867D94' : '#B8ACB4'],
+    ['stem', dk ? '#4A5A2A' : '#6E7A3A'], ['hi', dk ? 'rgba(255,215,170,0.3)' : 'rgba(255,240,215,0.42)'], ['pLeaf', dk ? '#3E5A2A' : '#5E8A3A'],
+    ['rind', dk ? '#E8A048' : '#FFE2A6'], ['glow', dk ? '#FFD060' : '#F8A428'], ['glowC', dk ? '#FFF0A8' : '#FFD660'], ['dark', sil], ['candy', dk ? '#9A6ADA' : '#A878E8'], ['ff', dk ? '#F6FFC8' : '#FFFFFF']];
   var keys = 'abcdefghijklmnopABCDEFGHIJKLMNOP';
   order.forEach(function (o, k) { add(near, keys[k], S[o[0]], o[1]); });
   stk(near, 's', vines + gr, dk ? '#3E4A2C' : '#6E8A3E', ph ? 1.6 : 2);

@@ -3806,7 +3806,7 @@ SCENES.halloween = function (W, H, dk, rnd) {
           if (tt > 0 && uu >= 0 && uu <= 1) far = Math.min(far, tt); }
         var dd = Math.min(d / c, far * 0.42), pt = [pb[0] + ux * dd, pb[1] + uy * dd]; o.push(inside(h, pt) ? pt : pb.slice()); } return o; }
     function inside(h, p) { for (var c = false, i = 0, j = h.length - 1; i < h.length; j = i++) if ((h[i][1] > p[1]) !== (h[j][1] > p[1]) && p[0] < (h[j][0] - h[i][0]) * (p[1] - h[i][1]) / (h[j][1] - h[i][1]) + h[i][0]) c = !c; return c; }
-    holes.forEach(function (h) { S.rind += b2_polyA(h.map(function (p) { return [p[0] + r * 0.02, p[1] + r * 0.06]; })); S.glow += b2_polyA(h); S.glowC += b2_polyA(inset(h, r * 0.03).map(function (p) { return [p[0], p[1] - r * 0.008]; })); }); }
+    holes.forEach(function (h) { S.glow += b2_polyA(h); S.glowC += b2_polyA(inset(h, r * 0.03).map(function (p) { return [p[0], p[1] - r * 0.008]; })); }); }
   var jl = ph ? [[0.265, 0.86, 48, 1], [0.6, 0.875, 58, 0], [0.875, 0.83, 35, 2]] : [[0.62, 0.86, 70, 1], [0.78, 0.88, 88, 0], [0.93, 0.84, 56, 2]];
   var little = ph ? [[0.065, 0.78, 19, 'o', 1], [0.44, 0.75, 14, 'ghost', 0]] : [[0.22, 0.86, 26, 'o', 1], [0.36, 0.9, 20, 'ghost', 0], [0.48, 0.83, 18, 'o', 0]];
   little.forEach(function (q) { pumpkin(q[0] * W, q[1] * H, q[2], q[3], undefined, q[4]); });
