@@ -11934,8 +11934,8 @@ ENGINES.galaxy = function (A, v, dk) {
   var cDust = dk ? ['#FFE9B8', '#FFFFFF', '#FFC6E8', '#C9BCFF'] : ['#8C74F0', '#E28AC6', '#6B4EE6', '#B59CFF'];
   function tilt(u) { return 0.42 * (b1_ss((u - 1.2) / 0.8) - b1_ss((u - 3.9) / 1.0)); }
   function tp(p, ang) { var c = Math.cos(ang), s = Math.sin(ang), dx = p[0] - piv[0], dy = p[1] - piv[1]; return [piv[0] + dx * c - dy * s, piv[1] + dx * s + dy * c]; }
-  function spawnShoot(t, big) { var x = ph ? W * (0.35 + Math.random() * 0.65) : W * (0.5 + Math.random() * 0.5), y = ph ? H * (0.38 + Math.random() * 0.3) : H * (0.03 + Math.random() * 0.45), ang = Math.PI - (0.42 + Math.random() * 0.25);
-    shoot.push({x: x, y: y, ang: ang, t0: t, v: ph ? 300 : 420, life: 1.0, L: SL * (big ? 1.2 : 0.8 + Math.random() * 0.4)}); }
+  function spawnShoot(t, big) { var x = ph ? W * (0.35 + Math.random() * 0.65) : W * (0.62 + Math.random() * 0.38), y = ph ? H * (0.38 + Math.random() * 0.3) : H * (0.03 + Math.random() * 0.45), ang = Math.PI - (0.42 + Math.random() * 0.25);
+    var v = ph ? 320 : 460; shoot.push({x: x, y: y, ang: ang, t0: t, v: v, life: Math.max(1.6, W * (ph ? 0.75 : 0.62) / v), L: SL * (big ? 1.2 : 0.8 + Math.random() * 0.4)}); }
   function start(t) { act = {t0: t, lit: 0}; }
   var api = {
     step: function (dt, t, f) {
@@ -11961,7 +11961,7 @@ ENGINES.galaxy = function (A, v, dk) {
         if (flare[j] > 0 || lit > 0) b1_dot(ca, gStar, p[0], p[1], 8 + 14 * flare[j] + 4 * lit);
         ca.fillStyle = lit > 0.5 ? cLit : cDot; ca.globalAlpha = Math.min(1, tw0 + lit); ca.beginPath(); ca.arc(p[0], p[1], 2.4 + flare[j] * 1.5, 0, 7); ca.fill(); ca.globalAlpha = 1; }
       ca.save(); if (rg && (shoot.length || dust.length)) { if (!ringClip) { ringClip = new Path2D(); ringClip.rect(-10, -10, W + 20, H + 20); ringClip.addPath(new Path2D(rotEll(rg[0], rg[1], rg[2] * 2.21 + 2, rg[2] * 0.63 + 2, -16))); } ca.clip(ringClip, 'evenodd'); }
-      shoot.forEach(function (S) { var a = t - S.t0, k = a / S.life, x = S.x + Math.cos(S.ang) * S.v * a, y = S.y + Math.sin(S.ang) * S.v * a, L = S.L * Math.min(1, k * 3) * (1 - 0.5 * k), al = Math.min(1, k * 5) * (1 - b1_ss((k - 0.6) / 0.4));
+      shoot.forEach(function (S) { var a = t - S.t0, k = a / S.life, x = S.x + Math.cos(S.ang) * S.v * a, y = S.y + Math.sin(S.ang) * S.v * a, L = S.L * Math.min(1, k * 3) * (1 - 0.5 * k), al = Math.min(1, k * 8) * (1 - b1_ss((k - 0.72) / 0.28));
         ca.save(); ca.globalAlpha = al; ca.translate(x, y); ca.rotate(S.ang + Math.PI); ca.save(); ca.scale(L, 1); ca.fillStyle = gTail; ca.beginPath(); ca.moveTo(0, -2.2); ca.lineTo(1, 0); ca.lineTo(0, 2.2); ca.closePath(); ca.fill(); ca.restore(); b1_dot(ca, gHead, 0, 0, 9); ca.fillStyle = dk ? '#FFFFFF' : '#7A5EEA'; ca.beginPath(); ca.arc(0, 0, 2.6, 0, 7); ca.fill(); ca.restore(); });
       dust.forEach(function (d) { var a = t - d.t0, al = Math.min(1, a * 4) * (1 - b1_ss((a - 1.5) / 1.3)), tw1 = 0.6 + 0.4 * Math.sin(t * 9 + d.ph); ca.globalAlpha = al * tw1; ca.save(); ca.translate(d.x, d.y); ca.rotate(d.ph + a); var s = d.r / 10 * (d.r > 3 ? 1.9 : 1); ca.scale(s, s); if (dk) b1_dot(ca, gStar, 0, 0, 22); ca.fillStyle = d.c; if (d.r > 3) ca.fill(star); else { ca.beginPath(); ca.arc(0, 0, 8, 0, 7); ca.fill(); } ca.restore(); });
       ca.globalAlpha = 1; ca.restore();
