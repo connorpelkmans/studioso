@@ -32,10 +32,10 @@ function fakeFetch(routes, seen) {
   };
 }
 // Runs the injected script the way Electron would
-async function runInjected(id, origin, routes) {
+async function runInjected(id, origin, routes, safe) {
   const seen = [];
   const ctx = vm.createContext({ fetch: fakeFetch(routes, seen), AbortController, setTimeout, clearTimeout, location: { origin }, console });
-  const script = L.harvestScript(L.P[id], SAFE);
+  const script = L.harvestScript(L.P[id], safe || SAFE);
   assert(typeof script === "string" && script.includes("function htmlText"), "the injected script carries htmlText");
   const out = await vm.runInContext(script, ctx, { filename: id + "-injected.js" });
   return { out, seen };
@@ -109,6 +109,220 @@ const BB = [
     assert.strictEqual(q("11").done, true, "the quiz's Submissions page: Attempt 1, Pending Evaluation");
     assert.notStrictEqual(q("7").done, true, "a date after Completed isn't a count");
     assert(/2 of 3 sat from their own pages/.test(out.courses[0].quizNote), out.courses[0].quizNote);
+  });
+
+  await t("Brightspace: a quiz's mark that's only on its Submissions page is read, and Grades wins when it has one", async () => {
+    const subm = `<h1>Quiz Submissions - Midterm Exam- Requires Respondus LockDown Browser</h1><table><tr><th>Individual Attempts</th><th>Grade</th></tr>
+      <tr><td>Attempt 1</td><td>34 / 45 - 75.56 %</td></tr><tr><td><b>Overall Grade</b> (highest attempt):</td><td>34 / 45 - 75.56 %</td></tr></table>
+      <p>To view your results you must use the Respondus LockDown Browser</p>`;
+    const routes = BS.filter(([re]) => !/quizzes\\\/\$/.test(re.source)).concat([
+      [/^\/d2l\/api\/le\/1\.70\/101\/quizzes\/$/, { Objects: [{ QuizId: 8, Name: "Midterm Exam- Requires Respondus LockDown Browser", StartDate: iso(-5), DueDate: iso(-3), IsActive: true },
+        { QuizId: 7, Name: "Quiz 1", DueDate: iso(-2), IsActive: true, GradeItemId: 9 }, { QuizId: 6, Name: "Quiz 0", DueDate: iso(-2), IsActive: true }], Next: null }],
+      [/\/quizzes\/(8|7|6)\/attempts\/$/, [{ AttemptId: 4, AttemptNumber: 1 }]],
+      [/quiz_submissions\.d2l\?qi=8&/, subm, { "content-type": "text/html" }],
+      [/quiz_submissions\.d2l\?qi=7&/, "<tr><td>Attempt 1</td><td>1 / 10</td></tr>", { "content-type": "text/html" }],
+      [/quiz_submissions\.d2l\?qi=6&/, "<tr><td>Attempt 1</td><td>4 / 10</td></tr><tr><td>Attempt 2</td><td>7 / 10</td></tr><tr><td>Attempt 3</td><td>Pending Evaluation</td></tr>", { "content-type": "text/html" }]]);
+    const { out, seen } = await runInjected("brightspace", "https://learn.example.edu", routes);
+    const q = id => { const m = out.courses[0].marks.find(x => x.kind === "quiz" && x.id === id); return m ? Object.assign({}, m) : null; };
+    assert.deepStrictEqual(q("8"), { kind: "quiz", id: "8", num: 34, den: 45, from: "quizPage", how: "highest attempt" }, "the Overall Grade line");
+    assert.strictEqual(q("7"), null, "Quiz 1's mark is in Grades (8 / 10), so its page isn't read for one");
+    assert(!seen.some(u => /quiz_submissions\.d2l\?qi=7&/.test(u)), "and isn't fetched");
+    assert.deepStrictEqual(q("6"), { kind: "quiz", id: "6", num: 7, den: 10, from: "quizPage", how: "highest attempt" }, "no Overall Grade line: the best attempt");
+    assert(/quiz Submissions pages 2 of 2/.test(out.courses[0].markNote), out.courses[0].markNote);
+    const off = await runInjected("brightspace", "https://learn.example.edu", routes, Object.assign({}, SAFE, { marks: { quizPage: false } }));
+    assert(!off.out.courses[0].marks.length && !off.seen.some(u => /quiz_submissions\.d2l\?qi=8&/.test(u)), "switched off, the Submissions pages aren't read");
+  });
+
+  await t("Brightspace: the midterm's mark is found even when the quiz list API refuses, or nothing says it was sat", async () => {
+    const list = `<table><tr><th>Current Quizzes</th><th>Evaluation Status</th><th>Attempts</th></tr>
+      <tr><td><a class="d2l-link" href="/d2l/lms/quizzing/user/quiz_summary.d2l?qi=1234&amp;ou=101" title="Midterm Exam- Requires Respondus LockDown Browser">Midterm Exam- Requires Respondus LockDown Browser</a></td><td>Feedback: On Attempt</td><td>1 / 1</td></tr>
+      <tr><td><a href="/d2l/lms/quizzing/user/quiz_summary.d2l?qi=1235&amp;ou=101">Final Exam</a><div>Available on Dec 10, 2026 8:00 AM</div></td><td></td><td>0 / 1</td></tr></table>`;
+    const subm = `<table class="d2l-table"><tr><th>Individual Attempts</th><th>Grade</th></tr><tr><td><a href="quiz_submissions_attempt.d2l?qi=1234&amp;ai=9">Attempt 1</a></td><td><label>34 / 45</label> - <label>75.56 %</label></td></tr>
+      <tr><td><strong>Overall Grade</strong> (highest attempt):</td><td>34&nbsp;/&nbsp;45&nbsp;-&nbsp;75.56&nbsp;%</td></tr></table><p>To view your results you must use the Respondus LockDown Browser</p>`;
+    const routes = BS.filter(([re]) => !/quizzes\\\/\$/.test(re.source)).concat([
+      [/^\/d2l\/api\/le\/1\.70\/101\/quizzes\/$/, {}, 403],
+      [/quizzes_list\.d2l\?ou=101/, list, { "content-type": "text/html" }],
+      [/quiz_submissions\.d2l\?qi=1234&/, subm, { "content-type": "text/html" }]]);
+    const r403 = routes.map(x => x[2] === 403 ? [x[0], () => { throw Object.assign(new Error("denied"), { status: 403 }); }] : x);
+    const { out } = await runInjected("brightspace", "https://learn.example.edu", r403);
+    const c = out.courses[0], q = c.quizzes.find(x => x.id === "1234");
+    assert(q && q.name === "Midterm Exam- Requires Respondus LockDown Browser" && q.done === true, "the midterm comes from the Quizzes page, sat: " + JSON.stringify(c.quizzes));
+    assert(!c.quizzes.some(x => x.id === "1235" && x.done === true), "the Final Exam (0 / 1) isn't sat");
+    const m = c.marks.find(x => x.id === "1234");
+    assert(m && m.num === 34 && m.den === 45 && m.from === "quizPage", "and its mark from the Submissions page: " + JSON.stringify(c.marks));
+    assert(/2 only on the Quizzes page/.test(c.quizNote), c.quizNote);
+    const qx = c.dx.quizzes.find(x => x.id === "1234");
+    assert(qx && qx.from === "Quizzes page" && qx.sat === "yes" && /^ok /.test(qx.subm) && qx.overall === true && qx.mark === "34/45" && c.dx.quizApi === 0, "the sync report records each step: " + JSON.stringify(c.dx));
+    // the API lists it, but nothing says it was sat (attempts refused, no Quizzes page): its Submissions page says both
+    const r2 = BS.filter(([re]) => !/quizzes\\\/\$/.test(re.source)).concat([
+      [/^\/d2l\/api\/le\/1\.70\/101\/quizzes\/$/, { Objects: [{ QuizId: 1234, Name: "Midterm Exam- Requires Respondus LockDown Browser", StartDate: iso(-4), IsActive: true }], Next: null }],
+      [/quiz_submissions\.d2l\?qi=1234&/, subm, { "content-type": "text/html" }]]);
+    const two = await runInjected("brightspace", "https://learn.example.edu", r2);
+    const c2 = two.out.courses[0];
+    assert(c2.quizzes[0].done === true && c2.marks.some(x => x.id === "1234" && x.num === 34), "read from its Submissions page, it's sat and marked: " + JSON.stringify([c2.quizzes[0], c2.marks, c2.quizNote]));
+  });
+
+  await t("Brightspace: yesterday's discussion post is seen even with many older topics, a busy topic, or no due date", async () => {
+    const topics = [];
+    for (let i = 1; i <= 26; i++) topics.push({ TopicId: 100 + i, Name: "Week " + i + " Discussion", DueDate: iso(-27 + i), IsHidden: false });
+    topics.push({ TopicId: 200, Name: "Introductions", IsHidden: false });
+    const others = n => Array.from({ length: n }, (_, i) => ({ PostId: i, PostingUserId: 7000 + i }));
+    const routes = BS.concat([
+      [/^\/d2l\/api\/le\/1\.70\/101\/discussions\/forums\/$/, [{ ForumId: 1, Name: "Weekly Discussions", IsHidden: false }]],
+      [/\/discussions\/forums\/1\/topics\/$/, topics],
+      // Week 26 (due yesterday): 230 classmates' posts first, yours on page 2
+      [/\/topics\/126\/posts\/$/, others(100)],
+      [/\/topics\/126\/posts\/\?pageSize=100&pageNumber=2$/, others(30).map(p => Object.assign({}, p, { PostId: p.PostId + 500 })).concat([{ PostId: 999, PostingUserId: 42 }])],
+      [/\/topics\/125\/posts\//, others(12)],
+      [/\/topics\/200\/posts\//, [{ PostId: 5, PostingUserId: 42 }]],
+      [/\/topics\/\d+\/posts\//, []]]);
+    const { out } = await runInjected("brightspace", "https://learn.example.edu", routes);
+    const d = id => out.courses[0].discussions.find(x => x.id === String(id));
+    assert(d(126) && d(126).posted === true, "yesterday's topic, the last of 26 and with your post on the second page, is posted: " + JSON.stringify(d(126)));
+    assert(d(125) && d(125).posted === false, "the one before it, with no post of yours, isn't");
+    assert(d(200) && d(200).posted === true && d(200).due === null, "a topic with no due date is read too");
+    assert(/discussions: \d+ posted/.test(out.courses[0].topicNote), out.courses[0].topicNote);
+  });
+
+  await t("Brightspace: your post is found by your name, or on the topic's page when the posts list is refused", async () => {
+    const routes = BS.concat([
+      [/^\/d2l\/api\/le\/1\.70\/101\/discussions\/forums\/$/, [{ ForumId: 1, Name: "Module Discussions", IsHidden: false }]],
+      [/\/discussions\/forums\/1\/topics\/$/, [{ TopicId: 306, Name: "Module 6 Discussion", DueDate: iso(-1), IsHidden: false },
+        { TopicId: 307, Name: "Module 7 Discussion", DueDate: iso(-1), IsHidden: false }, { TopicId: 305, Name: "Module 5 group Discussion PART A", DueDate: iso(-6), IsHidden: false }]],
+      [/\/topics\/307\/posts\//, [{ PostId: 1, PostingUserId: "u-42-x", PostingUserDisplayName: "Ana Lee", DatePosted: iso(-1.5) }]],
+      [/\/topics\/305\/posts\//, [{ PostId: 2, PostingUserId: 77, PostingUserDisplayName: "Joori Yum" }]],
+      [/\/d2l\/le\/101\/discussions\/topics\/306\/View/, "<div><a>Professionalism</a></div><div>Ana Lee posted Oct 25, 2026 11:34 AM \u2022 275 Words</div><div>Last post yesterday at 10:41 PM by Joori Yum</div><header>Ana Lee</header>", { "content-type": "text/html" }]]);
+    const { out } = await runInjected("brightspace", "https://learn.example.edu", routes);
+    const d = id => out.courses[0].discussions.find(x => x.id === String(id));
+    assert(d(306).posted === true && /^2026-10-25/.test(d(306).at || ""), "posts list refused: the topic's page says Ana Lee posted Oct 25: " + JSON.stringify(d(306)));
+    assert(d(307).posted === true, "a post whose id is in another form is yours by name");
+    assert(d(305).posted === false && d(305).groupPosted === true, "a group topic with a group member's post: your group posted");
+    assert(/from the topic's page/.test(out.courses[0].topicNote), out.courses[0].topicNote);
+  });
+
+  await t("Brightspace: a closed exam gone from the quiz list is found through its calendar entry, with its name and mark", async () => {
+    const subm = `<nav>Anna Bulawski</nav><h1>Quiz Submissions - Midterm Exam- Requires Respondus LockDown Browser</h1><table><tr><th>Individual Attempts</th><th>Grade</th></tr><tr><td>Attempt 1</td><td>34 / 45 - 75.56 %</td></tr>
+      <tr><td><b>Overall Grade</b> (highest attempt):</td><td>34 / 45 - 75.56 %</td></tr></table>`;
+    const routes = BS.filter(([re]) => !/quizzes\\\/\$|calendar/.test(re.source)).concat([
+      [/^\/d2l\/api\/le\/1\.70\/101\/quizzes\/$/, { Objects: [], Next: null }],
+      [/quizzes_list\.d2l\?ou=101/, "<p>There are no quizzes</p>", { "content-type": "text/html" }],
+      [/\/calendar\/events\/myEvents\//, { Objects: [{ CalendarEventId: 70, OrgUnitId: 101, Title: "BSNC 1020 Midterm Exam", StartDateTime: iso(-4), EndDateTime: iso(-3.9), IsAllDayEvent: true,
+        IsAssociatedWithEntity: true, AssociatedEntity: { AssociatedEntityType: "D2L.LE.Quizzing.Quiz", AssociatedEntityId: 4321 } }], Next: null }],
+      [/quiz_submissions\.d2l\?qi=4321&/, subm, { "content-type": "text/html" }]]);
+    const { out } = await runInjected("brightspace", "https://learn.example.edu", routes);
+    const c = out.courses[0], q = c.quizzes.find(x => x.id === "4321");
+    assert(q && q.name === "Midterm Exam- Requires Respondus LockDown Browser" && q.done === true && q.due && q.due.slice(0, 10) === iso(-4).slice(0, 10), "the midterm, from its calendar entry: " + JSON.stringify(c.quizzes));
+    assert(c.marks.some(m => m.id === "4321" && m.num === 34 && m.den === 45), "with its 34 / 45: " + JSON.stringify(c.marks));
+    assert(c.dx.quizzes.some(x => x.id === "4321" && x.from === "its calendar entry"), "and the report says where it came from");
+  });
+
+  await t("Brightspace: a course that refuses the grades list (403) is read from its Grades page; a closed exam from the course content", async () => {
+    const page = `<table class="d2l-table d_gd" summary="List of grade items and their values">
+      <tr><th scope="col" colspan="2">Grade Item</th><th scope="col">Points</th><th scope="col">Weight Achieved</th><th scope="col">Grade</th><th scope="col">Comments and Assessments</th></tr>
+      <tr><th scope="row" colspan="2"><strong>Exams</strong></th><td></td><td><label>15.11 / 40</label></td><td><label>37.78 %</label></td><td></td></tr>
+      <tr><td class="d_gd_indent"></td><th scope="row"><label>Midterm Exam- Requires Respondus LockDown Browser</label></th><td><label>34 / 45</label></td><td><label>15.11 / 20</label></td><td><label>75.56 %</label></td><td></td></tr>
+      <tr><td class="d_gd_indent"></td><th scope="row"><label>Final Exam</label></th><td><label>- / 60</label></td><td><label>- / 20</label></td><td></td><td></td></tr>
+      <tr><th scope="row" colspan="2"><label>Professional Portfolio</label></th><td><label>18.5 / 20</label></td><td><label>9.25 / 10</label></td><td><label>92.5 %</label></td><td><a>View</a></td></tr></table>`;
+    const routes = BS.filter(([re]) => !/myGradeValues|quizzes\\\/\$|content/.test(re.source)).concat([
+      [/\/grades\/values\/myGradeValues\/$/, () => { throw Object.assign(new Error("denied"), { status: 403 }); }],
+      [/my_grades\/main\.d2l\?ou=101/, page, { "content-type": "text/html" }],
+      [/^\/d2l\/api\/le\/1\.70\/101\/quizzes\/$/, { Objects: [], Next: null }],
+      [/\/content\/toc$/, { Modules: [{ Title: "Exams", Topics: [{ TopicId: 1, Title: "Midterm Exam", Url: "/d2l/lms/quizzing/user/quiz_summary.d2l?qi=4321&ou=101", ActivityType: 4 }], Modules: [] }] }],
+      [/\/content\/myItems\/completions\//, { Objects: [], Next: null }], [/\/content\/myItems\//, { Objects: [], Next: null }],
+      [/quiz_submissions\.d2l\?qi=4321&/, "<h1>Quiz Submissions - Midterm Exam- Requires Respondus LockDown Browser</h1><p>Attempt 1 34 / 45 - 75.56 %</p><p>Overall Grade (highest attempt): 34 / 45</p>", { "content-type": "text/html" }]]);
+    const { out } = await runInjected("brightspace", "https://learn.example.edu", routes);
+    const c = out.courses[0], g = n => c.grades.find(x => x.name === n);
+    assert(g("Midterm Exam- Requires Respondus LockDown Browser") && g("Midterm Exam- Requires Respondus LockDown Browser").num === 34 && g("Midterm Exam- Requires Respondus LockDown Browser").den === 45 && g("Midterm Exam- Requires Respondus LockDown Browser").wden === 20, "the midterm's row, 34 / 45 worth 20: " + JSON.stringify(c.grades));
+    assert(g("Final Exam") && g("Final Exam").num == null && g("Final Exam").wden === 20, "an unmarked item keeps its weight");
+    assert(g("Professional Portfolio") && g("Professional Portfolio").num === 18.5, "a top-level item");
+    assert(g("Exams") && g("Exams").type === 9, "Exams is a category, not a grade item");
+    assert(/refused/.test(c.dx.grades.list) && /ok, 4 rows/.test(c.dx.grades.page), "the report says the list was refused and the page read: " + JSON.stringify(c.dx.grades));
+    assert(c.quizzes.some(x => x.id === "4321" && x.done === true) && c.dx.quizToc === 1, "the closed midterm is found through the course content: " + JSON.stringify(c.quizzes));
+  });
+
+  await t("Brightspace: an assignment's mark from the Assignments page's Score column (no out-of in the API) or its feedback link", async () => {
+    const F = (Id, Name) => ({ Id, Name, DueDate: iso(-4), IsHidden: false, GradeItemId: 900 + Id, Attachments: [] });
+    const list = `<table class="d2l-table"><tr><th>Assignment</th><th>Completion Status</th><th>Score</th><th>Evaluation Status</th><th>Due Date</th></tr>
+      <tr><th><a href="/d2l/lms/dropbox/user/folder_submit_files.d2l?db=31&amp;grpid=0&amp;isprv=0&amp;bp=0&amp;ou=101">Professional Development Plan</a></th><td>1 Submission, 1 File</td><td><label>8 / 10</label> - 80 %</td><td><a href="/d2l/lms/dropbox/user/folders_history.d2l?db=31&amp;ou=101">Feedback: Read</a></td><td>Oct 16, 2026 7:00 PM</td></tr>
+      <tr><th><a href="/d2l/lms/dropbox/user/folder_submit_files.d2l?db=32&amp;ou=101">Quality &amp; Safety Worksheet</a></th><td>1 Submission, 1 File</td><td></td><td><a href="/d2l/lms/dropbox/user/folders_history.d2l?db=32&amp;ou=101">Feedback: Unread</a></td><td>9/30/2026</td></tr>
+      <tr><th><a href="/d2l/lms/dropbox/user/folder_submit_files.d2l?db=33&amp;ou=101">Reflection</a></th><td>1 Submission, 1 File</td><td></td><td></td><td>10/2/2026</td></tr></table>`;
+    const routes = BS.filter(([re]) => !/dropbox\\\/folders\\\/\$/.test(re.source)).concat([
+      [/^\/d2l\/api\/le\/1\.70\/101\/dropbox\/folders\/$/, [F(31, "Professional Development Plan"), F(32, "Quality & Safety Worksheet"), F(33, "Reflection")]],
+      [/\/dropbox\/folders\/3[123]\/submissions\/mysubmissions\/$/, [{ Submissions: [{ SubmissionDate: iso(-5) }] }]],
+      [/\/dropbox\/folders\/32\/feedback\/user\/42$/, { Score: 17, OutOf: 20, IsGraded: true, Feedback: { Text: "Good" } }],
+      [/\/dropbox\/folders\/3[13]\/feedback\/user\/42$/, () => { throw Object.assign(new Error("denied"), { status: 403 }); }],
+      [/folders_list\.d2l\?ou=101/, list, { "content-type": "text/html" }]]);
+    const { out } = await runInjected("brightspace", "https://learn.example.edu", routes);
+    const c = out.courses[0], m = id => (c.marks.find(x => x.kind === "folder" && x.id === id) || {});
+    assert(m("31").num === 8 && m("31").den === 10 && m("31").from === "assignmentsPage", "Professional Development Plan: 8 / 10 from the Score column: " + JSON.stringify(c.marks));
+    assert(m("32").num === 17 && m("32").den === 20 && m("32").from === "assignmentFeedback", "Quality & Safety: 17 / 20 from its feedback link");
+    assert(m("33").num == null, "Reflection, no score anywhere, has no mark");
+    const x = id => c.dx.folders.find(f => f.id === id) || {};
+    assert(/refused \(403\)/.test(x("31").fbApi) && x("31").scoreCell === "8 / 10 - 80 %" && /ok, score 17/.test(x("32").fbApi) && /Reflection/.test(x("33").row), "the report has each step per assignment: " + JSON.stringify(c.dx.folders));
+  });
+
+  await t("Brightspace: assignment and discussion marks that aren't in Grades: feedback, the Assignments page, the topic's page", async () => {
+    const F = (Id, Name, GradeItemId, den) => ({ Id, Name, DueDate: iso(-4), IsHidden: false, GradeItemId, Assessment: { ScoreDenominator: den }, Attachments: [] });
+    const list = `<table><tr><th>Assignment</th><th>Completion Status</th><th>Score</th><th>Evaluation Status</th><th>Due Date</th></tr>
+      <tr><td><a href="folder_submit_files.d2l?db=22&amp;ou=101">Care Plan</a></td><td>1 Submission, 1 File</td><td>18 / 20 - 90 %</td><td>Feedback: Unread</td><td>Oct 20, 2026 11:59 PM</td></tr>
+      <tr><td><a href="folder_submit_files.d2l?db=23&amp;ou=101">Reflection 2</a></td><td>1 Submission, 1 File</td><td>-</td><td></td><td>Oct 21, 2026 11:59 PM</td></tr>
+      <tr><td><a href="folder_submit_files.d2l?db=24&amp;ou=101">Journal</a></td><td>1 Submission, 1 File</td><td></td><td></td><td>10/21/2026</td></tr></table>`;
+    const routes = BS.filter(([re]) => !/dropbox\\\/folders\\\/\$/.test(re.source)).concat([
+      [/^\/d2l\/api\/le\/1\.70\/101\/dropbox\/folders\/$/, [F(21, "Lab 2", 31, 10), F(22, "Care Plan", 32, 20), F(23, "Reflection 2", 33, 5), F(24, "Journal", 34, 10), F(25, "Lab 0 Redo", 9, 10)]],
+      [/\/dropbox\/folders\/21\/submissions\/mysubmissions\/$/, [{ Submissions: [{ SubmissionDate: iso(-5) }], Feedback: { Score: 9, Feedback: { Text: "Nice" } } }]],
+      [/\/dropbox\/folders\/(22|23|24|25)\/submissions\/mysubmissions\/$/, [{ Submissions: [{ SubmissionDate: iso(-5) }] }]],
+      [/folders_list\.d2l\?ou=101/, list, { "content-type": "text/html" }],
+      [/^\/d2l\/api\/le\/1\.70\/101\/discussions\/forums\/$/, [{ ForumId: 1, Name: "Weekly", IsHidden: false }]],
+      [/\/discussions\/forums\/1\/topics\/$/, [{ TopicId: 41, Name: "Week 6 Discussion", DueDate: iso(-3), IsHidden: false, ScoreOutOf: 4, GradeItemId: 51 },
+        { TopicId: 42, Name: "Week 7 Discussion", DueDate: iso(-2), IsHidden: false, ScoreOutOf: 4 }]],
+      [/\/discussions\/forums\/1\/topics\/(41|42)\/posts\/$/, [{ PostingUserId: 42, Message: { Text: "I'd rate this 3/4" } }]],
+      [/\/d2l\/le\/101\/discussions\/topics\/41\/View/, "<div>Week 6 Discussion</div><p>Ana: I'd give it 1 / 4 honestly</p><div class=\"score\">Score: 3.5 / 4</div>", { "content-type": "text/html" }],
+      [/\/d2l\/le\/101\/discussions\/topics\/42\/View/, "<p>Ana: Grade: 7 / 10 on my last essay</p>", { "content-type": "text/html" }]]);
+    const { out, seen } = await runInjected("brightspace", "https://learn.example.edu", routes);
+    const m = Object.fromEntries(out.courses[0].marks.map(x => [x.kind + x.id, x.num + "/" + x.den + " " + x.from]));
+    assert.strictEqual(m.folder21, "9/10 assignmentFeedback", "the score in the assignment's feedback");
+    assert.strictEqual(m.folder22, "18/20 assignmentsPage", "the Assignments page's Score column");
+    assert(!m.folder23 && !m.folder24, "no score on the page (a dash, a date) is no mark: " + JSON.stringify(m));
+    assert(!m.folder25, "an assignment whose mark is in Grades isn't looked for elsewhere");
+    assert.strictEqual(m.topic41, "3.5/4 discussionPage", "the topic page's labelled score, not a post's 1 / 4");
+    assert(!m.topic42, "a post's 'Grade: 7 / 10' isn't the topic's mark (the topic is out of 4)");
+    assert(/assignment feedback 1/.test(out.courses[0].markNote) && /Assignments page 1 of 3/.test(out.courses[0].markNote) && /discussion pages 1 of 2/.test(out.courses[0].markNote), out.courses[0].markNote);
+    const off = await runInjected("brightspace", "https://learn.example.edu", routes, Object.assign({}, SAFE, { marks: { assignmentFeedback: false, assignmentsPage: false, discussionPage: false } }));
+    assert(!off.out.courses[0].marks.length && !off.seen.some(u => /topics\/41\/View/.test(u)), "each source can be switched off");
+    assert(seen.some(u => /topics\/41\/View/.test(u)));
+  });
+
+  await t("Canvas: an ungraded discussion you replied in is done (only your own post counts)", async () => {
+    const routes = CV.filter(([re]) => !/planner/.test(re.source)).concat([
+      [/^\/api\/v1\/planner\/items\?/, [{ course_id: 201, plannable_type: "discussion_topic", plannable_id: 66, plannable: { title: "Week 3 discussion", todo_date: iso(-1) }, html_url: "/courses/201/discussion_topics/66" },
+        { course_id: 201, plannable_type: "discussion_topic", plannable_id: 67, plannable: { title: "Week 4 group discussion", todo_date: iso(-1) }, html_url: "/courses/201/discussion_topics/67" }]],
+      [/\/discussion_topics\/66\/view$/, { participants: [], view: [{ id: 1, user_id: 12, created_at: iso(-3), replies: [{ id: 2, user_id: 13, replies: [{ id: 3, user_id: 9, created_at: iso(-2) }] }] }] }],
+      [/\/discussion_topics\/67\/view$/, { participants: [], view: [{ id: 4, user_id: 12, created_at: iso(-2) }] }]]);
+    const { out } = await runInjected("canvas", "https://x.instructure.com", routes);
+    const it = id => out.courses[0].items.find(x => x.id === id);
+    assert(it("66").done === true && it("66").at && it("66").st.subAt, "your reply, deep in a thread, counts, with when you posted: " + JSON.stringify(it("66")));
+    assert(it("67").done !== true, "a group discussion a classmate posted in isn't yours (Canvas counts each student's own post)");
+  });
+
+  await t("Blackboard: an attempt's score isn't used for a column students can't see", async () => {
+    const routes = BB.filter(([re]) => !/gradebook\\\/columns\\\?|gradebook\\\/users/.test(re.source)).concat([
+      [/^\/learn\/api\/public\/v2\/courses\/_301_1\/gradebook\/columns\?/, { results: [{ id: "_8_1", name: "Midterm exam", grading: { due: iso(-3), type: "Attempts" }, score: { possible: 50 }, availability: { available: "No" } }] }],
+      [/^\/learn\/api\/public\/v2\/courses\/_301_1\/gradebook\/users\/_5_1$/, { results: [] }],
+      [/gradebook\/columns\/_8_1\/attempts/, { results: [{ id: "a1", status: "Completed", score: 41, attemptDate: iso(-3) }] }]]);
+    const { out } = await runInjected("blackboard", "https://bb.example.edu", routes);
+    assert.strictEqual(out.courses[0].marks.length, 0, "a hidden column's score stays hidden: " + JSON.stringify(out.courses[0].marks));
+  });
+
+  await t("Blackboard: a graded attempt's score counts when the gradebook cell is still empty", async () => {
+    const routes = BB.filter(([re]) => !/gradebook\\\/columns\\\?|gradebook\\\/users/.test(re.source)).concat([
+      [/^\/learn\/api\/public\/v2\/courses\/_301_1\/gradebook\/columns\?/, { results: [{ id: "_8_1", name: "Midterm exam", grading: { due: iso(-3), type: "Attempts" }, score: { possible: 50 } },
+        { id: "_8_2", name: "Quiz 2", grading: { due: iso(-2), type: "Attempts" }, score: { possible: 10 } }] }],
+      [/^\/learn\/api\/public\/v2\/courses\/_301_1\/gradebook\/users\/_5_1$/, { results: [{ columnId: "_8_1", status: "NeedsGrading" }] }],
+      [/gradebook\/columns\/_8_1\/attempts/, { results: [{ id: "a1", status: "Completed", score: 41, attemptDate: iso(-3) }] }],
+      [/gradebook\/columns\/_8_2\/attempts/, { results: [{ id: "a2", status: "NeedsGrading", score: 0, attemptDate: iso(-2) }] }]]);
+    const { out } = await runInjected("blackboard", "https://bb.example.edu", routes);
+    const m = out.courses[0].marks.map(x => x.id + " " + x.num + "/" + x.den + " " + x.from);
+    assert.strictEqual(JSON.stringify(m), JSON.stringify(["_8_1 41/50 attemptScore"]), "the graded attempt, not one still waiting to be graded: " + JSON.stringify(m));
   });
 
   await t("Brightspace: injected script runs in an empty page context and reads HTML text", async () => {

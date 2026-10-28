@@ -659,6 +659,48 @@ SCENES.autumn = function (W, H, dk, rnd) {
   var bc = ['', '', ''];
   spread(tx - (ph ? 170 : 240), tt - (ph ? 120 : 160), ph ? 190 : 290, ph ? 190 : 250, ph ? 44 : 56, ph ? 40 : 50, rnd, 1).forEach(function (c) { var d = Math.hypot(c.x - tx + 60, (c.y - tt) * 1.2); if (d > (ph ? 150 : 210)) return; bc[Math.floor(c.k * 3)] += circ(c.x, c.y, (ph ? 22 : 30) + c.r * 12); });
   add(near, 'd', bc[0] + bc[2] + circ(tx + 4, tt + 6, ph ? 26 : 32), dk ? '#8E3E1E' : '#DE6E2A'); add(near, 'e', bc[1], dk ? '#A87428' : '#EAB040');
+  // The foreground: fall trees (red, orange, yellow, brown, green and dark purple) scattered on both sides of the path, smaller in the distance,
+  // each with a shaded side, a soft shadow and a little leaf texture; pumpkins and hay bales beside the path. Trees never overlap, so their
+  // colours can share layers without breaking depth.
+  'ijklmnopABCDEFGH'.split('').forEach(function (k) { mid[k] = E(); });
+  var FC = dk ? {shadow: 'rgba(0,0,0,0.32)', trunk: '#24130C', red: ['#8E2E22', '#6A1E18'], orange: ['#A04C1E', '#7A3614'], yellow: ['#9C7626', '#76561A'], brown: ['#5E3A22', '#442818'], green: ['#2E4A2C', '#1F361F'], purple: ['#43264A', '#2E1834'], pump: '#A85A1E', hay: '#7A6234', line: 'rgba(15,8,4,0.55)', edge: 'rgba(30,16,8,0.35)'}
+    : {shadow: 'rgba(80,46,22,0.24)', trunk: '#5E3A28', red: ['#CF4530', '#A2301F'], orange: ['#E8832E', '#C2601E'], yellow: ['#F0BA42', '#CF9326'], brown: ['#A06A3A', '#7C4D28'], green: ['#62903E', '#476E2C'], purple: ['#6E3A6C', '#4E2650'], pump: '#EE8A2E', hay: '#E4C47C', line: 'rgba(110,60,25,0.5)', edge: 'rgba(150,100,55,0.35)'};
+  var TS2 = {red: ['k', 'l'], orange: ['m', 'n'], yellow: ['o', 'p'], brown: ['A', 'B'], green: ['C', 'D'], purple: ['E', 'F']}, fSh = '', fTr = '', fLn = '';
+  var pickC = function () { var q = rnd(); return q < 0.21 ? 'red' : q < 0.4 ? 'orange' : q < 0.57 ? 'yellow' : q < 0.71 ? 'brown' : q < 0.86 ? 'green' : 'purple'; };
+  var pathAt = function (y) { for (var q = 0; q < pl.length - 1; q++) { var a1 = pl[q], a2 = pl[q + 1]; if (y <= a1[1] && y >= a2[1]) { var u = (y - a1[1]) / ((a2[1] - a1[1]) || 1), b1 = pr[pr.length - 1 - q], b2 = pr[pr.length - 2 - q]; return [lerp(a1[0], a2[0], u), lerp(b1[0], b2[0], u)]; } } return [W * 0.5, W * 0.5]; };
+  var keepOut = [[bxp - 54 * bs, byp - 44 * bs, bxp + 50 * bs, byp + 6 * bs], [lx - 14 * bs, byp - 150 * bs, lx + 14 * bs, byp + 6 * bs], [tx - (ph ? 50 : 90), tt, W + 60, H + 20]];
+  var taken = [], hit = function (list, b) { return list.some(function (o) { return b[2] > o[0] && b[0] < o[2] && b[3] > o[1] && b[1] < o[3]; }); };
+  var offPath = function (b) { for (var yy = b[1]; yy <= b[3]; yy += 6) { if (yy < hz) continue; var pe = pathAt(Math.min(yy, H)); if (b[2] > pe[0] - 12 && b[0] < pe[1] + 12) return false; } return true; };
+  function fTree(x, y, r, col) { var sl = TS2[col], base = '', shade = '', tex = '', k;
+    fSh += ell(x + r * 0.35, y + r * 0.05, r * 1.05, r * 0.2);
+    fTr += poly([[x - r * 0.13, y + 1], [x - r * 0.07, y - r * 1.2], [x + r * 0.07, y - r * 1.2], [x + r * 0.13, y + 1]]);
+    if (col === 'green') { for (var t3 = 0; t3 < 4; t3++) { var tw = r * (1.1 - t3 * 0.2), ty = y - r * (0.55 + t3 * 0.5), tp = ty - r * 0.9; base += poly([[x - tw, ty], [x - tw * 0.4, ty - r * 0.12], [x, tp], [x + tw * 0.4, ty - r * 0.12], [x + tw, ty]]); shade += poly([[x, tp], [x + tw * 0.4, ty - r * 0.12], [x + tw, ty], [x + tw * 0.15, ty - r * 0.05]]); } }
+    else { fTr += poly([[x, y - r * 0.8], [x - r * 0.55, y - r * 1.55], [x - r * 0.48, y - r * 1.6], [x + r * 0.03, y - r * 0.95]]) + poly([[x, y - r * 0.9], [x + r * 0.5, y - r * 1.65], [x + r * 0.57, y - r * 1.6], [x + r * 0.05, y - r * 0.8]]);
+      var cy4 = y - r * 1.75;
+      for (k = 0; k < 11; k++) { var a4 = k / 11 * Math.PI * 2 + rnd() * 0.4, d4 = r * (0.5 + rnd() * 0.25), rr4 = r * (0.42 + rnd() * 0.18); base += circ(x + Math.cos(a4) * d4 * 1.12, cy4 + Math.sin(a4) * d4 * 0.82, rr4); }
+      base += circ(x, cy4, r * 0.72);
+      for (k = 0; k < 5; k++) { var a5 = 0.2 + k * 0.42, d5 = r * (0.55 + rnd() * 0.2); shade += circ(x + Math.cos(a5) * d5 * 1.05, cy4 + Math.sin(a5) * d5 * 0.85, r * (0.32 + rnd() * 0.12)); }
+      for (k = 0; k < 7; k++) { var a6 = rnd() * 6.28, d6 = rnd() * r * 0.75; tex += ell(x + Math.cos(a6) * d6, cy4 + Math.sin(a6) * d6 * 0.75, r * 0.07, r * 0.045); } }
+    add(mid, sl[0], base); add(mid, sl[1], shade + tex); }
+  // scattered: random spots, nearer is bigger, nothing overlapping, the path and the bench kept clear
+  var want = ph ? 16 : 30, made = 0;
+  for (var tr2 = 0; tr2 < 900 && made < want; tr2++) { var fy = Math.pow(rnd(), 0.8), yy2 = hz + 16 + (H + 30 - hz - 16) * fy, rr5 = (ph ? 9 : 12) + fy * (ph ? 34 : 52), xx2 = -rr5 * 0.5 + rnd() * (W + rr5);
+    var bb3 = [xx2 - rr5 * 1.25, yy2 - rr5 * 2.75, xx2 + rr5 * 1.25, yy2 + rr5 * 0.25];
+    if (hit(keepOut, bb3) || hit(taken, bb3) || !offPath([bb3[0], yy2 - rr5 * 0.4, bb3[2], Math.min(yy2, H)])) continue;
+    taken.push(bb3); made++; fTree(xx2, yy2, rr5, pickC()); }
+  // pumpkins and hay bales just off the path
+  for (var pk = 0, put = 0; pk < 60 && put < (ph ? 5 : 8); pk++) { var py2 = hz + (H - hz) * (0.25 + rnd() * 0.7), pe = pathAt(py2), side = rnd() < 0.5, pr2 = (ph ? 7 : 10) * (0.6 + (py2 - hz) / (H - hz) * 1.1), px2 = side ? pe[1] + pr2 * (2.6 + rnd() * 3) : pe[0] - pr2 * (2.6 + rnd() * 3);
+    var pb = [px2 - pr2 * 2.6, py2 - pr2 * 2.2, px2 + pr2 * 2.6, py2 + 2];
+    if (hit(keepOut, pb) || hit(taken, pb) || !offPath(pb)) continue; taken.push(pb); put++;
+    fSh += ell(px2 + pr2 * 0.5, py2 + 1, pr2 * 2.1, pr2 * 0.32);
+    if (put % 4 === 3) { var hw = pr2 * 3.2, hh = pr2 * 1.9; add(mid, 'H', rrect(px2 - hw / 2, py2 - hh, hw, hh, hh * 0.22)); for (var hl = 1; hl < 4; hl++) fLn += seg(px2 - hw / 2 + 2, py2 - hh * hl / 4, px2 + hw / 2 - 2, py2 - hh * hl / 4); continue; }
+    [[0, 1], [pr2 * 1.5, 0.7], [-pr2 * 1.25, 0.6]].slice(0, 1 + Math.floor(rnd() * 3)).forEach(function (o) { var r3 = pr2 * o[1], cx3 = px2 + o[0], cy3 = py2 - r3 * 0.8;
+      add(mid, 'G', ell(cx3, cy3, r3 * 1.2, r3 * 0.85)); fLn += 'M' + PT(cx3, cy3 - r3 * 0.8) + ' Q' + PT(cx3 - r3 * 0.55, cy3) + ' ' + PT(cx3, cy3 + r3 * 0.8) + ' M' + PT(cx3, cy3 - r3 * 0.8) + ' Q' + PT(cx3 + r3 * 0.55, cy3) + ' ' + PT(cx3, cy3 + r3 * 0.8) + ' M' + PT(cx3 - r3 * 0.6, cy3 - r3 * 0.6) + ' Q' + PT(cx3 - r3 * 1.05, cy3) + ' ' + PT(cx3 - r3 * 0.6, cy3 + r3 * 0.65) + ' M' + PT(cx3 + r3 * 0.6, cy3 - r3 * 0.6) + ' Q' + PT(cx3 + r3 * 1.05, cy3) + ' ' + PT(cx3 + r3 * 0.6, cy3 + r3 * 0.65) + ' ';
+      add(mid, 'D', poly([[cx3 - r3 * 0.1, cy3 - r3 * 0.75], [cx3 - r3 * 0.02, cy3 - r3 * 1.2], [cx3 + r3 * 0.22, cy3 - r3 * 1.25], [cx3 + r3 * 0.12, cy3 - r3 * 0.75]])); }); }
+  add(mid, 'i', fSh, FC.shadow); add(mid, 'j', fTr, FC.trunk);
+  Object.keys(TS2).forEach(function (c) { mid[TS2[c][0]].c = FC[c][0]; mid[TS2[c][1]].c = FC[c][1]; }); mid.G.c = FC.pump; mid.H.c = FC.hay;
+  stk(mid, 't', fLn, FC.line, 1.1);
+  stk(mid, 's', 'M' + pl.map(function (q) { return PT(q[0], q[1]); }).join(' L') + ' M' + pr.map(function (q) { return PT(q[0], q[1]); }).join(' L'), FC.edge, 2);
   var dl = ['', '', ''], stems = '';
   if (ANIM) { ANIM.leaves = []; ANIM.cols = dk ? ['#C4642A', '#A8402A', '#C89434'] : ['#E0772E', '#C8452E', '#E8AE3E']; ANIM.stem = dk ? '#5A3020' : '#8A4A28'; ANIM.path = pl.map(function (p, i) { var q = pr[pr.length - 1 - i]; return [(p[0] + q[0]) / 2, p[1], (q[0] - p[0]) / 2]; }); }
   spread(0, 0, W, H * 0.95, ph ? 110 : 150, ph ? 120 : 130, rnd, 1).forEach(function (c) {
@@ -2203,7 +2245,7 @@ SCENES.gaming = function (W, H, dk, rnd) {
   spread(0, 10, W, (ph ? H * 0.46 : H * 0.42), ph ? 190 : 300, ph ? 130 : 130, rnd, 0.8).forEach(function (c) { if (c.q > 0.8) return; var s = (ph ? 0.6 : 0.8) + c.r * 0.5, x = c.x, y = c.y, bb = [x - 50 * s, y - 46 * s, x + 52 * s, y + 14 * s];
     if (sx > bb[0] - 40 && sx < bb[2] + 40 && sy > bb[1] - 40 && sy < bb[3] + 40) return;
     occ.push(bb); add(refl, 'e', rrect(x - 50 * s, y - 14 * s, 100 * s, 28 * s, 14 * s) + circ(x - 20 * s, y - 14 * s, 20 * s) + circ(x + 12 * s, y - 20 * s, 26 * s) + circ(x + 38 * s, y - 6 * s, 14 * s), C.cloud); add(refl, 'f', rrect(x - 44 * s, y + 4 * s, 88 * s, 10 * s, 5 * s), C.cloudB); });
-  var pKx = ph ? W * 0.78 : W * 0.88, pKy = ph ? H * 0.855 : H * 0.88, pKw = ph ? 130 : 200, pKh = pKw * 0.52;
+  var pKx = ph ? W * 0.22 : W * 0.12, pKy = ph ? H * 0.855 : H * 0.88, pKw = ph ? 130 : 200, pKh = pKw * 0.52;
   function onPad(x, y, m) { return x > pKx - pKw * 0.33 - pKh * 0.44 - m && x < pKx + pKw * 0.33 + pKh * 0.44 + m && y > pKy - pKh * 0.46 - m && y < pKy + pKh * 0.56 + m; }
   var gA = ridge(W, gy, [[6, 220, 0.8], [3, 90, 2.0]], 10), gB = ridge(W, gy + (H - gy) * 0.42, [[8, 170, 2.6], [3, 70, 0.4]], 10), peb = '';
   add(mid, 'a', below(gA, H + 20), dk ? '#244256' : '#B4E5CA'); add(mid, 'b', below(gB, H + 20), dk ? '#1F3950' : '#A2DBBE');
@@ -2246,7 +2288,8 @@ SCENES.gaming = function (W, H, dk, rnd) {
   if (ph) { hx = 30; hy = H * 0.448; }
   if (ANIM) ANIM.hud = {x: hx, y: hy, s: hs, d: hd, pink: C.pink, hl: C.det};
   for (i = 0; i < 3; i++) { fp += b6_heart(hx + i * hd, hy, hs); hh += ell(hx + i * hd - hs * 0.45, hy - hs * 0.35, hs * 0.2, hs * 0.14); }
-  var kx = ph ? W * 0.78 : W * 0.88, ky = ph ? H * 0.855 : H * 0.88, kw = ph ? 130 : 200, kh = kw * 0.52, body = '', det = '';
+  // the controller sits bottom left: the Add button floats at the bottom right
+  var kx = ph ? W * 0.22 : W * 0.12, ky = ph ? H * 0.855 : H * 0.88, kw = ph ? 130 : 200, kh = kw * 0.52, body = '', det = '';
   if (ANIM) ANIM.pad = {x: kx, y: ky, w: kw, h: kh};
   body += rrect(kx - kw * 0.34, ky - kh * 0.46, kw * 0.68, kh * 0.72, kh * 0.3) + ell(kx - kw * 0.33, ky + kh * 0.05, kh * 0.44, kh * 0.5) + ell(kx + kw * 0.33, ky + kh * 0.05, kh * 0.44, kh * 0.5);
   add(mid, 'g', body, C.pad); add(far, 'g', ell(kx, ky + kh * 0.6, kw * 0.55, kh * 0.14), dk ? 'rgba(0,0,0,0.45)' : 'rgba(90,70,170,0.3)');
@@ -2256,10 +2299,11 @@ SCENES.gaming = function (W, H, dk, rnd) {
   var bx = kx + kw * 0.33, by = ky - kh * 0.06, bo = kh * 0.17, br = kh * 0.075;
   near.b.d += circ(bx, by - bo, br); near.b.c = C.mint; coins += ''; add(near, 'c', circ(bx - bo, by, br)); fp += circ(bx + bo, by, br); det += circ(bx, by + bo, br);
   var stemM = '';
-  (ph ? [[W * 0.1, gy + 70, 1], [W * 0.2, gy + 60, 0.7]] : [[W * 0.1, gy + 80, 1.2], [W * 0.16, gy + 66, 0.85], [W * 0.36, gy + 44, 0.7]]).forEach(function (m) { var ms = m[2] * 22, x = m[0], y = m[1]; fp += 'M' + PT(x - ms, y - ms * 0.9) + ' Q' + PT(x - ms, y - ms * 2.1) + ' ' + PT(x, y - ms * 2.1) + ' Q' + PT(x + ms, y - ms * 2.1) + ' ' + PT(x + ms, y - ms * 0.9) + ' Z '; stemM += rrect(x - ms * 0.45, y - ms * 0.95, ms * 0.9, ms * 0.95, ms * 0.3) + circ(x - ms * 0.45, y - ms * 1.5, ms * 0.18) + circ(x + ms * 0.35, y - ms * 1.7, ms * 0.14) + circ(x + ms * 0.05, y - ms * 1.2, ms * 0.12); add(far, 'g', ell(x, y + 2, ms * 1.1, ms * 0.25)); });
+  // mushrooms on the right, across from the controller
+  (ph ? [[W * 0.9, gy + 70, 1], [W * 0.8, gy + 60, 0.7]] : [[W * 0.9, gy + 80, 1.2], [W * 0.84, gy + 66, 0.85], [W * 0.64, gy + 44, 0.7]]).forEach(function (m) { var ms = m[2] * 22, x = m[0], y = m[1]; fp += 'M' + PT(x - ms, y - ms * 0.9) + ' Q' + PT(x - ms, y - ms * 2.1) + ' ' + PT(x, y - ms * 2.1) + ' Q' + PT(x + ms, y - ms * 2.1) + ' ' + PT(x + ms, y - ms * 0.9) + ' Z '; stemM += rrect(x - ms * 0.45, y - ms * 0.95, ms * 0.9, ms * 0.95, ms * 0.3) + circ(x - ms * 0.45, y - ms * 1.5, ms * 0.18) + circ(x + ms * 0.35, y - ms * 1.7, ms * 0.14) + circ(x + ms * 0.05, y - ms * 1.2, ms * 0.12); add(far, 'g', ell(x, y + 2, ms * 1.1, ms * 0.25)); });
   det += stemM;
   add(near, 'f', fp, C.pink); add(near, 'h', fc + hh + det, C.det);
-  var cab = 'M' + PT(kx, ky - kh * 0.46) + ' C' + PT(kx, ky - kh * 1.2) + ' ' + PT(kx - kw * 0.9, ky - kh * 1.0) + ' ' + PT(kx - kw * 0.95, ky - kh * 0.1) + ' S' + PT(kx - kw * 1.5, ky + kh * 1.0) + ' ' + PT(kx - kw * 2.4, ky + kh * 0.5) + ' S' + PT(kx - kw * 3.2, ky + kh * 1.6) + ' ' + PT(kx - kw * 3.6, H + 30);
+  var cab = 'M' + PT(kx, ky - kh * 0.46) + ' C' + PT(kx, ky - kh * 1.2) + ' ' + PT(kx + kw * 0.9, ky - kh * 1.0) + ' ' + PT(kx + kw * 0.95, ky - kh * 0.1) + ' S' + PT(kx + kw * 1.5, ky + kh * 1.0) + ' ' + PT(kx + kw * 2.4, ky + kh * 0.5) + ' S' + PT(kx + kw * 3.2, ky + kh * 1.6) + ' ' + PT(kx + kw * 3.6, H + 30);
   stk(mid, 't', cab, dk ? '#3A2E8A' : '#7A66E0', ph ? 2.4 : 3);
   if (dk) spread(0, gy - H * 0.25, W, H * 0.3, 120, 90, rnd, 1).forEach(function (c) { if (c.q < 0.35) { if (ANIM) { (ANIM.flies = ANIM.flies || []).push([c.x, c.y]); return; } add(far, 'h', circ(c.x, c.y, 10), 'rgba(160,255,210,0.45)'); add(near, 'g', circ(c.x, c.y, 1.8), '#D8FFE8'); } });
   var ringD = near.h.d;
@@ -8790,6 +8834,15 @@ SCENES.morocco = function (W, H, dk, rnd) {
     win += morocco_pg(morocco_archPts(mx - mw * 0.14, py + pph + mw * 0.32, mw * 0.14, mw * 0.24, 1.1).slice(0)) + morocco_pg(morocco_archPts(mx + mw * 0.14, py + pph + mw * 0.32, mw * 0.14, mw * 0.24, 1.1)); }
   add(bg, 'c', cityA, C.cityA); add(bg, 'd', cityB, C.cityB); add(bg, 'e', mina, C.mina); add(bg, 'f', palmD, C.palm); add(bg, 'g', trunkD + win, C.trunk); add(bg, 'h', minG, C.gold);
   stk(bg, 's', minL, dk ? 'rgba(20,10,40,0.5)' : 'rgba(150,80,50,0.5)', ph ? 0.8 : 1.1);
+  // the Moroccan flag on a rooftop pole beside the minaret: red, with the green interlaced star
+  var fgx = ph ? W * 0.4 : mx - mw * 2.2, fpt = yw - H * (ph ? 0.1 : 0.125), fw = (ph ? 30 : 46) * (ph ? 1 : S), fh = fw * 2 / 3, fpts = [], fwave = function (u) { return Math.sin(u * 5.2) * fh * 0.08 * u; };
+  for (j = 0; j <= 12; j++) fpts.push([fgx + 1.5 + j / 12 * fw, fpt + fwave(j / 12)]);
+  for (j = 12; j >= 0; j--) fpts.push([fgx + 1.5 + j / 12 * fw, fpt + fh + fwave(j / 12)]);
+  var flagRed = morocco_pg(fpts), flagStar = '', fcx = fgx + 1.5 + fw / 2, fcy = fpt + fh / 2 + fwave(0.5), frr = fh * 0.3, fsp = [], flw = Math.max(0.9, frr * 0.14);
+  for (j = 0; j < 5; j++) { var fa = -Math.PI / 2 + j * 2 * Math.PI / 5; fsp.push([fcx + Math.cos(fa) * frr, fcy + Math.sin(fa) * frr]); }
+  for (j = 0; j < 5; j++) { var fA = fsp[j], fB = fsp[(j + 2) % 5], fdx = fB[0] - fA[0], fdy = fB[1] - fA[1], fL = Math.sqrt(fdx * fdx + fdy * fdy), fnx = -fdy / fL * flw / 2, fny = fdx / fL * flw / 2;
+    flagStar += morocco_pg([[fA[0] + fnx, fA[1] + fny], [fB[0] + fnx, fB[1] + fny], [fB[0] - fnx, fB[1] - fny], [fA[0] - fnx, fA[1] - fny]]); }
+  var flagPole = rect(fgx - 1.2, fpt - 2, 2.4, yw - fpt + 2) + morocco_c(fgx, fpt - 3, ph ? 2 : 2.8);
   // the courtyard
   var wall = rect(-10, yw, W + 20, yf - yw + 2), cream = '', cob = '', grn = '', white = '', cedar = '', shade = '', open = '', wl = '', wc = '';
   var eh = (ph ? 10 : 16) * (ph ? 1 : S);
@@ -8941,7 +8994,7 @@ SCENES.morocco = function (W, H, dk, rnd) {
     nor += rect(jx0 + (sd < 0 ? 20 : 0), zt - 5, pw, 4);
     if (!ph) { var cx = sd < 0 ? pw - 9 : W - pw + 9; ncream += rect(cx - 5, ARC.cy + 40 * S, 10, zt - ARC.cy - 46 * S); nc += seg(cx - 2, ARC.cy + 48 * S, cx - 2, zt - 10) + seg(cx + 2, ARC.cy + 48 * S, cx + 2, zt - 10); gold += rect(cx - 8, ARC.cy + 34 * S, 16, 7) + rect(cx - 7, zt - 12, 14, 5); nsh += rect(cx + 1.5, ARC.cy + 41 * S, 3.5, zt - ARC.cy - 53 * S) + rect(cx + 3, ARC.cy + 34 * S, 5, 7) + rect(cx + 2.5, zt - 12, 4.5, 5); }
     nsh += rect(sd < 0 ? pw - 3 : W - pw, aOpen[1][1], 3, H + 20 - aOpen[1][1]); });
-  add(mid, 'g', gsh, C.shade); add(near, 'a', rug, C.rug); add(near, 'b', water, C.water); add(near, 'c', ncob, C.cob); add(near, 'd', ncream, C.ncream); add(near, 'e', ngrn, C.grn); add(near, 'f', nor, C.norange); add(near, 'g', gold, C.gold); add(near, 'h', nsh, C.nshade);
+  add(mid, 'g', gsh, C.shade); add(near, 'a', rug + flagRed, C.rug); add(near, 'b', water, C.water); add(near, 'c', ncob, C.cob); add(near, 'd', ncream, C.ncream); add(near, 'e', ngrn + flagStar, C.grn); add(near, 'f', nor, C.norange); add(near, 'g', gold + flagPole, C.gold); add(near, 'h', nsh, C.nshade);
   stk(near, 's', ng, C.grout, ph ? 0.7 : 1); stk(near, 't', nc, C.carve, ph ? 0.8 : 1.2);
   if (ANIM) { ANIM.C = C; ANIM.stars = stars; ANIM.lan = lan; ANIM.trees = tdat; ANIM.arches = arches; ANIM.candles = candles; ANIM.yw = yw; ANIM.yf = yf; ANIM.ARC = ARC; ANIM.pw = pw; ANIM.soffit = [aOpen, aIn];
     ANIM.fount = {x: fx, y: fyy, rx: frx - rim * 0.55, ry: fry - rim * 0.28, rimRx: frx + rim, rimRy: fry + rim * 0.45, bowlY: bowlY, brx: brx, bry: bry, spout: bowlY - 12 * S, s: S, fh: fh}; }
@@ -10429,14 +10482,16 @@ SCENES.canada = function (W, H, dk, rnd) {
     for (var q = 0; q <= 8; q++) { var u = q / 8, px = pa0[0] + (pa1[0] - pa0[0]) * u, py = pa0[1] + (pa1[1] - pa0[1]) * u + Math.sin(u * Math.PI) * 14 * S, pw = (5 + u * 7) * S; if (Math.abs(x - px) < pw * 0.6 + r && y > py - pw * 0.7 - 2 && y - 12 < py + pw * 0.7) return false; } return true; }; nsh += canada_e(c2x + 2 * S, gnd(c2x) + 16 * S, 16 * S, 2.6 * S);
   (ph ? [[0.0, 150], [0.12, 120], [0.66, 120], [0.95, 165]] : [[0.0, 190], [0.05, 150], [0.135, 120], [0.8, 150], [0.835, 120], [0.955, 175], [1.0, 210]]).forEach(function (q, j) { var xx = W * q[0], hh = q[1] * S * (ph ? 1.4 : 1); var fr = xx < W * 0.3; if (xx > W * 0.5) { var nb = nSpr.filter(function (t) { return t[6]; }).length; if (nb >= 2) return; xx = nb ? cl1 + 54 * cs : cl0 - 22 * cs; hh = (nb ? 190 : 160) * S * (ph ? 1.2 : 1); nSpr.push([xx, nb ? cb - 13 * cs : cb + 16 * cs, hh, hh * 0.2, 9, !nb, true]); return; }
     nSpr.push([xx, fr ? gnd(xx) + (ph ? 62 : 48) * S : gnd(xx) - (j % 2 ? 8 : 14) * S, hh, hh * 0.2, 9, fr]); });
-  var maples = [], mTr = '';
-  (ph ? [[0.3, 0.9], [1.02, 1.1]] : [[0.245, 0.95], [0.995, 1.25]]).forEach(function (q, j) { var mx = W * q[0], my = gnd(mx) + (j ? 4 : 16 * S), ms = S * q[1] * (ph ? 1.3 : 1), cyy = my - 120 * ms, R = 62 * ms;
+  var maples = [], mTr = '', mShape = '';
+  (ph ? [[0.3, 0.9], [1.02, 1.1]] : [[0.245, 0.95], [0.995, 1.25]]).forEach(function (q, j) { var mx = W * q[0], my = gnd(mx) + (j ? 4 : 16 * S), ms = S * q[1] * (ph ? 1.3 : 1), cyy = my - 120 * ms, R = 62 * ms, r0 = red.length, o0 = orange.length, t0 = mTr.length;
     mTr += canada_pg([[mx - 7 * ms, my], [mx - 5 * ms, my - 60 * ms], [mx - 30 * ms, my - 100 * ms], [mx - 26 * ms, my - 104 * ms], [mx - 2 * ms, my - 76 * ms], [mx + 4 * ms, my - 112 * ms], [mx + 9 * ms, my - 110 * ms], [mx + 5 * ms, my - 64 * ms], [mx + 28 * ms, my - 92 * ms], [mx + 31 * ms, my - 88 * ms], [mx + 7 * ms, my - 50 * ms], [mx + 8 * ms, my]]);
     for (k = 0; k < 7; k++) { var a0 = k / 7 * Math.PI * 2; red += canada_c(mx + Math.cos(a0) * R * 0.45, cyy + Math.sin(a0) * R * 0.3, R * 0.5); }
     for (k = 0; k < 150; k++) { var a = hash(k + j * 90 + 1) * Math.PI * 2, d = Math.sqrt(hash(k + j * 90 + 2)) * 0.92, bx = mx + Math.cos(a) * d * R * 1.0, by = cyy + Math.sin(a) * d * R * 0.72, br = (5 + hash(k + j * 90 + 3) * 5.5) * ms, lit = (mx - bx) / R * 0.3 + (cyy - by) / R * 0.5;
       if (hash(k + j * 90 + 4) < 0.42 + lit) orange += canada_c(bx, by, br); else red += canada_c(bx, by, br);
       if (d > 0.8 && k % 2 && by < my - 30 * ms) { var lf = canada_leaf(bx + Math.cos(a) * br, by + Math.sin(a) * br * 0.8, (6 + (k % 3) * 1.6) * ms, a * 57.3 + 90); if (k % 2) red += lf; else orange += lf; } }
-    nsh += canada_e(mx + R * 0.15, my + 2, R * 0.8, 5 * ms); maples.push([mx, cyy, R]); });
+    nsh += canada_e(mx + R * 0.15, my + 2, R * 0.8, 5 * ms); maples.push([mx, cyy, R]);
+    // the tree's exact outline (trunk, branches, leaves), so the swimming loon hides only behind what's really there
+    mShape += mTr.slice(t0) + red.slice(r0) + orange.slice(o0); });
   (ph ? [[0.4, 1], [0.6, 0.8]] : [[0.31, 1], [0.37, 0.7], [0.49, 0.6]]).forEach(function (q, j) { var bx = W * q[0], by = gnd(bx) + 8 * S, bs = q[1] * S * (ph ? 1.3 : 1);
     nsh += canada_e(bx, by + 1, 30 * bs, 4 * bs); bushBox.push([bx - 28 * bs, by - 19 * bs, bx + 28 * bs, by + 3 * bs]);
     for (k = 0; k < 18; k++) { var ba = hash(k + j * 30) * Math.PI, bd = Math.sqrt(hash(k + j * 30 + 1)), ax = bx - Math.cos(ba) * bd * 24 * bs, ay = by - 3 * bs - Math.sin(ba) * bd * 13 * bs, ar = (3.4 + hash(k + j * 30 + 2) * 2.6) * bs;
@@ -10470,7 +10525,7 @@ SCENES.canada = function (W, H, dk, rnd) {
   stk(near, 's', lines, C.line, 1.1); stk(near, 't', grass, C.grass, 1.3);
   if (ANIM) {
     var env = [], sk = []; for (x = -20; x <= W + 20; x += 10) env.push([x, Math.min(canada_yAt(back.pts, x), canada_yAt(FP, x)) + 3]);
-    ANIM.rockP = rocks.map(function (r) { return {p: r.p, bot: r.y + r.ry * 0.55}; }); ANIM.caflag = caFlag; ANIM.C = C; ANIM.hz = hz; ANIM.gp = gp; ANIM.S = S; ANIM.sky = env; ANIM.spr = nSpr; ANIM.canoes = canoes; ANIM.maples = maples; ANIM.wins = wins; ANIM.door = door; ANIM.chim = [chX, chTop - 4 * cs, cs];
+    ANIM.rockP = rocks.map(function (r) { return {p: r.p, bot: r.y + r.ry * 0.55}; }); ANIM.caflag = caFlag; ANIM.C = C; ANIM.hz = hz; ANIM.gp = gp; ANIM.S = S; ANIM.sky = env; ANIM.spr = nSpr; ANIM.canoes = canoes; ANIM.maples = maples; ANIM.mapleShape = mShape; ANIM.wins = wins; ANIM.door = door; ANIM.chim = [chX, chTop - 4 * cs, cs];
     ANIM.peakY = hz - H * 0.3 * mh; ANIM.bay = [W * (ph ? 0.27 : 0.25), W * (ph ? 0.42 : 0.43), gnd(W * 0.42)]; ANIM.dock = [dx0, dx1, dy];
   }
   return {sky: sky, far: far, refl: bg, mid: mid, near: near, band: {top: hz, bg: lake}};
@@ -11529,10 +11584,11 @@ function b1_dpr(c) { return c.getTransform ? c.getTransform().a : 1; }
 // cut a painted layer into its non-empty T x T tiles; each tile is a whole small image
 function b1_tiles(cv, T) { var out = [], w = cv.width, h = cv.height, id = cv.getContext('2d').getImageData(0, 0, w, h).data;
   for (var ty = 0; ty < h; ty += T) for (var tx = 0; tx < w; tx += T) { var tw = Math.min(T, w - tx), th = Math.min(T, h - ty), any = false;
-    for (var r = ty; r < ty + th && !any; r += 2) for (var x = tx; x < tx + tw; x += 2) if (id[(r * w + x) * 4 + 3] > 0) { any = true; break; }
+    for (var r = ty; r < ty + th && !any; r++) for (var x = tx; x < tx + tw; x++) if (id[(r * w + x) * 4 + 3] > 0) { any = true; break; }
     if (any) { var c = b1_scratch(tw, th); c.getContext('2d').drawImage(cv, -tx, -ty); out.push({cv: c, x: tx, y: ty}); } }
   return out; }
-function b1_blit(c, tiles, dx, dy) { for (var i = 0; i < tiles.length; i++) c.drawImage(tiles[i].cv, tiles[i].x + dx, tiles[i].y + dy); }
+// Whole pixels only: tiles drawn at fractional positions show faint seams between them
+function b1_blit(c, tiles, dx, dy) { dx = Math.round(dx); dy = Math.round(dy); for (var i = 0; i < tiles.length; i++) c.drawImage(tiles[i].cv, tiles[i].x + dx, tiles[i].y + dy); }
 function b1_scratch(w, h) { var cv = document.createElement('canvas'); cv.width = Math.max(1, Math.ceil(w)); cv.height = Math.max(1, Math.ceil(h)); return cv; }
 
 // 1. Ocean Waves
@@ -11754,7 +11810,7 @@ ENGINES.summer = function (A, v, dk) {
     },
     draw: function (ca, cb, t, f) {
       var d = b1_dpr(ca); if (!spr || Math.abs(d - sd) > 0.01) buildSurf(d);
-      var o1 = 7 * Math.sin(t * 0.45) + 2.5 * Math.sin(t * 0.171 + 1), o2 = 9 * Math.sin(t * 0.39 - 1.1) + 3 * Math.sin(t * 0.137 + 2.3);
+      var o1 = 7 * Math.sin(t * 0.72) + 2.5 * Math.sin(t * 0.27 + 1), o2 = 9 * Math.sin(t * 0.62 - 1.1) + 3 * Math.sin(t * 0.22 + 2.3);
       ca.lineCap = 'round'; ca.lineJoin = 'round';
       for (k = 0; k < 4; k++) { ca.fillStyle = cSp + ((dk ? 0.35 : 0.75) * (0.25 + 0.75 * Math.pow(0.5 + 0.5 * Math.sin(t * 0.9 + k * 1.7), 2))) + ')'; ca.fill(sp[k]); }
       ca.save(); ca.setTransform(1, 0, 0, 1, 0, 0);
@@ -21125,8 +21181,12 @@ ENGINES.canada = function (A, v, dk) {
     return nearRocks.some(function (r) { return pts.some(function (pt) { var c2 = false; for (var i = 0, j = r.p.length - 1; i < r.p.length; j = i++) { var a = r.p[i], b = r.p[j]; if ((a[1] > pt[1]) !== (b[1] > pt[1]) && pt[0] < (b[0] - a[0]) * (pt[1] - a[1]) / (b[1] - a[1]) + a[0]) c2 = !c2; } return c2; }); }); }
   function loonClip(c) { var cut = function (add) { var m = new Path2D(); m.rect(-50, -50, W + 100, H + 100); add(m); c.clip(m, 'evenodd'); };
     nearRocks.forEach(function (r) { cut(function (m) { m.moveTo(r.p[0][0], r.p[0][1]); for (var q = 1; q < r.p.length; q++) m.lineTo(r.p[q][0], r.p[q][1]); m.closePath(); }); });
-    A.maples.forEach(function (mp) { if (mp[2] < 20) return; cut(function (m) { m.moveTo(mp[0] + mp[2] * 1.2, mp[1]); m.ellipse(mp[0], mp[1], mp[2] * 1.2, mp[2] * 0.95, 0, 0, Math.PI * 2); }); cut(function (m) { m.rect(mp[0] - mp[2] * 0.2, mp[1], mp[2] * 0.4, mp[2] * 2.2); }); });
+    if (!A.mapleShape) A.maples.forEach(function (mp) { if (mp[2] < 20) return; cut(function (m) { m.moveTo(mp[0] + mp[2] * 1.2, mp[1]); m.ellipse(mp[0], mp[1], mp[2] * 1.2, mp[2] * 0.95, 0, 0, Math.PI * 2); }); cut(function (m) { m.rect(mp[0] - mp[2] * 0.2, mp[1], mp[2] * 0.4, mp[2] * 2.2); }); });
     if (mo.vis && mo.x != null) cut(function (m) { m.rect(mo.x - 70 * mo.s, mo.y - 110 * mo.s, 140 * mo.s, 112 * mo.s); }); }
+  // The loon is drawn on its own small canvas, then rubbed out where a maple's real outline covers it (MASK: the maples, filled once)
+  var MASK = null, LCV = document.createElement('canvas'), LX = LCV.getContext('2d');
+  function mapleMask() { if (MASK !== null) return MASK; MASK = false; if (!A.mapleShape || typeof Path2D !== 'function') return MASK;
+    var m = document.createElement('canvas'); m.width = Math.max(1, Math.ceil(W)); m.height = Math.max(1, Math.ceil(H)); m.getContext('2d').fill(new Path2D(A.mapleShape)); return (MASK = m); }
   var mo = {x0: A.bay[0], x1: A.bay[1], y0: gnd(A.bay[0]) - 14 * S, y1: A.bay[2] - 22 * S, s: (ph ? 0.8 : 1.05) * S};
   var paddle = {x0: A.canoes[0].x, y0: A.canoes[0].y, x1: W * (ph ? 0.3 : 0.44), y1: hz + (A.bay[2] - hz) * 0.28};
   function ring(x, y, r0) { rings.push({x: x, y: y, r: r0 || 3, age: 0}); }
@@ -21185,11 +21245,18 @@ ENGINES.canada = function (A, v, dk) {
       if (dk) { A.wins.forEach(function (w, k) { var fl = 0.85 + 0.15 * flick(tt * 0.6, k); cb.save(); cb.globalCompositeOperation = 'lighter'; canada_dot(cb, glowW, w[0] + w[2] / 2, w[1] + w[3] / 2, w[2] * 1.8, fl); cb.restore(); cb.fillStyle = 'rgba(255,196,110,' + (0.85 * fl) + ')'; cb.fillRect(w[0], w[1], w[2], w[3]); cb.fillStyle = 'rgba(80,40,20,0.6)'; cb.fillRect(w[0] + w[2] / 2 - 0.8, w[1], 1.6, w[3]); cb.fillRect(w[0], w[1] + w[3] / 2 - 0.8, w[2], 1.6); }); }
       cb.fillStyle = C.woodD; A.spr.forEach(function (s) { if (!s[5]) return; var tw2 = s[3] * 0.11; cb.beginPath(); cb.moveTo(s[0] - tw2 * 1.6, s[1] + 2); cb.lineTo(s[0] - tw2 * 0.8, s[1] - s[2] * 0.14); cb.lineTo(s[0] + tw2 * 0.8, s[1] - s[2] * 0.14); cb.lineTo(s[0] + tw2 * 1.6, s[1] + 2); cb.closePath(); cb.fill(); });
       cb.fillStyle = C.near; A.spr.forEach(function (s, k) { if (s[5]) sprDraw(cb, s, k); });
-      if (loon.under !== 1) { cb.save(); loonClip(cb); var dv = loon.dive < 0 ? 0 : loon.dive < 0.7 ? loon.dive / 0.7 : loon.dive > 3.6 ? 1 - (loon.dive - 3.6) / 0.6 : 0, sink = loon.dive >= 0 && loon.dive < 0.7 ? dv : loon.under === 2 ? dv : 0;
-        var ly = loon.y + Math.sin(tt * 1.2) * 0.6;
+      if (loon.under !== 1) { var dv = loon.dive < 0 ? 0 : loon.dive < 0.7 ? loon.dive / 0.7 : loon.dive > 3.6 ? 1 - (loon.dive - 3.6) / 0.6 : 0, sink = loon.dive >= 0 && loon.dive < 0.7 ? dv : loon.under === 2 ? dv : 0;
+        var ly = loon.y + Math.sin(tt * 1.2) * 0.6, out = cb, mk = mapleMask(), lb = null;
+        if (mk) { var kk = (cb.getTransform ? cb.getTransform().a : 1) || 1; lb = {x: Math.floor(loon.x - 46 * loon.s), y: Math.floor(ly - 28 * loon.s), w: Math.ceil(92 * loon.s), h: Math.ceil(54 * loon.s)};
+          var pw = Math.ceil(lb.w * kk), phh = Math.ceil(lb.h * kk); if (LCV.width !== pw || LCV.height !== phh) { LCV.width = pw; LCV.height = phh; }
+          LX.setTransform(kk, 0, 0, kk, -lb.x * kk, -lb.y * kk); LX.clearRect(lb.x, lb.y, lb.w, lb.h); cb = LX; }
+        cb.save(); loonClip(cb);
         cb.save(); cb.beginPath(); cb.rect(-20, -20, W + 40, ly - (-20)); cb.clip(); cb.translate(loon.x, ly + sink * 14 * loon.s); cb.scale(loon.dir, 1); cb.rotate(sink * 0.5); canada_loon(cb, loon.s, dk); cb.restore();
         var hid = loonHidden(loon.x, ly); if (!hid) { cb.save(); cb.globalAlpha = 0.25 * (1 - sink); cb.translate(loon.x, ly + 1); cb.scale(loon.dir, -0.7); canada_loon(cb, loon.s, dk); cb.restore(); }
-        if (loon.dive < 0 && !hid) { cb.strokeStyle = ringC + '0.5)'; cb.lineWidth = 1; cb.beginPath(); cb.moveTo(loon.x - loon.dir * 18 * loon.s, ly + 1); cb.lineTo(loon.x - loon.dir * 40 * loon.s, ly + 2.5); cb.moveTo(loon.x - loon.dir * 16 * loon.s, ly + 2); cb.lineTo(loon.x - loon.dir * 30 * loon.s, ly + 5); cb.stroke(); }  cb.restore(); }
+        if (loon.dive < 0 && !hid) { cb.strokeStyle = ringC + '0.5)'; cb.lineWidth = 1; cb.beginPath(); cb.moveTo(loon.x - loon.dir * 18 * loon.s, ly + 1); cb.lineTo(loon.x - loon.dir * 40 * loon.s, ly + 2.5); cb.moveTo(loon.x - loon.dir * 16 * loon.s, ly + 2); cb.lineTo(loon.x - loon.dir * 30 * loon.s, ly + 5); cb.stroke(); }  cb.restore();
+        if (lb) { cb = out; var sx = Math.max(0, lb.x), sy = Math.max(0, lb.y), sw = Math.min(mk.width, lb.x + lb.w) - sx, sh = Math.min(mk.height, lb.y + lb.h) - sy;
+          if (sw > 0 && sh > 0) { LX.save(); LX.globalCompositeOperation = 'destination-out'; LX.drawImage(mk, sx, sy, sw, sh, sx, sy, sw, sh); LX.restore(); }
+          cb.drawImage(LCV, lb.x, lb.y, lb.w, lb.h); } }
       if (A.caflag) canada_flag(cb, A.caflag, tt, true, ['#D52B1E', '#FFFFFF', '#FFFFFF', '#D52B1E'], function (c, x, y, h) { c.save(); c.translate(x, y + h * 0.04); c.fillStyle = dk ? 'rgb(170,34,24)' : '#D52B1E'; canada_leafPath(c, h * 0.3); c.fill(); c.restore(); }, dk);
       falling.forEach(function (l) { var s = l.s, flip = Math.cos(tt * 2 + l.ph); cb.save(); cb.globalAlpha = l.a; cb.translate(l.x, l.y); cb.rotate(Math.sin(tt * 1.3 + l.ph) * 0.9 + l.ph); cb.scale(0.35 + 0.65 * Math.abs(flip), 1); cb.drawImage(LS[l.k], -s, -s, s * 2, s * 2); cb.restore(); });
       gust.forEach(function (g) { cb.save(); cb.translate(g.x, g.y); cb.rotate(tt * g.w * 2 + g.ph); cb.scale(0.4 + 0.6 * Math.abs(Math.cos(tt * 3 + g.ph)), 1); cb.drawImage(LS[g.k === 2 ? 0 : g.k], -g.s, -g.s, g.s * 2, g.s * 2); cb.restore(); });

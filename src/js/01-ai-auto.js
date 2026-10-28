@@ -122,7 +122,7 @@ async function autoPractice(t){
   if (!deckIds.length || (cards.length < 5 && !topics.length)) { const n = clone(state.tasks[t.id]); n.practiceQuiz = {none: true}; applyChanges([{kind: "task", id: t.id, after: n}], null); return; }
   const r = await aiCall({task: "practice", auto: true, maxTokens: 24000, schema: QUIZ_SCHEMA, parts: [{text: `Course: ${c ? c.name : ""}\nExam: ${ex.title || ""}, format: ${ex.planStyle || "exam-style"}\nTopics (and how well the student knows them): ${topics.join("; ") || "see cards"}\nMaterial (flashcards):\n${cards.map(x => `${x.front} => ${x.back}`).join("\n")}\n\nWrite a 15-question practice test.`}],
     system: "You write a realistic practice test for an upcoming exam in its format, weighted toward the student's shaky topics. Mix types: 'single' (usually 4 options), 'multiple' (select all that apply), 'order' for sequences, and a few 'short'. 'correct' holds zero-based option indexes; for 'order' the indexes in the right order. Every question gets a rationale, one short note per option in 'optionNotes', and a 'topic'. Return JSON only."});
-  const qs = aiCleanQuestions((r.data || {}).questions);
+  const qs = aiDropCopiedQs(aiCleanQuestions((r.data || {}).questions), aiCopiedCardsIndex(cards));
   const n = clone(state.tasks[t.id]); if (!n) return;
   if (!qs.length) { n.practiceQuiz = {none: true}; applyChanges([{kind: "task", id: t.id, after: n}], null); return; }
   const d = clone(state.decks[deckIds[0]]);

@@ -21,7 +21,7 @@
   });
 
   MAJ_THEMES.push({
-    skin: {id: "brazil", name: "Rio de Janeiro", group: "world", desc: "Christ the Redeemer, a colourful favela and Sugarloaf over a golden beach.",
+    skin: {id: "brazil", name: "Brazil", group: "world", desc: "Christ the Redeemer, a colourful favela and Sugarloaf over a golden beach.",
       light: ["#F5FAF5", "rgba(19,128,78,.10)", "#FFFFFF", "#163026", "#4C6A5C", "#D2E6D8", "#E4F2E8", "#FAFDFA", "#13804E", "#2FA06A", "#FFFFFF", "#0C5A36", "#11603E", "#CDEBD8", "#FFE3A0"],
       dark: ["#0E1534", "rgba(255,210,74,.08)", "#17204A", "#F2F2FA", "#B4B8D6", "#2C3870", "#222C5E", "#121A3E", "#FFD24A", "#FFE08A", "#0C1838", "#7A6232", "#0C1838", "#D6D4EE", "#6A5428"],
       glow: ["linear-gradient(180deg,#7CC6F0,#D4EEF8 45%,#FCE8C4)", "linear-gradient(180deg,#0C1838,#1E2C5E 45%,#6A3A5E)"],

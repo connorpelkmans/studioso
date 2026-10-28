@@ -999,6 +999,10 @@ begin
   if public.plans_object_owner(new.name) is distinct from auth.uid() and auth.uid() is not null then
     raise exception 'SB_STORAGE_PATH: Files are stored in your own folder.' using errcode = 'P0001';
   end if;
+  -- 1.17: files can't be shared with a group (they may be someone else's work). Files already there stay with their uploader.
+  if tg_op = 'INSERT' or new.name is distinct from old.name then
+    raise exception 'SB_NO_FILES: Files can''t be shared with a group. Share a link to a doc the group made instead.' using errcode = 'P0001';
+  end if;
   if auth.uid() is not null and not public.sbg_is_member(gid) then raise exception 'You''re not in that group' using errcode = 'P0001'; end if;
   if not public.plans_group_is_pro(gid) then
     raise exception 'SB_GROUP_PRO: Uploading files to a group is part of Pro groups.' using errcode = 'P0001';
@@ -1018,8 +1022,8 @@ begin
   begin
     execute 'drop trigger if exists plans_group_upload on storage.objects';
     execute 'create trigger plans_group_upload before insert or update on storage.objects for each row execute function public.plans_group_upload()';
+    -- 1.17: other members can no longer open files uploaded to a group (the uploader still can, from their own folder)
     execute 'drop policy if exists "group files member read" on storage.objects';
-    execute 'create policy "group files member read" on storage.objects for select to authenticated using (bucket_id = ''studioso-files'' and public.sbg_group_file_ok(name))';
   exception when insufficient_privilege then
     raise notice 'Skipped the group upload rules (no permission on storage.objects). Group uploads stay off; everything else works.';
   end;

@@ -448,7 +448,7 @@ Settings > Quick Capture explains each way in that works on your device (the sha
 Open **Style** in the sidebar (or Settings → Style Shop on a phone).
 - **Themes:** 60 themes, each with a light and a dark version that follow your Appearance setting (System, Light or Dark).
   - Free plain colors: Classic, Plain Paper, Slate, Sand, Blush, Lavender, Sky, Sage, Peach, Butter, Teal, Mocha, Plum and Indigo.
-  - Pro seasons: Winter, Spring, Summer and Autumn Leaves.
+  - Pro seasons: Winter, Spring, Summer and Fall.
   - Pro new scenes: Balloon Festival, Koi Pond, Rainy Window, Alpine Lake, Desert Dunes, Jellyfish Drift, Bamboo Grove, Lavender Fields and City Rooftops.
   - Pro scenes: Ocean Waves, Sakura, Evergreen, Galaxy, Northern Lights, Lemonade, Christmas Lights, Cozy Café, Sunset Beach, Mint Chip, Colorful Bokeh, Neon Dusk, Candy Land and Synthwave.
   - Pro cozy and hobby themes: Cozy Cats, Music Room, Reading Nook, Knitting Nook, Art Studio, Bake Shop, Garden Plot, Game Night and Photo Walk.
@@ -462,7 +462,7 @@ Open **Style** in the sidebar (or Settings → Style Shop on a phone).
   | Winter | Frost and Flurries | Ice Crystal, Fair Isle Tape | Frosted Pane |
   | Spring | Meadow Friends | Tulip Pin, Gingham Washi | Tulip Border |
   | Summer | Sandy Toes | Beach Ball, Cabana Stripe | Shoreline |
-  | Autumn Leaves | Harvest Glow | Amber Maple, Wooden Peg | Golden Hour |
+  | Fall | Harvest Glow | Amber Maple, Wooden Peg | Golden Hour |
   | Ocean Life | Making Waves | Glass Float, Wave Washi | Tide Line |
   | Sakura | Hanami Day | Petal Washi, Kanzashi Pin | Hanami Washi |
   | Evergreen | Quiet Woods | Firefly Glow, Pine Washi | Misty Ridge |
@@ -518,7 +518,7 @@ Open **Style** in the sidebar (or Settings → Style Shop on a phone).
   - **Winter:** Snow blows across the valley in soft gusts and the chimney smoke bends with the wind. Scene moment: The snowman tips his top hat to you and waves.
   - **Spring:** Butterflies flutter over the tulips and land on the flowers while the windmill turns. Scene moment: All the butterflies lift off together, twirl in a ring dance and settle on new flowers.
   - **Summer:** The surf washes in and out, boats cruise along the shore and little crabs scuttle on the sand but never into the sea. Scene moment: A sea turtle nest hatches and three baby turtles scurry down the beach into the sea.
-  - **Autumn Leaves:** Maple and oak leaves tumble down and gusts sweep them sideways. Scene moment: A little whirlwind of leaves spins up from the path and dances away.
+  - **Fall:** Maple and oak leaves tumble down and gusts sweep them sideways. Scene moment: A little whirlwind of leaves spins up from the path and dances away.
   - **Ocean Waves:** Swells roll in, sailboats bob, fish leap out of the water, gulls circle and at night the lighthouse beam turns. Scene moment: A whale surfaces and blows a sparkly spout with a tiny rainbow, then waves its tail as it dives.
   - **Sakura:** The blossom branch sways and petals drift down onto the lake. Scene moment: A little white-eye bird lands on the branch and the buds around it pop open.
   - **Evergreen:** Mist drifts through the pines, birds glide by day and fireflies wander at night. Scene moment: A ring of red-capped mushrooms pops up one by one with a soft glow.
@@ -952,6 +952,24 @@ update public.app_flags set value = 'false', updated_at = now() where key = 'bb_
 ```
 
 The website, desktop and phone apps pick it up within about 3 hours (or when they next open); the School Sync extension (version 1.0.4 or later) picks it up the next time the student opens the Studyboard website. Set it back to `'true'` to turn them on again.
+
+**Marks that aren't on the Grades page.** Some marks are released without showing on the platform's Grades page. Studyboard looks for them in these places, only for items the Grades page has no mark for. A mark on the Grades page always wins. The task shows where its mark came from ("read from the quiz's Submissions page"), and switches to the Grades mark once it's posted there.
+
+| Switch (`app_flags` key) | Platform | Where the mark is read |
+|---|---|---|
+| `marks_quiz_page` | Brightspace | The quiz's Submissions page: "Overall Grade", or the best attempt |
+| `marks_attempt_score` | Blackboard | A graded attempt's score, when the gradebook cell is empty |
+| `marks_assignment_feedback` | Brightspace | The score in the assignment's published feedback |
+| `marks_assignments_page` | Brightspace | The Score column on the Assignments page (only a score out of the assignment's total) |
+| `marks_discussion_page` | Brightspace | The discussion topic's page (only a labelled score out of the topic's total) |
+
+Canvas needs none of these: it gives each submission's score directly. To stop one source for everyone (for example if a school's pages read a wrong number), switch it off the same way:
+
+```sql
+update public.app_flags set value = 'false', updated_at = now() where key = 'marks_assignments_page';
+```
+
+The apps stop reading it within about 3 hours. The extension stops from version 1.0.5, the next time the student opens the Studyboard website. Adding a new source is described above `MARK_SOURCES` in `src/js/95-lms.js`.
 
 Studyboard can bring in everything from your school's learning platform on its own: **Brightspace** (D2L, the learning site many schools use), **Canvas** or **Blackboard Learn**. Assignments, quizzes, discussions and exams go on your Board and Timeline with their due dates, instructor calendar events go on your Schedule, and your grades go into the Grade Tracker. Open **Settings > Brightspace, Canvas and Blackboard**, or the **School Sites** button on the Courses page, and pick your platform. Using more than one? Connect each; they stay separate and nothing is added twice.
 

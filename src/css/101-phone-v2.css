@@ -91,7 +91,7 @@
   .wkr-acts .btn{min-height:44px;padding:6px 14px;font-size:.86rem;flex:0 0 auto}
   .wkr-acts .btn:not(.primary):last-child{border-color:transparent;background:none;box-shadow:none;color:var(--muted);text-decoration:underline;padding-inline:6px}
   /* Sheets: the main action easy to reach */
-  dialog#dlg > .sheet{border-radius:22px 22px 0 0}
+  dialog#dlg > .sheet{border-radius:inherit}
   dialog#dlg .sheet-foot{flex-wrap:wrap;gap:8px}
   dialog#dlg .sheet-foot > .btn.primary:last-child,dialog#dlg .sheet-foot > [data-submit].primary{flex:1 1 140px}
   /* nothing on the left: Cancel takes the left edge and the main button fills the rest */
@@ -411,18 +411,18 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
 
 /* Phones: the cards and panels over a theme's artwork let more of it show through (a photo theme's own Glass slider still wins) */
 @media (max-width:639px){
-  html{--ph-gls:86%}
+  html{--ph-gls:91%}
 }
 
-/* Phones: every softly see-through surface lets more of the artwork behind it show (about five sixths solid) */
+/* Phones: every softly see-through surface lets a little of the artwork behind it show */
 @media (max-width:639px){
-  .col{background:color-mix(in srgb,var(--ph-surf,var(--surface)) 86%,transparent)}
-  .arch-term{background:color-mix(in srgb,var(--surface) 86%,transparent)}
-  html.sc-on .grp-file{background:color-mix(in srgb,var(--surface) 86%,transparent)}
-  .cpt-form{background:color-mix(in srgb,var(--paper,var(--bg)) 80%,transparent)}
-  .room-float small{background:color-mix(in srgb,var(--surface) 86%,transparent)}
-  .nb-zoom,.nb-target,.board-max-btn{background:color-mix(in srgb,var(--surface) 88%,transparent)}
-  .nb-main .nb-target{background:color-mix(in srgb,var(--surface) 88%,transparent)!important}
+  .col{background:color-mix(in srgb,var(--ph-surf,var(--surface)) 91%,transparent)}
+  .arch-term{background:color-mix(in srgb,var(--surface) 91%,transparent)}
+  html.sc-on .grp-file{background:color-mix(in srgb,var(--surface) 91%,transparent)}
+  .cpt-form{background:color-mix(in srgb,var(--paper,var(--bg)) 86%,transparent)}
+  .room-float small{background:color-mix(in srgb,var(--surface) 91%,transparent)}
+  .nb-zoom,.nb-target,.board-max-btn{background:color-mix(in srgb,var(--surface) 92%,transparent)}
+  .nb-main .nb-target{background:color-mix(in srgb,var(--surface) 92%,transparent)!important}
 }
 
 
@@ -445,10 +445,10 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
 
 /* Notes and whiteboard floating buttons: more see-through */
 @media (max-width:639px){
-  .nb-zoom,.board-max-btn,.nb-main .nb-target:not(.hot),.nb-target:not(.hot){background:color-mix(in srgb,var(--surface) 68%,transparent)!important}
-  .wb-max{background:rgba(255,255,255,.68)!important}
-  .wb-dk .wb-max{background:rgba(38,45,54,.7)!important}
-  .wb-stage .wb-zoom{background:color-mix(in srgb,var(--surface) 68%,transparent)!important}
+  .nb-zoom,.board-max-btn,.nb-main .nb-target:not(.hot),.nb-target:not(.hot){background:color-mix(in srgb,var(--surface) 76%,transparent)!important}
+  .wb-max{background:rgba(255,255,255,.76)!important}
+  .wb-dk .wb-max{background:rgba(38,45,54,.78)!important}
+  .wb-stage .wb-zoom{background:color-mix(in srgb,var(--surface) 76%,transparent)!important}
 }
 
 /* Do This Next band: "Do This Next, Pip's pick" stays on one line beside the time */
@@ -534,4 +534,110 @@ html[data-plan-top="week"] .plan .fh-ctl.has-stats .hours-ctl{display:none}
   .dtl-rail{overflow-x:auto}
   .dtl-c,.dtl-c.fr{flex:var(--m,60) 1 0;width:auto;max-width:none;min-width:104px}
   .dtl-c.fr{min-width:74px}
+}
+/* Past your end of day: one card across the whole row, its words side by side */
+.dtl-over .dtl-rail{overflow:visible}
+.dtl-over .dtl-c.dtl-end,.dtl-over .dtl-c.fr.dtl-end{flex:1 1 100%;width:auto;min-width:0;max-width:none;display:flex;flex-wrap:wrap;align-items:baseline;justify-content:center;gap:4px 10px;padding:12px 16px;text-align:center;font:600 .82rem/1.35 var(--display)}
+.dtl-over .dtl-c.dtl-end b{font:700 .86rem/1.35 var(--display)}
+/* A card's words always stay inside it, however narrow it is: the column can't grow past the card, a long title wraps
+   (two lines, then …), and a time too long for the card ends in … */
+.dtl-c{grid-template-columns:minmax(0,1fr);overflow:hidden;box-sizing:border-box}
+.dtl-c > *{min-width:0;max-width:100%}
+.dtl-c .dtl-t,.dtl-c .dtl-s,.dtl-c .dtl-m{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dtl-c .dtl-n{overflow-wrap:anywhere;word-break:break-word}
+.dtl-c.fr > *{overflow:hidden;text-overflow:ellipsis}
+/* the time wraps after its dash rather than being cut, so a narrow card still shows when it ends */
+.dtl-c .dtl-t{white-space:normal;text-overflow:clip;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+/* Time Today sits in the row with Today's Plan / Task Board */
+.bview-row > .bv-hours{flex:none;margin-left:auto;display:flex;align-items:center}
+.bv-hours .hours-ctl{display:flex;align-items:center;gap:0;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:2px 3px 2px 12px;min-height:40px;box-sizing:border-box}
+.bv-hours .hours-ctl .mini{margin-right:4px;font-size:.78rem;color:var(--muted);white-space:nowrap}
+.bv-hours .hours-ctl b{min-width:34px;text-align:center;font-size:.92rem}
+.bv-hours .hours-ctl .icon-btn.sm{width:30px;height:30px;border-radius:50%;border:0;background:transparent;color:var(--ink);box-shadow:none}
+.bv-hours .hours-ctl .icon-btn.sm:hover{background:var(--soft)}
+.hours-ctl .hc-row{display:flex;align-items:center}
+html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
+@media (min-width:640px){
+  #view > .bview-row:has(> .pg-tabs) > .bv-hours{position:absolute;right:0;top:50%;transform:translateY(-50%);margin:0;z-index:2}
+}
+/* Phones keep Time Today in the plan box; wider screens have it in the tab row (and not in the box) */
+@media (max-width:639px){#view > .bview-row > .bv-hours{display:none}}
+@media (min-width:640px){
+  html:not([data-plan-top="week"]) .plan .fh-ctl > .hours-ctl{display:none}
+  html:not([data-plan-top="week"]) .plan .fh-ctl.fh-only-hours{display:none}
+}
+/* Phones: Time Today sits close to the top of the plan box */
+@media (max-width:639px){
+  html:not([data-plan-top="week"]) .plan.focus{padding-top:6px!important}
+  html:not([data-plan-top="week"]) .plan .focus-head:has(> .fh-ctl.fh-only-hours){min-height:0!important;margin-top:0!important;padding-top:0!important;align-items:center!important;row-gap:0!important}
+  html:not([data-plan-top="week"]) .plan .focus-head:has(> .fh-ctl.fh-only-hours) > .fh-txt{min-height:0!important;margin:0!important}
+  html:not([data-plan-top="week"]) .plan .fh-ctl.fh-only-hours{margin:0!important;padding-top:0!important}
+}
+
+/* Grades: same gap under the Courses / Grades / Files switch as the Courses page */
+#view > .gp > .gp-hero:first-child{margin-top:0}
+
+/* Header buttons in the colour band stay clickable all the way down: the title block below overlaps them */
+.g2-band .row-actions,.g2-band .row-actions > *{position:relative;z-index:4}
+
+/* Crunch: the Next 6 Weeks / Whole Term switch sits beside the view tabs; the content starts the same distance below the tabs as Due Dates */
+@media (min-width:760px){
+  #view > .pview-tabs + .cr{position:relative}
+  #view > .pview-tabs + .cr > .cr-head{position:absolute;right:0;top:-59px;margin:0!important;padding:0;min-height:0}
+  #view > .pview-tabs + .cr > .cr-head > .cr2-range{margin:0!important}
+  #view > .pview-tabs + .cr > .cr2-top{margin-top:2px}
+}
+
+/* Write Your Own Quiz */
+.qm-sheet{width:min(680px,100%)}
+.qm-list{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:12px}
+.qm-q{border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:12px 14px;display:grid;gap:8px;min-width:0}
+.qm-top{display:flex;align-items:center;gap:10px;flex-wrap:nowrap;min-width:0}
+.qm-top > b{flex:0 0 auto;white-space:nowrap}
+.qm-top > .spacer{flex:1 1 0}
+.qm-top > .x-btn{margin-left:auto}
+.qm-top > b{font:800 .95rem/1.2 var(--display)}
+.qm-top .qm-type{width:auto;flex:0 1 auto;min-width:0;max-width:100%;padding-block:6px}
+@media (max-width:600px){.qm-sheet .two{grid-template-columns:1fr}}
+.qm-q textarea,.qm-q input[type=text]{width:100%;box-sizing:border-box;min-width:0}
+.qm-q textarea{resize:vertical}
+.qm-hint{margin:0}
+.qm-opts{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.qm-opt{display:flex;align-items:center;gap:8px;min-width:0}
+.qm-opt > input[type=radio],.qm-opt > input[type=checkbox]{width:20px;height:20px;flex:0 0 auto;margin:0;accent-color:var(--accent,#2563eb)}
+.qm-opt > input[type=text]{flex:1 1 auto}
+.qm-opt .qm-n{flex:0 0 22px;text-align:right;color:var(--muted)}
+.qm-opt .qm-tf{font-weight:600}
+.qm-opt .x-btn,.qm-top .x-btn{flex:0 0 auto}
+.qm-q .link-btn{justify-self:start}
+.qm-why{margin:0}
+.qm-add{display:flex;justify-content:center;margin-top:12px}
+
+/* Log Time and time worked by day */
+.lt-sheet{width:min(520px,100%)}
+.lt-task{margin:0 0 4px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;overflow-wrap:anywhere}
+.lt-f{border:0;padding:0;margin:0;display:grid;gap:8px;min-width:0}
+.lt-f > legend{font-weight:700;margin-bottom:6px;padding:0}
+.lt-chips{display:flex;flex-wrap:wrap;gap:6px}
+.lt-chip[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.lt-past{margin-top:6px}
+.lt-past .fsec{display:flex;align-items:center;gap:8px;margin:4px 0 6px}
+.tw-days{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:2px;min-width:0}
+.tw-days > li{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;padding:5px 0;border-bottom:1px solid var(--line);min-width:0}
+.tw-days > li:last-child{border-bottom:0}
+.tw-d{min-width:96px;font-weight:600}
+.tw-m{min-width:52px}
+.tw-how{flex:1 1 120px;min-width:0}
+.tw-x{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;padding:2px 8px;font:600 .75rem/1.3 inherit;cursor:pointer}
+.tw-x:hover{color:var(--ink)}
+.tw-more{margin:4px 0 0}
+.acc-log .tw-days{flex:1 1 100%;width:100%}
+.plan-side .lt-go svg{width:17px;height:17px}
+.focus-go.lt-go{color:var(--muted)}
+.focus-go.lt-go:hover,.plan-row .focus-go.lt-go:hover,.plan-row .focus-go.lt-go:focus-visible{color:var(--ink);border-color:var(--line);background:var(--surface)}
+
+/* Task Board on wider screens: All Courses sits just left of Group By, on the tab line */
+@media (min-width:640px){
+  #view > .bview-row > .board-ctl .cf-pick{margin-right:6px}
+  #view > .bview-row:has(> .pg-tabs) + .bview .bpane-board > .board-sec{margin-top:0}
 }

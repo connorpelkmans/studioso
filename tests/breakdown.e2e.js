@@ -47,7 +47,7 @@ const AI_STAGES = {kind: "paper", stages: [
   const openTask = async (page, id) => {
     const row = page.locator(`#view [data-act="edit-task"][data-id="${id}"]:visible`);
     if (!(await row.count())) await page.evaluate(() => { const b = document.querySelector('[data-act="bview"][data-id="board"]'); if (b) b.click(); });
-    await row.first().click();
+    await row.first().click(); await page.click("#dlg #tvEdit");
   };
   const undo = async page => { await page.click("#toastUndo"); await page.waitForTimeout(200); };
   try {

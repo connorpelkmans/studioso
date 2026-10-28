@@ -108,6 +108,47 @@
     ]
   });
 
+  /* Saved for the Pride theme: Rory, the rainbow foal, who was in St. Patrick's Day. Kept unchanged, with the same id so
+     anyone who owned it keeps it once it is back. Not registered (Pride has no free slot yet), so it is not shown anywhere. */
+  // eslint-disable-next-line no-unused-vars
+  const SAVED_PRIDE_FOAL = {
+    id: "stpatricks-foal", name: "Rory", kind: "Rainbow Foal", pose: "stand",
+    bio: "A little foal with a pastel rainbow mane who gallops after good luck.",
+    idle: ["earTwitch", "tailSwish", "headTilt"], cheer: "hop",
+    neck: [60, 72],
+    parts: {
+      back: `<path d="M63 31C78 28 89.5 39 88 54C87.5 61 89 67 92.5 71.5C82 72.5 76.5 64 77 55Z" fill="#FFB8C8" ${O2}/><path d="M77 55C77.5 62 80.5 68 86 71C80 75.5 73 70 72 63Z" fill="#FFE08A" ${O2}/><path d="M85 44C88.5 49 88 55 87.5 60" fill="none" stroke="#FFD3DE" stroke-width="2" stroke-linecap="round"/>`,
+      tail: {svg: `<path d="M79 87C91 83 100.5 91 98.5 103C94.5 97 88.5 95 80 96Z" fill="#FFB8C8" ${O2}/><path d="M80 94C88.5 93.5 94 99 93.5 107C89.5 102.5 85 100.5 80 100.5Z" fill="#AEE6C0" ${O2}/>`, pivot: [79, 92]},
+      earL: {svg: `<path d="M45.5 40L41.5 21L56 33.5Z" fill="#FBF3EA" ${O}/><path d="M46 35L44 25.5L51.5 32.5Z" fill="#FFC1D2"/>`, pivot: [48, 37]},
+      earR: {svg: `<path d="M74.5 40L78.5 21L64 33.5Z" fill="#FBF3EA" ${O}/><path d="M74 35L76 25.5L68.5 32.5Z" fill="#FFC1D2"/>`, pivot: [72, 37]},
+      feet: `<rect x="44.5" y="90" width="11" height="20" rx="5.5" fill="#F8EFE6" ${O}/><rect x="64.5" y="90" width="11" height="20" rx="5.5" fill="#F8EFE6" ${O}/>
+        <path d="M44.5 103.5H55.5V104.5Q55.5 110 50 110Q44.5 110 44.5 104.5Z" fill="#C7B3F2" ${O2}/><path d="M64.5 103.5H75.5V104.5Q75.5 110 70 110Q64.5 110 64.5 104.5Z" fill="#C7B3F2" ${O2}/>`,
+      body: `${LG("stpatricks-foal-b", [[0, "#FFFFFF"], [1, "#EADCCD"]])}
+        <path d="M60 70C75 70 81 81 81 91C81 99 75 102 60 102C45 102 39 99 39 91C39 81 45 70 60 70Z" fill="url(#stpatricks-foal-b)" ${O}/>
+        <path d="M43.5 88Q44 80 49 76" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round"/>`,
+      head: `${LG("stpatricks-foal-h", [[0, "#FFFFFF"], [0.7, "#FBF4EC"], [1, "#EEDFCF"]])}
+        <ellipse cx="60" cy="54.5" rx="22.5" ry="21" fill="url(#stpatricks-foal-h)" ${O}/>
+        <path d="M40.5 53Q41 45 46 40.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>`,
+      face: `<ellipse cx="60" cy="66.5" rx="13" ry="8.6" fill="#F4DFCB"/><ellipse cx="54.6" cy="64.2" rx="1.2" ry="1.7" transform="rotate(-18 54.6 64.2)" fill="#B98A72"/><ellipse cx="65.4" cy="64.2" rx="1.2" ry="1.7" transform="rotate(18 65.4 64.2)" fill="#B98A72"/>`,
+      top: {svg: `<path d="M48 39C45 30 51 24 58.5 25.5C55 28.5 54 32.5 55.5 38.5Z" fill="#FFB8C8" ${O2}/><path d="M54.5 37C54 28 62 23 68.5 27C63.5 28.5 61.5 32 62 37.5Z" fill="#FFE08A" ${O2}/><path d="M61 37.5C62 30.5 69 27.5 74 31C70 32.5 68 35.5 68.5 40Z" fill="#AEE6C0" ${O2}/><path d="M66.5 40C68.5 35 73 33.5 76.5 36C74 37.5 72.5 39.5 72.5 42Z" fill="#AFCFFF" ${O2}/>`, pivot: [60, 37]}
+    },
+    eyes: {lx: 49.5, rx: 70.5, y: 51.5, r: 4.6, style: "dot", color: "#2B2233"},
+    mouth: {x: 60, y: 69.2, w: 2.6},
+    cheeks: {lx: 42, rx: 78, y: 60, w: 4.2, h: 2.6, color: "#FF9FB7"},
+    anchors: {top: [60, 35, 0.95], neck: [60, 74, 1.0], chest: [70, 89, 0.66], back: [82, 84, 0.85], hands: [60, 92, 0.88]},
+    lines: {
+      tap: ["Neigh! Hi friend! So glad you're here!", "Chasing rainbows with you!", "You're galloping along beautifully!", "Look at you, showing up again!", "Lucky me, I found you!", "Trot, trot! You're doing great!", "Every step is a lucky one!"],
+      pet: ["Hehe! My mane is all fluffy!", "Hehe! Rainbow cuddles!"],
+      hello: ["Hi! Welcome back! Hooray!", "Hi! I galloped right over!"],
+      morning: ["Good morning! Green hills await!", "Morning, lucky one! Let's gallop!"],
+      night: ["Sleepy hooves now... rest soon?", "Stars over the hills. Bedtime?"],
+      focus: ["Steady trot! You've got this!", "Quiet hooves! Heads down, let's go."],
+      done: ["What a gallop! Amazing!", "Session done! You were fantastic!"],
+      task: ["Neigh! DONE!", "Over that hurdle! Woohoo!", "Galloped right through! Yes!", "Lucky and checked off! Hooray!"],
+      break: ["Stretch those legs! Big stretch!", "Water and a snack break! Yum!"]
+    }
+  };
+
   /* Graduation Day */
   COMP_DATA.push({
     theme: "graduation",

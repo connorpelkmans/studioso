@@ -81,7 +81,7 @@
           ${[[23, 9], [45, 17], [66, 8], [7, 7], [82, 16]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.1" fill="#FFF4C2"/>`).join("")}
           <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".3"/></svg>`}
     ],
-    card: {id: "tp-mushrooms", name: "Forest Floor", desc: "Mossy cream paper with a red toadstool in the corner and ferns below. Deep glowing blue in dark mode."}
+    card: {id: "tp-mushrooms", name: "Forest Floor", desc: "Mossy cream paper with a full-width forest floor of rolling grass, a cluster of red toadstools and a curling fern. Deep glowing blue in dark mode."}
   });
 
   /* ================= SUNFLOWER FIELD ================= */
@@ -142,7 +142,7 @@
           ${[28, 56].map(x => `<ellipse cx="${x}" cy="14" rx="3.4" ry="2.4" fill="#FFD23F"/><path d="M${x - 1} 11.8v4.4M${x + 1.2} 11.8v4.4" stroke="#3A2A20" stroke-width="1"/><ellipse cx="${x - 1}" cy="10.6" rx="1.6" ry="1.1" fill="#fff"/>`).join("")}
           <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".35"/></svg>`}
     ],
-    card: {id: "tp-sunflowers", name: "Field Notes", desc: "Sunny cream paper with a sunflower peeking in and a row of blooms along the bottom. Twilight blue in dark mode."}
+    card: {id: "tp-sunflowers", name: "Field Notes", desc: "Sunny dotted paper with a warm glow up top and big sunflowers bleeding in from the bottom corners. Twilight blue in dark mode."}
   });
 
   /* ================= NIGHT TRAIN ================= */
@@ -208,7 +208,7 @@
           <rect x="18" y="10" width="12" height="7" rx="1.5" fill="#E8584A"/><rect x="31" y="11" width="10" height="6" rx="1.2" fill="#F6D27A"/><rect x="42" y="11" width="10" height="6" rx="1.2" fill="#8FD8FF"/><rect x="20" y="6" width="3" height="4" fill="#E8584A"/>
           ${[21, 27, 34, 39, 45, 50].map(x => `<circle cx="${x}" cy="17.6" r="1.2" fill="#1A1A2A"/>`).join("")}<circle cx="64" cy="7" r="2.4" fill="#FFF6DA"/><circle cx="10" cy="7" r=".9" fill="#fff"/><circle cx="76" cy="12" r=".8" fill="#fff"/></svg>`}
     ],
-    card: {id: "tp-nighttrain", name: "Train Ticket", desc: "Warm ticket paper with a punched edge, a little steam engine and a rail line along the bottom. Plum night in dark mode."}
+    card: {id: "tp-nighttrain", name: "Train Ticket", desc: "A ticket with a starry night-sky header where a lit-up train crosses under the moon, and a perforated stub along the bottom. Plum night in dark mode."}
   });
 
   /* ================= RAMEN SHOP ================= */

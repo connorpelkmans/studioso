@@ -722,7 +722,7 @@ begin
     if to_regclass('storage.objects') is not null and exists (select 1 from pg_trigger where tgname = 'plans_group_upload') then
       perform set_config('request.jwt.claims', jsonb_build_object('sub', ua, 'role', 'authenticated')::text, true);
       r := 'ok'; begin insert into storage.objects (bucket_id, name, owner, metadata) values ('studioso-files', ua || '/g/' || gq || '/x.pdf', ua, '{"size": 10}'); exception when others then r := sqlerrm; end;
-      perform public.sbt_ok(r like 'SB_GROUP_PRO%', 'a file was uploaded to a free group (got ' || r || ')');
+      perform public.sbt_ok(r like 'SB_NO_FILES%', 'a file was uploaded to a group (got ' || r || ')');
       r := 'ok'; begin insert into storage.objects (bucket_id, name, owner, metadata) values ('studioso-files', ub || '/g/' || gp || '/x.pdf', ua, '{"size": 10}'); exception when others then r := sqlerrm; end;
       perform public.sbt_ok(r like 'SB_STORAGE_PATH%', 'a file was put in someone else''s folder (got ' || r || ')');
       perform set_config('request.jwt.claims', '', true);

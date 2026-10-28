@@ -1012,7 +1012,8 @@ Return JSON only.`;
     return {kind: "paid", ok: sxCfg().paidOk === `${c.provider}|${c.model}`, name: aiModelName(c.provider, c.model), P: AI_PROVIDERS[c.provider], sig: `${c.provider}|${c.model}`};
   }
   const planOk = p => !!p && !(p.kind === "paid" && !p.ok);
-  const callPlan = (plan, args) => plan.kind === "gemini" ? geminiCall(plan.cfg, Object.assign({ms: args.timeout || 90000}, args)) : aiCall(args);
+  // Answers from the student's files restate them in the AI's own words (the copyright rule in aiCall), on every route
+  const callPlan = (plan, args) => { args = Object.assign({}, args, {task: args.task || "ask"}); args.system = aiCopyRule(args.system, args.task); return plan.kind === "gemini" ? geminiCall(plan.cfg, Object.assign({ms: args.timeout || 90000}, args)) : aiCall(args); };
   const proLocked = () => !!(window.SBPRO && SBPRO.locked && SBPRO.locked());
   const SENT = 8;
   const bodyOf = x => { const d = x.doc; return x.text || (d.type === "chunk" ? d.text : [d.title, d.text].filter(Boolean).join("\n")); };
@@ -1335,7 +1336,7 @@ Return JSON only.`;
         const sug = ["Add a Task", "Import a Syllabus", "Review Due Flashcards", "Upload Files", "Create Flashcards with AI", "Add an Event"];
         const acts = IX.items.docs.filter(d => d.type === "action" && sug.includes(d.title)).sort((a, b) => sug.indexOf(a.title) - sug.indexOf(b.title));
         html.push(`<div class="sx-gh"><span>Suggested Actions</span></div>` + acts.map(d => push(() => openDoc(d), i => rowHtml(i, "actions", esc(d.title), esc(d.text), "", "var(--accent)"))).join(""));
-        html.push(`<p class="sx-tip">Search finds tasks, courses, flashcards, notes, events, practice quizzes, settings and the text inside your PDFs, Word and PowerPoint files. Small typos are fine.</p>`);
+        html.push(`<p class="sx-tip">Search finds tasks, courses, flashcards, notes, events, practice quizzes, settings and the text inside your PDFs, Word and PowerPoint files.</p>`);
       }
     } else {
       const r = find(q); S.P = r.P;

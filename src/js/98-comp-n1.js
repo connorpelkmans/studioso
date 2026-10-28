@@ -121,35 +121,48 @@
   });
 
   /* ================= Rainforest Canopy ================= */
-  const beak = (dy, open) => `<path d="M50 ${55 + dy}C56 51 66 51 71 ${55 + dy}C78 ${61 + dy} 81 ${72 + dy} 77 ${81 + dy}C73 ${74 + dy} 65 ${66 + dy} 51 ${62 + dy}Z" fill="#FF8A2A" ${OW(2.4)}/>
-    <path d="M52 ${56 + dy}C58 ${53 + dy} 66 ${53 + dy} 70 ${56.5 + dy}C75 ${60 + dy} 78 ${66 + dy} 78 ${71 + dy}C72 ${64 + dy} 63 ${59 + dy} 52 ${58.5 + dy}Z" fill="#FFD23F"/>
-    <path d="M77 ${80.5 + dy}C79 ${76 + dy} 79 ${73 + dy} 78.6 ${71 + dy}L74.6 ${75 + dy}C75.6 ${77 + dy} 76.6 ${79 + dy} 77 ${80.5 + dy}Z" fill="${INK}"/>${open ? `<path d="M54 ${63 + dy}Q64 ${70 + dy} 72 ${76 + dy}Q62 ${73 + dy} 54 ${66 + dy}Z" fill="#FF8FA8" ${OW(1.6)}/>` : ""}`;
+  // Tiko's keel-billed beak, pointing at the viewer: lime base, orange band, red tip, blue lower bill peeking out below
+  // (the clip lives in the face part, so it is always shown)
+  const TBEAK = "M60 48.6C68 48.6 74.6 51 75.4 56.4C76.4 63 70.6 72.4 62.6 77.6C61 78.6 59 78.6 57.4 77.6C49.4 72.4 43.6 63 44.6 56.4C45.4 51 52 48.6 60 48.6Z";
+  const tbeak = open => `${open ? `<path d="M48 64C48.6 76 53 86.6 60 88.4C67 86.6 71.4 76 72 64Z" fill="#4FA0EE" ${O}/><path d="M50.6 64C51.6 74 55 81.6 60 83.4C65 81.6 68.4 74 69.4 64Z" fill="#FF8FA8"/>`
+      : `<path d="M48 62C48.6 73 53 82.6 60 84.4C67 82.6 71.4 73 72 62Z" fill="#4FA0EE" ${O}/>`}
+    <g clip-path="url(#rainforest-tiko-bc)"><path d="${TBEAK}" fill="#8ED64F"/><path d="M40 61Q60 66.4 80 61V90H40Z" fill="#FFA531"/><path d="M40 71.6Q60 75.4 80 71.6V90H40Z" fill="#EE4A3E"/>
+    <path d="M50.6 55.4Q54.6 52 60 51.6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity=".65"/></g>
+    <path d="${TBEAK}" fill="none" ${O}/>`;
   COMP_DATA.push({
     theme: "rainforest",
     companions: [
       {
         id: "rainforest-mosey", name: "Mosey", kind: "Baby Sloth", pose: "sit", sleepy: true, wearColor: "#3E9A5A",
         bio: "A sleepy baby sloth who takes every study session slow and steady.",
-        idle: ["headTilt", "sway", "wave"], cheer: "wave",
-        neck: [60, 72],
+        idle: ["headTilt", "sway", "wave"], cheer: "wave", hatTop: true,
+        neck: [60, 74],
         parts: {
-          feet: `<ellipse cx="44" cy="109" rx="9" ry="4.4" fill="#8A6A4E" ${O}/><ellipse cx="76" cy="109" rx="9" ry="4.4" fill="#8A6A4E" ${O}/><path d="M40 112v-3M44 112.5v-3M80 112v-3M76 112.5v-3" stroke="#F2E6D2" stroke-width="1.6" stroke-linecap="round"/>`,
-          body: `${RG("rainforest-mosey-b", [[0, "#E2CCAE"], [0.6, "#C4A47E"], [1, "#9A7A58"]], 0.45, 0.3, 0.8)}
-            <path d="M32 108C26 92 32 74 60 72C88 74 94 92 88 108Z" fill="url(#rainforest-mosey-b)" ${O}/>
-            <ellipse cx="60" cy="94" rx="15" ry="11" fill="#EADCC4"/><path d="M40 84l3 3M78 84l-3 3M36 96l3 2M84 96l-3 2" stroke="#8A6A4E" stroke-width="1.6" stroke-linecap="round"/>`,
-          armL: {svg: `<path d="M40 80C30 86 25 98 29 108C33 111 38 109 38 104C38 96 42 90 47 86Z" fill="#B8956E" ${O}/><path d="M29.6 105.6l-2.4 3.6M32.6 107l-1.2 4M36 107v4" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/>`, pivot: [44, 82]},
-          armR: {svg: `<path d="M80 80C90 86 95 98 91 108C87 111 82 109 82 104C82 96 78 90 73 86Z" fill="#B8956E" ${O}/><path d="M90.4 105.6l2.4 3.6M87.4 107l1.2 4M84 107v4" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/>`, pivot: [76, 82]},
-          head: `${RG("rainforest-mosey-h", [[0, "#DCC4A2"], [0.6, "#BC9C74"], [1, "#94744E"]], 0.45, 0.3, 0.8)}
-            <ellipse cx="60" cy="50" rx="27" ry="24" fill="url(#rainforest-mosey-h)" ${O}/>
-            <path d="M44 30Q50 24 56 28M60 26Q66 22 72 28" fill="none" stroke="#8A6A4E" stroke-width="2" stroke-linecap="round"/>`,
-          face: `<ellipse cx="60" cy="54" rx="20" ry="15.5" fill="#F4E8D2"/>
-            <path d="M37 50Q45 41 55 49Q49 58 37 50Z" fill="#7A5638"/><path d="M83 50Q75 41 65 49Q71 58 83 50Z" fill="#7A5638"/>
-            <ellipse cx="60" cy="58.5" rx="3.8" ry="2.6" fill="${INK}"/><ellipse cx="59" cy="57.6" rx="1.2" ry=".7" fill="#fff" opacity=".7"/>`
+          body: `${RG("rainforest-mosey-b", [[0, "#C9A47C"], [0.6, "#A9825C"], [1, "#82603F"]], 0.45, 0.3, 0.85)}
+            <path d="M60 62C80 62 91 78 91 93C91 105 79 110 60 110C41 110 29 105 29 93C29 78 40 62 60 62Z" fill="url(#rainforest-mosey-b)" ${O}/>
+            <ellipse cx="60" cy="90" rx="17" ry="14.5" fill="#EAD5B2"/>
+            <g fill="#F6EAD2" ${OW(1.6)}><path d="M41 108.5Q40 112 42.4 113.4Q43.4 111 43.6 108.5Z"/><path d="M45.4 109.2Q45 112.6 47.4 113.6Q48.2 111.4 48 109.2Z"/><path d="M79 108.5Q80 112 77.6 113.4Q76.6 111 76.4 108.5Z"/><path d="M74.6 109.2Q75 112.6 72.6 113.6Q71.8 111.4 72 109.2Z"/></g>
+            <path d="M36 104C36 98 42 95.5 47 96.5C52 97.5 55 101.5 54 105.5C53 109.5 48 110.8 43 110.4C39 110 36 108 36 104Z" fill="#94704E" ${O}/>
+            <path d="M84 104C84 98 78 95.5 73 96.5C68 97.5 65 101.5 66 105.5C67 109.5 72 110.8 77 110.4C81 110 84 108 84 104Z" fill="#94704E" ${O}/>`,
+          armL: {svg: `${LG("rainforest-mosey-al", [[0, "#A57C56"], [1, "#7E5A3A"]])}<g transform="rotate(30 30.6 88)"><ellipse cx="30.6" cy="88" rx="5.4" ry="7.6" fill="url(#rainforest-mosey-al)"/><ellipse cx="30.6" cy="88" rx="5.4" ry="7.6" fill="none" ${O}/><g fill="#F6EAD2" ${OW(1.3)}><path d="M25.9 92Q26.1 97.2 27.9 98.6Q29.5 95.8 29.3 92Z"/><path d="M28.9 92Q29.1 97.2 30.9 98.6Q32.5 95.8 32.3 92Z"/><path d="M31.9 92Q32.1 97.2 33.9 98.6Q35.5 95.8 35.3 92Z"/></g></g>`, pivot: [37.6, 81]},
+          armR: {svg: `${LG("rainforest-mosey-ar", [[0, "#A57C56"], [1, "#7E5A3A"]])}<g transform="rotate(-30 89.4 88)"><ellipse cx="89.4" cy="88" rx="5.4" ry="7.6" fill="url(#rainforest-mosey-ar)"/><ellipse cx="89.4" cy="88" rx="5.4" ry="7.6" fill="none" ${O}/><g fill="#F6EAD2" ${OW(1.3)}><path d="M84.7 92Q84.9 97.2 86.7 98.6Q88.3 95.8 88.1 92Z"/><path d="M87.7 92Q87.9 97.2 89.7 98.6Q91.3 95.8 91.1 92Z"/><path d="M90.7 92Q90.9 97.2 92.7 98.6Q94.3 95.8 94.1 92Z"/></g></g>`, pivot: [82.4, 81]},
+          head: `${RG("rainforest-mosey-h", [[0, "#CBA67E"], [0.6, "#AD865F"], [1, "#86643F"]], 0.45, 0.28, 0.8)}
+            <defs><clipPath id="rainforest-mosey-hc"><ellipse cx="60" cy="46" rx="31" ry="27"/></clipPath></defs>
+            <ellipse cx="60" cy="46" rx="31" ry="27" fill="url(#rainforest-mosey-h)"/>
+            <g clip-path="url(#rainforest-mosey-hc)">
+              <path d="M60 31C67 31 72 35.5 78 36.5C86 37.5 91 44 91 52C91 64 78 73.5 60 73.5C42 73.5 29 64 29 52C29 44 34 37.5 42 36.5C48 35.5 53 31 60 31Z" fill="#F4E5C8"/>
+              <path d="M54 46.5C53.4 42.4 47 40.6 42 43.6C37 46.6 33 53.4 34.6 57.6C37.4 61 44.6 57.4 48.8 54.2C52.4 51.6 54.4 49.4 54 46.5Z" fill="#6E4A30"/>
+              <path d="M66 46.5C66.6 42.4 73 40.6 78 43.6C83 46.6 87 53.4 85.4 57.6C82.6 61 75.4 57.4 71.2 54.2C67.6 51.6 65.6 49.4 66 46.5Z" fill="#6E4A30"/>
+            </g>
+            <ellipse cx="60" cy="46" rx="31" ry="27" fill="none" ${O}/>${shine(43, 28.5, 5, 2.4, -28)}`,
+          face: `<ellipse cx="60" cy="57" rx="4.6" ry="3.2" fill="#3A2418"/><ellipse cx="58.8" cy="55.9" rx="1.5" ry=".8" fill="#fff" opacity=".7"/>`,
+          top: {svg: `${LINE("M60 22Q59.4 17.6 61.4 13.6", "#4E9A4E", 2)}
+            <path d="M61.2 15C63.4 7.4 72 4 79 6.8C77 14.6 68.4 18.6 61.2 15Z" fill="#7CC86A" ${O2}/><path d="M63.6 13.8Q70.4 10.6 76 8.4" fill="none" stroke="#4E9A4E" stroke-width="1.5" stroke-linecap="round"/>`, pivot: [60, 22]}
         },
-        eyes: {lx: 47, rx: 73, y: 49.5, r: 3.6, style: "round", color: "#2B1A10"},
-        mouth: {x: 60, y: 64, w: 2.8, color: "#2B1A10"},
-        cheeks: {lx: 43, rx: 77, y: 60, w: 4, h: 2.4, color: "#FF9A9A"},
-        anchors: {top: [60, 27, 0.95], neck: [60, 74, 1.05], chest: [74, 94, 0.68], back: [88, 86, 0.8], hands: [60, 96, 0.85]},
+        eyes: {lx: 45.5, rx: 74.5, y: 49, r: 3.8, style: "round", color: "#1E120A"},
+        mouth: {x: 60, y: 63, w: 2.9, color: "#3A2418"},
+        cheeks: {lx: 41, rx: 79, y: 62, w: 4.2, h: 2.5, color: "#FF9A9A"},
+        anchors: {top: [60, 23, 1.05], neck: [60, 77, 1.1], chest: [60, 85, 0.6], back: [88, 84, 0.85], hands: [60, 95, 0.85]},
         lines: {
           tap: ["Heyyy... friend... hi.", "Slow and steady... still gets there.", "You're doing great... no rush.", "One... thing... at a time. Perfect.", "I like your pace... it's lovely.", "Hang in there... like me!", "Big things... start small.", "Deep breath... you've got this."],
           pet: ["Mmm... so cozy... thank you.", "Hehe... slow happy wiggle."],
@@ -165,25 +178,30 @@
       {
         id: "rainforest-tiko", name: "Tiko", kind: "Toucan Chick", pose: "stand", wearColor: "#FF8A2A",
         bio: "A fluffy toucan chick with a big bright beak and even bigger plans.",
-        idle: ["headTilt", "wingFlutter", "topBob"], cheer: "wingFlutter",
+        idle: ["headTilt", "wingFlutter", "topBob"], cheer: "wingFlutter", hatTop: true,
         neck: [60, 70],
         parts: {
-          feet: `<path d="M48 104V110M44 111L48 108L52 111M72 104V110M68 111L72 108L76 111" fill="none" stroke="${INK}" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M48 104V110M44 111L48 108L52 111M72 104V110M68 111L72 108L76 111" fill="none" stroke="#7A8494" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`,
-          wingL: {svg: `<path d="M38 74C27 80 24 95 30 104C39 100 42 87 40 74Z" fill="#3A3644" ${O}/><path d="M33 86Q31 92 32 98" fill="none" stroke="#5A5666" stroke-width="1.8" stroke-linecap="round"/>`, pivot: [39, 76]},
-          wingR: {svg: `<path d="M82 74C93 80 96 95 90 104C81 100 78 87 80 74Z" fill="#3A3644" ${O}/><path d="M87 86Q89 92 88 98" fill="none" stroke="#5A5666" stroke-width="1.8" stroke-linecap="round"/>`, pivot: [81, 76]},
-          body: `${RG("rainforest-tiko-b", [[0, "#5A5666"], [0.6, "#34303E"], [1, "#22202A"]], 0.4, 0.3, 0.8)}
-            <ellipse cx="60" cy="88" rx="24" ry="21" fill="url(#rainforest-tiko-b)" ${O}/>
-            <ellipse cx="60" cy="86" rx="13.5" ry="13" fill="#FFF1C8"/><ellipse cx="60" cy="106.5" rx="8" ry="3" fill="#E8403A"/>`,
-          head: `${RG("rainforest-tiko-h", [[0, "#5A5666"], [0.6, "#34303E"], [1, "#22202A"]], 0.4, 0.28, 0.8)}
-            <circle cx="60" cy="49" r="24" fill="url(#rainforest-tiko-h)" ${O}/>${shine(46, 36, 5, 2.6, -35)}`,
-          face: `<circle cx="49" cy="46" r="8.4" fill="#6FD0F4" ${O2}/><circle cx="71" cy="46" r="8.4" fill="#6FD0F4" ${O2}/>`,
-          top: {svg: `<path d="M57 28C54 20 58 13 63 10C63 16 66 20 64 28Z" fill="#3A3644" ${O2}/><path d="M61 27C61 22 65 18 69 17C68 21 67 24 64 28Z" fill="#3A3644" ${O2}/>`, pivot: [60, 29]}
+          feet: `<path d="M41 110.5C41 106 44 103.5 48 103.5C52 103.5 55 106 55 110.5C53 112 51 111 48 112C45 111 43 112 41 110.5Z" fill="#6E9FE0" ${O}/><path d="M65 110.5C65 106 68 103.5 72 103.5C76 103.5 79 106 79 110.5C77 112 75 111 72 112C69 111 67 112 65 110.5Z" fill="#6E9FE0" ${O}/>`,
+          wingL: {svg: `${LG("rainforest-tiko-wl", [[0, "#6C6888"], [1, "#3A3648"]], 0, 0, 0.3, 1)}<path d="M42.6 76.4C34 78.6 29 87.6 30.4 98C36.4 97.6 41.6 91.6 44 81.6Z" fill="url(#rainforest-tiko-wl)" ${O}/>`, pivot: [42, 79]},
+          wingR: {svg: `${LG("rainforest-tiko-wr", [[0, "#6C6888"], [1, "#3A3648"]], 1, 0, 0.7, 1)}<path d="M77.4 76.4C86 78.6 91 87.6 89.6 98C83.6 97.6 78.4 91.6 76 81.6Z" fill="url(#rainforest-tiko-wr)" ${O}/>`, pivot: [78, 79]},
+          body: `${RG("rainforest-tiko-b", [[0, "#4A4658"], [0.6, "#2E2A38"], [1, "#1E1C26"]], 0.4, 0.3, 0.8)}
+            ${RG("rainforest-tiko-bib", [[0, "#FFFBE6"], [0.7, "#FFEFB4"], [1, "#FFE08A"]], 0.45, 0.35, 0.7)}
+            <ellipse cx="60" cy="88" rx="23" ry="20.5" fill="url(#rainforest-tiko-b)" ${O}/>
+            <path d="M60 68C70 68 76 74 76 82C76 91 69 97 60 97C51 97 44 91 44 82C44 74 50 68 60 68Z" fill="url(#rainforest-tiko-bib)"/>`,
+          head: `${RG("rainforest-tiko-h", [[0, "#4A4658"], [0.6, "#2E2A38"], [1, "#1E1C26"]], 0.4, 0.28, 0.8)}
+            <defs><clipPath id="rainforest-tiko-hc"><circle cx="60" cy="46" r="25"/></clipPath></defs>
+            <circle cx="60" cy="46" r="25" fill="url(#rainforest-tiko-h)"/>
+            <g clip-path="url(#rainforest-tiko-hc)"><ellipse cx="60" cy="74" rx="19" ry="14" fill="#FFF6D0"/></g>
+            <circle cx="60" cy="46" r="25" fill="none" ${O}/>${shine(46, 31.5, 5, 2.4, -35)}`,
+          face: `<defs><clipPath id="rainforest-tiko-bc"><path d="${TBEAK}"/></clipPath></defs>
+            <ellipse cx="49" cy="42" rx="6.8" ry="6.6" fill="#62C4F0"/><ellipse cx="71" cy="42" rx="6.8" ry="6.6" fill="#62C4F0"/>`,
+          top: {svg: `<path d="M57.6 25C54.6 18 56.6 12 61 8.6C61 13.4 63.4 17 63.2 24Z" fill="#2E2A38" ${O2}/><path d="M61 24.4C61.6 18.4 65.6 14.4 70.6 14C69 18.4 67.4 21.4 64.4 25.4Z" fill="#2E2A38" ${O2}/>`, pivot: [60, 24]}
         },
-        eyes: {lx: 49, rx: 71, y: 46, r: 5, style: "round", color: "#1A1820"},
-        mouth: {x: 63, y: 66, w: 3},
-        mouths: {neutral: beak(0, false), smile: beak(-0.6, false) + `<path d="M46 58q2 2.4 4.6 1.6M74 58q-2 2.4 -4.6 1.6" fill="none" stroke="#FF8FA8" stroke-width="1.6" stroke-linecap="round"/>`, open: beak(0, true), sleepy: beak(1, false)},
-        cheeks: {lx: 40, rx: 80, y: 57, w: 3.8, h: 2.3, color: "#FF8FA8"},
-        anchors: {top: [60, 26, 0.9], neck: [60, 72, 1], chest: [70, 92, 0.62], back: [84, 86, 0.8], hands: [60, 96, 0.85]},
+        eyes: {lx: 49, rx: 71, y: 42, r: 4.6, style: "round", color: "#1A1820"},
+        mouth: {x: 60, y: 66, w: 3},
+        mouths: {neutral: tbeak(false), smile: tbeak(false) + `<path d="M41.4 58.4q1.6 2.8 4.6 2.2M78.6 58.4q-1.6 2.8 -4.6 2.2" fill="none" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/>`, open: tbeak(true), sleepy: tbeak(false)},
+        cheeks: {lx: 40, rx: 80, y: 51, w: 3.6, h: 2.2, color: "#FF8FA8"},
+        anchors: {top: [60, 25, 0.95], neck: [60, 71, 0.95], chest: [60, 86, 0.58], back: [84, 84, 0.8], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Hi! Did you notice my beak? Everyone notices my beak.", "Big plans today! Huge plans!", "You're doing toucan-tastic!", "Two can do it better: you and me!", "Hop hop! Next task!", "Your notes look colorful today!", "I spy a superstar student!", "Let's fly through this list!"],
           pet: ["Squawk! Hehe, that tickles!", "Careful, the beak is very important!"],
@@ -199,23 +217,22 @@
       {
         id: "rainforest-dart", name: "Dart", kind: "Blue Tree Frog", pose: "stand", wearColor: "#FF9A3A",
         bio: "A bright blue tree frog who holds on to every task with its sticky toes.",
-        idle: ["bounce", "earTwitch", "sparkle"], cheer: "hop",
+        idle: ["bounce", "wave", "sparkle"], cheer: "hop",
         parts: {
-          earL: {svg: `<circle cx="29" cy="66" r="4.6" fill="#3A8AE0" ${OW(2.2)}/><circle cx="29" cy="66" r="2" fill="#7FC4FF"/>`, pivot: [32, 66]},
-          earR: {svg: `<circle cx="91" cy="66" r="4.6" fill="#3A8AE0" ${OW(2.2)}/><circle cx="91" cy="66" r="2" fill="#7FC4FF"/>`, pivot: [88, 66]},
-          feet: `<g fill="#FF9A3A" ${OW(2.2)}><circle cx="34" cy="108" r="4.4"/><circle cx="42" cy="110.5" r="4"/><circle cx="78" cy="110.5" r="4"/><circle cx="86" cy="108" r="4.4"/></g>`,
-          body: `${RG("rainforest-dart-b", [[0, "#A8E2FF"], [0.55, "#4FA8F0"], [1, "#2A6ED0"]], 0.4, 0.3, 0.8)}
-            <path d="M28 76C28 62 33 56 36 54A13 13 0 1 1 58 50.5Q60 50.4 62 50.5A13 13 0 1 1 84 54C87 56 92 62 92 76C92 96 78 106 60 106C42 106 28 96 28 76Z" fill="url(#rainforest-dart-b)" ${O}/>
-            <ellipse cx="60" cy="90" rx="19" ry="13" fill="#D6F2FF"/>
-            <g fill="#2A5AB8" opacity=".55"><circle cx="36" cy="72" r="2.4"/><circle cx="84" cy="74" r="2"/><circle cx="80" cy="86" r="1.6"/><circle cx="40" cy="88" r="1.8"/></g>
-            ${shine(40, 62, 5, 2.6, -35)}`,
-          armL: {svg: `<path d="M34 84C26 88 24 96 28 100" fill="none" stroke="${INK}" stroke-width="9" stroke-linecap="round"/><path d="M34 84C26 88 24 96 28 100" fill="none" stroke="#4FA8F0" stroke-width="5.4" stroke-linecap="round"/><circle cx="28" cy="101" r="4" fill="#FF9A3A" ${OW(2)}/>`, pivot: [36, 84]},
-          armR: {svg: `<path d="M86 84C94 88 96 96 92 100" fill="none" stroke="${INK}" stroke-width="9" stroke-linecap="round"/><path d="M86 84C94 88 96 96 92 100" fill="none" stroke="#4FA8F0" stroke-width="5.4" stroke-linecap="round"/><circle cx="92" cy="101" r="4" fill="#FF9A3A" ${OW(2)}/>`, pivot: [84, 84]}
+          feet: `<ellipse cx="45.5" cy="105.4" rx="8.4" ry="4.8" fill="#3A86E4" ${O}/><ellipse cx="74.5" cy="105.4" rx="8.4" ry="4.8" fill="#3A86E4" ${O}/><g fill="#FF9A3A" ${OW(1.8)}><circle cx="40.3" cy="108.4" r="2.3"/><circle cx="45.5" cy="109.8" r="2.3"/><circle cx="50.7" cy="108.4" r="2.3"/></g><g fill="#FF9A3A" ${OW(1.8)}><circle cx="69.3" cy="108.4" r="2.3"/><circle cx="74.5" cy="109.8" r="2.3"/><circle cx="79.7" cy="108.4" r="2.3"/></g>`,
+          body: `${RG("rainforest-dart-b", [[0, "#9AD8FF"], [0.55, "#4A9EF2"], [1, "#2460CC"]], 0.4, 0.28, 0.8)}
+            ${LG("rainforest-dart-l", [[0, "#5AAEF4"], [1, "#2A64CE"]])}
+            <path d="M33.54 61.87A13 13 0 1 1 54.98 51.31A33 27 0 0 1 65.02 51.31A13 13 0 1 1 86.46 61.87A33 27 0 1 1 33.54 61.87Z" fill="url(#rainforest-dart-b)" ${O}/>
+            <ellipse cx="60" cy="91" rx="16.5" ry="11" fill="#D6F0FF"/>
+            <g fill="#1C2A58"><circle cx="40" cy="96.6" r="1.9"/><circle cx="80" cy="96.6" r="1.9"/><circle cx="35.4" cy="80.6" r="1.4"/><circle cx="84.6" cy="80.6" r="1.4"/></g>
+            ${shine(35.4, 44.6, 3.4, 1.8, -40)}`,
+          armL: {svg: `<g transform="rotate(30 29.4 86)"><ellipse cx="29.4" cy="86" rx="5.2" ry="7.4" fill="url(#rainforest-dart-l)"/><ellipse cx="29.4" cy="86" rx="5.2" ry="7.4" fill="none" ${O}/><circle cx="29.4" cy="83.8" r="1.6" fill="#1C2A58"/><g fill="#FF9A3A" ${OW(1.6)}><circle cx="26.6" cy="92" r="1.9"/><circle cx="29.4" cy="93.4" r="1.9"/><circle cx="32.2" cy="92" r="1.9"/></g></g>`, pivot: [36.4, 79]},
+          armR: {svg: `<g transform="rotate(-30 90.6 86)"><ellipse cx="90.6" cy="86" rx="5.2" ry="7.4" fill="url(#rainforest-dart-l)"/><ellipse cx="90.6" cy="86" rx="5.2" ry="7.4" fill="none" ${O}/><circle cx="90.6" cy="83.8" r="1.6" fill="#1C2A58"/><g fill="#FF9A3A" ${OW(1.6)}><circle cx="87.8" cy="92" r="1.9"/><circle cx="90.6" cy="93.4" r="1.9"/><circle cx="93.4" cy="92" r="1.9"/></g></g>`, pivot: [83.6, 79]}
         },
-        eyes: {lx: 44, rx: 76, y: 44, r: 7, style: "round", color: "#1A1820"},
-        mouth: {x: 60, y: 69, w: 4.6, color: "#1A3A6A"},
-        cheeks: {lx: 38, rx: 82, y: 64, w: 4.6, h: 2.8, color: "#FF8FB8"},
-        anchors: {top: [60, 34, 0.9], neck: [60, 94, 1.1], chest: [74, 92, 0.65], back: [90, 72, 0.8], hands: [60, 98, 0.85]},
+        eyes: {lx: 42, rx: 78, y: 53, r: 7.4, style: "round", color: "#141826"},
+        mouth: {x: 60, y: 70, w: 4.8, color: "#14284E"},
+        cheeks: {lx: 37, rx: 83, y: 67, w: 4.4, h: 2.6, color: "#FF8FB8"},
+        anchors: {top: [60, 45, 0.85], neck: [60, 80, 1.15], chest: [72, 92, 0.6], back: [88, 74, 0.8], hands: [60, 98, 0.85]},
         lines: {
           tap: ["Ribbit! Hi! Look at my sticky toes!", "You're sticking with it! Nice!", "Hop to it, you're doing great!", "Small frog, big cheers!", "You're the brightest thing in this jungle!", "Leap to the next one!", "Every hop counts!"],
           pet: ["Hehe, I'm a little bit sticky, sorry!", "Ribbit! Again again!"],
@@ -370,21 +387,24 @@
       {
         id: "volcano-pumi", name: "Pumi", kind: "Pumice Pebble", pose: "float", wearColor: "#E0533A",
         bio: "A light little pumice pebble who floats along through every study session.",
-        idle: ["topBob", "sway", "headTilt"], cheer: "spin",
-        neck: [60, 92],
+        idle: ["topBob", "finWiggle", "sway"], cheer: "spin", hatTop: true,
         parts: {
-          back: `<ellipse cx="60" cy="96" rx="38" ry="9" fill="#8ED8D2" ${O}/>`,
-          body: `<path d="M26 96q6-3 12 0M82 97q6-3 12 0" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>`,
-          head: `${RG("volcano-pumi-b", [[0, "#FAF6F0"], [0.6, "#DCD2C8"], [1, "#B0A498"]], 0.38, 0.3, 0.8)}
-            <path d="M30 74C28 55 42 45 60 45C80 45 92 55 90 74C88 92 32 93 30 74Z" fill="url(#volcano-pumi-b)" ${O}/>
-            <g fill="#A89C92">${[[40, 60, 2.4], [80, 58, 2], [78, 78, 2.6], [42, 80, 1.8], [62, 52, 1.6], [86, 70, 1.4], [34, 70, 1.6], [52, 84, 1.4]].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join("")}</g>
-            ${shine(44, 52, 6, 3, -25)}`,
-          top: {svg: `${LINE("M60 46V39", "#5DAA62", 2.4)}<path d="M60 41C56 33 47 33 44 37C48 43 56 44 60 41Z" fill="#8AD08A" ${O2}/><path d="M60 40C64 32 73 32 76 36C72 42 64 43 60 40Z" fill="#9BDA95" ${O2}/>`, pivot: [60, 47]}
+          feet: `<ellipse cx="49" cy="103" rx="6.4" ry="5" fill="#D6CEC4" ${O}/><ellipse cx="71" cy="103" rx="6.4" ry="5" fill="#D6CEC4" ${O}/>`,
+          body: `${RG("volcano-pumi-b", [[0, "#FFFFFF"], [0.5, "#EEEAE4"], [1, "#BCB2A6"]], 0.4, 0.3, 0.82)}
+            <path d="M60 40C80 39.5 95 53 95 72C95 91 80 101.5 60 101.5C40 101.5 25 91 25 72C25 53 40 40.5 60 40Z" fill="url(#volcano-pumi-b)" ${O}/>
+            ${[[68, 49, 4.4, 3.2], [82, 58, 4, 3.2], [89.5, 72, 2.6, 2.2], [56.5, 47, 2.2, 1.7], [31, 66, 2.6, 2.2], [85, 87, 3.4, 2.6], [72, 95, 4.2, 3], [59, 97, 2.2, 1.6], [45, 93, 3.6, 2.6], [32.5, 84, 2.4, 2]].map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#BCA992"/><ellipse cx="${x}" cy="${f1(y - ry * 0.32)}" rx="${f1(rx * 0.8)}" ry="${f1(ry * 0.66)}" fill="#8E7B67"/>`).join("")}
+            <path d="M34 90Q60 104 86 90" fill="none" stroke="#D2C2B0" stroke-width="2.4" stroke-linecap="round" opacity=".8"/>
+            <ellipse cx="39.5" cy="55" rx="7.4" ry="4" transform="rotate(-40 39.5 55)" fill="#fff"/><circle cx="48.5" cy="48" r="2" fill="#fff"/>`,
+          armL: {svg: `<ellipse cx="25" cy="81" rx="5.2" ry="7" transform="rotate(28 25 81)" fill="#E6E0D8" ${O}/>`, pivot: [31, 78]},
+          armR: {svg: `<ellipse cx="95" cy="81" rx="5.2" ry="7" transform="rotate(-28 95 81)" fill="#E6E0D8" ${O}/>`, pivot: [89, 78]},
+          top: {svg: `${LINE("M60 42C60 37 59.5 33 61 28.5", "#5DAA62", 2.6)}
+            <path d="M60.5 31C55 23.5 46 23.5 42.5 28C47 34 55 35.5 60.5 31Z" fill="#8AD08A" ${O2}/><path d="M59 30.6Q52 27.4 46 28" fill="none" stroke="#5DAA62" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M61 30C63.5 21 72 18 77.5 21.5C75 29 67.5 32.5 61 30Z" fill="#9BDA95" ${O2}/><path d="M63 29Q69.5 25 75 22.6" fill="none" stroke="#5DAA62" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [60, 42]}
         },
-        eyes: {lx: 50, rx: 70, y: 66, r: 3.8, style: "dot", color: "#2B2233"},
-        mouth: {x: 60, y: 75, w: 2.7},
-        cheeks: {lx: 43, rx: 77, y: 73, w: 4.2, h: 2.6, color: "#FF9A9A"},
-        anchors: {top: [60, 40, 0.85], neck: [60, 90, 1], chest: [72, 84, 0.6], back: [86, 62, 0.8], hands: [60, 90, 0.85]},
+        eyes: {lx: 49, rx: 71, y: 71, r: 5.2, style: "round", color: "#3A2A2A"},
+        mouth: {x: 60, y: 80.5, w: 3, color: "#3A2A2A"},
+        cheeks: {lx: 39, rx: 81, y: 79, w: 4.8, h: 2.9, color: "#FF9E9E"},
+        anchors: {top: [60, 43, 0.95], neck: [60, 93, 1.1], chest: [74, 92, 0.65], back: [90, 66, 0.85], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Hi! Look, I'm floating! Is this swimming?", "Light as air, strong as rock. Like you!", "You're doing great, I can tell from here!", "Drifting along, cheering you on!", "Little pebble, big belief in you!", "Keep it light, keep it going!", "You make hard things look easy!"],
           pet: ["Hehe! I'm bobbing with joy!", "Ooh, I almost floated away!"],
@@ -400,30 +420,33 @@
       {
         id: "volcano-iggy", name: "Iggy", kind: "Marine Iguana", pose: "sit", wearColor: "#2EA2A0",
         bio: "A sunny marine iguana who basks on the warm rocks between your tasks.",
-        idle: ["tailSwish", "headTilt", "earTwitch"], cheer: "bounce",
-        neck: [60, 74],
+        idle: ["tailSwish", "headTilt", "wave"], cheer: "bounce",
+        neck: [60, 72],
         parts: {
-          tail: {svg: LINE("M82 102C98 106 108 96 106 84C105 77 98 78 100 85", "#6E7C84", 6.4), pivot: [82, 100]},
-          feet: `<path d="M38 104l-6 6M42 106l-3 6M46 106v6M82 104l6 6M78 106l3 6M74 106v6" stroke="${INK}" stroke-width="2.4" stroke-linecap="round"/><ellipse cx="42" cy="104" rx="8" ry="4" fill="#5E6C74" ${OW(2.2)}/><ellipse cx="78" cy="104" rx="8" ry="4" fill="#5E6C74" ${OW(2.2)}/>`,
-          body: `${RG("volcano-iggy-b", [[0, "#A8B8BC"], [0.6, "#6E7C84"], [1, "#46525A"]], 0.42, 0.3, 0.8)}
-            <path d="M34 106C30 90 38 76 60 74C82 76 90 90 86 106Z" fill="url(#volcano-iggy-b)" ${O}/>
-            <ellipse cx="60" cy="94" rx="13" ry="10" fill="#B8D0C8"/>
-            <g fill="#E07A5A" opacity=".75"><ellipse cx="40" cy="90" rx="3.6" ry="2.4"/><ellipse cx="80" cy="88" rx="3.2" ry="2.2"/></g>
-            <g fill="#4FB8A8" opacity=".6"><circle cx="46" cy="80" r="2"/><circle cx="74" cy="80" r="2"/></g>`,
-          armL: {svg: `<ellipse cx="40" cy="92" rx="5" ry="8" transform="rotate(18 40 92)" fill="#6E7C84" ${O}/>`, pivot: [43, 86]},
-          armR: {svg: `<ellipse cx="80" cy="92" rx="5" ry="8" transform="rotate(-18 80 92)" fill="#6E7C84" ${O}/>`, pivot: [77, 86]},
-          earL: {svg: `<path d="M42 36L38 22L49 31Z" fill="#E8A040" ${O2}/><path d="M50 32L50 18L57 29Z" fill="#E8A040" ${O2}/>`, pivot: [48, 34]},
-          earR: {svg: `<path d="M78 36L82 22L71 31Z" fill="#E8A040" ${O2}/><path d="M70 32L70 18L63 29Z" fill="#E8A040" ${O2}/>`, pivot: [72, 34]},
-          head: `${RG("volcano-iggy-h", [[0, "#B0C0C4"], [0.6, "#76848C"], [1, "#4A565E"]], 0.42, 0.3, 0.8)}
-            <path d="M34 54C34 38 46 30 60 30C74 30 86 38 86 54C86 68 76 76 60 76C44 76 34 68 34 54Z" fill="url(#volcano-iggy-h)" ${O}/>
-            <g fill="#F4FAFA"><circle cx="50" cy="36" r="2"/><circle cx="58" cy="33.4" r="1.6"/><circle cx="66" cy="34" r="2.2"/><circle cx="73" cy="38" r="1.4"/><circle cx="62" cy="38" r="1.2"/></g>
-            <g fill="#5A6870" opacity=".55"><circle cx="40" cy="60" r="1.6"/><circle cx="80" cy="60" r="1.6"/><circle cx="44" cy="67" r="1.3"/><circle cx="76" cy="67" r="1.3"/></g>`,
-          face: `<ellipse cx="55" cy="60" rx="1.4" ry="1" fill="${INK}"/><ellipse cx="65" cy="60" rx="1.4" ry="1" fill="${INK}"/>`
+          tail: {svg: `<g fill="url(#volcano-iggy-s)" ${OW(2.4)}><path d="M94 72L96 61L102 70Z"/><path d="M103 70L111 64L108 76Z"/></g>
+            <path d="M80 90C90 92 98 91 100 86C102 81 99 78 96 79C93 80 91 77 93 74C96 69 106 69 108 79C110 92 100 104 82 105Z" fill="#5C6C78" ${O}/>`, pivot: [82, 98]},
+          feet: `<ellipse cx="45" cy="107.6" rx="8.4" ry="4.8" fill="#5C6C78" ${O}/><ellipse cx="75" cy="107.6" rx="8.4" ry="4.8" fill="#5C6C78" ${O}/><g fill="#4A5864" ${OW(2)}><circle cx="40.4" cy="111" r="2.2"/><circle cx="45" cy="112" r="2.2"/><circle cx="49.6" cy="111" r="2.2"/></g><g fill="#4A5864" ${OW(2)}><circle cx="70.4" cy="111" r="2.2"/><circle cx="75" cy="112" r="2.2"/><circle cx="79.6" cy="111" r="2.2"/></g>`,
+          body: `${LG("volcano-iggy-s", [[0, "#FFD27A"], [0.55, "#FF9A3A"], [1, "#E8552A"]])}
+            ${RG("volcano-iggy-b", [[0, "#9DB0BA"], [0.55, "#6C7E8A"], [1, "#465460"]], 0.4, 0.3, 0.85)}
+            <g fill="url(#volcano-iggy-s)" ${OW(2.4)}><path d="M77 69L88 63L84 77Z"/><path d="M84 79L95 76L88 90Z"/></g>
+            <path d="M60 64C78 64 89 80 89 96C89 106 81 110.5 60 110.5C39 110.5 31 106 31 96C31 80 42 64 60 64Z" fill="url(#volcano-iggy-b)" ${O}/>
+            <path d="M60 77C70 77 77 87 77 97C77 104 71 108 60 108C49 108 43 104 43 97C43 87 50 77 60 77Z" fill="#F3D3A4"/>
+            <path d="M47 89Q60 93 73 89M45 97Q60 101 75 97M47 104Q60 107 73 104" fill="none" stroke="#DDB07A" stroke-width="2" stroke-linecap="round"/>
+            <g fill="#FF9A3A"><circle cx="38" cy="80" r="1.8"/><circle cx="42.5" cy="74.5" r="1.3"/><circle cx="82" cy="88" r="1.6"/></g>`,
+          armL: {svg: `<g transform="rotate(30 32.8 87.4)"><g fill="#4A5864" ${OW(1.8)}><circle cx="30" cy="94.2" r="1.9"/><circle cx="32.8" cy="95.2" r="1.9"/><circle cx="35.6" cy="94.2" r="1.9"/></g><ellipse cx="32.8" cy="87.4" rx="5.2" ry="7.4" fill="#6A7C88"/><ellipse cx="32.8" cy="87.4" rx="5.2" ry="7.4" fill="none" ${O}/></g>`, pivot: [39.8, 80.4]},
+          armR: {svg: `<g transform="rotate(-30 87.2 87.4)"><g fill="#4A5864" ${OW(1.8)}><circle cx="84.4" cy="94.2" r="1.9"/><circle cx="87.2" cy="95.2" r="1.9"/><circle cx="90" cy="94.2" r="1.9"/></g><ellipse cx="87.2" cy="87.4" rx="5.2" ry="7.4" fill="#6A7C88"/><ellipse cx="87.2" cy="87.4" rx="5.2" ry="7.4" fill="none" ${O}/></g>`, pivot: [80.2, 80.4]},
+          head: `${RG("volcano-iggy-h", [[0, "#A9BCC4"], [0.55, "#73868F"], [1, "#4A5862"]], 0.42, 0.3, 0.85)}
+            <g fill="url(#volcano-iggy-s)" ${OW(2.6)}><path d="M44 32Q41 19 46 14Q51 19 55 28Z"/><path d="M53 28Q55 11 60 7Q65 11 67 28Z"/><path d="M76 32Q79 19 74 14Q69 19 65 28Z"/></g>
+            <path d="M60 24C79 24 92 36 92 51C92 66 79 73 60 73C41 73 28 66 28 51C28 36 41 24 60 24Z" fill="url(#volcano-iggy-h)" ${O}/>
+            <path d="M60 56C71 56 79 60 79 65C79 70 71 72.5 60 72.5C49 72.5 41 70 41 65C41 60 49 56 60 56Z" fill="#94A6AE" opacity=".7"/>
+            <g fill="#FF9A3A"><circle cx="49" cy="33" r="1.6"/><circle cx="71" cy="33" r="1.6"/><circle cx="60" cy="31" r="1.3"/></g>
+            <path d="M36 42Q40 33 49 30" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".8"/>`,
+          face: `<ellipse cx="56" cy="61" rx="1.4" ry="1" fill="${INK}"/><ellipse cx="64" cy="61" rx="1.4" ry="1" fill="${INK}"/>`
         },
-        eyes: {lx: 48, rx: 72, y: 50, r: 5, style: "round", color: "#2B1A10"},
-        mouth: {x: 60, y: 66, w: 4.2},
-        cheeks: {lx: 41, rx: 79, y: 60, w: 4.2, h: 2.6, color: "#FF8F8F"},
-        anchors: {top: [60, 28, 0.95], neck: [60, 76, 1.05], chest: [72, 96, 0.68], back: [86, 88, 0.8], hands: [60, 98, 0.85]},
+        eyes: {lx: 46, rx: 74, y: 49, r: 6, style: "sparkle", color: "#2B1A10"},
+        mouth: {x: 60, y: 66, w: 3.8},
+        cheeks: {lx: 37, rx: 83, y: 59, w: 4.6, h: 2.8, color: "#FF8F7A"},
+        anchors: {top: [60, 25, 1], neck: [60, 73, 1.1], chest: [60, 84, 0.6], back: [86, 82, 0.8], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Hi! Just sunbathing between study sessions.", "Achoo! Sorry, that's a happy salt sneeze!", "You're doing great, mate!", "Slow blink of approval.", "Warm rocks, warm heart, warm wishes!", "Let's dive into the next one!", "You're tougher than lava rock!"],
           pet: ["Achoo! Hehe, happy sneeze!", "Ooh, right on the spiky bits!"],
