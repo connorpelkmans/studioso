@@ -65578,6 +65578,7 @@ function decorateDeck(){
   document.addEventListener("pointercancel", e => { if (st && e.pointerId === st.id) end(false); });
   document.addEventListener("click", e => { if (Date.now() - noClick < 350 && e.target.closest && e.target.closest("[data-sortable]")) { e.preventDefault(); e.stopPropagation(); } }, true);
   document.addEventListener("contextmenu", e => { if (st && st.touch && e.target.closest && e.target.closest("[data-sortable]")) e.preventDefault(); });
+  document.addEventListener("dragstart", e => { if (e.target.closest && e.target.closest("[data-sortable] > [data-sort-id]")) e.preventDefault(); });
 })();
 const RA_MQ = matchMedia("(max-width:600px)");
 // A flashcard deck does the same on every screen size

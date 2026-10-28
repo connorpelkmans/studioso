@@ -10357,14 +10357,16 @@ SCENES.canada = function (W, H, dk, rnd) {
     for (var q = 0; q <= 8; q++) { var u = q / 8, px = pa0[0] + (pa1[0] - pa0[0]) * u, py = pa0[1] + (pa1[1] - pa0[1]) * u + Math.sin(u * Math.PI) * 14 * S, pw = (5 + u * 7) * S; if (Math.abs(x - px) < pw * 0.6 + r && y > py - pw * 0.7 - 2 && y - 12 < py + pw * 0.7) return false; } return true; }; nsh += canada_e(c2x + 2 * S, gnd(c2x) + 16 * S, 16 * S, 2.6 * S);
   (ph ? [[0.0, 150], [0.12, 120], [0.66, 120], [0.95, 165]] : [[0.0, 190], [0.05, 150], [0.135, 120], [0.8, 150], [0.835, 120], [0.955, 175], [1.0, 210]]).forEach(function (q, j) { var xx = W * q[0], hh = q[1] * S * (ph ? 1.4 : 1); var fr = xx < W * 0.3; if (xx > W * 0.5) { var nb = nSpr.filter(function (t) { return t[6]; }).length; if (nb >= 2) return; xx = nb ? cl1 + 54 * cs : cl0 - 22 * cs; hh = (nb ? 190 : 160) * S * (ph ? 1.2 : 1); nSpr.push([xx, nb ? cb - 13 * cs : cb + 16 * cs, hh, hh * 0.2, 9, !nb, true]); return; }
     nSpr.push([xx, fr ? gnd(xx) + (ph ? 62 : 48) * S : gnd(xx) - (j % 2 ? 8 : 14) * S, hh, hh * 0.2, 9, fr]); });
-  var maples = [], mTr = '';
-  (ph ? [[0.3, 0.9], [1.02, 1.1]] : [[0.245, 0.95], [0.995, 1.25]]).forEach(function (q, j) { var mx = W * q[0], my = gnd(mx) + (j ? 4 : 16 * S), ms = S * q[1] * (ph ? 1.3 : 1), cyy = my - 120 * ms, R = 62 * ms;
+  var maples = [], mTr = '', mShape = '';
+  (ph ? [[0.3, 0.9], [1.02, 1.1]] : [[0.245, 0.95], [0.995, 1.25]]).forEach(function (q, j) { var mx = W * q[0], my = gnd(mx) + (j ? 4 : 16 * S), ms = S * q[1] * (ph ? 1.3 : 1), cyy = my - 120 * ms, R = 62 * ms, r0 = red.length, o0 = orange.length, t0 = mTr.length;
     mTr += canada_pg([[mx - 7 * ms, my], [mx - 5 * ms, my - 60 * ms], [mx - 30 * ms, my - 100 * ms], [mx - 26 * ms, my - 104 * ms], [mx - 2 * ms, my - 76 * ms], [mx + 4 * ms, my - 112 * ms], [mx + 9 * ms, my - 110 * ms], [mx + 5 * ms, my - 64 * ms], [mx + 28 * ms, my - 92 * ms], [mx + 31 * ms, my - 88 * ms], [mx + 7 * ms, my - 50 * ms], [mx + 8 * ms, my]]);
     for (k = 0; k < 7; k++) { var a0 = k / 7 * Math.PI * 2; red += canada_c(mx + Math.cos(a0) * R * 0.45, cyy + Math.sin(a0) * R * 0.3, R * 0.5); }
     for (k = 0; k < 150; k++) { var a = hash(k + j * 90 + 1) * Math.PI * 2, d = Math.sqrt(hash(k + j * 90 + 2)) * 0.92, bx = mx + Math.cos(a) * d * R * 1.0, by = cyy + Math.sin(a) * d * R * 0.72, br = (5 + hash(k + j * 90 + 3) * 5.5) * ms, lit = (mx - bx) / R * 0.3 + (cyy - by) / R * 0.5;
       if (hash(k + j * 90 + 4) < 0.42 + lit) orange += canada_c(bx, by, br); else red += canada_c(bx, by, br);
       if (d > 0.8 && k % 2 && by < my - 30 * ms) { var lf = canada_leaf(bx + Math.cos(a) * br, by + Math.sin(a) * br * 0.8, (6 + (k % 3) * 1.6) * ms, a * 57.3 + 90); if (k % 2) red += lf; else orange += lf; } }
-    nsh += canada_e(mx + R * 0.15, my + 2, R * 0.8, 5 * ms); maples.push([mx, cyy, R]); });
+    nsh += canada_e(mx + R * 0.15, my + 2, R * 0.8, 5 * ms); maples.push([mx, cyy, R]);
+    // the tree's exact outline (trunk, branches, leaves), so the swimming loon hides only behind what's really there
+    mShape += mTr.slice(t0) + red.slice(r0) + orange.slice(o0); });
   (ph ? [[0.4, 1], [0.6, 0.8]] : [[0.31, 1], [0.37, 0.7], [0.49, 0.6]]).forEach(function (q, j) { var bx = W * q[0], by = gnd(bx) + 8 * S, bs = q[1] * S * (ph ? 1.3 : 1);
     nsh += canada_e(bx, by + 1, 30 * bs, 4 * bs); bushBox.push([bx - 28 * bs, by - 19 * bs, bx + 28 * bs, by + 3 * bs]);
     for (k = 0; k < 18; k++) { var ba = hash(k + j * 30) * Math.PI, bd = Math.sqrt(hash(k + j * 30 + 1)), ax = bx - Math.cos(ba) * bd * 24 * bs, ay = by - 3 * bs - Math.sin(ba) * bd * 13 * bs, ar = (3.4 + hash(k + j * 30 + 2) * 2.6) * bs;
@@ -10398,7 +10400,7 @@ SCENES.canada = function (W, H, dk, rnd) {
   stk(near, 's', lines, C.line, 1.1); stk(near, 't', grass, C.grass, 1.3);
   if (ANIM) {
     var env = [], sk = []; for (x = -20; x <= W + 20; x += 10) env.push([x, Math.min(canada_yAt(back.pts, x), canada_yAt(FP, x)) + 3]);
-    ANIM.rockP = rocks.map(function (r) { return {p: r.p, bot: r.y + r.ry * 0.55}; }); ANIM.caflag = caFlag; ANIM.C = C; ANIM.hz = hz; ANIM.gp = gp; ANIM.S = S; ANIM.sky = env; ANIM.spr = nSpr; ANIM.canoes = canoes; ANIM.maples = maples; ANIM.wins = wins; ANIM.door = door; ANIM.chim = [chX, chTop - 4 * cs, cs];
+    ANIM.rockP = rocks.map(function (r) { return {p: r.p, bot: r.y + r.ry * 0.55}; }); ANIM.caflag = caFlag; ANIM.C = C; ANIM.hz = hz; ANIM.gp = gp; ANIM.S = S; ANIM.sky = env; ANIM.spr = nSpr; ANIM.canoes = canoes; ANIM.maples = maples; ANIM.mapleShape = mShape; ANIM.wins = wins; ANIM.door = door; ANIM.chim = [chX, chTop - 4 * cs, cs];
     ANIM.peakY = hz - H * 0.3 * mh; ANIM.bay = [W * (ph ? 0.27 : 0.25), W * (ph ? 0.42 : 0.43), gnd(W * 0.42)]; ANIM.dock = [dx0, dx1, dy];
   }
   return {sky: sky, far: far, refl: bg, mid: mid, near: near, band: {top: hz, bg: lake}};
@@ -21054,8 +21056,12 @@ ENGINES.canada = function (A, v, dk) {
     return nearRocks.some(function (r) { return pts.some(function (pt) { var c2 = false; for (var i = 0, j = r.p.length - 1; i < r.p.length; j = i++) { var a = r.p[i], b = r.p[j]; if ((a[1] > pt[1]) !== (b[1] > pt[1]) && pt[0] < (b[0] - a[0]) * (pt[1] - a[1]) / (b[1] - a[1]) + a[0]) c2 = !c2; } return c2; }); }); }
   function loonClip(c) { var cut = function (add) { var m = new Path2D(); m.rect(-50, -50, W + 100, H + 100); add(m); c.clip(m, 'evenodd'); };
     nearRocks.forEach(function (r) { cut(function (m) { m.moveTo(r.p[0][0], r.p[0][1]); for (var q = 1; q < r.p.length; q++) m.lineTo(r.p[q][0], r.p[q][1]); m.closePath(); }); });
-    A.maples.forEach(function (mp) { if (mp[2] < 20) return; cut(function (m) { m.moveTo(mp[0] + mp[2] * 1.2, mp[1]); m.ellipse(mp[0], mp[1], mp[2] * 1.2, mp[2] * 0.95, 0, 0, Math.PI * 2); }); cut(function (m) { m.rect(mp[0] - mp[2] * 0.2, mp[1], mp[2] * 0.4, mp[2] * 2.2); }); });
+    if (!A.mapleShape) A.maples.forEach(function (mp) { if (mp[2] < 20) return; cut(function (m) { m.moveTo(mp[0] + mp[2] * 1.2, mp[1]); m.ellipse(mp[0], mp[1], mp[2] * 1.2, mp[2] * 0.95, 0, 0, Math.PI * 2); }); cut(function (m) { m.rect(mp[0] - mp[2] * 0.2, mp[1], mp[2] * 0.4, mp[2] * 2.2); }); });
     if (mo.vis && mo.x != null) cut(function (m) { m.rect(mo.x - 70 * mo.s, mo.y - 110 * mo.s, 140 * mo.s, 112 * mo.s); }); }
+  // The loon is drawn on its own small canvas, then rubbed out where a maple's real outline covers it (MASK: the maples, filled once)
+  var MASK = null, LCV = document.createElement('canvas'), LX = LCV.getContext('2d');
+  function mapleMask() { if (MASK !== null) return MASK; MASK = false; if (!A.mapleShape || typeof Path2D !== 'function') return MASK;
+    var m = document.createElement('canvas'); m.width = Math.max(1, Math.ceil(W)); m.height = Math.max(1, Math.ceil(H)); m.getContext('2d').fill(new Path2D(A.mapleShape)); return (MASK = m); }
   var mo = {x0: A.bay[0], x1: A.bay[1], y0: gnd(A.bay[0]) - 14 * S, y1: A.bay[2] - 22 * S, s: (ph ? 0.8 : 1.05) * S};
   var paddle = {x0: A.canoes[0].x, y0: A.canoes[0].y, x1: W * (ph ? 0.3 : 0.44), y1: hz + (A.bay[2] - hz) * 0.28};
   function ring(x, y, r0) { rings.push({x: x, y: y, r: r0 || 3, age: 0}); }
@@ -21114,11 +21120,18 @@ ENGINES.canada = function (A, v, dk) {
       if (dk) { A.wins.forEach(function (w, k) { var fl = 0.85 + 0.15 * flick(tt * 0.6, k); cb.save(); cb.globalCompositeOperation = 'lighter'; canada_dot(cb, glowW, w[0] + w[2] / 2, w[1] + w[3] / 2, w[2] * 1.8, fl); cb.restore(); cb.fillStyle = 'rgba(255,196,110,' + (0.85 * fl) + ')'; cb.fillRect(w[0], w[1], w[2], w[3]); cb.fillStyle = 'rgba(80,40,20,0.6)'; cb.fillRect(w[0] + w[2] / 2 - 0.8, w[1], 1.6, w[3]); cb.fillRect(w[0], w[1] + w[3] / 2 - 0.8, w[2], 1.6); }); }
       cb.fillStyle = C.woodD; A.spr.forEach(function (s) { if (!s[5]) return; var tw2 = s[3] * 0.11; cb.beginPath(); cb.moveTo(s[0] - tw2 * 1.6, s[1] + 2); cb.lineTo(s[0] - tw2 * 0.8, s[1] - s[2] * 0.14); cb.lineTo(s[0] + tw2 * 0.8, s[1] - s[2] * 0.14); cb.lineTo(s[0] + tw2 * 1.6, s[1] + 2); cb.closePath(); cb.fill(); });
       cb.fillStyle = C.near; A.spr.forEach(function (s, k) { if (s[5]) sprDraw(cb, s, k); });
-      if (loon.under !== 1) { cb.save(); loonClip(cb); var dv = loon.dive < 0 ? 0 : loon.dive < 0.7 ? loon.dive / 0.7 : loon.dive > 3.6 ? 1 - (loon.dive - 3.6) / 0.6 : 0, sink = loon.dive >= 0 && loon.dive < 0.7 ? dv : loon.under === 2 ? dv : 0;
-        var ly = loon.y + Math.sin(tt * 1.2) * 0.6;
+      if (loon.under !== 1) { var dv = loon.dive < 0 ? 0 : loon.dive < 0.7 ? loon.dive / 0.7 : loon.dive > 3.6 ? 1 - (loon.dive - 3.6) / 0.6 : 0, sink = loon.dive >= 0 && loon.dive < 0.7 ? dv : loon.under === 2 ? dv : 0;
+        var ly = loon.y + Math.sin(tt * 1.2) * 0.6, out = cb, mk = mapleMask(), lb = null;
+        if (mk) { var kk = (cb.getTransform ? cb.getTransform().a : 1) || 1; lb = {x: Math.floor(loon.x - 46 * loon.s), y: Math.floor(ly - 28 * loon.s), w: Math.ceil(92 * loon.s), h: Math.ceil(54 * loon.s)};
+          var pw = Math.ceil(lb.w * kk), phh = Math.ceil(lb.h * kk); if (LCV.width !== pw || LCV.height !== phh) { LCV.width = pw; LCV.height = phh; }
+          LX.setTransform(kk, 0, 0, kk, -lb.x * kk, -lb.y * kk); LX.clearRect(lb.x, lb.y, lb.w, lb.h); cb = LX; }
+        cb.save(); loonClip(cb);
         cb.save(); cb.beginPath(); cb.rect(-20, -20, W + 40, ly - (-20)); cb.clip(); cb.translate(loon.x, ly + sink * 14 * loon.s); cb.scale(loon.dir, 1); cb.rotate(sink * 0.5); canada_loon(cb, loon.s, dk); cb.restore();
         var hid = loonHidden(loon.x, ly); if (!hid) { cb.save(); cb.globalAlpha = 0.25 * (1 - sink); cb.translate(loon.x, ly + 1); cb.scale(loon.dir, -0.7); canada_loon(cb, loon.s, dk); cb.restore(); }
-        if (loon.dive < 0 && !hid) { cb.strokeStyle = ringC + '0.5)'; cb.lineWidth = 1; cb.beginPath(); cb.moveTo(loon.x - loon.dir * 18 * loon.s, ly + 1); cb.lineTo(loon.x - loon.dir * 40 * loon.s, ly + 2.5); cb.moveTo(loon.x - loon.dir * 16 * loon.s, ly + 2); cb.lineTo(loon.x - loon.dir * 30 * loon.s, ly + 5); cb.stroke(); }  cb.restore(); }
+        if (loon.dive < 0 && !hid) { cb.strokeStyle = ringC + '0.5)'; cb.lineWidth = 1; cb.beginPath(); cb.moveTo(loon.x - loon.dir * 18 * loon.s, ly + 1); cb.lineTo(loon.x - loon.dir * 40 * loon.s, ly + 2.5); cb.moveTo(loon.x - loon.dir * 16 * loon.s, ly + 2); cb.lineTo(loon.x - loon.dir * 30 * loon.s, ly + 5); cb.stroke(); }  cb.restore();
+        if (lb) { cb = out; var sx = Math.max(0, lb.x), sy = Math.max(0, lb.y), sw = Math.min(mk.width, lb.x + lb.w) - sx, sh = Math.min(mk.height, lb.y + lb.h) - sy;
+          if (sw > 0 && sh > 0) { LX.save(); LX.globalCompositeOperation = 'destination-out'; LX.drawImage(mk, sx, sy, sw, sh, sx, sy, sw, sh); LX.restore(); }
+          cb.drawImage(LCV, lb.x, lb.y, lb.w, lb.h); } }
       if (A.caflag) canada_flag(cb, A.caflag, tt, true, ['#D52B1E', '#FFFFFF', '#FFFFFF', '#D52B1E'], function (c, x, y, h) { c.save(); c.translate(x, y + h * 0.04); c.fillStyle = dk ? 'rgb(170,34,24)' : '#D52B1E'; canada_leafPath(c, h * 0.3); c.fill(); c.restore(); }, dk);
       falling.forEach(function (l) { var s = l.s, flip = Math.cos(tt * 2 + l.ph); cb.save(); cb.globalAlpha = l.a; cb.translate(l.x, l.y); cb.rotate(Math.sin(tt * 1.3 + l.ph) * 0.9 + l.ph); cb.scale(0.35 + 0.65 * Math.abs(flip), 1); cb.drawImage(LS[l.k], -s, -s, s * 2, s * 2); cb.restore(); });
       gust.forEach(function (g) { cb.save(); cb.translate(g.x, g.y); cb.rotate(tt * g.w * 2 + g.ph); cb.scale(0.4 + 0.6 * Math.abs(Math.cos(tt * 3 + g.ph)), 1); cb.drawImage(LS[g.k === 2 ? 0 : g.k], -g.s, -g.s, g.s * 2, g.s * 2); cb.restore(); });
