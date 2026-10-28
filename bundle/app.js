@@ -32503,6 +32503,11 @@ function cleanFile(r) {
         if (day) { g.due = day.date; g.time = day.time || ""; }
       });
     });
+    // what the course's calendar gave, for the sync report
+    const notOursCal = notThisCourse(h);
+    (h.courses || []).forEach(c => { const ev = (c.events || []).filter(Boolean), nowMs = Date.now(), d = out.dx[c.ou] = out.dx[c.ou] || {code: c.code || "", name: String(c.name || "").slice(0, 80)};
+      d.cal = {read: ev.length, ahead: ev.filter(e => Date.parse(e.end || e.start || "") >= nowMs).length, tied: ev.filter(e => e.assoc).length, other: ev.filter(e => notOursCal(c, e)).length,
+        kept: out.evs.filter(e => e.ou === c.ou).length}; });
     return out;
   }
 
@@ -32555,10 +32560,11 @@ function cleanFile(r) {
   }
 
   /* Matching the platform courses to yours */
-  function autoMatch(bc){
+  function autoMatch(bc, not){
     const code = bc.code || codeOf(bc.name);
     // your active courses first; an archived one before ever making a second copy of a course you already have
-    for (const cs of [coursesArr(), allCourses().filter(c => c.archived)]) {
+    for (const cs0 of [coursesArr(), allCourses().filter(c => c.archived)]) {
+      const cs = not ? cs0.filter(c => c.id !== not) : cs0;
       if (code) { const k = codeKey(code); const c = cs.find(c => c.code && codeKey(c.code) === k) || cs.find(c => codeKey(c.name).includes(k) || (c.code && codeKey(c.code).includes(k))); if (c) return c.id; }
       const nm = courseName(bc.name, code).toLowerCase();
       const c = cs.find(c => c.name && nm.length > 4 && (c.name.toLowerCase() === nm || sim(c.name, nm) >= 0.75));
@@ -32584,7 +32590,8 @@ function cleanFile(r) {
   function courseDeleted(id){
     const ous = linkedOus(id); if (!ous.length) return;
     const c = cfg(), map = Object.assign({}, c.map), gone = Object.assign({}, c.goneCourses);
-    ous.forEach(ou => { map[ou] = "skip"; gone[ou] = id; });
+    // a copy deleted while you still have the course (same code or name): the school course goes to the one you kept
+    ous.forEach(ou => { const bc = (c.courses || {})[ou], keep = bc && autoMatch(bc, id); if (keep) { map[ou] = keep; delete gone[ou]; } else { map[ou] = "skip"; gone[ou] = id; } });
     save({map, goneCourses: gone});
   }
   function mapping(data, over){
@@ -32595,13 +32602,15 @@ function cleanFile(r) {
       let m = (over && over[ou]) || c.map[ou];
       if (was && !(over && over[ou])) {
         if (state.courses[was]) { m = was; delete gone[ou]; note(ou, was); }          // restored from Recently Deleted
-        else if (!m || m === "skip" || m === was) m = "skip";                          // still deleted
+        else if (!m || m === "skip" || m === was) { const keep = autoMatch(bc, was);  // still deleted, unless you still have the course (a copy was deleted)
+          if (keep) { m = keep; delete gone[ou]; note(ou, keep); } else m = "skip"; }
         else { delete gone[ou]; fix = fix || {map: Object.assign({}, c.map), goneCourses: gone}; } // you picked another course for it since
       }
       // the course it went to was deleted (Recently Deleted holds it): keep it off rather than make a new one
       const dflt = F + "c_" + hid(ou);
       if (!(over && over[ou]) && m !== "skip" && ((m && m !== "new" && !state.courses[m] && inTrash(m)) || (!m && !state.courses[dflt] && inTrash(dflt)))) {
-        gone[ou] = m && m !== "new" ? m : dflt; m = "skip"; note(ou, "skip");
+        const was2 = m && m !== "new" ? m : dflt, keep = autoMatch(bc, was2);
+        if (keep) { m = keep; note(ou, keep); } else { gone[ou] = was2; m = "skip"; note(ou, "skip"); }
       }
       if (m && m !== "new" && m !== "skip" && !state.courses[m]) m = "";
       if (!m) m = autoMatch(bc) || (state.courses[F + "c_" + hid(bc.ou)] ? F + "c_" + hid(bc.ou) : "new");
@@ -33263,6 +33272,8 @@ function cleanFile(r) {
       if (lr.notes && lr.notes[ou]) L.push("Summary: " + lr.notes[ou]);
       L.push(`You: id ${d.me && d.me.id}, name ${d.me && d.me.name}. Quiz list gave ${d.quizApi} quizzes; Quizzes page: ${d.quizPage}${d.quizToc != null ? `; from course content ${d.quizToc}, from calendar ${d.quizCal}` : ""}.`);
       if (d.grades) { L.push(`Grades: list ${d.grades.list}; Grades page ${d.grades.page}; ${d.grades.rows} rows used.`); (d.grades.sample || []).forEach(x => L.push("  Grade " + x)); }
+      if (d.cal) { const evs = eventsArr().filter(e => e[F] && (e[F].ou === ou || (cid && e.courseId === cid))), td = todayISO();
+        L.push(`Calendar: read ${d.cal.read} entries (${d.cal.ahead} upcoming, ${d.cal.tied} tied to an item, ${d.cal.other} set aside as another course's); ${d.cal.kept} became events. Studyboard has ${evs.length} events from it (${evs.filter(e => e.date >= td).length} upcoming). Course setting: ${cid === "skip" ? "Don't Import" : cid ? "linked" : "automatic"}${(c.goneCourses || {})[ou] ? " (kept off because its course was deleted)" : ""}.`); }
       if ((d.calExams || []).length) L.push("Exam calendar entries: " + d.calExams.join("; "));
       if ((d.calTied || []).length) L.push("Calendar entries tied to an item: " + d.calTied.join("; "));
       (d.folders || []).forEach(f => L.push(`  Assignment "${f.n}" [${f.id}]: handed in ${f.sub}; grade item ${f.gradeItem || "none"}${f.inGrades ? " (marked in Grades)" : ""}; out of ${f.outOf == null ? "not given" : f.outOf}; feedback with submission: ${f.fb}${f.fbApi ? "; feedback link: " + f.fbApi : ""}${f.row ? `; Assignments page row: "${f.row}"` : ""}${f.scoreCell ? `; Score cell "${f.scoreCell}"` : ""}${(f.links || []).length ? "; links " + f.links.join(" ") : ""}${f.fbPage ? "; feedback page: " + f.fbPage : ""}; mark read: ${f.mark || "none"}`));
