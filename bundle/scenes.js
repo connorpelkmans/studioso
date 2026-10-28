@@ -11583,12 +11583,12 @@ function b1_glow(c, col, a) { var g = c.createRadialGradient(0, 0, 0, 0, 0, 1); 
 function b1_dot(c, g, x, y, r) { c.save(); c.translate(x, y); c.scale(r, r); c.fillStyle = g; c.beginPath(); c.arc(0, 0, 1, 0, 7); c.fill(); c.restore(); }
 // pixel density of a canvas the app hands us
 function b1_dpr(c) { return c.getTransform ? c.getTransform().a : 1; }
-// cut a painted layer into its non-empty T x T tiles; each tile is a whole small image
-function b1_tiles(cv, T) { var out = [], w = cv.width, h = cv.height, id = cv.getContext('2d').getImageData(0, 0, w, h).data;
-  for (var ty = 0; ty < h; ty += T) for (var tx = 0; tx < w; tx += T) { var tw = Math.min(T, w - tx), th = Math.min(T, h - ty), any = false;
-    for (var r = ty; r < ty + th && !any; r++) for (var x = tx; x < tx + tw; x++) if (id[(r * w + x) * 4 + 3] > 0) { any = true; break; }
-    if (any) { var c = b1_scratch(tw, th); c.getContext('2d').drawImage(cv, -tx, -ty); out.push({cv: c, x: tx, y: ty}); } }
-  return out; }
+// Crop a painted layer to the box around what's painted, as one image. (It used to be cut into T x T tiles,
+// but drawing tiles side by side left faint square seams on some screens.)
+function b1_tiles(cv, T) { var w = cv.width, h = cv.height, id = cv.getContext('2d').getImageData(0, 0, w, h).data, x0 = w, y0 = h, x1 = -1, y1 = -1, x, y;
+  for (y = 0; y < h; y++) for (x = 0; x < w; x++) if (id[(y * w + x) * 4 + 3] > 0) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; y1 = y; }
+  if (x1 < 0) return [];
+  var c = b1_scratch(x1 - x0 + 1, y1 - y0 + 1); c.getContext('2d').drawImage(cv, -x0, -y0); return [{cv: c, x: x0, y: y0}]; }
 // Whole pixels only: tiles drawn at fractional positions show faint seams between them
 function b1_blit(c, tiles, dx, dy) { dx = Math.round(dx); dy = Math.round(dy); for (var i = 0; i < tiles.length; i++) c.drawImage(tiles[i].cv, tiles[i].x + dx, tiles[i].y + dy); }
 function b1_scratch(w, h) { var cv = document.createElement('canvas'); cv.width = Math.max(1, Math.ceil(w)); cv.height = Math.max(1, Math.ceil(h)); return cv; }
