@@ -578,35 +578,48 @@ SCENES.autumn = function (W, H, dk, rnd) {
   var bc = ['', '', ''];
   spread(tx - (ph ? 170 : 240), tt - (ph ? 120 : 160), ph ? 190 : 290, ph ? 190 : 250, ph ? 44 : 56, ph ? 40 : 50, rnd, 1).forEach(function (c) { var d = Math.hypot(c.x - tx + 60, (c.y - tt) * 1.2); if (d > (ph ? 150 : 210)) return; bc[Math.floor(c.k * 3)] += circ(c.x, c.y, (ph ? 22 : 30) + c.r * 12); });
   add(near, 'd', bc[0] + bc[2] + circ(tx + 4, tt + 6, ph ? 26 : 32), dk ? '#8E3E1E' : '#DE6E2A'); add(near, 'e', bc[1], dk ? '#A87428' : '#EAB040');
-  // The foreground: trees in red, orange, yellow, brown and green on both sides of the path, with leaf piles, pumpkins and hay bales.
-  // The two back rows go in the middle layer and the two front rows in the near one, so nearer trees always stand in front.
-  'ijklmnopABCDEFGH'.split('').forEach(function (k) { mid[k] = E(); near[k] = E(); });
-  var FC = dk ? {trunk: '#2A1610', red: '#8E2E22', orange: '#A04C1E', yellow: '#9C7626', brown: '#5E3A22', green: '#2E4A2C', pump: '#A85A1E', hay: '#7A6234', line: 'rgba(20,10,5,0.55)'}
-    : {trunk: '#6A4430', red: '#C8402E', orange: '#E27A2C', yellow: '#EDB43C', brown: '#9A6236', green: '#5E8A3C', pump: '#EE8A2E', hay: '#E4C47C', line: 'rgba(110,60,25,0.45)'};
-  var SLS = {m: {tr: 'i', red: 'j', orange: 'k', yellow: 'l', brown: 'm', green: 'n', pump: 'o', hay: 'p'}, n: {tr: 'i', red: 'j', orange: 'k', yellow: 'l', brown: 'm', green: 'n', pump: 'o', hay: 'p'}, f: {tr: 'A', red: 'B', orange: 'C', yellow: 'D', brown: 'E', green: 'F', pump: 'G', hay: 'H'}};
-  var TC = ['red', 'orange', 'yellow', 'brown', 'green'], fTr = {m: '', n: '', f: ''}, fLn = {m: '', n: '', f: ''}, pickC = function () { var q = rnd(); return q < 0.22 ? 0 : q < 0.42 ? 1 : q < 0.6 ? 2 : q < 0.76 ? 3 : 4; };
+  // The foreground: fall trees (red, orange, yellow, brown, green and dark purple) scattered on both sides of the path, smaller in the distance,
+  // each with a shaded side, a soft shadow and a little leaf texture; pumpkins and hay bales beside the path. Trees never overlap, so their
+  // colours can share layers without breaking depth.
+  'ijklmnopABCDEFGH'.split('').forEach(function (k) { mid[k] = E(); });
+  var FC = dk ? {shadow: 'rgba(0,0,0,0.32)', trunk: '#24130C', red: ['#8E2E22', '#6A1E18'], orange: ['#A04C1E', '#7A3614'], yellow: ['#9C7626', '#76561A'], brown: ['#5E3A22', '#442818'], green: ['#2E4A2C', '#1F361F'], purple: ['#43264A', '#2E1834'], pump: '#A85A1E', hay: '#7A6234', line: 'rgba(15,8,4,0.55)', edge: 'rgba(30,16,8,0.35)'}
+    : {shadow: 'rgba(80,46,22,0.24)', trunk: '#5E3A28', red: ['#CF4530', '#A2301F'], orange: ['#E8832E', '#C2601E'], yellow: ['#F0BA42', '#CF9326'], brown: ['#A06A3A', '#7C4D28'], green: ['#62903E', '#476E2C'], purple: ['#6E3A6C', '#4E2650'], pump: '#EE8A2E', hay: '#E4C47C', line: 'rgba(110,60,25,0.5)', edge: 'rgba(150,100,55,0.35)'};
+  var TS2 = {red: ['k', 'l'], orange: ['m', 'n'], yellow: ['o', 'p'], brown: ['A', 'B'], green: ['C', 'D'], purple: ['E', 'F']}, fSh = '', fTr = '', fLn = '';
+  var pickC = function () { var q = rnd(); return q < 0.21 ? 'red' : q < 0.4 ? 'orange' : q < 0.57 ? 'yellow' : q < 0.71 ? 'brown' : q < 0.86 ? 'green' : 'purple'; };
   var pathAt = function (y) { for (var q = 0; q < pl.length - 1; q++) { var a1 = pl[q], a2 = pl[q + 1]; if (y <= a1[1] && y >= a2[1]) { var u = (y - a1[1]) / ((a2[1] - a1[1]) || 1), b1 = pr[pr.length - 1 - q], b2 = pr[pr.length - 2 - q]; return [lerp(a1[0], a2[0], u), lerp(b1[0], b2[0], u)]; } } return [W * 0.5, W * 0.5]; };
   var keepOut = [[bxp - 54 * bs, byp - 44 * bs, bxp + 50 * bs, byp + 6 * bs], [lx - 14 * bs, byp - 150 * bs, lx + 14 * bs, byp + 6 * bs], [tx - (ph ? 50 : 90), tt, W + 60, H + 20]];
-  var takenL = {m: [], n: [], f: []}, hit = function (list, b) { return list.some(function (o) { return b[2] > o[0] && b[0] < o[2] && b[3] > o[1] && b[1] < o[3]; }); };
-  function fTree(L, key, x, y, r, ci) { var SL = SLS[key], col = TC[ci], k = SL[col];
-    fTr[key] += poly([[x - r * 0.12, y + 2], [x - r * 0.07, y - r * 1.15], [x + r * 0.07, y - r * 1.15], [x + r * 0.12, y + 2]]);
-    if (col === 'green') { for (var t3 = 0; t3 < 3; t3++) { var tw = r * (1.05 - t3 * 0.24), ty = y - r * (0.7 + t3 * 0.62); add(L, k, poly([[x - tw, ty], [x, ty - r * 1.05], [x + tw, ty]])); } }
-    else { var c2 = y - r * 1.5; add(L, k, circ(x, c2, r) + circ(x - r * 0.72, c2 + r * 0.32, r * 0.7) + circ(x + r * 0.74, c2 + r * 0.26, r * 0.68) + circ(x + r * 0.18, c2 - r * 0.62, r * 0.72)); }
-    var pile = TC[(ci + 1 + Math.floor(rnd() * 3)) % 4]; add(L, SL[pile], ell(x + r * 0.15, y + 1, r * 0.8, r * 0.17)); }
-  [0.16, 0.4, 0.66, 0.97].forEach(function (f, rw) { var L = rw < 2 ? mid : near, key = rw < 2 ? 'm' : rw < 3 ? 'n' : 'f', ry0 = hz + 14 + (H - hz - 20) * f, rr2 = (ph ? 13 : 17) + f * (ph ? 30 : 44);
-    for (var xx = -rr2 * 0.4 + rnd() * rr2; xx < W + rr2; xx += rr2 * (2.2 + rnd() * 1.3)) { var ry = Math.min(H + 6, ry0 + (rnd() - 0.5) * rr2 * 0.6), pth = pathAt(Math.min(ry, H));
-      if (xx + rr2 * 1.1 > pth[0] - 8 && xx - rr2 * 1.1 < pth[1] + 8) continue;
-      var bb2 = [xx - rr2 * 1.2, ry - rr2 * 2.5, xx + rr2 * 1.2, ry + 4]; if (hit(keepOut, bb2) || hit(takenL[key], bb2)) continue;
-      takenL[key].push(bb2); fTree(L, key, xx, ry, rr2 * (0.85 + rnd() * 0.3), pickC()); } });
-  // pumpkins and hay bales at the edges of the path
-  for (var pk = 0; pk < (ph ? 4 : 7); pk++) { var py2 = hz + (H - hz) * (0.3 + rnd() * 0.65), pe = pathAt(py2), side = pk % 2, pr2 = (ph ? 8 : 11) * (0.7 + (py2 - hz) / (H - hz) * 0.9), px2 = side ? pe[1] + pr2 * (3 + rnd() * 2.6) : pe[0] - pr2 * (3 + rnd() * 2.6);
-    var PL = py2 > hz + (H - hz) * 0.53 ? near : mid, pkey = PL === near ? 'n' : 'm', pb = [px2 - pr2 * 2.4, py2 - pr2 * 2.2, px2 + pr2 * 2.4, py2 + 2];
-    if (hit(keepOut, pb) || hit(takenL[pkey], pb) || (pb[2] > pe[0] - 4 && pb[0] < pe[1] + 4)) continue; takenL[pkey].push(pb);
-    if (pk % 3 === 2) { var hw = pr2 * 3.2, hh = pr2 * 1.9; add(PL, SLS[pkey].hay, rrect(px2 - hw / 2, py2 - hh, hw, hh, hh * 0.22)); for (var hl = 1; hl < 4; hl++) fLn[pkey] += seg(px2 - hw / 2 + 2, py2 - hh * hl / 4, px2 + hw / 2 - 2, py2 - hh * hl / 4); continue; }
-    [[0, 1], [pr2 * 1.5, 0.7], [-pr2 * 1.2, 0.6]].slice(0, 1 + Math.floor(rnd() * 3)).forEach(function (o) { var r3 = pr2 * o[1], cx3 = px2 + o[0], cy3 = py2 - r3 * 0.8;
-      add(PL, SLS[pkey].pump, ell(cx3, cy3, r3 * 1.2, r3 * 0.85)); fLn[pkey] += 'M' + PT(cx3, cy3 - r3 * 0.8) + ' Q' + PT(cx3 - r3 * 0.55, cy3) + ' ' + PT(cx3, cy3 + r3 * 0.8) + ' M' + PT(cx3, cy3 - r3 * 0.8) + ' Q' + PT(cx3 + r3 * 0.55, cy3) + ' ' + PT(cx3, cy3 + r3 * 0.8) + ' ';
-      add(PL, SLS[pkey].green, rect(cx3 - r3 * 0.12, cy3 - r3 * 1.15, r3 * 0.24, r3 * 0.42)); }); }
-  [[mid, 'm'], [near, 'n'], [near, 'f']].forEach(function (q) { var L = q[0], S2 = SLS[q[1]]; add(L, S2.tr, fTr[q[1]], FC.trunk); ['red', 'orange', 'yellow', 'brown', 'green', 'pump', 'hay'].forEach(function (c) { L[S2[c]].c = FC[c]; }); if (fLn[q[1]]) stk(L, 't', fLn[q[1]], FC.line, 1.1); });
+  var taken = [], hit = function (list, b) { return list.some(function (o) { return b[2] > o[0] && b[0] < o[2] && b[3] > o[1] && b[1] < o[3]; }); };
+  var offPath = function (b) { for (var yy = b[1]; yy <= b[3]; yy += 6) { if (yy < hz) continue; var pe = pathAt(Math.min(yy, H)); if (b[2] > pe[0] - 12 && b[0] < pe[1] + 12) return false; } return true; };
+  function fTree(x, y, r, col) { var sl = TS2[col], base = '', shade = '', tex = '', k;
+    fSh += ell(x + r * 0.35, y + r * 0.05, r * 1.05, r * 0.2);
+    fTr += poly([[x - r * 0.13, y + 1], [x - r * 0.07, y - r * 1.2], [x + r * 0.07, y - r * 1.2], [x + r * 0.13, y + 1]]);
+    if (col === 'green') { for (var t3 = 0; t3 < 4; t3++) { var tw = r * (1.1 - t3 * 0.2), ty = y - r * (0.55 + t3 * 0.5), tp = ty - r * 0.9; base += poly([[x - tw, ty], [x - tw * 0.4, ty - r * 0.12], [x, tp], [x + tw * 0.4, ty - r * 0.12], [x + tw, ty]]); shade += poly([[x, tp], [x + tw * 0.4, ty - r * 0.12], [x + tw, ty], [x + tw * 0.15, ty - r * 0.05]]); } }
+    else { fTr += poly([[x, y - r * 0.8], [x - r * 0.55, y - r * 1.55], [x - r * 0.48, y - r * 1.6], [x + r * 0.03, y - r * 0.95]]) + poly([[x, y - r * 0.9], [x + r * 0.5, y - r * 1.65], [x + r * 0.57, y - r * 1.6], [x + r * 0.05, y - r * 0.8]]);
+      var cy4 = y - r * 1.75;
+      for (k = 0; k < 11; k++) { var a4 = k / 11 * Math.PI * 2 + rnd() * 0.4, d4 = r * (0.5 + rnd() * 0.25), rr4 = r * (0.42 + rnd() * 0.18); base += circ(x + Math.cos(a4) * d4 * 1.12, cy4 + Math.sin(a4) * d4 * 0.82, rr4); }
+      base += circ(x, cy4, r * 0.72);
+      for (k = 0; k < 5; k++) { var a5 = 0.2 + k * 0.42, d5 = r * (0.55 + rnd() * 0.2); shade += circ(x + Math.cos(a5) * d5 * 1.05, cy4 + Math.sin(a5) * d5 * 0.85, r * (0.32 + rnd() * 0.12)); }
+      for (k = 0; k < 7; k++) { var a6 = rnd() * 6.28, d6 = rnd() * r * 0.75; tex += ell(x + Math.cos(a6) * d6, cy4 + Math.sin(a6) * d6 * 0.75, r * 0.07, r * 0.045); } }
+    add(mid, sl[0], base); add(mid, sl[1], shade + tex); }
+  // scattered: random spots, nearer is bigger, nothing overlapping, the path and the bench kept clear
+  var want = ph ? 16 : 30, made = 0;
+  for (var tr2 = 0; tr2 < 900 && made < want; tr2++) { var fy = Math.pow(rnd(), 0.8), yy2 = hz + 16 + (H + 30 - hz - 16) * fy, rr5 = (ph ? 9 : 12) + fy * (ph ? 34 : 52), xx2 = -rr5 * 0.5 + rnd() * (W + rr5);
+    var bb3 = [xx2 - rr5 * 1.25, yy2 - rr5 * 2.75, xx2 + rr5 * 1.25, yy2 + rr5 * 0.25];
+    if (hit(keepOut, bb3) || hit(taken, bb3) || !offPath([bb3[0], yy2 - rr5 * 0.4, bb3[2], Math.min(yy2, H)])) continue;
+    taken.push(bb3); made++; fTree(xx2, yy2, rr5, pickC()); }
+  // pumpkins and hay bales just off the path
+  for (var pk = 0, put = 0; pk < 60 && put < (ph ? 5 : 8); pk++) { var py2 = hz + (H - hz) * (0.25 + rnd() * 0.7), pe = pathAt(py2), side = rnd() < 0.5, pr2 = (ph ? 7 : 10) * (0.6 + (py2 - hz) / (H - hz) * 1.1), px2 = side ? pe[1] + pr2 * (2.6 + rnd() * 3) : pe[0] - pr2 * (2.6 + rnd() * 3);
+    var pb = [px2 - pr2 * 2.6, py2 - pr2 * 2.2, px2 + pr2 * 2.6, py2 + 2];
+    if (hit(keepOut, pb) || hit(taken, pb) || !offPath(pb)) continue; taken.push(pb); put++;
+    fSh += ell(px2 + pr2 * 0.5, py2 + 1, pr2 * 2.1, pr2 * 0.32);
+    if (put % 4 === 3) { var hw = pr2 * 3.2, hh = pr2 * 1.9; add(mid, 'H', rrect(px2 - hw / 2, py2 - hh, hw, hh, hh * 0.22)); for (var hl = 1; hl < 4; hl++) fLn += seg(px2 - hw / 2 + 2, py2 - hh * hl / 4, px2 + hw / 2 - 2, py2 - hh * hl / 4); continue; }
+    [[0, 1], [pr2 * 1.5, 0.7], [-pr2 * 1.25, 0.6]].slice(0, 1 + Math.floor(rnd() * 3)).forEach(function (o) { var r3 = pr2 * o[1], cx3 = px2 + o[0], cy3 = py2 - r3 * 0.8;
+      add(mid, 'G', ell(cx3, cy3, r3 * 1.2, r3 * 0.85)); fLn += 'M' + PT(cx3, cy3 - r3 * 0.8) + ' Q' + PT(cx3 - r3 * 0.55, cy3) + ' ' + PT(cx3, cy3 + r3 * 0.8) + ' M' + PT(cx3, cy3 - r3 * 0.8) + ' Q' + PT(cx3 + r3 * 0.55, cy3) + ' ' + PT(cx3, cy3 + r3 * 0.8) + ' M' + PT(cx3 - r3 * 0.6, cy3 - r3 * 0.6) + ' Q' + PT(cx3 - r3 * 1.05, cy3) + ' ' + PT(cx3 - r3 * 0.6, cy3 + r3 * 0.65) + ' M' + PT(cx3 + r3 * 0.6, cy3 - r3 * 0.6) + ' Q' + PT(cx3 + r3 * 1.05, cy3) + ' ' + PT(cx3 + r3 * 0.6, cy3 + r3 * 0.65) + ' ';
+      add(mid, 'D', poly([[cx3 - r3 * 0.1, cy3 - r3 * 0.75], [cx3 - r3 * 0.02, cy3 - r3 * 1.2], [cx3 + r3 * 0.22, cy3 - r3 * 1.25], [cx3 + r3 * 0.12, cy3 - r3 * 0.75]])); }); }
+  add(mid, 'i', fSh, FC.shadow); add(mid, 'j', fTr, FC.trunk);
+  Object.keys(TS2).forEach(function (c) { mid[TS2[c][0]].c = FC[c][0]; mid[TS2[c][1]].c = FC[c][1]; }); mid.G.c = FC.pump; mid.H.c = FC.hay;
+  stk(mid, 't', fLn, FC.line, 1.1);
+  stk(mid, 's', 'M' + pl.map(function (q) { return PT(q[0], q[1]); }).join(' L') + ' M' + pr.map(function (q) { return PT(q[0], q[1]); }).join(' L'), FC.edge, 2);
   var dl = ['', '', ''], stems = '';
   if (ANIM) { ANIM.leaves = []; ANIM.cols = dk ? ['#C4642A', '#A8402A', '#C89434'] : ['#E0772E', '#C8452E', '#E8AE3E']; ANIM.stem = dk ? '#5A3020' : '#8A4A28'; ANIM.path = pl.map(function (p, i) { var q = pr[pr.length - 1 - i]; return [(p[0] + q[0]) / 2, p[1], (q[0] - p[0]) / 2]; }); }
   spread(0, 0, W, H * 0.95, ph ? 110 : 150, ph ? 120 : 130, rnd, 1).forEach(function (c) {
