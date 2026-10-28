@@ -881,6 +881,7 @@ SCENES.autumn = function (W, H, dk, rnd) {
   var ccx = tx - (ph ? 80 : 110), ccy = tt - (ph ? 40 : 60), CR = ph ? 120 : 175, cB = '', cS = '', cL = '', cD = '';
   [[0, 0, 1, 0.82], [-0.55, 0.35, 0.55, 0.5], [0.35, -0.55, 0.6, 0.45], [-0.6, -0.35, 0.45, 0.38]].forEach(function (q) { var C3 = crownOf(ccx + q[0] * CR, ccy + q[1] * CR, CR * q[2], CR * q[3], true); cB += C3.base; if (q[1] >= 0) cS += C3.sh; cL += C3.li; cD += C3.tx; });
   var CC = dk ? ['#C07038', '#96501F', '#682E12'] : ['#F8B050', '#E88A30', '#BE5E1E'];
+  if (ANIM) ANIM.corner = trk + cB; // falling leaves pass behind this tree
   add(near, 'i', cB, CC[1]); add(near, 'j', cS, CC[2]); add(near, 'k', cL, CC[0]); add(near, 'l', cD, dk ? 'rgba(60,24,8,0.45)' : 'rgba(150,60,20,0.35)');
   // falling leaves (still picture) / their anchors for the animation
   var dl = ['', '', ''], stems = '';
@@ -14403,6 +14404,7 @@ ENGINES.spring = function (A, v, dk) {
 
 // Autumn: leaves tumble in gusts; finish = a little leaf whirlwind dances up the path
 ENGINES.autumn = function (A, v, dk) {
+  var cornerP = null;
   var W = v.bw, H = v.bh, P = A.path, hz = P[P.length - 1][1], leaves = [], whirls = [], gL = null, wind = 0, ph = !v.desk;
   function shape(kind, s) { return kind === 0 ? b2_maple(0, 0, s, 0) : kind === 1 ? b2_oak(0, 0, s * 1.1, 0) : leaf(0, 0, s, s * 0.32, 0); }
   A.leaves.forEach(function (l, i) { leaves.push({x: l.x, y: l.y, s: l.s, a: l.a * Math.PI / 180, ci: l.ci, p: new Path2D(shape(l.kind, l.s)), st: new Path2D(seg(0, 0, -l.s * 0.25, 0)), vy: 15 + l.s * 0.45, spin: (hash(i) < 0.5 ? -1 : 1) * (0.5 + hash(i + 3) * 0.8), ph: hash(i + 6) * 6.28, fr: 0.8 + hash(i + 9) * 1.2, d: 0.7 + hash(i + 12) * 0.6}); });
@@ -14423,20 +14425,23 @@ ENGINES.autumn = function (A, v, dk) {
         var a = t - w.t0; if (a < 0) return;
         var u = lerp(0.1, 0.42, b2_ease(a / 4.4)), c = at(u), sc = Math.max(0.25, (c[1] - hz) / (H - hz)), R = (ph ? 40 : 62) * sc + 8, Hc = (ph ? 95 : 140) * sc + 16, rise = b2_ease(a / 0.8), out = a > 3.5 ? (a - 3.5) / 0.9 : 0;
         ca.fillStyle = dk ? 'rgba(20,8,4,0.25)' : 'rgba(150,80,30,0.14)'; ca.globalAlpha = (1 - out) * rise; ca.beginPath(); ca.ellipse(c[0], c[1], R * 1.1, R * 0.22, 0, 0, 7); ca.fill();
-        ca.strokeStyle = dk ? 'rgba(255,210,170,0.22)' : 'rgba(255,255,255,0.6)'; ca.lineCap = 'round';
-        for (var q = 0; q < 3; q++) { var qh = (q + 0.6) / 3.2, qr = R * (0.45 + 0.8 * qh) * (1 + out * 2), qa = a * 5 + q * 2.1; ca.globalAlpha = Math.max(0, 1 - out) * rise; ca.lineWidth = 1.2 + sc * 1.4; ca.beginPath(); ca.ellipse(c[0], c[1] - qh * Hc * rise, qr, qr * 0.26, 0, qa, qa + 2.2); ca.stroke(); }
+        cb.strokeStyle = dk ? 'rgba(255,210,170,0.22)' : 'rgba(255,255,255,0.6)'; cb.lineCap = 'round';
+        for (var q = 0; q < 3; q++) { var qh = (q + 0.6) / 3.2, qr = R * (0.45 + 0.8 * qh) * (1 + out * 2), qa = a * 5 + q * 2.1; cb.globalAlpha = Math.max(0, 1 - out) * rise; cb.lineWidth = 1.2 + sc * 1.4; cb.beginPath(); cb.ellipse(c[0], c[1] - qh * Hc * rise, qr, qr * 0.26, 0, qa, qa + 2.2); cb.stroke(); }
         for (var k = 0; k < 24; k++) {
           var hk = (k + 0.5) / 24, th = a * 4.6 * (1 - hk * 0.3) + k * 2.4, r = R * (0.3 + 0.8 * hk) * (1 + out * 2.2), x = c[0] + Math.cos(th) * r, y = c[1] - hk * Hc * rise + Math.sin(th) * r * 0.26 - out * 30 * hk, s = (ph ? 12 : 17) * (0.55 + sc * 0.6) * (0.8 + hash(k) * 0.5);
-          ca.globalAlpha = Math.max(0, 1 - out) * Math.min(1, rise * 1.5); ca.fillStyle = A.cols[k % 3];
-          ca.save(); ca.translate(x, y); ca.rotate(th * 1.3 + k); ca.scale(s, s * Math.cos(th * 0.7 + k)); ca.translate(-0.5, 0); ca.fill(unit[k % 3]); ca.restore();
+          cb.globalAlpha = Math.max(0, 1 - out) * Math.min(1, rise * 1.5); cb.fillStyle = A.cols[k % 3];
+          cb.save(); cb.translate(x, y); cb.rotate(th * 1.3 + k); cb.scale(s, s * Math.cos(th * 0.7 + k)); cb.translate(-0.5, 0); cb.fill(unit[k % 3]); cb.restore();
         }
       });
-      ca.globalAlpha = 1;
-      var ci = -1;
-      leaves.forEach(function (p) {
-        if (p.ci !== ci) { ci = p.ci; ca.fillStyle = A.cols[ci]; }
-        ca.save(); ca.translate(p.x, p.y); ca.rotate(p.a); ca.scale(1, Math.cos(t * p.fr + p.ph)); ca.translate(-p.s * 0.5, 0); ca.fill(p.p); ca.strokeStyle = A.stem; ca.lineWidth = 1.2; ca.stroke(p.st); ca.restore();
-      });
+      ca.globalAlpha = 1; cb.globalAlpha = 1;
+      // falling leaves drift in front of everything: pumpkins, bench, lamp, trees
+      // (except the big corner tree, which stands closest: its outline is cut out of the leaves)
+      function drawLeaves(g) { var ci = -1;
+        leaves.forEach(function (p) {
+          if (p.ci !== ci) { ci = p.ci; g.fillStyle = A.cols[ci]; }
+          g.save(); g.translate(p.x, p.y); g.rotate(p.a); g.scale(1, Math.cos(t * p.fr + p.ph)); g.translate(-p.s * 0.5, 0); g.fill(p.p); g.strokeStyle = A.stem; g.lineWidth = 1.2; g.stroke(p.st); g.restore();
+        }); }
+      if (A.corner) { if (!cornerP) cornerP = new Path2D(A.corner); n1_occl(cb, cornerP, drawLeaves); } else drawLeaves(cb);
       if (dk) { if (!gL) gL = b2_soft(cb, '255,200,120'); cb.save(); cb.globalCompositeOperation = 'lighter'; b2_dot(cb, gL, A.lamp.x, A.lamp.y, 40 * A.lamp.bs, 0.18 + 0.1 * flick(t * 0.4, 2)); cb.restore(); cb.globalAlpha = 1; }
     },
     finish: function (t) { var last = whirls.length ? whirls[whirls.length - 1].t0 : -99; if (whirls.length < 3) whirls.push({t0: Math.max(t, last + 1.4)}); }
