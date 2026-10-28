@@ -1500,8 +1500,11 @@ SCENES.neon = function (W, H, dk, rnd) {
     add(far, fk[bi % 3], rect(xs, top, bw, gy - top + 2), fac[bi % 3]); occ.push([xs - 4, top - 6, bw + 8]);
     trim += rect(xs - 4, top - 6, bw + 8, 8) + rect(xs, gy - shopH - 10, bw, 6);
     var cols = Math.max(2, Math.floor(bw / 58)), gap = (bw - cols * 26) / (cols + 1);
-    for (var wy = top + 22; wy < gy - shopH - 60; wy += 58) { frames += rect(xs, wy + 46, bw, 3);
-      for (var k = 0; k < cols; k++) { var wx = xs + gap + k * (26 + gap), d = rrect(wx, wy, 26, 36, 3); frames += rrect(wx - 3, wy - 3, 32, 42, 4); sills += rect(wx - 5, wy + 37, 36, 3.4);
+    // the neon sign sits on clear wall: no window or ledge under it
+    var sgK = bi % 5, sgS = ph ? 1.25 : 1.5, sgX = xs + bw * 0.46, sgY = gy - shopH - (ph ? 50 : 58), sgL = sgX - [32, 26, 24, 28, 36][sgK] * sgS - 12, sgR = sgX + [46, 28, 24, 28, 32][sgK] * sgS + 12, sgT = sgY - [24, 30, 20, 28, 16][sgK] * sgS - 12, sgB = sgY + [22, 20, 22, 26, 16][sgK] * sgS + 12;
+    function underSign(x0, y0, x1, y1) { return x1 > sgL && x0 < sgR && y1 > sgT && y0 < sgB; }
+    for (var wy = top + 22; wy < gy - shopH - 60; wy += 58) { if (underSign(xs, wy + 46, xs + bw, wy + 49)) frames += rect(xs, wy + 46, Math.max(0, sgL - xs), 3) + rect(sgR, wy + 46, Math.max(0, xs + bw - sgR), 3); else frames += rect(xs, wy + 46, bw, 3);
+      for (var k = 0; k < cols; k++) { var wx = xs + gap + k * (26 + gap), d = rrect(wx, wy, 26, 36, 3); if (underSign(wx - 5, wy - 3, wx + 31, wy + 41)) continue; frames += rrect(wx - 3, wy - 3, 32, 42, 4); sills += rect(wx - 5, wy + 37, 36, 3.4);
         if (rnd() < (dk ? 0.38 : 0.2)) { lit += d; halo += circ(wx + 13, wy + 18, 22); var cr = rnd(); if (cr < 0.55) curt += poly([[wx, wy], [wx + 8, wy], [wx + 4, wy + 36], [wx, wy + 36]]) + poly([[wx + 18, wy], [wx + 26, wy], [wx + 26, wy + 36], [wx + 22, wy + 36]]); else if (cr < 0.8) plants += poly([[wx + 15, wy + 29], [wx + 23, wy + 29], [wx + 22, wy + 36], [wx + 16, wy + 36]]) + b2_ellA(wx + 17, wy + 25, 3.2, 4.6) + b2_ellA(wx + 21.5, wy + 24, 3, 5) + b2_ellA(wx + 19, wy + 21, 2.6, 4); }
         else wins += d;
         sills += rect(wx, wy + 16.5, 26, 2); } }
