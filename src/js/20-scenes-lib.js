@@ -16435,6 +16435,7 @@ ENGINES.jelly = function (A, v, dk) {
   }
   return {
     step: function (dt, t, f) {
+      var born = [];
       J.forEach(function (j) {
         // one pulse: the bell snaps shut fast (thrust), then slowly opens again while the jelly glides
         var u = ((t * f.s / j.per + j.ph) % 1 + 1) % 1;
@@ -16448,9 +16449,16 @@ ENGINES.jelly = function (A, v, dk) {
         var sp = (j.vel + 2.5 * sc) * f.s * dt; j.y -= Math.cos(j.ang) * sp + j.push * dt * 30; j.x0 += Math.sin(j.ang) * sp;
         j.x = j.x0 + Math.sin(t * 0.13 * f.s + j.ph * 6) * 10 * f.a;
         if (j.x0 < -j.r * 2) j.x0 = W + j.r * 2; else if (j.x0 > W + j.r * 2) j.x0 = -j.r * 2;
-        if (j.y < -j.r * 4.2) { j.y = H + j.r * 1.2; j.x0 = 30 + hash(t + j.r) * (W - 60); }
+        // as soon as a jelly starts leaving through the top, a fresh one rises in from below the bottom edge,
+        // at whichever spot along the bottom is most open; the old one is dropped once it's fully gone
+        if (!j.rep && j.y < j.r * 0.6) { j.rep = true; var best = W / 2, bd = -1;
+          for (var q = 0; q < 12; q++) { var cx = j.r + Math.random() * (W - 2 * j.r), dmin = 1e9; J.forEach(function (o) { if (o !== j && o.y > H * 0.45) dmin = Math.min(dmin, Math.abs(o.x - cx)); }); if (dmin > bd) { bd = dmin; best = cx; } }
+          born.push(Object.assign({}, j, {x0: best, x: best, y: H + j.r * 1.05, rep: false, ph: Math.random(), c: 0, sq: 0, sqL: 0, vel: 4, push: 0, boost: 0, head: (Math.random() - 0.5) * 0.5, ang: 0, angL: 0})); }
         j.boost = Math.max(0, j.boost - dt * 0.6); j.push = Math.max(0, j.push - dt * 0.8);
       });
+      if (born.length) J = J.concat(born);
+      J = J.filter(function (j) { return j.y > -j.r * 4.2; });
+      order = J.slice().sort(function (p, q) { return p.r - q.r; });
       turtles.forEach(function (T) { var u = (t - T.t0) / T.dur, p = tpos(T, u), q = tpos(T, u + 0.01); T.x = p[0]; T.y = p[1]; T.ang = Math.atan2(q[1] - p[1], q[0] - p[0]);
         J.forEach(function (j) { var d = Math.hypot(j.x - T.x, j.y - T.y); if (d < (ph ? 110 : 150)) { j.boost = Math.min(1, j.boost + dt * 3); j.push = Math.min(1, j.push + dt * 2); } });
         if (Math.random() < dt * 3) bubbles.push({x: T.x + Math.cos(T.ang) * 40, y: T.y + Math.sin(T.ang) * 40, r: 1.5 + Math.random() * 2.5, t0: t}); });
