@@ -9,7 +9,7 @@ const IDS = ["courses", "work", "review", "times", "prep", "week"];
 const stepName = id => ({
   courses: tr("sem.step.courses", "Courses"), work: tr("sem.step.work", "Your work"), review: tr("sem.step.review", "Review"),
   times: tr("sem.step.times", "Times"), prep: tr("sem.step.prep", "Prep"), week: tr("sem.step.week", "Your week")})[id] || id;
-const R = {away: false, before: null, queue: [], qTotal: 0, scope: "new", msg: "", removed: [], showAll: false};
+const R = {away: false, before: null, queue: [], qTotal: 0, scope: "new", msg: "", removed: [], showAll: false, since: null, solo: false};
 const ico = d => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const CHECK = ico('<path d="M5 12.5l4.5 4.5L19 7.5"/>');
 const isEmpty = () => !allTasks().length;
@@ -20,7 +20,7 @@ const keyOf = t => String(t.title).toLowerCase().replace(/\W+/g, "") + "|" + t.d
 
 /* What this run found */
 function found(){
-  const since = Number(M.since) || 0;
+  const since = R.since != null ? R.since : Number(M.since) || 0;
   let L = tasksArr().filter(mine);
   L = R.scope === "all" ? L.filter(t => t.status !== "done") : L.filter(t => (Number(t.created) || 0) >= since);
   return L.sort(sortTasks);
@@ -54,6 +54,7 @@ function stepper(){
     }).join("")}</ol></div>`;
 }
 function foot(){
+  if (R.solo) return `<div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-sem="solo-done">${esc(tr("sem.solo.done", "Done"))}</button></div>`;
   const i = stepIdx(), last = i === IDS.length - 1;
   if (last) return `<div class="sheet-foot"><button type="button" class="btn" data-sem="back">${esc(tr("sem.back", "Back"))}</button><span class="spacer"></span>
     <button type="button" class="btn" data-sem="finish" data-id="crunch">${esc(tr("sem.week.crunch", "See Crunch Forecast"))}</button>
@@ -64,8 +65,8 @@ function foot(){
 }
 function paint(keep, focusHead, say){
   const main = dlg.querySelector(".sem-sheet .sem-main"); if (!main) return;
-  const old = main.querySelector(".sem-body"), top = old ? old.scrollTop : 0, id = IDS[stepIdx()];
-  main.innerHTML = head(tr("sem.title", "Set Up Your Semester")) + stepper() + `<div class="sheet-body sem-body">${VIEW[id]()}</div>` + foot();
+  const old = main.querySelector(".sem-body"), top = old ? old.scrollTop : 0, id = R.solo ? "review" : IDS[stepIdx()];
+  main.innerHTML = head(R.solo ? tr("sem.solo.title", "Check What We Found") : tr("sem.title", "Set Up Your Semester")) + (R.solo ? "" : stepper()) + `<div class="sheet-body sem-body">${VIEW[id]()}</div>` + foot();
   const b = main.querySelector(".sem-body"); if (keep && b) b.scrollTop = top;
   if (focusHead) { const h = $("#semH"); if (h) try { h.focus({preventScroll: true}); } catch (e) { } }
   if (say) announce(say === true ? tr("sem.live.step", "Step {i} of {n}: {name}", {i: stepIdx() + 1, n: IDS.length, name: stepName(id)}) : say);
@@ -74,10 +75,10 @@ function open(o){
   o = o || {};
   if (window.SBTOUR && SBTOUR.active()) return false;
   const fresh = !M.since || M.fin || !IDS.includes(M.step) || Date.now() - Number(M.since) > 45 * 864e5;
-  // From the welcome setup, which just asked for courses
-  const had = o.from === "tour" && coursesArr().length > 0;
+  // Courses are already there (from the welcome setup, or added by hand), so start at bringing in work
+  const had = coursesArr().length > 0;
   if (fresh || o.restart) save({since: Date.now(), step: had ? "work" : "courses", done: had ? {courses: true} : {}, skip: {}, fin: 0, from: o.from || ""});
-  R.scope = "new"; R.msg = ""; R.removed = []; R.queue = []; R.qTotal = 0; R.away = false; R.showAll = false;
+  R.scope = "new"; R.msg = ""; R.removed = []; R.queue = []; R.qTotal = 0; R.away = false; R.showAll = false; R.since = null; R.solo = false;
   openSheet(shell());
   paint(false, true, tr("sem.live.open", "Set up your semester. Step {i} of {n}. Every step can be skipped.", {i: stepIdx() + 1, n: IDS.length}));
   return true;
@@ -116,7 +117,7 @@ function back(){
     : tr("sem.back.none", "Nothing was added. That is okay, you can try another way.");
   openSheet(shell()); paint(false, true, R.msg);
 }
-dlg.addEventListener("close", () => { if (R.away) setTimeout(back, 250); });
+dlg.addEventListener("close", () => { if (R.solo) { R.solo = false; R.since = null; } if (R.away) setTimeout(back, 250); });
 
 /* Step 1: courses */
 function vCourses(){
@@ -356,7 +357,8 @@ dlg.addEventListener("click", e => {
   const b = e.target.closest("[data-sem]"); if (!b || !b.closest(".sem-sheet")) return;
   e.preventDefault(); e.stopPropagation();
   const a = b.dataset.sem, id = b.dataset.id, i = stepIdx();
-  if (IDS[i] === "courses" && (a === "goto" || a === "next")) addCourse(true);
+  if (a === "solo-done") { R.solo = false; R.since = null; dlg.close(); return; }
+  if (!R.solo && IDS[i] === "courses" && (a === "goto" || a === "next")) addCourse(true);
   switch (a) {
     case "goto": go(id); break;
     case "back": if (i > 0) go(IDS[i - 1]); break;
@@ -408,7 +410,9 @@ dlg.addEventListener("keydown", e => {
 hook("changed", () => { if (!dlg.open) return; const t = $("#semTally"); if (t) t.textContent = tallyText(); });
 
 /* Entry points */
-const cardDue = () => isEmpty() && !M.hide && !(window.SBOB && SBOB.pending());
+// Not right after the welcome setup (finished or skipped), and not once this setup was finished
+const obRecent = () => { try { return Date.now() - (Number(localStorage.getItem("sb:onboarded:at")) || 0) < 3 * 864e5; } catch (e) { return false; } };
+const cardDue = () => isEmpty() && !M.hide && !M.fin && !obRecent() && !(window.SBOB && SBOB.pending());
 hook("render", tab => {
   // Not while the first sign-in or the welcome setup is still to come
   if (tab !== "board" || !cardDue()) return;
@@ -432,17 +436,24 @@ window.SBSEM = {
   cardDue,
   found: () => found().map(t => t.id),
   state: () => Object.assign({}, M),
-  // For the welcome setup's last page
-  tourButton: () => isEmpty() ? `<button type="button" class="btn ob-big" data-ob="semester">${esc(tr("sem.tour.btn", "Set Up My Semester"))}</button><span class="mini">${esc(tr("sem.tour.s", "Syllabi, school site or calendar in about two minutes. Skip anything."))}</span>` : "",
-  // After the app tour
-  afterTour(){
-    if (!isEmpty() || M.hide || M.tourOffer || M.fin) return;
-    save({tourOffer: Date.now()});
-    setTimeout(() => { if (isEmpty() && !dlg.open) toast(tr("sem.tour.toast", "Ready to bring in your classes?"), null, {label: tr("sem.tour.toast.b", "Set Up My Semester"), fn: () => open({from: "tour"})}); }, 600);
+  // For the welcome setup's courses step: the review list on its own, for what was added since a time
+  review(since){
+    if (window.SBTOUR && SBTOUR.active()) return false;
+    R.scope = "new"; R.msg = ""; R.removed = []; R.showAll = false; R.away = false; R.since = Number(since) || 0; R.solo = true;
+    openSheet(shell()); paint(false, true, tr("sem.solo.live", "Check what we found. Changes save as you go."));
+    return true;
   },
+  // Suggested times for what was added since a time (the welcome setup's Finish)
+  suggestTimes(since){
+    const L = tasksArr().filter(t => mine(t) && (Number(t.created) || 0) >= (Number(since) || 0) && SBEST.needs(t));
+    if (L.length) applyChanges(L.map(t => { const n = clone(t); n.hours = suggestH(t); return {kind: "task", id: t.id, after: n}; }), "");
+    return L.length;
+  },
+  // Due in the next 7 days, for the welcome setup's last page
+  soon(){ const t0 = todayISO(), lim = addDays(t0, 7); return tasksArr().filter(t => mine(t) && t.status !== "done" && t.due && t.due >= t0 && t.due <= lim).sort(sortTasks); },
   // The study companion mentions it once, only to someone with an empty planner
   offer(){
-    if (M.offered || M.fin || M.hide || !isEmpty() || dlg.open) return null;
+    if (M.offered || M.fin || M.hide || !isEmpty() || dlg.open || obRecent()) return null;
     return {text: tr("sem.comp", "Want a head start? I can help you bring in your syllabi and plan your first week."), action: "semester", yes: tr("sem.comp.yes", "Set Up"), local: true};
   },
   offered(){ save({offered: Date.now()}); },

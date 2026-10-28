@@ -129,7 +129,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       const seed = {v: 2, courses: [{id: "c1", name: "Chem", code: "CHE101", color: "#3B6FE0"}], settings: {dailyHours: 3}, updated: 1, tasks: [{id: "t1", title: "Lab 1", courseId: "c1", type: "Lab", due: addD(5), start: addD(1), hours: 2, status: "todo", priority: "med", created: Date.now() - 864e5}]};
       const ctx = await mkCtx({seed}); const page = await open(ctx);
       ok(await page.locator(".sem-card-b").count() === 0, "no first-run card for someone who already has tasks");
-      ok(await page.evaluate(() => SBSEM.offer()) === null && await page.evaluate(() => SBSEM.tourButton()) === "", "no companion offer and no welcome-setup button for existing data");
+      ok(await page.evaluate(() => SBSEM.offer()) === null, "no companion offer for existing data");
       await page.evaluate(() => document.querySelector('nav.tabs [data-act="menu"], header.top [data-act="menu"]').click());
       await page.waitForSelector("#dlg");
       ok(await page.locator('#dlg [data-act="sem-open"]').count() >= 1, "Settings has the Set Up Your Semester row");
@@ -209,12 +209,14 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await c2.addInitScript(() => { try { localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); } catch (e) {} });
       const p2 = await c2.newPage(); p2.errs = []; p2.on("pageerror", e => p2.errs.push(e.message)); await p2.goto(base);
       await p2.waitForSelector(".sheet.ob", {timeout: 8000});
-      for (let i = 0; i < 12 && !(await p2.locator('[data-ob="semester"]').count()); i++) { await p2.click('[data-ob="next"]'); await p2.waitForTimeout(150); }
-      await p2.waitForSelector('[data-ob="semester"]');
-      await p2.click('[data-ob="semester"]');
-      await p2.waitForSelector(".sem-sheet .sem-h");
-      ok(true, "the welcome setup's last page opens the semester flow");
-      ok(p2.errs.length === 0, "no errors from the welcome setup handoff " + JSON.stringify(p2.errs.slice(0, 3)));
+      ok(await p2.locator('.sheet.ob [data-ob="pdf"]').count() === 0 && await p2.getAttribute(".sheet.ob", "data-step") === "area", "the welcome setup starts at What Do You Study (Mochi already said hello)");
+      await p2.click('[data-ob="next"]'); await p2.waitForTimeout(150);
+      ok(await p2.locator('.sheet.ob [data-ob="pdf"]').count() === 1 && await p2.locator('.sheet.ob [data-ob="lms"]').count() === 1, "its courses step brings in syllabi and the school site (the semester setup's work step)");
+      for (let i = 0; i < 6 && (await p2.getAttribute(".sheet.ob", "data-step")) !== "done"; i++) { await p2.click('[data-ob="next"]'); await p2.waitForTimeout(150); }
+      ok(await p2.locator('[data-ob="semester"]').count() === 0, "the last page doesn't open a second setup");
+      await p2.click(".sheet.ob .ob-go"); await p2.waitForTimeout(500);
+      ok(await p2.locator(".sem-card-b").count() === 0, "and the Board has no semester card right after it");
+      ok(p2.errs.length === 0, "no errors in the welcome setup " + JSON.stringify(p2.errs.slice(0, 3)));
       await c2.close();
     }
   } finally { await browser.close(); server.close(); }
