@@ -8635,7 +8635,7 @@ function n2_trainGeo(W, H) {
     {ph: ph, S: 1, x0: W * 0.17, x1: W * 0.81, y0: H * 0.235, y1: H * 0.6, r: 38, fr: 26, ceil: H * 0.062, rack: H * 0.13, tbl: [W * 0.25, W * 0.74], fl: H * 0.93,
       seat: {m: W * 0.012}, lampX: W * 0.68, lights: [W * 0.2, W * 0.5, W * 0.8],
       cases: [[W * 0.015, 118, 54, 0], [W * 0.13, 74, 38, 1], [W * 0.21, 50, 50, 3], [W * 0.7, 92, 44, 2], [W * 0.8, 128, 60, 0]]};
-  var st = g.seat; st.P = ph ? 150 : 165; st.by = g.fl - 8 * g.S; st.reach = st.m + (N2_SEAT.kx * N2_SEAT.Wd + N2_SEAT.kf * st.P + 4) * g.S; st.bf = st.m + 92 * g.S; st.top = st.by - 430 * g.S;
+  var st = g.seat; st.P = ph ? 150 : 165; st.by = g.fl + (N2_SEAT.ky * N2_SEAT.Wd + 3) * g.S; /* the wall-side feet stand on the floor line, the near ones further out on the floor */ st.reach = st.m + (N2_SEAT.kx * N2_SEAT.Wd + N2_SEAT.kf * st.P + 4) * g.S; st.bf = st.m + 92 * g.S; st.top = st.by - 430 * g.S;
   g.ty = g.y1 + g.fr + 14 * g.S; g.wain = g.y1 + g.fr + 6 * g.S; g.lamp = [g.lampX, g.ty];
   return g;
 }
