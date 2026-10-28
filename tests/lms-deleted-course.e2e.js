@@ -17,7 +17,7 @@ const SEED = {v: 2, updated: 1, tasks: [], courses: [{id: "c10", created: 1, nam
 const course = (ou, code, name, quiz) => ({ou, code, name, folders: [], grades: [], news: [], discussions: [], staff: [], events: [],
   quizzes: [{id: "q" + ou, name: quiz, due: iso(5), start: iso(4), end: null, done: false}], marks: []});
 const H = () => ({ok: true, origin: "https://learn.example.edu", me: {name: "Ana"}, all: [], errors: [], items: [], completions: [], courses: [
-  course("10", "BSNC1020", "BSNC-1020-0 - Context of Nursing", "Quiz 3"),
+  Object.assign(course("10", "BSNC1020", "BSNC-1020-0 - Context of Nursing", "Quiz 3"), {events: [{id: "ev1", ou: "10", title: "Lecture", text: "", start: iso(2), end: iso(2.04), allDay: false, where: "Room 5", assoc: false, kind: "", eid: "", url: ""}]}),
   course("30", "", "Safer Campuses for Everyone", "Module 1 Check"),
   course("40", "COMM1116", "Business Communication", "Quiz 1")]});
 
@@ -70,6 +70,19 @@ const H = () => ({ok: true, origin: "https://learn.example.edu", me: {name: "Ana
     await page.evaluate(() => { const d = document.querySelector("#dlg"); if (d && d.open) d.close(); });
     await sync(); s = await look();
     ok(s.courses.includes("Safer Campuses for Everyone") && s.tasks.some(t => /Module 1 Check@Safer Campuses/.test(t)) && !s.gone["30"], "choosing New Course brings it back: " + JSON.stringify(s.courses));
+    // A copy deleted while you keep the course itself: the school course goes to the one you kept, so its classes keep syncing
+    await page.evaluate(() => { SBLMS.applyChanges([{kind: "course", id: "c10b", after: {id: "c10b", created: 2, name: "Context of Nursing (copy)", code: "BSNC 1020", color: "#111111", links: [], meetings: []}}], "");
+      SBLMS.brightspace.save({map: Object.assign({}, SBLMS.brightspace.cfg().map, {"10": "c10b"})}); });
+    await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "delete-course"; b.dataset.id = "c10b"; document.body.appendChild(b); b.click(); b.remove(); });
+    await page.waitForTimeout(300);
+    await page.locator("dialog[open] button", {hasText: "Delete Course"}).last().click(); await page.waitForTimeout(400);
+    s = await look();
+    ok(s.map["10"] === "c10" && !s.gone["10"], "deleting a copy points the school course at the course you kept: " + JSON.stringify({map: s.map, gone: s.gone}));
+    // Left off by an older version (copy deleted, school course set to Don't Import): the next sync goes to the course you kept
+    await page.evaluate(() => { const c = SBLMS.brightspace.cfg(); SBLMS.brightspace.save({map: Object.assign({}, c.map, {"10": "skip"}), goneCourses: Object.assign({}, c.goneCourses, {"10": "c10b"})}); });
+    await sync(); s = await look();
+    const evs = await page.evaluate(() => Object.values(SBLMS.st().events || {}).map(e => e.title + "@" + e.courseId));
+    ok(s.map["10"] === "c10" && !s.gone["10"] && evs.includes("Lecture@c10"), "a course left off that way syncs again, classes included: " + JSON.stringify({map: s.map, evs}));
     ok(!errs.length, "no page errors: " + errs.join(" | "));
   } finally { await browser.close(); server.close(); }
   console.log(`\nlms-deleted-course.e2e: ${n} checks passed`);

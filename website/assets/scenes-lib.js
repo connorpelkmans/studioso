@@ -363,8 +363,10 @@ SCENES.arctic = function (W, H, dk, rnd) {
     cuts.forEach(function (c) { if (c[0] > x) d += rect(x, y, c[0] - x, h); x = Math.max(x, c[1]); }); if (wr > x) d += rect(x, y, wr - x, h); return d; }
   for (var lg = 1; lg < 6; lg++) seams += gapSeg(wt + chh * lg / 6 - 0.6, 1.2);
   for (lg = 0; lg < 6; lg++) { var ly = wt + chh * (lg + 0.5) / 6; ends += b2_ellA(wl - 0.5, ly, chh / 12 + 0.6, chh / 12) + b2_ellA(wr + 0.5, ly, chh / 12 + 0.6, chh / 12); }
-  var gable = b2_polyA([[wl + 2, wt + 0.5], [cx, ry + 3], [wr - 2, wt + 0.5]]);
-  for (lg = 1; lg < 3; lg++) { var gy = wt - (wt - ry) * lg / 3.2, gw = (cw / 2 - 2) * (1 - lg / 3.2); seams += rect(cx - gw, gy, gw * 2, 1.1); }
+  // the gable fills right up under the eave's lower edge, so the roof sits on the walls with no sky between
+  var eTop = ry + 5 * u, eBot = wt + 3 + 4 * u, ehw = function (y) { return Math.min(cw / 2, cw * 0.68 * (y - eTop) / (eBot - eTop)); };
+  var gable = b2_polyA([[wl, wt + 0.5], [wl, eTop + (eBot - eTop) * (cw / 2) / (cw * 0.68) - 1], [cx, eTop - 1], [wr, eTop + (eBot - eTop) * (cw / 2) / (cw * 0.68) - 1], [wr, wt + 0.5]]);
+  for (lg = 1; lg < 4; lg++) { var gy = wt - (wt - eTop) * lg / 4, gw = ehw(gy) - 1; if (gw > 2) seams += rect(cx - gw, gy, gw * 2, 1.1); }
   win.forEach(function (r) { var b = 1.6 * u + 0.6; frames += rect(r[0] - b, r[1] - b, r[2] + 2 * b, b) + rect(r[0] - b, r[1] + r[3], r[2] + 2 * b, b * 1.4) + rect(r[0] - b, r[1], b, r[3]) + rect(r[0] + r[2], r[1], b, r[3]) + rect(r[0] + r[2] / 2 - 0.6, r[1], 1.2, r[3]) + rect(r[0], r[1] + r[3] / 2 - 0.6, r[2], 1.2);
     snow += b2_ellA(r[0] + r[2] / 2, r[1] + r[3] + b * 1.2, r[2] / 2 + b * 0.6, 0.9 * u + 0.3); });
   var aw = cw * 0.1, ah = chh * 0.24, ax = cx - aw / 2, ay = wt - (wt - ry) * 0.42 - ah / 2; glass += rect(ax, ay, aw, ah); frames += rect(ax - 1.4, ay - 1.4, aw + 2.8, 1.4) + rect(ax - 1.4, ay + ah, aw + 2.8, 1.4) + rect(ax - 1.4, ay, 1.4, ah) + rect(ax + aw, ay, 1.4, ah);
@@ -1859,7 +1861,7 @@ SCENES.xmas = function (W, H, dk, rnd) {
     var chx = x0 + w * 0.68, cht = y0 - rh * 0.78 - 8;
     roof += R4(chx, cht, 14, y0 - cht) + R4(chx - 2, cht - 4, 18, 5);
     snow += b2_polyA([[chx - 3, cht - 3], [chx - 1, cht - 8], [chx + 7, cht - 10], [chx + 15, cht - 8], [chx + 17, cht - 3]]);
-    for (q = 0; q < 4; q++) smoke += circ(chx + 7 + Math.sin(q * 1.3 + i) * 5 + q * 3, cht - 14 - q * 13, 5 + q * 2.2);
+    if (ANIM) (ANIM.chim = ANIM.chim || []).push([chx + 7, cht - 3]); else for (q = 0; q < 4; q++) smoke += circ(chx + 7 + Math.sin(q * 1.3 + i) * 5 + q * 3, cht - 14 - q * 13, 5 + q * 2.2);
     var sn = [[L0 - 3, ey + 2], [apx, y0 - rh - 8], [R0 + 3, ey + 2]];
     for (q = 0; q <= 12; q++) { u = q / 12; sn.push([R0 + 2 - u * (R0 + 2 - apx), ey + 2 - u * (ey + 2 - (y0 - rh)) + 4 + Math.abs(Math.sin(u * 9 + i)) * 4]); }
     for (q = 1; q <= 12; q++) { u = q / 12; sn.push([apx - u * (apx - L0 + 2), (y0 - rh) + u * (ey + 2 - (y0 - rh)) + 4 + Math.abs(Math.sin(u * 7 + i * 2)) * 4]); }
@@ -1961,9 +1963,9 @@ SCENES.xmas = function (W, H, dk, rnd) {
     for (q = 0; q < 7; q++) { var bx = sx - 33 + q * 11, by = sy2 + 4 + Math.sin(q * 1.7) * 8, d = b2_ellA(bx, by, 2.4, 3); if (ANIM) ANIM.bulbs.push({x: bx, y: by, c: [0, 2, 3][q % 3], sw: 0.6}); if (q % 3 === 0) bD += d; else if (q % 3 === 1) bE += d; else bF += d; gHi += b2_ellA(bx - 0.8, by - 1, 0.6, 1.1); } });
 
   // strings of bulbs across the top: sockets on a sagging wire, bulbs with a pointed tip and a glint
-  var swY = ph ? H * 0.43 : H * 0.05, swDrop = ph ? 40 : 70, nS = ph ? 2 : 3, wire = '', strB = ['', '', ''], sgl = ['', '', ''], sock = '';
+  var swY = ph ? H * 0.43 : -2, swDrop = ph ? 40 : 70, nS = ph ? 2 : 3, wire = '', strB = ['', '', ''], sgl = ['', '', ''], sock = '';
   if (ph) { swY = TT[0].top + 20; swDrop = 26; }
-  for (var sI = 0; sI < nS; sI++) { var x0s = -20 + sI * (W + 40) / nS, x1s = -20 + (sI + 1) * (W + 40) / nS, y0s = swY, y1s = swY;
+  for (var sI = 0; sI < nS; sI++) { var sh0 = ph ? 0 : 16, x0s = -20 + sh0 + sI * (W + 40) / nS, x1s = -20 + sh0 + (sI + 1) * (W + 40) / nS, y0s = swY, y1s = swY;
     if (ph) { var ay = TT[0].top + 38, ah = halfAt(ay) - 3; if (sI === 0) { x1s = tx - ah; y1s = ay; } else { x0s = tx + ah; y0s = ay; } }
     var pts2 = b4_qpts(x0s, y0s, (x0s + x1s) / 2, (y0s + y1s) / 2 + swDrop * 2, x1s, y1s, 20); wire += pline(pts2);
     for (var q2 = 1; q2 < 20; q2 += 2) { var p2 = pts2[q2], ci = (q2 + sI) % 3, sbx = p2[0], sby = p2[1] + 7;
@@ -3743,7 +3745,8 @@ SCENES.halloween = function (W, H, dk, rnd) {
   function pumpkin(x, y, r, kind, face, leafy) { var Rx = r * 1.08, Ry = r * 0.86, cy = y - Ry, L = PK_LOBES[r < 30 ? 'small' : 'big'], B = L.b, nL = B.length - 1;
     // tone ramp: groove, shade, mid, lit, bright
     var tone = kind === 'ghost' ? ['ghostG', 'ghostS', 'ghostM', 'ghost', 'ghost'] : ['rib', 'pkB', 'pkM', 'pkF', 'pkH'];
-    S.sh += b2_ellA(x + r * 0.12, y, r * 1.2, r * 0.2);
+    // a tight contact shadow where the pumpkin sits; a lit jack-o'-lantern's shadow is drawn live in the engine so it reacts to the flicker
+    if (!(ANIM && face)) S.sh += b2_ellA(x, y - r * 0.02, r * 1.02, r * 0.12);
     function lobeOf(s) { for (var i = 0; i < nL - 1 && s > B[i + 1]; i++); return i; }
     function gw(v) { v = Math.max(-1, Math.min(1, v)); return v < 0 ? 0.2 + 0.8 * Math.pow(Math.max(0, 1 - Math.pow(-v, 2.2)), 1 / 2.2) : 0.32 + 0.68 * Math.pow(Math.max(0, 1 - Math.pow(v, 2.6)), 1 / 2.6); }
     // body point for lobe coordinate s (-1 left edge .. 1 right edge) and height v (-1 top .. 1 bottom): lobes hump up at the shoulders, dip at the stem
@@ -3991,7 +3994,9 @@ SCENES.thanksgiving = function (W, H, dk, rnd) {
   add(bg, 'g', tSh, dk ? 'rgba(30,10,6,0.35)' : 'rgba(120,50,20,0.22)'); add(bg, 'h', tHi, dk ? 'rgba(255,200,140,0.1)' : 'rgba(255,240,200,0.28)');
   // the red barn with a gambrel roof, white trim, an X-braced door and a glowing hayloft, and a silo beside it
   var bi = Math.round((bx + 60) / 10), byb = hA[bi][1] + 6, sxL = bx - bw * 0.74, sw2 = bw * 0.28, sH = bh * 1.5;
-  add(bg, 'i', RR(sxL - sw2 / 2, byb - sH, sw2, sH), dk ? '#4E4448' : '#B8AEA6');
+  // the silo stands on the hill under its own footprint (the lowest point it covers), sunk in a little so it never floats
+  var sGround = function (x) { return hA[Math.max(0, Math.min(hA.length - 1, Math.round((x + 60) / 10)))][1]; }, syb = Math.max(sGround(sxL - sw2 / 2), sGround(sxL), sGround(sxL + sw2 / 2)) + 6, sTop = byb - sH;
+  add(bg, 'i', RR(sxL - sw2 / 2, sTop, sw2, syb - sTop), dk ? '#4E4448' : '#B8AEA6');
   var dome = []; for (var di = 0; di <= 12; di++) { var da = Math.PI + di / 12 * Math.PI; dome.push([sxL + Math.cos(da) * sw2 * 0.56, byb - sH + Math.sin(da) * sw2 * 0.5]); }
   var roofL = [[bx - bw / 2 - 2, byb - bh + 1], [bx - bw * 0.42, byb - bh - bw * 0.27], [bx, byb - bh - bw * 0.44], [bx + bw * 0.42, byb - bh - bw * 0.27], [bx + bw / 2 + 2, byb - bh + 1]], rt = bw * 0.08;
   add(bg, 'j', b2_polyA(dome) + b2_polyA(roofL.concat(roofL.slice().reverse().map(function (q) { return [q[0], q[1] + rt]; }))), dk ? '#3A2626' : '#6E4A42');
@@ -4957,13 +4962,13 @@ function m1_capPts(L, w, cx, cy) { var p = [], i, a; for (i = 0; i <= 7; i++) { 
 function m1_tube(cl, w) { var L = [], R = [], n = cl.length; for (var i = 0; i < n; i++) { var a = cl[Math.max(0, i - 1)], b = cl[Math.min(n - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], m = Math.hypot(dx, dy) || 1, k = w / 2 * Math.sqrt(Math.sin(Math.PI * (0.08 + 0.84 * i / (n - 1)))); L.push([cl[i][0] - dy / m * k, cl[i][1] + dx / m * k]); R.unshift([cl[i][0] + dy / m * k, cl[i][1] - dx / m * k]); } return L.concat(R); }
 function m1_microbe(kind, u, seed) {
   var R = SR(seed), P = {b: [], l: [], d: [], w: []}, i, a;
-  if (kind === 'bacillus' || kind === 'divide') {
+  if (kind === 'bacillus') {
     var L = u * 2.4, w = u * 0.9;
-    if (kind === 'bacillus') P.b.push(m1_capPts(L, w)); else { P.b.push(m1_capPts(L * 0.56, w, -L * 0.24, 0)); P.b.push(m1_capPts(L * 0.56, w, L * 0.24, 0)); P.l.push([[0, -w * 0.32], [0, w * 0.32]]); }
+    P.b.push(m1_capPts(L, w));
     for (i = 0; i < 3; i++) P.d.push([(R() - 0.5) * L * 0.55, (R() - 0.5) * w * 0.35, u * 0.07]);
     var pr = m1_ring((R() - 0.5) * L * 0.3, 0, u * 0.18, u * 0.12, 10); pr.push(pr[0]); P.l.push(pr);
     for (i = 0; i < 12; i++) { var t = i / 12, x = -L / 2 + w / 2 + t * (L - w), sd = i % 2 ? 1 : -1; P.l.push([[x, sd * w / 2], [x + (R() - 0.5) * u * 0.2, sd * (w / 2 + u * 0.22)]]); }
-    P.w.push([L / 2, 0, 0, u * 2.2, u * 0.22]); if (kind === 'divide') P.w.push([-L / 2, 0, Math.PI, u * 1.8, u * 0.2]);
+    P.w.push([L / 2, 0, 0, u * 2.2, u * 0.22]);
   } else if (kind === 'strep') { for (i = 0; i < 5; i++) { a = (i - 2) * 0.3; P.b.push(m1_ring(Math.sin(a) * u * 3.2, (1 - Math.cos(a)) * u * 3.2 - u * 0.4, u * 0.55, u * 0.52, 14)); } }
   else if (kind === 'staph') { [[0, 0], [1, 0], [0.5, -0.86], [-0.5, -0.86], [-1, 0], [-0.5, 0.86], [0.5, 0.86], [1.5, -0.86]].forEach(function (q) { P.b.push(m1_ring(q[0] * u * 0.95, q[1] * u * 0.95, u * 0.55, u * 0.55, 14)); }); }
   else if (kind === 'spirillum') { var cl = []; for (i = 0; i <= 26; i++) { var tt = i / 26; cl.push([(tt - 0.5) * u * 4.6, Math.sin(tt * Math.PI * 3) * u * 0.55]); } P.b.push(m1_tube(cl, u * 0.55)); P.w.push([cl[26][0], cl[26][1], 0.3, u * 1.6, u * 0.18], [cl[26][0], cl[26][1], -0.3, u * 1.5, u * 0.18], [cl[0][0], cl[0][1], Math.PI + 0.3, u * 1.5, u * 0.18]); }
@@ -4989,7 +4994,7 @@ function m1_thick(pts, w, closed) { var d = '', n = pts.length, m = closed ? n :
 function m1_microC(dk) { var H = ['92,242,196', '255,110,199', '184,140,255', '255,214,106', '110,200,255', '255,150,110'];
   return dk ? H.map(function (h) { return {f: 'rgba(' + h + ',0.13)', s: 'rgba(' + h + ',0.92)', s2: 'rgba(' + h + ',0.5)'}; })
     : [['rgba(176,240,208,0.6)', 'rgba(52,170,126,0.9)'], ['rgba(255,190,212,0.6)', 'rgba(226,96,146,0.9)'], ['rgba(212,194,255,0.6)', 'rgba(130,92,214,0.9)'], ['rgba(255,236,150,0.66)', 'rgba(210,150,24,0.9)'], ['rgba(190,222,255,0.6)', 'rgba(70,140,214,0.9)'], ['rgba(255,208,176,0.6)', 'rgba(228,122,74,0.9)']].map(function (q) { return {f: q[0], s: q[1], s2: q[1].replace('0.9)', '0.55)')}; }); }
-var M1_MICROBES = ['bacillus', 'bacillus', 'divide', 'strep', 'staph', 'spirillum', 'vibrio', 'phage', 'phage', 'corona', 'adeno', 'tmv', 'filo'];
+var M1_MICROBES = ['bacillus', 'bacillus', 'bacillus', 'strep', 'staph', 'spirillum', 'vibrio', 'phage', 'phage', 'corona', 'adeno', 'tmv', 'filo'];
 SCENES.biology = function (W, H, dk, rnd) {
   var ph = H > W, far = Lay(5), mid = Lay(0.8), near = Lay(16), BC = m1_bioC(dk), cx = W / 2, cy = H * 0.47;
   var sky = dk ? 'radial-gradient(' + (ph ? '80% 60%' : '70% 74%') + ' at 50% 47%,#1E2E72 0%,#141E52 48%,#0C1238 78%,#070A20 100%)' : 'radial-gradient(' + (ph ? '80% 60%' : '70% 74%') + ' at 50% 47%,#FFFEF6 0%,#FEF2EE 46%,#F6E2EC 76%,#E4D0E6 100%)';
@@ -7317,7 +7322,7 @@ SCENES.rainforest = function (W, H, dk, rnd) {
     ANIM.fall = {x: wx, top: lipY, bot: cB, w: ww}; ANIM.fall2 = {x: f2x, top: f2t, bot: cB - H * 0.01, w: f2w}; ANIM.moon = [mx, my, mr]; ANIM.S = S * (ph ? 0.85 : 1);
     var perch = []; [[B1.top, 0.2, 0.8], [B2.top, 0.35, 0.92]].forEach(function (q, bi) { for (var j = 0; j < 4; j++) { var p = q[0][Math.floor((q[0].length - 1) * (q[1] + (q[2] - q[1]) * j / 3))]; perch.push({x: p[0], y: p[1] + 2, b: bi}); } }); ANIM.perch = perch;
     ANIM.frogs = [B2.top[Math.floor((B2.top.length - 1) * 0.24)], B1.top[Math.floor((B1.top.length - 1) * 0.035)]].map(function (p) { return [p[0], p[1] + 3]; });
-    ANIM.occ = B1.body + moss1; ANIM.occL = {d: liana1, w: ph ? 3 : 4.5};
+    ANIM.occ = B1.body + moss1 + row2 + rect(-60, y2 + 10, W + 120, H) + trunks + crowns + row3 + rect(-60, y3 + 20, W + 120, H); ANIM.occL = {d: liana1, w: ph ? 3 : 4.5};
     ANIM.vines = []; for (i = 0; i < (ph ? 4 : 7); i++) ANIM.vines.push({x: W * (ph ? 0.18 + i * 0.22 : 0.3 + i * 0.075) + (rnd() - 0.5) * 20, L: H * (0.18 + rnd() * 0.22), ph: rnd() * 6.28});
     ANIM.mush = mushSpots;
   } else {
@@ -8633,7 +8638,7 @@ function n2_trainGeo(W, H) {
     {ph: ph, S: 1, x0: W * 0.17, x1: W * 0.81, y0: H * 0.235, y1: H * 0.6, r: 38, fr: 26, ceil: H * 0.062, rack: H * 0.13, tbl: [W * 0.25, W * 0.74], fl: H * 0.93,
       seat: {m: W * 0.012}, lampX: W * 0.68, lights: [W * 0.2, W * 0.5, W * 0.8],
       cases: [[W * 0.015, 118, 54, 0], [W * 0.13, 74, 38, 1], [W * 0.21, 50, 50, 3], [W * 0.7, 92, 44, 2], [W * 0.8, 128, 60, 0]]};
-  var st = g.seat; st.P = ph ? 150 : 165; st.by = g.fl - 8 * g.S; st.reach = st.m + (N2_SEAT.kx * N2_SEAT.Wd + N2_SEAT.kf * st.P + 4) * g.S; st.bf = st.m + 92 * g.S; st.top = st.by - 430 * g.S;
+  var st = g.seat; st.P = ph ? 150 : 165; st.by = g.fl + (N2_SEAT.ky * N2_SEAT.Wd + 3) * g.S; /* the wall-side feet stand on the floor line, the near ones further out on the floor */ st.reach = st.m + (N2_SEAT.kx * N2_SEAT.Wd + N2_SEAT.kf * st.P + 4) * g.S; st.bf = st.m + 92 * g.S; st.top = st.by - 430 * g.S;
   g.ty = g.y1 + g.fr + 14 * g.S; g.wain = g.y1 + g.fr + 6 * g.S; g.lamp = [g.lampX, g.ty];
   return g;
 }
@@ -9008,8 +9013,8 @@ SCENES.greenhouse = function (W, H, dk, rnd) {
     }
   });
   (ph ? [[-1, 1.6, 0.3]] : [[-1, 1.55, 0.25], [1, 2.05, 0.3]]).forEach(function (q) { var sd = q[0], m = q[1], base = P(m, sd * -L + (sd * Ae - sd * -L) * q[2], B - hE), s = m * (ph ? 0.5 : 0.62), x = base[0], y = base[1], topY = H * (ph ? 0.14 : 0.1), th = y - topY;
-    var trunk = []; for (var i = 0; i <= 12; i++) { var t = i / 12; trunk.push([x + Math.sin(t * 2.4) * 14 * s * sd, y - th * t]); }
-    trunks += n3_tube(trunk, 14 * s, 9 * s); var tx = trunk[12][0], ty = trunk[12][1];
+    var trunk = []; y += 8 * s; th += 8 * s; for (var i = 0; i <= 12; i++) { var t = i / 12; trunk.push([x + Math.sin(t * 2.4) * 14 * s * sd, y - th * t]); }
+    trunks += n3_tube(trunk, 14 * s, 9 * s) + n3_E(x, y - 2 * s, 13 * s, 4 * s); /* sunk into the soil with a little root flare */ var tx = trunk[12][0], ty = trunk[12][1];
     for (var f = 0; f < 10; f++) { var ang = -180 + f * 20 + (rnd() - 0.5) * 8; n3_fernFrond(tx, ty, (96 + rnd() * 30) * s, ang, 11 * s, 0.45 + Math.abs(Math.cos(ang * Math.PI / 180)) * 0.35, Mo, f % 2 ? 'mid' : 'dark', f % 2 ? 'light' : 'mid'); }
     for (var k = 0; k < 5; k++) trunks += n3_RE(trunk[k * 2 + 1][0], trunk[k * 2 + 1][1], 8 * s, 2.6 * s, 0); });
   add(mid, 'a', Mo.dark, G.dark); add(mid, 'b', Mo.mid + Mo.stem, G.mid); add(mid, 'c', Mo.light, G.light); add(mid, 'd', Mo.yel, G.yel);
@@ -9023,7 +9028,7 @@ SCENES.greenhouse = function (W, H, dk, rnd) {
     if (Math.abs(fxx) < Ae * 0.3 && Math.abs(fm - (ph ? 2.5 : 2.6)) < 0.5) continue;
     if (lr() < 0.55) fallen += n3_P(flat(n3_leafPts(fp[0], fp[1], 9 * sz, 3 * sz, lr() * 360, 0.1), fp[1], 0.45));
     else for (var pq = 0; pq < 3; pq++) petals += n3_E(fp[0] + (lr() - 0.5) * 8 * sz, fp[1] + (lr() - 0.5) * 2 * sz, 2.2 * sz, 1 * sz); }
-  add(mid, 'e', Mo.acc1 + petals, G.acc1); add(mid, 'f', Mo.acc2, G.acc2); add(mid, 'p', trunks, dk ? '#4A3A2C' : '#A47A55'); add(mid, 'c', fallen);
+  add(mid, 'e', Mo.acc1 + petals, G.acc1); add(mid, 'f', Mo.acc2, G.acc2); add(refl, 'k', trunks, dk ? '#4A3A2C' : '#A47A55'); /* behind the bed's plants, so the ones in front hide its base */ add(mid, 'c', fallen);
   // hanging baskets, grow lamps and misting nozzles hang from the ribs
   var baskets = []; (ph ? [[1.72, -0.6], [1.3, 0.62], [1.72, 0.12]] : [[1.3, -0.46], [1.3, 0.56], [1.72, -0.74], [1.72, 0.28], [2.38, -0.16]]).forEach(function (q, j) { var m = q[0], a = arch(m, q[1]), s = m * (ph ? 0.6 : 0.8);
     baskets.push({x: a[0], y: Math.max(-12, a[1]), len: (30 + (j % 3) * 20) * s, s: s, k: j, m: m}); });
@@ -13597,9 +13602,11 @@ function rgba(hex, a) { var n = parseInt(hex.slice(1), 16); return 'rgba(' + (n 
         leaves.forEach(function (l) { l.y += l.vy * f.s * dt; l.x += (Math.sin(t * 0.9 + l.ph) * 18 + 6) * f.s * dt; l.a += l.va * f.s * dt; if (l.y > H + 20) { l.y = -20; l.x = Math.random() * W; } if (l.x > W + 20) l.x = -20; });
       },
       draw: function (ca, cb, t, f) {
-        // pools of lantern light on the ground, under the pumpkins
+        // each jack-o'-lantern: a contact shadow right under it, and the light from its carved face spilling forward
+        // onto the ground in front; as the flame flares the pool grows and washes out the front of the shadow
         lan.forEach(function (l, i) { var fk = flick(t * (0.55 + 0.45 * f.s), i * 2.1), k = (dk ? 0.85 : 0.45) * (0.6 + 0.5 * fk * f.a) + (i === flareIdx ? flare : 0);
-          ca.save(); ca.translate(l.x + l.r * 0.05, l.y + 3); ca.scale(1, 0.2); var g = ca.createRadialGradient(0, 0, 0, 0, 0, l.r * 1.9); g.addColorStop(0, 'rgba(255,160,70,' + (0.55 * k) + ')'); g.addColorStop(1, 'rgba(255,140,60,0)'); ca.fillStyle = g; ca.beginPath(); ca.arc(0, 0, l.r * 1.9, 0, 7); ca.fill(); ca.restore(); });
+          var rr = l.r * (1.5 + 0.12 * fk * f.a); ca.save(); ca.translate(l.x, l.y + l.r * 0.16); ca.scale(1, 0.24); var g = ca.createRadialGradient(0, 0, 0, 0, 0, rr); g.addColorStop(0, 'rgba(255,165,70,' + (0.6 * k) + ')'); g.addColorStop(0.5, 'rgba(255,145,60,' + (0.28 * k) + ')'); g.addColorStop(1, 'rgba(255,140,60,0)'); ca.fillStyle = g; ca.beginPath(); ca.arc(0, 0, rr, 0, 7); ca.fill(); ca.restore();
+          ca.save(); ca.translate(l.x, l.y + l.r * 0.02); ca.scale(1, 0.14); var gs = ca.createRadialGradient(0, 0, 0, 0, 0, l.r * 1.12); gs.addColorStop(0, dk ? 'rgba(0,0,0,0.55)' : 'rgba(60,30,60,0.32)'); gs.addColorStop(0.75, dk ? 'rgba(0,0,0,0.4)' : 'rgba(60,30,60,0.22)'); gs.addColorStop(1, 'rgba(0,0,0,0)'); ca.fillStyle = gs; ca.beginPath(); ca.arc(0, 0, l.r * 1.12, 0, 7); ca.fill(); ca.restore(); });
         bats.forEach(function (b) { var fl = Math.sin(t * b.fl * 1.7 * Math.max(0.6, f.s) + b.ph) * 0.17 * (0.6 + 0.4 * Math.sin(t * 0.9 + b.ph * 2.3)); ca.save(); ca.translate(b.x, b.y); ca.scale(b.dir, 1); var bt = hw_bat(0, 0, b.s, -6, fl);
           ca.fillStyle = A.batWing; ca.fill(new Path2D(bt.wing)); ca.fillStyle = A.batColor; ca.fill(new Path2D(bt.body)); ca.fillStyle = A.batEye; ca.fill(new Path2D(bt.eye)); ca.restore(); });
         cb.save(); cb.globalCompositeOperation = 'lighter';
@@ -13636,8 +13643,8 @@ function b1_tiles(cv, T) { var w = cv.width, h = cv.height, id = cv.getContext('
   for (y = 0; y < h; y++) for (x = 0; x < w; x++) if (id[(y * w + x) * 4 + 3] > 0) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; y1 = y; }
   if (x1 < 0) return [];
   var c = b1_scratch(x1 - x0 + 1, y1 - y0 + 1); c.getContext('2d').drawImage(cv, -x0, -y0); return [{cv: c, x: x0, y: y0}]; }
-// Whole pixels only: tiles drawn at fractional positions show faint seams between them
-function b1_blit(c, tiles, dx, dy) { dx = Math.round(dx); dy = Math.round(dy); for (var i = 0; i < tiles.length; i++) c.drawImage(tiles[i].cv, tiles[i].x + dx, tiles[i].y + dy); }
+// b1_tiles returns one cropped image, so it can move by fractions of a pixel without seams (smooth slow motion)
+function b1_blit(c, tiles, dx, dy) { for (var i = 0; i < tiles.length; i++) c.drawImage(tiles[i].cv, tiles[i].x + dx, tiles[i].y + dy); }
 function b1_scratch(w, h) { var cv = document.createElement('canvas'); cv.width = Math.max(1, Math.ceil(w)); cv.height = Math.max(1, Math.ceil(h)); return cv; }
 
 // 1. Ocean Waves
@@ -13960,7 +13967,11 @@ ENGINES.sunset = function (A, v, dk) {
       crabs.forEach(function (C) { drawCrab(cb, C, t); });
       if (fronds.length) { var d = b1_dpr(cb); if (!nuts || Math.abs(d - fd) > 0.01) buildFronds(d);
         var ox = Math.round((crown[0] - fR) * fd), oy = Math.round((crown[1] - fR) * fd); cb.save(); cb.setTransform(1, 0, 0, 1, 0, 0);
-        fronds.forEach(function (F) { var a = (Math.sin(t * 0.55 + F.ph) * 1.6 + Math.sin(t * 0.21 + F.ph * 1.7) * 1.1) * F.k * Math.PI / 180, m = a * F.len * 0.45 * fd; b1_blit(cb, F.t, ox - Math.sin(F.ang) * m, oy + Math.cos(F.ang) * m); });
+        // each frond swings about the crown (its base stays put), so nothing slides or jitters where they meet
+        var cxp = crown[0] * fd, cyp = crown[1] * fd;
+        fronds.forEach(function (F) { var a = (Math.sin(t * 0.55 + F.ph) * 1.6 + Math.sin(t * 0.21 + F.ph * 1.7) * 1.1) * F.k * Math.PI / 180;
+          cb.setTransform(Math.cos(a), Math.sin(a), -Math.sin(a), Math.cos(a), cxp, cyp); F.t.forEach(function (T) { cb.drawImage(T.cv, T.x - fR * fd, T.y - fR * fd); }); });
+        cb.setTransform(1, 0, 0, 1, 0, 0);
         b1_blit(cb, nuts, ox, oy); cb.restore(); }
     },
     finish: function (t) { if (active) queue = Math.min(queue + 1, 2); else start(t); }
@@ -14982,6 +14993,9 @@ ENGINES.xmas = function (A, v, dk) {
     },
     draw: function (ca, cb, t, f) {
       var d = cb.getTransform().a; if (Math.abs(d - dpr) > 1e-3) build(d);
+      // chimney smoke: puffs rise, swell, lean with the breeze and fade
+      (A.chim || []).forEach(function (c, i) { for (var k = 0; k < 6; k++) { var u = ((t * 0.16 * Math.max(0.5, f.s) + k / 6 + i * 0.37) % 1 + 1) % 1, x = c[0] + u * u * 26 + Math.sin(t * 0.8 + k * 1.7 + i) * 3 * u, y = c[1] - u * 64, r = 4 + u * 10, a = Math.min(1, u * 9) * Math.pow(1 - u, 0.9) * (dk ? 0.2 : 0.6);
+        if (a < 0.01) continue; ca.fillStyle = dk ? 'rgba(200,210,215,' + a + ')' : 'rgba(255,255,255,' + a + ')'; ca.beginPath(); ca.arc(x, y, r, 0, 7); ca.fill(); } });
       cb.save(); cb.globalCompositeOperation = dk ? 'lighter' : 'source-over';
       var base = dk ? 0.5 : 0.32;
       tree.concat(bulbs).forEach(function (b) {
@@ -16432,6 +16446,7 @@ ENGINES.jelly = function (A, v, dk) {
   }
   return {
     step: function (dt, t, f) {
+      var born = [];
       J.forEach(function (j) {
         // one pulse: the bell snaps shut fast (thrust), then slowly opens again while the jelly glides
         var u = ((t * f.s / j.per + j.ph) % 1 + 1) % 1;
@@ -16445,9 +16460,16 @@ ENGINES.jelly = function (A, v, dk) {
         var sp = (j.vel + 2.5 * sc) * f.s * dt; j.y -= Math.cos(j.ang) * sp + j.push * dt * 30; j.x0 += Math.sin(j.ang) * sp;
         j.x = j.x0 + Math.sin(t * 0.13 * f.s + j.ph * 6) * 10 * f.a;
         if (j.x0 < -j.r * 2) j.x0 = W + j.r * 2; else if (j.x0 > W + j.r * 2) j.x0 = -j.r * 2;
-        if (j.y < -j.r * 4.2) { j.y = H + j.r * 1.2; j.x0 = 30 + hash(t + j.r) * (W - 60); }
+        // as soon as a jelly starts leaving through the top, a fresh one rises in from below the bottom edge,
+        // at whichever spot along the bottom is most open; the old one is dropped once it's fully gone
+        if (!j.rep && j.y < j.r * 0.6) { j.rep = true; var best = W / 2, bd = -1;
+          for (var q = 0; q < 12; q++) { var cx = j.r + Math.random() * (W - 2 * j.r), dmin = 1e9; J.forEach(function (o) { if (o !== j && o.y > H * 0.45) dmin = Math.min(dmin, Math.abs(o.x - cx)); }); if (dmin > bd) { bd = dmin; best = cx; } }
+          born.push(Object.assign({}, j, {x0: best, x: best, y: H + j.r * 1.05, rep: false, ph: Math.random(), c: 0, sq: 0, sqL: 0, vel: 4, push: 0, boost: 0, head: (Math.random() - 0.5) * 0.5, ang: 0, angL: 0})); }
         j.boost = Math.max(0, j.boost - dt * 0.6); j.push = Math.max(0, j.push - dt * 0.8);
       });
+      if (born.length) J = J.concat(born);
+      J = J.filter(function (j) { return j.y > -j.r * 4.2; });
+      order = J.slice().sort(function (p, q) { return p.r - q.r; });
       turtles.forEach(function (T) { var u = (t - T.t0) / T.dur, p = tpos(T, u), q = tpos(T, u + 0.01); T.x = p[0]; T.y = p[1]; T.ang = Math.atan2(q[1] - p[1], q[0] - p[0]);
         J.forEach(function (j) { var d = Math.hypot(j.x - T.x, j.y - T.y); if (d < (ph ? 110 : 150)) { j.boost = Math.min(1, j.boost + dt * 3); j.push = Math.min(1, j.push + dt * 2); } });
         if (Math.random() < dt * 3) bubbles.push({x: T.x + Math.cos(T.ang) * 40, y: T.y + Math.sin(T.ang) * 40, r: 1.5 + Math.random() * 2.5, t0: t}); });
@@ -17332,7 +17354,7 @@ ENGINES.biology = function (A, v, dk) {
     if (!far && m.w.length) { c.strokeStyle = m.col.s; c.lineWidth = m.lw * 0.8; c.lineCap = 'round'; var rate = m.kind === 'phage' ? 2 : 9; m.w.forEach(function (q, j) { var pts = m1_wave(m.kind === 'phage' ? [q[0], q[1], q[2] + Math.sin(t * rate + j) * 0.12, q[3], q[4]] : q, t * rate * f.s + m.ph + j); c.beginPath(); pts.forEach(function (p, k) { if (k) c.lineTo(p[0], p[1]); else c.moveTo(p[0], p[1]); }); c.stroke(); }); }
     c.restore(); if (m.face) m1_face(c, m.x, m.y + bob, Math.max(5, m.u * 0.7), {blink: m1_blinkAt(t, m.ph), ink: dk ? '#FFFFFF' : '#4A2A4A', nomouth: m.u < 8}); c.globalAlpha = 1; }); }
   function stepMics(dt, t, f, fx, fy) { mics.forEach(function (m) { var mg = m.u * 7; m.hd += Math.sin(t * 0.21 + m.ph) * 0.3 * dt;
-    var swim = /bacillus|divide|spirillum|vibrio/.test(m.kind); if (swim) { m.x += (Math.cos(m.rot) * m.sp * f.s + fx * 0.5) * dt; m.y += (Math.sin(m.rot) * m.sp * f.s + fy * 0.5) * dt; m.rot += Math.sin(t * 0.3 + m.ph) * 0.25 * dt; }
+    var swim = /bacillus|spirillum|vibrio/.test(m.kind); if (swim) { m.x += (Math.cos(m.rot) * m.sp * f.s + fx * 0.5) * dt; m.y += (Math.sin(m.rot) * m.sp * f.s + fy * 0.5) * dt; m.rot += Math.sin(t * 0.3 + m.ph) * 0.25 * dt; }
     else { m.x += (fx * (m.far ? 0.5 : 0.8) + Math.cos(m.hd) * m.sp * 0.4) * dt; m.y += (fy * 0.8 + Math.sin(m.hd) * m.sp * 0.4) * dt; m.rot += m.vr * dt * f.s; }
     if (m.x > W + mg) m.x -= W + 2 * mg; if (m.x < -mg) m.x += W + 2 * mg; if (m.y > H + mg) m.y -= H + 2 * mg; if (m.y < -mg) m.y += H + 2 * mg; }); }
   var life = m1_bioLife(A, v, dk), GLOWS = {mem: 7, wall: 6, diaR: 5, flagR: 6, nucR: 5, mito: 4, chl: 4, nuc2: 4, eye: 4, ves: 3};
@@ -17811,7 +17833,7 @@ function m2_L_engineering(A, v, dk) {
         ca.save(); ca.translate(R.wheel[0], R.wheel[1]); ca.strokeStyle = '#4A3440'; ca.lineWidth = 1.5; ca.beginPath(); ca.moveTo(0, 0); ca.lineTo(0, 20); ca.stroke(); ca.rotate(wheelA); ['#F2625A', '#F6B93C', '#5DB6C6', '#9886E6'].forEach(function (col, k) { ca.fillStyle = col; ca.beginPath(); ca.moveTo(0, 0); ca.lineTo(13, -4); ca.lineTo(10, 7); ca.closePath(); ca.fill(); ca.rotate(Math.PI / 2); }); ca.restore(); ca.fillStyle = '#4A3440'; m2_dot(ca, R.wheel[0], R.wheel[1], 2.5); }
       sparks.forEach(function (s2) { var k = (t - s2.t0) / 1.2; ca.globalAlpha = 1 - k; m2_pix(ca, s2.x, s2.y, 'star', 2, '#F6B93C'); }); ca.globalAlpha = 1;
       if (dk) { cb.save(); cb.globalCompositeOperation = 'lighter'; Lf.bulbs.forEach(function (b, j) { cb.globalAlpha = 0.6 + 0.4 * Math.sin(t * 1.7 + j * 1.3); m2_stamp(cb, glowS, b[0], b[1] + 4, 12); }); cb.restore(); cb.globalAlpha = 1; Lf.bulbs.forEach(function (b, j) { cb.fillStyle = ['#FFE2A0', '#FFC8D8', '#C8F0FF', '#FFF0B8'][j % 4]; m2_dot(cb, b[0], b[1] + 4, 3); }); }
-      var cv = Lf.cv, cs2 = cv.s, len = cv.x1 - cv.x0 - 30 * cs2; cb.strokeStyle = 'rgba(255,255,255,0.35)'; cb.lineWidth = 1.5; cb.beginPath(); for (var bx = cv.x0 + 6 + ((t * 0.05 * len) % (14 * cs2)); bx < cv.x1 - 6; bx += 14 * cs2) { cb.moveTo(bx, cv.y + 2); cb.lineTo(bx - 4, cv.y + 9 * cs2); } cb.stroke();
+      var cv = Lf.cv, cs2 = cv.s, len = cv.x1 - cv.x0 - 30 * cs2; cb.save(); cb.beginPath(); cb.rect(cv.x0 + 8 * cs2 + 3, cv.y - 10, cv.x1 - cv.x0 - 8 * cs2 - 9, 40 * cs2); cb.clip(); /* lines only on the belt, never inside the machine */ cb.strokeStyle = 'rgba(255,255,255,0.35)'; cb.lineWidth = 1.5; cb.beginPath(); for (var bx = cv.x0 + 6 + ((t * 0.05 * len) % (14 * cs2)); bx < cv.x1 - 6; bx += 14 * cs2) { cb.moveTo(bx, cv.y + 2); cb.lineTo(bx - 4, cv.y + 9 * cs2); } cb.stroke(); cb.restore();
       // boxes slide out of the machine on the left, ride the belt, then tip into the bin on the right and are gone
       var mX = cv.x0 + 8 * cs2, bX = cv.x1 - 4 * cs2, bY = cv.y - 4 * cs2; cb.save(); cb.beginPath(); cb.rect(mX, -H, bX - mX, 3 * H); cb.rect(bX, -H, W, H + bY); cb.clip();
       items.forEach(function (it) { var xs = mX - 18 * cs2, xe = cv.x1 + 13 * cs2, x, y = cv.y, kk;
@@ -19421,8 +19443,8 @@ ENGINES.rainforest = function (A, v, dk) {
         g.lineWidth = 1.2; rings.forEach(function (r) { var k = (tt * 0.45 + r.ph) % 1, rx = F.w * (0.6 + k * 1.9); g.strokeStyle = dk ? 'rgba(200,235,232,' + (0.5 * (1 - k)) + ')' : 'rgba(110,170,165,' + (0.55 * (1 - k)) + ')'; g.beginPath(); g.ellipse(F.x + r.x * F.w * 0.6, F.bot + H * 0.022, rx, rx * 0.16 + 1, 0, 0, 7); g.stroke(); });
         if (rb) { var T = t - rb.t0, k = n1_env(T, 0.3, 1.8, 8, 10.5); if (k > 0) { var R0 = ph ? W * 0.42 : W * 0.21, cx = F.x, cy = F.bot + H * 0.02, bw = (ph ? 6 : 9) * S + 2, cols = ['#FF6A6A', '#FFA94A', '#FFE05A', '#7EDB6A', '#5AB8F2', '#9A7BF0'];
           g.save(); g.beginPath(); g.rect(-10, -10, W + 20, F.bot + H * 0.03); g.clip(); g.globalAlpha = k * (dk ? 0.3 : 0.5); g.lineWidth = bw;
-          cols.forEach(function (col, j) { g.strokeStyle = col; g.beginPath(); g.arc(cx, cy, R0 - j * bw, Math.PI, 2 * Math.PI); g.stroke(); }); g.restore(); } } });
-      for (i = 0; i < 4; i++) n1_dot(ca, mistG, F.x + Math.sin(tt * 0.4 + i * 1.7) * F.w * 1.5, F.bot - 8 - i * 4, F.w * (1.4 + i * 0.35), 0.75, 0.45);
+          cols.forEach(function (col, j) { g.strokeStyle = col; g.beginPath(); g.arc(cx, cy, R0 - j * bw, Math.PI, 2 * Math.PI); g.stroke(); }); g.restore(); } }
+        for (var mi = 0; mi < 4; mi++) n1_dot(g, mistG, F.x + Math.sin(tt * 0.4 + mi * 1.7) * F.w * 1.5, F.bot - 8 - mi * 4, F.w * (1.4 + mi * 0.35), 0.75, 0.45); });
       [[0.55, 0.12, 1], [0.66, 0.1, -1], [0.82, 0.08, 1]].forEach(function (b, k) { for (var j = 0; j < (ph ? 4 : 7); j++) { var x = ((j / (ph ? 4 : 7)) * (W + 400) + tt * 9 * b[2] * (1 + k * 0.3) + k * 140) % (W + 400); if (x < 0) x += W + 400; n1_dot(ca, mistG, x - 200, H * b[0] + Math.sin(tt * 0.3 + j * 2 + k) * 8, (ph ? 100 : 170) * S, (dk ? 0.4 : 0.34) * (k < 2 ? 0.7 : 1), 0.14); } });
       ca.lineCap = 'round';
       A.vines.forEach(function (vn) { var sw = Math.sin(tt * 0.6 + vn.ph) * 0.06 + Math.sin(tt * 1.3 + vn.ph * 2) * 0.015, pts = [], n = 14; for (var j = 0; j <= n; j++) { var u = j / n, a = sw * u * u; pts.push([vn.x + Math.sin(a) * vn.L * u + Math.sin(u * 6 + vn.ph) * 4, -12 + vn.L * u * Math.cos(a)]); }
@@ -21277,7 +21299,9 @@ ENGINES.greenhouse = function (A, v, dk) {
       function basket(b) { var s = b.s, sw = Math.sin(tt * 0.55 + b.k * 1.3) * 0.045 + Math.sin(tt * 1.15 + b.k) * 0.012, bx = b.x + Math.sin(sw) * b.len, by = b.y + Math.cos(sw) * b.len, turn = b.k * 1.1, drift = Math.sin(tt * 0.5 + b.k) * 0.06; // the basket no longer spins: each vine keeps its place and colour
         cb.strokeStyle = dk ? 'rgba(150,170,160,0.7)' : 'rgba(110,116,110,0.85)'; cb.lineWidth = 1; cb.beginPath(); cb.moveTo(b.x, b.y); cb.lineTo(bx - 14 * s, by); cb.moveTo(b.x, b.y); cb.lineTo(bx + 14 * s, by); cb.moveTo(b.x, b.y); cb.lineTo(bx + Math.cos(turn) * 4 * s, by - 2 * s); cb.stroke();
         var strands = []; for (var j = 0; j < 8; j++) { var th = j / 8 * 6.283 + turn + 0.2, z = Math.sin(th); strands.push({x: Math.cos(th + drift * (Math.abs(z) > 0.3 ? 1 : 0)) * 12 * s, z: z, l: (22 + ((j * 13 + b.k * 7) % 26)) * s, j: j}); }
-        function vine(st) { var n = 7, px = bx + st.x * (st.z < 0 ? 0.9 : 0.8), py = by + (st.z < 0 ? 1 : 3) * s, dark = st.z < 0; cb.strokeStyle = dark ? (dk ? '#24493A' : '#3C7E52') : (dk ? '#2F5E46' : '#4E9E5C'); cb.lineWidth = 1.2 * s; cb.beginPath(); cb.moveTo(px, py); var pts = [];
+        // each vine grows out of the foliage on top, curls over the rim and then hangs
+        function vine(st) { var n = 7, dark = st.z < 0, rx = bx + st.x * 1.12, px = rx, py = by + 1 * s; cb.strokeStyle = dark ? (dk ? '#24493A' : '#3C7E52') : (dk ? '#2F5E46' : '#4E9E5C'); cb.lineWidth = 1.7 * s; cb.lineCap = 'round'; cb.lineJoin = 'round'; cb.beginPath();
+          cb.moveTo(bx + st.x * 0.7, by - 4 * s); cb.quadraticCurveTo(bx + st.x * 1.15, by - 4.5 * s, px, py); var pts = [[bx + st.x * 0.95, by - 3.5 * s]];
           for (var q = 1; q <= n; q++) { var u = q / n, xx = px + Math.sin(q * 0.7 + tt * 0.9 + st.j) * 2.4 * s * u + Math.sin(sw) * st.l * u * 0.5, yy = py + st.l * u; cb.lineTo(xx, yy); pts.push([xx, yy]); } cb.stroke();
           cb.fillStyle = dark ? (dk ? '#2A5240' : '#3F8A55') : (dk ? '#3A7050' : '#6CBB6E'); pts.forEach(function (p, q) { if (q % 1) return; cb.beginPath(); cb.ellipse(p[0] + (q % 2 ? 2.5 : -2.5) * s, p[1], 2.6 * s, 1.6 * s, q % 2 ? 0.5 : -0.5, 0, 7); cb.fill(); }); }
         strands.filter(function (q) { return q.z < 0; }).forEach(vine);
@@ -21309,26 +21333,34 @@ ENGINES.pottery = function (A, v, dk) {
   var clayC = dk ? ['#A88A7C', '#6E5246', '#C9AA9A'] : ['#C8A493', '#8E6A5C', '#E6CBBE'];
   var GLZ = ['#2FA7A0', '#3F63C8', '#8E5BC8', '#D8708E', '#E8A23A'];
   function glazeAt(k) { k = ((k % GLZ.length) + GLZ.length) % GLZ.length; var a = Math.floor(k), f = k - a; return mix(GLZ[a], GLZ[(a + 1) % GLZ.length], n3_ease(f)); }
-  function lumpR(u, rise) { return (26 - rise * 6) * Math.pow(Math.max(0, 1 - Math.pow(u, 2.2)), 0.55) + 4 * (1 - u); }
+  // the clay mid-throw: a pulled cylinder with a flared, slip-wet foot, a gentle belly and a slightly narrower top
+  function lumpR(u, rise) { return 14.5 + (11 - rise * 2) * Math.sin(Math.PI * Math.pow(u, 0.9)) + 4 * Math.pow(1 - u, 6) + (u > 0.92 ? 2.5 * (u - 0.92) / 0.08 : 0); }
   var shoulderR = 15 + 17 * Math.sin(Math.PI * 0.92) * (0.6 + 0.4 * 0.38);
   function vaseR(u) { if (u < 0.62) return 15 + 17 * Math.sin(Math.PI * (u / 0.62) * 0.92) * (0.6 + 0.4 * (1 - u)); var t = (u - 0.62) / 0.38; return 11 + (shoulderR - 11) * Math.pow(1 - Math.min(1, t / 0.45), 2.2) + 4 * Math.pow(t, 1.6) + (u > 0.94 ? 3 : 0); }
   function drawPot(c, t) {
-    var T = t - T0, form = n3_ease(n3_env(T, 0.15, 2.6, 15, 17.5)), rise = 0.5 + 0.5 * Math.sin(t * 0.55), lumpH = 30 + rise * 16, hgt = (lumpH + (124 - lumpH) * form) * ws, x = Wh.x, base = Wh.y - 5 * ws;
+    var T = t - T0, form = n3_ease(n3_env(T, 0.15, 2.6, 15, 17.5)), rise = 0.5 + 0.5 * Math.sin(t * 0.55), lumpH = 40 + rise * 14, hgt = (lumpH + (124 - lumpH) * form) * ws, x = Wh.x, base = Wh.y - 5 * ws;
     var n = 24, L = [], R = [];
     for (var k = 0; k <= n; k++) { var u = k / n, r = (lumpR(u, rise) * (1 - form) + vaseR(u) * form) * ws; L.push([x - r, base - u * hgt]); R.push([x + r, base - u * hgt]); }
     var glazeU = n3_ease((T - 2.7) / 1.6) * (T < 17.5 ? 1 : 0), glazeA = n3_env(T, 2.7, 3.2, 15, 17), sh = t * 0.35;
-    var body = new Path2D(); body.moveTo(L[0][0], L[0][1]); for (k = 1; k <= n; k++) body.lineTo(L[k][0], L[k][1]); body.quadraticCurveTo(x, R[n][1] - 4 * ws * (form > 0.5 ? 0 : 1), R[n][0], R[n][1]); for (k = n - 1; k >= 0; k--) body.lineTo(R[k][0], R[k][1]); body.closePath();
-    var wl = Math.max(30 * ws, R[Math.round(n * 0.3)][0] - x) * 1.1;
+    var body = new Path2D(); body.moveTo(L[0][0], L[0][1]); for (k = 1; k <= n; k++) body.lineTo(L[k][0], L[k][1]); body.quadraticCurveTo(x, R[n][1] - (R[n][0] - x) * 0.3, R[n][0], R[n][1]); for (k = n - 1; k >= 0; k--) body.lineTo(R[k][0], R[k][1]); body.closePath();
+    var wl = Math.max(30 * ws, R[Math.round(n * 0.3)][0] - x) * 1.1, r0 = R[0][0] - x;
+    c.fillStyle = dk ? 'rgba(90,64,54,0.85)' : 'rgba(150,112,96,0.75)'; c.beginPath(); c.ellipse(x, base + 1 * ws, r0 * 1.12, r0 * 0.22, 0, 0, 7); c.fill();
+    c.fillStyle = dk ? 'rgba(220,190,175,0.18)' : 'rgba(255,240,230,0.4)'; c.beginPath(); c.ellipse(x - r0 * 0.35, base - 0.5 * ws, r0 * 0.35, r0 * 0.05, 0, 0, 7); c.fill();
     c.fillStyle = n3_lin(c, x - wl, 0, x + wl, 0, [[0, clayC[1]], [0.32, clayC[2]], [0.62, clayC[0]], [1, clayC[1]]]); c.fill(body);
     if (glazeA > 0.01) { c.save(); c.clip(body); var top = base - hgt * glazeU - 6 * ws; c.globalAlpha = glazeA;
       var g = c.createLinearGradient(0, base, 0, base - hgt); g.addColorStop(0, glazeAt(sh)); g.addColorStop(0.5, glazeAt(sh + 1)); g.addColorStop(1, glazeAt(sh + 2)); c.fillStyle = g;
       c.beginPath(); c.moveTo(x - wl * 2, base + 4); c.lineTo(x - wl * 2, top); for (var q = 0; q <= 16; q++) { var xx = x - wl * 2 + q / 16 * wl * 4; c.lineTo(xx, top + Math.sin(q * 1.9 + t * 3) * 3 * ws + (q % 3 === 0 ? 5 * ws : 0)); } c.lineTo(x + wl * 2, base + 4); c.fill();
       c.fillStyle = n3_lin(c, x - wl, 0, x + wl, 0, [[0, 'rgba(0,0,0,0.25)'], [0.3, 'rgba(255,255,255,0.35)'], [0.42, 'rgba(255,255,255,0)'], [0.85, 'rgba(0,0,0,0.12)'], [1, 'rgba(0,0,0,0.3)']]); c.fillRect(x - wl * 2, top - 10, wl * 4, base - top + 14); c.restore(); }
     c.save(); c.clip(body); c.strokeStyle = form > 0.5 && glazeA > 0.5 ? 'rgba(255,255,255,0.18)' : (dk ? 'rgba(60,40,34,0.35)' : 'rgba(110,76,64,0.32)'); c.lineWidth = 1.2 * ws;
-    for (var j = 1; j < 9; j++) { var uu = (j / 9 + (spin * 0.02) % (1 / 9)), kk = Math.min(n, Math.round(uu * n)), rr = R[kk][0] - x, yy = base - uu * hgt; c.beginPath(); c.ellipse(x, yy, rr, rr * 0.18, 0, 0.15, Math.PI - 0.15); c.stroke(); }
+    c.globalAlpha = 0.6; c.lineWidth = 0.9 * ws;
+    for (var j = 0; j < 7; j++) { var uu = ((j + 0.35 * Math.sin(j * 2.3)) / 7 + 0.06 + (spin * 0.012) % (1 / 7)); if (uu > 0.93 || uu < 0.08) continue; var kk = Math.min(n, Math.round(uu * n)), rr = R[kk][0] - x, yy = base - uu * hgt; c.beginPath(); c.ellipse(x, yy, rr, rr * 0.2, 0, 0.12, Math.PI - 0.12); c.stroke(); }
+    c.globalAlpha = 1;
     c.restore();
-    if (form > 0.3) { var tr = R[n][0] - x; c.fillStyle = 'rgba(60,30,24,' + (0.8 * form) + ')'; c.beginPath(); c.ellipse(x, R[n][1], tr * 0.85, tr * 0.24, 0, 0, 7); c.fill(); }
-    c.fillStyle = 'rgba(255,255,255,' + (dk ? 0.12 : 0.22) + ')'; c.beginPath(); c.ellipse(x - wl * 0.45, base - hgt * 0.45, 3 * ws, hgt * 0.28, 0, 0, 7); c.fill();
+    var tr = R[n][0] - x, ty = R[n][1] - tr * 0.15, op = form > 0.3 ? 0.85 : 0.72;
+    c.fillStyle = dk ? '#3E2A24' : '#6E4A3E'; c.beginPath(); c.ellipse(x, ty, tr * op, tr * 0.24 * op, 0, 0, 7); c.fill();
+    c.fillStyle = dk ? '#2A1C18' : '#553429'; c.beginPath(); c.ellipse(x, ty + tr * 0.05 * op, tr * op * 0.8, tr * 0.16 * op, 0, 0, 7); c.fill();
+    c.strokeStyle = clayC[2]; c.lineWidth = 2 * ws; c.beginPath(); c.ellipse(x, ty, tr * (op + 0.08), tr * 0.25 * (op + 0.08), 0, Math.PI * 0.05, Math.PI * 0.95); c.stroke();
+    c.save(); c.clip(body); var sx2 = x - tr * 0.42; c.fillStyle = n3_lin(c, sx2 - 5 * ws, 0, sx2 + 5 * ws, 0, [[0, 'rgba(255,255,255,0)'], [0.5, 'rgba(255,255,255,' + (dk ? 0.16 : 0.32) + ')'], [1, 'rgba(255,255,255,0)']]); c.fillRect(sx2 - 5 * ws, base - hgt + 4 * ws, 10 * ws, hgt - 10 * ws); c.restore();
     return {top: base - hgt, done: form > 0.98 && glazeU > 0.98};
   }
   var Cs = A.sill;

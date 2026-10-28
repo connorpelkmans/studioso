@@ -962,17 +962,77 @@ function availCommit(next, label){
   availSet(AVAIL.normAvail(next));
   if (label) toast(label, () => { availSet(prev); toast("Undone"); });
 }
-// For backup restore and import
-function restoreSettingsFrom(src){
+// For backup restore and import.
+// A device backup (marked all, made on this device) brings back every setting, like settings arriving from another
+// device: this device's AI keys and school feed links stay, and boards and photo themes are merged.
+// A backup file can come from someone else, so only the settings in FILE_SETTINGS are taken from it, each checked.
+// Older device backups only carried a few keys, so only those are taken from them.
+const isObj = v => !!v && typeof v === "object" && !Array.isArray(v);
+const CSS_COLOR = /^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([\d\s.,%\/-]{1,60}\)|[a-z]{3,20})$/i;
+const FILE_SETTINGS = {
+  // Checked where they are used (see the settings review), so taken as they are when the type is right
+  style: isObj, comp: isObj, pomo: isObj, grades: isObj, reminders: isObj, gentle: isObj, review: isObj, tips: isObj, examMode: isObj, autoFeat: isObj, bd: isObj, accuracy: isObj,
+  boardManual: v => typeof v === "boolean" || isObj(v),
+  capacity: v => Number.isFinite(v) && v > 0 && v <= 200, dailyHours: v => Number.isFinite(v) && v >= 0 && v <= 24,
+  hlColor: v => typeof v === "string" && CSS_COLOR.test(v), icType: v => typeof v === "string" && v.length <= 40, wbTheme: v => typeof v === "string" && v.length <= 40,
+  // Rebuilt from their known fields
+  streak: v => isObj(v) && {cur: Math.max(0, Math.min(1e4, Math.floor(Number(v.cur)) || 0)), best: Math.max(0, Math.min(1e4, Math.floor(Number(v.best)) || 0)), last: typeof v.last === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v.last) ? v.last : ""},
+  folders: v => Array.isArray(v) && v.filter(f => isObj(f) && typeof f.id === "string" && f.id.length <= 80 && typeof f.name === "string").slice(0, 200).map(f => ({id: f.id, name: f.name.slice(0, 120)})),
+  customIcons: v => Array.isArray(v) && v.filter(x => isObj(x) && typeof x.id === "string" && x.id.length <= 80 && typeof x.svg === "string" && x.svg.length <= 2e5).slice(0, 40).map(x => Object.assign({}, x, {name: typeof x.name === "string" ? x.name.slice(0, 80) : ""})),
+  sounds: v => isObj(v) && Object.assign({}, v, {vol: Math.min(1, Math.max(0.05, Number(v.vol) || 0.5))}),
+  area: v => { if (!isObj(v)) return false; const o = Object.assign({}, v); delete o.custom; return o; }
+};
+function fileSettings(src){
+  const out = {};
+  Object.keys(FILE_SETTINGS).forEach(k => {
+    if (!(k in src)) return;
+    const r = FILE_SETTINGS[k](src[k]);
+    if (r === true) out[k] = clone(src[k]); else if (r && typeof r === "object") out[k] = r;
+  });
+  out.noteBoards = (Array.isArray(src.noteBoards) ? src.noteBoards : []).filter(b => isObj(b) && typeof b.id === "string" && typeof b.name === "string").slice(0, 100)
+    .map(b => Object.assign({}, b, {color: typeof b.color === "string" && CSS_COLOR.test(b.color.trim()) ? b.color.trim() : ""}));
+  out.photoThemes = Array.isArray(src.photoThemes) ? src.photoThemes : [];
+  return out;
+}
+function restoreSettingsFrom(src, how){
   try {
     if (!src || typeof src !== "object") return;
-    const cur = state.settings || {}, next = Object.assign({}, cur), ok = a => Array.isArray(a) ? a.filter(x => x && typeof x === "object") : [];
-    const have = new Set(ok(cur.noteBoards).map(b => b.id));
-    if (Array.isArray(src.noteBoards)) next.noteBoards = ok(cur.noteBoards).concat(ok(src.noteBoards).filter(b => b.id && !have.has(b.id)));
-    if (Array.isArray(src.photoThemes)) { next.photoThemes = ok(cur.photoThemes); next.photoGone = ok(cur.photoGone); keepPhotoThemes(next, {photoThemes: src.photoThemes, photoGone: src.photoGone}); }
-    ["style", "comp"].forEach(k => { if (!cur[k] && src[k] && typeof src[k] === "object") next[k] = src[k]; });
+    const cur = state.settings || {}, ok = a => Array.isArray(a) ? a.filter(x => x && typeof x === "object") : [];
+    let next;
+    if (how === "file") {
+      const st = fileSettings(src);
+      next = Object.assign({}, cur);
+      Object.keys(st).forEach(k => { if (k !== "noteBoards" && k !== "photoThemes") next[k] = st[k]; });
+      keepNoteBoardsFrom(next, st);
+      if (st.photoThemes.length) { next.photoThemes = ok(cur.photoThemes); next.photoGone = ok(cur.photoGone); keepPhotoThemes(next, {photoThemes: st.photoThemes, photoGone: []}); }
+    } else if (src.all === true) {
+      const st = Object.assign({}, src); delete st.all; delete st.ai; dropFeeds(st);
+      next = Object.assign({capacity: 15}, st);
+      if (cur.ai) next.ai = cur.ai;
+      if (cur.aiVault && !next.aiVault) next.aiVault = cur.aiVault;
+      if (cur.owned && typeof cur.owned === "object") next.owned = Object.assign({}, next.owned && typeof next.owned === "object" ? next.owned : {}, cur.owned);
+      keepLocalFeeds(next, cur);
+      next.noteBoards = ok(cur.noteBoards); next.noteBoardsGone = cur.noteBoardsGone; keepNoteBoardsFrom(next, src);
+      next.photoThemes = ok(cur.photoThemes); next.photoGone = ok(cur.photoGone); keepPhotoThemes(next, {photoThemes: ok(src.photoThemes), photoGone: ok(src.photoGone)});
+      if (next.avail !== undefined) delete next.avail;
+      if (cur.avail !== undefined) next.avail = cur.avail;
+    } else {
+      next = Object.assign({}, cur);
+      const have = new Set(ok(cur.noteBoards).map(b => b.id));
+      if (Array.isArray(src.noteBoards)) next.noteBoards = ok(cur.noteBoards).concat(ok(src.noteBoards).filter(b => b.id && !have.has(b.id)));
+      if (Array.isArray(src.photoThemes)) { next.photoThemes = ok(cur.photoThemes); next.photoGone = ok(cur.photoGone); keepPhotoThemes(next, {photoThemes: src.photoThemes, photoGone: src.photoGone}); }
+      ["style", "comp"].forEach(k => { if (!cur[k] && src[k] && typeof src[k] === "object") next[k] = src[k]; });
+    }
     state.settings = next; saveSettings();
+    try { applySkin(); } catch (e) {}
+    scheduleRender();
   } catch(e) { console.warn("settings restore", e); }
+}
+function keepNoteBoardsFrom(next, src){
+  const ok = a => Array.isArray(a) ? a.filter(x => x && typeof x === "object") : [];
+  const have = new Set(ok(next.noteBoards).map(b => b.id));
+  next.noteBoards = ok(next.noteBoards).concat(ok(src.noteBoards).filter(b => b.id && !have.has(b.id)));
+  if (next.noteBoardsGone === undefined) delete next.noteBoardsGone;
 }
 function availRestore(v){ availSet(v == null ? null : AVAIL.normAvail(v)); }
 const availMin = m => m === 1440 ? "midnight" : fmtTime(AVAIL.toT(m % 1440));
@@ -1032,7 +1092,7 @@ const availWhen = (day, today) => { for (let i = 1; i < day.length; i++) if (day
 function availPlan(av, ranked, th0, needToday, day, today, now, lead){
   const res = av.res, a = availState();
   const nowMin = av.sd ? av.sd.now : now.getHours() * 60 + now.getMinutes();
-  // A task you have done enough on today gets no more time today, and one you set aside with Something Else moves down behind the new first task
+  // A task you have done enough on today gets no more time today, and one you set aside moves down behind the new first task
   const skipped = new Set(typeof ui !== "undefined" && ui.skipNext && ui.skipNext.day === today ? ui.skipNext.ids : []);
   const isEnough = x => { try { return typeof enoughToday === "function" && enoughToday(x.t, x); } catch (e) { return false; } };
   const live = ranked.filter(x => x.alloc > 0 && !isEnough(x));

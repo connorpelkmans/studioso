@@ -82,11 +82,13 @@ const reset = () => { S.skew = 0; S.badSig = new Set(); S.log = []; S.hang = fal
     reset(); const {ctx, page, errs} = await open(browser, mint());
     await page.waitForSelector(".sheet.ob", {timeout: 20000});
     ok(true, "a brand-new account gets the welcome setup, on a device that did it before");
-    await page.evaluate(() => { const b = [...document.querySelectorAll(".sheet.ob button")].find(x => /Skip Tour/i.test(x.textContent)); b ? b.click() : document.querySelector("dialog[open]").close(); });
-    await page.waitForTimeout(500);
-    if (await page.$("dialog[open] .sheet.ob")) { await page.evaluate(() => { const b = [...document.querySelectorAll("dialog[open] button")].find(x => /Skip|Close|Done|Add My First/i.test(x.textContent)); if (b) b.click(); }); }
+    await page.click('.sheet.ob [data-ob="skip"]'); await page.waitForTimeout(500);
+    ok(await page.getAttribute(".sheet.ob", "data-step") === "done" && await page.locator('.sheet.ob [data-ob="apptour"]').count() === 1, "Skip Setup ends on the last page, which offers the tour");
+    await page.click('.sheet.ob [data-ob="first-task"]'); await page.waitForTimeout(3000);
+    ok(!(await page.evaluate(() => window.SBTOUR && SBTOUR.active())), "the app tour doesn't start on its own");
+    await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "tour-open"; document.body.appendChild(b); b.click(); b.remove(); });
     const got = await page.waitForFunction(() => window.SBTOUR && SBTOUR.active(), null, {timeout: 12000}).then(() => true, () => false);
-    ok(got, "then the app tour around the tabs starts");
+    ok(got, "Take the App Tour starts it");
         ok(!errs.length, "no page errors: " + errs.join("; "));
     await ctx.close();
     console.log("apptour-new-account e2e ok (" + n + " checks)");

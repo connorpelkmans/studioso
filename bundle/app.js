@@ -635,13 +635,61 @@ const toArrays = () => ({v:2, courses:Object.values(state.courses), tasks:Object
 // Set while this device's copy is being wiped
 let deviceWiping = false;
 let saveWarnAt = 0;
+function saveWarn(e){
+  if (window.SBERR && e && /quota/i.test(e.name + " " + e.message)) SBERR.flow("storage-quota", e);
+  if (Date.now() - saveWarnAt > 6e4) { saveWarnAt = Date.now(); setTimeout(() => { try { toast("Couldn't save on this device. Storage is full or blocked. Export a backup so nothing is lost.", null, null, {error: true}); } catch(e2) {} }, 700); }
+}
+/* The big copy: localStorage holds only about 5 MB, which a few whiteboards and a lot of notes can fill.
+   Once the saved copy is over SPILL_AT characters, or localStorage refuses it, it moves to IndexedDB (far more
+   room) and stays there on this device. A small marker in localStorage says so, and its change tells other tabs. */
+const LS2_IDB = "coursework:v2:idb", SPILL_KEY = "device:v2", SPILL_AT = 3e6;
+const spillMarked = () => { try { return !!localStorage.getItem(LS2_IDB); } catch(e) { return false; } };
+const spillOk = () => typeof indexedDB !== "undefined" && !inPreview();
+let spilled = spillMarked(), spillRaw = null, spillMoving = false, spillNext = null, spillT = 0, spillQ = null, spillChain = Promise.resolve();
+function spillWrite(json){
+  const p = spillChain.then(() => SBC.putStrict("rows", SPILL_KEY, json)).then(() => { try { localStorage.setItem(LS2_IDB, String(Date.now())); } catch(e) {} });
+  spillChain = p.catch(() => {});
+  return p;
+}
+function spillMove(json){
+  spillNext = json;
+  if (spillMoving) return;
+  spillMoving = true;
+  spillWrite(json).then(() => {
+    spilled = true; spillMoving = false;
+    try { localStorage.removeItem(LS2); } catch(e) {}
+    const later = spillNext; spillNext = null;
+    if (later && later !== json) spillQueue(later);
+  }, e => { spillMoving = false; spillNext = null; saveWarn(e); });
+}
+function spillQueue(json){
+  spillQ = json; clearTimeout(spillT);
+  spillT = setTimeout(spillFlush, 300);
+}
+// Writes what's waiting now (also when the page is hidden or closed)
+function spillFlush(){
+  clearTimeout(spillT);
+  const json = spillQ; spillQ = null;
+  if (json == null) return spillChain;
+  return spillWrite(json).catch(saveWarn);
+}
+async function spillRead(){ try { const v = await SBC.get("rows", SPILL_KEY); return typeof v === "string" && v ? v : null; } catch(e) { return null; } }
+// Called before loadLocal when the copy is in IndexedDB
+async function spillLoad(){ spilled = spilled || spillMarked(); if (spilled) spillRaw = await spillRead(); }
+window.addEventListener("pagehide", () => { try { spillFlush(); } catch(e) {} });
+document.addEventListener("visibilitychange", () => { if (document.hidden) { try { spillFlush(); } catch(e) {} } });
 function saveLocal(){
   if (deviceWiping || demoDrawing) return;
   if (lsHold) return;
-  try { const a = toArrays(); delete a.trash; localStorage.setItem(LS2, JSON.stringify(a)); }
+  let json;
+  try { const a = toArrays(); delete a.trash; json = JSON.stringify(a); } catch(e) { console.warn("save", e); return; }
+  if (!spilled && spillMarked()) spilled = true;
+  if (spilled) { spillQueue(json); return; }
+  if (spillMoving || json.length > SPILL_AT && spillOk()) { spillMove(json); return; }
+  try { localStorage.setItem(LS2, json); }
   catch(e){
-    if (window.SBERR && e && /quota/i.test(e.name + " " + e.message)) SBERR.flow("storage-quota", e);
-    if (Date.now() - saveWarnAt > 6e4) { saveWarnAt = Date.now(); setTimeout(() => { try { toast("Couldn't save on this device. Storage is full or blocked. Export a backup so nothing is lost.", null, null, {error: true}); } catch(e2) {} }, 700); }
+    if (spillOk()) { spillMove(json); return; }
+    saveWarn(e);
   }
 }
 // A saved copy that can't be read is set aside, never overwritten
@@ -649,13 +697,19 @@ let loadProblem = "";
 // Set when that copy couldn't be set aside in localStorage
 let lsHold = false;
 // Two tabs of a device-only copy
-window.addEventListener("storage", e => {
+function adoptOtherTab(raw){
   try {
-    if (e.key !== LS2 || !e.newValue || (typeof cloud !== "undefined" && cloud.on)) return;
     const keepTrash = state.trash, editing = typeof noteEditing !== "undefined" && noteEditing, mine = editing && state.notes[editing];
-    state = fromArrays(JSON.parse(e.newValue)); state.trash = keepTrash || state.trash || {};
+    state = fromArrays(JSON.parse(raw)); state.trash = keepTrash || state.trash || {};
     if (editing) { if (mine) state.notes[editing] = mine; return; }
     scheduleRender();
+  } catch(x) {}
+}
+window.addEventListener("storage", e => {
+  try {
+    if (!e.newValue || (typeof cloud !== "undefined" && cloud.on)) return;
+    if (e.key === LS2_IDB) { spilled = true; spillRead().then(v => { if (v) adoptOtherTab(v); }); return; }
+    if (e.key === LS2) adoptOtherTab(e.newValue);
   } catch(x) {}
 });
 function keepUnreadable(key, raw){
@@ -686,11 +740,13 @@ function deskNewer(own){
 function loadLocal(){
   let r = null;
   try {
-    r = localStorage.getItem(LS2);
+    r = spillRaw != null ? spillRaw : localStorage.getItem(LS2);
+    spillRaw = null;
+    if (!r && spilled) { loadProblem = "v2"; const f = deskNewer(null); if (f) { state = fromArrays(f); spillQueue(JSON.stringify(f)); loadProblem = ""; trashLoadLocal(); return; } }
     if (r) {
       const own = JSON.parse(r), newer = deskNewer(own);
       state = fromArrays(newer || own);
-      if (newer) { try { localStorage.setItem(LS2, JSON.stringify(newer)); } catch(e) {} }
+      if (newer) { if (spilled) spillQueue(JSON.stringify(newer)); else { try { localStorage.setItem(LS2, JSON.stringify(newer)); } catch(e) {} } }
       trashLoadLocal(); return;
     }
   } catch(e) {
@@ -1254,12 +1310,13 @@ const outboxGet = () => { try { return JSON.parse(localStorage.getItem(OUTBOX) |
 // The outbox lives in localStorage, which every open tab and window of Studyboard shares
 const outboxOwn = new Set(Object.keys(outboxGet()));
 const outboxMine = k => outboxOwn.has(k) && k in outboxGet();
+let outboxWarnAt = 0;
 function outboxAdd(kind, id, data){
   if (demoDrawing) return;
   if (inPreview() || !sbConfig() || deviceWiping) return;
-  outboxOwn.add(kind + ":" + id);
   const o = outboxGet(); o[kind + ":" + id] = data === null ? null : clone(data);
-  try { localStorage.setItem(OUTBOX, JSON.stringify(o)); } catch(e) { try { toast("This device's storage is full, so offline changes may not be kept. Export a backup, then free some space.", null, null, {error: true}); } catch(e2) {} }
+  try { localStorage.setItem(OUTBOX, JSON.stringify(o)); outboxOwn.add(kind + ":" + id); }
+  catch(e) { if (Date.now() - outboxWarnAt > 6e4) { outboxWarnAt = Date.now(); try { toast("This device's storage is full, so offline changes may not be kept. Export a backup, then free some space.", null, null, {error: true}); } catch(e2) {} } }
 }
 function outboxDone(key, data){
   if (inPreview()) return;
@@ -2368,7 +2425,7 @@ function sbWelcomeHtml(){
   return `<div class="sb-welc">
     <div class="sb-welc-m" aria-hidden="true">${mochi}</div>
     <h3>Hi! I'm Mochi.<br>Let's plan your semester.</h3>
-    <p>Studyboard turns your syllabi into a calm plan for every day.</p>
+    <p>Studyboard turns your syllabi into a calm plan for every day. Setting up takes about a minute, and you can skip anything.</p>
     <ul>
       <li>${ic('<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5zM13 4h5.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H13z"/>')}Add courses and deadlines in minutes</li>
       <li>${ic('<circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.2l2.4 2.4 4.6-5"/>')}See exactly what to do next, today</li>
@@ -2376,6 +2433,7 @@ function sbWelcomeHtml(){
     </ul>
     <button type="button" class="btn primary sb-welc-go" id="sbStart">Get Started</button>
     <button type="button" class="link-btn sb-welc-alt" data-sbm="signin">I Already Have an Account</button>
+    <p class="mini sb-welc-crash">Studyboard can send anonymous crash reports (never your tasks, notes or account details) so bugs get fixed. Turn them off any time in Settings.</p>
   </div>`;
 }
 // "Use Without an Account", "Not Now", or closing the first sign-in sheet
@@ -2421,7 +2479,7 @@ function sbLinkErrorSheet(){
   dlg.querySelectorAll("[data-sbm]").forEach(b => b.addEventListener("click", () => sbSignInSheet(b.dataset.sbm)));
 }
 // Signing out removes this account's copy from the device
-const WIPE_KEYS = () => [LS2, LS1, LSB, OUTBOX, LS_TRASH, "studyboard:bugq", "studyboard:comp:uname", "studyboard:comp:helloDay"];
+const WIPE_KEYS = () => [LS2, LS2_IDB, LS1, LSB, OUTBOX, LS_TRASH, "studyboard:bugq", "studyboard:comp:uname", "studyboard:comp:helloDay"];
 async function wipeDeviceData(){
   deviceWiping = true;
   state = {courses:{}, tasks:{}, files:{}, notes:{}, decks:{}, events:{}, trash:{}, settings:{capacity:15}, updated:0};
@@ -4495,7 +4553,7 @@ const enoughToday = (t, x) => {
   return target > 0 && workedToday(t) >= target;
 };
 /* Next Up: the one thing to do right now */
-// Suggestions set aside with Something Else stay aside for the rest of the day, even after a reload
+// Suggestions set aside stay aside for the rest of the day, even after a reload
 const NUSKIP_LS = "studyboard:nextSkip";
 function nuSkips(){
   const today = todayISO();
@@ -4659,7 +4717,7 @@ function nextUpHtml(F, pre){
         ${nuMoreBtn()}<span class="nu-why">${n.why.map(r => `<span class="nu-chip${/tomorrow/.test(r) ? " soon" : ""}">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}</span>
         <span class="nu-step">${n.hasPlan ? "Review your weakest topics or flashcards for it." : "Review now, or let Plan My Prep spread short sessions over the days before it."}</span>
       </div>
-      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-study="1" data-id="${esc(t.id)}" data-mins="${n.mins}">${TOMATO}Study for ${n.mins}m</button>${n.hasPlan ? "" : `<button class="btn small" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button>`}<button class="btn small" data-act="nu-skip" data-id="study:${esc(t.id)}">Something Else</button>${nuBackBtn()}</div>
+      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-study="1" data-id="${esc(t.id)}" data-mins="${n.mins}">${TOMATO}Study for ${n.mins}m</button>${n.hasPlan ? "" : `<button class="btn small" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button>`}${nuBackBtn()}</div>
     </div>
   </div>`;
   return `<div class="next-up${nuOpenCls()}" style="--c:${esc(colorOf(t.courseId))}">
@@ -4672,7 +4730,7 @@ function nextUpHtml(F, pre){
         ${n.step ? `<span class="nu-step">Next step: ${esc(n.step.text)}</span>` : ""}
       </div>
       ${lmsGoBtn(t)}
-      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-id="${t.gt ? "" : esc(t.id)}" data-mins="${n.mins}">${TOMATO}Start a ${n.mins}m Focus</button>${window.SBPREP ? SBPREP.matBtn(t) : ""}${t.type === "Study" && (t.studyDecks || []).length && !t.matKind ? `<button class="btn small" data-act="fc-study-plan" data-id="${esc(t.id)}">Study Cards</button>` : ""}${n.left ? `<button class="btn small" data-act="nu-skip" data-id="${esc(t.id)}">Something Else</button>` : ""}${t.gt ? "" : `<button class="btn small" data-act="log-time" data-id="${esc(t.id)}" title="Type in time you worked on this">Log Time</button><button class="btn small" data-act="nu-enough" data-id="${esc(t.id)}" title="You have done enough on this today, so move on. It stays on your list.">Enough for Today</button>`}${nuBackBtn()}</div>
+      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-id="${t.gt ? "" : esc(t.id)}" data-mins="${n.mins}">${TOMATO}Start a ${n.mins}m Focus</button>${window.SBPREP ? SBPREP.matBtn(t) : ""}${t.type === "Study" && (t.studyDecks || []).length && !t.matKind ? `<button class="btn small" data-act="fc-study-plan" data-id="${esc(t.id)}">Study Cards</button>` : ""}${t.gt ? "" : `<button class="btn small" data-act="log-time" data-id="${esc(t.id)}" title="Type in time you worked on this">Log Time</button><button class="btn small" data-act="nu-enough" data-id="${esc(t.id)}" title="You have done enough on this today, so move on. It stays on your list.">Enough for Today</button>`}${nuBackBtn()}</div>
     </div>
   </div>`;
 }
@@ -7537,7 +7595,7 @@ let autoBackupDone = false;
 const DEV_BACKUP_DAYS = 14;
 const cloudBackupsOn = () => cloud.on && (inPreview() || typeof PLAN === "undefined" || !PLAN || PLAN.can("cloud-backups"));
 const backupSnap = () => ({at: Date.now(), courses: Object.values(state.courses), tasks: Object.values(state.tasks), files: Object.values(state.files), notes: Object.values(state.notes), decks: Object.values(state.decks || {}), events: Object.values(state.events || {}), avail: (state.settings && state.settings.avail) || null,
-  keep: (() => { const st = state.settings || {}, o = {}; ["noteBoards", "noteBoardsGone", "photoThemes", "photoGone", "style", "comp", "owned"].forEach(k => { if (st[k] !== undefined) o[k] = clone(st[k]); }); return o; })()});
+  keep: (() => { const o = clone(syncSettings(state.settings || {})); delete o.ai; o.all = true; return o; })()});
 async function deviceBackups(){
   let arr = await SBC.all("backups");
   try { arr = arr.concat(JSON.parse(localStorage.getItem(LSB) || "[]").map(b => Object.assign({where: "device"}, b))); } catch(e) {}
@@ -9493,17 +9551,77 @@ function availCommit(next, label){
   availSet(AVAIL.normAvail(next));
   if (label) toast(label, () => { availSet(prev); toast("Undone"); });
 }
-// For backup restore and import
-function restoreSettingsFrom(src){
+// For backup restore and import.
+// A device backup (marked all, made on this device) brings back every setting, like settings arriving from another
+// device: this device's AI keys and school feed links stay, and boards and photo themes are merged.
+// A backup file can come from someone else, so only the settings in FILE_SETTINGS are taken from it, each checked.
+// Older device backups only carried a few keys, so only those are taken from them.
+const isObj = v => !!v && typeof v === "object" && !Array.isArray(v);
+const CSS_COLOR = /^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([\d\s.,%\/-]{1,60}\)|[a-z]{3,20})$/i;
+const FILE_SETTINGS = {
+  // Checked where they are used (see the settings review), so taken as they are when the type is right
+  style: isObj, comp: isObj, pomo: isObj, grades: isObj, reminders: isObj, gentle: isObj, review: isObj, tips: isObj, examMode: isObj, autoFeat: isObj, bd: isObj, accuracy: isObj,
+  boardManual: v => typeof v === "boolean" || isObj(v),
+  capacity: v => Number.isFinite(v) && v > 0 && v <= 200, dailyHours: v => Number.isFinite(v) && v >= 0 && v <= 24,
+  hlColor: v => typeof v === "string" && CSS_COLOR.test(v), icType: v => typeof v === "string" && v.length <= 40, wbTheme: v => typeof v === "string" && v.length <= 40,
+  // Rebuilt from their known fields
+  streak: v => isObj(v) && {cur: Math.max(0, Math.min(1e4, Math.floor(Number(v.cur)) || 0)), best: Math.max(0, Math.min(1e4, Math.floor(Number(v.best)) || 0)), last: typeof v.last === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v.last) ? v.last : ""},
+  folders: v => Array.isArray(v) && v.filter(f => isObj(f) && typeof f.id === "string" && f.id.length <= 80 && typeof f.name === "string").slice(0, 200).map(f => ({id: f.id, name: f.name.slice(0, 120)})),
+  customIcons: v => Array.isArray(v) && v.filter(x => isObj(x) && typeof x.id === "string" && x.id.length <= 80 && typeof x.svg === "string" && x.svg.length <= 2e5).slice(0, 40).map(x => Object.assign({}, x, {name: typeof x.name === "string" ? x.name.slice(0, 80) : ""})),
+  sounds: v => isObj(v) && Object.assign({}, v, {vol: Math.min(1, Math.max(0.05, Number(v.vol) || 0.5))}),
+  area: v => { if (!isObj(v)) return false; const o = Object.assign({}, v); delete o.custom; return o; }
+};
+function fileSettings(src){
+  const out = {};
+  Object.keys(FILE_SETTINGS).forEach(k => {
+    if (!(k in src)) return;
+    const r = FILE_SETTINGS[k](src[k]);
+    if (r === true) out[k] = clone(src[k]); else if (r && typeof r === "object") out[k] = r;
+  });
+  out.noteBoards = (Array.isArray(src.noteBoards) ? src.noteBoards : []).filter(b => isObj(b) && typeof b.id === "string" && typeof b.name === "string").slice(0, 100)
+    .map(b => Object.assign({}, b, {color: typeof b.color === "string" && CSS_COLOR.test(b.color.trim()) ? b.color.trim() : ""}));
+  out.photoThemes = Array.isArray(src.photoThemes) ? src.photoThemes : [];
+  return out;
+}
+function restoreSettingsFrom(src, how){
   try {
     if (!src || typeof src !== "object") return;
-    const cur = state.settings || {}, next = Object.assign({}, cur), ok = a => Array.isArray(a) ? a.filter(x => x && typeof x === "object") : [];
-    const have = new Set(ok(cur.noteBoards).map(b => b.id));
-    if (Array.isArray(src.noteBoards)) next.noteBoards = ok(cur.noteBoards).concat(ok(src.noteBoards).filter(b => b.id && !have.has(b.id)));
-    if (Array.isArray(src.photoThemes)) { next.photoThemes = ok(cur.photoThemes); next.photoGone = ok(cur.photoGone); keepPhotoThemes(next, {photoThemes: src.photoThemes, photoGone: src.photoGone}); }
-    ["style", "comp"].forEach(k => { if (!cur[k] && src[k] && typeof src[k] === "object") next[k] = src[k]; });
+    const cur = state.settings || {}, ok = a => Array.isArray(a) ? a.filter(x => x && typeof x === "object") : [];
+    let next;
+    if (how === "file") {
+      const st = fileSettings(src);
+      next = Object.assign({}, cur);
+      Object.keys(st).forEach(k => { if (k !== "noteBoards" && k !== "photoThemes") next[k] = st[k]; });
+      keepNoteBoardsFrom(next, st);
+      if (st.photoThemes.length) { next.photoThemes = ok(cur.photoThemes); next.photoGone = ok(cur.photoGone); keepPhotoThemes(next, {photoThemes: st.photoThemes, photoGone: []}); }
+    } else if (src.all === true) {
+      const st = Object.assign({}, src); delete st.all; delete st.ai; dropFeeds(st);
+      next = Object.assign({capacity: 15}, st);
+      if (cur.ai) next.ai = cur.ai;
+      if (cur.aiVault && !next.aiVault) next.aiVault = cur.aiVault;
+      if (cur.owned && typeof cur.owned === "object") next.owned = Object.assign({}, next.owned && typeof next.owned === "object" ? next.owned : {}, cur.owned);
+      keepLocalFeeds(next, cur);
+      next.noteBoards = ok(cur.noteBoards); next.noteBoardsGone = cur.noteBoardsGone; keepNoteBoardsFrom(next, src);
+      next.photoThemes = ok(cur.photoThemes); next.photoGone = ok(cur.photoGone); keepPhotoThemes(next, {photoThemes: ok(src.photoThemes), photoGone: ok(src.photoGone)});
+      if (next.avail !== undefined) delete next.avail;
+      if (cur.avail !== undefined) next.avail = cur.avail;
+    } else {
+      next = Object.assign({}, cur);
+      const have = new Set(ok(cur.noteBoards).map(b => b.id));
+      if (Array.isArray(src.noteBoards)) next.noteBoards = ok(cur.noteBoards).concat(ok(src.noteBoards).filter(b => b.id && !have.has(b.id)));
+      if (Array.isArray(src.photoThemes)) { next.photoThemes = ok(cur.photoThemes); next.photoGone = ok(cur.photoGone); keepPhotoThemes(next, {photoThemes: src.photoThemes, photoGone: src.photoGone}); }
+      ["style", "comp"].forEach(k => { if (!cur[k] && src[k] && typeof src[k] === "object") next[k] = src[k]; });
+    }
     state.settings = next; saveSettings();
+    try { applySkin(); } catch (e) {}
+    scheduleRender();
   } catch(e) { console.warn("settings restore", e); }
+}
+function keepNoteBoardsFrom(next, src){
+  const ok = a => Array.isArray(a) ? a.filter(x => x && typeof x === "object") : [];
+  const have = new Set(ok(next.noteBoards).map(b => b.id));
+  next.noteBoards = ok(next.noteBoards).concat(ok(src.noteBoards).filter(b => b.id && !have.has(b.id)));
+  if (next.noteBoardsGone === undefined) delete next.noteBoardsGone;
 }
 function availRestore(v){ availSet(v == null ? null : AVAIL.normAvail(v)); }
 const availMin = m => m === 1440 ? "midnight" : fmtTime(AVAIL.toT(m % 1440));
@@ -9563,7 +9681,7 @@ const availWhen = (day, today) => { for (let i = 1; i < day.length; i++) if (day
 function availPlan(av, ranked, th0, needToday, day, today, now, lead){
   const res = av.res, a = availState();
   const nowMin = av.sd ? av.sd.now : now.getHours() * 60 + now.getMinutes();
-  // A task you have done enough on today gets no more time today, and one you set aside with Something Else moves down behind the new first task
+  // A task you have done enough on today gets no more time today, and one you set aside moves down behind the new first task
   const skipped = new Set(typeof ui !== "undefined" && ui.skipNext && ui.skipNext.day === today ? ui.skipNext.ids : []);
   const isEnough = x => { try { return typeof enoughToday === "function" && enoughToday(x.t, x); } catch (e) { return false; } };
   const live = ranked.filter(x => x.alloc > 0 && !isEnough(x));
@@ -11805,8 +11923,10 @@ function menuSheet(){
       <button data-act="trash-open"><span>Recently Deleted<span class="sub">${trashVisible().length ? `${trashVisible().length} item${trashVisible().length === 1 ? "" : "s"} you can still restore. Kept for ${TB.KEEP_DAYS} days.` : `Anything you delete waits here for ${TB.KEEP_DAYS} days`}</span></span></button>
       <button data-act="export-data"><span>Export My Data<span class="sub">Tasks, notes, grades and flashcards as a ZIP of spreadsheet files and one JSON file</span></span></button>
       <button data-act="cal-export"><span>Add Deadlines to Your Calendar<span class="sub">Download a calendar file with reminders</span></span></button>
-      ${Object.values(state.files).some(f => f.kind === "file") ? `<button data-act="export-full"><span>Export Backup with Files<span class="sub">One file with your data and every uploaded file. Use it to move to another version of Studyboard.</span></span></button>` : ""}
-      <button data-act="export"><span>Export a Backup File<span class="sub">Download a file you can keep anywhere, like Google Drive or a USB drive</span></span></button>
+      ${(() => { const n = Object.values(state.files).filter(f => f.kind === "file" && (f.revs || []).some(r => r && r.assetId)).length; return n
+        ? `<button data-act="export"><span>Export a Backup File<span class="sub">One ZIP with your data and your ${n} uploaded file${n === 1 ? "" : "s"}. Keep it anywhere, like Google Drive or a USB drive.</span></span></button>
+      <button data-act="export-json"><span>Export Data Only<span class="sub">A smaller file without your uploaded files</span></span></button>`
+        : `<button data-act="export"><span>Export a Backup File<span class="sub">Download a file you can keep anywhere, like Google Drive or a USB drive</span></span></button>`; })()}
       <button data-act="backup-now"><span>Save a Copy on This Device<span class="sub">Kept in this browser, which also saves a copy each day. It won't survive clearing the browser.</span></span></button>
       <button data-act="restore"><span>Restore a Backup</span></button>
       <button data-act="import"><span>Import from a Backup File</span></button>
@@ -15122,6 +15242,7 @@ async function assetBytes(id){
   const data = await sbDownload(id).catch(e => { throw new Error((e && e.message) || "download failed"); });
   return new Uint8Array(await data.arrayBuffer());
 }
+const hasStoredFiles = () => Object.values(state.files).some(f => f.kind === "file" && (f.revs || []).some(r => r && r.assetId));
 // Everything in one file
 async function exportFullBackup(){
   const entries = [{name: "studyboard-backup.json", data: JSON.stringify(Object.assign({app: "studyboard"}, exportArrays()), null, 2)}];
@@ -15411,7 +15532,7 @@ async function deskBoot(){
   if (DESK.platform === "darwin") document.body.classList.add("mac");
   if (DESK.onFullscreen) DESK.onFullscreen(on => { document.body.classList.toggle("fs", on); deskTint(); const b = dlg.open && dlg.querySelector('[data-act="sbw-fs"]'); if (b) b.textContent = on ? "Exit Full Screen" : "Full Screen"; });
   window.addEventListener("focus", async () => { try { const w = await DESK.dataDir(); if (w && FSB.where && w !== FSB.where) { FSB.where = w; scheduleRender(); } } catch(e) {} });
-  let has = false; try { has = !!localStorage.getItem(LS2); } catch(e) {}
+  let has = false; try { has = !!localStorage.getItem(LS2) || spillMarked(); } catch(e) {}
   if (has) { try { const b = await DESK.read("studyboard-latest.json"); if (b) { const f = JSON.parse(new TextDecoder().decode(b)); if (f && f.app === "studyboard" && Array.isArray(f.tasks)) deskFolderCopy = f; } } catch(e) {} }
   if (!has) { try { const b = (await DESK.read("studyboard-latest.json")) || (await DESK.read("studioso-latest.json")); if (b) { const t = new TextDecoder().decode(b), f = JSON.parse(t); localStorage.setItem(LS2, t);
     localStorage.setItem(FOLDER_FROM, f && typeof f.owner === "string" && f.owner ? f.owner.slice(0, 80) : "?"); } } catch(e) { console.warn("No local copy to restore", e); } }
@@ -15515,7 +15636,9 @@ function saveBlob(filename, data, type){
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 const inPreview = () => !!(window.claude && typeof window.claude.use === "function");
-async function exportBackup(){
+// The main backup includes your uploaded files whenever there are any (a ZIP); "data only" skips them
+async function exportBackup(opts){
+  if (!(opts && opts.dataOnly) && hasStoredFiles()) return exportFullBackup();
   const data = JSON.stringify(Object.assign({app:"studyboard"}, exportArrays()), null, 2);
   try {
     const dl = caps.downloads || await useCap("downloads");
@@ -15555,7 +15678,7 @@ $("#importFile").addEventListener("change", async e => {
       }
       applyChanges(replaceAllChanges(cs, ts, fs, ns, ds, es), msg);
       if (d.settings && d.settings.avail !== undefined) { try { availRestore(d.settings.avail); } catch(e) {} }
-      restoreSettingsFrom(d.settings);
+      if (raw.settings && typeof raw.settings === "object" && !Array.isArray(raw.settings)) restoreSettingsFrom(d.settings, "file");
       if (has("trash")) trashMerge(Object.values(d.trash));
     });
   } catch(err) { toast(/compressed/.test(String(err && err.message)) ? "That zip wasn't made by Studyboard" : "That file isn't a Studyboard backup"); }
@@ -15620,6 +15743,7 @@ document.addEventListener("click", e => {
     case "fsb-resume": dlg.close(); resumeFolderBackup(); break;
     case "fsb-stop": dlg.close(); stopFolderBackup(); break;
     case "export-full": dlg.close(); exportFullBackup(); break;
+    case "export-json": dlg.close(); exportBackup({dataOnly: true}); break;
     case "sb-connect": dlg.close(); setTimeout(() => SB_HOSTED && !sbCustom() ? sbAsk() : sbSetupSheet(), 30); break;
     case "sb-signin": dlg.close(); setTimeout(sbAsk, 30); break;
     case "sb-signout": dlg.close(); setTimeout(sbSignOut, 30); break;
@@ -19166,10 +19290,10 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     add("Calendar Sync", "Add your deadlines and classes to Apple, Google or Outlook Calendar", act("cal-export"), "export ics calendar subscribe feed");
     add("Save a Copy on This Device", "Kept in this browser, which also saves a copy each day", act("backup-now"), "save backup");
     add("Restore a Backup", "Go back to an earlier backup", act("restore"), "");
-    add("Export a Backup File", "Download your data as a file", act("export"), "download");
+    add("Export a Backup File", hasStoredFiles() ? "Your data and uploaded files in one ZIP" : "Download your data as a file", act("export"), "download zip");
     add("Import from a Backup File", "Replace your data with a backup file", act("import"), "upload");
     add("Import From Another App", "Bring in Anki decks, Quizlet sets, Todoist tasks or Notion pages", act("ia-open"), "anki apkg colpkg quizlet todoist notion csv import");
-    if (Object.values(state.files).some(f => f.kind === "file")) add("Export Backup with Files", "Your data plus every uploaded file", act("export-full"), "download zip");
+    if (hasStoredFiles()) add("Export Data Only", "Your data without your uploaded files", act("export-json"), "download json small");
     if (!inPreview()) add(sbConfig() || SB_HOSTED ? (sbUser ? "Studyboard Account" : "Sign In or Create Account") : "Sync Across Devices", "Sync your data and files across devices", act(sbConfig() && !sbUser ? "sb-signin" : sbUser ? "menu" : "sb-connect"), "sync account cloud login sign in");
     [["board", "Board"], ["timeline", "Due Dates"], ["schedule", "Schedule"], ["crunch", "Crunch Forecast"], ["flashcards", "Review"], ["notes", "Notes"], ["files", "Files"], ["courses", "Courses"]]
       .forEach(([t, n]) => add(`Go to ${n}`, "Open the " + n + " page", () => { go(t); if (t === "flashcards") { ui.fc = null; ui.deckId = null; } render(); window.scrollTo(0, 0); }, "page open" + (t === "crunch" ? " workload heatmap heavy busy week exams crunch forecast" : "")));
@@ -20786,7 +20910,8 @@ document.head.appendChild(AREA_CSS);
   const acctKey = () => sbUser && sbUser.id ? KEY + ":" + sbUser.id : "";
   const newAccount = () => { try { const t = Date.parse((sbUser && sbUser.created_at) || ""); return t > 0 && Date.now() - t < 2 * 86400000; } catch (e) { return false; } };
   const isDone = () => { try { const a = acctKey(); if (a && localStorage.getItem(a)) return true; if (a && newAccount()) return false; return !!localStorage.getItem(KEY); } catch (e) { return true; } };
-  const markDone = () => { try { localStorage.setItem(KEY, "1"); const a = acctKey(); if (a) localStorage.setItem(a, "1"); } catch (e) {} };
+  // The time is kept too, so the Board's semester card waits a few days after the welcome setup
+  const markDone = () => { try { localStorage.setItem(KEY, "1"); const a = acctKey(); if (a) localStorage.setItem(a, "1"); if (mode !== "more") localStorage.setItem(KEY + ":at", String(Date.now())); } catch (e) {} };
   const isEmpty = () => !Object.keys(state.courses || {}).length && !Object.keys(state.tasks || {}).length;
   // The tour is open, or still to come for this account
   window.SBOB = {pending: () => !!document.querySelector("dialog[open] .ob") || (!isDone() && isEmpty()), T: {plan: null}};
@@ -20797,11 +20922,12 @@ document.head.appendChild(AREA_CSS);
   const backupsHere = () => { try { return !DESK && !inPreview() && ((typeof FSB !== "undefined" && FSB.supported()) || cloudBkHere()); } catch (e) { return false; } };
   const bkOnText = () => { const B = cbk(); return B && B.on() ? `${B.name(B.provider())} › Studyboard › Backups` : FSB.status === "on" ? FSB.where : ""; };
   // First run asks only the essentials; the rest is offered later from a card on the Board
-  const FIRST = ["welcome", "area", "courses", "hours", "done"], MORE = ["theme", "reminders", "ai", "app", "backups", "pro", "done"];
+  // Mochi's welcome comes before it, so the first run has no welcome step of its own
+  const FIRST = ["area", "courses", "hours", "done"], MORE = ["theme", "reminders", "ai", "app", "backups", "pro", "done"];
   const ALL_STEPS = [
     {id: "welcome", title: "Welcome"},
     {id: "area", title: "Your Studies"},
-    {id: "courses", title: "Your Courses"},
+    {id: "courses", title: "Your Courses and Deadlines"},
     {id: "theme", title: "Pick a Theme"},
     {id: "hours", title: "Study Hours"},
     {id: "reminders", title: "Reminders"},
@@ -20821,6 +20947,8 @@ document.head.appendChild(AREA_CSS);
 
   // Tour state (lives only while the tour is open)
   let step = 0, cheered = false, dir = 1, away = null, finishing = false, added = [], newColor = null, remindersOk = false, remindersMsg = "", deviceTab = null, hoursTimer = 0;
+  // since: when this run started (what was added since then counts as found); skipped: Skip Setup was chosen; queue: syllabi still to read
+  let since = 0, skipped = false, queue = [], cMsg = "";
 
   /* Icons */
   const svg = (d, extra = "") => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${d}</svg>`;
@@ -20867,12 +20995,13 @@ document.head.appendChild(AREA_CSS);
     return `<div class="ob-logo" aria-hidden="true"></div>
       <h2 class="ob-h" id="obH" tabindex="-1">Welcome to Studyboard</h2>
       <p class="ob-lead">Your courses, deadlines and study time in one calm place. Setting up takes about a minute, and you can skip anything.</p>
+      <p class="mini ob-crash">Studyboard can send anonymous crash reports (never your tasks, notes or account details) so bugs get fixed. Turn them off any time in Settings.</p>
       <ul class="ob-points">
         <li><span class="ob-pi">${IC.board}</span><span><b>Every Deadline in One Place</b><span>See assignments, exams and labs for all your courses on a board, a timeline and a weekly schedule.</span></span></li>
         <li><span class="ob-pi">${IC.plan}</span><span><b>A Plan for Today</b><span>Today's Plan picks what to do next and fits your work into the hours you have.</span></span></li>
         <li><span class="ob-pi">${IC.tools}</span><span><b>Study Tools Built In</b><span>Notes, files, flashcards and a focus timer. It all works offline too.</span></span></li>
       </ul>
-      <p class="mini" style="margin:12px 2px 0">Studyboard can send anonymous crash reports (never your tasks, notes or account details) so bugs get fixed. Turn them off any time in Settings.</p>`;
+      `;
   }
 
   function areaStep(){
@@ -20884,37 +21013,43 @@ document.head.appendChild(AREA_CSS);
       <label class="f ob-area-text"><span class="lbl">Your Major or Program <span class="hint">optional</span></span><input type="text" id="obAreaText" maxlength="60" value="${esc(a.text || "")}" placeholder="e.g. Marine Biology" autocomplete="off" data-noenter></label>`;
   }
 
+  const mineTask = t => t && !t.breakdownOf && !t.prepFor;
+  const foundHere = () => tasksArr().filter(t => mineTask(t) && (Number(t.created) || 0) >= since);
+  const datesFor = id => tasksArr().filter(t => mineTask(t) && t.courseId === id && t.due).length;
   function coursesStep(){
-    const cs = coursesArr();
-    const used = cs.map(c => c.color);
-    if (!newColor || !COLORS.includes(newColor)) newColor = COLORS.find(x => !used.includes(x)) || COLORS[used.length % COLORS.length];
-    const list = cs.length ? `<ul class="ob-clist" aria-label="Your courses">${cs.map(c => `<li style="--c:${esc(c.color || "#8A94A6")}"><span class="ob-cdot" aria-hidden="true"></span><span class="ob-cname">${c.code ? `<b>${esc(c.code)}</b>` : ""}${c.name && c.name !== c.code ? `${c.code ? " " : ""}${esc(c.name)}` : ""}</span>${added.includes(c.id) ? `<button type="button" class="x-btn" data-ob="rm-course" data-id="${esc(c.id)}" aria-label="Remove ${esc(c.name)}">${CLOSE}</button>` : ""}</li>`).join("")}</ul>`
-      : `<p class="ob-empty mini">No courses yet. Add the ones you're taking this term.</p>`;
+    const cs = coursesArr(), aiOk = (() => { try { return !!aiReady(); } catch (e) { return false; } })();
+    const list = cs.length ? `<ul class="ob-clist" aria-label="Your courses">${cs.map(c => { const d = datesFor(c.id); return `<li style="--c:${esc(c.color || "#8A94A6")}"><span class="ob-cdot" aria-hidden="true"></span><span class="ob-cname">${c.code ? `<b>${esc(c.code)}</b>` : ""}${c.name && c.name !== c.code ? `${c.code ? " " : ""}${esc(c.name)}` : ""}</span>${d ? `<span class="ob-cn mini">${d} date${d === 1 ? "" : "s"}</span>` : ""}${added.includes(c.id) ? `<button type="button" class="x-btn" data-ob="rm-course" data-id="${esc(c.id)}" aria-label="Remove ${esc(c.name)}">${CLOSE}</button>` : ""}</li>`; }).join("")}</ul>` : "";
+    const nF = foundHere().length;
+    const tally = nF ? `<p class="ob-tally"><span><b>${nF} item${nF === 1 ? "" : "s"} found</b>, ${cs.length} course${cs.length === 1 ? "" : "s"}.</span>${window.SBSEM && SBSEM.review ? `<button type="button" class="link-btn" data-ob="check">Check Them</button>` : ""}</p>` : "";
+    const wait = queue.length ? `<p class="ob-queue mini">${queue.length} more syllabus${queue.length === 1 ? " is" : "i are"} waiting. Next: ${esc(queue[0].name)} <button type="button" class="link-btn" data-ob="q-next">Read It Now</button></p>` : "";
     return `${hero(IC.courses)}
-      <h2 class="ob-h" id="obH" tabindex="-1">Your Courses</h2>
-      <p class="ob-lead">Add the courses you're taking. Each one gets a color so you can spot its work at a glance.</p>
+      <h2 class="ob-h" id="obH" tabindex="-1">Your Courses and Deadlines</h2>
+      <p class="ob-lead">A syllabus adds the course and its dated work in one go. It's read here on your device.</p>
+      <div class="ob-src main" id="obDrop">
+        <span class="ob-alt-ic" aria-hidden="true">${IC.upload}</span>
+        <span class="ob-alt-t"><b>Syllabus PDFs</b><span class="mini">One per course, or all at once.</span></span>
+        <button type="button" class="btn primary" data-ob="pdf">Choose PDFs</button>
+        <input type="file" id="obPdf" class="sr" tabindex="-1" multiple accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain${aiOk ? ",image/*" : ""}" aria-label="Choose syllabus PDFs">
+      </div>
+      <div class="ob-src">
+        <span class="ob-alt-ic" aria-hidden="true">${IC.board}</span>
+        <span class="ob-alt-t"><b>Your School's Site</b><span class="mini">Brightspace, Canvas or Blackboard. Studyboard only reads from it.</span></span>
+        <button type="button" class="btn" data-ob="lms">Connect</button>
+      </div>
+      ${wait}
       ${list}
+      ${tally}
+      <p class="status-msg mini" id="obCMsg" aria-live="polite" style="margin:0">${esc(cMsg)}</p>
+      <p class="ob-or" aria-hidden="true">or type a course</p>
       <div class="ob-cadd">
         <div class="ob-cfields">
           <label class="f ob-code">Course Code<input type="text" id="obCode" maxlength="30" placeholder="e.g. BIOL 101" autocomplete="off" data-noenter></label>
           <label class="f ob-name">Course Name<input type="text" id="obName" maxlength="120" placeholder="e.g. Biology 101" autocomplete="off" data-noenter></label>
+          <button type="button" class="btn" data-ob="add-course">Add</button>
         </div>
-        <div class="ob-crow">
-          <div class="swatches ob-sw" role="radiogroup" aria-label="Course color">${COLORS.map((x, i) => `<label><input type="radio" name="obColor" value="${x}" ${x === newColor ? "checked" : ""} aria-label="Color ${i + 1}"><span style="--c:${x}"></span></label>`).join("")}</div>
-          <button type="button" class="btn primary" data-ob="add-course">Add Course</button>
-        </div>
-        <p class="status-msg mini" id="obCMsg" aria-live="polite" style="margin:0"></p>
       </div>
-      <div class="ob-alt">
-        <span class="ob-alt-ic" aria-hidden="true">${IC.upload}</span>
-        <span class="ob-alt-t"><b>Have a Syllabus PDF?</b><span class="mini">Import it to add the course and its dated work in one go. You'll come right back here.</span></span>
-        <button type="button" class="btn" data-ob="import">Import a Syllabus</button>
-      </div>
-      <div class="ob-alt">
-        <span class="ob-alt-ic" aria-hidden="true">${IC.upload}</span>
-        <span class="ob-alt-t"><b>Use Brightspace, Canvas or Blackboard?</b><span class="mini">Connect it to bring in your courses, due dates and grades automatically.</span></span>
-        <button type="button" class="btn" data-ob="brightspace">Connect</button>
-      </div>`;
+      <p class="ob-more-src mini"><button type="button" class="link-btn" data-ob="ics">Use a Calendar File (.ics)</button> or <button type="button" class="link-btn" data-ob="paste">Paste Text</button>
+        <input type="file" id="obIcs" class="sr" tabindex="-1" accept=".ics,.ical,.icalendar,text/calendar" aria-label="Choose a calendar file"></p>`;
   }
 
   function themeStep(){
@@ -21060,7 +21195,6 @@ document.head.appendChild(AREA_CSS);
     const P = window.SBOB.T.plan || (typeof PLAN !== "undefined" ? PLAN : null);
     const gift = P && P.welcomeWeek ? P.welcomeWeek() : null;
     if (gift) P.welcomeSaid();
-    const guestGift = !gift && window.SBGUEST && SBGUEST.is() && typeof PLAN !== "undefined" && PLAN && PLAN.paywall && PLAN.paywall();
     const has = id => STEPS.some(x => x.id === id);
     if (mode === "more") return `${hero(IC.party, "done")}
       <h2 class="ob-h" id="obH" tabindex="-1">You're All Set!</h2>
@@ -21071,48 +21205,56 @@ document.head.appendChild(AREA_CSS);
         ${inPreview() ? "" : row(aiReady(), aiReady() ? "AI is on" : "AI can be turned on in Settings")}
         ${backupsHere() ? row(!!bkOnText(), bkOnText() ? `Backing up to ${esc(bkOnText())}` : "Automatic backups can be turned on in Settings") : ""}
       </ul>`;
-    return `${hero(IC.party, "done")}
-      <h2 class="ob-h" id="obH" tabindex="-1">${gift ? "Welcome to Studyboard!" : "You're All Set!"}</h2>
-      <p class="ob-lead">${gift ? "We're so glad you're here. Studyboard is ready for your term." : "Nice work. Studyboard is ready for your term."}</p>
+    const later = t => `<li class="later"><span class="ob-ck ob-lt" aria-hidden="true">${IC.clock}</span><span class="ob-st">${t}</span><span class="ob-later">Later</span></li>`;
+    const nT = foundHere().filter(t => t.due).length, soon = window.SBSEM && SBSEM.soon ? SBSEM.soon().slice(0, 5) : [];
+    let mochi = ""; try { mochi = window.SBCOMP ? SBCOMP.rigSvg("plain-mochi", {eyes: "happy", mouth: "smile"}) : ""; } catch (e) {}
+    const top = mochi ? `<div class="ob-mochi" aria-hidden="true">${mochi}</div>` : hero(IC.party, "done");
+    const fmtH = h % 1 ? h.toFixed(1) : h;
+    const rows = [
+      nC ? row(true, `${nC} course${nC === 1 ? "" : "s"}${nT ? ` and ${nT} date${nT === 1 ? "" : "s"}` : ""} added`) : later("Courses and deadlines"),
+      SBAREA.label() ? row(true, `Studying ${esc(SBAREA.label())}`) : later("Your area of study"),
+      has("theme") ? row(true, `Theme: ${esc(skin.name)}`) : "",
+      skipped ? later(`Study hours (${fmtH} a day for now)`) : row(true, `${fmtH} ${h === 1 ? "hour" : "hours"} of study a day`),
+      !has("ai") || inPreview() ? "" : aiReady() ? row(true, "AI is on") : later("AI"),
+      has("backups") && backupsHere() ? (bkOnText() ? row(true, `Backing up to ${esc(bkOnText())}`) : later("Automatic backups")) : ""
+    ].join("");
+    return `${top}
+      <h2 class="ob-h" id="obH" tabindex="-1">${skipped ? "No Problem" : gift ? "Welcome to Studyboard!" : "You're All Set!"}</h2>
+      <p class="ob-lead">${skipped ? "Studyboard is ready. You can do the rest whenever you like, from Settings or the Courses page." : gift ? "We're so glad you're here. Studyboard is ready for your term." : "Nice work. Studyboard is ready for your term."}</p>
       ${gift && !STEPS.some(x => x.id === "pro") ? `<div class="ob-gift"><span class="ob-gift-ic" aria-hidden="true">🎁</span><span><b>A welcome gift: your first week of Pro is on us</b><span class="mini">Every Pro theme and feature is yours until ${esc(gift.date)}. No card needed, and everything you make stays when the week ends.</span></span></div>` : ""}
-      <ul class="ob-sum">
-        ${row(nC > 0, nC ? `${nC} course${nC === 1 ? "" : "s"} added` : "Add courses any time from the Courses page")}
-        ${row(!!SBAREA.label(), SBAREA.label() ? `Studying ${esc(SBAREA.label())}` : "Set your area of study any time in Settings")}
-        ${has("theme") ? row(true, `Theme: ${esc(skin.name)}`) : ""}
-        ${row(true, `${h % 1 ? h.toFixed(1) : h} ${h === 1 ? "hour" : "hours"} of study a day`)}
-        ${!has("ai") || inPreview() ? "" : row(aiReady(), aiReady() ? "AI is on" : "AI can be turned on in Settings")}
-        ${has("backups") && backupsHere() ? row(!!bkOnText(), bkOnText() ? `Backing up to ${esc(bkOnText())}` : "Automatic backups can be turned on in Settings") : ""}
-      </ul>
-      <div class="ob-next">
+      <ul class="ob-sum">${rows}</ul>
+      ${soon.length ? `<div class="ob-week"><h3 class="ob-h4">Due in the Next 7 Days</h3><ul>${soon.map(t => `<li style="--c:${esc(colorOf(t.courseId))}"><span>${esc(t.title)}</span><em>${esc(relDue(t))}</em></li>`).join("")}</ul></div>`
+        : allTasks().length ? "" : `<div class="ob-next">
         <b>Next: Add Your First Task</b>
         <span class="mini">Type it the way you'd say it in the quick-add bar at the top of the Board, and Studyboard fills in the details.</span>
         <span class="ob-qa" aria-hidden="true"><span>+</span>bio quiz fri 2pm worth 5%</span>
-      </div>
-      ${window.SBSEM && SBSEM.tourButton() ? `<div class="ob-next">${SBSEM.tourButton()}</div>` : ""}
-      ${window.SBGUEST && SBGUEST.is() ? `<div class="ob-next ob-guest"><b>Keep Your Planner Safe</b><span class="mini">It's only on this device for now. A free account keeps it safe online and puts it on your phone and laptop too. What you've set up comes with you.${guestGift ? " New accounts also get their first week of Pro free." : ""}</span><button type="button" class="btn" data-ob="account">Create a Free Account</button></div>` : ""}`;
+      </div>`}`;
   }
 
   const VIEW = {welcome: welcomeStep, area: areaStep, courses: coursesStep, theme: themeStep, hours: hoursStep, reminders: remindersStep, ai: aiStep, app: appStep, backups: backupsStep, pro: proStep, done: doneStep};
 
   /* Sheet */
   function sheetHtml(){
-    const s = STEPS[step], last = step === STEPS.length - 1;
-    const bar = STEPS.map((x, i) => `<button type="button" class="ob-seg ${i < step ? "past" : i === step ? "cur" : ""}" data-ob="goto" data-id="${i}" aria-label="Step ${i + 1}: ${esc(x.title)}${i === step ? " (current)" : ""}"></button>`).join("");
-    const more = mode === "more";
-    const primary = step === 0 && !more ? "Get Started" : last ? (more ? "Done" : "Add My First Task") : "Next";
+    const s = STEPS[step], last = step === STEPS.length - 1, more = mode === "more";
+    // The done page isn't counted as a step
+    const real = STEPS.filter(x => x.id !== "done"), n = real.length;
+    const bar = real.map((x, i) => `<button type="button" class="ob-seg ${last && !skipped || !last && i < step ? "past" : i === step ? "cur" : ""}" data-ob="goto" data-id="${i}" aria-label="Step ${i + 1}: ${esc(x.title)}${i === step ? " (current)" : ""}"></button>`).join("");
+    const hasTasks = allTasks().length > 0;
+    const primary = STEPS[0].id === "welcome" && step === 0 ? "Get Started" : last ? (more ? "Done" : hasTasks ? "Open Today's Plan" : "Add My First Task") : STEPS[step + 1].id === "done" && !more ? "Finish" : "Next";
+    const goAct = last ? (more ? "finish" : hasTasks ? "plan" : "first-task") : "next";
     return `<form class="sheet ob" data-step="${s.id}" aria-labelledby="obH">
       <div class="ob-top">
-        <span class="ob-count mini">Step ${step + 1} of ${STEPS.length}</span>
+        <span class="ob-count mini">${last ? (skipped ? "Setup skipped" : "All done") : `Step ${step + 1} of ${n}`}</span>
         <span class="spacer"></span>
         ${last ? "" : `<button type="button" class="link-btn ob-skip" data-ob="skip">${more ? "Not Now" : "Skip Setup"}</button>`}
       </div>
       <div class="ob-bar" role="group" aria-label="Progress">${bar}</div>
       <div class="sheet-body ob-body"><div class="ob-step-in${dir < 0 ? " ob-rev" : ""}">${VIEW[s.id]()}</div></div>
       <div class="sheet-foot ob-foot">
-        <button type="button" class="btn ob-back" data-ob="back" ${step === 0 ? "hidden" : ""}>Back</button>
+        <button type="button" class="btn ob-back" data-ob="back" ${step === 0 || last ? "hidden" : ""}>Back</button>
         <span class="spacer"></span>
-        ${last && !more ? `<button type="button" class="btn" data-ob="finish">Go to My Board</button>` : ""}
-        <button type="button" class="btn primary ob-go" data-ob="${last ? (more ? "finish" : "first-task") : "next"}">${primary}</button>
+        ${last && !more && window.SBTOUR ? `<button type="button" class="link-btn ob-tourlink" data-ob="apptour">Take the 1-Minute Tour</button>` : ""}
+        <button type="button" class="btn primary ob-go" data-ob="${goAct}">${primary}</button>
       </div>
     </form>`;
   }
@@ -21132,7 +21274,7 @@ document.head.appendChild(AREA_CSS);
   }
   // A course typed but not added yet comes along when moving on
   const flushCourse = () => { if (STEPS[step] && STEPS[step].id === "courses" && dlg.querySelector(".sheet.ob")) addCourse(true); };
-  const go = n => { flushCourse(); dir = n >= step ? 1 : -1; show(n, true); };
+  const go = n => { flushCourse(); cMsg = ""; dir = n >= step ? 1 : -1; show(n, true); };
 
   function wire(form){
     form.addEventListener("click", onClick);
@@ -21144,7 +21286,16 @@ document.head.appendChild(AREA_CSS);
       else if (e.key === "ArrowRight" && !(t.closest && t.closest(".segb,.swatches,.ob-chips"))) { e.preventDefault(); if (step < STEPS.length - 1) go(step + 1); }
       else if (e.key === "ArrowLeft" && !(t.closest && t.closest(".segb,.swatches,.ob-chips"))) { e.preventDefault(); if (step > 0) go(step - 1); }
     });
-    form.addEventListener("change", e => { if (e.target.name === "obColor") newColor = e.target.value; if (e.target.id === "obAreaText") { const a = SBAREA.get(), v = e.target.value; if (a) SBAREA.set(a.id, v); else if (v.trim()) SBAREA.set("other", v); } });
+    const drop = form.querySelector("#obDrop");
+    if (drop) {
+      ["dragover", "dragenter"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+      drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+      drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); if (e.dataTransfer && e.dataTransfer.files.length) queueFiles(e.dataTransfer.files); });
+    }
+    form.addEventListener("change", e => {
+      if (e.target.id === "obPdf") { const fs = [...(e.target.files || [])]; e.target.value = ""; if (fs.length) queueFiles(fs); return; }
+      if (e.target.id === "obIcs") { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return; if (f.size > 8e6) { say("That calendar file is too big (over 8 MB)."); return; } f.text().then(t => leaveTo(() => icsImportSheet(t, f.name))).catch(() => say("Couldn't read that file.")); return; }
+      if (e.target.name === "obColor") newColor = e.target.value; if (e.target.id === "obAreaText") { const a = SBAREA.get(), v = e.target.value; if (a) SBAREA.set(a.id, v); else if (v.trim()) SBAREA.set("other", v); } });
   }
 
   function onClick(e){
@@ -21157,13 +21308,18 @@ document.head.appendChild(AREA_CSS);
       case "next": if (step < STEPS.length - 1) go(step + 1); break;
       case "back": if (step > 0) go(step - 1); break;
       case "goto": go(Number(id)); break;
-      case "skip": finish(false); break;
+      // Skip Setup ends on the done page, with what was skipped marked Later
+      case "skip": if (mode === "more") finish(false); else { flushCourse(); markDone(); noteEnd(); skipped = true; queue = []; dir = 1; show(STEPS.length - 1, true); } break;
       case "finish": finish(true); break;
+      case "plan": finish(true); break;
       case "first-task": finish(true, true); break;
-      case "semester": finish(true); if (window.SBSEM) SBSEM.open({from: "tour"}); break;
       case "apptour": finish(true); if (window.SBTOUR) setTimeout(() => SBTOUR.start(), 350); break;
       case "add-course": addCourse(); break;
-      case "account": finish(true); setTimeout(() => SBGUEST.signUp(), 350); break;
+      case "pdf": { const f = $("#obPdf"); if (f) f.click(); break; }
+      case "ics": { const f = $("#obIcs"); if (f) f.click(); break; }
+      case "q-next": nextSyllabus(); break;
+      case "check": if (window.SBSEM && SBSEM.review) leaveTo(() => SBSEM.review(since)); break;
+      case "lms": leaveTo(() => fire("lms-connect")); break;
       case "backup-folder": {
         const here = () => STEPS[step] && STEPS[step].id === "backups" && dlg.querySelector(".sheet.ob");
         chooseBackupFolder(id).then(() => { if (here()) show(step); });
@@ -21178,8 +21334,7 @@ document.head.appendChild(AREA_CSS);
         added = added.filter(x => x !== id); show(step);
         break;
       }
-      case "import": leaveTo(() => importSheet("")); break;
-      case "brightspace": leaveTo(() => fire("brightspace-connect")); break;
+      case "paste": leaveTo(() => importSheet("")); break;
       case "shop": leaveTo(() => styleShop("themes")); break;
       case "ai": leaveTo(() => aiSetupSheet(false)); break;
       case "mode": setTheme(id); show(step); break;
@@ -21200,19 +21355,30 @@ document.head.appendChild(AREA_CSS);
     }
   }
 
+  function say(t){ cMsg = t; const m = $("#obCMsg"); if (m) m.textContent = t; }
+  // Syllabi are read one at a time in the import sheet; the setup comes back between them
+  function queueFiles(list){
+    const ai = (() => { try { return !!aiReady(); } catch (e) { return false; } })();
+    const ok = [...list].filter(f => /\.(pdf|docx|txt)$/i.test(f.name) || f.type === "application/pdf" || f.type === "text/plain" || (ai && /^image\//.test(f.type)));
+    if (!ok.length) { say("Those aren't PDF or Word files. Choose a syllabus as a PDF or .docx, or paste its text."); return; }
+    queue = queue.concat(ok).slice(0, 12);
+    nextSyllabus();
+  }
+  function nextSyllabus(){ const f = queue.shift(); if (f) leaveTo(() => importSheet("", f)); }
   // quiet: on the way to another step, so nothing is said or redrawn
   function addCourse(quiet){
     const code = ($("#obCode") || {}).value || "", nm = ($("#obName") || {}).value || "", msg = $("#obCMsg");
     const c0 = code.trim(), n0 = nm.trim();
-    if (!c0 && !n0) { if (quiet) return; if (msg) msg.textContent = "Type a course code or name first."; const f = $("#obCode"); if (f) f.focus(); return; }
+    if (!c0 && !n0) { if (quiet) return; cMsg = "Type a course code or name first."; if (msg) msg.textContent = cMsg; const f = $("#obCode"); if (f) f.focus(); return; }
     const dup = coursesArr().find(c => (c0 && String(c.code || "").toLowerCase() === c0.toLowerCase()) || (!c0 && n0 && String(c.name || "").toLowerCase() === n0.toLowerCase()));
-    if (dup) { if (!quiet && msg) msg.textContent = `${courseLabel(dup)} is already in your list.`; return; }
-    const nc = {id: uid(), created: Date.now(), name: n0 || c0, code: c0, instructor: "", schedule: "", room: "", office: "", meetings: [], color: newColor || COLORS[0], notes: "", links: []};
+    if (dup) { if (!quiet) { cMsg = `${courseLabel(dup)} is already in your list.`; if (msg) msg.textContent = cMsg; } return; }
+    const used = coursesArr().map(c => c.color);
+    const nc = {id: uid(), created: Date.now(), name: n0 || c0, code: c0, instructor: "", schedule: "", room: "", office: "", meetings: [], color: newColor || COLORS.find(x => !used.includes(x)) || COLORS[used.length % COLORS.length], notes: "", links: []};
     applyChanges([{kind: "course", id: nc.id, after: nc}], "");
     added.push(nc.id); newColor = null;
     if (quiet) return;
+    cMsg = `Added ${nc.name}. Add another, or choose Next.`;
     show(step);
-    const m = $("#obCMsg"); if (m) m.textContent = `Added ${nc.name}. Add another, or choose Next.`;
     const f = $("#obCode"); if (f) try { f.focus({preventScroll: true}); } catch (e) {}
   }
 
@@ -21255,6 +21421,7 @@ document.head.appendChild(AREA_CSS);
     if (!away) return;
     if (dlg.open) return;
     const s = away.step; away = null;
+    if (queue.length && STEPS[s] && STEPS[s].id === "courses") { nextSyllabus(); return; }
     dir = 1; show(s, true);
   }
   dlg.addEventListener("close", () => {
@@ -21269,10 +21436,11 @@ document.head.appendChild(AREA_CSS);
 
   function finish(completed, firstTask){
     if (completed) flushCourse();
+    if (completed && mode !== "more") { try { if (window.SBSEM && SBSEM.suggestTimes) SBSEM.suggestTimes(since); } catch (e) { console.warn("suggested times", e); } }
     noteEnd();
     finishing = true; markDone(); clearTimeout(hoursTimer); saveSettings();
     if (dlg.open) dlg.close(); else finishing = false;
-    added = []; remindersOk = false; remindersMsg = ""; deviceTab = null;
+    added = []; remindersOk = false; remindersMsg = ""; deviceTab = null; queue = []; cMsg = "";
     moveCanvasesBack();
     if (!completed) { toast(mode === "more" ? "No problem. These are all in Settings too." : "No problem. Replay the welcome setup any time from Settings."); render(); return; }
     if (mode === "more") { render(); return; }
@@ -21324,7 +21492,7 @@ document.head.appendChild(AREA_CSS);
   function start(kind){
     mode = kind === "more" || kind === "all" ? kind : "first";
     const ids = mode === "first" ? FIRST : mode === "more" ? MORE : null;
-    STEPS = ALL_STEPS.filter(x => (!ids || ids.includes(x.id)) && (x.id !== "backups" || backupsHere()) && (x.id !== "pro" || proHere())); cheered = false; finishing = false; step = 0; dir = 1; added = []; remindersOk = false; remindersMsg = ""; deviceTab = null; newColor = null; away = null; show(0); }
+    STEPS = ALL_STEPS.filter(x => (!ids || ids.includes(x.id)) && (x.id !== "backups" || backupsHere()) && (x.id !== "pro" || proHere())); cheered = false; finishing = false; step = 0; dir = 1; added = []; remindersOk = false; remindersMsg = ""; deviceTab = null; newColor = null; away = null; since = Date.now(); skipped = false; queue = []; cMsg = ""; show(0); }
 
   hook("boot", () => {
     if (isDone()) return;
@@ -21848,7 +22016,7 @@ const ERRCORE = (() => {
 /* ===== module: 49-apptour.js ===== */
 /* App Tour: a coach-mark walk around the app */
 (() => {
-  const KEY = "studyboard:tour", OB = "sb:onboarded";
+  const KEY = "studyboard:tour";
   // Remembered per device and per account, like the welcome setup
   const acctKey = () => typeof sbUser !== "undefined" && sbUser && sbUser.id ? KEY + ":" + sbUser.id : "";
   const newAccount = () => { try { const t = Date.parse((sbUser && sbUser.created_at) || ""); return t > 0 && Date.now() - t < 2 * 864e5; } catch (e) { return false; } };
@@ -22105,7 +22273,6 @@ const ERRCORE = (() => {
     render(); window.scrollTo(0, s.scrollY || 0);
     if (opened && opened.isConnected) { try { opened.focus({preventScroll: true}); } catch (e) {} }
     saved = null; opened = null;
-    if (window.SBSEM) SBSEM.afterTour();
     if (completed && ui.tab === "board") setTimeout(() => { const q = $("#qaIn"); if (q && !dlg.open) { const bar = q.closest(".qa-bar"); if (bar) { bar.classList.add("ob-glow"); setTimeout(() => bar.classList.remove("ob-glow"), 2600); } } }, 200);
   }
 
@@ -22124,25 +22291,7 @@ const ERRCORE = (() => {
     show();
   }
 
-  /* When to show it on its own */
-  let poll = 0, sawSetup = false;
-  const setupOpen = () => dlg.open && !!dlg.querySelector(".sheet.ob");
-  function check(){
-    if (flag() === "done") { stop(); return; }
-    if (setupOpen()) { sawSetup = true; return; }
-    try { if (!sawSetup && localStorage.getItem(OB) && !(window.SBOB && SBOB.pending())) { setFlag("done"); stop(); return; } } catch (e) {}
-    if (!sawSetup) return;
-    if (dlg.open || document.hidden || document.getElementById("qod") || active) return;
-    stop(); setTimeout(() => { if (flag() !== "done" && !dlg.open) { start(); } }, 700);
-  }
-  function stop(){ clearInterval(poll); poll = 0; }
-  hook("boot", () => {
-    if (flag() === "done") return;
-    poll = setInterval(check, 700);
-  });
-  // Someone signed up or signed in after the page loaded
-  let seenUid = "";
-  hook("render", () => { const u = typeof sbUser !== "undefined" && sbUser && sbUser.id; if (!u || u === seenUid) return; seenUid = u; if (!poll && flag() !== "done") { sawSetup = false; poll = setInterval(check, 700); } });
+  /* It never starts on its own: the welcome setup's last page and Settings offer it */
 
   /* Settings row */
   window.SBTOUR = {start, active: () => active, taken: () => flag() === "done"};
@@ -24709,7 +24858,7 @@ hook("boot", boot);
     const origPwa = pwaBoot;
     pwaBoot = function(){ const r = origPwa.apply(this, arguments); const l = document.querySelector('link[rel="manifest"]'); if (l) l.href = "today.webmanifest"; return r; };
     // Changes made in another tab or window of Studyboard show up here too
-    window.addEventListener("storage", e => { if (e.key === LS2 && e.newValue) { loadLocal(); scheduleRender(); } });
+    window.addEventListener("storage", e => { if ((e.key === LS2 || e.key === LS2_IDB) && e.newValue) { spillLoad().then(() => { loadLocal(); scheduleRender(); }); } });
   }
 
   /* Settings: Widgets and Desktop */
@@ -30321,10 +30470,10 @@ ${kindPreview("study")}${kindPreview("project")}`;
     markSeenPending = showing;
     if (gone.length) { applyChanges(gone.map(id => { const n = clone(state.tasks[id]); delete n.markNew; return {kind: "task", id, after: n}; }), ""); return; }
     const tab = document.querySelector('nav.tabs [data-tab="courses"]');
-    if (tab) { tab.classList.add("has-newmark"); let d = tab.querySelector(":scope > .nm-dot"); if (!all.length) { if (d) d.remove(); } else { if (!d) { d = document.createElement("span"); d.className = "nm-dot"; d.setAttribute("aria-hidden", "true"); tab.appendChild(d); } d.textContent = all.length > 9 ? "9+" : String(all.length); } }
+    if (tab) { tab.classList.add("has-newmark"); let d = tab.querySelector(":scope > .fc-navdue"); if (!all.length) { if (d) d.remove(); } else { if (!d) { d = document.createElement("span"); d.className = "fc-navdue"; /* same badge as Review's cards-due count */ d.setAttribute("aria-hidden", "true"); tab.appendChild(d); } d.textContent = all.length > 9 ? "9+" : String(all.length); } }
     pipOn(document.querySelector('.cf-tabs [data-act="cf-view"][data-id="grades"]'), all.length, "nm-pip");
     document.querySelectorAll('.course-card[data-act="open-course"]').forEach(b => pipOn(b, byC[b.dataset.id] || 0, "nm-card"));
-    document.querySelectorAll('.gp-main[data-act="g-open-course"]').forEach(b => pipOn(b, byC[b.dataset.id] || 0, "nm-card"));
+    document.querySelectorAll('.gp-main[data-act="g-open-course"]').forEach(b => pipOn(b, byC[b.dataset.id] || 0, "nm-ringpip")); /* sits on the corner of the course's ring icon */
     if (ui.courseId) pipOn(document.querySelector('[data-act="course-tab"][data-id="grades"]'), byC[ui.courseId] || 0, "nm-pip");
   }
   hook("render", () => { try { newMarkBadges(); } catch (e) { console.warn("new marks", e); } });
@@ -32354,6 +32503,11 @@ function cleanFile(r) {
         if (day) { g.due = day.date; g.time = day.time || ""; }
       });
     });
+    // what the course's calendar gave, for the sync report
+    const notOursCal = notThisCourse(h);
+    (h.courses || []).forEach(c => { const ev = (c.events || []).filter(Boolean), nowMs = Date.now(), d = out.dx[c.ou] = out.dx[c.ou] || {code: c.code || "", name: String(c.name || "").slice(0, 80)};
+      d.cal = {read: ev.length, ahead: ev.filter(e => Date.parse(e.end || e.start || "") >= nowMs).length, tied: ev.filter(e => e.assoc).length, other: ev.filter(e => notOursCal(c, e)).length,
+        kept: out.evs.filter(e => e.ou === c.ou).length}; });
     return out;
   }
 
@@ -32406,10 +32560,11 @@ function cleanFile(r) {
   }
 
   /* Matching the platform courses to yours */
-  function autoMatch(bc){
+  function autoMatch(bc, not){
     const code = bc.code || codeOf(bc.name);
     // your active courses first; an archived one before ever making a second copy of a course you already have
-    for (const cs of [coursesArr(), allCourses().filter(c => c.archived)]) {
+    for (const cs0 of [coursesArr(), allCourses().filter(c => c.archived)]) {
+      const cs = not ? cs0.filter(c => c.id !== not) : cs0;
       if (code) { const k = codeKey(code); const c = cs.find(c => c.code && codeKey(c.code) === k) || cs.find(c => codeKey(c.name).includes(k) || (c.code && codeKey(c.code).includes(k))); if (c) return c.id; }
       const nm = courseName(bc.name, code).toLowerCase();
       const c = cs.find(c => c.name && nm.length > 4 && (c.name.toLowerCase() === nm || sim(c.name, nm) >= 0.75));
@@ -32435,7 +32590,8 @@ function cleanFile(r) {
   function courseDeleted(id){
     const ous = linkedOus(id); if (!ous.length) return;
     const c = cfg(), map = Object.assign({}, c.map), gone = Object.assign({}, c.goneCourses);
-    ous.forEach(ou => { map[ou] = "skip"; gone[ou] = id; });
+    // a copy deleted while you still have the course (same code or name): the school course goes to the one you kept
+    ous.forEach(ou => { const bc = (c.courses || {})[ou], keep = bc && autoMatch(bc, id); if (keep) { map[ou] = keep; delete gone[ou]; } else { map[ou] = "skip"; gone[ou] = id; } });
     save({map, goneCourses: gone});
   }
   function mapping(data, over){
@@ -32446,13 +32602,15 @@ function cleanFile(r) {
       let m = (over && over[ou]) || c.map[ou];
       if (was && !(over && over[ou])) {
         if (state.courses[was]) { m = was; delete gone[ou]; note(ou, was); }          // restored from Recently Deleted
-        else if (!m || m === "skip" || m === was) m = "skip";                          // still deleted
+        else if (!m || m === "skip" || m === was) { const keep = autoMatch(bc, was);  // still deleted, unless you still have the course (a copy was deleted)
+          if (keep) { m = keep; delete gone[ou]; note(ou, keep); } else m = "skip"; }
         else { delete gone[ou]; fix = fix || {map: Object.assign({}, c.map), goneCourses: gone}; } // you picked another course for it since
       }
       // the course it went to was deleted (Recently Deleted holds it): keep it off rather than make a new one
       const dflt = F + "c_" + hid(ou);
       if (!(over && over[ou]) && m !== "skip" && ((m && m !== "new" && !state.courses[m] && inTrash(m)) || (!m && !state.courses[dflt] && inTrash(dflt)))) {
-        gone[ou] = m && m !== "new" ? m : dflt; m = "skip"; note(ou, "skip");
+        const was2 = m && m !== "new" ? m : dflt, keep = autoMatch(bc, was2);
+        if (keep) { m = keep; note(ou, keep); } else { gone[ou] = was2; m = "skip"; note(ou, "skip"); }
       }
       if (m && m !== "new" && m !== "skip" && !state.courses[m]) m = "";
       if (!m) m = autoMatch(bc) || (state.courses[F + "c_" + hid(bc.ou)] ? F + "c_" + hid(bc.ou) : "new");
@@ -33101,7 +33259,7 @@ function cleanFile(r) {
     const c = cfg(), lr = bulk().lastRead || {}, dx = lr.dx || {}, L = [];
     if (!lr.at) return `Studyboard sync report: ${P.name}\nNo read from ${P.name} in this browser yet. Press Sync Now, wait until it says it's done, then copy the report again.\nExtension ${window.SBEXT && SBEXT.on() ? SBEXT.version() || "on, version unknown" : "not seen in this browser"}.`;
     const w = d => d ? new Date(d).toLocaleString() : "never";
-    L.push(`Studyboard sync report: ${P.name}`, `Made ${new Date().toLocaleString()}. Last read ${w(lr.at)} by ${lr.via || c.lastSrc || "?"}. Extension ${window.SBEXT && SBEXT.on() ? SBEXT.version() || "on, version unknown" : "not seen in this browser"}. Website build ${typeof SB_BUILD !== "undefined" ? SB_BUILD : (document.querySelector('script[src*="bundle/app.js"]') || {src: ""}).src.split("v=")[1] || "?"}.`);
+    L.push(`Studyboard sync report: ${P.name}`, `Made ${new Date().toLocaleString()}. Last read ${w(lr.at)} by ${lr.via || c.lastSrc || "?"}. Extension ${window.SBEXT && SBEXT.on() ? SBEXT.version() || "on, version unknown" : "not seen in this browser"}. Website build ${window.SB_BUILD ? window.SB_BUILD : (document.querySelector('script[src*="bundle/app.js"]') || {src: ""}).src.split("v=")[1] || "?"}.`);
     const xs = window.SBEXT && SBEXT.school ? SBEXT.school(P.id) : null;
     if (xs) L.push(`Extension's own reads: ${xs.state || "?"}; last good read ${w(xs.at)}; last try ${w(xs.tried)}${xs.error ? "; error: " + xs.error : ""}.`);
     if (xs && xs.at && lr.at && xs.at < lr.at - 6e4 && xs.tried > xs.at) L.push("The extension's newest reads failed, so this website still has its older read.");
@@ -33114,6 +33272,8 @@ function cleanFile(r) {
       if (lr.notes && lr.notes[ou]) L.push("Summary: " + lr.notes[ou]);
       L.push(`You: id ${d.me && d.me.id}, name ${d.me && d.me.name}. Quiz list gave ${d.quizApi} quizzes; Quizzes page: ${d.quizPage}${d.quizToc != null ? `; from course content ${d.quizToc}, from calendar ${d.quizCal}` : ""}.`);
       if (d.grades) { L.push(`Grades: list ${d.grades.list}; Grades page ${d.grades.page}; ${d.grades.rows} rows used.`); (d.grades.sample || []).forEach(x => L.push("  Grade " + x)); }
+      if (d.cal) { const evs = eventsArr().filter(e => e[F] && (e[F].ou === ou || (cid && e.courseId === cid))), td = todayISO();
+        L.push(`Calendar: read ${d.cal.read} entries (${d.cal.ahead} upcoming, ${d.cal.tied} tied to an item, ${d.cal.other} set aside as another course's); ${d.cal.kept} became events. Studyboard has ${evs.length} events from it (${evs.filter(e => e.date >= td).length} upcoming). Course setting: ${cid === "skip" ? "Don't Import" : cid ? "linked" : "automatic"}${(c.goneCourses || {})[ou] ? " (kept off because its course was deleted)" : ""}.`); }
       if ((d.calExams || []).length) L.push("Exam calendar entries: " + d.calExams.join("; "));
       if ((d.calTied || []).length) L.push("Calendar entries tied to an item: " + d.calTied.join("; "));
       (d.folders || []).forEach(f => L.push(`  Assignment "${f.n}" [${f.id}]: handed in ${f.sub}; grade item ${f.gradeItem || "none"}${f.inGrades ? " (marked in Grades)" : ""}; out of ${f.outOf == null ? "not given" : f.outOf}; feedback with submission: ${f.fb}${f.fbApi ? "; feedback link: " + f.fbApi : ""}${f.row ? `; Assignments page row: "${f.row}"` : ""}${f.scoreCell ? `; Score cell "${f.scoreCell}"` : ""}${(f.links || []).length ? "; links " + f.links.join(" ") : ""}${f.fbPage ? "; feedback page: " + f.fbPage : ""}; mark read: ${f.mark || "none"}`));
@@ -42106,7 +42266,7 @@ var TP_DATA = [];
     capture: ["cap-try"],
     school: ["sem-open", "lms-open", "cal-export", "cal-sync", "import-syllabus", "grp-page"],
     app: ["tz-shift", "rm-open", "sbw-open", "pwa-install", "install", "desk-version", "ob-replay", "tour-open", "bug-open"],
-    data: ["fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-full", "backup-now", "restore", "import", "ia-open", "new-term", "archive-open", "trash-open", "export-data", "clear-all"]
+    data: ["fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "restore", "import", "ia-open", "new-term", "archive-open", "trash-open", "export-data", "clear-all"]
   };
   // Sub-tabs inside a category with many rows
   const SUBS = {
@@ -42114,7 +42274,7 @@ var TP_DATA = [];
     study: [["Study Plan", ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "g-grades", "bd-new-course", "wkr-open", "fgs-open"]], ["AI and Search", ["ai-setup", "sx-settings"]]],
     school: [["School Sites", ["sem-open", "lms-open", "import-syllabus"]], ["Calendar", ["cal-export", "cal-sync"]], ["Groups", ["grp-page"]]],
     app: [["Reminders", ["rm-open", "sbw-open", "tz-shift"]], ["Install", ["pwa-install", "install", "desk-version"]], ["Help", ["ob-replay", "tour-open", "bug-open"]]],
-    data: [["Backups", ["fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-full", "backup-now", "restore"]], ["Import and Export", ["import", "ia-open", "export-data"]], ["Cleanup", ["new-term", "archive-open", "trash-open", "clear-all"]]]
+    data: [["Backups", ["fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "restore"]], ["Import and Export", ["import", "ia-open", "export-data"]], ["Cleanup", ["new-term", "archive-open", "trash-open", "clear-all"]]]
   };
   const SUB_MIN = 5;
   // Extra words people might search for, per row
@@ -42123,7 +42283,7 @@ var TP_DATA = [];
     "area-open": "major program field subject discipline degree", "bd-new-course": "milestones rubric breakdown", dailyIn: "study time plan", capIn: "weekly limit", "ai-setup": "gemini key chatbot", "sx-settings": "find ctrl k", "g-grades": "marks gpa", "wkr-open": "weekly review sunday summary recap week slipped", "fgs-open": "streak study days rest days habit gentle forgiving",
     "lms-open": "d2l lms school sites", "cal-export": "calendar ics google outlook apple", "import-syllabus": "pdf course", "sem-open": "semester first run start setup onboarding import syllabus week plan", "grp-page": "classmates share",
     "rm-open": "alerts push notify", "sbw-open": "widget tray startup desktop", "ob-replay": "tour help welcome start", "tour-open": "tour help guide orientation walkthrough tutorial", "bug-open": "bug report feedback problem issue idea support contact", "pwa-install": "home screen app",
-    "fsb-choose": "google drive onedrive folder backup", folder: "google drive onedrive folder backup", "backup-now": "save backup copy device", "restore": "undo backup", "export": "download backup", "import": "upload backup", "ia-open": "anki apkg colpkg quizlet todoist notion csv another app switch", "export-full": "files zip",
+    "fsb-choose": "google drive onedrive folder backup", folder: "google drive onedrive folder backup", "backup-now": "save backup copy device", "restore": "undo backup", "export": "download backup zip files", "export-json": "download backup data only json", "import": "upload backup", "ia-open": "anki apkg colpkg quizlet todoist notion csv another app switch", "export-full": "files zip",
     "new-term": "semester archive", "trash-open": "recently deleted trash bin restore undo recover deleted", "export-data": "export csv json zip spreadsheet excel portability download my data gdpr", "clear-all": "delete reset erase"};
   const KEY_CAT = {};
   Object.entries(ORDER).forEach(([c, ks]) => ks.forEach(k => { KEY_CAT[k] = c; }));
@@ -57162,7 +57322,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const ey = num(c.eyes && c.eyes.y) ? c.eyes.y : 60, size = 90, y = Math.max(0, Math.min(VB - size, ey - 50));
       return svg.replace(`viewBox="0 0 ${VB} ${VB}"`, `viewBox="${(VB - size) / 2} ${f1(y)} ${size} ${size}"`);
     },
-    check, gallery, rigSvg: (id, o) => BYID[id] ? rigSvg(BYID[id], o) : "", stillUrl: id => BYID[id] ? stillUrl(BYID[id]) : "", wearColor: id => BYID[id] ? wearColor(BYID[id]) : "",
+    check, gallery, rigSvg: (id, o) => BYID[id] ? rigSvg(BYID[id], o) : "", stillUrl: id => BYID[id] ? stillUrl(BYID[id]) : "", wearColorOf: id => BYID[id] ? wearColor(BYID[id]) : "",
     themes: () => Object.keys(REG), list: k => (REG[k] ? REG[k].list : []).map(c => ({id: c.id, name: c.name, kind: c.kind, pose: c.pose})),
     // Every companion, for the Your Photo theme editor's "Companions" picker
     all: () => Object.keys(REG).flatMap(k => REG[k].list.map(c => ({id: c.id, name: c.name, kind: c.kind || "", theme: k, owned: canComp(c)}))),
@@ -62186,7 +62346,7 @@ const IA = (() => {
     if (!changes.length) return;
     try {
       const have = (localStorage.getItem(LS2) || "").length, adding = JSON.stringify(changes.map(c => c.after)).length;
-      if (have + adding > 4.6e6) { const m = $("#iaMsg"); if (m) m.textContent = tr("ia.err.space", "That's more than Studyboard can keep on this device at once. Untick a few decks and import the rest afterwards."); return; }
+      if (!spillOk() && have + adding > 4.6e6) { const m = $("#iaMsg"); if (m) m.textContent = tr("ia.err.space", "That's more than Studyboard can keep on this device at once. Untick a few decks and import the rest afterwards."); return; }
     } catch (e) { }
     const what = [made.deck ? decksW(made.deck) + " (" + cardsW(made.card) + ")" : "", made.task ? tasksW(made.task) : "", made.note ? notesW(made.note) : ""].filter(Boolean).join(", ");
     dlg.close();
@@ -63054,7 +63214,7 @@ async function capProcess(rows, d){
     } else {
       const items = dd.fresh.map(r => d.convert(r)), ids = items.map(x => x.id);
       try { await d.addTasks(items); } catch (e) { out.failed = true; }
-      if (!out.failed && d.verifySaved(ids)) stored = dd.fresh.map(r => r.id); else out.failed = true;
+      if (!out.failed && await d.verifySaved(ids)) stored = dd.fresh.map(r => r.id); else out.failed = true;
     }
     if (stored.length) { d.seenAdd(stored); out.added += stored.length; }
   }
@@ -63104,7 +63264,7 @@ async function capProcess(rows, d){
     const who = capWho(items.map(x => x.source)), n = changes.length, nodate = items.filter(x => !x.due).length;
     applyChanges(changes, `Added ${n} task${n === 1 ? "" : "s"} from ${who}${nodate ? ` (${nodate === n ? "none has" : nodate + " without"} a due date)` : ""}`);
   }
-  function verifySaved(ids){ try { const raw = localStorage.getItem(LS2) || ""; return ids.every(id => raw.indexOf('"' + id + '"') >= 0); } catch (e) { return false; } }
+  async function verifySaved(ids){ try { let raw = ""; if (spilled) { await spillFlush(); raw = (await spillRead()) || ""; } else raw = localStorage.getItem(LS2) || ""; return ids.every(id => raw.indexOf('"' + id + '"') >= 0); } catch (e) { return false; } }
   const deps = () => ({
     dedupe: () => ({seen: seenSet(), hasTask: id => !!getItem("task", id),
       recent: tasksArr().filter(t => t.created && Date.now() - t.created < CAP_DUP_MS).map(t => ({key: capKey(t.title, t.due), at: t.created}))}),
@@ -68697,7 +68857,7 @@ const IDS = ["courses", "work", "review", "times", "prep", "week"];
 const stepName = id => ({
   courses: tr("sem.step.courses", "Courses"), work: tr("sem.step.work", "Your work"), review: tr("sem.step.review", "Review"),
   times: tr("sem.step.times", "Times"), prep: tr("sem.step.prep", "Prep"), week: tr("sem.step.week", "Your week")})[id] || id;
-const R = {away: false, before: null, queue: [], qTotal: 0, scope: "new", msg: "", removed: [], showAll: false};
+const R = {away: false, before: null, queue: [], qTotal: 0, scope: "new", msg: "", removed: [], showAll: false, since: null, solo: false};
 const ico = d => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const CHECK = ico('<path d="M5 12.5l4.5 4.5L19 7.5"/>');
 const isEmpty = () => !allTasks().length;
@@ -68708,7 +68868,7 @@ const keyOf = t => String(t.title).toLowerCase().replace(/\W+/g, "") + "|" + t.d
 
 /* What this run found */
 function found(){
-  const since = Number(M.since) || 0;
+  const since = R.since != null ? R.since : Number(M.since) || 0;
   let L = tasksArr().filter(mine);
   L = R.scope === "all" ? L.filter(t => t.status !== "done") : L.filter(t => (Number(t.created) || 0) >= since);
   return L.sort(sortTasks);
@@ -68742,6 +68902,7 @@ function stepper(){
     }).join("")}</ol></div>`;
 }
 function foot(){
+  if (R.solo) return `<div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-sem="solo-done">${esc(tr("sem.solo.done", "Done"))}</button></div>`;
   const i = stepIdx(), last = i === IDS.length - 1;
   if (last) return `<div class="sheet-foot"><button type="button" class="btn" data-sem="back">${esc(tr("sem.back", "Back"))}</button><span class="spacer"></span>
     <button type="button" class="btn" data-sem="finish" data-id="crunch">${esc(tr("sem.week.crunch", "See Crunch Forecast"))}</button>
@@ -68752,8 +68913,8 @@ function foot(){
 }
 function paint(keep, focusHead, say){
   const main = dlg.querySelector(".sem-sheet .sem-main"); if (!main) return;
-  const old = main.querySelector(".sem-body"), top = old ? old.scrollTop : 0, id = IDS[stepIdx()];
-  main.innerHTML = head(tr("sem.title", "Set Up Your Semester")) + stepper() + `<div class="sheet-body sem-body">${VIEW[id]()}</div>` + foot();
+  const old = main.querySelector(".sem-body"), top = old ? old.scrollTop : 0, id = R.solo ? "review" : IDS[stepIdx()];
+  main.innerHTML = head(R.solo ? tr("sem.solo.title", "Check What We Found") : tr("sem.title", "Set Up Your Semester")) + (R.solo ? "" : stepper()) + `<div class="sheet-body sem-body">${VIEW[id]()}</div>` + foot();
   const b = main.querySelector(".sem-body"); if (keep && b) b.scrollTop = top;
   if (focusHead) { const h = $("#semH"); if (h) try { h.focus({preventScroll: true}); } catch (e) { } }
   if (say) announce(say === true ? tr("sem.live.step", "Step {i} of {n}: {name}", {i: stepIdx() + 1, n: IDS.length, name: stepName(id)}) : say);
@@ -68762,10 +68923,10 @@ function open(o){
   o = o || {};
   if (window.SBTOUR && SBTOUR.active()) return false;
   const fresh = !M.since || M.fin || !IDS.includes(M.step) || Date.now() - Number(M.since) > 45 * 864e5;
-  // From the welcome setup, which just asked for courses
-  const had = o.from === "tour" && coursesArr().length > 0;
+  // Courses are already there (from the welcome setup, or added by hand), so start at bringing in work
+  const had = coursesArr().length > 0;
   if (fresh || o.restart) save({since: Date.now(), step: had ? "work" : "courses", done: had ? {courses: true} : {}, skip: {}, fin: 0, from: o.from || ""});
-  R.scope = "new"; R.msg = ""; R.removed = []; R.queue = []; R.qTotal = 0; R.away = false; R.showAll = false;
+  R.scope = "new"; R.msg = ""; R.removed = []; R.queue = []; R.qTotal = 0; R.away = false; R.showAll = false; R.since = null; R.solo = false;
   openSheet(shell());
   paint(false, true, tr("sem.live.open", "Set up your semester. Step {i} of {n}. Every step can be skipped.", {i: stepIdx() + 1, n: IDS.length}));
   return true;
@@ -68804,7 +68965,7 @@ function back(){
     : tr("sem.back.none", "Nothing was added. That is okay, you can try another way.");
   openSheet(shell()); paint(false, true, R.msg);
 }
-dlg.addEventListener("close", () => { if (R.away) setTimeout(back, 250); });
+dlg.addEventListener("close", () => { if (R.solo) { R.solo = false; R.since = null; } if (R.away) setTimeout(back, 250); });
 
 /* Step 1: courses */
 function vCourses(){
@@ -69044,7 +69205,8 @@ dlg.addEventListener("click", e => {
   const b = e.target.closest("[data-sem]"); if (!b || !b.closest(".sem-sheet")) return;
   e.preventDefault(); e.stopPropagation();
   const a = b.dataset.sem, id = b.dataset.id, i = stepIdx();
-  if (IDS[i] === "courses" && (a === "goto" || a === "next")) addCourse(true);
+  if (a === "solo-done") { R.solo = false; R.since = null; dlg.close(); return; }
+  if (!R.solo && IDS[i] === "courses" && (a === "goto" || a === "next")) addCourse(true);
   switch (a) {
     case "goto": go(id); break;
     case "back": if (i > 0) go(IDS[i - 1]); break;
@@ -69096,7 +69258,9 @@ dlg.addEventListener("keydown", e => {
 hook("changed", () => { if (!dlg.open) return; const t = $("#semTally"); if (t) t.textContent = tallyText(); });
 
 /* Entry points */
-const cardDue = () => isEmpty() && !M.hide && !(window.SBOB && SBOB.pending());
+// Not right after the welcome setup (finished or skipped), and not once this setup was finished
+const obRecent = () => { try { return Date.now() - (Number(localStorage.getItem("sb:onboarded:at")) || 0) < 3 * 864e5; } catch (e) { return false; } };
+const cardDue = () => isEmpty() && !M.hide && !M.fin && !obRecent() && !(window.SBOB && SBOB.pending());
 hook("render", tab => {
   // Not while the first sign-in or the welcome setup is still to come
   if (tab !== "board" || !cardDue()) return;
@@ -69120,17 +69284,24 @@ window.SBSEM = {
   cardDue,
   found: () => found().map(t => t.id),
   state: () => Object.assign({}, M),
-  // For the welcome setup's last page
-  tourButton: () => isEmpty() ? `<button type="button" class="btn ob-big" data-ob="semester">${esc(tr("sem.tour.btn", "Set Up My Semester"))}</button><span class="mini">${esc(tr("sem.tour.s", "Syllabi, school site or calendar in about two minutes. Skip anything."))}</span>` : "",
-  // After the app tour
-  afterTour(){
-    if (!isEmpty() || M.hide || M.tourOffer || M.fin) return;
-    save({tourOffer: Date.now()});
-    setTimeout(() => { if (isEmpty() && !dlg.open) toast(tr("sem.tour.toast", "Ready to bring in your classes?"), null, {label: tr("sem.tour.toast.b", "Set Up My Semester"), fn: () => open({from: "tour"})}); }, 600);
+  // For the welcome setup's courses step: the review list on its own, for what was added since a time
+  review(since){
+    if (window.SBTOUR && SBTOUR.active()) return false;
+    R.scope = "new"; R.msg = ""; R.removed = []; R.showAll = false; R.away = false; R.since = Number(since) || 0; R.solo = true;
+    openSheet(shell()); paint(false, true, tr("sem.solo.live", "Check what we found. Changes save as you go."));
+    return true;
   },
+  // Suggested times for what was added since a time (the welcome setup's Finish)
+  suggestTimes(since){
+    const L = tasksArr().filter(t => mine(t) && (Number(t.created) || 0) >= (Number(since) || 0) && SBEST.needs(t));
+    if (L.length) applyChanges(L.map(t => { const n = clone(t); n.hours = suggestH(t); return {kind: "task", id: t.id, after: n}; }), "");
+    return L.length;
+  },
+  // Due in the next 7 days, for the welcome setup's last page
+  soon(){ const t0 = todayISO(), lim = addDays(t0, 7); return tasksArr().filter(t => mine(t) && t.status !== "done" && t.due && t.due >= t0 && t.due <= lim).sort(sortTasks); },
   // The study companion mentions it once, only to someone with an empty planner
   offer(){
-    if (M.offered || M.fin || M.hide || !isEmpty() || dlg.open) return null;
+    if (M.offered || M.fin || M.hide || !isEmpty() || dlg.open || obRecent()) return null;
     return {text: tr("sem.comp", "Want a head start? I can help you bring in your syllabi and plan your first week."), action: "semester", yes: tr("sem.comp.yes", "Set Up"), local: true};
   },
   offered(){ save({offered: Date.now()}); },
@@ -74875,13 +75046,10 @@ var SBWB = null;
     const now = Date.now();
     const n = Object.assign({id: uid(), text: name || "Untitled Whiteboard", wb: {v: 1, tpl: TPL.some(t => t[0] === tpl) ? tpl : "blank", pa: pageAspect()}, courseId: courseId || "", board: "", created: now, updated: now}, extra || {});
     applyChanges([{kind: "note", id: n.id, after: n}], "");
-    if (!made()) { state.settings = Object.assign({}, state.settings, {wbMade: true}); saveSettings(); }
     ui.wbCur = n.id; lsSet(K_CUR, n.id); setView("wb");
     return n.id;
   }
   // Someone who has made a whiteboard before
-  const made = () => !!((state.settings || {}).wbMade) || Object.values(state.notes || {}).some(n => n && n.wb) || ((typeof trashVisible === "function" ? trashVisible() : []).some(e => e.kind === "note" && /^Whiteboard: /.test(e.label || "")));
-  let askedNew = false;
   // The shape of the board's frame (or what it will be, before it's on the page)
   function pageAspect(){
     let w = fw, h = fh;
@@ -75690,8 +75858,7 @@ var SBWB = null;
   hook("render", tab => {
     if (tab === "notes" && on()) {
       mount();
-      if (!askedNew) { askedNew = true; if (!boards().length && made() && !dlg.open) setTimeout(() => { if (!dlg.open && ui.tab === "notes" && on() && !boards().length) newSheet(); }, 0); }
-    } else { askedNew = false; if (B) { endText(); flush(); } }
+    } else if (B) { endText(); flush(); }
   });
   window.addEventListener("pagehide", () => { endText(); flush(); });
   const SUN = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/></svg>';
@@ -75720,7 +75887,6 @@ var SBWB = null;
     const tab = b => { const bc = courseOf(b.courseId), on = b.id === cur; return `<button type="button" role="tab" class="nb-tab${on ? " on" : ""}" aria-selected="${on}" data-act="wb-go" data-id="${esc(b.id)}" style="--c:${esc(bc ? bc.color : "var(--muted)")}"><span class="sd"></span><span class="nb-tn">${esc(boardName(b))}</span></button>${on ? `<button type="button" class="icon-btn sm" data-act="wb-opts" aria-label="Board options" title="Board options">${DOTS}</button>` : ""}`; };
     const strip = list.length ? `<div class="nb-boards wb-boards" role="tablist" aria-label="Whiteboards">${list.map(tab).join("")}</div>` : "";
     const headHtml = `<div class="tl-controls f-title wb-head"><h2>Whiteboard</h2>${list.length ? `${picker(list, cur)}<button class="btn small" data-act="wb-all">All Boards</button>${extra}<button class="btn small" data-act="wb-export">Export</button><button class="btn small wb-optbtn" data-act="wb-opts" aria-label="Board options" title="Board options"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18.5" cy="12" r="1.8"/></svg></button>` : ""}</div>${strip}`;
-    if (!list.length && made()) return headHtml + `<div class="wb-empty wb-none"><div class="wb-empty-in"><p>You don't have any whiteboards right now.</p><button type="button" class="btn primary" data-act="wb-new">+ New Whiteboard</button></div></div>`;
     if (!list.length) return headHtml + `<div class="wb-empty"><div class="wb-empty-in"><h3>Start a Whiteboard</h3><p>Sketch, write and plan with markers on a big board you can zoom around.</p>
       <button type="button" class="wb-blank-go" data-act="wb-quick" data-id="blank"><span class="wb-tpv"></span><span><b>Blank Board</b><span class="mini">Start from a clean white board</span></span></button>
       <h4 class="wb-or">Or Start From a Template</h4><div class="wb-tiles">${tiles("", "", true, true)}</div></div></div>`;
@@ -76058,7 +76224,6 @@ var SBWB = null;
 .wb-empty-in{border-radius:10px;background:linear-gradient(115deg,rgba(255,255,255,0) 30%,rgba(255,255,255,.8) 46%,rgba(255,255,255,0) 60%),#FBFCFD;padding:28px 24px;color:#22262D;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
 .wb-empty-in h3{font-family:${MARKER};font-weight:400;font-size:2rem;margin:0 0 6px;color:#1D5BD6}
 .wb-empty-in p{margin:0 0 16px;color:#4A576E}
-.wb-none .wb-empty-in{display:flex;flex-direction:column;align-items:center;text-align:center;padding:48px 24px}
 .wb-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:10px}
 .wb-tile{display:flex;flex-direction:column;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:7px;cursor:pointer;font:600 .85rem var(--display);color:var(--ink);text-align:left;position:relative}
 .wb-empty .wb-tile{background:#fff;color:#22262D;border-color:rgba(0,0,0,.1)}
@@ -79211,6 +79376,7 @@ if (DESK) { try { await Promise.race([deskBoot(), sleep(6000)]); } catch(e) { co
 try { pwaBoot(); } catch(e) {}
 try { applyTheme(); } catch(e) {}
 try { applySkin(); } catch(e) {}
+try { await spillLoad(); } catch(e) { console.warn("device copy", e); }
 loadLocal();
 try { noteDraftRecover(); } catch(e) { console.warn("note draft", e); }
 setTimeout(async () => {
@@ -79290,7 +79456,8 @@ ui._day = todayISO();
   const quiet = d => {
     try {
       const a = document.activeElement;
-      if (a && a !== d && d.open && d.contains(a) && (phoneW() || !d.querySelector("[autofocus]")) && (phoneW() || !/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) && !a.isContentEditable) {
+      // A heading the sheet focused on purpose stays focused, so screen readers start there
+      if (a && a !== d && d.open && d.contains(a) && !/^H[1-6]$/.test(a.tagName) && (phoneW() || !d.querySelector("[autofocus]")) && (phoneW() || !/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) && !a.isContentEditable) {
         let h = d.querySelector(":scope > .sm-focus");
         if (!h) { h = document.createElement("span"); h.className = "sm-focus"; h.tabIndex = -1; h.setAttribute("aria-hidden", "true"); d.append(h); }
         h.focus({preventScroll: true});

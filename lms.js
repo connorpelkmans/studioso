@@ -239,6 +239,15 @@ async function bsHarvest(o) {
   const pick = all.filter(c => (only ? only.has(c.ou) : current(c)) && !skip.has(c.ou))
     .sort((a, b) => (Date.parse(b.last || 0) || 0) - (Date.parse(a.last || 0) || 0)).slice(0, 20);
 
+  // Calendar entries: upcoming ones are read on their own, so a term's worth of past classes can't use up the page limit
+  // and push next week's classes out of the sync. Upcoming first, then the past, each entry once.
+  const nowISO = new Date(now).toISOString();
+  const calendarOf = async b => {
+    const cal = (s, e, max) => pages(`${b}/calendar/events/myEvents/?startDateTime=${enc(s)}&endDateTime=${enc(e)}`, true, max);
+    const [ahead, past] = await Promise.all([cal(nowISO, toISO, 30), cal(fromISO, nowISO, 10)]);
+    const seen = new Set();
+    return ahead.concat(past).filter(e => { const k = e && e.CalendarEventId != null ? String(e.CalendarEventId) : ""; if (!e || (k && seen.has(k))) return false; if (k) seen.add(k); return true; });
+  };
   const detail = async c => {
     const b = `/d2l/api/le/${le}/${c.ou}`;
     let gradesErr = "";
@@ -248,7 +257,7 @@ async function bsHarvest(o) {
       q.grades === false ? null : get(`${b}/grades/values/myGradeValues/`).catch(e => { gradesErr = String(e.status || e.name || e.message); errors.push(`${c.code || c.ou}: grades list ${gradesErr}`); return null; }),
       q.grades === false ? null : soft(`${b}/grades/final/values/myGradeValue`, true),
       q.news === false ? null : soft(`${b}/news/`, true),
-      pages(`${b}/calendar/events/myEvents/?startDateTime=${enc(fromISO)}&endDateTime=${enc(toISO)}`, true),
+      calendarOf(b),
       soft(`${b}/discussions/forums/`, true),
       soft(`${b}/classlist/`, true),
       soft(`${b}/overview`, true),
@@ -628,7 +637,7 @@ async function bsHarvest(o) {
     c.final = fin && typeof fin === "object" && !Array.isArray(fin) ? { num: fin.PointsNumerator, den: fin.PointsDenominator, wnum: fin.WeightedNumerator, wden: fin.WeightedDenominator, shown: String(fin.DisplayedGrade || "").trim() } : null;
     c.news = listOf(news).filter(n => n && n.IsPublished !== false && !n.IsHidden).slice(0, 25).map(n => ({ id: String(n.Id), title: String(n.Title || ""), text: txt(n.Body, 3000), date: dt(n.StartDate) || dt(n.CreatedDate) || dt(n.LastModifiedDate),
       files: (n.Attachments || []).length }));
-    c.events = events.filter(e => e && (e.OrgUnitId == null || String(e.OrgUnitId) === String(c.ou))).slice(0, 200).map(e => ({ ou: e.OrgUnitId != null ? String(e.OrgUnitId) : "", id: String(e.CalendarEventId), title: String(e.Title || ""), text: txt(e.Description, 1500), start: dt(e.StartDateTime), end: dt(e.EndDateTime), allDay: !!e.IsAllDayEvent,
+    c.events = events.filter(e => e && (e.OrgUnitId == null || String(e.OrgUnitId) === String(c.ou))).slice(0, 400).map(e => ({ ou: e.OrgUnitId != null ? String(e.OrgUnitId) : "", id: String(e.CalendarEventId), title: String(e.Title || ""), text: txt(e.Description, 1500), start: dt(e.StartDateTime), end: dt(e.EndDateTime), allDay: !!e.IsAllDayEvent,
       where: String(e.LocationName || ""), assoc: !!(e.IsAssociatedWithEntity || (e.AssociatedEntity && e.AssociatedEntity.AssociatedEntityId)), kind: e.AssociatedEntity ? String(e.AssociatedEntity.AssociatedEntityType || "") : "", eid: e.AssociatedEntity && e.AssociatedEntity.AssociatedEntityId != null ? String(e.AssociatedEntity.AssociatedEntityId) : "", url: String(e.CalendarEventViewUrl || "") }));
   };
   for (let i = 0; i < pick.length; i += 4) await Promise.all(pick.slice(i, i + 4).map(detail));
@@ -706,7 +715,9 @@ async function cvHarvest(o) {
     const [asg, groups, events, qzs, mySubs, info, staff] = await Promise.all([
       pages(`/api/v1/courses/${id}/assignments?include[]=submission&include[]=score_statistics&per_page=100&order_by=due_at`),
       soft(`/api/v1/courses/${id}/assignment_groups?per_page=100`, true),
-      pages(`/api/v1/calendar_events?type=event&context_codes[]=course_${id}&start_date=${enc(fromISO)}&end_date=${enc(toISO)}&per_page=100`, true, 4),
+      // upcoming entries on their own read, so past classes can't push them out; upcoming first, each entry once
+      Promise.all([[new Date(now).toISOString(), toISO, 8], [fromISO, new Date(now).toISOString(), 3]].map(([s, e, n]) => pages(`/api/v1/calendar_events?type=event&context_codes[]=course_${id}&start_date=${enc(s)}&end_date=${enc(e)}&per_page=100`, true, n)))
+        .then(([a, b]) => { const seen = new Set(); return a.concat(b).filter(x => { const k = x && x.id != null ? String(x.id) : ""; if (!x || (k && seen.has(k))) return false; if (k) seen.add(k); return true; }); }),
       pages(`/api/v1/courses/${id}/quizzes?per_page=100`, true, 3),
       pages(`/api/v1/courses/${id}/students/submissions?student_ids[]=self&include[]=submission_comments&include[]=rubric_assessment&per_page=100`, true, 4),
       soft(`/api/v1/courses/${id}?include[]=syllabus_body`, true),
@@ -777,7 +788,7 @@ async function cvHarvest(o) {
     });
     const en = (raw.enrollments || []).find(e => e && (e.computed_current_score != null || e.computed_current_grade));
     c.final = en ? { shown: en.computed_current_grade ? String(en.computed_current_grade) + (en.computed_current_score != null ? ` (${en.computed_current_score}%)` : "") : en.computed_current_score + "%", pct: en.computed_current_score != null ? Number(en.computed_current_score) : null } : null;
-    c.events = events.slice(0, 200).map(e => ({ id: String(e.id), title: String(e.title || ""), text: txt(e.description, 1500), start: dt(e.start_at), end: dt(e.end_at), allDay: !!e.all_day, where: String(e.location_name || ""), assoc: false, url: String(e.html_url || "") }));
+    c.events = events.slice(0, 400).map(e => ({ id: String(e.id), title: String(e.title || ""), text: txt(e.description, 1500), start: dt(e.start_at), end: dt(e.end_at), allDay: !!e.all_day, where: String(e.location_name || ""), assoc: false, url: String(e.html_url || "") }));
     c.news = [];
   };
   for (let i = 0; i < courses.length; i += 4) await Promise.all(courses.slice(i, i + 4).map(detail));

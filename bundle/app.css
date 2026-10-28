@@ -2559,6 +2559,7 @@ dialog:has(.sheet.ob){width:min(640px,calc(100% - 24px))}
 .ob-opt{font:700 .66rem/1 var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:5px 8px}
 .ob-lead{margin:-6px auto 2px;max-width:46ch;text-align:center;color:var(--muted);font-size:.98rem;line-height:1.5;text-wrap:balance}
 .ob-note{margin:0;text-align:center;line-height:1.5}
+.ob-crash{margin:-4px 2px 0;text-align:center;color:var(--muted);line-height:1.45}
 .ob-note .link-btn{font-size:inherit;padding:0}
 .ob-logo{display:flex;justify-content:center;padding:10px 0 2px}
 .ob-logo .logo{height:48px;width:auto;display:block}
@@ -2578,7 +2579,40 @@ dialog:has(.sheet.ob){width:min(640px,calc(100% - 24px))}
 .ob-clist .x-btn{width:28px;height:28px;border-radius:50%}
 .ob-empty{margin:0;text-align:center}
 .ob-cadd{display:grid;gap:12px;padding:14px;border:1px solid var(--line);border-radius:16px;background:color-mix(in srgb,var(--soft) 55%,var(--surface))}
-.ob-cfields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:10px}
+.ob-cfields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr) auto;gap:10px;align-items:end}
+.ob-cfields>.btn{min-height:44px}
+/* Courses and deadlines: where the work comes from */
+.ob-src{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
+.ob-src.main{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));background:color-mix(in srgb,var(--accent) 6%,var(--surface))}
+.ob-src.over{outline:2px dashed var(--accent);outline-offset:2px}
+.ob-src .btn{min-height:44px;flex:none}
+.ob-cn{color:var(--muted);margin-left:2px}
+.ob-tally{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0;font-size:.92rem;color:var(--muted)}
+.ob-tally b{color:var(--ink)}
+.ob-tally .link-btn{font-weight:700;padding:0;min-height:32px}
+.ob-queue{margin:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ob-queue .link-btn{padding:0;font-size:inherit}
+.ob-or{display:flex;align-items:center;gap:10px;margin:2px 0 0;font-size:.74rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.ob-or::before,.ob-or::after{content:"";flex:1;height:1px;background:var(--line)}
+.ob-more-src{margin:0;color:var(--muted);font-size:.9rem}
+.ob-more-src .link-btn{padding:0;font-size:inherit;font-weight:700;min-height:32px}
+/* Done: Mochi, Later rows, the coming week, the tour link */
+.ob-mochi{width:84px;height:84px;margin:2px auto 0;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 14%,var(--surface))}
+.ob-mochi svg.cp-svg{position:static;inset:auto;transform:none;width:68px;height:68px;overflow:visible}
+.ob-sum li .ob-st{flex:1}
+.ob-sum li.later{color:var(--ink)}
+.ob-lt{border:1.5px dashed color-mix(in srgb,#B7791F 60%,var(--line));color:#9A6400}
+.ob-lt svg{width:13px;height:13px}
+.ob-later{flex:none;font:700 .68rem var(--display);letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:999px;background:color-mix(in srgb,#F5B301 22%,var(--surface));color:#8A5A00}
+:root[data-theme="dark"] .ob-later,:root[data-theme="dark"] .ob-lt{color:#F2C766}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .ob-later,:root:not([data-theme="light"]) .ob-lt{color:#F2C766}}
+.ob-week{padding:12px 14px;border-radius:16px;background:var(--soft);text-align:left}
+.ob-h4{margin:0 0 6px;font:700 .74rem var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.ob-week ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.ob-week li{display:flex;gap:8px;align-items:baseline;border-left:3px solid var(--c);padding-left:9px;font-size:.92rem}
+.ob-week li span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ob-week li em{font-style:normal;color:var(--muted);font-size:.84rem;flex:none}
+.ob-tourlink{font-weight:700;min-height:44px;padding:0 10px}
 .ob-crow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .ob-crow .btn{margin-left:auto;min-height:44px}
 .ob-sw{gap:6px}
@@ -2672,7 +2706,10 @@ canvas.ob-fx{position:fixed;inset:0;z-index:5}
   .ob-hero{width:56px;height:56px;border-radius:18px}
   .ob-hero svg{width:28px;height:28px}
   .ob-themes{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .ob-cfields{grid-template-columns:1fr}
+  .ob-cfields{grid-template-columns:minmax(0,1fr) minmax(0,1.4fr)}
+  .ob-cfields>.btn{grid-column:1/-1}
+  .ob-src{flex-wrap:wrap}
+  .ob-src .btn{flex:1 1 100%}
   .ob-crow .btn{margin-left:0;flex:1}
   .ob-alt{flex-wrap:wrap}
   .ob-alt .btn{flex:1 1 100%}
@@ -2686,7 +2723,8 @@ canvas.ob-fx{position:fixed;inset:0;z-index:5}
   .qa-bar.ob-glow{animation:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 35%,transparent)}
 }
 @media (max-width:600px){
-  .ob[data-step="done"] .ob-foot{flex-direction:column-reverse;align-items:stretch;gap:8px}
+  .ob[data-step="done"] .ob-foot{flex-direction:column-reverse;align-items:stretch;gap:4px}
+  .ob[data-step="done"] .ob-tourlink{align-self:center}
   .ob[data-step="done"] .ob-foot .spacer{display:none}
   dialog#dlg .sheet.ob[data-step="done"] .ob-foot > .btn{flex:0 0 auto}
   .ob-foot .btn{white-space:nowrap}
@@ -3633,8 +3671,8 @@ h2.sec .pill{align-self:center}
 
 /* New marks from a sync */
 nav.tabs [data-tab="courses"]{position:relative}
-nav.tabs [data-tab="courses"] > .nm-dot{position:absolute;top:5px;right:12px;min-width:18px;height:18px;border-radius:9px;background:var(--late);color:#fff;font:700 .66rem/18px var(--display);text-align:center;padding:0 4px;box-sizing:border-box;pointer-events:none}
-@media (max-width:820px){nav.tabs [data-tab="courses"] > .nm-dot{right:50%;margin-right:-22px;top:2px}}
+/* the Courses tab count uses the same .fc-navdue badge as Review */
+.gp-main > .nm-ringpip{grid-area:ring;justify-self:end;align-self:center;transform:translate(3px,-15px);z-index:2;min-width:17px;height:17px;box-sizing:border-box;border-radius:999px;background:linear-gradient(180deg,color-mix(in srgb,var(--late) 82%,#fff),var(--late));color:#fff;font:700 .62rem/17px var(--display);font-variant-numeric:tabular-nums;text-align:center;padding:0 5px;pointer-events:none;box-shadow:0 0 0 2.5px var(--surface),0 2px 5px rgba(0,0,0,.25)}
 .nm-pip{display:inline-grid;place-items:center;min-width:18px;height:18px;margin-left:6px;padding:0 5px;box-sizing:border-box;border-radius:9px;background:var(--late);color:#fff;font:700 .66rem/1 var(--display);vertical-align:middle}
 .course-card,.gp-main{position:relative}
 .nm-card{position:absolute;top:10px;right:10px;z-index:3;display:grid;place-items:center;min-width:22px;height:22px;padding:0 6px;box-sizing:border-box;border-radius:11px;background:var(--late);color:#fff;font:800 .72rem/1 var(--display);box-shadow:0 1px 3px rgba(0,0,0,.25);pointer-events:none}
@@ -5904,6 +5942,23 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 /* short classes */
 @container (max-height:44px){.sch-b span:nth-of-type(2),.sch-b span:nth-of-type(3){display:none}}
 @container (max-height:24px){.sch-b span{display:none}}
+/* short cards with a course band (an hour or less): a slimmer band, then the title and time on one line */
+@container (max-height:72px){
+  .sch-b > .sch-band{padding:2px 8px}
+  .sch-b > .sch-band .cc-ic{width:14px;height:14px}
+  .sch-b:has(> .sch-band) > .sch-bd{display:flex;align-items:baseline;gap:6px;min-width:0;padding:3px 8px}
+  .sch-b > .sch-bd > span{flex:none;font-size:.7rem}
+  .sch-b > .sch-bd > .sch-t{flex:0 1 auto;min-width:0;font-size:.76rem}
+  .sch-b > .sch-bd > span:nth-of-type(3){display:none}
+}
+/* too narrow for both: the title only (the time is on the grid) */
+@container (max-height:72px) and (max-width:240px){.sch-b > .sch-bd > span:nth-of-type(2){display:none}}
+/* half an hour or less: no band, the title in the card's course colour */
+@container (max-height:44px){
+  .sch-b > .sch-band{display:none}
+  .sch-b:has(> .sch-band) > .sch-bd{display:flex;align-items:center;height:100%;padding:0 8px 0 11px;box-shadow:inset 4px 0 0 var(--c)}
+  .sch-b > .sch-bd > .sch-t{display:block}
+}
 .sch-chip{border-radius:8px!important;border-left-width:4px!important;padding:4px 7px!important;background:color-mix(in srgb,var(--c) 12%,var(--surface))!important;font-weight:700!important}
 .sch-nav .btn,.view-head .sch-nav .btn{border-radius:999px}
 .sch-now{height:2px!important}
@@ -6612,7 +6667,7 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   #view > .bview-row:has(> .pg-tabs) > .board-ctl{position:absolute;right:0;bottom:6px;margin:0;display:flex;align-items:center;gap:8px}
 }
 /* Review's due count grows leftwards, clear of the companion's seat next to it */
-@media (max-width:639px){nav.tabs .in [data-tab="flashcards"] .fc-navdue{left:auto;right:calc(50% - 14px);margin-left:0;top:2px;z-index:2;min-width:14px;height:14px;font:700 .54rem/14px var(--display);padding:0 3px;box-shadow:0 0 0 1.5px var(--surface),0 1px 3px rgba(0,0,0,.2)}}
+@media (max-width:639px){nav.tabs .in [data-tab="flashcards"] .fc-navdue,nav.tabs .in [data-tab="courses"] .fc-navdue{left:auto;right:calc(50% - 14px);margin-left:0;top:2px;z-index:2;min-width:14px;height:14px;font:700 .54rem/14px var(--display);padding:0 3px;box-shadow:0 0 0 1.5px var(--surface),0 1px 3px rgba(0,0,0,.2)}}
 /* Wide sheets are bottom sheets on phones too, full width like the rest */
 @media (max-width:639px){dialog:is(:has(.sheet.shop),:has(.sheet.mt-sheet),:has(.plan-sheet),:has(.sheet.ob),:has(.ph-sheet)){width:100%}}
 /* Courses: the school site button on the left, Insights and the bin on the right */
@@ -7305,6 +7360,7 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
 .sb-welc li svg{width:18px;height:18px}
 .sb-welc .sb-welc-go{width:100%;min-height:52px;border-radius:14px;font-size:1.05rem}
 .sb-welc .sb-welc-alt{display:block;margin:6px auto 0;min-height:44px;padding:0 12px;font-weight:700;font-size:.95rem}
+.sb-welc .sb-welc-crash{margin:8px 0 0;font-size:.8rem;line-height:1.45;color:var(--muted)}
 @media (max-width:639px){#view .c2-card .c2-files{gap:3px}}
 /* Phones: the header reaches up behind the clock and battery, so that strip is always the header's colour and the logo sits just below the clock */
 @media (max-width:639px){

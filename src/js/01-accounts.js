@@ -917,7 +917,7 @@ function sbWelcomeHtml(){
   return `<div class="sb-welc">
     <div class="sb-welc-m" aria-hidden="true">${mochi}</div>
     <h3>Hi! I'm Mochi.<br>Let's plan your semester.</h3>
-    <p>Studyboard turns your syllabi into a calm plan for every day.</p>
+    <p>Studyboard turns your syllabi into a calm plan for every day. Setting up takes about a minute, and you can skip anything.</p>
     <ul>
       <li>${ic('<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5zM13 4h5.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H13z"/>')}Add courses and deadlines in minutes</li>
       <li>${ic('<circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.2l2.4 2.4 4.6-5"/>')}See exactly what to do next, today</li>
@@ -925,6 +925,7 @@ function sbWelcomeHtml(){
     </ul>
     <button type="button" class="btn primary sb-welc-go" id="sbStart">Get Started</button>
     <button type="button" class="link-btn sb-welc-alt" data-sbm="signin">I Already Have an Account</button>
+    <p class="mini sb-welc-crash">Studyboard can send anonymous crash reports (never your tasks, notes or account details) so bugs get fixed. Turn them off any time in Settings.</p>
   </div>`;
 }
 // "Use Without an Account", "Not Now", or closing the first sign-in sheet
@@ -970,7 +971,7 @@ function sbLinkErrorSheet(){
   dlg.querySelectorAll("[data-sbm]").forEach(b => b.addEventListener("click", () => sbSignInSheet(b.dataset.sbm)));
 }
 // Signing out removes this account's copy from the device
-const WIPE_KEYS = () => [LS2, LS1, LSB, OUTBOX, LS_TRASH, "studyboard:bugq", "studyboard:comp:uname", "studyboard:comp:helloDay"];
+const WIPE_KEYS = () => [LS2, LS2_IDB, LS1, LSB, OUTBOX, LS_TRASH, "studyboard:bugq", "studyboard:comp:uname", "studyboard:comp:helloDay"];
 async function wipeDeviceData(){
   deviceWiping = true;
   state = {courses:{}, tasks:{}, files:{}, notes:{}, decks:{}, events:{}, trash:{}, settings:{capacity:15}, updated:0};

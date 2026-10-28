@@ -5,7 +5,8 @@
   const acctKey = () => sbUser && sbUser.id ? KEY + ":" + sbUser.id : "";
   const newAccount = () => { try { const t = Date.parse((sbUser && sbUser.created_at) || ""); return t > 0 && Date.now() - t < 2 * 86400000; } catch (e) { return false; } };
   const isDone = () => { try { const a = acctKey(); if (a && localStorage.getItem(a)) return true; if (a && newAccount()) return false; return !!localStorage.getItem(KEY); } catch (e) { return true; } };
-  const markDone = () => { try { localStorage.setItem(KEY, "1"); const a = acctKey(); if (a) localStorage.setItem(a, "1"); } catch (e) {} };
+  // The time is kept too, so the Board's semester card waits a few days after the welcome setup
+  const markDone = () => { try { localStorage.setItem(KEY, "1"); const a = acctKey(); if (a) localStorage.setItem(a, "1"); if (mode !== "more") localStorage.setItem(KEY + ":at", String(Date.now())); } catch (e) {} };
   const isEmpty = () => !Object.keys(state.courses || {}).length && !Object.keys(state.tasks || {}).length;
   // The tour is open, or still to come for this account
   window.SBOB = {pending: () => !!document.querySelector("dialog[open] .ob") || (!isDone() && isEmpty()), T: {plan: null}};
@@ -16,11 +17,12 @@
   const backupsHere = () => { try { return !DESK && !inPreview() && ((typeof FSB !== "undefined" && FSB.supported()) || cloudBkHere()); } catch (e) { return false; } };
   const bkOnText = () => { const B = cbk(); return B && B.on() ? `${B.name(B.provider())} › Studyboard › Backups` : FSB.status === "on" ? FSB.where : ""; };
   // First run asks only the essentials; the rest is offered later from a card on the Board
-  const FIRST = ["welcome", "area", "courses", "hours", "done"], MORE = ["theme", "reminders", "ai", "app", "backups", "pro", "done"];
+  // Mochi's welcome comes before it, so the first run has no welcome step of its own
+  const FIRST = ["area", "courses", "hours", "done"], MORE = ["theme", "reminders", "ai", "app", "backups", "pro", "done"];
   const ALL_STEPS = [
     {id: "welcome", title: "Welcome"},
     {id: "area", title: "Your Studies"},
-    {id: "courses", title: "Your Courses"},
+    {id: "courses", title: "Your Courses and Deadlines"},
     {id: "theme", title: "Pick a Theme"},
     {id: "hours", title: "Study Hours"},
     {id: "reminders", title: "Reminders"},
@@ -40,6 +42,8 @@
 
   // Tour state (lives only while the tour is open)
   let step = 0, cheered = false, dir = 1, away = null, finishing = false, added = [], newColor = null, remindersOk = false, remindersMsg = "", deviceTab = null, hoursTimer = 0;
+  // since: when this run started (what was added since then counts as found); skipped: Skip Setup was chosen; queue: syllabi still to read
+  let since = 0, skipped = false, queue = [], cMsg = "";
 
   /* Icons */
   const svg = (d, extra = "") => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${d}</svg>`;
@@ -86,12 +90,13 @@
     return `<div class="ob-logo" aria-hidden="true"></div>
       <h2 class="ob-h" id="obH" tabindex="-1">Welcome to Studyboard</h2>
       <p class="ob-lead">Your courses, deadlines and study time in one calm place. Setting up takes about a minute, and you can skip anything.</p>
+      <p class="mini ob-crash">Studyboard can send anonymous crash reports (never your tasks, notes or account details) so bugs get fixed. Turn them off any time in Settings.</p>
       <ul class="ob-points">
         <li><span class="ob-pi">${IC.board}</span><span><b>Every Deadline in One Place</b><span>See assignments, exams and labs for all your courses on a board, a timeline and a weekly schedule.</span></span></li>
         <li><span class="ob-pi">${IC.plan}</span><span><b>A Plan for Today</b><span>Today's Plan picks what to do next and fits your work into the hours you have.</span></span></li>
         <li><span class="ob-pi">${IC.tools}</span><span><b>Study Tools Built In</b><span>Notes, files, flashcards and a focus timer. It all works offline too.</span></span></li>
       </ul>
-      <p class="mini" style="margin:12px 2px 0">Studyboard can send anonymous crash reports (never your tasks, notes or account details) so bugs get fixed. Turn them off any time in Settings.</p>`;
+      `;
   }
 
   function areaStep(){
@@ -103,37 +108,43 @@
       <label class="f ob-area-text"><span class="lbl">Your Major or Program <span class="hint">optional</span></span><input type="text" id="obAreaText" maxlength="60" value="${esc(a.text || "")}" placeholder="e.g. Marine Biology" autocomplete="off" data-noenter></label>`;
   }
 
+  const mineTask = t => t && !t.breakdownOf && !t.prepFor;
+  const foundHere = () => tasksArr().filter(t => mineTask(t) && (Number(t.created) || 0) >= since);
+  const datesFor = id => tasksArr().filter(t => mineTask(t) && t.courseId === id && t.due).length;
   function coursesStep(){
-    const cs = coursesArr();
-    const used = cs.map(c => c.color);
-    if (!newColor || !COLORS.includes(newColor)) newColor = COLORS.find(x => !used.includes(x)) || COLORS[used.length % COLORS.length];
-    const list = cs.length ? `<ul class="ob-clist" aria-label="Your courses">${cs.map(c => `<li style="--c:${esc(c.color || "#8A94A6")}"><span class="ob-cdot" aria-hidden="true"></span><span class="ob-cname">${c.code ? `<b>${esc(c.code)}</b>` : ""}${c.name && c.name !== c.code ? `${c.code ? " " : ""}${esc(c.name)}` : ""}</span>${added.includes(c.id) ? `<button type="button" class="x-btn" data-ob="rm-course" data-id="${esc(c.id)}" aria-label="Remove ${esc(c.name)}">${CLOSE}</button>` : ""}</li>`).join("")}</ul>`
-      : `<p class="ob-empty mini">No courses yet. Add the ones you're taking this term.</p>`;
+    const cs = coursesArr(), aiOk = (() => { try { return !!aiReady(); } catch (e) { return false; } })();
+    const list = cs.length ? `<ul class="ob-clist" aria-label="Your courses">${cs.map(c => { const d = datesFor(c.id); return `<li style="--c:${esc(c.color || "#8A94A6")}"><span class="ob-cdot" aria-hidden="true"></span><span class="ob-cname">${c.code ? `<b>${esc(c.code)}</b>` : ""}${c.name && c.name !== c.code ? `${c.code ? " " : ""}${esc(c.name)}` : ""}</span>${d ? `<span class="ob-cn mini">${d} date${d === 1 ? "" : "s"}</span>` : ""}${added.includes(c.id) ? `<button type="button" class="x-btn" data-ob="rm-course" data-id="${esc(c.id)}" aria-label="Remove ${esc(c.name)}">${CLOSE}</button>` : ""}</li>`; }).join("")}</ul>` : "";
+    const nF = foundHere().length;
+    const tally = nF ? `<p class="ob-tally"><span><b>${nF} item${nF === 1 ? "" : "s"} found</b>, ${cs.length} course${cs.length === 1 ? "" : "s"}.</span>${window.SBSEM && SBSEM.review ? `<button type="button" class="link-btn" data-ob="check">Check Them</button>` : ""}</p>` : "";
+    const wait = queue.length ? `<p class="ob-queue mini">${queue.length} more syllabus${queue.length === 1 ? " is" : "i are"} waiting. Next: ${esc(queue[0].name)} <button type="button" class="link-btn" data-ob="q-next">Read It Now</button></p>` : "";
     return `${hero(IC.courses)}
-      <h2 class="ob-h" id="obH" tabindex="-1">Your Courses</h2>
-      <p class="ob-lead">Add the courses you're taking. Each one gets a color so you can spot its work at a glance.</p>
+      <h2 class="ob-h" id="obH" tabindex="-1">Your Courses and Deadlines</h2>
+      <p class="ob-lead">A syllabus adds the course and its dated work in one go. It's read here on your device.</p>
+      <div class="ob-src main" id="obDrop">
+        <span class="ob-alt-ic" aria-hidden="true">${IC.upload}</span>
+        <span class="ob-alt-t"><b>Syllabus PDFs</b><span class="mini">One per course, or all at once.</span></span>
+        <button type="button" class="btn primary" data-ob="pdf">Choose PDFs</button>
+        <input type="file" id="obPdf" class="sr" tabindex="-1" multiple accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain${aiOk ? ",image/*" : ""}" aria-label="Choose syllabus PDFs">
+      </div>
+      <div class="ob-src">
+        <span class="ob-alt-ic" aria-hidden="true">${IC.board}</span>
+        <span class="ob-alt-t"><b>Your School's Site</b><span class="mini">Brightspace, Canvas or Blackboard. Studyboard only reads from it.</span></span>
+        <button type="button" class="btn" data-ob="lms">Connect</button>
+      </div>
+      ${wait}
       ${list}
+      ${tally}
+      <p class="status-msg mini" id="obCMsg" aria-live="polite" style="margin:0">${esc(cMsg)}</p>
+      <p class="ob-or" aria-hidden="true">or type a course</p>
       <div class="ob-cadd">
         <div class="ob-cfields">
           <label class="f ob-code">Course Code<input type="text" id="obCode" maxlength="30" placeholder="e.g. BIOL 101" autocomplete="off" data-noenter></label>
           <label class="f ob-name">Course Name<input type="text" id="obName" maxlength="120" placeholder="e.g. Biology 101" autocomplete="off" data-noenter></label>
+          <button type="button" class="btn" data-ob="add-course">Add</button>
         </div>
-        <div class="ob-crow">
-          <div class="swatches ob-sw" role="radiogroup" aria-label="Course color">${COLORS.map((x, i) => `<label><input type="radio" name="obColor" value="${x}" ${x === newColor ? "checked" : ""} aria-label="Color ${i + 1}"><span style="--c:${x}"></span></label>`).join("")}</div>
-          <button type="button" class="btn primary" data-ob="add-course">Add Course</button>
-        </div>
-        <p class="status-msg mini" id="obCMsg" aria-live="polite" style="margin:0"></p>
       </div>
-      <div class="ob-alt">
-        <span class="ob-alt-ic" aria-hidden="true">${IC.upload}</span>
-        <span class="ob-alt-t"><b>Have a Syllabus PDF?</b><span class="mini">Import it to add the course and its dated work in one go. You'll come right back here.</span></span>
-        <button type="button" class="btn" data-ob="import">Import a Syllabus</button>
-      </div>
-      <div class="ob-alt">
-        <span class="ob-alt-ic" aria-hidden="true">${IC.upload}</span>
-        <span class="ob-alt-t"><b>Use Brightspace, Canvas or Blackboard?</b><span class="mini">Connect it to bring in your courses, due dates and grades automatically.</span></span>
-        <button type="button" class="btn" data-ob="brightspace">Connect</button>
-      </div>`;
+      <p class="ob-more-src mini"><button type="button" class="link-btn" data-ob="ics">Use a Calendar File (.ics)</button> or <button type="button" class="link-btn" data-ob="paste">Paste Text</button>
+        <input type="file" id="obIcs" class="sr" tabindex="-1" accept=".ics,.ical,.icalendar,text/calendar" aria-label="Choose a calendar file"></p>`;
   }
 
   function themeStep(){
@@ -279,7 +290,6 @@
     const P = window.SBOB.T.plan || (typeof PLAN !== "undefined" ? PLAN : null);
     const gift = P && P.welcomeWeek ? P.welcomeWeek() : null;
     if (gift) P.welcomeSaid();
-    const guestGift = !gift && window.SBGUEST && SBGUEST.is() && typeof PLAN !== "undefined" && PLAN && PLAN.paywall && PLAN.paywall();
     const has = id => STEPS.some(x => x.id === id);
     if (mode === "more") return `${hero(IC.party, "done")}
       <h2 class="ob-h" id="obH" tabindex="-1">You're All Set!</h2>
@@ -290,48 +300,56 @@
         ${inPreview() ? "" : row(aiReady(), aiReady() ? "AI is on" : "AI can be turned on in Settings")}
         ${backupsHere() ? row(!!bkOnText(), bkOnText() ? `Backing up to ${esc(bkOnText())}` : "Automatic backups can be turned on in Settings") : ""}
       </ul>`;
-    return `${hero(IC.party, "done")}
-      <h2 class="ob-h" id="obH" tabindex="-1">${gift ? "Welcome to Studyboard!" : "You're All Set!"}</h2>
-      <p class="ob-lead">${gift ? "We're so glad you're here. Studyboard is ready for your term." : "Nice work. Studyboard is ready for your term."}</p>
+    const later = t => `<li class="later"><span class="ob-ck ob-lt" aria-hidden="true">${IC.clock}</span><span class="ob-st">${t}</span><span class="ob-later">Later</span></li>`;
+    const nT = foundHere().filter(t => t.due).length, soon = window.SBSEM && SBSEM.soon ? SBSEM.soon().slice(0, 5) : [];
+    let mochi = ""; try { mochi = window.SBCOMP ? SBCOMP.rigSvg("plain-mochi", {eyes: "happy", mouth: "smile"}) : ""; } catch (e) {}
+    const top = mochi ? `<div class="ob-mochi" aria-hidden="true">${mochi}</div>` : hero(IC.party, "done");
+    const fmtH = h % 1 ? h.toFixed(1) : h;
+    const rows = [
+      nC ? row(true, `${nC} course${nC === 1 ? "" : "s"}${nT ? ` and ${nT} date${nT === 1 ? "" : "s"}` : ""} added`) : later("Courses and deadlines"),
+      SBAREA.label() ? row(true, `Studying ${esc(SBAREA.label())}`) : later("Your area of study"),
+      has("theme") ? row(true, `Theme: ${esc(skin.name)}`) : "",
+      skipped ? later(`Study hours (${fmtH} a day for now)`) : row(true, `${fmtH} ${h === 1 ? "hour" : "hours"} of study a day`),
+      !has("ai") || inPreview() ? "" : aiReady() ? row(true, "AI is on") : later("AI"),
+      has("backups") && backupsHere() ? (bkOnText() ? row(true, `Backing up to ${esc(bkOnText())}`) : later("Automatic backups")) : ""
+    ].join("");
+    return `${top}
+      <h2 class="ob-h" id="obH" tabindex="-1">${skipped ? "No Problem" : gift ? "Welcome to Studyboard!" : "You're All Set!"}</h2>
+      <p class="ob-lead">${skipped ? "Studyboard is ready. You can do the rest whenever you like, from Settings or the Courses page." : gift ? "We're so glad you're here. Studyboard is ready for your term." : "Nice work. Studyboard is ready for your term."}</p>
       ${gift && !STEPS.some(x => x.id === "pro") ? `<div class="ob-gift"><span class="ob-gift-ic" aria-hidden="true">🎁</span><span><b>A welcome gift: your first week of Pro is on us</b><span class="mini">Every Pro theme and feature is yours until ${esc(gift.date)}. No card needed, and everything you make stays when the week ends.</span></span></div>` : ""}
-      <ul class="ob-sum">
-        ${row(nC > 0, nC ? `${nC} course${nC === 1 ? "" : "s"} added` : "Add courses any time from the Courses page")}
-        ${row(!!SBAREA.label(), SBAREA.label() ? `Studying ${esc(SBAREA.label())}` : "Set your area of study any time in Settings")}
-        ${has("theme") ? row(true, `Theme: ${esc(skin.name)}`) : ""}
-        ${row(true, `${h % 1 ? h.toFixed(1) : h} ${h === 1 ? "hour" : "hours"} of study a day`)}
-        ${!has("ai") || inPreview() ? "" : row(aiReady(), aiReady() ? "AI is on" : "AI can be turned on in Settings")}
-        ${has("backups") && backupsHere() ? row(!!bkOnText(), bkOnText() ? `Backing up to ${esc(bkOnText())}` : "Automatic backups can be turned on in Settings") : ""}
-      </ul>
-      <div class="ob-next">
+      <ul class="ob-sum">${rows}</ul>
+      ${soon.length ? `<div class="ob-week"><h3 class="ob-h4">Due in the Next 7 Days</h3><ul>${soon.map(t => `<li style="--c:${esc(colorOf(t.courseId))}"><span>${esc(t.title)}</span><em>${esc(relDue(t))}</em></li>`).join("")}</ul></div>`
+        : allTasks().length ? "" : `<div class="ob-next">
         <b>Next: Add Your First Task</b>
         <span class="mini">Type it the way you'd say it in the quick-add bar at the top of the Board, and Studyboard fills in the details.</span>
         <span class="ob-qa" aria-hidden="true"><span>+</span>bio quiz fri 2pm worth 5%</span>
-      </div>
-      ${window.SBSEM && SBSEM.tourButton() ? `<div class="ob-next">${SBSEM.tourButton()}</div>` : ""}
-      ${window.SBGUEST && SBGUEST.is() ? `<div class="ob-next ob-guest"><b>Keep Your Planner Safe</b><span class="mini">It's only on this device for now. A free account keeps it safe online and puts it on your phone and laptop too. What you've set up comes with you.${guestGift ? " New accounts also get their first week of Pro free." : ""}</span><button type="button" class="btn" data-ob="account">Create a Free Account</button></div>` : ""}`;
+      </div>`}`;
   }
 
   const VIEW = {welcome: welcomeStep, area: areaStep, courses: coursesStep, theme: themeStep, hours: hoursStep, reminders: remindersStep, ai: aiStep, app: appStep, backups: backupsStep, pro: proStep, done: doneStep};
 
   /* Sheet */
   function sheetHtml(){
-    const s = STEPS[step], last = step === STEPS.length - 1;
-    const bar = STEPS.map((x, i) => `<button type="button" class="ob-seg ${i < step ? "past" : i === step ? "cur" : ""}" data-ob="goto" data-id="${i}" aria-label="Step ${i + 1}: ${esc(x.title)}${i === step ? " (current)" : ""}"></button>`).join("");
-    const more = mode === "more";
-    const primary = step === 0 && !more ? "Get Started" : last ? (more ? "Done" : "Add My First Task") : "Next";
+    const s = STEPS[step], last = step === STEPS.length - 1, more = mode === "more";
+    // The done page isn't counted as a step
+    const real = STEPS.filter(x => x.id !== "done"), n = real.length;
+    const bar = real.map((x, i) => `<button type="button" class="ob-seg ${last && !skipped || !last && i < step ? "past" : i === step ? "cur" : ""}" data-ob="goto" data-id="${i}" aria-label="Step ${i + 1}: ${esc(x.title)}${i === step ? " (current)" : ""}"></button>`).join("");
+    const hasTasks = allTasks().length > 0;
+    const primary = STEPS[0].id === "welcome" && step === 0 ? "Get Started" : last ? (more ? "Done" : hasTasks ? "Open Today's Plan" : "Add My First Task") : STEPS[step + 1].id === "done" && !more ? "Finish" : "Next";
+    const goAct = last ? (more ? "finish" : hasTasks ? "plan" : "first-task") : "next";
     return `<form class="sheet ob" data-step="${s.id}" aria-labelledby="obH">
       <div class="ob-top">
-        <span class="ob-count mini">Step ${step + 1} of ${STEPS.length}</span>
+        <span class="ob-count mini">${last ? (skipped ? "Setup skipped" : "All done") : `Step ${step + 1} of ${n}`}</span>
         <span class="spacer"></span>
         ${last ? "" : `<button type="button" class="link-btn ob-skip" data-ob="skip">${more ? "Not Now" : "Skip Setup"}</button>`}
       </div>
       <div class="ob-bar" role="group" aria-label="Progress">${bar}</div>
       <div class="sheet-body ob-body"><div class="ob-step-in${dir < 0 ? " ob-rev" : ""}">${VIEW[s.id]()}</div></div>
       <div class="sheet-foot ob-foot">
-        <button type="button" class="btn ob-back" data-ob="back" ${step === 0 ? "hidden" : ""}>Back</button>
+        <button type="button" class="btn ob-back" data-ob="back" ${step === 0 || last ? "hidden" : ""}>Back</button>
         <span class="spacer"></span>
-        ${last && !more ? `<button type="button" class="btn" data-ob="finish">Go to My Board</button>` : ""}
-        <button type="button" class="btn primary ob-go" data-ob="${last ? (more ? "finish" : "first-task") : "next"}">${primary}</button>
+        ${last && !more && window.SBTOUR ? `<button type="button" class="link-btn ob-tourlink" data-ob="apptour">Take the 1-Minute Tour</button>` : ""}
+        <button type="button" class="btn primary ob-go" data-ob="${goAct}">${primary}</button>
       </div>
     </form>`;
   }
@@ -351,7 +369,7 @@
   }
   // A course typed but not added yet comes along when moving on
   const flushCourse = () => { if (STEPS[step] && STEPS[step].id === "courses" && dlg.querySelector(".sheet.ob")) addCourse(true); };
-  const go = n => { flushCourse(); dir = n >= step ? 1 : -1; show(n, true); };
+  const go = n => { flushCourse(); cMsg = ""; dir = n >= step ? 1 : -1; show(n, true); };
 
   function wire(form){
     form.addEventListener("click", onClick);
@@ -363,7 +381,16 @@
       else if (e.key === "ArrowRight" && !(t.closest && t.closest(".segb,.swatches,.ob-chips"))) { e.preventDefault(); if (step < STEPS.length - 1) go(step + 1); }
       else if (e.key === "ArrowLeft" && !(t.closest && t.closest(".segb,.swatches,.ob-chips"))) { e.preventDefault(); if (step > 0) go(step - 1); }
     });
-    form.addEventListener("change", e => { if (e.target.name === "obColor") newColor = e.target.value; if (e.target.id === "obAreaText") { const a = SBAREA.get(), v = e.target.value; if (a) SBAREA.set(a.id, v); else if (v.trim()) SBAREA.set("other", v); } });
+    const drop = form.querySelector("#obDrop");
+    if (drop) {
+      ["dragover", "dragenter"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+      drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+      drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); if (e.dataTransfer && e.dataTransfer.files.length) queueFiles(e.dataTransfer.files); });
+    }
+    form.addEventListener("change", e => {
+      if (e.target.id === "obPdf") { const fs = [...(e.target.files || [])]; e.target.value = ""; if (fs.length) queueFiles(fs); return; }
+      if (e.target.id === "obIcs") { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return; if (f.size > 8e6) { say("That calendar file is too big (over 8 MB)."); return; } f.text().then(t => leaveTo(() => icsImportSheet(t, f.name))).catch(() => say("Couldn't read that file.")); return; }
+      if (e.target.name === "obColor") newColor = e.target.value; if (e.target.id === "obAreaText") { const a = SBAREA.get(), v = e.target.value; if (a) SBAREA.set(a.id, v); else if (v.trim()) SBAREA.set("other", v); } });
   }
 
   function onClick(e){
@@ -376,13 +403,18 @@
       case "next": if (step < STEPS.length - 1) go(step + 1); break;
       case "back": if (step > 0) go(step - 1); break;
       case "goto": go(Number(id)); break;
-      case "skip": finish(false); break;
+      // Skip Setup ends on the done page, with what was skipped marked Later
+      case "skip": if (mode === "more") finish(false); else { flushCourse(); markDone(); noteEnd(); skipped = true; queue = []; dir = 1; show(STEPS.length - 1, true); } break;
       case "finish": finish(true); break;
+      case "plan": finish(true); break;
       case "first-task": finish(true, true); break;
-      case "semester": finish(true); if (window.SBSEM) SBSEM.open({from: "tour"}); break;
       case "apptour": finish(true); if (window.SBTOUR) setTimeout(() => SBTOUR.start(), 350); break;
       case "add-course": addCourse(); break;
-      case "account": finish(true); setTimeout(() => SBGUEST.signUp(), 350); break;
+      case "pdf": { const f = $("#obPdf"); if (f) f.click(); break; }
+      case "ics": { const f = $("#obIcs"); if (f) f.click(); break; }
+      case "q-next": nextSyllabus(); break;
+      case "check": if (window.SBSEM && SBSEM.review) leaveTo(() => SBSEM.review(since)); break;
+      case "lms": leaveTo(() => fire("lms-connect")); break;
       case "backup-folder": {
         const here = () => STEPS[step] && STEPS[step].id === "backups" && dlg.querySelector(".sheet.ob");
         chooseBackupFolder(id).then(() => { if (here()) show(step); });
@@ -397,8 +429,7 @@
         added = added.filter(x => x !== id); show(step);
         break;
       }
-      case "import": leaveTo(() => importSheet("")); break;
-      case "brightspace": leaveTo(() => fire("brightspace-connect")); break;
+      case "paste": leaveTo(() => importSheet("")); break;
       case "shop": leaveTo(() => styleShop("themes")); break;
       case "ai": leaveTo(() => aiSetupSheet(false)); break;
       case "mode": setTheme(id); show(step); break;
@@ -419,19 +450,30 @@
     }
   }
 
+  function say(t){ cMsg = t; const m = $("#obCMsg"); if (m) m.textContent = t; }
+  // Syllabi are read one at a time in the import sheet; the setup comes back between them
+  function queueFiles(list){
+    const ai = (() => { try { return !!aiReady(); } catch (e) { return false; } })();
+    const ok = [...list].filter(f => /\.(pdf|docx|txt)$/i.test(f.name) || f.type === "application/pdf" || f.type === "text/plain" || (ai && /^image\//.test(f.type)));
+    if (!ok.length) { say("Those aren't PDF or Word files. Choose a syllabus as a PDF or .docx, or paste its text."); return; }
+    queue = queue.concat(ok).slice(0, 12);
+    nextSyllabus();
+  }
+  function nextSyllabus(){ const f = queue.shift(); if (f) leaveTo(() => importSheet("", f)); }
   // quiet: on the way to another step, so nothing is said or redrawn
   function addCourse(quiet){
     const code = ($("#obCode") || {}).value || "", nm = ($("#obName") || {}).value || "", msg = $("#obCMsg");
     const c0 = code.trim(), n0 = nm.trim();
-    if (!c0 && !n0) { if (quiet) return; if (msg) msg.textContent = "Type a course code or name first."; const f = $("#obCode"); if (f) f.focus(); return; }
+    if (!c0 && !n0) { if (quiet) return; cMsg = "Type a course code or name first."; if (msg) msg.textContent = cMsg; const f = $("#obCode"); if (f) f.focus(); return; }
     const dup = coursesArr().find(c => (c0 && String(c.code || "").toLowerCase() === c0.toLowerCase()) || (!c0 && n0 && String(c.name || "").toLowerCase() === n0.toLowerCase()));
-    if (dup) { if (!quiet && msg) msg.textContent = `${courseLabel(dup)} is already in your list.`; return; }
-    const nc = {id: uid(), created: Date.now(), name: n0 || c0, code: c0, instructor: "", schedule: "", room: "", office: "", meetings: [], color: newColor || COLORS[0], notes: "", links: []};
+    if (dup) { if (!quiet) { cMsg = `${courseLabel(dup)} is already in your list.`; if (msg) msg.textContent = cMsg; } return; }
+    const used = coursesArr().map(c => c.color);
+    const nc = {id: uid(), created: Date.now(), name: n0 || c0, code: c0, instructor: "", schedule: "", room: "", office: "", meetings: [], color: newColor || COLORS.find(x => !used.includes(x)) || COLORS[used.length % COLORS.length], notes: "", links: []};
     applyChanges([{kind: "course", id: nc.id, after: nc}], "");
     added.push(nc.id); newColor = null;
     if (quiet) return;
+    cMsg = `Added ${nc.name}. Add another, or choose Next.`;
     show(step);
-    const m = $("#obCMsg"); if (m) m.textContent = `Added ${nc.name}. Add another, or choose Next.`;
     const f = $("#obCode"); if (f) try { f.focus({preventScroll: true}); } catch (e) {}
   }
 
@@ -474,6 +516,7 @@
     if (!away) return;
     if (dlg.open) return;
     const s = away.step; away = null;
+    if (queue.length && STEPS[s] && STEPS[s].id === "courses") { nextSyllabus(); return; }
     dir = 1; show(s, true);
   }
   dlg.addEventListener("close", () => {
@@ -488,10 +531,11 @@
 
   function finish(completed, firstTask){
     if (completed) flushCourse();
+    if (completed && mode !== "more") { try { if (window.SBSEM && SBSEM.suggestTimes) SBSEM.suggestTimes(since); } catch (e) { console.warn("suggested times", e); } }
     noteEnd();
     finishing = true; markDone(); clearTimeout(hoursTimer); saveSettings();
     if (dlg.open) dlg.close(); else finishing = false;
-    added = []; remindersOk = false; remindersMsg = ""; deviceTab = null;
+    added = []; remindersOk = false; remindersMsg = ""; deviceTab = null; queue = []; cMsg = "";
     moveCanvasesBack();
     if (!completed) { toast(mode === "more" ? "No problem. These are all in Settings too." : "No problem. Replay the welcome setup any time from Settings."); render(); return; }
     if (mode === "more") { render(); return; }
@@ -543,7 +587,7 @@
   function start(kind){
     mode = kind === "more" || kind === "all" ? kind : "first";
     const ids = mode === "first" ? FIRST : mode === "more" ? MORE : null;
-    STEPS = ALL_STEPS.filter(x => (!ids || ids.includes(x.id)) && (x.id !== "backups" || backupsHere()) && (x.id !== "pro" || proHere())); cheered = false; finishing = false; step = 0; dir = 1; added = []; remindersOk = false; remindersMsg = ""; deviceTab = null; newColor = null; away = null; show(0); }
+    STEPS = ALL_STEPS.filter(x => (!ids || ids.includes(x.id)) && (x.id !== "backups" || backupsHere()) && (x.id !== "pro" || proHere())); cheered = false; finishing = false; step = 0; dir = 1; added = []; remindersOk = false; remindersMsg = ""; deviceTab = null; newColor = null; away = null; since = Date.now(); skipped = false; queue = []; cMsg = ""; show(0); }
 
   hook("boot", () => {
     if (isDone()) return;
