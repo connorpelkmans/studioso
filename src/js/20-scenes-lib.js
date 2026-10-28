@@ -4950,10 +4950,12 @@ SCENES.justice = function (W, H, dk, rnd) {
   add(near, 'e', folders, dk ? '#C9A86E' : '#E6C68A');
   var mgx = fx2 + fw * 0.1, mgy = deskY - 52, mgr = ph ? 11 : 14;
   var mux = W * (ph ? 0.4 : 0.745), muh = ph ? 26 : 32, muw = ph ? 22 : 26;
-  add(near, 'f', papers + rrect(mux - muw / 2, deskY - muh, muw, muh, 5) + m3_ring(mux + muw / 2 + 2, deskY - muh * 0.52, muh * 0.27, muh * 0.15) + circ(mgx, mgy, mgr), dk ? '#E4D8C4' : '#F7F2EA');
+  add(near, 'f', papers + rrect(mux - muw / 2, deskY - muh, muw, muh, 5) + b2_limb([mux + muw / 2 - 2, deskY - muh * 0.8], [mux + muw / 2 + muh * 0.6, deskY - muh * 0.52], [mux + muw / 2 - 2, deskY - muh * 0.24], muh * 0.13, muh * 0.13) /* a C handle joined to the side */ + circ(mgx, mgy, mgr), dk ? '#E4D8C4' : '#F7F2EA');
   add(near, 'b', dkTop + drawers, dk ? '#6E4632' : '#C28452');
   var sx = W * (ph ? 0.86 : 0.06), sTop = H * (ph ? 0.5 : 0.2), sBot = H * (ph ? 0.975 : 0.96), hy2 = sTop + 16;
-  var stand = rect(sx - 4, sTop, 8, sBot - sTop) + circ(sx, sTop - 3, 6) + poly([[sx - 4, sBot - 34], [sx - 36, sBot], [sx - 29, sBot + 3], [sx, sBot - 24]]) + poly([[sx + 4, sBot - 34], [sx + 36, sBot], [sx + 29, sBot + 3], [sx, sBot - 24]]) + rect(sx - 26, hy2 - 2, 52, 5) + circ(sx - 26, hy2 - 4, 4) + circ(sx + 26, hy2 - 4, 4) + rect(sx - 2, sTop - 2, 4, 6);
+  // one winding for every piece, so where the post, legs and hook bar overlap they stay solid
+  function R4(x, y, w, h) { return b2_polyA([[x, y], [x + w, y], [x + w, y + h], [x, y + h]]); }
+  var stand = R4(sx - 4, sTop, 8, sBot - sTop) + b2_ellA(sx, sTop - 3, 6, 6) + b2_polyA([[sx - 4, sBot - 34], [sx - 36, sBot], [sx - 29, sBot + 3], [sx + 2, sBot - 22], [sx + 2, sBot - 36]]) + b2_polyA([[sx + 4, sBot - 34], [sx + 36, sBot], [sx + 29, sBot + 3], [sx - 2, sBot - 22], [sx - 2, sBot - 36]]) + R4(sx - 26, hy2 - 2, 52, 5) + b2_ellA(sx - 26, hy2 - 4, 4, 4) + b2_ellA(sx + 26, hy2 - 4, 4, 4) + R4(sx - 2, sTop - 2, 4, 6);
   var cs = ph ? 0.78 : 1, ch = (ph ? 0.24 : 0.42) * H / cs, cx2 = sx + (ph ? -26 : 26), hk = hy2 - 4;
   function C2(px, py) { return [cx2 + px * cs, hk + py * cs]; }
   var coat = poly([C2(-2, 0), C2(-15, 16), C2(-27, 44), C2(-31, ch * 0.5), C2(-37, ch * 0.96), C2(-20, ch * 1.01), C2(0, ch * 1.0), C2(20, ch * 1.01), C2(37, ch * 0.96), C2(31, ch * 0.5), C2(27, 44), C2(15, 16), C2(2, 0)]);
@@ -4968,7 +4970,7 @@ SCENES.justice = function (W, H, dk, rnd) {
   if (J) { J.hat = {x: hx, y: hyy, s: hs}; hat = ''; }
   add(near, 'h', hat + subj + coatD + m3_ring(mgx, mgy, mgr + 3.4, mgr) + m3_box(mgx + mgr * 1.75, mgy + mgr * 1.0, mgr * 1.6, 5.5, 32), dk ? '#4A3A3A' : '#6A4A3A');
   if (!ph) { var plx = W * 0.43, ply = floorY + 6, pot = poly([[plx - 22, ply - 40], [plx + 22, ply - 40], [plx + 17, ply], [plx - 17, ply]]), lvs = ''; [[-140, 60], [-110, 74], [-80, 80], [-55, 70], [-30, 56], [-160, 46], [-95, 52]].forEach(function (q) { lvs += leaf(plx, ply - 40, q[1], 15, q[0]); }); add(near, 'd', lvs, null); add(near, 'e', pot, null); }
-  if (J) { J.cat = ph ? {x: W * 0.085, y: deskY, s: 1.15} : {x: W * 0.52, y: deskY, s: 1.8}; J.bowl = {x: ph ? W * 0.44 : W * 0.32, y: wy1, r: ph ? 24 : 34}; J.sign = {x: wx0 + (wx1 - wx0) * 0.7, y: wy0 + (wy1 - wy0) * 0.6, s: ph ? 1.1 : 1.6}; J.floorY = floorY; J.deskY = deskY; J.deskX0 = deskX0; J.bx = [bx0, by0, bx1, by1]; }
+  if (J) { J.cat = ph ? {x: W * 0.085, y: deskY, s: 1.15} : {x: W * 0.52, y: deskY, s: 1.8}; J.bowl = {x: ph ? W * 0.44 : W * 0.32, y: wy1, r: ph ? 24 : 34}; J.sign = (function () { var my = wy0 + (wy1 - wy0) * 0.5, ss = Math.min(ph ? 1.1 : 1.6, (wy1 - my - 16) / 44, ((wx1 - wx0) / 2 - 16) / 40); return {x: wx0 + (wx1 - wx0) * 0.75, y: my + 3 + 6 + 26 * ss, s: ss}; })(); /* fully inside the lower right pane, so the frame stays in front */ J.floorY = floorY; J.deskY = deskY; J.deskX0 = deskX0; J.bx = [bx0, by0, bx1, by1]; }
   stk(near, 's', J ? '' : strs + qmark, dk ? '#E05A4E' : '#D8463C', 1.8);
   if (!J) stk(near, 't', pins, '#D8463C', 7);
   if (J) { J.hub = {x: hp[0], y: hp[1], w: hw, h: hh, a: -2}; J.q = {x: qx, y: qy, s: q}; J.clock = {x: ckx, y: cky, r: ckr}; J.lamp = {x: lx, y: ly - 58 * ls, s: ls, deskY: deskY}; J.mug = {x: mux, y: deskY - muh};
