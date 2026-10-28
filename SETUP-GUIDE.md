@@ -344,7 +344,7 @@ The code works once, for 10 minutes. Your keys are locked (encrypted) with it be
 - **Claude** or **ChatGPT**: add an API key from [Anthropic](https://console.anthropic.com/settings/keys) or [OpenAI](https://platform.openai.com/api-keys) under "Use a Paid Model Instead". These are billed per use to your account with that company, separately from any Claude or ChatGPT subscription. Big PDFs cost the most.
 
 **Automatic AI.** In Settings → AI Features, "Improve Today's Plan and study sessions automatically" lets the AI work in the background without you pressing anything. It:
-- picks **Do This Next** and the alternatives behind "Something Else", with a reason and a first step
+- picks **Do This Next**, with a reason and a first step
 - estimates hours for tasks you didn't estimate, using how long your past tasks took
 - estimates the work left on started tasks from your focus time and progress
 - judges how ready you are for each exam from your study sessions, flashcards and quizzes
@@ -359,7 +359,7 @@ It only runs when something changed and a few times a day, and anything it chang
 **What AI does in Studyboard**
 - **Quick add** (top of the Board): type a sentence like "bio quiz fri 2pm worth 5%" and check the task before it's added. Without AI it still reads dates, times, hours, grade weights and course names on your device.
 - **Time estimates**: the Estimate button next to Hours Needed. Studyboard learns from your focus sessions how long your tasks really take; AI adds a range, a reason and steps you can add to the checklist.
-- **Do This Next**: the top of Today's Plan picks one task for right now, with a reason and a focus button. "Something Else" shows the next pick. This runs on your device and doesn't need AI.
+- **Do This Next**: the top of Today's Plan picks one task for right now, with a reason and a focus button. This runs on your device and doesn't need AI.
 
 **How Today's Plan decides** (all on your device, no AI needed)
 - **Deadlines come first:** the closer the exact due time, the higher the task. Due tomorrow counts about five times as much as due in a week, and dozens of times more than due in a month. Anything due in the next week always stays above work due 10 or more days after it, unless that later task is big enough to need most of your study time before its deadline (then it climbs early so it gets started in time, and the plan says why).

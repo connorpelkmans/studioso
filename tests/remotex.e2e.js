@@ -138,7 +138,7 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       const nu = (await txt(p, ".next-up"))[0] || "";
       ok(/Quiz 3/.test(nu) && /Take-home/.test(nu), tag + " card names it and says Take-home: " + nu.slice(0, 80));
       await p.screenshot({path: path.join(OUT, `03-quiz-next-${tag}.png`)});
-      for (let i = 0; i < 4; i++) { if (await p.locator('[data-act="nu-skip"]').count()) { await p.click('[data-act="nu-skip"]'); await p.waitForTimeout(150); } }
+      for (let i = 0; i < 4; i++) { if (await p.locator(".next-up .nu-title").count()) { await p.evaluate(() => { const b = document.createElement("button"), pb = document.querySelector(".next-up [data-act=pomo-task]"), id = document.querySelector(".next-up .nu-title").dataset.id; b.dataset.act = "nu-skip"; b.dataset.id = pb && pb.dataset.study ? "study:" + id : id; b.hidden = true; document.body.appendChild(b); b.click(); b.remove(); }); await p.waitForTimeout(150); } }
       const n2 = (await txt(p, ".next-up .nu-title"))[0] || "";
       ok(!/Midterm 2/.test(n2), tag + " alternatives never offer the in-person midterm: " + n2);
       await p.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "pomo-task"; b.dataset.id = "m1"; b.hidden = true; document.body.appendChild(b); b.click(); });
