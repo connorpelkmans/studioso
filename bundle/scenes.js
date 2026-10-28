@@ -7314,7 +7314,7 @@ function n2_trainGeo(W, H) {
     {ph: ph, S: 1, x0: W * 0.17, x1: W * 0.81, y0: H * 0.235, y1: H * 0.6, r: 38, fr: 26, ceil: H * 0.062, rack: H * 0.13, tbl: [W * 0.25, W * 0.74], fl: H * 0.93,
       seat: {m: W * 0.012}, lampX: W * 0.68, lights: [W * 0.2, W * 0.5, W * 0.8],
       cases: [[W * 0.015, 118, 54, 0], [W * 0.13, 74, 38, 1], [W * 0.21, 50, 50, 3], [W * 0.7, 92, 44, 2], [W * 0.8, 128, 60, 0]]};
-  var st = g.seat; st.by = g.fl - 8 * g.S; st.reach = st.m + 202 * g.S; st.bf = st.m + 16 * g.S; st.top = st.by - 420 * g.S;
+  var st = g.seat; st.by = g.fl - 8 * g.S; st.reach = st.m + 176 * g.S; st.bf = st.m + 92 * g.S; st.top = st.by - 430 * g.S;
   g.ty = g.y1 + g.fr + 14 * g.S; g.wain = g.y1 + g.fr + 6 * g.S; g.lamp = [g.lampX, g.ty];
   return g;
 }
@@ -7327,37 +7327,63 @@ function n2_rpoly(pts, r) {
     d += (i ? ' L' : 'M') + PT(p[0] + (pv[0] - p[0]) * rr / l1, p[1] + (pv[1] - p[1]) * rr / l1) + ' Q' + PT(p[0], p[1]) + ' ' + PT(p[0] + (nx[0] - p[0]) * rr / l2, p[1] + (nx[1] - p[1]) * rr / l2); }
   return d + ' Z ';
 }
-// one compartment armchair in a three-quarter view
+// one compartment armchair, seen from the side so the two face each other across the table:
+// f runs from the backrest toward the table, w from the window wall toward the viewer, h up
+var N2_SEAT = {Wd: 150, P: 124, Bt: 34, A: 22, hs: 100, ha: 164, hb: 368, hp: 42, f0: 16, kx: 0.58, ky: 0.26, kf: 0.72};
 function n2_trainSeat(G, W, sd) {
-  var s = G.seat, S = G.S, ex = sd > 0 ? s.m : W - s.m, by = s.by, k;
-  var Wd = 150, P = 120, Bt = 30, A = 20, hs = 98, ha = 172, hb = 392, hp = 40, f0 = 14;
-  function Q(w, f, h) { return [ex + sd * (w + f * 0.42) * S, by + (f * 0.28 - h) * S]; }
+  var s = G.seat, S = G.S, K = N2_SEAT, Wd = K.Wd, P = K.P, Bt = K.Bt, A = K.A, hs = K.hs, ha = K.ha, hb = K.hb, hp = K.hp, f0 = K.f0, k;
+  var ox = sd > 0 ? s.m + K.kx * Wd * S : W - s.m - K.kx * Wd * S, oy = s.by - K.ky * Wd * S;
+  function Q(w, f, h) { return [ox + sd * (f * K.kf - w * K.kx) * S, oy + (w * K.ky - h) * S]; }
   function F(q, r, t) { return {d: n2_rpoly(q.map(function (p) { return Q(p[0], p[1], p[2]); }), (r instanceof Array ? r : [r, r, r, r]).map(function (v) { return v * S; })), t: t}; }
   function roll(a, b, w, t) { a = Q(a[0], a[1], a[2]); b = Q(b[0], b[1], b[2]); return {d: n2_tube([a, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], b], w * S, w * S) + circ(b[0], b[1], w * S / 2) + circ(a[0], a[1], w * S / 2), t: t}; }
-  function cap(p, w, t) { var c = Q(p[0], p[1], p[2]); return {d: ell(c[0], c[1], w * S * 0.46, w * S / 2), t: t}; }
+  function cap(p, w, t) { var c = Q(p[0], p[1], p[2]); return {d: ell(c[0], c[1], w * S * 0.36, w * S / 2), t: t}; }
+  function foot(w, f, near) { return F([[w - 5, f - 5, 0], [w - 5, f + 5, 0], [w - 5, f + 5, f0 + 2], [w - 5, f - 5, f0 + 2]], 2, near ? 'WN' : 'W'); }
   var o = {faces: []}, fc = o.faces;
-  o.shadow = n2_rpoly([Q(-12, -6, 0), Q(Wd + 12, -6, 0), Q(Wd + 12, P + 16, 0), Q(-12, P + 16, 0)], 24 * S);
-  fc.push(F([[0, 0, f0], [0, Bt, f0], [0, Bt, hb], [0, 0, hb]], [4, 4, 8, 8], 'D'));
-  fc.push(F([[0, Bt, hs - 10], [Wd, Bt, hs - 10], [Wd, Bt, hb], [0, Bt, hb]], [4, 4, 14, 14], 'L'));
-  fc.push(roll([2, Bt * 0.5, hb], [Wd - 2, Bt * 0.5, hb], 50, 'L'), cap([2, Bt * 0.5, hb], 50, 'M'));
-  fc.push(F([[Wd - A, Bt, f0], [Wd - A, P, f0], [Wd - A, P, ha], [Wd - A, Bt, ha]], 4, 'M'), F([[Wd - A, P, f0], [Wd, P, f0], [Wd, P, ha], [Wd - A, P, ha]], [3, 3, 8, 8], 'M'), roll([Wd - A / 2, Bt, ha], [Wd - A / 2, P, ha], 24, 'L'), cap([Wd - A / 2, P, ha], 24, 'M'));
-  fc.push(F([[A, P - 3, f0], [Wd - A, P - 3, f0], [Wd - A, P - 3, hp], [A, P - 3, hp]], 3, 'W'));
-  fc.push(F([[A, Bt, hs], [Wd - A, Bt, hs], [Wd - A, P, hs], [A, P, hs]], [4, 4, 12, 12], 'L'), F([[A, P, hp], [Wd - A, P, hp], [Wd - A, P, hs], [A, P, hs]], [6, 6, 12, 12], 'M'));
-  fc.push(F([[0, Bt - 4, f0], [0, P, f0], [0, P, ha], [0, Bt - 4, ha]], [3, 3, 8, 6], 'D'), F([[0, P, f0], [A, P, f0], [A, P, ha], [0, P, ha]], [3, 3, 8, 8], 'M'), roll([A / 2, Bt - 4, ha], [A / 2, P + 1, ha], 26, 'L'), cap([A / 2, P + 1, ha], 26, 'M'));
-  fc.push(F([[1, P - 4, 0], [A - 1, P - 4, 0], [A - 1, P - 4, f0 + 2], [1, P - 4, f0 + 2]], 2, 'W'), F([[Wd - A + 1, P - 4, 0], [Wd - 1, P - 4, 0], [Wd - 1, P - 4, f0 + 2], [Wd - A + 1, P - 4, f0 + 2]], 2, 'W'));
+  o.shadow = n2_rpoly([Q(-8, -10, 0), Q(-8, P + 20, 0), Q(Wd + 14, P + 20, 0), Q(Wd + 14, -10, 0)], 24 * S);
+  // far feet, then the backrest (its tufted face looks toward the table) and its top roll
+  fc.push(foot(6, P - 6), foot(6, 6));
+  fc.push(F([[0, Bt, hs - 10], [0, Bt, hb], [Wd, Bt, hb], [Wd, Bt, hs - 10]], [4, 14, 14, 4], 'L'));
+  fc.push(roll([0, Bt * 0.5, hb], [Wd, Bt * 0.5, hb], 50, 'L'));
+  // far armrest: its inside face, its front and its roll
+  fc.push(F([[A, Bt, f0], [A, P, f0], [A, P, ha], [A, Bt, ha]], [3, 3, 8, 6], 'M'), F([[0, P, f0], [A, P, f0], [A, P, ha], [0, P, ha]], [3, 3, 8, 8], 'D'), roll([A / 2, Bt - 2, ha], [A / 2, P, ha], 26, 'L'), cap([A / 2, P, ha], 26, 'M'));
+  // the seat cushion: top, then its front, then the wooden apron under it
+  fc.push(F([[A, Bt, hs], [A, P, hs], [Wd - A, P, hs], [Wd - A, Bt, hs]], [4, 12, 12, 4], 'L'));
+  fc.push(F([[A, P, hp], [A, P, hs], [Wd - A, P, hs], [Wd - A, P, hp]], [6, 12, 12, 6], 'M'));
+  fc.push(F([[A, P - 3, f0], [A, P - 3, hp], [Wd - A, P - 3, hp], [Wd - A, P - 3, f0]], 3, 'W'));
+  // the side of the backrest nearest the viewer
+  fc.push(F([[Wd, 0, f0], [Wd, 0, hb], [Wd, Bt, hb], [Wd, Bt, f0]], [4, 10, 10, 4], 'D'), cap([Wd, Bt * 0.5, hb], 50, 'M'));
+  // near armrest: the big side panel, its front and its roll
+  fc.push(F([[Wd, Bt - 2, f0], [Wd, Bt - 2, ha], [Wd, P, ha], [Wd, P, f0]], [3, 8, 8, 3], 'M'), F([[Wd - A, P, f0], [Wd - A, P, ha], [Wd, P, ha], [Wd, P, f0]], [3, 8, 8, 3], 'D'), roll([Wd - A / 2, Bt - 2, ha], [Wd - A / 2, P + 1, ha], 26, 'L'), cap([Wd - A / 2, P + 1, ha], 26, 'M'));
+  fc.push(foot(Wd - 4, 6, 1), foot(Wd - 4, P - 6, 1));
+  // buttons and diamond stitching across the backrest
   var rows = [], btn = '', st = '';
-  [168, 232, 296, 352].forEach(function (h, r) { rows.push((r % 2 ? [0.32, 0.5, 0.68] : [0.23, 0.41, 0.59, 0.77]).map(function (u) { return Q(Wd * u, Bt + 0.5, h); })); });
-  rows.forEach(function (row, r) { row.forEach(function (p) { btn += circ(p[0], p[1], 3.2 * S); if (r < rows.length - 1) rows[r + 1].forEach(function (q) { if (Math.abs(q[0] - p[0]) < Wd * 0.12 * S) st += seg(p[0], p[1], q[0], q[1]); }); }); });
+  [172, 232, 292, 344].forEach(function (h, r) { rows.push((r % 2 ? [0.32, 0.5, 0.68] : [0.23, 0.41, 0.59, 0.77]).map(function (u) { return {u: u, p: Q(Wd * u, Bt + 0.5, h)}; })); });
+  rows.forEach(function (row, r) { row.forEach(function (b) { btn += circ(b.p[0], b.p[1], 3.2 * S); if (r < rows.length - 1) rows[r + 1].forEach(function (c) { if (Math.abs(c.u - b.u) < 0.12) st += seg(b.p[0], b.p[1], c.p[0], c.p[1]); }); }); });
   o.btn = btn; o.stitch = st;
-  o.pipe = pline([Q(0, Bt, hs), Q(0, Bt, hb - 20)]) + pline([Q(A + 6, P, hs - 1), Q(Wd - A - 6, P, hs - 1)]) + pline([Q(0, Bt, ha - 14), Q(0, P - 4, ha - 14)]);
+  // piping along the front edges
+  o.pipe = pline([Q(A + 6, P, hs - 1), Q(Wd - A - 6, P, hs - 1)]) + pline([Q(Wd, Bt + 2, ha - 14), Q(Wd, P - 4, ha - 14)]) + pline([Q(Wd, Bt, hs), Q(Wd, Bt, hb - 20)]);
+  // the lace-edged cloth over the top of the backrest
   var w0 = Wd * 0.3, w1 = Wd * 0.7, lace = '', t0 = Q(w0, Bt * 0.3, hb + 23), t1 = Q(w1, Bt * 0.3, hb + 23), b0 = Q(w0, Bt + 1, hb - 52), b1 = Q(w1, Bt + 1, hb - 52);
   o.cloth = n2_rpoly([t0, t1, b1, b0], [10 * S, 10 * S, 3 * S, 3 * S]);
   for (k = 0; k <= 7; k++) { var z = k / 7; lace += circ(lerp(b0[0], b1[0], z), lerp(b0[1], b1[1], z), 4.4 * S); }
   o.lace = lace;
   return o;
 }
-// the fold-down table
-function n2_trainTable(G) { var S = G.S, T0 = G.tbl[0], T1 = G.tbl[1], tc = (T0 + T1) / 2; return rrect(T0, G.ty - 2 * S, T1 - T0, 13 * S, 5 * S) + poly([[tc - 6 * S, G.ty + 10 * S], [tc + 6 * S, G.ty + 10 * S], [tc + 4 * S, G.ty + 80 * S], [tc - 4 * S, G.ty + 80 * S]]) + rrect(tc - 18 * S, G.ty + 76 * S, 36 * S, 8 * S, 4 * S); }
+// the table under the window, coming out from the wall toward the viewer: a top seen from above (wider at the front),
+// its front edge, a pedestal down to a cross foot, and soft shadows on the wall and floor
+function n2_trainTable(G) {
+  var S = G.S, T0 = G.tbl[0], T1 = G.tbl[1], tc = (T0 + T1) / 2, ty = G.ty, back = ty - 8 * S, front = ty + 30 * S, sp = 26 * S, th = 12 * S;
+  var top = n2_rpoly([[T0 + 6 * S, back], [T1 - 6 * S, back], [T1 + sp, front], [T0 - sp, front]], [4 * S, 4 * S, 7 * S, 7 * S]);
+  var edge = n2_rpoly([[T0 - sp, front], [T1 + sp, front], [T1 + sp - 2 * S, front + th], [T0 - sp + 2 * S, front + th]], [3 * S, 3 * S, 6 * S, 6 * S]);
+  var lip = rrect(T0 + 2 * S, back - 3 * S, T1 - T0 - 4 * S, 4 * S, 2 * S);
+  var fy = G.fl + 20 * S, legTop = front + th, cx = tc, lw0 = 26 * S, lw1 = 15 * S;
+  var leg = poly([[cx - lw0 / 2, legTop - 2], [cx + lw0 / 2, legTop - 2], [cx + lw1 / 2, legTop + 22 * S], [cx + lw1 / 2, fy - 22 * S], [cx + lw0 * 0.55, fy - 8 * S], [cx - lw0 * 0.55, fy - 8 * S], [cx - lw1 / 2, fy - 22 * S], [cx - lw1 / 2, legTop + 22 * S]]);
+  var footD = n2_rpoly([[cx - 64 * S, fy], [cx - 22 * S, fy - 10 * S], [cx + 22 * S, fy - 10 * S], [cx + 64 * S, fy], [cx + 50 * S, fy + 6 * S], [cx - 50 * S, fy + 6 * S]], 4 * S);
+  var legLit = poly([[cx - lw0 / 2 + 3 * S, legTop], [cx - lw0 / 2 + 8 * S, legTop], [cx - lw1 / 2 + 5 * S, legTop + 22 * S], [cx - lw1 / 2 + 5 * S, fy - 22 * S], [cx - lw1 / 2 + 2 * S, fy - 22 * S], [cx - lw1 / 2 + 2 * S, legTop + 22 * S]]);
+  var wallSh = poly([[T0 + 10 * S, back + 2 * S], [T1 - 10 * S, back + 2 * S], [T1 - 30 * S, back + 40 * S], [T0 + 30 * S, back + 40 * S]]);
+  var floorSh = ell(cx + 6 * S, fy + 3 * S, 120 * S, 9 * S);
+  return {top: top, edge: edge + lip, leg: leg + footD, lit: legLit, wallSh: wallSh, floorSh: floorSh, front: front, all: top + edge + leg + footD};
+}
 // the luggage on the rack
 function n2_trainCase(G, q) { var S = G.S, w = q[1] * S, h = q[2] * S, y = G.rack - 4 * S - h; return {x: q[0], y: y, w: w, h: h, k: q[3], d: q[3] === 3 ? rrect(q[0], y, w, h, w * 0.5) : rrect(q[0], y, w, h, 8 * S) + rrect(q[0] + w / 2 - 12 * S, y - 8 * S, 24 * S, 10 * S, 4 * S)}; }
 // where the layers of land sit in the window
@@ -7373,6 +7399,7 @@ function n2_trainCol(dk) {
     {wall: '#F4E8D2', wain: '#A86E48', ceil: '#FBF3E4', frame: '#7A4A30', brass: '#D9A848', cases: '#C68A52', floor: '#8A4A50', pan: 'rgba(90,50,20,0.22)', net: 'rgba(160,120,50,0.6)',
       blind: '#FBEFD6', seat: '#3E7C6C', seatDk: '#2C5E52', cover: '#FFF8EC', wood: '#8A5434', cur: '#C8545A', curD: '#9A383E', stitch: 'rgba(20,50,40,0.35)', star: 'rgba(255,255,255,0)'};
 }
+function n2_tableCol(dk) { return dk ? {top: '#5A3A40', edge: '#3A2228', leg: '#33202A', lit: 'rgba(255,220,180,0.12)', sh: 'rgba(0,0,0,0.28)', hi: 'rgba(255,230,200,0.12)'} : {top: '#A8683E', edge: '#7A4628', leg: '#6E3E24', lit: 'rgba(255,230,190,0.28)', sh: 'rgba(70,40,20,0.2)', hi: 'rgba(255,240,215,0.35)'}; }
 SCENES.nighttrain = function (W, H, dk, rnd) {
   var G = n2_trainGeo(W, H), ph = G.ph, far = Lay(0), refl = Lay(0), mid = Lay(0), near = Lay(0), S = G.S, x, k;
   var sky = dk ? 'linear-gradient(180deg,#141C33 0%,#1C2542 40%,#25304E 70%,#5B4A6A 100%)' : 'linear-gradient(180deg,#B9D7EA 0%,#CFE3EC 38%,#EAF2EE 70%,#E7D2B8 100%)';
@@ -7397,10 +7424,13 @@ SCENES.nighttrain = function (W, H, dk, rnd) {
   add(mid, 'h', rect(-40, G.fl, W + 80, H), C.floor);
   var nb = Math.floor((ww - 30 * S) / (16 * S)), sc = ''; for (k = 0; k < nb; k++) sc += circ(G.x0 + 15 * S + k * 16 * S + 8 * S, G.y0 + wh * 0.1, 8 * S);
   add(near, 'a', rrect(G.x0 + 2, G.y0 - 6, ww - 4, wh * 0.1 + 6, 6 * S) + sc, C.blind);
-  var sv = {L: '', M: '', D: '', W: ''}, cov = '', st = '', bu = '';
+  var sv = {L: '', M: '', D: '', W: '', WN: ''}, cov = '', st = '', bu = '';
   [1, -1].forEach(function (sd) { var o = n2_trainSeat(G, W, sd); o.faces.forEach(function (f) { sv[f.t] += f.d; }); cov += o.cloth + o.lace; st += o.stitch; bu += o.btn; });
   add(near, 'b', sv.L + sv.M + sv.D, C.seat); add(near, 'c', bu, C.seatDk); add(near, 'd', cov, C.cover);
-  add(near, 'e', n2_trainTable(G) + sv.W, C.wood);
+  // the still picture has one seat colour, so only the near feet are drawn on top, and the darker faces get a shade
+  add(near, 'e', sv.WN, C.wood); add(near, 'n', sv.D, 'rgba(0,0,0,0.16)');
+  var TB = n2_trainTable(G), TC = n2_tableCol(dk);
+  add(near, 'i', TB.wallSh + TB.floorSh, TC.sh); add(near, 'j', TB.leg, TC.leg); add(near, 'k', TB.lit, TC.lit); add(near, 'l', TB.edge, TC.edge); add(near, 'm', TB.top, TC.top);
   add(near, 'f', rrect(G.x0 + ww / 2 - 4 * S, G.y0 + wh * 0.1 + 6 * S, 8 * S, 14 * S, 4 * S) + rrect(G.x0 - G.fr - 30 * S, G.y0 - G.fr - 16 * S, ww + 2 * G.fr + 60 * S, 7 * S, 3.5 * S), C.brass);
   var cur = '', curD = '';
   [-1, 1].forEach(function (sd) { var ex = sd < 0 ? G.x0 - G.fr - 18 * S : G.x1 + G.fr + 18 * S, cw = (ph ? 30 : 42), inn = ex - sd * cw, tieY = G.y0 + wh * 0.6, top = G.y0 - G.fr - 14 * S, bot = G.y1 + G.fr;
@@ -7425,8 +7455,8 @@ SCENES.nighttrain = function (W, H, dk, rnd) {
     for (x = G.x0 + gap * 0.4; x < G.x1 + gap; x += gap) { var top = G.y0 + wh * 0.18; poles += seg(x, top, x, G.y1 + 20) + seg(x - 16 * S, top + 8 * S, x + 16 * S, top + 8 * S); [-12, 12].forEach(function (o) { wires += pline(n2_q([x - gap + o * S, top + 6 * S], [x - gap / 2, top + 6 * S + wh * 0.12], [x + o * S, top + 6 * S], 10)); }); }
     add(refl, 'c', bush, dk ? '#0C1222' : '#3E7A44'); stk(refl, 's', wires, dk ? '#0A0E1A' : '#5A4A40', 1.2); stk(refl, 't', poles, dk ? '#0A0E1A' : '#5A4A40', 4 * S);
     add(far, 'h', dk ? circ(G.x0 + ww * 0.72, G.y0 + wh * 0.2, 20 * S) : n2_puff(G.x0 + ww * 0.3, G.y0 + wh * 0.16, 70 * S, 26 * S, rnd) + n2_puff(G.x0 + ww * 0.62, G.y0 + wh * 0.13, 56 * S, 20 * S, rnd), dk ? '#FFF6DA' : '#FFFFFF');
-    var L = G.lamp; add(near, 'g', poly([[L[0] - 10 * S, L[1] - 64 * S], [L[0] + 10 * S, L[1] - 64 * S], [L[0] + 22 * S, L[1] - 40 * S], [L[0] - 22 * S, L[1] - 40 * S]]));
-    add(near, 'f', rect(L[0] - 2 * S, L[1] - 44 * S, 4 * S, 42 * S) + ell(L[0], L[1] - 2 * S, 13 * S, 4 * S)); }
+    var L = G.lamp; add(near, 'p', poly([[L[0] - 10 * S, L[1] - 64 * S], [L[0] + 10 * S, L[1] - 64 * S], [L[0] + 22 * S, L[1] - 40 * S], [L[0] - 22 * S, L[1] - 40 * S]]), C.cur);
+    add(near, 'o', rect(L[0] - 2 * S, L[1] - 44 * S, 4 * S, 42 * S) + ell(L[0], L[1] - 2 * S, 13 * S, 4 * S), C.brass); }
   return n2_out({sky: sky, far: far, refl: refl, mid: mid, near: near});
 };
 
@@ -19100,17 +19130,20 @@ ENGINES.nighttrain = function (A, v, dk) {
     var bgx = (G.tbl[0] + G.tbl[1]) / 2 + (ph ? 46 : 90) * S, bgw = 74 * S, bgh = 48 * S, bgy = G.fl + 4 * S - bgh; o.fillStyle = 'rgba(0,0,0,0.18)'; o.beginPath(); o.ellipse(bgx, G.fl + 4 * S, bgw * 0.6, 5 * S, 0, 0, 7); o.fill();
     o.strokeStyle = dk ? '#4A3020' : '#7A4A28'; o.lineWidth = 5 * S; o.beginPath(); o.arc(bgx, bgy + 4 * S, bgw * 0.26, Math.PI, 0); o.stroke();
     o.fillStyle = dk ? '#7A4E3A' : '#B8784A'; o.fill(new Path2D(rrect(bgx - bgw / 2, bgy, bgw, bgh, 14 * S))); o.fillStyle = dk ? '#5E3A2C' : '#93582F'; o.fill(new Path2D(rrect(bgx - bgw / 2, bgy, bgw, bgh * 0.36, 12 * S))); o.fillStyle = dk ? '#C8A050' : '#E8C060'; o.fill(new Path2D(rrect(bgx - 6 * S, bgy + bgh * 0.28, 12 * S, 9 * S, 2.5 * S)));
-    o.fillStyle = C.wood; o.fill(new Path2D(n2_trainTable(G)));
+    var TB = n2_trainTable(G), TC = n2_tableCol(dk);
+    o.save(); o.filter = 'blur(' + (4 * S) + 'px)'; o.fillStyle = TC.sh; o.fill(new Path2D(TB.wallSh + TB.floorSh)); o.restore();
+    o.fillStyle = TC.leg; o.fill(new Path2D(TB.leg)); o.fillStyle = TC.lit; o.fill(new Path2D(TB.lit)); o.fillStyle = TC.edge; o.fill(new Path2D(TB.edge));
+    o.fillStyle = TC.top; o.fill(new Path2D(TB.top)); shade(o, TB.top, G.ty - 8 * S, TB.front, dk ? 'rgba(0,0,0,0.18)' : 'rgba(60,30,10,0.16)', TC.hi);
     var TN = dk ? {L: '#3A6E70', M: '#2C5A5C', D: '#1C3C40'} : {L: '#55A08A', M: '#3E7C6C', D: '#2C5E52'};
     [1, -1].forEach(function (sd) { var p = n2_trainSeat(G, W, sd), s = G.seat, vg = o.createLinearGradient(0, s.top, 0, s.by);
       vg.addColorStop(0, dk ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.12)'); vg.addColorStop(0.6, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.16)');
       o.save(); o.filter = 'blur(' + (5 * S) + 'px)'; o.fillStyle = 'rgba(0,0,0,0.2)'; o.fill(new Path2D(p.shadow)); o.restore();
-      p.faces.forEach(function (f) { var pa = new Path2D(f.d); o.fillStyle = f.t === 'W' ? C.wood : TN[f.t]; o.fill(pa); if (f.t !== 'W') { o.fillStyle = vg; o.fill(pa); } });
+      p.faces.forEach(function (f) { var pa = new Path2D(f.d); o.fillStyle = f.t[0] === 'W' ? C.wood : TN[f.t]; o.fill(pa); if (f.t[0] !== 'W') { o.fillStyle = vg; o.fill(pa); } });
       o.lineCap = 'round'; o.lineJoin = 'round'; o.strokeStyle = dk ? 'rgba(0,0,0,0.22)' : 'rgba(20,60,50,0.2)'; o.lineWidth = 1.4 * S; o.stroke(new Path2D(p.stitch));
       o.strokeStyle = dk ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.3)'; o.lineWidth = 2 * S; o.stroke(new Path2D(p.pipe));
       o.fillStyle = TN.D; o.fill(new Path2D(p.btn));
       o.fillStyle = C.cover; o.fill(new Path2D(p.cloth + p.lace)); shade(o, p.cloth, s.top, s.top + 140 * S, 'rgba(255,255,255,0.25)', dk ? 'rgba(80,60,100,0.18)' : 'rgba(170,140,120,0.18)'); });
-    o.fillStyle = 'rgba(255,255,255,0.22)'; o.fill(new Path2D(rrect(G.tbl[0] + 3, G.ty - 1 * S, G.tbl[1] - G.tbl[0] - 6, 3 * S, 1.5 * S)));
+    o.fillStyle = 'rgba(255,255,255,0.22)'; o.fill(new Path2D(rrect(G.tbl[0] - 22 * S, TB.front - 1 * S, G.tbl[1] - G.tbl[0] + 44 * S, 2.5 * S, 1.2 * S)));
     if (ph) return;
     var mx = G.x1 + G.fr + 18, mw = W - G.seat.bf - 14 - mx, my = G.y0 + 6, mh = Math.min(mw * 0.72, G.seat.top - 50 - my);
     if (mw > 50 && mh > 34) { o.fillStyle = dk ? '#2C1C28' : '#7A4A30'; o.fill(new Path2D(rrect(mx - 6, my - 6, mw + 12, mh + 12, 5))); o.fillStyle = dk ? '#CFC2AC' : '#F6EBD2'; o.fillRect(mx, my, mw, mh);
