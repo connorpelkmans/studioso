@@ -6044,7 +6044,15 @@ SCENES.volcano = function (W, H, dk, rnd) {
   var jg = n1_fn(vx - hw - 10, vx + hw + 10, 4, function (x) { return Math.max(coneY(x), treeY(x)); });
   jg = [[vx - hw - 14, base + 1]].concat(jg, [[vx + hw + 14, base + 1]]);
   add(refl, 'c', n1_P(jg.concat(foot)), dk ? '#24302E' : '#5FA86A');
-  add(refl, 'h', n1_P(foot.map(function (p) { return [p[0], p[1] - 4 * S - 1]; }).concat(foot.slice().reverse())), dk ? '#5A3A40' : '#E8D2A6');
+  // the beach: a sand spit along the island's foot that runs out past it on the left and thins to a point at both ends,
+  // with wet sand at the waterline and a line of foam following its curve
+  var bxa = vx - hw - 14 - 46 * S, bxb = vx + hw + 14 + 22 * S, bT = 5.5 * S + 1.6, dry = [], wetT = [], wl = [], fmT = [], fmB = [];
+  for (var bxx = bxa; bxx <= bxb + 0.01; bxx += 5) { var fu2 = Math.max(0, Math.min(1, (bxx - (vx - hw - 14)) / (2 * hw + 28))), wy = base + 1 + Math.sin(Math.PI * fu2) * 8 * S + (bxx < vx - hw - 14 ? (vx - hw - 14 - bxx) / (46 * S) * 1.5 : 0),
+      bv = (bxx - bxa) / (bxb - bxa), th = bT * Math.pow(Math.sin(Math.PI * bv), 0.75) * (1 + 0.12 * Math.sin(bxx / 17));
+    dry.push([bxx, wy - th]); wetT.push([bxx, wy - th * 0.38]); wl.push([bxx, wy]); fmT.push([bxx, wy - 0.5 - th * 0.08]); fmB.push([bxx, wy + 0.4 + th * 0.22]); }
+  add(refl, 'h', n1_P(dry.concat(wl.slice().reverse())), dk ? '#5A3A40' : '#E8D2A6');
+  add(near, 'f', n1_P(wetT.concat(wl.slice().reverse())), dk ? '#46303A' : '#C9AE84');
+  add(near, 'g', n1_P(fmT.concat(fmB.slice().reverse())), dk ? 'rgba(255,205,195,0.55)' : 'rgba(255,255,255,0.85)');
   var jh = ''; spread(vx - hw, top + (base - top) * 0.5, hw * 2, (base - top) * 0.5, ph ? 22 : 30, 16, rnd, 1).forEach(function (c) { if (c.y > Math.max(coneY(c.x), treeY(c.x)) + 6 && c.y < base - 8 && c.q < 0.6) jh += n1_C(c.x, c.y, (ph ? 5 : 8) + c.r * 5); });
   add(refl, 'd', jh, dk ? '#2C3A36' : '#78BC74');
   var gul = ''; for (i = -4; i <= 4; i++) { if (!i) continue; var x0 = vx + i * rimW * 0.45, x1 = vx + i * hw * 0.085, y0 = coneY(x0) + 8, y1 = Math.max(coneY(x1) + 10, treeY(x1) - 6); if (y1 > y0 + 10) gul += 'M' + PT(x0, y0) + ' Q' + PT((x0 + x1) / 2 + i * 2, (y0 + y1) / 2 + 4) + ' ' + PT(x1, y1) + ' '; }
@@ -6052,8 +6060,23 @@ SCENES.volcano = function (W, H, dk, rnd) {
   var crater = n1_E(vx, top + 3, rimW * 0.92, 5 * S + 2), vents = [], ventD = '';
   [[-0.42, 0.42], [0.36, 0.38], [0.22, 0.62]].forEach(function (q) { var x = vx + q[0] * hw, y = coneY(x) + (base - coneY(x)) * q[1]; vents.push([x, y]); ventD += n1_E(x, y, 7 * S + 2, 2.6 * S + 1); });
   add(refl, 'e', crater + ventD, dk ? '#2A1220' : '#6E4A42');
-  var lava = [], lavaD = ''; [[-0.5, -0.16, 0.42], [0.4, 0.14, 0.4], [0.0, 0.03, 0.3]].forEach(function (q) { var pts = [], n = 18; for (var k = 0; k <= n; k++) { var u = k / n, x = vx + q[0] * rimW + (q[1] * hw) * u + Math.sin(u * 7 + q[0] * 5) * 8 * S, y = coneY(vx + q[0] * rimW) + 2 + (base - top) * q[2] * u; y = Math.max(y, coneY(x) + 3); if (y < treeY(x) - (ph ? 1.2 : 2) * S - 7) pts.push([x, y]); } lava.push(pts); lavaD += pline(pts); });
-  stk(refl, 't', lavaD, dk ? '#7A2A26' : 'rgba(80,50,50,0.35)', (ph ? 2.4 : 4) * S + 1);
+  // the crater as a ring: the back lip rises behind the opening, its inner wall shows inside, a lit edge runs along the front
+  var cry = 5 * S + 2, cA = [], cB = [], cW = [], cF = [], ka;
+  for (ka = 0; ka <= 24; ka++) { var aa = Math.PI + ka / 24 * Math.PI; cA.push([vx + Math.cos(aa) * rimW * 1.06, top + 3 + Math.sin(aa) * cry * 1.75]); cB.unshift([vx + Math.cos(aa) * rimW * 0.92, top + 3 + Math.sin(aa) * cry]); cW.push([vx + Math.cos(aa) * rimW * 0.9, top + 3 + cry * 0.42 + Math.sin(aa) * cry * 1.25]); }
+  for (ka = 0; ka <= 24; ka++) { var ab = ka / 24 * Math.PI; cF.push([vx + Math.cos(ab) * rimW * 0.92, top + 3 + Math.sin(ab) * cry]); }
+  var cF2 = cF.map(function (q) { return [vx + (q[0] - vx) * 1.02, top + 3 + (q[1] - top - 3) * 1.45 + 0.6]; });
+  add(refl, 'i', n1_P(cA.concat(cB)), dk ? '#5A3242' : '#C29680');
+  add(refl, 'j', n1_P(cB.slice().reverse().concat(cW.slice().reverse())), dk ? '#3E1E2C' : '#8A5E50');
+  add(refl, 'k', n1_P(cF.concat(cF2.slice().reverse())), dk ? 'rgba(255,170,120,0.35)' : 'rgba(255,236,220,0.55)');
+  // lava only at night: three streams run from the crater all the way down to the water, with steam where they meet the sea
+  function shoreY(x) { var fu = Math.max(0, Math.min(1, (x - (vx - hw - 14)) / (2 * hw + 28))); return base + 1 + Math.sin(Math.PI * fu) * 8 * S; }
+  var lava = [], lavaD = '', steamD = '', hissD = '';
+  if (dk) [[-0.5, -0.5, 0], [0.4, 0.42, 1], [0.0, 0.1, 2]].forEach(function (q) { var pts = [], n = 30, x0 = vx + q[0] * rimW, y0 = coneY(x0) + 2;
+    for (var k = 0; k <= n; k++) { var u = k / n, x = x0 + q[1] * hw * Math.pow(u, 1.15) + (Math.sin(u * 7 + q[0] * 5) * 8 + Math.sin(u * 17 + q[2] * 2) * 4 + Math.sin(u * 37 + q[2]) * 1.5) * S * (1 - u * 0.4), y = lerp(y0, shoreY(x) - 1, Math.pow(u, 0.95)); y = Math.max(y, coneY(x) + 3); pts.push([x, Math.min(y, shoreY(x) - 1)]); }
+    lava.push(pts); lavaD += pline(pts); var e = pts[pts.length - 1];
+    hissD += n1_E(e[0], e[1] + 3 * S, 26 * S, 4 * S);
+    for (var j = 0; j < 4; j++) steamD += n1_C(e[0] + (j - 1.5) * 7 * S + Math.sin(j * 2 + q[2]) * 4 * S, e[1] - (8 + j * 9) * S, (6 + j * 3) * S); });
+  if (dk) { stk(refl, 't', lavaD, '#C8502C', (ph ? 2.4 : 4) * S + 1); add(refl, 'l', hissD, 'rgba(255,120,60,0.35)'); if (!ANIM) add(refl, 'm', steamD, 'rgba(235,210,220,0.2)'); }
   var vc = ''; if (!dk) [[vx - hw * 0.62, top + (base - top) * 0.3, 1], [vx + hw * 0.7, top + (base - top) * 0.2, 0.8]].forEach(function (q) { var s = q[2] * (ph ? 0.7 : 1.1); vc += n1_E(q[0], q[1], 54 * s, 10 * s) + n1_C(q[0] - 14 * s, q[1] - 6 * s, 14 * s) + n1_C(q[0] + 12 * s, q[1] - 9 * s, 18 * s); });
   add(refl, 'g', vc, 'rgba(255,255,255,0.9)');
   var reef = ''; spread(0, hz + H * 0.05, W, H * 0.17, ph ? 160 : 260, H * 0.06, rnd, 0.9).forEach(function (c) { if (c.q < 0.45 && Math.abs(c.x - sx) > W * 0.06) { var rw = (ph ? 30 : 60) * (0.6 + c.r * 0.8); reef += n1_E(c.x, c.y, rw, rw * 0.09) + n1_E(c.x + rw * 0.5, c.y + rw * 0.05, rw * 0.5, rw * 0.06); } });
@@ -17561,7 +17584,7 @@ function n1_flower(c, x, y, r, k, sc, t) { if (sc <= 0) return; var C = [['#FF4F
 ENGINES.volcano = function (A, v, dk) {
   var W = v.bw, H = v.bh, ph = !v.desk, S = A.S, Cr = A.crater, i;
   var puffG = n1_rg(dk ? 'rgba(110,70,90,0.7)' : 'rgba(250,246,242,0.92)', [0.55, 0.5]), shadeG = n1_rg(dk ? 'rgba(40,20,40,0.5)' : 'rgba(170,150,150,0.35)', [0.5, 0.4]), lavaG = n1_rg('rgba(255,120,40,0.65)', [0.3, 0.3]), hotG = n1_rg('rgba(255,170,80,0.6)', [0.35, 0.3]), sparkG = n1_rg('rgba(255,220,120,0.9)', [0.25, 0.4]), emberG = n1_rg('rgba(255,120,40,0.95)', [0.35, 0.55]), steamG = n1_rg(dk ? 'rgba(230,200,210,0.5)' : 'rgba(255,255,255,0.85)', [0.5, 0.45]);
-  var puffs = [], lastPuff = -1, wisps = [], fronds = {}, sparks = [], flowers = [], burp = null, rmask = new Path2D(A.rmask);
+  var hiss = [], puffs = [], lastPuff = -1, wisps = [], fronds = {}, sparks = [], flowers = [], burp = null, rmask = new Path2D(A.rmask);
   function frondPath(L) { var k = Math.round(L); return fronds[k] || (fronds[k] = new Path2D(n1_frond(0, 0, 0, L, 0.9))); }
   var vents = A.vents.map(function (p, j) { return {x: p[0], y: p[1], next: 1 + j * 2.3, burst: -9}; });
   var lavaLen = A.lava.map(function (pts) { var L = 0; for (var j = 1; j < pts.length; j++) L += Math.hypot(pts[j][0] - pts[j - 1][0], pts[j][1] - pts[j - 1][1]); return L; });
@@ -17572,6 +17595,9 @@ ENGINES.volcano = function (A, v, dk) {
       puffs = puffs.filter(function (q) { return t - q.t0 < q.life; });
       vents.forEach(function (vt) { vt.next -= dt * f.s; if (vt.next <= 0) { vt.next = 4 + Math.random() * 5; vt.burst = t; } if (Math.random() < dt * (t - vt.burst < 1.2 ? 14 : 2.2)) wisps.push({x: vt.x + (Math.random() - 0.5) * 6, y: vt.y, t0: t, b: t - vt.burst < 1.2 ? 1 : 0, ph: Math.random() * 6.28}); });
       wisps = wisps.filter(function (q) { return t - q.t0 < 2.6; });
+      // steam where the night lava meets the sea
+      if (dk) A.lava.forEach(function (pts) { var e = pts[pts.length - 1]; if (e && Math.random() < dt * 5) hiss.push({x: e[0] + (Math.random() - 0.5) * 14 * S, y: e[1] - 2, t0: t, ph: Math.random() * 6.28, life: 3 + Math.random() * 1.5}); });
+      hiss = hiss.filter(function (q) { return t - q.t0 < q.life; });
       sparks.forEach(function (s) { if (!s.done && t - s.t0 >= s.dur) { s.done = 1; flowers.push({x: s.tx, y: s.ty, t0: t, k: s.k, r: (ph ? 6 : 9) * S * (0.8 + Math.random() * 0.4)}); if (flowers.length > 46) flowers.shift(); } });
       sparks = sparks.filter(function (s) { return !s.done; }); flowers = flowers.filter(function (q) { return t - q.t0 < 40; });
       if (burp && t - burp.t0 > 8) burp = null;
@@ -17584,7 +17610,17 @@ ENGINES.volcano = function (A, v, dk) {
       puffs.forEach(function (q) { var k = (t - q.t0) / q.life, x = q.x + q.vx * (t - q.t0) + Math.sin(tt * 0.5 + q.ph) * 6 * k, y = Cr[1] - q.vy * (t - q.t0) * (1 - k * 0.35), r = q.r * (1 + k * 5), al = Math.min(1, k * 6) * (1 - k);
         n1_dot(ca, shadeG, x + r * 0.15, y + r * 0.2, r, al * 0.8); n1_dot(ca, puffG, x, y, r, al);
         if (dk) { ca.save(); ca.globalCompositeOperation = 'lighter'; n1_dot(ca, hotG, x, y + r * 0.3, r * 0.9, al * Math.max(0, 0.7 - k)); ca.restore(); } });
+      hiss.forEach(function (q) { var k = (t - q.t0) / q.life; n1_dot(ca, steamG, q.x + Math.sin(k * 4 + q.ph) * 6 * S + k * 12 * S, q.y - k * 70 * S, (4 + k * 18) * S, 0.75 * Math.sin(Math.PI * Math.min(1, k * 1.4)) * (1 - k)); });
       wisps.forEach(function (q) { var k = (t - q.t0) / 2.6; n1_dot(ca, steamG, q.x + Math.sin(k * 5 + q.ph) * 4 + k * 10 * S, q.y - k * (q.b ? 60 : 34) * S, (3 + k * (q.b ? 14 : 9)) * S, (q.b ? 0.9 : 0.6) * Math.sin(Math.PI * k)); });
+      ca.strokeStyle = dk ? 'rgba(255,220,210,0.55)' : 'rgba(60,40,50,0.6)'; ca.lineWidth = 1.5; ca.lineCap = 'round'; ca.beginPath();
+      for (var bi = 0; bi < 2; bi++) { var ba = tt * (0.11 + bi * 0.03) + bi * 2.4, bx2 = Cr[0] + Math.cos(ba) * W * (0.16 + bi * 0.05), by2 = Cr[1] - H * (0.08 + bi * 0.04) + Math.sin(ba) * H * 0.04, bs = (9 + bi * 2) * S + 2, bf = Math.sin(tt * 2 + bi) * 0.25;
+        ca.moveTo(bx2 - bs, by2 - bs * (0.25 + bf)); ca.quadraticCurveTo(bx2 - bs * 0.45, by2 - bs * 0.35, bx2, by2); ca.quadraticCurveTo(bx2 + bs * 0.45, by2 - bs * 0.35, bx2 + bs, by2 - bs * (0.25 + bf)); }
+      ca.stroke();
+      var B = A.beach; n1_occl(ca, rmask, function (ca) { for (var w = 0; w < 2; w++) { var u2 = ((tt / 5.5) + w * 0.5) % 1, k2 = u2 < 0.45 ? n1_ease(u2 / 0.45) : 1 - n1_ease((u2 - 0.45) / 0.55), d = H * (ph ? 0.025 : 0.035) * k2 * (w ? 0.6 : 1);
+        ca.fillStyle = dk ? 'rgba(120,70,110,' + (0.35 * k2) + ')' : 'rgba(120,215,215,' + (0.55 * k2) + ')'; ca.beginPath(); ca.moveTo(B[0][0], B[0][1] - 4); B.forEach(function (p) { ca.lineTo(p[0], p[1] + d + Math.sin(p[0] / 40 + tt) * 2); }); for (var bk = B.length - 1; bk >= 0; bk--) ca.lineTo(B[bk][0], B[bk][1] - 4); ca.fill();
+        ca.strokeStyle = dk ? 'rgba(255,200,190,' + (0.55 * k2) + ')' : 'rgba(255,255,255,' + (0.95 * k2) + ')'; ca.lineWidth = 2.4 * S + 0.6; ca.beginPath(); B.forEach(function (p, m) { var yy = p[1] + d + Math.sin(p[0] / 40 + tt) * 2; if (m) ca.lineTo(p[0], yy); else ca.moveTo(p[0], yy); }); ca.stroke();  } });
+      ca.strokeStyle = dk ? 'rgba(255,190,170,0.4)' : 'rgba(255,255,255,0.7)'; ca.lineWidth = 1.6; for (i = 0; i < 4; i++) { var u3 = ((tt * 0.07 + i / 4) % 1), yy3 = A.hz + 16 + 9 * S + Math.pow(u3, 1.5) * (B[0][1] - A.hz - 22 - 9 * S); ca.globalAlpha = Math.sin(Math.PI * u3); ca.beginPath(); for (var x = -10; x <= W + 10; x += 24) { var y4 = yy3 + Math.sin(x / 60 + i * 3 + tt * 0.5) * 2; if (x === -10) ca.moveTo(x, y4); else ca.lineTo(x, y4); } ca.stroke(); } ca.globalAlpha = 1;
+      // the boat after the wave lines, so they pass under it
       var cu = ((tt / (ph ? 70 : 110)) + 0.35) % 1, cxp = -60 + (W + 120) * cu, cyp = A.hz + (A.beach[0][1] - A.hz) * 0.42, cs = (ph ? 0.85 : 1.35) * S, bob = Math.sin(tt * 1.6) * 1.2;
       ca.save(); ca.translate(cxp, cyp + bob); ca.scale(cs, cs); ca.rotate(Math.sin(tt * 1.6 + 1) * 0.03);
       ca.fillStyle = dk ? 'rgba(255,170,140,0.25)' : 'rgba(255,255,255,0.5)'; n1_ell(ca, 0, 3, 30, 2.4); ca.fill();
@@ -17595,14 +17631,6 @@ ENGINES.volcano = function (A, v, dk) {
       ca.fillStyle = dk ? '#C88A7A' : '#FFE6C0'; ca.beginPath(); ca.moveTo(4, -32); ca.quadraticCurveTo(18, -18, 16, -2); ca.lineTo(5, -1); ca.closePath(); ca.fill();
       ca.fillStyle = dk ? '#B0503E' : '#E8603A'; ca.beginPath(); ca.moveTo(4.5, -24); ca.quadraticCurveTo(14, -15, 13.4, -9); ca.lineTo(5.2, -9); ca.closePath(); ca.fill();
       ca.restore();
-      ca.strokeStyle = dk ? 'rgba(255,220,210,0.55)' : 'rgba(60,40,50,0.6)'; ca.lineWidth = 1.5; ca.lineCap = 'round'; ca.beginPath();
-      for (var bi = 0; bi < 2; bi++) { var ba = tt * (0.11 + bi * 0.03) + bi * 2.4, bx2 = Cr[0] + Math.cos(ba) * W * (0.16 + bi * 0.05), by2 = Cr[1] - H * (0.08 + bi * 0.04) + Math.sin(ba) * H * 0.04, bs = (9 + bi * 2) * S + 2, bf = Math.sin(tt * 2 + bi) * 0.25;
-        ca.moveTo(bx2 - bs, by2 - bs * (0.25 + bf)); ca.quadraticCurveTo(bx2 - bs * 0.45, by2 - bs * 0.35, bx2, by2); ca.quadraticCurveTo(bx2 + bs * 0.45, by2 - bs * 0.35, bx2 + bs, by2 - bs * (0.25 + bf)); }
-      ca.stroke();
-      var B = A.beach; n1_occl(ca, rmask, function (ca) { for (var w = 0; w < 2; w++) { var u2 = ((tt / 5.5) + w * 0.5) % 1, k2 = u2 < 0.45 ? n1_ease(u2 / 0.45) : 1 - n1_ease((u2 - 0.45) / 0.55), d = H * (ph ? 0.025 : 0.035) * k2 * (w ? 0.6 : 1);
-        ca.fillStyle = dk ? 'rgba(120,70,110,' + (0.35 * k2) + ')' : 'rgba(120,215,215,' + (0.55 * k2) + ')'; ca.beginPath(); ca.moveTo(B[0][0], B[0][1] - 4); B.forEach(function (p) { ca.lineTo(p[0], p[1] + d + Math.sin(p[0] / 40 + tt) * 2); }); ca.lineTo(B[B.length - 1][0], B[B.length - 1][1] - 4); ca.fill();
-        ca.strokeStyle = dk ? 'rgba(255,200,190,' + (0.55 * k2) + ')' : 'rgba(255,255,255,' + (0.95 * k2) + ')'; ca.lineWidth = 2.4 * S + 0.6; ca.beginPath(); B.forEach(function (p, m) { var yy = p[1] + d + Math.sin(p[0] / 40 + tt) * 2; if (m) ca.lineTo(p[0], yy); else ca.moveTo(p[0], yy); }); ca.stroke();  } });
-      ca.strokeStyle = dk ? 'rgba(255,190,170,0.4)' : 'rgba(255,255,255,0.7)'; ca.lineWidth = 1.6; for (i = 0; i < 4; i++) { var u3 = ((tt * 0.07 + i / 4) % 1), yy3 = A.hz + 8 + Math.pow(u3, 1.5) * (B[0][1] - A.hz - 14); ca.globalAlpha = Math.sin(Math.PI * u3); ca.beginPath(); for (var x = -10; x <= W + 10; x += 24) { var y4 = yy3 + Math.sin(x / 60 + i * 3 + tt * 0.5) * 2; if (x === -10) ca.moveTo(x, y4); else ca.lineTo(x, y4); } ca.stroke(); } ca.globalAlpha = 1;
       flowers.forEach(function (q) { var k = (t - q.t0) / 0.45, sc = (k >= 1 ? 1 : n1_ease(k) * (1 + 0.35 * Math.sin(Math.PI * k))) * (1 - n1_ease((t - q.t0 - 36) / 4)); n1_flower(ca, q.x, q.y, q.r, q.k, sc, tt); });
       if (burp) { var T = t - burp.t0; if (T < 1.6) { var kk = T / 1.6; ca.strokeStyle = dk ? 'rgba(255,200,150,' + (0.8 * (1 - kk)) + ')' : 'rgba(255,255,255,' + (0.9 * (1 - kk)) + ')'; ca.lineWidth = (6 - kk * 4) * S + 1; n1_ell(ca, Cr[0], Cr[1] - kk * 50 * S, Cr[2] * (0.6 + kk * 1.4), Cr[2] * (0.25 + kk * 0.5)); ca.stroke(); } }
       cb.save(); if (dk) cb.globalCompositeOperation = 'lighter';
