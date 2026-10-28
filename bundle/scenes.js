@@ -2122,7 +2122,7 @@ SCENES.gaming = function (W, H, dk, rnd) {
   spread(0, 10, W, (ph ? H * 0.46 : H * 0.42), ph ? 190 : 300, ph ? 130 : 130, rnd, 0.8).forEach(function (c) { if (c.q > 0.8) return; var s = (ph ? 0.6 : 0.8) + c.r * 0.5, x = c.x, y = c.y, bb = [x - 50 * s, y - 46 * s, x + 52 * s, y + 14 * s];
     if (sx > bb[0] - 40 && sx < bb[2] + 40 && sy > bb[1] - 40 && sy < bb[3] + 40) return;
     occ.push(bb); add(refl, 'e', rrect(x - 50 * s, y - 14 * s, 100 * s, 28 * s, 14 * s) + circ(x - 20 * s, y - 14 * s, 20 * s) + circ(x + 12 * s, y - 20 * s, 26 * s) + circ(x + 38 * s, y - 6 * s, 14 * s), C.cloud); add(refl, 'f', rrect(x - 44 * s, y + 4 * s, 88 * s, 10 * s, 5 * s), C.cloudB); });
-  var pKx = ph ? W * 0.78 : W * 0.88, pKy = ph ? H * 0.855 : H * 0.88, pKw = ph ? 130 : 200, pKh = pKw * 0.52;
+  var pKx = ph ? W * 0.22 : W * 0.12, pKy = ph ? H * 0.855 : H * 0.88, pKw = ph ? 130 : 200, pKh = pKw * 0.52;
   function onPad(x, y, m) { return x > pKx - pKw * 0.33 - pKh * 0.44 - m && x < pKx + pKw * 0.33 + pKh * 0.44 + m && y > pKy - pKh * 0.46 - m && y < pKy + pKh * 0.56 + m; }
   var gA = ridge(W, gy, [[6, 220, 0.8], [3, 90, 2.0]], 10), gB = ridge(W, gy + (H - gy) * 0.42, [[8, 170, 2.6], [3, 70, 0.4]], 10), peb = '';
   add(mid, 'a', below(gA, H + 20), dk ? '#244256' : '#B4E5CA'); add(mid, 'b', below(gB, H + 20), dk ? '#1F3950' : '#A2DBBE');
@@ -2165,7 +2165,8 @@ SCENES.gaming = function (W, H, dk, rnd) {
   if (ph) { hx = 30; hy = H * 0.448; }
   if (ANIM) ANIM.hud = {x: hx, y: hy, s: hs, d: hd, pink: C.pink, hl: C.det};
   for (i = 0; i < 3; i++) { fp += b6_heart(hx + i * hd, hy, hs); hh += ell(hx + i * hd - hs * 0.45, hy - hs * 0.35, hs * 0.2, hs * 0.14); }
-  var kx = ph ? W * 0.78 : W * 0.88, ky = ph ? H * 0.855 : H * 0.88, kw = ph ? 130 : 200, kh = kw * 0.52, body = '', det = '';
+  // the controller sits bottom left: the Add button floats at the bottom right
+  var kx = ph ? W * 0.22 : W * 0.12, ky = ph ? H * 0.855 : H * 0.88, kw = ph ? 130 : 200, kh = kw * 0.52, body = '', det = '';
   if (ANIM) ANIM.pad = {x: kx, y: ky, w: kw, h: kh};
   body += rrect(kx - kw * 0.34, ky - kh * 0.46, kw * 0.68, kh * 0.72, kh * 0.3) + ell(kx - kw * 0.33, ky + kh * 0.05, kh * 0.44, kh * 0.5) + ell(kx + kw * 0.33, ky + kh * 0.05, kh * 0.44, kh * 0.5);
   add(mid, 'g', body, C.pad); add(far, 'g', ell(kx, ky + kh * 0.6, kw * 0.55, kh * 0.14), dk ? 'rgba(0,0,0,0.45)' : 'rgba(90,70,170,0.3)');
@@ -2175,10 +2176,11 @@ SCENES.gaming = function (W, H, dk, rnd) {
   var bx = kx + kw * 0.33, by = ky - kh * 0.06, bo = kh * 0.17, br = kh * 0.075;
   near.b.d += circ(bx, by - bo, br); near.b.c = C.mint; coins += ''; add(near, 'c', circ(bx - bo, by, br)); fp += circ(bx + bo, by, br); det += circ(bx, by + bo, br);
   var stemM = '';
-  (ph ? [[W * 0.1, gy + 70, 1], [W * 0.2, gy + 60, 0.7]] : [[W * 0.1, gy + 80, 1.2], [W * 0.16, gy + 66, 0.85], [W * 0.36, gy + 44, 0.7]]).forEach(function (m) { var ms = m[2] * 22, x = m[0], y = m[1]; fp += 'M' + PT(x - ms, y - ms * 0.9) + ' Q' + PT(x - ms, y - ms * 2.1) + ' ' + PT(x, y - ms * 2.1) + ' Q' + PT(x + ms, y - ms * 2.1) + ' ' + PT(x + ms, y - ms * 0.9) + ' Z '; stemM += rrect(x - ms * 0.45, y - ms * 0.95, ms * 0.9, ms * 0.95, ms * 0.3) + circ(x - ms * 0.45, y - ms * 1.5, ms * 0.18) + circ(x + ms * 0.35, y - ms * 1.7, ms * 0.14) + circ(x + ms * 0.05, y - ms * 1.2, ms * 0.12); add(far, 'g', ell(x, y + 2, ms * 1.1, ms * 0.25)); });
+  // mushrooms on the right, across from the controller
+  (ph ? [[W * 0.9, gy + 70, 1], [W * 0.8, gy + 60, 0.7]] : [[W * 0.9, gy + 80, 1.2], [W * 0.84, gy + 66, 0.85], [W * 0.64, gy + 44, 0.7]]).forEach(function (m) { var ms = m[2] * 22, x = m[0], y = m[1]; fp += 'M' + PT(x - ms, y - ms * 0.9) + ' Q' + PT(x - ms, y - ms * 2.1) + ' ' + PT(x, y - ms * 2.1) + ' Q' + PT(x + ms, y - ms * 2.1) + ' ' + PT(x + ms, y - ms * 0.9) + ' Z '; stemM += rrect(x - ms * 0.45, y - ms * 0.95, ms * 0.9, ms * 0.95, ms * 0.3) + circ(x - ms * 0.45, y - ms * 1.5, ms * 0.18) + circ(x + ms * 0.35, y - ms * 1.7, ms * 0.14) + circ(x + ms * 0.05, y - ms * 1.2, ms * 0.12); add(far, 'g', ell(x, y + 2, ms * 1.1, ms * 0.25)); });
   det += stemM;
   add(near, 'f', fp, C.pink); add(near, 'h', fc + hh + det, C.det);
-  var cab = 'M' + PT(kx, ky - kh * 0.46) + ' C' + PT(kx, ky - kh * 1.2) + ' ' + PT(kx - kw * 0.9, ky - kh * 1.0) + ' ' + PT(kx - kw * 0.95, ky - kh * 0.1) + ' S' + PT(kx - kw * 1.5, ky + kh * 1.0) + ' ' + PT(kx - kw * 2.4, ky + kh * 0.5) + ' S' + PT(kx - kw * 3.2, ky + kh * 1.6) + ' ' + PT(kx - kw * 3.6, H + 30);
+  var cab = 'M' + PT(kx, ky - kh * 0.46) + ' C' + PT(kx, ky - kh * 1.2) + ' ' + PT(kx + kw * 0.9, ky - kh * 1.0) + ' ' + PT(kx + kw * 0.95, ky - kh * 0.1) + ' S' + PT(kx + kw * 1.5, ky + kh * 1.0) + ' ' + PT(kx + kw * 2.4, ky + kh * 0.5) + ' S' + PT(kx + kw * 3.2, ky + kh * 1.6) + ' ' + PT(kx + kw * 3.6, H + 30);
   stk(mid, 't', cab, dk ? '#3A2E8A' : '#7A66E0', ph ? 2.4 : 3);
   if (dk) spread(0, gy - H * 0.25, W, H * 0.3, 120, 90, rnd, 1).forEach(function (c) { if (c.q < 0.35) { if (ANIM) { (ANIM.flies = ANIM.flies || []).push([c.x, c.y]); return; } add(far, 'h', circ(c.x, c.y, 10), 'rgba(160,255,210,0.45)'); add(near, 'g', circ(c.x, c.y, 1.8), '#D8FFE8'); } });
   var ringD = near.h.d;

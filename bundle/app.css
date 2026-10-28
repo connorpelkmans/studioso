@@ -218,6 +218,8 @@ li.task>.lms-go{align-self:center;margin-right:12px}
 .card-foot .late{color:var(--late);font-weight:600}
 .placeholder{border:2px dashed var(--accent);border-radius:12px;background:color-mix(in srgb,var(--accent) 8%,transparent)}
 .ghost{position:fixed;z-index:50;pointer-events:none;margin:0;transform:rotate(2deg) scale(1.03);box-shadow:0 14px 30px rgba(0,0,0,.28);cursor:grabbing;will-change:transform}
+/* a dragged copy is tilted from the first frame: the card's own entrance animation must not run on it */
+.ghost,.sort-ghost,.kb-ghost{animation:none!important;transition:none!important}
 .prio{font-size:.72rem;font-weight:700;border-radius:6px;padding:1px 7px;white-space:nowrap}
 .prio.low{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
 .prio.med{background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent)}
