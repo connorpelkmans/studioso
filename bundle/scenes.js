@@ -1373,58 +1373,220 @@ function b3_croissLines(x, y, s) { return seg(x - s * 0.26, y - s * 0.3, x - s *
 SCENES.baking = function (W, H, dk, rnd) {
   var ph = H > W, u = ph ? 0.78 : 1, cty = H * (ph ? 0.64 : 0.6), base = H - (ph ? 20 : 60) * u;
   var far = Lay(14), refl = Lay(0), mid = Lay(0.8), near = Lay(0);
+  ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].forEach(function (k) { refl[k] = E(); mid[k] = E(); near[k] = E(); });
   var sky = dk ? 'linear-gradient(180deg,#22151A 0%,#2A1A20 60%,#1E1316 100%)' : 'linear-gradient(180deg,#FBEDEA 0%,#FAF3EE 60%,#F6E7E0 100%)';
-  var st = ''; for (var x = -20; x < W + 20; x += 64 * u) st += rect(x, -10, 30 * u, cty + 10);
-  add(mid, 'a', st, dk ? 'rgba(255,170,190,0.05)' : 'rgba(232,160,172,0.2)');
-  var shelves = ph ? [H * 0.525] : [H * 0.22, H * 0.4], sx0 = ph ? 0 : W * 0.46, sh = '', loaf = '', score = '', jar = '', jfill = '', lid = '';
-  shelves.forEach(function (y, si) { sh += rect(sx0 - 20, y, W - sx0 + 40, 10 * u) + rect(sx0 + 30, y + 10 * u, 8 * u, 18 * u) + rect(W - 60, y + 10 * u, 8 * u, 18 * u);
-    for (var xx = sx0 + 26 + (si % 2) * 30, i = 0; xx < W - 30; i++) { var kind = (i + si) % 3;
-      if (kind === 0) { loaf += ell(xx + 34 * u, y - 18 * u, 36 * u, 19 * u) + rect(xx - 2 * u, y - 18 * u, 72 * u, 18 * u); for (var q = 0; q < 3; q++) score += seg(xx + (14 + q * 20) * u, y - 30 * u, xx + (24 + q * 20) * u, y - 20 * u); xx += 96 * u; }
-      else if (kind === 1) { jar += rrect(xx, y - 52 * u, 38 * u, 52 * u, 8 * u) + rrect(xx + 46 * u, y - 40 * u, 32 * u, 40 * u, 7 * u); jfill += rrect(xx + 4 * u, y - 34 * u, 30 * u, 30 * u, 5 * u) + rrect(xx + 50 * u, y - 24 * u, 24 * u, 20 * u, 4 * u); lid += rrect(xx + 3 * u, y - 60 * u, 32 * u, 10 * u, 3 * u) + rrect(xx + 49 * u, y - 47 * u, 26 * u, 9 * u, 3 * u); xx += 104 * u; }
-      else { loaf += circ(xx + 26 * u, y - 24 * u, 25 * u) + ell(xx + 26 * u, y - 6 * u, 26 * u, 6 * u); score += seg(xx + 12 * u, y - 34 * u, xx + 40 * u, y - 18 * u) + seg(xx + 16 * u, y - 22 * u, xx + 36 * u, y - 38 * u); xx += 76 * u; } } });
-  add(mid, 'b', sh, dk ? '#5A3A2A' : '#C08A5E'); add(mid, 'c', loaf, dk ? '#B07A40' : '#DDA35E'); add(mid, 'd', jar, dk ? 'rgba(255,230,230,0.14)' : 'rgba(255,255,255,0.6)');
-  add(mid, 'e', jfill, dk ? '#A0485E' : '#E68AA0'); add(mid, 'f', lid, dk ? '#6A4A5A' : '#B7847A'); stk(mid, 's', score, dk ? '#E6BC80' : '#F4D6A8', 2);
-  var bun = '', b2 = '', cord = '', by = ph ? H * 0.445 : H * 0.07, bx0 = ph ? -10 : W * 0.44;
+  var P = b2_polyA, EL = b2_ellA, PI = Math.PI;
+  // small shape helpers: every fill has the same winding, so shapes in one slot can overlap safely
+  function R(x, y, w, h) { return P([[x, y], [x + w, y], [x + w, y + h], [x, y + h]]); }
+  function AP(cx, cy, rx, ry, a0, a1, n) { var o = []; for (var i = 0; i <= n; i++) { var a = a0 + (a1 - a0) * i / n; o.push([cx + Math.cos(a) * rx, cy + Math.sin(a) * ry]); } return o; }
+  function RR(x, y, w, h, r) { r = Math.min(r, w / 2, h / 2); var o = []; [[x + w - r, y + r, -PI / 2], [x + w - r, y + h - r, 0], [x + r, y + h - r, PI / 2], [x + r, y + r, PI]].forEach(function (c) { o = o.concat(AP(c[0], c[1], r, r, c[2], c[2] + PI / 2, 4)); }); return P(o); }
+  function RE(x, y, rx, ry, ang) { return P(rotp(AP(0, 0, rx, ry, 0, PI * 2 * 17 / 18, 17), x, y, ang)); }
+  // the lower crescent of a (rotated) ellipse: shading that stays inside the shape
+  function CR(x, y, rx, ry, ang, k) { k = k || 0.55; return P(rotp(AP(0, 0, rx, ry, -0.2, PI + 0.2, 14).concat(AP(0, -ry * 0.2, rx * 0.95, ry * k, PI + 0.2, -0.2, 12)), x, y, ang || 0)); }
+  function LENS(x0, y0, x1, y1, w) { var dx = x1 - x0, dy = y1 - y0, l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l, A = [], B = []; for (var i = 0; i <= 8; i++) { var t = i / 8, hw = w / 2 * Math.sin(PI * t); A.push([x0 + dx * t + nx * hw, y0 + dy * t + ny * hw]); B.unshift([x0 + dx * t - nx * hw, y0 + dy * t - ny * hw]); } return P(A.concat(B)); }
+  // a thin band just inside an ellipse's edge, between two angles (seams, rims)
+  function EDGE(x, y, rx, ry, ang, a0, a1, w) { return P(rotp(AP(0, 0, rx, ry, a0, a1, 10).concat(AP(0, 0, rx - w, ry - w, a1, a0, 10)), x, y, ang || 0)); }
+  function PR(i) { var v = Math.sin(i * 12.9898 + 4.1) * 43758.5453; return v - Math.floor(v); }
+
+  // ---- the wall: candy stripes with a pinstripe and tiny diamonds ----
+  var st = '', pin = '';
+  for (var x = -20; x < W + 20; x += 64 * u) { st += R(x, -10, 30 * u, cty + 10); pin += R(x + 46 * u, -10, 1.6 * u, cty + 10);
+    for (var yy = 22 * u; yy < cty - 18 * u; yy += 46 * u) { var dxm = x + 46.8 * u; pin += P([[dxm, yy - 3.4 * u], [dxm + 2.6 * u, yy], [dxm, yy + 3.4 * u], [dxm - 2.6 * u, yy]]); } }
+  add(refl, 'a', st, dk ? 'rgba(255,170,190,0.05)' : 'rgba(232,160,172,0.2)');
+  add(refl, 'c', pin, dk ? 'rgba(255,190,205,0.06)' : 'rgba(214,140,156,0.24)');
+
+  // ---- shelves of bread and jam ----
+  var shelves = ph ? [H * 0.525] : [H * 0.22, H * 0.4], sx0 = ph ? 0 : W * 0.46;
+  var brk = '', shF = '', shT = '', shd1 = '', shd2 = '', cs = '', crust = '', cSh = '', cHi = '', cut = '', flour = '', bask = '', weave = '', glass = '', jamA = '', jamB = '', label = '', lid = '', gHi = '', print = '';
+  function bracket(bx, by) { return R(bx, by, 6 * u, 38 * u) + P([[bx + 6 * u, by]].concat(AP(bx + 28 * u, by + 30 * u, 22 * u, 30 * u, -PI / 2, -PI, 10))); }
+  function dust(cx, cy, rx, ry, n, seed) { var d = ''; for (var i = 0; i < n; i++) { var a = PR(seed + i) * PI * 2, rr = Math.sqrt(PR(seed + i + 50)); d += EL(cx + Math.cos(a) * rx * rr, cy + Math.sin(a) * ry * rr, 0.9 * u, 0.9 * u); } return d; }
+  function batard(x, yb, seed) { var w = 74 * u, h = 30 * u, cx = x + w / 2, c0 = yb - 0.38 * h;
+    var top = AP(cx, c0, w / 2, 0.62 * h, PI, PI * 2, 24), rt = AP(cx + w / 2 - 0.3 * h, c0, 0.3 * h, 0.38 * h, 0, PI / 2, 6), lf = AP(cx - w / 2 + 0.3 * h, c0, 0.3 * h, 0.38 * h, PI / 2, PI, 6);
+    crust += P(top.concat(rt, lf)); cSh += P(rt.concat(lf, AP(cx, c0 - 0.04 * h, w / 2, 0.2 * h, PI, 0, 16)));
+    cHi += RE(cx - 0.1 * w, c0 - 0.44 * h, 0.27 * w, 0.09 * h, -3);
+    for (var q = 0; q < 3; q++) { var sx = cx + (q - 1) * 0.25 * w; cut += LENS(sx - 0.08 * w, c0 - 0.16 * h, sx + 0.08 * w, c0 - 0.5 * h, 4.6 * u); }
+    flour += RE(cx, c0 - 0.36 * h, 0.34 * w, 0.14 * h, 0) + dust(cx, c0 - 0.3 * h, 0.4 * w, 0.18 * h, 10, seed);
+    cs += EL(cx, yb + 0.5 * u, w * 0.5, 2.4 * u); return 96 * u; }
+  function boule(x, yb, seed) { var r = 26 * u, cx = x + r, cy = yb - 0.74 * r;
+    crust += EL(cx, cy, r, 0.76 * r); cSh += P(AP(cx, cy, r, 0.76 * r, 0, PI, 20).concat(AP(cx, yb - 0.5 * r, r * 0.97, 0.3 * r, PI, 0, 16)));
+    cHi += RE(cx - 0.32 * r, cy - 0.5 * r, 0.36 * r, 0.13 * r, -20);
+    cut += LENS(cx - 0.5 * r, cy - 0.5 * r, cx + 0.45 * r, cy + 0.36 * r, 5 * u) + LENS(cx + 0.5 * r, cy - 0.5 * r, cx - 0.45 * r, cy + 0.36 * r, 5 * u);
+    flour += RE(cx, cy - 0.3 * r, 0.6 * r, 0.3 * r, 0) + dust(cx, cy - 0.2 * r, 0.7 * r, 0.4 * r, 12, seed);
+    cs += EL(cx, yb + 0.5 * u, r * 0.95, 2.4 * u); return 76 * u; }
+  function braid(x, yb, seed) { var w = 84 * u, h = 30 * u;
+    for (var i = 0; i < 6; i++) { var t = (i + 0.5) / 6, e = Math.abs(2 * t - 1), lx = x + w * t, ly = yb - 0.48 * h - Math.sin(PI * t) * 0.14 * h, rx = w * 0.12 * (1 - 0.25 * e), ry = 0.5 * h * (1 - 0.2 * e), ang = i % 2 ? 32 : -32;
+      crust += RE(lx, ly, rx, ry, ang); cSh += CR(lx, ly, rx, ry, ang, 0.5); cHi += RE(lx - rx * 0.2, ly - ry * 0.45, rx * 0.45, ry * 0.18, ang);
+      for (var q = 0; q < 3; q++) cut += RE(lx + (PR(seed + i * 3 + q) - 0.5) * rx, ly - ry * (0.2 + PR(seed + i * 5 + q) * 0.4), 1.6 * u, 0.8 * u, PR(seed + q + i) * 180); }
+    cs += EL(x + w / 2, yb + 0.5 * u, w * 0.5, 2.4 * u); return 106 * u; }
+  function basket(x, yb) { var cx = x + 30 * u, bw = 56 * u, bh = 26 * u;
+    [[-12, -14, 62], [0, 4, 70], [12, 18, 58]].forEach(function (b) { var p0 = [cx + b[0] * u, yb - 10 * u], p1 = [cx + (b[0] + b[1]) * u, yb - b[2] * u], m = [(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2], L = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]), dx = (p1[0] - p0[0]) / L, dy = (p1[1] - p0[1]) / L, nx = -dy, ny = dx;
+      crust += b2_limb(p0, m, p1, 11 * u, 9 * u) + EL(p1[0], p1[1], 4.5 * u, 4.5 * u);
+      cSh += b2_limb([p0[0] + nx * 3 * u, p0[1] + ny * 3 * u], [m[0] + nx * 3 * u, m[1] + ny * 3 * u], [p1[0] + nx * 2.4 * u, p1[1] + ny * 2.4 * u], 4 * u, 3 * u);
+      for (var q = 1; q <= 3; q++) { var t = q / 4 + 0.08, px = p0[0] + (p1[0] - p0[0]) * t, py = p0[1] + (p1[1] - p0[1]) * t; cut += LENS(px - nx * 3 * u - dx * 5 * u, py - ny * 3 * u - dy * 5 * u, px + nx * 3 * u + dx * 5 * u, py + ny * 3 * u + dy * 5 * u, 2.4 * u); } });
+    bask += P([[cx - bw / 2, yb - bh], [cx + bw / 2, yb - bh], [cx + bw * 0.4, yb], [cx - bw * 0.4, yb]]);
+    weave += RR(cx - bw / 2 - 2 * u, yb - bh - 3 * u, bw + 4 * u, 6 * u, 3 * u);
+    for (var r = 1; r <= 2; r++) { var yr = yb - bh + r * bh / 3, hw = bw / 2 - (bw * 0.1) * r / 3; weave += R(cx - hw, yr - 0.9 * u, hw * 2, 1.8 * u); }
+    for (var c = -2; c <= 2; c++) weave += LENS(cx + c * bw * 0.2, yb - bh + 2 * u, cx + c * bw * 0.16, yb - 1 * u, 2.2 * u);
+    cs += EL(cx, yb + 0.5 * u, bw * 0.45, 2.4 * u); return 84 * u; }
+  function jar(jx, yb, w, h, berry, f) {
+    glass += RR(jx, yb - h, w, h, 8 * u) + RR(jx + 4 * u, yb - h - 5 * u, w - 8 * u, 7 * u, 2 * u);
+    var jf = RR(jx + 3 * u, yb - h * f, w - 6 * u, h * f - 3 * u, 6 * u); if (berry) jamA += jf; else jamB += jf;
+    label += RR(jx + 4 * u, yb - h * 0.62, w - 8 * u, h * 0.32, 2.5 * u);
+    print += R(jx + 9 * u, yb - h * 0.53, w - 18 * u, 1.6 * u) + R(jx + 12 * u, yb - h * 0.43, w - 24 * u, 1.4 * u);
+    lid += RR(jx + 1 * u, yb - h - 12 * u, w - 2 * u, 8 * u, 3 * u);
+    for (var q = jx + 5 * u; q < jx + w - 4 * u; q += 4 * u) print += R(q, yb - h - 10 * u, 1 * u, 4 * u);
+    gHi += RR(jx + 4 * u, yb - h + 8 * u, 3.5 * u, h - 16 * u, 1.7 * u) + RR(jx + w - 7 * u, yb - h + 12 * u, 2 * u, h * 0.3, 1 * u) + R(jx + 3 * u, yb - h - 11.2 * u, w - 6 * u, 1.4 * u);
+    cs += EL(jx + w / 2, yb + 0.5 * u, w * 0.55, 2.2 * u); }
+  var seq = [0, 1, 2, 4, 1, 3];
+  shelves.forEach(function (y, si) {
+    shT += R(sx0 - 20, y - 6 * u, W - sx0 + 40, 6 * u); shF += R(sx0 - 20, y, W - sx0 + 40, 9 * u);
+    shd1 += R(sx0 - 16, y + 9 * u, W - sx0 + 36, 5 * u); shd2 += R(sx0 - 12, y + 9 * u, W - sx0 + 32, 16 * u);
+    brk += bracket(sx0 + 34, y + 9 * u) + bracket(W - 60, y + 9 * u);
+    var yb = y - 3 * u;
+    for (var xx = sx0 + 26 + (si % 2) * 30, i = 0; xx < W - 30; i++) { var kind = seq[(i + si * 2) % seq.length], sd = si * 40 + i * 7;
+      if (kind === 0) xx += batard(xx, yb, sd);
+      else if (kind === 1) { jar(xx, yb, 38 * u, 52 * u, true, 0.72); jar(xx + 46 * u, yb, 32 * u, 40 * u, false, 0.62); xx += 104 * u; }
+      else if (kind === 2) xx += boule(xx, yb, sd);
+      else if (kind === 3) xx += braid(xx, yb, sd);
+      else xx += basket(xx, yb); } });
+  add(refl, 'e', shd2, dk ? 'rgba(0,0,0,0.12)' : 'rgba(120,70,60,0.06)'); add(refl, 'f', shd1, dk ? 'rgba(0,0,0,0.18)' : 'rgba(120,70,60,0.12)');
+  add(mid, 'a', brk, dk ? '#3E281E' : '#9A6A48'); add(mid, 'b', shF, dk ? '#5A3A2A' : '#C08A5E'); add(mid, 'c', shT, dk ? '#6E4A36' : '#D9A878');
+  add(mid, 'd', cs, dk ? 'rgba(0,0,0,0.3)' : 'rgba(110,60,40,0.2)');
+  add(mid, 'e', crust, dk ? '#B07A40' : '#DDA35E'); add(mid, 'f', cSh, dk ? 'rgba(60,25,10,0.38)' : 'rgba(150,80,30,0.3)'); add(mid, 'g', cHi, dk ? 'rgba(255,220,160,0.22)' : 'rgba(255,240,210,0.55)');
+  add(mid, 'h', cut, dk ? '#E6BC80' : '#F6DDB0'); add(mid, 'i', flour, dk ? 'rgba(255,245,235,0.16)' : 'rgba(255,255,255,0.45)');
+  add(mid, 'j', bask, dk ? '#8A5A30' : '#C99456'); add(mid, 'k', weave, dk ? '#5E3A1E' : '#9A6634');
+  add(mid, 'l', glass, dk ? 'rgba(255,230,230,0.16)' : 'rgba(255,255,255,0.55)'); add(mid, 'm', jamA, dk ? '#A0485E' : '#E07A92'); add(mid, 'n', jamB, dk ? '#B87A30' : '#F0A848');
+  add(mid, 'o', label, dk ? '#E6D6C4' : '#FFF8EC'); add(mid, 'p', lid, dk ? '#7A5060' : '#C98A8A');
+  add(mid, 'A', gHi, dk ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.85)'); add(mid, 'B', print, dk ? '#6A4050' : '#B8687A');
+
+  // ---- bunting on a sagging string, and two pendant lamps ----
+  var by = ph ? H * 0.36 : H * 0.07, bx0 = ph ? -10 : W * 0.44, lampX = ph ? [] : [W * 0.58, W * 0.88];
+  function bq(t) { return [(1 - t) * (1 - t) * bx0 + 2 * (1 - t) * t * (bx0 + W) / 2 + t * t * (W + 10), (1 - t) * (1 - t) * by + 2 * (1 - t) * t * (by + 50 * u) + t * t * by]; }
+  var penA = '', penB = '', penS = '', dotA = '', dotB = '';
+  for (var t = 0.04; t < 1; t += ph ? 0.12 : 0.075) { var p0 = bq(t), pa = bq(t - 0.01), pb = bq(t + 0.01), tx = pb[0] - pa[0], ty = pb[1] - pa[1], tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+    if (lampX.some(function (lx) { return Math.abs(p0[0] - lx) < 32 + 15 * u; })) continue;
+    var c = Math.round(t * 100) % 3 === 0 ? 1 : 0;
+    if (ANIM) { (ANIM.bunting = ANIM.bunting || []).push({x: p0[0], y: p0[1], c: c}); continue; }
+    var L0 = [p0[0] - tx * 13 * u, p0[1] - ty * 13 * u], R0 = [p0[0] + tx * 13 * u, p0[1] + ty * 13 * u], tip = [p0[0], p0[1] + 25 * u];
+    var tri = P([L0, R0, tip]); if (c) penB += tri; else penA += tri; penS += P([[p0[0], p0[1]], R0, tip]);
+    var dd = EL(p0[0] - 4.5 * u, p0[1] + 5.5 * u, 1.9 * u, 1.9 * u) + EL(p0[0] + 4.5 * u, p0[1] + 5.5 * u, 1.9 * u, 1.9 * u) + EL(p0[0], p0[1] + 13 * u, 1.9 * u, 1.9 * u); if (c) dotB += dd; else dotA += dd; }
+  var cC = {bun: [dk ? '#C85A78' : '#F29AAE', dk ? '#E6C9A8' : '#FFF4E0'], bunS: dk ? 'rgba(0,0,0,0.22)' : 'rgba(150,60,80,0.14)', bunD: [dk ? 'rgba(255,230,235,0.5)' : 'rgba(255,255,255,0.75)', dk ? '#C85A78' : '#F29AAE']};
+  add(refl, 'i', penA, cC.bun[0]); add(refl, 'j', penB, cC.bun[1]); add(refl, 'k', penS, cC.bunS); add(refl, 'l', dotA, cC.bunD[0]); add(refl, 'm', dotB, cC.bunD[1]);
+  var lamps = ph ? [] : [[W * 0.58, H * 0.115], [W * 0.88, H * 0.115]], cord = '', shade = '', inner = '', bulb = '', lHi = '', cap = '', cones = ['', '', ''];
+  lamps.forEach(function (l) { var r = 32, x0 = l[0], yb0 = l[1];
+    cord += seg(x0, -10, x0, yb0 - r - 8);
+    shade += P([[x0 - r * 0.3, yb0 - r], [x0 + r * 0.3, yb0 - r]].concat(AP(x0, yb0, r, 6, 0, PI, 20)));
+    inner += EL(x0, yb0, r - 3, 4.6); bulb += EL(x0, yb0 + 3, 8, 5.5);
+    lHi += P([[x0 - r * 0.24, yb0 - r + 3], [x0 - r * 0.12, yb0 - r + 3], [x0 - r * 0.5, yb0 - 3], [x0 - r * 0.7, yb0 - 3]]);
+    cap += RR(x0 - 6, yb0 - r - 9, 12, 10, 2) + P(AP(x0, yb0, r, 6, 0, PI, 16).concat(AP(x0, yb0 - 2.6, r - 0.8, 5, PI, 0, 16)));
+    // three nested light cones, each fainter and wider, so the light fades out instead of ending in a hard edge
+    [0, 1, 2].forEach(function (k) { var sp = 1.2 + k * 0.7, ln = (70 + k * 45) * u, c3 = P([[x0 - r * 0.8, yb0 + 4], [x0 + r * 0.8, yb0 + 4]].concat(AP(x0, yb0 + ln, r * sp, 10 * u, 0, PI, 10))); cones[k] += c3; });
+    if (dk) add(far, 'a', circ(x0, yb0 + 20, 100), 'rgba(255,190,130,0.28)'); });
+  add(refl, 'g', cones[2], dk ? 'rgba(255,200,130,0.03)' : 'rgba(255,240,205,0.1)'); add(refl, 'C', cones[1], dk ? 'rgba(255,200,130,0.03)' : 'rgba(255,240,205,0.1)'); add(refl, 'D', cones[0], dk ? 'rgba(255,200,130,0.04)' : 'rgba(255,240,205,0.12)');
+  add(refl, 'n', shade, dk ? '#6A4A5A' : '#B7847A'); add(refl, 'o', inner, dk ? '#FFD9A0' : '#FFE7C4'); add(refl, 'p', bulb, dk ? '#FFF4D6' : '#FFFFFF');
+  add(refl, 'A', lHi, dk ? 'rgba(255,220,230,0.18)' : 'rgba(255,255,255,0.35)'); add(refl, 'B', cap, dk ? '#4A3040' : '#8E5E58');
   var bl = 'M' + PT(bx0, by) + ' Q' + PT((bx0 + W) / 2, by + 50 * u) + ' ' + PT(W + 10, by) + ' ';
-  var lampX = ph ? [] : [W * 0.58, W * 0.88];
-  for (var t = 0.04; t < 1; t += ph ? 0.12 : 0.075) { var bxx = (1 - t) * (1 - t) * bx0 + 2 * (1 - t) * t * (bx0 + W) / 2 + t * t * (W + 10), byy = (1 - t) * (1 - t) * by + 2 * (1 - t) * t * (by + 50 * u) + t * t * by, f = poly([[bxx - 13 * u, byy], [bxx + 13 * u, byy], [bxx, byy + 24 * u]]); if (lampX.some(function (lx) { return Math.abs(bxx - lx) < 32 + 15 * u; })) continue; if (ANIM) { (ANIM.bunting = ANIM.bunting || []).push({x: bxx, y: byy, c: Math.round(t * 100) % 3 === 0 ? 1 : 0}); continue; } if (Math.round(t * 100) % 3 === 0) b2 += f; else bun += f; }
-  add(mid, 'g', bun, dk ? '#C85A78' : '#F29AAE'); add(mid, 'h', b2, dk ? '#E6C9A8' : '#FFF4E0');
-  var caseBack = dk ? '#3A2424' : '#F4E0D6';
-  var lamps = ph ? [] : [[W * 0.58, H * 0.115], [W * 0.88, H * 0.115]], shade = '', bulb = '';
-  lamps.forEach(function (l) { var r = 32; cord += seg(l[0], -10, l[0], l[1] - r); shade += 'M' + PT(l[0] - r, l[1]) + ' L' + PT(l[0] - r * 0.3, l[1] - r) + ' L' + PT(l[0] + r * 0.3, l[1] - r) + ' L' + PT(l[0] + r, l[1]) + ' Z '; bulb += ell(l[0], l[1] + 2, 10, 7); if (dk) add(far, 'a', circ(l[0], l[1] + 20, 100), 'rgba(255,190,130,0.28)'); });
-  if (lamps.length) { bl = ''; var bq = [], run = []; for (var bt = 0; bt <= 160; bt++) { var tq = bt / 160; bq.push([(1 - tq) * (1 - tq) * bx0 + 2 * (1 - tq) * tq * (bx0 + W) / 2 + tq * tq * (W + 10), (1 - tq) * (1 - tq) * by + 2 * (1 - tq) * tq * (by + 50 * u) + tq * tq * by]); }
-    bq.forEach(function (p) { var hid = lamps.some(function (l) { var r = 32, k = (p[1] - (l[1] - r)) / r; return k >= -0.05 && k <= 1.05 && Math.abs(p[0] - l[0]) < r * (0.3 + 0.7 * Math.max(0, Math.min(1, k))) + 1; }); if (hid) { if (run.length > 1) bl += pline(run); run = []; } else run.push(p); });
+  if (lamps.length) { bl = ''; var run = []; for (var bt = 0; bt <= 160; bt++) { var p = bq(bt / 160), hid = lamps.some(function (l) { var r = 32, k = (p[1] - (l[1] - r)) / r; return k >= -0.05 && k <= 1.15 && Math.abs(p[0] - l[0]) < r * (0.3 + 0.7 * Math.max(0, Math.min(1, k))) + 1; });
+      if (hid) { if (run.length > 1) bl += pline(run); run = []; } else run.push(p); }
     if (run.length > 1) bl += pline(run); }
-  stk(mid, 't', bl + cord, dk ? '#8A6A6A' : '#A07A6A', 1.5);
-  var cw0 = -10, cw1 = W + 10, shelfY = [cty + (base - cty) * 0.48, base - 6 * u];
-  add(refl, 'b', rect(-40, cty, W + 80, base - cty + 40), caseBack);
-  
-  if (dk) { add(far, 'b', ell(W / 2, (cty + base) / 2, W * 0.6, (base - cty) * 0.6), 'rgba(255,170,120,0.3)'); }
-  var wood = rect(-10, base, W + 20, H - base + 10) + rect(-10, cty - 8 * u, W + 20, 10 * u), cream = '', pink = '', gold = '', mintc = '', lem = '', red = '', dets = '', shine = '';
-  var mac = function (x, y, s, n, k) { for (var i = 0; i < n; i++) { var yy = y - i * s * 0.72, sh = ell(x, yy - s * 0.14, s * 0.55, s * 0.16) + ell(x, yy - s * 0.5, s * 0.55, s * 0.2); if (k === 0) pink += sh; else if (k === 1) mintc += sh; else lem += sh; cream += rect(x - s * 0.47, yy - s * 0.35, s * 0.94, s * 0.1); } };
-  var cup = function (x, y, s) { pink += poly([[x - s * 0.45, y - s * 0.62], [x + s * 0.45, y - s * 0.62], [x + s * 0.34, y], [x - s * 0.34, y]]); dets += seg(x - s * 0.18, y - s * 0.58, x - s * 0.14, y - s * 0.04) + seg(x + s * 0.18, y - s * 0.58, x + s * 0.14, y - s * 0.04); cream += ell(x, y - s * 0.66, s * 0.54, s * 0.18) + ell(x, y - s * 0.84, s * 0.42, s * 0.16) + ell(x, y - s * 1.0, s * 0.28, s * 0.13) + circ(x, y - s * 1.1, s * 0.1); red += circ(x, y - s * 1.2, s * 0.12); };
-  var tart = function (x, y, s) { gold += ell(x, y - s * 0.12, s * 0.6, s * 0.18) + rect(x - s * 0.6, y - s * 0.12, s * 1.2, s * 0.12); red += circ(x - s * 0.22, y - s * 0.2, s * 0.09) + circ(x + s * 0.05, y - s * 0.24, s * 0.09) + circ(x + s * 0.3, y - s * 0.18, s * 0.09) + circ(x - s * 0.05, y - s * 0.14, s * 0.08); };
-  shelfY.forEach(function (y, si) { shine += seg(-10, y + 2, W + 10, y + 2); var step = (ph ? 96 : 130) * u; for (var xx = step * 0.5 + (si ? step * 0.4 : 0), i = 0; xx < W + 20; xx += step, i++) { var s = (ph ? 52 : 66) * u, k = (i + si * 2) % 4;
-      if (k === 0) { gold += b3_croissant(xx, y - s * 0.3, s * 0.8); dets += b3_croissLines(xx, y - s * 0.3, s * 0.8); } else if (k === 1) { mac(xx - s * 0.3, y, s * 0.6, 3, i % 3); mac(xx + s * 0.4, y, s * 0.6, 2, (i + 1) % 3); } else if (k === 2) cup(xx, y, s * 0.9); else tart(xx, y, s * 0.9); } });
-  var kx = ph ? W * 0.52 : W * 0.72, kw = (ph ? 130 : 170) * u, kh = (ph ? 96 : 112) * u, ky = cty - 8 * u - 58 * u, standC = dk ? '#7FC4B0' : '#A8E0CF';
-  var stand = ell(kx, cty - 10 * u, 44 * u, 8 * u) + rect(kx - 8 * u, ky + 6 * u, 16 * u, cty - 10 * u - ky - 6 * u) + ell(kx, ky + 4 * u, kw * 0.66, 11 * u);
-  mintc += stand;
-  var cb = ky - 2 * u, bh = kh / 3.4; for (var L = 0; L < 3; L++) { var y0 = cb - (L + 1) * bh - L * bh * 0.2; pink += rect(kx - kw / 2, y0, kw, bh); if (L < 2) cream += rect(kx - kw / 2, y0 - bh * 0.2, kw, bh * 0.2); }
-  var topY = cb - 3 * bh - 2 * bh * 0.2; cream += ell(kx, topY, kw / 2, 10 * u) + rect(kx - kw / 2, topY, kw, 6 * u);
-  if (ANIM) { ANIM.u = u; ANIM.ph = ph; ANIM.cake = {x: kx, w: kw, top: topY}; ANIM.col = {cream: dk ? '#F1E2D6' : '#FFF6EA', red: dk ? '#D63A4E' : '#D8364E', stem: dk ? '#9A6440' : '#B97A44', pink: dk ? '#E0829A' : '#F4A2B6', bun: [dk ? '#C85A78' : '#F29AAE', dk ? '#E6C9A8' : '#FFF4E0']}; }
-  if (!ANIM) for (var d = 0; d < 7; d++) { var dx = kx - kw / 2 + 10 * u + d * (kw - 20 * u) / 6; cream += circ(dx, topY - 4 * u, 8 * u) + rrect(dx - 3.5 * u, topY, 7 * u, (8 + (d * 7 % 5) * 4) * u, 3.5 * u); }
-  if (!ANIM) red += circ(kx, topY - 22 * u, 12 * u); if (!ANIM) dets += 'M' + PT(kx + 2 * u, topY - 32 * u) + ' q' + n1(4 * u) + ' ' + n1(-14 * u) + ' ' + n1(16 * u) + ' ' + n1(-20 * u) + ' ';
+  stk(refl, 's', bl + cord, dk ? '#8A6A6A' : '#A07A6A', 1.5);
+
+  // ---- the pastry case ----
+  var caseBack = dk ? '#3A2424' : '#F4E0D6', shelfY = [cty + (base - cty) * 0.48, base - 6 * u];
+  add(refl, 'b', R(-40, cty, W + 80, base - cty + 40), caseBack);
+  add(refl, 'd', R(-40, cty, W + 80, 34 * u), dk ? 'rgba(255,190,140,0.08)' : 'rgba(255,255,255,0.4)');
+  var pan = ''; for (var px = 18 * u; px < W; px += 150 * u) pan += RR(px, cty + 16 * u, 132 * u, shelfY[0] - cty - 30 * u, 4 * u) + RR(px, shelfY[0] + 14 * u, 132 * u, shelfY[1] - shelfY[0] - 32 * u, 4 * u);
+  add(refl, 'h', pan, dk ? 'rgba(255,200,180,0.04)' : 'rgba(255,255,255,0.32)');
+  if (dk) add(far, 'b', ell(W / 2, (cty + base) / 2, W * 0.6, (base - cty) * 0.6), 'rgba(255,170,120,0.3)');
+  var wood = R(-10, cty - 6 * u, W + 20, 10 * u) + R(-10, base - 1 * u, W + 20, H - base + 12), ctop = R(-10, cty - 14 * u, W + 20, 8 * u);
+  var floorC = R(-10, shelfY[1] - 5 * u, W + 20, 6 * u), gShelf = R(-10, shelfY[0] - 4 * u, W + 20, 5 * u);
+  var shad = R(-10, shelfY[0] + 1 * u, W + 20, 7 * u), stand = '', doily = '', gold = '', pink = '', mint = '', lem = '', shade2 = '', cream = '', cShade = '', hi = '', red = '', blue = '', spr1 = '', spr2 = '', glint = '', stem = '', tags = '', tagT = '';
+  function doi(x, yb, rx) { var o = []; for (var i = 0; i < 56; i++) { var a = i / 56 * PI * 2, m = 1 + 0.06 * Math.abs(Math.cos(a * 7)); o.push([x + Math.cos(a) * rx * m, yb + Math.sin(a) * rx * 0.13 * m]); } doily += P(o); }
+  function cs2(x, yb, rx) { shad += EL(x, yb + 0.5 * u, rx, 2.6 * u); }
+  function macaron(x, yb, s, k) {
+    var shell = P(AP(x, yb - 0.14 * s, 0.5 * s, 0.14 * s, 0, PI, 14)) + P(AP(x, yb - 0.38 * s, 0.5 * s, 0.24 * s, PI, PI * 2, 16));
+    var foot = function (y0, y1) { var o = [[x - 0.47 * s, y1], [x + 0.47 * s, y1]]; for (var i = 0; i <= 12; i++) { var fx = x + 0.47 * s - i / 12 * 0.94 * s; o.push([fx, y0 + (i % 2 ? 0.015 * s : -0.01 * s)]); } return P(o); };
+    shell += foot(yb - 0.14 * s, yb - 0.22 * s) + foot(yb - 0.30 * s, yb - 0.38 * s);
+    if (k === 0) pink += shell; else if (k === 1) mint += shell; else lem += shell;
+    cream += RR(x - 0.44 * s, yb - 0.31 * s, 0.88 * s, 0.09 * s, 0.045 * s);
+    shade2 += P(AP(x, yb - 0.14 * s, 0.5 * s, 0.14 * s, 0.15, PI - 0.15, 10).concat(AP(x, yb - 0.13 * s, 0.45 * s, 0.06 * s, PI - 0.2, 0.2, 8)));
+    for (var q = 0; q < 6; q++) { var fx2 = x - 0.38 * s + q * 0.152 * s; shade2 += EL(fx2, yb - 0.18 * s, 0.025 * s, 0.018 * s) + EL(fx2 + 0.07 * s, yb - 0.34 * s, 0.025 * s, 0.018 * s); }
+    hi += RE(x - 0.18 * s, yb - 0.52 * s, 0.16 * s, 0.05 * s, -8); }
+  function macStack(x, yb, s, n, k) { for (var i = 0; i < n; i++) macaron(x + (i % 2 ? 0.03 : -0.02) * s, yb - i * 0.6 * s, s, k); cs2(x, yb, 0.5 * s); }
+  function croissant(x, yb, s) { var cy = yb - 0.3 * s, L = [[-0.84, 0.16, 0.2, 0.15, -30], [0.84, 0.16, 0.2, 0.15, 30], [-0.48, 0.05, 0.3, 0.25, -14], [0.48, 0.05, 0.3, 0.25, 14], [0, -0.02, 0.42, 0.33, 0]];
+    L.forEach(function (l) { var lx = x + l[0] * s, ly = cy + l[1] * s; gold += RE(lx, ly, l[2] * s, l[3] * s, l[4]); shade2 += CR(lx, ly, l[2] * s, l[3] * s, l[4], 0.45); });
+    shade2 += EDGE(x, cy - 0.02 * s, 0.42 * s, 0.33 * s, 0, PI * 0.58, PI * 1.42, 1.6 * u) + EDGE(x, cy - 0.02 * s, 0.42 * s, 0.33 * s, 0, -PI * 0.42, PI * 0.42, 1.6 * u)
+      + EDGE(x - 0.48 * s, cy + 0.05 * s, 0.3 * s, 0.25 * s, -14, PI * 0.65, PI * 1.35, 1.4 * u) + EDGE(x + 0.48 * s, cy + 0.05 * s, 0.3 * s, 0.25 * s, 14, -PI * 0.35, PI * 0.35, 1.4 * u)
+      + EDGE(x, cy - 0.02 * s, 0.22 * s, 0.33 * s, 0, PI * 1.12, PI * 1.5, 1.3 * u) + EDGE(x, cy - 0.02 * s, 0.22 * s, 0.33 * s, 0, -PI * 0.5, -PI * 0.12, 1.3 * u);
+    hi += RE(x - 0.08 * s, cy - 0.2 * s, 0.2 * s, 0.07 * s, -6) + RE(x - 0.5 * s, cy - 0.08 * s, 0.12 * s, 0.05 * s, -20) + RE(x + 0.44 * s, cy - 0.08 * s, 0.12 * s, 0.05 * s, 12);
+    cs2(x, yb, 0.95 * s); }
+  function cupcake(x, yb, s, seed) {
+    pink += P([[x - 0.42 * s, yb - 0.58 * s], [x + 0.42 * s, yb - 0.58 * s], [x + 0.31 * s, yb], [x - 0.31 * s, yb]]);
+    for (var j = 0; j < 8; j++) { var q = -0.9 + j * 0.257; shade2 += P([[x + (q - 0.035) * 0.42 * s, yb - 0.58 * s], [x + (q + 0.035) * 0.42 * s, yb - 0.58 * s], [x + (q + 0.035) * 0.31 * s, yb], [x + (q - 0.035) * 0.31 * s, yb]]); }
+    shade2 += P([[x + 0.24 * s, yb - 0.58 * s], [x + 0.42 * s, yb - 0.58 * s], [x + 0.31 * s, yb], [x + 0.18 * s, yb]]);
+    var tiers = [[0, -0.62, 0.5, 0.15], [-0.02, -0.8, 0.4, 0.14], [0.01, -0.96, 0.28, 0.12]];
+    tiers.forEach(function (tr) { cream += EL(x + tr[0] * s, yb + tr[1] * s, tr[2] * s, tr[3] * s); cShade += CR(x + tr[0] * s, yb + tr[1] * s, tr[2] * s, tr[3] * s, 0, 0.5); hi += RE(x + tr[0] * s - tr[2] * s * 0.4, yb + tr[1] * s - tr[3] * s * 0.45, tr[2] * s * 0.32, tr[3] * s * 0.22, -10); });
+    cream += P(AP(x, yb - 1.03 * s, 0.13 * s, 0.07 * s, 0, PI, 8).concat([[x - 0.06 * s, yb - 1.1 * s], [x + 0.04 * s, yb - 1.2 * s], [x + 0.08 * s, yb - 1.1 * s]]));
+    for (var k = 0; k < 9; k++) { var a = PR(seed + k) * PI * 2, rr = 0.25 + PR(seed + k + 9) * 0.7, tr2 = tiers[k % 3], sx = x + tr2[0] * s + Math.cos(a) * tr2[2] * s * rr * 0.8, sy = yb + tr2[1] * s + Math.sin(a) * tr2[3] * s * rr * 0.6 - tr2[3] * s * 0.2, sp = RE(sx, sy, 0.032 * s, 0.011 * s, PR(seed + k + 20) * 180);
+      if (k % 3 === 0) spr1 += sp; else if (k % 3 === 1) spr2 += sp; else red += sp; }
+    red += EL(x + 0.02 * s, yb - 1.24 * s, 0.09 * s, 0.088 * s); glint += RE(x - 0.01 * s, yb - 1.27 * s, 0.03 * s, 0.018 * s, -25);
+    stem += b2_limb([x + 0.04 * s, yb - 1.31 * s], [x + 0.06 * s, yb - 1.4 * s], [x + 0.13 * s, yb - 1.45 * s], 1.6 * u, 1 * u);
+    doi(x, yb, 0.52 * s); cs2(x, yb, 0.36 * s); }
+  function tart(x, yb, s) {
+    var sideTop = AP(x, yb - 0.2 * s, 0.6 * s, 0.13 * s, 0, PI, 20), sideBot = AP(x, yb - 0.06 * s, 0.56 * s, 0.1 * s, PI, 0, 20);
+    gold += P(sideTop.concat(sideBot)) + EL(x, yb - 0.2 * s, 0.6 * s, 0.13 * s);
+    for (var f = -0.5; f <= 0.51; f += 0.1) { var xf = x + f * s, yT = yb - 0.2 * s + 0.13 * s * Math.sqrt(Math.max(0, 1 - Math.pow(f / 0.6, 2))), yB = yb - 0.06 * s + 0.1 * s * Math.sqrt(Math.max(0, 1 - Math.pow(f / 0.56, 2))); shade2 += LENS(xf, yT + 0.5 * u, xf, yB - 0.5 * u, 2.6 * u * (1 - Math.abs(f) * 0.8)); }
+    cream += EL(x, yb - 0.21 * s, 0.5 * s, 0.1 * s); hi += EDGE(x, yb - 0.2 * s, 0.6 * s, 0.13 * s, 0, PI * 1.1, PI * 1.9, 1.6 * u);
+    [[-0.28, -0.02, 1], [-0.06, -0.05, 0], [0.14, -0.03, 1], [0.32, -0.01, 0], [0.02, 0.03, 1], [-0.22, 0.04, 0], [0.26, 0.05, 0], [-0.38, 0.02, 0]].forEach(function (b, i) { var bx = x + b[0] * s, byy = yb - 0.24 * s + b[1] * s;
+      if (b[2]) { red += RE(bx, byy - 0.02 * s, 0.09 * s, 0.065 * s, i * 23 - 30); glint += RE(bx - 0.03 * s, byy - 0.05 * s, 0.025 * s, 0.012 * s, -20); }
+      else { blue += EL(bx, byy, 0.055 * s, 0.05 * s); glint += EL(bx - 0.018 * s, byy - 0.02 * s, 0.012 * s, 0.01 * s); } });
+    spr2 += RE(x + 0.08 * s, yb - 0.31 * s, 0.07 * s, 0.03 * s, -30) + RE(x + 0.16 * s, yb - 0.3 * s, 0.06 * s, 0.026 * s, 25);
+    cs2(x, yb, 0.62 * s); }
+  shelfY.forEach(function (y, si) { var step = (ph ? 96 : 130) * u; for (var xx = step * 0.5 + (si ? step * 0.4 : 0), i = 0; xx < W + 20; xx += step, i++) { var s = (ph ? 52 : 66) * u, k = (i + si * 2) % 4;
+      if (k === 0) croissant(xx, y, s * 0.8);
+      else if (k === 1) { doi(xx + s * 0.05, y, s * 0.78); macStack(xx - s * 0.3, y, s * 0.6, 3, i % 3); macStack(xx + s * 0.4, y, s * 0.6, 2, (i + 1) % 3); }
+      else if (k === 2) cupcake(xx, y, s * 0.9, si * 31 + i * 9);
+      else tart(xx, y, s * 0.9);
+      if (si === shelfY.length - 1 && i % 2 === 1) { var tx2 = xx + s * 0.62; tags += RR(tx2 - 12 * u, y - 13 * u, 24 * u, 12 * u, 2 * u); tagT += seg(tx2 - 7 * u, y - 8 * u, tx2 + 7 * u, y - 8 * u) + seg(tx2 - 4 * u, y - 4.5 * u, tx2 + 4 * u, y - 4.5 * u); } } });
+  // the cake on its stand
+  var kx = ph ? W * 0.52 : W * 0.72, kw = (ph ? 130 : 170) * u, kh = (ph ? 96 : 112) * u, ky = cty - 66 * u, PRd = kw * 0.66, pry = PRd * 0.12, Rk = kw / 2, cry = Rk * 0.12, cb = ky + 4 * u, topY = cb - kh;
+  stand += EL(kx, ky + 4 * u, PRd, pry) + P(AP(kx, ky + 4 * u, PRd, pry, 0, PI, 24).concat(AP(kx, ky + 9 * u, PRd * 0.97, pry, PI, 0, 24)));
+  stand += P([[kx - 16 * u, ky + 10 * u], [kx + 16 * u, ky + 10 * u], [kx + 7 * u, ky + 24 * u], [kx + 6 * u, cty - 24 * u], [kx + 30 * u, cty - 13 * u], [kx - 30 * u, cty - 13 * u], [kx - 6 * u, cty - 24 * u], [kx - 7 * u, ky + 24 * u]]) + EL(kx, cty - 13 * u, 30 * u, 4.5 * u);
+  shade2 += P(AP(kx, ky + 4 * u, PRd, pry, 0.05, PI - 0.05, 24).concat(AP(kx, ky + 9 * u, PRd * 0.97, pry, PI - 0.05, 0.05, 24))) + P([[kx + 1 * u, ky + 12 * u], [kx + 16 * u, ky + 10 * u], [kx + 7 * u, ky + 24 * u], [kx + 6 * u, cty - 24 * u], [kx + 30 * u, cty - 13 * u], [kx + 4 * u, cty - 13 * u], [kx + 2 * u, cty - 24 * u]]);
+  hi += LENS(kx - 4 * u, ky + 16 * u, kx - 3 * u, cty - 18 * u, 2.4 * u) + EDGE(kx, ky + 4 * u, PRd, pry, 0, PI * 1.1, PI * 1.9, 1.8 * u);
+  shad += EL(kx, cty - 11 * u, 40 * u, 4 * u);
+  doi(kx, cb + 1 * u, Rk * 1.08);
+  pink += P([[kx - Rk, topY]].concat(AP(kx, cb, Rk, cry, PI, 0, 24), AP(kx, topY, Rk, cry, 0, -PI, 24)));
+  var th0 = Math.acos(0.45), th1 = Math.acos(-0.82), th2 = Math.acos(-0.7);
+  shade2 += P(AP(kx, topY, Rk, cry, th0, 0, 10).concat(AP(kx, cb, Rk, cry, 0, th0, 10)));
+  hi += P(AP(kx, topY + 14 * u, Rk, cry, th2, th1, 4).concat(AP(kx, cb - 14 * u, Rk, cry, th1, th2, 4)));
+  for (var L = 1; L <= 2; L++) { var yL = cb - L * kh / 3, bt2 = kh * 0.07; cream += P(AP(kx, yL - bt2 / 2, Rk, cry, 0, PI, 24).concat(AP(kx, yL + bt2 / 2, Rk, cry, PI, 0, 24))); cShade += P(AP(kx, yL + bt2 * 0.1, Rk, cry, 0.1, PI - 0.1, 20).concat(AP(kx, yL + bt2 / 2, Rk, cry, PI - 0.1, 0.1, 20))); }
+  for (var bd = 0; bd <= 12; bd++) { var a = 0.12 + bd * (PI - 0.24) / 12, bxx = kx + Math.cos(a) * Rk, byy2 = cb + Math.sin(a) * cry - 3 * u, sw = Math.max(0.45, Math.sin(a)); cream += EL(bxx, byy2, 6.5 * u * sw, 5 * u); cShade += CR(bxx, byy2, 6.5 * u * sw, 5 * u, 0, 0.4); }
+  cream += EL(kx, topY, Rk, cry) + P(AP(kx, topY, Rk, cry, 0, PI, 24).concat(AP(kx, topY + 4 * u, Rk, cry, PI, 0, 24)));
+  if (ANIM) { ANIM.u = u; ANIM.ph = ph; ANIM.cake = {x: kx, w: kw, top: topY, ry: cry}; ANIM.col = {cream: dk ? '#F1E2D6' : '#FFF6EA', red: dk ? '#D63A4E' : '#D8364E', stem: dk ? '#9A6440' : '#B97A44', pink: dk ? '#E0829A' : '#F4A2B6', bun: cC.bun, bunS: cC.bunS, bunD: cC.bunD, cShade: dk ? 'rgba(120,70,60,0.35)' : 'rgba(200,150,130,0.35)'}; }
+  else { for (var d = 0; d < 10; d++) { var a2 = 0.2 + d * (PI - 0.4) / 9, dx = kx + Math.cos(a2) * Rk, dy = topY + Math.sin(a2) * cry, w2 = 7 * u * Math.max(0.4, Math.sin(a2)), len = (9 + (d * 7 % 5) * 4) * u; cream += RR(dx - w2 / 2, dy - 2 * u, w2, len, w2 / 2); hi += RR(dx - w2 * 0.3, dy + 1 * u, w2 * 0.22, len * 0.5, w2 * 0.1); }
+    for (var rs = 0; rs < 14; rs++) { var a3 = rs / 14 * PI * 2, rx3 = kx + Math.cos(a3) * (Rk - 9 * u), ry3 = topY + Math.sin(a3) * (cry - 2 * u) - 3 * u; cream += EL(rx3, ry3, 7 * u, 5.5 * u); cShade += CR(rx3, ry3, 7 * u, 5.5 * u, 0, 0.4); }
+    red += EL(kx, topY - 10 * u, 12 * u, 11.5 * u); glint += RE(kx - 4 * u, topY - 14 * u, 3.6 * u, 2.2 * u, -20);
+    stem += b2_limb([kx + 2 * u, topY - 20 * u], [kx + 6 * u, topY - 32 * u], [kx + 16 * u, topY - 38 * u], 2 * u, 1.2 * u); }
   if (dk) add(far, 'c', circ(kx, cty - 90 * u, 160 * u), 'rgba(255,170,190,0.28)');
-  if (!ph) { var mt = W * 0.9, my = cty - 8 * u;
-    mac(mt - 32, my, 30, 1, 0); mac(mt, my, 30, 1, 1); mac(mt + 32, my, 30, 1, 2); mac(mt - 16, my - 20, 28, 1, 2); mac(mt + 16, my - 20, 28, 1, 0); mac(mt, my - 39, 26, 1, 1); mac(mt, my - 56, 22, 1, 0); mintc += ell(mt, my, 56, 7); }
-  else { mac(W * 0.14, cty - 8 * u, 30, 3, 1); mac(W * 0.87, cty - 8 * u, 30, 3, 0); }
-  add(near, 'a', wood, dk ? '#4A2E26' : '#B98260');
-  add(near, 'b', mintc, standC); add(near, 'c', cream, dk ? '#F1E2D6' : '#FFF6EA'); add(near, 'd', pink, dk ? '#E0829A' : '#F4A2B6'); add(near, 'e', gold, dk ? '#D69A4E' : '#E7AE5E');
-  add(near, 'f', lem, dk ? '#E4C86A' : '#F7DE86'); add(near, 'g', red, dk ? '#D63A4E' : '#D8364E');
-  add(near, 'h', rect(-10, cty + 4 * u, W + 20, base - cty - 4 * u), dk ? 'rgba(255,180,140,0.07)' : 'rgba(255,255,255,0.14)');
-  var gl = ''; for (x = 40; x < W; x += ph ? 160 : 260) gl += seg(x, cty + 16 * u, x - 70 * u, base - 16 * u) + seg(x + 22 * u, cty + 16 * u, x - 26 * u, cty + (base - cty) * 0.5);
-  stk(near, 's', dets, dk ? '#9A6440' : '#B97A44', 1.6); stk(near, 't', gl + shine, dk ? 'rgba(255,230,230,0.18)' : 'rgba(255,255,255,0.7)', 2);
-  add(mid, 'f', shade); add(mid, 'e', bulb);
+  // a macaron tower (desktop) or two stacks (phone) on the counter; upper macarons use colours drawn later than the ones they rest on
+  if (!ph) { var mt = W * 0.9, my = cty - 10 * u;
+    stand += EL(mt, my, 56, 7) + P(AP(mt, my, 56, 7, 0, PI, 20).concat(AP(mt, my + 4, 55, 7, PI, 0, 20))); shade2 += P(AP(mt, my, 56, 7, 0.05, PI - 0.05, 20).concat(AP(mt, my + 4, 55, 7, PI - 0.05, 0.05, 20))); shad += EL(mt, my + 4, 58, 5);
+    var y1 = my - 2, y2 = y1 - 0.6 * 30, y3 = y2 - 0.6 * 28, y4 = y3 - 0.6 * 26;
+    macaron(mt - 32, y1, 30, 0); macaron(mt + 32, y1, 30, 0); macaron(mt, y1, 30, 1); macaron(mt - 16, y2, 28, 2); macaron(mt + 16, y2, 28, 1); macaron(mt, y3, 26, 2); macaron(mt, y4, 22, 2); }
+  else { [[W * 0.14, 1], [W * 0.87, 0]].forEach(function (m) { shad += EL(m[0], cty - 9 * u, 18, 3); macStack(m[0], cty - 10 * u, 30, 3, m[1]); }); }
+  // glass front: a light tint, slanted reflections and a lit top edge
+  var gl = R(-10, cty + 2 * u, W + 20, 2.4 * u); for (x = 40; x < W; x += ph ? 160 : 260) gl += P([[x, cty + 16 * u], [x + 24 * u, cty + 16 * u], [x - 46 * u, base - 16 * u], [x - 70 * u, base - 16 * u]]) + P([[x + 34 * u, cty + 16 * u], [x + 40 * u, cty + 16 * u], [x + 2 * u, cty + (base - cty) * 0.5], [x - 4 * u, cty + (base - cty) * 0.5]]);
+  add(near, 'a', wood, dk ? '#4A2E26' : '#B98260'); add(near, 'b', ctop, dk ? '#5E3C30' : '#CF9A74');
+  add(near, 'c', floorC, dk ? '#4A3030' : '#EAD0C4'); add(near, 'd', gShelf, dk ? 'rgba(200,255,240,0.18)' : 'rgba(220,255,245,0.75)');
+  add(near, 'e', shad, dk ? 'rgba(0,0,0,0.28)' : 'rgba(140,80,60,0.16)'); add(near, 'f', stand, dk ? '#7FC4B0' : '#A8E0CF');
+  add(near, 'g', doily, dk ? 'rgba(255,240,235,0.28)' : 'rgba(255,255,255,0.9)'); add(near, 'h', gold, dk ? '#D69A4E' : '#E7AE5E');
+  add(near, 'i', pink, dk ? '#E0829A' : '#F4A2B6'); add(near, 'j', mint, dk ? '#7FC4B0' : '#A8E0CF'); add(near, 'k', lem, dk ? '#E4C86A' : '#F7DE86');
+  add(near, 'l', shade2, dk ? 'rgba(60,20,20,0.3)' : 'rgba(150,70,50,0.2)'); add(near, 'm', cream, dk ? '#F1E2D6' : '#FFF6EA'); add(near, 'n', cShade, dk ? 'rgba(120,70,60,0.35)' : 'rgba(200,150,130,0.35)');
+  add(near, 'o', hi, dk ? 'rgba(255,240,240,0.28)' : 'rgba(255,255,255,0.6)'); add(near, 'p', red, dk ? '#D63A4E' : '#D8364E'); add(near, 'A', blue, dk ? '#5A6AC0' : '#5E72D0');
+  add(near, 'B', spr1, dk ? '#E4C86A' : '#F2C94C'); add(near, 'C', spr2, dk ? '#6FBFA6' : '#7CCFB2'); add(near, 'D', glint, 'rgba(255,255,255,0.75)'); add(near, 'E', stem, dk ? '#9A6440' : '#B97A44');
+  add(near, 'F', tags, dk ? '#E6D6C4' : '#FFFDF8'); add(near, 'G', R(-10, cty + 2 * u, W + 20, base - cty - 3 * u), dk ? 'rgba(255,200,200,0.04)' : 'rgba(255,255,255,0.12)'); add(near, 'H', gl, dk ? 'rgba(255,230,230,0.07)' : 'rgba(255,255,255,0.35)');
+  stk(near, 's', tagT, dk ? '#8A6060' : '#C08080', 1.2);
   return b3_out({sky: sky, far: far, refl: refl, mid: mid, near: near});
 };
 
@@ -4693,8 +4855,8 @@ SCENES.engineering = function (W, H, dk, rnd) {
   nShade += poly([[sb[0] + nx * iw * 0.3, sb[1] + ny * iw * 0.3], [se[0] + nx * ow * 0.2, se[1] + ny * ow * 0.2], [se[0] - nx * ow, se[1] - ny * ow], [sb[0] - nx * iw, sb[1] - ny * iw]]);
   var lamp = {x: se[0], y: se[1], dx: ldx, dy: ldy, ow: ow, open: opening, by: by};
   var cv = ph ? {x0: W * 0.5, x1: W * 0.79} : {x0: W * 0.46, x1: W * 0.735}, cvy = by - 24 * s, mugX = (cv.x0 + cv.x1) / 2;
-  nSteel += rect(cv.x0 + 10, cvy + 10 * s, 5 * s, by - cvy - 10 * s) + rect(cv.x1 - 15, cvy + 10 * s, 5 * s, by - cvy - 10 * s) + rrect(cv.x0, cvy, cv.x1 - cv.x0, 12 * s, 6 * s);
-  nShade += rrect(cv.x0 + 2, cvy + 2, cv.x1 - cv.x0 - 4, 8 * s, 4 * s); // the rollers are under the belt, so they don't show through it
+  nSteel += rect(cv.x0 + 8 * s + 10, cvy + 10 * s, 5 * s, by - cvy - 10 * s) + rect(cv.x1 - 15, cvy + 10 * s, 5 * s, by - cvy - 10 * s) + rrect(cv.x0 + 8 * s, cvy, cv.x1 - cv.x0 - 8 * s, 12 * s, 6 * s); /* the belt starts at the machine's face */
+  nShade += rrect(cv.x0 + 8 * s + 2, cvy + 2, cv.x1 - cv.x0 - 8 * s - 4, 8 * s, 4 * s); // the rollers are under the belt, so they don't show through it
   nCopper += poly([[cv.x0 - 22 * s, cvy - 30 * s], [cv.x0 + 12 * s, cvy - 30 * s], [cv.x0 + 8 * s, cvy - 14 * s], [cv.x0 + 8 * s, by], [cv.x0 - 18 * s, by], [cv.x0 - 18 * s, cvy - 14 * s]]); nLight += rect(cv.x0 - 15 * s, cvy - 26 * s, 4 * s, by - cvy + 22 * s); nDet += rect(cv.x0 + 4 * s, cvy - 22 * s, 4 * s, 22 * s); // the box machine stands on the desk; boxes come out of its slot
   nBrass += poly([[cv.x1 - 4 * s, cvy - 4 * s], [cv.x1 + 30 * s, cvy - 4 * s], [cv.x1 + 26 * s, by], [cv.x1, by]]); nDet += seg(cv.x1, cvy + 6 * s, cv.x1 + 28 * s, cvy + 6 * s) + seg(cv.x1 + 1, cvy + 16 * s, cv.x1 + 27 * s, cvy + 16 * s);
   if (!ANIM) { nCopper += rrect(cv.x0 + 40 * s, cvy - 18 * s, 18 * s, 18 * s, 2) + rrect(cv.x0 + 120 * s, cvy - 14 * s, 14 * s, 14 * s, 2); nBrass += rrect(cv.x0 + 78 * s, cvy - 16 * s, 16 * s, 16 * s, 2); }
@@ -13896,7 +14058,8 @@ ENGINES.cafe = function (A, v, dk) {
 // 5. Bake Shop: bunting flutters, the cake stand turns slowly, the cherry bobs
 ENGINES.baking = function (A, v, dk) {
   var W = v.bw, H = v.bh, u = A.u, C = A.col, K = A.cake, cand = null, queue = 0;
-  var pen = new Path2D(poly([[-13 * u, 0], [13 * u, 0], [0, 24 * u]]));
+  var pen = new Path2D(poly([[-13 * u, 0], [13 * u, 0], [0, 25 * u]])), penS = new Path2D(poly([[0, 0], [13 * u, 0], [0, 25 * u]]));
+  var penD = new Path2D(b2_ellA(-4.5 * u, 5.5 * u, 1.9 * u, 1.9 * u) + b2_ellA(4.5 * u, 5.5 * u, 1.9 * u, 1.9 * u) + b2_ellA(0, 13 * u, 1.9 * u, 1.9 * u));
   var drips = []; for (var i = 0; i < 14; i++) drips.push({a: i / 14 * Math.PI * 2, len: (8 + (i * 7 % 5) * 4) * u});
   var R = K.w / 2 - 6 * u, cherryP = new Path2D(circ(0, 0, 12 * u)), cherryHi = new Path2D(ell(-4 * u, -4 * u, 3.5 * u, 2.2 * u));
   var cx = K.x + K.w * 0.24, cy = K.top - 5 * u, ch = 50 * u, cw = 11 * u;
@@ -13907,7 +14070,7 @@ ENGINES.baking = function (A, v, dk) {
   return {
     step: function (dt, t, f) { if (cand) { cand.k += dt; if (cand.k > 5.2) { cand = null; if (queue) { queue--; cand = {k: 0}; } } } },
     draw: function (ca, cb, t, f) {
-      (A.bunting || []).forEach(function (b, i) { var a = (Math.sin(t * 1.1 * f.s + i * 0.8) * 0.07 + Math.sin(t * 0.43 * f.s + i * 1.9) * 0.04) * f.a; ca.save(); ca.translate(b.x, b.y); ca.transform(1, 0, a * 1.4, 1, 0, 0); ca.fillStyle = C.bun[b.c]; ca.fill(pen); ca.restore(); });
+      (A.bunting || []).forEach(function (b, i) { var a = (Math.sin(t * 1.1 * f.s + i * 0.8) * 0.07 + Math.sin(t * 0.43 * f.s + i * 1.9) * 0.04) * f.a; ca.save(); ca.translate(b.x, b.y); ca.transform(1, 0, a * 1.4, 1, 0, 0); ca.fillStyle = C.bun[b.c]; ca.fill(pen); if (C.bunS) { ca.fillStyle = C.bunS; ca.fill(penS); ca.fillStyle = C.bunD[b.c]; ca.fill(penD); } ca.restore(); });
       var hop = 0;
       if (cand) { var k = cand.k, up = k < 0.5 ? b3_ease(k / 0.5) : (k > 4.5 ? 1 - b3_ease((k - 4.5) / 0.6) : 1);
         hop = k > 0.2 && k < 0.8 ? Math.sin((k - 0.2) / 0.6 * Math.PI) * 14 * u : 0;
@@ -13924,11 +14087,12 @@ ENGINES.baking = function (A, v, dk) {
           if (k < 3.1) { cb.fillStyle = dk ? 'rgba(220,210,210,0.5)' : 'rgba(170,150,150,0.5)'; for (j = 0; j < 3; j++) { cb.beginPath(); cb.arc(fx + (j - 1) * 6 * u * (1 + (k - 2.7) * 4), fy - (k - 2.7) * 30 * u, 2.5 * u, 0, 7); cb.fill(); } } }
       }
       var rot = t * 0.16 * f.s, list = [];
-      drips.forEach(function (d) { var a = d.a + rot, c = Math.cos(a); if (c < 0.05) return; list.push({x: K.x + Math.sin(a) * R, c: c, len: d.len}); });
+      drips.forEach(function (d) { var a = d.a + rot, c = Math.cos(a); if (c < 0.05) return; list.push({x: K.x + Math.sin(a) * R, y: K.top + c * (K.ry || 0) * R / (K.w / 2), c: c, len: d.len}); });
       list.sort(function (p, q) { return p.c - q.c; });
       cb.fillStyle = C.cream;
-      list.forEach(function (d) { var e = b3_ease((d.c - 0.05) / 0.3), w = 7 * u * Math.max(0.35, d.c) * e; if (w < 0.3) return; d.len = 4 * u + (d.len - 4 * u) * e; cb.beginPath(); cb.ellipse(d.x, K.top - 4 * u, 8 * u * Math.max(0.4, d.c) * e, 8 * u * e, 0, 0, 7); cb.fill(); cb.beginPath(); cb.moveTo(d.x - w / 2, K.top); cb.lineTo(d.x - w / 2, K.top + d.len - w / 2); cb.arc(d.x, K.top + d.len - w / 2, w / 2, Math.PI, 0, true); cb.lineTo(d.x + w / 2, K.top); cb.fill(); });
-      var by = Math.sin(t * 1.6 * f.s) * 1.6 * u * f.a - hop, cyy = K.top - 22 * u + by, tilt = Math.sin(t * 1.6 * f.s + 0.6) * 0.06 - (hop ? 0.25 * hop / (14 * u) : 0);
+      list.forEach(function (d) { var e = b3_ease((d.c - 0.05) / 0.3), w = 7 * u * Math.max(0.35, d.c) * e; if (w < 0.3) return; d.len = 4 * u + (d.len - 4 * u) * e; cb.beginPath(); cb.ellipse(d.x, d.y - 3 * u, 7.5 * u * Math.max(0.4, d.c) * e, 6 * u * e, 0, 0, 7); cb.fill(); cb.beginPath(); cb.moveTo(d.x - w / 2, d.y); cb.lineTo(d.x - w / 2, d.y + d.len - w / 2); cb.arc(d.x, d.y + d.len - w / 2, w / 2, Math.PI, 0, true); cb.lineTo(d.x + w / 2, d.y); cb.fill();
+        if (C.cShade) { cb.fillStyle = C.cShade; cb.beginPath(); cb.ellipse(d.x + 1 * u, d.y - 1 * u, 6 * u * Math.max(0.4, d.c) * e, 3 * u * e, 0, 0.2, Math.PI - 0.2); cb.fill(); cb.fillStyle = C.cream; } });
+      var by = Math.sin(t * 1.6 * f.s) * 1.6 * u * f.a - hop, cyy = K.top - (K.ry ? 10 : 22) * u + by, tilt = Math.sin(t * 1.6 * f.s + 0.6) * 0.06 - (hop ? 0.25 * hop / (14 * u) : 0);
       cb.save(); cb.translate(K.x, cyy); cb.rotate(tilt); cb.strokeStyle = C.stem; cb.lineWidth = 1.6; cb.lineCap = 'round'; cb.beginPath(); cb.moveTo(2 * u, -10 * u); cb.quadraticCurveTo(6 * u, -24 * u, 18 * u, -30 * u); cb.stroke();
       cb.fillStyle = C.red; cb.fill(cherryP); cb.fillStyle = 'rgba(255,255,255,0.55)'; cb.fill(cherryHi); cb.restore();
     },
