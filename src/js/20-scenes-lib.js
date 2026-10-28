@@ -720,14 +720,25 @@ SCENES.autumn = function (W, H, dk, rnd) {
     add(far, 'c', cl, 'rgba(255,255,255,0.75)');
   }
   // ---- the distance: a hazy hill line, a far tree line, then a nearer, warmer tree line ----
-  var w1 = [[14, 240, 0.4], [6, 90, 1.9]], w2 = [[10, 180, 2.2], [5, 70, 0.3]];
-  add(far, 'd', below(b2_ridge(W, hz - H * 0.1, w1, 10), hz + 20), dk ? '#3E2232' : '#E6C8B8');
-  function lineOfCrowns(base, wv, rMin, rVar, gap) { var s = '', lit = '', out = []; for (x = -30; x < W + 40; x += gap * (0.7 + rnd() * 0.6)) { var yy = b2_y(base, wv, x), r = rMin + rnd() * rVar; s += b2_ellA(x, yy - r * 0.5, r, r * 0.9) + b2_ellA(x + r * 0.6, yy - r * 0.2, r * 0.7, r * 0.62); lit += b2_ellA(x - r * 0.3, yy - r * 0.95, r * 0.45, r * 0.32); out.push([x, yy, r]); } return {d: s + below(b2_ridge(W, base + rMin * 0.4, wv, 10), hz + 30), lit: lit, pts: out}; }
-  var L1 = lineOfCrowns(hz - H * 0.045, w2, ph ? 9 : 12, ph ? 6 : 9, ph ? 16 : 22);
-  add(refl, 'd', L1.d, dk ? '#55282C' : '#E2B392'); add(refl, 'e', L1.lit, dk ? 'rgba(160,80,60,0.45)' : 'rgba(255,232,200,0.55)');
+  var w1 = [[14, 240, 0.4], [6, 90, 1.9]], w2 = [[10, 180, 2.2], [5, 70, 0.3]], w0 = [[18, 320, 1.1], [7, 120, 2.6]];
+  // two hazy ridges, the farther one paler
+  add(far, 'd', below(b2_ridge(W, hz - H * 0.13, w0, 10), hz + 20), dk ? '#33202E' : '#EBD2C4');
+  add(far, 'j', below(b2_ridge(W, hz - H * 0.085, w1, 10), hz + 20), dk ? '#3E2232' : '#E2C0AE');
+  // a far forest edge: a packed canopy of overlapping crowns of mixed size, a few taller crowns and pines rising out of it
+  function canopy(base, wv, rMin, rVar, gap) { var s = '', lit = '', out = [];
+    for (x = -30; x < W + 40; x += gap * (0.55 + rnd() * 0.5)) { var yy = b2_y(base, wv, x), tall = rnd() < 0.12, r = (rMin + rnd() * rVar) * (tall ? 1.35 : 1);
+      if (rnd() < 0.07) { var ph2 = r * 1.9; s += b2_polyA([[x, yy - ph2], [x + r * 0.55, yy - ph2 * 0.35], [x + r * 0.7, yy], [x - r * 0.7, yy], [x - r * 0.55, yy - ph2 * 0.35]]); lit += b2_polyA([[x, yy - ph2], [x - r * 0.12, yy - ph2 * 0.55], [x - r * 0.4, yy - ph2 * 0.38]]); continue; }
+      s += b2_ellA(x, yy - r * 0.55, r, r * 0.85) + b2_ellA(x - r * 0.55, yy - r * 0.3, r * 0.62, r * 0.55) + b2_ellA(x + r * 0.6, yy - r * 0.28, r * 0.66, r * 0.58);
+      lit += b2_ellA(x - r * 0.28, yy - r * 1.02, r * 0.42, r * 0.24) + b2_ellA(x + r * 0.25, yy - r * 0.95, r * 0.26, r * 0.15); out.push([x, yy, r]); }
+    return {d: s + below(b2_ridge(W, base - rMin * 0.1, wv, 10), hz + 30), lit: lit, pts: out}; }
+  var L1 = canopy(hz - H * 0.04, w2, ph ? 7 : 10, ph ? 6 : 9, ph ? 11 : 15);
+  add(refl, 'd', L1.d, dk ? '#55282C' : '#E2B392'); add(refl, 'e', L1.lit, dk ? 'rgba(170,90,66,0.42)' : 'rgba(250,216,180,0.5)');
+  // the nearer tree line: clustered crowns packed shoulder to shoulder in three warm colours, standing on a dark understory
   var TL = dk ? ['#6E3026', '#7C4A26', '#5E2424'] : ['#DC8A56', '#E0AE62', '#CC6A4A'], tl = ['', '', ''], tlT = '';
-  for (x = -20; x < W + 30; x += (ph ? 14 : 20) + rnd() * (ph ? 12 : 18)) { var by0 = hz + 2 + Math.sin(x / 70) * 2, rr = (ph ? 8 : 11) + rnd() * (ph ? 5 : 7), ci0 = Math.floor(rnd() * 3); tlT += b2_polyA([[x - rr * 0.08, by0 + 1], [x - rr * 0.05, by0 - rr * 0.9], [x + rr * 0.05, by0 - rr * 0.9], [x + rr * 0.08, by0 + 1]]); tl[ci0] += b2_ellA(x, by0 - rr * 1.25, rr * 0.82, rr * 0.75) + b2_ellA(x - rr * 0.45, by0 - rr * 1.0, rr * 0.5, rr * 0.45) + b2_ellA(x + rr * 0.48, by0 - rr * 1.02, rr * 0.5, rr * 0.45); }
-  add(refl, 'f', tlT, dk ? '#2E1612' : '#9A6A4C'); add(refl, 'g', tl[0], TL[0]); add(refl, 'h', tl[1], TL[1]); add(refl, 'i', tl[2], TL[2]);
+  for (x = -20; x < W + 30; x += (ph ? 9 : 12) + rnd() * (ph ? 8 : 11)) { var by0 = hz + 3 + Math.sin(x / 70) * 2 + rnd() * 2, rr = ((ph ? 6 : 9) + rnd() * (ph ? 5 : 8)) * (rnd() < 0.15 ? 1.35 : 1), ci0 = Math.floor(rnd() * 3), cyc = by0 - rr * (1.05 + rnd() * 0.3);
+    tl[ci0] += b2_ellA(x, cyc, rr * 0.8, rr * 0.72) + b2_ellA(x - rr * 0.5, cyc + rr * 0.25, rr * 0.52, rr * 0.46) + b2_ellA(x + rr * 0.52, cyc + rr * 0.22, rr * 0.54, rr * 0.48) + b2_ellA(x - rr * 0.15, cyc - rr * 0.45, rr * 0.45, rr * 0.38) + b2_ellA(x + rr * 0.2, cyc + rr * 0.5, rr * 0.6, rr * 0.4); }
+  tlT = below(b2_ridge(W, hz - (ph ? 5 : 7), [[3, 60, 0.7], [2, 23, 1.9]], 6), hz + 4);
+  add(refl, 'f', tlT, dk ? '#2E1612' : '#B07454'); add(refl, 'g', tl[0], TL[0]); add(refl, 'h', tl[1], TL[1]); add(refl, 'i', tl[2], TL[2]);
   // a band of haze where the ground meets the tree line
   add(far, 'i', b2_polyA([[-40, hz - 4], [W + 40, hz - 4], [W + 40, hz + H * 0.035], [-40, hz + H * 0.035]]), dk ? 'rgba(110,52,46,0.18)' : 'rgba(250,224,196,0.3)');
   // soft light and shade on the ground (far layer is heavily blurred, so these read as gentle gradients)
