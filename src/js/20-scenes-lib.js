@@ -2767,95 +2767,206 @@ SCENES.photography = function (W, H, dk, rnd) {
 // Four-point sparkle
 function b6_spark(x, y, r) { return poly([[x, y - r], [x + r * 0.22, y - r * 0.22], [x + r, y], [x + r * 0.22, y + r * 0.22], [x, y + r], [x - r * 0.22, y + r * 0.22], [x - r, y], [x - r * 0.22, y - r * 0.22]]); }
 
+// Game Night helpers. Every fill has a fixed winding, so shapes that overlap in one slot never punch holes
+function gn_ell(x, y, rx, ry, ang) { var p = [], a = (ang || 0) * Math.PI / 180, c = Math.cos(a), s = Math.sin(a); for (var i = 0; i < 24; i++) { var t = i / 24 * Math.PI * 2, u = Math.cos(t) * rx, v = Math.sin(t) * ry; p.push([x + u * c - v * s, y + u * s + v * c]); } return b2_polyA(p); }
+function gn_rr(x, y, w, h, r) { r = Math.max(0.01, Math.min(r, w / 2, h / 2)); var p = []; [[x + w - r, y + r, -Math.PI / 2], [x + w - r, y + h - r, 0], [x + r, y + h - r, Math.PI / 2], [x + r, y + r, Math.PI]].forEach(function (c) { for (var k = 0; k <= 5; k++) { var a = c[2] + k / 5 * Math.PI / 2; p.push([c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r]); } }); return b2_polyA(p); }
+// an elliptical ring: the hole runs the other way round
+function gn_ring(x, y, rx, ry, k) { var o = [], h = []; for (var i = 0; i < 28; i++) { var t = i / 28 * Math.PI * 2; o.push([x + rx * Math.cos(t), y + ry * Math.sin(t)]); h.push([x + rx * k * Math.cos(t), y + ry * k * Math.sin(t)]); } return b2_polyA(o) + poly(b2_area(h) > 0 ? h.slice().reverse() : h); }
+// a band along an ellipse between angles a0 and a1 (radians), from radius k0 to k1 of (rx, ry)
+function gn_arc(x, y, rx, ry, k0, k1, a0, a1) { var o = [], h = []; for (var i = 0; i <= 10; i++) { var t = a0 + (a1 - a0) * i / 10; o.push([x + rx * k1 * Math.cos(t), y + ry * k1 * Math.sin(t)]); h.unshift([x + rx * k0 * Math.cos(t), y + ry * k0 * Math.sin(t)]); } return b2_polyA(o.concat(h)); }
+function gn_starP(x, y, R) { var p = []; for (var i = 0; i < 60; i++) { var t = i / 60 * Math.PI * 2, r = R * (0.5 + 0.5 * Math.pow((1 + Math.cos(5 * t)) / 2, 1.6)); p.push([x + r * Math.cos(t - Math.PI / 2), y + r * Math.sin(t - Math.PI / 2)]); } return b2_polyA(p); }
+function gn_heartP(x, y, s) { var p = []; for (var i = 0; i < 30; i++) { var t = i / 30 * Math.PI * 2, st = Math.sin(t); p.push([x + s * st * st * st, y - s * (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) / 16]); } return b2_polyA(p); }
+function gn_slot(L, k, d, c) { if (!L[k]) L[k] = E(); add(L, k, d, c); }
+// the star power-up, as parts: outline, body, lighter inner bevel, blush, eyes, eye glints and shine
+function gn_star(x, y, R) {
+  return {ol: gn_starP(x, y + R * 0.03, R * 1.12), body: gn_starP(x, y, R), inner: gn_starP(x - R * 0.04, y - R * 0.06, R * 0.64),
+    blush: gn_ell(x - R * 0.38, y + R * 0.1, R * 0.13, R * 0.075) + gn_ell(x + R * 0.38, y + R * 0.1, R * 0.13, R * 0.075),
+    eyes: gn_ell(x - R * 0.2, y - R * 0.1, R * 0.075, R * 0.15) + gn_ell(x + R * 0.2, y - R * 0.1, R * 0.075, R * 0.15),
+    glint: gn_ell(x - R * 0.18, y - R * 0.17, R * 0.035, R * 0.05) + gn_ell(x + R * 0.22, y - R * 0.17, R * 0.035, R * 0.05) + gn_ell(x - R * 0.1, y - R * 0.6, R * 0.05, R * 0.17, 14)};
+}
+// a coin with some depth: its edge shows on the right, more as it turns side-on (k = cos of the turn)
+function gn_coin(x, y, cr, k) {
+  var ak = Math.abs(k), rx = cr * Math.max(0.06, ak), e = cr * 0.1 + cr * 0.3 * Math.sqrt(Math.max(0, 1 - k * k));
+  return {edge: gn_ell(x + e, y, rx, cr) + b2_polyA([[x, y - cr], [x + e, y - cr], [x + e, y + cr], [x, y + cr]]), face: gn_ell(x, y, rx, cr),
+    ring: ak > 0.3 ? gn_ring(x, y, rx * 0.84, cr * 0.84, 0.86) : '', mark: ak > 0.25 ? gn_rr(x - cr * 0.12 * ak, y - cr * 0.46, cr * 0.24 * ak, cr * 0.92, cr * 0.1 * ak) : '',
+    shine: ak > 0.4 ? gn_arc(x, y, rx, cr, 0.6, 0.72, Math.PI * 1.08, Math.PI * 1.42) : ''};
+}
+// a floating island: grassy lip with drips, a dirt body tapering to a rocky point, strata, pebbles, roots and a vine, as [path, colour] parts
+function gn_island(x, y, w, C, rnd) {
+  var hD = w * 0.34, L = [], R = [], i, N = 12, j = [];
+  for (i = 0; i <= N; i++) j.push((rnd() - 0.5) * w * 0.03);
+  function hw(t) { return w / 2 * (1 - Math.pow(t, 1.35) * 0.93); }
+  function cxAt(t) { return x - w * 0.04 * t; }
+  for (i = 0; i <= N; i++) { var t = i / N, yy = y + 2 + t * hD; R.push([cxAt(t) + hw(t) + j[i], yy]); L.unshift([cxAt(t) - hw(t) - j[N - i] * 0.8, yy]); }
+  var soil = b2_polyA(R.concat(L)), dark = '', rock = '', grass = '', gl = '', vine = '';
+  // strata bands and the shaded right side
+  [[0.3, 0.38], [0.58, 0.64]].forEach(function (b) { var up = [], lo = []; for (var k = 0; k <= 8; k++) { var u = k / 8, t0 = b[0] + Math.sin(u * 6 + x) * 0.02, t1 = b[1] + Math.sin(u * 5 + x * 2) * 0.02; up.push([cxAt(t0) - hw(t0) * 0.98 + u * hw(t0) * 1.96, y + 2 + t0 * hD]); lo.unshift([cxAt(t1) - hw(t1) * 0.98 + u * hw(t1) * 1.96, y + 2 + t1 * hD]); } dark += b2_polyA(up.concat(lo)); });
+  var side = []; for (i = 0; i <= N; i++) { var t2 = i / N; side.push([cxAt(t2) + hw(t2) * 0.55, y + 2 + t2 * hD]); } for (i = N; i >= 0; i--) { var t3 = i / N; side.push([cxAt(t3) + hw(t3) + j[i], y + 2 + t3 * hD]); } dark += b2_polyA(side);
+  for (i = 0; i < 4; i++) { var t4 = 0.2 + i * 0.16, px = cxAt(t4) + (rnd() - 0.5) * hw(t4) * 1.1, r = w * (0.025 + rnd() * 0.02); rock += gn_ell(px, y + 2 + t4 * hD, r * 1.3, r, rnd() * 40 - 20); }
+  // roots hanging from the underside
+  [-0.3, 0.12, 0.34].forEach(function (f, k) { var t5 = 0.55 + k * 0.12, rx0 = cxAt(t5) + f * hw(t5) * 1.4, ry0 = y + t5 * hD, len = w * (0.12 + k * 0.03); dark += b2_limb([rx0, ry0], [rx0 + w * 0.03, ry0 + len * 0.5], [rx0 - w * 0.01, ry0 + len], w * 0.016, w * 0.004, 8); });
+  // the grassy lip: a rounded band with bumps on top and drips down the dirt
+  grass += gn_rr(x - w / 2 - 5, y - 7, w + 10, 15, 7);
+  for (var q = x - w / 2 + 4; q < x + w / 2 - 2; q += 16) grass += gn_ell(q, y - 6, 8, 7);
+  for (q = x - w / 2 + 10; q < x + w / 2 - 6; q += 22) { var dl = 5 + rnd() * 6; grass += gn_rr(q - 4, y + 2, 8, dl + 4, 4); }
+  gl += gn_rr(x - w / 2 - 1, y - 9, w * 0.62, 4, 2); for (q = x - w / 2 + 4; q < x + w * 0.1; q += 16) gl += gn_ell(q - 2, y - 9.5, 4, 2.6);
+  // a vine with leaves over the left side
+  var vx = x - w * 0.36, vy = y + 6, vl = w * 0.3; vine += b2_limb([vx, vy], [vx - w * 0.05, vy + vl * 0.5], [vx - w * 0.02, vy + vl], 2.4, 1.2, 10);
+  for (i = 1; i <= 4; i++) { var tv = i / 5, lx = vx - w * 0.05 * Math.sin(tv * Math.PI) - w * 0.005, ly = vy + vl * tv; vine += gn_ell(lx + (i % 2 ? 4 : -4), ly, 4.2, 2.2, i % 2 ? 30 : -30); }
+  return {parts: [[soil, C.soil], [dark, C.soilD], [rock, C.soilL], [grass + vine, C.plat], [gl, C.platL]], shadow: [x - w * 0.02, y + hD + 18, w * 0.42]};
+}
+
 // 4. Game Night
 SCENES.gaming = function (W, H, dk, rnd) {
   var ph = H > W, far = Lay(14), refl = Lay(1.2), mid = Lay(0.4), near = Lay(0);
   var gy = H * (ph ? 0.8 : 0.78);
-  var C = dk ? {hill1: '#241E4E', castle: '#2E2760', hill2: '#1E2D48', tree: '#1A2640', cloud: 'rgba(90,80,160,0.55)', cloudB: 'rgba(40,34,90,0.5)', dirt: '#2A2252', grass: '#2F5C63', peb: '#3A3066', plat: '#2F5C63', soil: '#2A2252', blk: '#5A48B8', emb: '#FFE9A0', pad: '#4B3AAE', det: '#DCD4FF', coin: '#F2C040', slit: '#C98E1C', star: '#FFD84D', pink: '#FF7AA6', mint: '#7FE0C0', spark: '#FFF3C4'}
-               : {hill1: '#D8CFF4', castle: '#C6B8EE', hill2: '#C7E6D6', tree: '#A5D4BE', cloud: 'rgba(255,255,255,0.95)', cloudB: 'rgba(214,204,246,0.7)', dirt: '#BBA8EC', grass: '#9FDBBB', peb: '#CBBCF2', plat: '#9FDBBB', soil: '#BBA8EC', blk: '#8C78E8', emb: '#FFFFFF', pad: '#6246D6', det: '#EFEAFF', coin: '#F6C544', slit: '#E0A21E', star: '#FFD84D', pink: '#F26D96', mint: '#6FD6B0', spark: 'rgba(255,255,255,0.95)'};
+  var C = dk ? {hill1: '#241E4E', castle: '#2E2760', castleD: '#221C4A', roof: '#3B2C78', roofD: '#2C2160', flag: '#B04A86', hill2: '#1E2D48', trunk: '#162034', tree: '#1A2640', treeL: '#24345A', cloud: '#2E2868', cloudB: '#201C4C', cloudL: '#47409A', grass: '#2F5C63', plat: '#2F6A6C', platL: '#4A9A92', soil: '#2A2252', soilD: '#1E1840', soilL: '#3E3474', blk: '#5A48B8', blkD: 'rgba(16,8,52,0.38)', blkL: 'rgba(255,255,255,0.22)', emb: '#FFE9A0', pad: '#4B3AAE', padD: '#33268A', padL: '#6A58D0', det: '#DCD4FF', coin: '#F2C040', slit: '#B47A16', ring: '#D9A22A', star: '#FFD84D', starO: '#E08A1A', starL: '#FFEC92', pink: '#FF7AA6', pinkD: '#C2457A', mint: '#7FE0C0', spark: '#FFF3C4', eye: '#3A2A7A', tuft: '#2A5068', stoneD: '#1C1840', stone: '#3A3070', pipe: '#2F8A6A', pipeD: '#1F6650', pipeL: '#5CB894', hole: '#0E2A22'}
+               : {hill1: '#D8CFF4', castle: '#C6B8EE', castleD: '#B3A3E4', roof: '#A88EE2', roofD: '#957ACE', flag: '#F08AB0', hill2: '#C7E6D6', trunk: '#9CBFA8', tree: '#A5D4BE', treeL: '#BCE3CF', cloud: '#FFFFFF', cloudB: '#E2DAF8', cloudL: '#FFFFFF', grass: '#9FDBBB', plat: '#86D2AA', platL: '#B6EBCF', soil: '#B9A4EC', soilD: '#9F87DC', soilL: '#D2C4F6', blk: '#8C78E8', blkD: 'rgba(50,20,130,0.28)', blkL: 'rgba(255,255,255,0.32)', emb: '#FFFFFF', pad: '#6246D6', padD: '#4A31B4', padL: '#8670EC', det: '#EFEAFF', coin: '#F6C544', slit: '#C98A14', ring: '#E8AE2A', star: '#FFD84D', starO: '#F0A020', starL: '#FFEFA6', pink: '#F26D96', pinkD: '#D24C78', mint: '#6FD6B0', spark: 'rgba(255,255,255,0.95)', eye: '#5A4AB0', tuft: '#8FCDAE', stoneD: '#9C89DE', stone: '#C6B6F4', pipe: '#5CC496', pipeD: '#3E9E74', pipeL: '#9AE3BE', hole: '#245A44'};
+  var shine = dk ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.75)', shade = dk ? 'rgba(10,6,40,0.3)' : 'rgba(70,40,130,0.18)';
   var sky = dk ? 'linear-gradient(180deg,#0C0B18 0%,#1B1640 45%,#35265E 80%,#4A2F6A 100%)' : 'linear-gradient(180deg,#C6BDF3 0%,#E2DCFA 45%,#F7E5F2 80%,#FBEFF0 100%)';
   var sx = ph ? W * 0.42 : W * 0.72, sy = ph ? H * 0.435 : H * 0.18, starL = [], occ = [];
   function free(x, y, m) { if (Math.hypot(x - sx, y - sy) < 30 + m) return false; for (var i = 0; i < occ.length; i++) { var o = occ[i]; if (x > o[0] - m && x < o[2] + m && y > o[1] - m && y < o[3] + m) return false; } return true; }
-  if (dk) { add(far, 'a', circ(sx, sy, 80), 'rgba(220,210,255,0.3)'); add(refl, 'h', circ(sx, sy, 26), '#F4EEFF'); starL = spread(0, 0, W, gy * 0.7, 42, 42, rnd, 1).filter(function (c) { return c.q < 0.45; }); }
-  else add(far, 'a', circ(sx, sy, 100), 'rgba(255,240,210,0.95)');
+  // moon (or sun) with a soft glow
+  if (dk) { add(far, 'a', circ(sx, sy, 80), 'rgba(220,210,255,0.3)'); gn_slot(refl, 'n', gn_ell(sx, sy, 26, 26), '#F4EEFF'); gn_slot(refl, 'p', gn_ell(sx - 8, sy - 5, 6, 5) + gn_ell(sx + 9, sy + 6, 4.5, 4) + gn_ell(sx + 3, sy - 12, 3, 2.6), 'rgba(196,184,236,0.55)'); starL = spread(0, 0, W, gy * 0.7, 42, 42, rnd, 1).filter(function (c) { return c.q < 0.45; }); }
+  else { add(far, 'a', circ(sx, sy, 100), 'rgba(255,240,210,0.95)'); gn_slot(refl, 'n', gn_ell(sx, sy, 32, 32), '#FFF6DE'); }
+  // far hill and the castle on it: a keep with merlons, towers with cone roofs and flags, lit arched windows
   var h1y = H * (ph ? 0.56 : 0.5), h1 = ridge(W, h1y, [[22, 190, 0.6], [10, 80, 2.1]], 10);
   add(refl, 'a', below(h1, H), C.hill1);
-  var cx = ph ? W * 0.5 : W * 0.84, cy = h1y + 22 * Math.sin(cx / 190 + 0.6) + 10 * Math.sin(cx / 80 + 2.1), cs = ph ? 0.7 : 1, ca = '';
-  ca += rect(cx - 30 * cs, cy - 40 * cs, 60 * cs, 46 * cs) + rect(cx - 44 * cs, cy - 58 * cs, 18 * cs, 64 * cs) + rect(cx + 26 * cs, cy - 58 * cs, 18 * cs, 64 * cs) + rect(cx - 10 * cs, cy - 74 * cs, 20 * cs, 40 * cs);
-  ca += circ(cx - 35 * cs, cy - 58 * cs, 11 * cs) + circ(cx + 35 * cs, cy - 58 * cs, 11 * cs) + circ(cx, cy - 74 * cs, 12 * cs); occ.push([cx - 46 * cs, cy - 86 * cs, cx + 46 * cs, cy + 10]);
-  add(refl, 'b', ca, C.castle);
-  add(refl, 'g', rrect(cx - 6 * cs, cy - 18 * cs, 12 * cs, 22 * cs, 6 * cs) + circ(cx - 35 * cs, cy - 38 * cs, 3.5 * cs) + circ(cx + 35 * cs, cy - 38 * cs, 3.5 * cs) + circ(cx, cy - 54 * cs, 3.5 * cs), dk ? '#FFD58A' : '#AE9EE6');
+  var cx = ph ? W * 0.5 : W * 0.84, cy = h1y + 22 * Math.sin(cx / 190 + 0.6) + 10 * Math.sin(cx / 80 + 2.1), cs = ph ? 0.7 : 1, cB = '', cD = '', cR = '', cRD = '', cW = '', cF = '';
+  function Pc(u, v) { return [cx + u * cs, cy + v * cs]; }
+  function tower(u0, w, top) { cB += b2_polyA([Pc(u0, 8), Pc(u0, top), Pc(u0 + w, top), Pc(u0 + w, 8)]); cD += b2_polyA([Pc(u0 + w * 0.66, 8), Pc(u0 + w * 0.66, top), Pc(u0 + w, top), Pc(u0 + w, 8)]);
+    var ov = 3, rh = w * 1.25; cR += b2_polyA([Pc(u0 - ov, top + 1), Pc(u0 + w / 2, top - rh), Pc(u0 + w + ov, top + 1)]); cRD += b2_polyA([Pc(u0 + w / 2, top - rh), Pc(u0 + w + ov, top + 1), Pc(u0 + w * 0.62, top + 1)]);
+    cF += b2_polyA([Pc(u0 + w / 2 - 0.7, top - rh + 1), Pc(u0 + w / 2 + 0.7, top - rh + 1), Pc(u0 + w / 2 + 0.7, top - rh - 13), Pc(u0 + w / 2 - 0.7, top - rh - 13)]) + b2_polyA([Pc(u0 + w / 2 + 0.7, top - rh - 13), Pc(u0 + w / 2 + 11, top - rh - 9.5), Pc(u0 + w / 2 + 0.7, top - rh - 6)]);
+    cW += gn_rr(cx + (u0 + w / 2 - 3) * cs, cy + (top + 12) * cs, 6 * cs, 10 * cs, 3 * cs); }
+  cB += b2_polyA([Pc(-30, 8), Pc(-30, -40), Pc(30, -40), Pc(30, 8)]); cD += b2_polyA([Pc(14, 8), Pc(14, -40), Pc(30, -40), Pc(30, 8)]);
+  for (var mu = -30; mu < 28; mu += 12) cB += b2_polyA([Pc(mu, -39), Pc(mu, -47), Pc(mu + 7, -47), Pc(mu + 7, -39)]);
+  tower(-46, 18, -60); tower(28, 18, -60); tower(-10, 20, -78);
+  cW += gn_rr(cx - 7 * cs, cy - 18 * cs, 14 * cs, 26 * cs, 7 * cs) + gn_rr(cx - 22 * cs, cy - 30 * cs, 6 * cs, 9 * cs, 3 * cs) + gn_rr(cx + 16 * cs, cy - 30 * cs, 6 * cs, 9 * cs, 3 * cs);
+  occ.push([cx - 50 * cs, cy - 128 * cs, cx + 50 * cs, cy + 10]);
+  add(refl, 'b', cB, C.castle); add(refl, 'c', cD, C.castleD); add(refl, 'd', cR, C.roof); add(refl, 'e', cRD, C.roofD);
+  gn_slot(refl, 'm', cW, dk ? '#FFD58A' : '#9E8CDE'); gn_slot(refl, 'o', cF, C.flag);
   if (dk) add(far, 'e', circ(cx, cy - 40 * cs, 60 * cs), 'rgba(255,200,120,0.3)');
-  var h2y = H * (ph ? 0.66 : 0.63), h2 = ridge(W, h2y, [[18, 150, 2.4], [8, 60, 0.5]], 10), tr = '';
-  add(refl, 'c', below(h2, H), C.hill2);
-  h2.forEach(function (p, i) { if (i % 4 === 1 && rnd() < 0.7) { var r = 9 + rnd() * 10; tr += circ(p[0], p[1] - r * 0.9, r) + rrect(p[0] - 2, p[1] - r * 0.3, 4, r * 0.6, 2); } });
-  add(refl, 'd', tr, C.tree);
-  spread(0, 10, W, (ph ? H * 0.46 : H * 0.42), ph ? 190 : 300, ph ? 130 : 130, rnd, 0.8).forEach(function (c) { if (c.q > 0.8) return; var s = (ph ? 0.6 : 0.8) + c.r * 0.5, x = c.x, y = c.y, bb = [x - 50 * s, y - 46 * s, x + 52 * s, y + 14 * s];
+  // nearer hill with a line of rounded trees
+  var h2y = H * (ph ? 0.66 : 0.63), h2 = ridge(W, h2y, [[18, 150, 2.4], [8, 60, 0.5]], 10), trn = '', tc = '', tl = '';
+  add(refl, 'f', below(h2, H), C.hill2);
+  h2.forEach(function (p, i) { if (i % 4 === 1 && rnd() < 0.7) { var r = 9 + rnd() * 10, tx = p[0], ty = p[1]; trn += gn_rr(tx - 2, ty - r * 0.6, 4, r * 0.7, 2); tc += gn_ell(tx, ty - r * 1.05, r, r) + gn_ell(tx - r * 0.55, ty - r * 0.7, r * 0.62, r * 0.6) + gn_ell(tx + r * 0.55, ty - r * 0.72, r * 0.6, r * 0.58); tl += b2_cres(tx, ty - r * 1.05, r * 0.92, tx + r * 0.22, ty - r * 0.86, r * 0.92); } });
+  var blocks = ph ? [[W * 0.62, H * 0.455], [W * 0.62 + 46, H * 0.455]] : [[W * 0.58, H * 0.27], [W * 0.58 + 54, H * 0.27], [W * 0.58 + 108, H * 0.27]], bs = ph ? 40 : 48;
+  // clouds: lobes over a flat base, a deeper underside and (at night) a rim of light on top
+  var cl = '', cu = '', cr2 = '';
+  spread(0, 10, W, (ph ? H * 0.46 : H * 0.42), ph ? 190 : 300, ph ? 130 : 130, rnd, 0.8).forEach(function (c) { if (c.q > 0.8) return; var s = (ph ? 0.6 : 0.8) + c.r * 0.5, x = c.x, y = c.y, bb = [x - 56 * s, y - 50 * s, x + 56 * s, y + 18 * s];
     if (sx > bb[0] - 40 && sx < bb[2] + 40 && sy > bb[1] - 40 && sy < bb[3] + 40) return;
-    occ.push(bb); add(refl, 'e', rrect(x - 50 * s, y - 14 * s, 100 * s, 28 * s, 14 * s) + circ(x - 20 * s, y - 14 * s, 20 * s) + circ(x + 12 * s, y - 20 * s, 26 * s) + circ(x + 38 * s, y - 6 * s, 14 * s), C.cloud); add(refl, 'f', rrect(x - 44 * s, y + 4 * s, 88 * s, 10 * s, 5 * s), C.cloudB); });
+    var o = occ[0]; if (bb[2] > o[0] && bb[0] < o[2] && bb[3] > o[1] && bb[1] < o[3]) return;
+    if (blocks.some(function (b) { return bb[2] > b[0] - bs && bb[0] < b[0] + bs && bb[3] > b[1] - bs && bb[1] < b[1] + bs; })) return;
+    occ.push(bb); cu += gn_rr(x - 50 * s, y + 1 * s, 100 * s, 18 * s, 9 * s);
+    cl += gn_rr(x - 54 * s, y - 14 * s, 108 * s, 26 * s, 13 * s); [[-30, -10, 18], [-10, -20, 22], [16, -24, 27], [38, -8, 16]].forEach(function (l) { cl += gn_ell(x + l[0] * s, y + l[1] * s, l[2] * s, l[2] * s); cr2 += b2_cres(x + l[0] * s, y + l[1] * s, l[2] * s, x + (l[0] + l[2] * 0.12) * s, y + (l[1] + l[2] * 0.2) * s, l[2] * s); }); });
+  gn_slot(refl, 'g', trn, C.trunk);
+  var bush = '', bushL = '', gA = ridge(W, gy, [[6, 220, 0.8], [3, 90, 2.0]], 10), gB = ridge(W, gy + (H - gy) * 0.42, [[8, 170, 2.6], [3, 70, 0.4]], 10);
+  gA.forEach(function (p, i) { if (i % 5 === 2 && rnd() < 0.6) { var r = 12 + rnd() * 12; bush += gn_ell(p[0], p[1] - r * 0.55, r, r) + gn_ell(p[0] + r * 0.9, p[1] - r * 0.3, r * 0.75, r * 0.75) + gn_ell(p[0] - r * 0.9, p[1] - r * 0.25, r * 0.7, r * 0.7); bushL += b2_cres(p[0], p[1] - r * 0.55, r * 0.9, p[0] + r * 0.2, p[1] - r * 0.36, r * 0.9); } });
+  add(refl, 'h', tc + bush, C.tree); gn_slot(refl, 'i', tl + bushL, C.treeL);
+  gn_slot(refl, 'j', cu, C.cloudB); gn_slot(refl, 'k', cl, C.cloud); if (dk) gn_slot(refl, 'l', cr2, C.cloudL);
+  // the controller's spot (nothing else is drawn under it)
   var pKx = ph ? W * 0.22 : W * 0.12, pKy = ph ? H * 0.855 : H * 0.88, pKw = ph ? 130 : 200, pKh = pKw * 0.52;
-  function onPad(x, y, m) { return x > pKx - pKw * 0.33 - pKh * 0.44 - m && x < pKx + pKw * 0.33 + pKh * 0.44 + m && y > pKy - pKh * 0.46 - m && y < pKy + pKh * 0.56 + m; }
-  var gA = ridge(W, gy, [[6, 220, 0.8], [3, 90, 2.0]], 10), gB = ridge(W, gy + (H - gy) * 0.42, [[8, 170, 2.6], [3, 70, 0.4]], 10), peb = '';
+  function onPad(x, y, m) { return x > pKx - pKw * 0.33 - pKh * 0.44 - m && x < pKx + pKw * 0.33 + pKh * 0.44 + m && y > pKy - pKh * 0.56 - m && y < pKy + pKh * 0.66 + m; }
   add(mid, 'a', below(gA, H + 20), dk ? '#244256' : '#B4E5CA'); add(mid, 'b', below(gB, H + 20), dk ? '#1F3950' : '#A2DBBE');
-  var bush = ''; gA.forEach(function (p, i) { if (i % 5 === 2 && rnd() < 0.6) { var r = 12 + rnd() * 12; bush += circ(p[0], p[1] - r * 0.55, r) + circ(p[0] + r * 0.9, p[1] - r * 0.3, r * 0.75) + circ(p[0] - r * 0.9, p[1] - r * 0.25, r * 0.7); } });
-  add(refl, 'd', bush);
-  spread(0, gy + 20, W, H - gy - 20, 60, 36, rnd, 1).forEach(function (c) { if (c.q < 0.45 && !onPad(c.x, c.y, 6)) { var r = 3 + c.r * 3; peb += 'M' + PT(c.x - r, c.y) + ' Q' + PT(c.x - r * 0.6, c.y - r * 1.4) + ' ' + PT(c.x, c.y - r * 1.8) + ' Q' + PT(c.x + r * 0.1, c.y - r * 0.8) + ' ' + PT(c.x + r * 0.4, c.y) + ' Z '; } });
-  add(mid, 'h', peb, dk ? '#2D5468' : '#8FD1B0');
+  // stepping stones: a lighter top over a darker side, each with a soft shadow
+  var stS = '', stT = '', stones = [];
+  for (var st = 0; st < 9; st++) { var tt = st / 8, sxp = (ph ? W * 0.02 : W * 0.04) + tt * (ph ? W * 0.55 : W * 0.5) + Math.sin(tt * 5) * (ph ? 20 : 40), syp = H - 20 - tt * (H - gy - 50), srr = (1 - tt * 0.55) * (ph ? 20 : 26); stones.push([sxp, syp, srr]); stS += gn_ell(sxp, syp + srr * 0.18, srr, srr * 0.42); stT += gn_ell(sxp, syp, srr * 0.97, srr * 0.36); add(far, 'f', ell(sxp + srr * 0.1, syp + srr * 0.4, srr * 1.05, srr * 0.3), dk ? 'rgba(0,0,0,0.35)' : 'rgba(90,70,170,0.22)'); }
+  function onStone(x, y, m) { return stones.some(function (s) { return Math.pow((x - s[0]) / (s[2] + m), 2) + Math.pow((y - s[1]) / (s[2] * 0.42 + m), 2) < 1; }); }
+  add(mid, 'd', stS, C.stoneD); add(mid, 'e', stT, C.stone);
+  // a green pipe on the grass (desktop)
+  var pipeBox = null;
+  if (!ph) { var pX = W * 0.33, pB = gy + 26, pH = 70, pw = 46, body = '', pd = '', pl = '';
+    body += b2_polyA([[pX - pw / 2, pB], [pX - pw / 2, pB - pH + 14], [pX + pw / 2, pB - pH + 14], [pX + pw / 2, pB]]) + gn_rr(pX - pw / 2 - 7, pB - pH, pw + 14, 20, 4);
+    pd += b2_polyA([[pX + pw * 0.22, pB], [pX + pw * 0.22, pB - pH + 20], [pX + pw / 2, pB - pH + 20], [pX + pw / 2, pB]]) + b2_polyA([[pX + pw * 0.3, pB - pH + 20], [pX + pw / 2 + 7, pB - pH + 20], [pX + pw / 2 + 7, pB - pH + 2], [pX + pw * 0.3, pB - pH + 2]]) + b2_polyA([[pX - pw / 2, pB - pH + 20], [pX + pw / 2, pB - pH + 20], [pX + pw / 2, pB - pH + 24], [pX - pw / 2, pB - pH + 24]]);
+    pl += gn_rr(pX - pw / 2 + 5, pB - pH + 26, 6, pH - 30, 3) + gn_rr(pX - pw / 2 - 2, pB - pH + 3, 7, 14, 3);
+    gn_slot(mid, 'f', body, C.pipe); gn_slot(mid, 'g', pd, C.pipeD); gn_slot(mid, 'h', pl, C.pipeL); gn_slot(mid, 'i', gn_ell(pX, pB - pH + 1, pw / 2 + 4, 4.5), C.hole);
+    add(far, 'f', ell(pX + 8, pB + 4, pw * 0.85, 8), dk ? 'rgba(0,0,0,0.4)' : 'rgba(90,70,170,0.25)'); pipeBox = [pX - pw / 2 - 10, pB - pH - 6, pX + pw / 2 + 10, pB + 8]; occ.push(pipeBox); }
+  function onPipe(x, y, m) { return pipeBox && x > pipeBox[0] - m && x < pipeBox[2] + m && y > pipeBox[1] - m && y < pipeBox[3] + m; }
+  // floating islands
   var plats = ph ? [[W * 0.24, H * 0.57, 110], [W * 0.76, H * 0.52, 96]] : [[W * 0.53, H * 0.5, 170], [W * 0.78, H * 0.36, 130], [W * 0.95, H * 0.56, 150]];
-  var pc = '', ps = '';
-  function ellCW(x, y, rx, ry) { return 'M' + PT(x - rx, y) + ' a' + n1(rx) + ' ' + n1(ry) + ' 0 1 1 ' + n1(2 * rx) + ' 0 a' + n1(rx) + ' ' + n1(ry) + ' 0 1 1 ' + n1(-2 * rx) + ' 0 '; }
-  plats.forEach(function (p, pi) { var w = p[2], s1 = rrect(p[0] - w / 2, p[1], w, 26, 12) + ellCW(p[0], p[1] + 24, w * 0.4, 16), s2 = rrect(p[0] - w / 2 - 4, p[1] - 6, w + 8, 16, 8); for (var q = p[0] - w / 2 + 6; q < p[0] + w / 2; q += 18) s2 += ellCW(q, p[1] - 4, 8, 8);
-    if (ANIM) (ANIM.plats = ANIM.plats || []).push({x: p[0], y: p[1], soil: s1, top: s2, cSoil: C.soil, cTop: C.plat, ph: pi * 1.9}); else { ps += s1; pc += s2; } add(far, 'f', ell(p[0], p[1] + 40, w * 0.45, 10), dk ? 'rgba(0,0,0,0.35)' : 'rgba(120,100,190,0.25)'); });
-  var stones = ''; for (var st = 0; st < 9; st++) { var tt = st / 8, sxp = (ph ? W * 0.02 : W * 0.04) + tt * (ph ? W * 0.55 : W * 0.5) + Math.sin(tt * 5) * (ph ? 20 : 40), syp = H - 20 - tt * (H - gy - 50), srr = (1 - tt * 0.55) * (ph ? 20 : 26); stones += ell(sxp, syp, srr, srr * 0.42); }
-  ps += stones;
-  add(mid, 'd', ps, C.soil); add(mid, 'c', pc, C.plat);
-  var blocks = ph ? [[W * 0.62, H * 0.455], [W * 0.62 + 46, H * 0.455]] : [[W * 0.58, H * 0.27], [W * 0.58 + 54, H * 0.27], [W * 0.58 + 108, H * 0.27]], bs = ph ? 40 : 48, bl = '', em = '';
-  blocks.forEach(function (b, i) { bl += rrect(b[0] - bs / 2, b[1] - bs / 2, bs, bs, bs * 0.24); em += i === 1 || ph && i === 0 ? b6_star(b[0], b[1], bs * 0.26) : circ(b[0], b[1], bs * 0.12) + circ(b[0] - bs * 0.26, b[1] - bs * 0.26, bs * 0.05) + circ(b[0] + bs * 0.26, b[1] - bs * 0.26, bs * 0.05) + circ(b[0] - bs * 0.26, b[1] + bs * 0.26, bs * 0.05) + circ(b[0] + bs * 0.26, b[1] + bs * 0.26, bs * 0.05); });
-  add(mid, 'e', bl, C.blk); add(mid, 'f', em, C.emb);
-  blocks.forEach(function (b) { occ.push([b[0] - bs / 2, b[1] - bs / 2, b[0] + bs / 2, b[1] + bs / 2]); }); plats.forEach(function (p) { occ.push([p[0] - p[2] / 2 - 4, p[1] - 22, p[0] + p[2] / 2 + 4, p[1] + 44]); });
-  starL.forEach(function (c) { var hy = h1y + 22 * Math.sin(c.x / 190 + 0.6) + 10 * Math.sin(c.x / 80 + 2.1); if (c.y < hy - 8 && free(c.x, c.y, 3)) add(refl, 'h', circ(c.x, c.y, 0.7 + c.r)); });
-  var coins = '', slits = '', cr = ph ? 13 : 16, spin = [1, 0.82, 0.5, 0.82, 1, 1, 0.82];
-  function coin(x, y, k, pl) { if (ANIM) { (ANIM.coins = ANIM.coins || []).push({x: x, y: y, k: k, plat: pl === undefined ? -1 : pl}); return; } coins += ell(x, y, cr * k, cr); slits += rrect(x - cr * 0.12 * k, y - cr * 0.5, cr * 0.24 * k, cr, cr * 0.1); if (dk) add(far, 'c', circ(x, y, cr * 2.2), 'rgba(255,200,90,0.4)'); }
-  var nC = ph ? 5 : 7, c0 = ph ? 40 : W * 0.47, cstep = ph ? 44 : 56, cy0 = gy - (ph ? 56 : 66);
-  for (var i = 0; i < nC; i++) coin(c0 + i * cstep, cy0, spin[i]);
+  var platParts = [[], [], [], [], []];
+  plats.forEach(function (p, pi) { var I = gn_island(p[0], p[1], p[2], C, rnd);
+    if (ANIM) (ANIM.plats = ANIM.plats || []).push({x: p[0], y: p[1], parts: I.parts, ph: pi * 1.9}); else I.parts.forEach(function (q, k) { platParts[k].push(q[0]); });
+    add(far, 'f', ell(I.shadow[0], I.shadow[1], I.shadow[2], 10), dk ? 'rgba(0,0,0,0.35)' : 'rgba(120,100,190,0.25)'); });
+  ['n', 'o', 'p', 'A', 'B'].forEach(function (k, i) { gn_slot(mid, k, platParts[i].join(''), [C.soil, C.soilD, C.soilL, C.plat, C.platL][i]); });
+  // item blocks: bevelled edges, corner rivets, an embossed icon and a gloss
+  var bl = '', bD = '', bL = '', em = '';
+  blocks.forEach(function (b, i) { var x0 = b[0] - bs / 2, y0 = b[1] - bs / 2, x1 = x0 + bs, y1 = y0 + bs, g = bs * 0.13, c2 = bs * 0.1, star = i === 1 || ph && i === 0;
+    bl += gn_rr(x0, y0, bs, bs, bs * 0.18);
+    bD += b2_polyA([[x1 - 0.5, y0 + c2], [x1 - 0.5, y1 - c2], [x1 - c2, y1 - 0.5], [x0 + c2, y1 - 0.5], [x0 + g, y1 - g], [x1 - g, y1 - g], [x1 - g, y0 + g]]);
+    bL += b2_polyA([[x0 + 0.5, y1 - c2], [x0 + 0.5, y0 + c2], [x0 + c2, y0 + 0.5], [x1 - c2, y0 + 0.5], [x1 - g, y0 + g], [x0 + g, y0 + g], [x0 + g, y1 - g]]) + gn_ell(b[0] - bs * 0.14, b[1] - bs * 0.22, bs * 0.2, bs * 0.07, -18);
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (q) { var rx = b[0] + q[0] * bs * 0.36, ry = b[1] + q[1] * bs * 0.36; bD += gn_ell(rx + 0.8, ry + 0.9, bs * 0.04, bs * 0.04); em += gn_ell(rx, ry, bs * 0.035, bs * 0.035); });
+    if (star) { bD += gn_starP(b[0] + 1.6, b[1] + bs * 0.02 + 1.8, bs * 0.25); em += gn_starP(b[0], b[1] + bs * 0.02, bs * 0.25); }
+    else { [[0, 0, 0.11], [-0.19, -0.19, 0.045], [0.19, -0.19, 0.045], [-0.19, 0.19, 0.045], [0.19, 0.19, 0.045]].forEach(function (d) { bD += gn_ell(b[0] + d[0] * bs + 1.4, b[1] + d[1] * bs + 1.6, d[2] * bs, d[2] * bs); em += gn_ell(b[0] + d[0] * bs, b[1] + d[1] * bs, d[2] * bs, d[2] * bs); }); } });
+  gn_slot(mid, 'j', bl, C.blk); gn_slot(mid, 'k', bD, C.blkD); gn_slot(mid, 'l', bL, C.blkL); gn_slot(mid, 'm', em, C.emb);
+  blocks.forEach(function (b) { occ.push([b[0] - bs / 2, b[1] - bs / 2, b[0] + bs / 2, b[1] + bs / 2]); add(far, 'f', ell(b[0], b[1] + bs * 0.75, bs * 0.4, 5), dk ? 'rgba(0,0,0,0.25)' : 'rgba(120,100,190,0.18)'); }); plats.forEach(function (p) { occ.push([p[0] - p[2] / 2 - 6, p[1] - 22, p[0] + p[2] / 2 + 6, p[1] + p[2] * 0.5]); });
+  // stars over the far hill
+  var sd = ''; starL.forEach(function (c) { var hy = h1y + 22 * Math.sin(c.x / 190 + 0.6) + 10 * Math.sin(c.x / 80 + 2.1); if (c.y < hy - 8 && free(c.x, c.y, 3)) sd += gn_ell(c.x, c.y, 0.7 + c.r, 0.7 + c.r); }); if (sd) gn_slot(refl, 'n', sd, '#F4EEFF');
+  // coins
+  var cEdge = '', cFace = '', cRing = '', cMark = '', cShine = '', cr = ph ? 13 : 16, spin = [1, 0.82, 0.5, 0.82, 1, 1, 0.82];
+  function coin(x, y, k, pl) { if (ANIM) { (ANIM.coins = ANIM.coins || []).push({x: x, y: y, k: k, plat: pl === undefined ? -1 : pl}); return; } var g = gn_coin(x, y, cr, k); cEdge += g.edge; cFace += g.face; cRing += g.ring; cMark += g.mark; cShine += g.shine; if (dk) add(far, 'c', circ(x, y, cr * 2.2), 'rgba(255,200,90,0.4)'); }
+  var nC = ph ? 5 : 7, c0 = ph ? 40 : W * 0.47, cstep = ph ? 44 : 56, cy0 = gy - (ph ? 56 : 66), i;
+  for (i = 0; i < nC; i++) coin(c0 + i * cstep, cy0, spin[i]);
   var p0 = plats[0]; for (i = 0; i < 3; i++) coin(p0[0] - cstep * 0.8 + i * cstep * 0.8, p0[1] - (ph ? 34 : 40), [1, 0.6, 1][i], 0);
-  if (ANIM) ANIM.coinC = {r: cr, coin: C.coin, slit: C.slit, n: nC};
-  add(near, 'c', coins, C.coin); add(near, 'd', slits, C.slit);
-  var stx = ph ? W * 0.72 : W * 0.47 + nC * cstep + 20, sty = gy - (ph ? 76 : 88), sR = ph ? 28 : 38;
-  var sp = '';
-  if (ANIM) ANIM.star = {x: stx, y: sty, R: sR, col: C.star, eye: dk ? '#3A2A7A' : '#5A4AB0', glow: dk ? 'rgba(255,220,100,' : 'rgba(255,236,160,', ga: dk ? 0.45 : 0.7, spark: C.spark, sparks: [[-1.3, -0.9, 0.28], [1.25, -0.5, 0.2], [0.9, 0.9, 0.16]]};
-  else { add(near, 'e', b6_star(stx, sty, sR, 0), C.star);
-    add(near, 'h', ell(stx - sR * 0.22, sty - sR * 0.12, sR * 0.07, sR * 0.14) + ell(stx + sR * 0.22, sty - sR * 0.12, sR * 0.07, sR * 0.14), dk ? '#3A2A7A' : '#5A4AB0');
-    sp = b6_spark(stx - sR * 1.3, sty - sR * 0.9, sR * 0.28) + b6_spark(stx + sR * 1.25, sty - sR * 0.5, sR * 0.2) + b6_spark(stx + sR * 0.9, sty + sR * 0.9, sR * 0.16);
+  var markC = dk ? 'rgba(120,70,0,0.55)' : 'rgba(150,90,0,0.5)';
+  if (ANIM) ANIM.coinC = {r: cr, coin: C.coin, slit: C.slit, ring: C.ring, mark: markC, n: nC, shine: shine};
+  // the star power-up
+  var stx = ph ? W * 0.72 : W * 0.47 + nC * cstep + 20, sty = gy - (ph ? 76 : 88), sR = ph ? 28 : 38, sp = '', SP = gn_star(stx, sty, sR);
+  var starCols = {ol: C.starO, body: C.star, inner: C.starL, blush: dk ? 'rgba(255,120,150,0.55)' : 'rgba(255,120,150,0.5)', eyes: C.eye, glint: '#FFFFFF'};
+  if (ANIM) ANIM.star = {x: stx, y: sty, R: sR, col: C.star, cols: starCols, glow: dk ? 'rgba(255,220,100,' : 'rgba(255,236,160,', ga: dk ? 0.45 : 0.7, spark: C.spark, sparks: [[-1.3, -0.9, 0.28], [1.25, -0.5, 0.2], [0.9, 0.9, 0.16]]};
+  else { sp = b6_spark(stx - sR * 1.3, sty - sR * 0.9, sR * 0.28) + b6_spark(stx + sR * 1.25, sty - sR * 0.5, sR * 0.2) + b6_spark(stx + sR * 0.9, sty + sR * 0.9, sR * 0.16);
     add(far, 'd', circ(stx, sty, sR * 1.8), dk ? 'rgba(255,220,100,0.45)' : 'rgba(255,236,160,0.7)'); }
   spread(0, 0, W, gy - 20, ph ? 140 : 190, ph ? 150 : 170, rnd, 1).forEach(function (c) { if (c.q < 0.4 && free(c.x, c.y, 4 + c.r * 5)) { sp += b6_spark(c.x, c.y, 4 + c.r * 5); if (ANIM) (ANIM.sparks = ANIM.sparks || []).push([c.x, c.y, 4 + c.r * 5]); } });
-  add(near, 'a', sp, C.spark);
-  var fp = '', fc = '';
-  spread(0, gy + 30, W, H - gy - 30, ph ? 90 : 130, 60, rnd, 1).forEach(function (c) { if (c.q < 0.45 && !onPad(c.x, c.y, 14)) { var r = 4 + c.r * 2.5; for (var k = 0; k < 5; k++) fp += circ(c.x + Math.cos(k * 1.2566) * r, c.y + Math.sin(k * 1.2566) * r, r * 0.8); fc += circ(c.x, c.y, r * 0.6); } });
-  var hs = ph ? 12 : 16, hx = ph ? 34 : W * 0.86, hy = ph ? H * 0.455 : 50, hd = hs * 2.6, hh = '';
-  if (ph) { hx = 30; hy = H * 0.448; }
-  if (ANIM) ANIM.hud = {x: hx, y: hy, s: hs, d: hd, pink: C.pink, hl: C.det};
-  for (i = 0; i < 3; i++) { fp += b6_heart(hx + i * hd, hy, hs); hh += ell(hx + i * hd - hs * 0.45, hy - hs * 0.35, hs * 0.2, hs * 0.14); }
-  // the controller sits bottom left: the Add button floats at the bottom right
-  var kx = ph ? W * 0.22 : W * 0.12, ky = ph ? H * 0.855 : H * 0.88, kw = ph ? 130 : 200, kh = kw * 0.52, body = '', det = '';
+  // grass tufts, and flowers with leaves
+  var tuft = '', pet = '', fcen = '', fsh = '';
+  spread(0, gy + 16, W, H - gy - 16, ph ? 46 : 58, 30, rnd, 1).forEach(function (c) { if (c.q > 0.5 || onPad(c.x, c.y, 8) || onStone(c.x, c.y, 6) || onPipe(c.x, c.y, 4)) return; var s = 0.7 + (c.y - gy) / (H - gy) * 0.8; [[-4, -8, -0.4], [0, -12, 0], [4, -7, 0.4]].forEach(function (b) { tuft += b2_polyA([[c.x + b[0] * s - 1.6 * s, c.y], [c.x + b[0] * s + b[2] * 6 * s, c.y + b[1] * s], [c.x + b[0] * s + 1.6 * s, c.y]]); }); });
+  spread(0, gy + 30, W, H - gy - 30, ph ? 90 : 130, 60, rnd, 1).forEach(function (c) { if (c.q < 0.45 && !onPad(c.x, c.y, 14) && !onStone(c.x, c.y, 10) && !onPipe(c.x, c.y, 10)) { var r = 4 + c.r * 2.5;
+    tuft += b2_polyA(leafPts(c.x, c.y + r * 0.6, r * 2.4, r * 0.7, 160)) + b2_polyA(leafPts(c.x, c.y + r * 0.6, r * 2.2, r * 0.7, 20));
+    for (var k = 0; k < 5; k++) { var a = k * 72 - 90; pet += gn_ell(c.x + Math.cos(a * Math.PI / 180) * r * 0.75, c.y + Math.sin(a * Math.PI / 180) * r * 0.75, r * 0.7, r * 0.5, a); }
+    fcen += gn_ell(c.x, c.y, r * 0.42, r * 0.42); fsh += gn_ell(c.x - r * 0.12, c.y - r * 0.14, r * 0.16, r * 0.1); } });
+  function leafPts(x, y, len, w, ang) { var pts = [], k; for (k = 0; k <= 12; k++) { var t = k / 12; pts.push([t * len, w * Math.sin(Math.PI * t) * (1 - 0.35 * t)]); } for (k = 11; k > 0; k--) { var v = k / 12; pts.push([v * len, -w * 0.7 * Math.sin(Math.PI * v) * (1 - 0.35 * v)]); } return rotp(pts, x, y, ang); }
+  gn_slot(mid, 'c', tuft, C.tuft);
+  // the heart HUD
+  var hs = ph ? 12 : 16, hx = ph ? 30 : W * 0.86, hy = ph ? H * 0.448 : 50, hd = hs * 2.6, hO = '', hB = '', hSh = '';
+  if (ANIM) ANIM.hud = {x: hx, y: hy, s: hs, d: hd, pink: C.pink, ol: C.pinkD, hl: shine};
+  for (i = 0; i < 3; i++) { var hX = hx + i * hd; hO += gn_heartP(hX, hy + hs * 0.04, hs * 1.16); hB += gn_heartP(hX, hy, hs); hSh += gn_ell(hX - hs * 0.45, hy - hs * 0.4, hs * 0.22, hs * 0.13, -30) + gn_ell(hX - hs * 0.15, hy - hs * 0.5, hs * 0.06, hs * 0.06); }
+  // mushrooms on the right, across from the controller: domed spotted caps, a darker underside, shaded stems
+  var cap = '', under = '', stem = '', spots = '', stemSh = '', capSh = '';
+  (ph ? [[W * 0.9, gy + 70, 1], [W * 0.8, gy + 60, 0.7]] : [[W * 0.9, gy + 80, 1.2], [W * 0.84, gy + 66, 0.85], [W * 0.64, gy + 44, 0.7]]).forEach(function (m) { var ms = m[2] * 22, x = m[0], y = m[1], y0 = y - ms * 0.95, dome = [], k;
+    for (k = 0; k <= 20; k++) { var a = Math.PI + k / 20 * Math.PI; dome.push([x + Math.cos(a) * ms * 1.08, y0 + Math.sin(a) * ms * 1.15 * (1 - 0.08 * Math.cos(a * 2))]); }
+    cap += b2_polyA(dome); var un = []; for (k = 0; k <= 12; k++) { var a2 = k / 12 * Math.PI; un.push([x + Math.cos(a2) * ms * 0.98, y0 + Math.sin(a2) * ms * 0.24]); } under += b2_polyA(un);
+    stem += b2_polyA([[x - ms * 0.3, y0 + ms * 0.04], [x + ms * 0.3, y0 + ms * 0.04], [x + ms * 0.4, y - ms * 0.3], [x + ms * 0.36, y], [x - ms * 0.36, y], [x - ms * 0.4, y - ms * 0.3]]);
+    stemSh += b2_polyA([[x + ms * 0.1, y0 + ms * 0.12], [x + ms * 0.3, y0 + ms * 0.12], [x + ms * 0.4, y - ms * 0.3], [x + ms * 0.36, y], [x + ms * 0.14, y]]);
+    spots += gn_ell(x - ms * 0.5, y0 - ms * 0.55, ms * 0.2, ms * 0.17) + gn_ell(x + ms * 0.32, y0 - ms * 0.78, ms * 0.17, ms * 0.14) + gn_ell(x + ms * 0.05, y0 - ms * 0.3, ms * 0.12, ms * 0.1) + gn_ell(x + ms * 0.74, y0 - ms * 0.3, ms * 0.1, ms * 0.09);
+    capSh += gn_ell(x - ms * 0.42, y0 - ms * 0.92, ms * 0.22, ms * 0.08, -28);
+    add(far, 'g', ell(x + ms * 0.15, y + 2, ms * 1.1, ms * 0.25), dk ? 'rgba(0,0,0,0.4)' : 'rgba(90,70,170,0.25)'); });
+  // the controller sits bottom left (the Add button floats at the bottom right): a rounded body with depth, D-pad, sticks and face buttons
+  var kx = pKx, ky = pKy, kw = pKw, kh = pKh, u = kh * 0.1;
   if (ANIM) ANIM.pad = {x: kx, y: ky, w: kw, h: kh};
-  body += rrect(kx - kw * 0.34, ky - kh * 0.46, kw * 0.68, kh * 0.72, kh * 0.3) + ell(kx - kw * 0.33, ky + kh * 0.05, kh * 0.44, kh * 0.5) + ell(kx + kw * 0.33, ky + kh * 0.05, kh * 0.44, kh * 0.5);
-  add(mid, 'g', body, C.pad); add(far, 'g', ell(kx, ky + kh * 0.6, kw * 0.55, kh * 0.14), dk ? 'rgba(0,0,0,0.45)' : 'rgba(90,70,170,0.3)');
-  var dx = kx - kw * 0.33, dy = ky - kh * 0.06, u = kh * 0.1;
-  det += rrect(dx - u * 2.6, dy - u * 0.85, u * 5.2, u * 1.7, u * 0.5) + rrect(dx - u * 0.85, dy - u * 2.6, u * 1.7, u * 5.2, u * 0.5) + rrect(kx - kw * 0.1, ky - kh * 0.2, kw * 0.07, kh * 0.08, kh * 0.04) + rrect(kx + kw * 0.03, ky - kh * 0.2, kw * 0.07, kh * 0.08, kh * 0.04);
-  det += b6_ring(kx - kw * 0.13, ky + kh * 0.14, kh * 0.13, kh * 0.08) + b6_ring(kx + kw * 0.13, ky + kh * 0.14, kh * 0.13, kh * 0.08);
-  var bx = kx + kw * 0.33, by = ky - kh * 0.06, bo = kh * 0.17, br = kh * 0.075;
-  near.b.d += circ(bx, by - bo, br); near.b.c = C.mint; coins += ''; add(near, 'c', circ(bx - bo, by, br)); fp += circ(bx + bo, by, br); det += circ(bx, by + bo, br);
-  var stemM = '';
-  // mushrooms on the right, across from the controller
-  (ph ? [[W * 0.9, gy + 70, 1], [W * 0.8, gy + 60, 0.7]] : [[W * 0.9, gy + 80, 1.2], [W * 0.84, gy + 66, 0.85], [W * 0.64, gy + 44, 0.7]]).forEach(function (m) { var ms = m[2] * 22, x = m[0], y = m[1]; fp += 'M' + PT(x - ms, y - ms * 0.9) + ' Q' + PT(x - ms, y - ms * 2.1) + ' ' + PT(x, y - ms * 2.1) + ' Q' + PT(x + ms, y - ms * 2.1) + ' ' + PT(x + ms, y - ms * 0.9) + ' Z '; stemM += rrect(x - ms * 0.45, y - ms * 0.95, ms * 0.9, ms * 0.95, ms * 0.3) + circ(x - ms * 0.45, y - ms * 1.5, ms * 0.18) + circ(x + ms * 0.35, y - ms * 1.7, ms * 0.14) + circ(x + ms * 0.05, y - ms * 1.2, ms * 0.12); add(far, 'g', ell(x, y + 2, ms * 1.1, ms * 0.25)); });
-  det += stemM;
-  add(near, 'f', fp, C.pink); add(near, 'h', fc + hh + det, C.det);
-  var cab = 'M' + PT(kx, ky - kh * 0.46) + ' C' + PT(kx, ky - kh * 1.2) + ' ' + PT(kx + kw * 0.9, ky - kh * 1.0) + ' ' + PT(kx + kw * 0.95, ky - kh * 0.1) + ' S' + PT(kx + kw * 1.5, ky + kh * 1.0) + ' ' + PT(kx + kw * 2.4, ky + kh * 0.5) + ' S' + PT(kx + kw * 3.2, ky + kh * 1.6) + ' ' + PT(kx + kw * 3.6, H + 30);
+  function padShape(dy) { return gn_rr(kx - kw * 0.34, ky - kh * 0.46 + dy, kw * 0.68, kh * 0.72, kh * 0.3) + gn_ell(kx - kw * 0.33, ky + kh * 0.05 + dy, kh * 0.44, kh * 0.5) + gn_ell(kx + kw * 0.33, ky + kh * 0.05 + dy, kh * 0.44, kh * 0.5); }
+  var dx = kx - kw * 0.33, dyy = ky - kh * 0.06, bx = kx + kw * 0.33, by = ky - kh * 0.06, bo = kh * 0.17, br = kh * 0.075, s1 = [kx - kw * 0.13, ky + kh * 0.16], s2 = [kx + kw * 0.13, ky + kh * 0.16];
+  var recess = gn_ell(dx, dyy, u * 3.3, u * 3.3) + gn_ell(bx, by, bo + br * 1.55, bo + br * 1.55) + gn_ell(s1[0], s1[1], kh * 0.17, kh * 0.16) + gn_ell(s2[0], s2[1], kh * 0.17, kh * 0.16);
+  var dpad = gn_rr(dx - u * 2.6, dyy - u * 0.85, u * 5.2, u * 1.7, u * 0.45) + gn_rr(dx - u * 0.85, dyy - u * 2.6, u * 1.7, u * 5.2, u * 0.45) + gn_rr(kx - kw * 0.1, ky - kh * 0.22, kw * 0.07, kh * 0.08, kh * 0.04) + gn_rr(kx + kw * 0.03, ky - kh * 0.22, kw * 0.07, kh * 0.08, kh * 0.04) + gn_ell(s1[0], s1[1] + kh * 0.02, kh * 0.13, kh * 0.13) + gn_ell(s2[0], s2[1] + kh * 0.02, kh * 0.13, kh * 0.13) + gn_rr(kx - kw * 0.03, ky - kh * 0.58, kw * 0.06, kh * 0.14, kh * 0.03);
+  var padHi = gn_rr(kx - kw * 0.26, ky - kh * 0.43, kw * 0.52, kh * 0.07, kh * 0.035) + b2_cres(kx - kw * 0.33, ky + kh * 0.02, kh * 0.42, kx - kw * 0.33 + kh * 0.05, ky + kh * 0.1, kh * 0.42) + b2_cres(kx + kw * 0.33, ky + kh * 0.02, kh * 0.42, kx + kw * 0.33 + kh * 0.05, ky + kh * 0.1, kh * 0.42)
+    + gn_rr(dx - u * 2.35, dyy - u * 0.7, u * 1.6, u * 0.45, u * 0.2) + gn_rr(dx - u * 0.6, dyy - u * 2.4, u * 1.2, u * 0.45, u * 0.2) + gn_ell(dx, dyy, u * 0.45, u * 0.45)
+    + gn_ell(s1[0], s1[1] - kh * 0.005, kh * 0.095, kh * 0.09) + gn_ell(s2[0], s2[1] - kh * 0.005, kh * 0.095, kh * 0.09) + gn_ell(kx, ky, kh * 0.055, kh * 0.055);
+  var btnHi = '';
+  [[bx, by - bo], [bx - bo, by], [bx + bo, by], [bx, by + bo], [s1[0], s1[1] - kh * 0.03], [s2[0], s2[1] - kh * 0.03]].forEach(function (q, k) { var r = k < 4 ? br : kh * 0.06; btnHi += 'M' + PT(q[0] - r * 0.62, q[1] - r * 0.1) + ' Q' + PT(q[0] - r * 0.55, q[1] - r * 0.62) + ' ' + PT(q[0] - r * 0.05, q[1] - r * 0.66) + ' '; });
+  add(far, 'g', ell(kx, ky + kh * 0.64, kw * 0.58, kh * 0.14), dk ? 'rgba(0,0,0,0.45)' : 'rgba(90,70,170,0.3)');
+  // near slots, back to front: sparkles, coins, star, hearts and mushrooms and flowers, then the controller in front
+  add(near, 'a', sp, C.spark);
+  if (!ANIM) { add(near, 'b', cEdge, C.slit); add(near, 'c', cFace, C.coin); add(near, 'd', cRing, C.ring);
+    add(near, 'e', SP.ol, C.starO); add(near, 'f', SP.body, C.star); add(near, 'g', SP.inner, C.starL); add(near, 'h', SP.blush, starCols.blush); add(near, 'i', SP.eyes, C.eye); }
+  add(near, 'j', hO + under, C.pinkD); gn_slot(near, 'k', hB + cap + pet, C.pink); gn_slot(near, 'l', stem + spots + fcen, C.det);
+  gn_slot(near, 'm', ANIM ? '' : cMark, markC);
+  gn_slot(near, 'n', hSh + capSh + fsh + (ANIM ? '' : cShine + SP.glint), shine); gn_slot(near, 'o', stemSh, shade);
+  gn_slot(near, 'p', padShape(kh * 0.1), C.padD); gn_slot(near, 'A', padShape(0), C.pad); gn_slot(near, 'B', recess, dk ? 'rgba(10,4,40,0.2)' : 'rgba(30,10,90,0.13)');
+  gn_slot(near, 'C', dpad, dk ? '#271B72' : '#36229A'); gn_slot(near, 'D', padHi, C.padL);
+  gn_slot(near, 'E', gn_ell(bx, by - bo, br, br), C.mint); gn_slot(near, 'F', gn_ell(bx - bo, by, br, br), C.coin); gn_slot(near, 'G', gn_ell(bx + bo, by, br, br), C.pink); gn_slot(near, 'H', gn_ell(bx, by + bo, br, br), C.det);
+  stk(near, 't', btnHi, 'rgba(255,255,255,0.8)', ph ? 1.2 : 1.6);
+  var cab = 'M' + PT(kx, ky - kh * 0.56) + ' C' + PT(kx, ky - kh * 1.2) + ' ' + PT(kx + kw * 0.9, ky - kh * 1.0) + ' ' + PT(kx + kw * 0.95, ky - kh * 0.1) + ' S' + PT(kx + kw * 1.5, ky + kh * 1.0) + ' ' + PT(kx + kw * 2.4, ky + kh * 0.5) + ' S' + PT(kx + kw * 3.2, ky + kh * 1.6) + ' ' + PT(kx + kw * 3.6, H + 30);
   stk(mid, 't', cab, dk ? '#3A2E8A' : '#7A66E0', ph ? 2.4 : 3);
-  if (dk) spread(0, gy - H * 0.25, W, H * 0.3, 120, 90, rnd, 1).forEach(function (c) { if (c.q < 0.35) { if (ANIM) { (ANIM.flies = ANIM.flies || []).push([c.x, c.y]); return; } add(far, 'h', circ(c.x, c.y, 10), 'rgba(160,255,210,0.45)'); add(near, 'g', circ(c.x, c.y, 1.8), '#D8FFE8'); } });
-  var ringD = near.h.d;
-  b3_out({sky: sky, far: far, refl: refl, mid: mid, near: near}); near.h.d = ringD;
+  if (dk) spread(0, gy - H * 0.25, W, H * 0.3, 120, 90, rnd, 1).forEach(function (c) { if (c.q < 0.35) { if (ANIM) { (ANIM.flies = ANIM.flies || []).push([c.x, c.y]); return; } add(far, 'h', circ(c.x, c.y, 10), 'rgba(160,255,210,0.45)'); add(near, 'a', gn_ell(c.x, c.y, 1.8, 1.8)); } });
   return {sky: sky, far: far, refl: refl, mid: mid, near: near};
 };
 
@@ -14597,23 +14708,27 @@ ENGINES.photography = function (A, v, dk) {
 // Game Night: coins spin in turn, the star twinkles, platforms bob
 ENGINES.gaming = function (A, v, dk) {
   var W = v.bw, H = v.bh, desk = v.desk, CC = A.coinC, S = A.star, HUD = A.hud;
-  var plats = (A.plats || []).map(function (p) { return {soil: new Path2D(p.soil), top: new Path2D(p.top), cSoil: p.cSoil, cTop: p.cTop, ph: p.ph, dy: 0}; });
+  var plats = (A.plats || []).map(function (p) { return {parts: p.parts.map(function (q) { return [new Path2D(q[0]), q[1]]; }), ph: p.ph, dy: 0}; });
   var coins = A.coins.map(function (c, i) { return {x: c.x, y: c.y, plat: c.plat, idx: i, got: -1, back: -1}; });
   var row = coins.filter(function (c) { return c.plat < 0; }).sort(function (a, b) { return b.x - a.x; });
   var cr = CC.r, glowSp = dk ? b6_sprite('255,200,90', [[0, 0.45], [0.5, 0.25], [1, 0]]) : null, coinBack = mix(CC.coin, CC.slit, 0.45);
-  var starP = new Path2D(b6_star(0, 0, S.R, 0)), eyes = new Path2D(ell(-S.R * 0.22, -S.R * 0.12, S.R * 0.07, S.R * 0.14) + ell(S.R * 0.22, -S.R * 0.12, S.R * 0.07, S.R * 0.14));
+  var SPp = gn_star(0, 0, S.R), starParts = ['ol', 'body', 'inner', 'blush', 'eyes', 'glint'].map(function (k) { return [new Path2D(SPp[k]), S.cols[k]]; });
   var sparkP = new Path2D(b6_spark(0, 0, 1)), starGlow = b6_sprite(dk ? '255,220,100' : '255,236,160', [[0, 1], [0.55, 0.7], [1, 0]]);
   var sparks = (A.sparks || []).filter(function (s) { for (var i = 0; i < 4; i++) if (Math.hypot(s[0] - (A.hud.x + i * A.hud.d), s[1] - A.hud.y) < s[2] + A.hud.s * 1.3) return false; return Math.hypot(s[0] - A.star.x, s[1] - A.star.y) > s[2] + A.star.R * 1.1; }).map(function (s, i) { return {x: s[0], y: s[1], r: s[2], ph: hash(i * 2.9) * 6.28, sp: 0.5 + hash(i * 1.3) * 0.5}; });
   var sparkC = dk ? '#FFF3C4' : '#FFFFFF';
   var ff = (A.flies || []).map(function (q, i) { return {x: q[0], y: q[1], ph: hash(i * 3.3) * 6.28}; }), ffSp = b6_sprite('160,255,210', [[0, 0.8], [0.3, 0.35], [1, 0]]);
-  var heart = new Path2D(b6_heart(0, 0, HUD.s)), heartHl = new Path2D(ell(-HUD.s * 0.45, -HUD.s * 0.35, HUD.s * 0.2, HUD.s * 0.14));
+  var heartO = new Path2D(gn_heartP(0, HUD.s * 0.04, HUD.s * 1.16)), heart = new Path2D(gn_heartP(0, 0, HUD.s)), heartHl = new Path2D(gn_ell(-HUD.s * 0.45, -HUD.s * 0.4, HUD.s * 0.22, HUD.s * 0.13, -30) + gn_ell(-HUD.s * 0.15, -HUD.s * 0.5, HUD.s * 0.06, HUD.s * 0.06));
   var sx = S.x, sy = S.y, srot = 0, sq = 1, fin = -1, pending = 0, heartT = -99, pops = [];
   var leftX = row.length ? row[row.length - 1].x - cr * 2.2 : sx - 200, hops = 3;
+  // a thick coin: its edge shows on the right as it turns (k = cos of the turn), then the face, rim ring, embossed mark and shine
   function coinDraw(c, x, y, k, a, s) {
-    var ak = Math.abs(k), rx = cr * Math.max(0.12, ak) * s; c.globalAlpha = a;
+    var ak = Math.abs(k), rx = cr * Math.max(0.06, ak) * s, ry = cr * s, e = (cr * 0.1 + cr * 0.3 * Math.sqrt(Math.max(0, 1 - k * k))) * s; c.globalAlpha = a;
     if (glowSp) b6_stamp(c, glowSp, x, y, cr * 2.2 * s, cr * 2.2 * s, 1);
-    c.fillStyle = k >= 0 ? CC.coin : coinBack; c.beginPath(); c.ellipse(x, y, rx, cr * s, 0, 0, 6.2832); c.fill();
-    if (ak > 0.25) { c.fillStyle = CC.slit; var sw = cr * 0.24 * ak * s; c.fillRect(x - sw / 2, y - cr * 0.5 * s, sw, cr * s); }
+    c.fillStyle = CC.slit; c.beginPath(); c.ellipse(x + e, y, rx, ry, 0, 0, 6.2832); c.rect(x, y - ry, e, ry * 2); c.fill();
+    c.fillStyle = k >= 0 ? CC.coin : coinBack; c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, 6.2832); c.fill();
+    if (ak > 0.3) { c.strokeStyle = CC.ring; c.lineWidth = cr * 0.11 * s; c.beginPath(); c.ellipse(x, y, rx * 0.78, ry * 0.78, 0, 0, 6.2832); c.stroke(); }
+    if (ak > 0.25) { c.fillStyle = CC.mark; var sw = cr * 0.24 * ak * s; c.fillRect(x - sw / 2, y - cr * 0.46 * s, sw, cr * 0.92 * s); }
+    if (ak > 0.4 && k > 0) { c.strokeStyle = CC.shine; c.lineWidth = cr * 0.12 * s; c.lineCap = 'round'; c.beginPath(); c.ellipse(x, y, rx * 0.66, ry * 0.66, 0, Math.PI * 1.1, Math.PI * 1.4); c.stroke(); }
     c.globalAlpha = 1;
   }
   return {
@@ -14634,7 +14749,7 @@ ENGINES.gaming = function (A, v, dk) {
       pops = pops.filter(function (p) { return t - p.t0 < 0.9; });
     },
     draw: function (ca, cb, t, f) {
-      plats.forEach(function (p) { ca.save(); ca.translate(0, p.dy); ca.fillStyle = p.cTop; ca.fill(p.top); ca.fillStyle = p.cSoil; ca.fill(p.soil); ca.restore(); });
+      plats.forEach(function (p) { ca.save(); ca.translate(0, p.dy); p.parts.forEach(function (q) { ca.fillStyle = q[1]; ca.fill(q[0]); }); ca.restore(); });
       var coinWarp = 0.9 * Math.sin(t * 0.23) + 0.5 * Math.sin(t * 0.071 + 1);
       coins.forEach(function (c, i) {
         var y = c.y + (c.plat >= 0 ? plats[c.plat].dy : 0), off = c.plat >= 0 ? 1.7 + i * 0.3 : (c.x - row[row.length - 1].x) / (cr * 3.5) * 0.22, lt = ((t * f.s + coinWarp - off) % 4.2 + 4.2) % 4.2, k = lt < 0.9 ? Math.cos(lt / 0.9 * Math.PI * 2) : 1;
@@ -14647,10 +14762,10 @@ ENGINES.gaming = function (A, v, dk) {
       b6_stamp(ca, starGlow, sx, sy, S.R * 1.8 * tw, S.R * 1.8 * tw, S.ga * (0.8 + 0.2 * Math.sin(t * 1.7 * f.s)));
       ca.fillStyle = S.spark; S.sparks.forEach(function (q, j) { var s = S.R * q[2] * (0.55 + 0.45 * (0.5 + 0.5 * Math.sin(t * 1.9 * f.s + j * 2.1))); ca.save(); ca.translate(S.x + S.R * q[0], S.y + S.R * q[1]); ca.scale(s, s); ca.fill(sparkP); ca.restore(); });
       cb.fillStyle = sparkC; sparks.forEach(function (s) { var a = Math.pow(Math.max(0, Math.sin(t * s.sp * f.s + s.ph)), 3); if (a < 0.02) return; cb.globalAlpha = a * 0.8; cb.save(); cb.translate(s.x, s.y); var sc = s.r * (1 + 0.35 * a); cb.scale(sc, sc); cb.fill(sparkP); cb.restore(); }); cb.globalAlpha = 1;
-      cb.save(); cb.translate(sx, sy); cb.rotate(srot + Math.sin(t * 0.8) * 0.05 * f.a); cb.scale(tw * (2 - sq), tw * sq); cb.fillStyle = S.col; cb.fill(starP); cb.fillStyle = S.eye; cb.fill(eyes); cb.restore();
+      cb.save(); cb.translate(sx, sy); cb.rotate(srot + Math.sin(t * 0.8) * 0.05 * f.a); cb.scale(tw * (2 - sq), tw * sq); starParts.forEach(function (q) { cb.fillStyle = q[1]; cb.fill(q[0]); }); cb.restore();
       if (ff.length) { cb.save(); cb.globalCompositeOperation = 'lighter'; ff.forEach(function (q) { var x = q.x + Math.sin(t * 0.33 + q.ph) * 24, y = q.y + Math.sin(t * 0.47 + q.ph * 2) * 12, a = 0.45 + 0.55 * Math.max(0, Math.sin(t * 0.9 + q.ph * 3)); b6_stamp(cb, ffSp, x, y, 11, 11, a); }); cb.restore(); cb.fillStyle = '#D8FFE8'; ff.forEach(function (q) { var x = q.x + Math.sin(t * 0.33 + q.ph) * 24, y = q.y + Math.sin(t * 0.47 + q.ph * 2) * 12; cb.beginPath(); cb.arc(x, y, 1.8, 0, 6.2832); cb.fill(); }); }
       var h = t - heartT; if (h >= 0 && h < 8) { var s = h < 0.45 ? b6_ease(h / 0.45) * (1 + 0.3 * Math.sin(h / 0.45 * Math.PI)) : 1 + 0.06 * Math.sin((h - 0.45) * 5) * Math.exp(-(h - 0.45)), a = 1 - b6_cl((h - 6) / 1.6);
-        cb.globalAlpha = a; cb.save(); cb.translate(HUD.x + 3 * HUD.d, HUD.y); cb.scale(s, s); cb.fillStyle = HUD.pink; cb.fill(heart); cb.fillStyle = HUD.hl; cb.fill(heartHl); cb.restore(); cb.globalAlpha = 1; }
+        cb.globalAlpha = a; cb.save(); cb.translate(HUD.x + 3 * HUD.d, HUD.y); cb.scale(s, s); cb.fillStyle = HUD.ol; cb.fill(heartO); cb.fillStyle = HUD.pink; cb.fill(heart); cb.fillStyle = HUD.hl; cb.fill(heartHl); cb.restore(); cb.globalAlpha = 1; }
     },
     finish: function (t) { if (fin >= 0) { if (pending < 2) pending++; return; } fin = t; }
   };
