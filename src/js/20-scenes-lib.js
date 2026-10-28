@@ -3746,7 +3746,8 @@ SCENES.halloween = function (W, H, dk, rnd) {
   function pumpkin(x, y, r, kind, face, leafy) { var Rx = r * 1.08, Ry = r * 0.86, cy = y - Ry, L = PK_LOBES[r < 30 ? 'small' : 'big'], B = L.b, nL = B.length - 1;
     // tone ramp: groove, shade, mid, lit, bright
     var tone = kind === 'ghost' ? ['ghostG', 'ghostS', 'ghostM', 'ghost', 'ghost'] : ['rib', 'pkB', 'pkM', 'pkF', 'pkH'];
-    S.sh += b2_ellA(x + r * 0.12, y, r * 1.2, r * 0.2);
+    // a tight contact shadow where the pumpkin sits; a lit jack-o'-lantern's shadow is drawn live in the engine so it reacts to the flicker
+    if (!(ANIM && face)) S.sh += b2_ellA(x, y - r * 0.02, r * 1.02, r * 0.12);
     function lobeOf(s) { for (var i = 0; i < nL - 1 && s > B[i + 1]; i++); return i; }
     function gw(v) { v = Math.max(-1, Math.min(1, v)); return v < 0 ? 0.2 + 0.8 * Math.pow(Math.max(0, 1 - Math.pow(-v, 2.2)), 1 / 2.2) : 0.32 + 0.68 * Math.pow(Math.max(0, 1 - Math.pow(v, 2.6)), 1 / 2.6); }
     // body point for lobe coordinate s (-1 left edge .. 1 right edge) and height v (-1 top .. 1 bottom): lobes hump up at the shoulders, dip at the stem
@@ -13600,9 +13601,11 @@ function rgba(hex, a) { var n = parseInt(hex.slice(1), 16); return 'rgba(' + (n 
         leaves.forEach(function (l) { l.y += l.vy * f.s * dt; l.x += (Math.sin(t * 0.9 + l.ph) * 18 + 6) * f.s * dt; l.a += l.va * f.s * dt; if (l.y > H + 20) { l.y = -20; l.x = Math.random() * W; } if (l.x > W + 20) l.x = -20; });
       },
       draw: function (ca, cb, t, f) {
-        // pools of lantern light on the ground, under the pumpkins
+        // each jack-o'-lantern: a contact shadow right under it, and the light from its carved face spilling forward
+        // onto the ground in front; as the flame flares the pool grows and washes out the front of the shadow
         lan.forEach(function (l, i) { var fk = flick(t * (0.55 + 0.45 * f.s), i * 2.1), k = (dk ? 0.85 : 0.45) * (0.6 + 0.5 * fk * f.a) + (i === flareIdx ? flare : 0);
-          ca.save(); ca.translate(l.x + l.r * 0.05, l.y + 3); ca.scale(1, 0.2); var g = ca.createRadialGradient(0, 0, 0, 0, 0, l.r * 1.9); g.addColorStop(0, 'rgba(255,160,70,' + (0.55 * k) + ')'); g.addColorStop(1, 'rgba(255,140,60,0)'); ca.fillStyle = g; ca.beginPath(); ca.arc(0, 0, l.r * 1.9, 0, 7); ca.fill(); ca.restore(); });
+          var rr = l.r * (1.5 + 0.12 * fk * f.a); ca.save(); ca.translate(l.x, l.y + l.r * 0.16); ca.scale(1, 0.24); var g = ca.createRadialGradient(0, 0, 0, 0, 0, rr); g.addColorStop(0, 'rgba(255,165,70,' + (0.6 * k) + ')'); g.addColorStop(0.5, 'rgba(255,145,60,' + (0.28 * k) + ')'); g.addColorStop(1, 'rgba(255,140,60,0)'); ca.fillStyle = g; ca.beginPath(); ca.arc(0, 0, rr, 0, 7); ca.fill(); ca.restore();
+          ca.save(); ca.translate(l.x, l.y + l.r * 0.02); ca.scale(1, 0.14); var gs = ca.createRadialGradient(0, 0, 0, 0, 0, l.r * 1.12); gs.addColorStop(0, dk ? 'rgba(0,0,0,0.55)' : 'rgba(60,30,60,0.32)'); gs.addColorStop(0.75, dk ? 'rgba(0,0,0,0.4)' : 'rgba(60,30,60,0.22)'); gs.addColorStop(1, 'rgba(0,0,0,0)'); ca.fillStyle = gs; ca.beginPath(); ca.arc(0, 0, l.r * 1.12, 0, 7); ca.fill(); ca.restore(); });
         bats.forEach(function (b) { var fl = Math.sin(t * b.fl * 1.7 * Math.max(0.6, f.s) + b.ph) * 0.17 * (0.6 + 0.4 * Math.sin(t * 0.9 + b.ph * 2.3)); ca.save(); ca.translate(b.x, b.y); ca.scale(b.dir, 1); var bt = hw_bat(0, 0, b.s, -6, fl);
           ca.fillStyle = A.batWing; ca.fill(new Path2D(bt.wing)); ca.fillStyle = A.batColor; ca.fill(new Path2D(bt.body)); ca.fillStyle = A.batEye; ca.fill(new Path2D(bt.eye)); ca.restore(); });
         cb.save(); cb.globalCompositeOperation = 'lighter';
