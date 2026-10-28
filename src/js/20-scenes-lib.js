@@ -7919,7 +7919,7 @@ SCENES.geology = function (W, H, dk, rnd) {
   var dm = '', dmS = ''; spread(0, H * 0.6, W, H * 0.16, 70, 40, rnd, 0.8).forEach(function (c) { var h = 30 + c.r * 50, cn = n5_cone(c.x, yF(c.x) - 18, 10 + c.r * 4, h, -1, (c.k - 0.5) * 6); dm += cn.all; dmS += cn.dark; });
   add(far, 'e', dm, dk ? '#150F2A' : '#8E7AA6'); add(far, 'g', dmS, dk ? 'rgba(6,2,16,0.35)' : 'rgba(80,60,110,0.22)');
   // ---- light from the opening: nested shafts give it soft, feathered edges and a brighter core ----
-  function shaftP(wA, wB) { var ca = ox - orx * 0.1, cb2 = W * (ph ? 0.35 : 0.35), a0 = ca - orx * 0.6 * wA, a1 = ca + orx * 0.6 * wA, b0 = cb2 - W * (ph ? 0.25 : 0.15) * wB, b1 = cb2 + W * (ph ? 0.25 : 0.15) * wB; return poly([[a0, Math.max(0, oy(a0)) + 2], [a1, Math.max(0, oy(a1)) + 2], [b1, H * 0.95], [b0, H * 0.95]]); } // starts at the rim of the opening, not above it
+  function shaftP(wA, wB) { var ca = ox - orx * 0.1, cb2 = W * (ph ? 0.35 : 0.35), a0 = ca - orx * 0.6 * wA, a1 = ca + orx * 0.6 * wA, b0 = cb2 - W * (ph ? 0.25 : 0.15) * wB, b1 = cb2 + W * (ph ? 0.25 : 0.15) * wB; a0 = Math.max(a0, ox - orx * 0.85); a1 = Math.min(a1, ox + orx * 0.85); var tp = []; for (var k = 0; k <= 16; k++) { var xk = a0 + (a1 - a0) * k / 16; tp.push([xk, oy(xk) + 5]); } return poly(tp.concat([[b1, H * 0.95], [b0, H * 0.95]])); } // starts at the rim of the opening, not above it
   add(refl, 'a', shaftP(1.15, 1.2), dk ? 'rgba(170,160,255,0.025)' : 'rgba(255,248,225,0.12)');
   add(refl, 'b', shaftP(0.9, 0.95), dk ? 'rgba(170,160,255,0.03)' : 'rgba(255,248,225,0.14)');
   add(refl, 'c', shaftP(0.62, 0.66), dk ? 'rgba(180,170,255,0.035)' : 'rgba(255,250,235,0.16)');
@@ -7954,15 +7954,24 @@ SCENES.geology = function (W, H, dk, rnd) {
   [[wl, 1], [wr, -1]].forEach(function (S) { for (var yy = H * 0.3; yy < H * 0.6; yy += H * 0.12) { var xx = S[0](yy) + S[1] * 6, len = 26 + rnd() * 30, cn = n5_cone(xx, yy - 6, 9, len, 1, S[1] * 4); stal += cn.all; stD += cn.dark; stH += cn.hi; wet += b2_ellA(cn.tip[0], cn.tip[1] - 1.5, 1.3, 2); tips.push(cn.tip); } });
   (ph ? [0.15, 0.4, 0.86] : [0.17, 0.26, 0.44, 0.6, 0.84, 0.9]).forEach(function (f, j) { var gx = W * f, gy = yF(gx) + 4, h = (ph ? 30 : 46) * (0.6 + (j % 3) * 0.3), cn = n5_cone(gx, gy, h * 0.3, h, -1, (j % 2 ? 1 : -1) * 2); stal += cn.all; stD += cn.dark; stH += cn.hi; });
   // ---- wall crystals (pink): faceted prisms on rocky ledges ----
-  var glow = [], wc = {mid: '', lit: '', dk: '', edge: '', glow: '', base: ''};
-  [[wl, 0.42, 1, 42], [wr, 0.36, -1, -44], [wl, 0.66, 1, 34], [wr, 0.62, -1, -36]].forEach(function (q, j) { var yy = H * q[1], xx = q[0](yy) + q[2] * 2, sz = (ph ? 34 : 58) * (j < 2 ? 1 : 0.8), C = n5_crys2(xx, yy, sz, q[3], 4, rnd);
-    ['mid', 'lit', 'dk', 'edge', 'glow', 'base'].forEach(function (kk) { wc[kk] += C[kk]; });
-    wc.base += b2_ellA(xx + q[2] * sz * 0.12, yy + 5, sz * 0.36, 6) + b2_ellA(xx + q[2] * sz * 0.34, yy + 4, sz * 0.16, 5);
+  var glow = [], wc = {mid: '', lit: '', dk: '', edge: '', glow: '', base: '', boss: '', bossLit: '', bossSh: '', wallSh: ''};
+  [[wl, 0.42, 1, 42], [wr, 0.36, -1, -44], [wl, 0.66, 1, 34], [wr, 0.62, -1, -36]].forEach(function (q, j) { var yy = H * q[1], xx = q[0](yy) - q[2] * (ph ? 4 : 6), sz = (ph ? 34 : 58) * (j < 2 ? 1 : 0.8), C = n5_crys2(xx, yy, sz, q[3], 4, rnd);
+    ['mid', 'lit', 'dk', 'edge', 'glow'].forEach(function (kk) { wc[kk] += C[kk]; });
+    // a rocky boss bulging out of the wall that the cluster's roots grow out of
+    var we = q[0](yy + 4), d = q[2], bp = [], top = [], bot = [], i, back = sz * 0.9, out = sz * 0.38, y0 = yy + sz * 0.04;
+    for (i = 0; i <= 14; i++) { var u = i / 14, xq = we - d * back + d * (back + out) * u; top.push([xq, y0 - Math.sin(Math.PI * Math.min(1, u * 1.15)) * sz * 0.08 + u * sz * 0.02 + Math.sin(i * 1.7 + j) * 1.2]); }
+    for (i = 14; i >= 0; i--) { u = i / 14; xq = we - d * back + d * (back + out) * u; bot.push([xq, y0 + sz * (0.06 + 0.24 * Math.pow(1 - u, 0.7)) * (u > 0.9 ? (1 - u) * 10 : 1)]); }
+    bp = top.concat(bot);
+    wc.boss += b2_polyA(bp);
+    wc.bossLit += b2_band(top.slice(3).map(function (pt) { return [pt[0], pt[1] + 1.4]; }), 2.4);
+    wc.bossSh += b2_polyA(bot.slice(0, 12).map(function (pt) { return [pt[0], pt[1] - 4]; }).concat(bot.slice(0, 12).reverse()));
+    wc.wallSh += b2_polyA(bot.slice(2, 13).map(function (pt) { return [pt[0], pt[1] - 1]; }).concat(bot.slice(2, 13).reverse().map(function (pt) { return [pt[0] - d * 4, pt[1] + 7]; })));
     glow.push({x: xx + q[2] * sz * 0.3, y: yy - sz * 0.45, r: ph ? 40 : 60, c: 2, tips: C.tips}); });
-  add(mid, 'h', stal + wc.base, dk ? '#2A2048' : '#8E78A6'); add(mid, 'i', stD, dk ? 'rgba(6,2,16,0.4)' : 'rgba(70,50,100,0.28)'); add(mid, 'j', stH + wet + flk, dk ? 'rgba(200,180,255,0.22)' : 'rgba(255,255,255,0.45)');
+  add(mid, 'h', stal + wc.base, dk ? '#2A2048' : '#8E78A6'); add(mid, 'i', stD + wc.wallSh, dk ? 'rgba(6,2,16,0.4)' : 'rgba(70,50,100,0.28)'); add(mid, 'j', stH + wet + flk, dk ? 'rgba(200,180,255,0.22)' : 'rgba(255,255,255,0.45)');
   add(mid, 'k', wc.mid, dk ? '#B04A8A' : '#E07AAE'); add(mid, 'l', wc.lit, dk ? '#F08AC8' : '#FFC2DE'); add(mid, 'm', wc.dk, dk ? '#7A2C62' : '#C2558E');
   add(mid, 'n', wc.glow, dk ? 'rgba(255,220,245,0.5)' : 'rgba(255,255,255,0.32)'); add(mid, 'o', wc.edge, dk ? 'rgba(255,235,250,0.85)' : 'rgba(255,255,255,0.95)');
   add(mid, 'p', lvs, dk ? '#2E5A48' : '#5FA26E'); add(mid, 'A', lvs2, dk ? '#3E7A5E' : '#8CC88E');
+  add(mid, 'B', wc.boss, dk ? '#251B42' : '#9A7EAA'); add(mid, 'C', wc.bossSh, dk ? 'rgba(4,0,12,0.4)' : 'rgba(60,40,90,0.25)'); add(mid, 'D', wc.bossLit, dk ? 'rgba(180,150,240,0.2)' : 'rgba(255,255,255,0.35)');
   // ---- the floor: a lit edge, pebbles with a glint, pools ringed by stones with a sheen ----
   var fl = [], fx; for (fx = -40; fx <= W + 40; fx += 10) fl.push([fx, yF(fx)]);
   add(near, 'a', below(fl, H + 40), dk ? '#120C22' : '#6A5884');
