@@ -13637,8 +13637,8 @@ function b1_tiles(cv, T) { var w = cv.width, h = cv.height, id = cv.getContext('
   for (y = 0; y < h; y++) for (x = 0; x < w; x++) if (id[(y * w + x) * 4 + 3] > 0) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; y1 = y; }
   if (x1 < 0) return [];
   var c = b1_scratch(x1 - x0 + 1, y1 - y0 + 1); c.getContext('2d').drawImage(cv, -x0, -y0); return [{cv: c, x: x0, y: y0}]; }
-// Whole pixels only: tiles drawn at fractional positions show faint seams between them
-function b1_blit(c, tiles, dx, dy) { dx = Math.round(dx); dy = Math.round(dy); for (var i = 0; i < tiles.length; i++) c.drawImage(tiles[i].cv, tiles[i].x + dx, tiles[i].y + dy); }
+// b1_tiles returns one cropped image, so it can move by fractions of a pixel without seams (smooth slow motion)
+function b1_blit(c, tiles, dx, dy) { for (var i = 0; i < tiles.length; i++) c.drawImage(tiles[i].cv, tiles[i].x + dx, tiles[i].y + dy); }
 function b1_scratch(w, h) { var cv = document.createElement('canvas'); cv.width = Math.max(1, Math.ceil(w)); cv.height = Math.max(1, Math.ceil(h)); return cv; }
 
 // 1. Ocean Waves
