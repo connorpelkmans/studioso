@@ -7824,7 +7824,10 @@ function examEvidence(ex){
       const hit = cards.filter(({c, d}) => deckHit(d) || xrNumHit(nums, c.front + " " + c.back) || xrWords(c.front + " " + c.back).some(w => terms.has(w)));
       if (hit.length >= 5 && hit.length >= cards.length * 0.1 && hit.length < cards.length * 0.95) {
         const ds = course.filter(d => hit.filter(h => h.d === d).length >= d.cards.filter(live).length * 0.5);
-        out = {how: "topics", decks: ds, cards: hit.map(h => h.c), terms: [...terms].slice(0, 8)};
+        // "chapters 4-6", "unit 2" for the sheet that explains what Automatic picked
+        const runs = a => { const v = [...a].sort((x, y) => x - y), o = []; v.forEach(n => { const l = o[o.length - 1]; if (l && n === l[1] + 1) l[1] = n; else o.push([n, n]); }); return o.map(([x, y]) => x === y ? String(x) : x + "–" + y).join(", "); };
+        const label = Object.keys(nums).map(k => ({ch: "chapter", unit: "unit", module: "module", week: "week", lecture: "lecture", lesson: "lesson"}[k] || k) + (nums[k].size > 1 ? "s " : " ") + runs(nums[k]));
+        out = {how: "topics", decks: ds, cards: hit.map(h => h.c), terms: label.concat([...terms]).slice(0, 8)};
       }
     }
     // the cards made since the course's previous exam (a later exam usually covers the newer material)
@@ -8926,7 +8929,7 @@ function planNotes(F, inView, crunchMain){
   if (b && (() => { try { return localStorage.getItem(BUSY_LS) !== today; } catch (e) { return true; } })()) {
     const name = d => dayDiff(today, d.d) === 1 ? "Tomorrow" : parse(d.d).toLocaleDateString(undefined, {weekday: "long"});
     const days = b.days.map(d => name(d) + (d.what ? ` (${d.what})` : "")), list = days.length > 1 ? days.slice(0, -1).join(", ") + " and " + days[days.length - 1] : days[0];
-    rows.push({k: "busy", cls: "plan-busy", main: `<b>Busy days ahead.</b> ${esc(list)} ${days.length > 1 ? "leave" : "leaves"} little study time, so more of your work needs doing today. Adding <b>${fmtHM(b.add)}</b> today ${b.all ? "keeps you on track" : "helps you keep up"}.`,
+    rows.push({k: "busy", main: `<b>Busy days ahead.</b> ${esc(list)} ${days.length > 1 ? "leave" : "leaves"} little study time, so more of your work needs doing today. Adding <b>${fmtHM(b.add)}</b> today ${b.all ? "keeps you on track" : "helps you keep up"}.`,
       acts: `<button class="btn small primary" data-act="today-set" data-id="${b.to}">Make Today ${fmtHM(b.to)}</button><button class="btn small" data-act="busy-hide">Not Today</button>`});
   }
   // How ready you feel against your results, for the nearest exam with a clear gap (hidden for the day with Got It)

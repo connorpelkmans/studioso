@@ -761,7 +761,7 @@ function planNotes(F, inView, crunchMain){
   if (b && (() => { try { return localStorage.getItem(BUSY_LS) !== today; } catch (e) { return true; } })()) {
     const name = d => dayDiff(today, d.d) === 1 ? "Tomorrow" : parse(d.d).toLocaleDateString(undefined, {weekday: "long"});
     const days = b.days.map(d => name(d) + (d.what ? ` (${d.what})` : "")), list = days.length > 1 ? days.slice(0, -1).join(", ") + " and " + days[days.length - 1] : days[0];
-    rows.push({k: "busy", cls: "plan-busy", main: `<b>Busy days ahead.</b> ${esc(list)} ${days.length > 1 ? "leave" : "leaves"} little study time, so more of your work needs doing today. Adding <b>${fmtHM(b.add)}</b> today ${b.all ? "keeps you on track" : "helps you keep up"}.`,
+    rows.push({k: "busy", main: `<b>Busy days ahead.</b> ${esc(list)} ${days.length > 1 ? "leave" : "leaves"} little study time, so more of your work needs doing today. Adding <b>${fmtHM(b.add)}</b> today ${b.all ? "keeps you on track" : "helps you keep up"}.`,
       acts: `<button class="btn small primary" data-act="today-set" data-id="${b.to}">Make Today ${fmtHM(b.to)}</button><button class="btn small" data-act="busy-hide">Not Today</button>`});
   }
   // How ready you feel against your results, for the nearest exam with a clear gap (hidden for the day with Got It)
