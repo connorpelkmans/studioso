@@ -3746,7 +3746,8 @@ SCENES.halloween = function (W, H, dk, rnd) {
   function pumpkin(x, y, r, kind, face, leafy) { var Rx = r * 1.08, Ry = r * 0.86, cy = y - Ry, L = PK_LOBES[r < 30 ? 'small' : 'big'], B = L.b, nL = B.length - 1;
     // tone ramp: groove, shade, mid, lit, bright
     var tone = kind === 'ghost' ? ['ghostG', 'ghostS', 'ghostM', 'ghost', 'ghost'] : ['rib', 'pkB', 'pkM', 'pkF', 'pkH'];
-    S.sh += b2_ellA(x + r * 0.12, y, r * 1.2, r * 0.2);
+    // a tight contact shadow where the pumpkin sits; a lit jack-o'-lantern's shadow is drawn live in the engine so it reacts to the flicker
+    if (!(ANIM && face)) S.sh += b2_ellA(x, y - r * 0.02, r * 1.02, r * 0.12);
     function lobeOf(s) { for (var i = 0; i < nL - 1 && s > B[i + 1]; i++); return i; }
     function gw(v) { v = Math.max(-1, Math.min(1, v)); return v < 0 ? 0.2 + 0.8 * Math.pow(Math.max(0, 1 - Math.pow(-v, 2.2)), 1 / 2.2) : 0.32 + 0.68 * Math.pow(Math.max(0, 1 - Math.pow(v, 2.6)), 1 / 2.6); }
     // body point for lobe coordinate s (-1 left edge .. 1 right edge) and height v (-1 top .. 1 bottom): lobes hump up at the shoulders, dip at the stem
@@ -3994,7 +3995,9 @@ SCENES.thanksgiving = function (W, H, dk, rnd) {
   add(bg, 'g', tSh, dk ? 'rgba(30,10,6,0.35)' : 'rgba(120,50,20,0.22)'); add(bg, 'h', tHi, dk ? 'rgba(255,200,140,0.1)' : 'rgba(255,240,200,0.28)');
   // the red barn with a gambrel roof, white trim, an X-braced door and a glowing hayloft, and a silo beside it
   var bi = Math.round((bx + 60) / 10), byb = hA[bi][1] + 6, sxL = bx - bw * 0.74, sw2 = bw * 0.28, sH = bh * 1.5;
-  add(bg, 'i', RR(sxL - sw2 / 2, byb - sH, sw2, sH), dk ? '#4E4448' : '#B8AEA6');
+  // the silo stands on the hill under its own footprint (the lowest point it covers), sunk in a little so it never floats
+  var sGround = function (x) { return hA[Math.max(0, Math.min(hA.length - 1, Math.round((x + 60) / 10)))][1]; }, syb = Math.max(sGround(sxL - sw2 / 2), sGround(sxL), sGround(sxL + sw2 / 2)) + 6, sTop = byb - sH;
+  add(bg, 'i', RR(sxL - sw2 / 2, sTop, sw2, syb - sTop), dk ? '#4E4448' : '#B8AEA6');
   var dome = []; for (var di = 0; di <= 12; di++) { var da = Math.PI + di / 12 * Math.PI; dome.push([sxL + Math.cos(da) * sw2 * 0.56, byb - sH + Math.sin(da) * sw2 * 0.5]); }
   var roofL = [[bx - bw / 2 - 2, byb - bh + 1], [bx - bw * 0.42, byb - bh - bw * 0.27], [bx, byb - bh - bw * 0.44], [bx + bw * 0.42, byb - bh - bw * 0.27], [bx + bw / 2 + 2, byb - bh + 1]], rt = bw * 0.08;
   add(bg, 'j', b2_polyA(dome) + b2_polyA(roofL.concat(roofL.slice().reverse().map(function (q) { return [q[0], q[1] + rt]; }))), dk ? '#3A2626' : '#6E4A42');
@@ -13600,9 +13603,11 @@ function rgba(hex, a) { var n = parseInt(hex.slice(1), 16); return 'rgba(' + (n 
         leaves.forEach(function (l) { l.y += l.vy * f.s * dt; l.x += (Math.sin(t * 0.9 + l.ph) * 18 + 6) * f.s * dt; l.a += l.va * f.s * dt; if (l.y > H + 20) { l.y = -20; l.x = Math.random() * W; } if (l.x > W + 20) l.x = -20; });
       },
       draw: function (ca, cb, t, f) {
-        // pools of lantern light on the ground, under the pumpkins
+        // each jack-o'-lantern: a contact shadow right under it, and the light from its carved face spilling forward
+        // onto the ground in front; as the flame flares the pool grows and washes out the front of the shadow
         lan.forEach(function (l, i) { var fk = flick(t * (0.55 + 0.45 * f.s), i * 2.1), k = (dk ? 0.85 : 0.45) * (0.6 + 0.5 * fk * f.a) + (i === flareIdx ? flare : 0);
-          ca.save(); ca.translate(l.x + l.r * 0.05, l.y + 3); ca.scale(1, 0.2); var g = ca.createRadialGradient(0, 0, 0, 0, 0, l.r * 1.9); g.addColorStop(0, 'rgba(255,160,70,' + (0.55 * k) + ')'); g.addColorStop(1, 'rgba(255,140,60,0)'); ca.fillStyle = g; ca.beginPath(); ca.arc(0, 0, l.r * 1.9, 0, 7); ca.fill(); ca.restore(); });
+          var rr = l.r * (1.5 + 0.12 * fk * f.a); ca.save(); ca.translate(l.x, l.y + l.r * 0.16); ca.scale(1, 0.24); var g = ca.createRadialGradient(0, 0, 0, 0, 0, rr); g.addColorStop(0, 'rgba(255,165,70,' + (0.6 * k) + ')'); g.addColorStop(0.5, 'rgba(255,145,60,' + (0.28 * k) + ')'); g.addColorStop(1, 'rgba(255,140,60,0)'); ca.fillStyle = g; ca.beginPath(); ca.arc(0, 0, rr, 0, 7); ca.fill(); ca.restore();
+          ca.save(); ca.translate(l.x, l.y + l.r * 0.02); ca.scale(1, 0.14); var gs = ca.createRadialGradient(0, 0, 0, 0, 0, l.r * 1.12); gs.addColorStop(0, dk ? 'rgba(0,0,0,0.55)' : 'rgba(60,30,60,0.32)'); gs.addColorStop(0.75, dk ? 'rgba(0,0,0,0.4)' : 'rgba(60,30,60,0.22)'); gs.addColorStop(1, 'rgba(0,0,0,0)'); ca.fillStyle = gs; ca.beginPath(); ca.arc(0, 0, l.r * 1.12, 0, 7); ca.fill(); ca.restore(); });
         bats.forEach(function (b) { var fl = Math.sin(t * b.fl * 1.7 * Math.max(0.6, f.s) + b.ph) * 0.17 * (0.6 + 0.4 * Math.sin(t * 0.9 + b.ph * 2.3)); ca.save(); ca.translate(b.x, b.y); ca.scale(b.dir, 1); var bt = hw_bat(0, 0, b.s, -6, fl);
           ca.fillStyle = A.batWing; ca.fill(new Path2D(bt.wing)); ca.fillStyle = A.batColor; ca.fill(new Path2D(bt.body)); ca.fillStyle = A.batEye; ca.fill(new Path2D(bt.eye)); ca.restore(); });
         cb.save(); cb.globalCompositeOperation = 'lighter';
@@ -21320,26 +21325,34 @@ ENGINES.pottery = function (A, v, dk) {
   var clayC = dk ? ['#A88A7C', '#6E5246', '#C9AA9A'] : ['#C8A493', '#8E6A5C', '#E6CBBE'];
   var GLZ = ['#2FA7A0', '#3F63C8', '#8E5BC8', '#D8708E', '#E8A23A'];
   function glazeAt(k) { k = ((k % GLZ.length) + GLZ.length) % GLZ.length; var a = Math.floor(k), f = k - a; return mix(GLZ[a], GLZ[(a + 1) % GLZ.length], n3_ease(f)); }
-  function lumpR(u, rise) { return (26 - rise * 6) * Math.pow(Math.max(0, 1 - Math.pow(u, 2.2)), 0.55) + 4 * (1 - u); }
+  // the clay mid-throw: a pulled cylinder with a flared, slip-wet foot, a gentle belly and a slightly narrower top
+  function lumpR(u, rise) { return 14.5 + (11 - rise * 2) * Math.sin(Math.PI * Math.pow(u, 0.9)) + 4 * Math.pow(1 - u, 6) + (u > 0.92 ? 2.5 * (u - 0.92) / 0.08 : 0); }
   var shoulderR = 15 + 17 * Math.sin(Math.PI * 0.92) * (0.6 + 0.4 * 0.38);
   function vaseR(u) { if (u < 0.62) return 15 + 17 * Math.sin(Math.PI * (u / 0.62) * 0.92) * (0.6 + 0.4 * (1 - u)); var t = (u - 0.62) / 0.38; return 11 + (shoulderR - 11) * Math.pow(1 - Math.min(1, t / 0.45), 2.2) + 4 * Math.pow(t, 1.6) + (u > 0.94 ? 3 : 0); }
   function drawPot(c, t) {
-    var T = t - T0, form = n3_ease(n3_env(T, 0.15, 2.6, 15, 17.5)), rise = 0.5 + 0.5 * Math.sin(t * 0.55), lumpH = 30 + rise * 16, hgt = (lumpH + (124 - lumpH) * form) * ws, x = Wh.x, base = Wh.y - 5 * ws;
+    var T = t - T0, form = n3_ease(n3_env(T, 0.15, 2.6, 15, 17.5)), rise = 0.5 + 0.5 * Math.sin(t * 0.55), lumpH = 40 + rise * 14, hgt = (lumpH + (124 - lumpH) * form) * ws, x = Wh.x, base = Wh.y - 5 * ws;
     var n = 24, L = [], R = [];
     for (var k = 0; k <= n; k++) { var u = k / n, r = (lumpR(u, rise) * (1 - form) + vaseR(u) * form) * ws; L.push([x - r, base - u * hgt]); R.push([x + r, base - u * hgt]); }
     var glazeU = n3_ease((T - 2.7) / 1.6) * (T < 17.5 ? 1 : 0), glazeA = n3_env(T, 2.7, 3.2, 15, 17), sh = t * 0.35;
-    var body = new Path2D(); body.moveTo(L[0][0], L[0][1]); for (k = 1; k <= n; k++) body.lineTo(L[k][0], L[k][1]); body.quadraticCurveTo(x, R[n][1] - 4 * ws * (form > 0.5 ? 0 : 1), R[n][0], R[n][1]); for (k = n - 1; k >= 0; k--) body.lineTo(R[k][0], R[k][1]); body.closePath();
-    var wl = Math.max(30 * ws, R[Math.round(n * 0.3)][0] - x) * 1.1;
+    var body = new Path2D(); body.moveTo(L[0][0], L[0][1]); for (k = 1; k <= n; k++) body.lineTo(L[k][0], L[k][1]); body.quadraticCurveTo(x, R[n][1] - (R[n][0] - x) * 0.3, R[n][0], R[n][1]); for (k = n - 1; k >= 0; k--) body.lineTo(R[k][0], R[k][1]); body.closePath();
+    var wl = Math.max(30 * ws, R[Math.round(n * 0.3)][0] - x) * 1.1, r0 = R[0][0] - x;
+    c.fillStyle = dk ? 'rgba(90,64,54,0.85)' : 'rgba(150,112,96,0.75)'; c.beginPath(); c.ellipse(x, base + 1 * ws, r0 * 1.12, r0 * 0.22, 0, 0, 7); c.fill();
+    c.fillStyle = dk ? 'rgba(220,190,175,0.18)' : 'rgba(255,240,230,0.4)'; c.beginPath(); c.ellipse(x - r0 * 0.35, base - 0.5 * ws, r0 * 0.35, r0 * 0.05, 0, 0, 7); c.fill();
     c.fillStyle = n3_lin(c, x - wl, 0, x + wl, 0, [[0, clayC[1]], [0.32, clayC[2]], [0.62, clayC[0]], [1, clayC[1]]]); c.fill(body);
     if (glazeA > 0.01) { c.save(); c.clip(body); var top = base - hgt * glazeU - 6 * ws; c.globalAlpha = glazeA;
       var g = c.createLinearGradient(0, base, 0, base - hgt); g.addColorStop(0, glazeAt(sh)); g.addColorStop(0.5, glazeAt(sh + 1)); g.addColorStop(1, glazeAt(sh + 2)); c.fillStyle = g;
       c.beginPath(); c.moveTo(x - wl * 2, base + 4); c.lineTo(x - wl * 2, top); for (var q = 0; q <= 16; q++) { var xx = x - wl * 2 + q / 16 * wl * 4; c.lineTo(xx, top + Math.sin(q * 1.9 + t * 3) * 3 * ws + (q % 3 === 0 ? 5 * ws : 0)); } c.lineTo(x + wl * 2, base + 4); c.fill();
       c.fillStyle = n3_lin(c, x - wl, 0, x + wl, 0, [[0, 'rgba(0,0,0,0.25)'], [0.3, 'rgba(255,255,255,0.35)'], [0.42, 'rgba(255,255,255,0)'], [0.85, 'rgba(0,0,0,0.12)'], [1, 'rgba(0,0,0,0.3)']]); c.fillRect(x - wl * 2, top - 10, wl * 4, base - top + 14); c.restore(); }
     c.save(); c.clip(body); c.strokeStyle = form > 0.5 && glazeA > 0.5 ? 'rgba(255,255,255,0.18)' : (dk ? 'rgba(60,40,34,0.35)' : 'rgba(110,76,64,0.32)'); c.lineWidth = 1.2 * ws;
-    for (var j = 1; j < 9; j++) { var uu = (j / 9 + (spin * 0.02) % (1 / 9)), kk = Math.min(n, Math.round(uu * n)), rr = R[kk][0] - x, yy = base - uu * hgt; c.beginPath(); c.ellipse(x, yy, rr, rr * 0.18, 0, 0.15, Math.PI - 0.15); c.stroke(); }
+    c.globalAlpha = 0.6; c.lineWidth = 0.9 * ws;
+    for (var j = 0; j < 7; j++) { var uu = ((j + 0.35 * Math.sin(j * 2.3)) / 7 + 0.06 + (spin * 0.012) % (1 / 7)); if (uu > 0.93 || uu < 0.08) continue; var kk = Math.min(n, Math.round(uu * n)), rr = R[kk][0] - x, yy = base - uu * hgt; c.beginPath(); c.ellipse(x, yy, rr, rr * 0.2, 0, 0.12, Math.PI - 0.12); c.stroke(); }
+    c.globalAlpha = 1;
     c.restore();
-    if (form > 0.3) { var tr = R[n][0] - x; c.fillStyle = 'rgba(60,30,24,' + (0.8 * form) + ')'; c.beginPath(); c.ellipse(x, R[n][1], tr * 0.85, tr * 0.24, 0, 0, 7); c.fill(); }
-    c.fillStyle = 'rgba(255,255,255,' + (dk ? 0.12 : 0.22) + ')'; c.beginPath(); c.ellipse(x - wl * 0.45, base - hgt * 0.45, 3 * ws, hgt * 0.28, 0, 0, 7); c.fill();
+    var tr = R[n][0] - x, ty = R[n][1] - tr * 0.15, op = form > 0.3 ? 0.85 : 0.72;
+    c.fillStyle = dk ? '#3E2A24' : '#6E4A3E'; c.beginPath(); c.ellipse(x, ty, tr * op, tr * 0.24 * op, 0, 0, 7); c.fill();
+    c.fillStyle = dk ? '#2A1C18' : '#553429'; c.beginPath(); c.ellipse(x, ty + tr * 0.05 * op, tr * op * 0.8, tr * 0.16 * op, 0, 0, 7); c.fill();
+    c.strokeStyle = clayC[2]; c.lineWidth = 2 * ws; c.beginPath(); c.ellipse(x, ty, tr * (op + 0.08), tr * 0.25 * (op + 0.08), 0, Math.PI * 0.05, Math.PI * 0.95); c.stroke();
+    c.save(); c.clip(body); var sx2 = x - tr * 0.42; c.fillStyle = n3_lin(c, sx2 - 5 * ws, 0, sx2 + 5 * ws, 0, [[0, 'rgba(255,255,255,0)'], [0.5, 'rgba(255,255,255,' + (dk ? 0.16 : 0.32) + ')'], [1, 'rgba(255,255,255,0)']]); c.fillRect(sx2 - 5 * ws, base - hgt + 4 * ws, 10 * ws, hgt - 10 * ws); c.restore();
     return {top: base - hgt, done: form > 0.98 && glazeU > 0.98};
   }
   var Cs = A.sill;
