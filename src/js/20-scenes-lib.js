@@ -1553,7 +1553,7 @@ SCENES.baking = function (W, H, dk, rnd) {
   stand += EL(kx, ky + 4 * u, PRd, pry) + P(AP(kx, ky + 4 * u, PRd, pry, 0, PI, 24).concat(AP(kx, ky + 9 * u, PRd * 0.97, pry, PI, 0, 24)));
   stand += P([[kx - 16 * u, ky + 10 * u], [kx + 16 * u, ky + 10 * u], [kx + 7 * u, ky + 24 * u], [kx + 6 * u, cty - 24 * u], [kx + 30 * u, cty - 13 * u], [kx - 30 * u, cty - 13 * u], [kx - 6 * u, cty - 24 * u], [kx - 7 * u, ky + 24 * u]]) + EL(kx, cty - 13 * u, 30 * u, 4.5 * u);
   shade2 += P(AP(kx, ky + 4 * u, PRd, pry, 0.05, PI - 0.05, 24).concat(AP(kx, ky + 9 * u, PRd * 0.97, pry, PI - 0.05, 0.05, 24))) + P([[kx + 1 * u, ky + 12 * u], [kx + 16 * u, ky + 10 * u], [kx + 7 * u, ky + 24 * u], [kx + 6 * u, cty - 24 * u], [kx + 30 * u, cty - 13 * u], [kx + 4 * u, cty - 13 * u], [kx + 2 * u, cty - 24 * u]]);
-  hi += LENS(kx - 4 * u, ky + 16 * u, kx - 3 * u, cty - 18 * u, 2.4 * u) + EDGE(kx, ky + 4 * u, PRd, pry, 0, PI * 1.1, PI * 1.9, 1.8 * u);
+  hi += LENS(kx - 4 * u, ky + 16 * u, kx - 3 * u, cty - 18 * u, 2.4 * u) + EDGE(kx, ky + 4 * u, PRd, pry, 0, PI * 1.1, PI * 1.2, 1.8 * u) + EDGE(kx, ky + 4 * u, PRd, pry, 0, PI * 1.8, PI * 1.9, 1.8 * u); /* the back rim only shows either side of the cake */
   shad += EL(kx, cty - 11 * u, 40 * u, 4 * u);
   doi(kx, cb + 1 * u, Rk * 1.08);
   pink += P([[kx - Rk, topY]].concat(AP(kx, cb, Rk, cry, PI, 0, 24), AP(kx, topY, Rk, cry, 0, -PI, 24)));
@@ -1585,7 +1585,7 @@ SCENES.baking = function (W, H, dk, rnd) {
   add(near, 'l', shade2, dk ? 'rgba(60,20,20,0.3)' : 'rgba(150,70,50,0.2)'); add(near, 'm', cream, dk ? '#F1E2D6' : '#FFF6EA'); add(near, 'n', cShade, dk ? 'rgba(120,70,60,0.35)' : 'rgba(200,150,130,0.35)');
   add(near, 'o', hi, dk ? 'rgba(255,240,240,0.28)' : 'rgba(255,255,255,0.6)'); add(near, 'p', red, dk ? '#D63A4E' : '#D8364E'); add(near, 'A', blue, dk ? '#5A6AC0' : '#5E72D0');
   add(near, 'B', spr1, dk ? '#E4C86A' : '#F2C94C'); add(near, 'C', spr2, dk ? '#6FBFA6' : '#7CCFB2'); add(near, 'D', glint, 'rgba(255,255,255,0.75)'); add(near, 'E', stem, dk ? '#9A6440' : '#B97A44');
-  add(near, 'F', tags, dk ? '#E6D6C4' : '#FFFDF8'); add(near, 'G', R(-10, cty + 2 * u, W + 20, base - cty - 3 * u), dk ? 'rgba(255,200,200,0.04)' : 'rgba(255,255,255,0.12)'); add(near, 'H', gl, dk ? 'rgba(255,230,230,0.07)' : 'rgba(255,255,255,0.35)');
+  add(near, 'F', tags, dk ? '#E6D6C4' : '#FFFDF8'); add(near, 'G', R(-10, cty + 2 * u, W + 20, base - cty - 3 * u), dk ? 'rgba(255,200,200,0.04)' : 'rgba(255,255,255,0.12)'); near.P = E(); add(near, 'P', gl, dk ? 'rgba(255,235,235,0.16)' : 'rgba(255,255,255,0.42)'); /* the case glass glints sit in front of every pastry */
   stk(near, 's', tagT, dk ? '#8A6060' : '#C08080', 1.2);
   return b3_out({sky: sky, far: far, refl: refl, mid: mid, near: near});
 };
