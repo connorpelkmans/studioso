@@ -529,11 +529,14 @@ html[data-plan-top="week"] .plan .fh-ctl.has-stats .hours-ctl{display:none}
 @media (min-width:900px){.dtl-rail{--k:1.9px}}
 .dtl-c{width:clamp(104px,calc(var(--m,60) * var(--k)),460px)}
 .dtl-c.fr{width:clamp(74px,calc(var(--m,60) * var(--k)),240px)}
+/* A card beside free time borrows some of it, so a short task keeps more of its title */
+.dtl-c:not(.fr):is(.fr + .dtl-c,:has(+ .dtl-c.fr)){width:clamp(156px,calc(var(--m,60) * var(--k)),460px)}
 /* Desktop: the ribbon always runs the full width, each card taking its share of the time */
 @media (min-width:900px){
   .dtl-rail{overflow-x:auto}
   .dtl-c,.dtl-c.fr{flex:var(--m,60) 1 0;width:auto;max-width:none;min-width:104px}
   .dtl-c.fr{min-width:74px}
+  .dtl-c:not(.fr):is(.fr + .dtl-c,:has(+ .dtl-c.fr)){min-width:156px}
 }
 /* Past your end of day: one card across the whole row, its words side by side */
 .dtl-over .dtl-rail{overflow:visible}
