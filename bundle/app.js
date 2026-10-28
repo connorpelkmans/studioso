@@ -55627,6 +55627,9 @@ var COMP_EXTRA = [];
     const h = Math.max(innerHeight, (window.visualViewport && visualViewport.height) || 0);
     if (h > fullH) fullH = h;
     // a sheet is open, or one just closed and the keyboard is still sliding away
+    // or the keyboard is up (typing on the whiteboard or in a note)
+    const vv = window.visualViewport;
+    if (vv && vv.height < fullH - 100) return true;
     return !!document.querySelector("dialog[open]") || (performance.now() - dlgShut < 800 && h < fullH - 100);
   }
   let dlgShut = -1e9;
@@ -76055,7 +76058,8 @@ var SBWB = null;
     if (!B || B.id !== id) openBoard(id);
     const typing = ED && document.activeElement === ED.ta;
     const mb = STAGE.querySelector(".wb-max"); if (mb) mb.outerHTML = boardMaxBtn("wb-max");
-    host.appendChild(STAGE); sizeHost(host); resize(); trayDraw();
+    if (STAGE.parentNode !== host) host.appendChild(STAGE);
+    sizeHost(host); resize(); trayDraw();
     if (B.fitNext && fw > 0) { B.fitNext = false; fit(true); }
     if (typing) try { ED.ta.focus({preventScroll: true}); } catch (e) {}
     const n = state.notes[id];
@@ -76083,7 +76087,7 @@ var SBWB = null;
   try { new MutationObserver(themeCheck).observe(document.documentElement, {attributes: true, attributeFilter: ["data-theme", "class"]}); } catch (e) {}
   try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", themeCheck); } catch (e) {}
   document.addEventListener("visibilitychange", () => { if (document.hidden) { endText(); flush(); } });
-  window.addEventListener("resize", () => { const h = document.getElementById("wbHost"); if (h && STAGE && h.contains(STAGE)) { sizeHost(h); resize(); } });
+  window.addEventListener("resize", () => { const h = document.getElementById("wbHost"); if (h && STAGE && h.contains(STAGE)) { if (ED && phone()) return; sizeHost(h); resize(); } });
 
   /* The page */
   function picker(list, cur){
@@ -78737,6 +78741,7 @@ window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, ma
   document.addEventListener("change", e => {
     const s = e.target; if (!s || !s.matches || !s.matches("select[data-nb-pick]")) return;
     const b = s.value === "__new" ? document.querySelector('.nb-boards [data-act="nb-new"]') : [...document.querySelectorAll('.nb-boards [data-act="nb-pick"]')].find(x => (x.dataset.id || "") === s.value);
+    s.blur();
     if (b) b.click();
     if (s.value === "__new") setTimeout(() => { try { render(); } catch (x) {} }, 0);
   });
