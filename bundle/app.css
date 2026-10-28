@@ -5372,7 +5372,7 @@ html:not([data-motion="static"]) :is(.segb button,.chip,.ui-chip,.cf-pick,[role=
   .env:not(.closed) .env-body{overflow:hidden auto}
   .nb-wrap:has(.env:not(.closed)) .nb-main{padding-bottom:min(380px,48dvh)}
   .env{transition:opacity .15s}
-  body.stk-dragging .env{opacity:0}
+  body.stk-dragging .env{opacity:0;pointer-events:none}
 }
 /* Crunch Forecast on a phone */
 @media (max-width:600px){
