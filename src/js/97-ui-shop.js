@@ -12,7 +12,7 @@
 
   const CHEV = `<svg class="ui-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`;
   // The order of the filters and of the sections under them (Your Photos and Free come first)
-  const GROUPS = [["scenes", "Scenes"], ["majors", "Fields"], ["holidays", "Holidays"], ["seasons", "Seasons"], ["world", "World"], ["hobby", "Hobbies"], ["ideas", "New Ideas"]];
+  const GROUPS = [["scenes", "Scenes"], ["majors", "Fields"], ["holidays", "Holidays"], ["seasons", "Seasons"], ["world", "World"], ["hobby", "Hobbies"], ["ideas", "New Ideas"]].concat(SKINS.some(s => s.group === "founders") ? [["founders", "Founders"]] : []);
   const CHIPS = {
     themes: [["all", "All"], ["free", "Free"]].concat(GROUPS),
     collections: [["all", "All"]].concat(GROUPS),
@@ -21,13 +21,13 @@
     pins: [["all", "All"], ["free", "Free"], ["pro", "Pro"], ["collections", "Theme Collections"]],
     stickers: [["all", "All"], ["free", "Free"], ["pro", "Pro"], ["collections", "Theme Collections"]]
   };
-  const skinGroup = s => ({plain: "free", world: "world", ideas: "ideas", season: "seasons", pro: "scenes", newscenes: "scenes", majors: "majors", hobby: "hobby", holiday: "holidays"})[(s && s.group) || "plain"] || "scenes";
+  const skinGroup = s => ({plain: "free", world: "world", ideas: "ideas", season: "seasons", pro: "scenes", newscenes: "scenes", majors: "majors", hobby: "hobby", holiday: "holidays", founders: "founders"})[(s && s.group) || "plain"] || "scenes";
   // Where a theme sits in the Style Shop
   window.SBUI.themeRank = id => { const i = SKINS.findIndex(x => x.id === id); if (i < 0) return 1e6; const g = skinGroup(SKINS[i]), k = g === "free" ? -1 : GROUPS.findIndex(x => x[0] === g); return (k < 0 ? 99 : k + 1) * 1e4 + i; };
   const secKind = (tab, title, tp) => {
     if (tp) return "collections";
     const t = title.toLowerCase();
-    if (tab === "themes") return /plain/.test(t) ? "free" : /around the world/.test(t) ? "world" : /idea/.test(t) ? "ideas" : /season/.test(t) ? "seasons" : /field/.test(t) ? "majors" : /hobb|cozy/.test(t) ? "hobby" : /holiday/.test(t) ? "holidays" : "scenes";
+    if (tab === "themes") return /plain/.test(t) ? "free" : /around the world/.test(t) ? "world" : /idea/.test(t) ? "ideas" : /season/.test(t) ? "seasons" : /field/.test(t) ? "majors" : /hobb|cozy/.test(t) ? "hobby" : /holiday/.test(t) ? "holidays" : /founder/.test(t) ? "founders" : "scenes";
     return /^\s*free/.test(t) ? "free" : /^\s*all pins/.test(t) ? "mixed" : "pro";
   };
   const slug = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");

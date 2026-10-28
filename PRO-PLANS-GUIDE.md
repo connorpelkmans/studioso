@@ -40,7 +40,7 @@ You can do the setup below any time before launch (in any order). While the payw
 - **Two-way calendar sync** with Google Calendar or Outlook (Calendar Sync > Two-Way): a calendar called Studyboard kept up to date, moves made there come back, and the student's own events come in as busy time for Today's Plan. Needs the `calendar-sync` function and your Google and Microsoft app registrations (SETUP-GUIDE.md, "Two-Way Calendar Sync"); while they aren't set up the tab says so.
 - **Email to Studyboard:** a private address to forward emails to (Settings > Quick Capture); what's found waits in Check and Add. Needs Cloudflare Email Routing and the `capture-email` function (`cloudflare/email-capture/README.md`); hidden until `CAPTURE_EMAIL_DOMAIN` is set.
 - **Quiz Me** in Ask Your Course: after an answer, a short tutor asks one question at a time from the answer's sources, checks typed answers with AI and explains each with its source, then saves the questions as a practice quiz. Free accounts see a PRO badge and the Pro sheet. Like the PDF reader, Read Page N on a cited PDF page is Pro too (free accounts still get Open File at that page).
-- An optional **supporter badge** next to the person's name in groups, and Early Access to new features.
+- An optional **supporter badge** next to the person's name in groups, and Early Access to new features. The first paying members get a Founder or Early Supporter badge instead (see "Founders and Early Supporters").
 - **Pro groups:** one Pro member can turn Pro on for up to **5 groups**, and every member of those groups gets the extras below while that person stays on Pro.
 - Later: built-in AI credits (a switch that stays off for now).
 
@@ -162,6 +162,7 @@ When you are ready:
    ```
 3. In `index.html` change `const PRO_ENFORCED = false;` to `true`, build the app and upload the new `index.html`. (Step 2 alone already works for people online; step 3 makes it work from the first moment and offline.)
 4. Open **Settings > Studyboard Pro**, check it says **You're on the Free Plan** with the two prices, buy Pro once yourself with a real card, check it turns on, then cancel and refund it (the refund must switch Pro off).
+5. **After** that test purchase, turn on Founders and Early Supporters (see below): `select public.studyboard_early_program(true);`
 
 To turn Pro off again set both switches back to `false`. Nobody loses anything.
 
@@ -198,6 +199,45 @@ Both keep the **free plan's amounts**: file storage, synced data, devices, group
 -- take promo Pro back from someone        select public.studyboard_revoke_promo('someone@school.edu');
 ```
 Random codes look like `SB-K7QM-3XRP-9TWD` and are **shown once**: only a hash is stored, so copy them when you make them. People redeem a code signed in, from the Pro sheet (**Redeem a Code**); typing it in lower case or without the dashes is fine. Each account can use a code once, wrong codes are limited to 10 tries an hour per account, and the app shows it as **Pro From a Code**. Codes live in their own columns: they never touch a paid plan or a gift, and `supabase-plans-selftest.sql` checks all of this.
+
+### Founders and Early Supporters
+
+A thank-you for the first people who pay. It is **off** until you switch it on, so nobody gets a place by accident (testers, your own test purchase, the free week, codes or gifts never count; only real payments do).
+
+| | Who | What they get |
+|---|---|---|
+| **Founder** | The first **10** people who pay for a **Semester or Yearly** plan | A holographic **Founder** badge beside their name in groups, **3** one-month Pro codes for friends, and up to **3 theme suggestions**: you build one into Studyboard for every Pro user, and its Founder **keeps that theme for good**, even after their Pro ends |
+| **Early Supporter** | The first **100** people who pay for **any** plan (Founders count too) | An **Early Supporter** badge in groups and **3** one-month Pro codes for friends |
+
+- **Cancelling without a refund keeps everything.** The badge, the codes and a picked theme stay.
+- **A refund (or a disputed payment) takes the place away**: the badge goes, the friend codes nobody used stop working, and the place goes **to the next person in line**. A Founder place goes to the Early Supporter who has been on a Semester or Yearly plan the longest; an Early Supporter place goes to the first person who paid while every place was taken. Only people still paying move up. Deleting an account frees its place the same way.
+- People see their place in **Settings > Studyboard Pro** (badge switch, friend codes with Copy and Share, and for Founders, **Suggest Themes**), with a one-time welcome when they get it. Before they buy, the same sheet shows how many places are left while any are.
+- A friend code is a normal single-use month code (valid for a year) that can't be redeemed by the person it was given to.
+
+**Switch it on** (after your own test purchase on launch day) or off. Switching off stops new places; everyone keeps theirs:
+```sql
+select public.studyboard_early_program(true);    -- on
+select public.studyboard_early_program(false);   -- off
+```
+**Change the numbers** before you switch it on (defaults: 10 Founders, 100 Early Supporters, 3 codes each):
+```sql
+update public.studyboard_config set value = value || '{"founders": 10, "supporters": 100, "friendCodes": 3}' where key = 'early_program';
+```
+**See and manage places:**
+```sql
+select * from public.studyboard_early_list();                          -- everyone, in order, with who's waiting and how many codes were used
+select public.studyboard_early_add('someone@school.edu', true);         -- add by hand (true = Founder), e.g. a payment made before you switched it on
+select public.studyboard_early_remove('someone@school.edu');            -- take a place away; it goes to the next in line
+```
+**Founder themes:**
+```sql
+select * from public.studyboard_founder_themes();                          -- every suggestion, with its id
+select public.studyboard_founder_theme_pick(12, 'founder-ocean-glass');    -- pick suggestion 12 and name its theme id
+select public.studyboard_founder_theme_unpick(12);                         -- undo (the Founder can edit their suggestions again)
+```
+Once a suggestion is picked its Founder can't change their suggestions. Build the theme like any other: add it to `SKINS` in `src/js/01-style-shop.js` with the **same id**, `tier: "pro"` and `group: "founders"` (for example `desc: "Suggested by Founder #3."`), then run `node scripts/csp.js`. It shows in the Style Shop under **Founder Themes** for every Pro user, and its Founder can use it without Pro.
+
+**Plan length** comes from the payment: on Stripe from the price id (`STRIPE_PRICE_SEMESTER`, `STRIPE_PRICE_YEARLY`) or else the length of the period paid for; on the App Store and Google Play from the length of the period. A free trial or a $0 invoice never counts. After updating, deploy `billing-webhook` again, run `supabase-plans.sql`, then `supabase-lean.sql` if you use it, then the self-test (section 13 covers all of this).
 
 ### Threat Model: How Someone Could Try to Get Pro for Free
 
@@ -245,6 +285,7 @@ What this does **not** stop: someone who edits their own copy of the app can unl
 - [ ] Prices, the trial length and the refund policy on the Stripe checkout page match `website/terms.html` and the Terms in the app. The placeholders in `website/privacy.html` and `website/terms.html` are filled in, and `website/config.js` has your real values.
 - [ ] `SITE_ORIGINS` and `site_url` are your real website address; the Supabase **Site URL** and redirect allowlist include `https://YOUR-SITE/account/**`.
 - [ ] You know that **Delete My Account and Data does not cancel a Stripe subscription**. Tell people to cancel first (the app says so), and cancel in Stripe yourself if someone writes asking you to remove their account.
+- [ ] Founders and Early Supporters is switched on **after** your own test purchase and refund (`select * from public.studyboard_early_list();` should be empty right after).
 - [ ] Both switches (`paywall` in `studyboard_config` and `PRO_ENFORCED` in `index.html`) are set the way you want, and the "early access" wording in the Style Shop and welcome tour disappears once the paywall is on.
 - [ ] App Store and Google Play (only if you ship a store app): RevenueCat webhook tested, subscriptions cancellable from each store, Restore Purchase works, and each store's privacy label and data-safety form match the Privacy Policy.
 

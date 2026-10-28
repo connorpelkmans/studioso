@@ -220,7 +220,8 @@ declare
     ['reminder_queue','user_id'], ['push_subscriptions','user_id'], ['calendar_feeds','user_id'],
     ['studyboard_deletions','user_id'], ['studyboard_archive','user_id'], ['studyboard_devices','user_id'],
     ['studyboard_device_removals','user_id'], ['studyboard_usage','user_id'], ['studyboard_billing_customers','user_id'],
-    ['group_suspended','user_id'], ['studyboard_promo_redemptions','user_id'], ['studyboard_entitlements','user_id'], ['studyboard_theme_access','user_id'], ['bug_reports','user_id'], ['items','user_id']];
+    ['group_suspended','user_id'], ['studyboard_founder_themes','user_id'], ['studyboard_early_codes','user_id'], ['studyboard_early_supporters','user_id'],
+    ['studyboard_promo_redemptions','user_id'], ['studyboard_entitlements','user_id'], ['studyboard_theme_access','user_id'], ['bug_reports','user_id'], ['items','user_id']];
 begin
   if p_uid is null then raise exception 'SB_NO_USER' using errcode = '22023'; end if;
   if to_regclass('public.study_groups') is not null and to_regclass('public.group_members') is not null then
@@ -258,6 +259,8 @@ begin
       res := jsonb_set(res, array[t[1]], to_jsonb(coalesce((res ->> t[1])::bigint, 0) + n));
     end if;
   end loop;
+  -- A Founder or Early Supporter place they held goes to the next in line
+  if (res ->> 'studyboard_early_supporters')::bigint > 0 and to_regprocedure('public.plans_early_fill()') is not null then perform public.plans_early_fill(); end if;
   if to_regclass('public.bug_reports') is not null then
     delete from public.bug_reports where contact_email is not null and lower(contact_email) = (select lower(u.email) from auth.users u where u.id = p_uid);
     get diagnostics n = row_count; res := jsonb_set(res, '{bug_reports}', to_jsonb(coalesce((res ->> 'bug_reports')::bigint, 0) + n));
