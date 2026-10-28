@@ -3273,35 +3273,81 @@ SCENES.bamboo = function (W, H, dk, rnd) {
 };
 
 // 8. Lavender Fields
+// Lavender: a cypress-dotted Provence valley, then rows of lavender cushions running to the horizon
+// Cypress from its foot (x, y); the highlight sits on side sg (-1 left, 1 right)
+function lv_cyp(x, y, h, sg) { var w = h * 0.16;
+  return {d: b2_polyA([[x - w * 0.5, y + 1], [x - w, y - h * 0.32], [x - w * 0.82, y - h * 0.66], [x - w * 0.36, y - h * 0.9], [x, y - h], [x + w * 0.36, y - h * 0.9], [x + w * 0.82, y - h * 0.66], [x + w, y - h * 0.32], [x + w * 0.5, y + 1]]),
+    hi: b2_polyA([[x + sg * w * 0.45, y - h * 0.04], [x + sg * w * 0.9, y - h * 0.34], [x + sg * w * 0.72, y - h * 0.66], [x + sg * w * 0.3, y - h * 0.88], [x + sg * w * 0.05, y - h * 0.95], [x + sg * w * 0.12, y - h * 0.5]])}; }
 SCENES.lavender = function (W, H, dk, rnd) {
-  var ph = H > W, hz = H * (ph ? 0.47 : 0.44), far = Lay(9), mid = Lay(1.2), near = Lay(0);
+  var ph = H > W, hz = H * (ph ? 0.47 : 0.44), far = Lay(9), refl = Lay(2.2), mid = Lay(1), near = Lay(0);
   var sky = dk ? 'linear-gradient(180deg,#1C1C48 0%,#4F3A74 ' + Math.round(hz / H * 60) + '%,#DE8C7A ' + Math.round(hz / H * 100) + '%,#2D1F4D 100%)' : 'linear-gradient(180deg,#B5D3EC 0%,#E4E3F1 ' + Math.round(hz / H * 70) + '%,#FAE6D4 ' + Math.round(hz / H * 100) + '%,#8E73BE 100%)';
-  var field = dk ? 'linear-gradient(180deg,#43306A 0%,#2A1C49 100%)' : 'linear-gradient(180deg,#B8A7D5 0%,#8A6FBC 100%)';
-  var sx = W * (ph ? 0.72 : 0.3);
-  if (dk) { add(far, 'a', circ(sx, hz - 10, 110), 'rgba(255,160,110,0.6)'); add(mid, 'a', circ(sx, hz - 6, 26), '#FFC38A'); spread(0, 0, W, hz * 0.55, 44, 44, rnd, 1).forEach(function (c) { if (c.q < 0.45) add(mid, 'h', circ(c.x, c.y, 0.6 + c.r), 'rgba(255,245,225,0.8)'); }); }
+  var field = dk ? 'linear-gradient(180deg,#3A2A60 0%,#22183C 100%)' : 'linear-gradient(180deg,#A898CC 0%,#7E64B0 100%)';
+  var sx = W * (ph ? 0.72 : 0.3), lit = sx < W * 0.55 ? -1 : 1;
+  if (dk) { add(far, 'a', circ(sx, hz - 10, 110), 'rgba(255,160,110,0.6)'); add(refl, 'a', circ(sx, hz - 6, 26), '#FFC38A'); spread(0, 0, W, hz * 0.55, 44, 44, rnd, 1).forEach(function (c) { if (c.q < 0.45) add(mid, 'h', circ(c.x, c.y, 0.6 + c.r), 'rgba(255,245,225,0.8)'); }); }
   else { add(far, 'a', circ(sx, hz - 70, 100), 'rgba(255,240,205,0.95)'); spread(0, 20, W, hz * 0.6, 340, 160, rnd, 0.8).forEach(function (c) { add(far, 'b', ell(c.x, c.y, 80, 20) + ell(c.x + 30, c.y - 10, 40, 18), 'rgba(255,255,255,0.8)'); }); }
-  var hill = ridge(W, hz, [[10, 150, 0.3], [5, 60, 1.5]], 10);
-  add(mid, 'b', below(hill, hz + 30), dk ? '#3A3060' : '#A9BA9B');
-  var hx = W * (ph ? 0.3 : 0.72), hy = hz + Math.sin(hx / 150 + 0.3) * 10 + Math.sin(hx / 60 + 1.5) * 5 - 2;
+  // far away: a soft mountain range, then rolling hills with patchwork fields and tree lines
+  var mtn = ridge(W, hz - H * (ph ? 0.05 : 0.085), [[H * (ph ? 0.03 : 0.05), 210, 0.7], [H * 0.015, 80, 2.3]], 8, true);
+  add(refl, 'b', below(mtn, hz + 20), dk ? '#2C2756' : '#C6C8E2');
+  var fw = [[H * 0.014, 230, 1.3], [5, 90, 0.2]], fb = hz - H * (ph ? 0.018 : 0.026), farH = b2_ridge(W, fb, fw, 8);
+  add(refl, 'c', below(farH, hz + 20), dk ? '#2E3050' : '#B9C7A6');
+  var pL = '', pW = '', pTr = '', pS = '', q;
+  for (var px = -20 + rnd() * 40; px < W + 20; px += (ph ? 50 : 70) + rnd() * 70) {
+    var pw = (ph ? 36 : 50) + rnd() * 50, kind = rnd(), top = [], bot = [];
+    for (q = 0; q <= 6; q++) { var xx = px + pw * q / 6, yt = b2_y(fb, fw, xx) + 3; top.push([xx, yt]); bot.unshift([xx, Math.min(hz + 2, yt + 6 + (hz - yt) * 0.5)]); }
+    var pd = b2_polyA(top.concat(bot));
+    if (kind < 0.45) { pL += pd; for (q = 1; q < 6; q++) { var a0 = top[q]; pS += seg(a0[0], a0[1] + 1, a0[0] + (a0[0] - W * 0.55) * 0.04, Math.min(hz + 2, a0[1] + 6 + (hz - a0[1]) * 0.5) - 1); } }
+    else if (kind < 0.75) pW += pd;
+    if (rnd() < 0.6) for (q = 0; q < 6; q++) { var tx = px + pw + 3 + q * 4.2, ty = b2_y(fb, fw, tx) + 2; pTr += circ(tx, ty - 2.4, 2.4 + rnd() * 1.2); } }
+  add(refl, 'd', pL, dk ? '#372C62' : '#A994CC'); add(refl, 'e', pW, dk ? '#3A3858' : '#E1D3A2'); add(refl, 'f', pTr, dk ? '#1E2236' : '#7E946E');
+  stk(refl, 's', pS, dk ? 'rgba(90,70,140,0.6)' : 'rgba(140,110,190,0.6)', 1);
+  // the near hill with the farmhouse, cypresses and olive trees
   function hillY(x) { return hz + Math.sin(x / 150 + 0.3) * 10 + Math.sin(x / 60 + 1.5) * 5; }
-  add(mid, 'c', poly([[hx - 20, hy - 18], [hx + 20, hy - 18], [hx + 20, hillY(hx + 20) + 1.5], [hx + 10, hillY(hx + 10) + 1.5], [hx, hillY(hx) + 1.5], [hx - 10, hillY(hx - 10) + 1.5], [hx - 20, hillY(hx - 20) + 1.5]]), dk ? '#5E4E6E' : '#EFE5D8'); add(mid, 'd', poly([[hx - 25, hy - 18], [hx, hy - 34], [hx + 25, hy - 18]]), dk ? '#6A3E48' : '#B4644B');
-  add(mid, 'e', rect(hx - 12, hy - 12, 6, 6) + rect(hx + 6, hy - 12, 6, 6), dk ? '#FFD27F' : '#8C7C70');
-  if (dk) add(far, 'c', circ(hx, hy - 10, 30), 'rgba(255,200,120,0.5)');
-  [hx - 40, hx - 52, hx + 38, W * 0.12, W * 0.16, W * 0.5].forEach(function (x) { var y = hz + Math.sin(x / 150 + 0.3) * 10 + Math.sin(x / 60 + 1.5) * 5, h = 26 + rnd() * 16; add(mid, 'f', rotEll(x, y - h / 2, 5, h / 2, 0), dk ? '#24203E' : '#6D8A5E'); });
+  var hill = []; for (var x = -60; x <= W + 60; x += 8) hill.push([x, hillY(x)]);
+  add(mid, 'b', below(hill, hz + 30), dk ? '#3A3060' : '#A3B58F');
+  var hx = W * (ph ? 0.3 : 0.72), hy = hillY(hx) - 2, k = ph ? 0.85 : 1.2;
+  function wall(x0, x1, yt) { var p = [[x0, yt], [x1, yt]]; for (var i = 4; i >= 0; i--) { var wx = x0 + (x1 - x0) * i / 4; p.push([wx, hillY(wx) + 2]); } return b2_polyA(p); }
+  add(mid, 'c', wall(hx - 22 * k, hx + 20 * k, hy - 19 * k), dk ? '#5E4E6E' : '#EADCC6');
+  add(mid, 'k', wall(hx + 20 * k, hx + 38 * k, hy - 12 * k) + rect(hx + 8 * k, hy - 33 * k, 5 * k, 9 * k), dk ? '#4E4060' : '#D8C6AA');
+  add(mid, 'd', b2_polyA([[hx - 25 * k, hy - 18 * k], [hx - 2 * k, hy - 29 * k], [hx + 23 * k, hy - 18 * k]]) + b2_polyA([[hx + 19 * k, hy - 11 * k], [hx + 19 * k, hy - 17 * k], [hx + 40 * k, hy - 11 * k]]), dk ? '#6A3E48' : '#C0674B');
+  stk(mid, 't', seg(hx - 21 * k, hy - 19.8 * k, hx + 19 * k, hy - 19.8 * k) + seg(hx - 13 * k, hy - 23.6 * k, hx + 9 * k, hy - 23.6 * k) + seg(hx + 21 * k, hy - 13 * k, hx + 33 * k, hy - 13 * k), dk ? 'rgba(40,20,30,0.5)' : 'rgba(140,60,40,0.55)', 0.9);
+  var wins = rect(hx - 16 * k, hy - 15 * k, 5 * k, 6 * k) + rect(hx + 6 * k, hy - 15 * k, 5 * k, 6 * k) + rect(hx + 26 * k, hy - 8 * k, 5 * k, 5 * k);
+  add(mid, 'e', wins + rrect(hx - 5 * k, hy - 10 * k, 6 * k, 10 * k + 2, 2.5 * k), dk ? '#FFD27F' : '#6A5A54');
+  add(mid, 'l', rect(hx - 18.6 * k, hy - 15 * k, 2.2 * k, 6 * k) + rect(hx - 10.6 * k, hy - 15 * k, 2.2 * k, 6 * k) + rect(hx + 3.4 * k, hy - 15 * k, 2.2 * k, 6 * k) + rect(hx + 11.4 * k, hy - 15 * k, 2.2 * k, 6 * k), dk ? '#4C5A7E' : '#8E9DC2');
+  if (dk) add(far, 'c', circ(hx, hy - 10, 34), 'rgba(255,200,120,0.5)');
+  var cy = '', cyH = '', olT = '', olC = '';
+  (ph ? [[hx - 34, 1], [hx - 44, 0.8], [hx + 40, 0.9], [W * 0.82, 1.1], [W * 0.9, 0.8]] : [[hx - 42, 1.1], [hx - 54, 0.85], [hx + 58, 1], [W * 0.1, 1], [W * 0.135, 0.8], [W * 0.5, 1.15], [W * 0.515, 0.8]]).forEach(function (c) { var h = (ph ? 30 : 40) * c[1] + rnd() * 6, cc = lv_cyp(c[0], hillY(c[0]) + 1, h, lit); cy += cc.d; cyH += cc.hi; });
+  (ph ? [[W * 0.6, 0.8], [W * 0.66, 1]] : [[W * 0.22, 1], [W * 0.27, 0.8], [W * 0.36, 0.9], [W * 0.62, 1], [W * 0.88, 0.85]]).forEach(function (o) { var ox = o[0], oy = hillY(ox) + 1, s = (ph ? 7 : 9) * o[1]; olT += poly([[ox - s * 0.15, oy], [ox - s * 0.1, oy - s * 0.9], [ox + s * 0.1, oy - s * 0.9], [ox + s * 0.15, oy]]); olC += circ(ox - s * 0.55, oy - s * 1.2, s * 0.62) + circ(ox + s * 0.5, oy - s * 1.25, s * 0.66) + circ(ox, oy - s * 1.7, s * 0.7); });
+  add(mid, 'f', cy, dk ? '#1E1C36' : '#4F6E48'); add(mid, 'g', cyH, dk ? '#2E2C4C' : '#6E8E5E');
+  add(mid, 'i', olT, dk ? '#2A2236' : '#7A6656'); add(mid, 'j', olC, dk ? '#33365A' : '#93A486');
   add(far, 'e', ell(W / 2, hz + 30, W * 0.9, 40), dk ? 'rgba(255,150,130,0.25)' : 'rgba(255,255,255,0.55)');
-  var vx = W * 0.55, vy = hz - 30, step = ph ? 40 : 46, rw = step * 0.8, gaps = '', rows = '', sp = ['', '', ''], hi = '';
+  // the field: each row a dark base, a lit side, then cushions of lavender up close with spikes on the nearest
+  var vx = W * 0.55, vy = hz - 30, step = ph ? 40 : 46, rw = step * 0.84, y0 = hz + 1.5, gaps = '', base = '', midB = '', hiB = '', fGap = '', fBase = '', fMid = '', fHi = '', dome = '', domeH = '', spk = '', tip = '', fr = SR(ph ? 517 : 733);
   function xAt(bx, y) { return vx + (bx - vx) * (y - vy) / (H - vy); }
-  var reach = Math.max(W * 3, Math.max(vx, W - vx) * (H - vy) / 38 + step * 2);
-  for (var bx = vx - reach; bx < vx + reach; bx += step) { var y0 = hz + 8;
+  var reach = Math.max(W * 3, Math.max(vx, W - vx) * (H - vy) / 38 + step * 2), hl = lit < 0 ? [0.1, 0.52] : [0.48, 0.9];
+  // rows are split at yz: the far part is drawn in hazier colours
+  function band(bx, u0, u1, ya, yb) { return poly([[xAt(bx + u0 * rw, ya), ya], [xAt(bx + u1 * rw, ya), ya], [xAt(bx + u1 * rw, yb), yb], [xAt(bx + u0 * rw, yb), yb]]); }
+  for (var bx = vx - reach; bx < vx + reach; bx += step) {
     if (xAt(bx + step, H) < -40 || xAt(bx, H) > W + 40) { if (xAt(bx, y0) > W + 40 || xAt(bx + step, y0) < -40) continue; }
-    gaps += poly([[xAt(bx + rw, y0), y0], [xAt(bx + step, y0), y0], [bx + step, H + 10], [bx + rw, H + 10]]);
-    rows += poly([[xAt(bx, y0), y0], [xAt(bx + rw, y0), y0], [bx + rw, H + 10], [bx, H + 10]]);
-    for (var yy = y0 + 10; yy < H + 30;) { var sc = (yy - vy) / (H - vy), cx = xAt(bx + rw / 2, yy), half = rw * sc / 2; yy += (3 + sc * 26) * (0.6 + rnd() * 0.8); if (cx < -40 || cx > W + 40 || sc < 0.16) continue; var n = Math.max(1, Math.round(half * 2 / Math.max(4, 12 * sc))); for (var k = 0; k < n; k++) { var sxx = cx - half * 0.9 + (k + 0.5) * (1.8 * half / n) + (rnd() - 0.5) * 5 * sc, shh = (5 + 26 * sc) * (0.7 + rnd() * 0.5), lean = (rnd() - 0.5) * 16; sp[Math.floor(rnd() * 3)] += ell(sxx + lean * 0.1, yy - shh * 0.5, Math.max(1, 3.4 * sc), shh * 0.5); if (sc > 0.5 && rnd() < 0.3) hi += circ(sxx, yy - shh * 0.8, Math.max(0.8, 1.6 * sc)); } } }
-  add(near, 'a', gaps, dk ? '#22301F' : '#6F8C5A'); add(near, 'b', rows, dk ? '#46327A' : '#9479C8');
-  add(near, 'c', sp[0], dk ? '#6A4EA2' : '#A98ADB'); add(near, 'd', sp[1], dk ? '#7C5FB6' : '#BCA0E8'); add(near, 'e', sp[2], dk ? '#5A408E' : '#9C7ED2'); add(near, 'f', hi, dk ? '#9F84D6' : '#D9C6F4');
+    // where the haze ends, the cushions start and the spikes start differs a little per row, so no straight seams show
+    var yz = vy + (0.12 + fr() * 0.06) * (H - vy), sc0 = 0.24 + fr() * 0.08, sc1 = 0.46 + fr() * 0.1, gS = (step - rw) / rw; fGap += band(bx, 1, 1 + gS, y0, yz); gaps += band(bx, 1, 1 + gS, yz, H + 10);
+    fBase += band(bx, 0, 1, y0, yz); fMid += band(bx, 0.06, 0.94, y0, yz); fHi += band(bx, hl[0], hl[1], y0, yz);
+    base += band(bx, 0, 1, yz, H + 10); midB += band(bx, 0.06, 0.94, yz, H + 10); hiB += band(bx, hl[0], hl[1], yz, H + 10);
+    for (var yy = y0 + 4; yy < H + 40;) { var sc = (yy - vy) / (H - vy), w = rw * sc * 0.53, ry = w * 0.6, cx = xAt(bx + rw / 2, yy); yy += ry * (1.15 + fr() * 0.25);
+      if (sc < sc0 || cx + w < -10 || cx - w > W + 10) continue;
+      var ramp = Math.min(1, (sc - sc0) / 0.08), ryd = ry * (0.35 + 0.65 * ramp), cyy = yy - ryd * 0.55 + (fr() - 0.5) * ryd * 0.2;
+      dome += ell(cx, cyy, w, ryd); domeH += ell(cx + w * ((hl[0] + hl[1]) - 1), cyy - ryd * 0.2, w * 0.42, ryd * 0.62);
+      if (sc > sc1) { var sr = Math.min(1, (sc - sc1) / 0.1), n = Math.max(3, Math.round(w * 2 / (3.4 + 2 * sc)));
+        for (var j = 0; j < n; j++) { var t = (j + 0.5) / n * 1.7 - 0.85, sh = (5 + 7 * sc) * (0.75 + fr() * 0.5) * (0.3 + 0.7 * sr), px2 = cx + t * w + (fr() - 0.5) * 2 * sc, py2 = cyy - ryd * Math.sqrt(1 - t * t) * 0.85 + ryd * 0.12, a = 0.9 + 0.5 * sc, lean = t * sh * 0.35;
+          var sp = b2_rel(px2, py2, [[-a, 0], [lean - a * 0.6, -sh * 0.6], [lean, -sh], [lean + a * 0.6, -sh * 0.6], [a, 0]]); if ((j + Math.round(sc * 10)) % 3) spk += sp; else tip += sp; } } } }
+  var LC = dk ? ['#1F2A1E', '#2E2058', '#43307A', '#56429A'] : ['#6E8458', '#6C52A6', '#8667C2', '#A086D6'], hzC = dk ? '#4A3A6E' : '#C9BEE4';
+  add(near, 'a', gaps, LC[0]); add(near, 'b', base, LC[1]); add(near, 'c', midB, LC[2]); add(near, 'd', hiB, LC[3]);
+  add(near, 'k', fGap, mix(LC[0], hzC, 0.3)); add(near, 'l', fBase, mix(LC[1], hzC, 0.3)); add(near, 'm', fMid, mix(LC[2], hzC, 0.3)); add(near, 'n', fHi, mix(LC[3], hzC, 0.3));
+  add(near, 'e', dome, LC[2]); add(near, 'f', domeH, LC[3]);
+  add(near, 'i', spk, dk ? '#6E56B4' : '#B79DE8'); add(near, 'j', tip, dk ? '#8E78CE' : '#D3C0F4');
+  add(near, 'o', rect(-10, hz + 1, W + 20, H * 0.01), dk ? 'rgba(150,110,160,0.25)' : 'rgba(240,232,246,0.45)');
   if (ANIM) { ANIM.hz = hz; ANIM.vx = vx; ANIM.vy = vy; ANIM.bugs = []; ANIM.house = [hx, hy]; }
   spread(0, hz + 60, W, H - hz - 60, 240, 220, rnd, 1).forEach(function (c) { if (c.q < 0.45) { if (ANIM) { ANIM.bugs.push({x: c.x, y: c.y}); return; } if (dk) { add(far, 'd', circ(c.x, c.y, 10), 'rgba(255,230,140,0.6)'); add(near, 'g', circ(c.x, c.y, 1.8), '#FFF2B0'); } else { add(near, 'g', ell(c.x - 4, c.y, 4, 5.5) + ell(c.x + 4, c.y, 4, 5.5), '#F5D36B'); } } });
-  return {sky: sky, far: far, mid: mid, near: near, band: {top: hz + 4, bg: field}};
+  return {sky: sky, far: far, refl: refl, mid: mid, near: near, band: {top: hz + 4, bg: field}};
 };
 
 // 9. City Rooftops
