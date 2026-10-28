@@ -108,11 +108,11 @@
     {id: "comeback", cat: "grades", name: "Level Up", goal: "Beat your last mark in the same course.", need: 1, v: c => c.improved ? 1 : 0},
     {id: "all-in", cat: "grades", name: "All Marks In", goal: "Have every graded item in a course marked (3 or more).", need: 1, v: c => c.allIn ? 1 : 0,
       prog: c => c.mostMarked ? `${c.mostMarked.name}: ${pctTxt(c.mostMarked.w)} of the grade marked` : "No marks recorded yet"},
-    Object.assign({id: "streak-3", cat: "streaks", name: "3-Day Streak", goal: "Make progress on a task 3 days in a row."}, cnt(3, "days", "streak")),
-    Object.assign({id: "streak-7", cat: "streaks", name: "7-Day Streak", goal: "Make progress on a task 7 days in a row."}, cnt(7, "days", "streak")),
-    Object.assign({id: "streak-14", cat: "streaks", name: "14-Day Streak", goal: "Make progress on a task 14 days in a row."}, cnt(14, "days", "streak")),
-    Object.assign({id: "streak-30", cat: "streaks", name: "30-Day Streak", goal: "Make progress on a task 30 days in a row."}, cnt(30, "days", "streak")),
-    Object.assign({id: "streak-60", cat: "streaks", name: "60-Day Streak", goal: "Make progress on a task 60 days in a row.", special: true}, cnt(60, "days", "streak")),
+    Object.assign({id: "streak-3", cat: "streaks", name: "3-Day Streak", goal: "Study 3 days in a row. Rest days don't break it."}, cnt(3, "days", "streak")),
+    Object.assign({id: "streak-7", cat: "streaks", name: "7-Day Streak", goal: "Study 7 days in a row. Rest days don't break it."}, cnt(7, "days", "streak")),
+    Object.assign({id: "streak-14", cat: "streaks", name: "14-Day Streak", goal: "Study 14 days in a row. Rest days don't break it."}, cnt(14, "days", "streak")),
+    Object.assign({id: "streak-30", cat: "streaks", name: "30-Day Streak", goal: "Study 30 days in a row. Rest days don't break it."}, cnt(30, "days", "streak")),
+    Object.assign({id: "streak-60", cat: "streaks", name: "60-Day Streak", goal: "Study 60 days in a row. Rest days don't break it.", special: true}, cnt(60, "days", "streak")),
     {id: "first-focus", cat: "focus", name: "First Focus Session", goal: "Finish a focus session.", need: 1, v: c => c.focusMin > 0 ? 1 : 0},
     Object.assign({id: "focus-5", cat: "focus", name: "5 Focus Hours", goal: "Focus for 5 hours this term."}, cnt(5, "hours", "focusH")),
     Object.assign({id: "focus-15", cat: "focus", name: "15 Focus Hours", goal: "Focus for 15 hours this term."}, cnt(15, "hours", "focusH")),
@@ -202,7 +202,7 @@
     const byCourse = {}; c.marks.forEach(t => (byCourse[t.courseId || "-"] = byCourse[t.courseId || "-"] || []).push(t));
     Object.values(byCourse).forEach(ts => { ts.sort((a, b) => ((a.due || "") < (b.due || "") ? -1 : (a.due || "") > (b.due || "") ? 1 : doneTime(a) - doneTime(b)));
       for (let i = 1; i < ts.length; i++) if (markPct(ts[i]) > markPct(ts[i - 1]) + .5) c.improved = true; });
-    c.streak = Math.max(Number(sc.hi && sc.hi.st) || 0, streakOf().cur);
+    c.streak = Math.max(Number(sc.hi && sc.hi.st) || 0, rewardStreak().cur);
     const S = typeof SBSTATS !== "undefined" ? SBSTATS : null;
     const logged = S ? S.focusMinutes(start, today) : 0;
     const fromTasks = allTasks().filter(inTerm).reduce((s, t) => s + (Number(t.focusMin) || 0), 0);

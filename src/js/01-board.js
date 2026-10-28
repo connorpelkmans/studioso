@@ -333,17 +333,33 @@ function splitToday(ranked, th, own){
   picked.forEach(x => { if (x.far && left >= 0.25 && x.R > x.alloc + 0.125) give(x, Math.round((x.R - x.alloc) * 4) / 4); });
   return left;
 }
+/* Focus time on group project tasks. The group's server keeps no time spent, and its rows are rebuilt from the server, so
+   your minutes on each one live in your own synced settings (gtWork: {rowId: {m, d: {date: minutes}, at}}). They count in
+   Today's Plan like focus time on your own tasks: less work left, and "enough for today" once today's time is done. */
+const isGt = id => /^gt:/.test(String(id || ""));
+const gtWork = () => (state.settings && state.settings.gtWork && typeof state.settings.gtWork === "object" ? state.settings.gtWork : {});
+function gtAddWork(id, min){
+  const rid = String(id || "").replace(/^gt:/, ""), m = Math.round(Number(min) || 0); if (!rid || !(m > 0)) return false;
+  const all = Object.assign({}, gtWork()), w = Object.assign({m: 0, d: {}}, all[rid]), day = todayISO();
+  w.m = (Number(w.m) || 0) + m; w.d = Object.assign({}, w.d, {[day]: (Number(w.d[day]) || 0) + m}); w.at = Date.now();
+  Object.keys(w.d).sort().slice(0, -60).forEach(k => delete w.d[k]);
+  all[rid] = w;
+  Object.keys(all).sort((a, b) => (all[b].at || 0) - (all[a].at || 0)).slice(300).forEach(k => delete all[k]);
+  state.settings = Object.assign({}, state.settings, {gtWork: all}); saveSettings();
+  return true;
+}
 // Group project tasks assigned to me, as plan entries
 function groupPlanTasks(){
   let rows = []; try { rows = groupBoardRows(""); } catch (e) { return []; }
   return rows.filter(r => r && r.status !== "done" && /^\d{4}-\d{2}-\d{2}$/.test(r.due || "")).map(r => {
     const c = r.courseCode ? coursesArr().find(x => (x.code || "").replace(/\s+/g, "").toLowerCase() === String(r.courseCode).replace(/\s+/g, "").toLowerCase()) : null;
-    return {id: "gt:" + r.id, title: r.title, due: r.due, time: "", type: "Assignment", status: r.status === "doing" ? "doing" : "todo", priority: r.priority || "med", courseId: c ? c.id : "", hours: Number(r.hours) > 0 ? Number(r.hours) : 1, notes: r.notes || "", checklist: [], taskIds: [], gt: {gid: r.gid, listId: r.listId, id: r.id, name: r.groupName || r.listTitle || "Group project"}};
+    return {id: "gt:" + r.id, title: r.title, due: r.due, time: "", type: "Assignment", status: r.status === "doing" ? "doing" : "todo", priority: r.priority || "med", courseId: c ? c.id : "", hours: Number(r.hours) > 0 ? Number(r.hours) : 1, notes: r.notes || "", checklist: [], taskIds: [],
+      ...(w => w ? {focusMin: Number(w.m) || 0, workLog: Object.entries(w.d || {}).map(([day, m]) => ({id: "gt" + day, d: day, m: Number(m) || 0, k: "focus", at: 0}))} : {})(gtWork()[r.id]), gt: {gid: r.gid, listId: r.listId, id: r.id, name: r.groupName || r.listTitle || "Group project"}};
   });
 }
 const gtOpenAttrs = t => t.gt ? `data-act="grp-pt-open" data-g="${esc(t.gt.gid)}" data-l="${esc(t.gt.listId)}" data-id="${esc(t.gt.id)}"` : `data-act="edit-task" data-id="${esc(planTaskId(t))}"`;
 // What a focus button starts: the task itself, or study time for the exam a study entry stands for (none for group tasks)
-const focusAttrs = t => t.gt ? `data-id=""` : t.xs ? `data-id="${esc(t.xs.id)}" data-study="1"` : `data-id="${esc(t.id)}"`;
+const focusAttrs = t => t.gt ? `data-id="${esc(t.id)}"` : t.xs ? `data-id="${esc(t.xs.id)}" data-study="1"` : `data-id="${esc(t.id)}"`;
 const LIGHT_EVE = 0.5;
 function computeFocus(){
   const today = todayISO(), dh0 = dailyHours(), thSet = todayHours(), now = new Date();
@@ -728,22 +744,51 @@ function ribbonHtml(week, pick, late){
   }).join("") + Object.entries(more).map(([i, n]) => { const iso = week[i].iso; return `<button type="button" class="rb-more" data-act="plan-tile" data-id="d:${iso}" style="left:${pct(+i + 0.5)}" aria-label="${esc(`${n} more due ${fmtDate(iso)}. Show only that day`)}">+${n}</button>`; }).join("");
   return `<div class="rb${late.n ? " has-late" : ""}${Object.keys(more).length ? " has-more" : ""}" role="group" aria-label="The next two weeks"><ol class="rb-days">${days}</ol><i class="rb-line" aria-hidden="true"></i><div class="rb-pins">${pins}</div></div>`;
 }
-// Closed work (past due, and late work isn't accepted) gets no time. It is mentioned once, until you mark it done or tap Got It.
-const CLOSED_LS = "studyboard:closedSeen", BUSY_LS = "studyboard:busyHide";
+/* Heads Up: everything Today's Plan wants you to know, in one block instead of a stack of cards.
+   - Busy days ahead: they push more of the work into today than your usual pace, so it offers to add the difference.
+   - Short of time before a deadline, and which work gives the fewest marks for the time.
+   - The gap between how ready you feel for your next exam and what your flashcards and quizzes say.
+   - How an exam went: a short reflection once its mark is in (from any source: the mark sheet, school sync, Paste Grades).
+   - Closed work (past due, late work not accepted): it gets no time, and is mentioned until you mark it done or tap Got It. */
+const CLOSED_LS = "studyboard:closedSeen", BUSY_LS = "studyboard:busyHide", GAPHIDE_LS = "studyboard:gapHide";
 const lsObj = k => { try { return JSON.parse(localStorage.getItem(k) || "{}") || {}; } catch (e) { return {}; } };
-function closedHtml(F, inView){
-  const seen = lsObj(CLOSED_LS), list = Object.values(F.info).filter(x => x.dead && !x.fixed && !x.t.gt && inView(x) && x.t.status !== "done" && !seen[x.t.id]).sort((a, b) => b.dueMs - a.dueMs);
-  if (!list.length) return "";
-  return `<div class="plan-past plan-closed" role="region" aria-label="Past due, late work not accepted"><ul>${list.slice(0, 3).map(x => { const t = x.t, c = courseOf(t.courseId);
-    return `<li style="--c:${esc(colorOf(t.courseId))}"><span class="pp-q"><button class="link-btn" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}</button> is past due, and late work isn't accepted<span class="mini">Due ${esc(fmtDate(t.due))}${c ? " · " + esc(courseLabel(c)) : ""}. It isn't in today's plan. Talk to your instructor if you still want to hand it in.</span></span><span class="pp-acts"><button class="btn small primary" data-act="toggle" data-id="${esc(t.id)}">Mark Done</button><button class="btn small" data-act="closed-ok" data-id="${esc(t.id)}">Got It</button></span></li>`; }).join("")}</ul>${list.length > 3 ? `<p class="mini">${list.length - 3} more past due with no late work accepted.</p>` : ""}</div>`;
+const pnIcon = k => ({warn: "!", late: "!", busy: "\u2191", ready: "%", wrap: "\u2713"})[k] || "i";
+function planNotes(F, inView, crunchMain){
+  const rows = [], today = todayISO();
+  // Short of time comes first: it changes what to do today
+  if (crunchMain) rows.push({k: "warn", main: crunchMain});
+  const b = F.busyAhead;
+  if (b && (() => { try { return localStorage.getItem(BUSY_LS) !== today; } catch (e) { return true; } })()) {
+    const name = d => dayDiff(today, d.d) === 1 ? "Tomorrow" : parse(d.d).toLocaleDateString(undefined, {weekday: "long"});
+    const days = b.days.map(d => name(d) + (d.what ? ` (${d.what})` : "")), list = days.length > 1 ? days.slice(0, -1).join(", ") + " and " + days[days.length - 1] : days[0];
+    rows.push({k: "busy", cls: "plan-busy", main: `<b>Busy days ahead.</b> ${esc(list)} ${days.length > 1 ? "leave" : "leaves"} little study time, so more of your work needs doing today. Adding <b>${fmtHM(b.add)}</b> today ${b.all ? "keeps you on track" : "helps you keep up"}.`,
+      acts: `<button class="btn small primary" data-act="today-set" data-id="${b.to}">Make Today ${fmtHM(b.to)}</button><button class="btn small" data-act="busy-hide">Not Today</button>`});
+  }
+  // How ready you feel against your results, for the nearest exam with a clear gap (hidden for the day with Got It)
+  const gh = lsObj(GAPHIDE_LS);
+  const gap = Object.values(F.info).filter(x => MILESTONE(x.t.type) && !x.t.prepFor && x.t.status !== "done" && inView(x) && x.dl >= 0 && x.dl <= 14 && gh[x.t.id] !== today)
+    .map(x => ({x, r: examReadiness(x.t)})).filter(o => o.r && o.r.gap).sort((a, z) => a.x.dl - z.x.dl)[0];
+  if (gap) {
+    const t = gap.x.t, r = gap.r, hasCards = t.courseId && deckListArr().some(d => d.courseId === t.courseId && d.cards.some(c => !c.draft));
+    rows.push({k: "ready", main: `<b>${esc(t.title)}</b> (${gap.x.dl === 0 ? "today" : gap.x.dl === 1 ? "tomorrow" : "in " + gap.x.dl + " days"}): ${r.gap > 0 ? `you feel ${r.self}% ready, but your results say about ${r.measured}%. Testing yourself on what you miss closes the gap fastest.` : `your results say about ${r.measured}%, more than the ${r.self}% you feel. You may be further along than you think.`}`,
+      acts: `${hasCards && r.gap > 0 ? `<button class="btn small primary" data-act="fc-study-course" data-course="${esc(t.courseId)}">Test Yourself</button>` : ""}<button class="btn small" data-act="edit-task" data-id="${esc(t.id)}">Open</button><button class="btn small" data-act="gap-hide" data-id="${esc(t.id)}">Got It</button>`});
+  }
+  // A mark came in for an exam you haven't reflected on yet
+  (window.SBWRAP && SBWRAP.pending ? SBWRAP.pending() : []).filter(t => inView({t})).slice(0, 2).forEach(t => {
+    const m = SBWRAP.markOf(t);
+    rows.push({k: "wrap", main: `<b>How did ${esc(t.title)} go?</b> You got ${m}%. A minute comparing that with how ready you were makes the next one easier to prepare for.`,
+      acts: `<button class="btn small primary" data-act="ewr-open" data-id="${esc(t.id)}">Reflect</button><button class="btn small" data-act="ewr-skip" data-id="${esc(t.id)}">Skip</button>`});
+  });
+  const seen = lsObj(CLOSED_LS), closed = Object.values(F.info).filter(x => x.dead && !x.fixed && !x.t.gt && inView(x) && x.t.status !== "done" && !seen[x.t.id]).sort((a, z) => z.dueMs - a.dueMs);
+  closed.slice(0, 2).forEach(x => { const t = x.t, c = courseOf(t.courseId);
+    rows.push({k: "late", main: `<button class="link-btn" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}</button> is past due, and late work isn't accepted <span class="mini">(due ${esc(fmtDate(t.due))}${c ? " · " + esc(courseLabel(c)) : ""})</span>. It isn't in today's plan. Talk to your instructor if you still want to hand it in.`,
+      acts: `<button class="btn small" data-act="toggle" data-id="${esc(t.id)}">Mark Done</button><button class="btn small" data-act="closed-ok" data-id="${esc(t.id)}">Got It</button>`}); });
+  if (closed.length > 2) rows.push({k: "late", main: `${closed.length - 2} more past due with no late work accepted, on the Task Board.`});
+  return rows;
 }
-// Busy days coming up push more of the work into today than your usual pace. The plan uses the time you set; this offers to add the difference.
-function busyAheadHtml(F){
-  const b = F.busyAhead; if (!b) return "";
-  try { if (localStorage.getItem(BUSY_LS) === todayISO()) return ""; } catch (e) {}
-  const name = d => dayDiff(todayISO(), d.d) === 1 ? "Tomorrow" : parse(d.d).toLocaleDateString(undefined, {weekday: "long"});
-  const days = b.days.map(d => name(d) + (d.what ? ` (${d.what})` : "")), list = days.length > 1 ? days.slice(0, -1).join(", ") + " and " + days[days.length - 1] : days[0];
-  return `<div class="plan-warn plan-busy" role="note"><span class="pw-ic" aria-hidden="true">!</span><span class="pw-main"><b>Busy days ahead.</b> ${esc(list)} ${days.length > 1 ? "leave" : "leaves"} little study time, so more of your work needs doing today. Adding <b>${fmtHM(b.add)}</b> today ${b.all ? "keeps you on track" : "helps you keep up"}.</span><span class="pw-acts"><button class="btn small primary" data-act="today-set" data-id="${b.to}">Make Today ${fmtHM(b.to)}</button><button class="btn small" data-act="busy-hide">Not Today</button></span></div>`;
+function planNotesHtml(F, inView, crunchMain){
+  const rows = planNotes(F, inView, crunchMain); if (!rows.length) return "";
+  return `<section class="plan-notes" aria-label="Heads up"><h3 class="pn-h">Heads Up</h3><ul>${rows.map(r => `<li class="pn pn-${r.k}${r.cls ? " " + r.cls : ""}"><span class="pn-ic" aria-hidden="true">${pnIcon(r.k)}</span><span class="pn-main">${r.main}</span>${r.acts ? `<span class="pn-acts">${r.acts}</span>` : ""}</li>`).join("")}</ul></section>`;
 }
 // Short of time: which tasks give the fewest marks for the time
 function dropTxt(F){
@@ -779,7 +824,7 @@ function focusHtml(){
   const fixedHtml = fixedEv.length ? `<div class="plan-fixed" role="region" aria-label="Exams and quizzes on the calendar"><h3 class="plan-sub">On the Calendar</h3><ul>${fixedEv.map(x => { const t = x.t, e = remoteOf(t); return `<li style="--c:${esc(colorOf(t.courseId))}"><button class="plan-main" data-act="edit-task" data-id="${esc(t.id)}"><span class="task-title">${esc(t.title)}</span></button><span class="pf-when">${x.dl === 0 ? "Today" : x.dl === 1 ? "Tomorrow" : esc(fmtShort(t.due))}${t.time ? " " + esc(fmtTime(t.time)) : ""}</span><span class="rx-chip${e.v ? "" : " unk"}" title="${esc(e.v === "no" ? "Taken in person, so it is not suggested as something to do now." : "Not confirmed as take-home, so it is not suggested as something to do now. Open it to say where it is taken.")}">${e.v === "no" ? "In person" : "Not sure"}</span></li>`; }).join("")}</ul></div>` : "";
   if (queued) sum.push(`${queued} more lined up for the coming days`);
   const dropT = dropTxt(F);
-  const warn = F.crunch && inView(F.crunch) ? `<p class="plan-warn"><span class="pw-ic" aria-hidden="true">!</span><span class="pw-main">${"From now to " + (d => d === todayISO() ? "the end of today" : d === addDays(todayISO(), 1) ? "tomorrow" : esc(fmtDate(d)))(F.crunch.t.due)}, ${Math.abs((F.thSet == null ? F.dh : F.thSet) - F.dh) < 0.01 ? `at ${fmtHM(F.dh)} a day` : `with ${fmtHM(F.thSet)} today and ${fmtHM(F.dh)} a day after`}, you're about <b>${fmtHM(F.crunch.behind)}</b> short for what's due by then.${dropT ? " " + dropT : ""}</span>${dropT ? "" : ` <span class="pw-tip">Add study time, start sooner, or talk to your instructor early.</span>`}</p>` : "";
+  const warn = F.crunch && inView(F.crunch) ? `${"From now to " + (d => d === todayISO() ? "the end of today" : d === addDays(todayISO(), 1) ? "tomorrow" : esc(fmtDate(d)))(F.crunch.t.due)}, ${Math.abs((F.thSet == null ? F.dh : F.thSet) - F.dh) < 0.01 ? `at ${fmtHM(F.dh)} a day` : `with ${fmtHM(F.thSet)} today and ${fmtHM(F.dh)} a day after`}, you're about <b>${fmtHM(F.crunch.behind)}</b> short for what's due by then. ${dropT || "Add study time, start sooner, or talk to your instructor early."}` : "";
   const nBlk = F.blocked.filter(inView).length, nLater = F.later.filter(inView).length;
   const more = ranked.length > show.length + (heroId ? 1 : 0) || nBlk || nLater;
   const listLabel = pick === "late" ? "Overdue" : pickDay ? (pickDay.i === 0 ? "Due Today" : "Due " + esc(fmtDate(pickDay.iso))) : heroId ? (show.some(x => x.alloc > 0) ? "Also Today" : "Then") : "";
@@ -802,7 +847,7 @@ function focusHtml(){
   return `<section class="focus plan" aria-label="Today's Plan">
     <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? `<p class="plan-gap">${F.gapWhy.map(esc).join(" ")}</p>` : ""}</div>
       ${(hoursBar => { PLAN_HOURS = hoursBar; return `<div class="fh-ctl${ptStats ? " fh-chip has-stats" : ""}${autoChipHtml() ? "" : " fh-only-hours"}">${hoursBar}${autoChipHtml()}</div>`; })(`<div class="hours-ctl" role="group" aria-label="Study time available today"><span class="mini">Time Today</span><span class="hc-row"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button><b${hoursTitle ? ` title="${esc(hoursTitle)}"` : ""}>${fmtHM(F.thSet) || "0m"}</b><button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></span></div>`)}</div>
-    ${ui.focusOpen ? `${window.SBPRO ? SBPRO.todayHtml() : ""}${dayTimelineHtml(F, todayList, heroId)}${nextUpHtml(F, hero)}${skipped}${spare}${busyAheadHtml(F)}${warn}${closedHtml(F, inView)}${pastHtml}${availStripHtml(F)}
+    ${ui.focusOpen ? `${window.SBPRO ? SBPRO.todayHtml() : ""}${dayTimelineHtml(F, todayList, heroId)}${nextUpHtml(F, hero)}${skipped}${spare}${planNotesHtml(F, inView, warn)}${pastHtml}${availStripHtml(F)}
       ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
       ${fixedHtml}
       ${extraHtml}

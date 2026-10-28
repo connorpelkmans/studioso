@@ -1200,7 +1200,7 @@ Only work you finish counts. Tasks that arrive already done (from your school si
 - **Level Up:** beat your last mark in the same course.
 - **All Marks In:** have every graded item in a course marked (3 or more).
 
-**Streaks** (make progress on a task each day)
+**Streaks** (study days in a row: finish a task, focus, tick a step or review flashcards; rest days don't break it)
 - **3, 7, 14, 30 and 60-Day Streaks.**
 
 **Focus**

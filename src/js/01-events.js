@@ -67,6 +67,7 @@ document.addEventListener("click", e => {
     case "today-h": { const v = Math.max(0, Math.min(16, todayHours() + Number(id))); setTodayHours(v); render(); break; }
     case "today-set": { const v = Math.max(0, Math.min(16, Number(id) || 0)); setTodayHours(v); toast(`Today's study time is now ${fmtHM(v)}`); render(); break; }
     case "busy-hide": try { localStorage.setItem("studyboard:busyHide", todayISO()); } catch (err) {} render(); break;
+    case "gap-hide": { try { const k = "studyboard:gapHide", o = JSON.parse(localStorage.getItem(k) || "{}") || {}; o[id] = todayISO(); localStorage.setItem(k, JSON.stringify(o)); } catch (err) {} render(); break; }
     case "closed-ok": { try { const k = "studyboard:closedSeen", o = JSON.parse(localStorage.getItem(k) || "{}") || {}; o[id] = Date.now(); Object.keys(o).forEach(x => { if (!state.tasks[x]) delete o[x]; }); localStorage.setItem(k, JSON.stringify(o)); } catch (err) {} render(); break; }
     case "focus-toggle": ui.focusOpen = !ui.focusOpen; render(); break;
     case "plan-rows": ui.planAllToday = !ui.planAllToday; render(); break;

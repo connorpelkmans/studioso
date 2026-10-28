@@ -105,7 +105,7 @@ var SBEST = (() => {
     if (tab !== "board") return;
     const plan = document.querySelector("section.plan"); if (!plan || plan.querySelector(".plan-est")) return;
     const n = count(); if (!n) return;
-    const at = plan.querySelector(".plan-fc") || plan.querySelector(".plan-warn") || plan.querySelector(".next-up");
+    const at = plan.querySelector(".plan-fc") || plan.querySelector(".plan-notes") || plan.querySelector(".next-up");
     const html = `<div class="plan-fc plan-est"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2.5h5"/></svg><span><b>${n}</b> task${n === 1 ? "" : "s"} due in the next 2 weeks ${n === 1 ? "has" : "have"} no time estimate</span><button class="btn small" data-act="est-open">Add Times</button></div>`;
     const extra = plan.querySelector(".pe-b");
     if (extra) extra.insertAdjacentHTML("afterbegin", html);

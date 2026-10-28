@@ -40,12 +40,12 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(row(p, "p").alloc > 0 && !row(p, "p").dead, "closed: overdue with late work accepted still gets time");
       ok(row(p, "e").alloc >= 1, "closed: the homework gets its full hour");
       ok(p.next.id !== "d", "closed: never Do This Next");
-      const card = page.locator(".plan-closed li");
+      const card = page.locator(".plan-notes .pn-late");
       ok(await card.count() === 1 && /talk to your instructor/i.test(await card.innerText()), "closed: one note says to talk to your instructor");
-      await page.locator('.plan-closed [data-act="closed-ok"]').click(); await page.waitForTimeout(150);
-      ok(await page.locator(".plan-closed").count() === 0, "closed: Got It hides it");
+      await page.locator('.plan-notes [data-act="closed-ok"]').click(); await page.waitForTimeout(150);
+      ok(await page.locator(".plan-notes .pn-late").count() === 0, "closed: Got It hides it");
       await page.reload(); await page.waitForFunction(() => window.__sbPlan && document.querySelector(".focus.plan"));
-      ok(await page.locator(".plan-closed").count() === 0, "closed: and it stays hidden");
+      ok(await page.locator(".plan-notes .pn-late").count() === 0, "closed: and it stays hidden");
       agree(p, "closed"); await done(ctx, page);
     }
     { // 2. Due earlier today: past its due time it is late, and the late policy decides
@@ -149,7 +149,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       const p = await page.plan();
       ok(p.drop && p.drop.ids[0] === "c", "short of time: the 1% reading log gives the fewest marks for the time");
       ok(p.ranked[p.ranked.length - 1].id === "c" && row(p, "c").drop, "short of time: it is ranked last");
-      const w = await page.locator(".plan-warn").filter({hasText: "short"}).innerText();
+      const w = await page.locator(".plan-notes .pn-warn").innerText();
       ok(/Fewest marks for the time: Reading log/.test(w), "short of time: the warning names it");
       await done(ctx, page);
     }

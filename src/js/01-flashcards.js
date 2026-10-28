@@ -21,19 +21,24 @@ const decksArr = () => Object.values(state.decks || {}).filter(d => !d.archived)
 const isQuizHolder = d => !!(d && d.quizOnly && !(d.cards || []).length);
 const quizFrom = (d, qz) => isQuizHolder(d) ? ((qz && qz.sources || []).filter(Boolean).map(x => String(x).replace(/\.[a-z0-9]{2,5}$/i, "")).slice(0, 2).join(", ") || "your material") : d.name;
 const deckListArr = () => decksArr().filter(d => !isQuizHolder(d));
-/* Exams and flashcards. Review is most useful close to a test (the gap since the last review should be short next to how long
-   until the exam), so a card in a course with an exam coming up is always seen in the last few days before it: when its next
-   review would land after the day before the exam, and it hasn't been seen in the 3 days before, it comes due 2 days before.
+/* Exams and flashcards. Review helps most close to a test (the gap since the last review should be short next to how long
+   until the exam), so every card in a course with an exam coming up is reviewed at least once in the week before it.
+   - Only exams that matter count: an Exam, or anything worth 10% or more. A weekly 2% quiz doesn't pull the whole deck in.
+   - A card already reviewed in that last week is left alone. Otherwise, if its next review would land after the day
+     before the exam, it's pulled in to a day in the week before (7 to 2 days out). Each card keeps the same day (from its
+     id), the weakest cards get first claim on a day, and no day takes more than 30 pulled cards per course, so the reviews
+     come spread over the week instead of in one pile.
    The card's own schedule isn't changed; the exam only pulls the date in. */
-const EXAM_WIN = 3, EXAM_PULL = 2;
+const EXAM_WIN = 7, EXAM_LAST = 2, PULL_CAP = 30;
 let FC_EXAMS = {k: "", m: {}};
-// The nearest exam or quiz still to come in each course: {courseId: {id, title, due, days}}
+// The nearest exam that matters still to come in each course: {courseId: {id, title, due, days}}
 function fcExams(){
   const today = todayISO(), k = today + "|" + (state.updated || 0);
   if (FC_EXAMS.k === k) return FC_EXAMS.m;
   const m = {};
   Object.values(state.tasks || {}).forEach(t => {
     if (!t || !t.courseId || t.status === "done" || t.prepFor || !(t.type === "Exam" || t.type === "Quiz") || !t.due || t.due <= today) return;
+    if (t.type !== "Exam" && !(weightOf(t) >= 10)) return;
     if (!m[t.courseId] || t.due < m[t.courseId].due) m[t.courseId] = {id: t.id, title: t.title, due: t.due, days: dayDiff(today, t.due), type: t.type};
   });
   FC_EXAMS = {k, m}; return m;
@@ -44,16 +49,39 @@ const cardCourse = c => {
   if (FC_CARD_COURSE.k !== k) { const m = {}; Object.values(state.decks || {}).forEach(d => (d.cards || []).forEach(x => { m[x.id] = d.courseId || ""; })); FC_CARD_COURSE = {k, m}; }
   return FC_CARD_COURSE.m[c.id] || "";
 };
-// When a card should next be reviewed, given the exam in its course (cid). due: its own date
-function examDueCap(due, last, cid, today){
-  const ex = cid && fcExams()[cid]; if (!ex) return due;
-  const winStart = addDays(ex.due, -EXAM_WIN), dayBefore = addDays(ex.due, -1);
-  if (last && last >= winStart) return due;
-  if (due && due <= dayBefore) return due;
-  const pull = addDays(ex.due, -EXAM_PULL), now = today || todayISO();
-  return pull > now ? pull : now;
+const cardHash = id => { let h = 2166136261; for (const ch of String(id)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+// Whether a card still needs a review before an exam: seen before, not reviewed in its last week, next review after the day before
+const needsPull = (c, ex) => c.seen > 0 && !c.draft && !(c.last && c.last >= addDays(ex.due, -EXAM_WIN)) && !(c.due && c.due <= addDays(ex.due, -1));
+// The day each pulled card comes due: {cardId: date}
+let FC_PULL = {k: "", m: {}};
+function fcPulls(){
+  const today = todayISO(), k = today + "|" + (state.updated || 0);
+  if (FC_PULL.k === k) return FC_PULL.m;
+  const m = {}, ex = fcExams();
+  Object.keys(ex).forEach(cid => {
+    const e = ex[cid], last = addDays(e.due, -1), first = addDays(e.due, -EXAM_WIN), span = EXAM_WIN - EXAM_LAST + 1, used = {};
+    const cards = Object.values(state.decks || {}).filter(d => !d.archived && d.courseId === cid).flatMap(d => d.cards || []).filter(c => needsPull(c, e))
+      .sort((a, b) => (a.box || 0) - (b.box || 0) || cardHash(a.id) - cardHash(b.id));
+    // every day a pulled card may land on: the week before (7 to 2 days out), then the day before; never before today
+    const days = []; for (let d = first; d <= last; d = addDays(d, 1)) if (d >= today) days.push(d);
+    if (!days.length) return;
+    cards.forEach(c => {
+      let want = addDays(first, cardHash(c.id) % span); if (want < today) want = today;
+      const order = days.filter(d => d >= want && d < last).concat(days.filter(d => d < want).reverse(), [last]);
+      const day = order.find(d => (used[d] || 0) < PULL_CAP);
+      if (day) { used[day] = (used[day] || 0) + 1; m[c.id] = day; }
+    });
+  });
+  FC_PULL = {k, m}; return m;
 }
-const cardDueOn = c => examDueCap(c.due, c.last, cardCourse(c));
+const cardDueOn = c => { const p = fcPulls()[c.id]; return p && (!c.due || p < c.due) ? p : c.due; };
+// For the rating buttons: the next review date after rating today, pulled in when the exam needs it
+function examDueCap(due, cid, cardId){
+  const ex = cid && fcExams()[cid], today = todayISO(); if (!ex || !due) return due;
+  if (today >= addDays(ex.due, -EXAM_WIN) || due <= addDays(ex.due, -1)) return due;
+  const p = fcPulls()[cardId], span = EXAM_WIN - EXAM_LAST + 1, want = addDays(ex.due, -EXAM_WIN + (cardHash(cardId) % span));
+  return p && p < due ? p : want < due ? want : due;
+}
 const cardDue = c => c.seen > 0 && (!c.due || cardDueOn(c) <= todayISO());
 const cardNew = c => !c.seen;
 /* How prepared you are for a deck (0 to 100), from every card */
@@ -618,7 +646,7 @@ function viewStudy(){
   const d = state.decks[it.deckId], c = d && d.cards.find(x => x.id === it.cardId);
   if (!c) { f.i++; return viewStudy(); }
   const box = c.box;
-  const lbl = r => { const due0 = (window.SBPRO && SBPRO.cardPreview ? SBPRO.cardPreview(d, c, r) : "") || nextDue(r === "good" ? Math.min(5, box + 1) : r === "easy" ? Math.min(5, box + 2) : box, r), due = examDueCap(due0, todayISO(), d.courseId), n = dayDiff(todayISO(), due); return n <= 0 ? "today" : (n === 1 ? "1 day" : n + " days") + (due < due0 ? " (before your exam)" : ""); };
+  const lbl = r => { const due0 = (window.SBPRO && SBPRO.cardPreview ? SBPRO.cardPreview(d, c, r) : "") || nextDue(r === "good" ? Math.min(5, box + 1) : r === "easy" ? Math.min(5, box + 2) : box, r), due = examDueCap(due0, d.courseId, c.id), n = dayDiff(todayISO(), due); return n <= 0 ? "today" : (n === 1 ? "1 day" : n + " days") + (due < due0 ? " (before your exam)" : ""); };
   return `<div class="view-head"><h2>Studying ${esc(title)}</h2><span class="mini">${f.i + 1} of ${f.q.length}</span>${undoBtn(f, true)}<button class="btn small" data-act="fc-exit">End Session</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.q.length * 100)}%"></i></div>
     ${f.note ? `<p class="mini">${esc(f.note)}</p>` : ""}

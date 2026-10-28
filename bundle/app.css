@@ -7219,6 +7219,23 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
 .ewr-last .link-btn{align-self:flex-start;padding:0}
 .ewr-btn{margin:10px 4px 2px}
 @media (max-width:600px){.ewr-row{grid-template-columns:minmax(0,8rem) 1fr 2.6rem}}
+/* Heads Up: Today's Plan's notices in one block, a row each */
+.plan-notes{margin:12px 0 0;padding:6px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.pn-h{margin:6px 0 2px;font:700 .72rem/1 var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.plan-notes ul{list-style:none;margin:0;padding:0}
+.pn{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:10px 0;border-top:1px solid var(--line);font-size:.9rem;line-height:1.45}
+.pn:first-child{border-top:0}
+.pn-ic{display:grid;place-items:center;width:22px;height:22px;flex:none;border-radius:50%;font:800 .74rem/1 var(--display);color:#fff;background:var(--accent)}
+.pn-warn .pn-ic,.pn-late .pn-ic{background:var(--late)}
+.pn-wrap .pn-ic{background:#2F9E5F}
+.pn-main{flex:1 1 280px;min-width:0}
+.pn-main .link-btn{font:inherit;font-weight:600;padding:0}
+.pn-acts{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+:root[data-theme="dark"] .pn-ic{color:#10151F}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .pn-ic{color:#10151F}}
+@media (max-width:600px){.pn-acts{flex-basis:100%;margin-left:34px}}
+.xr-decks{display:grid;gap:4px;margin:2px 0 0 26px;max-height:40vh;overflow:auto}
+.xr-decks.auto{opacity:.55}
 /* ===== module: 103-phone-design.css ===== */
 /* Done bar and the compact time prompt */
 @keyframes sbPop{0%{transform:scale(1)}50%{transform:scale(1.15)}100%{transform:scale(1)}}

@@ -45,7 +45,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       const {ctx, page} = await open({tasks: [mk("x", "Midterm 2", "Exam", 6, Object.assign({weight: 30, pct: 80}, inPerson)), mk("y", "Quiz 4", "Quiz", 9, Object.assign({weight: 5, pct: 40, courseId: "c3"}, inPerson))], decks: [bioDeck]});
       await act(page, "edit-task", "x"); await page.waitForSelector("dialog[open] .tv-ready");
       const tv = await page.locator("dialog[open] .tv-ready").innerText();
-      ok(/Readiness From Your Results/.test(tv) && /flashcards \(20 of 20 studied\)/.test(tv) && /practice quiz \(50% average\)/.test(tv), "task view: readiness from results, and what it's made of: " + tv.replace(/\s+/g, " ").slice(0, 140));
+      ok(/Readiness From Your Results/.test(tv) && /flashcards for the course \(20 of 20 studied\)/.test(tv) && /practice quiz \(50% average\)/.test(tv), "task view: readiness from results, and what it's made of: " + tv.replace(/\s+/g, " ").slice(0, 140));
       ok(/You rate yourself 80% ready, but your results say about \d\d%/.test(await page.locator("dialog[open] .tv-gap").innerText()), "task view: the gap between feeling and results is pointed out");
       ok(/How Ready You Feel/.test(await page.locator("dialog[open] .tv-prog:not(.tv-ready) .tv-prog-h b").innerText()), "task view: the slider is labelled How Ready You Feel");
       await shot(page, "1-readiness-task", "dialog[open] .sheet");
@@ -60,11 +60,13 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(st && st.R > 4, "less ready (measured) means more study time: " + (st && st.R) + "h");
       await done(ctx, page);
     }
-    { // 1b. Exam Mode's card: readiness from results, and the gap
+    { // 1b. Exam Mode's card: readiness from results; the gap is in Heads Up
       const {ctx, page} = await open({tasks: [mk("z", "Midterm 1", "Exam", 2, Object.assign({weight: 25, pct: 85, time: "09:00"}, inPerson))], decks: [bioDeck]});
       await page.waitForSelector(".exm-card");
       const c = await page.locator(".exm-card").innerText();
-      ok(/\d\d% ready \(from your results/.test(c) && /You rate yourself 85% ready, but your results say about \d\d%/.test(c), "Exam Mode: readiness from results, with the gap: " + c.replace(/\s+/g, " ").slice(0, 160));
+      ok(/\d\d% ready \(from your results/.test(c), "Exam Mode: readiness from results: " + c.replace(/\s+/g, " ").slice(0, 160));
+      const g = await page.locator(".plan-notes .pn-ready").innerText();
+      ok(/Midterm 1 \(in 2 days\): you feel 85% ready, but your results say about \d\d%/.test(g) && /Test Yourself/.test(g), "Heads Up: the gap for the next exam, with Test Yourself: " + g.replace(/\s+/g, " "));
       await shot(page, "1b-exam-mode", ".exm-card");
       await done(ctx, page);
     }
@@ -72,7 +74,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       const chem = {id: "d2", name: "Reactions", courseId: "c2", created: 2, cards: Array.from({length: 5}, (_, i) => card("c" + i, {box: 4, due: addD(20), last: addD(-10), right: 3, wrong: 0, rate: "good"})).concat([card("cw", {box: 4, due: addD(20), last: addD(-1), rate: "good"})])};
       const hist = {id: "d3", name: "Revolutions", courseId: "c3", created: 3, cards: Array.from({length: 6}, (_, i) => card("h" + i, {due: addD(-1)}))};
       const bio = Object.assign({}, bioDeck, {cards: bioDeck.cards.map(c => Object.assign({}, c, {due: addD(3)}))});
-      const {ctx, page} = await open({tasks: [mk("q", "Quiz 3", "Quiz", 2, Object.assign({courseId: "c2", weight: 5}, inPerson)), mk("x", "Midterm 2", "Exam", 6, Object.assign({weight: 30}, inPerson))], decks: [bio, chem, hist]});
+      const {ctx, page} = await open({tasks: [mk("q", "Quiz 3", "Quiz", 2, Object.assign({courseId: "c2", weight: 15}, inPerson)), mk("x", "Midterm 2", "Exam", 12, Object.assign({weight: 30}, inPerson))], decks: [bio, chem, hist]});
       const due = await page.evaluate(() => Number((document.querySelector(".fc-navdue") || {}).textContent || 0));
       ok(due === 11, `exam-aware: 5 chemistry cards due in 20 days come due now, 2 days before the quiz (plus 6 history cards): ${due} due`);
       await act(page, "fc-review-all"); await page.waitForTimeout(300);
@@ -85,11 +87,11 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(max <= 3, "mixed: never more than 3 in a row from one deck while both have cards: " + max);
       ok(/Cards for Quiz 3 \(in 2 days\) come up most, mixed in with the rest/.test(await page.locator(".view").first().innerText().catch(() => "") || await page.textContent("body")), "mixed: the session says why");
       await shot(page, "2-mixed-review", "#view");
-      // a biology card (midterm in 6 days): a long next gap is pulled in to 2 days before the exam, and the button says so
-      await page.evaluate(() => { const f = window.__sbSync.ui.fc; f.q.unshift({deckId: "d1", cardId: "b0"}); f.i = 0; f.flipped = true; window.__sbSync.render(); });
+      // a well-known biology card (midterm in 12 days): its long next gap is pulled into the week before the exam, and the button says so
+      await page.evaluate(() => { const S = window.__sbSync, c = S.state.decks.d1.cards.find(x => x.id === "b0"); c.box = 4; const f = S.ui.fc; f.q.unshift({deckId: "d1", cardId: "b0"}); f.i = 0; f.flipped = true; S.render(); });
       await page.waitForTimeout(200);
       const easy = await page.locator(".rate-btn.easy span").innerText();
-      ok(/^4 days \(before your exam\)$/.test(easy.trim()), "exam-aware: the rating button says the next review comes before the exam: " + easy);
+      ok(/^(5|6|7|8|9|10) days \(before your exam\)$/.test(easy.trim()), "exam-aware: the rating button says the next review comes before the exam: " + easy);
       await shot(page, "3-rate-before-exam", "#view");
       await done(ctx, page);
     }

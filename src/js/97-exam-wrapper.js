@@ -39,7 +39,8 @@ hook("changed", changes => {
     lsSet(SNAP_LS, m);
   });
 });
-const snapOf = t => t.wrap && (t.wrap.felt != null || t.wrap.measured != null) ? t.wrap : lsGet(SNAP_LS, {})[t.id] || snapNow(t);
+// Saved with the exam when it was marked done (synced); older exams fall back to this device's copy, then to now
+const snapOf = t => t.wrap && (t.wrap.felt != null || t.wrap.measured != null) ? t.wrap : t.readySnap && t.readySnap.at ? t.readySnap : lsGet(SNAP_LS, {})[t.id] || snapNow(t);
 
 // What the comparison says, in one or two sentences
 function readOf(felt, measured, mark){
@@ -96,7 +97,7 @@ function open(id, back){
   const tipEl = $("#ewrTip"), tip = () => { tipEl.textContent = tipOf([...dlg.querySelectorAll('input[name="m"]:checked')].map(i => i.value)); };
   dlg.querySelectorAll('input[name="m"]').forEach(i => i.addEventListener("change", tip)); tip();
   const saveAsk = () => { const on = $("#ewrAsk").checked; if (on !== askOn()) { state.settings = Object.assign({}, state.settings, {grades: Object.assign({}, (state.settings && state.settings.grades) || {}, {wrap: on})}); saveSettings(); } };
-  $("#ewrSkip").addEventListener("click", () => { saveAsk(); const k = lsGet(SKIP_LS, {}); k[id] = Date.now(); lsSet(SKIP_LS, k); dlg.close(); if (back) setTimeout(back, 40); });
+  $("#ewrSkip").addEventListener("click", () => { saveAsk(); skip(id); dlg.close(); scheduleRender(); if (back) setTimeout(back, 40); });
 }
 // Offered right after a first mark is saved, once per exam
 const should = id => { const t = state.tasks[id]; return isExam(t) && !t.wrap && askOn() && !lsGet(SKIP_LS, {})[id]; };
@@ -118,6 +119,47 @@ function viewHtml(t){
   if (t.wrap) return `<div class="ewr-last ewr-mine" role="note"><b>Your reflection</b><span>You felt ${esc(pctTxt(t.wrap.felt))} ready, your results said ${esc(pctTxt(t.wrap.measured))}, and you got ${esc(pctTxt(t.wrap.mark))}.</span>${t.wrap.next ? `<span>Next time: <i>${esc(t.wrap.next)}</i></span>` : ""}<button type="button" class="link-btn" data-act="ewr-open" data-id="${esc(t.id)}">Edit</button></div>`;
   return markOf(t) != null ? `<button type="button" class="btn small ewr-btn" data-act="ewr-open" data-id="${esc(t.id)}">Reflect on This ${esc(t.type)}</button>` : "";
 }
-hook("act", (act, el, id) => { if (act === "ewr-open") { if (dlg.open) dlg.close(); setTimeout(() => open(id), 30); return true; } });
-window.SBWRAP = {open, should, viewHtml, lastWrap, readOf, tipOf, METHODS};
+/* Which flashcards count toward this exam's readiness: Automatic (Studyboard matches the exam's topics, from its notes, the
+   school site and announcements, to your decks; or the cards since the last exam; or the whole course), or the decks you pick */
+function decksSheet(id){
+  const t = state.tasks[id]; if (!isExam(t)) return;
+  const ev = examEvidence(Object.assign({}, t, {readyDecks: []})), picked = new Set(t.readyDecks || []), mine = !!picked.size;
+  const how = ev.how === "topics" ? `matches this exam's topics (${ev.terms && ev.terms.length ? ev.terms.slice(0, 5).join(", ") : "from its notes"}) to ${ev.cards.length} card${ev.cards.length === 1 ? "" : "s"}` : ev.how === "since" ? `uses the ${ev.cards.length} cards added since ${ev.prev}` : ev.how === "course" ? "uses every flashcard in this course" : "has no flashcards in this course to use";
+  const decks = deckListArr().slice().sort((a, b) => (b.courseId === t.courseId) - (a.courseId === t.courseId));
+  openSheet(`<form class="sheet xr-sheet">${head("Which Flashcards Count?")}
+    <div class="sheet-body">
+      <p style="margin:0">For <b>${esc(t.title)}</b>, readiness is measured from the flashcards (and their practice quizzes) that cover it.</p>
+      <label class="mi-check"><input type="radio" name="xrm" value="auto"${mine ? "" : " checked"}> <span><b>Automatic.</b> Right now Studyboard ${esc(how)}.</span></label>
+      <label class="mi-check"><input type="radio" name="xrm" value="pick"${mine ? " checked" : ""}> <span><b>Only the decks I pick:</b></span></label>
+      <div class="xr-decks" id="xrDecks">${decks.length ? decks.map(d => { const c = courseOf(d.courseId); return `<label class="mi-check"><input type="checkbox" name="d" value="${esc(d.id)}"${picked.has(d.id) ? " checked" : ""}> <span>${esc(d.name)} <span class="mini">${d.cards.length} card${d.cards.length === 1 ? "" : "s"}${c ? " · " + esc(courseLabel(c)) : ""}</span></span></label>`; }).join("") : `<p class="mini">You don't have any flashcard decks yet.</p>`}</div>
+    </div>
+    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Save</button></div></form>`, fd => {
+    const cur = state.tasks[id]; if (!cur) return;
+    const ids = fd.get("xrm") === "pick" ? fd.getAll("d").map(String) : [];
+    if (fd.get("xrm") === "pick" && !ids.length) { toast("Pick at least one deck, or choose Automatic"); return false; }
+    const n = clone(cur); if (ids.length) n.readyDecks = ids; else delete n.readyDecks;
+    dlg.close(); applyChanges([{kind: "task", id, after: n}], ids.length ? `Readiness for ${cur.title} now uses ${ids.length} deck${ids.length === 1 ? "" : "s"}` : "Readiness is automatic again");
+    return false;
+  });
+  // the decks stay clickable: ticking one switches to "Only the decks I pick"; Automatic dims them
+  const box = $("#xrDecks"), sync = () => box.classList.toggle("auto", !dlg.querySelector('input[name="xrm"][value="pick"]').checked);
+  dlg.querySelectorAll('input[name="xrm"]').forEach(i => i.addEventListener("change", sync));
+  box.querySelectorAll("input").forEach(i => i.addEventListener("change", () => { if (i.checked) dlg.querySelector('input[name="xrm"][value="pick"]').checked = true; sync(); }));
+  sync();
+}
+// Exams with a mark (from any source: the mark sheet, the task form, Paste Grades, school sync) and no reflection yet, newest
+// first. Today's Plan offers them under Heads Up until reflected on or skipped. Only recent exams, so old marks don't pile up.
+function pending(){
+  if (!askOn()) return [];
+  const skip = lsGet(SKIP_LS, {}), from = addDays(todayISO(), -30);
+  return Object.values(state.tasks || {}).filter(t => isExam(t) && !t.wrap && !skip[t.id] && markOf(t) != null && (t.due || "") >= from && (t.status === "done" || (t.due || "") <= todayISO()))
+    .sort((a, b) => (b.due || "").localeCompare(a.due || ""));
+}
+const skip = id => { const k = lsGet(SKIP_LS, {}); k[id] = Date.now(); lsSet(SKIP_LS, k); };
+hook("act", (act, el, id) => {
+  if (act === "ewr-open") { if (dlg.open) dlg.close(); setTimeout(() => open(id), 30); return true; }
+  if (act === "xr-decks") { if (dlg.open) dlg.close(); setTimeout(() => decksSheet(id), 30); return true; }
+  if (act === "ewr-skip") { skip(id); scheduleRender(); toast("Skipped. You can still reflect from the exam's details."); return true; }
+});
+window.SBWRAP = {open, should, viewHtml, lastWrap, readOf, tipOf, pending, markOf, METHODS};
 })();
