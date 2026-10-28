@@ -970,7 +970,7 @@ function sbLinkErrorSheet(){
   dlg.querySelectorAll("[data-sbm]").forEach(b => b.addEventListener("click", () => sbSignInSheet(b.dataset.sbm)));
 }
 // Signing out removes this account's copy from the device
-const WIPE_KEYS = () => [LS2, LS1, LSB, OUTBOX, LS_TRASH, "studyboard:bugq", "studyboard:comp:uname", "studyboard:comp:helloDay"];
+const WIPE_KEYS = () => [LS2, LS2_IDB, LS1, LSB, OUTBOX, LS_TRASH, "studyboard:bugq", "studyboard:comp:uname", "studyboard:comp:helloDay"];
 async function wipeDeviceData(){
   deviceWiping = true;
   state = {courses:{}, tasks:{}, files:{}, notes:{}, decks:{}, events:{}, trash:{}, settings:{capacity:15}, updated:0};

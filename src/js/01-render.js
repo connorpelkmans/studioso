@@ -782,8 +782,10 @@ function menuSheet(){
       <button data-act="trash-open"><span>Recently Deleted<span class="sub">${trashVisible().length ? `${trashVisible().length} item${trashVisible().length === 1 ? "" : "s"} you can still restore. Kept for ${TB.KEEP_DAYS} days.` : `Anything you delete waits here for ${TB.KEEP_DAYS} days`}</span></span></button>
       <button data-act="export-data"><span>Export My Data<span class="sub">Tasks, notes, grades and flashcards as a ZIP of spreadsheet files and one JSON file</span></span></button>
       <button data-act="cal-export"><span>Add Deadlines to Your Calendar<span class="sub">Download a calendar file with reminders</span></span></button>
-      ${Object.values(state.files).some(f => f.kind === "file") ? `<button data-act="export-full"><span>Export Backup with Files<span class="sub">One file with your data and every uploaded file. Use it to move to another version of Studyboard.</span></span></button>` : ""}
-      <button data-act="export"><span>Export a Backup File<span class="sub">Download a file you can keep anywhere, like Google Drive or a USB drive</span></span></button>
+      ${(() => { const n = Object.values(state.files).filter(f => f.kind === "file" && (f.revs || []).some(r => r && r.assetId)).length; return n
+        ? `<button data-act="export"><span>Export a Backup File<span class="sub">One ZIP with your data and your ${n} uploaded file${n === 1 ? "" : "s"}. Keep it anywhere, like Google Drive or a USB drive.</span></span></button>
+      <button data-act="export-json"><span>Export Data Only<span class="sub">A smaller file without your uploaded files</span></span></button>`
+        : `<button data-act="export"><span>Export a Backup File<span class="sub">Download a file you can keep anywhere, like Google Drive or a USB drive</span></span></button>`; })()}
       <button data-act="backup-now"><span>Save a Copy on This Device<span class="sub">Kept in this browser, which also saves a copy each day. It won't survive clearing the browser.</span></span></button>
       <button data-act="restore"><span>Restore a Backup</span></button>
       <button data-act="import"><span>Import from a Backup File</span></button>

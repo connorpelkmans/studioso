@@ -67,7 +67,7 @@ async function capProcess(rows, d){
     } else {
       const items = dd.fresh.map(r => d.convert(r)), ids = items.map(x => x.id);
       try { await d.addTasks(items); } catch (e) { out.failed = true; }
-      if (!out.failed && d.verifySaved(ids)) stored = dd.fresh.map(r => r.id); else out.failed = true;
+      if (!out.failed && await d.verifySaved(ids)) stored = dd.fresh.map(r => r.id); else out.failed = true;
     }
     if (stored.length) { d.seenAdd(stored); out.added += stored.length; }
   }
@@ -117,7 +117,7 @@ async function capProcess(rows, d){
     const who = capWho(items.map(x => x.source)), n = changes.length, nodate = items.filter(x => !x.due).length;
     applyChanges(changes, `Added ${n} task${n === 1 ? "" : "s"} from ${who}${nodate ? ` (${nodate === n ? "none has" : nodate + " without"} a due date)` : ""}`);
   }
-  function verifySaved(ids){ try { const raw = localStorage.getItem(LS2) || ""; return ids.every(id => raw.indexOf('"' + id + '"') >= 0); } catch (e) { return false; } }
+  async function verifySaved(ids){ try { let raw = ""; if (spilled) { await spillFlush(); raw = (await spillRead()) || ""; } else raw = localStorage.getItem(LS2) || ""; return ids.every(id => raw.indexOf('"' + id + '"') >= 0); } catch (e) { return false; } }
   const deps = () => ({
     dedupe: () => ({seen: seenSet(), hasTask: id => !!getItem("task", id),
       recent: tasksArr().filter(t => t.created && Date.now() - t.created < CAP_DUP_MS).map(t => ({key: capKey(t.title, t.due), at: t.created}))}),

@@ -2553,6 +2553,7 @@ dialog:has(.sheet.ob){width:min(640px,calc(100% - 24px))}
 .ob-opt{font:700 .66rem/1 var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:5px 8px}
 .ob-lead{margin:-6px auto 2px;max-width:46ch;text-align:center;color:var(--muted);font-size:.98rem;line-height:1.5;text-wrap:balance}
 .ob-note{margin:0;text-align:center;line-height:1.5}
+.ob-crash{margin:-4px 2px 0;text-align:center;color:var(--muted);line-height:1.45}
 .ob-note .link-btn{font-size:inherit;padding:0}
 .ob-logo{display:flex;justify-content:center;padding:10px 0 2px}
 .ob-logo .logo{height:48px;width:auto;display:block}

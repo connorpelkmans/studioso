@@ -635,13 +635,61 @@ const toArrays = () => ({v:2, courses:Object.values(state.courses), tasks:Object
 // Set while this device's copy is being wiped
 let deviceWiping = false;
 let saveWarnAt = 0;
+function saveWarn(e){
+  if (window.SBERR && e && /quota/i.test(e.name + " " + e.message)) SBERR.flow("storage-quota", e);
+  if (Date.now() - saveWarnAt > 6e4) { saveWarnAt = Date.now(); setTimeout(() => { try { toast("Couldn't save on this device. Storage is full or blocked. Export a backup so nothing is lost.", null, null, {error: true}); } catch(e2) {} }, 700); }
+}
+/* The big copy: localStorage holds only about 5 MB, which a few whiteboards and a lot of notes can fill.
+   Once the saved copy is over SPILL_AT characters, or localStorage refuses it, it moves to IndexedDB (far more
+   room) and stays there on this device. A small marker in localStorage says so, and its change tells other tabs. */
+const LS2_IDB = "coursework:v2:idb", SPILL_KEY = "device:v2", SPILL_AT = 3e6;
+const spillMarked = () => { try { return !!localStorage.getItem(LS2_IDB); } catch(e) { return false; } };
+const spillOk = () => typeof indexedDB !== "undefined" && !inPreview();
+let spilled = spillMarked(), spillRaw = null, spillMoving = false, spillNext = null, spillT = 0, spillQ = null, spillChain = Promise.resolve();
+function spillWrite(json){
+  const p = spillChain.then(() => SBC.putStrict("rows", SPILL_KEY, json)).then(() => { try { localStorage.setItem(LS2_IDB, String(Date.now())); } catch(e) {} });
+  spillChain = p.catch(() => {});
+  return p;
+}
+function spillMove(json){
+  spillNext = json;
+  if (spillMoving) return;
+  spillMoving = true;
+  spillWrite(json).then(() => {
+    spilled = true; spillMoving = false;
+    try { localStorage.removeItem(LS2); } catch(e) {}
+    const later = spillNext; spillNext = null;
+    if (later && later !== json) spillQueue(later);
+  }, e => { spillMoving = false; spillNext = null; saveWarn(e); });
+}
+function spillQueue(json){
+  spillQ = json; clearTimeout(spillT);
+  spillT = setTimeout(spillFlush, 300);
+}
+// Writes what's waiting now (also when the page is hidden or closed)
+function spillFlush(){
+  clearTimeout(spillT);
+  const json = spillQ; spillQ = null;
+  if (json == null) return spillChain;
+  return spillWrite(json).catch(saveWarn);
+}
+async function spillRead(){ try { const v = await SBC.get("rows", SPILL_KEY); return typeof v === "string" && v ? v : null; } catch(e) { return null; } }
+// Called before loadLocal when the copy is in IndexedDB
+async function spillLoad(){ spilled = spilled || spillMarked(); if (spilled) spillRaw = await spillRead(); }
+window.addEventListener("pagehide", () => { try { spillFlush(); } catch(e) {} });
+document.addEventListener("visibilitychange", () => { if (document.hidden) { try { spillFlush(); } catch(e) {} } });
 function saveLocal(){
   if (deviceWiping || demoDrawing) return;
   if (lsHold) return;
-  try { const a = toArrays(); delete a.trash; localStorage.setItem(LS2, JSON.stringify(a)); }
+  let json;
+  try { const a = toArrays(); delete a.trash; json = JSON.stringify(a); } catch(e) { console.warn("save", e); return; }
+  if (!spilled && spillMarked()) spilled = true;
+  if (spilled) { spillQueue(json); return; }
+  if (spillMoving || json.length > SPILL_AT && spillOk()) { spillMove(json); return; }
+  try { localStorage.setItem(LS2, json); }
   catch(e){
-    if (window.SBERR && e && /quota/i.test(e.name + " " + e.message)) SBERR.flow("storage-quota", e);
-    if (Date.now() - saveWarnAt > 6e4) { saveWarnAt = Date.now(); setTimeout(() => { try { toast("Couldn't save on this device. Storage is full or blocked. Export a backup so nothing is lost.", null, null, {error: true}); } catch(e2) {} }, 700); }
+    if (spillOk()) { spillMove(json); return; }
+    saveWarn(e);
   }
 }
 // A saved copy that can't be read is set aside, never overwritten
@@ -649,13 +697,19 @@ let loadProblem = "";
 // Set when that copy couldn't be set aside in localStorage
 let lsHold = false;
 // Two tabs of a device-only copy
-window.addEventListener("storage", e => {
+function adoptOtherTab(raw){
   try {
-    if (e.key !== LS2 || !e.newValue || (typeof cloud !== "undefined" && cloud.on)) return;
     const keepTrash = state.trash, editing = typeof noteEditing !== "undefined" && noteEditing, mine = editing && state.notes[editing];
-    state = fromArrays(JSON.parse(e.newValue)); state.trash = keepTrash || state.trash || {};
+    state = fromArrays(JSON.parse(raw)); state.trash = keepTrash || state.trash || {};
     if (editing) { if (mine) state.notes[editing] = mine; return; }
     scheduleRender();
+  } catch(x) {}
+}
+window.addEventListener("storage", e => {
+  try {
+    if (!e.newValue || (typeof cloud !== "undefined" && cloud.on)) return;
+    if (e.key === LS2_IDB) { spilled = true; spillRead().then(v => { if (v) adoptOtherTab(v); }); return; }
+    if (e.key === LS2) adoptOtherTab(e.newValue);
   } catch(x) {}
 });
 function keepUnreadable(key, raw){
@@ -686,11 +740,13 @@ function deskNewer(own){
 function loadLocal(){
   let r = null;
   try {
-    r = localStorage.getItem(LS2);
+    r = spillRaw != null ? spillRaw : localStorage.getItem(LS2);
+    spillRaw = null;
+    if (!r && spilled) { loadProblem = "v2"; const f = deskNewer(null); if (f) { state = fromArrays(f); spillQueue(JSON.stringify(f)); loadProblem = ""; trashLoadLocal(); return; } }
     if (r) {
       const own = JSON.parse(r), newer = deskNewer(own);
       state = fromArrays(newer || own);
-      if (newer) { try { localStorage.setItem(LS2, JSON.stringify(newer)); } catch(e) {} }
+      if (newer) { if (spilled) spillQueue(JSON.stringify(newer)); else { try { localStorage.setItem(LS2, JSON.stringify(newer)); } catch(e) {} } }
       trashLoadLocal(); return;
     }
   } catch(e) {
@@ -1249,12 +1305,13 @@ const outboxGet = () => { try { return JSON.parse(localStorage.getItem(OUTBOX) |
 // The outbox lives in localStorage, which every open tab and window of Studyboard shares
 const outboxOwn = new Set(Object.keys(outboxGet()));
 const outboxMine = k => outboxOwn.has(k) && k in outboxGet();
+let outboxWarnAt = 0;
 function outboxAdd(kind, id, data){
   if (demoDrawing) return;
   if (inPreview() || !sbConfig() || deviceWiping) return;
-  outboxOwn.add(kind + ":" + id);
   const o = outboxGet(); o[kind + ":" + id] = data === null ? null : clone(data);
-  try { localStorage.setItem(OUTBOX, JSON.stringify(o)); } catch(e) { try { toast("This device's storage is full, so offline changes may not be kept. Export a backup, then free some space.", null, null, {error: true}); } catch(e2) {} }
+  try { localStorage.setItem(OUTBOX, JSON.stringify(o)); outboxOwn.add(kind + ":" + id); }
+  catch(e) { if (Date.now() - outboxWarnAt > 6e4) { outboxWarnAt = Date.now(); try { toast("This device's storage is full, so offline changes may not be kept. Export a backup, then free some space.", null, null, {error: true}); } catch(e2) {} } }
 }
 function outboxDone(key, data){
   if (inPreview()) return;
@@ -2416,7 +2473,7 @@ function sbLinkErrorSheet(){
   dlg.querySelectorAll("[data-sbm]").forEach(b => b.addEventListener("click", () => sbSignInSheet(b.dataset.sbm)));
 }
 // Signing out removes this account's copy from the device
-const WIPE_KEYS = () => [LS2, LS1, LSB, OUTBOX, LS_TRASH, "studyboard:bugq", "studyboard:comp:uname", "studyboard:comp:helloDay"];
+const WIPE_KEYS = () => [LS2, LS2_IDB, LS1, LSB, OUTBOX, LS_TRASH, "studyboard:bugq", "studyboard:comp:uname", "studyboard:comp:helloDay"];
 async function wipeDeviceData(){
   deviceWiping = true;
   state = {courses:{}, tasks:{}, files:{}, notes:{}, decks:{}, events:{}, trash:{}, settings:{capacity:15}, updated:0};
@@ -7381,7 +7438,7 @@ let autoBackupDone = false;
 const DEV_BACKUP_DAYS = 14;
 const cloudBackupsOn = () => cloud.on && (inPreview() || typeof PLAN === "undefined" || !PLAN || PLAN.can("cloud-backups"));
 const backupSnap = () => ({at: Date.now(), courses: Object.values(state.courses), tasks: Object.values(state.tasks), files: Object.values(state.files), notes: Object.values(state.notes), decks: Object.values(state.decks || {}), events: Object.values(state.events || {}), avail: (state.settings && state.settings.avail) || null,
-  keep: (() => { const st = state.settings || {}, o = {}; ["noteBoards", "noteBoardsGone", "photoThemes", "photoGone", "style", "comp", "owned"].forEach(k => { if (st[k] !== undefined) o[k] = clone(st[k]); }); return o; })()});
+  keep: (() => { const o = clone(syncSettings(state.settings || {})); delete o.ai; o.all = true; return o; })()});
 async function deviceBackups(){
   let arr = await SBC.all("backups");
   try { arr = arr.concat(JSON.parse(localStorage.getItem(LSB) || "[]").map(b => Object.assign({where: "device"}, b))); } catch(e) {}
@@ -9309,17 +9366,77 @@ function availCommit(next, label){
   availSet(AVAIL.normAvail(next));
   if (label) toast(label, () => { availSet(prev); toast("Undone"); });
 }
-// For backup restore and import
-function restoreSettingsFrom(src){
+// For backup restore and import.
+// A device backup (marked all, made on this device) brings back every setting, like settings arriving from another
+// device: this device's AI keys and school feed links stay, and boards and photo themes are merged.
+// A backup file can come from someone else, so only the settings in FILE_SETTINGS are taken from it, each checked.
+// Older device backups only carried a few keys, so only those are taken from them.
+const isObj = v => !!v && typeof v === "object" && !Array.isArray(v);
+const CSS_COLOR = /^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([\d\s.,%\/-]{1,60}\)|[a-z]{3,20})$/i;
+const FILE_SETTINGS = {
+  // Checked where they are used (see the settings review), so taken as they are when the type is right
+  style: isObj, comp: isObj, pomo: isObj, grades: isObj, reminders: isObj, gentle: isObj, review: isObj, tips: isObj, examMode: isObj, autoFeat: isObj, bd: isObj, accuracy: isObj,
+  boardManual: v => typeof v === "boolean" || isObj(v),
+  capacity: v => Number.isFinite(v) && v > 0 && v <= 200, dailyHours: v => Number.isFinite(v) && v >= 0 && v <= 24,
+  hlColor: v => typeof v === "string" && CSS_COLOR.test(v), icType: v => typeof v === "string" && v.length <= 40, wbTheme: v => typeof v === "string" && v.length <= 40,
+  // Rebuilt from their known fields
+  streak: v => isObj(v) && {cur: Math.max(0, Math.min(1e4, Math.floor(Number(v.cur)) || 0)), best: Math.max(0, Math.min(1e4, Math.floor(Number(v.best)) || 0)), last: typeof v.last === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v.last) ? v.last : ""},
+  folders: v => Array.isArray(v) && v.filter(f => isObj(f) && typeof f.id === "string" && f.id.length <= 80 && typeof f.name === "string").slice(0, 200).map(f => ({id: f.id, name: f.name.slice(0, 120)})),
+  customIcons: v => Array.isArray(v) && v.filter(x => isObj(x) && typeof x.id === "string" && x.id.length <= 80 && typeof x.svg === "string" && x.svg.length <= 2e5).slice(0, 40).map(x => Object.assign({}, x, {name: typeof x.name === "string" ? x.name.slice(0, 80) : ""})),
+  sounds: v => isObj(v) && Object.assign({}, v, {vol: Math.min(1, Math.max(0.05, Number(v.vol) || 0.5))}),
+  area: v => { if (!isObj(v)) return false; const o = Object.assign({}, v); delete o.custom; return o; }
+};
+function fileSettings(src){
+  const out = {};
+  Object.keys(FILE_SETTINGS).forEach(k => {
+    if (!(k in src)) return;
+    const r = FILE_SETTINGS[k](src[k]);
+    if (r === true) out[k] = clone(src[k]); else if (r && typeof r === "object") out[k] = r;
+  });
+  out.noteBoards = (Array.isArray(src.noteBoards) ? src.noteBoards : []).filter(b => isObj(b) && typeof b.id === "string" && typeof b.name === "string").slice(0, 100)
+    .map(b => Object.assign({}, b, {color: typeof b.color === "string" && CSS_COLOR.test(b.color.trim()) ? b.color.trim() : ""}));
+  out.photoThemes = Array.isArray(src.photoThemes) ? src.photoThemes : [];
+  return out;
+}
+function restoreSettingsFrom(src, how){
   try {
     if (!src || typeof src !== "object") return;
-    const cur = state.settings || {}, next = Object.assign({}, cur), ok = a => Array.isArray(a) ? a.filter(x => x && typeof x === "object") : [];
-    const have = new Set(ok(cur.noteBoards).map(b => b.id));
-    if (Array.isArray(src.noteBoards)) next.noteBoards = ok(cur.noteBoards).concat(ok(src.noteBoards).filter(b => b.id && !have.has(b.id)));
-    if (Array.isArray(src.photoThemes)) { next.photoThemes = ok(cur.photoThemes); next.photoGone = ok(cur.photoGone); keepPhotoThemes(next, {photoThemes: src.photoThemes, photoGone: src.photoGone}); }
-    ["style", "comp"].forEach(k => { if (!cur[k] && src[k] && typeof src[k] === "object") next[k] = src[k]; });
+    const cur = state.settings || {}, ok = a => Array.isArray(a) ? a.filter(x => x && typeof x === "object") : [];
+    let next;
+    if (how === "file") {
+      const st = fileSettings(src);
+      next = Object.assign({}, cur);
+      Object.keys(st).forEach(k => { if (k !== "noteBoards" && k !== "photoThemes") next[k] = st[k]; });
+      keepNoteBoardsFrom(next, st);
+      if (st.photoThemes.length) { next.photoThemes = ok(cur.photoThemes); next.photoGone = ok(cur.photoGone); keepPhotoThemes(next, {photoThemes: st.photoThemes, photoGone: []}); }
+    } else if (src.all === true) {
+      const st = Object.assign({}, src); delete st.all; delete st.ai; dropFeeds(st);
+      next = Object.assign({capacity: 15}, st);
+      if (cur.ai) next.ai = cur.ai;
+      if (cur.aiVault && !next.aiVault) next.aiVault = cur.aiVault;
+      if (cur.owned && typeof cur.owned === "object") next.owned = Object.assign({}, next.owned && typeof next.owned === "object" ? next.owned : {}, cur.owned);
+      keepLocalFeeds(next, cur);
+      next.noteBoards = ok(cur.noteBoards); next.noteBoardsGone = cur.noteBoardsGone; keepNoteBoardsFrom(next, src);
+      next.photoThemes = ok(cur.photoThemes); next.photoGone = ok(cur.photoGone); keepPhotoThemes(next, {photoThemes: ok(src.photoThemes), photoGone: ok(src.photoGone)});
+      if (next.avail !== undefined) delete next.avail;
+      if (cur.avail !== undefined) next.avail = cur.avail;
+    } else {
+      next = Object.assign({}, cur);
+      const have = new Set(ok(cur.noteBoards).map(b => b.id));
+      if (Array.isArray(src.noteBoards)) next.noteBoards = ok(cur.noteBoards).concat(ok(src.noteBoards).filter(b => b.id && !have.has(b.id)));
+      if (Array.isArray(src.photoThemes)) { next.photoThemes = ok(cur.photoThemes); next.photoGone = ok(cur.photoGone); keepPhotoThemes(next, {photoThemes: src.photoThemes, photoGone: src.photoGone}); }
+      ["style", "comp"].forEach(k => { if (!cur[k] && src[k] && typeof src[k] === "object") next[k] = src[k]; });
+    }
     state.settings = next; saveSettings();
+    try { applySkin(); } catch (e) {}
+    scheduleRender();
   } catch(e) { console.warn("settings restore", e); }
+}
+function keepNoteBoardsFrom(next, src){
+  const ok = a => Array.isArray(a) ? a.filter(x => x && typeof x === "object") : [];
+  const have = new Set(ok(next.noteBoards).map(b => b.id));
+  next.noteBoards = ok(next.noteBoards).concat(ok(src.noteBoards).filter(b => b.id && !have.has(b.id)));
+  if (next.noteBoardsGone === undefined) delete next.noteBoardsGone;
 }
 function availRestore(v){ availSet(v == null ? null : AVAIL.normAvail(v)); }
 const availMin = m => m >= 1440 ? "midnight" : fmtTime(AVAIL.toT(m));
@@ -11508,8 +11625,10 @@ function menuSheet(){
       <button data-act="trash-open"><span>Recently Deleted<span class="sub">${trashVisible().length ? `${trashVisible().length} item${trashVisible().length === 1 ? "" : "s"} you can still restore. Kept for ${TB.KEEP_DAYS} days.` : `Anything you delete waits here for ${TB.KEEP_DAYS} days`}</span></span></button>
       <button data-act="export-data"><span>Export My Data<span class="sub">Tasks, notes, grades and flashcards as a ZIP of spreadsheet files and one JSON file</span></span></button>
       <button data-act="cal-export"><span>Add Deadlines to Your Calendar<span class="sub">Download a calendar file with reminders</span></span></button>
-      ${Object.values(state.files).some(f => f.kind === "file") ? `<button data-act="export-full"><span>Export Backup with Files<span class="sub">One file with your data and every uploaded file. Use it to move to another version of Studyboard.</span></span></button>` : ""}
-      <button data-act="export"><span>Export a Backup File<span class="sub">Download a file you can keep anywhere, like Google Drive or a USB drive</span></span></button>
+      ${(() => { const n = Object.values(state.files).filter(f => f.kind === "file" && (f.revs || []).some(r => r && r.assetId)).length; return n
+        ? `<button data-act="export"><span>Export a Backup File<span class="sub">One ZIP with your data and your ${n} uploaded file${n === 1 ? "" : "s"}. Keep it anywhere, like Google Drive or a USB drive.</span></span></button>
+      <button data-act="export-json"><span>Export Data Only<span class="sub">A smaller file without your uploaded files</span></span></button>`
+        : `<button data-act="export"><span>Export a Backup File<span class="sub">Download a file you can keep anywhere, like Google Drive or a USB drive</span></span></button>`; })()}
       <button data-act="backup-now"><span>Save a Copy on This Device<span class="sub">Kept in this browser, which also saves a copy each day. It won't survive clearing the browser.</span></span></button>
       <button data-act="restore"><span>Restore a Backup</span></button>
       <button data-act="import"><span>Import from a Backup File</span></button>
@@ -14632,6 +14751,7 @@ async function assetBytes(id){
   const data = await sbDownload(id).catch(e => { throw new Error((e && e.message) || "download failed"); });
   return new Uint8Array(await data.arrayBuffer());
 }
+const hasStoredFiles = () => Object.values(state.files).some(f => f.kind === "file" && (f.revs || []).some(r => r && r.assetId));
 // Everything in one file
 async function exportFullBackup(){
   const entries = [{name: "studyboard-backup.json", data: JSON.stringify(Object.assign({app: "studyboard"}, exportArrays()), null, 2)}];
@@ -14921,7 +15041,7 @@ async function deskBoot(){
   if (DESK.platform === "darwin") document.body.classList.add("mac");
   if (DESK.onFullscreen) DESK.onFullscreen(on => { document.body.classList.toggle("fs", on); deskTint(); const b = dlg.open && dlg.querySelector('[data-act="sbw-fs"]'); if (b) b.textContent = on ? "Exit Full Screen" : "Full Screen"; });
   window.addEventListener("focus", async () => { try { const w = await DESK.dataDir(); if (w && FSB.where && w !== FSB.where) { FSB.where = w; scheduleRender(); } } catch(e) {} });
-  let has = false; try { has = !!localStorage.getItem(LS2); } catch(e) {}
+  let has = false; try { has = !!localStorage.getItem(LS2) || spillMarked(); } catch(e) {}
   if (has) { try { const b = await DESK.read("studyboard-latest.json"); if (b) { const f = JSON.parse(new TextDecoder().decode(b)); if (f && f.app === "studyboard" && Array.isArray(f.tasks)) deskFolderCopy = f; } } catch(e) {} }
   if (!has) { try { const b = (await DESK.read("studyboard-latest.json")) || (await DESK.read("studioso-latest.json")); if (b) { const t = new TextDecoder().decode(b), f = JSON.parse(t); localStorage.setItem(LS2, t);
     localStorage.setItem(FOLDER_FROM, f && typeof f.owner === "string" && f.owner ? f.owner.slice(0, 80) : "?"); } } catch(e) { console.warn("No local copy to restore", e); } }
@@ -15025,7 +15145,9 @@ function saveBlob(filename, data, type){
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 const inPreview = () => !!(window.claude && typeof window.claude.use === "function");
-async function exportBackup(){
+// The main backup includes your uploaded files whenever there are any (a ZIP); "data only" skips them
+async function exportBackup(opts){
+  if (!(opts && opts.dataOnly) && hasStoredFiles()) return exportFullBackup();
   const data = JSON.stringify(Object.assign({app:"studyboard"}, exportArrays()), null, 2);
   try {
     const dl = caps.downloads || await useCap("downloads");
@@ -15065,7 +15187,7 @@ $("#importFile").addEventListener("change", async e => {
       }
       applyChanges(replaceAllChanges(cs, ts, fs, ns, ds, es), msg);
       if (d.settings && d.settings.avail !== undefined) { try { availRestore(d.settings.avail); } catch(e) {} }
-      restoreSettingsFrom(d.settings);
+      if (raw.settings && typeof raw.settings === "object" && !Array.isArray(raw.settings)) restoreSettingsFrom(d.settings, "file");
       if (has("trash")) trashMerge(Object.values(d.trash));
     });
   } catch(err) { toast(/compressed/.test(String(err && err.message)) ? "That zip wasn't made by Studyboard" : "That file isn't a Studyboard backup"); }
@@ -15122,6 +15244,7 @@ document.addEventListener("click", e => {
     case "fsb-resume": dlg.close(); resumeFolderBackup(); break;
     case "fsb-stop": dlg.close(); stopFolderBackup(); break;
     case "export-full": dlg.close(); exportFullBackup(); break;
+    case "export-json": dlg.close(); exportBackup({dataOnly: true}); break;
     case "sb-connect": dlg.close(); setTimeout(() => SB_HOSTED && !sbCustom() ? sbAsk() : sbSetupSheet(), 30); break;
     case "sb-signin": dlg.close(); setTimeout(sbAsk, 30); break;
     case "sb-signout": dlg.close(); setTimeout(sbSignOut, 30); break;
@@ -18668,10 +18791,10 @@ const THEME_REGROUP = {
     add("Calendar Sync", "Add your deadlines and classes to Apple, Google or Outlook Calendar", act("cal-export"), "export ics calendar subscribe feed");
     add("Save a Copy on This Device", "Kept in this browser, which also saves a copy each day", act("backup-now"), "save backup");
     add("Restore a Backup", "Go back to an earlier backup", act("restore"), "");
-    add("Export a Backup File", "Download your data as a file", act("export"), "download");
+    add("Export a Backup File", hasStoredFiles() ? "Your data and uploaded files in one ZIP" : "Download your data as a file", act("export"), "download zip");
     add("Import from a Backup File", "Replace your data with a backup file", act("import"), "upload");
     add("Import From Another App", "Bring in Anki decks, Quizlet sets, Todoist tasks or Notion pages", act("ia-open"), "anki apkg colpkg quizlet todoist notion csv import");
-    if (Object.values(state.files).some(f => f.kind === "file")) add("Export Backup with Files", "Your data plus every uploaded file", act("export-full"), "download zip");
+    if (hasStoredFiles()) add("Export Data Only", "Your data without your uploaded files", act("export-json"), "download json small");
     if (!inPreview()) add(sbConfig() || SB_HOSTED ? (sbUser ? "Studyboard Account" : "Sign In or Create Account") : "Sync Across Devices", "Sync your data and files across devices", act(sbConfig() && !sbUser ? "sb-signin" : sbUser ? "menu" : "sb-connect"), "sync account cloud login sign in");
     [["board", "Board"], ["timeline", "Due Dates"], ["schedule", "Schedule"], ["crunch", "Crunch Forecast"], ["flashcards", "Review"], ["notes", "Notes"], ["files", "Files"], ["courses", "Courses"]]
       .forEach(([t, n]) => add(`Go to ${n}`, "Open the " + n + " page", () => { go(t); if (t === "flashcards") { ui.fc = null; ui.deckId = null; } render(); window.scrollTo(0, 0); }, "page open" + (t === "crunch" ? " workload heatmap heavy busy week exams crunch forecast" : "")));
@@ -20368,12 +20491,13 @@ document.head.appendChild(AREA_CSS);
     return `<div class="ob-logo" aria-hidden="true"></div>
       <h2 class="ob-h" id="obH" tabindex="-1">Welcome to Studyboard</h2>
       <p class="ob-lead">Your courses, deadlines and study time in one calm place. Setting up takes about a minute, and you can skip anything.</p>
+      <p class="mini ob-crash">Studyboard can send anonymous crash reports (never your tasks, notes or account details) so bugs get fixed. Turn them off any time in Settings.</p>
       <ul class="ob-points">
         <li><span class="ob-pi">${IC.board}</span><span><b>Every Deadline in One Place</b><span>See assignments, exams and labs for all your courses on a board, a timeline and a weekly schedule.</span></span></li>
         <li><span class="ob-pi">${IC.plan}</span><span><b>A Plan for Today</b><span>Today's Plan picks what to do next and fits your work into the hours you have.</span></span></li>
         <li><span class="ob-pi">${IC.tools}</span><span><b>Study Tools Built In</b><span>Notes, files, flashcards and a focus timer. It all works offline too.</span></span></li>
       </ul>
-      <p class="mini" style="margin:12px 2px 0">Studyboard can send anonymous crash reports (never your tasks, notes or account details) so bugs get fixed. Turn them off any time in Settings.</p>`;
+      `;
   }
 
   function areaStep(){
@@ -24210,7 +24334,7 @@ hook("boot", boot);
     const origPwa = pwaBoot;
     pwaBoot = function(){ const r = origPwa.apply(this, arguments); const l = document.querySelector('link[rel="manifest"]'); if (l) l.href = "today.webmanifest"; return r; };
     // Changes made in another tab or window of Studyboard show up here too
-    window.addEventListener("storage", e => { if (e.key === LS2 && e.newValue) { loadLocal(); scheduleRender(); } });
+    window.addEventListener("storage", e => { if ((e.key === LS2 || e.key === LS2_IDB) && e.newValue) { spillLoad().then(() => { loadLocal(); scheduleRender(); }); } });
   }
 
   /* Settings: Widgets and Desktop */
@@ -40695,7 +40819,7 @@ var TP_DATA = [];
     capture: ["cap-try"],
     school: ["sem-open", "lms-open", "cal-export", "cal-sync", "import-syllabus", "grp-page"],
     app: ["tz-shift", "rm-open", "sbw-open", "pwa-install", "install", "desk-version", "ob-replay", "tour-open", "bug-open"],
-    data: ["fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-full", "backup-now", "restore", "import", "ia-open", "new-term", "archive-open", "trash-open", "export-data", "clear-all"]
+    data: ["fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "restore", "import", "ia-open", "new-term", "archive-open", "trash-open", "export-data", "clear-all"]
   };
   // Sub-tabs inside a category with many rows
   const SUBS = {
@@ -40703,7 +40827,7 @@ var TP_DATA = [];
     study: [["Study Plan", ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "g-grades", "bd-new-course", "wkr-open", "fgs-open"]], ["AI and Search", ["ai-setup", "sx-settings"]]],
     school: [["School Sites", ["sem-open", "lms-open", "import-syllabus"]], ["Calendar", ["cal-export", "cal-sync"]], ["Groups", ["grp-page"]]],
     app: [["Reminders", ["rm-open", "sbw-open", "tz-shift"]], ["Install", ["pwa-install", "install", "desk-version"]], ["Help", ["ob-replay", "tour-open", "bug-open"]]],
-    data: [["Backups", ["fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-full", "backup-now", "restore"]], ["Import and Export", ["import", "ia-open", "export-data"]], ["Cleanup", ["new-term", "archive-open", "trash-open", "clear-all"]]]
+    data: [["Backups", ["fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "restore"]], ["Import and Export", ["import", "ia-open", "export-data"]], ["Cleanup", ["new-term", "archive-open", "trash-open", "clear-all"]]]
   };
   const SUB_MIN = 5;
   // Extra words people might search for, per row
@@ -40712,7 +40836,7 @@ var TP_DATA = [];
     "area-open": "major program field subject discipline degree", "bd-new-course": "milestones rubric breakdown", dailyIn: "study time plan", capIn: "weekly limit", "ai-setup": "gemini key chatbot", "sx-settings": "find ctrl k", "g-grades": "marks gpa", "wkr-open": "weekly review sunday summary recap week slipped", "fgs-open": "streak study days rest days habit gentle forgiving",
     "lms-open": "d2l lms school sites", "cal-export": "calendar ics google outlook apple", "import-syllabus": "pdf course", "sem-open": "semester first run start setup onboarding import syllabus week plan", "grp-page": "classmates share",
     "rm-open": "alerts push notify", "sbw-open": "widget tray startup desktop", "ob-replay": "tour help welcome start", "tour-open": "tour help guide orientation walkthrough tutorial", "bug-open": "bug report feedback problem issue idea support contact", "pwa-install": "home screen app",
-    "fsb-choose": "google drive onedrive folder backup", folder: "google drive onedrive folder backup", "backup-now": "save backup copy device", "restore": "undo backup", "export": "download backup", "import": "upload backup", "ia-open": "anki apkg colpkg quizlet todoist notion csv another app switch", "export-full": "files zip",
+    "fsb-choose": "google drive onedrive folder backup", folder: "google drive onedrive folder backup", "backup-now": "save backup copy device", "restore": "undo backup", "export": "download backup zip files", "export-json": "download backup data only json", "import": "upload backup", "ia-open": "anki apkg colpkg quizlet todoist notion csv another app switch", "export-full": "files zip",
     "new-term": "semester archive", "trash-open": "recently deleted trash bin restore undo recover deleted", "export-data": "export csv json zip spreadsheet excel portability download my data gdpr", "clear-all": "delete reset erase"};
   const KEY_CAT = {};
   Object.entries(ORDER).forEach(([c, ks]) => ks.forEach(k => { KEY_CAT[k] = c; }));
@@ -60435,7 +60559,7 @@ const IA = (() => {
     if (!changes.length) return;
     try {
       const have = (localStorage.getItem(LS2) || "").length, adding = JSON.stringify(changes.map(c => c.after)).length;
-      if (have + adding > 4.6e6) { const m = $("#iaMsg"); if (m) m.textContent = tr("ia.err.space", "That's more than Studyboard can keep on this device at once. Untick a few decks and import the rest afterwards."); return; }
+      if (!spillOk() && have + adding > 4.6e6) { const m = $("#iaMsg"); if (m) m.textContent = tr("ia.err.space", "That's more than Studyboard can keep on this device at once. Untick a few decks and import the rest afterwards."); return; }
     } catch (e) { }
     const what = [made.deck ? decksW(made.deck) + " (" + cardsW(made.card) + ")" : "", made.task ? tasksW(made.task) : "", made.note ? notesW(made.note) : ""].filter(Boolean).join(", ");
     dlg.close();
@@ -61303,7 +61427,7 @@ async function capProcess(rows, d){
     } else {
       const items = dd.fresh.map(r => d.convert(r)), ids = items.map(x => x.id);
       try { await d.addTasks(items); } catch (e) { out.failed = true; }
-      if (!out.failed && d.verifySaved(ids)) stored = dd.fresh.map(r => r.id); else out.failed = true;
+      if (!out.failed && await d.verifySaved(ids)) stored = dd.fresh.map(r => r.id); else out.failed = true;
     }
     if (stored.length) { d.seenAdd(stored); out.added += stored.length; }
   }
@@ -61353,7 +61477,7 @@ async function capProcess(rows, d){
     const who = capWho(items.map(x => x.source)), n = changes.length, nodate = items.filter(x => !x.due).length;
     applyChanges(changes, `Added ${n} task${n === 1 ? "" : "s"} from ${who}${nodate ? ` (${nodate === n ? "none has" : nodate + " without"} a due date)` : ""}`);
   }
-  function verifySaved(ids){ try { const raw = localStorage.getItem(LS2) || ""; return ids.every(id => raw.indexOf('"' + id + '"') >= 0); } catch (e) { return false; } }
+  async function verifySaved(ids){ try { let raw = ""; if (spilled) { await spillFlush(); raw = (await spillRead()) || ""; } else raw = localStorage.getItem(LS2) || ""; return ids.every(id => raw.indexOf('"' + id + '"') >= 0); } catch (e) { return false; } }
   const deps = () => ({
     dedupe: () => ({seen: seenSet(), hasTask: id => !!getItem("task", id),
       recent: tasksArr().filter(t => t.created && Date.now() - t.created < CAP_DUP_MS).map(t => ({key: capKey(t.title, t.due), at: t.created}))}),
@@ -77375,6 +77499,7 @@ if (DESK) { try { await Promise.race([deskBoot(), sleep(6000)]); } catch(e) { co
 try { pwaBoot(); } catch(e) {}
 try { applyTheme(); } catch(e) {}
 try { applySkin(); } catch(e) {}
+try { await spillLoad(); } catch(e) { console.warn("device copy", e); }
 loadLocal();
 try { noteDraftRecover(); } catch(e) { console.warn("note draft", e); }
 setTimeout(async () => {

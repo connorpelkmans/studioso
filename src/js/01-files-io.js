@@ -110,6 +110,7 @@ async function assetBytes(id){
   const data = await sbDownload(id).catch(e => { throw new Error((e && e.message) || "download failed"); });
   return new Uint8Array(await data.arrayBuffer());
 }
+const hasStoredFiles = () => Object.values(state.files).some(f => f.kind === "file" && (f.revs || []).some(r => r && r.assetId));
 // Everything in one file
 async function exportFullBackup(){
   const entries = [{name: "studyboard-backup.json", data: JSON.stringify(Object.assign({app: "studyboard"}, exportArrays()), null, 2)}];
@@ -399,7 +400,7 @@ async function deskBoot(){
   if (DESK.platform === "darwin") document.body.classList.add("mac");
   if (DESK.onFullscreen) DESK.onFullscreen(on => { document.body.classList.toggle("fs", on); deskTint(); const b = dlg.open && dlg.querySelector('[data-act="sbw-fs"]'); if (b) b.textContent = on ? "Exit Full Screen" : "Full Screen"; });
   window.addEventListener("focus", async () => { try { const w = await DESK.dataDir(); if (w && FSB.where && w !== FSB.where) { FSB.where = w; scheduleRender(); } } catch(e) {} });
-  let has = false; try { has = !!localStorage.getItem(LS2); } catch(e) {}
+  let has = false; try { has = !!localStorage.getItem(LS2) || spillMarked(); } catch(e) {}
   if (has) { try { const b = await DESK.read("studyboard-latest.json"); if (b) { const f = JSON.parse(new TextDecoder().decode(b)); if (f && f.app === "studyboard" && Array.isArray(f.tasks)) deskFolderCopy = f; } } catch(e) {} }
   if (!has) { try { const b = (await DESK.read("studyboard-latest.json")) || (await DESK.read("studioso-latest.json")); if (b) { const t = new TextDecoder().decode(b), f = JSON.parse(t); localStorage.setItem(LS2, t);
     localStorage.setItem(FOLDER_FROM, f && typeof f.owner === "string" && f.owner ? f.owner.slice(0, 80) : "?"); } } catch(e) { console.warn("No local copy to restore", e); } }

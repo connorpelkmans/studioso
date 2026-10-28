@@ -198,12 +198,13 @@ const outboxGet = () => { try { return JSON.parse(localStorage.getItem(OUTBOX) |
 // The outbox lives in localStorage, which every open tab and window of Studyboard shares
 const outboxOwn = new Set(Object.keys(outboxGet()));
 const outboxMine = k => outboxOwn.has(k) && k in outboxGet();
+let outboxWarnAt = 0;
 function outboxAdd(kind, id, data){
   if (demoDrawing) return;
   if (inPreview() || !sbConfig() || deviceWiping) return;
-  outboxOwn.add(kind + ":" + id);
   const o = outboxGet(); o[kind + ":" + id] = data === null ? null : clone(data);
-  try { localStorage.setItem(OUTBOX, JSON.stringify(o)); } catch(e) { try { toast("This device's storage is full, so offline changes may not be kept. Export a backup, then free some space.", null, null, {error: true}); } catch(e2) {} }
+  try { localStorage.setItem(OUTBOX, JSON.stringify(o)); outboxOwn.add(kind + ":" + id); }
+  catch(e) { if (Date.now() - outboxWarnAt > 6e4) { outboxWarnAt = Date.now(); try { toast("This device's storage is full, so offline changes may not be kept. Export a backup, then free some space.", null, null, {error: true}); } catch(e2) {} } }
 }
 function outboxDone(key, data){
   if (inPreview()) return;
