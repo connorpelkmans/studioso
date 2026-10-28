@@ -962,7 +962,14 @@ SCENES.lemonade = function (W, H, dk, rnd) {
   var pl = ''; for (var k = 0; k < 3; k++) pl += rect(sx - sw / 2 + 8 * u, ct + 8 * u + k * (ch - 4 * u) / 3, sw - 16 * u, (ch - 4 * u) / 3 - 6 * u);
   add(near, 'd', pl, woodL);
   var aw = sw + 40 * u, ax = sx - aw / 2, n = ph ? 7 : 9, stw = aw / n, ah = 38 * u, wS = '', yS = '';
-  add(near, 'd', rect(lp + 12 * u, ay + ah, rp - lp - 12 * u, ct - ay - ah), woodL);
+  // little windows in the back wall: the wall has holes (wound the other way) so the orchard behind shows through,
+  // and the frames sit in the darker wood slot, which is drawn under the wall and so only shows inside the holes
+  function rectR(x, y, w, h) { return 'M' + PT(x, y) + ' v' + n1(h) + ' h' + n1(w) + ' v' + n1(-h) + ' Z '; }
+  var wl0 = lp + 12 * u, wl1 = rp, wy0 = ay + ah + stw / 2 + 7 * u, wy1 = ct - 24 * u, wwn = (ph ? 58 : 72) * u, holes = '', frames = '', fb = 3.2 * u;
+  [0.2, 0.5, 0.8].forEach(function (f) { var cxw = lerp(wl0, wl1, f), x0 = cxw - wwn / 2, hh = wy1 - wy0, pw = (wwn - fb * 3) / 2;
+    holes += rectR(x0, wy0, wwn, hh); frames += rect(x0, wy0, wwn, hh) + rectR(x0 + fb, wy0 + fb, pw, hh - fb * 2.6) + rectR(x0 + fb * 2 + pw, wy0 + fb, pw, hh - fb * 2.6); });
+  add(near, 'd', rect(lp + 12 * u, ay + ah, rp - lp - 12 * u, ct - ay - ah) + holes, woodL);
+  add(near, 'c', frames, woodD);
   var vpl = ''; for (var xx = lp + 22 * u; xx < rp; xx += 26 * u) vpl += seg(xx, ay + ah + 4, xx, ct - 12 * u);
   add(near, 'e', poly([[ax + 18 * u, ay - 34 * u], [ax + aw - 18 * u, ay - 34 * u], [ax + aw, ay], [ax, ay]]), awW);
   for (var i = 0; i < n; i++) { var sp0 = [[ax + i * stw, ay], [ax + (i + 1) * stw, ay]]; for (var q = 0; q <= 10; q++) { var aa = q / 10 * Math.PI; sp0.push([ax + i * stw + stw / 2 + Math.cos(aa) * stw / 2, ay + ah + Math.sin(aa) * stw / 2]); } var d = poly(sp0); if (i % 2) wS += d; else yS += d; }
@@ -970,12 +977,38 @@ SCENES.lemonade = function (W, H, dk, rnd) {
   add(near, 'e', wS, awW); add(near, 'f', yS + roofStripes, awY);
   var px = sx - sw * 0.28, tS = '';
   if (ANIM) { ANIM.u = u; ANIM.ph = ph; ANIM.col = {rind: rind, seg: segc, pith: pith, str: dk ? '#C9A57A' : '#8A6A42', leaf: dk ? '#233018' : '#5E9A4A'}; ANIM.garland = []; ANIM.branch = []; ANIM.fizz = [[px - 19 * u, ct - 50 * u, px + 19 * u, ct - 14 * u]]; ANIM.awn = {x0: ax + 18 * u, x1: ax + aw - 18 * u, y: ay - 34 * u}; ANIM.stand = {x: sx, y: ay - 20 * u, w: sw}; }
-  add(near, 'e', poly([[px - 24 * u, ct - 10 * u], [px + 24 * u, ct - 10 * u], [px + 20 * u, ct - 70 * u], [px - 20 * u, ct - 70 * u]]), awW);
-  add(near, 'g', poly([[px - 22 * u, ct - 12 * u], [px + 22 * u, ct - 12 * u], [px + 19 * u, ct - 54 * u], [px - 19 * u, ct - 54 * u]]), rind);
-  tS += 'M' + PT(px + 20 * u, ct - 62 * u) + ' q' + n1(18 * u) + ' ' + n1(6 * u) + ' ' + n1(2 * u) + ' ' + n1(34 * u) + ' ';
-  [0.0, 0.14].forEach(function (f) { var gx = sx + sw * f; add(near, 'e', rect(gx - 11 * u, ct - 42 * u, 22 * u, 32 * u), awW); add(near, 'g', rect(gx - 9 * u, ct - 34 * u, 18 * u, 22 * u), rind); tS += seg(gx + 3 * u, ct - 30 * u, gx + 10 * u, ct - 58 * u); if (ANIM) ANIM.fizz.push([gx - 8 * u, ct - 32 * u, gx + 8 * u, ct - 14 * u]); b3_slice(near, gx - 10 * u, ct - 42 * u, 9 * u, 0.3, rind, segc, pith); });
-  var bx = sx + sw * 0.34; add(near, 'c', 'M' + PT(bx + 34 * u, ct - 22 * u) + ' a' + n1(34 * u) + ' ' + n1(20 * u) + ' 0 0 1 ' + n1(-68 * u) + ' 0 Z ');
-  add(near, 'g', ell(bx - 16 * u, ct - 26 * u, 15 * u, 11 * u) + ell(bx + 14 * u, ct - 26 * u, 15 * u, 11 * u) + ell(bx, ct - 38 * u, 15 * u, 11 * u));
+  // the counter top the pitcher, glasses and lemons stand on, with soft contact shadows
+  var ctx0 = lp + 12 * u, ctx1 = rp, top0 = ct - 19 * u, foot = ct - 13 * u, shad = '', glass = '', juice = '', segs = '', pithS = '', subm = '';
+  add(near, 'i', poly([[ctx0, top0], [ctx1, top0], [ctx1 + 6 * u, ct - 10 * u], [ctx0 - 6 * u, ct - 10 * u]]), dk ? '#5E432C' : '#E2B988');
+  function slice2(x, y, r, rot) { juice += b2_ellA(x, y, r, r); for (var i = 0; i < 8; i++) { var a0 = rot + i * Math.PI / 4, pts = [[x, y]]; for (var k = 0; k <= 5; k++) { var a = a0 + 0.07 + k / 5 * (Math.PI / 4 - 0.14); pts.push([x + r * 0.8 * Math.cos(a), y + r * 0.8 * Math.sin(a)]); } segs += b2_polyA(pts); pithS += seg(x, y, x + r * 0.84 * Math.cos(a0), y + r * 0.84 * Math.sin(a0)); } pithS += circ(x, y, r * 0.87); }
+  // pitcher
+  shad += b2_ellA(px + 4 * u, foot, 30 * u, 3.6 * u);
+  glass += b2_polyA([[px - 24 * u, foot], [px + 24 * u, foot], [px + 20 * u, ct - 73 * u], [px - 20 * u, ct - 73 * u]]);
+  juice += b2_polyA([[px - 22 * u, foot - 2 * u], [px + 22 * u, foot - 2 * u], [px + 19 * u, ct - 57 * u], [px - 19 * u, ct - 57 * u]]);
+  tS += 'M' + PT(px + 20 * u, ct - 65 * u) + ' q' + n1(18 * u) + ' ' + n1(6 * u) + ' ' + n1(2 * u) + ' ' + n1(34 * u) + ' ';
+  if (ANIM) ANIM.fizz[0] = [px - 19 * u, ct - 53 * u, px + 19 * u, ct - 17 * u];
+  // glasses: the straw reaches down through the lemonade to near the bottom
+  [0.0, 0.14].forEach(function (f) { var gx = sx + sw * f, gt = ct - 46 * u, lt = ct - 38 * u;
+    shad += b2_ellA(gx + 3 * u, foot, 15 * u, 2.6 * u);
+    glass += b2_polyA([[gx - 10 * u, foot], [gx + 10 * u, foot], [gx + 11.5 * u, gt], [gx - 11.5 * u, gt]]);
+    juice += b2_polyA([[gx - 8.4 * u, foot - 2 * u], [gx + 8.4 * u, foot - 2 * u], [gx + 9.6 * u, lt], [gx - 9.6 * u, lt]]);
+    var b0 = [gx - 2 * u, foot - 3.5 * u], b1 = [gx + 10 * u, ct - 64 * u], k = (b0[1] - lt) / (b0[1] - b1[1]), m = [lerp(b0[0], b1[0], k), lt];
+    subm += b2_limb(b0, [(b0[0] + m[0]) / 2, (b0[1] + m[1]) / 2], m, 2.2 * u, 2.2 * u, 4); tS += seg(m[0], m[1], b1[0], b1[1]);
+    if (ANIM) ANIM.fizz.push([gx - 7 * u, lt + 2 * u, gx + 7 * u, foot - 3 * u]);
+    slice2(gx - 10 * u, gt, 9 * u, 0.3); });
+  // a bowl of lemons
+  var bx = sx + sw * 0.34, bt2 = ct - 30 * u, bowl = [[bx - 37 * u, bt2]];
+  for (var q2 = 0; q2 <= 12; q2++) { var aa2 = q2 / 12 * Math.PI; bowl.push([bx - Math.cos(aa2) * 37 * u, bt2 + Math.sin(aa2) * (foot - bt2)]); }
+  shad += b2_ellA(bx + 4 * u, foot, 34 * u, 3.6 * u);
+  juice += b2_ellA(bx - 17 * u, bt2 - 3 * u, 15 * u, 11 * u) + b2_ellA(bx + 15 * u, bt2 - 2 * u, 15 * u, 11 * u) + b2_ellA(bx - 1 * u, bt2 - 13 * u, 15 * u, 11 * u);
+  add(near, 'j', shad, dk ? 'rgba(20,10,4,0.35)' : 'rgba(110,62,24,0.22)');
+  add(near, 'k', glass, awW);
+  add(near, 'l', juice, rind);
+  add(near, 'm', subm, dk ? '#A88A50' : '#C59A4E');
+  add(near, 'n', segs, segc);
+  add(near, 'o', b2_polyA(bowl), dk ? '#D8CDB0' : '#FFFFFF');
+  add(near, 'p', b2_band([[bx - 35.5 * u, bt2 + 4 * u], [bx, bt2 + 4.6 * u], [bx + 35.5 * u, bt2 + 4 * u]], 2.4 * u), awY);
+  stk(near, 's', pithS, pith);
   b3_slice(near, sx, ct + ch * 0.46, ch * 0.3, 0.2, rind, segc, pith);
   var gy0 = ay + ah + stw / 2 + 4 * u, sag = 12 * u, gl = 'M' + PT(lp + 6 * u, gy0) + ' Q' + PT(sx, gy0 + sag * 2) + ' ' + PT(rp + 6 * u, gy0) + ' ';
   var ns = ph ? 5 : 7;
@@ -1165,7 +1198,8 @@ SCENES.mint = function (W, H, dk, rnd) {
   add(near, 'c', '', dk ? '#1C6E4A' : '#2A8C5C'); add(near, 'd', '', dk ? '#2A9064' : '#48B07A'); stk(near, 't', '', dk ? 'rgba(160,240,200,0.3)' : 'rgba(215,250,230,0.55)', 1.1);
   var cu = '', cuh = ''; (ph ? [[0.32, 0.86], [0.76, 0.84]] : [[0.4, 0.9], [0.8, 0.86], [0.6, 0.96], [0.2, 0.94]]).forEach(function (p) { var x = W * p[0], y = H * p[1], r = 16 * u + rnd() * 8; var a1 = (rnd() - 0.5) * 50, a2 = a1 + 40 + rnd() * 50; cu += rotEll(x, y, r * 1.1, r * 0.42, a1) + rotEll(x + r * 2, y + 6, r * 0.85, r * 0.36, a2); cuh += rotEll(x - r * 0.1, y - r * 0.14, r * 0.8, r * 0.1, a1) + rotEll(x + r * 1.9, y + 6 - r * 0.12, r * 0.6, r * 0.08, a2) + circ(x + r * 0.95, y, r * 0.22) + circ(x + r * 2.7, y + 6, r * 0.18); });
   if (ANIM) ANIM.curls = {d: cu, h: cuh, c: dk ? '#3A2418' : '#5A3A28', ch: dk ? '#5A3A28' : '#8A6048'};
-  else { add(near, 'e', cu, dk ? '#3A2418' : '#5A3A28'); add(near, 'f', cuh, dk ? '#5A3A28' : '#8A6048'); }
+  // chocolate curls sit behind the mint plants: on the layer under them (or the canvas under them when animated)
+  else { add(mid, 'i', cu, dk ? '#3A2418' : '#5A3A28'); add(mid, 'j', cuh, dk ? '#5A3A28' : '#8A6048'); }
   return b3_out({sky: sky, far: far, refl: refl, mid: mid, near: near});
 };
 
@@ -3154,23 +3188,26 @@ SCENES.dunes = function (W, H, dk, rnd) {
 };
 
 // 6. Jellyfish Drift
+// Jelly colours as 'r,g,b': lilac, pink, peach, aqua, gold, blue (glowing neons at night)
+function jellyPal(dk) { return dk ? ['169,140,255', '245,123,230', '255,150,130', '111,243,255', '255,214,110', '110,160,255'] : ['190,160,240', '246,160,198', '255,184,150', '112,210,214', '248,206,110', '140,176,248']; }
 function jelly(L, keyBell, keyIn, x, y, r, colB, colIn) { var dome = [], i; for (i = 0; i <= 20; i++) { var a = Math.PI + i / 20 * Math.PI; dome.push([x + r * Math.cos(a), y + r * 0.85 * Math.sin(a)]); } for (i = 0; i <= 16; i++) { var xx = x + r - i / 16 * 2 * r; dome.push([xx, y + r * 0.1 + Math.abs(Math.sin(i / 16 * Math.PI * 4)) * r * 0.12]); } add(L, keyBell, poly(dome), colB); add(L, keyIn, ell(x, y - r * 0.28, r * 0.55, r * 0.4), colIn); }
 SCENES.jelly = function (W, H, dk, rnd) {
   var ph = H > W, far = Lay(18), mid = Lay(1.4), near = Lay(0);
   var sky = dk ? 'linear-gradient(180deg,#0C2036 0%,#081628 45%,#040B18 100%)' : 'linear-gradient(180deg,#BDE8EE 0%,#79C6D2 32%,#3A8BAE 72%,#22628A 100%)';
   if (!dk) spread(0, -20, W, 10, 220, 10, rnd, 0.6).forEach(function (c) { add(far, 'a', poly([[c.x - 20, -40], [c.x + 30, -40], [c.x + 150 + c.r * 120, H * 0.85], [c.x + 70 + c.r * 60, H * 0.85]]), 'rgba(255,255,255,0.26)'); });
   spread(0, 0, W, H, 130, 130, rnd, 1).forEach(function (c) { if (c.q < 0.5) add(mid, 'a', circ(c.x, c.y, 1 + c.r * 2.4), dk ? 'rgba(140,230,255,0.45)' : 'rgba(255,255,255,0.5)'); });
-  spread(0, 10, W, H - 20, 150, 150, rnd, 1).forEach(function (c) { if (c.q > 0.55) return; var r = 7 + c.r * 7; jelly(mid, 'b', 'c', c.x, c.y, r, dk ? 'rgba(120,200,255,0.35)' : 'rgba(255,255,255,0.35)', dk ? 'rgba(200,240,255,0.25)' : 'rgba(255,255,255,0.3)'); var tt = ''; for (var k = -2; k <= 2; k++) tt += 'M' + PT(c.x + k * r * 0.35, c.y + r * 0.2) + ' q' + n1(r * 0.3) + ' ' + n1(r) + ' 0 ' + n1(r * 2) + ' '; stk(mid, 's', tt, dk ? 'rgba(120,200,255,0.3)' : 'rgba(255,255,255,0.35)', 1); });
-  var cols = dk ? [['d', 'rgba(111,243,255,0.72)', 'rgba(111,243,255,0.5)'], ['e', 'rgba(245,123,230,0.7)', 'rgba(245,123,230,0.5)'], ['f', 'rgba(169,140,255,0.72)', 'rgba(169,140,255,0.5)']] : [['d', 'rgba(246,166,200,0.82)', 'rgba(246,166,200,0.4)'], ['e', 'rgba(198,168,242,0.82)', 'rgba(198,168,242,0.4)'], ['f', 'rgba(255,190,160,0.85)', 'rgba(255,190,160,0.4)']];
+  var JP = jellyPal(dk), nj = 0;
+  // distant jellies, softly tinted in the same colours as the near ones
+  spread(0, 10, W, H - 20, 150, 150, rnd, 1).forEach(function (c) { if (c.q > 0.55) return; var r = 7 + c.r * 7, hu = (Math.floor(c.k * 6) + nj++) % 6; jelly(mid, ['b', 'd', 'e', 'f', 'g', 'h'][hu], 'c', c.x, c.y, r, 'rgba(' + JP[hu] + (dk ? ',0.32)' : ',0.42)'), dk ? 'rgba(200,240,255,0.25)' : 'rgba(255,255,255,0.3)'); var tt = ''; for (var k = -2; k <= 2; k++) tt += 'M' + PT(c.x + k * r * 0.35, c.y + r * 0.2) + ' q' + n1(r * 0.3) + ' ' + n1(r) + ' 0 ' + n1(r * 2) + ' '; stk(mid, 's', tt, dk ? 'rgba(120,200,255,0.3)' : 'rgba(255,255,255,0.35)', 1); });
+  var cols = JP.map(function (rgb, i) { return [['a', 'b', 'c', 'd', 'e', 'f'][i], 'rgba(' + rgb + (dk ? ',0.7)' : ',0.82)'), 'rgba(' + rgb + ',0.5)', i]; }); nj = 0;
   var tent = '', arms = ''; if (ANIM) { ANIM.jellies = []; ANIM.tentC = dk ? 'rgba(160,240,255,0.55)' : 'rgba(255,225,238,0.8)'; ANIM.armC = dk ? 'rgba(245,160,240,0.5)' : 'rgba(255,200,225,0.7)'; ANIM.inC = dk ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.5)'; }
-  spread(0, 30, W, H - 90, ph ? 150 : 240, ph ? 200 : 250, rnd, 0.8).forEach(function (c) { if (c.q > 0.8) return; var r = 22 + c.r * 22, x = c.x, y = c.y, cc = cols[Math.floor(c.k * 3)], J = {x: x, y: y, r: r, c: cc[1], glow: cc[2].replace('0.5)', '0.4)'), ten: []};
+  spread(0, 30, W, H - 90, ph ? 150 : 240, ph ? 200 : 250, rnd, 0.8).forEach(function (c) { if (c.q > 0.8) return; var r = 22 + c.r * 22, x = c.x, y = c.y, cc = cols[(Math.floor(c.k * 6) + nj++) % 6], J = {x: x, y: y, r: r, c: cc[1], hue: cc[3], glow: cc[2].replace('0.5)', '0.4)'), ten: []};
     if (ANIM) ANIM.jellies.push(J); else if (dk) add(far, 'b', circ(x, y, r * 1.9), cc[2].replace('0.5)', '0.4)'));
     for (var k = 0; k < 7; k++) { var tx = x - r * 0.8 + k * r * 0.27, len = r * (2.2 + rnd() * 1.6), sw = r * 0.25 * (rnd() < 0.5 ? -1 : 1); J.ten.push({dx: tx - x, len: len, sw: sw}); tent += 'M' + PT(tx, y + r * 0.15) + ' q' + n1(sw) + ' ' + n1(len * 0.25) + ' 0 ' + n1(len * 0.5) + ' t0 ' + n1(len * 0.5) + ' '; }
     for (var a = -1; a <= 1; a += 2) { var ax = x + a * r * 0.18; arms += 'M' + PT(ax, y + r * 0.1) + ' q' + n1(a * r * 0.3) + ' ' + n1(r * 0.6) + ' 0 ' + n1(r * 1.2) + ' t0 ' + n1(r * 1.2) + ' '; }
-    if (!ANIM) jelly(near, cc[0], 'g', x, y, r, cc[1], dk ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.5)'); });
+    if (!ANIM) jelly(near, cc[0], 'h', x, y, r, cc[1], dk ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.5)'); });
   if (!ANIM) { stk(near, 's', tent, dk ? 'rgba(160,240,255,0.55)' : 'rgba(255,225,238,0.8)', 1.3);
   stk(near, 't', arms, dk ? 'rgba(245,160,240,0.5)' : 'rgba(255,200,225,0.7)', 3.2); }
-  add(near, 'a', '', 'none');
   return {sky: sky, far: far, mid: mid, near: near};
 };
 
@@ -12602,6 +12639,7 @@ ENGINES.mint = function (A, v, dk) {
         cb.globalAlpha = low; cb.save(); cb.transform(c * p.s, sn * p.s, -sn * sy, c * sy, p.x, p.y); cb.drawImage(sp.c, sp.x, sp.y, sp.w, sp.h); cb.restore(); });
       cb.globalAlpha = 1;
       var T = cb.getTransform(), sc = Math.abs(T.a) || 1; if (Math.abs(sc - sScale) > 0.01) buildSprites(sc);
+      if (curlD) { ca.fillStyle = A.curls.c; ca.fill(curlD); ca.fillStyle = A.curls.ch; ca.fill(curlH); }
       sprigs.forEach(function (S) {
         var B = sprigBend(S, t, f), h = S.h;
         function off(tt) { return S.lean * tt * tt + B * h * tt * tt; }
@@ -12613,7 +12651,6 @@ ENGINES.mint = function (A, v, dk) {
         cb.setTransform(T);
       });
 
-      if (curlD) { cb.fillStyle = A.curls.c; cb.fill(curlD); cb.fillStyle = A.curls.ch; cb.fill(curlH); }
       if (flies) { cb.fillStyle = '#D8FFB0'; cb.fill(flies); }
     },
     finish: function () { if (spoon) queue = Math.min(2, queue + 1); else spoon = {k: 0}; }
@@ -14293,10 +14330,14 @@ ENGINES.dunes = function (A, v, dk) {
 
 // Jellyfish Drift
 ENGINES.jelly = function (A, v, dk) {
-  var W = v.bw, H = v.bh, ph = !v.desk, J = [], turtles = [], bubbles = [];
+  var W = v.bw, H = v.bh, ph = !v.desk, J = [], turtles = [], bubbles = [], PAL = jellyPal(dk);
+  function mixW(rgb, k, al) { var c = rgb.split(',').map(Number); return 'rgba(' + c.map(function (x) { return Math.round(x + (255 - x) * k); }).join(',') + ',' + al + ')'; }
   A.jellies.forEach(function (o, i) {
-    var r = o.r, dome = [], k; for (k = 0; k <= 20; k++) { var a = Math.PI + k / 20 * Math.PI; dome.push([r * Math.cos(a), r * 0.85 * Math.sin(a)]); } for (k = 0; k <= 16; k++) dome.push([r - k / 16 * 2 * r, r * 0.1 + Math.abs(Math.sin(k / 16 * Math.PI * 4)) * r * 0.12]);
-    J.push({x0: o.x, x: o.x, y: o.y, r: r, c: o.c, ten: o.ten, bell: new Path2D(poly(dome)), inner: new Path2D(ell(0, -r * 0.28, r * 0.55, r * 0.4)), glow: dk ? bn_glow(o.glow, r * 2.3) : null, per: 3.2 + hash(i + 1) * 1.4, ph: hash(i + 7), sq: 0, sqL: 0, boost: 0, push: 0});
+    var r = o.r, rgb = PAL[o.hue || 0], g = (bn_gctx || (bn_gctx = document.createElement('canvas').getContext('2d'))).createRadialGradient(-r * 0.2, -r * 0.62, r * 0.05, 0, -r * 0.3, r * 1.15);
+    g.addColorStop(0, mixW(rgb, 0.6, dk ? 0.8 : 0.95)); g.addColorStop(0.55, 'rgba(' + rgb + (dk ? ',0.62)' : ',0.8)')); g.addColorStop(1, 'rgba(' + rgb + (dk ? ',0.38)' : ',0.55)'));
+    J.push({x0: o.x, x: o.x, y: o.y, r: r, ten: o.ten, fill: g, glow: dk ? bn_glow('rgba(' + rgb + ',0.4)', r * 2.3) : null,
+      tenC: mixW(rgb, 0.55, dk ? 0.55 : 0.78), armC: mixW(rgb, 0.25, dk ? 0.5 : 0.62), gonC: dk ? mixW(rgb, 0.7, 0.55) : mixW(rgb, 0.75, 0.75), rimC: dk ? mixW(rgb, 0.8, 0.45) : 'rgba(255,255,255,0.6)',
+      per: 2.6 + hash(i + 1) * 1.4, ph: hash(i + 7), c: 0, sq: 0, sqL: 0, vel: 4, ang: 0, angL: 0, head: (hash(i + 11) - 0.5) * 0.5, boost: 0, push: 0});
   });
   var order = J.slice().sort(function (p, q) { return p.r - q.r; });
   var boostG = bn_glow(dk ? 'rgba(200,250,255,0.55)' : 'rgba(255,255,255,0.6)', 1);
@@ -14305,11 +14346,47 @@ ENGINES.jelly = function (A, v, dk) {
   var fin = new Path2D(leaf(0, 0, 30, 7, 0)), rfin = new Path2D(leaf(0, 0, 13, 5, 0));
   function spawnTurtle(t) { var n = turtles.length, a = ph ? [W + 60, H * 0.86 - n * 60] : [W + 70, H * 0.9 - n * 70], b = ph ? [-70, H * 0.5 - n * 40] : [W * 0.3, H * 0.34 - n * 50]; turtles.push({t0: t, a: a, b: b, dur: ph ? 5.2 : 5.6, x: a[0], y: a[1], ang: Math.atan2(b[1] - a[1], b[0] - a[0])}); }
   function tpos(T, u) { var e = u, x = T.a[0] + (T.b[0] - T.a[0]) * e, y = T.a[1] + (T.b[1] - T.a[1]) * e, nx = -(T.b[1] - T.a[1]), ny = T.b[0] - T.a[0], nl = Math.hypot(nx, ny), w = Math.sin(u * Math.PI * 1.5) * (ph ? 18 : 30); return [x + nx / nl * w, y + ny / nl * w]; }
+  // A jelly in its own frame (bell centre at 0,0, swimming toward -y), tilted the way it heads
+  function drawJelly(c, j, t, f) {
+    var r = j.r, cc = j.c, sx = 1 - 0.2 * cc, sy = 1 + 0.2 * cc, fl = 1 + 0.1 * (1 - cc), bend = (j.angL - j.ang) * 1.6, i, k, N = 9;
+    c.save(); c.translate(j.x, j.y); c.rotate(j.ang); c.lineCap = 'round'; c.lineJoin = 'round';
+    // oral arms: frilly ribbons that trail behind the pulse
+    c.strokeStyle = j.armC;
+    for (var a = -1; a <= 1; a += 1) { var ax = a * r * 0.16 * sx, L = r * (2.1 - 0.35 * j.sqL) * (a ? 1 : 0.8); c.lineWidth = (a ? 3.4 : 2.6) * Math.max(0.7, r / 32); c.beginPath(); c.moveTo(ax, r * 0.05);
+      for (k = 1; k <= N; k++) { var q = k / N, yy = r * 0.05 + L * q, wv = Math.sin(q * 5.2 - t * 1.6 * f.s + a * 1.7 + j.ph * 6) * r * 0.16 * q * f.a; c.lineTo(ax * (1 - q * 0.4) + wv + bend * yy * q, yy); }
+      c.stroke(); }
+    // tentacles: hang from the rim, bunch up as the bell snaps shut and stream out behind as it glides
+    c.lineWidth = 1.2 * Math.max(0.8, r / 32); c.strokeStyle = j.tenC; c.beginPath();
+    j.ten.forEach(function (q0, n) { var x0 = q0.dx * sx * fl * 0.95, y0 = r * 0.12, len = q0.len * (1 - 0.18 * j.sqL), spread = 1 - 0.5 * j.sqL; c.moveTo(x0, y0);
+      for (k = 1; k <= N; k++) { var q = k / N, yy = y0 + len * q, wv = Math.sin(q * 6.5 - t * 2.1 * f.s + n * 1.3 + j.ph * 5) * (Math.abs(q0.sw) * 0.55 + r * 0.06) * q * f.a, xx = x0 * (1 + q * 0.35 * spread - q * 0.25 * j.sqL) + wv + bend * yy * q * 1.2; c.lineTo(xx, yy); } });
+    c.stroke();
+    // bell: a dome that narrows and lengthens on the stroke, with a scalloped margin that flares as it relaxes
+    c.beginPath();
+    for (i = 0; i <= 22; i++) { var an = Math.PI + i / 22 * Math.PI, e = Math.abs(Math.cos(an)), m = Math.pow(e, 4) * (fl - 1); c[i ? 'lineTo' : 'moveTo'](Math.cos(an) * r * sx * (1 + m), Math.sin(an) * r * 0.85 * sy + Math.pow(e, 6) * r * 0.08 * (1 - cc)); }
+    for (i = 0; i <= 16; i++) { var xm = (1 - i / 8) * r * sx * fl * 0.98; c.lineTo(xm, r * 0.1 + r * 0.06 * (1 - cc) + Math.abs(Math.sin(i / 16 * Math.PI * 4)) * r * 0.1 - Math.pow(Math.abs(xm) / r, 2) * r * 0.1 * cc); }
+    c.closePath(); c.fillStyle = j.fill; c.fill();
+    // four-leaf glow inside and a highlight along the top of the dome
+    c.fillStyle = j.gonC; c.beginPath();
+    for (k = 0; k < 4; k++) { var ga = k * Math.PI / 2 + Math.PI / 4, gx = Math.cos(ga) * r * 0.2 * sx, gy = -r * 0.34 * sy + Math.sin(ga) * r * 0.14 * sy; c.moveTo(gx + r * 0.13 * sx, gy); c.ellipse(gx, gy, r * 0.13 * sx, r * 0.1 * sy, 0, 0, 7); }
+    c.fill();
+    c.strokeStyle = j.rimC; c.lineWidth = Math.max(1, r / 22); c.beginPath(); c.ellipse(0, 0, r * sx * 0.82, r * 0.85 * sy * 0.82, 0, Math.PI * 1.18, Math.PI * 1.55); c.stroke();
+    c.restore();
+  }
   return {
     step: function (dt, t, f) {
       J.forEach(function (j) {
-        var u = ((t * f.s / j.per + j.ph) % 1 + 1) % 1; j.sq = u < 0.26 ? Math.sin(Math.PI * u / 0.26) : 0; j.sqL += (j.sq - j.sqL) * Math.min(1, dt * 4);
-        j.y += (-(3 + 26 * j.sq) + 3.5) * dt * f.s * f.a - j.push * dt * 30; j.x = j.x0 + Math.sin(t * 0.13 * f.s + j.ph * 6) * 14 * f.a;
+        // one pulse: the bell snaps shut fast (thrust), then slowly opens again while the jelly glides
+        var u = ((t * f.s / j.per + j.ph) % 1 + 1) % 1;
+        j.c = u < 0.22 ? b2_ease(u / 0.22) : Math.max(0, 1 - b2_ease((u - 0.22) / 0.5));
+        j.sq = u < 0.22 ? Math.sin(Math.PI * u / 0.22) : 0; j.sqL += (j.c - j.sqL) * Math.min(1, dt * 3);
+        var sc = j.r / 32, thrust = j.sq * (150 + 90 * j.push) * sc * f.a;
+        j.vel += (thrust - j.vel * 2.2) * Math.min(0.1, dt * f.s);
+        // heading wanders slowly; the body leans the way it swims
+        j.ang = (j.head + Math.sin(t * 0.09 * f.s + j.ph * 9) * 0.32 + Math.sin(t * 0.23 * f.s + j.ph * 3) * 0.1) * f.a;
+        j.angL += (j.ang - j.angL) * Math.min(1, dt * 1.2);
+        var sp = (j.vel + 2.5 * sc) * f.s * dt; j.y -= Math.cos(j.ang) * sp + j.push * dt * 30; j.x0 += Math.sin(j.ang) * sp;
+        j.x = j.x0 + Math.sin(t * 0.13 * f.s + j.ph * 6) * 10 * f.a;
+        if (j.x0 < -j.r * 2) j.x0 = W + j.r * 2; else if (j.x0 > W + j.r * 2) j.x0 = -j.r * 2;
         if (j.y < -j.r * 4.2) { j.y = H + j.r * 1.2; j.x0 = 30 + hash(t + j.r) * (W - 60); }
         j.boost = Math.max(0, j.boost - dt * 0.6); j.push = Math.max(0, j.push - dt * 0.8);
       });
@@ -14321,16 +14398,9 @@ ENGINES.jelly = function (A, v, dk) {
     },
     draw: function (ca, cb, t, f) {
       var i;
-      if (dk) J.forEach(function (j) { ca.save(); ca.translate(j.x, j.y); ca.globalAlpha = 0.85 + 0.15 * j.sq + j.boost * 0.6; ca.fillStyle = j.glow; ca.beginPath(); ca.arc(0, 0, j.r * 2.3 * (1 + j.boost * 0.4), 0, 7); ca.fill(); ca.restore(); });
+      if (dk) J.forEach(function (j) { ca.save(); ca.translate(j.x, j.y); ca.globalAlpha = Math.min(1, 0.8 + 0.2 * j.sq + j.boost * 0.6); ca.fillStyle = j.glow; ca.beginPath(); ca.arc(0, 0, j.r * 2.3 * (1 + j.boost * 0.4), 0, 7); ca.fill(); ca.restore(); });
       order.forEach(function (j) { if (j.boost > 0.02) { ca.save(); ca.globalAlpha = j.boost; ca.translate(j.x, j.y - j.r * 0.2); ca.scale(j.r * 1.8, j.r * 1.8); ca.fillStyle = boostG; ca.beginPath(); ca.arc(0, 0, 1, 0, 7); ca.fill(); ca.restore(); }
-        var sxx = 1 - 0.13 * j.sq, syy = 1 + 0.1 * j.sq;
-        ca.lineCap = 'round'; ca.lineWidth = 3.2; ca.strokeStyle = A.armC; ca.beginPath();
-        for (var a = -1; a <= 1; a += 2) { var ax = j.x + a * j.r * 0.18, y0 = j.y + j.r * 0.1, L = j.r * 1.2 * (1 - 0.1 * j.sqL), sw = a * j.r * 0.3 * (0.6 + 0.5 * Math.sin(t * 0.8 * f.s + a + j.ph * 5)); ca.moveTo(ax, y0); ca.quadraticCurveTo(ax + sw, y0 + L * 0.5, ax, y0 + L); ca.quadraticCurveTo(ax - sw, y0 + L * 1.5, ax, y0 + L * 2); }
-        ca.stroke();
-        ca.lineWidth = 1.3; ca.strokeStyle = A.tentC; ca.beginPath();
-        j.ten.forEach(function (q, k) { var x0 = j.x + q.dx * sxx, y0 = j.y + j.r * 0.15, len = q.len * (1 - 0.14 * j.sqL), sw = q.sw * (0.5 + 0.7 * Math.sin(t * 1.1 * f.s + k * 0.9 + j.ph * 6)) * f.a; ca.moveTo(x0, y0); ca.quadraticCurveTo(x0 + sw, y0 + len * 0.25, x0, y0 + len * 0.5); ca.quadraticCurveTo(x0 - sw, y0 + len * 0.75, x0 + sw * 0.3, y0 + len); });
-        ca.stroke();
-        ca.save(); ca.translate(j.x, j.y); ca.scale(sxx, syy); ca.fillStyle = j.c; ca.fill(j.bell); ca.fillStyle = A.inC; ca.fill(j.inner); ca.restore(); });
+        drawJelly(ca, j, t, f); });
       turtles.forEach(function (T) {
         var u = (t - T.t0) / T.dur, al = Math.min(1, u * 8, (1 - u) * 8), st = Math.sin((t - T.t0) * 3.1), sc = ph ? 1.0 : 1.35;
         cb.save(); cb.globalAlpha = al; cb.translate(T.x, T.y); cb.rotate(T.ang); cb.scale(sc, sc);
