@@ -92,7 +92,7 @@
           <g clip-path="url(#ve-pin-c)" opacity=".9">${Array.from({length: 12}, (_, i) => `<path d="M${i * 8 - 4} 26L${i * 8 + 6} 0H${i * 8 + 10}L${i * 8} 26Z" fill="#D8443C"/>`).join("")}<path d="M0 20Q8 17 16 20Q24 23 32 20Q40 17 48 20Q56 23 64 20Q72 17 80 20Q84 21 86 20V26H0Z" fill="#4E9A92"/></g>
           <ellipse cx="43" cy="12" rx="14" ry="8" fill="#E6F4F2"/>${gondola(43, 15, 24, "#26263A").replace(/stroke-width="1.6"/, 'stroke-width=".8"')}</svg>`}
     ],
-    card: {id: "tp-venice", name: "Canal Postcard", desc: "Cream paper with a little gondola under a Gothic window and canal ripples along the bottom. Lantern-lit night blue in dark mode."}
+    card: {id: "tp-venice", name: "Canal Postcard", desc: "A view through a rose-stone Gothic window onto the canal, with a gondola and striped mooring poles. Moonlit night blue in dark mode."}
   });
 })();
 /* end of module 96-tp-venice.js */

@@ -119,7 +119,7 @@
         svg: `<svg viewBox="0 0 20 46"><rect x="5" y="1" width="10" height="7" rx="2" fill="#2E4A8A" stroke="#121E40" stroke-width=".9"/><path d="M10 8V22" stroke="#C88A1A" stroke-width="2"/><circle cx="10" cy="22" r="3" fill="#F2B83A" stroke="#A8701A" stroke-width=".8"/>
           <path d="M6 24H14L16 44H4z" fill="#F2B83A" stroke="#A8701A" stroke-width=".8" stroke-linejoin="round"/><path d="M7 26L6 43M10 26V43M13 26L14 43" stroke="#C88A1A" stroke-width=".8"/><path d="M6.4 25.4H13.6" stroke="#FFF0B0" stroke-width="1.4"/></svg>`}
     ],
-    card: {id: "tp-graduation", name: "Diploma Paper", desc: "Warm parchment with a fine gold border, a ribbon seal in the corner and a little mortarboard. Navy and gold in dark mode."}
+    card: {id: "tp-graduation", name: "Diploma Paper", desc: "Warm parchment framed by a fine gold diploma border with corner flourishes and a gold ribbon seal on the bottom edge. Navy and gold in dark mode."}
   });
 
   /* ================= BIRTHDAY BASH ================= */
@@ -170,7 +170,7 @@
       {id: "tp-birthday-confetti", name: "Confetti Washi", kind: "tape", desc: "Pastel pink washi tape sprinkled with confetti.",
         svg: `<svg viewBox="0 0 86 26"><path d="${tapeEdge}" fill="#FFD6E6" opacity=".92"/>${[[10, 7, 0], [18, 16, 1], [27, 9, 2], [36, 18, 3], [44, 6, 4], [52, 14, 0], [61, 8, 1], [69, 17, 2], [76, 10, 3], [14, 20, 4], [40, 12, 1], [64, 20, 4]].map(([x, y, k]) => `<rect x="${x}" y="${y}" width="4" height="2.2" rx=".6" fill="${["#FFD45A", "#7FD8C0", "#B58CF2", "#7FC8F0", "#FF7FA8"][k]}" transform="rotate(${(x * 7) % 60 - 30} ${x + 2} ${y + 1})"/>`).join("")}<path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".5"/></svg>`}
     ],
-    card: {id: "tp-birthday", name: "Party Confetti", desc: "Sugar-pink card sprinkled with confetti, with a balloon bunch in the corner and a slice of cake. Plum party lights in dark mode."}
+    card: {id: "tp-birthday", name: "Party Confetti", desc: "Sugar-pink card with a garland of party bunting across the top, sprinkled confetti and a bunch of balloons. Plum party lights in dark mode."}
   });
 
   /* ================= CRYSTAL CAVE ================= */
@@ -215,7 +215,7 @@
         svg: `<svg viewBox="0 0 86 26"><defs><clipPath id="n5-gps-c"><path d="${tapeEdge}"/></clipPath></defs><g clip-path="url(#n5-gps-c)" opacity=".92">${["#E8C6A0", "#C9AEC4", "#B9A0C4", "#D8B890", "#9884B2"].map((c, i) => `<path d="M0 ${i * 5.4}Q20 ${i * 5.4 - 2} 43 ${i * 5.4 + 1}T86 ${i * 5.4}V${i * 5.4 + 6}H0z" fill="${c}"/>`).join("")}</g>
           <path d="M20 14L22 9L24 14z" fill="#B07AF0"/><path d="M50 18L52 12L54 18z" fill="#5CCFD8"/><path d="M68 10L70 5L72 10z" fill="#FF8FC8"/></svg>`}
     ],
-    card: {id: "tp-geology", name: "Rock Strata", desc: "Pale lavender stone with layered strata along the bottom and a crystal cluster in the corner. Glowing cave purple in dark mode."}
+    card: {id: "tp-geology", name: "Rock Strata", desc: "Pale lavender stone with faint contour lines and banded rock strata along the bottom, with an amethyst geode and an ammonite set into the layers. Glowing cave purple in dark mode."}
   });
 
 })();

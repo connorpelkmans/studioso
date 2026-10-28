@@ -29,7 +29,7 @@
   function el(tag, cls, parent) { var e = document.createElement(tag); if (cls) e.className = cls; if (parent) parent.appendChild(e); return e; }
   function layer(Ly, pad, v, k, parent) {
     var paths = [];
-    "abcdefgh".split("").forEach(function (key) { if (Ly[key].d) paths.push({d: Ly[key].d, fill: Ly[key].c}); });
+    "abcdefghijklmnopABCDEFGHIJKLMNOP".split("").forEach(function (key) { if (Ly[key] && Ly[key].d) paths.push({d: Ly[key].d, fill: Ly[key].c}); });
     ["s", "t"].forEach(function (key) { if (Ly[key].d) paths.push({d: Ly[key].d, stroke: Ly[key].c, w: Ly[key].w}); });
     if (!paths.length) return;
     var svg = document.createElementNS(SVGNS, "svg");

@@ -501,10 +501,15 @@ function trashAssets(entries){
   const ids = (entries || []).flatMap(e => (e.items || []).filter(i => i.kind === "file").flatMap(i => (i.data.revs || []).map(r => r.assetId))).filter(Boolean);
   if (ids.length) cleanupAssets([...new Set(ids)], 0);
 }
+// A note with nothing in it (no text, drawing, photo or sticker) isn't worth keeping in Recently Deleted
+const trashHas = v => Array.isArray(v) ? v.length > 0 : !!(v && typeof v === "object" && Object.keys(v).length);
+const emptyNote = d => !!d && !d.wb && !String(d.text || "").trim() && !trashHas(d.ink) && !trashHas(d.photos) && !trashHas(d.stickers);
+const emptyEntry = e => (e.items || []).length > 0 && e.items.every(i => i && i.kind === "note" && emptyNote(i.data));
 // 30 days, then it's gone
 function trashEnforce(){
   let skewMs = 0; try { skewMs = Number(localStorage.getItem("studioso:skew")) || 0; } catch(e) {}
   const r = TB.purge(trashList(), Date.now() + skewMs);
+  trashList().forEach(e => { if (emptyEntry(e) && !r.dropped.includes(e)) r.dropped.push(e); });
   if (!r.dropped.length) return 0;
   r.dropped.forEach(e => { if (e && e.id && state.trash[e.id]) { delete state.trash[e.id]; try { queueWrite("trash", e.id, null); } catch(x) {} } });
   trashAssets(r.dropped.filter(e => e && Date.now() + skewMs >= TB.expiresAt(e)));
@@ -522,7 +527,7 @@ function trashCapture(changes, label){
   changes.forEach(c => {
     if (c.kind === "trash") return;
     const cur = getItem(c.kind, c.id); if (!cur) return;
-    if (c.after === null) deleted.push({kind: c.kind, id: c.id, data: clone(cur)});
+    if (c.after === null) { if (!(c.kind === "note" && emptyNote(cur))) deleted.push({kind: c.kind, id: c.id, data: clone(cur)}); }
     else if (c.kind === "deck") {
       const keepC = new Set((c.after.cards || []).map(x => x.id)), keepQ = new Set((c.after.aiQuizzes || []).map(x => x.id)), par = {kind: "deck", id: cur.id, name: cur.name};
       (cur.cards || []).filter(x => !keepC.has(x.id) && !inDecks.has(x.id)).slice(0, 2000).forEach(x => deleted.push({kind: "card", id: x.id, data: clone(x), parent: par}));

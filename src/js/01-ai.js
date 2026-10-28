@@ -394,15 +394,33 @@ function aiGroundNote(text, corpus){
   if (words.length >= 4 && words.filter(w => corpus.words.has(w) || corpus.words.has(w.replace(/(ies|es|s|ed|ing)$/, ""))).length / words.length < 0.4) return "Mostly not in your material";
   return "";
 }
+// Copy check: an item that repeats 8 or more words in a row from the student's material is copied, not restated
+const AI_COPY_RUN = 8;
+const aiCopyWords = t => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\u2018\u2019']/g, "").split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+function aiCopyIndex(texts){
+  const idx = new Set();
+  (Array.isArray(texts) ? texts : [texts]).forEach(t => { const w = aiCopyWords(t); for (let i = 0; i + AI_COPY_RUN <= w.length; i++) idx.add(w.slice(i, i + AI_COPY_RUN).join(" ")); });
+  return idx.size ? idx : null;
+}
+function aiCopied(text, idx){
+  if (!idx) return false;
+  const w = aiCopyWords(text);
+  for (let i = 0; i + AI_COPY_RUN <= w.length; i++) if (idx.has(w.slice(i, i + AI_COPY_RUN).join(" "))) return true;
+  return false;
+}
+// Cards copied word for word from a file (c.copied): AI writing from a deck must not repeat them either
+const aiCopiedCardsIndex = cards => aiCopyIndex((cards || []).filter(c => c && c.copied).map(c => `${c.front || ""}\n${c.back || ""}`));
+const aiDropCopiedQs = (qs, idx) => idx ? qs.filter(q => ![q.stem, q.answer, q.rationale].concat(q.options || [], q.notes || []).some(t => aiCopied(t, idx))) : qs;
 // Flashcard quality gate
 function aiGateCards(list, opts){
-  opts = opts || {}; const max = opts.max > 0 ? opts.max : 60, seen = [], keys = new Set(), out = [], dropped = {dup: 0, long: 0, empty: 0};
+  opts = opts || {}; const max = opts.max > 0 ? opts.max : 60, seen = [], keys = new Set(), out = [], dropped = {dup: 0, long: 0, empty: 0, copied: 0};
   (Array.isArray(list) ? list : []).forEach(c => {
     if (!c || typeof c !== "object") { dropped.empty++; return; }
     const front = aiTidyText(c.front), back = aiTidyText(c.back), source = aiTidyText(c.source).slice(0, 60);
     const ft = aiKeyTokens(front), same = aiKeyTokens(front).join(" ") === aiKeyTokens(back).join(" ");
     if (front.length < 3 || !back || same) { dropped.empty++; return; }
     if (front.length > 300 || back.length > 700) { dropped.long++; return; }
+    if (aiCopied(front, opts.copy) || aiCopied(back, opts.copy)) { dropped.copied++; return; }
     const key = ft.slice().sort().join(" ");
     if (keys.has(key) || seen.some(x => aiJaccard(ft, x.ft) >= 0.8 || (x.back === back.toLowerCase() && aiJaccard(ft, x.ft) >= 0.3))) { dropped.dup++; return; }
     keys.add(key); seen.push({ft, back: back.toLowerCase()});
@@ -412,8 +430,9 @@ function aiGateCards(list, opts){
 }
 // Question gate (after aiCleanQuestions)
 function aiGateQuestions(qs, opts){
-  opts = opts || {}; const max = opts.max > 0 ? opts.max : 60, seen = [], out = []; let dup = 0, bad = 0;
+  opts = opts || {}; const max = opts.max > 0 ? opts.max : 60, seen = [], out = []; let dup = 0, bad = 0, copied = 0;
   qs.forEach(q => {
+    if ([q.stem, q.answer, q.rationale].concat(q.options || [], q.notes || []).some(t => aiCopied(t, opts.copy))) { copied++; return; }
     const st = aiKeyTokens(q.stem);
     const on = (q.options || []).map(o => aiKeyTokens(o).join(" ") || String(o).toLowerCase()), same = on.slice().sort().join("|") + "#" + (q.type === "short" ? aiKeyTokens(q.answer).join(" ") : q.correct.map(i => on[i]).sort().join(","));
     if (seen.some(x => aiJaccard(st, x.st) >= 0.75 || (same.length > 3 && x.same === same && aiJaccard(st, x.st) >= 0.45))) { dup++; return; }
@@ -422,7 +441,7 @@ function aiGateQuestions(qs, opts){
     q.check = opts.corpus ? aiGroundNote(q.stem + " " + (q.type === "short" ? q.answer : q.correct.map(i => q.options[i]).join(" ")), opts.corpus) : "";
     out.push(q);
   });
-  return {questions: out.slice(0, max), dropped: {dup, bad}};
+  return {questions: out.slice(0, max), dropped: {dup, bad, copied}};
 }
 const aiDayNum = s => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ""); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) / 864e5 : NaN; };
 // Syllabus items
@@ -486,10 +505,15 @@ function fetchT(url, opts, ms, signal){
 const offlineErr = who => aiErr("offline", navigator.onLine === false ? "You're offline. AI features need an internet connection." : `Couldn't reach ${who}. Check your connection and try again.`);
 async function errMsg(res){ try { const e = await res.json(); return (e.error && (e.error.message || e.error.type)) || e.message || ""; } catch(e) { return ""; } }
 
+// Course material belongs to its authors: anything AI makes from it is written in its own words
+const AI_COPY = "Copyright rule (always follow it, even if asked otherwise): the student's course material (slides, handouts, readings, textbook pages, an instructor's notes) belongs to its authors. Write everything you produce in your own words. Restate the facts and ideas; never copy the material's sentences or distinctive phrases, and never repeat more than a few words in a row from it. Technical terms, names, numbers, formulas, dates and short labels may stay exact. Never reproduce or closely imitate questions from an instructor's tests, quizzes or exams or a textbook's problem sets; write new questions that test the same ideas. You may follow an exam's format, length and difficulty, but not its wording. The only exception is the student's own words: their own lecture recording or their own handwriting may be transcribed as they are.";
+const AI_COPY_TASKS = new Set(["cards", "quiz", "cases", "practice", "explain", "summary", "tutor", "topics", "photo", "ask"]);
+const aiCopyRule = (system, task) => AI_COPY_TASKS.has(task) && typeof system === "string" && !system.includes(AI_COPY) ? system + " " + AI_COPY : system;
 /* One call, any provider */
 async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0.4, onStatus, fast = false, timeout, auto = false, task = "", signal, search = false}){
   let cfg = aiCfg();
   try { if (window.SBAREA) system = SBAREA.aiSystem(system); } catch (e) {}
+  system = aiCopyRule(system, task);
   if (auto) { const a = autoState(); if (!a.on) throw aiErr("auto-off", "Automatic AI is off."); cfg = a.cfg; }
   if (inPreview()) throw aiErr("preview", "AI features work in the Studyboard app and on your website, not in this preview.");
   if (!cfg.key) throw aiErr("nokey", "Set up AI in Settings first.");
@@ -852,11 +876,23 @@ async function docxText(buf){
 }
 const AI_IMG = {png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", heic: "image/heic", heif: "image/heif"};
 // Returns {name, kind, size, part} where part is a Gemini content part
+// The plain text of a PDF, kept on this device only to check that AI restated it instead of copying it
+async function aiPdfText(u8){
+  try {
+    if (typeof loadPdfJs !== "function") return "";
+    await loadPdfJs();
+    const doc = await window.pdfjsLib.getDocument({data: u8.slice(), ...PDF_OPTS}).promise;
+    let out = "";
+    for (let i = 1; i <= Math.min(doc.numPages, 300) && out.length < 400000; i++) { const tc = await (await doc.getPage(i)).getTextContent(); out += tc.items.map(x => x.str || "").join(" ") + "\n"; }
+    try { doc.destroy(); } catch (e) {}
+    return out;
+  } catch (e) { return ""; }
+}
 async function aiSourceFromFile(file){
   const ext = (file.name.split(".").pop() || "").toLowerCase();
   if (file.size > 100 * 1024 * 1024) throw aiErr("big", `${file.name} is too big (over 100 MB).`);
   const buf = await file.arrayBuffer();
-  if (ext === "pdf" || file.type === "application/pdf") return {name: file.name, kind: "PDF", size: buf.byteLength, part: {inline_data: {mime_type: "application/pdf", data: bytesToB64(new Uint8Array(buf))}}};
+  if (ext === "pdf" || file.type === "application/pdf") { const u8 = new Uint8Array(buf); return {name: file.name, kind: "PDF", size: buf.byteLength, part: {inline_data: {mime_type: "application/pdf", data: bytesToB64(u8)}}, pdfBytes: u8}; }
   if (AI_IMG[ext] || /^image\//.test(file.type)) return {name: file.name, kind: "Image", size: buf.byteLength, part: {inline_data: {mime_type: AI_IMG[ext] || file.type, data: bytesToB64(new Uint8Array(buf))}}};
   let text = "";
   if (ext === "pptx") text = await pptxText(buf);
@@ -956,16 +992,19 @@ function aiCleanQuestions(list){
   return out;
 }
 const AI_RULES = "Use only the provided course material (and standard facts that agree with it). If the material is thin on a topic, skip it rather than invent details. Match the student's requested style exactly. Write clearly for a university student. Return JSON only.";
-const AI_QUIZ_SYSTEM = "You write high-quality practice exam questions. Question types: 'single' (one best answer, usually 4 options), 'multiple' (select all that apply: 5 or 6 options, 2 or more correct; start or end the stem with 'Select all that apply.'), 'order' (4 to 6 steps listed in scrambled order; 'correct' lists the option indexes in the right order), 'truefalse' (options exactly ['True','False']), and 'short' (a brief typed answer in 'answer'). 'correct' holds zero-based option indexes. Every question gets a rationale explaining why the answer is right and why the others are wrong, and 'optionNotes' with one short note per option. The student's style instructions decide the mix of question types, the stem length and format (passages, vignettes, case data, calculations) and the difficulty, so follow them exactly, including a custom format they describe in their own words. If they name an exam (AP, MCAT, USMLE, NCLEX, HESI, bar exam, CPA, FE, a professor's midterm and so on), follow that exam's conventions; for example, NCLEX style uses client-centered stems about what the nurse should do, with priority, first-action, safety and delegation questions and select-all-that-apply items. When no style is given, mix types sensibly. Avoid trivia and 'all of the above' or 'none of the above'. Spread questions across the whole material. Put the slide or page in 'source'. " + AI_RULES;
+const AI_QUIZ_SYSTEM = "You write high-quality practice exam questions. Question types: 'single' (one best answer, usually 4 options), 'multiple' (select all that apply: 5 or 6 options, 2 or more correct; start or end the stem with 'Select all that apply.'), 'order' (4 to 6 steps listed in scrambled order; 'correct' lists the option indexes in the right order), 'truefalse' (options exactly ['True','False']), and 'short' (a brief typed answer in 'answer'). 'correct' holds zero-based option indexes. Every question gets a rationale explaining why the answer is right and why the others are wrong, and 'optionNotes' with one short note per option. The student's style instructions decide the mix of question types, the stem length and format (passages, vignettes, case data, calculations) and the difficulty, so follow them exactly, including a custom format they describe in their own words. If they name an exam (AP, MCAT, USMLE, NCLEX, HESI, bar exam, CPA, FE, a professor's midterm and so on), follow that exam's format and conventions, but write new questions: never reuse or closely imitate real questions from that exam, an instructor's tests or a textbook; for example, NCLEX style uses client-centered stems about what the nurse should do, with priority, first-action, safety and delegation questions and select-all-that-apply items. When no style is given, mix types sensibly. Avoid trivia and 'all of the above' or 'none of the above'. Spread questions across the whole material. Put the slide or page in 'source'. " + AI_RULES;
 // One more try when the answer came back garbled or cut off to nothing
 async function aiRetry(fn){ try { return await fn(); } catch(e) { if (e && (e.code === "bad" || e.code === "long")) return await fn(); throw e; } }
-const AI_GROUND = "Ground every item in the material above: use its own terms, numbers, names and wording. Never add a fact, number, date, example or definition that is not in the material, and skip a topic rather than guess. Write in the same language as the material. Plain text only (no markdown, HTML or LaTeX); write chemistry and math directly, like H₂O, CO₂, x², Δ, →. The 'source' field is required: the slide number or page (like 'Slide 12' or 'p. 4'), or the section heading when the material has no pages.";
+const AI_GROUND = "Ground every item in the facts of the material above, but write it in your own words: restate each fact or idea instead of copying the material's sentences or phrases (its technical terms, names, numbers and formulas are fine). Never add a fact, number, date, example or definition that is not in the material, and skip a topic rather than guess. Write in the same language as the material. Plain text only (no markdown, HTML or LaTeX); write chemistry and math directly, like H₂O, CO₂, x², Δ, →. The 'source' field is required: the slide number or page (like 'Slide 12' or 'p. 4'), or the section heading when the material has no pages.";
 async function aiMakeStudySet(opts, onStatus){
   const {sources, style, difficulty, cards, quiz, cases, caseCount, caseStyle, cardCount, quizCount, courseName, signal} = opts;
   const diff = difficulty === "easier" ? "Keep it approachable: core facts and main ideas." : difficulty === "harder" ? "Make it challenging: application, analysis and tricky distinctions." : "Mix easier recall with harder application.";
-  const ctx = `Course: ${courseName || "not given"}. Student's style and instructions (follow them exactly; if they name an exam or describe a professor's format, imitate that exam's wording, structure and difficulty; where they conflict with your defaults, they win): ${style || "Clear, exam-focused study material."} Difficulty: ${diff}`;
+  const ctx = `Course: ${courseName || "not given"}. Student's style and instructions (follow them exactly; if they name an exam or describe a professor's format, match its structure and difficulty with new questions in your own words, never copying or closely imitating its actual questions; where they conflict with your defaults, they win): ${style || "Clear, exam-focused study material."} Difficulty: ${diff}`;
   const parts = sources.map(s => s.part);
   const corpus = sources.every(s => s.part && typeof s.part.text === "string") ? aiCorpus(sources.map(s => s.part.text)) : null;
+  // The words of the material, to catch anything copied instead of restated (a PDF's text is read on this device)
+  await Promise.all(sources.map(async s => { if (s.copyText == null && s.pdfBytes) s.copyText = await aiPdfText(s.pdfBytes); }));
+  const copy = aiCopyIndex(sources.map(s => (s.part && typeof s.part.text === "string" ? s.part.text : "") || s.copyText || "").filter(Boolean));
   const nCards = cardCount === "auto" ? 0 : Number(cardCount) || 0, nQuiz = Number(quizCount) || 10;
   const jobs = [];
   if (cards) jobs.push(aiRetry(() => aiCall({task: "cards", signal, maxTokens: 24000, onStatus, schema: CARD_SCHEMA, parts: parts.concat({text: `${ctx}\n\nMake ${nCards ? "exactly " + nCards + " flashcards (a few more is fine if the material truly needs them)" : "as many flashcards as the material supports well: roughly one per key idea, usually 15 to 40, at most 60"} from the material above. Spread them across all of its topics in proportion to how much it says about each.`}),
@@ -978,11 +1017,13 @@ async function aiMakeStudySet(opts, onStatus){
   if (failed.length === settled.length) throw failed[0].reason;
   const res = settled.map(x => x.status === "fulfilled" ? x.value : {data: {}, truncated: false});
   let k = 0, out = {cards: [], questions: [], cases: [], title: "", quizTitle: "", truncated: false, partial: failed.length ? failed[0].reason.message : "", notes: []};
-  if (cards) { const r = res[k++], g = aiGateCards(r.data.cards, {max: nCards ? Math.ceil(nCards * 1.2) : 60, corpus}); out.cards = g.cards; out.title = aiTidyText(r.data.deckTitle); out.truncated = out.truncated || r.truncated;
-    const dr = []; if (g.dropped.dup) dr.push(g.dropped.dup + " repeated"); if (g.dropped.long) dr.push(g.dropped.long + " too long for one card"); if (g.dropped.empty) dr.push(g.dropped.empty + " incomplete"); if (dr.length) out.notes.push("Left out " + dr.join(", ") + " flashcard" + (g.dropped.dup + g.dropped.long + g.dropped.empty === 1 ? "" : "s") + "."); }
-  if (quiz) { const r = res[k++], g = aiGateQuestions(aiCleanQuestions(r.data.questions), {max: Math.ceil(nQuiz * 1.2), corpus}); out.questions = g.questions; out.quizTitle = aiTidyText(r.data.title); out.truncated = out.truncated || r.truncated;
-    if (g.dropped.dup + g.dropped.bad) out.notes.push(`Left out ${g.dropped.dup + g.dropped.bad} repeated or malformed question${g.dropped.dup + g.dropped.bad === 1 ? "" : "s"}.`); }
-  if (cases) { const r = res[k++]; out.cases = aiCleanCases(r.data.cases); out.truncated = out.truncated || r.truncated; }
+  if (cards) { const r = res[k++], g = aiGateCards(r.data.cards, {max: nCards ? Math.ceil(nCards * 1.2) : 60, corpus, copy}); out.cards = g.cards; out.title = aiTidyText(r.data.deckTitle); out.truncated = out.truncated || r.truncated;
+    const dr = []; if (g.dropped.dup) dr.push(g.dropped.dup + " repeated"); if (g.dropped.long) dr.push(g.dropped.long + " too long for one card"); if (g.dropped.empty) dr.push(g.dropped.empty + " incomplete"); if (dr.length) out.notes.push("Left out " + dr.join(", ") + " flashcard" + (g.dropped.dup + g.dropped.long + g.dropped.empty === 1 ? "" : "s") + ".");
+    if (g.dropped.copied) out.notes.push(`Left out ${g.dropped.copied} flashcard${g.dropped.copied === 1 ? "" : "s"} that copied your material word for word instead of restating it.`); }
+  if (quiz) { const r = res[k++], g = aiGateQuestions(aiCleanQuestions(r.data.questions), {max: Math.ceil(nQuiz * 1.2), corpus, copy}); out.questions = g.questions; out.quizTitle = aiTidyText(r.data.title); out.truncated = out.truncated || r.truncated;
+    if (g.dropped.dup + g.dropped.bad) out.notes.push(`Left out ${g.dropped.dup + g.dropped.bad} repeated or malformed question${g.dropped.dup + g.dropped.bad === 1 ? "" : "s"}.`);
+    if (g.dropped.copied) out.notes.push(`Left out ${g.dropped.copied} question${g.dropped.copied === 1 ? "" : "s"} that copied your material word for word instead of restating it.`); }
+  if (cases) { const r = res[k++]; out.cases = aiCleanCases(r.data.cases).filter(c => !aiCopied(c.scenario, copy) && !(c.questions || []).some(q => [q.stem, q.answer, q.rationale].concat(q.options || []).some(t => aiCopied(t, copy)))); out.truncated = out.truncated || r.truncated; }
   return out;
 }
 
@@ -1332,8 +1373,19 @@ const SYL_SCHEMA = {type: "OBJECT", properties: {
     hours: {type: "NUMBER", description: "Realistic hours of work for a typical student (0 for exams, quizzes and items without work)"},
     location: {type: "STRING"}, reading: {type: "STRING", description: "For readings: what to read"},
     note: {type: "STRING", description: "The syllabus line this came from, shortened"},
-    sure: {type: "BOOLEAN", description: "false if the date or details had to be guessed"}}, required: ["title", "type", "due"]}}},
+    sure: {type: "BOOLEAN", description: "false if the date or details had to be guessed"}}, required: ["title", "type", "due"]}},
+  rules: {type: "OBJECT", properties: {
+    drops: {type: "ARRAY", items: {type: "OBJECT", properties: {category: {type: "STRING", enum: ["Assignment", "Exam", "Quiz", "Reading", "Project", "Lab", "Other"]}, count: {type: "INTEGER", description: "How many of the lowest are dropped"}}, required: ["category", "count"]}},
+    bonus: {type: "NUMBER", description: "The most extra credit, in percentage points, that can be added to the final course grade, or 0"}}}},
   required: ["course", "items"]};
+// The AI's grading rules -> the Grades page's form, or null
+function aiSylRules(r){
+  r = r && typeof r === "object" ? r : {};
+  const seen = new Set(), drops = (Array.isArray(r.drops) ? r.drops : []).map(d => ({cat: String((d && d.category) || ""), n: Math.floor(Number(d && d.count)), src: "syllabus"}))
+    .filter(d => TYPES.includes(d.cat) && d.cat !== "Study" && d.n >= 1 && d.n <= 10 && !seen.has(d.cat) && seen.add(d.cat));
+  const b = Number(r.bonus), bonus = b > 0 && b <= 10 ? {pts: Math.round(b * 100) / 100, got: 0, src: "syllabus"} : null;
+  return drops.length || bonus ? {drops, bonus} : null;
+}
 async function aiReadSyllabus(parts, onStatus){
   const today = todayISO();
   const res = await aiCall({task: "syllabus", maxTokens: 32000, temperature: 0.1, onStatus, schema: SYL_SCHEMA, parts: parts.concat({text: `Today is ${today}. Read this course syllabus and extract the course details and every dated deliverable.`}),
@@ -1343,7 +1395,8 @@ Rules:
 - Resolve every date to YYYY-MM-DD. Use the term and year stated in the syllabus; if none, use the school term that contains or follows ${today}. Resolve "Week 5 Friday", "Class 12", or dates in schedule tables using the course calendar and meeting days.
 - Titles are short and specific, like "Homework 3", "Midterm 1", "Lab 4 Report", "Read Ch. 5".
 - time: due time or exam start time in 24-hour HH:MM if given. For exams held in class, use the class start time.
-- weight: the percent of the final grade for that single item. If a category is worth a total (e.g. "Quizzes 20%, 10 quizzes, lowest dropped"), divide it across the items. Use 0 if unknown.
+- weight: the percent of the final grade for that single item. If a category is worth a total, divide it evenly across every item in it, counting any that will be dropped (e.g. "Quizzes 20%, 10 quizzes, lowest 2 dropped" is 2% each). Use 0 if unknown.
+- rules: the grading policy's rules. drops: each "lowest N dropped" rule, with the category it applies to and how many are dropped (use Exam only when midterms or tests are dropped). Leave out rules where a later mark replaces an earlier one. bonus: the most extra credit, in percentage points, that can be added to the final course grade; 0 if there is none or it only counts inside one assignment or exam.
 - meetings: every regular class meeting (lecture, lab, discussion, tutorial) and the instructor's office hours, with days as numbers (0=Sunday) and 24-hour times.
 - sure=false when you had to infer the date.
 Return JSON only.`});
@@ -1358,7 +1411,7 @@ Return JSON only.`});
   const gate = aiGateSyllabus(items, today); items.length = 0; gate.items.forEach(i => items.push(i));
   items.sort((a, b) => (a.due || "9999") < (b.due || "9999") ? -1 : (a.due || "9999") > (b.due || "9999") ? 1 : 0);
   const gateNote = [gate.fixed ? `${gate.fixed} date${gate.fixed === 1 ? " looked" : "s looked"} wrong (far from the rest) and ${gate.fixed === 1 ? "was" : "were"} left blank for you to fill in.` : "", gate.dups ? `${gate.dups} repeated item${gate.dups === 1 ? " was" : "s were"} merged.` : ""].filter(Boolean).join(" ");
-  return {course, items, term: c.term ? {label: String(c.term)} : null, weightsFound: items.some(i => i.weight != null), ai: true, gateNote};
+  return {course, items, term: c.term ? {label: String(c.term)} : null, weightsFound: items.some(i => i.weight != null), ai: true, gateNote, rules: aiSylRules(d.rules)};
 }
 
 /* Settings: turning AI on and choosing a model */

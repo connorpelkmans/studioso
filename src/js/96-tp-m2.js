@@ -112,7 +112,7 @@
           <g font-family="Lexend,Arial Rounded MT Bold,Arial,sans-serif" font-weight="800" font-size="11" fill="#FF7FAE"><text x="31" y="17.5">&lt;/&gt;</text></g>
           <path d="M5 3.5H81" stroke="#fff" stroke-width="1.2" opacity=".45"/></svg>`}
     ],
-    card: {id: "tp-compsci", name: "Circuit Board", desc: "A clean mint circuit board with glowing traces and a little chip in the corner, lit up in neon after dark."}
+    card: {id: "tp-compsci", name: "Circuit Board", desc: "A clean mint circuit board with traces that wrap around the card edges into a little chip, lit up in neon after dark."}
   });
 
   /* ================= GEAR WORKS (engineering) ================= */
@@ -202,7 +202,7 @@
           <rect x="9" y="22" width="4" height="12" rx="2" fill="#E8693A" stroke="#8A3A1E" stroke-width=".7"/>
           <path d="M9.5 18v2" stroke="#fff" stroke-width="1" stroke-linecap="round" opacity=".7"/></svg>`}
     ],
-    card: {id: "tp-engineering", name: "Drafting Sheet", desc: "Pale blue drafting paper with turning gears and a pencil sketch of a truss bridge; blueprint blue after dark."}
+    card: {id: "tp-engineering", name: "Drafting Sheet", desc: "Pale blue drafting sheet with a ruled border, a truss bridge sketch, a title block and gears peeking in from the corner; blueprint blue after dark."}
   });
 
   /* ================= SUNNY CLASSROOM (education) ================= */
@@ -293,7 +293,7 @@
           <path d="${star(18, 18.5, 3.2, 1.5, 5)}${star(58, 18.5, 3.2, 1.5, 5)}" fill="#fff"/><path d="${star(38, 19, 3.2, 1.5, 5)}${star(77, 19, 3.2, 1.5, 5)}" fill="#E8693A" opacity=".8"/>
           <path d="M5 23H81" stroke="#fff" stroke-width="1" opacity=".45"/></svg>`}
     ],
-    card: {id: "tp-education", name: "Gold Star Notes", desc: "Ruled notebook paper with a red margin, gold stars and an apple for the teacher; a chalkboard after dark."}
+    card: {id: "tp-education", name: "Gold Star Notes", desc: "Ruled notebook paper with a red margin, gold stars and a full-length pencil with an apple along the bottom; a chalkboard with chalk tray after dark."}
   });
 
   /* ================= ON AIR (comms) ================= */
@@ -380,7 +380,7 @@
           <g stroke-linecap="round" stroke-width="2.2">${[3, 6, 10, 5, 8, 12, 7, 4, 9, 13, 6, 3, 8, 11, 5, 9, 4, 7].map((h, i) => `<path d="M${9 + i * 4} ${13 - h / 2}v${h}" stroke="${i % 2 ? "#FF7FAE" : "#FFFFFF"}"/>`).join("")}</g>
           <path d="M5 3.5H81" stroke="#fff" stroke-width="1.2" opacity=".45"/></svg>`}
     ],
-    card: {id: "tp-comms", name: "Studio Wave", desc: "Soft lilac studio foam with a glowing ON AIR sign and a sound wave along the bottom; a warm red glow after dark."}
+    card: {id: "tp-comms", name: "Studio Wave", desc: "Soft lilac studio foam with an ON AIR sign hanging from the top edge and a pink-to-mint sound wave across the bottom; glows after dark."}
   });
 })();
 

@@ -19,7 +19,8 @@
           armL: {svg: `<ellipse cx="27" cy="91" rx="5" ry="7.4" transform="rotate(40 27 91)" fill="#F6CC3A" ${O}/>`, pivot: [32, 87]},
           armR: {svg: `<ellipse cx="93" cy="91" rx="5" ry="7.4" transform="rotate(-40 93 91)" fill="#F6CC3A" ${O}/>`, pivot: [88, 87]},
           body: `${RG("italy-limo-g", [[0, "#FFF7B8"], [0.55, "#FFDD4A"], [1, "#EDB018"]], 0.4, 0.33, 0.78)}
-            <path d="M60 38C79 38 91 50 95 63Q104 65 110 70Q104 75 95 77C91 91 79 102 60 102C41 102 29 91 25 77Q16 75 10 70Q16 65 25 63C29 50 41 38 60 38Z" fill="url(#italy-limo-g)" ${O}/>
+            <path d="M60 38C78 38 89 48.6 93.6 62C96.2 64 97.8 66.8 97.8 70C97.8 73.2 96.2 76 93.6 78C89 91.4 78 102 60 102C42 102 31 91.4 26.4 78C23.8 76 22.2 73.2 22.2 70C22.2 66.8 23.8 64 26.4 62C31 48.6 42 38 60 38Z" fill="url(#italy-limo-g)" ${O}/>
+            <path d="M94.6 67Q96 69 95.6 71.4M25.4 67Q24 69 24.4 71.4" fill="none" stroke="#FFF4B0" stroke-width="1.4" stroke-linecap="round"/>
             ${[[40, 52], [76, 50], [86, 82], [34, 86], [62, 96], [50, 44], [82, 64]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.1" fill="#E0A818" opacity=".7"/>`).join("")}
             <path d="M36 56Q40 46 52 42" fill="none" stroke="#FFFBE0" stroke-width="3.6" stroke-linecap="round"/><circle cx="33" cy="64" r="2" fill="#FFFBE0"/>
             <path d="M44 99Q60 104 76 99" fill="none" stroke="#D89A14" stroke-width="2" stroke-linecap="round" opacity=".55"/>`,

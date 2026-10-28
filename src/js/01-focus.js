@@ -114,8 +114,7 @@ function pomoFinish(missed){
     pomo.cycle++; pomo.sessions++; pomo.minutes += fm;
     const t = pomo.taskId && state.tasks[pomo.taskId];
     if (t) {
-      const n = clone(t); n.pomos = (Number(n.pomos) || 0) + 1; n.focusMin = (Number(n.focusMin) || 0) + fm;
-      n.history = (n.history || []).concat({at: Date.now(), text: `Focus session: ${fm}m`}).slice(-30);
+      const n = addWork(clone(t), fm, "focus"); n.pomos = (Number(n.pomos) || 0) + 1;
       applyChanges([{kind: "task", id: t.id, after: n}], null);
       try { const x = FOCUS && FOCUS.info ? FOCUS.info[t.id] : null; if (x && enoughToday(state.tasks[t.id], x)) toast(`That's the time planned for “${t.title}” today. Moving on to the next thing.`); } catch (e) {}
     }

@@ -73,7 +73,7 @@
         svg: `<svg viewBox="0 0 86 26"><defs><clipPath id="tp-brazil-calcadao-c"><path d="${tapeEdge}"/></clipPath></defs><path d="${tapeEdge}" fill="#F8F5EE" opacity=".95"/>
           <g clip-path="url(#tp-brazil-calcadao-c)">${waves(0, 86, 1.5, 24.5, 3, 14, "#2C2B32")}</g></svg>`}
     ],
-    card: {id: "tp-brazil", name: "Rio Beach", desc: "Sunny paper with Sugarloaf and its cable car in the corner and the beach, umbrellas and wave mosaic below. Night blue in dark mode."}
+    card: {id: "tp-brazil", name: "Rio Beach", desc: "Sunny sky over Guanabara Bay: Sugarloaf and its cable car rise from the right edge, a palm and beach umbrella stand on the sand, and a Copacabana wave-mosaic promenade runs along the bottom. Night blue in dark mode."}
   });
 })();
 /* end of module 96-tp-brazil.js */

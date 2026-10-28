@@ -46,7 +46,7 @@ const sameSet = (a, b) => a.length === b.length && a.every(x => b.includes(x));
     ok((await page.evaluate(h => SBTP.themes().filter(id => h.includes(id)).length, hidden)) === 0, "no hidden theme has a Theme Collection showing");
     await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "shop"; b.id = "tvShop"; document.body.appendChild(b); b.click(); });
     await page.waitForSelector("#dlg .shop", {timeout: 10000}); await page.waitForTimeout(500);
-    const shop = await page.evaluate(() => { const d = document.querySelector("#dlg"); d.querySelectorAll(".ui-sec, details").forEach(x => { try { x.open = true; } catch (e) {} }); const h = d.innerHTML; return {venice: /Venice/.test(h), ideas: /New Theme Ideas|New Ideas/.test(h), seasons: /Seasons/.test(h) && /Autumn Leaves/.test(h), kelp: /Kelp Forest|marinebio/.test(h)}; });
+    const shop = await page.evaluate(() => { const d = document.querySelector("#dlg"); d.querySelectorAll(".ui-sec, details").forEach(x => { try { x.open = true; } catch (e) {} }); const h = d.innerHTML; return {venice: /Venice/.test(h), ideas: /New Theme Ideas|New Ideas/.test(h), seasons: /Seasons/.test(h) && />Fall</.test(h), kelp: /Kelp Forest|marinebio/.test(h)}; });
     console.log("   shop:", JSON.stringify(shop));
     ok(!shop.venice && !shop.ideas && shop.seasons && shop.kelp, "the Style Shop shows Seasons and has no hidden theme or empty section");
 

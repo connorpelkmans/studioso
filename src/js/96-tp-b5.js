@@ -113,7 +113,7 @@
         <g fill="#4E9E4A" opacity=".9">${[10, 24, 38, 52, 66, 80].map((x, i) => i % 2 ? `<path d="M${x} 14q-4 4-1 7 4-2 1-7z"/>` : `<path d="M${x} 11q-4-4-1-7 4 2 1 7z"/>`).join("")}</g>
         <g fill="#F28BB8">${[17, 45, 73].map(x => `<circle cx="${x}" cy="14" r="1.8"/>`).join("")}</g></svg>`}
     ],
-    card: {id: "tp-gardening", name: "Ivy Trellis", desc: "Seed packet cream paper with trailing ivy and a little potted sprout."}
+    card: {id: "tp-gardening", name: "Ivy Trellis", desc: "Seed packet cream paper with an ivy garland swagged along a lattice trellis at the top and a row of sprouts in the soil below."}
   });
 
   /* Game Night */

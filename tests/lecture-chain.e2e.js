@@ -21,12 +21,12 @@ const NOTE_OSMOSIS = {title: "Osmosis and Membranes", summary: "How water crosse
   terms: [{term: "Osmosis", definition: "Water moving across a membrane toward more solute"}, {term: "Semipermeable membrane", definition: "A membrane that lets water through but not solute"}, {term: "Tonicity", definition: "Compares solute on two sides of a membrane"}], questions: ["Which way does water move in osmosis?"]};
 const NOTE_DIFF = {title: "Diffusion and Transport", summary: "How particles move from high to low concentration.", sections: [{heading: "Diffusion", points: ["Diffusion is particles moving from high concentration to low concentration", "Facilitated diffusion uses channel proteins"]}, {heading: "Active Transport", points: ["Active transport uses ATP to move against the gradient"]}],
   terms: [{term: "Diffusion", definition: "Particles moving from high concentration to low concentration"}, {term: "Active transport", definition: "Uses ATP to move against the gradient"}], questions: []};
-// Cards are checked against the note's own text, so each one quotes it
+// Cards are checked against the note's own text, so each one quotes it; the answers restate it (copying 8 words in a row is left out)
 const CARDS = {
-  osmosis: [{front: "What is osmosis?", back: "Water moving across a membrane toward more solute", quote: "Water moving across a membrane toward more solute"},
+  osmosis: [{front: "What is osmosis?", back: "Water crossing a membrane toward the side with more solute", quote: "Water moving across a membrane toward more solute"},
     {front: "What does a semipermeable membrane do?", back: "It lets water through but not solute", quote: "A membrane that lets water through but not solute"},
     {front: "What does tonicity compare?", back: "Solute on two sides of a membrane", quote: "Compares solute on two sides of a membrane"}],
-  diffusion: [{front: "What is diffusion?", back: "Particles moving from high concentration to low concentration", quote: "Particles moving from high concentration to low concentration"},
+  diffusion: [{front: "What is diffusion?", back: "Particles going from high to low concentration", quote: "Particles moving from high concentration to low concentration"},
     {front: "What does facilitated diffusion use?", back: "Channel proteins", quote: "Facilitated diffusion uses channel proteins"},
     {front: "What does active transport use to move against the gradient?", back: "ATP", quote: "Active transport uses ATP to move against the gradient"}]};
 function SEED(){
