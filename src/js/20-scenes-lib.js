@@ -1803,69 +1803,187 @@ SCENES.arcade = function (W, H, dk, rnd) {
   return {sky: sky, far: far, mid: mid, near: near, band: {top: hz, bg: floor}};
 };
 
-// Christmas Lights
+// Christmas Lights: a snowy village square with a decorated tree, presents, Victorian lamps, a snowman and strings of bulbs
 SCENES.xmas = function (W, H, dk, rnd) {
-  var ph = H > W, far = Lay(12), mid = Lay(0.8), near = Lay(0);
+  var ph = H > W, far = Lay(12), mid = Lay(0.8), near = Lay(0), u0 = ph ? 0.8 : 1;
+  'ABCDEFGHIJKLMNOP'.split('').forEach(function (k) { mid[k] = E(); near[k] = E(); });
+  if (ANIM) { ANIM.bulbs = []; ANIM.tree = []; }
   var gy = H * (ph ? 0.8 : 0.74);
   var sky = dk ? 'linear-gradient(180deg,#0A1216 0%,#122126 45%,#1C3030 80%,#243A34 100%)' : 'linear-gradient(180deg,#C8D5DE 0%,#DEE0E2 45%,#F2E8E0 80%,#FBF6EF 100%)';
   var snowB = dk ? 'linear-gradient(180deg,#2C3A40 0%,#1E2A2E 100%)' : 'linear-gradient(180deg,#F6F3EE 0%,#E8E6E4 100%)';
-  var RED = '#E0463E', GRN = '#3FAE62', GLD = '#F2C14E';
+  var K = {red: dk ? '#C8383A' : '#E0463E', grn: dk ? '#2F9A55' : '#3FAE62', gld: dk ? '#E8B444' : '#F2C14E', wht: dk ? '#EDE6DA' : '#FFFFFF',
+    treeD: dk ? '#123A28' : '#1E5A3A', treeL: dk ? '#1C4E35' : '#2C7A4C', treeSh: dk ? 'rgba(0,14,8,0.42)' : 'rgba(6,36,18,0.3)', snow: dk ? '#C8D4D6' : '#FFFFFF',
+    shade: dk ? 'rgba(0,0,0,0.3)' : 'rgba(60,20,20,0.2)', hi: dk ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.75)', iron: dk ? '#141A1C' : '#2E3436',
+    glass: dk ? '#FFD27A' : '#FBE3A8', gnd: dk ? 'rgba(4,12,16,0.38)' : 'rgba(100,120,150,0.22)'};
+  function R4(x, y, w, h) { return b2_polyA([[x, y], [x + w, y], [x + w, y + h], [x, y + h]]); }
+  function rotE(x, y, rx, ry, deg) { var p = []; for (var i = 0; i < 18; i++) { var a = i / 18 * Math.PI * 2; p.push([rx * Math.cos(a), ry * Math.sin(a)]); } return b2_polyA(rotp(p, x, y, deg)); }
+  function ring(x, y, R, r) { var o = [], n2 = []; for (var k = 0; k < 20; k++) { var a = k / 20 * Math.PI * 2; o.push([x + Math.cos(a) * R, y + Math.sin(a) * R]); n2.push([x + Math.cos(a) * r, y + Math.sin(a) * r]); } return b2_polyA(o) + poly(b2_area(n2) > 0 ? n2.slice().reverse() : n2); }
+  function tube(pts, w) { var L = [], Rt = []; for (var i = 0; i < pts.length; i++) { var a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], m = Math.hypot(dx, dy) || 1, nx = -dy / m * w / 2, ny = dx / m * w / 2; L.push([pts[i][0] + nx, pts[i][1] + ny]); Rt.unshift([pts[i][0] - nx, pts[i][1] - ny]); } return b2_polyA(L.concat(Rt)); }
+  // a candy cane: a red tube with a hook, white bands along it
+  function caneD(x, y, L, hr, w) { var pts = [], i; for (i = 0; i <= 6; i++) pts.push([x, y - L * i / 6]); for (i = 1; i <= 10; i++) { var a = Math.PI + Math.PI * i / 10; pts.push([x + hr + hr * Math.cos(a), y - L + hr * Math.sin(a)]); } pts.push([x + 2 * hr, y - L + 3]);
+    var dense = []; for (i = 1; i < pts.length; i++) { var a0 = pts[i - 1], a1 = pts[i], m = Math.max(1, Math.ceil(Math.hypot(a1[0] - a0[0], a1[1] - a0[1]) / 0.6)); for (var k = 0; k < m; k++) dense.push([lerp(a0[0], a1[0], k / m), lerp(a0[1], a1[1], k / m)]); } dense.push(pts[pts.length - 1]);
+    var s = 0, run = [], st = ''; dense.forEach(function (p, j) { if (j) s += Math.hypot(p[0] - dense[j - 1][0], p[1] - dense[j - 1][1]); if (Math.floor(s / 1.7) % 2 === 0) run.push(p); else { if (run.length > 1) st += tube(run, w * 1.06); run = []; } }); if (run.length > 1) st += tube(run, w * 1.06);
+    return {body: tube(pts, w), st: st}; }
+
+  // far: soft bokeh, the moon glow, window glows, the tree's halo and bulb glows, the star and lamps
   var bc = dk ? ['rgba(255,90,80,0.4)', 'rgba(90,210,120,0.32)', 'rgba(255,200,90,0.42)'] : ['rgba(224,70,62,0.2)', 'rgba(63,174,98,0.18)', 'rgba(242,193,78,0.3)'];
   spread(0, 0, W, gy * 0.9, ph ? 120 : 170, ph ? 120 : 150, rnd, 0.8).forEach(function (c) { add(far, ['a', 'b', 'c'][Math.floor(c.q * 3)], circ(c.x, c.y, (ph ? 16 : 22) + c.r * 18), bc[Math.floor(c.q * 3)]); });
-  if (dk) add(far, 'd', circ(W * 0.18, H * (ph ? 0.4 : 0.14), 50), 'rgba(230,240,230,0.25)');
-  var hill = ridge(W, gy - H * (ph ? 0.1 : 0.14), [[H * 0.03, 160, 0.5], [H * 0.015, 60, 2]], 8);
+  var mx = W * 0.18, my = H * (ph ? 0.4 : 0.14);
+  if (dk) { add(far, 'd', circ(mx, my, 50), 'rgba(230,240,230,0.25)'); add(mid, 'P', circ(mx, my, 15), '#E8EEE2'); }
+
+  // the hill behind the village with snowy pines
+  var hillY = gy - H * (ph ? 0.1 : 0.14), hill = ridge(W, hillY, [[H * 0.03, 160, 0.5], [H * 0.015, 60, 2]], 8);
   add(mid, 'a', below(hill, gy + 2), dk ? '#2A3A3E' : '#E6E8EA');
-  var pines = ''; for (var x = -10; x < W + 10; x += 12 + rnd() * 16) { var th = 16 + rnd() * 22, by = gy - H * (ph ? 0.1 : 0.14) + 10 + Math.sin(x / 60) * 6; pines += poly([[x - th * 0.3, by + 4], [x, by - th], [x + th * 0.3, by + 4]]); }
-  add(mid, 'b', pines, dk ? '#1A2E2A' : '#9DB5A8');
+  var pines = '', pcap = '';
+  for (var x = -10; x < W + 10; x += 12 + rnd() * 16) { var ph0 = 16 + rnd() * 22, pb = hillY + 14 + Math.sin(x / 60) * 6, pp = b2_pine(x, pb, ph0, ph0 * 0.62, 3); pines += pp.d; pcap += pp.snow; }
+  add(mid, 'b', pines, dk ? '#1A2E2A' : '#9DB5A8'); add(mid, 'c', pcap, dk ? '#5E7272' : '#F7F9FA');
+
+  // the houses: brick or clapboard walls, a roof under thick snow, a chimney with smoke, framed lit windows with curtains,
+  // a door with a wreath, and either eave lights or icicles
   var hs = ph ? [[-0.06, 0.3], [0.2, 0.26]] : [[-0.02, 0.14], [0.13, 0.12], [0.26, 0.15], [0.42, 0.11], [0.86, 0.16]];
-  var fac = dk ? ['#2E2A36', '#3A2E30', '#2A3432'] : ['#C9796A', '#E6D6C0', '#9FB5A0'], fk = ['c', 'd', 'e'], roof = '', snow = '', win = '', glow = '', chim = '';
-  hs.forEach(function (h, i) { var x0 = W * h[0], w = W * h[1], hh = (ph ? 70 : 84) + rnd() * 40, y0 = gy - hh; add(mid, fk[i % 3], rect(x0, y0, w, hh + 4), fac[i % 3]);
-    roof += poly([[x0 - 8, y0 + 2], [x0 + w / 2, y0 - w * 0.34], [x0 + w + 8, y0 + 2]]); snow += poly([[x0 - 10, y0 + 3], [x0 + w / 2, y0 - w * 0.34 - 4], [x0 + w + 10, y0 + 3], [x0 + w / 2 + 8, y0 - w * 0.34 + 10], [x0 + w / 2, y0 - w * 0.34 + 6], [x0 - 2, y0 + 8]]);
-    chim += rect(x0 + w * 0.7, y0 - w * 0.3, 12, w * 0.2);
-    for (var k = 0; k < Math.max(1, Math.floor(w / 60)); k++) { var wx = x0 + 14 + k * 60, wy = y0 + 20; win += rrect(wx, wy, 24, 28, 3); glow += circ(wx + 12, wy + 14, 26); } });
-  add(mid, 'f', roof + chim, dk ? '#4A2A2C' : '#8E3A34');
-  add(mid, 'g', snow, dk ? '#C8D4D6' : '#FFFFFF');
-  add(mid, 'h', win, dk ? '#FFD27A' : '#FBE3A8');
+  var fac = dk ? ['#2E2A36', '#3A2E30', '#2A3432'] : ['#C9796A', '#E6D6C0', '#9FB5A0'];
+  var tex = '', roof = '', door = '', trim = '', glass = '', curt = '', mull = '', snow = '', ice = '', wreath = '', berry = '', knob = '', eb = ['', '', ''], smoke = '', ewire = '', glow = '';
+  hs.forEach(function (h, i) {
+    var x0 = W * h[0], w = W * h[1], hh = (ph ? 70 : 84) + rnd() * 40, y0 = gy - hh, rh = w * 0.34, apx = x0 + w / 2, L0 = x0 - 10, R0 = x0 + w + 10, ey = y0 + 3, yy, xx, q, u;
+    add(mid, ['d', 'e', 'f'][i % 3], rect(x0, y0, w, hh + 4), fac[i % 3]);
+    if (i % 2 === 0) { for (yy = y0 + 8, q = 0; yy < gy; yy += 8, q++) { tex += rect(x0, yy, w, 1.2); for (xx = x0 + (q % 2 ? 8 : 0); xx < x0 + w; xx += 16) tex += rect(xx, yy - 6.8, 1.2, 6.8); } }
+    else for (yy = y0 + 9; yy < gy; yy += 9) tex += rect(x0, yy, w, 1.6);
+    roof += b2_polyA([[L0, ey], [apx, y0 - rh], [R0, ey], [R0 - 4, ey + 5], [L0 + 4, ey + 5]]);
+    var chx = x0 + w * 0.68, cht = y0 - rh * 0.78 - 8;
+    roof += R4(chx, cht, 14, y0 - cht) + R4(chx - 2, cht - 4, 18, 5);
+    snow += b2_polyA([[chx - 3, cht - 3], [chx - 1, cht - 8], [chx + 7, cht - 10], [chx + 15, cht - 8], [chx + 17, cht - 3]]);
+    for (q = 0; q < 4; q++) smoke += circ(chx + 7 + Math.sin(q * 1.3 + i) * 5 + q * 3, cht - 14 - q * 13, 5 + q * 2.2);
+    var sn = [[L0 - 3, ey + 2], [apx, y0 - rh - 8], [R0 + 3, ey + 2]];
+    for (q = 0; q <= 12; q++) { u = q / 12; sn.push([R0 + 2 - u * (R0 + 2 - apx), ey + 2 - u * (ey + 2 - (y0 - rh)) + 4 + Math.abs(Math.sin(u * 9 + i)) * 4]); }
+    for (q = 1; q <= 12; q++) { u = q / 12; sn.push([apx - u * (apx - L0 + 2), (y0 - rh) + u * (ey + 2 - (y0 - rh)) + 4 + Math.abs(Math.sin(u * 7 + i * 2)) * 4]); }
+    snow += b2_polyA(sn);
+    if (i % 2) { for (var ix = L0 + 6; ix < R0 - 6; ix += 7 + rnd() * 6) { var il = 4 + rnd() * 10; ice += b2_polyA([[ix - 2, ey + 4], [ix + 2, ey + 4], [ix + 0.3, ey + 4 + il]]); } }
+    else { var nseg = Math.max(2, Math.round((R0 - L0) / 36)); for (var sg = 0; sg < nseg; sg++) { var xa = L0 + 4 + (R0 - L0 - 8) * sg / nseg, xb = L0 + 4 + (R0 - L0 - 8) * (sg + 1) / nseg, wp = b4_qpts(xa, ey + 6, (xa + xb) / 2, ey + 14, xb, ey + 6, 6); ewire += pline(wp); for (var bq = 1; bq < 6; bq += 2) eb[(sg + bq) % 3] += b2_ellA(wp[bq][0], wp[bq][1] + 3, 1.8, 2.6); } }
+    var nW = Math.max(1, Math.floor((w - 44) / 60));
+    for (var k = 0; k < nW; k++) { var wx = x0 + 14 + k * 60, wy = y0 + 20;
+      trim += R4(wx - 3, wy - 3, 30, 34); glass += R4(wx, wy, 24, 28); glow += circ(wx + 12, wy + 14, 26);
+      curt += b2_polyA([[wx, wy], [wx + 7, wy], [wx + 4, wy + 16], [wx, wy + 28]]) + b2_polyA([[wx + 17, wy], [wx + 24, wy], [wx + 24, wy + 28], [wx + 20, wy + 16]]);
+      mull += R4(wx + 11, wy, 2, 28) + R4(wx, wy + 13, 24, 2) + R4(wx - 5, wy + 29, 34, 4);
+      snow += b2_polyA([[wx - 5, wy + 29.5], [wx + 29, wy + 29.5], [wx + 27, wy + 26.5], [wx + 12, wy + 25.5], [wx - 3, wy + 26.5]]); }
+    var dx = x0 + w - 32, dh = Math.min(36, hh - 44), dy = gy - dh;
+    roof += R4(dx - 3, dy - 3, 28, dh + 3); door += R4(dx, dy, 22, dh);
+    knob += b2_ellA(dx + 17, dy + dh * 0.58, 1.4, 1.4);
+    wreath += ring(dx + 11, dy + 11, 6.5, 3.4); berry += b2_ellA(dx + 8, dy + 16, 1.3, 1.3) + b2_ellA(dx + 14, dy + 16.5, 1.3, 1.3) + rotE(dx + 8.5, dy + 5, 2.6, 1.5, 20) + rotE(dx + 13.5, dy + 5, 2.6, 1.5, -20);
+    snow += b2_polyA([[dx - 6, gy + 3], [dx + 28, gy + 3], [dx + 24, gy - 1.5], [dx + 11, gy - 3], [dx - 2, gy - 1.5]]); });
+  add(mid, 'g', tex, dk ? 'rgba(0,0,0,0.25)' : 'rgba(90,40,30,0.16)');
+  add(mid, 'h', roof, dk ? '#4A2A2C' : '#8E3A34'); add(mid, 'i', door, dk ? '#3E2620' : '#6A3A28');
+  add(mid, 'j', trim, dk ? '#BFB8A8' : '#FBF4E6'); add(mid, 'k', glass, K.glass); add(mid, 'l', curt, dk ? '#7A2E2E' : '#C9504A');
+  add(mid, 'm', mull, dk ? '#BFB8A8' : '#FBF4E6'); add(mid, 'n', snow, K.snow); add(mid, 'o', ice, dk ? '#A8C4D0' : '#E4F2FA');
+  add(mid, 'p', wreath, dk ? '#1E5A36' : '#2E7A44'); add(mid, 'A', berry, K.red);
+  add(mid, 'B', eb[0], K.red); add(mid, 'C', eb[1], K.grn); add(mid, 'D', eb[2] + knob, K.gld);
+  add(mid, 'E', smoke, dk ? 'rgba(200,210,215,0.16)' : 'rgba(255,255,255,0.6)');
+  stk(mid, 't', ewire, dk ? '#0E1A16' : '#3A4A40', 1);
   add(far, 'e', glow, dk ? 'rgba(255,200,110,0.45)' : 'rgba(255,220,150,0.5)');
-  var tx = W * (ph ? 0.62 : 0.68), tb = gy + (ph ? 42 : 16), th = H * (ph ? 0.4 : 0.58), tw = ph ? 250 : 340;
-  var tiers = 5, body = '', tsnow = '', bulbsR = '', bulbsG = '', bulbsW = '', tglow = '';
+
+  // the tree: five layers of boughs with drooping tips, lit on the left, shaded under each layer, snow on the tips,
+  // gold garland swags, rows of bulbs, baubles hanging from the tips, candy canes, a bevelled star, a trunk and a skirt
+  var tx = W * (ph ? 0.62 : 0.68), tb = gy + (ph ? 42 : 16), th = H * (ph ? 0.4 : 0.58), tw = ph ? 250 : 340, tiers = 5, TT = [];
   add(far, 'f', ell(tx, tb - th * 0.45, tw * 0.62, th * 0.58), dk ? 'rgba(255,190,90,0.28)' : 'rgba(255,230,170,0.5)');
-  for (var t = 0; t < tiers; t++) { var ttop = tb - th + t * th * 0.17, tbot = tb - th + (t + 1) * th * 0.2 + th * 0.02, half = tw * (0.18 + 0.82 * (t + 1) / tiers) / 2, pts = [[tx, ttop]];
-    for (var s = 0; s <= 10; s++) { var u = s / 10, xx = tx + half - u * 2 * half, sc = Math.abs(Math.sin(u * Math.PI * (3 + t))) * 7; pts.push([xx, tbot + sc - Math.sin(u * Math.PI) * -6]); }
-    body += poly(pts); var sn = []; for (s = 0; s <= 10; s++) { var u2 = s / 10; sn.push([tx + half - u2 * 2 * half, tbot + Math.abs(Math.sin(u2 * Math.PI * (3 + t))) * 7 + Math.sin(u2 * Math.PI) * 6 - 1]); } for (s = 10; s >= 0; s--) { var u3 = s / 10; sn.push([tx + half - u3 * 2 * half, tbot - 5 + Math.sin(u3 * Math.PI) * 6]); } tsnow += poly(sn); }
-  add(near, 'a', rect(tx - 12, tb - 10, 24, 30), dk ? '#3A2618' : '#6E4428');
-  add(near, 'b', body, dk ? '#16402C' : '#1F5A3A');
-  add(near, 'c', tsnow, dk ? '#A6B4B2' : '#F7F9F8');
-  function halfAt(y) { var hw = 0; for (var t2 = 0; t2 < tiers; t2++) { var a0 = tb - th + t2 * th * 0.17, a1 = tb - th + (t2 + 1) * th * 0.2 + th * 0.02; if (y >= a0 && y <= a1 + 4) hw = Math.max(hw, tw * (0.18 + 0.82 * (t2 + 1) / tiers) / 2 * Math.min(1, (y - a0) / (a1 - a0))); } return hw; }
-  for (var g = 0; g < 5; g++) { var gy0 = tb - th * (0.78 - g * 0.16), wd = Math.min(tw * (0.2 + g * 0.17) / 2, halfAt(gy0 - 3) - 6); for (var b = 0; b <= 8 + g * 2; b++) { var u4 = b / (8 + g * 2), bx = tx - wd + u4 * 2 * wd, byy = gy0 + Math.sin(u4 * Math.PI) * 12 + (g % 2 ? -4 : 4) * (u4 - 0.5); var c = (b + g) % 3, d = circ(bx, byy, ph ? 3.2 : 4); if (ANIM) (ANIM.tree = ANIM.tree || []).push({x: bx, y: byy, g: g, u: u4, c: c === 0 ? 0 : c === 1 ? 3 : 1}); if (c === 0) bulbsR += d; else if (c === 1) bulbsW += d; else bulbsG += d; tglow += circ(bx, byy, 11); } }
+  for (var t = 0; t < tiers; t++) TT.push({top: tb - th + t * th * 0.12, bot: tb - th + (t + 1) * th * 0.19, hb: tw * (0.2 + 0.8 * (t + 1) / tiers) / 2});
+  function hwAt(T, y) { return T.hb * Math.max(0, Math.min(1, (y - T.top) / (T.bot - T.top))); }
+  function halfAt(y) { var m = 0; TT.forEach(function (T) { if (y >= T.top && y <= T.bot + 6) m = Math.max(m, hwAt(T, y)); }); return m; }
+  var tD = '', tL = '', tShB = '', tSn = '', gar = '', tglow = '', bl = ['', '', '', ''], orn = ['', '', ''], oSh = '', oHi = '', caps = '', cane = '', caneSt = '';
+  TT.forEach(function (T, t) {
+    var hb = T.hb, n = 4 + t * 2, rs = [], bot = [], q, u;
+    for (q = 1; q <= 3; q++) { u = q / 4; var yy = T.top + (T.bot - T.top) * u; rs.push([tx + hb * u + 2, yy]); rs.push([tx + hb * u - 3, yy + 4]); }
+    for (q = n; q >= 0; q--) { u = q / n; bot.push([tx - hb + u * 2 * hb, T.bot + 6 + Math.sin(Math.PI * u) * 7]); if (q > 0) { var um = (q - 0.5) / n; bot.push([tx - hb + um * 2 * hb, T.bot - 5 + Math.sin(Math.PI * um) * 7]); } }
+    var ls = rs.map(function (p) { return [2 * tx - p[0], p[1]]; }).reverse();
+    tD += b2_polyA([[tx, T.top]].concat(rs, bot, ls));
+    var cut = tx - hb * 0.08; tL += b2_polyA([[tx, T.top], [cut, T.bot - 2]].concat(bot.filter(function (p) { return p[0] < cut; }), ls));
+    if (t < tiers - 1) { var wN = hwAt(TT[t + 1], T.bot + 4) - 6, sb2 = bot.filter(function (p) { return Math.abs(p[0] - tx) < wN; }); if (sb2.length > 2) tShB += b2_polyA(sb2.concat(sb2.map(function (p) { return [p[0], p[1] + 9]; }).reverse())); }
+    bot.forEach(function (p, j) { if (j % 2 === 0 && rnd() < 0.8) tSn += b2_ellA(p[0], p[1] - 2.4, (4.2 + rnd() * 2) * u0, 2.3 * u0); });
+    for (q = 0; q < 2 + t; q++) { var sy0 = T.top + (T.bot - T.top) * (0.3 + rnd() * 0.4), sw0 = hwAt(T, sy0) * 0.8; tSn += b2_ellA(tx - sw0 + rnd() * 2 * sw0, sy0, (3 + rnd() * 3) * u0, 1.6 * u0); }
+    if (t > 0) { var ya = T.top + (T.bot - T.top) * 0.48, yb = T.top + (T.bot - T.top) * 0.8; if (t % 2 === 0) { var tmp = ya; ya = yb; yb = tmp; } var xa = tx - hwAt(T, ya) * 0.9, xb = tx + hwAt(T, yb) * 0.9; gar += b2_band(b4_qpts(xa, ya, (xa + xb) / 2, (ya + yb) / 2 + 16 * u0, xb, yb, 18), 3.2 * u0); }
+    var yr = T.top + (T.bot - T.top) * (t ? 0.66 : 0.7), wr = hwAt(T, yr) * 0.86, nb = 5 + t * 2;
+    for (q = 0; q <= nb; q++) { u = q / nb; var bx = tx - wr + u * 2 * wr, by = yr + Math.sin(Math.PI * u) * 8 + (t % 2 ? -3 : 3) * (u - 0.5), c = (q + t) % 4; bl[c] += b2_ellA(bx, by, 2.6 * u0, 3.3 * u0); tglow += circ(bx, by, 11); if (ANIM) ANIM.tree.push({x: bx, y: by, g: t, u: u, c: c}); }
+    bot.filter(function (p, j) { return j % 2 === 0 && Math.abs(p[0] - tx) < hb * 0.86; }).forEach(function (p, j) { if ((j + t) % 2) return; var r = (4 + t * 0.5) * u0, ox = p[0], oy = p[1] + r + 1.5, kk = (j + t * 3) % 3;
+      orn[kk] += b2_ellA(ox, oy, r, r); caps += R4(ox - 1.6 * u0, oy - r - 2, 3.2 * u0, 2.8); oSh += b2_cres(ox, oy, r, ox - r * 0.35, oy - r * 0.35, r * 1.02); oHi += b2_ellA(ox - r * 0.35, oy - r * 0.38, r * 0.28, r * 0.2); });
+    if (t === 1 || t === 3 || (!ph && t === 2)) { var cy2 = T.top + (T.bot - T.top) * 0.62, cx2 = tx + (t % 2 ? -1 : 1) * hwAt(T, cy2) * 0.42, cp = caneD(cx2, cy2, 15 * u0, 3.6 * u0, 2.4 * u0); cane += cp.body; caneSt += cp.st; } });
+  var sy = TT[0].top - 10 * u0, sR = 20 * u0, sr = 8.5 * u0, sp = [], sSh = '';
+  for (var k2 = 0; k2 < 10; k2++) { var ang = -Math.PI / 2 + k2 * Math.PI / 5, rr = k2 % 2 ? sr : sR; sp.push([tx + rr * Math.cos(ang), sy + rr * Math.sin(ang)]); }
+  for (k2 = 0; k2 < 10; k2 += 2) sSh += b2_polyA([[tx, sy], sp[k2], sp[k2 + 1]]);
+  if (ANIM) ANIM.star = {x: tx, y: sy, gy: gy};
   add(far, 'g', tglow, dk ? 'rgba(255,210,120,0.55)' : 'rgba(255,220,140,0.45)');
-  var star = []; for (var k2 = 0; k2 < 10; k2++) { var ang = -Math.PI / 2 + k2 * Math.PI / 5, rr = k2 % 2 ? 8 : 20; star.push([tx + rr * Math.cos(ang), tb - th - 6 + rr * Math.sin(ang)]); }
-  if (ANIM) ANIM.star = {x: tx, y: tb - th - 6, gy: gy};
-  add(far, 'h', circ(tx, tb - th - 6, 40), dk ? 'rgba(255,214,110,0.7)' : 'rgba(255,214,110,0.6)');
-  var boxR = '', boxG = '', rib = '';
-  [[-0.44, 44, 34, 0], [-0.27, 34, 26, 1], [0.28, 40, 30, 1], [0.44, 30, 22, 0]].forEach(function (p) { var px = tx + tw * p[0], w = p[1] * (ph ? 0.8 : 1), h = p[2] * (ph ? 0.8 : 1), py = tb + 14 - h, d = rrect(px - w / 2, py, w, h, 3); if (p[3]) boxG += d; else boxR += d; rib += rect(px - 2.5, py, 5, h) + rect(px - w / 2, py + h * 0.35, w, 5) + ell(px - 6, py - 3, 6, 4) + ell(px + 6, py - 3, 6, 4); });
-  var swY = ph ? H * 0.43 : H * 0.05, swDrop = ph ? 40 : 70, nS = ph ? 2 : 3, wire = '', sb = ['', '', ''], sgl = ['', '', ''];
-  if (ph) { swY = tb - th + 20; swDrop = 26; }
-  for (var sI = 0; sI < nS; sI++) { var x0 = -20 + sI * (W + 40) / nS, x1 = -20 + (sI + 1) * (W + 40) / nS, y0s = swY, y1s = swY;
-    if (ph) { var ay = tb - th + 38, ah = halfAt(ay) - 3; if (sI === 0) { x1 = tx - ah; y1s = ay; } else { x0 = tx + ah; y0s = ay; } }
-    var pts2 = b4_qpts(x0, y0s, (x0 + x1) / 2, (y0s + y1s) / 2 + swDrop * 2, x1, y1s, 20); wire += pline(pts2); for (var q = 1; q < 20; q += 2) { var p2 = pts2[q], ci = (q + sI) % 3; sb[ci] += ell(p2[0], p2[1] + 7, 4.5, 6.5); if (ANIM) (ANIM.bulbs = ANIM.bulbs || []).push({x: p2[0], y: p2[1] + 7, c: [0, 1, 2][ci], sw: 1}); sgl[ci] += circ(p2[0], p2[1] + 7, 16); } }
+  add(far, 'h', circ(tx, sy, 40), dk ? 'rgba(255,214,110,0.7)' : 'rgba(255,214,110,0.6)');
+  var shad = b2_ellA(tx + 10, tb + 8, tw * 0.46, 14 * u0);
+  var skirt = b2_ellA(tx, tb + 4, tw * 0.36, 11 * u0), fluff = ''; for (k2 = 0; k2 <= 16; k2++) { var fa = k2 / 16 * Math.PI; fluff += b2_ellA(tx + Math.cos(fa) * tw * 0.36, tb + 4 + Math.sin(fa) * 11 * u0, 5 * u0, 3.2 * u0); }
+
+  // presents: boxes with a lit top and a shaded side, ribbons over the top and sides, bows with loops, dots or stripes
+  var gs = ph ? 0.8 : 1, pG = '', pR = '', rib = '', pat = '', pSh = '', pTop = '';
+  [[-0.44, 44, 34, 0], [-0.3, 32, 24, 1], [0.27, 40, 30, 1], [0.42, 30, 22, 0], [0.12, 26, 18, 0]].forEach(function (p, i) {
+    var w = p[1] * gs, h = p[2] * gs, cxp = tx + tw * p[0], base = tb + 12 + (i % 2) * 4 * gs, x0 = cxp - w / 2, y0 = base - h, sg = cxp > W / 2 ? -1 : 1, dd = w * 0.26 * sg, dyy = Math.abs(dd) * 0.55, xs = sg > 0 ? x0 + w : x0;
+    var front = b2_polyA([[x0, y0], [x0 + w, y0], [x0 + w, base], [x0, base]]), side = b2_polyA([[xs, y0], [xs + dd, y0 - dyy], [xs + dd, base - dyy], [xs, base]]), top = b2_polyA([[x0, y0], [x0 + w, y0], [x0 + w + dd, y0 - dyy], [x0 + dd, y0 - dyy]]);
+    if (p[3]) pG += front + side + top; else pR += front + side + top;
+    pSh += side; pTop += top; shad += b2_ellA(cxp + dd * 0.4, base + 1, w * 0.62, 4 * gs);
+    var ym = (y0 + base) / 2, bxo = cxp + dd / 2, byo = y0 - dyy / 2;
+    rib += R4(cxp - 2.5 * gs, y0, 5 * gs, h) + b2_polyA([[cxp - 2.5 * gs, y0], [cxp + 2.5 * gs, y0], [cxp + 2.5 * gs + dd, y0 - dyy], [cxp - 2.5 * gs + dd, y0 - dyy]]) + b2_polyA([[x0 + dd / 2, byo - 1.4 * gs], [x0 + w + dd / 2, byo - 1.4 * gs], [x0 + w + dd / 2, byo + 1.4 * gs], [x0 + dd / 2, byo + 1.4 * gs]]) + b2_polyA([[xs, ym - 2.5 * gs], [xs + dd, ym - dyy - 2.5 * gs], [xs + dd, ym - dyy + 2.5 * gs], [xs, ym + 2.5 * gs]]);
+    rib += rotE(bxo - 5 * gs, byo - 3 * gs, 5.5 * gs, 3.2 * gs, 25) + rotE(bxo + 5 * gs, byo - 3 * gs, 5.5 * gs, 3.2 * gs, -25) + b2_ellA(bxo, byo - 1.5 * gs, 2.2 * gs, 2 * gs) + b2_polyA([[bxo - 1, byo - 1], [bxo + 1, byo - 1], [bxo - 3 * gs, byo + 6 * gs], [bxo - 5 * gs, byo + 5 * gs]]) + b2_polyA([[bxo - 1, byo - 1], [bxo + 1, byo - 1], [bxo + 5 * gs, byo + 5 * gs], [bxo + 3 * gs, byo + 6 * gs]]);
+    pSh += rotE(bxo - 5.5 * gs, byo - 3 * gs, 2.4 * gs, 1.2 * gs, 25) + rotE(bxo + 5.5 * gs, byo - 3 * gs, 2.4 * gs, 1.2 * gs, -25);
+    if (p[3]) { [0.3, 0.7].forEach(function (f) { var yy = y0 + h * f; pat += R4(x0 + 2, yy - 1, w / 2 - 6 * gs, 2 * gs) + R4(cxp + 4 * gs, yy - 1, w / 2 - 6 * gs, 2 * gs); }); }
+    else for (var dI = 0; dI < 8; dI++) { var px = x0 + 3 + ((dI * 37) % 100) / 100 * (w - 6), py = y0 + 3 + ((dI * 61) % 100) / 100 * (h - 6); if (Math.abs(px - cxp) > 5 * gs && Math.abs(py - ym) > 2) pat += b2_ellA(px, py, 1.3 * gs, 1.3 * gs); } });
+
+  // Victorian street lamps with a garland wrap, a red bow, a glass lantern and a pool of light on the snow
+  var lglow = '', pools = '', iron = '', pane = '', garl = '', lbow = '', frm = '';
+  (ph ? [] : [0.47, 0.97]).forEach(function (f) { var lx = W * f, lt = gy - H * 0.26, lb = gy + 40;
+    iron += b2_polyA([[lx - 10, lb], [lx + 10, lb], [lx + 7, lb - 10], [lx - 7, lb - 10]]) + b2_polyA([[lx - 4.5, lb - 10], [lx + 4.5, lb - 10], [lx + 3.5, lb - 26], [lx - 3.5, lb - 26]]) + R4(lx - 2.6, lt + 8, 5.2, lb - 26 - lt - 8);
+    for (var cyy = lt + 30; cyy < lb - 30; cyy += 46) iron += R4(lx - 4, cyy, 8, 3);
+    iron += R4(lx - 13, lt + 16, 26, 2.4) + b2_ellA(lx - 13, lt + 17.2, 2.4, 2.4) + b2_ellA(lx + 13, lt + 17.2, 2.4, 2.4);
+    iron += b2_polyA([[lx - 6, lt + 9], [lx + 6, lt + 9], [lx + 10, lt], [lx - 10, lt]]) + b2_polyA([[lx - 14, lt - 22], [lx + 14, lt - 22], [lx + 4, lt - 32], [lx - 4, lt - 32]]) + b2_ellA(lx, lt - 34, 2.6, 2.6) + R4(lx - 0.8, lt - 40, 1.6, 6);
+    pane += b2_polyA([[lx - 9, lt], [lx + 9, lt], [lx + 11, lt - 22], [lx - 11, lt - 22]]);
+    frm += R4(lx - 0.9, lt - 22, 1.8, 22) + b2_polyA([[lx - 9.5, lt], [lx - 8, lt], [lx - 9.6, lt - 22], [lx - 11.2, lt - 22]]) + b2_polyA([[lx + 8, lt], [lx + 9.5, lt], [lx + 11.2, lt - 22], [lx + 9.6, lt - 22]]) + R4(lx - 12, lt - 23.5, 24, 2);
+    for (var gyy = lt + 25; gyy < lb - 32; gyy += 6) garl += rotE(lx + Math.sin(gyy * 0.45) * 2.5, gyy, 3.6, 2.2, Math.cos(gyy * 0.45) * 35);
+    lbow += rotE(lx - 4.5, lt + 21, 4.5, 2.6, 25) + rotE(lx + 4.5, lt + 21, 4.5, 2.6, -25) + b2_ellA(lx, lt + 22, 2, 2) + b2_polyA([[lx - 1, lt + 23], [lx + 1, lt + 23], [lx - 3, lt + 32], [lx - 5, lt + 31]]) + b2_polyA([[lx - 1, lt + 23], [lx + 1, lt + 23], [lx + 5, lt + 31], [lx + 3, lt + 32]]);
+    pools += b2_ellA(lx, lb + 4, 52, 11); lglow += circ(lx, lt - 11, 40); });
+  add(far, 'h', lglow);
+
+  // hedges with snow caps and bulbs
+  var shrD = '', shrL = '', shrS = '', bD = '', bE = '', bF = '', gHi = '';
+  if (!ph) [0.1, 0.4, 0.9].forEach(function (f) { var sx = W * f, sy2 = gy + 30, a, q;
+    shad += b2_ellA(sx + 6, sy2 + 20, 52, 7);
+    shrD += b2_ellA(sx, sy2, 40, 22) + b2_ellA(sx - 24, sy2 + 8, 26, 16) + b2_ellA(sx + 24, sy2 + 8, 26, 16);
+    shrL += b2_ellA(sx - 8, sy2 - 7, 26, 12) + b2_ellA(sx - 30, sy2 + 3, 13, 8);
+    var cap = []; for (q = 0; q <= 12; q++) { a = (200 + q / 12 * 140) * Math.PI / 180; cap.push([sx + 40 * Math.cos(a), sy2 + 22 * Math.sin(a) - 2]); } for (q = 12; q >= 0; q--) { a = (200 + q / 12 * 140) * Math.PI / 180; cap.push([sx + 36 * Math.cos(a), sy2 + 22 * Math.sin(a) + 4 + Math.abs(Math.sin(q * 1.3)) * 3]); } shrS += b2_polyA(cap);
+    for (q = 0; q < 7; q++) { var bx = sx - 33 + q * 11, by = sy2 + 4 + Math.sin(q * 1.7) * 8, d = b2_ellA(bx, by, 2.4, 3); if (ANIM) ANIM.bulbs.push({x: bx, y: by, c: [0, 2, 3][q % 3], sw: 0.6}); if (q % 3 === 0) bD += d; else if (q % 3 === 1) bE += d; else bF += d; gHi += b2_ellA(bx - 0.8, by - 1, 0.6, 1.1); } });
+
+  // strings of bulbs across the top: sockets on a sagging wire, bulbs with a pointed tip and a glint
+  var swY = ph ? H * 0.43 : H * 0.05, swDrop = ph ? 40 : 70, nS = ph ? 2 : 3, wire = '', strB = ['', '', ''], sgl = ['', '', ''], sock = '';
+  if (ph) { swY = TT[0].top + 20; swDrop = 26; }
+  for (var sI = 0; sI < nS; sI++) { var x0s = -20 + sI * (W + 40) / nS, x1s = -20 + (sI + 1) * (W + 40) / nS, y0s = swY, y1s = swY;
+    if (ph) { var ay = TT[0].top + 38, ah = halfAt(ay) - 3; if (sI === 0) { x1s = tx - ah; y1s = ay; } else { x0s = tx + ah; y0s = ay; } }
+    var pts2 = b4_qpts(x0s, y0s, (x0s + x1s) / 2, (y0s + y1s) / 2 + swDrop * 2, x1s, y1s, 20); wire += pline(pts2);
+    for (var q2 = 1; q2 < 20; q2 += 2) { var p2 = pts2[q2], ci = (q2 + sI) % 3, sbx = p2[0], sby = p2[1] + 7;
+      strB[ci] += b2_ellA(sbx, sby + 1, 4.4 * u0, 6.2 * u0) + b2_polyA([[sbx - 2.2 * u0, sby + 6.6 * u0], [sbx + 2.2 * u0, sby + 6.6 * u0], [sbx, sby + 9.6 * u0]]);
+      sock += R4(sbx - 2.4 * u0, sby - 6.2 * u0, 4.8 * u0, 3.6 * u0); gHi += b2_ellA(sbx - 1.6 * u0, sby - 0.5, 1.1 * u0, 2.2 * u0);
+      if (ANIM) ANIM.bulbs.push({x: sbx, y: sby, c: ci, sw: 1}); sgl[ci] += circ(sbx, sby, 16); } }
   add(far, 'a', sgl[0]); add(far, 'b', sgl[1]); add(far, 'c', sgl[2]);
-  add(near, 'd', bulbsR + boxR + sb[0], RED); add(near, 'e', boxG + sb[1], GRN); add(near, 'f', bulbsW, dk ? '#FFF1C8' : '#FFF6DE'); add(near, 'g', rib + poly(star) + bulbsG + sb[2], GLD);
-  stk(near, 't', wire, dk ? '#0E1A16' : '#3A4A40', 1.4);
+
+  // the snow in front: a drift with a shaded crest, footprints from the snowman
   var dr = ridge(W, H - H * (ph ? 0.05 : 0.07), [[10, 120, 1], [6, 45, 2]], 10);
-  add(near, 'h', below(dr, H + 40), dk ? '#34444A' : '#FFFFFF');
+  shad += b2_band(dr.map(function (p) { return [p[0], p[1] + 9]; }), 10);
+  var ss = ph ? 1.55 : 2.2, smx = W * (ph ? 0.14 : 0.26), smy = H * (ph ? 0.9 : 0.915);
+  var fp = b4_qpts(smx + 30 * ss, smy + 2, smx + (ph ? 90 : 160), smy + 8, smx + (ph ? 150 : 260), smy - (ph ? 20 : 40), ph ? 7 : 10);
+  fp.forEach(function (p, j) { if (!j) return; var a = Math.atan2(p[1] - fp[j - 1][1], p[0] - fp[j - 1][0]), sd = j % 2 ? 1 : -1; shad += rotE(p[0] - Math.sin(a) * 3 * sd, p[1] + Math.cos(a) * 3 * sd, 3.4 * u0, 1.7 * u0, a * 180 / Math.PI); });
+  add(near, 'a', below(dr, H + 40), dk ? '#34444A' : '#FFFFFF');
+  add(near, 'b', shad, K.gnd); add(near, 'c', pools, dk ? 'rgba(255,210,130,0.18)' : 'rgba(255,236,190,0.35)');
+  add(near, 'd', R4(tx - 9 * u0, tb - th * 0.09, 18 * u0, th * 0.09 + 6), dk ? '#3A2618' : '#6E4428');
+  add(near, 'e', skirt, dk ? '#8E2C2E' : '#C2423C'); add(near, 'f', fluff, K.wht);
+  add(near, 'g', tD + shrD, K.treeD); add(near, 'h', tL + shrL, K.treeL);
+  var SM = b2_snowman(near, smx, smy, ss, dk, !!ANIM);
+  if (ANIM) ANIM.sm = {x: smx, y: smy, ss: ss, coal: SM.coal, red: SM.red, hi: SM.hi, twig: SM.twig};
+  add(near, 'A', tShB, K.treeSh); add(near, 'B', tSn + shrS, K.snow);
+  add(near, 'C', pG + bl[1] + strB[1], K.grn); add(near, 'D', pR + bl[0] + orn[0] + cane + strB[0] + bD, K.red);
+  add(near, 'E', gar + rib + bl[2] + orn[1] + strB[2] + b2_polyA(sp) + bE, K.gld); add(near, 'F', bl[3] + orn[2] + caps + caneSt + pat + bF, K.wht);
+  add(near, 'G', pSh + oSh + sSh, K.shade); add(near, 'H', oHi + gHi + b2_ellA(tx - 3 * u0, sy - 4 * u0, 2.4 * u0, 1.6 * u0), K.hi);
+  add(near, 'I', iron + sock, K.iron); add(near, 'J', pane, K.glass); add(near, 'K', garl, dk ? '#1E5A36' : '#2E7A44'); add(near, 'L', lbow, K.red); add(near, 'M', frm, K.iron);
+  add(near, 'N', pTop, dk ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.25)');
+  stk(near, 't', wire, dk ? '#0E1A16' : '#3A4A40', 1.4);
   var flakes = ''; spread(0, 0, W, H, ph ? 34 : 44, ph ? 34 : 44, rnd, 1).forEach(function (c) { if (c.q < 0.55) { if (ANIM) (ANIM.flakes = ANIM.flakes || []).push({x: c.x, y: c.y, r: 0.8 + c.r * 1.6}); else flakes += circ(c.x, c.y, Math.max(0.05, c.r * 1.6 - 0.4)); } });
   if (ANIM) ANIM.flakeC = dk ? 'rgba(235,245,245,0.8)' : 'rgba(255,255,255,0.95)';
-  var k1 = ph ? 0.78 : 1, smx = W * (ph ? 0.14 : 0.26), smy = ph ? H * 0.86 : H * 0.9, r1 = 38 * k1, r2 = 27 * k1, r3 = 18 * k1, y2 = smy - r1 - r2 * 0.75, y3 = y2 - r2 - r3 * 0.75;
-  add(near, 'c', circ(smx, smy, r1) + circ(smx, y2, r2) + circ(smx, y3, r3));
-  if (ANIM) ANIM.hat = {x: smx, y: y3 - r3, k: k1, c: GRN}; else add(near, 'e', rect(smx - 12 * k1, y3 - r3 - 16 * k1, 24 * k1, 18 * k1) + rrect(smx - 18 * k1, y3 - r3 - 2, 36 * k1, 5, 2));
-  add(near, 'd', rrect(smx - 19 * k1, y2 - r2 + 2, 38 * k1, 7, 3) + rrect(smx + 6 * k1, y2 - r2 + 4, 7, 20 * k1, 3));
-  add(near, 'g', poly([[smx + 1, y3 - 1], [smx + 1, y3 + 4], [smx + 14 * k1, y3 + 2]]));
-  stk(near, 't', circ(smx - 6 * k1, y3 - 5, 0.8) + circ(smx + 6 * k1, y3 - 5, 0.8) + circ(smx, y2, 0.9) + circ(smx, y2 + 11 * k1, 0.9) + 'M' + PT(smx - r2 + 2, y2) + ' L' + PT(smx - r2 - 26 * k1, y2 - 22 * k1) + ' M' + PT(smx + r2 - 2, y2) + ' L' + PT(smx + r2 + 26 * k1, y2 - 18 * k1) + ' ');
-  var lp = '', lg = '', lh = '';
-  (ph ? [] : [0.47, 0.97]).forEach(function (f) { var lx = W * f, lt = gy - H * (ph ? 0.18 : 0.26); lp += rect(lx - 3, lt, 6, gy + 40 - lt) + rrect(lx - 10, lt - 20, 20, 22, 5); lh += circ(lx, lt - 9, 6); lg += circ(lx, lt - 9, 40); });
-  add(far, 'h', lg); add(near, 'a', lp); add(near, 'f', lh);
-  if (!ph) [0.1, 0.4, 0.9].forEach(function (f) { var sx = W * f, sy = gy + 30; add(near, 'b', ell(sx, sy, 40, 22) + ell(sx - 24, sy + 8, 26, 16) + ell(sx + 24, sy + 8, 26, 16)); add(near, 'c', ell(sx, sy - 15, 30, 8)); for (var k = 0; k < 7; k++) { var bb = circ(sx - 33 + k * 11, sy + 2 + Math.sin(k * 1.7) * 8, 2.6); if (ANIM) ANIM.bulbs.push({x: sx - 33 + k * 11, y: sy + 2 + Math.sin(k * 1.7) * 8, c: [0, 2, 3][k % 3], sw: 0.6}); add(near, ['d', 'g', 'f'][k % 3], bb); } });
   stk(near, 's', flakes, dk ? 'rgba(235,245,245,0.8)' : 'rgba(255,255,255,0.95)', 2.4);
   return {sky: sky, far: far, mid: mid, near: near, band: {top: gy, bg: snowB}};
 };
@@ -14310,8 +14428,8 @@ ENGINES.arcade = function (A, v, dk) {
 
 // Christmas Lights
 ENGINES.xmas = function (A, v, dk) {
-  var W = v.bw, H = v.bh, flakes = [], tree = A.tree || [], bulbs = A.bulbs || [], shows = [], star = A.star, hat = A.hat;
-  var hx = hat.k, hatP = new Path2D(rect(-12 * hx, -16 * hx, 24 * hx, 18 * hx) + rrect(-18 * hx, -2, 36 * hx, 5, 2)), band = new Path2D(rect(-12 * hx, -6 * hx, 24 * hx, 3.5 * hx));
+  var W = v.bw, H = v.bh, flakes = [], tree = A.tree || [], bulbs = A.bulbs || [], shows = [], star = A.star, sm = A.sm, ss = sm.ss;
+  var HP = b2_snowHat(0, 0, ss), hatP = new Path2D(HP.hat), bandP = new Path2D(HP.band), hatHi = new Path2D(HP.hi), armP = new Path2D(b2_snowArm(0, 0, ss, 1));
   var cols = ['#FF5A4E', '#5CD27E', '#FFC850', '#FFF1C8'], spr = cols.map(function (c) { return b4_sprite(c, 0.25); }), sprStar = b4_sprite('#FFD86A', 0.3), sprW = b4_sprite('#FFFFFF', 0.2);
   var sz = v.desk ? 30 : 24, dpr = 0, pre = [];
   function build(d) { dpr = d; var n = Math.round(sz * d); pre = spr.map(function (s0) { var c = document.createElement('canvas'); c.width = c.height = n; c.getContext('2d').drawImage(s0, 0, 0, n, n); return c; }); }
@@ -14345,7 +14463,9 @@ ENGINES.xmas = function (A, v, dk) {
         for (var k = 0; k < 8; k++) { var an = rot + k * Math.PI / 4, l = k % 2 ? L * 0.45 : L; cb.moveTo(star.x + Math.cos(an) * 14, star.y + Math.sin(an) * 14); cb.lineTo(star.x + Math.cos(an) * l, star.y + Math.sin(an) * l); } cb.stroke();
       }
       var hk = 0; shows.forEach(function (s) { var u = t - s - 2.3; hk = Math.max(hk, Math.pow(b4_bump(u, 1.8), 0.6)); });
-      cb.save(); cb.translate(hat.x + 5 * hk * hx, hat.y - 16 * hk * hx); cb.rotate(-0.38 * hk); cb.fillStyle = hat.c; cb.fill(hatP); cb.restore();
+      // the snowman lifts his arm and tips his hat
+      cb.save(); cb.translate(sm.x + 11 * ss, sm.y - 44 * ss); cb.rotate(-0.55 * hk); cb.fillStyle = sm.twig; cb.fill(armP); cb.restore();
+      cb.save(); cb.translate(sm.x + 10 * ss, sm.y - 69 * ss - 7 * hk * ss); cb.rotate(-0.38 * hk); cb.translate(-10 * ss, 0); cb.fillStyle = sm.coal; cb.fill(hatP); cb.fillStyle = sm.red; cb.fill(bandP); cb.globalAlpha = 0.18; cb.fillStyle = sm.hi; cb.fill(hatHi); cb.globalAlpha = 1; cb.restore();
       cb.fillStyle = A.flakeC; cb.beginPath(); flakes.forEach(function (p) { cb.moveTo(p.x + p.r, p.y); cb.arc(p.x, p.y, p.r, 0, 6.29); }); cb.fill();
       cb.restore();
     },
