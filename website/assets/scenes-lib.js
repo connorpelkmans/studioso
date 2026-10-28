@@ -58,11 +58,12 @@ SCENES.ocean = function (W, H, dk, rnd) {
   for (var i = 0; i <= 24; i++) { var u = i / 24 * 2 - 1; isl.push([lx + u * R, hz + 1 - hh * Math.pow(1 - u * u, 0.8) * (1 + 0.12 * Math.sin(u * 9))]); }
   add(mid, 'b', poly(isl), dk ? '#0A2229' : '#5E8E86');
   var tr = ''; for (i = 0; i < 7; i++) { var tx = lx - R * 0.6 + i * R * 0.18, ty = hz - hh * Math.pow(1 - Math.pow((tx - lx) / R, 2), 0.8) + 3; tr += circ(tx, ty - 5, 6 + rnd() * 4); }
-  add(mid, 'c', tr, dk ? '#0C2A30' : '#4D7C70');
-  var s = ph ? 0.56 : 1, bx = lx + R * 0.25, by = hz - hh * 0.85, th = 64 * s;
-  add(near, 'a', poly([[bx - 8 * s, by], [bx + 8 * s, by], [bx + 5.5 * s, by - th], [bx - 5.5 * s, by - th]]) + rect(bx - 8 * s, by - th - 3 * s, 16 * s, 3 * s), dk ? '#B9C8C8' : '#FBF8F0');
-  add(near, 'b', poly([[bx - 7.4 * s, by - th * 0.3], [bx + 7.4 * s, by - th * 0.3], [bx + 6.8 * s, by - th * 0.5], [bx - 6.8 * s, by - th * 0.5]]) + poly([[bx - 6.3 * s, by - th * 0.7], [bx + 6.3 * s, by - th * 0.7], [bx + 5.8 * s, by - th * 0.88], [bx - 5.8 * s, by - th * 0.88]]) + poly([[bx - 7 * s, by - th - 12 * s], [bx + 7 * s, by - th - 12 * s], [bx, by - th - 20 * s]]), dk ? '#8E3A3A' : '#D8574E');
-  add(near, 'c', rect(bx - 4.5 * s, by - th - 12 * s, 9 * s, 9 * s), dk ? '#FFE9A8' : '#F6E6B8');
+  // the lighthouse stands on the island among its trees: drawn after the ground, before the trees and a rocky plinth that hide its foot
+  var s = ph ? 0.56 : 1, bx = lx + R * 0.25, bu = (bx - lx) / R, by = hz + 1 - hh * Math.pow(1 - bu * bu, 0.8) * (1 + 0.12 * Math.sin(bu * 9)) - 2 * s, th = 62 * s;
+  add(mid, 'l', tr, dk ? '#0C2A30' : '#4D7C70'); add(mid, 'm', poly([[bx - 16 * s, by + 8 * s], [bx - 12 * s, by - 2 * s], [bx - 6 * s, by - 6 * s], [bx + 1 * s, by - 7 * s], [bx + 8 * s, by - 5 * s], [bx + 14 * s, by - 1 * s], [bx + 18 * s, by + 8 * s]]), dk ? '#0C2A30' : '#4D7C70');
+  add(mid, 'i', poly([[bx - 8 * s, by], [bx + 8 * s, by], [bx + 5.5 * s, by - th], [bx - 5.5 * s, by - th]]) + rect(bx - 8 * s, by - th - 3 * s, 16 * s, 3 * s), dk ? '#B9C8C8' : '#FBF8F0');
+  add(mid, 'j', poly([[bx - 7.4 * s, by - th * 0.3], [bx + 7.4 * s, by - th * 0.3], [bx + 6.8 * s, by - th * 0.5], [bx - 6.8 * s, by - th * 0.5]]) + poly([[bx - 6.3 * s, by - th * 0.7], [bx + 6.3 * s, by - th * 0.7], [bx + 5.8 * s, by - th * 0.88], [bx - 5.8 * s, by - th * 0.88]]) + poly([[bx - 7 * s, by - th - 12 * s], [bx + 7 * s, by - th - 12 * s], [bx, by - th - 20 * s]]), dk ? '#8E3A3A' : '#D8574E');
+  add(mid, 'k', rect(bx - 4.5 * s, by - th - 12 * s, 9 * s, 9 * s), dk ? '#FFE9A8' : '#F6E6B8');
   if (dk) { var lyy = by - th - 7 * s; add(far, 'c', circ(bx, lyy, 40), 'rgba(255,230,160,0.55)');
     if (ANIM) ANIM.beam = {x: bx, y: lyy, L: W * 0.45}; else add(far, 'd', poly([[bx, lyy - 3], [bx - W * 0.45, lyy - 40], [bx - W * 0.45, lyy + 30], [bx, lyy + 3]]), 'rgba(255,235,180,0.09)'); }
   if (ANIM) { ANIM.hz = hz; ANIM.n = ph ? 13 : 10; ANIM.sun = [sx, sy]; ANIM.isl = [lx, R]; }
@@ -83,8 +84,8 @@ SCENES.ocean = function (W, H, dk, rnd) {
   stk(mid, 's', capsF, dk ? 'rgba(170,230,235,0.35)' : 'rgba(255,255,255,0.7)', 1.1);
   stk(near, 's', capsN, dk ? 'rgba(170,230,235,0.42)' : 'rgba(255,255,255,0.8)', 2.2);
   add(near, 'h', lace, dk ? 'rgba(170,230,235,0.35)' : 'rgba(255,255,255,0.7)'); }
-  var gl = ''; for (var yy = hz + 4; yy < H; yy += 5 + rnd() * 9) { var q = (yy - hz) / (H - hz), w = 4 + q * (ph ? 60 : 110) * rnd(), ox = (rnd() - 0.5) * (10 + q * 90); if (rnd() < 0.8) gl += seg(sx + ox - w, yy, sx + ox + w, yy); }
-  if (ANIM) ANIM.gl = gl; else stk(near, 't', gl, dk ? 'rgba(235,250,245,0.4)' : 'rgba(255,248,220,0.7)', 1.6);
+  var gl = '', glS = []; for (var yy = hz + 4; yy < H; yy += 5 + rnd() * 9) { var q = (yy - hz) / (H - hz), w = 4 + q * (ph ? 60 : 110) * rnd(), ox = (rnd() - 0.5) * (10 + q * 90); if (rnd() < 0.8) { gl += seg(sx + ox - w, yy, sx + ox + w, yy); glS.push({x: sx + ox, y: yy, w: w, q: q}); } }
+  if (ANIM) { ANIM.glS = glS; ANIM.glX = sx; } else stk(near, 't', gl, dk ? 'rgba(235,250,245,0.4)' : 'rgba(255,248,220,0.7)', 1.6);
   add(far, 'e', ell(sx, hz + 10, ph ? 90 : 160, 24), dk ? 'rgba(200,240,240,0.18)' : 'rgba(255,245,215,0.7)');
   (ph ? [[0.66, 0.1, 0.8], [0.14, 0.02, 0.45]] : [[0.56, 0.12, 1], [0.34, 0.03, 0.5], [0.8, 0.05, 0.6]]).forEach(function (b) { var x = W * b[0], y = hz + (H - hz) * b[1], bt = b1_sail(x, y, b[2]);
     if (ANIM) { (ANIM.boats = ANIM.boats || []).push({x: x, y: y, s: b[2]}); return; }
@@ -11693,7 +11694,7 @@ ENGINES.ocean = function (A, v, dk) {
   }
   var glints = []; for (k = 0; k < (ph ? 12 : 18); k++) { var q = hash(k + 0.13), gy = hz + 8 + q * (H - hz - 16); glints.push({x: A.sun[0] + (hash(k + 0.61) - 0.5) * (14 + q * (ph ? 70 : 120)), y: gy, w: 3 + q * 12, sp: 0.5 + hash(k + 0.33) * 0.7, ph: hash(k + 0.87) * 6.28}); }
   var cGlint = dk ? 'rgba(235,250,245,' : 'rgba(255,252,236,', beam = A.beam, gBeam = null, gFlare = null, gBoat = null;
-  var glPath = A.gl ? new Path2D(A.gl) : null, cGl = dk ? 'rgba(235,250,245,0.4)' : 'rgba(255,248,220,0.7)';
+  var glS = (A.glS || []).map(function (g, i) { return {x: g.x, y: g.y, w: g.w, q: g.q, ph: hash(i + 41) * 6.28, sp: 0.6 + hash(i + 43) * 0.9}; }), cGl = dk ? 'rgba(235,250,245,0.4)' : 'rgba(255,248,220,0.7)';
   var beamPath = beam ? new Path2D(poly([[0, -3], [-beam.L, -40], [-beam.L, 30], [0, 3]])) : null;
   var api = {
     step: function (dt, t, f) {
@@ -11709,7 +11710,11 @@ ENGINES.ocean = function (A, v, dk) {
         ca.save(); ca.translate(beam.x, beam.y); ca.scale(cs, 1); ca.fillStyle = gBeam; ca.fill(beamPath); ca.restore();
         var fl = Math.sin(th) > 0 ? Math.pow(1 - Math.abs(cs), 4) : 0; if (fl > 0.01) { ca.globalAlpha = fl; b1_dot(ca, gFlare, beam.x, beam.y, 46); ca.globalAlpha = 1; } }
       drawSwells(ca, t);
-      if (glPath) { ca.lineCap = 'round'; ca.strokeStyle = cGl; ca.lineWidth = 1.6; ca.stroke(glPath); }
+      // the moon's glimmer: streaks sway with the swell, stretch and shrink, and twinkle
+      if (glS.length) { ca.lineCap = 'round'; ca.strokeStyle = cGl; ca.lineWidth = 1.6;
+        for (i = 0; i < glS.length; i++) { var g = glS[i], sw = Math.sin(t * 0.5 * f.s + g.ph) * (4 + g.q * 34) + Math.sin(t * 1.3 * f.s + g.ph * 2) * (2 + g.q * 10), wk = 0.55 + 0.45 * Math.sin(t * g.sp * f.s + g.ph * 3), ww = g.w * (0.45 + 0.75 * wk), yb = Math.sin(t * 0.9 * f.s + g.x * 0.03 + g.ph) * (0.6 + g.q * 2.4);
+          ca.globalAlpha = 0.35 + 0.65 * wk; ca.beginPath(); ca.moveTo(g.x + sw - ww, g.y + yb); ca.lineTo(g.x + sw + ww, g.y + yb); ca.stroke(); }
+        ca.globalAlpha = 1; }
       ca.lineWidth = 1.5; for (i = 0; i < glints.length; i++) { var G = glints[i], a = Math.pow(Math.max(0, Math.sin(t * G.sp + G.ph)), 10); if (a < 0.03) continue;
         ca.strokeStyle = cGlint + (0.75 * a) + ')'; ca.beginPath(); ca.moveTo(G.x - G.w, G.y); ca.lineTo(G.x + G.w, G.y); ca.moveTo(G.x, G.y - G.w * 0.35); ca.lineTo(G.x, G.y + G.w * 0.35); ca.stroke(); }
       boats.forEach(function (b) { var x = b.x0 + Math.sin(t * 0.035 + b.ph) * 26 * b.s, y = b.y + Math.sin(t * 0.9 + b.ph) * 1.3 * b.s, rot = Math.sin(t * 0.7 + b.ph * 1.3) * 0.045;
