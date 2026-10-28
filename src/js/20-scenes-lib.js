@@ -4297,7 +4297,7 @@ SCENES.engineering = function (W, H, dk, rnd) {
   var cv = ph ? {x0: W * 0.5, x1: W * 0.79} : {x0: W * 0.46, x1: W * 0.735}, cvy = by - 24 * s, mugX = (cv.x0 + cv.x1) / 2;
   nSteel += rect(cv.x0 + 10, cvy + 10 * s, 5 * s, by - cvy - 10 * s) + rect(cv.x1 - 15, cvy + 10 * s, 5 * s, by - cvy - 10 * s) + rrect(cv.x0, cvy, cv.x1 - cv.x0, 12 * s, 6 * s);
   nShade += rrect(cv.x0 + 2, cvy + 2, cv.x1 - cv.x0 - 4, 8 * s, 4 * s); // the rollers are under the belt, so they don't show through it
-  nCopper += poly([[cv.x0 - 22 * s, cvy - 30 * s], [cv.x0 + 12 * s, cvy - 30 * s], [cv.x0 + 6 * s, cvy + 2], [cv.x0 - 16 * s, cvy + 2]]); nLight += rect(cv.x0 - 18 * s, cvy - 26 * s, 4 * s, 22 * s);
+  nCopper += poly([[cv.x0 - 22 * s, cvy - 30 * s], [cv.x0 + 12 * s, cvy - 30 * s], [cv.x0 + 8 * s, cvy - 14 * s], [cv.x0 + 8 * s, by], [cv.x0 - 18 * s, by], [cv.x0 - 18 * s, cvy - 14 * s]]); nLight += rect(cv.x0 - 15 * s, cvy - 26 * s, 4 * s, by - cvy + 22 * s); nDet += rect(cv.x0 + 4 * s, cvy - 22 * s, 4 * s, 22 * s); // the box machine stands on the desk; boxes come out of its slot
   nBrass += poly([[cv.x1 - 4 * s, cvy - 4 * s], [cv.x1 + 30 * s, cvy - 4 * s], [cv.x1 + 26 * s, by], [cv.x1, by]]); nDet += seg(cv.x1, cvy + 6 * s, cv.x1 + 28 * s, cvy + 6 * s) + seg(cv.x1 + 1, cvy + 16 * s, cv.x1 + 27 * s, cvy + 16 * s);
   if (!ANIM) { nCopper += rrect(cv.x0 + 40 * s, cvy - 18 * s, 18 * s, 18 * s, 2) + rrect(cv.x0 + 120 * s, cvy - 14 * s, 14 * s, 14 * s, 2); nBrass += rrect(cv.x0 + 78 * s, cvy - 16 * s, 16 * s, 16 * s, 2); }
   var rbY = ph ? win.y1 - 3 : by, rbX0 = ph ? W * 0.14 : W * 0.04, rbX1 = ph ? W * 0.44 : W * 0.29, rbS = (ph ? 30 : 54) * S;
@@ -16380,8 +16380,11 @@ function m2_L_engineering(A, v, dk) {
       sparks.forEach(function (s2) { var k = (t - s2.t0) / 1.2; ca.globalAlpha = 1 - k; m2_pix(ca, s2.x, s2.y, 'star', 2, '#F6B93C'); }); ca.globalAlpha = 1;
       if (dk) { cb.save(); cb.globalCompositeOperation = 'lighter'; Lf.bulbs.forEach(function (b, j) { cb.globalAlpha = 0.6 + 0.4 * Math.sin(t * 1.7 + j * 1.3); m2_stamp(cb, glowS, b[0], b[1] + 4, 12); }); cb.restore(); cb.globalAlpha = 1; Lf.bulbs.forEach(function (b, j) { cb.fillStyle = ['#FFE2A0', '#FFC8D8', '#C8F0FF', '#FFF0B8'][j % 4]; m2_dot(cb, b[0], b[1] + 4, 3); }); }
       var cv = Lf.cv, cs2 = cv.s, len = cv.x1 - cv.x0 - 30 * cs2; cb.strokeStyle = 'rgba(255,255,255,0.35)'; cb.lineWidth = 1.5; cb.beginPath(); for (var bx = cv.x0 + 6 + ((t * 0.05 * len) % (14 * cs2)); bx < cv.x1 - 6; bx += 14 * cs2) { cb.moveTo(bx, cv.y + 2); cb.lineTo(bx - 4, cv.y + 9 * cs2); } cb.stroke();
-      items.forEach(function (it) { var x = cv.x0 + 14 * cs2 + it.u * len, y = cv.y, a = Math.min(1, it.u * 8, (1 - it.u) * 8); cb.globalAlpha = a;
-        if (it.k === 0) { m2_duckToy(cb, x, y, 19 * cs2); } else { var bs = (19 + it.k * 3) * cs2; cb.fillStyle = ['#F6B93C', '#EF8A5A', '#9886E6', '#5DB6C6'][it.k]; cb.fillRect(x - bs / 2, y - bs, bs, bs); cb.fillStyle = 'rgba(255,255,255,0.35)'; cb.fillRect(x - bs / 2, y - bs, bs, bs * 0.22); cb.fillStyle = 'rgba(0,0,0,0.15)'; cb.fillRect(x - 1.5, y - bs, 3, bs); } }); cb.globalAlpha = 1;
+      // boxes slide out of the machine on the left, ride the belt, then tip into the bin on the right and are gone
+      var mX = cv.x0 + 8 * cs2, bX = cv.x1 - 4 * cs2, bY = cv.y - 4 * cs2; cb.save(); cb.beginPath(); cb.rect(mX, -H, bX - mX, 3 * H); cb.rect(bX, -H, W, H + bY); cb.clip();
+      items.forEach(function (it) { var xs = mX - 18 * cs2, xe = cv.x1 + 13 * cs2, x, y = cv.y, kk;
+        if (it.u < 0.85) x = lerp(xs, cv.x1 + 2 * cs2, it.u / 0.85); else { kk = (it.u - 0.85) / 0.15; x = lerp(cv.x1 + 2 * cs2, xe, kk); y = cv.y + kk * kk * 46 * cs2; }
+        if (it.k === 0) { m2_duckToy(cb, x, y, 19 * cs2); } else { var bs = (19 + it.k * 3) * cs2; cb.fillStyle = ['#F6B93C', '#EF8A5A', '#9886E6', '#5DB6C6'][it.k]; cb.fillRect(x - bs / 2, y - bs, bs, bs); cb.fillStyle = 'rgba(255,255,255,0.35)'; cb.fillRect(x - bs / 2, y - bs, bs, bs * 0.22); cb.fillStyle = 'rgba(0,0,0,0.15)'; cb.fillRect(x - 1.5, y - bs, 3, bs); } }); cb.restore();
       var hop = happy ? Math.abs(Math.sin(M * 6)) * 12 * m2_env(M, 0, 0.3, 4.4, 5.4) : 0; m2_tinbot(cb, bot.x, Lf.rb.y, Lf.rb.s, bot.wait > 0 ? 0 : t, bot.dir, hop, happy, C.robot);
     },
     finish: function (t) { mom = t; cuckoo = t; var cc = ['#F2625A', '#F6B93C', '#5DB6C6', '#9886E6', '#7FD8A8', '#FF9AC2']; m2_confBurst(conf, Lf.ck.x, Lf.ck.y + Lf.rfh, 40, cc, t + 0.3, 2.6, 300); m2_confBurst(conf, A.eng.chim[0], A.eng.chim[1], 30, cc, t + 1.0, 1.6, 340); }
