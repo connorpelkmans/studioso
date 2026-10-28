@@ -37,7 +37,7 @@
     const item = ({t, x}) => ({id: t.id, title: t.title, course: c(t) ? courseLabel(c(t)) : "", color: colorOf(t.courseId), meta: metaOf(t, x), done: t.status === "done", late: t.status !== "done" && !!t.due && t.due < todayISO()});
     return {
       v: 1, day: todayISO(), dateLabel: new Date().toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}),
-      next: n ? {id: n.x.t.id, title: n.label || n.x.t.title, course: c(n.x.t) ? courseLabel(c(n.x.t)) : "", color: colorOf(n.x.t.courseId), why: n.why[0] || "", mins: n.mins} : null,
+      next: n ? {id: planTaskId(n.x.t), title: n.label || n.x.t.title, course: c(n.x.t) ? courseLabel(c(n.x.t)) : "", color: colorOf(n.x.t.courseId), why: n.why[0] || "", mins: n.mins} : null,
       tasks: list.slice(0, LIST_MAX).map(item), more: Math.max(0, list.length - LIST_MAX),
       cards: allDueCount(), streak: {cur: s.cur, today: s.last === todayISO()}, theme: themeVars()
     };

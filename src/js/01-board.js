@@ -373,15 +373,16 @@ function computeFocus(){
   };
   const W0 = {}; open.forEach(t => { W0[t.id] = when(t); });
   const byDue = open.slice().sort((a, b) => W0[a.id].eff - W0[b.id].eff || W0[a.id].dueMs - W0[b.id].dueMs);
-  let load = 0;
+  // load counts everything due first; loadW leaves out exam study, for Exam Mode's choice between work and studying
+  let load = 0, loadW = 0;
   byDue.forEach(t => {
     const w = W0[t.id], fx = MILESTONE(t.type) && !canDoNow(t);
     const R = fx ? 0 : remainingOf(t);
-    if (!w.dead) load += R;
+    if (!w.dead) { load += R; if (!t.xs) loadW += R; }
     const freeLate = w.past && !w.dead && w.lp === "free";
     const A = w.past ? (freeLate ? Math.max(0, (w.eff - nowMs) / 864e5) * dh : 0) : capacityUntil(t, today, dh, th, cum, day, now, freeBefore);
     const dl = dayDiff(today, t.due), edl = w.past && !w.dead ? Math.max(0, dayDiff(today, iso(new Date(w.eff)))) : Math.max(0, dl);
-    info[t.id] = {t, R, L: load, A, rho: load / Math.max(A, 0.25), behind: Math.max(0, load - A), dl, edl, late: w.lp, lateUntil: w.lu, dead: w.dead, past: w.past, eff: w.eff, dueMs: w.dueMs, fixed: fx};
+    info[t.id] = {t, R, L: load, A, rho: load / Math.max(A, 0.25), behind: Math.max(0, load - A), behindW: Math.max(0, loadW - A), rhoW: loadW / Math.max(A, 0.25), dl, edl, late: w.lp, lateUntil: w.lu, dead: w.dead, past: w.past, eff: w.eff, dueMs: w.dueMs, fixed: fx};
   });
   Object.values(info).forEach(x => {
     const t = x.t, W = weightOf(t), p = progress(t).frac, ms = MILESTONE(t.type), on = !x.past;
@@ -446,13 +447,22 @@ function computeFocus(){
     if (cr) {
       // Leave for last the work worth clearly fewer marks per hour than the rest, lowest first, until the rest fits
       const win = byDue.map(t => info[t.id]).filter(x => x.R > 0 && !x.dead && !x.fixed && x.eff <= cr.eff);
-      const avg = win.reduce((s2, x) => s2 + x.W, 0) / Math.max(0.25, win.reduce((s2, x) => s2 + x.R, 0)), out = [];
+      // Exam study is an estimate, not a piece of work with marks of its own, so it isn't weighed against the rest
+      const work = win.filter(x => !x.t.xs), avg = work.reduce((s2, x) => s2 + x.W, 0) / Math.max(0.25, work.reduce((s2, x) => s2 + x.R, 0)), out = [];
       let over = win.reduce((s2, x) => s2 + x.R, 0) - cr.A;
-      win.filter(x => !x.tier && x.W / x.R < avg * 0.6).sort((a, b) => a.W / a.R - b.W / b.R).forEach(x => { if (over > 0.01) { out.push(x); over -= x.R; } });
+      work.filter(x => !x.tier && x.W / x.R < avg * 0.6).sort((a, b) => a.W / a.R - b.W / b.R).forEach(x => { if (over > 0.01) { out.push(x); over -= x.R; } });
       out.forEach(x => { x.score *= 0.75; x.drop = true; });
       if (out.length) drop = {by: cr.t.due, short: cr.behind, items: out};
     }
   }
+  // Work due before an exam, or later on the exam day, comes before studying for it (as Exam Mode says), so a big study
+  // estimate can't take all of today
+  Object.values(info).forEach(x => {
+    if (!x.t.xs || x.R <= 0) return;
+    const exEnd = dueDate(Object.assign({}, x.t, {time: ""})).getTime();
+    const cap = Object.values(info).filter(y => !y.t.xs && !y.dead && !y.fixed && y.R > 0 && y.dl <= 3 && y.dueMs <= exEnd).reduce((m, y) => Math.min(m, y.score), Infinity);
+    if (x.score >= cap) { x.score = cap * 0.97; x.afterWork = true; }
+  });
   for (let pass = 0; pass < 3; pass++) {
     Object.values(info).forEach(x => (x.t.dependsOn || []).forEach(id => {
       const d = info[id];
@@ -528,6 +538,7 @@ function computeFocus(){
     if (t.xs) {
       const ex = state.tasks[t.xs.id] || {}, L = t.xs.lead, why = [L.risk ? (L.risk === "watch" ? "the course is close to its pass mark" : "the course is below its pass mark") : "", L.p < 0.75 ? `you marked yourself ${Math.round(L.p * 100)}% prepared` : ""].filter(Boolean);
       r.push([85, `${ex.type || "Exam"} ${x.dl === 1 ? "tomorrow" : `in ${x.dl} days`}${ex.time ? " at " + fmtTime(ex.time) : ""}, in person. Study starts ${L.days} days before it${why.length ? " because " + why.join(" and ") : ""}`]);
+      if (x.afterWork) r.push([84, "Work due before the exam (or later that day) comes first, then the rest of today's time goes to studying"]);
     }
     if (t.dueFor) { const d = state.tasks[t.dueFor] || info[t.dueFor] && info[t.dueFor].t; r.push([85, `No due date, but ${d ? d.title : "another task"} needs it first, so aim to finish by ${fmtDate(t.due)}`]); }
     if (hasWeight(t) || x.W >= 10 || PTS_W[t.id]) r.push([50 + x.W, `${hasWeight(t) ? "" : "About "}${Math.round(x.W * 10) / 10}% of your grade${!hasWeight(t) && PTS_W[t.id] ? " (from its points)" : ""}`]);

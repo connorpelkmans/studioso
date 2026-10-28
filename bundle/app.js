@@ -8382,15 +8382,16 @@ function computeFocus(){
   };
   const W0 = {}; open.forEach(t => { W0[t.id] = when(t); });
   const byDue = open.slice().sort((a, b) => W0[a.id].eff - W0[b.id].eff || W0[a.id].dueMs - W0[b.id].dueMs);
-  let load = 0;
+  // load counts everything due first; loadW leaves out exam study, for Exam Mode's choice between work and studying
+  let load = 0, loadW = 0;
   byDue.forEach(t => {
     const w = W0[t.id], fx = MILESTONE(t.type) && !canDoNow(t);
     const R = fx ? 0 : remainingOf(t);
-    if (!w.dead) load += R;
+    if (!w.dead) { load += R; if (!t.xs) loadW += R; }
     const freeLate = w.past && !w.dead && w.lp === "free";
     const A = w.past ? (freeLate ? Math.max(0, (w.eff - nowMs) / 864e5) * dh : 0) : capacityUntil(t, today, dh, th, cum, day, now, freeBefore);
     const dl = dayDiff(today, t.due), edl = w.past && !w.dead ? Math.max(0, dayDiff(today, iso(new Date(w.eff)))) : Math.max(0, dl);
-    info[t.id] = {t, R, L: load, A, rho: load / Math.max(A, 0.25), behind: Math.max(0, load - A), dl, edl, late: w.lp, lateUntil: w.lu, dead: w.dead, past: w.past, eff: w.eff, dueMs: w.dueMs, fixed: fx};
+    info[t.id] = {t, R, L: load, A, rho: load / Math.max(A, 0.25), behind: Math.max(0, load - A), behindW: Math.max(0, loadW - A), rhoW: loadW / Math.max(A, 0.25), dl, edl, late: w.lp, lateUntil: w.lu, dead: w.dead, past: w.past, eff: w.eff, dueMs: w.dueMs, fixed: fx};
   });
   Object.values(info).forEach(x => {
     const t = x.t, W = weightOf(t), p = progress(t).frac, ms = MILESTONE(t.type), on = !x.past;
@@ -8455,13 +8456,22 @@ function computeFocus(){
     if (cr) {
       // Leave for last the work worth clearly fewer marks per hour than the rest, lowest first, until the rest fits
       const win = byDue.map(t => info[t.id]).filter(x => x.R > 0 && !x.dead && !x.fixed && x.eff <= cr.eff);
-      const avg = win.reduce((s2, x) => s2 + x.W, 0) / Math.max(0.25, win.reduce((s2, x) => s2 + x.R, 0)), out = [];
+      // Exam study is an estimate, not a piece of work with marks of its own, so it isn't weighed against the rest
+      const work = win.filter(x => !x.t.xs), avg = work.reduce((s2, x) => s2 + x.W, 0) / Math.max(0.25, work.reduce((s2, x) => s2 + x.R, 0)), out = [];
       let over = win.reduce((s2, x) => s2 + x.R, 0) - cr.A;
-      win.filter(x => !x.tier && x.W / x.R < avg * 0.6).sort((a, b) => a.W / a.R - b.W / b.R).forEach(x => { if (over > 0.01) { out.push(x); over -= x.R; } });
+      work.filter(x => !x.tier && x.W / x.R < avg * 0.6).sort((a, b) => a.W / a.R - b.W / b.R).forEach(x => { if (over > 0.01) { out.push(x); over -= x.R; } });
       out.forEach(x => { x.score *= 0.75; x.drop = true; });
       if (out.length) drop = {by: cr.t.due, short: cr.behind, items: out};
     }
   }
+  // Work due before an exam, or later on the exam day, comes before studying for it (as Exam Mode says), so a big study
+  // estimate can't take all of today
+  Object.values(info).forEach(x => {
+    if (!x.t.xs || x.R <= 0) return;
+    const exEnd = dueDate(Object.assign({}, x.t, {time: ""})).getTime();
+    const cap = Object.values(info).filter(y => !y.t.xs && !y.dead && !y.fixed && y.R > 0 && y.dl <= 3 && y.dueMs <= exEnd).reduce((m, y) => Math.min(m, y.score), Infinity);
+    if (x.score >= cap) { x.score = cap * 0.97; x.afterWork = true; }
+  });
   for (let pass = 0; pass < 3; pass++) {
     Object.values(info).forEach(x => (x.t.dependsOn || []).forEach(id => {
       const d = info[id];
@@ -8537,6 +8547,7 @@ function computeFocus(){
     if (t.xs) {
       const ex = state.tasks[t.xs.id] || {}, L = t.xs.lead, why = [L.risk ? (L.risk === "watch" ? "the course is close to its pass mark" : "the course is below its pass mark") : "", L.p < 0.75 ? `you marked yourself ${Math.round(L.p * 100)}% prepared` : ""].filter(Boolean);
       r.push([85, `${ex.type || "Exam"} ${x.dl === 1 ? "tomorrow" : `in ${x.dl} days`}${ex.time ? " at " + fmtTime(ex.time) : ""}, in person. Study starts ${L.days} days before it${why.length ? " because " + why.join(" and ") : ""}`]);
+      if (x.afterWork) r.push([84, "Work due before the exam (or later that day) comes first, then the rest of today's time goes to studying"]);
     }
     if (t.dueFor) { const d = state.tasks[t.dueFor] || info[t.dueFor] && info[t.dueFor].t; r.push([85, `No due date, but ${d ? d.title : "another task"} needs it first, so aim to finish by ${fmtDate(t.due)}`]); }
     if (hasWeight(t) || x.W >= 10 || PTS_W[t.id]) r.push([50 + x.W, `${hasWeight(t) ? "" : "About "}${Math.round(x.W * 10) / 10}% of your grade${!hasWeight(t) && PTS_W[t.id] ? " (from its points)" : ""}`]);
@@ -24953,7 +24964,7 @@ hook("boot", boot);
     const item = ({t, x}) => ({id: t.id, title: t.title, course: c(t) ? courseLabel(c(t)) : "", color: colorOf(t.courseId), meta: metaOf(t, x), done: t.status === "done", late: t.status !== "done" && !!t.due && t.due < todayISO()});
     return {
       v: 1, day: todayISO(), dateLabel: new Date().toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}),
-      next: n ? {id: n.x.t.id, title: n.label || n.x.t.title, course: c(n.x.t) ? courseLabel(c(n.x.t)) : "", color: colorOf(n.x.t.courseId), why: n.why[0] || "", mins: n.mins} : null,
+      next: n ? {id: planTaskId(n.x.t), title: n.label || n.x.t.title, course: c(n.x.t) ? courseLabel(c(n.x.t)) : "", color: colorOf(n.x.t.courseId), why: n.why[0] || "", mins: n.mins} : null,
       tasks: list.slice(0, LIST_MAX).map(item), more: Math.max(0, list.length - LIST_MAX),
       cards: allDueCount(), streak: {cur: s.cur, today: s.last === todayISO()}, theme: themeVars()
     };
@@ -65202,7 +65213,8 @@ const courseTag = t => { const c = courseOf(t.courseId); return c ? courseLabel(
 
 /* Do This Next */
 const laneOpts = m => ({dayEnd: EXAMMODE.dayEnd(m.exam), examDay: m.days <= 0});
-const riskOf = x => x.dl < 0 || (x.behind || 0) >= 0.5 || (x.own || 0) >= 1 || (x.rho || 0) >= 0.9;
+// Short of time counting the other work only: the exam's own study time (Today's Plan counts it) is what this weighs against
+const riskOf = x => x.dl < 0 || (x.behindW ?? x.behind ?? 0) >= 0.5 || (x.own || 0) >= 1 || (x.rhoW ?? x.rho ?? 0) >= 0.9;
 const studyToday = t => { const d0 = new Date(); d0.setHours(0, 0, 0, 0); return (t.history || []).reduce((m, h) => { const mm = /^Focus session:? (\d+)m/.exec(h.text || ""); return mm && h.at >= d0.getTime() ? m + Number(mm[1]) : m; }, 0); };
 // Called by nextUp with its scored list (each {x, s, why})
 function rankNext(F, scored, pool, focusLen){
@@ -65210,7 +65222,8 @@ function rankNext(F, scored, pool, focusLen){
   const ex = m.exam, exDue = EXAMMODE.dueMs(ex), chip = EXAMMODE.tag(ex, m.days);
   const items = scored.map(y => {
     const t = y.x.t, study = t.id === ex.id || t.prepFor === ex.id;
-    return {y, id: t.id, kind: study ? "study" : EXAMMODE.isWork(t, ex) ? "work" : "other", dueMs: dueDate(t).getTime(), inWindow: y.x.dl <= EXAMMODE.DAYS && !y.x.dead, risk: riskOf(y.x)};
+    // Today's Plan's own "Study for" entry has no date of its own (it runs up to the exam), so it doesn't move what counts as before studying
+    return {y, id: t.id, kind: study ? "study" : EXAMMODE.isWork(t, ex) ? "work" : "other", dueMs: t.xs ? Infinity : dueDate(t).getTime(), inWindow: y.x.dl <= EXAMMODE.DAYS && !y.x.dead, risk: riskOf(y.x)};
   });
   const ord = EXAMMODE.order(items, exDue, laneOpts(m));
   scored.length = 0;
@@ -65234,7 +65247,7 @@ function rankNext(F, scored, pool, focusLen){
 function focusPick(){
   if (!current()) return "";
   const keep = ui.nextShown;
-  try { const n = nextUp(computeFocus()); return n && n.x && n.x.t ? n.x.t.id : ""; } catch (e) { return ""; } finally { ui.nextShown = keep; }
+  try { const n = nextUp(computeFocus()); return n && n.x && n.x.t ? planTaskId(n.x.t) : ""; } catch (e) { return ""; } finally { ui.nextShown = keep; }
 }
 function pomoDefault(){
   try {
