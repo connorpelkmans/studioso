@@ -7985,9 +7985,9 @@ SCENES.campfire = function (W, H, dk, rnd) {
   // sheen along the ridge and a light interior floor (night) / lit flap edge
   add(near, 'G', b2_band([TP(-74, -147), TP(0, -143), TP(72, -136)], 4 * tsy) + (dk ? b2_polyA([TP(-122, 5), TP(-76, 8), TP(-82, -6), TP(-112, -8)]) : ''), dk ? 'rgba(255,220,160,0.45)' : 'rgba(255,236,200,0.6)');
   var zip = ''; for (var zq = 0; zq < 9; zq++) { var zu = zq / 9 + 0.03, za = [lerp(dT[0], dM[0], zu), lerp(dT[1], dM[1], zu)]; zip += seg(za[0] + 1.4 * tsx, za[1], za[0] + 3.4 * tsx, za[1] + 1 * tsy); }
-  var guys = seg(tF[0], tF[1], tx - 210 * tsx, ty + 20 * tsy) + seg(tB[0], tB[1], tx + 222 * tsx, ty + 10 * tsy) + seg(TP(40, -76)[0], TP(40, -76)[1], tx + 185 * tsx, ty + 34 * tsy)
-    + seg(tF[0], tF[1], tF[0], tF[1] - 12 * tsy) + seg(tB[0], tB[1], tB[0], tB[1] - 11 * tsy);
-  [[-210, 20], [222, 10], [185, 34]].forEach(function (q) { var sx3 = tx + q[0] * tsx, sy3 = ty + q[1] * tsy; guys += seg(sx3 - 1, sy3 - 6 * tsy, sx3 + 1, sy3 + 2); });
+  // guy lines: from each pole tip out along the tent's length (front one forward, back one away behind it), and two from the side panel out to the near side
+  var guyL = [[tF, TP(-182, 40)], [tB, TP(214, -24)], [TP(-2, -52), TP(36, 44)], [TP(79, -52), TP(118, 40)]], guys = seg(tF[0], tF[1], tF[0], tF[1] - 12 * tsy) + seg(tB[0], tB[1], tB[0], tB[1] - 11 * tsy);
+  guyL.forEach(function (g) { guys += seg(g[0][0], g[0][1], g[1][0], g[1][1]) + seg(g[1][0] - 1, g[1][1] - 6 * tsy, g[1][0] + 1, g[1][1] + 2); });
   var seams = seg(TP(-49, -68)[0], TP(-49, -68)[1], TP(98, -66)[0], TP(98, -66)[1]) + zip;
   stk(near, 's', guys + seams + bark, dk ? 'rgba(210,196,176,0.55)' : 'rgba(110,80,60,0.6)', 1.2);
   // two folding camp chairs, turned toward the fire
