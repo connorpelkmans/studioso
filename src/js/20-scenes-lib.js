@@ -7340,8 +7340,55 @@ function n5_crys(x, y, s, ang, n, rnd) {
     o.dk += poly([BL, UL, T, UM, BM]); o.lt += poly([BM, UM, T, UR, BR]); o.tips.push(T); o.ridge += 'M' + PT(BM[0], BM[1]) + ' L' + PT(UM[0], UM[1]) + ' L' + PT(T[0], T[1]) + ' '; o.base.push([bx, by, w]); }
   return o;
 }
+// Faceted hexagonal crystals: each prism shows a left face, a lit centre face and a shaded right face, meeting in a pointed tip,
+// with a bright edge along the lit face and a pale glow low in the centre; a rough rock base sits under the cluster
+function n5_crys2(x, y, s, ang, n, rnd) {
+  var o = {mid: '', lit: '', dk: '', edge: '', glow: '', tips: [], base: ''}, rb = [];
+  for (var i = 0; i < n; i++) {
+    var a = (ang + (i - (n - 1) / 2) * 20 + (rnd() - 0.5) * 12) * Math.PI / 180, L = s * (i === Math.floor(n / 2) ? 1 : 0.5 + rnd() * 0.38), w = L * (0.27 + rnd() * 0.07), dx = Math.sin(a), dy = -Math.cos(a), nx = -dy, ny = dx;
+    var bx = x + (i - (n - 1) / 2) * s * 0.13, by = y + 2, P = function (u, v) { return [bx + dx * u + nx * v, by + dy * u + ny * v]; };
+    var Ls = L - w * 0.85, c1 = w * 0.17, T = P(L, 0);
+    o.mid += b2_polyA([P(-2, -w / 2), P(Ls, -w / 2), T, P(Ls + w * 0.18, -c1), P(-2, -c1)]);
+    o.lit += b2_polyA([P(-2, -c1), P(Ls + w * 0.18, -c1), T, P(Ls + w * 0.18, c1), P(-2, c1)]);
+    o.dk += b2_polyA([P(-2, c1), P(Ls + w * 0.18, c1), T, P(Ls, w / 2), P(-2, w / 2)]);
+    o.edge += b2_polyA([P(2, -c1 - 0.6), P(Ls + w * 0.18, -c1 - 0.6), T, P(Ls + w * 0.16, -c1 + 0.9), P(2, -c1 + 0.9)]) + b2_polyA([P(Ls + w * 0.1, -w / 2 + 0.8), P(Ls + w * 0.22, -w * 0.3), T]);
+    var gp = P(L * 0.24, 0); o.glow += b2_ellA(gp[0], gp[1], Math.max(1.5, w * 0.16), Math.max(2, L * 0.15));
+    o.tips.push(T); rb.push([bx, by, w]);
+  }
+  // the rock the cluster grows from: a lumpy mound spanning the crystal bases
+  var x0 = Math.min.apply(null, rb.map(function (q) { return q[0] - q[2] * 0.8; })), x1 = Math.max.apply(null, rb.map(function (q) { return q[0] + q[2] * 0.8; })), hh = s * 0.14, pts = [];
+  for (var k = 0; k <= 12; k++) { var u = k / 12; pts.push([lerp(x0 - 4, x1 + 4, u), y + 3 - Math.sin(Math.PI * u) * hh * (0.75 + 0.25 * Math.sin(k * 2.3))]); }
+  pts.push([x1 + 2, y + 6], [x0 - 2, y + 6]);
+  o.base = b2_polyA(pts);
+  return o;
+}
+// A tapered, rounded cone: a stalactite hanging down (dir = 1) or a stalagmite standing up (dir = -1)
+function n5_cone(x, y, w, len, dir, bend) {
+  var Lp = [], Rp = [], N = 10, i;
+  for (i = 0; i <= N; i++) { var u = i / N, hw = w * Math.pow(1 - u, 0.85) * (1 + 0.12 * Math.sin(u * 7)), cx = x + (bend || 0) * u * u; Lp.push([cx - hw, y + dir * len * u]); Rp.push([cx + hw, y + dir * len * u]); }
+  var mid = Lp.map(function (p, j) { return [lerp(p[0], Rp[j][0], 0.58), p[1]]; }), hiA = [], hiB = [];
+  for (i = 1; i <= 7; i++) { hiA.push([lerp(Lp[i][0], Rp[i][0], 0.2), Lp[i][1]]); hiB.unshift([lerp(Lp[i][0], Rp[i][0], 0.3 + 0.05 * (7 - i) / 7), Lp[i][1]]); }
+  return {all: b2_polyA(Lp.concat(Rp.slice().reverse())), dark: b2_polyA(mid.concat(Rp.slice().reverse())), hi: b2_polyA(hiA.concat(hiB)), tip: [x + (bend || 0), y + dir * len]};
+}
+// a thin elliptical ring (ripple)
+function n5_ring(x, y, rx, ry, w) { var o = [], q = []; for (var i = 0; i < 28; i++) { var a = i / 28 * Math.PI * 2; o.push([x + Math.cos(a) * rx, y + Math.sin(a) * ry]); q.push([x + Math.cos(a) * Math.max(0.5, rx - w), y + Math.sin(a) * Math.max(0.3, ry - w * 0.5)]); } return b3_annulus(o, q); }
+// rough rock for the geode: a lumpy oval, a shaded lower right, a highlight and a zigzag seam that glows
+function n5_geoRock(x, y, r) {
+  var pts = [], sh = [], i, b; for (i = 0; i < 28; i++) { var a = i / 28 * Math.PI * 2, k = 1 + 0.06 * Math.sin(a * 3 + 1) + 0.04 * Math.sin(a * 7); pts.push([x + Math.cos(a) * r * k, y + Math.sin(a) * r * 0.8 * k]); }
+  for (i = 0; i <= 14; i++) { b = -0.3 + i / 14 * (Math.PI * 0.95); sh.push([x + Math.cos(b) * r * 0.98, y + Math.sin(b) * r * 0.78]); } for (i = 14; i >= 0; i--) { b = -0.3 + i / 14 * (Math.PI * 0.95); sh.push([x + Math.cos(b) * r * 0.62 - r * 0.12, y + Math.sin(b) * r * 0.5 - r * 0.08]); }
+  var seam = []; for (i = 0; i <= 8; i++) seam.push([x + (i % 2 ? 1 : -1) * r * 0.1 + (i - 4) * r * 0.01, y - r * 0.74 + i * r * 0.185]);
+  return {rock: b2_polyA(pts), shade: b2_polyA(sh), hi: b2_ellA(x - r * 0.4, y - r * 0.38, r * 0.24, r * 0.11), seam: b2_band(seam, Math.max(1.5, r * 0.04))};
+}
+// a little miner's lantern standing on the floor at (x, y), scale s
+function n5_lantern(x, y, s) {
+  function P(u, v) { return [x + u * s, y + v * s]; }
+  return {glass: b2_polyA([P(-7, -27), P(7, -27), P(7, -4), P(-7, -4)]),
+    frame: b2_polyA([P(-10, -4), P(10, -4), P(9, 0), P(-9, 0)]) + b2_polyA([P(-9, -27), P(9, -27), P(6, -31), P(-6, -31)]) + b2_polyA([P(-8, -28), P(-6, -28), P(-6, -3), P(-8, -3)]) + b2_polyA([P(6, -28), P(8, -28), P(8, -3), P(6, -3)]) + b2_polyA([P(-1, -27), P(1, -27), P(1, -4), P(-1, -4)]) + b2_limb(P(-5, -31), P(0, -40), P(5, -31), 1.6 * s, 1.6 * s, 8),
+    flame: b2_polyA([P(0, -21), P(2.6, -15), P(0, -10), P(-2.6, -15)])};
+}
 SCENES.geology = function (W, H, dk, rnd) {
   var ph = H > W, far = Lay(2), refl = Lay(0), mid = Lay(0), near = Lay(0);
+  'ABCDEFGHIJKLMNOP'.split('').forEach(function (k) { far[k] = E(); refl[k] = E(); mid[k] = E(); near[k] = E(); });
   var sky = dk ? 'linear-gradient(180deg,#120E24 0%,#22183E 50%,#3E2A62 100%)' : 'linear-gradient(180deg,#CBD7EA 0%,#E8ECF4 55%,#D7CDE6 100%)';
   var ox = W * (ph ? 0.62 : 0.74), orx = W * (ph ? 0.34 : 0.2), ory = H * (ph ? 0.19 : 0.2);
   function oy(x) { var u = (x - ox) / orx; if (Math.abs(u) >= 1) return -40; return ory * Math.sqrt(1 - u * u) + Math.sin(x / 13) * 4 + Math.sin(x / 5.3) * 2; }
@@ -7349,57 +7396,88 @@ SCENES.geology = function (W, H, dk, rnd) {
   var yF = function (x) { return H * (ph ? 0.8 : 0.78) + Math.sin(x / 90 + 2) * 8 + Math.sin(x / 37) * 4; };
   var top = [], bot = [], x;
   for (x = -40; x <= W + 40; x += 6) { var t0 = oy(x); top.push([x, t0]); bot.push([x, Math.max(ceil(x), t0 + 16)]); }
+  // ---- the far chamber: back wall, strata with a lit top, distant rounded stalagmites ----
   add(far, 'a', poly(top.concat([[W + 40, H + 40], [-40, H + 40]])), dk ? '#1C1534' : '#A894BC');
-  var BS = [['b', 0.3, dk ? '#221A3E' : '#BCA4C8'], ['c', 0.42, dk ? '#1A1432' : '#9884B2'], ['b', 0.55, null], ['d', 0.64, dk ? '#261E46' : '#C9AEC4'], ['c', 0.72, null]];
-  BS.forEach(function (q, k) { var y0 = H * q[1], y1 = y0 + H * 0.05, up = [], lo = []; for (x = -40; x <= W + 40; x += 20) { up.push([x, Math.max(y0 + Math.sin(x / 140 + k) * 12, oy(x) + 2)]); lo.unshift([x, Math.max(y1 + Math.sin(x / 120 + k * 2) * 12, oy(x) + 2)]); } add(far, q[0], poly(up.concat(lo)), q[2] || undefined); });
-  var dm = ''; spread(0, H * 0.6, W, H * 0.16, 70, 40, rnd, 0.8).forEach(function (c) { var h = 30 + c.r * 50; dm += poly([[c.x - 12, yF(c.x) - 20], [c.x - 3, yF(c.x) - 20 - h], [c.x + 3, yF(c.x) - 20 - h], [c.x + 12, yF(c.x) - 20]]); });
-  add(far, 'e', dm, dk ? '#150F2A' : '#8E7AA6');
-  var sh = poly([[ox - orx * 0.7, ory * 0.6], [ox + orx * 0.5, ory * 0.8], [W * (ph ? 0.6 : 0.5), H * 0.95], [W * (ph ? 0.1 : 0.2), H * 0.95]]);
-  add(refl, 'a', sh, dk ? 'rgba(170,160,255,0.05)' : 'rgba(255,248,225,0.32)'); add(refl, 'b', poly([[ox - orx * 0.45, ory * 0.7], [ox + orx * 0.2, ory * 0.8], [W * (ph ? 0.5 : 0.42), H * 0.95], [W * (ph ? 0.2 : 0.28), H * 0.95]]), dk ? 'rgba(170,160,255,0.04)' : 'rgba(255,250,235,0.3)');
+  var BS = [['b', 0.3, dk ? '#221A3E' : '#BCA4C8'], ['c', 0.42, dk ? '#1A1432' : '#9884B2'], ['b', 0.55, null], ['d', 0.64, dk ? '#261E46' : '#C9AEC4'], ['c', 0.72, null]], bandLit = '';
+  BS.forEach(function (q, k) { var y0 = H * q[1], y1 = y0 + H * 0.05, up = [], lo = []; for (x = -40; x <= W + 40; x += 20) { up.push([x, Math.max(y0 + Math.sin(x / 140 + k) * 12, oy(x) + 2)]); lo.unshift([x, Math.max(y1 + Math.sin(x / 120 + k * 2) * 12, oy(x) + 2)]); } add(far, q[0], poly(up.concat(lo)), q[2] || undefined); bandLit += b2_band(up, 2.2); });
+  add(far, 'f', bandLit, dk ? 'rgba(170,140,230,0.12)' : 'rgba(255,255,255,0.28)');
+  var dm = '', dmS = ''; spread(0, H * 0.6, W, H * 0.16, 70, 40, rnd, 0.8).forEach(function (c) { var h = 30 + c.r * 50, cn = n5_cone(c.x, yF(c.x) - 18, 10 + c.r * 4, h, -1, (c.k - 0.5) * 6); dm += cn.all; dmS += cn.dark; });
+  add(far, 'e', dm, dk ? '#150F2A' : '#8E7AA6'); add(far, 'g', dmS, dk ? 'rgba(6,2,16,0.35)' : 'rgba(80,60,110,0.22)');
+  // ---- light from the opening: nested shafts give it soft, feathered edges and a brighter core ----
+  function shaftP(wA, wB) { var ca = ox - orx * 0.1, cb2 = W * (ph ? 0.35 : 0.35), a0 = ca - orx * 0.6 * wA, a1 = ca + orx * 0.6 * wA, b0 = cb2 - W * (ph ? 0.25 : 0.15) * wB, b1 = cb2 + W * (ph ? 0.25 : 0.15) * wB; return poly([[a0, ory * 0.65], [a1, ory * 0.75], [b1, H * 0.95], [b0, H * 0.95]]); }
+  add(refl, 'a', shaftP(1.15, 1.2), dk ? 'rgba(170,160,255,0.025)' : 'rgba(255,248,225,0.12)');
+  add(refl, 'b', shaftP(0.9, 0.95), dk ? 'rgba(170,160,255,0.03)' : 'rgba(255,248,225,0.14)');
+  add(refl, 'c', shaftP(0.62, 0.66), dk ? 'rgba(180,170,255,0.035)' : 'rgba(255,250,235,0.16)');
+  add(refl, 'd', shaftP(0.32, 0.34), dk ? 'rgba(190,180,255,0.03)' : 'rgba(255,252,240,0.14)');
+  if (!ANIM) { var mo = ''; spread(W * 0.18, H * 0.25, W * 0.5, H * 0.6, 60, 60, rnd, 1).forEach(function (c) { if (c.q < 0.5) mo += b2_ellA(c.x, c.y, 0.9 + c.r, 0.9 + c.r); }); add(refl, 'e', mo, dk ? 'rgba(220,200,255,0.4)' : 'rgba(255,250,225,0.8)'); }
   var ceilP = poly(top.concat(bot.slice().reverse()));
-  var vine = '', lvs = ''; for (x = ox - orx * 0.85; x < ox + orx * 0.85; x += orx * (ph ? 0.16 : 0.11)) { var vy = oy(x) + 3, vl = 18 + rnd() * (ph ? 30 : 50), sgn = rnd() < 0.5 ? -1 : 1; vine += 'M' + PT(x, vy) + ' q' + n1(sgn * 6) + ' ' + n1(vl * 0.5) + ' ' + n1(sgn * 2) + ' ' + n1(vl) + ' ';
-    for (var lq = 0.22, li = 0; lq < 1; lq += 0.26, li++) vine += leaf(x + sgn * 3.4 * Math.sin(lq * 2.6), vy + vl * lq, 7, 2.6, li % 2 ? 30 : 150); }
-  stk(mid, 's', vine, dk ? '#284A40' : '#5A9A6A', 1.5);
+  // ---- vines over the lip of the opening: stems with filled two-tone leaves ----
+  var vine = '', lvs = '', lvs2 = ''; for (x = ox - orx * 0.85; x < ox + orx * 0.85; x += orx * (ph ? 0.16 : 0.11)) { var vy = oy(x) + 3, vl = 18 + rnd() * (ph ? 30 : 50), sgn = rnd() < 0.5 ? -1 : 1; vine += 'M' + PT(x, vy) + ' q' + n1(sgn * 6) + ' ' + n1(vl * 0.5) + ' ' + n1(sgn * 2) + ' ' + n1(vl) + ' ';
+    for (var lq = 0.18, li = 0; lq < 1.02; lq += 0.2, li++) { var lx = x + sgn * 4.6 * Math.sin(lq * 2.6) * (1 - lq * 0.5), ly = vy + vl * lq, la = (li % 2 ? 25 : 155) + (rnd() - 0.5) * 20, ll = 6 + rnd() * 3; lvs += b2_leaf(lx, ly, ll, 2.6, la); lvs2 += b2_leaf(lx, ly, ll * 0.85, 1, la); } }
+  stk(mid, 's', vine, dk ? '#284A40' : '#5A9A6A', 1.4);
+  // ---- the near walls and ceiling: strata with lit lips, shadows tucked under them, cracks and mineral flecks ----
   var wl = function (y) { var u = y / H; return W * (ph ? 0.07 : 0.11) + Math.sin(u * 3.2) * W * (ph ? 0.08 : 0.08) + Math.sin(y / 31) * 5; }, wr = function (y) { var u = y / H; return W - W * (ph ? 0.06 : 0.09) - Math.sin(u * 3.0 + 0.3) * W * (ph ? 0.07 : 0.07) + Math.sin(y / 27) * 5; };
   var L = [[-40, -40]], R = [[W + 40, -40]], y;
   for (y = 0; y <= H + 40; y += 12) { L.push([wl(y), y]); R.push([wr(y), y]); } L.push([-40, H + 40]); R.push([W + 40, H + 40]);
   add(mid, 'a', ceilP + poly(L) + poly(R.slice().reverse()), dk ? '#160F2A' : '#7C6696');
-  var str = ['', '', ''];
+  var str = ['', '', ''], sLit = '', sShd = '', crk = '', flk = '';
   for (var k = 0; k < 9; k++) { var b0 = H * (0.16 + k * 0.085), th = H * 0.03 + (k % 3) * 6, sl = 0.18;
     [[wl, -40, 1], [wr, W + 40, -1]].forEach(function (S) {
-      var up = [], lo = []; for (var xx2 = S[1]; S[2] > 0 ? xx2 <= S[0](b0) : xx2 >= S[0](b0); xx2 += S[2] * 10) { up.push([xx2, b0 + (xx2 - S[1]) * sl * S[2] + Math.sin(xx2 / 17 + k) * 2]); }
-      var e1 = up[up.length - 1], yb = e1[1] + th; lo.push([S[0](yb), yb]); for (xx2 = Math.min(S[0](yb), S[0](b0)); S[2] > 0 ? xx2 >= S[1] : xx2 <= S[1]; xx2 -= S[2] * 10) lo.push([xx2, b0 + th + (xx2 - S[1]) * sl * S[2] + Math.sin(xx2 / 19 + k) * 2]);
-      str[k % 3] += poly(up.concat([[S[0](e1[1] + th * 0.5), e1[1] + th * 0.5]], lo)); }); }
+      var up = [], lo = [], lo2 = []; for (var xx2 = S[1]; S[2] > 0 ? xx2 <= S[0](b0) : xx2 >= S[0](b0); xx2 += S[2] * 10) { up.push([xx2, b0 + (xx2 - S[1]) * sl * S[2] + Math.sin(xx2 / 17 + k) * 2]); }
+      var e1 = up[up.length - 1], yb = e1[1] + th; lo.push([S[0](yb), yb]); for (xx2 = Math.min(S[0](yb), S[0](b0)); S[2] > 0 ? xx2 >= S[1] : xx2 <= S[1]; xx2 -= S[2] * 10) { var pq = [xx2, b0 + th + (xx2 - S[1]) * sl * S[2] + Math.sin(xx2 / 19 + k) * 2]; lo.push(pq); lo2.push(pq); }
+      str[k % 3] += b2_polyA(up.concat([[S[0](e1[1] + th * 0.5), e1[1] + th * 0.5]], lo));
+      if (up.length > 2) { sLit += b2_band(up.map(function (q) { return [q[0], q[1] + 1.2]; }), 2.4); sLit += b2_ellA(e1[0] - S[2] * 2, e1[1] + 1.5, 4, 2.6); }
+      if (lo2.length > 2) sShd += b2_polyA(lo2.concat(lo2.slice().reverse().map(function (q) { return [q[0], q[1] + 5]; })));
+      for (var c2 = 0; c2 < 2; c2++) { var cx2 = S[1] + S[2] * (70 + ((k * 37 + c2 * 71) % 140)); if (S[2] > 0 ? cx2 > S[0](b0) - 12 : cx2 < S[0](b0) + 12) continue; var cy2 = b0 + (cx2 - S[1]) * sl * S[2] + 3; crk += b2_limb([cx2, cy2], [cx2 + 3, cy2 + th * 0.5], [cx2 - 1, cy2 + th - 2], 1.6, 0.4, 5); }
+      for (var f2 = 0; f2 < 3; f2++) { var fx2 = S[1] + S[2] * (40 + ((k * 53 + f2 * 47) % 180)); if (S[2] > 0 ? fx2 > S[0](b0) - 6 : fx2 < S[0](b0) + 6) continue; flk += b2_ellA(fx2, b0 + (fx2 - S[1]) * sl * S[2] + th * (0.3 + 0.2 * f2), 1.1, 1.1); } }); }
   add(mid, 'b', str[0], dk ? '#20183A' : '#9A7EAA'); add(mid, 'c', str[1], dk ? '#1B1334' : '#B08EA6'); add(mid, 'd', str[2], dk ? '#251B42' : '#6C5888');
-  var stal = '', hl = '', tips = [];
-  for (x = 10; x < W; x += 34 + rnd() * 40) { var c0 = Math.max(ceil(x), oy(x) + 16); if (oy(x) > 0 && rnd() < 0.6) continue; var len = 20 + rnd() * (ph ? 40 : 60), w2 = 8 + rnd() * 10; stal += poly([[x - w2, c0 - 4], [x + w2, c0 - 4], [x + w2 * 0.2, c0 + len * 0.8], [x, c0 + len], [x - w2 * 0.25, c0 + len * 0.8]]); hl += poly([[x - w2 * 0.6, c0], [x - w2 * 0.2, c0], [x - w2 * 0.15, c0 + len * 0.6]]); tips.push([x, c0 + len]); }
-  [[wl, 1], [wr, -1]].forEach(function (S) { for (var yy = H * 0.3; yy < H * 0.6; yy += H * 0.12) { var xx = S[0](yy) - S[1] * 2, len = 26 + rnd() * 30; stal += poly([[xx - S[1] * 2, yy - 6], [xx + S[1] * 22, yy - 4], [xx + S[1] * 8, yy + len]]); tips.push([xx + S[1] * 8, yy + len]); } });
-  var gm = ''; (ph ? [0.15, 0.4, 0.86] : [0.17, 0.26, 0.44, 0.6, 0.84, 0.9]).forEach(function (f, j) { var gx = W * f, gy = yF(gx) + 4, h = (ph ? 30 : 46) * (0.6 + (j % 3) * 0.3); gm += 'M' + PT(gx - h * 0.32, gy) + ' Q' + PT(gx - h * 0.12, gy - h * 0.6) + ' ' + PT(gx - 3, gy - h) + ' Q' + PT(gx, gy - h - 4) + ' ' + PT(gx + 3, gy - h) + ' Q' + PT(gx + h * 0.12, gy - h * 0.6) + ' ' + PT(gx + h * 0.32, gy) + ' Z '; });
-  add(mid, 'e', stal + gm, dk ? '#2A2048' : '#8E78A6'); add(mid, 'f', hl, dk ? 'rgba(200,180,255,0.12)' : 'rgba(255,255,255,0.35)');
-  var glow = [], wc = {dk: '', lt: '', ridge: ''}, ledge0 = '';
-  [[wl, 0.42, 1, 42], [wr, 0.36, -1, -44], [wl, 0.66, 1, 34], [wr, 0.62, -1, -36]].forEach(function (q, j) { var yy = H * q[1], xx = q[0](yy) + q[2] * 2, sz = (ph ? 34 : 58) * (j < 2 ? 1 : 0.8), C = n5_crys(xx, yy, sz, q[3], 4, rnd); wc.dk += C.dk; wc.lt += C.lt; wc.ridge += C.ridge;
-    ledge0 += ell(xx + q[2] * sz * 0.1, yy + 4, sz * 0.34, 7) + ell(xx + q[2] * sz * 0.3, yy + 2, sz * 0.16, 5);
+  add(mid, 'e', sLit, dk ? 'rgba(180,150,240,0.16)' : 'rgba(255,255,255,0.3)'); add(mid, 'f', sShd, dk ? 'rgba(4,0,12,0.35)' : 'rgba(60,40,90,0.22)');
+  add(mid, 'g', crk, dk ? 'rgba(6,2,16,0.55)' : 'rgba(60,40,90,0.35)');
+  // ---- stalactites (ceiling and walls) and stalagmites (floor): rounded tapered cones, a shaded side, a wet glint at the tip ----
+  var stal = '', stD = '', stH = '', wet = '', tips = [];
+  for (x = 10; x < W; x += 34 + rnd() * 40) { var c0 = Math.max(ceil(x), oy(x) + 16); if (oy(x) > 0 && rnd() < 0.6) continue; var len = 20 + rnd() * (ph ? 40 : 60), w2 = 8 + rnd() * 10, cn = n5_cone(x, c0 - 6, w2, len + 6, 1, (rnd() - 0.5) * 4); stal += cn.all; stD += cn.dark; stH += cn.hi; wet += b2_ellA(cn.tip[0], cn.tip[1] - 1.5, 1.4, 2.2); tips.push(cn.tip); }
+  [[wl, 1], [wr, -1]].forEach(function (S) { for (var yy = H * 0.3; yy < H * 0.6; yy += H * 0.12) { var xx = S[0](yy) + S[1] * 6, len = 26 + rnd() * 30, cn = n5_cone(xx, yy - 6, 9, len, 1, S[1] * 4); stal += cn.all; stD += cn.dark; stH += cn.hi; wet += b2_ellA(cn.tip[0], cn.tip[1] - 1.5, 1.3, 2); tips.push(cn.tip); } });
+  (ph ? [0.15, 0.4, 0.86] : [0.17, 0.26, 0.44, 0.6, 0.84, 0.9]).forEach(function (f, j) { var gx = W * f, gy = yF(gx) + 4, h = (ph ? 30 : 46) * (0.6 + (j % 3) * 0.3), cn = n5_cone(gx, gy, h * 0.3, h, -1, (j % 2 ? 1 : -1) * 2); stal += cn.all; stD += cn.dark; stH += cn.hi; });
+  // ---- wall crystals (pink): faceted prisms on rocky ledges ----
+  var glow = [], wc = {mid: '', lit: '', dk: '', edge: '', glow: '', base: ''};
+  [[wl, 0.42, 1, 42], [wr, 0.36, -1, -44], [wl, 0.66, 1, 34], [wr, 0.62, -1, -36]].forEach(function (q, j) { var yy = H * q[1], xx = q[0](yy) + q[2] * 2, sz = (ph ? 34 : 58) * (j < 2 ? 1 : 0.8), C = n5_crys2(xx, yy, sz, q[3], 4, rnd);
+    ['mid', 'lit', 'dk', 'edge', 'glow', 'base'].forEach(function (kk) { wc[kk] += C[kk]; });
+    wc.base += b2_ellA(xx + q[2] * sz * 0.12, yy + 5, sz * 0.36, 6) + b2_ellA(xx + q[2] * sz * 0.34, yy + 4, sz * 0.16, 5);
     glow.push({x: xx + q[2] * sz * 0.3, y: yy - sz * 0.45, r: ph ? 40 : 60, c: 2, tips: C.tips}); });
-  add(mid, 'e', ledge0);
-  add(mid, 'g', wc.dk, dk ? '#B04A8A' : '#E07AAE'); add(mid, 'h', wc.lt, dk ? '#F08AC8' : '#FFC2DE'); stk(mid, 't', wc.ridge, dk ? 'rgba(255,220,240,0.5)' : 'rgba(255,255,255,0.75)', 1.2);
+  add(mid, 'h', stal + wc.base, dk ? '#2A2048' : '#8E78A6'); add(mid, 'i', stD, dk ? 'rgba(6,2,16,0.4)' : 'rgba(70,50,100,0.28)'); add(mid, 'j', stH + wet + flk, dk ? 'rgba(200,180,255,0.22)' : 'rgba(255,255,255,0.45)');
+  add(mid, 'k', wc.mid, dk ? '#B04A8A' : '#E07AAE'); add(mid, 'l', wc.lit, dk ? '#F08AC8' : '#FFC2DE'); add(mid, 'm', wc.dk, dk ? '#7A2C62' : '#C2558E');
+  add(mid, 'n', wc.glow, dk ? 'rgba(255,220,245,0.5)' : 'rgba(255,255,255,0.32)'); add(mid, 'o', wc.edge, dk ? 'rgba(255,235,250,0.85)' : 'rgba(255,255,255,0.95)');
+  add(mid, 'p', lvs, dk ? '#2E5A48' : '#5FA26E'); add(mid, 'A', lvs2, dk ? '#3E7A5E' : '#8CC88E');
+  // ---- the floor: a lit edge, pebbles with a glint, pools ringed by stones with a sheen ----
   var fl = [], fx; for (fx = -40; fx <= W + 40; fx += 10) fl.push([fx, yF(fx)]);
   add(near, 'a', below(fl, H + 40), dk ? '#120C22' : '#6A5884');
-  var peb = ''; spread(0, H * 0.82, W, H * 0.18, 30, 16, rnd, 1).forEach(function (c) { if (c.q < 0.4) peb += ell(c.x, c.y, 3 + c.r * 5, 1.6 + c.k * 2); });
-  var ledge = ''; fl.forEach(function (p, j) { if (j % 2 === 0) ledge += rect(p[0], p[1], 10, 3); });
-  add(near, 'b', peb + ledge, dk ? '#1E1636' : '#80709C');
-  var pools = ph ? [[0.28, 0.9, 0.24, 0.028], [0.78, 0.93, 0.16, 0.02]] : [[0.3, 0.88, 0.15, 0.034], [0.74, 0.91, 0.12, 0.026]], pp = '', rim = '';
-  pools = pools.map(function (q) { var p = {x: W * q[0], y: H * q[1], rx: W * q[2], ry: H * q[3]}; pp += ell(p.x, p.y, p.rx, p.ry); rim += ell(p.x, p.y + 2, p.rx + 6, p.ry + 3); return p; });
-  add(near, 'c', rim, dk ? '#2A2048' : '#A08EB8'); add(near, 'd', pp, dk ? '#1E2A5A' : '#9FC4E6');
-  var fc = [{dk: '', lt: '', ridge: ''}, {dk: '', lt: '', ridge: ''}], FC = ph ? [[0.06, 1, 0, 64], [0.94, 1, 1, 56], [0.5, 0.6, 1, 34], [0.36, 0.7, 0, 30], [0.75, 0.6, 0, 30]] : [[0.035, 1, 0, 120], [0.965, 1, 1, 100], [0.58, 0.6, 1, 50], [0.15, 0.7, 1, 56], [0.86, 0.75, 0, 60], [0.42, 0.55, 0, 36], [0.68, 0.7, 0, 34], [0.25, 0.6, 0, 30]];
-  FC.forEach(function (q, j) { var cx = W * q[0], cy = (q[1] === 1 ? H + 6 : yF(cx) + 10), C = n5_crys(cx, cy, q[3], q[0] < 0.5 ? 12 : -12, q[1] === 1 ? 5 : 3, rnd); fc[q[2]].dk += C.dk; fc[q[2]].lt += C.lt; fc[q[2]].ridge += C.ridge; glow.push({x: cx, y: cy - q[3] * 0.5, r: q[3] * 1.5, c: q[2], tips: C.tips}); });
-  add(near, 'e', fc[0].dk, dk ? '#7A3EC8' : '#9A62D8'); add(near, 'f', fc[0].lt, dk ? '#B88AF8' : '#D2B2F8');
-  add(near, 'g', fc[1].dk, dk ? '#1E9AA8' : '#3EB4C0'); add(near, 'h', fc[1].lt, dk ? '#7AE8F0' : '#A8EEF2');
-  stk(near, 't', fc[0].ridge + fc[1].ridge, dk ? 'rgba(230,240,255,0.42)' : 'rgba(255,255,255,0.7)', 1.3);
-  var shm = ''; pools.forEach(function (p) { for (var q = 0; q < 3; q++) shm += seg(p.x - p.rx * (0.5 - q * 0.2), p.y - p.ry * 0.3 + q * 4, p.x - p.rx * (0.3 - q * 0.25), p.y - p.ry * 0.3 + q * 4); });
-  stk(near, 's', shm, dk ? 'rgba(160,200,255,0.3)' : 'rgba(255,255,255,0.7)', 1.6);
+  var peb = '', pebH = ''; spread(0, H * 0.82, W, H * 0.18, 30, 16, rnd, 1).forEach(function (c) { if (c.q < 0.4) { var rx = 3 + c.r * 5, ry = 1.6 + c.k * 2; peb += b2_ellA(c.x, c.y, rx, ry); pebH += b2_ellA(c.x - rx * 0.3, c.y - ry * 0.35, rx * 0.35, ry * 0.3); } });
+  var lip = b2_band(fl.map(function (p) { return [p[0], p[1] + 1.5]; }), 3);
+  var pools = ph ? [[0.28, 0.9, 0.24, 0.028], [0.78, 0.93, 0.16, 0.02]] : [[0.3, 0.88, 0.15, 0.034], [0.74, 0.91, 0.12, 0.026]], pp = '', rim = '', rimH = '', sheen = '', rings = '';
+  pools = pools.map(function (q) { var p = {x: W * q[0], y: H * q[1], rx: W * q[2], ry: H * q[3]}; pp += b2_ellA(p.x, p.y, p.rx, p.ry); rim += b2_ellA(p.x, p.y + 2, p.rx + 5, p.ry + 3);
+    for (var j = 0; j < 22; j++) { var aa = j / 22 * Math.PI * 2, sr = (ph ? 3.5 : 5) * (0.75 + 0.5 * Math.abs(Math.sin(j * 2.7))), sx = p.x + Math.cos(aa) * (p.rx + 3), sy = p.y + 1 + Math.sin(aa) * (p.ry + 2); rim += b2_ellA(sx, sy, sr, sr * 0.6); rimH += b2_ellA(sx - sr * 0.25, sy - sr * 0.25, sr * 0.45, sr * 0.22); }
+    sheen += b2_polyA([[p.x - p.rx * 0.8, p.y - p.ry * 0.35], [p.x + p.rx * 0.2, p.y - p.ry * 0.6], [p.x + p.rx * 0.5, p.y - p.ry * 0.45], [p.x - p.rx * 0.5, p.y - p.ry * 0.15]]);
+    if (!ANIM) [0, 1].forEach(function (j) { rings += n5_ring(p.x + p.rx * (j ? 0.3 : -0.25), p.y + p.ry * 0.1, p.rx * 0.18 * (1 + j), p.ry * 0.35 * (1 + j), 1.2); });
+    return p; });
+  add(near, 'b', peb, dk ? '#1E1636' : '#80709C'); add(near, 'c', rim + lip, dk ? '#2A2048' : '#A08EB8'); add(near, 'd', pp, dk ? '#1E2A5A' : '#9FC4E6');
+  // ---- floor crystals (purple and teal) on rock bases, big clusters in the near corners ----
+  var fc = [{mid: '', lit: '', dk: '', edge: '', glow: ''}, {mid: '', lit: '', dk: '', edge: '', glow: ''}], FC = ph ? [[0.06, 1, 0, 64], [0.94, 1, 1, 56], [0.5, 0.6, 1, 34], [0.36, 0.7, 0, 30], [0.75, 0.6, 0, 30]] : [[0.035, 1, 0, 120], [0.965, 1, 1, 100], [0.58, 0.6, 1, 50], [0.15, 0.7, 1, 56], [0.86, 0.75, 0, 60], [0.42, 0.55, 0, 36], [0.68, 0.7, 0, 34], [0.25, 0.6, 0, 30]], cBase = '';
+  FC.forEach(function (q, j) { var cx = W * q[0], cy = (q[1] === 1 ? H + 6 : yF(cx) + 10), C = n5_crys2(cx, cy, q[3], q[0] < 0.5 ? 12 : -12, q[1] === 1 ? 5 : 3, rnd); ['mid', 'lit', 'dk', 'edge', 'glow'].forEach(function (kk) { fc[q[2]][kk] += C[kk]; }); if (q[1] !== 1) cBase += C.base; glow.push({x: cx, y: cy - q[3] * 0.5, r: q[3] * 1.5, c: q[2], tips: C.tips}); });
+  add(near, 'e', cBase, dk ? '#241A40' : '#8A78A8'); add(near, 'f', pebH, dk ? 'rgba(170,150,230,0.18)' : 'rgba(255,255,255,0.35)');
+  add(near, 'g', fc[0].mid, dk ? '#7A3EC8' : '#9A62D8'); add(near, 'h', fc[0].lit, dk ? '#B88AF8' : '#D2B2F8'); add(near, 'i', fc[0].dk, dk ? '#4E2490' : '#7444B8');
+  add(near, 'j', fc[1].mid, dk ? '#1E9AA8' : '#3EB4C0'); add(near, 'k', fc[1].lit, dk ? '#7AE8F0' : '#A8EEF2'); add(near, 'l', fc[1].dk, dk ? '#0E6470' : '#258C98');
+  add(near, 'm', fc[0].glow + fc[1].glow, dk ? 'rgba(240,235,255,0.45)' : 'rgba(255,255,255,0.3)'); add(near, 'n', fc[0].edge + fc[1].edge, dk ? 'rgba(240,245,255,0.85)' : 'rgba(255,255,255,0.95)');
+  add(near, 'o', sheen + rimH, dk ? 'rgba(180,200,255,0.16)' : 'rgba(255,255,255,0.5)'); add(near, 'p', rings, dk ? 'rgba(160,200,255,0.3)' : 'rgba(255,255,255,0.7)');
   if (ANIM) { ANIM.glow = glow; ANIM.tips = tips.filter(function (t) { return t[1] > H * 0.08; }); ANIM.pools = pools; ANIM.yF = yF; ANIM.open = [ox, orx, ory];
     ANIM.lantern = [W * (ph ? 0.14 : 0.08), yF(W * (ph ? 0.14 : 0.08)) - 2]; ANIM.geode = [W * (ph ? 0.5 : 0.52), yF(W * (ph ? 0.5 : 0.52)) + H * (ph ? 0.08 : 0.1)]; ANIM.bat = tips.length ? tips[Math.floor(tips.length * 0.3)] : [W * 0.3, H * 0.2]; }
-  else { var g = W * (ph ? 0.5 : 0.52), gy2 = yF(g) + H * (ph ? 0.08 : 0.1), gr = ph ? 32 : 50; add(near, 'b', ell(g, gy2 - gr * 0.8, gr, gr * 0.8)); add(near, 'b', ell(g, gy2, gr * 1.2, gr * 0.18)); }
+  else {
+    // the still geode (a rough rock with a glowing seam, in its shadow) and the lantern
+    var g = W * (ph ? 0.5 : 0.52), gy2 = yF(g) + H * (ph ? 0.08 : 0.1), gr = ph ? 32 : 50, GP = n5_geoRock(g, gy2 - gr * 0.8, gr);
+    add(near, 'A', b2_ellA(g, gy2, gr * 1.2, gr * 0.18), dk ? 'rgba(10,4,20,0.4)' : 'rgba(40,20,60,0.25)');
+    add(near, 'B', GP.rock, dk ? '#8A7A70' : '#B4A494'); add(near, 'C', GP.shade, dk ? 'rgba(30,18,30,0.4)' : 'rgba(70,50,50,0.3)'); add(near, 'D', GP.hi, 'rgba(255,255,255,0.25)'); add(near, 'E', GP.seam, dk ? '#D6B4FF' : '#B98AF0');
+    var Lx = W * (ph ? 0.14 : 0.08), Ly = yF(Lx) - 2, LP = n5_lantern(Lx, Ly, ph ? 0.9 : 1.2);
+    add(near, 'F', LP.glass, dk ? 'rgba(255,214,140,0.55)' : 'rgba(255,226,160,0.85)'); add(near, 'G', LP.frame, '#4E3E50'); add(near, 'H', LP.flame, '#FFF2C6');
+  }
   return {sky: sky, far: far, refl: refl, mid: mid, near: near};
 };
 // end of scenes_n5.js
@@ -19460,7 +19538,8 @@ ENGINES.geology = function (A, v, dk) {
   tips.forEach(function (tp, i) { drips.push({x: tp[0], y0: tp[1], y: tp[1], v: 0, st: 0, wait: 1 + hash(i * 3) * 6}); });
   for (var i = 0; i < (ph ? 22 : 40); i++) motes.push({x: Math.random(), y: Math.random(), ph: Math.random() * 6.28, s: 0.5 + Math.random()});
   if (dk) for (i = 0; i < 24; i++) { var a = Math.random() * Math.PI, rr = Math.random() * 0.9; stars.push({x: O[0] + Math.cos(a) * O[1] * rr, y: Math.sin(a) * O[2] * rr * 0.8, ph: Math.random() * 6.28}); }
-  var G = A.geode, GR = ph ? 32 : 50, mom = null, rays = [];
+  var G = A.geode, GR = ph ? 32 : 50, mom = null, rays = [], gp0 = n5_geoRock(0, 0, GR), GP = {rock: new Path2D(gp0.rock), shade: new Path2D(gp0.shade), hi: new Path2D(gp0.hi), seam: new Path2D(gp0.seam)};
+  var lp0 = n5_lantern(0, 0, 1), LPp = {glass: new Path2D(lp0.glass), frame: new Path2D(lp0.frame), flame: new Path2D(lp0.flame)};
   function landY(x) { for (var k = 0; k < pools.length; k++) { var p = pools[k], u = (x - p.x) / p.rx; if (Math.abs(u) < 0.9) return {y: p.y, pool: p}; } return {y: A.yF(x) + 6, pool: null}; }
   function shaft(x, y) { var u = (y - O[2] * 0.7) / (H * 0.95 - O[2] * 0.7), xa = O[0] - O[1] * 0.7 + (W * (ph ? 0.1 : 0.2) - (O[0] - O[1] * 0.7)) * u, xb = O[0] + O[1] * 0.5 + (W * (ph ? 0.6 : 0.5) - (O[0] + O[1] * 0.5)) * u; return x > xa && x < xb && u > 0 && u < 1; }
   function geode(c, t) { var x = G[0], y = G[1], r = GR, T = mom ? t - mom.t0 : -1, crack = T < 0 ? 0 : Math.min(1, T / 0.8), shake = T > 0.6 && T < 1.3 ? Math.sin(T * 60) * 1.5 : 0, sp = T > 1.3 ? m5_ease((T - 1.3) / 0.7) : 0, back = T > 8 ? m5_ease((T - 8) / 0.9) : 0; sp *= 1 - back;
@@ -19472,9 +19551,8 @@ ENGINES.geology = function (A, v, dk) {
       for (var k = 0; k < 13; k++) { var a = -Math.PI / 2 + (k - 6) * 0.2 + Math.sin(t * 0.8 + k) * 0.05, L = r * (4.5 + 2.5 * Math.sin(t * 2 + k * 1.7)) * sp; var lg = c.createLinearGradient(0, 0, Math.cos(a) * L, Math.sin(a) * L); lg.addColorStop(0, 'rgba(230,200,255,0.9)'); lg.addColorStop(1, 'rgba(200,160,255,0)'); c.fillStyle = lg; c.beginPath(); c.moveTo(0, 0); c.lineTo(Math.cos(a - 0.06) * L, Math.sin(a - 0.06) * L); c.lineTo(Math.cos(a + 0.06) * L, Math.sin(a + 0.06) * L); c.fill(); }
       c.restore(); }
     [-1, 1].forEach(function (sd) { c.save(); c.translate(sd * sp * r * 0.9, -sp * r * 0.1); c.rotate(sd * sp * 0.5); if (sp > 0) n5_geoHalf(c, sd, r, sp, t); else { c.restore(); return; } c.restore(); });
-    if (sp <= 0) { var g = c.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.1, 0, 0, r); g.addColorStop(0, '#C4B4A4'); g.addColorStop(1, '#7A6A5E'); c.fillStyle = g; c.beginPath(); c.ellipse(0, 0, r, r * 0.8, 0, 0, 7); c.fill();
-      c.fillStyle = 'rgba(90,70,60,0.35)'; [[-0.4, 0.2, 0.16], [0.3, -0.3, 0.12], [0.45, 0.3, 0.1], [-0.1, -0.5, 0.08]].forEach(function (q) { c.beginPath(); c.arc(q[0] * r, q[1] * r, q[2] * r, 0, 7); c.fill(); });
-      c.fillStyle = 'rgba(255,255,255,0.3)'; c.beginPath(); c.ellipse(-r * 0.4, -r * 0.4, r * 0.25, r * 0.12, -0.5, 0, 7); c.fill();
+    if (sp <= 0) { c.fillStyle = dk ? '#8A7A70' : '#B4A494'; c.fill(GP.rock); c.fillStyle = dk ? 'rgba(30,18,30,0.4)' : 'rgba(70,50,50,0.3)'; c.fill(GP.shade); c.fillStyle = 'rgba(255,255,255,0.25)'; c.fill(GP.hi);
+      c.save(); c.shadowColor = '#C890FF'; c.shadowBlur = dk ? 10 : 4; c.fillStyle = dk ? '#D6B4FF' : '#B98AF0'; c.globalAlpha = 0.75 + 0.25 * Math.sin(t * 1.4); c.fill(GP.seam); c.restore();
       if (crack > 0) { c.strokeStyle = '#E8D0FF'; c.lineWidth = 1.6; c.shadowColor = '#C890FF'; c.shadowBlur = 8; c.beginPath(); var n = Math.ceil(crack * 6); c.moveTo(0, -r * 0.8); for (var q = 1; q <= n; q++) c.lineTo((q % 2 ? 1 : -1) * r * 0.12, -r * 0.8 + q * r * 0.27); c.stroke(); c.shadowBlur = 0; } }
     c.restore(); }
   return {
@@ -19503,9 +19581,10 @@ ENGINES.geology = function (A, v, dk) {
         if (k < 0.25) { cb.fillStyle = dk ? 'rgba(180,210,255,0.8)' : 'rgba(255,255,255,0.9)'; for (j = -1; j <= 1; j += 2) { cb.beginPath(); cb.arc(r.x + j * k * 30, r.y - Math.sin(k / 0.25 * Math.PI) * 10, 1.4, 0, 7); cb.fill(); } } });
       var L = A.lantern, ls = ph ? 0.9 : 1.2; cb.save(); cb.translate(L[0], L[1]); cb.scale(ls, ls);
       if (!dk) m5_dot(cb, warmG, 0, -16, 70, 0.75 + 0.1 * flick(tt, 2));
-      cb.fillStyle = '#5A4A5A'; cb.fillRect(-10, -4, 20, 4); cb.fillRect(-8, -30, 16, 3); cb.beginPath(); cb.arc(0, -33, 5, Math.PI, 0); cb.lineWidth = 1.6; cb.strokeStyle = '#5A4A5A'; cb.stroke();
-      cb.fillStyle = dk ? 'rgba(120,110,150,0.5)' : 'rgba(255,220,140,0.85)'; cb.fillRect(-7, -27, 14, 23); if (!dk) { cb.fillStyle = '#FFF4C8'; cb.beginPath(); cb.ellipse(0, -14, 3, 5 + flick(tt, 1) * 2, 0, 0, 7); cb.fill(); }
-      cb.strokeStyle = '#5A4A5A'; cb.lineWidth = 1.4; cb.strokeRect(-7, -27, 14, 23); cb.beginPath(); cb.moveTo(0, -27); cb.lineTo(0, -4); cb.stroke(); cb.restore();
+      if (dk) m5_dot(cb, warmG, 0, -16, 46, 0.45 + 0.1 * flick(tt, 2));
+      cb.fillStyle = dk ? 'rgba(255,214,140,0.55)' : 'rgba(255,226,160,0.85)'; cb.fill(LPp.glass);
+      cb.save(); cb.translate(0, -15); cb.scale(1, 0.85 + 0.25 * flick(tt, 1)); cb.translate(0, 15); cb.fillStyle = '#FFF2C6'; cb.fill(LPp.flame); cb.restore();
+      cb.fillStyle = '#4E3E50'; cb.fill(LPp.frame); cb.restore();
       geode(cb, t);
       rays.forEach(function (r) { var a = Math.min(1, (t - r.t0) * 3) * Math.max(0, 1 - (t - r.t0) / r.life), s = (5 + Math.sin(t * 5 + r.ph) * 2) * (r.s || 1); cb.save(); cb.translate(r.x, r.y); cb.rotate(t + r.ph); cb.globalAlpha = a; cb.fillStyle = CC[r.c][1]; cb.beginPath(); cb.moveTo(0, -s); cb.lineTo(s * 0.2, -s * 0.2); cb.lineTo(s, 0); cb.lineTo(s * 0.2, s * 0.2); cb.lineTo(0, s); cb.lineTo(-s * 0.2, s * 0.2); cb.lineTo(-s, 0); cb.lineTo(-s * 0.2, -s * 0.2); cb.fill(); cb.restore(); });
       var B = A.bat; n5_bat(ca, B[0], B[1] - 2, ph ? 1 : 1.3, tt, dk || !!mom, mom ? Math.abs(Math.sin(tt * 10)) * Math.max(0, 1 - (t - mom.t0) / 3) : 0);
