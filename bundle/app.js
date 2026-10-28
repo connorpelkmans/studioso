@@ -7525,8 +7525,8 @@ document.addEventListener("pointermove", e => {
     if (sDrag.el) sDrag.el.style.opacity = "0";
   }
   sDrag.ghost.style.left = e.clientX + "px"; sDrag.ghost.style.top = e.clientY + "px";
-  // Near the edge of the board, it scrolls so notes further down or across can be reached
-  const sc = document.querySelector(".nb-scroll");
+  // Over empty cork near the edge of the board, it scrolls so notes further down or across can be reached
+  const sc = !stkNoteAt(e.clientX, e.clientY) && document.querySelector(".nb-scroll");
   if (sc) { const r = sc.getBoundingClientRect(); if (e.clientX > r.left && e.clientX < r.right) { if (e.clientY > r.bottom - 60) sc.scrollTop += 10; else if (e.clientY < r.top + 60) sc.scrollTop -= 10; } }
   const t = stkNoteAt(e.clientX, e.clientY); sDrag.hover = t;
   $$(".note.stk-target").forEach(n => { if (n !== t) n.classList.remove("stk-target"); });
