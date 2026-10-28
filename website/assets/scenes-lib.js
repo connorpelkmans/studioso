@@ -1965,7 +1965,7 @@ SCENES.xmas = function (W, H, dk, rnd) {
   // strings of bulbs across the top: sockets on a sagging wire, bulbs with a pointed tip and a glint
   var swY = ph ? H * 0.43 : -2, swDrop = ph ? 40 : 70, nS = ph ? 2 : 3, wire = '', strB = ['', '', ''], sgl = ['', '', ''], sock = '';
   if (ph) { swY = TT[0].top + 20; swDrop = 26; }
-  for (var sI = 0; sI < nS; sI++) { var x0s = -20 + sI * (W + 40) / nS, x1s = -20 + (sI + 1) * (W + 40) / nS, y0s = swY, y1s = swY;
+  for (var sI = 0; sI < nS; sI++) { var sh0 = ph ? 0 : 16, x0s = -20 + sh0 + sI * (W + 40) / nS, x1s = -20 + sh0 + (sI + 1) * (W + 40) / nS, y0s = swY, y1s = swY;
     if (ph) { var ay = TT[0].top + 38, ah = halfAt(ay) - 3; if (sI === 0) { x1s = tx - ah; y1s = ay; } else { x0s = tx + ah; y0s = ay; } }
     var pts2 = b4_qpts(x0s, y0s, (x0s + x1s) / 2, (y0s + y1s) / 2 + swDrop * 2, x1s, y1s, 20); wire += pline(pts2);
     for (var q2 = 1; q2 < 20; q2 += 2) { var p2 = pts2[q2], ci = (q2 + sI) % 3, sbx = p2[0], sby = p2[1] + 7;
