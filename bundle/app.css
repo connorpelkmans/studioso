@@ -6372,6 +6372,9 @@ html .fhead .fcrumb{background:none!important;padding-inline:0!important;text-sh
 .gt-dot{display:inline-block;border-style:dashed!important;opacity:.7;pointer-events:none}
 .gt-chip{background:color-mix(in srgb,#C9702B 18%,var(--surface))!important;color:color-mix(in srgb,#C9702B 70%,var(--ink))!important}
 .sort-ghost{position:fixed!important;z-index:200;pointer-events:none;margin:0!important;transform:rotate(1.5deg) scale(1.02);box-shadow:0 18px 40px rgba(0,0,0,.35);opacity:.95;transition:none!important}
+/* The lifted copy has no frosted backdrop: Safari paints it square-cornered for a moment before the rounded clip catches up */
+.sort-ghost,.sort-ghost *{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+.sort-ghost.grp-card{background:var(--surface)!important;border-radius:18px!important;overflow:hidden;will-change:transform}
 .sort-hole{opacity:.25;outline:2px dashed var(--line);outline-offset:4px;border-radius:18px}
 body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important;-webkit-user-select:none!important}
 /* A long press reorders: the browser's own long-press preview, text selection and drag of a link or picture must not start first */
