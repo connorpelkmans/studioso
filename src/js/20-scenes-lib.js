@@ -1862,7 +1862,7 @@ SCENES.xmas = function (W, H, dk, rnd) {
     var chx = x0 + w * 0.68, cht = y0 - rh * 0.78 - 8;
     roof += R4(chx, cht, 14, y0 - cht) + R4(chx - 2, cht - 4, 18, 5);
     snow += b2_polyA([[chx - 3, cht - 3], [chx - 1, cht - 8], [chx + 7, cht - 10], [chx + 15, cht - 8], [chx + 17, cht - 3]]);
-    for (q = 0; q < 4; q++) smoke += circ(chx + 7 + Math.sin(q * 1.3 + i) * 5 + q * 3, cht - 14 - q * 13, 5 + q * 2.2);
+    if (ANIM) (ANIM.chim = ANIM.chim || []).push([chx + 7, cht - 3]); else for (q = 0; q < 4; q++) smoke += circ(chx + 7 + Math.sin(q * 1.3 + i) * 5 + q * 3, cht - 14 - q * 13, 5 + q * 2.2);
     var sn = [[L0 - 3, ey + 2], [apx, y0 - rh - 8], [R0 + 3, ey + 2]];
     for (q = 0; q <= 12; q++) { u = q / 12; sn.push([R0 + 2 - u * (R0 + 2 - apx), ey + 2 - u * (ey + 2 - (y0 - rh)) + 4 + Math.abs(Math.sin(u * 9 + i)) * 4]); }
     for (q = 1; q <= 12; q++) { u = q / 12; sn.push([apx - u * (apx - L0 + 2), (y0 - rh) + u * (ey + 2 - (y0 - rh)) + 4 + Math.abs(Math.sin(u * 7 + i * 2)) * 4]); }
@@ -1964,9 +1964,9 @@ SCENES.xmas = function (W, H, dk, rnd) {
     for (q = 0; q < 7; q++) { var bx = sx - 33 + q * 11, by = sy2 + 4 + Math.sin(q * 1.7) * 8, d = b2_ellA(bx, by, 2.4, 3); if (ANIM) ANIM.bulbs.push({x: bx, y: by, c: [0, 2, 3][q % 3], sw: 0.6}); if (q % 3 === 0) bD += d; else if (q % 3 === 1) bE += d; else bF += d; gHi += b2_ellA(bx - 0.8, by - 1, 0.6, 1.1); } });
 
   // strings of bulbs across the top: sockets on a sagging wire, bulbs with a pointed tip and a glint
-  var swY = ph ? H * 0.43 : H * 0.05, swDrop = ph ? 40 : 70, nS = ph ? 2 : 3, wire = '', strB = ['', '', ''], sgl = ['', '', ''], sock = '';
+  var swY = ph ? H * 0.43 : -2, swDrop = ph ? 40 : 70, nS = ph ? 2 : 3, wire = '', strB = ['', '', ''], sgl = ['', '', ''], sock = '';
   if (ph) { swY = TT[0].top + 20; swDrop = 26; }
-  for (var sI = 0; sI < nS; sI++) { var x0s = -20 + sI * (W + 40) / nS, x1s = -20 + (sI + 1) * (W + 40) / nS, y0s = swY, y1s = swY;
+  for (var sI = 0; sI < nS; sI++) { var sh0 = ph ? 0 : 16, x0s = -20 + sh0 + sI * (W + 40) / nS, x1s = -20 + sh0 + (sI + 1) * (W + 40) / nS, y0s = swY, y1s = swY;
     if (ph) { var ay = TT[0].top + 38, ah = halfAt(ay) - 3; if (sI === 0) { x1s = tx - ah; y1s = ay; } else { x0s = tx + ah; y0s = ay; } }
     var pts2 = b4_qpts(x0s, y0s, (x0s + x1s) / 2, (y0s + y1s) / 2 + swDrop * 2, x1s, y1s, 20); wire += pline(pts2);
     for (var q2 = 1; q2 < 20; q2 += 2) { var p2 = pts2[q2], ci = (q2 + sI) % 3, sbx = p2[0], sby = p2[1] + 7;
@@ -14994,6 +14994,9 @@ ENGINES.xmas = function (A, v, dk) {
     },
     draw: function (ca, cb, t, f) {
       var d = cb.getTransform().a; if (Math.abs(d - dpr) > 1e-3) build(d);
+      // chimney smoke: puffs rise, swell, lean with the breeze and fade
+      (A.chim || []).forEach(function (c, i) { for (var k = 0; k < 6; k++) { var u = ((t * 0.16 * Math.max(0.5, f.s) + k / 6 + i * 0.37) % 1 + 1) % 1, x = c[0] + u * u * 26 + Math.sin(t * 0.8 + k * 1.7 + i) * 3 * u, y = c[1] - u * 64, r = 4 + u * 10, a = Math.min(1, u * 9) * Math.pow(1 - u, 0.9) * (dk ? 0.2 : 0.6);
+        if (a < 0.01) continue; ca.fillStyle = dk ? 'rgba(200,210,215,' + a + ')' : 'rgba(255,255,255,' + a + ')'; ca.beginPath(); ca.arc(x, y, r, 0, 7); ca.fill(); } });
       cb.save(); cb.globalCompositeOperation = dk ? 'lighter' : 'source-over';
       var base = dk ? 0.5 : 0.32;
       tree.concat(bulbs).forEach(function (b) {
