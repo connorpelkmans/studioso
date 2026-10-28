@@ -6672,6 +6672,7 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
 @media (max-width:639px){dialog:is(:has(.sheet.shop),:has(.sheet.mt-sheet),:has(.plan-sheet),:has(.sheet.ob),:has(.ph-sheet)){width:100%}}
 /* Courses: the school site button on the left, Insights and the bin on the right */
 @media (max-width:639px){#view .view-head > h2 + .btn[data-act$="-open"]{margin-right:auto}}
+@media (max-width:639px){:is(#view > .view-head,#view > section > .view-head).ph-btns .btn.small[data-act$="-open"]:first-of-type,:is(#view > .view-head,#view > section > .view-head).ph-btns > h2 + .btn.small[data-act$="-open"]{margin-right:auto!important}}
 
 /* One rhythm on every tab: tab bar, 12px, the page's buttons, 14px, the content */
 @media (max-width:639px){
