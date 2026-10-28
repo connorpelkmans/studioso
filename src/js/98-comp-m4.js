@@ -429,7 +429,7 @@
       {
         id: "chem-beaker", name: "Beaky", kind: "Beaker", pose: "sit", sleepy: true, wearColor: "#E8643C",
         bio: "A friendly beaker who stirs up big cheers for your hard work.",
-        idle: ["topBob", "bounce", "finWiggle"], cheer: "hop",
+        idle: ["sway", "bounce", "finWiggle"], cheer: "hop",
         parts: {
           feet: `<ellipse cx="48" cy="108.5" rx="7.4" ry="4" fill="#4FA55A" ${O}/><ellipse cx="72" cy="108.5" rx="7.4" ry="4" fill="#4FA55A" ${O}/>`,
           body: `${LG("chem-beaker-gl", [[0, "#F4FBFF"], [1, "#DCEFFA"]])}${LG("chem-beaker-lq", [[0, "#D9F78A"], [0.6, "#A8E06A"], [1, "#78C454"]])}
@@ -443,7 +443,6 @@
             <path d="M88 38H82M88 45H84.5M88 52H82" stroke="#9CC3DA" stroke-width="1.8" stroke-linecap="round"/>`,
           armL: {svg: `<ellipse cx="28" cy="84" rx="4.6" ry="6.6" transform="rotate(28 28 84)" fill="#9AD563" ${O}/>`, pivot: [33, 81]},
           armR: {svg: `<ellipse cx="92" cy="84" rx="4.6" ry="6.6" transform="rotate(-28 92 84)" fill="#9AD563" ${O}/>`, pivot: [87, 81]},
-          top: {svg: `${LINE("M68 52L81 9", "#E6F4FB", 3.4)}<path d="M79.6 13.5L82.4 4.2" stroke="#fff" stroke-width="1.3" stroke-linecap="round" opacity=".9"/>`, pivot: [74, 30]}
         },
         eyes: {lx: 50, rx: 70, y: 75, r: 5, style: "dot", color: "#1F3A1E"},
         mouth: {x: 60, y: 84, w: 3.1, color: "#1F3A1E"},

@@ -346,13 +346,61 @@ const toArrays = () => ({v:2, courses:Object.values(state.courses), tasks:Object
 // Set while this device's copy is being wiped
 let deviceWiping = false;
 let saveWarnAt = 0;
+function saveWarn(e){
+  if (window.SBERR && e && /quota/i.test(e.name + " " + e.message)) SBERR.flow("storage-quota", e);
+  if (Date.now() - saveWarnAt > 6e4) { saveWarnAt = Date.now(); setTimeout(() => { try { toast("Couldn't save on this device. Storage is full or blocked. Export a backup so nothing is lost.", null, null, {error: true}); } catch(e2) {} }, 700); }
+}
+/* The big copy: localStorage holds only about 5 MB, which a few whiteboards and a lot of notes can fill.
+   Once the saved copy is over SPILL_AT characters, or localStorage refuses it, it moves to IndexedDB (far more
+   room) and stays there on this device. A small marker in localStorage says so, and its change tells other tabs. */
+const LS2_IDB = "coursework:v2:idb", SPILL_KEY = "device:v2", SPILL_AT = 3e6;
+const spillMarked = () => { try { return !!localStorage.getItem(LS2_IDB); } catch(e) { return false; } };
+const spillOk = () => typeof indexedDB !== "undefined" && !inPreview();
+let spilled = spillMarked(), spillRaw = null, spillMoving = false, spillNext = null, spillT = 0, spillQ = null, spillChain = Promise.resolve();
+function spillWrite(json){
+  const p = spillChain.then(() => SBC.putStrict("rows", SPILL_KEY, json)).then(() => { try { localStorage.setItem(LS2_IDB, String(Date.now())); } catch(e) {} });
+  spillChain = p.catch(() => {});
+  return p;
+}
+function spillMove(json){
+  spillNext = json;
+  if (spillMoving) return;
+  spillMoving = true;
+  spillWrite(json).then(() => {
+    spilled = true; spillMoving = false;
+    try { localStorage.removeItem(LS2); } catch(e) {}
+    const later = spillNext; spillNext = null;
+    if (later && later !== json) spillQueue(later);
+  }, e => { spillMoving = false; spillNext = null; saveWarn(e); });
+}
+function spillQueue(json){
+  spillQ = json; clearTimeout(spillT);
+  spillT = setTimeout(spillFlush, 300);
+}
+// Writes what's waiting now (also when the page is hidden or closed)
+function spillFlush(){
+  clearTimeout(spillT);
+  const json = spillQ; spillQ = null;
+  if (json == null) return spillChain;
+  return spillWrite(json).catch(saveWarn);
+}
+async function spillRead(){ try { const v = await SBC.get("rows", SPILL_KEY); return typeof v === "string" && v ? v : null; } catch(e) { return null; } }
+// Called before loadLocal when the copy is in IndexedDB
+async function spillLoad(){ spilled = spilled || spillMarked(); if (spilled) spillRaw = await spillRead(); }
+window.addEventListener("pagehide", () => { try { spillFlush(); } catch(e) {} });
+document.addEventListener("visibilitychange", () => { if (document.hidden) { try { spillFlush(); } catch(e) {} } });
 function saveLocal(){
   if (deviceWiping || demoDrawing) return;
   if (lsHold) return;
-  try { const a = toArrays(); delete a.trash; localStorage.setItem(LS2, JSON.stringify(a)); }
+  let json;
+  try { const a = toArrays(); delete a.trash; json = JSON.stringify(a); } catch(e) { console.warn("save", e); return; }
+  if (!spilled && spillMarked()) spilled = true;
+  if (spilled) { spillQueue(json); return; }
+  if (spillMoving || json.length > SPILL_AT && spillOk()) { spillMove(json); return; }
+  try { localStorage.setItem(LS2, json); }
   catch(e){
-    if (window.SBERR && e && /quota/i.test(e.name + " " + e.message)) SBERR.flow("storage-quota", e);
-    if (Date.now() - saveWarnAt > 6e4) { saveWarnAt = Date.now(); setTimeout(() => { try { toast("Couldn't save on this device. Storage is full or blocked. Export a backup so nothing is lost.", null, null, {error: true}); } catch(e2) {} }, 700); }
+    if (spillOk()) { spillMove(json); return; }
+    saveWarn(e);
   }
 }
 // A saved copy that can't be read is set aside, never overwritten
@@ -360,13 +408,19 @@ let loadProblem = "";
 // Set when that copy couldn't be set aside in localStorage
 let lsHold = false;
 // Two tabs of a device-only copy
-window.addEventListener("storage", e => {
+function adoptOtherTab(raw){
   try {
-    if (e.key !== LS2 || !e.newValue || (typeof cloud !== "undefined" && cloud.on)) return;
     const keepTrash = state.trash, editing = typeof noteEditing !== "undefined" && noteEditing, mine = editing && state.notes[editing];
-    state = fromArrays(JSON.parse(e.newValue)); state.trash = keepTrash || state.trash || {};
+    state = fromArrays(JSON.parse(raw)); state.trash = keepTrash || state.trash || {};
     if (editing) { if (mine) state.notes[editing] = mine; return; }
     scheduleRender();
+  } catch(x) {}
+}
+window.addEventListener("storage", e => {
+  try {
+    if (!e.newValue || (typeof cloud !== "undefined" && cloud.on)) return;
+    if (e.key === LS2_IDB) { spilled = true; spillRead().then(v => { if (v) adoptOtherTab(v); }); return; }
+    if (e.key === LS2) adoptOtherTab(e.newValue);
   } catch(x) {}
 });
 function keepUnreadable(key, raw){
@@ -397,11 +451,13 @@ function deskNewer(own){
 function loadLocal(){
   let r = null;
   try {
-    r = localStorage.getItem(LS2);
+    r = spillRaw != null ? spillRaw : localStorage.getItem(LS2);
+    spillRaw = null;
+    if (!r && spilled) { loadProblem = "v2"; const f = deskNewer(null); if (f) { state = fromArrays(f); spillQueue(JSON.stringify(f)); loadProblem = ""; trashLoadLocal(); return; } }
     if (r) {
       const own = JSON.parse(r), newer = deskNewer(own);
       state = fromArrays(newer || own);
-      if (newer) { try { localStorage.setItem(LS2, JSON.stringify(newer)); } catch(e) {} }
+      if (newer) { if (spilled) spillQueue(JSON.stringify(newer)); else { try { localStorage.setItem(LS2, JSON.stringify(newer)); } catch(e) {} } }
       trashLoadLocal(); return;
     }
   } catch(e) {
@@ -445,10 +501,15 @@ function trashAssets(entries){
   const ids = (entries || []).flatMap(e => (e.items || []).filter(i => i.kind === "file").flatMap(i => (i.data.revs || []).map(r => r.assetId))).filter(Boolean);
   if (ids.length) cleanupAssets([...new Set(ids)], 0);
 }
+// A note with nothing in it (no text, drawing, photo or sticker) isn't worth keeping in Recently Deleted
+const trashHas = v => Array.isArray(v) ? v.length > 0 : !!(v && typeof v === "object" && Object.keys(v).length);
+const emptyNote = d => !!d && !d.wb && !String(d.text || "").trim() && !trashHas(d.ink) && !trashHas(d.photos) && !trashHas(d.stickers);
+const emptyEntry = e => (e.items || []).length > 0 && e.items.every(i => i && i.kind === "note" && emptyNote(i.data));
 // 30 days, then it's gone
 function trashEnforce(){
   let skewMs = 0; try { skewMs = Number(localStorage.getItem("studioso:skew")) || 0; } catch(e) {}
   const r = TB.purge(trashList(), Date.now() + skewMs);
+  trashList().forEach(e => { if (emptyEntry(e) && !r.dropped.includes(e)) r.dropped.push(e); });
   if (!r.dropped.length) return 0;
   r.dropped.forEach(e => { if (e && e.id && state.trash[e.id]) { delete state.trash[e.id]; try { queueWrite("trash", e.id, null); } catch(x) {} } });
   trashAssets(r.dropped.filter(e => e && Date.now() + skewMs >= TB.expiresAt(e)));
@@ -466,7 +527,7 @@ function trashCapture(changes, label){
   changes.forEach(c => {
     if (c.kind === "trash") return;
     const cur = getItem(c.kind, c.id); if (!cur) return;
-    if (c.after === null) deleted.push({kind: c.kind, id: c.id, data: clone(cur)});
+    if (c.after === null) { if (!(c.kind === "note" && emptyNote(cur))) deleted.push({kind: c.kind, id: c.id, data: clone(cur)}); }
     else if (c.kind === "deck") {
       const keepC = new Set((c.after.cards || []).map(x => x.id)), keepQ = new Set((c.after.aiQuizzes || []).map(x => x.id)), par = {kind: "deck", id: cur.id, name: cur.name};
       (cur.cards || []).filter(x => !keepC.has(x.id) && !inDecks.has(x.id)).slice(0, 2000).forEach(x => deleted.push({kind: "card", id: x.id, data: clone(x), parent: par}));

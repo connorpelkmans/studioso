@@ -158,7 +158,7 @@
     const origPwa = pwaBoot;
     pwaBoot = function(){ const r = origPwa.apply(this, arguments); const l = document.querySelector('link[rel="manifest"]'); if (l) l.href = "today.webmanifest"; return r; };
     // Changes made in another tab or window of Studyboard show up here too
-    window.addEventListener("storage", e => { if (e.key === LS2 && e.newValue) { loadLocal(); scheduleRender(); } });
+    window.addEventListener("storage", e => { if ((e.key === LS2 || e.key === LS2_IDB) && e.newValue) { spillLoad().then(() => { loadLocal(); scheduleRender(); }); } });
   }
 
   /* Settings: Widgets and Desktop */

@@ -90,3 +90,28 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
 }
 @media (max-width:600px){html:not(.board-max) .nb-scroll{height:calc(100dvh - 386px)}}
 @media (min-width:601px) and (max-width:700px){html:not(.board-max) .nb-scroll{height:calc(100dvh - 356px)!important}}
+/* Task preview: tap a task to see it, drag its progress bar, Edit for the full form */
+.occv-tag.ok{background:color-mix(in srgb,#2E9D5B 14%,var(--surface));color:#1F7A44;border-color:color-mix(in srgb,#2E9D5B 30%,transparent)}
+.tv-prog{margin:6px 4px 4px;padding:12px 0 2px;border-top:1px solid var(--line)}
+.tv-prog-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:8px}
+.tv-prog-h b{font:600 .8rem/1.2 var(--display);color:var(--muted)}
+.tv-prog-h span{font:700 .8rem/1 var(--display);color:var(--muted);font-variant-numeric:tabular-nums}
+.tv-bar{position:relative;height:6px;border-radius:999px;background:color-mix(in srgb,var(--c) 10%,var(--line));touch-action:none;outline:none;margin:0 7px 6px}
+.tv-bar[role=slider]{cursor:pointer}
+.tv-bar::before{content:"";position:absolute;inset:-14px -7px}
+.tv-fill{position:absolute;left:0;top:0;bottom:0;width:var(--v);border-radius:inherit;background:color-mix(in srgb,var(--c) 70%,var(--surface));transition:width .12s ease}
+.tv-knob{position:absolute;top:50%;left:var(--v);width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:var(--surface);border:2px solid color-mix(in srgb,var(--c) 75%,var(--surface));box-shadow:0 1px 2px rgba(0,0,0,.18);transition:left .12s ease,transform .12s ease}
+.tv-bar.drag .tv-fill,.tv-bar.drag .tv-knob{transition:none}
+.tv-bar.drag .tv-knob,.tv-bar[role=slider]:hover .tv-knob{transform:scale(1.2)}
+.tv-bar:focus-visible .tv-knob{outline:3px solid color-mix(in srgb,var(--c) 40%,transparent);outline-offset:2px}
+.tv-hint{margin:2px 0 0!important}
+.tv-cl h3{margin:12px 0 6px;font:700 .95rem/1.2 var(--display);color:var(--ink)}
+.tv-cl ul{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.tv-cl label{display:flex;align-items:flex-start;gap:10px;padding:6px 4px;cursor:pointer}
+.tv-cl input{margin-top:3px;accent-color:var(--c)}
+.tv-cl li.done span{text-decoration:line-through;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.tv-fill,.tv-knob{transition:none}}
+/* Sheets with a coloured header: nothing light is painted under the header's rounded corners,
+   so no pale sliver can show at the edge. The light background starts below the curve. */
+dialog:has(> .sheet > :is(.occv-band,.g2-sheet-head):first-child){background:transparent}
+dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:inherit;background:linear-gradient(transparent 40px,var(--surface) 40px)}

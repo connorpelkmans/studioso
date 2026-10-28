@@ -523,9 +523,12 @@
   }
   let fitT = 0;
   const fitHitSoon = () => { clearTimeout(fitT); fitT = setTimeout(fitHit, 120); };
+  // A sheet open over the page covers the companion, so nothing can be under its tap area until it closes
+  // (closing checks again). Skipping it keeps a long list in a sheet, like the Style Shop's companions, smooth.
+  const sheetOver = () => { try { return !!document.querySelector("dialog:modal"); } catch (e) { return !!(dlg && dlg.open); } };
   function fitHit(){
     try {
-      if (!box || box.hidden) return;
+      if (!box || box.hidden || sheetOver()) return;
       const hit = box.querySelector(".cp-hit"); if (!hit) return;
       hit.style.left = hit.style.right = hit.style.top = hit.style.bottom = ""; hit.classList.remove("cp-hit-off");
       const z = zf(), px = (+box.dataset.px || box.offsetWidth) * z;
@@ -961,15 +964,18 @@
     else if (front.style.position) ["position", "inset", "left", "top", "width", "height"].forEach(k => front.style.removeProperty(k));
   }
   // Content scrolling under it
-  let slotRaf = 0;
-  addEventListener("scroll", () => {
+  let slotRaf = 0, scrollT = 0;
+  addEventListener("scroll", e => {
+    // A list scrolling inside a sheet (like the Style Shop) moves nothing under the companion
+    const t = e && e.target; if (t && t.nodeType === 1 && t.closest && t.closest("dialog")) return;
     if (spotKind === "slot" && box && !slotRaf) slotRaf = requestAnimationFrame(() => {
       slotRaf = 0;
       const el = document.querySelector(".cpt-face-slot"); if (!el || travelAnim || glideAnim) return;
       const px = +box.dataset.px || sizePx(cur), r = el.getBoundingClientRect(), left = Math.round(r.left + (r.width - px) / 2), top = Math.round(r.top + (r.height - px) / 2 - seatLift(cur, px));
       anchorFront(true); box.style.left = left + "px"; box.style.top = top + "px"; box.dataset.x = left; box.dataset.y = top; homeSig = [left, top, px].join(",");
     });
-    placeSoon(320); guardSoon("scroll", 120);
+    // The safety checks wait until scrolling stops, so they never cost a frame mid-scroll
+    clearTimeout(scrollT); scrollT = setTimeout(() => { placeSoon(200); guardSoon("scroll", 0); }, 160);
   }, {passive: true, capture: true});
   // A toast that overlaps it
   function duck(){
@@ -2091,6 +2097,101 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   /* Picker: choose, rename, accessories, options */
   let pickActors = [], pickTimer = 0;
   function stopPreviews(){ clearInterval(pickTimer); pickTimer = 0; pickActors.forEach(a => a.stopAll()); pickActors = []; }
+  // A companion as one still picture, for long lists: one image scrolls far more smoothly than a full drawing.
+  // The picture has a margin (M) so ears and hats past the drawing's edge aren't cut off.
+  const fp = t => { let h = 5381; for (let i = 0; i < t.length; i++) h = (Math.imul(h, 33) ^ t.charCodeAt(i)) >>> 0; return h.toString(36) + ":" + t.length; };
+  const STILL_CSS = ".cp-p,.cp-headg,.cp-eye,.cp-page{transform-box:view-box}.cp-cheeks{opacity:.62}.cp-e-happy,.cp-e-sleepy,.cp-mouth>g,.cp-prop,.cp-zs{display:none}.cp-mouth>.cp-m-neutral{display:inline}";
+  const STILL_M = 0.15, stills = {}, stillFps = {};
+  function stillUrl(c){
+    if (stills[c.id]) return stills[c.id];
+    const m = 120 * STILL_M, svg = rigSvg(c, {}).replace(/var\(--cp-wear,[^)]*\)/g, wearColor(c))
+      .replace(/<svg([^>]*)>/, (all, at) => `<svg xmlns="http://www.w3.org/2000/svg"${at.replace(/\sviewBox="[^"]*"/, ` viewBox="${-m} ${-m} ${120 + 2 * m} ${120 + 2 * m}"`).replace(/\soverflow="[^"]*"/, "")}><style>${STILL_CSS}</style>`);
+    // its fingerprint leaves out the per-drawing id endings ("-u9"), which change every time it's drawn
+    stillFps[c.id] = fp(svg.replace(/-u[0-9a-z]+(?=["')])/g, ""));
+    return (stills[c.id] = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg));
+  }
+  const stillFp = c => { stillUrl(c); return stillFps[c.id]; };
+  // Each picture becomes a small bitmap in quiet moments (never mid-scroll), kept for the session,
+  // so a long list opens at once and scrolls smoothly
+  const pngs = {}, pngQ = [];
+  let pngBusy = false, lastScrollC = 0;
+  document.addEventListener("scroll", () => { lastScrollC = performance.now(); }, {capture: true, passive: true});
+  const nap = ms => new Promise(r => setTimeout(r, ms));
+  const idleTick = () => new Promise(r => (window.requestIdleCallback ? requestIdleCallback(() => r(), {timeout: 500}) : setTimeout(r, 30)));
+  async function stillPng(c){
+    const img = new Image(); img.src = stillUrl(c); await img.decode();
+    const k = Math.min(3, Math.max(1, window.devicePixelRatio || 1)), px = Math.round(64 * (1 + 2 * STILL_M) * k), cv = document.createElement("canvas");
+    cv.width = cv.height = px; cv.getContext("2d").drawImage(img, 0, 0, px, px);
+    const blob = await new Promise(r => cv.toBlob(r, "image/png")); if (!blob) throw new Error("no bitmap");
+    return blob;
+  }
+  // Saved between visits: each bitmap is kept with a fingerprint of its drawing, so a redrawn companion is made again
+  const STILL_KEY = "studyboard:compStills:v2", stillPx = () => Math.round(64 * (1 + 2 * STILL_M) * Math.min(3, Math.max(1, window.devicePixelRatio || 1)));
+  let saved = null, savedLoad = null, saveT = 0;
+  const loadSaved = () => savedLoad || (savedLoad = (async () => {
+    let st = null; try { st = window.SBUI && SBUI.cacheGet ? await SBUI.cacheGet(STILL_KEY) : null; } catch (e) {}
+    saved = st && typeof st === "object" ? st : {};
+    const px = stillPx(), ids = Object.keys(saved);
+    for (let i = 0; i < ids.length; i++) {
+      if (i % 24 === 23) await idleTick();
+      const id = ids[i], v = saved[id], c = BYID[id];
+      if (!c || pngs[id] || !v || !v.blob || v.px < px || v.h !== stillFp(c)) continue;
+      // a copy in memory: a saved picture is read from disk each time it's shown otherwise
+      let mem = v.blob; try { mem = new Blob([await v.blob.arrayBuffer()], {type: v.blob.type || "image/png"}); } catch (e) {}
+      pngs[id] = URL.createObjectURL(mem); swapStill(id);
+    }
+  })());
+  // Read the saved pictures a little after start-up, so the shop's lists open ready
+  // and make any that are missing (once per device; they're saved), a few at a time in quiet moments
+  let warmAll = false;
+  hook("boot", () => setTimeout(() => idleTick().then(loadSaved).then(() => { if (Object.keys(BYID).some(id => !pngs[id])) { warmAll = true; warmStills(); } }), 5000));
+  const swapStill = id => document.querySelectorAll(`img.cp-still[data-still="${CSS.escape(id)}"]`).forEach(im => { im.src = pngs[id]; });
+  const saveSoon = () => { clearTimeout(saveT); saveT = setTimeout(() => { if (saved && window.SBUI && SBUI.cacheSet) SBUI.cacheSet(STILL_KEY, saved).catch(() => {}); }, 1500); };
+  // Every companion, in quiet moments while the Style Shop is open, so its lists are ready
+  const warmStills = () => { Object.keys(BYID).forEach(id => { if (!pngs[id] && !pngQ.includes(id)) pngQ.push(id); }); setTimeout(pumpStills, 400); };
+  function pumpStills(){
+    if (pngBusy || !pngQ.length) return; pngBusy = true;
+    (async () => {
+      try {
+        await loadSaved();
+        while (pngQ.length) {
+          while (performance.now() - lastScrollC < 300) await nap(150);
+          await idleTick();
+          const id = pngQ.shift(), c = BYID[id]; if (!c || pngs[id]) continue;
+          if (!warmAll && !document.querySelector(`img.cp-still[data-still="${CSS.escape(id)}"]`) && !(dlg.open && dlg.querySelector(".sheet.shop"))) continue;
+          try {
+            const h = stillFp(c), b = await stillPng(c);
+            pngs[id] = URL.createObjectURL(b); saved[id] = {h, px: stillPx(), blob: b}; saveSoon();
+          } catch (e) { pngs[id] = stillUrl(c); }
+          swapStill(id);
+        }
+        primeStills();
+      } finally { pngBusy = false; }
+    })();
+  }
+  // Pictures of a long list load a few at a time just after it opens (not all at once, which delays opening,
+  // and not only as they scroll into view, which costs frames mid-scroll)
+  let priming = false;
+  function primeStills(){
+    if (priming) return; priming = true;
+    (async () => {
+      try {
+        for (;;) {
+          while (performance.now() - lastScrollC < 300) await nap(150);
+          await idleTick();
+          const next = [...document.querySelectorAll('img.cp-still[loading="lazy"]')].filter(im => im.src.startsWith("blob:")).slice(0, 12);
+          if (!next.length) break;
+          next.forEach(im => { im.loading = "eager"; });
+        }
+      } finally { priming = false; }
+    })();
+  }
+  const stillHtml = (c, px) => {
+    const w = Math.round(px * (1 + 2 * STILL_M)), o = (w - px) / 2, ready = pngs[c.id];
+    if (!ready && !pngQ.includes(c.id)) { pngQ.push(c.id); setTimeout(pumpStills, 0); }
+    setTimeout(primeStills, 50);
+    return `<img class="cp-still" data-still="${esc(c.id)}" src="${ready || stillUrl(c)}" width="${w}" height="${w}" style="margin:${-o}px" alt="" decoding="async" loading="lazy" draggable="false">`;
+  };
   function previewHtml(c, wear, px){
     return `<span class="cp-prev cp-${c.pose}" style="--px:${px}px;--cp-wear:${wearColor(c)}"><span class="cp-shadow"></span><span class="cp-move"><span class="cp-breathe">${rigSvg(c, {wear})}</span></span></span>`;
   }
@@ -2166,7 +2267,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const rank = k => window.SBUI && typeof SBUI.themeRank === "function" ? SBUI.themeRank(k) : SKINS.findIndex(x => x.id === k);
     const others = Object.keys(REG).filter(k => k !== here && k !== "plain" && SKINS.some(x => x.id === k) && (REG[k].list || []).length).sort((a, b) => rank(a) - rank(b));
     const group = k => { const sk = SKINS.find(x => x.id === k), have = owns("skin", k);
-      return `<div class="cp-oth-g"><h4>${esc(sk ? sk.name : k)}${have ? "" : ` ${PRO_BADGE}`}</h4><div class="cp-oth-list">${REG[k].list.map((x, n) => `<button type="button" class="cp-oth" data-act="comp-theme" data-skin="${esc(k)}" data-slot="${n}" data-id="${esc(x.id)}" title="${esc(`${x.name}: switch to the ${sk ? sk.name : k} theme`)}">${previewHtml(x, "", 64)}<span>${esc(x.name)}</span></button>`).join("")}</div></div>`; };
+      return `<div class="cp-oth-g"><h4>${esc(sk ? sk.name : k)}${have ? "" : ` ${PRO_BADGE}`}</h4><div class="cp-oth-list">${REG[k].list.map((x, n) => `<button type="button" class="cp-oth" data-act="comp-theme" data-skin="${esc(k)}" data-slot="${n}" data-id="${esc(x.id)}" title="${esc(`${x.name}: switch to the ${sk ? sk.name : k} theme`)}"><span class="cp-still-box">${stillHtml(x, 64)}</span><span>${esc(x.name)}</span></button>`).join("")}</div></div>`; };
     return mine + (others.length ? `<details class="cp-oth-d"${ui.cpOth ? " open" : ""}><summary>Companions from Other Themes</summary><p class="mini" style="margin:0">Tap one to switch to its theme. Each theme has its own companions.</p>${others.map(group).join("")}</details>` : "");
   }
   function openChange(){
@@ -2265,7 +2366,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   function allThemesHtml(){
     const names = id => { const s = SKINS.find(x => x.id === id); return s ? s.name : id === "plain" ? "Plain Colors" : id; };
     const keys = ["plain"].concat(SKINS.map(s => s.id).filter(id => REG[id]));
-    return keys.filter(k => REG[k]).map(k => `<div class="cp-row"><div class="cp-row-t">${esc(names(k))}${k === themeKey(skinId()) ? `<span class="tp-now">Your Theme</span>` : ""}</div><div class="cp-row-l">${REG[k].list.map((x, i) => `<span class="cp-mini" ${canComp(x) ? "" : `data-act="shop-unlock" data-kind="comp" data-id="${esc(x.id)}" role="button" tabindex="0"`} title="${esc(x.name + ", " + (x.kind || ""))}">${rigSvg(x, {})}<span>${esc(x.name)}${compTier(x) === "pro" ? PRO_BADGE : ""}${canComp(x) ? "" : " 🔒"}</span></span>`).join("")}</div></div>`).join("");
+    return keys.filter(k => REG[k]).map(k => `<div class="cp-row"><div class="cp-row-t">${esc(names(k))}${k === themeKey(skinId()) ? `<span class="tp-now">Your Theme</span>` : ""}</div><div class="cp-row-l">${REG[k].list.map((x, i) => `<span class="cp-mini" ${canComp(x) ? "" : `data-act="shop-unlock" data-kind="comp" data-id="${esc(x.id)}" role="button" tabindex="0"`} title="${esc(x.name + ", " + (x.kind || ""))}"><span class="cp-still-box">${stillHtml(x, 64)}</span><span>${esc(x.name)}${compTier(x) === "pro" ? PRO_BADGE : ""}${canComp(x) ? "" : " 🔒"}</span></span>`).join("")}</div></div>`).join("");
   }
   function shopBody(){
     return `${pickerBody()}<button type="button" class="btn small cp-more" data-act="comp-more" aria-expanded="false">See Every Theme's Companions</button><div class="cp-all" hidden></div>`;
@@ -2291,6 +2392,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
         body.insertAdjacentHTML("beforeend", `<div class="cp-shop">${shopBody()}</div>`);
         body.dataset.uiTab = "companions";
         wirePreviews(body.querySelector(".cp-shop"));
+        warmStills();
       }
     } catch (e) { console.warn("companion shop", e); }
     return r;
@@ -2510,7 +2612,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const ey = num(c.eyes && c.eyes.y) ? c.eyes.y : 60, size = 90, y = Math.max(0, Math.min(VB - size, ey - 50));
       return svg.replace(`viewBox="0 0 ${VB} ${VB}"`, `viewBox="${(VB - size) / 2} ${f1(y)} ${size} ${size}"`);
     },
-    check, gallery, rigSvg: (id, o) => BYID[id] ? rigSvg(BYID[id], o) : "",
+    check, gallery, rigSvg: (id, o) => BYID[id] ? rigSvg(BYID[id], o) : "", stillUrl: id => BYID[id] ? stillUrl(BYID[id]) : "", wearColorOf: id => BYID[id] ? wearColor(BYID[id]) : "",
     themes: () => Object.keys(REG), list: k => (REG[k] ? REG[k].list : []).map(c => ({id: c.id, name: c.name, kind: c.kind, pose: c.pose})),
     // Every companion, for the Your Photo theme editor's "Companions" picker
     all: () => Object.keys(REG).flatMap(k => REG[k].list.map(c => ({id: c.id, name: c.name, kind: c.kind || "", theme: k, owned: canComp(c)}))),

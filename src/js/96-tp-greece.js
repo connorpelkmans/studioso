@@ -93,7 +93,7 @@
           ${meander(8, 66, 4, "#FFFFFF", 1)}${meander(8, 66, 16, "#FFFFFF", 1)}
           ${bract(74, 9, 7, "#E0378C", 10)}${bract(72, 18, 6, "#F05AA6", 50)}</svg>`}
     ],
-    card: {id: "tp-greece", name: "Caldera View", desc: "Crisp white paper with a blue-domed chapel and a windmill in the corner and Aegean waves along the bottom. Deep night blue in dark mode."}
+    card: {id: "tp-greece", name: "Caldera View", desc: "Whitewashed houses, blue domes and a windmill cascading down the caldera cliff, with the Aegean and its volcano island on the horizon and a Greek-key border along the bottom. Deep night blue in dark mode."}
   });
 })();
 /* end of module 96-tp-greece.js */

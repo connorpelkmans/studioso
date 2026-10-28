@@ -200,3 +200,6 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-tq-a:empty{display:none}
 
 
+/* Companions as still pictures in long lists (every theme's companions) */
+.cp-still-box{display:block;width:64px;height:64px;flex:none}
+.cp-still{display:block;max-width:none;pointer-events:none;-webkit-user-drag:none}

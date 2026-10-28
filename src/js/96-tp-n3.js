@@ -264,7 +264,7 @@
           ${spark(20, 6, 1.8, "#FFE27A")}${spark(50, 5, 1.6, "#FFE27A")}<circle cx="70" cy="6" r="1" fill="#fff"/><circle cx="32" cy="5" r=".9" fill="#fff"/>
           <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".25"/></svg>`}
     ],
-    card: {id: "tp-campfire", name: "Camp Journal", desc: "Kraft-paper journal page with a campfire in the corner and a ridge of pines along the bottom. Starry navy at night."}
+    card: {id: "tp-campfire", name: "Camp Journal", desc: "Kraft-paper journal with a stitched border and a full-width valley of mountains and pines around a glowing campfire. Starry navy at night."}
   });
 
   /* ================= AQUARIUM TUNNEL ================= */
@@ -347,7 +347,7 @@
           <circle cx="30" cy="7" r="1.6" fill="none" stroke="#fff" stroke-width=".7"/><circle cx="58" cy="6" r="1.2" fill="none" stroke="#fff" stroke-width=".7"/><circle cx="8" cy="8" r="1.1" fill="none" stroke="#fff" stroke-width=".7"/>
           <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".35"/></svg>`}
     ],
-    card: {id: "tp-aquarium", name: "Tank Window", desc: "Sunlit aqua water with rising bubbles, a clownfish in the corner and a reef along the bottom. Glowing deep blue at night."}
+    card: {id: "tp-aquarium", name: "Tank Window", desc: "A framed tank of sunlit aqua water with light rays, rising bubbles, swaying kelp, coral and a clownfish over a sandy bottom. Glowing deep blue at night."}
   });
 
 })();

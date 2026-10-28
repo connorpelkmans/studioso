@@ -233,10 +233,10 @@
     add("Calendar Sync", "Add your deadlines and classes to Apple, Google or Outlook Calendar", act("cal-export"), "export ics calendar subscribe feed");
     add("Save a Copy on This Device", "Kept in this browser, which also saves a copy each day", act("backup-now"), "save backup");
     add("Restore a Backup", "Go back to an earlier backup", act("restore"), "");
-    add("Export a Backup File", "Download your data as a file", act("export"), "download");
+    add("Export a Backup File", hasStoredFiles() ? "Your data and uploaded files in one ZIP" : "Download your data as a file", act("export"), "download zip");
     add("Import from a Backup File", "Replace your data with a backup file", act("import"), "upload");
     add("Import From Another App", "Bring in Anki decks, Quizlet sets, Todoist tasks or Notion pages", act("ia-open"), "anki apkg colpkg quizlet todoist notion csv import");
-    if (Object.values(state.files).some(f => f.kind === "file")) add("Export Backup with Files", "Your data plus every uploaded file", act("export-full"), "download zip");
+    if (hasStoredFiles()) add("Export Data Only", "Your data without your uploaded files", act("export-json"), "download json small");
     if (!inPreview()) add(sbConfig() || SB_HOSTED ? (sbUser ? "Studyboard Account" : "Sign In or Create Account") : "Sync Across Devices", "Sync your data and files across devices", act(sbConfig() && !sbUser ? "sb-signin" : sbUser ? "menu" : "sb-connect"), "sync account cloud login sign in");
     [["board", "Board"], ["timeline", "Due Dates"], ["schedule", "Schedule"], ["crunch", "Crunch Forecast"], ["flashcards", "Review"], ["notes", "Notes"], ["files", "Files"], ["courses", "Courses"]]
       .forEach(([t, n]) => add(`Go to ${n}`, "Open the " + n + " page", () => { go(t); if (t === "flashcards") { ui.fc = null; ui.deckId = null; } render(); window.scrollTo(0, 0); }, "page open" + (t === "crunch" ? " workload heatmap heavy busy week exams crunch forecast" : "")));
@@ -1012,7 +1012,8 @@ Return JSON only.`;
     return {kind: "paid", ok: sxCfg().paidOk === `${c.provider}|${c.model}`, name: aiModelName(c.provider, c.model), P: AI_PROVIDERS[c.provider], sig: `${c.provider}|${c.model}`};
   }
   const planOk = p => !!p && !(p.kind === "paid" && !p.ok);
-  const callPlan = (plan, args) => plan.kind === "gemini" ? geminiCall(plan.cfg, Object.assign({ms: args.timeout || 90000}, args)) : aiCall(args);
+  // Answers from the student's files restate them in the AI's own words (the copyright rule in aiCall), on every route
+  const callPlan = (plan, args) => { args = Object.assign({}, args, {task: args.task || "ask"}); args.system = aiCopyRule(args.system, args.task); return plan.kind === "gemini" ? geminiCall(plan.cfg, Object.assign({ms: args.timeout || 90000}, args)) : aiCall(args); };
   const proLocked = () => !!(window.SBPRO && SBPRO.locked && SBPRO.locked());
   const SENT = 8;
   const bodyOf = x => { const d = x.doc; return x.text || (d.type === "chunk" ? d.text : [d.title, d.text].filter(Boolean).join("\n")); };
@@ -1335,7 +1336,7 @@ Return JSON only.`;
         const sug = ["Add a Task", "Import a Syllabus", "Review Due Flashcards", "Upload Files", "Create Flashcards with AI", "Add an Event"];
         const acts = IX.items.docs.filter(d => d.type === "action" && sug.includes(d.title)).sort((a, b) => sug.indexOf(a.title) - sug.indexOf(b.title));
         html.push(`<div class="sx-gh"><span>Suggested Actions</span></div>` + acts.map(d => push(() => openDoc(d), i => rowHtml(i, "actions", esc(d.title), esc(d.text), "", "var(--accent)"))).join(""));
-        html.push(`<p class="sx-tip">Search finds tasks, courses, flashcards, notes, events, practice quizzes, settings and the text inside your PDFs, Word and PowerPoint files. Small typos are fine.</p>`);
+        html.push(`<p class="sx-tip">Search finds tasks, courses, flashcards, notes, events, practice quizzes, settings and the text inside your PDFs, Word and PowerPoint files.</p>`);
       }
     } else {
       const r = find(q); S.P = r.P;

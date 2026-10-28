@@ -62,7 +62,7 @@
   // Picture flashcards (Pro)
   const picLocked = () => { try { return !!(window.SBPRO && SBPRO.locked()); } catch (e) { return true; } };
   async function picCards(id, n, cid, deckSel){
-    if (picLocked()) { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Picture flashcards from your whiteboards are part of Studyboard Pro: the board becomes an image card with its labels hidden, to guess."); return; }
+    if (picLocked()) { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Picture flashcards from your whiteboards are part of Studyboard Pro: the board becomes a picture card with its labels hidden, to guess."); return; }
     if (!window.SBPRO || !SBPRO.scanImage || !SBPRO.openImageEditor) { toast("Picture cards aren't available here."); return; }
     const go = $("#wbaGo"), status = $("#wbaStatus"); go.disabled = true; go.classList.add("busy"); status.textContent = "Finding the labels on your board…";
     try {

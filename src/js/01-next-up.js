@@ -80,14 +80,18 @@ function nufbAdd(kind, t){
 function nufbDrop(kind, id){
   try { const a = nufbLoad(), i = a.map(e => e.k === kind && e.id === id).lastIndexOf(true); if (i >= 0) { a.splice(i, 1); localStorage.setItem(NUFB_LS, JSON.stringify(a)); } } catch(e) {}
 }
+// One skip usually means "not right now", so skips only count against a whole type or course once they come on two or more days
 function nufbWeights(ev, now){
-  const w = {type: {}, course: {}, task: {}};
-  (ev || []).forEach(e => {
-    const age = (now - e.at) / 864e5; if (!(age >= 0) || age > 30) return;
-    const v = (e.k === "accept" ? 1 : -1) * Math.pow(0.5, age / 10);
-    if (e.ty) w.type[e.ty] = (w.type[e.ty] || 0) + v;
-    if (e.c) w.course[e.c] = (w.course[e.c] || 0) + v;
-    if (e.k === "skip" && e.id) w.task[e.id] = (w.task[e.id] || 0) + Math.pow(0.5, age / 3);
+  const w = {type: {}, course: {}, task: {}}, days = {type: {}, course: {}};
+  const live = (ev || []).filter(e => { const age = (now - e.at) / 864e5; return age >= 0 && age <= 30; });
+  const dayOf = at => new Date(at).toDateString();
+  live.forEach(e => { if (e.k !== "skip") return; if (e.ty) (days.type[e.ty] = days.type[e.ty] || new Set()).add(dayOf(e.at)); if (e.c) (days.course[e.c] = days.course[e.c] || new Set()).add(dayOf(e.at)); });
+  live.forEach(e => {
+    if (e.k !== "skip" && e.k !== "accept") return;
+    const age = (now - e.at) / 864e5, skip = e.k === "skip", v = (skip ? -1 : 1) * Math.pow(0.5, age / 10);
+    if (e.ty && (!skip || days.type[e.ty].size >= 2)) w.type[e.ty] = (w.type[e.ty] || 0) + v;
+    if (e.c && (!skip || days.course[e.c].size >= 2)) w.course[e.c] = (w.course[e.c] || 0) + v;
+    if (skip && e.id) w.task[e.id] = (w.task[e.id] || 0) + Math.pow(0.5, age / 3);
   });
   return w;
 }
@@ -121,10 +125,38 @@ function autoCleanNext(raw, back, ok, textOf){
   return out.slice(0, 5);
 }
 
+/* Time worked on a task, day by day: focus sessions and time you typed in.
+   Kept on the task as workLog [{id, d: "YYYY-MM-DD", m: minutes, k: "focus" | "log", at}], so it syncs and lasts.
+   A task from before the log existed reads its history lines instead */
+const CLOCK_IC = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+const WORK_RX = /^(Focus session|Logged time):? (\d+)m/;
+const isoDay = ms => { const x = new Date(ms); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
+function workEntries(t){
+  if (!t) return [];
+  if (Array.isArray(t.workLog)) return t.workLog.filter(e => e && Number(e.m) > 0 && /^\d{4}-\d{2}-\d{2}$/.test(e.d || "")).map(e => ({id: e.id || "", d: e.d, min: Number(e.m), kind: e.k === "log" ? "logged" : "focus", at: Number(e.at) || new Date(e.d + "T12:00").getTime()}));
+  return (t.history || []).map(h => { const m = h && typeof h.text === "string" && Number.isFinite(Number(h.at)) ? WORK_RX.exec(h.text) : null; return m ? {id: "", d: isoDay(Number(h.at)), min: Number(m[2]), kind: m[1] === "Logged time" ? "logged" : "focus", at: Number(h.at)} : null; }).filter(Boolean);
+}
+// Adds time to a copy of a task (n): its total, its day-by-day log and a history line. day defaults to today
+function addWork(n, min, kind, day, at){
+  min = Math.round(Number(min) || 0); if (!(min > 0)) return n;
+  day = /^\d{4}-\d{2}-\d{2}$/.test(day || "") ? day : todayISO();
+  at = Number(at) || (day === todayISO() ? Date.now() : new Date(day + "T12:00").getTime());
+  if (!Array.isArray(n.workLog)) n.workLog = workEntries(n).map(e => ({id: uid(), d: e.d, m: e.min, k: e.kind === "logged" ? "log" : "focus", at: e.at}));
+  n.workLog = n.workLog.concat({id: uid(), d: day, m: min, k: kind === "log" ? "log" : "focus", at}).slice(-500);
+  n.focusMin = (Number(n.focusMin) || 0) + min;
+  n.history = (n.history || []).concat({at, text: kind === "log" ? `Logged time: ${min}m` : `Focus session: ${min}m`}).slice(-30);
+  return n;
+}
+// Minutes per day for one task, newest day first: [{d, min, focus, logged, items}]
+function workByDay(t){
+  const by = {};
+  workEntries(t).forEach(e => { const r = by[e.d] || (by[e.d] = {d: e.d, min: 0, focus: 0, logged: 0, items: []}); r.min += e.min; r[e.kind === "logged" ? "logged" : "focus"] += e.min; r.items.push(e); });
+  return Object.values(by).sort((a, b) => a.d < b.d ? 1 : -1);
+}
 /* "Enough for today": a task you've worked for the time the plan gave it, or that you said was enough, steps aside
    for the rest of the day even though it isn't finished. It is recorded in the task's own history, so it syncs. */
 const dayStartMs = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
-const workedToday = t => { const ds = dayStartMs(); return (t.history || []).reduce((m, h) => { const mm = /^(?:Focus session|Logged time):? (\d+)m/.exec(h.text || ""); return mm && h.at >= ds ? m + Number(mm[1]) : m; }, 0); };
+const workedToday = t => { const d = todayISO(); return workEntries(t).reduce((m, e) => e.d === d ? m + e.min : m, 0); };
 // "Enough for today" lasts until 4 AM, so pressing it just after midnight doesn't carry over into the next day
 const enoughSinceMs = () => { const d = new Date(); if (d.getHours() < 4) d.setDate(d.getDate() - 1); d.setHours(4, 0, 0, 0); return d.getTime(); };
 const markedEnough = t => { const ds = enoughSinceMs(); return (t.history || []).some(h => h.text === "Enough for today" && h.at >= ds); };
@@ -134,18 +166,45 @@ const enoughToday = (t, x) => {
   return target > 0 && workedToday(t) >= target;
 };
 /* Next Up: the one thing to do right now */
-function nextUp(F){
+// Suggestions set aside stay aside for the rest of the day, even after a reload
+const NUSKIP_LS = "studyboard:nextSkip";
+function nuSkips(){
   const today = todayISO();
+  if (!ui.skipLoaded) {
+    ui.skipLoaded = true;
+    try { const s = JSON.parse(localStorage.getItem(NUSKIP_LS) || "null"); if (s && s.day === today && Array.isArray(s.ids)) ui.skipNext = {day: today, ids: s.ids.filter(x => typeof x === "string").slice(-50)}; } catch(e) {}
+  }
   if (!ui.skipNext || ui.skipNext.day !== today) ui.skipNext = {day: today, ids: []};
-  const now = new Date(), hr = now.getHours(), hm = pad(hr) + ":" + pad(now.getMinutes());
+  return ui.skipNext;
+}
+function nuSkipSave(){ try { if (ui.skipNext) localStorage.setItem(NUSKIP_LS, JSON.stringify(ui.skipNext)); } catch(e) {} }
+// Work with nothing left that isn't marked done yet: it only needs checking over and handing in
+const nuSubmit = x => !(x.R > 0) && x.dl > 0 && !x.fixed && !MILESTONE(x.t.type);
+// Anything due today ranks in a tier of its own (computeFocus adds 1000 to its score). The nudges below scale only
+// the task's own score, never that offset, so a small nudge can't lift a minor task over a much more important one
+const NU_TIER = 1000;
+// The task already shown stays first unless another beats it by this much, so Do This Next doesn't flip as the clock moves
+const NU_STICK = 1.15;
+const nuSig = () => (typeof state !== "undefined" && state ? state.updated || 0 : 0) + "|" + todayISO();
+function nuStick(scored){
+  const L = ui.nuLast;
+  if (!L || L.sig !== nuSig() || Date.now() - L.at > 3 * 36e5 || scored.length < 2) return;
+  const i = scored.findIndex(y => y.x.t.id === L.id); if (i <= 0) return;
+  const y = scored[i], top = scored[0], own = z => z.s - z.tier * NU_TIER;
+  if (y.tier !== top.tier || y.x.guarded) return;
+  if (own(y) * NU_STICK >= own(top)) { scored.splice(i, 1); scored.unshift(y); }
+}
+// Scores what can be done now for this moment: the time of day, the next class, what you just worked on and your feedback
+function nuScore(F){
+  const sk = nuSkips(), now = new Date(), hr = now.getHours(), hm = pad(hr) + ":" + pad(now.getMinutes());
   const recent = t => (t.history || []).some(h => /^Focus session/.test(h.text) && Date.now() - h.at < 3 * 3600000);
-  const pool = F.ranked.filter(x => inFilter(x.t) && canDoNow(x.t) && !ui.skipNext.ids.includes(x.t.id) && (x.R > 0 || x.dl <= 0) && !enoughToday(x.t, x));
+  const pool = F.ranked.filter(x => inFilter(x.t) && canDoNow(x.t) && !sk.ids.includes(x.t.id) && (x.R > 0 || x.dl <= 0 || nuSubmit(x)) && !enoughToday(x.t, x));
   const focusLen = Number(pomoCfg().focus) || 25;
-  if (!pool.length) { const em = typeof SBEXAM !== "undefined" ? SBEXAM.rankNext(F, [], pool, focusLen) : null; return (em && em.study) || nextUpStudy(F, null, pool, focusLen); }
   let gapMin = null, gapWhat = "";
+  if (!pool.length) return {pool, scored: [], gapMin, gapWhat, focusLen, now};
   try {
     const nowMin = hr * 60 + now.getMinutes();
-    const nx = schOccurrences(today, today).filter(o => !o.skipped && o.start && !(o.type === "meet" && o.m && o.m.kind === "Office Hours") && !(o.type === "avail" && (o.avail.kind === "protected" || o.avail.seg === "tail"))).map(o => ({o, m: Number(o.start.slice(0, 2)) * 60 + Number(o.start.slice(3, 5))})).filter(y => y.m > nowMin).sort((a, b) => a.m - b.m)[0];
+    const nx = schOccurrences(todayISO(), todayISO()).filter(o => !o.skipped && o.start && !(o.type === "meet" && o.m && o.m.kind === "Office Hours") && !(o.type === "avail" && (o.avail.kind === "protected" || o.avail.seg === "tail"))).map(o => ({o, m: Number(o.start.slice(0, 2)) * 60 + Number(o.start.slice(3, 5))})).filter(y => y.m > nowMin).sort((a, b) => a.m - b.m)[0];
     if (nx && nx.m - nowMin <= 75) { gapMin = nx.m - nowMin; gapWhat = nx.o.label || nx.o.title || "your class"; }
   } catch(e) {}
   const courseMin = {}, dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -153,45 +212,80 @@ function nextUp(F){
   const fbW = nufbWeights(nufbLoad(), Date.now());
   const pk = accOf() ? accOf().peak(Date.now()) : null;
   const scored = pool.map(x => {
-    const t = x.t, why = [];
-    let s = x.score * (x.alloc > 0 ? 1 : 0.8);
+    const t = x.t, why = [], tier = x.score >= NU_TIER ? 1 : 0, base = x.score - tier * NU_TIER, submit = !(x.R > 0) && x.dl > 0;
+    let m = x.alloc > 0 ? 1 : 0.8;
     const sessionH = Math.min(x.alloc > 0 ? x.alloc : x.R, focusLen * 2 / 60);
-    if (x.dl === 0 && t.time && t.time > hm) { s *= 1.25; why.push(`Due at ${fmtTime(t.time)} today`); }
-    if (recent(t)) { s *= 1.15; why.push("You were just working on this, so it's quick to pick back up"); }
-    if ((pk ? pk.hours.includes(hr) : hr < 12) && diffOf(t) === "hard") { s *= 1.1; why.push(pk ? tr("acc.peakHard", "Hard, and this is when you usually do your best work") : "Hard, so it's best done now while you're fresh"); }
-    if (hr >= 21) { if (diffOf(t) === "hard" && x.dl > 1 && !(pk && pk.hours.includes(hr))) s *= 0.8; if (sessionH <= 0.75) { s *= 1.1; why.push("Short enough to finish tonight"); } }
-    if (gapMin != null && gapMin >= 15) { if (x.R * 60 <= gapMin + 5) { s *= 1.3; why.push(`Fits in the ${gapMin} minutes before ${gapWhat}`); } else if (diffOf(t) === "hard") s *= 0.85; }
+    if (submit) { m *= 0.5; why.push("Nothing left to do but check it over and hand it in"); }
+    if (x.dl === 0 && t.time && t.time > hm) { m *= 1.25; why.push(`Due at ${fmtTime(t.time)} today`); }
+    if (recent(t)) { m *= 1.15; why.push("You were just working on this, so it's quick to pick back up"); }
+    if ((pk ? pk.hours.includes(hr) : hr < 12) && diffOf(t) === "hard") { m *= 1.1; why.push(pk ? tr("acc.peakHard", "Hard, and this is when you usually do your best work") : "Hard, so it's best done now while you're fresh"); }
+    if (hr >= 21) { if (diffOf(t) === "hard" && x.dl > 1 && !(pk && pk.hours.includes(hr))) m *= 0.8; if (sessionH <= 0.75) { m *= 1.1; why.push("Short enough to finish tonight"); } }
+    // Before a class: finishing it in the gap counts most, but a big task whose session for today fits isn't held back
+    if (gapMin != null && gapMin >= 15 && !submit) {
+      if (x.R * 60 <= gapMin + 5) { m *= 1.3; why.push(`Fits in the ${gapMin} minutes before ${gapWhat}`); }
+      else if (x.alloc > 0 && sessionH * 60 <= gapMin + 5) { m *= 1.1; why.push(`A session fits in the ${gapMin} minutes before ${gapWhat}`); }
+      else if (diffOf(t) === "hard") m *= 0.85;
+    }
     if (t.prepFor) why.push("Part of your exam study plan");
-    if (accOf()) { const ub = accOf().underBoost(t); if (ub > 1 && x.dl > 0) { s *= ub; why.push(tr("acc.underWhy", "These usually take you longer than you estimate")); } }
-    if (x.dl > 0 && t.courseId && (courseMin[t.courseId] || 0) >= 120) s *= 0.92;
-    s *= nufbMult(fbW, t.type, t.courseId, t.id, x.dl);
-    return {x, s, why, sessionH};
+    if (accOf()) { const ub = accOf().underBoost(t); if (ub > 1 && x.dl > 0) { m *= ub; why.push(tr("acc.underWhy", "These usually take you longer than you estimate")); } }
+    if (x.dl > 0 && t.courseId && (courseMin[t.courseId] || 0) >= 120) m *= 0.92;
+    m *= nufbMult(fbW, t.type, t.courseId, t.id, x.dl);
+    const s = tier * NU_TIER + (tier ? base * m : Math.min(base * m, NU_TIER - 1));
+    return {x, s, why, sessionH, tier};
   });
   deadlineGuard(scored, y => y.x, "s");
   scored.sort((a, b) => b.s - a.s);
-  const exm = typeof SBEXAM !== "undefined" ? SBEXAM.rankNext(F, scored, pool, focusLen) : null;
-  if (exm && exm.study) return exm.study;
-  let aiPick = !exm && autoPlanOn() && AUTO.next && AUTO.next.day === today && Date.now() - (AUTO.next.at || 0) < 8 * 3600000 ? (AUTO.next.list || []).find(x => scored.some(y => y.x.t.id === x.id)) : null;
-  if (aiPick) {
-    const idx = scored.findIndex(y => y.x.t.id === aiPick.id), y = scored[idx], top = scored[0];
+  nuStick(scored);
+  return {pool, scored, gapMin, gapWhat, focusLen, now};
+}
+// The automatic AI's stored pick, if it's still open and doesn't jump something more pressing
+function nuAiPick(scored, exm){
+  const today = todayISO();
+  let ai = !exm && autoPlanOn() && AUTO.next && AUTO.next.day === today && Date.now() - (AUTO.next.at || 0) < 8 * 3600000 ? (AUTO.next.list || []).find(x => scored.some(y => y.x.t.id === x.id)) : null;
+  if (ai) {
+    const idx = scored.findIndex(y => y.x.t.id === ai.id), y = scored[idx], top = scored[0];
     const urgent = top.x.dl <= 0 && top.x.R > 0 && (top.x.behind > 0 || top.x.rho >= 0.9) && y.x.dl > 0;
     const leap = scored.slice(0, idx).some(z => z.x.dl >= 0 && z.x.dl <= 3 && z.x.R > 0 && y.x.dl >= z.x.dl + 7 && (y.x.own || 0) < 0.75);
-    if (urgent || leap || (idx > 5 && y.s < top.s * 0.6)) aiPick = null;
+    if (urgent || leap || (idx > 5 && y.s < top.s * 0.6)) ai = null;
   }
+  return ai;
+}
+// What Do This Next would choose before the timeline is laid out. Today's free-time timeline puts it first, so the two agree
+function nuLead(F){
+  const keep = ui.nextShown;
+  try {
+    const r = nuScore(F); if (!r.scored.length) return "";
+    const exm = typeof SBEXAM !== "undefined" ? SBEXAM.rankNext(F, r.scored, r.pool, r.focusLen) : null;
+    if (exm && exm.study) return "";
+    const ai = nuAiPick(r.scored, exm);
+    return ai ? ai.id : r.scored[0].x.t.id;
+  } catch(e) { console.warn("next up lead", e); return ""; } finally { ui.nextShown = keep; }
+}
+function nextUp(F){
+  const {pool, scored, gapMin, focusLen, now} = nuScore(F), hr = now.getHours();
+  if (!pool.length) { const em = typeof SBEXAM !== "undefined" ? SBEXAM.rankNext(F, [], pool, focusLen) : null; return (em && em.study) || nextUpStudy(F, null, pool, focusLen); }
+  const exm = typeof SBEXAM !== "undefined" ? SBEXAM.rankNext(F, scored, pool, focusLen) : null;
+  if (exm && exm.study) return exm.study;
+  let aiPick = nuAiPick(scored, exm);
   // Do This Next is whatever the day's timeline has scheduled now, or next: the two always agree
   const nowM = hr * 60 + now.getMinutes(), sb = F.slotsBy || {};
   const planned = scored.map(y => { const l = (sb[y.x.t.id] || []).filter(sl => sl && sl.e > nowM); return {y, at: l.length ? Math.min(...l.map(sl => Math.max(sl.s, nowM))) : null}; }).filter(o => o.at != null).sort((a, b) => a.at - b.at)[0];
   if (planned && !(aiPick && aiPick.id === planned.y.x.t.id)) aiPick = null;
   const pick = planned ? planned.y : aiPick ? scored.find(y => y.x.t.id === aiPick.id) : scored[0];
   ui.nextShown = pick.x.t.id;
+  const L = ui.nuLast, sig = nuSig();
+  ui.nuLast = {id: pick.x.t.id, sig, at: L && L.id === pick.x.t.id && L.sig === sig ? L.at : Date.now()};
+  const submit = !(pick.x.R > 0) && pick.x.dl > 0;
   const cl = (pick.x.t.checklist || []).find(i => !i.done);
-  const step = aiPick && aiPick.step ? {text: aiPick.step} : cl;
+  const step = aiPick && aiPick.step ? {text: aiPick.step} : cl || (submit ? {text: "Check it over, then hand it in and mark it done"} : null);
   // Your chosen timer length, shortened only when this task's time today is less than that
   const cap = aiPick && aiPick.min ? Math.round(aiPick.min / 5) * 5 : pick.x.alloc > 0 ? Math.round(pick.x.alloc * 60 / 5) * 5 : 0;
   let mins = cap >= 5 && cap < focusLen ? cap : focusLen;
+  if (submit) mins = Math.min(mins, 15);
   if (gapMin != null && gapMin >= 15) mins = Math.max(10, Math.min(mins, Math.floor((gapMin - 5) / 5) * 5));
   const why = (aiPick && aiPick.why ? [aiPick.why] : pick.why.concat(pick.x.reasons)).filter((r, i, a) => a.indexOf(r) === i && !(r === "Due today" && a.some(y => /^Due at .* today$/.test(y)))).slice(0, aiPick ? 1 : 3);
-  return (exm ? null : nextUpStudy(F, pick, pool, focusLen)) || {x: pick.x, why, step, mins, left: pool.length - 1, ai: !!aiPick};
+  // Exam study only steps in when no timeline is deciding, so the card and the timeline never disagree
+  return (exm || planned ? null : nextUpStudy(F, pick, pool, focusLen)) || {x: pick.x, why, step, mins, left: pool.length - 1, ai: !!aiPick};
 }
 // An in-person exam or quiz can't be done now, but studying for it can
 function nextUpStudy(F, top, pool, focusLen){
@@ -236,7 +330,7 @@ function nextUpHtml(F, pre){
         ${nuMoreBtn()}<span class="nu-why">${n.why.map(r => `<span class="nu-chip${/tomorrow/.test(r) ? " soon" : ""}">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}</span>
         <span class="nu-step">${n.hasPlan ? "Review your weakest topics or flashcards for it." : "Review now, or let Plan My Prep spread short sessions over the days before it."}</span>
       </div>
-      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-study="1" data-id="${esc(t.id)}" data-mins="${n.mins}">${TOMATO}Study for ${n.mins}m</button>${n.hasPlan ? "" : `<button class="btn small" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button>`}<button class="btn small" data-act="nu-skip" data-id="study:${esc(t.id)}">Something Else</button>${nuBackBtn()}</div>
+      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-study="1" data-id="${esc(t.id)}" data-mins="${n.mins}">${TOMATO}Study for ${n.mins}m</button>${n.hasPlan ? "" : `<button class="btn small" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button>`}${nuBackBtn()}</div>
     </div>
   </div>`;
   return `<div class="next-up${nuOpenCls()}" style="--c:${esc(colorOf(t.courseId))}">
@@ -249,7 +343,7 @@ function nextUpHtml(F, pre){
         ${n.step ? `<span class="nu-step">Next step: ${esc(n.step.text)}</span>` : ""}
       </div>
       ${lmsGoBtn(t)}
-      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-id="${t.gt ? "" : esc(t.id)}" data-mins="${n.mins}">${TOMATO}Start a ${n.mins}m Focus</button>${window.SBPREP ? SBPREP.matBtn(t) : ""}${t.type === "Study" && (t.studyDecks || []).length && !t.matKind ? `<button class="btn small" data-act="fc-study-plan" data-id="${esc(t.id)}">Study Cards</button>` : ""}${n.left ? `<button class="btn small" data-act="nu-skip" data-id="${esc(t.id)}">Something Else</button>` : ""}${t.gt ? "" : `<button class="btn small" data-act="nu-enough" data-id="${esc(t.id)}" title="You have done enough on this today, so move on. It stays on your list.">Enough for Today</button>`}${nuBackBtn()}</div>
+      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-id="${t.gt ? "" : esc(t.id)}" data-mins="${n.mins}">${TOMATO}Start a ${n.mins}m Focus</button>${window.SBPREP ? SBPREP.matBtn(t) : ""}${t.type === "Study" && (t.studyDecks || []).length && !t.matKind ? `<button class="btn small" data-act="fc-study-plan" data-id="${esc(t.id)}">Study Cards</button>` : ""}${t.gt ? "" : `<button class="btn small" data-act="log-time" data-id="${esc(t.id)}" title="Type in time you worked on this">Log Time</button><button class="btn small" data-act="nu-enough" data-id="${esc(t.id)}" title="You have done enough on this today, so move on. It stays on your list.">Enough for Today</button>`}${nuBackBtn()}</div>
     </div>
   </div>`;
 }
