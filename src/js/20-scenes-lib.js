@@ -7317,7 +7317,7 @@ function n2_trainGeo(W, H) {
     {ph: ph, S: 1, x0: W * 0.17, x1: W * 0.81, y0: H * 0.235, y1: H * 0.6, r: 38, fr: 26, ceil: H * 0.062, rack: H * 0.13, tbl: [W * 0.25, W * 0.74], fl: H * 0.93,
       seat: {m: W * 0.012}, lampX: W * 0.68, lights: [W * 0.2, W * 0.5, W * 0.8],
       cases: [[W * 0.015, 118, 54, 0], [W * 0.13, 74, 38, 1], [W * 0.21, 50, 50, 3], [W * 0.7, 92, 44, 2], [W * 0.8, 128, 60, 0]]};
-  var st = g.seat; st.by = g.fl - 8 * g.S; st.reach = st.m + 176 * g.S; st.bf = st.m + 92 * g.S; st.top = st.by - 430 * g.S;
+  var st = g.seat; st.P = ph ? 150 : 165; st.by = g.fl - 8 * g.S; st.reach = st.m + (N2_SEAT.kx * N2_SEAT.Wd + N2_SEAT.kf * st.P + 4) * g.S; st.bf = st.m + 92 * g.S; st.top = st.by - 430 * g.S;
   g.ty = g.y1 + g.fr + 14 * g.S; g.wain = g.y1 + g.fr + 6 * g.S; g.lamp = [g.lampX, g.ty];
   return g;
 }
@@ -7334,7 +7334,7 @@ function n2_rpoly(pts, r) {
 // f runs from the backrest toward the table, w from the window wall toward the viewer, h up
 var N2_SEAT = {Wd: 150, P: 124, Bt: 34, A: 22, hs: 100, ha: 164, hb: 368, hp: 42, f0: 16, kx: 0.58, ky: 0.26, kf: 0.72};
 function n2_trainSeat(G, W, sd) {
-  var s = G.seat, S = G.S, K = N2_SEAT, Wd = K.Wd, P = K.P, Bt = K.Bt, A = K.A, hs = K.hs, ha = K.ha, hb = K.hb, hp = K.hp, f0 = K.f0, k;
+  var s = G.seat, S = G.S, K = N2_SEAT, Wd = K.Wd, P = s.P || K.P, Bt = K.Bt, A = K.A, hs = K.hs, ha = K.ha, hb = K.hb, hp = K.hp, f0 = K.f0, k;
   var ox = sd > 0 ? s.m + K.kx * Wd * S : W - s.m - K.kx * Wd * S, oy = s.by - K.ky * Wd * S;
   function Q(w, f, h) { return [ox + sd * (f * K.kf - w * K.kx) * S, oy + (w * K.ky - h) * S]; }
   function F(q, r, t) { return {d: n2_rpoly(q.map(function (p) { return Q(p[0], p[1], p[2]); }), (r instanceof Array ? r : [r, r, r, r]).map(function (v) { return v * S; })), t: t}; }
@@ -7360,15 +7360,25 @@ function n2_trainSeat(G, W, sd) {
   fc.push(foot(Wd - 4, 6, 1), foot(Wd - 4, P - 6, 1));
   // buttons and diamond stitching across the backrest
   var rows = [], btn = '', st = '';
-  [172, 232, 292, 344].forEach(function (h, r) { rows.push((r % 2 ? [0.32, 0.5, 0.68] : [0.23, 0.41, 0.59, 0.77]).map(function (u) { return {u: u, p: Q(Wd * u, Bt + 0.5, h)}; })); });
-  rows.forEach(function (row, r) { row.forEach(function (b) { btn += circ(b.p[0], b.p[1], 3.2 * S); if (r < rows.length - 1) rows[r + 1].forEach(function (c) { if (Math.abs(c.u - b.u) < 0.12) st += seg(b.p[0], b.p[1], c.p[0], c.p[1]); }); }); });
+  // (buttons and stitches under the draped cloth are left out, since strokes paint over fills in the still picture)
+  var hemH = hb - 74, under = function (u, h) { return h > hemH - 3 && u > 0.26 && u < 0.74; };
+  [172, 232, 292, 344].forEach(function (h, r) { rows.push((r % 2 ? [0.32, 0.5, 0.68] : [0.23, 0.41, 0.59, 0.77]).map(function (u) { return {u: u, h: h, p: Q(Wd * u, Bt + 0.5, h)}; })); });
+  rows.forEach(function (row, r) { row.forEach(function (b) { if (!under(b.u, b.h)) btn += circ(b.p[0], b.p[1], 3.2 * S); if (r < rows.length - 1) rows[r + 1].forEach(function (c) { if (Math.abs(c.u - b.u) >= 0.12) return;
+    if (!under(c.u, c.h)) { st += seg(b.p[0], b.p[1], c.p[0], c.p[1]); return; } if (under(b.u, b.h)) return;
+    var t = (hemH - 3 - b.h) / (c.h - b.h), e = Q(Wd * lerp(b.u, c.u, t), Bt + 0.5, hemH - 3); st += seg(b.p[0], b.p[1], e[0], e[1]); }); }); });
   o.btn = btn; o.stitch = st;
-  // piping along the front edges
-  o.pipe = pline([Q(A + 6, P, hs - 1), Q(Wd - A - 6, P, hs - 1)]) + pline([Q(Wd, Bt + 2, ha - 14), Q(Wd, P - 4, ha - 14)]) + pline([Q(Wd, Bt, hs), Q(Wd, Bt, hb - 20)]);
-  // the lace-edged cloth over the top of the backrest
-  var w0 = Wd * 0.3, w1 = Wd * 0.7, lace = '', t0 = Q(w0, Bt * 0.3, hb + 23), t1 = Q(w1, Bt * 0.3, hb + 23), b0 = Q(w0, Bt + 1, hb - 52), b1 = Q(w1, Bt + 1, hb - 52);
-  o.cloth = n2_rpoly([t0, t1, b1, b0], [10 * S, 10 * S, 3 * S, 3 * S]);
-  for (k = 0; k <= 7; k++) { var z = k / 7; lace += circ(lerp(b0[0], b1[0], z), lerp(b0[1], b1[1], z), 4.4 * S); }
+  // piping along the cushion's front edge and up the backrest's edge above the armrest (it would show through the armrest lower down)
+  o.pipe = pline([Q(A + 6, P, hs - 1), Q(Wd - A - 6, P, hs - 1)]) + pline([Q(Wd, Bt, ha + 16), Q(Wd, Bt, hb - 20)]);
+  // the lace-edged cloth draped over the backrest: a short piece lies over the top roll, the rest hangs down the front
+  // following the backrest, flaring a little toward a wavy lace hem; it casts a soft shadow and creases where it bends
+  var w0 = Wd * 0.3, w1 = Wd * 0.7, hem = hb - 74, fr = Bt + 1.5, lace = '', side = function (w, sg) { return [Q(w + sg * 1, Bt / 2 - 6, hb + 24), Q(w, Bt / 2 + 14, hb + 20), Q(w - sg * 0.5, Bt / 2 + 24, hb + 6), Q(w - sg * 2, fr, hb - 18), Q(w - sg * 4, fr, hem + 8)]; };
+  var hemPts = []; for (k = 0; k <= 12; k++) { var z = k / 12, ww = lerp(w0 - 4, w1 + 4, z); hemPts.push(Q(ww, fr, hem + Math.sin(z * Math.PI * 3) * 2.2 - Math.sin(z * Math.PI) * 2)); }
+  var top = []; for (k = 0; k <= 6; k++) { var z2 = k / 6; top.push(Q(lerp(w1 - 1, w0 + 1, z2), Bt / 2 - 6 - Math.sin(z2 * Math.PI) * 2, hb + 24 + Math.sin(z2 * Math.PI) * 1.5)); }
+  o.cloth = b2_polyA(side(w0, 1).concat(hemPts, side(w1, -1).reverse(), top));
+  hemPts.forEach(function (p, i) { if (i % 1 === 0) lace += b2_ellA(p[0], p[1] + 2.4 * S, 4 * S, 3.2 * S); });
+  o.clothSh = b2_polyA([Q(w0 + 2, fr - 0.5, hb - 6), Q(w1 + 6, fr - 0.5, hb - 6), Q(w1 + 9, fr - 0.5, hem - 10), Q(w0 + 6, fr - 0.5, hem - 10)]);
+  o.clothFold = b2_polyA([Q(w0 - 1, Bt / 2 + 24, hb + 4), Q(w1 + 1, Bt / 2 + 24, hb + 4), Q(w1 + 2, fr, hb - 10), Q(w0 - 2, fr, hb - 10)]) +
+    b2_polyA([Q(Wd * 0.44, fr, hb - 14), Q(Wd * 0.47, fr, hb - 14), Q(Wd * 0.45, fr, hem + 4), Q(Wd * 0.41, fr, hem + 4)]) + b2_polyA([Q(Wd * 0.58, fr, hb - 20), Q(Wd * 0.6, fr, hb - 20), Q(Wd * 0.62, fr, hem + 6), Q(Wd * 0.59, fr, hem + 6)]);
   o.lace = lace;
   return o;
 }
@@ -19228,7 +19238,8 @@ ENGINES.nighttrain = function (A, v, dk) {
       o.lineCap = 'round'; o.lineJoin = 'round'; o.strokeStyle = dk ? 'rgba(0,0,0,0.22)' : 'rgba(20,60,50,0.2)'; o.lineWidth = 1.4 * S; o.stroke(new Path2D(p.stitch));
       o.strokeStyle = dk ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.3)'; o.lineWidth = 2 * S; o.stroke(new Path2D(p.pipe));
       o.fillStyle = TN.D; o.fill(new Path2D(p.btn));
-      o.fillStyle = C.cover; o.fill(new Path2D(p.cloth + p.lace)); shade(o, p.cloth, s.top, s.top + 140 * S, 'rgba(255,255,255,0.25)', dk ? 'rgba(80,60,100,0.18)' : 'rgba(170,140,120,0.18)'); });
+      o.save(); o.filter = 'blur(' + (2.5 * S) + 'px)'; o.fillStyle = dk ? 'rgba(0,0,0,0.3)' : 'rgba(20,50,40,0.22)'; o.fill(new Path2D(p.clothSh)); o.restore();
+      o.fillStyle = C.cover; o.fill(new Path2D(p.cloth)); o.fill(new Path2D(p.lace)); shade(o, p.cloth, s.top, s.top + 140 * S, 'rgba(255,255,255,0.25)', dk ? 'rgba(80,60,100,0.18)' : 'rgba(170,140,120,0.18)'); o.fillStyle = dk ? 'rgba(60,40,80,0.22)' : 'rgba(150,120,100,0.2)'; o.fill(new Path2D(p.clothFold)); });
     o.fillStyle = 'rgba(255,255,255,0.22)'; o.fill(new Path2D(rrect(G.tbl[0] - 22 * S, TB.front - 1 * S, G.tbl[1] - G.tbl[0] + 44 * S, 2.5 * S, 1.2 * S)));
     if (ph) return;
     var mx = G.x1 + G.fr + 18, mw = W - G.seat.bf - 14 - mx, my = G.y0 + 6, mh = Math.min(mw * 0.72, G.seat.top - 50 - my);
