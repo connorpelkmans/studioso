@@ -1124,7 +1124,11 @@ function b3_cup2(L, x, y, u, C) {
   add(L, 'k', b2_ellA(x + 2 * u, y + 0.8 * u, 47 * u, 8.6 * u), C.under);
   add(L, 'l', b2_ellA(x + 2 * u, y - 1.8 * u, 48 * u, 8.8 * u) + body + b2_ellA(x, bot, 19 * u, 4 * u) + b2_polyA(ha.concat(hb)) + b2_ellA(x, top, 31 * u, 7 * u), C.cup);
   var sh = []; for (i = 0; i <= N; i++) sh.push(R[i]); for (i = N; i >= 0; i--) { var q = R[i], k = i / N; sh.push([x + (q[0] - x) * (0.55 + 0.15 * k), q[1]]); }
-  add(L, 'm', b2_polyA(sh) + b2_ellA(x, top + 0.4 * u, 28.8 * u, 6.1 * u) + b2_ellA(x + 2 * u, y - 2.6 * u, 27 * u, 4.4 * u), C.shade);
+  // contact shadow on the saucer: only the part below the cup's foot, so it never sits on the cup itself
+  var cs2 = [], cx2 = x + 2 * u, cy2 = y - 2.6 * u, rx2 = 27 * u, ry2 = 4.4 * u;
+  for (i = 0; i <= 24; i++) { var a3 = i / 24 * Math.PI; cs2.push([cx2 + Math.cos(a3) * rx2, cy2 + Math.sin(a3) * ry2]); }
+  for (i = 24; i >= 0; i--) { var xx3 = cx2 - rx2 + i / 24 * 2 * rx2, d3 = (xx3 - x) / (19 * u), fy = Math.abs(d3) < 1 ? bot + 4 * u * Math.sqrt(1 - d3 * d3) : -1e9; cs2.push([xx3, Math.max(cy2, fy)]); }
+  add(L, 'm', b2_polyA(sh) + b2_ellA(x, top + 0.4 * u, 28.8 * u, 6.1 * u) + b2_polyA(cs2), C.shade);
   add(L, 'n', b2_ellA(x, top + 1.2 * u, 27 * u, 5.4 * u), C.cof);
   var ring = [], inner = []; for (i = 0; i < 30; i++) { var a2 = i / 30 * Math.PI * 2; ring.push([x + Math.cos(a2) * 26.4 * u, top + 1.2 * u + Math.sin(a2) * 5.2 * u]); inner.push([x + Math.cos(a2) * 23.6 * u, top + 1.2 * u + Math.sin(a2) * 4.4 * u]); }
   var heart = []; for (i = 0; i < 36; i++) { var th = i / 36 * Math.PI * 2, hx = 16 * Math.pow(Math.sin(th), 3), hy = -(13 * Math.cos(th) - 5 * Math.cos(2 * th) - 2 * Math.cos(3 * th) - Math.cos(4 * th)); heart.push([x + hx * 0.62 * u, top + 1.6 * u + hy * 0.2 * u]); }
@@ -1161,10 +1165,8 @@ SCENES.cafe = function (W, H, dk, rnd) {
   add(near, 'a', rect(-10, ct, W + 20, cs), dk ? '#6A4A30' : '#B98A5E');
   add(near, 'b', rect(-10, ct + cs, W + 20, H), dk ? '#3E2A1C' : '#8A5E3C');
   var stools = ph ? [] : [W * 0.62, W * 0.86], sty = ct + cs + 110;
-  function seatHW(yy) { var d = yy < sty ? (yy - sty) / 15 : (yy > sty + 14 ? (yy - sty - 14) / 15 : 0); return Math.abs(d) >= 1 ? -1 : 60 * Math.sqrt(1 - d * d); }
-  var gr = ''; for (var gy = ct + cs + 30 * u; gy < H; gy += 34 * u) { var hw = seatHW(gy), h1 = seatHW(gy - 1.1), h2 = seatHW(gy + 1.1), xs = -10; if (h1 > 0 && h2 > 0) hw = (h1 + h2) / 2 - 1; else if (hw > 0) hw = Math.max(h1, h2, 0) / 2 + hw / 2 - 1;
-    if (hw > 0) stools.forEach(function (x) { gr += seg(xs, gy, x - hw - 2, gy); xs = x + hw + 2; });
-    gr += seg(xs, gy, W + 10, gy); }
+  // bar planks: thin fills drawn before the stools (stools come later in the same layer), so every line passes behind them
+  var gr = ''; for (var gy = ct + cs + 30 * u; gy < H; gy += 34 * u) gr += rect(-10, gy - 0.8, W + 20, 1.6);
   var cupC = dk ? '#E4D4BE' : '#F8F1E6', cofC = dk ? '#4A2C18' : '#5B3721', latC = dk ? '#D9B48A' : '#E8C9A0', sy = ct + cs * 0.55;
   var cups = ph ? [W * 0.28, W * 0.66] : [W * 0.55, W * 0.72], stm = '', halo = '';
   if (ANIM) { ANIM.cu = cu; ANIM.ph = ph; ANIM.cups = []; ANIM.latC = latC; }
@@ -1211,8 +1213,8 @@ SCENES.cafe = function (W, H, dk, rnd) {
     legs += b3_annulus(ro, ri);
     sside += b2_ellA(x, y + 14, 61, 15) + b2_polyA([[x - 61, y], [x + 61, y], [x + 61, y + 14], [x - 61, y + 14]]);
     stop += b2_ellA(x, y, 61, 15); var sh2 = []; for (var q2 = 0; q2 <= 12; q2++) { var a2 = Math.PI * (1.08 + q2 / 12 * 0.5); sh2.push([x + Math.cos(a2) * 50, y - 1 + Math.sin(a2) * 10.5]); } for (q2 = 12; q2 >= 0; q2--) { a2 = Math.PI * (1.08 + q2 / 12 * 0.5); sh2.push([x + Math.cos(a2) * 46, y + 0.5 + Math.sin(a2) * 8.2]); } shine += b2_polyA(sh2); });
-  add(near, 'c', legs); add(near, 'e', sside, dk ? '#1F3026' : '#2E4636'); add(near, 'g', stop); add(near, 'h', shine);
-  stk(near, 't', gr + cords, dk ? '#24170F' : '#5E3E26', 2.2);
+  add(near, 'c', gr + legs); add(near, 'e', sside, dk ? '#1F3026' : '#2E4636'); add(near, 'g', stop); add(near, 'h', shine);
+  stk(near, 't', cords, dk ? '#24170F' : '#5E3E26', 2.2);
   return b3_out({sky: sky, far: far, refl: refl, mid: mid, near: near});
 };
 
