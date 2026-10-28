@@ -8474,7 +8474,9 @@ function n3_pot2(kind, cx, y, w, h, rnd, glazed) {
     for (i = 0; i <= 6; i++) { var uu = ue * i / 6; fr.push([cx + R(uu), Y(uu)]); fl.unshift([cx - R(uu), Y(uu)]); }
     var edge = []; for (i = 0; i <= 18; i++) { var xx = cx + R(ue) - i / 18 * 2 * R(ue), dy = dd * Math.exp(-Math.pow((xx - dX) / (w * 0.05), 2)) + dd * 0.7 * Math.exp(-Math.pow((xx - dX2) / (w * 0.04), 2)); edge.push([xx, Y(ue) + Math.sin(i * 1.7) * h * 0.012 + dy]); }
     o.foot = b2_polyA(fr.concat(edge.slice(1, -1), fl, bot)); }
-  if (glazed) { var hr = R(0.5); o.hi = b2_ellA(cx - hr * 0.48, Y(0.52), Math.max(1, hr * 0.09), (y0 - yT) * 0.2) + b2_ellA(cx - hr * 0.36, Y(0.78), Math.max(0.8, hr * 0.06), Math.max(0.8, hr * 0.06)); }
+  if (glazed) { // a glint that follows the left side of the body, so it never sticks out past a narrow neck
+    var hiA = [], hiB = [], u0 = 0.3, u1 = 0.72; for (i = 0; i <= 10; i++) { var uu = lerp(u0, u1, i / 10), rr2 = R(uu), sw2 = Math.sin(Math.PI * i / 10); hiA.push([cx - rr2 * 0.62, Y(uu)]); hiB.unshift([cx - rr2 * (0.62 - 0.16 * sw2), Y(uu)]); }
+    o.hi = b2_polyA(hiA.concat(hiB)); var ud = 0.8, rd = R(ud); if (rd > R(0.5) * 0.6) o.hi += b2_ellA(cx - rd * 0.42, Y(ud), Math.max(0.8, rd * 0.07), Math.max(0.8, rd * 0.07)); }
   if (rnd() < 0.45) for (i = 0; i < 7; i++) { var su = 0.15 + rnd() * 0.7; o.speck += b2_ellA(cx + (rnd() - 0.5) * R(su) * 1.4, Y(su), 0.7, 0.7); }
   o.r = Math.max(R(0.5), rT, rB); return o;
 }
