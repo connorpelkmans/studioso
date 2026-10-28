@@ -15947,7 +15947,7 @@ var m2_E_engineering = function (A, v, dk) {
       th += dt * f.s * (1 + 7 * boost); ang += dt * f.s * (1.1 + 9 * boost);
       nextPuff -= dt * f.s * (1 + 6 * boost); if (nextPuff <= 0) { nextPuff = boost > 0.2 ? 0.7 : 4 + Math.random() * 3; puffs.push({x: E.chim[0], y: E.chim[1], t0: t, big: boost > 0.2 ? 1 : 0, dx: 10 + Math.random() * 18}); if (boost > 0.3) puffs.push({x: E.exh[0], y: E.exh[1], t0: t, big: 0.6, dx: -10 - Math.random() * 6}); }
       puffs = puffs.filter(function (p) { return t - p.t0 < 3.2; });
-      if (t > trainT0) { trainX = Wn.gx0 - trainW() - 20 + (t - trainT0) * (ph ? 22 : 30) * f.s; if (trainX > Wn.gx1 + 30) { trainT0 = t + 22 + Math.random() * 20; trainX = -999; } }
+      if (t > trainT0) { trainX = Wn.gx0 - trainW() - 20 + (t - trainT0) * (ph ? 66 : 90) * f.s; if (trainX > Wn.gx1 + 30) { trainT0 = t + 9 + Math.random() * 9; trainX = -999; } }
     },
     draw: function (ca, cb, t, f) {
       var i;
@@ -16208,7 +16208,7 @@ function m2_L_engineering(A, v, dk) {
       if (bot.wait > 0) bot.wait -= dt; else { bot.x += bot.dir * 16 * Lf.rb.s / 40 * sp * dt; if (bot.x > Lf.rb.x1) { bot.x = Lf.rb.x1; bot.dir = -1; bot.wait = 1.2; } if (bot.x < Lf.rb.x0) { bot.x = Lf.rb.x0; bot.dir = 1; bot.wait = 1.2; } }
       items.forEach(function (it) { it.u += dt * 0.05 * sp; if (it.u > 1) { it.u -= 1; it.k = 1 + Math.floor(Math.random() * 3); } });
       nextCuckoo -= dt * f.s; if (nextCuckoo <= 0) { cuckoo = t; nextCuckoo = 22 + Math.random() * 22; }
-      if (runP) { var prev = marble; var onRail = marble < railLen; marble += dt * (onRail ? 45 + 50 * Math.min(1, marble / Math.max(1, railLen)) : 260) * sp; if (prev < bellS && marble >= bellS) { ring = t; for (var j = 0; j < 6; j++) sparks.push({x: R.bell[0], y: R.bell[1], vx: (Math.random() - 0.7) * 90, vy: -40 - Math.random() * 80, t0: t}); } if (marble > runLen) marble -= runLen; var mp = m2_at(runP, marble); if (Math.hypot(mp[0] - R.wheel[0], mp[1] - R.wheel[1] - 18) < 30) wheelA += dt * 14; else wheelA += dt * 0.3; }
+      if (runP) { var prev = marble; var onRail = marble < railLen; marble += dt * (onRail ? 110 + 120 * Math.min(1, marble / Math.max(1, railLen)) : 520) * sp; if (prev < bellS && marble >= bellS) { ring = t; for (var j = 0; j < 6; j++) sparks.push({x: R.bell[0], y: R.bell[1], vx: (Math.random() - 0.7) * 90, vy: -40 - Math.random() * 80, t0: t}); } if (marble > runLen) marble -= runLen; var mp = m2_at(runP, marble); if (Math.hypot(mp[0] - R.wheel[0], mp[1] - R.wheel[1] - 18) < 30) wheelA += dt * 14; else wheelA += dt * 0.3; }
       m2_confStep(conf, dt, t); sparks.forEach(function (s2) { s2.vy += 160 * dt; s2.x += s2.vx * dt; s2.y += s2.vy * dt; }); sparks = sparks.filter(function (s2) { return t - s2.t0 < 1.2; });
     },
     draw: function (ca, cb, t, f) {
