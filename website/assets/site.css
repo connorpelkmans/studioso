@@ -168,6 +168,9 @@ details.which p{margin:6px 0 0;max-width:36em}
 .shot .logo-l{display:var(--logo-l)} .shot .logo-d{display:var(--logo-d)}
 .hero .shot{transform:rotate(.6deg)}
 @media (max-width:920px){.hero .shot{transform:none}}
+/* Wide screens: the preview gets the bigger column, and runs into the page margin when there is one */
+@media (min-width:1200px){.hero{overflow-x:clip}.hero .wrap{max-width:1240px;grid-template-columns:minmax(0,.76fr) minmax(0,1.3fr)}}
+@media (min-width:1400px){.hero .wrap{max-width:1320px;grid-template-columns:minmax(0,.68fr) minmax(0,1.32fr)}.hero .shot{width:calc(100% + min(140px,(100vw - 1320px) / 2))}}
 .cap{margin:10px 2px 0;color:var(--muted);font-size:.95rem}
 
 /* ===== Sections ===== */
