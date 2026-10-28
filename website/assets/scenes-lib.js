@@ -753,9 +753,16 @@ SCENES.autumn = function (W, H, dk, rnd) {
   function pickC() { var q = rnd(); return q < 0.24 ? 'red' : q < 0.48 ? 'orange' : q < 0.7 ? 'gold' : q < 0.85 ? 'rust' : q < 0.88 ? 'plum' : 'pine'; }
   // slots: distance trees in refl, near trees in mid; each colour gets lit/base/shade, plus shared trunks and shadows
   // [lit, base, shade]; base comes first in draw order, then shade, then lit
-  var SL = {refl: {sh: 'A', tr: 'B', red: ['E', 'C', 'D'], orange: ['H', 'F', 'G'], gold: ['K', 'I', 'J'], rust: ['N', 'L', 'M'], plum: ['N', 'L', 'M'], pine: ['', 'O', 'P']},
-    mid: {sh: 'a', tr: 'b', red: ['e', 'c', 'd'], orange: ['h', 'f', 'g'], gold: ['k', 'i', 'j'], rust: ['n', 'l', 'm'], plum: ['A', 'o', 'p'], pine: ['D', 'B', 'C']}};
+  // far trees (refl) keep a lit/base/shade colour per hue; nearer trees go in three depth bands in the mid layer, each band
+  // drawn whole before the next nearer one, so a nearer tree always covers a farther one. A band has one base slot per hue,
+  // plus a shared see-through shade and lit overlay.
+  var SL = {refl: {sh: 'A', tr: 'B', red: ['E', 'C', 'D'], orange: ['H', 'F', 'G'], gold: ['K', 'I', 'J'], rust: ['N', 'L', 'M'], plum: ['N', 'L', 'M'], pine: ['', 'O', 'P']}};
+  var BANDS = [{k: 'b1', sh: 'a', tr: 'b', base: {red: 'c', orange: 'd', gold: 'e', rust: 'f', plum: 'g', pine: 'h'}, shade: 'i', lit: 'j', hz: 0.14},
+    {k: 'b2', sh: 'k', tr: 'l', base: {red: 'm', orange: 'n', gold: 'o', rust: 'p', plum: 'A', pine: 'B'}, shade: 'C', lit: 'D', hz: 0.06},
+    {k: 'b3', sh: 'E', tr: 'F', base: {red: 'G', orange: 'H', gold: 'I', rust: 'J', plum: 'K', pine: 'L'}, shade: 'M', lit: 'N', hz: 0}];
+  var SHADE = dk ? 'rgba(10,0,0,0.34)' : 'rgba(90,30,0,0.3)', LIT = dk ? 'rgba(255,190,130,0.2)' : 'rgba(255,244,200,0.42)';
   var fills = {refl: {}, mid: {}}, cols = {refl: {}, mid: {}};
+  function band(lay) { return typeof lay === 'object' ? lay : null; }
   function put(lay, slot, d, c) { if (!slot) return; fills[lay][slot] = (fills[lay][slot] || '') + d; if (c) cols[lay][slot] = c; }
   // a crown: a solid scalloped silhouette, a shaded mass hanging low on the right, a lit cap on the upper left, and leafy dabs
   function crownOf(cx, cy, rx, ry, dabs) { var base = b2_ellA(cx, cy, rx * 0.8, ry * 0.8), sh = '', li = '', tx = '', n = 13, j2, a, lr = Math.min(rx, ry);
@@ -767,23 +774,27 @@ SCENES.autumn = function (W, H, dk, rnd) {
     if (dabs) for (j2 = 0; j2 < 12; j2++) { a = rnd() * 6.28; var dd = Math.sqrt(rnd()) * 0.78, ex = cx + Math.cos(a) * rx * dd, ey = cy + Math.sin(a) * ry * dd, up = (ex - cx) / rx + (ey - cy) / ry < -0.2; var lf = b2_leaf(ex, ey, lr * 0.16, lr * 0.07, rnd() * 360); if (up) li += lf; else tx += lf; }
     return {base: base, sh: sh, li: li, tx: tx}; }
   function decid(lay, x0, y0, r, col, hzk) {
-    var S2 = SL[lay], ks = S2[lay === 'refl' && col === 'plum' ? 'rust' : col], P3 = PAL[col].map(function (c) { return hzk ? hz2(c, hzk) : c; }), cy = y0 - r * 1.72, j2, a, d;
+    var Bd = band(lay), L2 = Bd ? 'mid' : lay, S2 = Bd || SL[lay], P3 = PAL[col].map(function (c) { return hzk ? hz2(c, hzk) : c; }), cy = y0 - r * 1.72, j2, a, d;
+    var ks = Bd ? [Bd.lit, Bd.base[col], Bd.shade] : S2[col === 'plum' ? 'rust' : col]; lay = L2;
     put(lay, S2.sh, b2_ellA(x0 + r * 0.25, y0 + r * 0.04, r * 1.0, r * 0.18));
     var trunk = b2_polyA([[x0 - r * 0.17, y0 + 1], [x0 - r * 0.08, y0 - r * 0.25], [x0 - r * 0.06, y0 - r * 1.3], [x0 + r * 0.06, y0 - r * 1.3], [x0 + r * 0.08, y0 - r * 0.25], [x0 + r * 0.19, y0 + 1]]);
     trunk += b2_limb([x0, y0 - r * 0.85], [x0 - r * 0.3, y0 - r * 1.2], [x0 - r * 0.55, y0 - r * 1.55], r * 0.1, r * 0.03, 8) + b2_limb([x0, y0 - r * 0.95], [x0 + r * 0.3, y0 - r * 1.25], [x0 + r * 0.5, y0 - r * 1.6], r * 0.09, r * 0.03, 8);
     put(lay, S2.tr, trunk);
     var C2 = crownOf(x0, cy, r * (0.95 + rnd() * 0.2), r * (0.82 + rnd() * 0.25), lay === 'mid' && r > 14), base = C2.base, sh = C2.sh, li = C2.li, tx2 = C2.tx;
-    put(lay, ks[1], base, P3[1]); put(lay, ks[2], sh + tx2, P3[2]); put(lay, ks[0], li, P3[0]);
+    if (Bd) { put(lay, ks[1], base, P3[1]); put(lay, ks[2], sh + tx2, SHADE); put(lay, ks[0], li, LIT); }
+    else { put(lay, ks[1], base, P3[1]); put(lay, ks[2], sh + tx2, P3[2]); put(lay, ks[0], li, P3[0]); }
   }
   function pine(lay, x0, y0, r, hzk) {
-    var S2 = SL[lay], ks = S2.pine, P3 = PINE.map(function (c) { return hzk ? hz2(c, hzk) : c; }), h = r * 2.9, n = 4, base = '', sh = '', li = '';
-    put(lay, S2.sh, b2_ellA(x0 + r * 0.2, y0 + r * 0.03, r * 0.75, r * 0.14));
-    put(lay, S2.tr, b2_polyA([[x0 - r * 0.1, y0 + 1], [x0 - r * 0.07, y0 - r * 0.6], [x0 + r * 0.07, y0 - r * 0.6], [x0 + r * 0.1, y0 + 1]]));
+    var Bd = band(lay), S2 = Bd || SL[lay], ks = Bd ? [Bd.lit, Bd.base.pine, Bd.shade] : S2.pine; P3 = PINE.map(function (c) { return hzk ? hz2(c, hzk) : c; }), h = r * 2.9, n = 4, base = '', sh = '', li = '';
+    var LP = Bd ? 'mid' : lay;
+    put(LP, S2.sh, b2_ellA(x0 + r * 0.2, y0 + r * 0.03, r * 0.75, r * 0.14));
+    put(LP, S2.tr, b2_polyA([[x0 - r * 0.1, y0 + 1], [x0 - r * 0.07, y0 - r * 0.6], [x0 + r * 0.07, y0 - r * 0.6], [x0 + r * 0.1, y0 + 1]]));
     for (var q = 0; q < n; q++) { var u0 = q / n, tTop = y0 - h + h * u0 * 0.78, tBot = y0 - r * 0.35 - (n - 1 - q) * h * 0.2, w = r * (0.45 + 0.6 * (q + 1) / n);
       var pts = [[x0, tTop], [x0 + w * 0.6, tBot - (tBot - tTop) * 0.3], [x0 + w, tBot], [x0 + w * 0.62, tBot - r * 0.06], [x0 + w * 0.32, tBot + r * 0.04], [x0, tBot - r * 0.05], [x0 - w * 0.32, tBot + r * 0.04], [x0 - w * 0.62, tBot - r * 0.06], [x0 - w, tBot], [x0 - w * 0.6, tBot - (tBot - tTop) * 0.3]];
       base += b2_polyA(pts); sh += b2_polyA([[x0, tTop], [x0 + w * 0.6, tBot - (tBot - tTop) * 0.3], [x0 + w, tBot], [x0 + w * 0.62, tBot - r * 0.06], [x0 + w * 0.32, tBot + r * 0.04], [x0 + w * 0.05, tBot - r * 0.05], [x0 + w * 0.06, tBot - (tBot - tTop) * 0.45]]);
       li += b2_polyA([[x0 - w * 0.08, tTop + (tBot - tTop) * 0.2], [x0 - w * 0.58, tBot - (tBot - tTop) * 0.27], [x0 - w * 0.9, tBot - r * 0.02], [x0 - w * 0.62, tBot - r * 0.1], [x0 - w * 0.2, tBot - (tBot - tTop) * 0.25]]); }
-    put(lay, ks[1], base, P3[1]); put(lay, ks[2], sh, P3[2]); put(lay, ks[0], li, P3[0]);
+    if (Bd) { lay = 'mid'; put(lay, ks[1], base, P3[1]); put(lay, ks[2], sh, SHADE); put(lay, ks[0], li, LIT); }
+    else { put(lay, ks[1], base, P3[1]); put(lay, ks[2], sh, P3[2]); put(lay, ks[0], li, P3[0]); }
   }
   var pathAt = function (y2) { for (var q = 0; q < pm.length - 1; q++) { var a1 = pm[q], a2 = pm[q + 1]; if (y2 <= a1[1] && y2 >= a2[1]) { var u = (y2 - a1[1]) / ((a2[1] - a1[1]) || 1), c = lerp(a1[0], a2[0], u), w = lerp(a1[2], a2[2], u); return [c - w, c + w]; } } return [W * 0.5, W * 0.5]; };
   // the bench and lamp
@@ -792,13 +803,19 @@ SCENES.autumn = function (W, H, dk, rnd) {
   var keepOut = [[bxp - 54 * bs, byp - 50 * bs, bxp + 54 * bs, byp + 8 * bs], [lx - 16 * bs, byp - 160 * bs, lx + 16 * bs, byp + 8 * bs], [tx - (ph ? 60 : 100), tt - 40, W + 60, H + 20]];
   var taken = [], hit = function (list, b) { return list.some(function (o) { return b[2] > o[0] && b[0] < o[2] && b[3] > o[1] && b[1] < o[3]; }); };
   var offPath = function (b) { for (var yy = b[1]; yy <= b[3]; yy += 4) { if (yy < hz) continue; var pe = pathAt(Math.min(yy, H)); if (b[2] > pe[0] - 10 && b[0] < pe[1] + 10) return false; } return true; };
-  var want = ph ? 34 : 64, made = 0, items = [], trunkBox = []; // a fuller grove: crowns may overlap (nearer ones drawn in front), trunks keep some room
-  for (var tr2 = 0; tr2 < 1400 && made < want; tr2++) { var fy = Math.pow(rnd(), 0.75), yy2 = hz + 10 + (H + 30 - hz - 10) * fy, rr5 = (ph ? 7 : 9) + fy * (ph ? 34 : 52), xx2 = -rr5 * 0.5 + rnd() * (W + rr5);
-    var bb3 = [xx2 - rr5 * 1.15, yy2 - rr5 * 2.75, xx2 + rr5 * 1.15, yy2 + rr5 * 0.25];
-    var tb3 = [xx2 - rr5 * 0.5, yy2 - rr5 * 1.2, xx2 + rr5 * 0.5, yy2 + rr5 * 0.2];
-    if (hit(keepOut, bb3) || hit(trunkBox, tb3) || !offPath([xx2 - rr5 * 0.4, yy2 - rr5 * 0.3, xx2 + rr5 * 0.4, Math.min(yy2 + 2, H)]) || !offPath([bb3[0], yy2 - rr5 * 2.6, bb3[2], yy2 - rr5 * 0.8])) continue;
-    taken.push(bb3); trunkBox.push(tb3); made++; items.push([yy2, xx2, rr5, pickC(), fy]); }
-  items.sort(function (a, b) { return a[0] - b[0]; }).forEach(function (q) { var lay = q[4] < 0.2 ? 'refl' : 'mid', hzk = lay === 'refl' ? 0.38 : Math.max(0, 0.2 - q[4] * 0.3); if (q[3] === 'pine') pine(lay, q[1], q[0], q[2] * 0.95, hzk); else decid(lay, q[1], q[0], q[2], q[3], hzk); });
+  // placement: spread evenly (best of several random candidates, farthest from the trees already placed); trees in the
+  // same depth band never overlap, trees in different bands may (the nearer band is drawn on top)
+  var want = ph ? 40 : 78, items = [], trunkBox = [], bandBox = {refl: [], b1: [], b2: [], b3: []};
+  function bandOf(fy) { return fy < 0.2 ? 'refl' : fy < 0.45 ? 'b1' : fy < 0.72 ? 'b2' : 'b3'; }
+  for (var tr2 = 0; tr2 < 2600 && items.length < want; tr2++) { var best = null, bestD = -1;
+    for (var cI = 0; cI < 14; cI++) { var fy = Math.pow(rnd(), 0.85), yy2 = hz + 10 + (H + 30 - hz - 10) * fy, rr5 = (ph ? 7 : 9) + fy * (ph ? 34 : 52), xx2 = -rr5 * 0.5 + rnd() * (W + rr5);
+      var bb3 = [xx2 - rr5 * 1.15, yy2 - rr5 * 2.75, xx2 + rr5 * 1.15, yy2 + rr5 * 0.25], tb3 = [xx2 - rr5 * 0.5, yy2 - rr5 * 1.2, xx2 + rr5 * 0.5, yy2 + rr5 * 0.2], bk = bandOf(fy);
+      if (hit(keepOut, bb3) || hit(trunkBox, tb3) || hit(bandBox[bk], bb3) || !offPath([xx2 - rr5 * 0.4, yy2 - rr5 * 0.3, xx2 + rr5 * 0.4, Math.min(yy2 + 2, H)]) || !offPath([bb3[0], yy2 - rr5 * 2.6, bb3[2], yy2 - rr5 * 0.8])) continue;
+      var dmin = 1e9; items.forEach(function (q) { var dx = (q[1] - xx2) / (q[2] + rr5), dy = (q[0] - yy2) / ((q[2] + rr5) * 0.6); dmin = Math.min(dmin, dx * dx + dy * dy); });
+      if (dmin > bestD) { bestD = dmin; best = {fy: fy, y: yy2, r: rr5, x: xx2, bb: bb3, tb: tb3, bk: bk}; } }
+    if (!best) continue; taken.push(best.bb); trunkBox.push(best.tb); bandBox[best.bk].push([best.bb[0] + best.r * 0.12, best.bb[1] + best.r * 0.2, best.bb[2] - best.r * 0.12, best.bb[3]]); items.push([best.y, best.x, best.r, pickC(), best.fy, best.bk]); }
+  var BI = {b1: BANDS[0], b2: BANDS[1], b3: BANDS[2]};
+  items.sort(function (a, b) { return a[0] - b[0]; }).forEach(function (q) { var lay = q[5] === 'refl' ? 'refl' : BI[q[5]], hzk = q[5] === 'refl' ? 0.38 : BI[q[5]].hz; if (q[3] === 'pine') pine(lay, q[1], q[0], q[2] * 0.95, hzk); else decid(lay, q[1], q[0], q[2], q[3], hzk); });
   // pumpkins and a hay bale or two just off the path, and little leaf piles
   var pk = {base: '', sh: '', hi: '', stem: ''}, hay = {front: '', top: '', band: ''}, straw = '';
   function pumpkin(x0, y0, r) { var cy = y0 - r * 0.72; pk.base += b2_ellA(x0, cy, r * 1.15, r * 0.78); [-1, 1].forEach(function (sd) { pk.base += b2_ellA(x0 + sd * r * 0.55, cy + r * 0.04, r * 0.62, r * 0.72); }); pk.base += b2_ellA(x0, cy + r * 0.02, r * 0.5, r * 0.76);
@@ -817,14 +834,14 @@ SCENES.autumn = function (W, H, dk, rnd) {
     if (hit(keepOut, pb) || hit(taken, pb) || !offPath(pb)) continue; taken.push(pb); nPut++;
     if (nPut % 4 === 2) { bale(px2, py2, pr2 * 1.05); continue; }
     pumpkin(px2, py2, pr2); if (rnd() < 0.6) pumpkin(px2 + pr2 * 1.5, py2 + 1, pr2 * 0.66); }
-  add(mid, 'E', shadowsMid, dk ? 'rgba(0,0,0,0.3)' : 'rgba(110,60,25,0.2)');
-  add(mid, 'F', hay.front, dk ? '#7A6034' : '#E2BE72'); add(mid, 'G', hay.top, dk ? '#94763E' : '#F2D690'); add(mid, 'H', hay.band, dk ? '#4A3218' : '#9A6A34');
-  add(mid, 'I', pk.base, dk ? '#B4602A' : '#EE8A2E'); add(mid, 'J', pk.sh, dk ? '#82401A' : '#C8641C'); add(mid, 'K', pk.hi, dk ? '#CC7A3A' : '#F8AA58'); add(mid, 'L', pk.stem, dk ? '#4A4A22' : '#6E7A34');
-  stk(mid, 't', straw, dk ? 'rgba(60,40,15,0.6)' : 'rgba(160,110,40,0.55)', 1);
+  add(near, 'A', shadowsMid, dk ? 'rgba(0,0,0,0.3)' : 'rgba(110,60,25,0.2)');
+  add(near, 'B', hay.front, dk ? '#7A6034' : '#E2BE72'); add(near, 'C', hay.top, dk ? '#94763E' : '#F2D690'); add(near, 'D', hay.band, dk ? '#4A3218' : '#9A6A34');
+  add(near, 'E', pk.base, dk ? '#B4602A' : '#EE8A2E'); add(near, 'F', pk.sh, dk ? '#82401A' : '#C8641C'); add(near, 'G', pk.hi, dk ? '#CC7A3A' : '#F8AA58'); add(near, 'H', pk.stem, dk ? '#4A4A22' : '#6E7A34');
+  stk(near, 't', straw, dk ? 'rgba(60,40,15,0.6)' : 'rgba(160,110,40,0.55)', 1);
   ['refl', 'mid'].forEach(function (lay) { var L = lay === 'refl' ? refl : mid; Object.keys(fills[lay]).forEach(function (k2) { add(L, k2, fills[lay][k2], cols[lay][k2]); }); });
   // the shadows/trunks of each layer
   refl.A.c = dk ? 'rgba(0,0,0,0.22)' : 'rgba(110,60,25,0.14)'; refl.B.c = hz2(TRK, 0.35);
-  mid.a.c = dk ? 'rgba(0,0,0,0.32)' : 'rgba(110,60,25,0.22)'; mid.b.c = TRK;
+  BANDS.forEach(function (Bd) { mid[Bd.sh].c = dk ? 'rgba(0,0,0,0.32)' : 'rgba(110,60,25,0.22)'; mid[Bd.tr].c = Bd.hz ? hz2(TRK, Bd.hz) : TRK; });
   // ---- the bench and the lamp post: iron frames, wooden slats, a glass lantern ----
   var iron = '', wood = '', woodD = '', glass = '', ironHi = '', sh3 = '';
   function B(u, v) { return [bxp + u * bs, byp + v * bs]; }
