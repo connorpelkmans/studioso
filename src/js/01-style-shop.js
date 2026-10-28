@@ -1019,6 +1019,8 @@ let sDrag = null, stkClickBlock = 0;
 function stkNoteAt(x, y){ const el = document.elementFromPoint(x, y); return el && el.closest ? el.closest(".nb-board .note") : null; }
 function stkEnd(ok, e){
   const d = sDrag; sDrag = null; if (!d) return;
+  // Find the note while the tray is still out of the way, before the drag styling comes off
+  const target = ok && d.moved ? stkNoteAt(e.clientX, e.clientY) : null;
   document.body.classList.remove("stk-dragging");
   $$(".note.stk-target").forEach(n => n.classList.remove("stk-target"));
   if (d.ghost) d.ghost.remove();
@@ -1030,7 +1032,7 @@ function stkEnd(ok, e){
     else toast("Drag the sticker onto a sticky note");
     return;
   }
-  const target = stkNoteAt(e.clientX, e.clientY), tid = target && target.dataset.note;
+  const tid = target && target.dataset.note;
   const changes = [];
   let moved = null;
   if (d.fromNote) {
