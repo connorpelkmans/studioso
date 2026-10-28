@@ -3346,9 +3346,74 @@ SCENES.stpatricks = function (W, H, dk, rnd) {
   return {sky: sky, far: far, refl: refl, mid: mid, near: near};
 };
 
+// Fourth of July helpers: firework particles and a sailboat
+// Burst styles: drag, gravity (in burst radii per s^2), life (s), trail length (s), particle share, the moment the still picture shows
+var J4ST = {peony: {kd: 1.7, g: 0.3, life: 2.6, tl: 0.16, n: 1, show: 0.85}, chrys: {kd: 1.5, g: 0.26, life: 2.8, tl: 0.42, n: 0.9, show: 0.95},
+  willow: {kd: 2.3, g: 0.5, life: 3.6, tl: 0.85, n: 0.75, show: 1.5}, ring: {kd: 1.9, g: 0.28, life: 2.3, tl: 0.14, n: 0.6, show: 0.75}};
+var J4STY = ['peony', 'chrys', 'willow', 'ring'];
+function j4_cols(dk) { var C = dk ? ['#FF5A6E', '#F4F6FF', '#6F9BFF', '#FFD166'] : ['#D8364A', '#8C9CC8', '#2F55C8', '#DE9A1E'];
+  return {C: C, TIP: C.map(function (c) { return mix(c, '#FFFFFF', dk ? 0.55 : 0.3); })}; }
+// particles: [x dir, y dir, speed share, colour]; a peony carries an inner core in a second colour
+function j4_parts(style, n, seed, ci, ci2) { var out = [];
+  for (var j = 0; j < n; j++) { var h1 = hash(seed + j * 3.17), h2 = hash(seed + j * 7.31 + 1), a, rr;
+    if (style === 'ring') { a = j / n * 6.283 + seed; out.push([Math.cos(a), Math.sin(a) * 0.5, 0.95 + 0.05 * h1, ci]); continue; }
+    a = j / n * 6.283 + h1 * 0.35; var z = h2 * 2 - 1; rr = Math.sqrt(1 - z * z * 0.7);
+    if (style === 'peony' && j % 3 === 2) out.push([Math.cos(a) * rr, Math.sin(a) * rr, 0.5 + 0.08 * h1, ci2]);
+    else out.push([Math.cos(a) * rr, Math.sin(a) * rr, 0.86 + 0.14 * h1, ci]); }
+  return out; }
+// where a particle is t seconds after the burst (air drag slows it, then it falls)
+function j4_pos(st, p, t, R) { var k = st.kd, f = (1 - Math.exp(-k * t)) / k, v = R * k * p[2]; return [p[0] * v * f, p[1] * v * f + st.g * R / k * (t - f)]; }
+function j4_boatCols(dk) { return {hull: dk ? ['#B8394A', '#2C3A78', '#D8DCE8'] : ['#C8404D', '#2F4A9A', '#FBFAF6'], shade: dk ? 'rgba(10,10,30,0.25)' : 'rgba(30,30,60,0.14)', sW: dk ? '#E8E6EE' : '#FFFFFF',
+  red: dk ? '#D8404F' : '#D23C4A', blue: dk ? '#2A3A86' : '#2E4A9E', cab: dk ? '#C9C6D4' : '#F1EEE6', win: dk ? '#FFD88A' : '#3A4A6A', sail: dk ? '#E6E2EA' : '#FFFFFF',
+  sailSh: dk ? 'rgba(60,60,120,0.3)' : 'rgba(90,110,150,0.18)', seam: dk ? 'rgba(90,90,140,0.42)' : 'rgba(120,130,160,0.38)', rig: dk ? '#A8A8BE' : '#5E6476',
+  refl: dk ? 'rgba(220,210,240,0.12)' : 'rgba(255,255,255,0.4)', wake: dk ? 'rgba(200,210,255,0.28)' : 'rgba(255,255,255,0.75)', light: '#FFE6A8'}; }
+// A sailboat floating with its waterline at (x, y), size k, bow pointing dir (1 right, -1 left): curved hull with a sheer stripe and boot top,
+// a little cabin, mast, boom and rigging, a mainsail and jib with curved leeches, seams and shading, a masthead pennant, a stern flag,
+// its reflection and wake; lights = festive bulbs strung bow to masthead to stern
+function j4_boat(x, y, k, dir, lights) {
+  function M(px, py) { return [x + dir * px * k, y + py * k]; }
+  function Rf(px, py) { return [x + dir * px * k, y + (1.5 + (1.5 - py) * 0.5) * k]; }
+  function q(p0, c, p1, n, f) { var o = []; for (var i = 0; i <= n; i++) { var t = i / n, u = 1 - t; o.push(f(u * u * p0[0] + 2 * u * t * c[0] + t * t * p1[0], u * u * p0[1] + 2 * u * t * c[1] + t * t * p1[1])); } return o; }
+  function id(a, b) { return [a, b]; }
+  function line(a, b, w) { return b2_limb(M(a[0], a[1]), M((a[0] + b[0]) / 2, (a[1] + b[1]) / 2), M(b[0], b[1]), w * k, w * k, 2); }
+  var S = [-26, -6], SC = [0, -3], B = [30, -9.5], F = [22, 0.5], A = [-20, 1.5], sheer = q(S, SC, B, 40, id);
+  function sy(px) { for (var i = 1; i < sheer.length; i++) if (sheer[i][0] >= px) { var a = sheer[i - 1], b = sheer[i]; return a[1] + (b[1] - a[1]) * (px - a[0]) / (b[0] - a[0]); } return B[1]; }
+  function hullPts(f) { return q(S, SC, B, 12, f).concat(q(B, [29, -2], F, 5, f).slice(1), q(F, [0, 3.2], A, 8, f).slice(1), q(A, [-25, -0.5], S, 4, f).slice(1, -1)); }
+  var head = [2.8, -53], tack = [2.8, -16], clew = [-22, -15.5], LC = [-15, -38], jh = [3.8, -49], jt = [27, -10.6], jc = [9, -14.5], JLC = [3.5, -29];
+  function mainPts(f) { return [f(head[0], head[1]), f(tack[0], tack[1])].concat(q(tack, [-10, -13.6], clew, 8, f).slice(1), q(clew, LC, head, 12, f).slice(1, -1)); }
+  function jibPts(f) { return [f(jh[0], jh[1]), f(jt[0], jt[1])].concat(q(jt, [18, -11.5], jc, 6, f).slice(1), q(jc, JLC, jh, 10, f).slice(1, -1)); }
+  function jibLuffX(py) { return jh[0] + (jt[0] - jh[0]) * (py - jh[1]) / (jt[1] - jh[1]); }
+  var o = {};
+  o.hull = b2_polyA(hullPts(M));
+  o.refl = b2_polyA(hullPts(Rf)) + b2_polyA(mainPts(Rf)) + b2_polyA(jibPts(Rf));
+  o.shade = b2_polyA(q(F, [0, 3.2], A, 8, M).concat([M(-23, -2.6), M(26, -3.6)]));
+  o.stripe = b2_band(sheer.filter(function (p) { return p[0] > -25 && p[0] < 29; }).map(function (p) { return M(p[0], p[1] + 1.9); }), 1.5 * k);
+  o.boot = b2_band([M(-21, -0.6), M(0, -0.4), M(23, -0.9)], 1.4 * k);
+  o.cab = b2_polyA([M(-12, sy(-12) + 0.5), M(-11, -10.5), M(4, -11), M(7.5, sy(7.5) - 2.6), M(8, sy(8) + 0.5)]);
+  o.win = ''; [[-8, -8.4], [-4.4, -8.6], [-0.8, -8.8]].forEach(function (w) { var p = M(w[0], w[1]); o.win += b2_ellA(p[0], p[1], 1.1 * k, 0.9 * k); });
+  o.sail = b2_polyA(mainPts(M)) + b2_polyA(jibPts(M));
+  // shading along each leech, fading toward the luff; panel seams run from the leech to the luff
+  var lee = q(clew, LC, head, 12, id), jl = q(jc, JLC, jh, 10, id);
+  o.sailSh = b2_polyA(lee.map(function (p) { return M(p[0], p[1]); }).concat(lee.slice().reverse().map(function (p) { return M(p[0] + (tack[0] - p[0]) * 0.24, p[1]); })))
+    + b2_polyA(jl.map(function (p) { return M(p[0], p[1]); }).concat(jl.slice().reverse().map(function (p) { return M(p[0] + (jibLuffX(p[1]) - p[0]) * 0.26, p[1]); })));
+  o.seam = ''; [0.3, 0.55, 0.78].forEach(function (t) { var L = b2_qpt(clew, LC, head, t); o.seam += line(L, [tack[0] - 0.4, L[1] + 3], 0.5); });
+  [0.35, 0.68].forEach(function (t) { var L = b2_qpt(jc, JLC, jh, t), ly = L[1] + 2.4; o.seam += line(L, [jibLuffX(ly) - 0.4, ly], 0.45); });
+  o.rig = line([2, sy(2)], [2, -56], 1.7) + line([2.4, -15.2], [-24, -14.4], 1.5) + line([-3, -37], [7, -37], 0.8) + line([2, -55], [29, -9.6], 0.5) + line([2, -55], [-25.5, -6.4], 0.5) + line([2, -37], [-6, sy(-6)], 0.45) + line([-25.5, sy(-25.5)], [-27.5, -15], 0.55);
+  // masthead pennant and a little stars and stripes on the stern staff
+  function FL(u, v) { var top = -15 + 0.6 * u, bot = -10.6 + 0.6 * u; return M(-27.5 - 8.5 * u, top + (bot - top) * v + Math.sin(u * 3.2) * 0.6); }
+  function flagBox(u0, u1, v0, v1) { var a = [], b = []; for (var i = 0; i <= 6; i++) { var u = u0 + (u1 - u0) * i / 6; a.push(FL(u, v0)); b.unshift(FL(u, v1)); } return b2_polyA(a.concat(b)); }
+  o.sail += flagBox(0, 1, 0, 1);
+  o.red = b2_polyA([M(2, -56.2), M(2, -53), M(-7, -54.8)]) + flagBox(0, 1, 0.14, 0.28) + flagBox(0, 1, 0.43, 0.57) + flagBox(0, 1, 0.72, 0.86);
+  o.blue = flagBox(0, 0.42, 0, 0.57);
+  o.wake = b2_limb(M(-25, 1.2), M(-42, 1.4), M(-60, 0.6), 2.2 * k, 0.3 * k, 8) + b2_limb(M(-22, 2.6), M(-38, 3.8), M(-52, 4.4), 1.4 * k, 0.2 * k, 8) + b2_limb(M(26, -0.4), M(31, 0.6), M(35, 1.6), 1.6 * k, 0.3 * k, 4);
+  o.lights = []; if (lights) { var j; for (j = 0; j < 7; j++) o.lights.push(M(2 + 27 * (j + 1) / 8, -55 + 45.4 * (j + 1) / 8)); for (j = 0; j < 7; j++) o.lights.push(M(2 - 27.5 * (j + 1) / 8, -55 + 48.6 * (j + 1) / 8)); o.lights.push(M(2, -55)); }
+  return o;
+}
+
 // Fourth of July
 SCENES.july4 = function (W, H, dk, rnd) {
   var ph = H > W, hz = H * (ph ? 0.6 : 0.56), far = Lay(12), refl = Lay(7), mid = Lay(0.8), near = Lay(0), P = Math.round(hz / H * 100);
+  'ABCDEFGHIJK'.split('').forEach(function (key) { near[key] = E(); });
   var sky = dk ? 'linear-gradient(180deg,#0A0E1A 0%,#18224A ' + (P - 15) + '%,#3E3668 ' + P + '%,#0A0E1A 100%)' : 'linear-gradient(180deg,#BFD3EE 0%,#E6ECF6 ' + (P - 25) + '%,#FBE9E2 ' + P + '%,#9DB4D0 100%)';
   var water = dk ? 'linear-gradient(180deg,#2A2A52 0%,#151C38 40%,#0C1226 100%)' : 'linear-gradient(180deg,#C6D3E6 0%,#A8BCD6 50%,#93AACA 100%)';
   var stars = '';
@@ -3358,29 +3423,41 @@ SCENES.july4 = function (W, H, dk, rnd) {
   add(near, 'd', stars, dk ? 'rgba(245,240,220,0.85)' : 'rgba(38,56,110,0.7)');
   if (dk) spread(0, 0, W, hz * 0.95, 40, 40, rnd, 1).forEach(function (c) { if (c.q < 0.5) add(mid, 'a', circ(c.x, c.y, 0.6 + c.r), 'rgba(240,244,255,0.8)'); });
   else spread(0, 20, W, hz * 0.7, 360, 170, rnd, 0.8).forEach(function (c) { var s = 0.7 + c.r * 0.6; if (c.x + 120 * s > W * (ph ? 0.55 : 0.64) && c.y - 32 * s < H * (ph ? 0.14 : 0.24) + 16) return; add(far, 'a', ell(c.x, c.y, 80 * s, 18 * s) + ell(c.x + 28 * s, c.y - 12 * s, 40 * s, 20 * s), 'rgba(255,255,255,0.8)'); });
-  var fc = dk ? ['#FF5A6E', '#FFD166', '#5FE0D0', '#B48CFF', '#FF9ED2', '#F4F6FF'] : ['rgba(220,80,98,0.7)', 'rgba(232,170,60,0.7)', 'rgba(50,160,180,0.65)', 'rgba(130,100,205,0.65)', 'rgba(230,115,170,0.65)', 'rgba(50,70,140,0.5)'];
-  var gc = ['rgba(255,80,100,0.45)', 'rgba(255,200,90,0.45)', 'rgba(80,220,210,0.4)', 'rgba(170,130,255,0.45)', 'rgba(255,150,210,0.4)', 'rgba(220,230,255,0.35)'];
-  var fl = [[mid, 'e'], [mid, 'f'], [mid, 'g'], [mid, 'h'], [near, 'e'], [near, 'f']];
-  var fwDots = [];
-  bursts.forEach(function (b, i) { var x = b[0] * W, y = b[1] * H, R = b[2] * (dk ? 1 : 0.9), k = i % 6, d = [], nr = 22 + Math.floor(rnd() * 6), rot = rnd();
-    for (var r = 0; r < nr; r++) { var a = (r + rot) / nr * Math.PI * 2; for (var j = 0; j < 5; j++) { var t = 0.35 + j * 0.16, rr = R * t * (0.92 + 0.08 * Math.sin(r * 3)); d.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr + t * t * R * 0.12, (0.6 + j * 0.45) * (R / 80)]); } }
-    d.push([x, y, R * 0.06]); if (ANIM) { (ANIM.bursts = ANIM.bursts || []).push({x: x, y: y, R: R, n: nr}); return; } fwDots.push({k: k, d: d});
-    if (dk) { add(far, 'b', circ(x, y, R * 0.9), gc[k]); if (y < hz) add(refl, 'abcdef'[k], ell(x, hz + (hz - y) * 0.6 + 14, R * 0.2, R * 0.55), gc[k]); }
+  // fireworks: each burst gets a style (peony, chrysanthemum, willow, ring) and a red, white, blue or gold colour
+  var border = [0, 2, 1, 3, 0, 2, 3], fwStat = [], gcD = ['rgba(255,80,100,0.22)', 'rgba(220,230,255,0.16)', 'rgba(110,150,255,0.22)', 'rgba(255,200,90,0.24)'];
+  bursts.forEach(function (b, i) { var x = b[0] * W, y = b[1] * H, R = b[2] * (dk ? 1 : 0.9), st = J4STY[i % 4], ci = st === 'willow' ? 3 : border[i % border.length];
+    if (ANIM) { (ANIM.bursts = ANIM.bursts || []).push({x: x, y: y, R: R}); return; }
+    fwStat.push({x: x, y: y, R: R, st: st, ci: ci, i: i});
+    if (dk) { add(far, 'ghij'[ci], circ(x, y, R * 0.75), gcD[ci]); if (y < hz) add(refl, 'abcd'[ci], ell(x, hz + (hz - y) * 0.6 + 14, R * 0.2, R * 0.55), gcD[ci]); }
     else if (i < 3) add(far, 'c', circ(x, y, R * 0.8), 'rgba(255,255,255,0.35)'); });
-  var trails = '', trailD = [];
-  (ph ? [[0.4, 0.58], [0.62, 0.56]] : [[0.44, 0.52], [0.8, 0.52]]).forEach(function (t) { var x = t[0] * W, y = t[1] * H; for (var j = 0; j < 6; j++) trailD.push([x + Math.sin(j) * 1.5, y - j * 9, 1.4 - j * 0.15]); });
   var shore = ridge(W, hz, [[5, 60, 0.3], [3, 23, 1.1]], 8);
   add(mid, 'b', below(shore.map(function (p) { return [p[0], p[1] - 6]; }), hz + 3), dk ? '#1B1F3C' : '#9FB0C8');
   var town = '', win = '', townR = [];
   for (var x = ph ? 20 : 40; x < W; x += 30 + rnd() * 50) { var bw = 18 + rnd() * 26, bh = 12 + rnd() * (ph ? 30 : 46); if (rnd() < 0.3) bh += 20; town += rect(x, hz - bh, bw, bh + 2); townR.push([x, hz - bh, bw]); if (rnd() < 0.15) town += poly([[x + bw * 0.4, hz - bh], [x + bw * 0.5, hz - bh - 22], [x + bw * 0.6, hz - bh]]);
     for (var wy = hz - bh + 5; wy < hz - 5; wy += 8) for (var wx = x + 4; wx < x + bw - 4; wx += 7) if (rnd() < 0.3) win += rect(wx, wy, 2.4, 3); }
   function hidden(p) { if (p[1] > hz - 4 - p[2]) return true; for (var q = 0; q < townR.length; q++) { var b = townR[q]; if (p[0] > b[0] - p[2] && p[0] < b[0] + b[2] + p[2] && p[1] > b[1] - p[2]) return true; } return false; }
-  fwDots.forEach(function (fw) { var d = ''; fw.d.forEach(function (p) { if (!hidden(p)) d += circ(p[0], p[1], p[2]); }); add(fl[fw.k][0], fl[fw.k][1], d, fc[fw.k]); });
-  if (!ANIM) trailD.forEach(function (p) { if (!hidden(p)) trails += circ(p[0], p[1], p[2]); }); add(near, 'g', trails, dk ? 'rgba(255,230,180,0.8)' : 'rgba(200,120,90,0.5)');
+  // the still bursts: tapered streaks behind bright heads, each particle where drag and gravity have carried it; hidden behind the town
+  var JC = j4_cols(dk), streak = ['', '', '', ''], heads = ['', '', '', ''];
+  fwStat.forEach(function (b) { var st = J4ST[b.st], n = Math.round((b.R > 70 ? 40 : 30) * st.n * (ph ? 0.75 : 1)), parts = j4_parts(b.st, n, b.i * 17.3 + 5, b.ci, (b.ci + 1) % 4), tS = st.show, lw = (b.R > 70 ? 1.8 : 1.4) * (ph ? 0.85 : 1), hr = (b.st === 'willow' ? 1.3 : 2) * (ph ? 0.85 : 1);
+    parts.forEach(function (p) { var h = j4_pos(st, p, tS, b.R), m = j4_pos(st, p, tS - st.tl * 0.5, b.R), tl = j4_pos(st, p, Math.max(0.02, tS - st.tl), b.R), H0 = [b.x + h[0], b.y + h[1]], T0 = [b.x + tl[0], b.y + tl[1]];
+      if (hidden([H0[0], H0[1], lw]) || hidden([T0[0], T0[1], lw])) return;
+      streak[p[3]] += b2_limb(T0, [b.x + m[0], b.y + m[1]], H0, 0.2, lw, 5); heads[p[3]] += b2_ellA(H0[0], H0[1], hr, hr); }); });
+  for (var cI = 0; cI < 4; cI++) { add(mid, 'efgh'[cI], streak[cI], JC.C[cI]); add(mid, 'ijkl'[cI], heads[cI], JC.TIP[cI]); }
+  // two shells still on their way up
+  if (!ANIM) (ph ? [[0.4, 0.58], [0.62, 0.56]] : [[0.44, 0.52], [0.8, 0.52]]).forEach(function (t) { var x = t[0] * W, y = t[1] * H, y0 = y + 4; while (y0 > y - 40 && hidden([x, y0, 2])) y0 -= 3; if (y0 <= y - 40) return;
+    add(mid, 'm', b2_limb([x, y0], [x + 2, (y0 + y - 56) / 2], [x - 1, y - 56], 0.2, 1.8, 8) + b2_ellA(x - 1, y - 57, 2.2, 2.2), dk ? 'rgba(255,230,180,0.85)' : 'rgba(200,120,90,0.6)'); });
   if (ANIM) ANIM.town = town;
   add(mid, 'c', town, dk ? '#232648' : '#B4C0D6'); add(mid, 'd', dk ? win : '', dk ? 'rgba(255,215,140,0.8)' : 'none');
-  var boats = '', sails = '';
-  (ph ? [[0.3, 0.66, 1], [0.78, 0.7, 0.8]] : [[0.5, 0.64, 1], [0.82, 0.62, 0.8], [0.2, 0.7, 1.1]]).forEach(function (q) { var x = q[0] * W, y = q[1] * H, k = q[2] * (ph ? 0.8 : 1); if (ANIM) { (ANIM.boats = ANIM.boats || []).push({x: x, y: y, k: k}); return; } boats += poly([[x - 24 * k, y - 6 * k], [x + 24 * k, y - 6 * k], [x + 16 * k, y + 2 * k], [x - 16 * k, y + 2 * k]]); sails += poly([[x - 2 * k, y - 10 * k], [x - 2 * k, y - 46 * k], [x - 20 * k, y - 10 * k]]) + poly([[x + 2 * k, y - 10 * k], [x + 2 * k, y - 40 * k], [x + 16 * k, y - 10 * k]]); });
+  // sailboats: red, navy and white hulls, two of them strung with lights at night
+  var BC = j4_boatCols(dk), bq = {refl: '', wake: '', hull: ['', '', ''], shade: '', sW: '', cab: '', win: '', sail: '', sailSh: '', seam: '', rig: '', red: '', blue: '', lit: ''}, glowL = '';
+  (ph ? [[0.3, 0.66, 1], [0.78, 0.7, 0.8]] : [[0.5, 0.64, 1], [0.82, 0.62, 0.8], [0.2, 0.7, 1.1]]).forEach(function (q, bi) { var x = q[0] * W, y = q[1] * H, k = q[2] * (ph ? 0.8 : 1); if (ANIM) { (ANIM.boats = ANIM.boats || []).push({x: x, y: y, k: k, i: bi}); return; }
+    var o = j4_boat(x, y, k, bi % 2 ? -1 : 1, dk && bi !== 1);
+    bq.refl += o.refl; bq.wake += o.wake; bq.hull[bi % 3] += o.hull; bq.shade += o.shade; if (bi % 3 === 2) bq.red += o.stripe; else bq.sW += o.stripe; bq.blue += o.boot + o.blue; bq.cab += o.cab; bq.win += o.win;
+    bq.sail += o.sail; bq.sailSh += o.sailSh; bq.seam += o.seam; bq.rig += o.rig; bq.red += o.red;
+    o.lights.forEach(function (p) { bq.lit += b2_ellA(p[0], p[1], 1.3 * k, 1.3 * k); glowL += circ(p[0], p[1], 3.5 * k); }); });
+  if (!ANIM) { add(near, 'h', bq.refl, BC.refl); add(near, 'i', bq.wake, BC.wake); add(near, 'j', bq.hull[0], BC.hull[0]); add(near, 'k', bq.hull[1], BC.hull[1]); add(near, 'l', bq.hull[2], BC.hull[2]); add(near, 'm', bq.shade, BC.shade);
+    add(near, 'n', bq.sW, BC.sW); add(near, 'o', bq.cab, BC.cab); add(near, 'p', bq.win, BC.win); add(near, 'A', bq.sail, BC.sail); add(near, 'B', bq.sailSh, BC.sailSh); add(near, 'C', bq.seam, BC.seam); add(near, 'D', bq.rig, BC.rig);
+    add(near, 'E', bq.red, BC.red); add(near, 'F', bq.blue, BC.blue); add(near, 'G', bq.lit, BC.light); if (glowL) add(far, 'f', glowL, 'rgba(255,220,150,0.6)'); }
   var rip = '';
   spread(0, hz + 8, W, H - hz, 110, 26, rnd, 1).forEach(function (c) { if (c.q < 0.55) rip += seg(c.x - 14 - c.r * 20, c.y, c.x + 14 + c.r * 20, c.y); });
   stk(mid, 's', rip, dk ? 'rgba(170,180,240,0.22)' : 'rgba(255,255,255,0.6)', 1.4);
@@ -3388,11 +3465,11 @@ SCENES.july4 = function (W, H, dk, rnd) {
   var sw = ph ? 19 : 26, rise = H * (ph ? 0.2 : 0.36), base0 = H + (ph ? -24 : 40);
   function by(x) { return base0 - rise * (x / W) - (ph ? 16 : 26) * Math.sin(x / (ph ? 120 : 210) + 0.8); }
   var red = '', wht = '', shade = '', hi = '';
-  if (ANIM) { ANIM.rib = {base0: base0, rise: rise, amp: ph ? 16 : 26, wl: ph ? 120 : 210, sw: sw, red: dk ? '#C8424F' : '#C8404D', wht: dk ? '#E6E2EA' : '#FBF8F6', shade: dk ? 'rgba(10,10,30,0.16)' : 'rgba(60,40,80,0.07)', edge: dk ? 'rgba(255,200,205,0.5)' : 'rgba(255,255,255,0.7)', glow: dk ? 'rgba(255,90,110,0.10)' : 'rgba(255,255,255,0.3)'}; add(near, 'a', boats, dk ? '#C8424F' : '#C8404D'); add(near, 'b', sails, dk ? '#E6E2EA' : '#FBF8F6'); return {sky: sky, far: far, refl: refl, mid: mid, near: near, band: {top: hz, bg: water}}; }
+  if (ANIM) { ANIM.rib = {base0: base0, rise: rise, amp: ph ? 16 : 26, wl: ph ? 120 : 210, sw: sw, red: dk ? '#C8424F' : '#C8404D', wht: dk ? '#E6E2EA' : '#FBF8F6', shade: dk ? 'rgba(10,10,30,0.16)' : 'rgba(60,40,80,0.07)', edge: dk ? 'rgba(255,200,205,0.5)' : 'rgba(255,255,255,0.7)', glow: dk ? 'rgba(255,90,110,0.10)' : 'rgba(255,255,255,0.3)'}; ANIM.boatCol = BC; return {sky: sky, far: far, refl: refl, mid: mid, near: near, band: {top: hz, bg: water}}; }
   for (var s = 0; s < 7; s++) { var top = [], bot = []; for (var xx = -20; xx <= W + 20; xx += 12) { top.push([xx, by(xx) + s * sw]); bot.unshift([xx, by(xx) + (s + 1) * sw + 0.6]); } var pp = poly(top.concat(bot)); if (s % 2 === 0) red += pp; else wht += pp; }
   var wl = ph ? 120 : 210, sh2 = '';
   for (var kk = -1; kk < 8; kk++) { var xc = (Math.PI * (2 * kk + 1) - 0.8) * wl; [[0.9, 'a'], [0.45, 'b']].forEach(function (z) { var half = wl * z[0], sl = sw * 2.2, pts = []; for (var xx2 = xc - half; xx2 <= xc + half + 0.1; xx2 += half / 6) pts.push([xx2, by(xx2) - 1]); for (xx2 = xc + half; xx2 >= xc - half - 0.1; xx2 -= half / 6) pts.push([xx2 - sl, by(xx2 - sl) + 7 * sw + 2]); if (z[1] === 'a') shade += poly(pts); else sh2 += poly(pts); }); }
-  add(near, 'a', red + boats, dk ? '#C8424F' : '#C8404D'); add(near, 'b', wht + sails, dk ? '#E6E2EA' : '#FBF8F6');
+  add(near, 'J', red, dk ? '#C8424F' : '#C8404D'); add(near, 'K', wht, dk ? '#E6E2EA' : '#FBF8F6');
   var edge = []; for (var e2 = -20; e2 <= W + 20; e2 += 12) edge.push([e2, by(e2) + 1.5]);
   stk(near, 't', pline(edge), dk ? 'rgba(255,200,205,0.5)' : 'rgba(255,255,255,0.7)', 2);
   add(far, 'e', below(ridge(W, H * 0.97, [[20, 200, 0.8]], 20).map(function (p) { return [p[0], by(p[0]) - 10]; }), H + 40), dk ? 'rgba(255,90,110,0.18)' : 'rgba(255,255,255,0.4)');
@@ -15610,16 +15687,17 @@ ENGINES.july4 = function (A, v, dk) {
   for (var x = -24; x <= W + 24; x += 12) xs.push(x);
   var Y = new Float32Array(xs.length);
   (A.stars || []).forEach(function (s, i) { stars.push({x: s.x, y: s.y, r: s.r, p: new Path2D(b7_star(0, 0, s.r, s.deg)), ph: hash(i + 31) * 6.28, w: 0.5 + hash(i + 32) * 0.6}); });
-  (A.boats || []).forEach(function (b, i) { var k = b.k; boats.push({x: b.x, y: b.y, k: k, ph: hash(i + 41) * 6.28, v: (i % 2 ? -1 : 1) * (2 + hash(i + 42) * 2), hull: new Path2D(poly([[-24 * k, -6 * k], [24 * k, -6 * k], [16 * k, 2 * k], [-16 * k, 2 * k]])), sail: new Path2D(poly([[-2 * k, -10 * k], [-2 * k, -46 * k], [-20 * k, -10 * k]]) + poly([[2 * k, -10 * k], [2 * k, -40 * k], [16 * k, -10 * k]]))}); });
+  var BC = A.boatCol || j4_boatCols(dk), sprL = b7_col('#FFE6A8');
+  (A.boats || []).forEach(function (b, i) { var dir = i % 2 ? -1 : 1, o = j4_boat(0, 0, b.k, dir, dk && b.i !== 1), P = {};
+    ['refl', 'wake', 'hull', 'shade', 'stripe', 'cab', 'win', 'sail', 'sailSh', 'seam', 'rig', 'red', 'blue', 'boot'].forEach(function (key) { P[key] = new Path2D(o[key]); });
+    boats.push({x: b.x, y: b.y, k: b.k, kind: b.i % 3, ph: hash(i + 41) * 6.28, v: dir * (2 + hash(i + 42) * 2), P: P, lights: o.lights}); });
   boats.sort(function (a, b) { return a.y - b.y; });
-  var C = dk ? ['#FF5A6E', '#F4F6FF', '#6F9BFF', '#FFD166'] : ['#D8505F', '#9AABD2', '#3F5FB4', '#E2A83E'];
-  var TIP = C.map(function (c) { return mix(c, '#FFFFFF', dk ? 0.5 : 0.35); }), spr = C.map(function (c) { return b7_col(c); }), sprW = b7_col(dk ? '#FFF4E0' : '#FFFFFF');
-  var LA = dk ? 1 : 0.78;
+  var JC = j4_cols(dk), C = JC.C, TIP = JC.TIP, spr = C.map(function (c) { return b7_col(c); }), smoke = b7_col(dk ? '#6A6A96' : '#FFFFFF');
+  var LA = dk ? 1 : 0.85;
   var bursts = [], order = [0, 2, 1, 3, 0, 2, 3];
   (A.bursts || []).forEach(function (b, i) {
-    var calm = v.desk ? (b.x < W * 0.44 && b.y < H * 0.5) : b.y < H * 0.42, P = 4.8 + hash(i + 71) * 2.4, n = b.R > 70 ? 30 : 22, a0 = hash(i + 72) * 6, rays = [];
-    for (var j = 0; j < n; j++) rays.push([Math.cos(a0 + j / n * 6.283), Math.sin(a0 + j / n * 6.283), 0.84 + 0.16 * hash(i * 40 + j + 7)]);
-    bursts.push({x: b.x, y: b.y, R: b.R, R0: b.R, c: order[i % order.length], rays: rays, P: P, off: hash(i + 73) * P, dim: calm ? 0.5 : 1});
+    var calm = v.desk ? (b.x < W * 0.44 && b.y < H * 0.5) : b.y < H * 0.42, P = 5.2 + hash(i + 71) * 2.4;
+    bursts.push({x: b.x, y: b.y, R: b.R, R0: b.R, i: i, P: P, off: hash(i + 73) * P, dim: calm ? 0.55 : 1, cyc: -1, cc: order[i % order.length]});
   });
   function ease3(u) { u = u < 0 ? 0 : u > 1 ? 1 : u; return 1 - Math.pow(1 - u, 3); }
   function rise(k) { k = k < 0 ? 0 : k > 1 ? 1 : k; return 1 - Math.pow(1 - k, 2.2); }
@@ -15627,12 +15705,25 @@ ENGINES.july4 = function (A, v, dk) {
     c.fillStyle = col; for (var j = 9; j >= 1; j--) { var kk = k - j * 0.035 / dur; if (kk <= 0) continue; var q = rise(kk); c.globalAlpha = a * (0.1 + 0.7 * (1 - j / 9)); c.beginPath(); c.arc(x0 + (x1 - x0) * q, y0 + (y1 - y0) * q, 0.5 + 1.1 * (1 - j / 9), 0, 6.29); c.fill(); }
     var p = rise(k), hx = x0 + (x1 - x0) * p, hy = y0 + (y1 - y0) * p; b7_glowAt(c, sp, hx, hy, 14, a); c.globalAlpha = a; c.beginPath(); c.arc(hx, hy, 1.6, 0, 6.29); c.fill();
   }
-  function drawBurst(c, b, e, a, col, tip, inner, droop) {
-    var x = b.x, y = b.y, Rr = b.R, r = Rr * (0.15 + 0.85 * e), r0 = r * 0.3, rt = b.rot || 0, cs = Math.cos(rt), sn = Math.sin(rt);
-    c.globalAlpha = a; c.strokeStyle = col; c.lineWidth = Rr > 70 ? 1.8 : 1.4; c.beginPath();
-    b.rays.forEach(function (q) { var qx = q[0] * cs - q[1] * sn, qy = q[0] * sn + q[1] * cs, rr = r * q[2], d = droop * (rr / Rr); c.moveTo(x + qx * r0, y + qy * r0); c.lineTo(x + qx * rr, y + qy * rr + d); }); c.stroke();
-    var tr = Rr > 70 ? 2.4 : 1.9; c.fillStyle = tip; c.beginPath(); b.rays.forEach(function (q) { var qx = q[0] * cs - q[1] * sn, qy = q[0] * sn + q[1] * cs, rr = r * q[2], px = x + qx * rr, py = y + qy * rr + droop * (rr / Rr) + 2; c.moveTo(px + tr, py); c.arc(px, py, tr, 0, 6.29); }); c.fill();
-    c.fillStyle = inner; c.beginPath(); b.rays.forEach(function (q, j) { if (j % 2) return; var qx = q[0] * cs - q[1] * sn, qy = q[0] * sn + q[1] * cs, rr = r * 0.6, px = x + qx * rr, py = y + qy * rr + droop * 0.6; c.moveTo(px + 1.4, py); c.arc(px, py, 1.4, 0, 6.29); }); c.fill();
+  // one burst at w seconds: per colour a bright trail near each head, a fainter one toward the tail, then the heads (twinkling as they fade)
+  function drawFW(c, b, w, a, tt) {
+    var st = J4ST[b.st], R = b.R, lw = (R > 70 ? 1.8 : 1.4) * (v.desk ? 1 : 0.85), hr = (b.st === 'willow' ? 1.3 : 2) * (v.desk ? 1 : 0.85), late = w > st.life * 0.5, k, j, p, q0, q1, q2, any;
+    for (k = 0; k < 4; k++) { any = false;
+      c.strokeStyle = C[k]; c.lineWidth = lw; c.globalAlpha = a * (b.st === 'willow' ? 0.55 : 0.7); c.beginPath();
+      for (j = 0; j < b.parts.length; j++) { p = b.parts[j]; if (p[3] !== k) continue; any = true; q0 = j4_pos(st, p, w, R); q1 = j4_pos(st, p, Math.max(0, w - st.tl * 0.45), R); c.moveTo(b.x + q0[0], b.y + q0[1]); c.lineTo(b.x + q1[0], b.y + q1[1]); }
+      if (!any) continue; c.stroke();
+      c.lineWidth = lw * 0.5; c.globalAlpha = a * 0.35; c.beginPath();
+      for (j = 0; j < b.parts.length; j++) { p = b.parts[j]; if (p[3] !== k) continue; q1 = j4_pos(st, p, Math.max(0, w - st.tl * 0.45), R); q2 = j4_pos(st, p, Math.max(0, w - st.tl), R); c.moveTo(b.x + q1[0], b.y + q1[1]); c.lineTo(b.x + q2[0], b.y + q2[1]); }
+      c.stroke();
+      c.fillStyle = TIP[k]; c.globalAlpha = a; c.beginPath();
+      for (j = 0; j < b.parts.length; j++) { p = b.parts[j]; if (p[3] !== k) continue; if (late && Math.sin(tt * 19 + j * 2.3) < -0.25) continue; q0 = j4_pos(st, p, w, R); c.moveTo(b.x + q0[0] + hr, b.y + q0[1]); c.arc(b.x + q0[0], b.y + q0[1], hr, 0, 6.29); }
+      c.fill();
+      if (dk && w < 1.6) for (j = 0; j < b.parts.length; j += 2) { p = b.parts[j]; if (p[3] !== k) continue; q0 = j4_pos(st, p, w, R); b7_glowAt(c, spr[k], b.x + q0[0], b.y + q0[1], 11, a * 0.4 * (1 - w / 1.6)); }
+    }
+    // crackle: small white flickers once a peony starts to fade
+    if (b.crackle && w > st.life * 0.45) { var fr = Math.floor(tt * 14); c.fillStyle = dk ? '#FFFFFF' : '#FFF6E0'; c.globalAlpha = a * 0.9; c.beginPath();
+      for (j = 0; j < b.parts.length; j += 2) { if (hash(fr + j * 1.3 + b.i) < 0.55) continue; p = b.parts[j]; q0 = j4_pos(st, p, w, R); var ox = (hash(j + fr) - 0.5) * 7, oy = (hash(j * 2 + fr) - 0.5) * 7; c.moveTo(b.x + q0[0] + ox + 1.1, b.y + q0[1] + oy); c.arc(b.x + q0[0] + ox, b.y + q0[1] + oy, 1.1, 0, 6.29); }
+      c.fill(); }
   }
   var cR = dk ? ['#FF5A6E', '#F4F6FF', '#7FA6FF'] : ['#D0404F', '#E8B04A', '#2E4A9E'], star5 = [], burstPts = [], i, j;
   for (i = 0; i < 10; i++) { var a = (i * 36 - 90) * Math.PI / 180, rr = i % 2 ? 0.42 : 1; star5.push([Math.cos(a) * rr, Math.sin(a) * rr]); }
@@ -15652,13 +15743,19 @@ ENGINES.july4 = function (A, v, dk) {
       var tt = t * f.s, refl = [];
       ca.lineCap = 'round';
       bursts.forEach(function (b) {
-        var uu = tt + b.off, u = uu % b.P, cyc = Math.floor(uu / b.P); b.rot = (hash(cyc * 3.1 + b.off * 2) - 0.5) * 1.3; b.R = b.R0 * (0.86 + 0.24 * hash(cyc * 1.7 + b.off * 5));
-        if (u < 1.05) { shell(ca, b.x, base, b.x, b.y, u / 1.05, 1.05, TIP[b.c], spr[b.c], LA * 0.8 * b.dim * (1 - u / 1.05 * 0.3)); return; }
-        var w = u - 1.05; if (w > 3.4) return;
-        var e = ease3(w / 1.1), a = LA * (w < 0.6 ? 1 : Math.pow(Math.max(0, 1 - (w - 0.6) / 2.8), 1.2)) * b.dim;
-        b7_glowAt(ca, spr[b.c], b.x, b.y, b.R * 1.8 * (0.4 + 0.6 * e), a * (dk ? 0.4 : 0.26) + (w < 0.25 ? (0.25 - w) * 2 : 0));
-        drawBurst(ca, b, e, a, C[b.c], TIP[b.c], C[(b.c + 1) % 4], w * w * 5);
-        refl.push([spr[b.c], b.x, base + (base - b.y) * 0.45, b.R * 0.7, a * (dk ? 0.34 : 0.24)]);
+        var uu = tt + b.off, u = uu % b.P, cyc = Math.floor(uu / b.P), st;
+        if (cyc !== b.cyc) { b.cyc = cyc; b.st = J4STY[(b.i + cyc) % 4]; b.R = b.R0 * (0.86 + 0.24 * hash(cyc * 1.7 + b.off * 5)); b.cc = b.st === 'willow' ? 3 : order[(b.i + cyc) % order.length]; st = J4ST[b.st];
+          b.parts = j4_parts(b.st, Math.round((b.R > 70 ? 40 : 30) * st.n * (v.desk ? 1 : 0.75)), cyc * 13.7 + b.i * 5.1, b.cc, (b.cc + 1 + (cyc % 2)) % 4); b.crackle = b.st === 'peony' && cyc % 2 === 1; }
+        if (u < 1.05) { shell(ca, b.x, base, b.x, b.y, u / 1.05, 1.05, TIP[b.cc], spr[b.cc], LA * 0.8 * b.dim * (1 - u / 1.05 * 0.3)); return; }
+        st = J4ST[b.st]; var w = u - 1.05; if (w > st.life) return;
+        var a = LA * b.dim * (w < 0.5 ? 1 : Math.pow(Math.max(0, 1 - (w - 0.5) / (st.life - 0.5)), 1.3));
+        // a drifting puff of smoke, then the flash and glow, then the particles (added light at night)
+        b7_glowAt(ca, smoke, b.x + w * 5, b.y + w * b.R * 0.1, b.R * (1.2 + w * 0.35), (dk ? 0.08 : 0.16) * b.dim * Math.min(1, w / 0.4) * (1 - w / st.life));
+        if (dk) ca.globalCompositeOperation = 'lighter';
+        b7_glowAt(ca, spr[b.cc], b.x, b.y, b.R * 2 * (0.4 + 0.6 * Math.min(1, w / 0.6)), a * (dk ? 0.32 : 0.18) + (w < 0.22 ? (0.22 - w) * 3 : 0));
+        drawFW(ca, b, w, a, tt);
+        ca.globalCompositeOperation = 'source-over'; ca.globalAlpha = 1;
+        refl.push([spr[b.cc], b.x, base + (base - b.y) * 0.45, b.R * 0.75, a * (dk ? 0.36 : 0.24), 2.2]);
       });
       var mT = mom ? t - mom.t0 : -1;
       if (mom && mT < UP) shell(ca, mom.x0, base, BP.x, BP.y, mT / UP, UP, dk ? '#FFF0C8' : '#C8404D', sprStar, 1);
@@ -15673,7 +15770,14 @@ ENGINES.july4 = function (A, v, dk) {
       ca.save(); ca.globalCompositeOperation = 'destination-out'; ca.fillStyle = '#000'; ca.fill(cut); ca.restore();
       refl.forEach(function (r) { var s = r[3]; ca.globalAlpha = Math.min(1, r[4]); ca.drawImage(r[0], r[1] - s / 2, r[2] - s * (r[5] || 1) / 2, s, s * (r[5] || 1)); });
       ca.globalAlpha = 1;
-      boats.forEach(function (b) { ca.save(); ca.translate(b.x, b.y + Math.sin(t * 0.9 * f.s + b.ph) * 1.5 * f.a); ca.rotate(Math.sin(t * 0.7 * f.s + b.ph) * 0.035 * f.a); ca.fillStyle = R.red; ca.fill(b.hull); ca.fillStyle = R.wht; ca.fill(b.sail); ca.restore(); });
+      // each boat: its shimmering reflection and wake, then the boat itself bobbing, then its string of lights
+      boats.forEach(function (b) { var bob = Math.sin(t * 0.9 * f.s + b.ph) * 1.5 * f.a, P = b.P;
+        ca.save(); ca.translate(b.x, b.y + bob * 0.4); ca.scale(1 + 0.03 * Math.sin(t * 1.7 * f.s + b.ph), 1); ca.fillStyle = BC.refl; ca.fill(P.refl); ca.fillStyle = BC.wake; ca.globalAlpha = 0.75 + 0.25 * Math.sin(t * 2.1 * f.s + b.ph); ca.fill(P.wake); ca.globalAlpha = 1; ca.restore();
+        ca.save(); ca.translate(b.x, b.y + bob); ca.rotate(Math.sin(t * 0.7 * f.s + b.ph) * 0.035 * f.a);
+        ca.fillStyle = BC.hull[b.kind]; ca.fill(P.hull); ca.fillStyle = BC.shade; ca.fill(P.shade); ca.fillStyle = b.kind === 2 ? BC.red : BC.sW; ca.fill(P.stripe); ca.fillStyle = BC.cab; ca.fill(P.cab); ca.fillStyle = BC.win; ca.fill(P.win);
+        ca.fillStyle = BC.sail; ca.fill(P.sail); ca.fillStyle = BC.sailSh; ca.fill(P.sailSh); ca.fillStyle = BC.seam; ca.fill(P.seam); ca.fillStyle = BC.rig; ca.fill(P.rig); ca.fillStyle = BC.red; ca.fill(P.red); ca.fillStyle = BC.blue; ca.fill(P.blue); ca.fill(P.boot);
+        b.lights.forEach(function (l, j) { var tw = 0.6 + 0.4 * Math.sin(t * 3 * f.s + j * 1.9 + b.ph); b7_glowAt(ca, sprL, l[0], l[1], 9 * b.k, tw * 0.55); ca.globalAlpha = tw; ca.fillStyle = ['#FF6A7A', '#FFF4DC', '#7FA6FF', '#FFD166'][j % 4]; ca.beginPath(); ca.arc(l[0], l[1], 1.3 * b.k, 0, 6.29); ca.fill(); });
+        ca.globalAlpha = 1; ca.restore(); });
       var bump = null; if (mom) { var Tb = mT - UP; if (Tb > 0 && Tb < 3) bump = {x: -R.wl + (W + 2 * R.wl) * (Tb / 3), h: 16 * b7_bell(Tb / 3) * (v.desk ? 1 : 0.7)}; }
       for (i = 0; i < xs.length; i++) Y[i] = by(xs[i], tt, bump);
       var n = xs.length, s;
