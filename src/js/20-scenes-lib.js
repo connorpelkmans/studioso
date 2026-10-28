@@ -2631,8 +2631,9 @@ SCENES.photography = function (W, H, dk, rnd) {
       for (var wy = top + 6; wy < hz - 14; wy += 9) for (var wx = x + 4; wx < x + bw2 - 6; wx += 8) if (rnd() < (dk ? 0.3 : 0.45)) win += rect(wx, wy, 3.4, 4.4); }
     x += bw2 + 2 + rnd() * 30; }
   add(refl, 'a', skF, dk ? '#3A3448' : '#E2DBD2'); add(refl, 'b', sk, dk ? '#2C2838' : '#D2C9C0'); add(refl, 'c', win, dk ? 'rgba(255,206,140,0.8)' : 'rgba(255,255,255,0.45)');
-  var tl = ''; spread(0, hz - 14, W, 10, 36, 10, rnd, 0.6).forEach(function (c) { tl += circ(c.x, c.y, 14 + c.r * 12); });
-  add(refl, 'd', tl + rect(-20, hz - 12, W + 40, 14), dk ? '#1E221C' : '#9FAE84');
+  // one winding for the crowns and the band under them, so where they overlap it stays solid (no see-through boxes)
+  var tl = ''; spread(0, hz - 14, W, 10, 36, 10, rnd, 0.6).forEach(function (c) { var r = 14 + c.r * 12; tl += b2_ellA(c.x, c.y, r, r); });
+  add(refl, 'd', tl + b2_polyA([[-20, hz - 12], [W + 20, hz - 12], [W + 20, hz + 2], [-20, hz + 2]]), dk ? '#1E221C' : '#9FAE84');
   spread(0, 0, W, hz + 40, ph ? 80 : 110, ph ? 80 : 100, rnd, 1).forEach(function (c) { if (c.q < 0.45 && ANIM && c.y + 6 + c.r * (ph ? 14 : 20) < hz * 0.55) { (ANIM.bokeh = ANIM.bokeh || []).push({x: c.x, y: c.y, r: 6 + c.r * (ph ? 14 : 20), warm: c.k < 0.7}); return; } if (c.q < 0.45) add(refl, c.k < 0.7 ? 'e' : 'f', circ(c.x, c.y, 6 + c.r * (ph ? 14 : 20)), c.k < 0.7 ? (dk ? 'rgba(255,186,110,0.34)' : 'rgba(255,226,180,0.45)') : (dk ? 'rgba(140,200,220,0.22)' : 'rgba(255,255,255,0.5)')); });
   // the path: paving joints in perspective, edge stones, and light pools (lamplight at night, sun dapples by day)
   var vx = ph ? W * 0.5 : W * 0.62, pw = ph ? W * 0.4 : W * 0.2, cv = ph ? 0.4 : 0.9;
@@ -5716,7 +5717,7 @@ SCENES.math = function (W, H, dk, rnd) {
 function m4_erl(x, yb, bw, h, nw, fill) {
   var y0 = yb - h, y1 = y0 + h * 0.34, r = Math.min(8, bw * 0.1), side = function (y) { return nw / 2 + (bw / 2 - nw / 2) * (y - y1) / (yb - y1); };
   var outer = [[x - nw / 2 - 2.5, y0], [x + nw / 2 + 2.5, y0], [x + nw / 2 + 2.5, y0 + 4], [x + nw / 2, y0 + 5], [x + nw / 2, y1], [x + side(yb - r), yb - r], [x + bw / 2 - r * 0.3, yb - 1], [x + bw / 2 - r, yb], [x - bw / 2 + r, yb], [x - bw / 2 + r * 0.3, yb - 1], [x - side(yb - r), yb - r], [x - nw / 2, y1], [x - nw / 2, y0 + 5], [x - nw / 2 - 2.5, y0 + 4]];
-  var yl = yb - fill * (yb - y1) * 0.96, hw = side(yl) - 1.5, liq = [[x - hw, yl], [x + hw, yl], [x + side(yb - r) - 1.5, yb - r], [x + bw / 2 - r - 1, yb - 2], [x - bw / 2 + r + 1, yb - 2], [x - side(yb - r) + 1.5, yb - r]];
+  var yl = yb - fill * (yb - y1) * 0.96, hw = side(yl) - 1.5, liq = [[x - hw, yl], [x + hw, yl], [x + side(yb - r) - 1.5, yb - r], [x + bw / 2 - r * 0.3 - 1.6, yb - 2.2], [x + bw / 2 - r - 0.4, yb - 1.4], [x - bw / 2 + r + 0.4, yb - 1.4], [x - bw / 2 + r * 0.3 + 1.6, yb - 2.2], [x - side(yb - r) + 1.5, yb - r]]; // follows the glass right into the bottom corners
   var hi = poly([[x - nw / 2 + 2.5, y0 + 8], [x - nw / 2 + 5, y0 + 8], [x - nw / 2 + 5, y1 + 2], [x - side(yb - r * 3) + 9, yb - r * 3], [x - side(yb - r * 3) + 5, yb - r * 3], [x - nw / 2 + 2.5, y1 + 2]]);
   return {glass: poly(outer), out: poly(outer), liq: poly(liq), hi: hi, men: seg(x - hw + 1, yl, x + hw - 1, yl), top: yl, hw: hw, neck: [x, y0], y1: y1};
 }
@@ -5767,7 +5768,17 @@ SCENES.chem = function (W, H, dk, rnd) {
   var hx2 = '', hs = ph ? 16 : 22; for (var hy = H * 0.03; hy < H * (ph ? 0.58 : 0.58); hy += hs * 1.6) for (var hxx = ((Math.round(hy / (hs * 1.6)) % 2) ? hs * 1.4 : 0); hxx < W + hs; hxx += hs * 2.8) { var ring = m4_ellPts(hxx, hy, hs * 0.5, hs * 0.5, 6, Math.PI / 6), inner = m4_ellPts(hxx, hy, hs * 0.38, hs * 0.38, 6, Math.PI / 6).reverse(); hx2 += poly(ring) + 'M' + inner.map(function (p) { return PT(p[0], p[1]); }).join(' L') + ' Z '; }
   add(far, 'e', hx2, dk ? 'rgba(140,200,255,0.06)' : 'rgba(70,170,150,0.09)');
   var cry = '', cryH = '', cx0 = wx0 + (wx1 - wx0) * 0.18, cyb = wy1 + fw * 0.6;
-  [[-12, 26, -14], [0, 38, 0], [11, 30, 12], [20, 18, 22], [-20, 16, -26]].forEach(function (k) { var sc2 = ph ? 0.8 : 1.15, w = 7 * sc2, h = k[1] * sc2, pts = rotp([[-w, 0], [w, 0], [w, -h * 0.75], [0, -h], [-w, -h * 0.75]], cx0 + k[0] * sc2, cyb, k[2]); cry += poly(pts); cryH += poly(rotp([[w * 0.15, -3], [w * 0.5, -3], [w * 0.5, -h * 0.7], [w * 0.15, -h * 0.82]], cx0 + k[0] * sc2, cyb, k[2])); });
+  // an amethyst cluster: hexagonal prisms with a pointed tip, a lit left face, a shaded right face and a pale inner glow, on a rough grey rock
+  var cryD = '', cryL = '', cryRock = '', sc2 = ph ? 0.8 : 1.15;
+  cryRock = b2_polyA([[cx0 - 30 * sc2, cyb], [cx0 - 26 * sc2, cyb - 6 * sc2], [cx0 - 14 * sc2, cyb - 9 * sc2], [cx0 + 4 * sc2, cyb - 8 * sc2], [cx0 + 20 * sc2, cyb - 9 * sc2], [cx0 + 29 * sc2, cyb - 4 * sc2], [cx0 + 31 * sc2, cyb]]);
+  [[-20, 18, -28, 5.5], [20, 20, 24, 5.5], [-11, 30, -13, 7], [11, 32, 13, 7], [0, 42, 0, 8], [-4, 16, -6, 4.5], [6, 14, 8, 4]].forEach(function (k) {
+    var w = k[3] * sc2, h = k[1] * sc2, x = cx0 + k[0] * sc2, y = cyb - 6 * sc2, a = k[2];
+    function R(p) { return rotp(p, x, y, a); }
+    cry += b2_polyA(R([[-w, 0], [w, 0], [w, -h * 0.72], [0, -h], [-w, -h * 0.72]]));
+    cryD += b2_polyA(R([[w * 0.25, 0], [w, 0], [w, -h * 0.72], [0, -h], [w * 0.25, -h * 0.74]]));
+    cryL += b2_polyA(R([[-w, -h * 0.72], [0, -h], [-w * 0.3, -h * 0.72]])) + b2_polyA(R([[-w * 0.78, -2], [-w * 0.5, -2], [-w * 0.5, -h * 0.66], [-w * 0.78, -h * 0.62]]));
+    cryH += b2_polyA(R([[-w * 0.2, -h * 0.25], [w * 0.05, -h * 0.25], [w * 0.05, -h * 0.58], [-w * 0.2, -h * 0.6]])); });
+  add(near, 'i', cryRock, dk ? '#4A5466' : '#8A93A6'); add(near, 'j', cry, C.liq[3]); add(near, 'k', cryD, dk ? 'rgba(40,20,90,0.45)' : 'rgba(70,40,140,0.3)'); add(near, 'l', cryL + cryH, dk ? 'rgba(235,220,255,0.55)' : 'rgba(255,255,255,0.65)'); cry = ''; cryH = '';
   var px0 = ph ? W * 0.5 : W * 0.67, py0 = H * (ph ? 0.35 : 0.1), pw = ph ? W * 0.44 : W * 0.27, cw = (pw - 16) / 18, chh = cw * 0.92, phh = chh * 10.2 + 26;
   add(mid, 'b', rrect(px0, py0, pw, phh, 3), C.paper);
   var cells = ['', '', ''];
@@ -5799,7 +5810,7 @@ SCENES.chem = function (W, H, dk, rnd) {
   var rodX = hp.x + hp.w * 0.5 + (ph ? 10 : 14), rodTop = rf.neck[1] - (ph ? 18 : 26);
   G.metal += rect(rodX - 2.5, rodTop, 5, base - rodTop) + rrect(rodX - 20, base - 5, 40, 6, 2) + rect(hp.x + 4, rf.neck[1] + 10, rodX - hp.x - 4, 4) + rrect(hp.x - 10, rf.neck[1] + 7, 20, 10, 3);
   if (!ph) { erl(W * 0.2, 86, 118, 22, 0.52, 1); erl(W * 0.275, 56, 80, 16, 0.6, 2); }
-  else { var pe = erl(W * 0.35, 46, 68, 13, 0.55, 1); var plant = {x: W * 0.35, y: pe.neck[1], s: 0.8}, lv = null; }
+  else { var pe = erl(W * 0.35, 46, 68, 13, 0.55, 1); var plant = {x: W * 0.35, y: pe.neck[1], s: 0.8, root: pe.top + 1}, lv = null; }
   var rk = ph ? {x: W * 0.55, w: 96, n: 5} : {x: W * 0.4, w: 132, n: 6}, rh = ph ? 40 : 52, tw = ph ? 10 : 13, tcol = [0, 1, 2, 3, 1, 0];
   var rbars = [[rk.x - rk.w / 2, base - rh, rk.x + rk.w / 2, base - rh + (ph ? 6 : 8)], [rk.x - rk.w / 2, base - rh * 0.42, rk.x + rk.w / 2, base - rh * 0.42 + (ph ? 5 : 6)]];
   for (var i = 0; i < rk.n; i++) { var x = rk.x - rk.w / 2 + 12 + i * (rk.w - 24) / (rk.n - 1), tth = rh + (ph ? 22 : 30) - (i % 2) * 6, tb = m4_tube(x, base - 6, tw, tth, 0.3 + ((i * 37) % 30) / 100); tb.cx = x; tb.bot = base - 10; tb.hw = tw / 2 - 1.5;
@@ -5810,7 +5821,7 @@ SCENES.chem = function (W, H, dk, rnd) {
     rbars.concat([[0, tyb - 8, 0, tyb - 8]]).forEach(function (b) { var hy1 = Math.min(b[1], tyb - 8); if (hy1 > hy0) hcut += rect(tl + 2, hy0, 1.8, hy1 - hy0); hy0 = Math.max(hy0, b[3]); });
     G.hi = G.hi.slice(0, G.hi.length - tHi.length) + hcut; }
   G.metal += rect(rk.x - rk.w / 2, base - rh, rk.w, ph ? 6 : 8) + rect(rk.x - rk.w / 2, base - rh * 0.42, rk.w, ph ? 5 : 6) + rect(rk.x - rk.w / 2, base - rh, 6, rh) + rect(rk.x + rk.w / 2 - 6, base - rh, 6, rh) + rect(rk.x - rk.w / 2 - 4, base - 5, rk.w + 8, 6);
-  if (!ph) { var bk = m4_beaker(W * 0.53, base, 64, 78, 0.55); bk.cx = W * 0.53; bk.bot = base - 4; put(bk, 1, 'beaker'); var plant = {x: W * 0.53, y: base - 78, s: 1};
+  if (!ph) { var bk = m4_beaker(W * 0.53, base, 64, 78, 0.55); bk.cx = W * 0.53; bk.bot = base - 4; put(bk, 1, 'beaker'); var plant = {x: W * 0.53, y: base - 78, s: 1, root: bk.top + 1};
     var lv = {x: W * 0.655, y1: base - 14, y0: base - 118, w1: 30, w0: 18}; G.metal += poly([[lv.x - 22, base], [lv.x + 22, base], [lv.x + lv.w1 / 2 + 2, lv.y1], [lv.x - lv.w1 / 2 - 2, lv.y1]]) + poly([[lv.x - lv.w0 / 2 - 1, lv.y0], [lv.x + lv.w0 / 2 + 1, lv.y0], [lv.x + 6, lv.y0 - 16], [lv.x - 6, lv.y0 - 16]]);
     G.liq[3] += poly([[lv.x - lv.w0 / 2, lv.y0], [lv.x + lv.w0 / 2, lv.y0], [lv.x + lv.w1 / 2 + 3, (lv.y0 + lv.y1) / 2], [lv.x + lv.w1 / 2, lv.y1], [lv.x - lv.w1 / 2, lv.y1], [lv.x - lv.w1 / 2 - 3, (lv.y0 + lv.y1) / 2]]);
     var gc = m4_beaker(W * 0.6, base, 26, 150, 0.6); gc.cx = W * 0.6; gc.bot = base - 4; put(gc, 2, 'cyl'); G.metal += rrect(W * 0.6 - 22, base - 5, 44, 6, 2);
@@ -17754,7 +17765,7 @@ ENGINES.chem = function (A, v, dk) {
       steam.forEach(function (q) { var k = q.age / q.life; cb.globalAlpha = Math.sin(Math.PI * k) * (dk ? 0.8 : 0.65); m4_stamp(cb, steamS, q.x + Math.sin(q.age * 1.3 + q.ph) * 8 * k, q.y, 0.6 + k * 1.4); }); cb.globalAlpha = 1;
       cb.lineWidth = 1; bubbles.forEach(function (b) { if (A.rbars && A.rbars.some(function (q) { return b.x > q[0] && b.x < q[2] && b.y + b.r > q[1] && b.y - b.r < q[3]; })) return; var a = b.pop ? 1 - b.pop / 0.25 : Math.min(1, b.age * 4), r = b.r * (b.pop ? 1 + b.pop * 4 : 1); cb.globalAlpha = a; cb.strokeStyle = dk ? 'rgba(235,250,255,0.8)' : 'rgba(255,255,255,0.95)'; cb.fillStyle = dk ? 'rgba(235,250,255,0.18)' : 'rgba(255,255,255,0.35)'; cb.beginPath(); cb.arc(b.x + Math.sin(b.age * 6 + b.ph) * 0.8, b.y, r, 0, 7); if (!b.pop) cb.fill(); cb.stroke(); }); cb.globalAlpha = 1;
       var PL = A.plant, sw = Math.sin(t * 0.4) * 2, bloom = m4_env(T, 0.8, 1.8, 6, 7) + 0.25, pls = PL.s * (ph ? 1 : 1.1);
-      ca.save(); ca.translate(PL.x, PL.y); ca.scale(pls, pls); ca.strokeStyle = '#4FB06A'; ca.lineWidth = 2.4; ca.lineCap = 'round'; ca.beginPath(); ca.moveTo(0, 10); ca.quadraticCurveTo(sw * 0.5, -14, sw, -34); ca.stroke();
+      ca.save(); ca.translate(PL.x, PL.y); ca.scale(pls, pls); ca.strokeStyle = '#4FB06A'; ca.lineWidth = 2.4; ca.lineCap = 'round'; ca.beginPath(); var ry = PL.root != null ? (PL.root - PL.y) / pls : 10; ca.moveTo(0, ry); ca.lineTo(0, Math.min(ry, 10)); ca.quadraticCurveTo(sw * 0.5, -14, sw, -34); ca.stroke(); // the stem reaches down to the water and stops there
       ca.fillStyle = '#6CCB72'; [[-1, -10, -0.5], [1, -18, 0.5], [-1, -25, -0.7]].forEach(function (lf, k) { ca.save(); ca.translate(sw * (-lf[1] / 34), lf[1]); ca.rotate(lf[2] + Math.sin(t * 0.5 + k) * 0.08); ca.beginPath(); ca.ellipse(lf[0] * 8, 0, 8, 3.6, 0, 0, 7); ca.fill(); ca.restore(); });
       ca.translate(sw, -36); ca.fillStyle = '#FF8FB8'; for (var pt = 0; pt < 6; pt++) { ca.save(); ca.rotate(pt * Math.PI / 3 + t * 0.08); ca.beginPath(); ca.ellipse(0, -5 * bloom, 3.4 * bloom, 5.2 * bloom, 0, 0, 7); ca.fill(); ca.restore(); } ca.fillStyle = '#FFD84E'; ca.beginPath(); ca.arc(0, 0, 3.2, 0, 7); ca.fill(); ca.restore();
       if (visitor) { ca.save(); ca.clip(panes); if (dk) { var g2 = ca.createLinearGradient(visitor.x - 60, visitor.y - 20, visitor.x, visitor.y); g2.addColorStop(0, 'rgba(255,255,255,0)'); g2.addColorStop(1, 'rgba(255,250,220,0.95)'); ca.strokeStyle = g2; ca.lineWidth = 2; ca.beginPath(); ca.moveTo(visitor.x - 60, visitor.y - 20); ca.lineTo(visitor.x, visitor.y); ca.stroke(); }
