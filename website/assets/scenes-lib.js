@@ -15745,9 +15745,7 @@ function m1_bioLife(A, v, dk) {
       var big = t - T0 > 0 && t - T0 < 5;
       bubbles.forEach(function (b) { ca.strokeStyle = C.bub; ca.lineWidth = 1.2; ca.beginPath(); ca.arc(b.x, b.y, b.r, 0, 7); ca.stroke(); ca.fillStyle = C.bub; ca.beginPath(); ca.arc(b.x - b.r * 0.35, b.y - b.r * 0.35, b.r * 0.25, 0, 7); ca.fill(); });
       tw.forEach(function (q) { var a = Math.pow(Math.max(0, Math.sin(t * 1.3 + q.ph * 3)), 4); if (a < 0.05) return; ca.fillStyle = C.tw + a + ')'; ca.beginPath(); m1_spark(ca, q.x, q.y, q.s); ca.fill(); });
-      paras.forEach(function (P) { para(ca, P, t, big); });
-      rotifer(ca, t, big);
-      tardigrade(ca, t, big);
+      // (no paramecia, rotifer or tardigrade)
     },
     finish: function (t) { T0 = t; }
   };
