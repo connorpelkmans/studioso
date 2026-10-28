@@ -7995,10 +7995,10 @@ SCENES.geology = function (W, H, dk, rnd) {
   add(mid, 'e', sLit, dk ? 'rgba(180,150,240,0.16)' : 'rgba(255,255,255,0.3)'); add(mid, 'f', sShd, dk ? 'rgba(4,0,12,0.35)' : 'rgba(60,40,90,0.22)');
   add(mid, 'g', crk, dk ? 'rgba(6,2,16,0.55)' : 'rgba(60,40,90,0.35)');
   // ---- stalactites (ceiling and walls) and stalagmites (floor): rounded tapered cones, a shaded side, a wet glint at the tip ----
-  var stal = '', stD = '', stH = '', wet = '', tips = [];
+  var stal = '', stD = '', stH = '', wet = '', tips = [], stGap = [];
   for (x = 10; x < W; x += 34 + rnd() * 40) { var c0 = Math.max(ceil(x), oy(x) + 16); if (oy(x) > 0 && rnd() < 0.6) continue; var len = 20 + rnd() * (ph ? 40 : 60), w2 = 8 + rnd() * 10, cn = n5_cone(x, c0 - 6, w2, len + 6, 1, (rnd() - 0.5) * 4); stal += cn.all; stD += cn.dark; stH += cn.hi; wet += b2_ellA(cn.tip[0], cn.tip[1] - 1.5, 1.4, 2.2); tips.push(cn.tip); }
   [[wl, 1], [wr, -1]].forEach(function (S) { for (var yy = H * 0.3; yy < H * 0.6; yy += H * 0.12) { var xx = S[0](yy) + S[1] * 6, len = 26 + rnd() * 30, cn = n5_cone(xx, yy - 6, 9, len, 1, S[1] * 4); stal += cn.all; stD += cn.dark; stH += cn.hi; wet += b2_ellA(cn.tip[0], cn.tip[1] - 1.5, 1.3, 2); tips.push(cn.tip); } });
-  (ph ? [0.15, 0.4, 0.86] : [0.17, 0.26, 0.44, 0.6, 0.84, 0.9]).forEach(function (f, j) { var gx = W * f, gy = yF(gx) + 4, h = (ph ? 30 : 46) * (0.6 + (j % 3) * 0.3), cn = n5_cone(gx, gy, h * 0.3, h, -1, (j % 2 ? 1 : -1) * 2); stal += cn.all; stD += cn.dark; stH += cn.hi; });
+  (ph ? [0.15, 0.4, 0.86] : [0.17, 0.26, 0.44, 0.6, 0.84, 0.9]).forEach(function (f, j) { var gx = W * f, gy = yF(gx) + 4, h = (ph ? 30 : 46) * (0.6 + (j % 3) * 0.3), cn = n5_cone(gx, gy, h * 0.3, h, -1, (j % 2 ? 1 : -1) * 2); stGap.push([gx - h * 0.3 - 2, gx + h * 0.3 + 2]); stal += cn.all; stD += cn.dark; stH += cn.hi; });
   // ---- wall crystals (pink): faceted prisms on rocky ledges ----
   var glow = [], wc = {mid: '', lit: '', dk: '', edge: '', glow: '', base: '', boss: '', bossLit: '', bossSh: '', wallSh: ''};
   [[wl, 0.42, 1, 42], [wr, 0.36, -1, -44], [wl, 0.66, 1, 34], [wr, 0.62, -1, -36]].forEach(function (q, j) { var yy = H * q[1], xx = q[0](yy) - q[2] * (ph ? 34 : 58) * (j < 2 ? 1 : 0.8) * 0.4, sz = (ph ? 34 : 58) * (j < 2 ? 1 : 0.8), C = n5_crys2(xx, yy, sz, q[3], 4, rnd);
@@ -8022,7 +8022,8 @@ SCENES.geology = function (W, H, dk, rnd) {
   var fl = [], fx; for (fx = -40; fx <= W + 40; fx += 10) fl.push([fx, yF(fx)]);
   add(near, 'a', below(fl, H + 40), dk ? '#120C22' : '#6A5884');
   var peb = '', pebH = ''; spread(0, H * 0.82, W, H * 0.18, 30, 16, rnd, 1).forEach(function (c) { if (c.q < 0.4) { var rx = 3 + c.r * 5, ry = 1.6 + c.k * 2; peb += b2_ellA(c.x, c.y, rx, ry); pebH += b2_ellA(c.x - rx * 0.3, c.y - ry * 0.35, rx * 0.35, ry * 0.3); } });
-  var lip = b2_band(fl.map(function (p) { return [p[0], p[1] + 1.5]; }), 3);
+  // the floor's lit edge runs behind the stalagmites standing on it: it breaks around each base
+  var lip = '', run = [], flF = []; for (var fx3 = -40; fx3 <= W + 40; fx3 += 3) flF.push([fx3, yF(fx3)]); flF.concat([[1e9, 0]]).forEach(function (p) { var hid = p[0] > 1e8 || stGap.some(function (g) { return p[0] > g[0] && p[0] < g[1]; }); if (hid) { if (run.length > 1) lip += b2_band(run, 3); run = []; } else run.push([p[0], p[1] + 1.5]); });
   var pools = ph ? [[0.28, 0.9, 0.24, 0.028], [0.78, 0.93, 0.16, 0.02]] : [[0.3, 0.88, 0.15, 0.034], [0.74, 0.91, 0.12, 0.026]], pp = '', rim = '', rimH = '', sheen = '', rings = '';
   pools = pools.map(function (q) { var p = {x: W * q[0], y: H * q[1], rx: W * q[2], ry: H * q[3]}; pp += b2_ellA(p.x, p.y, p.rx, p.ry); rim += b2_ellA(p.x, p.y + 2, p.rx + 5, p.ry + 3);
     for (var j = 0; j < 22; j++) { var aa = j / 22 * Math.PI * 2, sr = (ph ? 3.5 : 5) * (0.75 + 0.5 * Math.abs(Math.sin(j * 2.7))), sx = p.x + Math.cos(aa) * (p.rx + 3), sy = p.y + 1 + Math.sin(aa) * (p.ry + 2); rim += b2_ellA(sx, sy, sr, sr * 0.6); rimH += b2_ellA(sx - sr * 0.25, sy - sr * 0.25, sr * 0.45, sr * 0.22); }
