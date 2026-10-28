@@ -7993,7 +7993,7 @@ SCENES.campfire = function (W, H, dk, rnd) {
   // (+w is the side nearer the viewer), d from the front edge back, u straight up; yaw ~35 degrees toward the viewer
   var chairs = ph ? [[fx - 118 * fs, fyy - 64 * fs, 1]] : [[fx - 188 * fs, fyy - 40 * fs, 1], [fx + 70 * fs, fyy - 54 * fs, -1]], cs3 = fs * (ph ? 0.95 : 0.98);
   var chSh = '', chLegF = '', chCloth = '', chShade = '', chNear = '', chBox = [];
-  chairs.forEach(function (q) { var cx3 = q[0], cy3 = q[1], dir = q[2], fX = 0.82, fZ = 0.57, rX = -0.57, rZ = 0.82, kz = 0.42, sc = 1.05;
+  chairs.forEach(function (q) { var cx3 = q[0], cy3 = q[1], dir = q[2], fX = 0.82, fZ = 0.57, rX = -0.57, rZ = 0.82, kz = 0.22, sc = 1.05; // kz: the same flat ground as the tent and fire ring
     function P(w, d, u) { return [cx3 + dir * (w * rX - d * fX) * sc * cs3, cy3 + ((w * rZ - d * fZ) * kz - u) * sc * cs3]; }
     function Bar(a1, a2, wd) { return b2_limb(a1, [(a1[0] + a2[0]) / 2, (a1[1] + a2[1]) / 2], a2, wd * cs3, wd * cs3 * 0.9); }
     var hw = 13, D = 22, sh = 24, ah = 36, bt = 58, bk = 6; // half width, seat depth, seat height, arm height, back top, back lean
