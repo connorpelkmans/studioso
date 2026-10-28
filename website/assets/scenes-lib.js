@@ -488,20 +488,28 @@ function b2_snowman(L, x, y, ss, dk, anim) {
     body += circ(bx, by, r);
     shade += b2_cres(bx, by, r, bx + r * 0.3, by - r * 0.26, r * 1.02);
     if (!i) hi += rotEll(bx + r * 0.36, by - r * 0.44, r * 0.26, r * 0.13, -38);
-    if (i) shade += ell(bx, by + r * 0.86, r * 0.62, r * 0.16);
+    // the ball sits on the one below: a thin contact shadow on the lower ball, hugging this ball's bottom edge
+    if (i) { var bl = balls[i - 1], lx = x + bl[0] * ss, ly = y + bl[1] * ss, lr = bl[2] * ss, cs = [], ci = [], a0 = 0.18 * Math.PI, a1 = 0.82 * Math.PI;
+      function inLower(q) { return Math.hypot(q[0] - lx, q[1] - ly) < lr - 0.6 * ss; }
+      for (var q = 0; q <= 20; q++) { var aa = lerp(a0, a1, q / 20), o1 = [bx + Math.cos(aa) * r, by + Math.sin(aa) * r], o2 = [bx + Math.cos(aa) * (r + 2.6 * ss), by + Math.sin(aa) * (r + 1.8 * ss)]; if (inLower(o1)) { cs.push(o1); ci.unshift(inLower(o2) ? o2 : o1); } }
+      if (cs.length > 2) shade += b2_polyA(cs.concat(ci)); }
   });
-  shade += ell(x, y - 30 * ss, 9 * ss, 2.2 * ss);
   [[-3.4, -63.8, 1.5], [3.6, -64.1, 1.42]].forEach(function (e) { var c = P(e[0], e[1]); coal += ell(c[0], c[1], e[2] * ss, e[2] * 1.15 * ss); hi += circ(c[0] + 0.5 * ss, c[1] - 0.6 * ss, 0.45 * ss); });
   for (var k = 0; k < 5; k++) { var u = (k - 2) / 2, c = P(u * 3.8 + 0.4, -55.9 + u * u * -1.4); coal += circ(c[0], c[1], (0.75 - Math.abs(u) * 0.12) * ss); }
   [[-47, 1.55, 10], [-41, 1.7, -20], [-35, 1.6, 30]].forEach(function (b) { var c = P(b[1] * 0.25, b[0]); coal += rotEll(c[0], c[1], b[1] * ss, b[1] * 0.88 * ss, b[2]); hi += circ(c[0] + 0.5 * ss, c[1] - 0.55 * ss, 0.42 * ss); });
   if (!anim) { var h = b2_snowHat(x, y - 69 * ss, ss); coal += h.hat; red += h.band; }
-  // scarf: a band around the neck, a knot and a tail with fringe
-  var top = [], bot = [];
-  for (k = 0; k <= 12; k++) { var t = k / 12, xx = -10.4 + t * 20.8, sag = Math.sin(t * Math.PI) * 1.6; top.push(P(xx, -53.6 + sag)); bot.unshift(P(xx * 0.96, -49.2 + sag * 1.25)); }
-  red += b2_polyA(top.concat(bot)) + b2_ellA(x + 5 * ss, y - 50.6 * ss, 2.6 * ss, 2.3 * ss) + b2_limb(P(5.2, -50), P(9.5, -44), P(8.6, -36.5), 4.6 * ss, 4.1 * ss);
-  for (k = 0; k < 4; k++) red += rrect(x + (6.6 + k * 1.1 - k * 0.12) * ss, y - 35.4 * ss + Math.abs(k - 1.5) * 0.2 * ss, 0.7 * ss, 2.4 * ss, 0.3 * ss);
-  var stripe = b2_limb(P(7.3, -45.6), P(8.5, -44.5), P(10.1, -43.6), 1 * ss, 1 * ss) + b2_limb(P(7.2, -41.2), P(8.6, -40.6), P(10.4, -40.1), 1 * ss, 1 * ss);
-  for (k = 0; k < 3; k++) { var sx = -7.5 + k * 5.5; stripe += poly([P(sx, -53.2 + Math.sin((sx + 10.4) / 20.8 * Math.PI) * 1.6), P(sx + 1.3, -53.2 + Math.sin((sx + 11.7) / 20.8 * Math.PI) * 1.6), P(sx + 1.1, -49.3 + Math.sin((sx + 11.5) / 20.8 * Math.PI) * 2), P(sx - 0.2, -49.3 + Math.sin((sx + 10.2) / 20.8 * Math.PI) * 2)]); }
+  // scarf: wraps the neck like a ring seen from the front (rounded ends tuck round the sides), a knot on the right and a hanging tail with fringe
+  var top = [], bot = [], SW = 9.4, ST = -53.9, SB = 4.4;
+  function sTop(xx) { var e = xx / SW; return ST + 2.4 * (1 - e * e); }
+  function sBot(xx) { var e = xx / SW; return ST + SB + 2.9 * (1 - e * e); }
+  for (k = 0; k <= 16; k++) { var t = k / 16, xx = -SW + t * 2 * SW; top.push(P(xx, sTop(xx) + (k === 0 || k === 16 ? 1.2 : 0))); bot.unshift(P(xx * 0.98, sBot(xx) - (k === 0 || k === 16 ? 1.2 : 0))); }
+  var tailTop = P(4.8, sBot(4.8) - 1.2);
+  red += b2_polyA(top.concat(bot)) + b2_ellA(x + 4.6 * ss, y + (ST + 3.6) * ss, 2.6 * ss, 2.4 * ss) + b2_limb(tailTop, P(7.6, -43.5), P(7.4, -36.4), 4.4 * ss, 4 * ss);
+  for (k = 0; k < 4; k++) red += rrect(x + (5.5 + k * 1.1) * ss, y - 35.2 * ss + Math.abs(k - 1.5) * 0.2 * ss, 0.7 * ss, 2.4 * ss, 0.3 * ss);
+  var stripe = b2_limb(P(5.9, -45.4), P(7.2, -44.6), P(8.6, -44.2), 1 * ss, 1 * ss) + b2_limb(P(5.8, -40.9), P(7.2, -40.6), P(8.8, -40.4), 1 * ss, 1 * ss);
+  // stripes squeeze toward the sides, where the scarf turns away
+  [-0.62, -0.08, 0.5].forEach(function (e) { var w = 0.75 * Math.sqrt(1 - e * e), x0 = e * SW - w, x1 = e * SW + w; stripe += b2_polyA([P(x0, sTop(x0) + 0.3), P(x1, sTop(x1) + 0.3), P(x1, sBot(x1) - 0.3), P(x0, sBot(x0) - 0.3)]); });
+  shade += b2_polyA([P(-SW * 0.98, sBot(-SW * 0.98) - 1.2), P(SW * 0.98, sBot(SW * 0.98) - 1.2), P(SW * 0.9, sBot(SW * 0.9) + 0.9), P(0, sBot(0) + 1.2), P(-SW * 0.9, sBot(-SW * 0.9) + 0.9)]);
   // carrot nose with a few ridges
   var nose = [], N = 10;
   for (k = 0; k <= N; k++) { t = k / N; nose.push(P(0.4 + t * 13, -60.6 + t * 0.9 - (1 - t) * 2)); }
