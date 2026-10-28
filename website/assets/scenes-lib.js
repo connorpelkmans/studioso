@@ -757,21 +757,20 @@ SCENES.sakura = function (W, H, dk, rnd) {
   var P = ph ? [[W + 30, H * 0.7], [W * 0.62, H * 0.62], [W * 0.14, H * 0.66]] : [[W + 30, H * 0.06], [W * 0.82, H * 0.3], [W * 0.5, H * 0.36]];
   br += b2_limb(P[0], P[1], P[2], ph ? 16 : 22, 3, 18);
   [0.14, 0.26, 0.38, 0.5, 0.62, 0.74, 0.86].forEach(function (t, k) { var o = b2_qpt(P[0], P[1], P[2], t), dir = k % 2 ? 1 : -1, len = (ph ? 60 : 110) * (1 - t * 0.4); var e = [o[0] - len * 0.6, o[1] + dir * len * 0.7], m = [o[0] - len * 0.2, o[1] + dir * len * 0.6]; br += b2_limb(o, m, e, ph ? 6 : 8, 1.5, 8); twigs.push([o, m, e]); });
-  var bx2 = W * (ph ? 0.62 : 0.36), by2 = H * (ph ? 0.84 : 0.8), bs2 = ph ? 0.8 : 1, boat = ''; boat += poly([[bx2 - 46 * bs2, by2 - 8 * bs2], [bx2 + 46 * bs2, by2 - 8 * bs2], [bx2 + 34 * bs2, by2 + 4 * bs2], [bx2 - 36 * bs2, by2 + 4 * bs2]]); var wake = seg(bx2 - 60 * bs2, by2 + 7 * bs2, bx2 + 50 * bs2, by2 + 7 * bs2);
-  add(near, 'd', ANIM ? boat : br + boat, dk ? '#2E1A22' : '#6A4640');
+  if (!ANIM) add(near, 'd', br, dk ? '#2E1A22' : '#6A4640');
   var budL = [], flw = [];
   twigs.forEach(function (tw) { [0.3, 0.55, 0.8, 1].forEach(function (t) { var p = b2_qpt(tw[0], tw[1], tw[2], t); for (var q = 0; q < 2; q++) { var r = (ph ? 6 : 8) + rnd() * 4, fx = p[0] + (rnd() - 0.5) * 14, fy = p[1] + (rnd() - 0.5) * 14; if (rnd() < 0.5) flowers1 += b2_blossom(fx, fy, r); else flowers2 += b2_blossom(fx, fy, r); cent += circ(fx, fy, r * 0.22); flw.push([fx, fy]); } }); });
   for (var t = 0.1; t < 0.98; t += 0.09) { var p = b2_qpt(P[0], P[1], P[2], t), r = (ph ? 8 : 11) + rnd() * 4, ox2 = (rnd() - 0.5) * 16, oy2 = (rnd() - 0.5) * 16; if (rnd() < 0.5) flowers1 += b2_blossom(p[0] + ox2, p[1] + oy2, r); else flowers2 += b2_blossom(p[0] + ox2, p[1] + oy2, r); cent += circ(p[0] + ox2, p[1] + oy2, r * 0.22); flw.push([p[0] + ox2, p[1] + oy2]); if (rnd() < 0.6) { buds += circ(p[0] - ox2, p[1] - oy2 + 8, 3.5); budL.push({x: p[0] - ox2, y: p[1] - oy2 + 8, t: t}); } }
-  var blk = [function (x, y) { return Math.pow((x - lxp) / (ph ? 124 : 194), 2) + Math.pow((y - lb - 30 * ls) / (44 * ls + 4), 2) < 1; }, function (x, y) { return Math.abs(x - lxp) < 28 * ls && y > lb - 90 * ls && y < lb + 4; }, function (x, y) { return x > bx2 - 50 * bs2 && x < bx2 + 50 * bs2 && y > by2 - 12 * bs2 && y < by2 + 6 * bs2; }];
+  var blk = [function (x, y) { return Math.pow((x - lxp) / (ph ? 124 : 194), 2) + Math.pow((y - lb - 30 * ls) / (44 * ls + 4), 2) < 1; }, function (x, y) { return Math.abs(x - lxp) < 28 * ls && y > lb - 90 * ls && y < lb + 4; }];
   if (!ANIM) { var hit = flw.map(function (f) { return [f[0], f[1], ph ? 16 : 20]; }); for (var q = 0; q <= 24; q++) { var bp = b2_qpt(P[0], P[1], P[2], q / 24); hit.push([bp[0], bp[1], lerp(ph ? 10 : 13, 4, q / 24)]); } twigs.forEach(function (tw) { for (var q = 0; q <= 6; q++) { var tp = b2_qpt(tw[0], tw[1], tw[2], q / 6); hit.push([tp[0], tp[1], 6]); } }); blk.push(function (x, y) { for (var i = 0; i < hit.length; i++) if (Math.abs(x - hit[i][0]) < hit[i][2] && Math.abs(y - hit[i][1]) < hit[i][2]) return true; return false; }); }
   function b2_lines(list, pad) { var d = ''; list.forEach(function (l) { var on = false, st = 0; for (var x = l[0]; x <= l[1] + 0.01; x += 2) { var free = !blk.some(function (f) { return f(x, l[2]); }); if (free && !on) { on = true; st = x > l[0] ? x + pad : x; } else if (!free && on) { on = false; if (x - 2 - pad - st > 3) d += seg(st, l[2], x - 2 - pad, l[2]); } } if (on && l[1] - st > 3) d += seg(st, l[2], l[1], l[2]); }); return d; }
   stk(near, 's', b2_lines(rip, 2), dk ? 'rgba(255,200,230,0.18)' : 'rgba(255,255,255,0.7)', 1.4);
-  stk(near, 't', b2_lines(gl, 2) + wake, dk ? 'rgba(255,230,240,0.35)' : 'rgba(255,255,255,0.85)', dk ? 1.6 : 2);
+  stk(near, 't', b2_lines(gl, 2), dk ? 'rgba(255,230,240,0.35)' : 'rgba(255,255,255,0.85)', dk ? 1.6 : 2);
   var cF1 = dk ? '#E88AB0' : '#F4A6C2', cF2 = dk ? '#F6B6CE' : '#FBD0DE', cC = dk ? '#B84A78' : '#D6557E';
   if (ANIM) ANIM.branch = {piv: P[0], P: P, w0: ph ? 16 : 22, br: br, f1: flowers1, f2: flowers2, cent: cent, buds: budL, flw: flw, cBr: dk ? '#2E1A22' : '#6A4640', cF1: cF1, cF2: cF2, cC: cC, ph: ph};
   else { add(near, 'e', flowers1 + buds, cF1); add(near, 'f', flowers2, cF2); add(near, 'h', cent, cC); }
   if (dk) add(far, 'g', b2_limb(P[0], P[1], P[2], 90, 50, 10), 'rgba(255,140,190,0.18)');
-  var pt = ''; if (ANIM) { ANIM.petals = []; ANIM.hz = hz; ANIM.pc = dk ? 'rgba(250,170,205,0.8)' : '#F7B2C8'; }
+  var pt = ''; if (ANIM) { ANIM.petals = []; ANIM.hz = hz; ANIM.pc = dk ? 'rgba(250,170,205,0.8)' : '#F7B2C8'; ANIM.rc = dk ? 'rgba(255,215,235,' : 'rgba(255,255,255,'; }
   spread(0, 0, W, H, ph ? 70 : 90, ph ? 80 : 90, rnd, 1).forEach(function (c) { if (c.q < 0.45) { if (ANIM) ANIM.petals.push({x: c.x, y: c.y, L: 7 + c.r * 5, w: 5 + c.r * 3, a: c.k * 360}); else pt += b2_petal(c.x, c.y, 7 + c.r * 5, 5 + c.r * 3, c.k * 360); } });
   add(mid, 'h', pt, dk ? 'rgba(250,170,205,0.8)' : '#F7B2C8');
   return {sky: sky, far: far, refl: refl, mid: mid, near: near, band: {top: hz + 2, bg: dk ? 'linear-gradient(180deg,#4A2A48,#1E1020)' : 'linear-gradient(180deg,#F2DCE6,#D8C6DE)'}};
@@ -12324,10 +12323,16 @@ ENGINES.sakura = function (A, v, dk) {
       buds.forEach(function (b) { if (b.tE >= 0 && t > b.tE + 1.2) { b.tB = -1; b.tE = -1; } });
     },
     draw: function (ca, cb, t, f) {
+      // rings spread out on the water where a petal has just landed
+      ca.lineWidth = 1.4; petals.forEach(function (p) {
+        if (p.fl < 0 || p.fl > 3) return; var k = 0.45 + 0.8 * Math.max(0, (p.y - hz) / (H - hz));
+        for (var r = 0; r < 3; r++) { var u = (p.fl - r * 0.4) / 2.2; if (u <= 0 || u >= 1) continue; var rx = (3 + 36 * b2_ease(u)) * k;
+          ca.strokeStyle = A.rc + (0.75 * (1 - u) * (1 - r * 0.25)) + ')'; ca.beginPath(); ca.ellipse(p.x, p.y + 1, rx, rx * 0.3, 0, 0, 7); ca.stroke(); }
+      });
       ca.fillStyle = A.pc;
       petals.forEach(function (p) {
         var fa = (p.fl >= 0 ? Math.max(0, 1 - Math.max(0, p.fl - 3.5) / 2.5) : 1) * Math.min(1, p.age / 0.6); if (fa <= 0) return; ca.globalAlpha = fa;
-        ca.save(); ca.translate(p.x, p.y); ca.rotate(p.a); ca.scale(1, p.fl >= 0 ? lerp(p.lc, 0.55, b2_ease(p.fl / 0.5)) : Math.cos(t * p.fr + p.ph)); ca.fill(p.p); ca.restore();
+        ca.save(); ca.translate(p.x, p.y + (p.fl >= 0 ? Math.sin(p.fl * 2.4 + p.ph) * 0.6 * Math.exp(-p.fl * 0.5) : 0)); ca.rotate(p.a); ca.scale(1, p.fl >= 0 ? lerp(p.lc, 0.55, b2_ease(p.fl / 0.5)) : Math.cos(t * p.fr + p.ph)); ca.fill(p.p); ca.restore();
       });
       ca.globalAlpha = 1;
       cb.save(); cb.translate(piv[0], piv[1]); cb.rotate(sway); cb.translate(-piv[0], -piv[1]);
