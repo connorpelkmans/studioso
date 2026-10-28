@@ -7319,7 +7319,7 @@ SCENES.rainforest = function (W, H, dk, rnd) {
     ANIM.fall = {x: wx, top: lipY, bot: cB, w: ww}; ANIM.fall2 = {x: f2x, top: f2t, bot: cB - H * 0.01, w: f2w}; ANIM.moon = [mx, my, mr]; ANIM.S = S * (ph ? 0.85 : 1);
     var perch = []; [[B1.top, 0.2, 0.8], [B2.top, 0.35, 0.92]].forEach(function (q, bi) { for (var j = 0; j < 4; j++) { var p = q[0][Math.floor((q[0].length - 1) * (q[1] + (q[2] - q[1]) * j / 3))]; perch.push({x: p[0], y: p[1] + 2, b: bi}); } }); ANIM.perch = perch;
     ANIM.frogs = [B2.top[Math.floor((B2.top.length - 1) * 0.24)], B1.top[Math.floor((B1.top.length - 1) * 0.035)]].map(function (p) { return [p[0], p[1] + 3]; });
-    ANIM.occ = B1.body + moss1; ANIM.occL = {d: liana1, w: ph ? 3 : 4.5};
+    ANIM.occ = B1.body + moss1 + row2 + rect(-60, y2 + 10, W + 120, H) + trunks + crowns + row3 + rect(-60, y3 + 20, W + 120, H); ANIM.occL = {d: liana1, w: ph ? 3 : 4.5};
     ANIM.vines = []; for (i = 0; i < (ph ? 4 : 7); i++) ANIM.vines.push({x: W * (ph ? 0.18 + i * 0.22 : 0.3 + i * 0.075) + (rnd() - 0.5) * 20, L: H * (0.18 + rnd() * 0.22), ph: rnd() * 6.28});
     ANIM.mush = mushSpots;
   } else {
@@ -19431,8 +19431,8 @@ ENGINES.rainforest = function (A, v, dk) {
         g.lineWidth = 1.2; rings.forEach(function (r) { var k = (tt * 0.45 + r.ph) % 1, rx = F.w * (0.6 + k * 1.9); g.strokeStyle = dk ? 'rgba(200,235,232,' + (0.5 * (1 - k)) + ')' : 'rgba(110,170,165,' + (0.55 * (1 - k)) + ')'; g.beginPath(); g.ellipse(F.x + r.x * F.w * 0.6, F.bot + H * 0.022, rx, rx * 0.16 + 1, 0, 0, 7); g.stroke(); });
         if (rb) { var T = t - rb.t0, k = n1_env(T, 0.3, 1.8, 8, 10.5); if (k > 0) { var R0 = ph ? W * 0.42 : W * 0.21, cx = F.x, cy = F.bot + H * 0.02, bw = (ph ? 6 : 9) * S + 2, cols = ['#FF6A6A', '#FFA94A', '#FFE05A', '#7EDB6A', '#5AB8F2', '#9A7BF0'];
           g.save(); g.beginPath(); g.rect(-10, -10, W + 20, F.bot + H * 0.03); g.clip(); g.globalAlpha = k * (dk ? 0.3 : 0.5); g.lineWidth = bw;
-          cols.forEach(function (col, j) { g.strokeStyle = col; g.beginPath(); g.arc(cx, cy, R0 - j * bw, Math.PI, 2 * Math.PI); g.stroke(); }); g.restore(); } } });
-      for (i = 0; i < 4; i++) n1_dot(ca, mistG, F.x + Math.sin(tt * 0.4 + i * 1.7) * F.w * 1.5, F.bot - 8 - i * 4, F.w * (1.4 + i * 0.35), 0.75, 0.45);
+          cols.forEach(function (col, j) { g.strokeStyle = col; g.beginPath(); g.arc(cx, cy, R0 - j * bw, Math.PI, 2 * Math.PI); g.stroke(); }); g.restore(); } }
+        for (var mi = 0; mi < 4; mi++) n1_dot(g, mistG, F.x + Math.sin(tt * 0.4 + mi * 1.7) * F.w * 1.5, F.bot - 8 - mi * 4, F.w * (1.4 + mi * 0.35), 0.75, 0.45); });
       [[0.55, 0.12, 1], [0.66, 0.1, -1], [0.82, 0.08, 1]].forEach(function (b, k) { for (var j = 0; j < (ph ? 4 : 7); j++) { var x = ((j / (ph ? 4 : 7)) * (W + 400) + tt * 9 * b[2] * (1 + k * 0.3) + k * 140) % (W + 400); if (x < 0) x += W + 400; n1_dot(ca, mistG, x - 200, H * b[0] + Math.sin(tt * 0.3 + j * 2 + k) * 8, (ph ? 100 : 170) * S, (dk ? 0.4 : 0.34) * (k < 2 ? 0.7 : 1), 0.14); } });
       ca.lineCap = 'round';
       A.vines.forEach(function (vn) { var sw = Math.sin(tt * 0.6 + vn.ph) * 0.06 + Math.sin(tt * 1.3 + vn.ph * 2) * 0.015, pts = [], n = 14; for (var j = 0; j <= n; j++) { var u = j / n, a = sw * u * u; pts.push([vn.x + Math.sin(a) * vn.L * u + Math.sin(u * 6 + vn.ph) * 4, -12 + vn.L * u * Math.cos(a)]); }
