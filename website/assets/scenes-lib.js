@@ -796,13 +796,14 @@ SCENES.forest = function (W, H, dk, rnd) {
   add(near, 'a', below(b2_ridge(W, gb, gw, 10), H + 10), dk ? '#0C1712' : '#3F6E4A');
   var big = ph ? [[-4, H - 40, 330], [W + 4, H - 50, 280]] : [[20, H - 20, 420], [W - 20, H, 560], [W - 120, H - 30, 380]], bp = '';
   var solid = [];
-  big.forEach(function (b) { bp += b2_pine(b[0], b[1], b[2], b[2] * 0.4, 6).d; solid.push({r: 1, y: b[1], tri: [b[0], b[1] - b[2], b[2] * 0.2]}); });
+  var bigP = ''; big.forEach(function (b) { bigP += b2_pine(b[0], b[1], b[2], b[2] * 0.4, 6).d; solid.push({r: 1, y: b[1], tri: [b[0], b[1] - b[2], b[2] * 0.2]}); });
   var front = [], cPine = dk ? '#09120D' : '#2E5A3A', cFern = dk ? '#1F3A28' : '#4E8A58', cGrass = dk ? '#2A4A32' : '#5E9A5A';
   function fr(x0, x1, top, y, parts) { if (ANIM) front.push({x0: x0, x1: x1, top: top, y: y, parts: parts}); }
   (ph ? [0.52, 0.86] : [0.36, 0.53, 0.7]).forEach(function (f) { for (var k = 0; k < 2; k++) { var x = W * f + k * (ph ? 22 : 34) + rnd() * 10, h = (ph ? 90 : 120) * (1 - k * 0.3) + rnd() * 30, gy = b2_y(gb, gw, x) + 14, pd = b2_pine(x, gy, h, h * 0.38, 5).d; bp += pd; solid.push({r: 1, y: gy, tri: [x, gy - h, h * 0.19]}); fr(x - h * 0.2, x + h * 0.2, gy - h, gy, [[pd, cPine]]); } });
-  add(near, 'b', bp, dk ? '#09120D' : '#2E5A3A');
-  var fern = '';
-  (ph ? [[0.3, 1], [0.7, 0.9]] : [[0.45, 1], [0.62, 0.8], [0.8, 1.1]]).forEach(function (f) { var x0 = W * f[0], y0 = b2_y(gb, gw, x0) + 12, s = f[1] * (ph ? 0.8 : 1), fd = ''; for (var k = 0; k < 7; k++) fd += leaf(x0, y0, 44 * s + rnd() * 14, 8 * s, -90 + (k - 3) * 24 + (rnd() - 0.5) * 8); fern += fd; fr(x0 - 60 * s, x0 + 60 * s, y0 - 60 * s, y0, [[fd, cFern]]); });
+  // back to front: ferns at the treeline, the small pines, the nearer ferns, rocks and mushrooms, then the big pines
+  add(near, 'c', bp, dk ? '#09120D' : '#2E5A3A'); add(near, 'i', bigP, dk ? '#09120D' : '#2E5A3A');
+  var fern = '', fern0 = '';
+  (ph ? [[0.3, 1], [0.7, 0.9]] : [[0.45, 1], [0.62, 0.8], [0.8, 1.1]]).forEach(function (f) { var x0 = W * f[0], y0 = b2_y(gb, gw, x0) + 12, s = f[1] * (ph ? 0.8 : 1), fd = ''; for (var k = 0; k < 7; k++) fd += leaf(x0, y0, 44 * s + rnd() * 14, 8 * s, -90 + (k - 3) * 24 + (rnd() - 0.5) * 8); fern0 += fd; fr(x0 - 60 * s, x0 + 60 * s, y0 - 60 * s, y0, [[fd, cFern]]); });
   var grass = '', rocks = '', moss = '', caps = '', stems2 = '', rk = [], mu = [], items = [];
   (ph ? [[0.62, 1], [0.22, 0.8]] : [[0.4, 1.1], [0.57, 0.8], [0.27, 1], [0.125, 0.9]]).forEach(function (r) { var x0 = W * r[0], y0 = b2_y(gb, gw, x0) + (ph ? 26 : 34), rr = (ph ? 20 : 26) * r[1]; rk.push([x0, y0, rr]); solid.push({r: 3, y: y0 + rr * 0.6, box: [x0 - rr, x0 + rr * 1.45, y0 - rr * 0.62]}); });
   (ph ? [[0.42, 1], [0.8, 0.9]] : [[0.48, 1], [0.66, 0.9], [0.78, 1.1]]).forEach(function (m) { var x0 = W * m[0], y0 = b2_y(gb, gw, x0) + (ph ? 22 : 30), ms = (ph ? 0.8 : 1) * m[1]; mu.push([x0, y0, ms]); solid.push({r: 4, y: y0 + 2, box: [x0 - 16 * ms, x0 + 16 * ms, y0 - 24 * ms]}); });
@@ -821,9 +822,9 @@ SCENES.forest = function (W, H, dk, rnd) {
   add(near, 'e', rocks, dk ? '#26302B' : '#8C978C'); add(near, 'f', moss, dk ? '#2C4632' : '#6E9E5C');
   add(near, 'g', stems2, dk ? '#8A8272' : '#F0E8D8'); add(near, 'h', caps, dk ? '#8E3E30' : '#C8563E');
   stk(near, 's', grass, dk ? '#2A4A32' : '#5E9A5A', 1.6);
-  add(near, 'c', fern, dk ? '#1F3A28' : '#4E8A58');
+  add(near, 'b', fern0, dk ? '#1F3A28' : '#4E8A58'); add(near, 'd', fern, dk ? '#1F3A28' : '#4E8A58');
   if (ANIM) { ANIM.ff = []; ANIM.birds = []; ANIM.gb = gb; ANIM.gw = gw; ANIM.cap = dk ? '#8E3E30' : '#C8563E'; ANIM.stem = dk ? '#8A8272' : '#F0E8D8'; ANIM.moss = dk ? '#2C4632' : '#6E9E5C'; ANIM.front = front; }
-  if (dk) spread(0, H * 0.5, W, H * 0.48, 130, 90, rnd, 1).forEach(function (c) { if (c.q < 0.45) { if (ANIM) { ANIM.ff.push({x: c.x, y: c.y}); return; } add(mid, 'c', circ(c.x, c.y, 9), 'rgba(210,240,140,0.35)'); add(near, 'd', circ(c.x, c.y, 1.8), '#EEF7B0'); } });
+  if (dk) spread(0, H * 0.5, W, H * 0.48, 130, 90, rnd, 1).forEach(function (c) { if (c.q < 0.45) { if (ANIM) { ANIM.ff.push({x: c.x, y: c.y}); return; } add(mid, 'c', circ(c.x, c.y, 9), 'rgba(210,240,140,0.35)'); add(near, 'j', circ(c.x, c.y, 1.8), '#EEF7B0'); } });
   else { var birds = ''; (ph ? [[0.3, 0.46], [0.38, 0.44], [0.34, 0.48]] : [[0.56, 0.22], [0.61, 0.19], [0.66, 0.24]]).forEach(function (b) { var x = W * b[0], y = H * b[1]; if (ANIM) { ANIM.birds.push({x: x, y: y}); return; } birds +='M' + PT(x - 7, y - 3) + ' Q' + PT(x - 3, y - 5) + ' ' + PT(x, y) + ' Q' + PT(x + 3, y - 5) + ' ' + PT(x + 7, y - 3) + ' '; }); stk(mid, 's', birds, '#5A6A5E', 1.4); }
   return {sky: sky, far: far, refl: refl, mid: mid, near: near};
 };
