@@ -2105,61 +2105,161 @@ function b5_case(x0, y0, w, h, rows, cols, rnd, ph) { var o = {frame: rect(x0, y
     else { bk = b5_books(cx + 2, cy + ih, iw - 4, ih * 0.85, rnd); for (k = 0; k < 3; k++) o.b[k] += bk[k]; } }
   return o; }
 // READING NOOK
+// clip a polygon to the half-plane f(p) >= 0 (f linear)
+function rd_clip(pts, f) { var out = [], n = pts.length; for (var i = 0; i < n; i++) { var a = pts[i], b = pts[(i + 1) % n], fa = f(a), fb = f(b); if (fa >= 0) out.push(a); if ((fa >= 0) !== (fb >= 0)) { var t = fa / (fa - fb); out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); } } return out; }
+function rd_P(pts) { return pts.length > 2 && Math.abs(b2_area(pts)) > 0.5 ? b2_polyA(pts) : ''; }
+// a bookcase with depth: frame, crown and plinth, shaded cells, lit shelf lips, and full shelves
+function rd_case(x0, y0, w, h, rows, cols, rnd, ph, o) {
+  var bd = ph ? 6 : 9, cw = (w - bd) / cols, rh = (h - bd) / rows, sc = ph ? 0.8 : 1;
+  o.frame += rect(x0, y0, w, h) + rect(x0 - 5, y0 - 9, w + 10, 11) + rect(x0 - 2, y0 + h - 10, w + 4, 10);
+  o.hi += rect(x0 - 5, y0 - 9, w + 10, 2) + rect(x0 - 2, y0 + h - 10, w + 4, 1.6);
+  o.shade += rect(x0 - 5, y0 + 2, w + 10, 3);
+  for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
+    var cx = x0 + bd + c * cw, cy = y0 + bd + r * rh, iw = cw - bd, ih = rh - bd, yb = cy + ih;
+    o.back += rect(cx, cy, iw, ih); o.shade += rect(cx, cy, iw, ih * 0.14) + rect(cx, cy + ih * 0.14, 4 * sc, ih * 0.86) + rect(cx + iw - 2 * sc, cy + ih * 0.14, 2 * sc, ih * 0.86);
+    o.hi += rect(cx - bd * 0.5, yb, iw + bd, 1.6);
+    var q = rnd(), x = cx + 3 * sc, xe = cx + iw - 3 * sc;
+    if (q < 0.16) { var px = cx + iw * (0.62 + rnd() * 0.2); o.pot += b5_pot(px, yb, ih * 0.34, ih * 0.3); o.hi += rect(px - ih * 0.17, yb - ih * 0.3, ih * 0.34, 2); o.lv += b5_plant(px, yb - ih * 0.28, ih * 0.5, rnd, 7, 150); xe = px - ih * 0.25; }
+    else if (q < 0.34) { var sx = cx + iw * (0.5 + rnd() * 0.12), sy = yb, ns = 2 + Math.floor(rnd() * 3);
+      for (var s = 0; s < ns; s++) { var bw2 = iw * (0.4 - s * 0.04) * (0.9 + rnd() * 0.2), bh2 = (6 + rnd() * 3) * sc, k = Math.floor(rnd() * 5), lx = sx + (rnd() - 0.5) * 6; sy -= bh2; o.bk[k] += rrect(lx, sy, bw2, bh2 - 0.6, 1); o.cream += rect(lx + bw2 - 3 * sc, sy + 1.2, 2.4 * sc, bh2 - 3); o.gold += rect(lx + bw2 * 0.25, sy + bh2 * 0.35, bw2 * 0.3, Math.max(1, bh2 * 0.25)); o.shade += rect(lx, sy + bh2 * 0.62, bw2, bh2 * 0.38 - 0.6); }
+      o.metal += rect(sx - 4 * sc, yb - ih * 0.5, 2.2 * sc, ih * 0.5) + rect(sx - 13 * sc, yb - 2.2 * sc, 11 * sc, 2.2 * sc); xe = sx - 8 * sc; }
+    while (x < xe - 6 * sc) {
+      var bw = (7 + rnd() * 8) * sc, bh = ih * (0.58 + rnd() * 0.34), k2 = Math.floor(rnd() * 5);
+      if (x + bw > xe) break;
+      if (rnd() < 0.09 && x + bw + bh * 0.4 < xe) { var lp = rotp([[0, 0], [bw, 0], [bw, -bh], [0, -bh]], x + 1, yb, 16); o.bk[k2] += b2_polyA(lp); o.shade += b2_polyA(rotp([[bw * 0.72, 0], [bw, 0], [bw, -bh], [bw * 0.72, -bh]], x + 1, yb, 16)); x += bw + bh * 0.3; continue; }
+      o.bk[k2] += rrect(x, yb - bh, bw, bh, Math.min(1.8, bw * 0.2));
+      var u = rnd(); if (u < 0.65) o.gold += rect(x + 1, yb - bh + bh * 0.09, bw - 2, 1.5 * sc) + rect(x + 1, yb - bh * 0.13, bw - 2, 1.5 * sc);
+      if (u < 0.3) o.cream += rect(x + bw * 0.25, yb - bh * 0.66, bw * 0.5, bh * 0.2); else if (u < 0.75) o.gold += rect(x + bw * 0.38, yb - bh * 0.6, bw * 0.24, bh * 0.14);
+      o.shade += rect(x + bw * 0.76, yb - bh + 1, bw * 0.24, bh - 1) + rect(x, yb - bh, bw, 1.2);
+      x += bw + (rnd() < 0.85 ? 0.8 : 0);
+      if (rnd() < 0.06) x += 10 * sc + rnd() * 12 * sc;
+    }
+  }
+}
+function rd_pillow(x, y, r, ang) { var pts = []; for (var i = 0; i < 40; i++) { var a = i / 40 * Math.PI * 2, c = Math.cos(a), s = Math.sin(a), px = Math.sign(c) * Math.pow(Math.abs(c), 0.55) * r, py = Math.sign(s) * Math.pow(Math.abs(s), 0.55) * r * 0.82, pinch = 1 - 0.12 * (1 - Math.abs(Math.cos(2 * a))); pts.push([px * pinch, py * pinch]); }
+  var lo = pts.filter(function (p) { return p[1] > r * 0.05; }), seamL = [], i2;
+  var shade = lo.concat([[lo[lo.length - 1][0] * 0.7, r * 0.22], [0, r * 0.3], [lo[0][0] * 0.7, r * 0.22]]);
+  for (i2 = 0; i2 <= 10; i2++) { var t = i2 / 10; seamL.push([lerp(-r * 0.62, r * 0.62, t), -r * 0.04 + Math.sin(t * Math.PI) * r * 0.08]); }
+  return {body: b2_polyA(rotp(pts, x, y, ang)), shade: b2_polyA(rotp(shade, x, y, ang)), seam: pline(rotp(seamL, x, y, ang))}; }
 SCENES.reading = function (W, H, dk, rnd) {
   var c = dk ? {wall0: '#241B19', wall1: '#2C211E', patC: 'rgba(240,144,154,0.08)', wain: '#281D1A', line: 'rgba(0,0,0,0.3)', floor0: '#33241C', floor1: '#1F1510', floorLine: 'rgba(0,0,0,0.3)', skirt: '#1E1512', frame: '#433430', curtain: '#6A2C34', wx: 0.5}
     : {wall0: '#F6F0E6', wall1: '#EEE3D3', patC: 'rgba(150,64,74,0.12)', wain: '#E6D6C2', line: 'rgba(120,70,60,0.16)', floor0: '#BF9670', floor1: '#A67E5C', floorLine: 'rgba(100,60,30,0.22)', skirt: '#F6EFE6', frame: '#FCF8F2', curtain: '#B55A64', wx: 0.5};
   c.pw = 40; c.pat = function (x, y, p) { return poly([[x, y - 3.5], [x + 2.5, y], [x, y + 3.5], [x - 2.5, y]]); };
-  var R = b5_room(W, H, dk, rnd, c), ph = R.ph, far = R.far, mid = R.mid, near = R.near, fy = R.fy, w = R.win;
+  var R = b5_room(W, H, dk, rnd, c), ph = R.ph, far = R.far, refl = R.refl, mid = R.mid, near = R.near, fy = R.fy, w = R.win, fr0 = R.fr;
+  ['A', 'B'].forEach(function (k) { mid[k] = E(); }); ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].forEach(function (k) { near[k] = E(); });
   if (dk) add(far, 'a', ell(w.x + w.w / 2, w.y + w.h / 2, w.w * 0.8, w.h * 0.6), 'rgba(140,140,230,0.18)');
   else add(far, 'a', poly([[w.x, w.y + w.h], [w.x + w.w, w.y + w.h], [w.x + w.w * 0.85, H], [w.x - w.w * 0.45, H]]), 'rgba(255,242,215,0.55)');
+  // the window: depth along the inner frame, glass glints, a few houses on the far hill
+  var X = w.x, Y = w.y, ww = w.w, wh = w.h, hz = Y + wh * 0.66;
+  add(refl, 'i', rect(X, Y, ww, fr0 * 0.7) + rect(X, Y, fr0 * 0.55, wh), dk ? 'rgba(0,0,0,0.28)' : 'rgba(90,60,40,0.14)');
+  if (!ph) { var hs = '', hw2 = ''; [[0.16, 1], [0.34, 0.8], [0.7, 0.9], [0.86, 1.1]].forEach(function (q, i) { var hx = X + ww * q[0], hy = hz + wh * 0.05 + (i % 2) * 4, s2 = ww * 0.045 * q[1]; hs += rect(hx - s2, hy - s2 * 1.1, s2 * 2, s2 * 1.1) + poly([[hx - s2 * 1.25, hy - s2 * 1.05], [hx, hy - s2 * 2.1], [hx + s2 * 1.25, hy - s2 * 1.05]]); hw2 += rect(hx - s2 * 0.55, hy - s2 * 0.75, s2 * 0.4, s2 * 0.38) + rect(hx + s2 * 0.15, hy - s2 * 0.75, s2 * 0.4, s2 * 0.38); });
+    add(refl, 'j', hs, dk ? '#2A2C48' : '#D8C6AE'); add(refl, 'k', hw2, dk ? '#F6C870' : '#8A7468'); }
+  add(refl, 'l', b2_polyA([[X + ww * 0.08, Y + wh * 0.42], [X + ww * 0.2, Y + wh * 0.04], [X + ww * 0.27, Y + wh * 0.04], [X + ww * 0.15, Y + wh * 0.42]]) + b2_polyA([[X + ww * 0.62, Y + wh * 0.42], [X + ww * 0.72, Y + wh * 0.06], [X + ww * 0.75, Y + wh * 0.06], [X + ww * 0.65, Y + wh * 0.42]]), dk ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.28)');
+  // floor grain
+  var grain = ''; spread(0, fy + 10, W, H - fy - 10, 70, 26, rnd, 1).forEach(function (p) { if (p.q < 0.6) grain += rrect(p.x, p.y, 18 + p.r * 40, 1.3, 0.6); });
+  add(refl, 'm', grain, dk ? 'rgba(0,0,0,0.22)' : 'rgba(110,70,40,0.16)');
+  // curtain folds, tie-backs and the rod's finials
+  var cw = ww * (ph ? 0.2 : 0.22), fold = '', tieB = '', Yt = Y - fr0 * 2.5, bot = R.sill.y + (ph ? 20 : 36), tie = Y + wh * 0.55;
+  [X - fr0 - cw * 0.6, X + ww + fr0 - cw * 0.4].forEach(function (cx, i) {
+    [0.22, 0.48, 0.74].forEach(function (f) { var a = [cx + cw * f, Yt + 8], m = i === 0 ? [cx + cw * (0.55 * f + 0.04), tie] : [cx + cw * (0.45 + 0.5 * f), tie], b = i === 0 ? [cx + cw * 0.88 * f + 2, bot - 4] : [cx + cw * (0.12 + 0.86 * f), bot - 4];
+      fold += b5_tube(b5_bz(a, [a[0], lerp(a[1], m[1], 0.5)], [m[0], lerp(a[1], m[1], 0.8)], m, 10), 1.2, 3.4) + b5_tube(b5_bz(m, [m[0], lerp(m[1], b[1], 0.3)], [b[0], lerp(m[1], b[1], 0.6)], b, 10), 3.4, 2.4); });
+    var tx0 = i === 0 ? cx - 2 : cx + cw * 0.43, tx1 = i === 0 ? cx + cw * 0.57 : cx + cw + 2; tieB += rrect(tx0, tie - 4, tx1 - tx0, 8, 4) + circ(i === 0 ? tx1 : tx0, tie + 6, 4) + rect((i === 0 ? tx1 : tx0) - 1, tie + 8, 2, 12); });
+  var rodL = X - fr0 - cw * 0.9, rodR = X + ww + fr0 + cw * 0.9, rodY = Yt - 2; if (!ph) tieB += circ(rodL - 4, rodY, 7) + circ(rodR + 4, rodY, 7);
+  add(mid, 'A', fold, dk ? 'rgba(0,0,0,0.22)' : 'rgba(90,20,30,0.2)'); add(mid, 'B', tieB, dk ? '#B08A52' : '#D9A650');
+  // bookcases
   var cases = ph ? [[-6, H * 0.04, W * 0.44, fy - H * 0.04 + 8, 6, 2]] : [[-8, H * 0.03, W * 0.44, fy - H * 0.03 + 10, 5, 3], [W * 0.815, H * 0.03, W * 0.2, fy - H * 0.03 + 10, 5, 1]];
-  var fr = '', back = '', bks = ['', '', ''], pot = '', lv = '';
-  cases.forEach(function (k) { var o = b5_case(k[0], k[1], k[2], k[3], k[4], k[5], rnd, ph); fr += o.frame; back += o.back; for (var i = 0; i < 3; i++) bks[i] += o.b[i]; pot += o.pot; lv += o.lv; });
-  var sl = R.sill, seatTop = sl.y + (ph ? 26 : 44), seat = rect(sl.x, seatTop, sl.w, fy + 6 - seatTop), cush = rrect(sl.x - 4, seatTop - (ph ? 12 : 16), sl.w + 8, ph ? 14 : 20, 7);
-  var pil = b5_pillow(sl.x + sl.w * 0.17, seatTop - (ph ? 22 : 34), ph ? 18 : 30, -10) + b5_pillow(sl.x + sl.w * 0.83, seatTop - (ph ? 22 : 34), ph ? 18 : 30, 12);
-  var drw = ''; for (var d = 0; d < 3; d++) drw += rrect(sl.x + sl.w * (0.06 + d * 0.315), seatTop + (ph ? 10 : 16), sl.w * 0.25, fy - seatTop - (ph ? 22 : 34), 4);
-  add(mid, 'c', fr + seat, dk ? '#4A3228' : '#A0704E');
-  add(mid, 'd', back, dk ? '#1E1512' : '#7A5240');
-  add(mid, 'e', bks[0] + cush, dk ? '#8E3E48' : '#A8474F');
-  add(mid, 'f', bks[1] + pil, dk ? '#4E6A5C' : '#7FA08A');
-  add(mid, 'g', bks[2] + pot, dk ? '#B08A52' : '#E2B868');
-  add(mid, 'h', lv, dk ? '#4F7A58' : '#6FA06A');
-  var lb = ph ? [W * 0.935, fy + 30] : [W * 0.79, fy + 34], lt = ph ? [W * 0.82, H * 0.47] : [W * 0.73, H * 0.2];
-  var arc = 'M' + PT(lb[0], lb[1]) + ' L' + PT(lb[0], lb[1] - (lb[1] - lt[1]) * 0.55) + ' Q' + PT(lb[0], lt[1] - 30) + ' ' + PT(lt[0], lt[1]) + ' ';
-  stk(near, 't', arc, dk ? '#6A5046' : '#5A4038', ph ? 2.5 : 3.5);
-  var ls = ph ? 20 : 30, shade = poly([[lt[0] - ls, lt[1] + ls * 0.9], [lt[0] + ls, lt[1] + ls * 0.9], [lt[0] + ls * 0.5, lt[1]], [lt[0] - ls * 0.5, lt[1]]]) + ell(lb[0], lb[1], ls * 0.8, ls * 0.2);
-  add(far, 'b', circ(lt[0], lt[1] + ls * 2, dk ? ls * 5 : ls * 3.5) + ell(lt[0], lt[1] + ls * 7, ls * 5, ls * 2), dk ? 'rgba(255,190,120,0.4)' : 'rgba(255,236,200,0.55)');
+  var BC = {frame: '', back: '', bk: ['', '', '', '', ''], gold: '', cream: '', shade: '', pot: '', lv: '', hi: '', metal: ''};
+  cases.forEach(function (k) { rd_case(k[0], k[1], k[2], k[3], k[4], k[5], rnd, ph, BC); });
+  var bkc = dk ? ['#8E3E48', '#4E6A5C', '#3E4A6A', '#B08A52', '#6A4A6E'] : ['#A8474F', '#7FA08A', '#3E4E72', '#E2B868', '#8A5E8E'];
+  add(mid, 'c', BC.frame, dk ? '#4A3228' : '#A0704E'); add(mid, 'd', BC.back, dk ? '#1E1512' : '#7A5240');
+  ['e', 'f', 'g', 'h', 'i'].forEach(function (k, i) { add(mid, k, BC.bk[i], bkc[i]); });
+  add(mid, 'j', BC.gold, dk ? '#C9A060' : '#E8C47A'); add(mid, 'k', BC.cream, dk ? '#D8CCB4' : '#F6EEDC'); add(mid, 'l', BC.shade, dk ? 'rgba(0,0,0,0.34)' : 'rgba(60,30,15,0.26)');
+  add(mid, 'm', BC.pot, dk ? '#9A5A3E' : '#C9764E'); add(mid, 'n', BC.lv, dk ? '#4F7A58' : '#6FA06A'); add(mid, 'o', BC.hi, dk ? 'rgba(255,220,180,0.12)' : 'rgba(255,240,220,0.4)'); add(mid, 'p', BC.metal, dk ? '#8A8A90' : '#B8B8C0');
+  // window seat: panelled base with drawers, an upholstered cushion with piping, two pillows and a folded throw
+  var sl = R.sill, seatTop = sl.y + (ph ? 26 : 44), sx0 = sl.x, sw0 = sl.w, ch = ph ? 13 : 18, det = '';
+  var base = rect(sx0, seatTop, sw0, fy + 6 - seatTop) + rect(sx0 - 3, fy - 2, sw0 + 6, 8);
+  var drw = '', knob = ''; for (var d = 0; d < 3; d++) { var dx = sx0 + sw0 * (0.05 + d * 0.32), dw = sw0 * 0.26, dy = seatTop + (ph ? 9 : 14), dh = fy - seatTop - (ph ? 18 : 28); drw += rrect(dx, dy, dw, dh, 3); knob += circ(dx + dw / 2, dy + dh * 0.3, ph ? 2.2 : 3.2); det += 'M' + PT(dx + 4, dy + dh - 3) + ' L' + PT(dx + dw - 4, dy + dh - 3) + ' '; }
+  var cTop = b2_polyA([[sx0 - 6, seatTop - ch * 0.45], [sx0 - 2, seatTop - ch], [sx0 + sw0 + 2, seatTop - ch], [sx0 + sw0 + 6, seatTop - ch * 0.45]]);
+  var cFront = rrect(sx0 - 6, seatTop - ch * 0.5, sw0 + 12, ch * 0.9, ch * 0.4);
+  det += 'M' + PT(sx0 - 4, seatTop - ch * 0.48) + ' L' + PT(sx0 + sw0 + 4, seatTop - ch * 0.48) + ' ';
+  var pr = ph ? 18 : 30, P1 = rd_pillow(sx0 + sw0 * 0.15, seatTop - ch - pr * 0.62, pr, -10), P2 = rd_pillow(sx0 + sw0 * 0.33, seatTop - ch - pr * 0.5, pr * 0.8, 8);
+  det += P1.seam + P2.seam;
+  var bl0 = sx0 + sw0 * 0.68, bl1 = sx0 + sw0 * 0.9, blTop = seatTop - ch * 1.1, blBot = fy - (ph ? 16 : 26);
+  var throwD = b2_polyA([[bl0 - 4, blTop + 2], [bl1 + 6, blTop], [bl1 + 4, seatTop + ch * 0.2], [bl1, blBot], [bl0 + 2, blBot + 4], [bl0 - 2, seatTop + ch * 0.2]]), stripes = '';
+  for (var sq = 0; sq < 3; sq++) { var sxs = lerp(bl0 + 6, bl1 - 6, (sq + 0.5) / 3); stripes += rect(sxs - 1.6, seatTop + ch * 0.25, 3.2, blBot - seatTop - ch * 0.25 - 2); }
+  for (sq = 0; sq < 4; sq++) { var sys = lerp(seatTop + ch * 0.5, blBot - 6, sq / 3); stripes += rect(bl0 + 1, sys - 1.4, bl1 - bl0 - 2, 2.8); }
+  var fringe = ''; for (var fx = bl0 + 2; fx < bl1; fx += ph ? 4 : 5) fringe += rect(fx, blBot + 1, 1.4, ph ? 5 : 7);
+  var seatShade = P1.shade + P2.shade + rect(sx0, seatTop + ch * 0.4, sw0, ph ? 5 : 8) + b2_polyA([[bl1 + 1, seatTop + ch * 0.4], [bl1 + 4, seatTop + ch * 0.4], [bl1 + 1, blBot], [bl1 - 2, blBot]]);
+  add(near, 'a', base, dk ? '#4A3228' : '#9A6A48'); add(near, 'b', drw, dk ? '#58402F' : '#B07E58');
+  add(near, 'c', cTop, dk ? '#A04A54' : '#C25A62'); add(near, 'd', cFront, dk ? '#7A3440' : '#9E3E48');
+  add(near, 'e', P1.body, dk ? '#4E6A5C' : '#7FA08A'); add(near, 'f', P2.body, dk ? '#B08A52' : '#E8C27A');
+  add(near, 'g', seatShade, dk ? 'rgba(0,0,0,0.3)' : 'rgba(70,30,20,0.2)');
+  add(near, 'h', throwD, dk ? '#C9B79A' : '#F2E6D0'); add(near, 'i', stripes, dk ? '#8E3E48' : '#B85060');
+  // rug in floor perspective: border, field, medallion and fringe
   var rx = ph ? W * 0.5 : W * 0.6, ry = ph ? fy + 110 : fy + 130, rw = ph ? W * 0.62 : W * 0.33, rh = ph ? 52 : 66;
-  add(near, 'a', rrect(rx - rw, ry - rh, rw * 2, rh * 2, rh * 0.5), dk ? '#5A2830' : '#B55A64');
-  add(near, 'b', rrect(rx - rw * 0.88, ry - rh * 0.72, rw * 1.76, rh * 1.44, rh * 0.35), dk ? '#3C2024' : '#EBD2C0');
+  function rHW(y) { return lerp(rw * 0.84, rw, (y - (ry - rh)) / (2 * rh)); }
+  function trap(inset) { var t = ry - rh + inset, b = ry + rh - inset, it = inset * 1.7; return [[rx - rHW(t) + it, t], [rx + rHW(t) - it, t], [rx + rHW(b) - it, b], [rx - rHW(b) + it, b]]; }
+  var rugB = b2_polyA(trap(0)), rugF = b2_polyA(trap(rh * 0.2)), rugP = b3_annulus(trap(rh * 0.1), trap(rh * 0.13));
+  rugP += b2_polyA([[rx - rw * 0.3, ry], [rx, ry - rh * 0.45], [rx + rw * 0.3, ry], [rx, ry + rh * 0.45]]);
+  for (var dm = -3; dm <= 3; dm++) { if (!dm) continue; var dxm = rx + dm * rw * 0.2, dym = ry; rugP += b2_polyA([[dxm - rw * 0.035, dym], [dxm, dym - rh * 0.14], [dxm + rw * 0.035, dym], [dxm, dym + rh * 0.14]]); }
+  var rugM = b2_polyA([[rx - rw * 0.16, ry], [rx, ry - rh * 0.24], [rx + rw * 0.16, ry], [rx, ry + rh * 0.24]]);
+  for (fx = -rHW(ry + rh) + 3; fx < rHW(ry + rh) - 2; fx += ph ? 6 : 8) fringe += rect(rx + fx, ry + rh, 1.6, ph ? 6 : 8);
+  for (fx = -rHW(ry - rh) + 3; fx < rHW(ry - rh) - 2; fx += ph ? 6 : 8) fringe += rect(rx + fx, ry - rh - (ph ? 4 : 5), 1.4, ph ? 4 : 5);
+  add(near, 'j', rugB, dk ? '#5A2830' : '#A84A54'); add(near, 'k', rugF, dk ? '#3C2024' : '#EBD2C0'); add(near, 'l', rugP + rugM, dk ? '#7A4048' : '#C77A6E'); add(near, 'm', fringe, dk ? '#CFC2A8' : '#F6EEDC');
+  // arc floor lamp: weighted base, a tapered arched pole, a dome shade glowing underneath
+  var lb = ph ? [W * 0.935, fy + 30] : [W * 0.79, fy + 34], lt = ph ? [W * 0.82, H * 0.47] : [W * 0.73, H * 0.2], ls = ph ? 20 : 30, pw = ph ? 3 : 4.5;
+  var vTop = lb[1] - (lb[1] - lt[1]) * 0.55, pole = [[lb[0], lb[1] - 4], [lb[0], vTop]].concat(b5_bz([lb[0], vTop], [lb[0], lt[1] - 20], [lb[0], lt[1] - 34], [lt[0], lt[1] - ls * 0.08], 24).slice(1));
+  var metal = b5_tube(pole, pw * 1.15, pw * 0.85) + b2_ellA(lb[0], lb[1], ls * 0.8, ls * 0.2), dome = []; for (var da = 0; da <= 16; da++) { var aa = Math.PI + da / 16 * Math.PI; dome.push([lb[0] + Math.cos(aa) * ls * 0.55, lb[1] - 1 + Math.sin(aa) * ls * 0.32]); } metal += b2_polyA(dome);
+  var sh = []; b5_bz([lt[0] - ls * 0.28, lt[1]], [lt[0] - ls * 0.42, lt[1] + ls * 0.3], [lt[0] - ls * 0.95, lt[1] + ls * 0.55], [lt[0] - ls, lt[1] + ls * 0.88], 12).forEach(function (p) { sh.push(p); });
+  for (da = 0; da <= 16; da++) { var ab = Math.PI - da / 16 * Math.PI; sh.push([lt[0] + Math.cos(ab) * ls, lt[1] + ls * 0.88 + Math.sin(ab) * ls * 0.2]); }
+  b5_bz([lt[0] + ls, lt[1] + ls * 0.88], [lt[0] + ls * 0.95, lt[1] + ls * 0.55], [lt[0] + ls * 0.42, lt[1] + ls * 0.3], [lt[0] + ls * 0.28, lt[1]], 12).forEach(function (p) { sh.push(p); });
+  var shadeD = b2_polyA(sh) + b2_ellA(lt[0], lt[1], ls * 0.28, ls * 0.08), glowD = b2_ellA(lt[0], lt[1] + ls * 0.88, ls * 0.9, ls * 0.15) + b2_ellA(lt[0], lt[1] + ls * 0.9, ls * 0.2, ls * 0.12);
+  var poleHi = b5_tube([[lb[0] - pw * 0.25, lb[1] - ls * 0.4], [lb[0] - pw * 0.25, vTop]], pw * 0.28, pw * 0.2) + b2_polyA([[lt[0] - ls * 0.5, lt[1] + ls * 0.25], [lt[0] - ls * 0.38, lt[1] + ls * 0.2], [lt[0] - ls * 0.62, lt[1] + ls * 0.74], [lt[0] - ls * 0.76, lt[1] + ls * 0.76]]);
+  add(far, 'b', circ(lt[0], lt[1] + ls * 2, dk ? ls * 5 : ls * 3.5) + ell(lt[0], lt[1] + ls * 7, ls * 5, ls * 2), dk ? 'rgba(255,190,120,0.4)' : 'rgba(255,236,200,0.55)');
+  add(near, 'n', metal, dk ? '#A07A48' : '#7A5A3A'); add(near, 'o', shadeD, dk ? '#C99A50' : '#D9A650'); add(near, 'p', glowD + poleHi, dk ? '#FFE2A0' : '#FFF4D8');
+  // the book stack, in 3D: spines face us, the top covers show, the page blocks show on the right; parts hidden by the book above are clipped away
   var s = ph ? 0.72 : 1.1, bx = ph ? W * 0.44 : W * 0.6, by = ry + rh * 0.45, specs = [[210, 30, 0, 0], [186, 26, 8, 1], [196, 34, -4, 2], [168, 24, 10, 0], [150, 28, 2, 1], [132, 22, 12, 2]];
-  var cov = ['', '', ''], pages = '', gold = '', rib = '', y = by;
-  var tcov = ['', '', ''], tb = null;
-  specs.forEach(function (b, i) { var bw = b[0] * s, bh = b[1] * s, x = bx - bw / 2 + b[2] * s; y -= bh; var cv = cov, pg0 = pages.length, gd0 = gold.length; if (ANIM && i === specs.length - 1) { cv = tcov; tb = {x: x, y: y, w: bw, h: bh, k: b[3]}; }
-    cv[b[3]] += rrect(x, y, bw, bh, 3 * s); pages += rect(x + bw - 4 * s, y + 3 * s, 2 * s, bh - 6 * s) + rect(x + 6 * s, y + bh - 5 * s, bw - 12 * s, 3 * s); gold += rect(x + 16 * s, y + 4 * s, 3 * s, bh - 8 * s) + rect(x + 24 * s, y + 4 * s, 3 * s, bh - 8 * s) + rect(x + 40 * s, y + bh * 0.35, bw * 0.3, bh * 0.3);
-    if (tb && cv === tcov) { tb.cover = tcov[b[3]]; tb.pages = pages.slice(pg0); tb.gold = gold.slice(gd0); pages = pages.slice(0, pg0); gold = gold.slice(0, gd0); }
-    if (i === 2) { var rx0 = x + bw * 0.62; if (ANIM) ANIM.rib = {x: rx0 + 3.5 * s, y: y + bh - 2}; rib += poly([[rx0, y + bh - 2], [rx0 + 7 * s, y + bh - 2], [rx0 + 9 * s, y + bh + 30 * s], [rx0 + 13 * s, y + bh + 60 * s], [rx0 + 6 * s, y + bh + 52 * s], [rx0 + 1 * s, y + bh + 62 * s], [rx0 + 2 * s, y + bh + 30 * s]]); } });
-  var tx = bx + 10 * s, ty = y - 4 * s, bm = poly(rotp([[-12 * s, -52 * s], [12 * s, -52 * s], [12 * s, 0], [0, -8 * s], [-12 * s, 0]], tx, ty, 14));
+  var ox = 8 * s, oy = 9 * s, bt = 2.2 * s, cov = ['', '', ''], pages = '', gold = '', shd = '', rib = '', plines = '', y = by, books = [], tb = null;
+  specs.forEach(function (b) { var bw = b[0] * s, bh = b[1] * s, x = bx - bw / 2 + b[2] * s; y -= bh; books.push({x: x, y: y, w: bw, h: bh, k: b[3]}); });
+  books.forEach(function (B, i) {
+    var U = books[i + 1], top = i === books.length - 1, x = B.x, yt = B.y, bw = B.w, bh = B.h, Rr = x + bw, yb = yt + bh;
+    if (ANIM && i === books.length - 2) U = null;
+    function vis(P) { if (!U) return rd_P(P); var R2 = U.x + U.w; return rd_P(rd_clip(P, function (p) { return p[1] - yt; })) + rd_P(rd_clip(P, function (p) { return U.x - p[0]; })) + rd_P(rd_clip(P, function (p) { return p[0] - R2 - ox * (yt - p[1]) / oy; })); }
+    var front = rrect(x, yt, bw, bh, 2 * s), topF = [[x, yt], [Rr, yt], [Rr + ox, yt - oy], [x + ox, yt - oy]], side = [[Rr, yt], [Rr + ox, yt - oy], [Rr + ox, yb - oy], [Rr, yb]], pg = [[Rr, yt + bt], [Rr + ox, yt - oy + bt], [Rr + ox, yb - oy - bt], [Rr, yb - bt]];
+    var cD = front + vis(topF) + vis(side), pD = vis(pg), gD = rect(x + 16 * s, yt + 4 * s, 3 * s, bh - 8 * s) + rect(x + 24 * s, yt + 4 * s, 3 * s, bh - 8 * s) + rect(x + 40 * s, yt + bh * 0.35, bw * 0.3, bh * 0.3) + rect(x + bw - 22 * s, yt + 4 * s, 2 * s, bh - 8 * s);
+    var sD = rect(x + 2 * s, yt + bh * 0.76, bw - 4 * s, bh * 0.2) + vis(pg);
+    if (U) { var R2 = U.x + U.w; if (Rr > R2 + 4 * s) sD += vis([[R2, yt], [R2 + 4 * s, yt], [R2 + 4 * s + ox, yt - oy], [R2 + ox, yt - oy]]); if (U.x > x + ox + 4 * s) sD += vis([[U.x - 4 * s, yt], [U.x, yt], [U.x, yt - oy], [U.x - 4 * s, yt - oy]]); }
+    var pl = ''; for (var q2 = 1; q2 <= 3; q2++) { var py0 = yt + bt + (bh - 2 * bt) * q2 / 4; if (!U || U.x + U.w < Rr || py0 - oy >= yt) pl += 'M' + PT(Rr + 0.6, py0) + ' L' + PT(Rr + ox - 0.4, py0 - oy) + ' '; }
+    if (ANIM && top) tb = {x: x, y: yt, w: bw, h: bh, k: B.k, cover: cD, pages: pD, gold: gD};
+    else { cov[B.k] += cD; pages += pD; gold += gD; shd += sD; plines += pl; }
+    if (i === 2) { var ax = Rr + ox * 0.45, ay = yt + bh * 0.5 - oy * 0.45; if (ANIM) ANIM.rib = {x: ax, y: ay};
+      rib += b2_polyA([[ax - 2.5 * s, ay], [ax + 2.5 * s, ay], [ax + 6 * s, ay + 24 * s], [ax + 7 * s, ay + 52 * s], [ax + 3.5 * s, ay + 46 * s], [ax - 0.5 * s, ay + 54 * s], [ax + 0.5 * s, ay + 26 * s]]); } });
+  var topB = books[books.length - 1], tx = bx + 10 * s, ty = topB.y - oy * 0.55, bm = b2_polyA(rotp([[-12 * s, -52 * s], [12 * s, -52 * s], [12 * s, 0], [0, -8 * s], [-12 * s, 0]], tx, ty, 14));
   var tp = rotp([[0, -44 * s]], tx, ty, 14)[0]; gold += circ(tp[0], tp[1], 3 * s);
-  var tass = 'M' + PT(tp[0], tp[1]) + ' Q' + PT(tp[0] - 14 * s, tp[1] - 20 * s) + ' ' + PT(tp[0] - 24 * s, tp[1] - 6 * s) + ' ';
   var tassT = b5_tube(b5_bz([tp[0], tp[1]], [tp[0] - 10 * s, tp[1] - 16 * s], [tp[0] - 18 * s, tp[1] - 12 * s], [tp[0] - 24 * s, tp[1] - 6 * s], 10), 2.2 * s, 1.6 * s);
   var bcol = [dk ? '#A8474F' : '#96404A', dk ? '#4E6A5C' : '#5E7F6A', dk ? '#3E4A6A' : '#3E4E72'], pcol = dk ? '#E8DCC6' : '#FBF4E6', gcol = dk ? '#E6BE6E' : '#D9A650', rcol = dk ? '#F0909A' : '#C2505C';
+  // stack contact shadow (wraps under the bottom book only)
+  var b0 = books[0], stackSh = b2_polyA([[b0.x - 6 * s, by - 1], [b0.x + b0.w + ox + 10 * s, by - oy - 1], [b0.x + b0.w + ox + 16 * s, by + 3 * s], [b0.x + b0.w * 0.3, by + 6 * s], [b0.x - 8 * s, by + 4 * s]]);
+  // the mug: a cylinder with a rim, tea, a shaded side, an attached handle and a contact shadow that wraps its base
+  var mx = bx + (ph ? -100 : 170) * (ph ? 1 : s), my = by - 2, ms = ph ? 17 : 26, mry = ms * 0.28, mt = my - ms * 1.8, mb = [];
+  mb.push([mx - ms, mt]); for (var ma = 0; ma <= 20; ma++) { var an = Math.PI - ma / 20 * Math.PI; mb.push([mx + Math.cos(an) * ms, my - mry + Math.sin(an) * mry]); } mb.push([mx + ms, mt]);
+  var mugD = b2_polyA(mb) + b2_ellA(mx, mt, ms, mry) + b5_tube(b5_bz([mx + ms * 0.85, my - ms * 1.45], [mx + ms * 1.75, my - ms * 1.55], [mx + ms * 1.75, my - ms * 0.5], [mx + ms * 0.85, my - ms * 0.55], 14), ms * 0.2, ms * 0.2);
+  var mSide = [], a45 = Math.acos(0.45); for (ma = 0; ma <= 10; ma++) { var a1 = a45 - ma / 10 * a45; mSide.push([mx + Math.cos(a1) * ms, mt + Math.sin(a1) * mry]); } for (ma = 0; ma <= 10; ma++) { var a2 = ma / 10 * a45; mSide.push([mx + Math.cos(a2) * ms, my - mry + Math.sin(a2) * mry]); }
+  var mSh = [], scx = mx + ms * 0.25, srx = ms * 1.4, sry = mry * 0.9; for (ma = 0; ma <= 30; ma++) { var xq = scx - srx + ma / 30 * 2 * srx, eq = (xq - scx) / srx, up = my - sry * Math.sqrt(Math.max(0, 1 - eq * eq)) + 1, dq = (xq - mx) / ms; mSh.push([xq, Math.abs(dq) < 1 ? Math.max(up, my - mry + mry * Math.sqrt(1 - dq * dq)) : up]); } for (ma = 30; ma >= 0; ma--) { var xr = scx - srx + ma / 30 * 2 * srx, er = (xr - scx) / srx; mSh.push([xr, my + sry * Math.sqrt(Math.max(0, 1 - er * er)) + 1]); }
+  shd += stackSh + b2_polyA(mSide) + b2_polyA(mSh);
   if (ANIM) {
     tb.col = bcol[tb.k]; tb.s = s; ANIM.book = tb; ANIM.col = {page: pcol, gold: gcol, rib: rcol, steam: dk ? 'rgba(255,236,220,' : 'rgba(255,255,255,', mote: dk ? 'rgba(255,214,160,' : 'rgba(255,250,235,'};
     ANIM.rib.d = rib; ANIM.bm = {d: bm, knob: circ(tp[0], tp[1], 3 * s), tass: tassT, tp: tp, x: tx, y: ty};
     gold = gold.slice(0, gold.length - circ(tp[0], tp[1], 3 * s).length); rib = ''; bm = '';
     ANIM.win = w; ANIM.lamp = {x: lt[0], y: lt[1] + ls, r: ls}; ANIM.floor = fy; ANIM.ph = ph;
   }
-  add(near, 'c', cov[0], dk ? '#A8474F' : '#96404A');
-  add(near, 'd', cov[1], dk ? '#4E6A5C' : '#5E7F6A');
-  add(near, 'e', cov[2], dk ? '#3E4A6A' : '#3E4E72');
-  add(near, 'f', pages + bm, dk ? '#E8DCC6' : '#FBF4E6');
-  add(near, 'g', gold + shade, dk ? '#E6BE6E' : '#D9A650');
-  add(near, 'h', rib, dk ? '#F0909A' : '#C2505C');
-  if (!ANIM) add(near, 'h', tassT);
-  var mx = bx + (ph ? -100 : 170) * (ph ? 1 : s), my = by - 2, ms = ph ? 17 : 26;
-  add(near, 'c', rrect(mx - ms, my - ms * 1.8, ms * 2, ms * 1.8, ms * 0.3));
-  add(near, 'c', b5_tube(b5_bz([mx + ms - 2, my - ms * 1.45], [mx + ms * 1.7, my - ms * 1.5], [mx + ms * 1.7, my - ms * 0.5], [mx + ms - 2, my - ms * 0.55], 12), ms * 0.18, ms * 0.18));
+  add(near, 'A', cov[0] + mugD, bcol[0]); add(near, 'B', cov[1], bcol[1]); add(near, 'C', cov[2], bcol[2]);
+  add(near, 'D', pages + bm + b2_ellA(mx, mt, ms * 0.86, mry * 0.78), pcol);
+  add(near, 'E', gold + knob, gcol);
+  add(near, 'F', shd, dk ? 'rgba(0,0,0,0.34)' : 'rgba(60,30,20,0.24)');
+  add(near, 'G', rib + (ANIM ? '' : tassT), rcol);
+  add(near, 'H', b2_ellA(mx, mt + mry * 0.18, ms * 0.8, mry * 0.6), dk ? '#6A3E24' : '#8A5530');
+  stk(near, 't', det + plines, dk ? 'rgba(0,0,0,0.35)' : 'rgba(80,40,30,0.3)', ph ? 0.8 : 1.1);
   var steam = ''; [-0.45, 0.1, 0.55].forEach(function (o, i) { var pts = []; for (var t = 0; t <= 1; t += 0.08) pts.push([mx + o * ms + Math.sin(t * 5 + i * 1.7) * ms * 0.5 * t, my - ms * 1.95 - t * ms * (3 + i * 0.6)]); steam += pline(pts); });
   if (ANIM) { ANIM.steam = {x: mx, y: my - ms * 1.95, s: ms}; steam = ''; }
   stk(near, 's', steam, dk ? 'rgba(255,236,220,0.45)' : 'rgba(255,255,255,0.85)', ph ? 2.6 : 3.6);
