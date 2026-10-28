@@ -46,7 +46,7 @@
 .bn-more:hover{color:var(--ink);border-style:solid}
 .bn-more svg{width:14px;height:14px;transition:transform .15s}
 .bn-more{margin:0 0 10px;border-style:solid;color:var(--ink)}
-.bn-n{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--late,#D93B3B);color:#fff;font:800 .74rem/1 var(--display);box-shadow:0 0 0 2px var(--surface)}
+.bn-n{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--late,#D93B3B);color:#fff;font:800 .74rem/1 var(--display);box-shadow:0 0 0 2px var(--surface);text-shadow:none}
 .bn-more[aria-expanded="true"] svg{transform:rotate(180deg)}
 /* Heavy week and Rough week folded into one card */
 .rw-banner.rw-crunch{border-left:6px solid var(--cr3,#F29A4A)}

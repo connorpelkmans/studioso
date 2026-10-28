@@ -5391,7 +5391,7 @@ html:not([data-motion="static"]) :is(.segb button,.chip,.ui-chip,.cf-pick,[role=
 .bn-more:hover{color:var(--ink);border-style:solid}
 .bn-more svg{width:14px;height:14px;transition:transform .15s}
 .bn-more{margin:0 0 10px;border-style:solid;color:var(--ink)}
-.bn-n{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--late,#D93B3B);color:#fff;font:800 .74rem/1 var(--display);box-shadow:0 0 0 2px var(--surface)}
+.bn-n{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--late,#D93B3B);color:#fff;font:800 .74rem/1 var(--display);box-shadow:0 0 0 2px var(--surface);text-shadow:none}
 .bn-more[aria-expanded="true"] svg{transform:rotate(180deg)}
 /* Heavy week and Rough week folded into one card */
 .rw-banner.rw-crunch{border-left:6px solid var(--cr3,#F29A4A)}
@@ -7136,12 +7136,14 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
 :root[data-theme="dark"]{--late-ink:var(--late)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--late-ink:var(--late)}}
 .pill.hi,.g2-pill.late,.tl-dl em,.nu-chip.late,.pt-due.late,.pt-prio.high,.pt-prio.urgent,.nb-target.trash.hot{color:var(--late-ink)}
-/* Dark mode: dark text on the light red badges, and readable Due Today pills and today's date */
-:root[data-theme="dark"] .bn-n,:root[data-theme="dark"] .pw-ic{color:#1A0705}
+/* Dark mode: white numbers on a deeper red notice badge, dark text on the light red icons, and readable Due Today pills and today's date */
+:root[data-theme="dark"] .pw-ic{color:#1A0705}
+:root[data-theme="dark"] .bn-n{color:#fff;background:#C8322B}
 :root[data-theme="dark"] .g2-pill.due{color:#FFD58A}
 :root[data-theme="dark"] .day.is-today .num{background:color-mix(in srgb,var(--mark) 72%,#000);color:#fff}
 @media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]) .bn-n,:root:not([data-theme="light"]) .pw-ic{color:#1A0705}
+  :root:not([data-theme="light"]) .pw-ic{color:#1A0705}
+  :root:not([data-theme="light"]) .bn-n{color:#fff;background:#C8322B}
   :root:not([data-theme="light"]) .g2-pill.due{color:#FFD58A}
   :root:not([data-theme="light"]) .day.is-today .num{background:color-mix(in srgb,var(--mark) 72%,#000);color:#fff}
 }
