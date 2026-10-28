@@ -1931,7 +1931,7 @@ SCENES.xmas = function (W, H, dk, rnd) {
     if (p[3]) pG += front + side + top; else pR += front + side + top;
     pSh += side; pTop += top; shad += b2_ellA(cxp + dd * 0.4, base + 1, w * 0.62, 4 * gs);
     var ym = (y0 + base) / 2, bxo = cxp + dd / 2, byo = y0 - dyy / 2;
-    rib += R4(cxp - 2.5 * gs, y0, 5 * gs, h) + b2_polyA([[cxp - 2.5 * gs, y0], [cxp + 2.5 * gs, y0], [cxp + 2.5 * gs + dd, y0 - dyy], [cxp - 2.5 * gs + dd, y0 - dyy]]) + b2_polyA([[x0 + dd / 2, byo - 1.4 * gs], [x0 + w + dd / 2, byo - 1.4 * gs], [x0 + w + dd / 2, byo + 1.4 * gs], [x0 + dd / 2, byo + 1.4 * gs]]) + (function () { var f0 = 0.5 - 2.5 * gs / Math.abs(dd), f1 = 0.5 + 2.5 * gs / Math.abs(dd); function SP(f, v) { return [xs + dd * f, y0 - dyy * f + v * h]; } return b2_polyA([SP(f0, 0), SP(f1, 0), SP(f1, 1), SP(f0, 1)]); })(); /* the left-right ribbon runs down the side face */
+    rib += R4(cxp - 2.5 * gs, y0, 5 * gs, h) + b2_polyA([[cxp - 2.5 * gs, y0], [cxp + 2.5 * gs, y0], [cxp + 2.5 * gs + dd, y0 - dyy], [cxp - 2.5 * gs + dd, y0 - dyy]]) + (function () { var f0 = 0.5 - 2.5 * gs / Math.abs(dd), f1 = 0.5 + 2.5 * gs / Math.abs(dd); function TP(xe, f) { return [xe + dd * f, y0 - dyy * f]; } return b2_polyA([TP(x0, f0), TP(x0 + w, f0), TP(x0 + w, f1), TP(x0, f1)]); })() /* across the top, ending exactly on the top face's slanted edges */ + (function () { var f0 = 0.5 - 2.5 * gs / Math.abs(dd), f1 = 0.5 + 2.5 * gs / Math.abs(dd); function SP(f, v) { return [xs + dd * f, y0 - dyy * f + v * h]; } return b2_polyA([SP(f0, 0), SP(f1, 0), SP(f1, 1), SP(f0, 1)]); })(); /* the left-right ribbon runs down the side face */
     rib += rotE(bxo - 5 * gs, byo - 3 * gs, 5.5 * gs, 3.2 * gs, 25) + rotE(bxo + 5 * gs, byo - 3 * gs, 5.5 * gs, 3.2 * gs, -25) + b2_ellA(bxo, byo - 1.5 * gs, 2.2 * gs, 2 * gs) + b2_polyA([[bxo - 1, byo - 1], [bxo + 1, byo - 1], [bxo - 3 * gs, byo + 6 * gs], [bxo - 5 * gs, byo + 5 * gs]]) + b2_polyA([[bxo - 1, byo - 1], [bxo + 1, byo - 1], [bxo + 5 * gs, byo + 5 * gs], [bxo + 3 * gs, byo + 6 * gs]]);
     pSh += rotE(bxo - 5.5 * gs, byo - 3 * gs, 2.4 * gs, 1.2 * gs, 25) + rotE(bxo + 5.5 * gs, byo - 3 * gs, 2.4 * gs, 1.2 * gs, -25);
     if (p[3]) { [0.3, 0.7].forEach(function (f) { var yy = y0 + h * f; pat += R4(x0 + 2, yy - 1, w / 2 - 6 * gs, 2 * gs) + R4(cxp + 4 * gs, yy - 1, w / 2 - 6 * gs, 2 * gs); }); }
@@ -3737,16 +3737,16 @@ SCENES.halloween = function (W, H, dk, rnd) {
   var lanterns = [];
   function pumpkin(x, y, r, kind, face, leafy) { var cy = y - r * 0.86;
     S.sh += b2_ellA(x + r * 0.12, y, r * 1.15, r * 0.2);
-    // one solid body; the lobes are fuller lighter bands inside it, so the grooves read as dark seams (no see-through overlapping circles)
-    var RX = r * 1.02, RY = r * 0.84;
-    function hgt(u) { return Math.sqrt(Math.max(0, 1 - u * u)) * RY; }
-    function lobe(u, w, bend) { var A = [], B = [], h = hgt(u) * 0.97, xc0 = x + u * RX; for (var j = 0; j <= 14; j++) { var t = j / 14, sn = Math.pow(Math.sin(Math.PI * t), 0.55), yy = cy - h + 2 * h * t, xc = xc0 + bend * Math.sin(Math.PI * t); A.push([xc - w * sn / 2, yy]); B.unshift([xc + w * sn / 2, yy]); } return b2_polyA(A.concat(B)); }
-    var bodyP = []; for (var j0 = 0; j0 <= 40; j0++) { var an0 = j0 / 40 * Math.PI * 2, ux = Math.cos(an0), uy = Math.sin(an0), dip = Math.pow(Math.max(0, 1 - Math.abs(ux) * 2.6), 2) * (uy < 0 ? 0.1 : 0.05) * r; bodyP.push([x + ux * RX, cy + uy * RY + (uy < 0 ? dip : -dip)]); }
-    if (kind === 'ghost') { S.ghost += b2_polyA(bodyP); [-0.47, -0.16, 0.16, 0.47].forEach(function (u) { S.ghostS += lobe(u, r * 0.035, u * r * 0.06); }); }
-    else { S.pkB += b2_polyA(bodyP); [[-0.62, 0.3, -0.07], [0.62, 0.3, 0.07], [-0.31, 0.36, -0.03], [0.31, 0.36, 0.03]].forEach(function (l) { S.pkM += lobe(l[0], l[1] * r, l[2] * r); }); S.pkF += lobe(0, 0.36 * r, 0) + lobe(-0.31, 0.2 * r, -0.03 * r);
-      S.rib += lobe(0.62, 0.3 * r, 0.07 * r); }
-    S.rib += b2_ellA(x, cy - RY * 0.9, r * 0.2, r * 0.06);
-    S.hi += hw_lens(x - r * 0.13, cy - r * 0.62, cy + r * 0.2, r * 0.07, -r * 0.03) + hw_lens(x - r * 0.44, cy - r * 0.45, cy + r * 0.25, r * 0.05, -r * 0.04);
+    // five solid lobes drawn back to front (outer pair darkest, then the middle pair, then the front), with solid groove lines where they meet
+    function E(u, rx, ry) { return b2_ellA(x + u * r, cy + (1 - ry / 0.9) * r * 0.06, rx * r, ry * r); }
+    if (kind === 'ghost') { S.ghost += E(-0.5, 0.5, 0.78) + E(0.5, 0.5, 0.78) + E(-0.26, 0.42, 0.85) + E(0.26, 0.42, 0.85) + E(0, 0.32, 0.9);
+      S.ghostS += hw_rim(x - 0.26 * r, cy, 0.42 * r, 0.82 * r, 0.9, -1) + hw_rim(x + 0.26 * r, cy, 0.42 * r, 0.82 * r, 0.9, 1) + hw_rim(x, cy, 0.32 * r, 0.87 * r, 0.88, -1) + hw_rim(x, cy, 0.32 * r, 0.87 * r, 0.88, 1); }
+    else { S.pkB += E(-0.5, 0.5, 0.78) + E(0.5, 0.5, 0.78); S.pkM += E(-0.26, 0.42, 0.85) + E(0.26, 0.42, 0.85); S.pkF += E(0, 0.32, 0.9);
+      // lit stripes on the left lobes
+      S.pkF += hw_lens(x - 0.42 * r, cy - 0.66 * r, cy + 0.6 * r, 0.09 * r, -0.04 * r) + hw_lens(x - 0.7 * r, cy - 0.5 * r, cy + 0.45 * r, 0.06 * r, -0.05 * r);
+      S.rib += hw_rim(x - 0.26 * r, cy, 0.42 * r, 0.82 * r, 0.9, -1) + hw_rim(x + 0.26 * r, cy, 0.42 * r, 0.82 * r, 0.9, 1) + hw_rim(x, cy, 0.32 * r, 0.87 * r, 0.88, -1) + hw_rim(x, cy, 0.32 * r, 0.87 * r, 0.88, 1)
+        + hw_rim(x + 0.5 * r, cy + 0.01 * r, 0.5 * r, 0.76 * r, 0.8, 1); }
+    S.rib += b2_ellA(x, cy - r * 0.78, r * 0.2, r * 0.06);
     S.stem += b2_limb([x, cy - r * 0.72], [x - r * 0.06, cy - r * 0.98], [x + r * 0.07, cy - r * 1.13], r * 0.17, r * 0.1, 8); S.hi += b2_ellA(x + r * 0.07, cy - r * 1.13, r * 0.05, r * 0.025);
     var curl = [[x + r * 0.03, cy - r * 0.9]]; for (var j = 0; j <= 22; j++) { var t2 = j / 22, an = Math.PI * (1 + 3.2 * t2), rad = r * 0.12 * (1 - t2 * 0.75); curl.push([x + r * 0.24 + Math.cos(an) * rad, cy - r * 0.95 + Math.sin(an) * rad]); } vines += pline(curl);
     if (leafy) { var la = 200 + (x % 30), lx = x - r * 0.05, ly = cy - r * 0.86; S.pLeaf += b8_aleaf(lx, ly, r * 0.36, la); [0, -42, 42].forEach(function (d) { var e = rotp([[r * (d ? 0.26 : 0.32), 0]], lx, ly, la + d)[0]; veins += seg(lx, ly, e[0], e[1]); }); }
@@ -3810,8 +3810,8 @@ SCENES.halloween = function (W, H, dk, rnd) {
   var leafC = dk ? ['#A8501E', '#8A3A2C', '#B8862A'] : ['#D9722E', '#B8483A', '#E0A83A'];
   var order = [['sh', dk ? 'rgba(0,0,0,0.4)' : 'rgba(60,30,60,0.22)'], ['lfA', leafC[0]], ['lfB', leafC[1]], ['lfC', leafC[2]], ['bwing', dk ? '#1C1226' : '#6E4C86'], ['sil', sil], ['bark', dk ? '#241830' : '#664282'],
     ['mStem', dk ? '#CFC2B0' : '#F4ECDC'], ['mCap', dk ? '#8E3448' : '#C8506A'], ['post', dk ? '#3A2A22' : '#7A5A40'], ['board', dk ? '#54402E' : '#9E7A58'], ['owl', dk ? '#4A3436' : '#8A6650'], ['owlW', dk ? '#33242A' : '#6A4C3E'], ['owlF', dk ? '#6E5654' : '#C8A890'],
-    ['eye', dk ? '#FFC24A' : '#F2B33A'], ['pkB', dk ? '#A84812' : '#D9661F'], ['pkM', dk ? '#C85E1C' : '#EE8030'], ['pkF', dk ? '#DC742A' : '#F7A04A'], ['ghost', dk ? '#CFC7D6' : '#F4EFE6'], ['gourd', dk ? '#B8902A' : '#E8B83A'], ['rib', dk ? 'rgba(60,15,0,0.38)' : 'rgba(150,50,0,0.25)'],
-    ['ghostS', dk ? 'rgba(80,60,110,0.35)' : 'rgba(140,120,150,0.3)'], ['stripe', dk ? '#4A6A2E' : '#6E9A3E'], ['stem', dk ? '#4A5A2A' : '#6E7A3A'], ['hi', dk ? 'rgba(255,215,170,0.3)' : 'rgba(255,240,215,0.42)'], ['pLeaf', dk ? '#3E5A2A' : '#5E8A3A'],
+    ['eye', dk ? '#FFC24A' : '#F2B33A'], ['pkB', dk ? '#A84812' : '#D9661F'], ['pkM', dk ? '#C85E1C' : '#EE8030'], ['pkF', dk ? '#DC742A' : '#F7A04A'], ['ghost', dk ? '#CFC7D6' : '#F4EFE6'], ['gourd', dk ? '#B8902A' : '#E8B83A'], ['rib', dk ? '#8A3A0C' : '#C0561A'],
+    ['ghostS', dk ? '#A49CB0' : '#D8D0D6'], ['stripe', dk ? '#4A6A2E' : '#6E9A3E'], ['stem', dk ? '#4A5A2A' : '#6E7A3A'], ['hi', dk ? 'rgba(255,215,170,0.3)' : 'rgba(255,240,215,0.42)'], ['pLeaf', dk ? '#3E5A2A' : '#5E8A3A'],
     ['rind', dk ? '#E8A048' : '#B8541A'], ['glow', dk ? '#FFE07A' : '#FFC24A'], ['dark', sil], ['gold', dk ? '#E0A040' : '#F2B33A'], ['candy', dk ? '#9A6ADA' : '#A878E8'], ['ff', dk ? '#F6FFC8' : '#FFFFFF']];
   var keys = 'abcdefghijklmnopABCDEFGHIJKLMNOP';
   order.forEach(function (o, k) { add(near, keys[k], S[o[0]], o[1]); });
@@ -3892,7 +3892,7 @@ function tg_turkey(L, x, fy, s, dk) {
   var sc2 = ''; for (var row2 = 0; row2 < 10; row2++) { var yy2 = fy - 100 * s + row2 * 8.4 * s; if (yy2 < cut) continue; for (var xx2 = x - 44 * s + (row2 % 2) * 4.6 * s; xx2 < x + 48 * s; xx2 += 9.2 * s) { if (Math.pow((xx2 - fxc) / (frx - 3 * s), 2) + Math.pow((yy2 + r0 - fyc) / (fry - 3 * s), 2) >= 1) continue; var U2 = []; for (var k3 = 0; k3 <= 8; k3++) { var a3 = k3 / 8 * Math.PI; U2.push([xx2 + Math.cos(a3) * r0, yy2 + Math.sin(a3) * r0 * 0.9]); } for (k3 = 8; k3 >= 0; k3--) { a3 = k3 / 8 * Math.PI; U2.push([xx2 + Math.cos(a3) * r0 * 0.7, yy2 + Math.sin(a3) * r0 * 0.55]); } sc2 += b2_polyA(U2); } }
   add(L, 'B', sc2, C.scal); add(L, 'C', b2_ellA(x + 24 * s, fy - 70 * s, 12 * s, 16 * s), C.brh);
   add(L, 'm', b2_polyA([[x + 51 * s, fy - 139.5 * s], [x + 64 * s, fy - 134 * s], [x + 51 * s, fy - 129 * s]]), C.beak);
-  add(L, 'n', b2_limb([x + 50 * s, fy - 142 * s], [x + 59 * s, fy - 143 * s], [x + 57 * s, fy - 125 * s], 4.4 * s, 2.6 * s) + b2_ellA(x + 47 * s, fy - 118 * s, 6 * s, 11 * s) + b2_ellA(x + 42 * s, fy - 111 * s, 5 * s, 8 * s) + b2_ellA(x + 35 * s, fy - 121 * s, 3 * s, 3 * s) + b2_ellA(x + 33 * s, fy - 113 * s, 2.6 * s, 2.6 * s), C.red);
+  add(L, 'n', b2_limb([x + 49 * s, fy - 140.5 * s], [x + 52.5 * s, fy - 139 * s], [x + 53 * s, fy - 128 * s], 3.6 * s, 2.4 * s) + b2_ellA(x + 53 * s, fy - 128 * s, 1.8 * s, 2 * s) /* the snood: a short fleshy droop from the top of the beak */ + b2_ellA(x + 47 * s, fy - 118 * s, 6 * s, 11 * s) + b2_ellA(x + 42 * s, fy - 111 * s, 5 * s, 8 * s) + b2_ellA(x + 35 * s, fy - 121 * s, 3 * s, 3 * s) + b2_ellA(x + 33 * s, fy - 113 * s, 2.6 * s, 2.6 * s), C.red);
   add(L, 'o', b2_ellA(x + 45.4 * s, fy - 138.4 * s, 1.3 * s, 1.3 * s), C.eyeHi);
   stk(L, 't', circ(x + 44 * s, fy - 137 * s, 0.4), C.eye, 6 * s);
   // legs with three toes forward and one back
