@@ -5986,7 +5986,7 @@ SCENES.chem = function (W, H, dk, rnd) {
   if (!ph) { var bk = m4_beaker(W * 0.53, base, 64, 78, 0.55); bk.cx = W * 0.53; bk.bot = base - 4; put(bk, 1, 'beaker'); var plant = {x: W * 0.53, y: base - 78, s: 1, root: bk.top + 1};
     var lv = {x: W * 0.655, y1: base - 14, y0: base - 118, w1: 30, w0: 18}; G.metal += poly([[lv.x - 22, base], [lv.x + 22, base], [lv.x + lv.w1 / 2 + 2, lv.y1], [lv.x - lv.w1 / 2 - 2, lv.y1]]) + poly([[lv.x - lv.w0 / 2 - 1, lv.y0], [lv.x + lv.w0 / 2 + 1, lv.y0], [lv.x + 6, lv.y0 - 16], [lv.x - 6, lv.y0 - 16]]);
     G.liq[3] += poly([[lv.x - lv.w0 / 2, lv.y0], [lv.x + lv.w0 / 2, lv.y0], [lv.x + lv.w1 / 2 + 3, (lv.y0 + lv.y1) / 2], [lv.x + lv.w1 / 2, lv.y1], [lv.x - lv.w1 / 2, lv.y1], [lv.x - lv.w1 / 2 - 3, (lv.y0 + lv.y1) / 2]]);
-    var gc = m4_beaker(W * 0.6, base, 26, 150, 0.6); gc.cx = W * 0.6; gc.bot = base - 4; put(gc, 2, 'cyl'); G.metal += rrect(W * 0.6 - 22, base - 5, 44, 6, 2);
+    var gc = m4_beaker(W * 0.6, base - 5, 26, 145, 0.6); gc.cx = W * 0.6; gc.bot = base - 9; /* stands on its foot plate, not sunk into it */ put(gc, 2, 'cyl'); G.metal += rrect(W * 0.6 - 22, base - 5, 44, 6, 2);
     var gx = W * 0.728, gy = base - 8; G.cork += rrect(gx - 46, gy - 5, 92, 7, 3.5); G.glass += rotEll(gx - 18, gy - 4, 20, 13, -4) + rotEll(gx + 18, gy - 4, 20, 13, 4); G.out += rotEll(gx - 18, gy - 4, 20, 13, -4) + rotEll(gx + 18, gy - 4, 20, 13, 4) + seg(gx - 3, gy - 6, gx + 3, gy - 6); G.hi += rotEll(gx - 24, gy - 8, 6, 2.6, -20) + rotEll(gx + 12, gy - 8, 6, 2.6, -20); }
   var sf = erl(ph ? W * 0.82 : W * 0.845, ph ? 84 : 120, ph ? 118 : 162, ph ? 22 : 30, 0.5, 0, 'star');
   var lx = ph ? W * 1.02 : W * 0.97, lamp = {x: lx, base: base}, la = ph ? 0.8 : 1, hx = lx - 96 * la, hyy = base - 210 * la;
@@ -8731,9 +8731,9 @@ SCENES.campfire = function (W, H, dk, rnd) {
     function band(p1, p2) { var q = []; for (k = 0; k <= 8; k++) q.push(P(L / 2, lerp(p1, p2, k / 8))); for (k = 8; k >= 0; k--) q.push(P(-L / 2, lerp(p1, p2, k / 8))); return b2_polyA(q); }
     function cap(rho) { var q = []; for (k = 0; k < 28; k++) q.push(P(e * L / 2, k / 28 * Math.PI * 2, rho)); return q; }
     function foot(m1, m2) { var q = []; for (k = 0; k < 24; k++) { var u = k / 24 * Math.PI * 2; q.push(GF(x + Math.cos(u) * (L / 2 + m1) * ax[0] + Math.sin(u) * (r + m2) * nx[0] + 6, z + Math.cos(u) * (L / 2 + m1) * ax[1] + Math.sin(u) * (r + m2) * nx[1] + 4, 0)); } return b2_polyA(q); }
-    return {hull: b2_polyA(cf_hull(pts)), band: band, cap: cap, P: P, e: e, L: L, r: r, ax: ax, nx: nx, x: x, z: z, foot: foot}; }
+    var hp = cf_hull(pts); return {hull: b2_polyA(hp), hp: hp, band: band, cap: cap, P: P, e: e, L: L, r: r, ax: ax, nx: nx, x: x, z: z, foot: foot}; }
   // the fire pit: rounded stones on a ring, the back ones behind the flames and the front ones over their base
-  var stB0 = '', stF0 = '', stLitB = '', stLitF = '', stShF = '', stSh = '', stoneS = '';
+  var stB0 = '', stF0 = '', stLitB = '', stLitF = '', stShF = '', stSh = '', stoneS = '', stoneF = '';
   for (k = 0; k < 14; k++) { var a = (k + 0.3) / 14 * Math.PI * 2, gx = Math.cos(a) * 48, gz = Math.sin(a) * 48, rs = 8 + (k % 3) * 1.4, hs = 4.2 + (k % 2) * 1.6 + (k % 5 === 0 ? 1 : 0), S0 = GF(gx, gz, 0), rx = rs * fs, ry = rs * KZ * fs, hh = hs * fs, out = [], lit = [], sh = [];
     for (var u = 0; u < 26; u++) { var uu = u / 26 * Math.PI * 2, lump = 1 + 0.07 * Math.sin(3 * uu + k * 1.7), sy = Math.sin(uu); out.push([S0[0] + rx * Math.cos(uu) * lump, S0[1] + (sy > 0 ? ry * sy : (ry + hh) * sy) * lump]); }
     for (u = 0; u <= 10; u++) { var ua = Math.PI + 0.45 + u / 10 * (Math.PI - 0.9); lit.push([S0[0] + rx * 0.86 * Math.cos(ua), S0[1] + (ry + hh) * 0.9 * Math.sin(ua)]); }
@@ -8742,7 +8742,7 @@ SCENES.campfire = function (W, H, dk, rnd) {
     for (u = 10; u >= 0; u--) { ub = 0.12 + u / 10 * (Math.PI - 0.24); sh.push([S0[0] + rx * 0.9 * Math.cos(ub), S0[1] - hh * 0.22 + ry * 0.5 * Math.sin(ub)]); }
     stSh += b2_ellA(S0[0] + 2 * fs, S0[1] + ry * 0.4, rx * 1.15, ry * 1.2);
     if (gz < 0) { stB0 += b2_polyA(out); stLitB += b2_polyA(lit); if (Math.abs(gx) > 36) stoneS += b2_polyA(out); }
-    else { stF0 += b2_polyA(out); stLitF += b2_polyA(lit); stShF += b2_polyA(sh); stoneS += b2_polyA(out); } }
+    else { stF0 += b2_polyA(out); stLitF += b2_polyA(lit); stShF += b2_polyA(sh); stoneF += b2_polyA(out); } }
   // the crossed logs in the pit (two low, one on top) and the ember bed under them
   var fireLogs = [cyl(-2, -4, 76, 6, 28, 0), cyl(2, 2, 76, 6, -26, 0), cyl(0, 10, 54, 5.5, 84, 9)];
   var fLogBody = '', fLogLit = '', fLogChar = '', fLogCap = '', fLogCrack = '';
@@ -8768,9 +8768,11 @@ SCENES.campfire = function (W, H, dk, rnd) {
   var bark = ''; lgLines.forEach(function (q) { var run = []; q.forEach(function (pp) { if (nearStick(pp)) { if (run.length > 1) bark += pline(run); run = []; } else run.push(pp); }); if (run.length > 1) bark += pline(run); });
   var barkC = dk ? 'rgba(210,196,176,0.55)' : 'rgba(110,80,60,0.6)';
   add(near, 'e', lgSh + stSh + b2_ellA(stA[0] + 2 * fs, stA[1] + 1 * fs, 7 * fs, 2.2 * fs));
-  add(near, 'j', lgBody + (ANIM ? '' : fLogBody), dk ? '#4A3024' : '#8A5A3A');
-  add(near, 'k', lgShade + (ANIM ? '' : fLogChar + fLogCap), dk ? 'rgba(14,6,4,0.5)' : 'rgba(60,30,14,0.32)');
-  add(near, 'l', lgLit + (ANIM ? '' : fLogLit), dk ? 'rgba(255,190,130,0.22)' : 'rgba(255,232,190,0.32)');
+  add(near, 'j', lgBody, dk ? '#4A3024' : '#8A5A3A');
+  add(near, 'k', lgShade, dk ? 'rgba(14,6,4,0.5)' : 'rgba(60,30,14,0.32)');
+  add(near, 'l', lgLit, dk ? 'rgba(255,190,130,0.22)' : 'rgba(255,232,190,0.32)');
+  // the still fire pit draws back to front in the extra slots: back stones (o), pit logs (I-K), flames (L-N), front stones (O); the stick (p) and marshmallow (H) sit above the flames
+  if (!ANIM) { 'IJKLMNOP'.split('').forEach(function (k) { near[k] = E(); }); add(near, 'I', fLogBody, dk ? '#4A3024' : '#8A5A3A'); add(near, 'J', fLogChar + fLogCap, dk ? 'rgba(14,6,4,0.5)' : 'rgba(60,30,14,0.32)'); add(near, 'K', fLogLit, dk ? 'rgba(255,190,130,0.22)' : 'rgba(255,232,190,0.32)'); add(near, 'O', stoneF, dk ? '#4A4A52' : '#9EA2A8'); }
   add(near, 'n', lgCap + flw, dk ? '#E0A262' : '#F4E2B8');
   add(near, 'o', ANIM ? '' : stoneS, dk ? '#4A4A52' : '#9EA2A8');
   // the tent: a 3D A-frame on that ground. Its ridge runs away to the right; the door end faces the fire (left, toward the viewer)
@@ -8802,7 +8804,11 @@ SCENES.campfire = function (W, H, dk, rnd) {
   var zip = ''; for (var zq = 0; zq < 9; zq++) { var zu = zq / 9 + 0.03, za = [lerp(dT[0], dM[0], zu), lerp(dT[1], dM[1], zu)]; zip += seg(za[0] + 1.4 * tsx, za[1], za[0] + 3.4 * tsx, za[1] + 1 * tsy); }
   // guy lines: from each pole tip out along the ridge line (front forward, back away), two from the near panel out to the near side
   var guyL = [[tF, G3(-tLh - 78, 0, 0)], [tB, G3(tLh + 78, 0, 0)], [SP(0.25, 70), G3(lerp(-tLh, tLh, 0.25), tWh + 58, 0)], [SP(0.75, 70), G3(lerp(-tLh, tLh, 0.75), tWh + 58, 0)]], guys = seg(tF[0], tF[1], tF[0], tF[1] - 12 * tsy) + seg(tB[0], tB[1], tB[0], tB[1] - 11 * tsy);
-  guyL.forEach(function (g) { guys += seg(g[0][0], g[0][1], g[1][0], g[1][1]) + seg(g[1][0] - 1, g[1][1] - 6 * tsy, g[1][0] + 1, g[1][1] + 2); });
+  // guy lines pass behind the seating logs: leave out the stretches a log covers
+  function inPoly(pt, q) { var c = false; for (var i = 0, j = q.length - 1; i < q.length; j = i++) if ((q[i][1] > pt[1]) !== (q[j][1] > pt[1]) && pt[0] < (q[j][0] - q[i][0]) * (pt[1] - q[i][1]) / (q[j][1] - q[i][1]) + q[i][0]) c = !c; return c; }
+  function behindLog(pt) { return seatLogs.some(function (c) { return inPoly(pt, c.hp); }); }
+  guyL.forEach(function (g) { var run = []; for (var k2 = 0; k2 <= 40; k2++) { var pt = [lerp(g[0][0], g[1][0], k2 / 40), lerp(g[0][1], g[1][1], k2 / 40)]; if (behindLog(pt)) { if (run.length > 1) guys += pline(run); run = []; } else run.push(pt); } if (run.length > 1) guys += pline(run);
+    if (!behindLog(g[1])) guys += seg(g[1][0] - 1, g[1][1] - 6 * tsy, g[1][0] + 1, g[1][1] + 2); });
   var sA = SP(0.02, 62), sB = SP(0.98, 62), seams = seg(sA[0], sA[1], sB[0], sB[1]) + zip;
   stk(near, 's', guys + seams + bark, barkC, 1.2);
   var tDoorC = FF(-0.3, 0.2), tFrontC = FF(0, 0.3);
@@ -8865,10 +8871,10 @@ SCENES.campfire = function (W, H, dk, rnd) {
     CF_TONGUES.forEach(function (q, j) { var sw = Math.sin(j * 1.9) * 2.5 * fs; fOut += b2_polyA(cf_tongue(fx + q[0] * fs, fy0, q[2] * fs * 1.12, 62 * fs * q[1] * (dk ? 1 : 0.86), sw));
       fMid += b2_polyA(cf_tongue(fx + q[0] * fs * 0.74, fy0, q[2] * fs * 0.8, 62 * fs * q[1] * 0.68 * (dk ? 1 : 0.86), sw * 0.7)); if (j > 0 && j < 5) fCore += b2_polyA(cf_tongue(fx + q[0] * fs * 0.42, fy0, q[2] * fs * 0.42, 62 * fs * q[1] * 0.34 * (dk ? 1 : 0.86), sw * 0.4)); });
     var SK = cf_stick(stA, stCtl, stB, fs), MM = cf_mallow(stA, stCtl, stB, fs);
-    add(near, 'm', fOut + fLogCrack, dk ? '#E0602A' : '#F08A3E');
-    add(near, 'n', fMid + SK.peel);
-    add(near, 'p', SK.bark + SK.nub, dk ? '#5A3C28' : '#7A5434');
-    add(near, 'H', fCore + MM.body, dk ? '#FFF0D0' : '#FFF8EE');
+    add(near, 'L', fOut + fLogCrack, dk ? '#E0602A' : '#F08A3E');
+    add(near, 'M', fMid, near.n.c);
+    add(near, 'N', fCore, dk ? '#FFF0D0' : '#FFF8EE');
+    add(near, 'n', SK.peel); add(near, 'p', SK.bark + SK.nub, dk ? '#5A3C28' : '#7A5434'); near.H.d += MM.body; if (!near.H.c || near.H.c === 'none') near.H.c = dk ? '#FFF0D0' : '#FFF8EE';
     stk(near, 't', MM.toast, dk ? 'rgba(190,120,60,0.85)' : 'rgba(214,150,80,0.85)', 3.6 * fs);
     twk.forEach(function (s) { stars += n3_spark(s.x, s.y, s.r); }); add(refl, 'd', stars);
   }
@@ -15237,7 +15243,7 @@ ENGINES.july4 = function (A, v, dk) {
 // engines_b8.js
 function b8_lp(L, cols) {
   var out = []; cols = cols || {};
-  'abcdefghijklmnop'.split('').forEach(function (k) { if (L[k].d) out.push({k: k, p: new Path2D(L[k].d), c: cols[k] || L[k].c}); });
+  'abcdefghijklmnopABCDEFGHIJKLMNOP'.split('').forEach(function (k) { if (L[k] && L[k].d) out.push({k: k, p: new Path2D(L[k].d), c: cols[k] || L[k].c}); });
   ['s', 't'].forEach(function (k) { if (L[k].d) out.push({k: k, p: new Path2D(L[k].d), c: cols[k] || L[k].c, w: cols[k + 'w'] || L[k].w, st: 1}); });
   return out;
 }
