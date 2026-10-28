@@ -793,11 +793,12 @@ SCENES.autumn = function (W, H, dk, rnd) {
   var keepOut = [[bxp - 54 * bs, byp - 50 * bs, bxp + 54 * bs, byp + 8 * bs], [lx - 16 * bs, byp - 160 * bs, lx + 16 * bs, byp + 8 * bs], [tx - (ph ? 60 : 100), tt - 40, W + 60, H + 20]];
   var taken = [], hit = function (list, b) { return list.some(function (o) { return b[2] > o[0] && b[0] < o[2] && b[3] > o[1] && b[1] < o[3]; }); };
   var offPath = function (b) { for (var yy = b[1]; yy <= b[3]; yy += 4) { if (yy < hz) continue; var pe = pathAt(Math.min(yy, H)); if (b[2] > pe[0] - 10 && b[0] < pe[1] + 10) return false; } return true; };
-  var want = ph ? 18 : 34, made = 0, items = [];
+  var want = ph ? 34 : 64, made = 0, items = [], trunkBox = []; // a fuller grove: crowns may overlap (nearer ones drawn in front), trunks keep some room
   for (var tr2 = 0; tr2 < 1400 && made < want; tr2++) { var fy = Math.pow(rnd(), 0.75), yy2 = hz + 10 + (H + 30 - hz - 10) * fy, rr5 = (ph ? 7 : 9) + fy * (ph ? 34 : 52), xx2 = -rr5 * 0.5 + rnd() * (W + rr5);
     var bb3 = [xx2 - rr5 * 1.15, yy2 - rr5 * 2.75, xx2 + rr5 * 1.15, yy2 + rr5 * 0.25];
-    if (hit(keepOut, bb3) || hit(taken, bb3) || !offPath([xx2 - rr5 * 0.4, yy2 - rr5 * 0.3, xx2 + rr5 * 0.4, Math.min(yy2 + 2, H)]) || !offPath([bb3[0], yy2 - rr5 * 2.6, bb3[2], yy2 - rr5 * 0.8])) continue;
-    taken.push(bb3); made++; items.push([yy2, xx2, rr5, pickC(), fy]); }
+    var tb3 = [xx2 - rr5 * 0.5, yy2 - rr5 * 1.2, xx2 + rr5 * 0.5, yy2 + rr5 * 0.2];
+    if (hit(keepOut, bb3) || hit(trunkBox, tb3) || !offPath([xx2 - rr5 * 0.4, yy2 - rr5 * 0.3, xx2 + rr5 * 0.4, Math.min(yy2 + 2, H)]) || !offPath([bb3[0], yy2 - rr5 * 2.6, bb3[2], yy2 - rr5 * 0.8])) continue;
+    taken.push(bb3); trunkBox.push(tb3); made++; items.push([yy2, xx2, rr5, pickC(), fy]); }
   items.sort(function (a, b) { return a[0] - b[0]; }).forEach(function (q) { var lay = q[4] < 0.2 ? 'refl' : 'mid', hzk = lay === 'refl' ? 0.38 : Math.max(0, 0.2 - q[4] * 0.3); if (q[3] === 'pine') pine(lay, q[1], q[0], q[2] * 0.95, hzk); else decid(lay, q[1], q[0], q[2], q[3], hzk); });
   // pumpkins and a hay bale or two just off the path, and little leaf piles
   var pk = {base: '', sh: '', hi: '', stem: ''}, hay = {front: '', top: '', band: ''}, straw = '';
