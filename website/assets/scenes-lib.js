@@ -24,7 +24,8 @@ function ridge(W, base, waves, step, sharp) { var pts = []; for (var x = -60; x 
 function below(pts, bottom) { return poly(pts.concat([[pts[pts.length - 1][0], bottom], [pts[0][0], bottom]])); }
 function E() { return {d: '', c: 'none'}; }
 function S() { return {d: '', c: 'none', w: 1}; }
-function Lay(blur) { return {blur: blur, a: E(), b: E(), c: E(), d: E(), e: E(), f: E(), g: E(), h: E(), s: S(), t: S()}; }
+// Fills a..h, then the extra fills i..p (drawn after h, before the strokes), then strokes s and t
+function Lay(blur) { return {blur: blur, a: E(), b: E(), c: E(), d: E(), e: E(), f: E(), g: E(), h: E(), i: E(), j: E(), k: E(), l: E(), m: E(), n: E(), o: E(), p: E(), s: S(), t: S()}; }
 function add(L, k, d, c) { L[k].d += d; if (c) L[k].c = c; }
 function stk(L, k, d, c, w) { L[k].d += d; if (c) L[k].c = c; if (w) L[k].w = w; }
 
@@ -388,12 +389,74 @@ function b2_pine(x, y, h, w, n) {
   }
   return {d: poly(Lp.concat([[x - tw, bot], [x - tw, y + 3], [x + tw, y + 3], [x + tw, bot]], Rp).reverse()), snow: caps};
 }
-// Snowman outline
-function b2_snowLine(x, y, ss, hatOn) {
-  var B = [[-16, 17], [-42, 12.5], [-61, 9]], d = '';
-  function hid(px, py, i) { var u = (px - x) / ss, v = (py - y) / ss; if (i < 2) { var n = B[i + 1]; if (Math.hypot(u, v - n[0]) < n[1] - 0.15) return true; } if (u > -10.6 && u < 10.6 && v > -55.6 && v < -49.4) return true; if (u > 2.4 && u < 11.6 && v > -52.5 && v < -37.5 && u > 2.4 + (v + 52) * 0.14) return true; return hatOn && v < -68.6 && u > -9.6 && u < 9.6; }
-  B.forEach(function (b, i) { var run = [], N = 72; for (var k = 0; k <= N; k++) { var a = k / N * Math.PI * 2, px = x + Math.cos(a) * b[1] * ss, py = y + b[0] * ss + Math.sin(a) * b[1] * ss; if (hid(px, py, i)) { if (run.length > 1) d += pline(run); run = []; } else run.push([px, py]); } if (run.length > 1) d += pline(run); });
-  return d;
+// Snowman: the part of circle 1 that circle 2 doesn't cover (a shaded crescent)
+function b2_cres(cx, cy, r, ox, oy, r2) {
+  var N = 72, A = [], B = [], i, a, x, y, s1 = -1, s2 = -1;
+  for (i = 0; i < N; i++) { a = i / N * Math.PI * 2; x = cx + Math.cos(a) * r; y = cy + Math.sin(a) * r; A.push([x, y, Math.hypot(x - ox, y - oy) > r2]); x = ox + Math.cos(a) * r2; y = oy + Math.sin(a) * r2; B.push([x, y, Math.hypot(x - cx, y - cy) < r]); }
+  for (i = 0; i < N; i++) { if (A[i][2] && !A[(i + N - 1) % N][2]) s1 = i; if (B[i][2] && !B[(i + N - 1) % N][2]) s2 = i; }
+  if (s1 < 0 || s2 < 0) return '';
+  var p1 = [], p2 = [];
+  for (i = 0; i < N && A[(s1 + i) % N][2]; i++) p1.push(A[(s1 + i) % N]);
+  for (i = 0; i < N && B[(s2 + i) % N][2]; i++) p2.push(B[(s2 + i) % N]);
+  var e = p1[p1.length - 1], f = p2[0], g = p2[p2.length - 1];
+  if (Math.hypot(e[0] - f[0], e[1] - f[1]) > Math.hypot(e[0] - g[0], e[1] - g[1])) p2.reverse();
+  return b2_polyA(p1.concat(p2).map(function (q) { return [q[0], q[1]]; }));
+}
+// Filled ellipse with a fixed winding, so it can overlap other shapes in the same fill
+function b2_ellA(x, y, rx, ry) { var pts = []; for (var i = 0; i < 28; i++) { var a = i / 28 * Math.PI * 2; pts.push([x + Math.cos(a) * rx, y + Math.sin(a) * ry]); } return b2_polyA(pts); }
+// Snowman top hat, with its origin at the middle of the brim's top edge
+function b2_snowHat(ox, oy, ss) {
+  function P(u, v) { return [ox + u * ss, oy + v * ss]; }
+  return {hat: b2_polyA([P(-10, -0.6), P(10, -0.6), P(10.6, 0.8), P(10, 2.2), P(-10, 2.2), P(-10.6, 0.8)]) + b2_polyA([P(-6.4, 0), P(-5.7, -14), P(5.7, -14), P(6.4, 0)]) + b2_ellA(ox, oy - 14 * ss, 5.7 * ss, 1.3 * ss),
+    band: poly([P(-6.35, -0.6), P(-6.15, -3.8), P(6.15, -3.8), P(6.35, -0.6)]),
+    hi: poly([P(-4.6, -1.2), P(-4.1, -13.2), P(-2.9, -13.2), P(-3.3, -1.2)])};
+}
+// Snowman twig arm from the shoulder (ox, oy); sg = 1 points right, -1 left
+function b2_snowArm(ox, oy, ss, sg) {
+  function P(u, v) { return [ox + sg * u * ss, oy + v * ss]; }
+  return b2_limb(P(-1, 0.6), P(9, -3), P(20, -10.5), 2.1 * ss, 0.6 * ss) + b2_limb(P(13.5, -7), P(15.5, -11), P(17, -16.5), 1.1 * ss, 0.4 * ss) + b2_limb(P(15.5, -8.6), P(19.5, -9), P(24, -7.6), 1 * ss, 0.35 * ss);
+}
+// The whole snowman as fills for slots i..p of one layer (the hat and right arm are left to the engine when animated)
+function b2_snowman(L, x, y, ss, dk, anim) {
+  function P(u, v) { return [x + u * ss, y + v * ss]; }
+  var balls = [[0, -16.5, 17.5], [0, -41.6, 12.8], [0, -60.6, 9.3]], body = ell(x, y - 1.5 * ss, 21 * ss, 4 * ss), shade = '', hi = '', coal = '', red = '', tw = '';
+  balls.forEach(function (b, i) {
+    var bx = x + b[0] * ss, by = y + b[1] * ss, r = b[2] * ss;
+    body += circ(bx, by, r);
+    shade += b2_cres(bx, by, r, bx + r * 0.3, by - r * 0.26, r * 1.02);
+    if (!i) hi += rotEll(bx + r * 0.36, by - r * 0.44, r * 0.26, r * 0.13, -38);
+    if (i) shade += ell(bx, by + r * 0.86, r * 0.62, r * 0.16);
+  });
+  shade += ell(x, y - 30 * ss, 9 * ss, 2.2 * ss);
+  [[-3.4, -63.8, 1.5], [3.6, -64.1, 1.42]].forEach(function (e) { var c = P(e[0], e[1]); coal += ell(c[0], c[1], e[2] * ss, e[2] * 1.15 * ss); hi += circ(c[0] + 0.5 * ss, c[1] - 0.6 * ss, 0.45 * ss); });
+  for (var k = 0; k < 5; k++) { var u = (k - 2) / 2, c = P(u * 3.8 + 0.4, -55.9 + u * u * -1.4); coal += circ(c[0], c[1], (0.75 - Math.abs(u) * 0.12) * ss); }
+  [[-47, 1.55, 10], [-41, 1.7, -20], [-35, 1.6, 30]].forEach(function (b) { var c = P(b[1] * 0.25, b[0]); coal += rotEll(c[0], c[1], b[1] * ss, b[1] * 0.88 * ss, b[2]); hi += circ(c[0] + 0.5 * ss, c[1] - 0.55 * ss, 0.42 * ss); });
+  if (!anim) { var h = b2_snowHat(x, y - 69 * ss, ss); coal += h.hat; red += h.band; }
+  // scarf: a band around the neck, a knot and a tail with fringe
+  var top = [], bot = [];
+  for (k = 0; k <= 12; k++) { var t = k / 12, xx = -10.4 + t * 20.8, sag = Math.sin(t * Math.PI) * 1.6; top.push(P(xx, -53.6 + sag)); bot.unshift(P(xx * 0.96, -49.2 + sag * 1.25)); }
+  red += b2_polyA(top.concat(bot)) + b2_ellA(x + 5 * ss, y - 50.6 * ss, 2.6 * ss, 2.3 * ss) + b2_limb(P(5.2, -50), P(9.5, -44), P(8.6, -36.5), 4.6 * ss, 4.1 * ss);
+  for (k = 0; k < 4; k++) red += rrect(x + (6.6 + k * 1.1 - k * 0.12) * ss, y - 35.4 * ss + Math.abs(k - 1.5) * 0.2 * ss, 0.7 * ss, 2.4 * ss, 0.3 * ss);
+  var stripe = b2_limb(P(7.3, -45.6), P(8.5, -44.5), P(10.1, -43.6), 1 * ss, 1 * ss) + b2_limb(P(7.2, -41.2), P(8.6, -40.6), P(10.4, -40.1), 1 * ss, 1 * ss);
+  for (k = 0; k < 3; k++) { var sx = -7.5 + k * 5.5; stripe += poly([P(sx, -53.2 + Math.sin((sx + 10.4) / 20.8 * Math.PI) * 1.6), P(sx + 1.3, -53.2 + Math.sin((sx + 11.7) / 20.8 * Math.PI) * 1.6), P(sx + 1.1, -49.3 + Math.sin((sx + 11.5) / 20.8 * Math.PI) * 2), P(sx - 0.2, -49.3 + Math.sin((sx + 10.2) / 20.8 * Math.PI) * 2)]); }
+  // carrot nose with a few ridges
+  var nose = [], N = 10;
+  for (k = 0; k <= N; k++) { t = k / N; nose.push(P(0.4 + t * 13, -60.6 + t * 0.9 - (1 - t) * 2)); }
+  for (k = N; k >= 0; k--) { t = k / N; nose.push(P(0.4 + t * 13, -60.6 + t * 1 + (1 - t) * 2)); }
+  var carrot = b2_polyA(nose);
+  tw = b2_limb(P(4.2, -61.9), P(4.5, -60.9), P(4.9, -60), 0.45 * ss, 0.3 * ss) + b2_limb(P(7.6, -61.1), P(7.8, -60.5), P(8.1, -59.8), 0.4 * ss, 0.25 * ss);
+  tw += b2_snowArm(x - 11 * ss, y - 44 * ss, ss, -1);
+  if (!anim) tw += b2_snowArm(x + 11 * ss, y - 44 * ss, ss, 1);
+  add(L, 'i', ell(x + 5 * ss, y + 0.6 * ss, 27 * ss, 4.6 * ss) + ell(x + 2 * ss, y, 19 * ss, 3 * ss), dk ? 'rgba(10,16,44,0.32)' : 'rgba(96,124,176,0.2)');
+  add(L, 'j', body, dk ? '#BAC7E3' : '#F8FBFF');
+  add(L, 'k', shade, dk ? 'rgba(52,64,116,0.42)' : 'rgba(128,156,206,0.34)');
+  add(L, 'l', coal, dk ? '#1A1620' : '#2A2630');
+  add(L, 'm', red, dk ? '#9A333A' : '#C8423A');
+  // the scarf stripes share the highlight colour
+  add(L, 'n', hi + stripe, dk ? 'rgba(232,240,255,0.62)' : '#FFFFFF');
+  add(L, 'o', carrot, dk ? '#E2782C' : '#F28A2E');
+  add(L, 'p', tw, dk ? '#3A2622' : '#5A3C2C');
+  return {coal: L.l.c, red: L.m.c, hi: L.n.c, twig: L.p.c};
 }
 function b2_flake(x, y, r, a0) { var d = ''; for (var i = 0; i < 6; i++) { var a = a0 + i * Math.PI / 3, c = Math.cos(a), s = Math.sin(a); d += seg(x, y, x + c * r, y + s * r); [[0.5, 0.32], [0.76, 0.2]].forEach(function (f) { var bx = x + c * r * f[0], by = y + s * r * f[0], l = r * f[1]; [0.8, -0.8].forEach(function (sg) { var a2 = a + sg; d += seg(bx, by, bx + Math.cos(a2) * l, by + Math.sin(a2) * l); }); }); } return d; }
 function b2_cloud(x, y, s) { return ell(x, y, 70 * s, 16 * s) + circ(x - 22 * s, y - 10 * s, 22 * s) + circ(x + 14 * s, y - 16 * s, 28 * s) + circ(x + 42 * s, y - 4 * s, 16 * s); }
@@ -446,15 +509,10 @@ SCENES.winter = function (W, H, dk, rnd) {
   
   add(near, 'd', roof, dk ? '#B6C2DE' : '#FBFDFF');
   var snx = ph ? W * 0.27 : pdx + W * 0.2, sny = pdy + (ph ? 34 : 44), ss = ph ? 2.2 : 2.6;
-  var snb = circ(snx, sny - 16 * ss, 17 * ss) + circ(snx, sny - 42 * ss, 12.5 * ss) + circ(snx, sny - 61 * ss, 9 * ss); add(near, 'b', snb, dk ? '#B6C2DE' : '#FBFDFF'); stk(near, 't', b2_snowLine(snx, sny, ss, !ANIM), null);
-  under += circ(snx - 3 * ss, sny - 63 * ss, 1.4 * ss) + circ(snx + 3 * ss, sny - 63 * ss, 1.4 * ss) + circ(snx, sny - 44 * ss, 1.6 * ss) + circ(snx, sny - 36 * ss, 1.6 * ss);
-  if (ANIM) ANIM.snowman = {x: snx, y: sny, ss: ss, c: dk ? '#2A1C22' : '#5E3A2C', lw: ph ? 2.4 : 2.8, win: [[cx - 32 * s, cy - 24 * s, 16 * s, 13 * s], [cx + 16 * s, cy - 24 * s, 16 * s, 13 * s]]};
-  else under += rect(snx - 9 * ss, sny - 72 * ss, 18 * ss, 3 * ss) + rect(snx - 6 * ss, sny - 84 * ss, 12 * ss, 12 * ss);
-  rails += seg(snx - 11 * ss, sny - 44 * ss, snx - 30 * ss, sny - 58 * ss) + seg(snx - 26 * ss, sny - 55 * ss, snx - 29 * ss, sny - 63 * ss) + seg(snx - 27 * ss, sny - 56 * ss, snx - 35 * ss, sny - 58 * ss);
-  if (!ANIM) rails += seg(snx + 11 * ss, sny - 44 * ss, snx + 30 * ss, sny - 54 * ss) + seg(snx + 26 * ss, sny - 52 * ss, snx + 30 * ss, sny - 60 * ss) + seg(snx + 27 * ss, sny - 52 * ss, snx + 35 * ss, sny - 52 * ss);
-  add(mid, 'e', ell(snx + 6 * ss, sny + 1, 26 * ss, 4 * ss), null); walls += (rrect(snx - 10 * ss, sny - 55 * ss, 20 * ss, 5 * ss, 2 * ss) + poly([[snx + 3 * ss, sny - 52 * ss], [snx + 9 * ss, sny - 52 * ss], [snx + 11 * ss, sny - 38 * ss], [snx + 5 * ss, sny - 39 * ss]]));
+  var SM = b2_snowman(near, snx, sny, ss, dk, !!ANIM);
+  if (ANIM) ANIM.snowman = {x: snx, y: sny, ss: ss, c: SM.coal, red: SM.red, hi: SM.hi, twig: SM.twig, win: [[cx - 32 * s, cy - 24 * s, 16 * s, 13 * s], [cx + 16 * s, cy - 24 * s, 16 * s, 13 * s]]};
   add(near, 'c', walls, dk ? '#7A3638' : '#B8483C');
-  add(near, 'e', rrect(cx - 32 * s, cy - 24 * s, 16 * s, 13 * s, 2) + rrect(cx + 16 * s, cy - 24 * s, 16 * s, 13 * s, 2) + poly([[snx, sny - 62 * ss], [snx + 14 * ss, sny - 60 * ss], [snx, sny - 58.5 * ss]]), dk ? '#FFC870' : '#F2A85E');
+  add(near, 'e', rrect(cx - 32 * s, cy - 24 * s, 16 * s, 13 * s, 2) + rrect(cx + 16 * s, cy - 24 * s, 16 * s, 13 * s, 2), dk ? '#FFC870' : '#F2A85E');
   add(near, 'f', under + fence, dk ? '#2A1C22' : '#5E3A2C');
   stk(near, 's', rails + seg(cx - 24 * s, cy - 24 * s, cx - 24 * s, cy - 11 * s) + seg(cx + 24 * s, cy - 24 * s, cx + 24 * s, cy - 11 * s), dk ? '#2A1C22' : '#5E3A2C', ph ? 2.4 : 2.8);
   if (dk) { add(far, 'd', circ(cx, cy - 18 * s, 70), 'rgba(255,190,100,0.45)'); add(far, 'e', ell(cx, cy + 10 * s, 110, 26), 'rgba(255,200,120,0.3)'); }
@@ -479,6 +537,11 @@ SCENES.winter = function (W, H, dk, rnd) {
   return {sky: sky, far: far, refl: refl, mid: mid, near: near};
 };
 
+// A tulip head in the field (bottom at x, y); tiny far ones are plain dots
+// A tulip head in the field (bottom at x, y), as a short relative path
+function b2_rel(x, y, pts) { var d = 'M' + PT(x + pts[0][0], y + pts[0][1]) + ' l'; for (var i = 1; i < pts.length; i++) d += n1(pts[i][0] - pts[i - 1][0]) + ' ' + n1(pts[i][1] - pts[i - 1][1]) + ' '; return d + 'Z '; }
+function b2_tulipHead(x, y, h) { var w = h * 0.66; return b2_rel(x, y, [[-w * 0.5, -h * 0.45], [-w * 0.47, -h], [-w * 0.18, -h * 0.76], [0, -h * 1.06], [w * 0.18, -h * 0.76], [w * 0.47, -h], [w * 0.5, -h * 0.45], [0, 0]]); }
+function b2_tulipHi(x, y, h) { var w = h * 0.66; return b2_rel(x, y, [[-w * 0.3, -h * 0.32], [-w * 0.33, -h * 0.86], [-w * 0.1, -h * 0.56]]); }
 SCENES.spring = function (W, H, dk, rnd) {
   var ph = H > W, hz = H * (ph ? 0.5 : 0.45), far = Lay(10), refl = Lay(1.2), mid = Lay(1), near = Lay(0);
   var sky = dk ? 'linear-gradient(180deg,#0E1626 0%,#1F3348 ' + b2_pct(hz / H * 0.7) + '%,#4E6A62 ' + b2_pct(hz / H) + '%,#4E6A62 100%)' : 'linear-gradient(180deg,#9FCDEE 0%,#D5ECF5 ' + b2_pct(hz / H * 0.7) + '%,#F4F8EA ' + b2_pct(hz / H) + '%,#F4F8EA 100%)';
@@ -497,20 +560,39 @@ SCENES.spring = function (W, H, dk, rnd) {
   if (ANIM) ANIM.mill = {x: wx, y: wy - 60 * ws, ws: ws, c: dk ? '#6A6E80' : '#F4EEE4', hub: dk ? '#FFD27F' : '#4A3834'}; else add(refl, 'g', bl, dk ? '#6A6E80' : '#F4EEE4');
   add(refl, 'h', circ(wx, wy - 60 * ws, 3 * ws) + rect(wx - 3 * ws, wy - 40 * ws, 6 * ws, 7 * ws), dk ? '#FFD27F' : '#4A3834');
   if (dk) add(far, 'c', circ(wx, wy - 36 * ws, 30), 'rgba(255,200,120,0.5)');
-  var vx = W * 0.5, vy = hz - (ph ? 26 : 40), step = ph ? 54 : 70, rw = step * 0.64, y0 = hz + 2, rows = ['', '', '', ''], gaps = '', dots = '', shd = '';
+  // more on the horizon: farmhouses with stepped gables, a line of poplars and a far-off second windmill
+  var fh = '', fr2 = '', fwn = '', pop = '', wm2 = '';
+  (ph ? [[0.2, 0.9], [0.5, 0.7]] : [[0.12, 1], [0.2, 0.8], [0.6, 0.9]]).forEach(function (f) { var x = W * f[0], y = b2_y(hz - 6, hw, x) + 3, k = f[1] * (ph ? 0.85 : 1);
+    fh += rect(x - 16 * k, y - 12 * k, 32 * k, 12 * k); fr2 += poly([[x - 18 * k, y - 11 * k], [x - 7 * k, y - 26 * k], [x + 7 * k, y - 26 * k], [x + 18 * k, y - 11 * k]]);
+    fh += poly([[x + 4 * k, y], [x + 4 * k, y - 18 * k], [x + 8 * k, y - 18 * k], [x + 8 * k, y - 22 * k], [x + 12 * k, y - 22 * k], [x + 12 * k, y - 26 * k], [x + 16 * k, y - 26 * k], [x + 16 * k, y - 22 * k], [x + 20 * k, y - 22 * k], [x + 20 * k, y - 18 * k], [x + 24 * k, y - 18 * k], [x + 24 * k, y]]);
+    fwn += rect(x - 11 * k, y - 8 * k, 4 * k, 4 * k) + rect(x - 3 * k, y - 8 * k, 4 * k, 4 * k) + rect(x + 12 * k, y - 14 * k, 4 * k, 5 * k); });
+  for (var px = W * (ph ? 0.6 : 0.3); px < W * (ph ? 0.72 : 0.47); px += (ph ? 9 : 13) + rnd() * 4) { var py = b2_y(hz - 6, hw, px) + 2, phh = (ph ? 26 : 38) + rnd() * 10; pop += ell(px, py - phh * 0.55, phh * 0.13, phh * 0.5) + rect(px - 0.8, py - phh * 0.1, 1.6, phh * 0.1); }
+  var w2x = W * (ph ? 0.08 : 0.535), w2y = b2_y(hz - 6, hw, w2x) + 2, w2 = 0.5;
+  wm2 += poly([[w2x - 12 * w2, w2y], [w2x - 8 * w2, w2y - 56 * w2], [w2x + 8 * w2, w2y - 56 * w2], [w2x + 12 * w2, w2y]]) + poly([[w2x - 11 * w2, w2y - 54 * w2], [w2x, w2y - 68 * w2], [w2x + 11 * w2, w2y - 54 * w2]]);
+  [35, 125, 215, 305].forEach(function (a) { wm2 += poly(rotp([[3 * w2, -2.5 * w2], [50 * w2, -2.5 * w2], [50 * w2, 6 * w2], [12 * w2, 6 * w2]], w2x, w2y - 58 * w2, a)); });
+  add(refl, 'i', pop, dk ? '#1A2C22' : '#6E9C5A');
+  add(refl, 'j', fh, dk ? '#3A2E36' : '#E8DCCB');
+  add(refl, 'k', fr2, dk ? '#4A2A2E' : '#B65A48');
+  add(refl, 'l', fwn, dk ? '#FFD27F' : '#5A4A48');
+  add(refl, 'm', wm2, dk ? 'rgba(60,64,84,0.75)' : 'rgba(140,120,112,0.6)');
+  var vx = W * 0.5, vy = hz - (ph ? 26 : 40), step = ph ? 54 : 70, rw = step * 0.64, y0 = hz + 2, rows = ['', '', '', ''], gaps = '', dots = '', heads2 = ['', '', '', ''], far2 = ['', '', '', ''], fr = SR(ph ? 811 : 977);
   function xAt(bx, y) { return vx + (bx - vx) * (y - vy) / (H - vy); }
   for (var bx = vx - W * 3; bx < vx + W * 3; bx += step) {
     var inH = !(xAt(bx + step, H) < -40 || xAt(bx, H) > W + 40), in0 = !(xAt(bx + step, y0) < -40 || xAt(bx, y0) > W + 40); if (!inH && !in0) continue;
     var ci = ((Math.round((bx - vx) / step) % 4) + 4) % 4;
-    rows[ci] += poly([[xAt(bx, y0), y0], [xAt(bx + rw, y0), y0], [bx + rw, H + 10], [bx, H + 10]]);
+    var yc = vy + 0.3 * (H - vy); far2[ci] += poly([[xAt(bx, y0), y0], [xAt(bx + rw, y0), y0], [xAt(bx + rw, yc), yc], [xAt(bx, yc), yc]]); rows[ci] += poly([[xAt(bx, yc), yc], [xAt(bx + rw, yc), yc], [bx + rw, H + 10], [bx, H + 10]]);
     gaps += poly([[xAt(bx + rw, y0), y0], [xAt(bx + step, y0), y0], [bx + step, H + 10], [bx + rw, H + 10]]);
-    for (var yy = y0 + 6; yy < H;) { var sc = (yy - vy) / (H - vy), cx = xAt(bx + rw / 2, yy), half = rw * sc / 2; yy += (6 + sc * 34) * (0.7 + rnd() * 0.6); if (cx < -30 || cx > W + 30 || sc < 0.14 || sc > 0.7) continue; var n = Math.max(1, Math.round(half * 2 / Math.max(8, 27 * sc))); for (var k = 0; k < n; k++) { var dx = cx - half * 0.85 + (k + 0.5) * (1.7 * half / n) + (rnd() - 0.5) * 4 * sc; dots += ell(dx, yy - 2 * sc, 1 + 2.6 * sc, 1 + 3.2 * sc); } shd += rect(cx - half, yy + 1, half * 2, Math.max(1, 3 * sc)); }
+    // rows of tulip heads, growing with perspective; their own random stream keeps the rest of the scene unchanged
+    for (var yy = y0 + 1.5; yy < H;) { var sc = (yy - vy) / (H - vy), cx = xAt(bx + rw / 2, yy), half = rw * sc / 2, hs = 1 + 13 * sc; yy += hs * (0.78 + fr() * 0.2); if (cx + half < -10 || cx - half > W + 10 || sc > 1.02 || sc < 0.24) continue; var n = Math.max(1, Math.round(half * 2 / (hs * 0.74))); for (var k = 0; k < n; k++) { var dx = cx - half * 0.92 + (k + 0.5) * (1.84 * half / n) + (fr() - 0.5) * hs * 0.3, dy = yy + (fr() - 0.5) * hs * 0.3; heads2[ci] += b2_tulipHead(dx, dy, hs); if (sc > 0.26) dots += b2_tulipHi(dx, dy, hs); } }
   }
-  add(mid, 'a', gaps, dk ? '#2C4430' : '#A2C888');
-  var rc = dk ? ['#7E3A48', '#94803E', '#86506E', '#56447E'] : ['#EE7C82', '#F5D370', '#F4A8C6', '#B498E0'];
-  add(mid, 'b', rows[0], rc[0]); add(mid, 'c', rows[1], rc[1]); add(mid, 'd', rows[2], rc[2]); add(mid, 'e', rows[3], rc[3]);
-  add(mid, 'f', shd, dk ? 'rgba(0,0,0,0.18)' : 'rgba(60,40,40,0.1)');
-  add(mid, 'g', dots, dk ? 'rgba(255,230,230,0.14)' : 'rgba(255,255,255,0.32)');
+  add(mid, 'a', gaps, dk ? '#22381F' : '#86B566');
+  var rc = dk ? ['#7E3A48', '#94803E', '#86506E', '#56447E'] : ['#EE7C82', '#F5D370', '#F4A8C6', '#B498E0'], hc = dk ? ['#B4475A', '#C9A646', '#BC6494', '#7A5CB4'] : ['#E8505E', '#F7C843', '#F18DB8', '#A27CDF'];
+  // each row: leafy ground tinted by its flowers, then the flower heads, then petal highlights
+  add(mid, 'b', rows[0], mix(rc[0], dk ? '#1E3420' : '#5E9444', 0.55)); add(mid, 'c', rows[1], mix(rc[1], dk ? '#1E3420' : '#5E9444', 0.55)); add(mid, 'd', rows[2], mix(rc[2], dk ? '#1E3420' : '#5E9444', 0.55)); add(mid, 'e', rows[3], mix(rc[3], dk ? '#1E3420' : '#5E9444', 0.55));
+  // far off, each row is just its flower colour, a touch hazy
+  ['f', 'g', 'n', 'o'].forEach(function (k, i) { add(mid, k, far2[i], mix(hc[i], mix(rc[i], dk ? '#1E3420' : '#5E9444', 0.55), 0.3)); });
+  add(mid, 'i', heads2[0], hc[0]); add(mid, 'j', heads2[1], hc[1]); add(mid, 'k', heads2[2], hc[2]); add(mid, 'l', heads2[3], hc[3]);
+  add(mid, 'm', dots, dk ? 'rgba(255,235,240,0.22)' : 'rgba(255,255,255,0.45)');
   add(far, 'e', ell(W / 2, hz + 6, W * 0.9, 26), dk ? 'rgba(160,200,180,0.2)' : 'rgba(255,255,255,0.7)');
   var cups = ['', '', '', ''], his = '', stems = ['', ''], leaves = '', heads = [];
   var cc = dk ? ['#C04858', '#D8B048', '#C86A98', '#7E5CB8'] : ['#E64B57', '#F5C442', '#F08DB5', '#9A6ED6'];
@@ -11981,8 +12063,7 @@ ENGINES.winter = function (A, v, dk) {
   A.flakes.forEach(function (f, i) { var key = Math.round(f.r * 2) / 2; if (!spr[key]) spr[key] = flakeSprite(key); flakes.push({x: f.x, y: f.y, r: f.r, a: f.a * 6.28, p: spr[key], vy: 9 + f.r * 0.9, spin: (hash(i) - 0.5) * 0.7, ph: hash(i + 5) * 6.28, d: 0.7 + hash(i + 2) * 0.5}); });
   A.dots.forEach(function (f, i) { dots.push({x: f.x, y: f.y, r: f.r, vy: 12 + f.r * 7, ph: hash(i + 11) * 6.28, d: 0.6 + f.r * 0.25}); });
   A.soft.forEach(function (f, i) { soft.push({x: f.x, y: f.y, r: f.r, vy: 16 + f.r * 2, ph: hash(i + 31) * 6.28, d: 1.2}); });
-  var hat = new Path2D(rect(-9 * ss, -3 * ss, 18 * ss, 3 * ss) + rect(-6 * ss, -15 * ss, 12 * ss, 12 * ss));
-  var arm = new Path2D(seg(0, 0, 19 * ss, -10 * ss) + seg(15 * ss, -8 * ss, 19 * ss, -16 * ss) + seg(16 * ss, -8 * ss, 24 * ss, -8 * ss));
+  var HP = b2_snowHat(0, 0, ss), hat = new Path2D(HP.hat), band = new Path2D(HP.band), hatHi = new Path2D(HP.hi), arm = new Path2D(b2_snowArm(0, 0, ss, 1));
   var wind = 0;
   var TIP = -54.5;
   function pose(u) {
@@ -12014,8 +12095,8 @@ ENGINES.winter = function (A, v, dk) {
       }
       ca.globalAlpha = 1;
       var P = show >= 0 ? pose(t - show) : [0, 0, 0, 0];
-      cb.fillStyle = sm.c; cb.save(); cb.translate(sm.x + 9 * ss, sm.y - 69 * ss); cb.rotate(P[2] * Math.PI / 180); cb.translate(-9 * ss, 0); cb.fill(hat); cb.restore();
-      cb.strokeStyle = sm.c; cb.lineWidth = sm.lw; cb.save(); cb.translate(sm.x + 11 * ss, sm.y - 44 * ss); cb.rotate(P[0] * Math.PI / 180); cb.stroke(arm); cb.restore();
+      cb.save(); cb.translate(sm.x + 10 * ss, sm.y - 69 * ss); cb.rotate(P[2] * Math.PI / 180); cb.translate(-10 * ss, 0); cb.fillStyle = sm.c; cb.fill(hat); cb.fillStyle = sm.red; cb.fill(band); cb.fillStyle = sm.hi; cb.globalAlpha = 0.18; cb.fill(hatHi); cb.globalAlpha = 1; cb.restore();
+      cb.fillStyle = sm.twig; cb.save(); cb.translate(sm.x + 11 * ss, sm.y - 44 * ss); cb.rotate(P[0] * Math.PI / 180); cb.fill(arm); cb.restore();
       soft.forEach(function (p) { b2_dot(cb, gS, p.x, p.y, p.r * 2.2, dk ? 0.5 : 0.8); }); cb.globalAlpha = 1;
       cb.fillStyle = dcol; dots.forEach(function (p) { var q = p.r * 0.886; if (p.r > 1.4) { var e = p.r, w = p.r * 0.62; cb.fillRect(p.x - e, p.y - w, e * 2, w * 2); cb.fillRect(p.x - w, p.y - e, w * 2, e - w); cb.fillRect(p.x - w, p.y + w, w * 2, e - w); } else cb.fillRect(p.x - q, p.y - q, q * 2, q * 2); });
 
@@ -13698,7 +13779,7 @@ ENGINES.july4 = function (A, v, dk) {
 // engines_b8.js
 function b8_lp(L, cols) {
   var out = []; cols = cols || {};
-  'abcdefgh'.split('').forEach(function (k) { if (L[k].d) out.push({k: k, p: new Path2D(L[k].d), c: cols[k] || L[k].c}); });
+  'abcdefghijklmnop'.split('').forEach(function (k) { if (L[k].d) out.push({k: k, p: new Path2D(L[k].d), c: cols[k] || L[k].c}); });
   ['s', 't'].forEach(function (k) { if (L[k].d) out.push({k: k, p: new Path2D(L[k].d), c: cols[k] || L[k].c, w: cols[k + 'w'] || L[k].w, st: 1}); });
   return out;
 }
