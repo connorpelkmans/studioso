@@ -364,8 +364,10 @@ SCENES.arctic = function (W, H, dk, rnd) {
     cuts.forEach(function (c) { if (c[0] > x) d += rect(x, y, c[0] - x, h); x = Math.max(x, c[1]); }); if (wr > x) d += rect(x, y, wr - x, h); return d; }
   for (var lg = 1; lg < 6; lg++) seams += gapSeg(wt + chh * lg / 6 - 0.6, 1.2);
   for (lg = 0; lg < 6; lg++) { var ly = wt + chh * (lg + 0.5) / 6; ends += b2_ellA(wl - 0.5, ly, chh / 12 + 0.6, chh / 12) + b2_ellA(wr + 0.5, ly, chh / 12 + 0.6, chh / 12); }
-  var gable = b2_polyA([[wl + 2, wt + 0.5], [cx, ry + 3], [wr - 2, wt + 0.5]]);
-  for (lg = 1; lg < 3; lg++) { var gy = wt - (wt - ry) * lg / 3.2, gw = (cw / 2 - 2) * (1 - lg / 3.2); seams += rect(cx - gw, gy, gw * 2, 1.1); }
+  // the gable fills right up under the eave's lower edge, so the roof sits on the walls with no sky between
+  var eTop = ry + 5 * u, eBot = wt + 3 + 4 * u, ehw = function (y) { return Math.min(cw / 2, cw * 0.68 * (y - eTop) / (eBot - eTop)); };
+  var gable = b2_polyA([[wl, wt + 0.5], [wl, eTop + (eBot - eTop) * (cw / 2) / (cw * 0.68) - 1], [cx, eTop - 1], [wr, eTop + (eBot - eTop) * (cw / 2) / (cw * 0.68) - 1], [wr, wt + 0.5]]);
+  for (lg = 1; lg < 4; lg++) { var gy = wt - (wt - eTop) * lg / 4, gw = ehw(gy) - 1; if (gw > 2) seams += rect(cx - gw, gy, gw * 2, 1.1); }
   win.forEach(function (r) { var b = 1.6 * u + 0.6; frames += rect(r[0] - b, r[1] - b, r[2] + 2 * b, b) + rect(r[0] - b, r[1] + r[3], r[2] + 2 * b, b * 1.4) + rect(r[0] - b, r[1], b, r[3]) + rect(r[0] + r[2], r[1], b, r[3]) + rect(r[0] + r[2] / 2 - 0.6, r[1], 1.2, r[3]) + rect(r[0], r[1] + r[3] / 2 - 0.6, r[2], 1.2);
     snow += b2_ellA(r[0] + r[2] / 2, r[1] + r[3] + b * 1.2, r[2] / 2 + b * 0.6, 0.9 * u + 0.3); });
   var aw = cw * 0.1, ah = chh * 0.24, ax = cx - aw / 2, ay = wt - (wt - ry) * 0.42 - ah / 2; glass += rect(ax, ay, aw, ah); frames += rect(ax - 1.4, ay - 1.4, aw + 2.8, 1.4) + rect(ax - 1.4, ay + ah, aw + 2.8, 1.4) + rect(ax - 1.4, ay, 1.4, ah) + rect(ax + aw, ay, 1.4, ah);
