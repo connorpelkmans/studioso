@@ -7501,6 +7501,8 @@ function stkEnd(ok, e){
   const s = Object.assign(moved || {k: d.k, r: Math.round(Math.random() * 30 - 15), s: 1}, noteLocalPoint(target, e.clientX, e.clientY)); delete s.y;
   t.stickers = (t.stickers || []).concat(s).slice(-16);
   changes.push({kind: "note", id: tid, after: t});
+  // On a phone the envelope covers the board, so it stays tucked away once a sticker from it lands
+  if (!d.fromNote && window.matchMedia && window.matchMedia("(max-width:700px)").matches) { ui.envOpen = false; try { localStorage.setItem("studyboard:env", "0"); } catch(err) {} }
   applyChanges(changes, "");
 }
 // Turning a sticker
