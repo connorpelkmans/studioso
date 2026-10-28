@@ -14782,10 +14782,7 @@ ENGINES.jelly = function (A, v, dk) {
     for (i = 0; i <= 22; i++) { var an = Math.PI + i / 22 * Math.PI, e = Math.abs(Math.cos(an)), m = Math.pow(e, 4) * (fl - 1); c[i ? 'lineTo' : 'moveTo'](Math.cos(an) * r * sx * (1 + m), Math.sin(an) * r * 0.85 * sy + Math.pow(e, 6) * r * 0.08 * (1 - cc)); }
     for (i = 0; i <= 16; i++) { var xm = (1 - i / 8) * r * sx * fl * 0.98; c.lineTo(xm, r * 0.1 + r * 0.06 * (1 - cc) + Math.abs(Math.sin(i / 16 * Math.PI * 4)) * r * 0.1 - Math.pow(Math.abs(xm) / r, 2) * r * 0.1 * cc); }
     c.closePath(); c.fillStyle = j.fill; c.fill();
-    // four-leaf glow inside and a highlight along the top of the dome
-    c.fillStyle = j.gonC; c.beginPath();
-    for (k = 0; k < 4; k++) { var ga = k * Math.PI / 2 + Math.PI / 4, gx = Math.cos(ga) * r * 0.2 * sx, gy = -r * 0.34 * sy + Math.sin(ga) * r * 0.14 * sy; c.moveTo(gx + r * 0.13 * sx, gy); c.ellipse(gx, gy, r * 0.13 * sx, r * 0.1 * sy, 0, 0, 7); }
-    c.fill();
+    // a highlight along the top of the dome
     c.strokeStyle = j.rimC; c.lineWidth = Math.max(1, r / 22); c.beginPath(); c.ellipse(0, 0, r * sx * 0.82, r * 0.85 * sy * 0.82, 0, Math.PI * 1.18, Math.PI * 1.55); c.stroke();
     c.restore();
   }
