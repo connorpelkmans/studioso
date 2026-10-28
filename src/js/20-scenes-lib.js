@@ -18849,7 +18849,7 @@ ENGINES.culinary = function (A, v, dk) {
   var TC = ['#E25A4A', '#3E9E6A', '#F2A33A', '#4A86D8'];
   var clouds = dk ? [] : [0, 1].map(function (i) { return {x: Wn[0] + Wn[2] * (0.2 + 0.5 * i), y: Wn[1] + Wn[3] * (0.16 + 0.12 * i), s: Wn[2] / (ph ? 260 : 300) * (1 - i * 0.2), v: 3 + i * 2}; });
   var stars = []; if (dk) for (var i = 0; i < 14; i++) stars.push([Wn[0] + Wn[2] * hash(i + 4), Wn[1] + Wn[3] * 0.5 * hash(i + 9), hash(i + 13) * 6]);
-  var PX = A.pan[0], PY = A.pan[1] - 7, PW = A.pan[2], S = A.stock;
+  var PX = A.pan[0], PY = A.pan[1] + 3, PW = A.pan[2], S = A.stock; // PY: where the pan's base rests on the grate
   // unchanging decor, painted once
   var K = Math.min(1.5, Math.max(1.15, (window.devicePixelRatio || 1) * 0.9)), dec = n6_off(W, H, K), o = dec.o;
   (function () {
@@ -18895,12 +18895,20 @@ ENGINES.culinary = function (A, v, dk) {
     c.fillStyle = '#FBDD72'; c.beginPath(); c.ellipse(-rx * 0.1, -ry * 0.15, rx * 0.8, ry * 0.6, 0, 0, 7); c.fill();
     c.fillStyle = 'rgba(214,140,40,0.55)'; [[-0.4, 0.1, 0.12], [0.25, -0.2, 0.09], [0.5, 0.25, 0.08], [-0.1, 0.35, 0.07]].forEach(function (q) { c.beginPath(); c.ellipse(q[0] * rx, q[1] * ry, q[2] * rx, q[2] * rx * 0.5, 0, 0, 7); c.fill(); });
     c.strokeStyle = 'rgba(200,130,40,0.6)'; c.lineWidth = Math.max(1, ry * 0.12); c.beginPath(); c.ellipse(0, ry * 0.05, rx * 0.82, ry * 0.5, 0, Math.PI * 0.1, Math.PI * 0.9); c.stroke(); c.restore(); }
-  function pan(c, x, y, rot) { var rx = PW / 2, ry = PW * 0.16; c.save(); c.translate(x, y); c.rotate(rot);
-    c.strokeStyle = dk ? '#26242C' : '#3A3A44'; c.lineCap = 'round'; c.lineWidth = PW * 0.06; c.beginPath(); c.moveTo(rx * 0.9, -ry * 0.1); c.lineTo(rx * 1.7, -ry * 0.75); c.stroke();
-    c.strokeStyle = C.utens; c.lineWidth = PW * 0.075; c.beginPath(); c.moveTo(rx * 1.45, -ry * 0.55); c.lineTo(rx * 1.9, -ry * 0.95); c.stroke();
-    c.fillStyle = dk ? '#26242C' : '#3A3A44'; c.beginPath(); c.ellipse(0, 0, rx, ry, 0, 0, Math.PI); c.lineTo(-rx, -ry * 0.1); c.ellipse(0, -ry * 0.1, rx, ry, 0, Math.PI, Math.PI * 2); c.fill();
-    c.fillStyle = dk ? '#3E3C46' : '#55555F'; c.beginPath(); c.ellipse(0, -ry * 0.18, rx * 0.88, ry * 0.78, 0, 0, 7); c.fill();
-    c.fillStyle = 'rgba(255,255,255,0.12)'; c.beginPath(); c.ellipse(-rx * 0.35, -ry * 0.4, rx * 0.3, ry * 0.18, -0.1, 0, 7); c.fill(); c.restore(); }
+  // the frying pan stands on the burner grate: (x, y) is the middle of its base where it rests; the sloped wall rises to an
+  // elliptical rim, the inside floor shows through the opening, and the handle leaves from the rim
+  function pan(c, x, y, rot) { var rx = PW / 2, ry = PW * 0.16, bx = rx * 0.8, by = ry * 0.8, hgt = PW * 0.085, top = -hgt; c.save(); c.translate(x, y); c.rotate(rot);
+    var body = dk ? '#26242C' : '#3A3A44', inner = dk ? '#3E3C46' : '#55555F';
+    c.fillStyle = 'rgba(0,0,0,' + (dk ? 0.35 : 0.22) + ')'; c.beginPath(); c.ellipse(rx * 0.04, 1.5, bx * 1.04, by * 0.55, 0, 0, 7); c.fill();
+    c.strokeStyle = body; c.lineCap = 'round'; c.lineWidth = PW * 0.06; c.beginPath(); c.moveTo(rx * 0.92, top - ry * 0.05); c.lineTo(rx * 1.7, top - ry * 0.7); c.stroke();
+    c.strokeStyle = C.utens; c.lineWidth = PW * 0.075; c.beginPath(); c.moveTo(rx * 1.45, top - ry * 0.5); c.lineTo(rx * 1.9, top - ry * 0.9); c.stroke();
+    // outer wall: front half of the base, up the sides, front half of the rim
+    c.fillStyle = body; c.beginPath(); c.ellipse(0, 0, bx, by * 0.55, 0, 0, Math.PI); c.lineTo(-rx, top); c.ellipse(0, top, rx, ry, 0, Math.PI, 0, true); c.closePath(); c.fill();
+    c.beginPath(); c.ellipse(0, top, rx, ry, 0, 0, 7); c.fill();
+    c.fillStyle = inner; c.beginPath(); c.ellipse(0, top + ry * 0.06, rx * 0.88, ry * 0.8, 0, 0, 7); c.fill();
+    c.fillStyle = dk ? '#4A4852' : '#62626C'; c.beginPath(); c.ellipse(0, top + ry * 0.2, rx * 0.66, ry * 0.52, 0, 0, 7); c.fill();
+    c.fillStyle = 'rgba(255,255,255,0.12)'; c.beginPath(); c.ellipse(-rx * 0.35, top - ry * 0.3, rx * 0.3, ry * 0.16, -0.1, 0, 7); c.fill();
+    c.fillStyle = 'rgba(255,255,255,0.1)'; c.beginPath(); c.ellipse(-rx * 0.62, -hgt * 0.45, rx * 0.08, hgt * 0.35, 0.2, 0, 7); c.fill(); c.restore(); }
   function lid(c, x, y, w, rot, lift) { c.save(); c.translate(x, y - lift); c.rotate(rot); var hw = w * 0.53;
     c.fillStyle = dk ? '#9AA4B4' : '#D6DDE4'; c.beginPath(); c.moveTo(-hw, 0); c.quadraticCurveTo(0, -w * 0.2, hw, 0); c.closePath(); c.fill();
     c.fillStyle = dk ? '#7A8494' : '#AEB8C4'; c.fillRect(-hw, -2, hw * 2, 4); c.fillStyle = 'rgba(255,255,255,0.45)'; c.beginPath(); c.ellipse(-hw * 0.35, -w * 0.07, hw * 0.25, w * 0.02, -0.15, 0, 7); c.fill();
@@ -18959,11 +18967,11 @@ ENGINES.culinary = function (A, v, dk) {
         flames(cb, b, t * f.s, k); n6_dot(cb, flameG, b[0], b[1], b[2] * 0.4, dk ? 0.35 : 0.15); cb.restore(); });
       var rt = rattle > 0 ? Math.sin(t * 38) * 0.05 * Math.min(1, rattle * 2) : 0, lf = rattle > 0 ? Math.abs(Math.sin(t * 19)) * 3 * Math.min(1, rattle * 2) : 0;
       lid(cb, S[0], S[1] - 2, S[2], rt, lf);
-      var pr = 0, pdy = 0, ox = PX - 2, oy = PY - PW * 0.02, orot = 0, osy = 1, ofront = false;
+      var pr = 0, pdy = 0, ox = PX - 2, oy = PY - PW * 0.1, orot = 0, osy = 1, ofront = false;
       if (T >= 0 && T < 2.4) {
         if (T < 0.25) { var u = n6_ease(T / 0.25); pdy = 6 * u; pr = 0.1 * u; } else if (T < 0.42) { u = n6_ease((T - 0.25) / 0.17); pdy = 6 - 22 * u; pr = 0.1 - 0.32 * u; } else if (T < 0.9) { u = n6_ease((T - 0.42) / 0.48); pdy = -16 * (1 - u); pr = -0.22 * (1 - u); }
         if (T > 1.83 && T < 2.3) { u = (T - 1.83) / 0.47; pdy = Math.sin(u * Math.PI) * 6; }
-        if (T > 0.33 && T < 1.83) { var fu = (T - 0.33) / 1.5, peak = H * (ph ? 0.3 : 0.42); oy = PY - PW * 0.02 - peak * 4 * fu * (1 - fu); ox = PX - 2 + Math.sin(fu * Math.PI) * PW * 0.12; osy = Math.cos(fu * Math.PI * 2); osy = (osy < 0 ? -1 : 1) * Math.max(0.32, Math.abs(osy)); orot = Math.sin(fu * Math.PI) * 0.4; ofront = true; }
+        if (T > 0.33 && T < 1.83) { var fu = (T - 0.33) / 1.5, peak = H * (ph ? 0.3 : 0.42); oy = PY - PW * 0.1 - peak * 4 * fu * (1 - fu); ox = PX - 2 + Math.sin(fu * Math.PI) * PW * 0.12; osy = Math.cos(fu * Math.PI * 2); osy = (osy < 0 ? -1 : 1) * Math.max(0.32, Math.abs(osy)); orot = Math.sin(fu * Math.PI) * 0.4; ofront = true; }
         else if (T >= 1.83 && T < 2.2) osy = 0.75 + 0.25 * n6_ease((T - 1.83) / 0.37);
       }
       pan(cb, PX, PY + pdy, pr);
