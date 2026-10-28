@@ -5055,7 +5055,7 @@ function photoNoteSheet(file){
       if (tasks.length) applyChanges(tasks.map(x => { const t = newTask({title: x.title, type: x.type, courseId: cid, due: x.due, time: x.time, start: MILESTONE(x.type) ? x.due : addDays(x.due, -(SPAN[x.type] ?? 3)) < todayISO() ? todayISO() : addDays(x.due, -(SPAN[x.type] ?? 3)), priority: x.type === "Exam" ? "high" : "med"}); return {kind: "task", id: t.id, after: t}; }), `Added ${tasks.length} task${tasks.length === 1 ? "" : "s"} from your photos`);
       ui.tab = "notes"; render();
       toast(tasks.length ? `Note saved, and ${tasks.length} task${tasks.length === 1 ? "" : "s"} added` : "Note saved to your board");
-      if (keep) uploadOkLater(() => uploadFiles(S.files, {courseId: cid, folderId: "notes"}), "The photos");
+      if (keep) uploadFiles(S.files, {courseId: cid, folderId: "notes"});
     });
   };
   if (!file && S.result) review();
@@ -12648,7 +12648,7 @@ function importSheet(courseId, file){
     dlg.close();
     ui.tab = "courses"; ui.courseId = cid;
     applyChanges(changes, nTasks ? `Added ${nTasks} task${nTasks === 1 ? "" : "s"} from the syllabus` : "Course added");
-    if (saveIt) { const f = srcFile; setTimeout(() => uploadOkLater(() => uploadFiles([f], {courseId: cid, folderId: "syllabus", quiet: true}), "The syllabus"), 1500); }
+    if (saveIt) { const f = srcFile; setTimeout(() => uploadFiles([f], {courseId: cid, folderId: "syllabus", quiet: true}), 1500); }
   });
 }
 
@@ -12728,45 +12728,6 @@ async function shrinkForUpload(f, type){
     const name = out === "image/jpeg" ? f.name.replace(/\.(png|webp|jpe?g)$/i, "") + ".jpg" : f.name.replace(/\.webp$/i, ".png");
     return {file: new File([blob], name, {type: out, lastModified: f.lastModified || Date.now()}), type: out};
   } catch (e) { return {file: f, type}; }
-}
-// Course files (slides, handouts, readings) stay private to the person who uploads them, and they take
-// responsibility for having the right to. Asked once per account before the first course-file upload; the answer syncs.
-const UPLOAD_TERMS_V = 1;
-const uploadAgreed = () => { const u = (state.settings || {}).uploadTerms; return !!(u && u.v >= UPLOAD_TERMS_V && u.at); };
-function uploadOk(then){
-  if (uploadAgreed() || inPreview()) { then(); return; }
-  openSheet(`<form class="sheet">${head("Your Course Files")}<div class="sheet-body">
-    <p style="margin:0">Files you upload, like lecture slides, handouts and readings, stay private to your account. No one else can open them, and Studyboard never shares or publishes them.</p>
-    <p style="margin:0">Course materials usually belong to your instructor, your school or a publisher. Only upload what you're allowed to use for your own study.</p>
-    <label class="mi-check up-rights"><input type="checkbox" id="upRights"> <span>I'm responsible for what I upload, and I'll only upload course materials I'm allowed to use for my own study.</span></label></div>
-    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Continue</button></div></form>`, () => {
-    const b = $("#upRights"); if (!b || !b.checked) { toast("Tick the box to continue."); if (b) b.focus(); return false; }
-    state.settings.uploadTerms = {v: UPLOAD_TERMS_V, at: Date.now()}; saveSettings();
-    dlg.close(); then(); return false;
-  });
-}
-// For saves that happen on their own a moment later: never covers a sheet the person is using
-function uploadOkLater(then, what){
-  if (uploadAgreed() || inPreview()) { then(); return; }
-  if (!dlg.open) { uploadOk(then); return; }
-  toast(`${what || "The file"} wasn't saved to Files. To keep a copy, upload it from the Files tab.`);
-}
-// Files that are course material (not the student's own work): never sent to anyone else
-const COURSE_FOLDERS = new Set(["syllabus", "notes", "exams", "lectures"]);
-function courseFileIds(){
-  const ids = new Set();
-  Object.values(state.files || {}).forEach(f => {
-    if (!f) return;
-    if (COURSE_FOLDERS.has(f.folderId) || /\.(pptx?|key|odp)$/i.test(f.name || "")) ids.add(f.id);
-    ((f.lec && f.lec.att) || []).forEach(a => { if (a && a.k === "file") ids.add(a.id); });
-  });
-  return ids;
-}
-// true when a file picked on the device is one of your uploaded course files (same name and size)
-function isCourseFile(file){
-  if (!file) return false;
-  const ids = courseFileIds(), nm = String(file.name || "").toLowerCase();
-  return [...ids].some(id => { const f = state.files[id]; return f && (f.revs || []).some(r => r && Number(r.size) === Number(file.size) && String(r.name || f.name || "").toLowerCase() === nm); });
 }
 async function uploadFiles(list, opts){
   if (opts && opts.cloud && window.SBCLOUD && SBCLOUD.target()) return SBCLOUD.uploadFiles(list, opts);
@@ -13064,9 +13025,9 @@ document.addEventListener("drop", e => {
   if (fid && node) { moveFile(fid, node.dataset.drop); return; }
   const list = [...(e.dataTransfer.files || [])];
   if (list.length) {
-    if (node) { const [cid, folderId] = node.dataset.drop.split("|"); uploadOk(() => uploadFiles(list, {courseId: cid, folderId, cloud: true})); }
-    else if (ui.fCourse === "all" && window.SBQADD && caps.assets) uploadOk(() => SBQADD.open(list));
-    else uploadOk(() => uploadFiles(list, Object.assign(uploadTarget(), {cloud: true})));
+    if (node) { const [cid, folderId] = node.dataset.drop.split("|"); uploadFiles(list, {courseId: cid, folderId, cloud: true}); }
+    else if (ui.fCourse === "all" && window.SBQADD && caps.assets) SBQADD.open(list);
+    else uploadFiles(list, Object.assign(uploadTarget(), {cloud: true}));
   }
 });
 
@@ -15732,7 +15693,7 @@ document.addEventListener("click", e => {
     case "f-nav": ui.fCourse = el.dataset.c; ui.fFolder = el.dataset.f || ""; render(); break;
     case "f-go": ui.tab = "files"; ui.fCourse = el.dataset.c; ui.fFolder = el.dataset.f || ""; ui.courseId = null; render(); window.scrollTo(0, 0); break;
     case "f-open": { const f = state.files[id]; if (f) fileSheet(f); break; }
-    case "f-upload": if (dlg.open) dlg.close(); uploadOk(() => $("#fUploadIn").click()); break;
+    case "f-upload": if (dlg.open) dlg.close(); $("#fUploadIn").click(); break;
     case "fab-course": fabMenu("Add Course", [["new-course", "Add Course", "Name, code, color and class times", "course"], ["import-syllabus", "Import a Syllabus", "Upload a PDF to add the course and its deadlines", "syllabus"], ["lms-open", "Connect Canvas, Brightspace or Blackboard", "Bring in your courses, due dates and grades", "school"]]); break;
     case "fab-file": fabMenu("Add File", [...(caps.assets ? [["f-upload", "Upload File", "PDFs, slides, documents and images", "upload"], ["f-quick", "Quick Add", "Drop files and let " + aiWho("Studyboard") + " sort them into the right course and folder", "", true]] : []), ["f-link", "Add Link", "For files kept in OneDrive, Google Drive or Canvas", "link"]]); break;
     case "fab-note": if (noteEditing) saveNoteText(); newNoteAt(); break;
@@ -21077,7 +21038,7 @@ document.head.appendChild(AREA_CSS);
         ${li("Record a Lecture", "live captions, then AI study notes and flashcards")}
         ${li("Two-Way Calendar Sync", "with Google Calendar or Outlook")}
         ${li("PDF Reader with Highlights", "and decks read aloud with Listen")}
-        ${li("Picture Cards", "from photos of your own notes, drawings and whiteboards")}
+        ${li("Picture Cards", "and cards made from the diagrams in your PDFs and pictures")}
         ${li("Insights, Term Recap and Your Own Focus Routines")}
       </ul>
       <p class="ob-note mini">${gift ? "" : account ? "It starts as soon as you confirm your email address. " : "It starts when you make your free account. You can do that at the end of setup. "}Storage and backups stay at the Free amounts during the week.</p>`;
@@ -25341,12 +25302,12 @@ hook("boot", boot);
   // A short sheet that asks for the confirmation, for actions that share straight from a button
   function confirmRights(then){
     openSheet(`<form class="sheet">${head("Before You Share")}<div class="sheet-body">
-      <p style="margin:0">Only share what you made yourself or what AI wrote for you in its own words. Slides, handouts, textbook pages, pictures from them and your instructor's test questions belong to someone else.</p>
+      <p style="margin:0">Share what you made yourself or what AI wrote for you in its own words. Slides, handouts, textbook pages and test questions usually belong to someone else, so share them only if you have permission or they're free to share.</p>
       ${rightsBox()}</div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Continue</button></div></form>`, () => { if (!rightsOk()) return false; dlg.close(); then(); return false; });
   }
   // Before anything is shared: the person confirms it's their own work, not copied course material
-  const rightsBox = () => `<label class="mi-check sh-rights"><input type="checkbox" id="shRights"> <span>I made this myself, or AI rewrote it in its own words. It doesn't copy slides, textbooks or anyone else's work, or questions from my instructor's tests.</span></label>`;
+  const rightsBox = () => `<label class="mi-check sh-rights"><input type="checkbox" id="shRights"> <span>I made this myself or AI wrote it in its own words. Anything else in it, like slides, textbook content or test questions, I have permission to share.</span></label>`;
   const rightsOk = () => { const b = $("#shRights"); if (!b || b.checked) return true; toast("Tick the box to confirm this is your own work first."); b.focus(); return false; };
   function deckPayload(d, withQ){
     const c = courseOf(d.courseId);
@@ -29277,7 +29238,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
   function confirmRights(then){
     const g = G();
     openSheet(`<form class="sheet">${head("Before You Share")}<div class="sheet-body">
-      <p style="margin:0">Only share what you made yourself or what AI wrote for you in its own words. Slides, handouts, textbook pages, pictures from them and your instructor's test questions belong to someone else.</p>
+      <p style="margin:0">Share what you made yourself or what AI wrote for you in its own words. Slides, handouts, textbook pages and test questions usually belong to someone else, so share them only if you have permission or they're free to share.</p>
       ${g.rightsBox()}</div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Continue</button></div></form>`, () => { if (!g.rightsOk()) return false; then(); return false; });
   }
@@ -57678,7 +57639,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
         summarizeFile(f.id); mark("Summarizing " + f.name);
       } else if (a.type === "save_file") {
         const srcs = await srcsOf(m.at); if (!srcs) { toast("I can't find the file for this one any more. Attach it again."); return; }
-        await new Promise(res => uploadOk(async () => { await uploadFiles(srcs.map(fileFrom), {courseId: course ? course.id : "", folderId: ""}); mark(`Saved ${srcs.length} file${srcs.length === 1 ? "" : "s"} to Files`); res(); }));
+        await uploadFiles(srcs.map(fileFrom), {courseId: course ? course.id : "", folderId: ""}); mark(`Saved ${srcs.length} file${srcs.length === 1 ? "" : "s"} to Files`);
       } else {
         let srcs = await srcsOf(m.at);
         if (!srcs) srcs = a.text.length >= 80 ? [{name: a.deckName || "Chat material", kind: "Text", size: a.text.length, part: {text: a.text}}] : null;
@@ -67433,7 +67394,7 @@ const QADD = (() => {
   hook("act", (act, el, id) => {
     const cid = el.dataset.c || "";
     switch (act) {
-      case "f-quick": uploadOk(() => openQuick()); return true;
+      case "f-quick": openQuick(); return true;
       case "obj-done": { const c = courseOf(cid); if (c) saveObjs(cid, objsOf(c).map(o => o.id === id ? Object.assign({}, o, {done: !!el.checked}) : o), ""); return true; }
       case "obj-more": OB.all[cid] = !OB.all[cid]; render(); return true;
       case "obj-edit": editSheet(cid); return true;
@@ -68291,15 +68252,15 @@ window.SBSTREAK = {on: gentleOn, line: () => streakLineText(streakNow()), state:
     <p>Keep your password private; you are responsible for what happens under your account. Everything you put into Studyboard is yours. You give us a worldwide, non-exclusive, royalty-free permission to store, copy, process, sync and show it so Studyboard can work: back to you, to the people you share it with and, when you publish something, to anyone. We use it for nothing else. The permission ends when you delete it, except for copies other people already saved and backups we keep for a short time. You can export it or delete it at any time (see the Privacy Policy). Keep your own backups of anything important. You must be 13 or older to make an account yourself; a parent or guardian can make one for a younger student and agrees to these Terms for them. Accounts for students under 13 can't publish or share with a link. Only publish sets you made or have the right to share, and never answers to graded work; we remove what is reported.</p>
 
     <h3>Course materials and copyright</h3>
-    <p>Slides, handouts, readings, tests and other course materials usually belong to your instructor, your school or a publisher. You may upload them to Studyboard to study from them yourself, as your school allows. Course files you upload, such as lecture slides, stay private to your account: no one else can open them, and Studyboard never shares or publishes them or lets you share them with a group. Pictures, files and text copied word for word from a file can't be shared anywhere in Studyboard: not in a group, with another person or on a public page. You can share what you write or draw yourself, and what AI writes for you in its own words; pictures on a whiteboard stay on your own copy. You alone are responsible for having the right to upload them; the first time you upload course files you confirm this, and the date is kept with your account. When you share or publish anything in Studyboard (a deck, a quiz, notes, a whiteboard, a message or a link, in a group or with a link), you promise that you made it or have the right to share it, and that sharing it doesn't break anyone's copyright or other rights or your school's rules. You confirm this each time you share or publish, and we keep a record of when you agreed and to which version of these terms. Share the cards and questions you wrote, or that AI wrote for you in its own words. Don't share uploaded slides or handouts, pictures taken from them, wording copied from them, questions from your instructor's tests or quizzes, or answers to graded work, unless you have permission.</p>
-    <p><b>Copyright complaints:</b> If you think something shared in Studyboard copies your work, use Report on it for a quick review, or send a formal notice to our copyright agent at ${contact()} with: your physical or electronic signature; your name, postal address, phone number and email; the work you own; where the copy appears in Studyboard (a link or share code); a statement that you believe in good faith the use isn't allowed by the owner, its agent or the law; and a statement that your notice is accurate and, under penalty of perjury, that you own the work or may act for the owner. We may remove or disable anything shared in Studyboard when we receive a complaint, without notice, and we tell the person who shared it. We stop people who repeatedly share content that breaks other people's rights from sharing, and may close their accounts.</p>
+    <p>Slides, handouts, readings, tests and other course materials usually belong to your instructor, your school or a publisher. You may upload them to Studyboard to study from them yourself, as your school allows. Course files you upload, such as lecture slides, stay private to your account: no one else can open them, and Studyboard never shares or publishes them or lets you share them with a group. Pictures, files and text copied word for word from a file can't be shared anywhere in Studyboard: not in a group, with another person or on a public page. You can share what you write or draw yourself, and what AI writes for you in its own words; pictures on a whiteboard stay on your own copy. You alone are responsible for having the right to upload them. When you share or publish anything in Studyboard (a deck, a quiz, notes, a whiteboard, a message or a link, in a group or with a link), you promise that you made it or have the right to share it, and that sharing it doesn't break anyone's copyright or other rights or your school's rules. You confirm this each time you share or publish, and we keep a record of when you agreed and to which version of these terms. Share the cards and questions you wrote, or that AI wrote for you in its own words. Don't share uploaded slides or handouts, pictures taken from them, wording copied from them, questions from your instructor's tests or quizzes, or answers to graded work, unless you have permission.</p>
+    <p><b>Copyright complaints:</b> If you think something shared in Studyboard copies your work, use Report on it for a quick review, or send a formal notice to ${contact()} with: your physical or electronic signature; your name, postal address, phone number and email; the work you own; where the copy appears in Studyboard (a link or share code); a statement that you believe in good faith the use isn't allowed by the owner, its agent or the law; and a statement that your notice is accurate and, under penalty of perjury, that you own the work or may act for the owner. We may remove or disable anything shared in Studyboard when we receive a complaint, without notice, and we tell the person who shared it. We stop people who repeatedly share content that breaks other people's rights from sharing, and may close their accounts.</p>
     <p><b>If we removed something you shared:</b> If you think it was removed by mistake or misidentified, send a counter-notice to ${contact()} with: your physical or electronic signature; your name, postal address and phone number; what was removed and where it was (a link or share code); a statement, under penalty of perjury, that you believe in good faith it was removed by mistake or misidentification; and a statement that you consent to the jurisdiction of the federal district court for your address (or, if you live outside the United States, any judicial district where we may be found) and will accept service of legal papers from the person who complained. We send your counter-notice, with your contact details, to the person who complained. Unless they tell us they have started a court case to stop it being shared, we may put it back 10 to 14 business days after we receive your counter-notice. Anyone who knowingly makes a false notice or counter-notice can be liable for damages.</p>
 
     <h3>Study groups and shared content</h3>
     <p>Study groups, study rooms and shared decks let you post content other people see. There is zero tolerance for objectionable content or abusive users: no harassment, bullying, hate, threats, sexual content, spam, cheating services or sharing other people's personal information. Use Report on a group message, a shared item or a group member to tell us, and Block (in the group's member list) to stop seeing someone's messages straight away. We review reports within 24 hours, remove content that breaks these rules and remove people who post it. We don't check what people share before it appears and we aren't responsible for it; content made by other people is theirs, not ours, and you use it at your own risk. Anyone who can see something you share or publish can save a copy, and unpublishing or deleting it doesn't remove the copies they already saved.</p>
 
     <h3>AI features</h3>
-    <p>AI features are optional. They use either your own key from a provider you choose, whose terms and any costs are between you and that provider, or, if you are signed in without a key, a small number of free trial requests answered by an open AI model run on Cloudflare (see the Privacy Policy). AI answers can be wrong or out of date. Check dates, grades and facts before you rely on them, and use AI only as your school and instructors allow. When AI makes flashcards, quizzes or other study material from your slides, notes or files, Studyboard tells it to restate the facts and ideas in its own words instead of copying the wording, and not to copy your instructor's test or quiz questions. Picture cards are made only from pictures you take or draw yourself, such as a photo of your own notes or a whiteboard; Studyboard doesn't turn pictures from slides, PDFs or other course files into picture cards. Check what AI makes before you share it.</p>
+    <p>AI features are optional. They use either your own key from a provider you choose, whose terms and any costs are between you and that provider, or, if you are signed in without a key, a small number of free trial requests answered by an open AI model run on Cloudflare (see the Privacy Policy). AI answers can be wrong or out of date. Check dates, grades and facts before you rely on them, and use AI only as your school and instructors allow. When AI makes flashcards, quizzes or other study material from your slides, notes or files, Studyboard tells it to restate the facts and ideas in its own words instead of copying the wording, and not to copy your instructor's test or quiz questions. Picture cards, including ones made from your slides or PDFs, stay in your own decks and are never shared. Check what AI makes before you share it.</p>
 
     <h3>Study use only</h3>
     <p>Studyboard is a study tool. Flashcards, quizzes, summaries, plans and answers in it, whether written by you, by AI or by other students, can be wrong, incomplete or out of date, and we don't promise they will help you pass. They are not medical, nursing, legal, financial or other professional advice: never use them to make decisions about a patient's care, your health or anyone's safety, and always check your course materials, your instructor and official guidelines. You are responsible for following your school's academic integrity rules. Don't use Studyboard to cheat, to share or collect answers to graded work or questions from real tests, or to hand in AI-written work where your school doesn't allow it.</p>
@@ -69978,6 +69939,40 @@ var SBPRO = null;
   /* Finding labels */
   const shortLabel = s => { const t = String(s || "").trim(); return t.length >= 2 && t.length <= 32 && t.split(/\s+/).length <= 4 && /[A-Za-z]/.test(t) && !/^(figure|fig\.?|slide|page|\d+)$/i.test(t); };
   async function canvasBlob(cv){ return new Promise(res => cv.toBlob(b => res(b), "image/jpeg", 0.84)); }
+  async function scanPdf(bytes, name, onPage){
+    await loadPdfJs();
+    const doc = await window.pdfjsLib.getDocument({data: bytes, ...PDF_OPTS}).promise, out = [], OPS = window.pdfjsLib.OPS;
+    const pages = Math.min(doc.numPages, 60);
+    for (let p = 1; p <= pages; p++) {
+      if (onPage) onPage(p, pages);
+      const page = await doc.getPage(p), tc = await page.getTextContent();
+      const items = tc.items.filter(it => it && typeof it.str === "string" && it.str.trim());
+      const words = items.reduce((s, it) => s + it.str.trim().split(/\s+/).length, 0), labels = items.filter(it => shortLabel(it.str));
+      if (labels.length < 3 || labels.length > 24 || words > 160) continue;
+      const ops = await page.getOperatorList(); let pics = 0, paths = 0;
+      ops.fnArray.forEach(f => { if (f === OPS.paintImageXObject || f === OPS.paintInlineImageXObject || f === OPS.paintImageXObjectRepeat) pics++; if (f === OPS.constructPath) paths++; });
+      if (!pics && paths < 12) continue;
+      const xs = new Set(labels.map(it => Math.round(it.transform[4] / 20)));
+      if (xs.size < 2) continue;
+      const base = page.getViewport({scale: 1}), scale = Math.min(2.2, 1400 / base.width), vp = page.getViewport({scale});
+      const cv = document.createElement("canvas"); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
+      await page.render({canvasContext: cv.getContext("2d"), viewport: vp}).promise;
+      const toBox = it => {
+        const h = Math.max(4, Math.abs(it.transform[3]) || it.height || 8), x = it.transform[4], y = it.transform[5];
+        const tf = vp.transform, at = (px, py) => [tf[0] * px + tf[2] * py + tf[4], tf[1] * px + tf[3] * py + tf[5]];
+        const p1 = at(x - 2, y - h * 0.3), p2 = at(x + (it.width || h * it.str.length * 0.5) + 2, y + h * 1.05), r = [p1[0], p1[1], p2[0], p2[1]];
+        const L = Math.min(r[0], r[2]), T = Math.min(r[1], r[3]), Rr = Math.max(r[0], r[2]), B = Math.max(r[1], r[3]);
+        return {x: L / cv.width, y: T / cv.height, w: (Rr - L) / cv.width, h: (B - T) / cv.height, t: it.str.trim()};
+      };
+      const inPage = b => b.w > 0 && b.h > 0 && b.x >= 0 && b.y >= 0 && b.x + b.w <= 1.02 && b.y + b.h <= 1.02;
+      const boxes = labels.map(toBox).filter(b => b.w > 0 && b.h > 0 && b.x >= 0 && b.y >= 0 && b.x + b.w <= 1.02 && b.y + b.h <= 1.02)
+        .filter(b => !(b.y < 0.12 && Math.abs(b.x + b.w / 2 - 0.5) < 0.12));
+      if (boxes.length < 3) continue;
+      out.push({blob: await canvasBlob(cv), w: cv.width, h: cv.height, boxes: boxes.slice(0, 20), words: items.map(toBox).filter(inPage).slice(0, 400), src: `${name}, page ${p}`});
+      if (out.length >= 30) break;
+    }
+    return out;
+  }
   const canDetect = () => typeof window.TextDetector === "function";
   async function scanImage(blob, name){
     const bmp = await createImageBitmap(blob), sc = Math.min(1, 1400 / bmp.width), cv = document.createElement("canvas");
@@ -70011,7 +70006,7 @@ var SBPRO = null;
   async function aiLabels(blob){
     const bmp = await createImageBitmap(blob), W = bmp.width, H = bmp.height, grid = gridOf();
     const r = await aiCall({task: "photo", maxTokens: 6000, temperature: 0, timeout: 90000, schema: AI_LABELS(grid),
-      system: "You turn a student's own photo or drawing of a study diagram (their handwritten notes, a sketch, or a whiteboard they worked on: anatomy, a map, a cell, a circuit, a chart) into flashcards: each label gets hidden in turn and the student names it. " +
+      system: "You turn a study diagram (anatomy, a map, a cell, a circuit, a chart, a labelled photo or a lecture slide) into flashcards: each label gets hidden in turn and the student names it. " +
         "Find every label that names a part of the picture: a word or short phrase, usually joined by a line or arrow to what it names, or written on the part itself. " +
         "A label written on two or three lines is ONE label: one box around all its lines, and its text joined with spaces. " +
         "If the picture uses numbered or lettered callouts (1, 2, 3 or A, B, C) explained in a key or legend, each callout is a label: box the number or letter on the picture, and give the key's term as the answer; do not list the key's own lines. " +
@@ -70124,6 +70119,15 @@ var SBPRO = null;
     if (text && !String(box.t || "").trim() && !(inp && inp.value.trim())) { box.t = text; if (inp) inp.value = text; keepLabel(); }
   }
 
+  const isPdf = r => /pdf/i.test(r.type || "") || /\.pdf$/i.test(r.name || "");
+  const isImg = r => /^image\/(png|jpe?g|webp|gif)$/i.test(r.type || "") || /\.(png|jpe?g|webp|gif)$/i.test(r.name || "");
+  const latest = f => (f.revs || [])[f.revs.length - 1] || null;
+  const usable = f => f && f.kind === "file" && latest(f) && latest(f).assetId && (isPdf(latest(f)) || isImg(latest(f)));
+  async function scanFile(f, onPage){
+    const r = latest(f), bytes = await assetBytes(r.assetId);
+    if (isPdf(r)) return scanPdf(bytes, f.name, onPage);
+    return [await scanImage(new Blob([bytes], {type: r.type || "image/jpeg"}), f.name)];
+  }
 
   /* Making cards */
   const r4 = v => Math.round(Math.max(0, Math.min(1, Number(v) || 0)) * 10000) / 10000;
@@ -70437,38 +70441,74 @@ var SBPRO = null;
     drawPractice(kind === "lab" ? `[data-dp-lab="${id}"]` : `[data-dp-spot="${id}"]`);
   }
 
-  /* Picture cards: only from a picture the student took or drew themselves (never from slides, PDFs or other course files) */
+  /* Cards from your files */
   let CF = null;
   function filesSheet(deckId){
-    if (P.locked()) { proWhy("Picture cards, made from photos of your own notes and drawings, are part of Studyboard Pro."); return; }
+    if (P.locked()) { proWhy("Picture cards, made from the pictures and PDFs you upload, are part of Studyboard Pro."); return; }
     const d = state.decks[deckId]; if (!d) return;
-    CF = {deckId, own: false};
-    openSheet(`<div class="sheet pro-sheet">${head("Picture Cards")}<div class="sheet-body cf-body"></div><div class="sheet-foot"><span class="spacer"></span><label class="btn primary cf-pick is-off" aria-disabled="true">From My Own Picture<input type="file" accept="image/*" data-cf-pick disabled aria-label="From My Own Picture"></label></div></div>`);
+    CF = {deckId, picked: new Set(), busy: false, msg: "", found: null};
+    openSheet(`<div class="sheet pro-sheet">${head("Picture Cards")}<div class="sheet-body cf-body"></div><div class="sheet-foot"><label class="btn" style="position:relative;overflow:hidden">From a Picture<input type="file" accept="image/*" data-cf-pick style="position:absolute;inset:0;opacity:0;cursor:pointer"></label><span class="spacer"></span><button type="button" class="btn primary" data-act="pro-cf-scan" id="cfGo">Find Diagrams</button></div></div>`);
     drawFiles();
     const inp = dlg.querySelector("[data-cf-pick]");
-    if (inp) inp.addEventListener("change", async () => {
-      const f = inp.files && inp.files[0]; if (!f) return;
-      if (!CF || !CF.own) { inp.value = ""; toast("First confirm the picture is your own photo or drawing."); return; }
-      try { const it = await scanImage(f, f.name.replace(/\.[^.]+$/, "")); it.found = it.boxes.length > 0; openEditor(deckId, [it]); } catch (e) { toast("Couldn't read that picture."); }
-    });
-  }
-  function setOwn(on){
-    if (!CF) return; CF.own = !!on;
-    const inp = dlg.querySelector("[data-cf-pick]"), lb = inp && inp.closest("label");
-    if (inp) inp.disabled = !CF.own;
-    if (lb) { lb.classList.toggle("is-off", !CF.own); lb.setAttribute("aria-disabled", CF.own ? "false" : "true"); }
+    if (inp) inp.addEventListener("change", async () => { const f = inp.files && inp.files[0]; if (!f) return; try { const it = await scanImage(f, f.name.replace(/\.[^.]+$/, "")); it.found = it.boxes.length > 0; openEditor(deckId, [it]); } catch (e) { toast("Couldn't read that picture."); } });
   }
   function drawFiles(){
     const b = dlg.querySelector(".cf-body"); if (!b || !CF) return;
-    const d = state.decks[CF.deckId], sets = setsOf(d);
-    b.innerHTML = `${sets.length ? `<h3 class="ic-h">Pictures in This Deck</h3><p class="mini" style="margin:0">Edit a picture's boxes and answers, or practice placing its labels.</p>${setRows(d, sets, true)}<h3 class="ic-h">Make More</h3>` : ""}<p style="margin:0">Take a photo of your own handwritten notes, a diagram you drew, or a whiteboard you worked on. Studyboard hides each label, so every label becomes a card you check before keeping it.</p>
-      <p class="mini" style="margin:0">Picture cards can't be made from slides, PDFs, handouts, textbooks or other course materials. For those, write your own cards in your own words.</p>
-      <label class="cf-auto cf-own"><input type="checkbox" data-cf-own${CF.own ? " checked" : ""}> <span><b>This is my own photo or drawing</b><span class="mini">Like your handwritten notes or a whiteboard. Not a picture of slides, handouts, a textbook or other course materials.</span></span></label>
-      <p class="mini" style="margin:0">${aiOn() ? "Your AI finds and hides the labels and reads any box you draw, so you only check the answers." : `Labels are found on this device. Nothing is sent anywhere.${canDetect() ? (P.early() ? " Pictures use your browser's text recognition (Preview)." : " Turn on Try New Features First to find labels in pictures too.") : " You draw the boxes yourself."} Set up AI in Settings to find labels and fill in the answers for you.`}</p>`;
-    const own = b.querySelector("[data-cf-own]");
-    if (own) own.addEventListener("change", () => setOwn(own.checked));
-    setOwn(CF.own);
+    const d = state.decks[CF.deckId], files = Object.values(state.files).filter(usable).sort((a, b) => ((b.courseId === d.courseId) - (a.courseId === d.courseId)) || ((latest(b).at || b.created || 0) - (latest(a).at || a.created || 0))).slice(0, 40);
+    const go = $("#cfGo"); if (go) { go.disabled = CF.busy || !CF.picked.size; go.textContent = CF.busy ? "Reading…" : "Find Diagrams"; }
+    const sets = setsOf(d);
+    b.innerHTML = `${sets.length ? `<h3 class="ic-h">Pictures in This Deck</h3><p class="mini" style="margin:0">Edit a picture's boxes and answers, or practice placing its labels.</p>${setRows(d, sets, true)}<h3 class="ic-h">Make More</h3>` : ""}<p style="margin:0">Pick lecture slides, PDFs or pictures you've uploaded. Studyboard finds labelled diagrams and hides each label, so every label becomes a card you check before keeping it.</p>
+      ${files.length ? `<ul class="pro-feats cf-files">${files.map(f => { const r = latest(f), c = courseOf(f.courseId); return `<li><label class="cf-row"><input type="checkbox" data-cf-file="${esc(f.id)}"${CF.picked.has(f.id) ? " checked" : ""}${CF.busy ? " disabled" : ""}><span class="pf-t"><b>${esc(f.name)}</b><span class="mini">${isPdf(r) ? "PDF" : "Picture"}${c ? " · " + esc(courseLabel(c)) : ""}</span></span></label></li>`; }).join("")}</ul>`
+        : `<p class="mini">No PDFs or pictures in your Files yet. Upload lecture slides to a course, or use From a Picture.</p>`}
+      <label class="cf-auto"><input type="checkbox" data-cf-auto${d.autoFiles ? " checked" : ""}> <span><b>Do this for new uploads</b><span class="mini">New ${d.courseId && courseOf(d.courseId) ? esc(courseLabel(courseOf(d.courseId))) + " " : ""}PDFs and pictures with diagrams become draft cards in this deck, to check before you study them.</span></span></label>
+      <p class="mini" style="margin:0">${aiOn() ? "Labels in PDFs are found on this device. In pictures, your AI finds and hides the labels and reads any box you draw, so you only check the answers." : `Labels are found on this device. Nothing is sent anywhere.${canDetect() ? (P.early() ? " Pictures use your browser's text recognition (Preview)." : " Turn on Try New Features First to find labels in pictures too.") : " In pictures, you draw the boxes yourself."} Set up AI in Settings to find labels in any picture and fill in the answers for you.`}</p>
+      <p class="status-msg" role="status" aria-live="polite">${esc(CF.msg)}</p>`;
+    b.querySelectorAll("[data-cf-file]").forEach(x => x.addEventListener("change", () => { if (x.checked) CF.picked.add(x.dataset.cfFile); else CF.picked.delete(x.dataset.cfFile); const g = $("#cfGo"); if (g) g.disabled = CF.busy || !CF.picked.size; }));
+    const au = b.querySelector("[data-cf-auto]");
+    if (au) au.addEventListener("change", () => { const nd = clone(state.decks[CF.deckId]); nd.autoFiles = au.checked; nd.updated = Date.now(); saveDeck(nd, null); toast(au.checked ? "New uploads will make draft cards here" : "Off"); });
   }
+  async function scanPicked(){
+    if (!CF || CF.busy || !CF.picked.size) return;
+    CF.busy = true; CF.msg = "Reading…"; drawFiles();
+    const out = []; let failed = 0;
+    for (const id of CF.picked) {
+      const f = state.files[id]; if (!f) continue;
+      try { const items = await scanFile(f, (p, n) => { if (!CF) return; CF.msg = `Reading ${f.name}: page ${p} of ${n}`; const el = dlg.querySelector(".cf-body .status-msg"); if (el) el.textContent = CF.msg; }); items.forEach(x => { x.found = x.boxes.length > 0; out.push(x); }); }
+      catch (e) { failed++; }
+    }
+    if (!CF) return;
+    CF.busy = false;
+    const withLabels = out.filter(x => x.boxes.length), pics = out.filter(x => !x.boxes.length);
+    if (!out.length) { CF.msg = failed ? "Those files couldn't be read here. Try again when you're online." : "No labelled diagrams were found in those files."; drawFiles(); return; }
+    const deckId = CF.deckId;
+    toast(withLabels.length ? `Found ${withLabels.length} diagram${withLabels.length === 1 ? "" : "s"} with ${withLabels.reduce((s, x) => s + x.boxes.length, 0)} labels` : "No labels found automatically. Draw the boxes yourself.");
+    openEditor(deckId, withLabels.concat(pics));
+  }
+  const AUTOQ = [];
+  let autoBusy = false;
+  async function autoRun(){
+    if (autoBusy) return; autoBusy = true;
+    try {
+      while (AUTOQ.length) {
+        const {fileId, deckId} = AUTOQ.shift(), f = state.files[fileId], d0 = state.decks[deckId];
+        if (!usable(f) || !d0 || !d0.autoFiles || P.locked()) continue;
+        let items = []; try { items = (await scanFile(f)).filter(x => x.boxes.length); } catch (e) { items = []; }
+        for (const it of items) {
+          const key = await storeImage(it.blob, f.name + ".jpg"), d = clone(state.decks[deckId]); if (!d) break;
+          d.cards = d.cards.concat(cardsFor(key, it, it.boxes, "one", true)); d.updated = Date.now(); saveDeck(d, null);
+        }
+        if (items.length) toast(`${items.length} diagram${items.length === 1 ? "" : "s"} from ${f.name} became draft cards in ${d0.name}`);
+      }
+    } finally { autoBusy = false; }
+  }
+  hook("changed", (changes, inverse) => {
+    if (P.locked()) return;
+    (changes || []).forEach((c, i) => {
+      if (c.kind !== "file" || !c.after || (inverse && inverse[i] && inverse[i].after)) return;
+      Object.values(state.decks).filter(d => d.autoFiles && !d.archived && d.courseId && d.courseId === c.after.courseId).forEach(d => AUTOQ.push({fileId: c.id, deckId: d.id}));
+    });
+    if (AUTOQ.length) setTimeout(autoRun, 4000);
+  });
 
   /* Deck page */
   function deckBtns(d){
@@ -70485,6 +70525,7 @@ var SBPRO = null;
         toast(id === "smart" ? "Smart scheduling is on for this deck" : "Classic scheduling"); openStats(DK); return true;
       }
       case "pro-cf-open": if (dlg.open) dlg.close(); filesSheet(id); return true;
+      case "pro-cf-scan": scanPicked(); return true;
       case "pro-ic-drafts": { const d = state.decks[id]; if (!d) return true; const q = draftQueue(d); if (dlg.open) dlg.close(); openEditor(id, q); return true; }
       case "pro-oc-keep": if (OC) keepCurrent(); return true;
       case "pro-oc-skip": if (OC) skipCurrent(); return true;
@@ -70513,8 +70554,8 @@ var SBPRO = null;
     return false;
   });
   dlg.addEventListener("close", () => { if (dlg.open) return; OC = null; CF = null; DK = null; DP = null; });
-  P.addFeature({id: "cards", name: "Smart Flashcards", where: "In each deck: stats, and picture cards from photos of your own notes and drawings (Smart scheduling is free for everyone)", icon: '<rect x="3" y="6" width="14" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/>'});
-  Object.assign(P, {FSRS, cardRated, cardPreview, cardFace: face, deckBtns, openStats, openImageCards: filesSheet, openImageEditor: openEditor, scanImage, cardsFor, studyCard, openDiagramPractice: practiceOpen, imageSets: setsOf});
+  P.addFeature({id: "cards", name: "Smart Flashcards", where: "In each deck: stats, and picture cards from your files (Smart scheduling is free for everyone)", icon: '<rect x="3" y="6" width="14" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/>'});
+  Object.assign(P, {FSRS, cardRated, cardPreview, cardFace: face, deckBtns, openStats, openImageCards: filesSheet, openImageEditor: openEditor, scanImage, scanPdf, cardsFor, studyCard, openDiagramPractice: practiceOpen, imageSets: setsOf});
 
   const css = document.createElement("style");
   css.textContent = `
@@ -70628,10 +70669,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
 .oc-list li{display:flex;align-items:center;gap:8px}
 .oc-list input{flex:1;min-width:0}
 .oc-n{width:24px;height:24px;border-radius:6px;background:var(--accent);color:#fff;display:grid;place-items:center;font:700 .78rem var(--display);flex:none}
-.cf-pick{position:relative;overflow:hidden}
-.cf-pick input{position:absolute;inset:0;opacity:0;cursor:pointer}
-.cf-pick.is-off{opacity:.5;cursor:not-allowed}
-.cf-pick.is-off input{cursor:not-allowed}
+.cf-files li{padding:0}
+.cf-files .cf-row{display:flex;align-items:center;gap:12px;padding:10px 12px;width:100%;cursor:pointer}
 .cf-auto{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--surface)}
 .cf-auto>span{display:grid;gap:2px}
 `;
@@ -72458,7 +72497,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       setAtt(fid, lecAtt(cur).concat(made.map(x => ({k: "file", id: x.id}))), "");
       if (!dlg.open) lectureSheet(fid);
     });
-    document.body.appendChild(inp); uploadOk(() => inp.click());
+    document.body.appendChild(inp); inp.click();
   }
   function drawLecture(fid, doc){
     const f = state.files[fid], b = dlg.querySelector(".lec-view"), ft = dlg.querySelector(".lec-vfoot"); if (!f || !b || !ft) return;
@@ -76652,7 +76691,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
         <fieldset class="wb-ai-k" aria-label="What to make">
           <label class="mi-check"><input type="radio" name="wbaK" value="notes" checked> Typed notes <span class="mini">A clean, typed copy of the board, saved as a note</span></label>
           <label class="mi-check"><input type="radio" name="wbaK" value="cards"> Typed notes and flashcards <span class="mini">Then draft cards from them for you to check</span></label>
-          <label class="mi-check"><input type="radio" name="wbaK" value="pics"> Picture flashcards${picLocked() ? " " + PRO_BADGE : ""} <span class="mini">Your own drawing and writing on the board, with its labels hidden, to guess. Pictures you added aren't included.</span></label>
+          <label class="mi-check"><input type="radio" name="wbaK" value="pics"> Picture flashcards${picLocked() ? " " + PRO_BADGE : ""} <span class="mini">The board as a picture with its labels hidden, to guess</span></label>
         </fieldset>
         <label class="f">Course<select id="wbaCourse">${courseSelectHtml(n.courseId || "")}</select></label>
         <label class="f" id="wbaDeckL" hidden>Deck<select id="wbaDeck"></select></label>
@@ -76686,22 +76725,16 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
   // Picture flashcards (Pro)
   const picLocked = () => { try { return !!(window.SBPRO && SBPRO.locked()); } catch (e) { return true; } };
   async function picCards(id, n, cid, deckSel){
-    if (picLocked()) { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Picture flashcards from your whiteboards are part of Studyboard Pro: what you drew and wrote on the board becomes a picture card with its labels hidden, to guess."); return; }
+    if (picLocked()) { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Picture flashcards from your whiteboards are part of Studyboard Pro: the board becomes a picture card with its labels hidden, to guess."); return; }
     if (!window.SBPRO || !SBPRO.scanImage || !SBPRO.openImageEditor) { toast("Picture cards aren't available here."); return; }
-    // Picture cards come only from what the student drew or wrote: pictures on the board (and marker redraws of them) are left out
-    const nn = state.notes[id] || n, live = W.board(), b = live && live.id === id ? live : {strokes: nn.wbInk || [], items: nn.wbItems || []};
-    const pics = b.items.filter(it => it && it.k === "i").length, own = b.strokes.length + b.items.filter(it => it && it.k !== "i").length;
-    const status = $("#wbaStatus");
-    if (!own) { status.textContent = "Picture cards are made only from what you draw or write yourself. This board only has pictures on it, so draw or write your own labels first."; return; }
-    const go = $("#wbaGo"); go.disabled = true; go.classList.add("busy"); status.textContent = "Finding the labels on your board…";
+    const go = $("#wbaGo"), status = $("#wbaStatus"); go.disabled = true; go.classList.add("busy"); status.textContent = "Finding the labels on your board…";
     try {
       let deckId = deckSel;
       if (!deckId || deckId === "__new" || !state.decks[deckId]) { const d = normDeck({id: uid(), name: W.boardName(n), courseId: cid || "", cards: [], created: Date.now()}); applyChanges([{kind: "deck", id: d.id, after: d}], null); deckId = d.id; }
-      const cv = await W.renderBoard(state.notes[id] || n, {max: 2000, noPics: true}), blob = await new Promise(r => cv.toBlob(r, "image/jpeg", 0.92));
+      const cv = await W.renderBoard(state.notes[id] || n, {max: 2000}), blob = await new Promise(r => cv.toBlob(r, "image/jpeg", 0.92));
       const it = await SBPRO.scanImage(blob, W.boardName(n)); it.found = it.boxes.length > 0;
       if (dlg.open) dlg.close();
       SBPRO.openImageEditor(deckId, [it]);
-      if (pics) toast(`Left out ${pics} picture${pics === 1 ? "" : "s"} on the board. Picture cards use only what you drew or wrote.`);
     } catch (e) { status.textContent = (e && e.message) || "Couldn't make picture cards. Try again."; go.disabled = false; go.classList.remove("busy"); }
   }
   function review(id, title, notes, cid, cards){
@@ -76862,9 +76895,15 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
   // Pictures that came from other members before pictures stopped being shared (they carry their image, not a file of yours)
   function dropReceived(nid){
     const n = state.notes[nid]; if (!n || !(n.wbItems || []).some(it => isPic(it) && it.src && !it.f)) return;
-    const after = clone(n); after.wbItems = after.wbItems.filter(it => !(isPic(it) && it.src && !it.f));
+    const after = clone(n); after.wbItems = after.wbItems.filter(it => !(isPic(it) && it.src && !it.f)); after.updated = Date.now();
     applyChanges([{kind: "note", id: nid, after}], null);
   }
+  // ...on every live board as soon as the app opens, so their thumbnails don't show them either
+  let purged = "";
+  hook("render", () => {
+    const who = (G() && G().myId && G().myId()) || "local"; if (purged === who) return; purged = who;
+    setTimeout(() => Object.values(state.notes || {}).filter(n => live(n)).forEach(n => dropReceived(n.id)), 0);
+  });
   async function catchUp(nid, Lx){
     const g = live(state.notes[nid]); if (!g || !online()) return;
     const rows = await fetchOps(g.bid, seqGet(g.bid));
@@ -77013,8 +77052,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
       try {
         W.flush(); const pic = async dark => { const cv = await W.renderBoard(state.notes[nid] || n, {max: 520, dark, noPics: true}); let url = cv.toDataURL("image/jpeg", 0.72); if (url.length > 190000) url = cv.toDataURL("image/jpeg", 0.45); return url.length < 190000 ? url : null; };
         const url = await pic(false), dk = await pic(true); if (!url) return;
-        try { await q(cli().rpc("group_board_preview", {p_board: g.bid, p_preview: url, p_dark: dk})); }
-        catch (e) { await q(cli().rpc("group_board_preview", {p_board: g.bid, p_preview: url})); }
+        await q(cli().rpc("group_board_preview_nopics", {p_board: g.bid, p_preview: url, p_dark: dk}));
       } catch (e) {}
     }, 300);
   }

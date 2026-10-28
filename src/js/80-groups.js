@@ -511,12 +511,12 @@
   // A short sheet that asks for the confirmation, for actions that share straight from a button
   function confirmRights(then){
     openSheet(`<form class="sheet">${head("Before You Share")}<div class="sheet-body">
-      <p style="margin:0">Only share what you made yourself or what AI wrote for you in its own words. Slides, handouts, textbook pages, pictures from them and your instructor's test questions belong to someone else.</p>
+      <p style="margin:0">Share what you made yourself or what AI wrote for you in its own words. Slides, handouts, textbook pages and test questions usually belong to someone else, so share them only if you have permission or they're free to share.</p>
       ${rightsBox()}</div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Continue</button></div></form>`, () => { if (!rightsOk()) return false; dlg.close(); then(); return false; });
   }
   // Before anything is shared: the person confirms it's their own work, not copied course material
-  const rightsBox = () => `<label class="mi-check sh-rights"><input type="checkbox" id="shRights"> <span>I made this myself, or AI rewrote it in its own words. It doesn't copy slides, textbooks or anyone else's work, or questions from my instructor's tests.</span></label>`;
+  const rightsBox = () => `<label class="mi-check sh-rights"><input type="checkbox" id="shRights"> <span>I made this myself or AI wrote it in its own words. Anything else in it, like slides, textbook content or test questions, I have permission to share.</span></label>`;
   const rightsOk = () => { const b = $("#shRights"); if (!b || b.checked) return true; toast("Tick the box to confirm this is your own work first."); b.focus(); return false; };
   function deckPayload(d, withQ){
     const c = courseOf(d.courseId);

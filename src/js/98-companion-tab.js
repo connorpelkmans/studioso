@@ -311,7 +311,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
         summarizeFile(f.id); mark("Summarizing " + f.name);
       } else if (a.type === "save_file") {
         const srcs = await srcsOf(m.at); if (!srcs) { toast("I can't find the file for this one any more. Attach it again."); return; }
-        await new Promise(res => uploadOk(async () => { await uploadFiles(srcs.map(fileFrom), {courseId: course ? course.id : "", folderId: ""}); mark(`Saved ${srcs.length} file${srcs.length === 1 ? "" : "s"} to Files`); res(); }));
+        await uploadFiles(srcs.map(fileFrom), {courseId: course ? course.id : "", folderId: ""}); mark(`Saved ${srcs.length} file${srcs.length === 1 ? "" : "s"} to Files`);
       } else {
         let srcs = await srcsOf(m.at);
         if (!srcs) srcs = a.text.length >= 80 ? [{name: a.deckName || "Chat material", kind: "Text", size: a.text.length, part: {text: a.text}}] : null;

@@ -341,7 +341,7 @@ function photoNoteSheet(file){
       if (tasks.length) applyChanges(tasks.map(x => { const t = newTask({title: x.title, type: x.type, courseId: cid, due: x.due, time: x.time, start: MILESTONE(x.type) ? x.due : addDays(x.due, -(SPAN[x.type] ?? 3)) < todayISO() ? todayISO() : addDays(x.due, -(SPAN[x.type] ?? 3)), priority: x.type === "Exam" ? "high" : "med"}); return {kind: "task", id: t.id, after: t}; }), `Added ${tasks.length} task${tasks.length === 1 ? "" : "s"} from your photos`);
       ui.tab = "notes"; render();
       toast(tasks.length ? `Note saved, and ${tasks.length} task${tasks.length === 1 ? "" : "s"} added` : "Note saved to your board");
-      if (keep) uploadOkLater(() => uploadFiles(S.files, {courseId: cid, folderId: "notes"}), "The photos");
+      if (keep) uploadFiles(S.files, {courseId: cid, folderId: "notes"});
     });
   };
   if (!file && S.result) review();
