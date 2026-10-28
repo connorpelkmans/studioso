@@ -4693,8 +4693,8 @@ SCENES.engineering = function (W, H, dk, rnd) {
   nShade += poly([[sb[0] + nx * iw * 0.3, sb[1] + ny * iw * 0.3], [se[0] + nx * ow * 0.2, se[1] + ny * ow * 0.2], [se[0] - nx * ow, se[1] - ny * ow], [sb[0] - nx * iw, sb[1] - ny * iw]]);
   var lamp = {x: se[0], y: se[1], dx: ldx, dy: ldy, ow: ow, open: opening, by: by};
   var cv = ph ? {x0: W * 0.5, x1: W * 0.79} : {x0: W * 0.46, x1: W * 0.735}, cvy = by - 24 * s, mugX = (cv.x0 + cv.x1) / 2;
-  nSteel += rect(cv.x0 + 10, cvy + 10 * s, 5 * s, by - cvy - 10 * s) + rect(cv.x1 - 15, cvy + 10 * s, 5 * s, by - cvy - 10 * s) + rrect(cv.x0, cvy, cv.x1 - cv.x0, 12 * s, 6 * s);
-  nShade += rrect(cv.x0 + 2, cvy + 2, cv.x1 - cv.x0 - 4, 8 * s, 4 * s); // the rollers are under the belt, so they don't show through it
+  nSteel += rect(cv.x0 + 8 * s + 10, cvy + 10 * s, 5 * s, by - cvy - 10 * s) + rect(cv.x1 - 15, cvy + 10 * s, 5 * s, by - cvy - 10 * s) + rrect(cv.x0 + 8 * s, cvy, cv.x1 - cv.x0 - 8 * s, 12 * s, 6 * s); /* the belt starts at the machine's face */
+  nShade += rrect(cv.x0 + 8 * s + 2, cvy + 2, cv.x1 - cv.x0 - 8 * s - 4, 8 * s, 4 * s); // the rollers are under the belt, so they don't show through it
   nCopper += poly([[cv.x0 - 22 * s, cvy - 30 * s], [cv.x0 + 12 * s, cvy - 30 * s], [cv.x0 + 8 * s, cvy - 14 * s], [cv.x0 + 8 * s, by], [cv.x0 - 18 * s, by], [cv.x0 - 18 * s, cvy - 14 * s]]); nLight += rect(cv.x0 - 15 * s, cvy - 26 * s, 4 * s, by - cvy + 22 * s); nDet += rect(cv.x0 + 4 * s, cvy - 22 * s, 4 * s, 22 * s); // the box machine stands on the desk; boxes come out of its slot
   nBrass += poly([[cv.x1 - 4 * s, cvy - 4 * s], [cv.x1 + 30 * s, cvy - 4 * s], [cv.x1 + 26 * s, by], [cv.x1, by]]); nDet += seg(cv.x1, cvy + 6 * s, cv.x1 + 28 * s, cvy + 6 * s) + seg(cv.x1 + 1, cvy + 16 * s, cv.x1 + 27 * s, cvy + 16 * s);
   if (!ANIM) { nCopper += rrect(cv.x0 + 40 * s, cvy - 18 * s, 18 * s, 18 * s, 2) + rrect(cv.x0 + 120 * s, cvy - 14 * s, 14 * s, 14 * s, 2); nBrass += rrect(cv.x0 + 78 * s, cvy - 16 * s, 16 * s, 16 * s, 2); }
