@@ -118,10 +118,15 @@ const LINKCARDS = (() => {
   async function readLink(L, pasted, signal, onStatus){
     const prov = aiCfg().provider, trial = prov === "trial";
     const ask = `Make the study notes from ${pasted ? "the text above" : L.kind === "youtube" ? "this YouTube video" : "the web page at " + L.url}.`;
-    const opts = {task: "summary", signal, maxTokens: trial ? 1400 : 8000, temperature: 0.2, onStatus, system: SYS(trial)};
+    const opts = {task: "linknotes", signal, maxTokens: trial ? 1400 : 8000, temperature: 0.2, onStatus, system: SYS(trial)};
     let r;
     if (pasted) r = await aiRetry(() => aiCall(Object.assign({}, opts, {schema: NOTE_SCHEMA, parts: [{text: `Source: ${L.url}\nThe student pasted its ${L.kind === "youtube" ? "transcript" : "text"}:\n\n${pasted.slice(0, trial ? 9000 : 150000)}\n\n${ask}`}]})));
-    else if (L.kind === "youtube") r = await aiRetry(() => aiCall(Object.assign({}, opts, {schema: NOTE_SCHEMA, timeout: 300000, parts: [{file_data: {file_uri: L.url, mime_type: "video/*"}}, {text: ask}]})));
+    else if (L.kind === "youtube") {
+      // a lecture's content is in what's said: one frame every 5 seconds (not every second) cuts most of the video work; if Gemini won't take that, the usual way
+      const vid = fps => aiRetry(() => aiCall(Object.assign({}, opts, {schema: NOTE_SCHEMA, timeout: 300000, parts: [Object.assign({file_data: {file_uri: L.url, mime_type: "video/*"}}, fps ? {video_metadata: {fps}} : {}), {text: ask}]})));
+      try { r = await vid(0.2); }
+      catch (e) { if (!(e && e.code === "http" && /fps|video_?metadata|videoMetadata|Unknown name/i.test(String(e.message || "")))) throw e; r = await vid(0); }
+    }
     else r = await aiRetry(() => aiCall(Object.assign({}, opts, {urlContext: true, timeout: 180000, parts: [{text: `${ask}\n\n${L.url}\n\nAnswer with JSON only, in this shape: ${SHAPE}`}]})));
     const d = r && r.data && typeof r.data === "object" ? r.data : {};
     let st = String(d.status || "").toLowerCase();
@@ -147,28 +152,34 @@ const LINKCARDS = (() => {
     if (!pasted && L.kind === "youtube" && prov !== "gemini") { say(`YouTube links need a Gemini key: only Google's Gemini can watch YouTube videos, and you're using ${prov === "anthropic" ? "Claude" : "ChatGPT"}. Add a free Gemini key in Settings, AI Features, or paste the video's transcript (on YouTube, open the description and choose Show Transcript).`, PASTE); return; }
     const job = o.job; job.busy = true; go.disabled = true; go.classList.add("busy");
     const ac = typeof AbortController === "function" ? new AbortController() : null;
-    if (ac) dlg.addEventListener("close", () => ac.abort(), {once: true});
+    job.ac = ac;
     const who = esc(aiModelName(aiCfg().provider, aiCfg().model));
-    const spin = m => { st.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${m}`; };
-    spin(pasted ? `${who} is reading the text you pasted and writing study notes…` : L.kind === "youtube" ? `${who} is watching the video and writing study notes. Longer videos take a minute or two…` : `${who} is reading the page and writing study notes…`);
+    // which step it's on and how long it's been, so a long video never looks stuck
+    const t0 = Date.now(); let step = "";
+    const clock = () => { const s = Math.floor((Date.now() - t0) / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+    const spin = (m, n) => { step = n || step; st.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${step ? `<b>${step}</b> ` : ""}${m} <span class="mini cl-clock">${clock()}</span>`; };
+    const tick = setInterval(() => { const c = st.querySelector(".cl-clock"); if (!job.busy) clearInterval(tick); else if (c) c.textContent = clock(); }, 1000);
+    spin(pasted ? `${who} is reading the text you pasted and writing study notes…` : L.kind === "youtube" ? `${who} is watching the video and writing study notes. An hour-long lecture can take a few minutes…` : `${who} is reading the page and writing study notes…`, "Step 1 of 2:");
     const done = () => { job.busy = false; go.disabled = false; go.classList.remove("busy"); };
     try {
-      const d = await readLink(L, pasted, ac && ac.signal, m => { st.textContent = m; });
+      const d = await readLink(L, pasted, ac && ac.signal, m => spin(esc(m)));
       if (ac && ac.signal.aborted) return;
       const title = String(d.title || "").replace(/\s+/g, " ").trim().slice(0, 140) || L.host;
       const src = {kind: L.kind, url: L.url, title, host: L.host};
       const notes = LINKCARDS.noteText(Object.assign({}, d, {title}), src, "");
-      spin(`${who} is writing ${[o.cards && "flashcards", o.quiz && "a quiz", o.cases && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")} from the notes…`);
+      spin(`${who} is writing ${[o.cards && "flashcards", o.quiz && "a quiz", o.cases && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")} from the notes…`, "Step 2 of 2:");
       const trial = aiCfg().provider === "trial";
       const sources = [{name: title, kind: "Text", size: notes.length, part: {text: `Study notes on “${title}” (${L.kind === "youtube" ? "a YouTube video" : "a web page"}):\n\n${notes}`}}]
         .concat(pasted && !trial ? [{name: "Pasted text", kind: "Text", size: pasted.length, part: {text: "The source's own text (for checking facts; write in your own words):\n\n" + pasted.slice(0, 150000)}}] : [])
         .concat((o.files || []).filter(s => s && s.part));
-      const r = await aiMakeStudySet({sources, style: o.style, difficulty: o.difficulty, cards: o.cards, quiz: o.quiz, cases: o.cases, caseCount: o.caseCount, caseStyle: o.caseStyle, cardCount: o.cardCount, quizCount: o.quizCount, courseName: courseOf(o.courseId) ? courseOf(o.courseId).name : "", signal: ac && ac.signal}, m => { st.textContent = m; });
+      const r = await aiMakeStudySet({light: true, sources, style: o.style, difficulty: o.difficulty, cards: o.cards, quiz: o.quiz, cases: o.cases, caseCount: o.caseCount, caseStyle: o.caseStyle, cardCount: o.cardCount, quizCount: o.quizCount, courseName: courseOf(o.courseId) ? courseOf(o.courseId).name : "", signal: ac && ac.signal}, m => spin(esc(m)));
       if (ac && ac.signal.aborted) return;
       if (!r.cards.length && !r.questions.length && !r.cases.length) throw aiErr("empty", "The AI couldn't make anything from that source. Try another link, or paste the text instead.");
       if (!r.title) r.title = title;
       try { aiRememberStyle(o.custom); } catch (e) {}
-      aiReviewSheet(r, {deck: o.deck, courseId: o.courseId, style: o.style, styleName: o.styleName, sources: [title], mode: o.mode, withSave: deck => {
+      job.busy = false;
+      const show = ctx => o.keepKey ? sheetReady(o.keepKey, () => aiReviewSheet(r, ctx), aiReadyMsg(r)) : aiReviewSheet(r, ctx);
+      show({deck: o.deck, courseId: o.courseId, style: o.style, styleName: o.styleName, sources: [title], mode: o.mode, keepKey: o.keepKey, withSave: deck => {
         const cid = deck.courseId || o.courseId || "";
         const b = cid && noteBoards().find(x => x.courseId === cid), board = b ? b.id : "";
         const on = notesArr().filter(n => !n.archived && (n.board || "") === board), z = notesArr().reduce((m, n) => Math.max(m, n.z || 0), 0) + 1;
@@ -188,6 +199,7 @@ const LINKCARDS = (() => {
       }
       const offerPaste = !pasted && !/^(?:nokey|key|credit|offline|no-consent|cancelled|limit|busy)$/.test((e && e.code) || "");
       say(msg + (offerPaste ? (e && e.link ? " Paste the text instead, and the AI can work from that." : "") : ""), offerPaste ? PASTE : "");
+      if (o.keepKey && sheetKept(o.keepKey)) toast(`${aiWho("AI")} couldn't finish that. Open Create with AI again to see why and try again.`, null, {label: "Open", fn: () => sheetResume(o.keepKey)}, {error: true});
     }
   }
 

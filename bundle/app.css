@@ -2269,6 +2269,7 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
   html.board-max .env{bottom:calc(12px + env(safe-area-inset-bottom,0px))}
 }
 @media (min-width:640px){.pg-right>.wb-pick,.pg-right>.wb-optbtn{display:none}}
+.key-row input.key-mask{-webkit-text-security:disc}
 /* ===== module: 05-account.css ===== */
 /* Studyboard account sheets */
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}
@@ -4332,6 +4333,14 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 /* Companions as still pictures in long lists (every theme's companions) */
 .cp-still-box{display:block;width:64px;height:64px;flex:none}
 .cp-still{display:block;max-width:none;pointer-events:none;-webkit-user-drag:none}
+/* Thinking: three dots taking turns, while the student waits on the AI */
+.cp-bubble.cp-think{padding:9px 14px}
+.cp-dots{display:inline-flex;gap:5px;align-items:center;height:14px}
+.cp-dots i{width:8px;height:8px;border-radius:50%;background:var(--ink);opacity:.3;animation:cpDot 1.2s infinite ease-in-out}
+.cp-dots i:nth-child(2){animation-delay:.18s}
+.cp-dots i:nth-child(3){animation-delay:.36s}
+@keyframes cpDot{0%,70%,100%{opacity:.3;transform:translateY(0)}35%{opacity:.9;transform:translateY(-4px)}}
+@media (prefers-reduced-motion:reduce){.cp-dots i{animation:cpDotFade 1.6s infinite}@keyframes cpDotFade{0%,100%{opacity:.35}50%{opacity:1}}}
 /* ===== module: 98-photo.css ===== */
 /* ===== Your Photo themes ===== */
 /* The photo sits behind the page (left of the desktop sidebar) as one fixed */
@@ -5409,6 +5418,20 @@ html:not([data-motion="static"]) :is(.segb button,.chip,.ui-chip,.cf-pick,[role=
   #view .pg-tabs > button:hover{color:var(--ink)!important;background:color-mix(in srgb,var(--ink) 7%,transparent)!important}
   #view .pg-tabs > button[aria-selected="true"]{background:var(--ink)!important;color:var(--surface)!important;box-shadow:none!important}
 }
+/* Autopilot (99-autopilot.js): the one line on Today's Plan, What Changed, and Day Off */
+.ap-line{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;margin:8px 0;padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:.9rem}
+.ap-line .ap-t{flex:1 1 220px;min-width:0}
+.ap-line .ap-a{display:inline-flex;align-items:center;gap:4px 8px;flex-wrap:wrap}
+.ap-line .ap-a > span{color:var(--muted)}
+.ap-list{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:8px}
+.ap-list li{display:grid;gap:2px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;overflow-wrap:anywhere;min-width:0}
+.ap-mode{display:flex;align-items:center;justify-content:space-between;gap:8px 12px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.ap-mode > span{display:grid;gap:2px;flex:1 1 180px;min-width:0}
+.ap-set .segb{flex-wrap:wrap}
+.ap-dayrow{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;margin:8px 0 0}
+.ap-dayrow .mini{flex:1 1 180px;min-width:0}
+.plan-foot .ap-off-btn{margin-left:auto}
+.ap-line .icon-btn.sm{width:28px;height:28px;min-height:0;border:0;background:transparent;box-shadow:none}
 /* ===== module: 100-phone.css ===== */
 /* Phone and tablet bar (the desktop side menu is untouched) */
 @media (max-width:979px){

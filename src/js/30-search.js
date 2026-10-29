@@ -956,23 +956,32 @@
   }
   /* The snapshot the model reads with every question */
   function snapshotText(D){
-    const L = [], tz = D.tz ? ` (${D.tz})` : "";
+    // D.need (from aiNeeds): only the parts this question needs; none given means all
+    const L = [], tz = D.tz ? ` (${D.tz})` : "", N = D.need || null, want = k => !N || !!N[k];
     L.push(`NOW: ${D.now.toLocaleDateString("en-US", {weekday: "long", month: "long", day: "numeric", year: "numeric"})} (${D.today}), ${hhmm(D.now)}${tz}. "Days away" below counts from this date; 0 means today.`);
+    if (want("tasks") || want("schedule") || want("plan")) {
     const ex = examsOf(D, ["exam", "quiz"]), up = ex.filter(x => !x.passed && !x.done), pastE = ex.filter(x => x.passed || x.done);
     const ue = up.filter(x => x.k === "exam"), uq = up.filter(x => x.k === "quiz");
     L.push(ue.length ? `NEXT EXAM: ${examLine(D, ue[0], true, true)}` : "NEXT EXAM: none. There are no upcoming exams in the planner.");
     L.push("UPCOMING EXAMS (soonest first):" + (ue.length ? "\n" + ue.slice(0, 15).map((x, i) => `${i + 1}. ${examLine(D, x, true, true)}`).join("\n") : " none"));
     L.push("UPCOMING QUIZZES (soonest first):" + (uq.length ? "\n" + uq.slice(0, 12).map((x, i) => `${i + 1}. ${examLine(D, x, true, true)}`).join("\n") : " none"));
     if (pastE.length) L.push("PAST OR TAKEN EXAMS AND QUIZZES (most recent first):\n" + pastE.slice(-6).reverse().map(x => `- ${examLine(D, x, false, true)}${x.done ? " [marked taken]" : ""}`).join("\n"));
+    }
+    if (want("tasks") || want("plan")) {
     const today = dueBetween(D, D.today, D.today).filter(t => !examKind(t)), soon = dueBetween(D, addDays(D.today, 1), addDays(D.today, 21)).filter(t => !examKind(t));
     L.push("DUE TODAY (not exams):" + (today.length ? "\n" + today.slice(0, 20).map(t => "- " + taskLine(D, t)).join("\n") : " nothing"));
     L.push("DEADLINES IN THE NEXT 21 DAYS (not exams, soonest first):" + (soon.length ? "\n" + soon.slice(0, 40).map(t => "- " + taskLine(D, t)).join("\n") + (soon.length > 40 ? `\n(${soon.length - 40} more later)` : "") : " nothing"));
     const od = overdueOf(D); if (od.length) L.push("OVERDUE (not done, past due):\n" + od.slice(0, 15).map(t => "- " + taskLine(D, t)).join("\n"));
+    }
+    if (want("schedule") || want("plan")) {
     const days = [0, 1, 2, 3, 4, 5, 6].map(i => { const d = addDays(D.today, i), occ = D.occ(d, d).sort((a, b) => String(a.start || "").localeCompare(String(b.start || ""))); return occ.length ? `${i === 0 ? "Today" : longDate(d)}: ` + occ.slice(0, 8).map(o => `${o.start ? fmtTime(o.start) + (o.end ? "-" + fmtTime(o.end) : "") + " " : "all day "}${o.title}${o.label ? " " + o.label : ""}${o.where ? " @" + o.where : ""}`).join("; ") : ""; }).filter(Boolean);
     L.push("CLASSES AND EVENTS, NEXT 7 DAYS:" + (days.length ? "\n" + days.join("\n") : " none scheduled"));
-    const gl = D.courses.map(c => gradeLine(D, c)).filter(Boolean);
-    L.push("GRADES:" + (gl.length ? "\n" + gl.map(x => "- " + x).join("\n") : " no marks entered"));
+    }
+    if (want("grades")) { const gl = D.courses.map(c => gradeLine(D, c)).filter(Boolean);
+    L.push("GRADES:" + (gl.length ? "\n" + gl.map(x => "- " + x).join("\n") : " no marks entered")); }
     L.push("COURSES: " + (D.courses.map(c => courseLabel(c) + (c.name && c.name !== courseLabel(c) ? " (" + c.name + ")" : "") + (c.instructor ? ", " + c.instructor : "")).join("; ") || "none"));
+    // every mark and Today's Plan in the app's own order (shared with the companion)
+    if (!D.noFacts && (want("grades") || want("plan"))) { try { const pf = typeof aiPlannerFacts === "function" ? aiPlannerFacts({grades: want("grades"), plan: want("plan")}) : ""; if (pf) L.push(pf); } catch (e) {} }
     return L.join("\n");
   }
   function askData(){
@@ -991,7 +1000,7 @@
   const ASK_SYSTEM = `You answer questions for a student inside their own planner app, using ONLY the PLANNER SNAPSHOT and the numbered SOURCES in the message. Nothing else is known about them.
 Rules:
 - The snapshot is exact and already dated: "days away" and "today" are computed for you from NOW. Never recompute dates, and never call a past item upcoming. "Next exam" means the first entry of UPCOMING EXAMS (or the NEXT EXAM line). Quizzes are not exams unless asked. Study sessions are not exams.
-- A question about the planner (exams, deadlines, classes, grades, what to do today) is answered from the snapshot. A question about course content, notes, flashcards or files is answered from the numbered sources. Cite those like [2] after every claim taken from them, and give a file's page or slide only if its source line shows one.
+- A question about the planner (exams, deadlines, classes, grades, what to do today) is answered from the snapshot. MARKED WORK in the snapshot lists every mark entered (compare its percentages for best or lowest marks), and TODAY'S PLAN is laid out as the student sees it: answer "what now/next" with DO THIS NEXT, and "what after today's plan" with item 1 under THEN, AFTER TODAY'S PLAN IS DONE, never a task already on today's plan, and don't re-sort by due date. A question about course content, notes, flashcards or files is answered from the numbered sources. Cite those like [2] after every claim taken from them, and give a file's page or slide only if its source line shows one.
 - Be direct and concise: lead with the answer (a date, a name, a number), then at most one useful detail. Use a short list only when several items are asked for. No filler, no restating the question, no advice nobody asked for.
 - Say dates the way a person would ("Friday, October 9, in 6 days"). Say times with am or pm.
 - If the snapshot and sources don't contain the answer, set found to false and say in one sentence what is missing. Never invent dates, grades, page numbers or facts, and never answer course-content questions from general knowledge.
@@ -1078,7 +1087,9 @@ Return JSON only.`;
     const plan = answerPlan(); if (!plan) return;
     const prior = A.det, n = Math.min(SENT, A.rows.length), c = A.course && A.course !== "_none" ? courseOf(A.course) : null;
     A.answer = {state: "loading"}; draw();
-    let snap = ""; try { snap = snapshotText(askData()); } catch(e) { console.warn(e); }
+    // only the planner parts this question (and the one before it) needs
+    const prevQ = (() => { const i = turnIx(A); return i > 0 && S.thread[i - 1] ? S.thread[i - 1].q : ""; })();
+    let snap = ""; try { snap = snapshotText(Object.assign(askData(), {need: aiNeeds(A.q, prevQ)})); } catch(e) { console.warn(e); }
     const scope = c ? `COURSE: ${courseLabel(c)}${c.name && c.name !== courseLabel(c) ? " (" + c.name + ")" : ""}. The student is asking about this course; the numbered sources come only from its material.\n\n` : "";
     const args = {task: "ask", schema: ANSWER_SCHEMA, maxTokens: 8000, temperature: 0.1, timeout: 90000, system: ASK_SYSTEM,
       parts: [{text: `PLANNER SNAPSHOT\n${snap}\n\n${scope}NUMBERED SOURCES (search results from the student's notes, files, cards, lectures and tasks)\n${srcText(A.rows) || "none found for this question"}\n\n${histText(A)}${prior ? `ALREADY WORKED OUT (correct): ${prior.text}\n\n` : ""}QUESTION: ${A.q}`}]};

@@ -1064,7 +1064,8 @@ function availExtMap(from, to){
 }
 function availFreeDay(date, nowMin, extMap){
   const a = availState(), ext = (extMap || availExtMap(date, date))[date] || [];
-  return AVAIL.freeWindows(date, {blocks: a.blocks, cfg: a.cfg, ext, nowMin});
+  const r = AVAIL.freeWindows(date, {blocks: a.blocks, cfg: a.cfg, ext, nowMin});
+  return dayIsOff(date) ? Object.assign(r, {windows: [], total: 0, largest: 0, none: true}) : r;
 }
 let AV_DAYS = {k: "", v: null};
 // Free hours per future date, cached until something changes

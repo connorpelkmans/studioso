@@ -627,6 +627,12 @@
     if ((list || []).length < 2 || u.length !== 1 || gset().passSrc === "user" || r1(gset().pass) === r1(u[0])) return;
     saveG({pass: r1(u[0]), passSrc: "school"}); scheduleRender();
   };
+  // Every piece of work with a mark, for the AI: the same marks the Grade Tracker uses
+  window.SBGRADES.items = () => allTasks().filter(t => markPct(t) != null && !t.prepFor).map(t => {
+    const c = courseOf(t.courseId), pct = markPct(t);
+    return {id: t.id, title: t.title, type: t.type, course: c ? courseLabel(c) : "", due: t.due || "", weight: hasWeight(t) ? Number(t.weight) : null, pct: r1(pct), mark: fmtMark(t.mark), letter: c ? letterOf(pct, gradingOf(c).scale) : ""};
+  });
+  window.SBGRADES.waiting = () => tasksArr().filter(t => t.status === "done" && hasWeight(t) && markPct(t) == null && !t.prepFor).map(t => ({title: t.title, course: courseOf(t.courseId) ? courseLabel(courseOf(t.courseId)) : "", weight: Number(t.weight)}));
   window.SBGRADES.goalHtml = c => { try { const gr = courseGrade(c); return gr.ts.length ? goalField(c, gr) : ""; } catch (e) { return ""; } };
   window.SBGRADES.now = c => { try { const gr = courseGrade(c); if (!gr.ts.length) return null; return {pct: gr.current, letter: gr.current != null ? letterOf(gr.current, gr.g.scale) : "", marked: gr.wMarked, fmt: fmtP, line: gradeLine(gr), risk: gr.risk, done: gr.done}; } catch (e) { return null; } };
   // The Grades tab of one course
