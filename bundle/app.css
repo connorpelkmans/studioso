@@ -4936,6 +4936,14 @@ button.snd-head:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
 body:has(.toast.show) .acc-chip{bottom:calc(168px + var(--toast-h,48px) + env(safe-area-inset-bottom,0px))}
 @media (min-width:980px){.acc-chip{bottom:24px}body:has(.toast.show) .acc-chip{bottom:calc(42px + var(--toast-h,44px))}}
 @media (prefers-reduced-motion:reduce){.acc-chip{transition:none}}
+/* The check-in: how much is left? */
+.acc-sub{display:block;font-weight:400;font-size:.82rem;color:var(--muted);white-space:normal}
+.acc-left{display:grid;grid-template-columns:repeat(4,auto);gap:6px}
+.acc-left .acc-opt{display:grid;justify-items:start;gap:1px;text-align:left;line-height:1.2}
+.acc-left .acc-opt.link{grid-column:1/-1;justify-self:start;display:inline-flex;align-items:center;gap:6px;min-height:36px}
+.acc-tm{font-size:.76rem;font-weight:600;color:var(--muted)}
+.acc-say input{width:min(17rem,60vw)}
+.acc-note{font-weight:500}
 /* ===== module: 97-notecards.css ===== */
 /* Notes to Flashcards */
 .nc-sheet [hidden]{display:none!important}
@@ -6151,6 +6159,8 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
 .pw-ic{display:grid;place-items:center;width:22px;height:22px;flex:none;border-radius:50%;background:var(--late);color:#fff;font:900 .8rem/1 var(--display)}
 .pw-main{flex:1 1 300px;min-width:0}
 .pw-tip{margin-left:auto;color:var(--muted);font-size:.8rem}
+.pw-acts{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+
 .plan-tabs{margin:16px 0 6px}
 .pt-bar{display:flex;flex-wrap:wrap;gap:4px;padding:4px;border:1px solid var(--line);border-radius:22px;background:color-mix(in srgb,var(--soft) 60%,var(--surface));width:max-content;max-width:100%}
 .pt-bar::-webkit-scrollbar{display:none}
@@ -7165,6 +7175,11 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
 /* Task preview: tap a task to see it, drag its progress bar, Edit for the full form */
 .occv-tag.ok{background:color-mix(in srgb,#2E9D5B 14%,var(--surface));color:#1F7A44;border-color:color-mix(in srgb,#2E9D5B 30%,transparent)}
 .tv-prog{margin:6px 4px 4px;padding:12px 0 2px;border-top:1px solid var(--line)}
+.tv-gap{margin:4px 4px 6px;padding:8px 10px;border-radius:10px;font-size:.84rem;line-height:1.4;background:color-mix(in srgb,var(--late) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--late) 30%,transparent)}
+.tv-gap.under{background:color-mix(in srgb,var(--accent) 9%,var(--surface));border-color:color-mix(in srgb,var(--accent) 30%,transparent)}
+.tv-ready + .tv-prog{border-top:0;padding-top:4px}
+.tv-noready{margin:8px 4px 0}
+.exm-gap{margin:6px 0 0;font-size:.82rem;line-height:1.4;color:var(--ink)}
 .tv-prog-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:8px}
 .tv-prog-h b{font:600 .8rem/1.2 var(--display);color:var(--muted)}
 .tv-prog-h span{font:700 .8rem/1 var(--display);color:var(--muted);font-variant-numeric:tabular-nums}
@@ -7187,6 +7202,48 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
    so no pale sliver can show at the edge. The light background starts below the curve. */
 dialog:has(> .sheet > :is(.occv-band,.g2-sheet-head):first-child){background:transparent}
 dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:inherit;background:linear-gradient(transparent 40px,var(--surface) 40px)}
+/* Exam wrapper: the reflection after an exam, and "last time" in the next exam's view */
+.ewr-cmp{display:grid;gap:8px;margin:12px 0 4px;padding:12px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--c,var(--accent)) 4%,var(--surface))}
+.ewr-row{display:grid;grid-template-columns:minmax(0,11rem) 1fr 3rem;align-items:center;gap:10px;font-size:.86rem}
+.ewr-l{color:var(--muted)}
+.ewr-row b{text-align:right;font-variant-numeric:tabular-nums}
+.ewr-bar{position:relative;height:8px;border-radius:999px;background:color-mix(in srgb,var(--ink) 8%,transparent);overflow:hidden}
+.ewr-bar i{position:absolute;inset:0 auto 0 0;border-radius:inherit;background:color-mix(in srgb,var(--ink) 35%,transparent)}
+.ewr-row.meas .ewr-bar i{background:var(--accent)}
+.ewr-row.mark .ewr-bar i{background:#2F9E5F}
+.ewr-read{margin:8px 0 0;font-size:.88rem;line-height:1.45}
+.ewr-fs{margin:14px 0 0;border:0;padding:0}
+.ewr-fs legend{font-weight:600;margin-bottom:6px}
+.ewr-fs legend .hint{font-weight:400}
+.ewr-chips{display:flex;flex-wrap:wrap;gap:6px}
+.ewr-chip{position:relative;display:inline-flex}
+.ewr-chip input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.ewr-chip span{display:inline-block;padding:7px 12px;border:1px solid var(--line);border-radius:999px;font-size:.84rem;background:var(--surface);line-height:1.25}
+.ewr-chip input:checked + span{background:color-mix(in srgb,var(--accent) 14%,var(--surface));border-color:var(--accent);font-weight:600}
+.ewr-chip input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
+.ewr-tip{margin:8px 0 0;font-size:.84rem;line-height:1.4;color:var(--muted)}
+.ewr-tip:empty{display:none}
+.ewr-last{display:flex;flex-direction:column;gap:3px;margin:10px 4px 2px;padding:10px 12px;border-radius:12px;font-size:.84rem;line-height:1.4;background:color-mix(in srgb,var(--accent) 7%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 25%,transparent)}
+.ewr-last .link-btn{align-self:flex-start;padding:0}
+.ewr-btn{margin:10px 4px 2px}
+@media (max-width:600px){.ewr-row{grid-template-columns:minmax(0,8rem) 1fr 2.6rem}}
+/* Heads Up: Today's Plan's notices in one block, a row each */
+.plan-notes{margin:12px 0 0;padding:6px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.pn-h{margin:6px 0 2px;font:700 .72rem/1 var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.plan-notes ul{list-style:none;margin:0;padding:0}
+.pn{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:10px 0;border-top:1px solid var(--line);font-size:.9rem;line-height:1.45}
+.pn:first-child{border-top:0}
+.pn-ic{display:grid;place-items:center;width:22px;height:22px;flex:none;border-radius:50%;font:800 .74rem/1 var(--display);color:#fff;background:var(--accent)}
+.pn-warn .pn-ic,.pn-late .pn-ic{background:var(--late)}
+.pn-wrap .pn-ic{background:#2F9E5F}
+.pn-main{flex:1 1 280px;min-width:0}
+.pn-main .link-btn{font:inherit;font-weight:600;padding:0}
+.pn-acts{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+:root[data-theme="dark"] .pn-ic{color:#10151F}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .pn-ic{color:#10151F}}
+@media (max-width:600px){.pn-acts{flex-basis:100%;margin-left:34px}}
+.xr-decks{display:grid;gap:4px;margin:2px 0 0 26px;max-height:40vh;overflow:auto}
+.xr-decks.auto{opacity:.55}
 /* ===== module: 103-phone-design.css ===== */
 /* Done bar and the compact time prompt */
 @keyframes sbPop{0%{transform:scale(1)}50%{transform:scale(1.15)}100%{transform:scale(1)}}
@@ -7387,4 +7444,10 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
   #view .c2-card .c2-foot > .c2-grade{margin-left:auto!important;flex:none;gap:5px;overflow:visible}
   #view .c2-card .c2-grade :is(.c2-gl,.mini){display:none}
   #view .c2-card .c2-grade .c2-letter{min-width:22px;height:20px;font-size:.72rem}
+}
+@media (max-width:639px){
+  .acc-chip[data-kind="left"] .acc-q,.acc-chip[data-kind="learned"] .acc-q{display:block;white-space:normal}
+  .acc-chip[data-kind="left"] .acc-left{grid-template-columns:1fr 1fr}
+  .acc-chip[data-kind="left"] .acc-say{flex:1 1 100%}
+  .acc-chip[data-kind="left"] .acc-say input{width:100%}
 }

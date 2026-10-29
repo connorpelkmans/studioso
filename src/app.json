@@ -196,6 +196,7 @@
   "92-accuracy.js",
   "97-examprep.js",
   "97-exammode.js",
+  "97-exam-wrapper.js",
   "97-notecards.js",
   "97-breakdown.js",
   "97-match.js",

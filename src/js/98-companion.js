@@ -20,16 +20,18 @@
     wave: "armL|armR", headTilt: "head", topBob: "top", bounce: "", hop: "", spin: "", sway: "", waddle: "", sparkle: ""
   };
   /* Props (accessories) */
+  // Props follow effort and consistency (focus time, study days, streaks, spreading exam study over days), never how many
+  // tasks were ticked off: counting tasks rewards splitting work into trivial pieces
   const ACC = [
-    {id: "scarf", name: "Cozy Scarf", hours: 1, free: true, paths: [["ontime", 3], ["checkins", 3]]},
+    {id: "scarf", name: "Cozy Scarf", hours: 1, free: true, paths: [["studydays", 3], ["checkins", 3]]},
     {id: "hat", name: "Tiny Hat", hours: 5, free: true, paths: [["streak", 3], ["notes", 3]]},
-    {id: "bowtie", name: "Party Bow Tie", free: true, paths: [["ontime", 10], ["early", 4], ["checkins", 7]]},
+    {id: "bowtie", name: "Party Bow Tie", free: true, paths: [["studydays", 10], ["spread", 1], ["checkins", 7]]},
     {id: "glasses", name: "Round Glasses", hours: 15, paths: [["cards", 150], ["quizzes", 3]]},
-    {id: "medal", name: "Champion Medal", paths: [["quizzes", 6], ["cards", 400], ["prep", 6]]},
-    {id: "cape", name: "Hero Cape", paths: [["streak", 7], ["ontime", 50], ["checkins", 21]]},
+    {id: "medal", name: "Champion Medal", paths: [["quizzes", 6], ["cards", 400], ["spread", 3]]},
+    {id: "cape", name: "Hero Cape", paths: [["streak", 7], ["studydays", 40], ["checkins", 21]]},
     {id: "star", name: "Star Badge", hours: 60, paths: [["stickers", 15], ["streak", 14], ["focusWeeks", 4]]},
     {id: "beanie", name: "Festive Beanie", paths: [["festive", 1]]},
-    {id: "cap", name: "Graduation Cap", hours: 100, paths: [["prep", 12], ["ontime", 100]]},
+    {id: "cap", name: "Graduation Cap", hours: 100, paths: [["spread", 8], ["studydays", 80]]},
     {id: "crown", name: "Little Crown", paths: [["streak", 30], ["stickers", 30], ["hours", 150]]}
   ];
   const GENERIC = {
@@ -253,9 +255,9 @@
   const nameOf = c => ownName(c.id) || c.name;
   const hours = () => { try { return typeof SBSTATS !== "undefined" ? SBSTATS.totalFocusMinutes() / 60 : 0; } catch (e) { return 0; } };
   /* Earning props */
-  const PROP_UNIT = {hours: "h of focus", ontime: "tasks done on time", early: "tasks done 2+ days early", streak: "day streak", cards: "cards reviewed", quizzes: "quizzes passed",
+  const PROP_UNIT = {hours: "h of focus", studydays: "study days", spread: "exams studied for over several days", streak: "day streak", cards: "cards reviewed", quizzes: "quizzes passed",
     notes: "notes written", stickers: "scrapbook stickers", prep: "study-plan sessions done", checkins: "daily check-ins", groups: "study group or room", focusWeeks: "weeks with 4+ focus days", festive: "winter holiday visit"};
-  const PROP_ASK = {hours: n => `Focus for ${n} ${n === 1 ? "hour" : "hours"}`, ontime: n => `Finish ${n} tasks on or before their due date`, early: n => `Finish ${n} tasks at least 2 days early`,
+  const PROP_ASK = {hours: n => `Focus for ${n} ${n === 1 ? "hour" : "hours"}`, studydays: n => `Study on ${n} different days`, spread: n => `Study for ${n === 1 ? "an exam or quiz" : n + " exams or quizzes"} on 3 or more days, starting 5 days before`,
     streak: n => `Reach a ${n}-day streak`, cards: n => `Review ${n} flashcards`, quizzes: n => `Pass ${n} practice quizzes (70% or more)`, notes: n => `Write ${n} notes`,
     stickers: n => `Earn ${n} Term Scrapbook stickers`, prep: n => `Finish ${n} study-plan sessions`, checkins: n => `Open Studyboard on ${n} different days`,
     groups: () => "Join a study group or a Study Together room", focusWeeks: n => `Focus for 15+ minutes on 4 or more days in ${n} different ${n === 1 ? "week" : "weeks"}`, festive: () => "Visit between Dec 1 and Jan 6"};
@@ -263,18 +265,12 @@
   // Lifetime numbers, cached for a few seconds (the picker and the unlock check ask a lot)
   function propStats(){
     const now = Date.now(); if (pStat && now - pStatAt < 4000) return pStat;
-    const s = {hours: 0, ontime: 0, early: 0, streak: 0, cards: 0, quizzes: 0, notes: 0, stickers: 0, prep: 0, checkins: 0, groups: 0, focusWeeks: 0, festive: 0};
+    const s = {hours: 0, studydays: 0, spread: 0, streak: 0, cards: 0, quizzes: 0, notes: 0, stickers: 0, prep: 0, checkins: 0, groups: 0, focusWeeks: 0, festive: 0};
     const tr = f => { try { f(); } catch (e) {} };
     tr(() => { s.hours = hours(); });
-    tr(() => Object.values(state.tasks || {}).forEach(t => {
-      if (t.status !== "done" || !t.doneAt || (t.created && t.doneAt - t.created < 60000)) return;
-      if (t.prepFor) { s.prep++; return; }
-      if (!t.due) return;
-      const d = iso(new Date(t.doneAt));
-      if (d <= t.due) s.ontime++;
-      if (d <= addDays(t.due, -2)) s.early++;
-    }));
-    tr(() => { const k = shownStreak(); s.streak = Math.max(Number(k.best) || 0, Number(k.cur) || 0); });
+    tr(() => { s.studydays = window.SBSTREAK && SBSTREAK.studyDays ? SBSTREAK.studyDays(addDays(todayISO(), -400)).length : 0; });
+    tr(() => { s.spread = Object.values(state.tasks || {}).filter(t => MILESTONE(t.type) && !t.prepFor && t.due && t.due <= todayISO() && examSpread(t)).length; });
+    tr(() => { const k = rewardStreak(); s.streak = Math.max(Number(k.best) || 0, Number(k.cur) || 0); });
     tr(() => Object.values(state.decks || {}).forEach(d => {
       (d.cards || []).forEach(x => { s.cards += Number(x.seen) || 0; });
       (d.quizzes || []).concat(...(d.aiQuizzes || []).map(q => q.results || [])).forEach(r => { if (r && Number(r.total) >= 3 && Number(r.score) / Number(r.total) >= 0.7) s.quizzes++; });
@@ -1552,7 +1548,7 @@
     const est = estIdea(); if (est) return est;
     if (plan && plan.idea) { const i = plan.idea; if (ideaValid(i)) return i; }
     try {
-      const F = FOCUS || computeFocus(), top = F && F.ranked && F.ranked.find(x => x.alloc > 0 && x.t.status !== "done" && canDoNow(x.t));
+      const F = FOCUS || computeFocus(), top = F && F.ranked && F.ranked.find(x => x.alloc > 0 && x.t.status !== "done" && canDoNow(x.t) && !x.t.xs);
       if (top) return {text: fitsT(top.t.title, 30) ? `I picked ${cleanT(top.t.title)} for you! Focus on it together?` : "I picked your next task! Want to focus on it together?", action: "focus", taskId: top.t.id, local: true};
       const n = allDueCount(); if (n >= 5) return {text: `${n} flashcards are ready! Review them together?`, action: "review", local: true};
     } catch (e) {}
@@ -2232,7 +2228,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       <div class="cp-tiles">${tiles}</div>
       ${c ? `<label class="cp-name"><span>Name</span><span class="cp-name-row"><input type="text" id="cpName" maxlength="${NAME_MAX}" value="${esc(nameOf(c))}" aria-label="Companion name" data-noenter><button type="button" class="btn small" data-act="comp-rename">Save</button></span></label>` : ""}
       <h3 class="fsec">Accessories</h3>
-      <p class="mini" style="margin:0">Earn little things to wear by studying your way: focus time, tasks done on time, streaks, flashcards, quizzes, notes and more. ${nGot} of ${ACC.length} earned so far (${hLabel} of focus). Props you earn are yours to keep.</p>
+      <p class="mini" style="margin:0">Earn little things to wear by studying your way: focus time, study days, streaks, spreading exam study over several days, flashcards, quizzes, notes and more. Effort counts, not how many tasks you tick off. ${nGot} of ${ACC.length} earned so far (${hLabel} of focus). Props you earn are yours to keep.</p>
       <div class="cp-accs"><button type="button" class="cp-acc-tile${wear.length ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear.length}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear.length ? "Take Off All" : "Wearing"}</span></button>${ACC.map(accTile).join("")}</div>
       <p class="mini" style="margin:0">Wear one prop each on the head, face, neck, chest and back. A new one in the same spot swaps it.</p>
       ${wear.length ? `<h3 class="fsec">Colors</h3><div class="cp-tints">${wear.map(tintRow).join("")}</div>` : ""}

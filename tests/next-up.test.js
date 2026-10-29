@@ -5,7 +5,7 @@ let n = 0, fail = 0;
 const t = (name, fn) => { n++; try { fn(); } catch (e) { fail++; console.log("FAIL", name, "\n  ", e.message.split("\n").slice(0, 4).join("\n   ")); } };
 const fnText = name => { const i = src.indexOf("function " + name + "("); assert(i > 0, name); let d = 0; for (let j = src.indexOf("{", i); j < src.length; j++) { if (src[j] === "{") d++; else if (src[j] === "}" && --d === 0) return src.slice(i, j + 1); } throw new Error("unbalanced " + name); };
 const lineOf = name => { const m = new RegExp("^const " + name + " = .*$", "m").exec(src); assert(m, name); return m[0]; };
-const CODE = ["NUSKIP_LS", "NU_TIER", "NU_STICK", "nuSig", "nuSubmit"].map(lineOf).concat(["nuSkips", "nuStick", "nuScore", "nuAiPick", "nextUp", "nextUpStudy", "nufbWeights", "nufbMult"].map(fnText)).join("\n");
+const CODE = ["NUSKIP_LS", "NU_TIER", "nuBand", "nuOff", "NU_STICK", "nuSig", "nuSubmit"].map(lineOf).concat(["nuSkips", "nuStick", "nuScore", "nuAiPick", "nextUp", "nextUpStudy", "nufbWeights", "nufbMult"].map(fnText)).join("\n");
 // A fixed "now": Monday 2026-10-05, 14:00 local time
 const NOW = new Date(2026, 9, 5, 14, 0).getTime();
 class FakeDate extends Date { constructor(...a){ if (a.length) super(...a); else super(NOW); } static now(){ return NOW; } }

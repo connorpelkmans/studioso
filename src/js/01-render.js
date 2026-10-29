@@ -44,6 +44,7 @@ function render(){
 function renderNow(){
   if (renderBlocked) { renderQueued = false; setTimeout(scheduleRender, 120); return; }
   try { AUTO_ON = autoState().on; } catch(e) { AUTO_ON = false; }
+  if (window.__SB_TEST && window.__sbForceAuto) AUTO_ON = true;
   try { const want = (s => skinOk(s) && SKINS.some(x => x.id === s) ? s : "classic")(styleCfg().skin); if ((document.documentElement.dataset.skin || "classic") !== want) applySkin(); } catch(e) {}
   computeFocus(); remoteStoreSoon();
   { const nd = new Date(); $("#navDate").textContent = nd.toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"}); }
@@ -325,8 +326,10 @@ function taskView(t0){
     } else rows.push([I.cal, "No due date", ""]);
     const st = !cfg.single && (t.start || startOf(t));
     if (st && st !== t.due) rows.push([I.start, esc(fmtDate(st)), esc(cfg.start || "Start Date")]);
-    if (cfg.hours && isNum(t.hours) && !ms) rows.push([I.clock, esc(fmtH(Number(t.hours))), esc(cfg.hours) + (t.focusMin ? ` · ${esc(fmtMins(t.focusMin))} focused so far` : "")]);
-    else if (t.focusMin) rows.push([I.clock, esc(fmtMins(t.focusMin)) + " focused", `${t.pomos || 0} focus session${t.pomos === 1 ? "" : "s"}`]);
+    // once work has started, what's left (a range, from your pace, check-ins and how tasks like this usually go)
+    const leftTxt = !done && !ms && (Number(t.focusMin) > 0 || progress(t).frac > 0) && remainingOf(t) > 0 ? ` · ${esc(leftRange(t))} left` : "";
+    if (cfg.hours && isNum(t.hours) && !ms) rows.push([I.clock, esc(fmtH(Number(t.hours))), esc(cfg.hours) + (t.focusMin ? ` · ${esc(fmtMins(t.focusMin))} focused so far` : "") + leftTxt]);
+    else if (t.focusMin) rows.push([I.clock, esc(fmtMins(t.focusMin)) + " focused", `${t.pomos || 0} focus session${t.pomos === 1 ? "" : "s"}` + leftTxt]);
     if (cfg.reading && t.reading) rows.push([I.book, esc(t.reading), esc(cfg.reading)]);
     if (cfg.location && t.location) rows.push([I.pin, esc(t.location), esc(cfg.location)]);
     if (cfg.team && t.team) rows.push([I.person, esc(t.team), esc(cfg.team)]);
@@ -341,7 +344,14 @@ function taskView(t0){
     const band = c ? `<span class="occv-ic" aria-hidden="true">${courseRingHtml(c)}</span><b>${esc(courseLabel(c))}</b>` : `<span class="occv-ic" aria-hidden="true">${typeIcon(t.type)}</span><b>${esc(t.type || "Task")}</b>`;
     const hint = !drag ? (p.ms ? `Progress comes from its milestones: ${p.done} of ${p.total} done.` : `Progress comes from the checklist: ${items.filter(i => i.done).length} of ${items.length} done.`)
       : "";
-    const prog = `<div class="tv-prog${drag ? "" : " ro"}"><div class="tv-prog-h"><b>${esc(cfg.prog || "Progress")}</b><span id="tvPct">${val}%</span></div>
+    // Exams: readiness measured from your results comes first; the slider is how ready you feel, and a big gap between them is pointed out
+    const xr = ms && !done ? examReadiness(t) : null, feelLbl = ms ? "How Ready You Feel" : cfg.prog || "Progress";
+    const ready = !xr ? "" : xr.measured != null ? `<div class="tv-prog ro tv-ready"><div class="tv-prog-h"><b>Readiness From Your Results</b><span>${xr.measured}%</span></div>
+      <div class="tv-bar" role="progressbar" aria-label="Readiness from your results" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${xr.measured}" style="--v:${xr.measured}%"><i class="tv-fill"></i></div>
+      <p class="mini tv-hint">From ${esc(readinessSource(xr))}.${xr.from === "both" ? " With a little more studying it will rely on these alone." : ""}${xr.parts.plan == null ? ` <button type="button" class="link-btn" data-act="xr-decks" data-id="${esc(t.id)}">Choose Which Flashcards and Quizzes Count</button>` : ""}</p>
+      ${xr.gap ? `<p class="tv-gap ${xr.gap > 0 ? "over" : "under"}" role="note">${esc(readinessGapText(xr))}</p>` : ""}</div>`
+      : `<p class="mini tv-hint tv-noready">Until you study this course's flashcards or take a practice quiz, readiness goes by how ready you feel. Your results will show here as you go.${decksArr().length ? ` <button type="button" class="link-btn" data-act="xr-decks" data-id="${esc(t.id)}">Choose Which Flashcards and Quizzes Count</button>` : ""}</p>`;
+    const prog = ready + (window.SBWRAP ? SBWRAP.viewHtml(t) : "") + `<div class="tv-prog${drag ? "" : " ro"}"><div class="tv-prog-h"><b>${esc(feelLbl)}</b><span id="tvPct">${val}%</span></div>
       <div class="tv-bar" id="tvBar" ${drag ? `title="${ms ? "Drag to say how ready you feel" : "Drag to update your progress"}" role="slider" tabindex="0" aria-label="${esc(cfg.prog || "Progress")}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${val}" aria-valuetext="${val}%"` : `role="progressbar" aria-label="${esc(cfg.prog || "Progress")}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${val}"`} style="--v:${val}%"><i class="tv-fill"></i>${drag ? `<span class="tv-knob" aria-hidden="true"></span>` : ""}</div>
       ${hint ? `<p class="mini tv-hint">${esc(hint)}</p>` : ""}</div>`;
     const cl = items.length ? `<div class="tv-cl"><h3>${esc(cfg.checklist || "Checklist")} <span class="mini">${items.filter(i => i.done).length}/${items.length}</span></h3><ul>${items.map((i, k) => `<li class="${i.done ? "done" : ""}"><label><input type="checkbox" data-tv-cl="${k}" ${i.done ? "checked" : ""}><span>${esc(i.text)}</span></label></li>`).join("")}</ul></div>` : "";
@@ -453,6 +463,7 @@ function taskForm(t, preset = {}){
               <label class="f"><span class="lh">Grade Weight <span class="hint">% of course grade</span></span><input type="number" name="weight" min="0" max="100" step="0.5" inputmode="decimal" value="${hasWeight(t) ? esc(t.weight) : ""}"></label>
               <label class="f">Late Work<select name="late">${Object.entries(LATE_LABEL).map(([k, l]) => `<option value="${k}" ${k === t.late ? "selected" : ""}>${l}</option>`).join("")}</select></label>
             </div>
+            <label class="f" id="latePenWrap"${t.late === "penalty" ? "" : " hidden"}><span class="lh">Late Penalty <span class="hint">% off for each day late</span></span><input type="number" name="latePen" min="0" max="100" step="1" inputmode="decimal" value="${hasLatePen(t) ? esc(t.latePen) : ""}" placeholder="10"></label>
             <div><span class="lbl" style="font-size:.88rem;font-weight:600">Difficulty</span>${seg("difficulty", [["easy","Easy"],["med","Medium"],["hard","Hard"]], t.difficulty)}</div>
             <p class="plan-hint" id="planHint" aria-live="polite"></p>
           </fieldset>
@@ -493,6 +504,7 @@ function taskForm(t, preset = {}){
       pct: Number(fd.get("pct") || 0), dependsOn: deps.slice(),
       weight: isNum(fd.get("weight")) && Number(fd.get("weight")) > 0 ? Math.min(100, Number(fd.get("weight"))) : null,
       difficulty: fd.get("difficulty") || "med", late: fd.get("late") || "unknown",
+      latePen: fd.get("late") === "penalty" && isNum(fd.get("latePen")) && Number(fd.get("latePen")) > 0 ? Math.min(100, Number(fd.get("latePen"))) : null,
       location: cfg.location ? txt("location") : "", team: cfg.team ? txt("team") : "", reading: cfg.reading ? txt("reading") : "", link
     };
     if (MILESTONE(type)) {
@@ -565,7 +577,8 @@ function taskForm(t, preset = {}){
   const pctIn = dlg.querySelector("input[name=pct]");
   const pctHint = () => {
     const v = Number(pctIn.value);
-    $("#pctHint").textContent = MILESTONE(curType()) ? (v >= 90 ? "Ready" : v >= 60 ? "Mostly ready, a few topics to review" : v >= 30 ? "Getting there" : "Just starting to study") : "";
+    const xr = MILESTONE(curType()) && state.tasks[t.id] ? examReadiness(state.tasks[t.id]) : null;
+    $("#pctHint").textContent = MILESTONE(curType()) ? (v >= 90 ? "Ready" : v >= 60 ? "Mostly ready, a few topics to review" : v >= 30 ? "Getting there" : "Just starting to study") + (xr && xr.measured != null ? `. Your results say about ${xr.measured}%, and those count first.` : "") : "";
   };
   const setStatus = v => { const r = dlg.querySelector(`input[name=status][value="${v}"]`); if (r && !r.checked) r.checked = true; };
   pctIn.addEventListener("input", () => {
@@ -632,6 +645,7 @@ function taskForm(t, preset = {}){
   };
   dlg.querySelectorAll("input[name=remote]").forEach(r => r.addEventListener("change", drawRx));
   drawRx();
+  { const ls = dlg.querySelector("select[name=late]"), pw = $("#latePenWrap"); if (ls && pw) ls.addEventListener("change", () => { pw.hidden = ls.value !== "penalty"; }); }
   const planHint = () => {
     const f = new FormData(dlg.querySelector("form"));
     const probe = normTask(Object.assign(clone(t), {type: f.get("type"), hours: f.get("hours") === "" ? null : Number(f.get("hours")), pct: Number(f.get("pct") || 0),
@@ -641,8 +655,9 @@ function taskForm(t, preset = {}){
     const ms = MILESTONE(probe.type);
     const x = FOCUS && FOCUS.info[t.id];
     const rankTxt = x ? (() => { const i = FOCUS.ranked.indexOf(x); return i >= 0 ? ` Currently #${i + 1} in Today's Plan${x.alloc > 0 ? `, with ${fmtHM(x.alloc)} suggested today` : ""}.` : ""; })() : "";
-    $("#planHint").innerHTML = (ms ? `Estimated <b>${fmtHM(R)}</b> of studying left, based on difficulty, grade weight and preparedness.`
-      : `Estimated <b>${fmtHM(R)}</b> of work left${isNum(probe.hours) && probe.hours > 0 ? "" : " (a typical amount for this type; add Hours Needed for a better plan)"}.`) + rankTxt;
+    const inPerson = ms && !canDoNow(probe) && !planSessions(t.id).length, lead = inPerson ? examLead(probe) : null;
+    $("#planHint").innerHTML = (ms ? `Estimated <b>${fmtHM(R)}</b> of studying left, based on difficulty, grade weight and preparedness.${lead ? ` Today's Plan starts study time for it ${lead.days} days before${lead.risk ? ", sooner because of your standing in the course" : ""}${lead.p < 0.75 ? `${lead.risk ? " and" : ", sooner"} because ${esc(readyWords(lead.from, lead.p))}` : ""}.` : ""}`
+      : `Estimated <b>${esc(leftRange(probe))}</b> of work left${isNum(probe.hours) && probe.hours > 0 ? "" : " (a typical amount for this type; add Hours Needed for a better plan)"}.`) + rankTxt;
   };
   tForm.addEventListener("input", planHint); tForm.addEventListener("change", planHint);
   tForm.addEventListener("input", advSummary); tForm.addEventListener("change", advSummary);
@@ -727,7 +742,7 @@ function repeatDates(due, every, until){
 function repeatCopies(base, every, until){
   const off = dayDiff(base.start || base.due, base.due);
   return repeatDates(base.due, every, until).map((d, i) => {
-    const keep = {}; ["title", "courseId", "type", "time", "priority", "notes", "hours", "weight", "difficulty", "late", "location", "team", "reading", "link", "seriesId"].forEach(k => { if (base[k] !== undefined) keep[k] = clone(base[k]); });
+    const keep = {}; ["title", "courseId", "type", "time", "priority", "notes", "hours", "weight", "difficulty", "late", "latePen", "location", "team", "reading", "link", "seriesId"].forEach(k => { if (base[k] !== undefined) keep[k] = clone(base[k]); });
     const x = newTask(Object.assign(keep, {due: d, start: addDays(d, -off), status: "todo", checklist: (base.checklist || []).map(i => ({id: uid(), text: i.text, done: false}))}));
     x.order += i + 1;
     return {kind: "task", id: x.id, after: x};

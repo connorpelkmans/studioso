@@ -88,12 +88,20 @@ const CRUNCH = (() => {
     const dueW = P.lead ? P.dueFrac : 1;
     let tot = dueW;
     const ws = days.map(d => { const w = Math.pow(decay, diff(d, due) - 1); tot += w; return w; });
+    // eveCap: the most the day before may carry (studying for an in-person exam is light review then); the rest goes to earlier days
+    if (num(t.eveCap) && days.length > 1 && R > 0) {
+      const k = days.indexOf(add(due, -1)), cap = Math.max(0, Number(t.eveCap));
+      if (k >= 0 && R * ws[k] / tot > cap) {
+        const extra = ws[k] - cap * tot / R, others = ws.reduce((s, w, i) => i === k ? s : s + w, 0);
+        if (others > 0) { ws.forEach((w, i) => { if (i !== k) ws[i] = w + extra * w / others; }); ws[k] = cap * tot / R; }
+      }
+    }
     days.forEach((d, i) => { if (d <= lastDay) out.push({date: d, hours: R * ws[i] / tot, stress: 0, kind: "prep"}); });
     if (due <= lastDay) out.push({date: due, hours: R * dueW / tot, stress: S, kind: "due"});
     return {c, out, R};
   }
 
-  // input: {today, tasks, busy: {date: hours}, dailyHours, maxWeeks (20), minWeeks
+  // input: {today, tasks, busy: {date: hours}, dailyHours, maxWeeks (20), minWeeks, cap: optional {date: free hours} (your availability)
   function build(input){
     const today = input.today, maxWeeks = input.maxWeeks || 20, minWeeks = input.minWeeks || 6;
     const dh = num(input.dailyHours) ? Math.max(0.5, Number(input.dailyHours)) : 3, busy = input.busy || {};
@@ -131,6 +139,8 @@ const CRUNCH = (() => {
     res.days.forEach(D => {
       D.cap0 = r2(dh * cs * (wks ? wks[pd(D.date).getDay()] : 1));
       D.capacity = Math.max(0.5, D.cap0 * busyFactor(D.busy));
+      // free time from your availability (work, shifts, protected time) can only lower it, like Today's Plan
+      if (input.cap && num(input.cap[D.date])) D.capacity = Math.max(0.25, Math.min(D.capacity, Number(input.cap[D.date])));
       D.demand = r2(D.demand);
       D.ratio = D.past ? 0 : r2(D.demand / D.capacity);
       D.levelIdx = D.past ? 0 : levelOf(D.ratio);
@@ -382,7 +392,32 @@ button.cr-d:hover{filter:brightness(.95)}
 
 /* The planner's data, in the model's shape */
 let MEMO = {k: "", m: null, input: null};
+/* The forecast reads Today's Plan's own numbers for each task (computeFocus): work left, when work is closed (past its due
+   time with no late work, or its late window shut), late work with no penalty waiting until its window, group project tasks,
+   undated steps that a dated task waits on, and an in-person exam's study time ("Study for"), which it spreads over the
+   exam's lead-up with the night before kept light. Your availability caps each day's capacity, as it does in Today's Plan. */
 function inputNow(){
+  const today = todayISO();
+  let F = null; try { F = typeof FOCUS !== "undefined" && FOCUS && FOCUS.today === today ? FOCUS : computeFocus(); } catch (e) { F = null; }
+  if (!F || !F.info) return inputLegacy();
+  const info = F.info;
+  const tasks = Object.values(info).filter(x => x.t && !x.t.xs && x.t.status !== "done" && x.t.due).map(x => {
+    const t = x.t, study = info[XS_ID + t.id];
+    const due = x.past && !x.dead && x.late === "free" && x.eff ? iso(new Date(x.eff)) : t.due;
+    return {id: t.id, title: t.title, type: t.type, due, time: t.time || "", start: t.start || "", status: t.status, rem: x.fixed ? (study ? study.R : 0) : x.R, weight: weightOf(t), pct: t.pct,
+      est: (isNum(t.hours) && Number(t.hours) > 0) || !!(autoPlanOn() && t.aiHours && t.aiHours.h > 0) || !!t.prepFor || !!t.gt || x.fixed, synced: !!lmsOf(t), blocked: blockers(t).length > 0, prep: !!t.prepFor, bd: !!t.breakdownOf, courseId: t.courseId || "", dead: !!x.dead,
+      eveCap: x.fixed && study ? LIGHT_EVE : undefined};
+  });
+  let busy = {}; const keep = BUSY_CACHE;
+  try { busy = Object.assign({}, busyDays(today, addDays(today, 21 * 7)).m); } catch (e) {}
+  BUSY_CACHE = keep;
+  let cap = null; try { if (availActive()) cap = Object.assign({}, availDays(today, addDays(today, 21 * 7))); } catch (e) { cap = null; }
+  const A = typeof SBACC !== "undefined" ? SBACC : null;
+  const cs = A ? A.capScale() : 1, wk = [0, 1, 2, 3, 4, 5, 6].map(i => A ? A.wkScale(addDays(today, i)) : 1).map((v, i) => ({d: parse(addDays(today, i)).getDay(), v})).sort((p, q) => p.d - q.d).map(x => x.v);
+  return {today, tasks, busy, cap, dailyHours: dailyHours() || 3, capScale: cs, wkScale: wk.some(v => v !== 1) ? wk : null, maxWeeks: 20, minWeeks: 6};
+}
+// Before Today's Plan is ready: the tasks as they are
+function inputLegacy(){
   const today = todayISO(), stamp = nowStamp();
   const tasks = tasksArr().filter(t => t.status !== "done" && t.due).map(t => {
     const lp = lateOf(t), lu = lateUntilOf(t);
@@ -398,7 +433,7 @@ function inputNow(){
   return {today, tasks, busy, dailyHours: dailyHours() || 3, capScale: cs, wkScale: wk.some(v => v !== 1) ? wk : null, maxWeeks: 20, minWeeks: 6};
 }
 function modelNow(){
-  const k = [state.updated || 0, todayISO(), dailyHours(), tasksArr().length, AUTO_ON ? 1 : 0, typeof SBACC !== "undefined" && SBACC ? SBACC.sig() : ""].join("|");
+  const k = [state.updated || 0, todayISO(), new Date().getHours(), dailyHours(), tasksArr().length, AUTO_ON ? 1 : 0, typeof SBACC !== "undefined" && SBACC ? SBACC.sig() : ""].join("|");
   if (MEMO.k === k && MEMO.m) return MEMO.m;
   const input = inputNow(), m = C.build(input);
   MEMO = {k, m, input};

@@ -271,8 +271,8 @@ const TYPE_CFG = {
   Project:    {start:"Start Date", due:"Due Date", time:"Due Time", hours:"Hours Needed", prog:"Progress", checklist:"Milestones", step:"Add a milestone, e.g. Proposal approved", link:"Project Link", team:"Team Members", notes:"Notes", notesPh:"Scope, requirements, meeting times…", title:"e.g. Bridge design project"},
   Lab:        {start:"Lab Session", due:"Report Due", time:"Due Time", hours:"Hours Needed", prog:"Progress", checklist:"Pre-Lab Checklist", step:"Add a step, e.g. Read procedure", location:"Lab Room", link:"Instructions Link", notes:"Notes", notesPh:"Equipment, safety notes, data to collect…", title:"e.g. Lab 3: Tensile testing"},
   Reading:    {start:"Start Date", due:"Read By", hours:"Time Needed", prog:"Progress", checklist:"Sections", step:"Add a section, e.g. 4.2 Equilibrium", reading:"What to Read", notes:"Notes", notesPh:"Key ideas, questions for class…", title:"e.g. Read chapter 4"},
-  Exam:       {single:true, due:"Exam Date", prep:true, prog:"Preparedness", checklist:"Study Checklist", step:"Add a topic to review, e.g. Trusses", location:"Location", notes:"What It Covers", notesPh:"Chapters, topics, allowed materials…", title:"e.g. Midterm 1"},
-  Quiz:       {single:true, due:"Quiz Date", prep:true, prog:"Preparedness", checklist:"Study Checklist", step:"Add a topic to review", location:"Location", notes:"What It Covers", notesPh:"Topics, format, allowed materials…", title:"e.g. Quiz 2"},
+  Exam:       {single:true, due:"Exam Date", prep:true, prog:"How Ready You Feel", checklist:"Study Checklist", step:"Add a topic to review, e.g. Trusses", location:"Location", notes:"What It Covers", notesPh:"Chapters, topics, allowed materials…", title:"e.g. Midterm 1"},
+  Quiz:       {single:true, due:"Quiz Date", prep:true, prog:"How Ready You Feel", checklist:"Study Checklist", step:"Add a topic to review", location:"Location", notes:"What It Covers", notesPh:"Topics, format, allowed materials…", title:"e.g. Quiz 2"},
   Study:      {start:"Study Day", due:"Finish By", hours:"Time Needed", prog:"Progress", checklist:"Study Steps", step:"Add a step, e.g. Recall the RAAS pathway", link:"Link", notes:"Notes", notesPh:"What to cover…", title:"e.g. Review cardiac drugs"},
   Other:      {start:"Start Date", due:"Due Date", time:"Due Time", hours:"Hours Needed", prog:"Progress", checklist:"Checklist", step:"Add a step", link:"Link", notes:"Notes", notesPh:"Details…", title:"e.g. Register for spring classes"}
 };
@@ -537,6 +537,21 @@ function normTask(t){
   t = Object.assign({title:"Untitled", courseId:"", type:"Assignment", start:"", due:"", time:"", priority:"med", status:"todo", notes:"", hours:null, checklist:[], pct:0, dependsOn:[], history:[], location:"", link:"", team:"", reading:"", weight:null, difficulty:"med", late:"unknown"}, t);
   if (!DIFF_M[t.difficulty]) t.difficulty = "med";
   if (!LATE_M[t.late]) t.late = "unknown";
+  if (t.wrap != null) {
+    const w = t.wrap, num = v => isNum(v) && Number(v) >= 0 && Number(v) <= 150 ? Math.round(Number(v)) : null;
+    if (!w || typeof w !== "object") delete t.wrap;
+    else t.wrap = {at: Number(w.at) > 0 ? Number(w.at) : 0, methods: (Array.isArray(w.methods) ? w.methods : []).filter(k => typeof k === "string" && /^[a-z]{2,12}$/.test(k)).slice(0, 12),
+      start: typeof w.start === "string" && /^[a-z]{2,12}$/.test(w.start) ? w.start : "", next: String(w.next || "").replace(/<[^>]*>/g, "").slice(0, 200), felt: num(w.felt), measured: num(w.measured), mark: num(w.mark)};
+  }
+  if (t.left != null && !(t.left && typeof t.left === "object" && Number(t.left.h) >= 0 && Number(t.left.h) <= 200 && Number(t.left.fm) >= 0)) delete t.left;
+  if (t.aiDecks != null && !(t.aiDecks && Array.isArray(t.aiDecks.ids) && typeof t.aiDecks.sig === "string")) delete t.aiDecks;
+  else if (t.aiDecks) t.aiDecks.ids = t.aiDecks.ids.filter(x => typeof x === "string" && x.length <= 80).slice(0, 30);
+  if (t.readyDecks != null) { if (Array.isArray(t.readyDecks)) t.readyDecks = t.readyDecks.filter(x => typeof x === "string" && x.length <= 80).slice(0, 30); else delete t.readyDecks; }
+  if (t.readySnap != null) {
+    const r = t.readySnap, num = v => isNum(v) && Number(v) >= 0 && Number(v) <= 100 ? Math.round(Number(v)) : null;
+    if (!r || typeof r !== "object" || !(Number(r.at) > 0)) delete t.readySnap; else t.readySnap = {felt: num(r.felt), measured: num(r.measured), at: Number(r.at)};
+  }
+  if (t.latePen != null) { const v = Number(t.latePen); if (t.late === "penalty" && isFinite(v) && v > 0) t.latePen = Math.min(100, v); else delete t.latePen; }
   if (!Array.isArray(t.dependsOn)) t.dependsOn = [];
   if (!Array.isArray(t.history)) t.history = [];
   t.pct = Math.max(0, Math.min(100, Number(t.pct) || 0));
@@ -2564,6 +2579,13 @@ function applyChanges(changes, label, extra, opts){
   const progressed = label !== null && typeof isProgress === "function" && changes.some(c => c.kind === "task" && c.after && isProgress(getItem("task", c.id), c.after));
   let binned = [];
   if (label !== null) { try { binned = trashCapture(changes, label); } catch(e) { console.warn("Recently Deleted", e); } }
+  // An exam or quiz marked done keeps how ready you were right then (how ready you felt, and what your results said), so the
+  // reflection after the mark compares the mark with the readiness before the exam, on every device
+  if (label !== null && typeof examReadiness === "function") changes.forEach(c => {
+    const a = c.kind === "task" && c.after, b = a && getItem("task", c.id);
+    if (!a || !MILESTONE(a.type) || a.prepFor || a.status !== "done" || (b && b.status === "done") || a.readySnap) return;
+    try { const xr = examReadiness(Object.assign({}, a, {status: "todo"})); c.after = Object.assign({}, a, {readySnap: {felt: xr ? xr.self : null, measured: xr ? xr.measured : null, at: Date.now()}}); } catch (e) { console.warn("readiness snapshot", e); }
+  });
   changes.forEach(c => setItem(c.kind, c.id, c.after === null ? null : c.after, label !== null));
   state.updated = Date.now();
   saveLocal();
@@ -4567,9 +4589,13 @@ function nuSkips(){
 function nuSkipSave(){ try { if (ui.skipNext) localStorage.setItem(NUSKIP_LS, JSON.stringify(ui.skipNext)); } catch(e) {} }
 // Work with nothing left that isn't marked done yet: it only needs checking over and handing in
 const nuSubmit = x => !(x.R > 0) && x.dl > 0 && !x.fixed && !MILESTONE(x.t.type);
-// Anything due today ranks in a tier of its own (computeFocus adds 1000 to its score). The nudges below scale only
-// the task's own score, never that offset, so a small nudge can't lift a minor task over a much more important one
-const NU_TIER = 1000;
+// Work due now ranks in bands of its own: kept to save the most marks today (2), then the rest due now (1), then everything
+// else (0). The nudges below never move a task across bands, and inside band 2 they change nothing, so the order that
+// saves the most marks (earliest cut-off first) holds.
+const NU_TIER = 1e5;
+const nuBand = x => x.tier ? (x.tierSkip ? 1 : 2) : x.score >= 1000 ? 1 : 0;
+// The part of a score that is the band's own offset (computeFocus scores due-now work 2000 or 3000 plus its place)
+const nuOff = x => x.tier ? (x.tierSkip ? 2000 : 3000) : x.score >= 1000 ? 1000 : 0;
 // The task already shown stays first unless another beats it by this much, so Do This Next doesn't flip as the clock moves
 const NU_STICK = 1.15;
 const nuSig = () => (typeof state !== "undefined" && state ? state.updated || 0 : 0) + "|" + todayISO();
@@ -4578,14 +4604,14 @@ function nuStick(scored){
   if (!L || L.sig !== nuSig() || Date.now() - L.at > 3 * 36e5 || scored.length < 2) return;
   const i = scored.findIndex(y => y.x.t.id === L.id); if (i <= 0) return;
   const y = scored[i], top = scored[0], own = z => z.s - z.tier * NU_TIER;
-  if (y.tier !== top.tier || y.x.guarded) return;
+  if (y.tier !== top.tier || y.tier === 2 || y.x.guarded) return;
   if (own(y) * NU_STICK >= own(top)) { scored.splice(i, 1); scored.unshift(y); }
 }
 // Scores what can be done now for this moment: the time of day, the next class, what you just worked on and your feedback
 function nuScore(F){
   const sk = nuSkips(), now = new Date(), hr = now.getHours(), hm = pad(hr) + ":" + pad(now.getMinutes());
   const recent = t => (t.history || []).some(h => /^Focus session/.test(h.text) && Date.now() - h.at < 3 * 3600000);
-  const pool = F.ranked.filter(x => inFilter(x.t) && canDoNow(x.t) && !sk.ids.includes(x.t.id) && (x.R > 0 || x.dl <= 0 || nuSubmit(x)) && !enoughToday(x.t, x));
+  const pool = F.ranked.filter(x => inFilter(x.t) && canDoNow(x.t) && !x.dead && !sk.ids.includes(x.t.id) && (x.R > 0 || x.dl <= 0 || nuSubmit(x)) && !enoughToday(x.t, x));
   const focusLen = Number(pomoCfg().focus) || 25;
   let gapMin = null, gapWhat = "";
   if (!pool.length) return {pool, scored: [], gapMin, gapWhat, focusLen, now};
@@ -4599,7 +4625,7 @@ function nuScore(F){
   const fbW = nufbWeights(nufbLoad(), Date.now());
   const pk = accOf() ? accOf().peak(Date.now()) : null;
   const scored = pool.map(x => {
-    const t = x.t, why = [], tier = x.score >= NU_TIER ? 1 : 0, base = x.score - tier * NU_TIER, submit = !(x.R > 0) && x.dl > 0;
+    const t = x.t, why = [], tier = nuBand(x), base = x.score - nuOff(x), submit = !(x.R > 0) && x.dl > 0;
     let m = x.alloc > 0 ? 1 : 0.8;
     const sessionH = Math.min(x.alloc > 0 ? x.alloc : x.R, focusLen * 2 / 60);
     if (submit) { m *= 0.5; why.push("Nothing left to do but check it over and hand it in"); }
@@ -4613,11 +4639,11 @@ function nuScore(F){
       else if (x.alloc > 0 && sessionH * 60 <= gapMin + 5) { m *= 1.1; why.push(`A session fits in the ${gapMin} minutes before ${gapWhat}`); }
       else if (diffOf(t) === "hard") m *= 0.85;
     }
-    if (t.prepFor) why.push("Part of your exam study plan");
-    if (accOf()) { const ub = accOf().underBoost(t); if (ub > 1 && x.dl > 0) { m *= ub; why.push(tr("acc.underWhy", "These usually take you longer than you estimate")); } }
+    if (t.prepFor && !t.xs) why.push("Part of your exam study plan");
+    if (accOf() && !t.xs) { const ub = accOf().underBoost(t); if (ub > 1 && x.dl > 0) { m *= ub; why.push(tr("acc.underWhy", "These usually take you longer than you estimate")); } }
     if (x.dl > 0 && t.courseId && (courseMin[t.courseId] || 0) >= 120) m *= 0.92;
     m *= nufbMult(fbW, t.type, t.courseId, t.id, x.dl);
-    const s = tier * NU_TIER + (tier ? base * m : Math.min(base * m, NU_TIER - 1));
+    const s = tier * NU_TIER + Math.min(tier === 2 ? base : base * m, NU_TIER - 1);
     return {x, s, why, sessionH, tier};
   });
   deadlineGuard(scored, y => y.x, "s");
@@ -4633,7 +4659,7 @@ function nuAiPick(scored, exm){
     const idx = scored.findIndex(y => y.x.t.id === ai.id), y = scored[idx], top = scored[0];
     const urgent = top.x.dl <= 0 && top.x.R > 0 && (top.x.behind > 0 || top.x.rho >= 0.9) && y.x.dl > 0;
     const leap = scored.slice(0, idx).some(z => z.x.dl >= 0 && z.x.dl <= 3 && z.x.R > 0 && y.x.dl >= z.x.dl + 7 && (y.x.own || 0) < 0.75);
-    if (urgent || leap || (idx > 5 && y.s < top.s * 0.6)) ai = null;
+    if (urgent || leap || y.tier < top.tier || (idx > 5 && y.s < top.s * 0.6)) ai = null;
   }
   return ai;
 }
@@ -4644,8 +4670,9 @@ function nuLead(F){
     const r = nuScore(F); if (!r.scored.length) return "";
     const exm = typeof SBEXAM !== "undefined" ? SBEXAM.rankNext(F, r.scored, r.pool, r.focusLen) : null;
     if (exm && exm.study) return "";
-    const ai = nuAiPick(r.scored, exm);
-    return ai ? ai.id : r.scored[0].x.t.id;
+    // Today's Plan decides what gets time today; right now picks among that
+    const today = r.scored.filter(y => y.x.alloc > 0), list = today.length ? today : r.scored, ai = nuAiPick(list, exm);
+    return ai ? ai.id : list[0].x.t.id;
   } catch(e) { console.warn("next up lead", e); return ""; } finally { ui.nextShown = keep; }
 }
 function nextUp(F){
@@ -4659,7 +4686,7 @@ function nextUp(F){
   const planned = scored.map(y => { const l = (sb[y.x.t.id] || []).filter(sl => sl && sl.e > nowM); return {y, at: l.length ? Math.min(...l.map(sl => Math.max(sl.s, nowM))) : null}; }).filter(o => o.at != null).sort((a, b) => a.at - b.at)[0];
   if (planned && !(aiPick && aiPick.id === planned.y.x.t.id)) aiPick = null;
   const pick = planned ? planned.y : aiPick ? scored.find(y => y.x.t.id === aiPick.id) : scored[0];
-  ui.nextShown = pick.x.t.id;
+  ui.nextShown = pick.x.t.xs ? pick.x.t.xs.id : pick.x.t.id;
   const L = ui.nuLast, sig = nuSig();
   ui.nuLast = {id: pick.x.t.id, sig, at: L && L.id === pick.x.t.id && L.sig === sig ? L.at : Date.now()};
   const submit = !(pick.x.R > 0) && pick.x.dl > 0;
@@ -4671,6 +4698,12 @@ function nextUp(F){
   if (submit) mins = Math.min(mins, 15);
   if (gapMin != null && gapMin >= 15) mins = Math.max(10, Math.min(mins, Math.floor((gapMin - 5) / 5) * 5));
   const why = (aiPick && aiPick.why ? [aiPick.why] : pick.why.concat(pick.x.reasons)).filter((r, i, a) => a.indexOf(r) === i && !(r === "Due today" && a.some(y => /^Due at .* today$/.test(y)))).slice(0, aiPick ? 1 : 3);
+  // Studying for an in-person exam: the study card, with this plan's time for it
+  if (pick.x.t.xs) {
+    const t = pick.x.t, ex = state.tasks[t.xs.id] || {title: t.title.replace(/^Study for /, "")};
+    const w2 = aiPick && aiPick.why ? [aiPick.why] : pick.why.concat(pick.x.reasons).filter((r, i, a) => a.indexOf(r) === i && !a.some(o => o !== r && o.startsWith(r))).slice(0, 3);
+    return {x: pick.x, why: w2, step: null, mins, left: pool.length - 1, ai: !!aiPick, study: true, xs: true, hasPlan: false, label: "Study for " + ex.title};
+  }
   // Exam study only steps in when no timeline is deciding, so the card and the timeline never disagree
   return (exm || planned ? null : nextUpStudy(F, pick, pool, focusLen)) || {x: pick.x, why, step, mins, left: pool.length - 1, ai: !!aiPick};
 }
@@ -4689,7 +4722,7 @@ function nextUpStudy(F, top, pool, focusLen){
   const t = ex.t, hasPlan = planSessions(t.id).length > 0;
   const why = [`${t.type} ${ex.dl === 1 ? "tomorrow" : "in " + ex.dl + " days"}${t.time ? " at " + fmtTime(t.time) : ""}`, hasPlan ? "Extra review before it" : "No study plan yet"];
   ui.nextShown = "study:" + t.id;
-  return {x: ex, why, step: null, mins: Math.max(focusLen, Math.min(focusLen * 2, ex.dl <= 1 ? focusLen * 2 : focusLen)), left: pool.length, ai: false, study: true, hasPlan, label: "Study for " + t.title};
+  return {x: ex, why, step: null, mins: ex.dl <= 1 ? Math.min(focusLen, 30) : focusLen, left: pool.length, ai: false, study: true, hasPlan, label: "Study for " + t.title};
 }
 // Heads Up: things the automatic AI noticed that are easy to miss
 const HEADS_HIDE = "studyboard:heads:hide";
@@ -4708,16 +4741,16 @@ const nuOpenCls = () => ui.nuMore ? " nu-open" : "";
 const nuMoreBtn = () => `<button type="button" class="nu-more" data-act="nu-more" aria-expanded="${!!ui.nuMore}">Details${NU_CHEV}</button>`;
 function nextUpHtml(F, pre){
   const n = arguments.length > 1 ? pre : nextUp(F); if (!n) return "";
-  const t = n.x.t, c = courseOf(t.courseId);
+  const t0 = n.x.t, t = n.xs && t0.xs ? state.tasks[t0.xs.id] || t0 : t0, c = courseOf(t.courseId);
   if (n.study) return `<div class="next-up nu-nochk${nuOpenCls()}" style="--c:${esc(colorOf(t.courseId))}">
-    <div class="nu-top"><span class="nu-label">Do This Next</span></div>
+    <div class="nu-top"><span class="nu-label">Do This Next</span>${n.xs && n.x.alloc > 0 ? `<span class="nu-alloc" title="Suggested study time today">${fmtHM(n.x.alloc)}<span class="nu-td"> today</span></span>` : ""}</div>
     <div class="nu-row">
       <div class="nu-body">
         <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">${nuRing(t)}Study for ${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>${c ? `<span class="tag nu-tag-out">${esc(courseLabel(c))}</span>` : ""}
-        ${nuMoreBtn()}<span class="nu-why">${n.why.map(r => `<span class="nu-chip${/tomorrow/.test(r) ? " soon" : ""}">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}</span>
-        <span class="nu-step">${n.hasPlan ? "Review your weakest topics or flashcards for it." : "Review now, or let Plan My Prep spread short sessions over the days before it."}</span>
+        ${nuMoreBtn()}<span class="nu-why">${n.why.map(r => r.length <= 28 ? `<span class="nu-chip${/tomorrow/.test(r) ? " soon" : ""}">${esc(r)}</span>` : `<span class="nu-note">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}</span>
+        <span class="nu-step">${n.x.dl === 1 || n.x.lightEve ? "The day before: light review only. Skim your summary or a few flashcards, then stop early and sleep." : n.hasPlan ? "Test yourself on your weakest topics: flashcards or practice questions, not rereading." : "Test yourself (flashcards or practice questions), or let Plan My Prep spread short sessions over the days before it."}</span>
       </div>
-      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-study="1" data-id="${esc(t.id)}" data-mins="${n.mins}">${TOMATO}Study for ${n.mins}m</button>${n.hasPlan ? "" : `<button class="btn small" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button>`}${nuBackBtn()}</div>
+      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-study="1" data-id="${esc(t.id)}" data-mins="${n.mins}">${TOMATO}Study for ${n.mins}m</button>${t.courseId && deckListArr().some(x => x.courseId === t.courseId && x.cards.some(c => !c.draft)) ? `<button class="btn small" data-act="fc-study-course" data-course="${esc(t.courseId)}">${FC_ICON}Test Yourself</button>` : ""}${n.hasPlan ? "" : `<button class="btn small" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button>`}${nuBackBtn()}</div>
     </div>
   </div>`;
   return `<div class="next-up${nuOpenCls()}" style="--c:${esc(colorOf(t.courseId))}">
@@ -4730,7 +4763,7 @@ function nextUpHtml(F, pre){
         ${n.step ? `<span class="nu-step">Next step: ${esc(n.step.text)}</span>` : ""}
       </div>
       ${lmsGoBtn(t)}
-      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-id="${t.gt ? "" : esc(t.id)}" data-mins="${n.mins}">${TOMATO}Start a ${n.mins}m Focus</button>${window.SBPREP ? SBPREP.matBtn(t) : ""}${t.type === "Study" && (t.studyDecks || []).length && !t.matKind ? `<button class="btn small" data-act="fc-study-plan" data-id="${esc(t.id)}">Study Cards</button>` : ""}${t.gt ? "" : `<button class="btn small" data-act="log-time" data-id="${esc(t.id)}" title="Type in time you worked on this">Log Time</button><button class="btn small" data-act="nu-enough" data-id="${esc(t.id)}" title="You have done enough on this today, so move on. It stays on your list.">Enough for Today</button>`}${nuBackBtn()}</div>
+      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-id="${esc(t.id)}" data-mins="${n.mins}">${TOMATO}Start a ${n.mins}m Focus</button>${window.SBPREP ? SBPREP.matBtn(t) : ""}${t.type === "Study" && (t.studyDecks || []).length && !t.matKind ? `<button class="btn small" data-act="fc-study-plan" data-id="${esc(t.id)}">Study Cards</button>` : ""}${t.gt ? "" : `<button class="btn small" data-act="log-time" data-id="${esc(t.id)}" title="Type in time you worked on this">Log Time</button><button class="btn small" data-act="nu-enough" data-id="${esc(t.id)}" title="You have done enough on this today, so move on. It stays on your list.">Enough for Today</button>`}${nuBackBtn()}</div>
     </div>
   </div>`;
 }
@@ -5253,8 +5286,8 @@ function planSig(){
 const NEXT_SCHEMA = {type: "OBJECT", properties: {
   next: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, why: {type: "STRING", description: "One sentence, why this and why now"}, step: {type: "STRING", description: "The concrete first thing to do, under 80 characters"}, minutes: {type: "INTEGER"}}, required: ["ref", "why"]}, description: "Up to 5 tasks in the order to work on them right now. Never a task marked FIXED EVENT"},
   estimates: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, hours: {type: "NUMBER"}}, required: ["ref", "hours"]}, description: "Total hours for tasks marked 'no estimate'"},
-  remaining: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, hours: {type: "NUMBER"}}, required: ["ref", "hours"]}, description: "Hours of work left for tasks that are started (focus time, progress or checklist)"},
-  readiness: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, pct: {type: "INTEGER"}, note: {type: "STRING", description: "Under 90 characters, e.g. the weakest area"}}, required: ["ref", "pct"]}, description: "For each exam or quiz, how ready the student is, 0 to 100"},
+  remaining: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, hours: {type: "NUMBER"}}, required: ["ref", "hours"]}, description: "Hours of work left for tasks that are started (focus time, progress or checklist). Start from the app's pace model and the student's own check-in; move outside that range only with a concrete reason from the instructions"},
+  readiness: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, pct: {type: "INTEGER"}, note: {type: "STRING", description: "Under 90 characters, e.g. the weakest area"}, decks: {type: "ARRAY", items: {type: "STRING"}, description: "Refs (d1...) of this exam's listed flashcard decks and quizzes that cover its material, judged from its title, instructions and announcements against what each deck holds. Empty if you can't tell"}}, required: ["ref", "pct"]}, description: "For each exam or quiz, how ready the student is, 0 to 100"},
   headsUp: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING", description: "The task it's about (t1...), or empty"}, text: {type: "STRING", description: "Under 140 characters, specific and actionable"}}, required: ["text"]}, description: "Up to 3 things the student could easily miss, only if real: an earlier step or sooner deadline hidden in instructions, an announcement that changes a task, a crunch or a full day coming, a course near its pass mark. Empty if nothing stands out."},
   difficulty: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, level: {type: "STRING", enum: ["easy", "med", "hard"]}}, required: ["ref", "level"]}, description: "For tasks marked 'difficulty not set', how demanding the task looks from its title, type, weight and instructions"}},
   required: ["next"]};
@@ -5264,7 +5297,11 @@ async function autoPlan(a){
   if (!open.length) return;
   const ref = {}, back = {};
   open.forEach((t, i) => { ref[t.id] = "t" + (i + 1); back["t" + (i + 1)] = t.id; });
-  const deckInfo = cid => deckListArr().filter(d => d.courseId && d.courseId === cid).map(d => { const s = deckStats(d); return `${d.name}: ${Math.round(s.mastery * 100)}% mastered${s.last ? `, last quiz ${s.last.score}/${s.last.total}` : ""}`; }).join("; ");
+  // Each deck and quiz set gets a ref (d1...) and a peek at its contents, so the AI can say which ones an exam covers
+  const dref = {}, dback = {};
+  decksArr().forEach((d, i) => { dref[d.id] = "d" + (i + 1); dback["d" + (i + 1)] = d.id; });
+  const peek = d => (isQuizHolder(d) ? (d.aiQuizzes || []).flatMap(qz => [qz.title, ...(qz.sources || [])]) : d.cards.filter(c => !c.draft).slice(0, 4).map(c => c.front)).map(x => String(x || "").replace(/\s+/g, " ").slice(0, 50)).filter(Boolean).slice(0, 4).join(" / ");
+  const deckInfo = cid => decksArr().filter(d => d.courseId && d.courseId === cid).map(d => { const s = deckStats(d), pk = peek(d); return isQuizHolder(d) ? (s.last ? `${dref[d.id]} quiz "${d.name}" (made from slides, notes or own questions${pk ? ": " + pk : ""}): last score ${s.last.score}/${s.last.total}` : "") : `${dref[d.id]} ${d.name}${pk ? ` (${pk})` : ""}: ${Math.round(s.mastery * 100)}% mastered${s.last ? `, last quiz ${s.last.score}/${s.last.total}` : ""}`; }).filter(Boolean).join("; ");
   const rankOf = {}; (F.ranked || []).forEach((x, i) => { rankOf[x.t.id] = i + 1; });
   const lines = open.map(t => {
     const c = courseOf(t.courseId), p = progress(t), ps = MILESTONE(t.type) ? planSessions(t.id) : [];
@@ -5273,7 +5310,9 @@ async function autoPlan(a){
       rankOf[t.id] && canDoNow(t) ? `rank ${rankOf[t.id]}` : "", `status ${t.status}`, hasWeight(t) ? `worth ${t.weight}%` : "", `priority ${t.priority}`, `difficulty ${t.difficulty}`,
       MILESTONE(t.type) ? "" : isNum(t.hours) && Number(t.hours) > 0 ? `estimate ${t.hours}h` : "no estimate",
       p.frac ? `progress ${Math.round(p.frac * 100)}%` : "", (t.checklist || []).length ? `checklist ${p.done}/${p.total}` : "",
-      t.focusMin ? `focused ${t.focusMin}m so far` : "", t.prepFor ? `study session for ${(state.tasks[t.prepFor] || {}).title || "an exam"}` : "",
+      t.focusMin ? `focused ${t.focusMin}m so far` : "",
+      !MILESTONE(t.type) && saidOf(t) ? `the student said about ${Math.round((Number(t.left.p) || 0) * 100)}% was done after ${t.left.fm}m` : "",
+      !MILESTONE(t.type) && !t.prepFor && (Number(t.focusMin) > 0 || progress(t).frac > 0) ? `work left by the app's pace model: ${leftRange(t)}` : "", t.prepFor ? `study session for ${(state.tasks[t.prepFor] || {}).title || "an exam"}` : "",
       ps.length ? `study plan ${ps.filter(x => x.status === "done").length}/${ps.length} sessions done` : "",
       MILESTONE(t.type) && deckInfo(t.courseId) ? `flashcards: ${deckInfo(t.courseId)}` : "",
       F.info[t.id] && canDoNow(t) ? `planner score ${Math.round(F.info[t.id].score)}` : "", blockers(t).length ? "BLOCKED" : "",
@@ -5291,13 +5330,15 @@ async function autoPlan(a){
   const standings = coursesArr().map(c => { const g = courseRisk(c.id); if (!g || !g.marked || !g.marked.length || g.current == null) return ""; return `${courseLabel(c)}: ${Math.round(g.current)}% so far on ${Math.round(g.wMarked)}% of the grade, pass mark ${g.g.pass}%${g.risk ? ` (${g.risk === "risk" ? "at risk" : g.risk === "out" ? "can't reach the pass mark on paper" : "worth watching"})` : ""}`; }).filter(Boolean).join("; ") || "no marks yet";
   let news = []; try { news = typeof window.SBLMS_NEWS === "function" ? window.SBLMS_NEWS(7) : []; } catch(e) {}
   const newsTxt = news.map(n => { const c = courseOf(n.courseId); return `- ${c ? courseLabel(c) : ""} (${String(n.date || "").slice(0, 10)}): ${n.title}. ${String(n.text || "").replace(/\s+/g, " ").slice(0, 220)}`; }).join("\n") || "none";
+  // by type, where it differs: "Lab: about 1.4x the estimate (6 finished)"
+  let paceBy = ""; try { const A = accOf(); if (A) { const by = [...new Set(allTasks().filter(t => t.status === "done").map(t => t.type))].map(ty => { const i = A.ratioInfo({type: ty}); return i.level === "type" || i.level === "course" ? (Math.abs(i.r - 1) >= 0.15 ? `${ty}: about ${i.r.toFixed(1)}x the estimate (${i.n} finished)` : "") : ""; }).filter(Boolean); if (by.length) paceBy = ` By type: ${by.join("; ")}.`; } } catch(e) {}
   const hist = Object.entries(L.byType).map(([k, v]) => `${k}: ${v.length} finished, median ${fmtHM(median(v.map(x => x.h)))} of focused time`).join("; ") || "none yet";
   let tz = ""; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch(e) {}
   const peak = (() => { try { return peakStudyHours(tasksArr().flatMap(t => t.history || []), Date.now()); } catch(e) { return ""; } })();
   const fbw = nufbWeights(nufbLoad(), Date.now());
   const skipped = Object.entries(fbw.type).filter(e => e[1] <= -1.5).map(e => e[0]), liked = Object.entries(fbw.type).filter(e => e[1] >= 1.5).map(e => e[0]);
   const doneTodayN = allTasks().filter(t => t.status === "done" && t.doneAt && t.doneAt >= new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()).length;
-  const r = await aiCall({task: "plan", auto: true, fast: true, maxTokens: 6000, temperature: 0.2, schema: NEXT_SCHEMA, parts: [{text: `Now: ${now.toLocaleDateString("en-US", {weekday: "long"})} ${today} ${pad(now.getHours())}:${pad(now.getMinutes())}${tz ? " (" + tz + ")" : ""}, ${dayPartOf(now.getHours())}. Study time left today: ${fmtHM(F.th)}${F.doneToday >= 0.25 ? ` (already focused ${fmtHM(F.doneToday)} today)` : ""}; usual per day: ${fmtHM(F.dh)}.${doneTodayN ? ` ${doneTodayN} task${doneTodayN === 1 ? "" : "s"} finished today.` : ""}\nThe next few days:\n${week}\nCourse standings: ${standings}\nRecent announcements from the school site:\n${newsTxt}\nThis student's history: ${hist}. They usually take ${L.ratio.toFixed(2)}x their own estimates.${peak ? ` They usually study around ${peak}.` : ""}${skipped.length ? ` They often skip suggestions of these types: ${skipped.join(", ")}.` : ""}${liked.length ? ` They usually accept: ${liked.join(", ")}.` : ""}\nOpen tasks (already ranked by the planner; "rank" 1 is its top choice; days are counted from today):\n${lines}${gLines ? `\n\nGroup project tasks assigned to this student (teammates are waiting on them; they use the same study time as the tasks above; they have refs g1, g2... which must never appear in "next" or anywhere else in your answer):\n${gLines}` : ""}`}],
+  const r = await aiCall({task: "plan", auto: true, fast: true, maxTokens: 6000, temperature: 0.2, schema: NEXT_SCHEMA, parts: [{text: `Now: ${now.toLocaleDateString("en-US", {weekday: "long"})} ${today} ${pad(now.getHours())}:${pad(now.getMinutes())}${tz ? " (" + tz + ")" : ""}, ${dayPartOf(now.getHours())}. Study time left today: ${fmtHM(F.th)}${F.doneToday >= 0.25 ? ` (already focused ${fmtHM(F.doneToday)} today)` : ""}; usual per day: ${fmtHM(F.dh)}.${doneTodayN ? ` ${doneTodayN} task${doneTodayN === 1 ? "" : "s"} finished today.` : ""}\nThe next few days:\n${week}\nCourse standings: ${standings}\nRecent announcements from the school site:\n${newsTxt}\nThis student's history: ${hist}. They usually take ${L.ratio.toFixed(2)}x their own estimates.${paceBy}${peak ? ` They usually study around ${peak}.` : ""}${skipped.length ? ` They often skip suggestions of these types: ${skipped.join(", ")}.` : ""}${liked.length ? ` They usually accept: ${liked.join(", ")}.` : ""}\nOpen tasks (already ranked by the planner; "rank" 1 is its top choice; days are counted from today):\n${lines}${gLines ? `\n\nGroup project tasks assigned to this student (teammates are waiting on them; they use the same study time as the tasks above; they have refs g1, g2... which must never appear in "next" or anywhere else in your answer):\n${gLines}` : ""}`}],
     system: (gLines ? "The student also has group project tasks (GROUP TASK lines). They can't be picked for 'next', but count them as real work that competes for today's time: when one is due today or tomorrow, favor shorter tasks for 'next' so there is time for it, and in the reasons you may say a group task is due soon. " : "") + "You're an expert study planner working quietly inside a student's planner app. The tasks come pre-ranked by the app's own planner (rank, planner score, days away); treat that ranking as a strong default and only move a task up or down with a concrete reason from the data, never invent a task or id. Using the tasks, the time of day, the time left today and the student's own history: (1) choose up to 5 tasks to work on right now, best first (deadlines come first: never put a task due weeks away ahead of one due in the next few days that still needs work, unless the far one is a big task that needs most of the time left before it; grade weight only breaks ties between similar deadlines), each with a one-sentence reason that cites the evidence in the data (due day, grade weight, hours left, what it unblocks; never just repeat the title or say it is merely important), a concrete first step, and sensible session minutes (an exam or quiz may be chosen only if its line says TAKE-HOME; a line saying FIXED EVENT happens in person at a set time, so never choose it, pick its study tasks instead, and still judge its readiness); skip BLOCKED tasks. (2) Estimate total hours for tasks marked 'no estimate', leaning on how long this student's past tasks took. (3) For started tasks, estimate hours of work left, counting their focus time and progress and their tendency to underestimate. (4) For each exam or quiz, judge readiness 0 to 100 from study sessions done, flashcard mastery and quiz scores, with a short note. (5) Heads up: up to 3 real things the student could miss, read from the instructions, the announcements, the schedule and the standings (an earlier draft or pre-lab deadline, a changed due date or room, a full clinical day right before a deadline, a course near its pass mark); leave it empty rather than state the obvious. Every heads-up must name the specific task, course, day or number it is based on (for example 'Bio lab pre-quiz is due Wed, a day before the report') and must never be general advice like 'stay organized' or 'plan ahead'. (6) Rate how demanding tasks marked 'difficulty not set' look. Consider the schedule: long class or clinical days leave little study time, so plan around them and favour short tasks just before a class. Late submissions: a task that still accepts late work is less urgent than one that closes at the due time, but never suggest planning to be late. Use the refs exactly (t1, t2...). Return JSON only."});
   const d = r.data || {}, changes = [];
   const qctx = {titles: open.map(t => t.title), courses: coursesArr().map(c => courseLabel(c))};
@@ -5311,6 +5352,9 @@ async function autoPlan(a){
   AUTO.heads = {day: today, at: Date.now(), list: heads};
   (d.difficulty || []).forEach(x => { const id = back[x.ref], t = id && state.tasks[id]; if (!t || (t.difficulty && t.difficulty !== "med") || MILESTONE(t.type) || !["easy", "med", "hard"].includes(x.level)) return; if (t.aiDiff && t.aiDiff.level === x.level) return; patch(id, n => { n.aiDiff = {level: x.level, at: Date.now()}; }); });
   (d.readiness || []).forEach(x => { const id = back[x.ref], t = id && state.tasks[id], p = Math.max(0, Math.min(100, Math.round(Number(x.pct)))); if (!t || !MILESTONE(t.type) || isNaN(p)) return;
+    // Which decks and quizzes this exam covers (used for its readiness when you haven't chosen them yourself)
+    { const own = decksArr().filter(dk => dk.courseId && dk.courseId === t.courseId).map(dk => dk.id), ids = [...new Set((Array.isArray(x.decks) ? x.decks : []).map(r => dback[r]).filter(i => own.includes(i)))], sig = xrAiSig(t);
+      if (ids.length && !(t.aiDecks && t.aiDecks.sig === sig && t.aiDecks.ids.join(",") === ids.join(","))) patch(id, n => { n.aiDecks = {ids, sig, at: Date.now()}; }); }
     const ev = planSessions(t.id).some(z => z.status === "done") || decksArr().some(dk => dk.courseId && dk.courseId === t.courseId && (() => { const st = deckStats(dk); return st.mastery > 0 || !!st.last; })()); if (!ev) return;
     x.note = AINS.vet(x.note, {max: 90, min: 6}) ; if (t.aiPrep && Math.abs(t.aiPrep.pct - p) < 3 && autoFresh(t.aiPrep, 1)) return; patch(id, n => { n.aiPrep = {pct: p, note: x.note || "", at: Date.now()}; }); });
   if (changes.length) applyChanges(changes, null); else scheduleRender();
@@ -7739,6 +7783,173 @@ function startOf(t){
   if (t.due && s && s < addDays(t.due, -START_SPAN_DAYS)) s = addDays(t.due, -START_SPAN_DAYS);
   return s;
 }
+/* Exam readiness: measured first, your own feeling second.
+   Feeling ready is a poor guide on its own: material you've read feels learned even when you can't recall it (illusions of
+   competence). So readiness comes from what you can actually do: your exam prep plan's sessions, cards and quizzes when there
+   is a plan, otherwise your flashcards for the course (cards never studied count as not known), recent practice quizzes, and
+   the automatic AI's read of both. The Preparedness slider (how ready you feel) only fills in while there is little evidence,
+   and when the two disagree by 20 points or more, the gap is shown: noticing it is how you learn to judge yourself better. */
+const XR_GAP = 20, XR_FULL = 30, XR_DAYS = 30;
+/* Which flashcards count toward one exam's readiness, so Midterm 1 and the Final don't share one number:
+   1. the decks you linked to the exam, if you did
+   2. (a prep plan's topics are used by the plan itself, see examReadiness)
+   3. automatic: the exam's topics, from its title, its notes (where school-site instructions land) and course announcements
+      that mention it, matched to deck names and card text, including chapter, unit and week numbers ("Chapters 4-6")
+   4. the cards added since the course's previous exam, unless this one is a final or cumulative
+   5. otherwise the whole course, as before */
+const XR_STOP = new Set("about after again also bring calculator cards class closed cover covers covered exam exams final finals from have held in-class including lecture lectures material materials midterm midterms note notes online open page pages paper pencil please quiz quizzes review room section sections study test tests that their there these this time topic topics will with what when where which your chapter chapters unit units week weeks module modules part parts book textbook slides questions question answer answers multiple choice short long take taken home person minutes hour hours worth grade percent points".split(" "));
+const xrStem = w => w.length > 5 && /ies$/.test(w) ? w.slice(0, -3) + "y" : w.length > 5 && /(sses|ches|shes|xes)$/.test(w) ? w.slice(0, -2) : w.length > 4 && /s$/.test(w) && !/(ss|us|is)$/.test(w) ? w.slice(0, -1) : w.length > 6 && /ing$/.test(w) ? w.slice(0, -3) : w.length > 5 && /ed$/.test(w) ? w.slice(0, -2) : w;
+const xrWords = txt => String(txt || "").toLowerCase().replace(/<[^>]*>/g, " ").split(/[^a-z\u00c0-\u024f]+/).filter(w => w.length >= 4 && !XR_STOP.has(w)).map(xrStem);
+// Chapter, unit, module, week and lecture numbers named in a text: {kind: Set of numbers}
+function xrNums(txt){
+  const out = {}, re = /\b(ch(?:apter)?s?|units?|modules?|weeks?|lectures?|lessons?)\.?\s*((?:\d{1,2}\s*(?:-|–|to|,|&|and)?\s*)+)/gi;
+  let m; while ((m = re.exec(String(txt || "")))) {
+    const k = m[1].toLowerCase().replace(/^ch.*/, "ch").replace(/s$/, ""), set = out[k] || (out[k] = new Set());
+    const parts = m[2].replace(/–|to/g, "-").split(/,|&|and/);
+    parts.forEach(p => { const r = p.split("-").map(x => parseInt(x, 10)).filter(n => n >= 0 && n < 100); if (r.length === 2 && r[1] >= r[0] && r[1] - r[0] < 30) { for (let i = r[0]; i <= r[1]; i++) set.add(i); } else if (r.length) set.add(r[0]); });
+  }
+  return out;
+}
+const xrNumHit = (nums, txt) => { const t = xrNums(txt); return Object.keys(t).some(k => nums[k] && [...t[k]].some(n => nums[k].has(n))); };
+// When a card was made: card ids start with the time they were created
+const cardBorn = c => { const n = parseInt(String(c.id || "").slice(0, 8), 36); return n > 1.4e12 && n < Date.now() + 864e5 ? n : 0; };
+const isCumulative = ex => /\b(final|cumulative|comprehensive)\b/i.test((ex.title || "") + " " + (ex.notes || ""));
+let XE_CACHE = {k: "", m: {}};
+// The words of a practice quiz (its title, what it was made from, and its questions), to match it to an exam's topics
+const quizText = qz => [qz.title, ...(qz.sources || []), ...(qz.questions || []).map(q => Object.values(q || {}).filter(v => typeof v === "string").join(" "))].join(" ");
+// The results of a set of quizzes, newest first: [{at, score, total}]
+const quizResults = list => list.flatMap(qz => (qz.results || []).filter(r => r && Number(r.total) > 0 && Number(r.at) > 0));
+// What the AI's deck choice for an exam was based on: the course's decks and the exam's instructions (a change in either retires it)
+const xrAiSig = ex => decksArr().filter(d => d.courseId && d.courseId === ex.courseId).map(d => d.id).sort().join(",") + "|" + String(ex.notes || "").length;
+const xrAiDecks = ex => { const a = ex.aiDecks; return a && Array.isArray(a.ids) && a.ids.length && typeof autoPlanOn === "function" && autoPlanOn() && Date.now() - (Number(a.at) || 0) < 21 * 864e5 && a.sig === xrAiSig(ex) ? a.ids : null; };
+function examEvidence(ex){
+  const k = todayISO() + "|" + (state.updated || 0);
+  if (XE_CACHE.k !== k) XE_CACHE = {k, m: {}};
+  const aiIds = xrAiDecks(ex), ck = ex.id + "|" + (ex.readyDecks || []).join(",") + "|" + (ex.notes || "").length + "|" + ex.title + "|" + ex.courseId + "|" + (aiIds || []).join(",");
+  if (ex.id && XE_CACHE.m[ck]) return XE_CACHE.m[ck];
+  const live = c => !c.draft, alive = Object.values(state.decks || {}).filter(d => d && !d.archived);
+  const all = alive.filter(d => !isQuizHolder(d)), course = all.filter(d => ex.courseId && d.courseId === ex.courseId);
+  // Quizzes not made from flashcards (from slides, notes, a file or your own questions) live on their own, by course
+  const holders = alive.filter(d => isQuizHolder(d)), courseQz = holders.filter(d => ex.courseId && d.courseId === ex.courseId).flatMap(d => (d.aiQuizzes || []).map(qz => Object.assign({deck: d}, qz)));
+  // a flashcard deck's quiz history covers its own quizzes (made from its cards or saved in it)
+  const deckRes = ds => ds.flatMap(d => (d.quizzes || []).filter(r => r && Number(r.total) > 0 && Number(r.at) > 0));
+  let out = null;
+  const linked = (ex.readyDecks || []).map(id => alive.find(d => d.id === id)).filter(Boolean);
+  if (linked.length) {
+    const ds = linked.filter(d => !isQuizHolder(d)), qs = linked.filter(d => isQuizHolder(d)).flatMap(d => d.aiQuizzes || []);
+    out = {how: "linked", decks: ds, cards: ds.flatMap(d => d.cards.filter(live)), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
+  }
+  // Automatic AI's reading of the exam's topics against what each deck holds
+  if (!out && aiIds) {
+    const pick = aiIds.map(id => alive.find(d => d.id === id)).filter(Boolean), ds = pick.filter(d => !isQuizHolder(d)), qs = pick.filter(d => isQuizHolder(d)).flatMap(d => d.aiQuizzes || []);
+    if (pick.length) out = {how: "ai", decks: ds, cards: ds.flatMap(d => d.cards.filter(live)), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
+  }
+  if (!out && (course.length || courseQz.length)) {
+    // the exam's own words: its title, its notes, and announcements in its course that name it
+    const name = String(ex.title || "").toLowerCase().replace(/\s+/g, " ").trim();
+    let ann = ""; try { if (window.SBANN && name.length >= 4) ann = SBANN.items().filter(n => n.cid === ex.courseId && (n.title + " " + n.text).toLowerCase().includes(name)).map(n => n.title + " " + n.text).join(" "); } catch (e) {}
+    const src = [ex.title, ex.notes, ann].join(" "), nums = xrNums(src), cards = course.flatMap(d => d.cards.filter(live).map(c => ({c, d})));
+    // words that name topics: not shared by most of the course's cards and quizzes (those say nothing about this exam)
+    const docs = cards.map(({c}) => c.front + " " + c.back).concat(courseQz.map(quizText)), freq = {};
+    docs.forEach(t => new Set(xrWords(t)).forEach(w => { freq[w] = (freq[w] || 0) + 1; }));
+    const terms = new Set(xrWords(src).filter(w => (freq[w] || 0) <= Math.max(1, docs.length * 0.5)));
+    const textHit = t => xrNumHit(nums, t) || xrWords(t).some(w => terms.has(w));
+    if (terms.size || Object.keys(nums).length) {
+      const deckHit = d => xrNumHit(nums, d.name) || xrWords(d.name).some(w => terms.has(w));
+      const hit = cards.filter(({c, d}) => deckHit(d) || textHit(c.front + " " + c.back));
+      const qHit = courseQz.filter(qz => deckHit(qz.deck) || textHit(quizText(qz)));
+      const cardsOk = hit.length >= 5 && hit.length >= cards.length * 0.1 && hit.length < cards.length * 0.95, quizOk = qHit.length > 0 && qHit.length < courseQz.length;
+      if (cardsOk || (!cards.length && quizOk)) {
+        const ds = course.filter(d => hit.filter(h => h.d === d).length >= d.cards.filter(live).length * 0.5);
+        const runs = a => { const v = [...a].sort((x, y) => x - y), o = []; v.forEach(n => { const l = o[o.length - 1]; if (l && n === l[1] + 1) l[1] = n; else o.push([n, n]); }); return o.map(([x, y]) => x === y ? String(x) : x + "–" + y).join(", "); };
+        // "chapters 4-6", "unit 2" for the sheet that explains what Automatic picked
+        const label = Object.keys(nums).map(kk => ({ch: "chapter", unit: "unit", module: "module", week: "week", lecture: "lecture", lesson: "lesson"}[kk] || kk) + (nums[kk].size > 1 ? "s " : " ") + runs(nums[kk]));
+        out = {how: "topics", decks: ds, cards: hit.map(h => h.c), terms: label.concat([...terms]).slice(0, 8), quiz: deckRes(ds).concat(quizResults(qHit)), quizN: qHit.length};
+      }
+    }
+    // what was made since the course's previous exam (a later exam usually covers the newer material)
+    if (!out && !isCumulative(ex)) {
+      const prev = Object.values(state.tasks || {}).filter(t => t.id !== ex.id && t.courseId === ex.courseId && MILESTONE(t.type) && !t.prepFor && t.due && t.due < ex.due && (t.type === "Exam" || weightOf(t) >= 10)).sort((a, b) => b.due.localeCompare(a.due))[0];
+      if (prev) {
+        const since = parse(prev.due).getTime() + 864e5, fresh = cards.filter(({c, d}) => (cardBorn(c) || Number(d.created) || 0) >= since);
+        const qFresh = courseQz.filter(qz => (Number(qz.created) || Number(qz.deck.created) || 0) >= since);
+        if ((fresh.length >= 5 && fresh.length < cards.length * 0.95) || (!cards.length && qFresh.length && qFresh.length < courseQz.length)) {
+          const ds = course.filter(d => (Number(d.created) || 0) >= since);
+          out = {how: "since", decks: ds, cards: fresh.map(x => x.c), prev: prev.title, quiz: deckRes(ds).concat(quizResults(qFresh)), quizN: qFresh.length};
+        }
+      }
+    }
+    if (!out) out = {how: "course", decks: course, cards: course.flatMap(d => d.cards.filter(live)), quiz: deckRes(course).concat(quizResults(courseQz)), quizN: courseQz.length};
+  }
+  if (!out) out = {how: "none", decks: [], cards: [], quiz: [], quizN: 0};
+  if (ex.id) XE_CACHE.m[ck] = out;
+  return out;
+}
+let XR_CACHE = {k: "", m: {}};
+function examReadiness(t){
+  if (!t || !MILESTONE(t.type)) return null;
+  const today = todayISO(), k = today + "|" + (typeof state !== "undefined" ? state.updated || 0 : 0);
+  if (XR_CACHE.k !== k) XR_CACHE = {k, m: {}};
+  const ck = [t.id, t.pct, t.aiPrep && t.aiPrep.at, t.aiDecks && t.aiDecks.at, typeof autoPlanOn === "function" && autoPlanOn(), t.status, t.courseId, (t.readyDecks || []).join(","), (t.notes || "").length].join("|");
+  if (t.id && XR_CACHE.m[ck]) return XR_CACHE.m[ck];
+  const self = Number(t.pct) > 0 ? Math.max(0, Math.min(100, Math.round(Number(t.pct)))) : null;
+  const parts = {}, ws = [];
+  let n = 0;
+  // A prep plan's readiness already weighs its sessions, linked flashcards and quiz scores
+  const ps = t.id ? allTasks().filter(x => x.prepFor === t.id) : [];
+  const plan = ps.length && t.prep && window.SBPREP ? SBPREP.pct(t) : null;
+  if (plan != null) { parts.plan = plan; n += XR_FULL; }
+  else {
+    const ev = examEvidence(t), decks = ev.decks, cards = ev.cards, seen = cards.filter(c => c.seen > 0).length;
+    parts.how = ev.how; parts.prev = ev.prev || "";
+    if (cards.length >= 5 && seen >= Math.min(10, cards.length)) { parts.cards = typeof DR !== "undefined" ? DR.deck(cards, today) : null; parts.cardsSeen = seen; parts.cardsAll = cards.length; if (parts.cards != null) { ws.push([parts.cards, 1]); n += seen; } }
+    const since = Date.now() - XR_DAYS * 864e5;
+    // practice quizzes: from the exam's flashcards, and quizzes made from slides, notes or your own questions in its course
+    const qs = (ev.quiz || []).filter(q => Number(q.at) >= since).sort((a, b) => b.at - a.at).slice(0, 5);
+    if (qs.length) { parts.quiz = Math.round(qs.reduce((s2, q) => s2 + Number(q.score) / Number(q.total), 0) / qs.length * 100); parts.quizN = qs.length; ws.push([parts.quiz, 1.5]); n += qs.reduce((s2, q) => s2 + Math.min(12, Math.max(4, Number(q.total) || 6)), 0); }
+    const ai = typeof autoPlanOn === "function" && autoPlanOn() && t.status !== "done" && t.aiPrep && autoFresh(t.aiPrep, 4) ? t.aiPrep : null;
+    if (ai) { parts.ai = Math.round(Number(ai.pct) || 0); ws.push([parts.ai, 1]); n += 10; }
+  }
+  const measured = parts.plan != null ? parts.plan : ws.length ? Math.round(ws.reduce((s2, w) => s2 + w[0] * w[1], 0) / ws.reduce((s2, w) => s2 + w[1], 0)) : null;
+  const conf = measured == null ? 0 : Math.min(1, n / XR_FULL);
+  const pct = measured == null ? self : self == null ? measured : Math.round(conf * measured + (1 - conf) * self);
+  const gap = measured != null && self != null && n >= 10 && Math.abs(self - measured) >= XR_GAP ? self - measured : 0;
+  const from = measured == null ? (self == null ? "none" : "feel") : conf >= 0.999 || self == null ? "results" : "both";
+  const out = {pct, measured, self, conf, from, gap, parts, n};
+  if (t.id) XR_CACHE.m[ck] = out;
+  return out;
+}
+// What the measured readiness is made of, in words
+function readinessSource(r){
+  if (!r || !r.parts) return "";
+  const p = r.parts, bits = [];
+  if (p.plan != null) bits.push("your prep plan's sessions, flashcards and quizzes");
+  if (p.cards != null) bits.push(`${p.how === "linked" ? "the flashcards you linked" : p.how === "topics" ? "flashcards on this exam's topics" : p.how === "ai" ? "flashcards the AI matched to this exam" : p.how === "since" ? `flashcards added since ${p.prev}` : "your flashcards for the course"} (${p.cardsSeen} of ${p.cardsAll} studied)`);
+  if (p.quiz != null) bits.push(`${p.quizN === 1 ? "a practice quiz" : p.quizN + " practice quizzes"} (${p.quiz}% average)`);
+  if (p.ai != null && p.plan == null) bits.push("the AI's read of your study");
+  return bits.length > 1 ? bits.slice(0, -1).join(", ") + " and " + bits[bits.length - 1] : bits[0] || "";
+}
+// The gap between how ready you feel and what your results say, as one sentence (empty when they roughly agree)
+function readinessGapText(r){
+  if (!r || !r.gap) return "";
+  return r.gap > 0 ? `You rate yourself ${r.self}% ready, but your results say about ${r.measured}%. Testing yourself on the cards you miss is the quickest way to close the gap.`
+    : `Your results say about ${r.measured}%, more than the ${r.self}% you rate yourself. You may be further along than you think.`;
+}
+// The different days you studied for an exam before it: focus or logged time on the exam or its study sessions,
+// study sessions finished, and flashcard reviews in its course. Spreading study over several days is what makes it stick.
+const STUDY_TIME_RX = /^(?:Focus session|Logged time):? (\d+)m/;
+function examStudyDays(ex){
+  if (!ex || !ex.due) return [];
+  const days = new Set(), before = d => d && d < ex.due, dayOfMs = ms => iso(new Date(Number(ms)));
+  allTasks().filter(t => t.id === ex.id || t.prepFor === ex.id).forEach(t => {
+    (t.history || []).forEach(h => { const m = STUDY_TIME_RX.exec((h && h.text) || ""); if (m && Number(m[1]) >= 5 && Number(h.at) > 0) { const d = dayOfMs(h.at); if (before(d)) days.add(d); } });
+    if (t.prepFor && t.status === "done" && Number(t.doneAt) > 0) { const d = dayOfMs(t.doneAt); if (before(d)) days.add(d); }
+  });
+  if (ex.courseId) Object.values(state.decks || {}).filter(d => d.courseId === ex.courseId && d.rv).forEach(d => Object.keys(d.rv).forEach(k => { if (before(k) && Number(d.rv[k]) >= 5 && k >= addDays(ex.due, -30)) days.add(k); }));
+  return [...days].sort();
+}
+// Studied for it on 3 or more days, starting 5 or more days before
+const examSpread = ex => { const ds = examStudyDays(ex); return ds.length >= 3 && ds[0] <= addDays(ex.due, -5); };
 function progress(t){
   if (t.breakdownParent) { const k = allTasks().filter(x => x.breakdownOf === t.id); if (k.length) { const d = k.filter(x => x.status === "done").length; return {total: k.length, done: d, frac: t.status === "done" ? 1 : d / k.length, ms: true}; } }
   const total = (t.checklist || []).length, done = (t.checklist || []).filter(i => i.done).length;
@@ -7746,8 +7957,10 @@ function progress(t){
     const ps = t.status === "done" ? [] : allTasks().filter(x => x.prepFor === t.id);
     const pm = ps.reduce((s, x) => s + (Number(x.hours) || 0), 0), dm = ps.filter(x => x.status === "done").reduce((s, x) => s + (Number(x.hours) || 0), 0);
     const ai = autoPlanOn() && t.status !== "done" && t.aiPrep && autoFresh(t.aiPrep, 4) ? t.aiPrep : null;
-    const pr = ps.length && t.prep && window.SBPREP ? SBPREP.pct(t) : null;
-    return {total, done, frac: t.status === "done" ? 1 : pr != null ? pr / 100 : ai ? ai.pct / 100 : Math.max((Number(t.pct) || 0) / 100, pm ? dm / pm : 0), prep: true, plan: ps.length, ai};
+    const xr = examReadiness(t), sess = pm ? dm / pm : 0;
+    // Measured readiness leads; with no evidence at all, how ready you feel (or the share of planned sessions done)
+    const frac = t.status === "done" ? 1 : xr && xr.measured != null ? xr.pct / 100 : Math.max((Number(t.pct) || 0) / 100, sess);
+    return {total, done, frac, prep: true, plan: ps.length, ai, xr};
   }
   return {total, done, frac: total ? done / total : (t.status === "done" ? 1 : (Number(t.pct) || 0) / 100)};
 }
@@ -8192,14 +8405,50 @@ function effortOf(t){
 }
 // A big assignment that has been split into milestones
 const bdHasKids = t => !!(t && t.breakdownParent) && allTasks().some(k => k.breakdownOf === t.id);
+// Your check-in answer ("how much is left?"), while nothing it was based on has changed since
+function saidOf(t){
+  const c = t && t.left; if (!c || !(Number(c.h) >= 0) || !(Number(c.fm) >= 0)) return null;
+  const done = (t.checklist || []).filter(i => i.done).length, fm = Number(t.focusMin) || 0;
+  if (c.ck !== done || (Number(c.pct) || 0) !== (Number(t.pct) || 0) || Number(c.fm) > fm + 0.5 || Date.now() - (Number(c.at) || 0) > 45 * 864e5) return null;
+  return {h: Number(c.h), at: Number(c.fm) / 60};
+}
+// Work left on a task, as a range: {h, lo, hi, how, E}. how: est (the estimate), pace (your pace on it), over (past the plan),
+// said (your check-in), ai (Automatic AI's reading)
+function leftInfo(t){
+  const e = effortOf(t);
+  if (t.status === "done") return {h: 0, lo: 0, hi: 0, how: "done", E: e};
+  const A = accOf(), sp = A && A.spreadFor ? A.spreadFor(t) : {lo: 0.8, hi: 1.35};
+  const M = A ? A.ACC : null, p = progress(t).frac, fm = (Number(t.focusMin) || 0) / 60, said = saidOf(t);
+  const r = M ? M.left({E: e, h: fm, p, said, lo: sp.lo, hi: sp.hi}) : {h: p === 0 && fm > 0 ? Math.max(e * 0.15, e - fm) : e * (1 - p), lo: 0, hi: 0, how: "est"};
+  if (!M) { r.lo = r.h * 0.8; r.hi = r.h * 1.35; }
+  // Automatic AI's reading of what's left, kept inside a sensible band (your own check-in answer comes first)
+  if (!said && autoPlanOn() && t.aiLeft && t.aiLeft.sig === leftSig(t)) {
+    const h = Math.max(r.lo * 0.6, Math.min(t.aiLeft.h, Math.max(e * 1.5, r.hi * 1.2))), k = r.h > 0 ? h / r.h : 1;
+    return {h, lo: r.h > 0 ? r.lo * k : h * 0.8, hi: r.h > 0 ? r.hi * k : h * 1.35, how: "ai", E: e};
+  }
+  return Object.assign(r, {E: e});
+}
 function remainingOf(t){
   if (t.status === "done") return 0;
   if (bdHasKids(t)) return 0.25;
   if (MILESTONE(t.type) && planSessions(t.id).length) return 0;
-  const e = effortOf(t), p = progress(t).frac, fm = (Number(t.focusMin) || 0) / 60;
-  if (autoPlanOn() && !MILESTONE(t.type) && t.aiLeft && t.aiLeft.sig === leftSig(t)) return Math.min(t.aiLeft.h, e * 1.5);
-  if (p === 0 && fm > 0 && !MILESTONE(t.type)) return Math.max(e * 0.15, e - fm);
-  return e * (1 - p);
+  if (MILESTONE(t.type)) return effortOf(t) * (1 - progress(t).frac);
+  return leftInfo(t).h;
+}
+// What Today's Plan sets aside: the middle of the range, and toward the long end within 3 days of the due date
+function planLeft(t, dl){
+  const R = remainingOf(t);
+  if (!(R > 0) || MILESTONE(t.type) || t.xs || t.prepFor || bdHasKids(t) || !(dl <= 3)) return R;
+  // only when the range comes from your own finished tasks (a typical spread is a guess, not a reason to plan long)
+  const A = accOf(), sp = A && A.spreadFor ? A.spreadFor(t) : null;
+  if (!sp || !(sp.n > 0)) return R;
+  const L = leftInfo(t);
+  return R + Math.max(0, L.hi - L.h) * 0.5;
+}
+// "about 2h" or "2h to 3h" (rounded to 15 minutes)
+function leftRange(t){
+  const L = leftInfo(t), q = x => Math.max(0.25, Math.round(x * 4) / 4), lo = q(L.lo), hi = q(L.hi);
+  return hi - lo >= 0.5 ? `${fmtHM(lo)} to ${fmtHM(hi)}` : `about ${fmtHM(q(L.h))}`;
 }
 // Share of the due day you can still use
 function dueDayFrac(t){
@@ -8207,13 +8456,82 @@ function dueDayFrac(t){
   if (!t.time) return 0.75;
   return t.time < "12:00" ? 0 : t.time < "18:00" ? 0.4 : 0.75;
 }
-// Study hours available from now until the task is due
-function capacityUntil(t, today, dh, th, cum, day){
+// Study hours available from now until the task is due. On the due day itself only the time before the due time counts
+// (free time from your availability when there is some, else the clock).
+function capacityUntil(t, today, dh, th, cum, day, now, freeBefore){
   const dl = dayDiff(today, t.due);
   if (dl < 0) return 0;
-  if (dl === 0) return th * (MILESTONE(t.type) ? 0.25 : 1);
+  if (dl === 0) {
+    let c = th * (MILESTONE(t.type) ? 0.25 : 1);
+    if (t.time && now) { const dm = dueDate(t).getTime(), left = Math.max(0, (dm - now.getTime()) / 36e5); c = Math.min(c, freeBefore ? Math.min(left, freeBefore(dm)) : left); }
+    return c;
+  }
   if (cum && dl < cum.length) return cum[dl] + day[dl] * dueDayFrac(t);
   return th + dh * (dl - 1) + dh * dueDayFrac(t);
+}
+// Late work: your penalty per day (a share of the item), else a typical 10%
+const LATE_PEN_DEF = 0.1;
+const hasLatePen = t => isNum(t.latePen) && Number(t.latePen) > 0;
+const latePenOf = t => hasLatePen(t) ? Math.min(1, Number(t.latePen) / 100) : LATE_PEN_DEF;
+// "YYYY-MM-DD HH:MM" as a time
+const stampMs = s => { const d = parse(String(s).slice(0, 10)), [h, m] = (String(s).slice(11) || "23:59").split(":").map(Number); d.setHours(h || 0, m || 0, 0, 0); return d.getTime(); };
+// Most marks you can keep from a set of tasks with the hours you have (each task done in full or not at all).
+// items: [{h, v}], cap in hours; returns the indexes kept.
+function keepMost(items, cap){
+  const U = 4, C = Math.max(0, Math.floor(cap * U + 1e-9)), w = items.map(x => Math.max(1, Math.ceil(x.h * U - 1e-9)));
+  if (!items.length) return new Set();
+  if (w.reduce((s, x) => s + x, 0) <= C) return new Set(items.map((x, i) => i));
+  const best = new Float64Array(C + 1), take = items.map(() => new Uint8Array(C + 1));
+  items.forEach((x, i) => { for (let c = C; c >= w[i]; c--) { const v = best[c - w[i]] + x.v; if (v > best[c] + 1e-9) { best[c] = v; take[i][c] = 1; } } });
+  const keep = new Set(); let c = C;
+  for (let i = items.length - 1; i >= 0; i--) if (take[i][c]) { keep.add(i); c -= w[i]; }
+  return keep;
+}
+/* In-person exams and quizzes: their study time is a plan entry of its own, "Study for <exam>" (id "study:<exam id>").
+   Study starts one to two weeks before an exam (half that for a quiz): sooner when the course is near or below its pass
+   mark, and sooner the less ready you are (measured from flashcards and quizzes first, how ready you feel second; see
+   examReadiness). An exam with its own prep plan already has study sessions. */
+const XS_ID = "study:";
+// "your results put you at 40% ready", or "you rate yourself 40% ready" when there is nothing measured yet
+const readyWords = (from, p) => `${from === "results" ? "your flashcards and quizzes put you at" : from === "both" ? "you're about" : from === "feel" ? "you rate yourself" : "you're about"} ${Math.round(p * 100)}% ready`;
+function examLead(ex){
+  const p = progress(ex).frac, xr = examReadiness(ex), gr = courseRisk(ex.courseId), risk = gr && gr.risk;
+  const byCourse = risk === "risk" || risk === "out" ? 4 : risk === "watch" ? 2 : 0, byPrep = p < 0.25 ? 3 : p < 0.5 ? 2 : p < 0.75 ? 1 : 0;
+  const quiz = ex.type === "Quiz", days = quiz ? Math.max(3, Math.ceil((7 + byCourse + byPrep) / 2)) : 7 + byCourse + byPrep;
+  return {days, risk: byCourse ? risk : "", p, quiz, from: xr ? xr.from : "none"};
+}
+function examStudyTasks(today){
+  const out = [];
+  tasksArr().forEach(ex => {
+    if (!MILESTONE(ex.type) || ex.status === "done" || !ex.due || ex.prepFor || canDoNow(ex) || dayDiff(today, ex.due) < 1 || planSessions(ex.id).length) return;
+    const L = examLead(ex), eff = effortOf(ex) * (L.risk === "risk" || L.risk === "out" ? 1.2 : L.risk === "watch" ? 1.1 : 1), fm = (Number(ex.focusMin) || 0) / 60;
+    const h = eff * (1 - Math.max(L.p, Math.min(1, fm / Math.max(eff, 0.25))));
+    if (!(h >= 0.25)) return;
+    out.push({id: XS_ID + ex.id, title: "Study for " + ex.title, type: "Study", courseId: ex.courseId || "", due: ex.due, time: ex.time || "", start: addDays(ex.due, -L.days),
+      status: "todo", priority: ex.priority || "med", hours: Math.round(h * 4) / 4, weight: weightOf(ex), difficulty: ex.difficulty || "med", late: "unknown", notes: "",
+      checklist: [], dependsOn: [], history: ex.history || [], focusMin: 0, pct: 0, prepFor: ex.id, xs: {id: ex.id, lead: L}});
+  });
+  return out;
+}
+// The real task behind a plan entry (an exam's study entry stands for the exam)
+const planTaskId = t => t && t.xs ? t.xs.id : t ? t.id : "";
+// A step with no due date that a dated task waits on is due early enough to leave time for the task after it
+function prereqDue(open, today, dh){
+  const have = {}; open.forEach(t => { have[t.id] = t; });
+  for (let pass = 0, grew = true; grew && pass < 6; pass++) {
+    grew = false;
+    open.slice().sort((a, b) => dueDate(a) - dueDate(b)).forEach(t => (t.dependsOn || []).forEach(id => {
+      const p = state.tasks[id];
+      if (!p || p.status === "done" || p.due) return;
+      let due = addDays(t.due, -Math.max(1, Math.ceil(remainingOf(t) / Math.max(0.5, dh))));
+      if (due < today) due = today;
+      const cur = have[id];
+      if (cur && cur.due <= due) return;
+      if (cur) { cur.due = due; cur.dueFor = t.id; grew = true; return; }
+      const c = Object.assign({}, p, {due, time: "", dueFor: t.id});
+      have[id] = c; open.push(c); grew = true;
+    }));
+  }
 }
 const fmtHM = h => { const m = Math.round(h * 60 / 15) * 15; const hh = Math.floor(m / 60), mm = m % 60; return hh && mm ? `${hh}h ${mm}m` : hh ? `${hh}h` : `${mm}m`; };
 const fmtMins = n => { const m = Math.max(0, Math.round(Number(n) || 0)), hh = Math.floor(m / 60), mm = m % 60; return hh && mm ? `${hh}h ${mm}m` : hh ? `${hh}h` : `${mm}m`; };
@@ -8235,7 +8553,8 @@ function splitToday(ranked, th, own){
   let left = Math.max(0, th); left = own ? Math.round(left * 4) / 4 : Math.floor(left * 4 + 1e-9) / 4;
   const q = h => Math.floor(h * 4 + 1e-9) / 4, BLOCK = 0.5, maxN = Math.max(1, Math.min(4, Math.round(left)));
   const urgent = x => x.dl <= 1 || (x.own || 0) >= 0.75 || (x.behind || 0) >= 0.5;
-  const give = (x, a) => { a = q(Math.min(a, left)); if (a <= 0) return 0; x.alloc += a; left -= a; return a; };
+  // capToday: the most a task may have today (the day before an exam, studying for it is light review only)
+  const give = (x, a) => { if (x.capToday != null) a = Math.min(a, x.capToday - x.alloc); a = q(Math.min(a, left)); if (a <= 0) return 0; x.alloc += a; left -= a; return a; };
   ranked.forEach(x => { x.moved = 0; x.alloc = 0; x.far = false; });
   // Work due well after the nearest deadline waits until the nearer work has its time, unless it's big enough to need steady time now
   const d0 = ranked.reduce((m, x) => x.need > 0 && x.dl >= 0 && !x.dead ? Math.min(m, x.dl) : m, Infinity);
@@ -8260,15 +8579,34 @@ function splitToday(ranked, th, own){
   picked.forEach(x => { if (x.far && left >= 0.25 && x.R > x.alloc + 0.125) give(x, Math.round((x.R - x.alloc) * 4) / 4); });
   return left;
 }
+/* Focus time on group project tasks. The group's server keeps no time spent, and its rows are rebuilt from the server, so
+   your minutes on each one live in your own synced settings (gtWork: {rowId: {m, d: {date: minutes}, at}}). They count in
+   Today's Plan like focus time on your own tasks: less work left, and "enough for today" once today's time is done. */
+const isGt = id => /^gt:/.test(String(id || ""));
+const gtWork = () => (state.settings && state.settings.gtWork && typeof state.settings.gtWork === "object" ? state.settings.gtWork : {});
+function gtAddWork(id, min){
+  const rid = String(id || "").replace(/^gt:/, ""), m = Math.round(Number(min) || 0); if (!rid || !(m > 0)) return false;
+  const all = Object.assign({}, gtWork()), w = Object.assign({m: 0, d: {}}, all[rid]), day = todayISO();
+  w.m = (Number(w.m) || 0) + m; w.d = Object.assign({}, w.d, {[day]: (Number(w.d[day]) || 0) + m}); w.at = Date.now();
+  Object.keys(w.d).sort().slice(0, -60).forEach(k => delete w.d[k]);
+  all[rid] = w;
+  Object.keys(all).sort((a, b) => (all[b].at || 0) - (all[a].at || 0)).slice(300).forEach(k => delete all[k]);
+  state.settings = Object.assign({}, state.settings, {gtWork: all}); saveSettings();
+  return true;
+}
 // Group project tasks assigned to me, as plan entries
 function groupPlanTasks(){
   let rows = []; try { rows = groupBoardRows(""); } catch (e) { return []; }
   return rows.filter(r => r && r.status !== "done" && /^\d{4}-\d{2}-\d{2}$/.test(r.due || "")).map(r => {
     const c = r.courseCode ? coursesArr().find(x => (x.code || "").replace(/\s+/g, "").toLowerCase() === String(r.courseCode).replace(/\s+/g, "").toLowerCase()) : null;
-    return {id: "gt:" + r.id, title: r.title, due: r.due, time: "", type: "Assignment", status: r.status === "doing" ? "doing" : "todo", priority: r.priority || "med", courseId: c ? c.id : "", hours: Number(r.hours) > 0 ? Number(r.hours) : 1, notes: r.notes || "", checklist: [], taskIds: [], gt: {gid: r.gid, listId: r.listId, id: r.id, name: r.groupName || r.listTitle || "Group project"}};
+    return {id: "gt:" + r.id, title: r.title, due: r.due, time: "", type: "Assignment", status: r.status === "doing" ? "doing" : "todo", priority: r.priority || "med", courseId: c ? c.id : "", hours: Number(r.hours) > 0 ? Number(r.hours) : 1, notes: r.notes || "", checklist: [], taskIds: [],
+      ...(w => w ? {focusMin: Number(w.m) || 0, workLog: Object.entries(w.d || {}).map(([day, m]) => ({id: "gt" + day, d: day, m: Number(m) || 0, k: "focus", at: 0}))} : {})(gtWork()[r.id]), gt: {gid: r.gid, listId: r.listId, id: r.id, name: r.groupName || r.listTitle || "Group project"}};
   });
 }
-const gtOpenAttrs = t => t.gt ? `data-act="grp-pt-open" data-g="${esc(t.gt.gid)}" data-l="${esc(t.gt.listId)}" data-id="${esc(t.gt.id)}"` : `data-act="edit-task" data-id="${esc(t.id)}"`;
+const gtOpenAttrs = t => t.gt ? `data-act="grp-pt-open" data-g="${esc(t.gt.gid)}" data-l="${esc(t.gt.listId)}" data-id="${esc(t.gt.id)}"` : `data-act="edit-task" data-id="${esc(planTaskId(t))}"`;
+// What a focus button starts: the task itself, or study time for the exam a study entry stands for (none for group tasks)
+const focusAttrs = t => t.gt ? `data-id="${esc(t.id)}"` : t.xs ? `data-id="${esc(t.xs.id)}" data-study="1"` : `data-id="${esc(t.id)}"`;
+const LIGHT_EVE = 0.5;
 function computeFocus(){
   const today = todayISO(), dh0 = dailyHours(), thSet = todayHours(), now = new Date();
   const dh = dh0 * (accOf() ? accOf().capScale() : 1);
@@ -8278,44 +8616,58 @@ function computeFocus(){
   const th0 = Math.max(0, Math.min(thSet - doneToday, leftH));
   let av = null; try { av = availToday(now); } catch(e) {}
   const th = av && av.active ? Math.min(th0, av.res.total / 60) : th0;
-  const open = tasksArr().filter(t => t.status !== "done" && t.due).concat(groupPlanTasks());
-  const info = {};
   PTS_W = pointsWeights();
+  const open = tasksArr().filter(t => t.status !== "done" && t.due).concat(groupPlanTasks(), examStudyTasks(today));
+  prereqDue(open, today, dh);
+  const info = {};
   const horizon = Math.min(90, Math.max(14, open.reduce((m, t) => Math.max(m, dayDiff(today, t.due)), 0) + 1));
   const B = busyDays(today, addDays(today, horizon));
   const day = [th], cum = [0];
   let AD = null; if (av && av.active) { try { AD = availDays(addDays(today, 1), addDays(today, horizon)); } catch(e) {} }
   for (let i = 1; i <= horizon; i++) { const d = addDays(today, i); day.push(Math.min(dh * (accOf() ? accOf().wkScale(d) : 1) * busyFactor(B.m[d] || 0), AD && AD[d] != null ? AD[d] : Infinity)); }
   for (let i = 1; i <= horizon; i++) cum.push(cum[i - 1] + day[i - 1]);
-  const stamp = nowStamp();
-  const byDue = open.slice().sort((a, b) => dueDate(a) - dueDate(b));
-  let load = 0;
+  const stamp = nowStamp(), nowMs = now.getTime(), nowMin = now.getHours() * 60 + now.getMinutes();
+  // Free hours from now until a time later today, from today's free windows when there are some
+  const freeBefore = av && av.res && av.res.windows ? ms => { const d = new Date(ms), e = d.getHours() * 60 + d.getMinutes(); return Math.min(th, av.res.windows.reduce((s, w) => s + Math.max(0, Math.min(w.e, e) - Math.max(w.s, nowMin)), 0) / 60); } : null;
+  // When each task really has to be in. Past its due time: when late work closes, or now when every late day costs marks.
+  // Work that is past due with no late work accepted (or the late window closed) is closed: it gets no time.
+  const when = t => {
+    const lu = lateUntilOf(t), lp = lateOf(t), dueMs = dueDate(t).getTime(), past = dueMs <= nowMs;
+    const dead = past && (lp === "none" || !!(lu && lu < stamp));
+    let eff = dueMs;
+    if (past && !dead) eff = lp === "free" ? (lu ? stampMs(lu) : nowMs + 3 * 864e5) : lu ? Math.min(stampMs(lu), nowMs) : nowMs;
+    return {lu, lp, dueMs, past, dead, eff};
+  };
+  const W0 = {}; open.forEach(t => { W0[t.id] = when(t); });
+  const byDue = open.slice().sort((a, b) => W0[a.id].eff - W0[b.id].eff || W0[a.id].dueMs - W0[b.id].dueMs);
+  // load counts everything due first; loadW leaves out exam study, for Exam Mode's choice between work and studying
+  let load = 0, loadW = 0;
   byDue.forEach(t => {
-    const fx = MILESTONE(t.type) && !canDoNow(t);
-    const R = fx ? 0 : remainingOf(t);
-    const lu = lateUntilOf(t), lp = lateOf(t);
-    const dead = dayDiff(today, t.due) < 0 && (lp === "none" || (lu && lu < stamp));
-    if (!dead) load += R;
-    const A = capacityUntil(t, today, dh, th, cum, day);
-    info[t.id] = {t, R, L: load, A, rho: load / Math.max(A, 0.25), behind: Math.max(0, load - A), dl: dayDiff(today, t.due), late: lp, lateUntil: lu, dead, fixed: fx};
+    const w = W0[t.id], fx = MILESTONE(t.type) && !canDoNow(t);
+    const R = fx ? 0 : planLeft(t, dayDiff(today, t.due));
+    if (!w.dead) { load += R; if (!t.xs) loadW += R; }
+    const freeLate = w.past && !w.dead && w.lp === "free";
+    const A = w.past ? (freeLate ? Math.max(0, (w.eff - nowMs) / 864e5) * dh : 0) : capacityUntil(t, today, dh, th, cum, day, now, freeBefore);
+    const dl = dayDiff(today, t.due), edl = w.past && !w.dead ? Math.max(0, dayDiff(today, iso(new Date(w.eff)))) : Math.max(0, dl);
+    info[t.id] = {t, R, L: load, A, rho: load / Math.max(A, 0.25), behind: Math.max(0, load - A), behindW: Math.max(0, loadW - A), rhoW: loadW / Math.max(A, 0.25), dl, edl, late: w.lp, lateUntil: w.lu, dead: w.dead, past: w.past, eff: w.eff, dueMs: w.dueMs, fixed: fx};
   });
-  const nowMs = now.getTime();
   Object.values(info).forEach(x => {
-    const t = x.t, W = weightOf(t), p = progress(t).frac, ms = MILESTONE(t.type);
-    const dd = Math.max(0, (dueDate(t).getTime() - nowMs) / 864e5);
+    const t = x.t, W = weightOf(t), p = progress(t).frac, ms = MILESTONE(t.type), on = !x.past;
+    const dd = Math.max(0, (x.eff - nowMs) / 864e5);
     x.dd = dd;
     const T = 1 / Math.pow(1 + dd / 2, 1.6);
     x.own = x.R > 0 ? x.R / Math.max(x.A, 0.25) : 0;
     const S = x.own >= 1 ? 1 : 0.6 * Math.pow(x.own, 2.5);
     let urg = 1 - (1 - T) * (1 - S);
-    if (x.dl < 0) urg = x.dead ? 0.12 : 1.15;
+    if (x.dead) urg = 0.12;
+    else if (x.past && x.late !== "free") urg = 1.15 * (1 + latePenOf(t));
     const I = Math.max(0.6, Math.min(1.9, 0.6 + 0.35 * Math.log(1 + W / 3)));
     let score = urg * I;
     const m = [];
     const mul = (f, why) => { score *= f; if (why) m.push(why); };
     mul(PRIO_M[t.priority] || 1);
-    if (x.dl >= 0) mul(x.late === "none" ? 1.15 : x.late === "free" ? 0.85 : 1);
-    if (x.own >= 1 && x.dl >= 0) mul(1.15, "fit");
+    if (on) mul(x.late === "none" ? 1.15 : x.late === "free" ? 0.85 : 1);
+    if (x.own >= 1 && on) mul(1.15, "fit");
     x.early = !ms && x.dl >= 1 && EARLY_STEP_RX.test(t.notes || "");
     if (x.early) mul(1.06);
     const fullDay = [1, 2].map(i => addDays(today, i)).find(d => d <= t.due && (B.m[d] || 0) >= 7);
@@ -8323,21 +8675,67 @@ function computeFocus(){
     if (ms && x.dl >= 0 && x.dl <= 7) mul(1.1);
     if (t.status === "doing") mul(1.05);
     if (!ms && p >= 0.7) mul(1.08);
-    if (!ms && x.R > 0 && x.R <= 0.5 && x.dl >= 0 && x.dl <= 2) { mul(1.08); x.quick = true; }
-    if (diffOf(t) === "hard" && x.dl >= 0 && x.dl <= 5) mul(1.06);
+    if (!ms && x.R > 0 && x.R <= 0.5 && on && x.dl <= 2) { mul(1.08); x.quick = true; }
+    if (diffOf(t) === "hard" && on && x.dl <= 5) mul(1.06);
     const hl = t.history || [];
-    x.stale = t.status === "doing" && hl.length && Date.now() - hl[hl.length - 1].at > 5 * 864e5;
-    if (x.stale && x.dl >= 0 && x.dl <= 14) mul(1.05);
+    x.stale = !t.xs && t.status === "doing" && hl.length && Date.now() - hl[hl.length - 1].at > 5 * 864e5;
+    if (x.stale && on && x.dl <= 14) mul(1.05);
     if (accOf() && x.dl >= 1 && x.dl <= 6 && x.R > 0 && p === 0 && !(Number(t.focusMin) > 0)) { const nz = accOf().startNudge(t); if (nz > 1) { mul(nz); x.nudged = true; } }
     x.score = score * 100;
-    // What is due today comes before anything already overdue (overdue work still ranks above what is due later)
-    if (x.dl === 0 && x.R > 0 && !x.dead && !x.fixed) x.score += 1000;
     x.W = W; x.p = p;
+  });
+  /* Due now: what is due later today, and late work that loses marks for every day it waits (or whose late window closes today).
+     It all comes before anything due later. When it doesn't all fit in today's time, what is kept is what saves the most marks,
+     and among what is kept, the earliest cut-off goes first. */
+  const endToday = new Date(now); endToday.setHours(23, 59, 59, 999);
+  const tier = Object.values(info).filter(x => x.R > 0 && !x.dead && !x.fixed && (x.past ? x.late !== "free" || x.eff <= endToday.getTime() : x.dl === 0));
+  tier.forEach(x => {
+    const W = x.W, pen = latePenOf(x.t), daysLate = Math.max(1, Math.ceil((nowMs - x.dueMs) / 864e5));
+    const closesToday = !!x.lateUntil && stampMs(x.lateUntil) <= endToday.getTime();
+    x.tier = true;
+    x.stake = !x.past ? (x.late === "none" ? W : x.late === "penalty" ? W * pen : x.late === "free" ? W * 0.05 : W * 0.5)
+      : closesToday ? W * Math.max(0.1, 1 - (x.late === "free" ? 0 : pen * daysLate)) : W * pen;
+    // The next moment it costs marks: its due time, the next late day, or when late work closes
+    let cut = x.past ? x.dueMs + daysLate * 864e5 : x.dueMs;
+    if (x.lateUntil) cut = Math.min(cut, stampMs(x.lateUntil));
+    x.cut = cut; x.closesToday = closesToday;
+  });
+  const keep = keepMost(tier.map(x => ({h: x.R, v: x.stake})), th);
+  const kept = tier.filter((x, i) => keep.has(i)).sort((a, b) => a.cut - b.cut), left0 = tier.filter((x, i) => !keep.has(i)).sort((a, b) => b.stake - a.stake);
+  const tierShort = left0.length > 0;
+  // Scores: 3000 + a place for what is kept, 2000 + a place for the rest due now (Do This Next reads these bands)
+  kept.forEach((x, i) => { x.score = 3000 + Math.max(1, 900 - i * 10 + Math.min(9, x.score / 100)); x.tierKeep = tierShort; });
+  left0.forEach((x, i) => { x.score = 2000 + Math.max(1, 900 - i * 10 + Math.min(9, x.score / 100)); x.tierSkip = true; });
+  /* Short of time: when the work due by some date can't all fit before it, the tasks that give the fewest marks for the time
+     go last, and the plan says which */
+  let drop = null;
+  {
+    const cr = byDue.map(t => info[t.id]).find(x => x.behind >= 0.5 && !x.past && !x.dead);
+    if (cr) {
+      // Leave for last the work worth clearly fewer marks per hour than the rest, lowest first, until the rest fits
+      const win = byDue.map(t => info[t.id]).filter(x => x.R > 0 && !x.dead && !x.fixed && x.eff <= cr.eff);
+      // Exam study is an estimate, not a piece of work with marks of its own, so it isn't weighed against the rest
+      const work = win.filter(x => !x.t.xs), avg = work.reduce((s2, x) => s2 + x.W, 0) / Math.max(0.25, work.reduce((s2, x) => s2 + x.R, 0)), out = [];
+      let over = win.reduce((s2, x) => s2 + x.R, 0) - cr.A;
+      work.filter(x => !x.tier && x.W / x.R < avg * 0.6).sort((a, b) => a.W / a.R - b.W / b.R).forEach(x => { if (over > 0.01) { out.push(x); over -= x.R; } });
+      out.forEach(x => { x.score *= 0.75; x.drop = true; });
+      if (out.length) drop = {by: cr.t.due, short: cr.behind, items: out};
+    }
+  }
+  // Work due before an exam, or later on the exam day, comes before studying for it (as Exam Mode says), so a big study
+  // estimate can't take all of today
+  Object.values(info).forEach(x => {
+    if (!x.t.xs || x.R <= 0) return;
+    const exEnd = dueDate(Object.assign({}, x.t, {time: ""})).getTime();
+    const cap = Object.values(info).filter(y => !y.t.xs && !y.dead && !y.fixed && y.R > 0 && y.dl <= 3 && y.dueMs <= exEnd).reduce((m, y) => Math.min(m, y.score), Infinity);
+    if (x.score >= cap) { x.score = cap * 0.97; x.afterWork = true; }
   });
   for (let pass = 0; pass < 3; pass++) {
     Object.values(info).forEach(x => (x.t.dependsOn || []).forEach(id => {
       const d = info[id];
-      if (d && d.score < x.score * 0.9) { d.score = x.score * 0.9; d.unblocks = x.t; }
+      // A step that work due now waits on is due now too, just ahead of it
+      if (d && x.tier && !d.dead && (!d.tier || d.score <= x.score)) { d.tier = true; d.tierSkip = x.tierSkip; d.tierKeep = x.tierKeep; d.score = x.score + 0.5; d.unblocks = x.t; }
+      else if (d && d.score < x.score * 0.9) { d.score = x.score * 0.9; d.unblocks = x.t; }
     }));
   }
   const ranked = [], blocked = [], later = [];
@@ -8351,38 +8749,84 @@ function computeFocus(){
   ranked.sort((a, b) => b.score - a.score);
   ranked.forEach(x => {
     const t = x.t, R = x.R;
-    let n = 0;
-    if (R > 0) {
-      if (x.dl <= 0) n = R;
-      else if (MILESTONE(t.type)) n = x.dl > 7 ? 0 : R / Math.min(x.dl, 7);
+    let n = 0, flat = 0;
+    x.capToday = null; x.lightEve = false;
+    if (R > 0 && !x.dead && t.xs && x.dl <= 1) {
+      // The day before an exam: light review only, then sleep (sleep after studying helps you remember it; a late night costs more than it gains)
+      n = flat = Math.min(R, LIGHT_EVE); x.capToday = LIGHT_EVE; x.lightEve = true;
+    }
+    else if (R > 0 && !x.dead && t.xs) {
+      // Studying for an exam is spread over the days before the day before it, which is kept light
+      const days = Math.max(1, x.dl - 1), eve = x.dl - 1;
+      let fut = 0; for (let i = 1; i < eve && i < day.length; i++) fut += day[i];
+      if (eve >= 1) fut += Math.min(LIGHT_EVE, day[eve] || 0);
+      n = flat = R / days;
+      n = Math.max(n, R - Math.max(0, fut - Math.max(0, x.L - R - th)));
+      if (diffOf(t) === "hard") { n *= 1.3; flat *= 1.3; }
+      n = Math.min(R, n); flat = Math.min(R, flat);
+    }
+    else if (R > 0 && !x.dead) {
+      if (x.edl <= 0) n = flat = R;
+      else if (MILESTONE(t.type)) n = flat = x.edl > 7 ? 0 : R / Math.min(x.edl, 7);
       else {
-        const days = x.dl + (dueDayFrac(t) >= 0.4 ? 1 : 0);
-        n = R / Math.max(1, days);
-        n = Math.max(n, R - dh * Math.max(0, days - 1));
-        if (diffOf(t) === "hard") n *= 1.3;
+        const days = x.edl + (!x.past && dueDayFrac(t) >= 0.4 ? 1 : 0);
+        n = flat = R / Math.max(1, days);
+        flat = Math.max(flat, R - dh * Math.max(0, days - 1));
+        // Today's share from the free hours really left before it's due (long class, shift and placement days count less),
+        // less the work due before it that today's time doesn't cover
+        n = Math.max(n, R - Math.max(0, Math.max(0, x.A - th) - Math.max(0, x.L - R - th)));
+        if (diffOf(t) === "hard") { n *= 1.3; flat *= 1.3; }
       }
-      n = Math.min(R, n);
+      n = Math.min(R, n); flat = Math.min(R, flat);
     }
     x.need = n > 0 ? Math.max(0.25, Math.ceil(n * 4) / 4) : 0;
+    x.needFlat = flat > 0 ? Math.max(0.25, Math.ceil(flat * 4) / 4) : 0;
   });
   const left = splitToday(ranked, th, th >= thSet - doneToday - 0.001);
   // A task you have done enough on today (or said was enough) has no time left today anywhere: not in the plan, the schedule or Do This Next
   ranked.forEach(x => { if (x.alloc > 0 && enoughToday(x.t, x)) { x.enough = true; x.alloc = 0; x.need = 0; } });
   const needToday = ranked.reduce((s, x) => s + x.need, 0);
-  let avail = null; if (av) { try { avail = availPlan(av, ranked, th0, needToday, day, today, now, nuLead({ranked, info})); } catch(e) { console.warn(e); } }
-  const crunch = byDue.map(t => info[t.id]).find(x => x.behind >= 0.5 && x.dl >= 0);
+  // Busy days coming up: they push more of the work into today than your usual pace would. When that is more than today's time, the plan offers to add it.
+  let busyAhead = null;
+  {
+    const flatToday = ranked.reduce((s, x) => s + (x.enough ? 0 : x.needFlat), 0), extra = needToday - Math.max(flatToday, th);
+    const dayLeft = Math.max(0, 24 - now.getHours() - now.getMinutes() / 60 - 0.5), add = Math.min(Math.ceil(extra * 2) / 2, Math.max(1, Math.ceil(thSet)), Math.floor(Math.max(0, Math.min(10, dayLeft + doneToday) - thSet) * 2) / 2);
+    if (extra >= 0.5 && add >= 0.5) {
+      const low = []; for (let i = 1; i <= 7 && low.length < 3; i++) { if (day[i] < dh * 0.6) { const d = addDays(today, i); low.push({d, what: (B.what[d] || [])[0] || ""}); } }
+      if (low.length) busyAhead = {add, to: thSet + add, days: low, all: add + 0.01 >= Math.ceil(extra * 2) / 2};
+    }
+  }
+  const crunch = byDue.map(t => info[t.id]).find(x => x.behind >= 0.5 && !x.past && !x.dead);
+  const pct = n => Math.round(n * 10) / 10;
   Object.values(info).forEach(x => {
     const t = x.t, r = [];
     const luD = x.lateUntil ? x.lateUntil.slice(0, 10) : "", luT = x.lateUntil ? x.lateUntil.slice(11) : "";
-    if (x.dl < 0) r.push([100, x.dead ? `Past due, and late work isn't accepted. Check with your instructor.` : luD ? `Overdue. Late submissions close ${fmtDate(luD)}${luT && luT !== "23:59" ? " at " + fmtTime(luT) : ""}` : `Overdue by ${-x.dl} day${x.dl === -1 ? "" : "s"}`]);
-    else r.push([x.dl <= 1 ? 90 : 60 - x.dl, x.dl === 0 ? "Due today" : x.dl === 1 ? "Due tomorrow" : `Due in ${x.dl} days`]);
-    if (x.behind >= 0.5 && x.dl >= 0) r.push([95, `About ${fmtHM(x.behind)} short of time before this is due, counting everything due first`]);
-    else if (x.own >= 1 && x.dl >= 0) r.push([93, "It needs more time than you have left before it's due, so start now"]);
-    else if (x.rho >= 0.75 && x.dl >= 0 && x.dl <= 14) r.push([70, "Little spare time before it's due"]);
+    const penTxt = `Late work loses ${hasLatePen(t) ? "" : "about "}${Math.round(latePenOf(t) * 100)}% a day${hasLatePen(t) ? "" : " (a typical penalty; set the real one in the task)"}${x.W ? `, about ${pct(x.W * latePenOf(t))}% of your grade` : ""}`;
+    if (x.dead) r.push([100, `Past due, and late work isn't accepted. It isn't in today's plan: talk to your instructor if you still want to hand it in`]);
+    else if (x.past && x.dl === 0 && t.time) r.push([100, `Was due at ${fmtTime(t.time)} today${x.late === "free" ? ", and late work is accepted" : ""}`]);
+    else if (x.past) r.push([100, luD ? `Overdue. Late submissions close ${fmtDate(luD)}${luT && luT !== "23:59" ? " at " + fmtTime(luT) : ""}` : `Overdue by ${-x.dl} day${x.dl === -1 ? "" : "s"}`]);
+    else if (!t.dueFor && !t.xs) r.push([x.dl <= 1 ? 90 : 60 - x.dl, x.dl === 0 ? (t.time ? `Due at ${fmtTime(t.time)} today` : "Due today") : x.dl === 1 ? "Due tomorrow" : `Due in ${x.dl} days`]);
+    if (x.past && !x.dead && x.late !== "free" && x.R > 0) r.push([97, penTxt]);
+    if (x.tierKeep) r.push([96, "Not everything due now fits in today's time, and finishing this saves the most marks"]);
+    if (x.tierSkip) r.push([96, x.R > th + 0.01 ? "It can't be finished today, so what can be finished today comes first" : "Not everything due now fits in today's time, and the others save more marks"]);
+    if (x.lightEve) {}
+    else if (x.behind >= 0.5 && !x.past && !x.tier) r.push([95, `About ${fmtHM(x.behind)} short of time before this is due, counting everything due first`]);
+    else if (x.own >= 1 && !x.past) r.push([93, x.dl === 0 && t.time ? `It needs more time than is left before ${fmtTime(t.time)}, so start now` : "It needs more time than you have left before it's due, so start now"]);
+    else if (x.rho >= 0.75 && !x.past && x.dl <= 14 && !x.tier) r.push([70, "Little spare time before it's due"]);
+    if (x.drop) r.push([94, `You're short of time before ${fmtDate(drop.by)}, and this gives the fewest marks for the time, so it comes after the rest`]);
     if (x.own >= 0.5 && x.own < 1 && x.dl > 7) r.push([66, "Big enough that it needs steady time every day until it's due"]);
     else if (x.ahead && x.alloc > 0) r.push([66, (x.rho || 0) >= 0.6 && (x.own || 0) < 0.3 ? "Due later, but there's little spare time before it once everything due first is done, so it helps to start now" : `Due later, but about ${fmtHM(x.R)} of work, so it helps to start well ahead`]);
     if (x.quick) r.push([44, "Quick to clear, and due soon"]);
     if (x.stale) r.push([33, "Started a while ago and hasn't moved since"]);
+    if (t.xs) {
+      const ex = state.tasks[t.xs.id] || {}, L = t.xs.lead, why = [L.risk ? (L.risk === "watch" ? "the course is close to its pass mark" : "the course is below its pass mark") : "", L.p < 0.75 ? readyWords(L.from, L.p) : ""].filter(Boolean);
+      r.push([85, `${ex.type || "Exam"} ${x.dl === 1 ? "tomorrow" : `in ${x.dl} days`}${ex.time ? " at " + fmtTime(ex.time) : ""}, in person. Study starts ${L.days} days before it${why.length ? " because " + why.join(" and ") : ""}`]);
+      if (x.lightEve) r.push([86, "Light review only today (30 minutes at most), then stop early and sleep: a good night's sleep helps you remember more than a late night"]);
+      if (x.afterWork) r.push([84, "Work due before the exam (or later that day) comes first, then the rest of today's time goes to studying"]);
+    }
+    { const xr = MILESTONE(t.type) ? examReadiness(t) : t.xs && state.tasks[t.xs.id] ? examReadiness(state.tasks[t.xs.id]) : null;
+      if (xr && xr.gap) r.push([88, xr.gap > 0 ? `You feel ${xr.self}% ready, but your flashcards and quizzes say about ${xr.measured}%` : `Your flashcards and quizzes say about ${xr.measured}%, more than the ${xr.self}% you feel`]); }
+    if (t.dueFor) { const d = state.tasks[t.dueFor] || info[t.dueFor] && info[t.dueFor].t; r.push([85, `No due date, but ${d ? d.title : "another task"} needs it first, so aim to finish by ${fmtDate(t.due)}`]); }
     if (hasWeight(t) || x.W >= 10 || PTS_W[t.id]) r.push([50 + x.W, `${hasWeight(t) ? "" : "About "}${Math.round(x.W * 10) / 10}% of your grade${!hasWeight(t) && PTS_W[t.id] ? " (from its points)" : ""}`]);
     if (x.fullDay) r.push([72, `${dayDiff(today, x.fullDay) === 1 ? "Tomorrow" : parse(x.fullDay).toLocaleDateString(undefined, {weekday: "long"})} is a full day${(B.what[x.fullDay] || [])[0] ? ` (${B.what[x.fullDay][0]})` : ""}, so it helps to get ahead`]);
     if (x.early) r.push([68, "The instructions mention an earlier step (like a draft or pre-lab). Check for a sooner deadline"]);
@@ -8390,12 +8834,13 @@ function computeFocus(){
     if (pr && pr.ai) r.push([56, `About ${pr.ai.pct}% ready${pr.ai.note ? ": " + pr.ai.note : ""}`]);
     else if (x.fixed) r.push([55, `${remoteOf(t).v === "no" ? "Taken in person" : "Not confirmed as take-home"}, so it is a fixed event, not a task to do now${x.p > 0 ? ` (${Math.round(x.p * 100)}% prepared)` : ""}`]);
     else if (MILESTONE(t.type)) r.push([55, progress(t).plan ? `${Math.round(x.p * 100)}% prepared, following your study plan` : `${Math.round(x.p * 100)}% prepared, about ${fmtHM(x.R)} of study left`]);
-    else if (x.R > 0) r.push([40, `About ${fmtHM(x.R)} of work left`]);
-    if (accOf() && x.R > 0 && isNum(t.hours) && !MILESTONE(t.type)) { const ex = accOf().explain(t); if (ex) r.push([39, ex + " " + tr("acc.planAllows", "Today's Plan allows for it.")]); }
+    else if (x.R > 0 && t.xs) r.push([40, `About ${fmtHM(x.R)} of study left`]);
+    else if (x.R > 0) { const L = leftInfo(t), rng = leftRange(t); r.push([40, `${/^about/.test(rng) ? "About " + rng.slice(6) : rng} of work left${x.R > L.h + 0.05 ? ", planned for the longer end since it's due soon" : ""}`]); if (L.how === "over") r.push([62, "Taking longer than planned"]); }
+    if (accOf() && x.R > 0 && isNum(t.hours) && !MILESTONE(t.type) && !t.xs) { const ex = accOf().explain(t); if (ex) r.push([39, ex + " " + tr("acc.planAllows", "Today's Plan allows for it.")]); }
     if (x.nudged) r.push([36, tr("acc.startSooner", "You often finish close to the deadline, so starting a little early helps")]);
-    if (x.unblocks) r.push([80, `Needed before ${x.unblocks.title}`]);
-    if (x.late === "none" && x.dl >= 0) r.push([45, t.late === "none" ? "No late work accepted" : "Submissions close at the due time"]);
-    else if (luD && x.dl >= 0 && t.late !== "penalty" && t.late !== "free") r.push([25, `Late submissions accepted until ${fmtDate(luD)}`]);
+    if (x.unblocks && !t.dueFor) r.push([80, `Needed before ${x.unblocks.title}`]);
+    if (x.late === "none" && !x.past) r.push([45, t.late === "none" ? "No late work accepted" : "Submissions close at the due time"]);
+    else if (luD && !x.past && t.late !== "penalty" && t.late !== "free") r.push([25, `Late submissions accepted until ${fmtDate(luD)}`]);
     if (!MILESTONE(t.type) && x.p >= 0.7) r.push([42, "Almost done"]);
     if (t.status === "doing") r.push([30, "Already in progress"]);
     if (diffOf(t) === "hard") r.push([35, t.difficulty === "hard" ? "Hard, so it helps to start early" : "Looks demanding, so it helps to start early"]);
@@ -8404,8 +8849,9 @@ function computeFocus(){
     if (t.start && t.start > today && !MILESTONE(t.type)) r.push([20, `Starts ${fmtDate(t.start)}`]);
     x.reasons = r.sort((a, b) => b[0] - a[0]).map(y => y[1]);
   });
+  let avail = null; if (av) { try { avail = availPlan(av, ranked, th0, needToday, day, today, now, nuLead({ranked, info})); } catch(e) { console.warn(e); } }
   const lateCap = thSet - doneToday > leftH + 0.01;
-  FOCUS = {sd, info, ranked, blocked, later, today, th, thSet, doneToday, dh: dh0, planned: avail && avail.active ? avail.planned : th - Math.max(0, left), needToday, crunch, busy: B, day, avail, slotsBy: avail ? avail.by : {}, av, th0, now, lateCap};
+  FOCUS = {sd, info, ranked, blocked, later, today, th, thSet, doneToday, dh: dh0, planned: avail && avail.active ? avail.planned : th - Math.max(0, left), needToday, crunch, drop, busyAhead, busy: B, day, avail, slotsBy: avail ? avail.by : {}, av, th0, now, lateCap};
   FOCUS.gapWhy = planGapWhy(FOCUS);
   return FOCUS;
 }
@@ -8421,7 +8867,9 @@ function planGapWhy(F){
   return why;
 }
 // For tests: the plan as the app sees it right now
-window.__sbPlan = () => { const F = computeFocus(), n = nextUp(F); const pick = x => ({id: x.t.id, title: x.t.title, score: Math.round(x.score), alloc: x.alloc, R: x.R, W: x.W, late: x.late, dead: !!x.dead, fixed: !!x.fixed, reasons: x.reasons}); return {th: F.th, thSet: F.thSet, doneToday: F.doneToday, gapWhy: F.gapWhy, day: F.day.slice(0, 5), ranked: F.ranked.map(pick), later: F.later.map(x => x.t.id), next: n ? {id: n.x.t.id, why: n.why, mins: n.mins, ai: n.ai, study: !!n.study} : null, est: id => localEstimate(state.tasks[id])}; };
+window.__sbPlan = () => { const F = computeFocus(), n = nextUp(F); const pick = x => ({id: x.t.id, title: x.t.title, due: x.t.due, start: x.t.start || "", score: Math.round(x.score), alloc: x.alloc, need: x.need, R: x.R, W: x.W, late: x.late, dead: !!x.dead, past: !!x.past, fixed: !!x.fixed, tier: !!x.tier, drop: !!x.drop, reasons: x.reasons});
+  const first = Object.entries(F.slotsBy || {}).map(([id, l]) => ({id, s: Math.min(...l.map(z => z.s))})).sort((a, b) => a.s - b.s)[0];
+  return {th: F.th, thSet: F.thSet, doneToday: F.doneToday, gapWhy: F.gapWhy, day: F.day.slice(0, 5), ranked: F.ranked.map(pick), later: F.later.map(x => x.t.id), laterRows: F.later.map(pick), blocked: F.blocked.map(x => x.t.id), firstSlot: first ? first.id : "", busyAhead: F.busyAhead, drop: F.drop ? {by: F.drop.by, ids: F.drop.items.map(x => x.t.id)} : null, next: n ? {id: n.x.t.id, why: n.why, mins: n.mins, ai: n.ai, study: !!n.study} : null, est: id => localEstimate(state.tasks[id])}; };
 // Pick the one reason a row shows up front
 function planLead(rs){
   rs = rs || [];
@@ -8495,10 +8943,10 @@ function planRow(x, i, showScore, noRank){
   const side = showScore ? `<span class="score" title="Focus score" aria-label="Focus score ${Math.round(x.score)}">${Math.round(x.score)}</span>`
     : x.alloc > 0 ? `<span class="alloc" title="Time Today's Plan suggests for this today">${fmtHM(x.alloc)}<small class="alloc-l"> today</small></span>` : `<span class="alloc idle">Later</span>`;
   return `<li class="plan-row${open ? " why-open" : ""}" style="--c:${esc(colorOf(t.courseId))}">
-    ${t.gt ? `<span class="check gt-dot" aria-hidden="true"></span>` : `<button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>`}
+    ${t.gt || t.xs ? `<span class="check gt-dot" aria-hidden="true"></span>` : `<button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>`}
     <button class="plan-main" ${gtOpenAttrs(t)} title="${esc(rs.join("\n"))}"><span class="task-title">${esc(t.title)}</span>${t.gt ? `<span class="pr-chip gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? `<span class="pr-chip">${esc(courseLabel(c))}</span>` : ""}</button>${c ? `<span class="pr-chip pr-chip-out">${esc(courseLabel(c))}</span>` : ""}
     ${lead ? rest.length ? `<button class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}" data-act="plan-why" data-id="${esc(key)}" aria-expanded="${open}" aria-controls="pw-${esc(key)}" title="${esc(lead)}. Show all ${rs.length} reasons"><span class="pr-lead">${esc(lead)}</span><span class="pr-n" aria-hidden="true">+${rest.length} more</span></button>` : `<span class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}"><span class="pr-lead">${esc(lead)}</span></span>` : `<span class="pr-why"></span>`}
-    <span class="plan-side">${lmsGoBtn(t)}${window.SBPREP ? SBPREP.matBtn(t) : ""}${side}${showScore || !canDoNow(t) ? "" : `<button class="focus-go" data-act="pomo-task" data-id="${t.gt ? "" : esc(t.id)}" aria-label="Start a focus session on ${esc(t.title)}" title="Start a focus session">${TOMATO}</button>`}${showScore || t.gt ? "" : `<button class="focus-go lt-go" data-act="log-time" data-id="${esc(t.id)}" aria-label="Log time on ${esc(t.title)}" title="Log time you worked on this">${CLOCK_IC}</button>`}</span>
+    <span class="plan-side">${lmsGoBtn(t)}${window.SBPREP ? SBPREP.matBtn(t) : ""}${side}${showScore || !canDoNow(t) ? "" : `<button class="focus-go" data-act="pomo-task" ${focusAttrs(t)} aria-label="Start a focus session on ${esc(t.title)}" title="Start a focus session">${TOMATO}</button>`}${showScore || t.gt ? "" : `<button class="focus-go lt-go" data-act="log-time" data-id="${esc(planTaskId(t))}" aria-label="Log time on ${esc(t.title)}" title="Log time you worked on this">${CLOCK_IC}</button>`}</span>
     ${(sl => !showScore && ((sl && sl.length) || x.moved > 0.05) ? `<span class="pr-slot">${sl && sl.length ? `<b>${esc(availSlotText(sl))}</b>` : ""}${x.moved > 0.05 ? `${sl && sl.length ? " " : ""}<span class="mini">${esc(fmtHM(x.moved))} moved to a lighter day</span>` : ""}</span>` : "")(FOCUS && FOCUS.slotsBy ? FOCUS.slotsBy[t.id] : null)}
     ${rest.length ? `<ul class="pr-more" id="pw-${esc(key)}"${open ? "" : " hidden"}>${rest.map(r => `<li>${esc(r)}</li>`).join("")}</ul>` : ""}
   </li>`;
@@ -8506,7 +8954,7 @@ function planRow(x, i, showScore, noRank){
 /* Today's Plan: the next two weeks */
 const RB_DAYS = 14;
 function weekAhead(F, inView){
-  const today = todayISO(), all = Object.values(F.info).filter(x => inView(x) && x.t.status !== "done");
+  const today = todayISO(), all = Object.values(F.info).filter(x => inView(x) && x.t.status !== "done" && !x.t.xs && !x.t.dueFor);
   return Array.from({length: RB_DAYS}, (_, i) => {
     const iso = addDays(today, i), rows = all.filter(x => x.t.due === iso).sort((a, b) => dueDate(a.t) - dueDate(b.t));
     return {i, iso, rows, hours: rows.reduce((s, x) => s + (x.R || 0), 0)};
@@ -8543,6 +8991,58 @@ function ribbonHtml(week, pick, late){
   }).join("") + Object.entries(more).map(([i, n]) => { const iso = week[i].iso; return `<button type="button" class="rb-more" data-act="plan-tile" data-id="d:${iso}" style="left:${pct(+i + 0.5)}" aria-label="${esc(`${n} more due ${fmtDate(iso)}. Show only that day`)}">+${n}</button>`; }).join("");
   return `<div class="rb${late.n ? " has-late" : ""}${Object.keys(more).length ? " has-more" : ""}" role="group" aria-label="The next two weeks"><ol class="rb-days">${days}</ol><i class="rb-line" aria-hidden="true"></i><div class="rb-pins">${pins}</div></div>`;
 }
+/* Heads Up: everything Today's Plan wants you to know, in one block instead of a stack of cards.
+   - Busy days ahead: they push more of the work into today than your usual pace, so it offers to add the difference.
+   - Short of time before a deadline, and which work gives the fewest marks for the time.
+   - The gap between how ready you feel for your next exam and what your flashcards and quizzes say.
+   - How an exam went: a short reflection once its mark is in (from any source: the mark sheet, school sync, Paste Grades).
+   - Closed work (past due, late work not accepted): it gets no time, and is mentioned until you mark it done or tap Got It. */
+const CLOSED_LS = "studyboard:closedSeen", BUSY_LS = "studyboard:busyHide", GAPHIDE_LS = "studyboard:gapHide";
+const lsObj = k => { try { return JSON.parse(localStorage.getItem(k) || "{}") || {}; } catch (e) { return {}; } };
+const pnIcon = k => ({warn: "!", late: "!", busy: "\u2191", ready: "%", wrap: "\u2713"})[k] || "i";
+function planNotes(F, inView, crunchMain){
+  const rows = [], today = todayISO();
+  // Short of time comes first: it changes what to do today
+  if (crunchMain) rows.push({k: "warn", main: crunchMain});
+  const b = F.busyAhead;
+  if (b && (() => { try { return localStorage.getItem(BUSY_LS) !== today; } catch (e) { return true; } })()) {
+    const name = d => dayDiff(today, d.d) === 1 ? "Tomorrow" : parse(d.d).toLocaleDateString(undefined, {weekday: "long"});
+    const days = b.days.map(d => name(d) + (d.what ? ` (${d.what})` : "")), list = days.length > 1 ? days.slice(0, -1).join(", ") + " and " + days[days.length - 1] : days[0];
+    rows.push({k: "busy", main: `<b>Busy days ahead.</b> ${esc(list)} ${days.length > 1 ? "leave" : "leaves"} little study time, so more of your work needs doing today. Adding <b>${fmtHM(b.add)}</b> today ${b.all ? "keeps you on track" : "helps you keep up"}.`,
+      acts: `<button class="btn small primary" data-act="today-set" data-id="${b.to}">Make Today ${fmtHM(b.to)}</button><button class="btn small" data-act="busy-hide">Not Today</button>`});
+  }
+  // How ready you feel against your results, for the nearest exam with a clear gap (hidden for the day with Got It)
+  const gh = lsObj(GAPHIDE_LS);
+  const gap = Object.values(F.info).filter(x => MILESTONE(x.t.type) && !x.t.prepFor && x.t.status !== "done" && inView(x) && x.dl >= 0 && x.dl <= 14 && gh[x.t.id] !== today)
+    .map(x => ({x, r: examReadiness(x.t)})).filter(o => o.r && o.r.gap).sort((a, z) => a.x.dl - z.x.dl)[0];
+  if (gap) {
+    const t = gap.x.t, r = gap.r, hasCards = t.courseId && deckListArr().some(d => d.courseId === t.courseId && d.cards.some(c => !c.draft));
+    rows.push({k: "ready", main: `<b>${esc(t.title)}</b> (${gap.x.dl === 0 ? "today" : gap.x.dl === 1 ? "tomorrow" : "in " + gap.x.dl + " days"}): ${r.gap > 0 ? `you feel ${r.self}% ready, but your results say about ${r.measured}%. Testing yourself on what you miss closes the gap fastest.` : `your results say about ${r.measured}%, more than the ${r.self}% you feel. You may be further along than you think.`}`,
+      acts: `${hasCards && r.gap > 0 ? `<button class="btn small primary" data-act="fc-study-course" data-course="${esc(t.courseId)}">Test Yourself</button>` : ""}<button class="btn small" data-act="edit-task" data-id="${esc(t.id)}">Open</button><button class="btn small" data-act="gap-hide" data-id="${esc(t.id)}">Got It</button>`});
+  }
+  // A mark came in for an exam you haven't reflected on yet
+  (window.SBWRAP && SBWRAP.pending ? SBWRAP.pending() : []).filter(t => inView({t})).slice(0, 2).forEach(t => {
+    const m = SBWRAP.markOf(t);
+    rows.push({k: "wrap", main: `<b>How did ${esc(t.title)} go?</b> You got ${m}%. A minute comparing that with how ready you were makes the next one easier to prepare for.`,
+      acts: `<button class="btn small primary" data-act="ewr-open" data-id="${esc(t.id)}">Reflect</button><button class="btn small" data-act="ewr-skip" data-id="${esc(t.id)}">Skip</button>`});
+  });
+  const seen = lsObj(CLOSED_LS), closed = Object.values(F.info).filter(x => x.dead && !x.fixed && !x.t.gt && inView(x) && x.t.status !== "done" && !seen[x.t.id]).sort((a, z) => z.dueMs - a.dueMs);
+  closed.slice(0, 2).forEach(x => { const t = x.t, c = courseOf(t.courseId);
+    rows.push({k: "late", main: `<button class="link-btn" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}</button> is past due, and late work isn't accepted <span class="mini">(due ${esc(fmtDate(t.due))}${c ? " · " + esc(courseLabel(c)) : ""})</span>. It isn't in today's plan. Talk to your instructor if you still want to hand it in.`,
+      acts: `<button class="btn small" data-act="toggle" data-id="${esc(t.id)}">Mark Done</button><button class="btn small" data-act="closed-ok" data-id="${esc(t.id)}">Got It</button>`}); });
+  if (closed.length > 2) rows.push({k: "late", main: `${closed.length - 2} more past due with no late work accepted, on the Task Board.`});
+  return rows;
+}
+function planNotesHtml(F, inView, crunchMain){
+  const rows = planNotes(F, inView, crunchMain); if (!rows.length) return "";
+  return `<section class="plan-notes" aria-label="Heads up"><h3 class="pn-h">Heads Up</h3><ul>${rows.map(r => `<li class="pn pn-${r.k}${r.cls ? " " + r.cls : ""}"><span class="pn-ic" aria-hidden="true">${pnIcon(r.k)}</span><span class="pn-main">${r.main}</span>${r.acts ? `<span class="pn-acts">${r.acts}</span>` : ""}</li>`).join("")}</ul></section>`;
+}
+// Short of time: which tasks give the fewest marks for the time
+function dropTxt(F){
+  const d = F.drop; if (!d || !d.items.length) return "";
+  const its = d.items.slice(0, 2).map(x => `<b>${esc(x.t.title)}</b> (${Math.round(x.W * 10) / 10}% for about ${fmtHM(x.R)})`);
+  return `Fewest marks for the time: ${its.join(" and ")}. ${d.items.length === 1 ? "It's" : "They're"} planned last, so you could do a quick version, ask for an extension, or add study time.`;
+}
 // Time Today's control, for the row with Today's Plan / Task Board on wider screens (set by focusHtml; phones keep it in the plan box)
 let PLAN_HOURS = "";
 function focusHtml(){
@@ -8555,7 +9055,7 @@ function focusHtml(){
   let hero = null; if (ui.focusOpen) { try { hero = nextUp(F); } catch (e) { hero = null; } }
   const heroId = hero ? hero.x.t.id : "";
   const pastFixed = Object.values(F.info).filter(x => x.fixed && inView(x) && x.t.status !== "done" && x.dl < 0).sort((a, b) => b.dl - a.dl);
-  const lateRows = workable.filter(x => x.dl < 0), soonRows = workable.filter(x => !(x.alloc > 0));
+  const lateRows = workable.filter(x => x.dl < 0 || x.past), soonRows = workable.filter(x => !(x.alloc > 0));
   const overdue = lateRows.length + pastFixed.length, queued = soonRows.length;
   const week = weekAhead(F, inView), pickDay = /^d:/.test(ui.planTile || "") ? week.find(w => w.iso === ui.planTile.slice(2)) : null;
   if ((ui.planTile === "late" && !overdue) || (/^d:/.test(ui.planTile || "") && !pickDay) || (ui.planTile && ui.planTile !== "late" && !/^d:/.test(ui.planTile))) ui.planTile = "";
@@ -8570,7 +9070,8 @@ function focusHtml(){
   const fixedEv = Object.values(F.info).filter(x => x.fixed && inView(x) && x.t.status !== "done" && x.dl >= 0 && x.dl <= 7).sort((a, b) => dueDate(a.t) - dueDate(b.t)).slice(0, 3);
   const fixedHtml = fixedEv.length ? `<div class="plan-fixed" role="region" aria-label="Exams and quizzes on the calendar"><h3 class="plan-sub">On the Calendar</h3><ul>${fixedEv.map(x => { const t = x.t, e = remoteOf(t); return `<li style="--c:${esc(colorOf(t.courseId))}"><button class="plan-main" data-act="edit-task" data-id="${esc(t.id)}"><span class="task-title">${esc(t.title)}</span></button><span class="pf-when">${x.dl === 0 ? "Today" : x.dl === 1 ? "Tomorrow" : esc(fmtShort(t.due))}${t.time ? " " + esc(fmtTime(t.time)) : ""}</span><span class="rx-chip${e.v ? "" : " unk"}" title="${esc(e.v === "no" ? "Taken in person, so it is not suggested as something to do now." : "Not confirmed as take-home, so it is not suggested as something to do now. Open it to say where it is taken.")}">${e.v === "no" ? "In person" : "Not sure"}</span></li>`; }).join("")}</ul></div>` : "";
   if (queued) sum.push(`${queued} more lined up for the coming days`);
-  const warn = F.crunch && inView(F.crunch) ? `<p class="plan-warn"><span class="pw-ic" aria-hidden="true">!</span><span class="pw-main">${"From now to " + (d => d === todayISO() ? "the end of today" : d === addDays(todayISO(), 1) ? "tomorrow" : esc(fmtDate(d)))(F.crunch.t.due)}, ${Math.abs((F.thSet == null ? F.dh : F.thSet) - F.dh) < 0.01 ? `at ${fmtHM(F.dh)} a day` : `with ${fmtHM(F.thSet)} today and ${fmtHM(F.dh)} a day after`}, you're about <b>${fmtHM(F.crunch.behind)}</b> short for what's due by then.</span> <span class="pw-tip">Add study time, start sooner, or talk to your instructor early.</span></p>` : "";
+  const dropT = dropTxt(F);
+  const warn = F.crunch && inView(F.crunch) ? `${"From now to " + (d => d === todayISO() ? "the end of today" : d === addDays(todayISO(), 1) ? "tomorrow" : esc(fmtDate(d)))(F.crunch.t.due)}, ${Math.abs((F.thSet == null ? F.dh : F.thSet) - F.dh) < 0.01 ? `at ${fmtHM(F.dh)} a day` : `with ${fmtHM(F.thSet)} today and ${fmtHM(F.dh)} a day after`}, you're about <b>${fmtHM(F.crunch.behind)}</b> short for what's due by then. ${dropT || "Add study time, start sooner, or talk to your instructor early."}` : "";
   const nBlk = F.blocked.filter(inView).length, nLater = F.later.filter(inView).length;
   const more = ranked.length > show.length + (heroId ? 1 : 0) || nBlk || nLater;
   const listLabel = pick === "late" ? "Overdue" : pickDay ? (pickDay.i === 0 ? "Due Today" : "Due " + esc(fmtDate(pickDay.iso))) : heroId ? (show.some(x => x.alloc > 0) ? "Also Today" : "Then") : "";
@@ -8593,7 +9094,7 @@ function focusHtml(){
   return `<section class="focus plan" aria-label="Today's Plan">
     <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? `<p class="plan-gap">${F.gapWhy.map(esc).join(" ")}</p>` : ""}</div>
       ${(hoursBar => { PLAN_HOURS = hoursBar; return `<div class="fh-ctl${ptStats ? " fh-chip has-stats" : ""}${autoChipHtml() ? "" : " fh-only-hours"}">${hoursBar}${autoChipHtml()}</div>`; })(`<div class="hours-ctl" role="group" aria-label="Study time available today"><span class="mini">Time Today</span><span class="hc-row"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button><b${hoursTitle ? ` title="${esc(hoursTitle)}"` : ""}>${fmtHM(F.thSet) || "0m"}</b><button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></span></div>`)}</div>
-    ${ui.focusOpen ? `${window.SBPRO ? SBPRO.todayHtml() : ""}${dayTimelineHtml(F, todayList, heroId)}${nextUpHtml(F, hero)}${skipped}${spare}${warn}${pastHtml}${availStripHtml(F)}
+    ${ui.focusOpen ? `${window.SBPRO ? SBPRO.todayHtml() : ""}${dayTimelineHtml(F, todayList, heroId)}${nextUpHtml(F, hero)}${skipped}${spare}${planNotesHtml(F, inView, warn)}${pastHtml}${availStripHtml(F)}
       ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
       ${fixedHtml}
       ${extraHtml}
@@ -8605,8 +9106,8 @@ function focusHtml(){
         ${nLater ? `<h3 class="fsec">Not Started Yet</h3><ul class="plan-list">${F.later.filter(inView).map((x, i) => planRow(x, i, true, true)).join("")}</ul>` : ""}
       </div>` : ""}
       <div class="plan-how" id="plan-how" role="region" aria-label="How This Is Ranked"${howOpen ? "" : " hidden"}>
-        <p><b>Deadlines come first.</b> Each task's score starts from how close its exact due time is: something due tomorrow counts about five times as much as something due in a week, and dozens of times more than something due in a month. Anything due in the next week always stays above work due 10 or more days after it. The one exception is a big task that needs most of your study time before its deadline (or more than you have), which climbs early so it gets started in time. <b>Grade weight</b> then fine-tunes the order between similar deadlines (a 40% project counts about twice as much as a 1% reading, not more). After that it adjusts for your priority, the late-work policy, tasks already in progress or nearly done, small tasks due soon, hard tasks, work left alone for days, a full placement or class day coming up, and tasks that others depend on.</p>
-        <p>${aiWho() ? `${esc(aiWho())}, your study companion, uses this ranking to choose Do This Next and the ideas it offers you. ` : ""}Today's time is split in score order. Each task gets its fair share of the days left before it's due, more if it can't fit otherwise. Hard tasks are front-loaded, and exam studying is spread over the week before. Work left comes from your hours estimate and progress, minus time you've already spent in focus sessions. When a task has no estimate, Studyboard uses how long your past tasks of that type actually took, and if you usually take longer than you estimate, it allows for that. <b>Do This Next</b> picks from the top of the ranking for right now: something due later today first, what you were just working on, hard tasks in the morning, and shorter ones late at night.${AUTO_ON ? " <b>Automatic AI is on</b>, so the AI also reads your whole list a few times a day: it picks Do This Next and the alternatives, estimates hours for tasks you didn't estimate (using how long your past tasks took), estimates the work left on started tasks from your focus time and progress, judges how ready you are for each exam from your study sessions, flashcards and quizzes, tunes the next study sessions to what you keep missing, and prepares the practice test for practice days. Each part can be turned off under Suggestions, Manage." : ""} For exams and quizzes, work left comes from difficulty, grade weight and how prepared you are. It also reads your Schedule (long class, lab and placement days leave less study time, and it suggests something short when a class is coming up), takes off the focus time you've already done today, and uses what school sync knows: when late submissions close, how many points each item is worth when the gradebook isn't weighted, and word or page counts in the instructions for time estimates. An exam or quiz is only Do This Next when it can be taken from home (Studyboard checks your school site and the instructions, and asks you if it can't tell); in-person ones show under On the Calendar, and their study sessions are what gets suggested.${AUTO_ON ? " The AI also reads your instructions, recent announcements, your schedule and your course standings, and lists anything easy to miss under Heads Up." : ""} Set your usual study hours per day in Settings.</p>
+        <p><b>Deadlines come first.</b> Each task's score starts from how close its exact due time is: something due tomorrow counts about five times as much as something due in a week, and dozens of times more than something due in a month. Anything due in the next week always stays above work due 10 or more days after it. The one exception is a big task that needs most of your study time before its deadline (or more than you have), which climbs early so it gets started in time. <b>Work due now comes before everything else:</b> what's due later today, and late work that loses marks for every day it waits (or whose late window closes today). If it can't all fit in today's time, the plan keeps what saves the most marks and says so. Past its due time, a task is late even on its due day, and on the due day only the time before its due time counts. Work past due that can't be handed in (no late work accepted, or the late window has closed) gets no time: the plan mentions it once so you can talk to your instructor. Late work with no penalty waits like normal work, until its late window. Set a task's penalty per day under Late Work; otherwise about 10% a day is assumed. <b>Grade weight</b> then fine-tunes the order between similar deadlines (a 40% project counts about twice as much as a 1% reading, not more). After that it adjusts for your priority, the late-work policy, tasks already in progress or nearly done, small tasks due soon, hard tasks, work left alone for days, a full placement or class day coming up, and tasks that others depend on.</p>
+        <p>${aiWho() ? `${esc(aiWho())}, your study companion, uses this ranking to choose Do This Next and the ideas it offers you. ` : ""}Today's time is split in score order. Each task gets its fair share of the days left before it's due, more if it can't fit otherwise. That counts the free time really left on each day (long class, shift and placement days count less), and when busy days ahead push more work into today than the time you set, the plan offers to add it. When you can't fit everything due by some date, the work that gives the fewest marks for the time goes last, and the plan names it. A step with no due date that another task waits on is due early enough to leave time for the task after it. Hard tasks are front-loaded, and exam studying is spread over the week before. Work left comes from your hours estimate and progress, minus time you've already spent in focus sessions. When a task has no estimate, Studyboard uses how long your past tasks of that type actually took, and if you usually take longer than you estimate, it allows for that. <b>Do This Next</b> picks from today's plan for right now: what you were just working on, something short that fits before your next class, hard tasks at your best hours, shorter ones late at night, and what you've said to past suggestions. Today's timeline always starts with it.${AUTO_ON ? " <b>Automatic AI is on</b>, so the AI also reads your whole list a few times a day: it picks Do This Next and the alternatives, estimates hours for tasks you didn't estimate (using how long your past tasks took), estimates the work left on started tasks from your focus time and progress, judges how ready you are for each exam from your study sessions, flashcards and quizzes, tunes the next study sessions to what you keep missing, and prepares the practice test for practice days. Each part can be turned off under Suggestions, Manage." : ""} For exams and quizzes, work left comes from difficulty, grade weight and how prepared you are. It also reads your Schedule (long class, lab and placement days leave less study time, and it suggests something short when a class is coming up), takes off the focus time you've already done today, and uses what school sync knows: when late submissions close, how many points each item is worth when the gradebook isn't weighted, and word or page counts in the instructions for time estimates. An exam or quiz is only Do This Next when it can be taken from home (Studyboard checks your school site and the instructions, and asks you if it can't tell); in-person ones show under On the Calendar, and studying for them is planned instead: "Study for" the exam gets time starting one to two weeks before it (half that for a quiz), sooner when the course is near or below its pass mark and the less prepared you've marked yourself. Plan My Prep turns that into study sessions you choose.${AUTO_ON ? " The AI also reads your instructions, recent announcements, your schedule and your course standings, and lists anything easy to miss under Heads Up." : ""} Set your usual study hours per day in Settings.</p>
       ${accOf() ? accOf().howHtml() : ""}
       <${"!--"}plan-how-end--></div>` : ""}
   </section>`;
@@ -9585,7 +10086,7 @@ const isObj = v => !!v && typeof v === "object" && !Array.isArray(v);
 const CSS_COLOR = /^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([\d\s.,%\/-]{1,60}\)|[a-z]{3,20})$/i;
 const FILE_SETTINGS = {
   // Checked where they are used (see the settings review), so taken as they are when the type is right
-  style: isObj, comp: isObj, pomo: isObj, grades: isObj, reminders: isObj, gentle: isObj, review: isObj, tips: isObj, examMode: isObj, autoFeat: isObj, bd: isObj, accuracy: isObj,
+  style: isObj, comp: isObj, gtWork: isObj, pomo: isObj, grades: isObj, reminders: isObj, gentle: isObj, review: isObj, tips: isObj, examMode: isObj, autoFeat: isObj, bd: isObj, accuracy: isObj,
   boardManual: v => typeof v === "boolean" || isObj(v),
   capacity: v => Number.isFinite(v) && v > 0 && v <= 200, dailyHours: v => Number.isFinite(v) && v >= 0 && v <= 24,
   hlColor: v => typeof v === "string" && CSS_COLOR.test(v), icType: v => typeof v === "string" && v.length <= 40, wbTheme: v => typeof v === "string" && v.length <= 40,
@@ -10818,6 +11319,9 @@ function todaysQuote(){
 }
 const streakOf = () => { const s = Object.assign({cur: 0, best: 0, last: ""}, (state.settings && state.settings.streak) || {}); if (s.last && s.last < addDays(todayISO(), -1)) s.cur = 0; return s; };
 // The streak the student actually sees: the gentle one when it is on
+// The streak that rewards (stickers, Term Goals, companion props) follow: study days in a row (a task finished, focus or logged time,
+// a checklist step, flashcards; rest days don't break it), whichever streak is shown. Falls back to the task streak before it loads.
+const rewardStreak = () => { try { if (window.SBSTREAK && SBSTREAK.state) { const r = SBSTREAK.state(); return {cur: Number(r.run) || 0, best: Number(r.best) || 0}; } } catch (e) {} const s = streakOf(); return {cur: s.cur, best: s.best}; };
 const shownStreak = () => { if (window.SBSTREAK && SBSTREAK.on()) { const r = SBSTREAK.state(); return {cur: r.run, best: r.best}; } const s = streakOf(); return {cur: s.cur, best: s.best}; };
 function streakLine(){
   if (window.SBSTREAK && SBSTREAK.on()) return SBSTREAK.line();
@@ -11113,6 +11617,7 @@ function render(){
 function renderNow(){
   if (renderBlocked) { renderQueued = false; setTimeout(scheduleRender, 120); return; }
   try { AUTO_ON = autoState().on; } catch(e) { AUTO_ON = false; }
+  if (window.__SB_TEST && window.__sbForceAuto) AUTO_ON = true;
   try { const want = (s => skinOk(s) && SKINS.some(x => x.id === s) ? s : "classic")(styleCfg().skin); if ((document.documentElement.dataset.skin || "classic") !== want) applySkin(); } catch(e) {}
   computeFocus(); remoteStoreSoon();
   { const nd = new Date(); $("#navDate").textContent = nd.toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"}); }
@@ -11394,8 +11899,10 @@ function taskView(t0){
     } else rows.push([I.cal, "No due date", ""]);
     const st = !cfg.single && (t.start || startOf(t));
     if (st && st !== t.due) rows.push([I.start, esc(fmtDate(st)), esc(cfg.start || "Start Date")]);
-    if (cfg.hours && isNum(t.hours) && !ms) rows.push([I.clock, esc(fmtH(Number(t.hours))), esc(cfg.hours) + (t.focusMin ? ` · ${esc(fmtMins(t.focusMin))} focused so far` : "")]);
-    else if (t.focusMin) rows.push([I.clock, esc(fmtMins(t.focusMin)) + " focused", `${t.pomos || 0} focus session${t.pomos === 1 ? "" : "s"}`]);
+    // once work has started, what's left (a range, from your pace, check-ins and how tasks like this usually go)
+    const leftTxt = !done && !ms && (Number(t.focusMin) > 0 || progress(t).frac > 0) && remainingOf(t) > 0 ? ` · ${esc(leftRange(t))} left` : "";
+    if (cfg.hours && isNum(t.hours) && !ms) rows.push([I.clock, esc(fmtH(Number(t.hours))), esc(cfg.hours) + (t.focusMin ? ` · ${esc(fmtMins(t.focusMin))} focused so far` : "") + leftTxt]);
+    else if (t.focusMin) rows.push([I.clock, esc(fmtMins(t.focusMin)) + " focused", `${t.pomos || 0} focus session${t.pomos === 1 ? "" : "s"}` + leftTxt]);
     if (cfg.reading && t.reading) rows.push([I.book, esc(t.reading), esc(cfg.reading)]);
     if (cfg.location && t.location) rows.push([I.pin, esc(t.location), esc(cfg.location)]);
     if (cfg.team && t.team) rows.push([I.person, esc(t.team), esc(cfg.team)]);
@@ -11410,7 +11917,14 @@ function taskView(t0){
     const band = c ? `<span class="occv-ic" aria-hidden="true">${courseRingHtml(c)}</span><b>${esc(courseLabel(c))}</b>` : `<span class="occv-ic" aria-hidden="true">${typeIcon(t.type)}</span><b>${esc(t.type || "Task")}</b>`;
     const hint = !drag ? (p.ms ? `Progress comes from its milestones: ${p.done} of ${p.total} done.` : `Progress comes from the checklist: ${items.filter(i => i.done).length} of ${items.length} done.`)
       : "";
-    const prog = `<div class="tv-prog${drag ? "" : " ro"}"><div class="tv-prog-h"><b>${esc(cfg.prog || "Progress")}</b><span id="tvPct">${val}%</span></div>
+    // Exams: readiness measured from your results comes first; the slider is how ready you feel, and a big gap between them is pointed out
+    const xr = ms && !done ? examReadiness(t) : null, feelLbl = ms ? "How Ready You Feel" : cfg.prog || "Progress";
+    const ready = !xr ? "" : xr.measured != null ? `<div class="tv-prog ro tv-ready"><div class="tv-prog-h"><b>Readiness From Your Results</b><span>${xr.measured}%</span></div>
+      <div class="tv-bar" role="progressbar" aria-label="Readiness from your results" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${xr.measured}" style="--v:${xr.measured}%"><i class="tv-fill"></i></div>
+      <p class="mini tv-hint">From ${esc(readinessSource(xr))}.${xr.from === "both" ? " With a little more studying it will rely on these alone." : ""}${xr.parts.plan == null ? ` <button type="button" class="link-btn" data-act="xr-decks" data-id="${esc(t.id)}">Choose Which Flashcards and Quizzes Count</button>` : ""}</p>
+      ${xr.gap ? `<p class="tv-gap ${xr.gap > 0 ? "over" : "under"}" role="note">${esc(readinessGapText(xr))}</p>` : ""}</div>`
+      : `<p class="mini tv-hint tv-noready">Until you study this course's flashcards or take a practice quiz, readiness goes by how ready you feel. Your results will show here as you go.${decksArr().length ? ` <button type="button" class="link-btn" data-act="xr-decks" data-id="${esc(t.id)}">Choose Which Flashcards and Quizzes Count</button>` : ""}</p>`;
+    const prog = ready + (window.SBWRAP ? SBWRAP.viewHtml(t) : "") + `<div class="tv-prog${drag ? "" : " ro"}"><div class="tv-prog-h"><b>${esc(feelLbl)}</b><span id="tvPct">${val}%</span></div>
       <div class="tv-bar" id="tvBar" ${drag ? `title="${ms ? "Drag to say how ready you feel" : "Drag to update your progress"}" role="slider" tabindex="0" aria-label="${esc(cfg.prog || "Progress")}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${val}" aria-valuetext="${val}%"` : `role="progressbar" aria-label="${esc(cfg.prog || "Progress")}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${val}"`} style="--v:${val}%"><i class="tv-fill"></i>${drag ? `<span class="tv-knob" aria-hidden="true"></span>` : ""}</div>
       ${hint ? `<p class="mini tv-hint">${esc(hint)}</p>` : ""}</div>`;
     const cl = items.length ? `<div class="tv-cl"><h3>${esc(cfg.checklist || "Checklist")} <span class="mini">${items.filter(i => i.done).length}/${items.length}</span></h3><ul>${items.map((i, k) => `<li class="${i.done ? "done" : ""}"><label><input type="checkbox" data-tv-cl="${k}" ${i.done ? "checked" : ""}><span>${esc(i.text)}</span></label></li>`).join("")}</ul></div>` : "";
@@ -11522,6 +12036,7 @@ function taskForm(t, preset = {}){
               <label class="f"><span class="lh">Grade Weight <span class="hint">% of course grade</span></span><input type="number" name="weight" min="0" max="100" step="0.5" inputmode="decimal" value="${hasWeight(t) ? esc(t.weight) : ""}"></label>
               <label class="f">Late Work<select name="late">${Object.entries(LATE_LABEL).map(([k, l]) => `<option value="${k}" ${k === t.late ? "selected" : ""}>${l}</option>`).join("")}</select></label>
             </div>
+            <label class="f" id="latePenWrap"${t.late === "penalty" ? "" : " hidden"}><span class="lh">Late Penalty <span class="hint">% off for each day late</span></span><input type="number" name="latePen" min="0" max="100" step="1" inputmode="decimal" value="${hasLatePen(t) ? esc(t.latePen) : ""}" placeholder="10"></label>
             <div><span class="lbl" style="font-size:.88rem;font-weight:600">Difficulty</span>${seg("difficulty", [["easy","Easy"],["med","Medium"],["hard","Hard"]], t.difficulty)}</div>
             <p class="plan-hint" id="planHint" aria-live="polite"></p>
           </fieldset>
@@ -11562,6 +12077,7 @@ function taskForm(t, preset = {}){
       pct: Number(fd.get("pct") || 0), dependsOn: deps.slice(),
       weight: isNum(fd.get("weight")) && Number(fd.get("weight")) > 0 ? Math.min(100, Number(fd.get("weight"))) : null,
       difficulty: fd.get("difficulty") || "med", late: fd.get("late") || "unknown",
+      latePen: fd.get("late") === "penalty" && isNum(fd.get("latePen")) && Number(fd.get("latePen")) > 0 ? Math.min(100, Number(fd.get("latePen"))) : null,
       location: cfg.location ? txt("location") : "", team: cfg.team ? txt("team") : "", reading: cfg.reading ? txt("reading") : "", link
     };
     if (MILESTONE(type)) {
@@ -11634,7 +12150,8 @@ function taskForm(t, preset = {}){
   const pctIn = dlg.querySelector("input[name=pct]");
   const pctHint = () => {
     const v = Number(pctIn.value);
-    $("#pctHint").textContent = MILESTONE(curType()) ? (v >= 90 ? "Ready" : v >= 60 ? "Mostly ready, a few topics to review" : v >= 30 ? "Getting there" : "Just starting to study") : "";
+    const xr = MILESTONE(curType()) && state.tasks[t.id] ? examReadiness(state.tasks[t.id]) : null;
+    $("#pctHint").textContent = MILESTONE(curType()) ? (v >= 90 ? "Ready" : v >= 60 ? "Mostly ready, a few topics to review" : v >= 30 ? "Getting there" : "Just starting to study") + (xr && xr.measured != null ? `. Your results say about ${xr.measured}%, and those count first.` : "") : "";
   };
   const setStatus = v => { const r = dlg.querySelector(`input[name=status][value="${v}"]`); if (r && !r.checked) r.checked = true; };
   pctIn.addEventListener("input", () => {
@@ -11701,6 +12218,7 @@ function taskForm(t, preset = {}){
   };
   dlg.querySelectorAll("input[name=remote]").forEach(r => r.addEventListener("change", drawRx));
   drawRx();
+  { const ls = dlg.querySelector("select[name=late]"), pw = $("#latePenWrap"); if (ls && pw) ls.addEventListener("change", () => { pw.hidden = ls.value !== "penalty"; }); }
   const planHint = () => {
     const f = new FormData(dlg.querySelector("form"));
     const probe = normTask(Object.assign(clone(t), {type: f.get("type"), hours: f.get("hours") === "" ? null : Number(f.get("hours")), pct: Number(f.get("pct") || 0),
@@ -11710,8 +12228,9 @@ function taskForm(t, preset = {}){
     const ms = MILESTONE(probe.type);
     const x = FOCUS && FOCUS.info[t.id];
     const rankTxt = x ? (() => { const i = FOCUS.ranked.indexOf(x); return i >= 0 ? ` Currently #${i + 1} in Today's Plan${x.alloc > 0 ? `, with ${fmtHM(x.alloc)} suggested today` : ""}.` : ""; })() : "";
-    $("#planHint").innerHTML = (ms ? `Estimated <b>${fmtHM(R)}</b> of studying left, based on difficulty, grade weight and preparedness.`
-      : `Estimated <b>${fmtHM(R)}</b> of work left${isNum(probe.hours) && probe.hours > 0 ? "" : " (a typical amount for this type; add Hours Needed for a better plan)"}.`) + rankTxt;
+    const inPerson = ms && !canDoNow(probe) && !planSessions(t.id).length, lead = inPerson ? examLead(probe) : null;
+    $("#planHint").innerHTML = (ms ? `Estimated <b>${fmtHM(R)}</b> of studying left, based on difficulty, grade weight and preparedness.${lead ? ` Today's Plan starts study time for it ${lead.days} days before${lead.risk ? ", sooner because of your standing in the course" : ""}${lead.p < 0.75 ? `${lead.risk ? " and" : ", sooner"} because ${esc(readyWords(lead.from, lead.p))}` : ""}.` : ""}`
+      : `Estimated <b>${esc(leftRange(probe))}</b> of work left${isNum(probe.hours) && probe.hours > 0 ? "" : " (a typical amount for this type; add Hours Needed for a better plan)"}.`) + rankTxt;
   };
   tForm.addEventListener("input", planHint); tForm.addEventListener("change", planHint);
   tForm.addEventListener("input", advSummary); tForm.addEventListener("change", advSummary);
@@ -11796,7 +12315,7 @@ function repeatDates(due, every, until){
 function repeatCopies(base, every, until){
   const off = dayDiff(base.start || base.due, base.due);
   return repeatDates(base.due, every, until).map((d, i) => {
-    const keep = {}; ["title", "courseId", "type", "time", "priority", "notes", "hours", "weight", "difficulty", "late", "location", "team", "reading", "link", "seriesId"].forEach(k => { if (base[k] !== undefined) keep[k] = clone(base[k]); });
+    const keep = {}; ["title", "courseId", "type", "time", "priority", "notes", "hours", "weight", "difficulty", "late", "latePen", "location", "team", "reading", "link", "seriesId"].forEach(k => { if (base[k] !== undefined) keep[k] = clone(base[k]); });
     const x = newTask(Object.assign(keep, {due: d, start: addDays(d, -off), status: "todo", checklist: (base.checklist || []).map(i => ({id: uid(), text: i.text, done: false}))}));
     x.order += i + 1;
     return {kind: "task", id: x.id, after: x};
@@ -13896,7 +14415,68 @@ const decksArr = () => Object.values(state.decks || {}).filter(d => !d.archived)
 const isQuizHolder = d => !!(d && d.quizOnly && !(d.cards || []).length);
 const quizFrom = (d, qz) => isQuizHolder(d) ? ((qz && qz.sources || []).filter(Boolean).map(x => String(x).replace(/\.[a-z0-9]{2,5}$/i, "")).slice(0, 2).join(", ") || "your material") : d.name;
 const deckListArr = () => decksArr().filter(d => !isQuizHolder(d));
-const cardDue = c => c.seen > 0 && (!c.due || c.due <= todayISO());
+/* Exams and flashcards. Review helps most close to a test (the gap since the last review should be short next to how long
+   until the exam), so every card in a course with an exam coming up is reviewed at least once in the week before it.
+   - Only exams that matter count: an Exam, or anything worth 10% or more. A weekly 2% quiz doesn't pull the whole deck in.
+   - A card already reviewed in that last week is left alone. Otherwise, if its next review would land after the day
+     before the exam, it's pulled in to a day in the week before (7 to 2 days out). Each card keeps the same day (from its
+     id), the weakest cards get first claim on a day, and no day takes more than 30 pulled cards per course, so the reviews
+     come spread over the week instead of in one pile.
+   The card's own schedule isn't changed; the exam only pulls the date in. */
+const EXAM_WIN = 7, EXAM_LAST = 2, PULL_CAP = 30;
+let FC_EXAMS = {k: "", m: {}};
+// The nearest exam that matters still to come in each course: {courseId: {id, title, due, days}}
+function fcExams(){
+  const today = todayISO(), k = today + "|" + (state.updated || 0);
+  if (FC_EXAMS.k === k) return FC_EXAMS.m;
+  const m = {};
+  Object.values(state.tasks || {}).forEach(t => {
+    if (!t || !t.courseId || t.status === "done" || t.prepFor || !(t.type === "Exam" || t.type === "Quiz") || !t.due || t.due <= today) return;
+    if (t.type !== "Exam" && !(weightOf(t) >= 10)) return;
+    if (!m[t.courseId] || t.due < m[t.courseId].due) m[t.courseId] = {id: t.id, title: t.title, due: t.due, days: dayDiff(today, t.due), type: t.type};
+  });
+  FC_EXAMS = {k, m}; return m;
+}
+let FC_CARD_COURSE = {k: "", m: {}};
+const cardCourse = c => {
+  const k = String(state.updated || 0);
+  if (FC_CARD_COURSE.k !== k) { const m = {}; Object.values(state.decks || {}).forEach(d => (d.cards || []).forEach(x => { m[x.id] = d.courseId || ""; })); FC_CARD_COURSE = {k, m}; }
+  return FC_CARD_COURSE.m[c.id] || "";
+};
+const cardHash = id => { let h = 2166136261; for (const ch of String(id)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+// Whether a card still needs a review before an exam: seen before, not reviewed in its last week, next review after the day before
+const needsPull = (c, ex) => c.seen > 0 && !c.draft && !(c.last && c.last >= addDays(ex.due, -EXAM_WIN)) && !(c.due && c.due <= addDays(ex.due, -1));
+// The day each pulled card comes due: {cardId: date}
+let FC_PULL = {k: "", m: {}};
+function fcPulls(){
+  const today = todayISO(), k = today + "|" + (state.updated || 0);
+  if (FC_PULL.k === k) return FC_PULL.m;
+  const m = {}, ex = fcExams();
+  Object.keys(ex).forEach(cid => {
+    const e = ex[cid], last = addDays(e.due, -1), first = addDays(e.due, -EXAM_WIN), span = EXAM_WIN - EXAM_LAST + 1, used = {};
+    const cards = Object.values(state.decks || {}).filter(d => !d.archived && d.courseId === cid).flatMap(d => d.cards || []).filter(c => needsPull(c, e))
+      .sort((a, b) => (a.box || 0) - (b.box || 0) || cardHash(a.id) - cardHash(b.id));
+    // every day a pulled card may land on: the week before (7 to 2 days out), then the day before; never before today
+    const days = []; for (let d = first; d <= last; d = addDays(d, 1)) if (d >= today) days.push(d);
+    if (!days.length) return;
+    cards.forEach(c => {
+      let want = addDays(first, cardHash(c.id) % span); if (want < today) want = today;
+      const order = days.filter(d => d >= want && d < last).concat(days.filter(d => d < want).reverse(), [last]);
+      const day = order.find(d => (used[d] || 0) < PULL_CAP);
+      if (day) { used[day] = (used[day] || 0) + 1; m[c.id] = day; }
+    });
+  });
+  FC_PULL = {k, m}; return m;
+}
+const cardDueOn = c => { const p = fcPulls()[c.id]; return p && (!c.due || p < c.due) ? p : c.due; };
+// For the rating buttons: the next review date after rating today, pulled in when the exam needs it
+function examDueCap(due, cid, cardId){
+  const ex = cid && fcExams()[cid], today = todayISO(); if (!ex || !due) return due;
+  if (today >= addDays(ex.due, -EXAM_WIN) || due <= addDays(ex.due, -1)) return due;
+  const p = fcPulls()[cardId], span = EXAM_WIN - EXAM_LAST + 1, want = addDays(ex.due, -EXAM_WIN + (cardHash(cardId) % span));
+  return p && p < due ? p : want < due ? want : due;
+}
+const cardDue = c => c.seen > 0 && (!c.due || cardDueOn(c) <= todayISO());
 const cardNew = c => !c.seen;
 /* How prepared you are for a deck (0 to 100), from every card */
 /*DR-START*/
@@ -14351,6 +14931,34 @@ function bulkSheet(d){
   });
 }
 
+/* Study order: mixed, with an exam's cards first in line.
+   Cards from different decks are woven together (interleaving: mixing topics helps you tell them apart and recall them
+   later), so no deck comes in one block. When a course has an exam coming up, its decks get a bigger share of the mix
+   (2 cards for every 1 from elsewhere within 2 weeks of the exam, 3 for 1 within 3 days), its cards are kept first when a
+   session is too long to hold everything, and its new cards are introduced before other new cards. */
+const EXAM_SOON = 14;
+const examWeight = cid => { const ex = cid && fcExams()[cid]; return !ex || ex.days > EXAM_SOON ? 1 : ex.days <= 3 ? 3 : 2; };
+// Smooth weighted round robin over decks: each pick goes to the deck furthest behind its share, so heavier decks come up
+// more often but never in a run while other decks still have cards
+function weave(items){
+  const by = new Map();
+  items.forEach(x => { if (!by.has(x.deckId)) by.set(x.deckId, []); by.get(x.deckId).push(x); });
+  const lanes = [...by.entries()].map(([id, list]) => ({list: shuffle(list), w: examWeight((state.decks[id] || {}).courseId), cur: 0}));
+  const out = [];
+  while (lanes.some(l => l.list.length)) {
+    const live = lanes.filter(l => l.list.length), tot = live.reduce((s2, l) => s2 + l.w, 0);
+    live.forEach(l => { l.cur += l.w; });
+    const pick = live.reduce((a, b) => b.cur > a.cur ? b : a);
+    pick.cur -= tot; out.push(pick.list.shift());
+  }
+  return out;
+}
+// Which cards a capped session keeps: an upcoming exam's cards first (nearest exam first), then the rest at random
+const examFirst = list => shuffle(list.slice()).sort((a, b) => examWeight((state.decks[b.deckId] || {}).courseId) - examWeight((state.decks[a.deckId] || {}).courseId));
+function studyOrder(due, fresh){
+  const d = examFirst(due).slice(0, STUDY_MAX), f = examFirst(fresh).slice(0, Math.min(STUDY_NEW, STUDY_MAX - d.length));
+  return weave(d).concat(weave(f));
+}
 /* Study (flip cards and rate yourself) */
 function startStudy(deckIds, onlyIds){
   let q = [];
@@ -14359,10 +14967,11 @@ function startStudy(deckIds, onlyIds){
   let note = "";
   if (!onlyIds) {
     const due = q.filter(x => cardDue(x.c)), fresh = q.filter(x => cardNew(x.c));
-    const pick = shuffle(due).concat(shuffle(fresh).slice(0, STUDY_NEW));
-    if (pick.length) q = pick; else { q = shuffle(q); note = "Nothing is due, so you're reviewing every card."; }
-  } else q = shuffle(q);
-  if (window.SBEXAM) q = SBEXAM.sortQueue(q);
+    const pick = studyOrder(due, fresh);
+    if (pick.length) q = pick; else { q = weave(q); note = "Nothing is due, so you're reviewing every card."; }
+  } else q = weave(q);
+  const ex = [...new Set(q.slice(0, STUDY_MAX).map(x => (state.decks[x.deckId] || {}).courseId))].map(cid => fcExams()[cid]).filter(e => e && e.days <= EXAM_SOON).sort((a, b) => a.days - b.days)[0];
+  if (ex && deckIds.length > 1) note = (note ? note + " " : "") + `Cards for ${ex.title} (${ex.days === 1 ? "tomorrow" : "in " + ex.days + " days"}) come up most, mixed in with the rest.`;
   q = q.slice(0, STUDY_MAX).map(x => ({deckId: x.deckId, cardId: x.cardId}));
   ui.tab = "flashcards"; ui.fc = {mode: "study", deckIds, q, i: 0, flipped: false, again: 0, hard: 0, good: 0, easy: 0, repeats: {}, note, hist: []};
   render(); window.scrollTo(0, 0);
@@ -14431,13 +15040,13 @@ function viewStudy(){
   const d = state.decks[it.deckId], c = d && d.cards.find(x => x.id === it.cardId);
   if (!c) { f.i++; return viewStudy(); }
   const box = c.box;
-  const lbl = r => { const due = (window.SBPRO && SBPRO.cardPreview ? SBPRO.cardPreview(d, c, r) : "") || nextDue(r === "good" ? Math.min(5, box + 1) : r === "easy" ? Math.min(5, box + 2) : box, r); const n = dayDiff(todayISO(), due); return n <= 0 ? "today" : n === 1 ? "1 day" : n + " days"; };
+  const lbl = r => { const due0 = (window.SBPRO && SBPRO.cardPreview ? SBPRO.cardPreview(d, c, r) : "") || nextDue(r === "good" ? Math.min(5, box + 1) : r === "easy" ? Math.min(5, box + 2) : box, r), due = examDueCap(due0, d.courseId, c.id), n = dayDiff(todayISO(), due); return n <= 0 ? "today" : (n === 1 ? "1 day" : n + " days") + (due < due0 ? " (before your exam)" : ""); };
   return `<div class="view-head"><h2>Studying ${esc(title)}</h2><span class="mini">${f.i + 1} of ${f.q.length}</span>${undoBtn(f, true)}<button class="btn small" data-act="fc-exit">End Session</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.q.length * 100)}%"></i></div>
     ${f.note ? `<p class="mini">${esc(f.note)}</p>` : ""}
     ${c.img && window.SBPRO && SBPRO.studyCard ? SBPRO.studyCard(d, c, f) : `<button class="flip cs-${cardStyleOf(d)} ${f.flipped ? "is-flipped" : ""}${c.img ? " has-img" : ""}" data-act="fc-flip" style="--c:${esc(colorOf(d.courseId))}" aria-live="polite" aria-label="${f.flipped ? "Answer shown. " : ""}Flip card">
       <span class="flip-inner">
-        <span class="face front"><span class="face-label">Front</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, false) : `<span class="face-text">${esc(c.front)}</span>`}<span class="face-hint">Tap<span class="kbd-only"> or press Space</span> to flip</span></span>
+        <span class="face front"><span class="face-label">Front${(f.deckIds || []).length > 1 && d ? `<span class="face-deck"> · ${esc(d.name)}${(ex => ex && ex.days <= EXAM_SOON ? ` (${esc(ex.title)})` : "")(fcExams()[d.courseId])}</span>` : ""}</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, false) : `<span class="face-text">${esc(c.front)}</span>`}<span class="face-hint">Tap<span class="kbd-only"> or press Space</span> to flip</span></span>
         <span class="face back"><span class="face-label">Back</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, true) : `<span class="face-text">${esc(c.back)}</span><span class="face-hint">${esc(c.front)}</span>`}</span>
       </span>
     </button>`}
@@ -14668,6 +15277,8 @@ function fcAction(act, el){
     case "fc-study": startStudy([id]); return true;
     case "fc-review-menu": reviewSheet(); return true;
     case "fc-review-all": if (el.closest("dialog")) dlg.close(); startStudy(reviewDecks(el.dataset.course)); return true;
+    // Test yourself for one course: its due and new cards, or every card when none are due
+    case "fc-study-course": { if (el.closest("dialog")) dlg.close(); const ids = deckListArr().filter(x => x.courseId === el.dataset.course && x.cards.some(c => !c.draft)).map(x => x.id); if (ids.length) startStudy(ids); else toast("This course has no flashcards yet"); return true; }
     case "fc-review-start": startStudy(readyDecks(el.dataset.course)); return true;
     case "fc-quiz": quizSheet([id]); return true;
     case "fc-flip": if (ui.fc) { ui.fc.flipped = !ui.fc.flipped; render(); } return true;
@@ -14966,6 +15577,8 @@ function pomoFinish(missed){
   if (done === "focus") {
     pomo.cycle++; pomo.sessions++; pomo.minutes += fm;
     const t = pomo.taskId && state.tasks[pomo.taskId];
+    // A group project task: the minutes go to its own focus record (see gtAddWork)
+    if (!t && isGt(pomo.taskId)) gtAddWork(pomo.taskId, fm);
     if (t) {
       const n = addWork(clone(t), fm, "focus"); n.pomos = (Number(n.pomos) || 0) + 1;
       applyChanges([{kind: "task", id: t.id, after: n}], null);
@@ -15075,7 +15688,7 @@ function renderPomo(){
   const cfg = pomoCfg(), d = $("#pomoDlg");
   pomoToday();
   const R = 92, C = 2 * Math.PI * R;
-  const openTasks = (FOCUS ? FOCUS.ranked.map(x => x.t) : []).concat(tasksArr().filter(t => t.status !== "done").sort(sortTasks)).filter((t, i, a) => a.indexOf(t) === i && t.status !== "done" && (canDoNow(t) || t.id === pomo.taskId));
+  const openTasks = (FOCUS ? FOCUS.ranked.map(x => x.t).filter(t => !t.xs) : []).concat(tasksArr().filter(t => t.status !== "done").sort(sortTasks)).filter((t, i, a) => a.indexOf(t) === i && t.status !== "done" && (canDoNow(t) || t.id === pomo.taskId));
   const every = Number(cfg.every) || 4, inCycle = pomo.cycle % every;
   const fa = d.contains(document.activeElement) ? document.activeElement : null;
   const keep = !fa ? "" : fa.closest(".pomo-ctl .big") ? ".pomo-ctl .big" : fa.id ? "#" + fa.id : fa.dataset.act ? `[data-act="${fa.dataset.act}"]${fa.dataset.id ? `[data-id="${fa.dataset.id}"]` : ""}` : "";
@@ -15775,6 +16388,10 @@ document.addEventListener("click", e => {
     case "sb-retry": sbRetryNow(); toast("Trying again…"); break;
     case "nudge-later": try { localStorage.setItem("studioso:nudge", String(Date.now())); } catch(err) {} render(); break;
     case "today-h": { const v = Math.max(0, Math.min(16, todayHours() + Number(id))); setTodayHours(v); render(); break; }
+    case "today-set": { const v = Math.max(0, Math.min(16, Number(id) || 0)); setTodayHours(v); toast(`Today's study time is now ${fmtHM(v)}`); render(); break; }
+    case "busy-hide": try { localStorage.setItem("studyboard:busyHide", todayISO()); } catch (err) {} render(); break;
+    case "gap-hide": { try { const k = "studyboard:gapHide", o = JSON.parse(localStorage.getItem(k) || "{}") || {}; o[id] = todayISO(); localStorage.setItem(k, JSON.stringify(o)); } catch (err) {} render(); break; }
+    case "closed-ok": { try { const k = "studyboard:closedSeen", o = JSON.parse(localStorage.getItem(k) || "{}") || {}; o[id] = Date.now(); Object.keys(o).forEach(x => { if (!state.tasks[x]) delete o[x]; }); localStorage.setItem(k, JSON.stringify(o)); } catch (err) {} render(); break; }
     case "focus-toggle": ui.focusOpen = !ui.focusOpen; render(); break;
     case "plan-rows": ui.planAllToday = !ui.planAllToday; render(); break;
     case "plan-tile": ui.planTile = id && ui.planTile !== id ? id : ""; render(); requestAnimationFrame(() => { const l = ui.planTile && document.querySelector("#view .plan .plan-past, #view .plan #planListLbl"); if (l && l.scrollIntoView) l.scrollIntoView({block: "nearest", behavior: "smooth"}); }); break;
@@ -17489,7 +18106,7 @@ const SCN20 = (() => {
     const F = FOCUS; if (!F || !hasMoment()) return;
     const done = changes.filter(c => c.kind === "task" && c.after && c.after.status === "done" && F.info[c.id]);
     if (!done.length) return;
-    const planned = F.ranked.filter(x => x.alloc > 0).map(x => x.t.id);
+    const planned = F.ranked.filter(x => x.alloc > 0 && !x.t.xs).map(x => x.t.id);
     if (!planned.length || !done.some(c => planned.includes(c.id))) return;
     if (planned.every(id => state.tasks[id] && state.tasks[id].status === "done")) later(2600);
   });
@@ -24737,7 +25354,7 @@ hook("boot", boot);
   function dayList(){
     const today = todayISO(), F = computeFocus(), seen = new Set(), out = [];
     const add = (t, x) => { if (!t || seen.has(t.id)) return; seen.add(t.id); out.push({t, x}); };
-    (F.ranked || []).filter(x => x.alloc > 0 || x.dl <= 0).forEach(x => add(x.t, x));
+    (F.ranked || []).filter(x => (x.alloc > 0 || x.dl <= 0) && !x.t.xs && !x.dead).forEach(x => add(x.t, x));
     tasksArr().filter(t => t.status !== "done" && t.due && t.due <= today).sort((a, b) => (a.due + (a.time || "")).localeCompare(b.due + (b.time || ""))).forEach(t => add(t, null));
     tasksArr().filter(isDoneToday).sort((a, b) => a.doneAt - b.doneAt).forEach(t => add(t, null));
     return {F, list: out};
@@ -24763,7 +25380,7 @@ hook("boot", boot);
     const item = ({t, x}) => ({id: t.id, title: t.title, course: c(t) ? courseLabel(c(t)) : "", color: colorOf(t.courseId), meta: metaOf(t, x), done: t.status === "done", late: t.status !== "done" && !!t.due && t.due < todayISO()});
     return {
       v: 1, day: todayISO(), dateLabel: new Date().toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}),
-      next: n ? {id: n.x.t.id, title: n.label || n.x.t.title, course: c(n.x.t) ? courseLabel(c(n.x.t)) : "", color: colorOf(n.x.t.courseId), why: n.why[0] || "", mins: n.mins} : null,
+      next: n ? {id: planTaskId(n.x.t), title: n.label || n.x.t.title, course: c(n.x.t) ? courseLabel(c(n.x.t)) : "", color: colorOf(n.x.t.courseId), why: n.why[0] || "", mins: n.mins} : null,
       tasks: list.slice(0, LIST_MAX).map(item), more: Math.max(0, list.length - LIST_MAX),
       cards: allDueCount(), streak: {cur: s.cur, today: s.last === todayISO()}, theme: themeVars()
     };
@@ -30122,7 +30739,9 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       const n = clone(cur); n.mark = v;
       dlg.close();
       applyChanges([{kind: "task", id, after: n}], v ? `Mark saved: ${fmtMark(v)}` : "Mark removed");
-      if (back) setTimeout(back, 40);
+      // After an exam or quiz's first mark: a one-minute reflection (the exam wrapper), then back to where you were
+      if (v && !cur.mark && window.SBWRAP && SBWRAP.should(id)) setTimeout(() => SBWRAP.open(id, back), 60);
+      else if (back) setTimeout(back, 40);
     };
     const out = () => { const v = parseMark($("#gmIn").value); $("#gmOut").innerHTML = markPreview(v, t, g); };
     $("#gmIn").addEventListener("input", out); out();
@@ -31244,7 +31863,9 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     Object.values(F.info).forEach(x => {
       const t = x.t, gr = risk[t.courseId];
       if (!gr || !(hasWeight(t) || PTS_W[t.id]) || markPct(t) != null || x.dl > 21 || (x.dl < 0 && x.dead)) return;
-      x.score *= BOOST[gr.risk]; x.passBoost = gr.risk; any = true;
+      // Work due now keeps its own order (what saves the most marks today), so only its reason changes
+      if (!x.tier) x.score *= BOOST[gr.risk];
+      x.passBoost = gr.risk; any = true;
       const np = gr.need(gr.g.pass), nm = courseLabel(gr.c);
       const why = gr.risk === "risk" ? `Helps you pass ${nm}: you need about ${Math.round(np)}% on what's left` : gr.risk === "watch" ? `${nm} is close to its ${r1(gr.g.pass)}% pass mark` : `Every mark counts in ${nm}`;
       x.reasons = (x.reasons || []).slice(); x.reasons.splice(Math.min(1, x.reasons.length), 0, why);
@@ -31254,7 +31875,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if (typeof deadlineGuard === "function") { deadlineGuard(F.ranked, x => x, "score"); F.ranked.sort((a, b) => b.score - a.score); }
     const left = splitToday(F.ranked, F.th, F.th >= F.thSet - F.doneToday - 0.001);
     F.planned = F.th - Math.max(0, left);
-    if (F.av) { try { F.avail = availPlan(F.av, F.ranked, F.th0, F.ranked.reduce((t, x) => t + (x.need || 0), 0), F.day, F.today, F.now); F.slotsBy = F.avail.by; if (F.avail.active) F.planned = F.avail.planned; } catch (e) { console.warn(e); } }
+    if (F.av) { try { F.avail = availPlan(F.av, F.ranked, F.th0, F.ranked.reduce((t, x) => t + (x.need || 0), 0), F.day, F.today, F.now, typeof nuLead === "function" ? nuLead(F) : ""); F.slotsBy = F.avail.by; if (F.avail.active) F.planned = F.avail.planned; } catch (e) { console.warn(e); } }
     F.gapWhy = planGapWhy(F);
   }
   const origFocusHtml = focusHtml;
@@ -31719,7 +32340,7 @@ var SBEST = (() => {
     if (tab !== "board") return;
     const plan = document.querySelector("section.plan"); if (!plan || plan.querySelector(".plan-est")) return;
     const n = count(); if (!n) return;
-    const at = plan.querySelector(".plan-fc") || plan.querySelector(".plan-warn") || plan.querySelector(".next-up");
+    const at = plan.querySelector(".plan-fc") || plan.querySelector(".plan-notes") || plan.querySelector(".next-up");
     const html = `<div class="plan-fc plan-est"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2.5h5"/></svg><span><b>${n}</b> task${n === 1 ? "" : "s"} due in the next 2 weeks ${n === 1 ? "has" : "have"} no time estimate</span><button class="btn small" data-act="est-open">Add Times</button></div>`;
     const extra = plan.querySelector(".pe-b");
     if (extra) extra.insertAdjacentHTML("afterbegin", html);
@@ -54776,16 +55397,18 @@ var COMP_EXTRA = [];
     wave: "armL|armR", headTilt: "head", topBob: "top", bounce: "", hop: "", spin: "", sway: "", waddle: "", sparkle: ""
   };
   /* Props (accessories) */
+  // Props follow effort and consistency (focus time, study days, streaks, spreading exam study over days), never how many
+  // tasks were ticked off: counting tasks rewards splitting work into trivial pieces
   const ACC = [
-    {id: "scarf", name: "Cozy Scarf", hours: 1, free: true, paths: [["ontime", 3], ["checkins", 3]]},
+    {id: "scarf", name: "Cozy Scarf", hours: 1, free: true, paths: [["studydays", 3], ["checkins", 3]]},
     {id: "hat", name: "Tiny Hat", hours: 5, free: true, paths: [["streak", 3], ["notes", 3]]},
-    {id: "bowtie", name: "Party Bow Tie", free: true, paths: [["ontime", 10], ["early", 4], ["checkins", 7]]},
+    {id: "bowtie", name: "Party Bow Tie", free: true, paths: [["studydays", 10], ["spread", 1], ["checkins", 7]]},
     {id: "glasses", name: "Round Glasses", hours: 15, paths: [["cards", 150], ["quizzes", 3]]},
-    {id: "medal", name: "Champion Medal", paths: [["quizzes", 6], ["cards", 400], ["prep", 6]]},
-    {id: "cape", name: "Hero Cape", paths: [["streak", 7], ["ontime", 50], ["checkins", 21]]},
+    {id: "medal", name: "Champion Medal", paths: [["quizzes", 6], ["cards", 400], ["spread", 3]]},
+    {id: "cape", name: "Hero Cape", paths: [["streak", 7], ["studydays", 40], ["checkins", 21]]},
     {id: "star", name: "Star Badge", hours: 60, paths: [["stickers", 15], ["streak", 14], ["focusWeeks", 4]]},
     {id: "beanie", name: "Festive Beanie", paths: [["festive", 1]]},
-    {id: "cap", name: "Graduation Cap", hours: 100, paths: [["prep", 12], ["ontime", 100]]},
+    {id: "cap", name: "Graduation Cap", hours: 100, paths: [["spread", 8], ["studydays", 80]]},
     {id: "crown", name: "Little Crown", paths: [["streak", 30], ["stickers", 30], ["hours", 150]]}
   ];
   const GENERIC = {
@@ -55009,9 +55632,9 @@ var COMP_EXTRA = [];
   const nameOf = c => ownName(c.id) || c.name;
   const hours = () => { try { return typeof SBSTATS !== "undefined" ? SBSTATS.totalFocusMinutes() / 60 : 0; } catch (e) { return 0; } };
   /* Earning props */
-  const PROP_UNIT = {hours: "h of focus", ontime: "tasks done on time", early: "tasks done 2+ days early", streak: "day streak", cards: "cards reviewed", quizzes: "quizzes passed",
+  const PROP_UNIT = {hours: "h of focus", studydays: "study days", spread: "exams studied for over several days", streak: "day streak", cards: "cards reviewed", quizzes: "quizzes passed",
     notes: "notes written", stickers: "scrapbook stickers", prep: "study-plan sessions done", checkins: "daily check-ins", groups: "study group or room", focusWeeks: "weeks with 4+ focus days", festive: "winter holiday visit"};
-  const PROP_ASK = {hours: n => `Focus for ${n} ${n === 1 ? "hour" : "hours"}`, ontime: n => `Finish ${n} tasks on or before their due date`, early: n => `Finish ${n} tasks at least 2 days early`,
+  const PROP_ASK = {hours: n => `Focus for ${n} ${n === 1 ? "hour" : "hours"}`, studydays: n => `Study on ${n} different days`, spread: n => `Study for ${n === 1 ? "an exam or quiz" : n + " exams or quizzes"} on 3 or more days, starting 5 days before`,
     streak: n => `Reach a ${n}-day streak`, cards: n => `Review ${n} flashcards`, quizzes: n => `Pass ${n} practice quizzes (70% or more)`, notes: n => `Write ${n} notes`,
     stickers: n => `Earn ${n} Term Scrapbook stickers`, prep: n => `Finish ${n} study-plan sessions`, checkins: n => `Open Studyboard on ${n} different days`,
     groups: () => "Join a study group or a Study Together room", focusWeeks: n => `Focus for 15+ minutes on 4 or more days in ${n} different ${n === 1 ? "week" : "weeks"}`, festive: () => "Visit between Dec 1 and Jan 6"};
@@ -55019,18 +55642,12 @@ var COMP_EXTRA = [];
   // Lifetime numbers, cached for a few seconds (the picker and the unlock check ask a lot)
   function propStats(){
     const now = Date.now(); if (pStat && now - pStatAt < 4000) return pStat;
-    const s = {hours: 0, ontime: 0, early: 0, streak: 0, cards: 0, quizzes: 0, notes: 0, stickers: 0, prep: 0, checkins: 0, groups: 0, focusWeeks: 0, festive: 0};
+    const s = {hours: 0, studydays: 0, spread: 0, streak: 0, cards: 0, quizzes: 0, notes: 0, stickers: 0, prep: 0, checkins: 0, groups: 0, focusWeeks: 0, festive: 0};
     const tr = f => { try { f(); } catch (e) {} };
     tr(() => { s.hours = hours(); });
-    tr(() => Object.values(state.tasks || {}).forEach(t => {
-      if (t.status !== "done" || !t.doneAt || (t.created && t.doneAt - t.created < 60000)) return;
-      if (t.prepFor) { s.prep++; return; }
-      if (!t.due) return;
-      const d = iso(new Date(t.doneAt));
-      if (d <= t.due) s.ontime++;
-      if (d <= addDays(t.due, -2)) s.early++;
-    }));
-    tr(() => { const k = shownStreak(); s.streak = Math.max(Number(k.best) || 0, Number(k.cur) || 0); });
+    tr(() => { s.studydays = window.SBSTREAK && SBSTREAK.studyDays ? SBSTREAK.studyDays(addDays(todayISO(), -400)).length : 0; });
+    tr(() => { s.spread = Object.values(state.tasks || {}).filter(t => MILESTONE(t.type) && !t.prepFor && t.due && t.due <= todayISO() && examSpread(t)).length; });
+    tr(() => { const k = rewardStreak(); s.streak = Math.max(Number(k.best) || 0, Number(k.cur) || 0); });
     tr(() => Object.values(state.decks || {}).forEach(d => {
       (d.cards || []).forEach(x => { s.cards += Number(x.seen) || 0; });
       (d.quizzes || []).concat(...(d.aiQuizzes || []).map(q => q.results || [])).forEach(r => { if (r && Number(r.total) >= 3 && Number(r.score) / Number(r.total) >= 0.7) s.quizzes++; });
@@ -56308,7 +56925,7 @@ var COMP_EXTRA = [];
     const est = estIdea(); if (est) return est;
     if (plan && plan.idea) { const i = plan.idea; if (ideaValid(i)) return i; }
     try {
-      const F = FOCUS || computeFocus(), top = F && F.ranked && F.ranked.find(x => x.alloc > 0 && x.t.status !== "done" && canDoNow(x.t));
+      const F = FOCUS || computeFocus(), top = F && F.ranked && F.ranked.find(x => x.alloc > 0 && x.t.status !== "done" && canDoNow(x.t) && !x.t.xs);
       if (top) return {text: fitsT(top.t.title, 30) ? `I picked ${cleanT(top.t.title)} for you! Focus on it together?` : "I picked your next task! Want to focus on it together?", action: "focus", taskId: top.t.id, local: true};
       const n = allDueCount(); if (n >= 5) return {text: `${n} flashcards are ready! Review them together?`, action: "review", local: true};
     } catch (e) {}
@@ -56988,7 +57605,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       <div class="cp-tiles">${tiles}</div>
       ${c ? `<label class="cp-name"><span>Name</span><span class="cp-name-row"><input type="text" id="cpName" maxlength="${NAME_MAX}" value="${esc(nameOf(c))}" aria-label="Companion name" data-noenter><button type="button" class="btn small" data-act="comp-rename">Save</button></span></label>` : ""}
       <h3 class="fsec">Accessories</h3>
-      <p class="mini" style="margin:0">Earn little things to wear by studying your way: focus time, tasks done on time, streaks, flashcards, quizzes, notes and more. ${nGot} of ${ACC.length} earned so far (${hLabel} of focus). Props you earn are yours to keep.</p>
+      <p class="mini" style="margin:0">Earn little things to wear by studying your way: focus time, study days, streaks, spreading exam study over several days, flashcards, quizzes, notes and more. Effort counts, not how many tasks you tick off. ${nGot} of ${ACC.length} earned so far (${hLabel} of focus). Props you earn are yours to keep.</p>
       <div class="cp-accs"><button type="button" class="cp-acc-tile${wear.length ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear.length}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear.length ? "Take Off All" : "Wearing"}</span></button>${ACC.map(accTile).join("")}</div>
       <p class="mini" style="margin:0">Wear one prop each on the head, face, neck, chest and back. A new one in the same spot swaps it.</p>
       ${wear.length ? `<h3 class="fsec">Colors</h3><div class="cp-tints">${wear.map(tintRow).join("")}</div>` : ""}
@@ -59829,7 +60446,7 @@ var SCRAP_ART = (() => {
     "first-task": `${DEF(LG("ft", "#A6F0CB", "#47C48B"))}<rect x="5" y="17" width="41" height="41" rx="11" fill="url(#ft)" ${S()}/>${eyes(18, 33, 38, 2.6)}${smile(25.5, 42.6, 3, 2.2)}${blush(12.5, 38.5, 43.5, 2.6)}<path d="M24 25l10 10L58 7" fill="none" stroke="${D}" stroke-width="10.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M24 25l10 10L58 7" fill="none" stroke="#FFD23F" stroke-width="5.6" stroke-linecap="round" stroke-linejoin="round"/>${spark(8, 8, 4.4, "#9BE7FF")}`,
     "week-planned": `<rect x="7" y="11" width="50" height="46" rx="8" fill="#FFFDF6" ${S()}/><path d="M7 25v-6a8 8 0 0 1 8-8h34a8 8 0 0 1 8 8v6z" fill="#FF8FB0" ${S()}/><rect x="17" y="5" width="6" height="12" rx="3" fill="#D5DDE8" ${S(2)}/><rect x="41" y="5" width="6" height="12" rx="3" fill="#D5DDE8" ${S(2)}/>${eyes(26, 38, 36, 2.5)}${smile(32, 40.6, 2.8, 2)}${blush(20, 44, 41.5, 2.5)}<g fill="#9BD3FF"><circle cx="15" cy="50" r="2.4"/><circle cx="23" cy="50" r="2.4"/><circle cx="41" cy="50" r="2.4"/><circle cx="49" cy="50" r="2.4"/></g>${heart(32, 50, 2.6, "#FF6F91", 1.2)}`,
     /* Tasks */
-    "tasks-10": clipboard("bronze", "10"), "tasks-25": clipboard("silver", "25"), "tasks-50": clipboard("gold", "50"), "tasks-100": clipboard("rainbow", "100"),
+    "tasks-10": clipboard("bronze", "10"), "tasks-25": clipboard("silver", "25"), "tasks-50": clipboard("gold", "40"), "tasks-100": clipboard("rainbow", "60"),
     "clean-sweep": `<g transform="translate(3.5 3.5) scale(.89) rotate(28 32 32)"><rect x="28.5" y="0" width="7" height="33" rx="3.5" fill="#D29A63" ${S(2.2)}/><rect x="21" y="30" width="22" height="7.5" rx="2.5" fill="#FF8FB0" ${S(2.2)}/><path d="M21.5 37.5h21L49 59H15z" fill="#FFDB70" ${S()}/><path d="M24 50l-2 8M40 50l2 8M32 51v7" stroke="#E0A93A" stroke-width="1.8" stroke-linecap="round"/>${eyes(27.5, 36.5, 44, 2.1)}${smile(32, 47.2, 2.2, 1.8)}</g>${spark(9, 13, 6, "#9BE7FF")}${spark(55, 47, 5)}${spark(57, 29, 3.4, "#FFB3C7")}`,
     "early-bird": `<g stroke="#FFB443" stroke-width="2.6" stroke-linecap="round"><path d="M53 3v3M53 20v3M43 13h3M60 13h3M46 6l2 2M58 18l2 2M46 20l2-2M58 8l2-2"/></g><circle cx="53" cy="13" r="5.2" fill="#FFD23F" ${S(1.8)}/>${DEF(LG("eb", "#FFE58A", "#FFC23A"))}<path d="M30 17q1-8 7-7-4 2-3.5 6" fill="none" ${S(2.2)}/><circle cx="30" cy="38" r="21" fill="url(#eb)" ${S()}/><path d="M12 41q-6 3-3 9 6 1 10-4" fill="#FFB52E" ${S(2.2)}/>${eyes(23, 37, 34, 2.7)}${blush(18, 42, 41, 3)}<path d="M26.5 38.5h7l-3.5 4.6z" fill="#FF9F1C" ${S(1.8)}/>${shine(19, 25, 4, 2.4)}<path d="M22 58.5v3M36 58.5v3" ${S(2.4)}/>`,
     "study-plan": `<path d="M6 14l15-5.5 21 5.5 16-5.5v43l-16 5.5-21-5.5-15 5.5z" fill="#FFF1D0" ${S()}/><path d="M21 8.5v43M42 14v43" stroke="#E7CFA0" stroke-width="1.8"/><path d="M13 46c7 0 8-9 15-10s10 3 15-5 5-7 5-7" fill="none" stroke="#FF6F91" stroke-width="2.6" stroke-dasharray="3.2 3.6" stroke-linecap="round"/>${heart(12, 46, 3.4)}<path d="M48 25V9" ${S(2.4)}/><path d="M48 9l11 4-11 4z" fill="#5A95FF" ${S(2)}/>${eyes(26, 36, 23, 2)}${smile(31, 26.4, 2, 1.8)}`,
@@ -59992,17 +60609,17 @@ window.__scrapArt = SCRAP_ART;
   const edit = fn => { const sc = clone(SC()); if (!sc) return null; fn(sc); saveSc(sc); return sc; };
 
   /* Milestones */
-  const CATS = [["start", "Getting Started"], ["goals", "Term Goals"], ["tasks", "Tasks"], ["grades", "Grades"], ["streaks", "Streaks"], ["focus", "Focus"], ["cards", "Flashcards and Practice"], ["together", "Together"], ["term", "Term"]];
+  const CATS = [["start", "Getting Started"], ["goals", "Term Goals"], ["tasks", "Study Habits"], ["grades", "Grades"], ["streaks", "Streaks"], ["focus", "Focus"], ["cards", "Flashcards and Practice"], ["together", "Together"], ["term", "Term"]];
   const pctTxt = v => Math.round(v) + "%";
   const cnt = (need, unit, key) => ({need, unit, v: c => c[key]});
   /* Term Goals: Bronze, Silver and Gold stickers you can reach down several different paths */
   const GOAL_TIERS = [["bronze", "Bronze"], ["silver", "Silver"], ["gold", "Gold"]];
   const cntSt = (v, n, unit) => ({p: Math.min(1, v / n), text: `${Math.min(v, n).toLocaleString()} of ${n.toLocaleString()} ${unit}`});
   const GOAL_PATHS = [
-    {k: "tasks", name: "Tasks", t: [18, 40, 70], st: (c, n) => cntSt(c.nDone, n, "tasks done")},
-    {k: "ontime", name: "On-Time Rate", t: [10, 22, 36], r: [70, 80, 90], st: (c, n, r) => {
-      const rate = c.nDue ? c.nOnTime / c.nDue * 100 : 0;
-      return {p: Math.min(1, c.nOnTime / n, rate / r), text: `${Math.min(c.nOnTime, n)} of ${n} tasks done on time, ${c.nDue ? Math.round(rate) : 0}% so far (need ${r}%)`}; }},
+    // Rewards follow effort and consistency (days you studied, weeks you kept up), never how many tasks were ticked off:
+    // counting tasks rewards splitting work into trivial pieces
+    {k: "days", name: "Study Days", t: [15, 35, 55], st: (c, n) => cntSt(c.studyDays, n, "study days")},
+    {k: "ontime", name: "On-Time Weeks", t: [3, 6, 10], st: (c, n) => cntSt(c.ontimeWeeks, n, "weeks with everything handed in on time")},
     {k: "focus", name: "Focus", t: [8, 20, 40], st: (c, n) => cntSt(Math.floor(c.focusMin / 6) / 10, n, "focus hours")},
     {k: "streak", name: "Streak", t: [5, 14, 28], half: true, st: (c, n) => cntSt(c.streak, n, "days in a row")},
     {k: "cards", name: "Flashcards", t: [150, 400, 900], st: (c, n) => cntSt(c.reviewed, n, "cards reviewed")},
@@ -60024,18 +60641,19 @@ window.__scrapArt = SCRAP_ART;
   const M = [
     {id: "term-start", cat: "start", name: "Hello, New Term", goal: "Earned when your term's page opens.", need: 1, v: () => 1},
     {id: "first-course", cat: "start", name: "First Course Added", goal: "Add a course for this term.", need: 1, v: c => c.courses ? 1 : 0},
-    {id: "first-task", cat: "start", name: "First Task Done", goal: "Finish your first task this term.", need: 1, v: c => c.done.length},
+    {id: "first-task", cat: "start", name: "First Study Day", goal: "Study on any day this term: finish a task, focus, tick a step or review flashcards.", need: 1, v: c => c.studyDays},
     {id: "week-planned", cat: "start", name: "First Week Planned", goal: "Have 5 tasks with due dates in one week.", need: 5, unit: "tasks due in one week", v: c => c.bestWeekPlanned},
-    goalTier(0, "term-bronze", "Bronze Term Goal", "Reach any one Bronze path: tasks, on-time rate, focus, streak, flashcards, quizzes or marks."),
+    goalTier(0, "term-bronze", "Bronze Term Goal", "Reach any one Bronze path: study days, on-time weeks, focus, streak, flashcards, quizzes or marks."),
     goalTier(1, "term-silver", "Silver Term Goal", "Reach any one Silver path. A steady term, your way."),
     goalTier(2, "term-gold", "Gold Term Goal", "Reach any one Gold path. A standout term."),
-    Object.assign({id: "tasks-10", cat: "tasks", name: "10 Tasks Done", goal: "Finish 10 tasks this term."}, cnt(10, "tasks done", "nDone")),
-    Object.assign({id: "tasks-25", cat: "tasks", name: "25 Tasks Done", goal: "Finish 25 tasks this term."}, cnt(25, "tasks done", "nDone")),
-    Object.assign({id: "tasks-50", cat: "tasks", name: "50 Tasks Done", goal: "Finish 50 tasks this term."}, cnt(50, "tasks done", "nDone")),
-    Object.assign({id: "tasks-100", cat: "tasks", name: "100 Tasks Done", goal: "Finish 100 tasks this term.", special: true}, cnt(100, "tasks done", "nDone")),
+    Object.assign({id: "tasks-10", cat: "tasks", name: "10 Study Days", goal: "Study on 10 different days this term."}, cnt(10, "study days", "studyDays")),
+    Object.assign({id: "tasks-25", cat: "tasks", name: "25 Study Days", goal: "Study on 25 different days this term."}, cnt(25, "study days", "studyDays")),
+    Object.assign({id: "tasks-50", cat: "tasks", name: "40 Study Days", goal: "Study on 40 different days this term."}, cnt(40, "study days", "studyDays")),
+    Object.assign({id: "tasks-100", cat: "tasks", name: "60 Study Days", goal: "Study on 60 different days this term. Rest days are part of it.", special: true}, cnt(60, "study days", "studyDays")),
     {id: "clean-sweep", cat: "tasks", name: "Clean Sweep Week", goal: "Finish every task due in one week by its due date (at least 3 tasks).", need: 1, v: c => c.sweep ? 1 : 0,
       prog: c => c.weekNow.n ? `This week: ${c.weekNow.ok} of ${c.weekNow.n} done on time` : "No tasks due this week yet"},
-    Object.assign({id: "early-bird", cat: "tasks", name: "Early Bird", goal: "Finish 5 tasks at least 2 days before they're due."}, cnt(5, "done early", "nEarly")),
+    {id: "early-bird", cat: "tasks", name: "Early Bird", goal: "Start studying for an exam or quiz 5 or more days before it, and study for it on 3 different days.", need: 1, v: c => c.nSpread,
+      prog: c => c.spreadBest ? `Best so far: ${c.spreadBest[1]}, studied on ${c.spreadBest[0]} day${c.spreadBest[0] === 1 ? "" : "s"}` : "Study for an upcoming exam a little on several days"},
     {id: "study-plan", cat: "tasks", name: "Study Plan Made", goal: "Make a Study Plan for an exam or quiz.", need: 1, v: c => c.plans ? 1 : 0},
     {id: "plan-follow", cat: "tasks", name: "Study Plan Complete", goal: "Finish every session in a Study Plan (3 or more) before the exam.", need: 1, v: c => c.planDone ? 1 : 0,
       prog: c => c.planBest ? `Best plan so far: ${c.planBest[0]} of ${c.planBest[1]} sessions done` : "Make a Study Plan first"},
@@ -60051,11 +60669,11 @@ window.__scrapArt = SCRAP_ART;
     {id: "comeback", cat: "grades", name: "Level Up", goal: "Beat your last mark in the same course.", need: 1, v: c => c.improved ? 1 : 0},
     {id: "all-in", cat: "grades", name: "All Marks In", goal: "Have every graded item in a course marked (3 or more).", need: 1, v: c => c.allIn ? 1 : 0,
       prog: c => c.mostMarked ? `${c.mostMarked.name}: ${pctTxt(c.mostMarked.w)} of the grade marked` : "No marks recorded yet"},
-    Object.assign({id: "streak-3", cat: "streaks", name: "3-Day Streak", goal: "Make progress on a task 3 days in a row."}, cnt(3, "days", "streak")),
-    Object.assign({id: "streak-7", cat: "streaks", name: "7-Day Streak", goal: "Make progress on a task 7 days in a row."}, cnt(7, "days", "streak")),
-    Object.assign({id: "streak-14", cat: "streaks", name: "14-Day Streak", goal: "Make progress on a task 14 days in a row."}, cnt(14, "days", "streak")),
-    Object.assign({id: "streak-30", cat: "streaks", name: "30-Day Streak", goal: "Make progress on a task 30 days in a row."}, cnt(30, "days", "streak")),
-    Object.assign({id: "streak-60", cat: "streaks", name: "60-Day Streak", goal: "Make progress on a task 60 days in a row.", special: true}, cnt(60, "days", "streak")),
+    Object.assign({id: "streak-3", cat: "streaks", name: "3-Day Streak", goal: "Study 3 days in a row. Rest days don't break it."}, cnt(3, "days", "streak")),
+    Object.assign({id: "streak-7", cat: "streaks", name: "7-Day Streak", goal: "Study 7 days in a row. Rest days don't break it."}, cnt(7, "days", "streak")),
+    Object.assign({id: "streak-14", cat: "streaks", name: "14-Day Streak", goal: "Study 14 days in a row. Rest days don't break it."}, cnt(14, "days", "streak")),
+    Object.assign({id: "streak-30", cat: "streaks", name: "30-Day Streak", goal: "Study 30 days in a row. Rest days don't break it."}, cnt(30, "days", "streak")),
+    Object.assign({id: "streak-60", cat: "streaks", name: "60-Day Streak", goal: "Study 60 days in a row. Rest days don't break it.", special: true}, cnt(60, "days", "streak")),
     {id: "first-focus", cat: "focus", name: "First Focus Session", goal: "Finish a focus session.", need: 1, v: c => c.focusMin > 0 ? 1 : 0},
     Object.assign({id: "focus-5", cat: "focus", name: "5 Focus Hours", goal: "Focus for 5 hours this term."}, cnt(5, "hours", "focusH")),
     Object.assign({id: "focus-15", cat: "focus", name: "15 Focus Hours", goal: "Focus for 15 hours this term."}, cnt(15, "hours", "focusH")),
@@ -60095,6 +60713,8 @@ window.__scrapArt = SCRAP_ART;
     const c = {start, today, done, nDone: done.length, courses: liveCourses.length > 0,
       flag: k => sc.f && sc.f[k] >= startMin ? 1 : 0};
     c.nEarly = done.filter(t => t.doneAt && t.due && !t.prepFor && dayOf(t.doneAt) <= addDays(t.due, -2)).length;
+    // Study days this term: any day with a task finished, focus or logged time, a checklist step or flashcards
+    c.studyDays = window.SBSTREAK && SBSTREAK.studyDays ? SBSTREAK.studyDays(start, today).length : new Set(done.map(t => dayOf(doneTime(t)))).size;
     c.nExams = done.filter(t => MILESTONE(t.type)).length;
     const dueDone = done.filter(t => t.due && !t.prepFor);
     c.nDue = dueDone.length; c.nOnTime = dueDone.filter(t => t.doneAt && dayOf(t.doneAt) <= t.due).length;
@@ -60103,17 +60723,21 @@ window.__scrapArt = SCRAP_ART;
     c.scale = c.termWeeks / 15;
     const onTime = t => t.status === "done" && (t.doneAt ? dayOf(t.doneAt) <= t.due : true);
     const weeks = []; for (let m = mondayOf(start); m <= addDays(mondayOf(today), 7); m = addDays(m, 7)) weeks.push(m);
-    c.bestWeekPlanned = 0; c.sweep = false; c.weekNow = {n: 0, ok: 0};
+    c.bestWeekPlanned = 0; c.sweep = false; c.weekNow = {n: 0, ok: 0}; c.ontimeWeeks = 0;
     weeks.forEach(m => {
       const e = addDays(m, 6), due = active.filter(t => t.due >= m && t.due <= e && t.due >= start);
       c.bestWeekPlanned = Math.max(c.bestWeekPlanned, due.length);
       if (m > today) return;
       const ok = due.filter(onTime).length;
       if (due.length >= 3 && ok === due.length) c.sweep = true;
+      if (e < today && due.length >= 1 && ok === due.length) c.ontimeWeeks++;
       if (m === mondayOf(today)) c.weekNow = {n: due.length, ok};
     });
     const exams = active.filter(t => MILESTONE(t.type) && t.due >= start);
     const sessions = id => active.filter(t => t.prepFor === id);
+    // Exams studied for on 3+ days, starting 5+ days before (spacing)
+    c.nSpread = 0; c.spreadBest = null;
+    exams.forEach(ex => { const n = typeof examStudyDays === "function" ? examStudyDays(ex).length : 0; if (typeof examSpread === "function" && examSpread(ex)) c.nSpread++; if (n && (!c.spreadBest || n > c.spreadBest[0])) c.spreadBest = [n, ex.title]; });
     c.plans = active.some(t => t.prepFor && (t.due >= start || (t.created || 0) >= startMs));
     c.planDone = false; c.planBest = null;
     exams.forEach(ex => { const ss = sessions(ex.id); if (!ss.length) return; const n = ss.filter(t => t.status === "done" && (!t.doneAt || dayOf(t.doneAt) <= ex.due)).length;
@@ -60139,7 +60763,7 @@ window.__scrapArt = SCRAP_ART;
     const byCourse = {}; c.marks.forEach(t => (byCourse[t.courseId || "-"] = byCourse[t.courseId || "-"] || []).push(t));
     Object.values(byCourse).forEach(ts => { ts.sort((a, b) => ((a.due || "") < (b.due || "") ? -1 : (a.due || "") > (b.due || "") ? 1 : doneTime(a) - doneTime(b)));
       for (let i = 1; i < ts.length; i++) if (markPct(ts[i]) > markPct(ts[i - 1]) + .5) c.improved = true; });
-    c.streak = Math.max(Number(sc.hi && sc.hi.st) || 0, streakOf().cur);
+    c.streak = Math.max(Number(sc.hi && sc.hi.st) || 0, rewardStreak().cur);
     const S = typeof SBSTATS !== "undefined" ? SBSTATS : null;
     const logged = S ? S.focusMinutes(start, today) : 0;
     const fromTasks = allTasks().filter(inTerm).reduce((s, t) => s + (Number(t.focusMin) || 0), 0);
@@ -62531,12 +63155,20 @@ const CRUNCH = (() => {
     const dueW = P.lead ? P.dueFrac : 1;
     let tot = dueW;
     const ws = days.map(d => { const w = Math.pow(decay, diff(d, due) - 1); tot += w; return w; });
+    // eveCap: the most the day before may carry (studying for an in-person exam is light review then); the rest goes to earlier days
+    if (num(t.eveCap) && days.length > 1 && R > 0) {
+      const k = days.indexOf(add(due, -1)), cap = Math.max(0, Number(t.eveCap));
+      if (k >= 0 && R * ws[k] / tot > cap) {
+        const extra = ws[k] - cap * tot / R, others = ws.reduce((s, w, i) => i === k ? s : s + w, 0);
+        if (others > 0) { ws.forEach((w, i) => { if (i !== k) ws[i] = w + extra * w / others; }); ws[k] = cap * tot / R; }
+      }
+    }
     days.forEach((d, i) => { if (d <= lastDay) out.push({date: d, hours: R * ws[i] / tot, stress: 0, kind: "prep"}); });
     if (due <= lastDay) out.push({date: due, hours: R * dueW / tot, stress: S, kind: "due"});
     return {c, out, R};
   }
 
-  // input: {today, tasks, busy: {date: hours}, dailyHours, maxWeeks (20), minWeeks
+  // input: {today, tasks, busy: {date: hours}, dailyHours, maxWeeks (20), minWeeks, cap: optional {date: free hours} (your availability)
   function build(input){
     const today = input.today, maxWeeks = input.maxWeeks || 20, minWeeks = input.minWeeks || 6;
     const dh = num(input.dailyHours) ? Math.max(0.5, Number(input.dailyHours)) : 3, busy = input.busy || {};
@@ -62574,6 +63206,8 @@ const CRUNCH = (() => {
     res.days.forEach(D => {
       D.cap0 = r2(dh * cs * (wks ? wks[pd(D.date).getDay()] : 1));
       D.capacity = Math.max(0.5, D.cap0 * busyFactor(D.busy));
+      // free time from your availability (work, shifts, protected time) can only lower it, like Today's Plan
+      if (input.cap && num(input.cap[D.date])) D.capacity = Math.max(0.25, Math.min(D.capacity, Number(input.cap[D.date])));
       D.demand = r2(D.demand);
       D.ratio = D.past ? 0 : r2(D.demand / D.capacity);
       D.levelIdx = D.past ? 0 : levelOf(D.ratio);
@@ -62825,7 +63459,32 @@ button.cr-d:hover{filter:brightness(.95)}
 
 /* The planner's data, in the model's shape */
 let MEMO = {k: "", m: null, input: null};
+/* The forecast reads Today's Plan's own numbers for each task (computeFocus): work left, when work is closed (past its due
+   time with no late work, or its late window shut), late work with no penalty waiting until its window, group project tasks,
+   undated steps that a dated task waits on, and an in-person exam's study time ("Study for"), which it spreads over the
+   exam's lead-up with the night before kept light. Your availability caps each day's capacity, as it does in Today's Plan. */
 function inputNow(){
+  const today = todayISO();
+  let F = null; try { F = typeof FOCUS !== "undefined" && FOCUS && FOCUS.today === today ? FOCUS : computeFocus(); } catch (e) { F = null; }
+  if (!F || !F.info) return inputLegacy();
+  const info = F.info;
+  const tasks = Object.values(info).filter(x => x.t && !x.t.xs && x.t.status !== "done" && x.t.due).map(x => {
+    const t = x.t, study = info[XS_ID + t.id];
+    const due = x.past && !x.dead && x.late === "free" && x.eff ? iso(new Date(x.eff)) : t.due;
+    return {id: t.id, title: t.title, type: t.type, due, time: t.time || "", start: t.start || "", status: t.status, rem: x.fixed ? (study ? study.R : 0) : x.R, weight: weightOf(t), pct: t.pct,
+      est: (isNum(t.hours) && Number(t.hours) > 0) || !!(autoPlanOn() && t.aiHours && t.aiHours.h > 0) || !!t.prepFor || !!t.gt || x.fixed, synced: !!lmsOf(t), blocked: blockers(t).length > 0, prep: !!t.prepFor, bd: !!t.breakdownOf, courseId: t.courseId || "", dead: !!x.dead,
+      eveCap: x.fixed && study ? LIGHT_EVE : undefined};
+  });
+  let busy = {}; const keep = BUSY_CACHE;
+  try { busy = Object.assign({}, busyDays(today, addDays(today, 21 * 7)).m); } catch (e) {}
+  BUSY_CACHE = keep;
+  let cap = null; try { if (availActive()) cap = Object.assign({}, availDays(today, addDays(today, 21 * 7))); } catch (e) { cap = null; }
+  const A = typeof SBACC !== "undefined" ? SBACC : null;
+  const cs = A ? A.capScale() : 1, wk = [0, 1, 2, 3, 4, 5, 6].map(i => A ? A.wkScale(addDays(today, i)) : 1).map((v, i) => ({d: parse(addDays(today, i)).getDay(), v})).sort((p, q) => p.d - q.d).map(x => x.v);
+  return {today, tasks, busy, cap, dailyHours: dailyHours() || 3, capScale: cs, wkScale: wk.some(v => v !== 1) ? wk : null, maxWeeks: 20, minWeeks: 6};
+}
+// Before Today's Plan is ready: the tasks as they are
+function inputLegacy(){
   const today = todayISO(), stamp = nowStamp();
   const tasks = tasksArr().filter(t => t.status !== "done" && t.due).map(t => {
     const lp = lateOf(t), lu = lateUntilOf(t);
@@ -62841,7 +63500,7 @@ function inputNow(){
   return {today, tasks, busy, dailyHours: dailyHours() || 3, capScale: cs, wkScale: wk.some(v => v !== 1) ? wk : null, maxWeeks: 20, minWeeks: 6};
 }
 function modelNow(){
-  const k = [state.updated || 0, todayISO(), dailyHours(), tasksArr().length, AUTO_ON ? 1 : 0, typeof SBACC !== "undefined" && SBACC ? SBACC.sig() : ""].join("|");
+  const k = [state.updated || 0, todayISO(), new Date().getHours(), dailyHours(), tasksArr().length, AUTO_ON ? 1 : 0, typeof SBACC !== "undefined" && SBACC ? SBACC.sig() : ""].join("|");
   if (MEMO.k === k && MEMO.m) return MEMO.m;
   const input = inputNow(), m = C.build(input);
   MEMO = {k, m, input};
@@ -63675,7 +64334,46 @@ const ACC = (() => {
     });
     return s;
   }
-  return {entry, entries, parseDur, samples, wmed, shrink, global, ratio, velocity, lateness, bins, peakOf, minutesByDay, minutesByCourse, workedDays, FEEL, clamp, dayOf};
+  /* Work left, as a range */
+  const wq = (a, q) => { const s = a.slice().sort((x, y) => x.r - y.r), tot = wsum(s); let c = 0; for (const x of s) { c += x.w; if (c >= tot * q) return x.r; } return s.length ? s[s.length - 1].r : 1; };
+  const SPREAD = {lo: 0.8, hi: 1.35, n: 0};
+  // How far your tasks of this type land from the usual (relative to the middle): 20th and 80th percentile, else a typical spread
+  function spread(S, type){
+    const ty = (S || []).filter(x => x.type === type), use = ty.length >= 4 ? ty : (S || []).length >= 5 ? S : null;
+    if (!use) return Object.assign({}, SPREAD);
+    const m = wmed(use);
+    return {lo: r2(clamp(wq(use, 0.2) / m, 0.6, 0.95)), hi: r2(clamp(wq(use, 0.8) / m, 1.1, 2)), n: use.length};
+  }
+  // Share done plus time spent: your pace on this task, mixed with the estimate. The more that's done, the more the pace counts
+  function paced(E, h, p, wMin){
+    const prior = E * (1 - p);
+    if (!(p > 0) || !(h >= 0.25)) return prior;
+    const pace = Math.min(h * (1 - p) / p, 3 * Math.max(prior, 0.25));
+    const w = clamp(p, wMin || 0, 0.9);
+    return w * pace + (1 - w) * prior;
+  }
+  // Time spent with nothing marked done: up to the plan, the plan less the time; past it, the time left grows toward your long end and beyond
+  function over(E, h, hi){
+    if (h < E) return Math.max(E - h, 0.15 * E);
+    return Math.max(E * hi - h, 0.25 * E + 0.3 * (h - E));
+  }
+  // The check-in's answers, as a share done
+  const SAID = {almost: 0.9, half: 0.5, more: 0.25, barely: 0.1};
+  // o: {E planned total hours, h hours spent, p share done, said: {h left when you answered, at: hours spent then} | null, lo, hi}
+  // -> {h, lo, hi, how: "est" | "pace" | "over" | "said"}
+  function left(o){
+    const E = Math.max(0, Number(o.E) || 0), h = Math.max(0, Number(o.h) || 0), p = clamp(Number(o.p) || 0, 0, 1), lo = o.lo || SPREAD.lo, hi = o.hi || SPREAD.hi;
+    let v, how, k = 1 - p;
+    if (o.said) { const since = Math.max(0, h - o.said.at); v = over(o.said.h, since, Math.max(hi, 1.25)); how = since > o.said.h ? "over" : "said"; k = 0.6; }
+    else if (p > 0) { v = paced(E, h, p); how = h >= 0.25 ? "pace" : "est"; }
+    else if (h > 0) { v = over(E, h, hi); how = h > E ? "over" : "est"; }
+    else { v = E; how = "est"; }
+    k = clamp(k, 0.35, 1);
+    return {h: v, lo: v * (1 - (1 - lo) * k), hi: v * (1 + (hi - 1) * k), how};
+  }
+  // What a check-in answer leaves: the share it means, at your pace so far (the pace counts at least 30%, since you're past most of the plan)
+  const saidLeft = (E, h, p) => Math.min(3 * Math.max(E, 0.5), paced(E, h, p, 0.3));
+  return {entry, entries, parseDur, samples, wmed, shrink, global, ratio, velocity, lateness, bins, peakOf, minutesByDay, minutesByCourse, workedDays, FEEL, clamp, dayOf, spread, paced, over, left, saidLeft, SAID, SPREAD};
 })();
 /*ACC-END*/
 
@@ -63700,6 +64398,12 @@ function ratioInfo(t){
   return M.ratios[key] || (M.ratios[key] = ACC.ratio(M.S, t.type || "Other", t.courseId || ""));
 }
 const ratioFor = t => ratioInfo(t).r;
+// How far tasks like this one land from the usual, as a share (the default when there's too little history, or when learning is off)
+function spreadFor(t){
+  const M = memo(); if (!on() || !t) return Object.assign({}, ACC.SPREAD);
+  const key = "s|" + (t.type || "Other");
+  return M.ratios[key] || (M.ratios[key] = ACC.spread(M.S, t.type || "Other"));
+}
 const capScale = () => { const v = memo().vel; return on() && v && v.ok ? v.scale : 1; };
 const wkScale = d => { const v = memo().vel; return on() && v && v.ok ? (v.wk[parse(d).getDay()] || 1) : 1; };
 const startNudge = t => { const L = memo().late; return on() && L && L.nudge > 1 && t && !MILESTONE(t.type) ? L.nudge : 1; };
@@ -63750,6 +64454,7 @@ function early(min, taskId, why){
   if (min < MIN_EARLY) return false;
   try { SBSTATS.addFocus(min, "timer"); } catch (e) { }
   try { pomoToday(); pomo.minutes += min; pomoSave(); } catch (e) { }
+  if (taskId && isGt(taskId)) return gtAddWork(taskId, min);
   if (taskId && state.tasks[taskId] && state.tasks[taskId].status !== "done") return logTime(taskId, min, "focus", tr("acc.earlyToast", "Logged {t} of focus on {title}", {t: fmtMins(min), title: state.tasks[taskId].title.slice(0, 28)}));
   pending({min, at: Date.now(), why: why || "stop"});
   return false;
@@ -63780,6 +64485,8 @@ function chipHtml(c){
     const opts = c.opts.map(t => `<button type="button" class="acc-opt" data-act="acc-which" data-id="${esc(t.id)}">${esc(short(t.title, 26))}</button>`).join("");
     return `<span class="acc-q">${esc(tr("acc.which", "Which task was that for?"))} <span class="mini">${esc(fmtMins(c.min))}</span></span><span class="acc-opts">${opts}</span><button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
   }
+  if (c.kind === "left") return leftChipHtml(c);
+  if (c.kind === "learned") return `<span class="acc-q acc-note">${esc(c.text)}</span><button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
   const t = state.tasks[c.id], title = short(t ? t.title : "", 30);
   const q = (k, en) => { const [a, b] = tr(k, en, {title: "\u0001"}).split("\u0001"); return b == null ? esc(a) : `${esc(a)}<span class="acc-t">${esc(title)}</span>${esc(b)}`; };
   const lbl = (k, en, ks, ens) => `<span class="acc-l">${esc(tr(k, en))}</span><span class="acc-s" aria-hidden="true">${esc(tr(ks, ens))}</span>`;
@@ -63799,7 +64506,7 @@ function pending(p){
 function showPending(){
   const p = lsGet(LS_PEND, null);
   if (!p || Date.now() - p.at > 30 * 60000) { if (p) lsSet(LS_PEND, null); return; }
-  let list = []; try { list = (FOCUS ? FOCUS.ranked.map(x => x.t) : []).filter(t => canDoNow(t)); } catch (e) { list = []; }
+  let list = []; try { list = (FOCUS ? FOCUS.ranked.map(x => x.t) : []).filter(t => canDoNow(t) && !t.xs); } catch (e) { list = []; }
   if (list.length < 3) list = list.concat(tasksArr().filter(t => t.status !== "done" && canDoNow(t)).sort(sortTasks)).filter((t, i, a) => a.indexOf(t) === i);
   const opts = list.filter(t => t.status !== "done").slice(0, 3);
   if (!opts.length) { lsSet(LS_PEND, null); return; }
@@ -63824,6 +64531,83 @@ function answerTook(patch, msg){
   applyChanges([{kind: "task", id: t.id, after: Object.assign(clone(t), patch)}], msg || tr("acc.noted", "Thanks, noted"));
   LEARN = null;
 }
+
+/* The check-in: most of the planned time is spent and the task isn't done, so how much is left? */
+const LS_LEFT = "studyboard:acc:left";
+const LEFT_OPTS = [["almost", "Almost Done", "Almost"], ["half", "About Half", "Half"], ["more", "More Than I Thought", "More"], ["barely", "Barely Started", "Barely"]];
+// The whole task as the plan sees it now, in hours: your last answer's time plus what you said was left, else the estimate
+function planTotal(t){ const sd = saidOf(t); return sd ? sd.at + sd.h : leftInfo(t).E; }
+function leftDue(t){
+  if (!t || t.status === "done" || MILESTONE(t.type) || t.prepFor || t.xs || t.breakdownParent || !state.tasks[t.id]) return false;
+  const fm = Number(t.focusMin) || 0, plan = planTotal(t) * 60;
+  if (!(plan >= 20) || fm < 0.8 * plan) return false;
+  const asked = lsGet(LS_LEFT, {})[t.id];
+  return asked == null || fm - Number(asked) >= 0.25 * plan;
+}
+function maybeAskLeft(t){
+  if (!leftDue(t) || (chip && chip.kind !== "left" && chip.kind !== "learned")) return false;
+  const m = lsGet(LS_LEFT, {}); m[t.id] = Number(t.focusMin) || 0;
+  const ids = Object.keys(m); if (ids.length > 200) ids.slice(0, ids.length - 200).forEach(k => delete m[k]);
+  lsSet(LS_LEFT, m);
+  chipShow({kind: "left", id: t.id}, 60000);
+  return true;
+}
+const leftFor = (t, p) => ACC.saidLeft(planTotal(t), (Number(t.focusMin) || 0) / 60, p);
+const hm = h => fmtHM(Math.max(0.25, Math.round(h * 4) / 4));
+function leftChipHtml(c){
+  const t = state.tasks[c.id]; if (!t) return "";
+  const title = short(t.title, 30), fm = Number(t.focusMin) || 0;
+  const x = `<button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
+  const q = `<span class="acc-q">${esc(tr("acc.leftQ1", "How much of"))}&nbsp;<span class="acc-t">“${esc(title)}”</span>&nbsp;${esc(tr("acc.leftQ2", "is left?"))}<span class="acc-sub">${esc(tr("acc.leftSub", "{t} in so far, planned about {p}", {t: fmtMins(fm), p: hm(planTotal(t))}))}</span></span>`;
+  if (c.say) return `${q}<span class="acc-opts"><label class="acc-own acc-say"><span class="sr">${esc(tr("acc.sayLbl", "What's left, in your words"))}</span><input type="text" id="accSay" maxlength="160" autocomplete="off" placeholder="${esc(tr("acc.sayPh", "e.g. just the conclusion and references"))}" data-noenter${c.busy ? " disabled" : ""}></label><button type="button" class="acc-opt primary" data-act="acc-say-go"${c.busy ? " disabled" : ""}>${c.busy ? `<span class="ai-spin" aria-hidden="true"></span> ${esc(tr("acc.sayBusy", "Reading…"))}` : esc(tr("acc.save", "Save"))}</button><button type="button" class="acc-opt" data-act="acc-say-back">${esc(tr("acc.back", "Back"))}</button></span>${x}`;
+  return `${q}<span class="acc-opts acc-left">${LEFT_OPTS.map(([k, l, sh]) => `<button type="button" class="acc-opt" data-act="acc-left" data-v="${k}"><span class="acc-l">${esc(tr("acc.left." + k, l))}</span><span class="acc-s" aria-hidden="true">${esc(tr("acc.leftS." + k, sh))}</span><span class="acc-tm">${esc(hm(leftFor(t, ACC.SAID[k])))}</span></button>`).join("")}${aiReady() ? `<button type="button" class="acc-opt link" data-act="acc-say">${AI_ICON} ${esc(tr("acc.say", "In My Words"))}</button>` : ""}</span>${x}`;
+}
+// Saves an answer as the time left (only you mark a task done)
+function answerLeft(id, p, patch){
+  const t0 = state.tasks[id]; if (!t0) { chipHide(); return; }
+  const n = Object.assign(clone(t0), patch || {}), h = Math.round(leftFor(t0, p) * 20) / 20;
+  n.left = {h, fm: Number(n.focusMin) || 0, ck: (n.checklist || []).filter(i => i.done).length, pct: Number(n.pct) || 0, p: Math.round(p * 100) / 100, at: Date.now()};
+  chipHide();
+  applyChanges([{kind: "task", id, after: n}], tr("acc.leftToast", "About {h} left on {title}. Today's Plan is updated.", {h: hm(h), title: short(t0.title, 28)}));
+}
+const SAY_SCHEMA = {type: "OBJECT", properties: {done: {type: "INTEGER", description: "Percent of the whole task that's done, 0 to 95"}, items: {type: "ARRAY", items: {type: "INTEGER"}, description: "Numbers of the checklist items that are now done"}}, required: ["done"]};
+async function sayLeft(){
+  const c = chip, t = c && state.tasks[c.id], i = document.getElementById("accSay"), text = String(i && i.value || "").trim();
+  if (!t) { chipHide(); return; }
+  if (text.length < 2) { if (i) i.focus(); return; }
+  c.busy = true; chipShow(c, 0);
+  const ck = t.checklist || [];
+  try {
+    const r = await aiCall({task: "estimate", fast: true, maxTokens: 400, temperature: 0.1, schema: SAY_SCHEMA,
+      parts: [{text: `Task: ${t.title} (${t.type})\nInstructions: ${String(t.notes || "none").replace(/\s+/g, " ").slice(0, 700)}\nChecklist:\n${ck.map((x, k) => `${k + 1}. [${x.done ? "x" : " "}] ${x.text}`).join("\n") || "none"}\nTime spent so far: ${fmtMins(Number(t.focusMin) || 0)}. The plan expected about ${hm(planTotal(t))} in all.\nThe student says: "${text.slice(0, 160)}"`}],
+      system: "A student describes what's left of a task. Judge what percent of the whole task is done (0 to 95; never 100, only they can finish it), and which checklist items their words say are now done. Return JSON only."});
+    if (chip !== c) return;
+    const d = r.data || {}, pct = Math.max(0, Math.min(95, Math.round(Number(d.done))));
+    if (isNaN(pct)) throw new Error("bad");
+    const ticks = (Array.isArray(d.items) ? d.items : []).map(Number).filter(k => k >= 1 && k <= ck.length && !ck[k - 1].done);
+    answerLeft(t.id, Math.max(0.05, pct / 100), ticks.length ? {checklist: ck.map((x, k) => ticks.includes(k + 1) ? Object.assign({}, x, {done: true}) : x)} : null);
+  } catch (e) {
+    if (chip !== c) return;
+    c.busy = false; c.say = false; chipShow(c, 0);
+    toast(tr("acc.sayFail", "Couldn't read that just now. Pick one of the answers instead."));
+  }
+}
+// After a finished task with tracked time: how it compared, and what the plan does with that next time
+function maybeLearned(t){
+  if (!on() || !t || MILESTONE(t.type) || t.prepFor || !(Number(t.hours) > 0) || (chip && chip.kind !== "learned")) return;
+  // only for tracked time (an answer to "How long did it take?" already had its say)
+  if (Number(t.actualMin) > 0 || t.feel) return;
+  const mins = Number(t.focusMin) || 0, est = Number(t.hours) * 60;
+  if (mins < 15 || Math.abs(mins / est - 1) < 0.25 || (t.checklist || []).some(i => !i.done)) return;
+  MEMO.k = ""; const i = ratioInfo(t); if (i.n < 3) return;
+  // what the plan allowed before this task counted
+  const before = ACC.ratio(memo().S.filter(x => x.at !== Number(t.doneAt)), t.type || "Other", t.courseId || "").r;
+  const what = whatOf(t, i), moved = Math.abs(i.r - before) >= 0.05;
+  const text = tr("acc.learned", "“{title}” took {t}, against your {e} estimate.", {title: short(t.title, 30), t: fmtMins(mins), e: fmtHM(Number(t.hours))}) + " " +
+    (Math.abs(i.r - 1) < 0.1 ? tr("acc.learnedOk", "Your {what} are usually close to your estimates.", {what}) : moved ? tr("acc.learnedNow", "Plans for {what} now allow about {x}x your estimate.", {what, x: i.r.toFixed(1)}) : tr("acc.learnedSame", "Plans for {what} already allow about {x}x your estimate.", {what, x: i.r.toFixed(1)}));
+  chipShow({kind: "learned", id: t.id, text}, 9000);
+}
+const fmSeen = {};
 
 /* Passive signals */
 const tickSeen = {};
@@ -63948,9 +64732,14 @@ hook("act", (a, el) => {
   if (a === "acc-dismiss") { chipDismiss(); return true; }
   if (a === "acc-which") {
     const p = lsGet(LS_PEND, null), id = el.dataset.id; lsSet(LS_PEND, null); chipHide();
-    if (p && id) logTime(id, p.min, "focus", tr("acc.whichToast", "Added {t} to {title}", {t: fmtMins(p.min), title: short((state.tasks[id] || {}).title, 28)}), p.at);
+    if (p && id && isGt(id)) { gtAddWork(id, p.min); toast(tr("acc.whichToast", "Added {t} to {title}", {t: fmtMins(p.min), title: "your group task"})); }
+    else if (p && id) logTime(id, p.min, "focus", tr("acc.whichToast", "Added {t} to {title}", {t: fmtMins(p.min), title: short((state.tasks[id] || {}).title, 28)}), p.at);
     return true;
   }
+  if (a === "acc-left") { if (chip && chip.kind === "left" && ACC.SAID[el.dataset.v]) answerLeft(chip.id, ACC.SAID[el.dataset.v]); return true; }
+  if (a === "acc-say") { if (chip && chip.kind === "left") { chip.say = true; chipShow(chip, 0); const i = document.getElementById("accSay"); if (i) i.focus(); } return true; }
+  if (a === "acc-say-back") { if (chip && chip.kind === "left") { chip.say = false; chipShow(chip, 60000); } return true; }
+  if (a === "acc-say-go") { sayLeft(); return true; }
   if (a === "acc-feel") { answerTook({feel: el.dataset.v}); return true; }
   if (a === "acc-exact") { if (chip) { chip.exact = true; chipShow(chip, 0); const i = document.getElementById("accExact"); if (i) i.focus(); } return true; }
   if (a === "acc-feel-back") { if (chip) { chip.exact = false; chipShow(chip, 30000); } return true; }
@@ -63980,6 +64769,7 @@ hook("act", (a, el) => {
 });
 document.addEventListener("keydown", e => {
   if (e.key !== "Enter" || !e.target || !e.target.id) return;
+  if (e.target.id === "accSay") { e.preventDefault(); sayLeft(); return; }
   if (e.target.id === "accExact") { e.preventDefault(); const b = document.querySelector('[data-act="acc-exact-save"]'); if (b) b.click(); }
   else if (e.target.id === "accLogIn") { e.preventDefault(); const b = document.querySelector('[data-act="acc-log-add"]'); if (b) b.click(); }
 }, true);
@@ -63988,7 +64778,18 @@ hook("changed", changes => {
   tickScan(changes);
   const fresh = changes.filter(c => c.kind === "task" && c.after && c.after.status === "done" && c.after.doneAt && Date.now() - c.after.doneAt < 4000);
   changes.forEach(c => { if (chip && chip.kind === "took" && c.kind === "task" && c.id === chip.id && c.after && c.after.status !== "done") chipHide(); });
-  if (fresh.length) maybeAskTook(fresh[0].after, fresh.length);
+  if (fresh.length) {
+    const t = fresh[0].after;
+    maybeAskTook(t, fresh.length);
+    if (fresh.length === 1 && !(chip && chip.kind === "took")) setTimeout(() => maybeLearned(state.tasks[t.id]), 0);
+  }
+  // more time on a task that's past most of its plan: ask how much is left
+  changes.forEach(c => {
+    if (c.kind !== "task" || !c.after) return;
+    const fm = Number(c.after.focusMin) || 0, was = fmSeen[c.id]; fmSeen[c.id] = fm;
+    if (was != null && fm > was && c.after.status !== "done") setTimeout(() => maybeAskLeft(state.tasks[c.id]), 0);
+    if (chip && chip.kind === "left" && c.id === chip.id && c.after.status === "done") chipHide();
+  });
 });
 hook("menu", () => {
   const v = memo(), n = v.S.length;
@@ -64000,7 +64801,8 @@ function formHint(){
   const el = document.getElementById("accHint"), f = el && el.closest("form"); if (!el || !f) return;
   const g = n => { const x = f.querySelector(`[name="${n}"]`); return x ? x.value : ""; };
   const h = Number(g("hours")), t = {type: g("type") || "Other", courseId: g("courseId") || ""}, i = ratioInfo(t), s = explain(t);
-  const say = !s || !(h > 0) || MILESTONE(t.type) ? "" : `${s} ${tr("acc.hintPlan", "Today's Plan counts this as about {h}.", {h: fmtHM(h * i.r)})}`;
+  const sp = spreadFor(t), q = x => fmtHM(Math.max(0.25, Math.round(x * 4) / 4));
+  const say = !s || !(h > 0) || MILESTONE(t.type) ? "" : `${s} ${tr("acc.hintRange", "Today's Plan counts this as about {h} ({lo} to {hi}).", {h: q(h * i.r), lo: q(h * i.r * sp.lo), hi: q(h * i.r * sp.hi)})}`;
   el.hidden = !say;
   if (el.textContent !== say) el.textContent = say;
 }
@@ -64010,7 +64812,7 @@ function formHint(){
   ["input", "change"].forEach(ev => document.addEventListener(ev, e => { if (e.target && e.target.closest && e.target.closest("form") && document.getElementById("accHint")) formHint(); }, true));
 }
 hook("boot", () => {
-  allTasks().forEach(t => { tickSeen[t.id] = (t.checklist || []).filter(i => i.done).length; });
+  allTasks().forEach(t => { tickSeen[t.id] = (t.checklist || []).filter(i => i.done).length; fmSeen[t.id] = Number(t.focusMin) || 0; });
   staleScan(); showPending();
   setInterval(staleScan, 10 * 60000);
 });
@@ -64018,7 +64820,7 @@ hook("boot", () => {
 hook("focus", e => {
   if (e && e.type === "end" && e.mode === "focus" && !e.taskId && e.minutes && !e.missed) pending({min: e.minutes, at: Date.now(), why: "end"});
 });
-const api = {ACC, time: SBTIME, ratioInfo, ratioFor, memo, capScale, wkScale, startNudge, peak, extraBins, underBoost, explain, logTime, early, askState, maybeAskTook, chip: () => chip, on, howHtml, logHtml, formHint, sig: () => (on() ? 1 : 0) + "|" + capScale(), global: () => memo().g};
+const api = {ACC, time: SBTIME, ratioInfo, ratioFor, spreadFor, memo, capScale, wkScale, startNudge, peak, extraBins, underBoost, explain, logTime, early, askState, maybeAskTook, maybeAskLeft, leftDue, chip: () => chip, on, howHtml, logHtml, formHint, sig: () => (on() ? 1 : 0) + "|" + capScale(), global: () => memo().g};
 window.__sbAcc = Object.assign({state: () => state}, api);
 return api;
 })();
@@ -65010,7 +65812,8 @@ const courseTag = t => { const c = courseOf(t.courseId); return c ? courseLabel(
 
 /* Do This Next */
 const laneOpts = m => ({dayEnd: EXAMMODE.dayEnd(m.exam), examDay: m.days <= 0});
-const riskOf = x => x.dl < 0 || (x.behind || 0) >= 0.5 || (x.own || 0) >= 1 || (x.rho || 0) >= 0.9;
+// Short of time counting the other work only: the exam's own study time (Today's Plan counts it) is what this weighs against
+const riskOf = x => x.dl < 0 || (x.behindW ?? x.behind ?? 0) >= 0.5 || (x.own || 0) >= 1 || (x.rhoW ?? x.rho ?? 0) >= 0.9;
 const studyToday = t => { const d0 = new Date(); d0.setHours(0, 0, 0, 0); return (t.history || []).reduce((m, h) => { const mm = /^Focus session:? (\d+)m/.exec(h.text || ""); return mm && h.at >= d0.getTime() ? m + Number(mm[1]) : m; }, 0); };
 // Called by nextUp with its scored list (each {x, s, why})
 function rankNext(F, scored, pool, focusLen){
@@ -65018,7 +65821,8 @@ function rankNext(F, scored, pool, focusLen){
   const ex = m.exam, exDue = EXAMMODE.dueMs(ex), chip = EXAMMODE.tag(ex, m.days);
   const items = scored.map(y => {
     const t = y.x.t, study = t.id === ex.id || t.prepFor === ex.id;
-    return {y, id: t.id, kind: study ? "study" : EXAMMODE.isWork(t, ex) ? "work" : "other", dueMs: dueDate(t).getTime(), inWindow: y.x.dl <= EXAMMODE.DAYS && !y.x.dead, risk: riskOf(y.x)};
+    // Today's Plan's own "Study for" entry has no date of its own (it runs up to the exam), so it doesn't move what counts as before studying
+    return {y, id: t.id, kind: study ? "study" : EXAMMODE.isWork(t, ex) ? "work" : "other", dueMs: t.xs ? Infinity : dueDate(t).getTime(), inWindow: y.x.dl <= EXAMMODE.DAYS && !y.x.dead, risk: riskOf(y.x)};
   });
   const ord = EXAMMODE.order(items, exDue, laneOpts(m));
   scored.length = 0;
@@ -65036,13 +65840,13 @@ function rankNext(F, scored, pool, focusLen){
   ui.nextShown = "study:" + ex.id;
   const why = [`${chip}${ex.time ? " at " + fmtTime(ex.time) : ""}`, "Exam Mode"];
   if (!hasPlan) why.push("No study plan yet");
-  return {study: {x, why, step: null, mins: Math.max(focusLen, Math.min(focusLen * 2, m.days <= 1 ? focusLen * 2 : focusLen)), left: pool.length, ai: false, study: true, hasPlan, label: "Study for " + ex.title, exam: true}};
+  return {study: {x, why, step: null, mins: m.days <= 1 ? Math.min(focusLen, 30) : focusLen, left: pool.length, ai: false, study: true, hasPlan, label: "Study for " + ex.title, exam: true}};
 }
 // The task the Focus timer suggests
 function focusPick(){
   if (!current()) return "";
   const keep = ui.nextShown;
-  try { const n = nextUp(computeFocus()); return n && n.x && n.x.t ? n.x.t.id : ""; } catch (e) { return ""; } finally { ui.nextShown = keep; }
+  try { const n = nextUp(computeFocus()); return n && n.x && n.x.t ? planTaskId(n.x.t) : ""; } catch (e) { return ""; } finally { ui.nextShown = keep; }
 }
 function pomoDefault(){
   try {
@@ -65075,8 +65879,14 @@ function study(id){
 }
 
 /* Today: one card with a countdown tile */
-// How far along the prep is: the prep plan's readiness, else the course's decks
+// How ready you are: measured from your prep plan, flashcards and quizzes first (examReadiness), how ready you feel second
 function prepLine(ex, sm){
+  const xr = typeof examReadiness === "function" ? examReadiness(ex) : null;
+  if (xr && xr.pct != null) {
+    const n = sm ? `${sm.done} of ${sm.total} study block${sm.total === 1 ? "" : "s"} done` : "";
+    const src = xr.from === "feel" ? "how ready you feel; nothing measured yet" : xr.from === "both" ? "your results so far and how ready you feel" : "your results";
+    return {pct: xr.pct, text: `${xr.pct}% ready (from ${src})${n ? " · " + n : ""}`, gap: readinessGapText(xr)};
+  }
   if (sm) {
     const pct = sm.pct != null ? sm.pct : Math.round(sm.done / Math.max(1, sm.total) * 100);
     return {pct, text: `${pct}% prepared · ${sm.done} of ${sm.total} study block${sm.total === 1 ? "" : "s"} done`};
@@ -65181,6 +65991,174 @@ hook("act", (act, el, id) => {
 window.SBEXAM = {current, rankNext, todayHtml, sortDecks, deckTag, sortQueue, offer, offered, ideaValid, study, pomoDefault, pomoHtml, focusPick, EXAMMODE};
 })();
 
+/* ===== module: 97-exam-wrapper.js: after an exam, a short reflection (an "exam wrapper") ===== */
+/* After an exam or quiz mark is saved, a one-minute reflection: how you studied, when you started, and how ready you were
+   (how ready you felt, and what your flashcards and quizzes said) next to the mark you got. Seeing the prediction next to
+   the result is how students learn to judge their own readiness (exam wrappers, Lovett 2013), which also makes the
+   measured readiness in examReadiness more useful. It's saved on the exam as t.wrap (synced), and the next exam shows
+   what you wrote, so the lesson is there when it matters. */
+(() => {
+const SNAP_LS = "studyboard:readySnap", SKIP_LS = "studyboard:wrapSkip";
+// How you studied, with how strongly research backs each one (3 strong, 0 weak), for the tip under the choices
+const METHODS = [
+  ["practice", "Practice questions or past exams", 3],
+  ["cards", "Flashcards, testing myself", 3],
+  ["spaced", "Short sessions over several days", 3],
+  ["explain", "Explaining it out loud or teaching it", 2],
+  ["summary", "Writing summaries or notes", 1],
+  ["group", "Studying with others", 1],
+  ["reread", "Rereading notes, slides or the textbook", 0],
+  ["rewatch", "Rewatching lectures", 0],
+  ["cram", "A long session the night before", 0]];
+const STARTS = [["week", "More than a week before"], ["days", "3 to 7 days before"], ["short", "1 or 2 days before"], ["night", "The night before"]];
+const lsGet = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || "null"); return v && typeof v === "object" ? v : d; } catch (e) { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+const isExam = t => !!t && MILESTONE(t.type) && !t.prepFor;
+const markOf = t => t && t.mark && Number(t.mark.outOf) > 0 && isNum(t.mark.got) ? Math.round(Number(t.mark.got) / Number(t.mark.outOf) * 100) : null;
+const askOn = () => !(state.settings && state.settings.grades && state.settings.grades.wrap === false);
+
+/* How ready you were when the exam happened: captured the moment it's marked done, before later studying changes it */
+function snapNow(t){
+  const xr = typeof examReadiness === "function" ? examReadiness(Object.assign({}, t, {status: "todo"})) : null;
+  return {felt: xr ? xr.self : null, measured: xr ? xr.measured : null, at: Date.now()};
+}
+hook("changed", changes => {
+  (changes || []).forEach(ch => {
+    const t = ch && ch.kind === "task" ? ch.after : null;
+    if (!isExam(t) || t.status !== "done" || !t.doneAt || Date.now() - t.doneAt > 10000) return;
+    const m = lsGet(SNAP_LS, {}); if (m[t.id]) return;
+    m[t.id] = snapNow(t);
+    const keys = Object.keys(m).sort((a, b) => m[b].at - m[a].at); keys.slice(60).forEach(k => delete m[k]);
+    lsSet(SNAP_LS, m);
+  });
+});
+// Saved with the exam when it was marked done (synced); older exams fall back to this device's copy, then to now
+const snapOf = t => t.wrap && (t.wrap.felt != null || t.wrap.measured != null) ? t.wrap : t.readySnap && t.readySnap.at ? t.readySnap : lsGet(SNAP_LS, {})[t.id] || snapNow(t);
+
+// What the comparison says, in one or two sentences
+function readOf(felt, measured, mark){
+  if (mark == null) return "";
+  if (felt != null && felt - mark >= 15) return `You felt more ready (${felt}%) than your mark shows (${mark}%). That's very common: material you've read feels known even when you can't recall it yet. Testing yourself before the next exam gives you a truer picture.`;
+  if (measured != null && measured - mark >= 15) return `Your flashcards and quizzes said about ${measured}%, more than your mark. The exam may have asked things your cards don't cover, or in a different way: practice questions in the exam's format help next time.`;
+  if (felt != null && mark - felt >= 15) return `You did better than you expected (${mark}%, after feeling ${felt}% ready). Your preparation worked, so you can trust your results a little more next time.`;
+  if (felt != null || measured != null) return "How ready you were matched your mark closely. Judging your own readiness well is a real skill.";
+  return "Next time, mark how ready you feel before the exam, or study this course's flashcards, to see how well you predict your mark.";
+}
+// A tip on how you studied, from what research says works
+function tipOf(picked){
+  if (!picked.length) return "";
+  const has = k => picked.includes(k), test = has("practice") || has("cards") || has("explain");
+  if ((has("practice") || has("cards")) && has("spaced") && !has("cram")) return "Testing yourself, spread over several days: that's the strongest combination research knows of. Keep it.";
+  if (!test && (has("reread") || has("rewatch") || has("summary"))) return "Rereading and rewatching feel productive but stick less than testing yourself. Next time, try flashcards or practice questions for part of that time.";
+  if (has("cram") && !has("spaced")) return "One long session the night before is the least effective way to study, and it costs sleep that helps you remember. Shorter sessions over several days work better.";
+  if (test && !has("spaced")) return "Testing yourself was a good choice. Spreading it over several days, instead of one or two, makes it stick even better.";
+  return "";
+}
+
+const bar = (label, v, cls) => `<div class="ewr-row ${cls}"><span class="ewr-l">${esc(label)}</span><span class="ewr-bar" role="img" aria-label="${esc(label)}: ${v == null ? "not measured" : v + " percent"}"><i style="width:${v == null ? 0 : Math.max(0, Math.min(100, v))}%"></i></span><b>${v == null ? "–" : v + "%"}</b></div>`;
+function compareHtml(felt, measured, mark){
+  return `<div class="ewr-cmp">${bar("How ready you felt", felt, "felt")}${bar("What your results said", measured, "meas")}${bar("Your mark", mark, "mark")}</div>`;
+}
+
+function open(id, back){
+  const t = state.tasks[id]; if (!isExam(t)) return;
+  const c = courseOf(t.courseId), mark = markOf(t), s = snapOf(t), w = t.wrap || {};
+  const picked = new Set(w.methods || []);
+  openSheet(`<form class="sheet ewr">${head("How Did It Go?")}
+    <div class="sheet-body">
+      <p style="margin:0"><b>${esc(t.title)}</b>${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}<br><span class="mini">A minute now makes your next exam easier to prepare for.</span></p>
+      ${compareHtml(s.felt, s.measured, mark)}
+      <p class="ewr-read">${esc(readOf(s.felt, s.measured, mark))}</p>
+      <fieldset class="ewr-fs"><legend>How did you study? <span class="hint">pick all that apply</span></legend>
+        <div class="ewr-chips">${METHODS.map(([k, l]) => `<label class="ewr-chip"><input type="checkbox" name="m" value="${k}"${picked.has(k) ? " checked" : ""}><span>${esc(l)}</span></label>`).join("")}</div>
+        <p class="ewr-tip" id="ewrTip" aria-live="polite"></p></fieldset>
+      <fieldset class="ewr-fs"><legend>When did you start studying for it?</legend>
+        <div class="ewr-chips">${STARTS.map(([k, l]) => `<label class="ewr-chip"><input type="radio" name="st" value="${k}"${w.start === k ? " checked" : ""}><span>${esc(l)}</span></label>`).join("")}</div></fieldset>
+      <label class="f"><span class="lh">Next Time I'll… <span class="hint">optional, shown before your next exam</span></span><input type="text" name="next" maxlength="200" value="${esc(w.next || "")}" placeholder="e.g. start practice questions a week earlier" data-noenter></label>
+      <label class="mi-check"><input type="checkbox" id="ewrAsk"${askOn() ? " checked" : ""}> Ask me after each exam or quiz</label>
+    </div>
+    <div class="sheet-foot"><button type="button" class="btn" id="ewrSkip">Skip</button><span class="spacer"></span><button type="button" class="btn primary" data-submit>Save Reflection</button></div></form>`, (fd) => {
+    const cur = state.tasks[id]; if (!cur) return;
+    const n = clone(cur);
+    n.wrap = {at: Date.now(), methods: fd.getAll("m").map(String).filter(k => METHODS.some(x => x[0] === k)), start: String(fd.get("st") || ""), next: String(fd.get("next") || "").trim().slice(0, 200), felt: s.felt, measured: s.measured, mark};
+    saveAsk();
+    dlg.close();
+    applyChanges([{kind: "task", id, after: n}], "Reflection saved. You'll see it before your next exam.");
+    if (back) setTimeout(back, 40);
+    return false;
+  });
+  const tipEl = $("#ewrTip"), tip = () => { tipEl.textContent = tipOf([...dlg.querySelectorAll('input[name="m"]:checked')].map(i => i.value)); };
+  dlg.querySelectorAll('input[name="m"]').forEach(i => i.addEventListener("change", tip)); tip();
+  const saveAsk = () => { const on = $("#ewrAsk").checked; if (on !== askOn()) { state.settings = Object.assign({}, state.settings, {grades: Object.assign({}, (state.settings && state.settings.grades) || {}, {wrap: on})}); saveSettings(); } };
+  $("#ewrSkip").addEventListener("click", () => { saveAsk(); skip(id); dlg.close(); scheduleRender(); if (back) setTimeout(back, 40); });
+}
+// Offered right after a first mark is saved, once per exam
+const should = id => { const t = state.tasks[id]; return isExam(t) && !t.wrap && askOn() && !lsGet(SKIP_LS, {})[id]; };
+
+// The most recent reflection before this exam: the same course first, any course otherwise
+function lastWrap(ex){
+  const all = Object.values(state.tasks || {}).filter(t => t.id !== ex.id && isExam(t) && t.wrap && Number(t.wrap.at) > 0).sort((a, b) => b.wrap.at - a.wrap.at);
+  return all.find(t => ex.courseId && t.courseId === ex.courseId) || all[0] || null;
+}
+const pctTxt = v => v == null ? "not measured" : v + "%";
+function lastHtml(prev){
+  const w = prev.wrap, ms = (w.methods || []).map(k => (METHODS.find(x => x[0] === k) || [])[1]).filter(Boolean);
+  return `<div class="ewr-last" role="note"><b>Last time: ${esc(prev.title)}</b><span>You felt ${esc(pctTxt(w.felt))} ready, your results said ${esc(pctTxt(w.measured))}, and you got ${esc(pctTxt(w.mark))}.</span>${ms.length ? `<span>You studied by: ${esc(ms.join(", ").toLowerCase())}.</span>` : ""}${w.next ? `<span>You said next time you'd: <i>${esc(w.next)}</i></span>` : ""}</div>`;
+}
+// In an exam's view: before it, what you wrote last time; after it, your reflection (or a way to add one)
+function viewHtml(t){
+  if (!isExam(t)) return "";
+  if (t.status !== "done") { const prev = lastWrap(t); return prev ? lastHtml(prev) : ""; }
+  if (t.wrap) return `<div class="ewr-last ewr-mine" role="note"><b>Your reflection</b><span>You felt ${esc(pctTxt(t.wrap.felt))} ready, your results said ${esc(pctTxt(t.wrap.measured))}, and you got ${esc(pctTxt(t.wrap.mark))}.</span>${t.wrap.next ? `<span>Next time: <i>${esc(t.wrap.next)}</i></span>` : ""}<button type="button" class="link-btn" data-act="ewr-open" data-id="${esc(t.id)}">Edit</button></div>`;
+  return markOf(t) != null ? `<button type="button" class="btn small ewr-btn" data-act="ewr-open" data-id="${esc(t.id)}">Reflect on This ${esc(t.type)}</button>` : "";
+}
+/* Which flashcards count toward this exam's readiness: Automatic (Studyboard matches the exam's topics, from its notes, the
+   school site and announcements, to your decks; or the cards since the last exam; or the whole course), or the decks you pick */
+function decksSheet(id){
+  const t = state.tasks[id]; if (!isExam(t)) return;
+  const ev = examEvidence(Object.assign({}, t, {readyDecks: []})), picked = new Set(t.readyDecks || []), mine = !!picked.size;
+  const qn = ev.quizN ? ` and ${ev.quizN} quiz${ev.quizN === 1 ? "" : "zes"}` : "";
+  const aiNames = ev.how === "ai" ? (t.aiDecks.ids || []).map(i => (state.decks[i] || {}).name).filter(Boolean) : [];
+  const how = ev.how === "ai" ? `uses what ${aiWho() || "Automatic AI"} matched to this exam's topics: ${aiNames.slice(0, 4).join(", ")}${aiNames.length > 4 ? ` and ${aiNames.length - 4} more` : ""} (${ev.cards.length} card${ev.cards.length === 1 ? "" : "s"}${qn})` : ev.how === "topics" ? `matches this exam's topics (${ev.terms && ev.terms.length ? ev.terms.slice(0, 5).join(", ") : "from its notes"}) to ${ev.cards.length} card${ev.cards.length === 1 ? "" : "s"}${qn}` : ev.how === "since" ? `uses the ${ev.cards.length} cards${qn} added since ${ev.prev}` : ev.how === "course" ? `uses every flashcard and quiz in this course` : "has no flashcards or quizzes in this course to use";
+  // flashcard decks and quizzes made from slides, notes or your own questions, this course's first
+  const decks = decksArr().slice().sort((a, b) => (b.courseId === t.courseId) - (a.courseId === t.courseId));
+  openSheet(`<form class="sheet xr-sheet">${head("Which Flashcards and Quizzes Count?")}
+    <div class="sheet-body">
+      <p style="margin:0">For <b>${esc(t.title)}</b>, readiness is measured from the flashcards and practice quizzes that cover it.</p>
+      <label class="mi-check"><input type="radio" name="xrm" value="auto"${mine ? "" : " checked"}> <span><b>Automatic.</b> Right now Studyboard ${esc(how)}.</span></label>
+      <label class="mi-check"><input type="radio" name="xrm" value="pick"${mine ? " checked" : ""}> <span><b>Only the decks I pick:</b></span></label>
+      <div class="xr-decks" id="xrDecks">${decks.length ? decks.map(d => { const c = courseOf(d.courseId); return `<label class="mi-check"><input type="checkbox" name="d" value="${esc(d.id)}"${picked.has(d.id) ? " checked" : ""}> <span>${esc(d.name)} <span class="mini">${isQuizHolder(d) ? (n => `${n} quiz${n === 1 ? "" : "zes"}`)((d.aiQuizzes || []).length) : `${d.cards.length} card${d.cards.length === 1 ? "" : "s"}`}${c ? " · " + esc(courseLabel(c)) : ""}</span></span></label>`; }).join("") : `<p class="mini">You don't have any flashcards or quizzes yet.</p>`}</div>
+    </div>
+    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Save</button></div></form>`, fd => {
+    const cur = state.tasks[id]; if (!cur) return;
+    const ids = fd.get("xrm") === "pick" ? fd.getAll("d").map(String) : [];
+    if (fd.get("xrm") === "pick" && !ids.length) { toast("Pick at least one deck, or choose Automatic"); return false; }
+    const n = clone(cur); if (ids.length) n.readyDecks = ids; else delete n.readyDecks;
+    dlg.close(); applyChanges([{kind: "task", id, after: n}], ids.length ? `Readiness for ${cur.title} now uses ${ids.length} deck${ids.length === 1 ? "" : "s"}` : "Readiness is automatic again");
+    return false;
+  });
+  // the decks stay clickable: ticking one switches to "Only the decks I pick"; Automatic dims them
+  const box = $("#xrDecks"), sync = () => box.classList.toggle("auto", !dlg.querySelector('input[name="xrm"][value="pick"]').checked);
+  dlg.querySelectorAll('input[name="xrm"]').forEach(i => i.addEventListener("change", sync));
+  box.querySelectorAll("input").forEach(i => i.addEventListener("change", () => { if (i.checked) dlg.querySelector('input[name="xrm"][value="pick"]').checked = true; sync(); }));
+  sync();
+}
+// Exams with a mark (from any source: the mark sheet, the task form, Paste Grades, school sync) and no reflection yet, newest
+// first. Today's Plan offers them under Heads Up until reflected on or skipped. Only recent exams, so old marks don't pile up.
+function pending(){
+  if (!askOn()) return [];
+  const skip = lsGet(SKIP_LS, {}), from = addDays(todayISO(), -30);
+  return Object.values(state.tasks || {}).filter(t => isExam(t) && !t.wrap && !skip[t.id] && markOf(t) != null && (t.due || "") >= from && (t.status === "done" || (t.due || "") <= todayISO()))
+    .sort((a, b) => (b.due || "").localeCompare(a.due || ""));
+}
+const skip = id => { const k = lsGet(SKIP_LS, {}); k[id] = Date.now(); lsSet(SKIP_LS, k); };
+hook("act", (act, el, id) => {
+  if (act === "ewr-open") { if (dlg.open) dlg.close(); setTimeout(() => open(id), 30); return true; }
+  if (act === "xr-decks") { if (dlg.open) dlg.close(); setTimeout(() => decksSheet(id), 30); return true; }
+  if (act === "ewr-skip") { skip(id); scheduleRender(); toast("Skipped. You can still reflect from the exam's details."); return true; }
+});
+window.SBWRAP = {open, should, viewHtml, lastWrap, readOf, tipOf, pending, markOf, METHODS};
+})();
 /* ===== module: 97-notecards.js ===== */
 /* Notes to Flashcards (see the comment above the UI code below). The pure engine is between NOTECARDS-START and NOTECARDS-END and is unit-tested in tests/notecards.test.js. */
 (() => {
@@ -68346,7 +69324,16 @@ hook("act", (a, el) => {
 hook("boot", () => { try { if (gentleOn()) celebrateSoon(6000); } catch (e) {} });
 
 window.SBREVIEW = {open: openReview, period: periodNow, stats: () => { const p = periodNow() || RS.periodFor(todayISO(), nowHour(), true); return reviewStats(p); }, cardHtml: reviewCardHtml, RS};
-window.SBSTREAK = {on: gentleOn, line: () => streakLineText(streakNow()), state: streakNow, open: openStreak, newUser, enable: turnOn, disable: turnOff, celebrate: tryCelebrate, RS};
+// Every study day from one date to another (a task finished, focus or logged time, a checklist step, flashcards), never just opening the app
+let SDMEMO = {k: "", v: []};
+function studyDays(from, to){
+  to = to || todayISO();
+  const k = [from, to, state.updated || 0, (focusDaysNow()[to] || 0)].join("|");
+  if (SDMEMO.k === k) return SDMEMO.v;
+  const g = gcfg(), v = Object.keys(RS.activityDays({tasks: allTasks(), focusDays: focusDaysNow(), log: g.log, timeDays: sbtimeDays(from, to), from, to})).sort();
+  SDMEMO = {k, v}; return v;
+}
+window.SBSTREAK = {studyDays, on: gentleOn, line: () => streakLineText(streakNow()), state: streakNow, open: openStreak, newUser, enable: turnOn, disable: turnOff, celebrate: tryCelebrate, RS};
 })();
 
 /* ===== module: 99-release.js ===== */

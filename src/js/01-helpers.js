@@ -124,6 +124,173 @@ function startOf(t){
   if (t.due && s && s < addDays(t.due, -START_SPAN_DAYS)) s = addDays(t.due, -START_SPAN_DAYS);
   return s;
 }
+/* Exam readiness: measured first, your own feeling second.
+   Feeling ready is a poor guide on its own: material you've read feels learned even when you can't recall it (illusions of
+   competence). So readiness comes from what you can actually do: your exam prep plan's sessions, cards and quizzes when there
+   is a plan, otherwise your flashcards for the course (cards never studied count as not known), recent practice quizzes, and
+   the automatic AI's read of both. The Preparedness slider (how ready you feel) only fills in while there is little evidence,
+   and when the two disagree by 20 points or more, the gap is shown: noticing it is how you learn to judge yourself better. */
+const XR_GAP = 20, XR_FULL = 30, XR_DAYS = 30;
+/* Which flashcards count toward one exam's readiness, so Midterm 1 and the Final don't share one number:
+   1. the decks you linked to the exam, if you did
+   2. (a prep plan's topics are used by the plan itself, see examReadiness)
+   3. automatic: the exam's topics, from its title, its notes (where school-site instructions land) and course announcements
+      that mention it, matched to deck names and card text, including chapter, unit and week numbers ("Chapters 4-6")
+   4. the cards added since the course's previous exam, unless this one is a final or cumulative
+   5. otherwise the whole course, as before */
+const XR_STOP = new Set("about after again also bring calculator cards class closed cover covers covered exam exams final finals from have held in-class including lecture lectures material materials midterm midterms note notes online open page pages paper pencil please quiz quizzes review room section sections study test tests that their there these this time topic topics will with what when where which your chapter chapters unit units week weeks module modules part parts book textbook slides questions question answer answers multiple choice short long take taken home person minutes hour hours worth grade percent points".split(" "));
+const xrStem = w => w.length > 5 && /ies$/.test(w) ? w.slice(0, -3) + "y" : w.length > 5 && /(sses|ches|shes|xes)$/.test(w) ? w.slice(0, -2) : w.length > 4 && /s$/.test(w) && !/(ss|us|is)$/.test(w) ? w.slice(0, -1) : w.length > 6 && /ing$/.test(w) ? w.slice(0, -3) : w.length > 5 && /ed$/.test(w) ? w.slice(0, -2) : w;
+const xrWords = txt => String(txt || "").toLowerCase().replace(/<[^>]*>/g, " ").split(/[^a-z\u00c0-\u024f]+/).filter(w => w.length >= 4 && !XR_STOP.has(w)).map(xrStem);
+// Chapter, unit, module, week and lecture numbers named in a text: {kind: Set of numbers}
+function xrNums(txt){
+  const out = {}, re = /\b(ch(?:apter)?s?|units?|modules?|weeks?|lectures?|lessons?)\.?\s*((?:\d{1,2}\s*(?:-|–|to|,|&|and)?\s*)+)/gi;
+  let m; while ((m = re.exec(String(txt || "")))) {
+    const k = m[1].toLowerCase().replace(/^ch.*/, "ch").replace(/s$/, ""), set = out[k] || (out[k] = new Set());
+    const parts = m[2].replace(/–|to/g, "-").split(/,|&|and/);
+    parts.forEach(p => { const r = p.split("-").map(x => parseInt(x, 10)).filter(n => n >= 0 && n < 100); if (r.length === 2 && r[1] >= r[0] && r[1] - r[0] < 30) { for (let i = r[0]; i <= r[1]; i++) set.add(i); } else if (r.length) set.add(r[0]); });
+  }
+  return out;
+}
+const xrNumHit = (nums, txt) => { const t = xrNums(txt); return Object.keys(t).some(k => nums[k] && [...t[k]].some(n => nums[k].has(n))); };
+// When a card was made: card ids start with the time they were created
+const cardBorn = c => { const n = parseInt(String(c.id || "").slice(0, 8), 36); return n > 1.4e12 && n < Date.now() + 864e5 ? n : 0; };
+const isCumulative = ex => /\b(final|cumulative|comprehensive)\b/i.test((ex.title || "") + " " + (ex.notes || ""));
+let XE_CACHE = {k: "", m: {}};
+// The words of a practice quiz (its title, what it was made from, and its questions), to match it to an exam's topics
+const quizText = qz => [qz.title, ...(qz.sources || []), ...(qz.questions || []).map(q => Object.values(q || {}).filter(v => typeof v === "string").join(" "))].join(" ");
+// The results of a set of quizzes, newest first: [{at, score, total}]
+const quizResults = list => list.flatMap(qz => (qz.results || []).filter(r => r && Number(r.total) > 0 && Number(r.at) > 0));
+// What the AI's deck choice for an exam was based on: the course's decks and the exam's instructions (a change in either retires it)
+const xrAiSig = ex => decksArr().filter(d => d.courseId && d.courseId === ex.courseId).map(d => d.id).sort().join(",") + "|" + String(ex.notes || "").length;
+const xrAiDecks = ex => { const a = ex.aiDecks; return a && Array.isArray(a.ids) && a.ids.length && typeof autoPlanOn === "function" && autoPlanOn() && Date.now() - (Number(a.at) || 0) < 21 * 864e5 && a.sig === xrAiSig(ex) ? a.ids : null; };
+function examEvidence(ex){
+  const k = todayISO() + "|" + (state.updated || 0);
+  if (XE_CACHE.k !== k) XE_CACHE = {k, m: {}};
+  const aiIds = xrAiDecks(ex), ck = ex.id + "|" + (ex.readyDecks || []).join(",") + "|" + (ex.notes || "").length + "|" + ex.title + "|" + ex.courseId + "|" + (aiIds || []).join(",");
+  if (ex.id && XE_CACHE.m[ck]) return XE_CACHE.m[ck];
+  const live = c => !c.draft, alive = Object.values(state.decks || {}).filter(d => d && !d.archived);
+  const all = alive.filter(d => !isQuizHolder(d)), course = all.filter(d => ex.courseId && d.courseId === ex.courseId);
+  // Quizzes not made from flashcards (from slides, notes, a file or your own questions) live on their own, by course
+  const holders = alive.filter(d => isQuizHolder(d)), courseQz = holders.filter(d => ex.courseId && d.courseId === ex.courseId).flatMap(d => (d.aiQuizzes || []).map(qz => Object.assign({deck: d}, qz)));
+  // a flashcard deck's quiz history covers its own quizzes (made from its cards or saved in it)
+  const deckRes = ds => ds.flatMap(d => (d.quizzes || []).filter(r => r && Number(r.total) > 0 && Number(r.at) > 0));
+  let out = null;
+  const linked = (ex.readyDecks || []).map(id => alive.find(d => d.id === id)).filter(Boolean);
+  if (linked.length) {
+    const ds = linked.filter(d => !isQuizHolder(d)), qs = linked.filter(d => isQuizHolder(d)).flatMap(d => d.aiQuizzes || []);
+    out = {how: "linked", decks: ds, cards: ds.flatMap(d => d.cards.filter(live)), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
+  }
+  // Automatic AI's reading of the exam's topics against what each deck holds
+  if (!out && aiIds) {
+    const pick = aiIds.map(id => alive.find(d => d.id === id)).filter(Boolean), ds = pick.filter(d => !isQuizHolder(d)), qs = pick.filter(d => isQuizHolder(d)).flatMap(d => d.aiQuizzes || []);
+    if (pick.length) out = {how: "ai", decks: ds, cards: ds.flatMap(d => d.cards.filter(live)), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
+  }
+  if (!out && (course.length || courseQz.length)) {
+    // the exam's own words: its title, its notes, and announcements in its course that name it
+    const name = String(ex.title || "").toLowerCase().replace(/\s+/g, " ").trim();
+    let ann = ""; try { if (window.SBANN && name.length >= 4) ann = SBANN.items().filter(n => n.cid === ex.courseId && (n.title + " " + n.text).toLowerCase().includes(name)).map(n => n.title + " " + n.text).join(" "); } catch (e) {}
+    const src = [ex.title, ex.notes, ann].join(" "), nums = xrNums(src), cards = course.flatMap(d => d.cards.filter(live).map(c => ({c, d})));
+    // words that name topics: not shared by most of the course's cards and quizzes (those say nothing about this exam)
+    const docs = cards.map(({c}) => c.front + " " + c.back).concat(courseQz.map(quizText)), freq = {};
+    docs.forEach(t => new Set(xrWords(t)).forEach(w => { freq[w] = (freq[w] || 0) + 1; }));
+    const terms = new Set(xrWords(src).filter(w => (freq[w] || 0) <= Math.max(1, docs.length * 0.5)));
+    const textHit = t => xrNumHit(nums, t) || xrWords(t).some(w => terms.has(w));
+    if (terms.size || Object.keys(nums).length) {
+      const deckHit = d => xrNumHit(nums, d.name) || xrWords(d.name).some(w => terms.has(w));
+      const hit = cards.filter(({c, d}) => deckHit(d) || textHit(c.front + " " + c.back));
+      const qHit = courseQz.filter(qz => deckHit(qz.deck) || textHit(quizText(qz)));
+      const cardsOk = hit.length >= 5 && hit.length >= cards.length * 0.1 && hit.length < cards.length * 0.95, quizOk = qHit.length > 0 && qHit.length < courseQz.length;
+      if (cardsOk || (!cards.length && quizOk)) {
+        const ds = course.filter(d => hit.filter(h => h.d === d).length >= d.cards.filter(live).length * 0.5);
+        const runs = a => { const v = [...a].sort((x, y) => x - y), o = []; v.forEach(n => { const l = o[o.length - 1]; if (l && n === l[1] + 1) l[1] = n; else o.push([n, n]); }); return o.map(([x, y]) => x === y ? String(x) : x + "–" + y).join(", "); };
+        // "chapters 4-6", "unit 2" for the sheet that explains what Automatic picked
+        const label = Object.keys(nums).map(kk => ({ch: "chapter", unit: "unit", module: "module", week: "week", lecture: "lecture", lesson: "lesson"}[kk] || kk) + (nums[kk].size > 1 ? "s " : " ") + runs(nums[kk]));
+        out = {how: "topics", decks: ds, cards: hit.map(h => h.c), terms: label.concat([...terms]).slice(0, 8), quiz: deckRes(ds).concat(quizResults(qHit)), quizN: qHit.length};
+      }
+    }
+    // what was made since the course's previous exam (a later exam usually covers the newer material)
+    if (!out && !isCumulative(ex)) {
+      const prev = Object.values(state.tasks || {}).filter(t => t.id !== ex.id && t.courseId === ex.courseId && MILESTONE(t.type) && !t.prepFor && t.due && t.due < ex.due && (t.type === "Exam" || weightOf(t) >= 10)).sort((a, b) => b.due.localeCompare(a.due))[0];
+      if (prev) {
+        const since = parse(prev.due).getTime() + 864e5, fresh = cards.filter(({c, d}) => (cardBorn(c) || Number(d.created) || 0) >= since);
+        const qFresh = courseQz.filter(qz => (Number(qz.created) || Number(qz.deck.created) || 0) >= since);
+        if ((fresh.length >= 5 && fresh.length < cards.length * 0.95) || (!cards.length && qFresh.length && qFresh.length < courseQz.length)) {
+          const ds = course.filter(d => (Number(d.created) || 0) >= since);
+          out = {how: "since", decks: ds, cards: fresh.map(x => x.c), prev: prev.title, quiz: deckRes(ds).concat(quizResults(qFresh)), quizN: qFresh.length};
+        }
+      }
+    }
+    if (!out) out = {how: "course", decks: course, cards: course.flatMap(d => d.cards.filter(live)), quiz: deckRes(course).concat(quizResults(courseQz)), quizN: courseQz.length};
+  }
+  if (!out) out = {how: "none", decks: [], cards: [], quiz: [], quizN: 0};
+  if (ex.id) XE_CACHE.m[ck] = out;
+  return out;
+}
+let XR_CACHE = {k: "", m: {}};
+function examReadiness(t){
+  if (!t || !MILESTONE(t.type)) return null;
+  const today = todayISO(), k = today + "|" + (typeof state !== "undefined" ? state.updated || 0 : 0);
+  if (XR_CACHE.k !== k) XR_CACHE = {k, m: {}};
+  const ck = [t.id, t.pct, t.aiPrep && t.aiPrep.at, t.aiDecks && t.aiDecks.at, typeof autoPlanOn === "function" && autoPlanOn(), t.status, t.courseId, (t.readyDecks || []).join(","), (t.notes || "").length].join("|");
+  if (t.id && XR_CACHE.m[ck]) return XR_CACHE.m[ck];
+  const self = Number(t.pct) > 0 ? Math.max(0, Math.min(100, Math.round(Number(t.pct)))) : null;
+  const parts = {}, ws = [];
+  let n = 0;
+  // A prep plan's readiness already weighs its sessions, linked flashcards and quiz scores
+  const ps = t.id ? allTasks().filter(x => x.prepFor === t.id) : [];
+  const plan = ps.length && t.prep && window.SBPREP ? SBPREP.pct(t) : null;
+  if (plan != null) { parts.plan = plan; n += XR_FULL; }
+  else {
+    const ev = examEvidence(t), decks = ev.decks, cards = ev.cards, seen = cards.filter(c => c.seen > 0).length;
+    parts.how = ev.how; parts.prev = ev.prev || "";
+    if (cards.length >= 5 && seen >= Math.min(10, cards.length)) { parts.cards = typeof DR !== "undefined" ? DR.deck(cards, today) : null; parts.cardsSeen = seen; parts.cardsAll = cards.length; if (parts.cards != null) { ws.push([parts.cards, 1]); n += seen; } }
+    const since = Date.now() - XR_DAYS * 864e5;
+    // practice quizzes: from the exam's flashcards, and quizzes made from slides, notes or your own questions in its course
+    const qs = (ev.quiz || []).filter(q => Number(q.at) >= since).sort((a, b) => b.at - a.at).slice(0, 5);
+    if (qs.length) { parts.quiz = Math.round(qs.reduce((s2, q) => s2 + Number(q.score) / Number(q.total), 0) / qs.length * 100); parts.quizN = qs.length; ws.push([parts.quiz, 1.5]); n += qs.reduce((s2, q) => s2 + Math.min(12, Math.max(4, Number(q.total) || 6)), 0); }
+    const ai = typeof autoPlanOn === "function" && autoPlanOn() && t.status !== "done" && t.aiPrep && autoFresh(t.aiPrep, 4) ? t.aiPrep : null;
+    if (ai) { parts.ai = Math.round(Number(ai.pct) || 0); ws.push([parts.ai, 1]); n += 10; }
+  }
+  const measured = parts.plan != null ? parts.plan : ws.length ? Math.round(ws.reduce((s2, w) => s2 + w[0] * w[1], 0) / ws.reduce((s2, w) => s2 + w[1], 0)) : null;
+  const conf = measured == null ? 0 : Math.min(1, n / XR_FULL);
+  const pct = measured == null ? self : self == null ? measured : Math.round(conf * measured + (1 - conf) * self);
+  const gap = measured != null && self != null && n >= 10 && Math.abs(self - measured) >= XR_GAP ? self - measured : 0;
+  const from = measured == null ? (self == null ? "none" : "feel") : conf >= 0.999 || self == null ? "results" : "both";
+  const out = {pct, measured, self, conf, from, gap, parts, n};
+  if (t.id) XR_CACHE.m[ck] = out;
+  return out;
+}
+// What the measured readiness is made of, in words
+function readinessSource(r){
+  if (!r || !r.parts) return "";
+  const p = r.parts, bits = [];
+  if (p.plan != null) bits.push("your prep plan's sessions, flashcards and quizzes");
+  if (p.cards != null) bits.push(`${p.how === "linked" ? "the flashcards you linked" : p.how === "topics" ? "flashcards on this exam's topics" : p.how === "ai" ? "flashcards the AI matched to this exam" : p.how === "since" ? `flashcards added since ${p.prev}` : "your flashcards for the course"} (${p.cardsSeen} of ${p.cardsAll} studied)`);
+  if (p.quiz != null) bits.push(`${p.quizN === 1 ? "a practice quiz" : p.quizN + " practice quizzes"} (${p.quiz}% average)`);
+  if (p.ai != null && p.plan == null) bits.push("the AI's read of your study");
+  return bits.length > 1 ? bits.slice(0, -1).join(", ") + " and " + bits[bits.length - 1] : bits[0] || "";
+}
+// The gap between how ready you feel and what your results say, as one sentence (empty when they roughly agree)
+function readinessGapText(r){
+  if (!r || !r.gap) return "";
+  return r.gap > 0 ? `You rate yourself ${r.self}% ready, but your results say about ${r.measured}%. Testing yourself on the cards you miss is the quickest way to close the gap.`
+    : `Your results say about ${r.measured}%, more than the ${r.self}% you rate yourself. You may be further along than you think.`;
+}
+// The different days you studied for an exam before it: focus or logged time on the exam or its study sessions,
+// study sessions finished, and flashcard reviews in its course. Spreading study over several days is what makes it stick.
+const STUDY_TIME_RX = /^(?:Focus session|Logged time):? (\d+)m/;
+function examStudyDays(ex){
+  if (!ex || !ex.due) return [];
+  const days = new Set(), before = d => d && d < ex.due, dayOfMs = ms => iso(new Date(Number(ms)));
+  allTasks().filter(t => t.id === ex.id || t.prepFor === ex.id).forEach(t => {
+    (t.history || []).forEach(h => { const m = STUDY_TIME_RX.exec((h && h.text) || ""); if (m && Number(m[1]) >= 5 && Number(h.at) > 0) { const d = dayOfMs(h.at); if (before(d)) days.add(d); } });
+    if (t.prepFor && t.status === "done" && Number(t.doneAt) > 0) { const d = dayOfMs(t.doneAt); if (before(d)) days.add(d); }
+  });
+  if (ex.courseId) Object.values(state.decks || {}).filter(d => d.courseId === ex.courseId && d.rv).forEach(d => Object.keys(d.rv).forEach(k => { if (before(k) && Number(d.rv[k]) >= 5 && k >= addDays(ex.due, -30)) days.add(k); }));
+  return [...days].sort();
+}
+// Studied for it on 3 or more days, starting 5 or more days before
+const examSpread = ex => { const ds = examStudyDays(ex); return ds.length >= 3 && ds[0] <= addDays(ex.due, -5); };
 function progress(t){
   if (t.breakdownParent) { const k = allTasks().filter(x => x.breakdownOf === t.id); if (k.length) { const d = k.filter(x => x.status === "done").length; return {total: k.length, done: d, frac: t.status === "done" ? 1 : d / k.length, ms: true}; } }
   const total = (t.checklist || []).length, done = (t.checklist || []).filter(i => i.done).length;
@@ -131,8 +298,10 @@ function progress(t){
     const ps = t.status === "done" ? [] : allTasks().filter(x => x.prepFor === t.id);
     const pm = ps.reduce((s, x) => s + (Number(x.hours) || 0), 0), dm = ps.filter(x => x.status === "done").reduce((s, x) => s + (Number(x.hours) || 0), 0);
     const ai = autoPlanOn() && t.status !== "done" && t.aiPrep && autoFresh(t.aiPrep, 4) ? t.aiPrep : null;
-    const pr = ps.length && t.prep && window.SBPREP ? SBPREP.pct(t) : null;
-    return {total, done, frac: t.status === "done" ? 1 : pr != null ? pr / 100 : ai ? ai.pct / 100 : Math.max((Number(t.pct) || 0) / 100, pm ? dm / pm : 0), prep: true, plan: ps.length, ai};
+    const xr = examReadiness(t), sess = pm ? dm / pm : 0;
+    // Measured readiness leads; with no evidence at all, how ready you feel (or the share of planned sessions done)
+    const frac = t.status === "done" ? 1 : xr && xr.measured != null ? xr.pct / 100 : Math.max((Number(t.pct) || 0) / 100, sess);
+    return {total, done, frac, prep: true, plan: ps.length, ai, xr};
   }
   return {total, done, frac: total ? done / total : (t.status === "done" ? 1 : (Number(t.pct) || 0) / 100)};
 }

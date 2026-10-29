@@ -92,7 +92,8 @@ const courseTag = t => { const c = courseOf(t.courseId); return c ? courseLabel(
 
 /* Do This Next */
 const laneOpts = m => ({dayEnd: EXAMMODE.dayEnd(m.exam), examDay: m.days <= 0});
-const riskOf = x => x.dl < 0 || (x.behind || 0) >= 0.5 || (x.own || 0) >= 1 || (x.rho || 0) >= 0.9;
+// Short of time counting the other work only: the exam's own study time (Today's Plan counts it) is what this weighs against
+const riskOf = x => x.dl < 0 || (x.behindW ?? x.behind ?? 0) >= 0.5 || (x.own || 0) >= 1 || (x.rhoW ?? x.rho ?? 0) >= 0.9;
 const studyToday = t => { const d0 = new Date(); d0.setHours(0, 0, 0, 0); return (t.history || []).reduce((m, h) => { const mm = /^Focus session:? (\d+)m/.exec(h.text || ""); return mm && h.at >= d0.getTime() ? m + Number(mm[1]) : m; }, 0); };
 // Called by nextUp with its scored list (each {x, s, why})
 function rankNext(F, scored, pool, focusLen){
@@ -100,7 +101,8 @@ function rankNext(F, scored, pool, focusLen){
   const ex = m.exam, exDue = EXAMMODE.dueMs(ex), chip = EXAMMODE.tag(ex, m.days);
   const items = scored.map(y => {
     const t = y.x.t, study = t.id === ex.id || t.prepFor === ex.id;
-    return {y, id: t.id, kind: study ? "study" : EXAMMODE.isWork(t, ex) ? "work" : "other", dueMs: dueDate(t).getTime(), inWindow: y.x.dl <= EXAMMODE.DAYS && !y.x.dead, risk: riskOf(y.x)};
+    // Today's Plan's own "Study for" entry has no date of its own (it runs up to the exam), so it doesn't move what counts as before studying
+    return {y, id: t.id, kind: study ? "study" : EXAMMODE.isWork(t, ex) ? "work" : "other", dueMs: t.xs ? Infinity : dueDate(t).getTime(), inWindow: y.x.dl <= EXAMMODE.DAYS && !y.x.dead, risk: riskOf(y.x)};
   });
   const ord = EXAMMODE.order(items, exDue, laneOpts(m));
   scored.length = 0;
@@ -118,13 +120,13 @@ function rankNext(F, scored, pool, focusLen){
   ui.nextShown = "study:" + ex.id;
   const why = [`${chip}${ex.time ? " at " + fmtTime(ex.time) : ""}`, "Exam Mode"];
   if (!hasPlan) why.push("No study plan yet");
-  return {study: {x, why, step: null, mins: Math.max(focusLen, Math.min(focusLen * 2, m.days <= 1 ? focusLen * 2 : focusLen)), left: pool.length, ai: false, study: true, hasPlan, label: "Study for " + ex.title, exam: true}};
+  return {study: {x, why, step: null, mins: m.days <= 1 ? Math.min(focusLen, 30) : focusLen, left: pool.length, ai: false, study: true, hasPlan, label: "Study for " + ex.title, exam: true}};
 }
 // The task the Focus timer suggests
 function focusPick(){
   if (!current()) return "";
   const keep = ui.nextShown;
-  try { const n = nextUp(computeFocus()); return n && n.x && n.x.t ? n.x.t.id : ""; } catch (e) { return ""; } finally { ui.nextShown = keep; }
+  try { const n = nextUp(computeFocus()); return n && n.x && n.x.t ? planTaskId(n.x.t) : ""; } catch (e) { return ""; } finally { ui.nextShown = keep; }
 }
 function pomoDefault(){
   try {
@@ -157,8 +159,14 @@ function study(id){
 }
 
 /* Today: one card with a countdown tile */
-// How far along the prep is: the prep plan's readiness, else the course's decks
+// How ready you are: measured from your prep plan, flashcards and quizzes first (examReadiness), how ready you feel second
 function prepLine(ex, sm){
+  const xr = typeof examReadiness === "function" ? examReadiness(ex) : null;
+  if (xr && xr.pct != null) {
+    const n = sm ? `${sm.done} of ${sm.total} study block${sm.total === 1 ? "" : "s"} done` : "";
+    const src = xr.from === "feel" ? "how ready you feel; nothing measured yet" : xr.from === "both" ? "your results so far and how ready you feel" : "your results";
+    return {pct: xr.pct, text: `${xr.pct}% ready (from ${src})${n ? " · " + n : ""}`, gap: readinessGapText(xr)};
+  }
   if (sm) {
     const pct = sm.pct != null ? sm.pct : Math.round(sm.done / Math.max(1, sm.total) * 100);
     return {pct, text: `${pct}% prepared · ${sm.done} of ${sm.total} study block${sm.total === 1 ? "" : "s"} done`};

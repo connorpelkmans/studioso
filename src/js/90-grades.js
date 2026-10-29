@@ -207,7 +207,9 @@
       const n = clone(cur); n.mark = v;
       dlg.close();
       applyChanges([{kind: "task", id, after: n}], v ? `Mark saved: ${fmtMark(v)}` : "Mark removed");
-      if (back) setTimeout(back, 40);
+      // After an exam or quiz's first mark: a one-minute reflection (the exam wrapper), then back to where you were
+      if (v && !cur.mark && window.SBWRAP && SBWRAP.should(id)) setTimeout(() => SBWRAP.open(id, back), 60);
+      else if (back) setTimeout(back, 40);
     };
     const out = () => { const v = parseMark($("#gmIn").value); $("#gmOut").innerHTML = markPreview(v, t, g); };
     $("#gmIn").addEventListener("input", out); out();
@@ -1329,7 +1331,9 @@
     Object.values(F.info).forEach(x => {
       const t = x.t, gr = risk[t.courseId];
       if (!gr || !(hasWeight(t) || PTS_W[t.id]) || markPct(t) != null || x.dl > 21 || (x.dl < 0 && x.dead)) return;
-      x.score *= BOOST[gr.risk]; x.passBoost = gr.risk; any = true;
+      // Work due now keeps its own order (what saves the most marks today), so only its reason changes
+      if (!x.tier) x.score *= BOOST[gr.risk];
+      x.passBoost = gr.risk; any = true;
       const np = gr.need(gr.g.pass), nm = courseLabel(gr.c);
       const why = gr.risk === "risk" ? `Helps you pass ${nm}: you need about ${Math.round(np)}% on what's left` : gr.risk === "watch" ? `${nm} is close to its ${r1(gr.g.pass)}% pass mark` : `Every mark counts in ${nm}`;
       x.reasons = (x.reasons || []).slice(); x.reasons.splice(Math.min(1, x.reasons.length), 0, why);
@@ -1339,7 +1343,7 @@
     if (typeof deadlineGuard === "function") { deadlineGuard(F.ranked, x => x, "score"); F.ranked.sort((a, b) => b.score - a.score); }
     const left = splitToday(F.ranked, F.th, F.th >= F.thSet - F.doneToday - 0.001);
     F.planned = F.th - Math.max(0, left);
-    if (F.av) { try { F.avail = availPlan(F.av, F.ranked, F.th0, F.ranked.reduce((t, x) => t + (x.need || 0), 0), F.day, F.today, F.now); F.slotsBy = F.avail.by; if (F.avail.active) F.planned = F.avail.planned; } catch (e) { console.warn(e); } }
+    if (F.av) { try { F.avail = availPlan(F.av, F.ranked, F.th0, F.ranked.reduce((t, x) => t + (x.need || 0), 0), F.day, F.today, F.now, typeof nuLead === "function" ? nuLead(F) : ""); F.slotsBy = F.avail.by; if (F.avail.active) F.planned = F.avail.planned; } catch (e) { console.warn(e); } }
     F.gapWhy = planGapWhy(F);
   }
   const origFocusHtml = focusHtml;

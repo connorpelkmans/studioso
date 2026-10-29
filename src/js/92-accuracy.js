@@ -152,7 +152,46 @@ const ACC = (() => {
     });
     return s;
   }
-  return {entry, entries, parseDur, samples, wmed, shrink, global, ratio, velocity, lateness, bins, peakOf, minutesByDay, minutesByCourse, workedDays, FEEL, clamp, dayOf};
+  /* Work left, as a range */
+  const wq = (a, q) => { const s = a.slice().sort((x, y) => x.r - y.r), tot = wsum(s); let c = 0; for (const x of s) { c += x.w; if (c >= tot * q) return x.r; } return s.length ? s[s.length - 1].r : 1; };
+  const SPREAD = {lo: 0.8, hi: 1.35, n: 0};
+  // How far your tasks of this type land from the usual (relative to the middle): 20th and 80th percentile, else a typical spread
+  function spread(S, type){
+    const ty = (S || []).filter(x => x.type === type), use = ty.length >= 4 ? ty : (S || []).length >= 5 ? S : null;
+    if (!use) return Object.assign({}, SPREAD);
+    const m = wmed(use);
+    return {lo: r2(clamp(wq(use, 0.2) / m, 0.6, 0.95)), hi: r2(clamp(wq(use, 0.8) / m, 1.1, 2)), n: use.length};
+  }
+  // Share done plus time spent: your pace on this task, mixed with the estimate. The more that's done, the more the pace counts
+  function paced(E, h, p, wMin){
+    const prior = E * (1 - p);
+    if (!(p > 0) || !(h >= 0.25)) return prior;
+    const pace = Math.min(h * (1 - p) / p, 3 * Math.max(prior, 0.25));
+    const w = clamp(p, wMin || 0, 0.9);
+    return w * pace + (1 - w) * prior;
+  }
+  // Time spent with nothing marked done: up to the plan, the plan less the time; past it, the time left grows toward your long end and beyond
+  function over(E, h, hi){
+    if (h < E) return Math.max(E - h, 0.15 * E);
+    return Math.max(E * hi - h, 0.25 * E + 0.3 * (h - E));
+  }
+  // The check-in's answers, as a share done
+  const SAID = {almost: 0.9, half: 0.5, more: 0.25, barely: 0.1};
+  // o: {E planned total hours, h hours spent, p share done, said: {h left when you answered, at: hours spent then} | null, lo, hi}
+  // -> {h, lo, hi, how: "est" | "pace" | "over" | "said"}
+  function left(o){
+    const E = Math.max(0, Number(o.E) || 0), h = Math.max(0, Number(o.h) || 0), p = clamp(Number(o.p) || 0, 0, 1), lo = o.lo || SPREAD.lo, hi = o.hi || SPREAD.hi;
+    let v, how, k = 1 - p;
+    if (o.said) { const since = Math.max(0, h - o.said.at); v = over(o.said.h, since, Math.max(hi, 1.25)); how = since > o.said.h ? "over" : "said"; k = 0.6; }
+    else if (p > 0) { v = paced(E, h, p); how = h >= 0.25 ? "pace" : "est"; }
+    else if (h > 0) { v = over(E, h, hi); how = h > E ? "over" : "est"; }
+    else { v = E; how = "est"; }
+    k = clamp(k, 0.35, 1);
+    return {h: v, lo: v * (1 - (1 - lo) * k), hi: v * (1 + (hi - 1) * k), how};
+  }
+  // What a check-in answer leaves: the share it means, at your pace so far (the pace counts at least 30%, since you're past most of the plan)
+  const saidLeft = (E, h, p) => Math.min(3 * Math.max(E, 0.5), paced(E, h, p, 0.3));
+  return {entry, entries, parseDur, samples, wmed, shrink, global, ratio, velocity, lateness, bins, peakOf, minutesByDay, minutesByCourse, workedDays, FEEL, clamp, dayOf, spread, paced, over, left, saidLeft, SAID, SPREAD};
 })();
 /*ACC-END*/
 
@@ -177,6 +216,12 @@ function ratioInfo(t){
   return M.ratios[key] || (M.ratios[key] = ACC.ratio(M.S, t.type || "Other", t.courseId || ""));
 }
 const ratioFor = t => ratioInfo(t).r;
+// How far tasks like this one land from the usual, as a share (the default when there's too little history, or when learning is off)
+function spreadFor(t){
+  const M = memo(); if (!on() || !t) return Object.assign({}, ACC.SPREAD);
+  const key = "s|" + (t.type || "Other");
+  return M.ratios[key] || (M.ratios[key] = ACC.spread(M.S, t.type || "Other"));
+}
 const capScale = () => { const v = memo().vel; return on() && v && v.ok ? v.scale : 1; };
 const wkScale = d => { const v = memo().vel; return on() && v && v.ok ? (v.wk[parse(d).getDay()] || 1) : 1; };
 const startNudge = t => { const L = memo().late; return on() && L && L.nudge > 1 && t && !MILESTONE(t.type) ? L.nudge : 1; };
@@ -227,6 +272,7 @@ function early(min, taskId, why){
   if (min < MIN_EARLY) return false;
   try { SBSTATS.addFocus(min, "timer"); } catch (e) { }
   try { pomoToday(); pomo.minutes += min; pomoSave(); } catch (e) { }
+  if (taskId && isGt(taskId)) return gtAddWork(taskId, min);
   if (taskId && state.tasks[taskId] && state.tasks[taskId].status !== "done") return logTime(taskId, min, "focus", tr("acc.earlyToast", "Logged {t} of focus on {title}", {t: fmtMins(min), title: state.tasks[taskId].title.slice(0, 28)}));
   pending({min, at: Date.now(), why: why || "stop"});
   return false;
@@ -257,6 +303,8 @@ function chipHtml(c){
     const opts = c.opts.map(t => `<button type="button" class="acc-opt" data-act="acc-which" data-id="${esc(t.id)}">${esc(short(t.title, 26))}</button>`).join("");
     return `<span class="acc-q">${esc(tr("acc.which", "Which task was that for?"))} <span class="mini">${esc(fmtMins(c.min))}</span></span><span class="acc-opts">${opts}</span><button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
   }
+  if (c.kind === "left") return leftChipHtml(c);
+  if (c.kind === "learned") return `<span class="acc-q acc-note">${esc(c.text)}</span><button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
   const t = state.tasks[c.id], title = short(t ? t.title : "", 30);
   const q = (k, en) => { const [a, b] = tr(k, en, {title: "\u0001"}).split("\u0001"); return b == null ? esc(a) : `${esc(a)}<span class="acc-t">${esc(title)}</span>${esc(b)}`; };
   const lbl = (k, en, ks, ens) => `<span class="acc-l">${esc(tr(k, en))}</span><span class="acc-s" aria-hidden="true">${esc(tr(ks, ens))}</span>`;
@@ -276,7 +324,7 @@ function pending(p){
 function showPending(){
   const p = lsGet(LS_PEND, null);
   if (!p || Date.now() - p.at > 30 * 60000) { if (p) lsSet(LS_PEND, null); return; }
-  let list = []; try { list = (FOCUS ? FOCUS.ranked.map(x => x.t) : []).filter(t => canDoNow(t)); } catch (e) { list = []; }
+  let list = []; try { list = (FOCUS ? FOCUS.ranked.map(x => x.t) : []).filter(t => canDoNow(t) && !t.xs); } catch (e) { list = []; }
   if (list.length < 3) list = list.concat(tasksArr().filter(t => t.status !== "done" && canDoNow(t)).sort(sortTasks)).filter((t, i, a) => a.indexOf(t) === i);
   const opts = list.filter(t => t.status !== "done").slice(0, 3);
   if (!opts.length) { lsSet(LS_PEND, null); return; }
@@ -301,6 +349,83 @@ function answerTook(patch, msg){
   applyChanges([{kind: "task", id: t.id, after: Object.assign(clone(t), patch)}], msg || tr("acc.noted", "Thanks, noted"));
   LEARN = null;
 }
+
+/* The check-in: most of the planned time is spent and the task isn't done, so how much is left? */
+const LS_LEFT = "studyboard:acc:left";
+const LEFT_OPTS = [["almost", "Almost Done", "Almost"], ["half", "About Half", "Half"], ["more", "More Than I Thought", "More"], ["barely", "Barely Started", "Barely"]];
+// The whole task as the plan sees it now, in hours: your last answer's time plus what you said was left, else the estimate
+function planTotal(t){ const sd = saidOf(t); return sd ? sd.at + sd.h : leftInfo(t).E; }
+function leftDue(t){
+  if (!t || t.status === "done" || MILESTONE(t.type) || t.prepFor || t.xs || t.breakdownParent || !state.tasks[t.id]) return false;
+  const fm = Number(t.focusMin) || 0, plan = planTotal(t) * 60;
+  if (!(plan >= 20) || fm < 0.8 * plan) return false;
+  const asked = lsGet(LS_LEFT, {})[t.id];
+  return asked == null || fm - Number(asked) >= 0.25 * plan;
+}
+function maybeAskLeft(t){
+  if (!leftDue(t) || (chip && chip.kind !== "left" && chip.kind !== "learned")) return false;
+  const m = lsGet(LS_LEFT, {}); m[t.id] = Number(t.focusMin) || 0;
+  const ids = Object.keys(m); if (ids.length > 200) ids.slice(0, ids.length - 200).forEach(k => delete m[k]);
+  lsSet(LS_LEFT, m);
+  chipShow({kind: "left", id: t.id}, 60000);
+  return true;
+}
+const leftFor = (t, p) => ACC.saidLeft(planTotal(t), (Number(t.focusMin) || 0) / 60, p);
+const hm = h => fmtHM(Math.max(0.25, Math.round(h * 4) / 4));
+function leftChipHtml(c){
+  const t = state.tasks[c.id]; if (!t) return "";
+  const title = short(t.title, 30), fm = Number(t.focusMin) || 0;
+  const x = `<button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
+  const q = `<span class="acc-q">${esc(tr("acc.leftQ1", "How much of"))}&nbsp;<span class="acc-t">“${esc(title)}”</span>&nbsp;${esc(tr("acc.leftQ2", "is left?"))}<span class="acc-sub">${esc(tr("acc.leftSub", "{t} in so far, planned about {p}", {t: fmtMins(fm), p: hm(planTotal(t))}))}</span></span>`;
+  if (c.say) return `${q}<span class="acc-opts"><label class="acc-own acc-say"><span class="sr">${esc(tr("acc.sayLbl", "What's left, in your words"))}</span><input type="text" id="accSay" maxlength="160" autocomplete="off" placeholder="${esc(tr("acc.sayPh", "e.g. just the conclusion and references"))}" data-noenter${c.busy ? " disabled" : ""}></label><button type="button" class="acc-opt primary" data-act="acc-say-go"${c.busy ? " disabled" : ""}>${c.busy ? `<span class="ai-spin" aria-hidden="true"></span> ${esc(tr("acc.sayBusy", "Reading…"))}` : esc(tr("acc.save", "Save"))}</button><button type="button" class="acc-opt" data-act="acc-say-back">${esc(tr("acc.back", "Back"))}</button></span>${x}`;
+  return `${q}<span class="acc-opts acc-left">${LEFT_OPTS.map(([k, l, sh]) => `<button type="button" class="acc-opt" data-act="acc-left" data-v="${k}"><span class="acc-l">${esc(tr("acc.left." + k, l))}</span><span class="acc-s" aria-hidden="true">${esc(tr("acc.leftS." + k, sh))}</span><span class="acc-tm">${esc(hm(leftFor(t, ACC.SAID[k])))}</span></button>`).join("")}${aiReady() ? `<button type="button" class="acc-opt link" data-act="acc-say">${AI_ICON} ${esc(tr("acc.say", "In My Words"))}</button>` : ""}</span>${x}`;
+}
+// Saves an answer as the time left (only you mark a task done)
+function answerLeft(id, p, patch){
+  const t0 = state.tasks[id]; if (!t0) { chipHide(); return; }
+  const n = Object.assign(clone(t0), patch || {}), h = Math.round(leftFor(t0, p) * 20) / 20;
+  n.left = {h, fm: Number(n.focusMin) || 0, ck: (n.checklist || []).filter(i => i.done).length, pct: Number(n.pct) || 0, p: Math.round(p * 100) / 100, at: Date.now()};
+  chipHide();
+  applyChanges([{kind: "task", id, after: n}], tr("acc.leftToast", "About {h} left on {title}. Today's Plan is updated.", {h: hm(h), title: short(t0.title, 28)}));
+}
+const SAY_SCHEMA = {type: "OBJECT", properties: {done: {type: "INTEGER", description: "Percent of the whole task that's done, 0 to 95"}, items: {type: "ARRAY", items: {type: "INTEGER"}, description: "Numbers of the checklist items that are now done"}}, required: ["done"]};
+async function sayLeft(){
+  const c = chip, t = c && state.tasks[c.id], i = document.getElementById("accSay"), text = String(i && i.value || "").trim();
+  if (!t) { chipHide(); return; }
+  if (text.length < 2) { if (i) i.focus(); return; }
+  c.busy = true; chipShow(c, 0);
+  const ck = t.checklist || [];
+  try {
+    const r = await aiCall({task: "estimate", fast: true, maxTokens: 400, temperature: 0.1, schema: SAY_SCHEMA,
+      parts: [{text: `Task: ${t.title} (${t.type})\nInstructions: ${String(t.notes || "none").replace(/\s+/g, " ").slice(0, 700)}\nChecklist:\n${ck.map((x, k) => `${k + 1}. [${x.done ? "x" : " "}] ${x.text}`).join("\n") || "none"}\nTime spent so far: ${fmtMins(Number(t.focusMin) || 0)}. The plan expected about ${hm(planTotal(t))} in all.\nThe student says: "${text.slice(0, 160)}"`}],
+      system: "A student describes what's left of a task. Judge what percent of the whole task is done (0 to 95; never 100, only they can finish it), and which checklist items their words say are now done. Return JSON only."});
+    if (chip !== c) return;
+    const d = r.data || {}, pct = Math.max(0, Math.min(95, Math.round(Number(d.done))));
+    if (isNaN(pct)) throw new Error("bad");
+    const ticks = (Array.isArray(d.items) ? d.items : []).map(Number).filter(k => k >= 1 && k <= ck.length && !ck[k - 1].done);
+    answerLeft(t.id, Math.max(0.05, pct / 100), ticks.length ? {checklist: ck.map((x, k) => ticks.includes(k + 1) ? Object.assign({}, x, {done: true}) : x)} : null);
+  } catch (e) {
+    if (chip !== c) return;
+    c.busy = false; c.say = false; chipShow(c, 0);
+    toast(tr("acc.sayFail", "Couldn't read that just now. Pick one of the answers instead."));
+  }
+}
+// After a finished task with tracked time: how it compared, and what the plan does with that next time
+function maybeLearned(t){
+  if (!on() || !t || MILESTONE(t.type) || t.prepFor || !(Number(t.hours) > 0) || (chip && chip.kind !== "learned")) return;
+  // only for tracked time (an answer to "How long did it take?" already had its say)
+  if (Number(t.actualMin) > 0 || t.feel) return;
+  const mins = Number(t.focusMin) || 0, est = Number(t.hours) * 60;
+  if (mins < 15 || Math.abs(mins / est - 1) < 0.25 || (t.checklist || []).some(i => !i.done)) return;
+  MEMO.k = ""; const i = ratioInfo(t); if (i.n < 3) return;
+  // what the plan allowed before this task counted
+  const before = ACC.ratio(memo().S.filter(x => x.at !== Number(t.doneAt)), t.type || "Other", t.courseId || "").r;
+  const what = whatOf(t, i), moved = Math.abs(i.r - before) >= 0.05;
+  const text = tr("acc.learned", "“{title}” took {t}, against your {e} estimate.", {title: short(t.title, 30), t: fmtMins(mins), e: fmtHM(Number(t.hours))}) + " " +
+    (Math.abs(i.r - 1) < 0.1 ? tr("acc.learnedOk", "Your {what} are usually close to your estimates.", {what}) : moved ? tr("acc.learnedNow", "Plans for {what} now allow about {x}x your estimate.", {what, x: i.r.toFixed(1)}) : tr("acc.learnedSame", "Plans for {what} already allow about {x}x your estimate.", {what, x: i.r.toFixed(1)}));
+  chipShow({kind: "learned", id: t.id, text}, 9000);
+}
+const fmSeen = {};
 
 /* Passive signals */
 const tickSeen = {};
@@ -425,9 +550,14 @@ hook("act", (a, el) => {
   if (a === "acc-dismiss") { chipDismiss(); return true; }
   if (a === "acc-which") {
     const p = lsGet(LS_PEND, null), id = el.dataset.id; lsSet(LS_PEND, null); chipHide();
-    if (p && id) logTime(id, p.min, "focus", tr("acc.whichToast", "Added {t} to {title}", {t: fmtMins(p.min), title: short((state.tasks[id] || {}).title, 28)}), p.at);
+    if (p && id && isGt(id)) { gtAddWork(id, p.min); toast(tr("acc.whichToast", "Added {t} to {title}", {t: fmtMins(p.min), title: "your group task"})); }
+    else if (p && id) logTime(id, p.min, "focus", tr("acc.whichToast", "Added {t} to {title}", {t: fmtMins(p.min), title: short((state.tasks[id] || {}).title, 28)}), p.at);
     return true;
   }
+  if (a === "acc-left") { if (chip && chip.kind === "left" && ACC.SAID[el.dataset.v]) answerLeft(chip.id, ACC.SAID[el.dataset.v]); return true; }
+  if (a === "acc-say") { if (chip && chip.kind === "left") { chip.say = true; chipShow(chip, 0); const i = document.getElementById("accSay"); if (i) i.focus(); } return true; }
+  if (a === "acc-say-back") { if (chip && chip.kind === "left") { chip.say = false; chipShow(chip, 60000); } return true; }
+  if (a === "acc-say-go") { sayLeft(); return true; }
   if (a === "acc-feel") { answerTook({feel: el.dataset.v}); return true; }
   if (a === "acc-exact") { if (chip) { chip.exact = true; chipShow(chip, 0); const i = document.getElementById("accExact"); if (i) i.focus(); } return true; }
   if (a === "acc-feel-back") { if (chip) { chip.exact = false; chipShow(chip, 30000); } return true; }
@@ -457,6 +587,7 @@ hook("act", (a, el) => {
 });
 document.addEventListener("keydown", e => {
   if (e.key !== "Enter" || !e.target || !e.target.id) return;
+  if (e.target.id === "accSay") { e.preventDefault(); sayLeft(); return; }
   if (e.target.id === "accExact") { e.preventDefault(); const b = document.querySelector('[data-act="acc-exact-save"]'); if (b) b.click(); }
   else if (e.target.id === "accLogIn") { e.preventDefault(); const b = document.querySelector('[data-act="acc-log-add"]'); if (b) b.click(); }
 }, true);
@@ -465,7 +596,18 @@ hook("changed", changes => {
   tickScan(changes);
   const fresh = changes.filter(c => c.kind === "task" && c.after && c.after.status === "done" && c.after.doneAt && Date.now() - c.after.doneAt < 4000);
   changes.forEach(c => { if (chip && chip.kind === "took" && c.kind === "task" && c.id === chip.id && c.after && c.after.status !== "done") chipHide(); });
-  if (fresh.length) maybeAskTook(fresh[0].after, fresh.length);
+  if (fresh.length) {
+    const t = fresh[0].after;
+    maybeAskTook(t, fresh.length);
+    if (fresh.length === 1 && !(chip && chip.kind === "took")) setTimeout(() => maybeLearned(state.tasks[t.id]), 0);
+  }
+  // more time on a task that's past most of its plan: ask how much is left
+  changes.forEach(c => {
+    if (c.kind !== "task" || !c.after) return;
+    const fm = Number(c.after.focusMin) || 0, was = fmSeen[c.id]; fmSeen[c.id] = fm;
+    if (was != null && fm > was && c.after.status !== "done") setTimeout(() => maybeAskLeft(state.tasks[c.id]), 0);
+    if (chip && chip.kind === "left" && c.id === chip.id && c.after.status === "done") chipHide();
+  });
 });
 hook("menu", () => {
   const v = memo(), n = v.S.length;
@@ -477,7 +619,8 @@ function formHint(){
   const el = document.getElementById("accHint"), f = el && el.closest("form"); if (!el || !f) return;
   const g = n => { const x = f.querySelector(`[name="${n}"]`); return x ? x.value : ""; };
   const h = Number(g("hours")), t = {type: g("type") || "Other", courseId: g("courseId") || ""}, i = ratioInfo(t), s = explain(t);
-  const say = !s || !(h > 0) || MILESTONE(t.type) ? "" : `${s} ${tr("acc.hintPlan", "Today's Plan counts this as about {h}.", {h: fmtHM(h * i.r)})}`;
+  const sp = spreadFor(t), q = x => fmtHM(Math.max(0.25, Math.round(x * 4) / 4));
+  const say = !s || !(h > 0) || MILESTONE(t.type) ? "" : `${s} ${tr("acc.hintRange", "Today's Plan counts this as about {h} ({lo} to {hi}).", {h: q(h * i.r), lo: q(h * i.r * sp.lo), hi: q(h * i.r * sp.hi)})}`;
   el.hidden = !say;
   if (el.textContent !== say) el.textContent = say;
 }
@@ -487,7 +630,7 @@ function formHint(){
   ["input", "change"].forEach(ev => document.addEventListener(ev, e => { if (e.target && e.target.closest && e.target.closest("form") && document.getElementById("accHint")) formHint(); }, true));
 }
 hook("boot", () => {
-  allTasks().forEach(t => { tickSeen[t.id] = (t.checklist || []).filter(i => i.done).length; });
+  allTasks().forEach(t => { tickSeen[t.id] = (t.checklist || []).filter(i => i.done).length; fmSeen[t.id] = Number(t.focusMin) || 0; });
   staleScan(); showPending();
   setInterval(staleScan, 10 * 60000);
 });
@@ -495,7 +638,7 @@ hook("boot", () => {
 hook("focus", e => {
   if (e && e.type === "end" && e.mode === "focus" && !e.taskId && e.minutes && !e.missed) pending({min: e.minutes, at: Date.now(), why: "end"});
 });
-const api = {ACC, time: SBTIME, ratioInfo, ratioFor, memo, capScale, wkScale, startNudge, peak, extraBins, underBoost, explain, logTime, early, askState, maybeAskTook, chip: () => chip, on, howHtml, logHtml, formHint, sig: () => (on() ? 1 : 0) + "|" + capScale(), global: () => memo().g};
+const api = {ACC, time: SBTIME, ratioInfo, ratioFor, spreadFor, memo, capScale, wkScale, startNudge, peak, extraBins, underBoost, explain, logTime, early, askState, maybeAskTook, maybeAskLeft, leftDue, chip: () => chip, on, howHtml, logHtml, formHint, sig: () => (on() ? 1 : 0) + "|" + capScale(), global: () => memo().g};
 window.__sbAcc = Object.assign({state: () => state}, api);
 return api;
 })();
