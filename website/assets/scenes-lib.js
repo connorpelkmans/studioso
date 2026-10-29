@@ -1820,7 +1820,7 @@ SCENES.neon = function (W, H, dk, rnd) {
   }
   var t1 = [], t2 = [], ty = gy - shopH - (ph ? 112 : 128);
   for (x = -20; x <= W + 20; x += 12) { t1.push([x, ty + Math.sin(x / 140) * 8]); t2.push([x, ty + 12 + Math.sin(x / 140 + 0.6) * 8]); }
-  if (ANIM) ANIM.tubes = {ty: ty, BL: BL, MG: MG}; else { tubesB.push(t1); tubesM.push(t2); }
+  if (ANIM) ANIM.tubes = {ty: ty, BL: BL, MG: MG, gy: gy}; else { tubesB.push(t1); tubesM.push(t2); }
   clouds.forEach(function (c) { var top = occ.reduce(function (m, o) { return o[0] < c.x + 150 && o[0] + o[2] > c.x - 110 ? Math.min(m, o[1]) : m; }, 1e9), y = Math.min(c.y, top - 36); if (y > 12) add(refl, 'g', ell(c.x, y, 90, 12) + ell(c.x + 30, y - 7, 40, 10), 'rgba(255,255,255,0.55)'); });
   var stz = ''; nst.forEach(function (q) { if (!b4_hid(q[0], q[1], occ) && Math.hypot(q[0] - moon[0], q[1] - moon[1]) > moon[2] + 6) stz += circ(q[0], q[1], q[2]); });
   add(near, 'h', stz, 'rgba(255,245,235,0.75)');
@@ -14982,8 +14982,15 @@ ENGINES.neon = function (A, v, dk) {
     var span = W + 500, p = ((t * 55 * f.s + (off ? span * 0.5 : 0)) % span) - 250;
     if (p > -140 && p < W + 140) { c.beginPath(); for (var s = -120; s <= 120; s += 15) { var xx = p + s; if (s === -120) c.moveTo(xx, ty(xx, t, off, ph, f)); else c.lineTo(xx, ty(xx, t, off, ph, f)); } c.strokeStyle = pulseC; c.lineWidth = 2.2; c.stroke(); }
   }
+  // night only: rain slanting through the street light, with little splash rings on the wet pavement
+  var rain = [], splash = [], RN = dk ? (v.desk ? 170 : 90) : 0, GY = (T.gy || H * 0.76) + 8, slant = 0.16;
+  for (var ri = 0; ri < RN; ri++) rain.push({x: Math.random() * (W + 80) - 40, y: Math.random() * H, v: 620 + Math.random() * 380, l: 10 + Math.random() * 14, a: 0.12 + Math.random() * 0.22, gy: GY + Math.random() * (H - GY)});
   return {
     step: function (dt, t, f) {
+      if (RN) { var sp = Math.max(0.35, f.s);
+        rain.forEach(function (r) { r.y += r.v * sp * dt; r.x += r.v * slant * sp * dt;
+          if (r.y >= r.gy) { if (splash.length < 60) splash.push({x: r.x, y: r.gy, t0: t, s: 0.6 + (r.gy - GY) / (H - GY + 1) * 0.9}); r.y = -r.l - Math.random() * 60; r.x = Math.random() * (W + 80) - 40 - H * slant * 0.5; r.gy = GY + Math.random() * (H - GY); } });
+        splash = splash.filter(function (q) { return t - q.t0 < 0.5; }); }
       sparks = sparks.filter(function (s) { return t - s < (W + 60) / vel + 1.6; });
       signs.forEach(function (s) {
         var fl = 0, tu = -1;
@@ -15018,6 +15025,11 @@ ENGINES.neon = function (A, v, dk) {
         ca.globalAlpha = 1; ca.fillStyle = '#FFFFFF'; ca.beginPath(); ca.arc(x, sy, 4.5, 0, 7); ca.fill();
       });
       ca.globalAlpha = 1;
+      if (RN) { cb.save(); cb.lineCap = 'round'; cb.strokeStyle = '#C8D4FF';
+        rain.forEach(function (r) { cb.globalAlpha = r.a; cb.lineWidth = 1; cb.beginPath(); cb.moveTo(r.x, r.y); cb.lineTo(r.x - r.l * slant, r.y - r.l); cb.stroke(); });
+        splash.forEach(function (q) { var u = (t - q.t0) / 0.5; cb.globalAlpha = 0.45 * (1 - u); cb.lineWidth = 1; cb.beginPath(); cb.ellipse(q.x, q.y, (2 + u * 9) * q.s, (0.7 + u * 2.4) * q.s, 0, 0, 7); cb.stroke();
+          if (u < 0.35) { cb.globalAlpha = 0.5 * (1 - u / 0.35); cb.beginPath(); cb.moveTo(q.x - 2 * q.s, q.y - 1); cb.lineTo(q.x - 4 * q.s, q.y - 5 * q.s * (0.5 + u)); cb.moveTo(q.x + 2 * q.s, q.y - 1); cb.lineTo(q.x + 4 * q.s, q.y - 5 * q.s * (0.5 + u)); cb.stroke(); } });
+        cb.restore(); }
     },
     finish: function (t) { if (sparks.length && t - sparks[sparks.length - 1] < 0.6) return; sparks.push(t); }
   };

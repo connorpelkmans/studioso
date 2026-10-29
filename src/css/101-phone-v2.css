@@ -569,6 +569,8 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
 @media (min-width:640px){
   html:not([data-plan-top="week"]) .plan .fh-ctl > .hours-ctl{display:none}
   html:not([data-plan-top="week"]) .plan .fh-ctl.fh-only-hours{display:none}
+  /* when nothing in the header shows, the first timeline card sits as far from the box's top as from its side */
+  html:not([data-plan-top="week"]) .plan .focus-head:has(> .fh-ctl.fh-only-hours):has(.pt-stats):not(:has(.plan-gap)) + .dtl{margin-top:-2px}
 }
 /* Phones: Time Today sits close to the top of the plan box */
 @media (max-width:639px){
