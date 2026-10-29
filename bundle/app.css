@@ -3143,6 +3143,8 @@ button.grp-item-main{cursor:pointer;min-height:44px}
 .grp-report fieldset{border:0;margin:0;padding:0;display:grid;gap:6px}
 .grp-report legend{font-weight:600;padding:0;margin-bottom:6px}
 dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;overflow:auto}
+/* phones: a bottom sheet the full width of the screen, like every other sheet (the narrower width left it pushed to the left) */
+@media (max-width:600px){dialog.ai-consent,dialog:has(.sheet.shop){width:100%;max-width:100%}}
 /* Project Tasks (shared task lists in a group) and My Group Tasks on the Board */
 .grp-pt .pt-lists{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
 .pt-chip{display:inline-flex;align-items:baseline;gap:6px;min-height:40px;max-width:100%;padding:6px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:inherit;font-weight:600;font-size:.9rem;cursor:pointer}
