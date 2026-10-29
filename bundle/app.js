@@ -543,6 +543,8 @@ function normTask(t){
     else t.wrap = {at: Number(w.at) > 0 ? Number(w.at) : 0, methods: (Array.isArray(w.methods) ? w.methods : []).filter(k => typeof k === "string" && /^[a-z]{2,12}$/.test(k)).slice(0, 12),
       start: typeof w.start === "string" && /^[a-z]{2,12}$/.test(w.start) ? w.start : "", next: String(w.next || "").replace(/<[^>]*>/g, "").slice(0, 200), felt: num(w.felt), measured: num(w.measured), mark: num(w.mark)};
   }
+  if (t.aiDecks != null && !(t.aiDecks && Array.isArray(t.aiDecks.ids) && typeof t.aiDecks.sig === "string")) delete t.aiDecks;
+  else if (t.aiDecks) t.aiDecks.ids = t.aiDecks.ids.filter(x => typeof x === "string" && x.length <= 80).slice(0, 30);
   if (t.readyDecks != null) { if (Array.isArray(t.readyDecks)) t.readyDecks = t.readyDecks.filter(x => typeof x === "string" && x.length <= 80).slice(0, 30); else delete t.readyDecks; }
   if (t.readySnap != null) {
     const r = t.readySnap, num = v => isNum(v) && Number(v) >= 0 && Number(v) <= 100 ? Math.round(Number(v)) : null;
@@ -5284,7 +5286,7 @@ const NEXT_SCHEMA = {type: "OBJECT", properties: {
   next: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, why: {type: "STRING", description: "One sentence, why this and why now"}, step: {type: "STRING", description: "The concrete first thing to do, under 80 characters"}, minutes: {type: "INTEGER"}}, required: ["ref", "why"]}, description: "Up to 5 tasks in the order to work on them right now. Never a task marked FIXED EVENT"},
   estimates: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, hours: {type: "NUMBER"}}, required: ["ref", "hours"]}, description: "Total hours for tasks marked 'no estimate'"},
   remaining: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, hours: {type: "NUMBER"}}, required: ["ref", "hours"]}, description: "Hours of work left for tasks that are started (focus time, progress or checklist)"},
-  readiness: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, pct: {type: "INTEGER"}, note: {type: "STRING", description: "Under 90 characters, e.g. the weakest area"}}, required: ["ref", "pct"]}, description: "For each exam or quiz, how ready the student is, 0 to 100"},
+  readiness: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, pct: {type: "INTEGER"}, note: {type: "STRING", description: "Under 90 characters, e.g. the weakest area"}, decks: {type: "ARRAY", items: {type: "STRING"}, description: "Refs (d1...) of this exam's listed flashcard decks and quizzes that cover its material, judged from its title, instructions and announcements against what each deck holds. Empty if you can't tell"}}, required: ["ref", "pct"]}, description: "For each exam or quiz, how ready the student is, 0 to 100"},
   headsUp: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING", description: "The task it's about (t1...), or empty"}, text: {type: "STRING", description: "Under 140 characters, specific and actionable"}}, required: ["text"]}, description: "Up to 3 things the student could easily miss, only if real: an earlier step or sooner deadline hidden in instructions, an announcement that changes a task, a crunch or a full day coming, a course near its pass mark. Empty if nothing stands out."},
   difficulty: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, level: {type: "STRING", enum: ["easy", "med", "hard"]}}, required: ["ref", "level"]}, description: "For tasks marked 'difficulty not set', how demanding the task looks from its title, type, weight and instructions"}},
   required: ["next"]};
@@ -5294,7 +5296,11 @@ async function autoPlan(a){
   if (!open.length) return;
   const ref = {}, back = {};
   open.forEach((t, i) => { ref[t.id] = "t" + (i + 1); back["t" + (i + 1)] = t.id; });
-  const deckInfo = cid => decksArr().filter(d => d.courseId && d.courseId === cid).map(d => { const s = deckStats(d); return isQuizHolder(d) ? (s.last ? `quiz "${d.name}" (made from slides, notes or own questions): last score ${s.last.score}/${s.last.total}` : "") : `${d.name}: ${Math.round(s.mastery * 100)}% mastered${s.last ? `, last quiz ${s.last.score}/${s.last.total}` : ""}`; }).filter(Boolean).join("; ");
+  // Each deck and quiz set gets a ref (d1...) and a peek at its contents, so the AI can say which ones an exam covers
+  const dref = {}, dback = {};
+  decksArr().forEach((d, i) => { dref[d.id] = "d" + (i + 1); dback["d" + (i + 1)] = d.id; });
+  const peek = d => (isQuizHolder(d) ? (d.aiQuizzes || []).flatMap(qz => [qz.title, ...(qz.sources || [])]) : d.cards.filter(c => !c.draft).slice(0, 4).map(c => c.front)).map(x => String(x || "").replace(/\s+/g, " ").slice(0, 50)).filter(Boolean).slice(0, 4).join(" / ");
+  const deckInfo = cid => decksArr().filter(d => d.courseId && d.courseId === cid).map(d => { const s = deckStats(d), pk = peek(d); return isQuizHolder(d) ? (s.last ? `${dref[d.id]} quiz "${d.name}" (made from slides, notes or own questions${pk ? ": " + pk : ""}): last score ${s.last.score}/${s.last.total}` : "") : `${dref[d.id]} ${d.name}${pk ? ` (${pk})` : ""}: ${Math.round(s.mastery * 100)}% mastered${s.last ? `, last quiz ${s.last.score}/${s.last.total}` : ""}`; }).filter(Boolean).join("; ");
   const rankOf = {}; (F.ranked || []).forEach((x, i) => { rankOf[x.t.id] = i + 1; });
   const lines = open.map(t => {
     const c = courseOf(t.courseId), p = progress(t), ps = MILESTONE(t.type) ? planSessions(t.id) : [];
@@ -5341,6 +5347,9 @@ async function autoPlan(a){
   AUTO.heads = {day: today, at: Date.now(), list: heads};
   (d.difficulty || []).forEach(x => { const id = back[x.ref], t = id && state.tasks[id]; if (!t || (t.difficulty && t.difficulty !== "med") || MILESTONE(t.type) || !["easy", "med", "hard"].includes(x.level)) return; if (t.aiDiff && t.aiDiff.level === x.level) return; patch(id, n => { n.aiDiff = {level: x.level, at: Date.now()}; }); });
   (d.readiness || []).forEach(x => { const id = back[x.ref], t = id && state.tasks[id], p = Math.max(0, Math.min(100, Math.round(Number(x.pct)))); if (!t || !MILESTONE(t.type) || isNaN(p)) return;
+    // Which decks and quizzes this exam covers (used for its readiness when you haven't chosen them yourself)
+    { const own = decksArr().filter(dk => dk.courseId && dk.courseId === t.courseId).map(dk => dk.id), ids = [...new Set((Array.isArray(x.decks) ? x.decks : []).map(r => dback[r]).filter(i => own.includes(i)))], sig = xrAiSig(t);
+      if (ids.length && !(t.aiDecks && t.aiDecks.sig === sig && t.aiDecks.ids.join(",") === ids.join(","))) patch(id, n => { n.aiDecks = {ids, sig, at: Date.now()}; }); }
     const ev = planSessions(t.id).some(z => z.status === "done") || decksArr().some(dk => dk.courseId && dk.courseId === t.courseId && (() => { const st = deckStats(dk); return st.mastery > 0 || !!st.last; })()); if (!ev) return;
     x.note = AINS.vet(x.note, {max: 90, min: 6}) ; if (t.aiPrep && Math.abs(t.aiPrep.pct - p) < 3 && autoFresh(t.aiPrep, 1)) return; patch(id, n => { n.aiPrep = {pct: p, note: x.note || "", at: Date.now()}; }); });
   if (changes.length) applyChanges(changes, null); else scheduleRender();
@@ -7805,10 +7814,13 @@ let XE_CACHE = {k: "", m: {}};
 const quizText = qz => [qz.title, ...(qz.sources || []), ...(qz.questions || []).map(q => Object.values(q || {}).filter(v => typeof v === "string").join(" "))].join(" ");
 // The results of a set of quizzes, newest first: [{at, score, total}]
 const quizResults = list => list.flatMap(qz => (qz.results || []).filter(r => r && Number(r.total) > 0 && Number(r.at) > 0));
+// What the AI's deck choice for an exam was based on: the course's decks and the exam's instructions (a change in either retires it)
+const xrAiSig = ex => decksArr().filter(d => d.courseId && d.courseId === ex.courseId).map(d => d.id).sort().join(",") + "|" + String(ex.notes || "").length;
+const xrAiDecks = ex => { const a = ex.aiDecks; return a && Array.isArray(a.ids) && a.ids.length && typeof autoPlanOn === "function" && autoPlanOn() && Date.now() - (Number(a.at) || 0) < 21 * 864e5 && a.sig === xrAiSig(ex) ? a.ids : null; };
 function examEvidence(ex){
   const k = todayISO() + "|" + (state.updated || 0);
   if (XE_CACHE.k !== k) XE_CACHE = {k, m: {}};
-  const ck = ex.id + "|" + (ex.readyDecks || []).join(",") + "|" + (ex.notes || "").length + "|" + ex.title + "|" + ex.courseId;
+  const aiIds = xrAiDecks(ex), ck = ex.id + "|" + (ex.readyDecks || []).join(",") + "|" + (ex.notes || "").length + "|" + ex.title + "|" + ex.courseId + "|" + (aiIds || []).join(",");
   if (ex.id && XE_CACHE.m[ck]) return XE_CACHE.m[ck];
   const live = c => !c.draft, alive = Object.values(state.decks || {}).filter(d => d && !d.archived);
   const all = alive.filter(d => !isQuizHolder(d)), course = all.filter(d => ex.courseId && d.courseId === ex.courseId);
@@ -7821,6 +7833,11 @@ function examEvidence(ex){
   if (linked.length) {
     const ds = linked.filter(d => !isQuizHolder(d)), qs = linked.filter(d => isQuizHolder(d)).flatMap(d => d.aiQuizzes || []);
     out = {how: "linked", decks: ds, cards: ds.flatMap(d => d.cards.filter(live)), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
+  }
+  // Automatic AI's reading of the exam's topics against what each deck holds
+  if (!out && aiIds) {
+    const pick = aiIds.map(id => alive.find(d => d.id === id)).filter(Boolean), ds = pick.filter(d => !isQuizHolder(d)), qs = pick.filter(d => isQuizHolder(d)).flatMap(d => d.aiQuizzes || []);
+    if (pick.length) out = {how: "ai", decks: ds, cards: ds.flatMap(d => d.cards.filter(live)), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
   }
   if (!out && (course.length || courseQz.length)) {
     // the exam's own words: its title, its notes, and announcements in its course that name it
@@ -7868,7 +7885,7 @@ function examReadiness(t){
   if (!t || !MILESTONE(t.type)) return null;
   const today = todayISO(), k = today + "|" + (typeof state !== "undefined" ? state.updated || 0 : 0);
   if (XR_CACHE.k !== k) XR_CACHE = {k, m: {}};
-  const ck = [t.id, t.pct, t.aiPrep && t.aiPrep.at, t.status, t.courseId, (t.readyDecks || []).join(","), (t.notes || "").length].join("|");
+  const ck = [t.id, t.pct, t.aiPrep && t.aiPrep.at, t.aiDecks && t.aiDecks.at, typeof autoPlanOn === "function" && autoPlanOn(), t.status, t.courseId, (t.readyDecks || []).join(","), (t.notes || "").length].join("|");
   if (t.id && XR_CACHE.m[ck]) return XR_CACHE.m[ck];
   const self = Number(t.pct) > 0 ? Math.max(0, Math.min(100, Math.round(Number(t.pct)))) : null;
   const parts = {}, ws = [];
@@ -7902,7 +7919,7 @@ function readinessSource(r){
   if (!r || !r.parts) return "";
   const p = r.parts, bits = [];
   if (p.plan != null) bits.push("your prep plan's sessions, flashcards and quizzes");
-  if (p.cards != null) bits.push(`${p.how === "linked" ? "the flashcards you linked" : p.how === "topics" ? "flashcards on this exam's topics" : p.how === "since" ? `flashcards added since ${p.prev}` : "your flashcards for the course"} (${p.cardsSeen} of ${p.cardsAll} studied)`);
+  if (p.cards != null) bits.push(`${p.how === "linked" ? "the flashcards you linked" : p.how === "topics" ? "flashcards on this exam's topics" : p.how === "ai" ? "flashcards the AI matched to this exam" : p.how === "since" ? `flashcards added since ${p.prev}` : "your flashcards for the course"} (${p.cardsSeen} of ${p.cardsAll} studied)`);
   if (p.quiz != null) bits.push(`${p.quizN === 1 ? "a practice quiz" : p.quizN + " practice quizzes"} (${p.quiz}% average)`);
   if (p.ai != null && p.plan == null) bits.push("the AI's read of your study");
   return bits.length > 1 ? bits.slice(0, -1).join(", ") + " and " + bits[bits.length - 1] : bits[0] || "";
@@ -11558,6 +11575,7 @@ function render(){
 function renderNow(){
   if (renderBlocked) { renderQueued = false; setTimeout(scheduleRender, 120); return; }
   try { AUTO_ON = autoState().on; } catch(e) { AUTO_ON = false; }
+  if (window.__SB_TEST && window.__sbForceAuto) AUTO_ON = true;
   try { const want = (s => skinOk(s) && SKINS.some(x => x.id === s) ? s : "classic")(styleCfg().skin); if ((document.documentElement.dataset.skin || "classic") !== want) applySkin(); } catch(e) {}
   computeFocus(); remoteStoreSoon();
   { const nd = new Date(); $("#navDate").textContent = nd.toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"}); }
@@ -65915,7 +65933,8 @@ function decksSheet(id){
   const t = state.tasks[id]; if (!isExam(t)) return;
   const ev = examEvidence(Object.assign({}, t, {readyDecks: []})), picked = new Set(t.readyDecks || []), mine = !!picked.size;
   const qn = ev.quizN ? ` and ${ev.quizN} quiz${ev.quizN === 1 ? "" : "zes"}` : "";
-  const how = ev.how === "topics" ? `matches this exam's topics (${ev.terms && ev.terms.length ? ev.terms.slice(0, 5).join(", ") : "from its notes"}) to ${ev.cards.length} card${ev.cards.length === 1 ? "" : "s"}${qn}` : ev.how === "since" ? `uses the ${ev.cards.length} cards${qn} added since ${ev.prev}` : ev.how === "course" ? `uses every flashcard and quiz in this course` : "has no flashcards or quizzes in this course to use";
+  const aiNames = ev.how === "ai" ? (t.aiDecks.ids || []).map(i => (state.decks[i] || {}).name).filter(Boolean) : [];
+  const how = ev.how === "ai" ? `uses what ${aiWho() || "Automatic AI"} matched to this exam's topics: ${aiNames.slice(0, 4).join(", ")}${aiNames.length > 4 ? ` and ${aiNames.length - 4} more` : ""} (${ev.cards.length} card${ev.cards.length === 1 ? "" : "s"}${qn})` : ev.how === "topics" ? `matches this exam's topics (${ev.terms && ev.terms.length ? ev.terms.slice(0, 5).join(", ") : "from its notes"}) to ${ev.cards.length} card${ev.cards.length === 1 ? "" : "s"}${qn}` : ev.how === "since" ? `uses the ${ev.cards.length} cards${qn} added since ${ev.prev}` : ev.how === "course" ? `uses every flashcard and quiz in this course` : "has no flashcards or quizzes in this course to use";
   // flashcard decks and quizzes made from slides, notes or your own questions, this course's first
   const decks = decksArr().slice().sort((a, b) => (b.courseId === t.courseId) - (a.courseId === t.courseId));
   openSheet(`<form class="sheet xr-sheet">${head("Which Flashcards and Quizzes Count?")}

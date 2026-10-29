@@ -44,6 +44,7 @@ function render(){
 function renderNow(){
   if (renderBlocked) { renderQueued = false; setTimeout(scheduleRender, 120); return; }
   try { AUTO_ON = autoState().on; } catch(e) { AUTO_ON = false; }
+  if (window.__SB_TEST && window.__sbForceAuto) AUTO_ON = true;
   try { const want = (s => skinOk(s) && SKINS.some(x => x.id === s) ? s : "classic")(styleCfg().skin); if ((document.documentElement.dataset.skin || "classic") !== want) applySkin(); } catch(e) {}
   computeFocus(); remoteStoreSoon();
   { const nd = new Date(); $("#navDate").textContent = nd.toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"}); }

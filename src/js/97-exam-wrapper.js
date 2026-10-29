@@ -125,7 +125,8 @@ function decksSheet(id){
   const t = state.tasks[id]; if (!isExam(t)) return;
   const ev = examEvidence(Object.assign({}, t, {readyDecks: []})), picked = new Set(t.readyDecks || []), mine = !!picked.size;
   const qn = ev.quizN ? ` and ${ev.quizN} quiz${ev.quizN === 1 ? "" : "zes"}` : "";
-  const how = ev.how === "topics" ? `matches this exam's topics (${ev.terms && ev.terms.length ? ev.terms.slice(0, 5).join(", ") : "from its notes"}) to ${ev.cards.length} card${ev.cards.length === 1 ? "" : "s"}${qn}` : ev.how === "since" ? `uses the ${ev.cards.length} cards${qn} added since ${ev.prev}` : ev.how === "course" ? `uses every flashcard and quiz in this course` : "has no flashcards or quizzes in this course to use";
+  const aiNames = ev.how === "ai" ? (t.aiDecks.ids || []).map(i => (state.decks[i] || {}).name).filter(Boolean) : [];
+  const how = ev.how === "ai" ? `uses what ${aiWho() || "Automatic AI"} matched to this exam's topics: ${aiNames.slice(0, 4).join(", ")}${aiNames.length > 4 ? ` and ${aiNames.length - 4} more` : ""} (${ev.cards.length} card${ev.cards.length === 1 ? "" : "s"}${qn})` : ev.how === "topics" ? `matches this exam's topics (${ev.terms && ev.terms.length ? ev.terms.slice(0, 5).join(", ") : "from its notes"}) to ${ev.cards.length} card${ev.cards.length === 1 ? "" : "s"}${qn}` : ev.how === "since" ? `uses the ${ev.cards.length} cards${qn} added since ${ev.prev}` : ev.how === "course" ? `uses every flashcard and quiz in this course` : "has no flashcards or quizzes in this course to use";
   // flashcard decks and quizzes made from slides, notes or your own questions, this course's first
   const decks = decksArr().slice().sort((a, b) => (b.courseId === t.courseId) - (a.courseId === t.courseId));
   openSheet(`<form class="sheet xr-sheet">${head("Which Flashcards and Quizzes Count?")}

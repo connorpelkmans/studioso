@@ -34,7 +34,7 @@ const NEXT_SCHEMA = {type: "OBJECT", properties: {
   next: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, why: {type: "STRING", description: "One sentence, why this and why now"}, step: {type: "STRING", description: "The concrete first thing to do, under 80 characters"}, minutes: {type: "INTEGER"}}, required: ["ref", "why"]}, description: "Up to 5 tasks in the order to work on them right now. Never a task marked FIXED EVENT"},
   estimates: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, hours: {type: "NUMBER"}}, required: ["ref", "hours"]}, description: "Total hours for tasks marked 'no estimate'"},
   remaining: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, hours: {type: "NUMBER"}}, required: ["ref", "hours"]}, description: "Hours of work left for tasks that are started (focus time, progress or checklist)"},
-  readiness: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, pct: {type: "INTEGER"}, note: {type: "STRING", description: "Under 90 characters, e.g. the weakest area"}}, required: ["ref", "pct"]}, description: "For each exam or quiz, how ready the student is, 0 to 100"},
+  readiness: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, pct: {type: "INTEGER"}, note: {type: "STRING", description: "Under 90 characters, e.g. the weakest area"}, decks: {type: "ARRAY", items: {type: "STRING"}, description: "Refs (d1...) of this exam's listed flashcard decks and quizzes that cover its material, judged from its title, instructions and announcements against what each deck holds. Empty if you can't tell"}}, required: ["ref", "pct"]}, description: "For each exam or quiz, how ready the student is, 0 to 100"},
   headsUp: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING", description: "The task it's about (t1...), or empty"}, text: {type: "STRING", description: "Under 140 characters, specific and actionable"}}, required: ["text"]}, description: "Up to 3 things the student could easily miss, only if real: an earlier step or sooner deadline hidden in instructions, an announcement that changes a task, a crunch or a full day coming, a course near its pass mark. Empty if nothing stands out."},
   difficulty: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, level: {type: "STRING", enum: ["easy", "med", "hard"]}}, required: ["ref", "level"]}, description: "For tasks marked 'difficulty not set', how demanding the task looks from its title, type, weight and instructions"}},
   required: ["next"]};
@@ -44,7 +44,11 @@ async function autoPlan(a){
   if (!open.length) return;
   const ref = {}, back = {};
   open.forEach((t, i) => { ref[t.id] = "t" + (i + 1); back["t" + (i + 1)] = t.id; });
-  const deckInfo = cid => decksArr().filter(d => d.courseId && d.courseId === cid).map(d => { const s = deckStats(d); return isQuizHolder(d) ? (s.last ? `quiz "${d.name}" (made from slides, notes or own questions): last score ${s.last.score}/${s.last.total}` : "") : `${d.name}: ${Math.round(s.mastery * 100)}% mastered${s.last ? `, last quiz ${s.last.score}/${s.last.total}` : ""}`; }).filter(Boolean).join("; ");
+  // Each deck and quiz set gets a ref (d1...) and a peek at its contents, so the AI can say which ones an exam covers
+  const dref = {}, dback = {};
+  decksArr().forEach((d, i) => { dref[d.id] = "d" + (i + 1); dback["d" + (i + 1)] = d.id; });
+  const peek = d => (isQuizHolder(d) ? (d.aiQuizzes || []).flatMap(qz => [qz.title, ...(qz.sources || [])]) : d.cards.filter(c => !c.draft).slice(0, 4).map(c => c.front)).map(x => String(x || "").replace(/\s+/g, " ").slice(0, 50)).filter(Boolean).slice(0, 4).join(" / ");
+  const deckInfo = cid => decksArr().filter(d => d.courseId && d.courseId === cid).map(d => { const s = deckStats(d), pk = peek(d); return isQuizHolder(d) ? (s.last ? `${dref[d.id]} quiz "${d.name}" (made from slides, notes or own questions${pk ? ": " + pk : ""}): last score ${s.last.score}/${s.last.total}` : "") : `${dref[d.id]} ${d.name}${pk ? ` (${pk})` : ""}: ${Math.round(s.mastery * 100)}% mastered${s.last ? `, last quiz ${s.last.score}/${s.last.total}` : ""}`; }).filter(Boolean).join("; ");
   const rankOf = {}; (F.ranked || []).forEach((x, i) => { rankOf[x.t.id] = i + 1; });
   const lines = open.map(t => {
     const c = courseOf(t.courseId), p = progress(t), ps = MILESTONE(t.type) ? planSessions(t.id) : [];
@@ -91,6 +95,9 @@ async function autoPlan(a){
   AUTO.heads = {day: today, at: Date.now(), list: heads};
   (d.difficulty || []).forEach(x => { const id = back[x.ref], t = id && state.tasks[id]; if (!t || (t.difficulty && t.difficulty !== "med") || MILESTONE(t.type) || !["easy", "med", "hard"].includes(x.level)) return; if (t.aiDiff && t.aiDiff.level === x.level) return; patch(id, n => { n.aiDiff = {level: x.level, at: Date.now()}; }); });
   (d.readiness || []).forEach(x => { const id = back[x.ref], t = id && state.tasks[id], p = Math.max(0, Math.min(100, Math.round(Number(x.pct)))); if (!t || !MILESTONE(t.type) || isNaN(p)) return;
+    // Which decks and quizzes this exam covers (used for its readiness when you haven't chosen them yourself)
+    { const own = decksArr().filter(dk => dk.courseId && dk.courseId === t.courseId).map(dk => dk.id), ids = [...new Set((Array.isArray(x.decks) ? x.decks : []).map(r => dback[r]).filter(i => own.includes(i)))], sig = xrAiSig(t);
+      if (ids.length && !(t.aiDecks && t.aiDecks.sig === sig && t.aiDecks.ids.join(",") === ids.join(","))) patch(id, n => { n.aiDecks = {ids, sig, at: Date.now()}; }); }
     const ev = planSessions(t.id).some(z => z.status === "done") || decksArr().some(dk => dk.courseId && dk.courseId === t.courseId && (() => { const st = deckStats(dk); return st.mastery > 0 || !!st.last; })()); if (!ev) return;
     x.note = AINS.vet(x.note, {max: 90, min: 6}) ; if (t.aiPrep && Math.abs(t.aiPrep.pct - p) < 3 && autoFresh(t.aiPrep, 1)) return; patch(id, n => { n.aiPrep = {pct: p, note: x.note || "", at: Date.now()}; }); });
   if (changes.length) applyChanges(changes, null); else scheduleRender();

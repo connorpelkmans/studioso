@@ -110,6 +110,25 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(/flashcards added since Midterm 1 \(8 of 8 studied\)/.test(await o.page.locator("dialog[open] .tv-ready").innerText()), "Midterm 2 counts the cards added since Midterm 1");
       await done(o.ctx, o.page);
     }
+    { // 5c. With Automatic AI on, the decks it matched to the exam's topics count; with it off (or the course's decks change), Studyboard's own matching does
+      const cells = {id: "d1", name: "Cells", courseId: "c1", created: 1, cards: Array.from({length: 15}, (_, i) => card("c" + i, {front: "Mitochondria function " + i, box: 4, right: 3, wrong: 0, rate: "good"}))};
+      const gen = {id: "d2", name: "Genetics", courseId: "c1", created: 2, cards: Array.from({length: 10}, (_, i) => card("g" + i, {front: "Allele dominance " + i, box: 0, right: 0, wrong: 2, rate: "again"}))};
+      const seed = {tasks: [mk("m2", "Midterm 2", "Exam", 8, Object.assign({weight: 30, aiDecks: {ids: ["d2"], sig: "d1,d2|0", at: Date.now() - DAY}}, inPerson))], decks: [cells, gen]};
+      const read = async page => { await act(page, "edit-task", "m2"); await page.waitForSelector("dialog[open] .tv-ready"); const a = await page.locator("dialog[open] .tv-ready").innerText(); await page.keyboard.press("Escape"); return a.replace(/\s+/g, " "); };
+      let o = await open(seed);
+      ok(/your flashcards for the course \(25 of 25 studied\)/.test(await read(o.page)), "with AI off, readiness falls back to the whole course");
+      await o.page.evaluate(() => { window.__sbForceAuto = true; window.__sbSync.render(); });
+      const a = await read(o.page);
+      ok(/flashcards the AI matched to this exam \(10 of 10 studied\)/.test(a), "with Automatic AI on, the deck it matched counts: " + a.slice(0, 140));
+      await act(o.page, "edit-task", "m2"); await o.page.waitForSelector("dialog[open] .tv-ready");
+      await o.page.click('dialog[open] [data-act="xr-decks"]'); await o.page.waitForSelector("dialog[open] .xr-sheet");
+      ok(/matched to this exam's topics: Genetics/.test(await o.page.locator("dialog[open] .xr-sheet").innerText()), "and the picker names it");
+      await done(o.ctx, o.page);
+      seed.decks.push({id: "d5", name: "Ecology", courseId: "c1", created: 3, cards: [card("e1")]});
+      o = await open(seed); await o.page.evaluate(() => { window.__sbForceAuto = true; window.__sbSync.render(); });
+      ok(/your flashcards for the course/.test(await read(o.page)), "a new deck in the course retires the AI's old match until it looks again");
+      await done(o.ctx, o.page);
+    }
     { // 5b. Quizzes not made from flashcards (from slides, notes or your own questions) count too, matched to the exam's topics
       const qz = (id, title, score, srcs) => ({id: "h" + id, name: title, courseId: "c1", created: 5, quizOnly: true, cards: [], quizzes: [], aiQuizzes: [{id: "q" + id, title, style: "", created: Date.now() - 3 * DAY, sources: srcs, questions: [{id: "x1", type: "single", q: "Question about " + title, choices: ["a", "b"], answer: 0}], results: [{at: Date.now() - DAY, score, total: 10}]}]});
       const {ctx, page} = await open({tasks: [mk("m2", "Midterm 2", "Exam", 8, Object.assign({weight: 30, pct: 90, notes: "Covers chapters 4 to 6."}, inPerson))],

@@ -160,10 +160,13 @@ let XE_CACHE = {k: "", m: {}};
 const quizText = qz => [qz.title, ...(qz.sources || []), ...(qz.questions || []).map(q => Object.values(q || {}).filter(v => typeof v === "string").join(" "))].join(" ");
 // The results of a set of quizzes, newest first: [{at, score, total}]
 const quizResults = list => list.flatMap(qz => (qz.results || []).filter(r => r && Number(r.total) > 0 && Number(r.at) > 0));
+// What the AI's deck choice for an exam was based on: the course's decks and the exam's instructions (a change in either retires it)
+const xrAiSig = ex => decksArr().filter(d => d.courseId && d.courseId === ex.courseId).map(d => d.id).sort().join(",") + "|" + String(ex.notes || "").length;
+const xrAiDecks = ex => { const a = ex.aiDecks; return a && Array.isArray(a.ids) && a.ids.length && typeof autoPlanOn === "function" && autoPlanOn() && Date.now() - (Number(a.at) || 0) < 21 * 864e5 && a.sig === xrAiSig(ex) ? a.ids : null; };
 function examEvidence(ex){
   const k = todayISO() + "|" + (state.updated || 0);
   if (XE_CACHE.k !== k) XE_CACHE = {k, m: {}};
-  const ck = ex.id + "|" + (ex.readyDecks || []).join(",") + "|" + (ex.notes || "").length + "|" + ex.title + "|" + ex.courseId;
+  const aiIds = xrAiDecks(ex), ck = ex.id + "|" + (ex.readyDecks || []).join(",") + "|" + (ex.notes || "").length + "|" + ex.title + "|" + ex.courseId + "|" + (aiIds || []).join(",");
   if (ex.id && XE_CACHE.m[ck]) return XE_CACHE.m[ck];
   const live = c => !c.draft, alive = Object.values(state.decks || {}).filter(d => d && !d.archived);
   const all = alive.filter(d => !isQuizHolder(d)), course = all.filter(d => ex.courseId && d.courseId === ex.courseId);
@@ -176,6 +179,11 @@ function examEvidence(ex){
   if (linked.length) {
     const ds = linked.filter(d => !isQuizHolder(d)), qs = linked.filter(d => isQuizHolder(d)).flatMap(d => d.aiQuizzes || []);
     out = {how: "linked", decks: ds, cards: ds.flatMap(d => d.cards.filter(live)), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
+  }
+  // Automatic AI's reading of the exam's topics against what each deck holds
+  if (!out && aiIds) {
+    const pick = aiIds.map(id => alive.find(d => d.id === id)).filter(Boolean), ds = pick.filter(d => !isQuizHolder(d)), qs = pick.filter(d => isQuizHolder(d)).flatMap(d => d.aiQuizzes || []);
+    if (pick.length) out = {how: "ai", decks: ds, cards: ds.flatMap(d => d.cards.filter(live)), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
   }
   if (!out && (course.length || courseQz.length)) {
     // the exam's own words: its title, its notes, and announcements in its course that name it
@@ -223,7 +231,7 @@ function examReadiness(t){
   if (!t || !MILESTONE(t.type)) return null;
   const today = todayISO(), k = today + "|" + (typeof state !== "undefined" ? state.updated || 0 : 0);
   if (XR_CACHE.k !== k) XR_CACHE = {k, m: {}};
-  const ck = [t.id, t.pct, t.aiPrep && t.aiPrep.at, t.status, t.courseId, (t.readyDecks || []).join(","), (t.notes || "").length].join("|");
+  const ck = [t.id, t.pct, t.aiPrep && t.aiPrep.at, t.aiDecks && t.aiDecks.at, typeof autoPlanOn === "function" && autoPlanOn(), t.status, t.courseId, (t.readyDecks || []).join(","), (t.notes || "").length].join("|");
   if (t.id && XR_CACHE.m[ck]) return XR_CACHE.m[ck];
   const self = Number(t.pct) > 0 ? Math.max(0, Math.min(100, Math.round(Number(t.pct)))) : null;
   const parts = {}, ws = [];
@@ -257,7 +265,7 @@ function readinessSource(r){
   if (!r || !r.parts) return "";
   const p = r.parts, bits = [];
   if (p.plan != null) bits.push("your prep plan's sessions, flashcards and quizzes");
-  if (p.cards != null) bits.push(`${p.how === "linked" ? "the flashcards you linked" : p.how === "topics" ? "flashcards on this exam's topics" : p.how === "since" ? `flashcards added since ${p.prev}` : "your flashcards for the course"} (${p.cardsSeen} of ${p.cardsAll} studied)`);
+  if (p.cards != null) bits.push(`${p.how === "linked" ? "the flashcards you linked" : p.how === "topics" ? "flashcards on this exam's topics" : p.how === "ai" ? "flashcards the AI matched to this exam" : p.how === "since" ? `flashcards added since ${p.prev}` : "your flashcards for the course"} (${p.cardsSeen} of ${p.cardsAll} studied)`);
   if (p.quiz != null) bits.push(`${p.quizN === 1 ? "a practice quiz" : p.quizN + " practice quizzes"} (${p.quiz}% average)`);
   if (p.ai != null && p.plan == null) bits.push("the AI's read of your study");
   return bits.length > 1 ? bits.slice(0, -1).join(", ") + " and " + bits[bits.length - 1] : bits[0] || "";

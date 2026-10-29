@@ -117,7 +117,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await done(ctx, page);
     }
     { // 6. Do This Next adjusts for right now, and the timeline follows it
-      const {ctx, page} = await open([mk("A", "Problem set", "Assignment", 3, 2, {weight: 10}), mk("B", "Worksheet", "Assignment", 3, 1, {weight: 10, history: [{at: Date.now() - 3600e3, text: "Focus session: 25m"}]})]);
+      const {ctx, page} = await open([mk("A", "Problem set", "Assignment", 3, 2, {weight: 10}), mk("B", "Worksheet", "Assignment", 3, 1, {weight: 10, history: [{at: new Date(iso(new Date()) + "T11:00:00").getTime(), text: "Focus session: 25m"}]})]);
       const p = await page.plan();
       ok(p.next.id === "B" && p.next.why.some(w => /just working on this/.test(w)), "right now: what you were just working on comes first");
       ok(p.firstSlot === "B", "right now: and the timeline starts with it");
