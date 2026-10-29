@@ -160,6 +160,7 @@ const LINKCARDS = (() => {
     const spin = (m, n) => { step = n || step; st.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${step ? `<b>${step}</b> ` : ""}${m} <span class="mini cl-clock">${clock()}</span>`; };
     const tick = setInterval(() => { const c = st.querySelector(".cl-clock"); if (!job.busy) clearInterval(tick); else if (c) c.textContent = clock(); }, 1000);
     spin(pasted ? `${who} is reading the text you pasted and writing study notes…` : L.kind === "youtube" ? `${who} is watching the video and writing study notes. An hour-long lecture can take a few minutes…` : `${who} is reading the page and writing study notes…`, "Step 1 of 2:");
+    aiShowStatus(st);
     const done = () => { job.busy = false; go.disabled = false; go.classList.remove("busy"); };
     try {
       const d = await readLink(L, pasted, ac && ac.signal, m => spin(esc(m)));
@@ -199,6 +200,7 @@ const LINKCARDS = (() => {
       }
       const offerPaste = !pasted && !/^(?:nokey|key|credit|offline|no-consent|cancelled|limit|busy)$/.test((e && e.code) || "");
       say(msg + (offerPaste ? (e && e.link ? " Paste the text instead, and the AI can work from that." : "") : ""), offerPaste ? PASTE : "");
+      aiJobFailed(); aiShowStatus(st);
       if (o.keepKey && sheetKept(o.keepKey)) toast(`${aiWho("AI")} couldn't finish that. Open Create with AI again to see why and try again.`, null, {label: "Open", fn: () => sheetResume(o.keepKey)}, {error: true});
     }
   }

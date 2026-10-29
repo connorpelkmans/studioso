@@ -3140,6 +3140,10 @@ const aiCopyRule = (system, task) => AI_COPY_TASKS.has(task) && typeof system ==
 /* One call, any provider */
 // How many AI requests the student is waiting on right now; the companion listens for "sb-ai-wait"
 let AI_WAITING = 0;
+// A job that got answers from the AI but still failed (the AI couldn't watch the video, nothing usable came back): the companion says so instead of "done"
+function aiJobFailed(){ try { document.dispatchEvent(new CustomEvent("sb-ai-job", {detail: {ok: false}})); } catch (e) {} }
+// The status line of a sheet scrolls into view when it changes, so a message is never hidden below the fold
+function aiShowStatus(el){ try { if (el && el.textContent.trim() && el.isConnected) el.scrollIntoView({block: "nearest", behavior: "smooth"}); } catch (e) {} }
 function aiWaiting(d){ AI_WAITING = Math.max(0, AI_WAITING + d); try { document.dispatchEvent(new CustomEvent("sb-ai-wait", {detail: AI_WAITING})); } catch (e) {} }
 async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0.4, onStatus, fast = false, timeout, auto = false, task = "", signal, search = false, urlContext = false}){
   let cfg = aiCfg();
@@ -3819,6 +3823,7 @@ function aiStudySheet(deckId, mode){
     const ac = typeof AbortController === "function" ? new AbortController() : null;
     job.ac = ac;
     status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(aiModelName(aiCfg().provider, aiCfg().model))} is reading your material and writing ${[wantCards && "flashcards", wantQuiz && "a quiz", wantCase && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")}. This usually takes 20 to 60 seconds…`;
+    aiShowStatus(status);
     try {
       const r = await aiMakeStudySet({sources, style, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10", courseName: courseOf(cId) ? courseOf(cId).name : "", signal: ac && ac.signal}, m => { status.textContent = m; });
       if (ac && ac.signal.aborted) return;
@@ -3830,6 +3835,7 @@ function aiStudySheet(deckId, mode){
     } catch(e) {
       if (e && e.code === "cancelled") return;
       console.warn(e); status.textContent = e.code ? e.message : "Something went wrong. Try again.";
+      aiJobFailed(); aiShowStatus(status);
       job.busy = false; go.disabled = false; go.classList.remove("busy");
       if (sheetKept(keyK)) toast(`${aiWho("AI")} couldn't finish that. Open Create with AI again to see why and try again.`, null, {label: "Open", fn: () => sheetResume(keyK)}, {error: true});
     }
@@ -58773,10 +58779,20 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
         if (cpAiBusy) return;
         cpJobTalked = false;
         if (!act || quietNow2() || ok === null) return;
+        if (ok && Date.now() - cpJobFail < CP_JOB_GAP + 500) ok = false;
         if (ok) { lastCheer = 0; cheer("task"); say(pickFrom("ai:ready", READY), {cheer: true, ms: 3600}); }
         else say(pickFrom("ai:oops", OOPS), {ms: 4000});
       }, CP_JOB_GAP);
     };
+    // the AI answered but the job still failed: "didn't work" instead of the "done" line that was waiting
+    let cpJobFail = 0;
+    document.addEventListener("sb-ai-job", e => {
+      if (!(e.detail && e.detail.ok === false)) return;
+      cpJobFail = Date.now();
+      if (cpAiBusy) return;
+      clearTimeout(cpJobT); cpJobTalked = false;
+      if (act && !quietNow2()) say(pickFrom("ai:oops", OOPS), {ms: 4000});
+    });
     aiCall = async function(o){
       const mine = !(o && o.auto) && !!aiName() && talkOn();
       if (!mine) return origAI.apply(this, arguments);
@@ -82072,6 +82088,7 @@ const LINKCARDS = (() => {
     const spin = (m, n) => { step = n || step; st.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${step ? `<b>${step}</b> ` : ""}${m} <span class="mini cl-clock">${clock()}</span>`; };
     const tick = setInterval(() => { const c = st.querySelector(".cl-clock"); if (!job.busy) clearInterval(tick); else if (c) c.textContent = clock(); }, 1000);
     spin(pasted ? `${who} is reading the text you pasted and writing study notes…` : L.kind === "youtube" ? `${who} is watching the video and writing study notes. An hour-long lecture can take a few minutes…` : `${who} is reading the page and writing study notes…`, "Step 1 of 2:");
+    aiShowStatus(st);
     const done = () => { job.busy = false; go.disabled = false; go.classList.remove("busy"); };
     try {
       const d = await readLink(L, pasted, ac && ac.signal, m => spin(esc(m)));
@@ -82111,6 +82128,7 @@ const LINKCARDS = (() => {
       }
       const offerPaste = !pasted && !/^(?:nokey|key|credit|offline|no-consent|cancelled|limit|busy)$/.test((e && e.code) || "");
       say(msg + (offerPaste ? (e && e.link ? " Paste the text instead, and the AI can work from that." : "") : ""), offerPaste ? PASTE : "");
+      aiJobFailed(); aiShowStatus(st);
       if (o.keepKey && sheetKept(o.keepKey)) toast(`${aiWho("AI")} couldn't finish that. Open Create with AI again to see why and try again.`, null, {label: "Open", fn: () => sheetResume(o.keepKey)}, {error: true});
     }
   }
