@@ -3619,6 +3619,15 @@ h2.sec .pill{align-self:center}
 .gr-preset{display:inline-flex;align-items:center;gap:6px;font-size:.85rem;font-weight:600}
 .gr-preset select{min-height:40px;width:auto}
 .gr-goal-ask .link-btn{min-height:40px;padding:0 8px}
+/* Target Grade on a course page */
+.gr-target{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin:12px 0 0}
+.c2-card2 .gr-target{margin:0 0 10px}
+.gr-target-l{font-weight:600}
+.gr-target-in{display:inline-flex;align-items:center;gap:4px}
+.gr-target-in input{width:5.5em;min-height:40px}
+.gr-target-in input[aria-invalid="true"]{border-color:var(--danger,#c0392b)}
+.gr-target-n{flex-basis:100%;max-width:36em}
+.gr-target-n.short{color:var(--text)}
 /* GPA, credits, past terms and Ask AI on the Grades page */
 .gp-gpa{display:flex;flex-wrap:wrap;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--accent) 5%,var(--surface))}
 .gp-g{display:grid;gap:1px;flex:1 1 150px;min-width:0;padding:8px 12px;border-radius:12px;background:var(--surface);border:1px solid var(--line)}

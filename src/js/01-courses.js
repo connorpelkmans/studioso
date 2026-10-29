@@ -521,7 +521,7 @@ function courseGradeSide(c){
   const gn = window.SBGRADES && SBGRADES.now(c); if (!gn) return "";
   return `<section class="c2-card2"><h2 class="sec"><span class="t">Grade So Far</span><span class="n">${esc(gn.fmt(gn.marked))} marked</span></h2>
     ${gn.pct != null ? `<div class="c2-big">${esc(gn.fmt(gn.pct))}${gn.letter ? `<span class="c2-letter">${esc(gn.letter)}</span>` : ""}</div><div class="prog"><span class="track"><i style="width:${Math.min(100, gn.marked).toFixed(0)}%"></i></span></div>` : ""}
-    <p class="mini" style="margin:6px 0 10px">${esc(gn.line)}</p><button class="btn small" data-act="course-tab" data-id="grades">See Grades</button></section>`;
+    <p class="mini" style="margin:6px 0 10px">${esc(gn.line)}</p>${SBGRADES.goalHtml ? SBGRADES.goalHtml(c) : ""}<button class="btn small" data-act="course-tab" data-id="grades">See Grades</button></section>`;
 }
 // The student's own decks and notes for a course
 function courseDecksHtml(c){

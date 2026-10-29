@@ -9642,7 +9642,7 @@ function courseGradeSide(c){
   const gn = window.SBGRADES && SBGRADES.now(c); if (!gn) return "";
   return `<section class="c2-card2"><h2 class="sec"><span class="t">Grade So Far</span><span class="n">${esc(gn.fmt(gn.marked))} marked</span></h2>
     ${gn.pct != null ? `<div class="c2-big">${esc(gn.fmt(gn.pct))}${gn.letter ? `<span class="c2-letter">${esc(gn.letter)}</span>` : ""}</div><div class="prog"><span class="track"><i style="width:${Math.min(100, gn.marked).toFixed(0)}%"></i></span></div>` : ""}
-    <p class="mini" style="margin:6px 0 10px">${esc(gn.line)}</p><button class="btn small" data-act="course-tab" data-id="grades">See Grades</button></section>`;
+    <p class="mini" style="margin:6px 0 10px">${esc(gn.line)}</p>${SBGRADES.goalHtml ? SBGRADES.goalHtml(c) : ""}<button class="btn small" data-act="course-tab" data-id="grades">See Grades</button></section>`;
 }
 // The student's own decks and notes for a course
 function courseDecksHtml(c){
@@ -30858,6 +30858,15 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     return {l, th, n: gr.done ? null : gr.need(th)};
   }
   const inDanger = gr => gr.risk === "risk" || gr.risk === "watch" || gr.risk === "out";
+  // A course falling short of its goal: under it now, or needing better than its average so far on the rest (still reachable)
+  function goalShort(gr){
+    const goal = gr.g.goal;
+    if (goal == null || gr.current == null || gr.done || inDanger(gr)) return null;
+    const ng = gr.need(goal);
+    if (ng == null || ng <= 0 || ng > 100) return null;
+    const under = goal - gr.current, gap = Math.max(under, ng - gr.current);
+    return gap > 0.5 ? {ng, under, gap} : null;
+  }
 
   /* Mark entry: quick sheet */
   function markSheet(id, back){
@@ -31290,6 +31299,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if ((list || []).length < 2 || u.length !== 1 || gset().passSrc === "user" || r1(gset().pass) === r1(u[0])) return;
     saveG({pass: r1(u[0]), passSrc: "school"}); scheduleRender();
   };
+  window.SBGRADES.goalHtml = c => { try { const gr = courseGrade(c); return gr.ts.length ? goalField(c, gr) : ""; } catch (e) { return ""; } };
   window.SBGRADES.now = c => { try { const gr = courseGrade(c); if (!gr.ts.length) return null; return {pct: gr.current, letter: gr.current != null ? letterOf(gr.current, gr.g.scale) : "", marked: gr.wMarked, fmt: fmtP, line: gradeLine(gr), risk: gr.risk, done: gr.done}; } catch (e) { return null; } };
   // The Grades tab of one course
   function gradeCard(c){
@@ -31309,9 +31319,9 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       <div class="gr-top">
         <div class="gr-stat"><span class="gr-k">Current Grade</span>${gr.current != null ? `<span class="gr-v">${fmtP(gr.current)}${L(gr.current) ? ` <span class="gr-l">${esc(L(gr.current))}</span>` : ""}</span><span class="mini">on ${fmtW(gr.wMarked)} of the course marked so far</span>` : `<span class="gr-v gr-none">No Marks Yet</span><span class="mini">Add a mark below</span>`}</div>
         <div class="gr-stat"><span class="gr-k">Projected Final</span>${gr.projected != null ? `<span class="gr-v">${fmtP(gr.projected)}${L(gr.projected) ? ` <span class="gr-l">${esc(L(gr.projected))}</span>` : ""}</span><span class="mini">${gr.done ? "all work marked" : `if you keep this up. Possible range ${fmtP(gr.minFinal)} to ${fmtP(gr.maxFinal)}`}</span>` : `<span class="gr-v gr-none">Not Yet</span><span class="mini">Needs a first mark</span>`}</div>
-        <div class="gr-stat gr-pass"><span class="gr-k">Pass Mark</span><span class="gr-v">${fmtP(g.pass)}${L(g.pass) ? ` <span class="gr-l">${esc(L(g.pass))}</span>` : ""}</span><span class="mini">${g.goal != null ? `Your goal: ${fmtP(g.goal)}${gg ? `<br><b class="${gg.gap >= 0 ? "gr-ok" : ""}">${esc(gg.text)}</b>` : ""}` : `<button class="btn small" data-act="g-course-set" data-id="${esc(c.id)}">Set a Goal</button>`}</span></div>
+        <div class="gr-stat gr-pass"><span class="gr-k">Pass Mark</span><span class="gr-v">${fmtP(g.pass)}${L(g.pass) ? ` <span class="gr-l">${esc(L(g.pass))}</span>` : ""}</span><span class="mini">${g.goal != null && gg ? `<b class="${gg.gap >= 0 ? "gr-ok" : ""}">${esc(gg.text)}</b>` : ""}</span></div>
       </div>
-      ${goalAsk(gr)}
+      ${goalAsk(gr) || goalField(c, gr)}
       ${gradeBar(gr)}
       ${need.length ? `<div class="gr-sub"><h4>What You Need</h4><ul class="gr-need">${need.map(x => `<li>${x}</li>`).join("")}</ul></div>` : ""}
       ${breakdownHtml(gr)}
@@ -31320,6 +31330,25 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       <div class="gr-sub"><h4>Still to Mark <span class="n">${unmarked.length}</span></h4>${unmarked.length ? `<ul class="gr-work">${gradeRows(unmarked, sw && sw.t.id)}</ul>` : `<p class="mini" style="margin:0">Every graded item has a mark. Weights add up to ${fmtW(gr.wAll)}.</p>`}</div>
     </section>`;
   }
+  // The Target Grade field on a course page (blank clears it)
+  function goalField(c, gr){
+    gr = gr || courseGrade(c); const g = gr.g, gs = goalShort(gr), gg = goalGap(gr), ng = g.goal != null && !gr.done && gr.current != null ? gr.need(g.goal) : null;
+    const note = g.goal == null ? "What you're aiming for. Today's Plan gives more time to courses falling short."
+      : gs ? `${gs.under > 0.05 ? `${r1(gs.under)} pts under it now` : "You need better than your average so far"}, so Today's Plan gives this course more time.`
+      : ng != null && ng > 100 ? "Out of reach now, even with full marks on the rest."
+      : gg ? (gg.gap >= 0 ? `On track: ${gg.text}.` : gg.text + ".") : "Shows how you're doing once there's a mark.";
+    return `<div class="gr-target"><label class="gr-target-l" for="goalIn-${esc(c.id)}">Target Grade</label><span class="gr-target-in"><input type="number" id="goalIn-${esc(c.id)}" data-goal-in="${esc(c.id)}" min="1" max="100" step="0.5" inputmode="decimal" placeholder="None" value="${g.goal != null ? esc(r1(g.goal)) : ""}" aria-describedby="goalNote-${esc(c.id)}"><span aria-hidden="true">%</span></span><span class="mini gr-target-n${gs ? " short" : ""}" id="goalNote-${esc(c.id)}">${esc(note)}</span></div>`;
+  }
+  document.addEventListener("change", e => {
+    const el = e.target; if (!el || !el.matches || !el.matches("[data-goal-in]")) return;
+    const c = courseOf(el.dataset.goalIn); if (!c) return;
+    const raw = String(el.value || "").trim(), v = raw === "" ? null : Number(raw);
+    if (v != null && (!isFinite(v) || v <= 0 || v > 100)) { el.setAttribute("aria-invalid", "true"); toast("Enter a target between 1 and 100, or leave it blank"); return; }
+    el.removeAttribute("aria-invalid");
+    const cur = gradingOf(c).goal; if ((cur == null && v == null) || (cur != null && v != null && r1(cur) === r1(v))) return;
+    const n = clone(c); n.grading = Object.assign({}, n.grading || {}, {goal: v == null ? null : r1(v)});
+    applyChanges([{kind: "course", id: c.id, after: n}], v == null ? "Target grade cleared" : `Target grade set to ${fmtP(v)}`);
+  });
   // Once a course has marks and no goal, ask what the student is aiming for
   const GOAL_NO = "studyboard:goalAskNo";
   const goalNo = () => { try { return JSON.parse(localStorage.getItem(GOAL_NO) || "[]") || []; } catch (e) { return []; } };
@@ -31996,19 +32025,32 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   };
   function boostFocus(F){
     if (!F || !F.ranked) return;
-    const risk = {};
-    coursesArr().forEach(c => { const gr = courseGrade(c); if (gr.risk) risk[c.id] = gr; });
-    if (!Object.keys(risk).length) return;
+    const risk = {}, short = {};
+    coursesArr().forEach(c => { const gr = courseGrade(c); if (gr.risk) risk[c.id] = gr; else { const gs = goalShort(gr); if (gs) short[c.id] = {gr, gs}; } });
+    if (!Object.keys(risk).length && !Object.keys(short).length) return;
     let any = false;
+    const why0 = (x, why) => { x.reasons = (x.reasons || []).slice(); x.reasons.splice(Math.min(1, x.reasons.length), 0, why); };
     Object.values(F.info).forEach(x => {
-      const t = x.t, gr = risk[t.courseId];
-      if (!gr || !(hasWeight(t) || PTS_W[t.id]) || markPct(t) != null || x.dl > 21 || (x.dl < 0 && x.dead)) return;
-      // Work due now keeps its own order (what saves the most marks today), so only its reason changes
-      if (!x.tier) x.score *= BOOST[gr.risk];
-      x.passBoost = gr.risk; any = true;
-      const np = gr.need(gr.g.pass), nm = courseLabel(gr.c);
-      const why = gr.risk === "risk" ? `Helps you pass ${nm}: you need about ${Math.round(np)}% on what's left` : gr.risk === "watch" ? `${nm} is close to its ${r1(gr.g.pass)}% pass mark` : `Every mark counts in ${nm}`;
-      x.reasons = (x.reasons || []).slice(); x.reasons.splice(Math.min(1, x.reasons.length), 0, why);
+      const t = x.t;
+      if (x.dl > 21 || (x.dl < 0 && x.dead)) return;
+      const gr = risk[t.courseId];
+      if (gr) {
+        if (!(hasWeight(t) || PTS_W[t.id]) || markPct(t) != null) return;
+        // Work due now keeps its own order (what saves the most marks today), so only its reason changes
+        if (!x.tier) x.score *= BOOST[gr.risk];
+        x.passBoost = gr.risk; any = true;
+        const np = gr.need(gr.g.pass), nm = courseLabel(gr.c);
+        why0(x, gr.risk === "risk" ? `Helps you pass ${nm}: you need about ${Math.round(np)}% on what's left` : gr.risk === "watch" ? `${nm} is close to its ${r1(gr.g.pass)}% pass mark` : `Every mark counts in ${nm}`);
+        return;
+      }
+      // Under a goal: graded work, and study sessions for a graded exam, get a smaller lift than a pass-mark risk
+      const s = short[t.courseId]; if (!s) return;
+      const ex = t.prepFor ? allTasks().find(y => y.id === t.prepFor) : null;
+      if (!(ex ? hasWeight(ex) && markPct(ex) == null : (hasWeight(t) || PTS_W[t.id]) && markPct(t) == null)) return;
+      if (!x.tier) x.score *= 1.06 + Math.min(0.12, s.gs.gap / 100);
+      x.goalBoost = true; any = true;
+      const nm = courseLabel(s.gr.c), goal = s.gr.g.goal;
+      why0(x, s.gs.under > 0.05 ? `${nm} is ${r1(s.gs.under)} pts under your ${fmtP(goal)} target: you need about ${Math.round(s.gs.ng)}% on what's left` : `To reach your ${fmtP(goal)} target in ${nm}, you need about ${Math.round(s.gs.ng)}% on what's left`);
     });
     if (!any) return;
     F.ranked.sort((a, b) => b.score - a.score);
@@ -32023,7 +32065,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const html = origFocusHtml.apply(this, arguments);
     const i = html.indexOf('class="plan-how"'); if (i < 0) return html;
     const j = html.indexOf("<" + "!--plan-how-end-->", i); if (j < 0) return html;
-    const p = `<p><b>Pass mark check</b>: when a course is close to its pass mark (you'd need 70% or more on the rest, or you're within 5% of it), its graded work due in the next 3 weeks moves up the list, without pushing aside anything due sooner. These tasks say why. Set pass marks and goals under Grades in Settings or on each course page.</p>`;
+    const p = `<p><b>Pass mark check</b>: when a course is close to its pass mark (you'd need 70% or more on the rest, or you're within 5% of it), its graded work due in the next 3 weeks moves up the list, without pushing aside anything due sooner. These tasks say why. A course under its target grade gets a smaller lift the same way, study sessions for its exams included. Set pass marks under Grades in Settings, and a Target Grade on each course page.</p>`;
     return html.slice(0, j) + p + html.slice(j);
   };
 
