@@ -97,7 +97,10 @@ const RBC = (() => {
 
 const PRO_WHY = "Rubric Check is part of Studyboard Pro: add your draft and the assignment's rubric, and it shows which criteria look weak before you submit. It gives feedback and never writes your work.";
 const LMS_F = ["cv", "bs", "bb"];
-const R = {tid: "", view: "form", rubric: "", rubSrc: "", draft: "", draftSrc: "", res: null, err: "", busy: false, cut: null, saved: 0, ac: null};
+const R = {tid: "", view: "form", rubric: "", rubSrc: "", draft: "", draftSrc: "", res: null, err: "", busy: false, cut: null, saved: 0, ac: null, el: null};
+// A check that's still running is set aside (not stopped) when you tap away, and comes back when you open Rubric Check again
+const KEY = id => "rubric:" + id;
+const shown = () => !!R.el && dlg.open && dlg.contains(R.el);
 const lines = text => window.SBGXP && SBGXP.rubricLines ? SBGXP.rubricLines(text) : String(text || "").split("\n").map(s => s.replace(/^\s*([-*•]|\d{1,2}[.)])\s+/, "").trim()).filter(s => s.length >= 6 && s.length <= 200);
 const crits = () => RBC.criteria(R.rubric, lines);
 const own = () => { try { return aiReady() && !aiTrialing(); } catch (e) { return false; } };
@@ -130,7 +133,8 @@ async function fileText(file){
 function open(id){
   const t = state.tasks[id]; if (!t) return;
   if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet(PRO_WHY); return; }
-  if (R.tid !== id) Object.assign(R, {tid: id, rubric: "", rubSrc: "", draft: "", draftSrc: "", res: null, cut: null});
+  if (sheetResume(KEY(id))) return;
+  if (R.tid !== id) { if (R.tid) sheetDrop(KEY(R.tid)); Object.assign(R, {tid: id, rubric: "", rubSrc: "", draft: "", draftSrc: "", res: null, cut: null}); }
   Object.assign(R, {view: own() ? (R.res ? "result" : "form") : "nokey", err: "", busy: false, saved: 0});
   draw();
   if (R.view === "form" && !R.rubric.trim()) autoRubric(t).then(a => { if (a && R.tid === id && !R.rubric.trim()) { R.rubric = a.text; R.rubSrc = a.src; R.rubFid = a.fid || ""; if (R.view === "form" && dlg.open && dlg.querySelector(".rbx-sheet")) draw(); } });
@@ -160,7 +164,7 @@ function resultHtml(t){
     <p class="mini" style="margin:0">This is feedback to help you revise. Your writing stays your own: Rubric Check never writes or rewrites your work.${weak && !R.saved ? " Add the weak spots as steps on this task to work through them." : ""}</p>`;
 }
 function draw(){
-  const t = state.tasks[R.tid]; if (!t) { if (dlg.open) dlg.close(); return; }
+  const t = state.tasks[R.tid]; if (!t) { if (shown()) dlg.close(); return; }
   let body = "", foot = "";
   if (R.view === "nokey") {
     body = `<p style="margin:0">Rubric Check uses AI with your own key, so your draft goes only to your own AI provider. A free Google Gemini key takes about a minute to set up.</p>`;
@@ -173,11 +177,17 @@ function draw(){
     body = formHtml(t);
     foot = `<button type="button" class="btn" data-act="edit-task" data-id="${esc(t.id)}">Back to Task</button><span class="spacer"></span><button type="button" class="btn primary ai-btn" data-rb-go ${R.busy ? "disabled" : ""}>${AI_ICON} ${R.busy ? "Checking…" : "Check My Draft"}</button>`;
   }
-  openSheet(`<div class="sheet rbx-sheet">${bandHead("Check Against Rubric", SH_IC.pencil, t.courseId ? colorOf(t.courseId) : "#2F6FE4", "", esc(t.title))}<div class="sheet-body">${body}</div><div class="sheet-foot">${foot}</div></div>`);
+  const inner = `${bandHead("Check Against Rubric", SH_IC.pencil, t.courseId ? colorOf(t.courseId) : "#2F6FE4", "", esc(t.title))}<div class="sheet-body">${body}</div><div class="sheet-foot">${foot}</div>`;
+  // redrawn in place while it's open or set aside, so a set-aside check keeps its place
+  if (shown() || (R.el && sheetKept(KEY(t.id)))) R.el.innerHTML = inner;
+  else {
+    openSheet(`<div class="sheet rbx-sheet">${inner}</div>`); R.el = dlg.querySelector(".rbx-sheet");
+    sheetKeep(KEY(t.id), {name: "Rubric Check", dirty: () => false, busy: () => R.busy, drop: () => { if (R.ac) { try { R.ac.abort(); } catch (e) {} } }});
+  }
   wire(t);
 }
 function wire(t){
-  const q = s => dlg.querySelector(s);
+  const q = s => R.el.querySelector(s);
   const su = q("[data-rb-setup]"); if (su) su.addEventListener("click", () => { aiSetupSheet(true); });
   const bk = q("[data-rb-back]"); if (bk) bk.addEventListener("click", () => { R.view = "form"; R.err = ""; draw(); });
   const sv = q("[data-rb-save]"); if (sv) sv.addEventListener("click", () => save(t.id));
@@ -206,19 +216,28 @@ async function run(id){
   if (!R.rubric.trim()) { R.err = "Add the rubric first: paste it, or choose the file."; draw(); return; }
   if (R.draft.trim().split(/\s+/).length < 30) { R.err = "Add your draft first (at least a paragraph): paste it, upload it or pick a file."; draw(); return; }
   const cr = crits(), draft = RBC.clip(R.draft, 60000), c = courseOf(t.courseId);
-  R.busy = true; R.err = ""; draw();
+  const ac = typeof AbortController === "function" ? new AbortController() : null;
+  R.ac = ac; R.busy = true; R.err = ""; draw();
   try {
-    const res = await aiCall({task: "rubric", system: RBC.SYSTEM, schema: RBC.SCHEMA, maxTokens: 8000, temperature: 0.2, timeout: 150000,
+    const res = await aiCall({task: "rubric", system: RBC.SYSTEM, schema: RBC.SCHEMA, maxTokens: 8000, temperature: 0.2, timeout: 150000, signal: ac ? ac.signal : undefined,
       parts: [{text: RBC.prompt({title: t.title, course: c ? courseLabel(c) : "", crits: cr, rubric: R.rubric, draft})}]});
+    if (ac && ac.signal.aborted) return;
     const out = RBC.parse(res && res.data, cr, draft.text);
     if (!out) throw Object.assign(new Error("The AI's answer didn't make sense. Try again."), {code: "bad"});
     Object.assign(R, {res: out, cut: draft, view: "result", saved: 0});
   } catch (e) {
+    if ((ac && ac.signal.aborted) || (e && e.code === "cancelled")) return;
     R.err = (e && e.message) || "Couldn't check your draft right now. Try again.";
     if (e && e.code === "nokey") R.view = "nokey";
-  } finally { R.busy = false; }
-  if (R.tid === id && dlg.open && dlg.querySelector(".rbx-sheet")) draw();
+  } finally { if (R.ac === ac) { R.busy = false; R.ac = null; } }
+  if (R.tid !== id) return;
+  // finished while set aside: the result waits in the sheet, and a toast says so
+  const away = !shown() && sheetKept(KEY(id));
+  if (!shown() && !away) return;
+  draw();
+  if (away) { if (R.view === "result") sheetReady(KEY(id), null, "Your rubric check is ready"); else toast("Rubric Check couldn't finish that. Open it again to see why.", null, {label: "Open", fn: () => open(id)}, {error: true}); }
 }
+
 function save(id){
   const t = state.tasks[id]; if (!t || !R.res) return;
   const add = RBC.steps(R.res.rows, t.checklist, uid); if (!add.length) return;

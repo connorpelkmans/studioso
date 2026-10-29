@@ -510,7 +510,7 @@ Rules:
 Return JSON only.`;
   const prompt = `Assignment title: ${S.title}\nCourse: ${c ? c.name : "not given"}\nType: ${S.type}\nEstimated total effort: ${hours} hours\nLikely kind: ${S.kind || "unknown"}\n\nAssignment text:\n"""\n${text || "(no text was given, only the title)"}\n"""`;
   return await aiRetry(async () => {
-    const r = await aiCall({task: "breakdown", maxTokens: 4000, temperature: 0.3, onStatus, schema: BD_SCHEMA, system, parts: [{text: prompt}]});
+    const r = await aiCall({task: "breakdown", maxTokens: 4000, temperature: 0.3, onStatus, signal: S.ac ? S.ac.signal : undefined, schema: BD_SCHEMA, system, parts: [{text: prompt}]});
     const v = BD.vetAi(r.data, {text, title: S.title, kind: S.kind, hours});
     if (!v.ok) { const e = new Error("The AI's plan wasn't usable, so the simple template is used."); e.code = "bad"; e.vet = v; throw e; }
     return v;
@@ -694,23 +694,31 @@ function wire(S){
   $("#bdGo").addEventListener("click", () => commit(S));
 }
 async function runAi(S, manual){
-  const msg = $("#bdAiMsg"), btn = $("#bdAi"); if (!msg || S.aiBusy) return;
+  const msg = S.root.querySelector("#bdAiMsg"), btn = S.root.querySelector("#bdAi"); if (!msg || S.aiBusy) return;
   if (!aiReady()) return;
   const now = Date.now();
   if (manual && (S.aiN >= 4 || now - (S.aiLast || 0) < 6000)) { msg.textContent = S.aiN >= 4 ? "That's enough AI tries for this plan. Edit it by hand or use the template." : "Give it a few seconds between tries."; return; }
   if (!manual && !aiOkNow()) return;
   S.aiBusy = true; S.aiN = (S.aiN || 0) + 1; S.aiLast = now; if (btn) btn.disabled = true;
+  S.ac = typeof AbortController === "function" ? new AbortController() : null;
   msg.textContent = "Making the steps specific to your assignment…";
   try {
     const v = await aiStages(S, m => { if (msg) msg.textContent = m; });
-    if (CUR !== S || !dlg.open) return;
-    if (!manual && S.dirty) { msg.textContent = "AI steps ready, but you've already edited the plan. Tap Regenerate with AI to use them."; S.aiStages = v.stages; return; }
-    S.aiStages = v.stages; S.kind = v.kind || S.kind; rebuild({useAi: true});
-    msg.textContent = v.dropped ? `Used the AI's steps (${v.dropped} generic one${v.dropped === 1 ? "" : "s"} left out).` : "Used the AI's steps.";
+    if (S.dropped) return;
+    // finished while set aside: used when the sheet comes back, and a toast says so
+    if (CUR !== S || !dlg.open || !dlg.contains(S.root)) { if (sheetKept(S.key)) { S.pendingAi = {v, manual}; S.aiBusy = false; sheetReady(S.key, null, `AI steps for ${S.title || "your assignment"} are ready`); } return; }
+    useAi(S, v, manual);
   } catch (e) {
+    if (S.dropped || (e && e.code === "cancelled")) return;
     console.warn("breakdown AI", e);
     if (msg) msg.textContent = (e && e.code && e.code !== "bad" ? e.message : "The AI's steps weren't usable, so the simple template stays.");
-  } finally { S.aiBusy = false; if (btn) btn.disabled = false; }
+  } finally { S.aiBusy = false; S.ac = null; if (btn) btn.disabled = false; }
+}
+function useAi(S, v, manual){
+  const msg = S.root.querySelector("#bdAiMsg");
+  if (!manual && S.dirty) { msg.textContent = "AI steps ready, but you've already edited the plan. Tap Regenerate with AI to use them."; S.aiStages = v.stages; return; }
+  S.aiStages = v.stages; S.kind = v.kind || S.kind; rebuild({useAi: true});
+  msg.textContent = v.dropped ? `Used the AI's steps (${v.dropped} generic one${v.dropped === 1 ? "" : "s"} left out).` : "Used the AI's steps.";
 }
 
 function commit(S){
@@ -770,11 +778,15 @@ function openFor(taskId, opts){
   const S = baseState({mode, id: t.id, title: t.title, courseId: t.courseId, type: t.type, due: t.due, time: t.time, link: t.link, text: String(t.notes || "").slice(0, 6000), hours: isNum(t.hours) && Number(t.hours) > 0 ? Number(t.hours) : "",
     difficulty: t.difficulty, kids, catchup: !!opts.catchup, kind: t.bdKind || ""});
   if (mode === "replan") S.allowPast = false;
+  S.key = "bd:" + t.id + (opts.catchup ? ":catchup" : "");
+  if (sheetResume(S.key)) return;
   show(S);
 }
 function openNew(preset){
   preset = preset || {};
-  const S = baseState({mode: "new", courseId: preset.courseId || "", title: preset.title || "", due: preset.due || ""});
+  // a title or date handed in (from the task form) starts a fresh one; otherwise a set-aside one comes back
+  const S = baseState({mode: "new", courseId: preset.courseId || "", title: preset.title || "", due: preset.due || "", key: "bd:new"});
+  if (preset.title || preset.due) sheetDrop(S.key); else if (sheetResume(S.key)) return;
   show(S);
   if (preset.title) $("#bdTitle").value = preset.title;
   if (preset.due) $("#bdDue").value = preset.due;
@@ -784,7 +796,15 @@ function show(S){
   S.hoursEff = Number(S.hours) > 0 ? Number(S.hours) : BD.defaultHours(S.kind || BD.detectKind(S.title, S.text), S.difficulty);
   if (!S.kind) S.kind = BD.detectKind(S.title, S.text);
   openSheet(sheetHtml(S));
-  dlg.addEventListener("close", () => { if (CUR === S) CUR = null; }, {once: true});
+  S.root = dlg.querySelector(".bd-sheet");
+  const arm = () => dlg.addEventListener("close", () => { if (CUR === S) CUR = null; }, {once: true});
+  arm();
+  // tapping away keeps a plan you've worked on (or one AI is still writing); Cancel or Create clears it
+  S.root.addEventListener("input", () => { S.touched = true; }); S.root.addEventListener("change", () => { S.touched = true; });
+  S.root.addEventListener("click", e => { if (e.target.closest("[data-a], #bdAdd")) S.touched = true; });
+  sheetKeep(S.key || "bd:" + (S.id || "new"), {name: "Break It Down", busy: () => !!(S.aiBusy || S.reading), dirty: () => !!(S.touched || S.pendingAi || (S.plan && S.plan.source === "ai")),
+    drop: () => { S.dropped = true; if (S.ac) { try { S.ac.abort(); } catch (e) {} } },
+    resume: () => { CUR = S; arm(); if (S.pendingAi) { const p = S.pendingAi; S.pendingAi = null; useAi(S, p.v, p.manual); } }});
   wire(S);
   if (S.mode === "new") wireNew(S);
   else {
@@ -793,6 +813,7 @@ function show(S){
   }
 }
 function wireNew(S){
+  const $ = q => S.root.querySelector(q);
   const txt = $("#bdText"), file = $("#bdFile"), msg = $("#bdFileMsg");
   const sync = () => {
     const t = txt.value, today = todayISO();
@@ -804,7 +825,7 @@ function wireNew(S){
   $("#bdPick").addEventListener("click", () => file.click());
   file.addEventListener("change", async () => {
     const f = file.files && file.files[0]; file.value = ""; if (!f) return;
-    msg.textContent = "Reading…";
+    msg.textContent = "Reading…"; S.reading = true;
     try {
       let t = "";
       if (/\.txt$/i.test(f.name) || f.type === "text/plain") t = (await f.text()).slice(0, 20000);
@@ -824,7 +845,9 @@ function wireNew(S){
       if (!t) { msg.textContent = "Couldn't find any text there."; return; }
       txt.value = t; msg.textContent = `Read ${f.name}.`; sync();
     } catch (e) { console.warn(e); msg.textContent = e && e.code ? e.message : "Couldn't read that file. Paste the text instead."; }
+    finally { S.reading = false; S.touched = true; if (!S.dropped && sheetKept(S.key)) sheetReady(S.key, null, `Read ${f.name}`); }
   });
+
   $("#bdMake").addEventListener("click", () => {
     const today = todayISO(), title = $("#bdTitle").value.trim(), due = $("#bdDue").value, mm = $("#bdMakeMsg");
     if (!title) { mm.textContent = "Add a title."; $("#bdTitle").focus(); return; }

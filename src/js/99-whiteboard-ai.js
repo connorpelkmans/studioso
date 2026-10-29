@@ -19,6 +19,9 @@
   }
   function sheet(){
     const id = W.curId(), n = state.notes[id]; if (!n) return;
+    // tapping away while the board is read (or with typed notes not saved yet) sets this aside; Cancel or Save clears it
+    const KK = "wb-ai:" + id;
+    if (sheetResume(KK)) return;
     if (!(W.board() && (W.board().strokes.length || W.board().items.length))) { toast("Draw or write something on the board first."); return; }
     if (!aiReady()) { aiSetupSheet(true); return; }
     W.flush();
@@ -36,49 +39,62 @@
         <p class="status-msg" id="wbaStatus" style="margin:0" aria-live="polite"></p>
       </div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="wbaGo">${AI_ICON} Read the Board</button></div></form>`);
+    const root = dlg.querySelector(".wb-ai-sheet"), $ = q => root.querySelector(q), job = {busy: false, dropped: false, ac: null, read: false, key: KK};
+    sheetKeep(KK, {name: "Notes and Cards", dirty: () => job.read, busy: () => job.busy, drop: () => { job.dropped = true; if (job.ac) { try { job.ac.abort(); } catch (e) {} } }});
     let src = null;
     const deckOpts = () => { const cid = $("#wbaCourse").value, ds = (typeof deckListArr === "function" ? deckListArr() : []).filter(d => (d.courseId || "") === cid);
       $("#wbaDeck").innerHTML = ds.map(d => `<option value="${esc(d.id)}">${esc(d.name)}</option>`).join("") + `<option value="__new">New deck: ${esc(W.boardName(n))}</option>`; };
-    const kindNow = () => (dlg.querySelector('input[name="wbaK"]:checked') || {}).value;
+    const kindNow = () => (root.querySelector('input[name="wbaK"]:checked') || {}).value;
     const syncKind = () => { const pics = kindNow() === "pics"; $("#wbaDeckL").hidden = !pics; if (pics) deckOpts(); const go = $("#wbaGo"); if (go && !go.disabled) go.innerHTML = pics ? "Make Picture Cards" : `${AI_ICON} Read the Board`; };
-    dlg.querySelectorAll('input[name="wbaK"]').forEach(r => r.addEventListener("change", syncKind)); $("#wbaCourse").addEventListener("change", () => { if (kindNow() === "pics") deckOpts(); });
+    root.querySelectorAll('input[name="wbaK"]').forEach(r => r.addEventListener("change", syncKind)); $("#wbaCourse").addEventListener("change", () => { if (kindNow() === "pics") deckOpts(); });
     boardPart(state.notes[id] || n).then(p => { src = p; const im = $("#wbaImg"); if (im) im.src = p.url; }).catch(() => {});
     const status = $("#wbaStatus");
     $("#wbaGo").addEventListener("click", async () => {
-      if (kindNow() === "pics") { picCards(id, n, $("#wbaCourse").value, $("#wbaDeck").value); return; }
-      const go = $("#wbaGo"), want = (dlg.querySelector('input[name="wbaK"]:checked') || {}).value === "cards", cid = $("#wbaCourse").value;
+      if (job.busy) return;
+      if (kindNow() === "pics") { picCards(id, n, $("#wbaCourse").value, $("#wbaDeck").value, root, job); return; }
+      const go = $("#wbaGo"), want = kindNow() === "cards", cid = $("#wbaCourse").value;
       go.disabled = true; go.classList.add("busy"); status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Reading your board…`;
+      job.busy = true; const ac = job.ac = typeof AbortController === "function" ? new AbortController() : null;
       try {
         if (!src) src = await boardPart(state.notes[id] || n);
         const c = courseOf(cid);
-        const r = await aiCall({task: "photo", maxTokens: 8000, schema: SCHEMA, system: SYSTEM, onStatus: m => { status.textContent = m; },
+        const r = await aiCall({task: "photo", maxTokens: 8000, schema: SCHEMA, system: SYSTEM, signal: ac ? ac.signal : undefined, onStatus: m => { status.textContent = m; },
           parts: [src.part, {text: `Course: ${c ? c.name : "not given"}. Board name: ${W.boardName(n)}. Turn this whiteboard into typed study notes.`}]});
         const d = (r && r.data) || {}, title = String(d.title || W.boardName(n)).trim(), notes = String(d.notes || "").trim();
         if (!notes) throw aiErr("empty", "Couldn't read anything on the board. Try writing bigger, or zoom in and export the part you need.");
-        review(id, title, notes, cid, want);
-      } catch (e) { if (!dlg.open) return; status.textContent = (e && e.message) || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy"); }
+        job.busy = false; if (job.dropped) return;
+        job.read = true; review(id, title, notes, cid, want, root);
+        sheetReady(KK, null, "Typed notes from your board are ready to check");
+      } catch (e) {
+        job.busy = false; if (job.dropped || (e && e.code === "cancelled")) return;
+        status.textContent = (e && e.message) || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy");
+        if (sheetKept(KK)) toast("Couldn't read the board. Open Notes and Cards again to see why.", null, {label: "Open", fn: () => sheetResume(KK)}, {error: true});
+      }
     });
   }
   // Picture flashcards (Pro)
   const picLocked = () => { try { return !!(window.SBPRO && SBPRO.locked()); } catch (e) { return true; } };
-  async function picCards(id, n, cid, deckSel){
+  async function picCards(id, n, cid, deckSel, root, job){
     if (picLocked()) { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Picture flashcards from your whiteboards are part of Studyboard Pro: the board becomes a picture card with its labels hidden, to guess."); return; }
     if (!window.SBPRO || !SBPRO.scanImage || !SBPRO.openImageEditor) { toast("Picture cards aren't available here."); return; }
-    const go = $("#wbaGo"), status = $("#wbaStatus"); go.disabled = true; go.classList.add("busy"); status.textContent = "Finding the labels on your board…";
+    const go = root.querySelector("#wbaGo"), status = root.querySelector("#wbaStatus"); go.disabled = true; go.classList.add("busy"); status.textContent = "Finding the labels on your board…";
+    job.busy = true;
     try {
       let deckId = deckSel;
       if (!deckId || deckId === "__new" || !state.decks[deckId]) { const d = normDeck({id: uid(), name: W.boardName(n), courseId: cid || "", cards: [], created: Date.now()}); applyChanges([{kind: "deck", id: d.id, after: d}], null); deckId = d.id; }
       const cv = await W.renderBoard(state.notes[id] || n, {max: 2000}), blob = await new Promise(r => cv.toBlob(r, "image/jpeg", 0.92));
       const it = await SBPRO.scanImage(blob, W.boardName(n)); it.found = it.boxes.length > 0;
-      if (dlg.open) dlg.close();
-      SBPRO.openImageEditor(deckId, [it]);
-    } catch (e) { status.textContent = (e && e.message) || "Couldn't make picture cards. Try again."; go.disabled = false; go.classList.remove("busy"); }
+      job.busy = false; if (job.dropped) return;
+      sheetReady(job.key, () => { if (dlg.open) dlg.close(); SBPRO.openImageEditor(deckId, [it]); }, "Your picture cards are ready to label");
+    } catch (e) { job.busy = false; if (job.dropped) return; status.textContent = (e && e.message) || "Couldn't make picture cards. Try again."; go.disabled = false; go.classList.remove("busy"); }
   }
-  function review(id, title, notes, cid, cards){
+  function review(id, title, notes, cid, cards, root){
+    const $ = q => root.querySelector(q);
     $("#wbaBody").innerHTML = `<label class="f"><span class="lh">Typed Notes</span><textarea id="wbaText" rows="14" maxlength="8000">${esc(title + "\n\n" + notes)}</textarea></label>
       <label class="f">Course<select id="wbaCourse2">${courseSelectHtml(cid)}</select></label>
       <p class="mini" style="margin:0">Check what the AI read, and fix anything that's off before saving.</p>`;
-    $(".sheet-foot", dlg).innerHTML = `<button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="wbaSave">${cards ? "Save Note and Make Cards" : "Save Note"}</button>`;
+    $(".sheet-foot").innerHTML = `<button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="wbaSave">${cards ? "Save Note and Make Cards" : "Save Note"}</button>`;
+
     $("#wbaSave").addEventListener("click", () => {
       const text = $("#wbaText").value.trim(); if (!text) return;
       const c2 = $("#wbaCourse2").value;

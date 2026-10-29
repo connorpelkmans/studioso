@@ -73,6 +73,9 @@ function weakSheet(deckIds){
   const topics = [...new Set(w.qs.map(x => x.q.topic).filter(Boolean))];
   if (!w.n) { toast("No weak spots yet. Study or take a quiz first, and anything you keep missing shows up here."); return; }
   const single = deckIds.length === 1 ? state.decks[deckIds[0]] : null;
+  // a quiz still being written is set aside when you tap away, and opens from a toast when it's done
+  const KK = "weak:" + deckIds.join(","), job = {busy: false, dropped: false, ac: null};
+  if (sheetResume(KK)) return;
   openSheet(`<form class="sheet ai-sheet">${head("Practice Your Weak Spots")}
     <div class="sheet-body">
       <p style="margin:0">You keep missing <b>${w.cards.length}</b> card${w.cards.length === 1 ? "" : "s"}${w.qs.length ? ` and <b>${w.qs.length}</b> practice question${w.qs.length === 1 ? "" : "s"}` : ""}${topics.length ? `, mostly on ${esc(topics.slice(0, 4).join(", "))}` : ""}.</p>
@@ -82,23 +85,33 @@ function weakSheet(deckIds){
     </div>
     <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span>${w.cards.length ? `<button type="button" class="btn" id="wkStudy">Study These Cards</button>` : ""}${aiReady() ? `<button type="button" class="btn primary" id="wkGo">${AI_ICON} Make a Quiz</button>` : ""}</div>
   </form>`);
+  const sheetEl = dlg.querySelector(".ai-sheet");
+  sheetKeep(KK, {name: "Weak spots quiz", dirty: () => false, busy: () => job.busy, drop: () => { job.dropped = true; if (job.ac) { try { job.ac.abort(); } catch (e) {} } }});
   const st = $("#wkStudy"); if (st) st.addEventListener("click", () => { dlg.close(); const ids = [...new Set(w.cards.map(x => x.d.id))]; startStudy(ids, w.cards.map(x => x.c.id)); });
   const go = $("#wkGo"); if (!go) return;
   go.addEventListener("click", async () => {
-    const n = (dlg.querySelector("input[name=wkN]:checked") || {}).value || "12", status = $("#wkStatus");
+    if (job.busy) return;
+    const n = (sheetEl.querySelector("input[name=wkN]:checked") || {}).value || "12", status = sheetEl.querySelector("#wkStatus");
     go.disabled = true; go.classList.add("busy"); status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Writing questions on your weak spots…`;
+    job.busy = true; const ac = job.ac = typeof AbortController === "function" ? new AbortController() : null;
     const home = single || w.cards.concat(w.qs).map(x => x.d).sort((a, b) => w.cards.concat(w.qs).filter(x => x.d === b).length - w.cards.concat(w.qs).filter(x => x.d === a).length)[0];
     const material = w.cards.slice(0, 40).map(x => `Card: ${x.c.front} => ${x.c.back} (missed ${x.c.wrong}x)`).concat(w.qs.slice(0, 25).map(x => `Missed question${x.q.topic ? ` [${x.q.topic}]` : ""}: ${x.q.stem} Correct: ${x.q.type === "short" ? x.q.answer : x.q.correct.map(i => x.q.options[i]).join("; ")}`)).join("\n");
     try {
-      const r = await aiCall({task: "quiz", maxTokens: 24000, schema: QUIZ_SCHEMA, onStatus: m => { status.textContent = m; }, parts: [{text: `Concepts this student keeps missing:\n${material}\n\nStyle: ${home.aiStyle || "Clear, exam-style questions"}\nWrite ${n} new questions.`}],
+      const r = await aiCall({task: "quiz", maxTokens: 24000, schema: QUIZ_SCHEMA, signal: ac ? ac.signal : undefined, onStatus: m => { status.textContent = m; }, parts: [{text: `Concepts this student keeps missing:\n${material}\n\nStyle: ${home.aiStyle || "Clear, exam-style questions"}\nWrite ${n} new questions.`}],
         system: "You write targeted practice questions on a student's weak spots. Test the SAME underlying concepts as the missed items but with new wording, new scenarios and different angles (application, comparison, 'which is NOT', cause and effect), so the student must understand rather than recognize. Mix types: 'single' (usually 4 options), 'multiple' (select all that apply, 5 or 6 options, 2 or more correct), 'order' when there's a sequence, and 'short'. 'correct' holds zero-based option indexes; for 'order' the indexes in the right order. Every question gets a rationale and one short note per option in 'optionNotes', plus a 'topic'. Return JSON only."});
       const qs = aiDropCopiedQs(aiCleanQuestions(r.data.questions), aiCopiedCardsIndex(w.cards.map(x => x.c)));
       if (!qs.length) throw aiErr("empty", "The AI didn't write any usable questions. Try again.");
       const d = clone(state.decks[home.id]);
       const qz = {id: uid(), title: `Weak Spots, ${fmtShort(todayISO())}`, style: home.aiStyle || "", created: Date.now(), sources: ["Your missed cards and questions"], questions: qs, results: [], kind: "weak"};
       d.aiQuizzes = (d.aiQuizzes || []).concat(qz);
-      dlg.close(); saveDeck(d, `Made a ${qs.length}-question weak spots quiz`); startAiQuiz(d.id, qz.id);
-    } catch(e) { status.textContent = e.message || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy"); }
+      job.busy = false; if (job.dropped) return;
+      saveDeck(d, `Made a ${qs.length}-question weak spots quiz`);
+      sheetReady(KK, () => { if (dlg.open) dlg.close(); startAiQuiz(d.id, qz.id); }, `Your ${qs.length}-question weak spots quiz is ready`);
+    } catch(e) {
+      job.busy = false; if (job.dropped || (e && e.code === "cancelled")) return;
+      status.textContent = e.message || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy");
+      if (sheetKept(KK)) toast("Couldn't write that quiz. Open Weak Spots again to see why.", null, {label: "Open", fn: () => sheetResume(KK)}, {error: true});
+    }
   });
 }
 
@@ -140,6 +153,7 @@ function aiCleanCases(list){
 function caseStyleSheet(deckId){
   const d = state.decks[deckId]; if (!d) return;
   if (!aiReady()) { aiSetupSheet(true); return; }
+  if (sheetResume("case:" + deckId)) return;
   openSheet(`<form class="sheet">${head("Case Study from Cards")}<div class="sheet-body"><label class="f">Case study style${caseStyleSelect("csStyle")}</label><p class="mini" style="margin:0">“Match my course” uses the NCLEX format only for nursing courses. Pick another style for anything else.</p></div><div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="csGo">${AI_ICON} Write It</button></div></form>`);
   $("#csGo").addEventListener("click", () => caseFromDeck(deckId, $("#csStyle").value));
 }
@@ -147,25 +161,36 @@ async function caseFromDeck(deckId, caseStyle){
   const d = state.decks[deckId]; if (!d) return;
   if (!aiReady()) { aiSetupSheet(true); return; }
   if (d.cards.length < 3) { toast("Add a few cards first, or use Create with AI to make a case from your slides."); return; }
-  const st = aiBusySheet("Case Study", "Writing a case study from your cards. This usually takes 20 to 40 seconds…");
+  const KK = "case:" + deckId;
+  const st = aiBusySheet("Case Study", "Writing a case study from your cards. This usually takes 20 to 40 seconds…", KK), job = st.job;
   try {
     const c = courseOf(d.courseId);
-    const r = await aiCall({task: "cases", maxTokens: 16000, schema: CASE_SCHEMA, onStatus: m => st(m), parts: [{text: `Course: ${c ? c.name : d.name}\nStyle: ${d.aiStyle || "realistic, exam-style"}\n${aiCaseStyleText(caseStyle, c ? c.name : d.name)}\nMaterial (flashcards):\n${d.cards.slice(0, 120).map(x => `${x.front} => ${x.back}`).join("\n")}\n\nWrite 1 case study.`}], system: CASE_SYSTEM});
+    const r = await aiCall({task: "cases", maxTokens: 16000, schema: CASE_SCHEMA, signal: job.signal, onStatus: m => st(m), parts: [{text: `Course: ${c ? c.name : d.name}\nStyle: ${d.aiStyle || "realistic, exam-style"}\n${aiCaseStyleText(caseStyle, c ? c.name : d.name)}\nMaterial (flashcards):\n${d.cards.slice(0, 120).map(x => `${x.front} => ${x.back}`).join("\n")}\n\nWrite 1 case study.`}], system: CASE_SYSTEM});
     const cp = aiCopiedCardsIndex(d.cards);
     const cs = aiCleanCases(r.data.cases).filter(x => !aiCopied(x.scenario, cp)).map(x => Object.assign(x, {questions: aiDropCopiedQs(x.questions, cp)})).filter(x => x.questions.length >= 2);
     if (!cs.length) throw aiErr("empty", "The AI couldn't write a case from these cards. Try again.");
     const nd = clone(state.decks[deckId]);
     const qz = Object.assign({id: uid(), created: Date.now(), style: d.aiStyle || "", sources: ["Your flashcards"], results: [], kind: "case"}, cs[0]);
     nd.aiQuizzes = (nd.aiQuizzes || []).concat(qz);
-    if (dlg.open) dlg.close();
-    saveDeck(nd, `Made a case study: ${qz.title}`); startAiQuiz(deckId, qz.id);
-  } catch(e) { st(e.message || "Couldn't make a case study right now.", true); }
+    job.busy = false; if (job.dropped) return;
+    saveDeck(nd, `Made a case study: ${qz.title}`);
+    sheetReady(KK, () => { if (dlg.open) dlg.close(); startAiQuiz(deckId, qz.id); }, `Your case study “${qz.title}” is ready`);
+  } catch(e) { if (job.dropped || (e && e.code === "cancelled")) return; st(e.message || "Couldn't make a case study right now.", true); }
 }
 
-// A small sheet that shows progress while the AI works
-function aiBusySheet(title, msg){
+// A small sheet that shows progress while the AI works. With a key, tapping away sets it aside while it works (Close stops it);
+// st.job is {busy, dropped, signal}: the caller passes signal to aiCall and, when done, opens the result through sheetReady(key, …)
+function aiBusySheet(title, msg, key){
   openSheet(`<form class="sheet">${head(title)}<div class="sheet-body"><p class="status-msg" id="busyMsg" aria-live="polite"><span class="ai-spin" aria-hidden="true"></span> ${esc(msg)}</p>${aiModelBar()}</div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button></div></form>`);
-  return (m, err) => { const el = $("#busyMsg"); if (el) el.innerHTML = (err ? "" : `<span class="ai-spin" aria-hidden="true"></span> `) + esc(m); };
+  const el = dlg.querySelector("#busyMsg"), ac = typeof AbortController === "function" ? new AbortController() : null;
+  const job = {busy: true, dropped: false, signal: ac ? ac.signal : undefined};
+  if (key) sheetKeep(key, {name: title.replace(/:.*$/, ""), dirty: () => false, busy: () => job.busy, drop: () => { job.dropped = true; if (ac) { try { ac.abort(); } catch (e) {} } }});
+  const st = (m, err) => {
+    if (el) el.innerHTML = (err ? "" : `<span class="ai-spin" aria-hidden="true"></span> `) + esc(m);
+    if (err) { job.busy = false; if (key && sheetKept(key)) toast(`${title.replace(/:.*$/, "")} couldn't finish. Open it again to see why.`, null, {label: "Open", fn: () => sheetResume(key)}, {error: true}); }
+  };
+  st.job = job;
+  return st;
 }
 
 /* Exam study plans */
@@ -238,10 +263,13 @@ async function summarizeFile(fid, again){
     });
   };
   if (f.summary && !again) { show(); return; }
-  const st = aiBusySheet("Summary: " + f.name, "Reading the file and writing a summary…");
+  const KK = "summary:" + fid;
+  if (sheetResume(KK)) return;
+  const st = aiBusySheet("Summary: " + f.name, "Reading the file and writing a summary…", KK), job = st.job;
   try {
     const src = await fileSource(f), c = courseOf(f.courseId);
-    const r = await aiCall({task: "summary", maxTokens: 8000, schema: SUM_SCHEMA, onStatus: m => st(m), parts: [src.part, {text: `Course: ${c ? c.name : "not given"}. Summarize this file for studying.`}],
+    if (job.dropped) return;
+    const r = await aiCall({task: "summary", maxTokens: 8000, schema: SUM_SCHEMA, signal: job.signal, onStatus: m => st(m), parts: [src.part, {text: `Course: ${c ? c.name : "not given"}. Summarize this file for studying.`}],
       system: "You summarize course material for a student who will be tested on it. Be accurate and specific to the file (names, numbers, mechanisms, steps), not generic. Include the key terms with short definitions and the questions an instructor would most likely ask. Use only what the file says: never add facts, numbers or examples that are not in it. Write in the file's language, in plain text without markdown or LaTeX. Return JSON only."});
     const n = clone(state.files[fid]);
     // Anything that copied the file word for word is left out: the summary restates it
@@ -250,10 +278,13 @@ async function summarizeFile(fid, again){
     const cut = (x, n) => String(x || "").replace(/\s+/g, " ").trim().slice(0, n);
     n.summary = {at: Date.now(), model: r.model, provider: r.provider, overview: cut(r.data.overview, 1500), keyPoints: (r.data.keyPoints || []).slice(0, 14).map(x => cut(x, 400)).filter(x => x && own(x)),
       keyTerms: (r.data.keyTerms || []).filter(k => k && k.term && k.definition && own(k.definition)).slice(0, 30).map(k => ({term: cut(k.term, 100), definition: cut(k.definition, 350)})), questions: (r.data.questions || []).slice(0, 10).map(x => cut(x, 300)).filter(x => x && own(x))};
+    if (job.dropped) return;
     applyChanges([{kind: "file", id: fid, after: n}], null);
-    show();
-  } catch(e) { st(e.message || "Couldn't summarize that file.", true); }
+    job.busy = false;
+    sheetReady(KK, show, `The summary of ${f.name} is ready`);
+  } catch(e) { if (job.dropped || (e && e.code === "cancelled")) return; st(e.message || "Couldn't summarize that file.", true); }
 }
+
 function addNoteText(text, courseId, color, extra){
   const all = notesArr().filter(n => !n.archived && noteBoardOf(n) === noteBoardId());
   const z = all.reduce((m, n) => Math.max(m, n.z || 0), 0) + 1;
@@ -272,12 +303,12 @@ const PHOTO_SCHEMA = {type: "OBJECT", properties: {
   required: ["notes"]};
 // A phone or tablet (a touch screen as the main pointer)
 const phoneLike = () => { try { return window.matchMedia("(pointer:coarse)").matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || ""); } catch (e) { return false; } };
-// Tapping outside the sheet keeps the photos (and a finished note) until Save or Cancel
-let PN_DRAFT = null;
+// Tapping outside the sheet sets it aside with its photos (and a note being read, or read and not saved) until Save or Cancel
 function photoNoteSheet(file){
   if (!aiReady()) { aiSetupSheet(true); return; }
-  const S = (!file && PN_DRAFT) || {srcs: [], files: [], result: null};
-  PN_DRAFT = S;
+  const KK = "photo-note";
+  if (file) sheetDrop(KK); else if (sheetResume(KK)) return;
+  const S = {srcs: [], files: [], result: null, busy: false, ac: null, dropped: false};
   openSheet(`<form class="sheet ai-sheet">${head("Photo to Note")}
     <div class="sheet-body" id="pnBody">
       <div class="drop" id="pnDrop"><p style="margin:0 0 10px"><strong>Take or choose photos of the whiteboard, a slide, or handwritten notes.</strong><br><span class="mini">They become clean, typed notes on your board. Dates written in them can be added as tasks.</span></p>
@@ -289,15 +320,15 @@ function photoNoteSheet(file){
       <p class="status-msg" id="pnStatus" style="margin:0" aria-live="polite"></p>
     </div>
     <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="pnGo">${AI_ICON} Make Note</button></div></form>`);
-  const form = dlg.querySelector("form.ai-sheet"), live = () => form.isConnected && dlg.open;
-  form.addEventListener("click", e => { if (e.target.closest && e.target.closest('[data-act="close"]')) PN_DRAFT = null; }, true);
+  // queries stay inside this sheet, so a note that's read while it's set aside lands in the right one
+  const form = dlg.querySelector("form.ai-sheet"), $ = q => form.querySelector(q);
+  sheetKeep(KK, {name: "Photo to Note", dirty: () => S.srcs.length > 0 || !!S.result, busy: () => S.busy, drop: () => { S.dropped = true; if (S.ac) { try { S.ac.abort(); } catch (e) {} } }});
   const status = $("#pnStatus");
   if (S.course != null) $("#pnCourse").value = S.course;
   $("#pnCourse").addEventListener("change", e => { S.course = e.target.value; });
-  const draw = () => { if (!live()) return; $("#pnSrcs").innerHTML = S.srcs.map((s, i) => `<li><span class="ficon">${s.kind === "PDF" ? "PDF" : "IMG"}</span><span class="nm">${esc(s.name)}</span><span class="mini">${fmtSize(s.size)}</span><button type="button" class="x-btn" data-rm="${i}" aria-label="Remove">${CLOSE}</button></li>`).join(""); };
+  const draw = () => { $("#pnSrcs").innerHTML = S.srcs.map((s, i) => `<li><span class="ficon">${s.kind === "PDF" ? "PDF" : "IMG"}</span><span class="nm">${esc(s.name)}</span><span class="mini">${fmtSize(s.size)}</span><button type="button" class="x-btn" data-rm="${i}" aria-label="Remove">${CLOSE}</button></li>`).join(""); };
   const add = async list => { for (const f of list) { try { S.srcs.push(await aiSourceFromFile(f)); S.files.push(f); } catch(e) { status.textContent = e.message; } } draw(); };
   if (file) add([file]).then(() => { const g = $("#pnGo"); if (g && S.srcs.length) g.click(); });
-  else if (S.srcs.length) draw();
   $("#pnPick").addEventListener("click", () => $("#pnFile").click());
   $("#pnFile").addEventListener("change", e => { const l = [...e.target.files]; e.target.value = ""; add(l); });
   const cam = $("#pnTake"); if (cam) { cam.addEventListener("click", () => $("#pnCam").click()); $("#pnCam").addEventListener("change", e => { const l = [...e.target.files]; e.target.value = ""; add(l); }); }
@@ -311,15 +342,21 @@ function photoNoteSheet(file){
     if (!S.srcs.length) { status.textContent = "Add a photo first."; return; }
     if (S.srcs.reduce((s, x) => s + aiSourceBytes(x), 0) > AI_LIMIT_BYTES) { status.textContent = "Those photos are too big to send at once. Try fewer."; return; }
     go.disabled = true; go.classList.add("busy"); status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Reading your photos…`;
+    S.busy = true; const ac = S.ac = typeof AbortController === "function" ? new AbortController() : null;
     try {
       const today = todayISO(), courses = coursesArr().map(c => c.code || c.name).join("; ") || "none";
-      const r = await aiCall({task: "photo", maxTokens: 8000, schema: PHOTO_SCHEMA, onStatus: m => { status.textContent = m; }, parts: S.srcs.map(s => s.part).concat({text: `Today is ${today}. Courses: ${courses}. Turn these class photos into study notes.`}),
+      const r = await aiCall({task: "photo", maxTokens: 8000, schema: PHOTO_SCHEMA, signal: ac ? ac.signal : undefined, onStatus: m => { status.textContent = m; }, parts: S.srcs.map(s => s.part).concat({text: `Today is ${today}. Courses: ${courses}. Turn these class photos into study notes.`}),
         system: "You turn photos of whiteboards, lecture slides and handwritten notes into clean, organized typed study notes. The student's own handwriting and whiteboard writing may be transcribed as written; anything printed (slides, handouts, textbook pages) must be restated in your own words as concise notes, never copied sentence by sentence. Cover everything that matters, fix obvious typos, expand cryptic abbreviations only when you're sure, keep formulas and numbers exactly, and organize with short headings and bullets. If something is unreadable, write [unclear]. Describe diagrams briefly in words. List any due dates or exam dates you see, resolving them relative to today. Return JSON only."});
       const d = r.data, cSel = $("#pnCourse").value, guess = coursesArr().find(c => (c.code || c.name).toLowerCase() === String(d.course || "").toLowerCase());
       S.result = {title: String(d.title || "").trim(), notes: String(d.notes || "").trim(), courseId: cSel || (guess ? guess.id : ""), dates: (d.dates || []).filter(x => x && x.title && isDate(x.due)).map(x => ({title: String(x.title), type: TYPES.includes(x.type) ? x.type : "Assignment", due: x.due, time: /^\d\d:\d\d$/.test(x.time || "") ? x.time : "", on: true}))};
       if (!S.result.notes) { S.result = null; throw aiErr("empty", "Couldn't read anything in those photos. Try a clearer, closer photo."); }
-      if (live()) review();
-    } catch(e) { if (!live()) return; status.textContent = e.message || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy"); }
+      S.busy = false; if (S.dropped) return;
+      review(); sheetReady(KK, null, "Your note from the photos is ready to check");
+    } catch(e) {
+      S.busy = false; if (S.dropped || (e && e.code === "cancelled")) return;
+      status.textContent = e.message || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy");
+      if (sheetKept(KK)) toast("Couldn't read those photos. Open Photo to Note again to see why.", null, {label: "Open", fn: () => sheetResume(KK)}, {error: true});
+    }
   });
   const review = () => {
     const R = S.result;
@@ -327,14 +364,13 @@ function photoNoteSheet(file){
       <label class="f">Course<select id="pnCourse2">${courseSelectHtml(R.courseId)}</select></label>
       ${R.dates.length ? `<fieldset><legend>Dates Found in the Photos</legend>${R.dates.map((x, i) => `<label class="mi-check"><input type="checkbox" data-pd="${i}" checked> ${esc(x.title)} <span class="mini">${esc(x.type)}, ${esc(fmtDate(x.due))}${x.time ? " " + esc(fmtTime(x.time)) : ""}</span></label>`).join("")}</fieldset>` : ""}
       ${caps.assets ? `<label class="mi-check"><input type="checkbox" id="pnKeep" checked> Also save the photos in the course's Lecture Notes folder</label>` : ""}`;
-    $(".sheet-foot", dlg).innerHTML = `<button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="pnSave">Save Note${R.dates.length ? " and Tasks" : ""}</button>`;
+    $(".sheet-foot").innerHTML = `<button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="pnSave">Save Note${R.dates.length ? " and Tasks" : ""}</button>`;
     $("#pnText").addEventListener("input", e => { R.text = e.target.value; });
     $("#pnCourse2").addEventListener("change", e => { R.courseId = e.target.value; });
     $("#pnSave").addEventListener("click", async () => {
       const text = $("#pnText").value.trim(); if (!text) return;
-      PN_DRAFT = null;
       const cid = $("#pnCourse2").value;
-      const tasks = R.dates.filter((x, i) => { const cb = dlg.querySelector(`[data-pd="${i}"]`); return cb && cb.checked; });
+      const tasks = R.dates.filter((x, i) => { const cb = $(`[data-pd="${i}"]`); return cb && cb.checked; });
       const keep = $("#pnKeep") && $("#pnKeep").checked;
       dlg.close();
       addNoteText(text, cid, "yellow");
@@ -344,8 +380,8 @@ function photoNoteSheet(file){
       if (keep) uploadFiles(S.files, {courseId: cid, folderId: "notes"});
     });
   };
-  if (!file && S.result) review();
 }
+
 
 /* Ask your course materials */
 const ASK_SCHEMA = {type: "OBJECT", properties: {

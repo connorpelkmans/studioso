@@ -1437,9 +1437,9 @@ function aiSylRules(r){
   const b = Number(r.bonus), bonus = b > 0 && b <= 10 ? {pts: Math.round(b * 100) / 100, got: 0, src: "syllabus"} : null;
   return drops.length || bonus ? {drops, bonus} : null;
 }
-async function aiReadSyllabus(parts, onStatus){
+async function aiReadSyllabus(parts, onStatus, signal){
   const today = todayISO();
-  const res = await aiCall({task: "syllabus", maxTokens: 32000, temperature: 0.1, onStatus, schema: SYL_SCHEMA, parts: parts.concat({text: `Today is ${today}. Read this course syllabus and extract the course details and every dated deliverable.`}),
+  const res = await aiCall({task: "syllabus", maxTokens: 32000, temperature: 0.1, onStatus, signal, schema: SYL_SCHEMA, parts: parts.concat({text: `Today is ${today}. Read this course syllabus and extract the course details and every dated deliverable.`}),
     system: `You extract structured data from college course syllabi for a student planner. Be precise and complete.
 Rules:
 - One item per graded deliverable or required reading with a date: each homework, problem set, quiz, exam (midterms and the final), lab or lab report, project milestone, paper, presentation, and each dated reading assignment. Do not list holidays, "no class" days, add/drop deadlines, office hours, or policy text as items.
