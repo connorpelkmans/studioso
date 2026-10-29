@@ -5677,6 +5677,8 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .gp-hero .gp-grade{grid-area:grade;display:inline-flex;align-items:center;gap:6px;justify-self:end}
 .gp-hero .gp-grade b{font:800 1.35rem var(--display)}
 .gp-hero .gp-line{grid-area:line}
+/* the all-zero note and the pass-mark pill sit on their own line under the course, lined up with its text (not in the ring column) */
+.gp-hero .gp-main > .gp-zero,.gp-hero .gp-main > .pill{grid-column:2 / -1;justify-self:start;max-width:62ch;margin-top:2px}
 .gp-hero .gp-course .rk-pill,.gp-hero .gp-course .pill{justify-self:start}
 .gp-low{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:18px;align-items:start}
 .gp-low .fsec{display:flex;align-items:center;gap:8px;margin-top:0}

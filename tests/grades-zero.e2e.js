@@ -31,6 +31,15 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [{id: "c1", name: "Contex
     const rowTxt = c => page.evaluate(c => { const r = [...document.querySelectorAll(".gp-course")].find(x => x.textContent.includes(c)); return r ? r.textContent : ""; }, c);
     ok(/Every mark here is 0%\. That usually means the marks aren't in yet/.test(await rowTxt("BSNC 1020")), "the all-zero course says to check its marks");
     ok(!/Every mark here is 0%/.test(await rowTxt("BSNC 1000")), "a normal course doesn't");
+    // the note sits under the course name, as wide as the row's text (it used to fall into the narrow ring column)
+    const noteBox = () => page.evaluate(() => { const z = document.querySelector(".gp-zero"), w = z.closest(".gp-main").querySelector(".gp-who"); const a = z.getBoundingClientRect(), b = w.getBoundingClientRect(); return {w: a.width, h: a.height, dx: Math.abs(a.left - b.left), below: a.top >= b.bottom - 1}; });
+    for (const [W, H] of [[1280, 900], [390, 844]]) {
+      await page.setViewportSize({width: W, height: H}); await page.waitForTimeout(300);
+      const z = await noteBox();
+      ok(z.w > (W > 600 ? 400 : 240) && z.h < 70 && z.dx < 2 && z.below, `the 0% note is a short wide line under the course name at ${W}px (${Math.round(z.w)}x${Math.round(z.h)}, off by ${Math.round(z.dx)})`);
+      if (process.env.SHOT) await page.locator(".gp-course", {hasText: "BSNC 1020"}).screenshot({path: process.env.SHOT + "/zero-" + W + ".png"});
+    }
+    await page.setViewportSize({width: 1280, height: 900});
     const lines = await page.evaluate(() => window.SBGRADES.lines().join("\n"));
     ok(/BSNC 1020.*LOOKS WRONG: every mark in this course is 0%/.test(lines) && !/BSNC 1000.*LOOKS WRONG/.test(lines), "the companion and Ask With AI get the same warning");
     const focus = page.locator("button", {hasText: "Where Should I Focus?"}).first();
