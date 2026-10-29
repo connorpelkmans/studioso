@@ -24,6 +24,7 @@
     "dist:mas": "node prepare.js && electron-builder --mac mas --universal",
     "dist:mas-dev": "node prepare.js && electron-builder --mac mas-dev --universal",
     "ios:stage": "node scripts/ios-stage.js",
+    "apple:setup": "node scripts/apple-setup.js",
     "check:store": "node notarize.js --check mas",
     "check:mas-dev": "node notarize.js --check mas-dev",
     "check:signed": "node notarize.js --check signed",
