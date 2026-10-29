@@ -23,7 +23,8 @@ const CARDS = {deckTitle: "Osmosis", cards: [{front: "What is osmosis?", back: "
     const hits = [];
     await ctx.route(/generativelanguage\.googleapis\.com/, async route => {
       const m = (/models\/([^:]+):/.exec(route.request().url()) || [])[1]; hits.push(m);
-      if (m === "gemini-3.7-flash") { await new Promise(r => setTimeout(r, 60000)); try { await route.abort(); } catch (e) {} return; }
+      if (!ctx.stalled) ctx.stalled = m;
+      if (m === ctx.stalled) { await new Promise(r => setTimeout(r, 60000)); try { await route.abort(); } catch (e) {} return; }
       await route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({candidates: [{content: {parts: [{text: JSON.stringify(CARDS)}]}, finishReason: "STOP"}]})});
     });
     await ctx.addInitScript(() => {
@@ -35,11 +36,11 @@ const CARDS = {deckTitle: "Osmosis", cards: [{front: "What is osmosis?", back: "
     await page.goto(base); await page.waitForFunction(() => window.__sbSync); await page.waitForTimeout(500);
     const make = async () => page.evaluate(async () => { const t = Date.now(); const r = await window.__sbSync.aiCall({task: "chat", maxTokens: 3000, system: "Reply with JSON.", parts: [{text: "What is my best grade so far?"}], schema: {type: "OBJECT", properties: {deckTitle: {type: "STRING"}}}}); return r && r.data ? Date.now() - t : -1; });
     const t1 = await make();
-    ok(hits[0] === "gemini-3.7-flash" && hits.length === 2, "the first model stalled and the next one answered: " + hits.join(", "));
+    ok(hits[0] === ctx.stalled && hits.length === 2, "the first model stalled and the next one answered: " + hits.join(", "));
     ok(t1 > 0 && t1 < 9000, `a stalled model costs a short wait, not minutes (${t1} ms)`);
     hits.length = 0;
     const t2 = await make();
-    ok(hits[0] !== "gemini-3.7-flash" && hits.length === 1, "the next request skips the stalled model: " + hits.join(", "));
+    ok(hits[0] !== ctx.stalled && hits.length === 1, "the next request skips the stalled model: " + hits.join(", "));
     ok(t2 > 0 && t2 < 3000, `and answers quickly (${t2} ms)`);
     ok(!errs.length, "no page errors: " + errs.join(" | "));
     console.log("\nai-stall.e2e: " + n + " checks passed");
