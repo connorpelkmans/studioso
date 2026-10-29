@@ -141,7 +141,8 @@
   .ph-menu .btn:hover,.ph-menu .btn:focus-visible{background:var(--soft)}
   /* Companion page */
   .cpt-head.cpt3{padding-bottom:10px}
-  .cpt3-band{height:58px!important;min-height:0!important}
+  /* as tall as the Change button plus the same gap above and below it */
+  .cpt3-band{height:auto!important;min-height:0!important;padding-block:12px!important}
   .cpt3-band .cpt3-acts .btn{min-height:34px;padding:4px 14px;font-size:.86rem}
   .cpt3-ring{width:96px!important;height:96px!important;margin-top:-50px!important}
   .cpt3-ring .cpt-face{width:82px!important;height:82px!important}
