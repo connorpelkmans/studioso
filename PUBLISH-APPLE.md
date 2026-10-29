@@ -98,8 +98,9 @@ In Xcode, once (target **App**):
    **+ Capability**: Push Notifications, In-App Purchase, Associated Domains (`applinks:studyboardapp.com`), App Groups
    (`group.com.studioso.app`), Background Modes > Remote notifications. Compare with
    `ios-wrapper/App.entitlements.template.plist`.
-2. **Info.plist**: right-click `ios/App/App/Info.plist` > Open As > Source Code, and paste in every key from
-   `ios-wrapper/Info.plist.additions.plist` (inside the top `<dict>`).
+2. **Info.plist**: nothing to do. `npm run ios:stage` adds every key from `ios-wrapper/Info.plist.additions.plist`
+   (camera, photos and microphone reasons, URL scheme, encryption flag) and keeps any already there. Without the camera
+   reason, iOS closes the app the moment Take Photo opens the camera.
 3. **Privacy manifest**: drag `build-resources/ios/PrivacyInfo.xcprivacy` into the App folder in Xcode, tick target App.
 4. **App's own Swift code**: drag these from `ios-wrapper/native/` into the App folder (tick "Copy items" and target App):
    `MainViewController.swift`, `StudyboardPlugins.swift`, `SBCapture.swift`, `StudyboardLms.swift`, `StudyboardLmsScripts.swift`,

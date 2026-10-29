@@ -68,7 +68,7 @@ npx cap add ios
 cd ..
 npm run ios:stage          # stages again and now also syncs into the Xcode project
 ```
-Then copy in the app's settings, as described in README-IOS.md section 3: the Info.plist additions, the privacy manifest, and the native files in `ios-wrapper/native/`.
+Then copy in the app's settings, as described in README-IOS.md section 3: the privacy manifest and the native files in `ios-wrapper/native/`. (The Info.plist keys, like the camera and photo reasons, are added by `npm run ios:stage`.)
 
 ### 3. Run it on your iPhone
 1. `cd ios-wrapper && npx cap open ios`. Xcode opens.

@@ -7,7 +7,7 @@ This folder holds everything needed to wrap the Studyboard web build in a native
 | `capacitor.config.json` | Capacitor settings: app id `com.studioso.app`, bundled web files (no remote `server.url`), navigation allow-list, no cleartext, no native HTTP/cookie plugins. `ios.contentInset` is `"never"`: the page draws behind the status bar and home bar itself (`viewport-fit=cover` and `env(safe-area-inset-*)`). With `"always"` the web view added its own gap that could be pulled into view under the Dynamic Island, and fixed things like the bottom bar and the companion were misplaced. |
 | `native-bridge.js` | Small native glue loaded before the page (shared with Android): Keychain session storage, `StudyboardSecrets` for AI keys, safe external links, deep links, native push registration, RevenueCat purchases, and `StudyboardNative.device` (`"ipad"` / `"iphone"` / `"android"`: the pen tools are iPad only). |
 | `native/` | **Quick capture (UNTESTED Swift sources):** App Intents for Siri/Shortcuts, Share Extension, Capacitor plugins `StudyboardCaptureToken` and `StudyboardSharedQueue`. See `native/capture.md` and `../VOICE-CAPTURE-NATIVE.md`. `native/FocusActivity/`: the Focus timer in the Dynamic Island (section 3c). |
-| `Info.plist.additions.plist` | Keys to merge into `ios/App/App/Info.plist` (encryption flag, usage strings, push background mode, URL scheme). |
+| `Info.plist.additions.plist` | Keys `npm run ios:stage` merges into `ios/App/App/Info.plist` (encryption flag, usage strings, push background mode, URL scheme). |
 | `App.entitlements.template.plist` | Push and associated-domains entitlements. |
 | `apple-app-site-association.template.json` | The universal-links file to host on the website. |
 | `../build-resources/ios/PrivacyInfo.xcprivacy` | Privacy manifest template (add to the App target). |
@@ -61,7 +61,7 @@ npx cap open ios
 In Xcode (App target):
 
 1. **Signing & Capabilities**: pick your team; bundle id `com.studioso.app`; add **Push Notifications**, **In-App Purchase**, and **Associated Domains** (`applinks:YOUR-DOMAIN.example`). Do not add capabilities you do not use. Compare with `App.entitlements.template.plist`.
-2. **Info.plist**: merge `Info.plist.additions.plist` (open both as source). The result must contain `ITSAppUsesNonExemptEncryption = NO` and **no** `NSAppTransportSecurity` block (App Transport Security stays fully on: every address the app talks to is https).
+2. **Info.plist**: `npm run ios:stage` merges `Info.plist.additions.plist` in for you (keys already there are kept; the camera reason is required, or iOS closes the app when it opens the camera). The result must contain `ITSAppUsesNonExemptEncryption = NO` and **no** `NSAppTransportSecurity` block (App Transport Security stays fully on: every address the app talks to is https).
 3. **Privacy manifest**: drag `build-resources/ios/PrivacyInfo.xcprivacy` into the App group, tick the App target. Then **Product > Archive > Distribute > App Store Connect > Generate Privacy Report** and compare it with the App Privacy answers in `APP-STORE-CHECKLIST.md` section 6; Xcode merges the plugins' own manifests into it.
 4. App icon: 1024 x 1024 PNG without transparency or rounded corners (`icon-1024.png` in the repo is the source). Launch screen: the Capacitor storyboard is fine.
 5. **Usage strings** (all in the additions file) are only for features the app has:
