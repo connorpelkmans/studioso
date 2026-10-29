@@ -465,7 +465,7 @@ function ctxFor(excludeIds, from, to){
     let AD = null; if (availActive()) AD = availDays(from, to);
     const dh = dailyHours();
     for (let d = from, i = 0; d <= to && i < 400; d = addDays(d, 1), i++) {
-      const a = dh > 0 ? dh * busyFactor(B.m[d] || 0) : Infinity, b = AD && AD[d] != null ? AD[d] : Infinity, v = Math.min(a, b);
+      const a = dh > 0 ? dh * busyFactor(B.m[d] || 0) : Infinity, b = AD && AD[d] != null ? AD[d] : Infinity, v = dayIsOff(d) ? 0 : Math.min(a, b);
       if (isFinite(v)) free[d] = v;
     }
   } catch (e) { console.warn("breakdown free", e); }
