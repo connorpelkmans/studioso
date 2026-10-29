@@ -51,7 +51,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await shot(page, "1-readiness-task", "dialog[open] .sheet");
       await page.keyboard.press("Escape");
       await act(page, "edit-task", "y"); await page.waitForSelector("dialog[open] .tv-noready");
-      ok(/Nothing measures your readiness yet/.test(await page.locator("dialog[open] .tv-noready").innerText()), "task view: with nothing measured, it says how to measure it");
+      ok(/readiness goes by how ready you feel\. Your results will show here/.test(await page.locator("dialog[open] .tv-noready").innerText()), "task view: with nothing measured, it says how to measure it");
       await page.keyboard.press("Escape");
       const pl = await page.evaluate(() => __sbPlan());
       const st = pl.ranked.find(x => x.id === "study:x") || pl.laterRows.find(x => x.id === "study:x");
