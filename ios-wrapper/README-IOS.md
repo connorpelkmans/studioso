@@ -4,10 +4,10 @@ This folder holds everything needed to wrap the Studyboard web build in a native
 
 | File here | Use |
 | --- | --- |
-| `capacitor.config.json` | Capacitor settings: app id `com.studioso.app`, bundled web files (no remote `server.url`), navigation allow-list, no cleartext, no native HTTP/cookie plugins. |
+| `capacitor.config.json` | Capacitor settings: app id `com.studioso.app`, bundled web files (no remote `server.url`), navigation allow-list, no cleartext, no native HTTP/cookie plugins. `ios.contentInset` is `"never"`: the page draws behind the status bar and home bar itself (`viewport-fit=cover` and `env(safe-area-inset-*)`). With `"always"` the web view added its own gap that could be pulled into view under the Dynamic Island, and fixed things like the bottom bar and the companion were misplaced. |
 | `native-bridge.js` | Small native glue loaded before the page (shared with Android): Keychain session storage, `StudyboardSecrets` for AI keys, safe external links, deep links, native push registration, RevenueCat purchases, and `StudyboardNative.device` (`"ipad"` / `"iphone"` / `"android"`: the pen tools are iPad only). |
 | `native/` | **Quick capture (UNTESTED Swift sources):** App Intents for Siri/Shortcuts, Share Extension, Capacitor plugins `StudyboardCaptureToken` and `StudyboardSharedQueue`. See `native/capture.md` and `../VOICE-CAPTURE-NATIVE.md`. `native/FocusActivity/`: the Focus timer in the Dynamic Island (section 3c). |
-| `Info.plist.additions.plist` | Keys to merge into `ios/App/App/Info.plist` (encryption flag, usage strings, push background mode, URL scheme). |
+| `Info.plist.additions.plist` | Keys `npm run ios:stage` merges into `ios/App/App/Info.plist` (encryption flag, usage strings, push background mode, URL scheme). |
 | `App.entitlements.template.plist` | Push and associated-domains entitlements. |
 | `apple-app-site-association.template.json` | The universal-links file to host on the website. |
 | `../build-resources/ios/PrivacyInfo.xcprivacy` | Privacy manifest template (add to the App target). |
@@ -33,7 +33,7 @@ cp ios-wrapper/native-bridge.js ios-www/native-bridge.js
 cd ios-wrapper
 npm init -y
 npm i @capacitor/core @capacitor/ios @capacitor/app @capacitor/browser @capacitor/push-notifications \
-      @capacitor/share @capacitor/filesystem capacitor-secure-storage-plugin @revenuecat/purchases-capacitor
+      @capacitor/share @capacitor/filesystem @capacitor/screen-orientation capacitor-secure-storage-plugin @revenuecat/purchases-capacitor
 npm i -D @capacitor/cli
 cp -R ../ios-www ./ios-www
 ```
@@ -61,7 +61,7 @@ npx cap open ios
 In Xcode (App target):
 
 1. **Signing & Capabilities**: pick your team; bundle id `com.studioso.app`; add **Push Notifications**, **In-App Purchase**, and **Associated Domains** (`applinks:YOUR-DOMAIN.example`). Do not add capabilities you do not use. Compare with `App.entitlements.template.plist`.
-2. **Info.plist**: merge `Info.plist.additions.plist` (open both as source). The result must contain `ITSAppUsesNonExemptEncryption = NO` and **no** `NSAppTransportSecurity` block (App Transport Security stays fully on: every address the app talks to is https).
+2. **Info.plist**: `npm run ios:stage` merges `Info.plist.additions.plist` in for you (keys already there are kept; the camera reason is required, or iOS closes the app when it opens the camera). The result must contain `ITSAppUsesNonExemptEncryption = NO` and **no** `NSAppTransportSecurity` block (App Transport Security stays fully on: every address the app talks to is https).
 3. **Privacy manifest**: drag `build-resources/ios/PrivacyInfo.xcprivacy` into the App group, tick the App target. Then **Product > Archive > Distribute > App Store Connect > Generate Privacy Report** and compare it with the App Privacy answers in `APP-STORE-CHECKLIST.md` section 6; Xcode merges the plugins' own manifests into it.
 4. App icon: 1024 x 1024 PNG without transparency or rounded corners (`icon-1024.png` in the repo is the source). Launch screen: the Capacitor storyboard is fine.
 5. **Usage strings** (all in the additions file) are only for features the app has:
@@ -83,14 +83,21 @@ While a Focus timer runs, the iPhone app shows it as a **Live Activity**: in the
 drawn by the system, so the app sends an update only when the timer's state changes (start, pause, resume, skip, next session) and nothing is
 sent to any server. Files: `native/FocusActivity/`.
 
-1. **Widget extension:** in Xcode, File > New > Target > **Widget Extension**, named `StudyboardWidgets`, with **Include Live Activity** ticked.
-   Delete the Swift files Xcode generated in it and add `native/FocusActivity/StudyboardWidgets.swift`. Deployment target iOS 16.2 or later.
-2. **Shared model:** add `native/FocusActivity/StudyboardFocusAttributes.swift` to **both** the App target and the `StudyboardWidgets` target
-   (File Inspector > Target Membership).
-3. **Plugin:** add `native/FocusActivity/StudyboardFocusActivityPlugin.swift` to the App target. `MainViewController` already registers it.
-4. **Info.plist:** `NSSupportsLiveActivities = YES` in the App's Info.plist (already in `Info.plist.additions.plist`).
+1. **Widget extension:** in Xcode, File > New > Target > **Widget Extension**, Product Name `StudyboardWidgets`, tick
+   **Include Live Activity** (untick Configuration App Intent / Control if offered). When Xcode asks to activate its scheme, choose
+   **Don't Activate** (keep running the App). Delete the Swift files Xcode generated in the new `StudyboardWidgets` folder (Move to Trash)
+   and drag in `native/FocusActivity/StudyboardWidgets.swift`, ticking only the `StudyboardWidgets` target. In the StudyboardWidgets
+   target's General tab, set **Minimum Deployments** to iOS 16.2 (Xcode picks the newest iOS, and then the timer can't install on
+   phones running an older one).
+2. **Shared model:** drag in `native/FocusActivity/StudyboardFocusAttributes.swift`, ticking **both** App and StudyboardWidgets.
+3. **Plugin:** drag in `native/FocusActivity/StudyboardFocusActivityPlugin.swift` (target App) and `native/MainViewController.swift`
+   (target App) if it isn't there yet; in `Main.storyboard` the Bridge View Controller's Class must be **MainViewController**. In
+   `MainViewController.swift`, delete the `registerPluginInstance` lines for plugins whose files you haven't added (CaptureToken,
+   SharedQueue, Lms); keep `StudyboardFocusActivityPlugin()`.
+4. **Info.plist:** `NSSupportsLiveActivities = YES`, added by `npm run ios:stage`.
 5. **Bridge:** `native-bridge.js` section 7 exposes `StudyboardNative.focusActivity`, which index.html uses by itself (`islandSync()`).
    Without the plugin (an older build, Android) the page keeps the timer in its header as before.
+6. **Signing:** select the StudyboardWidgets target > Signing & Capabilities > same Team, "Automatically manage signing" on.
 
 Test on a device: start a Focus session, swipe home, and the island shows the tomato and the time; long-press it for the expanded view (mode,
 time, what you're working on, progress). Pause in the app and the island says Paused with the time frozen; Reset removes it. Lock the phone and the

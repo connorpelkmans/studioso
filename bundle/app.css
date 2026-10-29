@@ -132,7 +132,7 @@ body.wide .wrap{max-width:1180px}
   .board::-webkit-scrollbar{display:none}
   .col{flex:0 0 84%;scroll-snap-align:start}
 }
-.board.dragging{scroll-snap-type:none}
+.board.dragging,.board.panning{scroll-snap-type:none}
 .col{background:var(--soft);border-radius:16px;padding:10px;min-height:220px;transition:box-shadow .15s}
 .col.over{box-shadow:inset 0 0 0 2px var(--accent)}
 .col-head{display:flex;align-items:center;gap:8px;padding:4px 4px 10px;font:700 1.02rem var(--display)}
@@ -3143,6 +3143,8 @@ button.grp-item-main{cursor:pointer;min-height:44px}
 .grp-report fieldset{border:0;margin:0;padding:0;display:grid;gap:6px}
 .grp-report legend{font-weight:600;padding:0;margin-bottom:6px}
 dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;overflow:auto}
+/* phones: a bottom sheet the full width of the screen, like every other sheet (the narrower width left it pushed to the left) */
+@media (max-width:600px){dialog.ai-consent,dialog:has(.sheet.shop){width:100%;max-width:100%}}
 /* Project Tasks (shared task lists in a group) and My Group Tasks on the Board */
 .grp-pt .pt-lists{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
 .pt-chip{display:inline-flex;align-items:baseline;gap:6px;min-height:40px;max-width:100%;padding:6px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:inherit;font-weight:600;font-size:.9rem;cursor:pointer}
@@ -5404,8 +5406,14 @@ html:not([data-motion="static"]) .sm-view{animation:sm-view .24s var(--sm-ease) 
 /* Sheets and pop-ups */
 html:not([data-motion="static"]) dialog[open]:not(.tour):not(.sx-dlg){animation:sm-sheet-pop .24s var(--sm-ease) backwards}
 html:not([data-motion="static"]) dialog[open]::backdrop{animation:sm-back .22s ease-out backwards}
+/* Phones: a sheet slides up from the bottom edge like the system's own sheets (whole height, iOS curve), the dim behind fading in */
+@keyframes sm-sheet-slide{from{transform:translateY(100%)}to{transform:none}}
 @media (max-width:639px){
-  html:not([data-motion="static"]) dialog[open]:not(.tour):not(.sx-dlg){animation-name:sm-sheet-up;animation-duration:.28s}
+  html:not([data-motion="static"]) dialog[open]:not(.tour):not(.sm-x){animation:sm-sheet-slide .42s cubic-bezier(.32,.72,0,1) backwards}
+  html:not([data-motion="static"]) dialog[open]::backdrop{animation:sm-back .32s ease-out backwards}
+}
+@media (max-width:639px) and (prefers-reduced-motion:reduce){
+  html:not([data-motion="static"]) dialog[open]:not(.tour):not(.sm-x){animation:sm-back .2s ease-out backwards}
 }
 /* Menus and dropdowns */
 html:not([data-motion="static"]) .sb-dd,html:not([data-motion="static"]) .cs-menu{animation:sm-pop .16s var(--sm-ease) backwards;transform-origin:top center}
@@ -6769,6 +6777,8 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   html.ph-lock #view .cpt-pane > .cpt-log{flex:1 1 auto;min-height:0!important;max-height:none!important;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
   html.ph-lock #view .cpt-form{position:static!important}
   @media (max-height:700px){html.ph-lock #view .cpt-priv{display:none}}
+  /* a short screen (or large text): the starter questions in one row that scrolls sideways, so the box never cuts them off */
+  @media (max-height:760px){html.ph-lock #view .cpt-empty .cpt-chips{flex-wrap:nowrap!important;justify-content:flex-start!important;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;width:100%;max-width:100%;min-width:0;justify-self:stretch;box-sizing:border-box}html.ph-lock #view .cpt-empty .cpt-chips .chip{flex:none;white-space:nowrap}}
   /* Notes / Groups */
   #view > .pview-tabs.ph-solo .ph-solo-t{flex:1;display:flex;align-items:center;justify-content:center;min-height:42px;color:var(--ink);font:800 1.3rem var(--display);letter-spacing:-.01em}
   #view > .pview-tabs.ph-solo{justify-content:center}
@@ -6990,6 +7000,11 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
 /* Keyboard open: sheets rest on top of the keyboard and stay fully on screen (header never slides under the status bar) */
 @media (max-width:639px){
   html.kb-open dialog#dlg{margin-bottom:var(--kb-h,0);max-height:calc(var(--vv-h,100dvh) - env(safe-area-inset-top,0px) - 16px)}
+  /* bars pinned to the bottom of the screen would float over what you're typing, so they step aside */
+  html.kb-open nav.tabs,html.kb-open .fab,html.kb-open .room-pill,html.kb-open .acc-chip,html.kb-open .tz-note,html.kb-open .gr-prompt{visibility:hidden!important;pointer-events:none!important}
+  html.kb-open .toast{bottom:calc(var(--kb-h,0px) + 12px)}
+  html.kb-open body::after{display:none}
+}
 }
 
 /* Edit sheets: the task's name is already in the Title box, so the band's second line (it ran down over the form) is not shown */
@@ -7205,6 +7220,40 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
 @media (min-width:640px){
   #view > .bview-row > .board-ctl .cf-pick{margin-right:6px}
   #view > .bview-row:has(> .pg-tabs) + .bview .bpane-board > .board-sec{margin-top:0}
+}
+
+/* Companion chat on a phone: while you type, the profile card slides up into its colour band, which becomes a title bar
+   with a small face and the name, and slides back down when you're done. 101-phone-v2.js sets html.cpt-typing, animates
+   the height and flies the small face from and to the big circle (html.cpt-morph while it moves). The live companion
+   steps out for the move and comes back to its circle after. */
+.cpt3-mini{display:none}
+@media (max-width:639px){
+  html.ph-lock #view .cpt-head.cpt3{flex-wrap:nowrap;transition:height .44s cubic-bezier(.32,.72,0,1)}
+  html.ph-lock #view .cpt-head.cpt3 > :not(.cpt3-mini){flex-shrink:0}
+  html.ph-lock #view .cpt-head.cpt3 > .cpt3-band{align-self:stretch;width:auto}
+  html.ph-lock #view .cpt3-mini{display:flex;position:absolute;left:0;right:0;top:0;height:54px;align-items:center;gap:10px;padding:0 16px;color:#fff;pointer-events:none;z-index:2}
+  html.ph-lock #view .cpt3-mini > :first-child{width:34px;height:34px;flex:none;border-radius:50%;background:color-mix(in srgb,var(--c) 14%,#fff);box-shadow:0 0 0 2px rgba(255,255,255,.85);display:grid;place-items:center;overflow:hidden;opacity:0;transition:none;will-change:transform}
+  html.ph-lock #view .cpt3-mini .cp-ai-face svg{width:30px;height:30px}
+  html.ph-lock #view .cpt3-mini b{font:800 1.12rem var(--display);letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,.18);opacity:0;transform:translateY(6px);transition:opacity .12s ease,transform .12s ease}
+  /* coming back: the card's words fade in once it has mostly opened */
+  html.ph-lock #view :is(.cpt3-acts,.cpt3 .cpt-id,.cpt3-tabs){transition:opacity .26s ease .07s,transform .42s cubic-bezier(.32,.72,0,1) .02s}
+  html.ph-lock #view .cpt3-ring{transition:opacity .22s ease .12s}
+  html.ph-lock #view .cpt-priv{max-height:4em;overflow:hidden;transition:max-height .44s cubic-bezier(.32,.72,0,1),opacity .25s ease}
+  html.ph-lock :is(.cp-layer,.cp-front){transition:opacity .12s ease .42s}
+  /* while typing */
+  html.ph-lock.cpt-typing #view .cpt-head.cpt3{height:54px}
+  html.ph-lock.cpt-typing #view .cpt3-mini > :first-child{opacity:1;transition:none}
+  html.ph-lock.cpt-typing #view .cpt3-mini b{opacity:1;transform:none;transition:opacity .26s ease .14s,transform .4s cubic-bezier(.32,.72,0,1) .08s}
+  html.ph-lock.cpt-typing #view :is(.cpt3-acts,.cpt3 .cpt-id,.cpt3-tabs){opacity:0;transform:translateY(-10px);pointer-events:none;transition:opacity .14s ease,transform .3s ease}
+  html.ph-lock.cpt-typing #view .cpt3-ring{opacity:0;transition:opacity .1s ease}
+  html.ph-lock.cpt-typing #view .cpt-priv{max-height:0;opacity:0}
+  html.ph-lock.cpt-typing :is(.cp-layer,.cp-front){opacity:0;transition:opacity .06s linear}
+  /* on the way back, the small face stays up until it lands in the circle */
+  html.ph-lock.cpt-morph:not(.cpt-typing) #view .cpt3-mini > :first-child{opacity:1;transition:none}
+  html.ph-lock.cpt-morph:not(.cpt-typing) #view .cpt3-ring{opacity:1}
+}
+@media (max-width:639px) and (prefers-reduced-motion:reduce){
+  html.ph-lock #view :is(.cpt-head.cpt3,.cpt3-mini > *,.cpt3-acts,.cpt3-ring,.cpt-id,.cpt3-tabs,.cpt-priv),html.ph-lock :is(.cp-layer,.cp-front){transition:none!important}
 }
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */

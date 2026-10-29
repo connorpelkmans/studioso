@@ -195,7 +195,10 @@ async function initSupabase(ask){
   try { const r = await sb.auth.getSession(); session = r.data && r.data.session; } catch(e) {}
   if (SB_LINK_ERR && !SB_LINK_ERR.shown) { SB_LINK_ERR.shown = true; try { history.replaceState(null, "", location.pathname); } catch(e) {} setTimeout(sbLinkErrorSheet, 500); }
   if (session) { if (!sbUser) { sbUser = session.user; startSupabaseSync(); setTimeout(aiTrialSignedIn, 1500); } }
-  else { syncLabel(); setTimeout(() => { if ((ask || !dlg.open) && !sbUser) sbSignInSheet(sbNextMode || (ask ? undefined : "hello")); sbNextMode = ""; }, ask ? 0 : 400); }
+  else {
+    // nobody signed in, and no saved sign-in at all (an expired or offline one doesn't count): the plan forgets the account from last time
+    (async () => { let raw = null; try { const st = authStorage(); raw = st ? await st.getItem("studioso-auth") : localStorage.getItem("studioso-auth"); } catch (e) { raw = "?"; } if (!raw && !sbUser) fire("auth-none"); })();
+    syncLabel(); setTimeout(() => { if ((ask || !dlg.open) && !sbUser) sbSignInSheet(sbNextMode || (ask ? undefined : "hello")); sbNextMode = ""; }, ask ? 0 : 400); }
 }
 // Settings, sharing, reminders and so on call this to let someone sign in or make an account
 function sbAsk(){ if (sb) sbSignInSheet(); else if (sbConfig() || SB_HOSTED) { toast("Connecting…"); initSupabase(true); } else sbSetupSheet(); }

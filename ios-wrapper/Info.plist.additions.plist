@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- Keys to MERGE into ios/App/App/Info.plist -->
+<!-- Keys merged into ios/App/App/Info.plist by npm run ios:stage (scripts/plist-merge.js); keys already there are kept -->
 <plist version="1.0">
 <dict>
   <!-- Encryption export compliance -->
@@ -14,7 +14,7 @@
   <string>Studyboard uses your photos only when you choose one to attach to a task, note or flashcard, or to send with a bug report.</string>
   <!-- Camera: the same pickers offer "Take Photo" -->
   <key>NSCameraUsageDescription</key>
-  <string>Studyboard uses the camera only when you choose Take Photo to add a picture of notes, a board or a page to a note or flashcard.</string>
+  <string>Studyboard uses the camera only when you choose to take a photo, to turn a picture of a page, a schedule or a board into tasks, notes or flashcards.</string>
 
   <!-- Push reminders are real in the wrapper -->
   <key>UIBackgroundModes</key>

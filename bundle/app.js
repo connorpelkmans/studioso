@@ -158,6 +158,16 @@ const ERRLOG = [];
   console.error = function(...a){ add("console", a.map(x => x instanceof Error ? x.message : typeof x === "string" ? x : x && x.message || "").join(" ")); return ce.apply(this, a); };
 })();
 const hook = (name, fn) => { (HOOK[name] = HOOK[name] || []).push(fn); };
+// iPhone and iPad: never zoom the whole app. iOS zooms in when a text box with small type gets focus and doesn't zoom back,
+// leaving the header and tab bar off screen. A top scale of 1 stops that; Safari still lets people pinch to zoom (iOS
+// ignores the limit for pinches), the app's own web view doesn't. The whiteboard and note board zoom inside the page.
+(function(){
+  try {
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const m = document.querySelector('meta[name="viewport"]');
+    if (ios && m && !/maximum-scale/.test(m.content)) m.content = m.content + ", maximum-scale=1";
+  } catch (e) {}
+})();
 const fire = (name, ...a) => (HOOK[name] || []).map(fn => { try { return fn(...a); } catch(e) { console.warn("hook " + name, e); return undefined; } });
 window.__sbFire = fire;
 const clone = o => o == null ? o : JSON.parse(JSON.stringify(o));
@@ -1718,7 +1728,10 @@ async function initSupabase(ask){
   try { const r = await sb.auth.getSession(); session = r.data && r.data.session; } catch(e) {}
   if (SB_LINK_ERR && !SB_LINK_ERR.shown) { SB_LINK_ERR.shown = true; try { history.replaceState(null, "", location.pathname); } catch(e) {} setTimeout(sbLinkErrorSheet, 500); }
   if (session) { if (!sbUser) { sbUser = session.user; startSupabaseSync(); setTimeout(aiTrialSignedIn, 1500); } }
-  else { syncLabel(); setTimeout(() => { if ((ask || !dlg.open) && !sbUser) sbSignInSheet(sbNextMode || (ask ? undefined : "hello")); sbNextMode = ""; }, ask ? 0 : 400); }
+  else {
+    // nobody signed in, and no saved sign-in at all (an expired or offline one doesn't count): the plan forgets the account from last time
+    (async () => { let raw = null; try { const st = authStorage(); raw = st ? await st.getItem("studioso-auth") : localStorage.getItem("studioso-auth"); } catch (e) { raw = "?"; } if (!raw && !sbUser) fire("auth-none"); })();
+    syncLabel(); setTimeout(() => { if ((ask || !dlg.open) && !sbUser) sbSignInSheet(sbNextMode || (ask ? undefined : "hello")); sbNextMode = ""; }, ask ? 0 : 400); }
 }
 // Settings, sharing, reminders and so on call this to let someone sign in or make an account
 function sbAsk(){ if (sb) sbSignInSheet(); else if (sbConfig() || SB_HOSTED) { toast("Connecting…"); initSupabase(true); } else sbSetupSheet(); }
@@ -12033,15 +12046,44 @@ document.addEventListener("touchcancel", () => { nbPinch = null; });
 // Keep each board strip where it was across redraws; after a drop
 function restoreBoards(prev){
   const boards = $$(".board");
-  boards.forEach((b, i) => { if (prev[i] != null) b.scrollLeft = prev[i]; });
   const f = ui.boardFocus; ui.boardFocus = null;
-  if (!f) return;
-  const col = $$(".board .col").find(c => c.dataset.status === f.status && (f.course == null || c.dataset.course === f.course));
-  if (!col) return;
-  const b = col.closest(".board");
-  if (b.scrollWidth <= b.clientWidth + 2) return;
-  const pad = parseFloat(getComputedStyle(b).scrollPaddingLeft) || parseFloat(getComputedStyle(b).paddingLeft) || 0;
-  b.scrollLeft += col.getBoundingClientRect().left - b.getBoundingClientRect().left - pad;
+  const glide = !!f || !!ui.boardSettle; ui.boardSettle = false;
+  // snapping stays off while the board is put back where it was, so it can glide from there instead of jumping
+  boards.forEach((b, i) => { if (glide || (panRun && panRun.idx === i)) b.classList.add("panning"); if (prev[i] != null) b.scrollLeft = prev[i]; });
+  const col = f && $$(".board .col").find(c => c.dataset.status === f.status && (f.course == null || c.dataset.course === f.course));
+  boards.forEach((b, i) => {
+    if (panRun && panRun.idx === i && !(col && col.closest(".board") === b)) return;
+    if (b.scrollWidth <= b.clientWidth + 2) { b.classList.remove("panning"); return; }
+    const pad = parseFloat(getComputedStyle(b).scrollPaddingLeft) || parseFloat(getComputedStyle(b).paddingLeft) || 0, bl = b.getBoundingClientRect().left;
+    const at = c => b.scrollLeft + c.getBoundingClientRect().left - bl - pad;
+    let to;
+    if (col && col.closest(".board") === b) to = at(col);
+    else if (glide) { const cs = [...b.querySelectorAll(".col")]; if (!cs.length) { b.classList.remove("panning"); return; } to = cs.map(at).reduce((m, x) => Math.abs(x - b.scrollLeft) < Math.abs(m - b.scrollLeft) ? x : m); }
+    else return;
+    boardPan(b, Math.max(0, Math.min(b.scrollWidth - b.clientWidth, to)), i);
+  });
+}
+// Swiping columns on a phone: after a drop the board glides over to the card's column instead of jumping there.
+// Snapping is paused while it moves (it ends on a column, so nothing shifts after); a touch stops it.
+let panRun = null;
+function boardPan(b, to, idx){
+  const from = b.scrollLeft, dist = to - from;
+  const still = (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) || Math.abs(dist) < 2;
+  if (still) { if (!(panRun && panRun.idx === idx)) { b.scrollLeft = to; b.classList.remove("panning"); } return; }
+  if (panRun) panRun.stop();
+  const ms = Math.round(Math.min(480, 260 + Math.abs(dist) * 0.5)), t0 = performance.now(), ease = x => 1 - Math.pow(1 - x, 3);
+  let raf = 0, done = false;
+  const cur = () => b.isConnected ? b : ($$(".board")[idx] || b);
+  const stop = () => { if (done) return; done = true; cancelAnimationFrame(raf); const el = cur(); el.classList.remove("panning"); document.removeEventListener("pointerdown", stop, true); if (panRun === run) panRun = null; };
+  const step = now => {
+    const el = cur(); el.classList.add("panning");
+    const k = Math.min(1, (now - t0) / ms); el.scrollLeft = from + dist * ease(k);
+    if (k < 1) raf = requestAnimationFrame(step); else stop();
+  };
+  const run = {stop, to, idx};
+  panRun = run; b.classList.add("panning");
+  document.addEventListener("pointerdown", stop, true);
+  raf = requestAnimationFrame(step);
 }
 function flashToday(){
   const l = $(".tl-bg .today-line"), d = $(".tl-d.is-today");
@@ -17040,7 +17082,7 @@ function startDrag(){
     g.style.width = r.width + "px"; g.style.left = r.left + "px"; g.style.top = r.top + "px";
     drag.gl = r.left; drag.gt = r.top;
     document.body.appendChild(g); drag.ghost = g;
-    const ph = document.createElement("div"); ph.className = "placeholder"; ph.style.height = r.height + "px";
+    const ph = document.createElement("div"); ph.className = "placeholder sm-skip"; ph.style.height = r.height + "px";
     el.after(ph); el.style.display = "none"; drag.ph = ph;
     drag.board = el.closest(".board"); if (drag.board) drag.board.classList.add("dragging");
   } else {
@@ -17221,6 +17263,40 @@ function confetti(){
   };
   loop60(step);
 }
+/* Task Board motion: when cards change places they slide there instead of jumping (measure, move, then animate from the
+   old spot). While dragging, the other cards make room smoothly; on drop, the card glides from your finger into its slot. */
+const BF_MS = 260, BF_EASE = "cubic-bezier(.2,.8,.2,1)";
+const bfStill = () => (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) || (window.SBMotion && SBMotion.noParticles && SBMotion.noParticles());
+const bfCards = () => [...document.querySelectorAll(".board .card[data-id]:not(.ghost)")];
+function bfRects(){ const m = new Map(); if (bfStill()) return m; bfCards().forEach(c => { const r = c.getBoundingClientRect(); if (r.width) m.set(c.dataset.id, r); }); return m; }
+function bfPlay(before, skip){
+  if (!before.size) return;
+  bfCards().forEach(c => {
+    const a = before.get(c.dataset.id); if (!a || c.dataset.id === skip || !c.animate) return;
+    c.getAnimations().forEach(x => { if (x.id === "bf") x.cancel(); });
+    const b = c.getBoundingClientRect(); if (!b.width) return;
+    const dx = a.left - b.left, dy = a.top - b.top; if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+    c.animate([{transform: `translate(${dx}px,${dy}px)`}, {transform: "none"}], {duration: BF_MS, easing: BF_EASE}).id = "bf";
+  });
+}
+let bfLand = null;
+hook("render", () => {
+  const L = bfLand; if (!L) return; bfLand = null;
+  queueMicrotask(() => bfLanded(L));   // once the redraw has finished settling the page (scroll, focus), before it paints
+});
+function bfLanded(L){
+  const g = L.ghost, gr = g.isConnected ? g.getBoundingClientRect() : null;
+  bfPlay(L.before, L.id);
+  const el = bfCards().find(c => c.dataset.id === L.id);
+  g.remove();
+  if (!el || !gr || !el.animate || bfStill() || performance.now() - L.at > 1500) return;
+  const f = el.getBoundingClientRect(); if (!f.width) return;
+  const dx = gr.left + gr.width / 2 - (f.left + f.width / 2), dy = gr.top + gr.height / 2 - (f.top + f.height / 2);
+  el.style.zIndex = 5; el.style.position = el.style.position || "relative";
+  const a = el.animate([{transform: `translate(${dx}px,${dy}px) rotate(2deg) scale(1.03)`, boxShadow: "0 14px 30px rgba(0,0,0,.28)"}, {transform: "none", boxShadow: getComputedStyle(el).boxShadow}],
+    {duration: Math.round(Math.min(420, 220 + Math.hypot(dx, dy) * 0.35)), easing: "cubic-bezier(.22,.9,.25,1)"});
+  a.id = "bf"; a.onfinish = a.oncancel = () => { el.style.zIndex = ""; if (el.style.position === "relative") el.style.position = ""; };
+}
 function placeAt(x, y){
   const under = document.elementFromPoint(x, y);
   const col = under && under.closest(".col");
@@ -17233,8 +17309,11 @@ function placeAt(x, y){
   const cards = [...col.querySelectorAll(".card")].filter(c => c !== drag.el && shown(c));
   let before = null;
   for (const c of cards) { const r = c.getBoundingClientRect(); if (y < r.top + r.height / 2) { before = c; break; } }
-  if (before) { if (drag.ph.nextElementSibling !== before) before.parentNode.insertBefore(drag.ph, before); }
-  else if (list.lastElementChild !== drag.ph) list.appendChild(drag.ph);
+  const moves = before ? drag.ph.nextElementSibling !== before : list.lastElementChild !== drag.ph; if (!moves) return;
+  const was = bfRects(), fresh = !drag.ph.parentNode;
+  if (before) before.parentNode.insertBefore(drag.ph, before); else list.appendChild(drag.ph);
+  bfPlay(was);
+  if (!fresh && drag.ph.animate && was.size) drag.ph.animate([{opacity: 0, transform: "scaleY(.6)"}, {opacity: 1, transform: "none"}], {duration: 180, easing: BF_EASE});
 }
 function endDrag(ok){
   cancelAnimationFrame(drag.raf);
@@ -17271,8 +17350,12 @@ function endDrag(ok){
     toast(label, redo, shiftOffer(t.id));
     return;
   }
-  d.ghost.remove();
-  if (d.board) d.board.classList.remove("dragging");
+  // the ghost stays where it was let go until the board redraws, then the card glides from there (see bfLand)
+  bfLand = {id: (d.el && d.el.dataset && d.el.dataset.id) || d.id, ghost: d.ghost, before: bfRects(), at: performance.now()};
+  { const g = d.ghost; setTimeout(() => { if (g.isConnected) g.remove(); if (bfLand && bfLand.ghost === g) bfLand = null; }, 1500); }
+  // a phone's column pager glides to a column after the redraw rather than snapping now (see restoreBoards)
+  ui.boardSettle = true;
+  if (d.board) { d.board.classList.add("panning"); d.board.classList.remove("dragging"); }
   $$(".col.over").forEach(c => c.classList.remove("over"));
   if (d.el && d.el.dataset && d.el.dataset.gt) {
     const colEl = ok && d.ph && d.ph.parentNode ? d.ph.closest(".col") : null;
@@ -17403,6 +17486,10 @@ window.__sbPlanObj = () => PLAN;
   };
   let cfg = mergeCfg(P.cfgRows);
   try { const a = JSON.parse(localStorage.getItem("studioso-auth") || "null"); P.stored = a && a.user && typeof a.user.id === "string" ? a.user.id : (a && a.currentSession && a.currentSession.user && a.currentSession.user.id) || null; } catch (e) {}
+  // The iPhone and desktop apps keep the sign-in in the keychain, not here, so it isn't readable this early: the account from
+  // last time (remembered with the plan hint) stands in until the sign-in loads, so a Pro theme and companion from last time
+  // show straight away instead of the default for a moment
+  if (!P.stored && !(typeof sbLocalOnly === "function" && sbLocalOnly())) try { const h = JSON.parse(localStorage.getItem("studyboard:planHint") || "null"); if (h && typeof h.uid === "string" && h.uid) P.stored = h.uid; } catch (e) {}
 
   let hw = Number((() => { try { return localStorage.getItem(K_HW); } catch (e) { return 0; } })()) || 0;
   const base0 = Math.max(Date.now(), hw), perf0 = typeof performance !== "undefined" ? performance.now() : 0;
@@ -17659,6 +17746,13 @@ window.__sbPlanObj = () => PLAN;
       setTimeout(() => toast("Your free week of Pro has ended. Everything you made is still here, and the planner stays free.", null, {label: "See Plans", fn: () => proSheet("Your free week of Pro has ended. Keep Pro with any plan below, or carry on with Free.")}), 1200);
     }
   }
+  // The sign-in finished loading and nobody is signed in: forget the account from last time, and that it had Pro, at once
+  hook("auth-none", () => {
+    if (sbUser) return;
+    P.stored = null;
+    try { localStorage.setItem(K_HINT, JSON.stringify({uid: "", pro: false})); } catch (e) {}
+    changed();
+  });
   function watchUser(){
     const id = sbUser ? sbUser.id : null;
     if (id === P.uid) return;
@@ -57290,7 +57384,7 @@ var COMP_EXTRA = [];
     if (opts.cheer || /^(WOO|YES|YAY|Woohoo|Yay|Hooray)\b/.test(text)) b.classList.add("cheer");
     b.innerHTML = `<span class="cp-b-t"></span>`;
     b.querySelector(".cp-b-t").textContent = text;
-    const idea = opts.idea || null, ask = !!opts.ask;
+    const idea = opts.idea || null, ask = !!opts.ask && !askOnTab();
     bubbleIdea = idea; bubbleAsk = ask;
     const btns = [];
     if (idea) btns.push(`<button type="button" class="btn small primary" data-cp="yes">${esc(idea.yes || "Let's Do It")}</button>`, `<button type="button" class="btn small" data-cp="no">Not Now</button>`);
@@ -57394,7 +57488,10 @@ var COMP_EXTRA = [];
   }
   { const origTF = taskForm; taskForm = function(){ const r = origTF.apply(this, arguments); try { setTimeout(addTaskAsk, 0); } catch (e) {} return r; }; }
   // Ask Me: a tiny question box inside the bubble
+  // Phones type to the companion on its own tab (tapping the companion opens it), so its bubble has no Ask box there
+  function askOnTab(){ return phone() || !!(window.matchMedia && matchMedia("(hover:none) and (pointer:coarse) and (max-height:639px)").matches); }
   function openAsk(){
+    if (askOnTab()) { if (typeof ui !== "undefined" && ui.tab !== "companion") { ui.tab = "companion"; render(); } return; }
     const b = front && front.querySelector(".cp-bubble"); if (!b || !cur) return;
     clearTimeout(bubbleT);
     b.classList.remove("has-idea", "long"); b.classList.add("on", "asking");
@@ -59219,7 +59316,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const acts = m.a && m.a.actions && m.a.actions.length ? `<div class="cpt-actions">${m.a.actions.map((a, i) => `<div class="cpt-action"><span class="cpt-action-t">${esc(a.label)}</span>${a.done ? `<span class="mini cpt-done">${esc(a.done)}</span>` : `<button type="button" class="btn small primary" data-act="cpt-do" data-m="${esc(String(m.at))}" data-i="${i}">${ACT_BTN[a.type] || "Make It"}</button>`}${a.deckId && state.decks[a.deckId] ? `<button type="button" class="btn small" data-act="cpt-open-deck" data-id="${esc(a.deckId)}">Open Deck</button>` : ""}</div>`).join("")}</div>` : "";
     return `<div class="cpt-q">${esc(m.q)}${m.files && m.files.length ? `<div class="cpt-qf">${m.files.map(f => `<span>${esc(f)}</span>`).join("")}</div>` : ""}</div>
       <div class="cpt-a">${m.err ? `<p class="mini">${esc(m.err)}</p>` : `${miniMd(m.a.answer)}
-        ${m.a.sources && m.a.sources.length ? `<div class="cpt-src" aria-label="Looked at">${m.a.sources.map(s => `<span class="chip">${esc(s)}</span>`).join("")}</div>` : ""}${acts}`}
+        ${m.a.sources && m.a.sources.length ? `<details class="cpt-srcd"><summary>Looked at ${m.a.sources.length} ${m.a.sources.length === 1 ? "thing" : "things"}</summary><div class="cpt-src">${m.a.sources.map(s => `<span class="chip">${esc(s)}</span>`).join("")}</div></details>` : ""}${acts}`}
         ${m.a && !m.err ? `<div class="cpt-acts"><button type="button" class="link-btn" data-act="cpt-note" data-id="${esc(String(m.at))}">Save as Note</button><button type="button" class="link-btn" data-ai-report="companion-chat" data-ai-text="${esc(String(m.a.answer || "").slice(0, 1400))}">Report Response</button></div>` : ""}</div>`;
   }
   function logHtml(){
@@ -59228,7 +59325,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     if (!msgs.length && !busy) {
       const me = info() || {};
       return `<div class="cpt-empty"><p><b>${esc(me.name ? "Hi, I'm " + me.name + "!" : "Hi!")}</b> Ask about your deadlines, courses, notes or anything you're studying.</p>
-        <div class="cpt-chips">${starters().map(s => `<button type="button" class="chip" data-act="cpt-ask" data-q="${esc(s)}">${esc(s)}</button>`).join("")}</div></div>`;
+        ${aiOk() ? `<div class="cpt-chips">${starters().map(s => `<button type="button" class="chip" data-act="cpt-ask" data-q="${esc(s)}">${esc(s)}</button>`).join("")}</div>` : ""}</div>`;
     }
     return msgs.map(msgHtml).join("") + (busy ? `<div class="cpt-q">${esc(busy.q)}</div><div class="cpt-a cpt-wait"><p><span class="ai-spin" aria-hidden="true"></span> <span id="cptStatus">${esc(T.status || "Thinking…")}</span></p></div>` : "")
       + (last && last.a && !busy && (last.a.followUps || []).length ? `<div class="cpt-chips fu">${last.a.followUps.map(f => `<button type="button" class="chip" data-act="cpt-ask" data-q="${esc(f)}">${esc(f)}</button>`).join("")}</div>` : "");
@@ -59373,6 +59470,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const wc = (SBCOMP.wearColor && SBCOMP.wearColor()) || "#E5604D", worn = SBCOMP.wornNames ? SBCOMP.wornNames() : [];
     const meta = [worn.length ? "Wearing " + worn.join(" and ") : "", area ? "Studying " + area : ""].filter(Boolean).join(" · ");
     const head = me ? `<div class="cpt-head cpt3" style="--c:var(--accent-band,var(--accent))" data-wear="${esc(wc)}"><div class="cpt3-band"><div class="cpt3-acts"><button type="button" class="btn cpt-dress" data-act="comp-change">Change</button></div></div>
+        <div class="cpt3-mini" aria-hidden="true">${AI_ICON}<b>${esc(me.name)}</b></div>
         <div class="cpt3-ring">${SBCOMP.tab.faceHtml(104)}</div>
         <div class="cpt-id"><h2>${esc(me.name)}</h2>${me.bio ? `<p class="cpt-bio">${esc(me.bio)}</p>` : ""}${meta ? `<span class="mini">${esc(meta)}</span>` : ""}</div>`
       : `<div class="cpt-head"><div class="cpt-id"><h2>Companion</h2><p class="mini">Your companion is turned off. Turn it on to chat and to see it beside the Add Task button.</p></div><div class="cpt-hbtn"><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="on"> On</label></div>`;
@@ -59389,13 +59487,19 @@ You can also DO things in Studyboard, but only when the student asks or what the
     if (!log || T.tab !== "chat") { render(); return; }
     log.innerHTML = logHtml();
     const go = $("#cptGo"); if (go) go.disabled = !aiOk() || !!T.busy;
-    log.scrollTop = log.scrollHeight;
+    toLatest(log); requestAnimationFrame(() => { if (log.isConnected) toLatest(log); });
+  }
+  // A new answer opens at its start (its question at the top), not at its last line; while thinking, the bottom shows
+  function toLatest(log){
+    const qs = log.querySelectorAll(".cpt-q"), q = qs[qs.length - 1];
+    if (!q || T.busy) { log.scrollTop = log.scrollHeight; return; }
+    log.scrollTop = Math.max(0, log.scrollTop + q.getBoundingClientRect().top - log.getBoundingClientRect().top - 10);
   }
   hook("render", tab => {
     if (tab !== "companion") { try { SBCOMP.tab.stopPreviews(); } catch (e) {} return; }
     const root = $(".cpt"); if (!root) return;
     try { SBCOMP.tab.wirePreviews(root); } catch (e) { console.warn("companion tab", e); }
-    const log = $("#cptLog"); if (log) log.scrollTop = log.scrollHeight;
+    const log = $("#cptLog"); if (log) { toLatest(log); requestAnimationFrame(() => { if (log.isConnected) toLatest(log); }); }
     const cin = $("#cptIn"); if (cin && cin.value) cptGrow(cin);
   });
 
@@ -59455,6 +59559,12 @@ You can also DO things in Studyboard, but only when the student asks or what the
 .cpt-a{justify-self:start;max-width:92%;background:var(--soft);padding:9px 14px;border-radius:16px 16px 16px 4px;font-size:.95rem;overflow-wrap:anywhere}
 .cpt-a p{margin:0 0 6px}.cpt-a p:last-child{margin:0}.cpt-a ul{margin:4px 0 6px;padding-left:20px}
 .cpt-src,.cpt-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.cpt-srcd{margin-top:8px}
+.cpt-srcd>summary{display:inline-flex;align-items:center;gap:6px;min-height:32px;cursor:pointer;list-style:none;font:600 .82rem var(--sans,inherit);color:var(--muted);border-radius:8px}
+.cpt-srcd>summary::-webkit-details-marker{display:none}
+.cpt-srcd>summary::after{content:"";width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:translateY(-2px) rotate(45deg);transition:transform .2s ease}
+.cpt-srcd[open]>summary::after{transform:translateY(1px) rotate(-135deg)}
+.cpt-srcd .cpt-src{margin-top:4px}
 .cpt-chips.fu{margin-top:2px}
 .cpt-acts{margin-top:4px;display:flex;gap:16px;flex-wrap:wrap}
 .cpt-empty{display:grid;gap:10px;align-content:center;min-height:220px;text-align:center;justify-items:center}
@@ -77542,7 +77652,8 @@ var SBWB = null;
   const FREE = ["blank", "grid", "dots", "lines"];
   const fixedPage = () => { const n = noteOf(); return !!(n && n.wb && n.wb.tpl && !FREE.includes(n.wb.tpl)); };
   // On phones the page is too small to use at its fit size, so it zooms and moves, kept inside the page
-  const PHONE = () => !!(window.matchMedia && matchMedia("(max-width:639px)").matches);
+  // (a phone turned sideways is wider than that, but it is still a small touch screen you pinch to zoom)
+  const PHONE = () => !!(window.matchMedia && matchMedia("(max-width:639px), (hover:none) and (pointer:coarse) and (max-height:639px)").matches);
   function clampCam(){
     const fx = fixedPage(), ph = fx && PHONE(); if (STAGE) STAGE.classList.toggle("wb-fixed", fx && !ph);
     if (fx && fw > 0 && fh > 0) {
@@ -77591,7 +77702,8 @@ var SBWB = null;
   let STAGE = null, frame, back, front, texts, cvH, cvI, cvL, tray, selbar, zoomEl;
   function build(){
     if (STAGE) return;
-    STAGE = document.createElement("div"); STAGE.className = "wb-stage";
+    // sm-skip: the board is put back into the page after every save, and must never fade in (it blinked out while drawing)
+    STAGE = document.createElement("div"); STAGE.className = "wb-stage sm-skip";
     STAGE.innerHTML = `<div class="wb-frame" tabindex="0" role="application" aria-roledescription="whiteboard" aria-label="Whiteboard. Draw with the mouse, a finger or a pen. Tools are next to the board.">
         <div class="wb-world wb-back"><div class="wb-tplbox"></div><div class="wb-imgs"></div></div>
         <canvas class="wb-cv wb-hl"></canvas><canvas class="wb-cv wb-ink"></canvas>
@@ -83003,10 +83115,54 @@ const AUTOPILOT = (() => {
     const vv = window.visualViewport, vh = vv ? vv.height : innerHeight, nav = document.querySelector("nav.tabs");
     const nr = nav && getComputedStyle(nav).display !== "none" ? nav.getBoundingClientRect() : null, navTop = nr && nr.height ? nr.top : innerHeight;
     const bottom = Math.min(navTop - 12, vh - 8), top = view.getBoundingClientRect().top;
+    const log = document.getElementById("cptLog"), pin = !!log && root.classList.contains("cpt-typing") && log.scrollHeight - log.scrollTop - log.clientHeight < 60;
     view.style.height = Math.max(200, Math.floor(bottom - top)) + "px";
+    if (pin) log.scrollTop = log.scrollHeight;
   }
   if (window.visualViewport) { visualViewport.addEventListener("resize", fitChat); visualViewport.addEventListener("scroll", () => { if (root().classList.contains("ph-lock") && scrollY) scrollTo(0, 0); }); }
   const root = () => document.documentElement;
+  // Typing in the companion chat: the profile card folds away (CSS, html.cpt-typing) and comes back when you're done.
+  // The live companion is drawn on its own layer, so it is walked along with its circle while the card moves, and the
+  // newest message stays in view as the chat grows and shrinks.
+  let typeT = 0, typeRaf = 0;
+  function follow(pin){
+    cancelAnimationFrame(typeRaf); const t0 = performance.now(), log = document.getElementById("cptLog");
+    const step = () => { dispatchEvent(new Event("scroll")); if (pin && log) log.scrollTop = log.scrollHeight; if (performance.now() - t0 < 520) typeRaf = requestAnimationFrame(step); };
+    typeRaf = requestAnimationFrame(step);
+  }
+  // The card's motion: the iOS sheet curve, about as long as the keyboard takes. The small face in the title bar flies
+  // from the big circle on the way in and back to it on the way out, so it reads as one companion moving, not a swap.
+  const MORPH = 440, EASE = "cubic-bezier(.32,.72,0,1)";
+  function fly(head, toRing){
+    const face = head.querySelector(".cpt3-mini > :first-child"), ring = head.querySelector(".cpt3-ring");
+    if (!face || !ring || !face.animate) return;
+    const f = face.getBoundingClientRect(), g = ring.getBoundingClientRect(); if (!f.width || !g.width) return;
+    const at = `translate(${Math.round(g.left + g.width / 2 - (f.left + f.width / 2))}px,${Math.round(g.top + g.height / 2 - (f.top + f.height / 2))}px) scale(${(g.width * 0.86 / f.width).toFixed(3)})`;
+    face.animate(toRing ? [{transform: "none"}, {transform: at}] : [{transform: at}, {transform: "none"}], {duration: MORPH, easing: EASE});
+  }
+  function typing(on){
+    const r = root(); if (r.classList.contains("cpt-typing") === on) return;
+    const log = document.getElementById("cptLog"), pin = !!log && log.scrollHeight - log.scrollTop - log.clientHeight < 60;
+    const head = document.querySelector("#view .cpt-head.cpt3"), still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!head || still || !r.classList.contains("ph-lock")) { r.classList.toggle("cpt-typing", on); follow(pin); return; }
+    clearTimeout(head._t); r.classList.add("cpt-morph");
+    if (on) {
+      const ringBefore = head.querySelector(".cpt3-ring").getBoundingClientRect();
+      head.style.height = head.offsetHeight + "px"; void head.offsetHeight; r.classList.add("cpt-typing"); head.style.height = "";
+      const face = head.querySelector(".cpt3-mini > :first-child"), ring = head.querySelector(".cpt3-ring");
+      if (face && face.animate) { const f = face.getBoundingClientRect(); if (f.width) face.animate([{transform: `translate(${Math.round(ringBefore.left + ringBefore.width / 2 - (f.left + f.width / 2))}px,${Math.round(ringBefore.top + ringBefore.height / 2 - (f.top + f.height / 2))}px) scale(${(ringBefore.width * 0.86 / f.width).toFixed(3)})`}, {transform: "none"}], {duration: MORPH, easing: EASE}); }
+      if (ring) ring.style.opacity = "";
+    } else {
+      head.style.height = head.offsetHeight + "px"; r.classList.remove("cpt-typing");
+      const full = head.scrollHeight; void head.offsetHeight; head.style.height = full + "px";
+      fly(head, true);
+    }
+    head._t = setTimeout(() => { head.style.height = ""; r.classList.remove("cpt-morph"); follow(false); }, MORPH + 20);
+    follow(pin);
+  }
+  document.addEventListener("focusin", e => { if (e.target && e.target.id === "cptIn" && isPhone()) { clearTimeout(typeT); typing(true); } });
+  document.addEventListener("focusout", e => { if (!e.target || e.target.id !== "cptIn") return; clearTimeout(typeT); typeT = setTimeout(() => { const a = document.activeElement; if (!(a && a.id === "cptIn")) typing(false); }, 180); });
+  hook("render", () => { const a = document.activeElement; if (!(a && a.id === "cptIn")) root().classList.remove("cpt-typing"); else if (isPhone()) root().classList.add("cpt-typing"); });
   // An Options menu closes after a choice, or a tap anywhere else
   document.addEventListener("click", e => {
     document.querySelectorAll("details.ph-more[open]").forEach(d => { if (!d.contains(e.target) || e.target.closest(".ph-menu .btn")) d.open = false; });

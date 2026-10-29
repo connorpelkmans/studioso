@@ -59,7 +59,7 @@ Upload the `.pkg` with the **Transporter** app (or `xcrun altool --upload-app`),
 
 ### 2c. iOS app
 
-Follow `ios-wrapper/README-IOS.md` (stage web files, `npx cap add ios`, merge `Info.plist.additions.plist`, add capabilities, privacy manifest, archive, TestFlight, submit).
+Follow `ios-wrapper/README-IOS.md` (stage web files, `npx cap add ios`, `npm run ios:stage` (merges `Info.plist.additions.plist`), add capabilities, privacy manifest, archive, TestFlight, submit).
 
 ### 2d. Auto-update (note)
 

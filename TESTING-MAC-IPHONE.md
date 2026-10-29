@@ -62,13 +62,13 @@ This builds the iPhone copy of the app into `ios-wrapper/ios-www/` and adds the 
 cd ios-wrapper
 npm init -y
 npm i @capacitor/core @capacitor/ios @capacitor/app @capacitor/browser @capacitor/push-notifications \
-      @capacitor/share @capacitor/filesystem capacitor-secure-storage-plugin @revenuecat/purchases-capacitor
+      @capacitor/share @capacitor/filesystem @capacitor/screen-orientation capacitor-secure-storage-plugin @revenuecat/purchases-capacitor
 npm i -D @capacitor/cli
 npx cap add ios
 cd ..
 npm run ios:stage          # stages again and now also syncs into the Xcode project
 ```
-Then copy in the app's settings, as described in README-IOS.md section 3: the Info.plist additions, the privacy manifest, and the native files in `ios-wrapper/native/`.
+Then copy in the app's settings, as described in README-IOS.md section 3: the privacy manifest and the native files in `ios-wrapper/native/`. (The Info.plist keys, like the camera and photo reasons, are added by `npm run ios:stage`.)
 
 ### 3. Run it on your iPhone
 1. `cd ios-wrapper && npx cap open ios`. Xcode opens.

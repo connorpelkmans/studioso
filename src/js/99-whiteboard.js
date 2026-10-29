@@ -406,7 +406,8 @@ var SBWB = null;
   const FREE = ["blank", "grid", "dots", "lines"];
   const fixedPage = () => { const n = noteOf(); return !!(n && n.wb && n.wb.tpl && !FREE.includes(n.wb.tpl)); };
   // On phones the page is too small to use at its fit size, so it zooms and moves, kept inside the page
-  const PHONE = () => !!(window.matchMedia && matchMedia("(max-width:639px)").matches);
+  // (a phone turned sideways is wider than that, but it is still a small touch screen you pinch to zoom)
+  const PHONE = () => !!(window.matchMedia && matchMedia("(max-width:639px), (hover:none) and (pointer:coarse) and (max-height:639px)").matches);
   function clampCam(){
     const fx = fixedPage(), ph = fx && PHONE(); if (STAGE) STAGE.classList.toggle("wb-fixed", fx && !ph);
     if (fx && fw > 0 && fh > 0) {
@@ -455,7 +456,8 @@ var SBWB = null;
   let STAGE = null, frame, back, front, texts, cvH, cvI, cvL, tray, selbar, zoomEl;
   function build(){
     if (STAGE) return;
-    STAGE = document.createElement("div"); STAGE.className = "wb-stage";
+    // sm-skip: the board is put back into the page after every save, and must never fade in (it blinked out while drawing)
+    STAGE = document.createElement("div"); STAGE.className = "wb-stage sm-skip";
     STAGE.innerHTML = `<div class="wb-frame" tabindex="0" role="application" aria-roledescription="whiteboard" aria-label="Whiteboard. Draw with the mouse, a finger or a pen. Tools are next to the board.">
         <div class="wb-world wb-back"><div class="wb-tplbox"></div><div class="wb-imgs"></div></div>
         <canvas class="wb-cv wb-hl"></canvas><canvas class="wb-cv wb-ink"></canvas>

@@ -234,10 +234,54 @@
     const vv = window.visualViewport, vh = vv ? vv.height : innerHeight, nav = document.querySelector("nav.tabs");
     const nr = nav && getComputedStyle(nav).display !== "none" ? nav.getBoundingClientRect() : null, navTop = nr && nr.height ? nr.top : innerHeight;
     const bottom = Math.min(navTop - 12, vh - 8), top = view.getBoundingClientRect().top;
+    const log = document.getElementById("cptLog"), pin = !!log && root.classList.contains("cpt-typing") && log.scrollHeight - log.scrollTop - log.clientHeight < 60;
     view.style.height = Math.max(200, Math.floor(bottom - top)) + "px";
+    if (pin) log.scrollTop = log.scrollHeight;
   }
   if (window.visualViewport) { visualViewport.addEventListener("resize", fitChat); visualViewport.addEventListener("scroll", () => { if (root().classList.contains("ph-lock") && scrollY) scrollTo(0, 0); }); }
   const root = () => document.documentElement;
+  // Typing in the companion chat: the profile card folds away (CSS, html.cpt-typing) and comes back when you're done.
+  // The live companion is drawn on its own layer, so it is walked along with its circle while the card moves, and the
+  // newest message stays in view as the chat grows and shrinks.
+  let typeT = 0, typeRaf = 0;
+  function follow(pin){
+    cancelAnimationFrame(typeRaf); const t0 = performance.now(), log = document.getElementById("cptLog");
+    const step = () => { dispatchEvent(new Event("scroll")); if (pin && log) log.scrollTop = log.scrollHeight; if (performance.now() - t0 < 520) typeRaf = requestAnimationFrame(step); };
+    typeRaf = requestAnimationFrame(step);
+  }
+  // The card's motion: the iOS sheet curve, about as long as the keyboard takes. The small face in the title bar flies
+  // from the big circle on the way in and back to it on the way out, so it reads as one companion moving, not a swap.
+  const MORPH = 440, EASE = "cubic-bezier(.32,.72,0,1)";
+  function fly(head, toRing){
+    const face = head.querySelector(".cpt3-mini > :first-child"), ring = head.querySelector(".cpt3-ring");
+    if (!face || !ring || !face.animate) return;
+    const f = face.getBoundingClientRect(), g = ring.getBoundingClientRect(); if (!f.width || !g.width) return;
+    const at = `translate(${Math.round(g.left + g.width / 2 - (f.left + f.width / 2))}px,${Math.round(g.top + g.height / 2 - (f.top + f.height / 2))}px) scale(${(g.width * 0.86 / f.width).toFixed(3)})`;
+    face.animate(toRing ? [{transform: "none"}, {transform: at}] : [{transform: at}, {transform: "none"}], {duration: MORPH, easing: EASE});
+  }
+  function typing(on){
+    const r = root(); if (r.classList.contains("cpt-typing") === on) return;
+    const log = document.getElementById("cptLog"), pin = !!log && log.scrollHeight - log.scrollTop - log.clientHeight < 60;
+    const head = document.querySelector("#view .cpt-head.cpt3"), still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!head || still || !r.classList.contains("ph-lock")) { r.classList.toggle("cpt-typing", on); follow(pin); return; }
+    clearTimeout(head._t); r.classList.add("cpt-morph");
+    if (on) {
+      const ringBefore = head.querySelector(".cpt3-ring").getBoundingClientRect();
+      head.style.height = head.offsetHeight + "px"; void head.offsetHeight; r.classList.add("cpt-typing"); head.style.height = "";
+      const face = head.querySelector(".cpt3-mini > :first-child"), ring = head.querySelector(".cpt3-ring");
+      if (face && face.animate) { const f = face.getBoundingClientRect(); if (f.width) face.animate([{transform: `translate(${Math.round(ringBefore.left + ringBefore.width / 2 - (f.left + f.width / 2))}px,${Math.round(ringBefore.top + ringBefore.height / 2 - (f.top + f.height / 2))}px) scale(${(ringBefore.width * 0.86 / f.width).toFixed(3)})`}, {transform: "none"}], {duration: MORPH, easing: EASE}); }
+      if (ring) ring.style.opacity = "";
+    } else {
+      head.style.height = head.offsetHeight + "px"; r.classList.remove("cpt-typing");
+      const full = head.scrollHeight; void head.offsetHeight; head.style.height = full + "px";
+      fly(head, true);
+    }
+    head._t = setTimeout(() => { head.style.height = ""; r.classList.remove("cpt-morph"); follow(false); }, MORPH + 20);
+    follow(pin);
+  }
+  document.addEventListener("focusin", e => { if (e.target && e.target.id === "cptIn" && isPhone()) { clearTimeout(typeT); typing(true); } });
+  document.addEventListener("focusout", e => { if (!e.target || e.target.id !== "cptIn") return; clearTimeout(typeT); typeT = setTimeout(() => { const a = document.activeElement; if (!(a && a.id === "cptIn")) typing(false); }, 180); });
+  hook("render", () => { const a = document.activeElement; if (!(a && a.id === "cptIn")) root().classList.remove("cpt-typing"); else if (isPhone()) root().classList.add("cpt-typing"); });
   // An Options menu closes after a choice, or a tap anywhere else
   document.addEventListener("click", e => {
     document.querySelectorAll("details.ph-more[open]").forEach(d => { if (!d.contains(e.target) || e.target.closest(".ph-menu .btn")) d.open = false; });

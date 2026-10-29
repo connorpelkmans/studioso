@@ -132,7 +132,7 @@ body.wide .wrap{max-width:1180px}
   .board::-webkit-scrollbar{display:none}
   .col{flex:0 0 84%;scroll-snap-align:start}
 }
-.board.dragging{scroll-snap-type:none}
+.board.dragging,.board.panning{scroll-snap-type:none}
 .col{background:var(--soft);border-radius:16px;padding:10px;min-height:220px;transition:box-shadow .15s}
 .col.over{box-shadow:inset 0 0 0 2px var(--accent)}
 .col-head{display:flex;align-items:center;gap:8px;padding:4px 4px 10px;font:700 1.02rem var(--display)}
