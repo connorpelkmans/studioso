@@ -146,7 +146,7 @@ const PLANNER = () => ({v: 2, updated: 1, settings: {capacity: 15, dailyHours: 3
       ok(gt && gt.height <= 210 && gt.width >= 400, "the grade trend chart is wide and short (" + Math.round(gt.width) + "x" + Math.round(gt.height) + ")");
       ok(await page.locator(".gr-goal-ask .chip[data-act=g-goal]").count() >= 2, "with marks in and no goal, it asks what grade you're aiming for");
       await page.click('.gr-goal-ask [data-act="g-goal"][data-id="93"]'); await page.waitForTimeout(250);
-      ok((await saved(page)).courses[0].grading.goal === 93 && await page.locator(".gr-goal-ask").count() === 0 && /Your goal: 93%/.test(await txt(page, ".gr-pass")), "one tap sets the goal");
+      ok((await saved(page)).courses[0].grading.goal === 93 && await page.locator(".gr-goal-ask").count() === 0 && await page.inputValue(".gr-target input") === "93", "one tap sets the goal (shown in the Target Grade field)");
       await page.evaluate(() => { const {ui, render, clone, state, applyChanges} = __sbSync, c = clone(state.courses.c1); c.grading = {}; applyChanges([{kind: "course", id: "c1", after: c}], ""); ui.courseId = null; ui.courseTab = "grades"; render(); });
       await page.waitForSelector(".gp-need");
       ok(!/to pass/.test(await txt(page, ".gp-need")) && /A-/.test(await txt(page, ".gp-need")), "the Grades page's What Do I Need? aims at the current letter: " + (await txt(page, ".gp-need")).replace(/\s+/g, " "));

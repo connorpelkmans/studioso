@@ -74,27 +74,39 @@ function parse(data, items){
   const conf = ["weak", "ok", "strong"].includes(data.confidence) ? data.confidence : guess;
   return {right, missed, conf, reason: AINS.clean(data.reason, 220)};
 }
+// The check keeps running when you tap away: the sheet is set aside (me stays its state) and a toast says when it's done
 async function check(){
-  const ex = state.tasks[TB.exId], t = ex && findTopic(ex, TB.topicId); if (!t) return;
-  const words = TB.text.trim().split(/\s+/).filter(Boolean).length;
-  if (words < 12) { TB.msg = "Say a bit more: a few sentences, as if teaching a friend who missed the class."; draw(); return; }
-  if (!aiReady()) { DRAFT.set(key(), TB.text); aiSetupSheet(true); return; }
+  const me = TB, ex = state.tasks[me.exId], t = ex && findTopic(ex, me.topicId); if (!t) return;
+  const words = me.text.trim().split(/\s+/).filter(Boolean).length;
+  if (words < 12) { me.msg = "Say a bit more: a few sentences, as if teaching a friend who missed the class."; draw(); return; }
+  if (!aiReady()) { DRAFT.set(key(), me.text); aiSetupSheet(true); return; }
   micStop();
-  TB.busy = true; TB.msg = ""; draw();
+  const kk = me.exId + "|" + me.topicId, ac = typeof AbortController === "function" ? new AbortController() : null;
+  me.busy = true; me.msg = ""; me.ac = ac; draw();
+  const here = () => !!me.el && dlg.open && dlg.contains(me.el);
+  const done = () => {
+    me.busy = false; me.ac = null;
+    if (me.dropped) return;
+    if (here()) { if (TB === me) draw(); return; }
+    if (!sheetKept(me.k)) return;
+    if (me.res) sheetReady(me.k, null, "Your Teach It Back check is ready");
+    else if (me.msg) toast("Teach It Back couldn't check that. Open it again to see why.", null, {label: "Open", fn: () => open(me.exId, me.topicId)}, {error: true});
+  };
   try {
-    const {items, unread} = TB.general ? {items: [], unread: []} : await sources(t);
-    if (!TB.general && !items.length) { TB.busy = false; TB.msg = unread.length ? `Couldn't read the text in ${unread.join(", ")}. Link a deck or note to this topic, or check against general knowledge instead.` : "Nothing linked to this topic could be read."; draw(); return; }
+    const {items, unread} = me.general ? {items: [], unread: []} : await sources(t);
+    if (me.dropped) return;
+    if (!me.general && !items.length) { me.msg = unread.length ? `Couldn't read the text in ${unread.join(", ")}. Link a deck or note to this topic, or check against general knowledge instead.` : "Nothing linked to this topic could be read."; done(); return; }
     const c = courseOf(ex.courseId);
-    const r = await aiCall({task: "tutor", maxTokens: 5000, temperature: 0.2, timeout: 90000, schema: SCHEMA, system: TB.general ? SYS_GEN : SYS, onStatus: m => { const s = $("#tbStatus"); if (s) s.textContent = m; },
-      parts: [{text: `Course: ${c ? c.name : "not given"}\nExam: ${ex.title}\nTopic: ${t.name}\n\n${items.length ? `<sources>\n${items.map(i => `[${i.ref}] ${i.text}`).join("\n\n").replace(/<\/?(sources|explanation)>/gi, " ")}\n</sources>\n\n` : ""}<explanation>\n${TB.text.trim().slice(0, 6000).replace(/<\/?(sources|explanation)>/gi, " ")}\n</explanation>`}]});
-    if (!TB) return;
-    TB.res = Object.assign(parse(r && r.data, items), {general: TB.general, at: Date.now(), text: TB.text, unread});
-    LAST.set(key(), TB.res); DRAFT.set(key(), TB.text);
+    const r = await aiCall({task: "tutor", maxTokens: 5000, temperature: 0.2, timeout: 90000, schema: SCHEMA, system: me.general ? SYS_GEN : SYS, signal: ac ? ac.signal : undefined, onStatus: m => { const s = me.el && me.el.querySelector("#tbStatus"); if (s) s.textContent = m; },
+      parts: [{text: `Course: ${c ? c.name : "not given"}\nExam: ${ex.title}\nTopic: ${t.name}\n\n${items.length ? `<sources>\n${items.map(i => `[${i.ref}] ${i.text}`).join("\n\n").replace(/<\/?(sources|explanation)>/gi, " ")}\n</sources>\n\n` : ""}<explanation>\n${me.text.trim().slice(0, 6000).replace(/<\/?(sources|explanation)>/gi, " ")}\n</explanation>`}]});
+    if (me.dropped) return;
+    me.res = Object.assign(parse(r && r.data, items), {general: me.general, at: Date.now(), text: me.text, unread});
+    LAST.set(kk, me.res); DRAFT.set(kk, me.text);
   } catch (e) {
-    if (!TB) return;
-    TB.msg = e && e.code === "cancelled" ? "" : (e && e.message) || "The AI couldn't check that right now. Try again.";
+    if (me.dropped) return;
+    me.msg = e && e.code === "cancelled" ? "" : (e && e.message) || "The AI couldn't check that right now. Try again.";
   }
-  TB.busy = false; draw();
+  done();
 }
 
 /* acting on the result */
@@ -159,10 +171,10 @@ function mic(){
 const key = () => TB.exId + "|" + TB.topicId;
 const srcBtn = (x, i, list) => x.src ? `<button type="button" class="link-btn tb-src" data-tb="src" data-l="${list}" data-i="${i}">${esc(x.src.label)}</button>` : "";
 function draw(){
-  if (!TB || !dlg.open || !dlg.querySelector(".tb-sheet")) return;
-  const ex = state.tasks[TB.exId], t = ex && findTopic(ex, TB.topicId), body = $("#tbBody"), foot = $("#tbFoot");
+  if (!TB || !TB.el || !dlg.open || !dlg.contains(TB.el)) return;
+  const ex = state.tasks[TB.exId], t = ex && findTopic(ex, TB.topicId), body = TB.el.querySelector("#tbBody"), foot = TB.el.querySelector("#tbFoot");
   if (!t || !body) { if (dlg.open) dlg.close(); return; }
-  const ta = $("#tbText"); if (ta && !TB.res) TB.text = ta.value;
+  const ta = TB.el.querySelector("#tbText"); if (ta && !TB.res) TB.text = ta.value;
   const ls = liveLinks(t), has = ls.length > 0, R = TB.res;
   const top = `<p class="tb-topic"><b>${esc(t.name)}</b><span class="mini"> ${esc(ex.title)} · now ${esc(CONF[t.conf] || "OK")}</span></p>`;
   if (!R) {
@@ -177,7 +189,7 @@ function draw(){
       ${SRC() ? `<div class="tb-row"><button type="button" class="btn small tb-mic${TB.sr ? " on" : ""}" data-tb="mic" aria-pressed="${!!TB.sr}"${TB.busy ? " disabled" : ""}><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg> ${TB.sr ? "Stop Listening" : "Speak Instead"}</button>${TB.sr ? `<span class="mini" role="status">Listening… talk it through, then Stop.</span>` : ""}</div>` : ""}
       <p class="status-msg tb-msg" id="tbStatus" role="status" aria-live="polite">${TB.busy ? `<span class="ai-spin" aria-hidden="true"></span> Checking ${TB.general ? "against general knowledge" : "against your material"}…` : esc(TB.msg || "")}</p>`;
     const can = has || TB.general;
-    foot.innerHTML = `<button type="button" class="btn" data-tb="back">Back to Prep Plan</button><span class="spacer"></span><button type="button" class="btn primary" data-tb="check"${TB.busy || !can ? " disabled" : ""}>Check My Explanation</button>`;
+    foot.innerHTML = `<button type="button" class="btn" data-tb="back">Back to Prep Plan</button><span class="spacer"></span><button type="button" class="btn primary ai-btn" data-tb="check"${TB.busy || !can ? " disabled" : ""}>${AI_ICON} ${TB.busy ? "Checking…" : "Check My Explanation"}</button>`;
     return;
   }
   const same = t.conf === R.conf, n = R.missed.filter(m => m.front && m.back).length;
@@ -213,17 +225,24 @@ function open(exId, topicId, name){
   const ex = state.tasks[exId], t = ex && findTopic(ex, topicId, name);
   if (!t) { toast("That topic isn't in the exam's plan any more."); return; }
   micStop();
-  TB = {exId, topicId: t.id, text: "", general: false, busy: false, res: null, msg: "", made: 0, sr: null};
+  const kk = "teach:" + exId + "|" + t.id;
+  if (sheetResume(kk)) return;
+  TB = {exId, topicId: t.id, k: kk, text: "", general: false, busy: false, res: null, msg: "", made: 0, sr: null, el: null, ac: null, dropped: false};
   TB.text = DRAFT.get(key()) || "";
   const last = LAST.get(key()); if (last && Date.now() - last.at < 3 * 3600000) { TB.res = last; TB.general = last.general; }
   openSheet(`<form class="sheet ai-sheet tb-sheet">${head("Teach It Back")}<div class="sheet-body" id="tbBody"></div><div class="sheet-foot" id="tbFoot"></div></form>`);
   const form = dlg.querySelector(".tb-sheet");
   form.addEventListener("click", onClick);
   form.addEventListener("change", e => { if (e.target.dataset && e.target.dataset.tb === "general" && TB) { TB.general = e.target.checked; draw(); } });
-  form.addEventListener("input", e => { if (e.target.id === "tbText" && TB) { TB.text = e.target.value; if (TB.msg && !TB.busy) { TB.msg = ""; const s = $("#tbStatus"); if (s) s.textContent = ""; } } });
-  const mine = TB;
-  dlg.addEventListener("close", () => { if (TB === mine) { micStop(); if (!TB.res) DRAFT.set(key(), TB.text); TB = null; } }, {once: true});
+  form.addEventListener("input", e => { if (e.target.id === "tbText" && TB) { TB.text = e.target.value; if (TB.msg && !TB.busy) { TB.msg = ""; const s = form.querySelector("#tbStatus"); if (s) s.textContent = ""; } } });
+  const mine = TB; mine.el = form;
+  const arm = () => dlg.addEventListener("close", () => { if (TB === mine) { micStop(); if (!TB.res) DRAFT.set(key(), TB.text); TB = null; } }, {once: true});
+  arm();
+  // typed text is kept as a draft anyway; a check still running is set aside with the sheet
+  sheetKeep(kk, {name: "Teach It Back", dirty: () => false, busy: () => mine.busy, drop: () => { mine.dropped = true; if (mine.ac) { try { mine.ac.abort(); } catch (e) {} } },
+    resume: () => { micStop(); TB = mine; arm(); draw(); }});
   draw();
+
   if (!TB.res && window.matchMedia("(min-width:601px)").matches) { const x = $("#tbText"); if (x) x.focus(); }
 }
 

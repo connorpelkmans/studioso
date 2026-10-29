@@ -3174,64 +3174,96 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
   const T = aiTask(task, fast), models = geminiOrder(cfg.model, T.tier);
   // A short text request that hasn't answered in 25 seconds is stuck (an overloaded free model), so the next model gets a turn instead of waiting minutes
   const light = !search && !urlContext && parts.every(p => p && p.text != null) && parts.reduce((n, p) => n + String(p.text).length, 0) + String(system || "").length < 40000 && maxTokens <= 16000;
+  const media = parts.some(p => p && (p.file_data || p.inline_data));
   const msEach = light ? Math.min(ms, (window.__SB_TEST && window.__SB_AI_STALL) || 25000) : ms;
-  let t0 = 0;
-  let thinking = true, lastErr = null, roomy = false;
-  const bodyFor = () => {
-    // a retry after running out of room: twice the room, and less of it spent thinking
-    const gc = {temperature, maxOutputTokens: roomy ? Math.min(32768, maxTokens * 2) : maxTokens};
-    if (!search && !urlContext) { gc.responseMimeType = "application/json"; if (schema) gc.responseSchema = schema; }
-    if (parts.some(p => p && p.file_data)) gc.mediaResolution = "MEDIA_RESOLUTION_LOW";
-    if (thinking) gc.thinkingConfig = {thinkingLevel: roomy ? "low" : T.think};
-    const body = {contents: [{role: "user", parts}], systemInstruction: {parts: [{text: system}]}, generationConfig: gc};
-    if (search) body.tools = [{google_search: {}}];
-    if (urlContext) body.tools = (body.tools || []).concat({url_context: {}});
-    return JSON.stringify(body);
-  };
-  for (let i = 0; i < models.length; i++) {
-    const m = models[i];
-    let res;
-    try {
-      t0 = Date.now();
-      res = await fetchT(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, {method: "POST", headers: {"Content-Type": "application/json", "x-goog-api-key": cfg.key}, body: bodyFor()}, i === models.length - 1 ? ms : msEach, signal);
-    } catch(e) {
-      if (signal && signal.aborted) throw aiErr("cancelled", "Canceled.");
-      if (e && e.name === "AbortError") { aiMemSet(x => { x.cool = x.cool || {}; x.cool[m] = Date.now() + 5 * 60000; x.slow = x.slow || {}; x.slow[m] = Date.now() + 30 * 60000; }); lastErr = aiErr("slow", "The AI took too long to answer. Try again, or use fewer files."); continue; }
-      throw offlineErr("Google's AI service");
-    }
-    if (res.ok) {
-      const j = await res.json().catch(() => ({}));
-      const cand = j.candidates && j.candidates[0];
-      if (!cand) { const br = j.promptFeedback && j.promptFeedback.blockReason; throw aiErr("blocked", br ? `Gemini wouldn't process this material (${String(br).toLowerCase()}).` : "The AI didn't send anything back. Try again."); }
-      const text = ((cand.content && cand.content.parts) || []).filter(p => !p.thought).map(p => p.text || "").join("");
-      const data = aiParseJson(text);
-      if (data) {
-        // how long a light answer took: models that answer slowly go to the back of the line for a while
-        const took = Date.now() - t0;
-        aiMemSet(x => { x.good = m; if (x.cool) delete x.cool[m]; if (light) { x.slow = x.slow || {}; if (took > 25000) x.slow[m] = Date.now() + 30 * 60000; else delete x.slow[m]; } });
-        const sources = search ? (((cand.groundingMetadata || {}).groundingChunks) || []).map(c => c && c.web ? {url: String(c.web.uri || ""), title: String(c.web.title || "")} : null).filter(Boolean) : undefined;
-        const fetched = urlContext ? (((cand.urlContextMetadata || cand.url_context_metadata || {}).urlMetadata || (cand.urlContextMetadata || cand.url_context_metadata || {}).url_metadata) || []).map(u => { const st = String(u.urlRetrievalStatus || u.url_retrieval_status || ""); return {url: String(u.retrievedUrl || u.retrieved_url || ""), ok: /SUCCESS/.test(st), status: st.replace(/^URL_RETRIEVAL_STATUS_/, "").toLowerCase()}; }) : undefined;
-        return {data, model: m, provider: "gemini", truncated: cand.finishReason === "MAX_TOKENS", sources, fetched};
+  // Hedging: when a model is slow, the next one starts on the same request too (two at most) and the first good answer wins,
+  // so a stalled or overloaded free model costs a short wait instead of minutes, and a slow but working one isn't thrown away
+  const hedgeMs = (window.__SB_TEST && window.__SB_AI_HEDGE) || (light ? 20000 : media ? 90000 : search || urlContext ? 45000 : 60000);
+  const url = m => `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`;
+  const cool = (m, ms2) => aiMemSet(x => { x.cool = x.cool || {}; x.cool[m] = Date.now() + ms2; });
+  let settled = false;
+  const ctrls = new Set();
+  // One model's attempt: {ok, r} on success; {err, fatal} when it fails (fatal: no other model will do better); {quiet} when it lost the race
+  async function attempt(m, last){
+    let thinking = true, roomy = false;
+    for (let tries = 0; tries < 4; tries++) {
+      const bodyFor = () => {
+        // a retry after running out of room: twice the room, and less of it spent thinking
+        const gc = {temperature, maxOutputTokens: roomy ? Math.min(32768, maxTokens * 2) : maxTokens};
+        if (!search && !urlContext) { gc.responseMimeType = "application/json"; if (schema) gc.responseSchema = schema; }
+        if (parts.some(p => p && p.file_data)) gc.mediaResolution = "MEDIA_RESOLUTION_LOW";
+        if (thinking) gc.thinkingConfig = {thinkingLevel: roomy ? "low" : T.think};
+        const body = {contents: [{role: "user", parts}], systemInstruction: {parts: [{text: system}]}, generationConfig: gc};
+        if (search) body.tools = [{google_search: {}}];
+        if (urlContext) body.tools = (body.tools || []).concat({url_context: {}});
+        return JSON.stringify(body);
+      };
+      const ac = typeof AbortController === "function" ? new AbortController() : null;
+      if (ac) { ctrls.add(ac); if (signal) { if (signal.aborted) ac.abort(); else signal.addEventListener("abort", () => ac.abort(), {once: true}); } }
+      const t0 = Date.now();
+      let res;
+      try { res = await fetchT(url(m), {method: "POST", headers: {"Content-Type": "application/json", "x-goog-api-key": cfg.key}, body: bodyFor()}, last ? ms : msEach, ac ? ac.signal : signal); }
+      catch (e) {
+        if (signal && signal.aborted) return {err: aiErr("cancelled", "Canceled."), fatal: true};
+        if (settled) return {quiet: true};
+        if (e && e.name === "AbortError") { aiMemSet(x => { x.cool = x.cool || {}; x.cool[m] = Date.now() + 5 * 60000; x.slow = x.slow || {}; x.slow[m] = Date.now() + 30 * 60000; }); return {err: aiErr("slow", "The AI took too long to answer. Try again, or use fewer files.")}; }
+        return {err: offlineErr("Google's AI service"), fatal: true};
+      } finally { if (ac) ctrls.delete(ac); }
+      if (settled) return {quiet: true};
+      if (res.ok) {
+        const j = await res.json().catch(() => ({}));
+        const cand = j.candidates && j.candidates[0];
+        if (!cand) { const br = j.promptFeedback && j.promptFeedback.blockReason; return {err: aiErr("blocked", br ? `Gemini wouldn't process this material (${String(br).toLowerCase()}).` : "The AI didn't send anything back. Try again."), fatal: true}; }
+        const text = ((cand.content && cand.content.parts) || []).filter(p => !p.thought).map(p => p.text || "").join("");
+        const data = aiParseJson(text);
+        if (data) {
+          // how long a light answer took: models that answer slowly go to the back of the line for a while
+          const took = Date.now() - t0;
+          aiMemSet(x => { x.good = m; if (x.cool) delete x.cool[m]; if (light) { x.slow = x.slow || {}; if (took > 25000) x.slow[m] = Date.now() + 30 * 60000; else delete x.slow[m]; } });
+          const sources = search ? (((cand.groundingMetadata || {}).groundingChunks) || []).map(c => c && c.web ? {url: String(c.web.uri || ""), title: String(c.web.title || "")} : null).filter(Boolean) : undefined;
+          const fetched = urlContext ? (((cand.urlContextMetadata || cand.url_context_metadata || {}).urlMetadata || (cand.urlContextMetadata || cand.url_context_metadata || {}).url_metadata) || []).map(u => { const st = String(u.urlRetrievalStatus || u.url_retrieval_status || ""); return {url: String(u.retrievedUrl || u.retrieved_url || ""), ok: /SUCCESS/.test(st), status: st.replace(/^URL_RETRIEVAL_STATUS_/, "").toLowerCase()}; }) : undefined;
+          return {ok: true, r: {data, model: m, provider: "gemini", truncated: cand.finishReason === "MAX_TOKENS", sources, fetched}};
+        }
+        // Out of room with nothing usable: thinking or a stuck, repeating answer can do this even on small jobs, so retry before giving up
+        if (cand.finishReason === "MAX_TOKENS") {
+          if (!roomy) { roomy = true; continue; }
+          return {err: aiErr("long", task === "photo" ? "Couldn't finish reading that. Try again, or use fewer photos at once." : "That was too much to make in one go. Ask for fewer cards or questions, or use fewer files.")};
+        }
+        return {err: aiErr("bad", "The AI's answer came back garbled. Try again.")};
       }
-      // Out of room with nothing usable: thinking or a stuck, repeating answer can do this even on small jobs, so retry before giving up
-      if (cand.finishReason === "MAX_TOKENS") {
-        if (!roomy) { roomy = true; i--; continue; }
-        roomy = false; lastErr = aiErr("long", task === "photo" ? "Couldn't finish reading that. Try again, or use fewer photos at once." : "That was too much to make in one go. Ask for fewer cards or questions, or use fewer files."); continue;
-      }
-      lastErr = aiErr("bad", "The AI's answer came back garbled. Try again.");
-      continue;
+      const msg = await errMsg(res);
+      if (res.status === 400 && thinking && /thinking/i.test(msg)) { thinking = false; continue; }
+      if (AI_PRO_MODELS.includes(m) && !last && res.status !== 401 && !/api[ _-]?key/i.test(msg)) { cool(m, 30 * 60000); return {err: aiErr("model", `The model ${m} isn't available on your key.`), weak: true}; }
+      if (res.status === 401 || res.status === 403 || (res.status === 400 && /api[ _-]?key/i.test(msg))) return {err: aiErr("key", "Google didn't accept your Gemini key. Check it in Settings, then AI Features."), fatal: true};
+      if (res.status === 413 || /too large|payload size|exceeds.*(size|limit)/i.test(msg)) return {err: aiErr("big", "Those files are too big to send at once. Try fewer or smaller files (PDF works best)."), fatal: true};
+      if (res.status === 404 || (res.status === 400 && /model/i.test(msg) && !/token|size|large/i.test(msg))) return {err: aiErr("model", `The model ${m} isn't available on your key.`), weak: true};
+      if (res.status === 429) { if (!search && !urlContext) cool(m, /day|daily|per ?day/i.test(msg) ? 6 * 3600000 : 70000); return {err: aiErr("limit", "You've used up the free AI requests for now. Wait a minute and try again (if it's the daily limit, it resets tomorrow)." + (msg ? ` Google said (${m}${search ? ", web search" : ""}): ${String(msg).replace(/\s+/g, " ").slice(0, 200)}` : ""))}; }
+      if (res.status >= 500) { cool(m, 3 * 60000); return {err: aiErr("busy", "Google's AI is very busy right now. Try again in a minute.")}; }
+      return {err: aiErr("http", msg ? "The AI couldn't do that: " + msg.slice(0, 180) : "The AI couldn't do that right now (error " + res.status + ")."), fatal: true};
     }
-    const msg = await errMsg(res);
-    if (res.status === 400 && thinking && /thinking/i.test(msg)) { thinking = false; i--; continue; }
-    if (AI_PRO_MODELS.includes(m) && i < models.length - 1 && res.status !== 401 && !/api[ _-]?key/i.test(msg)) { aiMemSet(x => { x.cool = x.cool || {}; x.cool[m] = Date.now() + 30 * 60000; }); lastErr = lastErr || aiErr("model", `The model ${m} isn't available on your key.`); continue; }
-    if (res.status === 401 || res.status === 403 || (res.status === 400 && /api[ _-]?key/i.test(msg))) throw aiErr("key", "Google didn't accept your Gemini key. Check it in Settings, then AI Features.");
-    if (res.status === 413 || /too large|payload size|exceeds.*(size|limit)/i.test(msg)) throw aiErr("big", "Those files are too big to send at once. Try fewer or smaller files (PDF works best).");
-    if (res.status === 404 || (res.status === 400 && /model/i.test(msg) && !/token|size|large/i.test(msg))) { lastErr = lastErr || aiErr("model", `The model ${m} isn't available on your key.`); continue; }
-    if (res.status === 429) { if (!search && !urlContext) aiMemSet(x => { x.cool = x.cool || {}; x.cool[m] = Date.now() + (/day|daily|per ?day/i.test(msg) ? 6 * 3600000 : 70000); }); lastErr = aiErr("limit", "You've used up the free AI requests for now. Wait a minute and try again (if it's the daily limit, it resets tomorrow)." + (msg ? ` Google said (${m}${search ? ", web search" : ""}): ${String(msg).replace(/\s+/g, " ").slice(0, 200)}` : "")); continue; }
-    if (res.status >= 500) { aiMemSet(x => { x.cool = x.cool || {}; x.cool[m] = Date.now() + 3 * 60000; }); lastErr = aiErr("busy", "Google's AI is very busy right now. Try again in a minute."); continue; }
-    throw aiErr("http", msg ? "The AI couldn't do that: " + msg.slice(0, 180) : "The AI couldn't do that right now (error " + res.status + ").");
+    return {err: aiErr("http", "The AI couldn't do that right now.")};
   }
-  throw lastErr || aiErr("http", "The AI couldn't do that right now.");
+  return new Promise((resolve, reject) => {
+    let next = 0, running = 0, hedgeT = 0, lastErr = null;
+    const finish = (fn, v) => { if (settled) return; settled = true; clearTimeout(hedgeT); ctrls.forEach(c => { try { c.abort(); } catch (e) {} }); fn(v); };
+    const launch = () => {
+      if (settled || next >= models.length) return false;
+      const m = models[next], last = next === models.length - 1; next++; running++;
+      clearTimeout(hedgeT);
+      if (!last) hedgeT = setTimeout(() => { if (!settled && running < 2) launch(); }, hedgeMs);
+      attempt(m, last).then(o => {
+        running--;
+        if (settled || o.quiet) return;
+        if (o.ok) { finish(resolve, o.r); return; }
+        if (o.fatal) { finish(reject, o.err); return; }
+        // the first real reason is the one worth showing (a missing model is only a reason when nothing else went wrong)
+        if (!lastErr || (lastErr.code === "model" && !o.weak)) lastErr = o.err;
+        if (!launch() && running === 0) finish(reject, lastErr || aiErr("http", "The AI couldn't do that right now."));
+      }, e => { running--; if (!settled && running === 0 && !launch()) finish(reject, e); });
+      return true;
+    };
+    launch();
+  });
 }
 // The free trial (AI_TRIAL)
 const AI_TRIAL_WORDS = {
@@ -3822,9 +3854,11 @@ function aiReviewSheet(r, ctx){
       <p style="margin:0">${cards.length ? `<b>${cards.length}</b> flashcard${cards.length === 1 ? "" : "s"}` : ""}${cards.length && qs.length ? " and " : ""}${qs.length ? `<b>${qs.length}</b> quiz question${qs.length === 1 ? "" : "s"}` : ""}${(cards.length || qs.length) && cs.length ? " and " : ""}${cs.length ? `<b>${cs.length}</b> case stud${cs.length === 1 ? "y" : "ies"}` : ""} ready. Edit or remove anything, then save.${r.truncated ? " (The AI ran out of room, so the last few may be missing. Everything complete was kept.)" : ""}${r.partial ? ` Part of it couldn't be made: ${esc(r.partial)}` : ""}${(r.notes || []).length ? " " + esc(r.notes.join(" ")) : ""}</p>
       ${nCheck ? `<p class="mini ar-check-note" style="margin:0"><b>${nCheck}</b> item${nCheck === 1 ? "" : "s"} marked <b>Check</b>: ${nCheck === 1 ? "it says" : "they say"} something that doesn't clearly appear in your material, so verify against your notes. <button type="button" class="link-btn" id="arDropChk">Remove ${nCheck === 1 ? "it" : "them"}</button></p>` : ""}
       ${ctx.deck ? `<p class="mini" style="margin:0">Saving to <b>${esc(ctx.deck.name)}</b>.</p>` : quizOnly ? `<label class="f"><span class="lh">Course</span><select id="arQzCourse">${courseSelectHtml(ctx.courseId || "")}</select></label>` : `<div class="two"><label class="f"><span class="lh">Save To</span><select id="arDeck"><option value="">A new deck</option>${decks.map(d => `<option value="${esc(d.id)}">${esc(d.name)}</option>`).join("")}</select></label><label class="f" id="arNameL"><span class="lh">New Deck Name ${REQ}</span><input type="text" id="arName" maxlength="120" value="${esc(defName)}"></label></div>`}
-      ${qs.length ? `<label class="f"><span class="lh">Quiz Name</span><input type="text" id="arQuizName" maxlength="120" value="${esc(r.quizTitle || ctx.styleName || (ctx.style ? ctx.style.split(/[.:,]/)[0].slice(0, 60) : "Practice Quiz"))}"></label>` : ""}
+      ${ctx.withSave ? `<label class="mi-check ar-qon"><input type="checkbox" id="arNoteOn"><span>Save a Summary Note Too<span class="sub">A note on your board with the main points and a link to the source.</span></span></label>` : ""}
+      ${qs.length && cards.length ? `<label class="mi-check ar-qon"><input type="checkbox" id="arQuizOn" checked><span>Save the Practice Quiz Too<span class="sub">${qs.length} question${qs.length === 1 ? "" : "s"} with your cards. Turn off to save just the flashcards.</span></span></label>` : ""}
+      ${qs.length ? `<label class="f ar-quiz"><span class="lh">Quiz Name</span><input type="text" id="arQuizName" maxlength="120" value="${esc(r.quizTitle || ctx.styleName || (ctx.style ? ctx.style.split(/[.:,]/)[0].slice(0, 60) : "Practice Quiz"))}"></label>` : ""}
       ${cards.length ? `<h3 class="fsec">Flashcards<span class="n" id="arCardN">${cards.length}</span></h3><ul class="ar-cards" id="arCards">${cards.map((c, i) => `<li data-i="${i}"><textarea data-f="front" rows="2" aria-label="Front">${esc(c.front)}</textarea><textarea data-f="back" rows="2" aria-label="Back">${esc(c.back)}</textarea><button type="button" class="x-btn" data-rmc="${i}" aria-label="Remove card">${CLOSE}</button>${c.source || c.check ? `<span class="mini src">${esc(c.source)} ${chk(c)}</span>` : ""}</li>`).join("")}</ul>` : ""}
-      ${qs.length ? `<h3 class="fsec">Quiz Questions<span class="n" id="arQN">${qs.length}</span></h3><ol class="ar-qs" id="arQs">${qs.map((q, i) => `<li data-i="${i}"><div class="ar-q-head"><span class="pill">${typeLabel[q.type]}</span>${q.source ? `<span class="mini">${esc(q.source)}</span>` : ""}${chk(q)}<span class="spacer"></span><button type="button" class="x-btn" data-rmq="${i}" aria-label="Remove question">${CLOSE}</button></div>
+      ${qs.length ? `<h3 class="fsec ar-quiz">Quiz Questions<span class="n" id="arQN">${qs.length}</span></h3><ol class="ar-qs ar-quiz" id="arQs">${qs.map((q, i) => `<li data-i="${i}"><div class="ar-q-head"><span class="pill">${typeLabel[q.type]}</span>${q.source ? `<span class="mini">${esc(q.source)}</span>` : ""}${chk(q)}<span class="spacer"></span><button type="button" class="x-btn" data-rmq="${i}" aria-label="Remove question">${CLOSE}</button></div>
           <p class="ar-stem">${esc(q.stem)}</p>
           ${q.type === "short" ? `<p class="mini">Answer: <b>${esc(q.answer)}</b></p>` : `<ul class="ar-opts">${(q.type === "order" ? q.correct.map(ix => q.options[ix]) : q.options).map((o, k) => `<li class="${q.type !== "order" && q.correct.includes(k) ? "ok" : ""}">${q.type === "order" ? `<b>${k + 1}.</b> ` : ""}${esc(o)}</li>`).join("")}</ul>`}
           ${q.rationale ? `<details><summary>Rationale</summary><p>${esc(q.rationale)}</p></details>` : ""}</li>`).join("")}</ol>` : ""}
@@ -3835,6 +3869,7 @@ function aiReviewSheet(r, ctx){
   const rmC = new Set(), rmQ = new Set(), rmCs = new Set();
   const csl = $("#arCases"); if (csl) csl.addEventListener("click", e => { const b = e.target.closest("[data-rmcs]"); if (b) { rmCs.add(Number(b.dataset.rmcs)); b.closest("li").remove(); $("#arCsN").textContent = cs.length - rmCs.size; } });
   const cl = $("#arCards"), ql = $("#arQs");
+  { const qo = $("#arQuizOn"); if (qo) qo.addEventListener("change", () => { dlg.querySelectorAll(".ar-quiz").forEach(x => { x.hidden = !qo.checked; }); }); }
   if (cl) { cl.addEventListener("input", e => { const li = e.target.closest("li"); if (li && e.target.dataset.f) cards[Number(li.dataset.i)][e.target.dataset.f] = e.target.value; });
     cl.addEventListener("click", e => { const b = e.target.closest("[data-rmc]"); if (b) { rmC.add(Number(b.dataset.rmc)); b.closest("li").remove(); $("#arCardN").textContent = cards.length - rmC.size; } }); }
   if (ql) ql.addEventListener("click", e => { const b = e.target.closest("[data-rmq]"); if (b) { rmQ.add(Number(b.dataset.rmq)); b.closest("li").remove(); $("#arQN").textContent = qs.length - rmQ.size; } });
@@ -3850,7 +3885,8 @@ function aiReviewSheet(r, ctx){
   sheetKeep(rvKey, {name: "Review", dirty: () => true});
   $("#arBack").addEventListener("click", () => { sheetDrop(rvKey); if (ctx.fromCards) quizSheet(ctx.fromCards); else aiStudySheet(ctx.deck ? ctx.deck.id : null, ctx.mode); });
   $("#arSave").addEventListener("click", () => {
-    const keepC = cards.filter((c, i) => !rmC.has(i) && c.front.trim() && c.back.trim()), keepQ = qs.filter((q, i) => !rmQ.has(i)), keepCs = cs.filter((c, i) => !rmCs.has(i));
+    const qOn = !$("#arQuizOn") || $("#arQuizOn").checked;
+    const keepC = cards.filter((c, i) => !rmC.has(i) && c.front.trim() && c.back.trim()), keepQ = qOn ? qs.filter((q, i) => !rmQ.has(i)) : [], keepCs = cs.filter((c, i) => !rmCs.has(i));
     if (!keepC.length && !keepQ.length && !keepCs.length) { toast("Nothing left to save"); return; }
     let d;
     if (ctx.deck || (sel && sel.value)) d = clone(state.decks[ctx.deck ? ctx.deck.id : sel.value]);
@@ -3866,7 +3902,7 @@ function aiReviewSheet(r, ctx){
     d.updated = Date.now();
     sheetDrop(rvKey); dlg.close(); ui.tab = "flashcards"; ui.fc = null;
     if (!keepC.length) { ui.deckId = null; rvSet("quizzes"); } else { ui.deckId = d.id; rvSet("cards"); }
-    (ctx.withSave ? (x, l) => applyChanges([{kind: "deck", id: x.id, after: x}].concat(ctx.withSave(x) || []), l) : saveDeck)(d, `Saved ${keepC.length ? keepC.length + " card" + (keepC.length === 1 ? "" : "s") : ""}${keepC.length && keepQ.length ? " and " : ""}${keepQ.length ? "a " + keepQ.length + "-question quiz" : ""}${(keepC.length || keepQ.length) && keepCs.length ? " and " : ""}${keepCs.length ? keepCs.length + " case stud" + (keepCs.length === 1 ? "y" : "ies") : ""} to ${d.name}`);
+    (ctx.withSave && $("#arNoteOn") && $("#arNoteOn").checked ? (x, l) => applyChanges([{kind: "deck", id: x.id, after: x}].concat(ctx.withSave(x) || []), l) : saveDeck)(d, `Saved ${keepC.length ? keepC.length + " card" + (keepC.length === 1 ? "" : "s") : ""}${keepC.length && keepQ.length ? " and " : ""}${keepQ.length ? "a " + keepQ.length + "-question quiz" : ""}${(keepC.length || keepQ.length) && keepCs.length ? " and " : ""}${keepCs.length ? keepCs.length + " case stud" + (keepCs.length === 1 ? "y" : "ies") : ""} to ${d.name}`);
     if (ctx.fromCards && keepQ.length && !keepC.length) { startAiQuiz(d.id, qzId); return; }
     window.scrollTo(0, 0);
   });
@@ -4062,9 +4098,9 @@ function aiSylRules(r){
   const b = Number(r.bonus), bonus = b > 0 && b <= 10 ? {pts: Math.round(b * 100) / 100, got: 0, src: "syllabus"} : null;
   return drops.length || bonus ? {drops, bonus} : null;
 }
-async function aiReadSyllabus(parts, onStatus){
+async function aiReadSyllabus(parts, onStatus, signal){
   const today = todayISO();
-  const res = await aiCall({task: "syllabus", maxTokens: 32000, temperature: 0.1, onStatus, schema: SYL_SCHEMA, parts: parts.concat({text: `Today is ${today}. Read this course syllabus and extract the course details and every dated deliverable.`}),
+  const res = await aiCall({task: "syllabus", maxTokens: 32000, temperature: 0.1, onStatus, signal, schema: SYL_SCHEMA, parts: parts.concat({text: `Today is ${today}. Read this course syllabus and extract the course details and every dated deliverable.`}),
     system: `You extract structured data from college course syllabi for a student planner. Be precise and complete.
 Rules:
 - One item per graded deliverable or required reading with a date: each homework, problem set, quiz, exam (midterms and the final), lab or lab report, project milestone, paper, presentation, and each dated reading assignment. Do not list holidays, "no class" days, add/drop deadlines, office hours, or policy text as items.
@@ -5006,6 +5042,9 @@ function weakSheet(deckIds){
   const topics = [...new Set(w.qs.map(x => x.q.topic).filter(Boolean))];
   if (!w.n) { toast("No weak spots yet. Study or take a quiz first, and anything you keep missing shows up here."); return; }
   const single = deckIds.length === 1 ? state.decks[deckIds[0]] : null;
+  // a quiz still being written is set aside when you tap away, and opens from a toast when it's done
+  const KK = "weak:" + deckIds.join(","), job = {busy: false, dropped: false, ac: null};
+  if (sheetResume(KK)) return;
   openSheet(`<form class="sheet ai-sheet">${head("Practice Your Weak Spots")}
     <div class="sheet-body">
       <p style="margin:0">You keep missing <b>${w.cards.length}</b> card${w.cards.length === 1 ? "" : "s"}${w.qs.length ? ` and <b>${w.qs.length}</b> practice question${w.qs.length === 1 ? "" : "s"}` : ""}${topics.length ? `, mostly on ${esc(topics.slice(0, 4).join(", "))}` : ""}.</p>
@@ -5015,23 +5054,33 @@ function weakSheet(deckIds){
     </div>
     <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span>${w.cards.length ? `<button type="button" class="btn" id="wkStudy">Study These Cards</button>` : ""}${aiReady() ? `<button type="button" class="btn primary" id="wkGo">${AI_ICON} Make a Quiz</button>` : ""}</div>
   </form>`);
+  const sheetEl = dlg.querySelector(".ai-sheet");
+  sheetKeep(KK, {name: "Weak spots quiz", dirty: () => false, busy: () => job.busy, drop: () => { job.dropped = true; if (job.ac) { try { job.ac.abort(); } catch (e) {} } }});
   const st = $("#wkStudy"); if (st) st.addEventListener("click", () => { dlg.close(); const ids = [...new Set(w.cards.map(x => x.d.id))]; startStudy(ids, w.cards.map(x => x.c.id)); });
   const go = $("#wkGo"); if (!go) return;
   go.addEventListener("click", async () => {
-    const n = (dlg.querySelector("input[name=wkN]:checked") || {}).value || "12", status = $("#wkStatus");
+    if (job.busy) return;
+    const n = (sheetEl.querySelector("input[name=wkN]:checked") || {}).value || "12", status = sheetEl.querySelector("#wkStatus");
     go.disabled = true; go.classList.add("busy"); status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Writing questions on your weak spots…`;
+    job.busy = true; const ac = job.ac = typeof AbortController === "function" ? new AbortController() : null;
     const home = single || w.cards.concat(w.qs).map(x => x.d).sort((a, b) => w.cards.concat(w.qs).filter(x => x.d === b).length - w.cards.concat(w.qs).filter(x => x.d === a).length)[0];
     const material = w.cards.slice(0, 40).map(x => `Card: ${x.c.front} => ${x.c.back} (missed ${x.c.wrong}x)`).concat(w.qs.slice(0, 25).map(x => `Missed question${x.q.topic ? ` [${x.q.topic}]` : ""}: ${x.q.stem} Correct: ${x.q.type === "short" ? x.q.answer : x.q.correct.map(i => x.q.options[i]).join("; ")}`)).join("\n");
     try {
-      const r = await aiCall({task: "quiz", maxTokens: 24000, schema: QUIZ_SCHEMA, onStatus: m => { status.textContent = m; }, parts: [{text: `Concepts this student keeps missing:\n${material}\n\nStyle: ${home.aiStyle || "Clear, exam-style questions"}\nWrite ${n} new questions.`}],
+      const r = await aiCall({task: "quiz", maxTokens: 24000, schema: QUIZ_SCHEMA, signal: ac ? ac.signal : undefined, onStatus: m => { status.textContent = m; }, parts: [{text: `Concepts this student keeps missing:\n${material}\n\nStyle: ${home.aiStyle || "Clear, exam-style questions"}\nWrite ${n} new questions.`}],
         system: "You write targeted practice questions on a student's weak spots. Test the SAME underlying concepts as the missed items but with new wording, new scenarios and different angles (application, comparison, 'which is NOT', cause and effect), so the student must understand rather than recognize. Mix types: 'single' (usually 4 options), 'multiple' (select all that apply, 5 or 6 options, 2 or more correct), 'order' when there's a sequence, and 'short'. 'correct' holds zero-based option indexes; for 'order' the indexes in the right order. Every question gets a rationale and one short note per option in 'optionNotes', plus a 'topic'. Return JSON only."});
       const qs = aiDropCopiedQs(aiCleanQuestions(r.data.questions), aiCopiedCardsIndex(w.cards.map(x => x.c)));
       if (!qs.length) throw aiErr("empty", "The AI didn't write any usable questions. Try again.");
       const d = clone(state.decks[home.id]);
       const qz = {id: uid(), title: `Weak Spots, ${fmtShort(todayISO())}`, style: home.aiStyle || "", created: Date.now(), sources: ["Your missed cards and questions"], questions: qs, results: [], kind: "weak"};
       d.aiQuizzes = (d.aiQuizzes || []).concat(qz);
-      dlg.close(); saveDeck(d, `Made a ${qs.length}-question weak spots quiz`); startAiQuiz(d.id, qz.id);
-    } catch(e) { status.textContent = e.message || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy"); }
+      job.busy = false; if (job.dropped) return;
+      saveDeck(d, `Made a ${qs.length}-question weak spots quiz`);
+      sheetReady(KK, () => { if (dlg.open) dlg.close(); startAiQuiz(d.id, qz.id); }, `Your ${qs.length}-question weak spots quiz is ready`);
+    } catch(e) {
+      job.busy = false; if (job.dropped || (e && e.code === "cancelled")) return;
+      status.textContent = e.message || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy");
+      if (sheetKept(KK)) toast("Couldn't write that quiz. Open Weak Spots again to see why.", null, {label: "Open", fn: () => sheetResume(KK)}, {error: true});
+    }
   });
 }
 
@@ -5073,6 +5122,7 @@ function aiCleanCases(list){
 function caseStyleSheet(deckId){
   const d = state.decks[deckId]; if (!d) return;
   if (!aiReady()) { aiSetupSheet(true); return; }
+  if (sheetResume("case:" + deckId)) return;
   openSheet(`<form class="sheet">${head("Case Study from Cards")}<div class="sheet-body"><label class="f">Case study style${caseStyleSelect("csStyle")}</label><p class="mini" style="margin:0">“Match my course” uses the NCLEX format only for nursing courses. Pick another style for anything else.</p></div><div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="csGo">${AI_ICON} Write It</button></div></form>`);
   $("#csGo").addEventListener("click", () => caseFromDeck(deckId, $("#csStyle").value));
 }
@@ -5080,25 +5130,36 @@ async function caseFromDeck(deckId, caseStyle){
   const d = state.decks[deckId]; if (!d) return;
   if (!aiReady()) { aiSetupSheet(true); return; }
   if (d.cards.length < 3) { toast("Add a few cards first, or use Create with AI to make a case from your slides."); return; }
-  const st = aiBusySheet("Case Study", "Writing a case study from your cards. This usually takes 20 to 40 seconds…");
+  const KK = "case:" + deckId;
+  const st = aiBusySheet("Case Study", "Writing a case study from your cards. This usually takes 20 to 40 seconds…", KK), job = st.job;
   try {
     const c = courseOf(d.courseId);
-    const r = await aiCall({task: "cases", maxTokens: 16000, schema: CASE_SCHEMA, onStatus: m => st(m), parts: [{text: `Course: ${c ? c.name : d.name}\nStyle: ${d.aiStyle || "realistic, exam-style"}\n${aiCaseStyleText(caseStyle, c ? c.name : d.name)}\nMaterial (flashcards):\n${d.cards.slice(0, 120).map(x => `${x.front} => ${x.back}`).join("\n")}\n\nWrite 1 case study.`}], system: CASE_SYSTEM});
+    const r = await aiCall({task: "cases", maxTokens: 16000, schema: CASE_SCHEMA, signal: job.signal, onStatus: m => st(m), parts: [{text: `Course: ${c ? c.name : d.name}\nStyle: ${d.aiStyle || "realistic, exam-style"}\n${aiCaseStyleText(caseStyle, c ? c.name : d.name)}\nMaterial (flashcards):\n${d.cards.slice(0, 120).map(x => `${x.front} => ${x.back}`).join("\n")}\n\nWrite 1 case study.`}], system: CASE_SYSTEM});
     const cp = aiCopiedCardsIndex(d.cards);
     const cs = aiCleanCases(r.data.cases).filter(x => !aiCopied(x.scenario, cp)).map(x => Object.assign(x, {questions: aiDropCopiedQs(x.questions, cp)})).filter(x => x.questions.length >= 2);
     if (!cs.length) throw aiErr("empty", "The AI couldn't write a case from these cards. Try again.");
     const nd = clone(state.decks[deckId]);
     const qz = Object.assign({id: uid(), created: Date.now(), style: d.aiStyle || "", sources: ["Your flashcards"], results: [], kind: "case"}, cs[0]);
     nd.aiQuizzes = (nd.aiQuizzes || []).concat(qz);
-    if (dlg.open) dlg.close();
-    saveDeck(nd, `Made a case study: ${qz.title}`); startAiQuiz(deckId, qz.id);
-  } catch(e) { st(e.message || "Couldn't make a case study right now.", true); }
+    job.busy = false; if (job.dropped) return;
+    saveDeck(nd, `Made a case study: ${qz.title}`);
+    sheetReady(KK, () => { if (dlg.open) dlg.close(); startAiQuiz(deckId, qz.id); }, `Your case study “${qz.title}” is ready`);
+  } catch(e) { if (job.dropped || (e && e.code === "cancelled")) return; st(e.message || "Couldn't make a case study right now.", true); }
 }
 
-// A small sheet that shows progress while the AI works
-function aiBusySheet(title, msg){
+// A small sheet that shows progress while the AI works. With a key, tapping away sets it aside while it works (Close stops it);
+// st.job is {busy, dropped, signal}: the caller passes signal to aiCall and, when done, opens the result through sheetReady(key, …)
+function aiBusySheet(title, msg, key){
   openSheet(`<form class="sheet">${head(title)}<div class="sheet-body"><p class="status-msg" id="busyMsg" aria-live="polite"><span class="ai-spin" aria-hidden="true"></span> ${esc(msg)}</p>${aiModelBar()}</div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button></div></form>`);
-  return (m, err) => { const el = $("#busyMsg"); if (el) el.innerHTML = (err ? "" : `<span class="ai-spin" aria-hidden="true"></span> `) + esc(m); };
+  const el = dlg.querySelector("#busyMsg"), ac = typeof AbortController === "function" ? new AbortController() : null;
+  const job = {busy: true, dropped: false, signal: ac ? ac.signal : undefined};
+  if (key) sheetKeep(key, {name: title.replace(/:.*$/, ""), dirty: () => false, busy: () => job.busy, drop: () => { job.dropped = true; if (ac) { try { ac.abort(); } catch (e) {} } }});
+  const st = (m, err) => {
+    if (el) el.innerHTML = (err ? "" : `<span class="ai-spin" aria-hidden="true"></span> `) + esc(m);
+    if (err) { job.busy = false; if (key && sheetKept(key)) toast(`${title.replace(/:.*$/, "")} couldn't finish. Open it again to see why.`, null, {label: "Open", fn: () => sheetResume(key)}, {error: true}); }
+  };
+  st.job = job;
+  return st;
 }
 
 /* Exam study plans */
@@ -5171,10 +5232,13 @@ async function summarizeFile(fid, again){
     });
   };
   if (f.summary && !again) { show(); return; }
-  const st = aiBusySheet("Summary: " + f.name, "Reading the file and writing a summary…");
+  const KK = "summary:" + fid;
+  if (sheetResume(KK)) return;
+  const st = aiBusySheet("Summary: " + f.name, "Reading the file and writing a summary…", KK), job = st.job;
   try {
     const src = await fileSource(f), c = courseOf(f.courseId);
-    const r = await aiCall({task: "summary", maxTokens: 8000, schema: SUM_SCHEMA, onStatus: m => st(m), parts: [src.part, {text: `Course: ${c ? c.name : "not given"}. Summarize this file for studying.`}],
+    if (job.dropped) return;
+    const r = await aiCall({task: "summary", maxTokens: 8000, schema: SUM_SCHEMA, signal: job.signal, onStatus: m => st(m), parts: [src.part, {text: `Course: ${c ? c.name : "not given"}. Summarize this file for studying.`}],
       system: "You summarize course material for a student who will be tested on it. Be accurate and specific to the file (names, numbers, mechanisms, steps), not generic. Include the key terms with short definitions and the questions an instructor would most likely ask. Use only what the file says: never add facts, numbers or examples that are not in it. Write in the file's language, in plain text without markdown or LaTeX. Return JSON only."});
     const n = clone(state.files[fid]);
     // Anything that copied the file word for word is left out: the summary restates it
@@ -5183,10 +5247,13 @@ async function summarizeFile(fid, again){
     const cut = (x, n) => String(x || "").replace(/\s+/g, " ").trim().slice(0, n);
     n.summary = {at: Date.now(), model: r.model, provider: r.provider, overview: cut(r.data.overview, 1500), keyPoints: (r.data.keyPoints || []).slice(0, 14).map(x => cut(x, 400)).filter(x => x && own(x)),
       keyTerms: (r.data.keyTerms || []).filter(k => k && k.term && k.definition && own(k.definition)).slice(0, 30).map(k => ({term: cut(k.term, 100), definition: cut(k.definition, 350)})), questions: (r.data.questions || []).slice(0, 10).map(x => cut(x, 300)).filter(x => x && own(x))};
+    if (job.dropped) return;
     applyChanges([{kind: "file", id: fid, after: n}], null);
-    show();
-  } catch(e) { st(e.message || "Couldn't summarize that file.", true); }
+    job.busy = false;
+    sheetReady(KK, show, `The summary of ${f.name} is ready`);
+  } catch(e) { if (job.dropped || (e && e.code === "cancelled")) return; st(e.message || "Couldn't summarize that file.", true); }
 }
+
 function addNoteText(text, courseId, color, extra){
   const all = notesArr().filter(n => !n.archived && noteBoardOf(n) === noteBoardId());
   const z = all.reduce((m, n) => Math.max(m, n.z || 0), 0) + 1;
@@ -5205,12 +5272,12 @@ const PHOTO_SCHEMA = {type: "OBJECT", properties: {
   required: ["notes"]};
 // A phone or tablet (a touch screen as the main pointer)
 const phoneLike = () => { try { return window.matchMedia("(pointer:coarse)").matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || ""); } catch (e) { return false; } };
-// Tapping outside the sheet keeps the photos (and a finished note) until Save or Cancel
-let PN_DRAFT = null;
+// Tapping outside the sheet sets it aside with its photos (and a note being read, or read and not saved) until Save or Cancel
 function photoNoteSheet(file){
   if (!aiReady()) { aiSetupSheet(true); return; }
-  const S = (!file && PN_DRAFT) || {srcs: [], files: [], result: null};
-  PN_DRAFT = S;
+  const KK = "photo-note";
+  if (file) sheetDrop(KK); else if (sheetResume(KK)) return;
+  const S = {srcs: [], files: [], result: null, busy: false, ac: null, dropped: false};
   openSheet(`<form class="sheet ai-sheet">${head("Photo to Note")}
     <div class="sheet-body" id="pnBody">
       <div class="drop" id="pnDrop"><p style="margin:0 0 10px"><strong>Take or choose photos of the whiteboard, a slide, or handwritten notes.</strong><br><span class="mini">They become clean, typed notes on your board. Dates written in them can be added as tasks.</span></p>
@@ -5222,15 +5289,15 @@ function photoNoteSheet(file){
       <p class="status-msg" id="pnStatus" style="margin:0" aria-live="polite"></p>
     </div>
     <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="pnGo">${AI_ICON} Make Note</button></div></form>`);
-  const form = dlg.querySelector("form.ai-sheet"), live = () => form.isConnected && dlg.open;
-  form.addEventListener("click", e => { if (e.target.closest && e.target.closest('[data-act="close"]')) PN_DRAFT = null; }, true);
+  // queries stay inside this sheet, so a note that's read while it's set aside lands in the right one
+  const form = dlg.querySelector("form.ai-sheet"), $ = q => form.querySelector(q);
+  sheetKeep(KK, {name: "Photo to Note", dirty: () => S.srcs.length > 0 || !!S.result, busy: () => S.busy, drop: () => { S.dropped = true; if (S.ac) { try { S.ac.abort(); } catch (e) {} } }});
   const status = $("#pnStatus");
   if (S.course != null) $("#pnCourse").value = S.course;
   $("#pnCourse").addEventListener("change", e => { S.course = e.target.value; });
-  const draw = () => { if (!live()) return; $("#pnSrcs").innerHTML = S.srcs.map((s, i) => `<li><span class="ficon">${s.kind === "PDF" ? "PDF" : "IMG"}</span><span class="nm">${esc(s.name)}</span><span class="mini">${fmtSize(s.size)}</span><button type="button" class="x-btn" data-rm="${i}" aria-label="Remove">${CLOSE}</button></li>`).join(""); };
+  const draw = () => { $("#pnSrcs").innerHTML = S.srcs.map((s, i) => `<li><span class="ficon">${s.kind === "PDF" ? "PDF" : "IMG"}</span><span class="nm">${esc(s.name)}</span><span class="mini">${fmtSize(s.size)}</span><button type="button" class="x-btn" data-rm="${i}" aria-label="Remove">${CLOSE}</button></li>`).join(""); };
   const add = async list => { for (const f of list) { try { S.srcs.push(await aiSourceFromFile(f)); S.files.push(f); } catch(e) { status.textContent = e.message; } } draw(); };
   if (file) add([file]).then(() => { const g = $("#pnGo"); if (g && S.srcs.length) g.click(); });
-  else if (S.srcs.length) draw();
   $("#pnPick").addEventListener("click", () => $("#pnFile").click());
   $("#pnFile").addEventListener("change", e => { const l = [...e.target.files]; e.target.value = ""; add(l); });
   const cam = $("#pnTake"); if (cam) { cam.addEventListener("click", () => $("#pnCam").click()); $("#pnCam").addEventListener("change", e => { const l = [...e.target.files]; e.target.value = ""; add(l); }); }
@@ -5244,15 +5311,21 @@ function photoNoteSheet(file){
     if (!S.srcs.length) { status.textContent = "Add a photo first."; return; }
     if (S.srcs.reduce((s, x) => s + aiSourceBytes(x), 0) > AI_LIMIT_BYTES) { status.textContent = "Those photos are too big to send at once. Try fewer."; return; }
     go.disabled = true; go.classList.add("busy"); status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Reading your photos…`;
+    S.busy = true; const ac = S.ac = typeof AbortController === "function" ? new AbortController() : null;
     try {
       const today = todayISO(), courses = coursesArr().map(c => c.code || c.name).join("; ") || "none";
-      const r = await aiCall({task: "photo", maxTokens: 8000, schema: PHOTO_SCHEMA, onStatus: m => { status.textContent = m; }, parts: S.srcs.map(s => s.part).concat({text: `Today is ${today}. Courses: ${courses}. Turn these class photos into study notes.`}),
+      const r = await aiCall({task: "photo", maxTokens: 8000, schema: PHOTO_SCHEMA, signal: ac ? ac.signal : undefined, onStatus: m => { status.textContent = m; }, parts: S.srcs.map(s => s.part).concat({text: `Today is ${today}. Courses: ${courses}. Turn these class photos into study notes.`}),
         system: "You turn photos of whiteboards, lecture slides and handwritten notes into clean, organized typed study notes. The student's own handwriting and whiteboard writing may be transcribed as written; anything printed (slides, handouts, textbook pages) must be restated in your own words as concise notes, never copied sentence by sentence. Cover everything that matters, fix obvious typos, expand cryptic abbreviations only when you're sure, keep formulas and numbers exactly, and organize with short headings and bullets. If something is unreadable, write [unclear]. Describe diagrams briefly in words. List any due dates or exam dates you see, resolving them relative to today. Return JSON only."});
       const d = r.data, cSel = $("#pnCourse").value, guess = coursesArr().find(c => (c.code || c.name).toLowerCase() === String(d.course || "").toLowerCase());
       S.result = {title: String(d.title || "").trim(), notes: String(d.notes || "").trim(), courseId: cSel || (guess ? guess.id : ""), dates: (d.dates || []).filter(x => x && x.title && isDate(x.due)).map(x => ({title: String(x.title), type: TYPES.includes(x.type) ? x.type : "Assignment", due: x.due, time: /^\d\d:\d\d$/.test(x.time || "") ? x.time : "", on: true}))};
       if (!S.result.notes) { S.result = null; throw aiErr("empty", "Couldn't read anything in those photos. Try a clearer, closer photo."); }
-      if (live()) review();
-    } catch(e) { if (!live()) return; status.textContent = e.message || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy"); }
+      S.busy = false; if (S.dropped) return;
+      review(); sheetReady(KK, null, "Your note from the photos is ready to check");
+    } catch(e) {
+      S.busy = false; if (S.dropped || (e && e.code === "cancelled")) return;
+      status.textContent = e.message || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy");
+      if (sheetKept(KK)) toast("Couldn't read those photos. Open Photo to Note again to see why.", null, {label: "Open", fn: () => sheetResume(KK)}, {error: true});
+    }
   });
   const review = () => {
     const R = S.result;
@@ -5260,14 +5333,13 @@ function photoNoteSheet(file){
       <label class="f">Course<select id="pnCourse2">${courseSelectHtml(R.courseId)}</select></label>
       ${R.dates.length ? `<fieldset><legend>Dates Found in the Photos</legend>${R.dates.map((x, i) => `<label class="mi-check"><input type="checkbox" data-pd="${i}" checked> ${esc(x.title)} <span class="mini">${esc(x.type)}, ${esc(fmtDate(x.due))}${x.time ? " " + esc(fmtTime(x.time)) : ""}</span></label>`).join("")}</fieldset>` : ""}
       ${caps.assets ? `<label class="mi-check"><input type="checkbox" id="pnKeep" checked> Also save the photos in the course's Lecture Notes folder</label>` : ""}`;
-    $(".sheet-foot", dlg).innerHTML = `<button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="pnSave">Save Note${R.dates.length ? " and Tasks" : ""}</button>`;
+    $(".sheet-foot").innerHTML = `<button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="pnSave">Save Note${R.dates.length ? " and Tasks" : ""}</button>`;
     $("#pnText").addEventListener("input", e => { R.text = e.target.value; });
     $("#pnCourse2").addEventListener("change", e => { R.courseId = e.target.value; });
     $("#pnSave").addEventListener("click", async () => {
       const text = $("#pnText").value.trim(); if (!text) return;
-      PN_DRAFT = null;
       const cid = $("#pnCourse2").value;
-      const tasks = R.dates.filter((x, i) => { const cb = dlg.querySelector(`[data-pd="${i}"]`); return cb && cb.checked; });
+      const tasks = R.dates.filter((x, i) => { const cb = $(`[data-pd="${i}"]`); return cb && cb.checked; });
       const keep = $("#pnKeep") && $("#pnKeep").checked;
       dlg.close();
       addNoteText(text, cid, "yellow");
@@ -5277,8 +5349,8 @@ function photoNoteSheet(file){
       if (keep) uploadFiles(S.files, {courseId: cid, folderId: "notes"});
     });
   };
-  if (!file && S.result) review();
 }
+
 
 /* Ask your course materials */
 const ASK_SCHEMA = {type: "OBJECT", properties: {
@@ -8989,7 +9061,9 @@ function hcValue(F, title){
   const set = F.thSet || 0, done = F.doneToday || 0, txt = fmtHM(set) || "0m";
   if (done < 0.25 || set <= 0) return `<b${title ? ` title="${esc(title)}"` : ""}>${txt}</b>`;
   const f = Math.min(1, done / set), C = 2 * Math.PI * 15.5, lbl = `${fmtHM(Math.min(done, set))} done of ${txt}`;
-  return `<b class="hc-ring${f >= 1 ? " full" : ""}" title="${esc(lbl)}"><svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15.5"/><circle class="hc-arc" cx="18" cy="18" r="15.5" stroke-dasharray="${(C * f).toFixed(1)} ${C.toFixed(1)}"/></svg><span>${txt}</span><span class="pt-sr">, ${esc(lbl)}</span></b>`;
+  // inside the ring, half hours read 3½h so the value stays on one line
+  const h = Math.floor(set + 1e-6), m = Math.round((set - h) * 60), short = m === 0 ? `${h}h` : m === 30 ? (h ? `${h}½h` : "30m") : txt;
+  return `<b class="hc-ring${f >= 1 ? " full" : ""}${short.length > 3 || /m$/.test(short) ? " long" : ""}" title="${esc(lbl)}"><svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15.5"/><circle class="hc-arc" cx="18" cy="18" r="15.5" stroke-dasharray="${(C * f).toFixed(1)} ${C.toFixed(1)}"/></svg><span aria-hidden="true">${short}</span><span class="pt-sr">${txt}, ${esc(lbl)}</span></b>`;
 }
 function planGapWhy(F){
   const q = h => Math.round(h * 4) / 4, planned = F.ranked.reduce((t, x) => t + (x.alloc || 0), 0), why = [];
@@ -9201,9 +9275,11 @@ function focusHtml(){
   const week = weekAhead(F, inView), pickDay = /^d:/.test(ui.planTile || "") ? week.find(w => w.iso === ui.planTile.slice(2)) : null;
   if ((ui.planTile === "late" && !overdue) || (/^d:/.test(ui.planTile || "") && !pickDay) || (ui.planTile && ui.planTile !== "late" && !/^d:/.test(ui.planTile))) ui.planTile = "";
   const pick = ui.planTile || "";
-  const base = pick === "late" ? lateRows : pickDay ? pickDay.rows : offToday ? [] : todayList.length ? todayList : workable, rowsAll = pick ? base : base.filter(x => x.t.id !== heroId);
-  const cap = pick || (todayList.length && ui.planAllToday) ? rowsAll.length : todayList.length ? 5 : 3;
-  const show = rowsAll.slice(0, cap), hiddenToday = !pick && todayList.length ? rowsAll.slice(show.length) : [];
+  // when Do This Next is the only task with time today, the list shows what comes after it ("Then") instead of nothing
+  const todayBase = todayList.some(x => x.t.id !== heroId);
+  const base = pick === "late" ? lateRows : pickDay ? pickDay.rows : offToday ? [] : todayBase ? todayList : workable, rowsAll = pick ? base : base.filter(x => x.t.id !== heroId);
+  const cap = pick || (todayBase && ui.planAllToday) ? rowsAll.length : todayBase ? 5 : 3;
+  const show = rowsAll.slice(0, cap), hiddenToday = !pick && todayBase ? rowsAll.slice(show.length) : [];
   const sum = [];
   if (todayList.length) sum.push(`<b>${fmtHM(todayList.reduce((s, x) => s + x.alloc, 0))}</b> planned across ${todayList.length} task${todayList.length === 1 ? "" : "s"}`);
   if (overdue) sum.push(`<span class="late"><b>${overdue}</b> overdue</span>`);
@@ -9342,14 +9418,24 @@ function viewCalendar(){
   for (let i = 0; i < 7; i++) { const d = new Date(2023, 0, 1 + i); dows.push(`<div class="dow${i === 0 || i === 6 ? " wkend" : ""}" aria-hidden="true"><span class="dw-n">${d.toLocaleDateString(undefined, {weekday:"narrow"})}</span><span class="dw-s">${d.toLocaleDateString(undefined, {weekday:"short"})}</span><span class="dw-l">${d.toLocaleDateString(undefined, {weekday:"long"})}</span></div>`); }
   let cells = "";
   const weeks = Math.ceil((first.getDay() + new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate()) / 7);
+  // Holidays and School Days off, named beside the day's number
+  const hol = {};
+  try {
+    const sc = schoolCfg() || {}, S = window.SBSCHOOL, lo = iso(start), endD = new Date(start); endD.setDate(start.getDate() + weeks * 7 - 1); const hi = iso(endD);
+    if (S) {
+      S.holidays(sc, lo, hi).forEach(h => { (hol[h.date] = hol[h.date] || []).push({name: h.name, off: !!(h.sure ? S.norm(sc).pub : h.ans === "off")}); });
+      S.norm(sc).off.forEach(o => { for (let x = o.from > lo ? o.from : lo; x <= o.to && x <= hi; x = addDays(x, 1)) { const l = hol[x] = hol[x] || []; if (!l.some(y => y.name === o.name)) l.push({name: o.name || "Day off", off: true}); } });
+    }
+  } catch (e) { console.warn("calendar: holidays", e); }
   for (let i = 0; i < weeks * 7; i++) {
     const d = new Date(start); d.setDate(start.getDate() + i);
     const k = iso(d);
     const ts = (byDay[k] || []).slice().sort(sortTasks);
     const out = d.getMonth() !== m.getMonth();
     const late = ts.filter(t => t.status !== "done" && k < today).length;
+    const hl = hol[k] || [], holTxt = hl.map(h => h.name).join(", ");
     const dots = ts.slice(0, 3).map(t => `<span class="ci-row${t.status !== "done" && k < today ? " late" : ""}${t.status === "done" ? " done" : /^(Exam|Quiz)$/.test(t.type) ? " big" : ""}" style="--c:${esc(colorOf(t.courseId))}"><i class="ci" title="${esc(t.type)}: ${esc(t.title)}${t.status !== "done" && k < today ? ", overdue" : ""}" style="--c:${esc(colorOf(t.courseId))};${t.status === "done" ? "opacity:.35" : ""}">${typeIcon(t.type)}</i><span class="ci-t${t.status === "done" ? " done" : ""}">${esc(t.title)}</span></span>`).join("") + (ts.length > 3 ? `<b class="ci-more">+${ts.length - 3}<span class="ci-mw"> more</span></b>` : "");
-    cells += `<button class="day ${out ? "out" : ""} ${k === today ? "is-today" : ""}${late ? " has-late" : ""}${k < today ? " past" : ""}${d.getDay() === 0 || d.getDay() === 6 ? " wkend" : ""}" data-act="pick-day" data-id="${k}" aria-pressed="${k === ui.calDay}" aria-label="${esc(d.toLocaleDateString(undefined, {weekday:"long", month:"long", day:"numeric"}))}, ${ts.length} task${ts.length === 1 ? "" : "s"} due${late ? `, ${late} overdue` : ""}"><span class="num">${d.getDate()}${k === today ? `<span class="num-t"> Today</span>` : ""}</span><span class="dots">${dots}</span></button>`;
+    cells += `<button class="day ${out ? "out" : ""} ${k === today ? "is-today" : ""}${late ? " has-late" : ""}${k < today ? " past" : ""}${d.getDay() === 0 || d.getDay() === 6 ? " wkend" : ""}" data-act="pick-day" data-id="${k}" aria-pressed="${k === ui.calDay}" aria-label="${esc(d.toLocaleDateString(undefined, {weekday:"long", month:"long", day:"numeric"}))}${holTxt ? ", " + esc(holTxt) + (hl.some(h => h.off) ? ", no classes" : "") : ""}, ${ts.length} task${ts.length === 1 ? "" : "s"} due${late ? `, ${late} overdue` : ""}"><span class="num">${d.getDate()}${k === today ? `<span class="num-t"> Today</span>` : ""}</span>${holTxt ? `<span class="day-hol${hl.some(h => h.off) ? " off" : ""}" title="${esc(holTxt)}${hl.some(h => h.off) ? " (no classes)" : ""}" aria-hidden="true">${esc(holTxt)}</span>` : ""}<span class="dots">${dots}</span></button>`;
   }
   const dayTasks = (byDay[ui.calDay] || []).slice().sort(sortTasks);
   const dayLabel = parse(ui.calDay).toLocaleDateString(undefined, {weekday:"long", month:"long", day:"numeric"});
@@ -11987,16 +12073,19 @@ function dlgClose(){
    button brings it back as it was; only Cancel (or finishing) clears it. A job that finishes while set aside says so in a toast. */
 const KEPT = new Map(); let KEEP = null, keepAway = false;
 const keepShown = () => !!KEEP && dlg.open && dlg.contains(KEEP.node);
-// Call right after openSheet: key names the entry point; dirty() says whether there's anything worth keeping; drop() runs when it's cleared (abort a job here)
+// Call right after openSheet: key names the entry point; dirty() says whether there's anything worth keeping; busy() whether a job is running;
+// drop() runs when it's cleared (abort a job here); resume() runs when it comes back (for a module that keeps its open sheet's state in a variable)
 function sheetKeep(key, o){
   o = o || {}; const node = dlg.querySelector(".sheet"); if (!node) return;
   const old = KEPT.get(key); if (old && old.node !== node) { KEPT.delete(key); try { old.drop && old.drop(); } catch (e) {} }
-  KEEP = {key, node, dirty: o.dirty || (() => true), drop: o.drop || null, busy: o.busy || (() => false), name: o.name || ""};
+  KEEP = {key, node, dirty: o.dirty || (() => true), drop: o.drop || null, busy: o.busy || (() => false), resume: o.resume || null, name: o.name || ""};
 }
 // Brings a set-aside sheet back; false when there's none
 function sheetResume(key){
   const k = KEPT.get(key); if (!k) return false;
   KEPT.delete(key);
+  // like a sheet opening: one with work in it that's showing now is set aside first
+  if (keepShown() || (KEEP && keepAway)) keepPark(); else keepLetGo();
   if (k.ready) { const f = k.ready; k.ready = null; f(); return true; }
   dlgGuard = null;
   const tt = $("#toast"), inSheet = !!tt && tt.parentNode === dlg;
@@ -12005,6 +12094,7 @@ function sheetResume(key){
   if (inSheet) dlg.appendChild(tt);
   KEEP = k;
   if (!dlg.open) dlg.showModal();
+  if (k.resume) { try { k.resume(); } catch (e) { console.warn(e); } }
   return true;
 }
 // Clears a sheet for good (Cancel, or once its work is saved)
@@ -12014,11 +12104,13 @@ function sheetDrop(key){
   try { k.drop && k.drop(); } catch (e) {}
 }
 // A job is done: show fn's sheet now if its sheet is open, or hold it with a toast when it was set aside. False when it was cleared.
+// Without fn the result is already drawn into the sheet itself, and Open in the toast brings that sheet back.
 function sheetReady(key, fn, msg){
-  if (KEEP && KEEP.key === key && keepShown()) { KEEP = null; fn(); return true; }
+  if (KEEP && KEEP.key === key && keepShown()) { if (fn) { KEEP = null; fn(); } return true; }
   const k = KEPT.get(key); if (!k) return false;
-  k.ready = fn;
-  toast(msg || "It's ready", null, {label: "Open", fn: () => { if (dlg.open) dlg.close(); setTimeout(() => sheetResume(key), 30); }});
+  if (fn) k.ready = fn;
+  // a sheet with work in it that's open when Open is tapped is set aside too, like any sheet another one opens over
+  toast(msg || "It's ready", null, {label: "Open", fn: () => { if (keepShown()) keepPark(); else if (dlg.open) dlg.close(); setTimeout(() => sheetResume(key), 30); }});
   return true;
 }
 // Is a job for this key still running while its sheet is set aside
@@ -12029,15 +12121,17 @@ function keepPark(){
   if (keep) { if (k.node.parentNode) k.node.remove(); KEPT.set(k.key, k); if (k.busy()) toast(`${k.name || "That"} is still working. Open it again to pick up where you left off.`); }
   else { try { k.drop && k.drop(); } catch (e) {} }
 }
+// A sheet that's let go (closed in code, Cancel) is cleared for good
+const keepLetGo = () => { const k = KEEP; KEEP = null; if (k && !KEPT.has(k.key)) { try { k.drop && k.drop(); } catch (e) {} } };
 dlg.addEventListener("close", () => {
-  if (!KEEP) { keepAway = false; return; }
-  if (keepAway && dlg.contains(KEEP.node)) keepPark();
-  else { const k = KEEP; KEEP = null; if (!KEPT.has(k.key)) { try { k.drop && k.drop(); } catch (e) {} } }
-  keepAway = false;
+  const away = keepAway; keepAway = false;
+  // the close event comes a moment after close(): if a sheet is already showing again, that sheet was dealt with when it opened
+  if (!KEEP || dlg.open) return;
+  if (away && dlg.contains(KEEP.node)) keepPark(); else keepLetGo();
 });
 function openSheet(html, onSubmit){
-  // another sheet opening over one with work in it sets that one aside
-  if (keepShown()) keepPark(); else KEEP = null;
+  // another sheet opening over one with work in it sets that one aside; one just closed in code (its close event still to come) is let go
+  if (keepShown() || (KEEP && keepAway)) keepPark(); else keepLetGo();
   dlgGuard = null;
   const tt = $("#toast"), inSheet = !!tt && tt.parentNode === dlg;
   if (inSheet) document.body.appendChild(tt);
@@ -13345,6 +13439,9 @@ async function pdfText(buf, onPage){
 }
 
 function importSheet(courseId, file){
+  // tapping away keeps a syllabus being read (or read and waiting to be checked); Cancel or Add clears it. A file handed in starts fresh.
+  const KK = "syllabus:" + (courseId || "");
+  if (file) sheetDrop(KK); else if (sheetResume(KK)) return;
   openSheet(`<form class="sheet">${head("Import a Syllabus")}
     <div class="sheet-body" id="impBody">
       <div class="drop" id="impDrop">
@@ -13362,8 +13459,18 @@ function importSheet(courseId, file){
     </div>
     <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="impAdd" hidden>Add</button></div>
   </form>`);
+  // queries stay inside this sheet, so a read that finishes while it's set aside fills in the right one
+  const root = dlg.querySelector(".sheet"), $ = q => root.querySelector(q);
   const status = $("#impStatus"), fileIn = $("#impFile");
-  let result = null, srcFile = null;
+  let result = null, srcFile = null, reading = 0, dropped = false, ac = null;
+  sheetKeep(KK, {name: "Import a Syllabus", busy: () => aiBusy || reading > 0, dirty: () => !!result || !!$("#impText").value.trim(),
+    drop: () => { dropped = true; if (ac) { try { ac.abort(); } catch (e) {} } }});
+  const finish = () => {
+    if (dropped) return;
+    if (result) sheetReady(KK, null, "Your syllabus has been read. Check what was found, then add it.");
+    else if (sheetKept(KK) && status.textContent) toast("Couldn't read that syllabus. Open Import a Syllabus again to see why.", null, {label: "Open", fn: () => sheetResume(KK)}, {error: true});
+  };
+  function readFile(f){ reading++; result = null; return readFile0(f).finally(() => { reading--; finish(); }); }
   if (file) setTimeout(() => readFile(file), 0);
   $("#impPick").addEventListener("click", () => fileIn.click());
   fileIn.addEventListener("change", () => { const f = fileIn.files && fileIn.files[0]; fileIn.value = ""; if (f) readFile(f); });
@@ -13375,7 +13482,7 @@ function importSheet(courseId, file){
   $("#impRead").addEventListener("click", async () => {
     const t = $("#impText").value.trim();
     if (t.length < 20) { status.textContent = "Paste a bit more of the syllabus first."; return; }
-    if (useAI()) { srcFile = null; await aiShow([{text: "Syllabus text:\n\n" + t}], t, "pasted text"); return; }
+    if (useAI()) { srcFile = null; result = null; await aiShow([{text: "Syllabus text:\n\n" + t}], t, "pasted text"); finish(); return; }
     show(t, "pasted text");
   });
   let aiBusy = false;
@@ -13383,16 +13490,18 @@ function importSheet(courseId, file){
     if (aiBusy) return true;
     aiBusy = true; $("#impResult").innerHTML = ""; $("#impAdd").hidden = true;
     status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(aiModelName(aiCfg().provider, aiCfg().model))} is reading ${esc(from)}. This usually takes 10 to 40 seconds…`;
-    try { const r = await aiReadSyllabus(parts, m => { status.textContent = m; }); aiBusy = false; show(text, from, r); return true; }
+    ac = typeof AbortController === "function" ? new AbortController() : null;
+    try { const r = await aiReadSyllabus(parts, m => { status.textContent = m; }, ac ? ac.signal : undefined); aiBusy = false; if (dropped) return true; show(text, from, r); return true; }
     catch(e) {
-      aiBusy = false; console.warn(e);
+      aiBusy = false; if (dropped || (e && e.code === "cancelled")) return true;
+      console.warn(e);
       const why = e.code ? e.message : "The AI couldn't read it.";
       if (text) { show(text, from, null, why + " Read on this device instead. "); return true; }
       status.textContent = why; return false;
     }
   }
 
-  async function readFile(f){
+  async function readFile0(f){
     $("#impResult").innerHTML = ""; $("#impAdd").hidden = true;
     try {
       srcFile = null; let aiNote = "";
@@ -13465,7 +13574,7 @@ function importSheet(courseId, file){
     const rowsDated = idx.filter(n => r.items[n].due && !past(r.items[n])).map(n => rowOf(r.items[n], n)).join("");
     const undated = idx.filter(n => !r.items[n].due), gone = idx.filter(n => past(r.items[n]));
     const rows = `<ul class="imp-list">${rowsDated}</ul>` + (gone.length ? `<details class="imp-group"><summary>Already Past (${gone.length})</summary><p class="mini" style="margin:0 0 8px">These dates have passed, so they're left out. Tick any you want in your planner, for example to add a mark. They're added as done.</p><ul class="imp-list">${gone.map(n => rowOf(r.items[n], n)).join("")}</ul></details>` : "") + (undated.length ? `<details class="imp-group"><summary>No Date Found (${undated.length})</summary><p class="mini" style="margin:0 0 8px">These were mentioned without a date. Check any you want and add the date yourself.</p><ul class="imp-list">${undated.map(n => rowOf(r.items[n], n)).join("")}</ul></details>` : "");
-    $("#impDrop").hidden = true; $("#impPaste").hidden = true; $$(".ai-toggle", dlg).forEach(x => { x.hidden = true; });
+    $("#impDrop").hidden = true; $("#impPaste").hidden = true; $$(".ai-toggle", root).forEach(x => { x.hidden = true; });
     $("#impResult").innerHTML = `
       <p style="margin:0"><button type="button" class="link-btn" id="impAgain">Choose a Different File</button></p>
       <fieldset class="imp-course"><legend>Course</legend>
@@ -13484,7 +13593,8 @@ function importSheet(courseId, file){
         ${r.rules && window.SBGRADES && SBGRADES.rulesText ? `<label class="mi-check imp-rules"><input type="checkbox" id="impRules" checked><span><b>Grading rules found:</b> ${esc(SBGRADES.rulesText(r.rules))}. <span class="mini">Count them in this course's grade. You can change them later in Grade Settings.</span></span></label>` : ""}
       </fieldset>
       ${r.items.length ? `<div class="imp-head"><strong>Tasks</strong><span class="spacer"></span><button type="button" class="link-btn" id="impAll">Select All</button><button type="button" class="link-btn" id="impNone">Select None</button></div><p class="mini imp-wsum" id="impWSum" role="status"></p><div id="impLists">${rows}</div>` : ""}`;
-    $("#impAgain").addEventListener("click", () => { result = null; $("#impResult").innerHTML = ""; $("#impAdd").hidden = true; status.textContent = ""; $("#impDrop").hidden = false; $("#impPaste").hidden = false; $$(".ai-toggle", dlg).forEach(x => { x.hidden = false; }); });
+    $("#impAgain").addEventListener("click", () => { result = null; $("#impResult").innerHTML = ""; $("#impAdd").hidden = true; status.textContent = ""; $("#impDrop").hidden = false; $("#impPaste").hidden = false; $$(".ai-toggle", root).forEach(x => { x.hidden = false; }); });
+
     const target = $("#impTarget");
     const syncTarget = () => { const isNew = target.value === "new"; $("#impNew").hidden = !isNew; $("#impFillWrap").hidden = isNew; updateAdd(); };
     target.addEventListener("change", syncTarget);
@@ -25232,7 +25342,15 @@ function ensureDom(){
   if (!libInput) libInput = mkIn("capLib", false);
   const onFiles = e => { const l = [...e.target.files]; e.target.value = ""; if (l.length) photoFiles(l, {source: "photo"}); };
   camInput.addEventListener("change", onFiles); libInput.addEventListener("change", onFiles);
-  el.addEventListener("close", () => { if (CS.abort) { try { CS.abort.abort(); } catch (e) {} } cleanupThumbs(); CS.view = "input"; CS.drafts = []; CS.text = ""; CS.busy = ""; CS.inline = ""; });
+  // Like the app's sheets: ✕ or Escape while a photo is being read, or with found tasks still to check, sets Quick Capture aside
+  // (opening it again picks up there); Cancel, Back, Add or Close clears it. Plain typed text still clears, as the hint says.
+  el.addEventListener("cancel", () => { CS.away = true; });
+  el.addEventListener("close", () => {
+    const keep = CS.away && (CS.view === "busy" || (CS.view === "confirm" && CS.drafts.length > 0));
+    CS.away = false;
+    if (keep) { CS.kept = true; if (CS.view === "busy") toast("Quick Capture is still reading your photo. Open it again to pick up where you left off."); return; }
+    capClear();
+  });
   el.addEventListener("click", onClick);
   el.addEventListener("input", onInput); el.addEventListener("change", onInput);
   el.addEventListener("keydown", onKey);
@@ -25241,6 +25359,10 @@ function ensureDom(){
   el.addEventListener("drop", e => { const f = imageFiles(e.dataTransfer); if (f.length) { e.preventDefault(); photoFiles(f, {source: "drop"}); } });
 }
 const cleanupThumbs = () => { (CS.photos || []).forEach(p => { try { URL.revokeObjectURL(p.url); } catch (e) {} }); CS.photos = []; };
+function capClear(){ if (CS.abort) { try { CS.abort.abort(); } catch (e) {} } cleanupThumbs(); CS.view = "input"; CS.drafts = []; CS.text = ""; CS.busy = ""; CS.inline = ""; CS.kept = false; }
+// A photo read that finishes while Quick Capture is set aside says so, with Open
+const capAway = () => !!CS.kept && !!el && !el.open;
+const capToast = (msg, err) => toast(msg, null, {label: "Open", fn: () => openCapture({})}, err ? {error: true} : undefined);
 const hasFiles = e => [...((e.dataTransfer && e.dataTransfer.types) || [])].includes("Files");
 const isImg = f => f && (/^image\//.test(f.type || "") || /\.(jpe?g|png|webp|heic|heif|gif|bmp|avif)$/i.test(f.name || ""));
 const imageFiles = dt => [...((dt && dt.files) || [])].filter(isImg);
@@ -25251,7 +25373,12 @@ function openCapture(o){
   o = o || {};
   ensureDom();
   if (dlg.open) { try { dlg.close(); } catch (e) {} }
-  if (!el.open) { CS.view = "input"; CS.drafts = []; CS.msg = ""; CS.note = ""; CS.external = false; CS.inline = ""; if (!o.keepText) CS.text = o.text || ""; el.showModal(); }
+  // a set-aside capture comes back as it was; anything new coming in (a photo, a share, text) starts fresh instead
+  const resume = !el.open && CS.kept && !o.keepText && !o.fresh && o.text == null;
+  if (!el.open && CS.kept && !resume) capClear();
+  CS.kept = false;
+  if (resume) el.showModal();
+  else if (!el.open) { CS.view = "input"; CS.drafts = []; CS.msg = ""; CS.note = ""; CS.external = false; CS.inline = ""; if (!o.keepText) CS.text = o.text || ""; el.showModal(); }
   else if (o.text != null) CS.text = o.text;
   CS.fromShortcut = !!o.shortcut;
   draw();
@@ -25344,7 +25471,7 @@ function onKey(e){
 function onClick(e){
   const b = e.target.closest && e.target.closest("[data-cap]"); if (!b) return;
   const a = b.dataset.cap;
-  if (a === "close") { el.close(); }
+  if (a === "close") { CS.away = !!b.closest(".sheet-head"); el.close(); }
   else if (a === "add") submitText(false);
   else if (a === "addall") addAll(false);
   else if (a === "photo") camInput.click();
@@ -25456,22 +25583,24 @@ async function runVision(hint, extra, my){
     const shot = !!CS.classify;
     const r = await aiCall({task: "capture", maxTokens: 4000, temperature: 0.1, timeout: 45000, signal: ac.signal, schema: shot ? CAP.SHOT_SCHEMA : CAP.VISION_SCHEMA, system: shot ? CAP.shotSystem() : CAP.visionSystem(), parts,
       onStatus: m => { CS.busy = m; const s = el && el.querySelector("#capStatus"); if (s) s.lastChild.textContent = " " + m; }});
-    if (!el.open || ac.signal.aborted || CS.run !== my) return;
+    if ((!el.open && !CS.kept) || ac.signal.aborted || CS.run !== my) return;
     if (shot && routeShot(r.data)) return;
+    const away = capAway();
     const g = CAP.gateVision(r.data, c, {source: shot ? "screenshot" : "photo"});
     if (g.bad) throw aiErr("bad", "The AI's answer couldn't be read. Try again.");
     CS.keep = prefs().keep;
     if (!g.items.length) {
       CS.view = "noai"; CS.text = hint || "";
       CS.msg = (g.dropped.total ? "Found text, but nothing that's clearly a task with a date." : "No tasks or dates found in this photo.") + " Type in what you need, or try a closer photo.";
-      draw(); return;
+      draw(); if (away) capToast("No tasks or dates were found in your photo."); return;
     }
     CS.drafts = g.items; CS.view = "confirm"; CS.external = false;
     CS.msg = `Found ${g.items.length} ${g.items.length === 1 ? "item" : "items"}.` + (g.low ? ` ${g.low} left unticked because they're less certain.` : "") + (g.dropped.dup ? ` ${g.dropped.dup} already on your board.` : "") + (extra || "") + " Compare with the photo.";
-    draw();
+    draw(); if (away) capToast(`Found ${g.items.length} ${g.items.length === 1 ? "task" : "tasks"} in your photo. Check ${g.items.length === 1 ? "it" : "them"}, then add.`);
   } catch (e) {
-    if (!el.open || CS.run !== my || (ac.signal.aborted && (!e || e.code === "cancelled" || e.name === "AbortError"))) return;
+    if ((!el.open && !CS.kept) || CS.run !== my || (ac.signal.aborted && (!e || e.code === "cancelled" || e.name === "AbortError"))) return;
     const code = e && e.code;
+    if (capAway()) setTimeout(() => { if (capAway()) capToast("Quick Capture couldn't read your photo. Open it to see why.", true); }, 0);
     if (code === "offline") { let n = -1; try { n = await qAdd({blob: CS.photos[0].blob, hint: hint || "", source: CS.photos[0].source}); } catch (x) {}
       CS.view = "noai"; CS.text = hint || ""; CS.msg = n > 0 ? `Couldn't reach the AI. The photo is saved (${n} waiting) and Studyboard will offer to read it later. Or type it in now.` : "Couldn't reach the AI. Type in what is on the photo."; draw(); return; }
     if (code === "no-consent" || code === "nokey" || code === "preview") { CS.view = "noai"; CS.text = hint || ""; CS.msg = (e.message || "AI is off.") + " The photo stays here while you type it in."; draw(); return; }
@@ -25484,11 +25613,14 @@ function routeShot(data){
   const kind = data && CAP.SHOT_KINDS.includes(data.kind) ? data.kind : "tasks", ph = CS.photos[0];
   if (!ph || kind === "tasks" || kind === "other") return false;
   const file = new File([ph.blob], "screenshot.jpg", {type: "image/jpeg"});
-  if (el.open) el.close();
-  setTimeout(() => {
+  const go = () => {
     if (kind === "notes") { if (typeof photoNoteSheet === "function") photoNoteSheet(file); }
     else if (typeof importSheet === "function") importSheet("", file);
-  }, 60);
+  };
+  // set aside: nothing pops up over what you're doing; a toast offers it instead
+  if (capAway()) { capClear(); toast(kind === "notes" ? "Your screenshot looks like study material" : "Your screenshot looks like a syllabus", null, {label: "Open", fn: () => { if (dlg.open) dlg.close(); setTimeout(go, 60); }}); return true; }
+  if (el.open) el.close();
+  setTimeout(go, 60);
   return true;
 }
 // The screenshot shortcut (desktop app)
@@ -25605,7 +25737,7 @@ function handleUrl(raw, o){
   if (!r.ok) { if (!o.quiet) toast("That link can't be used for capture."); return {ok: false, reason: r.reason}; }
   const p = r.params;
   if (p.err) { toast({type: "That share wasn't a photo or text I can read.", big: "Photos over 15 MB can't be shared in.", many: "You can share up to 10 photos at a time.", fail: "Couldn't receive what you shared. Try again."}[p.err] || "Couldn't receive what you shared."); }
-  if (r.action === "photo") { openCapture({}); CS.view = "photo"; draw(); return {ok: true, action: "photo"}; }
+  if (r.action === "photo") { openCapture({fresh: true}); CS.view = "photo"; draw(); return {ok: true, action: "photo"}; }
   if (r.action === "open") { openCapture({shortcut: true}); return {ok: true, action: "open"}; }
   if (p.sw) { stagedShare(p.sw); return {ok: true, action: "share"}; }
   if (!limiter.take()) { toast("Too many captures at once. Wait a moment and try again."); return {ok: false, reason: "rate"}; }
@@ -25682,7 +25814,8 @@ document.addEventListener("change", e => {
 const TRY = {
   shot: () => { if (dlg.open) dlg.close(); try { DESK.captureScreen(); } catch (e) {} },
   sheet: () => { if (dlg.open) dlg.close(); setTimeout(() => openCapture({shortcut: true, text: "bio quiz fri 2pm"}), 30); },
-  photo: () => { if (dlg.open) dlg.close(); setTimeout(() => { openCapture({}); CS.view = "photo"; draw(); }, 30); },
+  photo: () => { if (dlg.open) dlg.close(); setTimeout(() => { openCapture({fresh: true}); CS.view = "photo"; draw(); }, 30); },
+
   share: () => { if (dlg.open) dlg.close(); setTimeout(() => handleUrl("./?share=1&title=" + encodeURIComponent("Lab report 4") + "&text=" + encodeURIComponent("Due Oct 28 at 11:59pm"), {channel: "web"}), 30); },
   url: () => { if (dlg.open) dlg.close(); setTimeout(() => handleUrl("studyboard://add?title=" + encodeURIComponent("Read chapter 5") + "&due=" + addDays(todayISO(), 3) + "&source=test", {channel: "web"}), 30); }
 };
@@ -27486,6 +27619,9 @@ hook("boot", boot);
       ${loadingLine(g.id) || (its.length ? `<ul class="grp-list">${rows}</ul>` : `<p class="grp-none">After each meeting, write down what you decided and who does what. Action items can go straight into Tasks.</p>`)}</section>`;
   }
   function minutesSheet(g, it){
+    // notes being typed (or filled in from a transcript) are set aside when you tap away; Cancel or Save clears them
+    const KK = "minutes:" + g.id + ":" + (it ? it.id : "new");
+    if (sheetResume(KK)) return;
     const d = it ? it.data || {} : {}, x = ptX(g.id);
     openSheet(`<form class="sheet">${head(it ? "Edit Meeting Notes" : "Meeting Notes")}<div class="sheet-body">${REQ_NOTE}
       <div class="gk-tr"><button type="button" class="btn small ai-btn" id="gkTrOpen">${AI_ICON} Fill From a Transcript</button>
@@ -27511,16 +27647,21 @@ hook("boot", boot);
           if (it) { const row = await api.updateItem(it.id, {title, data}); Object.assign(it, row || {}); }
           else addRows(g.id, await api.addItems([{group_id: g.id, kind: "minutes", ref_id: "", title, data}]));
           let made = 0; if (acts.length) made = await addActionTasks(g, acts);
-          if (dlg.open) dlg.close(); toast(made ? `Saved. ${plural(made, "action item")} added to Tasks.` : "Saved the meeting notes"); patch(g.id);
+          if (dlg.open && dlg.contains(mForm)) dlg.close(); else sheetDrop(KK);
+          toast(made ? `Saved. ${plural(made, "action item")} added to Tasks.` : "Saved the meeting notes"); patch(g.id);
         } catch(e) { busyBtn(b, false); toast(e.message); }
       });
       return false;
     });
-    wireTranscript(g);
+    const mForm = dlg.querySelector("form.sheet"), mJob = {busy: false, edited: false, key: KK};
+    ["input", "change"].forEach(ev => mForm.addEventListener(ev, () => { mJob.edited = true; }));
+    sheetKeep(KK, {name: "Meeting Notes", dirty: () => mJob.edited, busy: () => mJob.busy, drop: () => { mJob.dropped = true; }});
+    wireTranscript(g, mForm, mJob);
   }
   // "Fill From a Transcript"
   const TR_SCHEMA = {type: "OBJECT", properties: {title: {type: "STRING", description: "Short meeting title"}, agenda: {type: "STRING", description: "What was covered, one item per line"}, decisions: {type: "STRING", description: "What the team agreed on, one per line"}, actions: {type: "STRING", description: "One action item per line, as 'Name: task' when a person was named"}}, required: ["agenda", "decisions", "actions"]};
-  function wireTranscript(g){
+  function wireTranscript(g, form, job){
+    const $ = q => form.querySelector(q), $$ = q => [...form.querySelectorAll(q)];
     const open = $("#gkTrOpen"), box = $("#gkTrBox"); if (!open || !box) return;
     const status = $("#gkTrStatus"), txt = $("#gkTrText"), go = $("#gkTrGo"); let len = "short";
     $("#gkTrLen").addEventListener("click", e => { const b = e.target.closest("[data-len]"); if (!b) return; len = b.dataset.len; $$("#gkTrLen [data-len]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); });
@@ -27539,17 +27680,21 @@ hook("boot", boot);
       const text = String(txt.value || "").trim();
       if (text.length < 40) { status.textContent = "Add the transcript first."; return; }
       go.disabled = true; status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(aiWho("AI"))} is reading the transcript…`;
+      job.busy = true;
       try {
         const names = (S.members[g.id] || []).map(m => m.display_name).filter(Boolean).join(", ");
         const detailed = len === "long", r2 = await aiCall({task: "transcript", maxTokens: detailed ? 6000 : 3000, schema: TR_SCHEMA, onStatus: m => { status.textContent = m; },
           system: "You turn a meeting transcript into short meeting notes for a student group project. Write the agenda (topics discussed), the decisions that were actually made, and the action items. " + (detailed ? "Be thorough: the agenda covers every topic with a line of context, and each decision says briefly why it was made." : "Keep it short: at most 4 agenda lines, 5 decisions and 6 action items, each under 100 characters.") + " Every action item is a short task of at most 8 words (a verb phrase such as 'Book the library room'), never a sentence or a paragraph. Write an action item as 'Name: task' when the transcript says who will do it, using the team member names given when they match. Never invent decisions or tasks that are not in the transcript. Leave a part empty if the transcript has nothing for it.",
           parts: [{text: `Team members: ${names || "unknown"}.\nTranscript:\n${text}`}]});
-        const d = r2.data || {}, set = (n, v) => { const el = dlg.querySelector(`[name="${n}"]`); if (el && String(v || "").trim()) el.value = String(v).trim().slice(0, GK.LIM.minutes); };
-        const t = dlg.querySelector('[name="title"]'); if (t && !t.value.trim() && d.title) t.value = String(d.title).trim().slice(0, 120);
+        if (job.dropped) { job.busy = false; return; }
+        const d = r2.data || {}, set = (n, v) => { const el = form.querySelector(`[name="${n}"]`); if (el && String(v || "").trim()) el.value = String(v).trim().slice(0, GK.LIM.minutes); };
+        const t = form.querySelector('[name="title"]'); if (t && !t.value.trim() && d.title) t.value = String(d.title).trim().slice(0, 120);
         set("agenda", d.agenda); set("decisions", d.decisions); set("actions", d.actions);
-        box.hidden = true; toast("Notes filled in. Check them, then save.");
+        box.hidden = true; job.busy = false; job.edited = true;
+        // set aside meanwhile: the toast opens it again
+        if (!sheetKept(job.key)) toast("Notes filled in. Check them, then save."); else sheetReady(job.key, null, "Meeting notes are filled in. Check them, then save.");
       } catch(e) { status.textContent = e.message || "Something went wrong. Try again."; }
-      go.disabled = false;
+      job.busy = false; go.disabled = false;
     });
   }
   // Put action items into the project's first open task list (made if there isn't one)
@@ -27570,41 +27715,57 @@ hook("boot", boot);
     if (!x) { toast("Tasks aren't ready yet. Try again in a moment."); return; }
     if (!aiReady()) { aiSetupSheet(true); return; }
     const today = todayISO(), hasDue = GTL.isDay(g.project_due) && g.project_due >= today, who = aiWho("AI");
+    // the idea typed, AI still planning, or its suggestions not added yet are set aside when you tap away; Cancel or Add clears them
+    const KK = "gplan:" + g.id;
+    if (sheetResume(KK)) return;
     openSheet(`<form class="sheet ai-sheet">${head("Start From a Plan")}<div class="sheet-body" id="gpBody">
       <label class="f"><span class="lh">What Is the Project About? ${REQ}</span><textarea id="gpIdea" rows="5" maxlength="1500" autofocus placeholder="e.g. A 10 minute presentation on how coral reefs are affected by warming oceans, with slides, a handout and a short demo."></textarea></label>
       <p class="mini" style="margin:0">${esc(who)} reads this and suggests a list of tasks${hasDue ? `, spaced out before the due date (${esc(fmtShort(g.project_due))})` : ""}. You choose which ones to add.</p>
       <p class="status-msg" id="gpStatus" style="margin:0" aria-live="polite"></p></div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="gpGo">${AI_ICON} Suggest Tasks</button></div></form>`);
+    const form = dlg.querySelector("form.ai-sheet"), $ = q => form.querySelector(q), job = {busy: false, dropped: false, ac: null, list: null};
+    sheetKeep(KK, {name: "Start From a Plan", dirty: () => !!job.list || !!($("#gpIdea") && $("#gpIdea").value.trim()), busy: () => job.busy,
+      drop: () => { job.dropped = true; if (job.ac) { try { job.ac.abort(); } catch (e) {} } }});
     const status = $("#gpStatus");
     $("#gpGo").addEventListener("click", async () => {
+      if (job.busy) return;
       const idea = String($("#gpIdea").value || "").trim(), go = $("#gpGo");
       if (idea.length < 8) { status.textContent = "Say a little more about the project first."; return; }
       go.disabled = true; go.classList.add("busy"); status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(who)} is planning…`;
+      job.busy = true; const ac = job.ac = typeof AbortController === "function" ? new AbortController() : null;
       try {
         const ms = (S.members[g.id] || []).length, have = x.tasks.filter(t => !t.deleted).map(t => t.title).slice(0, 40);
-        const r2 = await aiCall({task: "groupplan", maxTokens: 4000, schema: PLAN_SCHEMA, onStatus: m => { status.textContent = m; },
+        const r2 = await aiCall({task: "groupplan", maxTokens: 4000, schema: PLAN_SCHEMA, signal: ac ? ac.signal : undefined, onStatus: m => { status.textContent = m; },
           system: "You help a student team plan a group project. Break the project into 6 to 12 concrete tasks the team can split between them, in the order they should be done. Each title starts with a verb and is under 70 characters. Cover research, drafting, the main deliverable, review and rehearsal or submission where they fit. Do not repeat tasks the team already has. If a due date is given, suggest due dates (YYYY-MM-DD) spread from today up to a few days before the deadline; otherwise leave due empty.",
           parts: [{text: `Today is ${today}. Project name: ${g.name}.${g.course ? " Course: " + g.course + "." : ""} ${hasDue ? "Project due date: " + g.project_due + "." : "No due date was set."} Team size: ${ms}.${have.length ? " Tasks already on the board: " + have.join("; ") + "." : ""}\nWhat the project is about: ${idea}`}]});
         const lo = today, hi = hasDue ? g.project_due : "9999-12-31";
         const list = (r2.data.tasks || []).map(t => ({title: GTL.clamp(t && t.title, GTL.LIM.title), due: t && GTL.isDay(t.due) && t.due >= lo && t.due <= hi ? String(t.due).slice(0, 10) : ""})).filter(t => t.title).slice(0, 14);
         if (!list.length) throw aiErr("empty", "Couldn't come up with tasks from that. Try describing the project in a bit more detail.");
-        review(list);
-      } catch(e) { status.textContent = e.message || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy"); }
+        job.busy = false; if (job.dropped) return;
+        job.list = list; review(list);
+        sheetReady(KK, null, `${who} suggested ${plural(list.length, "task")} for ${g.name}`);
+      } catch(e) {
+        job.busy = false; if (job.dropped || (e && e.code === "cancelled")) return;
+        status.textContent = e.message || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy");
+        if (sheetKept(KK)) toast("Couldn't plan that. Open Start From a Plan again to see why.", null, {label: "Open", fn: () => sheetResume(KK)}, {error: true});
+      }
     });
     const review = list => {
       $("#gpBody").innerHTML = `<p class="mini" style="margin:0">${esc(who)} suggests these tasks. Untick any you don't want.</p>
         <fieldset><legend>Suggested Tasks</legend>${list.map((t, i) => `<label class="mi-check"><input type="checkbox" data-gp="${i}" checked> ${esc(t.title)}${t.due ? ` <span class="mini">${esc(fmtShort(t.due))}</span>` : ""}</label>`).join("")}</fieldset>
         <p class="status-msg" id="gpStatus2" style="margin:0" aria-live="polite"></p>`;
-      $(".sheet-foot", dlg).innerHTML = `<button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="gpAdd">Add Tasks</button>`;
+      $(".sheet-foot").innerHTML = `<button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="gpAdd">Add Tasks</button>`;
       $("#gpAdd").addEventListener("click", async () => {
-        const pick = list.filter((t, i) => { const cb = dlg.querySelector(`[data-gp="${i}"]`); return cb && cb.checked; }), add = $("#gpAdd"), st = $("#gpStatus2");
+        const pick = list.filter((t, i) => { const cb = $(`[data-gp="${i}"]`); return cb && cb.checked; }), add = $("#gpAdd"), st = $("#gpStatus2");
         if (!pick.length) { st.textContent = "Tick at least one task."; return; }
         add.disabled = true; st.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Adding…`;
         let n = 0;
         try {
           const lst = await ptDefaultList(g); if (!lst) throw new Error("Couldn't start the task list. Try again.");
           for (const t of pick) { if (!GTL.canAddTask(x.tasks, lst.id)) { toast(`A project holds up to ${GTL.LIM.tasks} tasks.`); break; } await api.ptAdd(lst.id, t.title, null, t.due || null, "", null); n++; }
-          await loadPT(g.id); if (dlg.open) dlg.close(); toast(`Added ${plural(n, "task")}`);
+          await loadPT(g.id); if (dlg.open && dlg.contains(form)) dlg.close(); else sheetDrop(KK);
+          toast(`Added ${plural(n, "task")}`);
+
         } catch(e) { st.textContent = e.message; add.disabled = false; if (n) loadPT(g.id); }
       });
     };
@@ -31126,6 +31287,9 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     return {l, th, n: gr.done ? null : gr.need(th)};
   }
   const inDanger = gr => gr.risk === "risk" || gr.risk === "watch" || gr.risk === "out";
+  // Every mark in a course at 0%: almost always marks that weren't entered (or a school site sending ungraded work as 0), not real zeros
+  const zeroed = gr => !!gr && gr.marked.length > 0 && gr.marked.every(t => markPct(t) === 0);
+  const ZERO_TXT = "Every mark here is 0%. That usually means the marks aren't in yet or came over from your school site as 0, so check them.";
   // A course falling short of its goal: under it now, or needing better than its average so far on the rest (still reachable)
   function goalShort(gr){
     const goal = gr.g.goal;
@@ -31560,7 +31724,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   }
   hook("render", () => { try { newMarkBadges(); } catch (e) { console.warn("new marks", e); } });
   window.SBGRADES_NEW = {list: newMarks, badges: newMarkBadges};
-  window.SBGRADES = {lines: () => grades().filter(gr => gr.ts.length).map(gr => `${courseLabel(gr.c)}: ${gr.current != null ? "current " + fmtP(gr.current) + (letterOf(gr.current, gr.g.scale) ? " (" + letterOf(gr.current, gr.g.scale) + ")" : "") + " on " + fmtW(gr.wMarked) + " marked" : "no marks yet"}; pass mark ${fmtP(gr.g.pass)}${gr.g.goal != null ? ", goal " + fmtP(gr.g.goal) : ""}. ${gradeLine(gr)}`)};
+  window.SBGRADES = {lines: () => grades().filter(gr => gr.ts.length).map(gr => `${courseLabel(gr.c)}: ${gr.current != null ? "current " + fmtP(gr.current) + (letterOf(gr.current, gr.g.scale) ? " (" + letterOf(gr.current, gr.g.scale) + ")" : "") + " on " + fmtW(gr.wMarked) + " marked" : "no marks yet"}; pass mark ${fmtP(gr.g.pass)}${gr.g.goal != null ? ", goal " + fmtP(gr.g.goal) : ""}. ${gradeLine(gr)}${zeroed(gr) ? " LOOKS WRONG: every mark in this course is 0%, which usually means the marks weren't entered or came from the school site as 0; check them before treating it as failing." : ""}`)};
   // For the course cards and a course's header
   window.SBGRADES.schoolPass = list => {
     const u = [...new Set((list || []).filter(isNum).map(Number))];
@@ -31831,7 +31995,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
         + `; pass mark ${fmtP(g.pass)}${g.goal != null ? "; goal " + fmtP(g.goal) : ""}${risk ? "; " + risk : ""}. ${gradeLine(gr)}${rulesText(gr.R) ? " Grading rules: " + rulesText(gr.R) + "." : ""}`;
       const mk = gr.marked.slice().sort(sortTasks).map(t => `${t.title} (${t.type}, worth ${fmtW(Number(t.weight))}${t.due ? ", " + t.due : ""}): ${fmtP(markPct(t))}${gr.dropped.has(t.id) ? ", dropped" : ""}`).join("; ");
       const op = gr.open.slice().sort(sortTasks).slice(0, 10).map(t => `${t.title} (${t.type}, worth ${fmtW(Number(t.weight))}${t.due ? ", due " + t.due : ""}${t.status === "done" ? ", handed in, waiting for a mark" : ""})`).join("; ");
-      L.push(head + (mk ? "\n  Marked: " + mk : "") + (op ? "\n  Still to come: " + op : ""));
+      L.push(head + (zeroed(gr) ? "\n  LOOKS WRONG: every mark in this course is 0%, which almost always means the marks weren't entered or the school site sent ungraded work as 0. Don't treat it as a real failing grade." : "") + (mk ? "\n  Marked: " + mk : "") + (op ? "\n  Still to come: " + op : ""));
     });
     return L.join("\n");
   }
@@ -31842,7 +32006,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     ui.gpAi = {kind, busy: true}; render();
     try {
       const r = await aiCall({task: "coach", fast: true, maxTokens: 1600, temperature: 0.4, schema: {type: "OBJECT", properties: {points: {type: "ARRAY", items: {type: "STRING"}}}, required: ["points"]},
-        parts: [{text: aiContext()}], system: "You're a kind, practical study coach looking at a student's grades. " + A.sys + " Use only the numbers, items and dates given, and never invent marks, dates or grading rules. Plain, warm words. No em dashes, and no medical or academic-policy claims. Return JSON only."});
+        parts: [{text: aiContext()}], system: "You're a kind, practical study coach looking at a student's grades. " + A.sys + " Look at every course, including finished ones. If a course is marked LOOKS WRONG, or a mark is far out of line with the rest, say that first and suggest checking those marks, instead of skipping it or treating it as a real result. Remember a fully marked course can no longer change, so effort goes to courses with work still to come. Use only the numbers, items and dates given, and never invent marks, dates or grading rules. Plain, warm words. No em dashes, and no medical or academic-policy claims. Return JSON only."});
       const pts = ((r && r.data && r.data.points) || []).map(s => String(s || "").replace(/\s*[—–]\s*/g, ", ").replace(/^[\s•*-]+/, "").trim()).filter(Boolean).slice(0, 6);
       ui.gpAi = pts.length ? {kind, pts} : {kind, err: "The AI didn't send anything back. Try again."};
     } catch (e) { ui.gpAi = {kind, err: (e && e.message) || "Couldn't reach the AI right now. Try again in a moment."}; }
@@ -31923,20 +32087,15 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
           <span class="gp-who"><b class="gp-name">${esc(typeof cardName === "function" ? cardName(c.name) : c.name)}</b><span class="mini">${esc(courseLabel(c))} · ${gr.ts.length ? `${fmtW(gr.wMarked)} marked` : "no graded work yet"}${gg ? ` · <b class="${gg.gap >= 0 ? "gr-ok" : ""}">${esc(gg.text)}</b>` : ""}</span></span>
           <span class="gp-bar" role="img" aria-label="${cur != null ? `Current grade ${fmtP(gr.current)}` : "No marks yet"}. Pass mark ${fmtP(g.pass)}${g.goal != null ? `, goal ${fmtP(g.goal)}` : ""}."><i class="gp-fill" style="width:${cur != null ? cur : 0}%"></i><i class="gp-pass" style="left:${clampP(g.pass)}%"></i>${g.goal != null ? `<i class="gp-goal" style="left:${clampP(g.goal)}%"></i>` : ""}</span>
           <span class="gp-grade">${gr.current != null ? `<b>${fmtP(gr.current)}</b>${L(gr.current) ? `<span class="c2-letter">${esc(L(gr.current))}</span>` : ""}` : `<span class="mini">Pass ${fmtP(g.pass)}</span>`}</span>
-          <span class="gp-line mini">${esc(gradeLine(gr))}</span>${gr.risk ? riskPill(gr.risk) : ""}
+          <span class="gp-line mini">${esc(gradeLine(gr))}</span>${zeroed(gr) ? `<span class="gp-zero mini" role="note">${esc(ZERO_TXT)}</span>` : gr.risk ? riskPill(gr.risk) : ""}
         </button>
         <button class="icon-btn gp-tog" data-act="gp-toggle" data-id="${esc(c.id)}" aria-expanded="${!!(ui.gpOpen && ui.gpOpen[c.id])}" aria-controls="gpd-${esc(c.id)}" aria-label="Marks and What Do I Need for ${esc(c.name)}" title="Marks and What Do I Need?"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
         <button class="icon-btn" data-act="g-course-set" data-id="${esc(c.id)}" aria-label="Grade settings for ${esc(c.name)}" title="Grade Settings"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></button>${detailOf(gr)}</li>`;
     }).join("");
     const wait = waiting.length ? `<h3 class="fsec">Waiting for a Mark</h3><ul class="gs-wait">${waiting.slice(0, 12).map(t => { const c = courseOf(t.courseId); return `<li style="--c:${esc(colorOf(t.courseId))}"><span class="gs-name">${esc(t.title)}<span class="mini">${c ? esc(courseLabel(c)) + ", " : ""}worth ${esc(fmtW(Number(t.weight)))}</span></span><button class="btn small" data-act="g-mark" data-id="${esc(t.id)}">Add Mark</button></li>`; }).join("")}</ul>` : "";
-    return `<section class="gp" aria-label="Grades"><div class="view-head"><h2>Grades</h2>${proBtns("grades")}</div>
+    return `<section class="gp" aria-label="Grades"><div class="view-head"><h2>Grades</h2>${proBtns("grades")}<button type="button" class="btn small pro-tab-btn" data-act="gp-opts" title="Default pass mark, GPA scale and other grade settings"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>Options</span></button></div>
       <div class="gp-hero">${hero}${gpaStrip(S)}<ul class="gp-list">${rows}</ul></div>${low}${wait}${comingUpHtml(all)}${aiHtml(all)}${histHtml(S)}
-      <details class="gp-opts"${ui.gpOpts ? " open" : ""}><summary>Grade Options</summary><div class="menu-list">
-        <div class="cap-row"><label for="gPassIn" style="flex:1;font-weight:600">Default Pass Mark<span class="sub">For courses where you haven't set one. Check each course outline.</span></label><input type="number" id="gPassIn" min="0" max="100" step="0.5" value="${esc(r1(s.pass))}"> %</div>${gpaOpt()}
-        <label class="mi-check gs-opt"><input type="checkbox" id="gAskIn" ${s.prompt ? "checked" : ""}><span>Ask for My Mark After I Finish Graded Work<span class="sub">A small note a few seconds later. Easy to skip.</span></span></label>
-        <label class="mi-check gs-opt"><input type="checkbox" id="gRwIn" ${s.rescue ? "checked" : ""}><span>Offer Help When My Week Looks Too Full<span class="sub">A Rough Week banner on the Board</span></span></label>
-        <label class="mi-check gs-opt"><input type="checkbox" id="gClsIn" ${s.cls ? "checked" : ""}><span>${esc(tr("gb.opt", "Compare My Marks to the Class"))}<span class="sub">${esc(tr("gb.opt.s", "For school-synced courses that share class averages"))}</span></span></label>
-        <button type="button" class="btn small" data-act="rw-open" style="justify-self:start">Plan a Rough Week</button></div></details></section>`;
+      </section>`;
   }
   document.addEventListener("change", e => { const t = e.target; if (t && t.classList && t.classList.contains("gp-calc-c")) { ui.gpCalc = {cid: t.value}; render(); } });
   hook("act", (act, el, id) => { if (act !== "gp-target") return false; ui.gpCalc = {cid: el.dataset.cid || "", t: Number(id)}; render(); return true; });
@@ -31948,7 +32107,6 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if (t) t.setAttribute("aria-expanded", String(!!ui.gpOpen[id]));
     return true;
   });
-  document.addEventListener("toggle", e => { const d = e.target; if (d && d.classList && d.classList.contains("gp-opts")) ui.gpOpts = d.open; }, true);
   // What-if boxes
   document.addEventListener("input", e => {
     const i = e.target, box = i && i.dataset && i.dataset.wi ? i.closest("[data-wi-course]") : null; if (!box) return;
@@ -31963,6 +32121,19 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   });
   const gpaOpt = () => { const v = gpaMax(); return `<div class="cap-row"><label for="gGpaIn" style="flex:1;font-weight:600">GPA Scale<span class="sub">How letter grades turn into GPA points. Off hides GPA.</span></label><select id="gGpaIn"><option value="4.0"${v === 4 ? " selected" : ""}>4.0 (A+ is 4.0)</option><option value="4.3"${v === 4.3 ? " selected" : ""}>4.3 (A+ is 4.3)</option><option value="off"${!v ? " selected" : ""}>Off</option></select></div>`; };
   document.addEventListener("change", e => { const t = e.target; if (t && t.id === "gGpaIn") { saveG({gpa: t.value}); scheduleRender(); toast(t.value === "off" ? "GPA is off" : `GPA scale set to ${t.value}`); } });
+  // Grade Options, from the button at the top of the Grades page
+  function gradeOptsSheet(){
+    const s = gset();
+    openSheet(`<div class="sheet">${head("Grade Options")}<div class="sheet-body"><div class="menu-list">
+        <div class="cap-row"><label for="gPassIn" style="flex:1;font-weight:600">Default Pass Mark<span class="sub">For courses where you haven't set one. Check each course outline.</span></label><input type="number" id="gPassIn" min="0" max="100" step="0.5" value="${esc(r1(s.pass))}"> %</div>${gpaOpt()}
+        <label class="mi-check gs-opt"><input type="checkbox" id="gAskIn" ${s.prompt ? "checked" : ""}><span>Ask for My Mark After I Finish Graded Work<span class="sub">A small note a few seconds later. Easy to skip.</span></span></label>
+        <label class="mi-check gs-opt"><input type="checkbox" id="gRwIn" ${s.rescue ? "checked" : ""}><span>Offer Help When My Week Looks Too Full<span class="sub">A Rough Week banner on the Board</span></span></label>
+        <label class="mi-check gs-opt"><input type="checkbox" id="gClsIn" ${s.cls ? "checked" : ""}><span>${esc(tr("gb.opt", "Compare My Marks to the Class"))}<span class="sub">${esc(tr("gb.opt.s", "For school-synced courses that share class averages"))}</span></span></label>
+        </div></div>
+      <div class="sheet-foot"><button type="button" class="btn" data-act="rw-open">Plan a Rough Week</button><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
+    wireGradeOpts();
+  }
+  hook("act", act => { if (act !== "gp-opts") return false; gradeOptsSheet(); return true; });
   function wireGradeOpts(){
     const pi = $("#gPassIn"); if (!pi) return;
     pi.addEventListener("change", e => { const v = clampP(Number(e.target.value) || 0); saveG({pass: v, passSrc: "user"}); scheduleRender(); toast(`Default pass mark set to ${fmtP(v)}`); });
@@ -32192,7 +32363,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const block = $("#gsSchool");
     let prog = String(gsave().program || (window.SBAREA && SBAREA.get() ? SBAREA.get().text : "") || "").trim().slice(0, 80);
     dlg.__program = prog;
-    block.addEventListener("input", e => { if (e.target.id === "gsProgram") { prog = e.target.value.trim(); dlg.__program = prog; } });
+    block.addEventListener("input", e => { if (e.target.id === "gsProgram") { prog = e.target.value.trim(); dlg.__program = prog; const pg = $("#gsProgGo"); if (pg && found) pg.disabled = !prog || prog.toLowerCase() === String(found.program || "").toLowerCase(); } });
     const hosts = schoolHosts();
     const paint = () => {
       const gs = gsave(), sg = gs.suggest, sc = gs.school;
@@ -32206,18 +32377,23 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       else if (sc) block.innerHTML = `<p class="mini" style="margin:0">${esc(tr("gr.school.from", "Filled in from {school}'s own website.", {school: sc.name || tr("gr.school.yours", "your school")}))} ${safeUrl(sc.url) ? `<a href="${esc(safeUrl(sc.url))}" target="_blank" rel="noopener noreferrer">${esc(sc.host || hostOf(sc.url))}</a> ` : ""}<button type="button" class="link-btn" id="gsFind">${esc(tr("gr.school.again", "Search Again"))}</button></p>`;
       else if (hosts.length) block.innerHTML = `<p class="mini" style="margin:0">${esc(tr("gr.school.know", "Studyboard can ask the AI for the grade scale and pass mark at your school ({host}). The AI answers from memory, so check the result against your course outline.", {host: hosts[0].host}))}</p><div class="gr-scale-acts"><button type="button" class="btn small primary" id="gsFind">${esc(tr("gr.school.find", "Find My School's Scale"))}</button></div>`;
       else block.innerHTML = `<label class="f"><span class="lh">${esc(tr("gr.school.name", "Your school"))} <span class="hint">${esc(tr("gr.school.nameHint", "The AI fills in its grade scale and pass mark from what it knows"))}</span></span><input type="text" id="gsSchoolName" maxlength="80" autocomplete="off" placeholder="${esc(tr("gr.school.ph", "e.g. University of Alberta"))}" data-noenter></label><div class="gr-scale-acts"><button type="button" class="btn small primary" id="gsFind">${esc(tr("gr.school.find", "Find My School's Scale"))}</button></div>`;
-      if (!sg || found) block.insertAdjacentHTML("beforeend", `<label class="f"><span class="lh">${esc(tr("gr.school.prog", "Your program"))} <span class="hint">${esc(tr("gr.school.progHint", "optional. Some programs have their own scale, and the school's is the fallback"))}</span></span><input type="text" id="gsProgram" maxlength="80" autocomplete="off" value="${esc(prog)}" placeholder="${esc(tr("gr.school.progPh", "e.g. Nursing"))}" data-noenter></label>`);
+      if (!sg || found) block.insertAdjacentHTML("beforeend", `<label class="f"><span class="lh">${esc(tr("gr.school.prog", "Your program"))} <span class="hint">${esc(tr("gr.school.progHint", "optional. Some programs have their own scale, and the school's is the fallback"))}</span></span><input type="text" id="gsProgram" maxlength="80" autocomplete="off" value="${esc(prog)}" placeholder="${esc(tr("gr.school.progPh", "e.g. Nursing"))}" data-noenter></label>${found ? `<div class="gr-scale-acts"><button type="button" class="btn small" id="gsProgGo" ${prog && prog.toLowerCase() !== String(found.program || "").toLowerCase() ? "" : "disabled"}>${esc(tr("gr.school.progGo", "Look Up This Program's Scale"))}</button></div>` : ""}`);
+      // a program typed after a lookup: look again, for that program
+      const pg = $("#gsProgGo"), pin = $("#gsProgram");
+      if (pg) pg.addEventListener("click", find);
+      if (pin) pin.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); if (pg && !pg.disabled) find(); else if (!found) { const fb0 = $("#gsFind"); if (fb0) fb0.click(); } } });
       const fb = $("#gsFind"); if (fb) fb.addEventListener("click", find);
       const y = $("#gsSugYes"), n = $("#gsSugNo");
       if (y) y.addEventListener("click", () => { const f = Object.assign({official: false}, sg, {official: false}); apply(f); const all = dlg.querySelector('input[name="all"]'); if (all) all.checked = true; saveG({suggest: null}); say(tr("gr.school.sugUsed", "Filled in. Check it, then save.")); paint(); });
       if (n) n.addEventListener("click", () => { saveG({suggest: null, schoolNo: true}); paint(); });
     };
     async function find(){
-      const nm = $("#gsSchoolName"), name = nm ? nm.value.trim() : "";
+      const nm = $("#gsSchoolName"), name = nm ? nm.value.trim() : (found && found.school) || "";
       if (!hosts.length && !name) { say(tr("gr.school.needName", "Type your school's name first.")); if (nm) nm.focus(); return; }
       if (!aiReady()) { say(tr("gr.school.needAi", "Looking this up needs AI. Set up AI in Settings (Gemini is free), or upload a screenshot or paste the scale below.")); showPaste(); return; }
       const fb = $("#gsFind"); if (fb) fb.disabled = true;
-      say(tr("gr.school.searching", "Asking the AI about your school's grade scale…"));
+      { const pg = $("#gsProgGo"); if (pg) pg.disabled = true; }
+      say(prog ? tr("gr.school.searchingProg", "Asking the AI about the {program} grade scale at your school…", {program: prog}) : tr("gr.school.searching", "Asking the AI about your school's grade scale…"));
       try {
         const h = hosts[0] || {host: "", name: ""}, f = vetSchool(await findSchool({host: h.host, name: name || h.name, program: prog}));
         if (f) { apply(f); say(""); paint(); return; }
@@ -33586,7 +33762,7 @@ function cleanFile(r) {
     out.und = undated.slice(0, 80).map(u => ({ou: u.ou, t: u.f.name, s: u.f.sub === true ? "yes" : u.f.sub === false ? "no" : "", m: (out.recs.find(r => r.pid === "f" + u.f.id) || {}).title || ""}));
     const clsOf = {}; (h.courses || []).forEach(c => (c.grades || []).forEach(g => { if (g && g.gid && g.cls) clsOf[c.ou + "|" + g.gid] = g; }));
     out.recs.forEach(r => { const g = r.gid && clsOf[r.ou + "|" + r.gid]; if (!g) return;
-      r.fb = Object.assign({c: [], ra: [], sc: g.num != null ? Number(g.num) : null, of: g.den != null ? Number(g.den) : null, g: g.shown || ""}, r.fb || {}, {cls: g.cls}); });
+      r.fb = Object.assign({c: [], ra: [], sc: g.num != null ? Number(g.num) : null, of: g.den != null ? Number(g.den) : null, g: g.shown || ""}, r.fb || {}, g.cls ? {cls: g.cls} : {}); });
     foldCopies(out);
     openOnly.forEach(({ou, q}) => {
       const cid = (cfg().map || {})[ou], own = ou + "|" + titleKey(cleanTitle(q.name).title), opens = localDT(q.start);
@@ -33905,7 +34081,7 @@ function cleanFile(r) {
       if (r.outOf) t[F].outOf = r.outOf;
       if (r.lateUntil) t[F].lateUntil = r.lateUntil;
       if (r.rx) t[F].rx = r.rx;
-      if (data.src === "api") { ["st", "fb", "rub"].forEach(k => { if (r[k]) t[F][k] = r[k]; else if (k === "st") delete t[F][k]; }); t[F].sub = r.sub || ""; t[F].item = !!r.pid; }
+      if (data.src === "api") { ["st", "fb", "rub"].forEach(k => { if (r[k]) t[F][k] = k === "fb" && !r.fb.cls && t[F].fb && t[F].fb.cls ? Object.assign({}, r.fb, {cls: t[F].fb.cls}) : r[k]; else if (k === "st") delete t[F][k]; }); t[F].sub = r.sub || ""; t[F].item = !!r.pid; }
       const norm = normTask(t);
       if (JSON.stringify(stripSeen(norm)) !== JSON.stringify(stripSeen(prev))) { put("task", norm); if (!rep.moved.some(x => x.t.id === prev.id) && !rep.done.some(x => x.id === prev.id)) rep.updated.push(norm); }
       else if (!prev[F] || !prev[F].seen || !prev[F].seen[data.src] || Date.now() - prev[F].seen[data.src] > 7 * 864e5) put("task", norm);
@@ -63390,7 +63566,11 @@ const IA = (() => {
     ["todoist", "Todoist", tr("ia.how.todoist", "In Todoist, open a project, choose the three dots, then Export as CSV. Or download a backup ZIP from Settings, then Backups.")],
     ["notion", "Notion", tr("ia.how.notion", "In Notion, open the page, choose the three dots, then Export. Pick Markdown & CSV, include subpages, then choose the ZIP file here.")],
   ];
+  // A file being read, or read and waiting in the preview, is set aside when you tap away and comes back here; Cancel or Import clears it
+  const IKEY = "import-apps";
+  let IJ = null;
   function open(){
+    if (sheetResume(IKEY)) return;
     PV = null;
     openSheet(`<div class="sheet ia-sheet">${head(tr("ia.title", "Import From Another App"))}
       <div class="sheet-body">
@@ -63402,24 +63582,31 @@ const IA = (() => {
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">${esc(tr("ia.cancel", "Cancel"))}</button></div></div>`);
     const inp = $("#iaFile"), drop = $("#iaDrop"), body = dlg.querySelector(".ia-sheet");
+    const job = IJ = {reading: false, dropped: false, el: body};
+    sheetKeep(IKEY, {name: tr("ia.title", "Import From Another App"), dirty: () => false, busy: () => job.reading, drop: () => { job.dropped = true; }});
     inp.addEventListener("change", () => { const f = inp.files && inp.files[0]; inp.value = ""; if (f) take(f); });
     body.addEventListener("dragover", e => { if (e.dataTransfer && [...(e.dataTransfer.types || [])].includes("Files")) { e.preventDefault(); e.stopPropagation(); drop.classList.add("drop-on"); } });
     body.addEventListener("dragleave", e => { if (!body.contains(e.relatedTarget)) drop.classList.remove("drop-on"); });
     body.addEventListener("drop", e => { e.preventDefault(); e.stopPropagation(); drop.classList.remove("drop-on"); const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) take(f); });
   }
   async function take(file){
-    const msg = $("#iaMsg"), say = t => { if (msg) msg.textContent = t; };
+    const job = IJ, el = (job && job.el) || dlg.querySelector(".ia-sheet"), msg = el.querySelector("#iaMsg"), say = t => { if (msg) msg.textContent = t; };
     say(tr("ia.reading", "Reading {name}…", {name: file.name}));
-    dlg.querySelectorAll(".ia-sheet button").forEach(b => { if (b.dataset.act !== "close") b.disabled = true; });
+    el.querySelectorAll("button").forEach(b => { if (b.dataset.act !== "close") b.disabled = true; });
+    if (job) job.reading = true;
     let r;
     try { r = await readFile(file); }
     catch (e) {
       console.warn("import", e);
-      dlg.querySelectorAll(".ia-sheet button").forEach(b => { b.disabled = false; });
+      if (job) { job.reading = false; if (job.dropped) return; }
+      el.querySelectorAll("button").forEach(b => { b.disabled = false; });
       say(e && e.friendly ? e.message : e && e.code === "big" ? e.message : tr("ia.err.read", "Studyboard couldn't read that file. Check that it's an export from Anki, Todoist or Notion and try again."));
+      if (sheetKept(IKEY)) toast(tr("ia.err.away", "Studyboard couldn't read that file. Open Import From Another App again to see why."), null, {label: tr("ia.open", "Open"), fn: () => sheetResume(IKEY)}, {error: true});
       return;
     }
-    preview(r, file.name);
+    if (job) { job.reading = false; if (job.dropped) return; }
+    // shown now if its sheet is open, or from a toast when it was set aside
+    sheetReady(IKEY, () => preview(r, file.name), tr("ia.ready", "{name} is ready to import", {name: file.name}));
   }
   function preview(r, fileName){
     const courses = coursesArr().map(c => ({id: c.id, name: c.name, code: c.code}));
@@ -63468,7 +63655,10 @@ const IA = (() => {
         <p class="status-msg" id="iaMsg" aria-live="polite" style="margin:6px 0 0"></p>
       </div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="ia-open">${esc(tr("ia.back", "Back"))}</button><span class="spacer"></span><button type="button" class="btn" data-act="close">${esc(tr("ia.cancel", "Cancel"))}</button>${groups.length ? `<button type="button" class="btn primary" data-act="ia-go" id="iaGo">${esc(tr("ia.import", "Import"))}</button>` : ""}</div></div>`);
+    const mine = PV;
+    sheetKeep(IKEY, {name: title, dirty: () => mine.groups.length > 0, resume: () => { PV = mine; }});
     dlg.querySelectorAll("[data-ia-on]").forEach(cb => cb.addEventListener("change", () => { PV.groups[+cb.dataset.iaOn].on = cb.checked; const g = $("#iaGo"); if (g) g.disabled = !PV.groups.some(x => x.on); }));
+
     dlg.querySelectorAll("[data-ia-course]").forEach(s => s.addEventListener("change", () => { PV.groups[+s.dataset.iaCourse].courseId = s.value; }));
   }
   const matchCourseFor = (name, courses) => IA.matchCourse(name, courses);
@@ -64973,7 +65163,15 @@ function chipShow(c, timeoutMs){
 }
 function chipHtml(c){
   if (c.kind === "which") {
-    const opts = c.opts.map(t => `<button type="button" class="acc-opt" data-act="acc-which" data-id="${esc(t.id)}">${esc(short(t.title, 26))}</button>`).join("");
+    // Other…: any open task, by course, soonest first
+    if (c.other) {
+      const open = tasksArr().filter(t => t.status !== "done").sort(sortTasks), by = new Map();
+      open.forEach(t => { const k = t.courseId && courseOf(t.courseId) ? t.courseId : ""; if (!by.has(k)) by.set(k, []); by.get(k).push(t); });
+      const grp = [...by.entries()].map(([k, ts]) => `<optgroup label="${esc(k ? courseLabel(courseOf(k)) : tr("acc.noCourse", "No course"))}">${ts.map(t => `<option value="${esc(t.id)}">${esc(short(t.title, 60))}${t.due ? " · " + esc(fmtShort(t.due)) : ""}</option>`).join("")}</optgroup>`).join("");
+      return `<span class="acc-q">${esc(tr("acc.which", "Which task was that for?"))} <span class="mini">${esc(fmtMins(c.min))}</span></span><span class="acc-opts"><select id="accOther" class="acc-sel" aria-label="${esc(tr("acc.pick", "Pick a task"))}"><option value="">${esc(tr("acc.pick", "Pick a task"))}…</option>${grp}</select><button type="button" class="acc-opt" data-act="acc-other-back">${esc(tr("acc.back", "Back"))}</button></span><button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
+    }
+    const opts = c.opts.map(t => `<button type="button" class="acc-opt" data-act="acc-which" data-id="${esc(t.id)}">${esc(short(t.title, 26))}</button>`).join("")
+      + (tasksArr().some(t => t.status !== "done" && !c.opts.some(o => o.id === t.id)) ? `<button type="button" class="acc-opt acc-other" data-act="acc-other">${esc(tr("acc.other", "Other…"))}</button>` : "");
     return `<span class="acc-q">${esc(tr("acc.which", "Which task was that for?"))} <span class="mini">${esc(fmtMins(c.min))}</span></span><span class="acc-opts">${opts}</span><button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
   }
   if (c.kind === "left") return leftChipHtml(c);
@@ -65218,9 +65416,12 @@ function howHtml(){
 }
 
 /* Wiring */
+// Other…: picking a task from the list logs the time to it
+document.addEventListener("change", e => { const s = e.target; if (!s || s.id !== "accOther" || !s.value) return; const b = document.createElement("button"); b.dataset.act = "acc-which"; b.dataset.id = s.value; fire("act", "acc-which", b, s.value); });
 hook("act", (a, el) => {
   if (!a || (a.slice(0, 4) !== "acc-" && a !== "log-time" && a !== "tw-del")) return false;
   if (a === "acc-dismiss") { chipDismiss(); return true; }
+  if (a === "acc-other" || a === "acc-other-back") { if (chip && chip.kind === "which") { chip.other = a === "acc-other"; chipShow(chip, 0); const i = document.getElementById(chip.other ? "accOther" : ""); if (i) i.focus(); } return true; }
   if (a === "acc-which") {
     const p = lsGet(LS_PEND, null), id = el.dataset.id; lsSet(LS_PEND, null); chipHide();
     if (p && id && isGt(id)) { gtAddWork(id, p.min); toast(tr("acc.whichToast", "Added {t} to {title}", {t: fmtMins(p.min), title: "your group task"})); }
@@ -66020,7 +66221,14 @@ function sheet(){
   const form = dlg.querySelector("form");
   form.addEventListener("click", onClick); form.addEventListener("change", onChange);
   form.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.id === "ppAdd" && !e.shiftKey) { e.preventDefault(); onClick({target: {closest: () => ({dataset: {pp: "add"}})}}); } });
-  dlg.addEventListener("close", () => { S = null; }, {once: true});
+  // a plan you've started editing (or AI still finding topics or wording it) is set aside when you tap away; Cancel or Create clears it
+  form.addEventListener("input", () => { if (S && S.step === "plan") S.touched = true; });
+  form.addEventListener("click", e => { if (S && S.step === "plan" && e.target.closest && e.target.closest("[data-pp]:not([data-pp=view]):not([data-pp=create])")) S.touched = true; }, true);
+  const arm = () => dlg.addEventListener("close", () => { S = null; }, {once: true});
+  arm();
+  let held = null;
+  sheetKeep("prep:" + S.exId, {name: "Plan My Prep", dirty: () => { held = S; return !!S && S.step === "plan" && !!S.touched; }, busy: () => { held = held || S; return !!(S && S.busy); },
+    drop: () => { const h = held || S; if (h) h.dropped = true; }, resume: () => { if (held) S = held; arm(); draw(); }});
 }
 function onChange(e){
   if (!S || S.step !== "plan") return;
@@ -66072,26 +66280,38 @@ async function onClick(e){
   draw();
 }
 async function aiFind(ex, b){
+  const me = S, key = "prep:" + me.exId;
   b.disabled = true; const msg = $("#ppFindMsg"); if (msg) msg.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Reading…`;
+  me.busy = true;
+  // what's found goes into this plan, even if it was set aside meanwhile
+  const done = text => {
+    me.busy = false; if (me.dropped) return;
+    me.msg = text; b.disabled = false;
+    if (S === me && dlg.open && dlg.querySelector("#ppBody")) draw();
+    else if (sheetKept(key)) sheetReady(key, null, text);
+  };
   try {
     const parts = [], files = Object.values(state.files).filter(f => (f.courseId || "") === (S.courseId || "") && readableFile(f)).sort((a, c) => (c.updated || c.created || 0) - (a.updated || a.created || 0)).slice(0, 3);
     for (const f of files) { const bytes = await fileBytes(f); parts.push((await aiSourceFromFile(new File([bytes], fileNameOf(f), {type: fileTypeOf(f)}))).part); }
-    const c = courseOf(S.courseId);
-    const r = await aiCall({task: "topics", maxTokens: 4000, schema: TOPICS_SCHEMA, parts: parts.concat({text: `Course: ${c ? c.name : ""}\nExam: ${ex.title} on ${S.due}\nWhat the exam covers (student's notes): ${ex.notes || "not given"}\nList the topics this exam will most likely test, in teaching order, 4 to 15 topics.`}),
+    const c = courseOf(me.courseId);
+    const r = await aiCall({task: "topics", maxTokens: 4000, schema: TOPICS_SCHEMA, parts: parts.concat({text: `Course: ${c ? c.name : ""}\nExam: ${ex.title} on ${me.due}\nWhat the exam covers (student's notes): ${ex.notes || "not given"}\nList the topics this exam will most likely test, in teaching order, 4 to 15 topics.`}),
       system: "You list the topics a course exam will cover, using the course files and the exam notes. Only list topics that actually appear in those files or notes; never add general topics the material does not mention. If neither the files nor the notes say what is covered, return fewer topics rather than guess. Topic names are short (2 to 6 words), plain text, no repeats. Return JSON only."});
-    const n = addTopics((r.data.topics || []).map(t => String(t.name || "").trim()));
-    S.msg = n ? `Added ${n} topic${n === 1 ? "" : "s"} from your files. Mark the ones you're shaky on.` : "No new topics found."; draw();
-  } catch (err) { b.disabled = false; S.msg = (err && err.message) || "Couldn't read the files."; draw(); }
+    if (me.dropped) { me.busy = false; return; }
+    const prev = S; S = me; let n = 0; try { n = addTopics((r.data.topics || []).map(t => String(t.name || "").trim())); } finally { S = prev; }
+    done(n ? `Added ${n} topic${n === 1 ? "" : "s"} from your files. Mark the ones you're shaky on.` : "No new topics found.");
+  } catch (err) { done((err && err.message) || "Couldn't read the files."); }
 }
 async function create(ex, b){
-  readForm(); const out = compute(), status = $("#ppStatus");
+  readForm(); const out = compute(), status = $("#ppStatus"), me = S;
   if (!out || out.err || !out.sessions.length) return;
-  const P = curP(), topics = S.topics.filter(t => t.name.trim());
+  const P = curP(), topics = me.topics.filter(t => t.name.trim());
   b.disabled = true;
-  if (S.ai && aiReady()) { if (status) status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Wording each session…`; try { await aiWords(ex, out, P, m => { if (status) status.textContent = m; }); } catch (err) { if (status) status.textContent = `${(err && err.message) || "The AI couldn't help"}. Using the standard instructions.`; } }
+  if (me.ai && aiReady()) { me.busy = true; if (status) status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Wording each session…`; try { await aiWords(ex, out, P, m => { if (status) status.textContent = m; }); } catch (err) { if (status) status.textContent = `${(err && err.message) || "The AI couldn't help"}. Using the standard instructions.`; } me.busy = false; }
+  if (me.dropped) return;
   const cur = state.tasks[ex.id]; if (!cur) return;
-  const replan = sessionsOf(ex.id).length > 0, due = S.due, time = S.time, courseId = S.courseId;
-  S = null; dlg.close();
+  const replan = sessionsOf(ex.id).length > 0, due = me.due, time = me.time, courseId = me.courseId;
+  // the plan is made either way: close its sheet if it's showing, or let go of it if it was set aside
+  if (S === me && dlg.open && dlg.querySelector("#ppBody")) { S = null; dlg.close(); } else sheetDrop("prep:" + me.exId);
   applyPlan(cur, P, topics, due, time, out, {replan, courseId});
 }
 function catchUp(id){
@@ -66127,8 +66347,10 @@ function open(id, o){
   if (!ex || !MILESTONE(ex.type)) { const list = upcoming(); ex = list[0] || null; }
   if (!ex) { toast("Add an exam or quiz with a date first"); return; }
   if (!ex.due) { toast("Give this exam a date first, then plan your prep"); return; }
+  if (sheetResume("prep:" + ex.id)) return;
   const P = prepOf(ex), have = hasPlan(ex);
   S = stateFor(ex, P);
+
   if (ex.due <= todayISO() && !have) { toast("That exam is today or has passed, so there's nothing left to plan before it."); S = null; return; }
   sheet();
   if (have && !o.edit) { S.step = "view"; drawView(); }
@@ -66957,14 +67179,21 @@ function generate(){
 }
 function openFor(id){
   const n = state.notes[id]; if (!n) return;
+  // cards you've edited, or AI still writing them, are set aside when you tap away and come back here; Cancel or Save clears them
+  const key = "nc:" + id;
+  if (sheetResume(key)) { hideFloat(); return; }
   const t = liveBox(id), full = String(t ? t.value : n.text || "").slice(0, MAXSRC), sel = readSelection(id), selText = flat1(sel.text).length >= 8 ? sel.text.trim().slice(0, MAXSRC) : "";
   if (!selText && flat1(full).length < 10) { toast(tr("nc.tooShort", "Write a few lines in this note first, then make cards from it.")); return; }
   hideFloat(); lastRange = sel.range;
-  S = {tok: ++tokN, id, full, sel: selText, scope: selText ? "sel" : "note", cards: [], k: 0, deck: defaultDeck(n, full), name: suggestName(n, full), busy: false, ai: null, ac: null, range: sel.range};
+  S = {tok: ++tokN, id, key, full, sel: selText, scope: selText ? "sel" : "note", cards: [], k: 0, deck: defaultDeck(n, full), name: suggestName(n, full), busy: false, ai: null, ac: null, range: sel.range, el: null, dropped: false, aiCards: false};
   generate();
   openSheet(sheetHtml());
-  const tok = S.tok;
-  dlg.addEventListener("close", () => { if (S && S.tok === tok) { const r = S.range; try { if (S.ac) S.ac.abort(); } catch (e) { } S = null; setTimeout(() => refocusNote(r), 0); } }, {once: true});
+  const mine = S, tok = S.tok;
+  mine.el = dlg.querySelector(".nc-sheet");
+  const arm = () => dlg.addEventListener("close", () => { if (S && S.tok === tok) { const r = S.range; S = null; setTimeout(() => refocusNote(r), 0); } }, {once: true});
+  arm();
+  sheetKeep(key, {name: "Make Flashcards", dirty: () => mine.aiCards || mine.cards.some(c => c.touched || c.tog), busy: () => mine.busy,
+    drop: () => { mine.dropped = true; try { if (mine.ac) mine.ac.abort(); } catch (e) { } }, resume: () => { S = mine; arm(); paint(); }});
   paint();
   const first = dlg.querySelector(".nc-tick input") || dlg.querySelector('[data-nc="add"]');
   if (first) first.focus();
@@ -67028,13 +67257,13 @@ function cardHtml(c, i){
 }
 function paint(){
   if (!S) return;
-  const list = $("#ncList", dlg); if (!list) return;
+  const list = $("#ncList", S.el || dlg); if (!list) return;
   list.innerHTML = S.cards.length ? S.cards.map(cardHtml).join("") : `<li class="nc-none">${esc(tr("nc.none", "No clear terms, definitions or questions in this text. Add cards by hand, or try the AI button if it is on."))}</li>`;
   counts();
 }
 function counts(){
   if (!S) return;
-  const on = ticked().length, all = S.cards.length, c = $("#ncCount", dlg), b = $("#ncSave", dlg);
+  const on = ticked().length, all = S.cards.length, c = $("#ncCount", S.el || dlg), b = $("#ncSave", S.el || dlg);
   if (c) c.textContent = all ? tr("nc.count", "{on} of {all} cards ticked", {on, all}) : tr("nc.count0", "No cards yet");
   if (b) { b.textContent = on ? trn("nc.save", on, "Save {n} Card|Save {n} Cards") : tr("nc.save0", "Save Cards"); b.disabled = !on; }
 }
@@ -67043,7 +67272,7 @@ function focusCard(k, what){
   const li = dlg.querySelector('.nc-card[data-k="' + k + '"]'); if (!li) return;
   const el = what === "front" ? li.querySelector("[data-nc-f]") : li.querySelector(what) || li.querySelector(".nc-tick input"); if (el) el.focus();
 }
-function setAiMsg(txt){ if (S) S.ai = txt; const m = $("#ncAiMsg", dlg); if (m) m.textContent = txt || ""; }
+function setAiMsg(txt){ if (!S) return; S.ai = txt; const m = $("#ncAiMsg", S.el || dlg); if (m) m.textContent = txt || ""; }
 function onClick(e){
   const b = e.target.closest && e.target.closest("[data-nc]"); if (!b || !S) return;
   e.stopPropagation();
@@ -67075,38 +67304,44 @@ function onChange(e){
 /* AI assist */
 async function runAi(){
   if (!S || S.busy) return;
-  const tok = S.tok, text = srcText(), what = S.scope === "sel" ? tr("nc.what.sel2", "selected text") : tr("nc.what.note2", "note");
+  const me = S, text = srcText(), what = S.scope === "sel" ? tr("nc.what.sel2", "selected text") : tr("nc.what.note2", "note");
+  // the answer lands in this sheet even when it was set aside (or another one is open now)
+  const onMe = fn => { const prev = S; S = me; try { fn(); } finally { S = prev; } };
+  const setAiMsg = t => onMe(() => setAiMsg0(t)), paint = () => onMe(paint0);
   if (flat1(text).length < 20) { setAiMsg(tr("nc.ai.short", "Select a little more text first, then try again.")); return; }
-  const btn = dlg.querySelector('[data-nc="ai"]'), W = aiWhoIs(), nm = aiWho("AI"), company = W.company || "the AI company";
-  S.busy = true; if (btn) { btn.disabled = true; btn.setAttribute("aria-busy", "true"); }
+  const btn = me.el.querySelector('[data-nc="ai"]'), W = aiWhoIs(), nm = aiWho("AI"), company = W.company || "the AI company";
+  me.busy = true; if (btn) { btn.disabled = true; btn.setAttribute("aria-busy", "true"); }
   setAiMsg(tr("nc.ai.working", "Working with {who}…", {who: nm}));
-  const ac = typeof AbortController === "function" ? new AbortController() : null; S.ac = ac;
+  const ac = typeof AbortController === "function" ? new AbortController() : null; me.ac = ac;
   const nWords = text.trim().split(/\s+/).length, want = Math.max(4, Math.min(30, Math.round(nWords / 18)));
-  const c = courseOf((state.notes[S.id] || {}).courseId);
+  const c = courseOf((state.notes[me.id] || {}).courseId);
   let sent = true;
   try {
     const r = await aiCall({task: "cards", maxTokens: 6000, temperature: 0.2, schema: NC_SCHEMA, system: NC_SYSTEM, signal: ac ? ac.signal : undefined,
       parts: [{text: `Course: ${c ? c.name : "not given"}\nMake at most ${want} flashcards from the notes between the tags.\n\n<notes>\n${text.replace(/<\/?notes>/gi, " ")}\n</notes>`}]});
-    if (!S || S.tok !== tok) return;
+    if (me.dropped) return;
     const raw = r && r.data && Array.isArray(r.data.cards) ? r.data.cards : [], v = NC.vetAi(raw, text, {max: want + 4, tidy: aiTidyText}), g = aiGateCards(v.cards, {max: want + 4});
     const kept = g.cards.map(x => ({front: x.front, back: x.back, kind: "ai"}));
     const tail = (v.dropped.ungrounded ? " " + trn("nc.ai.left", v.dropped.ungrounded, "Left out {n} card that was not in your text.|Left out {n} cards that were not in your text.") : "") + (v.dropped.copied ? " " + trn("nc.ai.copied", v.dropped.copied, "Left out {n} card that copied your text word for word.|Left out {n} cards that copied your text word for word.") : "");
     const sentNote = " " + tr("nc.ai.sent", "Your {what} ({chars} characters) was sent to {company}.", {what, chars: text.length, company});
     if (!kept.length) { setAiMsg(tr("nc.ai.none", "AI did not find anything it could back up from your text, so these are the cards made on this device.") + sentNote); return; }
-    const keep = S.cards.filter(x => x.touched);
-    S.cards = mkCards(kept, keep);
+    const keep = me.cards.filter(x => x.touched);
+    onMe(() => { me.cards = mkCards(kept, keep); }); me.aiCards = true;
     paint();
     setAiMsg(trn("nc.ai.done", kept.length, "{n} card from {who}, checked against your text.|{n} cards from {who}, checked against your text.", {who: nm}) + tail + sentNote);
   } catch (err) {
-    if (!S || S.tok !== tok) return;
+    if (me.dropped) return;
     const code = err && err.code; if (["offline", "nokey", "no-consent", "preview", "auto-off", "cancelled"].includes(code)) sent = false;
     if (code === "no-consent") setAiMsg(tr("nc.ai.noconsent", "AI stays off until you agree. Nothing was sent. The cards below were made on this device."));
     else if (code === "cancelled") setAiMsg("");
     else setAiMsg(tr("nc.ai.fail", "AI could not help this time, so you are seeing the cards made on this device.") + (sent ? " " + tr("nc.ai.sent2", "Your text may have reached {company} before the problem.", {company}) : ""));
   } finally {
-    if (S && S.tok === tok) { S.busy = false; S.ac = null; const b2 = dlg.querySelector('[data-nc="ai"]'); if (b2) { b2.disabled = false; b2.removeAttribute("aria-busy"); } }
+    me.busy = false; me.ac = null; const b2 = me.el.querySelector('[data-nc="ai"]'); if (b2) { b2.disabled = false; b2.removeAttribute("aria-busy"); }
+    if (!me.dropped && !(dlg.open && dlg.contains(me.el)) && sheetKept(me.key)) sheetReady(me.key, null, me.aiCards ? "Your AI flashcards are ready to check" : "AI couldn't improve those cards. Open Make Flashcards to see why.");
   }
 }
+const paint0 = () => paint(), setAiMsg0 = t => setAiMsg(t);
+
 
 /* Save: one deck write, so one Undo */
 function openDeck(id){ if (noteEditing) saveNoteText(); if (dlg.open) dlg.close(); ui.tab = "flashcards"; ui.fc = null; ui.deckId = id; render(); window.scrollTo(0, 0); }
@@ -67848,7 +68083,7 @@ Rules:
 Return JSON only.`;
   const prompt = `Assignment title: ${S.title}\nCourse: ${c ? c.name : "not given"}\nType: ${S.type}\nEstimated total effort: ${hours} hours\nLikely kind: ${S.kind || "unknown"}\n\nAssignment text:\n"""\n${text || "(no text was given, only the title)"}\n"""`;
   return await aiRetry(async () => {
-    const r = await aiCall({task: "breakdown", maxTokens: 4000, temperature: 0.3, onStatus, schema: BD_SCHEMA, system, parts: [{text: prompt}]});
+    const r = await aiCall({task: "breakdown", maxTokens: 4000, temperature: 0.3, onStatus, signal: S.ac ? S.ac.signal : undefined, schema: BD_SCHEMA, system, parts: [{text: prompt}]});
     const v = BD.vetAi(r.data, {text, title: S.title, kind: S.kind, hours});
     if (!v.ok) { const e = new Error("The AI's plan wasn't usable, so the simple template is used."); e.code = "bad"; e.vet = v; throw e; }
     return v;
@@ -68032,23 +68267,31 @@ function wire(S){
   $("#bdGo").addEventListener("click", () => commit(S));
 }
 async function runAi(S, manual){
-  const msg = $("#bdAiMsg"), btn = $("#bdAi"); if (!msg || S.aiBusy) return;
+  const msg = S.root.querySelector("#bdAiMsg"), btn = S.root.querySelector("#bdAi"); if (!msg || S.aiBusy) return;
   if (!aiReady()) return;
   const now = Date.now();
   if (manual && (S.aiN >= 4 || now - (S.aiLast || 0) < 6000)) { msg.textContent = S.aiN >= 4 ? "That's enough AI tries for this plan. Edit it by hand or use the template." : "Give it a few seconds between tries."; return; }
   if (!manual && !aiOkNow()) return;
   S.aiBusy = true; S.aiN = (S.aiN || 0) + 1; S.aiLast = now; if (btn) btn.disabled = true;
+  S.ac = typeof AbortController === "function" ? new AbortController() : null;
   msg.textContent = "Making the steps specific to your assignment…";
   try {
     const v = await aiStages(S, m => { if (msg) msg.textContent = m; });
-    if (CUR !== S || !dlg.open) return;
-    if (!manual && S.dirty) { msg.textContent = "AI steps ready, but you've already edited the plan. Tap Regenerate with AI to use them."; S.aiStages = v.stages; return; }
-    S.aiStages = v.stages; S.kind = v.kind || S.kind; rebuild({useAi: true});
-    msg.textContent = v.dropped ? `Used the AI's steps (${v.dropped} generic one${v.dropped === 1 ? "" : "s"} left out).` : "Used the AI's steps.";
+    if (S.dropped) return;
+    // finished while set aside: used when the sheet comes back, and a toast says so
+    if (CUR !== S || !dlg.open || !dlg.contains(S.root)) { if (sheetKept(S.key)) { S.pendingAi = {v, manual}; S.aiBusy = false; sheetReady(S.key, null, `AI steps for ${S.title || "your assignment"} are ready`); } return; }
+    useAi(S, v, manual);
   } catch (e) {
+    if (S.dropped || (e && e.code === "cancelled")) return;
     console.warn("breakdown AI", e);
     if (msg) msg.textContent = (e && e.code && e.code !== "bad" ? e.message : "The AI's steps weren't usable, so the simple template stays.");
-  } finally { S.aiBusy = false; if (btn) btn.disabled = false; }
+  } finally { S.aiBusy = false; S.ac = null; if (btn) btn.disabled = false; }
+}
+function useAi(S, v, manual){
+  const msg = S.root.querySelector("#bdAiMsg");
+  if (!manual && S.dirty) { msg.textContent = "AI steps ready, but you've already edited the plan. Tap Regenerate with AI to use them."; S.aiStages = v.stages; return; }
+  S.aiStages = v.stages; S.kind = v.kind || S.kind; rebuild({useAi: true});
+  msg.textContent = v.dropped ? `Used the AI's steps (${v.dropped} generic one${v.dropped === 1 ? "" : "s"} left out).` : "Used the AI's steps.";
 }
 
 function commit(S){
@@ -68108,11 +68351,15 @@ function openFor(taskId, opts){
   const S = baseState({mode, id: t.id, title: t.title, courseId: t.courseId, type: t.type, due: t.due, time: t.time, link: t.link, text: String(t.notes || "").slice(0, 6000), hours: isNum(t.hours) && Number(t.hours) > 0 ? Number(t.hours) : "",
     difficulty: t.difficulty, kids, catchup: !!opts.catchup, kind: t.bdKind || ""});
   if (mode === "replan") S.allowPast = false;
+  S.key = "bd:" + t.id + (opts.catchup ? ":catchup" : "");
+  if (sheetResume(S.key)) return;
   show(S);
 }
 function openNew(preset){
   preset = preset || {};
-  const S = baseState({mode: "new", courseId: preset.courseId || "", title: preset.title || "", due: preset.due || ""});
+  // a title or date handed in (from the task form) starts a fresh one; otherwise a set-aside one comes back
+  const S = baseState({mode: "new", courseId: preset.courseId || "", title: preset.title || "", due: preset.due || "", key: "bd:new"});
+  if (preset.title || preset.due) sheetDrop(S.key); else if (sheetResume(S.key)) return;
   show(S);
   if (preset.title) $("#bdTitle").value = preset.title;
   if (preset.due) $("#bdDue").value = preset.due;
@@ -68122,7 +68369,15 @@ function show(S){
   S.hoursEff = Number(S.hours) > 0 ? Number(S.hours) : BD.defaultHours(S.kind || BD.detectKind(S.title, S.text), S.difficulty);
   if (!S.kind) S.kind = BD.detectKind(S.title, S.text);
   openSheet(sheetHtml(S));
-  dlg.addEventListener("close", () => { if (CUR === S) CUR = null; }, {once: true});
+  S.root = dlg.querySelector(".bd-sheet");
+  const arm = () => dlg.addEventListener("close", () => { if (CUR === S) CUR = null; }, {once: true});
+  arm();
+  // tapping away keeps a plan you've worked on (or one AI is still writing); Cancel or Create clears it
+  S.root.addEventListener("input", () => { S.touched = true; }); S.root.addEventListener("change", () => { S.touched = true; });
+  S.root.addEventListener("click", e => { if (e.target.closest("[data-a], #bdAdd")) S.touched = true; });
+  sheetKeep(S.key || "bd:" + (S.id || "new"), {name: "Break It Down", busy: () => !!(S.aiBusy || S.reading), dirty: () => !!(S.touched || S.pendingAi || (S.plan && S.plan.source === "ai")),
+    drop: () => { S.dropped = true; if (S.ac) { try { S.ac.abort(); } catch (e) {} } },
+    resume: () => { CUR = S; arm(); if (S.pendingAi) { const p = S.pendingAi; S.pendingAi = null; useAi(S, p.v, p.manual); } }});
   wire(S);
   if (S.mode === "new") wireNew(S);
   else {
@@ -68131,6 +68386,7 @@ function show(S){
   }
 }
 function wireNew(S){
+  const $ = q => S.root.querySelector(q);
   const txt = $("#bdText"), file = $("#bdFile"), msg = $("#bdFileMsg");
   const sync = () => {
     const t = txt.value, today = todayISO();
@@ -68142,7 +68398,7 @@ function wireNew(S){
   $("#bdPick").addEventListener("click", () => file.click());
   file.addEventListener("change", async () => {
     const f = file.files && file.files[0]; file.value = ""; if (!f) return;
-    msg.textContent = "Reading…";
+    msg.textContent = "Reading…"; S.reading = true;
     try {
       let t = "";
       if (/\.txt$/i.test(f.name) || f.type === "text/plain") t = (await f.text()).slice(0, 20000);
@@ -68162,7 +68418,9 @@ function wireNew(S){
       if (!t) { msg.textContent = "Couldn't find any text there."; return; }
       txt.value = t; msg.textContent = `Read ${f.name}.`; sync();
     } catch (e) { console.warn(e); msg.textContent = e && e.code ? e.message : "Couldn't read that file. Paste the text instead."; }
+    finally { S.reading = false; S.touched = true; if (!S.dropped && sheetKept(S.key)) sheetReady(S.key, null, `Read ${f.name}`); }
   });
+
   $("#bdMake").addEventListener("click", () => {
     const today = todayISO(), title = $("#bdTitle").value.trim(), due = $("#bdDue").value, mm = $("#bdMakeMsg");
     if (!title) { mm.textContent = "Add a title."; $("#bdTitle").focus(); return; }
@@ -68782,7 +69040,9 @@ const QADD = (() => {
   const QA = {items: [], seq: 0, busy: false, note: ""};
   const storable = f => !!(mimeFor(f) || sbActive() || DESK);
   const courseList = () => coursesArr().map(c => ({id: c.id, name: c.name, code: c.code || "", instructor: c.instructor || ""}));
-  const qaEl = () => document.getElementById("qaList");
+  // queries stay inside the open (or set-aside) Quick Add sheet
+  const qq = id => QA.el ? QA.el.querySelector("#" + id) : null;
+  const qaEl = () => qq("qaList");
   function qaRow(x){
     const nm = esc(x.file.name);
     return `<li class="qa-row${x.on ? "" : " off"}" data-qa="${esc(x.id)}">
@@ -68797,9 +69057,9 @@ const QADD = (() => {
   function qaDraw(){
     const l = qaEl(); if (!l) return;
     l.innerHTML = QA.items.map(qaRow).join("");
-    const n = QA.items.filter(x => x.on && !x.bad && x.state === "ready").length, b = document.getElementById("qaSave");
+    const n = QA.items.filter(x => x.on && !x.bad && x.state === "ready").length, b = qq("qaSave");
     if (b) { b.disabled = !n || QA.busy; b.textContent = n ? `Add ${n} File${n === 1 ? "" : "s"}` : "Add Files"; }
-    const m = document.getElementById("qaMsg"); if (m) m.innerHTML = QA.busy ? `<span class="ai-spin" aria-hidden="true"></span> ${esc(QA.busy)}` : esc(QA.note);
+    const m = qq("qaMsg"); if (m) m.innerHTML = QA.busy ? `<span class="ai-spin" aria-hidden="true"></span> ${esc(QA.busy)}` : esc(QA.note);
   }
   const FILE_SCHEMA = {type: "OBJECT", properties: {files: {type: "ARRAY", items: {type: "OBJECT", properties: {
     n: {type: "INTEGER", description: "The file's number from the list"},
@@ -68833,7 +69093,7 @@ const QADD = (() => {
       }
       QA.note = "";
     } catch (e) { QA.note = `${aiMsg(e)} Files were sorted by name and keywords instead.`; }
-    QA.busy = false; if (seq === QA.seq) qaDraw();
+    QA.busy = false; if (seq === QA.seq) { qaDraw(); sheetReady(QKEY, null, "Your files are sorted. Check them, then add them."); }
   }
   async function qaAdd(list){
     list = [...list].filter(f => f && f.name && !QA.items.some(x => x.file.name === f.name && x.file.size === f.size));
@@ -68841,21 +69101,25 @@ const QADD = (() => {
     const fresh = list.map(f => ({id: uid(), file: f, text: "", state: "reading", on: true, courseId: "", kind: "other", conf: 0, why: "", bad: storable(f) ? "" : "Word, PowerPoint and Excel files can't be stored here. Save a PDF copy first."}));
     fresh.forEach(x => { if (x.bad) { x.on = false; x.state = "ready"; } });
     QA.items.push(...fresh); qaDraw();
+    const gen = QA.gen;
     const dflt = ui.fCourse && ui.fCourse !== "all" && state.courses[ui.fCourse] ? ui.fCourse : "", cs = courseList();
     for (const x of fresh) {
       if (x.bad) continue;
       x.text = await textOfFile(x.file, 12000);
       const g = QADD.guess(x.file.name, x.text, cs);
       x.courseId = g.courseId || dflt; x.kind = g.kind; x.conf = g.conf; x.why = g.why || (x.text ? "" : "No readable text, so this is a guess from the name"); x.state = "ready";
-      if (!qaEl()) return;
+      if (!qaEl() || gen !== QA.gen) return;
       qaDraw();
     }
-    const box = document.getElementById("qaAI");
+    const box = qq("qaAI");
     if (box && box.checked) qaAI();
   }
+  // Tapping away keeps the files you picked (and their sorting) until Cancel or Add; files handed in start a fresh one
+  const QKEY = "quick-files";
   function openQuick(files){
     if (!caps.assets) { toast("File storage isn't available here. You can still add links to files."); return; }
-    QA.items = []; QA.seq++; QA.busy = false; QA.note = "";
+    if (files && files.length) sheetDrop(QKEY); else if (sheetResume(QKEY)) return;
+    QA.items = []; QA.seq++; QA.gen = (QA.gen || 0) + 1; QA.busy = false; QA.note = "";
     openSheet(`<form class="sheet qa-sheet">${head("Quick Add Files")}
       <div class="sheet-body">
         <div class="drop" id="qaDrop"><p style="margin:0 0 10px"><strong>Drop files here, or choose them.</strong><br><span class="mini">No need to pick a course or type. Studyboard files each one for you, and you can fix any guess before saving.</span></p>
@@ -68866,13 +69130,17 @@ const QADD = (() => {
       </div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="qaSave" disabled>Add Files</button></div>
     </form>`);
-    const inp = document.getElementById("qaFileIn"), drop = document.getElementById("qaDrop"), list = document.getElementById("qaList");
-    document.getElementById("qaPick").addEventListener("click", () => inp.click());
+    QA.el = dlg.querySelector(".qa-sheet");
+    sheetKeep(QKEY, {name: "Quick Add Files", dirty: () => QA.items.some(x => !x.bad), busy: () => !!QA.busy || QA.items.some(x => x.state === "reading"),
+      drop: () => { QA.seq++; QA.gen++; }});
+    const inp = qq("qaFileIn"), drop = qq("qaDrop"), list = qq("qaList");
+
+    qq("qaPick").addEventListener("click", () => inp.click());
     inp.addEventListener("change", () => { const l = [...(inp.files || [])]; inp.value = ""; qaAdd(l); });
     ["dragover", "dragenter"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
     ["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, () => drop.classList.remove("over")));
     drop.addEventListener("drop", e => { e.preventDefault(); qaAdd(e.dataTransfer.files || []); });
-    const ai = document.getElementById("qaAI"); if (ai) ai.addEventListener("change", () => { if (ai.checked) { QA.items.forEach(x => { x.aiDone = false; }); qaAI(); } });
+    const ai = qq("qaAI"); if (ai) ai.addEventListener("change", () => { if (ai.checked) { QA.items.forEach(x => { x.aiDone = false; }); qaAI(); } });
     list.addEventListener("change", e => {
       const li = e.target.closest("[data-qa]"), x = li && QA.items.find(i => i.id === li.dataset.qa); if (!x) return;
       if (e.target.matches("[data-qa-on]")) { x.on = e.target.checked; li.classList.toggle("off", !x.on); }
@@ -68882,10 +69150,10 @@ const QADD = (() => {
         x.edited = true; x.conf = 1; x.why = "Set by you";
         const w = li.querySelector(".qa-why"); if (w) { w.classList.remove("warn"); w.textContent = x.why; }
       }
-      const n = QA.items.filter(i => i.on && !i.bad && i.state === "ready").length, b = document.getElementById("qaSave");
+      const n = QA.items.filter(i => i.on && !i.bad && i.state === "ready").length, b = qq("qaSave");
       b.disabled = !n || !!QA.busy; b.textContent = n ? `Add ${n} File${n === 1 ? "" : "s"}` : "Add Files";
     });
-    document.getElementById("qaSave").addEventListener("click", qaSave);
+    qq("qaSave").addEventListener("click", qaSave);
     qaDraw();
     if (files && files.length) qaAdd(files);
   }
@@ -69011,14 +69279,20 @@ const QADD = (() => {
     const fs = Object.values(state.files).filter(f => f.courseId === cid && (f.kind === "file" || f.kind === "cloud") && /\.(pdf|pptx|docx|txt|md)$/i.test(fileNameOf(f)))
       .sort((a, b) => (wrapEligible(b) - wrapEligible(a)) || ((b.updated || b.created || 0) - (a.updated || a.created || 0))).slice(0, 8);
     if (!fs.length) { toast("Upload a syllabus or lecture slides to this course first"); return; }
-    const upd = aiBusySheet("Finding Learning Objectives", `Reading ${fs.length} file${fs.length === 1 ? "" : "s"}…`);
+    // tapping away while it reads sets it aside; what it finds opens from a toast
+    const KK = "objectives:" + cid;
+    if (sheetResume(KK)) return;
+    const upd = aiBusySheet("Finding Learning Objectives", `Reading ${fs.length} file${fs.length === 1 ? "" : "s"}…`, KK), job = upd.job;
     const items = [];
     for (const f of fs) { let t = ""; try { t = window.SBFILETEXT ? await SBFILETEXT(f.id, 40000) : ""; } catch (e) {} if (t) items.push({name: f.name, text: t}); }
+    if (job.dropped) return;
     let cands = [], err = "";
     try { cands = items.length ? await findObjs(items, c.name, aiOn() ? "ai" : "none") : []; } catch (e) { err = aiMsg(e); try { cands = await findObjs(items, c.name, "none"); } catch (e2) {} }
+    if (job.dropped) return;
     const add = QADD.fresh(objsOf(courseOf(cid)), cands);
     if (!add.length) { upd(items.length ? `No new learning objectives were found${err ? " (" + err + ")" : ""}. You can add your own.` : "None of these files has text Studyboard can read.", true); return; }
-    reviewSheet(cid, add, items.map(x => x.name).join(", "));
+    job.busy = false;
+    sheetReady(KK, () => reviewSheet(cid, add, items.map(x => x.name).join(", ")), `Found ${add.length} learning objective${add.length === 1 ? "" : "s"} to review`);
   }
   // Flashcards for objectives
   function cardsSheet(cid){
@@ -69028,6 +69302,9 @@ const QADD = (() => {
     if (!objs.length) { toast("Add some learning objectives first"); return; }
     const fs = Object.values(state.files).filter(f => f.courseId === cid && readableFile(f) && fileKind(f) !== "image").sort((a, b) => (wrapEligible(b) - wrapEligible(a)) || ((b.updated || b.created || 0) - (a.updated || a.created || 0)));
     if (!fs.length) { toast("Upload slides, a syllabus or notes to this course first so the cards come from your material"); return; }
+    // tapping away while it writes sets it aside (the cards are saved when done); Cancel stops it
+    const KK = "objcards:" + cid, job = {busy: false, dropped: false, ac: null};
+    if (sheetResume(KK)) return;
     const pickF = new Set(fs.filter(wrapEligible).concat(fs).slice(0, 3).map(f => f.id));
     openSheet(`<form class="sheet ai-sheet">${head("Flashcards for Objectives")}
       <div class="sheet-body" id="ocBody">
@@ -69038,25 +69315,38 @@ const QADD = (() => {
         ${aiModelBar()}
         <p class="status-msg" id="ocMsg" aria-live="polite"></p></div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="ocGo">${AI_ICON} Make Cards</button></div></form>`);
+    const sheetEl = dlg.querySelector(".ai-sheet");
+    sheetKeep(KK, {name: "Flashcards for Objectives", dirty: () => false, busy: () => job.busy, drop: () => { job.dropped = true; if (job.ac) { try { job.ac.abort(); } catch (e) {} } }});
     document.getElementById("ocGo").addEventListener("click", async ev => {
+      if (job.busy) return;
       const b = ev.currentTarget, ids = [...dlg.querySelectorAll("[data-oc]:checked")].map(i => i.dataset.oc).slice(0, 12), fids = [...dlg.querySelectorAll("[data-of]:checked")].map(i => i.dataset.of), msg = document.getElementById("ocMsg");
       if (!ids.length) { msg.textContent = "Tick at least one objective (up to 12 at a time)."; return; }
       if (!fids.length) { msg.textContent = "Tick at least one file to make the cards from."; return; }
       const size = fids.reduce((s, id) => s + ((state.files[id] && fileSizeOf(state.files[id])) || 0), 0);
       if (size > AI_LIMIT_BYTES) { msg.textContent = "Those files are too big to send at once. Untick some."; return; }
       b.disabled = true; msg.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Reading your files…`;
+      job.busy = true; job.ac = typeof AbortController === "function" ? new AbortController() : null;
       try {
-        const n = await makeCards(cid, ids, fids, Number(document.getElementById("ocPer").value) || 3, s => { msg.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(s)}`; });
-        if (dlg.open) dlg.close();
+        const n = await makeCards(cid, ids, fids, Number(sheetEl.querySelector("#ocPer").value) || 3, s => { msg.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(s)}`; }, job);
+        job.busy = false; if (job.dropped) return;
+        // the cards are saved: close the sheet if it's showing, or let go of it if it was set aside
+        if (dlg.open && dlg.contains(sheetEl)) dlg.close(); else sheetDrop(KK);
         if (!n) toast("No cards came back. Try again, or pick other files.");
-      } catch (e) { msg.textContent = (e && e.message) || "Couldn't make cards right now."; b.disabled = false; }
+      } catch (e) {
+        job.busy = false; if (job.dropped || (e && e.code === "cancelled")) return;
+        msg.textContent = (e && e.message) || "Couldn't make cards right now."; b.disabled = false;
+        if (sheetKept(KK)) toast("Couldn't make those cards. Open Flashcards for Objectives again to see why.", null, {label: "Open", fn: () => sheetResume(KK)}, {error: true});
+      }
     });
   }
-  async function makeCards(cid, ids, fids, per, onStatus){
+  async function makeCards(cid, ids, fids, per, onStatus, job){
     const c = courseOf(cid), objs = objsOf(c).filter(o => ids.includes(o.id)).slice(0, 12);
     const sources = []; for (const id of fids) { const f = state.files[id]; if (f) sources.push(await fileSource(f)); }
+    if (job && job.dropped) throw aiErr("cancelled", "Canceled.");
+
     const style = `Make flashcards that cover these learning objectives. Write ${per} cards for each one, covering what a student must know to meet it. Start every card's "source" field with its objective code (like "O3" or "O3 · Slides 4-5"). Objectives:\n${objs.map((o, i) => `O${i + 1}. ${o.text}`).join("\n")}`;
-    const out = await aiMakeStudySet({sources, style, difficulty: "mixed", cards: true, quiz: false, cases: false, cardCount: objs.length * per, quizCount: 0, courseName: c.name}, onStatus);
+    const out = await aiMakeStudySet({sources, style, difficulty: "mixed", cards: true, quiz: false, cases: false, cardCount: objs.length * per, quizCount: 0, courseName: c.name, signal: job && job.ac ? job.ac.signal : undefined}, onStatus);
+    if (job && job.dropped) throw aiErr("cancelled", "Canceled.");
     if (!out.cards.length) return 0;
     const name = `${courseLabel(c)} Objectives`;
     let d = decksArr().find(x => x.courseId === cid && x.name === name);
@@ -72542,6 +72832,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   const proWhy = why => { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(why); };
   const S = () => state.settings || {};
   const KINDS = [["week", "Week Agenda", "Classes, tasks, space for notes"], ["term", "Term Calendar", "Every deadline and exam"], ["grades", "Grade Report", "Each course, with what you need"], ["prep", "Exam Prep Plan", "Day by day, with topics"], ["sheet", "Formula and Diagram Sheet", "An exam's formulas, terms and diagrams"]];
+  // the Formula and Diagram Sheet is on hold: its layout shows only while its module is switched on
+  const kinds = () => KINDS.filter(k => k[0] !== "sheet" || window.SBEXAMSHEET);
   let PR = null;
   const monday = d => { const x = parse(d); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return iso(x); };
   const dot = (cid, on) => on && cid ? `<i class="pp-dot" style="background:${esc(colorOf(cid))}"></i>` : "";
@@ -72612,6 +72904,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     if (P.locked()) { proWhy("Print and Save as PDF are part of Studyboard Pro."); return; }
     const ex = examsWithPrep();
     PR = Object.assign({kind: "week", week: monday(todayISO()), paper: S().printPaper || (/^en-(US|CA)|^es-(US|MX)/.test(navigator.language || "") ? "letter" : "a4"), opts: Object.assign({classes: true, tasks: true, lines: true, color: false}, S().printOpts || {}), exam: ex[0] ? ex[0].id : ""}, PR && PR.keep ? PR : {}, kind ? {kind} : {}, exam ? {exam} : {});
+    if (!kinds().some(k => k[0] === PR.kind)) PR.kind = "week";
     if (dlg.open) dlg.close();
     openSheet(`<div class="sheet pro-sheet">${head("Print or Save as PDF")}<div class="sheet-body pr-body"></div><div class="sheet-foot"><span class="mini pr-tip">${/Mac|iPhone|iPad/.test(navigator.userAgent || "") ? "To save a PDF, choose PDF in the print dialog." : "To save a PDF, choose Save as PDF (or Microsoft Print to PDF) as the printer."}</span><span class="spacer"></span><button type="button" class="btn primary" data-act="pro-pr-go">Print</button></div></div>`);
     drawPrint();
@@ -72620,7 +72913,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const b = dlg.querySelector(".pr-body"); if (!b || !PR) return;
     const ex = examsWithPrep(), mon = monday(todayISO());
     const chk = (k, l) => `<label class="mi-check"><input type="checkbox" data-pr-opt="${k}"${PR.opts[k] ? " checked" : ""}> ${l}</label>`;
-    b.innerHTML = `<div class="pr-kinds" role="radiogroup" aria-label="What to print">${KINDS.map(([k, n, s]) => `<button type="button" role="radio" aria-checked="${PR.kind === k}" class="pr-kind${PR.kind === k ? " on" : ""}" data-act="pro-pr-kind" data-id="${k}"><b>${n}</b><span>${s}</span></button>`).join("")}</div>
+    b.innerHTML = `<div class="pr-kinds" role="radiogroup" aria-label="What to print">${kinds().map(([k, n, s]) => `<button type="button" role="radio" aria-checked="${PR.kind === k}" class="pr-kind${PR.kind === k ? " on" : ""}" data-act="pro-pr-kind" data-id="${k}"><b>${n}</b><span>${s}</span></button>`).join("")}</div>
       ${PR.kind === "week" ? `<label class="f">Week<select data-pr-week>${[0, 1, 2, 3].map(i => { const w = addDays(mon, i * 7); return `<option value="${w}"${PR.week === w ? " selected" : ""}>${esc(fmtShort(w))} to ${esc(fmtShort(addDays(w, 6)))}${i === 0 ? " (this week)" : ""}</option>`; }).join("")}</select></label>` : ""}
       ${PR.kind === "prep" ? (ex.length ? `<label class="f">Exam<select data-pr-exam>${ex.map(t => `<option value="${esc(t.id)}"${PR.exam === t.id ? " selected" : ""}>${esc(t.title)} · ${esc(fmtShort(t.due))}</option>`).join("")}</select></label>` : `<p class="mini" style="margin:0">No upcoming exam has a prep plan yet. Open an exam and choose Plan My Prep to make one.</p>`) : ""}
       ${PR.kind === "sheet" && window.SBEXAMSHEET ? SBEXAMSHEET.printControls(PR) : ""}
@@ -72666,7 +72959,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   hook("act", (act, el, id) => {
     switch (act) {
       case "pro-pr-open": openPrint(id || ""); return true;
-      case "pro-pr-kind": if (PR) { PR.kind = KINDS.some(k => k[0] === id) ? id : "week"; drawPrint(); } return true;
+      case "pro-pr-kind": if (PR) { PR.kind = kinds().some(k => k[0] === id) ? id : "week"; drawPrint(); } return true;
       case "pro-pr-paper": if (PR) { PR.paper = id === "a4" ? "a4" : "letter"; state.settings = Object.assign({}, state.settings, {printPaper: PR.paper}); saveSettings(); drawPrint(); } return true;
       case "pro-pr-go": doPrint(); return true;
     }
@@ -78755,6 +79048,9 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
   }
   function sheet(){
     const id = W.curId(), n = state.notes[id]; if (!n) return;
+    // tapping away while the board is read (or with typed notes not saved yet) sets this aside; Cancel or Save clears it
+    const KK = "wb-ai:" + id;
+    if (sheetResume(KK)) return;
     if (!(W.board() && (W.board().strokes.length || W.board().items.length))) { toast("Draw or write something on the board first."); return; }
     if (!aiReady()) { aiSetupSheet(true); return; }
     W.flush();
@@ -78772,49 +79068,62 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
         <p class="status-msg" id="wbaStatus" style="margin:0" aria-live="polite"></p>
       </div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="wbaGo">${AI_ICON} Read the Board</button></div></form>`);
+    const root = dlg.querySelector(".wb-ai-sheet"), $ = q => root.querySelector(q), job = {busy: false, dropped: false, ac: null, read: false, key: KK};
+    sheetKeep(KK, {name: "Notes and Cards", dirty: () => job.read, busy: () => job.busy, drop: () => { job.dropped = true; if (job.ac) { try { job.ac.abort(); } catch (e) {} } }});
     let src = null;
     const deckOpts = () => { const cid = $("#wbaCourse").value, ds = (typeof deckListArr === "function" ? deckListArr() : []).filter(d => (d.courseId || "") === cid);
       $("#wbaDeck").innerHTML = ds.map(d => `<option value="${esc(d.id)}">${esc(d.name)}</option>`).join("") + `<option value="__new">New deck: ${esc(W.boardName(n))}</option>`; };
-    const kindNow = () => (dlg.querySelector('input[name="wbaK"]:checked') || {}).value;
+    const kindNow = () => (root.querySelector('input[name="wbaK"]:checked') || {}).value;
     const syncKind = () => { const pics = kindNow() === "pics"; $("#wbaDeckL").hidden = !pics; if (pics) deckOpts(); const go = $("#wbaGo"); if (go && !go.disabled) go.innerHTML = pics ? "Make Picture Cards" : `${AI_ICON} Read the Board`; };
-    dlg.querySelectorAll('input[name="wbaK"]').forEach(r => r.addEventListener("change", syncKind)); $("#wbaCourse").addEventListener("change", () => { if (kindNow() === "pics") deckOpts(); });
+    root.querySelectorAll('input[name="wbaK"]').forEach(r => r.addEventListener("change", syncKind)); $("#wbaCourse").addEventListener("change", () => { if (kindNow() === "pics") deckOpts(); });
     boardPart(state.notes[id] || n).then(p => { src = p; const im = $("#wbaImg"); if (im) im.src = p.url; }).catch(() => {});
     const status = $("#wbaStatus");
     $("#wbaGo").addEventListener("click", async () => {
-      if (kindNow() === "pics") { picCards(id, n, $("#wbaCourse").value, $("#wbaDeck").value); return; }
-      const go = $("#wbaGo"), want = (dlg.querySelector('input[name="wbaK"]:checked') || {}).value === "cards", cid = $("#wbaCourse").value;
+      if (job.busy) return;
+      if (kindNow() === "pics") { picCards(id, n, $("#wbaCourse").value, $("#wbaDeck").value, root, job); return; }
+      const go = $("#wbaGo"), want = kindNow() === "cards", cid = $("#wbaCourse").value;
       go.disabled = true; go.classList.add("busy"); status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Reading your board…`;
+      job.busy = true; const ac = job.ac = typeof AbortController === "function" ? new AbortController() : null;
       try {
         if (!src) src = await boardPart(state.notes[id] || n);
         const c = courseOf(cid);
-        const r = await aiCall({task: "photo", maxTokens: 8000, schema: SCHEMA, system: SYSTEM, onStatus: m => { status.textContent = m; },
+        const r = await aiCall({task: "photo", maxTokens: 8000, schema: SCHEMA, system: SYSTEM, signal: ac ? ac.signal : undefined, onStatus: m => { status.textContent = m; },
           parts: [src.part, {text: `Course: ${c ? c.name : "not given"}. Board name: ${W.boardName(n)}. Turn this whiteboard into typed study notes.`}]});
         const d = (r && r.data) || {}, title = String(d.title || W.boardName(n)).trim(), notes = String(d.notes || "").trim();
         if (!notes) throw aiErr("empty", "Couldn't read anything on the board. Try writing bigger, or zoom in and export the part you need.");
-        review(id, title, notes, cid, want);
-      } catch (e) { if (!dlg.open) return; status.textContent = (e && e.message) || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy"); }
+        job.busy = false; if (job.dropped) return;
+        job.read = true; review(id, title, notes, cid, want, root);
+        sheetReady(KK, null, "Typed notes from your board are ready to check");
+      } catch (e) {
+        job.busy = false; if (job.dropped || (e && e.code === "cancelled")) return;
+        status.textContent = (e && e.message) || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy");
+        if (sheetKept(KK)) toast("Couldn't read the board. Open Notes and Cards again to see why.", null, {label: "Open", fn: () => sheetResume(KK)}, {error: true});
+      }
     });
   }
   // Picture flashcards (Pro)
   const picLocked = () => { try { return !!(window.SBPRO && SBPRO.locked()); } catch (e) { return true; } };
-  async function picCards(id, n, cid, deckSel){
+  async function picCards(id, n, cid, deckSel, root, job){
     if (picLocked()) { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Picture flashcards from your whiteboards are part of Studyboard Pro: the board becomes a picture card with its labels hidden, to guess."); return; }
     if (!window.SBPRO || !SBPRO.scanImage || !SBPRO.openImageEditor) { toast("Picture cards aren't available here."); return; }
-    const go = $("#wbaGo"), status = $("#wbaStatus"); go.disabled = true; go.classList.add("busy"); status.textContent = "Finding the labels on your board…";
+    const go = root.querySelector("#wbaGo"), status = root.querySelector("#wbaStatus"); go.disabled = true; go.classList.add("busy"); status.textContent = "Finding the labels on your board…";
+    job.busy = true;
     try {
       let deckId = deckSel;
       if (!deckId || deckId === "__new" || !state.decks[deckId]) { const d = normDeck({id: uid(), name: W.boardName(n), courseId: cid || "", cards: [], created: Date.now()}); applyChanges([{kind: "deck", id: d.id, after: d}], null); deckId = d.id; }
       const cv = await W.renderBoard(state.notes[id] || n, {max: 2000}), blob = await new Promise(r => cv.toBlob(r, "image/jpeg", 0.92));
       const it = await SBPRO.scanImage(blob, W.boardName(n)); it.found = it.boxes.length > 0;
-      if (dlg.open) dlg.close();
-      SBPRO.openImageEditor(deckId, [it]);
-    } catch (e) { status.textContent = (e && e.message) || "Couldn't make picture cards. Try again."; go.disabled = false; go.classList.remove("busy"); }
+      job.busy = false; if (job.dropped) return;
+      sheetReady(job.key, () => { if (dlg.open) dlg.close(); SBPRO.openImageEditor(deckId, [it]); }, "Your picture cards are ready to label");
+    } catch (e) { job.busy = false; if (job.dropped) return; status.textContent = (e && e.message) || "Couldn't make picture cards. Try again."; go.disabled = false; go.classList.remove("busy"); }
   }
-  function review(id, title, notes, cid, cards){
+  function review(id, title, notes, cid, cards, root){
+    const $ = q => root.querySelector(q);
     $("#wbaBody").innerHTML = `<label class="f"><span class="lh">Typed Notes</span><textarea id="wbaText" rows="14" maxlength="8000">${esc(title + "\n\n" + notes)}</textarea></label>
       <label class="f">Course<select id="wbaCourse2">${courseSelectHtml(cid)}</select></label>
       <p class="mini" style="margin:0">Check what the AI read, and fix anything that's off before saving.</p>`;
-    $(".sheet-foot", dlg).innerHTML = `<button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="wbaSave">${cards ? "Save Note and Make Cards" : "Save Note"}</button>`;
+    $(".sheet-foot").innerHTML = `<button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="wbaSave">${cards ? "Save Note and Make Cards" : "Save Note"}</button>`;
+
     $("#wbaSave").addEventListener("click", () => {
       const text = $("#wbaText").value.trim(); if (!text) return;
       const c2 = $("#wbaCourse2").value;
@@ -79710,6 +80019,9 @@ function check(deckId, o){
   const d = state.decks[deckId]; if (!d) return;
   const list = d.cards.filter(isText);
   if (!list.length) { toast("No draft cards to check in this deck."); return; }
+  // edits here are set aside when you tap away, and come back next time; Later or Keep clears them
+  const KK = "lc-check:" + deckId;
+  if (sheetResume(KK)) return;
   if (NX && !NX.busy) bar(null);
   const srcOf = c => { const f = c.from; if (!f) return ""; const x = f.k === "note" ? state.notes[f.id] : state.files[f.id]; return x ? (f.k === "note" ? noteHead(x) : x.name) + (f.at ? ", " + fmtShort(f.at) : "") : ""; };
   openSheet(`<form class="sheet lc-check">${head(`Check ${plural(list.length, "Draft Card")}`)}<div class="sheet-body">
@@ -79737,6 +80049,9 @@ function check(deckId, o){
     setTimeout(() => { bar(nx ? Object.assign(nx, {text: `${label}. ${nx.text}`, undo: inv}) : null); refresh(); }, 0);
   });
   const form = dlg.querySelector(".lc-check"), go = $("#lcKeepGo");
+  let edited = false; ["input", "change"].forEach(ev => form.addEventListener(ev, () => { edited = true; }));
+  sheetKeep(KK, {name: "Check Draft Cards", dirty: () => edited});
+
   form.addEventListener("change", e => { const t = e.target; if (!t.matches("[data-lc-keep]")) return; t.closest(".lc-card").classList.toggle("off", !t.checked); const n = form.querySelectorAll("[data-lc-keep]:checked").length; go.textContent = n ? `Keep ${plural(n, "Card")}` : "Leave Them Out"; });
 }
 function openDeck(id){ if (dlg.open) dlg.close(); ui.tab = "flashcards"; ui.fc = null; ui.deckId = id; render(); window.scrollTo(0, 0); }
@@ -80465,7 +80780,10 @@ const RBC = (() => {
 
 const PRO_WHY = "Rubric Check is part of Studyboard Pro: add your draft and the assignment's rubric, and it shows which criteria look weak before you submit. It gives feedback and never writes your work.";
 const LMS_F = ["cv", "bs", "bb"];
-const R = {tid: "", view: "form", rubric: "", rubSrc: "", draft: "", draftSrc: "", res: null, err: "", busy: false, cut: null, saved: 0, ac: null};
+const R = {tid: "", view: "form", rubric: "", rubSrc: "", draft: "", draftSrc: "", res: null, err: "", busy: false, cut: null, saved: 0, ac: null, el: null};
+// A check that's still running is set aside (not stopped) when you tap away, and comes back when you open Rubric Check again
+const KEY = id => "rubric:" + id;
+const shown = () => !!R.el && dlg.open && dlg.contains(R.el);
 const lines = text => window.SBGXP && SBGXP.rubricLines ? SBGXP.rubricLines(text) : String(text || "").split("\n").map(s => s.replace(/^\s*([-*•]|\d{1,2}[.)])\s+/, "").trim()).filter(s => s.length >= 6 && s.length <= 200);
 const crits = () => RBC.criteria(R.rubric, lines);
 const own = () => { try { return aiReady() && !aiTrialing(); } catch (e) { return false; } };
@@ -80498,7 +80816,8 @@ async function fileText(file){
 function open(id){
   const t = state.tasks[id]; if (!t) return;
   if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet(PRO_WHY); return; }
-  if (R.tid !== id) Object.assign(R, {tid: id, rubric: "", rubSrc: "", draft: "", draftSrc: "", res: null, cut: null});
+  if (sheetResume(KEY(id))) return;
+  if (R.tid !== id) { if (R.tid) sheetDrop(KEY(R.tid)); Object.assign(R, {tid: id, rubric: "", rubSrc: "", draft: "", draftSrc: "", res: null, cut: null}); }
   Object.assign(R, {view: own() ? (R.res ? "result" : "form") : "nokey", err: "", busy: false, saved: 0});
   draw();
   if (R.view === "form" && !R.rubric.trim()) autoRubric(t).then(a => { if (a && R.tid === id && !R.rubric.trim()) { R.rubric = a.text; R.rubSrc = a.src; R.rubFid = a.fid || ""; if (R.view === "form" && dlg.open && dlg.querySelector(".rbx-sheet")) draw(); } });
@@ -80528,7 +80847,7 @@ function resultHtml(t){
     <p class="mini" style="margin:0">This is feedback to help you revise. Your writing stays your own: Rubric Check never writes or rewrites your work.${weak && !R.saved ? " Add the weak spots as steps on this task to work through them." : ""}</p>`;
 }
 function draw(){
-  const t = state.tasks[R.tid]; if (!t) { if (dlg.open) dlg.close(); return; }
+  const t = state.tasks[R.tid]; if (!t) { if (shown()) dlg.close(); return; }
   let body = "", foot = "";
   if (R.view === "nokey") {
     body = `<p style="margin:0">Rubric Check uses AI with your own key, so your draft goes only to your own AI provider. A free Google Gemini key takes about a minute to set up.</p>`;
@@ -80541,11 +80860,17 @@ function draw(){
     body = formHtml(t);
     foot = `<button type="button" class="btn" data-act="edit-task" data-id="${esc(t.id)}">Back to Task</button><span class="spacer"></span><button type="button" class="btn primary ai-btn" data-rb-go ${R.busy ? "disabled" : ""}>${AI_ICON} ${R.busy ? "Checking…" : "Check My Draft"}</button>`;
   }
-  openSheet(`<div class="sheet rbx-sheet">${bandHead("Check Against Rubric", SH_IC.pencil, t.courseId ? colorOf(t.courseId) : "#2F6FE4", "", esc(t.title))}<div class="sheet-body">${body}</div><div class="sheet-foot">${foot}</div></div>`);
+  const inner = `${bandHead("Check Against Rubric", SH_IC.pencil, t.courseId ? colorOf(t.courseId) : "#2F6FE4", "", esc(t.title))}<div class="sheet-body">${body}</div><div class="sheet-foot">${foot}</div>`;
+  // redrawn in place while it's open or set aside, so a set-aside check keeps its place
+  if (shown() || (R.el && sheetKept(KEY(t.id)))) R.el.innerHTML = inner;
+  else {
+    openSheet(`<div class="sheet rbx-sheet">${inner}</div>`); R.el = dlg.querySelector(".rbx-sheet");
+    sheetKeep(KEY(t.id), {name: "Rubric Check", dirty: () => false, busy: () => R.busy, drop: () => { if (R.ac) { try { R.ac.abort(); } catch (e) {} } }});
+  }
   wire(t);
 }
 function wire(t){
-  const q = s => dlg.querySelector(s);
+  const q = s => R.el.querySelector(s);
   const su = q("[data-rb-setup]"); if (su) su.addEventListener("click", () => { aiSetupSheet(true); });
   const bk = q("[data-rb-back]"); if (bk) bk.addEventListener("click", () => { R.view = "form"; R.err = ""; draw(); });
   const sv = q("[data-rb-save]"); if (sv) sv.addEventListener("click", () => save(t.id));
@@ -80574,19 +80899,28 @@ async function run(id){
   if (!R.rubric.trim()) { R.err = "Add the rubric first: paste it, or choose the file."; draw(); return; }
   if (R.draft.trim().split(/\s+/).length < 30) { R.err = "Add your draft first (at least a paragraph): paste it, upload it or pick a file."; draw(); return; }
   const cr = crits(), draft = RBC.clip(R.draft, 60000), c = courseOf(t.courseId);
-  R.busy = true; R.err = ""; draw();
+  const ac = typeof AbortController === "function" ? new AbortController() : null;
+  R.ac = ac; R.busy = true; R.err = ""; draw();
   try {
-    const res = await aiCall({task: "rubric", system: RBC.SYSTEM, schema: RBC.SCHEMA, maxTokens: 8000, temperature: 0.2, timeout: 150000,
+    const res = await aiCall({task: "rubric", system: RBC.SYSTEM, schema: RBC.SCHEMA, maxTokens: 8000, temperature: 0.2, timeout: 150000, signal: ac ? ac.signal : undefined,
       parts: [{text: RBC.prompt({title: t.title, course: c ? courseLabel(c) : "", crits: cr, rubric: R.rubric, draft})}]});
+    if (ac && ac.signal.aborted) return;
     const out = RBC.parse(res && res.data, cr, draft.text);
     if (!out) throw Object.assign(new Error("The AI's answer didn't make sense. Try again."), {code: "bad"});
     Object.assign(R, {res: out, cut: draft, view: "result", saved: 0});
   } catch (e) {
+    if ((ac && ac.signal.aborted) || (e && e.code === "cancelled")) return;
     R.err = (e && e.message) || "Couldn't check your draft right now. Try again.";
     if (e && e.code === "nokey") R.view = "nokey";
-  } finally { R.busy = false; }
-  if (R.tid === id && dlg.open && dlg.querySelector(".rbx-sheet")) draw();
+  } finally { if (R.ac === ac) { R.busy = false; R.ac = null; } }
+  if (R.tid !== id) return;
+  // finished while set aside: the result waits in the sheet, and a toast says so
+  const away = !shown() && sheetKept(KEY(id));
+  if (!shown() && !away) return;
+  draw();
+  if (away) { if (R.view === "result") sheetReady(KEY(id), null, "Your rubric check is ready"); else toast("Rubric Check couldn't finish that. Open it again to see why.", null, {label: "Open", fn: () => open(id)}, {error: true}); }
 }
+
 function save(id){
   const t = state.tasks[id]; if (!t || !R.res) return;
   const add = RBC.steps(R.res.rows, t.checklist, uid); if (!add.length) return;
@@ -80703,27 +81037,39 @@ function parse(data, items){
   const conf = ["weak", "ok", "strong"].includes(data.confidence) ? data.confidence : guess;
   return {right, missed, conf, reason: AINS.clean(data.reason, 220)};
 }
+// The check keeps running when you tap away: the sheet is set aside (me stays its state) and a toast says when it's done
 async function check(){
-  const ex = state.tasks[TB.exId], t = ex && findTopic(ex, TB.topicId); if (!t) return;
-  const words = TB.text.trim().split(/\s+/).filter(Boolean).length;
-  if (words < 12) { TB.msg = "Say a bit more: a few sentences, as if teaching a friend who missed the class."; draw(); return; }
-  if (!aiReady()) { DRAFT.set(key(), TB.text); aiSetupSheet(true); return; }
+  const me = TB, ex = state.tasks[me.exId], t = ex && findTopic(ex, me.topicId); if (!t) return;
+  const words = me.text.trim().split(/\s+/).filter(Boolean).length;
+  if (words < 12) { me.msg = "Say a bit more: a few sentences, as if teaching a friend who missed the class."; draw(); return; }
+  if (!aiReady()) { DRAFT.set(key(), me.text); aiSetupSheet(true); return; }
   micStop();
-  TB.busy = true; TB.msg = ""; draw();
+  const kk = me.exId + "|" + me.topicId, ac = typeof AbortController === "function" ? new AbortController() : null;
+  me.busy = true; me.msg = ""; me.ac = ac; draw();
+  const here = () => !!me.el && dlg.open && dlg.contains(me.el);
+  const done = () => {
+    me.busy = false; me.ac = null;
+    if (me.dropped) return;
+    if (here()) { if (TB === me) draw(); return; }
+    if (!sheetKept(me.k)) return;
+    if (me.res) sheetReady(me.k, null, "Your Teach It Back check is ready");
+    else if (me.msg) toast("Teach It Back couldn't check that. Open it again to see why.", null, {label: "Open", fn: () => open(me.exId, me.topicId)}, {error: true});
+  };
   try {
-    const {items, unread} = TB.general ? {items: [], unread: []} : await sources(t);
-    if (!TB.general && !items.length) { TB.busy = false; TB.msg = unread.length ? `Couldn't read the text in ${unread.join(", ")}. Link a deck or note to this topic, or check against general knowledge instead.` : "Nothing linked to this topic could be read."; draw(); return; }
+    const {items, unread} = me.general ? {items: [], unread: []} : await sources(t);
+    if (me.dropped) return;
+    if (!me.general && !items.length) { me.msg = unread.length ? `Couldn't read the text in ${unread.join(", ")}. Link a deck or note to this topic, or check against general knowledge instead.` : "Nothing linked to this topic could be read."; done(); return; }
     const c = courseOf(ex.courseId);
-    const r = await aiCall({task: "tutor", maxTokens: 5000, temperature: 0.2, timeout: 90000, schema: SCHEMA, system: TB.general ? SYS_GEN : SYS, onStatus: m => { const s = $("#tbStatus"); if (s) s.textContent = m; },
-      parts: [{text: `Course: ${c ? c.name : "not given"}\nExam: ${ex.title}\nTopic: ${t.name}\n\n${items.length ? `<sources>\n${items.map(i => `[${i.ref}] ${i.text}`).join("\n\n").replace(/<\/?(sources|explanation)>/gi, " ")}\n</sources>\n\n` : ""}<explanation>\n${TB.text.trim().slice(0, 6000).replace(/<\/?(sources|explanation)>/gi, " ")}\n</explanation>`}]});
-    if (!TB) return;
-    TB.res = Object.assign(parse(r && r.data, items), {general: TB.general, at: Date.now(), text: TB.text, unread});
-    LAST.set(key(), TB.res); DRAFT.set(key(), TB.text);
+    const r = await aiCall({task: "tutor", maxTokens: 5000, temperature: 0.2, timeout: 90000, schema: SCHEMA, system: me.general ? SYS_GEN : SYS, signal: ac ? ac.signal : undefined, onStatus: m => { const s = me.el && me.el.querySelector("#tbStatus"); if (s) s.textContent = m; },
+      parts: [{text: `Course: ${c ? c.name : "not given"}\nExam: ${ex.title}\nTopic: ${t.name}\n\n${items.length ? `<sources>\n${items.map(i => `[${i.ref}] ${i.text}`).join("\n\n").replace(/<\/?(sources|explanation)>/gi, " ")}\n</sources>\n\n` : ""}<explanation>\n${me.text.trim().slice(0, 6000).replace(/<\/?(sources|explanation)>/gi, " ")}\n</explanation>`}]});
+    if (me.dropped) return;
+    me.res = Object.assign(parse(r && r.data, items), {general: me.general, at: Date.now(), text: me.text, unread});
+    LAST.set(kk, me.res); DRAFT.set(kk, me.text);
   } catch (e) {
-    if (!TB) return;
-    TB.msg = e && e.code === "cancelled" ? "" : (e && e.message) || "The AI couldn't check that right now. Try again.";
+    if (me.dropped) return;
+    me.msg = e && e.code === "cancelled" ? "" : (e && e.message) || "The AI couldn't check that right now. Try again.";
   }
-  TB.busy = false; draw();
+  done();
 }
 
 /* acting on the result */
@@ -80788,10 +81134,10 @@ function mic(){
 const key = () => TB.exId + "|" + TB.topicId;
 const srcBtn = (x, i, list) => x.src ? `<button type="button" class="link-btn tb-src" data-tb="src" data-l="${list}" data-i="${i}">${esc(x.src.label)}</button>` : "";
 function draw(){
-  if (!TB || !dlg.open || !dlg.querySelector(".tb-sheet")) return;
-  const ex = state.tasks[TB.exId], t = ex && findTopic(ex, TB.topicId), body = $("#tbBody"), foot = $("#tbFoot");
+  if (!TB || !TB.el || !dlg.open || !dlg.contains(TB.el)) return;
+  const ex = state.tasks[TB.exId], t = ex && findTopic(ex, TB.topicId), body = TB.el.querySelector("#tbBody"), foot = TB.el.querySelector("#tbFoot");
   if (!t || !body) { if (dlg.open) dlg.close(); return; }
-  const ta = $("#tbText"); if (ta && !TB.res) TB.text = ta.value;
+  const ta = TB.el.querySelector("#tbText"); if (ta && !TB.res) TB.text = ta.value;
   const ls = liveLinks(t), has = ls.length > 0, R = TB.res;
   const top = `<p class="tb-topic"><b>${esc(t.name)}</b><span class="mini"> ${esc(ex.title)} · now ${esc(CONF[t.conf] || "OK")}</span></p>`;
   if (!R) {
@@ -80806,7 +81152,7 @@ function draw(){
       ${SRC() ? `<div class="tb-row"><button type="button" class="btn small tb-mic${TB.sr ? " on" : ""}" data-tb="mic" aria-pressed="${!!TB.sr}"${TB.busy ? " disabled" : ""}><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg> ${TB.sr ? "Stop Listening" : "Speak Instead"}</button>${TB.sr ? `<span class="mini" role="status">Listening… talk it through, then Stop.</span>` : ""}</div>` : ""}
       <p class="status-msg tb-msg" id="tbStatus" role="status" aria-live="polite">${TB.busy ? `<span class="ai-spin" aria-hidden="true"></span> Checking ${TB.general ? "against general knowledge" : "against your material"}…` : esc(TB.msg || "")}</p>`;
     const can = has || TB.general;
-    foot.innerHTML = `<button type="button" class="btn" data-tb="back">Back to Prep Plan</button><span class="spacer"></span><button type="button" class="btn primary" data-tb="check"${TB.busy || !can ? " disabled" : ""}>Check My Explanation</button>`;
+    foot.innerHTML = `<button type="button" class="btn" data-tb="back">Back to Prep Plan</button><span class="spacer"></span><button type="button" class="btn primary ai-btn" data-tb="check"${TB.busy || !can ? " disabled" : ""}>${AI_ICON} ${TB.busy ? "Checking…" : "Check My Explanation"}</button>`;
     return;
   }
   const same = t.conf === R.conf, n = R.missed.filter(m => m.front && m.back).length;
@@ -80842,17 +81188,24 @@ function open(exId, topicId, name){
   const ex = state.tasks[exId], t = ex && findTopic(ex, topicId, name);
   if (!t) { toast("That topic isn't in the exam's plan any more."); return; }
   micStop();
-  TB = {exId, topicId: t.id, text: "", general: false, busy: false, res: null, msg: "", made: 0, sr: null};
+  const kk = "teach:" + exId + "|" + t.id;
+  if (sheetResume(kk)) return;
+  TB = {exId, topicId: t.id, k: kk, text: "", general: false, busy: false, res: null, msg: "", made: 0, sr: null, el: null, ac: null, dropped: false};
   TB.text = DRAFT.get(key()) || "";
   const last = LAST.get(key()); if (last && Date.now() - last.at < 3 * 3600000) { TB.res = last; TB.general = last.general; }
   openSheet(`<form class="sheet ai-sheet tb-sheet">${head("Teach It Back")}<div class="sheet-body" id="tbBody"></div><div class="sheet-foot" id="tbFoot"></div></form>`);
   const form = dlg.querySelector(".tb-sheet");
   form.addEventListener("click", onClick);
   form.addEventListener("change", e => { if (e.target.dataset && e.target.dataset.tb === "general" && TB) { TB.general = e.target.checked; draw(); } });
-  form.addEventListener("input", e => { if (e.target.id === "tbText" && TB) { TB.text = e.target.value; if (TB.msg && !TB.busy) { TB.msg = ""; const s = $("#tbStatus"); if (s) s.textContent = ""; } } });
-  const mine = TB;
-  dlg.addEventListener("close", () => { if (TB === mine) { micStop(); if (!TB.res) DRAFT.set(key(), TB.text); TB = null; } }, {once: true});
+  form.addEventListener("input", e => { if (e.target.id === "tbText" && TB) { TB.text = e.target.value; if (TB.msg && !TB.busy) { TB.msg = ""; const s = form.querySelector("#tbStatus"); if (s) s.textContent = ""; } } });
+  const mine = TB; mine.el = form;
+  const arm = () => dlg.addEventListener("close", () => { if (TB === mine) { micStop(); if (!TB.res) DRAFT.set(key(), TB.text); TB = null; } }, {once: true});
+  arm();
+  // typed text is kept as a draft anyway; a check still running is set aside with the sheet
+  sheetKeep(kk, {name: "Teach It Back", dirty: () => false, busy: () => mine.busy, drop: () => { mine.dropped = true; if (mine.ac) { try { mine.ac.abort(); } catch (e) {} } },
+    resume: () => { micStop(); TB = mine; arm(); draw(); }});
   draw();
+
   if (!TB.res && window.matchMedia("(min-width:601px)").matches) { const x = $("#tbText"); if (x) x.focus(); }
 }
 
@@ -81174,6 +81527,8 @@ function btn(ex){
   if (!ex || ex.status === "done" || !ex.due || ex.due < todayISO() || !linked(ex)) return "";
   return `<button type="button" class="link-btn xs-go" data-act="xs-open" data-id="${H(ex.id)}">Formula and Diagram Sheet${locked() ? " " + PRO_BADGE : ""}</button>`;
 }
+// On hold: hidden everywhere in the app (Prep Plan link, Print and PDF layout, Pro features list). Tests switch it on with window.__SB_XS.
+if (!(window.__SB_TEST && window.__SB_XS)) return;
 hook("act", (act, el, id) => {
   if (act === "xs-open") { open(id); return true; }
   return false;

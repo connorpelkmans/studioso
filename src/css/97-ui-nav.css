@@ -13,11 +13,11 @@
   nav.tabs:is([data-fit="1"],[data-fit="2"]) .in button svg{width:20px;height:20px}
   nav.tabs[data-fit="1"] .nav-tool{padding:5px 4px;gap:3px}
 
-  /* 2: the tools at the bottom become a 2 by 2 grid of icons */
-  nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-foot{display:grid;grid-template-columns:1fr 1fr;gap:2px;padding-top:6px}
+  /* 2: the tools at the bottom become a single column of icons (they stay in a line, under each other) */
+  nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-foot{display:grid;grid-template-columns:1fr;gap:0;padding-top:6px}
   nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-sync{grid-column:1/-1;order:-1;display:flex;align-items:center;justify-content:center;gap:5px;padding:1px 2px 3px;font-size:.62rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-sync::before{margin:0;flex:none;width:7px;height:7px}
-  nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-tool{padding:8px 2px;min-height:38px;justify-content:center}
+  nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-tool{padding:5px 2px;min-height:34px;justify-content:center}
   nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-tool span{display:none}
 
   /* 3: small tab labels, no date */

@@ -1700,7 +1700,8 @@ button.pr-why:hover{background:var(--soft);color:var(--ink)}
 b.hc-ring > svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}
 b.hc-ring circle{fill:none;stroke:color-mix(in srgb,var(--ink) 14%,transparent);stroke-width:3}
 b.hc-ring circle.hc-arc{stroke:#2EA36A;stroke-linecap:round}
-b.hc-ring > span:not(.pt-sr){position:relative;font-size:.86em}
+b.hc-ring > span:not(.pt-sr){position:relative;font-size:.86em;white-space:nowrap;letter-spacing:-.02em}
+b.hc-ring.long > span:not(.pt-sr){font-size:.72em}
 .plan-rows{margin:6px 0 0}
 .plan-row .score{color:var(--muted)}
 .plan-row .focus-go{width:30px;height:30px;border:1px solid transparent;background:transparent}
@@ -2272,6 +2273,17 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 }
 @media (min-width:640px){.pg-right>.wb-pick,.pg-right>.wb-optbtn{display:none}}
 .key-row input.key-mask{-webkit-text-security:disc}
+/* Holidays and days off, beside the day's number in the month view (wide screens; phones read them in the day's label) */
+.cal .day-hol{display:none}
+@media (min-width:900px){
+  .cal .day{position:relative}
+  .cal .day-hol{display:block;position:absolute;top:9px;left:40px;right:6px;font:600 .7rem/1.2 var(--display);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;pointer-events:none}
+  .cal .day.is-today .day-hol{left:84px}
+  .cal .day-hol.off{color:var(--accent)}
+}
+/* A dropdown in a settings row sizes to its choices, so the label keeps the room */
+.cap-row > select{width:auto;flex:none;max-width:55%}
+.ar-quiz[hidden]{display:none!important}
 /* ===== module: 05-account.css ===== */
 /* Studyboard account sheets */
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}
@@ -3461,9 +3473,6 @@ html :is(.tl-controls.f-title,.pview-tabs + .tl-controls:has(> .segb)) > h2{flex
 .gp-bar .gp-pass{width:2px;background:var(--ink)}
 .gp-line{grid-column:1 / -1}
 .gp-main .pill{grid-column:1 / -1;justify-self:start}
-.gp-opts{border:1px solid var(--line);border-radius:12px;background:var(--surface)}
-.gp-opts summary{cursor:pointer;padding:10px 14px;font:600 .9rem var(--display);color:var(--muted)}
-.gp-opts .menu-list{padding:0 14px 12px}
 .cd-tabs{margin-top:12px}
 @media (max-width:600px){.gp-sum{grid-template-columns:1fr}.gp-list{grid-template-columns:1fr}}
 .gr-top{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
@@ -3700,6 +3709,7 @@ nav.tabs [data-tab="courses"]{position:relative}
 .course-card,.gp-main{position:relative}
 .nm-card{position:absolute;top:10px;right:10px;z-index:3;display:grid;place-items:center;min-width:22px;height:22px;padding:0 6px;box-sizing:border-box;border-radius:11px;background:var(--late);color:#fff;font:800 .72rem/1 var(--display);box-shadow:0 1px 3px rgba(0,0,0,.25);pointer-events:none}
 .gr-newmark{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--late);margin-right:6px;vertical-align:middle;box-shadow:0 0 0 2px var(--surface)}
+.gp-zero{display:block;margin-top:4px;color:var(--late,#c0392b);font-weight:600}
 /* ===== module: 92-estimates.css ===== */
 /* Estimate Times */
 .est-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
@@ -3900,11 +3910,11 @@ html.tpcss-loading [class*="cs-tp-"] .face *{visibility:hidden}
   nav.tabs:is([data-fit="1"],[data-fit="2"]) .in button svg{width:20px;height:20px}
   nav.tabs[data-fit="1"] .nav-tool{padding:5px 4px;gap:3px}
 
-  /* 2: the tools at the bottom become a 2 by 2 grid of icons */
-  nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-foot{display:grid;grid-template-columns:1fr 1fr;gap:2px;padding-top:6px}
+  /* 2: the tools at the bottom become a single column of icons (they stay in a line, under each other) */
+  nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-foot{display:grid;grid-template-columns:1fr;gap:0;padding-top:6px}
   nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-sync{grid-column:1/-1;order:-1;display:flex;align-items:center;justify-content:center;gap:5px;padding:1px 2px 3px;font-size:.62rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-sync::before{margin:0;flex:none;width:7px;height:7px}
-  nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-tool{padding:8px 2px;min-height:38px;justify-content:center}
+  nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-tool{padding:5px 2px;min-height:34px;justify-content:center}
   nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-tool span{display:none}
 
   /* 3: small tab labels, no date */
@@ -5013,6 +5023,7 @@ body:has(.toast.show) .acc-chip{bottom:calc(168px + var(--toast-h,48px) + env(sa
 .acc-tm{font-size:.76rem;font-weight:600;color:var(--muted)}
 .acc-say input{width:min(17rem,60vw)}
 .acc-note{font-weight:500}
+.acc-sel{min-height:44px;max-width:min(26rem,70vw);padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit}
 /* ===== module: 97-notecards.css ===== */
 /* Notes to Flashcards */
 .nc-sheet [hidden]{display:none!important}
@@ -5420,6 +5431,10 @@ html:not([data-motion="static"]) :is(.segb button,.chip,.ui-chip,.cf-pick,[role=
   #view .pg-tabs > button:hover{color:var(--ink)!important;background:color-mix(in srgb,var(--ink) 7%,transparent)!important}
   #view .pg-tabs > button[aria-selected="true"]{background:var(--ink)!important;color:var(--surface)!important;box-shadow:none!important}
 }
+/* The main button on a coloured page band (a deck's or a course's header): the primary-button glow layer painted it solid white
+   under white text in dark mode. It's a white pill with dark text in every mode, so it stays the one that stands out. */
+html #view :is(.g2-head .g2-band .btn.primary, .c2-head .g2-band .btn.primary){color:color-mix(in srgb,var(--c,var(--accent)) 52%,#000)!important;border-color:#fff}
+html #view :is(.g2-head .g2-band .btn.primary, .c2-head .g2-band .btn.primary)::before{background:#fff;opacity:1}
 /* Autopilot (99-autopilot.js): the one line on Today's Plan, What Changed, and Day Off */
 .ap-line{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;margin:8px 0;padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:.9rem}
 .ap-line .ap-t{flex:1 1 220px;min-width:0}

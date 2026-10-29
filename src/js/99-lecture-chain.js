@@ -325,6 +325,9 @@ function check(deckId, o){
   const d = state.decks[deckId]; if (!d) return;
   const list = d.cards.filter(isText);
   if (!list.length) { toast("No draft cards to check in this deck."); return; }
+  // edits here are set aside when you tap away, and come back next time; Later or Keep clears them
+  const KK = "lc-check:" + deckId;
+  if (sheetResume(KK)) return;
   if (NX && !NX.busy) bar(null);
   const srcOf = c => { const f = c.from; if (!f) return ""; const x = f.k === "note" ? state.notes[f.id] : state.files[f.id]; return x ? (f.k === "note" ? noteHead(x) : x.name) + (f.at ? ", " + fmtShort(f.at) : "") : ""; };
   openSheet(`<form class="sheet lc-check">${head(`Check ${plural(list.length, "Draft Card")}`)}<div class="sheet-body">
@@ -352,6 +355,9 @@ function check(deckId, o){
     setTimeout(() => { bar(nx ? Object.assign(nx, {text: `${label}. ${nx.text}`, undo: inv}) : null); refresh(); }, 0);
   });
   const form = dlg.querySelector(".lc-check"), go = $("#lcKeepGo");
+  let edited = false; ["input", "change"].forEach(ev => form.addEventListener(ev, () => { edited = true; }));
+  sheetKeep(KK, {name: "Check Draft Cards", dirty: () => edited});
+
   form.addEventListener("change", e => { const t = e.target; if (!t.matches("[data-lc-keep]")) return; t.closest(".lc-card").classList.toggle("off", !t.checked); const n = form.querySelectorAll("[data-lc-keep]:checked").length; go.textContent = n ? `Keep ${plural(n, "Card")}` : "Leave Them Out"; });
 }
 function openDeck(id){ if (dlg.open) dlg.close(); ui.tab = "flashcards"; ui.fc = null; ui.deckId = id; render(); window.scrollTo(0, 0); }

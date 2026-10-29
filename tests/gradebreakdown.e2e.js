@@ -71,9 +71,10 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
 
     // Turn on the class comparison
     await overview();
-    await page.click(".gp-opts summary"); await page.waitForTimeout(100);
+    ok(await page.locator('.view-head [data-act="gp-opts"]').count() === 1, "Options sits at the top of the Grades page");
+    await page.click('[data-act="gp-opts"]'); await page.waitForSelector("#dlg[open] #gClsIn");
     ok(!(await page.isChecked("#gClsIn")), "the option starts unchecked");
-    await page.check("#gClsIn"); await page.waitForTimeout(300);
+    await page.check("#gClsIn"); await page.waitForTimeout(300); await page.keyboard.press("Escape"); await page.waitForTimeout(200);
     await course("c1");
     const pills = (await page.locator(".gr-vs").allTextContents()).map(s => s.trim());
     ok(pills.length === 2 && pills.includes("−5 vs class") && pills.includes("+5 vs class"), "marks with class results show the difference: " + pills.join(", "));

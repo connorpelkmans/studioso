@@ -238,16 +238,19 @@ function dlgClose(){
    button brings it back as it was; only Cancel (or finishing) clears it. A job that finishes while set aside says so in a toast. */
 const KEPT = new Map(); let KEEP = null, keepAway = false;
 const keepShown = () => !!KEEP && dlg.open && dlg.contains(KEEP.node);
-// Call right after openSheet: key names the entry point; dirty() says whether there's anything worth keeping; drop() runs when it's cleared (abort a job here)
+// Call right after openSheet: key names the entry point; dirty() says whether there's anything worth keeping; busy() whether a job is running;
+// drop() runs when it's cleared (abort a job here); resume() runs when it comes back (for a module that keeps its open sheet's state in a variable)
 function sheetKeep(key, o){
   o = o || {}; const node = dlg.querySelector(".sheet"); if (!node) return;
   const old = KEPT.get(key); if (old && old.node !== node) { KEPT.delete(key); try { old.drop && old.drop(); } catch (e) {} }
-  KEEP = {key, node, dirty: o.dirty || (() => true), drop: o.drop || null, busy: o.busy || (() => false), name: o.name || ""};
+  KEEP = {key, node, dirty: o.dirty || (() => true), drop: o.drop || null, busy: o.busy || (() => false), resume: o.resume || null, name: o.name || ""};
 }
 // Brings a set-aside sheet back; false when there's none
 function sheetResume(key){
   const k = KEPT.get(key); if (!k) return false;
   KEPT.delete(key);
+  // like a sheet opening: one with work in it that's showing now is set aside first
+  if (keepShown() || (KEEP && keepAway)) keepPark(); else keepLetGo();
   if (k.ready) { const f = k.ready; k.ready = null; f(); return true; }
   dlgGuard = null;
   const tt = $("#toast"), inSheet = !!tt && tt.parentNode === dlg;
@@ -256,6 +259,7 @@ function sheetResume(key){
   if (inSheet) dlg.appendChild(tt);
   KEEP = k;
   if (!dlg.open) dlg.showModal();
+  if (k.resume) { try { k.resume(); } catch (e) { console.warn(e); } }
   return true;
 }
 // Clears a sheet for good (Cancel, or once its work is saved)
@@ -265,11 +269,13 @@ function sheetDrop(key){
   try { k.drop && k.drop(); } catch (e) {}
 }
 // A job is done: show fn's sheet now if its sheet is open, or hold it with a toast when it was set aside. False when it was cleared.
+// Without fn the result is already drawn into the sheet itself, and Open in the toast brings that sheet back.
 function sheetReady(key, fn, msg){
-  if (KEEP && KEEP.key === key && keepShown()) { KEEP = null; fn(); return true; }
+  if (KEEP && KEEP.key === key && keepShown()) { if (fn) { KEEP = null; fn(); } return true; }
   const k = KEPT.get(key); if (!k) return false;
-  k.ready = fn;
-  toast(msg || "It's ready", null, {label: "Open", fn: () => { if (dlg.open) dlg.close(); setTimeout(() => sheetResume(key), 30); }});
+  if (fn) k.ready = fn;
+  // a sheet with work in it that's open when Open is tapped is set aside too, like any sheet another one opens over
+  toast(msg || "It's ready", null, {label: "Open", fn: () => { if (keepShown()) keepPark(); else if (dlg.open) dlg.close(); setTimeout(() => sheetResume(key), 30); }});
   return true;
 }
 // Is a job for this key still running while its sheet is set aside
@@ -280,15 +286,17 @@ function keepPark(){
   if (keep) { if (k.node.parentNode) k.node.remove(); KEPT.set(k.key, k); if (k.busy()) toast(`${k.name || "That"} is still working. Open it again to pick up where you left off.`); }
   else { try { k.drop && k.drop(); } catch (e) {} }
 }
+// A sheet that's let go (closed in code, Cancel) is cleared for good
+const keepLetGo = () => { const k = KEEP; KEEP = null; if (k && !KEPT.has(k.key)) { try { k.drop && k.drop(); } catch (e) {} } };
 dlg.addEventListener("close", () => {
-  if (!KEEP) { keepAway = false; return; }
-  if (keepAway && dlg.contains(KEEP.node)) keepPark();
-  else { const k = KEEP; KEEP = null; if (!KEPT.has(k.key)) { try { k.drop && k.drop(); } catch (e) {} } }
-  keepAway = false;
+  const away = keepAway; keepAway = false;
+  // the close event comes a moment after close(): if a sheet is already showing again, that sheet was dealt with when it opened
+  if (!KEEP || dlg.open) return;
+  if (away && dlg.contains(KEEP.node)) keepPark(); else keepLetGo();
 });
 function openSheet(html, onSubmit){
-  // another sheet opening over one with work in it sets that one aside
-  if (keepShown()) keepPark(); else KEEP = null;
+  // another sheet opening over one with work in it sets that one aside; one just closed in code (its close event still to come) is let go
+  if (keepShown() || (KEEP && keepAway)) keepPark(); else keepLetGo();
   dlgGuard = null;
   const tt = $("#toast"), inSheet = !!tt && tt.parentNode === dlg;
   if (inSheet) document.body.appendChild(tt);

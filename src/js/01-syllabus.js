@@ -569,6 +569,9 @@ async function pdfText(buf, onPage){
 }
 
 function importSheet(courseId, file){
+  // tapping away keeps a syllabus being read (or read and waiting to be checked); Cancel or Add clears it. A file handed in starts fresh.
+  const KK = "syllabus:" + (courseId || "");
+  if (file) sheetDrop(KK); else if (sheetResume(KK)) return;
   openSheet(`<form class="sheet">${head("Import a Syllabus")}
     <div class="sheet-body" id="impBody">
       <div class="drop" id="impDrop">
@@ -586,8 +589,18 @@ function importSheet(courseId, file){
     </div>
     <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="impAdd" hidden>Add</button></div>
   </form>`);
+  // queries stay inside this sheet, so a read that finishes while it's set aside fills in the right one
+  const root = dlg.querySelector(".sheet"), $ = q => root.querySelector(q);
   const status = $("#impStatus"), fileIn = $("#impFile");
-  let result = null, srcFile = null;
+  let result = null, srcFile = null, reading = 0, dropped = false, ac = null;
+  sheetKeep(KK, {name: "Import a Syllabus", busy: () => aiBusy || reading > 0, dirty: () => !!result || !!$("#impText").value.trim(),
+    drop: () => { dropped = true; if (ac) { try { ac.abort(); } catch (e) {} } }});
+  const finish = () => {
+    if (dropped) return;
+    if (result) sheetReady(KK, null, "Your syllabus has been read. Check what was found, then add it.");
+    else if (sheetKept(KK) && status.textContent) toast("Couldn't read that syllabus. Open Import a Syllabus again to see why.", null, {label: "Open", fn: () => sheetResume(KK)}, {error: true});
+  };
+  function readFile(f){ reading++; result = null; return readFile0(f).finally(() => { reading--; finish(); }); }
   if (file) setTimeout(() => readFile(file), 0);
   $("#impPick").addEventListener("click", () => fileIn.click());
   fileIn.addEventListener("change", () => { const f = fileIn.files && fileIn.files[0]; fileIn.value = ""; if (f) readFile(f); });
@@ -599,7 +612,7 @@ function importSheet(courseId, file){
   $("#impRead").addEventListener("click", async () => {
     const t = $("#impText").value.trim();
     if (t.length < 20) { status.textContent = "Paste a bit more of the syllabus first."; return; }
-    if (useAI()) { srcFile = null; await aiShow([{text: "Syllabus text:\n\n" + t}], t, "pasted text"); return; }
+    if (useAI()) { srcFile = null; result = null; await aiShow([{text: "Syllabus text:\n\n" + t}], t, "pasted text"); finish(); return; }
     show(t, "pasted text");
   });
   let aiBusy = false;
@@ -607,16 +620,18 @@ function importSheet(courseId, file){
     if (aiBusy) return true;
     aiBusy = true; $("#impResult").innerHTML = ""; $("#impAdd").hidden = true;
     status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(aiModelName(aiCfg().provider, aiCfg().model))} is reading ${esc(from)}. This usually takes 10 to 40 seconds…`;
-    try { const r = await aiReadSyllabus(parts, m => { status.textContent = m; }); aiBusy = false; show(text, from, r); return true; }
+    ac = typeof AbortController === "function" ? new AbortController() : null;
+    try { const r = await aiReadSyllabus(parts, m => { status.textContent = m; }, ac ? ac.signal : undefined); aiBusy = false; if (dropped) return true; show(text, from, r); return true; }
     catch(e) {
-      aiBusy = false; console.warn(e);
+      aiBusy = false; if (dropped || (e && e.code === "cancelled")) return true;
+      console.warn(e);
       const why = e.code ? e.message : "The AI couldn't read it.";
       if (text) { show(text, from, null, why + " Read on this device instead. "); return true; }
       status.textContent = why; return false;
     }
   }
 
-  async function readFile(f){
+  async function readFile0(f){
     $("#impResult").innerHTML = ""; $("#impAdd").hidden = true;
     try {
       srcFile = null; let aiNote = "";
@@ -689,7 +704,7 @@ function importSheet(courseId, file){
     const rowsDated = idx.filter(n => r.items[n].due && !past(r.items[n])).map(n => rowOf(r.items[n], n)).join("");
     const undated = idx.filter(n => !r.items[n].due), gone = idx.filter(n => past(r.items[n]));
     const rows = `<ul class="imp-list">${rowsDated}</ul>` + (gone.length ? `<details class="imp-group"><summary>Already Past (${gone.length})</summary><p class="mini" style="margin:0 0 8px">These dates have passed, so they're left out. Tick any you want in your planner, for example to add a mark. They're added as done.</p><ul class="imp-list">${gone.map(n => rowOf(r.items[n], n)).join("")}</ul></details>` : "") + (undated.length ? `<details class="imp-group"><summary>No Date Found (${undated.length})</summary><p class="mini" style="margin:0 0 8px">These were mentioned without a date. Check any you want and add the date yourself.</p><ul class="imp-list">${undated.map(n => rowOf(r.items[n], n)).join("")}</ul></details>` : "");
-    $("#impDrop").hidden = true; $("#impPaste").hidden = true; $$(".ai-toggle", dlg).forEach(x => { x.hidden = true; });
+    $("#impDrop").hidden = true; $("#impPaste").hidden = true; $$(".ai-toggle", root).forEach(x => { x.hidden = true; });
     $("#impResult").innerHTML = `
       <p style="margin:0"><button type="button" class="link-btn" id="impAgain">Choose a Different File</button></p>
       <fieldset class="imp-course"><legend>Course</legend>
@@ -708,7 +723,8 @@ function importSheet(courseId, file){
         ${r.rules && window.SBGRADES && SBGRADES.rulesText ? `<label class="mi-check imp-rules"><input type="checkbox" id="impRules" checked><span><b>Grading rules found:</b> ${esc(SBGRADES.rulesText(r.rules))}. <span class="mini">Count them in this course's grade. You can change them later in Grade Settings.</span></span></label>` : ""}
       </fieldset>
       ${r.items.length ? `<div class="imp-head"><strong>Tasks</strong><span class="spacer"></span><button type="button" class="link-btn" id="impAll">Select All</button><button type="button" class="link-btn" id="impNone">Select None</button></div><p class="mini imp-wsum" id="impWSum" role="status"></p><div id="impLists">${rows}</div>` : ""}`;
-    $("#impAgain").addEventListener("click", () => { result = null; $("#impResult").innerHTML = ""; $("#impAdd").hidden = true; status.textContent = ""; $("#impDrop").hidden = false; $("#impPaste").hidden = false; $$(".ai-toggle", dlg).forEach(x => { x.hidden = false; }); });
+    $("#impAgain").addEventListener("click", () => { result = null; $("#impResult").innerHTML = ""; $("#impAdd").hidden = true; status.textContent = ""; $("#impDrop").hidden = false; $("#impPaste").hidden = false; $$(".ai-toggle", root).forEach(x => { x.hidden = false; }); });
+
     const target = $("#impTarget");
     const syncTarget = () => { const isNew = target.value === "new"; $("#impNew").hidden = !isNew; $("#impFillWrap").hidden = isNew; updateAdd(); };
     target.addEventListener("change", syncTarget);

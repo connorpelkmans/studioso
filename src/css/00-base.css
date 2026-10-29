@@ -1700,7 +1700,8 @@ button.pr-why:hover{background:var(--soft);color:var(--ink)}
 b.hc-ring > svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}
 b.hc-ring circle{fill:none;stroke:color-mix(in srgb,var(--ink) 14%,transparent);stroke-width:3}
 b.hc-ring circle.hc-arc{stroke:#2EA36A;stroke-linecap:round}
-b.hc-ring > span:not(.pt-sr){position:relative;font-size:.86em}
+b.hc-ring > span:not(.pt-sr){position:relative;font-size:.86em;white-space:nowrap;letter-spacing:-.02em}
+b.hc-ring.long > span:not(.pt-sr){font-size:.72em}
 .plan-rows{margin:6px 0 0}
 .plan-row .score{color:var(--muted)}
 .plan-row .focus-go{width:30px;height:30px;border:1px solid transparent;background:transparent}
@@ -2272,3 +2273,14 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 }
 @media (min-width:640px){.pg-right>.wb-pick,.pg-right>.wb-optbtn{display:none}}
 .key-row input.key-mask{-webkit-text-security:disc}
+/* Holidays and days off, beside the day's number in the month view (wide screens; phones read them in the day's label) */
+.cal .day-hol{display:none}
+@media (min-width:900px){
+  .cal .day{position:relative}
+  .cal .day-hol{display:block;position:absolute;top:9px;left:40px;right:6px;font:600 .7rem/1.2 var(--display);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;pointer-events:none}
+  .cal .day.is-today .day-hol{left:84px}
+  .cal .day-hol.off{color:var(--accent)}
+}
+/* A dropdown in a settings row sizes to its choices, so the label keeps the room */
+.cap-row > select{width:auto;flex:none;max-width:55%}
+.ar-quiz[hidden]{display:none!important}

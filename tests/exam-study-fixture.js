@@ -64,6 +64,8 @@ async function mk(browser, w, h, o = {}) {
   const base = await serve();
   const ctx = await browser.newContext({viewport: {width: w, height: h}, serviceWorkers: "block"});
   await ctx.clock.install({time: NOW});
+  // o.xs switches on the Formula and Diagram Sheet, which is on hold (hidden) in the app
+  if (o.xs) await ctx.addInitScript(() => { window.__SB_TEST = true; window.__SB_XS = true; });
   await ctx.addInitScript(([seed, ai, free]) => {
     try { if (!sessionStorage.getItem("seeded") && !localStorage.getItem("coursework:v2")) { sessionStorage.setItem("seeded", "1"); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("coursework:v2", JSON.stringify(seed));
       if (ai) { localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); }

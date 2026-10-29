@@ -700,7 +700,14 @@ function sheet(){
   const form = dlg.querySelector("form");
   form.addEventListener("click", onClick); form.addEventListener("change", onChange);
   form.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.id === "ppAdd" && !e.shiftKey) { e.preventDefault(); onClick({target: {closest: () => ({dataset: {pp: "add"}})}}); } });
-  dlg.addEventListener("close", () => { S = null; }, {once: true});
+  // a plan you've started editing (or AI still finding topics or wording it) is set aside when you tap away; Cancel or Create clears it
+  form.addEventListener("input", () => { if (S && S.step === "plan") S.touched = true; });
+  form.addEventListener("click", e => { if (S && S.step === "plan" && e.target.closest && e.target.closest("[data-pp]:not([data-pp=view]):not([data-pp=create])")) S.touched = true; }, true);
+  const arm = () => dlg.addEventListener("close", () => { S = null; }, {once: true});
+  arm();
+  let held = null;
+  sheetKeep("prep:" + S.exId, {name: "Plan My Prep", dirty: () => { held = S; return !!S && S.step === "plan" && !!S.touched; }, busy: () => { held = held || S; return !!(S && S.busy); },
+    drop: () => { const h = held || S; if (h) h.dropped = true; }, resume: () => { if (held) S = held; arm(); draw(); }});
 }
 function onChange(e){
   if (!S || S.step !== "plan") return;
@@ -752,26 +759,38 @@ async function onClick(e){
   draw();
 }
 async function aiFind(ex, b){
+  const me = S, key = "prep:" + me.exId;
   b.disabled = true; const msg = $("#ppFindMsg"); if (msg) msg.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Reading…`;
+  me.busy = true;
+  // what's found goes into this plan, even if it was set aside meanwhile
+  const done = text => {
+    me.busy = false; if (me.dropped) return;
+    me.msg = text; b.disabled = false;
+    if (S === me && dlg.open && dlg.querySelector("#ppBody")) draw();
+    else if (sheetKept(key)) sheetReady(key, null, text);
+  };
   try {
     const parts = [], files = Object.values(state.files).filter(f => (f.courseId || "") === (S.courseId || "") && readableFile(f)).sort((a, c) => (c.updated || c.created || 0) - (a.updated || a.created || 0)).slice(0, 3);
     for (const f of files) { const bytes = await fileBytes(f); parts.push((await aiSourceFromFile(new File([bytes], fileNameOf(f), {type: fileTypeOf(f)}))).part); }
-    const c = courseOf(S.courseId);
-    const r = await aiCall({task: "topics", maxTokens: 4000, schema: TOPICS_SCHEMA, parts: parts.concat({text: `Course: ${c ? c.name : ""}\nExam: ${ex.title} on ${S.due}\nWhat the exam covers (student's notes): ${ex.notes || "not given"}\nList the topics this exam will most likely test, in teaching order, 4 to 15 topics.`}),
+    const c = courseOf(me.courseId);
+    const r = await aiCall({task: "topics", maxTokens: 4000, schema: TOPICS_SCHEMA, parts: parts.concat({text: `Course: ${c ? c.name : ""}\nExam: ${ex.title} on ${me.due}\nWhat the exam covers (student's notes): ${ex.notes || "not given"}\nList the topics this exam will most likely test, in teaching order, 4 to 15 topics.`}),
       system: "You list the topics a course exam will cover, using the course files and the exam notes. Only list topics that actually appear in those files or notes; never add general topics the material does not mention. If neither the files nor the notes say what is covered, return fewer topics rather than guess. Topic names are short (2 to 6 words), plain text, no repeats. Return JSON only."});
-    const n = addTopics((r.data.topics || []).map(t => String(t.name || "").trim()));
-    S.msg = n ? `Added ${n} topic${n === 1 ? "" : "s"} from your files. Mark the ones you're shaky on.` : "No new topics found."; draw();
-  } catch (err) { b.disabled = false; S.msg = (err && err.message) || "Couldn't read the files."; draw(); }
+    if (me.dropped) { me.busy = false; return; }
+    const prev = S; S = me; let n = 0; try { n = addTopics((r.data.topics || []).map(t => String(t.name || "").trim())); } finally { S = prev; }
+    done(n ? `Added ${n} topic${n === 1 ? "" : "s"} from your files. Mark the ones you're shaky on.` : "No new topics found.");
+  } catch (err) { done((err && err.message) || "Couldn't read the files."); }
 }
 async function create(ex, b){
-  readForm(); const out = compute(), status = $("#ppStatus");
+  readForm(); const out = compute(), status = $("#ppStatus"), me = S;
   if (!out || out.err || !out.sessions.length) return;
-  const P = curP(), topics = S.topics.filter(t => t.name.trim());
+  const P = curP(), topics = me.topics.filter(t => t.name.trim());
   b.disabled = true;
-  if (S.ai && aiReady()) { if (status) status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Wording each session…`; try { await aiWords(ex, out, P, m => { if (status) status.textContent = m; }); } catch (err) { if (status) status.textContent = `${(err && err.message) || "The AI couldn't help"}. Using the standard instructions.`; } }
+  if (me.ai && aiReady()) { me.busy = true; if (status) status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Wording each session…`; try { await aiWords(ex, out, P, m => { if (status) status.textContent = m; }); } catch (err) { if (status) status.textContent = `${(err && err.message) || "The AI couldn't help"}. Using the standard instructions.`; } me.busy = false; }
+  if (me.dropped) return;
   const cur = state.tasks[ex.id]; if (!cur) return;
-  const replan = sessionsOf(ex.id).length > 0, due = S.due, time = S.time, courseId = S.courseId;
-  S = null; dlg.close();
+  const replan = sessionsOf(ex.id).length > 0, due = me.due, time = me.time, courseId = me.courseId;
+  // the plan is made either way: close its sheet if it's showing, or let go of it if it was set aside
+  if (S === me && dlg.open && dlg.querySelector("#ppBody")) { S = null; dlg.close(); } else sheetDrop("prep:" + me.exId);
   applyPlan(cur, P, topics, due, time, out, {replan, courseId});
 }
 function catchUp(id){
@@ -807,8 +826,10 @@ function open(id, o){
   if (!ex || !MILESTONE(ex.type)) { const list = upcoming(); ex = list[0] || null; }
   if (!ex) { toast("Add an exam or quiz with a date first"); return; }
   if (!ex.due) { toast("Give this exam a date first, then plan your prep"); return; }
+  if (sheetResume("prep:" + ex.id)) return;
   const P = prepOf(ex), have = hasPlan(ex);
   S = stateFor(ex, P);
+
   if (ex.due <= todayISO() && !have) { toast("That exam is today or has passed, so there's nothing left to plan before it."); S = null; return; }
   sheet();
   if (have && !o.edit) { S.step = "view"; drawView(); }

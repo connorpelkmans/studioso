@@ -141,7 +141,7 @@ function SEED(){
 
     // Print and PDF
     await act(page, "pro-pr-open"); await page.waitForTimeout(400);
-    ok(await page.locator("#dlg .pr-kind").count() === 5 && await page.locator("#dlg .pr-prev .pp-day").count() === 8, "Print offers five layouts (the fifth is the Formula and Diagram Sheet); the week agenda preview has 7 days and a notes box");
+    ok(await page.locator("#dlg .pr-kind").count() === 4 && await page.locator("#dlg .pr-prev .pp-day").count() === 8, "Print offers four layouts (the Formula and Diagram Sheet is on hold); the week agenda preview has 7 days and a notes box");
     await page.click('#dlg [data-act="pro-pr-kind"][data-id="grades"]'); await page.waitForTimeout(250);
     ok(await page.locator("#dlg .pr-prev .pp-gc").count() === 2 && /CALC2|Calculus/.test(await page.locator("#dlg .pr-prev").textContent()), "the grade report has a section per graded course");
     await page.click('#dlg [data-act="pro-pr-kind"][data-id="term"]'); await page.waitForTimeout(250);

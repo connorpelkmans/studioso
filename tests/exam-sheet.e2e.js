@@ -9,9 +9,21 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 (async () => {
   const browser = await chromium.launch({executablePath});
   try {
+    // on hold: hidden in the app unless switched on
+    {
+      const {page} = await F.mk(browser, 1280, 800);
+      await F.putPicture(page);
+      await F.act(page, "exam-plan", "ex1"); await page.waitForTimeout(500);
+      ok(await page.locator('#ppBody [data-act="xs-open"]').count() === 0, "on hold: the Prep Plan has no Formula and Diagram Sheet link");
+      await F.act(page, "pro-pr-open", "sheet"); await page.waitForTimeout(500);
+      ok(await page.locator('#dlg .pr-kind').count() === 4 && await page.locator('#dlg .pr-kind[data-id="sheet"]').count() === 0 && await page.locator('#dlg .pr-kind[data-id="week"][aria-checked="true"]').count() === 1, "on hold: Print and PDF has four layouts and falls back to the week agenda");
+      ok(!(await page.evaluate(() => !!window.SBEXAMSHEET)), "on hold: the sheet isn't exposed");
+      ok(page.errs.length === 0, "on hold: no console errors: " + page.errs.join(" | "));
+      await page.context().close();
+    }
     for (const [W, H] of [[1280, 800], [390, 844]]) {
       console.log("== " + W + " wide");
-      const {page} = await F.mk(browser, W, H);
+      const {page} = await F.mk(browser, W, H, {xs: true});
       await F.putPicture(page);
       ok(page.errs.length === 0, "no page errors on load: " + page.errs.join("; "));
       // the Prep Plan offers it once the exam has linked material
@@ -63,7 +75,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     {
       const seed = F.SEED(); seed.tasks[0].prep.topics.forEach(t => { if (t.id !== "t3") t.links = []; }); seed.decks[1].cards = [];
       seed.tasks.push({id: "ex2", title: "Quiz 3", courseId: "c1", type: "Quiz", due: F.plus(5), start: F.plus(5), status: "todo", priority: "med"});
-      const {page} = await F.mk(browser, 1280, 800, {seed});
+      const {page} = await F.mk(browser, 1280, 800, {seed, xs: true});
       await F.act(page, "exam-plan", "ex1"); await page.waitForTimeout(400);
       ok(await page.locator('#ppBody [data-act="xs-open"]').count() === 0, "with nothing linked, the Prep Plan doesn't offer the sheet");
       await F.act(page, "pro-pr-open", "sheet"); await page.waitForTimeout(500);
@@ -75,7 +87,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     }
     {
       const seed = F.SEED(); seed.decks[0].cards = seed.decks[0].cards.filter(c => ["k7", "k12"].includes(c.id)); seed.decks[1].cards = []; seed.notes[0].text = "Motion\nDue: Friday\nRoom: 4B";
-      const {page} = await F.mk(browser, 390, 844, {seed});
+      const {page} = await F.mk(browser, 390, 844, {seed, xs: true});
       await F.act(page, "pro-pr-open", "sheet"); await page.waitForTimeout(500);
       ok(/No formulas, definitions or picture cards were found/.test(await page.locator("#dlg .pr-prev").innerText()), "linked material with no formulas or definitions says so, with examples");
       ok(await F.noHScroll(page) && await F.dlgScroll(page), "no horizontal scroll (empty, 390)");
@@ -83,7 +95,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     }
     {
       const seed = F.SEED(); seed.tasks = seed.tasks.filter(t => t.id !== "ex1" && !t.prepFor);
-      const {page} = await F.mk(browser, 1280, 800, {seed});
+      const {page} = await F.mk(browser, 1280, 800, {seed, xs: true});
       await F.act(page, "pro-pr-open", "sheet"); await page.waitForTimeout(500);
       ok(/No upcoming exam has topics yet/.test(await page.locator("#dlg .pr-body").innerText()), "no exam with topics: says how to add them");
       ok(page.errs.length === 0, "no console errors (no exam): " + page.errs.join(" | "));
@@ -92,7 +104,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 
     // free account with Pro switched on: PRO badge and the Pro sheet
     {
-      const {page} = await F.mk(browser, 390, 844, {free: true});
+      const {page} = await F.mk(browser, 390, 844, {free: true, xs: true});
       await F.act(page, "exam-plan", "ex1"); await page.waitForTimeout(400);
       ok(await page.locator('#ppBody [data-act="xs-open"] .pro-badge').count() === 1, "free: the action shows a PRO badge");
       await page.click('#ppBody [data-act="xs-open"]'); await page.waitForTimeout(600);

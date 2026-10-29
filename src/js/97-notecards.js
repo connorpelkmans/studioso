@@ -292,14 +292,21 @@ function generate(){
 }
 function openFor(id){
   const n = state.notes[id]; if (!n) return;
+  // cards you've edited, or AI still writing them, are set aside when you tap away and come back here; Cancel or Save clears them
+  const key = "nc:" + id;
+  if (sheetResume(key)) { hideFloat(); return; }
   const t = liveBox(id), full = String(t ? t.value : n.text || "").slice(0, MAXSRC), sel = readSelection(id), selText = flat1(sel.text).length >= 8 ? sel.text.trim().slice(0, MAXSRC) : "";
   if (!selText && flat1(full).length < 10) { toast(tr("nc.tooShort", "Write a few lines in this note first, then make cards from it.")); return; }
   hideFloat(); lastRange = sel.range;
-  S = {tok: ++tokN, id, full, sel: selText, scope: selText ? "sel" : "note", cards: [], k: 0, deck: defaultDeck(n, full), name: suggestName(n, full), busy: false, ai: null, ac: null, range: sel.range};
+  S = {tok: ++tokN, id, key, full, sel: selText, scope: selText ? "sel" : "note", cards: [], k: 0, deck: defaultDeck(n, full), name: suggestName(n, full), busy: false, ai: null, ac: null, range: sel.range, el: null, dropped: false, aiCards: false};
   generate();
   openSheet(sheetHtml());
-  const tok = S.tok;
-  dlg.addEventListener("close", () => { if (S && S.tok === tok) { const r = S.range; try { if (S.ac) S.ac.abort(); } catch (e) { } S = null; setTimeout(() => refocusNote(r), 0); } }, {once: true});
+  const mine = S, tok = S.tok;
+  mine.el = dlg.querySelector(".nc-sheet");
+  const arm = () => dlg.addEventListener("close", () => { if (S && S.tok === tok) { const r = S.range; S = null; setTimeout(() => refocusNote(r), 0); } }, {once: true});
+  arm();
+  sheetKeep(key, {name: "Make Flashcards", dirty: () => mine.aiCards || mine.cards.some(c => c.touched || c.tog), busy: () => mine.busy,
+    drop: () => { mine.dropped = true; try { if (mine.ac) mine.ac.abort(); } catch (e) { } }, resume: () => { S = mine; arm(); paint(); }});
   paint();
   const first = dlg.querySelector(".nc-tick input") || dlg.querySelector('[data-nc="add"]');
   if (first) first.focus();
@@ -363,13 +370,13 @@ function cardHtml(c, i){
 }
 function paint(){
   if (!S) return;
-  const list = $("#ncList", dlg); if (!list) return;
+  const list = $("#ncList", S.el || dlg); if (!list) return;
   list.innerHTML = S.cards.length ? S.cards.map(cardHtml).join("") : `<li class="nc-none">${esc(tr("nc.none", "No clear terms, definitions or questions in this text. Add cards by hand, or try the AI button if it is on."))}</li>`;
   counts();
 }
 function counts(){
   if (!S) return;
-  const on = ticked().length, all = S.cards.length, c = $("#ncCount", dlg), b = $("#ncSave", dlg);
+  const on = ticked().length, all = S.cards.length, c = $("#ncCount", S.el || dlg), b = $("#ncSave", S.el || dlg);
   if (c) c.textContent = all ? tr("nc.count", "{on} of {all} cards ticked", {on, all}) : tr("nc.count0", "No cards yet");
   if (b) { b.textContent = on ? trn("nc.save", on, "Save {n} Card|Save {n} Cards") : tr("nc.save0", "Save Cards"); b.disabled = !on; }
 }
@@ -378,7 +385,7 @@ function focusCard(k, what){
   const li = dlg.querySelector('.nc-card[data-k="' + k + '"]'); if (!li) return;
   const el = what === "front" ? li.querySelector("[data-nc-f]") : li.querySelector(what) || li.querySelector(".nc-tick input"); if (el) el.focus();
 }
-function setAiMsg(txt){ if (S) S.ai = txt; const m = $("#ncAiMsg", dlg); if (m) m.textContent = txt || ""; }
+function setAiMsg(txt){ if (!S) return; S.ai = txt; const m = $("#ncAiMsg", S.el || dlg); if (m) m.textContent = txt || ""; }
 function onClick(e){
   const b = e.target.closest && e.target.closest("[data-nc]"); if (!b || !S) return;
   e.stopPropagation();
@@ -410,38 +417,44 @@ function onChange(e){
 /* AI assist */
 async function runAi(){
   if (!S || S.busy) return;
-  const tok = S.tok, text = srcText(), what = S.scope === "sel" ? tr("nc.what.sel2", "selected text") : tr("nc.what.note2", "note");
+  const me = S, text = srcText(), what = S.scope === "sel" ? tr("nc.what.sel2", "selected text") : tr("nc.what.note2", "note");
+  // the answer lands in this sheet even when it was set aside (or another one is open now)
+  const onMe = fn => { const prev = S; S = me; try { fn(); } finally { S = prev; } };
+  const setAiMsg = t => onMe(() => setAiMsg0(t)), paint = () => onMe(paint0);
   if (flat1(text).length < 20) { setAiMsg(tr("nc.ai.short", "Select a little more text first, then try again.")); return; }
-  const btn = dlg.querySelector('[data-nc="ai"]'), W = aiWhoIs(), nm = aiWho("AI"), company = W.company || "the AI company";
-  S.busy = true; if (btn) { btn.disabled = true; btn.setAttribute("aria-busy", "true"); }
+  const btn = me.el.querySelector('[data-nc="ai"]'), W = aiWhoIs(), nm = aiWho("AI"), company = W.company || "the AI company";
+  me.busy = true; if (btn) { btn.disabled = true; btn.setAttribute("aria-busy", "true"); }
   setAiMsg(tr("nc.ai.working", "Working with {who}…", {who: nm}));
-  const ac = typeof AbortController === "function" ? new AbortController() : null; S.ac = ac;
+  const ac = typeof AbortController === "function" ? new AbortController() : null; me.ac = ac;
   const nWords = text.trim().split(/\s+/).length, want = Math.max(4, Math.min(30, Math.round(nWords / 18)));
-  const c = courseOf((state.notes[S.id] || {}).courseId);
+  const c = courseOf((state.notes[me.id] || {}).courseId);
   let sent = true;
   try {
     const r = await aiCall({task: "cards", maxTokens: 6000, temperature: 0.2, schema: NC_SCHEMA, system: NC_SYSTEM, signal: ac ? ac.signal : undefined,
       parts: [{text: `Course: ${c ? c.name : "not given"}\nMake at most ${want} flashcards from the notes between the tags.\n\n<notes>\n${text.replace(/<\/?notes>/gi, " ")}\n</notes>`}]});
-    if (!S || S.tok !== tok) return;
+    if (me.dropped) return;
     const raw = r && r.data && Array.isArray(r.data.cards) ? r.data.cards : [], v = NC.vetAi(raw, text, {max: want + 4, tidy: aiTidyText}), g = aiGateCards(v.cards, {max: want + 4});
     const kept = g.cards.map(x => ({front: x.front, back: x.back, kind: "ai"}));
     const tail = (v.dropped.ungrounded ? " " + trn("nc.ai.left", v.dropped.ungrounded, "Left out {n} card that was not in your text.|Left out {n} cards that were not in your text.") : "") + (v.dropped.copied ? " " + trn("nc.ai.copied", v.dropped.copied, "Left out {n} card that copied your text word for word.|Left out {n} cards that copied your text word for word.") : "");
     const sentNote = " " + tr("nc.ai.sent", "Your {what} ({chars} characters) was sent to {company}.", {what, chars: text.length, company});
     if (!kept.length) { setAiMsg(tr("nc.ai.none", "AI did not find anything it could back up from your text, so these are the cards made on this device.") + sentNote); return; }
-    const keep = S.cards.filter(x => x.touched);
-    S.cards = mkCards(kept, keep);
+    const keep = me.cards.filter(x => x.touched);
+    onMe(() => { me.cards = mkCards(kept, keep); }); me.aiCards = true;
     paint();
     setAiMsg(trn("nc.ai.done", kept.length, "{n} card from {who}, checked against your text.|{n} cards from {who}, checked against your text.", {who: nm}) + tail + sentNote);
   } catch (err) {
-    if (!S || S.tok !== tok) return;
+    if (me.dropped) return;
     const code = err && err.code; if (["offline", "nokey", "no-consent", "preview", "auto-off", "cancelled"].includes(code)) sent = false;
     if (code === "no-consent") setAiMsg(tr("nc.ai.noconsent", "AI stays off until you agree. Nothing was sent. The cards below were made on this device."));
     else if (code === "cancelled") setAiMsg("");
     else setAiMsg(tr("nc.ai.fail", "AI could not help this time, so you are seeing the cards made on this device.") + (sent ? " " + tr("nc.ai.sent2", "Your text may have reached {company} before the problem.", {company}) : ""));
   } finally {
-    if (S && S.tok === tok) { S.busy = false; S.ac = null; const b2 = dlg.querySelector('[data-nc="ai"]'); if (b2) { b2.disabled = false; b2.removeAttribute("aria-busy"); } }
+    me.busy = false; me.ac = null; const b2 = me.el.querySelector('[data-nc="ai"]'); if (b2) { b2.disabled = false; b2.removeAttribute("aria-busy"); }
+    if (!me.dropped && !(dlg.open && dlg.contains(me.el)) && sheetKept(me.key)) sheetReady(me.key, null, me.aiCards ? "Your AI flashcards are ready to check" : "AI couldn't improve those cards. Open Make Flashcards to see why.");
   }
 }
+const paint0 = () => paint(), setAiMsg0 = t => setAiMsg(t);
+
 
 /* Save: one deck write, so one Undo */
 function openDeck(id){ if (noteEditing) saveNoteText(); if (dlg.open) dlg.close(); ui.tab = "flashcards"; ui.fc = null; ui.deckId = id; render(); window.scrollTo(0, 0); }

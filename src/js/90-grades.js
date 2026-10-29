@@ -186,6 +186,9 @@
     return {l, th, n: gr.done ? null : gr.need(th)};
   }
   const inDanger = gr => gr.risk === "risk" || gr.risk === "watch" || gr.risk === "out";
+  // Every mark in a course at 0%: almost always marks that weren't entered (or a school site sending ungraded work as 0), not real zeros
+  const zeroed = gr => !!gr && gr.marked.length > 0 && gr.marked.every(t => markPct(t) === 0);
+  const ZERO_TXT = "Every mark here is 0%. That usually means the marks aren't in yet or came over from your school site as 0, so check them.";
   // A course falling short of its goal: under it now, or needing better than its average so far on the rest (still reachable)
   function goalShort(gr){
     const goal = gr.g.goal;
@@ -620,7 +623,7 @@
   }
   hook("render", () => { try { newMarkBadges(); } catch (e) { console.warn("new marks", e); } });
   window.SBGRADES_NEW = {list: newMarks, badges: newMarkBadges};
-  window.SBGRADES = {lines: () => grades().filter(gr => gr.ts.length).map(gr => `${courseLabel(gr.c)}: ${gr.current != null ? "current " + fmtP(gr.current) + (letterOf(gr.current, gr.g.scale) ? " (" + letterOf(gr.current, gr.g.scale) + ")" : "") + " on " + fmtW(gr.wMarked) + " marked" : "no marks yet"}; pass mark ${fmtP(gr.g.pass)}${gr.g.goal != null ? ", goal " + fmtP(gr.g.goal) : ""}. ${gradeLine(gr)}`)};
+  window.SBGRADES = {lines: () => grades().filter(gr => gr.ts.length).map(gr => `${courseLabel(gr.c)}: ${gr.current != null ? "current " + fmtP(gr.current) + (letterOf(gr.current, gr.g.scale) ? " (" + letterOf(gr.current, gr.g.scale) + ")" : "") + " on " + fmtW(gr.wMarked) + " marked" : "no marks yet"}; pass mark ${fmtP(gr.g.pass)}${gr.g.goal != null ? ", goal " + fmtP(gr.g.goal) : ""}. ${gradeLine(gr)}${zeroed(gr) ? " LOOKS WRONG: every mark in this course is 0%, which usually means the marks weren't entered or came from the school site as 0; check them before treating it as failing." : ""}`)};
   // For the course cards and a course's header
   window.SBGRADES.schoolPass = list => {
     const u = [...new Set((list || []).filter(isNum).map(Number))];
@@ -891,7 +894,7 @@
         + `; pass mark ${fmtP(g.pass)}${g.goal != null ? "; goal " + fmtP(g.goal) : ""}${risk ? "; " + risk : ""}. ${gradeLine(gr)}${rulesText(gr.R) ? " Grading rules: " + rulesText(gr.R) + "." : ""}`;
       const mk = gr.marked.slice().sort(sortTasks).map(t => `${t.title} (${t.type}, worth ${fmtW(Number(t.weight))}${t.due ? ", " + t.due : ""}): ${fmtP(markPct(t))}${gr.dropped.has(t.id) ? ", dropped" : ""}`).join("; ");
       const op = gr.open.slice().sort(sortTasks).slice(0, 10).map(t => `${t.title} (${t.type}, worth ${fmtW(Number(t.weight))}${t.due ? ", due " + t.due : ""}${t.status === "done" ? ", handed in, waiting for a mark" : ""})`).join("; ");
-      L.push(head + (mk ? "\n  Marked: " + mk : "") + (op ? "\n  Still to come: " + op : ""));
+      L.push(head + (zeroed(gr) ? "\n  LOOKS WRONG: every mark in this course is 0%, which almost always means the marks weren't entered or the school site sent ungraded work as 0. Don't treat it as a real failing grade." : "") + (mk ? "\n  Marked: " + mk : "") + (op ? "\n  Still to come: " + op : ""));
     });
     return L.join("\n");
   }
@@ -902,7 +905,7 @@
     ui.gpAi = {kind, busy: true}; render();
     try {
       const r = await aiCall({task: "coach", fast: true, maxTokens: 1600, temperature: 0.4, schema: {type: "OBJECT", properties: {points: {type: "ARRAY", items: {type: "STRING"}}}, required: ["points"]},
-        parts: [{text: aiContext()}], system: "You're a kind, practical study coach looking at a student's grades. " + A.sys + " Use only the numbers, items and dates given, and never invent marks, dates or grading rules. Plain, warm words. No em dashes, and no medical or academic-policy claims. Return JSON only."});
+        parts: [{text: aiContext()}], system: "You're a kind, practical study coach looking at a student's grades. " + A.sys + " Look at every course, including finished ones. If a course is marked LOOKS WRONG, or a mark is far out of line with the rest, say that first and suggest checking those marks, instead of skipping it or treating it as a real result. Remember a fully marked course can no longer change, so effort goes to courses with work still to come. Use only the numbers, items and dates given, and never invent marks, dates or grading rules. Plain, warm words. No em dashes, and no medical or academic-policy claims. Return JSON only."});
       const pts = ((r && r.data && r.data.points) || []).map(s => String(s || "").replace(/\s*[—–]\s*/g, ", ").replace(/^[\s•*-]+/, "").trim()).filter(Boolean).slice(0, 6);
       ui.gpAi = pts.length ? {kind, pts} : {kind, err: "The AI didn't send anything back. Try again."};
     } catch (e) { ui.gpAi = {kind, err: (e && e.message) || "Couldn't reach the AI right now. Try again in a moment."}; }
@@ -983,20 +986,15 @@
           <span class="gp-who"><b class="gp-name">${esc(typeof cardName === "function" ? cardName(c.name) : c.name)}</b><span class="mini">${esc(courseLabel(c))} · ${gr.ts.length ? `${fmtW(gr.wMarked)} marked` : "no graded work yet"}${gg ? ` · <b class="${gg.gap >= 0 ? "gr-ok" : ""}">${esc(gg.text)}</b>` : ""}</span></span>
           <span class="gp-bar" role="img" aria-label="${cur != null ? `Current grade ${fmtP(gr.current)}` : "No marks yet"}. Pass mark ${fmtP(g.pass)}${g.goal != null ? `, goal ${fmtP(g.goal)}` : ""}."><i class="gp-fill" style="width:${cur != null ? cur : 0}%"></i><i class="gp-pass" style="left:${clampP(g.pass)}%"></i>${g.goal != null ? `<i class="gp-goal" style="left:${clampP(g.goal)}%"></i>` : ""}</span>
           <span class="gp-grade">${gr.current != null ? `<b>${fmtP(gr.current)}</b>${L(gr.current) ? `<span class="c2-letter">${esc(L(gr.current))}</span>` : ""}` : `<span class="mini">Pass ${fmtP(g.pass)}</span>`}</span>
-          <span class="gp-line mini">${esc(gradeLine(gr))}</span>${gr.risk ? riskPill(gr.risk) : ""}
+          <span class="gp-line mini">${esc(gradeLine(gr))}</span>${zeroed(gr) ? `<span class="gp-zero mini" role="note">${esc(ZERO_TXT)}</span>` : gr.risk ? riskPill(gr.risk) : ""}
         </button>
         <button class="icon-btn gp-tog" data-act="gp-toggle" data-id="${esc(c.id)}" aria-expanded="${!!(ui.gpOpen && ui.gpOpen[c.id])}" aria-controls="gpd-${esc(c.id)}" aria-label="Marks and What Do I Need for ${esc(c.name)}" title="Marks and What Do I Need?"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
         <button class="icon-btn" data-act="g-course-set" data-id="${esc(c.id)}" aria-label="Grade settings for ${esc(c.name)}" title="Grade Settings"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></button>${detailOf(gr)}</li>`;
     }).join("");
     const wait = waiting.length ? `<h3 class="fsec">Waiting for a Mark</h3><ul class="gs-wait">${waiting.slice(0, 12).map(t => { const c = courseOf(t.courseId); return `<li style="--c:${esc(colorOf(t.courseId))}"><span class="gs-name">${esc(t.title)}<span class="mini">${c ? esc(courseLabel(c)) + ", " : ""}worth ${esc(fmtW(Number(t.weight)))}</span></span><button class="btn small" data-act="g-mark" data-id="${esc(t.id)}">Add Mark</button></li>`; }).join("")}</ul>` : "";
-    return `<section class="gp" aria-label="Grades"><div class="view-head"><h2>Grades</h2>${proBtns("grades")}</div>
+    return `<section class="gp" aria-label="Grades"><div class="view-head"><h2>Grades</h2>${proBtns("grades")}<button type="button" class="btn small pro-tab-btn" data-act="gp-opts" title="Default pass mark, GPA scale and other grade settings"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>Options</span></button></div>
       <div class="gp-hero">${hero}${gpaStrip(S)}<ul class="gp-list">${rows}</ul></div>${low}${wait}${comingUpHtml(all)}${aiHtml(all)}${histHtml(S)}
-      <details class="gp-opts"${ui.gpOpts ? " open" : ""}><summary>Grade Options</summary><div class="menu-list">
-        <div class="cap-row"><label for="gPassIn" style="flex:1;font-weight:600">Default Pass Mark<span class="sub">For courses where you haven't set one. Check each course outline.</span></label><input type="number" id="gPassIn" min="0" max="100" step="0.5" value="${esc(r1(s.pass))}"> %</div>${gpaOpt()}
-        <label class="mi-check gs-opt"><input type="checkbox" id="gAskIn" ${s.prompt ? "checked" : ""}><span>Ask for My Mark After I Finish Graded Work<span class="sub">A small note a few seconds later. Easy to skip.</span></span></label>
-        <label class="mi-check gs-opt"><input type="checkbox" id="gRwIn" ${s.rescue ? "checked" : ""}><span>Offer Help When My Week Looks Too Full<span class="sub">A Rough Week banner on the Board</span></span></label>
-        <label class="mi-check gs-opt"><input type="checkbox" id="gClsIn" ${s.cls ? "checked" : ""}><span>${esc(tr("gb.opt", "Compare My Marks to the Class"))}<span class="sub">${esc(tr("gb.opt.s", "For school-synced courses that share class averages"))}</span></span></label>
-        <button type="button" class="btn small" data-act="rw-open" style="justify-self:start">Plan a Rough Week</button></div></details></section>`;
+      </section>`;
   }
   document.addEventListener("change", e => { const t = e.target; if (t && t.classList && t.classList.contains("gp-calc-c")) { ui.gpCalc = {cid: t.value}; render(); } });
   hook("act", (act, el, id) => { if (act !== "gp-target") return false; ui.gpCalc = {cid: el.dataset.cid || "", t: Number(id)}; render(); return true; });
@@ -1008,7 +1006,6 @@
     if (t) t.setAttribute("aria-expanded", String(!!ui.gpOpen[id]));
     return true;
   });
-  document.addEventListener("toggle", e => { const d = e.target; if (d && d.classList && d.classList.contains("gp-opts")) ui.gpOpts = d.open; }, true);
   // What-if boxes
   document.addEventListener("input", e => {
     const i = e.target, box = i && i.dataset && i.dataset.wi ? i.closest("[data-wi-course]") : null; if (!box) return;
@@ -1023,6 +1020,19 @@
   });
   const gpaOpt = () => { const v = gpaMax(); return `<div class="cap-row"><label for="gGpaIn" style="flex:1;font-weight:600">GPA Scale<span class="sub">How letter grades turn into GPA points. Off hides GPA.</span></label><select id="gGpaIn"><option value="4.0"${v === 4 ? " selected" : ""}>4.0 (A+ is 4.0)</option><option value="4.3"${v === 4.3 ? " selected" : ""}>4.3 (A+ is 4.3)</option><option value="off"${!v ? " selected" : ""}>Off</option></select></div>`; };
   document.addEventListener("change", e => { const t = e.target; if (t && t.id === "gGpaIn") { saveG({gpa: t.value}); scheduleRender(); toast(t.value === "off" ? "GPA is off" : `GPA scale set to ${t.value}`); } });
+  // Grade Options, from the button at the top of the Grades page
+  function gradeOptsSheet(){
+    const s = gset();
+    openSheet(`<div class="sheet">${head("Grade Options")}<div class="sheet-body"><div class="menu-list">
+        <div class="cap-row"><label for="gPassIn" style="flex:1;font-weight:600">Default Pass Mark<span class="sub">For courses where you haven't set one. Check each course outline.</span></label><input type="number" id="gPassIn" min="0" max="100" step="0.5" value="${esc(r1(s.pass))}"> %</div>${gpaOpt()}
+        <label class="mi-check gs-opt"><input type="checkbox" id="gAskIn" ${s.prompt ? "checked" : ""}><span>Ask for My Mark After I Finish Graded Work<span class="sub">A small note a few seconds later. Easy to skip.</span></span></label>
+        <label class="mi-check gs-opt"><input type="checkbox" id="gRwIn" ${s.rescue ? "checked" : ""}><span>Offer Help When My Week Looks Too Full<span class="sub">A Rough Week banner on the Board</span></span></label>
+        <label class="mi-check gs-opt"><input type="checkbox" id="gClsIn" ${s.cls ? "checked" : ""}><span>${esc(tr("gb.opt", "Compare My Marks to the Class"))}<span class="sub">${esc(tr("gb.opt.s", "For school-synced courses that share class averages"))}</span></span></label>
+        </div></div>
+      <div class="sheet-foot"><button type="button" class="btn" data-act="rw-open">Plan a Rough Week</button><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
+    wireGradeOpts();
+  }
+  hook("act", act => { if (act !== "gp-opts") return false; gradeOptsSheet(); return true; });
   function wireGradeOpts(){
     const pi = $("#gPassIn"); if (!pi) return;
     pi.addEventListener("change", e => { const v = clampP(Number(e.target.value) || 0); saveG({pass: v, passSrc: "user"}); scheduleRender(); toast(`Default pass mark set to ${fmtP(v)}`); });
@@ -1252,7 +1262,7 @@
     const block = $("#gsSchool");
     let prog = String(gsave().program || (window.SBAREA && SBAREA.get() ? SBAREA.get().text : "") || "").trim().slice(0, 80);
     dlg.__program = prog;
-    block.addEventListener("input", e => { if (e.target.id === "gsProgram") { prog = e.target.value.trim(); dlg.__program = prog; } });
+    block.addEventListener("input", e => { if (e.target.id === "gsProgram") { prog = e.target.value.trim(); dlg.__program = prog; const pg = $("#gsProgGo"); if (pg && found) pg.disabled = !prog || prog.toLowerCase() === String(found.program || "").toLowerCase(); } });
     const hosts = schoolHosts();
     const paint = () => {
       const gs = gsave(), sg = gs.suggest, sc = gs.school;
@@ -1266,18 +1276,23 @@
       else if (sc) block.innerHTML = `<p class="mini" style="margin:0">${esc(tr("gr.school.from", "Filled in from {school}'s own website.", {school: sc.name || tr("gr.school.yours", "your school")}))} ${safeUrl(sc.url) ? `<a href="${esc(safeUrl(sc.url))}" target="_blank" rel="noopener noreferrer">${esc(sc.host || hostOf(sc.url))}</a> ` : ""}<button type="button" class="link-btn" id="gsFind">${esc(tr("gr.school.again", "Search Again"))}</button></p>`;
       else if (hosts.length) block.innerHTML = `<p class="mini" style="margin:0">${esc(tr("gr.school.know", "Studyboard can ask the AI for the grade scale and pass mark at your school ({host}). The AI answers from memory, so check the result against your course outline.", {host: hosts[0].host}))}</p><div class="gr-scale-acts"><button type="button" class="btn small primary" id="gsFind">${esc(tr("gr.school.find", "Find My School's Scale"))}</button></div>`;
       else block.innerHTML = `<label class="f"><span class="lh">${esc(tr("gr.school.name", "Your school"))} <span class="hint">${esc(tr("gr.school.nameHint", "The AI fills in its grade scale and pass mark from what it knows"))}</span></span><input type="text" id="gsSchoolName" maxlength="80" autocomplete="off" placeholder="${esc(tr("gr.school.ph", "e.g. University of Alberta"))}" data-noenter></label><div class="gr-scale-acts"><button type="button" class="btn small primary" id="gsFind">${esc(tr("gr.school.find", "Find My School's Scale"))}</button></div>`;
-      if (!sg || found) block.insertAdjacentHTML("beforeend", `<label class="f"><span class="lh">${esc(tr("gr.school.prog", "Your program"))} <span class="hint">${esc(tr("gr.school.progHint", "optional. Some programs have their own scale, and the school's is the fallback"))}</span></span><input type="text" id="gsProgram" maxlength="80" autocomplete="off" value="${esc(prog)}" placeholder="${esc(tr("gr.school.progPh", "e.g. Nursing"))}" data-noenter></label>`);
+      if (!sg || found) block.insertAdjacentHTML("beforeend", `<label class="f"><span class="lh">${esc(tr("gr.school.prog", "Your program"))} <span class="hint">${esc(tr("gr.school.progHint", "optional. Some programs have their own scale, and the school's is the fallback"))}</span></span><input type="text" id="gsProgram" maxlength="80" autocomplete="off" value="${esc(prog)}" placeholder="${esc(tr("gr.school.progPh", "e.g. Nursing"))}" data-noenter></label>${found ? `<div class="gr-scale-acts"><button type="button" class="btn small" id="gsProgGo" ${prog && prog.toLowerCase() !== String(found.program || "").toLowerCase() ? "" : "disabled"}>${esc(tr("gr.school.progGo", "Look Up This Program's Scale"))}</button></div>` : ""}`);
+      // a program typed after a lookup: look again, for that program
+      const pg = $("#gsProgGo"), pin = $("#gsProgram");
+      if (pg) pg.addEventListener("click", find);
+      if (pin) pin.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); if (pg && !pg.disabled) find(); else if (!found) { const fb0 = $("#gsFind"); if (fb0) fb0.click(); } } });
       const fb = $("#gsFind"); if (fb) fb.addEventListener("click", find);
       const y = $("#gsSugYes"), n = $("#gsSugNo");
       if (y) y.addEventListener("click", () => { const f = Object.assign({official: false}, sg, {official: false}); apply(f); const all = dlg.querySelector('input[name="all"]'); if (all) all.checked = true; saveG({suggest: null}); say(tr("gr.school.sugUsed", "Filled in. Check it, then save.")); paint(); });
       if (n) n.addEventListener("click", () => { saveG({suggest: null, schoolNo: true}); paint(); });
     };
     async function find(){
-      const nm = $("#gsSchoolName"), name = nm ? nm.value.trim() : "";
+      const nm = $("#gsSchoolName"), name = nm ? nm.value.trim() : (found && found.school) || "";
       if (!hosts.length && !name) { say(tr("gr.school.needName", "Type your school's name first.")); if (nm) nm.focus(); return; }
       if (!aiReady()) { say(tr("gr.school.needAi", "Looking this up needs AI. Set up AI in Settings (Gemini is free), or upload a screenshot or paste the scale below.")); showPaste(); return; }
       const fb = $("#gsFind"); if (fb) fb.disabled = true;
-      say(tr("gr.school.searching", "Asking the AI about your school's grade scale…"));
+      { const pg = $("#gsProgGo"); if (pg) pg.disabled = true; }
+      say(prog ? tr("gr.school.searchingProg", "Asking the AI about the {program} grade scale at your school…", {program: prog}) : tr("gr.school.searching", "Asking the AI about your school's grade scale…"));
       try {
         const h = hosts[0] || {host: "", name: ""}, f = vetSchool(await findSchool({host: h.host, name: name || h.name, program: prog}));
         if (f) { apply(f); say(""); paint(); return; }
