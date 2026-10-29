@@ -17,7 +17,7 @@ const AI_TASKS = {
   ask: ["reason", "high"], tutor: ["reason", "medium"], cards: ["reason", "medium"], quiz: ["reason", "medium"], cases: ["reason", "medium"],
   syllabus: ["reason", "medium"], examplan: ["reason", "medium"], plan: ["reason", "medium"], practice: ["reason", "medium"], rubric: ["reason", "medium"],
   transcribe: ["lite", "low"],
-  topics: ["mid", "medium"], explain: ["mid", "medium"], summary: ["mid", "medium"], chat: ["mid", "low"], linknotes: ["mid", "low"], "cards-light": ["mid", "low"], "quiz-light": ["mid", "low"], "cases-light": ["mid", "low"], photo: ["mid", "medium"], capture: ["mid", "low"], tune: ["mid", "low"], estimate: ["mid", "low"], breakdown: ["mid", "high"],
+  topics: ["mid", "medium"], explain: ["mid", "medium"], summary: ["mid", "medium"], chat: ["reason", "medium"], linknotes: ["mid", "low"], "cards-light": ["mid", "low"], "quiz-light": ["mid", "low"], "cases-light": ["mid", "low"], photo: ["mid", "medium"], capture: ["mid", "low"], tune: ["mid", "low"], estimate: ["mid", "low"], breakdown: ["mid", "high"],
   school: ["mid", "low"], quickadd: ["lite", "low"], grade: ["lite", "low"], news: ["lite", "low"], triage: ["lite", "low"], annintel: ["lite", "low"], coach: ["mid", "low"], weekly: ["mid", "low"], remote: ["lite", "low"], classify: ["lite", "low"], tag: ["lite", "low"], rewrite: ["lite", "low"], ping: ["lite", "low"]
 };
 const aiTask = (task, fast) => { const t = AI_TASKS[task]; return t ? {tier: t[0], think: t[1], task} : fast ? {tier: "lite", think: "low", task: ""} : {tier: "mid", think: "medium", task: ""}; };
@@ -1763,12 +1763,23 @@ function aiPlannerFacts(need){
     if (w.length) L.push("FINISHED, STILL WAITING FOR A MARK: " + w.slice(0, 20).map(x => `${x.title}${x.course ? " (" + x.course + ")" : ""}`).join("; "));
   } catch (e) {}
   if (need.plan) try {
-    const F = computeFocus(), n = nextUp(F), cl = t => { const c = courseOf(t.courseId); return c ? courseLabel(c) : ""; };
-    const row = (x, i) => `${i + 1}. ${x.t.title} (${[cl(x.t), x.t.type, x.t.due ? "due " + x.t.due + (x.t.time ? " " + x.t.time : "") : "", x.R > 0 ? "about " + fmtHM(x.R) + " of work left" : ""].filter(Boolean).join(", ")})${x.alloc > 0 ? " [ON TODAY'S PLAN: " + fmtHM(x.alloc) + " today]" : " [after today's plan]"}${x.reasons && x.reasons[0] ? ": " + x.reasons[0] : ""}`;
-    const list = F.ranked.filter(x => !x.fixed && !x.dead && x.t.status !== "done");
-    if (list.length || n) L.push(`TODAY'S PLAN, in Studyboard's own priority order (the order the student sees under Do This Next and Then; use exactly this order for "what next" or "what after today's plan" questions, don't re-sort by due date):\n${n ? "Do this next: " + (n.label || n.x.t.title) + "\n" : ""}${list.slice(0, 20).map(row).join("\n")}\nStudy time left today: ${fmtHM(Math.max(0, F.th))}.`);
-    const later = (F.later || []).slice(0, 10).map(x => `${x.t.title}${x.t.start ? " (starts " + x.t.start + ")" : ""}`);
-    if (later.length) L.push("COMING UP LATER (not started yet): " + later.join("; "));
+    // laid out exactly as Today's Plan shows it: Do This Next, the rest of today's planned work, then what comes after, in order
+    const F = computeFocus(), cl = t => { const c = courseOf(t.courseId); return c ? courseLabel(c) : ""; };
+    let n = null; try { n = dayIsOff(todayISO()) ? null : nextUp(F); } catch (e) { n = null; }
+    const heroId = n ? n.x.t.id : "", work = F.ranked.filter(x => !x.fixed && !x.dead && x.t.status !== "done");
+    const slot = x => { const sl = (F.slotsBy || {})[x.t.id]; try { return sl && sl.length ? availSlotText(sl) : ""; } catch (e) { return ""; } };
+    const desc = x => `${x.t.title} (${[cl(x.t), x.t.type, x.t.due ? "due " + x.t.due + (x.t.time ? " " + x.t.time : "") : "", x.R > 0 ? "about " + fmtHM(x.R) + " of work left" : ""].filter(Boolean).join(", ")})`;
+    const today = work.filter(x => x.alloc > 0 && x.t.id !== heroId), after = work.filter(x => !(x.alloc > 0) && x.t.id !== heroId);
+    const P = ["TODAY'S PLAN (exactly what the student sees on Today's Plan, top to bottom):"];
+    P.push(n ? `DO THIS NEXT (the task to work on right now): ${desc(n.x)}${slot(n.x) ? ", scheduled " + slot(n.x) : ""}${n.x.alloc > 0 ? ", " + fmtHM(n.x.alloc) + " planned today" : ""}` : "DO THIS NEXT: nothing right now.");
+    P.push("ALSO PLANNED FOR TODAY: " + (today.length ? "\n" + today.map(x => `- ${desc(x)}: ${fmtHM(x.alloc)} today${slot(x) ? ", " + slot(x) : ""}`).join("\n") : "nothing else."));
+    // the whole ranking after today, as Full Ranking shows it: open work in order, then work that starts later or waits on something
+    const rest = after.map(x => ({x, note: x.reasons && x.reasons[0] ? x.reasons[0] : ""}))
+      .concat((F.later || []).filter(x => x.t.status !== "done").map(x => ({x, note: x.t.start ? "starts " + x.t.start : "starts later"})))
+      .concat((F.blocked || []).filter(x => x.t.status !== "done").map(x => ({x, note: "waiting on " + (blockers(x.t) || []).map(y => y.title).join(", ")})));
+    P.push(`THEN, AFTER TODAY'S PLAN IS DONE (the full ranking in this exact order: item 1 is what to do once everything above is finished, item 2 comes after item 1, and so on):${rest.length ? "\n" + rest.slice(0, 40).map((r, i) => `${i + 1}. ${desc(r.x)}${r.note ? ": " + r.note : ""}`).join("\n") : " nothing else is open."}`);
+    P.push(`Study time: ${fmtHM(Math.max(0, F.doneToday || 0))} done today, ${fmtHM(Math.max(0, F.th))} left today.`);
+    L.push(P.join("\n"));
   } catch (e) {}
   return L.join("\n\n");
 }

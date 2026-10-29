@@ -20,7 +20,8 @@ const SEED = {v: 2, updated: 1, settings: {capacity: 15}, courses: [
     T("m1", "Reflection 1", "c1", day(-30), 20, 88), T("m2", "Care Plan", "c2", day(-20), 25, 94), T("m3", "Interview Quiz", "c3", day(-12), 10, 71),
     Object.assign(T("m4", "Case Study 1", "c2", day(-9), 15, 0), {mark: {got: 37, outOf: 40}}),
     T("o1", "Sim (CH1) Reflection", "c2", day(4), 15, null), T("o2", "Professional Portfolio", "c1", day(16), 40, null, {hours: 12}),
-    T("o3", "Module 8 Discussion post", "c3", day(12), 5, null, {hours: 1}), T("o4", "Assignment 2: Reflection on Relational Inquiry", "c3", day(5), 30, null)]};
+    T("o3", "Module 8 Discussion post", "c3", day(12), 5, null, {hours: 1}), T("o4", "Assignment 2: Reflection on Relational Inquiry", "c3", day(5), 30, null),
+    T("o5", "Clinical Prep Worksheet", "c2", day(25), 10, null, {start: day(10)}), T("o6", "Final Reflection on Discussion", "c3", day(20), 10, null, {dependsOn: ["o3"]})]};
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath});
@@ -46,12 +47,20 @@ const SEED = {v: 2, updated: 1, settings: {capacity: 15}, courses: [
     ok(/MARKED WORK/.test(text), "a follow-up keeps the topic of the question before it");
     ({text, sys} = await askQ("what task should I work on after I finish everything listed in todays plan"));
     ok(/TODAY'S PLAN/.test(text) && /OPEN TASKS/.test(text) && !/MARKED WORK/.test(text), "a plan question sends the plan and open tasks, not the marks");
-    const plan = await page.evaluate(() => window.__sbPlan().ranked.filter(x => !x.fixed && !x.dead).map(x => x.title));
-    const tp = text.slice(text.indexOf("TODAY'S PLAN"), text.indexOf("Study time left today"));
-    const sent = [...tp.matchAll(/^\d+\. (.+?) \(BSNC/gm)].map(m => m[1]);
-    ok(sent.length >= 4 && JSON.stringify(sent) === JSON.stringify(plan.slice(0, sent.length)), "Today's Plan goes over in the app's own order: " + sent.join(" > "));
-    ok(/\[ON TODAY'S PLAN: /.test(tp) && /\[after today's plan\]/.test(tp), "each item says whether it's on today's plan or after it");
-    ok(/follow TODAY'S PLAN's order exactly/.test(sys) && /never your own ranking/.test(sys), "and the AI is told to follow that order");
+    const P = await page.evaluate(() => { const p = window.__sbPlan(); return {next: p.next ? p.next.id : "", ranked: p.ranked.filter(x => !x.fixed && !x.dead).map(x => ({id: x.id, title: x.title, alloc: x.alloc}))}; });
+    const nextT = (P.ranked.find(x => x.id === P.next) || {}).title, afterT = P.ranked.filter(x => x.id !== P.next && !(x.alloc > 0)).map(x => x.title);
+    const tp = text.slice(text.indexOf("TODAY'S PLAN (exactly"), text.indexOf("Study time:"));
+    ok(nextT && new RegExp("DO THIS NEXT \\(the task to work on right now\\): " + nextT.replace(/[()[\]]/g, "\\$&")).test(tp), "Do This Next is the same task the plan shows: " + nextT);
+    const thenPart = tp.slice(tp.indexOf("THEN, AFTER TODAY'S PLAN IS DONE"));
+    const sent = [...thenPart.matchAll(/^\d+\. (.+?) \(BSNC/gm)].map(m => m[1]);
+    ok(sent.length >= 1 && JSON.stringify(sent.slice(0, afterT.length)) === JSON.stringify(afterT), "THEN lists what comes after today's plan, in the plan's order: " + sent.join(" > "));
+    ok(!sent.includes(nextT), "and never repeats a task that's already on today's plan");
+    const all = [...thenPart.matchAll(/^\d+\. (.+?) \(BSNC[^)]*\)(?:: (.*))?$/gm)].map(m => [m[1], m[2] || ""]);
+    const ix = t => all.findIndex(x => x[0] === t);
+    ok(ix("Module 8 Discussion post") >= 0 && ix("Clinical Prep Worksheet") > ix("Module 8 Discussion post") && /starts \d{4}-\d\d-\d\d/.test(all[ix("Clinical Prep Worksheet")][1]), "the list goes on past the visible ones: work that starts later comes next, saying when it starts");
+    ok(ix("Final Reflection on Discussion") > ix("Clinical Prep Worksheet") && /waiting on Module 8 Discussion post/.test(all[ix("Final Reflection on Discussion")][1]), "then work that's waiting on another task, saying which");
+    ok(/for "what comes after X" find X in that list and give the next item/.test(sys), "and the AI is told how to answer what comes after a task");
+    ok(/item 1 under THEN, AFTER TODAY'S PLAN IS DONE/.test(sys) && /never a task that is already on today's plan/.test(sys), "and the AI is told how to read it");
     await page.click('[data-act="cpt-new"]').catch(() => {});
     await page.evaluate(() => { const b = document.querySelector('[data-act="cpt-new"]'); if (b) b.click(); });
     ({text, sys} = await askQ("hi!"));
