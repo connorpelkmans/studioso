@@ -102,12 +102,15 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
       if (mode === "cutoff") {
         await p2.waitForFunction(() => /too long/.test((document.getElementById("aiStatus") || {}).textContent || ""), null, {timeout: 15000}).catch(() => {});
         ok(/That video is too long to cover in one go/.test(await p2.textContent("#aiStatus")), "notes that run out of room even at the maximum say the video is too long: " + await p2.textContent("#aiStatus"));
+        const req = (bodies[0].generationConfig.responseSchema || {}).required || [];
+        ok(["status", "title", "overview", "sections", "terms", "reason"].every(k => req.includes(k)), "Gemini must send every notes field (an answer of just {status: ok} with no notes can't happen): " + req.join(","));
         ok(bodies.length === 1 && bodies[0].generationConfig.maxOutputTokens === 65536, "the video gets the most room Gemini allows (65536 tokens) from the start, and isn't watched again: " + bodies.map(b => b.generationConfig.maxOutputTokens));
       } else if (mode === "seen-empty") {
         await p2.waitForFunction(() => /anything to study/.test((document.getElementById("aiStatus") || {}).textContent || ""), null, {timeout: 15000}).catch(() => {});
         const t = await p2.textContent("#aiStatus");
         ok(bodies.length === 1, "a video Gemini watched and found empty isn't watched a second time (" + bodies.length + " looks)");
         ok(/said: The video is a phone review with no teaching/.test(t), "the AI's reason is in the message: " + t);
+        ok(/usually can't watch YouTube videos until they're about a month old/.test(t) && /Show transcript/.test(t), "and it explains that new videos often can't be watched, and how to copy the transcript");
         ok(/read 41,000 tokens, answer complete, status empty, 0 characters of notes/.test(await p2.evaluate(() => (document.querySelector("#aiStatus .cl-diag") || {}).textContent || "")), "and Details shows what came back: " + await p2.evaluate(() => (document.querySelector("#aiStatus .cl-diag") || {}).textContent || ""));
       } else if (/plain/.test(mode)) {
         await p2.waitForFunction(() => /Review Before Saving/.test((document.querySelector("#dlg[open]") || {}).textContent || ""), null, {timeout: 15000}).catch(() => {});
