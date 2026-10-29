@@ -1252,7 +1252,7 @@
     const block = $("#gsSchool");
     let prog = String(gsave().program || (window.SBAREA && SBAREA.get() ? SBAREA.get().text : "") || "").trim().slice(0, 80);
     dlg.__program = prog;
-    block.addEventListener("input", e => { if (e.target.id === "gsProgram") { prog = e.target.value.trim(); dlg.__program = prog; } });
+    block.addEventListener("input", e => { if (e.target.id === "gsProgram") { prog = e.target.value.trim(); dlg.__program = prog; const pg = $("#gsProgGo"); if (pg && found) pg.disabled = !prog || prog.toLowerCase() === String(found.program || "").toLowerCase(); } });
     const hosts = schoolHosts();
     const paint = () => {
       const gs = gsave(), sg = gs.suggest, sc = gs.school;
@@ -1266,18 +1266,23 @@
       else if (sc) block.innerHTML = `<p class="mini" style="margin:0">${esc(tr("gr.school.from", "Filled in from {school}'s own website.", {school: sc.name || tr("gr.school.yours", "your school")}))} ${safeUrl(sc.url) ? `<a href="${esc(safeUrl(sc.url))}" target="_blank" rel="noopener noreferrer">${esc(sc.host || hostOf(sc.url))}</a> ` : ""}<button type="button" class="link-btn" id="gsFind">${esc(tr("gr.school.again", "Search Again"))}</button></p>`;
       else if (hosts.length) block.innerHTML = `<p class="mini" style="margin:0">${esc(tr("gr.school.know", "Studyboard can ask the AI for the grade scale and pass mark at your school ({host}). The AI answers from memory, so check the result against your course outline.", {host: hosts[0].host}))}</p><div class="gr-scale-acts"><button type="button" class="btn small primary" id="gsFind">${esc(tr("gr.school.find", "Find My School's Scale"))}</button></div>`;
       else block.innerHTML = `<label class="f"><span class="lh">${esc(tr("gr.school.name", "Your school"))} <span class="hint">${esc(tr("gr.school.nameHint", "The AI fills in its grade scale and pass mark from what it knows"))}</span></span><input type="text" id="gsSchoolName" maxlength="80" autocomplete="off" placeholder="${esc(tr("gr.school.ph", "e.g. University of Alberta"))}" data-noenter></label><div class="gr-scale-acts"><button type="button" class="btn small primary" id="gsFind">${esc(tr("gr.school.find", "Find My School's Scale"))}</button></div>`;
-      if (!sg || found) block.insertAdjacentHTML("beforeend", `<label class="f"><span class="lh">${esc(tr("gr.school.prog", "Your program"))} <span class="hint">${esc(tr("gr.school.progHint", "optional. Some programs have their own scale, and the school's is the fallback"))}</span></span><input type="text" id="gsProgram" maxlength="80" autocomplete="off" value="${esc(prog)}" placeholder="${esc(tr("gr.school.progPh", "e.g. Nursing"))}" data-noenter></label>`);
+      if (!sg || found) block.insertAdjacentHTML("beforeend", `<label class="f"><span class="lh">${esc(tr("gr.school.prog", "Your program"))} <span class="hint">${esc(tr("gr.school.progHint", "optional. Some programs have their own scale, and the school's is the fallback"))}</span></span><input type="text" id="gsProgram" maxlength="80" autocomplete="off" value="${esc(prog)}" placeholder="${esc(tr("gr.school.progPh", "e.g. Nursing"))}" data-noenter></label>${found ? `<div class="gr-scale-acts"><button type="button" class="btn small" id="gsProgGo" ${prog && prog.toLowerCase() !== String(found.program || "").toLowerCase() ? "" : "disabled"}>${esc(tr("gr.school.progGo", "Look Up This Program's Scale"))}</button></div>` : ""}`);
+      // a program typed after a lookup: look again, for that program
+      const pg = $("#gsProgGo"), pin = $("#gsProgram");
+      if (pg) pg.addEventListener("click", find);
+      if (pin) pin.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); if (pg && !pg.disabled) find(); else if (!found) { const fb0 = $("#gsFind"); if (fb0) fb0.click(); } } });
       const fb = $("#gsFind"); if (fb) fb.addEventListener("click", find);
       const y = $("#gsSugYes"), n = $("#gsSugNo");
       if (y) y.addEventListener("click", () => { const f = Object.assign({official: false}, sg, {official: false}); apply(f); const all = dlg.querySelector('input[name="all"]'); if (all) all.checked = true; saveG({suggest: null}); say(tr("gr.school.sugUsed", "Filled in. Check it, then save.")); paint(); });
       if (n) n.addEventListener("click", () => { saveG({suggest: null, schoolNo: true}); paint(); });
     };
     async function find(){
-      const nm = $("#gsSchoolName"), name = nm ? nm.value.trim() : "";
+      const nm = $("#gsSchoolName"), name = nm ? nm.value.trim() : (found && found.school) || "";
       if (!hosts.length && !name) { say(tr("gr.school.needName", "Type your school's name first.")); if (nm) nm.focus(); return; }
       if (!aiReady()) { say(tr("gr.school.needAi", "Looking this up needs AI. Set up AI in Settings (Gemini is free), or upload a screenshot or paste the scale below.")); showPaste(); return; }
       const fb = $("#gsFind"); if (fb) fb.disabled = true;
-      say(tr("gr.school.searching", "Asking the AI about your school's grade scale…"));
+      { const pg = $("#gsProgGo"); if (pg) pg.disabled = true; }
+      say(prog ? tr("gr.school.searchingProg", "Asking the AI about the {program} grade scale at your school…", {program: prog}) : tr("gr.school.searching", "Asking the AI about your school's grade scale…"));
       try {
         const h = hosts[0] || {host: "", name: ""}, f = vetSchool(await findSchool({host: h.host, name: name || h.name, program: prog}));
         if (f) { apply(f); say(""); paint(); return; }

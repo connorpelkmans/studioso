@@ -120,6 +120,21 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(await page.inputValue("#gsProgram") === "Nursing", "the program box keeps what was typed");
       ok((await rows(page)).length === 8, "and the program's scale fills in"); await ctx.close(); }
     {
+      // looked up first, program typed after: a button (and Enter) looks again for that program
+      const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: FOUND({scope: "school"})});
+      await openSettings(page); await page.click("#gsFind"); await page.waitForFunction(() => /general scale/.test(document.querySelector("#gsSchool").textContent));
+      ok(await page.locator("#gsProgGo").count() === 1 && await page.isDisabled("#gsProgGo"), "after a lookup, the program box has a Look Up button, off while it's empty");
+      await page.fill("#gsProgram", "nursing");
+      ok(!(await page.isDisabled("#gsProgGo")), "typing a program turns it on");
+      ctx.reply = FOUND({scope: "program", program: "Nursing"});
+      await page.click("#gsProgGo"); await page.waitForFunction(() => /the Nursing scale at Test University/.test(document.querySelector("#gsSchool").textContent));
+      ok(ctx.calls === 2 && /program: nursing/.test(JSON.stringify(ctx.bodies[1])), "it asks again, for that program");
+      ok(await page.isDisabled("#gsProgGo"), "and turns off again for the program it just looked up");
+      await page.fill("#gsProgram", "Practical Nursing"); await page.press("#gsProgram", "Enter");
+      await page.waitForFunction(() => document.querySelectorAll("#dlg[open]").length && true); await page.waitForTimeout(500);
+      ok(ctx.calls === 3 && /Practical Nursing/.test(JSON.stringify(ctx.bodies[2])) && await page.locator("#dlg[open] #gsRows").count() === 1, "Enter in the program box looks it up too, without saving or closing the sheet");
+      await ctx.close(); }
+    {
       const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: FOUND({scope: "school"})});
       await openSettings(page); await page.fill("#gsProgram", "Geology"); await page.click("#gsFind");
       await page.waitForFunction(() => /general scale \(no separate Geology scale found\)/.test(document.querySelector("#gsSchool").textContent));
