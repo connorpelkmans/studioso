@@ -1695,10 +1695,12 @@ button.pr-why:hover{background:var(--soft);color:var(--ink)}
 .plan-row .alloc,.plan-row .score{margin:0;min-width:42px;text-align:right;padding:0;background:none;border-radius:0;color:var(--ink);font-weight:600;font-size:.85rem;font-variant-numeric:tabular-nums}
 .plan-row .alloc.idle{color:var(--muted);font-weight:500}
 .plan-gap{margin:4px 0 0;font-size:.85rem;line-height:1.4;color:var(--muted);max-width:60ch}
-.plan-gap:has(.pg-chip){display:flex;flex-wrap:wrap;gap:6px;max-width:none;margin:6px 0 0}
-.pg-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 8px;border-radius:999px;background:var(--soft,rgba(127,127,127,.12));border:1px solid var(--line);color:var(--ink);font:700 .78rem/1.3 var(--display);cursor:default}
-.pg-chip .pg-ic{color:var(--muted);font-size:.8rem}
-.pg-chip.pg-done .pg-ic{color:var(--ok,#2EA36A)}
+/* Time Today with focus logged: a progress ring around the value */
+.hours-ctl b.hc-ring,.pt-adj b.hc-ring{position:relative;display:inline-grid;place-items:center;width:38px;height:38px;min-width:38px!important;margin:0 2px}
+b.hc-ring > svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}
+b.hc-ring circle{fill:none;stroke:color-mix(in srgb,var(--ink) 14%,transparent);stroke-width:3}
+b.hc-ring circle.hc-arc{stroke:#2EA36A;stroke-linecap:round}
+b.hc-ring > span:not(.pt-sr){position:relative;font-size:.86em}
 .plan-rows{margin:6px 0 0}
 .plan-row .score{color:var(--muted)}
 .plan-row .focus-go{width:30px;height:30px;border:1px solid transparent;background:transparent}
@@ -7331,6 +7333,19 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
 .plan-tabs{margin:0}
 .plan-tabs .pt-panel:not([hidden]){margin-top:10px}
 .pr-why[aria-expanded="true"] .pf-chev{transform:rotate(180deg)}
+
+/* Dark mode: buttons on a colour band (course and grade headers) sit on the band as dark glass, not glaring white;
+   the main action keeps a light outline so it still stands out */
+:root[data-theme="dark"] :is(.g2-head,.c2-head) .g2-band :is(.btn,summary.btn),:root[data-theme="dark"] .cpt3-band .btn{color:#fff;background:rgba(8,10,24,.34);border-color:rgba(255,255,255,.3)}
+:root[data-theme="dark"] :is(.g2-head,.c2-head) .g2-band :is(.btn,summary.btn):hover,:root[data-theme="dark"] .cpt3-band .btn:hover{background:rgba(8,10,24,.5);border-color:rgba(255,255,255,.55)}
+:root[data-theme="dark"] :is(.g2-head .g2-band .btn.primary,.c2-head .g2-band .btn:last-child,.cpt3-band .btn){background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.7)}
+:root[data-theme="dark"] :is(.g2-head,.c2-head) .g2-band .btn.ai-btn{color:#E6DCFF;background:color-mix(in srgb,#8B5CF6 30%,rgba(8,10,24,.6));border-color:color-mix(in srgb,#A78BFA 60%,transparent)}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) :is(.g2-head,.c2-head) .g2-band :is(.btn,summary.btn),:root:not([data-theme="light"]) .cpt3-band .btn{color:#fff;background:rgba(8,10,24,.34);border-color:rgba(255,255,255,.3)}
+  :root:not([data-theme="light"]) :is(.g2-head,.c2-head) .g2-band :is(.btn,summary.btn):hover,:root:not([data-theme="light"]) .cpt3-band .btn:hover{background:rgba(8,10,24,.5);border-color:rgba(255,255,255,.55)}
+  :root:not([data-theme="light"]) :is(.g2-head .g2-band .btn.primary,.c2-head .g2-band .btn:last-child,.cpt3-band .btn){background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.7)}
+  :root:not([data-theme="light"]) :is(.g2-head,.c2-head) .g2-band .btn.ai-btn{color:#E6DCFF;background:color-mix(in srgb,#8B5CF6 30%,rgba(8,10,24,.6));border-color:color-mix(in srgb,#A78BFA 60%,transparent)}
+}
 /* ===== module: 103-phone-design.css ===== */
 /* Done bar and the compact time prompt */
 @keyframes sbPop{0%{transform:scale(1)}50%{transform:scale(1.15)}100%{transform:scale(1)}}
