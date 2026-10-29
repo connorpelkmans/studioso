@@ -455,7 +455,8 @@ var SBWB = null;
   let STAGE = null, frame, back, front, texts, cvH, cvI, cvL, tray, selbar, zoomEl;
   function build(){
     if (STAGE) return;
-    STAGE = document.createElement("div"); STAGE.className = "wb-stage";
+    // sm-skip: the board is put back into the page after every save, and must never fade in (it blinked out while drawing)
+    STAGE = document.createElement("div"); STAGE.className = "wb-stage sm-skip";
     STAGE.innerHTML = `<div class="wb-frame" tabindex="0" role="application" aria-roledescription="whiteboard" aria-label="Whiteboard. Draw with the mouse, a finger or a pen. Tools are next to the board.">
         <div class="wb-world wb-back"><div class="wb-tplbox"></div><div class="wb-imgs"></div></div>
         <canvas class="wb-cv wb-hl"></canvas><canvas class="wb-cv wb-ink"></canvas>
