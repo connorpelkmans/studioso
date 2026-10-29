@@ -65506,7 +65506,7 @@ function chipHtml(c){
       const grp = [...by.entries()].map(([k, ts]) => `<optgroup label="${esc(k ? courseLabel(courseOf(k)) : tr("acc.noCourse", "No course"))}">${ts.map(t => `<option value="${esc(t.id)}">${esc(short(t.title, 60))}${t.due ? " · " + esc(fmtShort(t.due)) : ""}</option>`).join("")}</optgroup>`).join("");
       return `<span class="acc-q">${esc(tr("acc.which", "Which task was that for?"))} <span class="mini">${esc(fmtMins(c.min))}</span></span><span class="acc-opts"><select id="accOther" class="acc-sel" aria-label="${esc(tr("acc.pick", "Pick a task"))}"><option value="">${esc(tr("acc.pick", "Pick a task"))}…</option>${grp}</select><button type="button" class="acc-opt" data-act="acc-other-back">${esc(tr("acc.back", "Back"))}</button></span><button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
     }
-    const opts = c.opts.map(t => `<button type="button" class="acc-opt" data-act="acc-which" data-id="${esc(t.id)}">${esc(short(t.title, 26))}</button>`).join("")
+    const opts = c.opts.map(t => `<button type="button" class="acc-opt" data-act="acc-which" data-id="${esc(t.id)}" title="${esc(t.title)}"><i class="acc-dot" style="--c:${esc(colorOf(t.courseId))}" aria-hidden="true"></i><span class="acc-t">${esc(short(t.title, 60))}</span></button>`).join("")
       + (tasksArr().some(t => t.status !== "done" && !c.opts.some(o => o.id === t.id)) ? `<button type="button" class="acc-opt acc-other" data-act="acc-other">${esc(tr("acc.other", "Other…"))}</button>` : "");
     return `<span class="acc-q">${esc(tr("acc.which", "Which task was that for?"))} <span class="mini">${esc(fmtMins(c.min))}</span></span><span class="acc-opts">${opts}</span><button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
   }
@@ -65849,7 +65849,7 @@ hook("focus", e => {
   if (e && e.type === "end" && e.mode === "focus" && !e.taskId && e.minutes && !e.missed) pending({min: e.minutes, at: Date.now(), why: "end"});
 });
 const api = {ACC, time: SBTIME, ratioInfo, ratioFor, spreadFor, memo, capScale, wkScale, startNudge, peak, extraBins, underBoost, explain, logTime, early, askState, maybeAskTook, maybeAskLeft, leftDue, chip: () => chip, on, howHtml, logHtml, formHint, sig: () => (on() ? 1 : 0) + "|" + capScale(), global: () => memo().g};
-window.__sbAcc = Object.assign({state: () => state}, api);
+window.__sbAcc = Object.assign({state: () => state, showChip: (c, ms) => chipShow(c, ms)}, api);
 return api;
 })();
 var SBTIME = SBACC.time;
