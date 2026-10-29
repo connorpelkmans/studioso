@@ -72832,6 +72832,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   const proWhy = why => { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(why); };
   const S = () => state.settings || {};
   const KINDS = [["week", "Week Agenda", "Classes, tasks, space for notes"], ["term", "Term Calendar", "Every deadline and exam"], ["grades", "Grade Report", "Each course, with what you need"], ["prep", "Exam Prep Plan", "Day by day, with topics"], ["sheet", "Formula and Diagram Sheet", "An exam's formulas, terms and diagrams"]];
+  // the Formula and Diagram Sheet is on hold: its layout shows only while its module is switched on
+  const kinds = () => KINDS.filter(k => k[0] !== "sheet" || window.SBEXAMSHEET);
   let PR = null;
   const monday = d => { const x = parse(d); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return iso(x); };
   const dot = (cid, on) => on && cid ? `<i class="pp-dot" style="background:${esc(colorOf(cid))}"></i>` : "";
@@ -72902,6 +72904,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     if (P.locked()) { proWhy("Print and Save as PDF are part of Studyboard Pro."); return; }
     const ex = examsWithPrep();
     PR = Object.assign({kind: "week", week: monday(todayISO()), paper: S().printPaper || (/^en-(US|CA)|^es-(US|MX)/.test(navigator.language || "") ? "letter" : "a4"), opts: Object.assign({classes: true, tasks: true, lines: true, color: false}, S().printOpts || {}), exam: ex[0] ? ex[0].id : ""}, PR && PR.keep ? PR : {}, kind ? {kind} : {}, exam ? {exam} : {});
+    if (!kinds().some(k => k[0] === PR.kind)) PR.kind = "week";
     if (dlg.open) dlg.close();
     openSheet(`<div class="sheet pro-sheet">${head("Print or Save as PDF")}<div class="sheet-body pr-body"></div><div class="sheet-foot"><span class="mini pr-tip">${/Mac|iPhone|iPad/.test(navigator.userAgent || "") ? "To save a PDF, choose PDF in the print dialog." : "To save a PDF, choose Save as PDF (or Microsoft Print to PDF) as the printer."}</span><span class="spacer"></span><button type="button" class="btn primary" data-act="pro-pr-go">Print</button></div></div>`);
     drawPrint();
@@ -72910,7 +72913,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const b = dlg.querySelector(".pr-body"); if (!b || !PR) return;
     const ex = examsWithPrep(), mon = monday(todayISO());
     const chk = (k, l) => `<label class="mi-check"><input type="checkbox" data-pr-opt="${k}"${PR.opts[k] ? " checked" : ""}> ${l}</label>`;
-    b.innerHTML = `<div class="pr-kinds" role="radiogroup" aria-label="What to print">${KINDS.map(([k, n, s]) => `<button type="button" role="radio" aria-checked="${PR.kind === k}" class="pr-kind${PR.kind === k ? " on" : ""}" data-act="pro-pr-kind" data-id="${k}"><b>${n}</b><span>${s}</span></button>`).join("")}</div>
+    b.innerHTML = `<div class="pr-kinds" role="radiogroup" aria-label="What to print">${kinds().map(([k, n, s]) => `<button type="button" role="radio" aria-checked="${PR.kind === k}" class="pr-kind${PR.kind === k ? " on" : ""}" data-act="pro-pr-kind" data-id="${k}"><b>${n}</b><span>${s}</span></button>`).join("")}</div>
       ${PR.kind === "week" ? `<label class="f">Week<select data-pr-week>${[0, 1, 2, 3].map(i => { const w = addDays(mon, i * 7); return `<option value="${w}"${PR.week === w ? " selected" : ""}>${esc(fmtShort(w))} to ${esc(fmtShort(addDays(w, 6)))}${i === 0 ? " (this week)" : ""}</option>`; }).join("")}</select></label>` : ""}
       ${PR.kind === "prep" ? (ex.length ? `<label class="f">Exam<select data-pr-exam>${ex.map(t => `<option value="${esc(t.id)}"${PR.exam === t.id ? " selected" : ""}>${esc(t.title)} · ${esc(fmtShort(t.due))}</option>`).join("")}</select></label>` : `<p class="mini" style="margin:0">No upcoming exam has a prep plan yet. Open an exam and choose Plan My Prep to make one.</p>`) : ""}
       ${PR.kind === "sheet" && window.SBEXAMSHEET ? SBEXAMSHEET.printControls(PR) : ""}
@@ -72956,7 +72959,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   hook("act", (act, el, id) => {
     switch (act) {
       case "pro-pr-open": openPrint(id || ""); return true;
-      case "pro-pr-kind": if (PR) { PR.kind = KINDS.some(k => k[0] === id) ? id : "week"; drawPrint(); } return true;
+      case "pro-pr-kind": if (PR) { PR.kind = kinds().some(k => k[0] === id) ? id : "week"; drawPrint(); } return true;
       case "pro-pr-paper": if (PR) { PR.paper = id === "a4" ? "a4" : "letter"; state.settings = Object.assign({}, state.settings, {printPaper: PR.paper}); saveSettings(); drawPrint(); } return true;
       case "pro-pr-go": doPrint(); return true;
     }
@@ -81149,7 +81152,7 @@ function draw(){
       ${SRC() ? `<div class="tb-row"><button type="button" class="btn small tb-mic${TB.sr ? " on" : ""}" data-tb="mic" aria-pressed="${!!TB.sr}"${TB.busy ? " disabled" : ""}><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg> ${TB.sr ? "Stop Listening" : "Speak Instead"}</button>${TB.sr ? `<span class="mini" role="status">Listening… talk it through, then Stop.</span>` : ""}</div>` : ""}
       <p class="status-msg tb-msg" id="tbStatus" role="status" aria-live="polite">${TB.busy ? `<span class="ai-spin" aria-hidden="true"></span> Checking ${TB.general ? "against general knowledge" : "against your material"}…` : esc(TB.msg || "")}</p>`;
     const can = has || TB.general;
-    foot.innerHTML = `<button type="button" class="btn" data-tb="back">Back to Prep Plan</button><span class="spacer"></span><button type="button" class="btn primary" data-tb="check"${TB.busy || !can ? " disabled" : ""}>Check My Explanation</button>`;
+    foot.innerHTML = `<button type="button" class="btn" data-tb="back">Back to Prep Plan</button><span class="spacer"></span><button type="button" class="btn primary ai-btn" data-tb="check"${TB.busy || !can ? " disabled" : ""}>${AI_ICON} ${TB.busy ? "Checking…" : "Check My Explanation"}</button>`;
     return;
   }
   const same = t.conf === R.conf, n = R.missed.filter(m => m.front && m.back).length;
@@ -81524,6 +81527,8 @@ function btn(ex){
   if (!ex || ex.status === "done" || !ex.due || ex.due < todayISO() || !linked(ex)) return "";
   return `<button type="button" class="link-btn xs-go" data-act="xs-open" data-id="${H(ex.id)}">Formula and Diagram Sheet${locked() ? " " + PRO_BADGE : ""}</button>`;
 }
+// On hold: hidden everywhere in the app (Prep Plan link, Print and PDF layout, Pro features list). Tests switch it on with window.__SB_XS.
+if (!(window.__SB_TEST && window.__SB_XS)) return;
 hook("act", (act, el, id) => {
   if (act === "xs-open") { open(id); return true; }
   return false;

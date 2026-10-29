@@ -268,6 +268,8 @@ function btn(ex){
   if (!ex || ex.status === "done" || !ex.due || ex.due < todayISO() || !linked(ex)) return "";
   return `<button type="button" class="link-btn xs-go" data-act="xs-open" data-id="${H(ex.id)}">Formula and Diagram Sheet${locked() ? " " + PRO_BADGE : ""}</button>`;
 }
+// On hold: hidden everywhere in the app (Prep Plan link, Print and PDF layout, Pro features list). Tests switch it on with window.__SB_XS.
+if (!(window.__SB_TEST && window.__SB_XS)) return;
 hook("act", (act, el, id) => {
   if (act === "xs-open") { open(id); return true; }
   return false;

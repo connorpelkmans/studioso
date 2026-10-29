@@ -189,7 +189,7 @@ function draw(){
       ${SRC() ? `<div class="tb-row"><button type="button" class="btn small tb-mic${TB.sr ? " on" : ""}" data-tb="mic" aria-pressed="${!!TB.sr}"${TB.busy ? " disabled" : ""}><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg> ${TB.sr ? "Stop Listening" : "Speak Instead"}</button>${TB.sr ? `<span class="mini" role="status">Listening… talk it through, then Stop.</span>` : ""}</div>` : ""}
       <p class="status-msg tb-msg" id="tbStatus" role="status" aria-live="polite">${TB.busy ? `<span class="ai-spin" aria-hidden="true"></span> Checking ${TB.general ? "against general knowledge" : "against your material"}…` : esc(TB.msg || "")}</p>`;
     const can = has || TB.general;
-    foot.innerHTML = `<button type="button" class="btn" data-tb="back">Back to Prep Plan</button><span class="spacer"></span><button type="button" class="btn primary" data-tb="check"${TB.busy || !can ? " disabled" : ""}>Check My Explanation</button>`;
+    foot.innerHTML = `<button type="button" class="btn" data-tb="back">Back to Prep Plan</button><span class="spacer"></span><button type="button" class="btn primary ai-btn" data-tb="check"${TB.busy || !can ? " disabled" : ""}>${AI_ICON} ${TB.busy ? "Checking…" : "Check My Explanation"}</button>`;
     return;
   }
   const same = t.conf === R.conf, n = R.missed.filter(m => m.front && m.back).length;
