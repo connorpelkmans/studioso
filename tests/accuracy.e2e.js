@@ -94,8 +94,26 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await noOverflow(page, "with the chip @" + W); await small(page, "#accChip button", "on the chip @" + W);
       await page.screenshot({path: path.join(SHOTS, `which-${W}.png`)});
       ok(await page.evaluate(() => !document.querySelector("dialog[open]")), "it is not a modal");
+      // Other…: any open task from a list
+      const others = await page.evaluate(() => [...document.querySelectorAll('#accChip [data-act="acc-which"]')].map(b => b.dataset.id));
+      ok(await page.locator('#accChip [data-act="acc-other"]').count() === 1, "an Other… choice sits after the suggestions");
+      await page.click('#accChip [data-act="acc-other"]'); await page.waitForSelector("#accOther");
+      const choices = await page.evaluate(() => [...document.querySelectorAll("#accOther option")].map(o => o.value).filter(Boolean));
+      ok(choices.length > others.length && others.every(id => choices.includes(id)), "it lists every open task, not just the suggestions: " + choices.length);
+      await small(page, "#accChip button, #accChip select", "on the Other list @" + W); await noOverflow(page, "with the Other list @" + W);
+      await page.click('#accChip [data-act="acc-other-back"]'); await page.waitForTimeout(100);
+      ok(await page.locator('#accChip [data-act="acc-which"]').count() === others.length, "Back shows the suggestions again");
       await page.click('#accChip [data-act="acc-dismiss"]'); await page.waitForTimeout(150);
       ok(await page.evaluate(() => document.querySelector("#accChip").hidden), "it can be dismissed");
+      await midSession(page, "", 12);
+      await openTimer(page); await page.click('#pomoDlg [data-act="pomo-reset"]'); await page.waitForTimeout(300); await page.evaluate(() => document.querySelector("#pomoDlg").close());
+      await page.waitForSelector("#accChip:not([hidden]) .acc-opt");
+      { const sug = await page.evaluate(() => [...document.querySelectorAll('#accChip [data-act="acc-which"]')].map(b => b.dataset.id));
+        await page.click('#accChip [data-act="acc-other"]'); await page.waitForSelector("#accOther");
+        const pick = await page.evaluate(sug => [...document.querySelectorAll("#accOther option")].map(o => o.value).find(v => v && !sug.includes(v)), sug);
+        const before = (await task(page, pick)).focusMin || 0;
+        await page.selectOption("#accOther", pick); await page.waitForTimeout(300);
+        ok(((await task(page, pick)).focusMin || 0) === before + 12 && await page.evaluate(() => document.querySelector("#accChip").hidden), "picking a task from Other… logs the session to it"); }
       await midSession(page, "", 12);
       await openTimer(page); await page.click('#pomoDlg [data-act="pomo-reset"]'); await page.waitForTimeout(300); await page.evaluate(() => document.querySelector("#pomoDlg").close());
       await page.waitForSelector("#accChip:not([hidden]) .acc-opt");
