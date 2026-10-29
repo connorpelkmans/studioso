@@ -1708,9 +1708,45 @@ function exportArrays(){ const a = clone(toArrays()); if (a.settings && a.settin
 
 // The planner's own facts for AI answers: every mark, course standings and Today's Plan in the app's own order, so questions like
 // "my best assignment mark" or "what's after today's plan" are lookups, not guesses
-function aiPlannerFacts(){
+// Which parts of the planner a question needs, so only those are sent. prev is the question before it, so a follow-up
+// ("and the lowest?") keeps its topic. Course names and codes count as asking about that course's work.
+const AI_NEED_RX = {
+  grades: /\b(grades?|marks?|marked|scores?|scored|gpa|percent(age)?|averages?|best|worst|highest|lowest|top|pass(ing|ed)?|fail(ing|ed)?|goals?|targets?|how am i doing|how i'm doing|standing|letter grade|results?|feedback)\b|%/i,
+  plan: /\b(next|today|tonight|right now|plan|planned|should i|after (that|this|i finish|everything)|priorit(y|ies|i[sz]e)|first|focus|work on|start on|study time|free time|time left|how much time|busy|behind|catch up|rough week|crunch|on track|workload|my week|weekend|overwhelmed|stressed)\b/i,
+  tasks: /\b(due|deadlines?|to-?dos?|homework|overdue|late|submit(ted)?|this week|next week|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|left|remaining|coming up|upcoming|finished|done|completed)\b/i,
+  work: /\b(assignments?|tasks?|essays?|papers?|projects?|labs?|readings?|reflections?|portfolio|discussions?|posts?|exams?|quiz(zes)?|midterms?|finals?|tests?)\b/i,
+  schedule: /\b(class(es)?|lectures?|seminars?|clinicals?|placements?|tutorials?|when is|where is|what time|rooms?|office hours|instructors?|professors?|profs?|teach(es|er)?|calendar|schedule)\b/i,
+  cards: /\b(flash ?cards?|decks?|cards?|review|quiz me|memori[sz]e|spaced)\b/i,
+  notes: /\b(notes?|wrote|jotted|sticky|boards?)\b/i,
+  files: /\b(files?|pdfs?|slides?|syllabus|documents?|chapters?|uploads?)\b/i
+};
+const AI_SMALLTALK = /^\s*(hi|hey|hello|yo|sup|thanks|thank you|thx|ty|ok(ay)?|cool|nice|lol|haha|good (morning|afternoon|evening|night)|how are you|how's it going|what's up|bye|goodnight)\b[\s!.?]*$/i;
+function aiNeeds(q, prev){
+  const o = {grades: false, plan: false, tasks: false, work: false, schedule: false, cards: false, notes: false, files: false, course: [], small: false};
+  q = String(q || ""); prev = String(prev || "");
+  if (AI_SMALLTALK.test(q)) { o.small = true; return o; }
+  // the question's own topics; a follow-up with none of its own ("and the lowest?") takes the previous question's
+  const topics = t => Object.keys(AI_NEED_RX).filter(k => AI_NEED_RX[k].test(t));
+  let own = topics(q);
+  const follow = !!prev && !own.length && (/^\s*(and|also|what about|how about|which|why|so|ok|then|same)\b/i.test(q) || /\b(it|that|those|them|these|this one|that one)\b/i.test(q) || q.trim().split(/\s+/).length <= 2);
+  const s = follow ? q + "\n" + prev : q;
+  if (follow) own = topics(s);
+  Object.keys(AI_NEED_RX).forEach(k => { o[k] = own.includes(k); });
+  const low = s.toLowerCase();
+  o.course = coursesArr().filter(c => [c.code, c.name].some(x => { x = String(x || "").toLowerCase().trim(); return x.length >= 3 && (low.includes(x) || low.replace(/\s+/g, "").includes(x.replace(/\s+/g, ""))); })).map(c => c.id);
+  // a question about a course with nothing else named: its work and grades
+  if (o.course.length && !Object.keys(AI_NEED_RX).some(k => o[k])) { o.tasks = true; o.grades = true; }
+  // what to do next depends on what's due
+  // naming a kind of work ("assignment", "exam") asks about tasks, unless it's a question about their marks
+  if (o.work && !o.grades) o.tasks = true;
+  if (o.plan) o.tasks = true;
+  return o;
+}
+const aiNeedsAny = n => !!n && !n.small && (n.grades || n.plan || n.tasks || n.schedule || n.cards || n.notes || n.files || n.course.length > 0);
+function aiPlannerFacts(need){
+  need = need || {grades: true, plan: true};
   const L = [];
-  try {
+  if (need.grades) try {
     const G = window.SBGRADES;
     const lines = G ? G.lines() : []; if (lines.length) L.push("COURSE GRADES:\n" + lines.map(x => "- " + x).join("\n"));
     const it = G && G.items ? G.items() : [];
@@ -1721,7 +1757,7 @@ function aiPlannerFacts(){
     const w = G && G.waiting ? G.waiting() : [];
     if (w.length) L.push("FINISHED, STILL WAITING FOR A MARK: " + w.slice(0, 20).map(x => `${x.title}${x.course ? " (" + x.course + ")" : ""}`).join("; "));
   } catch (e) {}
-  try {
+  if (need.plan) try {
     const F = computeFocus(), n = nextUp(F), cl = t => { const c = courseOf(t.courseId); return c ? courseLabel(c) : ""; };
     const row = (x, i) => `${i + 1}. ${x.t.title} (${[cl(x.t), x.t.type, x.t.due ? "due " + x.t.due + (x.t.time ? " " + x.t.time : "") : "", x.R > 0 ? "about " + fmtHM(x.R) + " of work left" : ""].filter(Boolean).join(", ")})${x.alloc > 0 ? " [ON TODAY'S PLAN: " + fmtHM(x.alloc) + " today]" : " [after today's plan]"}${x.reasons && x.reasons[0] ? ": " + x.reasons[0] : ""}`;
     const list = F.ranked.filter(x => !x.fixed && !x.dead && x.t.status !== "done");
