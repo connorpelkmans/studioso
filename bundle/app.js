@@ -67710,7 +67710,14 @@ function raMore(onlyGx){
 // Tidied right after the redraw
 hook("render", () => { queueMicrotask(() => raMore()); requestAnimationFrame(() => raMore()); });
 // Header bands are also redrawn on their own (a group's header refreshes with live updates)
-new MutationObserver(() => { if (document.querySelector(".g2-band > .row-actions:not([data-ra]) > .gx-assign")) raMore(true); }).observe(document.documentElement, {childList: true, subtree: true});
+// (a phone folds any new header's buttons into More, once per frame; a computer only the group-assignment ones)
+let raT = 0;
+new MutationObserver(() => {
+  if (raT) return;
+  const any = RA_MQ.matches ? document.querySelector(".g2-band > .row-actions:not([data-ra])") : document.querySelector(".g2-band > .row-actions:not([data-ra]) > .gx-assign");
+  if (!any) return;
+  raT = requestAnimationFrame(() => { raT = 0; raMore(!RA_MQ.matches); });
+}).observe(document.documentElement, {childList: true, subtree: true});
 RA_MQ.addEventListener("change", () => { try { render(); } catch (e) {} });
 document.addEventListener("click", e => {
   const t = e.target.closest && e.target.closest(".ra-more-btn");
