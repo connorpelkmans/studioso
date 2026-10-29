@@ -8861,8 +8861,10 @@ function planGapWhy(F){
   const gap = q(F.thSet) - q(planned);
   if (gap < 0.25) return why;
   let rest = gap;
-  if (F.doneToday >= 0.25) { const d = Math.min(rest, q(F.doneToday)); why.push(tr("plan.gap.done", "{time} of focus is already done today, so it comes off the {set} you set.", {time: fmtHM(d), set: fmtHM(F.thSet)})); rest -= d; }
-  if (F.lateCap && rest >= 0.25) { const end = F.sd ? fmtTime(AVAIL.toT(F.sd.end % 1440)) : "1:00 AM"; why.push(F.sd && F.sd.past && !F.sd.night ? tr("plan.gap.over", "Your study day ended at {end}, so today's plan is done.", {end}) : tr("plan.gap.late", "It's late, so today's plan stops at {end}, your end of day.", {end})); rest = 0; }
+  // each reason also gets a short chip (shown) next to its full sentence (tooltip and screen readers)
+  why.chips = [];
+  if (F.doneToday >= 0.25) { const d = Math.min(rest, q(F.doneToday)); why.push(tr("plan.gap.done", "{time} of focus is already done today, so it comes off the {set} you set.", {time: fmtHM(d), set: fmtHM(F.thSet)})); why.chips.push({k: "done", t: tr("plan.chip.done", "{time} done of {set}", {time: fmtHM(d), set: fmtHM(F.thSet)})}); rest -= d; }
+  if (F.lateCap && rest >= 0.25) { const end = F.sd ? fmtTime(AVAIL.toT(F.sd.end % 1440)) : "1:00 AM", over = F.sd && F.sd.past && !F.sd.night; why.push(over ? tr("plan.gap.over", "Your study day ended at {end}, so today's plan is done.", {end}) : tr("plan.gap.late", "It's late, so today's plan stops at {end}, your end of day.", {end})); why.chips.push({k: "end", t: over ? tr("plan.chip.over", "Day ended {end}", {end}) : tr("plan.chip.late", "Ends {end}", {end})}); rest = 0; }
   if (F.avail && F.avail.active && F.avail.note) rest = 0;
   return why;
 }
@@ -9092,7 +9094,7 @@ function focusHtml(){
   const planTile = `<div class="pt-stat pt-hours" role="group" aria-label="Study time today"><div class="pt-adj"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button><b${hoursTitle ? ` title="${esc(hoursTitle)}"` : ""}>${fmtHM(F.thSet) || "0m"}</b><button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></div><span>Planned Today</span>${freeMin != null ? `<span class="pt-free">${esc(fmtHM(freeMin / 60) || "0m")} free left</span>` : ""}</div>`;
   const ptStats = todayList.length || overdue || queued ? `<div class="pt-stats">${planTile}${ribbonHtml(week, pick, {n: overdue, title: ((lateRows[0] || pastFixed[0]) || {t: {}}).t.title || ""})}</div>` : "";
   return `<section class="focus plan" aria-label="Today's Plan">
-    <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? `<p class="plan-gap">${F.gapWhy.map(esc).join(" ")}</p>` : ""}</div>
+    <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? `<p class="plan-gap">${(F.gapWhy.chips || []).length === F.gapWhy.length ? F.gapWhy.chips.map((c, i) => `<span class="pg-chip pg-${c.k}" title="${esc(F.gapWhy[i])}"><span class="pg-ic" aria-hidden="true">${c.k === "done" ? "✓" : "◐"}</span>${esc(c.t)}<span class="pt-sr">. ${esc(F.gapWhy[i])}</span></span>`).join("") : F.gapWhy.map(esc).join(" ")}</p>` : ""}</div>
       ${(hoursBar => { PLAN_HOURS = hoursBar; return `<div class="fh-ctl${ptStats ? " fh-chip has-stats" : ""}${autoChipHtml() ? "" : " fh-only-hours"}">${hoursBar}${autoChipHtml()}</div>`; })(`<div class="hours-ctl" role="group" aria-label="Study time available today"><span class="mini">Time Today</span><span class="hc-row"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button><b${hoursTitle ? ` title="${esc(hoursTitle)}"` : ""}>${fmtHM(F.thSet) || "0m"}</b><button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></span></div>`)}</div>
     ${ui.focusOpen ? `${window.SBPRO ? SBPRO.todayHtml() : ""}${dayTimelineHtml(F, todayList, heroId)}${nextUpHtml(F, hero)}${skipped}${spare}${planNotesHtml(F, inView, warn)}${pastHtml}${availStripHtml(F)}
       ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
@@ -9186,7 +9188,7 @@ function viewBars(){
         ${rows}
       </div></div>
     <div class="tl-legend">${TYPES.filter(k => ts.some(t => t.type === k)).map(k => `<span><i class="tl-ic key">${typeIcon(k)}</i>${esc(k)}</span>`).join("")}<span><i class="dep-key"></i>Depends On</span><span><i class="tl-ic key late">${typeIcon("Other")}</i>Past Due</span></div>
-    <p class="hint-line tip-everyday">Drag an icon to move its due date. Finished tasks are hidden.${noDue ? ` ${noDue} without a due date ${noDue === 1 ? "isn't" : "aren't"} shown.` : ""}</p>`;
+    <p class="hint-line tip-everyday">Drag to change a due date${noDue ? ` · ${noDue} undated not shown` : ""}</p>`;
 }
 function viewCalendar(){
   const today = todayISO();
@@ -9255,7 +9257,7 @@ function viewCourses(){
       </span></button></div>`;
   }).join("");
   return `<div class="view-head"><h2>Your Courses</h2>${proBtns("courses")}${trashBtn("course")}</div><div class="course-list" data-sortable="courses">${cards}</div>
-    <div class="term-bar"><span>${ARCHIVE_SM}Term over? Put its courses and tasks away, and bring anything back later.</span><button class="btn small" data-act="new-term">Start a New Term</button><button class="btn small" data-act="archive-open">Open Archive${(n => n ? ` (${n})` : "")(allCourses().filter(c => c.archived).length)}</button></div>`;
+    <div class="term-bar"><span>${ARCHIVE_SM}Term over?</span><button class="btn small" data-act="new-term">Start a New Term</button><button class="btn small" data-act="archive-open">Open Archive${(n => n ? ` (${n})` : "")(allCourses().filter(c => c.archived).length)}</button></div>`;
 }
 // The line under a course's name
 function courseNextHtml(open, today){
@@ -14024,7 +14026,7 @@ function viewNoteBoard(){
         <div class="nb-target trash" data-drop-note="trash" role="button" tabindex="0" data-act="trash-open" data-kind="note" title="Trash" aria-label="Trash${trashVisible().filter(e => e.kind === "note").length ? ", " + trashVisible().filter(e => e.kind === "note").length + " recently deleted" : ""}. Click to see recently deleted notes, or drag a note here to delete it.">${TRASH}<span>Trash</span></div>
       </div>
     </div>${envelopeHtml()}</div>
-    <p class="hint-line tip-everyday nb-hint"><span class="nbh-l">Drag notes to move them. Drop a note on a board tab, the folder (archive) or the trash. Drag stickers onto notes. Tap a note to edit.</span><span class="nbh-s">Drag a note to move it. Tap one to edit.</span></p>`;
+    <p class="hint-line tip-everyday nb-hint"><span class="nbh-l">Drag to move · drop on a tab, the archive or the trash · tap to edit</span><span class="nbh-s">Drag a note to move it. Tap one to edit.</span></p>`;
 }
 /*NOTESPOT-START*/
 // The first spot in view, row by row, where a w by h note overlaps none of the others
@@ -14601,8 +14603,7 @@ function viewQuizzes(){
     ${chipsHtml()}${q ? `<div class="search-note">Showing quizzes that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${list.length ? `<div class="qz-grid">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length ? "" : emptyArt()}<strong>${all.length ? "No Quizzes Match" : "No Quizzes Yet"}</strong>${all.length ? "Try another course or search." : (inPreview() ? "Make a quiz from one of your flashcard decks." : "Upload your slides, notes or readings and " + esc(aiWho("AI")) + " writes a practice quiz. Or make one from a flashcard deck, or write your own.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px">${inPreview() || all.length ? "" : `<button class="btn primary ai-btn" data-act="qz-ai">${AI_ICON} From Slides or Notes</button>`}<button class="btn${inPreview() ? " primary" : ""}" data-act="qz-from-deck">From a Deck</button><button class="btn" data-act="qz-write">Write Your Own</button></div></div>`}
     <section class="grp-strip"><div class="grp-strip-txt">${QZ_GROUP_IC}<span><b>Study Together</b><span class="mini">Share quizzes with a study group: everyone takes them in their own app and sees the best scores.</span></span></div>
-      <div class="grp-strip-btns"><button class="btn small" data-act="grp-page">Study Groups</button></div></section>
-    <p class="hint-line tip-everyday">Make a quiz straight from your slides or notes with Add Quiz, or from a deck with Make a Quiz.</p>`;
+      <div class="grp-strip-btns"><button class="btn small" data-act="grp-page">Study Groups</button></div></section>`;
 }
 /* Review hero: what's ready, about how long, and one Start button */
 // Decks with cards to review or learn, in the chosen course
@@ -14682,8 +14683,7 @@ function viewFlashcards(){
   return reviewSwitchHtml() + `<div class="view-head" data-fc-list><h2>Your Decks</h2>
       ${window.SBSHARE ? SBSHARE.libBtn() : ""}${archBtn()}${trashBtn("deck") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="deck" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${reviewHeroHtml()}${chipsHtml()}${ui.q.trim() ? `<div class="search-note">Showing decks that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
-    ${ds.length ? `<div class="deck-grid">${tiles}</div>` : `<div class="empty${decksArr().length ? "" : " sb-es"}" style="margin-top:14px">${decksArr().length ? "" : emptyArt()}<strong>${deckListArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Add cards or paste a list, then study them." + (inPreview() ? "" : " Or upload slides and let " + esc(aiWho("AI")) + " make them.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inPreview() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}
-    <p class="hint-line tip-everyday">Studyboard learns how fast you forget each card and brings it back just before you would.</p>`;
+    ${ds.length ? `<div class="deck-grid">${tiles}</div>` : `<div class="empty${decksArr().length ? "" : " sb-es"}" style="margin-top:14px">${decksArr().length ? "" : emptyArt()}<strong>${deckListArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Add cards or paste a list, then study them." + (inPreview() ? "" : " Or upload slides and let " + esc(aiWho("AI")) + " make them.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inPreview() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}`;
 }
 /* Your own order for decks and quizzes: drag a tile (on touch, press and hold, or drag its grip), or press Alt + Left or Right Arrow */
 const RV_TILE = ".deck-grid > .deck-fc[data-rv], .qz-grid > .qz-card[data-rv]", RV_HOW = "Drag to reorder, or press Alt + Left or Right Arrow";
@@ -26421,7 +26421,7 @@ hook("boot", boot);
         ${preview ? "Study groups and share links work on the Studyboard website and in the desktop app, where you sign in to your Studyboard account." : "Sharing needs a free Studyboard account. Sign in to make or join study groups and share decks."}
         ${preview ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="${local ? "sb-connect" : "sb-signin"}">${local && !SB_HOSTED ? "Set Up Sync" : "Sign In"}</button></div>`}</div>
       <section class="grp-file"><h3 class="fsec">Share Without an Account</h3>
-        <p>No account? Share a deck as a file: open it, tap <b>Share</b>, then <b>Share as File</b>. Others use <b>Import a Deck File</b>.</p>
+        <p>Open a deck, then <b>Share › Share as File</b>.</p>
         <div class="row-actions"><button class="btn" data-act="grp-import">Import a Deck File</button><button class="btn" data-act="grp-to-decks">Go to Flashcards</button></div></section>`;
   }
   function errBox(msg, setup){
@@ -31295,7 +31295,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       return `<li><button type="button" class="gp-term" data-act="gp-term" data-id="${esc(t.id)}"><span class="gp-term-n"><b>${esc(t.name)}</b><span class="mini">${t.manual ? "Earlier record" : `${(t.courses || []).length} course${(t.courses || []).length === 1 ? "" : "s"}`}${p.credits ? ` · ${fmtCr(p.credits)} credits` : ""}${est ? " · some grades were projected" : ""}</span></span>${show && p.gpa != null ? `<span class="gp-term-g"><b>${fmtG(p.gpa)}</b><span class="mini">GPA</span></span>` : ""}</button></li>`; }).join("");
     return `<section class="gp-hist" aria-labelledby="gpHistH"><div class="gp-sec-h"><h3 class="fsec" id="gpHistH">Past Terms</h3><span class="spacer"></span><button type="button" class="btn small" data-act="gp-term-save">Save This Term</button><button type="button" class="btn small" data-act="gp-term-add">Add an Earlier Record</button></div>
       ${T.length ? `<ul class="gp-terms">${rows}</ul>${show && S.pastGpa != null ? `<p class="mini" style="margin:8px 0 0">Cumulative GPA across past terms: <b>${fmtG(S.pastGpa)}</b>${S.cum != null && S.n ? `. With this term's projected grades: <b>${fmtG(S.cum)}</b>` : ""}.</p>` : ""}`
-        : `<p class="mini" style="margin:0">Keep each term's final grades here to see your cumulative GPA. Starting a new term saves them for you. Have grades from before Studyboard? Add them as an earlier record.</p>`}</section>`;
+        : `<p class="mini" style="margin:0">Save each term to track your cumulative GPA.</p>`}</section>`;
   }
   function creditsSheet(){
     const cs = coursesArr(); if (!cs.length) return;
@@ -31445,8 +31445,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const stat = (n, k, bad) => `<div class="gr-stat gp-tile${bad ? " gr-bad" : ""}"><span class="gr-v">${n}</span><span class="gr-k">${k}</span></div>`;
     const hero = `<div class="gp-hero-band">
         <span class="g2-ring gp-cap" aria-hidden="true">${GP_CAP}</span>
-        <div class="gp-hero-t"><span class="g2-kick">${S.weighted ? "Credit-Weighted Average" : "Average Across Courses"}</span>${avg != null ? `<span class="gp-avg">${fmtP(avg)}</span><span class="gp-hero-sub">${withMarks.length} course${withMarks.length === 1 ? "" : "s"} with marks · ${atRisk ? `${atRisk} need${atRisk === 1 ? "s" : ""} attention` : "all on track"}</span>` : `<span class="gp-avg gr-none">No Marks Yet</span><span class="gp-hero-sub">Marks you enter show up here</span>`}</div>
-        <div class="gp-sum">${stat(atRisk, "Need attention", atRisk)}${stat(waiting.length, "Waiting for a mark")}${stat(Math.max(0, toCome), "Marks still to come")}</div></div>`;
+        <div class="gp-hero-t"><span class="g2-kick">${S.weighted ? "Credit-Weighted Average" : "Average Across Courses"}</span>${avg != null ? `<span class="gp-avg">${fmtP(avg)}</span><span class="gp-hero-sub">${withMarks.length} course${withMarks.length === 1 ? "" : "s"} with marks · ${atRisk ? `${atRisk} need${atRisk === 1 ? "s" : ""} attention` : "all on track"}</span>` : `<span class="gp-avg gr-none">No Marks Yet</span>`}</div>
+        ${atRisk || waiting.length || toCome > 0 ? `<div class="gp-sum">${stat(atRisk, "Need attention", atRisk)}${stat(waiting.length, "Waiting for a mark")}${stat(Math.max(0, toCome), "Marks still to come")}</div>` : ""}</div>`;
     const tn = topNeed(all);
     const detailOf = gr => {
       const c = gr.c, g = gr.g;
@@ -34835,7 +34835,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     const imp = `<button class="btn small" data-act="import-syllabus">Import a Syllabus</button></div>`;
     if (!coursesArr().length) return html.replace(imp, m => m.replace("</div>", ` <button class="btn small" data-act="lms-open">Connect a School Site</button></div>`));
     if (on.length) return html.replace("<h2>Your Courses</h2>", m => m + `<button class="btn small" data-act="${on.length === 1 ? on[0].P.k + "-open" : "lms-open"}">${esc(on.length === 1 ? on[0].P.name : "School Sites")}</button>`);
-    return html.replace(`<div class="term-bar">`, m => `<div class="term-bar lms-bar"><span><b>Connect Canvas, Brightspace or Blackboard</b> to bring in your courses, due dates and grades.</span><button class="btn small" data-act="lms-open">Connect</button></div>` + m);
+    return html.replace(`<div class="term-bar">`, m => `<div class="term-bar lms-bar"><span title="Brings in your courses, due dates and grades"><b>Connect Canvas, Brightspace or Blackboard</b></span><button class="btn small" data-act="lms-open">Connect</button></div>` + m);
   };
   const origCard = card;
   card = function(t){

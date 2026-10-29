@@ -763,7 +763,7 @@
       return `<li><button type="button" class="gp-term" data-act="gp-term" data-id="${esc(t.id)}"><span class="gp-term-n"><b>${esc(t.name)}</b><span class="mini">${t.manual ? "Earlier record" : `${(t.courses || []).length} course${(t.courses || []).length === 1 ? "" : "s"}`}${p.credits ? ` · ${fmtCr(p.credits)} credits` : ""}${est ? " · some grades were projected" : ""}</span></span>${show && p.gpa != null ? `<span class="gp-term-g"><b>${fmtG(p.gpa)}</b><span class="mini">GPA</span></span>` : ""}</button></li>`; }).join("");
     return `<section class="gp-hist" aria-labelledby="gpHistH"><div class="gp-sec-h"><h3 class="fsec" id="gpHistH">Past Terms</h3><span class="spacer"></span><button type="button" class="btn small" data-act="gp-term-save">Save This Term</button><button type="button" class="btn small" data-act="gp-term-add">Add an Earlier Record</button></div>
       ${T.length ? `<ul class="gp-terms">${rows}</ul>${show && S.pastGpa != null ? `<p class="mini" style="margin:8px 0 0">Cumulative GPA across past terms: <b>${fmtG(S.pastGpa)}</b>${S.cum != null && S.n ? `. With this term's projected grades: <b>${fmtG(S.cum)}</b>` : ""}.</p>` : ""}`
-        : `<p class="mini" style="margin:0">Keep each term's final grades here to see your cumulative GPA. Starting a new term saves them for you. Have grades from before Studyboard? Add them as an earlier record.</p>`}</section>`;
+        : `<p class="mini" style="margin:0">Save each term to track your cumulative GPA.</p>`}</section>`;
   }
   function creditsSheet(){
     const cs = coursesArr(); if (!cs.length) return;
@@ -913,8 +913,8 @@
     const stat = (n, k, bad) => `<div class="gr-stat gp-tile${bad ? " gr-bad" : ""}"><span class="gr-v">${n}</span><span class="gr-k">${k}</span></div>`;
     const hero = `<div class="gp-hero-band">
         <span class="g2-ring gp-cap" aria-hidden="true">${GP_CAP}</span>
-        <div class="gp-hero-t"><span class="g2-kick">${S.weighted ? "Credit-Weighted Average" : "Average Across Courses"}</span>${avg != null ? `<span class="gp-avg">${fmtP(avg)}</span><span class="gp-hero-sub">${withMarks.length} course${withMarks.length === 1 ? "" : "s"} with marks · ${atRisk ? `${atRisk} need${atRisk === 1 ? "s" : ""} attention` : "all on track"}</span>` : `<span class="gp-avg gr-none">No Marks Yet</span><span class="gp-hero-sub">Marks you enter show up here</span>`}</div>
-        <div class="gp-sum">${stat(atRisk, "Need attention", atRisk)}${stat(waiting.length, "Waiting for a mark")}${stat(Math.max(0, toCome), "Marks still to come")}</div></div>`;
+        <div class="gp-hero-t"><span class="g2-kick">${S.weighted ? "Credit-Weighted Average" : "Average Across Courses"}</span>${avg != null ? `<span class="gp-avg">${fmtP(avg)}</span><span class="gp-hero-sub">${withMarks.length} course${withMarks.length === 1 ? "" : "s"} with marks · ${atRisk ? `${atRisk} need${atRisk === 1 ? "s" : ""} attention` : "all on track"}</span>` : `<span class="gp-avg gr-none">No Marks Yet</span>`}</div>
+        ${atRisk || waiting.length || toCome > 0 ? `<div class="gp-sum">${stat(atRisk, "Need attention", atRisk)}${stat(waiting.length, "Waiting for a mark")}${stat(Math.max(0, toCome), "Marks still to come")}</div>` : ""}</div>`;
     const tn = topNeed(all);
     const detailOf = gr => {
       const c = gr.c, g = gr.g;

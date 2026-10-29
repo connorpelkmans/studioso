@@ -71,7 +71,7 @@ function viewBars(){
         ${rows}
       </div></div>
     <div class="tl-legend">${TYPES.filter(k => ts.some(t => t.type === k)).map(k => `<span><i class="tl-ic key">${typeIcon(k)}</i>${esc(k)}</span>`).join("")}<span><i class="dep-key"></i>Depends On</span><span><i class="tl-ic key late">${typeIcon("Other")}</i>Past Due</span></div>
-    <p class="hint-line tip-everyday">Drag an icon to move its due date. Finished tasks are hidden.${noDue ? ` ${noDue} without a due date ${noDue === 1 ? "isn't" : "aren't"} shown.` : ""}</p>`;
+    <p class="hint-line tip-everyday">Drag to change a due date${noDue ? ` · ${noDue} undated not shown` : ""}</p>`;
 }
 function viewCalendar(){
   const today = todayISO();
@@ -140,7 +140,7 @@ function viewCourses(){
       </span></button></div>`;
   }).join("");
   return `<div class="view-head"><h2>Your Courses</h2>${proBtns("courses")}${trashBtn("course")}</div><div class="course-list" data-sortable="courses">${cards}</div>
-    <div class="term-bar"><span>${ARCHIVE_SM}Term over? Put its courses and tasks away, and bring anything back later.</span><button class="btn small" data-act="new-term">Start a New Term</button><button class="btn small" data-act="archive-open">Open Archive${(n => n ? ` (${n})` : "")(allCourses().filter(c => c.archived).length)}</button></div>`;
+    <div class="term-bar"><span>${ARCHIVE_SM}Term over?</span><button class="btn small" data-act="new-term">Start a New Term</button><button class="btn small" data-act="archive-open">Open Archive${(n => n ? ` (${n})` : "")(allCourses().filter(c => c.archived).length)}</button></div>`;
 }
 // The line under a course's name
 function courseNextHtml(open, today){
