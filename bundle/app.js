@@ -82034,9 +82034,11 @@ const LINKCARDS = (() => {
     status: {type: "STRING", enum: ["ok", "unreachable", "paywall", "empty", "too_long"], description: "ok only when you could actually see the content"},
     title: {type: "STRING", description: "The source's real title"},
     overview: {type: "STRING"},
-    sections: {type: "ARRAY", items: {type: "OBJECT", properties: {heading: {type: "STRING"}, points: {type: "ARRAY", items: {type: "STRING"}}}}},
-    terms: {type: "ARRAY", items: {type: "OBJECT", properties: {term: {type: "STRING"}, definition: {type: "STRING"}}}},
-    reason: {type: "STRING", description: "when status isn't ok: one short sentence on what you actually saw"}}, required: ["status"]};
+    sections: {type: "ARRAY", items: {type: "OBJECT", properties: {heading: {type: "STRING"}, points: {type: "ARRAY", items: {type: "STRING"}}}, required: ["heading", "points"], propertyOrdering: ["heading", "points"]}},
+    terms: {type: "ARRAY", items: {type: "OBJECT", properties: {term: {type: "STRING"}, definition: {type: "STRING"}}, required: ["term", "definition"], propertyOrdering: ["term", "definition"]}},
+    reason: {type: "STRING", description: "when status isn't ok: one short sentence on what you actually saw; empty when ok"}},
+    // every field required: Gemini's structured answers leave optional fields out, and a {"status": "ok"} with no notes read as "nothing to study"
+    required: ["status", "title", "overview", "sections", "terms", "reason"], propertyOrdering: ["status", "title", "overview", "sections", "terms", "reason"]};
   const SHAPE = '{"status": "ok" | "unreachable" | "paywall" | "empty" | "too_long", "title": "...", "overview": "...", "sections": [{"heading": "...", "points": ["..."]}], "terms": [{"term": "...", "definition": "..."}], "reason": "..."}';
   const SYS = trial => "You turn one source (a YouTube video, a web article or text a student pasted from one) into study notes for a university student, who will make flashcards from them. " +
     `title: the source's real title. overview: 2 to 4 sentences on what it covers. sections: one per main topic in order (2 to 7), each with 2 to 6 points that keep the specifics: definitions, steps, mechanisms, numbers, examples. terms: the key terms it defines (at most 12), each with a one-sentence definition. ${trial ? "About 250 to 400 words in all." : "About 400 to 900 words in all."} ` +
@@ -82076,7 +82078,7 @@ const LINKCARDS = (() => {
       const sawVideo = x => { const n = tok(x); return n == null || n >= 1500; };
       const look = x => { const d = x && x.data && typeof x.data === "object" ? x.data : {}; return {st: String(d.status || "").toLowerCase(), len: notesLen(d)}; };
       let tA = Date.now();
-      const log = (how, x) => { const i = look(x), n = tok(x); diag.push(`${how}: ${(x && x.model) || "?"}, read ${n == null ? "?" : n.toLocaleString()} tokens, answer ${x && x.truncated ? "cut off" : "complete"}, status ${i.st || "none"}, ${i.len} characters of notes, ${Math.round((Date.now() - tA) / 1000)}s`); tA = Date.now(); };
+      const log = (how, x) => { const i = look(x), n = tok(x); let raw = ""; try { raw = JSON.stringify((x && x.data) || null).slice(0, 140); } catch (e) {} diag.push(`${how}: ${(x && x.model) || "?"}, read ${n == null ? "?" : n.toLocaleString()} tokens, answer ${x && x.truncated ? "cut off" : "complete"}, status ${i.st || "none"}, ${i.len} characters of notes, ${Math.round((Date.now() - tA) / 1000)}s. Sent back: ${raw}`); tA = Date.now(); };
       // Google's servers failing on the video (every model) usually means this video, not real overload: one plain try, then say so
       const choke = e => Object.assign(aiErr("link-choke", `Google's servers couldn't process this video${e && e.gmsg ? ` (Google said: ${String(e.gmsg).replace(/\s+/g, " ").replace(/\.$/, "").slice(0, 160)})` : ""}. This happens with some YouTube videos; trying again later sometimes works.`), {link: true, st: "choke"});
       let plainDone = false;
