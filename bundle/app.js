@@ -77802,6 +77802,9 @@ var SBWB = null;
   }
   function resize(){
     if (!frame || !frame.isConnected) return;
+    // typing on a touch screen: the keyboard shrinks the app, but the board keeps its size and view (no refit, no jump);
+    // the text box is lifted clear of the keyboard instead (keepTaVisible)
+    if (TOUCH() && (ED || kbUp()) && fw > 0) return;
     const w = frame.clientWidth, h = frame.clientHeight, r = Math.min(2, window.devicePixelRatio || 1);
     if (w === fw && h === fh && r === dpr) return;
     fw = w; fh = h; dpr = r;
@@ -77906,17 +77909,34 @@ var SBWB = null;
   const TOUCH = () => !!(window.matchMedia && matchMedia("(pointer:coarse)").matches);
   function setLift(px){ px = Math.max(0, Math.round(px)); if (px === LIFT) return; LIFT = px; if (frame) frame.style.setProperty("--lift", px + "px"); }
   const kbUp = () => document.documentElement.classList.contains("kb-open");
-  function keepTaVisible(){
+  // The keyboard's height, learned each time it opens (a fair guess before the first time), so the board can rise to meet it
+  // as it comes up rather than after
+  let kbGuess = 0, scrH = 0;
+  function kbLearn(){
+    if (innerWidth !== (kbLearn.w || 0)) { kbLearn.w = innerWidth; scrH = 0; }
+    const vv = window.visualViewport, vis = vv ? vv.height : innerHeight;
+    if (!kbUp()) scrH = Math.max(scrH, innerHeight, vis);
+    else if (scrH) { const k = scrH - vis; if (k > 150 && k < scrH * 0.7) kbGuess = k; }
+  }
+  function keepTaVisible(predict){
     if (!ED || !frame || !TOUCH()) return;
     if (ED.sy != null && Math.abs(scrollY - ED.sy) > 1) window.scrollTo(0, ED.sy);
+    kbLearn();
     const vv = window.visualViewport, f = frame.getBoundingClientRect(), r = ED.ta.getBoundingClientRect();
     // where the box would be with no lift (the lift may be mid-glide, so read its current value)
     const now = -(parseFloat((getComputedStyle(front).translate || "").split(" ")[1]) || 0), top0 = r.top + now, bot0 = r.bottom + now;
-    const bottom = Math.min(f.bottom, vv ? vv.offsetTop + vv.height : innerHeight) - 14;
+    const visBottom = vv ? vv.offsetTop + vv.height : innerHeight;
+    const coming = predict && !kbUp() ? (kbGuess || Math.round((scrH || innerHeight) * 0.42)) : 0;
+    const bottom = Math.min(f.bottom, visBottom - coming) - 14;
     const want = Math.max(0, Math.min(bot0 - bottom, top0 - f.top - 10));
     if (want > LIFT + 1 || (want < LIFT - 1 && bot0 - LIFT < bottom - 40)) setLift(want);
   }
-  function liftCheck(){ if (ED) keepTaVisible(); else if (LIFT && !kbUp()) setLift(0); }
+  let settleT = 0;
+  function liftCheck(){
+    kbLearn(); if (ED) keepTaVisible(); else if (LIFT && !kbUp()) setLift(0);
+    // keyboard gone: one size check, in case the screen really changed size while the board held still
+    if (!ED && !kbUp()) { clearTimeout(settleT); settleT = setTimeout(() => { const h = document.getElementById("wbHost"); if (h && STAGE && h.contains(STAGE) && !ED && !kbUp()) { sizeHost(h); resize(); } }, 350); }
+  }
   if (window.visualViewport) { visualViewport.addEventListener("resize", liftCheck); visualViewport.addEventListener("scroll", liftCheck); }
   addEventListener("resize", liftCheck);
   addEventListener("scroll", () => { if (ED && TOUCH() && ED.sy != null && Math.abs(scrollY - ED.sy) > 1) window.scrollTo(0, ED.sy); }, {passive: true});
@@ -77926,6 +77946,7 @@ var SBWB = null;
     const ta = document.createElement("textarea"); ta.className = "wb-ta"; ta.id = "wbTa";   // an id lets a page redraw (the keyboard resizing the app) put the cursor back here ta.setAttribute("aria-label", "Text on the whiteboard"); ta.rows = 1;
     ta.value = it.s || ""; Object.assign(ta.style, {left: it.x + "px", top: it.y + "px", fontSize: it.f + "px", color: penHex(it.c), fontFamily: famOf(it.ff)});
     front.appendChild(ta); ED = {it, ta, isNew, sy: scrollY}; itemsDraw(); fitTa(); trayDraw();
+    keepTaVisible(true);   // rise now, together with the keyboard, so iOS has nothing to scroll into view
     ta.addEventListener("input", () => { fitTa(); keepTaVisible(); });
     [120, 450, 800].forEach(ms => setTimeout(() => { if (ED && ED.ta === ta) keepTaVisible(); }, ms));
     ta.addEventListener("pointerdown", e => e.stopPropagation());
@@ -78469,7 +78490,7 @@ var SBWB = null;
   try { new MutationObserver(themeCheck).observe(document.documentElement, {attributes: true, attributeFilter: ["data-theme", "class"]}); } catch (e) {}
   try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", themeCheck); } catch (e) {}
   document.addEventListener("visibilitychange", () => { if (document.hidden) { endText(); flush(); } });
-  window.addEventListener("resize", () => { const h = document.getElementById("wbHost"); if (h && STAGE && h.contains(STAGE)) { if (ED && phone()) return; sizeHost(h); resize(); } });
+  window.addEventListener("resize", () => { const h = document.getElementById("wbHost"); if (h && STAGE && h.contains(STAGE)) { if ((ED || kbUp()) && TOUCH()) return; sizeHost(h); resize(); } });
 
   /* The page */
   function picker(list, cur){

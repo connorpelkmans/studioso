@@ -35,12 +35,16 @@ async function open(b, view){
       await page.evaluate(() => document.querySelector('.wb-tray [data-wb="tool"][data-id="text"]').click()); await page.waitForTimeout(150);
       const before = await page.evaluate(() => ({tray: Math.round(document.querySelector(".wb-tray").getBoundingClientRect().top), y: scrollY, f: document.querySelector(".wb-frame").getBoundingClientRect().toJSON()}));
       const tx = before.f.left + before.f.width / 2, ty = Math.min(before.f.bottom, H) - 40;
+      const cam0 = await page.evaluate(() => JSON.stringify(window.SBWB.cam()));
       await page.touchscreen.tap(tx, ty); await page.waitForSelector(".wb-ta"); await page.waitForTimeout(100);
+      const pre = await page.evaluate(() => getComputedStyle(document.querySelector(".wb-frame")).getPropertyValue("--lift").trim());
+      ok(parseInt(pre, 10) > 0, "the board starts rising the moment the text box opens, with the keyboard, not after it (" + pre + ")");
       await kb(true); await page.keyboard.type("Hello"); await page.waitForTimeout(1000);
       const up = await page.evaluate(() => { const t = document.querySelector(".wb-ta").getBoundingClientRect(), f = document.querySelector(".wb-frame").getBoundingClientRect(); return {ta: Math.round(t.bottom), taTop: Math.round(t.top), fTop: Math.round(f.top), fb: Math.round(Math.min(f.bottom, innerHeight)), tray: Math.round(document.querySelector(".wb-tray").getBoundingClientRect().top), y: scrollY, lift: getComputedStyle(document.querySelector(".wb-frame")).getPropertyValue("--lift")}; });
       ok(up.ta <= up.fb - 8 && up.taTop >= up.fTop, "whiteboard: the text box tapped in low rises into view above the keyboard: " + JSON.stringify(up));
       ok(up.y === before.y && up.tray === before.tray, "the page and the toolbar stay where they were (no sliding)");
       ok(parseInt(up.lift, 10) > 0, "the board itself lifted (" + up.lift + ")");
+      ok(await page.evaluate(() => JSON.stringify(window.SBWB.cam())) === cam0, "the app shrinking for the keyboard doesn't refit or move the board's view");
       const word = await page.evaluate(() => document.querySelector(".wb-ta").value);
       ok(word === "Hello", "and typing goes into it: " + word);
       // done: the text is saved where it was tapped, and the board settles back
