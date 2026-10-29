@@ -47,8 +47,10 @@ function renderNow(){
   if (window.__SB_TEST && window.__sbForceAuto) AUTO_ON = true;
   try { const want = (s => skinOk(s) && SKINS.some(x => x.id === s) ? s : "classic")(styleCfg().skin); if ((document.documentElement.dataset.skin || "classic") !== want) applySkin(); } catch(e) {}
   computeFocus(); remoteStoreSoon();
-  { const nd = new Date(); $("#navDate").textContent = nd.toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"}); }
-  { const sk = streakOf(); $("#todayLabel").innerHTML = `<span class="wd">${esc(new Date().toLocaleDateString(undefined, {weekday:"long"}))}</span> ${esc(new Date().toLocaleDateString(undefined, {month:"long", day:"numeric"}))}${sk.cur >= 2 && !(window.SBSTREAK && SBSTREAK.on()) ? `<button class="streak-chip" data-act="daily-quote" title="${esc(streakLine())}">🔥 ${sk.cur}</button>` : ""}`; }
+  // the date, and what today is at school (Day 3, B Day, or a day off)
+  const sdT = (() => { try { return schoolDayText(todayISO()); } catch (e) { return ""; } })();
+  { const nd = new Date(); $("#navDate").innerHTML = esc(nd.toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"})) + (sdT ? `<span class="nd-sd">${esc(sdT)}</span>` : ""); }
+  { const sk = streakOf(); $("#todayLabel").innerHTML = `<span class="wd">${esc(new Date().toLocaleDateString(undefined, {weekday:"long"}))}</span> ${esc(new Date().toLocaleDateString(undefined, {month:"long", day:"numeric"}))}${sdT ? ` <span class="nd-sd">· ${esc(sdT)}</span>` : ""}${sk.cur >= 2 && !(window.SBSTREAK && SBSTREAK.on()) ? `<button class="streak-chip" data-act="daily-quote" title="${esc(streakLine())}">🔥 ${sk.cur}</button>` : ""}`; }
   if (ui.tab === "plan" || ui.tab === "calendar") ui.tab = ui.planView;
   if (isPlanTab(ui.tab)) planViewSet(ui.tab);
   const navTab = isPlanTab(ui.tab) ? "plan" : ui.tab === "files" || ui.tab === "emails" ? "courses" : ui.tab;
@@ -366,7 +368,7 @@ function taskView(t0){
         ${cl}
         ${prog}
       </div>
-      <div class="sheet-foot">${!done && canDoNow(t) ? `<button type="button" class="btn focus-btn" data-act="pomo-task" data-id="${esc(id)}">${TOMATO}Focus</button>` : ""}${prepBtn}<span class="spacer"></span><button type="button" class="btn" id="tvDone">${done ? "Mark Not Done" : "Mark Done"}</button><button type="button" class="btn primary" id="tvEdit">Edit</button></div>
+      <div class="sheet-foot">${!done && canDoNow(t) ? `<button type="button" class="btn focus-btn" data-act="pomo-task" data-id="${esc(id)}">${TOMATO}Focus</button>` : ""}${prepBtn}${window.SBRUBRIC ? SBRUBRIC.taskBtn(t) : ""}<span class="spacer"></span><button type="button" class="btn" id="tvDone">${done ? "Mark Not Done" : "Mark Done"}</button><button type="button" class="btn primary" id="tvEdit">Edit</button></div>
     </div>`);
     const sc2 = dlg.querySelector(".occv-body"); if (sc2) sc2.scrollTop = top;
     $("#tvEdit").addEventListener("click", () => { const x = state.tasks[id]; if (x) taskForm(x); });
@@ -776,7 +778,12 @@ function courseForm(c){
       </div>
       <fieldset class="meet-fs"><legend>Class Times <span class="hint">shown on your weekly schedule</span></legend>
         <div id="meetList" class="meet-list"></div>
-        <button type="button" class="btn small" id="meetAdd">+ Add a Class Time</button></fieldset>
+        <button type="button" class="btn small" id="meetAdd">+ Add a Class Time</button>
+        ${cycOn() ? "" : `<button type="button" class="link-btn mini cyc-q" id="cycSet">Rotating schedule, like Day 1 to 6 or A/B days?</button>
+        <div class="cyc-inline" id="cycInline" hidden><div class="two"><label class="f"><span class="lh">Days in the cycle</span><select id="cycN">${[2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => `<option value="${v}"${v === 2 ? " selected" : ""}>${v}</option>`).join("")}</select></label>
+          <label class="f"><span class="lh">Called</span><select id="cycNames"><option value="abc">A Day, B Day…</option><option value="num">Day 1, Day 2…</option></select></label></div>
+          <label class="f"><span class="lh" id="cycRefL"></span><select id="cycK"></select></label>
+          <p class="mini" style="margin:0">Weekends are skipped. Add holidays and snow days, which pause the cycle, in School Days on your Schedule.</p></div>`}</fieldset>
       <div class="two">
         <label class="f"><span class="lh">Room <span class="hint">default for class times</span></span><input type="text" name="room" maxlength="80" value="${esc(c.room)}"></label>
         <label class="f"><span class="lh">Office Hours <span class="hint">notes</span></span><input type="text" name="office" maxlength="120" value="${esc(c.office || "")}"></label>
@@ -797,9 +804,13 @@ function courseForm(c){
       const i = line.indexOf("|");
       return i > -1 ? {label: line.slice(0, i).trim() || "Link", url: line.slice(i + 1).trim()} : {label: "Link", url: line};
     }).filter(l => safeUrl(l.url));
-    const bad = meets.find(m => !m.days.length || !m.start || !m.end || m.end <= m.start);
-    if (bad) { toast(!bad.days.length ? "Pick the days for each class time" : "Each class time needs a start and an end time"); return false; }
-    const meetings = meets.map(m => ({id: m.id || uid(), kind: m.kind, days: m.days.slice().sort(), start: m.start, end: m.end, where: String(m.where || "").trim()}));
+    const rot = m => !!cycC() && m.rep === "c", noDays = m => rot(m) ? !(m.cyc || []).length : !m.days.length;
+    const bad = meets.find(m => noDays(m) || !m.start || !m.end || m.end <= m.start);
+    if (bad) { toast(noDays(bad) ? (rot(bad) ? "Pick the cycle days for each class time" : "Pick the days for each class time") : "Each class time needs a start and an end time"); return false; }
+    const meetings = meets.map(m => Object.assign({id: m.id || uid(), kind: m.kind, days: rot(m) ? [] : m.days.slice().sort(), start: m.start, end: m.end, where: String(m.where || "").trim()}, rot(m) ? {cyc: m.cyc.filter(k => k <= cycC().n).sort((a, b) => a - b)} : {}));
+    // a rotating schedule set up right here in the form
+    if (cycNew && meetings.some(m => m.cyc)) { const ref = SBSCHOOL.nextSchool({off: (schoolCfg() || {}).off, cycle: {n: cycNew.n, ref: todayISO(), k: 1, days: [1, 2, 3, 4, 5]}}, todayISO());
+      state.settings = Object.assign({}, state.settings, {school: Object.assign({}, schoolCfg() || {}, {cycle: {n: cycNew.n, ref, k: cycNew.k, days: [1, 2, 3, 4, 5], names: cycNew.names}})}); saveSettings(); }
     const data = {name, code: String(fd.get("code") || "").trim(), instructor: String(fd.get("instructor") || "").trim(), meetings,
       schedule: meetings.length ? meetingsSummary(meetings) : (c.meetings && c.meetings.length ? "" : c.schedule || ""), room: String(fd.get("room") || "").trim(), office: String(fd.get("office") || "").trim(),
       color: fd.get("color") || COLORS[0], icon: (COURSE_ICONS[fd.get("icon")] || customIcon(String(fd.get("icon") || ""))) && ($("#ciGrid") || {dataset: {}}).dataset.picked ? String(fd.get("icon")) : "", notes: String(fd.get("notes") || ""), links};
@@ -812,30 +823,52 @@ function courseForm(c){
       rd.addEventListener("click", () => { try { pk.showPicker ? pk.showPicker() : pk.click(); } catch (e) { pk.click(); } }); } }
   { const g = $("#ciGrid"), follow = () => { if (!g || g.dataset.picked) return; const k = courseIconKey({name: (dlg.querySelector('input[name="name"]') || {}).value, code: (dlg.querySelector('input[name="code"]') || {}).value}); const r = g.querySelector(`input[value="${k}"]`); if (r) r.checked = true; };
     if (g) { g.addEventListener("change", () => { g.dataset.picked = "1"; }); dlg.querySelectorAll('input[name="name"],input[name="code"]').forEach(i => i.addEventListener("input", follow)); } }
-  let meets = clone(courseMeetings(c));
+  let meets = clone(courseMeetings(c)).map(m => Object.assign(m, {days: m.days || [], cyc: m.cyc || [], rep: m.cyc && m.cyc.length ? "c" : "w"}));
+  // the school's rotating cycle (Day 1 to 6, A/B days): saved, or being set up in this form
+  let cycNew = null;
+  const cycC = () => cycNew || (cycOn() ? SBSCHOOL.norm(schoolCfg()).cycle : null);
+  const cycName = k => (cycC() && cycC().names === "abc") ? String.fromCharCode(64 + k) : String(k);
   const mList = $("#meetList");
   const drawMeets = () => {
-    mList.innerHTML = meets.map((m, i) => `<div class="meet-row" data-i="${i}">
+    const C = cycC();
+    mList.innerHTML = meets.map((m, i) => `<div class="meet-row${C ? " has-rep" : ""}" data-i="${i}">
       <select data-k="kind" aria-label="Type">${MEET_KINDS.map(k => `<option ${k === m.kind ? "selected" : ""}>${k}</option>`).join("")}</select>
-      <div class="meet-days" role="group" aria-label="Days">${WEEK_ORDER.map(d => `<button type="button" data-day="${d}" aria-pressed="${m.days.includes(d)}">${DAY_SHORT[d]}</button>`).join("")}</div>
+      ${C ? `<select data-k="rep" aria-label="Repeats"><option value="c"${m.rep === "c" ? " selected" : ""}>Rotating</option><option value="w"${m.rep !== "c" ? " selected" : ""}>Weekly</option></select>` : ""}
+      ${C && m.rep === "c" ? `<div class="meet-days meet-cyc" role="group" aria-label="${C.names === "abc" ? "Days in the cycle" : "Cycle days"}">${Array.from({length: C.n}, (_, j) => `<button type="button" data-cyc="${j + 1}" aria-pressed="${m.cyc.includes(j + 1)}" aria-label="${esc(C.names === "abc" ? cycName(j + 1) + " Day" : "Day " + (j + 1))}">${C.names === "abc" ? "" : "D"}${cycName(j + 1)}</button>`).join("")}</div>`
+      : `<div class="meet-days" role="group" aria-label="Days">${WEEK_ORDER.map(d => `<button type="button" data-day="${d}" aria-pressed="${m.days.includes(d)}">${DAY_SHORT[d]}</button>`).join("")}</div>`}
       <span class="meet-times"><input type="time" data-k="start" value="${esc(m.start)}" aria-label="Starts"><span>to</span><input type="time" data-k="end" value="${esc(m.end)}" aria-label="Ends"></span>
       <input type="text" data-k="where" value="${esc(m.where || "")}" placeholder="Room" aria-label="Room" maxlength="60" data-noenter>
       <button type="button" class="x-btn" data-rm="${i}" aria-label="Remove class time">${CLOSE}</button></div>`).join("") || `<p class="mini" style="margin:0">No class times yet. Add lectures, labs and office hours to see them on your Schedule.</p>`;
   };
   drawMeets();
   mList.addEventListener("input", e => { const r = e.target.closest(".meet-row"); if (r && e.target.dataset.k) meets[Number(r.dataset.i)][e.target.dataset.k] = e.target.value; });
-  mList.addEventListener("change", e => { const r = e.target.closest(".meet-row"); if (r && e.target.dataset.k) meets[Number(r.dataset.i)][e.target.dataset.k] = e.target.value; });
+  mList.addEventListener("change", e => { const r = e.target.closest(".meet-row"); if (r && e.target.dataset.k) { meets[Number(r.dataset.i)][e.target.dataset.k] = e.target.value; if (e.target.dataset.k === "rep") drawMeets(); } });
   mList.addEventListener("click", e => {
     const r = e.target.closest(".meet-row"); if (!r) return;
     const m = meets[Number(r.dataset.i)], db = e.target.closest("[data-day]"), rm = e.target.closest("[data-rm]");
     if (db) { const d = Number(db.dataset.day); m.days = m.days.includes(d) ? m.days.filter(x => x !== d) : m.days.concat(d); db.setAttribute("aria-pressed", m.days.includes(d)); }
+    const cb = e.target.closest("[data-cyc]");
+    if (cb) { const k = Number(cb.dataset.cyc); m.cyc = m.cyc.includes(k) ? m.cyc.filter(x => x !== k) : m.cyc.concat(k); cb.setAttribute("aria-pressed", m.cyc.includes(k)); }
     if (rm) { meets.splice(Number(rm.dataset.rm), 1); drawMeets(); }
   });
   $("#meetAdd").addEventListener("click", () => {
     const last = meets[meets.length - 1];
-    meets.push(last ? {id: uid(), kind: last.kind === "Lecture" ? "Lab" : "Lecture", days: [], start: last.start, end: last.end, where: ""} : {id: uid(), kind: "Lecture", days: [], start: "10:00", end: "10:50", where: dlg.querySelector("input[name=room]").value.trim()});
+    meets.push(Object.assign(last ? {id: uid(), kind: last.kind === "Lecture" ? "Lab" : "Lecture", days: [], start: last.start, end: last.end, where: ""} : {id: uid(), kind: "Lecture", days: [], start: "10:00", end: "10:50", where: dlg.querySelector("input[name=room]").value.trim()}, {cyc: [], rep: cycC() ? "c" : "w"}));
     drawMeets();
   });
+  // Set up a rotating schedule here: how many days, what they're called, and what today (or the next school day) is
+  { const q = $("#cycSet"), box = $("#cycInline");
+    if (q && box) {
+      const refD = () => SBSCHOOL.nextSchool({off: (schoolCfg() || {}).off, cycle: {n: 2, ref: todayISO(), k: 1, days: [1, 2, 3, 4, 5]}}, todayISO());
+      const sync = () => { cycNew = {n: Number($("#cycN").value), names: $("#cycNames").value, k: Math.min(Number($("#cycN").value), Number($("#cycK").value) || 1)};
+        const r = refD(); $("#cycRefL").textContent = r === todayISO() ? "Today is" : `${parse(r).toLocaleDateString(undefined, {weekday: "long"})} (${fmtShort(r)}) is`;
+        $("#cycK").innerHTML = Array.from({length: cycNew.n}, (_, j) => `<option value="${j + 1}"${j + 1 === cycNew.k ? " selected" : ""}>${cycNew.names === "abc" ? String.fromCharCode(65 + j) + " Day" : "Day " + (j + 1)}</option>`).join("");
+        drawMeets(); };
+      q.addEventListener("click", () => { box.hidden = false; q.hidden = true; meets.forEach(m => { if (!m.days.length) m.rep = "c"; }); sync(); if (!meets.length) $("#meetAdd").click(); });
+      // the names follow the length (A/B for 2 days, Day 1, 2… for longer) until you pick them
+      let namesSet = false;
+      box.addEventListener("change", e => { if (e.target.id === "cycNames") namesSet = true; if (e.target.id === "cycN" && !namesSet) $("#cycNames").value = Number(e.target.value) === 2 ? "abc" : "num"; sync(); });
+    } }
 }
 
 // A small question in the app's own style that opens ON TOP of whatever is open

@@ -1553,7 +1553,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   const P = SBPRO;
   const proWhy = why => { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(why); };
   const S = () => state.settings || {};
-  const KINDS = [["week", "Week Agenda", "Classes, tasks, space for notes"], ["term", "Term Calendar", "Every deadline and exam"], ["grades", "Grade Report", "Each course, with what you need"], ["prep", "Exam Prep Plan", "Day by day, with topics"]];
+  const KINDS = [["week", "Week Agenda", "Classes, tasks, space for notes"], ["term", "Term Calendar", "Every deadline and exam"], ["grades", "Grade Report", "Each course, with what you need"], ["prep", "Exam Prep Plan", "Day by day, with topics"], ["sheet", "Formula and Diagram Sheet", "An exam's formulas, terms and diagrams"]];
   let PR = null;
   const monday = d => { const x = parse(d); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return iso(x); };
   const dot = (cid, on) => on && cid ? `<i class="pp-dot" style="background:${esc(colorOf(cid))}"></i>` : "";
@@ -1617,13 +1617,13 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       ${topics.length ? `<div class="pp-box"><b>Topics</b>${topics.map(t => `<div><span class="pp-cb"></span> ${esc(t.name)} <em>${esc(conf[t.conf] || "")}</em></div>`).join("")}</div>` : ""}</div>
       <div class="pp-plan">${days.map(d => `<div class="pp-pd"><div class="pp-dh"><b>${esc(parse(d).toLocaleDateString(undefined, {weekday: "long"}))}</b><span>${esc(fmtShort(d))}</span></div>${ss.filter(t => t.due === d).map(t => `<div class="pp-tk"><span class="pp-cb"></span><span>${esc(t.title)}${Number(t.hours) > 0 ? ` <em>${esc(fmtHM(Number(t.hours)))}</em>` : ""}</span></div>`).join("")}</div>`).join("") || `<p>No sessions yet.</p>`}</div>${foot()}</div>`;
   }
-  const build = () => { const o = PR.opts; return PR.kind === "week" ? weekHtml(o) : PR.kind === "term" ? termHtml(o) : PR.kind === "grades" ? gradesHtml(o) : prepHtml(o); };
+  const build = () => { const o = PR.opts; return PR.kind === "week" ? weekHtml(o) : PR.kind === "term" ? termHtml(o) : PR.kind === "grades" ? gradesHtml(o) : PR.kind === "sheet" ? (window.SBEXAMSHEET ? SBEXAMSHEET.html(PR.exam, o) : "") : prepHtml(o); };
 
   /* The sheet */
-  function openPrint(kind){
+  function openPrint(kind, exam){
     if (P.locked()) { proWhy("Print and Save as PDF are part of Studyboard Pro."); return; }
     const ex = examsWithPrep();
-    PR = Object.assign({kind: "week", week: monday(todayISO()), paper: S().printPaper || (/^en-(US|CA)|^es-(US|MX)/.test(navigator.language || "") ? "letter" : "a4"), opts: Object.assign({classes: true, tasks: true, lines: true, color: false}, S().printOpts || {}), exam: ex[0] ? ex[0].id : ""}, PR && PR.keep ? PR : {}, kind ? {kind} : {});
+    PR = Object.assign({kind: "week", week: monday(todayISO()), paper: S().printPaper || (/^en-(US|CA)|^es-(US|MX)/.test(navigator.language || "") ? "letter" : "a4"), opts: Object.assign({classes: true, tasks: true, lines: true, color: false}, S().printOpts || {}), exam: ex[0] ? ex[0].id : ""}, PR && PR.keep ? PR : {}, kind ? {kind} : {}, exam ? {exam} : {});
     if (dlg.open) dlg.close();
     openSheet(`<div class="sheet pro-sheet">${head("Print or Save as PDF")}<div class="sheet-body pr-body"></div><div class="sheet-foot"><span class="mini pr-tip">${/Mac|iPhone|iPad/.test(navigator.userAgent || "") ? "To save a PDF, choose PDF in the print dialog." : "To save a PDF, choose Save as PDF (or Microsoft Print to PDF) as the printer."}</span><span class="spacer"></span><button type="button" class="btn primary" data-act="pro-pr-go">Print</button></div></div>`);
     drawPrint();
@@ -1635,8 +1635,9 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     b.innerHTML = `<div class="pr-kinds" role="radiogroup" aria-label="What to print">${KINDS.map(([k, n, s]) => `<button type="button" role="radio" aria-checked="${PR.kind === k}" class="pr-kind${PR.kind === k ? " on" : ""}" data-act="pro-pr-kind" data-id="${k}"><b>${n}</b><span>${s}</span></button>`).join("")}</div>
       ${PR.kind === "week" ? `<label class="f">Week<select data-pr-week>${[0, 1, 2, 3].map(i => { const w = addDays(mon, i * 7); return `<option value="${w}"${PR.week === w ? " selected" : ""}>${esc(fmtShort(w))} to ${esc(fmtShort(addDays(w, 6)))}${i === 0 ? " (this week)" : ""}</option>`; }).join("")}</select></label>` : ""}
       ${PR.kind === "prep" ? (ex.length ? `<label class="f">Exam<select data-pr-exam>${ex.map(t => `<option value="${esc(t.id)}"${PR.exam === t.id ? " selected" : ""}>${esc(t.title)} · ${esc(fmtShort(t.due))}</option>`).join("")}</select></label>` : `<p class="mini" style="margin:0">No upcoming exam has a prep plan yet. Open an exam and choose Plan My Prep to make one.</p>`) : ""}
+      ${PR.kind === "sheet" && window.SBEXAMSHEET ? SBEXAMSHEET.printControls(PR) : ""}
       <div class="pr-row"><span class="pr-lbl">Paper</span><div class="segb" role="group" aria-label="Paper size"><button type="button" data-act="pro-pr-paper" data-id="letter" aria-pressed="${PR.paper === "letter"}">Letter</button><button type="button" data-act="pro-pr-paper" data-id="a4" aria-pressed="${PR.paper === "a4"}">A4</button></div></div>
-      <div class="pr-opts">${PR.kind === "week" ? chk("classes", "Classes and events") + chk("tasks", "Tasks with checkboxes") + chk("lines", "Lines for notes") : ""}${chk("color", "Course colors (uses more ink)")}</div>
+      <div class="pr-opts">${PR.kind === "week" ? chk("classes", "Classes and events") + chk("tasks", "Tasks with checkboxes") + chk("lines", "Lines for notes") : ""}${PR.kind === "sheet" ? "" : chk("color", "Course colors (uses more ink)")}</div>
       <div class="pr-prev" aria-label="Preview"><div class="pr-scale ${PR.paper}">${build()}</div></div>`;
     b.querySelectorAll("[data-pr-opt]").forEach(x => x.addEventListener("change", () => { PR.opts[x.dataset.prOpt] = x.checked; state.settings = Object.assign({}, state.settings, {printOpts: PR.opts}); saveSettings(); drawPrint(); }));
     const w = b.querySelector("[data-pr-week]"); if (w) w.addEventListener("change", () => { PR.week = w.value; drawPrint(); });
@@ -1685,7 +1686,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   });
   hook("menu", () => inPreview() ? "" : `<button data-act="pro-pr-open" data-group="study"><span>Print or Save as PDF${P.locked() ? " " + PRO_BADGE : ""}<span class="sub">A week agenda, the term calendar, a grade report or an exam prep plan</span></span></button>`);
   P.addFeature({id: "print", name: "Print and PDF", where: "In Schedule, Due Dates, Grades and Settings: a week agenda, term calendar, grade report or exam prep plan", act: "pro-pr-open", icon: '<path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7"/>'});
-  Object.assign(P, {openPrint, printRaw, printHtml: () => PR ? build() : ""});
+  Object.assign(P, {openPrint, printRaw, printHtml: () => PR ? build() : "", redrawPrint: () => { if (PR && dlg.open && dlg.querySelector(".pr-body")) drawPrint(); }});
 
   const css = document.createElement("style");
   css.textContent = `
@@ -2158,6 +2159,28 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     return String(s || "").replace(/<[^>]*>/g, " ").replace(/\{\{c\d+::([^}]*)\}\}/g, "$1").replace(/_{3,}/g, " blank ").replace(/[*#`~|>]+/g, " ")
       .replace(/^\s*[-•]\s*/gm, "").replace(/\s*\n+\s*/g, ". ").replace(/\s+/g, " ").replace(/(\.\s*){2,}/g, ". ").trim().slice(0, 1200);
   }
+  // The device's own voices (the Web Speech API, free to use on any page), best first. Quality shows in the names: Edge's "Online (Natural)"
+  // and other neural voices, Apple's Premium, Enhanced and Siri voices, Chrome's and Android's Google network voices. Old robotic and
+  // novelty voices go last. A voice in the student's language always comes before any other.
+  const V_NOVELTY = /\b(?:albert|bad news|good news|bahh|bells|boing|bubbles|cellos|deranged|hysterical|jester|organ|superstar|trinoids|whisper|wobble|zarvox|fred|ralph|junior|kathy|princess|bruce|agnes|vicki|victoria|grandma|grandpa|rocko|shelley|flo|eddy|reed|sandy)\b/i;
+  function voiceRank(v, want){
+    const name = String((v && v.name) || ""), id = String((v && v.voiceURI) || ""), both = name + " " + id;
+    const lang = String((v && v.lang) || "").replace(/_/g, "-").toLowerCase(), w = String(want || "en").replace(/_/g, "-").toLowerCase();
+    let score = 0, tier = "basic";
+    if (/espeak|mbrola|festival|flite|\bpico\b/i.test(both)) { score -= 60; tier = "robotic"; }
+    else if (V_NOVELTY.test(name) && !/\((?:enhanced|premium)\)/i.test(name)) { score -= 50; tier = "robotic"; }
+    else if (/\bnatural\b|neural|wavenet|\bpremium\b|\bsiri\b/i.test(both)) { score += 50; tier = "natural"; }
+    else if (/\benhanced\b/i.test(both)) { score += 38; tier = "enhanced"; }
+    else if (/^google\b/i.test(name) || /network/i.test(id)) { score += 30; tier = "enhanced"; }
+    if (tier === "basic" && /^(?:alex|samantha|ava|allison|susan|tom|karen|daniel|moira|tessa|serena|zoe|evan|nathan|noelle|joelle|aaron|nicky|rishi)\b/i.test(name)) score += 8;
+    if (v && v.default) score += 3;
+    const mine = !!lang && lang.slice(0, 2) === w.slice(0, 2);
+    score += mine ? (lang === w ? 140 : 100) : -100; // the same accent counts for more than an Enhanced voice
+    return {v, score, tier, mine};
+  }
+  function rankVoices(list, want){ return (Array.isArray(list) ? list : []).filter(v => v && v.voiceURI != null).map(v => voiceRank(v, want)).sort((a, b) => b.score - a.score || String(a.v.name).localeCompare(String(b.v.name))); }
+  // The automatic choice: the best voice in the student's language that isn't robotic, or none (the browser's own default)
+  function bestVoice(list, want){ const r = rankVoices(list, want).find(x => x.mine && x.tier !== "robotic"); return r ? r.v : null; }
   /*LISTEN-END*/
 
   let L = null;
@@ -2166,7 +2189,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   function voices(){ const t = TTS(); return t ? t.getVoices() : []; }
   function voiceFor(){
     const v = voices(), want = prefs().voice;
-    return v.find(x => x.voiceURI === want) || v.find(x => x.default && (x.lang || "").slice(0, 2) === (navigator.language || "en").slice(0, 2)) || v.find(x => (x.lang || "").slice(0, 2) === (navigator.language || "en").slice(0, 2)) || null;
+    return v.find(x => x.voiceURI === want) || bestVoice(v, navigator.language || "en") || v.find(x => x.default && (x.lang || "").slice(0, 2) === (navigator.language || "en").slice(0, 2)) || v.find(x => (x.lang || "").slice(0, 2) === (navigator.language || "en").slice(0, 2)) || null;
   }
   function say(text, run){
     return new Promise(res => {
@@ -2260,8 +2283,14 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const d = deckOf(), p = prefs(), c = cardAt(L.i), n = L.ids.length;
     const seg = (key, val, label) => `<button type="button" data-act="ls-set" data-k="${key}" data-id="${val}" aria-pressed="${String(p[key]) === String(val)}">${label}</button>`;
     const first = c ? (p.order === "back" ? c.back : c.front) : "", second = c ? (p.order === "back" ? c.front : c.back) : "";
-    const vs = voices(), lang = (navigator.language || "en").slice(0, 2), mine = vs.filter(v => (v.lang || "").slice(0, 2) === lang), others = vs.filter(v => (v.lang || "").slice(0, 2) !== lang);
-    const vOpt = v => `<option value="${esc(v.voiceURI)}"${v.voiceURI === p.voice ? " selected" : ""}>${esc(v.name)}${v.lang ? ` (${esc(v.lang)})` : ""}</option>`;
+    const ranked = rankVoices(voices(), navigator.language || "en"), mine = ranked.filter(x => x.mine), others = ranked.filter(x => !x.mine), auto = bestVoice(voices(), navigator.language || "en");
+    const TIER = {natural: "Natural", enhanced: "Enhanced"};
+    const vOpt = x => `<option value="${esc(x.v.voiceURI)}"${x.v.voiceURI === p.voice ? " selected" : ""}>${esc(x.v.name)}${x.v.lang ? ` (${esc(x.v.lang)})` : ""}${TIER[x.tier] ? ` · ${TIER[x.tier]}` : ""}</option>`;
+    const ua = navigator.userAgent || "", plain = ranked.length > 0 && !mine.some(x => TIER[x.tier]);
+    const tip = !plain ? "" : /iPhone|iPad|Macintosh|Mac OS/.test(ua) ? "For a more natural voice, download an Enhanced or Premium voice in Settings, Accessibility, Spoken Content, Voices, then choose it here."
+      : /Windows/.test(ua) ? "For a more natural voice, open Studyboard in Microsoft Edge (it has Natural voices), or add voices in Settings, Time and Language, Speech."
+      : /Android/.test(ua) ? "For a more natural voice, update Speech Services by Google and download a voice in its settings, then choose it here."
+      : "Only basic voices are installed on this device. Chrome and Edge come with more natural voices.";
     b.innerHTML = `<p class="ls-deck"><b>${esc(d ? d.name : "")}</b><span class="mini">${n ? `Card ${Math.min(n, L.i + 1)} of ${n}` : ""}</span></p>
       ${n ? `<div class="ls-card" aria-live="polite"><span class="ls-side">${L.side === "a" ? (p.order === "back" ? "Back" : "Front") : (p.order === "back" ? "Front" : "Back")}</span>
           <p class="ls-a${L.side === "a" ? " on" : ""}">${esc(first)}</p>${L.side === "b" ? `<p class="ls-b on">${esc(second)}</p>` : `<p class="ls-b ls-hidden" aria-hidden="true">${L.playing ? "Answer in your head…" : "The answer is read after the pause."}</p>`}</div>
@@ -2277,7 +2306,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
           <label class="f">Pause Before the Answer<select data-ls="gap">${[2, 4, 6, 8, 12].map(s => `<option value="${s}"${Number(p.gap) === s ? " selected" : ""}>${s} seconds</option>`).join("")}</select></label>
           <label class="f">Speed<select data-ls="rate">${[[0.8, "Slower"], [1, "Normal"], [1.2, "Faster"], [1.5, "Fastest"]].map(([v, l]) => `<option value="${v}"${Number(p.rate) === v ? " selected" : ""}>${l}</option>`).join("")}</select></label>
         </div>
-        <label class="f">Voice<select data-ls="voice"><option value="">Automatic</option>${mine.map(vOpt).join("")}${others.length ? `<optgroup label="Other languages">${others.map(vOpt).join("")}</optgroup>` : ""}</select></label>
+        <label class="f">Voice<select data-ls="voice"><option value="">Automatic${auto ? ` (${esc(auto.name)})` : ""}</option>${mine.map(vOpt).join("")}${others.length ? `<optgroup label="Other languages">${others.map(vOpt).join("")}</optgroup>` : ""}</select></label>${tip ? `<p class="mini ls-vtip">${esc(tip)}</p>` : ""}
         <label class="ls-loop"><input type="checkbox" data-ls="loop"${p.loop ? " checked" : ""}> Start again at the end</label>
       </div>`;
     b.querySelectorAll("[data-ls]").forEach(el => el.addEventListener("change", () => {
@@ -2345,6 +2374,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
 .ls-prog i{display:block;height:100%;background:var(--accent);transition:width .3s}
 .ls-opts{display:grid;gap:10px;border-top:1px solid var(--line);padding-top:12px}
 .ls-loop{display:flex;gap:8px;align-items:center}
+.ls-vtip{margin:-4px 0 0}
+.ls-opts select{max-width:100%;min-width:0}
 .ls-empty{margin:0;padding:14px;border:1px dashed var(--line);border-radius:12px;text-align:center;color:var(--muted)}
 .ls-foot{max-width:28em}
 .ls-commute{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 14px;margin:0 0 12px;position:relative}

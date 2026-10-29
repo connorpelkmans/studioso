@@ -144,7 +144,7 @@ function viewCourses(){
   const nArch = allCourses().filter(c => c.archived).length, all = tasksArr().filter(t => !t.prepFor && !t.xs), dues = all.map(t => t.due).filter(Boolean).sort();
   const ending = all.length >= 5 && all.filter(t => t.status === "done").length / all.length >= 0.6 && (!dues.length || dayDiff(todayISO(), dues[dues.length - 1]) <= 7);
   return `<div class="view-head"><h2>Your Courses</h2>${proBtns("courses")}${!ending && nArch ? `<button class="btn small" data-act="archive-open">Archive (${nArch})</button>` : ""}${trashBtn("course")}</div><div class="course-list" data-sortable="courses">${cards}</div>
-    ${ending ? `<div class="term-bar"><span>${ARCHIVE_SM}Term over? Put its courses and tasks away, and bring anything back later.</span><button class="btn small" data-act="new-term">Start a New Term</button><button class="btn small" data-act="archive-open">Open Archive${nArch ? ` (${nArch})` : ""}</button></div>` : ""}`;
+    <!--term-->${ending ? `<div class="term-bar"><span>${ARCHIVE_SM}Term over? Put its courses and tasks away, and bring anything back later.</span><button class="btn small" data-act="new-term">Start a New Term</button><button class="btn small" data-act="archive-open">Open Archive${nArch ? ` (${nArch})` : ""}</button></div>` : ""}`;
 }
 // The line under a course's name
 function courseNextHtml(open, today){
@@ -521,7 +521,7 @@ function courseGradeSide(c){
   const gn = window.SBGRADES && SBGRADES.now(c); if (!gn) return "";
   return `<section class="c2-card2"><h2 class="sec"><span class="t">Grade So Far</span><span class="n">${esc(gn.fmt(gn.marked))} marked</span></h2>
     ${gn.pct != null ? `<div class="c2-big">${esc(gn.fmt(gn.pct))}${gn.letter ? `<span class="c2-letter">${esc(gn.letter)}</span>` : ""}</div><div class="prog"><span class="track"><i style="width:${Math.min(100, gn.marked).toFixed(0)}%"></i></span></div>` : ""}
-    <p class="mini" style="margin:6px 0 10px">${esc(gn.line)}</p><button class="btn small" data-act="course-tab" data-id="grades">See Grades</button></section>`;
+    <p class="mini" style="margin:6px 0 10px">${esc(gn.line)}</p>${SBGRADES.goalHtml ? SBGRADES.goalHtml(c) : ""}<button class="btn small" data-act="course-tab" data-id="grades">See Grades</button></section>`;
 }
 // The student's own decks and notes for a course
 function courseDecksHtml(c){
@@ -975,7 +975,7 @@ const isObj = v => !!v && typeof v === "object" && !Array.isArray(v);
 const CSS_COLOR = /^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([\d\s.,%\/-]{1,60}\)|[a-z]{3,20})$/i;
 const FILE_SETTINGS = {
   // Checked where they are used (see the settings review), so taken as they are when the type is right
-  style: isObj, comp: isObj, gtWork: isObj, pomo: isObj, grades: isObj, reminders: isObj, gentle: isObj, review: isObj, tips: isObj, examMode: isObj, autoFeat: isObj, bd: isObj, accuracy: isObj,
+  style: isObj, comp: isObj, gtWork: isObj, pomo: isObj, grades: isObj, reminders: isObj, gentle: isObj, review: isObj, tips: isObj, examMode: isObj, autoFeat: isObj, bd: isObj, accuracy: isObj, school: isObj,
   boardManual: v => typeof v === "boolean" || isObj(v),
   capacity: v => Number.isFinite(v) && v > 0 && v <= 200, dailyHours: v => Number.isFinite(v) && v >= 0 && v <= 24,
   hlColor: v => typeof v === "string" && CSS_COLOR.test(v), icType: v => typeof v === "string" && v.length <= 40, wbTheme: v => typeof v === "string" && v.length <= 40,

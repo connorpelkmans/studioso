@@ -3,6 +3,98 @@
 (() => {
 // ==== STUDYBOARD ICS CORE START ====
 // Shared by the app (download) and the calendar-feed Edge Function (live link)
+// School days: days off (holidays, reading week, snow days) and a rotating class cycle (Day 1-6, A/B days).
+// settings.school = {off: [{id, name, from, to}], cycle: {n, ref, k, days, names}}: the cycle has n days, ref was
+// day k, and it advances one step on each school day (the weekdays in days that aren't a day off).
+const SBSCHOOL = (() => {
+  const p2 = n => String(n).padStart(2, "0");
+  const isDate = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)));
+  const dMs = s => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10));
+  const msD = ms => { const d = new Date(ms); return d.getUTCFullYear() + "-" + p2(d.getUTCMonth() + 1) + "-" + p2(d.getUTCDate()); };
+  const addD = (s, n) => msD(dMs(s) + n * 864e5);
+  const dow = s => new Date(dMs(s)).getUTCDay();
+  const NO = {off: [], cycle: null, pub: true, ans: {}, cc: ""};
+  /* Public holidays, by country (from the home time zone). sure: every school there is off, so it's a day off
+     automatically; otherwise almost every school is, and the app asks once (ans[key] = "off" or "on"). */
+  let ZONE = "";
+  const US_TZ = /^(America\/(New_York|Chicago|Denver|Los_Angeles|Phoenix|Anchorage|Detroit|Boise|Juneau|Sitka|Nome|Adak|Yakutat|Metlakatla|Menominee|Indiana\/.+|Kentucky\/.+|North_Dakota\/.+)|Pacific\/Honolulu)$/;
+  const CA_TZ = /^America\/(Toronto|Montreal|Vancouver|Edmonton|Winnipeg|Halifax|St_Johns|Regina|Moncton|Glace_Bay|Goose_Bay|Whitehorse|Yellowknife|Iqaluit|Swift_Current|Rankin_Inlet|Cambridge_Bay|Dawson|Dawson_Creek|Fort_Nelson|Creston|Atikokan|Blanc-Sablon|Nipigon|Thunder_Bay|Rainy_River|Resolute|Inuvik|Pangnirtung)$/;
+  const country = tz => US_TZ.test(tz) ? "US" : CA_TZ.test(tz) ? "CA" : /^Europe\/(London|Belfast)$/.test(tz) ? "GB" : tz === "Europe/Dublin" ? "IE" : /^Australia\//.test(tz) ? "AU" : /^Pacific\/(Auckland|Chatham)$/.test(tz) ? "NZ" : "";
+  const COUNTRY = {US: "the United States", CA: "Canada", GB: "the UK", IE: "Ireland", AU: "Australia", NZ: "New Zealand"};
+  const ymd = (y, m, d) => y + "-" + p2(m) + "-" + p2(d);
+  // the n-th weekday wd (0 = Sunday) of month m; n = -1 for the last one
+  const nth = (y, m, wd, n) => { if (n > 0) { const f = ymd(y, m, 1); return addD(f, (wd - dow(f) + 7) % 7 + (n - 1) * 7); } const l = addD(m === 12 ? ymd(y + 1, 1, 1) : ymd(y, m + 1, 1), -1); return addD(l, -((dow(l) - wd + 7) % 7)); };
+  const easter = y => { const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451), mo = Math.floor((h + l - 7 * m + 114) / 31), da = (h + l - 7 * m + 114) % 31 + 1; return ymd(y, mo, da); };
+  function holidayList(cc, y){
+    const H = (id, name, date, sure) => ({key: cc + ":" + id, name, date, sure: !!sure});
+    const ny = H("ny", "New Year's Day", ymd(y, 1, 1), 1), xmas = H("xmas", "Christmas Day", ymd(y, 12, 25), 1), gf = H("gf", "Good Friday", addD(easter(y), -2)), em = H("em", "Easter Monday", addD(easter(y), 1));
+    if (cc === "US") return [ny, H("jul4", "Independence Day", ymd(y, 7, 4), 1), H("thanks", "Thanksgiving Day", nth(y, 11, 4, 4), 1), xmas,
+      H("mlk", "Martin Luther King Jr. Day", nth(y, 1, 1, 3)), H("pres", "Presidents' Day", nth(y, 2, 1, 3)), H("mem", "Memorial Day", nth(y, 5, 1, -1)), H("jun19", "Juneteenth", ymd(y, 6, 19)),
+      H("labor", "Labor Day", nth(y, 9, 1, 1)), H("indig", "Columbus Day / Indigenous Peoples' Day", nth(y, 10, 1, 2)), H("vet", "Veterans Day", ymd(y, 11, 11)), H("thanks2", "Day after Thanksgiving", addD(nth(y, 11, 4, 4), 1))];
+    if (cc === "CA") return [ny, H("canada", "Canada Day", ymd(y, 7, 1), 1), H("labour", "Labour Day", nth(y, 9, 1, 1), 1), xmas,
+      H("family", "Family Day", nth(y, 2, 1, 3)), gf, em, H("victoria", "Victoria Day", addD(ymd(y, 5, 24), -((dow(ymd(y, 5, 24)) + 6) % 7))), H("truth", "National Day for Truth and Reconciliation", ymd(y, 9, 30)),
+      H("thanks", "Thanksgiving", nth(y, 10, 1, 2)), H("remembrance", "Remembrance Day", ymd(y, 11, 11)), H("boxing", "Boxing Day", ymd(y, 12, 26))];
+    if (cc === "GB") return [ny, xmas, H("boxing", "Boxing Day", ymd(y, 12, 26), 1), gf, em, H("may", "Early May Bank Holiday", nth(y, 5, 1, 1)), H("spring", "Spring Bank Holiday", nth(y, 5, 1, -1)), H("aug", "Summer Bank Holiday", nth(y, 8, 1, -1))];
+    if (cc === "IE") return [ny, xmas, H("stephen", "St Stephen's Day", ymd(y, 12, 26), 1), H("brigid", "St Brigid's Day", dow(ymd(y, 2, 1)) === 5 ? ymd(y, 2, 1) : nth(y, 2, 1, 1)), H("patrick", "St Patrick's Day", ymd(y, 3, 17)), gf, em,
+      H("may", "May Bank Holiday", nth(y, 5, 1, 1)), H("june", "June Bank Holiday", nth(y, 6, 1, 1)), H("aug", "August Bank Holiday", nth(y, 8, 1, 1)), H("oct", "October Bank Holiday", nth(y, 10, 1, -1))];
+    if (cc === "AU") return [ny, H("aus", "Australia Day", ymd(y, 1, 26), 1), H("anzac", "Anzac Day", ymd(y, 4, 25), 1), xmas, H("boxing", "Boxing Day", ymd(y, 12, 26), 1), gf, em];
+    if (cc === "NZ") return [ny, H("ny2", "Day after New Year's Day", ymd(y, 1, 2), 1), H("waitangi", "Waitangi Day", ymd(y, 2, 6), 1), H("anzac", "Anzac Day", ymd(y, 4, 25), 1), xmas, H("boxing", "Boxing Day", ymd(y, 12, 26), 1),
+      gf, em, H("king", "King's Birthday", nth(y, 6, 1, 1)), H("labour", "Labour Day", nth(y, 10, 1, 4))];
+    return [];
+  }
+  const HOL = {};
+  const holOn = (cc, d) => { const k = cc + d.slice(0, 4); if (!HOL[k]) { HOL[k] = {}; holidayList(cc, +d.slice(0, 4)).forEach(h => { HOL[k][h.date] = h; }); } return HOL[k][d] || null; };
+  let lastIn = null, lastOut = NO, lastZone = "";
+  function norm(s){
+    if (s === lastIn && lastZone === ZONE) return lastOut;
+    const o = s && typeof s === "object" ? s : {};
+    const off = (Array.isArray(o.off) ? o.off : []).filter(x => x && isDate(x.from)).slice(0, 300)
+      .map(x => ({id: String(x.id || x.from).slice(0, 40), name: String(x.name || "").slice(0, 60), from: x.from, to: isDate(x.to) && x.to >= x.from && dMs(x.to) - dMs(x.from) < 200 * 864e5 ? x.to : x.from}))
+      .sort((a, b) => a.from < b.from ? -1 : a.from > b.from ? 1 : 0);
+    const c = o.cycle && typeof o.cycle === "object" ? o.cycle : null, n = c ? Math.round(Number(c.n)) : 0;
+    const days = c && Array.isArray(c.days) ? [...new Set(c.days.map(Number))].filter(d => d >= 0 && d <= 6).sort() : [];
+    const cycle = c && n >= 2 && n <= 10 && isDate(c.ref) ? {n, ref: c.ref, k: Math.min(n, Math.max(1, Math.round(Number(c.k)) || 1)), days: days.length ? days : [1, 2, 3, 4, 5], names: c.names === "abc" ? "abc" : "num"} : null;
+    const ans = {}; if (o.ans && typeof o.ans === "object") Object.keys(o.ans).slice(0, 100).forEach(k => { if (o.ans[k] === "off" || o.ans[k] === "on") ans[String(k).slice(0, 40)] = o.ans[k]; });
+    lastIn = s; lastZone = ZONE; lastOut = {off, cycle, pub: o.pub !== false, ans, cc: country(ZONE)};
+    return lastOut;
+  }
+  // A day off: one you added, a public holiday every school takes, or a common one you said you have off
+  const offOn = (S, d) => {
+    for (const x of S.off) { if (x.from > d) break; if (d <= x.to) return x; }
+    if (!S.pub || !S.cc || !isDate(d)) return null;
+    const h = holOn(S.cc, d);
+    return h && (h.sure || S.ans[h.key] === "off") ? {id: h.key, name: h.name, from: d, to: d, pub: true, sure: h.sure} : null;
+  };
+  // Public holidays between two dates, with your answers: [{key, name, date, sure, ans}]
+  function holidays(s, from, to){
+    const S = norm(s), out = []; if (!S.cc || !isDate(from) || !isDate(to)) return out;
+    for (let y = +from.slice(0, 4); y <= +to.slice(0, 4); y++) holidayList(S.cc, y).forEach(h => { if (h.date >= from && h.date <= to) out.push(Object.assign({}, h, {ans: S.ans[h.key] || ""})); });
+    return out.sort((a, b) => a.date < b.date ? -1 : 1);
+  }
+  const isSchool = (S, d) => !!S.cycle && S.cycle.days.includes(dow(d)) && !offOn(S, d);
+  // The first school day on or after d
+  const nextSchool = (S, d) => { for (let i = 0, x = d; i < 400; i++, x = addD(x, 1)) if (isSchool(S, x)) return x; return d; };
+  const memo = {S: null, m: {}};
+  // The cycle day (1..n) on a date; 0 when there's no cycle or it isn't a school day
+  function dayOf(s, d){
+    const S = norm(s); if (!S.cycle || !isDate(d) || !isSchool(S, d)) return 0;
+    if (memo.S !== S) { memo.S = S; memo.m = {}; }
+    if (memo.m[d] != null) return memo.m[d];
+    const C = S.cycle; let cnt = 0;
+    if (d >= C.ref) { for (let x = C.ref, i = 0; x < d && i < 4000; x = addD(x, 1), i++) if (isSchool(S, x)) cnt++; }
+    else { for (let x = d, i = 0; x < C.ref && i < 4000; x = addD(x, 1), i++) if (isSchool(S, x)) cnt--; }
+    return (memo.m[d] = ((C.k - 1 + cnt) % C.n + C.n) % C.n + 1);
+  }
+  // "Day 3" or "C Day"; short: "3" or "C"
+  const label = (s, k, short) => { const S = norm(s); if (!S.cycle || !k) return ""; const a = S.cycle.names === "abc" ? String.fromCharCode(64 + k) : String(k); return short ? a : S.cycle.names === "abc" ? a + " Day" : "Day " + a; };
+  // Does a class time meet on this date? Never on a day off; a rotating one on its cycle days, a weekly one on its weekdays
+  function meets(s, m, d){
+    const S = norm(s); if (offOn(S, d)) return false;
+    if (m && Array.isArray(m.cyc) && m.cyc.length) return S.cycle ? m.cyc.includes(dayOf(s, d)) : false;
+    return !!m && Array.isArray(m.days) && m.days.includes(dow(d));
+  }
+  return {zone: tz => { if (tz === undefined) return ZONE; ZONE = typeof tz === "string" ? tz : ""; return ZONE; }, country: () => country(ZONE), countryName: () => COUNTRY[country(ZONE)] || "", holidays, holidayList, easter, norm, off: (s, d) => offOn(norm(s), d), dayOf, label, meets, isSchool: (s, d) => isSchool(norm(s), d), nextSchool: (s, d) => nextSchool(norm(s), d), isDate, addD, dow};
+})();
 const SBICS = (() => {
   const DAY = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
   const PRIO = {low: "Low", med: "Medium", high: "High", urgent: "Urgent"};
@@ -127,8 +219,8 @@ const SBICS = (() => {
   }
   const meetingsOf = c => (Array.isArray(c.meetings) ? c.meetings : parseMeetings(c.schedule, "Lecture", c.room).concat(parseMeetings(c.office, "Office Hours")))
     .map((m, i) => ({id: m.id ? String(m.id) : i + "-" + String(m.kind || "").replace(/\W/g, "") + "-" + String(m.start || "").replace(":", ""), kind: String(m.kind || "Lecture"),
-      days: [...new Set((Array.isArray(m.days) ? m.days : []).map(Number))].filter(d => d >= 0 && d <= 6).sort(), start: m.start, end: m.end, where: String(m.where || "")}))
-    .filter(m => m.days.length && isTime(m.start) && isTime(m.end) && m.end > m.start);
+      days: [...new Set((Array.isArray(m.days) ? m.days : []).map(Number))].filter(d => d >= 0 && d <= 6).sort(), cyc: [...new Set((Array.isArray(m.cyc) ? m.cyc : []).map(Number))].filter(k => k >= 1 && k <= 10).sort((a, b) => a - b), start: m.start, end: m.end, where: String(m.where || "")}))
+    .filter(m => (m.days.length || m.cyc.length) && isTime(m.start) && isTime(m.end) && m.end > m.start);
   function normEvent(e){
     e = Object.assign({title: "Event", courseId: "", label: "", date: "", endDate: "", start: "", end: "", allDay: false, where: "", notes: "", repeat: null, exdates: [], moved: {}, src: ""}, e);
     if (!isDate(e.date)) return null;
@@ -187,7 +279,12 @@ const SBICS = (() => {
   }
 
   /* build */
+  // Public holidays follow the feed's home zone while it's built
   function build(data, rawOpts, now, feed){
+    const prev = SBSCHOOL.zone(); SBSCHOOL.zone(normOptions(rawOpts).tz);
+    try { return buildIn(data, rawOpts, now, feed); } finally { SBSCHOOL.zone(prev); }
+  }
+  function buildIn(data, rawOpts, now, feed){
     const o = normOptions(rawOpts), tz = o.tz;
     now = typeof now === "number" ? now : Date.now();
     const today = todayIn(tz, now), stamp = utcStamp(now), hide = new Set(o.hideCourses), NONE = "_none";
@@ -247,6 +344,21 @@ const SBICS = (() => {
         const created = typeof c.created === "number" && isFinite(c.created) ? todayIn(tz, c.created) : "";
         const start = o.classesFrom || (created && created > addD(until, -240) ? created : addD(today, -28));
         meetingsOf(c).forEach(m => {
+          // rotating class times (Day 1-6, A/B days) don't repeat by weekday: one event per day they meet
+          if (m.cyc.length) {
+            const title = (label(c) ? label(c) + " " : "") + m.kind, where = m.where || (m.kind !== "Office Hours" ? String(c.room || "") : "");
+            const desc = [String(c.name || ""), c.instructor ? "Instructor: " + c.instructor : ""].filter(Boolean).join("\n"), mv = c.meetMoves && typeof c.meetMoves === "object" ? c.meetMoves : {};
+            let n = 0;
+            for (let d = start; d <= until && n < 400; d = addD(d, 1)) {
+              if (!SBSCHOOL.meets(settings.school, m, d)) continue;
+              const x = mv[d + "|" + m.start + "|" + m.kind]; if (x && x.skip) continue;
+              const dd = x && isDate(x.date) ? x.date : d, s0 = x && isTime(x.start) ? x.start : m.start, e0 = x && isTime(x.end) && x.end > s0 ? x.end : m.end;
+              n++;
+              ev("class-" + c.id + "-" + m.id + "-" + d + "@studyboard", () => { add("SUMMARY", esc(title)); timed(dd, s0, e0); addText("LOCATION", where); addText("DESCRIPTION", desc); add("CATEGORIES", esc(m.kind)); add("TRANSP", "OPAQUE"); evAlarm(title, true); });
+            }
+            if (n) { counts.classes++; years.push(+until.slice(0, 4)); }
+            return;
+          }
           let first = start; while (!m.days.includes(dow(first))) first = addD(first, 1);
           if (first > until) return;
           const isInst = d => isDate(d) && d >= first && d <= until && m.days.includes(dow(d));
@@ -260,6 +372,8 @@ const SBICS = (() => {
             add("SUMMARY", esc(title)); timed(first, m.start, m.end);
             add("RRULE", "FREQ=WEEKLY;WKST=MO;BYDAY=" + m.days.map(d => DAY[d]).join(",") + ";UNTIL=" + untilUtc(until));
             moves.filter(x => x.v.skip).forEach(x => add("EXDATE" + tzp, local(x.d, m.start)));
+            // no class on days off
+            for (let d = first; d <= until; d = addD(d, 1)) if (isInst(d) && SBSCHOOL.off(settings.school, d) && !moves.some(x => x.d === d)) add("EXDATE" + tzp, local(d, m.start));
             addText("LOCATION", where); addText("DESCRIPTION", desc);
             add("CATEGORIES", esc(m.kind)); add("TRANSP", "OPAQUE"); evAlarm(title, true);
           });
@@ -356,6 +470,7 @@ const SBICS = (() => {
   return {build, normOptions, remCfgOf, taskAlarms, fold, esc, vtimezone, transitions, offset, zonedMs, todayIn, validTz, meetingsOf, VERSION: 1};
 })();
 // ==== STUDYBOARD ICS CORE END ====
+window.SBSCHOOL = SBSCHOOL;
 
 /* Calendar Sync */
 const CS_TABLE = "calendar_feeds", CS_FN = "calendar-feed";
