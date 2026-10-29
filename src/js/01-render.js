@@ -368,7 +368,7 @@ function taskView(t0){
         ${cl}
         ${prog}
       </div>
-      <div class="sheet-foot">${!done && canDoNow(t) ? `<button type="button" class="btn focus-btn" data-act="pomo-task" data-id="${esc(id)}">${TOMATO}Focus</button>` : ""}${prepBtn}<span class="spacer"></span><button type="button" class="btn" id="tvDone">${done ? "Mark Not Done" : "Mark Done"}</button><button type="button" class="btn primary" id="tvEdit">Edit</button></div>
+      <div class="sheet-foot">${!done && canDoNow(t) ? `<button type="button" class="btn focus-btn" data-act="pomo-task" data-id="${esc(id)}">${TOMATO}Focus</button>` : ""}${prepBtn}${window.SBRUBRIC ? SBRUBRIC.taskBtn(t) : ""}<span class="spacer"></span><button type="button" class="btn" id="tvDone">${done ? "Mark Not Done" : "Mark Done"}</button><button type="button" class="btn primary" id="tvEdit">Edit</button></div>
     </div>`);
     const sc2 = dlg.querySelector(".occv-body"); if (sc2) sc2.scrollTop = top;
     $("#tvEdit").addEventListener("click", () => { const x = state.tasks[id]; if (x) taskForm(x); });
