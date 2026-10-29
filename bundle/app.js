@@ -9203,9 +9203,11 @@ function focusHtml(){
   const week = weekAhead(F, inView), pickDay = /^d:/.test(ui.planTile || "") ? week.find(w => w.iso === ui.planTile.slice(2)) : null;
   if ((ui.planTile === "late" && !overdue) || (/^d:/.test(ui.planTile || "") && !pickDay) || (ui.planTile && ui.planTile !== "late" && !/^d:/.test(ui.planTile))) ui.planTile = "";
   const pick = ui.planTile || "";
-  const base = pick === "late" ? lateRows : pickDay ? pickDay.rows : offToday ? [] : todayList.length ? todayList : workable, rowsAll = pick ? base : base.filter(x => x.t.id !== heroId);
-  const cap = pick || (todayList.length && ui.planAllToday) ? rowsAll.length : todayList.length ? 5 : 3;
-  const show = rowsAll.slice(0, cap), hiddenToday = !pick && todayList.length ? rowsAll.slice(show.length) : [];
+  // when Do This Next is the only task with time today, the list shows what comes after it ("Then") instead of nothing
+  const todayBase = todayList.some(x => x.t.id !== heroId);
+  const base = pick === "late" ? lateRows : pickDay ? pickDay.rows : offToday ? [] : todayBase ? todayList : workable, rowsAll = pick ? base : base.filter(x => x.t.id !== heroId);
+  const cap = pick || (todayBase && ui.planAllToday) ? rowsAll.length : todayBase ? 5 : 3;
+  const show = rowsAll.slice(0, cap), hiddenToday = !pick && todayBase ? rowsAll.slice(show.length) : [];
   const sum = [];
   if (todayList.length) sum.push(`<b>${fmtHM(todayList.reduce((s, x) => s + x.alloc, 0))}</b> planned across ${todayList.length} task${todayList.length === 1 ? "" : "s"}`);
   if (overdue) sum.push(`<span class="late"><b>${overdue}</b> overdue</span>`);
