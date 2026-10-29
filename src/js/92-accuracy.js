@@ -413,7 +413,9 @@ async function sayLeft(){
 // After a finished task with tracked time: how it compared, and what the plan does with that next time
 function maybeLearned(t){
   if (!on() || !t || MILESTONE(t.type) || t.prepFor || !(Number(t.hours) > 0) || (chip && chip.kind !== "learned")) return;
-  const mins = Math.max(Number(t.focusMin) || 0, Number(t.actualMin) || 0), est = Number(t.hours) * 60;
+  // only for tracked time (an answer to "How long did it take?" already had its say)
+  if (Number(t.actualMin) > 0 || t.feel) return;
+  const mins = Number(t.focusMin) || 0, est = Number(t.hours) * 60;
   if (mins < 15 || Math.abs(mins / est - 1) < 0.25 || (t.checklist || []).some(i => !i.done)) return;
   MEMO.k = ""; const i = ratioInfo(t); if (i.n < 3) return;
   // what the plan allowed before this task counted
