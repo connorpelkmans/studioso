@@ -219,6 +219,15 @@ function pomoTodayHtml(){
   const n = st ? st.focusSessions(today, today) : pomo.sessions, min = st ? st.focusMinutes(today, today) : pomo.minutes;
   return `Today: <b>${n}</b> focus session${n === 1 ? "" : "s"}, <b>${fmtMins(min)}</b> focused.${window.SBPRO && SBPRO.pomoHtml && SBPRO.isPro() ? ` <button type="button" class="link-btn" data-act="pro-fh-open">Focus History</button>` : ""}`;
 }
+// iPhone app: say why the timer isn't in the Dynamic Island when it isn't
+function pomoIslandNote(){
+  const N = window.StudyboardNative; if (!N || typeof N.islandStatus !== "function") return;
+  N.islandStatus().then(st => {
+    const p = $("#pomoDlg .pomo-island"); if (!p) return;
+    const msg = st === "off" ? "The Dynamic Island timer is off. Turn on Live Activities in Settings > Studyboard." : st === "setup" ? "The Dynamic Island timer isn't in this build of the app yet." : "";
+    p.textContent = msg; p.hidden = !msg;
+  }, () => {});
+}
 hook("stats-focus", () => { const p = $("#pomoDlg .pomo-today"); if (p) p.innerHTML = pomoTodayHtml(); });
 function renderPomo(){
   const cfg = pomoCfg(), d = $("#pomoDlg");
@@ -244,7 +253,7 @@ function renderPomo(){
       </div>
       ${window.SBPRO && SBPRO.pomoHtml ? SBPRO.pomoHtml() : ""}${window.SBEXAM ? SBEXAM.pomoHtml() : ""}
       <label class="f">Working On<select id="pomoTask"><option value="">No particular task</option>${openTasks.slice(0, 40).map(t => { const c = courseOf(t.courseId); return `<option value="${esc(t.id)}" ${t.id === pomo.taskId ? "selected" : ""}>${esc(t.title)}${c ? " · " + esc(courseLabel(c)) : ""}</option>`; }).join("")}</select></label>
-      <p class="pomo-today">${pomoTodayHtml()}</p>
+      <p class="pomo-today">${pomoTodayHtml()}</p><p class="mini pomo-island" hidden></p>
       <details class="adv" ${ui.pomoSet ? "open" : ""} id="pomoSetD"><summary>Timer Settings</summary>
         <div class="adv-body">
           <div class="three">
@@ -266,6 +275,7 @@ function renderPomo(){
       </details>
       <details class="adv pomo-how"><summary>How the Pomodoro Method Works</summary><div class="pomo-how-b">${POMO_HOW}</div></details>
     </div></div>`;
+  pomoIslandNote();
   $("#pomoTask").addEventListener("change", e => { pomo.taskId = e.target.value; pomoSave(); });
   $("#pomoSetD").addEventListener("toggle", e => { ui.pomoSet = e.target.open; });
   const num = (id, lo, hi, def) => { const v = Math.round(Number($(id).value)); return isFinite(v) && v >= lo && v <= hi ? v : def; };

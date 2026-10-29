@@ -46,6 +46,11 @@ async function open(b, idiom){
       ok(await page.evaluate(() => document.documentElement.classList.contains("kb-open") && getComputedStyle(document.querySelector("nav.tabs")).visibility === "hidden"), "keyboard up: the tab bar steps aside (and a viewport resize doesn't undo it)");
       await page.evaluate(() => window.__kbL.keyboardWillHide()); await page.waitForTimeout(150);
       ok(await page.evaluate(() => !document.documentElement.classList.contains("kb-open") && getComputedStyle(document.querySelector("nav.tabs")).visibility !== "hidden"), "keyboard down: the tab bar is back");
+      // the Focus sheet says why the timer isn't in the Dynamic Island (this build has no island plugin)
+      await page.evaluate(() => document.querySelector('[data-act="pomo-open"]').click()); await page.waitForTimeout(300);
+      const note = await page.evaluate(() => { const p = document.querySelector("#pomoDlg .pomo-island"); return p && !p.hidden ? p.textContent : ""; });
+      ok(/isn't in this build/.test(note), "Focus sheet: says the Dynamic Island timer isn't in this build: " + note);
+      await page.evaluate(() => document.getElementById("pomoDlg").close());
       ok(!errs.length, "no page errors " + errs.join(" | "));
       await ctx.close(); }
     { const {ctx, page} = await open(b, "pad");
