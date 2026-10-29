@@ -2614,10 +2614,20 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
         if (cpAiBusy) return;
         cpJobTalked = false;
         if (!act || quietNow2() || ok === null) return;
+        if (ok && Date.now() - cpJobFail < CP_JOB_GAP + 500) ok = false;
         if (ok) { lastCheer = 0; cheer("task"); say(pickFrom("ai:ready", READY), {cheer: true, ms: 3600}); }
         else say(pickFrom("ai:oops", OOPS), {ms: 4000});
       }, CP_JOB_GAP);
     };
+    // the AI answered but the job still failed: "didn't work" instead of the "done" line that was waiting
+    let cpJobFail = 0;
+    document.addEventListener("sb-ai-job", e => {
+      if (!(e.detail && e.detail.ok === false)) return;
+      cpJobFail = Date.now();
+      if (cpAiBusy) return;
+      clearTimeout(cpJobT); cpJobTalked = false;
+      if (act && !quietNow2()) say(pickFrom("ai:oops", OOPS), {ms: 4000});
+    });
     aiCall = async function(o){
       const mine = !(o && o.auto) && !!aiName() && talkOn();
       if (!mine) return origAI.apply(this, arguments);

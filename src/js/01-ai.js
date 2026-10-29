@@ -515,6 +515,10 @@ const aiCopyRule = (system, task) => AI_COPY_TASKS.has(task) && typeof system ==
 /* One call, any provider */
 // How many AI requests the student is waiting on right now; the companion listens for "sb-ai-wait"
 let AI_WAITING = 0;
+// A job that got answers from the AI but still failed (the AI couldn't watch the video, nothing usable came back): the companion says so instead of "done"
+function aiJobFailed(){ try { document.dispatchEvent(new CustomEvent("sb-ai-job", {detail: {ok: false}})); } catch (e) {} }
+// The status line of a sheet scrolls into view when it changes, so a message is never hidden below the fold
+function aiShowStatus(el){ try { if (el && el.textContent.trim() && el.isConnected) el.scrollIntoView({block: "nearest", behavior: "smooth"}); } catch (e) {} }
 function aiWaiting(d){ AI_WAITING = Math.max(0, AI_WAITING + d); try { document.dispatchEvent(new CustomEvent("sb-ai-wait", {detail: AI_WAITING})); } catch (e) {} }
 async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0.4, onStatus, fast = false, timeout, auto = false, task = "", signal, search = false, urlContext = false}){
   let cfg = aiCfg();
@@ -1194,6 +1198,7 @@ function aiStudySheet(deckId, mode){
     const ac = typeof AbortController === "function" ? new AbortController() : null;
     job.ac = ac;
     status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(aiModelName(aiCfg().provider, aiCfg().model))} is reading your material and writing ${[wantCards && "flashcards", wantQuiz && "a quiz", wantCase && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")}. This usually takes 20 to 60 seconds…`;
+    aiShowStatus(status);
     try {
       const r = await aiMakeStudySet({sources, style, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10", courseName: courseOf(cId) ? courseOf(cId).name : "", signal: ac && ac.signal}, m => { status.textContent = m; });
       if (ac && ac.signal.aborted) return;
@@ -1205,6 +1210,7 @@ function aiStudySheet(deckId, mode){
     } catch(e) {
       if (e && e.code === "cancelled") return;
       console.warn(e); status.textContent = e.code ? e.message : "Something went wrong. Try again.";
+      aiJobFailed(); aiShowStatus(status);
       job.busy = false; go.disabled = false; go.classList.remove("busy");
       if (sheetKept(keyK)) toast(`${aiWho("AI")} couldn't finish that. Open Create with AI again to see why and try again.`, null, {label: "Open", fn: () => sheetResume(keyK)}, {error: true});
     }
