@@ -6543,6 +6543,16 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   .shop-band .shop-sub{font-size:.74rem;line-height:1.35}
   .sr-ic{width:26px;height:26px}
 }
+/* Courses header on narrow phones: School Sites, Insights, Archive and Recently Deleted stay on one row (Insights shows just its icon) */
+@media (max-width:379px){
+  .view-head:has(> .trash-btn) > .pro-tab-btn > span{display:none}
+  .view-head:has(> .trash-btn) > .pro-tab-btn{padding-inline:11px;min-width:2.6rem;justify-content:center}
+  .view-head:has(> .trash-btn){gap:8px}
+}
+/* Course page on phones: a thinner color band, Edit Course and More close to its bottom edge (the ring moves up with it) */
+@media (max-width:719px){
+  .c2-head .g2-band{padding-bottom:12px}
+}
 /* ===== module: 101-phone-v2.css ===== */
 /* Saving is automatic, so the header says nothing about it unless there's a problem */
 #guestBadge,#guestBadgeSide{display:none!important}
@@ -6628,7 +6638,8 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   #view .view-head:not(:has(> :not(h2.ph-dup))){display:none}
   #view > .view-head:has(> h2.ph-dup){justify-content:flex-end;min-height:0;margin-top:0}
   #view > .view-head:has(> h2.ph-dup + .btn[data-act$="-open"]){justify-content:flex-start}
-  #view > .view-head:has(> h2.ph-dup + .btn[data-act$="-open"]) > .btn[data-act$="-open"] + *{margin-left:auto}
+  /* the school site button sits left, everything after it is grouped on the right (only the first button after it gets the push) */
+  #view > .view-head:has(> h2.ph-dup + .btn[data-act$="-open"]) > h2.ph-dup + .btn[data-act$="-open"] + *{margin-left:auto}
   #view > .tl-controls:has(> h2.ph-dup){margin-top:0}
   /* Notices: one compact card, actions on one line */
   .wkr-card{padding:12px 14px}
@@ -6674,7 +6685,8 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   #view > .view-head.ph-sch{margin:0 0 10px}
   .ph-sch .sch-nav{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;width:100%}
   .ph-sch .sch-range{flex:1;min-width:0;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .ph-more{position:relative;flex:none;margin-left:4px}
+  /* its own layer above the schedule: while the fade-in animation runs, the menu would otherwise sit under the events */
+  .ph-more{position:relative;z-index:30;flex:none;margin-left:4px}
   .ph-more > summary{list-style:none;display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 12px;cursor:pointer}
   .ph-more > summary::-webkit-details-marker{display:none}
   .ph-more > summary svg{width:14px;height:14px;transition:transform .15s}
@@ -7262,14 +7274,12 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
 :root[data-theme="dark"]{--late-ink:var(--late)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--late-ink:var(--late)}}
 .pill.hi,.g2-pill.late,.tl-dl em,.nu-chip.late,.pt-due.late,.pt-prio.high,.pt-prio.urgent,.nb-target.trash.hot{color:var(--late-ink)}
-/* Dark mode: white numbers on a deeper red notice badge, dark text on the light red icons, and readable Due Today pills and today's date */
+/* Dark mode: (notice badges use the same red as the bell and Review), dark text on the light red icons, and readable Due Today pills and today's date */
 :root[data-theme="dark"] .pw-ic{color:#1A0705}
-:root[data-theme="dark"] .bn-n{color:#fff;background:#C8322B}
 :root[data-theme="dark"] .g2-pill.due{color:#FFD58A}
 :root[data-theme="dark"] .day.is-today .num{background:color-mix(in srgb,var(--mark) 72%,#000);color:#fff}
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]) .pw-ic{color:#1A0705}
-  :root:not([data-theme="light"]) .bn-n{color:#fff;background:#C8322B}
   :root:not([data-theme="light"]) .g2-pill.due{color:#FFD58A}
   :root:not([data-theme="light"]) .day.is-today .num{background:color-mix(in srgb,var(--mark) 72%,#000);color:#fff}
 }

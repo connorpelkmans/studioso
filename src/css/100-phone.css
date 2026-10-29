@@ -1078,3 +1078,13 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   .shop-band .shop-sub{font-size:.74rem;line-height:1.35}
   .sr-ic{width:26px;height:26px}
 }
+/* Courses header on narrow phones: School Sites, Insights, Archive and Recently Deleted stay on one row (Insights shows just its icon) */
+@media (max-width:379px){
+  .view-head:has(> .trash-btn) > .pro-tab-btn > span{display:none}
+  .view-head:has(> .trash-btn) > .pro-tab-btn{padding-inline:11px;min-width:2.6rem;justify-content:center}
+  .view-head:has(> .trash-btn){gap:8px}
+}
+/* Course page on phones: a thinner color band, Edit Course and More close to its bottom edge (the ring moves up with it) */
+@media (max-width:719px){
+  .c2-head .g2-band{padding-bottom:12px}
+}

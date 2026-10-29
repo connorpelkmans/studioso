@@ -68,14 +68,12 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
 :root[data-theme="dark"]{--late-ink:var(--late)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--late-ink:var(--late)}}
 .pill.hi,.g2-pill.late,.tl-dl em,.nu-chip.late,.pt-due.late,.pt-prio.high,.pt-prio.urgent,.nb-target.trash.hot{color:var(--late-ink)}
-/* Dark mode: white numbers on a deeper red notice badge, dark text on the light red icons, and readable Due Today pills and today's date */
+/* Dark mode: (notice badges use the same red as the bell and Review), dark text on the light red icons, and readable Due Today pills and today's date */
 :root[data-theme="dark"] .pw-ic{color:#1A0705}
-:root[data-theme="dark"] .bn-n{color:#fff;background:#C8322B}
 :root[data-theme="dark"] .g2-pill.due{color:#FFD58A}
 :root[data-theme="dark"] .day.is-today .num{background:color-mix(in srgb,var(--mark) 72%,#000);color:#fff}
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]) .pw-ic{color:#1A0705}
-  :root:not([data-theme="light"]) .bn-n{color:#fff;background:#C8322B}
   :root:not([data-theme="light"]) .g2-pill.due{color:#FFD58A}
   :root:not([data-theme="light"]) .day.is-today .num{background:color-mix(in srgb,var(--mark) 72%,#000);color:#fff}
 }

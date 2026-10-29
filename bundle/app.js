@@ -9485,7 +9485,7 @@ function viewCourses(){
   // and the Archive is a header button once something is in it
   const nArch = allCourses().filter(c => c.archived).length, all = tasksArr().filter(t => !t.prepFor && !t.xs), dues = all.map(t => t.due).filter(Boolean).sort();
   const ending = all.length >= 5 && all.filter(t => t.status === "done").length / all.length >= 0.6 && (!dues.length || dayDiff(todayISO(), dues[dues.length - 1]) <= 7);
-  return `<div class="view-head"><h2>Your Courses</h2>${proBtns("courses")}${!ending && nArch ? `<button class="btn small" data-act="archive-open">Archive (${nArch})</button>` : ""}${trashBtn("course")}</div><div class="course-list" data-sortable="courses">${cards}</div>
+  return `<div class="view-head"><h2>Your Courses</h2>${proBtns("courses")}<!--sites-->${!ending && nArch ? `<button class="btn small trash-btn arch-btn" data-act="archive-open" aria-label="Archive (${nArch})" title="Archive (${nArch})">${ARCHIVE.replace('width="26" height="26"', 'width="17" height="17"').replace('stroke-width="1.8"', 'stroke-width="2"')}<span>${nArch}</span></button>` : ""}${trashBtn("course")}</div><div class="course-list" data-sortable="courses">${cards}</div>
     <!--term-->${ending ? `<div class="term-bar"><span>${ARCHIVE_SM}Term over?</span><button class="btn small" data-act="new-term">Start a New Term</button><button class="btn small" data-act="archive-open">Open Archive${nArch ? ` (${nArch})` : ""}</button></div>` : ""}`;
 }
 // The line under a course's name
@@ -35615,7 +35615,8 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     const on = ALL().filter(L => L.connected());
     const imp = `<button class="btn small" data-act="import-syllabus">Import a Syllabus</button></div>`;
     if (!coursesArr().length) return html.replace(imp, m => m.replace("</div>", ` <button class="btn small" data-act="lms-open">Connect a School Site</button></div>`));
-    if (on.length) return html.replace("<h2>Your Courses</h2>", m => m + `<button class="btn small" data-act="${on.length === 1 ? on[0].P.k + "-open" : "lms-open"}">${esc(on.length === 1 ? on[0].P.name : "School Sites")}</button>`);
+    // after Insights, so Insights sits first on the left like on Grades, and the school site button joins the group on the right
+    if (on.length) return html.replace(html.includes("<!--sites-->") ? "<!--sites-->" : "<h2>Your Courses</h2>", m => m + `<button class="btn small" data-act="${on.length === 1 ? on[0].P.k + "-open" : "lms-open"}">${esc(on.length === 1 ? on[0].P.name : "School Sites")}</button>`);
     return html.replace(`<!--term-->`, m => `<div class="term-bar lms-bar"><span title="Brings in your courses, due dates and grades"><b>Connect Canvas, Brightspace or Blackboard</b></span><button class="btn small" data-act="lms-open">Connect</button></div>` + m);
   };
   const origCard = card;
@@ -57297,11 +57298,16 @@ var COMP_EXTRA = [];
   function aiThinking(on){
     clearTimeout(thinkT); thinkWant = on;
     const b = front && front.querySelector(".cp-bubble");
-    if (!on) { if (b && b.classList.contains("cp-think")) { b.classList.remove("on", "cp-think"); guardSoon("bubble", 300); } return; }
+    if (!on) {
+      // wait a moment: the next request of the same job usually starts right away, and the dots should stay up
+      thinkT = setTimeout(() => { if (thinkWant) return; const bb = front && front.querySelector(".cp-bubble"); if (bb && bb.classList.contains("cp-think")) { bb.classList.remove("on", "cp-think"); guardSoon("bubble", 300); } }, (window.__SB_TEST && window.__SB_CP_GAP) || 1200);
+      return;
+    }
     const show = () => {
       if (!thinkWant) return;
       const bb = front && front.querySelector(".cp-bubble");
       if (!bb || !cur || !box || box.hidden || document.hidden) { thinkT = setTimeout(show, 800); return; }
+      if (bb.classList.contains("cp-think")) { bb.classList.add("on"); return; }
       if (bb.classList.contains("cp-think") && bb.classList.contains("on")) return;
       // something else is being said or asked: wait for it
       if (bb.classList.contains("on") || bubbleIdea || bubbleAsk) { thinkT = setTimeout(show, 500); return; }
@@ -58753,24 +58759,39 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   const WORKING = ["On it! Give me a sec!", "Ooh, I can do that! Working on it!", "Leave it to me! Thinking hard!", "Yes! Let me work my magic!"];
   const READY = ["All done! Take a look!", "Ta-da! Here you go!", "Finished! I think you'll like it!", "Done and done! Check it out!"];
   const OOPS = ["Hmm, that didn't work. Want to try again?", "Oops, I got stuck. Can we try that again?"];
-  let cpAiBusy = 0, cpAiTalkT = 0;
+  // One job can be several AI requests in a row (a lookup that tries the web, then the school's pages, then memory):
+  // the companion says "On it" once, and one line at the end for how the whole job went, not one per request
+  let cpAiBusy = 0, cpAiTalkT = 0, cpJobT = 0, cpJobTalked = false;
+  const CP_JOB_GAP = (window.__SB_TEST && window.__SB_CP_GAP) || 1500;
   try {
     const origAI = aiCall;
+    const settle = ok => {
+      cpAiBusy = Math.max(0, cpAiBusy - 1);
+      if (cpAiBusy) return;
+      clearTimeout(cpAiTalkT); clearTimeout(cpJobT);
+      cpJobT = setTimeout(() => {
+        if (cpAiBusy) return;
+        cpJobTalked = false;
+        if (!act || quietNow2() || ok === null) return;
+        if (ok) { lastCheer = 0; cheer("task"); say(pickFrom("ai:ready", READY), {cheer: true, ms: 3600}); }
+        else say(pickFrom("ai:oops", OOPS), {ms: 4000});
+      }, CP_JOB_GAP);
+    };
     aiCall = async function(o){
       const mine = !(o && o.auto) && !!aiName() && talkOn();
       if (!mine) return origAI.apply(this, arguments);
       cpAiBusy++;
-      clearTimeout(cpAiTalkT);
-      cpAiTalkT = setTimeout(() => { if (cpAiBusy && act && !quietNow2()) { say(pickFrom("ai:work", WORKING), {ms: 3200}); act.eyes("open"); act.look(0, -0.7); act.motion(act.has("armL") || act.has("armR") ? "wave" : "hop"); } }, 500);
+      clearTimeout(cpJobT);
+      if (!cpJobTalked) {
+        clearTimeout(cpAiTalkT);
+        cpAiTalkT = setTimeout(() => { if (cpAiBusy && act && !quietNow2() && !cpJobTalked) { cpJobTalked = true; say(pickFrom("ai:work", WORKING), {ms: 3200}); act.eyes("open"); act.look(0, -0.7); act.motion(act.has("armL") || act.has("armR") ? "wave" : "hop"); } }, 500);
+      }
       try {
         const r = await origAI.apply(this, arguments);
-        cpAiBusy = Math.max(0, cpAiBusy - 1);
-        if (!cpAiBusy) { clearTimeout(cpAiTalkT); setTimeout(() => { if (act && !quietNow2()) { lastCheer = 0; cheer("task"); say(pickFrom("ai:ready", READY), {cheer: true, ms: 3600}); } }, 300); }
+        settle(true);
         return r;
       } catch (e) {
-        cpAiBusy = Math.max(0, cpAiBusy - 1);
-        clearTimeout(cpAiTalkT);
-        if (!cpAiBusy && act && !quietNow2() && !(e && /abort|cancel/i.test(String(e.code || e.name || e.message || "")))) say(pickFrom("ai:oops", OOPS), {ms: 4000});
+        settle(e && /abort|cancel/i.test(String(e.code || e.name || e.message || "")) ? null : false);
         throw e;
       }
     };
@@ -71698,7 +71719,7 @@ var SBPRO = null;
   // The same features as buttons on the tabs they belong to
   function tabBtns(where){
     if (locked() || !isPro()) return "";
-    const b = (act, id, label, icon, tip) => `<button type="button" class="btn small pro-tab-btn" data-act="${act}"${id ? ` data-id="${id}"` : ""} title="${esc(tip)}">${ico(icon)}<span>${esc(label)}</span></button>`;
+    const b = (act, id, label, icon, tip) => `<button type="button" class="btn small pro-tab-btn" data-act="${act}"${id ? ` data-id="${id}"` : ""} title="${esc(tip)}" aria-label="${esc(label)}">${ico(icon)}<span>${esc(label)}</span></button>`;
     const f = id => (FEATURES.find(x => x.id === id) || {}).icon || "";
     const print = FEATURES.some(x => x.id === "print");
     const recap = !!(recapTerm() || (S().recapLast && S().recapLast.from));
