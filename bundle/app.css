@@ -5410,6 +5410,20 @@ html:not([data-motion="static"]) :is(.segb button,.chip,.ui-chip,.cf-pick,[role=
   #view .pg-tabs > button:hover{color:var(--ink)!important;background:color-mix(in srgb,var(--ink) 7%,transparent)!important}
   #view .pg-tabs > button[aria-selected="true"]{background:var(--ink)!important;color:var(--surface)!important;box-shadow:none!important}
 }
+/* Autopilot (99-autopilot.js): the one line on Today's Plan, What Changed, and Day Off */
+.ap-line{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;margin:8px 0;padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:.9rem}
+.ap-line .ap-t{flex:1 1 220px;min-width:0}
+.ap-line .ap-a{display:inline-flex;align-items:center;gap:4px 8px;flex-wrap:wrap}
+.ap-line .ap-a > span{color:var(--muted)}
+.ap-list{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:8px}
+.ap-list li{display:grid;gap:2px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;overflow-wrap:anywhere;min-width:0}
+.ap-mode{display:flex;align-items:center;justify-content:space-between;gap:8px 12px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.ap-mode > span{display:grid;gap:2px;flex:1 1 180px;min-width:0}
+.ap-set .segb{flex-wrap:wrap}
+.ap-dayrow{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;margin:8px 0 0}
+.ap-dayrow .mini{flex:1 1 180px;min-width:0}
+.plan-foot .ap-off-btn{margin-left:auto}
+.ap-line .icon-btn.sm{width:28px;height:28px;min-height:0;border:0;background:transparent;box-shadow:none}
 /* ===== module: 100-phone.css ===== */
 /* Phone and tablet bar (the desktop side menu is untouched) */
 @media (max-width:979px){

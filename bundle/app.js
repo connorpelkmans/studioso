@@ -8413,6 +8413,8 @@ const PRIO_M = {low:0.8, med:1, high:1.25, urgent:1.6};
 const LATE_M = {none:1.2, penalty:1, free:0.85, unknown:1};
 const LATE_LABEL = {unknown:"Not sure", none:"Not accepted", penalty:"Accepted with a penalty", free:"Accepted, no penalty"};
 const dailyHours = () => Math.max(0, Number(state.settings.dailyHours ?? 3));
+// A day off (Take Today Off, or a day picked in the Calendar): no study time is planned that day. Synced in settings.daysOff.
+const dayIsOff = d => !!(d && state.settings && state.settings.daysOff && state.settings.daysOff[d]);
 function todayHours(){
   try { const o = JSON.parse(localStorage.getItem("coursework:today") || "null"); if (o && o.d === todayISO() && isNum(o.h)) return Number(o.h); } catch(e) {}
   return dailyHours();
@@ -8688,7 +8690,7 @@ function computeFocus(){
   const sd = studyDay(now), leftH = (sd.night ? sd.end - sd.start : sd.left) / 60;
   const th0 = Math.max(0, Math.min(thSet - doneToday, leftH));
   let av = null; try { av = availToday(now); } catch(e) {}
-  const th = av && av.active ? Math.min(th0, av.res.total / 60) : th0;
+  const th = dayIsOff(today) ? 0 : av && av.active ? Math.min(th0, av.res.total / 60) : th0;
   PTS_W = pointsWeights();
   const open = tasksArr().filter(t => t.status !== "done" && t.due).concat(groupPlanTasks(), examStudyTasks(today));
   prereqDue(open, today, dh);
@@ -8697,7 +8699,7 @@ function computeFocus(){
   const B = busyDays(today, addDays(today, horizon));
   const day = [th], cum = [0];
   let AD = null; if (av && av.active) { try { AD = availDays(addDays(today, 1), addDays(today, horizon)); } catch(e) {} }
-  for (let i = 1; i <= horizon; i++) { const d = addDays(today, i); day.push(Math.min(dh * (accOf() ? accOf().wkScale(d) : 1) * busyFactor(B.m[d] || 0), AD && AD[d] != null ? AD[d] : Infinity)); }
+  for (let i = 1; i <= horizon; i++) { const d = addDays(today, i); day.push(dayIsOff(d) ? 0 : Math.min(dh * (accOf() ? accOf().wkScale(d) : 1) * busyFactor(B.m[d] || 0), AD && AD[d] != null ? AD[d] : Infinity)); }
   for (let i = 1; i <= horizon; i++) cum.push(cum[i - 1] + day[i - 1]);
   const stamp = nowStamp(), nowMs = now.getTime(), nowMin = now.getHours() * 60 + now.getMinutes();
   // Free hours from now until a time later today, from today's free windows when there are some
@@ -8864,7 +8866,7 @@ function computeFocus(){
   {
     const flatToday = ranked.reduce((s, x) => s + (x.enough ? 0 : x.needFlat), 0), extra = needToday - Math.max(flatToday, th);
     const dayLeft = Math.max(0, 24 - now.getHours() - now.getMinutes() / 60 - 0.5), add = Math.min(Math.ceil(extra * 2) / 2, Math.max(1, Math.ceil(thSet)), Math.floor(Math.max(0, Math.min(10, dayLeft + doneToday) - thSet) * 2) / 2);
-    if (extra >= 0.5 && add >= 0.5) {
+    if (extra >= 0.5 && add >= 0.5 && !dayIsOff(today)) {
       const low = []; for (let i = 1; i <= 7 && low.length < 3; i++) { if (day[i] < dh * 0.6) { const d = addDays(today, i); low.push({d, what: (B.what[d] || [])[0] || ""}); } }
       if (low.length) busyAhead = {add, to: thSet + add, days: low, all: add + 0.01 >= Math.ceil(extra * 2) / 2};
     }
@@ -9131,7 +9133,8 @@ function focusHtml(){
   const workable = ranked.filter(x => !x.fixed);
   const todayList = workable.filter(x => x.alloc > 0);
   ui.focusOpen = true;
-  let hero = null; if (ui.focusOpen) { try { hero = nextUp(F); } catch (e) { hero = null; } }
+  const offToday = dayIsOff(todayISO());
+  let hero = null; if (ui.focusOpen && !offToday) { try { hero = nextUp(F); } catch (e) { hero = null; } }
   const heroId = hero ? hero.x.t.id : "";
   const pastFixed = Object.values(F.info).filter(x => x.fixed && inView(x) && x.t.status !== "done" && x.dl < 0).sort((a, b) => b.dl - a.dl);
   const lateRows = workable.filter(x => x.dl < 0 || x.past), soonRows = workable.filter(x => !(x.alloc > 0));
@@ -9139,7 +9142,7 @@ function focusHtml(){
   const week = weekAhead(F, inView), pickDay = /^d:/.test(ui.planTile || "") ? week.find(w => w.iso === ui.planTile.slice(2)) : null;
   if ((ui.planTile === "late" && !overdue) || (/^d:/.test(ui.planTile || "") && !pickDay) || (ui.planTile && ui.planTile !== "late" && !/^d:/.test(ui.planTile))) ui.planTile = "";
   const pick = ui.planTile || "";
-  const base = pick === "late" ? lateRows : pickDay ? pickDay.rows : todayList.length ? todayList : workable, rowsAll = pick ? base : base.filter(x => x.t.id !== heroId);
+  const base = pick === "late" ? lateRows : pickDay ? pickDay.rows : offToday ? [] : todayList.length ? todayList : workable, rowsAll = pick ? base : base.filter(x => x.t.id !== heroId);
   const cap = pick || (todayList.length && ui.planAllToday) ? rowsAll.length : todayList.length ? 5 : 3;
   const show = rowsAll.slice(0, cap), hiddenToday = !pick && todayList.length ? rowsAll.slice(show.length) : [];
   const sum = [];
@@ -9154,7 +9157,7 @@ function focusHtml(){
   const nBlk = F.blocked.filter(inView).length, nLater = F.later.filter(inView).length;
   const more = ranked.length > show.length + (heroId ? 1 : 0) || nBlk || nLater;
   const listLabel = pick === "late" ? "Overdue" : pickDay ? (pickDay.i === 0 ? "Due Today" : "Due " + esc(fmtDate(pickDay.iso))) : heroId ? (show.some(x => x.alloc > 0) ? "Also Today" : "Then") : "";
-  let spare = ""; if (ui.focusOpen && !heroId && !show.length && !pick) { try { spare = nextUpSpare(F, inView); } catch (e) { spare = ""; } }
+  let spare = ""; if (ui.focusOpen && !offToday && !heroId && !show.length && !pick) { try { spare = nextUpSpare(F, inView); } catch (e) { spare = ""; } }
   const skipped = !heroId && ui.skipNext && ui.skipNext.day === todayISO() && ui.skipNext.ids.length ? `<p class="nu-skipped mini">You skipped every suggestion for now. <button class="link-btn" data-act="nu-back">Go Back</button></p>` : "";
   const foot = (k, label, open) => `<button class="pf-link" data-act="plan-sec" data-id="${k}" aria-expanded="${open}" aria-controls="plan-${k}">${label}<svg class="pf-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>`;
   const moreOpen = !!ui.planMore, howOpen = !!ui.planHow;
@@ -9173,11 +9176,11 @@ function focusHtml(){
   return `<section class="focus plan" aria-label="Today's Plan">
     <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? `<p class="plan-gap">${(F.gapWhy.chips || []).length === F.gapWhy.length ? F.gapWhy.chips.map((c, i) => `<span class="pg-chip pg-${c.k}" title="${esc(F.gapWhy[i])}"><span class="pg-ic" aria-hidden="true">${c.k === "done" ? "✓" : "◐"}</span>${esc(c.t)}<span class="pt-sr">. ${esc(F.gapWhy[i])}</span></span>`).join("") : F.gapWhy.map(esc).join(" ")}</p>` : ""}</div>
       ${(hoursBar => { PLAN_HOURS = hoursBar; return `<div class="fh-ctl${ptStats ? " fh-chip has-stats" : ""}${autoChipHtml() ? "" : " fh-only-hours"}">${hoursBar}${autoChipHtml()}</div>`; })(`<div class="hours-ctl" role="group" aria-label="Study time available today"><span class="mini">Time Today</span><span class="hc-row"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button><b${hoursTitle ? ` title="${esc(hoursTitle)}"` : ""}>${fmtHM(F.thSet) || "0m"}</b><button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></span></div>`)}</div>
-    ${ui.focusOpen ? `${window.SBPRO ? SBPRO.todayHtml() : ""}${dayTimelineHtml(F, todayList, heroId)}${nextUpHtml(F, hero)}${skipped}${spare}${planNotesHtml(F, inView, warn)}${pastHtml}${availStripHtml(F)}
-      ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
+    ${ui.focusOpen ? `${window.SBAUTOPILOT ? SBAUTOPILOT.lineHtml() : ""}${window.SBPRO ? SBPRO.todayHtml() : ""}${dayTimelineHtml(F, todayList, heroId)}${nextUpHtml(F, hero)}${skipped}${spare}${planNotesHtml(F, inView, warn)}${pastHtml}${availStripHtml(F)}
+      ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick || offToday ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
       ${fixedHtml}
       ${extraHtml}
-      <div class="plan-foot">${more ? foot("more", `Full Ranking${nBlk ? `, Waiting (${nBlk})` : ""}${nLater ? `, Coming Up (${nLater})` : ""}`, moreOpen) : ""}${foot("how", "How This Is Ranked", howOpen)}</div>
+      <div class="plan-foot">${more ? foot("more", `Full Ranking${nBlk ? `, Waiting (${nBlk})` : ""}${nLater ? `, Coming Up (${nLater})` : ""}`, moreOpen) : ""}${foot("how", "How This Is Ranked", howOpen)}${window.SBAUTOPILOT ? SBAUTOPILOT.offBtn() : ""}</div>
       ${more ? `<div class="plan-more" id="plan-more" role="region" aria-label="Full Ranking"${moreOpen ? "" : " hidden"}>
         <p class="plan-cap">Everything open, in ranked order. The number on the right is each task's focus score.</p>
         <ol class="plan-list">${ranked.map((x, i) => planRow(x, i, true)).join("")}</ol>
@@ -10258,7 +10261,8 @@ function availExtMap(from, to){
 }
 function availFreeDay(date, nowMin, extMap){
   const a = availState(), ext = (extMap || availExtMap(date, date))[date] || [];
-  return AVAIL.freeWindows(date, {blocks: a.blocks, cfg: a.cfg, ext, nowMin});
+  const r = AVAIL.freeWindows(date, {blocks: a.blocks, cfg: a.cfg, ext, nowMin});
+  return dayIsOff(date) ? Object.assign(r, {windows: [], total: 0, largest: 0, none: true}) : r;
 }
 let AV_DAYS = {k: "", v: null};
 // Free hours per future date, cached until something changes
@@ -43314,7 +43318,7 @@ var TP_DATA = [];
   const ORDER = {
     account: ["sb-signout", "sb-signin", "sb-connect", "sb-issues", "plan-open"],
     appearance: ["theme-set", "shop", "anim-mode", "text-size", "lang-set", "a11y-contrast", "anim-toggle", "daily-quote", "scene-moment", "comp-set"],
-    study: ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "g-grades", "bd-new-course", "wkr-open", "fgs-open", "ai-setup", "sx-settings"],
+    study: ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "ap-mode", "ap-pro", "g-grades", "bd-new-course", "wkr-open", "fgs-open", "ai-setup", "sx-settings"],
     capture: ["cap-try"],
     school: ["sem-open", "lms-open", "cal-export", "cal-sync", "import-syllabus", "grp-page"],
     app: ["tz-shift", "rm-open", "sbw-open", "pwa-install", "install", "desk-version", "ob-replay", "tour-open", "bug-open"],
@@ -43323,7 +43327,7 @@ var TP_DATA = [];
   // Sub-tabs inside a category with many rows
   const SUBS = {
     appearance: [["Look", ["theme-set", "shop", "scene-moment", "daily-quote", "comp-set"]], ["Accessibility", ["text-size", "a11y-contrast", "anim-mode", "anim-toggle"]]],
-    study: [["Study Plan", ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "g-grades", "bd-new-course", "wkr-open", "fgs-open"]], ["AI and Search", ["ai-setup", "sx-settings"]]],
+    study: [["Study Plan", ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "ap-mode", "ap-pro", "g-grades", "bd-new-course", "wkr-open", "fgs-open"]], ["AI and Search", ["ai-setup", "sx-settings"]]],
     school: [["School Sites", ["sem-open", "lms-open", "import-syllabus"]], ["Calendar", ["cal-export", "cal-sync"]], ["Groups", ["grp-page"]]],
     app: [["Reminders", ["rm-open", "sbw-open", "tz-shift"]], ["Install", ["pwa-install", "install", "desk-version"]], ["Help", ["ob-replay", "tour-open", "bug-open"]]],
     data: [["Backups", ["fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "restore"]], ["Import and Export", ["import", "ia-open", "export-data"]], ["Cleanup", ["new-term", "archive-open", "trash-open", "clear-all"]]]
@@ -43332,7 +43336,7 @@ var TP_DATA = [];
   // Extra words people might search for, per row
   const SYN = {"theme-set": "dark light mode night", shop: "theme colors stickers pins cards", "anim-toggle": "motion confetti", "comp-set": "companion pet stay still fixed corner move", "anim-mode": "animation motion static still saver", "text-size": "font bigger larger smaller accessibility dynamic type zoom", "lang-set": "language idioma espanol spanish translate locale", "a11y-contrast": "contrast accessibility readable calm background dim blur", "tz-shift": "timezone travel daylight saving dst clock",
     "sb-connect": "sync cloud online login", "sb-signin": "sync login", "sb-issues": "conflict merge two devices edited resolve", "sb-signout": "log out logout", "plan-open": "pro upgrade subscription devices storage",
-    "area-open": "major program field subject discipline degree", "bd-new-course": "milestones rubric breakdown", dailyIn: "study time plan", capIn: "weekly limit", "ai-setup": "gemini key chatbot", "sx-settings": "find ctrl k", "g-grades": "marks gpa", "wkr-open": "weekly review sunday summary recap week slipped", "fgs-open": "streak study days rest days habit gentle forgiving",
+    "area-open": "major program field subject discipline degree", "bd-new-course": "milestones rubric breakdown", dailyIn: "study time plan", "ap-mode": "autopilot catch up missed sessions reschedule overnight day off", "ap-pro": "autopilot catch up missed sessions reschedule overnight day off", capIn: "weekly limit", "ai-setup": "gemini key chatbot", "sx-settings": "find ctrl k", "g-grades": "marks gpa", "wkr-open": "weekly review sunday summary recap week slipped", "fgs-open": "streak study days rest days habit gentle forgiving",
     "lms-open": "d2l lms school sites", "cal-export": "calendar ics google outlook apple", "import-syllabus": "pdf course", "sem-open": "semester first run start setup onboarding import syllabus week plan", "grp-page": "classmates share",
     "rm-open": "alerts push notify", "sbw-open": "widget tray startup desktop", "ob-replay": "tour help welcome start", "tour-open": "tour help guide orientation walkthrough tutorial", "bug-open": "bug report feedback problem issue idea support contact", "pwa-install": "home screen app",
     "fsb-choose": "google drive onedrive folder backup", folder: "google drive onedrive folder backup", "backup-now": "save backup copy device", "restore": "undo backup", "export": "download backup zip files", "export-json": "download backup data only json", "import": "upload backup", "ia-open": "anki apkg colpkg quizlet todoist notion csv another app switch", "export-full": "files zip",
@@ -63861,7 +63865,14 @@ function inputNow(){
   let cap = null; try { if (availActive()) cap = Object.assign({}, availDays(today, addDays(today, 21 * 7))); } catch (e) { cap = null; }
   const A = typeof SBACC !== "undefined" ? SBACC : null;
   const cs = A ? A.capScale() : 1, wk = [0, 1, 2, 3, 4, 5, 6].map(i => A ? A.wkScale(addDays(today, i)) : 1).map((v, i) => ({d: parse(addDays(today, i)).getDay(), v})).sort((p, q) => p.d - q.d).map(x => x.v);
+  cap = offCaps(today, cap);
   return {today, tasks, busy, cap, dailyHours: dailyHours() || 3, capScale: cs, wkScale: wk.some(v => v !== 1) ? wk : null, maxWeeks: 20, minWeeks: 6};
+}
+// Days off have no study time
+function offCaps(today, cap){
+  const off = Object.keys((state.settings && state.settings.daysOff) || {}).filter(d => d >= today);
+  if (!off.length) return cap;
+  const out = Object.assign({}, cap || {}); off.forEach(d => { out[d] = 0; }); return out;
 }
 // Before Today's Plan is ready: the tasks as they are
 function inputLegacy(){
@@ -63877,7 +63888,7 @@ function inputLegacy(){
   BUSY_CACHE = keep;
   const A = typeof SBACC !== "undefined" ? SBACC : null;
   const cs = A ? A.capScale() : 1, wk = [0, 1, 2, 3, 4, 5, 6].map(i => A ? A.wkScale(addDays(today, i)) : 1).map((v, i) => ({d: parse(addDays(today, i)).getDay(), v})).sort((p, q) => p.d - q.d).map(x => x.v);
-  return {today, tasks, busy, dailyHours: dailyHours() || 3, capScale: cs, wkScale: wk.some(v => v !== 1) ? wk : null, maxWeeks: 20, minWeeks: 6};
+  return {today, tasks, busy, cap: offCaps(today, null), dailyHours: dailyHours() || 3, capScale: cs, wkScale: wk.some(v => v !== 1) ? wk : null, maxWeeks: 20, minWeeks: 6};
 }
 function modelNow(){
   const k = [state.updated || 0, todayISO(), new Date().getHours(), dailyHours(), tasksArr().length, AUTO_ON ? 1 : 0, typeof SBACC !== "undefined" && SBACC ? SBACC.sig() : ""].join("|");
@@ -64090,11 +64101,11 @@ function showSheet(){
   } else if (!W.past && W.levelIdx >= 2) box = `<div class="cr-box"><h3>Pulling Work Forward</h3><p class="mini" style="margin:0">Nothing here can move earlier in a way that helps. Exams and quizzes stay put, and blocked or nearly finished work isn't suggested. Starting the biggest item now still spreads the load.</p></div>`;
   const days7 = W.days.map(d => m.days.find(y => y.date === d)).filter(Boolean), dMax = Math.max(1, ...days7.map(x => Math.max(x.demand, x.capacity)));
   const strip = isDay ? "" : `<div class="cr3-days" role="group" aria-label="Days of this week">${days7.map(x => `<button type="button" class="cr3-day lv${x.levelIdx}${x.past ? " is-past" : ""}" data-act="cr-day" data-id="${x.date}" ${x.past ? "disabled" : ""} aria-label="${esc(`${dayWord(x.date)}: ${fmtHM(x.demand) || "nothing"} of work, ${LV_WORD[x.levelIdx]}`)}"><span class="cr3-bar"><i style="height:${Math.round(Math.min(1, x.demand / dMax) * 100)}%"></i><em style="bottom:${Math.round(Math.min(1, x.capacity / dMax) * 100)}%"></em></span><b>${esc(parse(x.date).toLocaleDateString(undefined, {weekday: "short"}))}</b><span>${x.demand >= 0.25 ? esc(fmtHM(x.demand)) : "–"}</span>${x.due.length ? `<span class="cr3-due">${x.due.length} due</span>` : ""}</button>`).join("")}</div>`;
-  const dayEx = isDay ? `<p class="mini" style="margin:0">${D.capacity < (D.cap0 != null ? D.cap0 : dailyHours()) - 0.05 ? `Classes or events leave about ${fmtHM(D.capacity)} of study time. ` : ""}Load ${fmtHM(D.demand)} against ${fmtHM(D.capacity)} of study time. <button type="button" class="link-btn" data-act="cr-week" data-id="${ws}">See the Whole Week</button></p>` : `<p class="mini" style="margin:0">About ${fmtHM(W.demand)} of work and deadline pressure against ${fmtHM(W.capacity)} of study time. The busiest day is ${W.peakDay ? esc(dayWord(W.peakDay)) : "none"} at ${ratioText(W.peak)}.</p>`;
+  const dayEx = isDay ? `<p class="mini" style="margin:0">${dayIsOff(D.date) ? "" : D.capacity < (D.cap0 != null ? D.cap0 : dailyHours()) - 0.05 ? `Classes or events leave about ${fmtHM(D.capacity)} of study time. ` : ""}Load ${fmtHM(D.demand)} against ${fmtHM(D.capacity)} of study time. <button type="button" class="link-btn" data-act="cr-week" data-id="${ws}">See the Whole Week</button></p>` : `<p class="mini" style="margin:0">About ${fmtHM(W.demand)} of work and deadline pressure against ${fmtHM(W.capacity)} of study time. The busiest day is ${W.peakDay ? esc(dayWord(W.peakDay)) : "none"} at ${ratioText(W.peak)}.</p>`;
   const LV_COL = ["#4C9BE8", "#3FA866", "#D9A21B", "#E8833A", "#D3352A"], dem = isDay ? D.demand : W.demand, cap = isDay ? D.capacity : W.capacity;
   const html = `<form class="sheet cr-sheet cr3">${bandHead(title, crIcon(lvIdx), LV_COL[lvIdx] || "#4C9BE8", `${LV_WORD[lvIdx]} · ${esc(reasons)}`)}<div class="sheet-body">
     <div class="cr3-sum"><div><b>${fmtHM(dem) || "0h"}</b><span>of work</span></div><div><b>${fmtHM(cap) || "0h"}</b><span>of study time</span></div><div><b class="${dem > cap + 0.25 ? "over" : ""}">${cap > 0 ? (dem / cap).toFixed(1) + "×" : "–"}</b><span>${dem > cap + 0.25 ? fmtHM(dem - cap) + " over" : "fits"}</span></div></div>
-    ${dayEx}${strip}${box}
+    ${dayEx}${isDay && window.SBAUTOPILOT ? SBAUTOPILOT.dayRow(D.date) : ""}${strip}${box}
     <h3 class="cr3-h">${isDay ? "On This Day" : "What's Driving This Week"}</h3>
     ${order.length ? `<ul class="cr-items">${order.map(x => itemHtml(x, ws, byId[x.id], today)).join("")}</ul>` : `<p class="mini" style="margin:0">Nothing due or building up here.</p>`}
     ${m.noEstimate ? `<p class="cr-note">Tasks without a time estimate use typical hours for their type.</p>` : ""}
@@ -65661,6 +65672,7 @@ function dayInfoFn(ex, from, to){
     const isToday = date === today, o = {load: per[date] || 0, crunch: !!crunchDay[date]};
     if (act) { const f = availFreeDay(date, isToday ? nowMin : null, ext); o.cap = Math.floor(f.total * 0.85); o.windows = f.windows.map(w => ({s: w.s, e: w.e})); if (f.none) o.blocked = true; }
     else { o.cap = Math.floor(dh * 60 * busyFactor((bd.m && bd.m[date]) || 0)); if (isToday) o.cap = Math.min(o.cap, Math.floor((1320 - nowMin) * 0.6)); }
+    if (dayIsOff(date)) { o.cap = 0; o.blocked = true; }
     return o;
   };
 }
@@ -65753,6 +65765,7 @@ function applyPlan(ex0, P, topics, due, time, out, opts){
   if (ne.start && ne.start > ne.due) ne.start = ne.due;
   changes.push({kind: "task", id: ex.id, after: normTask(ne)});
   const n = out.sessions.length;
+  if (opts.dry) return {changes, n};
   applyChanges(changes, opts.label || (opts.replan ? `Re-planned ${n} prep session${n === 1 ? "" : "s"} for ${ex.title}` : `Added ${n} prep session${n === 1 ? "" : "s"} for ${ex.title}`));
   return n;
 }
@@ -65990,6 +66003,14 @@ function catchUp(id){
   applyPlan(ex, Object.assign({}, P, {style: P.style, ai: false}), topics, ex.due, ex.time, out, {replan: true, label: `Caught up: ${out.sessions.length} session${out.sessions.length === 1 ? "" : "s"} spread over the days left${kept ? ` (${kept} done kept)` : ""}`});
   if (dlg.open && S && S.step === "view") { S.step = "view"; draw(); }
 }
+// The same re-spread as Catch Up, worked out without applying it (Autopilot puts it in its own batch)
+function replanChanges(id){
+  const ex = state.tasks[id]; if (!ex || !ex.due) return null;
+  const P = prepOf(ex), topics = P.topics; if (!topics.length) return null;
+  const out = EXAMPREP.plan(inputFor(ex, P, topics, ex.due));
+  if (out.err || !out.sessions.length) return {out, changes: []};
+  return {out, changes: applyPlan(ex, Object.assign({}, P, {ai: false}), topics, ex.due, ex.time, out, {replan: true, dry: true}).changes};
+}
 function wrapUp(id){
   const ex = state.tasks[id]; if (!ex) return;
   const open = sessionsOf(id).filter(t => t.status !== "done"), changes = open.map(t => ({kind: "task", id: t.id, after: null}));
@@ -66026,6 +66047,7 @@ function todayItems(){
     }
     if (ex.status === "done") return;
     if (days < 0) { if (!(ex.prep && ex.prep.archived)) out.push({id: ex.id, kind: "passed", text: `${nm} has passed. How did it go?`, btn: "Wrap Up", act: "prep-wrap"}); return; }
+    if ((sm.moved || sm.missed) && window.SBAUTOPILOT && SBAUTOPILOT.handles()) return;
     if (sm.moved) out.push({id: ex.id, kind: "moved", text: `${nm} moved to ${fmtDate(ex.due)}. Re-spread your prep sessions to match?`, btn: "Re-plan", act: "prep-catch"});
     else if (sm.missed) out.push({id: ex.id, kind: "behind", text: `${sm.missed} prep session${sm.missed === 1 ? "" : "s"} for ${nm} slipped. Spread ${sm.missed === 1 ? "it" : "them"} over the days that are left?`, btn: "Catch Up", act: "prep-catch"});
   });
@@ -66095,7 +66117,7 @@ hook("changed", changes => {
     });
   } catch (e) { console.warn("prep changed", e); }
 });
-window.SBPREP = {open, todayHtml, formHtml, rowBtn, rowLine, courseHtml, courseExams, matBtn, pct: pctOf, summary: summaryOf, offer, offered, ideaValid, runIdea, catchUp, sessions: sessionsOf, EXAMPREP, _state: () => S, _plan: id => { const ex = state.tasks[id], P = prepOf(ex); return EXAMPREP.plan(inputFor(ex, P, P.topics, ex.due)); }};
+window.SBPREP = {open, todayHtml, formHtml, rowBtn, rowLine, courseHtml, courseExams, matBtn, pct: pctOf, summary: summaryOf, offer, offered, ideaValid, runIdea, catchUp, replanChanges, sessions: sessionsOf, EXAMPREP, _state: () => S, _plan: id => { const ex = state.tasks[id], P = prepOf(ex); return EXAMPREP.plan(inputFor(ex, P, P.topics, ex.due)); }};
 })();
 
 /* ===== module: 97-exammode.js ===== */
@@ -67681,7 +67703,7 @@ function ctxFor(excludeIds, from, to){
     let AD = null; if (availActive()) AD = availDays(from, to);
     const dh = dailyHours();
     for (let d = from, i = 0; d <= to && i < 400; d = addDays(d, 1), i++) {
-      const a = dh > 0 ? dh * busyFactor(B.m[d] || 0) : Infinity, b = AD && AD[d] != null ? AD[d] : Infinity, v = Math.min(a, b);
+      const a = dh > 0 ? dh * busyFactor(B.m[d] || 0) : Infinity, b = AD && AD[d] != null ? AD[d] : Infinity, v = dayIsOff(d) ? 0 : Math.min(a, b);
       if (isFinite(v)) free[d] = v;
     }
   } catch (e) { console.warn("breakdown free", e); }
@@ -69461,7 +69483,8 @@ function streakNow(){
   const k = [state.updated || 0, today, Object.keys(state.tasks || {}).length, (focusDaysNow()[today] || 0)].join("|");
   if (GMEMO.k === k && GMEMO.v) return GMEMO.v;
   const from = RS.add(today, -400), active = RS.activityDays({tasks: allTasks(), focusDays: focusDaysNow(), log: g.log, timeDays: sbtimeDays(from, today), from, to: today});
-  const res = RS.streak({today, active, cfg: g, best: g.best});
+  // A day off (Take Today Off) counts as a rest day
+  const res = RS.streak({today, active, cfg: Object.assign({}, g, {rests: Object.assign({}, state.settings && state.settings.daysOff, g.rests)}), best: g.best});
   GMEMO = {k, v: res};
   return res;
 }
@@ -81474,6 +81497,366 @@ const LINKCARDS = (() => {
 #aiStatus .btn.small{margin:6px 6px 0 0}
 `;
   document.head.appendChild(css);
+})();
+/* ===== module: 99-autopilot.js ===== */
+/* Autopilot (Pro): once a day, on the first open of the day, the fixes the free planner offers one tap at a time are made for you,
+   then Today's Plan says so once ("Autopilot moved 3 things last night. See What Changed · Undo"):
+   - missed Exam Prep sessions are re-spread over the days left (the same plan as Catch Up), and prep is re-planned when an exam moved
+   - a passed step of a broken-down assignment goes to the next free day before the assignment is due
+   - an overdue Study task of your own goes to your next free day
+   Only things the app or you scheduled softly move. A real due date (assignments, exams, quizzes), anything from school sync or a
+   calendar feed, classes and events never move. What can't fit before its deadline stays where it is and is named instead.
+   Day Off (free): a day with no study time. Today's Plan plans nothing that day and the Gentle Streak counts it as a rest day.
+   With Autopilot on, what was planned that day moves to other free days right away.
+   Settings > Study: Autopilot On (default), Ask Me First (the same line, as a proposal), Off. Runs are marked in synced settings
+   (settings.autopilot.run = {day, id}) before anything moves, and wait for the account's settings to arrive, so a second device
+   that opens the same day sees the mark and doesn't run again. Undo uses the exact earlier copies, kept on the device that ran it. */
+var SBAUTOPILOT = null;
+/*AUTOPILOT-START*/
+// The pure part: no DOM and no app state (tests/autopilot.test.js extracts this block)
+const AUTOPILOT = (() => {
+  const dn = s => { const [y, m, d] = String(s).split("-").map(Number); return Math.round(Date.UTC(y, m - 1, d) / 864e5); };
+  const fromDn = n => new Date(n * 864e5).toISOString().slice(0, 10);
+  const add = (s, n) => fromDn(dn(s) + n);
+  const diff = (a, b) => dn(b) - dn(a);
+  const isDate = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && fromDn(dn(s)) === s;
+  const HORIZON = 14, NEED = 2;
+  const open = t => !!t && t.status !== "done";
+  const isMs = t => t.type === "Exam" || t.type === "Quiz";
+  // From school sync, a calendar feed or a group: its dates belong to someone else
+  const synced = t => !!(t.bs || t.cv || t.bb || t.synced || t.icsUid || t.src || t.gt);
+  const hrs = t => Number(t.hours) > 0 ? Math.min(12, Number(t.hours)) : 1;
+  // What may move: prep sessions (by re-planning that exam's prep), steps of a broken-down assignment, your own Study tasks
+  const kindOf = t => !open(t) || !isDate(t.due) || synced(t) ? "" : t.prepFor ? (t.type === "Study" ? "prep" : "") : t.breakdownOf ? "step" : t.type === "Study" ? "study" : "";
+  const q = s => "“" + String(s || "Untitled").slice(0, 60) + "”";
+  const byDue = (a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0) || (parseInt(a.step, 10) || 0) - (parseInt(b.step, 10) || 0) || String(a.id).localeCompare(String(b.id));
+  const forward = (lo, hi) => { const r = []; for (let d = lo, i = 0; d <= hi && i < 120; d = add(d, 1), i++) r.push(d); return r; };
+  // Nearest days to `c` first (the day before, the day after, two before...), within lo..hi
+  const around = (c, lo, hi) => { const r = []; for (let k = 1; k <= 60; k++) [add(c, -k), add(c, k)].forEach(d => { if (d >= lo && d <= hi) r.push(d); }); return r; };
+  const whyPrep = (why, from, today, off) => why === "moved" ? "The exam date changed, so prep was re-planned"
+    : why === "missed" ? (from < today ? "Missed, moved to a free day before the exam" : "Shifted to make room for the missed sessions")
+    : off[from] ? "Your day off" : "Shifted around your day off";
+
+  // inp: {today, tasks, off: {date: 1}, cap: {date: free study hours}, dh (hours on a day missing from cap), horizon,
+  //   only (a date: just what is planned that day, for Take a Day Off),
+  //   replanExam(exam, why) -> {ok, changes: [{kind:"task", id, after}], notes: [text]} | {ok:false, warn}: the app's own Catch Up plan}
+  // out: {changes (one batch), moves: [{id, title, from, to, kind, why}], short: [{id, title, kind, text}], exams: [{id, why, missed}]}
+  function plan(inp){
+    inp = inp || {};
+    const today = inp.today, off = inp.off || {}, cap = inp.cap || {}, dh = inp.dh != null ? Math.max(0, Number(inp.dh) || 0) : 3;
+    const horizon = inp.horizon || HORIZON, only = isDate(inp.only) ? inp.only : "";
+    const out = {changes: [], moves: [], short: [], exams: []};
+    if (!isDate(today)) return out;
+    const T = {}; (inp.tasks || []).forEach(t => { if (t && t.id) T[t.id] = t; });
+    const orig = Object.values(T);
+    const isOff = d => !!off[d];
+    const touched = d => only ? d === only : d < today || isOff(d);
+
+    // 1. Exam prep: re-spread (as Catch Up does) when a session slipped, the exam moved, or a session sits on a day off
+    orig.filter(ex => isMs(ex) && open(ex) && isDate(ex.due) && ex.due > today).sort(byDue).forEach(ex => {
+      const ss = orig.filter(t => t.prepFor === ex.id && kindOf(t) === "prep");
+      if (!ss.length) return;
+      const missed = ss.filter(s => s.due < today), offS = ss.filter(s => s.due >= today && isOff(s.due));
+      const moved = !only && !!(ex.prep && isDate(ex.prep.examDue) && ex.prep.examDue !== ex.due);
+      if (only ? !ss.some(s => s.due === only) : !missed.length && !offS.length && !moved) return;
+      const why = moved ? "moved" : missed.length && !only ? "missed" : "dayoff";
+      const r = inp.replanExam ? inp.replanExam(ex, why) : null;
+      const skip = text => out.short.push({id: ex.id, title: ex.title, kind: "prep", text});
+      if (!r || !r.ok) { skip(((r && r.warn) || "There's no room left before the exam.") + " Its prep sessions stay where they are."); return; }
+      const ch = (r.changes || []).filter(c => c && c.id);
+      const bad = ch.some(c => c.after && c.after.prepFor === ex.id && c.after.status !== "done" && (!isDate(c.after.due) || c.after.due < today || c.after.due >= ex.due || isOff(c.after.due)));
+      if (!ch.length || bad) { skip("There's no free time left before the exam. Its prep sessions stay where they are."); return; }
+      const adds = [], gone = [];
+      ch.forEach(c => {
+        const b = T[c.id], a = c.after;
+        out.changes.push(c);
+        if (c.id !== ex.id) {
+          if (b && a && b.due !== a.due) out.moves.push({id: c.id, title: a.title, from: b.due, to: a.due, kind: "prep", why: whyPrep(why, b.due, today, off)});
+          else if (!b && a) adds.push(a); else if (b && !a) gone.push(b);
+        }
+        if (a) T[c.id] = a; else delete T[c.id];
+      });
+      // A session the new plan replaced with another one (same topic first) reads as one move
+      gone.sort(byDue).forEach(b => {
+        const i = adds.findIndex(a => a.topicId && a.topicId === b.topicId), a = adds.splice(i >= 0 ? i : 0, adds.length ? 1 : 0)[0];
+        if (a && a.due === b.due) return;
+        out.moves.push(a ? {id: a.id, title: a.title, from: b.due, to: a.due, kind: "prep", why: whyPrep(why, b.due, today, off)} : {id: b.id, title: b.title, from: b.due, to: "", kind: "prep", why: "Not needed in the re-spread plan"});
+      });
+      adds.forEach(a => out.moves.push({id: a.id, title: a.title, from: "", to: a.due, kind: "prep", why: "Added to fit the days before the exam"}));
+      out.exams.push({id: ex.id, why, missed: missed.length});
+      (r.notes || []).forEach(text => out.short.push({id: ex.id, title: ex.title, kind: "note", text}));
+    });
+
+    // Room left on each day: free study hours less the soft work already on it
+    const used = {};
+    const use = (t, sign) => { if (kindOf(t) && t.due >= today) used[t.due] = (used[t.due] || 0) + sign * hrs(t); };
+    Object.values(T).forEach(t => use(t, 1));
+    const capOf = d => isOff(d) ? 0 : cap[d] != null ? Math.max(0, Number(cap[d]) || 0) : dh;
+    const room = d => capOf(d) - (used[d] || 0);
+    const fits = (d, h) => d >= today && !isOff(d) && room(d) >= Math.max(0.25, Math.min(h, NEED)) - 1e-9;
+    // The first day it fits, or else the lightest day with at least half an hour free
+    const pick = (cands, h) => cands.find(d => fits(d, h)) || cands.filter(d => d >= today && !isOff(d) && room(d) >= 0.5 - 1e-9).sort((a, b) => room(b) - room(a) || (a < b ? -1 : 1))[0];
+    const place = (t, d, kind, why) => {
+      const a = Object.assign({}, t, {due: d});
+      if (kind === "step" || (a.start && a.start > d)) a.start = d;
+      if (a.slot) a.slot = "";
+      use(t, -1); use(a, 1); T[t.id] = a;
+      out.changes.push({kind: "task", id: t.id, after: a});
+      out.moves.push({id: t.id, title: t.title, from: t.due, to: d, kind, why});
+    };
+
+    // 2. Steps of a broken-down assignment: in order, between the step before and the next one, and before the due date
+    const groups = {};
+    Object.values(T).filter(t => kindOf(t) === "step").forEach(k => { (groups[k.breakdownOf] = groups[k.breakdownOf] || []).push(k); });
+    Object.keys(groups).sort().forEach(pid => {
+      const list = groups[pid].sort(byDue), p = T[pid];
+      const tg = list.filter(k => touched(k.due));
+      if (!tg.length || !p || !open(p) || !isDate(p.due)) return;
+      if (p.due < today) { out.short.push({id: p.id, title: p.title, kind: "step", text: `${q(p.title)} was due before today, so its ${tg.length === 1 ? "step stays" : tg.length + " steps stay"} where ${tg.length === 1 ? "it is" : "they are"}.`}); return; }
+      const lastOk = p.due > today ? add(p.due, -1) : p.due;
+      tg.forEach(k0 => {
+        const i = list.findIndex(x => x.id === k0.id), k = T[k0.id];
+        const prev = i > 0 ? T[list[i - 1].id].due : today, lo = prev > today ? prev : today;
+        const next = list.slice(i + 1).map(x => T[x.id]).find(x => !touched(x.due));
+        const hi = next && next.due < lastOk ? next.due : lastOk;
+        const d = pick(k.due >= today ? around(k.due, lo, hi) : forward(lo, hi), hrs(k));
+        if (!d) { out.short.push({id: k.id, title: k.title, kind: "step", text: `There's no free time left before ${q(p.title)} is due, so this step stays where it is. A shorter version, or more study time, would help.`}); return; }
+        place(k, d, "step", k.due < today ? `Missed step, moved to free time before ${q(p.title)} is due` : "Your day off");
+        list[i] = T[k.id];
+      });
+    });
+
+    // 3. Your own Study tasks: the next free day
+    Object.values(T).filter(t => kindOf(t) === "study" && touched(t.due)).sort(byDue).forEach(t => {
+      const cands = t.due >= today ? around(t.due, today, add(t.due, horizon)) : forward(today, add(today, horizon - 1));
+      const d = pick(cands, hrs(t));
+      if (!d) { out.short.push({id: t.id, title: t.title, kind: "study", text: `There's no free time in the next ${horizon} days, so it stays where it is.`}); return; }
+      place(t, d, "study", t.due < today ? "Missed, moved to your next free time" : "Your day off");
+    });
+    return out;
+  }
+  return {plan, kindOf, synced, add, diff, isDate, HORIZON};
+})();
+/*AUTOPILOT-END*/
+
+(() => {
+  const AP = AUTOPILOT;
+  const LS_UNDO = "studyboard:autopilot:undo";
+  const locked = () => !!(window.SBPRO && SBPRO.locked());
+  const cfg = () => { const v = state.settings && state.settings.autopilot; return v && typeof v === "object" && !Array.isArray(v) ? v : {}; };
+  const mode = () => ({on: 1, ask: 1, off: 1})[cfg().mode] ? cfg().mode : "on";
+  const setCfg = patch => { state.settings = Object.assign({}, state.settings, {autopilot: Object.assign({}, cfg(), patch)}); saveSettings(); };
+  const offMap = () => { const v = state.settings && state.settings.daysOff; return v && typeof v === "object" && !Array.isArray(v) ? v : {}; };
+  const runRec = () => { const r = cfg().run; return r && typeof r === "object" && AP.isDate(r.day) ? r : null; };
+  const lsGet = () => { try { const v = JSON.parse(localStorage.getItem(LS_UNDO) || "null"); return v && typeof v === "object" ? v : null; } catch (e) { return null; } };
+  const lsSet = v => { try { if (v) localStorage.setItem(LS_UNDO, JSON.stringify(v)); else localStorage.removeItem(LS_UNDO); } catch (e) {} };
+  const things = n => `${n} thing${n === 1 ? "" : "s"}`;
+  // Autopilot is doing the Catch Up work itself, so the Today cards for it stay out of the way
+  const handles = () => !locked() && mode() === "on";
+
+  // Free study hours per day, as Today's Plan counts them (availability, or daily hours less long class days); none on a day off
+  function capMap(from, to){
+    const out = {}, dh = dailyHours(); let AD = null, B = {m: {}};
+    try { if (availActive()) AD = availDays(from, to); } catch (e) {}
+    const keep = BUSY_CACHE; try { B = busyDays(from, to); } catch (e) {} finally { BUSY_CACHE = keep; }
+    for (let d = from, i = 0; d <= to && i < 60; d = addDays(d, 1), i++) out[d] = dayIsOff(d) ? 0 : Math.min(dh * busyFactor(B.m[d] || 0), AD && AD[d] != null ? AD[d] : Infinity);
+    return out;
+  }
+  function compute(only){
+    const today = todayISO(), off = {};
+    Object.keys(offMap()).forEach(d => { if (d >= today && offMap()[d]) off[d] = 1; });
+    return AP.plan({today, tasks: tasksArr(), off, cap: capMap(today, addDays(today, AP.HORIZON + 21)), dh: dailyHours(), only,
+      replanExam: ex => {
+        const r = window.SBPREP && SBPREP.replanChanges ? SBPREP.replanChanges(ex.id) : null;
+        if (!r) return {ok: false};
+        const o = r.out || {};
+        if (o.err || !r.changes.length) return {ok: false, warn: (o.warnings && o.warnings[0]) || ""};
+        // Honest about a squeeze: the planner's own crash-plan and dropped-topic words
+        return {ok: true, changes: r.changes, notes: (o.warnings || []).filter(w => /^Not enough time|crash plan/.test(w))};
+      }});
+  }
+  // The fields that say whether an item was changed since Autopilot moved it
+  const sig = t => t ? JSON.stringify(["due", "start", "status", "slot", "hours", "title", "prepFor", "breakdownOf", "type"].map(k => t[k] == null ? "" : t[k])) : "null";
+  function apply(res){
+    const before = [], seen = new Set();
+    res.changes.forEach(c => { if (seen.has(c.id)) return; seen.add(c.id); before.push({kind: "task", id: c.id, after: clone(state.tasks[c.id] || null)}); });
+    applyChanges(res.changes, "");
+    const post = {}; before.forEach(b => { post[b.id] = sig(state.tasks[b.id]); });
+    return {before, post};
+  }
+  const slim = m => ({id: m.id, title: String(m.title || "Untitled").slice(0, 90), from: m.from || "", to: m.to || "", why: String(m.why || "").slice(0, 120)});
+  const slimS = s => ({title: String(s.title || "Untitled").slice(0, 90), text: String(s.text || "").slice(0, 200)});
+  function record(kind, res, extra){
+    const r = Object.assign({day: todayISO(), id: uid(), kind, n: res.moves.length, moves: res.moves.slice(0, 60).map(slim), short: res.short.slice(0, 12).map(slimS), seen: false, at: Date.now()}, extra || {});
+    setCfg({run: r});
+    return r;
+  }
+  function moveNow(res){
+    const r = record("done", res);
+    if (res.changes.length) { const u = apply(res); lsSet({id: r.id, before: u.before, post: u.post}); } else lsSet(null);
+    scheduleRender();
+    return r;
+  }
+
+  /* The daily run */
+  let BOOT = Date.now(), BUSY = false;
+  function tick(){
+    if (BUSY) return;
+    try {
+      if (locked() || mode() === "off") return;
+      const today = todayISO(), r = runRec();
+      // Done for today (a proposal still waiting is applied once you switch to On)
+      if (r && r.day === today && !(r.kind === "ask" && !r.seen && mode() === "on")) return;
+      // Wait for the account's settings first, so a device that ran earlier today is seen
+      const signedIn = typeof sbUser !== "undefined" && !!sbUser;
+      // (and past the first seconds, when Pro can still be a remembered hint rather than the checked plan)
+      if (signedIn && (Date.now() - BOOT < 12000 || (!(typeof cloud !== "undefined" && cloud.on) && Date.now() - BOOT < 45000))) return;
+      BUSY = true;
+      const res = compute("");
+      if (mode() === "ask") { record("ask", res); scheduleRender(); }
+      else moveNow(res);
+    } catch (e) { console.warn("autopilot", e); } finally { BUSY = false; }
+  }
+  function applyProposal(){
+    const res = compute("");
+    if (!res.changes.length) { record("done", res, {seen: true}); lsSet(null); scheduleRender(); toast(res.short.length ? "Nothing can move right now without missing a deadline." : "Nothing needs moving now."); return; }
+    const r = moveNow(res);
+    if (dlg.open && dlg.querySelector(".ap-sheet")) dlg.close();
+    toast(`Autopilot moved ${things(r.n)}.`, undo);
+  }
+  function undo(){
+    const u = lsGet(), r = runRec();
+    if (!u || !r || u.id !== r.id || r.undone) { toast("Undo isn't available on this device. Each change is listed in See What Changed."); return; }
+    const back = [], kept = [];
+    (u.before || []).forEach(b => { if (sig(state.tasks[b.id] || null) === u.post[b.id]) back.push(b); else kept.push(b.id); });
+    if (back.length) applyChanges(back, null);
+    lsSet(null);
+    setCfg({run: Object.assign({}, r, {undone: true, seen: true})});
+    if (dlg.open && dlg.querySelector(".ap-sheet")) dlg.close();
+    scheduleRender();
+    toast(kept.length ? `Undone, except ${things(kept.length)} you changed since.` : "Undone. Everything is back where it was.");
+  }
+
+  /* Today's Plan: one quiet line */
+  function lineHtml(){
+    try {
+      const today = todayISO(), parts = [];
+      if (dayIsOff(today)) parts.push(`<div class="ap-line ap-offday" role="status"><span class="ap-t"><b>Today is a day off.</b> Nothing is planned today.</span> <span class="ap-a"><button type="button" class="link-btn" data-act="ap-dayoff" data-id="${esc(today)}">Undo Day Off</button></span></div>`);
+      const r = runRec();
+      if (!locked() && r && r.day === today && !r.seen && !r.undone && (r.n || (r.short || []).length) && (r.kind === "ask" ? mode() === "ask" : true)) {
+        const k = (r.short || []).length, sep = ` <span aria-hidden="true">·</span> `;
+        let t, a;
+        if (r.kind === "ask" && r.n) { t = `Autopilot can move ${things(r.n)} to fit your plan.`; a = `<button type="button" class="link-btn" data-act="ap-open">See What Changes</button>${sep}<button type="button" class="link-btn" data-act="ap-apply">Apply</button>${sep}<button type="button" class="link-btn" data-act="ap-dismiss">Not Now</button>`; }
+        else if (r.n) { t = `Autopilot moved ${things(r.n)} ${new Date(r.at || 0).getHours() < 12 ? "last night" : "today"}.`; a = `<button type="button" class="link-btn" data-act="ap-open">See What Changed</button>${lsGet() && lsGet().id === r.id ? `${sep}<button type="button" class="link-btn" data-act="ap-undo">Undo</button>` : ""}`; }
+        else { t = `Autopilot couldn't find time for ${things(k)} before ${k === 1 ? "its deadline" : "their deadlines"}.`; a = `<button type="button" class="link-btn" data-act="ap-open">See Why</button>`; }
+        parts.push(`<div class="ap-line" role="status" data-kind="${esc(r.kind)}"><span class="ap-t">${esc(t)}</span> <span class="ap-a">${a}${r.kind === "ask" && r.n ? "" : `<button type="button" class="icon-btn sm" data-act="ap-dismiss" aria-label="Dismiss">${CLOSE}</button>`}</span></div>`);
+      }
+      return parts.join("");
+    } catch (e) { console.warn("autopilot line", e); return ""; }
+  }
+  const offBtn = () => { const d = todayISO(), on = dayIsOff(d); return `<button type="button" class="pf-link ap-off-btn" data-act="ap-dayoff" data-id="${esc(d)}" aria-pressed="${on}">${on ? "Undo Day Off" : "Take Today Off"}</button>`; };
+  // In the Calendar's day sheet (Crunch Forecast)
+  function dayRow(date){
+    if (!date || date < todayISO()) return "";
+    const on = dayIsOff(date);
+    return `<div class="ap-dayrow"><span class="mini">${on ? "A day off: no study time is planned, and it counts as a rest day." : "A day off plans no study time and counts as a rest day."}</span><button type="button" class="btn small" data-act="ap-dayoff" data-id="${esc(date)}" aria-pressed="${on}">${on ? "Undo Day Off" : "Take This Day Off"}</button></div>`;
+  }
+
+  /* See What Changed */
+  const MODES = [["on", "On"], ["ask", "Ask Me First"], ["off", "Off"]];
+  const modeSeg = () => `<div class="segb" role="group" aria-label="Autopilot">${MODES.map(([k, l]) => `<button type="button" data-act="ap-mode" data-id="${k}" aria-pressed="${mode() === k}">${l}</button>`).join("")}</div>`;
+  function openChanges(){
+    if (locked()) { proSheet(); return; }
+    const r = runRec(), today = todayISO(), cur = r && r.day === today ? r : null, ask = !!(cur && cur.kind === "ask" && !cur.seen);
+    const when = d => d ? fmtDate(d) : "";
+    const moves = cur ? cur.moves || [] : [], short = cur ? cur.short || [] : [];
+    const canUndo = !!(cur && cur.kind === "done" && !cur.undone && lsGet() && lsGet().id === cur.id);
+    const lead = !cur ? "Nothing has run yet today. Autopilot runs once a day, the first time you open Studyboard." : cur.undone ? "Today's changes were undone." : ask ? "Nothing has moved yet. Apply to make these changes." : moves.length ? "Each change, and why. Real due dates, school sync and classes never move." : "Nothing needed moving today.";
+    const rows = moves.map(m => `<li><b>${esc(m.title)}</b><span class="mini">${m.from && m.to ? `${esc(when(m.from))} → ${esc(when(m.to))}` : m.to ? `New on ${esc(when(m.to))}` : `Removed from ${esc(when(m.from))}`}</span><span class="mini">${esc(m.why)}</span></li>`).join("");
+    const shorts = short.map(s => `<li><b>${esc(s.title)}</b><span class="mini">${esc(s.text)}</span></li>`).join("");
+    openSheet(`<div class="sheet ap-sheet">${head(ask ? "What Would Change" : "What Changed")}<div class="sheet-body">
+      <p class="mini" style="margin:0 0 10px">${esc(lead)}</p>
+      ${rows && !(cur && cur.undone) ? `<ul class="ap-list">${rows}</ul>` : ""}
+      ${shorts ? `<h3 class="fsec">Couldn't Fit</h3><ul class="ap-list">${shorts}</ul>` : ""}
+      <div class="ap-mode"><span><b>Autopilot</b><span class="mini">On moves things for you. Ask Me First shows them here first.</span></span>${modeSeg()}</div>
+    </div><div class="sheet-foot"><button type="button" class="btn" data-act="close">Close</button><span class="spacer"></span>${canUndo && moves.length ? `<button type="button" class="btn" data-act="ap-undo">Undo All</button>` : ""}${ask && moves.length ? `<button type="button" class="btn" data-act="ap-dismiss">Not Now</button><button type="button" class="btn primary" data-act="ap-apply">Apply</button>` : ""}</div></div>`);
+    if (cur && cur.kind === "done" && !cur.seen) setCfg({run: Object.assign({}, cur, {seen: true})});
+  }
+  const proSheet = () => { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Autopilot is part of Studyboard Pro: missed study sessions and steps move to your next free time overnight, and Today's Plan tells you once."); };
+
+  /* Day Off */
+  function toggleOff(date){
+    const today = todayISO();
+    if (!AP.isDate(date) || date < today) return;
+    const cur = {}; Object.keys(offMap()).forEach(d => { if (d >= AP.add(today, -60) && offMap()[d]) cur[d] = 1; });
+    const on = !cur[date];
+    if (on) cur[date] = 1; else delete cur[date];
+    state.settings = Object.assign({}, state.settings, {daysOff: cur}); saveSettings(); scheduleRender();
+    try { offSaid(date, on); } finally { redrawDay(date); }
+  }
+  function offSaid(date, on){
+    const today = todayISO(), label = date === today ? "Today" : fmtDate(date);
+    if (!on) { toast(`${label} is a study day again.`); return; }
+    const res = compute(date), n = res.moves.length;
+    const here = res.moves.filter(m => m.from === date).length + res.short.length;
+    if (!n && !res.short.length) { toast(`${label} is a day off. Nothing is planned that day.`); return; }
+    if (!locked() && mode() === "on" && n) {
+      const k = res.short.length;
+      applyChanges(res.changes, `${label} is a day off. Moved ${things(n)} to other days.${k ? ` ${k === 1 ? `“${res.short[0].title}” couldn't move` : `${k} things couldn't move`} without missing a deadline.` : ""}`);
+      return;
+    }
+    if (locked()) { toast(`${label} is a day off. ${things(here)} ${here === 1 ? "is" : "are"} still planned that day.`, null, {label: "Move Them", fn: proSheet}); return; }
+    if (mode() === "ask" && n) { toast(`${label} is a day off. ${things(here)} ${here === 1 ? "is" : "are"} planned that day.`, null, {label: "Move Them", fn: () => { const r2 = compute(date); if (r2.changes.length) applyChanges(r2.changes, `Moved ${things(r2.moves.length)} to other days.`); redrawDay(date); }}); return; }
+    toast(`${label} is a day off. ${things(here)} ${here === 1 ? "is" : "are"} still planned that day.`);
+  }
+  // The day sheet reads Today's Plan's numbers, which refresh on the next render: redraw it then
+  let REDRAW = "";
+  function redrawDay(date){ REDRAW = date; scheduleRender(); }
+  hook("render", () => { if (!REDRAW) return; const d = REDRAW; REDRAW = ""; redrawNow(d); });
+  function redrawNow(date){
+    try {
+      if (!dlg.open || !dlg.querySelector(".cr-sheet")) return;
+      const b = document.createElement("button"); b.type = "button"; b.hidden = true; b.dataset.act = "cr-day"; b.dataset.id = date;
+      document.body.appendChild(b); b.click(); b.remove();
+    } catch (e) {}
+  }
+
+  /* Settings > Study */
+  hook("menu", () => {
+    if (locked()) return `<button type="button" data-act="ap-pro" data-group="study"><span>Autopilot ${PRO_BADGE}<span class="sub">Moves missed study sessions and steps into your next free time overnight, then tells you once.</span></span></button>`;
+    return `<div class="cap-row sb-wide ap-set" data-group="study"><span style="flex:1;font-weight:600;min-width:12rem">Autopilot<span class="sub">Once a day, moves missed prep sessions, milestones and Study tasks into your next free time before their deadlines, then tells you once on Today's Plan. Real due dates never move.</span></span>${modeSeg()}</div>`;
+  });
+  hook("act", (act, el, id) => {
+    if (!act || act.slice(0, 3) !== "ap-") return false;
+    switch (act) {
+      case "ap-open": openChanges(); return true;
+      case "ap-pro": proSheet(); return true;
+      case "ap-undo": undo(); return true;
+      case "ap-apply": if (locked()) { proSheet(); return true; } applyProposal(); return true;
+      case "ap-dismiss": { const r = runRec(); if (r) setCfg({run: Object.assign({}, r, {seen: true})}); if (dlg.open && dlg.querySelector(".ap-sheet")) dlg.close(); scheduleRender(); return true; }
+      case "ap-dayoff": toggleOff((el && el.dataset.id) || id || todayISO()); return true;
+      case "ap-mode": {
+        if (locked()) { proSheet(); return true; }
+        const m = (el && el.dataset.id) || id; if (!({on: 1, ask: 1, off: 1})[m]) return true;
+        setCfg({mode: m});
+        if (m === "on") setTimeout(tick, 0);
+        document.querySelectorAll('[data-act="ap-mode"]').forEach(b => b.setAttribute("aria-pressed", String(b.dataset.id === m)));
+        scheduleRender();
+        toast(m === "on" ? "Autopilot is on. It runs once a day, the first time you open Studyboard." : m === "ask" ? "Autopilot will ask before moving anything." : "Autopilot is off. Catch Up cards are back on Today's Plan.");
+        return true;
+      }
+    }
+    return false;
+  });
+  hook("boot", () => {
+    BOOT = Date.now();
+    setTimeout(tick, 3000); setTimeout(tick, 13000);
+    setInterval(tick, 60000);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) setTimeout(tick, 1500); });
+  });
+  if (window.SBPRO) SBPRO.addFeature({id: "autopilot", name: "Autopilot", where: "On Today's Plan: missed sessions and steps move overnight. Settings, Study.", act: "ap-open", icon: '<path d="M3 12h4l3-8 4 16 3-8h4"/>'});
+  SBAUTOPILOT = {handles, lineHtml, offBtn, dayRow, open: openChanges, run: tick, compute, toggleOff, core: AP};
+  window.SBAUTOPILOT = SBAUTOPILOT;
 })();
 /* ===== module: 100-phone.js ===== */
 /* Phone follow-ups */
