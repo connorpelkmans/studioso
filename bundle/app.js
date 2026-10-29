@@ -3242,7 +3242,8 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
       if (res.status === 413 || /too large|payload size|exceeds.*(size|limit)/i.test(msg)) return {err: aiErr("big", "Those files are too big to send at once. Try fewer or smaller files (PDF works best)."), fatal: true};
       if (res.status === 404 || (res.status === 400 && /model/i.test(msg) && !/token|size|large/i.test(msg))) return {err: aiErr("model", `The model ${m} isn't available on your key.`), weak: true};
       if (res.status === 429) { if (!search && !urlContext) cool(m, /day|daily|per ?day/i.test(msg) ? 6 * 3600000 : 70000); return {err: aiErr("limit", "You've used up the free AI requests for now. Wait a minute and try again (if it's the daily limit, it resets tomorrow)." + (msg ? ` Google said (${m}${search ? ", web search" : ""}): ${String(msg).replace(/\s+/g, " ").slice(0, 200)}` : ""))}; }
-      if (res.status >= 500) { cool(m, 3 * 60000); return {err: aiErr("busy", "Google's AI is very busy right now. Try again in a minute.")}; }
+      // a video or file that Google's servers choke on isn't the model's fault: no bench, and Google's own words go with the error
+      if (res.status >= 500) { if (!media) cool(m, 3 * 60000); return {err: Object.assign(aiErr("busy", "Google's AI is very busy right now. Try again in a minute." + (msg ? ` Google said (${m}): ${String(msg).replace(/\s+/g, " ").slice(0, 160)}` : "")), {status: res.status, gmsg: String(msg || "").slice(0, 300)})}; }
       return {err: aiErr("http", msg ? "The AI couldn't do that: " + msg.slice(0, 180) : "The AI couldn't do that right now (error " + res.status + ")."), fatal: true};
     }
     return {err: aiErr("http", "The AI couldn't do that right now.")};
@@ -82057,12 +82058,20 @@ const LINKCARDS = (() => {
       const vid = (fps, plain) => aiRetry(() => aiCall(Object.assign({}, opts, {schema: NOTE_SCHEMA, timeout: 300000, parts: [Object.assign({file_data: plain ? {file_uri: L.url} : {file_uri: L.url, mime_type: "video/*"}}, fps && !plain ? {video_metadata: {fps}} : {}), {text: ask}]})));
       // how much Gemini read: a video is thousands of tokens, so a few hundred means the video never reached it
       const sawVideo = x => { const u = x && x.usage, n = u && Number(u.promptTokenCount); return !(Number.isFinite(n) && n < 1500); };
+      // Google's servers failing on the video (every model) usually means this video, not real overload: one plain try, then say so
+      const choke = e => Object.assign(aiErr("link-choke", `Google's servers couldn't process this video${e && e.gmsg ? ` (Google said: ${String(e.gmsg).replace(/\s+/g, " ").replace(/\.$/, "").slice(0, 160)})` : ""}. This happens with some YouTube videos; trying again later sometimes works.`), {link: true, st: "choke"});
+      let plainDone = false;
       try { r = await vid(0.2); }
-      catch (e) { if (!(e && e.code === "http" && /fps|video_?metadata|videoMetadata|Unknown name/i.test(String(e.message || "")))) throw e; r = await vid(0); }
+      catch (e) {
+        if (e && e.code === "cancelled") throw e;
+        if (e && e.code === "busy") { plainDone = true; if (onStatus) onStatus("Having another look at the video…"); try { r = await vid(0, true); } catch (e2) { if (e2 && e2.code === "cancelled") throw e2; throw e2 && e2.code === "busy" ? choke(e2) : e2; } }
+        else if (e && e.code === "http" && /fps|video_?metadata|videoMetadata|Unknown name/i.test(String(e.message || ""))) r = await vid(0);
+        else throw e;
+      }
       // came back empty or unwatchable: one more look at Gemini's usual frame rate before giving up
       const d0 = r && r.data && typeof r.data === "object" ? r.data : {}, s0 = String(d0.status || "").toLowerCase();
       const b0 = [d0.overview].concat((d0.sections || []).flatMap(x => (x && x.points) || [])).join(" ").replace(/\s+/g, " ").trim().length;
-      if ((!sawVideo(r) || (/^(empty|unreachable)$/.test(s0) && b0 < 200)) && !(signal && signal.aborted)) {
+      if (!plainDone && (!sawVideo(r) || (/^(empty|unreachable)$/.test(s0) && b0 < 200)) && !(signal && signal.aborted)) {
         if (onStatus) onStatus("Having another look at the video…");
         try { r = await vid(0, true); } catch (e) { if (e && e.code === "cancelled") throw e; }
       }
