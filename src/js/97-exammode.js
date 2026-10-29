@@ -14,6 +14,8 @@ const EXAMMODE = (() => {
   const endMs = t => t.time && /^\d{1,2}:\d{2}$/.test(t.time) ? dueMs(t) + AFTER_MS : dueMs(t) + 60000;
   // An exam: type Exam or Quiz, or a task titled Midterm / Final Exam
   const isExam = t => !!t && t.type !== "Study" && !t.prepFor && (t.type === "Exam" || t.type === "Quiz" || EXAM_RX.test(String(t.title || "")));
+  // Big enough to take over the plan: an exam, a midterm or final, or a quiz worth 10% or more (w: its share of the grade)
+  const isBig = t => isExam(t) && (t.type !== "Quiz" || EXAM_RX.test(String(t.title || "")) || (Number(t.w != null ? t.w : t.weight) || 0) >= 10);
   // Work that has to be handed in
   const isWork = (t, exam) => !!t && t.type !== "Study" && !t.prepFor && (!exam || t.id !== exam.id);
 
@@ -22,7 +24,7 @@ const EXAMMODE = (() => {
     if (!input || input.enabled === false) return null;
     const today = input.today, now = Number(input.now) || 0, off = input.off || {};
     const open = (input.tasks || []).filter(t => t && t.status !== "done" && isDay(t.due));
-    const exams = open.filter(t => isExam(t) && diff(today, t.due) >= 0 && diff(today, t.due) <= DAYS && now < endMs(t)).sort((a, b) => dueMs(a) - dueMs(b) || String(a.id).localeCompare(String(b.id)));
+    const exams = open.filter(t => isBig(t) && diff(today, t.due) >= 0 && diff(today, t.due) <= DAYS && now < endMs(t)).sort((a, b) => dueMs(a) - dueMs(b) || String(a.id).localeCompare(String(b.id)));
     const live = exams.filter(t => !off[t.id]);
     if (!live.length) return null;
     const exam = live[0];
@@ -53,7 +55,7 @@ const EXAMMODE = (() => {
   const kindWord = t => t && t.type === "Quiz" ? "Quiz" : "Exam";
   const tag = (t, d) => `${kindWord(t)} ${rel(d)}`;
   const dayEnd = t => { const d = pd(t.due); d.setHours(23, 59, 59, 999); return d.getTime(); };
-  return {DAYS, pick, order, leads, studyKey, dayEnd, rel, tag, kindWord, isExam, isWork, dueMs, endMs, diff};
+  return {DAYS, pick, order, leads, studyKey, dayEnd, rel, tag, kindWord, isExam, isBig, isWork, dueMs, endMs, diff};
 })();
 /*EXAMMODE-END*/
 
@@ -76,7 +78,7 @@ function current(){
   let v = null;
   try {
     const info = (FOCUS && FOCUS.info) || {};
-    const tasks = tasksArr().map(t => { const x = info[t.id]; return x ? Object.assign({}, t, {dead: !!x.dead, lateOk: !x.dead}) : t; });
+    const tasks = tasksArr().map(t => { const x = info[t.id], w = MILESTONE(t.type) ? weightOf(t) : null; return Object.assign({}, t, {w}, x ? {dead: !!x.dead, lateOk: !x.dead} : {}); });
     v = EXAMMODE.pick({tasks, today: todayISO(), now, off: offMap(), enabled: enabled()});
   } catch (e) { console.warn("exam mode", e); v = null; }
   MEMO = {k, v};

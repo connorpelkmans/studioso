@@ -173,6 +173,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(await page.locator(".plan-notes").count() === 1, "one Heads Up block");
       const k = await page.locator(".plan-notes .pn").evaluateAll(els => els.map(e => e.className));
       ok(k.some(c => /pn-warn/.test(c)) && k.some(c => /pn-busy/.test(c)) && k.some(c => /pn-late/.test(c)), "with short of time, busy days ahead and the closed lab as rows: " + k.join(" | "));
+      ok(k.length === 2 && /pn-warn pn-busy/.test(k[0]), "short of time and busy days ahead share one row, since both ask for more time today");
       ok(await page.locator(".plan-warn").count() === 0, "and no separate warning cards");
       await shot(page, "r8-heads-up", ".plan-notes");
       await done(ctx, page);

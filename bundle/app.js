@@ -7625,7 +7625,8 @@ const STYLE_ACTS = {
   "kit-follow": el => { saveStyle({[el.dataset.kind + "Auto"]: true}); render(); styleShop(); },
   "env-toggle": () => { ui.envOpen = ui.envOpen === false; try { localStorage.setItem("studyboard:env", ui.envOpen ? "1" : "0"); } catch(e) {} render(); }
 };
-try { const v = localStorage.getItem("studyboard:env"); if (v) ui.envOpen = v === "1"; else if (window.matchMedia && window.matchMedia("(max-width:700px)").matches) ui.envOpen = false; } catch(e) {}
+// The sticker envelope starts closed; once you open it, it stays the way you left it
+try { const v = localStorage.getItem("studyboard:env"); ui.envOpen = v ? v === "1" : false; } catch(e) { ui.envOpen = false; }
 document.addEventListener("change", e => {
   const c = e.target.classList; if (!c || !(c.contains("note-shape") || c.contains("note-pin"))) return;
   const n = state.notes[e.target.dataset.id]; if (!n) return;
@@ -8801,7 +8802,8 @@ function computeFocus(){
   Object.values(info).forEach(x => {
     const t = x.t, r = [];
     const luD = x.lateUntil ? x.lateUntil.slice(0, 10) : "", luT = x.lateUntil ? x.lateUntil.slice(11) : "";
-    const penTxt = `Late work loses ${hasLatePen(t) ? "" : "about "}${Math.round(latePenOf(t) * 100)}% a day${hasLatePen(t) ? "" : " (a typical penalty; set the real one in the task)"}${x.W ? `, about ${pct(x.W * latePenOf(t))}% of your grade` : ""}`;
+    const pd = Math.round(latePenOf(t) * 100), typ = hasLatePen(t) ? "" : ` (at a typical ${pd}% a day)`;
+    const penTxt = x.W ? `Each day late costs about ${pct(x.W * latePenOf(t))}% of your grade${typ}` : `Late work loses ${hasLatePen(t) ? "" : "about "}${pd}% a day`;
     if (x.dead) r.push([100, `Past due, and late work isn't accepted. It isn't in today's plan: talk to your instructor if you still want to hand it in`]);
     else if (x.past && x.dl === 0 && t.time) r.push([100, `Was due at ${fmtTime(t.time)} today${x.late === "free" ? ", and late work is accepted" : ""}`]);
     else if (x.past) r.push([100, luD ? `Overdue. Late submissions close ${fmtDate(luD)}${luT && luT !== "23:59" ? " at " + fmtTime(luT) : ""}` : `Overdue by ${-x.dl} day${x.dl === -1 ? "" : "s"}`]);
@@ -8938,14 +8940,15 @@ function dayTimelineHtml(F, todayList, heroId){
 hook("render", () => { document.querySelectorAll(".dtl-rail").forEach(r => { const t = r.querySelector("[data-anchor]"); if (t) r.scrollLeft = Math.max(0, t.offsetLeft - r.offsetLeft - 8); }); });
 function planRow(x, i, showScore, noRank){
   const t = x.t, c = courseOf(t.courseId);
-  const rs = x.reasons || [], li = planLead(rs), lead = rs[li] || "", rest = rs.filter((r, k) => k !== li);
+  // a short reason shows on the row; a long one would be cut off, so the row says "Why" and the reasons open below
+  const rs = x.reasons || [], li = planLead(rs), lead0 = rs[li] || "", short = lead0.length <= 30, lead = short ? lead0 : rs.length ? "Why" : "", rest = short ? rs.filter((r, k) => k !== li) : rs;
   const key = (showScore ? (noRank ? "w" : "r") : "t") + "-" + t.id, open = !!(ui.planWhy && ui.planWhy[key]);
   const side = showScore ? `<span class="score" title="Focus score" aria-label="Focus score ${Math.round(x.score)}">${Math.round(x.score)}</span>`
     : x.alloc > 0 ? `<span class="alloc" title="Time Today's Plan suggests for this today">${fmtHM(x.alloc)}<small class="alloc-l"> today</small></span>` : `<span class="alloc idle">Later</span>`;
   return `<li class="plan-row${open ? " why-open" : ""}" style="--c:${esc(colorOf(t.courseId))}">
     ${t.gt || t.xs ? `<span class="check gt-dot" aria-hidden="true"></span>` : `<button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>`}
     <button class="plan-main" ${gtOpenAttrs(t)} title="${esc(rs.join("\n"))}"><span class="task-title">${esc(t.title)}</span>${t.gt ? `<span class="pr-chip gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? `<span class="pr-chip">${esc(courseLabel(c))}</span>` : ""}</button>${c ? `<span class="pr-chip pr-chip-out">${esc(courseLabel(c))}</span>` : ""}
-    ${lead ? rest.length ? `<button class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}" data-act="plan-why" data-id="${esc(key)}" aria-expanded="${open}" aria-controls="pw-${esc(key)}" title="${esc(lead)}. Show all ${rs.length} reasons"><span class="pr-lead">${esc(lead)}</span><span class="pr-n" aria-hidden="true">+${rest.length} more</span></button>` : `<span class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}"><span class="pr-lead">${esc(lead)}</span></span>` : `<span class="pr-why"></span>`}
+    ${lead ? rest.length ? `<button class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}" data-act="plan-why" data-id="${esc(key)}" aria-expanded="${open}" aria-controls="pw-${esc(key)}" title="${short ? esc(lead) + ". " : ""}Show all ${rs.length} reasons"><span class="pr-lead">${esc(lead)}</span>${short ? `<span class="pr-n" aria-hidden="true">+${rest.length} more</span>` : `<svg class="pf-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`}</button>` : `<span class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}"><span class="pr-lead">${esc(lead)}</span></span>` : `<span class="pr-why"></span>`}
     <span class="plan-side">${lmsGoBtn(t)}${window.SBPREP ? SBPREP.matBtn(t) : ""}${side}${showScore || !canDoNow(t) ? "" : `<button class="focus-go" data-act="pomo-task" ${focusAttrs(t)} aria-label="Start a focus session on ${esc(t.title)}" title="Start a focus session">${TOMATO}</button>`}${showScore || t.gt ? "" : `<button class="focus-go lt-go" data-act="log-time" data-id="${esc(planTaskId(t))}" aria-label="Log time on ${esc(t.title)}" title="Log time you worked on this">${CLOCK_IC}</button>`}</span>
     ${(sl => !showScore && ((sl && sl.length) || x.moved > 0.05) ? `<span class="pr-slot">${sl && sl.length ? `<b>${esc(availSlotText(sl))}</b>` : ""}${x.moved > 0.05 ? `${sl && sl.length ? " " : ""}<span class="mini">${esc(fmtHM(x.moved))} moved to a lighter day</span>` : ""}</span>` : "")(FOCUS && FOCUS.slotsBy ? FOCUS.slotsBy[t.id] : null)}
     ${rest.length ? `<ul class="pr-more" id="pw-${esc(key)}"${open ? "" : " hidden"}>${rest.map(r => `<li>${esc(r)}</li>`).join("")}</ul>` : ""}
@@ -9003,14 +9006,16 @@ const pnIcon = k => ({warn: "!", late: "!", busy: "\u2191", ready: "%", wrap: "\
 function planNotes(F, inView, crunchMain){
   const rows = [], today = todayISO();
   // Short of time comes first: it changes what to do today
-  if (crunchMain) rows.push({k: "warn", main: crunchMain});
   const b = F.busyAhead;
-  if (b && (() => { try { return localStorage.getItem(BUSY_LS) !== today; } catch (e) { return true; } })()) {
+  const busy = b && (() => { try { return localStorage.getItem(BUSY_LS) !== today; } catch (e) { return true; } })() ? (() => {
     const name = d => dayDiff(today, d.d) === 1 ? "Tomorrow" : parse(d.d).toLocaleDateString(undefined, {weekday: "long"});
     const days = b.days.map(d => name(d) + (d.what ? ` (${d.what})` : "")), list = days.length > 1 ? days.slice(0, -1).join(", ") + " and " + days[days.length - 1] : days[0];
-    rows.push({k: "busy", main: `<b>Busy days ahead.</b> ${esc(list)} ${days.length > 1 ? "leave" : "leaves"} little study time, so more of your work needs doing today. Adding <b>${fmtHM(b.add)}</b> today ${b.all ? "keeps you on track" : "helps you keep up"}.`,
-      acts: `<button class="btn small primary" data-act="today-set" data-id="${b.to}">Make Today ${fmtHM(b.to)}</button><button class="btn small" data-act="busy-hide">Not Today</button>`});
-  }
+    return {list: esc(list), many: days.length > 1, acts: `<button class="btn small primary" data-act="today-set" data-id="${b.to}">Make Today ${fmtHM(b.to)}</button><button class="btn small" data-act="busy-hide">Not Today</button>`};
+  })() : null;
+  // Short of time and busy days ahead both ask for more time today: one row, one button
+  if (crunchMain && busy) rows.push({k: "warn", main: `${crunchMain} ${busy.list} ${busy.many ? "leave" : "leaves"} little study time too, so adding <b>${fmtHM(b.add)}</b> today helps most.`, acts: busy.acts, cls: "pn-busy"});
+  else if (crunchMain) rows.push({k: "warn", main: crunchMain});
+  else if (busy) rows.push({k: "busy", main: `<b>Busy days ahead.</b> ${busy.list} ${busy.many ? "leave" : "leaves"} little study time, so more of your work needs doing today. Adding <b>${fmtHM(b.add)}</b> today ${b.all ? "keeps you on track" : "helps you keep up"}.`, acts: busy.acts});
   // How ready you feel against your results, for the nearest exam with a clear gap (hidden for the day with Got It)
   const gh = lsObj(GAPHIDE_LS);
   const gap = Object.values(F.info).filter(x => MILESTONE(x.t.type) && !x.t.prepFor && x.t.status !== "done" && inView(x) && x.dl >= 0 && x.dl <= 14 && gh[x.t.id] !== today)
@@ -9254,8 +9259,12 @@ function viewCourses(){
         ${gn || hrs > 0 || pill || mini ? `<span class="c2-foot${gn || hrs > 0 || pill ? "" : " c2-foot-m"}">${mini}${gn && gn.pct != null ? `<span class="c2-grade"><span class="c2-gl">Grade </span><b>${esc(gn.fmt(gn.pct))}</b>${gn.letter ? `<span class="c2-letter">${esc(gn.letter)}</span>` : ""}<span class="mini">· ${esc(gn.fmt(gn.marked))} marked</span></span>` : gn ? `<span class="mini c2-nomarks">No marks yet</span>` : hrs > 0 ? `<span class="mini"><b>${fmtH(hrs)}</b> this week</span>` : "<span></span>"}${pill}</span>` : ""}
       </span></button></div>`;
   }).join("");
-  return `<div class="view-head"><h2>Your Courses</h2>${proBtns("courses")}${trashBtn("course")}</div><div class="course-list" data-sortable="courses">${cards}</div>
-    <div class="term-bar"><span>${ARCHIVE_SM}Term over? Put its courses and tasks away, and bring anything back later.</span><button class="btn small" data-act="new-term">Start a New Term</button><button class="btn small" data-act="archive-open">Open Archive${(n => n ? ` (${n})` : "")(allCourses().filter(c => c.archived).length)}</button></div>`;
+  // The new-term panel shows near the end of a term (most work done, nothing due much later); otherwise it's in the menu,
+  // and the Archive is a header button once something is in it
+  const nArch = allCourses().filter(c => c.archived).length, all = tasksArr().filter(t => !t.prepFor && !t.xs), dues = all.map(t => t.due).filter(Boolean).sort();
+  const ending = all.length >= 5 && all.filter(t => t.status === "done").length / all.length >= 0.6 && (!dues.length || dayDiff(todayISO(), dues[dues.length - 1]) <= 7);
+  return `<div class="view-head"><h2>Your Courses</h2>${proBtns("courses")}${!ending && nArch ? `<button class="btn small" data-act="archive-open">Archive (${nArch})</button>` : ""}${trashBtn("course")}</div><div class="course-list" data-sortable="courses">${cards}</div>
+    ${ending ? `<div class="term-bar"><span>${ARCHIVE_SM}Term over? Put its courses and tasks away, and bring anything back later.</span><button class="btn small" data-act="new-term">Start a New Term</button><button class="btn small" data-act="archive-open">Open Archive${nArch ? ` (${nArch})` : ""}</button></div>` : ""}`;
 }
 // The line under a course's name
 function courseNextHtml(open, today){
@@ -14597,11 +14606,9 @@ function viewQuizzes(){
       <div class="qz-band"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span><span class="g2-kick">${esc(c ? courseLabel(c) : "General")}</span>${qz.kind === "case" ? `<span class="qz-pill">Case Study</span>` : ""}</div>
       <button class="qz-body" data-act="qz-open" data-id="${esc(d.id + ":" + qz.id)}"><b class="qz-title">${esc(qz.title || "Practice Quiz")}</b><span class="mini">${n} question${n === 1 ? "" : "s"} · from ${esc(quizFrom(d, qz))}${last ? ` · last score ${last.score}/${last.total}` : ""}</span></button>
       <div class="qz-acts"><button class="btn small primary" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Start</button><button class="btn small" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Share</button><span class="spacer"></span><button class="btn small deck-arch" data-act="qz-archive" data-id="${esc(d.id + ":" + qz.id)}" title="Put this quiz away" aria-label="Archive ${esc(qz.title || "quiz")}">${ARCHIVE.replace('width="26" height="26"', 'width="16" height="16"')}</button>${rvGrip(qz.title || "Practice Quiz")}</div></article>`; }).join("");
-  return `<div class="view-head" data-qz-list><h2>Your Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
+  return `<div class="view-head" data-qz-list><h2>Your Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}<button class="btn small sm-btn" data-act="grp-page" aria-label="Share With a Group" title="Share quizzes with a study group: everyone takes them in their own app and sees the best scores">${QZ_GROUP_IC}<span class="sm-lbl">Share With a Group</span></button>${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${chipsHtml()}${q ? `<div class="search-note">Showing quizzes that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${list.length ? `<div class="qz-grid">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length ? "" : emptyArt()}<strong>${all.length ? "No Quizzes Match" : "No Quizzes Yet"}</strong>${all.length ? "Try another course or search." : (inPreview() ? "Make a quiz from one of your flashcard decks." : "Upload your slides, notes or readings and " + esc(aiWho("AI")) + " writes a practice quiz. Or make one from a flashcard deck, or write your own.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px">${inPreview() || all.length ? "" : `<button class="btn primary ai-btn" data-act="qz-ai">${AI_ICON} From Slides or Notes</button>`}<button class="btn${inPreview() ? " primary" : ""}" data-act="qz-from-deck">From a Deck</button><button class="btn" data-act="qz-write">Write Your Own</button></div></div>`}
-    <section class="grp-strip"><div class="grp-strip-txt">${QZ_GROUP_IC}<span><b>Study Together</b><span class="mini">Share quizzes with a study group: everyone takes them in their own app and sees the best scores.</span></span></div>
-      <div class="grp-strip-btns"><button class="btn small" data-act="grp-page">Study Groups</button></div></section>
     <p class="hint-line tip-everyday">Make a quiz straight from your slides or notes with Add Quiz, or from a deck with Make a Quiz.</p>`;
 }
 /* Review hero: what's ready, about how long, and one Start button */
@@ -14680,7 +14687,7 @@ function viewFlashcards(){
     </div></article>`;
   }).join("");
   return reviewSwitchHtml() + `<div class="view-head" data-fc-list><h2>Your Decks</h2>
-      ${window.SBSHARE ? SBSHARE.libBtn() : ""}${archBtn()}${trashBtn("deck") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="deck" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
+      ${window.SBSHARE ? SBSHARE.libBtn() : ""}<button class="btn small sm-btn" data-act="grp-share-menu" aria-label="Share or Import" title="Share or Import">${QZ_GROUP_IC}<span class="sm-lbl">Share or Import</span></button>${archBtn()}${trashBtn("deck") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="deck" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${reviewHeroHtml()}${chipsHtml()}${ui.q.trim() ? `<div class="search-note">Showing decks that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${ds.length ? `<div class="deck-grid">${tiles}</div>` : `<div class="empty${decksArr().length ? "" : " sb-es"}" style="margin-top:14px">${decksArr().length ? "" : emptyArt()}<strong>${deckListArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Add cards or paste a list, then study them." + (inPreview() ? "" : " Or upload slides and let " + esc(aiWho("AI")) + " make them.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inPreview() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}
     <p class="hint-line tip-everyday">Studyboard learns how fast you forget each card and brings it back just before you would.</p>`;
@@ -17748,14 +17755,25 @@ window.__sbPlanObj = () => PLAN;
     state.settings = Object.assign({}, state.settings, {useDays: {n: Math.min(9999, (Number(u.n) || 0) + 1), last: d}});
     try { saveSettings(); } catch (e) {}
   }
+  // Each page's tips also tidy away once you've used that page on a few days (kept on this device)
+  const PAGE_DAYS = 5, PAGE_LS = "studyboard:tipPages";
+  const pages = () => { try { return JSON.parse(localStorage.getItem(PAGE_LS) || "{}") || {}; } catch (e) { return {}; } };
+  function tickPage(tab){
+    if (!tab) return;
+    const m = pages(), d = todayISO(), p = m[tab] || {n: 0, last: ""};
+    if (p.last === d) return;
+    m[tab] = {n: Math.min(999, (Number(p.n) || 0) + 1), last: d};
+    try { localStorage.setItem(PAGE_LS, JSON.stringify(m)); } catch (e) {}
+  }
+  const pageSeasoned = tab => mode() !== "always" && !!tab && (Number((pages()[tab] || {}).n) || 0) > PAGE_DAYS;
   const seasoned = () => mode() !== "always" && (Number(use().n) || 0) >= SEASON_DAYS;
-  const apply = () => document.documentElement.classList.toggle("tips-off", seasoned());
+  const apply = () => { const tab = typeof ui !== "undefined" ? ui.tab : ""; tickPage(tab); document.documentElement.classList.toggle("tips-off", seasoned() || pageSeasoned(tab)); };
   hook("boot", () => { tick(); apply(); });
   hook("render", apply);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { tick(); apply(); } });
   hook("menu", () => {
     const n = Number(use().n) || 0, on = mode() === "always";
-    const sub = on ? "Always showing how-to tips on each page." : n >= SEASON_DAYS ? "Hidden now that you know your way around. Turn on to see them again." : `Showing for your first ${SEASON_DAYS} days (${Math.max(0, SEASON_DAYS - n)} to go), then they tidy away.`;
+    const sub = on ? "Always showing how-to tips on each page." : n >= SEASON_DAYS ? "Hidden now that you know your way around. Turn on to see them again." : `Each page's tips show for the first ${PAGE_DAYS} days you use it (and at most your first ${SEASON_DAYS} days), then they tidy away.`;
     return `<div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Always Show Page Tips<span class="sub">${esc(sub)}</span></span><label class="anim-tog"><input type="checkbox" data-act="tips-set" ${on ? "checked" : ""}> On</label></div>`;
   });
   hook("act", (a, el) => {
@@ -17764,7 +17782,7 @@ window.__sbPlanObj = () => PLAN;
     saveSettings(); apply(); scheduleRender();
     return true;
   });
-  window.SBTIPS = {seasoned, use: () => Object.assign({}, use()), days: SEASON_DAYS};
+  window.SBTIPS = {seasoned, pageSeasoned, use: () => Object.assign({}, use()), days: SEASON_DAYS};
 })();
 
 
@@ -28608,6 +28626,12 @@ ${kindPreview("study")}${kindPreview("project")}`;
       case "grp-back": ui.grp = null; unsubscribe(); render(); window.scrollTo(0, 0); return true;
       case "grp-retry": S.err = ""; if (ui.grp) { delete S.errG[ui.grp]; loadGroup(ui.grp); } else { S.groups = null; loadGroups(); } render(); return true;
       case "grp-code": codeSheet("", ""); return true;
+      case "grp-share-menu": openSheet(`<div class="sheet share-menu">${head("Share or Import")}<div class="sheet-body"><div class="sm-list">
+          <button type="button" class="sm-opt" data-act="grp-share-pick" data-id="grp-page"><b>Study Groups</b><span class="mini">Share decks with classmates in a group</span></button>
+          <button type="button" class="sm-opt" data-act="grp-share-pick" data-id="grp-code"><b>Enter a Share Code</b><span class="mini">Add a deck someone shared with you</span></button>
+          <button type="button" class="sm-opt" data-act="grp-share-pick" data-id="grp-import"><b>Import a Deck File</b><span class="mini">A deck file someone sent you</span></button>
+        </div></div></div>`); return true;
+      case "grp-share-pick": { if (dlg.open) dlg.close(); const k = el && el.dataset.id; if (k === "grp-page") openGroup(null); else if (k === "grp-code") codeSheet("", ""); else if (k === "grp-import") importDeckFile(); return true; }
       case "grp-restore": if (!needOnline()) return true; (async () => {
         const b = (S.binned || []).find(x => x.id === id);
         try { const ok = await api.restoreGroup(id); toast(ok ? `Restored ${b ? b.name : "the group"}` : "That group can't be restored anymore"); } catch(e) { toast(e.message); }
@@ -28817,11 +28841,6 @@ ${kindPreview("study")}${kindPreview("project")}`;
         S.linkChecked[d.id] = 1;
         api.getDeck(sf.code).then(r => { if (r && ts(r.updated_at) > ts(sf.v) + 1000 && !r.is_mine) { S.linkNew[d.id] = 1; if (ui.tab === "flashcards" && ui.deckId === d.id) render(); } }).catch(() => {});
       }
-    } else if (!ui.deckId && !$(".grp-strip", v)) {
-      const anchor = $(".hint-line", v);
-      const html = `<section class="grp-strip"><div class="grp-strip-txt">${ICON_GROUP}<span><b>Study Together</b><span class="mini">Share decks with classmates.</span></span></div>
-        <div class="grp-strip-btns"><button class="btn small" data-act="grp-page">Study Groups</button><button class="btn small" data-act="grp-code">Enter a Share Code</button><button class="btn small" data-act="grp-import">Import a Deck File</button></div></section>`;
-      if (anchor) anchor.insertAdjacentHTML("beforebegin", html); else v.insertAdjacentHTML("beforeend", html);
     }
   }
 
@@ -32378,7 +32397,7 @@ var SBEST = (() => {
   const PT_NAME = {free: "Free Time", cal: "Calendar", est: "Estimates", fc: "Flashcards", prep: "Exam Prep", heads: "Heads Up", sugg: "Suggestions"};
   hook("render", tab => {
     if (tab !== "board") return;
-    const plan = document.querySelector("section.plan"); if (!plan || plan.querySelector(".pt-bar")) return;
+    const plan = document.querySelector("section.plan"); if (!plan || plan.querySelector(".pt-tab")) return;
     const secs = [];
     const av = plan.querySelector(".av-strip"); if (av) secs.push({k: "free", n: 0, els: [av]});
     const fx = plan.querySelector(".plan-fixed"); if (fx) secs.push({k: "cal", n: fx.querySelectorAll("li").length, els: [fx]});
@@ -32386,26 +32405,27 @@ var SBEST = (() => {
     const est = plan.querySelector(".plan-est"); if (est && !est.closest("#planExtra")) secs.push({k: "est", n: (est.querySelector("b") || {}).textContent || "", els: [est]});
     if (ex) ex.querySelectorAll(".pe-b > .pe-item").forEach(d => { const dot = d.querySelector("summary .pe-dot"); secs.push({k: d.dataset.k, n: dot ? dot.textContent : "", els: [...d.children].filter(c => c.tagName !== "SUMMARY")}); });
     if (!secs.length) return;
-    if (!secs.some(x => x.k === ui.planTab)) ui.planTab = secs[0].k;
+    // folded into the links under the plan: nothing open until you ask for it
+    if (!secs.some(x => x.k === ui.planTab)) ui.planTab = "";
+    const CHEV = '<svg class="pf-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+    const links = secs.map(x => `<button type="button" class="pf-link pt-tab" id="ptt-${x.k}" data-k="${x.k}" aria-controls="ptp-${x.k}" aria-expanded="${x.k === ui.planTab}">${esc(PT_NAME[x.k] || x.k)}${x.n ? ` <i class="pe-dot" aria-hidden="true">${esc(String(x.n))}</i>` : ""}${CHEV}</button>`).join("");
     const box = document.createElement("div"); box.className = "plan-tabs"; box.id = "planExtra";
-    box.innerHTML = `<div class="pt-bar" role="tablist" aria-label="More for today">${secs.map(x => `<button type="button" role="tab" class="pt-tab" id="ptt-${x.k}" data-k="${x.k}" aria-controls="ptp-${x.k}" aria-selected="${x.k === ui.planTab}" tabindex="${x.k === ui.planTab ? 0 : -1}">${esc(PT_NAME[x.k] || x.k)}${x.n ? `<i class="pt-n">${esc(String(x.n))}</i>` : ""}</button>`).join("")}</div>`;
-    secs.forEach(x => { const p = document.createElement("div"); p.className = "pt-panel pe-item"; p.id = "ptp-" + x.k; p.dataset.k = x.k; p.setAttribute("role", "tabpanel"); p.setAttribute("aria-labelledby", "ptt-" + x.k); p.hidden = x.k !== ui.planTab; x.els.forEach(e => p.appendChild(e)); box.appendChild(p); });
+    secs.forEach(x => { const p = document.createElement("div"); p.className = "pt-panel pe-item"; p.id = "ptp-" + x.k; p.dataset.k = x.k; p.setAttribute("role", "region"); p.setAttribute("aria-labelledby", "ptt-" + x.k); p.hidden = x.k !== ui.planTab; x.els.forEach(e => p.appendChild(e)); box.appendChild(p); });
     if (ex) ex.remove();
-    const foot = plan.querySelector(".plan-foot"); if (foot) foot.before(box); else plan.appendChild(box);
+    let foot = plan.querySelector(".plan-foot");
+    if (!foot) { foot = document.createElement("div"); foot.className = "plan-foot"; plan.appendChild(foot); }
+    foot.insertAdjacentHTML("afterbegin", links);
+    foot.after(box);
   });
+  // Tap to open one; tap it again to close it
   const ptPick = b => {
-    ui.planTab = b.dataset.k;
-    const box = b.closest(".plan-tabs");
-    box.querySelectorAll(".pt-tab").forEach(t => { t.setAttribute("aria-selected", String(t === b)); t.tabIndex = t === b ? 0 : -1; });
-    box.querySelectorAll(".pt-panel").forEach(p => { p.hidden = p.dataset.k !== ui.planTab; });
+    ui.planTab = ui.planTab === b.dataset.k ? "" : b.dataset.k;
+    const plan = b.closest("section.plan") || document;
+    plan.querySelectorAll(".pt-tab").forEach(t => t.setAttribute("aria-expanded", String(t.dataset.k === ui.planTab)));
+    plan.querySelectorAll(".pt-panel").forEach(p => { p.hidden = p.dataset.k !== ui.planTab; });
   };
   document.addEventListener("click", e => { const b = e.target.closest && e.target.closest(".pt-tab"); if (b) ptPick(b); });
-  document.addEventListener("keydown", e => {
-    const b = e.target.closest && e.target.closest(".pt-tab"); if (!b || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
-    const all = [...b.parentNode.querySelectorAll(".pt-tab")], i = all.indexOf(b);
-    const n = all[e.key === "Home" ? 0 : e.key === "End" ? all.length - 1 : (i + (e.key === "ArrowRight" ? 1 : -1) + all.length) % all.length];
-    e.preventDefault(); ptPick(n); n.focus();
-  });
+
 
   /* After a big import */
   let importT = 0, bigAt = 0;
@@ -61040,7 +61060,7 @@ window.__scrapArt = SCRAP_ART;
         </div>
         <aside class="sbk-side" aria-label="Milestones">${milestoneList(page)}</aside>
       </div>
-      <p class="hint-line">Drag stickers to move them. Tap one to turn, resize or put it back (or pinch on a phone). Add captions, washi tape and frames from Decorate.</p>
+      <p class="hint-line tip-everyday">Drag stickers to move them. Tap one to turn, resize or put it back (or pinch on a phone). Add captions, washi tape and frames from Decorate.</p>
     </div>`;
   }
   VIEWS.scrapbook = viewBook;
@@ -65734,6 +65754,8 @@ const EXAMMODE = (() => {
   const endMs = t => t.time && /^\d{1,2}:\d{2}$/.test(t.time) ? dueMs(t) + AFTER_MS : dueMs(t) + 60000;
   // An exam: type Exam or Quiz, or a task titled Midterm / Final Exam
   const isExam = t => !!t && t.type !== "Study" && !t.prepFor && (t.type === "Exam" || t.type === "Quiz" || EXAM_RX.test(String(t.title || "")));
+  // Big enough to take over the plan: an exam, a midterm or final, or a quiz worth 10% or more (w: its share of the grade)
+  const isBig = t => isExam(t) && (t.type !== "Quiz" || EXAM_RX.test(String(t.title || "")) || (Number(t.w != null ? t.w : t.weight) || 0) >= 10);
   // Work that has to be handed in
   const isWork = (t, exam) => !!t && t.type !== "Study" && !t.prepFor && (!exam || t.id !== exam.id);
 
@@ -65742,7 +65764,7 @@ const EXAMMODE = (() => {
     if (!input || input.enabled === false) return null;
     const today = input.today, now = Number(input.now) || 0, off = input.off || {};
     const open = (input.tasks || []).filter(t => t && t.status !== "done" && isDay(t.due));
-    const exams = open.filter(t => isExam(t) && diff(today, t.due) >= 0 && diff(today, t.due) <= DAYS && now < endMs(t)).sort((a, b) => dueMs(a) - dueMs(b) || String(a.id).localeCompare(String(b.id)));
+    const exams = open.filter(t => isBig(t) && diff(today, t.due) >= 0 && diff(today, t.due) <= DAYS && now < endMs(t)).sort((a, b) => dueMs(a) - dueMs(b) || String(a.id).localeCompare(String(b.id)));
     const live = exams.filter(t => !off[t.id]);
     if (!live.length) return null;
     const exam = live[0];
@@ -65773,7 +65795,7 @@ const EXAMMODE = (() => {
   const kindWord = t => t && t.type === "Quiz" ? "Quiz" : "Exam";
   const tag = (t, d) => `${kindWord(t)} ${rel(d)}`;
   const dayEnd = t => { const d = pd(t.due); d.setHours(23, 59, 59, 999); return d.getTime(); };
-  return {DAYS, pick, order, leads, studyKey, dayEnd, rel, tag, kindWord, isExam, isWork, dueMs, endMs, diff};
+  return {DAYS, pick, order, leads, studyKey, dayEnd, rel, tag, kindWord, isExam, isBig, isWork, dueMs, endMs, diff};
 })();
 /*EXAMMODE-END*/
 
@@ -65796,7 +65818,7 @@ function current(){
   let v = null;
   try {
     const info = (FOCUS && FOCUS.info) || {};
-    const tasks = tasksArr().map(t => { const x = info[t.id]; return x ? Object.assign({}, t, {dead: !!x.dead, lateOk: !x.dead}) : t; });
+    const tasks = tasksArr().map(t => { const x = info[t.id], w = MILESTONE(t.type) ? weightOf(t) : null; return Object.assign({}, t, {w}, x ? {dead: !!x.dead, lateOk: !x.dead} : {}); });
     v = EXAMMODE.pick({tasks, today: todayISO(), now, off: offMap(), enabled: enabled()});
   } catch (e) { console.warn("exam mode", e); v = null; }
   MEMO = {k, v};
@@ -67703,7 +67725,9 @@ function formHtml(t, isNew){
       <ul class="bd-kids">${kids.map(k => `<li class="${k.status === "done" ? "is-done" : ""}"><button type="button" class="link-btn" data-act="edit-task" data-id="${esc(k.id)}">${esc(k.step || "")} ${esc(k.title)}</button><span class="mini">${esc(fmtShort(k.due))}${k.status === "done" ? " · done" : k.due < today ? " · overdue" : ""}</span></li>`).join("")}</ul></div>`;
   }
   if (!bigBtnTypes[t.type] || t.status === "done" || t.prepFor) return "";
-  return BD.isBig(t) && !bdNo(t.id) ? `<div class="bd-panel offer"><div><b>This looks big.</b><span class="mini" style="display:block">Split it into milestones, scheduled backward from the due date.</span></div><button type="button" class="btn small primary" data-act="bd-open" data-id="${esc(t.id)}">Break It Down</button><button type="button" class="icon-btn sm bd-x" data-act="bd-no" data-id="${esc(t.id)}" aria-label="Don't suggest this for ${esc(t.title)}" title="Don't suggest this again">${CLOSE}</button></div>`
+  // already split into steps or under way: just the small link, not the banner
+  const started = (t.checklist || []).length >= 2 || t.status === "doing" || Number(t.focusMin) > 0 || Number(t.pct) > 0;
+  return BD.isBig(t) && !bdNo(t.id) && !started ? `<div class="bd-panel offer"><div><b>This looks big.</b><span class="mini" style="display:block">Split it into milestones, scheduled backward from the due date.</span></div><button type="button" class="btn small primary" data-act="bd-open" data-id="${esc(t.id)}">Break It Down</button><button type="button" class="icon-btn sm bd-x" data-act="bd-no" data-id="${esc(t.id)}" aria-label="Don't suggest this for ${esc(t.title)}" title="Don't suggest this again">${CLOSE}</button></div>`
     : bdLink(t.id);
 }
 const bdLink = id => `<p class="mini bd-new-link"><button type="button" class="link-btn" data-act="bd-open" data-id="${esc(id)}">Break It into Milestones</button></p>`;

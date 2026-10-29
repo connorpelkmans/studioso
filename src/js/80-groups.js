@@ -3015,6 +3015,12 @@ ${kindPreview("study")}${kindPreview("project")}`;
       case "grp-back": ui.grp = null; unsubscribe(); render(); window.scrollTo(0, 0); return true;
       case "grp-retry": S.err = ""; if (ui.grp) { delete S.errG[ui.grp]; loadGroup(ui.grp); } else { S.groups = null; loadGroups(); } render(); return true;
       case "grp-code": codeSheet("", ""); return true;
+      case "grp-share-menu": openSheet(`<div class="sheet share-menu">${head("Share or Import")}<div class="sheet-body"><div class="sm-list">
+          <button type="button" class="sm-opt" data-act="grp-share-pick" data-id="grp-page"><b>Study Groups</b><span class="mini">Share decks with classmates in a group</span></button>
+          <button type="button" class="sm-opt" data-act="grp-share-pick" data-id="grp-code"><b>Enter a Share Code</b><span class="mini">Add a deck someone shared with you</span></button>
+          <button type="button" class="sm-opt" data-act="grp-share-pick" data-id="grp-import"><b>Import a Deck File</b><span class="mini">A deck file someone sent you</span></button>
+        </div></div></div>`); return true;
+      case "grp-share-pick": { if (dlg.open) dlg.close(); const k = el && el.dataset.id; if (k === "grp-page") openGroup(null); else if (k === "grp-code") codeSheet("", ""); else if (k === "grp-import") importDeckFile(); return true; }
       case "grp-restore": if (!needOnline()) return true; (async () => {
         const b = (S.binned || []).find(x => x.id === id);
         try { const ok = await api.restoreGroup(id); toast(ok ? `Restored ${b ? b.name : "the group"}` : "That group can't be restored anymore"); } catch(e) { toast(e.message); }
@@ -3224,11 +3230,6 @@ ${kindPreview("study")}${kindPreview("project")}`;
         S.linkChecked[d.id] = 1;
         api.getDeck(sf.code).then(r => { if (r && ts(r.updated_at) > ts(sf.v) + 1000 && !r.is_mine) { S.linkNew[d.id] = 1; if (ui.tab === "flashcards" && ui.deckId === d.id) render(); } }).catch(() => {});
       }
-    } else if (!ui.deckId && !$(".grp-strip", v)) {
-      const anchor = $(".hint-line", v);
-      const html = `<section class="grp-strip"><div class="grp-strip-txt">${ICON_GROUP}<span><b>Study Together</b><span class="mini">Share decks with classmates.</span></span></div>
-        <div class="grp-strip-btns"><button class="btn small" data-act="grp-page">Study Groups</button><button class="btn small" data-act="grp-code">Enter a Share Code</button><button class="btn small" data-act="grp-import">Import a Deck File</button></div></section>`;
-      if (anchor) anchor.insertAdjacentHTML("beforebegin", html); else v.insertAdjacentHTML("beforeend", html);
     }
   }
 

@@ -460,3 +460,10 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;overflow:au
 /* Last week's champion: a small golden badge */
 .grp-badges .grp-badge.champ{background:color-mix(in srgb,#F5B82E 34%,var(--surface));color:#6B4A00;font-size:.64rem;line-height:1.5;padding:0 7px;letter-spacing:.01em}
 .grp-crown{display:inline-block;vertical-align:-2px;margin-left:5px;flex:none}
+/* Share or Import: one header button opens these three */
+.sm-list{display:grid;gap:8px}
+.sm-opt{display:grid;gap:2px;text-align:left;min-height:44px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;cursor:pointer}
+.sm-opt:hover,.sm-opt:focus-visible{border-color:var(--accent)}
+.sm-btn{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.sm-btn svg{width:16px;height:16px;flex:none}
+@media (max-width:639px){.sm-btn .sm-lbl{display:none}.sm-btn{padding-inline:12px!important}}

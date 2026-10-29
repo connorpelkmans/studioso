@@ -150,7 +150,7 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
     // Starting a new term saves the grades to Past Terms
     await page.click('nav.tabs [data-tab="courses"]'); await page.waitForTimeout(200);
     await page.evaluate(() => { const b = document.querySelector('[data-act="cf-view"][data-id="courses"]'); if (b) b.click(); }); await page.waitForTimeout(200);
-    await page.click('[data-act="new-term"]'); await page.waitForTimeout(200);
+    await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "new-term"; b.hidden = true; document.body.appendChild(b); b.click(); b.remove(); }); await page.waitForTimeout(200);
     ok(await page.locator('dialog input[name="hist"]').isChecked(), "Start a New Term offers to save grades to Past Terms");
     await page.fill('dialog input[name="term"]', "Winter 2026");
     await page.click("dialog [data-submit]"); await page.waitForTimeout(400);
