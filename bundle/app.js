@@ -3138,6 +3138,9 @@ const AI_COPY = "Copyright rule (always follow it, even if asked otherwise): the
 const AI_COPY_TASKS = new Set(["cards", "quiz", "cases", "practice", "explain", "summary", "tutor", "topics", "photo", "ask"]);
 const aiCopyRule = (system, task) => AI_COPY_TASKS.has(task) && typeof system === "string" && !system.includes(AI_COPY) ? system + " " + AI_COPY : system;
 /* One call, any provider */
+// How many AI requests the student is waiting on right now; the companion listens for "sb-ai-wait"
+let AI_WAITING = 0;
+function aiWaiting(d){ AI_WAITING = Math.max(0, AI_WAITING + d); try { document.dispatchEvent(new CustomEvent("sb-ai-wait", {detail: AI_WAITING})); } catch (e) {} }
 async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0.4, onStatus, fast = false, timeout, auto = false, task = "", signal, search = false, urlContext = false}){
   let cfg = aiCfg();
   try { if (window.SBAREA) system = SBAREA.aiSystem(system); } catch (e) {}
@@ -3156,12 +3159,14 @@ async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0
   const ms = timeout || (fast ? 60000 : 180000);
   const hasFiles = parts.some(x => x && x.text == null);
   const slow = onStatus ? setTimeout(() => onStatus(fast ? "Still thinking…" : hasFiles ? "Still working. Big files can take up to a minute…" : "Still thinking…"), fast ? 9000 : 20000) : null;
+  // a request the student is waiting on (not background work): the companion shows it's thinking
+  if (!auto) aiWaiting(1);
   try {
     if (cfg.provider === "trial") return await trialCall({system, parts, schema, maxTokens, temperature, ms, task, signal});
     if (cfg.provider === "anthropic") return await claudeCall(cfg, {system, parts, schema, maxTokens, ms, signal, search, urlContext});
     if (cfg.provider === "openai") return await openaiCall(cfg, {system, parts, schema, maxTokens, ms, signal, search, urlContext});
     return await geminiCall(cfg, {system, parts, schema, maxTokens, temperature, fast, ms, task, signal, search, urlContext});
-  } finally { clearTimeout(slow); }
+  } finally { clearTimeout(slow); if (!auto) aiWaiting(-1); }
 }
 // urlContext (opt-in): the model may open the web pages named in the request (Gemini url_context, Claude web fetch, ChatGPT web search).
 // Like search, it answers in plain text (JSON is parsed from it), and r.fetched lists the pages it tried: [{url, ok, status}]
@@ -56853,7 +56858,7 @@ var COMP_EXTRA = [];
   }
   const ownLines = kind => cur && Array.isArray(cur.lines[kind]) && cur.lines[kind].length ? cur.lines[kind] : GENERIC[kind] || GENERIC.tap;
   const bubbleOpen = () => !!(front && front.querySelector(".cp-bubble.on"));
-  function hideBubble(){ clearTimeout(bubbleT); bubbleIdea = null; bubbleAsk = false; if (front) { const b = front.querySelector(".cp-bubble"); if (b) b.classList.remove("on", "has-idea", "asking"); } guardSoon("bubble", 300); }
+  function hideBubble(){ clearTimeout(bubbleT); bubbleIdea = null; bubbleAsk = false; if (front) { const b = front.querySelector(".cp-bubble"); if (b) b.classList.remove("on", "has-idea", "asking", "cp-think"); } guardSoon("bubble", 300); }
   let bRects = null, bRectsAt = 0;
   const bubbleRects = () => { const n = performance.now(); if (!bRects || n - bRectsAt > 700) { try { bRects = contentRects(); } catch (e) { bRects = []; } bRectsAt = n; } return bRects; };
   // Where the bubble goes
@@ -56927,7 +56932,7 @@ var COMP_EXTRA = [];
     if (!opts.again && !SPEECH.ok(text)) return;
     SPEECH.note(text, opts.cat || pickedCat[SPEECH.norm(text)]);
     const b = front.querySelector(".cp-bubble");
-    b.classList.remove("on", "has-idea", "asking", "long", "cheer");
+    b.classList.remove("on", "has-idea", "asking", "long", "cheer", "cp-think");
     if (opts && opts.long) b.classList.add("long");
     if (opts.cheer || /^(WOO|YES|YAY|Woohoo|Yay|Hooray)\b/.test(text)) b.classList.add("cheer");
     b.innerHTML = `<span class="cp-b-t"></span>`;
@@ -56945,6 +56950,28 @@ var COMP_EXTRA = [];
     bubbleT = setTimeout(hideBubble, opts.ms || (btns.length ? 9000 : Math.max(2600, 1400 + text.length * 55)));
     act.mouth("open"); later(() => { if (act && mood !== "doze" && mood !== "nap") act.mouth(mood === "study" ? "neutral" : "smile"); later(() => { if (act && mood === "idle") act.mouth("neutral"); }, 1400); }, 420);
   }
+  /* Thinking: three dots in a bubble while the student waits on the AI (after any "On it!" line has had its moment) */
+  let thinkT = 0, thinkWant = false;
+  function aiThinking(on){
+    clearTimeout(thinkT); thinkWant = on;
+    const b = front && front.querySelector(".cp-bubble");
+    if (!on) { if (b && b.classList.contains("cp-think")) { b.classList.remove("on", "cp-think"); guardSoon("bubble", 300); } return; }
+    const show = () => {
+      if (!thinkWant) return;
+      const bb = front && front.querySelector(".cp-bubble");
+      if (!bb || !cur || !box || box.hidden || document.hidden) { thinkT = setTimeout(show, 800); return; }
+      if (bb.classList.contains("cp-think") && bb.classList.contains("on")) return;
+      // something else is being said or asked: wait for it
+      if (bb.classList.contains("on") || bubbleIdea || bubbleAsk) { thinkT = setTimeout(show, 500); return; }
+      clearTimeout(bubbleT);
+      bb.classList.remove("has-idea", "asking", "long", "cheer");
+      bb.innerHTML = `<span class="cp-dots" role="status" aria-label="${esc(nameOf(cur))} is thinking"><i></i><i></i><i></i></span>`;
+      bb.classList.add("cp-think"); placeBubble(bb); void bb.offsetWidth; bb.classList.add("on");
+    };
+    // a quick answer doesn't need it
+    thinkT = setTimeout(show, 900);
+  }
+  document.addEventListener("sb-ai-wait", e => aiThinking(Number(e.detail) > 0));
   /* Ask About This */
   let lastFile = null;
   document.addEventListener("click", e => {

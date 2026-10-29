@@ -513,6 +513,9 @@ const AI_COPY = "Copyright rule (always follow it, even if asked otherwise): the
 const AI_COPY_TASKS = new Set(["cards", "quiz", "cases", "practice", "explain", "summary", "tutor", "topics", "photo", "ask"]);
 const aiCopyRule = (system, task) => AI_COPY_TASKS.has(task) && typeof system === "string" && !system.includes(AI_COPY) ? system + " " + AI_COPY : system;
 /* One call, any provider */
+// How many AI requests the student is waiting on right now; the companion listens for "sb-ai-wait"
+let AI_WAITING = 0;
+function aiWaiting(d){ AI_WAITING = Math.max(0, AI_WAITING + d); try { document.dispatchEvent(new CustomEvent("sb-ai-wait", {detail: AI_WAITING})); } catch (e) {} }
 async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0.4, onStatus, fast = false, timeout, auto = false, task = "", signal, search = false, urlContext = false}){
   let cfg = aiCfg();
   try { if (window.SBAREA) system = SBAREA.aiSystem(system); } catch (e) {}
@@ -531,12 +534,14 @@ async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0
   const ms = timeout || (fast ? 60000 : 180000);
   const hasFiles = parts.some(x => x && x.text == null);
   const slow = onStatus ? setTimeout(() => onStatus(fast ? "Still thinking…" : hasFiles ? "Still working. Big files can take up to a minute…" : "Still thinking…"), fast ? 9000 : 20000) : null;
+  // a request the student is waiting on (not background work): the companion shows it's thinking
+  if (!auto) aiWaiting(1);
   try {
     if (cfg.provider === "trial") return await trialCall({system, parts, schema, maxTokens, temperature, ms, task, signal});
     if (cfg.provider === "anthropic") return await claudeCall(cfg, {system, parts, schema, maxTokens, ms, signal, search, urlContext});
     if (cfg.provider === "openai") return await openaiCall(cfg, {system, parts, schema, maxTokens, ms, signal, search, urlContext});
     return await geminiCall(cfg, {system, parts, schema, maxTokens, temperature, fast, ms, task, signal, search, urlContext});
-  } finally { clearTimeout(slow); }
+  } finally { clearTimeout(slow); if (!auto) aiWaiting(-1); }
 }
 // urlContext (opt-in): the model may open the web pages named in the request (Gemini url_context, Claude web fetch, ChatGPT web search).
 // Like search, it answers in plain text (JSON is parsed from it), and r.fetched lists the pages it tried: [{url, ok, status}]
