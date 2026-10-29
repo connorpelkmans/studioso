@@ -239,7 +239,9 @@ const QADD = (() => {
   const QA = {items: [], seq: 0, busy: false, note: ""};
   const storable = f => !!(mimeFor(f) || sbActive() || DESK);
   const courseList = () => coursesArr().map(c => ({id: c.id, name: c.name, code: c.code || "", instructor: c.instructor || ""}));
-  const qaEl = () => document.getElementById("qaList");
+  // queries stay inside the open (or set-aside) Quick Add sheet
+  const qq = id => QA.el ? QA.el.querySelector("#" + id) : null;
+  const qaEl = () => qq("qaList");
   function qaRow(x){
     const nm = esc(x.file.name);
     return `<li class="qa-row${x.on ? "" : " off"}" data-qa="${esc(x.id)}">
@@ -254,9 +256,9 @@ const QADD = (() => {
   function qaDraw(){
     const l = qaEl(); if (!l) return;
     l.innerHTML = QA.items.map(qaRow).join("");
-    const n = QA.items.filter(x => x.on && !x.bad && x.state === "ready").length, b = document.getElementById("qaSave");
+    const n = QA.items.filter(x => x.on && !x.bad && x.state === "ready").length, b = qq("qaSave");
     if (b) { b.disabled = !n || QA.busy; b.textContent = n ? `Add ${n} File${n === 1 ? "" : "s"}` : "Add Files"; }
-    const m = document.getElementById("qaMsg"); if (m) m.innerHTML = QA.busy ? `<span class="ai-spin" aria-hidden="true"></span> ${esc(QA.busy)}` : esc(QA.note);
+    const m = qq("qaMsg"); if (m) m.innerHTML = QA.busy ? `<span class="ai-spin" aria-hidden="true"></span> ${esc(QA.busy)}` : esc(QA.note);
   }
   const FILE_SCHEMA = {type: "OBJECT", properties: {files: {type: "ARRAY", items: {type: "OBJECT", properties: {
     n: {type: "INTEGER", description: "The file's number from the list"},
@@ -290,7 +292,7 @@ const QADD = (() => {
       }
       QA.note = "";
     } catch (e) { QA.note = `${aiMsg(e)} Files were sorted by name and keywords instead.`; }
-    QA.busy = false; if (seq === QA.seq) qaDraw();
+    QA.busy = false; if (seq === QA.seq) { qaDraw(); sheetReady(QKEY, null, "Your files are sorted. Check them, then add them."); }
   }
   async function qaAdd(list){
     list = [...list].filter(f => f && f.name && !QA.items.some(x => x.file.name === f.name && x.file.size === f.size));
@@ -298,21 +300,25 @@ const QADD = (() => {
     const fresh = list.map(f => ({id: uid(), file: f, text: "", state: "reading", on: true, courseId: "", kind: "other", conf: 0, why: "", bad: storable(f) ? "" : "Word, PowerPoint and Excel files can't be stored here. Save a PDF copy first."}));
     fresh.forEach(x => { if (x.bad) { x.on = false; x.state = "ready"; } });
     QA.items.push(...fresh); qaDraw();
+    const gen = QA.gen;
     const dflt = ui.fCourse && ui.fCourse !== "all" && state.courses[ui.fCourse] ? ui.fCourse : "", cs = courseList();
     for (const x of fresh) {
       if (x.bad) continue;
       x.text = await textOfFile(x.file, 12000);
       const g = QADD.guess(x.file.name, x.text, cs);
       x.courseId = g.courseId || dflt; x.kind = g.kind; x.conf = g.conf; x.why = g.why || (x.text ? "" : "No readable text, so this is a guess from the name"); x.state = "ready";
-      if (!qaEl()) return;
+      if (!qaEl() || gen !== QA.gen) return;
       qaDraw();
     }
-    const box = document.getElementById("qaAI");
+    const box = qq("qaAI");
     if (box && box.checked) qaAI();
   }
+  // Tapping away keeps the files you picked (and their sorting) until Cancel or Add; files handed in start a fresh one
+  const QKEY = "quick-files";
   function openQuick(files){
     if (!caps.assets) { toast("File storage isn't available here. You can still add links to files."); return; }
-    QA.items = []; QA.seq++; QA.busy = false; QA.note = "";
+    if (files && files.length) sheetDrop(QKEY); else if (sheetResume(QKEY)) return;
+    QA.items = []; QA.seq++; QA.gen = (QA.gen || 0) + 1; QA.busy = false; QA.note = "";
     openSheet(`<form class="sheet qa-sheet">${head("Quick Add Files")}
       <div class="sheet-body">
         <div class="drop" id="qaDrop"><p style="margin:0 0 10px"><strong>Drop files here, or choose them.</strong><br><span class="mini">No need to pick a course or type. Studyboard files each one for you, and you can fix any guess before saving.</span></p>
@@ -323,13 +329,17 @@ const QADD = (() => {
       </div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="qaSave" disabled>Add Files</button></div>
     </form>`);
-    const inp = document.getElementById("qaFileIn"), drop = document.getElementById("qaDrop"), list = document.getElementById("qaList");
-    document.getElementById("qaPick").addEventListener("click", () => inp.click());
+    QA.el = dlg.querySelector(".qa-sheet");
+    sheetKeep(QKEY, {name: "Quick Add Files", dirty: () => QA.items.some(x => !x.bad), busy: () => !!QA.busy || QA.items.some(x => x.state === "reading"),
+      drop: () => { QA.seq++; QA.gen++; }});
+    const inp = qq("qaFileIn"), drop = qq("qaDrop"), list = qq("qaList");
+
+    qq("qaPick").addEventListener("click", () => inp.click());
     inp.addEventListener("change", () => { const l = [...(inp.files || [])]; inp.value = ""; qaAdd(l); });
     ["dragover", "dragenter"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
     ["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, () => drop.classList.remove("over")));
     drop.addEventListener("drop", e => { e.preventDefault(); qaAdd(e.dataTransfer.files || []); });
-    const ai = document.getElementById("qaAI"); if (ai) ai.addEventListener("change", () => { if (ai.checked) { QA.items.forEach(x => { x.aiDone = false; }); qaAI(); } });
+    const ai = qq("qaAI"); if (ai) ai.addEventListener("change", () => { if (ai.checked) { QA.items.forEach(x => { x.aiDone = false; }); qaAI(); } });
     list.addEventListener("change", e => {
       const li = e.target.closest("[data-qa]"), x = li && QA.items.find(i => i.id === li.dataset.qa); if (!x) return;
       if (e.target.matches("[data-qa-on]")) { x.on = e.target.checked; li.classList.toggle("off", !x.on); }
@@ -339,10 +349,10 @@ const QADD = (() => {
         x.edited = true; x.conf = 1; x.why = "Set by you";
         const w = li.querySelector(".qa-why"); if (w) { w.classList.remove("warn"); w.textContent = x.why; }
       }
-      const n = QA.items.filter(i => i.on && !i.bad && i.state === "ready").length, b = document.getElementById("qaSave");
+      const n = QA.items.filter(i => i.on && !i.bad && i.state === "ready").length, b = qq("qaSave");
       b.disabled = !n || !!QA.busy; b.textContent = n ? `Add ${n} File${n === 1 ? "" : "s"}` : "Add Files";
     });
-    document.getElementById("qaSave").addEventListener("click", qaSave);
+    qq("qaSave").addEventListener("click", qaSave);
     qaDraw();
     if (files && files.length) qaAdd(files);
   }
@@ -468,14 +478,20 @@ const QADD = (() => {
     const fs = Object.values(state.files).filter(f => f.courseId === cid && (f.kind === "file" || f.kind === "cloud") && /\.(pdf|pptx|docx|txt|md)$/i.test(fileNameOf(f)))
       .sort((a, b) => (wrapEligible(b) - wrapEligible(a)) || ((b.updated || b.created || 0) - (a.updated || a.created || 0))).slice(0, 8);
     if (!fs.length) { toast("Upload a syllabus or lecture slides to this course first"); return; }
-    const upd = aiBusySheet("Finding Learning Objectives", `Reading ${fs.length} file${fs.length === 1 ? "" : "s"}…`);
+    // tapping away while it reads sets it aside; what it finds opens from a toast
+    const KK = "objectives:" + cid;
+    if (sheetResume(KK)) return;
+    const upd = aiBusySheet("Finding Learning Objectives", `Reading ${fs.length} file${fs.length === 1 ? "" : "s"}…`, KK), job = upd.job;
     const items = [];
     for (const f of fs) { let t = ""; try { t = window.SBFILETEXT ? await SBFILETEXT(f.id, 40000) : ""; } catch (e) {} if (t) items.push({name: f.name, text: t}); }
+    if (job.dropped) return;
     let cands = [], err = "";
     try { cands = items.length ? await findObjs(items, c.name, aiOn() ? "ai" : "none") : []; } catch (e) { err = aiMsg(e); try { cands = await findObjs(items, c.name, "none"); } catch (e2) {} }
+    if (job.dropped) return;
     const add = QADD.fresh(objsOf(courseOf(cid)), cands);
     if (!add.length) { upd(items.length ? `No new learning objectives were found${err ? " (" + err + ")" : ""}. You can add your own.` : "None of these files has text Studyboard can read.", true); return; }
-    reviewSheet(cid, add, items.map(x => x.name).join(", "));
+    job.busy = false;
+    sheetReady(KK, () => reviewSheet(cid, add, items.map(x => x.name).join(", ")), `Found ${add.length} learning objective${add.length === 1 ? "" : "s"} to review`);
   }
   // Flashcards for objectives
   function cardsSheet(cid){
@@ -485,6 +501,9 @@ const QADD = (() => {
     if (!objs.length) { toast("Add some learning objectives first"); return; }
     const fs = Object.values(state.files).filter(f => f.courseId === cid && readableFile(f) && fileKind(f) !== "image").sort((a, b) => (wrapEligible(b) - wrapEligible(a)) || ((b.updated || b.created || 0) - (a.updated || a.created || 0)));
     if (!fs.length) { toast("Upload slides, a syllabus or notes to this course first so the cards come from your material"); return; }
+    // tapping away while it writes sets it aside (the cards are saved when done); Cancel stops it
+    const KK = "objcards:" + cid, job = {busy: false, dropped: false, ac: null};
+    if (sheetResume(KK)) return;
     const pickF = new Set(fs.filter(wrapEligible).concat(fs).slice(0, 3).map(f => f.id));
     openSheet(`<form class="sheet ai-sheet">${head("Flashcards for Objectives")}
       <div class="sheet-body" id="ocBody">
@@ -495,25 +514,38 @@ const QADD = (() => {
         ${aiModelBar()}
         <p class="status-msg" id="ocMsg" aria-live="polite"></p></div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="ocGo">${AI_ICON} Make Cards</button></div></form>`);
+    const sheetEl = dlg.querySelector(".ai-sheet");
+    sheetKeep(KK, {name: "Flashcards for Objectives", dirty: () => false, busy: () => job.busy, drop: () => { job.dropped = true; if (job.ac) { try { job.ac.abort(); } catch (e) {} } }});
     document.getElementById("ocGo").addEventListener("click", async ev => {
+      if (job.busy) return;
       const b = ev.currentTarget, ids = [...dlg.querySelectorAll("[data-oc]:checked")].map(i => i.dataset.oc).slice(0, 12), fids = [...dlg.querySelectorAll("[data-of]:checked")].map(i => i.dataset.of), msg = document.getElementById("ocMsg");
       if (!ids.length) { msg.textContent = "Tick at least one objective (up to 12 at a time)."; return; }
       if (!fids.length) { msg.textContent = "Tick at least one file to make the cards from."; return; }
       const size = fids.reduce((s, id) => s + ((state.files[id] && fileSizeOf(state.files[id])) || 0), 0);
       if (size > AI_LIMIT_BYTES) { msg.textContent = "Those files are too big to send at once. Untick some."; return; }
       b.disabled = true; msg.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Reading your files…`;
+      job.busy = true; job.ac = typeof AbortController === "function" ? new AbortController() : null;
       try {
-        const n = await makeCards(cid, ids, fids, Number(document.getElementById("ocPer").value) || 3, s => { msg.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(s)}`; });
-        if (dlg.open) dlg.close();
+        const n = await makeCards(cid, ids, fids, Number(sheetEl.querySelector("#ocPer").value) || 3, s => { msg.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(s)}`; }, job);
+        job.busy = false; if (job.dropped) return;
+        // the cards are saved: close the sheet if it's showing, or let go of it if it was set aside
+        if (dlg.open && dlg.contains(sheetEl)) dlg.close(); else sheetDrop(KK);
         if (!n) toast("No cards came back. Try again, or pick other files.");
-      } catch (e) { msg.textContent = (e && e.message) || "Couldn't make cards right now."; b.disabled = false; }
+      } catch (e) {
+        job.busy = false; if (job.dropped || (e && e.code === "cancelled")) return;
+        msg.textContent = (e && e.message) || "Couldn't make cards right now."; b.disabled = false;
+        if (sheetKept(KK)) toast("Couldn't make those cards. Open Flashcards for Objectives again to see why.", null, {label: "Open", fn: () => sheetResume(KK)}, {error: true});
+      }
     });
   }
-  async function makeCards(cid, ids, fids, per, onStatus){
+  async function makeCards(cid, ids, fids, per, onStatus, job){
     const c = courseOf(cid), objs = objsOf(c).filter(o => ids.includes(o.id)).slice(0, 12);
     const sources = []; for (const id of fids) { const f = state.files[id]; if (f) sources.push(await fileSource(f)); }
+    if (job && job.dropped) throw aiErr("cancelled", "Canceled.");
+
     const style = `Make flashcards that cover these learning objectives. Write ${per} cards for each one, covering what a student must know to meet it. Start every card's "source" field with its objective code (like "O3" or "O3 · Slides 4-5"). Objectives:\n${objs.map((o, i) => `O${i + 1}. ${o.text}`).join("\n")}`;
-    const out = await aiMakeStudySet({sources, style, difficulty: "mixed", cards: true, quiz: false, cases: false, cardCount: objs.length * per, quizCount: 0, courseName: c.name}, onStatus);
+    const out = await aiMakeStudySet({sources, style, difficulty: "mixed", cards: true, quiz: false, cases: false, cardCount: objs.length * per, quizCount: 0, courseName: c.name, signal: job && job.ac ? job.ac.signal : undefined}, onStatus);
+    if (job && job.dropped) throw aiErr("cancelled", "Canceled.");
     if (!out.cards.length) return 0;
     const name = `${courseLabel(c)} Objectives`;
     let d = decksArr().find(x => x.courseId === cid && x.name === name);

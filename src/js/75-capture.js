@@ -479,7 +479,15 @@ function ensureDom(){
   if (!libInput) libInput = mkIn("capLib", false);
   const onFiles = e => { const l = [...e.target.files]; e.target.value = ""; if (l.length) photoFiles(l, {source: "photo"}); };
   camInput.addEventListener("change", onFiles); libInput.addEventListener("change", onFiles);
-  el.addEventListener("close", () => { if (CS.abort) { try { CS.abort.abort(); } catch (e) {} } cleanupThumbs(); CS.view = "input"; CS.drafts = []; CS.text = ""; CS.busy = ""; CS.inline = ""; });
+  // Like the app's sheets: ✕ or Escape while a photo is being read, or with found tasks still to check, sets Quick Capture aside
+  // (opening it again picks up there); Cancel, Back, Add or Close clears it. Plain typed text still clears, as the hint says.
+  el.addEventListener("cancel", () => { CS.away = true; });
+  el.addEventListener("close", () => {
+    const keep = CS.away && (CS.view === "busy" || (CS.view === "confirm" && CS.drafts.length > 0));
+    CS.away = false;
+    if (keep) { CS.kept = true; if (CS.view === "busy") toast("Quick Capture is still reading your photo. Open it again to pick up where you left off."); return; }
+    capClear();
+  });
   el.addEventListener("click", onClick);
   el.addEventListener("input", onInput); el.addEventListener("change", onInput);
   el.addEventListener("keydown", onKey);
@@ -488,6 +496,10 @@ function ensureDom(){
   el.addEventListener("drop", e => { const f = imageFiles(e.dataTransfer); if (f.length) { e.preventDefault(); photoFiles(f, {source: "drop"}); } });
 }
 const cleanupThumbs = () => { (CS.photos || []).forEach(p => { try { URL.revokeObjectURL(p.url); } catch (e) {} }); CS.photos = []; };
+function capClear(){ if (CS.abort) { try { CS.abort.abort(); } catch (e) {} } cleanupThumbs(); CS.view = "input"; CS.drafts = []; CS.text = ""; CS.busy = ""; CS.inline = ""; CS.kept = false; }
+// A photo read that finishes while Quick Capture is set aside says so, with Open
+const capAway = () => !!CS.kept && !!el && !el.open;
+const capToast = (msg, err) => toast(msg, null, {label: "Open", fn: () => openCapture({})}, err ? {error: true} : undefined);
 const hasFiles = e => [...((e.dataTransfer && e.dataTransfer.types) || [])].includes("Files");
 const isImg = f => f && (/^image\//.test(f.type || "") || /\.(jpe?g|png|webp|heic|heif|gif|bmp|avif)$/i.test(f.name || ""));
 const imageFiles = dt => [...((dt && dt.files) || [])].filter(isImg);
@@ -498,7 +510,12 @@ function openCapture(o){
   o = o || {};
   ensureDom();
   if (dlg.open) { try { dlg.close(); } catch (e) {} }
-  if (!el.open) { CS.view = "input"; CS.drafts = []; CS.msg = ""; CS.note = ""; CS.external = false; CS.inline = ""; if (!o.keepText) CS.text = o.text || ""; el.showModal(); }
+  // a set-aside capture comes back as it was; anything new coming in (a photo, a share, text) starts fresh instead
+  const resume = !el.open && CS.kept && !o.keepText && !o.fresh && o.text == null;
+  if (!el.open && CS.kept && !resume) capClear();
+  CS.kept = false;
+  if (resume) el.showModal();
+  else if (!el.open) { CS.view = "input"; CS.drafts = []; CS.msg = ""; CS.note = ""; CS.external = false; CS.inline = ""; if (!o.keepText) CS.text = o.text || ""; el.showModal(); }
   else if (o.text != null) CS.text = o.text;
   CS.fromShortcut = !!o.shortcut;
   draw();
@@ -591,7 +608,7 @@ function onKey(e){
 function onClick(e){
   const b = e.target.closest && e.target.closest("[data-cap]"); if (!b) return;
   const a = b.dataset.cap;
-  if (a === "close") { el.close(); }
+  if (a === "close") { CS.away = !!b.closest(".sheet-head"); el.close(); }
   else if (a === "add") submitText(false);
   else if (a === "addall") addAll(false);
   else if (a === "photo") camInput.click();
@@ -703,22 +720,24 @@ async function runVision(hint, extra, my){
     const shot = !!CS.classify;
     const r = await aiCall({task: "capture", maxTokens: 4000, temperature: 0.1, timeout: 45000, signal: ac.signal, schema: shot ? CAP.SHOT_SCHEMA : CAP.VISION_SCHEMA, system: shot ? CAP.shotSystem() : CAP.visionSystem(), parts,
       onStatus: m => { CS.busy = m; const s = el && el.querySelector("#capStatus"); if (s) s.lastChild.textContent = " " + m; }});
-    if (!el.open || ac.signal.aborted || CS.run !== my) return;
+    if ((!el.open && !CS.kept) || ac.signal.aborted || CS.run !== my) return;
     if (shot && routeShot(r.data)) return;
+    const away = capAway();
     const g = CAP.gateVision(r.data, c, {source: shot ? "screenshot" : "photo"});
     if (g.bad) throw aiErr("bad", "The AI's answer couldn't be read. Try again.");
     CS.keep = prefs().keep;
     if (!g.items.length) {
       CS.view = "noai"; CS.text = hint || "";
       CS.msg = (g.dropped.total ? "Found text, but nothing that's clearly a task with a date." : "No tasks or dates found in this photo.") + " Type in what you need, or try a closer photo.";
-      draw(); return;
+      draw(); if (away) capToast("No tasks or dates were found in your photo."); return;
     }
     CS.drafts = g.items; CS.view = "confirm"; CS.external = false;
     CS.msg = `Found ${g.items.length} ${g.items.length === 1 ? "item" : "items"}.` + (g.low ? ` ${g.low} left unticked because they're less certain.` : "") + (g.dropped.dup ? ` ${g.dropped.dup} already on your board.` : "") + (extra || "") + " Compare with the photo.";
-    draw();
+    draw(); if (away) capToast(`Found ${g.items.length} ${g.items.length === 1 ? "task" : "tasks"} in your photo. Check ${g.items.length === 1 ? "it" : "them"}, then add.`);
   } catch (e) {
-    if (!el.open || CS.run !== my || (ac.signal.aborted && (!e || e.code === "cancelled" || e.name === "AbortError"))) return;
+    if ((!el.open && !CS.kept) || CS.run !== my || (ac.signal.aborted && (!e || e.code === "cancelled" || e.name === "AbortError"))) return;
     const code = e && e.code;
+    if (capAway()) setTimeout(() => { if (capAway()) capToast("Quick Capture couldn't read your photo. Open it to see why.", true); }, 0);
     if (code === "offline") { let n = -1; try { n = await qAdd({blob: CS.photos[0].blob, hint: hint || "", source: CS.photos[0].source}); } catch (x) {}
       CS.view = "noai"; CS.text = hint || ""; CS.msg = n > 0 ? `Couldn't reach the AI. The photo is saved (${n} waiting) and Studyboard will offer to read it later. Or type it in now.` : "Couldn't reach the AI. Type in what is on the photo."; draw(); return; }
     if (code === "no-consent" || code === "nokey" || code === "preview") { CS.view = "noai"; CS.text = hint || ""; CS.msg = (e.message || "AI is off.") + " The photo stays here while you type it in."; draw(); return; }
@@ -731,11 +750,14 @@ function routeShot(data){
   const kind = data && CAP.SHOT_KINDS.includes(data.kind) ? data.kind : "tasks", ph = CS.photos[0];
   if (!ph || kind === "tasks" || kind === "other") return false;
   const file = new File([ph.blob], "screenshot.jpg", {type: "image/jpeg"});
-  if (el.open) el.close();
-  setTimeout(() => {
+  const go = () => {
     if (kind === "notes") { if (typeof photoNoteSheet === "function") photoNoteSheet(file); }
     else if (typeof importSheet === "function") importSheet("", file);
-  }, 60);
+  };
+  // set aside: nothing pops up over what you're doing; a toast offers it instead
+  if (capAway()) { capClear(); toast(kind === "notes" ? "Your screenshot looks like study material" : "Your screenshot looks like a syllabus", null, {label: "Open", fn: () => { if (dlg.open) dlg.close(); setTimeout(go, 60); }}); return true; }
+  if (el.open) el.close();
+  setTimeout(go, 60);
   return true;
 }
 // The screenshot shortcut (desktop app)
@@ -852,7 +874,7 @@ function handleUrl(raw, o){
   if (!r.ok) { if (!o.quiet) toast("That link can't be used for capture."); return {ok: false, reason: r.reason}; }
   const p = r.params;
   if (p.err) { toast({type: "That share wasn't a photo or text I can read.", big: "Photos over 15 MB can't be shared in.", many: "You can share up to 10 photos at a time.", fail: "Couldn't receive what you shared. Try again."}[p.err] || "Couldn't receive what you shared."); }
-  if (r.action === "photo") { openCapture({}); CS.view = "photo"; draw(); return {ok: true, action: "photo"}; }
+  if (r.action === "photo") { openCapture({fresh: true}); CS.view = "photo"; draw(); return {ok: true, action: "photo"}; }
   if (r.action === "open") { openCapture({shortcut: true}); return {ok: true, action: "open"}; }
   if (p.sw) { stagedShare(p.sw); return {ok: true, action: "share"}; }
   if (!limiter.take()) { toast("Too many captures at once. Wait a moment and try again."); return {ok: false, reason: "rate"}; }
@@ -929,7 +951,8 @@ document.addEventListener("change", e => {
 const TRY = {
   shot: () => { if (dlg.open) dlg.close(); try { DESK.captureScreen(); } catch (e) {} },
   sheet: () => { if (dlg.open) dlg.close(); setTimeout(() => openCapture({shortcut: true, text: "bio quiz fri 2pm"}), 30); },
-  photo: () => { if (dlg.open) dlg.close(); setTimeout(() => { openCapture({}); CS.view = "photo"; draw(); }, 30); },
+  photo: () => { if (dlg.open) dlg.close(); setTimeout(() => { openCapture({fresh: true}); CS.view = "photo"; draw(); }, 30); },
+
   share: () => { if (dlg.open) dlg.close(); setTimeout(() => handleUrl("./?share=1&title=" + encodeURIComponent("Lab report 4") + "&text=" + encodeURIComponent("Due Oct 28 at 11:59pm"), {channel: "web"}), 30); },
   url: () => { if (dlg.open) dlg.close(); setTimeout(() => handleUrl("studyboard://add?title=" + encodeURIComponent("Read chapter 5") + "&due=" + addDays(todayISO(), 3) + "&source=test", {channel: "web"}), 30); }
 };

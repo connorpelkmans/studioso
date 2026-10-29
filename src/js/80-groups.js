@@ -1486,6 +1486,9 @@
       ${loadingLine(g.id) || (its.length ? `<ul class="grp-list">${rows}</ul>` : `<p class="grp-none">After each meeting, write down what you decided and who does what. Action items can go straight into Tasks.</p>`)}</section>`;
   }
   function minutesSheet(g, it){
+    // notes being typed (or filled in from a transcript) are set aside when you tap away; Cancel or Save clears them
+    const KK = "minutes:" + g.id + ":" + (it ? it.id : "new");
+    if (sheetResume(KK)) return;
     const d = it ? it.data || {} : {}, x = ptX(g.id);
     openSheet(`<form class="sheet">${head(it ? "Edit Meeting Notes" : "Meeting Notes")}<div class="sheet-body">${REQ_NOTE}
       <div class="gk-tr"><button type="button" class="btn small ai-btn" id="gkTrOpen">${AI_ICON} Fill From a Transcript</button>
@@ -1511,16 +1514,21 @@
           if (it) { const row = await api.updateItem(it.id, {title, data}); Object.assign(it, row || {}); }
           else addRows(g.id, await api.addItems([{group_id: g.id, kind: "minutes", ref_id: "", title, data}]));
           let made = 0; if (acts.length) made = await addActionTasks(g, acts);
-          if (dlg.open) dlg.close(); toast(made ? `Saved. ${plural(made, "action item")} added to Tasks.` : "Saved the meeting notes"); patch(g.id);
+          if (dlg.open && dlg.contains(mForm)) dlg.close(); else sheetDrop(KK);
+          toast(made ? `Saved. ${plural(made, "action item")} added to Tasks.` : "Saved the meeting notes"); patch(g.id);
         } catch(e) { busyBtn(b, false); toast(e.message); }
       });
       return false;
     });
-    wireTranscript(g);
+    const mForm = dlg.querySelector("form.sheet"), mJob = {busy: false, edited: false, key: KK};
+    ["input", "change"].forEach(ev => mForm.addEventListener(ev, () => { mJob.edited = true; }));
+    sheetKeep(KK, {name: "Meeting Notes", dirty: () => mJob.edited, busy: () => mJob.busy, drop: () => { mJob.dropped = true; }});
+    wireTranscript(g, mForm, mJob);
   }
   // "Fill From a Transcript"
   const TR_SCHEMA = {type: "OBJECT", properties: {title: {type: "STRING", description: "Short meeting title"}, agenda: {type: "STRING", description: "What was covered, one item per line"}, decisions: {type: "STRING", description: "What the team agreed on, one per line"}, actions: {type: "STRING", description: "One action item per line, as 'Name: task' when a person was named"}}, required: ["agenda", "decisions", "actions"]};
-  function wireTranscript(g){
+  function wireTranscript(g, form, job){
+    const $ = q => form.querySelector(q), $$ = q => [...form.querySelectorAll(q)];
     const open = $("#gkTrOpen"), box = $("#gkTrBox"); if (!open || !box) return;
     const status = $("#gkTrStatus"), txt = $("#gkTrText"), go = $("#gkTrGo"); let len = "short";
     $("#gkTrLen").addEventListener("click", e => { const b = e.target.closest("[data-len]"); if (!b) return; len = b.dataset.len; $$("#gkTrLen [data-len]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); });
@@ -1539,17 +1547,21 @@
       const text = String(txt.value || "").trim();
       if (text.length < 40) { status.textContent = "Add the transcript first."; return; }
       go.disabled = true; status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(aiWho("AI"))} is reading the transcript…`;
+      job.busy = true;
       try {
         const names = (S.members[g.id] || []).map(m => m.display_name).filter(Boolean).join(", ");
         const detailed = len === "long", r2 = await aiCall({task: "transcript", maxTokens: detailed ? 6000 : 3000, schema: TR_SCHEMA, onStatus: m => { status.textContent = m; },
           system: "You turn a meeting transcript into short meeting notes for a student group project. Write the agenda (topics discussed), the decisions that were actually made, and the action items. " + (detailed ? "Be thorough: the agenda covers every topic with a line of context, and each decision says briefly why it was made." : "Keep it short: at most 4 agenda lines, 5 decisions and 6 action items, each under 100 characters.") + " Every action item is a short task of at most 8 words (a verb phrase such as 'Book the library room'), never a sentence or a paragraph. Write an action item as 'Name: task' when the transcript says who will do it, using the team member names given when they match. Never invent decisions or tasks that are not in the transcript. Leave a part empty if the transcript has nothing for it.",
           parts: [{text: `Team members: ${names || "unknown"}.\nTranscript:\n${text}`}]});
-        const d = r2.data || {}, set = (n, v) => { const el = dlg.querySelector(`[name="${n}"]`); if (el && String(v || "").trim()) el.value = String(v).trim().slice(0, GK.LIM.minutes); };
-        const t = dlg.querySelector('[name="title"]'); if (t && !t.value.trim() && d.title) t.value = String(d.title).trim().slice(0, 120);
+        if (job.dropped) { job.busy = false; return; }
+        const d = r2.data || {}, set = (n, v) => { const el = form.querySelector(`[name="${n}"]`); if (el && String(v || "").trim()) el.value = String(v).trim().slice(0, GK.LIM.minutes); };
+        const t = form.querySelector('[name="title"]'); if (t && !t.value.trim() && d.title) t.value = String(d.title).trim().slice(0, 120);
         set("agenda", d.agenda); set("decisions", d.decisions); set("actions", d.actions);
-        box.hidden = true; toast("Notes filled in. Check them, then save.");
+        box.hidden = true; job.busy = false; job.edited = true;
+        // set aside meanwhile: the toast opens it again
+        if (!sheetKept(job.key)) toast("Notes filled in. Check them, then save."); else sheetReady(job.key, null, "Meeting notes are filled in. Check them, then save.");
       } catch(e) { status.textContent = e.message || "Something went wrong. Try again."; }
-      go.disabled = false;
+      job.busy = false; go.disabled = false;
     });
   }
   // Put action items into the project's first open task list (made if there isn't one)
@@ -1570,41 +1582,57 @@
     if (!x) { toast("Tasks aren't ready yet. Try again in a moment."); return; }
     if (!aiReady()) { aiSetupSheet(true); return; }
     const today = todayISO(), hasDue = GTL.isDay(g.project_due) && g.project_due >= today, who = aiWho("AI");
+    // the idea typed, AI still planning, or its suggestions not added yet are set aside when you tap away; Cancel or Add clears them
+    const KK = "gplan:" + g.id;
+    if (sheetResume(KK)) return;
     openSheet(`<form class="sheet ai-sheet">${head("Start From a Plan")}<div class="sheet-body" id="gpBody">
       <label class="f"><span class="lh">What Is the Project About? ${REQ}</span><textarea id="gpIdea" rows="5" maxlength="1500" autofocus placeholder="e.g. A 10 minute presentation on how coral reefs are affected by warming oceans, with slides, a handout and a short demo."></textarea></label>
       <p class="mini" style="margin:0">${esc(who)} reads this and suggests a list of tasks${hasDue ? `, spaced out before the due date (${esc(fmtShort(g.project_due))})` : ""}. You choose which ones to add.</p>
       <p class="status-msg" id="gpStatus" style="margin:0" aria-live="polite"></p></div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="gpGo">${AI_ICON} Suggest Tasks</button></div></form>`);
+    const form = dlg.querySelector("form.ai-sheet"), $ = q => form.querySelector(q), job = {busy: false, dropped: false, ac: null, list: null};
+    sheetKeep(KK, {name: "Start From a Plan", dirty: () => !!job.list || !!($("#gpIdea") && $("#gpIdea").value.trim()), busy: () => job.busy,
+      drop: () => { job.dropped = true; if (job.ac) { try { job.ac.abort(); } catch (e) {} } }});
     const status = $("#gpStatus");
     $("#gpGo").addEventListener("click", async () => {
+      if (job.busy) return;
       const idea = String($("#gpIdea").value || "").trim(), go = $("#gpGo");
       if (idea.length < 8) { status.textContent = "Say a little more about the project first."; return; }
       go.disabled = true; go.classList.add("busy"); status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(who)} is planning…`;
+      job.busy = true; const ac = job.ac = typeof AbortController === "function" ? new AbortController() : null;
       try {
         const ms = (S.members[g.id] || []).length, have = x.tasks.filter(t => !t.deleted).map(t => t.title).slice(0, 40);
-        const r2 = await aiCall({task: "groupplan", maxTokens: 4000, schema: PLAN_SCHEMA, onStatus: m => { status.textContent = m; },
+        const r2 = await aiCall({task: "groupplan", maxTokens: 4000, schema: PLAN_SCHEMA, signal: ac ? ac.signal : undefined, onStatus: m => { status.textContent = m; },
           system: "You help a student team plan a group project. Break the project into 6 to 12 concrete tasks the team can split between them, in the order they should be done. Each title starts with a verb and is under 70 characters. Cover research, drafting, the main deliverable, review and rehearsal or submission where they fit. Do not repeat tasks the team already has. If a due date is given, suggest due dates (YYYY-MM-DD) spread from today up to a few days before the deadline; otherwise leave due empty.",
           parts: [{text: `Today is ${today}. Project name: ${g.name}.${g.course ? " Course: " + g.course + "." : ""} ${hasDue ? "Project due date: " + g.project_due + "." : "No due date was set."} Team size: ${ms}.${have.length ? " Tasks already on the board: " + have.join("; ") + "." : ""}\nWhat the project is about: ${idea}`}]});
         const lo = today, hi = hasDue ? g.project_due : "9999-12-31";
         const list = (r2.data.tasks || []).map(t => ({title: GTL.clamp(t && t.title, GTL.LIM.title), due: t && GTL.isDay(t.due) && t.due >= lo && t.due <= hi ? String(t.due).slice(0, 10) : ""})).filter(t => t.title).slice(0, 14);
         if (!list.length) throw aiErr("empty", "Couldn't come up with tasks from that. Try describing the project in a bit more detail.");
-        review(list);
-      } catch(e) { status.textContent = e.message || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy"); }
+        job.busy = false; if (job.dropped) return;
+        job.list = list; review(list);
+        sheetReady(KK, null, `${who} suggested ${plural(list.length, "task")} for ${g.name}`);
+      } catch(e) {
+        job.busy = false; if (job.dropped || (e && e.code === "cancelled")) return;
+        status.textContent = e.message || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy");
+        if (sheetKept(KK)) toast("Couldn't plan that. Open Start From a Plan again to see why.", null, {label: "Open", fn: () => sheetResume(KK)}, {error: true});
+      }
     });
     const review = list => {
       $("#gpBody").innerHTML = `<p class="mini" style="margin:0">${esc(who)} suggests these tasks. Untick any you don't want.</p>
         <fieldset><legend>Suggested Tasks</legend>${list.map((t, i) => `<label class="mi-check"><input type="checkbox" data-gp="${i}" checked> ${esc(t.title)}${t.due ? ` <span class="mini">${esc(fmtShort(t.due))}</span>` : ""}</label>`).join("")}</fieldset>
         <p class="status-msg" id="gpStatus2" style="margin:0" aria-live="polite"></p>`;
-      $(".sheet-foot", dlg).innerHTML = `<button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="gpAdd">Add Tasks</button>`;
+      $(".sheet-foot").innerHTML = `<button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="gpAdd">Add Tasks</button>`;
       $("#gpAdd").addEventListener("click", async () => {
-        const pick = list.filter((t, i) => { const cb = dlg.querySelector(`[data-gp="${i}"]`); return cb && cb.checked; }), add = $("#gpAdd"), st = $("#gpStatus2");
+        const pick = list.filter((t, i) => { const cb = $(`[data-gp="${i}"]`); return cb && cb.checked; }), add = $("#gpAdd"), st = $("#gpStatus2");
         if (!pick.length) { st.textContent = "Tick at least one task."; return; }
         add.disabled = true; st.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Adding…`;
         let n = 0;
         try {
           const lst = await ptDefaultList(g); if (!lst) throw new Error("Couldn't start the task list. Try again.");
           for (const t of pick) { if (!GTL.canAddTask(x.tasks, lst.id)) { toast(`A project holds up to ${GTL.LIM.tasks} tasks.`); break; } await api.ptAdd(lst.id, t.title, null, t.due || null, "", null); n++; }
-          await loadPT(g.id); if (dlg.open) dlg.close(); toast(`Added ${plural(n, "task")}`);
+          await loadPT(g.id); if (dlg.open && dlg.contains(form)) dlg.close(); else sheetDrop(KK);
+          toast(`Added ${plural(n, "task")}`);
+
         } catch(e) { st.textContent = e.message; add.disabled = false; if (n) loadPT(g.id); }
       });
     };

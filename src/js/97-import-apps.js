@@ -475,7 +475,11 @@ const IA = (() => {
     ["todoist", "Todoist", tr("ia.how.todoist", "In Todoist, open a project, choose the three dots, then Export as CSV. Or download a backup ZIP from Settings, then Backups.")],
     ["notion", "Notion", tr("ia.how.notion", "In Notion, open the page, choose the three dots, then Export. Pick Markdown & CSV, include subpages, then choose the ZIP file here.")],
   ];
+  // A file being read, or read and waiting in the preview, is set aside when you tap away and comes back here; Cancel or Import clears it
+  const IKEY = "import-apps";
+  let IJ = null;
   function open(){
+    if (sheetResume(IKEY)) return;
     PV = null;
     openSheet(`<div class="sheet ia-sheet">${head(tr("ia.title", "Import From Another App"))}
       <div class="sheet-body">
@@ -487,24 +491,31 @@ const IA = (() => {
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">${esc(tr("ia.cancel", "Cancel"))}</button></div></div>`);
     const inp = $("#iaFile"), drop = $("#iaDrop"), body = dlg.querySelector(".ia-sheet");
+    const job = IJ = {reading: false, dropped: false, el: body};
+    sheetKeep(IKEY, {name: tr("ia.title", "Import From Another App"), dirty: () => false, busy: () => job.reading, drop: () => { job.dropped = true; }});
     inp.addEventListener("change", () => { const f = inp.files && inp.files[0]; inp.value = ""; if (f) take(f); });
     body.addEventListener("dragover", e => { if (e.dataTransfer && [...(e.dataTransfer.types || [])].includes("Files")) { e.preventDefault(); e.stopPropagation(); drop.classList.add("drop-on"); } });
     body.addEventListener("dragleave", e => { if (!body.contains(e.relatedTarget)) drop.classList.remove("drop-on"); });
     body.addEventListener("drop", e => { e.preventDefault(); e.stopPropagation(); drop.classList.remove("drop-on"); const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) take(f); });
   }
   async function take(file){
-    const msg = $("#iaMsg"), say = t => { if (msg) msg.textContent = t; };
+    const job = IJ, el = (job && job.el) || dlg.querySelector(".ia-sheet"), msg = el.querySelector("#iaMsg"), say = t => { if (msg) msg.textContent = t; };
     say(tr("ia.reading", "Reading {name}…", {name: file.name}));
-    dlg.querySelectorAll(".ia-sheet button").forEach(b => { if (b.dataset.act !== "close") b.disabled = true; });
+    el.querySelectorAll("button").forEach(b => { if (b.dataset.act !== "close") b.disabled = true; });
+    if (job) job.reading = true;
     let r;
     try { r = await readFile(file); }
     catch (e) {
       console.warn("import", e);
-      dlg.querySelectorAll(".ia-sheet button").forEach(b => { b.disabled = false; });
+      if (job) { job.reading = false; if (job.dropped) return; }
+      el.querySelectorAll("button").forEach(b => { b.disabled = false; });
       say(e && e.friendly ? e.message : e && e.code === "big" ? e.message : tr("ia.err.read", "Studyboard couldn't read that file. Check that it's an export from Anki, Todoist or Notion and try again."));
+      if (sheetKept(IKEY)) toast(tr("ia.err.away", "Studyboard couldn't read that file. Open Import From Another App again to see why."), null, {label: tr("ia.open", "Open"), fn: () => sheetResume(IKEY)}, {error: true});
       return;
     }
-    preview(r, file.name);
+    if (job) { job.reading = false; if (job.dropped) return; }
+    // shown now if its sheet is open, or from a toast when it was set aside
+    sheetReady(IKEY, () => preview(r, file.name), tr("ia.ready", "{name} is ready to import", {name: file.name}));
   }
   function preview(r, fileName){
     const courses = coursesArr().map(c => ({id: c.id, name: c.name, code: c.code}));
@@ -553,7 +564,10 @@ const IA = (() => {
         <p class="status-msg" id="iaMsg" aria-live="polite" style="margin:6px 0 0"></p>
       </div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="ia-open">${esc(tr("ia.back", "Back"))}</button><span class="spacer"></span><button type="button" class="btn" data-act="close">${esc(tr("ia.cancel", "Cancel"))}</button>${groups.length ? `<button type="button" class="btn primary" data-act="ia-go" id="iaGo">${esc(tr("ia.import", "Import"))}</button>` : ""}</div></div>`);
+    const mine = PV;
+    sheetKeep(IKEY, {name: title, dirty: () => mine.groups.length > 0, resume: () => { PV = mine; }});
     dlg.querySelectorAll("[data-ia-on]").forEach(cb => cb.addEventListener("change", () => { PV.groups[+cb.dataset.iaOn].on = cb.checked; const g = $("#iaGo"); if (g) g.disabled = !PV.groups.some(x => x.on); }));
+
     dlg.querySelectorAll("[data-ia-course]").forEach(s => s.addEventListener("change", () => { PV.groups[+s.dataset.iaCourse].courseId = s.value; }));
   }
   const matchCourseFor = (name, courses) => IA.matchCourse(name, courses);
