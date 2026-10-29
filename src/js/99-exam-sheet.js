@@ -242,9 +242,8 @@ function html(exId, o){
   const empty = !topicsOf(ex).length ? "This exam has no topics yet. Open it, choose Plan My Prep and add the topics it covers."
     : !linked(ex) && !M.sections.length ? "Nothing is linked to this exam's topics yet. In its Prep Plan, choose Edit Topics and link the decks and notes for each topic."
     : "No formulas, definitions or picture cards were found in the decks and notes linked to this exam. Cards like “Newton's second law / F = ma” or “Osmosis / Movement of water across a membrane”, note lines like “Term: meaning”, and picture cards all go on the sheet.";
-  return `<div class="pp-page xs-page"><div class="xs-head"><h1>${H(ex.title)}: Formula and Diagram Sheet</h1><p>${H(sub)}</p></div>
-    ${total ? `<div class="xs-cols">${secs}</div>` : `<p class="xs-empty">${H(empty)}</p>`}
-    <div class="xs-foot">Made from your own decks and notes in Studyboard. Check anything you'll rely on in the exam.</div></div>`;
+  return `<div class="pp-page xs-page"><div class="xs-head"><h1>${H(ex.title)}: Formula and Diagram Sheet</h1><p>${H(sub)}</p><p class="xs-src">Made from your own decks and notes. Check anything you'll rely on.</p></div>
+    ${total ? `<div class="xs-cols">${secs}</div>` : `<p class="xs-empty">${H(empty)}</p>`}</div>`;
 }
 
 /* Print and PDF: the exam picker and what to include */
@@ -278,12 +277,12 @@ window.SBEXAMSHEET = {html, printControls, open, btn, exams, model: id => state.
 
 const css = document.createElement("style");
 css.textContent = `
-.xs-go{font-size:.86rem;margin:0 0 6px}
+.xs-go{display:inline-block;text-align:left;font-size:.86rem;margin:0 0 8px}
 .pp-page.xs-page{display:block;font-size:9.5px;line-height:1.28;padding:26px 30px}
 .xs-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:4px 12px;border-bottom:1.5px solid #0F1F3D;padding-bottom:4px;margin-bottom:6px}
 .xs-page .xs-head h1{font:700 15px/1.15 Lexend,system-ui,sans-serif;margin:0}
 .xs-head p{margin:0;color:#4A576E;font-size:9.5px}
-.xs-cols{column-count:3;column-gap:14px;column-rule:1px solid #C6CEDB;column-fill:auto}
+.xs-cols{column-count:3;column-gap:14px;column-rule:1px solid #C6CEDB;column-fill:balance}
 .xs-sec{margin:0 0 6px}
 .xs-page .xs-sec h2{font:600 10.5px/1.2 Lexend,system-ui,sans-serif;margin:0 0 2px;padding:2px 4px;background:#EEF2F8;border-left:3px solid #0F1F3D;break-after:avoid}
 .xs-k{font-weight:700;font-size:7.5px;letter-spacing:.06em;text-transform:uppercase;color:#4A576E;margin:3px 0 1px;break-after:avoid}
@@ -302,7 +301,7 @@ css.textContent = `
 .xs-leg{list-style:none;margin:2px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:1px 8px;font-size:8.5px}
 .xs-leg b{display:inline-block;min-width:12px;height:12px;border-radius:6px;background:#0F1F3D;color:#fff;font-size:7.5px;line-height:12px;text-align:center;margin-right:2px}
 .xs-empty{font-size:12px;max-width:560px}
-.xs-foot{margin-top:8px;padding-top:3px;border-top:1px solid #C6CEDB;font-size:8px;color:#4A576E}
+.xs-head .xs-src{flex-basis:100%;font-size:8px}
 .pr-scale .pp-page.xs-page{min-height:1000px}
 @media print{#sbPrint .pp-page.xs-page{min-height:0;padding:0}}
 `;
