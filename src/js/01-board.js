@@ -195,14 +195,47 @@ function effortOf(t){
 }
 // A big assignment that has been split into milestones
 const bdHasKids = t => !!(t && t.breakdownParent) && allTasks().some(k => k.breakdownOf === t.id);
+// Your check-in answer ("how much is left?"), while nothing it was based on has changed since
+function saidOf(t){
+  const c = t && t.left; if (!c || !(Number(c.h) >= 0) || !(Number(c.fm) >= 0)) return null;
+  const done = (t.checklist || []).filter(i => i.done).length, fm = Number(t.focusMin) || 0;
+  if (c.ck !== done || (Number(c.pct) || 0) !== (Number(t.pct) || 0) || Number(c.fm) > fm + 0.5 || Date.now() - (Number(c.at) || 0) > 45 * 864e5) return null;
+  return {h: Number(c.h), at: Number(c.fm) / 60};
+}
+// Work left on a task, as a range: {h, lo, hi, how, E}. how: est (the estimate), pace (your pace on it), over (past the plan),
+// said (your check-in), ai (Automatic AI's reading)
+function leftInfo(t){
+  const e = effortOf(t);
+  if (t.status === "done") return {h: 0, lo: 0, hi: 0, how: "done", E: e};
+  const A = accOf(), sp = A && A.spreadFor ? A.spreadFor(t) : {lo: 0.8, hi: 1.35};
+  const M = A ? A.ACC : null, p = progress(t).frac, fm = (Number(t.focusMin) || 0) / 60, said = saidOf(t);
+  const r = M ? M.left({E: e, h: fm, p, said, lo: sp.lo, hi: sp.hi}) : {h: p === 0 && fm > 0 ? Math.max(e * 0.15, e - fm) : e * (1 - p), lo: 0, hi: 0, how: "est"};
+  if (!M) { r.lo = r.h * 0.8; r.hi = r.h * 1.35; }
+  // Automatic AI's reading of what's left, kept inside a sensible band (your own check-in answer comes first)
+  if (!said && autoPlanOn() && t.aiLeft && t.aiLeft.sig === leftSig(t)) {
+    const h = Math.max(r.lo * 0.6, Math.min(t.aiLeft.h, Math.max(e * 1.5, r.hi * 1.2))), k = r.h > 0 ? h / r.h : 1;
+    return {h, lo: r.h > 0 ? r.lo * k : h * 0.8, hi: r.h > 0 ? r.hi * k : h * 1.35, how: "ai", E: e};
+  }
+  return Object.assign(r, {E: e});
+}
 function remainingOf(t){
   if (t.status === "done") return 0;
   if (bdHasKids(t)) return 0.25;
   if (MILESTONE(t.type) && planSessions(t.id).length) return 0;
-  const e = effortOf(t), p = progress(t).frac, fm = (Number(t.focusMin) || 0) / 60;
-  if (autoPlanOn() && !MILESTONE(t.type) && t.aiLeft && t.aiLeft.sig === leftSig(t)) return Math.min(t.aiLeft.h, e * 1.5);
-  if (p === 0 && fm > 0 && !MILESTONE(t.type)) return Math.max(e * 0.15, e - fm);
-  return e * (1 - p);
+  if (MILESTONE(t.type)) return effortOf(t) * (1 - progress(t).frac);
+  return leftInfo(t).h;
+}
+// What Today's Plan sets aside: the middle of the range, and toward the long end within 3 days of the due date
+function planLeft(t, dl){
+  const R = remainingOf(t);
+  if (!(R > 0) || MILESTONE(t.type) || t.xs || bdHasKids(t) || !(dl <= 3)) return R;
+  const L = leftInfo(t);
+  return R + Math.max(0, L.hi - L.h) * 0.5;
+}
+// "about 2h" or "2h to 3h" (rounded to 15 minutes)
+function leftRange(t){
+  const L = leftInfo(t), q = x => Math.max(0.25, Math.round(x * 4) / 4), lo = q(L.lo), hi = q(L.hi);
+  return hi - lo >= 0.5 ? `${fmtHM(lo)} to ${fmtHM(hi)}` : `about ${fmtHM(q(L.h))}`;
 }
 // Share of the due day you can still use
 function dueDayFrac(t){
@@ -398,7 +431,7 @@ function computeFocus(){
   let load = 0, loadW = 0;
   byDue.forEach(t => {
     const w = W0[t.id], fx = MILESTONE(t.type) && !canDoNow(t);
-    const R = fx ? 0 : remainingOf(t);
+    const R = fx ? 0 : planLeft(t, dayDiff(today, t.due));
     if (!w.dead) { load += R; if (!t.xs) loadW += R; }
     const freeLate = w.past && !w.dead && w.lp === "free";
     const A = w.past ? (freeLate ? Math.max(0, (w.eff - nowMs) / 864e5) * dh : 0) : capacityUntil(t, today, dh, th, cum, day, now, freeBefore);
@@ -588,7 +621,8 @@ function computeFocus(){
     if (pr && pr.ai) r.push([56, `About ${pr.ai.pct}% ready${pr.ai.note ? ": " + pr.ai.note : ""}`]);
     else if (x.fixed) r.push([55, `${remoteOf(t).v === "no" ? "Taken in person" : "Not confirmed as take-home"}, so it is a fixed event, not a task to do now${x.p > 0 ? ` (${Math.round(x.p * 100)}% prepared)` : ""}`]);
     else if (MILESTONE(t.type)) r.push([55, progress(t).plan ? `${Math.round(x.p * 100)}% prepared, following your study plan` : `${Math.round(x.p * 100)}% prepared, about ${fmtHM(x.R)} of study left`]);
-    else if (x.R > 0) r.push([40, t.xs ? `About ${fmtHM(x.R)} of study left` : `About ${fmtHM(x.R)} of work left`]);
+    else if (x.R > 0 && t.xs) r.push([40, `About ${fmtHM(x.R)} of study left`]);
+    else if (x.R > 0) { const L = leftInfo(t), rng = leftRange(t); r.push([40, `${/^about/.test(rng) ? "About " + rng.slice(6) : rng} of work left${x.dl <= 3 && L.hi - L.h >= 0.25 ? ", planned for the longer end since it's due soon" : ""}`]); if (L.how === "over") r.push([62, "Taking longer than planned"]); }
     if (accOf() && x.R > 0 && isNum(t.hours) && !MILESTONE(t.type) && !t.xs) { const ex = accOf().explain(t); if (ex) r.push([39, ex + " " + tr("acc.planAllows", "Today's Plan allows for it.")]); }
     if (x.nudged) r.push([36, tr("acc.startSooner", "You often finish close to the deadline, so starting a little early helps")]);
     if (x.unblocks && !t.dueFor) r.push([80, `Needed before ${x.unblocks.title}`]);

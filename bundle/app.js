@@ -543,6 +543,7 @@ function normTask(t){
     else t.wrap = {at: Number(w.at) > 0 ? Number(w.at) : 0, methods: (Array.isArray(w.methods) ? w.methods : []).filter(k => typeof k === "string" && /^[a-z]{2,12}$/.test(k)).slice(0, 12),
       start: typeof w.start === "string" && /^[a-z]{2,12}$/.test(w.start) ? w.start : "", next: String(w.next || "").replace(/<[^>]*>/g, "").slice(0, 200), felt: num(w.felt), measured: num(w.measured), mark: num(w.mark)};
   }
+  if (t.left != null && !(t.left && typeof t.left === "object" && Number(t.left.h) >= 0 && Number(t.left.h) <= 200 && Number(t.left.fm) >= 0)) delete t.left;
   if (t.aiDecks != null && !(t.aiDecks && Array.isArray(t.aiDecks.ids) && typeof t.aiDecks.sig === "string")) delete t.aiDecks;
   else if (t.aiDecks) t.aiDecks.ids = t.aiDecks.ids.filter(x => typeof x === "string" && x.length <= 80).slice(0, 30);
   if (t.readyDecks != null) { if (Array.isArray(t.readyDecks)) t.readyDecks = t.readyDecks.filter(x => typeof x === "string" && x.length <= 80).slice(0, 30); else delete t.readyDecks; }
@@ -5285,7 +5286,7 @@ function planSig(){
 const NEXT_SCHEMA = {type: "OBJECT", properties: {
   next: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, why: {type: "STRING", description: "One sentence, why this and why now"}, step: {type: "STRING", description: "The concrete first thing to do, under 80 characters"}, minutes: {type: "INTEGER"}}, required: ["ref", "why"]}, description: "Up to 5 tasks in the order to work on them right now. Never a task marked FIXED EVENT"},
   estimates: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, hours: {type: "NUMBER"}}, required: ["ref", "hours"]}, description: "Total hours for tasks marked 'no estimate'"},
-  remaining: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, hours: {type: "NUMBER"}}, required: ["ref", "hours"]}, description: "Hours of work left for tasks that are started (focus time, progress or checklist)"},
+  remaining: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, hours: {type: "NUMBER"}}, required: ["ref", "hours"]}, description: "Hours of work left for tasks that are started (focus time, progress or checklist). Start from the app's pace model and the student's own check-in; move outside that range only with a concrete reason from the instructions"},
   readiness: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, pct: {type: "INTEGER"}, note: {type: "STRING", description: "Under 90 characters, e.g. the weakest area"}, decks: {type: "ARRAY", items: {type: "STRING"}, description: "Refs (d1...) of this exam's listed flashcard decks and quizzes that cover its material, judged from its title, instructions and announcements against what each deck holds. Empty if you can't tell"}}, required: ["ref", "pct"]}, description: "For each exam or quiz, how ready the student is, 0 to 100"},
   headsUp: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING", description: "The task it's about (t1...), or empty"}, text: {type: "STRING", description: "Under 140 characters, specific and actionable"}}, required: ["text"]}, description: "Up to 3 things the student could easily miss, only if real: an earlier step or sooner deadline hidden in instructions, an announcement that changes a task, a crunch or a full day coming, a course near its pass mark. Empty if nothing stands out."},
   difficulty: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, level: {type: "STRING", enum: ["easy", "med", "hard"]}}, required: ["ref", "level"]}, description: "For tasks marked 'difficulty not set', how demanding the task looks from its title, type, weight and instructions"}},
@@ -5309,7 +5310,9 @@ async function autoPlan(a){
       rankOf[t.id] && canDoNow(t) ? `rank ${rankOf[t.id]}` : "", `status ${t.status}`, hasWeight(t) ? `worth ${t.weight}%` : "", `priority ${t.priority}`, `difficulty ${t.difficulty}`,
       MILESTONE(t.type) ? "" : isNum(t.hours) && Number(t.hours) > 0 ? `estimate ${t.hours}h` : "no estimate",
       p.frac ? `progress ${Math.round(p.frac * 100)}%` : "", (t.checklist || []).length ? `checklist ${p.done}/${p.total}` : "",
-      t.focusMin ? `focused ${t.focusMin}m so far` : "", t.prepFor ? `study session for ${(state.tasks[t.prepFor] || {}).title || "an exam"}` : "",
+      t.focusMin ? `focused ${t.focusMin}m so far` : "",
+      !MILESTONE(t.type) && saidOf(t) ? `the student said about ${Math.round((Number(t.left.p) || 0) * 100)}% was done after ${t.left.fm}m` : "",
+      !MILESTONE(t.type) && !t.prepFor && (Number(t.focusMin) > 0 || progress(t).frac > 0) ? `work left by the app's pace model: ${leftRange(t)}` : "", t.prepFor ? `study session for ${(state.tasks[t.prepFor] || {}).title || "an exam"}` : "",
       ps.length ? `study plan ${ps.filter(x => x.status === "done").length}/${ps.length} sessions done` : "",
       MILESTONE(t.type) && deckInfo(t.courseId) ? `flashcards: ${deckInfo(t.courseId)}` : "",
       F.info[t.id] && canDoNow(t) ? `planner score ${Math.round(F.info[t.id].score)}` : "", blockers(t).length ? "BLOCKED" : "",
@@ -5327,13 +5330,15 @@ async function autoPlan(a){
   const standings = coursesArr().map(c => { const g = courseRisk(c.id); if (!g || !g.marked || !g.marked.length || g.current == null) return ""; return `${courseLabel(c)}: ${Math.round(g.current)}% so far on ${Math.round(g.wMarked)}% of the grade, pass mark ${g.g.pass}%${g.risk ? ` (${g.risk === "risk" ? "at risk" : g.risk === "out" ? "can't reach the pass mark on paper" : "worth watching"})` : ""}`; }).filter(Boolean).join("; ") || "no marks yet";
   let news = []; try { news = typeof window.SBLMS_NEWS === "function" ? window.SBLMS_NEWS(7) : []; } catch(e) {}
   const newsTxt = news.map(n => { const c = courseOf(n.courseId); return `- ${c ? courseLabel(c) : ""} (${String(n.date || "").slice(0, 10)}): ${n.title}. ${String(n.text || "").replace(/\s+/g, " ").slice(0, 220)}`; }).join("\n") || "none";
+  // by type, where it differs: "Lab: about 1.4x the estimate (6 finished)"
+  let paceBy = ""; try { const A = accOf(); if (A) { const by = [...new Set(allTasks().filter(t => t.status === "done").map(t => t.type))].map(ty => { const i = A.ratioInfo({type: ty}); return i.level === "type" || i.level === "course" ? (Math.abs(i.r - 1) >= 0.15 ? `${ty}: about ${i.r.toFixed(1)}x the estimate (${i.n} finished)` : "") : ""; }).filter(Boolean); if (by.length) paceBy = ` By type: ${by.join("; ")}.`; } } catch(e) {}
   const hist = Object.entries(L.byType).map(([k, v]) => `${k}: ${v.length} finished, median ${fmtHM(median(v.map(x => x.h)))} of focused time`).join("; ") || "none yet";
   let tz = ""; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch(e) {}
   const peak = (() => { try { return peakStudyHours(tasksArr().flatMap(t => t.history || []), Date.now()); } catch(e) { return ""; } })();
   const fbw = nufbWeights(nufbLoad(), Date.now());
   const skipped = Object.entries(fbw.type).filter(e => e[1] <= -1.5).map(e => e[0]), liked = Object.entries(fbw.type).filter(e => e[1] >= 1.5).map(e => e[0]);
   const doneTodayN = allTasks().filter(t => t.status === "done" && t.doneAt && t.doneAt >= new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()).length;
-  const r = await aiCall({task: "plan", auto: true, fast: true, maxTokens: 6000, temperature: 0.2, schema: NEXT_SCHEMA, parts: [{text: `Now: ${now.toLocaleDateString("en-US", {weekday: "long"})} ${today} ${pad(now.getHours())}:${pad(now.getMinutes())}${tz ? " (" + tz + ")" : ""}, ${dayPartOf(now.getHours())}. Study time left today: ${fmtHM(F.th)}${F.doneToday >= 0.25 ? ` (already focused ${fmtHM(F.doneToday)} today)` : ""}; usual per day: ${fmtHM(F.dh)}.${doneTodayN ? ` ${doneTodayN} task${doneTodayN === 1 ? "" : "s"} finished today.` : ""}\nThe next few days:\n${week}\nCourse standings: ${standings}\nRecent announcements from the school site:\n${newsTxt}\nThis student's history: ${hist}. They usually take ${L.ratio.toFixed(2)}x their own estimates.${peak ? ` They usually study around ${peak}.` : ""}${skipped.length ? ` They often skip suggestions of these types: ${skipped.join(", ")}.` : ""}${liked.length ? ` They usually accept: ${liked.join(", ")}.` : ""}\nOpen tasks (already ranked by the planner; "rank" 1 is its top choice; days are counted from today):\n${lines}${gLines ? `\n\nGroup project tasks assigned to this student (teammates are waiting on them; they use the same study time as the tasks above; they have refs g1, g2... which must never appear in "next" or anywhere else in your answer):\n${gLines}` : ""}`}],
+  const r = await aiCall({task: "plan", auto: true, fast: true, maxTokens: 6000, temperature: 0.2, schema: NEXT_SCHEMA, parts: [{text: `Now: ${now.toLocaleDateString("en-US", {weekday: "long"})} ${today} ${pad(now.getHours())}:${pad(now.getMinutes())}${tz ? " (" + tz + ")" : ""}, ${dayPartOf(now.getHours())}. Study time left today: ${fmtHM(F.th)}${F.doneToday >= 0.25 ? ` (already focused ${fmtHM(F.doneToday)} today)` : ""}; usual per day: ${fmtHM(F.dh)}.${doneTodayN ? ` ${doneTodayN} task${doneTodayN === 1 ? "" : "s"} finished today.` : ""}\nThe next few days:\n${week}\nCourse standings: ${standings}\nRecent announcements from the school site:\n${newsTxt}\nThis student's history: ${hist}. They usually take ${L.ratio.toFixed(2)}x their own estimates.${paceBy}${peak ? ` They usually study around ${peak}.` : ""}${skipped.length ? ` They often skip suggestions of these types: ${skipped.join(", ")}.` : ""}${liked.length ? ` They usually accept: ${liked.join(", ")}.` : ""}\nOpen tasks (already ranked by the planner; "rank" 1 is its top choice; days are counted from today):\n${lines}${gLines ? `\n\nGroup project tasks assigned to this student (teammates are waiting on them; they use the same study time as the tasks above; they have refs g1, g2... which must never appear in "next" or anywhere else in your answer):\n${gLines}` : ""}`}],
     system: (gLines ? "The student also has group project tasks (GROUP TASK lines). They can't be picked for 'next', but count them as real work that competes for today's time: when one is due today or tomorrow, favor shorter tasks for 'next' so there is time for it, and in the reasons you may say a group task is due soon. " : "") + "You're an expert study planner working quietly inside a student's planner app. The tasks come pre-ranked by the app's own planner (rank, planner score, days away); treat that ranking as a strong default and only move a task up or down with a concrete reason from the data, never invent a task or id. Using the tasks, the time of day, the time left today and the student's own history: (1) choose up to 5 tasks to work on right now, best first (deadlines come first: never put a task due weeks away ahead of one due in the next few days that still needs work, unless the far one is a big task that needs most of the time left before it; grade weight only breaks ties between similar deadlines), each with a one-sentence reason that cites the evidence in the data (due day, grade weight, hours left, what it unblocks; never just repeat the title or say it is merely important), a concrete first step, and sensible session minutes (an exam or quiz may be chosen only if its line says TAKE-HOME; a line saying FIXED EVENT happens in person at a set time, so never choose it, pick its study tasks instead, and still judge its readiness); skip BLOCKED tasks. (2) Estimate total hours for tasks marked 'no estimate', leaning on how long this student's past tasks took. (3) For started tasks, estimate hours of work left, counting their focus time and progress and their tendency to underestimate. (4) For each exam or quiz, judge readiness 0 to 100 from study sessions done, flashcard mastery and quiz scores, with a short note. (5) Heads up: up to 3 real things the student could miss, read from the instructions, the announcements, the schedule and the standings (an earlier draft or pre-lab deadline, a changed due date or room, a full clinical day right before a deadline, a course near its pass mark); leave it empty rather than state the obvious. Every heads-up must name the specific task, course, day or number it is based on (for example 'Bio lab pre-quiz is due Wed, a day before the report') and must never be general advice like 'stay organized' or 'plan ahead'. (6) Rate how demanding tasks marked 'difficulty not set' look. Consider the schedule: long class or clinical days leave little study time, so plan around them and favour short tasks just before a class. Late submissions: a task that still accepts late work is less urgent than one that closes at the due time, but never suggest planning to be late. Use the refs exactly (t1, t2...). Return JSON only."});
   const d = r.data || {}, changes = [];
   const qctx = {titles: open.map(t => t.title), courses: coursesArr().map(c => courseLabel(c))};
@@ -8400,14 +8405,47 @@ function effortOf(t){
 }
 // A big assignment that has been split into milestones
 const bdHasKids = t => !!(t && t.breakdownParent) && allTasks().some(k => k.breakdownOf === t.id);
+// Your check-in answer ("how much is left?"), while nothing it was based on has changed since
+function saidOf(t){
+  const c = t && t.left; if (!c || !(Number(c.h) >= 0) || !(Number(c.fm) >= 0)) return null;
+  const done = (t.checklist || []).filter(i => i.done).length, fm = Number(t.focusMin) || 0;
+  if (c.ck !== done || (Number(c.pct) || 0) !== (Number(t.pct) || 0) || Number(c.fm) > fm + 0.5 || Date.now() - (Number(c.at) || 0) > 45 * 864e5) return null;
+  return {h: Number(c.h), at: Number(c.fm) / 60};
+}
+// Work left on a task, as a range: {h, lo, hi, how, E}. how: est (the estimate), pace (your pace on it), over (past the plan),
+// said (your check-in), ai (Automatic AI's reading)
+function leftInfo(t){
+  const e = effortOf(t);
+  if (t.status === "done") return {h: 0, lo: 0, hi: 0, how: "done", E: e};
+  const A = accOf(), sp = A && A.spreadFor ? A.spreadFor(t) : {lo: 0.8, hi: 1.35};
+  const M = A ? A.ACC : null, p = progress(t).frac, fm = (Number(t.focusMin) || 0) / 60, said = saidOf(t);
+  const r = M ? M.left({E: e, h: fm, p, said, lo: sp.lo, hi: sp.hi}) : {h: p === 0 && fm > 0 ? Math.max(e * 0.15, e - fm) : e * (1 - p), lo: 0, hi: 0, how: "est"};
+  if (!M) { r.lo = r.h * 0.8; r.hi = r.h * 1.35; }
+  // Automatic AI's reading of what's left, kept inside a sensible band (your own check-in answer comes first)
+  if (!said && autoPlanOn() && t.aiLeft && t.aiLeft.sig === leftSig(t)) {
+    const h = Math.max(r.lo * 0.6, Math.min(t.aiLeft.h, Math.max(e * 1.5, r.hi * 1.2))), k = r.h > 0 ? h / r.h : 1;
+    return {h, lo: r.h > 0 ? r.lo * k : h * 0.8, hi: r.h > 0 ? r.hi * k : h * 1.35, how: "ai", E: e};
+  }
+  return Object.assign(r, {E: e});
+}
 function remainingOf(t){
   if (t.status === "done") return 0;
   if (bdHasKids(t)) return 0.25;
   if (MILESTONE(t.type) && planSessions(t.id).length) return 0;
-  const e = effortOf(t), p = progress(t).frac, fm = (Number(t.focusMin) || 0) / 60;
-  if (autoPlanOn() && !MILESTONE(t.type) && t.aiLeft && t.aiLeft.sig === leftSig(t)) return Math.min(t.aiLeft.h, e * 1.5);
-  if (p === 0 && fm > 0 && !MILESTONE(t.type)) return Math.max(e * 0.15, e - fm);
-  return e * (1 - p);
+  if (MILESTONE(t.type)) return effortOf(t) * (1 - progress(t).frac);
+  return leftInfo(t).h;
+}
+// What Today's Plan sets aside: the middle of the range, and toward the long end within 3 days of the due date
+function planLeft(t, dl){
+  const R = remainingOf(t);
+  if (!(R > 0) || MILESTONE(t.type) || t.xs || bdHasKids(t) || !(dl <= 3)) return R;
+  const L = leftInfo(t);
+  return R + Math.max(0, L.hi - L.h) * 0.5;
+}
+// "about 2h" or "2h to 3h" (rounded to 15 minutes)
+function leftRange(t){
+  const L = leftInfo(t), q = x => Math.max(0.25, Math.round(x * 4) / 4), lo = q(L.lo), hi = q(L.hi);
+  return hi - lo >= 0.5 ? `${fmtHM(lo)} to ${fmtHM(hi)}` : `about ${fmtHM(q(L.h))}`;
 }
 // Share of the due day you can still use
 function dueDayFrac(t){
@@ -8603,7 +8641,7 @@ function computeFocus(){
   let load = 0, loadW = 0;
   byDue.forEach(t => {
     const w = W0[t.id], fx = MILESTONE(t.type) && !canDoNow(t);
-    const R = fx ? 0 : remainingOf(t);
+    const R = fx ? 0 : planLeft(t, dayDiff(today, t.due));
     if (!w.dead) { load += R; if (!t.xs) loadW += R; }
     const freeLate = w.past && !w.dead && w.lp === "free";
     const A = w.past ? (freeLate ? Math.max(0, (w.eff - nowMs) / 864e5) * dh : 0) : capacityUntil(t, today, dh, th, cum, day, now, freeBefore);
@@ -8793,7 +8831,8 @@ function computeFocus(){
     if (pr && pr.ai) r.push([56, `About ${pr.ai.pct}% ready${pr.ai.note ? ": " + pr.ai.note : ""}`]);
     else if (x.fixed) r.push([55, `${remoteOf(t).v === "no" ? "Taken in person" : "Not confirmed as take-home"}, so it is a fixed event, not a task to do now${x.p > 0 ? ` (${Math.round(x.p * 100)}% prepared)` : ""}`]);
     else if (MILESTONE(t.type)) r.push([55, progress(t).plan ? `${Math.round(x.p * 100)}% prepared, following your study plan` : `${Math.round(x.p * 100)}% prepared, about ${fmtHM(x.R)} of study left`]);
-    else if (x.R > 0) r.push([40, t.xs ? `About ${fmtHM(x.R)} of study left` : `About ${fmtHM(x.R)} of work left`]);
+    else if (x.R > 0 && t.xs) r.push([40, `About ${fmtHM(x.R)} of study left`]);
+    else if (x.R > 0) { const L = leftInfo(t), rng = leftRange(t); r.push([40, `${/^about/.test(rng) ? "About " + rng.slice(6) : rng} of work left${x.dl <= 3 && L.hi - L.h >= 0.25 ? ", planned for the longer end since it's due soon" : ""}`]); if (L.how === "over") r.push([62, "Taking longer than planned"]); }
     if (accOf() && x.R > 0 && isNum(t.hours) && !MILESTONE(t.type) && !t.xs) { const ex = accOf().explain(t); if (ex) r.push([39, ex + " " + tr("acc.planAllows", "Today's Plan allows for it.")]); }
     if (x.nudged) r.push([36, tr("acc.startSooner", "You often finish close to the deadline, so starting a little early helps")]);
     if (x.unblocks && !t.dueFor) r.push([80, `Needed before ${x.unblocks.title}`]);
@@ -11857,8 +11896,10 @@ function taskView(t0){
     } else rows.push([I.cal, "No due date", ""]);
     const st = !cfg.single && (t.start || startOf(t));
     if (st && st !== t.due) rows.push([I.start, esc(fmtDate(st)), esc(cfg.start || "Start Date")]);
-    if (cfg.hours && isNum(t.hours) && !ms) rows.push([I.clock, esc(fmtH(Number(t.hours))), esc(cfg.hours) + (t.focusMin ? ` · ${esc(fmtMins(t.focusMin))} focused so far` : "")]);
-    else if (t.focusMin) rows.push([I.clock, esc(fmtMins(t.focusMin)) + " focused", `${t.pomos || 0} focus session${t.pomos === 1 ? "" : "s"}`]);
+    // once work has started, what's left (a range, from your pace, check-ins and how tasks like this usually go)
+    const leftTxt = !done && !ms && (Number(t.focusMin) > 0 || progress(t).frac > 0) && remainingOf(t) > 0 ? ` · ${esc(leftRange(t))} left` : "";
+    if (cfg.hours && isNum(t.hours) && !ms) rows.push([I.clock, esc(fmtH(Number(t.hours))), esc(cfg.hours) + (t.focusMin ? ` · ${esc(fmtMins(t.focusMin))} focused so far` : "") + leftTxt]);
+    else if (t.focusMin) rows.push([I.clock, esc(fmtMins(t.focusMin)) + " focused", `${t.pomos || 0} focus session${t.pomos === 1 ? "" : "s"}` + leftTxt]);
     if (cfg.reading && t.reading) rows.push([I.book, esc(t.reading), esc(cfg.reading)]);
     if (cfg.location && t.location) rows.push([I.pin, esc(t.location), esc(cfg.location)]);
     if (cfg.team && t.team) rows.push([I.person, esc(t.team), esc(cfg.team)]);
@@ -12186,7 +12227,7 @@ function taskForm(t, preset = {}){
     const rankTxt = x ? (() => { const i = FOCUS.ranked.indexOf(x); return i >= 0 ? ` Currently #${i + 1} in Today's Plan${x.alloc > 0 ? `, with ${fmtHM(x.alloc)} suggested today` : ""}.` : ""; })() : "";
     const inPerson = ms && !canDoNow(probe) && !planSessions(t.id).length, lead = inPerson ? examLead(probe) : null;
     $("#planHint").innerHTML = (ms ? `Estimated <b>${fmtHM(R)}</b> of studying left, based on difficulty, grade weight and preparedness.${lead ? ` Today's Plan starts study time for it ${lead.days} days before${lead.risk ? ", sooner because of your standing in the course" : ""}${lead.p < 0.75 ? `${lead.risk ? " and" : ", sooner"} because ${esc(readyWords(lead.from, lead.p))}` : ""}.` : ""}`
-      : `Estimated <b>${fmtHM(R)}</b> of work left${isNum(probe.hours) && probe.hours > 0 ? "" : " (a typical amount for this type; add Hours Needed for a better plan)"}.`) + rankTxt;
+      : `Estimated <b>${esc(leftRange(probe))}</b> of work left${isNum(probe.hours) && probe.hours > 0 ? "" : " (a typical amount for this type; add Hours Needed for a better plan)"}.`) + rankTxt;
   };
   tForm.addEventListener("input", planHint); tForm.addEventListener("change", planHint);
   tForm.addEventListener("input", advSummary); tForm.addEventListener("change", advSummary);
@@ -64290,7 +64331,46 @@ const ACC = (() => {
     });
     return s;
   }
-  return {entry, entries, parseDur, samples, wmed, shrink, global, ratio, velocity, lateness, bins, peakOf, minutesByDay, minutesByCourse, workedDays, FEEL, clamp, dayOf};
+  /* Work left, as a range */
+  const wq = (a, q) => { const s = a.slice().sort((x, y) => x.r - y.r), tot = wsum(s); let c = 0; for (const x of s) { c += x.w; if (c >= tot * q) return x.r; } return s.length ? s[s.length - 1].r : 1; };
+  const SPREAD = {lo: 0.8, hi: 1.35, n: 0};
+  // How far your tasks of this type land from the usual (relative to the middle): 20th and 80th percentile, else a typical spread
+  function spread(S, type){
+    const ty = (S || []).filter(x => x.type === type), use = ty.length >= 4 ? ty : (S || []).length >= 5 ? S : null;
+    if (!use) return Object.assign({}, SPREAD);
+    const m = wmed(use);
+    return {lo: r2(clamp(wq(use, 0.2) / m, 0.6, 0.95)), hi: r2(clamp(wq(use, 0.8) / m, 1.1, 2)), n: use.length};
+  }
+  // Share done plus time spent: your pace on this task, mixed with the estimate. The more that's done, the more the pace counts
+  function paced(E, h, p, wMin){
+    const prior = E * (1 - p);
+    if (!(p > 0) || !(h >= 0.25)) return prior;
+    const pace = Math.min(h * (1 - p) / p, 3 * Math.max(prior, 0.25));
+    const w = clamp(p, wMin || 0, 0.9);
+    return w * pace + (1 - w) * prior;
+  }
+  // Time spent with nothing marked done: up to the plan, the plan less the time; past it, the time left grows toward your long end and beyond
+  function over(E, h, hi){
+    if (h < E) return Math.max(E - h, 0.15 * E);
+    return Math.max(E * hi - h, 0.25 * E + 0.3 * (h - E));
+  }
+  // The check-in's answers, as a share done
+  const SAID = {almost: 0.9, half: 0.5, more: 0.25, barely: 0.1};
+  // o: {E planned total hours, h hours spent, p share done, said: {h left when you answered, at: hours spent then} | null, lo, hi}
+  // -> {h, lo, hi, how: "est" | "pace" | "over" | "said"}
+  function left(o){
+    const E = Math.max(0, Number(o.E) || 0), h = Math.max(0, Number(o.h) || 0), p = clamp(Number(o.p) || 0, 0, 1), lo = o.lo || SPREAD.lo, hi = o.hi || SPREAD.hi;
+    let v, how, k = 1 - p;
+    if (o.said) { const since = Math.max(0, h - o.said.at); v = over(o.said.h, since, Math.max(hi, 1.25)); how = since > o.said.h ? "over" : "said"; k = 0.6; }
+    else if (p > 0) { v = paced(E, h, p); how = h >= 0.25 ? "pace" : "est"; }
+    else if (h > 0) { v = over(E, h, hi); how = h > E ? "over" : "est"; }
+    else { v = E; how = "est"; }
+    k = clamp(k, 0.35, 1);
+    return {h: v, lo: v * (1 - (1 - lo) * k), hi: v * (1 + (hi - 1) * k), how};
+  }
+  // What a check-in answer leaves: the share it means, at your pace so far (the pace counts at least 30%, since you're past most of the plan)
+  const saidLeft = (E, h, p) => Math.min(3 * Math.max(E, 0.5), paced(E, h, p, 0.3));
+  return {entry, entries, parseDur, samples, wmed, shrink, global, ratio, velocity, lateness, bins, peakOf, minutesByDay, minutesByCourse, workedDays, FEEL, clamp, dayOf, spread, paced, over, left, saidLeft, SAID, SPREAD};
 })();
 /*ACC-END*/
 
@@ -64315,6 +64395,12 @@ function ratioInfo(t){
   return M.ratios[key] || (M.ratios[key] = ACC.ratio(M.S, t.type || "Other", t.courseId || ""));
 }
 const ratioFor = t => ratioInfo(t).r;
+// How far tasks like this one land from the usual, as a share (the default when there's too little history, or when learning is off)
+function spreadFor(t){
+  const M = memo(); if (!on() || !t) return Object.assign({}, ACC.SPREAD);
+  const key = "s|" + (t.type || "Other");
+  return M.ratios[key] || (M.ratios[key] = ACC.spread(M.S, t.type || "Other"));
+}
 const capScale = () => { const v = memo().vel; return on() && v && v.ok ? v.scale : 1; };
 const wkScale = d => { const v = memo().vel; return on() && v && v.ok ? (v.wk[parse(d).getDay()] || 1) : 1; };
 const startNudge = t => { const L = memo().late; return on() && L && L.nudge > 1 && t && !MILESTONE(t.type) ? L.nudge : 1; };
@@ -64396,6 +64482,8 @@ function chipHtml(c){
     const opts = c.opts.map(t => `<button type="button" class="acc-opt" data-act="acc-which" data-id="${esc(t.id)}">${esc(short(t.title, 26))}</button>`).join("");
     return `<span class="acc-q">${esc(tr("acc.which", "Which task was that for?"))} <span class="mini">${esc(fmtMins(c.min))}</span></span><span class="acc-opts">${opts}</span><button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
   }
+  if (c.kind === "left") return leftChipHtml(c);
+  if (c.kind === "learned") return `<span class="acc-q acc-note">${esc(c.text)}</span><button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
   const t = state.tasks[c.id], title = short(t ? t.title : "", 30);
   const q = (k, en) => { const [a, b] = tr(k, en, {title: "\u0001"}).split("\u0001"); return b == null ? esc(a) : `${esc(a)}<span class="acc-t">${esc(title)}</span>${esc(b)}`; };
   const lbl = (k, en, ks, ens) => `<span class="acc-l">${esc(tr(k, en))}</span><span class="acc-s" aria-hidden="true">${esc(tr(ks, ens))}</span>`;
@@ -64440,6 +64528,81 @@ function answerTook(patch, msg){
   applyChanges([{kind: "task", id: t.id, after: Object.assign(clone(t), patch)}], msg || tr("acc.noted", "Thanks, noted"));
   LEARN = null;
 }
+
+/* The check-in: most of the planned time is spent and the task isn't done, so how much is left? */
+const LS_LEFT = "studyboard:acc:left";
+const LEFT_OPTS = [["almost", "Almost Done", "Almost"], ["half", "About Half", "Half"], ["more", "More Than I Thought", "More"], ["barely", "Barely Started", "Barely"]];
+// The whole task as the plan sees it now, in hours: your last answer's time plus what you said was left, else the estimate
+function planTotal(t){ const sd = saidOf(t); return sd ? sd.at + sd.h : leftInfo(t).E; }
+function leftDue(t){
+  if (!t || t.status === "done" || MILESTONE(t.type) || t.prepFor || t.xs || t.breakdownParent || !state.tasks[t.id]) return false;
+  const fm = Number(t.focusMin) || 0, plan = planTotal(t) * 60;
+  if (!(plan >= 20) || fm < 0.8 * plan) return false;
+  const asked = lsGet(LS_LEFT, {})[t.id];
+  return asked == null || fm - Number(asked) >= 0.25 * plan;
+}
+function maybeAskLeft(t){
+  if (!leftDue(t) || (chip && chip.kind !== "left" && chip.kind !== "learned")) return false;
+  const m = lsGet(LS_LEFT, {}); m[t.id] = Number(t.focusMin) || 0;
+  const ids = Object.keys(m); if (ids.length > 200) ids.slice(0, ids.length - 200).forEach(k => delete m[k]);
+  lsSet(LS_LEFT, m);
+  chipShow({kind: "left", id: t.id}, 60000);
+  return true;
+}
+const leftFor = (t, p) => ACC.saidLeft(planTotal(t), (Number(t.focusMin) || 0) / 60, p);
+const hm = h => fmtHM(Math.max(0.25, Math.round(h * 4) / 4));
+function leftChipHtml(c){
+  const t = state.tasks[c.id]; if (!t) return "";
+  const title = short(t.title, 30), fm = Number(t.focusMin) || 0;
+  const x = `<button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
+  const q = `<span class="acc-q">${esc(tr("acc.leftQ1", "How much of"))}&nbsp;<span class="acc-t">“${esc(title)}”</span>&nbsp;${esc(tr("acc.leftQ2", "is left?"))}<span class="acc-sub">${esc(tr("acc.leftSub", "{t} in so far, planned about {p}", {t: fmtMins(fm), p: hm(planTotal(t))}))}</span></span>`;
+  if (c.say) return `${q}<span class="acc-opts"><label class="acc-own acc-say"><span class="sr">${esc(tr("acc.sayLbl", "What's left, in your words"))}</span><input type="text" id="accSay" maxlength="160" autocomplete="off" placeholder="${esc(tr("acc.sayPh", "e.g. just the conclusion and references"))}" data-noenter${c.busy ? " disabled" : ""}></label><button type="button" class="acc-opt primary" data-act="acc-say-go"${c.busy ? " disabled" : ""}>${c.busy ? `<span class="ai-spin" aria-hidden="true"></span> ${esc(tr("acc.sayBusy", "Reading…"))}` : esc(tr("acc.save", "Save"))}</button><button type="button" class="acc-opt" data-act="acc-say-back">${esc(tr("acc.back", "Back"))}</button></span>${x}`;
+  return `${q}<span class="acc-opts acc-left">${LEFT_OPTS.map(([k, l, sh]) => `<button type="button" class="acc-opt" data-act="acc-left" data-v="${k}"><span class="acc-l">${esc(tr("acc.left." + k, l))}</span><span class="acc-s" aria-hidden="true">${esc(tr("acc.leftS." + k, sh))}</span><span class="acc-tm">${esc(hm(leftFor(t, ACC.SAID[k])))}</span></button>`).join("")}${aiReady() ? `<button type="button" class="acc-opt link" data-act="acc-say">${AI_ICON} ${esc(tr("acc.say", "In My Words"))}</button>` : ""}</span>${x}`;
+}
+// Saves an answer as the time left (only you mark a task done)
+function answerLeft(id, p, patch){
+  const t0 = state.tasks[id]; if (!t0) { chipHide(); return; }
+  const n = Object.assign(clone(t0), patch || {}), h = Math.round(leftFor(t0, p) * 20) / 20;
+  n.left = {h, fm: Number(n.focusMin) || 0, ck: (n.checklist || []).filter(i => i.done).length, pct: Number(n.pct) || 0, p: Math.round(p * 100) / 100, at: Date.now()};
+  chipHide();
+  applyChanges([{kind: "task", id, after: n}], tr("acc.leftToast", "About {h} left on {title}. Today's Plan is updated.", {h: hm(h), title: short(t0.title, 28)}));
+}
+const SAY_SCHEMA = {type: "OBJECT", properties: {done: {type: "INTEGER", description: "Percent of the whole task that's done, 0 to 95"}, items: {type: "ARRAY", items: {type: "INTEGER"}, description: "Numbers of the checklist items that are now done"}}, required: ["done"]};
+async function sayLeft(){
+  const c = chip, t = c && state.tasks[c.id], i = document.getElementById("accSay"), text = String(i && i.value || "").trim();
+  if (!t) { chipHide(); return; }
+  if (text.length < 2) { if (i) i.focus(); return; }
+  c.busy = true; chipShow(c, 0);
+  const ck = t.checklist || [];
+  try {
+    const r = await aiCall({task: "estimate", fast: true, maxTokens: 400, temperature: 0.1, schema: SAY_SCHEMA,
+      parts: [{text: `Task: ${t.title} (${t.type})\nInstructions: ${String(t.notes || "none").replace(/\s+/g, " ").slice(0, 700)}\nChecklist:\n${ck.map((x, k) => `${k + 1}. [${x.done ? "x" : " "}] ${x.text}`).join("\n") || "none"}\nTime spent so far: ${fmtMins(Number(t.focusMin) || 0)}. The plan expected about ${hm(planTotal(t))} in all.\nThe student says: "${text.slice(0, 160)}"`}],
+      system: "A student describes what's left of a task. Judge what percent of the whole task is done (0 to 95; never 100, only they can finish it), and which checklist items their words say are now done. Return JSON only."});
+    if (chip !== c) return;
+    const d = r.data || {}, pct = Math.max(0, Math.min(95, Math.round(Number(d.done))));
+    if (isNaN(pct)) throw new Error("bad");
+    const ticks = (Array.isArray(d.items) ? d.items : []).map(Number).filter(k => k >= 1 && k <= ck.length && !ck[k - 1].done);
+    answerLeft(t.id, Math.max(0.05, pct / 100), ticks.length ? {checklist: ck.map((x, k) => ticks.includes(k + 1) ? Object.assign({}, x, {done: true}) : x)} : null);
+  } catch (e) {
+    if (chip !== c) return;
+    c.busy = false; c.say = false; chipShow(c, 0);
+    toast(tr("acc.sayFail", "Couldn't read that just now. Pick one of the answers instead."));
+  }
+}
+// After a finished task with tracked time: how it compared, and what the plan does with that next time
+function maybeLearned(t){
+  if (!on() || !t || MILESTONE(t.type) || t.prepFor || !(Number(t.hours) > 0) || (chip && chip.kind !== "learned")) return;
+  const mins = Math.max(Number(t.focusMin) || 0, Number(t.actualMin) || 0), est = Number(t.hours) * 60;
+  if (mins < 15 || Math.abs(mins / est - 1) < 0.25 || (t.checklist || []).some(i => !i.done)) return;
+  MEMO.k = ""; const i = ratioInfo(t); if (i.n < 3) return;
+  // what the plan allowed before this task counted
+  const before = ACC.ratio(memo().S.filter(x => x.at !== Number(t.doneAt)), t.type || "Other", t.courseId || "").r;
+  const what = whatOf(t, i), moved = Math.abs(i.r - before) >= 0.05;
+  const text = tr("acc.learned", "“{title}” took {t}, against your {e} estimate.", {title: short(t.title, 30), t: fmtMins(mins), e: fmtHM(Number(t.hours))}) + " " +
+    (Math.abs(i.r - 1) < 0.1 ? tr("acc.learnedOk", "Your {what} are usually close to your estimates.", {what}) : moved ? tr("acc.learnedNow", "Plans for {what} now allow about {x}x your estimate.", {what, x: i.r.toFixed(1)}) : tr("acc.learnedSame", "Plans for {what} already allow about {x}x your estimate.", {what, x: i.r.toFixed(1)}));
+  chipShow({kind: "learned", id: t.id, text}, 9000);
+}
+const fmSeen = {};
 
 /* Passive signals */
 const tickSeen = {};
@@ -64568,6 +64731,10 @@ hook("act", (a, el) => {
     else if (p && id) logTime(id, p.min, "focus", tr("acc.whichToast", "Added {t} to {title}", {t: fmtMins(p.min), title: short((state.tasks[id] || {}).title, 28)}), p.at);
     return true;
   }
+  if (a === "acc-left") { if (chip && chip.kind === "left" && ACC.SAID[el.dataset.v]) answerLeft(chip.id, ACC.SAID[el.dataset.v]); return true; }
+  if (a === "acc-say") { if (chip && chip.kind === "left") { chip.say = true; chipShow(chip, 0); const i = document.getElementById("accSay"); if (i) i.focus(); } return true; }
+  if (a === "acc-say-back") { if (chip && chip.kind === "left") { chip.say = false; chipShow(chip, 60000); } return true; }
+  if (a === "acc-say-go") { sayLeft(); return true; }
   if (a === "acc-feel") { answerTook({feel: el.dataset.v}); return true; }
   if (a === "acc-exact") { if (chip) { chip.exact = true; chipShow(chip, 0); const i = document.getElementById("accExact"); if (i) i.focus(); } return true; }
   if (a === "acc-feel-back") { if (chip) { chip.exact = false; chipShow(chip, 30000); } return true; }
@@ -64597,6 +64764,7 @@ hook("act", (a, el) => {
 });
 document.addEventListener("keydown", e => {
   if (e.key !== "Enter" || !e.target || !e.target.id) return;
+  if (e.target.id === "accSay") { e.preventDefault(); sayLeft(); return; }
   if (e.target.id === "accExact") { e.preventDefault(); const b = document.querySelector('[data-act="acc-exact-save"]'); if (b) b.click(); }
   else if (e.target.id === "accLogIn") { e.preventDefault(); const b = document.querySelector('[data-act="acc-log-add"]'); if (b) b.click(); }
 }, true);
@@ -64605,7 +64773,18 @@ hook("changed", changes => {
   tickScan(changes);
   const fresh = changes.filter(c => c.kind === "task" && c.after && c.after.status === "done" && c.after.doneAt && Date.now() - c.after.doneAt < 4000);
   changes.forEach(c => { if (chip && chip.kind === "took" && c.kind === "task" && c.id === chip.id && c.after && c.after.status !== "done") chipHide(); });
-  if (fresh.length) maybeAskTook(fresh[0].after, fresh.length);
+  if (fresh.length) {
+    const t = fresh[0].after;
+    maybeAskTook(t, fresh.length);
+    if (fresh.length === 1 && !(chip && chip.kind === "took")) setTimeout(() => maybeLearned(state.tasks[t.id]), 0);
+  }
+  // more time on a task that's past most of its plan: ask how much is left
+  changes.forEach(c => {
+    if (c.kind !== "task" || !c.after) return;
+    const fm = Number(c.after.focusMin) || 0, was = fmSeen[c.id]; fmSeen[c.id] = fm;
+    if (was != null && fm > was && c.after.status !== "done") setTimeout(() => maybeAskLeft(state.tasks[c.id]), 0);
+    if (chip && chip.kind === "left" && c.id === chip.id && c.after.status === "done") chipHide();
+  });
 });
 hook("menu", () => {
   const v = memo(), n = v.S.length;
@@ -64617,7 +64796,8 @@ function formHint(){
   const el = document.getElementById("accHint"), f = el && el.closest("form"); if (!el || !f) return;
   const g = n => { const x = f.querySelector(`[name="${n}"]`); return x ? x.value : ""; };
   const h = Number(g("hours")), t = {type: g("type") || "Other", courseId: g("courseId") || ""}, i = ratioInfo(t), s = explain(t);
-  const say = !s || !(h > 0) || MILESTONE(t.type) ? "" : `${s} ${tr("acc.hintPlan", "Today's Plan counts this as about {h}.", {h: fmtHM(h * i.r)})}`;
+  const sp = spreadFor(t), q = x => fmtHM(Math.max(0.25, Math.round(x * 4) / 4));
+  const say = !s || !(h > 0) || MILESTONE(t.type) ? "" : `${s} ${tr("acc.hintRange", "Today's Plan counts this as about {h} ({lo} to {hi}).", {h: q(h * i.r), lo: q(h * i.r * sp.lo), hi: q(h * i.r * sp.hi)})}`;
   el.hidden = !say;
   if (el.textContent !== say) el.textContent = say;
 }
@@ -64627,7 +64807,7 @@ function formHint(){
   ["input", "change"].forEach(ev => document.addEventListener(ev, e => { if (e.target && e.target.closest && e.target.closest("form") && document.getElementById("accHint")) formHint(); }, true));
 }
 hook("boot", () => {
-  allTasks().forEach(t => { tickSeen[t.id] = (t.checklist || []).filter(i => i.done).length; });
+  allTasks().forEach(t => { tickSeen[t.id] = (t.checklist || []).filter(i => i.done).length; fmSeen[t.id] = Number(t.focusMin) || 0; });
   staleScan(); showPending();
   setInterval(staleScan, 10 * 60000);
 });
@@ -64635,7 +64815,7 @@ hook("boot", () => {
 hook("focus", e => {
   if (e && e.type === "end" && e.mode === "focus" && !e.taskId && e.minutes && !e.missed) pending({min: e.minutes, at: Date.now(), why: "end"});
 });
-const api = {ACC, time: SBTIME, ratioInfo, ratioFor, memo, capScale, wkScale, startNudge, peak, extraBins, underBoost, explain, logTime, early, askState, maybeAskTook, chip: () => chip, on, howHtml, logHtml, formHint, sig: () => (on() ? 1 : 0) + "|" + capScale(), global: () => memo().g};
+const api = {ACC, time: SBTIME, ratioInfo, ratioFor, spreadFor, memo, capScale, wkScale, startNudge, peak, extraBins, underBoost, explain, logTime, early, askState, maybeAskTook, maybeAskLeft, leftDue, chip: () => chip, on, howHtml, logHtml, formHint, sig: () => (on() ? 1 : 0) + "|" + capScale(), global: () => memo().g};
 window.__sbAcc = Object.assign({state: () => state}, api);
 return api;
 })();

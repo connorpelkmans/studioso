@@ -199,3 +199,9 @@
   #view .c2-card .c2-grade :is(.c2-gl,.mini){display:none}
   #view .c2-card .c2-grade .c2-letter{min-width:22px;height:20px;font-size:.72rem}
 }
+@media (max-width:639px){
+  .acc-chip[data-kind="left"] .acc-q,.acc-chip[data-kind="learned"] .acc-q{display:block;white-space:normal}
+  .acc-chip[data-kind="left"] .acc-left{grid-template-columns:1fr 1fr}
+  .acc-chip[data-kind="left"] .acc-say{flex:1 1 100%}
+  .acc-chip[data-kind="left"] .acc-say input{width:100%}
+}

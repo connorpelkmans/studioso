@@ -194,7 +194,7 @@ const has = (re, m) => t(m, () => assert(re.test(src), "missing: " + re));
 has(/const pool = F\.ranked\.filter\(x => inFilter\(x\.t\) && canDoNow\(x\.t\)/, "nextUp pool uses canDoNow");
 has(/t\.status !== "done" && canDoNow\(t\) && !blockers\(t\)\.length; \}, \(id, why, step\)/, "autoPlan's autoCleanNext validation uses canDoNow");
 has(/FIXED EVENT \(taken in person or not confirmed as take-home: never choose it for next\)/, "autoPlan tells the model which exams are fixed events");
-has(/const R = fx \? 0 : remainingOf\(t\)/, "computeFocus gives ineligible exams no study time");
+has(/const R = fx \? 0 : planLeft\(t, /, "computeFocus gives ineligible exams no study time");
 has(/showScore \|\| !canDoNow\(t\) \? "" : `<button class="focus-go"/, "Today's Plan rows hide the focus button for ineligible exams");
 has(/const workable = ranked\.filter\(x => !x\.fixed\)/, "Today's Plan lists only workable items");
 has(/\(canDoNow\(t\) \|\| t\.id === pomo\.taskId\)/, "focus timer picker hides ineligible exams");

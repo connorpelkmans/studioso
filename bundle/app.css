@@ -4936,6 +4936,14 @@ button.snd-head:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
 body:has(.toast.show) .acc-chip{bottom:calc(168px + var(--toast-h,48px) + env(safe-area-inset-bottom,0px))}
 @media (min-width:980px){.acc-chip{bottom:24px}body:has(.toast.show) .acc-chip{bottom:calc(42px + var(--toast-h,44px))}}
 @media (prefers-reduced-motion:reduce){.acc-chip{transition:none}}
+/* The check-in: how much is left? */
+.acc-sub{display:block;font-weight:400;font-size:.82rem;color:var(--muted);white-space:normal}
+.acc-left{display:grid;grid-template-columns:repeat(4,auto);gap:6px}
+.acc-left .acc-opt{display:grid;justify-items:start;gap:1px;text-align:left;line-height:1.2}
+.acc-left .acc-opt.link{grid-column:1/-1;justify-self:start;display:inline-flex;align-items:center;gap:6px;min-height:36px}
+.acc-tm{font-size:.76rem;font-weight:600;color:var(--muted)}
+.acc-say input{width:min(17rem,60vw)}
+.acc-note{font-weight:500}
 /* ===== module: 97-notecards.css ===== */
 /* Notes to Flashcards */
 .nc-sheet [hidden]{display:none!important}
@@ -7434,4 +7442,10 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
   #view .c2-card .c2-foot > .c2-grade{margin-left:auto!important;flex:none;gap:5px;overflow:visible}
   #view .c2-card .c2-grade :is(.c2-gl,.mini){display:none}
   #view .c2-card .c2-grade .c2-letter{min-width:22px;height:20px;font-size:.72rem}
+}
+@media (max-width:639px){
+  .acc-chip[data-kind="left"] .acc-q,.acc-chip[data-kind="learned"] .acc-q{display:block;white-space:normal}
+  .acc-chip[data-kind="left"] .acc-left{grid-template-columns:1fr 1fr}
+  .acc-chip[data-kind="left"] .acc-say{flex:1 1 100%}
+  .acc-chip[data-kind="left"] .acc-say input{width:100%}
 }
