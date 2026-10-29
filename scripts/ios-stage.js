@@ -33,6 +33,12 @@ if (fs.existsSync(plistFile)) {
   else console.log("ios-stage: Info.plist already has the camera, photo and other keys it needs");
 }
 
+// Plugins the page relies on that an older setup may not have installed yet
+{
+  const need = ["@capacitor/screen-orientation"].filter(m => fs.existsSync(path.join(wrap, "node_modules")) && !fs.existsSync(path.join(wrap, "node_modules", m)));
+  if (need.length) console.log("ios-stage: missing " + need.join(", ") + " (keeps the phone upright outside full-screen boards). Install it, then run this again:\n  cd ios-wrapper && npm i " + need.join(" ") + " && cd ..");
+}
+
 const cli = path.join(wrap, "node_modules", "@capacitor", "cli");
 if (fs.existsSync(path.join(wrap, "ios")) && fs.existsSync(cli)) {
   execFileSync(process.platform === "win32" ? "npx.cmd" : "npx", ["cap", "sync", "ios"], {cwd: wrap, stdio: "inherit"});

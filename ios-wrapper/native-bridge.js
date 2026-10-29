@@ -23,7 +23,7 @@
       so the page can take the timer out of its own header. Missing on Android and when the plugin isn't in the build.
 
    Needs these Capacitor plugins installed (README-IOS.md section 2, README-ANDROID.md section 2): @capacitor/app, @capacitor/browser, @capacitor/push-notifications,
-   capacitor-secure-storage-plugin, @revenuecat/purchases-capacitor (section 6), plus the two local plugins in ios-wrapper/native (StudyboardCaptureToken, StudyboardSharedQueue) for section 5. */
+   capacitor-secure-storage-plugin, @revenuecat/purchases-capacitor (section 6), @capacitor/screen-orientation (section 8), plus the two local plugins in ios-wrapper/native (StudyboardCaptureToken, StudyboardSharedQueue) for section 5. */
 (function () {
   "use strict";
   var C = window.Capacitor;
@@ -317,5 +317,21 @@
         end: function () { return Promise.resolve().then(function () { return FA.end(); }).then(function () {}, function () {}); }
       }
     });
+  }
+
+  /* 8. Phones stay upright; only full-screen notes and the whiteboard turn sideways (@capacitor/screen-orientation).
+        Locked, the page never needs its "turn your phone upright" screen. iPads turn freely. */
+  var SO = P.ScreenOrientation;
+  var phoneDevice = function () { var d = window.StudyboardDevice; if (d && d.idiom) return d.idiom === "phone"; return Math.min(screen.width, screen.height) < 600; };
+  if (SO && phoneDevice()) {
+    var want = "";
+    var orient = function () {
+      var free = document.documentElement.classList.contains("board-max"), w = free ? "free" : "portrait";
+      if (w === want) return;
+      want = w;
+      Promise.resolve().then(function () { return free ? SO.unlock() : SO.lock({ orientation: "portrait" }); }).catch(function () { want = ""; });
+    };
+    var watch = function () { orient(); new MutationObserver(orient).observe(document.documentElement, { attributes: true, attributeFilter: ["class"] }); };
+    if (document.documentElement) watch(); else document.addEventListener("DOMContentLoaded", watch);
   }
 })();
