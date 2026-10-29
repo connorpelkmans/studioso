@@ -8803,7 +8803,7 @@ function computeFocus(){
     const t = x.t, r = [];
     const luD = x.lateUntil ? x.lateUntil.slice(0, 10) : "", luT = x.lateUntil ? x.lateUntil.slice(11) : "";
     const pd = Math.round(latePenOf(t) * 100), typ = hasLatePen(t) ? "" : ` (at a typical ${pd}% a day)`;
-    const penTxt = x.W ? `Each day late costs about ${pct(x.W * latePenOf(t))}% of your grade${typ}` : `Late work loses ${hasLatePen(t) ? "" : "about "}${pd}% a day`;
+    const penTxt = hasLatePen(t) ? `Loses ${pd}% a day${x.W ? `, about ${pct(x.W * latePenOf(t))}% of your grade` : ""}` : x.W ? `Each day late costs about ${pct(x.W * latePenOf(t))}% of your grade${typ}` : `Late work loses about ${pd}% a day`;
     if (x.dead) r.push([100, `Past due, and late work isn't accepted. It isn't in today's plan: talk to your instructor if you still want to hand it in`]);
     else if (x.past && x.dl === 0 && t.time) r.push([100, `Was due at ${fmtTime(t.time)} today${x.late === "free" ? ", and late work is accepted" : ""}`]);
     else if (x.past) r.push([100, luD ? `Overdue. Late submissions close ${fmtDate(luD)}${luT && luT !== "23:59" ? " at " + fmtTime(luT) : ""}` : `Overdue by ${-x.dl} day${x.dl === -1 ? "" : "s"}`]);
@@ -9264,7 +9264,7 @@ function viewCourses(){
   const nArch = allCourses().filter(c => c.archived).length, all = tasksArr().filter(t => !t.prepFor && !t.xs), dues = all.map(t => t.due).filter(Boolean).sort();
   const ending = all.length >= 5 && all.filter(t => t.status === "done").length / all.length >= 0.6 && (!dues.length || dayDiff(todayISO(), dues[dues.length - 1]) <= 7);
   return `<div class="view-head"><h2>Your Courses</h2>${proBtns("courses")}${!ending && nArch ? `<button class="btn small" data-act="archive-open">Archive (${nArch})</button>` : ""}${trashBtn("course")}</div><div class="course-list" data-sortable="courses">${cards}</div>
-    ${ending ? `<div class="term-bar"><span>${ARCHIVE_SM}Term over? Put its courses and tasks away, and bring anything back later.</span><button class="btn small" data-act="new-term">Start a New Term</button><button class="btn small" data-act="archive-open">Open Archive${nArch ? ` (${nArch})` : ""}</button></div>` : ""}`;
+    <!--term-->${ending ? `<div class="term-bar"><span>${ARCHIVE_SM}Term over? Put its courses and tasks away, and bring anything back later.</span><button class="btn small" data-act="new-term">Start a New Term</button><button class="btn small" data-act="archive-open">Open Archive${nArch ? ` (${nArch})` : ""}</button></div>` : ""}`;
 }
 // The line under a course's name
 function courseNextHtml(open, today){
@@ -34855,7 +34855,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     const imp = `<button class="btn small" data-act="import-syllabus">Import a Syllabus</button></div>`;
     if (!coursesArr().length) return html.replace(imp, m => m.replace("</div>", ` <button class="btn small" data-act="lms-open">Connect a School Site</button></div>`));
     if (on.length) return html.replace("<h2>Your Courses</h2>", m => m + `<button class="btn small" data-act="${on.length === 1 ? on[0].P.k + "-open" : "lms-open"}">${esc(on.length === 1 ? on[0].P.name : "School Sites")}</button>`);
-    return html.replace(`<div class="term-bar">`, m => `<div class="term-bar lms-bar"><span><b>Connect Canvas, Brightspace or Blackboard</b> to bring in your courses, due dates and grades.</span><button class="btn small" data-act="lms-open">Connect</button></div>` + m);
+    return html.replace(`<!--term-->`, m => `<div class="term-bar lms-bar"><span><b>Connect Canvas, Brightspace or Blackboard</b> to bring in your courses, due dates and grades.</span><button class="btn small" data-act="lms-open">Connect</button></div>` + m);
   };
   const origCard = card;
   card = function(t){
