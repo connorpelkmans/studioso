@@ -158,6 +158,16 @@ const ERRLOG = [];
   console.error = function(...a){ add("console", a.map(x => x instanceof Error ? x.message : typeof x === "string" ? x : x && x.message || "").join(" ")); return ce.apply(this, a); };
 })();
 const hook = (name, fn) => { (HOOK[name] = HOOK[name] || []).push(fn); };
+// iPhone and iPad: never zoom the whole app. iOS zooms in when a text box with small type gets focus and doesn't zoom back,
+// leaving the header and tab bar off screen. A top scale of 1 stops that; Safari still lets people pinch to zoom (iOS
+// ignores the limit for pinches), the app's own web view doesn't. The whiteboard and note board zoom inside the page.
+(function(){
+  try {
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const m = document.querySelector('meta[name="viewport"]');
+    if (ios && m && !/maximum-scale/.test(m.content)) m.content = m.content + ", maximum-scale=1";
+  } catch (e) {}
+})();
 const fire = (name, ...a) => (HOOK[name] || []).map(fn => { try { return fn(...a); } catch(e) { console.warn("hook " + name, e); return undefined; } });
 window.__sbFire = fire;
 const clone = o => o == null ? o : JSON.parse(JSON.stringify(o));
@@ -57374,7 +57384,7 @@ var COMP_EXTRA = [];
     if (opts.cheer || /^(WOO|YES|YAY|Woohoo|Yay|Hooray)\b/.test(text)) b.classList.add("cheer");
     b.innerHTML = `<span class="cp-b-t"></span>`;
     b.querySelector(".cp-b-t").textContent = text;
-    const idea = opts.idea || null, ask = !!opts.ask;
+    const idea = opts.idea || null, ask = !!opts.ask && !askOnTab();
     bubbleIdea = idea; bubbleAsk = ask;
     const btns = [];
     if (idea) btns.push(`<button type="button" class="btn small primary" data-cp="yes">${esc(idea.yes || "Let's Do It")}</button>`, `<button type="button" class="btn small" data-cp="no">Not Now</button>`);
@@ -57478,7 +57488,10 @@ var COMP_EXTRA = [];
   }
   { const origTF = taskForm; taskForm = function(){ const r = origTF.apply(this, arguments); try { setTimeout(addTaskAsk, 0); } catch (e) {} return r; }; }
   // Ask Me: a tiny question box inside the bubble
+  // Phones type to the companion on its own tab (tapping the companion opens it), so its bubble has no Ask box there
+  function askOnTab(){ return phone() || !!(window.matchMedia && matchMedia("(hover:none) and (pointer:coarse) and (max-height:639px)").matches); }
   function openAsk(){
+    if (askOnTab()) { if (typeof ui !== "undefined" && ui.tab !== "companion") { ui.tab = "companion"; render(); } return; }
     const b = front && front.querySelector(".cp-bubble"); if (!b || !cur) return;
     clearTimeout(bubbleT);
     b.classList.remove("has-idea", "long"); b.classList.add("on", "asking");

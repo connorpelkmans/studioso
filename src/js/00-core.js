@@ -156,6 +156,16 @@ const ERRLOG = [];
   console.error = function(...a){ add("console", a.map(x => x instanceof Error ? x.message : typeof x === "string" ? x : x && x.message || "").join(" ")); return ce.apply(this, a); };
 })();
 const hook = (name, fn) => { (HOOK[name] = HOOK[name] || []).push(fn); };
+// iPhone and iPad: never zoom the whole app. iOS zooms in when a text box with small type gets focus and doesn't zoom back,
+// leaving the header and tab bar off screen. A top scale of 1 stops that; Safari still lets people pinch to zoom (iOS
+// ignores the limit for pinches), the app's own web view doesn't. The whiteboard and note board zoom inside the page.
+(function(){
+  try {
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const m = document.querySelector('meta[name="viewport"]');
+    if (ios && m && !/maximum-scale/.test(m.content)) m.content = m.content + ", maximum-scale=1";
+  } catch (e) {}
+})();
 const fire = (name, ...a) => (HOOK[name] || []).map(fn => { try { return fn(...a); } catch(e) { console.warn("hook " + name, e); return undefined; } });
 window.__sbFire = fire;
 const clone = o => o == null ? o : JSON.parse(JSON.stringify(o));

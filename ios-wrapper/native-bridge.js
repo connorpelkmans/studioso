@@ -30,6 +30,10 @@
   if (!C || typeof C.isNativePlatform !== "function" || !C.isNativePlatform()) return;
   var P = C.Plugins || {};
 
+  /* 0. The app never zooms as a whole (iOS would zoom in on a focused text box and stay there); boards zoom inside the page */
+  var noZoom = function () { try { var vp = document.querySelector('meta[name="viewport"]'); if (vp) vp.content = "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"; } catch (e) {} };
+  noZoom(); document.addEventListener("DOMContentLoaded", noZoom);   // this file loads at the top of <head>, before the tag exists
+
   /* 1. Keychain-backed storage for the Supabase session */
   var S = P.SecureStoragePlugin;
   if (S) {

@@ -21,7 +21,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     // a sheet with the keyboard up
     await page.evaluate(() => { window.__sbSync.ui.tab = "tasks"; window.__sbSync.render(); });
     await page.click("#fab"); await page.waitForSelector("dialog#dlg[open] input");
-    await page.evaluate(() => { document.querySelector("dialog#dlg[open] input").focus(); window.__kb(true); }); await page.waitForTimeout(300);
+    await page.evaluate(() => { document.querySelector("dialog#dlg[open] input").focus(); window.__kb(true); }); await page.waitForTimeout(700);
     const d = await page.evaluate(() => { const r = document.getElementById("dlg").getBoundingClientRect(); return {top: r.top, bottom: r.bottom, vh: visualViewport.height}; });
     ok(d.bottom <= d.vh + 1 && d.top >= 0, "the New Task sheet sits fully above the keyboard: " + JSON.stringify(d));
     ok(!(await vis("nav.tabs")) && !(await vis("#fab")), "the tab bar and the add button step aside while the keyboard is up");

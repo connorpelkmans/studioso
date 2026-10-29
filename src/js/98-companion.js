@@ -1121,7 +1121,7 @@
     if (opts.cheer || /^(WOO|YES|YAY|Woohoo|Yay|Hooray)\b/.test(text)) b.classList.add("cheer");
     b.innerHTML = `<span class="cp-b-t"></span>`;
     b.querySelector(".cp-b-t").textContent = text;
-    const idea = opts.idea || null, ask = !!opts.ask;
+    const idea = opts.idea || null, ask = !!opts.ask && !askOnTab();
     bubbleIdea = idea; bubbleAsk = ask;
     const btns = [];
     if (idea) btns.push(`<button type="button" class="btn small primary" data-cp="yes">${esc(idea.yes || "Let's Do It")}</button>`, `<button type="button" class="btn small" data-cp="no">Not Now</button>`);
@@ -1225,7 +1225,10 @@
   }
   { const origTF = taskForm; taskForm = function(){ const r = origTF.apply(this, arguments); try { setTimeout(addTaskAsk, 0); } catch (e) {} return r; }; }
   // Ask Me: a tiny question box inside the bubble
+  // Phones type to the companion on its own tab (tapping the companion opens it), so its bubble has no Ask box there
+  function askOnTab(){ return phone() || !!(window.matchMedia && matchMedia("(hover:none) and (pointer:coarse) and (max-height:639px)").matches); }
   function openAsk(){
+    if (askOnTab()) { if (typeof ui !== "undefined" && ui.tab !== "companion") { ui.tab = "companion"; render(); } return; }
     const b = front && front.querySelector(".cp-bubble"); if (!b || !cur) return;
     clearTimeout(bubbleT);
     b.classList.remove("has-idea", "long"); b.classList.add("on", "asking");
