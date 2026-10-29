@@ -549,64 +549,96 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
   const T = aiTask(task, fast), models = geminiOrder(cfg.model, T.tier);
   // A short text request that hasn't answered in 25 seconds is stuck (an overloaded free model), so the next model gets a turn instead of waiting minutes
   const light = !search && !urlContext && parts.every(p => p && p.text != null) && parts.reduce((n, p) => n + String(p.text).length, 0) + String(system || "").length < 40000 && maxTokens <= 16000;
+  const media = parts.some(p => p && (p.file_data || p.inline_data));
   const msEach = light ? Math.min(ms, (window.__SB_TEST && window.__SB_AI_STALL) || 25000) : ms;
-  let t0 = 0;
-  let thinking = true, lastErr = null, roomy = false;
-  const bodyFor = () => {
-    // a retry after running out of room: twice the room, and less of it spent thinking
-    const gc = {temperature, maxOutputTokens: roomy ? Math.min(32768, maxTokens * 2) : maxTokens};
-    if (!search && !urlContext) { gc.responseMimeType = "application/json"; if (schema) gc.responseSchema = schema; }
-    if (parts.some(p => p && p.file_data)) gc.mediaResolution = "MEDIA_RESOLUTION_LOW";
-    if (thinking) gc.thinkingConfig = {thinkingLevel: roomy ? "low" : T.think};
-    const body = {contents: [{role: "user", parts}], systemInstruction: {parts: [{text: system}]}, generationConfig: gc};
-    if (search) body.tools = [{google_search: {}}];
-    if (urlContext) body.tools = (body.tools || []).concat({url_context: {}});
-    return JSON.stringify(body);
-  };
-  for (let i = 0; i < models.length; i++) {
-    const m = models[i];
-    let res;
-    try {
-      t0 = Date.now();
-      res = await fetchT(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, {method: "POST", headers: {"Content-Type": "application/json", "x-goog-api-key": cfg.key}, body: bodyFor()}, i === models.length - 1 ? ms : msEach, signal);
-    } catch(e) {
-      if (signal && signal.aborted) throw aiErr("cancelled", "Canceled.");
-      if (e && e.name === "AbortError") { aiMemSet(x => { x.cool = x.cool || {}; x.cool[m] = Date.now() + 5 * 60000; x.slow = x.slow || {}; x.slow[m] = Date.now() + 30 * 60000; }); lastErr = aiErr("slow", "The AI took too long to answer. Try again, or use fewer files."); continue; }
-      throw offlineErr("Google's AI service");
-    }
-    if (res.ok) {
-      const j = await res.json().catch(() => ({}));
-      const cand = j.candidates && j.candidates[0];
-      if (!cand) { const br = j.promptFeedback && j.promptFeedback.blockReason; throw aiErr("blocked", br ? `Gemini wouldn't process this material (${String(br).toLowerCase()}).` : "The AI didn't send anything back. Try again."); }
-      const text = ((cand.content && cand.content.parts) || []).filter(p => !p.thought).map(p => p.text || "").join("");
-      const data = aiParseJson(text);
-      if (data) {
-        // how long a light answer took: models that answer slowly go to the back of the line for a while
-        const took = Date.now() - t0;
-        aiMemSet(x => { x.good = m; if (x.cool) delete x.cool[m]; if (light) { x.slow = x.slow || {}; if (took > 25000) x.slow[m] = Date.now() + 30 * 60000; else delete x.slow[m]; } });
-        const sources = search ? (((cand.groundingMetadata || {}).groundingChunks) || []).map(c => c && c.web ? {url: String(c.web.uri || ""), title: String(c.web.title || "")} : null).filter(Boolean) : undefined;
-        const fetched = urlContext ? (((cand.urlContextMetadata || cand.url_context_metadata || {}).urlMetadata || (cand.urlContextMetadata || cand.url_context_metadata || {}).url_metadata) || []).map(u => { const st = String(u.urlRetrievalStatus || u.url_retrieval_status || ""); return {url: String(u.retrievedUrl || u.retrieved_url || ""), ok: /SUCCESS/.test(st), status: st.replace(/^URL_RETRIEVAL_STATUS_/, "").toLowerCase()}; }) : undefined;
-        return {data, model: m, provider: "gemini", truncated: cand.finishReason === "MAX_TOKENS", sources, fetched};
+  // Hedging: when a model is slow, the next one starts on the same request too (two at most) and the first good answer wins,
+  // so a stalled or overloaded free model costs a short wait instead of minutes, and a slow but working one isn't thrown away
+  const hedgeMs = (window.__SB_TEST && window.__SB_AI_HEDGE) || (light ? 20000 : media ? 90000 : search || urlContext ? 45000 : 60000);
+  const url = m => `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`;
+  const cool = (m, ms2) => aiMemSet(x => { x.cool = x.cool || {}; x.cool[m] = Date.now() + ms2; });
+  let settled = false;
+  const ctrls = new Set();
+  // One model's attempt: {ok, r} on success; {err, fatal} when it fails (fatal: no other model will do better); {quiet} when it lost the race
+  async function attempt(m, last){
+    let thinking = true, roomy = false;
+    for (let tries = 0; tries < 4; tries++) {
+      const bodyFor = () => {
+        // a retry after running out of room: twice the room, and less of it spent thinking
+        const gc = {temperature, maxOutputTokens: roomy ? Math.min(32768, maxTokens * 2) : maxTokens};
+        if (!search && !urlContext) { gc.responseMimeType = "application/json"; if (schema) gc.responseSchema = schema; }
+        if (parts.some(p => p && p.file_data)) gc.mediaResolution = "MEDIA_RESOLUTION_LOW";
+        if (thinking) gc.thinkingConfig = {thinkingLevel: roomy ? "low" : T.think};
+        const body = {contents: [{role: "user", parts}], systemInstruction: {parts: [{text: system}]}, generationConfig: gc};
+        if (search) body.tools = [{google_search: {}}];
+        if (urlContext) body.tools = (body.tools || []).concat({url_context: {}});
+        return JSON.stringify(body);
+      };
+      const ac = typeof AbortController === "function" ? new AbortController() : null;
+      if (ac) { ctrls.add(ac); if (signal) { if (signal.aborted) ac.abort(); else signal.addEventListener("abort", () => ac.abort(), {once: true}); } }
+      const t0 = Date.now();
+      let res;
+      try { res = await fetchT(url(m), {method: "POST", headers: {"Content-Type": "application/json", "x-goog-api-key": cfg.key}, body: bodyFor()}, last ? ms : msEach, ac ? ac.signal : signal); }
+      catch (e) {
+        if (signal && signal.aborted) return {err: aiErr("cancelled", "Canceled."), fatal: true};
+        if (settled) return {quiet: true};
+        if (e && e.name === "AbortError") { aiMemSet(x => { x.cool = x.cool || {}; x.cool[m] = Date.now() + 5 * 60000; x.slow = x.slow || {}; x.slow[m] = Date.now() + 30 * 60000; }); return {err: aiErr("slow", "The AI took too long to answer. Try again, or use fewer files.")}; }
+        return {err: offlineErr("Google's AI service"), fatal: true};
+      } finally { if (ac) ctrls.delete(ac); }
+      if (settled) return {quiet: true};
+      if (res.ok) {
+        const j = await res.json().catch(() => ({}));
+        const cand = j.candidates && j.candidates[0];
+        if (!cand) { const br = j.promptFeedback && j.promptFeedback.blockReason; return {err: aiErr("blocked", br ? `Gemini wouldn't process this material (${String(br).toLowerCase()}).` : "The AI didn't send anything back. Try again."), fatal: true}; }
+        const text = ((cand.content && cand.content.parts) || []).filter(p => !p.thought).map(p => p.text || "").join("");
+        const data = aiParseJson(text);
+        if (data) {
+          // how long a light answer took: models that answer slowly go to the back of the line for a while
+          const took = Date.now() - t0;
+          aiMemSet(x => { x.good = m; if (x.cool) delete x.cool[m]; if (light) { x.slow = x.slow || {}; if (took > 25000) x.slow[m] = Date.now() + 30 * 60000; else delete x.slow[m]; } });
+          const sources = search ? (((cand.groundingMetadata || {}).groundingChunks) || []).map(c => c && c.web ? {url: String(c.web.uri || ""), title: String(c.web.title || "")} : null).filter(Boolean) : undefined;
+          const fetched = urlContext ? (((cand.urlContextMetadata || cand.url_context_metadata || {}).urlMetadata || (cand.urlContextMetadata || cand.url_context_metadata || {}).url_metadata) || []).map(u => { const st = String(u.urlRetrievalStatus || u.url_retrieval_status || ""); return {url: String(u.retrievedUrl || u.retrieved_url || ""), ok: /SUCCESS/.test(st), status: st.replace(/^URL_RETRIEVAL_STATUS_/, "").toLowerCase()}; }) : undefined;
+          return {ok: true, r: {data, model: m, provider: "gemini", truncated: cand.finishReason === "MAX_TOKENS", sources, fetched}};
+        }
+        // Out of room with nothing usable: thinking or a stuck, repeating answer can do this even on small jobs, so retry before giving up
+        if (cand.finishReason === "MAX_TOKENS") {
+          if (!roomy) { roomy = true; continue; }
+          return {err: aiErr("long", task === "photo" ? "Couldn't finish reading that. Try again, or use fewer photos at once." : "That was too much to make in one go. Ask for fewer cards or questions, or use fewer files.")};
+        }
+        return {err: aiErr("bad", "The AI's answer came back garbled. Try again.")};
       }
-      // Out of room with nothing usable: thinking or a stuck, repeating answer can do this even on small jobs, so retry before giving up
-      if (cand.finishReason === "MAX_TOKENS") {
-        if (!roomy) { roomy = true; i--; continue; }
-        roomy = false; lastErr = aiErr("long", task === "photo" ? "Couldn't finish reading that. Try again, or use fewer photos at once." : "That was too much to make in one go. Ask for fewer cards or questions, or use fewer files."); continue;
-      }
-      lastErr = aiErr("bad", "The AI's answer came back garbled. Try again.");
-      continue;
+      const msg = await errMsg(res);
+      if (res.status === 400 && thinking && /thinking/i.test(msg)) { thinking = false; continue; }
+      if (AI_PRO_MODELS.includes(m) && !last && res.status !== 401 && !/api[ _-]?key/i.test(msg)) { cool(m, 30 * 60000); return {err: aiErr("model", `The model ${m} isn't available on your key.`), weak: true}; }
+      if (res.status === 401 || res.status === 403 || (res.status === 400 && /api[ _-]?key/i.test(msg))) return {err: aiErr("key", "Google didn't accept your Gemini key. Check it in Settings, then AI Features."), fatal: true};
+      if (res.status === 413 || /too large|payload size|exceeds.*(size|limit)/i.test(msg)) return {err: aiErr("big", "Those files are too big to send at once. Try fewer or smaller files (PDF works best)."), fatal: true};
+      if (res.status === 404 || (res.status === 400 && /model/i.test(msg) && !/token|size|large/i.test(msg))) return {err: aiErr("model", `The model ${m} isn't available on your key.`), weak: true};
+      if (res.status === 429) { if (!search && !urlContext) cool(m, /day|daily|per ?day/i.test(msg) ? 6 * 3600000 : 70000); return {err: aiErr("limit", "You've used up the free AI requests for now. Wait a minute and try again (if it's the daily limit, it resets tomorrow)." + (msg ? ` Google said (${m}${search ? ", web search" : ""}): ${String(msg).replace(/\s+/g, " ").slice(0, 200)}` : ""))}; }
+      if (res.status >= 500) { cool(m, 3 * 60000); return {err: aiErr("busy", "Google's AI is very busy right now. Try again in a minute.")}; }
+      return {err: aiErr("http", msg ? "The AI couldn't do that: " + msg.slice(0, 180) : "The AI couldn't do that right now (error " + res.status + ")."), fatal: true};
     }
-    const msg = await errMsg(res);
-    if (res.status === 400 && thinking && /thinking/i.test(msg)) { thinking = false; i--; continue; }
-    if (AI_PRO_MODELS.includes(m) && i < models.length - 1 && res.status !== 401 && !/api[ _-]?key/i.test(msg)) { aiMemSet(x => { x.cool = x.cool || {}; x.cool[m] = Date.now() + 30 * 60000; }); lastErr = lastErr || aiErr("model", `The model ${m} isn't available on your key.`); continue; }
-    if (res.status === 401 || res.status === 403 || (res.status === 400 && /api[ _-]?key/i.test(msg))) throw aiErr("key", "Google didn't accept your Gemini key. Check it in Settings, then AI Features.");
-    if (res.status === 413 || /too large|payload size|exceeds.*(size|limit)/i.test(msg)) throw aiErr("big", "Those files are too big to send at once. Try fewer or smaller files (PDF works best).");
-    if (res.status === 404 || (res.status === 400 && /model/i.test(msg) && !/token|size|large/i.test(msg))) { lastErr = lastErr || aiErr("model", `The model ${m} isn't available on your key.`); continue; }
-    if (res.status === 429) { if (!search && !urlContext) aiMemSet(x => { x.cool = x.cool || {}; x.cool[m] = Date.now() + (/day|daily|per ?day/i.test(msg) ? 6 * 3600000 : 70000); }); lastErr = aiErr("limit", "You've used up the free AI requests for now. Wait a minute and try again (if it's the daily limit, it resets tomorrow)." + (msg ? ` Google said (${m}${search ? ", web search" : ""}): ${String(msg).replace(/\s+/g, " ").slice(0, 200)}` : "")); continue; }
-    if (res.status >= 500) { aiMemSet(x => { x.cool = x.cool || {}; x.cool[m] = Date.now() + 3 * 60000; }); lastErr = aiErr("busy", "Google's AI is very busy right now. Try again in a minute."); continue; }
-    throw aiErr("http", msg ? "The AI couldn't do that: " + msg.slice(0, 180) : "The AI couldn't do that right now (error " + res.status + ").");
+    return {err: aiErr("http", "The AI couldn't do that right now.")};
   }
-  throw lastErr || aiErr("http", "The AI couldn't do that right now.");
+  return new Promise((resolve, reject) => {
+    let next = 0, running = 0, hedgeT = 0, lastErr = null;
+    const finish = (fn, v) => { if (settled) return; settled = true; clearTimeout(hedgeT); ctrls.forEach(c => { try { c.abort(); } catch (e) {} }); fn(v); };
+    const launch = () => {
+      if (settled || next >= models.length) return false;
+      const m = models[next], last = next === models.length - 1; next++; running++;
+      clearTimeout(hedgeT);
+      if (!last) hedgeT = setTimeout(() => { if (!settled && running < 2) launch(); }, hedgeMs);
+      attempt(m, last).then(o => {
+        running--;
+        if (settled || o.quiet) return;
+        if (o.ok) { finish(resolve, o.r); return; }
+        if (o.fatal) { finish(reject, o.err); return; }
+        // the first real reason is the one worth showing (a missing model is only a reason when nothing else went wrong)
+        if (!lastErr || (lastErr.code === "model" && !o.weak)) lastErr = o.err;
+        if (!launch() && running === 0) finish(reject, lastErr || aiErr("http", "The AI couldn't do that right now."));
+      }, e => { running--; if (!settled && running === 0 && !launch()) finish(reject, e); });
+      return true;
+    };
+    launch();
+  });
 }
 // The free trial (AI_TRIAL)
 const AI_TRIAL_WORDS = {
