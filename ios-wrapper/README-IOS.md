@@ -83,14 +83,21 @@ While a Focus timer runs, the iPhone app shows it as a **Live Activity**: in the
 drawn by the system, so the app sends an update only when the timer's state changes (start, pause, resume, skip, next session) and nothing is
 sent to any server. Files: `native/FocusActivity/`.
 
-1. **Widget extension:** in Xcode, File > New > Target > **Widget Extension**, named `StudyboardWidgets`, with **Include Live Activity** ticked.
-   Delete the Swift files Xcode generated in it and add `native/FocusActivity/StudyboardWidgets.swift`. Deployment target iOS 16.2 or later.
-2. **Shared model:** add `native/FocusActivity/StudyboardFocusAttributes.swift` to **both** the App target and the `StudyboardWidgets` target
-   (File Inspector > Target Membership).
-3. **Plugin:** add `native/FocusActivity/StudyboardFocusActivityPlugin.swift` to the App target. `MainViewController` already registers it.
-4. **Info.plist:** `NSSupportsLiveActivities = YES` in the App's Info.plist (already in `Info.plist.additions.plist`).
+1. **Widget extension:** in Xcode, File > New > Target > **Widget Extension**, Product Name `StudyboardWidgets`, tick
+   **Include Live Activity** (untick Configuration App Intent / Control if offered). When Xcode asks to activate its scheme, choose
+   **Don't Activate** (keep running the App). Delete the Swift files Xcode generated in the new `StudyboardWidgets` folder (Move to Trash)
+   and drag in `native/FocusActivity/StudyboardWidgets.swift`, ticking only the `StudyboardWidgets` target. In the StudyboardWidgets
+   target's General tab, set **Minimum Deployments** to iOS 16.2 (Xcode picks the newest iOS, and then the timer can't install on
+   phones running an older one).
+2. **Shared model:** drag in `native/FocusActivity/StudyboardFocusAttributes.swift`, ticking **both** App and StudyboardWidgets.
+3. **Plugin:** drag in `native/FocusActivity/StudyboardFocusActivityPlugin.swift` (target App) and `native/MainViewController.swift`
+   (target App) if it isn't there yet; in `Main.storyboard` the Bridge View Controller's Class must be **MainViewController**. In
+   `MainViewController.swift`, delete the `registerPluginInstance` lines for plugins whose files you haven't added (CaptureToken,
+   SharedQueue, Lms); keep `StudyboardFocusActivityPlugin()`.
+4. **Info.plist:** `NSSupportsLiveActivities = YES`, added by `npm run ios:stage`.
 5. **Bridge:** `native-bridge.js` section 7 exposes `StudyboardNative.focusActivity`, which index.html uses by itself (`islandSync()`).
    Without the plugin (an older build, Android) the page keeps the timer in its header as before.
+6. **Signing:** select the StudyboardWidgets target > Signing & Capabilities > same Team, "Automatically manage signing" on.
 
 Test on a device: start a Focus session, swipe home, and the island shows the tomato and the time; long-press it for the expanded view (mode,
 time, what you're working on, progress). Pause in the app and the island says Paused with the time frozen; Reset removes it. Lock the phone and the

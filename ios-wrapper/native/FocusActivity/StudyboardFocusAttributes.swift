@@ -2,6 +2,8 @@
 import ActivityKit
 import Foundation
 
+// The app itself supports iOS versions older than Live Activities, so the model says when it exists
+@available(iOS 16.1, *)
 public struct StudyboardFocusAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {
         public var mode: String
