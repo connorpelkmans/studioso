@@ -1,6 +1,6 @@
 /* ===== module: 99-rubric-check.js ===== */
 /* Rubric Check (Pro, needs AI): feedback on a draft against the assignment's rubric before it's handed in.
-   - Entry: "Check Against Rubric" in the Edit Task sheet's actions, on assignment-like tasks that aren't done (Assignment, Project, Lab,
+   - Entry: "Check Against Rubric" in the task sheet's actions (beside Focus), on assignment-like tasks that aren't done (Assignment, Project, Lab,
      or Other when the title says essay, paper, report or presentation). Free users see it with a PRO badge, which opens the Pro sheet.
    - The rubric fills itself in when it can: the rubric your school site sent with the task (Canvas, Brightspace or Blackboard), else an
      attached file named like a rubric, else the task's notes when they read like one. It is split into criteria with the same rule the
