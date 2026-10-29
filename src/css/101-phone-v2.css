@@ -213,6 +213,8 @@
   html.ph-lock #view .cpt-pane > .cpt-log{flex:1 1 auto;min-height:0!important;max-height:none!important;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
   html.ph-lock #view .cpt-form{position:static!important}
   @media (max-height:700px){html.ph-lock #view .cpt-priv{display:none}}
+  /* a short screen (or large text): the starter questions in one row that scrolls sideways, so the box never cuts them off */
+  @media (max-height:760px){html.ph-lock #view .cpt-empty .cpt-chips{flex-wrap:nowrap!important;justify-content:flex-start!important;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;width:100%;max-width:100%;min-width:0;justify-self:stretch;box-sizing:border-box}html.ph-lock #view .cpt-empty .cpt-chips .chip{flex:none;white-space:nowrap}}
   /* Notes / Groups */
   #view > .pview-tabs.ph-solo .ph-solo-t{flex:1;display:flex;align-items:center;justify-content:center;min-height:42px;color:var(--ink);font:800 1.3rem var(--display);letter-spacing:-.01em}
   #view > .pview-tabs.ph-solo{justify-content:center}
