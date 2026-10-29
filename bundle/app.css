@@ -5023,6 +5023,7 @@ body:has(.toast.show) .acc-chip{bottom:calc(168px + var(--toast-h,48px) + env(sa
 .acc-tm{font-size:.76rem;font-weight:600;color:var(--muted)}
 .acc-say input{width:min(17rem,60vw)}
 .acc-note{font-weight:500}
+.acc-sel{min-height:44px;max-width:min(26rem,70vw);padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit}
 /* ===== module: 97-notecards.css ===== */
 /* Notes to Flashcards */
 .nc-sheet [hidden]{display:none!important}

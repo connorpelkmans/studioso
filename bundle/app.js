@@ -65163,7 +65163,15 @@ function chipShow(c, timeoutMs){
 }
 function chipHtml(c){
   if (c.kind === "which") {
-    const opts = c.opts.map(t => `<button type="button" class="acc-opt" data-act="acc-which" data-id="${esc(t.id)}">${esc(short(t.title, 26))}</button>`).join("");
+    // Other…: any open task, by course, soonest first
+    if (c.other) {
+      const open = tasksArr().filter(t => t.status !== "done").sort(sortTasks), by = new Map();
+      open.forEach(t => { const k = t.courseId && courseOf(t.courseId) ? t.courseId : ""; if (!by.has(k)) by.set(k, []); by.get(k).push(t); });
+      const grp = [...by.entries()].map(([k, ts]) => `<optgroup label="${esc(k ? courseLabel(courseOf(k)) : tr("acc.noCourse", "No course"))}">${ts.map(t => `<option value="${esc(t.id)}">${esc(short(t.title, 60))}${t.due ? " · " + esc(fmtShort(t.due)) : ""}</option>`).join("")}</optgroup>`).join("");
+      return `<span class="acc-q">${esc(tr("acc.which", "Which task was that for?"))} <span class="mini">${esc(fmtMins(c.min))}</span></span><span class="acc-opts"><select id="accOther" class="acc-sel" aria-label="${esc(tr("acc.pick", "Pick a task"))}"><option value="">${esc(tr("acc.pick", "Pick a task"))}…</option>${grp}</select><button type="button" class="acc-opt" data-act="acc-other-back">${esc(tr("acc.back", "Back"))}</button></span><button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
+    }
+    const opts = c.opts.map(t => `<button type="button" class="acc-opt" data-act="acc-which" data-id="${esc(t.id)}">${esc(short(t.title, 26))}</button>`).join("")
+      + (tasksArr().some(t => t.status !== "done" && !c.opts.some(o => o.id === t.id)) ? `<button type="button" class="acc-opt acc-other" data-act="acc-other">${esc(tr("acc.other", "Other…"))}</button>` : "");
     return `<span class="acc-q">${esc(tr("acc.which", "Which task was that for?"))} <span class="mini">${esc(fmtMins(c.min))}</span></span><span class="acc-opts">${opts}</span><button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
   }
   if (c.kind === "left") return leftChipHtml(c);
@@ -65408,9 +65416,12 @@ function howHtml(){
 }
 
 /* Wiring */
+// Other…: picking a task from the list logs the time to it
+document.addEventListener("change", e => { const s = e.target; if (!s || s.id !== "accOther" || !s.value) return; const b = document.createElement("button"); b.dataset.act = "acc-which"; b.dataset.id = s.value; fire("act", "acc-which", b, s.value); });
 hook("act", (a, el) => {
   if (!a || (a.slice(0, 4) !== "acc-" && a !== "log-time" && a !== "tw-del")) return false;
   if (a === "acc-dismiss") { chipDismiss(); return true; }
+  if (a === "acc-other" || a === "acc-other-back") { if (chip && chip.kind === "which") { chip.other = a === "acc-other"; chipShow(chip, 0); const i = document.getElementById(chip.other ? "accOther" : ""); if (i) i.focus(); } return true; }
   if (a === "acc-which") {
     const p = lsGet(LS_PEND, null), id = el.dataset.id; lsSet(LS_PEND, null); chipHide();
     if (p && id && isGt(id)) { gtAddWork(id, p.min); toast(tr("acc.whichToast", "Added {t} to {title}", {t: fmtMins(p.min), title: "your group task"})); }
