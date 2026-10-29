@@ -129,12 +129,20 @@ const LINKCARDS = (() => {
       const vid = (fps, plain) => aiRetry(() => aiCall(Object.assign({}, opts, {schema: NOTE_SCHEMA, timeout: 300000, parts: [Object.assign({file_data: plain ? {file_uri: L.url} : {file_uri: L.url, mime_type: "video/*"}}, fps && !plain ? {video_metadata: {fps}} : {}), {text: ask}]})));
       // how much Gemini read: a video is thousands of tokens, so a few hundred means the video never reached it
       const sawVideo = x => { const u = x && x.usage, n = u && Number(u.promptTokenCount); return !(Number.isFinite(n) && n < 1500); };
+      // Google's servers failing on the video (every model) usually means this video, not real overload: one plain try, then say so
+      const choke = e => Object.assign(aiErr("link-choke", `Google's servers couldn't process this video${e && e.gmsg ? ` (Google said: ${String(e.gmsg).replace(/\s+/g, " ").replace(/\.$/, "").slice(0, 160)})` : ""}. This happens with some YouTube videos; trying again later sometimes works.`), {link: true, st: "choke"});
+      let plainDone = false;
       try { r = await vid(0.2); }
-      catch (e) { if (!(e && e.code === "http" && /fps|video_?metadata|videoMetadata|Unknown name/i.test(String(e.message || "")))) throw e; r = await vid(0); }
+      catch (e) {
+        if (e && e.code === "cancelled") throw e;
+        if (e && e.code === "busy") { plainDone = true; if (onStatus) onStatus("Having another look at the video…"); try { r = await vid(0, true); } catch (e2) { if (e2 && e2.code === "cancelled") throw e2; throw e2 && e2.code === "busy" ? choke(e2) : e2; } }
+        else if (e && e.code === "http" && /fps|video_?metadata|videoMetadata|Unknown name/i.test(String(e.message || ""))) r = await vid(0);
+        else throw e;
+      }
       // came back empty or unwatchable: one more look at Gemini's usual frame rate before giving up
       const d0 = r && r.data && typeof r.data === "object" ? r.data : {}, s0 = String(d0.status || "").toLowerCase();
       const b0 = [d0.overview].concat((d0.sections || []).flatMap(x => (x && x.points) || [])).join(" ").replace(/\s+/g, " ").trim().length;
-      if ((!sawVideo(r) || (/^(empty|unreachable)$/.test(s0) && b0 < 200)) && !(signal && signal.aborted)) {
+      if (!plainDone && (!sawVideo(r) || (/^(empty|unreachable)$/.test(s0) && b0 < 200)) && !(signal && signal.aborted)) {
         if (onStatus) onStatus("Having another look at the video…");
         try { r = await vid(0, true); } catch (e) { if (e && e.code === "cancelled") throw e; }
       }

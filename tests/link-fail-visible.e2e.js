@@ -73,12 +73,14 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
     ok(!errs.length, "no page errors " + errs.join(" | "));
     await ctx.close();
     // The video never reached Gemini (a few hundred tokens read, an "empty" answer in no time): one plain retry
-    for (const mode of ["plain-works", "never"]) {
+    for (const mode of ["plain-works", "never", "choke-then-plain", "choke-always"]) {
       const c2 = await browser.newContext({viewport: {width: 1381, height: 961}, serviceWorkers: "block"}); const bodies = [];
       await c2.route(/generativelanguage\.googleapis\.com/, async route => {
         const body = route.request().postData() || ""; if (/file_uri/.test(body)) bodies.push(JSON.parse(body));
         const vid = /file_uri/.test(body), plain = vid && !/mime_type/.test(body);
-        const seen = vid && mode === "plain-works" && plain;
+        const choke = vid && (mode === "choke-always" || (mode === "choke-then-plain" && !plain));
+        if (choke) { try { route.fulfill({status: 500, contentType: "application/json", body: JSON.stringify({error: {code: 500, message: "An internal error has occurred. Please retry or report in https://developers.generativeai.google/guide/troubleshooting", status: "INTERNAL"}})}); } catch (e) {} return; }
+        const seen = vid && /plain/.test(mode) && plain;
         const usage = {usageMetadata: {promptTokenCount: seen ? 42000 : 600}};
         const res = gem(vid ? JSON.stringify(seen ? VIDEO_NOTES : {status: "empty"}) : /small, cute study companion/.test(body) ? JSON.stringify({line: "hi"}) : JSON.stringify(CARDS));
         if (vid) res.body = JSON.stringify(Object.assign(JSON.parse(res.body), usage));
@@ -91,10 +93,16 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
       await p2.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "fc-ai"; document.body.appendChild(b); b.click(); b.remove(); }); await p2.waitForSelector("#aiGo");
       if (!(await p2.evaluate(() => document.getElementById("aiLinkD").open))) await p2.click("#aiLinkD summary");
       await p2.fill("#aiLink", "https://www.youtube.com/watch?v=ESABTN4VtrA"); await p2.click("#aiGo");
-      if (mode === "plain-works") {
+      if (/plain/.test(mode)) {
         await p2.waitForFunction(() => /Review Before Saving/.test((document.querySelector("#dlg[open]") || {}).textContent || ""), null, {timeout: 15000}).catch(() => {});
         ok(/Review Before Saving/.test(await p2.evaluate(() => (document.querySelector("#dlg[open]") || {}).textContent || "")), "when the video didn't reach Gemini, one plain retry gets it, and the cards come through");
-        ok(bodies.length === 2 && bodies[0].contents[0].parts[0].file_data.mime_type && !bodies[1].contents[0].parts[0].file_data.mime_type && !bodies[1].contents[0].parts[0].video_metadata, "the retry sends just the link (no file type, no frame rate)");
+        const last = bodies[bodies.length - 1].contents[0].parts[0];
+        ok(bodies[0].contents[0].parts[0].file_data.mime_type && !last.file_data.mime_type && !last.video_metadata, mode + ": the retry sends just the link (no file type, no frame rate)");
+        if (mode === "choke-then-plain") ok(!(await p2.evaluate(() => { try { const m = JSON.parse(localStorage.getItem("studyboard:aiModels") || "{}"); return Object.values(m.cool || {}).some(t => t > Date.now()); } catch (e) { return false; } })), "a server error on a video doesn't bench the models for other AI features");
+      } else if (mode === "choke-always") {
+        await p2.waitForFunction(() => /couldn't process this video/.test((document.getElementById("aiStatus") || {}).textContent || ""), null, {timeout: 20000}).catch(() => {});
+        const t = await p2.textContent("#aiStatus");
+        ok(/Google's servers couldn't process this video \(Google said: An internal error has occurred/.test(t) && !/very busy/.test(t), "when Google's servers fail on the video every time, it says so, with Google's words, not \"very busy\": " + t);
       } else {
         await p2.waitForFunction(() => /didn't get the video itself/.test((document.getElementById("aiStatus") || {}).textContent || ""), null, {timeout: 15000}).catch(() => {});
         ok(/didn't get the video itself/.test(await p2.textContent("#aiStatus")) && bodies.length === 2, "when it never arrives, the message says Gemini didn't get the video: " + await p2.textContent("#aiStatus"));

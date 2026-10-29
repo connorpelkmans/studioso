@@ -617,7 +617,8 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
       if (res.status === 413 || /too large|payload size|exceeds.*(size|limit)/i.test(msg)) return {err: aiErr("big", "Those files are too big to send at once. Try fewer or smaller files (PDF works best)."), fatal: true};
       if (res.status === 404 || (res.status === 400 && /model/i.test(msg) && !/token|size|large/i.test(msg))) return {err: aiErr("model", `The model ${m} isn't available on your key.`), weak: true};
       if (res.status === 429) { if (!search && !urlContext) cool(m, /day|daily|per ?day/i.test(msg) ? 6 * 3600000 : 70000); return {err: aiErr("limit", "You've used up the free AI requests for now. Wait a minute and try again (if it's the daily limit, it resets tomorrow)." + (msg ? ` Google said (${m}${search ? ", web search" : ""}): ${String(msg).replace(/\s+/g, " ").slice(0, 200)}` : ""))}; }
-      if (res.status >= 500) { cool(m, 3 * 60000); return {err: aiErr("busy", "Google's AI is very busy right now. Try again in a minute.")}; }
+      // a video or file that Google's servers choke on isn't the model's fault: no bench, and Google's own words go with the error
+      if (res.status >= 500) { if (!media) cool(m, 3 * 60000); return {err: Object.assign(aiErr("busy", "Google's AI is very busy right now. Try again in a minute." + (msg ? ` Google said (${m}): ${String(msg).replace(/\s+/g, " ").slice(0, 160)}` : "")), {status: res.status, gmsg: String(msg || "").slice(0, 300)})}; }
       return {err: aiErr("http", msg ? "The AI couldn't do that: " + msg.slice(0, 180) : "The AI couldn't do that right now (error " + res.status + ")."), fatal: true};
     }
     return {err: aiErr("http", "The AI couldn't do that right now.")};
