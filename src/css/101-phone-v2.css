@@ -439,7 +439,6 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
   /* bars pinned to the bottom of the screen would float over what you're typing, so they step aside */
   html.kb-open nav.tabs,html.kb-open .fab,html.kb-open .room-pill,html.kb-open .acc-chip,html.kb-open .tz-note,html.kb-open .gr-prompt{visibility:hidden!important;pointer-events:none!important}
   html.kb-open .toast{bottom:calc(var(--kb-h,0px) + 12px)}
-  html.kb-open body::after{display:none}
 }
 }
 

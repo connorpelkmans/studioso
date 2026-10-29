@@ -279,6 +279,8 @@
     follow(pin);
   }
   document.addEventListener("focusin", e => { if (e.target && e.target.id === "cptIn" && isPhone()) { clearTimeout(typeT); typing(true); } });
+  // the card opens back up together with the keyboard sliding away, not a beat after it
+  { let wasKb = false; new MutationObserver(() => { const kb = root().classList.contains("kb-open"); if (wasKb && !kb && root().classList.contains("cpt-typing")) { clearTimeout(typeT); typing(false); } wasKb = kb; }).observe(document.documentElement, {attributes: true, attributeFilter: ["class"]}); }
   document.addEventListener("focusout", e => { if (!e.target || e.target.id !== "cptIn") return; clearTimeout(typeT); typeT = setTimeout(() => { const a = document.activeElement; if (!(a && a.id === "cptIn")) typing(false); }, 180); });
   hook("render", () => { const a = document.activeElement; if (!(a && a.id === "cptIn")) root().classList.remove("cpt-typing"); else if (isPhone()) root().classList.add("cpt-typing"); });
   // An Options menu closes after a choice, or a tap anywhere else

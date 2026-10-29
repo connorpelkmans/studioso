@@ -18480,12 +18480,21 @@ const SCN20 = (() => {
   const nextFrame = () => { const gap = gapNow(), wait = last ? gap - (performance.now() - last) + 1 : 0; if (gap > 45 && wait > 4) { rafT = setTimeout(() => { rafT = 0; if (raf === -1) raf = requestAnimationFrame(tick); }, wait); return -1; } return requestAnimationFrame(tick); };
   const broken = new Set();
 
+  // The screen's full height for this width: the keyboard shrinking the app (or a toolbar showing) never redraws or squashes
+  // the scene; the keyboard just covers its lower part
+  let fullW = 0, fullH = 0;
+  function screenH(){
+    if (innerWidth !== fullW) { fullW = innerWidth; fullH = innerHeight; }
+    else if (!document.documentElement.classList.contains("kb-open")) fullH = Math.max(fullH, innerHeight);
+    document.documentElement.style.setProperty("--sb-full-h", fullH + "px");
+    return fullH;
+  }
   function geometry(){
-    const nav = document.querySelector("nav.tabs"), r = nav && nav.getBoundingClientRect();
-    const side = r && r.left < 4 && r.height > innerHeight * 0.6 ? Math.round(r.right) : 0;
+    const nav = document.querySelector("nav.tabs"), r = nav && nav.getBoundingClientRect(), IH = screenH();
+    const side = r && r.left < 4 && r.height > IH * 0.6 ? Math.round(r.right) : 0;
     const floating = r && r.left >= 4 && r.right <= innerWidth - 4;
-    const foot = r && !side && !floating && r.top > innerHeight * 0.6 ? Math.max(0, Math.round(innerHeight - r.top - 4)) : 0;
-    const W = Math.max(1, innerWidth - side), H = Math.max(1, innerHeight - foot), desk = W / H >= 0.9;
+    const foot = r && !side && !floating && r.top > IH * 0.6 ? Math.max(0, Math.round(innerHeight - r.top - 4)) : 0;
+    const W = Math.max(1, innerWidth - side), H = Math.max(1, IH - foot), desk = W / H >= 0.9;
     const k = Math.max(0.8, Math.min(3, desk ? Math.min(W / 1200, H / 800) : Math.min(W / 390, H / 760)));
     return {side, foot, W, H, desk, k, bw: Math.round(W / k), bh: Math.round(H / k)};
   }
@@ -77734,8 +77743,23 @@ var SBWB = null;
     cam.z = clamp(z, ZMIN, ZMAX); cam.x = sx - wx * cam.z; cam.y = sy - wy * cam.z;
     clampCam(); dirty(); camSave();
   }
-  const STEPS = [0.05, 0.08, 0.12, 0.2, 0.25, 0.33, 0.5, 0.67, 0.8, 1, 1.25, 1.5, 2, 3, 4];
-  const zoomStep = d => { const z = cam.z; zoomAt(d > 0 ? (STEPS.find(s => s > z + 0.001) || ZMAX) : ([...STEPS].reverse().find(s => s < z - 0.001) || zMin())); };
+  // The − and + buttons move along an even ladder (10% steps to 100%, then 25%, then 50%), and glide to the new zoom
+  const STEPS = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 4];
+  let zoomRaf = 0, zoomTarget = 0;
+  function zoomGlide(z){
+    cancelAnimationFrame(zoomRaf);
+    const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) { zoomAt(z); return; }
+    zoomTarget = z;
+    const z0 = cam.z, t0 = performance.now(), ms = 200, ease = k => 1 - Math.pow(1 - k, 3);
+    const step = now => { const k = Math.min(1, (now - t0) / ms); zoomAt(z0 * Math.pow(z / z0, ease(k))); if (k < 1) zoomRaf = requestAnimationFrame(step); else zoomTarget = 0; };
+    zoomRaf = requestAnimationFrame(step);
+  }
+  const zoomStep = d => {
+    const z = zoomTarget || cam.z, lo = zMin();
+    const next = d > 0 ? (STEPS.find(s => s > z + 0.004) || ZMAX) : ([...STEPS].reverse().find(s => s < z - 0.004) || lo);
+    zoomGlide(Math.max(next, d < 0 ? Math.min(lo, z) : next));
+  };
   function contentBB(){
     let bb = null;
     strokes().forEach(s => { bb = bbJoin(bb, geo(s).bb); });
@@ -83313,6 +83337,8 @@ const AUTOPILOT = (() => {
     follow(pin);
   }
   document.addEventListener("focusin", e => { if (e.target && e.target.id === "cptIn" && isPhone()) { clearTimeout(typeT); typing(true); } });
+  // the card opens back up together with the keyboard sliding away, not a beat after it
+  { let wasKb = false; new MutationObserver(() => { const kb = root().classList.contains("kb-open"); if (wasKb && !kb && root().classList.contains("cpt-typing")) { clearTimeout(typeT); typing(false); } wasKb = kb; }).observe(document.documentElement, {attributes: true, attributeFilter: ["class"]}); }
   document.addEventListener("focusout", e => { if (!e.target || e.target.id !== "cptIn") return; clearTimeout(typeT); typeT = setTimeout(() => { const a = document.activeElement; if (!(a && a.id === "cptIn")) typing(false); }, 180); });
   hook("render", () => { const a = document.activeElement; if (!(a && a.id === "cptIn")) root().classList.remove("cpt-typing"); else if (isPhone()) root().classList.add("cpt-typing"); });
   // An Options menu closes after a choice, or a tap anywhere else

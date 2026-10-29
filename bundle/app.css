@@ -1860,7 +1860,7 @@ body{background-image:var(--bgimg,linear-gradient(var(--grid) 1px,transparent 1p
 .motion-tog{display:inline-flex;align-items:center;gap:6px;margin-left:auto;font-size:.9rem;cursor:pointer}
 .sp-art{position:absolute;inset:0 0 0 18px;z-index:0;overflow:hidden;pointer-events:none}
 .skin-prev .sp-main{position:relative;z-index:1}
-body::after{content:"";position:fixed;left:0;right:0;bottom:0;height:var(--scene-h,0px);background:var(--scene,none) center bottom/100% 100% no-repeat;pointer-events:none;z-index:-1}
+body::after{content:"";position:fixed;left:0;right:0;top:calc(var(--sb-full-h,100lvh) - var(--scene-h,0px));height:var(--scene-h,0px);background:var(--scene,none) center bottom/100% 100% no-repeat;pointer-events:none;z-index:-1}
 nav.tabs{background:var(--spine-bg,var(--spine))}
 body.desk::before{background:var(--spine-bg,var(--spine))}
 /* A wide window */
@@ -5420,13 +5420,14 @@ nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-sy
 @keyframes sm-pop{from{opacity:0;transform:translateY(-6px) scale(.97)}to{opacity:1;transform:none}}
 html:not([data-motion="static"]) .sm-in{animation:sm-in .22s var(--sm-ease) backwards}
 html:not([data-motion="static"]) .sm-view{animation:sm-view .24s var(--sm-ease) backwards}
-/* Switching tabs: the old page cross-fades into the new one (01-events.js tabSwap) */
-::view-transition-old(root),::view-transition-new(root){animation-duration:.26s;animation-timing-function:cubic-bezier(.2,.8,.2,1)}
-/* the companion travels between the tab bar and its page on its own, so it stays out of the cross-fade: shown live, never faded or doubled */
-html.vt-tab .cp-front{view-transition-name:sb-companion}
-html.vt-tab .cp-layer{view-transition-name:sb-companion-back}
-::view-transition-group(sb-companion),::view-transition-group(sb-companion-back),::view-transition-new(sb-companion),::view-transition-new(sb-companion-back){animation:none}
-::view-transition-old(sb-companion),::view-transition-old(sb-companion-back){display:none}
+/* Switching tabs (01-events.js tabSwap): only the page's content cross-fades. Everything else (the animated theme scene,
+   the header and tab bar, the companion) stays live the whole time, so nothing freezes for the length of the fade */
+html.vt-tab #view{view-transition-name:sb-view}
+::view-transition-group(root){animation:none}
+::view-transition-old(root){display:none}
+::view-transition-new(root){animation:none}
+::view-transition-group(sb-view){animation-duration:.26s;animation-timing-function:cubic-bezier(.2,.8,.2,1)}
+::view-transition-old(sb-view),::view-transition-new(sb-view){animation-duration:.26s;animation-timing-function:cubic-bezier(.2,.8,.2,1);height:100%;object-fit:none;object-position:top}
 /* A closing sheet's stand-in (99-smooth.js sheetGhost): above the page, never interactive, no entrance animation */
 .sm-ghost{position:fixed;inset:0;width:auto;height:auto;margin:0;padding:0;border:0;background:none;overflow:hidden;pointer-events:none}
 .sm-ghost-dim{position:absolute;inset:0}
@@ -7038,7 +7039,6 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
   /* bars pinned to the bottom of the screen would float over what you're typing, so they step aside */
   html.kb-open nav.tabs,html.kb-open .fab,html.kb-open .room-pill,html.kb-open .acc-chip,html.kb-open .tz-note,html.kb-open .gr-prompt{visibility:hidden!important;pointer-events:none!important}
   html.kb-open .toast{bottom:calc(var(--kb-h,0px) + 12px)}
-  html.kb-open body::after{display:none}
 }
 }
 

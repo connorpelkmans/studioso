@@ -355,4 +355,23 @@
     var kbOn = function (on) { var r = root(); if (!r) return; r.classList.toggle("kb-open", on); r.style.setProperty("--kb-h", "0px"); r.style.removeProperty("--vv-h"); };
     try { KB.addListener("keyboardWillShow", function () { kbOn(true); }); KB.addListener("keyboardWillHide", function () { kbOn(false); }); } catch (e) {}
   }
+
+  /* 10. The app's frame behind the page takes the page's background colour (MainViewController, "sbBg"), so nothing of
+         another colour shows while the app resizes around the keyboard */
+  (function () {
+    var post = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.sbBg;
+    if (!post) return;
+    var last = "", t = 0;
+    var hex = function (c) { var m = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/.exec(c || ""); if (!m || (m[4] != null && +m[4] < 0.5)) return ""; return "#" + [m[1], m[2], m[3]].map(function (x) { return ("0" + (+x).toString(16)).slice(-2); }).join(""); };
+    var send = function () {
+      t = 0;
+      var b = document.body, h = document.documentElement; if (!b) return;
+      var c = hex(getComputedStyle(b).backgroundColor) || hex(getComputedStyle(h).backgroundColor);
+      var art = document.getElementById("sceneArt"); if (art) c = hex(getComputedStyle(art).backgroundColor) || c;
+      if (c && c !== last) { last = c; try { post.postMessage(c); } catch (e) {} }
+    };
+    var soon = function () { if (!t) t = setTimeout(send, 120); };
+    var watch = function () { send(); new MutationObserver(soon).observe(document.documentElement, { attributes: true, attributeFilter: ["class", "style", "data-theme", "data-skin"] }); if (document.body) new MutationObserver(soon).observe(document.body, { attributes: true, childList: true }); };
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", watch); else watch();
+  })();
 })();

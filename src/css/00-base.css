@@ -1860,7 +1860,7 @@ body{background-image:var(--bgimg,linear-gradient(var(--grid) 1px,transparent 1p
 .motion-tog{display:inline-flex;align-items:center;gap:6px;margin-left:auto;font-size:.9rem;cursor:pointer}
 .sp-art{position:absolute;inset:0 0 0 18px;z-index:0;overflow:hidden;pointer-events:none}
 .skin-prev .sp-main{position:relative;z-index:1}
-body::after{content:"";position:fixed;left:0;right:0;bottom:0;height:var(--scene-h,0px);background:var(--scene,none) center bottom/100% 100% no-repeat;pointer-events:none;z-index:-1}
+body::after{content:"";position:fixed;left:0;right:0;top:calc(var(--sb-full-h,100lvh) - var(--scene-h,0px));height:var(--scene-h,0px);background:var(--scene,none) center bottom/100% 100% no-repeat;pointer-events:none;z-index:-1}
 nav.tabs{background:var(--spine-bg,var(--spine))}
 body.desk::before{background:var(--spine-bg,var(--spine))}
 /* A wide window */

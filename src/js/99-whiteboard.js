@@ -434,8 +434,23 @@ var SBWB = null;
     cam.z = clamp(z, ZMIN, ZMAX); cam.x = sx - wx * cam.z; cam.y = sy - wy * cam.z;
     clampCam(); dirty(); camSave();
   }
-  const STEPS = [0.05, 0.08, 0.12, 0.2, 0.25, 0.33, 0.5, 0.67, 0.8, 1, 1.25, 1.5, 2, 3, 4];
-  const zoomStep = d => { const z = cam.z; zoomAt(d > 0 ? (STEPS.find(s => s > z + 0.001) || ZMAX) : ([...STEPS].reverse().find(s => s < z - 0.001) || zMin())); };
+  // The − and + buttons move along an even ladder (10% steps to 100%, then 25%, then 50%), and glide to the new zoom
+  const STEPS = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 4];
+  let zoomRaf = 0, zoomTarget = 0;
+  function zoomGlide(z){
+    cancelAnimationFrame(zoomRaf);
+    const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) { zoomAt(z); return; }
+    zoomTarget = z;
+    const z0 = cam.z, t0 = performance.now(), ms = 200, ease = k => 1 - Math.pow(1 - k, 3);
+    const step = now => { const k = Math.min(1, (now - t0) / ms); zoomAt(z0 * Math.pow(z / z0, ease(k))); if (k < 1) zoomRaf = requestAnimationFrame(step); else zoomTarget = 0; };
+    zoomRaf = requestAnimationFrame(step);
+  }
+  const zoomStep = d => {
+    const z = zoomTarget || cam.z, lo = zMin();
+    const next = d > 0 ? (STEPS.find(s => s > z + 0.004) || ZMAX) : ([...STEPS].reverse().find(s => s < z - 0.004) || lo);
+    zoomGlide(Math.max(next, d < 0 ? Math.min(lo, z) : next));
+  };
   function contentBB(){
     let bb = null;
     strokes().forEach(s => { bb = bbJoin(bb, geo(s).bb); });

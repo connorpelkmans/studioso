@@ -144,12 +144,21 @@
   const nextFrame = () => { const gap = gapNow(), wait = last ? gap - (performance.now() - last) + 1 : 0; if (gap > 45 && wait > 4) { rafT = setTimeout(() => { rafT = 0; if (raf === -1) raf = requestAnimationFrame(tick); }, wait); return -1; } return requestAnimationFrame(tick); };
   const broken = new Set();
 
+  // The screen's full height for this width: the keyboard shrinking the app (or a toolbar showing) never redraws or squashes
+  // the scene; the keyboard just covers its lower part
+  let fullW = 0, fullH = 0;
+  function screenH(){
+    if (innerWidth !== fullW) { fullW = innerWidth; fullH = innerHeight; }
+    else if (!document.documentElement.classList.contains("kb-open")) fullH = Math.max(fullH, innerHeight);
+    document.documentElement.style.setProperty("--sb-full-h", fullH + "px");
+    return fullH;
+  }
   function geometry(){
-    const nav = document.querySelector("nav.tabs"), r = nav && nav.getBoundingClientRect();
-    const side = r && r.left < 4 && r.height > innerHeight * 0.6 ? Math.round(r.right) : 0;
+    const nav = document.querySelector("nav.tabs"), r = nav && nav.getBoundingClientRect(), IH = screenH();
+    const side = r && r.left < 4 && r.height > IH * 0.6 ? Math.round(r.right) : 0;
     const floating = r && r.left >= 4 && r.right <= innerWidth - 4;
-    const foot = r && !side && !floating && r.top > innerHeight * 0.6 ? Math.max(0, Math.round(innerHeight - r.top - 4)) : 0;
-    const W = Math.max(1, innerWidth - side), H = Math.max(1, innerHeight - foot), desk = W / H >= 0.9;
+    const foot = r && !side && !floating && r.top > IH * 0.6 ? Math.max(0, Math.round(innerHeight - r.top - 4)) : 0;
+    const W = Math.max(1, innerWidth - side), H = Math.max(1, IH - foot), desk = W / H >= 0.9;
     const k = Math.max(0.8, Math.min(3, desk ? Math.min(W / 1200, H / 800) : Math.min(W / 390, H / 760)));
     return {side, foot, W, H, desk, k, bw: Math.round(W / k), bh: Math.round(H / k)};
   }
