@@ -6,7 +6,7 @@
 const RM_CORE = (() => {
   const DEF = {tasks: true, dayBefore: true, dayTime: "18:00", hoursBefore: true, hours: 2, exams: true,
     events: true, eventLead: 15, classes: false, morning: false, morningTime: "07:30",
-    nudges: true, nudgeTime: "16:00", cards: false, cardsTime: "19:00",
+    nudges: true, nudgeTime: "16:00", cards: false, cardsTime: "19:00", smart: true,
     quiet: true, quietFrom: "22:00", quietTo: "07:00", vapid: "", push: false};
   const HOUR = 36e5, DAY = 864e5, WINDOW = 14 * DAY, GRACE = 10 * 60000;
   const p2 = n => String(n).padStart(2, "0");
@@ -48,7 +48,7 @@ const RM_CORE = (() => {
   }
   const list = (a, n) => a.length <= n ? a.join(", ") : a.slice(0, n).join(", ") + ` and ${a.length - n} more`;
   function hm(m){ const h = Math.floor(m / 60), r = m % 60; return h && r ? `${h}h ${r}m` : h ? `${h}h` : `${r}m`; }
-  // in: {now, tasks, occ, cards, cfg, top, snoozes, fmtTime(hh:mm), fmtDay(iso)}; out: [{id
+  // in: {now, tasks, occ, cards, cfg, top, snoozes, smart (Smart Reminders, already worked out), fmtTime(hh:mm), fmtDay(iso)}; out: [{id
   function compute(inp){
     const c = cfgOf(inp.cfg), now = inp.now, today = ymd(new Date(now)), end = now + WINDOW;
     const fT = inp.fmtTime || (t => t), fD = inp.fmtDay || (s => s);
@@ -112,12 +112,15 @@ const RM_CORE = (() => {
         if (n) add({id: `r:f:${day}`, at: at(day, c.cardsTime), title: "Flashcards Due", body: `${n} flashcard${n === 1 ? " is" : "s are"} ready for review. A few minutes keeps them fresh.`, taskId: "", kind: "cards"}, null);
       }
     }
+    if (c.smart) (inp.smart || []).forEach(s => { if (s && s.id && s.taskId && ok(s.at) && !inQuiet(s.at, c)) out.push({id: s.id, at: s.at, title: s.title || "Task", body: s.body || "", taskId: s.taskId, kind: "smart", key: s.key || ""}); });
     (inp.snoozes || []).forEach(s => { if (s && s.id && ok(s.at)) out.push({id: s.id, at: s.at, title: s.title || "Reminder", body: s.body || "", taskId: s.taskId || "", kind: "snooze"}); });
     out.forEach(r => { if (r._t) { r.body = phrase(r._t, r.at); delete r._t; } });
     out.sort((a, b) => a.at - b.at || (a.id < b.id ? -1 : 1));
-    const seen = new Set(), last = {};
+    const seen = new Set(), last = {}, near = {};
+    out.forEach(r => { if (r.kind === "task") (near[r.taskId] = near[r.taskId] || []).push(r.at); });
     return out.filter(r => {
       if (seen.has(r.id)) return false; seen.add(r.id);
+      if (r.kind === "smart" && (near[r.taskId] || []).some(x => Math.abs(x - r.at) < 45 * 60000)) return false;
       if (r.taskId && r.kind === "task") { if (last[r.taskId] && r.at - last[r.taskId] < 15 * 60000) return false; last[r.taskId] = r.at; }
       return true;
     }).slice(0, 400);
@@ -171,12 +174,15 @@ const RM_CORE = (() => {
     let top = "";
     if (c.morning) { try { const F = FOCUS || computeFocus(); const x = F && F.ranked && F.ranked.find(r => r.t && !MILESTONE(r.t.type)); top = x && x.t ? x.t.title : ""; } catch (e) {} }
     const snoozes = lsGet(LS_SNOOZE, []).filter(s => s && s.at > now - 36e5);
-    return {now, tasks, occ, cards, cfg: c, top, snoozes, fmtTime, fmtDay: s => fmtDate(s)};
+    let smart = [];
+    if (c.smart && SBSMART) { try { smart = SBSMART.list(c, now); } catch (e) { console.warn("reminders: smart", e); } }
+    return {now, tasks, occ, cards, cfg: c, top, snoozes, smart, fmtTime, fmtDay: s => fmtDate(s)};
   }
   function refresh(){
     let list = [];
     try { list = RM_CORE.compute(gather()); } catch (e) { console.warn("reminders", e); return; }
     LIST = list;
+    if (SBSMART) { try { SBSMART.seen(list); } catch (e) {} }
     const sig = JSON.stringify(list.map(r => [r.id, r.at, r.title, r.body]));
     const changed = sig !== lastSig; lastSig = sig;
     if (changed) { deskSend(list); queueSoon(); }
@@ -209,7 +215,7 @@ const RM_CORE = (() => {
   async function show(r, force){
     const visible = !force && document.visibilityState === "visible" && document.hasFocus();
     if (visible || perm() !== "granted") {
-      if (document.visibilityState === "visible") toast(`${r.title}${r.body ? ": " + r.body : ""}`, null, r.taskId && state.tasks[r.taskId] ? {label: "Open", fn: () => openTask(r.taskId)} : {label: "Snooze", fn: () => snooze(r)});
+      if (document.visibilityState === "visible") toast(`${r.title}${r.body ? ": " + r.body : ""}`, null, [SBSMART && SBSMART.action(r), r.taskId && state.tasks[r.taskId] ? {label: "Open", fn: () => openTask(r.taskId)} : {label: "Snooze", fn: () => snooze(r)}]);
       if (visible) return;
     }
     if (DESK && typeof DESK.notify === "function") { try { await DESK.notify({title: r.title, body: r.body, taskId: r.taskId}); return; } catch (e) {} }
@@ -474,6 +480,7 @@ const RM_CORE = (() => {
             <div class="rm-row">${cb("hoursBefore", c.hoursBefore, "Before a due time:")}${sel("hours", c.hours, [[0.5, "30 minutes"], [1, "1 hour"], [2, "2 hours"], [3, "3 hours"], [6, "6 hours"]], "How long before")}</div>
             ${cb("exams", c.exams, "Exams and quizzes also 3 days before")}
           </div>
+          ${SBSMART ? SBSMART.row(c) : ""}
           <p class="mini" style="margin:0">You can change the reminder for a single task in its Advanced Settings.</p>
         </fieldset>
         <fieldset><legend>Calendar Events</legend>
