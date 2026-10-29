@@ -2273,6 +2273,14 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 }
 @media (min-width:640px){.pg-right>.wb-pick,.pg-right>.wb-optbtn{display:none}}
 .key-row input.key-mask{-webkit-text-security:disc}
+/* Holidays and days off, beside the day's number in the month view (wide screens; phones read them in the day's label) */
+.cal .day-hol{display:none}
+@media (min-width:900px){
+  .cal .day{position:relative}
+  .cal .day-hol{display:block;position:absolute;top:9px;left:40px;right:6px;font:600 .7rem/1.2 var(--display);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;pointer-events:none}
+  .cal .day.is-today .day-hol{left:84px}
+  .cal .day-hol.off{color:var(--accent)}
+}
 /* ===== module: 05-account.css ===== */
 /* Studyboard account sheets */
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}
