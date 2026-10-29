@@ -57669,14 +57669,16 @@ var COMP_EXTRA = [];
     if (act) act.stopAll();
     const keepMood = cur && cur.id === c.id ? mood : null;
     let keepAt = null;
-    if (box && box.dataset.x && homeSig) { const o = +box.dataset.px || sizePx(c), dc = travelAnim || glideAnim ? drawnCentre() : {x: +box.dataset.x + o / 2, y: +box.dataset.y + o / 2}; keepAt = {x: dc.x, y: dc.y}; }
+    if (box && box.dataset.x && homeSig) { const o = +box.dataset.px || sizePx(c), dc = travelAnim || glideAnim ? drawnCentre() : {x: +box.dataset.x + o / 2, y: +box.dataset.y + o / 2}; keepAt = {x: dc.x, y: dc.y, px: +box.dataset.px || 0, spot: box.dataset.spot || ""}; }
     cur = c; curSig = sig; homeSig = "";
     compChanged();
     if (box) { stopTravel(); if (glideAnim) try { glideAnim.cancel(); } catch (e) {} box.remove(); }
     layer.insertAdjacentHTML("beforeend", `<div class="cp cp-${c.pose}" data-id="${esc(c.id)}"><span class="cp-shadow"></span><div class="cp-move"><div class="cp-breathe">${rigSvg(c, {wear: wearOf(c)})}</div></div><div class="cp-fx"></div><div class="cp-hit" tabindex="0" role="button" aria-label="${esc(nameOf(c))}, your study companion. Press to say hi. Press and hold, or right-click, to choose a companion."></div></div>`);
     box = layer.querySelector(".cp"); vext = null;
-    { const px0 = sizePx(c); box.style.cssText = `left:0px;top:0px;width:${px0}px;height:${px0}px`; front.appendChild(box);
-      if (keepAt) { const l = Math.round(keepAt.x - px0 / 2), t = Math.round(keepAt.y - px0 / 2); box.style.left = l + "px"; box.style.top = t + "px"; box.dataset.x = l; box.dataset.y = t; box.dataset.px = px0; homeSig = [l, t, px0].join(","); } }
+    // rebuilt where it sat (a seat in the tab bar, its page's circle): it keeps that size, so it never sits there oversized
+    // while a sheet or the keyboard holds off the next placement
+    { const px0 = keepAt && keepAt.px && (keepAt.spot === "dock" || keepAt.spot === "slot" || keepAt.spot === "pin") ? keepAt.px : sizePx(c); box.style.cssText = `left:0px;top:0px;width:${px0}px;height:${px0}px`; front.appendChild(box);
+      if (keepAt) { const l = Math.round(keepAt.x - px0 / 2), t = Math.round(keepAt.y - px0 / 2); box.style.left = l + "px"; box.style.top = t + "px"; box.dataset.x = l; box.dataset.y = t; box.dataset.px = px0; if (keepAt.spot) box.dataset.spot = keepAt.spot; homeSig = [l, t, px0].join(","); } }
     act = actor(c, box, {spawn: spawnFx, watch: motionWatch});
     applyVars();
     place();
