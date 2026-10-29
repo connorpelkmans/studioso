@@ -127,6 +127,8 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
     await page.locator("#arCards li").first().locator('textarea[data-f="back"]').fill("Water moving across a selectively permeable membrane toward more solute, with no ATP.");
     ok(await page.inputValue("#arName") === "Osmosis and Tonicity", "a new deck, named by the AI");
     f = await fits(page); ok(f.dlg <= 1, "the review fits");
+    ok(await page.locator("#arNoteOn").count() === 1 && !(await page.isChecked("#arNoteOn")), "Save a Summary Note Too is offered, and off unless you turn it on");
+    await page.check("#arNoteOn");
     await page.click("#arSave"); await page.waitForTimeout(400);
     let st = await S(page);
     const deck = Object.values(st.decks).find(d => d.name === "Osmosis and Tonicity");
@@ -148,6 +150,7 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
     ok(JSON.stringify(a1.tools) === JSON.stringify([{url_context: {}}]) && !a1.generationConfig.responseMimeType && !a1.generationConfig.responseSchema, "the page is read with the url_context tool (no JSON mode with a tool)");
     ok(/the web page at https:\/\/www\.khanacademy\.org\/science\/biology\/membranes\/active-transport\b/.test(a1.contents[0].parts[0].text) && !/#intro/.test(a1.contents[0].parts[0].text) && /Answer with JSON only/.test(a1.contents[0].parts[0].text), "the request names the page (https added, the #part dropped) and asks for JSON");
     await page.selectOption("#arDeck", "d1");
+    await page.check("#arNoteOn");
     await page.click("#arSave"); await page.waitForTimeout(400);
     st = await S(page);
     ok(st.decks.d1.cards.length === 3 && st.decks.d1.cards.some(c => c.front === "What is an antiporter?"), "the cards are added to the chosen deck");
@@ -197,6 +200,7 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
     const c1 = pc.context().claude[0].body;
     ok(/The student pasted its transcript/.test(JSON.stringify(c1.messages)) && /Today: osmosis/.test(JSON.stringify(c1.messages)) && !(c1.tools || []).some(t => /web_fetch/.test(t.type)), "the pasted transcript goes to Claude as text, with no web tool");
     ok(/The source's own text/.test(JSON.stringify(pc.context().claude[1].body.messages)), "and the cards are checked against it");
+    await pc.check("#arNoteOn");
     await pc.click("#arSave"); await pc.waitForTimeout(400);
     let sc = await S(pc);
     const cn = Object.values(sc.notes).find(x => x.src);
@@ -206,6 +210,8 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
     await pc.click("#aiGo"); await pc.waitForSelector("#arSave", {timeout: 15000});
     const wf = pc.context().claude.find(x => (x.body.tools || []).some(t => t.type === "web_fetch_20250910"));
     ok(wf && wf.headers["anthropic-beta"] === "web-fetch-2025-09-10" && wf.body.tools.find(t => t.type === "web_fetch_20250910").name === "web_fetch" && !wf.body.tool_choice, "Claude reads the page with its web fetch tool (beta header, no forced tool)");
+    { const before = Object.keys((await S(pc)).notes).length; await pc.click("#arSave"); await pc.waitForTimeout(400); const after = await S(pc);
+      ok(Object.keys(after.notes).length === before && Object.values(after.decks).some(d => /Active Transport/.test(d.name)), "saved with the switch off: the deck, and no note on the board"); }
     ok(!JSON.stringify(pc.context().claude.map(x => x.body)).includes("sk-ant-TEST"), "no key in the bodies");
     ok(pc.errs.length === 0, "no console errors with Claude: " + pc.errs.join(" | "));
     await pc.context().close();
