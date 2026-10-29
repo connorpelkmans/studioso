@@ -44,7 +44,7 @@
   const ORDER = {
     account: ["sb-signout", "sb-signin", "sb-connect", "sb-issues", "plan-open"],
     appearance: ["theme-set", "shop", "anim-mode", "text-size", "lang-set", "a11y-contrast", "anim-toggle", "daily-quote", "scene-moment", "comp-set"],
-    study: ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "g-grades", "bd-new-course", "wkr-open", "fgs-open", "ai-setup", "sx-settings"],
+    study: ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "ap-mode", "ap-pro", "g-grades", "bd-new-course", "wkr-open", "fgs-open", "ai-setup", "sx-settings"],
     capture: ["cap-try"],
     school: ["sem-open", "lms-open", "cal-export", "cal-sync", "import-syllabus", "grp-page"],
     app: ["tz-shift", "rm-open", "sbw-open", "pwa-install", "install", "desk-version", "ob-replay", "tour-open", "bug-open"],
@@ -53,7 +53,7 @@
   // Sub-tabs inside a category with many rows
   const SUBS = {
     appearance: [["Look", ["theme-set", "shop", "scene-moment", "daily-quote", "comp-set"]], ["Accessibility", ["text-size", "a11y-contrast", "anim-mode", "anim-toggle"]]],
-    study: [["Study Plan", ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "g-grades", "bd-new-course", "wkr-open", "fgs-open"]], ["AI and Search", ["ai-setup", "sx-settings"]]],
+    study: [["Study Plan", ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "ap-mode", "ap-pro", "g-grades", "bd-new-course", "wkr-open", "fgs-open"]], ["AI and Search", ["ai-setup", "sx-settings"]]],
     school: [["School Sites", ["sem-open", "lms-open", "import-syllabus"]], ["Calendar", ["cal-export", "cal-sync"]], ["Groups", ["grp-page"]]],
     app: [["Reminders", ["rm-open", "sbw-open", "tz-shift"]], ["Install", ["pwa-install", "install", "desk-version"]], ["Help", ["ob-replay", "tour-open", "bug-open"]]],
     data: [["Backups", ["fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "restore"]], ["Import and Export", ["import", "ia-open", "export-data"]], ["Cleanup", ["new-term", "archive-open", "trash-open", "clear-all"]]]
@@ -62,7 +62,7 @@
   // Extra words people might search for, per row
   const SYN = {"theme-set": "dark light mode night", shop: "theme colors stickers pins cards", "anim-toggle": "motion confetti", "comp-set": "companion pet stay still fixed corner move", "anim-mode": "animation motion static still saver", "text-size": "font bigger larger smaller accessibility dynamic type zoom", "lang-set": "language idioma espanol spanish translate locale", "a11y-contrast": "contrast accessibility readable calm background dim blur", "tz-shift": "timezone travel daylight saving dst clock",
     "sb-connect": "sync cloud online login", "sb-signin": "sync login", "sb-issues": "conflict merge two devices edited resolve", "sb-signout": "log out logout", "plan-open": "pro upgrade subscription devices storage",
-    "area-open": "major program field subject discipline degree", "bd-new-course": "milestones rubric breakdown", dailyIn: "study time plan", capIn: "weekly limit", "ai-setup": "gemini key chatbot", "sx-settings": "find ctrl k", "g-grades": "marks gpa", "wkr-open": "weekly review sunday summary recap week slipped", "fgs-open": "streak study days rest days habit gentle forgiving",
+    "area-open": "major program field subject discipline degree", "bd-new-course": "milestones rubric breakdown", dailyIn: "study time plan", "ap-mode": "autopilot catch up missed sessions reschedule overnight day off", "ap-pro": "autopilot catch up missed sessions reschedule overnight day off", capIn: "weekly limit", "ai-setup": "gemini key chatbot", "sx-settings": "find ctrl k", "g-grades": "marks gpa", "wkr-open": "weekly review sunday summary recap week slipped", "fgs-open": "streak study days rest days habit gentle forgiving",
     "lms-open": "d2l lms school sites", "cal-export": "calendar ics google outlook apple", "import-syllabus": "pdf course", "sem-open": "semester first run start setup onboarding import syllabus week plan", "grp-page": "classmates share",
     "rm-open": "alerts push notify", "sbw-open": "widget tray startup desktop", "ob-replay": "tour help welcome start", "tour-open": "tour help guide orientation walkthrough tutorial", "bug-open": "bug report feedback problem issue idea support contact", "pwa-install": "home screen app",
     "fsb-choose": "google drive onedrive folder backup", folder: "google drive onedrive folder backup", "backup-now": "save backup copy device", "restore": "undo backup", "export": "download backup zip files", "export-json": "download backup data only json", "import": "upload backup", "ia-open": "anki apkg colpkg quizlet todoist notion csv another app switch", "export-full": "files zip",

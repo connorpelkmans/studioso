@@ -468,7 +468,8 @@ function streakNow(){
   const k = [state.updated || 0, today, Object.keys(state.tasks || {}).length, (focusDaysNow()[today] || 0)].join("|");
   if (GMEMO.k === k && GMEMO.v) return GMEMO.v;
   const from = RS.add(today, -400), active = RS.activityDays({tasks: allTasks(), focusDays: focusDaysNow(), log: g.log, timeDays: sbtimeDays(from, today), from, to: today});
-  const res = RS.streak({today, active, cfg: g, best: g.best});
+  // A day off (Take Today Off) counts as a rest day
+  const res = RS.streak({today, active, cfg: Object.assign({}, g, {rests: Object.assign({}, state.settings && state.settings.daysOff, g.rests)}), best: g.best});
   GMEMO = {k, v: res};
   return res;
 }

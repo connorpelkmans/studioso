@@ -414,7 +414,14 @@ function inputNow(){
   let cap = null; try { if (availActive()) cap = Object.assign({}, availDays(today, addDays(today, 21 * 7))); } catch (e) { cap = null; }
   const A = typeof SBACC !== "undefined" ? SBACC : null;
   const cs = A ? A.capScale() : 1, wk = [0, 1, 2, 3, 4, 5, 6].map(i => A ? A.wkScale(addDays(today, i)) : 1).map((v, i) => ({d: parse(addDays(today, i)).getDay(), v})).sort((p, q) => p.d - q.d).map(x => x.v);
+  cap = offCaps(today, cap);
   return {today, tasks, busy, cap, dailyHours: dailyHours() || 3, capScale: cs, wkScale: wk.some(v => v !== 1) ? wk : null, maxWeeks: 20, minWeeks: 6};
+}
+// Days off have no study time
+function offCaps(today, cap){
+  const off = Object.keys((state.settings && state.settings.daysOff) || {}).filter(d => d >= today);
+  if (!off.length) return cap;
+  const out = Object.assign({}, cap || {}); off.forEach(d => { out[d] = 0; }); return out;
 }
 // Before Today's Plan is ready: the tasks as they are
 function inputLegacy(){
@@ -430,7 +437,7 @@ function inputLegacy(){
   BUSY_CACHE = keep;
   const A = typeof SBACC !== "undefined" ? SBACC : null;
   const cs = A ? A.capScale() : 1, wk = [0, 1, 2, 3, 4, 5, 6].map(i => A ? A.wkScale(addDays(today, i)) : 1).map((v, i) => ({d: parse(addDays(today, i)).getDay(), v})).sort((p, q) => p.d - q.d).map(x => x.v);
-  return {today, tasks, busy, dailyHours: dailyHours() || 3, capScale: cs, wkScale: wk.some(v => v !== 1) ? wk : null, maxWeeks: 20, minWeeks: 6};
+  return {today, tasks, busy, cap: offCaps(today, null), dailyHours: dailyHours() || 3, capScale: cs, wkScale: wk.some(v => v !== 1) ? wk : null, maxWeeks: 20, minWeeks: 6};
 }
 function modelNow(){
   const k = [state.updated || 0, todayISO(), new Date().getHours(), dailyHours(), tasksArr().length, AUTO_ON ? 1 : 0, typeof SBACC !== "undefined" && SBACC ? SBACC.sig() : ""].join("|");
@@ -643,11 +650,11 @@ function showSheet(){
   } else if (!W.past && W.levelIdx >= 2) box = `<div class="cr-box"><h3>Pulling Work Forward</h3><p class="mini" style="margin:0">Nothing here can move earlier in a way that helps. Exams and quizzes stay put, and blocked or nearly finished work isn't suggested. Starting the biggest item now still spreads the load.</p></div>`;
   const days7 = W.days.map(d => m.days.find(y => y.date === d)).filter(Boolean), dMax = Math.max(1, ...days7.map(x => Math.max(x.demand, x.capacity)));
   const strip = isDay ? "" : `<div class="cr3-days" role="group" aria-label="Days of this week">${days7.map(x => `<button type="button" class="cr3-day lv${x.levelIdx}${x.past ? " is-past" : ""}" data-act="cr-day" data-id="${x.date}" ${x.past ? "disabled" : ""} aria-label="${esc(`${dayWord(x.date)}: ${fmtHM(x.demand) || "nothing"} of work, ${LV_WORD[x.levelIdx]}`)}"><span class="cr3-bar"><i style="height:${Math.round(Math.min(1, x.demand / dMax) * 100)}%"></i><em style="bottom:${Math.round(Math.min(1, x.capacity / dMax) * 100)}%"></em></span><b>${esc(parse(x.date).toLocaleDateString(undefined, {weekday: "short"}))}</b><span>${x.demand >= 0.25 ? esc(fmtHM(x.demand)) : "–"}</span>${x.due.length ? `<span class="cr3-due">${x.due.length} due</span>` : ""}</button>`).join("")}</div>`;
-  const dayEx = isDay ? `<p class="mini" style="margin:0">${D.capacity < (D.cap0 != null ? D.cap0 : dailyHours()) - 0.05 ? `Classes or events leave about ${fmtHM(D.capacity)} of study time. ` : ""}Load ${fmtHM(D.demand)} against ${fmtHM(D.capacity)} of study time. <button type="button" class="link-btn" data-act="cr-week" data-id="${ws}">See the Whole Week</button></p>` : `<p class="mini" style="margin:0">About ${fmtHM(W.demand)} of work and deadline pressure against ${fmtHM(W.capacity)} of study time. The busiest day is ${W.peakDay ? esc(dayWord(W.peakDay)) : "none"} at ${ratioText(W.peak)}.</p>`;
+  const dayEx = isDay ? `<p class="mini" style="margin:0">${dayIsOff(D.date) ? "" : D.capacity < (D.cap0 != null ? D.cap0 : dailyHours()) - 0.05 ? `Classes or events leave about ${fmtHM(D.capacity)} of study time. ` : ""}Load ${fmtHM(D.demand)} against ${fmtHM(D.capacity)} of study time. <button type="button" class="link-btn" data-act="cr-week" data-id="${ws}">See the Whole Week</button></p>` : `<p class="mini" style="margin:0">About ${fmtHM(W.demand)} of work and deadline pressure against ${fmtHM(W.capacity)} of study time. The busiest day is ${W.peakDay ? esc(dayWord(W.peakDay)) : "none"} at ${ratioText(W.peak)}.</p>`;
   const LV_COL = ["#4C9BE8", "#3FA866", "#D9A21B", "#E8833A", "#D3352A"], dem = isDay ? D.demand : W.demand, cap = isDay ? D.capacity : W.capacity;
   const html = `<form class="sheet cr-sheet cr3">${bandHead(title, crIcon(lvIdx), LV_COL[lvIdx] || "#4C9BE8", `${LV_WORD[lvIdx]} · ${esc(reasons)}`)}<div class="sheet-body">
     <div class="cr3-sum"><div><b>${fmtHM(dem) || "0h"}</b><span>of work</span></div><div><b>${fmtHM(cap) || "0h"}</b><span>of study time</span></div><div><b class="${dem > cap + 0.25 ? "over" : ""}">${cap > 0 ? (dem / cap).toFixed(1) + "×" : "–"}</b><span>${dem > cap + 0.25 ? fmtHM(dem - cap) + " over" : "fits"}</span></div></div>
-    ${dayEx}${strip}${box}
+    ${dayEx}${isDay && window.SBAUTOPILOT ? SBAUTOPILOT.dayRow(D.date) : ""}${strip}${box}
     <h3 class="cr3-h">${isDay ? "On This Day" : "What's Driving This Week"}</h3>
     ${order.length ? `<ul class="cr-items">${order.map(x => itemHtml(x, ws, byId[x.id], today)).join("")}</ul>` : `<p class="mini" style="margin:0">Nothing due or building up here.</p>`}
     ${m.noEstimate ? `<p class="cr-note">Tasks without a time estimate use typical hours for their type.</p>` : ""}

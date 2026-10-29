@@ -130,6 +130,8 @@ const PRIO_M = {low:0.8, med:1, high:1.25, urgent:1.6};
 const LATE_M = {none:1.2, penalty:1, free:0.85, unknown:1};
 const LATE_LABEL = {unknown:"Not sure", none:"Not accepted", penalty:"Accepted with a penalty", free:"Accepted, no penalty"};
 const dailyHours = () => Math.max(0, Number(state.settings.dailyHours ?? 3));
+// A day off (Take Today Off, or a day picked in the Calendar): no study time is planned that day. Synced in settings.daysOff.
+const dayIsOff = d => !!(d && state.settings && state.settings.daysOff && state.settings.daysOff[d]);
 function todayHours(){
   try { const o = JSON.parse(localStorage.getItem("coursework:today") || "null"); if (o && o.d === todayISO() && isNum(o.h)) return Number(o.h); } catch(e) {}
   return dailyHours();
@@ -405,7 +407,7 @@ function computeFocus(){
   const sd = studyDay(now), leftH = (sd.night ? sd.end - sd.start : sd.left) / 60;
   const th0 = Math.max(0, Math.min(thSet - doneToday, leftH));
   let av = null; try { av = availToday(now); } catch(e) {}
-  const th = av && av.active ? Math.min(th0, av.res.total / 60) : th0;
+  const th = dayIsOff(today) ? 0 : av && av.active ? Math.min(th0, av.res.total / 60) : th0;
   PTS_W = pointsWeights();
   const open = tasksArr().filter(t => t.status !== "done" && t.due).concat(groupPlanTasks(), examStudyTasks(today));
   prereqDue(open, today, dh);
@@ -414,7 +416,7 @@ function computeFocus(){
   const B = busyDays(today, addDays(today, horizon));
   const day = [th], cum = [0];
   let AD = null; if (av && av.active) { try { AD = availDays(addDays(today, 1), addDays(today, horizon)); } catch(e) {} }
-  for (let i = 1; i <= horizon; i++) { const d = addDays(today, i); day.push(Math.min(dh * (accOf() ? accOf().wkScale(d) : 1) * busyFactor(B.m[d] || 0), AD && AD[d] != null ? AD[d] : Infinity)); }
+  for (let i = 1; i <= horizon; i++) { const d = addDays(today, i); day.push(dayIsOff(d) ? 0 : Math.min(dh * (accOf() ? accOf().wkScale(d) : 1) * busyFactor(B.m[d] || 0), AD && AD[d] != null ? AD[d] : Infinity)); }
   for (let i = 1; i <= horizon; i++) cum.push(cum[i - 1] + day[i - 1]);
   const stamp = nowStamp(), nowMs = now.getTime(), nowMin = now.getHours() * 60 + now.getMinutes();
   // Free hours from now until a time later today, from today's free windows when there are some
@@ -581,7 +583,7 @@ function computeFocus(){
   {
     const flatToday = ranked.reduce((s, x) => s + (x.enough ? 0 : x.needFlat), 0), extra = needToday - Math.max(flatToday, th);
     const dayLeft = Math.max(0, 24 - now.getHours() - now.getMinutes() / 60 - 0.5), add = Math.min(Math.ceil(extra * 2) / 2, Math.max(1, Math.ceil(thSet)), Math.floor(Math.max(0, Math.min(10, dayLeft + doneToday) - thSet) * 2) / 2);
-    if (extra >= 0.5 && add >= 0.5) {
+    if (extra >= 0.5 && add >= 0.5 && !dayIsOff(today)) {
       const low = []; for (let i = 1; i <= 7 && low.length < 3; i++) { if (day[i] < dh * 0.6) { const d = addDays(today, i); low.push({d, what: (B.what[d] || [])[0] || ""}); } }
       if (low.length) busyAhead = {add, to: thSet + add, days: low, all: add + 0.01 >= Math.ceil(extra * 2) / 2};
     }
@@ -846,7 +848,8 @@ function focusHtml(){
   const workable = ranked.filter(x => !x.fixed);
   const todayList = workable.filter(x => x.alloc > 0);
   ui.focusOpen = true;
-  let hero = null; if (ui.focusOpen) { try { hero = nextUp(F); } catch (e) { hero = null; } }
+  const offToday = dayIsOff(todayISO());
+  let hero = null; if (ui.focusOpen && !offToday) { try { hero = nextUp(F); } catch (e) { hero = null; } }
   const heroId = hero ? hero.x.t.id : "";
   const pastFixed = Object.values(F.info).filter(x => x.fixed && inView(x) && x.t.status !== "done" && x.dl < 0).sort((a, b) => b.dl - a.dl);
   const lateRows = workable.filter(x => x.dl < 0 || x.past), soonRows = workable.filter(x => !(x.alloc > 0));
@@ -854,7 +857,7 @@ function focusHtml(){
   const week = weekAhead(F, inView), pickDay = /^d:/.test(ui.planTile || "") ? week.find(w => w.iso === ui.planTile.slice(2)) : null;
   if ((ui.planTile === "late" && !overdue) || (/^d:/.test(ui.planTile || "") && !pickDay) || (ui.planTile && ui.planTile !== "late" && !/^d:/.test(ui.planTile))) ui.planTile = "";
   const pick = ui.planTile || "";
-  const base = pick === "late" ? lateRows : pickDay ? pickDay.rows : todayList.length ? todayList : workable, rowsAll = pick ? base : base.filter(x => x.t.id !== heroId);
+  const base = pick === "late" ? lateRows : pickDay ? pickDay.rows : offToday ? [] : todayList.length ? todayList : workable, rowsAll = pick ? base : base.filter(x => x.t.id !== heroId);
   const cap = pick || (todayList.length && ui.planAllToday) ? rowsAll.length : todayList.length ? 5 : 3;
   const show = rowsAll.slice(0, cap), hiddenToday = !pick && todayList.length ? rowsAll.slice(show.length) : [];
   const sum = [];
@@ -869,7 +872,7 @@ function focusHtml(){
   const nBlk = F.blocked.filter(inView).length, nLater = F.later.filter(inView).length;
   const more = ranked.length > show.length + (heroId ? 1 : 0) || nBlk || nLater;
   const listLabel = pick === "late" ? "Overdue" : pickDay ? (pickDay.i === 0 ? "Due Today" : "Due " + esc(fmtDate(pickDay.iso))) : heroId ? (show.some(x => x.alloc > 0) ? "Also Today" : "Then") : "";
-  let spare = ""; if (ui.focusOpen && !heroId && !show.length && !pick) { try { spare = nextUpSpare(F, inView); } catch (e) { spare = ""; } }
+  let spare = ""; if (ui.focusOpen && !offToday && !heroId && !show.length && !pick) { try { spare = nextUpSpare(F, inView); } catch (e) { spare = ""; } }
   const skipped = !heroId && ui.skipNext && ui.skipNext.day === todayISO() && ui.skipNext.ids.length ? `<p class="nu-skipped mini">You skipped every suggestion for now. <button class="link-btn" data-act="nu-back">Go Back</button></p>` : "";
   const foot = (k, label, open) => `<button class="pf-link" data-act="plan-sec" data-id="${k}" aria-expanded="${open}" aria-controls="plan-${k}">${label}<svg class="pf-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>`;
   const moreOpen = !!ui.planMore, howOpen = !!ui.planHow;
@@ -888,11 +891,11 @@ function focusHtml(){
   return `<section class="focus plan" aria-label="Today's Plan">
     <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? `<p class="plan-gap">${F.gapWhy.map(esc).join(" ")}</p>` : ""}</div>
       ${(hoursBar => { PLAN_HOURS = hoursBar; return `<div class="fh-ctl${ptStats ? " fh-chip has-stats" : ""}${autoChipHtml() ? "" : " fh-only-hours"}">${hoursBar}${autoChipHtml()}</div>`; })(`<div class="hours-ctl" role="group" aria-label="Study time available today"><span class="mini">Time Today</span><span class="hc-row"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button><b${hoursTitle ? ` title="${esc(hoursTitle)}"` : ""}>${fmtHM(F.thSet) || "0m"}</b><button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></span></div>`)}</div>
-    ${ui.focusOpen ? `${window.SBPRO ? SBPRO.todayHtml() : ""}${dayTimelineHtml(F, todayList, heroId)}${nextUpHtml(F, hero)}${skipped}${spare}${planNotesHtml(F, inView, warn)}${pastHtml}${availStripHtml(F)}
-      ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
+    ${ui.focusOpen ? `${window.SBAUTOPILOT ? SBAUTOPILOT.lineHtml() : ""}${window.SBPRO ? SBPRO.todayHtml() : ""}${dayTimelineHtml(F, todayList, heroId)}${nextUpHtml(F, hero)}${skipped}${spare}${planNotesHtml(F, inView, warn)}${pastHtml}${availStripHtml(F)}
+      ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick || offToday ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
       ${fixedHtml}
       ${extraHtml}
-      <div class="plan-foot">${more ? foot("more", `Full Ranking${nBlk ? `, Waiting (${nBlk})` : ""}${nLater ? `, Coming Up (${nLater})` : ""}`, moreOpen) : ""}${foot("how", "How This Is Ranked", howOpen)}</div>
+      <div class="plan-foot">${more ? foot("more", `Full Ranking${nBlk ? `, Waiting (${nBlk})` : ""}${nLater ? `, Coming Up (${nLater})` : ""}`, moreOpen) : ""}${foot("how", "How This Is Ranked", howOpen)}${window.SBAUTOPILOT ? SBAUTOPILOT.offBtn() : ""}</div>
       ${more ? `<div class="plan-more" id="plan-more" role="region" aria-label="Full Ranking"${moreOpen ? "" : " hidden"}>
         <p class="plan-cap">Everything open, in ranked order. The number on the right is each task's focus score.</p>
         <ol class="plan-list">${ranked.map((x, i) => planRow(x, i, true)).join("")}</ol>
