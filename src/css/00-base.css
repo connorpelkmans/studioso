@@ -2269,3 +2269,4 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
   html.board-max .env{bottom:calc(12px + env(safe-area-inset-bottom,0px))}
 }
 @media (min-width:640px){.pg-right>.wb-pick,.pg-right>.wb-optbtn{display:none}}
+.key-row input.key-mask{-webkit-text-security:disc}
