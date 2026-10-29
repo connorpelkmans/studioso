@@ -153,7 +153,7 @@ function viewCourses(){
   // and the Archive is a header button once something is in it
   const nArch = allCourses().filter(c => c.archived).length, all = tasksArr().filter(t => !t.prepFor && !t.xs), dues = all.map(t => t.due).filter(Boolean).sort();
   const ending = all.length >= 5 && all.filter(t => t.status === "done").length / all.length >= 0.6 && (!dues.length || dayDiff(todayISO(), dues[dues.length - 1]) <= 7);
-  return `<div class="view-head"><h2>Your Courses</h2>${proBtns("courses")}${!ending && nArch ? `<button class="btn small trash-btn arch-btn" data-act="archive-open" aria-label="Archive (${nArch})" title="Archive (${nArch})">${ARCHIVE_SM.replace(/width="15" height="15"/, 'width="16" height="16"')}<span>${nArch}</span></button>` : ""}${trashBtn("course")}</div><div class="course-list" data-sortable="courses">${cards}</div>
+  return `<div class="view-head"><h2>Your Courses</h2>${proBtns("courses")}<!--sites-->${!ending && nArch ? `<button class="btn small trash-btn arch-btn" data-act="archive-open" aria-label="Archive (${nArch})" title="Archive (${nArch})">${ARCHIVE_SM.replace(/width="15" height="15"/, 'width="16" height="16"')}<span>${nArch}</span></button>` : ""}${trashBtn("course")}</div><div class="course-list" data-sortable="courses">${cards}</div>
     <!--term-->${ending ? `<div class="term-bar"><span>${ARCHIVE_SM}Term over?</span><button class="btn small" data-act="new-term">Start a New Term</button><button class="btn small" data-act="archive-open">Open Archive${nArch ? ` (${nArch})` : ""}</button></div>` : ""}`;
 }
 // The line under a course's name
