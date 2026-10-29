@@ -1553,7 +1553,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   const P = SBPRO;
   const proWhy = why => { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(why); };
   const S = () => state.settings || {};
-  const KINDS = [["week", "Week Agenda", "Classes, tasks, space for notes"], ["term", "Term Calendar", "Every deadline and exam"], ["grades", "Grade Report", "Each course, with what you need"], ["prep", "Exam Prep Plan", "Day by day, with topics"]];
+  const KINDS = [["week", "Week Agenda", "Classes, tasks, space for notes"], ["term", "Term Calendar", "Every deadline and exam"], ["grades", "Grade Report", "Each course, with what you need"], ["prep", "Exam Prep Plan", "Day by day, with topics"], ["sheet", "Formula and Diagram Sheet", "An exam's formulas, terms and diagrams"]];
   let PR = null;
   const monday = d => { const x = parse(d); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return iso(x); };
   const dot = (cid, on) => on && cid ? `<i class="pp-dot" style="background:${esc(colorOf(cid))}"></i>` : "";
@@ -1617,13 +1617,13 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       ${topics.length ? `<div class="pp-box"><b>Topics</b>${topics.map(t => `<div><span class="pp-cb"></span> ${esc(t.name)} <em>${esc(conf[t.conf] || "")}</em></div>`).join("")}</div>` : ""}</div>
       <div class="pp-plan">${days.map(d => `<div class="pp-pd"><div class="pp-dh"><b>${esc(parse(d).toLocaleDateString(undefined, {weekday: "long"}))}</b><span>${esc(fmtShort(d))}</span></div>${ss.filter(t => t.due === d).map(t => `<div class="pp-tk"><span class="pp-cb"></span><span>${esc(t.title)}${Number(t.hours) > 0 ? ` <em>${esc(fmtHM(Number(t.hours)))}</em>` : ""}</span></div>`).join("")}</div>`).join("") || `<p>No sessions yet.</p>`}</div>${foot()}</div>`;
   }
-  const build = () => { const o = PR.opts; return PR.kind === "week" ? weekHtml(o) : PR.kind === "term" ? termHtml(o) : PR.kind === "grades" ? gradesHtml(o) : prepHtml(o); };
+  const build = () => { const o = PR.opts; return PR.kind === "week" ? weekHtml(o) : PR.kind === "term" ? termHtml(o) : PR.kind === "grades" ? gradesHtml(o) : PR.kind === "sheet" ? (window.SBEXAMSHEET ? SBEXAMSHEET.html(PR.exam, o) : "") : prepHtml(o); };
 
   /* The sheet */
-  function openPrint(kind){
+  function openPrint(kind, exam){
     if (P.locked()) { proWhy("Print and Save as PDF are part of Studyboard Pro."); return; }
     const ex = examsWithPrep();
-    PR = Object.assign({kind: "week", week: monday(todayISO()), paper: S().printPaper || (/^en-(US|CA)|^es-(US|MX)/.test(navigator.language || "") ? "letter" : "a4"), opts: Object.assign({classes: true, tasks: true, lines: true, color: false}, S().printOpts || {}), exam: ex[0] ? ex[0].id : ""}, PR && PR.keep ? PR : {}, kind ? {kind} : {});
+    PR = Object.assign({kind: "week", week: monday(todayISO()), paper: S().printPaper || (/^en-(US|CA)|^es-(US|MX)/.test(navigator.language || "") ? "letter" : "a4"), opts: Object.assign({classes: true, tasks: true, lines: true, color: false}, S().printOpts || {}), exam: ex[0] ? ex[0].id : ""}, PR && PR.keep ? PR : {}, kind ? {kind} : {}, exam ? {exam} : {});
     if (dlg.open) dlg.close();
     openSheet(`<div class="sheet pro-sheet">${head("Print or Save as PDF")}<div class="sheet-body pr-body"></div><div class="sheet-foot"><span class="mini pr-tip">${/Mac|iPhone|iPad/.test(navigator.userAgent || "") ? "To save a PDF, choose PDF in the print dialog." : "To save a PDF, choose Save as PDF (or Microsoft Print to PDF) as the printer."}</span><span class="spacer"></span><button type="button" class="btn primary" data-act="pro-pr-go">Print</button></div></div>`);
     drawPrint();
@@ -1635,8 +1635,9 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     b.innerHTML = `<div class="pr-kinds" role="radiogroup" aria-label="What to print">${KINDS.map(([k, n, s]) => `<button type="button" role="radio" aria-checked="${PR.kind === k}" class="pr-kind${PR.kind === k ? " on" : ""}" data-act="pro-pr-kind" data-id="${k}"><b>${n}</b><span>${s}</span></button>`).join("")}</div>
       ${PR.kind === "week" ? `<label class="f">Week<select data-pr-week>${[0, 1, 2, 3].map(i => { const w = addDays(mon, i * 7); return `<option value="${w}"${PR.week === w ? " selected" : ""}>${esc(fmtShort(w))} to ${esc(fmtShort(addDays(w, 6)))}${i === 0 ? " (this week)" : ""}</option>`; }).join("")}</select></label>` : ""}
       ${PR.kind === "prep" ? (ex.length ? `<label class="f">Exam<select data-pr-exam>${ex.map(t => `<option value="${esc(t.id)}"${PR.exam === t.id ? " selected" : ""}>${esc(t.title)} · ${esc(fmtShort(t.due))}</option>`).join("")}</select></label>` : `<p class="mini" style="margin:0">No upcoming exam has a prep plan yet. Open an exam and choose Plan My Prep to make one.</p>`) : ""}
+      ${PR.kind === "sheet" && window.SBEXAMSHEET ? SBEXAMSHEET.printControls(PR) : ""}
       <div class="pr-row"><span class="pr-lbl">Paper</span><div class="segb" role="group" aria-label="Paper size"><button type="button" data-act="pro-pr-paper" data-id="letter" aria-pressed="${PR.paper === "letter"}">Letter</button><button type="button" data-act="pro-pr-paper" data-id="a4" aria-pressed="${PR.paper === "a4"}">A4</button></div></div>
-      <div class="pr-opts">${PR.kind === "week" ? chk("classes", "Classes and events") + chk("tasks", "Tasks with checkboxes") + chk("lines", "Lines for notes") : ""}${chk("color", "Course colors (uses more ink)")}</div>
+      <div class="pr-opts">${PR.kind === "week" ? chk("classes", "Classes and events") + chk("tasks", "Tasks with checkboxes") + chk("lines", "Lines for notes") : ""}${PR.kind === "sheet" ? "" : chk("color", "Course colors (uses more ink)")}</div>
       <div class="pr-prev" aria-label="Preview"><div class="pr-scale ${PR.paper}">${build()}</div></div>`;
     b.querySelectorAll("[data-pr-opt]").forEach(x => x.addEventListener("change", () => { PR.opts[x.dataset.prOpt] = x.checked; state.settings = Object.assign({}, state.settings, {printOpts: PR.opts}); saveSettings(); drawPrint(); }));
     const w = b.querySelector("[data-pr-week]"); if (w) w.addEventListener("change", () => { PR.week = w.value; drawPrint(); });
@@ -1685,7 +1686,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   });
   hook("menu", () => inPreview() ? "" : `<button data-act="pro-pr-open" data-group="study"><span>Print or Save as PDF${P.locked() ? " " + PRO_BADGE : ""}<span class="sub">A week agenda, the term calendar, a grade report or an exam prep plan</span></span></button>`);
   P.addFeature({id: "print", name: "Print and PDF", where: "In Schedule, Due Dates, Grades and Settings: a week agenda, term calendar, grade report or exam prep plan", act: "pro-pr-open", icon: '<path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7"/>'});
-  Object.assign(P, {openPrint, printRaw, printHtml: () => PR ? build() : ""});
+  Object.assign(P, {openPrint, printRaw, printHtml: () => PR ? build() : "", redrawPrint: () => { if (PR && dlg.open && dlg.querySelector(".pr-body")) drawPrint(); }});
 
   const css = document.createElement("style");
   css.textContent = `
