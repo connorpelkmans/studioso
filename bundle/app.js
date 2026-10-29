@@ -17177,9 +17177,16 @@ function tick(){
     const b = (under && under.closest(".board")) || drag.board;
     drag.hs = false;
     if (b && b.scrollWidth > b.clientWidth) {
-      const br = b.getBoundingClientRect(), dir = drag.x < br.left + 40 ? -1 : drag.x > br.right - 40 ? 1 : 0;
-      // a phone's columns (a swipe pager): hold at the edge and it glides one column over, then the next if still held
-      if (dir && getComputedStyle(b).display === "flex") {
+      const br = b.getBoundingClientRect(), paged = getComputedStyle(b).display === "flex";
+      let dir = drag.x < br.left + (paged ? 56 : 40) ? -1 : drag.x > br.right - (paged ? 56 : 40) ? 1 : 0;
+      // a phone's columns (a swipe pager): hovering the card over the column peeking in beside the one in view (or holding
+      // it at the edge) glides the board over to that column, then on to the next if still held at the edge
+      if (paged) {
+        const cu = under && under.closest(".col"), cx = cu && cu.closest(".board") === b ? boardColX(b, cu) : null;
+        const at = b._goTo != null && Math.abs(b.scrollLeft - b._goTo) > 2 ? b._goTo : b.scrollLeft;
+        if (cx != null && Math.abs(cx - at) > 30) dir = cx > at ? 1 : -1;
+      }
+      if (dir && paged) {
         drag.hs = true; const now = performance.now();
         if (drag.edgeDir !== dir) { drag.edgeDir = dir; drag.edgeAt = now; drag.edgeN = 0; }
         else if (now - drag.edgeAt > (drag.edgeN ? 700 : 260)) { if (boardStep(b, dir)) drag.edgeN++; drag.edgeAt = now; }
