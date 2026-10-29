@@ -592,7 +592,7 @@ function computeFocus(){
     const t = x.t, r = [];
     const luD = x.lateUntil ? x.lateUntil.slice(0, 10) : "", luT = x.lateUntil ? x.lateUntil.slice(11) : "";
     const pd = Math.round(latePenOf(t) * 100), typ = hasLatePen(t) ? "" : ` (at a typical ${pd}% a day)`;
-    const penTxt = x.W ? `Each day late costs about ${pct(x.W * latePenOf(t))}% of your grade${typ}` : `Late work loses ${hasLatePen(t) ? "" : "about "}${pd}% a day`;
+    const penTxt = hasLatePen(t) ? `Loses ${pd}% a day${x.W ? `, about ${pct(x.W * latePenOf(t))}% of your grade` : ""}` : x.W ? `Each day late costs about ${pct(x.W * latePenOf(t))}% of your grade${typ}` : `Late work loses about ${pd}% a day`;
     if (x.dead) r.push([100, `Past due, and late work isn't accepted. It isn't in today's plan: talk to your instructor if you still want to hand it in`]);
     else if (x.past && x.dl === 0 && t.time) r.push([100, `Was due at ${fmtTime(t.time)} today${x.late === "free" ? ", and late work is accepted" : ""}`]);
     else if (x.past) r.push([100, luD ? `Overdue. Late submissions close ${fmtDate(luD)}${luT && luT !== "23:59" ? " at " + fmtTime(luT) : ""}` : `Overdue by ${-x.dl} day${x.dl === -1 ? "" : "s"}`]);
