@@ -25,7 +25,8 @@ const skinNow = page => page.evaluate(() => document.documentElement.dataset.ski
           localStorage.setItem("sb:onboarded", "1");
           localStorage.setItem("coursework:v2", JSON.stringify({settings: {capacity: 15, style: {skin: "ocean"}}, updated: 1}));
           localStorage.setItem("studyboard:skin", "ocean"); localStorage.setItem("studyboard:skincss", ":root[data-skin=\"ocean\"]{}");
-          if (signedIn) localStorage.setItem("studioso-auth", JSON.stringify({user: {id: "00000000-0000-4000-8000-000000000001"}}));
+          // a complete saved sign-in (a bare user id is thrown away as broken, which now counts as signed out)
+          if (signedIn) localStorage.setItem("studioso-auth", JSON.stringify({access_token: "x.y.z", refresh_token: "r", token_type: "bearer", expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user: {id: "00000000-0000-4000-8000-000000000001", aud: "authenticated", role: "authenticated"}}));
         } catch (e) {}
       }, signedIn);
       const page = await ctx.newPage(); const errs = []; page.on("pageerror", e => errs.push(e.message));

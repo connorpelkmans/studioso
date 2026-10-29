@@ -75,6 +75,10 @@ window.__sbPlanObj = () => PLAN;
   };
   let cfg = mergeCfg(P.cfgRows);
   try { const a = JSON.parse(localStorage.getItem("studioso-auth") || "null"); P.stored = a && a.user && typeof a.user.id === "string" ? a.user.id : (a && a.currentSession && a.currentSession.user && a.currentSession.user.id) || null; } catch (e) {}
+  // The iPhone and desktop apps keep the sign-in in the keychain, not here, so it isn't readable this early: the account from
+  // last time (remembered with the plan hint) stands in until the sign-in loads, so a Pro theme and companion from last time
+  // show straight away instead of the default for a moment
+  if (!P.stored && !(typeof sbLocalOnly === "function" && sbLocalOnly())) try { const h = JSON.parse(localStorage.getItem("studyboard:planHint") || "null"); if (h && typeof h.uid === "string" && h.uid) P.stored = h.uid; } catch (e) {}
 
   let hw = Number((() => { try { return localStorage.getItem(K_HW); } catch (e) { return 0; } })()) || 0;
   const base0 = Math.max(Date.now(), hw), perf0 = typeof performance !== "undefined" ? performance.now() : 0;
@@ -331,6 +335,13 @@ window.__sbPlanObj = () => PLAN;
       setTimeout(() => toast("Your free week of Pro has ended. Everything you made is still here, and the planner stays free.", null, {label: "See Plans", fn: () => proSheet("Your free week of Pro has ended. Keep Pro with any plan below, or carry on with Free.")}), 1200);
     }
   }
+  // The sign-in finished loading and nobody is signed in: forget the account from last time, and that it had Pro, at once
+  hook("auth-none", () => {
+    if (sbUser) return;
+    P.stored = null;
+    try { localStorage.setItem(K_HINT, JSON.stringify({uid: "", pro: false})); } catch (e) {}
+    changed();
+  });
   function watchUser(){
     const id = sbUser ? sbUser.id : null;
     if (id === P.uid) return;
