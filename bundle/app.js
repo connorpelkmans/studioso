@@ -84267,7 +84267,7 @@ ui._day = todayISO();
         }
       } else if (m.type === "childList" && t !== view() && t.id !== "view") {
         // a small piece of the page filled in (an opened section, a menu list); whole-page redraws land on #view and are skipped
-        for (const a of m.addedNodes) if (a.nodeType === 1 && !a.classList.contains("sm-in") && n < 6 && !a.closest(".sm-skip, .g2-band, .detail-head, .view-head, .cf-row, .qa-bar, nav, header") && !a.matches(".ra-more, .ph-more, .ph-menu") && !/^(SCRIPT|STYLE|CANVAS)$/.test(a.tagName)) { if (t.closest("#dlg") && t === document.getElementById("dlg")) continue; play(a, "sm-in"); n++; }
+        for (const a of m.addedNodes) if (a.nodeType === 1 && !a.classList.contains("sm-in") && n < 6 && !a.closest(".sm-skip, .g2-band, .detail-head, .view-head, .cf-row, .qa-bar, nav, header") && !a.matches(".ra-more, .ph-more, .ph-menu") && !/^(SCRIPT|STYLE|CANVAS)$/.test(a.tagName)) { if (t.tagName === "DIALOG") continue; play(a, "sm-in"); n++; }   // a sheet redrawn whole (a button pressed in it) stays still
       }
     }
   });

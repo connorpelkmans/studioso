@@ -30,6 +30,13 @@ const watch = page => page.evaluate(() => { window.__f = []; const t0 = performa
       const g = await page.evaluate(() => window.__f.filter(x => x.g != null).map(x => x.g));
       ok(g.length >= 4 && g[g.length - 1] > g[0] + 150, "and it slides down off the screen: " + g.join(" "));
       ok(await page.evaluate(() => !document.querySelector(".sm-ghost")), "then nothing is left behind");
+      // a sheet redrawn by a button inside it (the Focus timer's Start, Pause, Reset) stays solid: no fade from blank
+      await page.waitForTimeout(400); await page.tap('[data-act="pomo-open"]'); await page.waitForTimeout(700);
+      for (const label of ["Start Focus", "Pause", "Reset"]) {
+        await page.evaluate(() => { window.__lo = 1; const t0 = performance.now(), look = () => { document.querySelectorAll("#pomoDlg > *, #pomoDlg .sm-in").forEach(e => { window.__lo = Math.min(window.__lo, Number(getComputedStyle(e).opacity)); }); if (performance.now() - t0 < 450) requestAnimationFrame(look); }; requestAnimationFrame(look); });
+        await page.locator("#pomoDlg .pomo-ctl button", {hasText: label}).first().tap(); await page.waitForTimeout(550);
+        ok(await page.evaluate(() => window.__lo) === 1, "Focus timer: pressing " + label + " doesn't flash the sheet (" + await page.evaluate(() => window.__lo) + ")");
+      }
       ok(!errs.length, "no page errors " + errs.join(" | "));
       await ctx.close(); }
     { const {ctx, page} = await open(b, true);
