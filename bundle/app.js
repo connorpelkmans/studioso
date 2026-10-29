@@ -14256,15 +14256,17 @@ function noteClipCheck(){
 }
 // The note being edited: a sheet over the page on a phone, and scrolled fully into view on a bigger screen
 const notePhone = () => !!(window.matchMedia && matchMedia("(max-width:700px)").matches);
-let noteShown = null;
+let noteShown = null, noteSheetId = null;
 function noteSheetUp(){
   const el = $(".note.editing"), sheet = !!el && notePhone();
   if (!el) noteMoreOpen = null;
   let bg = $(".n-sheet-bg");
   if (sheet && !bg) { bg = document.createElement("div"); bg.className = "n-sheet-bg"; bg.setAttribute("aria-hidden", "true"); if (bg.showPopover) bg.setAttribute("popover", "manual"); document.body.appendChild(bg); }
   if (bg) { bg.classList.toggle("on", sheet); if (bg.showPopover) try { if (sheet && !bg.matches(":popover-open")) bg.showPopover(); else if (!sheet && bg.matches(":popover-open")) bg.hidePopover(); } catch (e) {} }
-  if (!sheet) return;
+  if (!sheet) { noteSheetId = null; return; }
   el.classList.add("n-sheet");
+  // slides up once when a note opens, not again on every redraw while it's being edited
+  if (noteSheetId !== el.dataset.note) { noteSheetId = el.dataset.note; el.classList.add("n-enter"); if (bg) { bg.classList.remove("n-enter"); void bg.offsetWidth; bg.classList.add("n-enter"); } setTimeout(() => { el.classList.remove("n-enter"); if (bg) bg.classList.remove("n-enter"); }, 500); }
   if (el.showPopover && !el.matches(":popover-open")) {
     const t = $("#noteText"), had = t && document.activeElement === t;
     el.setAttribute("popover", "manual");
@@ -14476,7 +14478,9 @@ function newNoteAt(x, y){
     courseId: (() => { const b = noteBoards().find(x => x.id === noteBoardId()); return b && b.courseId || ""; })(), board: noteBoardId(), created: Date.now()});
   noteEditing = n.id;
   applyChanges([{kind:"note", id: n.id, after: n}], "");
-  setTimeout(() => { const t = $("#noteText"); if (t) t.focus(); }, 60);
+  // straight away, inside the tap, so a phone raises the keyboard together with the sheet
+  { const t = $("#noteText"); if (t) try { t.focus({preventScroll: true}); } catch (e) {} }
+  setTimeout(() => { const t = $("#noteText"); if (t && document.activeElement !== t) t.focus({preventScroll: true}); }, 60);
 }
 function saveNoteText(){
   const t = $("#noteText"); const id = noteEditing;
@@ -16759,6 +16763,15 @@ function toggleTask(id, el){
   if (n.status === "done") { celebrate("check"); popDone(el); if (ui.nextShown === id) { nufbAdd("accept", t); ui.nextShown = null; } }
   applyChanges([{kind:"task", id, after:n}], n.status === "done" ? `Completed ${t.title}` : `Moved ${t.title} back to To Do`, undefined, n.status === "done" ? {done: true} : undefined);
 }
+// Switching tabs cross-fades the old page into the new one (the browser's view transition), instead of the old page
+// vanishing and the new one fading in from blank. 99-smooth.js skips its own page fade while this runs.
+function tabSwap(changed, go){
+  const r = document.documentElement, still = r.dataset.motion === "static" || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  if (!changed || still || typeof document.startViewTransition !== "function" || dlg.open) { go(); return; }
+  r.classList.add("vt-tab");
+  try { const t = document.startViewTransition(go); t.finished.finally(() => r.classList.remove("vt-tab")); }
+  catch (e) { r.classList.remove("vt-tab"); go(); }
+}
 document.addEventListener("click", e => {
   if (suppressClick) { suppressClick = false; e.preventDefault(); e.stopPropagation(); return; }
   const tab = e.target.closest("[data-tab]");
@@ -16769,8 +16782,8 @@ document.addEventListener("click", e => {
     if (want === "courses" && (ui.tab === "files" || ui.tab === "emails")) want = ui.tab;
     if (want === "timeline" && ui.tab !== "timeline") ui.tlJump = true;
     if (want === ui.tab && ui.tab === "courses") ui.courseId = null;
-    ui.tab = want; if (ui.tab !== "courses") ui.courseId = null;
-    render(); window.scrollTo(0, 0); return;
+    const go = () => { ui.tab = want; if (ui.tab !== "courses") ui.courseId = null; render(); window.scrollTo(0, 0); };
+    tabSwap(want !== ui.tab && e.isTrusted, go); return;   // the app's own tab clicks switch at once, in step with what it does next
   }
   if (ui.tab === "notes" && !e.target.closest("dialog")) {
     const nEl = e.target.closest(".note");
@@ -84159,7 +84172,7 @@ ui._day = todayISO();
   hook("render", tab => {
     const key = tab + "|" + (typeof ui !== "undefined" && ui.courseId || "");
     const changed = lastKey !== null && key !== lastKey; lastKey = key;
-    if (changed) play(document.getElementById("view"), "sm-view");
+    if (changed && !root.classList.contains("vt-tab")) play(document.getElementById("view"), "sm-view");
   });
 
   // Tab bar: the tapped tab shows as selected at once, so the highlight fades in with the tap instead of after the page is drawn

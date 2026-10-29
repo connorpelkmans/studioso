@@ -507,15 +507,17 @@ function noteClipCheck(){
 }
 // The note being edited: a sheet over the page on a phone, and scrolled fully into view on a bigger screen
 const notePhone = () => !!(window.matchMedia && matchMedia("(max-width:700px)").matches);
-let noteShown = null;
+let noteShown = null, noteSheetId = null;
 function noteSheetUp(){
   const el = $(".note.editing"), sheet = !!el && notePhone();
   if (!el) noteMoreOpen = null;
   let bg = $(".n-sheet-bg");
   if (sheet && !bg) { bg = document.createElement("div"); bg.className = "n-sheet-bg"; bg.setAttribute("aria-hidden", "true"); if (bg.showPopover) bg.setAttribute("popover", "manual"); document.body.appendChild(bg); }
   if (bg) { bg.classList.toggle("on", sheet); if (bg.showPopover) try { if (sheet && !bg.matches(":popover-open")) bg.showPopover(); else if (!sheet && bg.matches(":popover-open")) bg.hidePopover(); } catch (e) {} }
-  if (!sheet) return;
+  if (!sheet) { noteSheetId = null; return; }
   el.classList.add("n-sheet");
+  // slides up once when a note opens, not again on every redraw while it's being edited
+  if (noteSheetId !== el.dataset.note) { noteSheetId = el.dataset.note; el.classList.add("n-enter"); if (bg) { bg.classList.remove("n-enter"); void bg.offsetWidth; bg.classList.add("n-enter"); } setTimeout(() => { el.classList.remove("n-enter"); if (bg) bg.classList.remove("n-enter"); }, 500); }
   if (el.showPopover && !el.matches(":popover-open")) {
     const t = $("#noteText"), had = t && document.activeElement === t;
     el.setAttribute("popover", "manual");
@@ -727,7 +729,9 @@ function newNoteAt(x, y){
     courseId: (() => { const b = noteBoards().find(x => x.id === noteBoardId()); return b && b.courseId || ""; })(), board: noteBoardId(), created: Date.now()});
   noteEditing = n.id;
   applyChanges([{kind:"note", id: n.id, after: n}], "");
-  setTimeout(() => { const t = $("#noteText"); if (t) t.focus(); }, 60);
+  // straight away, inside the tap, so a phone raises the keyboard together with the sheet
+  { const t = $("#noteText"); if (t) try { t.focus({preventScroll: true}); } catch (e) {} }
+  setTimeout(() => { const t = $("#noteText"); if (t && document.activeElement !== t) t.focus({preventScroll: true}); }, 60);
 }
 function saveNoteText(){
   const t = $("#noteText"); const id = noteEditing;

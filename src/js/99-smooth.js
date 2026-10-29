@@ -37,7 +37,7 @@
   hook("render", tab => {
     const key = tab + "|" + (typeof ui !== "undefined" && ui.courseId || "");
     const changed = lastKey !== null && key !== lastKey; lastKey = key;
-    if (changed) play(document.getElementById("view"), "sm-view");
+    if (changed && !root.classList.contains("vt-tab")) play(document.getElementById("view"), "sm-view");
   });
 
   // Tab bar: the tapped tab shows as selected at once, so the highlight fades in with the tap instead of after the page is drawn

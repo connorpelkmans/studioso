@@ -10,6 +10,15 @@ function toggleTask(id, el){
   if (n.status === "done") { celebrate("check"); popDone(el); if (ui.nextShown === id) { nufbAdd("accept", t); ui.nextShown = null; } }
   applyChanges([{kind:"task", id, after:n}], n.status === "done" ? `Completed ${t.title}` : `Moved ${t.title} back to To Do`, undefined, n.status === "done" ? {done: true} : undefined);
 }
+// Switching tabs cross-fades the old page into the new one (the browser's view transition), instead of the old page
+// vanishing and the new one fading in from blank. 99-smooth.js skips its own page fade while this runs.
+function tabSwap(changed, go){
+  const r = document.documentElement, still = r.dataset.motion === "static" || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  if (!changed || still || typeof document.startViewTransition !== "function" || dlg.open) { go(); return; }
+  r.classList.add("vt-tab");
+  try { const t = document.startViewTransition(go); t.finished.finally(() => r.classList.remove("vt-tab")); }
+  catch (e) { r.classList.remove("vt-tab"); go(); }
+}
 document.addEventListener("click", e => {
   if (suppressClick) { suppressClick = false; e.preventDefault(); e.stopPropagation(); return; }
   const tab = e.target.closest("[data-tab]");
@@ -20,8 +29,8 @@ document.addEventListener("click", e => {
     if (want === "courses" && (ui.tab === "files" || ui.tab === "emails")) want = ui.tab;
     if (want === "timeline" && ui.tab !== "timeline") ui.tlJump = true;
     if (want === ui.tab && ui.tab === "courses") ui.courseId = null;
-    ui.tab = want; if (ui.tab !== "courses") ui.courseId = null;
-    render(); window.scrollTo(0, 0); return;
+    const go = () => { ui.tab = want; if (ui.tab !== "courses") ui.courseId = null; render(); window.scrollTo(0, 0); };
+    tabSwap(want !== ui.tab && e.isTrusted, go); return;   // the app's own tab clicks switch at once, in step with what it does next
   }
   if (ui.tab === "notes" && !e.target.closest("dialog")) {
     const nEl = e.target.closest(".note");
