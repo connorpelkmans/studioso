@@ -1930,6 +1930,10 @@ body.desk::before{background:var(--spine-bg,var(--spine))}
 .note.n-sheet .btn.small{min-height:44px;padding-left:12px;padding-right:12px}
 .note.n-sheet .note-btns{position:sticky;bottom:0;z-index:3;margin:4px -16px 0;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:var(--nc);border-top:1px solid rgba(42,36,24,.14)}
 .note.n-sheet .note-btns .nb{width:44px;height:44px}
+/* typing with the keyboard up: a compact sheet resting on the keyboard, just the text and the Done bar, with the board still
+   showing above it (it grows with the text but never reaches the top); the options come back when the keyboard closes */
+html.kb-open .note.n-sheet:has(.note-text:focus) .note-tools > :not(.note-btns){display:none}
+html.kb-open .note.n-sheet:has(.note-text:focus){max-height:calc(100dvh - var(--kb,0px) - max(96px,18dvh))}
 @media (pointer:coarse){
   .nc{position:relative;width:34px;height:34px}
   .nc::before{content:"";position:absolute;inset:-3px;border-radius:50%}

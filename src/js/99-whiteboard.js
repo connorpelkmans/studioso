@@ -575,12 +575,35 @@ var SBWB = null;
     fire("wb-items", {host: STAGE.querySelector(".wb-imgs"), list: list.filter(it => it.k === "i"), xf, editing});
   }
   let ED = null;
+  // Typing low on a touch screen: the keyboard would cover the text box, and iOS would slide the whole page up to reach it.
+  // Instead the board's layers rise just enough to show the box above the keyboard (the page and toolbars stay put) and
+  // settle back when the keyboard goes. Taps are mapped through the lift (see local()).
+  let LIFT = 0;
+  const TOUCH = () => !!(window.matchMedia && matchMedia("(pointer:coarse)").matches);
+  function setLift(px){ px = Math.max(0, Math.round(px)); if (px === LIFT) return; LIFT = px; if (frame) frame.style.setProperty("--lift", px + "px"); }
+  const kbUp = () => document.documentElement.classList.contains("kb-open");
+  function keepTaVisible(){
+    if (!ED || !frame || !TOUCH()) return;
+    if (ED.sy != null && Math.abs(scrollY - ED.sy) > 1) window.scrollTo(0, ED.sy);
+    const vv = window.visualViewport, f = frame.getBoundingClientRect(), r = ED.ta.getBoundingClientRect();
+    // where the box would be with no lift (the lift may be mid-glide, so read its current value)
+    const now = -(parseFloat((getComputedStyle(front).translate || "").split(" ")[1]) || 0), top0 = r.top + now, bot0 = r.bottom + now;
+    const bottom = Math.min(f.bottom, vv ? vv.offsetTop + vv.height : innerHeight) - 14;
+    const want = Math.max(0, Math.min(bot0 - bottom, top0 - f.top - 10));
+    if (want > LIFT + 1 || (want < LIFT - 1 && bot0 - LIFT < bottom - 40)) setLift(want);
+  }
+  function liftCheck(){ if (ED) keepTaVisible(); else if (LIFT && !kbUp()) setLift(0); }
+  if (window.visualViewport) { visualViewport.addEventListener("resize", liftCheck); visualViewport.addEventListener("scroll", liftCheck); }
+  addEventListener("resize", liftCheck);
+  addEventListener("scroll", () => { if (ED && TOUCH() && ED.sy != null && Math.abs(scrollY - ED.sy) > 1) window.scrollTo(0, ED.sy); }, {passive: true});
+  new MutationObserver(liftCheck).observe(document.documentElement, {attributes: true, attributeFilter: ["class"]});
   function editText(it, isNew, selectAll){
     endText();
-    const ta = document.createElement("textarea"); ta.className = "wb-ta"; ta.setAttribute("aria-label", "Text on the whiteboard"); ta.rows = 1;
+    const ta = document.createElement("textarea"); ta.className = "wb-ta"; ta.id = "wbTa";   // an id lets a page redraw (the keyboard resizing the app) put the cursor back here ta.setAttribute("aria-label", "Text on the whiteboard"); ta.rows = 1;
     ta.value = it.s || ""; Object.assign(ta.style, {left: it.x + "px", top: it.y + "px", fontSize: it.f + "px", color: penHex(it.c), fontFamily: famOf(it.ff)});
-    front.appendChild(ta); ED = {it, ta, isNew}; itemsDraw(); fitTa(); trayDraw();
-    ta.addEventListener("input", fitTa);
+    front.appendChild(ta); ED = {it, ta, isNew, sy: scrollY}; itemsDraw(); fitTa(); trayDraw();
+    ta.addEventListener("input", () => { fitTa(); keepTaVisible(); });
+    [120, 450, 800].forEach(ms => setTimeout(() => { if (ED && ED.ta === ta) keepTaVisible(); }, ms));
     ta.addEventListener("pointerdown", e => e.stopPropagation());
     ta.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Escape" || (e.key === "Enter" && (e.ctrlKey || e.metaKey))) { e.preventDefault(); endText(); frame.focus({preventScroll: true}); } });
     ta.addEventListener("blur", () => setTimeout(() => { if (ED && ED.ta === ta && document.activeElement !== ta) endText(); }, 0));
@@ -595,6 +618,7 @@ var SBWB = null;
     else if (s !== it.s || !getI(it.id)) set("i", it.id, Object.assign({}, it, {s, at: Date.now()}));
     opEnd(); itemsDraw(true); trayDraw();
     if (s.trim() && T.tool === "text" && getI(it.id)) select(new Set(["i" + it.id]));
+    setTimeout(liftCheck, 350);   // typing somewhere else next keeps the lift; otherwise it settles once the keyboard goes
   }
   const hitItem = (p, kind) => { const r = 6 / cam.z, l = items(); for (let i = l.length - 1; i >= 0; i--) { const it = l[i]; if (kind && it.k !== kind) continue; const b = itemBB(it); if (p[0] >= b[0] - r && p[0] <= b[2] + r && p[1] >= b[1] - r && p[1] <= b[3] + r) return it; } return null; };
   function hitStroke(p){ const l = strokes(); for (let i = l.length - 1; i >= 0; i--) { const s = l[i], g = geo(s), r = Math.max(s.w / 20, 8 / cam.z); if (p[0] < g.bb[0] - r || p[0] > g.bb[2] + r || p[1] < g.bb[1] - r || p[1] > g.bb[3] + r) continue; if (nearLine(g.pts, p, r)) return s; } return null; }
@@ -675,7 +699,7 @@ var SBWB = null;
   /* Pointer: draw, erase, shapes, text, select; two fingers */
   let D = null, GEST = null, HOV = null, penSeen = false, spaceDown = false;
   const PTR = new Map();
-  const local = e => { const r = frame.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  const local = e => { const r = frame.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top + LIFT]; };
   const toW = s => [(s[0] - cam.x) / cam.z, (s[1] - cam.y) / cam.z];
   function cancelDraw(){ if (!D) return; clearTimeout(D.snapT); clearTimeout(D.grabT); if (D.kind === "erase") opEnd(); if (D.kind === "move" || D.kind === "scale") { SEL.k = 1; SEL.dx = SEL.dy = 0; SEL.drag = false; itemsDraw(); } D = null; dirty(); }
   function touchPts(){ return [...PTR.values()].filter(p => p.type === "touch"); }
@@ -1333,6 +1357,8 @@ var SBWB = null;
 .wb-tplbox,.wb-tpl{position:absolute;inset:0;width:100%;height:100%}
 .wb-imgs{position:absolute;inset:0}
 .wb-cv{position:absolute;left:0;top:0;pointer-events:none}
+.wb-frame :is(.wb-world,.wb-cv){translate:0 calc(-1 * var(--lift,0px));transition:translate .34s cubic-bezier(.32,.72,0,1)}
+@media (prefers-reduced-motion:reduce){.wb-frame :is(.wb-world,.wb-cv){transition:none}}
 .wb-hl{opacity:.5;mix-blend-mode:multiply}
 .wb-t{position:absolute;white-space:pre;line-height:1.3;font-family:${MARKER};margin:0;padding:0;}
 .wb-ta{position:absolute;pointer-events:auto;font-family:${MARKER};line-height:1.3;white-space:pre;overflow:hidden;resize:none;border:0;margin:0;padding:0;background:rgba(47,111,219,.05);outline:2px dashed rgba(47,111,219,.6);outline-offset:6px;border-radius:2px;caret-color:#2F6FDB;min-width:20px}
