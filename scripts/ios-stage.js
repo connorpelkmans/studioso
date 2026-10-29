@@ -33,10 +33,16 @@ if (fs.existsSync(plistFile)) {
   else console.log("ios-stage: Info.plist already has the camera, photo and other keys it needs");
 }
 
-// Plugins the page relies on that an older setup may not have installed yet
+// Plugins the page relies on that an older setup may not have installed yet: installed here, so the app gets them with
+// the next sync (keyboard: the app fits above the keyboard instead of iOS sliding the page; screen orientation: upright
+// except full-screen boards)
 {
-  const need = ["@capacitor/screen-orientation", "@capacitor/keyboard"].filter(m => fs.existsSync(path.join(wrap, "node_modules")) && !fs.existsSync(path.join(wrap, "node_modules", m)));
-  if (need.length) console.log("ios-stage: missing " + need.join(", ") + " (keeps the phone upright outside full-screen boards, and fits the app above the keyboard). Install it, then run this again:\n  cd ios-wrapper && npm i " + need.join(" ") + " && cd ..");
+  const need = ["@capacitor/keyboard", "@capacitor/screen-orientation"].filter(m => fs.existsSync(path.join(wrap, "node_modules")) && !fs.existsSync(path.join(wrap, "node_modules", m)));
+  if (need.length) {
+    console.log("ios-stage: installing " + need.join(", ") + " in ios-wrapper");
+    try { execFileSync(process.platform === "win32" ? "npm.cmd" : "npm", ["install", ...need], {cwd: wrap, stdio: "inherit"}); }
+    catch (e) { console.log("ios-stage: couldn't install them. Run this, then npm run ios:stage again:\n  cd ios-wrapper && npm i " + need.join(" ") + " && cd .."); }
+  }
 }
 
 const cli = path.join(wrap, "node_modules", "@capacitor", "cli");
