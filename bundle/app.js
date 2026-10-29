@@ -11412,7 +11412,9 @@ function parseMeetings(text, kind, where){
 }
 const daysLabel = ds => WEEK_ORDER.filter(d => ds.includes(d)).map(d => DAY_SHORT[d]).join("");
 /* School days: days off and a rotating class cycle (the rules are SBSCHOOL, in the calendar core) */
-const schoolCfg = () => (state.settings && state.settings.school) || null;
+// Public holidays follow your home time zone (where your school is)
+const schoolZone = () => { try { const h = window.SBTZ && SBTZ.schoolZone(); return h || Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) { return ""; } };
+const schoolCfg = () => { if (window.SBSCHOOL) SBSCHOOL.zone(schoolZone()); return (state.settings && state.settings.school) || null; };
 const cycOn = () => { const c = schoolCfg(); return !!(c && c.cycle && window.SBSCHOOL && SBSCHOOL.norm(c).cycle); };
 // "Day 1, 4" or "A Days" for a rotating class time
 const cycLabel = ks => { const c = schoolCfg(), abc = !!(c && c.cycle && c.cycle.names === "abc"), v = ks.slice().sort((a, b) => a - b); return abc ? v.map(k => String.fromCharCode(64 + k)).join(", ") + (v.length === 1 ? " Days" : " Days") : (v.length === 1 ? "Day " : "Days ") + v.join(", "); };
@@ -11420,7 +11422,7 @@ const cycLabel = ks => { const c = schoolCfg(), abc = !!(c && c.cycle && c.cycle
 const meetWhen = m => m && Array.isArray(m.cyc) && m.cyc.length ? cycLabel(m.cyc) : daysLabel((m && m.days) || []);
 // What today is at school: "Day 3", "B Day", or the name of a day off
 function schoolDayText(d){
-  const c = schoolCfg(), S = window.SBSCHOOL; if (!c || !S) return "";
+  const c = schoolCfg(), S = window.SBSCHOOL; if (!S) return "";
   const off = S.off(c, d); if (off) return off.name || "Day off";
   const k = S.dayOf(c, d); return k ? S.label(c, k) : "";
 }
@@ -11466,6 +11468,15 @@ function viewSchedule(){
   const setup = hasAny ? "" : `<div class="sch-setup" role="region" aria-label="Set up your schedule"><p style="margin:0"><strong>Add Your Class Times</strong><span class="mini">Your week fills in from each course's class times: lectures, labs, discussions and office hours. You can also add your own events, or import your Apple, Google or Outlook calendar. Deadlines already show below.</span></p>
     ${cs.length ? `<div class="sch-missing">${cs.map(c => `<button class="chip" style="--c:${esc(c.color)}" data-act="edit-course" data-id="${esc(c.id)}"><span class="dot"></span>${esc(courseLabel(c))}: Add Class Times</button>`).join("")}</div>` : `<div class="sch-missing"><button class="btn small primary" data-act="new-course">Add a Course</button></div>`}
     <div class="sch-missing"><button class="btn small" data-act="sch-add">+ Add an Event</button><button class="btn small" data-act="avail-add">+ Add Shift or Work</button><button class="btn small" data-act="sch-ics">Import a Calendar File</button></div></div>`;
+  // A common public holiday coming up (most schools are off, not all): ask once, on the Schedule, in one line
+  const holAsk = (() => {
+    const S = window.SBSCHOOL, sc = schoolCfg(); if (!S || !cs.some(c => courseMeetings(c).length)) return "";
+    const lo = mon < today ? today : mon, hi = addDays(mon, mon === mondayOf(today) ? 13 : 6); if (hi < lo) return "";
+    const h = S.holidays(sc, lo, hi).find(x => !x.sure && !x.ans && ![0, 6].includes(parse(x.date).getDay()) && !(S.norm(sc).off.some(o => x.date >= o.from && x.date <= o.to)));
+    if (!h) return "";
+    const when = dayDiff(today, h.date) === 0 ? "Today" : dayDiff(today, h.date) === 1 ? "Tomorrow" : parse(h.date).toLocaleDateString(undefined, {weekday: "long", month: "short", day: "numeric"});
+    return `<div class="hol-ask" role="region" aria-label="Holiday"><span>${esc(when)} is <b>${esc(h.name)}</b>. Do you have classes?</span><span class="hol-acts"><button class="btn small primary" data-act="hol-ans" data-id="${esc(h.key)}" data-v="off">Day Off</button><button class="btn small" data-act="hol-ans" data-id="${esc(h.key)}" data-v="on">Classes as Usual</button></span></div>`;
+  })();
   const occ = schOccurrences(mon, addDays(mon, 6));
   const hasWeekend = occ.some(o => { const w = parse(o.date).getDay(); return w === 0 || w === 6; }) || tasksArr().some(t => t.status !== "done" && t.due && t.due >= addDays(mon, 5) && t.due <= addDays(mon, 6));
   const days = []; for (let i = 0; i < (hasWeekend ? 7 : 5); i++) { const iso = addDays(mon, i); days.push({i, iso, wd: parse(iso).getDay()}); }
@@ -11517,7 +11528,7 @@ function viewSchedule(){
   const avKinds = AV_ORDER.filter(k => occ.some(o => o.type === "avail" && o.avail.kind === k));
   schNoticeHtml = `<p style="margin:0">${fmtHM(classMin / 60) || "0m"} of class this week${availMinSum >= 15 ? `, ${fmtHM(availMinSum / 60)} of work and shifts` : ""}${nEv ? `, ${nEv} event${nEv === 1 ? "" : "s"}` : ""}${weekTasks.length ? `, ${weekTasks.length} deadline${weekTasks.length === 1 ? "" : "s"}` : ""}. Tap a class to change just this week, or drag it to a new time.</p>${missing.length ? `<div class="sch-ntc"><b>No class times yet</b><span class="mini">Add them so these courses show on your Schedule.</span><div class="sch-missing">${missing.map(c => `<button class="chip" style="--c:${esc(c.color)}" data-act="edit-course" data-id="${esc(c.id)}"><span class="dot"></span>${esc(courseLabel(c))}: Add Class Times</button>`).join("")}</div></div>` : ""}`;
   const ntcBtn = `<button class="btn small sch-ntc-btn" data-act="sch-notices" title="This week's summary${missing.length ? " and courses missing class times" : ""}">Notices${missing.length ? `<span class="sch-ntc-n">${missing.length}</span>` : ""}</button>`;
-  return nav.replace(/<\/div><\/div>$/, ntcBtn + "</div></div>") + setup + `
+  return nav.replace(/<\/div><\/div>$/, ntcBtn + "</div></div>") + setup + holAsk + `
     <div class="sch-pills" role="group" aria-label="Day">${pills}</div>
     <div class="sch-wrap" style="--n:${days.length}">
       <div class="sch-grid" data-h0="${h0}" data-h1="${h1}" data-pph="${PPH}">
@@ -23035,10 +23046,40 @@ const SBSCHOOL = (() => {
   const msD = ms => { const d = new Date(ms); return d.getUTCFullYear() + "-" + p2(d.getUTCMonth() + 1) + "-" + p2(d.getUTCDate()); };
   const addD = (s, n) => msD(dMs(s) + n * 864e5);
   const dow = s => new Date(dMs(s)).getUTCDay();
-  const NO = {off: [], cycle: null};
-  let lastIn = null, lastOut = NO;
+  const NO = {off: [], cycle: null, pub: true, ans: {}, cc: ""};
+  /* Public holidays, by country (from the home time zone). sure: every school there is off, so it's a day off
+     automatically; otherwise almost every school is, and the app asks once (ans[key] = "off" or "on"). */
+  let ZONE = "";
+  const US_TZ = /^(America\/(New_York|Chicago|Denver|Los_Angeles|Phoenix|Anchorage|Detroit|Boise|Juneau|Sitka|Nome|Adak|Yakutat|Metlakatla|Menominee|Indiana\/.+|Kentucky\/.+|North_Dakota\/.+)|Pacific\/Honolulu)$/;
+  const CA_TZ = /^America\/(Toronto|Montreal|Vancouver|Edmonton|Winnipeg|Halifax|St_Johns|Regina|Moncton|Glace_Bay|Goose_Bay|Whitehorse|Yellowknife|Iqaluit|Swift_Current|Rankin_Inlet|Cambridge_Bay|Dawson|Dawson_Creek|Fort_Nelson|Creston|Atikokan|Blanc-Sablon|Nipigon|Thunder_Bay|Rainy_River|Resolute|Inuvik|Pangnirtung)$/;
+  const country = tz => US_TZ.test(tz) ? "US" : CA_TZ.test(tz) ? "CA" : /^Europe\/(London|Belfast)$/.test(tz) ? "GB" : tz === "Europe/Dublin" ? "IE" : /^Australia\//.test(tz) ? "AU" : /^Pacific\/(Auckland|Chatham)$/.test(tz) ? "NZ" : "";
+  const COUNTRY = {US: "the United States", CA: "Canada", GB: "the UK", IE: "Ireland", AU: "Australia", NZ: "New Zealand"};
+  const ymd = (y, m, d) => y + "-" + p2(m) + "-" + p2(d);
+  // the n-th weekday wd (0 = Sunday) of month m; n = -1 for the last one
+  const nth = (y, m, wd, n) => { if (n > 0) { const f = ymd(y, m, 1); return addD(f, (wd - dow(f) + 7) % 7 + (n - 1) * 7); } const l = addD(m === 12 ? ymd(y + 1, 1, 1) : ymd(y, m + 1, 1), -1); return addD(l, -((dow(l) - wd + 7) % 7)); };
+  const easter = y => { const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451), mo = Math.floor((h + l - 7 * m + 114) / 31), da = (h + l - 7 * m + 114) % 31 + 1; return ymd(y, mo, da); };
+  function holidayList(cc, y){
+    const H = (id, name, date, sure) => ({key: cc + ":" + id, name, date, sure: !!sure});
+    const ny = H("ny", "New Year's Day", ymd(y, 1, 1), 1), xmas = H("xmas", "Christmas Day", ymd(y, 12, 25), 1), gf = H("gf", "Good Friday", addD(easter(y), -2)), em = H("em", "Easter Monday", addD(easter(y), 1));
+    if (cc === "US") return [ny, H("jul4", "Independence Day", ymd(y, 7, 4), 1), H("thanks", "Thanksgiving Day", nth(y, 11, 4, 4), 1), xmas,
+      H("mlk", "Martin Luther King Jr. Day", nth(y, 1, 1, 3)), H("pres", "Presidents' Day", nth(y, 2, 1, 3)), H("mem", "Memorial Day", nth(y, 5, 1, -1)), H("jun19", "Juneteenth", ymd(y, 6, 19)),
+      H("labor", "Labor Day", nth(y, 9, 1, 1)), H("indig", "Columbus Day / Indigenous Peoples' Day", nth(y, 10, 1, 2)), H("vet", "Veterans Day", ymd(y, 11, 11)), H("thanks2", "Day after Thanksgiving", addD(nth(y, 11, 4, 4), 1))];
+    if (cc === "CA") return [ny, H("canada", "Canada Day", ymd(y, 7, 1), 1), H("labour", "Labour Day", nth(y, 9, 1, 1), 1), xmas,
+      H("family", "Family Day", nth(y, 2, 1, 3)), gf, em, H("victoria", "Victoria Day", addD(ymd(y, 5, 24), -((dow(ymd(y, 5, 24)) + 6) % 7))), H("truth", "National Day for Truth and Reconciliation", ymd(y, 9, 30)),
+      H("thanks", "Thanksgiving", nth(y, 10, 1, 2)), H("remembrance", "Remembrance Day", ymd(y, 11, 11)), H("boxing", "Boxing Day", ymd(y, 12, 26))];
+    if (cc === "GB") return [ny, xmas, H("boxing", "Boxing Day", ymd(y, 12, 26), 1), gf, em, H("may", "Early May Bank Holiday", nth(y, 5, 1, 1)), H("spring", "Spring Bank Holiday", nth(y, 5, 1, -1)), H("aug", "Summer Bank Holiday", nth(y, 8, 1, -1))];
+    if (cc === "IE") return [ny, xmas, H("stephen", "St Stephen's Day", ymd(y, 12, 26), 1), H("brigid", "St Brigid's Day", dow(ymd(y, 2, 1)) === 5 ? ymd(y, 2, 1) : nth(y, 2, 1, 1)), H("patrick", "St Patrick's Day", ymd(y, 3, 17)), gf, em,
+      H("may", "May Bank Holiday", nth(y, 5, 1, 1)), H("june", "June Bank Holiday", nth(y, 6, 1, 1)), H("aug", "August Bank Holiday", nth(y, 8, 1, 1)), H("oct", "October Bank Holiday", nth(y, 10, 1, -1))];
+    if (cc === "AU") return [ny, H("aus", "Australia Day", ymd(y, 1, 26), 1), H("anzac", "Anzac Day", ymd(y, 4, 25), 1), xmas, H("boxing", "Boxing Day", ymd(y, 12, 26), 1), gf, em];
+    if (cc === "NZ") return [ny, H("ny2", "Day after New Year's Day", ymd(y, 1, 2), 1), H("waitangi", "Waitangi Day", ymd(y, 2, 6), 1), H("anzac", "Anzac Day", ymd(y, 4, 25), 1), xmas, H("boxing", "Boxing Day", ymd(y, 12, 26), 1),
+      gf, em, H("king", "King's Birthday", nth(y, 6, 1, 1)), H("labour", "Labour Day", nth(y, 10, 1, 4))];
+    return [];
+  }
+  const HOL = {};
+  const holOn = (cc, d) => { const k = cc + d.slice(0, 4); if (!HOL[k]) { HOL[k] = {}; holidayList(cc, +d.slice(0, 4)).forEach(h => { HOL[k][h.date] = h; }); } return HOL[k][d] || null; };
+  let lastIn = null, lastOut = NO, lastZone = "";
   function norm(s){
-    if (s === lastIn) return lastOut;
+    if (s === lastIn && lastZone === ZONE) return lastOut;
     const o = s && typeof s === "object" ? s : {};
     const off = (Array.isArray(o.off) ? o.off : []).filter(x => x && isDate(x.from)).slice(0, 300)
       .map(x => ({id: String(x.id || x.from).slice(0, 40), name: String(x.name || "").slice(0, 60), from: x.from, to: isDate(x.to) && x.to >= x.from && dMs(x.to) - dMs(x.from) < 200 * 864e5 ? x.to : x.from}))
@@ -23046,10 +23087,23 @@ const SBSCHOOL = (() => {
     const c = o.cycle && typeof o.cycle === "object" ? o.cycle : null, n = c ? Math.round(Number(c.n)) : 0;
     const days = c && Array.isArray(c.days) ? [...new Set(c.days.map(Number))].filter(d => d >= 0 && d <= 6).sort() : [];
     const cycle = c && n >= 2 && n <= 10 && isDate(c.ref) ? {n, ref: c.ref, k: Math.min(n, Math.max(1, Math.round(Number(c.k)) || 1)), days: days.length ? days : [1, 2, 3, 4, 5], names: c.names === "abc" ? "abc" : "num"} : null;
-    lastIn = s; lastOut = {off, cycle};
+    const ans = {}; if (o.ans && typeof o.ans === "object") Object.keys(o.ans).slice(0, 100).forEach(k => { if (o.ans[k] === "off" || o.ans[k] === "on") ans[String(k).slice(0, 40)] = o.ans[k]; });
+    lastIn = s; lastZone = ZONE; lastOut = {off, cycle, pub: o.pub !== false, ans, cc: country(ZONE)};
     return lastOut;
   }
-  const offOn = (S, d) => { for (const x of S.off) { if (x.from > d) break; if (d <= x.to) return x; } return null; };
+  // A day off: one you added, a public holiday every school takes, or a common one you said you have off
+  const offOn = (S, d) => {
+    for (const x of S.off) { if (x.from > d) break; if (d <= x.to) return x; }
+    if (!S.pub || !S.cc || !isDate(d)) return null;
+    const h = holOn(S.cc, d);
+    return h && (h.sure || S.ans[h.key] === "off") ? {id: h.key, name: h.name, from: d, to: d, pub: true, sure: h.sure} : null;
+  };
+  // Public holidays between two dates, with your answers: [{key, name, date, sure, ans}]
+  function holidays(s, from, to){
+    const S = norm(s), out = []; if (!S.cc || !isDate(from) || !isDate(to)) return out;
+    for (let y = +from.slice(0, 4); y <= +to.slice(0, 4); y++) holidayList(S.cc, y).forEach(h => { if (h.date >= from && h.date <= to) out.push(Object.assign({}, h, {ans: S.ans[h.key] || ""})); });
+    return out.sort((a, b) => a.date < b.date ? -1 : 1);
+  }
   const isSchool = (S, d) => !!S.cycle && S.cycle.days.includes(dow(d)) && !offOn(S, d);
   // The first school day on or after d
   const nextSchool = (S, d) => { for (let i = 0, x = d; i < 400; i++, x = addD(x, 1)) if (isSchool(S, x)) return x; return d; };
@@ -23072,7 +23126,7 @@ const SBSCHOOL = (() => {
     if (m && Array.isArray(m.cyc) && m.cyc.length) return S.cycle ? m.cyc.includes(dayOf(s, d)) : false;
     return !!m && Array.isArray(m.days) && m.days.includes(dow(d));
   }
-  return {norm, off: (s, d) => offOn(norm(s), d), dayOf, label, meets, isSchool: (s, d) => isSchool(norm(s), d), nextSchool: (s, d) => nextSchool(norm(s), d), isDate, addD, dow};
+  return {zone: tz => { if (tz === undefined) return ZONE; ZONE = typeof tz === "string" ? tz : ""; return ZONE; }, country: () => country(ZONE), countryName: () => COUNTRY[country(ZONE)] || "", holidays, holidayList, easter, norm, off: (s, d) => offOn(norm(s), d), dayOf, label, meets, isSchool: (s, d) => isSchool(norm(s), d), nextSchool: (s, d) => nextSchool(norm(s), d), isDate, addD, dow};
 })();
 const SBICS = (() => {
   const DAY = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
@@ -23258,7 +23312,12 @@ const SBICS = (() => {
   }
 
   /* build */
+  // Public holidays follow the feed's home zone while it's built
   function build(data, rawOpts, now, feed){
+    const prev = SBSCHOOL.zone(); SBSCHOOL.zone(normOptions(rawOpts).tz);
+    try { return buildIn(data, rawOpts, now, feed); } finally { SBSCHOOL.zone(prev); }
+  }
+  function buildIn(data, rawOpts, now, feed){
     const o = normOptions(rawOpts), tz = o.tz;
     now = typeof now === "number" ? now : Date.now();
     const today = todayIn(tz, now), stamp = utcStamp(now), hide = new Set(o.hideCourses), NONE = "_none";
@@ -23347,7 +23406,7 @@ const SBICS = (() => {
             add("RRULE", "FREQ=WEEKLY;WKST=MO;BYDAY=" + m.days.map(d => DAY[d]).join(",") + ";UNTIL=" + untilUtc(until));
             moves.filter(x => x.v.skip).forEach(x => add("EXDATE" + tzp, local(x.d, m.start)));
             // no class on days off
-            SBSCHOOL.norm(settings.school).off.forEach(o => { for (let d = o.from; d <= o.to; d = addD(d, 1)) if (isInst(d) && !moves.some(x => x.d === d)) add("EXDATE" + tzp, local(d, m.start)); });
+            for (let d = first; d <= until; d = addD(d, 1)) if (isInst(d) && SBSCHOOL.off(settings.school, d) && !moves.some(x => x.d === d)) add("EXDATE" + tzp, local(d, m.start));
             addText("LOCATION", where); addText("DESCRIPTION", desc);
             add("CATEGORIES", esc(m.kind)); add("TRANSP", "OPAQUE"); evAlarm(title, true);
           });
@@ -70553,11 +70612,13 @@ window.SBSEM = {
   const cycName = (names, k) => names === "abc" ? String.fromCharCode(64 + k) + " Day" : "Day " + k;
 
   function save(next, msg){
-    const school = {off: next.off, cycle: next.cycle};
-    if (!school.off.length) delete school.off;
+    const cur = cfg(), school = {off: next.off, cycle: next.cycle, pub: next.pub === undefined ? cur.pub : next.pub, ans: next.ans || cur.ans};
+    if (!school.off || !school.off.length) delete school.off;
     if (!school.cycle) delete school.cycle;
+    if (school.pub !== false) delete school.pub;
+    if (!school.ans || !Object.keys(school.ans).length) delete school.ans;
     state.settings = Object.assign({}, state.settings, {school});
-    if (!school.off && !school.cycle) { const n = Object.assign({}, state.settings); delete n.school; state.settings = n; }
+    if (!Object.keys(school).length) { const n = Object.assign({}, state.settings); delete n.school; state.settings = n; }
     saveSettings(); scheduleRender();
     if (msg) toast(msg);
   }
@@ -70576,18 +70637,28 @@ window.SBSEM = {
     const recent = () => off.filter(o => (o.to || o.from) >= addDays(today, -14));
     const offRows = () => recent().length ? recent().map(o => `<li class="sd-off"><span><b>${esc(o.name || "Day off")}</b><span class="mini">${esc(range(o))}</span></span><button type="button" class="btn small" data-sd-rm="${esc(o.id)}" aria-label="Remove ${esc(o.name || "day off")}">Remove</button></li>`).join("")
       : `<li class="mini sd-none">None yet. Classes don't show on days off, and Today's Plan treats them as free days.</li>`;
-    const isSchoolToday = () => !off.some(o => today >= o.from && today <= (o.to || o.from)) && ![0, 6].includes(parse(today).getDay());
+    const isSchoolToday = () => !off.some(o => today >= o.from && today <= (o.to || o.from)) && !S().off(cfg(), today) && ![0, 6].includes(parse(today).getDay());
+    // Public holidays in your country: the ones every school takes are days off; the rest are asked on the Schedule
+    const cn = S().countryName(), hy = S().holidays(cfg(), today, addDays(today, 364));
+    let pub = now.pub; const ans = Object.assign({}, now.ans);
+    const sure = [...new Set(hy.filter(h => h.sure).map(h => h.name))], common = hy.filter(h => !h.sure);
+    const pubHtml = cn ? `<fieldset class="sd-fs"><legend>Public Holidays</legend>
+          <label class="mi-check"><input type="checkbox" id="sdPub"${pub ? " checked" : ""}> <span>Days off at every school in ${esc(cn)}: ${esc(sure.join(", "))}</span></label>
+          ${common.length ? `<details class="sd-more"><summary>Other Holidays (${common.length})<span class="mini">Most schools take these. Your Schedule asks about each one before it comes up.</span></summary>
+            <ul class="sd-list">${common.map(h => `<li class="sd-off"><span><b>${esc(h.name)}</b><span class="mini">${esc(dayName(h.date, {weekday: "short", month: "short", day: "numeric", year: h.date.slice(0, 4) === today.slice(0, 4) ? undefined : "numeric"}))}</span></span><select data-hol="${esc(h.key)}" aria-label="${esc(h.name)}"><option value="">Ask Me</option><option value="off"${ans[h.key] === "off" ? " selected" : ""}>Day Off</option><option value="on"${ans[h.key] === "on" ? " selected" : ""}>Classes</option></select></li>`).join("")}</ul></details>` : ""}
+        </fieldset>` : "";
     const refText = () => { const r = refDay(); return r === today ? "Today is" : `${parse(r).toLocaleDateString(undefined, {weekday: "long"})} (${dayName(r, {month: "short", day: "numeric"})}) is`; };
     openSheet(`<form class="sheet sd-sheet">${head("School Days")}
       <div class="sheet-body">
         <fieldset class="sd-fs"><legend>Days Off</legend>
           <ul class="sd-list" id="sdList">${offRows()}</ul>
           <div class="sd-add">
-            <label class="f"><span class="lh">Name</span><input type="text" id="sdName" maxlength="60" placeholder="Thanksgiving, Reading Week, Snow Day" data-noenter></label>
+            <label class="f"><span class="lh">Name</span><input type="text" id="sdName" maxlength="60" placeholder="Reading Week, Spring Break, Snow Day" data-noenter></label>
             <div class="two"><label class="f"><span class="lh">From</span><input type="date" id="sdFrom" value="${esc(today)}"></label><label class="f"><span class="lh">To <span class="hint">optional</span></span><input type="date" id="sdTo"></label></div>
             <div class="row-actions"><button type="button" class="btn small" id="sdAdd">Add Day Off</button><button type="button" class="btn small" id="sdToday"${isSchoolToday() ? "" : " hidden"}>No School Today</button></div>
           </div>
         </fieldset>
+        ${pubHtml}
         <fieldset class="sd-fs"><legend>Class Schedule</legend>
           ${seg("sdMode", [["week", "Same every week"], ["cycle", "Rotates by school day"]], draft.on ? "cycle" : "week")}
           <div class="sd-cycle" id="sdCycle"${draft.on ? "" : " hidden"}>
@@ -70607,7 +70678,7 @@ window.SBSEM = {
       const on = fd.get("sdMode") === "cycle";
       if (on && !draft.days.length) { toast("Pick at least one school day"); return false; }
       const cycle = on ? {n: draft.n, ref: refDay(), k: Math.min(draft.n, k), days: draft.days.slice().sort(), names: draft.names} : null;
-      save({off, cycle}, "School days saved");
+      save({off, cycle, pub, ans}, "School days saved");
     });
     const f = dlg.querySelector(".sd-sheet"), $f = q => f.querySelector(q);
     const drawK = () => { const sel = $f("#sdK"); k = Math.min(k, draft.n); sel.innerHTML = Array.from({length: draft.n}, (_, i) => `<option value="${i + 1}"${i + 1 === k ? " selected" : ""}>${esc(cycName(draft.names, i + 1))}</option>`).join(""); $f("#sdRefL").textContent = refText(); };
@@ -70618,6 +70689,8 @@ window.SBSEM = {
       if (e.target.id === "sdN") { draft.n = Number(e.target.value); if (!draft.namesSet) { draft.names = draft.n === 2 ? "abc" : "num"; $f("#sdNames").value = draft.names; } drawK(); }
       if (e.target.id === "sdNames") { draft.names = e.target.value; draft.namesSet = true; drawK(); }
       if (e.target.id === "sdK") k = Number(e.target.value);
+      if (e.target.id === "sdPub") pub = e.target.checked;
+      if (e.target.dataset && e.target.dataset.hol) { if (e.target.value) ans[e.target.dataset.hol] = e.target.value; else delete ans[e.target.dataset.hol]; }
     });
     f.addEventListener("click", e => {
       const db = e.target.closest("#sdDays [data-day]");
@@ -70637,7 +70710,14 @@ window.SBSEM = {
     if (focus === "cycle") { const r = f.querySelector('input[name="sdMode"][value="cycle"]'); if (r) { r.checked = true; $f("#sdCycle").hidden = false; } }
   }
 
-  hook("act", (a) => {
+  hook("act", (a, el) => {
+    // the Schedule's one-line question about a common holiday: the answer holds for every year
+    if (a === "hol-ans") {
+      const key = el.dataset.id, v = el.dataset.v === "off" ? "off" : "on", h = S().holidays(cfg(), todayISO(), addDays(todayISO(), 400)).find(x => x.key === key);
+      save({off: cfg().off || [], cycle: cfg().cycle || null, ans: Object.assign({}, cfg().ans || {}, {[key]: v})},
+        h ? (v === "off" ? `${h.name} is a day off, this year and after. Change it in School Days.` : `Classes as usual on ${h.name}. Change it in School Days.`) : "Saved");
+      return true;
+    }
     if (a !== "school-open" && a !== "school-cycle") return false;
     if (dlg.open) dlg.close();
     setTimeout(() => open(a === "school-cycle" ? "cycle" : ""), 30);

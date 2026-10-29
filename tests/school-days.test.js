@@ -55,4 +55,40 @@ const cyc = {n: 6, ref: "2026-10-05", k: 1, days: [1, 2, 3, 4, 5], names: "num"}
   ok(days.join() === "2026-10-05,2026-10-14,2026-10-29", "Day 1 lectures in the feed: " + days.join());
   ok(/EXDATE[^:]*:20261021T130000/.test(out) && !/EXDATE[^:]*:20261014T130000/.test(out), "the weekly lab skips Reading Week's Wednesday");
 }
+// Public holidays, from the home time zone
+{
+  S.zone("America/New_York");
+  const hol = (y, name) => (S.holidayList("US", y).find(h => h.name === name) || {}).date;
+  ok(hol(2026, "Thanksgiving Day") === "2026-11-26" && hol(2025, "Thanksgiving Day") === "2025-11-27", "Thanksgiving is the fourth Thursday of November");
+  ok(hol(2026, "Martin Luther King Jr. Day") === "2026-01-19" && hol(2026, "Memorial Day") === "2026-05-25" && hol(2026, "Labor Day") === "2026-09-07", "Monday holidays");
+  ok(S.easter(2026) === "2026-04-05" && S.easter(2027) === "2027-03-28" && S.easter(2025) === "2025-04-20", "Easter");
+  const lec = {days: [4]};
+  ok(!S.meets({}, lec, "2026-11-26") && S.off({}, "2026-11-26").name === "Thanksgiving Day", "Thanksgiving: a day off with nothing set up, since every school takes it");
+  ok(S.meets({}, {days: [1]}, "2026-01-19"), "MLK Day: classes as usual until you say otherwise");
+  ok(!S.meets({ans: {"US:mlk": "off"}}, {days: [1]}, "2026-01-19") && !S.meets({ans: {"US:mlk": "off"}}, {days: [1]}, "2027-01-18"), "once you say it's a day off, it is every year");
+  ok(S.meets({ans: {"US:mlk": "on"}}, {days: [1]}, "2026-01-19"), "or classes as usual");
+  ok(S.meets({pub: false}, lec, "2026-11-26"), "public holidays can be turned off");
+  const asks = S.holidays({}, "2026-01-01", "2026-12-31").filter(h => !h.sure).map(h => h.name);
+  ok(asks.includes("Martin Luther King Jr. Day") && asks.includes("Day after Thanksgiving") && !asks.includes("Thanksgiving Day"), "the common ones are the ones to ask about");
+  S.zone("America/Toronto");
+  ok(S.countryName() === "Canada" && S.off({}, "2026-09-07").name === "Labour Day" && S.off({}, "2026-11-26") === null, "Canada: Labour Day, not US Thanksgiving");
+  ok((S.holidayList("CA", 2026).find(h => h.name === "Victoria Day") || {}).date === "2026-05-18" && (S.holidayList("CA", 2026).find(h => h.name === "Thanksgiving") || {}).date === "2026-10-12", "Victoria Day and Canadian Thanksgiving");
+  S.zone("Europe/Paris");
+  ok(S.countryName() === "" && S.off({}, "2026-12-25") === null, "a country with no list: nothing automatic");
+  S.zone("UTC");
+  ok(S.off({}, "2026-12-25") === null, "no time zone country: nothing automatic");
+  // the cycle pauses on public holidays too
+  S.zone("America/New_York");
+  ok(S.dayOf({cycle: {n: 2, ref: "2026-11-25", k: 1}}, "2026-11-27") === 2, "A/B days skip Thanksgiving");
+  S.zone("");
+}
+// The feed builds in its own home zone and leaves the app's alone
+{
+  S.zone("Europe/London");
+  const data = {courses: [{id: "c1", code: "BIO", name: "Bio", created: 0, meetings: [{id: "m2", kind: "Lab", days: [4], start: "13:00", end: "14:00"}]}], tasks: [], events: [], settings: {}};
+  const out = ICS.build(data, {tz: "America/New_York", classes: true, classesFrom: "2026-11-01", classesUntil: "2026-11-30"}, Date.UTC(2026, 10, 1, 12), true).text;
+  ok(/EXDATE[^:]*:20261126T130000/.test(out), "the feed skips Thanksgiving for a US school");
+  ok(S.zone() === "Europe/London", "and puts the app's zone back");
+  S.zone("");
+}
 console.log(`school-days: ${n} checks passed`);
