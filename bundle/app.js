@@ -543,6 +543,14 @@ function normTask(t){
     else t.wrap = {at: Number(w.at) > 0 ? Number(w.at) : 0, methods: (Array.isArray(w.methods) ? w.methods : []).filter(k => typeof k === "string" && /^[a-z]{2,12}$/.test(k)).slice(0, 12),
       start: typeof w.start === "string" && /^[a-z]{2,12}$/.test(w.start) ? w.start : "", next: String(w.next || "").replace(/<[^>]*>/g, "").slice(0, 200), felt: num(w.felt), measured: num(w.measured), mark: num(w.mark)};
   }
+  if (t.left != null && !(t.left && typeof t.left === "object" && Number(t.left.h) >= 0 && Number(t.left.h) <= 200 && Number(t.left.fm) >= 0)) delete t.left;
+  if (t.aiDecks != null && !(t.aiDecks && Array.isArray(t.aiDecks.ids) && typeof t.aiDecks.sig === "string")) delete t.aiDecks;
+  else if (t.aiDecks) t.aiDecks.ids = t.aiDecks.ids.filter(x => typeof x === "string" && x.length <= 80).slice(0, 30);
+  if (t.readyDecks != null) { if (Array.isArray(t.readyDecks)) t.readyDecks = t.readyDecks.filter(x => typeof x === "string" && x.length <= 80).slice(0, 30); else delete t.readyDecks; }
+  if (t.readySnap != null) {
+    const r = t.readySnap, num = v => isNum(v) && Number(v) >= 0 && Number(v) <= 100 ? Math.round(Number(v)) : null;
+    if (!r || typeof r !== "object" || !(Number(r.at) > 0)) delete t.readySnap; else t.readySnap = {felt: num(r.felt), measured: num(r.measured), at: Number(r.at)};
+  }
   if (t.latePen != null) { const v = Number(t.latePen); if (t.late === "penalty" && isFinite(v) && v > 0) t.latePen = Math.min(100, v); else delete t.latePen; }
   if (!Array.isArray(t.dependsOn)) t.dependsOn = [];
   if (!Array.isArray(t.history)) t.history = [];
@@ -2571,6 +2579,13 @@ function applyChanges(changes, label, extra, opts){
   const progressed = label !== null && typeof isProgress === "function" && changes.some(c => c.kind === "task" && c.after && isProgress(getItem("task", c.id), c.after));
   let binned = [];
   if (label !== null) { try { binned = trashCapture(changes, label); } catch(e) { console.warn("Recently Deleted", e); } }
+  // An exam or quiz marked done keeps how ready you were right then (how ready you felt, and what your results said), so the
+  // reflection after the mark compares the mark with the readiness before the exam, on every device
+  if (label !== null && typeof examReadiness === "function") changes.forEach(c => {
+    const a = c.kind === "task" && c.after, b = a && getItem("task", c.id);
+    if (!a || !MILESTONE(a.type) || a.prepFor || a.status !== "done" || (b && b.status === "done") || a.readySnap) return;
+    try { const xr = examReadiness(Object.assign({}, a, {status: "todo"})); c.after = Object.assign({}, a, {readySnap: {felt: xr ? xr.self : null, measured: xr ? xr.measured : null, at: Date.now()}}); } catch (e) { console.warn("readiness snapshot", e); }
+  });
   changes.forEach(c => setItem(c.kind, c.id, c.after === null ? null : c.after, label !== null));
   state.updated = Date.now();
   saveLocal();
@@ -4748,7 +4763,7 @@ function nextUpHtml(F, pre){
         ${n.step ? `<span class="nu-step">Next step: ${esc(n.step.text)}</span>` : ""}
       </div>
       ${lmsGoBtn(t)}
-      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-id="${t.gt ? "" : esc(t.id)}" data-mins="${n.mins}">${TOMATO}Start a ${n.mins}m Focus</button>${window.SBPREP ? SBPREP.matBtn(t) : ""}${t.type === "Study" && (t.studyDecks || []).length && !t.matKind ? `<button class="btn small" data-act="fc-study-plan" data-id="${esc(t.id)}">Study Cards</button>` : ""}${t.gt ? "" : `<button class="btn small" data-act="log-time" data-id="${esc(t.id)}" title="Type in time you worked on this">Log Time</button><button class="btn small" data-act="nu-enough" data-id="${esc(t.id)}" title="You have done enough on this today, so move on. It stays on your list.">Enough for Today</button>`}${nuBackBtn()}</div>
+      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-id="${esc(t.id)}" data-mins="${n.mins}">${TOMATO}Start a ${n.mins}m Focus</button>${window.SBPREP ? SBPREP.matBtn(t) : ""}${t.type === "Study" && (t.studyDecks || []).length && !t.matKind ? `<button class="btn small" data-act="fc-study-plan" data-id="${esc(t.id)}">Study Cards</button>` : ""}${t.gt ? "" : `<button class="btn small" data-act="log-time" data-id="${esc(t.id)}" title="Type in time you worked on this">Log Time</button><button class="btn small" data-act="nu-enough" data-id="${esc(t.id)}" title="You have done enough on this today, so move on. It stays on your list.">Enough for Today</button>`}${nuBackBtn()}</div>
     </div>
   </div>`;
 }
@@ -5271,8 +5286,8 @@ function planSig(){
 const NEXT_SCHEMA = {type: "OBJECT", properties: {
   next: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, why: {type: "STRING", description: "One sentence, why this and why now"}, step: {type: "STRING", description: "The concrete first thing to do, under 80 characters"}, minutes: {type: "INTEGER"}}, required: ["ref", "why"]}, description: "Up to 5 tasks in the order to work on them right now. Never a task marked FIXED EVENT"},
   estimates: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, hours: {type: "NUMBER"}}, required: ["ref", "hours"]}, description: "Total hours for tasks marked 'no estimate'"},
-  remaining: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, hours: {type: "NUMBER"}}, required: ["ref", "hours"]}, description: "Hours of work left for tasks that are started (focus time, progress or checklist)"},
-  readiness: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, pct: {type: "INTEGER"}, note: {type: "STRING", description: "Under 90 characters, e.g. the weakest area"}}, required: ["ref", "pct"]}, description: "For each exam or quiz, how ready the student is, 0 to 100"},
+  remaining: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, hours: {type: "NUMBER"}}, required: ["ref", "hours"]}, description: "Hours of work left for tasks that are started (focus time, progress or checklist). Start from the app's pace model and the student's own check-in; move outside that range only with a concrete reason from the instructions"},
+  readiness: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, pct: {type: "INTEGER"}, note: {type: "STRING", description: "Under 90 characters, e.g. the weakest area"}, decks: {type: "ARRAY", items: {type: "STRING"}, description: "Refs (d1...) of this exam's listed flashcard decks and quizzes that cover its material, judged from its title, instructions and announcements against what each deck holds. Empty if you can't tell"}}, required: ["ref", "pct"]}, description: "For each exam or quiz, how ready the student is, 0 to 100"},
   headsUp: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING", description: "The task it's about (t1...), or empty"}, text: {type: "STRING", description: "Under 140 characters, specific and actionable"}}, required: ["text"]}, description: "Up to 3 things the student could easily miss, only if real: an earlier step or sooner deadline hidden in instructions, an announcement that changes a task, a crunch or a full day coming, a course near its pass mark. Empty if nothing stands out."},
   difficulty: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, level: {type: "STRING", enum: ["easy", "med", "hard"]}}, required: ["ref", "level"]}, description: "For tasks marked 'difficulty not set', how demanding the task looks from its title, type, weight and instructions"}},
   required: ["next"]};
@@ -5282,7 +5297,11 @@ async function autoPlan(a){
   if (!open.length) return;
   const ref = {}, back = {};
   open.forEach((t, i) => { ref[t.id] = "t" + (i + 1); back["t" + (i + 1)] = t.id; });
-  const deckInfo = cid => deckListArr().filter(d => d.courseId && d.courseId === cid).map(d => { const s = deckStats(d); return `${d.name}: ${Math.round(s.mastery * 100)}% mastered${s.last ? `, last quiz ${s.last.score}/${s.last.total}` : ""}`; }).join("; ");
+  // Each deck and quiz set gets a ref (d1...) and a peek at its contents, so the AI can say which ones an exam covers
+  const dref = {}, dback = {};
+  decksArr().forEach((d, i) => { dref[d.id] = "d" + (i + 1); dback["d" + (i + 1)] = d.id; });
+  const peek = d => (isQuizHolder(d) ? (d.aiQuizzes || []).flatMap(qz => [qz.title, ...(qz.sources || [])]) : d.cards.filter(c => !c.draft).slice(0, 4).map(c => c.front)).map(x => String(x || "").replace(/\s+/g, " ").slice(0, 50)).filter(Boolean).slice(0, 4).join(" / ");
+  const deckInfo = cid => decksArr().filter(d => d.courseId && d.courseId === cid).map(d => { const s = deckStats(d), pk = peek(d); return isQuizHolder(d) ? (s.last ? `${dref[d.id]} quiz "${d.name}" (made from slides, notes or own questions${pk ? ": " + pk : ""}): last score ${s.last.score}/${s.last.total}` : "") : `${dref[d.id]} ${d.name}${pk ? ` (${pk})` : ""}: ${Math.round(s.mastery * 100)}% mastered${s.last ? `, last quiz ${s.last.score}/${s.last.total}` : ""}`; }).filter(Boolean).join("; ");
   const rankOf = {}; (F.ranked || []).forEach((x, i) => { rankOf[x.t.id] = i + 1; });
   const lines = open.map(t => {
     const c = courseOf(t.courseId), p = progress(t), ps = MILESTONE(t.type) ? planSessions(t.id) : [];
@@ -5291,7 +5310,9 @@ async function autoPlan(a){
       rankOf[t.id] && canDoNow(t) ? `rank ${rankOf[t.id]}` : "", `status ${t.status}`, hasWeight(t) ? `worth ${t.weight}%` : "", `priority ${t.priority}`, `difficulty ${t.difficulty}`,
       MILESTONE(t.type) ? "" : isNum(t.hours) && Number(t.hours) > 0 ? `estimate ${t.hours}h` : "no estimate",
       p.frac ? `progress ${Math.round(p.frac * 100)}%` : "", (t.checklist || []).length ? `checklist ${p.done}/${p.total}` : "",
-      t.focusMin ? `focused ${t.focusMin}m so far` : "", t.prepFor ? `study session for ${(state.tasks[t.prepFor] || {}).title || "an exam"}` : "",
+      t.focusMin ? `focused ${t.focusMin}m so far` : "",
+      !MILESTONE(t.type) && saidOf(t) ? `the student said about ${Math.round((Number(t.left.p) || 0) * 100)}% was done after ${t.left.fm}m` : "",
+      !MILESTONE(t.type) && !t.prepFor && (Number(t.focusMin) > 0 || progress(t).frac > 0) ? `work left by the app's pace model: ${leftRange(t)}` : "", t.prepFor ? `study session for ${(state.tasks[t.prepFor] || {}).title || "an exam"}` : "",
       ps.length ? `study plan ${ps.filter(x => x.status === "done").length}/${ps.length} sessions done` : "",
       MILESTONE(t.type) && deckInfo(t.courseId) ? `flashcards: ${deckInfo(t.courseId)}` : "",
       F.info[t.id] && canDoNow(t) ? `planner score ${Math.round(F.info[t.id].score)}` : "", blockers(t).length ? "BLOCKED" : "",
@@ -5309,13 +5330,15 @@ async function autoPlan(a){
   const standings = coursesArr().map(c => { const g = courseRisk(c.id); if (!g || !g.marked || !g.marked.length || g.current == null) return ""; return `${courseLabel(c)}: ${Math.round(g.current)}% so far on ${Math.round(g.wMarked)}% of the grade, pass mark ${g.g.pass}%${g.risk ? ` (${g.risk === "risk" ? "at risk" : g.risk === "out" ? "can't reach the pass mark on paper" : "worth watching"})` : ""}`; }).filter(Boolean).join("; ") || "no marks yet";
   let news = []; try { news = typeof window.SBLMS_NEWS === "function" ? window.SBLMS_NEWS(7) : []; } catch(e) {}
   const newsTxt = news.map(n => { const c = courseOf(n.courseId); return `- ${c ? courseLabel(c) : ""} (${String(n.date || "").slice(0, 10)}): ${n.title}. ${String(n.text || "").replace(/\s+/g, " ").slice(0, 220)}`; }).join("\n") || "none";
+  // by type, where it differs: "Lab: about 1.4x the estimate (6 finished)"
+  let paceBy = ""; try { const A = accOf(); if (A) { const by = [...new Set(allTasks().filter(t => t.status === "done").map(t => t.type))].map(ty => { const i = A.ratioInfo({type: ty}); return i.level === "type" || i.level === "course" ? (Math.abs(i.r - 1) >= 0.15 ? `${ty}: about ${i.r.toFixed(1)}x the estimate (${i.n} finished)` : "") : ""; }).filter(Boolean); if (by.length) paceBy = ` By type: ${by.join("; ")}.`; } } catch(e) {}
   const hist = Object.entries(L.byType).map(([k, v]) => `${k}: ${v.length} finished, median ${fmtHM(median(v.map(x => x.h)))} of focused time`).join("; ") || "none yet";
   let tz = ""; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch(e) {}
   const peak = (() => { try { return peakStudyHours(tasksArr().flatMap(t => t.history || []), Date.now()); } catch(e) { return ""; } })();
   const fbw = nufbWeights(nufbLoad(), Date.now());
   const skipped = Object.entries(fbw.type).filter(e => e[1] <= -1.5).map(e => e[0]), liked = Object.entries(fbw.type).filter(e => e[1] >= 1.5).map(e => e[0]);
   const doneTodayN = allTasks().filter(t => t.status === "done" && t.doneAt && t.doneAt >= new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()).length;
-  const r = await aiCall({task: "plan", auto: true, fast: true, maxTokens: 6000, temperature: 0.2, schema: NEXT_SCHEMA, parts: [{text: `Now: ${now.toLocaleDateString("en-US", {weekday: "long"})} ${today} ${pad(now.getHours())}:${pad(now.getMinutes())}${tz ? " (" + tz + ")" : ""}, ${dayPartOf(now.getHours())}. Study time left today: ${fmtHM(F.th)}${F.doneToday >= 0.25 ? ` (already focused ${fmtHM(F.doneToday)} today)` : ""}; usual per day: ${fmtHM(F.dh)}.${doneTodayN ? ` ${doneTodayN} task${doneTodayN === 1 ? "" : "s"} finished today.` : ""}\nThe next few days:\n${week}\nCourse standings: ${standings}\nRecent announcements from the school site:\n${newsTxt}\nThis student's history: ${hist}. They usually take ${L.ratio.toFixed(2)}x their own estimates.${peak ? ` They usually study around ${peak}.` : ""}${skipped.length ? ` They often skip suggestions of these types: ${skipped.join(", ")}.` : ""}${liked.length ? ` They usually accept: ${liked.join(", ")}.` : ""}\nOpen tasks (already ranked by the planner; "rank" 1 is its top choice; days are counted from today):\n${lines}${gLines ? `\n\nGroup project tasks assigned to this student (teammates are waiting on them; they use the same study time as the tasks above; they have refs g1, g2... which must never appear in "next" or anywhere else in your answer):\n${gLines}` : ""}`}],
+  const r = await aiCall({task: "plan", auto: true, fast: true, maxTokens: 6000, temperature: 0.2, schema: NEXT_SCHEMA, parts: [{text: `Now: ${now.toLocaleDateString("en-US", {weekday: "long"})} ${today} ${pad(now.getHours())}:${pad(now.getMinutes())}${tz ? " (" + tz + ")" : ""}, ${dayPartOf(now.getHours())}. Study time left today: ${fmtHM(F.th)}${F.doneToday >= 0.25 ? ` (already focused ${fmtHM(F.doneToday)} today)` : ""}; usual per day: ${fmtHM(F.dh)}.${doneTodayN ? ` ${doneTodayN} task${doneTodayN === 1 ? "" : "s"} finished today.` : ""}\nThe next few days:\n${week}\nCourse standings: ${standings}\nRecent announcements from the school site:\n${newsTxt}\nThis student's history: ${hist}. They usually take ${L.ratio.toFixed(2)}x their own estimates.${paceBy}${peak ? ` They usually study around ${peak}.` : ""}${skipped.length ? ` They often skip suggestions of these types: ${skipped.join(", ")}.` : ""}${liked.length ? ` They usually accept: ${liked.join(", ")}.` : ""}\nOpen tasks (already ranked by the planner; "rank" 1 is its top choice; days are counted from today):\n${lines}${gLines ? `\n\nGroup project tasks assigned to this student (teammates are waiting on them; they use the same study time as the tasks above; they have refs g1, g2... which must never appear in "next" or anywhere else in your answer):\n${gLines}` : ""}`}],
     system: (gLines ? "The student also has group project tasks (GROUP TASK lines). They can't be picked for 'next', but count them as real work that competes for today's time: when one is due today or tomorrow, favor shorter tasks for 'next' so there is time for it, and in the reasons you may say a group task is due soon. " : "") + "You're an expert study planner working quietly inside a student's planner app. The tasks come pre-ranked by the app's own planner (rank, planner score, days away); treat that ranking as a strong default and only move a task up or down with a concrete reason from the data, never invent a task or id. Using the tasks, the time of day, the time left today and the student's own history: (1) choose up to 5 tasks to work on right now, best first (deadlines come first: never put a task due weeks away ahead of one due in the next few days that still needs work, unless the far one is a big task that needs most of the time left before it; grade weight only breaks ties between similar deadlines), each with a one-sentence reason that cites the evidence in the data (due day, grade weight, hours left, what it unblocks; never just repeat the title or say it is merely important), a concrete first step, and sensible session minutes (an exam or quiz may be chosen only if its line says TAKE-HOME; a line saying FIXED EVENT happens in person at a set time, so never choose it, pick its study tasks instead, and still judge its readiness); skip BLOCKED tasks. (2) Estimate total hours for tasks marked 'no estimate', leaning on how long this student's past tasks took. (3) For started tasks, estimate hours of work left, counting their focus time and progress and their tendency to underestimate. (4) For each exam or quiz, judge readiness 0 to 100 from study sessions done, flashcard mastery and quiz scores, with a short note. (5) Heads up: up to 3 real things the student could miss, read from the instructions, the announcements, the schedule and the standings (an earlier draft or pre-lab deadline, a changed due date or room, a full clinical day right before a deadline, a course near its pass mark); leave it empty rather than state the obvious. Every heads-up must name the specific task, course, day or number it is based on (for example 'Bio lab pre-quiz is due Wed, a day before the report') and must never be general advice like 'stay organized' or 'plan ahead'. (6) Rate how demanding tasks marked 'difficulty not set' look. Consider the schedule: long class or clinical days leave little study time, so plan around them and favour short tasks just before a class. Late submissions: a task that still accepts late work is less urgent than one that closes at the due time, but never suggest planning to be late. Use the refs exactly (t1, t2...). Return JSON only."});
   const d = r.data || {}, changes = [];
   const qctx = {titles: open.map(t => t.title), courses: coursesArr().map(c => courseLabel(c))};
@@ -5329,6 +5352,9 @@ async function autoPlan(a){
   AUTO.heads = {day: today, at: Date.now(), list: heads};
   (d.difficulty || []).forEach(x => { const id = back[x.ref], t = id && state.tasks[id]; if (!t || (t.difficulty && t.difficulty !== "med") || MILESTONE(t.type) || !["easy", "med", "hard"].includes(x.level)) return; if (t.aiDiff && t.aiDiff.level === x.level) return; patch(id, n => { n.aiDiff = {level: x.level, at: Date.now()}; }); });
   (d.readiness || []).forEach(x => { const id = back[x.ref], t = id && state.tasks[id], p = Math.max(0, Math.min(100, Math.round(Number(x.pct)))); if (!t || !MILESTONE(t.type) || isNaN(p)) return;
+    // Which decks and quizzes this exam covers (used for its readiness when you haven't chosen them yourself)
+    { const own = decksArr().filter(dk => dk.courseId && dk.courseId === t.courseId).map(dk => dk.id), ids = [...new Set((Array.isArray(x.decks) ? x.decks : []).map(r => dback[r]).filter(i => own.includes(i)))], sig = xrAiSig(t);
+      if (ids.length && !(t.aiDecks && t.aiDecks.sig === sig && t.aiDecks.ids.join(",") === ids.join(","))) patch(id, n => { n.aiDecks = {ids, sig, at: Date.now()}; }); }
     const ev = planSessions(t.id).some(z => z.status === "done") || decksArr().some(dk => dk.courseId && dk.courseId === t.courseId && (() => { const st = deckStats(dk); return st.mastery > 0 || !!st.last; })()); if (!ev) return;
     x.note = AINS.vet(x.note, {max: 90, min: 6}) ; if (t.aiPrep && Math.abs(t.aiPrep.pct - p) < 3 && autoFresh(t.aiPrep, 1)) return; patch(id, n => { n.aiPrep = {pct: p, note: x.note || "", at: Date.now()}; }); });
   if (changes.length) applyChanges(changes, null); else scheduleRender();
@@ -7599,7 +7625,8 @@ const STYLE_ACTS = {
   "kit-follow": el => { saveStyle({[el.dataset.kind + "Auto"]: true}); render(); styleShop(); },
   "env-toggle": () => { ui.envOpen = ui.envOpen === false; try { localStorage.setItem("studyboard:env", ui.envOpen ? "1" : "0"); } catch(e) {} render(); }
 };
-try { const v = localStorage.getItem("studyboard:env"); if (v) ui.envOpen = v === "1"; else if (window.matchMedia && window.matchMedia("(max-width:700px)").matches) ui.envOpen = false; } catch(e) {}
+// The sticker envelope starts closed; once you open it, it stays the way you left it
+try { const v = localStorage.getItem("studyboard:env"); ui.envOpen = v ? v === "1" : false; } catch(e) { ui.envOpen = false; }
 document.addEventListener("change", e => {
   const c = e.target.classList; if (!c || !(c.contains("note-shape") || c.contains("note-pin"))) return;
   const n = state.notes[e.target.dataset.id]; if (!n) return;
@@ -7764,12 +7791,107 @@ function startOf(t){
    the automatic AI's read of both. The Preparedness slider (how ready you feel) only fills in while there is little evidence,
    and when the two disagree by 20 points or more, the gap is shown: noticing it is how you learn to judge yourself better. */
 const XR_GAP = 20, XR_FULL = 30, XR_DAYS = 30;
+/* Which flashcards count toward one exam's readiness, so Midterm 1 and the Final don't share one number:
+   1. the decks you linked to the exam, if you did
+   2. (a prep plan's topics are used by the plan itself, see examReadiness)
+   3. automatic: the exam's topics, from its title, its notes (where school-site instructions land) and course announcements
+      that mention it, matched to deck names and card text, including chapter, unit and week numbers ("Chapters 4-6")
+   4. the cards added since the course's previous exam, unless this one is a final or cumulative
+   5. otherwise the whole course, as before */
+const XR_STOP = new Set("about after again also bring calculator cards class closed cover covers covered exam exams final finals from have held in-class including lecture lectures material materials midterm midterms note notes online open page pages paper pencil please quiz quizzes review room section sections study test tests that their there these this time topic topics will with what when where which your chapter chapters unit units week weeks module modules part parts book textbook slides questions question answer answers multiple choice short long take taken home person minutes hour hours worth grade percent points".split(" "));
+const xrStem = w => w.length > 5 && /ies$/.test(w) ? w.slice(0, -3) + "y" : w.length > 5 && /(sses|ches|shes|xes)$/.test(w) ? w.slice(0, -2) : w.length > 4 && /s$/.test(w) && !/(ss|us|is)$/.test(w) ? w.slice(0, -1) : w.length > 6 && /ing$/.test(w) ? w.slice(0, -3) : w.length > 5 && /ed$/.test(w) ? w.slice(0, -2) : w;
+const xrWords = txt => String(txt || "").toLowerCase().replace(/<[^>]*>/g, " ").split(/[^a-z\u00c0-\u024f]+/).filter(w => w.length >= 4 && !XR_STOP.has(w)).map(xrStem);
+// Chapter, unit, module, week and lecture numbers named in a text: {kind: Set of numbers}
+function xrNums(txt){
+  const out = {}, re = /\b(ch(?:apter)?s?|units?|modules?|weeks?|lectures?|lessons?)\.?\s*((?:\d{1,2}\s*(?:-|–|to|,|&|and)?\s*)+)/gi;
+  let m; while ((m = re.exec(String(txt || "")))) {
+    const k = m[1].toLowerCase().replace(/^ch.*/, "ch").replace(/s$/, ""), set = out[k] || (out[k] = new Set());
+    const parts = m[2].replace(/–|to/g, "-").split(/,|&|and/);
+    parts.forEach(p => { const r = p.split("-").map(x => parseInt(x, 10)).filter(n => n >= 0 && n < 100); if (r.length === 2 && r[1] >= r[0] && r[1] - r[0] < 30) { for (let i = r[0]; i <= r[1]; i++) set.add(i); } else if (r.length) set.add(r[0]); });
+  }
+  return out;
+}
+const xrNumHit = (nums, txt) => { const t = xrNums(txt); return Object.keys(t).some(k => nums[k] && [...t[k]].some(n => nums[k].has(n))); };
+// When a card was made: card ids start with the time they were created
+const cardBorn = c => { const n = parseInt(String(c.id || "").slice(0, 8), 36); return n > 1.4e12 && n < Date.now() + 864e5 ? n : 0; };
+const isCumulative = ex => /\b(final|cumulative|comprehensive)\b/i.test((ex.title || "") + " " + (ex.notes || ""));
+let XE_CACHE = {k: "", m: {}};
+// The words of a practice quiz (its title, what it was made from, and its questions), to match it to an exam's topics
+const quizText = qz => [qz.title, ...(qz.sources || []), ...(qz.questions || []).map(q => Object.values(q || {}).filter(v => typeof v === "string").join(" "))].join(" ");
+// The results of a set of quizzes, newest first: [{at, score, total}]
+const quizResults = list => list.flatMap(qz => (qz.results || []).filter(r => r && Number(r.total) > 0 && Number(r.at) > 0));
+// What the AI's deck choice for an exam was based on: the course's decks and the exam's instructions (a change in either retires it)
+const xrAiSig = ex => decksArr().filter(d => d.courseId && d.courseId === ex.courseId).map(d => d.id).sort().join(",") + "|" + String(ex.notes || "").length;
+const xrAiDecks = ex => { const a = ex.aiDecks; return a && Array.isArray(a.ids) && a.ids.length && typeof autoPlanOn === "function" && autoPlanOn() && Date.now() - (Number(a.at) || 0) < 21 * 864e5 && a.sig === xrAiSig(ex) ? a.ids : null; };
+function examEvidence(ex){
+  const k = todayISO() + "|" + (state.updated || 0);
+  if (XE_CACHE.k !== k) XE_CACHE = {k, m: {}};
+  const aiIds = xrAiDecks(ex), ck = ex.id + "|" + (ex.readyDecks || []).join(",") + "|" + (ex.notes || "").length + "|" + ex.title + "|" + ex.courseId + "|" + (aiIds || []).join(",");
+  if (ex.id && XE_CACHE.m[ck]) return XE_CACHE.m[ck];
+  const live = c => !c.draft, alive = Object.values(state.decks || {}).filter(d => d && !d.archived);
+  const all = alive.filter(d => !isQuizHolder(d)), course = all.filter(d => ex.courseId && d.courseId === ex.courseId);
+  // Quizzes not made from flashcards (from slides, notes, a file or your own questions) live on their own, by course
+  const holders = alive.filter(d => isQuizHolder(d)), courseQz = holders.filter(d => ex.courseId && d.courseId === ex.courseId).flatMap(d => (d.aiQuizzes || []).map(qz => Object.assign({deck: d}, qz)));
+  // a flashcard deck's quiz history covers its own quizzes (made from its cards or saved in it)
+  const deckRes = ds => ds.flatMap(d => (d.quizzes || []).filter(r => r && Number(r.total) > 0 && Number(r.at) > 0));
+  let out = null;
+  const linked = (ex.readyDecks || []).map(id => alive.find(d => d.id === id)).filter(Boolean);
+  if (linked.length) {
+    const ds = linked.filter(d => !isQuizHolder(d)), qs = linked.filter(d => isQuizHolder(d)).flatMap(d => d.aiQuizzes || []);
+    out = {how: "linked", decks: ds, cards: ds.flatMap(d => d.cards.filter(live)), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
+  }
+  // Automatic AI's reading of the exam's topics against what each deck holds
+  if (!out && aiIds) {
+    const pick = aiIds.map(id => alive.find(d => d.id === id)).filter(Boolean), ds = pick.filter(d => !isQuizHolder(d)), qs = pick.filter(d => isQuizHolder(d)).flatMap(d => d.aiQuizzes || []);
+    if (pick.length) out = {how: "ai", decks: ds, cards: ds.flatMap(d => d.cards.filter(live)), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
+  }
+  if (!out && (course.length || courseQz.length)) {
+    // the exam's own words: its title, its notes, and announcements in its course that name it
+    const name = String(ex.title || "").toLowerCase().replace(/\s+/g, " ").trim();
+    let ann = ""; try { if (window.SBANN && name.length >= 4) ann = SBANN.items().filter(n => n.cid === ex.courseId && (n.title + " " + n.text).toLowerCase().includes(name)).map(n => n.title + " " + n.text).join(" "); } catch (e) {}
+    const src = [ex.title, ex.notes, ann].join(" "), nums = xrNums(src), cards = course.flatMap(d => d.cards.filter(live).map(c => ({c, d})));
+    // words that name topics: not shared by most of the course's cards and quizzes (those say nothing about this exam)
+    const docs = cards.map(({c}) => c.front + " " + c.back).concat(courseQz.map(quizText)), freq = {};
+    docs.forEach(t => new Set(xrWords(t)).forEach(w => { freq[w] = (freq[w] || 0) + 1; }));
+    const terms = new Set(xrWords(src).filter(w => (freq[w] || 0) <= Math.max(1, docs.length * 0.5)));
+    const textHit = t => xrNumHit(nums, t) || xrWords(t).some(w => terms.has(w));
+    if (terms.size || Object.keys(nums).length) {
+      const deckHit = d => xrNumHit(nums, d.name) || xrWords(d.name).some(w => terms.has(w));
+      const hit = cards.filter(({c, d}) => deckHit(d) || textHit(c.front + " " + c.back));
+      const qHit = courseQz.filter(qz => deckHit(qz.deck) || textHit(quizText(qz)));
+      const cardsOk = hit.length >= 5 && hit.length >= cards.length * 0.1 && hit.length < cards.length * 0.95, quizOk = qHit.length > 0 && qHit.length < courseQz.length;
+      if (cardsOk || (!cards.length && quizOk)) {
+        const ds = course.filter(d => hit.filter(h => h.d === d).length >= d.cards.filter(live).length * 0.5);
+        const runs = a => { const v = [...a].sort((x, y) => x - y), o = []; v.forEach(n => { const l = o[o.length - 1]; if (l && n === l[1] + 1) l[1] = n; else o.push([n, n]); }); return o.map(([x, y]) => x === y ? String(x) : x + "–" + y).join(", "); };
+        // "chapters 4-6", "unit 2" for the sheet that explains what Automatic picked
+        const label = Object.keys(nums).map(kk => ({ch: "chapter", unit: "unit", module: "module", week: "week", lecture: "lecture", lesson: "lesson"}[kk] || kk) + (nums[kk].size > 1 ? "s " : " ") + runs(nums[kk]));
+        out = {how: "topics", decks: ds, cards: hit.map(h => h.c), terms: label.concat([...terms]).slice(0, 8), quiz: deckRes(ds).concat(quizResults(qHit)), quizN: qHit.length};
+      }
+    }
+    // what was made since the course's previous exam (a later exam usually covers the newer material)
+    if (!out && !isCumulative(ex)) {
+      const prev = Object.values(state.tasks || {}).filter(t => t.id !== ex.id && t.courseId === ex.courseId && MILESTONE(t.type) && !t.prepFor && t.due && t.due < ex.due && (t.type === "Exam" || weightOf(t) >= 10)).sort((a, b) => b.due.localeCompare(a.due))[0];
+      if (prev) {
+        const since = parse(prev.due).getTime() + 864e5, fresh = cards.filter(({c, d}) => (cardBorn(c) || Number(d.created) || 0) >= since);
+        const qFresh = courseQz.filter(qz => (Number(qz.created) || Number(qz.deck.created) || 0) >= since);
+        if ((fresh.length >= 5 && fresh.length < cards.length * 0.95) || (!cards.length && qFresh.length && qFresh.length < courseQz.length)) {
+          const ds = course.filter(d => (Number(d.created) || 0) >= since);
+          out = {how: "since", decks: ds, cards: fresh.map(x => x.c), prev: prev.title, quiz: deckRes(ds).concat(quizResults(qFresh)), quizN: qFresh.length};
+        }
+      }
+    }
+    if (!out) out = {how: "course", decks: course, cards: course.flatMap(d => d.cards.filter(live)), quiz: deckRes(course).concat(quizResults(courseQz)), quizN: courseQz.length};
+  }
+  if (!out) out = {how: "none", decks: [], cards: [], quiz: [], quizN: 0};
+  if (ex.id) XE_CACHE.m[ck] = out;
+  return out;
+}
 let XR_CACHE = {k: "", m: {}};
 function examReadiness(t){
   if (!t || !MILESTONE(t.type)) return null;
   const today = todayISO(), k = today + "|" + (typeof state !== "undefined" ? state.updated || 0 : 0);
   if (XR_CACHE.k !== k) XR_CACHE = {k, m: {}};
-  const ck = [t.id, t.pct, t.aiPrep && t.aiPrep.at, t.status, t.courseId].join("|");
+  const ck = [t.id, t.pct, t.aiPrep && t.aiPrep.at, t.aiDecks && t.aiDecks.at, typeof autoPlanOn === "function" && autoPlanOn(), t.status, t.courseId, (t.readyDecks || []).join(","), (t.notes || "").length].join("|");
   if (t.id && XR_CACHE.m[ck]) return XR_CACHE.m[ck];
   const self = Number(t.pct) > 0 ? Math.max(0, Math.min(100, Math.round(Number(t.pct)))) : null;
   const parts = {}, ws = [];
@@ -7779,12 +7901,13 @@ function examReadiness(t){
   const plan = ps.length && t.prep && window.SBPREP ? SBPREP.pct(t) : null;
   if (plan != null) { parts.plan = plan; n += XR_FULL; }
   else {
-    const decks = t.courseId && typeof deckListArr === "function" ? deckListArr().filter(d => d.courseId === t.courseId) : [];
-    const cards = decks.flatMap(d => (d.cards || []).filter(c => !c.draft)), seen = cards.filter(c => c.seen > 0).length;
+    const ev = examEvidence(t), decks = ev.decks, cards = ev.cards, seen = cards.filter(c => c.seen > 0).length;
+    parts.how = ev.how; parts.prev = ev.prev || "";
     if (cards.length >= 5 && seen >= Math.min(10, cards.length)) { parts.cards = typeof DR !== "undefined" ? DR.deck(cards, today) : null; parts.cardsSeen = seen; parts.cardsAll = cards.length; if (parts.cards != null) { ws.push([parts.cards, 1]); n += seen; } }
     const since = Date.now() - XR_DAYS * 864e5;
-    const qs = decks.flatMap(d => (d.quizzes || []).filter(q => q && Number(q.total) > 0 && Number(q.at) >= since)).sort((a, b) => b.at - a.at).slice(0, 5);
-    if (qs.length) { parts.quiz = Math.round(qs.reduce((s2, q) => s2 + Number(q.score) / Number(q.total), 0) / qs.length * 100); parts.quizN = qs.length; ws.push([parts.quiz, 1.5]); n += 6 * qs.length; }
+    // practice quizzes: from the exam's flashcards, and quizzes made from slides, notes or your own questions in its course
+    const qs = (ev.quiz || []).filter(q => Number(q.at) >= since).sort((a, b) => b.at - a.at).slice(0, 5);
+    if (qs.length) { parts.quiz = Math.round(qs.reduce((s2, q) => s2 + Number(q.score) / Number(q.total), 0) / qs.length * 100); parts.quizN = qs.length; ws.push([parts.quiz, 1.5]); n += qs.reduce((s2, q) => s2 + Math.min(12, Math.max(4, Number(q.total) || 6)), 0); }
     const ai = typeof autoPlanOn === "function" && autoPlanOn() && t.status !== "done" && t.aiPrep && autoFresh(t.aiPrep, 4) ? t.aiPrep : null;
     if (ai) { parts.ai = Math.round(Number(ai.pct) || 0); ws.push([parts.ai, 1]); n += 10; }
   }
@@ -7802,7 +7925,7 @@ function readinessSource(r){
   if (!r || !r.parts) return "";
   const p = r.parts, bits = [];
   if (p.plan != null) bits.push("your prep plan's sessions, flashcards and quizzes");
-  if (p.cards != null) bits.push(`your flashcards (${p.cardsSeen} of ${p.cardsAll} studied)`);
+  if (p.cards != null) bits.push(`${p.how === "linked" ? "the flashcards you linked" : p.how === "topics" ? "flashcards on this exam's topics" : p.how === "ai" ? "flashcards the AI matched to this exam" : p.how === "since" ? `flashcards added since ${p.prev}` : "your flashcards for the course"} (${p.cardsSeen} of ${p.cardsAll} studied)`);
   if (p.quiz != null) bits.push(`${p.quizN === 1 ? "a practice quiz" : p.quizN + " practice quizzes"} (${p.quiz}% average)`);
   if (p.ai != null && p.plan == null) bits.push("the AI's read of your study");
   return bits.length > 1 ? bits.slice(0, -1).join(", ") + " and " + bits[bits.length - 1] : bits[0] || "";
@@ -8283,14 +8406,50 @@ function effortOf(t){
 }
 // A big assignment that has been split into milestones
 const bdHasKids = t => !!(t && t.breakdownParent) && allTasks().some(k => k.breakdownOf === t.id);
+// Your check-in answer ("how much is left?"), while nothing it was based on has changed since
+function saidOf(t){
+  const c = t && t.left; if (!c || !(Number(c.h) >= 0) || !(Number(c.fm) >= 0)) return null;
+  const done = (t.checklist || []).filter(i => i.done).length, fm = Number(t.focusMin) || 0;
+  if (c.ck !== done || (Number(c.pct) || 0) !== (Number(t.pct) || 0) || Number(c.fm) > fm + 0.5 || Date.now() - (Number(c.at) || 0) > 45 * 864e5) return null;
+  return {h: Number(c.h), at: Number(c.fm) / 60};
+}
+// Work left on a task, as a range: {h, lo, hi, how, E}. how: est (the estimate), pace (your pace on it), over (past the plan),
+// said (your check-in), ai (Automatic AI's reading)
+function leftInfo(t){
+  const e = effortOf(t);
+  if (t.status === "done") return {h: 0, lo: 0, hi: 0, how: "done", E: e};
+  const A = accOf(), sp = A && A.spreadFor ? A.spreadFor(t) : {lo: 0.8, hi: 1.35};
+  const M = A ? A.ACC : null, p = progress(t).frac, fm = (Number(t.focusMin) || 0) / 60, said = saidOf(t);
+  const r = M ? M.left({E: e, h: fm, p, said, lo: sp.lo, hi: sp.hi}) : {h: p === 0 && fm > 0 ? Math.max(e * 0.15, e - fm) : e * (1 - p), lo: 0, hi: 0, how: "est"};
+  if (!M) { r.lo = r.h * 0.8; r.hi = r.h * 1.35; }
+  // Automatic AI's reading of what's left, kept inside a sensible band (your own check-in answer comes first)
+  if (!said && autoPlanOn() && t.aiLeft && t.aiLeft.sig === leftSig(t)) {
+    const h = Math.max(r.lo * 0.6, Math.min(t.aiLeft.h, Math.max(e * 1.5, r.hi * 1.2))), k = r.h > 0 ? h / r.h : 1;
+    return {h, lo: r.h > 0 ? r.lo * k : h * 0.8, hi: r.h > 0 ? r.hi * k : h * 1.35, how: "ai", E: e};
+  }
+  return Object.assign(r, {E: e});
+}
 function remainingOf(t){
   if (t.status === "done") return 0;
   if (bdHasKids(t)) return 0.25;
   if (MILESTONE(t.type) && planSessions(t.id).length) return 0;
-  const e = effortOf(t), p = progress(t).frac, fm = (Number(t.focusMin) || 0) / 60;
-  if (autoPlanOn() && !MILESTONE(t.type) && t.aiLeft && t.aiLeft.sig === leftSig(t)) return Math.min(t.aiLeft.h, e * 1.5);
-  if (p === 0 && fm > 0 && !MILESTONE(t.type)) return Math.max(e * 0.15, e - fm);
-  return e * (1 - p);
+  if (MILESTONE(t.type)) return effortOf(t) * (1 - progress(t).frac);
+  return leftInfo(t).h;
+}
+// What Today's Plan sets aside: the middle of the range, and toward the long end within 3 days of the due date
+function planLeft(t, dl){
+  const R = remainingOf(t);
+  if (!(R > 0) || MILESTONE(t.type) || t.xs || t.prepFor || bdHasKids(t) || !(dl <= 3)) return R;
+  // only when the range comes from your own finished tasks (a typical spread is a guess, not a reason to plan long)
+  const A = accOf(), sp = A && A.spreadFor ? A.spreadFor(t) : null;
+  if (!sp || !(sp.n > 0)) return R;
+  const L = leftInfo(t);
+  return R + Math.max(0, L.hi - L.h) * 0.5;
+}
+// "about 2h" or "2h to 3h" (rounded to 15 minutes)
+function leftRange(t){
+  const L = leftInfo(t), q = x => Math.max(0.25, Math.round(x * 4) / 4), lo = q(L.lo), hi = q(L.hi);
+  return hi - lo >= 0.5 ? `${fmtHM(lo)} to ${fmtHM(hi)}` : `about ${fmtHM(q(L.h))}`;
 }
 // Share of the due day you can still use
 function dueDayFrac(t){
@@ -8421,17 +8580,33 @@ function splitToday(ranked, th, own){
   picked.forEach(x => { if (x.far && left >= 0.25 && x.R > x.alloc + 0.125) give(x, Math.round((x.R - x.alloc) * 4) / 4); });
   return left;
 }
+/* Focus time on group project tasks. The group's server keeps no time spent, and its rows are rebuilt from the server, so
+   your minutes on each one live in your own synced settings (gtWork: {rowId: {m, d: {date: minutes}, at}}). They count in
+   Today's Plan like focus time on your own tasks: less work left, and "enough for today" once today's time is done. */
+const isGt = id => /^gt:/.test(String(id || ""));
+const gtWork = () => (state.settings && state.settings.gtWork && typeof state.settings.gtWork === "object" ? state.settings.gtWork : {});
+function gtAddWork(id, min){
+  const rid = String(id || "").replace(/^gt:/, ""), m = Math.round(Number(min) || 0); if (!rid || !(m > 0)) return false;
+  const all = Object.assign({}, gtWork()), w = Object.assign({m: 0, d: {}}, all[rid]), day = todayISO();
+  w.m = (Number(w.m) || 0) + m; w.d = Object.assign({}, w.d, {[day]: (Number(w.d[day]) || 0) + m}); w.at = Date.now();
+  Object.keys(w.d).sort().slice(0, -60).forEach(k => delete w.d[k]);
+  all[rid] = w;
+  Object.keys(all).sort((a, b) => (all[b].at || 0) - (all[a].at || 0)).slice(300).forEach(k => delete all[k]);
+  state.settings = Object.assign({}, state.settings, {gtWork: all}); saveSettings();
+  return true;
+}
 // Group project tasks assigned to me, as plan entries
 function groupPlanTasks(){
   let rows = []; try { rows = groupBoardRows(""); } catch (e) { return []; }
   return rows.filter(r => r && r.status !== "done" && /^\d{4}-\d{2}-\d{2}$/.test(r.due || "")).map(r => {
     const c = r.courseCode ? coursesArr().find(x => (x.code || "").replace(/\s+/g, "").toLowerCase() === String(r.courseCode).replace(/\s+/g, "").toLowerCase()) : null;
-    return {id: "gt:" + r.id, title: r.title, due: r.due, time: "", type: "Assignment", status: r.status === "doing" ? "doing" : "todo", priority: r.priority || "med", courseId: c ? c.id : "", hours: Number(r.hours) > 0 ? Number(r.hours) : 1, notes: r.notes || "", checklist: [], taskIds: [], gt: {gid: r.gid, listId: r.listId, id: r.id, name: r.groupName || r.listTitle || "Group project"}};
+    return {id: "gt:" + r.id, title: r.title, due: r.due, time: "", type: "Assignment", status: r.status === "doing" ? "doing" : "todo", priority: r.priority || "med", courseId: c ? c.id : "", hours: Number(r.hours) > 0 ? Number(r.hours) : 1, notes: r.notes || "", checklist: [], taskIds: [],
+      ...(w => w ? {focusMin: Number(w.m) || 0, workLog: Object.entries(w.d || {}).map(([day, m]) => ({id: "gt" + day, d: day, m: Number(m) || 0, k: "focus", at: 0}))} : {})(gtWork()[r.id]), gt: {gid: r.gid, listId: r.listId, id: r.id, name: r.groupName || r.listTitle || "Group project"}};
   });
 }
 const gtOpenAttrs = t => t.gt ? `data-act="grp-pt-open" data-g="${esc(t.gt.gid)}" data-l="${esc(t.gt.listId)}" data-id="${esc(t.gt.id)}"` : `data-act="edit-task" data-id="${esc(planTaskId(t))}"`;
 // What a focus button starts: the task itself, or study time for the exam a study entry stands for (none for group tasks)
-const focusAttrs = t => t.gt ? `data-id=""` : t.xs ? `data-id="${esc(t.xs.id)}" data-study="1"` : `data-id="${esc(t.id)}"`;
+const focusAttrs = t => t.gt ? `data-id="${esc(t.id)}"` : t.xs ? `data-id="${esc(t.xs.id)}" data-study="1"` : `data-id="${esc(t.id)}"`;
 const LIGHT_EVE = 0.5;
 function computeFocus(){
   const today = todayISO(), dh0 = dailyHours(), thSet = todayHours(), now = new Date();
@@ -8470,7 +8645,7 @@ function computeFocus(){
   let load = 0, loadW = 0;
   byDue.forEach(t => {
     const w = W0[t.id], fx = MILESTONE(t.type) && !canDoNow(t);
-    const R = fx ? 0 : remainingOf(t);
+    const R = fx ? 0 : planLeft(t, dayDiff(today, t.due));
     if (!w.dead) { load += R; if (!t.xs) loadW += R; }
     const freeLate = w.past && !w.dead && w.lp === "free";
     const A = w.past ? (freeLate ? Math.max(0, (w.eff - nowMs) / 864e5) * dh : 0) : capacityUntil(t, today, dh, th, cum, day, now, freeBefore);
@@ -8627,7 +8802,8 @@ function computeFocus(){
   Object.values(info).forEach(x => {
     const t = x.t, r = [];
     const luD = x.lateUntil ? x.lateUntil.slice(0, 10) : "", luT = x.lateUntil ? x.lateUntil.slice(11) : "";
-    const penTxt = `Late work loses ${hasLatePen(t) ? "" : "about "}${Math.round(latePenOf(t) * 100)}% a day${hasLatePen(t) ? "" : " (a typical penalty; set the real one in the task)"}${x.W ? `, about ${pct(x.W * latePenOf(t))}% of your grade` : ""}`;
+    const pd = Math.round(latePenOf(t) * 100), typ = hasLatePen(t) ? "" : ` (at a typical ${pd}% a day)`;
+    const penTxt = x.W ? `Each day late costs about ${pct(x.W * latePenOf(t))}% of your grade${typ}` : `Late work loses ${hasLatePen(t) ? "" : "about "}${pd}% a day`;
     if (x.dead) r.push([100, `Past due, and late work isn't accepted. It isn't in today's plan: talk to your instructor if you still want to hand it in`]);
     else if (x.past && x.dl === 0 && t.time) r.push([100, `Was due at ${fmtTime(t.time)} today${x.late === "free" ? ", and late work is accepted" : ""}`]);
     else if (x.past) r.push([100, luD ? `Overdue. Late submissions close ${fmtDate(luD)}${luT && luT !== "23:59" ? " at " + fmtTime(luT) : ""}` : `Overdue by ${-x.dl} day${x.dl === -1 ? "" : "s"}`]);
@@ -8660,7 +8836,8 @@ function computeFocus(){
     if (pr && pr.ai) r.push([56, `About ${pr.ai.pct}% ready${pr.ai.note ? ": " + pr.ai.note : ""}`]);
     else if (x.fixed) r.push([55, `${remoteOf(t).v === "no" ? "Taken in person" : "Not confirmed as take-home"}, so it is a fixed event, not a task to do now${x.p > 0 ? ` (${Math.round(x.p * 100)}% prepared)` : ""}`]);
     else if (MILESTONE(t.type)) r.push([55, progress(t).plan ? `${Math.round(x.p * 100)}% prepared, following your study plan` : `${Math.round(x.p * 100)}% prepared, about ${fmtHM(x.R)} of study left`]);
-    else if (x.R > 0) r.push([40, t.xs ? `About ${fmtHM(x.R)} of study left` : `About ${fmtHM(x.R)} of work left`]);
+    else if (x.R > 0 && t.xs) r.push([40, `About ${fmtHM(x.R)} of study left`]);
+    else if (x.R > 0) { const L = leftInfo(t), rng = leftRange(t); r.push([40, `${/^about/.test(rng) ? "About " + rng.slice(6) : rng} of work left${x.R > L.h + 0.05 ? ", planned for the longer end since it's due soon" : ""}`]); if (L.how === "over") r.push([62, "Taking longer than planned"]); }
     if (accOf() && x.R > 0 && isNum(t.hours) && !MILESTONE(t.type) && !t.xs) { const ex = accOf().explain(t); if (ex) r.push([39, ex + " " + tr("acc.planAllows", "Today's Plan allows for it.")]); }
     if (x.nudged) r.push([36, tr("acc.startSooner", "You often finish close to the deadline, so starting a little early helps")]);
     if (x.unblocks && !t.dueFor) r.push([80, `Needed before ${x.unblocks.title}`]);
@@ -8763,14 +8940,15 @@ function dayTimelineHtml(F, todayList, heroId){
 hook("render", () => { document.querySelectorAll(".dtl-rail").forEach(r => { const t = r.querySelector("[data-anchor]"); if (t) r.scrollLeft = Math.max(0, t.offsetLeft - r.offsetLeft - 8); }); });
 function planRow(x, i, showScore, noRank){
   const t = x.t, c = courseOf(t.courseId);
-  const rs = x.reasons || [], li = planLead(rs), lead = rs[li] || "", rest = rs.filter((r, k) => k !== li);
+  // a short reason shows on the row; a long one would be cut off, so the row says "Why" and the reasons open below
+  const rs = x.reasons || [], li = planLead(rs), lead0 = rs[li] || "", short = lead0.length <= 30, lead = short ? lead0 : rs.length ? "Why" : "", rest = short ? rs.filter((r, k) => k !== li) : rs;
   const key = (showScore ? (noRank ? "w" : "r") : "t") + "-" + t.id, open = !!(ui.planWhy && ui.planWhy[key]);
   const side = showScore ? `<span class="score" title="Focus score" aria-label="Focus score ${Math.round(x.score)}">${Math.round(x.score)}</span>`
     : x.alloc > 0 ? `<span class="alloc" title="Time Today's Plan suggests for this today">${fmtHM(x.alloc)}<small class="alloc-l"> today</small></span>` : `<span class="alloc idle">Later</span>`;
   return `<li class="plan-row${open ? " why-open" : ""}" style="--c:${esc(colorOf(t.courseId))}">
     ${t.gt || t.xs ? `<span class="check gt-dot" aria-hidden="true"></span>` : `<button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>`}
     <button class="plan-main" ${gtOpenAttrs(t)} title="${esc(rs.join("\n"))}"><span class="task-title">${esc(t.title)}</span>${t.gt ? `<span class="pr-chip gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? `<span class="pr-chip">${esc(courseLabel(c))}</span>` : ""}</button>${c ? `<span class="pr-chip pr-chip-out">${esc(courseLabel(c))}</span>` : ""}
-    ${lead ? rest.length ? `<button class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}" data-act="plan-why" data-id="${esc(key)}" aria-expanded="${open}" aria-controls="pw-${esc(key)}" title="${esc(lead)}. Show all ${rs.length} reasons"><span class="pr-lead">${esc(lead)}</span><span class="pr-n" aria-hidden="true">+${rest.length} more</span></button>` : `<span class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}"><span class="pr-lead">${esc(lead)}</span></span>` : `<span class="pr-why"></span>`}
+    ${lead ? rest.length ? `<button class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}" data-act="plan-why" data-id="${esc(key)}" aria-expanded="${open}" aria-controls="pw-${esc(key)}" title="${short ? esc(lead) + ". " : ""}Show all ${rs.length} reasons"><span class="pr-lead">${esc(lead)}</span>${short ? `<span class="pr-n" aria-hidden="true">+${rest.length} more</span>` : `<svg class="pf-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`}</button>` : `<span class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}"><span class="pr-lead">${esc(lead)}</span></span>` : `<span class="pr-why"></span>`}
     <span class="plan-side">${lmsGoBtn(t)}${window.SBPREP ? SBPREP.matBtn(t) : ""}${side}${showScore || !canDoNow(t) ? "" : `<button class="focus-go" data-act="pomo-task" ${focusAttrs(t)} aria-label="Start a focus session on ${esc(t.title)}" title="Start a focus session">${TOMATO}</button>`}${showScore || t.gt ? "" : `<button class="focus-go lt-go" data-act="log-time" data-id="${esc(planTaskId(t))}" aria-label="Log time on ${esc(t.title)}" title="Log time you worked on this">${CLOCK_IC}</button>`}</span>
     ${(sl => !showScore && ((sl && sl.length) || x.moved > 0.05) ? `<span class="pr-slot">${sl && sl.length ? `<b>${esc(availSlotText(sl))}</b>` : ""}${x.moved > 0.05 ? `${sl && sl.length ? " " : ""}<span class="mini">${esc(fmtHM(x.moved))} moved to a lighter day</span>` : ""}</span>` : "")(FOCUS && FOCUS.slotsBy ? FOCUS.slotsBy[t.id] : null)}
     ${rest.length ? `<ul class="pr-more" id="pw-${esc(key)}"${open ? "" : " hidden"}>${rest.map(r => `<li>${esc(r)}</li>`).join("")}</ul>` : ""}
@@ -8816,22 +8994,53 @@ function ribbonHtml(week, pick, late){
   }).join("") + Object.entries(more).map(([i, n]) => { const iso = week[i].iso; return `<button type="button" class="rb-more" data-act="plan-tile" data-id="d:${iso}" style="left:${pct(+i + 0.5)}" aria-label="${esc(`${n} more due ${fmtDate(iso)}. Show only that day`)}">+${n}</button>`; }).join("");
   return `<div class="rb${late.n ? " has-late" : ""}${Object.keys(more).length ? " has-more" : ""}" role="group" aria-label="The next two weeks"><ol class="rb-days">${days}</ol><i class="rb-line" aria-hidden="true"></i><div class="rb-pins">${pins}</div></div>`;
 }
-// Closed work (past due, and late work isn't accepted) gets no time. It is mentioned once, until you mark it done or tap Got It.
-const CLOSED_LS = "studyboard:closedSeen", BUSY_LS = "studyboard:busyHide";
+/* Heads Up: everything Today's Plan wants you to know, in one block instead of a stack of cards.
+   - Busy days ahead: they push more of the work into today than your usual pace, so it offers to add the difference.
+   - Short of time before a deadline, and which work gives the fewest marks for the time.
+   - The gap between how ready you feel for your next exam and what your flashcards and quizzes say.
+   - How an exam went: a short reflection once its mark is in (from any source: the mark sheet, school sync, Paste Grades).
+   - Closed work (past due, late work not accepted): it gets no time, and is mentioned until you mark it done or tap Got It. */
+const CLOSED_LS = "studyboard:closedSeen", BUSY_LS = "studyboard:busyHide", GAPHIDE_LS = "studyboard:gapHide";
 const lsObj = k => { try { return JSON.parse(localStorage.getItem(k) || "{}") || {}; } catch (e) { return {}; } };
-function closedHtml(F, inView){
-  const seen = lsObj(CLOSED_LS), list = Object.values(F.info).filter(x => x.dead && !x.fixed && !x.t.gt && inView(x) && x.t.status !== "done" && !seen[x.t.id]).sort((a, b) => b.dueMs - a.dueMs);
-  if (!list.length) return "";
-  return `<div class="plan-past plan-closed" role="region" aria-label="Past due, late work not accepted"><ul>${list.slice(0, 3).map(x => { const t = x.t, c = courseOf(t.courseId);
-    return `<li style="--c:${esc(colorOf(t.courseId))}"><span class="pp-q"><button class="link-btn" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}</button> is past due, and late work isn't accepted<span class="mini">Due ${esc(fmtDate(t.due))}${c ? " · " + esc(courseLabel(c)) : ""}. It isn't in today's plan. Talk to your instructor if you still want to hand it in.</span></span><span class="pp-acts"><button class="btn small primary" data-act="toggle" data-id="${esc(t.id)}">Mark Done</button><button class="btn small" data-act="closed-ok" data-id="${esc(t.id)}">Got It</button></span></li>`; }).join("")}</ul>${list.length > 3 ? `<p class="mini">${list.length - 3} more past due with no late work accepted.</p>` : ""}</div>`;
+const pnIcon = k => ({warn: "!", late: "!", busy: "\u2191", ready: "%", wrap: "\u2713"})[k] || "i";
+function planNotes(F, inView, crunchMain){
+  const rows = [], today = todayISO();
+  // Short of time comes first: it changes what to do today
+  const b = F.busyAhead;
+  const busy = b && (() => { try { return localStorage.getItem(BUSY_LS) !== today; } catch (e) { return true; } })() ? (() => {
+    const name = d => dayDiff(today, d.d) === 1 ? "Tomorrow" : parse(d.d).toLocaleDateString(undefined, {weekday: "long"});
+    const days = b.days.map(d => name(d) + (d.what ? ` (${d.what})` : "")), list = days.length > 1 ? days.slice(0, -1).join(", ") + " and " + days[days.length - 1] : days[0];
+    return {list: esc(list), many: days.length > 1, acts: `<button class="btn small primary" data-act="today-set" data-id="${b.to}">Make Today ${fmtHM(b.to)}</button><button class="btn small" data-act="busy-hide">Not Today</button>`};
+  })() : null;
+  // Short of time and busy days ahead both ask for more time today: one row, one button
+  if (crunchMain && busy) rows.push({k: "warn", main: `${crunchMain} ${busy.list} ${busy.many ? "leave" : "leaves"} little study time too, so adding <b>${fmtHM(b.add)}</b> today helps most.`, acts: busy.acts, cls: "pn-busy"});
+  else if (crunchMain) rows.push({k: "warn", main: crunchMain});
+  else if (busy) rows.push({k: "busy", main: `<b>Busy days ahead.</b> ${busy.list} ${busy.many ? "leave" : "leaves"} little study time, so more of your work needs doing today. Adding <b>${fmtHM(b.add)}</b> today ${b.all ? "keeps you on track" : "helps you keep up"}.`, acts: busy.acts});
+  // How ready you feel against your results, for the nearest exam with a clear gap (hidden for the day with Got It)
+  const gh = lsObj(GAPHIDE_LS);
+  const gap = Object.values(F.info).filter(x => MILESTONE(x.t.type) && !x.t.prepFor && x.t.status !== "done" && inView(x) && x.dl >= 0 && x.dl <= 14 && gh[x.t.id] !== today)
+    .map(x => ({x, r: examReadiness(x.t)})).filter(o => o.r && o.r.gap).sort((a, z) => a.x.dl - z.x.dl)[0];
+  if (gap) {
+    const t = gap.x.t, r = gap.r, hasCards = t.courseId && deckListArr().some(d => d.courseId === t.courseId && d.cards.some(c => !c.draft));
+    rows.push({k: "ready", main: `<b>${esc(t.title)}</b> (${gap.x.dl === 0 ? "today" : gap.x.dl === 1 ? "tomorrow" : "in " + gap.x.dl + " days"}): ${r.gap > 0 ? `you feel ${r.self}% ready, but your results say about ${r.measured}%. Testing yourself on what you miss closes the gap fastest.` : `your results say about ${r.measured}%, more than the ${r.self}% you feel. You may be further along than you think.`}`,
+      acts: `${hasCards && r.gap > 0 ? `<button class="btn small primary" data-act="fc-study-course" data-course="${esc(t.courseId)}">Test Yourself</button>` : ""}<button class="btn small" data-act="edit-task" data-id="${esc(t.id)}">Open</button><button class="btn small" data-act="gap-hide" data-id="${esc(t.id)}">Got It</button>`});
+  }
+  // A mark came in for an exam you haven't reflected on yet
+  (window.SBWRAP && SBWRAP.pending ? SBWRAP.pending() : []).filter(t => inView({t})).slice(0, 2).forEach(t => {
+    const m = SBWRAP.markOf(t);
+    rows.push({k: "wrap", main: `<b>How did ${esc(t.title)} go?</b> You got ${m}%. A minute comparing that with how ready you were makes the next one easier to prepare for.`,
+      acts: `<button class="btn small primary" data-act="ewr-open" data-id="${esc(t.id)}">Reflect</button><button class="btn small" data-act="ewr-skip" data-id="${esc(t.id)}">Skip</button>`});
+  });
+  const seen = lsObj(CLOSED_LS), closed = Object.values(F.info).filter(x => x.dead && !x.fixed && !x.t.gt && inView(x) && x.t.status !== "done" && !seen[x.t.id]).sort((a, z) => z.dueMs - a.dueMs);
+  closed.slice(0, 2).forEach(x => { const t = x.t, c = courseOf(t.courseId);
+    rows.push({k: "late", main: `<button class="link-btn" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}</button> is past due, and late work isn't accepted <span class="mini">(due ${esc(fmtDate(t.due))}${c ? " · " + esc(courseLabel(c)) : ""})</span>. It isn't in today's plan. Talk to your instructor if you still want to hand it in.`,
+      acts: `<button class="btn small" data-act="toggle" data-id="${esc(t.id)}">Mark Done</button><button class="btn small" data-act="closed-ok" data-id="${esc(t.id)}">Got It</button>`}); });
+  if (closed.length > 2) rows.push({k: "late", main: `${closed.length - 2} more past due with no late work accepted, on the Task Board.`});
+  return rows;
 }
-// Busy days coming up push more of the work into today than your usual pace. The plan uses the time you set; this offers to add the difference.
-function busyAheadHtml(F){
-  const b = F.busyAhead; if (!b) return "";
-  try { if (localStorage.getItem(BUSY_LS) === todayISO()) return ""; } catch (e) {}
-  const name = d => dayDiff(todayISO(), d.d) === 1 ? "Tomorrow" : parse(d.d).toLocaleDateString(undefined, {weekday: "long"});
-  const days = b.days.map(d => name(d) + (d.what ? ` (${d.what})` : "")), list = days.length > 1 ? days.slice(0, -1).join(", ") + " and " + days[days.length - 1] : days[0];
-  return `<div class="plan-warn plan-busy" role="note"><span class="pw-ic" aria-hidden="true">!</span><span class="pw-main"><b>Busy days ahead.</b> ${esc(list)} ${days.length > 1 ? "leave" : "leaves"} little study time, so more of your work needs doing today. Adding <b>${fmtHM(b.add)}</b> today ${b.all ? "keeps you on track" : "helps you keep up"}.</span><span class="pw-acts"><button class="btn small primary" data-act="today-set" data-id="${b.to}">Make Today ${fmtHM(b.to)}</button><button class="btn small" data-act="busy-hide">Not Today</button></span></div>`;
+function planNotesHtml(F, inView, crunchMain){
+  const rows = planNotes(F, inView, crunchMain); if (!rows.length) return "";
+  return `<section class="plan-notes" aria-label="Heads up"><h3 class="pn-h">Heads Up</h3><ul>${rows.map(r => `<li class="pn pn-${r.k}${r.cls ? " " + r.cls : ""}"><span class="pn-ic" aria-hidden="true">${pnIcon(r.k)}</span><span class="pn-main">${r.main}</span>${r.acts ? `<span class="pn-acts">${r.acts}</span>` : ""}</li>`).join("")}</ul></section>`;
 }
 // Short of time: which tasks give the fewest marks for the time
 function dropTxt(F){
@@ -8867,7 +9076,7 @@ function focusHtml(){
   const fixedHtml = fixedEv.length ? `<div class="plan-fixed" role="region" aria-label="Exams and quizzes on the calendar"><h3 class="plan-sub">On the Calendar</h3><ul>${fixedEv.map(x => { const t = x.t, e = remoteOf(t); return `<li style="--c:${esc(colorOf(t.courseId))}"><button class="plan-main" data-act="edit-task" data-id="${esc(t.id)}"><span class="task-title">${esc(t.title)}</span></button><span class="pf-when">${x.dl === 0 ? "Today" : x.dl === 1 ? "Tomorrow" : esc(fmtShort(t.due))}${t.time ? " " + esc(fmtTime(t.time)) : ""}</span><span class="rx-chip${e.v ? "" : " unk"}" title="${esc(e.v === "no" ? "Taken in person, so it is not suggested as something to do now." : "Not confirmed as take-home, so it is not suggested as something to do now. Open it to say where it is taken.")}">${e.v === "no" ? "In person" : "Not sure"}</span></li>`; }).join("")}</ul></div>` : "";
   if (queued) sum.push(`${queued} more lined up for the coming days`);
   const dropT = dropTxt(F);
-  const warn = F.crunch && inView(F.crunch) ? `<p class="plan-warn"><span class="pw-ic" aria-hidden="true">!</span><span class="pw-main">${"From now to " + (d => d === todayISO() ? "the end of today" : d === addDays(todayISO(), 1) ? "tomorrow" : esc(fmtDate(d)))(F.crunch.t.due)}, ${Math.abs((F.thSet == null ? F.dh : F.thSet) - F.dh) < 0.01 ? `at ${fmtHM(F.dh)} a day` : `with ${fmtHM(F.thSet)} today and ${fmtHM(F.dh)} a day after`}, you're about <b>${fmtHM(F.crunch.behind)}</b> short for what's due by then.${dropT ? " " + dropT : ""}</span>${dropT ? "" : ` <span class="pw-tip">Add study time, start sooner, or talk to your instructor early.</span>`}</p>` : "";
+  const warn = F.crunch && inView(F.crunch) ? `${"From now to " + (d => d === todayISO() ? "the end of today" : d === addDays(todayISO(), 1) ? "tomorrow" : esc(fmtDate(d)))(F.crunch.t.due)}, ${Math.abs((F.thSet == null ? F.dh : F.thSet) - F.dh) < 0.01 ? `at ${fmtHM(F.dh)} a day` : `with ${fmtHM(F.thSet)} today and ${fmtHM(F.dh)} a day after`}, you're about <b>${fmtHM(F.crunch.behind)}</b> short for what's due by then. ${dropT || "Add study time, start sooner, or talk to your instructor early."}` : "";
   const nBlk = F.blocked.filter(inView).length, nLater = F.later.filter(inView).length;
   const more = ranked.length > show.length + (heroId ? 1 : 0) || nBlk || nLater;
   const listLabel = pick === "late" ? "Overdue" : pickDay ? (pickDay.i === 0 ? "Due Today" : "Due " + esc(fmtDate(pickDay.iso))) : heroId ? (show.some(x => x.alloc > 0) ? "Also Today" : "Then") : "";
@@ -8890,7 +9099,7 @@ function focusHtml(){
   return `<section class="focus plan" aria-label="Today's Plan">
     <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? `<p class="plan-gap">${F.gapWhy.map(esc).join(" ")}</p>` : ""}</div>
       ${(hoursBar => { PLAN_HOURS = hoursBar; return `<div class="fh-ctl${ptStats ? " fh-chip has-stats" : ""}${autoChipHtml() ? "" : " fh-only-hours"}">${hoursBar}${autoChipHtml()}</div>`; })(`<div class="hours-ctl" role="group" aria-label="Study time available today"><span class="mini">Time Today</span><span class="hc-row"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button><b${hoursTitle ? ` title="${esc(hoursTitle)}"` : ""}>${fmtHM(F.thSet) || "0m"}</b><button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></span></div>`)}</div>
-    ${ui.focusOpen ? `${window.SBPRO ? SBPRO.todayHtml() : ""}${dayTimelineHtml(F, todayList, heroId)}${nextUpHtml(F, hero)}${skipped}${spare}${busyAheadHtml(F)}${warn}${closedHtml(F, inView)}${pastHtml}${availStripHtml(F)}
+    ${ui.focusOpen ? `${window.SBPRO ? SBPRO.todayHtml() : ""}${dayTimelineHtml(F, todayList, heroId)}${nextUpHtml(F, hero)}${skipped}${spare}${planNotesHtml(F, inView, warn)}${pastHtml}${availStripHtml(F)}
       ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
       ${fixedHtml}
       ${extraHtml}
@@ -9050,8 +9259,12 @@ function viewCourses(){
         ${gn || hrs > 0 || pill || mini ? `<span class="c2-foot${gn || hrs > 0 || pill ? "" : " c2-foot-m"}">${mini}${gn && gn.pct != null ? `<span class="c2-grade"><span class="c2-gl">Grade </span><b>${esc(gn.fmt(gn.pct))}</b>${gn.letter ? `<span class="c2-letter">${esc(gn.letter)}</span>` : ""}<span class="mini">· ${esc(gn.fmt(gn.marked))} marked</span></span>` : gn ? `<span class="mini c2-nomarks">No marks yet</span>` : hrs > 0 ? `<span class="mini"><b>${fmtH(hrs)}</b> this week</span>` : "<span></span>"}${pill}</span>` : ""}
       </span></button></div>`;
   }).join("");
-  return `<div class="view-head"><h2>Your Courses</h2>${proBtns("courses")}${trashBtn("course")}</div><div class="course-list" data-sortable="courses">${cards}</div>
-    <div class="term-bar"><span>${ARCHIVE_SM}Term over? Put its courses and tasks away, and bring anything back later.</span><button class="btn small" data-act="new-term">Start a New Term</button><button class="btn small" data-act="archive-open">Open Archive${(n => n ? ` (${n})` : "")(allCourses().filter(c => c.archived).length)}</button></div>`;
+  // The new-term panel shows near the end of a term (most work done, nothing due much later); otherwise it's in the menu,
+  // and the Archive is a header button once something is in it
+  const nArch = allCourses().filter(c => c.archived).length, all = tasksArr().filter(t => !t.prepFor && !t.xs), dues = all.map(t => t.due).filter(Boolean).sort();
+  const ending = all.length >= 5 && all.filter(t => t.status === "done").length / all.length >= 0.6 && (!dues.length || dayDiff(todayISO(), dues[dues.length - 1]) <= 7);
+  return `<div class="view-head"><h2>Your Courses</h2>${proBtns("courses")}${!ending && nArch ? `<button class="btn small" data-act="archive-open">Archive (${nArch})</button>` : ""}${trashBtn("course")}</div><div class="course-list" data-sortable="courses">${cards}</div>
+    ${ending ? `<div class="term-bar"><span>${ARCHIVE_SM}Term over? Put its courses and tasks away, and bring anything back later.</span><button class="btn small" data-act="new-term">Start a New Term</button><button class="btn small" data-act="archive-open">Open Archive${nArch ? ` (${nArch})` : ""}</button></div>` : ""}`;
 }
 // The line under a course's name
 function courseNextHtml(open, today){
@@ -9882,7 +10095,7 @@ const isObj = v => !!v && typeof v === "object" && !Array.isArray(v);
 const CSS_COLOR = /^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([\d\s.,%\/-]{1,60}\)|[a-z]{3,20})$/i;
 const FILE_SETTINGS = {
   // Checked where they are used (see the settings review), so taken as they are when the type is right
-  style: isObj, comp: isObj, pomo: isObj, grades: isObj, reminders: isObj, gentle: isObj, review: isObj, tips: isObj, examMode: isObj, autoFeat: isObj, bd: isObj, accuracy: isObj,
+  style: isObj, comp: isObj, gtWork: isObj, pomo: isObj, grades: isObj, reminders: isObj, gentle: isObj, review: isObj, tips: isObj, examMode: isObj, autoFeat: isObj, bd: isObj, accuracy: isObj,
   boardManual: v => typeof v === "boolean" || isObj(v),
   capacity: v => Number.isFinite(v) && v > 0 && v <= 200, dailyHours: v => Number.isFinite(v) && v >= 0 && v <= 24,
   hlColor: v => typeof v === "string" && CSS_COLOR.test(v), icType: v => typeof v === "string" && v.length <= 40, wbTheme: v => typeof v === "string" && v.length <= 40,
@@ -11115,6 +11328,9 @@ function todaysQuote(){
 }
 const streakOf = () => { const s = Object.assign({cur: 0, best: 0, last: ""}, (state.settings && state.settings.streak) || {}); if (s.last && s.last < addDays(todayISO(), -1)) s.cur = 0; return s; };
 // The streak the student actually sees: the gentle one when it is on
+// The streak that rewards (stickers, Term Goals, companion props) follow: study days in a row (a task finished, focus or logged time,
+// a checklist step, flashcards; rest days don't break it), whichever streak is shown. Falls back to the task streak before it loads.
+const rewardStreak = () => { try { if (window.SBSTREAK && SBSTREAK.state) { const r = SBSTREAK.state(); return {cur: Number(r.run) || 0, best: Number(r.best) || 0}; } } catch (e) {} const s = streakOf(); return {cur: s.cur, best: s.best}; };
 const shownStreak = () => { if (window.SBSTREAK && SBSTREAK.on()) { const r = SBSTREAK.state(); return {cur: r.run, best: r.best}; } const s = streakOf(); return {cur: s.cur, best: s.best}; };
 function streakLine(){
   if (window.SBSTREAK && SBSTREAK.on()) return SBSTREAK.line();
@@ -11410,6 +11626,7 @@ function render(){
 function renderNow(){
   if (renderBlocked) { renderQueued = false; setTimeout(scheduleRender, 120); return; }
   try { AUTO_ON = autoState().on; } catch(e) { AUTO_ON = false; }
+  if (window.__SB_TEST && window.__sbForceAuto) AUTO_ON = true;
   try { const want = (s => skinOk(s) && SKINS.some(x => x.id === s) ? s : "classic")(styleCfg().skin); if ((document.documentElement.dataset.skin || "classic") !== want) applySkin(); } catch(e) {}
   computeFocus(); remoteStoreSoon();
   { const nd = new Date(); $("#navDate").textContent = nd.toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"}); }
@@ -11691,8 +11908,10 @@ function taskView(t0){
     } else rows.push([I.cal, "No due date", ""]);
     const st = !cfg.single && (t.start || startOf(t));
     if (st && st !== t.due) rows.push([I.start, esc(fmtDate(st)), esc(cfg.start || "Start Date")]);
-    if (cfg.hours && isNum(t.hours) && !ms) rows.push([I.clock, esc(fmtH(Number(t.hours))), esc(cfg.hours) + (t.focusMin ? ` · ${esc(fmtMins(t.focusMin))} focused so far` : "")]);
-    else if (t.focusMin) rows.push([I.clock, esc(fmtMins(t.focusMin)) + " focused", `${t.pomos || 0} focus session${t.pomos === 1 ? "" : "s"}`]);
+    // once work has started, what's left (a range, from your pace, check-ins and how tasks like this usually go)
+    const leftTxt = !done && !ms && (Number(t.focusMin) > 0 || progress(t).frac > 0) && remainingOf(t) > 0 ? ` · ${esc(leftRange(t))} left` : "";
+    if (cfg.hours && isNum(t.hours) && !ms) rows.push([I.clock, esc(fmtH(Number(t.hours))), esc(cfg.hours) + (t.focusMin ? ` · ${esc(fmtMins(t.focusMin))} focused so far` : "") + leftTxt]);
+    else if (t.focusMin) rows.push([I.clock, esc(fmtMins(t.focusMin)) + " focused", `${t.pomos || 0} focus session${t.pomos === 1 ? "" : "s"}` + leftTxt]);
     if (cfg.reading && t.reading) rows.push([I.book, esc(t.reading), esc(cfg.reading)]);
     if (cfg.location && t.location) rows.push([I.pin, esc(t.location), esc(cfg.location)]);
     if (cfg.team && t.team) rows.push([I.person, esc(t.team), esc(cfg.team)]);
@@ -11711,9 +11930,9 @@ function taskView(t0){
     const xr = ms && !done ? examReadiness(t) : null, feelLbl = ms ? "How Ready You Feel" : cfg.prog || "Progress";
     const ready = !xr ? "" : xr.measured != null ? `<div class="tv-prog ro tv-ready"><div class="tv-prog-h"><b>Readiness From Your Results</b><span>${xr.measured}%</span></div>
       <div class="tv-bar" role="progressbar" aria-label="Readiness from your results" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${xr.measured}" style="--v:${xr.measured}%"><i class="tv-fill"></i></div>
-      <p class="mini tv-hint">From ${esc(readinessSource(xr))}.${xr.from === "both" ? " With a little more studying it will rely on these alone." : ""}</p>
+      <p class="mini tv-hint">From ${esc(readinessSource(xr))}.${xr.from === "both" ? " With a little more studying it will rely on these alone." : ""}${xr.parts.plan == null ? ` <button type="button" class="link-btn" data-act="xr-decks" data-id="${esc(t.id)}">Choose Which Flashcards and Quizzes Count</button>` : ""}</p>
       ${xr.gap ? `<p class="tv-gap ${xr.gap > 0 ? "over" : "under"}" role="note">${esc(readinessGapText(xr))}</p>` : ""}</div>`
-      : `<p class="mini tv-hint tv-noready">Nothing measures your readiness yet. Study this course's flashcards or take a practice quiz and Studyboard will use your results instead of how ready you feel.</p>`;
+      : `<p class="mini tv-hint tv-noready">Until you study this course's flashcards or take a practice quiz, readiness goes by how ready you feel. Your results will show here as you go.${decksArr().length ? ` <button type="button" class="link-btn" data-act="xr-decks" data-id="${esc(t.id)}">Choose Which Flashcards and Quizzes Count</button>` : ""}</p>`;
     const prog = ready + (window.SBWRAP ? SBWRAP.viewHtml(t) : "") + `<div class="tv-prog${drag ? "" : " ro"}"><div class="tv-prog-h"><b>${esc(feelLbl)}</b><span id="tvPct">${val}%</span></div>
       <div class="tv-bar" id="tvBar" ${drag ? `title="${ms ? "Drag to say how ready you feel" : "Drag to update your progress"}" role="slider" tabindex="0" aria-label="${esc(cfg.prog || "Progress")}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${val}" aria-valuetext="${val}%"` : `role="progressbar" aria-label="${esc(cfg.prog || "Progress")}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${val}"`} style="--v:${val}%"><i class="tv-fill"></i>${drag ? `<span class="tv-knob" aria-hidden="true"></span>` : ""}</div>
       ${hint ? `<p class="mini tv-hint">${esc(hint)}</p>` : ""}</div>`;
@@ -12020,7 +12239,7 @@ function taskForm(t, preset = {}){
     const rankTxt = x ? (() => { const i = FOCUS.ranked.indexOf(x); return i >= 0 ? ` Currently #${i + 1} in Today's Plan${x.alloc > 0 ? `, with ${fmtHM(x.alloc)} suggested today` : ""}.` : ""; })() : "";
     const inPerson = ms && !canDoNow(probe) && !planSessions(t.id).length, lead = inPerson ? examLead(probe) : null;
     $("#planHint").innerHTML = (ms ? `Estimated <b>${fmtHM(R)}</b> of studying left, based on difficulty, grade weight and preparedness.${lead ? ` Today's Plan starts study time for it ${lead.days} days before${lead.risk ? ", sooner because of your standing in the course" : ""}${lead.p < 0.75 ? `${lead.risk ? " and" : ", sooner"} because ${esc(readyWords(lead.from, lead.p))}` : ""}.` : ""}`
-      : `Estimated <b>${fmtHM(R)}</b> of work left${isNum(probe.hours) && probe.hours > 0 ? "" : " (a typical amount for this type; add Hours Needed for a better plan)"}.`) + rankTxt;
+      : `Estimated <b>${esc(leftRange(probe))}</b> of work left${isNum(probe.hours) && probe.hours > 0 ? "" : " (a typical amount for this type; add Hours Needed for a better plan)"}.`) + rankTxt;
   };
   tForm.addEventListener("input", planHint); tForm.addEventListener("change", planHint);
   tForm.addEventListener("input", advSummary); tForm.addEventListener("change", advSummary);
@@ -14205,19 +14424,24 @@ const decksArr = () => Object.values(state.decks || {}).filter(d => !d.archived)
 const isQuizHolder = d => !!(d && d.quizOnly && !(d.cards || []).length);
 const quizFrom = (d, qz) => isQuizHolder(d) ? ((qz && qz.sources || []).filter(Boolean).map(x => String(x).replace(/\.[a-z0-9]{2,5}$/i, "")).slice(0, 2).join(", ") || "your material") : d.name;
 const deckListArr = () => decksArr().filter(d => !isQuizHolder(d));
-/* Exams and flashcards. Review is most useful close to a test (the gap since the last review should be short next to how long
-   until the exam), so a card in a course with an exam coming up is always seen in the last few days before it: when its next
-   review would land after the day before the exam, and it hasn't been seen in the 3 days before, it comes due 2 days before.
+/* Exams and flashcards. Review helps most close to a test (the gap since the last review should be short next to how long
+   until the exam), so every card in a course with an exam coming up is reviewed at least once in the week before it.
+   - Only exams that matter count: an Exam, or anything worth 10% or more. A weekly 2% quiz doesn't pull the whole deck in.
+   - A card already reviewed in that last week is left alone. Otherwise, if its next review would land after the day
+     before the exam, it's pulled in to a day in the week before (7 to 2 days out). Each card keeps the same day (from its
+     id), the weakest cards get first claim on a day, and no day takes more than 30 pulled cards per course, so the reviews
+     come spread over the week instead of in one pile.
    The card's own schedule isn't changed; the exam only pulls the date in. */
-const EXAM_WIN = 3, EXAM_PULL = 2;
+const EXAM_WIN = 7, EXAM_LAST = 2, PULL_CAP = 30;
 let FC_EXAMS = {k: "", m: {}};
-// The nearest exam or quiz still to come in each course: {courseId: {id, title, due, days}}
+// The nearest exam that matters still to come in each course: {courseId: {id, title, due, days}}
 function fcExams(){
   const today = todayISO(), k = today + "|" + (state.updated || 0);
   if (FC_EXAMS.k === k) return FC_EXAMS.m;
   const m = {};
   Object.values(state.tasks || {}).forEach(t => {
     if (!t || !t.courseId || t.status === "done" || t.prepFor || !(t.type === "Exam" || t.type === "Quiz") || !t.due || t.due <= today) return;
+    if (t.type !== "Exam" && !(weightOf(t) >= 10)) return;
     if (!m[t.courseId] || t.due < m[t.courseId].due) m[t.courseId] = {id: t.id, title: t.title, due: t.due, days: dayDiff(today, t.due), type: t.type};
   });
   FC_EXAMS = {k, m}; return m;
@@ -14228,16 +14452,39 @@ const cardCourse = c => {
   if (FC_CARD_COURSE.k !== k) { const m = {}; Object.values(state.decks || {}).forEach(d => (d.cards || []).forEach(x => { m[x.id] = d.courseId || ""; })); FC_CARD_COURSE = {k, m}; }
   return FC_CARD_COURSE.m[c.id] || "";
 };
-// When a card should next be reviewed, given the exam in its course (cid). due: its own date
-function examDueCap(due, last, cid, today){
-  const ex = cid && fcExams()[cid]; if (!ex) return due;
-  const winStart = addDays(ex.due, -EXAM_WIN), dayBefore = addDays(ex.due, -1);
-  if (last && last >= winStart) return due;
-  if (due && due <= dayBefore) return due;
-  const pull = addDays(ex.due, -EXAM_PULL), now = today || todayISO();
-  return pull > now ? pull : now;
+const cardHash = id => { let h = 2166136261; for (const ch of String(id)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+// Whether a card still needs a review before an exam: seen before, not reviewed in its last week, next review after the day before
+const needsPull = (c, ex) => c.seen > 0 && !c.draft && !(c.last && c.last >= addDays(ex.due, -EXAM_WIN)) && !(c.due && c.due <= addDays(ex.due, -1));
+// The day each pulled card comes due: {cardId: date}
+let FC_PULL = {k: "", m: {}};
+function fcPulls(){
+  const today = todayISO(), k = today + "|" + (state.updated || 0);
+  if (FC_PULL.k === k) return FC_PULL.m;
+  const m = {}, ex = fcExams();
+  Object.keys(ex).forEach(cid => {
+    const e = ex[cid], last = addDays(e.due, -1), first = addDays(e.due, -EXAM_WIN), span = EXAM_WIN - EXAM_LAST + 1, used = {};
+    const cards = Object.values(state.decks || {}).filter(d => !d.archived && d.courseId === cid).flatMap(d => d.cards || []).filter(c => needsPull(c, e))
+      .sort((a, b) => (a.box || 0) - (b.box || 0) || cardHash(a.id) - cardHash(b.id));
+    // every day a pulled card may land on: the week before (7 to 2 days out), then the day before; never before today
+    const days = []; for (let d = first; d <= last; d = addDays(d, 1)) if (d >= today) days.push(d);
+    if (!days.length) return;
+    cards.forEach(c => {
+      let want = addDays(first, cardHash(c.id) % span); if (want < today) want = today;
+      const order = days.filter(d => d >= want && d < last).concat(days.filter(d => d < want).reverse(), [last]);
+      const day = order.find(d => (used[d] || 0) < PULL_CAP);
+      if (day) { used[day] = (used[day] || 0) + 1; m[c.id] = day; }
+    });
+  });
+  FC_PULL = {k, m}; return m;
 }
-const cardDueOn = c => examDueCap(c.due, c.last, cardCourse(c));
+const cardDueOn = c => { const p = fcPulls()[c.id]; return p && (!c.due || p < c.due) ? p : c.due; };
+// For the rating buttons: the next review date after rating today, pulled in when the exam needs it
+function examDueCap(due, cid, cardId){
+  const ex = cid && fcExams()[cid], today = todayISO(); if (!ex || !due) return due;
+  if (today >= addDays(ex.due, -EXAM_WIN) || due <= addDays(ex.due, -1)) return due;
+  const p = fcPulls()[cardId], span = EXAM_WIN - EXAM_LAST + 1, want = addDays(ex.due, -EXAM_WIN + (cardHash(cardId) % span));
+  return p && p < due ? p : want < due ? want : due;
+}
 const cardDue = c => c.seen > 0 && (!c.due || cardDueOn(c) <= todayISO());
 const cardNew = c => !c.seen;
 /* How prepared you are for a deck (0 to 100), from every card */
@@ -14359,11 +14606,9 @@ function viewQuizzes(){
       <div class="qz-band"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span><span class="g2-kick">${esc(c ? courseLabel(c) : "General")}</span>${qz.kind === "case" ? `<span class="qz-pill">Case Study</span>` : ""}</div>
       <button class="qz-body" data-act="qz-open" data-id="${esc(d.id + ":" + qz.id)}"><b class="qz-title">${esc(qz.title || "Practice Quiz")}</b><span class="mini">${n} question${n === 1 ? "" : "s"} · from ${esc(quizFrom(d, qz))}${last ? ` · last score ${last.score}/${last.total}` : ""}</span></button>
       <div class="qz-acts"><button class="btn small primary" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Start</button><button class="btn small" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Share</button><span class="spacer"></span><button class="btn small deck-arch" data-act="qz-archive" data-id="${esc(d.id + ":" + qz.id)}" title="Put this quiz away" aria-label="Archive ${esc(qz.title || "quiz")}">${ARCHIVE.replace('width="26" height="26"', 'width="16" height="16"')}</button>${rvGrip(qz.title || "Practice Quiz")}</div></article>`; }).join("");
-  return `<div class="view-head" data-qz-list><h2>Your Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
+  return `<div class="view-head" data-qz-list><h2>Your Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}<button class="btn small sm-btn" data-act="grp-page" aria-label="Share With a Group" title="Share quizzes with a study group: everyone takes them in their own app and sees the best scores">${QZ_GROUP_IC}<span class="sm-lbl">Share With a Group</span></button>${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${chipsHtml()}${q ? `<div class="search-note">Showing quizzes that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${list.length ? `<div class="qz-grid">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length ? "" : emptyArt()}<strong>${all.length ? "No Quizzes Match" : "No Quizzes Yet"}</strong>${all.length ? "Try another course or search." : (inPreview() ? "Make a quiz from one of your flashcard decks." : "Upload your slides, notes or readings and " + esc(aiWho("AI")) + " writes a practice quiz. Or make one from a flashcard deck, or write your own.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px">${inPreview() || all.length ? "" : `<button class="btn primary ai-btn" data-act="qz-ai">${AI_ICON} From Slides or Notes</button>`}<button class="btn${inPreview() ? " primary" : ""}" data-act="qz-from-deck">From a Deck</button><button class="btn" data-act="qz-write">Write Your Own</button></div></div>`}
-    <section class="grp-strip"><div class="grp-strip-txt">${QZ_GROUP_IC}<span><b>Study Together</b><span class="mini">Share quizzes with a study group: everyone takes them in their own app and sees the best scores.</span></span></div>
-      <div class="grp-strip-btns"><button class="btn small" data-act="grp-page">Study Groups</button></div></section>
     <p class="hint-line tip-everyday">Make a quiz straight from your slides or notes with Add Quiz, or from a deck with Make a Quiz.</p>`;
 }
 /* Review hero: what's ready, about how long, and one Start button */
@@ -14442,7 +14687,7 @@ function viewFlashcards(){
     </div></article>`;
   }).join("");
   return reviewSwitchHtml() + `<div class="view-head" data-fc-list><h2>Your Decks</h2>
-      ${window.SBSHARE ? SBSHARE.libBtn() : ""}${archBtn()}${trashBtn("deck") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="deck" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
+      ${window.SBSHARE ? SBSHARE.libBtn() : ""}<button class="btn small sm-btn" data-act="grp-share-menu" aria-label="Share or Import" title="Share or Import">${QZ_GROUP_IC}<span class="sm-lbl">Share or Import</span></button>${archBtn()}${trashBtn("deck") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="deck" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${reviewHeroHtml()}${chipsHtml()}${ui.q.trim() ? `<div class="search-note">Showing decks that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${ds.length ? `<div class="deck-grid">${tiles}</div>` : `<div class="empty${decksArr().length ? "" : " sb-es"}" style="margin-top:14px">${decksArr().length ? "" : emptyArt()}<strong>${deckListArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Add cards or paste a list, then study them." + (inPreview() ? "" : " Or upload slides and let " + esc(aiWho("AI")) + " make them.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inPreview() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}
     <p class="hint-line tip-everyday">Studyboard learns how fast you forget each card and brings it back just before you would.</p>`;
@@ -14802,7 +15047,7 @@ function viewStudy(){
   const d = state.decks[it.deckId], c = d && d.cards.find(x => x.id === it.cardId);
   if (!c) { f.i++; return viewStudy(); }
   const box = c.box;
-  const lbl = r => { const due0 = (window.SBPRO && SBPRO.cardPreview ? SBPRO.cardPreview(d, c, r) : "") || nextDue(r === "good" ? Math.min(5, box + 1) : r === "easy" ? Math.min(5, box + 2) : box, r), due = examDueCap(due0, todayISO(), d.courseId), n = dayDiff(todayISO(), due); return n <= 0 ? "today" : (n === 1 ? "1 day" : n + " days") + (due < due0 ? " (before your exam)" : ""); };
+  const lbl = r => { const due0 = (window.SBPRO && SBPRO.cardPreview ? SBPRO.cardPreview(d, c, r) : "") || nextDue(r === "good" ? Math.min(5, box + 1) : r === "easy" ? Math.min(5, box + 2) : box, r), due = examDueCap(due0, d.courseId, c.id), n = dayDiff(todayISO(), due); return n <= 0 ? "today" : (n === 1 ? "1 day" : n + " days") + (due < due0 ? " (before your exam)" : ""); };
   return `<div class="view-head"><h2>Studying ${esc(title)}</h2><span class="mini">${f.i + 1} of ${f.q.length}</span>${undoBtn(f, true)}<button class="btn small" data-act="fc-exit">End Session</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.q.length * 100)}%"></i></div>
     ${f.note ? `<p class="mini">${esc(f.note)}</p>` : ""}
@@ -15339,6 +15584,8 @@ function pomoFinish(missed){
   if (done === "focus") {
     pomo.cycle++; pomo.sessions++; pomo.minutes += fm;
     const t = pomo.taskId && state.tasks[pomo.taskId];
+    // A group project task: the minutes go to its own focus record (see gtAddWork)
+    if (!t && isGt(pomo.taskId)) gtAddWork(pomo.taskId, fm);
     if (t) {
       const n = addWork(clone(t), fm, "focus"); n.pomos = (Number(n.pomos) || 0) + 1;
       applyChanges([{kind: "task", id: t.id, after: n}], null);
@@ -16150,6 +16397,7 @@ document.addEventListener("click", e => {
     case "today-h": { const v = Math.max(0, Math.min(16, todayHours() + Number(id))); setTodayHours(v); render(); break; }
     case "today-set": { const v = Math.max(0, Math.min(16, Number(id) || 0)); setTodayHours(v); toast(`Today's study time is now ${fmtHM(v)}`); render(); break; }
     case "busy-hide": try { localStorage.setItem("studyboard:busyHide", todayISO()); } catch (err) {} render(); break;
+    case "gap-hide": { try { const k = "studyboard:gapHide", o = JSON.parse(localStorage.getItem(k) || "{}") || {}; o[id] = todayISO(); localStorage.setItem(k, JSON.stringify(o)); } catch (err) {} render(); break; }
     case "closed-ok": { try { const k = "studyboard:closedSeen", o = JSON.parse(localStorage.getItem(k) || "{}") || {}; o[id] = Date.now(); Object.keys(o).forEach(x => { if (!state.tasks[x]) delete o[x]; }); localStorage.setItem(k, JSON.stringify(o)); } catch (err) {} render(); break; }
     case "focus-toggle": ui.focusOpen = !ui.focusOpen; render(); break;
     case "plan-rows": ui.planAllToday = !ui.planAllToday; render(); break;
@@ -17507,14 +17755,25 @@ window.__sbPlanObj = () => PLAN;
     state.settings = Object.assign({}, state.settings, {useDays: {n: Math.min(9999, (Number(u.n) || 0) + 1), last: d}});
     try { saveSettings(); } catch (e) {}
   }
+  // Each page's tips also tidy away once you've used that page on a few days (kept on this device)
+  const PAGE_DAYS = 5, PAGE_LS = "studyboard:tipPages";
+  const pages = () => { try { return JSON.parse(localStorage.getItem(PAGE_LS) || "{}") || {}; } catch (e) { return {}; } };
+  function tickPage(tab){
+    if (!tab) return;
+    const m = pages(), d = todayISO(), p = m[tab] || {n: 0, last: ""};
+    if (p.last === d) return;
+    m[tab] = {n: Math.min(999, (Number(p.n) || 0) + 1), last: d};
+    try { localStorage.setItem(PAGE_LS, JSON.stringify(m)); } catch (e) {}
+  }
+  const pageSeasoned = tab => mode() !== "always" && !!tab && (Number((pages()[tab] || {}).n) || 0) > PAGE_DAYS;
   const seasoned = () => mode() !== "always" && (Number(use().n) || 0) >= SEASON_DAYS;
-  const apply = () => document.documentElement.classList.toggle("tips-off", seasoned());
+  const apply = () => { const tab = typeof ui !== "undefined" ? ui.tab : ""; tickPage(tab); document.documentElement.classList.toggle("tips-off", seasoned() || pageSeasoned(tab)); };
   hook("boot", () => { tick(); apply(); });
   hook("render", apply);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { tick(); apply(); } });
   hook("menu", () => {
     const n = Number(use().n) || 0, on = mode() === "always";
-    const sub = on ? "Always showing how-to tips on each page." : n >= SEASON_DAYS ? "Hidden now that you know your way around. Turn on to see them again." : `Showing for your first ${SEASON_DAYS} days (${Math.max(0, SEASON_DAYS - n)} to go), then they tidy away.`;
+    const sub = on ? "Always showing how-to tips on each page." : n >= SEASON_DAYS ? "Hidden now that you know your way around. Turn on to see them again." : `Each page's tips show for the first ${PAGE_DAYS} days you use it (and at most your first ${SEASON_DAYS} days), then they tidy away.`;
     return `<div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Always Show Page Tips<span class="sub">${esc(sub)}</span></span><label class="anim-tog"><input type="checkbox" data-act="tips-set" ${on ? "checked" : ""}> On</label></div>`;
   });
   hook("act", (a, el) => {
@@ -17523,7 +17782,7 @@ window.__sbPlanObj = () => PLAN;
     saveSettings(); apply(); scheduleRender();
     return true;
   });
-  window.SBTIPS = {seasoned, use: () => Object.assign({}, use()), days: SEASON_DAYS};
+  window.SBTIPS = {seasoned, pageSeasoned, use: () => Object.assign({}, use()), days: SEASON_DAYS};
 })();
 
 
@@ -28367,6 +28626,12 @@ ${kindPreview("study")}${kindPreview("project")}`;
       case "grp-back": ui.grp = null; unsubscribe(); render(); window.scrollTo(0, 0); return true;
       case "grp-retry": S.err = ""; if (ui.grp) { delete S.errG[ui.grp]; loadGroup(ui.grp); } else { S.groups = null; loadGroups(); } render(); return true;
       case "grp-code": codeSheet("", ""); return true;
+      case "grp-share-menu": openSheet(`<div class="sheet share-menu">${head("Share or Import")}<div class="sheet-body"><div class="sm-list">
+          <button type="button" class="sm-opt" data-act="grp-share-pick" data-id="grp-page"><b>Study Groups</b><span class="mini">Share decks with classmates in a group</span></button>
+          <button type="button" class="sm-opt" data-act="grp-share-pick" data-id="grp-code"><b>Enter a Share Code</b><span class="mini">Add a deck someone shared with you</span></button>
+          <button type="button" class="sm-opt" data-act="grp-share-pick" data-id="grp-import"><b>Import a Deck File</b><span class="mini">A deck file someone sent you</span></button>
+        </div></div></div>`); return true;
+      case "grp-share-pick": { if (dlg.open) dlg.close(); const k = el && el.dataset.id; if (k === "grp-page") openGroup(null); else if (k === "grp-code") codeSheet("", ""); else if (k === "grp-import") importDeckFile(); return true; }
       case "grp-restore": if (!needOnline()) return true; (async () => {
         const b = (S.binned || []).find(x => x.id === id);
         try { const ok = await api.restoreGroup(id); toast(ok ? `Restored ${b ? b.name : "the group"}` : "That group can't be restored anymore"); } catch(e) { toast(e.message); }
@@ -28576,11 +28841,6 @@ ${kindPreview("study")}${kindPreview("project")}`;
         S.linkChecked[d.id] = 1;
         api.getDeck(sf.code).then(r => { if (r && ts(r.updated_at) > ts(sf.v) + 1000 && !r.is_mine) { S.linkNew[d.id] = 1; if (ui.tab === "flashcards" && ui.deckId === d.id) render(); } }).catch(() => {});
       }
-    } else if (!ui.deckId && !$(".grp-strip", v)) {
-      const anchor = $(".hint-line", v);
-      const html = `<section class="grp-strip"><div class="grp-strip-txt">${ICON_GROUP}<span><b>Study Together</b><span class="mini">Share decks with classmates.</span></span></div>
-        <div class="grp-strip-btns"><button class="btn small" data-act="grp-page">Study Groups</button><button class="btn small" data-act="grp-code">Enter a Share Code</button><button class="btn small" data-act="grp-import">Import a Deck File</button></div></section>`;
-      if (anchor) anchor.insertAdjacentHTML("beforebegin", html); else v.insertAdjacentHTML("beforeend", html);
     }
   }
 
@@ -32099,7 +32359,7 @@ var SBEST = (() => {
     if (tab !== "board") return;
     const plan = document.querySelector("section.plan"); if (!plan || plan.querySelector(".plan-est")) return;
     const n = count(); if (!n) return;
-    const at = plan.querySelector(".plan-fc") || plan.querySelector(".plan-warn") || plan.querySelector(".next-up");
+    const at = plan.querySelector(".plan-fc") || plan.querySelector(".plan-notes") || plan.querySelector(".next-up");
     const html = `<div class="plan-fc plan-est"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2.5h5"/></svg><span><b>${n}</b> task${n === 1 ? "" : "s"} due in the next 2 weeks ${n === 1 ? "has" : "have"} no time estimate</span><button class="btn small" data-act="est-open">Add Times</button></div>`;
     const extra = plan.querySelector(".pe-b");
     if (extra) extra.insertAdjacentHTML("afterbegin", html);
@@ -32137,7 +32397,7 @@ var SBEST = (() => {
   const PT_NAME = {free: "Free Time", cal: "Calendar", est: "Estimates", fc: "Flashcards", prep: "Exam Prep", heads: "Heads Up", sugg: "Suggestions"};
   hook("render", tab => {
     if (tab !== "board") return;
-    const plan = document.querySelector("section.plan"); if (!plan || plan.querySelector(".pt-bar")) return;
+    const plan = document.querySelector("section.plan"); if (!plan || plan.querySelector(".pt-tab")) return;
     const secs = [];
     const av = plan.querySelector(".av-strip"); if (av) secs.push({k: "free", n: 0, els: [av]});
     const fx = plan.querySelector(".plan-fixed"); if (fx) secs.push({k: "cal", n: fx.querySelectorAll("li").length, els: [fx]});
@@ -32145,26 +32405,27 @@ var SBEST = (() => {
     const est = plan.querySelector(".plan-est"); if (est && !est.closest("#planExtra")) secs.push({k: "est", n: (est.querySelector("b") || {}).textContent || "", els: [est]});
     if (ex) ex.querySelectorAll(".pe-b > .pe-item").forEach(d => { const dot = d.querySelector("summary .pe-dot"); secs.push({k: d.dataset.k, n: dot ? dot.textContent : "", els: [...d.children].filter(c => c.tagName !== "SUMMARY")}); });
     if (!secs.length) return;
-    if (!secs.some(x => x.k === ui.planTab)) ui.planTab = secs[0].k;
+    // folded into the links under the plan: nothing open until you ask for it
+    if (!secs.some(x => x.k === ui.planTab)) ui.planTab = "";
+    const CHEV = '<svg class="pf-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+    const links = secs.map(x => `<button type="button" class="pf-link pt-tab" id="ptt-${x.k}" data-k="${x.k}" aria-controls="ptp-${x.k}" aria-expanded="${x.k === ui.planTab}">${esc(PT_NAME[x.k] || x.k)}${x.n ? ` <i class="pe-dot" aria-hidden="true">${esc(String(x.n))}</i>` : ""}${CHEV}</button>`).join("");
     const box = document.createElement("div"); box.className = "plan-tabs"; box.id = "planExtra";
-    box.innerHTML = `<div class="pt-bar" role="tablist" aria-label="More for today">${secs.map(x => `<button type="button" role="tab" class="pt-tab" id="ptt-${x.k}" data-k="${x.k}" aria-controls="ptp-${x.k}" aria-selected="${x.k === ui.planTab}" tabindex="${x.k === ui.planTab ? 0 : -1}">${esc(PT_NAME[x.k] || x.k)}${x.n ? `<i class="pt-n">${esc(String(x.n))}</i>` : ""}</button>`).join("")}</div>`;
-    secs.forEach(x => { const p = document.createElement("div"); p.className = "pt-panel pe-item"; p.id = "ptp-" + x.k; p.dataset.k = x.k; p.setAttribute("role", "tabpanel"); p.setAttribute("aria-labelledby", "ptt-" + x.k); p.hidden = x.k !== ui.planTab; x.els.forEach(e => p.appendChild(e)); box.appendChild(p); });
+    secs.forEach(x => { const p = document.createElement("div"); p.className = "pt-panel pe-item"; p.id = "ptp-" + x.k; p.dataset.k = x.k; p.setAttribute("role", "region"); p.setAttribute("aria-labelledby", "ptt-" + x.k); p.hidden = x.k !== ui.planTab; x.els.forEach(e => p.appendChild(e)); box.appendChild(p); });
     if (ex) ex.remove();
-    const foot = plan.querySelector(".plan-foot"); if (foot) foot.before(box); else plan.appendChild(box);
+    let foot = plan.querySelector(".plan-foot");
+    if (!foot) { foot = document.createElement("div"); foot.className = "plan-foot"; plan.appendChild(foot); }
+    foot.insertAdjacentHTML("afterbegin", links);
+    foot.after(box);
   });
+  // Tap to open one; tap it again to close it
   const ptPick = b => {
-    ui.planTab = b.dataset.k;
-    const box = b.closest(".plan-tabs");
-    box.querySelectorAll(".pt-tab").forEach(t => { t.setAttribute("aria-selected", String(t === b)); t.tabIndex = t === b ? 0 : -1; });
-    box.querySelectorAll(".pt-panel").forEach(p => { p.hidden = p.dataset.k !== ui.planTab; });
+    ui.planTab = ui.planTab === b.dataset.k ? "" : b.dataset.k;
+    const plan = b.closest("section.plan") || document;
+    plan.querySelectorAll(".pt-tab").forEach(t => t.setAttribute("aria-expanded", String(t.dataset.k === ui.planTab)));
+    plan.querySelectorAll(".pt-panel").forEach(p => { p.hidden = p.dataset.k !== ui.planTab; });
   };
   document.addEventListener("click", e => { const b = e.target.closest && e.target.closest(".pt-tab"); if (b) ptPick(b); });
-  document.addEventListener("keydown", e => {
-    const b = e.target.closest && e.target.closest(".pt-tab"); if (!b || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
-    const all = [...b.parentNode.querySelectorAll(".pt-tab")], i = all.indexOf(b);
-    const n = all[e.key === "Home" ? 0 : e.key === "End" ? all.length - 1 : (i + (e.key === "ArrowRight" ? 1 : -1) + all.length) % all.length];
-    e.preventDefault(); ptPick(n); n.focus();
-  });
+
 
   /* After a big import */
   let importT = 0, bigAt = 0;
@@ -55406,7 +55667,7 @@ var COMP_EXTRA = [];
     tr(() => { s.hours = hours(); });
     tr(() => { s.studydays = window.SBSTREAK && SBSTREAK.studyDays ? SBSTREAK.studyDays(addDays(todayISO(), -400)).length : 0; });
     tr(() => { s.spread = Object.values(state.tasks || {}).filter(t => MILESTONE(t.type) && !t.prepFor && t.due && t.due <= todayISO() && examSpread(t)).length; });
-    tr(() => { const k = shownStreak(); s.streak = Math.max(Number(k.best) || 0, Number(k.cur) || 0); });
+    tr(() => { const k = rewardStreak(); s.streak = Math.max(Number(k.best) || 0, Number(k.cur) || 0); });
     tr(() => Object.values(state.decks || {}).forEach(d => {
       (d.cards || []).forEach(x => { s.cards += Number(x.seen) || 0; });
       (d.quizzes || []).concat(...(d.aiQuizzes || []).map(q => q.results || [])).forEach(r => { if (r && Number(r.total) >= 3 && Number(r.score) / Number(r.total) >= 0.7) s.quizzes++; });
@@ -60428,11 +60689,11 @@ window.__scrapArt = SCRAP_ART;
     {id: "comeback", cat: "grades", name: "Level Up", goal: "Beat your last mark in the same course.", need: 1, v: c => c.improved ? 1 : 0},
     {id: "all-in", cat: "grades", name: "All Marks In", goal: "Have every graded item in a course marked (3 or more).", need: 1, v: c => c.allIn ? 1 : 0,
       prog: c => c.mostMarked ? `${c.mostMarked.name}: ${pctTxt(c.mostMarked.w)} of the grade marked` : "No marks recorded yet"},
-    Object.assign({id: "streak-3", cat: "streaks", name: "3-Day Streak", goal: "Make progress on a task 3 days in a row."}, cnt(3, "days", "streak")),
-    Object.assign({id: "streak-7", cat: "streaks", name: "7-Day Streak", goal: "Make progress on a task 7 days in a row."}, cnt(7, "days", "streak")),
-    Object.assign({id: "streak-14", cat: "streaks", name: "14-Day Streak", goal: "Make progress on a task 14 days in a row."}, cnt(14, "days", "streak")),
-    Object.assign({id: "streak-30", cat: "streaks", name: "30-Day Streak", goal: "Make progress on a task 30 days in a row."}, cnt(30, "days", "streak")),
-    Object.assign({id: "streak-60", cat: "streaks", name: "60-Day Streak", goal: "Make progress on a task 60 days in a row.", special: true}, cnt(60, "days", "streak")),
+    Object.assign({id: "streak-3", cat: "streaks", name: "3-Day Streak", goal: "Study 3 days in a row. Rest days don't break it."}, cnt(3, "days", "streak")),
+    Object.assign({id: "streak-7", cat: "streaks", name: "7-Day Streak", goal: "Study 7 days in a row. Rest days don't break it."}, cnt(7, "days", "streak")),
+    Object.assign({id: "streak-14", cat: "streaks", name: "14-Day Streak", goal: "Study 14 days in a row. Rest days don't break it."}, cnt(14, "days", "streak")),
+    Object.assign({id: "streak-30", cat: "streaks", name: "30-Day Streak", goal: "Study 30 days in a row. Rest days don't break it."}, cnt(30, "days", "streak")),
+    Object.assign({id: "streak-60", cat: "streaks", name: "60-Day Streak", goal: "Study 60 days in a row. Rest days don't break it.", special: true}, cnt(60, "days", "streak")),
     {id: "first-focus", cat: "focus", name: "First Focus Session", goal: "Finish a focus session.", need: 1, v: c => c.focusMin > 0 ? 1 : 0},
     Object.assign({id: "focus-5", cat: "focus", name: "5 Focus Hours", goal: "Focus for 5 hours this term."}, cnt(5, "hours", "focusH")),
     Object.assign({id: "focus-15", cat: "focus", name: "15 Focus Hours", goal: "Focus for 15 hours this term."}, cnt(15, "hours", "focusH")),
@@ -60522,7 +60783,7 @@ window.__scrapArt = SCRAP_ART;
     const byCourse = {}; c.marks.forEach(t => (byCourse[t.courseId || "-"] = byCourse[t.courseId || "-"] || []).push(t));
     Object.values(byCourse).forEach(ts => { ts.sort((a, b) => ((a.due || "") < (b.due || "") ? -1 : (a.due || "") > (b.due || "") ? 1 : doneTime(a) - doneTime(b)));
       for (let i = 1; i < ts.length; i++) if (markPct(ts[i]) > markPct(ts[i - 1]) + .5) c.improved = true; });
-    c.streak = Math.max(Number(sc.hi && sc.hi.st) || 0, streakOf().cur);
+    c.streak = Math.max(Number(sc.hi && sc.hi.st) || 0, rewardStreak().cur);
     const S = typeof SBSTATS !== "undefined" ? SBSTATS : null;
     const logged = S ? S.focusMinutes(start, today) : 0;
     const fromTasks = allTasks().filter(inTerm).reduce((s, t) => s + (Number(t.focusMin) || 0), 0);
@@ -60799,7 +61060,7 @@ window.__scrapArt = SCRAP_ART;
         </div>
         <aside class="sbk-side" aria-label="Milestones">${milestoneList(page)}</aside>
       </div>
-      <p class="hint-line">Drag stickers to move them. Tap one to turn, resize or put it back (or pinch on a phone). Add captions, washi tape and frames from Decorate.</p>
+      <p class="hint-line tip-everyday">Drag stickers to move them. Tap one to turn, resize or put it back (or pinch on a phone). Add captions, washi tape and frames from Decorate.</p>
     </div>`;
   }
   VIEWS.scrapbook = viewBook;
@@ -62914,12 +63175,20 @@ const CRUNCH = (() => {
     const dueW = P.lead ? P.dueFrac : 1;
     let tot = dueW;
     const ws = days.map(d => { const w = Math.pow(decay, diff(d, due) - 1); tot += w; return w; });
+    // eveCap: the most the day before may carry (studying for an in-person exam is light review then); the rest goes to earlier days
+    if (num(t.eveCap) && days.length > 1 && R > 0) {
+      const k = days.indexOf(add(due, -1)), cap = Math.max(0, Number(t.eveCap));
+      if (k >= 0 && R * ws[k] / tot > cap) {
+        const extra = ws[k] - cap * tot / R, others = ws.reduce((s, w, i) => i === k ? s : s + w, 0);
+        if (others > 0) { ws.forEach((w, i) => { if (i !== k) ws[i] = w + extra * w / others; }); ws[k] = cap * tot / R; }
+      }
+    }
     days.forEach((d, i) => { if (d <= lastDay) out.push({date: d, hours: R * ws[i] / tot, stress: 0, kind: "prep"}); });
     if (due <= lastDay) out.push({date: due, hours: R * dueW / tot, stress: S, kind: "due"});
     return {c, out, R};
   }
 
-  // input: {today, tasks, busy: {date: hours}, dailyHours, maxWeeks (20), minWeeks
+  // input: {today, tasks, busy: {date: hours}, dailyHours, maxWeeks (20), minWeeks, cap: optional {date: free hours} (your availability)
   function build(input){
     const today = input.today, maxWeeks = input.maxWeeks || 20, minWeeks = input.minWeeks || 6;
     const dh = num(input.dailyHours) ? Math.max(0.5, Number(input.dailyHours)) : 3, busy = input.busy || {};
@@ -62957,6 +63226,8 @@ const CRUNCH = (() => {
     res.days.forEach(D => {
       D.cap0 = r2(dh * cs * (wks ? wks[pd(D.date).getDay()] : 1));
       D.capacity = Math.max(0.5, D.cap0 * busyFactor(D.busy));
+      // free time from your availability (work, shifts, protected time) can only lower it, like Today's Plan
+      if (input.cap && num(input.cap[D.date])) D.capacity = Math.max(0.25, Math.min(D.capacity, Number(input.cap[D.date])));
       D.demand = r2(D.demand);
       D.ratio = D.past ? 0 : r2(D.demand / D.capacity);
       D.levelIdx = D.past ? 0 : levelOf(D.ratio);
@@ -63208,7 +63479,32 @@ button.cr-d:hover{filter:brightness(.95)}
 
 /* The planner's data, in the model's shape */
 let MEMO = {k: "", m: null, input: null};
+/* The forecast reads Today's Plan's own numbers for each task (computeFocus): work left, when work is closed (past its due
+   time with no late work, or its late window shut), late work with no penalty waiting until its window, group project tasks,
+   undated steps that a dated task waits on, and an in-person exam's study time ("Study for"), which it spreads over the
+   exam's lead-up with the night before kept light. Your availability caps each day's capacity, as it does in Today's Plan. */
 function inputNow(){
+  const today = todayISO();
+  let F = null; try { F = typeof FOCUS !== "undefined" && FOCUS && FOCUS.today === today ? FOCUS : computeFocus(); } catch (e) { F = null; }
+  if (!F || !F.info) return inputLegacy();
+  const info = F.info;
+  const tasks = Object.values(info).filter(x => x.t && !x.t.xs && x.t.status !== "done" && x.t.due).map(x => {
+    const t = x.t, study = info[XS_ID + t.id];
+    const due = x.past && !x.dead && x.late === "free" && x.eff ? iso(new Date(x.eff)) : t.due;
+    return {id: t.id, title: t.title, type: t.type, due, time: t.time || "", start: t.start || "", status: t.status, rem: x.fixed ? (study ? study.R : 0) : x.R, weight: weightOf(t), pct: t.pct,
+      est: (isNum(t.hours) && Number(t.hours) > 0) || !!(autoPlanOn() && t.aiHours && t.aiHours.h > 0) || !!t.prepFor || !!t.gt || x.fixed, synced: !!lmsOf(t), blocked: blockers(t).length > 0, prep: !!t.prepFor, bd: !!t.breakdownOf, courseId: t.courseId || "", dead: !!x.dead,
+      eveCap: x.fixed && study ? LIGHT_EVE : undefined};
+  });
+  let busy = {}; const keep = BUSY_CACHE;
+  try { busy = Object.assign({}, busyDays(today, addDays(today, 21 * 7)).m); } catch (e) {}
+  BUSY_CACHE = keep;
+  let cap = null; try { if (availActive()) cap = Object.assign({}, availDays(today, addDays(today, 21 * 7))); } catch (e) { cap = null; }
+  const A = typeof SBACC !== "undefined" ? SBACC : null;
+  const cs = A ? A.capScale() : 1, wk = [0, 1, 2, 3, 4, 5, 6].map(i => A ? A.wkScale(addDays(today, i)) : 1).map((v, i) => ({d: parse(addDays(today, i)).getDay(), v})).sort((p, q) => p.d - q.d).map(x => x.v);
+  return {today, tasks, busy, cap, dailyHours: dailyHours() || 3, capScale: cs, wkScale: wk.some(v => v !== 1) ? wk : null, maxWeeks: 20, minWeeks: 6};
+}
+// Before Today's Plan is ready: the tasks as they are
+function inputLegacy(){
   const today = todayISO(), stamp = nowStamp();
   const tasks = tasksArr().filter(t => t.status !== "done" && t.due).map(t => {
     const lp = lateOf(t), lu = lateUntilOf(t);
@@ -63224,7 +63520,7 @@ function inputNow(){
   return {today, tasks, busy, dailyHours: dailyHours() || 3, capScale: cs, wkScale: wk.some(v => v !== 1) ? wk : null, maxWeeks: 20, minWeeks: 6};
 }
 function modelNow(){
-  const k = [state.updated || 0, todayISO(), dailyHours(), tasksArr().length, AUTO_ON ? 1 : 0, typeof SBACC !== "undefined" && SBACC ? SBACC.sig() : ""].join("|");
+  const k = [state.updated || 0, todayISO(), new Date().getHours(), dailyHours(), tasksArr().length, AUTO_ON ? 1 : 0, typeof SBACC !== "undefined" && SBACC ? SBACC.sig() : ""].join("|");
   if (MEMO.k === k && MEMO.m) return MEMO.m;
   const input = inputNow(), m = C.build(input);
   MEMO = {k, m, input};
@@ -64058,7 +64354,46 @@ const ACC = (() => {
     });
     return s;
   }
-  return {entry, entries, parseDur, samples, wmed, shrink, global, ratio, velocity, lateness, bins, peakOf, minutesByDay, minutesByCourse, workedDays, FEEL, clamp, dayOf};
+  /* Work left, as a range */
+  const wq = (a, q) => { const s = a.slice().sort((x, y) => x.r - y.r), tot = wsum(s); let c = 0; for (const x of s) { c += x.w; if (c >= tot * q) return x.r; } return s.length ? s[s.length - 1].r : 1; };
+  const SPREAD = {lo: 0.8, hi: 1.35, n: 0};
+  // How far your tasks of this type land from the usual (relative to the middle): 20th and 80th percentile, else a typical spread
+  function spread(S, type){
+    const ty = (S || []).filter(x => x.type === type), use = ty.length >= 4 ? ty : (S || []).length >= 5 ? S : null;
+    if (!use) return Object.assign({}, SPREAD);
+    const m = wmed(use);
+    return {lo: r2(clamp(wq(use, 0.2) / m, 0.6, 0.95)), hi: r2(clamp(wq(use, 0.8) / m, 1.1, 2)), n: use.length};
+  }
+  // Share done plus time spent: your pace on this task, mixed with the estimate. The more that's done, the more the pace counts
+  function paced(E, h, p, wMin){
+    const prior = E * (1 - p);
+    if (!(p > 0) || !(h >= 0.25)) return prior;
+    const pace = Math.min(h * (1 - p) / p, 3 * Math.max(prior, 0.25));
+    const w = clamp(p, wMin || 0, 0.9);
+    return w * pace + (1 - w) * prior;
+  }
+  // Time spent with nothing marked done: up to the plan, the plan less the time; past it, the time left grows toward your long end and beyond
+  function over(E, h, hi){
+    if (h < E) return Math.max(E - h, 0.15 * E);
+    return Math.max(E * hi - h, 0.25 * E + 0.3 * (h - E));
+  }
+  // The check-in's answers, as a share done
+  const SAID = {almost: 0.9, half: 0.5, more: 0.25, barely: 0.1};
+  // o: {E planned total hours, h hours spent, p share done, said: {h left when you answered, at: hours spent then} | null, lo, hi}
+  // -> {h, lo, hi, how: "est" | "pace" | "over" | "said"}
+  function left(o){
+    const E = Math.max(0, Number(o.E) || 0), h = Math.max(0, Number(o.h) || 0), p = clamp(Number(o.p) || 0, 0, 1), lo = o.lo || SPREAD.lo, hi = o.hi || SPREAD.hi;
+    let v, how, k = 1 - p;
+    if (o.said) { const since = Math.max(0, h - o.said.at); v = over(o.said.h, since, Math.max(hi, 1.25)); how = since > o.said.h ? "over" : "said"; k = 0.6; }
+    else if (p > 0) { v = paced(E, h, p); how = h >= 0.25 ? "pace" : "est"; }
+    else if (h > 0) { v = over(E, h, hi); how = h > E ? "over" : "est"; }
+    else { v = E; how = "est"; }
+    k = clamp(k, 0.35, 1);
+    return {h: v, lo: v * (1 - (1 - lo) * k), hi: v * (1 + (hi - 1) * k), how};
+  }
+  // What a check-in answer leaves: the share it means, at your pace so far (the pace counts at least 30%, since you're past most of the plan)
+  const saidLeft = (E, h, p) => Math.min(3 * Math.max(E, 0.5), paced(E, h, p, 0.3));
+  return {entry, entries, parseDur, samples, wmed, shrink, global, ratio, velocity, lateness, bins, peakOf, minutesByDay, minutesByCourse, workedDays, FEEL, clamp, dayOf, spread, paced, over, left, saidLeft, SAID, SPREAD};
 })();
 /*ACC-END*/
 
@@ -64083,6 +64418,12 @@ function ratioInfo(t){
   return M.ratios[key] || (M.ratios[key] = ACC.ratio(M.S, t.type || "Other", t.courseId || ""));
 }
 const ratioFor = t => ratioInfo(t).r;
+// How far tasks like this one land from the usual, as a share (the default when there's too little history, or when learning is off)
+function spreadFor(t){
+  const M = memo(); if (!on() || !t) return Object.assign({}, ACC.SPREAD);
+  const key = "s|" + (t.type || "Other");
+  return M.ratios[key] || (M.ratios[key] = ACC.spread(M.S, t.type || "Other"));
+}
 const capScale = () => { const v = memo().vel; return on() && v && v.ok ? v.scale : 1; };
 const wkScale = d => { const v = memo().vel; return on() && v && v.ok ? (v.wk[parse(d).getDay()] || 1) : 1; };
 const startNudge = t => { const L = memo().late; return on() && L && L.nudge > 1 && t && !MILESTONE(t.type) ? L.nudge : 1; };
@@ -64133,6 +64474,7 @@ function early(min, taskId, why){
   if (min < MIN_EARLY) return false;
   try { SBSTATS.addFocus(min, "timer"); } catch (e) { }
   try { pomoToday(); pomo.minutes += min; pomoSave(); } catch (e) { }
+  if (taskId && isGt(taskId)) return gtAddWork(taskId, min);
   if (taskId && state.tasks[taskId] && state.tasks[taskId].status !== "done") return logTime(taskId, min, "focus", tr("acc.earlyToast", "Logged {t} of focus on {title}", {t: fmtMins(min), title: state.tasks[taskId].title.slice(0, 28)}));
   pending({min, at: Date.now(), why: why || "stop"});
   return false;
@@ -64163,6 +64505,8 @@ function chipHtml(c){
     const opts = c.opts.map(t => `<button type="button" class="acc-opt" data-act="acc-which" data-id="${esc(t.id)}">${esc(short(t.title, 26))}</button>`).join("");
     return `<span class="acc-q">${esc(tr("acc.which", "Which task was that for?"))} <span class="mini">${esc(fmtMins(c.min))}</span></span><span class="acc-opts">${opts}</span><button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
   }
+  if (c.kind === "left") return leftChipHtml(c);
+  if (c.kind === "learned") return `<span class="acc-q acc-note">${esc(c.text)}</span><button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
   const t = state.tasks[c.id], title = short(t ? t.title : "", 30);
   const q = (k, en) => { const [a, b] = tr(k, en, {title: "\u0001"}).split("\u0001"); return b == null ? esc(a) : `${esc(a)}<span class="acc-t">${esc(title)}</span>${esc(b)}`; };
   const lbl = (k, en, ks, ens) => `<span class="acc-l">${esc(tr(k, en))}</span><span class="acc-s" aria-hidden="true">${esc(tr(ks, ens))}</span>`;
@@ -64207,6 +64551,83 @@ function answerTook(patch, msg){
   applyChanges([{kind: "task", id: t.id, after: Object.assign(clone(t), patch)}], msg || tr("acc.noted", "Thanks, noted"));
   LEARN = null;
 }
+
+/* The check-in: most of the planned time is spent and the task isn't done, so how much is left? */
+const LS_LEFT = "studyboard:acc:left";
+const LEFT_OPTS = [["almost", "Almost Done", "Almost"], ["half", "About Half", "Half"], ["more", "More Than I Thought", "More"], ["barely", "Barely Started", "Barely"]];
+// The whole task as the plan sees it now, in hours: your last answer's time plus what you said was left, else the estimate
+function planTotal(t){ const sd = saidOf(t); return sd ? sd.at + sd.h : leftInfo(t).E; }
+function leftDue(t){
+  if (!t || t.status === "done" || MILESTONE(t.type) || t.prepFor || t.xs || t.breakdownParent || !state.tasks[t.id]) return false;
+  const fm = Number(t.focusMin) || 0, plan = planTotal(t) * 60;
+  if (!(plan >= 20) || fm < 0.8 * plan) return false;
+  const asked = lsGet(LS_LEFT, {})[t.id];
+  return asked == null || fm - Number(asked) >= 0.25 * plan;
+}
+function maybeAskLeft(t){
+  if (!leftDue(t) || (chip && chip.kind !== "left" && chip.kind !== "learned")) return false;
+  const m = lsGet(LS_LEFT, {}); m[t.id] = Number(t.focusMin) || 0;
+  const ids = Object.keys(m); if (ids.length > 200) ids.slice(0, ids.length - 200).forEach(k => delete m[k]);
+  lsSet(LS_LEFT, m);
+  chipShow({kind: "left", id: t.id}, 60000);
+  return true;
+}
+const leftFor = (t, p) => ACC.saidLeft(planTotal(t), (Number(t.focusMin) || 0) / 60, p);
+const hm = h => fmtHM(Math.max(0.25, Math.round(h * 4) / 4));
+function leftChipHtml(c){
+  const t = state.tasks[c.id]; if (!t) return "";
+  const title = short(t.title, 30), fm = Number(t.focusMin) || 0;
+  const x = `<button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
+  const q = `<span class="acc-q">${esc(tr("acc.leftQ1", "How much of"))}&nbsp;<span class="acc-t">“${esc(title)}”</span>&nbsp;${esc(tr("acc.leftQ2", "is left?"))}<span class="acc-sub">${esc(tr("acc.leftSub", "{t} in so far, planned about {p}", {t: fmtMins(fm), p: hm(planTotal(t))}))}</span></span>`;
+  if (c.say) return `${q}<span class="acc-opts"><label class="acc-own acc-say"><span class="sr">${esc(tr("acc.sayLbl", "What's left, in your words"))}</span><input type="text" id="accSay" maxlength="160" autocomplete="off" placeholder="${esc(tr("acc.sayPh", "e.g. just the conclusion and references"))}" data-noenter${c.busy ? " disabled" : ""}></label><button type="button" class="acc-opt primary" data-act="acc-say-go"${c.busy ? " disabled" : ""}>${c.busy ? `<span class="ai-spin" aria-hidden="true"></span> ${esc(tr("acc.sayBusy", "Reading…"))}` : esc(tr("acc.save", "Save"))}</button><button type="button" class="acc-opt" data-act="acc-say-back">${esc(tr("acc.back", "Back"))}</button></span>${x}`;
+  return `${q}<span class="acc-opts acc-left">${LEFT_OPTS.map(([k, l, sh]) => `<button type="button" class="acc-opt" data-act="acc-left" data-v="${k}"><span class="acc-l">${esc(tr("acc.left." + k, l))}</span><span class="acc-s" aria-hidden="true">${esc(tr("acc.leftS." + k, sh))}</span><span class="acc-tm">${esc(hm(leftFor(t, ACC.SAID[k])))}</span></button>`).join("")}${aiReady() ? `<button type="button" class="acc-opt link" data-act="acc-say">${AI_ICON} ${esc(tr("acc.say", "In My Words"))}</button>` : ""}</span>${x}`;
+}
+// Saves an answer as the time left (only you mark a task done)
+function answerLeft(id, p, patch){
+  const t0 = state.tasks[id]; if (!t0) { chipHide(); return; }
+  const n = Object.assign(clone(t0), patch || {}), h = Math.round(leftFor(t0, p) * 20) / 20;
+  n.left = {h, fm: Number(n.focusMin) || 0, ck: (n.checklist || []).filter(i => i.done).length, pct: Number(n.pct) || 0, p: Math.round(p * 100) / 100, at: Date.now()};
+  chipHide();
+  applyChanges([{kind: "task", id, after: n}], tr("acc.leftToast", "About {h} left on {title}. Today's Plan is updated.", {h: hm(h), title: short(t0.title, 28)}));
+}
+const SAY_SCHEMA = {type: "OBJECT", properties: {done: {type: "INTEGER", description: "Percent of the whole task that's done, 0 to 95"}, items: {type: "ARRAY", items: {type: "INTEGER"}, description: "Numbers of the checklist items that are now done"}}, required: ["done"]};
+async function sayLeft(){
+  const c = chip, t = c && state.tasks[c.id], i = document.getElementById("accSay"), text = String(i && i.value || "").trim();
+  if (!t) { chipHide(); return; }
+  if (text.length < 2) { if (i) i.focus(); return; }
+  c.busy = true; chipShow(c, 0);
+  const ck = t.checklist || [];
+  try {
+    const r = await aiCall({task: "estimate", fast: true, maxTokens: 400, temperature: 0.1, schema: SAY_SCHEMA,
+      parts: [{text: `Task: ${t.title} (${t.type})\nInstructions: ${String(t.notes || "none").replace(/\s+/g, " ").slice(0, 700)}\nChecklist:\n${ck.map((x, k) => `${k + 1}. [${x.done ? "x" : " "}] ${x.text}`).join("\n") || "none"}\nTime spent so far: ${fmtMins(Number(t.focusMin) || 0)}. The plan expected about ${hm(planTotal(t))} in all.\nThe student says: "${text.slice(0, 160)}"`}],
+      system: "A student describes what's left of a task. Judge what percent of the whole task is done (0 to 95; never 100, only they can finish it), and which checklist items their words say are now done. Return JSON only."});
+    if (chip !== c) return;
+    const d = r.data || {}, pct = Math.max(0, Math.min(95, Math.round(Number(d.done))));
+    if (isNaN(pct)) throw new Error("bad");
+    const ticks = (Array.isArray(d.items) ? d.items : []).map(Number).filter(k => k >= 1 && k <= ck.length && !ck[k - 1].done);
+    answerLeft(t.id, Math.max(0.05, pct / 100), ticks.length ? {checklist: ck.map((x, k) => ticks.includes(k + 1) ? Object.assign({}, x, {done: true}) : x)} : null);
+  } catch (e) {
+    if (chip !== c) return;
+    c.busy = false; c.say = false; chipShow(c, 0);
+    toast(tr("acc.sayFail", "Couldn't read that just now. Pick one of the answers instead."));
+  }
+}
+// After a finished task with tracked time: how it compared, and what the plan does with that next time
+function maybeLearned(t){
+  if (!on() || !t || MILESTONE(t.type) || t.prepFor || !(Number(t.hours) > 0) || (chip && chip.kind !== "learned")) return;
+  // only for tracked time (an answer to "How long did it take?" already had its say)
+  if (Number(t.actualMin) > 0 || t.feel) return;
+  const mins = Number(t.focusMin) || 0, est = Number(t.hours) * 60;
+  if (mins < 15 || Math.abs(mins / est - 1) < 0.25 || (t.checklist || []).some(i => !i.done)) return;
+  MEMO.k = ""; const i = ratioInfo(t); if (i.n < 3) return;
+  // what the plan allowed before this task counted
+  const before = ACC.ratio(memo().S.filter(x => x.at !== Number(t.doneAt)), t.type || "Other", t.courseId || "").r;
+  const what = whatOf(t, i), moved = Math.abs(i.r - before) >= 0.05;
+  const text = tr("acc.learned", "“{title}” took {t}, against your {e} estimate.", {title: short(t.title, 30), t: fmtMins(mins), e: fmtHM(Number(t.hours))}) + " " +
+    (Math.abs(i.r - 1) < 0.1 ? tr("acc.learnedOk", "Your {what} are usually close to your estimates.", {what}) : moved ? tr("acc.learnedNow", "Plans for {what} now allow about {x}x your estimate.", {what, x: i.r.toFixed(1)}) : tr("acc.learnedSame", "Plans for {what} already allow about {x}x your estimate.", {what, x: i.r.toFixed(1)}));
+  chipShow({kind: "learned", id: t.id, text}, 9000);
+}
+const fmSeen = {};
 
 /* Passive signals */
 const tickSeen = {};
@@ -64331,9 +64752,14 @@ hook("act", (a, el) => {
   if (a === "acc-dismiss") { chipDismiss(); return true; }
   if (a === "acc-which") {
     const p = lsGet(LS_PEND, null), id = el.dataset.id; lsSet(LS_PEND, null); chipHide();
-    if (p && id) logTime(id, p.min, "focus", tr("acc.whichToast", "Added {t} to {title}", {t: fmtMins(p.min), title: short((state.tasks[id] || {}).title, 28)}), p.at);
+    if (p && id && isGt(id)) { gtAddWork(id, p.min); toast(tr("acc.whichToast", "Added {t} to {title}", {t: fmtMins(p.min), title: "your group task"})); }
+    else if (p && id) logTime(id, p.min, "focus", tr("acc.whichToast", "Added {t} to {title}", {t: fmtMins(p.min), title: short((state.tasks[id] || {}).title, 28)}), p.at);
     return true;
   }
+  if (a === "acc-left") { if (chip && chip.kind === "left" && ACC.SAID[el.dataset.v]) answerLeft(chip.id, ACC.SAID[el.dataset.v]); return true; }
+  if (a === "acc-say") { if (chip && chip.kind === "left") { chip.say = true; chipShow(chip, 0); const i = document.getElementById("accSay"); if (i) i.focus(); } return true; }
+  if (a === "acc-say-back") { if (chip && chip.kind === "left") { chip.say = false; chipShow(chip, 60000); } return true; }
+  if (a === "acc-say-go") { sayLeft(); return true; }
   if (a === "acc-feel") { answerTook({feel: el.dataset.v}); return true; }
   if (a === "acc-exact") { if (chip) { chip.exact = true; chipShow(chip, 0); const i = document.getElementById("accExact"); if (i) i.focus(); } return true; }
   if (a === "acc-feel-back") { if (chip) { chip.exact = false; chipShow(chip, 30000); } return true; }
@@ -64363,6 +64789,7 @@ hook("act", (a, el) => {
 });
 document.addEventListener("keydown", e => {
   if (e.key !== "Enter" || !e.target || !e.target.id) return;
+  if (e.target.id === "accSay") { e.preventDefault(); sayLeft(); return; }
   if (e.target.id === "accExact") { e.preventDefault(); const b = document.querySelector('[data-act="acc-exact-save"]'); if (b) b.click(); }
   else if (e.target.id === "accLogIn") { e.preventDefault(); const b = document.querySelector('[data-act="acc-log-add"]'); if (b) b.click(); }
 }, true);
@@ -64371,7 +64798,18 @@ hook("changed", changes => {
   tickScan(changes);
   const fresh = changes.filter(c => c.kind === "task" && c.after && c.after.status === "done" && c.after.doneAt && Date.now() - c.after.doneAt < 4000);
   changes.forEach(c => { if (chip && chip.kind === "took" && c.kind === "task" && c.id === chip.id && c.after && c.after.status !== "done") chipHide(); });
-  if (fresh.length) maybeAskTook(fresh[0].after, fresh.length);
+  if (fresh.length) {
+    const t = fresh[0].after;
+    maybeAskTook(t, fresh.length);
+    if (fresh.length === 1 && !(chip && chip.kind === "took")) setTimeout(() => maybeLearned(state.tasks[t.id]), 0);
+  }
+  // more time on a task that's past most of its plan: ask how much is left
+  changes.forEach(c => {
+    if (c.kind !== "task" || !c.after) return;
+    const fm = Number(c.after.focusMin) || 0, was = fmSeen[c.id]; fmSeen[c.id] = fm;
+    if (was != null && fm > was && c.after.status !== "done") setTimeout(() => maybeAskLeft(state.tasks[c.id]), 0);
+    if (chip && chip.kind === "left" && c.id === chip.id && c.after.status === "done") chipHide();
+  });
 });
 hook("menu", () => {
   const v = memo(), n = v.S.length;
@@ -64383,7 +64821,8 @@ function formHint(){
   const el = document.getElementById("accHint"), f = el && el.closest("form"); if (!el || !f) return;
   const g = n => { const x = f.querySelector(`[name="${n}"]`); return x ? x.value : ""; };
   const h = Number(g("hours")), t = {type: g("type") || "Other", courseId: g("courseId") || ""}, i = ratioInfo(t), s = explain(t);
-  const say = !s || !(h > 0) || MILESTONE(t.type) ? "" : `${s} ${tr("acc.hintPlan", "Today's Plan counts this as about {h}.", {h: fmtHM(h * i.r)})}`;
+  const sp = spreadFor(t), q = x => fmtHM(Math.max(0.25, Math.round(x * 4) / 4));
+  const say = !s || !(h > 0) || MILESTONE(t.type) ? "" : `${s} ${tr("acc.hintRange", "Today's Plan counts this as about {h} ({lo} to {hi}).", {h: q(h * i.r), lo: q(h * i.r * sp.lo), hi: q(h * i.r * sp.hi)})}`;
   el.hidden = !say;
   if (el.textContent !== say) el.textContent = say;
 }
@@ -64393,7 +64832,7 @@ function formHint(){
   ["input", "change"].forEach(ev => document.addEventListener(ev, e => { if (e.target && e.target.closest && e.target.closest("form") && document.getElementById("accHint")) formHint(); }, true));
 }
 hook("boot", () => {
-  allTasks().forEach(t => { tickSeen[t.id] = (t.checklist || []).filter(i => i.done).length; });
+  allTasks().forEach(t => { tickSeen[t.id] = (t.checklist || []).filter(i => i.done).length; fmSeen[t.id] = Number(t.focusMin) || 0; });
   staleScan(); showPending();
   setInterval(staleScan, 10 * 60000);
 });
@@ -64401,7 +64840,7 @@ hook("boot", () => {
 hook("focus", e => {
   if (e && e.type === "end" && e.mode === "focus" && !e.taskId && e.minutes && !e.missed) pending({min: e.minutes, at: Date.now(), why: "end"});
 });
-const api = {ACC, time: SBTIME, ratioInfo, ratioFor, memo, capScale, wkScale, startNudge, peak, extraBins, underBoost, explain, logTime, early, askState, maybeAskTook, chip: () => chip, on, howHtml, logHtml, formHint, sig: () => (on() ? 1 : 0) + "|" + capScale(), global: () => memo().g};
+const api = {ACC, time: SBTIME, ratioInfo, ratioFor, spreadFor, memo, capScale, wkScale, startNudge, peak, extraBins, underBoost, explain, logTime, early, askState, maybeAskTook, maybeAskLeft, leftDue, chip: () => chip, on, howHtml, logHtml, formHint, sig: () => (on() ? 1 : 0) + "|" + capScale(), global: () => memo().g};
 window.__sbAcc = Object.assign({state: () => state}, api);
 return api;
 })();
@@ -65315,6 +65754,8 @@ const EXAMMODE = (() => {
   const endMs = t => t.time && /^\d{1,2}:\d{2}$/.test(t.time) ? dueMs(t) + AFTER_MS : dueMs(t) + 60000;
   // An exam: type Exam or Quiz, or a task titled Midterm / Final Exam
   const isExam = t => !!t && t.type !== "Study" && !t.prepFor && (t.type === "Exam" || t.type === "Quiz" || EXAM_RX.test(String(t.title || "")));
+  // Big enough to take over the plan: an exam, a midterm or final, or a quiz worth 10% or more (w: its share of the grade)
+  const isBig = t => isExam(t) && (t.type !== "Quiz" || EXAM_RX.test(String(t.title || "")) || (Number(t.w != null ? t.w : t.weight) || 0) >= 10);
   // Work that has to be handed in
   const isWork = (t, exam) => !!t && t.type !== "Study" && !t.prepFor && (!exam || t.id !== exam.id);
 
@@ -65323,7 +65764,7 @@ const EXAMMODE = (() => {
     if (!input || input.enabled === false) return null;
     const today = input.today, now = Number(input.now) || 0, off = input.off || {};
     const open = (input.tasks || []).filter(t => t && t.status !== "done" && isDay(t.due));
-    const exams = open.filter(t => isExam(t) && diff(today, t.due) >= 0 && diff(today, t.due) <= DAYS && now < endMs(t)).sort((a, b) => dueMs(a) - dueMs(b) || String(a.id).localeCompare(String(b.id)));
+    const exams = open.filter(t => isBig(t) && diff(today, t.due) >= 0 && diff(today, t.due) <= DAYS && now < endMs(t)).sort((a, b) => dueMs(a) - dueMs(b) || String(a.id).localeCompare(String(b.id)));
     const live = exams.filter(t => !off[t.id]);
     if (!live.length) return null;
     const exam = live[0];
@@ -65354,7 +65795,7 @@ const EXAMMODE = (() => {
   const kindWord = t => t && t.type === "Quiz" ? "Quiz" : "Exam";
   const tag = (t, d) => `${kindWord(t)} ${rel(d)}`;
   const dayEnd = t => { const d = pd(t.due); d.setHours(23, 59, 59, 999); return d.getTime(); };
-  return {DAYS, pick, order, leads, studyKey, dayEnd, rel, tag, kindWord, isExam, isWork, dueMs, endMs, diff};
+  return {DAYS, pick, order, leads, studyKey, dayEnd, rel, tag, kindWord, isExam, isBig, isWork, dueMs, endMs, diff};
 })();
 /*EXAMMODE-END*/
 
@@ -65377,7 +65818,7 @@ function current(){
   let v = null;
   try {
     const info = (FOCUS && FOCUS.info) || {};
-    const tasks = tasksArr().map(t => { const x = info[t.id]; return x ? Object.assign({}, t, {dead: !!x.dead, lateOk: !x.dead}) : t; });
+    const tasks = tasksArr().map(t => { const x = info[t.id], w = MILESTONE(t.type) ? weightOf(t) : null; return Object.assign({}, t, {w}, x ? {dead: !!x.dead, lateOk: !x.dead} : {}); });
     v = EXAMMODE.pick({tasks, today: todayISO(), now, off: offMap(), enabled: enabled()});
   } catch (e) { console.warn("exam mode", e); v = null; }
   MEMO = {k, v};
@@ -65492,7 +65933,7 @@ function todayHtml(){
   const count = m.days === 0 && ex.time ? (hrs > 1 ? `In about ${Math.round(hrs)} hour${Math.round(hrs) === 1 ? "" : "s"}` : hrs > 0 ? "Starting soon" : "Happening now") : m.days === 0 ? "Today" : m.days === 1 ? "Tomorrow" : `In ${m.days} days`;
   const when = `${m.days <= 1 ? "" : esc(fmtDate(ex.due))}${ex.time ? `${m.days <= 1 ? "" : " at "}${esc(fmtTime(ex.time))}` : ""}`;
   const cd = countTile(ex, m, hrs), pr = prepLine(ex, sm), pct = Math.max(0, Math.min(100, pr.pct));
-  const prep = `<div class="exm-prep"><span class="exm-bar" role="img" aria-label="${pct} percent prepared"><i style="width:${pct}%"></i></span><span class="exm-pl">${esc(pr.text)}</span></div>${pr.gap ? `<p class="exm-gap" role="note">${esc(pr.gap)}</p>` : ""}`;
+  const prep = `<div class="exm-prep"><span class="exm-bar" role="img" aria-label="${pct} percent prepared"><i style="width:${pct}%"></i></span><span class="exm-pl">${esc(pr.text)}</span></div>`;
   const othersH = m.others.length ? `<p class="exm-others">Also coming up: ${m.others.map(t => `<button type="button" class="link-btn" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}</button>${courseTag(t) ? ` (${esc(courseTag(t))})` : ""}, ${esc(whenText(t))}`).join("; ")}.</p>` : "";
   const planBtn = !sm && m.days >= 1 && window.SBPREP ? `<button type="button" class="btn" data-act="exam-plan" data-id="${esc(ex.id)}">Plan My Prep</button>` : "";
   return `<section class="exm-card" role="region" aria-label="Exam Mode" style="--c:${esc(colorOf(ex.courseId))}">
@@ -65613,7 +66054,8 @@ hook("changed", changes => {
     lsSet(SNAP_LS, m);
   });
 });
-const snapOf = t => t.wrap && (t.wrap.felt != null || t.wrap.measured != null) ? t.wrap : lsGet(SNAP_LS, {})[t.id] || snapNow(t);
+// Saved with the exam when it was marked done (synced); older exams fall back to this device's copy, then to now
+const snapOf = t => t.wrap && (t.wrap.felt != null || t.wrap.measured != null) ? t.wrap : t.readySnap && t.readySnap.at ? t.readySnap : lsGet(SNAP_LS, {})[t.id] || snapNow(t);
 
 // What the comparison says, in one or two sentences
 function readOf(felt, measured, mark){
@@ -65670,7 +66112,7 @@ function open(id, back){
   const tipEl = $("#ewrTip"), tip = () => { tipEl.textContent = tipOf([...dlg.querySelectorAll('input[name="m"]:checked')].map(i => i.value)); };
   dlg.querySelectorAll('input[name="m"]').forEach(i => i.addEventListener("change", tip)); tip();
   const saveAsk = () => { const on = $("#ewrAsk").checked; if (on !== askOn()) { state.settings = Object.assign({}, state.settings, {grades: Object.assign({}, (state.settings && state.settings.grades) || {}, {wrap: on})}); saveSettings(); } };
-  $("#ewrSkip").addEventListener("click", () => { saveAsk(); const k = lsGet(SKIP_LS, {}); k[id] = Date.now(); lsSet(SKIP_LS, k); dlg.close(); if (back) setTimeout(back, 40); });
+  $("#ewrSkip").addEventListener("click", () => { saveAsk(); skip(id); dlg.close(); scheduleRender(); if (back) setTimeout(back, 40); });
 }
 // Offered right after a first mark is saved, once per exam
 const should = id => { const t = state.tasks[id]; return isExam(t) && !t.wrap && askOn() && !lsGet(SKIP_LS, {})[id]; };
@@ -65692,8 +66134,52 @@ function viewHtml(t){
   if (t.wrap) return `<div class="ewr-last ewr-mine" role="note"><b>Your reflection</b><span>You felt ${esc(pctTxt(t.wrap.felt))} ready, your results said ${esc(pctTxt(t.wrap.measured))}, and you got ${esc(pctTxt(t.wrap.mark))}.</span>${t.wrap.next ? `<span>Next time: <i>${esc(t.wrap.next)}</i></span>` : ""}<button type="button" class="link-btn" data-act="ewr-open" data-id="${esc(t.id)}">Edit</button></div>`;
   return markOf(t) != null ? `<button type="button" class="btn small ewr-btn" data-act="ewr-open" data-id="${esc(t.id)}">Reflect on This ${esc(t.type)}</button>` : "";
 }
-hook("act", (act, el, id) => { if (act === "ewr-open") { if (dlg.open) dlg.close(); setTimeout(() => open(id), 30); return true; } });
-window.SBWRAP = {open, should, viewHtml, lastWrap, readOf, tipOf, METHODS};
+/* Which flashcards count toward this exam's readiness: Automatic (Studyboard matches the exam's topics, from its notes, the
+   school site and announcements, to your decks; or the cards since the last exam; or the whole course), or the decks you pick */
+function decksSheet(id){
+  const t = state.tasks[id]; if (!isExam(t)) return;
+  const ev = examEvidence(Object.assign({}, t, {readyDecks: []})), picked = new Set(t.readyDecks || []), mine = !!picked.size;
+  const qn = ev.quizN ? ` and ${ev.quizN} quiz${ev.quizN === 1 ? "" : "zes"}` : "";
+  const aiNames = ev.how === "ai" ? (t.aiDecks.ids || []).map(i => (state.decks[i] || {}).name).filter(Boolean) : [];
+  const how = ev.how === "ai" ? `uses what ${aiWho() || "Automatic AI"} matched to this exam's topics: ${aiNames.slice(0, 4).join(", ")}${aiNames.length > 4 ? ` and ${aiNames.length - 4} more` : ""} (${ev.cards.length} card${ev.cards.length === 1 ? "" : "s"}${qn})` : ev.how === "topics" ? `matches this exam's topics (${ev.terms && ev.terms.length ? ev.terms.slice(0, 5).join(", ") : "from its notes"}) to ${ev.cards.length} card${ev.cards.length === 1 ? "" : "s"}${qn}` : ev.how === "since" ? `uses the ${ev.cards.length} cards${qn} added since ${ev.prev}` : ev.how === "course" ? `uses every flashcard and quiz in this course` : "has no flashcards or quizzes in this course to use";
+  // flashcard decks and quizzes made from slides, notes or your own questions, this course's first
+  const decks = decksArr().slice().sort((a, b) => (b.courseId === t.courseId) - (a.courseId === t.courseId));
+  openSheet(`<form class="sheet xr-sheet">${head("Which Flashcards and Quizzes Count?")}
+    <div class="sheet-body">
+      <p style="margin:0">For <b>${esc(t.title)}</b>, readiness is measured from the flashcards and practice quizzes that cover it.</p>
+      <label class="mi-check"><input type="radio" name="xrm" value="auto"${mine ? "" : " checked"}> <span><b>Automatic.</b> Right now Studyboard ${esc(how)}.</span></label>
+      <label class="mi-check"><input type="radio" name="xrm" value="pick"${mine ? " checked" : ""}> <span><b>Only the decks I pick:</b></span></label>
+      <div class="xr-decks" id="xrDecks">${decks.length ? decks.map(d => { const c = courseOf(d.courseId); return `<label class="mi-check"><input type="checkbox" name="d" value="${esc(d.id)}"${picked.has(d.id) ? " checked" : ""}> <span>${esc(d.name)} <span class="mini">${isQuizHolder(d) ? (n => `${n} quiz${n === 1 ? "" : "zes"}`)((d.aiQuizzes || []).length) : `${d.cards.length} card${d.cards.length === 1 ? "" : "s"}`}${c ? " · " + esc(courseLabel(c)) : ""}</span></span></label>`; }).join("") : `<p class="mini">You don't have any flashcards or quizzes yet.</p>`}</div>
+    </div>
+    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Save</button></div></form>`, fd => {
+    const cur = state.tasks[id]; if (!cur) return;
+    const ids = fd.get("xrm") === "pick" ? fd.getAll("d").map(String) : [];
+    if (fd.get("xrm") === "pick" && !ids.length) { toast("Pick at least one deck, or choose Automatic"); return false; }
+    const n = clone(cur); if (ids.length) n.readyDecks = ids; else delete n.readyDecks;
+    dlg.close(); applyChanges([{kind: "task", id, after: n}], ids.length ? `Readiness for ${cur.title} now uses ${ids.length} deck${ids.length === 1 ? "" : "s"}` : "Readiness is automatic again");
+    return false;
+  });
+  // the decks stay clickable: ticking one switches to "Only the decks I pick"; Automatic dims them
+  const box = $("#xrDecks"), sync = () => box.classList.toggle("auto", !dlg.querySelector('input[name="xrm"][value="pick"]').checked);
+  dlg.querySelectorAll('input[name="xrm"]').forEach(i => i.addEventListener("change", sync));
+  box.querySelectorAll("input").forEach(i => i.addEventListener("change", () => { if (i.checked) dlg.querySelector('input[name="xrm"][value="pick"]').checked = true; sync(); }));
+  sync();
+}
+// Exams with a mark (from any source: the mark sheet, the task form, Paste Grades, school sync) and no reflection yet, newest
+// first. Today's Plan offers them under Heads Up until reflected on or skipped. Only recent exams, so old marks don't pile up.
+function pending(){
+  if (!askOn()) return [];
+  const skip = lsGet(SKIP_LS, {}), from = addDays(todayISO(), -30);
+  return Object.values(state.tasks || {}).filter(t => isExam(t) && !t.wrap && !skip[t.id] && markOf(t) != null && (t.due || "") >= from && (t.status === "done" || (t.due || "") <= todayISO()))
+    .sort((a, b) => (b.due || "").localeCompare(a.due || ""));
+}
+const skip = id => { const k = lsGet(SKIP_LS, {}); k[id] = Date.now(); lsSet(SKIP_LS, k); };
+hook("act", (act, el, id) => {
+  if (act === "ewr-open") { if (dlg.open) dlg.close(); setTimeout(() => open(id), 30); return true; }
+  if (act === "xr-decks") { if (dlg.open) dlg.close(); setTimeout(() => decksSheet(id), 30); return true; }
+  if (act === "ewr-skip") { skip(id); scheduleRender(); toast("Skipped. You can still reflect from the exam's details."); return true; }
+});
+window.SBWRAP = {open, should, viewHtml, lastWrap, readOf, tipOf, pending, markOf, METHODS};
 })();
 /* ===== module: 97-notecards.js ===== */
 /* Notes to Flashcards (see the comment above the UI code below). The pure engine is between NOTECARDS-START and NOTECARDS-END and is unit-tested in tests/notecards.test.js. */
@@ -67239,7 +67725,9 @@ function formHtml(t, isNew){
       <ul class="bd-kids">${kids.map(k => `<li class="${k.status === "done" ? "is-done" : ""}"><button type="button" class="link-btn" data-act="edit-task" data-id="${esc(k.id)}">${esc(k.step || "")} ${esc(k.title)}</button><span class="mini">${esc(fmtShort(k.due))}${k.status === "done" ? " · done" : k.due < today ? " · overdue" : ""}</span></li>`).join("")}</ul></div>`;
   }
   if (!bigBtnTypes[t.type] || t.status === "done" || t.prepFor) return "";
-  return BD.isBig(t) && !bdNo(t.id) ? `<div class="bd-panel offer"><div><b>This looks big.</b><span class="mini" style="display:block">Split it into milestones, scheduled backward from the due date.</span></div><button type="button" class="btn small primary" data-act="bd-open" data-id="${esc(t.id)}">Break It Down</button><button type="button" class="icon-btn sm bd-x" data-act="bd-no" data-id="${esc(t.id)}" aria-label="Don't suggest this for ${esc(t.title)}" title="Don't suggest this again">${CLOSE}</button></div>`
+  // already split into steps or under way: just the small link, not the banner
+  const started = (t.checklist || []).length >= 2 || t.status === "doing" || Number(t.focusMin) > 0 || Number(t.pct) > 0;
+  return BD.isBig(t) && !bdNo(t.id) && !started ? `<div class="bd-panel offer"><div><b>This looks big.</b><span class="mini" style="display:block">Split it into milestones, scheduled backward from the due date.</span></div><button type="button" class="btn small primary" data-act="bd-open" data-id="${esc(t.id)}">Break It Down</button><button type="button" class="icon-btn sm bd-x" data-act="bd-no" data-id="${esc(t.id)}" aria-label="Don't suggest this for ${esc(t.title)}" title="Don't suggest this again">${CLOSE}</button></div>`
     : bdLink(t.id);
 }
 const bdLink = id => `<p class="mini bd-new-link"><button type="button" class="link-btn" data-act="bd-open" data-id="${esc(id)}">Break It into Milestones</button></p>`;

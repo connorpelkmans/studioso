@@ -14,6 +14,8 @@ const EXAMMODE = (() => {
   const endMs = t => t.time && /^\d{1,2}:\d{2}$/.test(t.time) ? dueMs(t) + AFTER_MS : dueMs(t) + 60000;
   // An exam: type Exam or Quiz, or a task titled Midterm / Final Exam
   const isExam = t => !!t && t.type !== "Study" && !t.prepFor && (t.type === "Exam" || t.type === "Quiz" || EXAM_RX.test(String(t.title || "")));
+  // Big enough to take over the plan: an exam, a midterm or final, or a quiz worth 10% or more (w: its share of the grade)
+  const isBig = t => isExam(t) && (t.type !== "Quiz" || EXAM_RX.test(String(t.title || "")) || (Number(t.w != null ? t.w : t.weight) || 0) >= 10);
   // Work that has to be handed in
   const isWork = (t, exam) => !!t && t.type !== "Study" && !t.prepFor && (!exam || t.id !== exam.id);
 
@@ -22,7 +24,7 @@ const EXAMMODE = (() => {
     if (!input || input.enabled === false) return null;
     const today = input.today, now = Number(input.now) || 0, off = input.off || {};
     const open = (input.tasks || []).filter(t => t && t.status !== "done" && isDay(t.due));
-    const exams = open.filter(t => isExam(t) && diff(today, t.due) >= 0 && diff(today, t.due) <= DAYS && now < endMs(t)).sort((a, b) => dueMs(a) - dueMs(b) || String(a.id).localeCompare(String(b.id)));
+    const exams = open.filter(t => isBig(t) && diff(today, t.due) >= 0 && diff(today, t.due) <= DAYS && now < endMs(t)).sort((a, b) => dueMs(a) - dueMs(b) || String(a.id).localeCompare(String(b.id)));
     const live = exams.filter(t => !off[t.id]);
     if (!live.length) return null;
     const exam = live[0];
@@ -53,7 +55,7 @@ const EXAMMODE = (() => {
   const kindWord = t => t && t.type === "Quiz" ? "Quiz" : "Exam";
   const tag = (t, d) => `${kindWord(t)} ${rel(d)}`;
   const dayEnd = t => { const d = pd(t.due); d.setHours(23, 59, 59, 999); return d.getTime(); };
-  return {DAYS, pick, order, leads, studyKey, dayEnd, rel, tag, kindWord, isExam, isWork, dueMs, endMs, diff};
+  return {DAYS, pick, order, leads, studyKey, dayEnd, rel, tag, kindWord, isExam, isBig, isWork, dueMs, endMs, diff};
 })();
 /*EXAMMODE-END*/
 
@@ -76,7 +78,7 @@ function current(){
   let v = null;
   try {
     const info = (FOCUS && FOCUS.info) || {};
-    const tasks = tasksArr().map(t => { const x = info[t.id]; return x ? Object.assign({}, t, {dead: !!x.dead, lateOk: !x.dead}) : t; });
+    const tasks = tasksArr().map(t => { const x = info[t.id], w = MILESTONE(t.type) ? weightOf(t) : null; return Object.assign({}, t, {w}, x ? {dead: !!x.dead, lateOk: !x.dead} : {}); });
     v = EXAMMODE.pick({tasks, today: todayISO(), now, off: offMap(), enabled: enabled()});
   } catch (e) { console.warn("exam mode", e); v = null; }
   MEMO = {k, v};
@@ -191,7 +193,7 @@ function todayHtml(){
   const count = m.days === 0 && ex.time ? (hrs > 1 ? `In about ${Math.round(hrs)} hour${Math.round(hrs) === 1 ? "" : "s"}` : hrs > 0 ? "Starting soon" : "Happening now") : m.days === 0 ? "Today" : m.days === 1 ? "Tomorrow" : `In ${m.days} days`;
   const when = `${m.days <= 1 ? "" : esc(fmtDate(ex.due))}${ex.time ? `${m.days <= 1 ? "" : " at "}${esc(fmtTime(ex.time))}` : ""}`;
   const cd = countTile(ex, m, hrs), pr = prepLine(ex, sm), pct = Math.max(0, Math.min(100, pr.pct));
-  const prep = `<div class="exm-prep"><span class="exm-bar" role="img" aria-label="${pct} percent prepared"><i style="width:${pct}%"></i></span><span class="exm-pl">${esc(pr.text)}</span></div>${pr.gap ? `<p class="exm-gap" role="note">${esc(pr.gap)}</p>` : ""}`;
+  const prep = `<div class="exm-prep"><span class="exm-bar" role="img" aria-label="${pct} percent prepared"><i style="width:${pct}%"></i></span><span class="exm-pl">${esc(pr.text)}</span></div>`;
   const othersH = m.others.length ? `<p class="exm-others">Also coming up: ${m.others.map(t => `<button type="button" class="link-btn" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}</button>${courseTag(t) ? ` (${esc(courseTag(t))})` : ""}, ${esc(whenText(t))}`).join("; ")}.</p>` : "";
   const planBtn = !sm && m.days >= 1 && window.SBPREP ? `<button type="button" class="btn" data-act="exam-plan" data-id="${esc(ex.id)}">Plan My Prep</button>` : "";
   return `<section class="exm-card" role="region" aria-label="Exam Mode" style="--c:${esc(colorOf(ex.courseId))}">

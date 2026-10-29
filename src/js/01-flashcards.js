@@ -21,19 +21,24 @@ const decksArr = () => Object.values(state.decks || {}).filter(d => !d.archived)
 const isQuizHolder = d => !!(d && d.quizOnly && !(d.cards || []).length);
 const quizFrom = (d, qz) => isQuizHolder(d) ? ((qz && qz.sources || []).filter(Boolean).map(x => String(x).replace(/\.[a-z0-9]{2,5}$/i, "")).slice(0, 2).join(", ") || "your material") : d.name;
 const deckListArr = () => decksArr().filter(d => !isQuizHolder(d));
-/* Exams and flashcards. Review is most useful close to a test (the gap since the last review should be short next to how long
-   until the exam), so a card in a course with an exam coming up is always seen in the last few days before it: when its next
-   review would land after the day before the exam, and it hasn't been seen in the 3 days before, it comes due 2 days before.
+/* Exams and flashcards. Review helps most close to a test (the gap since the last review should be short next to how long
+   until the exam), so every card in a course with an exam coming up is reviewed at least once in the week before it.
+   - Only exams that matter count: an Exam, or anything worth 10% or more. A weekly 2% quiz doesn't pull the whole deck in.
+   - A card already reviewed in that last week is left alone. Otherwise, if its next review would land after the day
+     before the exam, it's pulled in to a day in the week before (7 to 2 days out). Each card keeps the same day (from its
+     id), the weakest cards get first claim on a day, and no day takes more than 30 pulled cards per course, so the reviews
+     come spread over the week instead of in one pile.
    The card's own schedule isn't changed; the exam only pulls the date in. */
-const EXAM_WIN = 3, EXAM_PULL = 2;
+const EXAM_WIN = 7, EXAM_LAST = 2, PULL_CAP = 30;
 let FC_EXAMS = {k: "", m: {}};
-// The nearest exam or quiz still to come in each course: {courseId: {id, title, due, days}}
+// The nearest exam that matters still to come in each course: {courseId: {id, title, due, days}}
 function fcExams(){
   const today = todayISO(), k = today + "|" + (state.updated || 0);
   if (FC_EXAMS.k === k) return FC_EXAMS.m;
   const m = {};
   Object.values(state.tasks || {}).forEach(t => {
     if (!t || !t.courseId || t.status === "done" || t.prepFor || !(t.type === "Exam" || t.type === "Quiz") || !t.due || t.due <= today) return;
+    if (t.type !== "Exam" && !(weightOf(t) >= 10)) return;
     if (!m[t.courseId] || t.due < m[t.courseId].due) m[t.courseId] = {id: t.id, title: t.title, due: t.due, days: dayDiff(today, t.due), type: t.type};
   });
   FC_EXAMS = {k, m}; return m;
@@ -44,16 +49,39 @@ const cardCourse = c => {
   if (FC_CARD_COURSE.k !== k) { const m = {}; Object.values(state.decks || {}).forEach(d => (d.cards || []).forEach(x => { m[x.id] = d.courseId || ""; })); FC_CARD_COURSE = {k, m}; }
   return FC_CARD_COURSE.m[c.id] || "";
 };
-// When a card should next be reviewed, given the exam in its course (cid). due: its own date
-function examDueCap(due, last, cid, today){
-  const ex = cid && fcExams()[cid]; if (!ex) return due;
-  const winStart = addDays(ex.due, -EXAM_WIN), dayBefore = addDays(ex.due, -1);
-  if (last && last >= winStart) return due;
-  if (due && due <= dayBefore) return due;
-  const pull = addDays(ex.due, -EXAM_PULL), now = today || todayISO();
-  return pull > now ? pull : now;
+const cardHash = id => { let h = 2166136261; for (const ch of String(id)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+// Whether a card still needs a review before an exam: seen before, not reviewed in its last week, next review after the day before
+const needsPull = (c, ex) => c.seen > 0 && !c.draft && !(c.last && c.last >= addDays(ex.due, -EXAM_WIN)) && !(c.due && c.due <= addDays(ex.due, -1));
+// The day each pulled card comes due: {cardId: date}
+let FC_PULL = {k: "", m: {}};
+function fcPulls(){
+  const today = todayISO(), k = today + "|" + (state.updated || 0);
+  if (FC_PULL.k === k) return FC_PULL.m;
+  const m = {}, ex = fcExams();
+  Object.keys(ex).forEach(cid => {
+    const e = ex[cid], last = addDays(e.due, -1), first = addDays(e.due, -EXAM_WIN), span = EXAM_WIN - EXAM_LAST + 1, used = {};
+    const cards = Object.values(state.decks || {}).filter(d => !d.archived && d.courseId === cid).flatMap(d => d.cards || []).filter(c => needsPull(c, e))
+      .sort((a, b) => (a.box || 0) - (b.box || 0) || cardHash(a.id) - cardHash(b.id));
+    // every day a pulled card may land on: the week before (7 to 2 days out), then the day before; never before today
+    const days = []; for (let d = first; d <= last; d = addDays(d, 1)) if (d >= today) days.push(d);
+    if (!days.length) return;
+    cards.forEach(c => {
+      let want = addDays(first, cardHash(c.id) % span); if (want < today) want = today;
+      const order = days.filter(d => d >= want && d < last).concat(days.filter(d => d < want).reverse(), [last]);
+      const day = order.find(d => (used[d] || 0) < PULL_CAP);
+      if (day) { used[day] = (used[day] || 0) + 1; m[c.id] = day; }
+    });
+  });
+  FC_PULL = {k, m}; return m;
 }
-const cardDueOn = c => examDueCap(c.due, c.last, cardCourse(c));
+const cardDueOn = c => { const p = fcPulls()[c.id]; return p && (!c.due || p < c.due) ? p : c.due; };
+// For the rating buttons: the next review date after rating today, pulled in when the exam needs it
+function examDueCap(due, cid, cardId){
+  const ex = cid && fcExams()[cid], today = todayISO(); if (!ex || !due) return due;
+  if (today >= addDays(ex.due, -EXAM_WIN) || due <= addDays(ex.due, -1)) return due;
+  const p = fcPulls()[cardId], span = EXAM_WIN - EXAM_LAST + 1, want = addDays(ex.due, -EXAM_WIN + (cardHash(cardId) % span));
+  return p && p < due ? p : want < due ? want : due;
+}
 const cardDue = c => c.seen > 0 && (!c.due || cardDueOn(c) <= todayISO());
 const cardNew = c => !c.seen;
 /* How prepared you are for a deck (0 to 100), from every card */
@@ -175,11 +203,9 @@ function viewQuizzes(){
       <div class="qz-band"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span><span class="g2-kick">${esc(c ? courseLabel(c) : "General")}</span>${qz.kind === "case" ? `<span class="qz-pill">Case Study</span>` : ""}</div>
       <button class="qz-body" data-act="qz-open" data-id="${esc(d.id + ":" + qz.id)}"><b class="qz-title">${esc(qz.title || "Practice Quiz")}</b><span class="mini">${n} question${n === 1 ? "" : "s"} · from ${esc(quizFrom(d, qz))}${last ? ` · last score ${last.score}/${last.total}` : ""}</span></button>
       <div class="qz-acts"><button class="btn small primary" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Start</button><button class="btn small" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Share</button><span class="spacer"></span><button class="btn small deck-arch" data-act="qz-archive" data-id="${esc(d.id + ":" + qz.id)}" title="Put this quiz away" aria-label="Archive ${esc(qz.title || "quiz")}">${ARCHIVE.replace('width="26" height="26"', 'width="16" height="16"')}</button>${rvGrip(qz.title || "Practice Quiz")}</div></article>`; }).join("");
-  return `<div class="view-head" data-qz-list><h2>Your Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
+  return `<div class="view-head" data-qz-list><h2>Your Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}<button class="btn small sm-btn" data-act="grp-page" aria-label="Share With a Group" title="Share quizzes with a study group: everyone takes them in their own app and sees the best scores">${QZ_GROUP_IC}<span class="sm-lbl">Share With a Group</span></button>${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${chipsHtml()}${q ? `<div class="search-note">Showing quizzes that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${list.length ? `<div class="qz-grid">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length ? "" : emptyArt()}<strong>${all.length ? "No Quizzes Match" : "No Quizzes Yet"}</strong>${all.length ? "Try another course or search." : (inPreview() ? "Make a quiz from one of your flashcard decks." : "Upload your slides, notes or readings and " + esc(aiWho("AI")) + " writes a practice quiz. Or make one from a flashcard deck, or write your own.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px">${inPreview() || all.length ? "" : `<button class="btn primary ai-btn" data-act="qz-ai">${AI_ICON} From Slides or Notes</button>`}<button class="btn${inPreview() ? " primary" : ""}" data-act="qz-from-deck">From a Deck</button><button class="btn" data-act="qz-write">Write Your Own</button></div></div>`}
-    <section class="grp-strip"><div class="grp-strip-txt">${QZ_GROUP_IC}<span><b>Study Together</b><span class="mini">Share quizzes with a study group: everyone takes them in their own app and sees the best scores.</span></span></div>
-      <div class="grp-strip-btns"><button class="btn small" data-act="grp-page">Study Groups</button></div></section>
     <p class="hint-line tip-everyday">Make a quiz straight from your slides or notes with Add Quiz, or from a deck with Make a Quiz.</p>`;
 }
 /* Review hero: what's ready, about how long, and one Start button */
@@ -258,7 +284,7 @@ function viewFlashcards(){
     </div></article>`;
   }).join("");
   return reviewSwitchHtml() + `<div class="view-head" data-fc-list><h2>Your Decks</h2>
-      ${window.SBSHARE ? SBSHARE.libBtn() : ""}${archBtn()}${trashBtn("deck") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="deck" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
+      ${window.SBSHARE ? SBSHARE.libBtn() : ""}<button class="btn small sm-btn" data-act="grp-share-menu" aria-label="Share or Import" title="Share or Import">${QZ_GROUP_IC}<span class="sm-lbl">Share or Import</span></button>${archBtn()}${trashBtn("deck") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="deck" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${reviewHeroHtml()}${chipsHtml()}${ui.q.trim() ? `<div class="search-note">Showing decks that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${ds.length ? `<div class="deck-grid">${tiles}</div>` : `<div class="empty${decksArr().length ? "" : " sb-es"}" style="margin-top:14px">${decksArr().length ? "" : emptyArt()}<strong>${deckListArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Add cards or paste a list, then study them." + (inPreview() ? "" : " Or upload slides and let " + esc(aiWho("AI")) + " make them.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inPreview() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}
     <p class="hint-line tip-everyday">Studyboard learns how fast you forget each card and brings it back just before you would.</p>`;
@@ -618,7 +644,7 @@ function viewStudy(){
   const d = state.decks[it.deckId], c = d && d.cards.find(x => x.id === it.cardId);
   if (!c) { f.i++; return viewStudy(); }
   const box = c.box;
-  const lbl = r => { const due0 = (window.SBPRO && SBPRO.cardPreview ? SBPRO.cardPreview(d, c, r) : "") || nextDue(r === "good" ? Math.min(5, box + 1) : r === "easy" ? Math.min(5, box + 2) : box, r), due = examDueCap(due0, todayISO(), d.courseId), n = dayDiff(todayISO(), due); return n <= 0 ? "today" : (n === 1 ? "1 day" : n + " days") + (due < due0 ? " (before your exam)" : ""); };
+  const lbl = r => { const due0 = (window.SBPRO && SBPRO.cardPreview ? SBPRO.cardPreview(d, c, r) : "") || nextDue(r === "good" ? Math.min(5, box + 1) : r === "easy" ? Math.min(5, box + 2) : box, r), due = examDueCap(due0, d.courseId, c.id), n = dayDiff(todayISO(), due); return n <= 0 ? "today" : (n === 1 ? "1 day" : n + " days") + (due < due0 ? " (before your exam)" : ""); };
   return `<div class="view-head"><h2>Studying ${esc(title)}</h2><span class="mini">${f.i + 1} of ${f.q.length}</span>${undoBtn(f, true)}<button class="btn small" data-act="fc-exit">End Session</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.q.length * 100)}%"></i></div>
     ${f.note ? `<p class="mini">${esc(f.note)}</p>` : ""}

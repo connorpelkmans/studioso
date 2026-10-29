@@ -199,3 +199,13 @@
   #view .c2-card .c2-grade :is(.c2-gl,.mini){display:none}
   #view .c2-card .c2-grade .c2-letter{min-width:22px;height:20px;font-size:.72rem}
 }
+@media (max-width:639px){
+  .acc-chip[data-kind="left"] .acc-q,.acc-chip[data-kind="learned"] .acc-q{display:block;white-space:normal}
+  .acc-chip[data-kind="left"] .acc-left{grid-template-columns:1fr 1fr}
+  .acc-chip[data-kind="left"] .acc-say{flex:1 1 100%}
+  .acc-chip[data-kind="left"] .acc-say input{width:100%}
+}
+/* Phones: Enough for Today is a quiet text link under the two main buttons, not a third big button */
+@media (max-width:639px){
+  .next-up .nu-acts > [data-act="nu-enough"]{flex:0 0 100%;min-height:36px;margin:-2px 0 -4px;padding:4px 0!important;border:0!important;background:none!important;box-shadow:none!important;color:var(--muted);font-weight:600;text-decoration:underline;text-underline-offset:3px}
+}

@@ -137,4 +137,35 @@ const done = (o) => Object.assign({id: "t" + Math.random(), type: "Assignment", 
   const wd = A.workedDays(T, "2026-10-01", "2026-10-31"); ok(wd.has("2026-10-04") && wd.has("2026-10-05") && wd.has("2026-10-06") && wd.size === 3, "workedDays includes a completed task's day: " + [...wd]);
   ok(A.workedDays(T, "2026-10-05", "2026-10-05").size === 1, "range respected");
 }
+// work left, as a range
+{
+  const L = A.left;
+  ok(L({E: 4, h: 0, p: 0}).h === 4 && L({E: 4, h: 0, p: 0}).how === "est", "no work yet: the estimate");
+  ok(L({E: 4, h: 2, p: 0}).h === 2, "time spent comes off the estimate");
+  near(L({E: 4, h: 3.9, p: 0}).h, 0.6, 0.001, "near the end it keeps 15% left");
+  const o1 = L({E: 4, h: 4.5, p: 0, hi: 1.2}), o2 = L({E: 4, h: 6, p: 0, hi: 1.2});
+  ok(o1.how === "over" && o1.h > 0.6 && o2.h > o1.h, `past the plan, the time left grows (${o1.h} then ${o2.h})`);
+  near(L({E: 2, h: 3, p: 0.5}).h, 2, 0.001, "half done in 3h of a 2h plan: pace and estimate count half each");
+  near(L({E: 2, h: 0, p: 0.5}).h, 1, 0.001, "progress with no time logged: the estimate's share");
+  ok(L({E: 2, h: 1, p: 0.9}).h < L({E: 2, h: 1, p: 0.5}).h, "more done, less left");
+  const r = L({E: 4, h: 0, p: 0, lo: 0.8, hi: 1.3});
+  near(r.lo, 3.2, 0.001, "range low"); near(r.hi, 5.2, 0.001, "range high");
+  const w = L({E: 4, h: 3, p: 0.75, lo: 0.8, hi: 1.3});
+  ok((w.hi - w.lo) / w.h < (r.hi - r.lo) / r.h, "the range narrows as work gets done");
+  const said = L({E: 4, h: 3.5, p: 0, said: {h: 2, at: 3}});
+  ok(said.how === "said", "a check-in answer leads");
+  near(said.h, 1.5, 0.001, "time since the check-in comes off what you said");
+  ok(L({E: 4, h: 6, p: 0, said: {h: 1, at: 3}}).how === "over", "and past what you said, it's running over again");
+  const ans = ["almost", "half", "more", "barely"].map(k => A.saidLeft(4, 3.25, A.SAID[k]));
+  ok(ans.every((x, i) => i === 0 || x > ans[i - 1]), "check-in answers leave more time in order: " + ans.map(x => x.toFixed(2)).join(", "));
+  near(ans[1], 2.625, 0.001, "about half after 3h 15m of a 4h plan: about 2h 40m");
+  ok(A.saidLeft(1, 10, 0.1) <= 3, "never more than 3x the plan");
+}
+// how far tasks of a type land from the usual
+{
+  const sp = A.spread([], "Lab");
+  ok(sp.lo === 0.8 && sp.hi === 1.35 && sp.n === 0, "no history: a typical spread");
+  const S = A.samples([1, 1.1, 1.3, 1.4, 1.6].map(r => done({type: "Lab", focusMin: 120 * r})), NOW), s2 = A.spread(S, "Lab");
+  ok(s2.n === 5 && s2.lo < 1 && s2.hi > 1 && s2.lo >= 0.6 && s2.hi <= 2, "from your labs: " + JSON.stringify(s2));
+}
 console.log(`accuracy: ${n} checks passed`);

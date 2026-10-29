@@ -113,6 +113,8 @@ function pomoFinish(missed){
   if (done === "focus") {
     pomo.cycle++; pomo.sessions++; pomo.minutes += fm;
     const t = pomo.taskId && state.tasks[pomo.taskId];
+    // A group project task: the minutes go to its own focus record (see gtAddWork)
+    if (!t && isGt(pomo.taskId)) gtAddWork(pomo.taskId, fm);
     if (t) {
       const n = addWork(clone(t), fm, "focus"); n.pomos = (Number(n.pomos) || 0) + 1;
       applyChanges([{kind: "task", id: t.id, after: n}], null);

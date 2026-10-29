@@ -40,12 +40,12 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(row(p, "p").alloc > 0 && !row(p, "p").dead, "closed: overdue with late work accepted still gets time");
       ok(row(p, "e").alloc >= 1, "closed: the homework gets its full hour");
       ok(p.next.id !== "d", "closed: never Do This Next");
-      const card = page.locator(".plan-closed li");
+      const card = page.locator(".plan-notes .pn-late");
       ok(await card.count() === 1 && /talk to your instructor/i.test(await card.innerText()), "closed: one note says to talk to your instructor");
-      await page.locator('.plan-closed [data-act="closed-ok"]').click(); await page.waitForTimeout(150);
-      ok(await page.locator(".plan-closed").count() === 0, "closed: Got It hides it");
+      await page.locator('.plan-notes [data-act="closed-ok"]').click(); await page.waitForTimeout(150);
+      ok(await page.locator(".plan-notes .pn-late").count() === 0, "closed: Got It hides it");
       await page.reload(); await page.waitForFunction(() => window.__sbPlan && document.querySelector(".focus.plan"));
-      ok(await page.locator(".plan-closed").count() === 0, "closed: and it stays hidden");
+      ok(await page.locator(".plan-notes .pn-late").count() === 0, "closed: and it stays hidden");
       agree(p, "closed"); await done(ctx, page);
     }
     { // 2. Due earlier today: past its due time it is late, and the late policy decides
@@ -117,7 +117,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await done(ctx, page);
     }
     { // 6. Do This Next adjusts for right now, and the timeline follows it
-      const {ctx, page} = await open([mk("A", "Problem set", "Assignment", 3, 2, {weight: 10}), mk("B", "Worksheet", "Assignment", 3, 1, {weight: 10, history: [{at: Date.now() - 3600e3, text: "Focus session: 25m"}]})]);
+      const {ctx, page} = await open([mk("A", "Problem set", "Assignment", 3, 2, {weight: 10}), mk("B", "Worksheet", "Assignment", 3, 1, {weight: 10, history: [{at: new Date(iso(new Date()) + "T11:00:00").getTime(), text: "Focus session: 25m"}]})]);
       const p = await page.plan();
       ok(p.next.id === "B" && p.next.why.some(w => /just working on this/.test(w)), "right now: what you were just working on comes first");
       ok(p.firstSlot === "B", "right now: and the timeline starts with it");
@@ -128,17 +128,17 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       const {ctx, page} = await open([mk("e", "Care plan", "Assignment", 3, 12, {weight: 20})], {events});
       let p = await page.plan();
       ok(p.busyAhead && p.busyAhead.add >= 0.5, `busy days: more study time is suggested (${p.busyAhead && p.busyAhead.add}h)`);
-      const card = page.locator(".plan-busy");
+      const card = page.locator(".plan-notes .pn-busy");
       ok(await card.count() === 1 && /Tomorrow \(Clinical placement\)/.test(await card.innerText()), "busy days: the card names tomorrow's placement");
       const to = p.busyAhead.to;
       await card.locator('[data-act="today-set"]').click(); await page.waitForTimeout(200);
       p = await page.plan();
       ok(Math.abs(p.thSet - to) < 0.01, `busy days: one tap sets today to ${to}h`);
-      ok(await page.locator(".plan-busy").count() === 0, "busy days: then the card goes away");
+      ok(await page.locator(".plan-notes .pn-busy").count() === 0, "busy days: then the card goes away");
       await done(ctx, page);
       const o = await open([mk("e", "Care plan", "Assignment", 3, 12, {weight: 20})], {events});
-      await o.page.locator('.plan-busy [data-act="busy-hide"]').click(); await o.page.waitForTimeout(150);
-      ok(await o.page.locator(".plan-busy").count() === 0, "busy days: Not Today hides it");
+      await o.page.locator('.plan-notes .pn-busy [data-act="busy-hide"]').click(); await o.page.waitForTimeout(150);
+      ok(await o.page.locator(".plan-notes .pn-busy").count() === 0, "busy days: Not Today hides it");
       await done(o.ctx, o.page);
       const q = await open([mk("e", "Care plan", "Assignment", 3, 12, {weight: 20})]), qp = await q.page.plan();
       ok(!qp.busyAhead, "no busy days: no card");
@@ -149,7 +149,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       const p = await page.plan();
       ok(p.drop && p.drop.ids[0] === "c", "short of time: the 1% reading log gives the fewest marks for the time");
       ok(p.ranked[p.ranked.length - 1].id === "c" && row(p, "c").drop, "short of time: it is ranked last");
-      const w = await page.locator(".plan-warn").filter({hasText: "short"}).innerText();
+      const w = await page.locator(".plan-notes .pn-warn").innerText();
       ok(/Fewest marks for the time: Reading log/.test(w), "short of time: the warning names it");
       await done(ctx, page);
     }
