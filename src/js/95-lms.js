@@ -703,7 +703,7 @@ function cleanFile(r) {
     out.und = undated.slice(0, 80).map(u => ({ou: u.ou, t: u.f.name, s: u.f.sub === true ? "yes" : u.f.sub === false ? "no" : "", m: (out.recs.find(r => r.pid === "f" + u.f.id) || {}).title || ""}));
     const clsOf = {}; (h.courses || []).forEach(c => (c.grades || []).forEach(g => { if (g && g.gid && g.cls) clsOf[c.ou + "|" + g.gid] = g; }));
     out.recs.forEach(r => { const g = r.gid && clsOf[r.ou + "|" + r.gid]; if (!g) return;
-      r.fb = Object.assign({c: [], ra: [], sc: g.num != null ? Number(g.num) : null, of: g.den != null ? Number(g.den) : null, g: g.shown || ""}, r.fb || {}, {cls: g.cls}); });
+      r.fb = Object.assign({c: [], ra: [], sc: g.num != null ? Number(g.num) : null, of: g.den != null ? Number(g.den) : null, g: g.shown || ""}, r.fb || {}, g.cls ? {cls: g.cls} : {}); });
     foldCopies(out);
     openOnly.forEach(({ou, q}) => {
       const cid = (cfg().map || {})[ou], own = ou + "|" + titleKey(cleanTitle(q.name).title), opens = localDT(q.start);
@@ -1022,7 +1022,7 @@ function cleanFile(r) {
       if (r.outOf) t[F].outOf = r.outOf;
       if (r.lateUntil) t[F].lateUntil = r.lateUntil;
       if (r.rx) t[F].rx = r.rx;
-      if (data.src === "api") { ["st", "fb", "rub"].forEach(k => { if (r[k]) t[F][k] = r[k]; else if (k === "st") delete t[F][k]; }); t[F].sub = r.sub || ""; t[F].item = !!r.pid; }
+      if (data.src === "api") { ["st", "fb", "rub"].forEach(k => { if (r[k]) t[F][k] = k === "fb" && !r.fb.cls && t[F].fb && t[F].fb.cls ? Object.assign({}, r.fb, {cls: t[F].fb.cls}) : r[k]; else if (k === "st") delete t[F][k]; }); t[F].sub = r.sub || ""; t[F].item = !!r.pid; }
       const norm = normTask(t);
       if (JSON.stringify(stripSeen(norm)) !== JSON.stringify(stripSeen(prev))) { put("task", norm); if (!rep.moved.some(x => x.t.id === prev.id) && !rep.done.some(x => x.id === prev.id)) rep.updated.push(norm); }
       else if (!prev[F] || !prev[F].seen || !prev[F].seen[data.src] || Date.now() - prev[F].seen[data.src] > 7 * 864e5) put("task", norm);
