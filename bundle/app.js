@@ -2931,6 +2931,8 @@ function aiAdoptLegacyKeys(){
   const next = Object.assign({}, raw, {keys: {}}); delete next.key;
   state.settings = Object.assign({}, state.settings, {ai: next}); saveLocal();
 }
+// Keys are masked text boxes, not password fields, so browsers don't offer to save or update a password for them
+const KEY_MASK = (() => { try { return CSS.supports("-webkit-text-security", "disc"); } catch (e) { return false; } })();
 function aiCfg(){
   aiAdoptLegacyKeys();
   const raw = (state.settings && state.settings.ai) || {};
@@ -4068,7 +4070,7 @@ function aiSetupSheet(fromFeature, opts){
   opts = opts || {};
   const c = aiCfg(), hasKey = !!(c.keys.gemini || c.keys.anthropic || c.keys.openai);
   const keyRow = (p) => { const P = AI_PROVIDERS[p]; return `<div class="ai-key" data-p="${p}">
-      <label class="f"><span class="lh">${esc(P.keyLabel)}${p === "gemini" ? ` ${REQ}` : ""} <span class="hint">${esc(P.keyHint)}</span></span><span class="key-row"><input type="password" data-key="${p}" value="${esc(c.keys[p])}" placeholder="Paste your key" autocomplete="off" spellcheck="false" data-noenter><button type="button" class="btn small" data-show="${p}">Show</button><button type="button" class="btn small" data-test="${p}">Test</button></span></label>
+      <label class="f"><span class="lh">${esc(P.keyLabel)}${p === "gemini" ? ` ${REQ}` : ""} <span class="hint">${esc(P.keyHint)}</span></span><span class="key-row"><input type="${KEY_MASK ? "text" : "password"}" class="${KEY_MASK ? "key-mask" : ""}" name="sb-ai-key-${p}" data-key="${p}" value="${esc(c.keys[p])}" placeholder="Paste your key" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" data-noenter><button type="button" class="btn small" data-show="${p}">Show</button><button type="button" class="btn small" data-test="${p}">Test</button></span></label>
       <p class="mini ai-test-msg" data-msg="${p}" aria-live="polite" style="margin:0"></p></div>`; };
   const modelOpts = live => { const keys = live ? {} : Object.assign({}, c.keys); if (live) $$("[data-key]", dlg).forEach(i => { keys[i.dataset.key] = i.value.trim(); });
     return Object.entries(AI_PROVIDERS).filter(([p]) => keys[p]).map(([p, P]) => `<optgroup label="${esc(P.label)}">${P.models.map(([m, l]) => `<option value="${p}|${esc(m)}" ${p === c.provider && m === c.model ? "selected" : ""}>${esc(l)}</option>`).join("")}</optgroup>`).join("") || `<option value="">Add a key first</option>`; };
@@ -4123,7 +4125,7 @@ function aiSetupSheet(fromFeature, opts){
   autoWarn();
   const refreshModels = () => { const sel = $("#aiDefault"), v = sel.value; sel.innerHTML = modelOpts(true); if ([...sel.options].some(o => o.value === v)) sel.value = v; };
   $$("[data-key]", dlg).forEach(i => i.addEventListener("change", refreshModels));
-  $$("[data-show]", dlg).forEach(b => b.addEventListener("click", () => { const i = dlg.querySelector(`[data-key="${b.dataset.show}"]`); i.type = i.type === "password" ? "text" : "password"; b.textContent = i.type === "password" ? "Show" : "Hide"; }));
+  $$("[data-show]", dlg).forEach(b => b.addEventListener("click", () => { const i = dlg.querySelector(`[data-key="${b.dataset.show}"]`), hid = KEY_MASK ? i.classList.toggle("key-mask") : (i.type = i.type === "password" ? "text" : "password") === "password"; b.textContent = hid ? "Show" : "Hide"; }));
   const testKey = async (p, key) => {
     const sel = $("#aiDefault").value.split("|");
     const model = sel[0] === p ? sel[1] : (p === "gemini" ? "auto" : AI_PROVIDERS[p].models[0][0]);
@@ -8881,8 +8883,10 @@ function planGapWhy(F){
   const gap = q(F.thSet) - q(planned);
   if (gap < 0.25) return why;
   let rest = gap;
-  if (F.doneToday >= 0.25) { const d = Math.min(rest, q(F.doneToday)); why.push(tr("plan.gap.done", "{time} of focus is already done today, so it comes off the {set} you set.", {time: fmtHM(d), set: fmtHM(F.thSet)})); rest -= d; }
-  if (F.lateCap && rest >= 0.25) { const end = F.sd ? fmtTime(AVAIL.toT(F.sd.end % 1440)) : "1:00 AM"; why.push(F.sd && F.sd.past && !F.sd.night ? tr("plan.gap.over", "Your study day ended at {end}, so today's plan is done.", {end}) : tr("plan.gap.late", "It's late, so today's plan stops at {end}, your end of day.", {end})); rest = 0; }
+  // each reason also gets a short chip (shown) next to its full sentence (tooltip and screen readers)
+  why.chips = [];
+  if (F.doneToday >= 0.25) { const d = Math.min(rest, q(F.doneToday)); why.push(tr("plan.gap.done", "{time} of focus is already done today, so it comes off the {set} you set.", {time: fmtHM(d), set: fmtHM(F.thSet)})); why.chips.push({k: "done", t: tr("plan.chip.done", "{time} done of {set}", {time: fmtHM(d), set: fmtHM(F.thSet)})}); rest -= d; }
+  if (F.lateCap && rest >= 0.25) { const end = F.sd ? fmtTime(AVAIL.toT(F.sd.end % 1440)) : "1:00 AM", over = F.sd && F.sd.past && !F.sd.night; why.push(over ? tr("plan.gap.over", "Your study day ended at {end}, so today's plan is done.", {end}) : tr("plan.gap.late", "It's late, so today's plan stops at {end}, your end of day.", {end})); why.chips.push({k: "end", t: over ? tr("plan.chip.over", "Day ended {end}", {end}) : tr("plan.chip.late", "Ends {end}", {end})}); rest = 0; }
   if (F.avail && F.avail.active && F.avail.note) rest = 0;
   return why;
 }
@@ -9115,7 +9119,7 @@ function focusHtml(){
   const planTile = `<div class="pt-stat pt-hours" role="group" aria-label="Study time today"><div class="pt-adj"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button><b${hoursTitle ? ` title="${esc(hoursTitle)}"` : ""}>${fmtHM(F.thSet) || "0m"}</b><button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></div><span>Planned Today</span>${freeMin != null ? `<span class="pt-free">${esc(fmtHM(freeMin / 60) || "0m")} free left</span>` : ""}</div>`;
   const ptStats = todayList.length || overdue || queued ? `<div class="pt-stats">${planTile}${ribbonHtml(week, pick, {n: overdue, title: ((lateRows[0] || pastFixed[0]) || {t: {}}).t.title || ""})}</div>` : "";
   return `<section class="focus plan" aria-label="Today's Plan">
-    <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? `<p class="plan-gap">${F.gapWhy.map(esc).join(" ")}</p>` : ""}</div>
+    <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? `<p class="plan-gap">${(F.gapWhy.chips || []).length === F.gapWhy.length ? F.gapWhy.chips.map((c, i) => `<span class="pg-chip pg-${c.k}" title="${esc(F.gapWhy[i])}"><span class="pg-ic" aria-hidden="true">${c.k === "done" ? "✓" : "◐"}</span>${esc(c.t)}<span class="pt-sr">. ${esc(F.gapWhy[i])}</span></span>`).join("") : F.gapWhy.map(esc).join(" ")}</p>` : ""}</div>
       ${(hoursBar => { PLAN_HOURS = hoursBar; return `<div class="fh-ctl${ptStats ? " fh-chip has-stats" : ""}${autoChipHtml() ? "" : " fh-only-hours"}">${hoursBar}${autoChipHtml()}</div>`; })(`<div class="hours-ctl" role="group" aria-label="Study time available today"><span class="mini">Time Today</span><span class="hc-row"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button><b${hoursTitle ? ` title="${esc(hoursTitle)}"` : ""}>${fmtHM(F.thSet) || "0m"}</b><button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></span></div>`)}</div>
     ${ui.focusOpen ? `${window.SBPRO ? SBPRO.todayHtml() : ""}${dayTimelineHtml(F, todayList, heroId)}${nextUpHtml(F, hero)}${skipped}${spare}${planNotesHtml(F, inView, warn)}${pastHtml}${availStripHtml(F)}
       ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
@@ -9209,7 +9213,7 @@ function viewBars(){
         ${rows}
       </div></div>
     <div class="tl-legend">${TYPES.filter(k => ts.some(t => t.type === k)).map(k => `<span><i class="tl-ic key">${typeIcon(k)}</i>${esc(k)}</span>`).join("")}<span><i class="dep-key"></i>Depends On</span><span><i class="tl-ic key late">${typeIcon("Other")}</i>Past Due</span></div>
-    <p class="hint-line tip-everyday">Drag an icon to move its due date. Finished tasks are hidden.${noDue ? ` ${noDue} without a due date ${noDue === 1 ? "isn't" : "aren't"} shown.` : ""}</p>`;
+    <p class="hint-line tip-everyday">Drag to change a due date${noDue ? ` · ${noDue} undated not shown` : ""}</p>`;
 }
 function viewCalendar(){
   const today = todayISO();
@@ -9282,7 +9286,7 @@ function viewCourses(){
   const nArch = allCourses().filter(c => c.archived).length, all = tasksArr().filter(t => !t.prepFor && !t.xs), dues = all.map(t => t.due).filter(Boolean).sort();
   const ending = all.length >= 5 && all.filter(t => t.status === "done").length / all.length >= 0.6 && (!dues.length || dayDiff(todayISO(), dues[dues.length - 1]) <= 7);
   return `<div class="view-head"><h2>Your Courses</h2>${proBtns("courses")}${!ending && nArch ? `<button class="btn small" data-act="archive-open">Archive (${nArch})</button>` : ""}${trashBtn("course")}</div><div class="course-list" data-sortable="courses">${cards}</div>
-    <!--term-->${ending ? `<div class="term-bar"><span>${ARCHIVE_SM}Term over? Put its courses and tasks away, and bring anything back later.</span><button class="btn small" data-act="new-term">Start a New Term</button><button class="btn small" data-act="archive-open">Open Archive${nArch ? ` (${nArch})` : ""}</button></div>` : ""}`;
+    <!--term-->${ending ? `<div class="term-bar"><span>${ARCHIVE_SM}Term over?</span><button class="btn small" data-act="new-term">Start a New Term</button><button class="btn small" data-act="archive-open">Open Archive${nArch ? ` (${nArch})` : ""}</button></div>` : ""}`;
 }
 // The line under a course's name
 function courseNextHtml(open, today){
@@ -14114,7 +14118,7 @@ function viewNoteBoard(){
         <div class="nb-target trash" data-drop-note="trash" role="button" tabindex="0" data-act="trash-open" data-kind="note" title="Trash" aria-label="Trash${trashVisible().filter(e => e.kind === "note").length ? ", " + trashVisible().filter(e => e.kind === "note").length + " recently deleted" : ""}. Click to see recently deleted notes, or drag a note here to delete it.">${TRASH}<span>Trash</span></div>
       </div>
     </div>${envelopeHtml()}</div>
-    <p class="hint-line tip-everyday nb-hint"><span class="nbh-l">Drag notes to move them. Drop a note on a board tab, the folder (archive) or the trash. Drag stickers onto notes. Tap a note to edit.</span><span class="nbh-s">Drag a note to move it. Tap one to edit.</span></p>`;
+    <p class="hint-line tip-everyday nb-hint"><span class="nbh-l">Drag to move · drop on a tab, the archive or the trash · tap to edit</span><span class="nbh-s">Drag a note to move it. Tap one to edit.</span></p>`;
 }
 /*NOTESPOT-START*/
 // The first spot in view, row by row, where a w by h note overlaps none of the others
@@ -14690,7 +14694,8 @@ function viewQuizzes(){
   return `<div class="view-head" data-qz-list><h2>Your Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}<button class="btn small sm-btn" data-act="grp-page" aria-label="Share With a Group" title="Share quizzes with a study group: everyone takes them in their own app and sees the best scores">${QZ_GROUP_IC}<span class="sm-lbl">Share With a Group</span></button>${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${chipsHtml()}${q ? `<div class="search-note">Showing quizzes that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${list.length ? `<div class="qz-grid">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length ? "" : emptyArt()}<strong>${all.length ? "No Quizzes Match" : "No Quizzes Yet"}</strong>${all.length ? "Try another course or search." : (inPreview() ? "Make a quiz from one of your flashcard decks." : "Upload your slides, notes or readings and " + esc(aiWho("AI")) + " writes a practice quiz. Or make one from a flashcard deck, or write your own.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px">${inPreview() || all.length ? "" : `<button class="btn primary ai-btn" data-act="qz-ai">${AI_ICON} From Slides or Notes</button>`}<button class="btn${inPreview() ? " primary" : ""}" data-act="qz-from-deck">From a Deck</button><button class="btn" data-act="qz-write">Write Your Own</button></div></div>`}
-    <p class="hint-line tip-everyday">Make a quiz straight from your slides or notes with Add Quiz, or from a deck with Make a Quiz.</p>`;
+    <section class="grp-strip"><div class="grp-strip-txt">${QZ_GROUP_IC}<span><b>Study Together</b><span class="mini">Share quizzes with a study group: everyone takes them in their own app and sees the best scores.</span></span></div>
+      <div class="grp-strip-btns"><button class="btn small" data-act="grp-page">Study Groups</button></div></section>`;
 }
 /* Review hero: what's ready, about how long, and one Start button */
 // Decks with cards to review or learn, in the chosen course
@@ -14770,8 +14775,7 @@ function viewFlashcards(){
   return reviewSwitchHtml() + `<div class="view-head" data-fc-list><h2>Your Decks</h2>
       ${window.SBSHARE ? SBSHARE.libBtn() : ""}<button class="btn small sm-btn" data-act="grp-share-menu" aria-label="Share or Import" title="Share or Import">${QZ_GROUP_IC}<span class="sm-lbl">Share or Import</span></button>${archBtn()}${trashBtn("deck") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="deck" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${reviewHeroHtml()}${chipsHtml()}${ui.q.trim() ? `<div class="search-note">Showing decks that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
-    ${ds.length ? `<div class="deck-grid">${tiles}</div>` : `<div class="empty${decksArr().length ? "" : " sb-es"}" style="margin-top:14px">${decksArr().length ? "" : emptyArt()}<strong>${deckListArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Add cards or paste a list, then study them." + (inPreview() ? "" : " Or upload slides and let " + esc(aiWho("AI")) + " make them.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inPreview() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}
-    <p class="hint-line tip-everyday">Studyboard learns how fast you forget each card and brings it back just before you would.</p>`;
+    ${ds.length ? `<div class="deck-grid">${tiles}</div>` : `<div class="empty${decksArr().length ? "" : " sb-es"}" style="margin-top:14px">${decksArr().length ? "" : emptyArt()}<strong>${deckListArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Add cards or paste a list, then study them." + (inPreview() ? "" : " Or upload slides and let " + esc(aiWho("AI")) + " make them.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inPreview() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}`;
 }
 /* Your own order for decks and quizzes: drag a tile (on touch, press and hold, or drag its grip), or press Alt + Left or Right Arrow */
 const RV_TILE = ".deck-grid > .deck-fc[data-rv], .qz-grid > .qz-card[data-rv]", RV_HOW = "Drag to reorder, or press Alt + Left or Right Arrow";
@@ -26643,7 +26647,7 @@ hook("boot", boot);
         ${preview ? "Study groups and share links work on the Studyboard website and in the desktop app, where you sign in to your Studyboard account." : "Sharing needs a free Studyboard account. Sign in to make or join study groups and share decks."}
         ${preview ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="${local ? "sb-connect" : "sb-signin"}">${local && !SB_HOSTED ? "Set Up Sync" : "Sign In"}</button></div>`}</div>
       <section class="grp-file"><h3 class="fsec">Share Without an Account</h3>
-        <p>No account? Share a deck as a file: open it, tap <b>Share</b>, then <b>Share as File</b>. Others use <b>Import a Deck File</b>.</p>
+        <p>Open a deck, then <b>Share › Share as File</b>.</p>
         <div class="row-actions"><button class="btn" data-act="grp-import">Import a Deck File</button><button class="btn" data-act="grp-to-decks">Go to Flashcards</button></div></section>`;
   }
   function errBox(msg, setup){
@@ -31547,7 +31551,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       return `<li><button type="button" class="gp-term" data-act="gp-term" data-id="${esc(t.id)}"><span class="gp-term-n"><b>${esc(t.name)}</b><span class="mini">${t.manual ? "Earlier record" : `${(t.courses || []).length} course${(t.courses || []).length === 1 ? "" : "s"}`}${p.credits ? ` · ${fmtCr(p.credits)} credits` : ""}${est ? " · some grades were projected" : ""}</span></span>${show && p.gpa != null ? `<span class="gp-term-g"><b>${fmtG(p.gpa)}</b><span class="mini">GPA</span></span>` : ""}</button></li>`; }).join("");
     return `<section class="gp-hist" aria-labelledby="gpHistH"><div class="gp-sec-h"><h3 class="fsec" id="gpHistH">Past Terms</h3><span class="spacer"></span><button type="button" class="btn small" data-act="gp-term-save">Save This Term</button><button type="button" class="btn small" data-act="gp-term-add">Add an Earlier Record</button></div>
       ${T.length ? `<ul class="gp-terms">${rows}</ul>${show && S.pastGpa != null ? `<p class="mini" style="margin:8px 0 0">Cumulative GPA across past terms: <b>${fmtG(S.pastGpa)}</b>${S.cum != null && S.n ? `. With this term's projected grades: <b>${fmtG(S.cum)}</b>` : ""}.</p>` : ""}`
-        : `<p class="mini" style="margin:0">Keep each term's final grades here to see your cumulative GPA. Starting a new term saves them for you. Have grades from before Studyboard? Add them as an earlier record.</p>`}</section>`;
+        : `<p class="mini" style="margin:0">Save each term to track your cumulative GPA.</p>`}</section>`;
   }
   function creditsSheet(){
     const cs = coursesArr(); if (!cs.length) return;
@@ -31697,8 +31701,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const stat = (n, k, bad) => `<div class="gr-stat gp-tile${bad ? " gr-bad" : ""}"><span class="gr-v">${n}</span><span class="gr-k">${k}</span></div>`;
     const hero = `<div class="gp-hero-band">
         <span class="g2-ring gp-cap" aria-hidden="true">${GP_CAP}</span>
-        <div class="gp-hero-t"><span class="g2-kick">${S.weighted ? "Credit-Weighted Average" : "Average Across Courses"}</span>${avg != null ? `<span class="gp-avg">${fmtP(avg)}</span><span class="gp-hero-sub">${withMarks.length} course${withMarks.length === 1 ? "" : "s"} with marks · ${atRisk ? `${atRisk} need${atRisk === 1 ? "s" : ""} attention` : "all on track"}</span>` : `<span class="gp-avg gr-none">No Marks Yet</span><span class="gp-hero-sub">Marks you enter show up here</span>`}</div>
-        <div class="gp-sum">${stat(atRisk, "Need attention", atRisk)}${stat(waiting.length, "Waiting for a mark")}${stat(Math.max(0, toCome), "Marks still to come")}</div></div>`;
+        <div class="gp-hero-t"><span class="g2-kick">${S.weighted ? "Credit-Weighted Average" : "Average Across Courses"}</span>${avg != null ? `<span class="gp-avg">${fmtP(avg)}</span><span class="gp-hero-sub">${withMarks.length} course${withMarks.length === 1 ? "" : "s"} with marks · ${atRisk ? `${atRisk} need${atRisk === 1 ? "s" : ""} attention` : "all on track"}</span>` : `<span class="gp-avg gr-none">No Marks Yet</span>`}</div>
+        ${atRisk || waiting.length || toCome > 0 ? `<div class="gp-sum">${stat(atRisk, "Need attention", atRisk)}${stat(waiting.length, "Waiting for a mark")}${stat(Math.max(0, toCome), "Marks still to come")}</div>` : ""}</div>`;
     const tn = topNeed(all);
     const detailOf = gr => {
       const c = gr.c, g = gr.g;
@@ -35101,7 +35105,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     const imp = `<button class="btn small" data-act="import-syllabus">Import a Syllabus</button></div>`;
     if (!coursesArr().length) return html.replace(imp, m => m.replace("</div>", ` <button class="btn small" data-act="lms-open">Connect a School Site</button></div>`));
     if (on.length) return html.replace("<h2>Your Courses</h2>", m => m + `<button class="btn small" data-act="${on.length === 1 ? on[0].P.k + "-open" : "lms-open"}">${esc(on.length === 1 ? on[0].P.name : "School Sites")}</button>`);
-    return html.replace(`<!--term-->`, m => `<div class="term-bar lms-bar"><span><b>Connect Canvas, Brightspace or Blackboard</b> to bring in your courses, due dates and grades.</span><button class="btn small" data-act="lms-open">Connect</button></div>` + m);
+    return html.replace(`<!--term-->`, m => `<div class="term-bar lms-bar"><span title="Brings in your courses, due dates and grades"><b>Connect Canvas, Brightspace or Blackboard</b></span><button class="btn small" data-act="lms-open">Connect</button></div>` + m);
   };
   const origCard = card;
   card = function(t){
@@ -66325,7 +66329,7 @@ function tipOf(picked){
 
 const bar = (label, v, cls) => `<div class="ewr-row ${cls}"><span class="ewr-l">${esc(label)}</span><span class="ewr-bar" role="img" aria-label="${esc(label)}: ${v == null ? "not measured" : v + " percent"}"><i style="width:${v == null ? 0 : Math.max(0, Math.min(100, v))}%"></i></span><b>${v == null ? "–" : v + "%"}</b></div>`;
 function compareHtml(felt, measured, mark){
-  return `<div class="ewr-cmp">${bar("How ready you felt", felt, "felt")}${bar("What your results said", measured, "meas")}${bar("Your mark", mark, "mark")}</div>`;
+  return `<div class="ewr-cmp">${bar("How ready you felt", felt, "felt")}${bar("Your practice scores", measured, "meas")}${bar("Your mark", mark, "mark")}</div>`;
 }
 
 function open(id, back){
@@ -66371,13 +66375,13 @@ function lastWrap(ex){
 const pctTxt = v => v == null ? "not measured" : v + "%";
 function lastHtml(prev){
   const w = prev.wrap, ms = (w.methods || []).map(k => (METHODS.find(x => x[0] === k) || [])[1]).filter(Boolean);
-  return `<div class="ewr-last" role="note"><b>Last time: ${esc(prev.title)}</b><span>You felt ${esc(pctTxt(w.felt))} ready, your results said ${esc(pctTxt(w.measured))}, and you got ${esc(pctTxt(w.mark))}.</span>${ms.length ? `<span>You studied by: ${esc(ms.join(", ").toLowerCase())}.</span>` : ""}${w.next ? `<span>You said next time you'd: <i>${esc(w.next)}</i></span>` : ""}</div>`;
+  return `<div class="ewr-last" role="note"><b>Last time: ${esc(prev.title)}</b><span>You felt ${esc(pctTxt(w.felt))} ready, your practice scores said ${esc(pctTxt(w.measured))}, and you got ${esc(pctTxt(w.mark))}.</span>${ms.length ? `<span>You studied by: ${esc(ms.join(", ").toLowerCase())}.</span>` : ""}${w.next ? `<span>You said next time you'd: <i>${esc(w.next)}</i></span>` : ""}</div>`;
 }
 // In an exam's view: before it, what you wrote last time; after it, your reflection (or a way to add one)
 function viewHtml(t){
   if (!isExam(t)) return "";
   if (t.status !== "done") { const prev = lastWrap(t); return prev ? lastHtml(prev) : ""; }
-  if (t.wrap) return `<div class="ewr-last ewr-mine" role="note"><b>Your reflection</b><span>You felt ${esc(pctTxt(t.wrap.felt))} ready, your results said ${esc(pctTxt(t.wrap.measured))}, and you got ${esc(pctTxt(t.wrap.mark))}.</span>${t.wrap.next ? `<span>Next time: <i>${esc(t.wrap.next)}</i></span>` : ""}<button type="button" class="link-btn" data-act="ewr-open" data-id="${esc(t.id)}">Edit</button></div>`;
+  if (t.wrap) return `<div class="ewr-last ewr-mine" role="note"><b>Your reflection</b><span>You felt ${esc(pctTxt(t.wrap.felt))} ready, your practice scores said ${esc(pctTxt(t.wrap.measured))}, and you got ${esc(pctTxt(t.wrap.mark))}.</span>${t.wrap.next ? `<span>Next time: <i>${esc(t.wrap.next)}</i></span>` : ""}<button type="button" class="link-btn" data-act="ewr-open" data-id="${esc(t.id)}">Edit</button></div>`;
   return markOf(t) != null ? `<button type="button" class="btn small ewr-btn" data-act="ewr-open" data-id="${esc(t.id)}">Reflect on This ${esc(t.type)}</button>` : "";
 }
 /* Which flashcards count toward this exam's readiness: Automatic (Studyboard matches the exam's topics, from its notes, the
@@ -70653,33 +70657,36 @@ window.SBSEM = {
     // days off that ended more than two weeks ago stay saved (they still set the cycle) but leave the list
     const recent = () => off.filter(o => (o.to || o.from) >= addDays(today, -14));
     const offRows = () => recent().length ? recent().map(o => `<li class="sd-off"><span><b>${esc(o.name || "Day off")}</b><span class="mini">${esc(range(o))}</span></span><button type="button" class="btn small" data-sd-rm="${esc(o.id)}" aria-label="Remove ${esc(o.name || "day off")}">Remove</button></li>`).join("")
-      : `<li class="mini sd-none">None yet. Classes don't show on days off, and Today's Plan treats them as free days.</li>`;
+      : "";
     const isSchoolToday = () => !off.some(o => today >= o.from && today <= (o.to || o.from)) && !S().off(cfg(), today) && ![0, 6].includes(parse(today).getDay());
     // Public holidays in your country: the ones every school takes are days off; the rest are asked on the Schedule
     const cn = S().countryName(), hy = S().holidays(cfg(), today, addDays(today, 364));
     let pub = now.pub; const ans = Object.assign({}, now.ans);
     const sure = [...new Set(hy.filter(h => h.sure).map(h => h.name))], common = hy.filter(h => !h.sure);
-    const pubHtml = cn ? `<fieldset class="sd-fs"><legend>Public Holidays</legend>
-          <label class="mi-check"><input type="checkbox" id="sdPub"${pub ? " checked" : ""}> <span>Days off at every school in ${esc(cn)}: ${esc(sure.join(", "))}</span></label>
-          ${common.length ? `<details class="sd-more"><summary>Other Holidays (${common.length})<span class="mini">Most schools take these. Your Schedule asks about each one before it comes up.</span></summary>
+    const pubHtml = cn ? `<section class="sd-sec"><h3 class="fsec">Holidays</h3>
+          <label class="mi-check"><input type="checkbox" id="sdPub"${pub ? " checked" : ""}> <span><b>Take Public Holidays Off</b><span class="sub sd-sub">Every school in ${esc(cn)} closes: ${esc(sure.join(", "))}</span></span></label>
+          ${common.length ? `<details class="sd-more"><summary><span>Other Holidays (${common.length})</span><span class="mini">Most schools close. Your Schedule asks before each one.</span></summary>
             <ul class="sd-list">${common.map(h => `<li class="sd-off"><span><b>${esc(h.name)}</b><span class="mini">${esc(dayName(h.date, {weekday: "short", month: "short", day: "numeric", year: h.date.slice(0, 4) === today.slice(0, 4) ? undefined : "numeric"}))}</span></span><select data-hol="${esc(h.key)}" aria-label="${esc(h.name)}"><option value="">Ask Me</option><option value="off"${ans[h.key] === "off" ? " selected" : ""}>Day Off</option><option value="on"${ans[h.key] === "on" ? " selected" : ""}>Classes</option></select></li>`).join("")}</ul></details>` : ""}
-        </fieldset>` : "";
+        </section>` : "";
     const refText = () => { const r = refDay(); return r === today ? "Today is" : `${parse(r).toLocaleDateString(undefined, {weekday: "long"})} (${dayName(r, {month: "short", day: "numeric"})}) is`; };
     openSheet(`<form class="sheet sd-sheet">${head("School Days")}
       <div class="sheet-body">
-        <fieldset class="sd-fs"><legend>Days Off</legend>
+        <section class="sd-sec"><h3 class="fsec">Days Off</h3>
+          <p class="mini sd-why">Breaks, reading week and snow days. Classes don't show, and Today's Plan treats them as free days.</p>
           <ul class="sd-list" id="sdList">${offRows()}</ul>
-          <div class="sd-add">
+          <div class="row-actions sd-btns" id="sdBtns"><button type="button" class="btn small" id="sdAddOpen">Add Days Off</button><button type="button" class="btn small" id="sdToday"${isSchoolToday() ? "" : " hidden"}>No School Today</button></div>
+          <div class="sd-add" id="sdAddF" hidden>
             <label class="f"><span class="lh">Name</span><input type="text" id="sdName" maxlength="60" placeholder="Reading Week, Spring Break, Snow Day" data-noenter></label>
             <div class="two"><label class="f"><span class="lh">From</span><input type="date" id="sdFrom" value="${esc(today)}"></label><label class="f"><span class="lh">To <span class="hint">optional</span></span><input type="date" id="sdTo"></label></div>
-            <div class="row-actions"><button type="button" class="btn small" id="sdAdd">Add Day Off</button><button type="button" class="btn small" id="sdToday"${isSchoolToday() ? "" : " hidden"}>No School Today</button></div>
+            <div class="row-actions"><button type="button" class="btn small primary" id="sdAdd">Add</button><button type="button" class="btn small" id="sdAddX">Cancel</button></div>
           </div>
-        </fieldset>
+        </section>
         ${pubHtml}
-        <fieldset class="sd-fs"><legend>Class Schedule</legend>
+        <section class="sd-sec"><h3 class="fsec">Class Schedule</h3>
+          <p class="mini sd-why">Do your classes follow the day of the week, or a rotation like Day 1 to 6 or A/B days?</p>
           ${seg("sdMode", [["week", "Same every week"], ["cycle", "Rotates by school day"]], draft.on ? "cycle" : "week")}
           <div class="sd-cycle" id="sdCycle"${draft.on ? "" : " hidden"}>
-            <p class="mini" style="margin:0">For schedules like Day 1 to 6 or A/B days. The cycle moves one step each school day and pauses on weekends and days off.</p>
+            <p class="mini" style="margin:0">The cycle moves one step each school day and pauses on weekends and days off.</p>
             <div class="two">
               <label class="f"><span class="lh">Days in the cycle</span><select id="sdN">${[2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => `<option value="${v}"${v === draft.n ? " selected" : ""}>${v}</option>`).join("")}</select></label>
               <label class="f"><span class="lh">Called</span><select id="sdNames"><option value="num"${draft.names === "num" ? " selected" : ""}>Day 1, Day 2…</option><option value="abc"${draft.names === "abc" ? " selected" : ""}>A Day, B Day…</option></select></label>
@@ -70688,7 +70695,7 @@ window.SBSEM = {
             <div class="f"><span class="lh">School days</span><div class="meet-days" role="group" aria-label="School days" id="sdDays">${WD.map(d => `<button type="button" data-day="${d}" aria-pressed="${draft.days.includes(d)}">${DAY_SHORT[d]}</button>`).join("")}</div></div>
             <p class="mini" style="margin:0">Then in each course, pick which cycle days a class meets under Class Times.</p>
           </div>
-        </fieldset>
+        </section>
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Save</button></div>
     </form>`, fd => {
@@ -70714,13 +70721,16 @@ window.SBSEM = {
       if (db) { const d = Number(db.dataset.day), i = draft.days.indexOf(d); if (i >= 0) draft.days.splice(i, 1); else draft.days.push(d); db.setAttribute("aria-pressed", String(i < 0)); $f("#sdRefL").textContent = refText(); return; }
       const rm = e.target.closest("[data-sd-rm]");
       if (rm) { off = off.filter(o => o.id !== rm.dataset.sdRm); drawOff(); return; }
+      const showAdd = on => { $f("#sdAddF").hidden = !on; $f("#sdBtns").hidden = on; if (on) $f("#sdName").focus(); };
+      if (e.target.closest("#sdAddOpen")) { showAdd(true); return; }
+      if (e.target.closest("#sdAddX")) { showAdd(false); return; }
       if (e.target.closest("#sdAdd")) {
         const from = $f("#sdFrom").value, to = $f("#sdTo").value, name = $f("#sdName").value.trim();
         if (!isDate(from)) { toast("Pick the first day off"); return; }
         if (to && to < from) { toast("The last day off can't be before the first"); return; }
         off.push({id: uid(), name: name || "Day off", from, to: to && to !== from ? to : from});
         off.sort((a, b) => a.from < b.from ? -1 : 1);
-        $f("#sdName").value = ""; $f("#sdTo").value = ""; drawOff(); return;
+        $f("#sdName").value = ""; $f("#sdTo").value = ""; showAdd(false); drawOff(); return;
       }
       if (e.target.closest("#sdToday")) { off.push({id: uid(), name: "No school", from: today, to: today}); off.sort((a, b) => a.from < b.from ? -1 : 1); drawOff(); }
     });

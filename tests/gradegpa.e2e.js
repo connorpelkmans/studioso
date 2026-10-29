@@ -101,7 +101,7 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
     ok(!/no credits yet/.test(await text(".gp-gpa")), "no note once every course has credits");
 
     // Past Terms: save this term, add an earlier record, see the cumulative GPA
-    ok(/Keep each term's final grades/.test(await text(".gp-hist")), "Past Terms starts empty with a short how-to");
+    ok(/cumulative GPA/.test(await text(".gp-hist")), "Past Terms starts empty with a short how-to");
     await page.click('[data-act="gp-term-save"]'); await page.waitForTimeout(200);
     await page.fill('dialog input[name="term"]', "Fall 2026");
     await page.click("dialog [data-submit]"); await page.waitForTimeout(300);

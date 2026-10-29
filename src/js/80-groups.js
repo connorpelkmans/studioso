@@ -828,7 +828,7 @@
         ${preview ? "Study groups and share links work on the Studyboard website and in the desktop app, where you sign in to your Studyboard account." : "Sharing needs a free Studyboard account. Sign in to make or join study groups and share decks."}
         ${preview ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="${local ? "sb-connect" : "sb-signin"}">${local && !SB_HOSTED ? "Set Up Sync" : "Sign In"}</button></div>`}</div>
       <section class="grp-file"><h3 class="fsec">Share Without an Account</h3>
-        <p>No account? Share a deck as a file: open it, tap <b>Share</b>, then <b>Share as File</b>. Others use <b>Import a Deck File</b>.</p>
+        <p>Open a deck, then <b>Share › Share as File</b>.</p>
         <div class="row-actions"><button class="btn" data-act="grp-import">Import a Deck File</button><button class="btn" data-act="grp-to-decks">Go to Flashcards</button></div></section>`;
   }
   function errBox(msg, setup){
