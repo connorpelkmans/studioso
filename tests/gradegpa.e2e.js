@@ -141,11 +141,12 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
     ok(/Term GPA from grades now/.test(sent), "and the GPA");
 
     // GPA off
-    await page.evaluate(() => { const d = document.querySelector(".gp-opts"); if (d) d.open = true; });
+    await page.click('[data-act="gp-opts"]'); await page.waitForSelector("#dlg[open] #gGpaIn");
     await page.selectOption("#gGpaIn", "off"); await page.waitForTimeout(300);
     ok(!/Term GPA/.test(await text(".gp-hero")), "GPA hides when it's off");
     await page.selectOption("#gGpaIn", "4.3"); await page.waitForTimeout(300);
     ok(/Term GPA/.test(await text(".gp-gpa")), "and comes back on a 4.3 scale");
+    await page.keyboard.press("Escape"); await page.waitForTimeout(200);
 
     // Starting a new term saves the grades to Past Terms
     await page.click('nav.tabs [data-tab="courses"]'); await page.waitForTimeout(200);
