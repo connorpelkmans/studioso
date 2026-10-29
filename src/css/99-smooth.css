@@ -12,6 +12,10 @@ html:not([data-motion="static"]) .sm-in{animation:sm-in .22s var(--sm-ease) back
 html:not([data-motion="static"]) .sm-view{animation:sm-view .24s var(--sm-ease) backwards}
 /* Switching tabs: the old page cross-fades into the new one (01-events.js tabSwap) */
 ::view-transition-old(root),::view-transition-new(root){animation-duration:.26s;animation-timing-function:cubic-bezier(.2,.8,.2,1)}
+/* A closing sheet's stand-in (99-smooth.js sheetGhost): above the page, never interactive, no entrance animation */
+.sm-ghost{position:fixed;inset:0;width:auto;height:auto;margin:0;padding:0;border:0;background:none;overflow:hidden;pointer-events:none}
+.sm-ghost-dim{position:absolute;inset:0}
+html .sm-ghost .sm-ghost-sheet{animation:none!important}
 /* Sheets and pop-ups */
 html:not([data-motion="static"]) dialog[open]:not(.tour):not(.sx-dlg){animation:sm-sheet-pop .24s var(--sm-ease) backwards}
 html:not([data-motion="static"]) dialog[open]::backdrop{animation:sm-back .22s ease-out backwards}

@@ -1139,7 +1139,19 @@ const STYLE_ACTS = {
   "motion-toggle": el => { saveStyle({motion: !!el.checked}); artSig = ""; renderSkinArt(); },
   "anim-toggle": el => { saveStyle({[el.dataset.key]: !!el.checked}); artSig = ""; renderSkinArt(); },
   "kit-follow": el => { saveStyle({[el.dataset.kind + "Auto"]: true}); render(); styleShop(); },
-  "env-toggle": () => { ui.envOpen = ui.envOpen === false; try { localStorage.setItem("studyboard:env", ui.envOpen ? "1" : "0"); } catch(e) {} render(); }
+  // On a phone the sticker drawer rises and fades in when it opens, and sinks away before it closes
+  "env-toggle": () => {
+    const opening = ui.envOpen === false, env = document.querySelector(".env");
+    const r = document.documentElement, glide = env && env.animate && matchMedia("(max-width:639px)").matches && r.dataset.motion !== "static" && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const ease = "cubic-bezier(.32,.72,0,1)";
+    const flip = () => {
+      ui.envOpen = opening; try { localStorage.setItem("studyboard:env", ui.envOpen ? "1" : "0"); } catch(e) {} render();
+      const e = glide && opening && document.querySelector(".env:not(.closed)");
+      if (e) e.animate([{translate: "0 48px", opacity: 0}, {translate: "0 0", opacity: 1}], {duration: 360, easing: ease});
+    };
+    if (glide && !opening) { env.animate([{translate: "0 0", opacity: 1}, {translate: "0 48px", opacity: 0}], {duration: 220, easing: "cubic-bezier(.4,0,1,1)", fill: "forwards"}).finished.then(flip, flip); return; }
+    flip();
+  }
 };
 // The sticker envelope starts closed; once you open it, it stays the way you left it
 try { const v = localStorage.getItem("studyboard:env"); ui.envOpen = v ? v === "1" : false; } catch(e) { ui.envOpen = false; }
