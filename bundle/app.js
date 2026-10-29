@@ -5215,7 +5215,7 @@ function askSheet(courseId){
   });
   const courseInfo = () => {
     if (!c) return "";
-    const ms = courseMeetings(c).map(m => `${m.kind} ${daysLabel(m.days)} ${m.start}-${m.end}${m.where ? " " + m.where : ""}`).join("; ");
+    const ms = courseMeetings(c).map(m => `${m.kind} ${meetWhen(m)} ${m.start}-${m.end}${m.where ? " " + m.where : ""}`).join("; ");
     const ts = tasksArr().filter(t => t.courseId === c.id && t.status !== "done").sort(sortTasks).slice(0, 30).map(t => `${t.title} (${t.type}${t.due ? ", due " + t.due : ""}${hasWeight(t) ? ", " + t.weight + "%" : ""})`).join("; ");
     return `Course: ${c.name}${c.code ? " (" + c.code + ")" : ""}. Instructor: ${c.instructor || "?"}. Meets: ${ms || c.schedule || "?"}. Office hours: ${c.office || "?"}.\nOpen tasks: ${ts || "none"}.\nToday is ${todayISO()}.`;
   };
@@ -5326,7 +5326,8 @@ async function autoPlan(a){
   }).join("\n");
   let gLines = ""; try { gLines = (window.SBGROUPTASKS ? window.SBGROUPTASKS.mine() : []).slice(0, 15).map((g, i) => `g${i + 1} | ${g.title} | GROUP TASK in "${g.groupName || "a group project"}" | ${g.due ? `due ${g.due} (${dayDiff(today, g.due) < 0 ? -dayDiff(today, g.due) + " days overdue" : dayDiff(today, g.due) === 0 ? "today" : dayDiff(today, g.due) + " days away"})` : "no due date"} | status ${g.status}${g.priority ? " | priority " + g.priority : ""} | about ${g.hours || 1}h`).join("\n"); } catch(e) {}
   const B = F.busy || {m: {}, what: {}};
-  const week = [0, 1, 2, 3].map(i => { const d = addDays(today, i), h = B.m[d] || 0; let items = []; try { items = schOccurrences(d, d).filter(o => !o.skipped && !(o.type === "meet" && o.m && o.m.kind === "Office Hours")).map(o => `${o.label ? o.label + " " : ""}${o.title}${o.start ? " " + o.start + (o.end ? "-" + o.end : "") : " all day"}`).slice(0, 6); } catch(e) {} return `${i === 0 ? "Today" : parse(d).toLocaleDateString("en-US", {weekday: "long"})} ${d}: ${items.length ? items.join("; ") : "nothing scheduled"}${h ? ` (${fmtHM(h)} scheduled, about ${fmtHM(F.day && F.day[i] != null ? F.day[i] : F.dh)} left for study)` : ""}`; }).join("\n");
+  const week = [0, 1, 2, 3].map(i => { const d = addDays(today, i), h = B.m[d] || 0; let items = []; try { items = schOccurrences(d, d).filter(o => !o.skipped && !(o.type === "meet" && o.m && o.m.kind === "Office Hours")).map(o => `${o.label ? o.label + " " : ""}${o.title}${o.start ? " " + o.start + (o.end ? "-" + o.end : "") : " all day"}`).slice(0, 6); } catch(e) {} const sdx = (() => { try { const x = schoolDayText(d); return x ? ` (${window.SBSCHOOL && SBSCHOOL.off(schoolCfg(), d) ? x + ", no school" : x})` : ""; } catch (e) { return ""; } })();
+    return `${i === 0 ? "Today" : parse(d).toLocaleDateString("en-US", {weekday: "long"})} ${d}${sdx}: ${items.length ? items.join("; ") : "nothing scheduled"}${h ? ` (${fmtHM(h)} scheduled, about ${fmtHM(F.day && F.day[i] != null ? F.day[i] : F.dh)} left for study)` : ""}`; }).join("\n");
   const standings = coursesArr().map(c => { const g = courseRisk(c.id); if (!g || !g.marked || !g.marked.length || g.current == null) return ""; return `${courseLabel(c)}: ${Math.round(g.current)}% so far on ${Math.round(g.wMarked)}% of the grade, pass mark ${g.g.pass}%${g.risk ? ` (${g.risk === "risk" ? "at risk" : g.risk === "out" ? "can't reach the pass mark on paper" : "worth watching"})` : ""}`; }).filter(Boolean).join("; ") || "no marks yet";
   let news = []; try { news = typeof window.SBLMS_NEWS === "function" ? window.SBLMS_NEWS(7) : []; } catch(e) {}
   const newsTxt = news.map(n => { const c = courseOf(n.courseId); return `- ${c ? courseLabel(c) : ""} (${String(n.date || "").slice(0, 10)}): ${n.title}. ${String(n.text || "").replace(/\s+/g, " ").slice(0, 220)}`; }).join("\n") || "none";
@@ -10095,7 +10096,7 @@ const isObj = v => !!v && typeof v === "object" && !Array.isArray(v);
 const CSS_COLOR = /^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([\d\s.,%\/-]{1,60}\)|[a-z]{3,20})$/i;
 const FILE_SETTINGS = {
   // Checked where they are used (see the settings review), so taken as they are when the type is right
-  style: isObj, comp: isObj, gtWork: isObj, pomo: isObj, grades: isObj, reminders: isObj, gentle: isObj, review: isObj, tips: isObj, examMode: isObj, autoFeat: isObj, bd: isObj, accuracy: isObj,
+  style: isObj, comp: isObj, gtWork: isObj, pomo: isObj, grades: isObj, reminders: isObj, gentle: isObj, review: isObj, tips: isObj, examMode: isObj, autoFeat: isObj, bd: isObj, accuracy: isObj, school: isObj,
   boardManual: v => typeof v === "boolean" || isObj(v),
   capacity: v => Number.isFinite(v) && v > 0 && v <= 200, dailyHours: v => Number.isFinite(v) && v >= 0 && v <= 24,
   hlColor: v => typeof v === "string" && CSS_COLOR.test(v), icType: v => typeof v === "string" && v.length <= 40, wbTheme: v => typeof v === "string" && v.length <= 40,
@@ -10478,9 +10479,11 @@ const wkDiff = (a, b) => Math.round((parse(mondayOf(a)) - parse(mondayOf(b))) / 
 // Every class meeting and event that lands between from and to (inclusive)
 function schOccurrences(from, to){
   const out = [], lo = addDays(from, -7), hi = addDays(to, 7), inRange = d => d >= from && d <= to;
+  const sc = schoolCfg(), SS = window.SBSCHOOL;
   coursesArr().forEach(c => courseMeetings(c).forEach(m => {
     for (let d = lo; d <= hi; d = addDays(d, 1)) {
-      if (!m.days.includes(parse(d).getDay())) continue;
+      // no class on a day off; a rotating class time meets on its cycle days
+      if (SS ? !SS.meets(sc, m, d) : !(m.days || []).includes(parse(d).getDay())) continue;
       const key = `${d}|${m.start}|${m.kind}`, mv = (c.meetMoves || {})[key];
       const o = {type: "meet", id: c.id, key, c, m, orig: d, date: d, start: m.start, end: m.end, moved: false, skipped: false, color: c.color, title: courseLabel(c), label: m.kind, where: m.where || "", cls: "k-" + m.kind.replace(/\s/g, "").toLowerCase()};
       if (mv) { if (mv.skip) o.skipped = true; else Object.assign(o, {date: mv.date || d, start: mv.start || m.start, end: mv.end || m.end, moved: true}); }
@@ -11408,6 +11411,19 @@ function parseMeetings(text, kind, where){
   return out;
 }
 const daysLabel = ds => WEEK_ORDER.filter(d => ds.includes(d)).map(d => DAY_SHORT[d]).join("");
+/* School days: days off and a rotating class cycle (the rules are SBSCHOOL, in the calendar core) */
+const schoolCfg = () => (state.settings && state.settings.school) || null;
+const cycOn = () => { const c = schoolCfg(); return !!(c && c.cycle && window.SBSCHOOL && SBSCHOOL.norm(c).cycle); };
+// "Day 1, 4" or "A Days" for a rotating class time
+const cycLabel = ks => { const c = schoolCfg(), abc = !!(c && c.cycle && c.cycle.names === "abc"), v = ks.slice().sort((a, b) => a - b); return abc ? v.map(k => String.fromCharCode(64 + k)).join(", ") + (v.length === 1 ? " Days" : " Days") : (v.length === 1 ? "Day " : "Days ") + v.join(", "); };
+// When a class time meets, in words: its weekdays, or its cycle days
+const meetWhen = m => m && Array.isArray(m.cyc) && m.cyc.length ? cycLabel(m.cyc) : daysLabel((m && m.days) || []);
+// What today is at school: "Day 3", "B Day", or the name of a day off
+function schoolDayText(d){
+  const c = schoolCfg(), S = window.SBSCHOOL; if (!c || !S) return "";
+  const off = S.off(c, d); if (off) return off.name || "Day off";
+  const k = S.dayOf(c, d); return k ? S.label(c, k) : "";
+}
 // Courses saved before class times existed still have a "Meets" line; read the times from it
 const courseMeetings = c => Array.isArray(c.meetings) ? c.meetings : parseMeetings(c.schedule, "Lecture", c.room).concat(parseMeetings(c.office, "Office Hours"));
 // The class times on a course's colour band, always in one format
@@ -11422,15 +11438,17 @@ function meetTimeText(a, b){
   return sm && em && sm[2].toUpperCase() === em[2].toUpperCase() ? `${sm[1]}–${e}` : `${s}–${e}`;
 }
 function courseTimesText(c){
-  let ms = []; try { ms = courseMeetings(c).filter(m => m && m.kind !== "Office Hours" && Array.isArray(m.days) && m.days.length && m.start && m.end); } catch (e) { ms = []; }
+  let ms = []; try { ms = courseMeetings(c).filter(m => m && m.kind !== "Office Hours" && ((Array.isArray(m.days) && m.days.length) || (Array.isArray(m.cyc) && m.cyc.length)) && m.start && m.end); } catch (e) { ms = []; }
   if (!ms.length) return String(c.schedule || "").trim();
   const main = ms.find(m => m.kind === "Lecture") || ms[0];
+  if (main.cyc && main.cyc.length) { const same = ms.filter(m => m !== main && m.cyc && m.cyc.length && m.start === main.start && m.end === main.end), ks = [...new Set(main.cyc.concat(...same.map(m => m.cyc)))], extra = [...new Set(ms.filter(m => m !== main && !same.includes(m) && m.kind !== main.kind).map(m => m.kind))];
+    return `${cycLabel(ks)} · ${meetTimeText(main.start, main.end)}${extra.length ? " + " + extra.join(", ") : ""}`; }
   const extra = [...new Set(ms.filter(m => m !== main && m.kind !== main.kind).map(m => m.kind))];
   const same = ms.filter(m => m.kind === main.kind && m !== main && m.start === main.start && m.end === main.end);
   const days = [...new Set(main.days.concat(...same.map(m => m.days)))];
   return `${meetDaysText(days)} · ${meetTimeText(main.start, main.end)}${extra.length ? " + " + extra.join(", ") : ""}`;
 }
-const meetingsSummary = ms => ms.filter(m => m.kind !== "Office Hours").map(m => `${daysLabel(m.days)} ${fmtTime(m.start)}–${fmtTime(m.end)}`).join("; ");
+const meetingsSummary = ms => ms.filter(m => m.kind !== "Office Hours").map(m => `${meetWhen(m)} ${fmtTime(m.start)}–${fmtTime(m.end)}`).join("; ");
 let schNoticeHtml = "";
 function viewSchedule(){
   const today = todayISO(), mon = ui.schWeek || mondayOf(today);
@@ -11440,7 +11458,7 @@ function viewSchedule(){
     <span class="sch-range">${esc(fmtShort(mon))} – ${esc(fmtShort(addDays(mon, 6)))}</span>
     <button class="icon-btn" data-act="sch-next" aria-label="Next week"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
     <button class="btn small" data-act="sch-today" ${mon === mondayOf(today) && ui.schDay == null ? 'disabled aria-pressed="true" title="You are viewing this week"' : 'aria-pressed="false"'}>This Week</button>
-    <button class="btn small" data-act="avail-open" title="Add or edit work, shifts, travel and protected time so Today's Plan only uses free time">Availability</button>${proBtns("schedule")}
+    <button class="btn small" data-act="avail-open" title="Add or edit work, shifts, travel and protected time so Today's Plan only uses free time">Availability</button><button class="btn small" data-act="school-open" title="Holidays, reading week and snow days, and a rotating schedule (Day 1 to 6, A/B days)">School Days</button>${proBtns("schedule")}
 </div></div>`;
   const withEvents = new Set(eventsArr().map(e => e.courseId).filter(Boolean));
   const missing = cs.filter(c => !courseMeetings(c).length && !withEvents.has(c.id));
@@ -11483,12 +11501,14 @@ function viewSchedule(){
     const dueList = weekTasks.filter(t => t.due === d.iso && !onGrid(t)).sort(sortTasks);
     const now = new Date(), nowM = now.getHours() * 60 + now.getMinutes();
     const nowLine = d.iso === today && nowM >= h0 * 60 && nowM <= h1 * 60 ? `<i class="sch-now" style="top:${top(nowM)}px"></i>` : "";
-    return {d, dueList, allDay, html: `<div class="sch-col ${d.iso === today ? "is-today" : ""} ${d.i === sel ? "sel" : ""}" data-date="${d.iso}" style="height:${H}px">${blocks}${nowLine}</div>`};
+    const offD = window.SBSCHOOL && schoolCfg() ? SBSCHOOL.off(schoolCfg(), d.iso) : null;
+    return {d, dueList, allDay, html: `<div class="sch-col ${d.iso === today ? "is-today" : ""} ${d.i === sel ? "sel" : ""}${offD ? " is-off" : ""}" data-date="${d.iso}" style="height:${H}px">${blocks}${nowLine}</div>`};
   });
   const heads = cols.map(({d, dueList, allDay}) => {
     const chips = allDay.map(o => `<button class="sch-chip sch-allday${o.type === "avail" ? " k-av k-av-" + o.avail.kind : ""}" style="--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}" title="${esc(o.title)}">${esc(o.title)}</button>`)
       .concat(dueList.map(t => `<button class="sch-chip" style="--c:${esc(colorOf(t.courseId))}" data-act="edit-task" data-id="${esc(t.id)}" title="${esc(t.title)}">${esc(t.title)}${t.time ? ` <span>${esc(fmtTime(t.time))}</span>` : ""}</button>`));
-    return `<div class="sch-head ${d.iso === today ? "is-today" : ""} ${d.i === sel ? "sel" : ""}"><div class="sch-dn"><span>${esc(parse(d.iso).toLocaleDateString(undefined, {weekday: "short"}))}</span><b>${parse(d.iso).getDate()}</b></div>
+    const sd = schoolDayText(d.iso), offD = sd && window.SBSCHOOL && SBSCHOOL.off(schoolCfg(), d.iso);
+    return `<div class="sch-head ${d.iso === today ? "is-today" : ""} ${d.i === sel ? "sel" : ""}"><div class="sch-dn"><span>${esc(parse(d.iso).toLocaleDateString(undefined, {weekday: "short"}))}</span><b>${parse(d.iso).getDate()}</b>${sd ? `<em class="sch-sd${offD ? " off" : ""}" title="${esc(sd)}">${esc(sd)}</em>` : ""}</div>
     <div class="sch-due">${chips.slice(0, 3).join("")}${chips.length > 3 ? `<span class="mini">+${chips.length - 3} more</span>` : ""}</div></div>`;
   }).join("");
   let gutter = ""; for (let h = h0; h < h1; h++) { const d = new Date(); d.setHours(h, 0, 0, 0); gutter += `<span style="top:${(h - h0) * PPH}px">${esc(d.toLocaleTimeString(undefined, {hour: "numeric"}))}</span>`; }
@@ -11629,8 +11649,10 @@ function renderNow(){
   if (window.__SB_TEST && window.__sbForceAuto) AUTO_ON = true;
   try { const want = (s => skinOk(s) && SKINS.some(x => x.id === s) ? s : "classic")(styleCfg().skin); if ((document.documentElement.dataset.skin || "classic") !== want) applySkin(); } catch(e) {}
   computeFocus(); remoteStoreSoon();
-  { const nd = new Date(); $("#navDate").textContent = nd.toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"}); }
-  { const sk = streakOf(); $("#todayLabel").innerHTML = `<span class="wd">${esc(new Date().toLocaleDateString(undefined, {weekday:"long"}))}</span> ${esc(new Date().toLocaleDateString(undefined, {month:"long", day:"numeric"}))}${sk.cur >= 2 && !(window.SBSTREAK && SBSTREAK.on()) ? `<button class="streak-chip" data-act="daily-quote" title="${esc(streakLine())}">🔥 ${sk.cur}</button>` : ""}`; }
+  // the date, and what today is at school (Day 3, B Day, or a day off)
+  const sdT = (() => { try { return schoolDayText(todayISO()); } catch (e) { return ""; } })();
+  { const nd = new Date(); $("#navDate").innerHTML = esc(nd.toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"})) + (sdT ? `<span class="nd-sd">${esc(sdT)}</span>` : ""); }
+  { const sk = streakOf(); $("#todayLabel").innerHTML = `<span class="wd">${esc(new Date().toLocaleDateString(undefined, {weekday:"long"}))}</span> ${esc(new Date().toLocaleDateString(undefined, {month:"long", day:"numeric"}))}${sdT ? ` <span class="nd-sd">· ${esc(sdT)}</span>` : ""}${sk.cur >= 2 && !(window.SBSTREAK && SBSTREAK.on()) ? `<button class="streak-chip" data-act="daily-quote" title="${esc(streakLine())}">🔥 ${sk.cur}</button>` : ""}`; }
   if (ui.tab === "plan" || ui.tab === "calendar") ui.tab = ui.planView;
   if (isPlanTab(ui.tab)) planViewSet(ui.tab);
   const navTab = isPlanTab(ui.tab) ? "plan" : ui.tab === "files" || ui.tab === "emails" ? "courses" : ui.tab;
@@ -12358,7 +12380,12 @@ function courseForm(c){
       </div>
       <fieldset class="meet-fs"><legend>Class Times <span class="hint">shown on your weekly schedule</span></legend>
         <div id="meetList" class="meet-list"></div>
-        <button type="button" class="btn small" id="meetAdd">+ Add a Class Time</button></fieldset>
+        <button type="button" class="btn small" id="meetAdd">+ Add a Class Time</button>
+        ${cycOn() ? "" : `<button type="button" class="link-btn mini cyc-q" id="cycSet">Rotating schedule, like Day 1 to 6 or A/B days?</button>
+        <div class="cyc-inline" id="cycInline" hidden><div class="two"><label class="f"><span class="lh">Days in the cycle</span><select id="cycN">${[2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => `<option value="${v}"${v === 6 ? " selected" : ""}>${v}</option>`).join("")}</select></label>
+          <label class="f"><span class="lh">Called</span><select id="cycNames"><option value="num">Day 1, Day 2…</option><option value="abc">A Day, B Day…</option></select></label></div>
+          <label class="f"><span class="lh" id="cycRefL"></span><select id="cycK"></select></label>
+          <p class="mini" style="margin:0">Weekends are skipped. Add holidays and snow days, which pause the cycle, in School Days on your Schedule.</p></div>`}</fieldset>
       <div class="two">
         <label class="f"><span class="lh">Room <span class="hint">default for class times</span></span><input type="text" name="room" maxlength="80" value="${esc(c.room)}"></label>
         <label class="f"><span class="lh">Office Hours <span class="hint">notes</span></span><input type="text" name="office" maxlength="120" value="${esc(c.office || "")}"></label>
@@ -12379,9 +12406,13 @@ function courseForm(c){
       const i = line.indexOf("|");
       return i > -1 ? {label: line.slice(0, i).trim() || "Link", url: line.slice(i + 1).trim()} : {label: "Link", url: line};
     }).filter(l => safeUrl(l.url));
-    const bad = meets.find(m => !m.days.length || !m.start || !m.end || m.end <= m.start);
-    if (bad) { toast(!bad.days.length ? "Pick the days for each class time" : "Each class time needs a start and an end time"); return false; }
-    const meetings = meets.map(m => ({id: m.id || uid(), kind: m.kind, days: m.days.slice().sort(), start: m.start, end: m.end, where: String(m.where || "").trim()}));
+    const rot = m => !!cycC() && m.rep === "c", noDays = m => rot(m) ? !(m.cyc || []).length : !m.days.length;
+    const bad = meets.find(m => noDays(m) || !m.start || !m.end || m.end <= m.start);
+    if (bad) { toast(noDays(bad) ? (rot(bad) ? "Pick the cycle days for each class time" : "Pick the days for each class time") : "Each class time needs a start and an end time"); return false; }
+    const meetings = meets.map(m => Object.assign({id: m.id || uid(), kind: m.kind, days: rot(m) ? [] : m.days.slice().sort(), start: m.start, end: m.end, where: String(m.where || "").trim()}, rot(m) ? {cyc: m.cyc.filter(k => k <= cycC().n).sort((a, b) => a - b)} : {}));
+    // a rotating schedule set up right here in the form
+    if (cycNew && meetings.some(m => m.cyc)) { const ref = SBSCHOOL.nextSchool({off: (schoolCfg() || {}).off, cycle: {n: cycNew.n, ref: todayISO(), k: 1, days: [1, 2, 3, 4, 5]}}, todayISO());
+      state.settings = Object.assign({}, state.settings, {school: Object.assign({}, schoolCfg() || {}, {cycle: {n: cycNew.n, ref, k: cycNew.k, days: [1, 2, 3, 4, 5], names: cycNew.names}})}); saveSettings(); }
     const data = {name, code: String(fd.get("code") || "").trim(), instructor: String(fd.get("instructor") || "").trim(), meetings,
       schedule: meetings.length ? meetingsSummary(meetings) : (c.meetings && c.meetings.length ? "" : c.schedule || ""), room: String(fd.get("room") || "").trim(), office: String(fd.get("office") || "").trim(),
       color: fd.get("color") || COLORS[0], icon: (COURSE_ICONS[fd.get("icon")] || customIcon(String(fd.get("icon") || ""))) && ($("#ciGrid") || {dataset: {}}).dataset.picked ? String(fd.get("icon")) : "", notes: String(fd.get("notes") || ""), links};
@@ -12394,30 +12425,50 @@ function courseForm(c){
       rd.addEventListener("click", () => { try { pk.showPicker ? pk.showPicker() : pk.click(); } catch (e) { pk.click(); } }); } }
   { const g = $("#ciGrid"), follow = () => { if (!g || g.dataset.picked) return; const k = courseIconKey({name: (dlg.querySelector('input[name="name"]') || {}).value, code: (dlg.querySelector('input[name="code"]') || {}).value}); const r = g.querySelector(`input[value="${k}"]`); if (r) r.checked = true; };
     if (g) { g.addEventListener("change", () => { g.dataset.picked = "1"; }); dlg.querySelectorAll('input[name="name"],input[name="code"]').forEach(i => i.addEventListener("input", follow)); } }
-  let meets = clone(courseMeetings(c));
+  let meets = clone(courseMeetings(c)).map(m => Object.assign(m, {days: m.days || [], cyc: m.cyc || [], rep: m.cyc && m.cyc.length ? "c" : "w"}));
+  // the school's rotating cycle (Day 1 to 6, A/B days): saved, or being set up in this form
+  let cycNew = null;
+  const cycC = () => cycNew || (cycOn() ? SBSCHOOL.norm(schoolCfg()).cycle : null);
+  const cycName = k => (cycC() && cycC().names === "abc") ? String.fromCharCode(64 + k) : String(k);
   const mList = $("#meetList");
   const drawMeets = () => {
-    mList.innerHTML = meets.map((m, i) => `<div class="meet-row" data-i="${i}">
+    const C = cycC();
+    mList.innerHTML = meets.map((m, i) => `<div class="meet-row${C ? " has-rep" : ""}" data-i="${i}">
       <select data-k="kind" aria-label="Type">${MEET_KINDS.map(k => `<option ${k === m.kind ? "selected" : ""}>${k}</option>`).join("")}</select>
-      <div class="meet-days" role="group" aria-label="Days">${WEEK_ORDER.map(d => `<button type="button" data-day="${d}" aria-pressed="${m.days.includes(d)}">${DAY_SHORT[d]}</button>`).join("")}</div>
+      ${C ? `<select data-k="rep" aria-label="Repeats"><option value="c"${m.rep === "c" ? " selected" : ""}>Rotating</option><option value="w"${m.rep !== "c" ? " selected" : ""}>Weekly</option></select>` : ""}
+      ${C && m.rep === "c" ? `<div class="meet-days meet-cyc" role="group" aria-label="${C.names === "abc" ? "Days in the cycle" : "Cycle days"}">${Array.from({length: C.n}, (_, j) => `<button type="button" data-cyc="${j + 1}" aria-pressed="${m.cyc.includes(j + 1)}" aria-label="${esc(C.names === "abc" ? cycName(j + 1) + " Day" : "Day " + (j + 1))}">${C.names === "abc" ? "" : "D"}${cycName(j + 1)}</button>`).join("")}</div>`
+      : `<div class="meet-days" role="group" aria-label="Days">${WEEK_ORDER.map(d => `<button type="button" data-day="${d}" aria-pressed="${m.days.includes(d)}">${DAY_SHORT[d]}</button>`).join("")}</div>`}
       <span class="meet-times"><input type="time" data-k="start" value="${esc(m.start)}" aria-label="Starts"><span>to</span><input type="time" data-k="end" value="${esc(m.end)}" aria-label="Ends"></span>
       <input type="text" data-k="where" value="${esc(m.where || "")}" placeholder="Room" aria-label="Room" maxlength="60" data-noenter>
       <button type="button" class="x-btn" data-rm="${i}" aria-label="Remove class time">${CLOSE}</button></div>`).join("") || `<p class="mini" style="margin:0">No class times yet. Add lectures, labs and office hours to see them on your Schedule.</p>`;
   };
   drawMeets();
   mList.addEventListener("input", e => { const r = e.target.closest(".meet-row"); if (r && e.target.dataset.k) meets[Number(r.dataset.i)][e.target.dataset.k] = e.target.value; });
-  mList.addEventListener("change", e => { const r = e.target.closest(".meet-row"); if (r && e.target.dataset.k) meets[Number(r.dataset.i)][e.target.dataset.k] = e.target.value; });
+  mList.addEventListener("change", e => { const r = e.target.closest(".meet-row"); if (r && e.target.dataset.k) { meets[Number(r.dataset.i)][e.target.dataset.k] = e.target.value; if (e.target.dataset.k === "rep") drawMeets(); } });
   mList.addEventListener("click", e => {
     const r = e.target.closest(".meet-row"); if (!r) return;
     const m = meets[Number(r.dataset.i)], db = e.target.closest("[data-day]"), rm = e.target.closest("[data-rm]");
     if (db) { const d = Number(db.dataset.day); m.days = m.days.includes(d) ? m.days.filter(x => x !== d) : m.days.concat(d); db.setAttribute("aria-pressed", m.days.includes(d)); }
+    const cb = e.target.closest("[data-cyc]");
+    if (cb) { const k = Number(cb.dataset.cyc); m.cyc = m.cyc.includes(k) ? m.cyc.filter(x => x !== k) : m.cyc.concat(k); cb.setAttribute("aria-pressed", m.cyc.includes(k)); }
     if (rm) { meets.splice(Number(rm.dataset.rm), 1); drawMeets(); }
   });
   $("#meetAdd").addEventListener("click", () => {
     const last = meets[meets.length - 1];
-    meets.push(last ? {id: uid(), kind: last.kind === "Lecture" ? "Lab" : "Lecture", days: [], start: last.start, end: last.end, where: ""} : {id: uid(), kind: "Lecture", days: [], start: "10:00", end: "10:50", where: dlg.querySelector("input[name=room]").value.trim()});
+    meets.push(Object.assign(last ? {id: uid(), kind: last.kind === "Lecture" ? "Lab" : "Lecture", days: [], start: last.start, end: last.end, where: ""} : {id: uid(), kind: "Lecture", days: [], start: "10:00", end: "10:50", where: dlg.querySelector("input[name=room]").value.trim()}, {cyc: [], rep: cycC() ? "c" : "w"}));
     drawMeets();
   });
+  // Set up a rotating schedule here: how many days, what they're called, and what today (or the next school day) is
+  { const q = $("#cycSet"), box = $("#cycInline");
+    if (q && box) {
+      const refD = () => SBSCHOOL.nextSchool({off: (schoolCfg() || {}).off, cycle: {n: 2, ref: todayISO(), k: 1, days: [1, 2, 3, 4, 5]}}, todayISO());
+      const sync = () => { cycNew = {n: Number($("#cycN").value), names: $("#cycNames").value, k: Math.min(Number($("#cycN").value), Number($("#cycK").value) || 1)};
+        const r = refD(); $("#cycRefL").textContent = r === todayISO() ? "Today is" : `${parse(r).toLocaleDateString(undefined, {weekday: "long"})} (${fmtShort(r)}) is`;
+        $("#cycK").innerHTML = Array.from({length: cycNew.n}, (_, j) => `<option value="${j + 1}"${j + 1 === cycNew.k ? " selected" : ""}>${cycNew.names === "abc" ? String.fromCharCode(65 + j) + " Day" : "Day " + (j + 1)}</option>`).join("");
+        drawMeets(); };
+      q.addEventListener("click", () => { box.hidden = false; q.hidden = true; meets.forEach(m => { if (!m.days.length) m.rep = "c"; }); sync(); if (!meets.length) $("#meetAdd").click(); });
+      box.addEventListener("change", sync);
+    } }
 }
 
 // A small question in the app's own style that opens ON TOP of whatever is open
@@ -19947,6 +19998,7 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     add("Settings", "Backups, study hours, AI and more", act("menu"), "preferences options");
     add("Search Settings", "Search inside files and search by meaning", () => settingsSheet(), "index");
     add("Start a New Term", "Put last term's courses, tasks and flashcards in the Archive", act("new-term"), "semester");
+    add("School Days", "Holidays, reading week and snow days, and a rotating schedule (Day 1 to 6, A/B days)", act("school-open"), "holiday break vacation snow day no school reading week thanksgiving day off cycle rotation rotating day 1 a/b a b days timetable");
     add("Archive", "Finished tasks and past terms", act("archive-open"), "old");
     add("Calendar Sync", "Add your deadlines and classes to Apple, Google or Outlook Calendar", act("cal-export"), "export ics calendar subscribe feed");
     add("Save a Copy on This Device", "Kept in this browser, which also saves a copy each day", act("backup-now"), "save backup");
@@ -19991,12 +20043,12 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
       semAdd(d, t.title, `${t.title}. ${t.type}${c ? " for " + c.name : ""}${t.due ? ", due " + t.due : ""}. ${text}`);
     });
     allCourses().forEach(c => {
-      let meets = ""; try { meets = courseMeetings(c).map(m => `${m.kind} ${daysLabel(m.days)} ${fmtTime(m.start)}-${fmtTime(m.end)}${m.where ? " " + m.where : ""}`).join("; "); } catch(e) {}
+      let meets = ""; try { meets = courseMeetings(c).map(m => `${m.kind} ${meetWhen(m)} ${fmtTime(m.start)}-${fmtTime(m.end)}${m.where ? " " + m.where : ""}`).join("; "); } catch(e) {}
       put({g: "courses", type: "course", id: c.id, cid: c.id, boost: c.archived ? 0.6 : 1.05, arch: !!c.archived}, c.name || c.code || "Course", [c.code, c.instructor, c.room, meets].filter(Boolean).join(" · "), `${c.term || ""} ${typeof c.meetings === "string" ? c.meetings : ""}`);
       try {
         courseMeetings(c).forEach((m, i) => {
           if (c.archived) return;
-          put({g: "schedule", type: "class", id: c.id + "#" + i, cid: c.id, kind: m.kind, boost: 0.9}, `${courseLabel(c)} ${m.kind}`, `${daysLabel(m.days)} ${fmtTime(m.start)}–${fmtTime(m.end)}${m.where ? " · " + m.where : ""}`, c.name);
+          put({g: "schedule", type: "class", id: c.id + "#" + i, cid: c.id, kind: m.kind, boost: 0.9}, `${courseLabel(c)} ${m.kind}`, `${meetWhen(m)} ${fmtTime(m.start)}–${fmtTime(m.end)}${m.where ? " · " + m.where : ""}`, c.name);
         });
       } catch(e) {}
     });
@@ -22971,6 +23023,55 @@ const ERRCORE = (() => {
 (() => {
 // ==== STUDYBOARD ICS CORE START ====
 // Shared by the app (download) and the calendar-feed Edge Function (live link)
+// School days: days off (holidays, reading week, snow days) and a rotating class cycle (Day 1-6, A/B days).
+// settings.school = {off: [{id, name, from, to}], cycle: {n, ref, k, days, names}}: the cycle has n days, ref was
+// day k, and it advances one step on each school day (the weekdays in days that aren't a day off).
+const SBSCHOOL = (() => {
+  const p2 = n => String(n).padStart(2, "0");
+  const isDate = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)));
+  const dMs = s => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10));
+  const msD = ms => { const d = new Date(ms); return d.getUTCFullYear() + "-" + p2(d.getUTCMonth() + 1) + "-" + p2(d.getUTCDate()); };
+  const addD = (s, n) => msD(dMs(s) + n * 864e5);
+  const dow = s => new Date(dMs(s)).getUTCDay();
+  const NO = {off: [], cycle: null};
+  let lastIn = null, lastOut = NO;
+  function norm(s){
+    if (s === lastIn) return lastOut;
+    const o = s && typeof s === "object" ? s : {};
+    const off = (Array.isArray(o.off) ? o.off : []).filter(x => x && isDate(x.from)).slice(0, 300)
+      .map(x => ({id: String(x.id || x.from).slice(0, 40), name: String(x.name || "").slice(0, 60), from: x.from, to: isDate(x.to) && x.to >= x.from && dMs(x.to) - dMs(x.from) < 200 * 864e5 ? x.to : x.from}))
+      .sort((a, b) => a.from < b.from ? -1 : a.from > b.from ? 1 : 0);
+    const c = o.cycle && typeof o.cycle === "object" ? o.cycle : null, n = c ? Math.round(Number(c.n)) : 0;
+    const days = c && Array.isArray(c.days) ? [...new Set(c.days.map(Number))].filter(d => d >= 0 && d <= 6).sort() : [];
+    const cycle = c && n >= 2 && n <= 10 && isDate(c.ref) ? {n, ref: c.ref, k: Math.min(n, Math.max(1, Math.round(Number(c.k)) || 1)), days: days.length ? days : [1, 2, 3, 4, 5], names: c.names === "abc" ? "abc" : "num"} : null;
+    lastIn = s; lastOut = {off, cycle};
+    return lastOut;
+  }
+  const offOn = (S, d) => { for (const x of S.off) { if (x.from > d) break; if (d <= x.to) return x; } return null; };
+  const isSchool = (S, d) => !!S.cycle && S.cycle.days.includes(dow(d)) && !offOn(S, d);
+  // The first school day on or after d
+  const nextSchool = (S, d) => { for (let i = 0, x = d; i < 400; i++, x = addD(x, 1)) if (isSchool(S, x)) return x; return d; };
+  const memo = {S: null, m: {}};
+  // The cycle day (1..n) on a date; 0 when there's no cycle or it isn't a school day
+  function dayOf(s, d){
+    const S = norm(s); if (!S.cycle || !isDate(d) || !isSchool(S, d)) return 0;
+    if (memo.S !== S) { memo.S = S; memo.m = {}; }
+    if (memo.m[d] != null) return memo.m[d];
+    const C = S.cycle; let cnt = 0;
+    if (d >= C.ref) { for (let x = C.ref, i = 0; x < d && i < 4000; x = addD(x, 1), i++) if (isSchool(S, x)) cnt++; }
+    else { for (let x = d, i = 0; x < C.ref && i < 4000; x = addD(x, 1), i++) if (isSchool(S, x)) cnt--; }
+    return (memo.m[d] = ((C.k - 1 + cnt) % C.n + C.n) % C.n + 1);
+  }
+  // "Day 3" or "C Day"; short: "3" or "C"
+  const label = (s, k, short) => { const S = norm(s); if (!S.cycle || !k) return ""; const a = S.cycle.names === "abc" ? String.fromCharCode(64 + k) : String(k); return short ? a : S.cycle.names === "abc" ? a + " Day" : "Day " + a; };
+  // Does a class time meet on this date? Never on a day off; a rotating one on its cycle days, a weekly one on its weekdays
+  function meets(s, m, d){
+    const S = norm(s); if (offOn(S, d)) return false;
+    if (m && Array.isArray(m.cyc) && m.cyc.length) return S.cycle ? m.cyc.includes(dayOf(s, d)) : false;
+    return !!m && Array.isArray(m.days) && m.days.includes(dow(d));
+  }
+  return {norm, off: (s, d) => offOn(norm(s), d), dayOf, label, meets, isSchool: (s, d) => isSchool(norm(s), d), nextSchool: (s, d) => nextSchool(norm(s), d), isDate, addD, dow};
+})();
 const SBICS = (() => {
   const DAY = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
   const PRIO = {low: "Low", med: "Medium", high: "High", urgent: "Urgent"};
@@ -23095,8 +23196,8 @@ const SBICS = (() => {
   }
   const meetingsOf = c => (Array.isArray(c.meetings) ? c.meetings : parseMeetings(c.schedule, "Lecture", c.room).concat(parseMeetings(c.office, "Office Hours")))
     .map((m, i) => ({id: m.id ? String(m.id) : i + "-" + String(m.kind || "").replace(/\W/g, "") + "-" + String(m.start || "").replace(":", ""), kind: String(m.kind || "Lecture"),
-      days: [...new Set((Array.isArray(m.days) ? m.days : []).map(Number))].filter(d => d >= 0 && d <= 6).sort(), start: m.start, end: m.end, where: String(m.where || "")}))
-    .filter(m => m.days.length && isTime(m.start) && isTime(m.end) && m.end > m.start);
+      days: [...new Set((Array.isArray(m.days) ? m.days : []).map(Number))].filter(d => d >= 0 && d <= 6).sort(), cyc: [...new Set((Array.isArray(m.cyc) ? m.cyc : []).map(Number))].filter(k => k >= 1 && k <= 10).sort((a, b) => a - b), start: m.start, end: m.end, where: String(m.where || "")}))
+    .filter(m => (m.days.length || m.cyc.length) && isTime(m.start) && isTime(m.end) && m.end > m.start);
   function normEvent(e){
     e = Object.assign({title: "Event", courseId: "", label: "", date: "", endDate: "", start: "", end: "", allDay: false, where: "", notes: "", repeat: null, exdates: [], moved: {}, src: ""}, e);
     if (!isDate(e.date)) return null;
@@ -23215,6 +23316,21 @@ const SBICS = (() => {
         const created = typeof c.created === "number" && isFinite(c.created) ? todayIn(tz, c.created) : "";
         const start = o.classesFrom || (created && created > addD(until, -240) ? created : addD(today, -28));
         meetingsOf(c).forEach(m => {
+          // rotating class times (Day 1-6, A/B days) don't repeat by weekday: one event per day they meet
+          if (m.cyc.length) {
+            const title = (label(c) ? label(c) + " " : "") + m.kind, where = m.where || (m.kind !== "Office Hours" ? String(c.room || "") : "");
+            const desc = [String(c.name || ""), c.instructor ? "Instructor: " + c.instructor : ""].filter(Boolean).join("\n"), mv = c.meetMoves && typeof c.meetMoves === "object" ? c.meetMoves : {};
+            let n = 0;
+            for (let d = start; d <= until && n < 400; d = addD(d, 1)) {
+              if (!SBSCHOOL.meets(settings.school, m, d)) continue;
+              const x = mv[d + "|" + m.start + "|" + m.kind]; if (x && x.skip) continue;
+              const dd = x && isDate(x.date) ? x.date : d, s0 = x && isTime(x.start) ? x.start : m.start, e0 = x && isTime(x.end) && x.end > s0 ? x.end : m.end;
+              n++;
+              ev("class-" + c.id + "-" + m.id + "-" + d + "@studyboard", () => { add("SUMMARY", esc(title)); timed(dd, s0, e0); addText("LOCATION", where); addText("DESCRIPTION", desc); add("CATEGORIES", esc(m.kind)); add("TRANSP", "OPAQUE"); evAlarm(title, true); });
+            }
+            if (n) { counts.classes++; years.push(+until.slice(0, 4)); }
+            return;
+          }
           let first = start; while (!m.days.includes(dow(first))) first = addD(first, 1);
           if (first > until) return;
           const isInst = d => isDate(d) && d >= first && d <= until && m.days.includes(dow(d));
@@ -23228,6 +23344,8 @@ const SBICS = (() => {
             add("SUMMARY", esc(title)); timed(first, m.start, m.end);
             add("RRULE", "FREQ=WEEKLY;WKST=MO;BYDAY=" + m.days.map(d => DAY[d]).join(",") + ";UNTIL=" + untilUtc(until));
             moves.filter(x => x.v.skip).forEach(x => add("EXDATE" + tzp, local(x.d, m.start)));
+            // no class on days off
+            SBSCHOOL.norm(settings.school).off.forEach(o => { for (let d = o.from; d <= o.to; d = addD(d, 1)) if (isInst(d) && !moves.some(x => x.d === d)) add("EXDATE" + tzp, local(d, m.start)); });
             addText("LOCATION", where); addText("DESCRIPTION", desc);
             add("CATEGORIES", esc(m.kind)); add("TRANSP", "OPAQUE"); evAlarm(title, true);
           });
@@ -23324,6 +23442,7 @@ const SBICS = (() => {
   return {build, normOptions, remCfgOf, taskAlarms, fold, esc, vtimezone, transitions, offset, zonedMs, todayIn, validTz, meetingsOf, VERSION: 1};
 })();
 // ==== STUDYBOARD ICS CORE END ====
+window.SBSCHOOL = SBSCHOOL;
 
 /* Calendar Sync */
 const CS_TABLE = "calendar_feeds", CS_FN = "calendar-feed";
@@ -58298,7 +58417,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const cs = coursesArr();
     if (cs.length) {
       L.push("COURSES:\n" + cs.map(c => {
-        let ms = ""; try { ms = courseMeetings(c).map(m => `${m.kind} ${daysLabel(m.days)} ${m.start}-${m.end}${m.where ? " " + m.where : ""}`).join("; "); } catch (e) {}
+        let ms = ""; try { ms = courseMeetings(c).map(m => `${m.kind} ${meetWhen(m)} ${m.start}-${m.end}${m.where ? " " + m.where : ""}`).join("; "); } catch (e) {}
         return `- ${courseLabel(c)}: ${c.name}${c.instructor ? ", " + c.instructor : ""}${ms ? ", meets " + ms : c.schedule ? ", " + c.schedule : ""}${c.office ? ", office hours " + c.office : ""}`;
       }).join("\n")); src.push("Courses");
     }
@@ -70412,6 +70531,111 @@ window.SBSEM = {
 };
 })();
 
+/* ===== module: 96-school.js ===== */
+/* School Days: days off (holidays, reading week, snow days) and a rotating class cycle (Day 1 to 6, A/B days).
+   Saved in settings.school; the rules live in SBSCHOOL (the calendar core), so the schedule, Today's Plan and the
+   calendar feed all agree. */
+(() => {
+  const S = () => window.SBSCHOOL;
+  const cfg = () => (state.settings && state.settings.school) || {};
+  const WD = [1, 2, 3, 4, 5, 6, 0];
+  const dayName = (d, o) => parse(d).toLocaleDateString(undefined, o || {weekday: "short", month: "short", day: "numeric"});
+  const range = o => o.to && o.to !== o.from ? `${dayName(o.from)} to ${dayName(o.to)}` : dayName(o.from, {weekday: "long", month: "short", day: "numeric"});
+  const cycName = (names, k) => names === "abc" ? String.fromCharCode(64 + k) + " Day" : "Day " + k;
+
+  function save(next, msg){
+    const school = {off: next.off, cycle: next.cycle};
+    if (!school.off.length) delete school.off;
+    if (!school.cycle) delete school.cycle;
+    state.settings = Object.assign({}, state.settings, {school});
+    if (!school.off && !school.cycle) { const n = Object.assign({}, state.settings); delete n.school; state.settings = n; }
+    saveSettings(); scheduleRender();
+    if (msg) toast(msg);
+  }
+
+  function open(focus){
+    const now = S().norm(cfg()), today = todayISO();
+    let off = now.off.map(o => Object.assign({}, o));
+    const cy = now.cycle;
+    const draft = {on: !!cy, n: cy ? cy.n : 6, names: cy ? cy.names : "num", days: cy ? cy.days.slice() : [1, 2, 3, 4, 5]};
+    // the day the "Today is" answer is about: today if it's a school day, else the next one
+    const refDay = () => S().nextSchool({off, cycle: {n: draft.n, ref: today, k: 1, days: draft.days}}, today);
+    const curK = () => { const r = refDay(); return cy ? (S().dayOf(cfg(), r) || 1) : 1; };
+    let k = Math.min(draft.n, curK());
+    // days off that ended more than two weeks ago stay saved (they still set the cycle) but leave the list
+    const recent = () => off.filter(o => (o.to || o.from) >= addDays(today, -14));
+    const offRows = () => recent().length ? recent().map(o => `<li class="sd-off"><span><b>${esc(o.name || "Day off")}</b><span class="mini">${esc(range(o))}</span></span><button type="button" class="btn small" data-sd-rm="${esc(o.id)}" aria-label="Remove ${esc(o.name || "day off")}">Remove</button></li>`).join("")
+      : `<li class="mini sd-none">None yet. Classes don't show on days off, and Today's Plan treats them as free days.</li>`;
+    const isSchoolToday = () => !off.some(o => today >= o.from && today <= (o.to || o.from)) && ![0, 6].includes(parse(today).getDay());
+    const refText = () => { const r = refDay(); return r === today ? "Today is" : `${parse(r).toLocaleDateString(undefined, {weekday: "long"})} (${dayName(r, {month: "short", day: "numeric"})}) is`; };
+    openSheet(`<form class="sheet sd-sheet">${head("School Days")}
+      <div class="sheet-body">
+        <fieldset class="sd-fs"><legend>Days Off</legend>
+          <ul class="sd-list" id="sdList">${offRows()}</ul>
+          <div class="sd-add">
+            <label class="f"><span class="lh">Name</span><input type="text" id="sdName" maxlength="60" placeholder="Thanksgiving, Reading Week, Snow Day" data-noenter></label>
+            <div class="two"><label class="f"><span class="lh">From</span><input type="date" id="sdFrom" value="${esc(today)}"></label><label class="f"><span class="lh">To <span class="hint">optional</span></span><input type="date" id="sdTo"></label></div>
+            <div class="row-actions"><button type="button" class="btn small" id="sdAdd">Add Day Off</button><button type="button" class="btn small" id="sdToday"${isSchoolToday() ? "" : " hidden"}>No School Today</button></div>
+          </div>
+        </fieldset>
+        <fieldset class="sd-fs"><legend>Class Schedule</legend>
+          ${seg("sdMode", [["week", "Same every week"], ["cycle", "Rotates by school day"]], draft.on ? "cycle" : "week")}
+          <div class="sd-cycle" id="sdCycle"${draft.on ? "" : " hidden"}>
+            <p class="mini" style="margin:0">For schedules like Day 1 to 6 or A/B days. The cycle moves one step each school day and pauses on weekends and days off.</p>
+            <div class="two">
+              <label class="f"><span class="lh">Days in the cycle</span><select id="sdN">${[2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => `<option value="${v}"${v === draft.n ? " selected" : ""}>${v}</option>`).join("")}</select></label>
+              <label class="f"><span class="lh">Called</span><select id="sdNames"><option value="num"${draft.names === "num" ? " selected" : ""}>Day 1, Day 2…</option><option value="abc"${draft.names === "abc" ? " selected" : ""}>A Day, B Day…</option></select></label>
+            </div>
+            <label class="f"><span class="lh" id="sdRefL">${esc(refText())}</span><select id="sdK"></select></label>
+            <div class="f"><span class="lh">School days</span><div class="meet-days" role="group" aria-label="School days" id="sdDays">${WD.map(d => `<button type="button" data-day="${d}" aria-pressed="${draft.days.includes(d)}">${DAY_SHORT[d]}</button>`).join("")}</div></div>
+            <p class="mini" style="margin:0">Then in each course, pick which cycle days a class meets under Class Times.</p>
+          </div>
+        </fieldset>
+      </div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Save</button></div>
+    </form>`, fd => {
+      const on = fd.get("sdMode") === "cycle";
+      if (on && !draft.days.length) { toast("Pick at least one school day"); return false; }
+      const cycle = on ? {n: draft.n, ref: refDay(), k: Math.min(draft.n, k), days: draft.days.slice().sort(), names: draft.names} : null;
+      save({off, cycle}, "School days saved");
+    });
+    const f = dlg.querySelector(".sd-sheet"), $f = q => f.querySelector(q);
+    const drawK = () => { const sel = $f("#sdK"); k = Math.min(k, draft.n); sel.innerHTML = Array.from({length: draft.n}, (_, i) => `<option value="${i + 1}"${i + 1 === k ? " selected" : ""}>${esc(cycName(draft.names, i + 1))}</option>`).join(""); $f("#sdRefL").textContent = refText(); };
+    const drawOff = () => { $f("#sdList").innerHTML = offRows(); $f("#sdToday").hidden = !isSchoolToday(); $f("#sdRefL").textContent = refText(); };
+    drawK();
+    f.addEventListener("change", e => {
+      if (e.target.name === "sdMode") $f("#sdCycle").hidden = e.target.value !== "cycle";
+      if (e.target.id === "sdN") { draft.n = Number(e.target.value); drawK(); }
+      if (e.target.id === "sdNames") { draft.names = e.target.value; drawK(); }
+      if (e.target.id === "sdK") k = Number(e.target.value);
+    });
+    f.addEventListener("click", e => {
+      const db = e.target.closest("#sdDays [data-day]");
+      if (db) { const d = Number(db.dataset.day), i = draft.days.indexOf(d); if (i >= 0) draft.days.splice(i, 1); else draft.days.push(d); db.setAttribute("aria-pressed", String(i < 0)); $f("#sdRefL").textContent = refText(); return; }
+      const rm = e.target.closest("[data-sd-rm]");
+      if (rm) { off = off.filter(o => o.id !== rm.dataset.sdRm); drawOff(); return; }
+      if (e.target.closest("#sdAdd")) {
+        const from = $f("#sdFrom").value, to = $f("#sdTo").value, name = $f("#sdName").value.trim();
+        if (!isDate(from)) { toast("Pick the first day off"); return; }
+        if (to && to < from) { toast("The last day off can't be before the first"); return; }
+        off.push({id: uid(), name: name || "Day off", from, to: to && to !== from ? to : from});
+        off.sort((a, b) => a.from < b.from ? -1 : 1);
+        $f("#sdName").value = ""; $f("#sdTo").value = ""; drawOff(); return;
+      }
+      if (e.target.closest("#sdToday")) { off.push({id: uid(), name: "No school", from: today, to: today}); off.sort((a, b) => a.from < b.from ? -1 : 1); drawOff(); }
+    });
+    if (focus === "cycle") { const r = f.querySelector('input[name="sdMode"][value="cycle"]'); if (r) { r.checked = true; $f("#sdCycle").hidden = false; } }
+  }
+
+  hook("act", (a) => {
+    if (a !== "school-open" && a !== "school-cycle") return false;
+    if (dlg.open) dlg.close();
+    setTimeout(() => open(a === "school-cycle" ? "cycle" : ""), 30);
+    return true;
+  });
+  hook("menu", () => `<button data-act="school-open" data-group="school"><span>School Days<span class="sub">Holidays, reading week and snow days, and a rotating schedule (Day 1 to 6, A/B days)</span></span></button>`);
+  window.SBSCHOOLUI = {open};
+})();
 /* ===== module: 99-pro.js ===== */
 /* Studyboard Pro extras (1.14) */
 var SBPRO = null;

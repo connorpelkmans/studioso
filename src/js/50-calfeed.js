@@ -3,6 +3,55 @@
 (() => {
 // ==== STUDYBOARD ICS CORE START ====
 // Shared by the app (download) and the calendar-feed Edge Function (live link)
+// School days: days off (holidays, reading week, snow days) and a rotating class cycle (Day 1-6, A/B days).
+// settings.school = {off: [{id, name, from, to}], cycle: {n, ref, k, days, names}}: the cycle has n days, ref was
+// day k, and it advances one step on each school day (the weekdays in days that aren't a day off).
+const SBSCHOOL = (() => {
+  const p2 = n => String(n).padStart(2, "0");
+  const isDate = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)));
+  const dMs = s => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10));
+  const msD = ms => { const d = new Date(ms); return d.getUTCFullYear() + "-" + p2(d.getUTCMonth() + 1) + "-" + p2(d.getUTCDate()); };
+  const addD = (s, n) => msD(dMs(s) + n * 864e5);
+  const dow = s => new Date(dMs(s)).getUTCDay();
+  const NO = {off: [], cycle: null};
+  let lastIn = null, lastOut = NO;
+  function norm(s){
+    if (s === lastIn) return lastOut;
+    const o = s && typeof s === "object" ? s : {};
+    const off = (Array.isArray(o.off) ? o.off : []).filter(x => x && isDate(x.from)).slice(0, 300)
+      .map(x => ({id: String(x.id || x.from).slice(0, 40), name: String(x.name || "").slice(0, 60), from: x.from, to: isDate(x.to) && x.to >= x.from && dMs(x.to) - dMs(x.from) < 200 * 864e5 ? x.to : x.from}))
+      .sort((a, b) => a.from < b.from ? -1 : a.from > b.from ? 1 : 0);
+    const c = o.cycle && typeof o.cycle === "object" ? o.cycle : null, n = c ? Math.round(Number(c.n)) : 0;
+    const days = c && Array.isArray(c.days) ? [...new Set(c.days.map(Number))].filter(d => d >= 0 && d <= 6).sort() : [];
+    const cycle = c && n >= 2 && n <= 10 && isDate(c.ref) ? {n, ref: c.ref, k: Math.min(n, Math.max(1, Math.round(Number(c.k)) || 1)), days: days.length ? days : [1, 2, 3, 4, 5], names: c.names === "abc" ? "abc" : "num"} : null;
+    lastIn = s; lastOut = {off, cycle};
+    return lastOut;
+  }
+  const offOn = (S, d) => { for (const x of S.off) { if (x.from > d) break; if (d <= x.to) return x; } return null; };
+  const isSchool = (S, d) => !!S.cycle && S.cycle.days.includes(dow(d)) && !offOn(S, d);
+  // The first school day on or after d
+  const nextSchool = (S, d) => { for (let i = 0, x = d; i < 400; i++, x = addD(x, 1)) if (isSchool(S, x)) return x; return d; };
+  const memo = {S: null, m: {}};
+  // The cycle day (1..n) on a date; 0 when there's no cycle or it isn't a school day
+  function dayOf(s, d){
+    const S = norm(s); if (!S.cycle || !isDate(d) || !isSchool(S, d)) return 0;
+    if (memo.S !== S) { memo.S = S; memo.m = {}; }
+    if (memo.m[d] != null) return memo.m[d];
+    const C = S.cycle; let cnt = 0;
+    if (d >= C.ref) { for (let x = C.ref, i = 0; x < d && i < 4000; x = addD(x, 1), i++) if (isSchool(S, x)) cnt++; }
+    else { for (let x = d, i = 0; x < C.ref && i < 4000; x = addD(x, 1), i++) if (isSchool(S, x)) cnt--; }
+    return (memo.m[d] = ((C.k - 1 + cnt) % C.n + C.n) % C.n + 1);
+  }
+  // "Day 3" or "C Day"; short: "3" or "C"
+  const label = (s, k, short) => { const S = norm(s); if (!S.cycle || !k) return ""; const a = S.cycle.names === "abc" ? String.fromCharCode(64 + k) : String(k); return short ? a : S.cycle.names === "abc" ? a + " Day" : "Day " + a; };
+  // Does a class time meet on this date? Never on a day off; a rotating one on its cycle days, a weekly one on its weekdays
+  function meets(s, m, d){
+    const S = norm(s); if (offOn(S, d)) return false;
+    if (m && Array.isArray(m.cyc) && m.cyc.length) return S.cycle ? m.cyc.includes(dayOf(s, d)) : false;
+    return !!m && Array.isArray(m.days) && m.days.includes(dow(d));
+  }
+  return {norm, off: (s, d) => offOn(norm(s), d), dayOf, label, meets, isSchool: (s, d) => isSchool(norm(s), d), nextSchool: (s, d) => nextSchool(norm(s), d), isDate, addD, dow};
+})();
 const SBICS = (() => {
   const DAY = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
   const PRIO = {low: "Low", med: "Medium", high: "High", urgent: "Urgent"};
@@ -127,8 +176,8 @@ const SBICS = (() => {
   }
   const meetingsOf = c => (Array.isArray(c.meetings) ? c.meetings : parseMeetings(c.schedule, "Lecture", c.room).concat(parseMeetings(c.office, "Office Hours")))
     .map((m, i) => ({id: m.id ? String(m.id) : i + "-" + String(m.kind || "").replace(/\W/g, "") + "-" + String(m.start || "").replace(":", ""), kind: String(m.kind || "Lecture"),
-      days: [...new Set((Array.isArray(m.days) ? m.days : []).map(Number))].filter(d => d >= 0 && d <= 6).sort(), start: m.start, end: m.end, where: String(m.where || "")}))
-    .filter(m => m.days.length && isTime(m.start) && isTime(m.end) && m.end > m.start);
+      days: [...new Set((Array.isArray(m.days) ? m.days : []).map(Number))].filter(d => d >= 0 && d <= 6).sort(), cyc: [...new Set((Array.isArray(m.cyc) ? m.cyc : []).map(Number))].filter(k => k >= 1 && k <= 10).sort((a, b) => a - b), start: m.start, end: m.end, where: String(m.where || "")}))
+    .filter(m => (m.days.length || m.cyc.length) && isTime(m.start) && isTime(m.end) && m.end > m.start);
   function normEvent(e){
     e = Object.assign({title: "Event", courseId: "", label: "", date: "", endDate: "", start: "", end: "", allDay: false, where: "", notes: "", repeat: null, exdates: [], moved: {}, src: ""}, e);
     if (!isDate(e.date)) return null;
@@ -247,6 +296,21 @@ const SBICS = (() => {
         const created = typeof c.created === "number" && isFinite(c.created) ? todayIn(tz, c.created) : "";
         const start = o.classesFrom || (created && created > addD(until, -240) ? created : addD(today, -28));
         meetingsOf(c).forEach(m => {
+          // rotating class times (Day 1-6, A/B days) don't repeat by weekday: one event per day they meet
+          if (m.cyc.length) {
+            const title = (label(c) ? label(c) + " " : "") + m.kind, where = m.where || (m.kind !== "Office Hours" ? String(c.room || "") : "");
+            const desc = [String(c.name || ""), c.instructor ? "Instructor: " + c.instructor : ""].filter(Boolean).join("\n"), mv = c.meetMoves && typeof c.meetMoves === "object" ? c.meetMoves : {};
+            let n = 0;
+            for (let d = start; d <= until && n < 400; d = addD(d, 1)) {
+              if (!SBSCHOOL.meets(settings.school, m, d)) continue;
+              const x = mv[d + "|" + m.start + "|" + m.kind]; if (x && x.skip) continue;
+              const dd = x && isDate(x.date) ? x.date : d, s0 = x && isTime(x.start) ? x.start : m.start, e0 = x && isTime(x.end) && x.end > s0 ? x.end : m.end;
+              n++;
+              ev("class-" + c.id + "-" + m.id + "-" + d + "@studyboard", () => { add("SUMMARY", esc(title)); timed(dd, s0, e0); addText("LOCATION", where); addText("DESCRIPTION", desc); add("CATEGORIES", esc(m.kind)); add("TRANSP", "OPAQUE"); evAlarm(title, true); });
+            }
+            if (n) { counts.classes++; years.push(+until.slice(0, 4)); }
+            return;
+          }
           let first = start; while (!m.days.includes(dow(first))) first = addD(first, 1);
           if (first > until) return;
           const isInst = d => isDate(d) && d >= first && d <= until && m.days.includes(dow(d));
@@ -260,6 +324,8 @@ const SBICS = (() => {
             add("SUMMARY", esc(title)); timed(first, m.start, m.end);
             add("RRULE", "FREQ=WEEKLY;WKST=MO;BYDAY=" + m.days.map(d => DAY[d]).join(",") + ";UNTIL=" + untilUtc(until));
             moves.filter(x => x.v.skip).forEach(x => add("EXDATE" + tzp, local(x.d, m.start)));
+            // no class on days off
+            SBSCHOOL.norm(settings.school).off.forEach(o => { for (let d = o.from; d <= o.to; d = addD(d, 1)) if (isInst(d) && !moves.some(x => x.d === d)) add("EXDATE" + tzp, local(d, m.start)); });
             addText("LOCATION", where); addText("DESCRIPTION", desc);
             add("CATEGORIES", esc(m.kind)); add("TRANSP", "OPAQUE"); evAlarm(title, true);
           });
@@ -356,6 +422,7 @@ const SBICS = (() => {
   return {build, normOptions, remCfgOf, taskAlarms, fold, esc, vtimezone, transitions, offset, zonedMs, todayIn, validTz, meetingsOf, VERSION: 1};
 })();
 // ==== STUDYBOARD ICS CORE END ====
+window.SBSCHOOL = SBSCHOOL;
 
 /* Calendar Sync */
 const CS_TABLE = "calendar_feeds", CS_FN = "calendar-feed";
