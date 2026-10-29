@@ -102,9 +102,9 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(/standard .* scale/.test(await page.textContent(".go-scale-h")), "it says which scale is in use now");
       ok(ctx.calls === 0, "nothing is asked until the button is pressed, and nothing runs in the background");
       await page.click("#gsFind"); await page.waitForFunction(() => /hasn't been checked online/.test(document.querySelector("#gsSchool").textContent));
-      ok(JSON.stringify(await chips(page)) === JSON.stringify(SCALE8.map(x => x.letter + " " + x.min)) && /Pass mark 55%/.test(await page.textContent("#goPrev")), "what was found is shown to check, with its pass mark");
+      ok(JSON.stringify(await chips(page)) === JSON.stringify(SCALE8.map(x => x.letter + " " + x.min)) && await page.inputValue("#goPass") === "55", "what was found is shown to check, with its pass mark");
       const body = ctx.bodies[0], txt = JSON.stringify(body);
-      ok(!body.tools, "no web search is requested");
+      ok(body.tools && !ctx.bodies[1].tools && ctx.calls === 2, "it searches the web first, and answers from memory when the search finds no page");
       ok(/learn\.testu\.ca/.test(txt) && !/Biology|BIO1/.test(txt), "only the site address is sent, nothing about the student's courses");
       ok(!((await saved(page)).g.scale), "nothing is saved until Use for All My Courses");
       await page.click("#goUse"); await page.waitForTimeout(400);
@@ -153,9 +153,9 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(/Look Up This Program's Scale/.test(await page.textContent("#gsFind")), "typing a program makes it Look Up This Program's Scale");
       ctx.reply = FOUND({scope: "program", program: "Nursing"});
       await page.click("#gsFind"); await page.waitForFunction(() => /the Nursing scale at Test University/.test(document.querySelector("#gsSchool").textContent));
-      ok(ctx.calls === 2 && /program: nursing/.test(JSON.stringify(ctx.bodies[1])), "it asks again, for that program");
+      ok(ctx.calls === 4 && /program: nursing/.test(JSON.stringify(ctx.bodies[3])), "it asks again, for that program");
       await page.fill("#gsProgram", "Practical Nursing"); await page.press("#gsProgram", "Enter"); await page.waitForTimeout(500);
-      ok(ctx.calls === 3 && /Practical Nursing/.test(JSON.stringify(ctx.bodies[2])) && await page.locator("#dlg[open] #gsSchool").count() === 1, "Enter in the program box looks it up too, without closing the sheet");
+      ok(ctx.calls === 6 && /Practical Nursing/.test(JSON.stringify(ctx.bodies[5])) && await page.locator("#dlg[open] #gsSchool").count() === 1, "Enter in the program box looks it up too, without closing the sheet");
       await ctx.close(); }
     {
       const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: FOUND({scope: "school"})});
@@ -169,6 +169,36 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: FOUND(), limitSearch: true});
       ctx.limitAll = true; await openOpts(page); await page.click("#gsFind"); await page.waitForFunction(() => /Google said/.test(document.querySelector("#gsMsg").textContent));
       ok(/Quota exceeded/.test(await msg(page)), "the rate-limit message includes what Google said"); await ctx.close(); }
+    {
+      // found on the school's own website: one web search, the page linked, and the program's own pass mark
+      const NURS = FOUND({scope: "program", program: "Nursing", pass: 65, url: "https://www.testu.ca/nursing/progression", scale: [["A+", 90], ["A", 85], ["A-", 80], ["B+", 77], ["B", 73], ["B-", 70], ["C+", 65], ["C", 60], ["P", 50], ["F", 0]].map(([letter, min]) => ({letter, min}))});
+      const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: NURS, grounding: [{web: {uri: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc", title: "testu.ca"}}]});
+      await openOpts(page); await page.fill("#gsProgram", "Nursing"); await page.click("#gsFind"); await page.waitForSelector("#goUse");
+      const t = await page.textContent("#gsSchool");
+      ok(ctx.calls === 1 && ctx.bodies[0].tools && /Found Test University's Nursing grade scale and 65% pass mark on the school's own website/.test(t), "found on the school's own site with one web search: " + t);
+      ok(await page.locator('#gsSchool a[href="https://www.testu.ca/nursing/progression"]').count() === 1, "the page it came from is linked");
+      ok(/minimum final percent a student needs to pass a course/.test(ctx.bodies[0].systemInstruction.parts[0].text) && /nursing/i.test(ctx.bodies[0].systemInstruction.parts[0].text), "the AI is told a program's pass mark can be higher than the lowest letter");
+      ok(await page.inputValue("#goPass") === "65" && /higher than the lowest passing letter \(P, 50%\)/.test(await page.textContent("#goPassNote")), "the pass mark is shown in a box, with why it's above the lowest passing letter");
+      await ctx.close(); }
+    {
+      // a page that isn't the school's own: said plainly
+      const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: FOUND({url: "https://gradescales.example.com/testu"}), grounding: [{web: {uri: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/x", title: "gradescales.example.com"}}]});
+      await openOpts(page); await page.click("#gsFind"); await page.waitForSelector("#goUse");
+      ok(/on gradescales\.example\.com, which isn't the school's own website/.test(await page.textContent("#gsSchool")), "a scale from another site says it isn't the school's own");
+      await ctx.close(); }
+    {
+      // the answer contradicts itself (pass 60, lowest passing letter P at 50) and is wrong anyway: the student fixes it before using it
+      const BAD = FOUND({scope: "program", program: "Nursing", pass: 60, scale: [["A", 85], ["B", 73], ["C", 60], ["P", 50], ["F", 0]].map(([letter, min]) => ({letter, min}))});
+      const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: BAD});
+      await openOpts(page); await page.fill("#gsProgram", "Nursing"); await page.click("#gsFind"); await page.waitForSelector("#goUse");
+      ok(/higher than the lowest passing letter \(P, 50%\)/.test(await page.textContent("#goPassNote")), "a pass mark that doesn't match the letters is pointed out");
+      await page.fill("#goPass", "65");
+      await page.click("#goEdit"); ok(await page.locator("#goRows .gr-scale-row").count() === 5, "Change Letters turns the letters into boxes");
+      await page.fill('#goRows .gr-scale-row:nth-child(4) input[name="sl"]', "C-"); await page.fill('#goRows .gr-scale-row:nth-child(4) input[name="sp"]', "55");
+      await page.click("#goUse"); await page.waitForTimeout(400);
+      const sv = await saved(page);
+      ok(sv.g.pass === 65 && JSON.stringify(sv.g.scale) === JSON.stringify([["A", 85], ["B", 73], ["C", 60], ["C-", 55], ["F", 0]]), "the corrected pass mark and letters are what's saved: " + JSON.stringify([sv.g.pass, sv.g.scale]));
+      await ctx.close(); }
     for (const W of [1280, 390]) {
       const {ctx, page} = await mk({ai: true, w: W, settings: Object.assign({}, LMS, MANUAL), reply: FOUND({scope: "program", program: "Nursing"})});
       await openOpts(page); await page.fill("#gsProgram", "Nursing"); await page.click("#gsFind"); await page.waitForSelector("#goUse");

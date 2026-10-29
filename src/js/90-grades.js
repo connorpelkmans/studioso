@@ -129,6 +129,24 @@
   /* Grade math */
   const rulesOf = c => GRULES.norm(c && c.grading && c.grading.rules);
   // pretend: {taskId: percent} for unmarked items (What If)
+  // When a course's classes end: its last due date, exam or class (a weekly class with no end date means it's still running).
+  // A grade only counts as final two weeks after that, or once the course is put away in a past term.
+  const FINAL_AFTER = 14;
+  function classesEnd(c){
+    let last = "";
+    const see = d => { if (isDate(d) && d > last) last = d; };
+    allTasks().forEach(t => { if (t.courseId === c.id) { see(t.due); see(t.start); } });
+    for (const e of eventsArr()) {
+      if (e.courseId !== c.id) continue;
+      if (e.repeat && e.repeat.days) { if (!isDate(e.repeat.until)) return null; see(e.repeat.until); } else { see(e.date); see(e.endDate); }
+    }
+    return last || null;
+  }
+  function classesOver(c){
+    if (c.archived) return true;
+    const end = classesEnd(c);
+    return !!end && addDays(end, FINAL_AFTER) <= todayISO();
+  }
   function courseGrade(c, asOf, pretend){
     const g = gradingOf(c), R = rulesOf(c);
     const ts = allTasks().filter(t => t.courseId === c.id && hasWeight(t) && !t.prepFor);
@@ -157,6 +175,8 @@
     const projected = current == null ? null : remaining > 0.01 ? (ruled ? GRULES.finalWith(items, R, D, current) : current) : minFinal;
     const loose = allTasks().filter(t => t.courseId === c.id && !hasWeight(t) && !t.prepFor && markPct(t) != null);
     const gr = {c, g, R, ruled, dropped, ts, loose, marked, open, wMarked: wMarked / D * 100, earned, wAll, D, remaining: remShown, unlisted, current, minFinal, maxFinal, projected, need, done: remaining <= 0.01};
+    // every listed item marked isn't a final grade: more can still be added until classes are over
+    gr.final = gr.done && classesOver(c);
     gr.risk = riskOf(gr);
     return gr;
   }
@@ -403,6 +423,10 @@
     const g = gr.g, out = [], nm = esc(courseName(gr.c)), L = p => letterOf(p, g.scale);
     const remTxt = `the remaining ${fmtW(gr.remaining)}`;
     if (!gr.ts.length) return out;
+    if (gr.done && !gr.final) {
+      out.push(`Everything listed so far is marked: <b>${fmtP(gr.minFinal)}</b>${L(gr.minFinal) ? ` (${esc(L(gr.minFinal))})` : ""}. More marks can still come in, so this isn't your final grade until a couple of weeks after classes end.`);
+      return out;
+    }
     if (gr.done) {
       out.push(`All graded work is marked. Your final grade is <b>${fmtP(gr.minFinal)}</b>${L(gr.minFinal) ? ` (${esc(L(gr.minFinal))})` : ""}.`);
       if (gr.minFinal >= g.pass) out.push(`You passed, with ${fmtP(g.pass)} needed. Well done.`);
@@ -587,7 +611,8 @@
     const g = gr.g, L = p => letterOf(p, g.scale);
     const np = gr.ts.length && !gr.done ? gr.need(g.pass) : null;
     return !gr.ts.length ? "No graded tasks yet" : gr.current == null ? `No marks yet. Pass mark ${fmtP(g.pass)}.`
-      : gr.done ? `Final ${fmtP(gr.minFinal)}${L(gr.minFinal) ? " " + L(gr.minFinal) : ""}`
+      : gr.final ? `Final ${fmtP(gr.minFinal)}${L(gr.minFinal) ? " " + L(gr.minFinal) : ""}`
+      : gr.done ? `${fmtP(gr.minFinal)}${L(gr.minFinal) ? " " + L(gr.minFinal) : ""} on everything marked so far. Not final until a couple of weeks after classes end.`
       : np > 100 ? "Pass mark out of reach. Talk to your instructor."
       : g.goal != null && !inDanger(gr) ? (n => n <= 0 ? "Goal secured." : n <= 100 ? `Needs ${fmtP(n)} on the remaining ${fmtW(gr.remaining)} for your goal.` : "Goal out of reach now.")(gr.need(g.goal))
       : !inDanger(gr) && (h => h && h.th > g.pass && h.n <= 100)(holdOf(gr)) ? (h => h.n <= 0 ? `${h.l} locked in.` : `Needs ${fmtP(h.n)} on the remaining ${fmtW(gr.remaining)} to keep your ${h.l}.`)(holdOf(gr))
@@ -769,7 +794,7 @@
   function termRecord(name, ids){
     const courses = ids.map(id => state.courses[id]).filter(Boolean).map(c => {
       const gr = courseGrade(c), p = finalOf(gr); if (p == null) return null;
-      return {name: c.name || courseLabel(c), code: c.code || "", credits: isNum(c.credits) ? Number(c.credits) : null, pct: r1(p), letter: letterOf(p, gr.g.scale), est: !gr.done};
+      return {name: c.name || courseLabel(c), code: c.code || "", credits: isNum(c.credits) ? Number(c.credits) : null, pct: r1(p), letter: letterOf(p, gr.g.scale), est: !gr.final};
     }).filter(Boolean);
     return courses.length ? {id: uid(), name: String(name || "").trim().slice(0, 40) || "Past Term", at: Date.now(), courses} : null;
   }
@@ -828,7 +853,7 @@
       <p class="mini" style="margin:0">Keeps a record of each course's grade for your cumulative GPA. Courses with marks still to come use their projected final; you can change any of it later. Your courses stay as they are.</p>
       <label class="f"><span class="lh">Term Name ${REQ}</span><input type="text" name="term" required maxlength="40" value="${esc(guess)}"></label>
       <fieldset><legend>Courses</legend><div class="nt-list">${list.map(({c, gr}) => { const p = finalOf(gr), L = letterOf(p, gr.g.scale);
-        return `<label class="mi-check nt-row" style="--c:${esc(c.color)}"><input type="checkbox" name="c" value="${esc(c.id)}" checked><span class="sd"></span><span><b>${esc(courseLabel(c))}</b> <span class="mini">${fmtP(p)}${L ? " " + esc(L) : ""}${gr.done ? ", final" : ", projected"}${isNum(c.credits) ? `, ${fmtCr(c.credits)} credits` : ""}</span></span></label>`; }).join("")}</div></fieldset></div>
+        return `<label class="mi-check nt-row" style="--c:${esc(c.color)}"><input type="checkbox" name="c" value="${esc(c.id)}" checked><span class="sd"></span><span><b>${esc(courseLabel(c))}</b> <span class="mini">${fmtP(p)}${L ? " " + esc(L) : ""}${gr.final ? ", final" : gr.done ? ", so far" : ", projected"}${isNum(c.credits) ? `, ${fmtCr(c.credits)} credits` : ""}</span></span></label>`; }).join("")}</div></fieldset></div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Save Term</button></div></form>`, fd => {
       const ids = fd.getAll("c"); if (!ids.length) { toast("Pick at least one course"); return false; }
       const name = String(fd.get("term") || "").trim(), had = terms().some(t => !t.manual && t.name.toLowerCase() === name.toLowerCase());
@@ -890,7 +915,7 @@
       const c = gr.c, g = gr.g, Lt = p => letterOf(p, g.scale) ? " " + letterOf(p, g.scale) : "";
       const risk = {risk: "pass mark at risk", watch: "close to the pass mark", out: "pass mark out of reach"}[gr.risk];
       const head = `COURSE ${courseLabel(c)}${c.name && c.name !== courseLabel(c) ? " (" + c.name + ")" : ""}${isNum(c.credits) ? ", " + fmtCr(c.credits) + " credits" : ""}: `
-        + (gr.current != null ? `current ${fmtP(gr.current)}${Lt(gr.current)} on ${fmtW(gr.wMarked)} of the course marked; ${gr.done ? "final" : "projected final"} ${fmtP(finalOf(gr))}${Lt(finalOf(gr))}; possible range ${fmtP(gr.minFinal)} to ${fmtP(gr.maxFinal)}` : "no marks yet")
+        + (gr.current != null ? `current ${fmtP(gr.current)}${Lt(gr.current)} on ${fmtW(gr.wMarked)} of the course marked; ${gr.final ? "final" : gr.done ? "everything listed so far is marked (not final: classes aren't over, more marks may come); so far" : "projected final"} ${fmtP(finalOf(gr))}${Lt(finalOf(gr))}; possible range ${fmtP(gr.minFinal)} to ${fmtP(gr.maxFinal)}` : "no marks yet")
         + `; pass mark ${fmtP(g.pass)}${g.goal != null ? "; goal " + fmtP(g.goal) : ""}${risk ? "; " + risk : ""}. ${gradeLine(gr)}${rulesText(gr.R) ? " Grading rules: " + rulesText(gr.R) + "." : ""}`;
       const mk = gr.marked.slice().sort(sortTasks).map(t => `${t.title} (${t.type}, worth ${fmtW(Number(t.weight))}${t.due ? ", " + t.due : ""}): ${fmtP(markPct(t))}${gr.dropped.has(t.id) ? ", dropped" : ""}`).join("; ");
       const op = gr.open.slice().sort(sortTasks).slice(0, 10).map(t => `${t.title} (${t.type}, worth ${fmtW(Number(t.weight))}${t.due ? ", due " + t.due : ""}${t.status === "done" ? ", handed in, waiting for a mark" : ""})`).join("; ");
@@ -905,7 +930,7 @@
     ui.gpAi = {kind, busy: true}; render();
     try {
       const r = await aiCall({task: "coach", fast: true, maxTokens: 1600, temperature: 0.4, schema: {type: "OBJECT", properties: {points: {type: "ARRAY", items: {type: "STRING"}}}, required: ["points"]},
-        parts: [{text: aiContext()}], system: "You're a kind, practical study coach looking at a student's grades. " + A.sys + " Look at every course, including finished ones. If a course is marked LOOKS WRONG, or a mark is far out of line with the rest, say that first and suggest checking those marks, instead of skipping it or treating it as a real result. Remember a fully marked course can no longer change, so effort goes to courses with work still to come. Use only the numbers, items and dates given, and never invent marks, dates or grading rules. Plain, warm words. No em dashes, and no medical or academic-policy claims. Return JSON only."});
+        parts: [{text: aiContext()}], system: "You're a kind, practical study coach looking at a student's grades. " + A.sys + " Look at every course, including finished ones. If a course is marked LOOKS WRONG, or a mark is far out of line with the rest, say that first and suggest checking those marks, instead of skipping it or treating it as a real result. Remember a course whose grade says final can no longer change, so effort goes to courses with work still to come; a course with everything listed marked but not final may still get more marks. Use only the numbers, items and dates given, and never invent marks, dates or grading rules. Plain, warm words. No em dashes, and no medical or academic-policy claims. Return JSON only."});
       const pts = ((r && r.data && r.data.points) || []).map(s => String(s || "").replace(/\s*[—–]\s*/g, ", ").replace(/^[\s•*-]+/, "").trim()).filter(Boolean).slice(0, 6);
       ui.gpAi = pts.length ? {kind, pts} : {kind, err: "The AI didn't send anything back. Try again."};
     } catch (e) { ui.gpAi = {kind, err: (e && e.message) || "Couldn't reach the AI right now. Try again in a moment."}; }
@@ -963,7 +988,7 @@
       tg.sort((a, b) => a[1] - b[1]);
       const want = ui.gpCalc && ui.gpCalc.cid === c.id && isNum(ui.gpCalc.t) ? ui.gpCalc.t : g.goal != null ? g.goal : hold && hold.th > g.pass && !inDanger(gr) ? hold.th : g.pass;
       const n = gr.ts.length ? gr.need(want) : null;
-      const res = gr.done ? `Everything in ${esc(courseLabel(c))} is marked: final <b>${fmtP(gr.minFinal)}</b>.`
+      const res = gr.done ? `Everything listed in ${esc(courseLabel(c))} is marked: ${gr.final ? "final" : "so far"} <b>${fmtP(gr.minFinal)}</b>.`
         : n == null ? "Add marks to see what you need."
         : n <= 0 ? `<span class="gp-calc-big">Secured</span><span>${fmtP(want)} is already locked in, whatever the rest brings.</span>`
         : n > 100 ? `<span class="gp-calc-big">Out of reach</span><span>The most you can still finish with is ${fmtP(gr.maxFinal)}.</span>`
@@ -1051,32 +1076,68 @@
     let found = null, busy = false;
     let prog = String(gsave().program || (window.SBAREA && SBAREA.get() ? SBAREA.get().text : "") || "").trim().slice(0, 80);
     const goLbl = () => prog ? (found ? tr("gr.school.progGo", "Look Up This Program's Scale") : tr("gr.school.findProg", "Find My Program's Scale")) : (found ? tr("gr.school.again", "Search Again") : tr("gr.school.find", "Find My School's Scale"));
-    // what was found: the scale to check, then one button makes it every course's scale
+    // what was found: the scale and pass mark to check (both can be changed here), then one button makes them every course's
+    let editing = false;
+    const lowPass = sc => { const p = sc.filter(x => Number(x[1]) > 0).sort((x, y) => x[1] - y[1]); return p[0] || null; };
+    const passNote = (sc, p) => {
+      const lo = lowPass(sc); if (p == null || !lo || Number(p) === Number(lo[1])) return "";
+      return Number(p) > Number(lo[1])
+        ? tr("gr.school.passHigher", "This pass mark is higher than the lowest passing letter ({l}, {m}%). Many programs, like nursing, need more than that to pass a course. Check your program's handbook.", {l: lo[0], m: r1(lo[1])})
+        : tr("gr.school.passLower", "This pass mark is lower than the lowest passing letter ({l}, {m}%), so one of them is probably wrong. Check your course outline.", {l: lo[0], m: r1(lo[1])});
+    };
     const showFound = () => {
-      if (!found) { prevBox.hidden = true; prevBox.innerHTML = ""; return; }
+      if (!found) { prevBox.hidden = true; prevBox.innerHTML = ""; editing = false; return; }
       prevBox.hidden = false;
-      prevBox.innerHTML = `${scaleChips(found.scale)}${found.pass != null ? `<span class="mini">${esc(tr("gr.school.passIs", "Pass mark {p}%", {p: r1(found.pass)}))}</span>` : ""}<div class="gr-scale-acts"><button type="button" class="btn small primary" id="goUse">${esc(tr("gr.school.useAll", "Use for All My Courses"))}</button></div>`;
+      const p = found.pass != null ? found.pass : gset().pass;
+      prevBox.innerHTML = `<div id="goLetters">${editing ? `<div id="goRows" class="gr-scale-rows">${found.scale.map(x => scaleRow(x[0], Number(x[1]))).join("")}</div>` : scaleChips(found.scale)}</div>
+        ${editing ? "" : `<button type="button" class="link-btn" id="goEdit" style="justify-self:start">${esc(tr("gr.school.editL", "Change Letters"))}</button>`}
+        <label class="go-pass"><span>${esc(tr("gr.school.passLbl", "Pass mark"))}</span><input type="number" id="goPass" min="1" max="100" step="0.5" inputmode="decimal" value="${esc(r1(p))}" data-noenter> %</label>
+        <p class="mini go-pass-note" id="goPassNote" role="note">${esc(passNote(found.scale, p))}</p>
+        <div class="gr-scale-acts"><button type="button" class="btn small primary" id="goUse">${esc(tr("gr.school.useAll", "Use for All My Courses"))}</button></div>`;
       $("#goUse").addEventListener("click", useFound);
+      const ed = $("#goEdit"); if (ed) ed.addEventListener("click", () => { const pv = $("#goPass").value; editing = true; showFound(); $("#goPass").value = pv; $("#goPassNote").textContent = isNum(pv) ? passNote(found.scale, Number(pv)) : ""; const i = prevBox.querySelector('#goRows input[name="sp"]'); if (i) i.focus(); });
+      const rowsBox = $("#goRows"); if (rowsBox) rowsBox.addEventListener("click", e => { const b = e.target.closest(".gr-scale-del"); if (b) b.closest(".gr-scale-row").remove(); });
+      const upd = () => { const sc = editing ? readRows() || found.scale : found.scale, v = $("#goPass").value; $("#goPassNote").textContent = isNum(v) ? passNote(sc, Number(v)) : ""; };
+      $("#goPass").addEventListener("input", upd); if (rowsBox) rowsBox.addEventListener("input", upd);
+    };
+    // the letter boxes, checked like a course's Grade Settings (null after saying what's wrong)
+    const readRows = (loud) => {
+      const out = [], seen = new Set();
+      for (const r of $$("#goRows .gr-scale-row")) {
+        const l = String(r.querySelector('[name="sl"]').value).trim().toUpperCase().replace(/\s+/g, ""), v = String(r.querySelector('[name="sp"]').value).trim();
+        if (!l && !v) continue;
+        if (!/^[A-Z0-9][A-Z0-9+\-:.]{0,3}$/.test(l)) { if (loud) toast(tr("gr.sc.badLetter", "Each box needs a letter, like A+ or B")); return null; }
+        if (!isNum(v) || Number(v) < 0 || Number(v) > 100) { if (loud) toast(tr("gr.sc.badPct", "Enter a percent from 0 to 100 for {l}", {l})); return null; }
+        if (seen.has(l)) { if (loud) toast(tr("gr.sc.dup", "{l} is in the list twice", {l})); return null; }
+        seen.add(l); out.push([l, Number(v)]);
+      }
+      if (out.length < 2) { if (loud) toast(tr("gr.sc.few", "Add at least two letters with their percents")); return null; }
+      return out.sort((x, y) => y[1] - x[1]);
     };
     function useFound(){
       const f = found; if (!f) return;
-      const isDef = JSON.stringify(f.scale) === JSON.stringify(G_SCALE);
-      saveG(Object.assign({scale: isDef ? null : f.scale, school: {name: f.school, url: f.url, host: f.host, at: Date.now(), official: !!f.official, program: f.program || "", scope: f.scope || "school"}, program: prog || "", suggest: null}, f.pass != null ? {pass: f.pass} : {}));
+      const scale = editing ? readRows(true) : f.scale; if (!scale) return;
+      const pv = String(($("#goPass") || {}).value || "").trim();
+      if (pv && (!isNum(pv) || Number(pv) <= 0 || Number(pv) > 100)) { toast("Enter a pass mark between 1 and 100"); return; }
+      const pass = pv ? r1(Number(pv)) : null;
+      const isDef = JSON.stringify(scale) === JSON.stringify(G_SCALE);
+      saveG(Object.assign({scale: isDef ? null : scale, school: {name: f.school, url: f.url, host: f.host, at: Date.now(), official: !!f.official, program: f.program || "", scope: f.scope || "school"}, program: prog || "", suggest: null}, pass != null ? {pass} : {}));
       // courses that had their own scale follow this one now (Undo puts them back)
       const chs = coursesArr().filter(c => c.grading && c.grading.scale).map(c => { const o = clone(c); o.grading = Object.assign({}, o.grading, {scale: null}); return {kind: "course", id: c.id, after: o}; });
       const what = f.scope === "program" && f.program ? tr("gr.school.usedProg", "The {program} scale is now used for all your courses", {program: f.program}) : tr("gr.school.used", "{school}'s scale is now used for all your courses", {school: f.school || tr("gr.school.yours", "your school")});
       if (chs.length) applyChanges(chs, what); else toast(what);
-      found = null; scheduleRender(); gradeOptsSheet();
+      found = null; editing = false; scheduleRender(); gradeOptsSheet();
     }
     const paint = () => {
       const gs = gsave(), sg = gs.suggest, ask = !(sg && !found);
       let top = "";
       if (found) top = `<p class="mini" style="margin:0">${found.official
-        ? esc(tr("gr.school.official", "Found {school}'s grade scale{pass} on the school's own website. Check it matches your course outline.", {school: found.school || tr("gr.school.yours", "your school"), pass: found.pass != null ? " " + tr("gr.school.andPass", "and {p}% pass mark", {p: r1(found.pass)}) : ""}))
+        ? esc(tr("gr.school.official", "Found {school}'s {what}{pass} on the school's own website. Check it matches your course outline.", {school: found.school || tr("gr.school.yours", "your school"), what: found.scope === "program" && found.program ? tr("gr.school.progScale", "{program} grade scale", {program: found.program}) : tr("gr.school.scaleW", "grade scale"), pass: found.pass != null ? " " + tr("gr.school.andPass", "and {p}% pass mark", {p: r1(found.pass)}) : ""}))
         : found.recalled ? esc(found.scope === "program"
           ? tr("gr.school.recalledProg2", "This is the AI's best knowledge of the {program} scale at {school}. It hasn't been checked online, so compare it with your course outline first.", {program: found.program, school: found.school || tr("gr.school.yours", "your school")})
           : tr("gr.school.recalled2", "This is the AI's best knowledge of {school}'s general scale{prog}. It hasn't been checked online, so compare it with your course outline first.", {school: found.school || tr("gr.school.yours", "your school"), prog: prog ? tr("gr.school.noProg", " (no separate {program} scale found)", {program: prog}) : ""}))
-        : esc(tr("gr.school.unsure2", "Found a scale for {school} on {host}, which isn't the school's own website. Check it carefully first.", {school: found.school || tr("gr.school.yours", "your school"), host: found.host}))} ${safeUrl(found.url) ? `<a href="${esc(safeUrl(found.url))}" target="_blank" rel="noopener noreferrer">${esc(found.host)}</a>` : ""}</p>`;
+        : hosts.length ? esc(tr("gr.school.unsure2", "Found a scale for {school} on {host}, which isn't the school's own website. Check it carefully first.", {school: found.school || tr("gr.school.yours", "your school"), host: found.host}))
+        : esc(tr("gr.school.web", "Found on {host}. Make sure that's {school}'s own website, and check it against your course outline.", {school: found.school || tr("gr.school.yours", "your school"), host: found.host}))} ${safeUrl(found.url) ? `<a href="${esc(safeUrl(found.url))}" target="_blank" rel="noopener noreferrer">${esc(found.host)}</a>` : ""}</p>`;
       else if (sg) top = `<p class="mini" style="margin:0">${esc(tr("gr.school.sug", "Studyboard found a grade scale for {school} on {host}. Is this your school?", {school: sg.school || tr("gr.school.yours", "your school"), host: sg.host}))}</p><div class="gr-scale-acts"><button type="button" class="btn small primary" id="gsSugYes">${esc(tr("gr.school.use", "Use It"))}</button><button type="button" class="btn small" id="gsSugNo">${esc(tr("gr.school.no", "Not My School"))}</button></div>`;
       else if (hosts.length) top = `<p class="mini" style="margin:0">${esc(tr("gr.school.know2", "Studyboard can ask the AI for the grade scale and pass mark at your school ({host}), or at your program if it has its own. The AI answers from memory, so check the result against your course outline.", {host: hosts[0].host}))}</p>`;
       else top = `<label class="f"><span class="lh">${esc(tr("gr.school.name", "Your school"))} <span class="hint">${esc(tr("gr.school.nameHint", "The AI fills in its grade scale and pass mark from what it knows"))}</span></span><input type="text" id="gsSchoolName" maxlength="80" autocomplete="off" value="${esc((gs.school && gs.school.name) || "")}" placeholder="${esc(tr("gr.school.ph", "e.g. University of Alberta"))}" data-noenter></label>`;
@@ -1099,7 +1160,7 @@
       busy = true; { const fb = $("#gsFind"); if (fb) fb.disabled = true; }
       say(prog ? tr("gr.school.searchingProg", "Asking the AI about the {program} grade scale at your school…", {program: prog}) : tr("gr.school.searching", "Asking the AI about your school's grade scale…"));
       try {
-        const h = hosts[0] || {host: "", name: ""}, f = vetSchool(await findSchool({host: h.host, name: name || h.name, program: prog}));
+        const h = hosts[0] || {host: "", name: ""}, f = await findSchool({host: h.host, name: name || h.name, program: prog});
         busy = false;
         if (f) { found = f; say(""); paint(); showFound(); return; }
         say(tr("gr.school.none2", "The AI isn't sure of that grade scale. Upload a screenshot of it, or paste it, in a course's Grade Settings."));
@@ -1200,22 +1261,44 @@
     return out;
   }
   // The AI answers from what it knows (web search needs paid quota on most keys)
+  // The school's own domain (learn.bcit.ca → bcit.ca, www.ox.ac.uk → ox.ac.uk), to tell its own pages from other sites
+  const regDomain = h => { const p = String(h || "").toLowerCase().replace(/^www\./, "").split(".").filter(Boolean); if (p.length < 2) return p.join("."); return (p.length >= 3 && /^(ac|edu|co|gov|org|net)$/.test(p[p.length - 2]) && p[p.length - 1].length === 2 ? p.slice(-3) : p.slice(-2)).join("."); };
+  const SCHOOL_JSON = "Reply with JSON only: {\"found\": true or false, \"school\": \"the school's name\", \"scope\": \"program\" or \"school\", \"program\": \"the program the numbers are for, or empty\", \"scale\": [{\"letter\": \"A+\", \"min\": 90}], \"pass\": the minimum percent needed to pass a course (a number or null), \"url\": \"the page the numbers come from, or empty\", \"note\": \"one short sentence\"}.";
+  const SCHOOL_PASS = "The pass mark is the minimum final percent a student needs to pass a course. A program can need more than the lowest passing letter (many nursing and health programs need 65% or more in every course even though the school's scale passes lower), so give the program's own minimum when it has one, and never just copy the lowest passing letter's percent when the program's rule is different.";
+  // Looks it up on the web first (the school's own pages); a free trial or a key without web search answers from what the AI knows
   async function findSchool({host, name, program}){
     const text = `Learning site address: ${host || "(not given)"}.${name ? ` The student calls their school: ${name}.` : ""}${program ? ` The student's program: ${program}.` : ""}`;
-    const call = () => aiCall({task: "school", auto: false, maxTokens: 3000, temperature: 0, parts: [{text}],
-      system: "You know the grading rules of colleges and universities. Work out which school uses the learning site address given (or is named). Some schools give a program (a faculty, school, college or degree such as nursing, engineering or an MBA) its own letter scale or pass mark. If a program is given and you are confident that program has its own scale or pass mark, give that one and set scope to \"program\". Otherwise give the school's general undergraduate letter scale (each letter with the lowest percent that earns it) and minimum passing mark (percent), and set scope to \"school\". Only answer if you are confident the numbers are right for that school (and program). If you are not sure, answer found false. Never guess and never use another school's scale. Reply with JSON only: {\"found\": true or false, \"school\": \"the school's name\", \"scope\": \"program\" or \"school\", \"program\": \"the program the scale is for, or empty\", \"scale\": [{\"letter\": \"A+\", \"min\": 90}], \"pass\": a number or null, \"note\": \"one short sentence\"}."});
+    const ask = web => aiCall({task: "school", auto: false, maxTokens: web ? 4000 : 3000, temperature: 0, parts: [{text}], search: web,
+      system: (web
+        ? "Search the web for the grading rules of the school that uses the learning site address given (or is named). Prefer the school's own website: its grading policy, academic calendar, or the program's handbook or progression policy. If a program is given, look for that program's own letter scale and minimum passing grade, and set scope to \"program\" when the numbers you give are the program's own; otherwise give the school's general undergraduate scale and set scope to \"school\". Only give numbers a page you found actually states, and put that page's address in url. If you can't find them stated, answer found false. "
+        : "You know the grading rules of colleges and universities. Work out which school uses the learning site address given (or is named). Some schools give a program (a faculty, school, college or degree such as nursing, engineering or an MBA) its own letter scale or pass mark. If a program is given and you are confident that program has its own scale or pass mark, give that one and set scope to \"program\". Otherwise give the school's general undergraduate letter scale (each letter with the lowest percent that earns it) and minimum passing mark, and set scope to \"school\". Only answer if you are confident the numbers are right for that school (and program). If you are not sure, answer found false. Never guess and never use another school's scale. Leave url empty. ")
+        + SCHOOL_PASS + " " + SCHOOL_JSON});
+    const cfg = aiCfg();
+    if (cfg.provider !== "trial") {
+      try { const v = vetSchool(await ask(true), {host, web: true}); if (v) return v; }
+      catch (e) { if (e && e.code === "cancelled") throw e; }
+    }
     let r;
-    try { r = await call(); }
-    catch (e) { if (e && (e.code === "bad" || e.code === "long")) r = await call(); else throw e; }
-    return Object.assign({}, r, {recalled: true});
+    try { r = await ask(false); }
+    catch (e) { if (e && (e.code === "bad" || e.code === "long")) r = await ask(false); else throw e; }
+    return vetSchool(r, {host});
   }
-  function vetSchool(r){
+  function vetSchool(r, {host = "", web = false} = {}){
     const d = (r && r.data) || {};
     if (d.found !== true) return null;
     const scale = cleanScale(d.scale, null); if (!scale || scale.length < 3) return null;
-    const pass = d.pass != null && d.pass !== "" && Number.isFinite(Number(d.pass)) && Number(d.pass) >= 0 && Number(d.pass) <= 100 ? Number(d.pass) : null;
+    const pass = d.pass != null && d.pass !== "" && Number.isFinite(Number(d.pass)) && Number(d.pass) > 0 && Number(d.pass) <= 100 ? Number(d.pass) : null;
     const prog = d.scope === "program" ? String(d.program || "").trim().slice(0, 80) : "";
-    return {school: String(d.school || "").trim().slice(0, 80), scale, pass, url: "", host: "", official: false, recalled: true, scope: prog ? "program" : "school", program: prog, note: String(d.note || "").trim().slice(0, 200)};
+    const base = {school: String(d.school || "").trim().slice(0, 80), scale, pass, scope: prog ? "program" : "school", program: prog, note: String(d.note || "").trim().slice(0, 200)};
+    if (!web) return Object.assign(base, {url: "", host: "", official: false, recalled: true});
+    // from the web: the page it names must be one the search actually found (Gemini's sources name the site in the title)
+    const srcs = (r.sources || []).map(x => ({url: safeUrl(x.url), host: /grounding-api-redirect|vertexaisearch/.test(x.url) ? String(x.title || "").toLowerCase().replace(/^www\./, "") : hostOf(x.url)})).filter(x => x.host);
+    if (!srcs.length) return null;
+    const said = safeUrl(String(d.url || "")), saidHost = hostOf(said);
+    const src = srcs.find(x => saidHost && regDomain(x.host) === regDomain(saidHost)) || srcs[0];
+    const pageHost = saidHost && regDomain(src.host) === regDomain(saidHost) ? saidHost : src.host;
+    const own = host ? regDomain(pageHost) === regDomain(host) : false;
+    return Object.assign(base, {url: saidHost && regDomain(src.host) === regDomain(saidHost) ? said : src.url, host: pageHost, official: own, web: true, recalled: false});
   }
   const gsave = () => (state.settings && state.settings.grades) || {};
   const scaleRow = (l, v) => `<div class="gr-scale-row"><label><span class="sr">${esc(tr("gr.sc.letter", "Letter"))}</span><input type="text" name="sl" maxlength="4" value="${esc(l)}" placeholder="A" autocomplete="off" autocapitalize="characters" spellcheck="false" data-noenter></label><label><span class="sr">${esc(tr("gr.sc.pct", "Lowest percent"))}</span><input type="number" name="sp" min="0" max="100" step="0.5" inputmode="decimal" value="${v == null ? "" : esc(r1(v))}" placeholder="90" data-noenter></label><button type="button" class="icon-btn gr-scale-del" aria-label="${esc(tr("gr.sc.remove", "Remove this letter"))}" title="${esc(tr("gr.sc.remove", "Remove this letter"))}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;

@@ -369,3 +369,8 @@ nav.tabs [data-tab="courses"]{position:relative}
 .go-prev[hidden]{display:none}
 .go-chips{display:flex;flex-wrap:wrap;gap:6px}
 .go-chip{padding:3px 9px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:.85rem;font-variant-numeric:tabular-nums}
+.go-pass{display:flex;align-items:center;gap:8px;font-weight:600}
+.go-pass input{width:5.5rem}
+.go-pass-note:empty{display:none}
+.go-pass-note{margin:0;color:var(--warn-ink,var(--ink))}
+.go-prev .gr-scale-rows{max-height:none}
