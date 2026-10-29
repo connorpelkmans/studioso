@@ -24,7 +24,8 @@
     const now = S().norm(cfg()), today = todayISO();
     let off = now.off.map(o => Object.assign({}, o));
     const cy = now.cycle;
-    const draft = {on: !!cy, n: cy ? cy.n : 6, names: cy ? cy.names : "num", days: cy ? cy.days.slice() : [1, 2, 3, 4, 5]};
+    // A/B days are the most common rotation; the names follow the length (A/B for 2, Day 1, 2… for longer) until you pick them
+    const draft = {on: !!cy, n: cy ? cy.n : 2, names: cy ? cy.names : "abc", days: cy ? cy.days.slice() : [1, 2, 3, 4, 5], namesSet: !!cy};
     // the day the "Today is" answer is about: today if it's a school day, else the next one
     const refDay = () => S().nextSchool({off, cycle: {n: draft.n, ref: today, k: 1, days: draft.days}}, today);
     const curK = () => { const r = refDay(); return cy ? (S().dayOf(cfg(), r) || 1) : 1; };
@@ -72,8 +73,8 @@
     drawK();
     f.addEventListener("change", e => {
       if (e.target.name === "sdMode") $f("#sdCycle").hidden = e.target.value !== "cycle";
-      if (e.target.id === "sdN") { draft.n = Number(e.target.value); drawK(); }
-      if (e.target.id === "sdNames") { draft.names = e.target.value; drawK(); }
+      if (e.target.id === "sdN") { draft.n = Number(e.target.value); if (!draft.namesSet) { draft.names = draft.n === 2 ? "abc" : "num"; $f("#sdNames").value = draft.names; } drawK(); }
+      if (e.target.id === "sdNames") { draft.names = e.target.value; draft.namesSet = true; drawK(); }
       if (e.target.id === "sdK") k = Number(e.target.value);
     });
     f.addEventListener("click", e => {

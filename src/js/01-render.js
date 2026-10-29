@@ -780,8 +780,8 @@ function courseForm(c){
         <div id="meetList" class="meet-list"></div>
         <button type="button" class="btn small" id="meetAdd">+ Add a Class Time</button>
         ${cycOn() ? "" : `<button type="button" class="link-btn mini cyc-q" id="cycSet">Rotating schedule, like Day 1 to 6 or A/B days?</button>
-        <div class="cyc-inline" id="cycInline" hidden><div class="two"><label class="f"><span class="lh">Days in the cycle</span><select id="cycN">${[2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => `<option value="${v}"${v === 6 ? " selected" : ""}>${v}</option>`).join("")}</select></label>
-          <label class="f"><span class="lh">Called</span><select id="cycNames"><option value="num">Day 1, Day 2…</option><option value="abc">A Day, B Day…</option></select></label></div>
+        <div class="cyc-inline" id="cycInline" hidden><div class="two"><label class="f"><span class="lh">Days in the cycle</span><select id="cycN">${[2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => `<option value="${v}"${v === 2 ? " selected" : ""}>${v}</option>`).join("")}</select></label>
+          <label class="f"><span class="lh">Called</span><select id="cycNames"><option value="abc">A Day, B Day…</option><option value="num">Day 1, Day 2…</option></select></label></div>
           <label class="f"><span class="lh" id="cycRefL"></span><select id="cycK"></select></label>
           <p class="mini" style="margin:0">Weekends are skipped. Add holidays and snow days, which pause the cycle, in School Days on your Schedule.</p></div>`}</fieldset>
       <div class="two">
@@ -865,7 +865,9 @@ function courseForm(c){
         $("#cycK").innerHTML = Array.from({length: cycNew.n}, (_, j) => `<option value="${j + 1}"${j + 1 === cycNew.k ? " selected" : ""}>${cycNew.names === "abc" ? String.fromCharCode(65 + j) + " Day" : "Day " + (j + 1)}</option>`).join("");
         drawMeets(); };
       q.addEventListener("click", () => { box.hidden = false; q.hidden = true; meets.forEach(m => { if (!m.days.length) m.rep = "c"; }); sync(); if (!meets.length) $("#meetAdd").click(); });
-      box.addEventListener("change", sync);
+      // the names follow the length (A/B for 2 days, Day 1, 2… for longer) until you pick them
+      let namesSet = false;
+      box.addEventListener("change", e => { if (e.target.id === "cycNames") namesSet = true; if (e.target.id === "cycN" && !namesSet) $("#cycNames").value = Number(e.target.value) === 2 ? "abc" : "num"; sync(); });
     } }
 }
 
