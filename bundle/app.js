@@ -59233,7 +59233,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const acts = m.a && m.a.actions && m.a.actions.length ? `<div class="cpt-actions">${m.a.actions.map((a, i) => `<div class="cpt-action"><span class="cpt-action-t">${esc(a.label)}</span>${a.done ? `<span class="mini cpt-done">${esc(a.done)}</span>` : `<button type="button" class="btn small primary" data-act="cpt-do" data-m="${esc(String(m.at))}" data-i="${i}">${ACT_BTN[a.type] || "Make It"}</button>`}${a.deckId && state.decks[a.deckId] ? `<button type="button" class="btn small" data-act="cpt-open-deck" data-id="${esc(a.deckId)}">Open Deck</button>` : ""}</div>`).join("")}</div>` : "";
     return `<div class="cpt-q">${esc(m.q)}${m.files && m.files.length ? `<div class="cpt-qf">${m.files.map(f => `<span>${esc(f)}</span>`).join("")}</div>` : ""}</div>
       <div class="cpt-a">${m.err ? `<p class="mini">${esc(m.err)}</p>` : `${miniMd(m.a.answer)}
-        ${m.a.sources && m.a.sources.length ? `<div class="cpt-src" aria-label="Looked at">${m.a.sources.map(s => `<span class="chip">${esc(s)}</span>`).join("")}</div>` : ""}${acts}`}
+        ${m.a.sources && m.a.sources.length ? `<details class="cpt-srcd"><summary>Looked at ${m.a.sources.length} ${m.a.sources.length === 1 ? "thing" : "things"}</summary><div class="cpt-src">${m.a.sources.map(s => `<span class="chip">${esc(s)}</span>`).join("")}</div></details>` : ""}${acts}`}
         ${m.a && !m.err ? `<div class="cpt-acts"><button type="button" class="link-btn" data-act="cpt-note" data-id="${esc(String(m.at))}">Save as Note</button><button type="button" class="link-btn" data-ai-report="companion-chat" data-ai-text="${esc(String(m.a.answer || "").slice(0, 1400))}">Report Response</button></div>` : ""}</div>`;
   }
   function logHtml(){
@@ -59404,13 +59404,19 @@ You can also DO things in Studyboard, but only when the student asks or what the
     if (!log || T.tab !== "chat") { render(); return; }
     log.innerHTML = logHtml();
     const go = $("#cptGo"); if (go) go.disabled = !aiOk() || !!T.busy;
-    log.scrollTop = log.scrollHeight;
+    toLatest(log); requestAnimationFrame(() => { if (log.isConnected) toLatest(log); });
+  }
+  // A new answer opens at its start (its question at the top), not at its last line; while thinking, the bottom shows
+  function toLatest(log){
+    const qs = log.querySelectorAll(".cpt-q"), q = qs[qs.length - 1];
+    if (!q || T.busy) { log.scrollTop = log.scrollHeight; return; }
+    log.scrollTop = Math.max(0, log.scrollTop + q.getBoundingClientRect().top - log.getBoundingClientRect().top - 10);
   }
   hook("render", tab => {
     if (tab !== "companion") { try { SBCOMP.tab.stopPreviews(); } catch (e) {} return; }
     const root = $(".cpt"); if (!root) return;
     try { SBCOMP.tab.wirePreviews(root); } catch (e) { console.warn("companion tab", e); }
-    const log = $("#cptLog"); if (log) log.scrollTop = log.scrollHeight;
+    const log = $("#cptLog"); if (log) { toLatest(log); requestAnimationFrame(() => { if (log.isConnected) toLatest(log); }); }
     const cin = $("#cptIn"); if (cin && cin.value) cptGrow(cin);
   });
 
@@ -59470,6 +59476,12 @@ You can also DO things in Studyboard, but only when the student asks or what the
 .cpt-a{justify-self:start;max-width:92%;background:var(--soft);padding:9px 14px;border-radius:16px 16px 16px 4px;font-size:.95rem;overflow-wrap:anywhere}
 .cpt-a p{margin:0 0 6px}.cpt-a p:last-child{margin:0}.cpt-a ul{margin:4px 0 6px;padding-left:20px}
 .cpt-src,.cpt-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.cpt-srcd{margin-top:8px}
+.cpt-srcd>summary{display:inline-flex;align-items:center;gap:6px;min-height:32px;cursor:pointer;list-style:none;font:600 .82rem var(--sans,inherit);color:var(--muted);border-radius:8px}
+.cpt-srcd>summary::-webkit-details-marker{display:none}
+.cpt-srcd>summary::after{content:"";width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:translateY(-2px) rotate(45deg);transition:transform .2s ease}
+.cpt-srcd[open]>summary::after{transform:translateY(1px) rotate(-135deg)}
+.cpt-srcd .cpt-src{margin-top:4px}
 .cpt-chips.fu{margin-top:2px}
 .cpt-acts{margin-top:4px;display:flex;gap:16px;flex-wrap:wrap}
 .cpt-empty{display:grid;gap:10px;align-content:center;min-height:220px;text-align:center;justify-items:center}
@@ -83019,7 +83031,7 @@ const AUTOPILOT = (() => {
     const vv = window.visualViewport, vh = vv ? vv.height : innerHeight, nav = document.querySelector("nav.tabs");
     const nr = nav && getComputedStyle(nav).display !== "none" ? nav.getBoundingClientRect() : null, navTop = nr && nr.height ? nr.top : innerHeight;
     const bottom = Math.min(navTop - 12, vh - 8), top = view.getBoundingClientRect().top;
-    const log = document.getElementById("cptLog"), pin = !!log && log.scrollHeight - log.scrollTop - log.clientHeight < 60;
+    const log = document.getElementById("cptLog"), pin = !!log && root.classList.contains("cpt-typing") && log.scrollHeight - log.scrollTop - log.clientHeight < 60;
     view.style.height = Math.max(200, Math.floor(bottom - top)) + "px";
     if (pin) log.scrollTop = log.scrollHeight;
   }
@@ -83031,26 +83043,42 @@ const AUTOPILOT = (() => {
   let typeT = 0, typeRaf = 0;
   function follow(pin){
     cancelAnimationFrame(typeRaf); const t0 = performance.now(), log = document.getElementById("cptLog");
-    const step = () => { dispatchEvent(new Event("scroll")); if (pin && log) log.scrollTop = log.scrollHeight; if (performance.now() - t0 < 420) typeRaf = requestAnimationFrame(step); };
+    const step = () => { dispatchEvent(new Event("scroll")); if (pin && log) log.scrollTop = log.scrollHeight; if (performance.now() - t0 < 520) typeRaf = requestAnimationFrame(step); };
     typeRaf = requestAnimationFrame(step);
+  }
+  // The card's motion: the iOS sheet curve, about as long as the keyboard takes. The small face in the title bar flies
+  // from the big circle on the way in and back to it on the way out, so it reads as one companion moving, not a swap.
+  const MORPH = 440, EASE = "cubic-bezier(.32,.72,0,1)";
+  function fly(head, toRing){
+    const face = head.querySelector(".cpt3-mini > :first-child"), ring = head.querySelector(".cpt3-ring");
+    if (!face || !ring || !face.animate) return;
+    const f = face.getBoundingClientRect(), g = ring.getBoundingClientRect(); if (!f.width || !g.width) return;
+    const at = `translate(${Math.round(g.left + g.width / 2 - (f.left + f.width / 2))}px,${Math.round(g.top + g.height / 2 - (f.top + f.height / 2))}px) scale(${(g.width * 0.86 / f.width).toFixed(3)})`;
+    face.animate(toRing ? [{transform: "none"}, {transform: at}] : [{transform: at}, {transform: "none"}], {duration: MORPH, easing: EASE});
   }
   function typing(on){
     const r = root(); if (r.classList.contains("cpt-typing") === on) return;
     const log = document.getElementById("cptLog"), pin = !!log && log.scrollHeight - log.scrollTop - log.clientHeight < 60;
     const head = document.querySelector("#view .cpt-head.cpt3"), still = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (!head || still) { r.classList.toggle("cpt-typing", on); follow(pin); return; }
-    clearTimeout(head._t);
-    if (on) { head.style.height = head.offsetHeight + "px"; void head.offsetHeight; r.classList.add("cpt-typing"); head.style.height = ""; }
-    else {
+    if (!head || still || !r.classList.contains("ph-lock")) { r.classList.toggle("cpt-typing", on); follow(pin); return; }
+    clearTimeout(head._t); r.classList.add("cpt-morph");
+    if (on) {
+      const ringBefore = head.querySelector(".cpt3-ring").getBoundingClientRect();
+      head.style.height = head.offsetHeight + "px"; void head.offsetHeight; r.classList.add("cpt-typing"); head.style.height = "";
+      const face = head.querySelector(".cpt3-mini > :first-child"), ring = head.querySelector(".cpt3-ring");
+      if (face && face.animate) { const f = face.getBoundingClientRect(); if (f.width) face.animate([{transform: `translate(${Math.round(ringBefore.left + ringBefore.width / 2 - (f.left + f.width / 2))}px,${Math.round(ringBefore.top + ringBefore.height / 2 - (f.top + f.height / 2))}px) scale(${(ringBefore.width * 0.86 / f.width).toFixed(3)})`}, {transform: "none"}], {duration: MORPH, easing: EASE}); }
+      if (ring) ring.style.opacity = "";
+    } else {
       head.style.height = head.offsetHeight + "px"; r.classList.remove("cpt-typing");
       const full = head.scrollHeight; void head.offsetHeight; head.style.height = full + "px";
-      head._t = setTimeout(() => { head.style.height = ""; follow(false); }, 380);
+      fly(head, true);
     }
+    head._t = setTimeout(() => { head.style.height = ""; r.classList.remove("cpt-morph"); follow(false); }, MORPH + 20);
     follow(pin);
   }
-  document.addEventListener("focusin", e => { if (e.target && e.target.id === "cptIn" && root().classList.contains("ph-lock")) { clearTimeout(typeT); typing(true); } });
+  document.addEventListener("focusin", e => { if (e.target && e.target.id === "cptIn" && isPhone()) { clearTimeout(typeT); typing(true); } });
   document.addEventListener("focusout", e => { if (!e.target || e.target.id !== "cptIn") return; clearTimeout(typeT); typeT = setTimeout(() => { const a = document.activeElement; if (!(a && a.id === "cptIn")) typing(false); }, 180); });
-  hook("render", () => { const a = document.activeElement; if (!(a && a.id === "cptIn" && root().classList.contains("ph-lock"))) root().classList.remove("cpt-typing"); });
+  hook("render", () => { const a = document.activeElement; if (!(a && a.id === "cptIn")) root().classList.remove("cpt-typing"); else if (isPhone()) root().classList.add("cpt-typing"); });
   // An Options menu closes after a choice, or a tap anywhere else
   document.addEventListener("click", e => {
     document.querySelectorAll("details.ph-more[open]").forEach(d => { if (!d.contains(e.target) || e.target.closest(".ph-menu .btn")) d.open = false; });
