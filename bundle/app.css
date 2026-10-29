@@ -2283,6 +2283,7 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 }
 /* A dropdown in a settings row sizes to its choices, so the label keeps the room */
 .cap-row > select{width:auto;flex:none;max-width:55%}
+.ar-quiz[hidden]{display:none!important}
 /* ===== module: 05-account.css ===== */
 /* Studyboard account sheets */
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}
