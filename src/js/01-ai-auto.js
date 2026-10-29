@@ -44,7 +44,7 @@ async function autoPlan(a){
   if (!open.length) return;
   const ref = {}, back = {};
   open.forEach((t, i) => { ref[t.id] = "t" + (i + 1); back["t" + (i + 1)] = t.id; });
-  const deckInfo = cid => deckListArr().filter(d => d.courseId && d.courseId === cid).map(d => { const s = deckStats(d); return `${d.name}: ${Math.round(s.mastery * 100)}% mastered${s.last ? `, last quiz ${s.last.score}/${s.last.total}` : ""}`; }).join("; ");
+  const deckInfo = cid => decksArr().filter(d => d.courseId && d.courseId === cid).map(d => { const s = deckStats(d); return isQuizHolder(d) ? (s.last ? `quiz "${d.name}" (made from slides, notes or own questions): last score ${s.last.score}/${s.last.total}` : "") : `${d.name}: ${Math.round(s.mastery * 100)}% mastered${s.last ? `, last quiz ${s.last.score}/${s.last.total}` : ""}`; }).filter(Boolean).join("; ");
   const rankOf = {}; (F.ranked || []).forEach((x, i) => { rankOf[x.t.id] = i + 1; });
   const lines = open.map(t => {
     const c = courseOf(t.courseId), p = progress(t), ps = MILESTONE(t.type) ? planSessions(t.id) : [];

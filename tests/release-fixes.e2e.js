@@ -110,6 +110,19 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(/flashcards added since Midterm 1 \(8 of 8 studied\)/.test(await o.page.locator("dialog[open] .tv-ready").innerText()), "Midterm 2 counts the cards added since Midterm 1");
       await done(o.ctx, o.page);
     }
+    { // 5b. Quizzes not made from flashcards (from slides, notes or your own questions) count too, matched to the exam's topics
+      const qz = (id, title, score, srcs) => ({id: "h" + id, name: title, courseId: "c1", created: 5, quizOnly: true, cards: [], quizzes: [], aiQuizzes: [{id: "q" + id, title, style: "", created: Date.now() - 3 * DAY, sources: srcs, questions: [{id: "x1", type: "single", q: "Question about " + title, choices: ["a", "b"], answer: 0}], results: [{at: Date.now() - DAY, score, total: 10}]}]});
+      const {ctx, page} = await open({tasks: [mk("m2", "Midterm 2", "Exam", 8, Object.assign({weight: 30, pct: 90, notes: "Covers chapters 4 to 6."}, inPerson))],
+        decks: [qz("2", "Chapter 2 slides quiz", 9, ["Lecture 2 slides.pdf"]), qz("5", "Chapter 5 slides quiz", 4, ["Lecture 5 slides.pdf"])]});
+      await act(page, "edit-task", "m2"); await page.waitForSelector("dialog[open] .tv-ready");
+      const a = await page.locator("dialog[open] .tv-ready").innerText();
+      ok(/a practice quiz \(40% average\)/.test(a) && /\b40%/.test(a), "with no flashcards, readiness comes from the chapter 5 quiz only (40%), not the chapter 2 one: " + a.replace(/\s+/g, " ").slice(0, 150));
+      ok(/You rate yourself 90% ready, but your results say about 40%/.test(a), "and the gap with how ready you feel is shown");
+      await page.click('dialog[open] [data-act="xr-decks"]'); await page.waitForSelector("dialog[open] .xr-sheet");
+      const sh = await page.locator("dialog[open] .xr-sheet").innerText();
+      ok(/Chapter 5 slides quiz\s*1 quiz/.test(sh) && /and 1 quiz/.test(sh), "the picker lists quizzes and says Automatic matched one: " + sh.replace(/\s+/g, " ").slice(0, 200));
+      await done(ctx, page);
+    }
     { // 6. The Crunch Forecast reads Today's Plan: an in-person exam carries its study time, light the night before
       const {ctx, page} = await open({tasks: [mk("x", "Midterm", "Exam", 4, Object.assign({weight: 30}, inPerson)), mk("late", "Old lab", "Lab", -2, {late: "none"})]});
       const r = await page.evaluate(() => { const inp = SBCRUNCH.input() || (SBCRUNCH.model(), SBCRUNCH.input()), m = SBCRUNCH.model(), p = __sbPlan(), st = p.ranked.concat(p.laterRows).find(x => x.id === "study:x");

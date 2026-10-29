@@ -156,46 +156,65 @@ const xrNumHit = (nums, txt) => { const t = xrNums(txt); return Object.keys(t).s
 const cardBorn = c => { const n = parseInt(String(c.id || "").slice(0, 8), 36); return n > 1.4e12 && n < Date.now() + 864e5 ? n : 0; };
 const isCumulative = ex => /\b(final|cumulative|comprehensive)\b/i.test((ex.title || "") + " " + (ex.notes || ""));
 let XE_CACHE = {k: "", m: {}};
+// The words of a practice quiz (its title, what it was made from, and its questions), to match it to an exam's topics
+const quizText = qz => [qz.title, ...(qz.sources || []), ...(qz.questions || []).map(q => Object.values(q || {}).filter(v => typeof v === "string").join(" "))].join(" ");
+// The results of a set of quizzes, newest first: [{at, score, total}]
+const quizResults = list => list.flatMap(qz => (qz.results || []).filter(r => r && Number(r.total) > 0 && Number(r.at) > 0));
 function examEvidence(ex){
   const k = todayISO() + "|" + (state.updated || 0);
   if (XE_CACHE.k !== k) XE_CACHE = {k, m: {}};
   const ck = ex.id + "|" + (ex.readyDecks || []).join(",") + "|" + (ex.notes || "").length + "|" + ex.title + "|" + ex.courseId;
   if (ex.id && XE_CACHE.m[ck]) return XE_CACHE.m[ck];
-  const all = typeof deckListArr === "function" ? deckListArr() : [], course = all.filter(d => ex.courseId && d.courseId === ex.courseId);
-  const live = c => !c.draft;
+  const live = c => !c.draft, alive = Object.values(state.decks || {}).filter(d => d && !d.archived);
+  const all = alive.filter(d => !isQuizHolder(d)), course = all.filter(d => ex.courseId && d.courseId === ex.courseId);
+  // Quizzes not made from flashcards (from slides, notes, a file or your own questions) live on their own, by course
+  const holders = alive.filter(d => isQuizHolder(d)), courseQz = holders.filter(d => ex.courseId && d.courseId === ex.courseId).flatMap(d => (d.aiQuizzes || []).map(qz => Object.assign({deck: d}, qz)));
+  // a flashcard deck's quiz history covers its own quizzes (made from its cards or saved in it)
+  const deckRes = ds => ds.flatMap(d => (d.quizzes || []).filter(r => r && Number(r.total) > 0 && Number(r.at) > 0));
   let out = null;
-  const linked = (ex.readyDecks || []).map(id => all.find(d => d.id === id)).filter(Boolean);
-  if (linked.length) out = {how: "linked", decks: linked, cards: linked.flatMap(d => d.cards.filter(live))};
-  if (!out && course.length) {
+  const linked = (ex.readyDecks || []).map(id => alive.find(d => d.id === id)).filter(Boolean);
+  if (linked.length) {
+    const ds = linked.filter(d => !isQuizHolder(d)), qs = linked.filter(d => isQuizHolder(d)).flatMap(d => d.aiQuizzes || []);
+    out = {how: "linked", decks: ds, cards: ds.flatMap(d => d.cards.filter(live)), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
+  }
+  if (!out && (course.length || courseQz.length)) {
     // the exam's own words: its title, its notes, and announcements in its course that name it
     const name = String(ex.title || "").toLowerCase().replace(/\s+/g, " ").trim();
     let ann = ""; try { if (window.SBANN && name.length >= 4) ann = SBANN.items().filter(n => n.cid === ex.courseId && (n.title + " " + n.text).toLowerCase().includes(name)).map(n => n.title + " " + n.text).join(" "); } catch (e) {}
     const src = [ex.title, ex.notes, ann].join(" "), nums = xrNums(src), cards = course.flatMap(d => d.cards.filter(live).map(c => ({c, d})));
-    // words that name topics: not shared by most of the course's cards (those say nothing about this exam)
-    const freq = {}; cards.forEach(({c}) => new Set(xrWords(c.front + " " + c.back)).forEach(w => { freq[w] = (freq[w] || 0) + 1; }));
-    const terms = new Set(xrWords(src).filter(w => (freq[w] || 0) <= cards.length * 0.5));
+    // words that name topics: not shared by most of the course's cards and quizzes (those say nothing about this exam)
+    const docs = cards.map(({c}) => c.front + " " + c.back).concat(courseQz.map(quizText)), freq = {};
+    docs.forEach(t => new Set(xrWords(t)).forEach(w => { freq[w] = (freq[w] || 0) + 1; }));
+    const terms = new Set(xrWords(src).filter(w => (freq[w] || 0) <= Math.max(1, docs.length * 0.5)));
+    const textHit = t => xrNumHit(nums, t) || xrWords(t).some(w => terms.has(w));
     if (terms.size || Object.keys(nums).length) {
       const deckHit = d => xrNumHit(nums, d.name) || xrWords(d.name).some(w => terms.has(w));
-      const hit = cards.filter(({c, d}) => deckHit(d) || xrNumHit(nums, c.front + " " + c.back) || xrWords(c.front + " " + c.back).some(w => terms.has(w)));
-      if (hit.length >= 5 && hit.length >= cards.length * 0.1 && hit.length < cards.length * 0.95) {
+      const hit = cards.filter(({c, d}) => deckHit(d) || textHit(c.front + " " + c.back));
+      const qHit = courseQz.filter(qz => deckHit(qz.deck) || textHit(quizText(qz)));
+      const cardsOk = hit.length >= 5 && hit.length >= cards.length * 0.1 && hit.length < cards.length * 0.95, quizOk = qHit.length > 0 && qHit.length < courseQz.length;
+      if (cardsOk || (!cards.length && quizOk)) {
         const ds = course.filter(d => hit.filter(h => h.d === d).length >= d.cards.filter(live).length * 0.5);
-        // "chapters 4-6", "unit 2" for the sheet that explains what Automatic picked
         const runs = a => { const v = [...a].sort((x, y) => x - y), o = []; v.forEach(n => { const l = o[o.length - 1]; if (l && n === l[1] + 1) l[1] = n; else o.push([n, n]); }); return o.map(([x, y]) => x === y ? String(x) : x + "–" + y).join(", "); };
-        const label = Object.keys(nums).map(k => ({ch: "chapter", unit: "unit", module: "module", week: "week", lecture: "lecture", lesson: "lesson"}[k] || k) + (nums[k].size > 1 ? "s " : " ") + runs(nums[k]));
-        out = {how: "topics", decks: ds, cards: hit.map(h => h.c), terms: label.concat([...terms]).slice(0, 8)};
+        // "chapters 4-6", "unit 2" for the sheet that explains what Automatic picked
+        const label = Object.keys(nums).map(kk => ({ch: "chapter", unit: "unit", module: "module", week: "week", lecture: "lecture", lesson: "lesson"}[kk] || kk) + (nums[kk].size > 1 ? "s " : " ") + runs(nums[kk]));
+        out = {how: "topics", decks: ds, cards: hit.map(h => h.c), terms: label.concat([...terms]).slice(0, 8), quiz: deckRes(ds).concat(quizResults(qHit)), quizN: qHit.length};
       }
     }
-    // the cards made since the course's previous exam (a later exam usually covers the newer material)
+    // what was made since the course's previous exam (a later exam usually covers the newer material)
     if (!out && !isCumulative(ex)) {
       const prev = Object.values(state.tasks || {}).filter(t => t.id !== ex.id && t.courseId === ex.courseId && MILESTONE(t.type) && !t.prepFor && t.due && t.due < ex.due && (t.type === "Exam" || weightOf(t) >= 10)).sort((a, b) => b.due.localeCompare(a.due))[0];
       if (prev) {
         const since = parse(prev.due).getTime() + 864e5, fresh = cards.filter(({c, d}) => (cardBorn(c) || Number(d.created) || 0) >= since);
-        if (fresh.length >= 5 && fresh.length < cards.length * 0.95) out = {how: "since", decks: course.filter(d => (Number(d.created) || 0) >= since), cards: fresh.map(x => x.c), prev: prev.title};
+        const qFresh = courseQz.filter(qz => (Number(qz.created) || Number(qz.deck.created) || 0) >= since);
+        if ((fresh.length >= 5 && fresh.length < cards.length * 0.95) || (!cards.length && qFresh.length && qFresh.length < courseQz.length)) {
+          const ds = course.filter(d => (Number(d.created) || 0) >= since);
+          out = {how: "since", decks: ds, cards: fresh.map(x => x.c), prev: prev.title, quiz: deckRes(ds).concat(quizResults(qFresh)), quizN: qFresh.length};
+        }
       }
     }
-    if (!out) out = {how: "course", decks: course, cards: course.flatMap(d => d.cards.filter(live))};
+    if (!out) out = {how: "course", decks: course, cards: course.flatMap(d => d.cards.filter(live)), quiz: deckRes(course).concat(quizResults(courseQz)), quizN: courseQz.length};
   }
-  if (!out) out = {how: "none", decks: [], cards: []};
+  if (!out) out = {how: "none", decks: [], cards: [], quiz: [], quizN: 0};
   if (ex.id) XE_CACHE.m[ck] = out;
   return out;
 }
@@ -218,8 +237,9 @@ function examReadiness(t){
     parts.how = ev.how; parts.prev = ev.prev || "";
     if (cards.length >= 5 && seen >= Math.min(10, cards.length)) { parts.cards = typeof DR !== "undefined" ? DR.deck(cards, today) : null; parts.cardsSeen = seen; parts.cardsAll = cards.length; if (parts.cards != null) { ws.push([parts.cards, 1]); n += seen; } }
     const since = Date.now() - XR_DAYS * 864e5;
-    const qs = decks.flatMap(d => (d.quizzes || []).filter(q => q && Number(q.total) > 0 && Number(q.at) >= since)).sort((a, b) => b.at - a.at).slice(0, 5);
-    if (qs.length) { parts.quiz = Math.round(qs.reduce((s2, q) => s2 + Number(q.score) / Number(q.total), 0) / qs.length * 100); parts.quizN = qs.length; ws.push([parts.quiz, 1.5]); n += 6 * qs.length; }
+    // practice quizzes: from the exam's flashcards, and quizzes made from slides, notes or your own questions in its course
+    const qs = (ev.quiz || []).filter(q => Number(q.at) >= since).sort((a, b) => b.at - a.at).slice(0, 5);
+    if (qs.length) { parts.quiz = Math.round(qs.reduce((s2, q) => s2 + Number(q.score) / Number(q.total), 0) / qs.length * 100); parts.quizN = qs.length; ws.push([parts.quiz, 1.5]); n += qs.reduce((s2, q) => s2 + Math.min(12, Math.max(4, Number(q.total) || 6)), 0); }
     const ai = typeof autoPlanOn === "function" && autoPlanOn() && t.status !== "done" && t.aiPrep && autoFresh(t.aiPrep, 4) ? t.aiPrep : null;
     if (ai) { parts.ai = Math.round(Number(ai.pct) || 0); ws.push([parts.ai, 1]); n += 10; }
   }

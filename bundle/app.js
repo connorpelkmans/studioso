@@ -5294,7 +5294,7 @@ async function autoPlan(a){
   if (!open.length) return;
   const ref = {}, back = {};
   open.forEach((t, i) => { ref[t.id] = "t" + (i + 1); back["t" + (i + 1)] = t.id; });
-  const deckInfo = cid => deckListArr().filter(d => d.courseId && d.courseId === cid).map(d => { const s = deckStats(d); return `${d.name}: ${Math.round(s.mastery * 100)}% mastered${s.last ? `, last quiz ${s.last.score}/${s.last.total}` : ""}`; }).join("; ");
+  const deckInfo = cid => decksArr().filter(d => d.courseId && d.courseId === cid).map(d => { const s = deckStats(d); return isQuizHolder(d) ? (s.last ? `quiz "${d.name}" (made from slides, notes or own questions): last score ${s.last.score}/${s.last.total}` : "") : `${d.name}: ${Math.round(s.mastery * 100)}% mastered${s.last ? `, last quiz ${s.last.score}/${s.last.total}` : ""}`; }).filter(Boolean).join("; ");
   const rankOf = {}; (F.ranked || []).forEach((x, i) => { rankOf[x.t.id] = i + 1; });
   const lines = open.map(t => {
     const c = courseOf(t.courseId), p = progress(t), ps = MILESTONE(t.type) ? planSessions(t.id) : [];
@@ -7801,46 +7801,65 @@ const xrNumHit = (nums, txt) => { const t = xrNums(txt); return Object.keys(t).s
 const cardBorn = c => { const n = parseInt(String(c.id || "").slice(0, 8), 36); return n > 1.4e12 && n < Date.now() + 864e5 ? n : 0; };
 const isCumulative = ex => /\b(final|cumulative|comprehensive)\b/i.test((ex.title || "") + " " + (ex.notes || ""));
 let XE_CACHE = {k: "", m: {}};
+// The words of a practice quiz (its title, what it was made from, and its questions), to match it to an exam's topics
+const quizText = qz => [qz.title, ...(qz.sources || []), ...(qz.questions || []).map(q => Object.values(q || {}).filter(v => typeof v === "string").join(" "))].join(" ");
+// The results of a set of quizzes, newest first: [{at, score, total}]
+const quizResults = list => list.flatMap(qz => (qz.results || []).filter(r => r && Number(r.total) > 0 && Number(r.at) > 0));
 function examEvidence(ex){
   const k = todayISO() + "|" + (state.updated || 0);
   if (XE_CACHE.k !== k) XE_CACHE = {k, m: {}};
   const ck = ex.id + "|" + (ex.readyDecks || []).join(",") + "|" + (ex.notes || "").length + "|" + ex.title + "|" + ex.courseId;
   if (ex.id && XE_CACHE.m[ck]) return XE_CACHE.m[ck];
-  const all = typeof deckListArr === "function" ? deckListArr() : [], course = all.filter(d => ex.courseId && d.courseId === ex.courseId);
-  const live = c => !c.draft;
+  const live = c => !c.draft, alive = Object.values(state.decks || {}).filter(d => d && !d.archived);
+  const all = alive.filter(d => !isQuizHolder(d)), course = all.filter(d => ex.courseId && d.courseId === ex.courseId);
+  // Quizzes not made from flashcards (from slides, notes, a file or your own questions) live on their own, by course
+  const holders = alive.filter(d => isQuizHolder(d)), courseQz = holders.filter(d => ex.courseId && d.courseId === ex.courseId).flatMap(d => (d.aiQuizzes || []).map(qz => Object.assign({deck: d}, qz)));
+  // a flashcard deck's quiz history covers its own quizzes (made from its cards or saved in it)
+  const deckRes = ds => ds.flatMap(d => (d.quizzes || []).filter(r => r && Number(r.total) > 0 && Number(r.at) > 0));
   let out = null;
-  const linked = (ex.readyDecks || []).map(id => all.find(d => d.id === id)).filter(Boolean);
-  if (linked.length) out = {how: "linked", decks: linked, cards: linked.flatMap(d => d.cards.filter(live))};
-  if (!out && course.length) {
+  const linked = (ex.readyDecks || []).map(id => alive.find(d => d.id === id)).filter(Boolean);
+  if (linked.length) {
+    const ds = linked.filter(d => !isQuizHolder(d)), qs = linked.filter(d => isQuizHolder(d)).flatMap(d => d.aiQuizzes || []);
+    out = {how: "linked", decks: ds, cards: ds.flatMap(d => d.cards.filter(live)), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
+  }
+  if (!out && (course.length || courseQz.length)) {
     // the exam's own words: its title, its notes, and announcements in its course that name it
     const name = String(ex.title || "").toLowerCase().replace(/\s+/g, " ").trim();
     let ann = ""; try { if (window.SBANN && name.length >= 4) ann = SBANN.items().filter(n => n.cid === ex.courseId && (n.title + " " + n.text).toLowerCase().includes(name)).map(n => n.title + " " + n.text).join(" "); } catch (e) {}
     const src = [ex.title, ex.notes, ann].join(" "), nums = xrNums(src), cards = course.flatMap(d => d.cards.filter(live).map(c => ({c, d})));
-    // words that name topics: not shared by most of the course's cards (those say nothing about this exam)
-    const freq = {}; cards.forEach(({c}) => new Set(xrWords(c.front + " " + c.back)).forEach(w => { freq[w] = (freq[w] || 0) + 1; }));
-    const terms = new Set(xrWords(src).filter(w => (freq[w] || 0) <= cards.length * 0.5));
+    // words that name topics: not shared by most of the course's cards and quizzes (those say nothing about this exam)
+    const docs = cards.map(({c}) => c.front + " " + c.back).concat(courseQz.map(quizText)), freq = {};
+    docs.forEach(t => new Set(xrWords(t)).forEach(w => { freq[w] = (freq[w] || 0) + 1; }));
+    const terms = new Set(xrWords(src).filter(w => (freq[w] || 0) <= Math.max(1, docs.length * 0.5)));
+    const textHit = t => xrNumHit(nums, t) || xrWords(t).some(w => terms.has(w));
     if (terms.size || Object.keys(nums).length) {
       const deckHit = d => xrNumHit(nums, d.name) || xrWords(d.name).some(w => terms.has(w));
-      const hit = cards.filter(({c, d}) => deckHit(d) || xrNumHit(nums, c.front + " " + c.back) || xrWords(c.front + " " + c.back).some(w => terms.has(w)));
-      if (hit.length >= 5 && hit.length >= cards.length * 0.1 && hit.length < cards.length * 0.95) {
+      const hit = cards.filter(({c, d}) => deckHit(d) || textHit(c.front + " " + c.back));
+      const qHit = courseQz.filter(qz => deckHit(qz.deck) || textHit(quizText(qz)));
+      const cardsOk = hit.length >= 5 && hit.length >= cards.length * 0.1 && hit.length < cards.length * 0.95, quizOk = qHit.length > 0 && qHit.length < courseQz.length;
+      if (cardsOk || (!cards.length && quizOk)) {
         const ds = course.filter(d => hit.filter(h => h.d === d).length >= d.cards.filter(live).length * 0.5);
-        // "chapters 4-6", "unit 2" for the sheet that explains what Automatic picked
         const runs = a => { const v = [...a].sort((x, y) => x - y), o = []; v.forEach(n => { const l = o[o.length - 1]; if (l && n === l[1] + 1) l[1] = n; else o.push([n, n]); }); return o.map(([x, y]) => x === y ? String(x) : x + "–" + y).join(", "); };
-        const label = Object.keys(nums).map(k => ({ch: "chapter", unit: "unit", module: "module", week: "week", lecture: "lecture", lesson: "lesson"}[k] || k) + (nums[k].size > 1 ? "s " : " ") + runs(nums[k]));
-        out = {how: "topics", decks: ds, cards: hit.map(h => h.c), terms: label.concat([...terms]).slice(0, 8)};
+        // "chapters 4-6", "unit 2" for the sheet that explains what Automatic picked
+        const label = Object.keys(nums).map(kk => ({ch: "chapter", unit: "unit", module: "module", week: "week", lecture: "lecture", lesson: "lesson"}[kk] || kk) + (nums[kk].size > 1 ? "s " : " ") + runs(nums[kk]));
+        out = {how: "topics", decks: ds, cards: hit.map(h => h.c), terms: label.concat([...terms]).slice(0, 8), quiz: deckRes(ds).concat(quizResults(qHit)), quizN: qHit.length};
       }
     }
-    // the cards made since the course's previous exam (a later exam usually covers the newer material)
+    // what was made since the course's previous exam (a later exam usually covers the newer material)
     if (!out && !isCumulative(ex)) {
       const prev = Object.values(state.tasks || {}).filter(t => t.id !== ex.id && t.courseId === ex.courseId && MILESTONE(t.type) && !t.prepFor && t.due && t.due < ex.due && (t.type === "Exam" || weightOf(t) >= 10)).sort((a, b) => b.due.localeCompare(a.due))[0];
       if (prev) {
         const since = parse(prev.due).getTime() + 864e5, fresh = cards.filter(({c, d}) => (cardBorn(c) || Number(d.created) || 0) >= since);
-        if (fresh.length >= 5 && fresh.length < cards.length * 0.95) out = {how: "since", decks: course.filter(d => (Number(d.created) || 0) >= since), cards: fresh.map(x => x.c), prev: prev.title};
+        const qFresh = courseQz.filter(qz => (Number(qz.created) || Number(qz.deck.created) || 0) >= since);
+        if ((fresh.length >= 5 && fresh.length < cards.length * 0.95) || (!cards.length && qFresh.length && qFresh.length < courseQz.length)) {
+          const ds = course.filter(d => (Number(d.created) || 0) >= since);
+          out = {how: "since", decks: ds, cards: fresh.map(x => x.c), prev: prev.title, quiz: deckRes(ds).concat(quizResults(qFresh)), quizN: qFresh.length};
+        }
       }
     }
-    if (!out) out = {how: "course", decks: course, cards: course.flatMap(d => d.cards.filter(live))};
+    if (!out) out = {how: "course", decks: course, cards: course.flatMap(d => d.cards.filter(live)), quiz: deckRes(course).concat(quizResults(courseQz)), quizN: courseQz.length};
   }
-  if (!out) out = {how: "none", decks: [], cards: []};
+  if (!out) out = {how: "none", decks: [], cards: [], quiz: [], quizN: 0};
   if (ex.id) XE_CACHE.m[ck] = out;
   return out;
 }
@@ -7863,8 +7882,9 @@ function examReadiness(t){
     parts.how = ev.how; parts.prev = ev.prev || "";
     if (cards.length >= 5 && seen >= Math.min(10, cards.length)) { parts.cards = typeof DR !== "undefined" ? DR.deck(cards, today) : null; parts.cardsSeen = seen; parts.cardsAll = cards.length; if (parts.cards != null) { ws.push([parts.cards, 1]); n += seen; } }
     const since = Date.now() - XR_DAYS * 864e5;
-    const qs = decks.flatMap(d => (d.quizzes || []).filter(q => q && Number(q.total) > 0 && Number(q.at) >= since)).sort((a, b) => b.at - a.at).slice(0, 5);
-    if (qs.length) { parts.quiz = Math.round(qs.reduce((s2, q) => s2 + Number(q.score) / Number(q.total), 0) / qs.length * 100); parts.quizN = qs.length; ws.push([parts.quiz, 1.5]); n += 6 * qs.length; }
+    // practice quizzes: from the exam's flashcards, and quizzes made from slides, notes or your own questions in its course
+    const qs = (ev.quiz || []).filter(q => Number(q.at) >= since).sort((a, b) => b.at - a.at).slice(0, 5);
+    if (qs.length) { parts.quiz = Math.round(qs.reduce((s2, q) => s2 + Number(q.score) / Number(q.total), 0) / qs.length * 100); parts.quizN = qs.length; ws.push([parts.quiz, 1.5]); n += qs.reduce((s2, q) => s2 + Math.min(12, Math.max(4, Number(q.total) || 6)), 0); }
     const ai = typeof autoPlanOn === "function" && autoPlanOn() && t.status !== "done" && t.aiPrep && autoFresh(t.aiPrep, 4) ? t.aiPrep : null;
     if (ai) { parts.ai = Math.round(Number(ai.pct) || 0); ws.push([parts.ai, 1]); n += 10; }
   }
@@ -11839,9 +11859,9 @@ function taskView(t0){
     const xr = ms && !done ? examReadiness(t) : null, feelLbl = ms ? "How Ready You Feel" : cfg.prog || "Progress";
     const ready = !xr ? "" : xr.measured != null ? `<div class="tv-prog ro tv-ready"><div class="tv-prog-h"><b>Readiness From Your Results</b><span>${xr.measured}%</span></div>
       <div class="tv-bar" role="progressbar" aria-label="Readiness from your results" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${xr.measured}" style="--v:${xr.measured}%"><i class="tv-fill"></i></div>
-      <p class="mini tv-hint">From ${esc(readinessSource(xr))}.${xr.from === "both" ? " With a little more studying it will rely on these alone." : ""}${xr.parts.plan == null ? ` <button type="button" class="link-btn" data-act="xr-decks" data-id="${esc(t.id)}">Choose Which Flashcards Count</button>` : ""}</p>
+      <p class="mini tv-hint">From ${esc(readinessSource(xr))}.${xr.from === "both" ? " With a little more studying it will rely on these alone." : ""}${xr.parts.plan == null ? ` <button type="button" class="link-btn" data-act="xr-decks" data-id="${esc(t.id)}">Choose Which Flashcards and Quizzes Count</button>` : ""}</p>
       ${xr.gap ? `<p class="tv-gap ${xr.gap > 0 ? "over" : "under"}" role="note">${esc(readinessGapText(xr))}</p>` : ""}</div>`
-      : `<p class="mini tv-hint tv-noready">Nothing measures your readiness yet. Study this course's flashcards or take a practice quiz and Studyboard will use your results instead of how ready you feel.${deckListArr().length ? ` <button type="button" class="link-btn" data-act="xr-decks" data-id="${esc(t.id)}">Choose Which Flashcards Count</button>` : ""}</p>`;
+      : `<p class="mini tv-hint tv-noready">Nothing measures your readiness yet. Study this course's flashcards or take a practice quiz and Studyboard will use your results instead of how ready you feel.${decksArr().length ? ` <button type="button" class="link-btn" data-act="xr-decks" data-id="${esc(t.id)}">Choose Which Flashcards and Quizzes Count</button>` : ""}</p>`;
     const prog = ready + (window.SBWRAP ? SBWRAP.viewHtml(t) : "") + `<div class="tv-prog${drag ? "" : " ro"}"><div class="tv-prog-h"><b>${esc(feelLbl)}</b><span id="tvPct">${val}%</span></div>
       <div class="tv-bar" id="tvBar" ${drag ? `title="${ms ? "Drag to say how ready you feel" : "Drag to update your progress"}" role="slider" tabindex="0" aria-label="${esc(cfg.prog || "Progress")}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${val}" aria-valuetext="${val}%"` : `role="progressbar" aria-label="${esc(cfg.prog || "Progress")}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${val}"`} style="--v:${val}%"><i class="tv-fill"></i>${drag ? `<span class="tv-knob" aria-hidden="true"></span>` : ""}</div>
       ${hint ? `<p class="mini tv-hint">${esc(hint)}</p>` : ""}</div>`;
@@ -65894,14 +65914,16 @@ function viewHtml(t){
 function decksSheet(id){
   const t = state.tasks[id]; if (!isExam(t)) return;
   const ev = examEvidence(Object.assign({}, t, {readyDecks: []})), picked = new Set(t.readyDecks || []), mine = !!picked.size;
-  const how = ev.how === "topics" ? `matches this exam's topics (${ev.terms && ev.terms.length ? ev.terms.slice(0, 5).join(", ") : "from its notes"}) to ${ev.cards.length} card${ev.cards.length === 1 ? "" : "s"}` : ev.how === "since" ? `uses the ${ev.cards.length} cards added since ${ev.prev}` : ev.how === "course" ? "uses every flashcard in this course" : "has no flashcards in this course to use";
-  const decks = deckListArr().slice().sort((a, b) => (b.courseId === t.courseId) - (a.courseId === t.courseId));
-  openSheet(`<form class="sheet xr-sheet">${head("Which Flashcards Count?")}
+  const qn = ev.quizN ? ` and ${ev.quizN} quiz${ev.quizN === 1 ? "" : "zes"}` : "";
+  const how = ev.how === "topics" ? `matches this exam's topics (${ev.terms && ev.terms.length ? ev.terms.slice(0, 5).join(", ") : "from its notes"}) to ${ev.cards.length} card${ev.cards.length === 1 ? "" : "s"}${qn}` : ev.how === "since" ? `uses the ${ev.cards.length} cards${qn} added since ${ev.prev}` : ev.how === "course" ? `uses every flashcard and quiz in this course` : "has no flashcards or quizzes in this course to use";
+  // flashcard decks and quizzes made from slides, notes or your own questions, this course's first
+  const decks = decksArr().slice().sort((a, b) => (b.courseId === t.courseId) - (a.courseId === t.courseId));
+  openSheet(`<form class="sheet xr-sheet">${head("Which Flashcards and Quizzes Count?")}
     <div class="sheet-body">
-      <p style="margin:0">For <b>${esc(t.title)}</b>, readiness is measured from the flashcards (and their practice quizzes) that cover it.</p>
+      <p style="margin:0">For <b>${esc(t.title)}</b>, readiness is measured from the flashcards and practice quizzes that cover it.</p>
       <label class="mi-check"><input type="radio" name="xrm" value="auto"${mine ? "" : " checked"}> <span><b>Automatic.</b> Right now Studyboard ${esc(how)}.</span></label>
       <label class="mi-check"><input type="radio" name="xrm" value="pick"${mine ? " checked" : ""}> <span><b>Only the decks I pick:</b></span></label>
-      <div class="xr-decks" id="xrDecks">${decks.length ? decks.map(d => { const c = courseOf(d.courseId); return `<label class="mi-check"><input type="checkbox" name="d" value="${esc(d.id)}"${picked.has(d.id) ? " checked" : ""}> <span>${esc(d.name)} <span class="mini">${d.cards.length} card${d.cards.length === 1 ? "" : "s"}${c ? " · " + esc(courseLabel(c)) : ""}</span></span></label>`; }).join("") : `<p class="mini">You don't have any flashcard decks yet.</p>`}</div>
+      <div class="xr-decks" id="xrDecks">${decks.length ? decks.map(d => { const c = courseOf(d.courseId); return `<label class="mi-check"><input type="checkbox" name="d" value="${esc(d.id)}"${picked.has(d.id) ? " checked" : ""}> <span>${esc(d.name)} <span class="mini">${isQuizHolder(d) ? (n => `${n} quiz${n === 1 ? "" : "zes"}`)((d.aiQuizzes || []).length) : `${d.cards.length} card${d.cards.length === 1 ? "" : "s"}`}${c ? " · " + esc(courseLabel(c)) : ""}</span></span></label>`; }).join("") : `<p class="mini">You don't have any flashcards or quizzes yet.</p>`}</div>
     </div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Save</button></div></form>`, fd => {
     const cur = state.tasks[id]; if (!cur) return;

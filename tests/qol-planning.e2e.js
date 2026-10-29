@@ -135,7 +135,7 @@ const typeAdd = async (p, text) => { await p.fill("#qaIn", text); await p.click(
       const tile = await p.textContent('[data-act="plan-tile"][data-id="late"] b');
       const lateOnBoard = (await stored(p)).filter(t => t.status !== "done" && t.due && t.due < "2026-10-23").length;
       ok(Number(tile) === lateOnBoard, `6: the Overdue tile counts what the Board shows late (${tile} vs ${lateOnBoard})`);
-      ok(/^From now to (the end of today|Fri, Oct 23)/.test((await p.textContent(".plan-warn .pw-main")).trim()), "17: the plan warning names its time window");
+      ok(/^From now to (the end of today|Fri, Oct 23)/.test((await p.textContent(".pn-warn .pn-main")).trim()), "17: the plan warning names its time window");
       ok(/today/.test(await p.textContent(".plan-row .alloc")), "21: a row's suggested time is labeled as today's");
       ok(/\+\d+ more/.test(await p.textContent(".plan-row .pr-n")), "21: the extra-reasons chip says how many more reasons");
       ok(await p.locator(".rb .rb-day").count() === 14 && /Today/i.test(await p.textContent(".rb-col.is-today .rb-day")), "21: the ribbon shows two weeks, today first");

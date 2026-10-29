@@ -55,7 +55,7 @@ const setTask = (page, id, patch) => page.evaluate(([id, p]) => { const S = wind
 
       const plan = await page.evaluate(() => window.__sbPlan());
       ok(plan.next && plan.next.id === "lab4", "Do This Next is Lab 4, due before the exam: " + JSON.stringify(plan.next));
-      const nu = await txt(page, ".next-up");
+      const nu = (await page.textContent(".next-up")).replace(/\s+/g, " ");
       ok(/Lab 4/.test(nu) && /Due before your exam/.test(nu), "Do This Next says why: " + nu.slice(0, 160));
       const shown = await page.evaluate(() => [...document.querySelectorAll(".next-up .nu-title, section.plan .plan-row .task-title")].map(e => e.innerText));
       ok(shown.some(t => /Lab 4/.test(t)), "Lab 4 is on Today's Plan");

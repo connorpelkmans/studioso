@@ -124,14 +124,16 @@ function viewHtml(t){
 function decksSheet(id){
   const t = state.tasks[id]; if (!isExam(t)) return;
   const ev = examEvidence(Object.assign({}, t, {readyDecks: []})), picked = new Set(t.readyDecks || []), mine = !!picked.size;
-  const how = ev.how === "topics" ? `matches this exam's topics (${ev.terms && ev.terms.length ? ev.terms.slice(0, 5).join(", ") : "from its notes"}) to ${ev.cards.length} card${ev.cards.length === 1 ? "" : "s"}` : ev.how === "since" ? `uses the ${ev.cards.length} cards added since ${ev.prev}` : ev.how === "course" ? "uses every flashcard in this course" : "has no flashcards in this course to use";
-  const decks = deckListArr().slice().sort((a, b) => (b.courseId === t.courseId) - (a.courseId === t.courseId));
-  openSheet(`<form class="sheet xr-sheet">${head("Which Flashcards Count?")}
+  const qn = ev.quizN ? ` and ${ev.quizN} quiz${ev.quizN === 1 ? "" : "zes"}` : "";
+  const how = ev.how === "topics" ? `matches this exam's topics (${ev.terms && ev.terms.length ? ev.terms.slice(0, 5).join(", ") : "from its notes"}) to ${ev.cards.length} card${ev.cards.length === 1 ? "" : "s"}${qn}` : ev.how === "since" ? `uses the ${ev.cards.length} cards${qn} added since ${ev.prev}` : ev.how === "course" ? `uses every flashcard and quiz in this course` : "has no flashcards or quizzes in this course to use";
+  // flashcard decks and quizzes made from slides, notes or your own questions, this course's first
+  const decks = decksArr().slice().sort((a, b) => (b.courseId === t.courseId) - (a.courseId === t.courseId));
+  openSheet(`<form class="sheet xr-sheet">${head("Which Flashcards and Quizzes Count?")}
     <div class="sheet-body">
-      <p style="margin:0">For <b>${esc(t.title)}</b>, readiness is measured from the flashcards (and their practice quizzes) that cover it.</p>
+      <p style="margin:0">For <b>${esc(t.title)}</b>, readiness is measured from the flashcards and practice quizzes that cover it.</p>
       <label class="mi-check"><input type="radio" name="xrm" value="auto"${mine ? "" : " checked"}> <span><b>Automatic.</b> Right now Studyboard ${esc(how)}.</span></label>
       <label class="mi-check"><input type="radio" name="xrm" value="pick"${mine ? " checked" : ""}> <span><b>Only the decks I pick:</b></span></label>
-      <div class="xr-decks" id="xrDecks">${decks.length ? decks.map(d => { const c = courseOf(d.courseId); return `<label class="mi-check"><input type="checkbox" name="d" value="${esc(d.id)}"${picked.has(d.id) ? " checked" : ""}> <span>${esc(d.name)} <span class="mini">${d.cards.length} card${d.cards.length === 1 ? "" : "s"}${c ? " · " + esc(courseLabel(c)) : ""}</span></span></label>`; }).join("") : `<p class="mini">You don't have any flashcard decks yet.</p>`}</div>
+      <div class="xr-decks" id="xrDecks">${decks.length ? decks.map(d => { const c = courseOf(d.courseId); return `<label class="mi-check"><input type="checkbox" name="d" value="${esc(d.id)}"${picked.has(d.id) ? " checked" : ""}> <span>${esc(d.name)} <span class="mini">${isQuizHolder(d) ? (n => `${n} quiz${n === 1 ? "" : "zes"}`)((d.aiQuizzes || []).length) : `${d.cards.length} card${d.cards.length === 1 ? "" : "s"}`}${c ? " · " + esc(courseLabel(c)) : ""}</span></span></label>`; }).join("") : `<p class="mini">You don't have any flashcards or quizzes yet.</p>`}</div>
     </div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Save</button></div></form>`, fd => {
     const cur = state.tasks[id]; if (!cur) return;
