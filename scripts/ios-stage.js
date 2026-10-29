@@ -40,8 +40,11 @@ if (fs.existsSync(plistFile)) {
   const need = ["@capacitor/keyboard", "@capacitor/screen-orientation"].filter(m => fs.existsSync(path.join(wrap, "node_modules")) && !fs.existsSync(path.join(wrap, "node_modules", m)));
   if (need.length) {
     console.log("ios-stage: installing " + need.join(", ") + " in ios-wrapper");
-    try { execFileSync(process.platform === "win32" ? "npm.cmd" : "npm", ["install", ...need], {cwd: wrap, stdio: "inherit"}); }
-    catch (e) { console.log("ios-stage: couldn't install them. Run this, then npm run ios:stage again:\n  cd ios-wrapper && npm i " + need.join(" ") + " && cd .."); }
+    // the plugins' major version has to match the project's Capacitor, or npm refuses
+    let major = ""; try { major = String(JSON.parse(fs.readFileSync(path.join(wrap, "node_modules", "@capacitor", "core", "package.json"), "utf8")).version || "").split(".")[0]; } catch (e) {}
+    const pkgs = need.map(m => /^\d+$/.test(major) ? `${m}@^${major}` : m);
+    try { execFileSync(process.platform === "win32" ? "npm.cmd" : "npm", ["install", ...pkgs], {cwd: wrap, stdio: "inherit"}); }
+    catch (e) { console.log("ios-stage: couldn't install them. Run this, then npm run ios:stage again:\n  cd ios-wrapper && npm i " + pkgs.join(" ") + " && cd .."); }
   }
 }
 

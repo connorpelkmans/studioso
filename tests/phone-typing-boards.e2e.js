@@ -61,6 +61,29 @@ async function open(b, view){
       ok(await page.evaluate(() => { const c = document.querySelector(".note.editing .note-colors"); return !!c && getComputedStyle(c).display !== "none"; }), "keyboard down: the colours and other options are back");
       ok(!errs.length, "notes: no page errors " + errs.join(" | "));
       await ctx.close(); }
+    // No keyboard plugin (Safari, or an app build without it): iOS keeps the page's size, shows the keyboard over it and
+    // slides the visible part down to the text box. The note editor still rests on the keyboard, goes compact, and stays
+    // fully in view.
+    { const ctx = await b.newContext({viewport: {width: W, height: H}, isMobile: true, hasTouch: true});
+      await ctx.addInitScript(([seed]) => { window.__SB_TEST = true;
+        try { localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("studyboard:notesView", "notes");
+          if (!localStorage.getItem("coursework:v2")) localStorage.setItem("coursework:v2", JSON.stringify(seed)); } catch (e) {} }, [SEED]);
+      await ctx.addInitScript(KB => { let open = false, pan = 0; const vv = window.visualViewport;
+        Object.defineProperty(vv, "height", {configurable: true, get: () => innerHeight - (open ? KB : 0)});
+        Object.defineProperty(vv, "offsetTop", {configurable: true, get: () => pan});
+        window.__kbWeb = (on, p) => { open = on; pan = p || 0; vv.dispatchEvent(new Event("resize")); vv.dispatchEvent(new Event("scroll")); }; }, KB);
+      const page = await ctx.newPage(); const errs = []; page.on("pageerror", e => errs.push(e.message));
+      await page.goto("http://localhost:" + server.address().port + "/"); await page.waitForSelector("#view", {state: "attached"}); await page.waitForTimeout(1200);
+      await page.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
+      await page.tap('nav.tabs [data-tab="notes"]'); await page.waitForSelector('.note[data-note="n1"]'); await page.tap('.note[data-note="n1"]'); await page.waitForSelector("#noteText"); await page.waitForTimeout(500);
+      await page.focus("#noteText"); await page.evaluate(() => window.__kbWeb(true, 320)); await page.waitForTimeout(400);
+      const w = await page.evaluate(() => { const el = document.querySelector(".note.editing"), r = el.getBoundingClientRect(), vv = visualViewport, c = el.querySelector(".note-colors");
+        return {kb: document.documentElement.classList.contains("kb-open"), top: Math.round(r.top), bottom: Math.round(r.bottom), visTop: vv.offsetTop, visBottom: Math.round(vv.offsetTop + vv.height), colors: c ? getComputedStyle(c).display : "none"}; });
+      ok(w.kb, "no plugin, page slid up: the keyboard is still seen as up");
+      ok(Math.abs(w.bottom - w.visBottom) <= 2 && w.top >= w.visTop, "the note editor rests on the keyboard and stays fully in view: " + JSON.stringify(w));
+      ok(w.colors === "none", "and it's the compact typing editor");
+      ok(!errs.length, "no plugin: no page errors " + errs.join(" | "));
+      await ctx.close(); }
     console.log("\nphone-typing-boards.e2e: " + n + " checks passed");
   } finally { await b.close(); server.close(); }
 })().catch(e => { console.error(e); process.exit(1); });

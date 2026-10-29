@@ -541,6 +541,7 @@ function noteToastUp(again){
 function noteKbFit(){
   const el = $(".note.n-sheet"), vv = window.visualViewport; if (!el || !vv) return;
   el.style.setProperty("--kb", Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)) + "px");
+  el.style.setProperty("--vvh", Math.round(vv.height) + "px");   // what's visible: the sheet is never taller, so it never runs off the top
 }
 if (window.visualViewport) { visualViewport.addEventListener("resize", noteKbFit); visualViewport.addEventListener("scroll", noteKbFit); }
 function noteScrollIn(){
@@ -1070,8 +1071,11 @@ function dlgKbFit(){
   const vv = window.visualViewport; if (!vv || !matchMedia("(max-width:639px)").matches) return;
   // in the iPhone app the keyboard plugin shrinks the app itself and says when the keyboard is up (native-bridge.js)
   if (document.documentElement.classList.contains("kb-native")) return;
+  // kb: how far the keyboard's top is above the bottom of the page's frame (where sheets are pinned). Whether the keyboard
+  // is up at all is the visible area's height alone: iOS also slides the page up to reveal a text box, which made kb small
+  // and hid the fact the keyboard was up
   const d = document.documentElement, kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop));
   d.style.setProperty("--kb-h", kb + "px"); d.style.setProperty("--vv-h", Math.round(vv.height) + "px");
-  d.classList.toggle("kb-open", kb > 80);
+  d.classList.toggle("kb-open", innerHeight - vv.height > 120);
 }
 if (window.visualViewport) { visualViewport.addEventListener("resize", dlgKbFit); visualViewport.addEventListener("scroll", dlgKbFit); }
