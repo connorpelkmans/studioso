@@ -406,7 +406,8 @@ var SBWB = null;
   const FREE = ["blank", "grid", "dots", "lines"];
   const fixedPage = () => { const n = noteOf(); return !!(n && n.wb && n.wb.tpl && !FREE.includes(n.wb.tpl)); };
   // On phones the page is too small to use at its fit size, so it zooms and moves, kept inside the page
-  const PHONE = () => !!(window.matchMedia && matchMedia("(max-width:639px)").matches);
+  // (a phone turned sideways is wider than that, but it is still a small touch screen you pinch to zoom)
+  const PHONE = () => !!(window.matchMedia && matchMedia("(max-width:639px), (hover:none) and (pointer:coarse) and (max-height:639px)").matches);
   function clampCam(){
     const fx = fixedPage(), ph = fx && PHONE(); if (STAGE) STAGE.classList.toggle("wb-fixed", fx && !ph);
     if (fx && fw > 0 && fh > 0) {
