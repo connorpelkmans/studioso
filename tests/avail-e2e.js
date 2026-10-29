@@ -119,6 +119,9 @@ const blocks = p => p.evaluate(() => window.__sbAvail.state().blocks);
 
     await addBlock(p, {type: "shift", title: "Ward shift today", mode: "one", date: "2026-10-05", start: "11:00", end: "19:30", bufA: 30, bufB: 0});
     await p.evaluate(() => window.__sbAvail.view({tab: "board", bview: "plan"}));
+    // Free Time sits closed in the links under the plan
+    await p.waitForSelector('.pt-tab[data-k="free"]', {state: "attached"});
+    await p.evaluate(() => { const t = document.querySelector('.pt-tab[data-k="free"]'); if (t.getAttribute("aria-expanded") !== "true") t.click(); });
     await p.waitForSelector(".av-strip");
     const strip = (await txt(p, ".av-strip"))[0];
     ok(/on shift until 9:10 PM/.test(strip) && /free window is 9:10 PM.11:00 PM/.test(strip), tag + " strip explains the shift: " + strip.slice(0, 160));
