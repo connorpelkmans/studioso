@@ -11,7 +11,8 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   const b = await chromium.launch({executablePath});
   try {
     const ctx = await b.newContext({viewport: {width: 402, height: 874}, isMobile: true, hasTouch: true, timezoneId: "America/Vancouver"});
-    const seed = {v: 2, updated: 1, settings: {}, courses: [{id: "c1", name: "Biology", code: "BIO 101", color: "#4a7", meetings: [{days: [1, 2, 3, 4, 5], start: "10:00", end: "11:00", kind: "lecture"}]}], tasks: [], notes: []};
+    const seed = {v: 2, updated: 1, settings: {}, courses: [{id: "c1", name: "Biology", code: "BIO 101", color: "#4a7", meetings: [{days: [1, 2, 3, 4, 5], start: "10:00", end: "11:00", kind: "lecture"}]}],
+      tasks: ["Lab report", "Reading", "Quiz prep"].map((t, i) => ({id: "t" + i, courseId: "c1", title: t, due: "2026-10-29", type: "assignment", status: "todo"})), notes: []};
     await ctx.addInitScript(s => { window.__SB_TEST = true; try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(s)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done"); } } catch (e) {} }, seed);
     const page = await ctx.newPage(); const errs = []; page.on("pageerror", e => errs.push(e.message));
     await page.clock.install({time: new Date("2026-10-28T09:00:00-07:00")});   // a Wednesday
@@ -22,9 +23,10 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       const col = document.querySelector(".sch-col.sel"), r = col.getBoundingClientRect(), y = r.top + 80;
       const T = x => new Touch({identifier: 1, target: col, clientX: x, clientY: y, pageX: x, pageY: y + scrollY});
       const fire = (type, x) => col.dispatchEvent(new TouchEvent(type, {touches: type === "touchend" ? [] : [T(x)], changedTouches: [T(x)], bubbles: true, cancelable: true}));
+      const g = document.querySelector(".sch-gutter"), top0 = Math.round(col.getBoundingClientRect().top), gb0 = getComputedStyle(g).backgroundColor;
       fire("touchstart", from); let mid = null;
       for (let i = 1; i <= steps; i++) { await new Promise(r => setTimeout(r, 16)); fire("touchmove", from + (to - from) * i / steps);
-        if (i === Math.round(steps * 0.7)) { const p = document.querySelector(".sch-col.sch-peek"), s = document.querySelector(".sch-col.sel"); mid = {peek: p ? Math.round(p.getBoundingClientRect().left) : null, cur: Math.round(s.getBoundingClientRect().left), date: p ? p.dataset.date : null}; } }
+        if (i === Math.round(steps * 0.7)) { const p = document.querySelector(".sch-col.sch-peek"), s = document.querySelector(".sch-col.sel"); mid = {peek: p ? Math.round(p.getBoundingClientRect().left) : null, cur: Math.round(s.getBoundingClientRect().left), date: p ? p.dataset.date : null, topMoved: Math.round(s.getBoundingClientRect().top) - top0, gutterSame: getComputedStyle(g).backgroundColor === gb0, clipped: getComputedStyle(s).clipPath !== "none"}; } }
       if (opts.hold) await new Promise(r => setTimeout(r, 200));
       fire("touchend", to); return mid;
     }, [from, to, steps, opts]);
@@ -32,6 +34,8 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     const d0 = await day();
     const mid = await swipe(320, 120, 12, {hold: true});
     ok(mid && mid.peek !== null && mid.cur < 40 && mid.peek > mid.cur && mid.peek < 402, "mid-swipe: the day moves with the finger and the next day is sliding in beside it: " + JSON.stringify(mid));
+    ok(mid.topMoved === 0, "the day being swiped away doesn't jump, even though the next day has more due items in its header (" + mid.topMoved + "px)");
+    ok(mid.gutterSame && mid.clipped, "the hours keep their look; the sliding days are trimmed at the edge instead of passing under them");
     await page.waitForTimeout(500);
     const d1 = await day();
     ok(d1.date === mid.date && d1.date > d0.date, "let go past a third: it settles on the next day (" + d0.date + " -> " + d1.date + ")");

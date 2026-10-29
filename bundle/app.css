@@ -1273,12 +1273,12 @@ canvas.confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:n
   .sch-pills button[aria-pressed="true"] b{color:var(--sel-ink)}
   .sch-grid{grid-template-columns:48px minmax(0,1fr)}
   .sch-head:not(.sel),.sch-col:not(.sel){display:none}
-  /* swiping between days (100-phone.js): the day and the one beside it share a cell and slide; the hours stay put on top */
-  .sch-grid.sch-swiping > .sch-corner{grid-area:1/1;position:relative;z-index:3}
-  .sch-grid.sch-swiping > .sch-gutter{grid-area:2/1;position:relative;z-index:3;background:var(--surface)}
-  .sch-grid.sch-swiping > .sch-head:is(.sel,.sch-peek){grid-area:1/2;display:grid}
-  .sch-grid.sch-swiping > .sch-col:is(.sel,.sch-peek){grid-area:2/2;display:block}
-  .sch-grid.sch-swiping > :is(.sch-head,.sch-col){will-change:transform}
+  /* swiping between days (100-phone.js): the next day lies over the current day's cell without taking part in the layout
+     (so the rows never resize mid-swipe), and both are trimmed at the cell's edges (so the hours keep their look) */
+  .sch-grid.sch-swiping{position:relative}
+  .sch-grid.sch-swiping > .sch-head.sch-peek{grid-area:1/2;position:absolute;inset:0;display:grid}
+  .sch-grid.sch-swiping > .sch-col.sch-peek{grid-area:2/2;position:absolute;left:0;right:0;top:0;display:block}
+  .sch-grid.sch-swiping > :is(.sch-head,.sch-col){will-change:transform,clip-path}
   .sch-b{font-size:.8rem}
 }
 /* class time editor */

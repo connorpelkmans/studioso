@@ -82799,8 +82799,12 @@ const AUTOPILOT = (() => {
       let html = ""; try { html = viewSchedule(); } catch (e) {}
       ui.schWeek = keep[0]; ui.schDay = keep[1]; schNoticeHtml = keep[2];
       const tmp = document.createElement("div"); tmp.innerHTML = html;
-      const h = tmp.querySelector(".sch-grid > .sch-head.sel"), c = tmp.querySelector(".sch-grid > .sch-col.sel");
+      const h = tmp.querySelector(".sch-grid > .sch-head.sel"), c = tmp.querySelector(".sch-grid > .sch-col.sel"), g2 = tmp.querySelector(".sch-grid");
       if (!h || !c) return null;
+      // that week may start its hours elsewhere: line its events up with the hours shown here
+      const pph = Number(grid.dataset.pph) || 56, shift = ((Number(g2 && g2.dataset.h0) || 0) - (Number(grid.dataset.h0) || 0)) * pph;
+      if (shift) c.querySelectorAll(".sch-b, .sch-now").forEach(e => { e.style.top = (parseFloat(e.style.top) || 0) + shift + "px"; });
+      c.style.height = S.col.style.height;
       grid.append(h, c);
       return {head: h, col: c, own: true, commit: () => { ui.schWeek = wk; ui.schDay = dir > 0 ? 0 : -1; }};
     }
@@ -82813,17 +82817,19 @@ const AUTOPILOT = (() => {
     }
     function unpeek(){
       const nb = S && S.nb; if (!nb) return;
-      [nb.head, nb.col].forEach(el => { el.classList.remove("sch-peek"); el.style.transform = el.style.transition = ""; if (nb.own) el.remove(); });
+      [nb.head, nb.col].forEach(el => { el.classList.remove("sch-peek"); el.style.transform = el.style.transition = el.style.clipPath = ""; if (nb.own) el.remove(); });
       S.nb = null; S.dir = 0;
     }
+    // each slides by t, trimmed to the day's cell, so nothing passes under the hours
     function place(dx, ms){
-      const tr = ms ? `transform ${ms}ms ${EASE}` : "";
-      [S.head, S.col].forEach(el => { el.style.transition = tr; el.style.transform = `translateX(${dx}px)`; });
-      if (S.nb) [S.nb.head, S.nb.col].forEach(el => { el.style.transition = tr; el.style.transform = `translateX(${dx + S.dir * S.w}px)`; });
+      const tr = ms ? `transform ${ms}ms ${EASE}, clip-path ${ms}ms ${EASE}` : "";
+      const put = (el, t) => { el.style.transition = tr; el.style.transform = `translateX(${t}px)`; el.style.clipPath = `inset(0 ${Math.max(0, t)}px 0 ${Math.max(0, -t)}px)`; };
+      [S.head, S.col].forEach(el => put(el, dx));
+      if (S.nb) [S.nb.head, S.nb.col].forEach(el => put(el, dx + S.dir * S.w));
     }
     function cleanup(){
       if (!S) return;
-      unpeek(); [S.head, S.col].forEach(el => { el.style.transform = el.style.transition = ""; });
+      unpeek(); [S.head, S.col].forEach(el => { el.style.transform = el.style.transition = el.style.clipPath = ""; });
       S.grid.classList.remove("sch-swiping"); if (S.lock === "x") renderBlocked = false; S = null;
     }
     document.addEventListener("touchstart", e => {
@@ -82864,7 +82870,12 @@ const AUTOPILOT = (() => {
       S.settling = true;
       const finish = () => {
         if (!S) return;
-        if (go) { const commit = S.nb.commit; cleanup(); commit(); render(); }
+        if (go) {
+          const commit = S.nb.commit, h0 = S.head.offsetHeight; cleanup(); commit(); render();
+          // the new day's header can be taller or shorter (more due items): the hours below ease into place instead of jumping
+          const g = document.querySelector(".sch-wrap .sch-grid"), nh = g && g.querySelector(":scope > .sch-head.sel"), d = nh ? nh.offsetHeight - h0 : 0;
+          if (d && !still() && g.animate) g.querySelectorAll(":scope > .sch-gutter, :scope > .sch-col.sel").forEach(el => el.animate([{transform: `translateY(${-d}px)`}, {transform: "none"}], {duration: 220, easing: EASE}));
+        }
         else cleanup();
       };
       if (!ms) { finish(); return; }
