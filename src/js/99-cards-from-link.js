@@ -21,7 +21,7 @@ const LINKCARDS = (() => {
     empty: "Paste a link first.",
     bad: "That doesn't look like a web link. Paste the full address, starting with https://",
     scheme: "Only web links (starting with http or https) work here.",
-    local: "That link only works on your own computer or network, so the AI can't open it. Paste the text instead.",
+    local: "That link only works on your own computer or network, so the AI can't open it.",
     "yt-list": "That's a YouTube channel, playlist or search, not one video. Open the video and copy its link.",
     "yt-bad": "That YouTube link looks incomplete. Copy the video's link again."
   };
@@ -184,7 +184,7 @@ const LINKCARDS = (() => {
       let msg = e && e.code ? m : "Something went wrong. Try again.";
       if (L.kind === "youtube" && !pasted && !(e && e.link)) {
         if ((e && (e.code === "big" || e.code === "long")) || /token|too long|exceed|duration|maximum/i.test(m)) msg = failMsg("too_long", L);
-        else if (/private|unavailable|not (?:be )?found|invalid.*(?:video|url|uri)|file_?uri|unsupported|cannot (?:access|fetch)|permission/i.test(m)) msg = failMsg("unreachable", L);
+        else if ((e && e.code === "http") || /private|unavailable|not (?:be )?found|invalid.*(?:video|url|uri|argument)|file_?uri|unsupported|cannot (?:access|fetch)|permission/i.test(m)) msg = failMsg("unreachable", L);
       }
       const offerPaste = !pasted && !/^(?:nokey|key|credit|offline|no-consent|cancelled|limit|busy)$/.test((e && e.code) || "");
       say(msg + (offerPaste ? (e && e.link ? " Paste the text instead, and the AI can work from that." : "") : ""), offerPaste ? PASTE : "");

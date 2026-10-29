@@ -2158,6 +2158,28 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     return String(s || "").replace(/<[^>]*>/g, " ").replace(/\{\{c\d+::([^}]*)\}\}/g, "$1").replace(/_{3,}/g, " blank ").replace(/[*#`~|>]+/g, " ")
       .replace(/^\s*[-•]\s*/gm, "").replace(/\s*\n+\s*/g, ". ").replace(/\s+/g, " ").replace(/(\.\s*){2,}/g, ". ").trim().slice(0, 1200);
   }
+  // The device's own voices (the Web Speech API, free to use on any page), best first. Quality shows in the names: Edge's "Online (Natural)"
+  // and other neural voices, Apple's Premium, Enhanced and Siri voices, Chrome's and Android's Google network voices. Old robotic and
+  // novelty voices go last. A voice in the student's language always comes before any other.
+  const V_NOVELTY = /\b(?:albert|bad news|good news|bahh|bells|boing|bubbles|cellos|deranged|hysterical|jester|organ|superstar|trinoids|whisper|wobble|zarvox|fred|ralph|junior|kathy|princess|bruce|agnes|vicki|victoria|grandma|grandpa|rocko|shelley|flo|eddy|reed|sandy)\b/i;
+  function voiceRank(v, want){
+    const name = String((v && v.name) || ""), id = String((v && v.voiceURI) || ""), both = name + " " + id;
+    const lang = String((v && v.lang) || "").replace(/_/g, "-").toLowerCase(), w = String(want || "en").replace(/_/g, "-").toLowerCase();
+    let score = 0, tier = "basic";
+    if (/espeak|mbrola|festival|flite|\bpico\b/i.test(both)) { score -= 60; tier = "robotic"; }
+    else if (V_NOVELTY.test(name) && !/\((?:enhanced|premium)\)/i.test(name)) { score -= 50; tier = "robotic"; }
+    else if (/\bnatural\b|neural|wavenet|\bpremium\b|\bsiri\b/i.test(both)) { score += 50; tier = "natural"; }
+    else if (/\benhanced\b/i.test(both)) { score += 38; tier = "enhanced"; }
+    else if (/^google\b/i.test(name) || /network/i.test(id)) { score += 30; tier = "enhanced"; }
+    if (tier === "basic" && /^(?:alex|samantha|ava|allison|susan|tom|karen|daniel|moira|tessa|serena|zoe|evan|nathan|noelle|joelle|aaron|nicky|rishi)\b/i.test(name)) score += 8;
+    if (v && v.default) score += 3;
+    const mine = !!lang && lang.slice(0, 2) === w.slice(0, 2);
+    score += mine ? (lang === w ? 140 : 100) : -100; // the same accent counts for more than an Enhanced voice
+    return {v, score, tier, mine};
+  }
+  function rankVoices(list, want){ return (Array.isArray(list) ? list : []).filter(v => v && v.voiceURI != null).map(v => voiceRank(v, want)).sort((a, b) => b.score - a.score || String(a.v.name).localeCompare(String(b.v.name))); }
+  // The automatic choice: the best voice in the student's language that isn't robotic, or none (the browser's own default)
+  function bestVoice(list, want){ const r = rankVoices(list, want).find(x => x.mine && x.tier !== "robotic"); return r ? r.v : null; }
   /*LISTEN-END*/
 
   let L = null;
@@ -2166,7 +2188,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   function voices(){ const t = TTS(); return t ? t.getVoices() : []; }
   function voiceFor(){
     const v = voices(), want = prefs().voice;
-    return v.find(x => x.voiceURI === want) || v.find(x => x.default && (x.lang || "").slice(0, 2) === (navigator.language || "en").slice(0, 2)) || v.find(x => (x.lang || "").slice(0, 2) === (navigator.language || "en").slice(0, 2)) || null;
+    return v.find(x => x.voiceURI === want) || bestVoice(v, navigator.language || "en") || v.find(x => x.default && (x.lang || "").slice(0, 2) === (navigator.language || "en").slice(0, 2)) || v.find(x => (x.lang || "").slice(0, 2) === (navigator.language || "en").slice(0, 2)) || null;
   }
   function say(text, run){
     return new Promise(res => {
@@ -2260,8 +2282,14 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const d = deckOf(), p = prefs(), c = cardAt(L.i), n = L.ids.length;
     const seg = (key, val, label) => `<button type="button" data-act="ls-set" data-k="${key}" data-id="${val}" aria-pressed="${String(p[key]) === String(val)}">${label}</button>`;
     const first = c ? (p.order === "back" ? c.back : c.front) : "", second = c ? (p.order === "back" ? c.front : c.back) : "";
-    const vs = voices(), lang = (navigator.language || "en").slice(0, 2), mine = vs.filter(v => (v.lang || "").slice(0, 2) === lang), others = vs.filter(v => (v.lang || "").slice(0, 2) !== lang);
-    const vOpt = v => `<option value="${esc(v.voiceURI)}"${v.voiceURI === p.voice ? " selected" : ""}>${esc(v.name)}${v.lang ? ` (${esc(v.lang)})` : ""}</option>`;
+    const ranked = rankVoices(voices(), navigator.language || "en"), mine = ranked.filter(x => x.mine), others = ranked.filter(x => !x.mine), auto = bestVoice(voices(), navigator.language || "en");
+    const TIER = {natural: "Natural", enhanced: "Enhanced"};
+    const vOpt = x => `<option value="${esc(x.v.voiceURI)}"${x.v.voiceURI === p.voice ? " selected" : ""}>${esc(x.v.name)}${x.v.lang ? ` (${esc(x.v.lang)})` : ""}${TIER[x.tier] ? ` · ${TIER[x.tier]}` : ""}</option>`;
+    const ua = navigator.userAgent || "", plain = ranked.length > 0 && !mine.some(x => TIER[x.tier]);
+    const tip = !plain ? "" : /iPhone|iPad|Macintosh|Mac OS/.test(ua) ? "For a more natural voice, download an Enhanced or Premium voice in Settings, Accessibility, Spoken Content, Voices, then choose it here."
+      : /Windows/.test(ua) ? "For a more natural voice, open Studyboard in Microsoft Edge (it has Natural voices), or add voices in Settings, Time and Language, Speech."
+      : /Android/.test(ua) ? "For a more natural voice, update Speech Services by Google and download a voice in its settings, then choose it here."
+      : "Only basic voices are installed on this device. Chrome and Edge come with more natural voices.";
     b.innerHTML = `<p class="ls-deck"><b>${esc(d ? d.name : "")}</b><span class="mini">${n ? `Card ${Math.min(n, L.i + 1)} of ${n}` : ""}</span></p>
       ${n ? `<div class="ls-card" aria-live="polite"><span class="ls-side">${L.side === "a" ? (p.order === "back" ? "Back" : "Front") : (p.order === "back" ? "Front" : "Back")}</span>
           <p class="ls-a${L.side === "a" ? " on" : ""}">${esc(first)}</p>${L.side === "b" ? `<p class="ls-b on">${esc(second)}</p>` : `<p class="ls-b ls-hidden" aria-hidden="true">${L.playing ? "Answer in your head…" : "The answer is read after the pause."}</p>`}</div>
@@ -2277,7 +2305,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
           <label class="f">Pause Before the Answer<select data-ls="gap">${[2, 4, 6, 8, 12].map(s => `<option value="${s}"${Number(p.gap) === s ? " selected" : ""}>${s} seconds</option>`).join("")}</select></label>
           <label class="f">Speed<select data-ls="rate">${[[0.8, "Slower"], [1, "Normal"], [1.2, "Faster"], [1.5, "Fastest"]].map(([v, l]) => `<option value="${v}"${Number(p.rate) === v ? " selected" : ""}>${l}</option>`).join("")}</select></label>
         </div>
-        <label class="f">Voice<select data-ls="voice"><option value="">Automatic</option>${mine.map(vOpt).join("")}${others.length ? `<optgroup label="Other languages">${others.map(vOpt).join("")}</optgroup>` : ""}</select></label>
+        <label class="f">Voice<select data-ls="voice"><option value="">Automatic${auto ? ` (${esc(auto.name)})` : ""}</option>${mine.map(vOpt).join("")}${others.length ? `<optgroup label="Other languages">${others.map(vOpt).join("")}</optgroup>` : ""}</select></label>${tip ? `<p class="mini ls-vtip">${esc(tip)}</p>` : ""}
         <label class="ls-loop"><input type="checkbox" data-ls="loop"${p.loop ? " checked" : ""}> Start again at the end</label>
       </div>`;
     b.querySelectorAll("[data-ls]").forEach(el => el.addEventListener("change", () => {
@@ -2345,6 +2373,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
 .ls-prog i{display:block;height:100%;background:var(--accent);transition:width .3s}
 .ls-opts{display:grid;gap:10px;border-top:1px solid var(--line);padding-top:12px}
 .ls-loop{display:flex;gap:8px;align-items:center}
+.ls-vtip{margin:-4px 0 0}
+.ls-opts select{max-width:100%;min-width:0}
 .ls-empty{margin:0;padding:14px;border:1px dashed var(--line);border-radius:12px;text-align:center;color:var(--muted)}
 .ls-foot{max-width:28em}
 .ls-commute{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 14px;margin:0 0 12px;position:relative}
