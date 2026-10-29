@@ -2281,6 +2281,8 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
   .cal .day.is-today .day-hol{left:84px}
   .cal .day-hol.off{color:var(--accent)}
 }
+/* A dropdown in a settings row sizes to its choices, so the label keeps the room */
+.cap-row > select{width:auto;flex:none;max-width:55%}
 /* ===== module: 05-account.css ===== */
 /* Studyboard account sheets */
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}
@@ -3470,9 +3472,6 @@ html :is(.tl-controls.f-title,.pview-tabs + .tl-controls:has(> .segb)) > h2{flex
 .gp-bar .gp-pass{width:2px;background:var(--ink)}
 .gp-line{grid-column:1 / -1}
 .gp-main .pill{grid-column:1 / -1;justify-self:start}
-.gp-opts{border:1px solid var(--line);border-radius:12px;background:var(--surface)}
-.gp-opts summary{cursor:pointer;padding:10px 14px;font:600 .9rem var(--display);color:var(--muted)}
-.gp-opts .menu-list{padding:0 14px 12px}
 .cd-tabs{margin-top:12px}
 @media (max-width:600px){.gp-sum{grid-template-columns:1fr}.gp-list{grid-template-columns:1fr}}
 .gr-top{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
