@@ -218,6 +218,8 @@
   "99-lecture-chain.js",
   "99-version-history.js",
   "99-rubric-check.js",
+  "99-teach-back.js",
+  "99-exam-sheet.js",
   "100-phone.js",
   "101-phone-v2.js",
   "102-qol.js",
