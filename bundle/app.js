@@ -59387,6 +59387,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const wc = (SBCOMP.wearColor && SBCOMP.wearColor()) || "#E5604D", worn = SBCOMP.wornNames ? SBCOMP.wornNames() : [];
     const meta = [worn.length ? "Wearing " + worn.join(" and ") : "", area ? "Studying " + area : ""].filter(Boolean).join(" · ");
     const head = me ? `<div class="cpt-head cpt3" style="--c:var(--accent-band,var(--accent))" data-wear="${esc(wc)}"><div class="cpt3-band"><div class="cpt3-acts"><button type="button" class="btn cpt-dress" data-act="comp-change">Change</button></div></div>
+        <div class="cpt3-mini" aria-hidden="true">${AI_ICON}<b>${esc(me.name)}</b></div>
         <div class="cpt3-ring">${SBCOMP.tab.faceHtml(104)}</div>
         <div class="cpt-id"><h2>${esc(me.name)}</h2>${me.bio ? `<p class="cpt-bio">${esc(me.bio)}</p>` : ""}${meta ? `<span class="mini">${esc(meta)}</span>` : ""}</div>`
       : `<div class="cpt-head"><div class="cpt-id"><h2>Companion</h2><p class="mini">Your companion is turned off. Turn it on to chat and to see it beside the Add Task button.</p></div><div class="cpt-hbtn"><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="on"> On</label></div>`;
@@ -83036,7 +83037,16 @@ const AUTOPILOT = (() => {
   function typing(on){
     const r = root(); if (r.classList.contains("cpt-typing") === on) return;
     const log = document.getElementById("cptLog"), pin = !!log && log.scrollHeight - log.scrollTop - log.clientHeight < 60;
-    r.classList.toggle("cpt-typing", on); follow(pin);
+    const head = document.querySelector("#view .cpt-head.cpt3"), still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!head || still) { r.classList.toggle("cpt-typing", on); follow(pin); return; }
+    clearTimeout(head._t);
+    if (on) { head.style.height = head.offsetHeight + "px"; void head.offsetHeight; r.classList.add("cpt-typing"); head.style.height = ""; }
+    else {
+      head.style.height = head.offsetHeight + "px"; r.classList.remove("cpt-typing");
+      const full = head.scrollHeight; void head.offsetHeight; head.style.height = full + "px";
+      head._t = setTimeout(() => { head.style.height = ""; follow(false); }, 380);
+    }
+    follow(pin);
   }
   document.addEventListener("focusin", e => { if (e.target && e.target.id === "cptIn" && root().classList.contains("ph-lock")) { clearTimeout(typeT); typing(true); } });
   document.addEventListener("focusout", e => { if (!e.target || e.target.id !== "cptIn") return; clearTimeout(typeT); typeT = setTimeout(() => { const a = document.activeElement; if (!(a && a.id === "cptIn")) typing(false); }, 180); });

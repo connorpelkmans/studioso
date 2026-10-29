@@ -658,25 +658,27 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
   #view > .bview-row:has(> .pg-tabs) + .bview .bpane-board > .board-sec{margin-top:0}
 }
 
-/* Companion chat on a phone: while you type, the profile card folds down to a slim colour band and the companion so the conversation gets the
-   room, and unfolds when you're done (html.cpt-typing, set in 101-phone-v2.js). The circle keeps its size so the live
-   companion stays seated in it. */
+/* Companion chat on a phone: while you type, the profile card slides up into its colour band, which shows a small face and
+   the name, like a messaging app's title bar; it slides back down when you're done. html.cpt-typing is set, and the
+   height animated, in 101-phone-v2.js. The live companion fades out meanwhile and comes back to its circle after. */
+.cpt3-mini{display:none}
 @media (max-width:639px){
-  html.ph-lock #view .cpt-head.cpt3{transition:padding .32s cubic-bezier(.3,.7,.2,1),gap .32s cubic-bezier(.3,.7,.2,1)}
-  html.ph-lock #view .cpt3-band{max-height:120px;transition:max-height .32s cubic-bezier(.3,.7,.2,1),padding .32s cubic-bezier(.3,.7,.2,1),opacity .2s ease}
-  html.ph-lock #view .cpt3-ring{transition:margin .32s cubic-bezier(.3,.7,.2,1)}
-  html.ph-lock #view .cpt3 .cpt-bio,html.ph-lock #view .cpt3 .cpt-id .mini{max-height:6em;overflow:hidden;transition:max-height .32s cubic-bezier(.3,.7,.2,1),opacity .2s ease}
-  html.ph-lock #view .cpt3-tabs{max-height:60px;overflow:hidden;transition:max-height .32s cubic-bezier(.3,.7,.2,1),margin .32s cubic-bezier(.3,.7,.2,1),opacity .2s ease}
-  html.ph-lock #view .cpt-priv{max-height:4em;overflow:hidden;transition:max-height .32s cubic-bezier(.3,.7,.2,1),opacity .2s ease}
-  html.ph-lock.cpt-typing #view .cpt-head.cpt3{gap:0;padding-bottom:8px!important}
-  html.ph-lock #view .cpt3-acts{transition:opacity .2s ease}
-  html.ph-lock.cpt-typing #view .cpt3-band{max-height:44px;padding-block:0!important;overflow:hidden}
-  html.ph-lock.cpt-typing #view .cpt3-acts{opacity:0;pointer-events:none}
-  html.ph-lock.cpt-typing #view .cpt3-ring{margin-top:-30px!important}
-  html.ph-lock.cpt-typing #view .cpt3 .cpt-id h2{margin-top:4px}
-  html.ph-lock.cpt-typing #view .cpt3 .cpt-bio,html.ph-lock.cpt-typing #view .cpt3 .cpt-id .mini,html.ph-lock.cpt-typing #view .cpt-priv{max-height:0;opacity:0}
-  html.ph-lock.cpt-typing #view .cpt3-tabs{max-height:0;margin-top:0;opacity:0;pointer-events:none}
+  html.ph-lock #view .cpt-head.cpt3{flex-wrap:nowrap;transition:height .34s cubic-bezier(.3,.7,.2,1)}
+  html.ph-lock #view .cpt3-mini{display:flex;position:absolute;left:0;right:0;top:0;height:54px;align-items:center;gap:10px;padding:0 16px;color:#fff;opacity:0;pointer-events:none;transition:opacity .18s ease;z-index:2}
+  html.ph-lock #view .cpt3-mini .cp-ai-face,html.ph-lock #view .cpt3-mini .ai-ic{width:34px;height:34px;flex:none;border-radius:50%;background:color-mix(in srgb,var(--c) 14%,#fff);box-shadow:0 0 0 2px rgba(255,255,255,.85);display:grid;place-items:center;overflow:hidden}
+  html.ph-lock #view .cpt3-mini .cp-ai-face svg{width:30px;height:30px}
+  html.ph-lock #view .cpt3-mini b{font:800 1.12rem var(--display);letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,.18)}
+  html.ph-lock #view :is(.cpt3-acts,.cpt3-ring,.cpt3 .cpt-id,.cpt3-tabs){transition:opacity .2s ease .1s}
+  html.ph-lock #view .cpt-priv{max-height:4em;overflow:hidden;transition:max-height .34s cubic-bezier(.3,.7,.2,1),opacity .2s ease}
+  html.ph-lock #view .cpt-head.cpt3 > :not(.cpt3-mini){flex-shrink:0}
+  html.ph-lock #view .cpt-head.cpt3 > .cpt3-band{align-self:stretch;width:auto}
+  html.ph-lock :is(.cp-layer,.cp-front){transition:opacity .2s ease .25s}
+  html.ph-lock.cpt-typing #view .cpt-head.cpt3{height:54px}
+  html.ph-lock.cpt-typing #view .cpt3-mini{opacity:1;transition-delay:.1s}
+  html.ph-lock.cpt-typing #view :is(.cpt3-acts,.cpt3-ring,.cpt3 .cpt-id,.cpt3-tabs){opacity:0;pointer-events:none;transition-delay:0s}
+  html.ph-lock.cpt-typing #view .cpt-priv{max-height:0;opacity:0}
+  html.ph-lock.cpt-typing :is(.cp-layer,.cp-front){opacity:0;transition:opacity .12s ease}
 }
 @media (max-width:639px) and (prefers-reduced-motion:reduce){
-  html.ph-lock #view :is(.cpt-head.cpt3,.cpt3-band,.cpt3-acts,.cpt3-ring,.cpt-bio,.mini,.cpt3-tabs,.cpt-priv){transition:none!important}
+  html.ph-lock #view :is(.cpt-head.cpt3,.cpt3-mini,.cpt3-acts,.cpt3-ring,.cpt-id,.cpt3-tabs,.cpt-priv),html.ph-lock :is(.cp-layer,.cp-front){transition:none!important}
 }

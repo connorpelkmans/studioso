@@ -252,7 +252,16 @@
   function typing(on){
     const r = root(); if (r.classList.contains("cpt-typing") === on) return;
     const log = document.getElementById("cptLog"), pin = !!log && log.scrollHeight - log.scrollTop - log.clientHeight < 60;
-    r.classList.toggle("cpt-typing", on); follow(pin);
+    const head = document.querySelector("#view .cpt-head.cpt3"), still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!head || still) { r.classList.toggle("cpt-typing", on); follow(pin); return; }
+    clearTimeout(head._t);
+    if (on) { head.style.height = head.offsetHeight + "px"; void head.offsetHeight; r.classList.add("cpt-typing"); head.style.height = ""; }
+    else {
+      head.style.height = head.offsetHeight + "px"; r.classList.remove("cpt-typing");
+      const full = head.scrollHeight; void head.offsetHeight; head.style.height = full + "px";
+      head._t = setTimeout(() => { head.style.height = ""; follow(false); }, 380);
+    }
+    follow(pin);
   }
   document.addEventListener("focusin", e => { if (e.target && e.target.id === "cptIn" && root().classList.contains("ph-lock")) { clearTimeout(typeT); typing(true); } });
   document.addEventListener("focusout", e => { if (!e.target || e.target.id !== "cptIn") return; clearTimeout(typeT); typeT = setTimeout(() => { const a = document.activeElement; if (!(a && a.id === "cptIn")) typing(false); }, 180); });

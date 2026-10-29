@@ -1,6 +1,6 @@
 // node tests/phone-keyboard.e2e.js: typing on a phone. With the on-screen keyboard up (simulated by shrinking the visual
-// viewport like iOS does), sheets sit above it and the bottom bars step aside; in the companion chat the profile card folds
-// away while you type (the live companion stays in its circle) and unfolds when you're done.
+// viewport like iOS does), sheets sit above it and the bottom bars step aside; in the companion chat the profile card slides
+// up into a slim title bar while you type (the live companion fades out) and slides back when you're done.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, ".."), KB = 336;
@@ -32,19 +32,19 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await page.evaluate(() => { window.__sbSync.ui.tab = "companion"; window.__sbSync.render(); }); await page.waitForSelector("#cptIn"); await page.waitForTimeout(900);
     const card = () => page.evaluate(() => { const h = document.querySelector(".cpt-head.cpt3"), f = document.querySelector(".cpt-face-slot").getBoundingClientRect(), log = document.getElementById("cptLog");
       const sp = [...document.querySelectorAll("[data-px]")].map(e => e.getBoundingClientRect()).find(r => r.width > 30);
-      return {h: Math.round(h.getBoundingClientRect().height), log: Math.round(log.getBoundingClientRect().height), tabs: getComputedStyle(document.querySelector(".cpt3-tabs")).opacity, off: sp ? Math.round(Math.hypot(sp.left + sp.width / 2 - (f.left + f.width / 2), sp.top + sp.height / 2 - (f.top + f.height / 2))) : null}; });
+      const fr = document.querySelector(".cp-front"); return {h: Math.round(h.getBoundingClientRect().height), mini: getComputedStyle(document.querySelector(".cpt3-mini")).opacity, sprite: fr ? getComputedStyle(fr).opacity : "1", log: Math.round(log.getBoundingClientRect().height), tabs: getComputedStyle(document.querySelector(".cpt3-tabs")).opacity, off: sp ? Math.round(Math.hypot(sp.left + sp.width / 2 - (f.left + f.width / 2), sp.top + sp.height / 2 - (f.top + f.height / 2))) : null}; });
     const before = await card();
     await page.focus("#cptIn"); await page.evaluate(() => window.__kb(true)); await page.waitForTimeout(600);
     const typing = await card();
     ok(await page.evaluate(() => document.documentElement.classList.contains("cpt-typing")), "typing in the chat box folds the profile card");
-    ok(typing.h < before.h - 40 && typing.tabs === "0", "the card shrinks to a slim band and the companion: " + before.h + "px -> " + typing.h + "px");
-    ok(typing.off !== null && typing.off <= 8, "the live companion stays in its circle (" + typing.off + "px off)");
+    ok(typing.h <= 60 && typing.tabs === "0" && typing.mini === "1", "the card becomes a slim title bar with the companion's face and name: " + before.h + "px -> " + typing.h + "px");
+    ok(typing.sprite === "0", "the big live companion fades out meanwhile");
     const ib = await page.evaluate(() => document.getElementById("cptIn").getBoundingClientRect().bottom);
     ok(ib <= 874 - KB, "the chat box is above the keyboard (" + Math.round(ib) + " <= " + (874 - KB) + ")");
     await page.evaluate(() => { document.getElementById("cptIn").blur(); window.__kb(false); }); await page.waitForTimeout(700);
     const after = await card();
     ok(!(await page.evaluate(() => document.documentElement.classList.contains("cpt-typing"))) && Math.abs(after.h - before.h) <= 2, "done typing, the card unfolds again (" + after.h + "px)");
-    ok(after.off !== null && after.off <= 8, "with the companion back in its circle (" + after.off + "px off)");
+    ok(after.off !== null && after.off <= 8 && after.sprite === "1" && after.mini === "0", "with the companion back in its circle (" + after.off + "px off)");
     ok(!errs.length, "no page errors " + errs.join(" | "));
     await ctx.close();
     console.log("\nphone-keyboard.e2e: " + n + " checks passed");
