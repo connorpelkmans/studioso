@@ -3174,6 +3174,7 @@ async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0
 }
 // urlContext (opt-in): the model may open the web pages named in the request (Gemini url_context, Claude web fetch, ChatGPT web search).
 // Like search, it answers in plain text (JSON is parsed from it), and r.fetched lists the pages it tried: [{url, ok, status}]
+const GEM_MAX_OUT = 65536;
 async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, fast, ms, task, signal, search, urlContext}){
   const T = aiTask(task, fast), models = geminiOrder(cfg.model, T.tier);
   // A short text request that hasn't answered in 25 seconds is stuck (an overloaded free model), so the next model gets a turn instead of waiting minutes
@@ -3193,7 +3194,8 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
     for (let tries = 0; tries < 4; tries++) {
       const bodyFor = () => {
         // a retry after running out of room: twice the room, and less of it spent thinking
-        const gc = {temperature, maxOutputTokens: roomy ? Math.min(32768, maxTokens * 2) : maxTokens};
+        // Gemini's Flash models write at most 65,536 tokens in one answer
+        const gc = {temperature, maxOutputTokens: roomy ? Math.min(GEM_MAX_OUT, Math.max(maxTokens, maxTokens * 2)) : Math.min(GEM_MAX_OUT, maxTokens)};
         if (!search && !urlContext) { gc.responseMimeType = "application/json"; if (schema) gc.responseSchema = schema; }
         if (parts.some(p => p && p.file_data)) gc.mediaResolution = "MEDIA_RESOLUTION_LOW";
         if (thinking) gc.thinkingConfig = {thinkingLevel: roomy ? "low" : T.think};
@@ -3230,8 +3232,9 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
         }
         // Out of room with nothing usable: thinking or a stuck, repeating answer can do this even on small jobs, so retry before giving up
         if (cand.finishReason === "MAX_TOKENS") {
-          if (!roomy) { roomy = true; continue; }
-          return {err: aiErr("long", task === "photo" ? "Couldn't finish reading that. Try again, or use fewer photos at once." : "That was too much to make in one go. Ask for fewer cards or questions, or use fewer files.")};
+          if (!roomy && maxTokens < GEM_MAX_OUT) { roomy = true; continue; }
+          // a video or file that ran out of room twice won't do better on another model, and each try costs a full pass over it
+          return {err: aiErr("long", task === "photo" ? "Couldn't finish reading that. Try again, or use fewer photos at once." : "That was too much to make in one go. Ask for fewer cards or questions, or use fewer files."), fatal: media};
         }
         return {err: aiErr("bad", "The AI's answer came back garbled. Try again.")};
       }
@@ -82046,34 +82049,53 @@ const LINKCARDS = (() => {
     st === "empty" ? `The AI couldn't find anything to study on that ${KIND_WORD[L.kind]}.` :
     st === "too_long" ? (L.kind === "youtube" ? "That video is too long to cover in one go (up to about an hour works best)." : "That page is too long to cover in one go.") :
     L.kind === "youtube" ? "Gemini couldn't watch that video. It may be private, age-restricted, members-only or removed." : "The AI couldn't open that page. It may block automated readers, or need a login.";
+  const notesLen = d => [d && d.overview].concat(((d && d.sections) || []).flatMap(s => (s && s.points) || [])).join(" ").replace(/\s+/g, " ").trim().length;
+  // What each try got back (tokens read, cut off or not, status, how much was written, how long), shown under a failure
   async function readLink(L, pasted, signal, onStatus){
+    const diag = [];
+    try { return await readLink0(L, pasted, signal, onStatus, diag); }
+    catch (e) { if (e && typeof e === "object" && diag.length) e.diag = diag; throw e; }
+  }
+  async function readLink0(L, pasted, signal, onStatus, diag){
     const prov = aiCfg().provider, trial = prov === "trial";
     const ask = `Make the study notes from ${pasted ? "the text above" : L.kind === "youtube" ? "this YouTube video" : "the web page at " + L.url}.`;
     const opts = {task: "linknotes", signal, maxTokens: trial ? 1400 : 8000, temperature: 0.2, onStatus, system: SYS(trial)};
     let r;
     if (pasted) r = await aiRetry(() => aiCall(Object.assign({}, opts, {schema: NOTE_SCHEMA, parts: [{text: `Source: ${L.url}\nThe student pasted its ${L.kind === "youtube" ? "transcript" : "text"}:\n\n${pasted.slice(0, trial ? 9000 : 150000)}\n\n${ask}`}]})));
     else if (L.kind === "youtube") {
-      // a lecture's content is in what's said: one frame every 5 seconds (not every second) cuts most of the video work; if Gemini won't take that, the usual way
-      // plain: just the link, the way Google's own YouTube example sends it (no file type, no frame rate)
-      const vid = (fps, plain) => aiRetry(() => aiCall(Object.assign({}, opts, {schema: NOTE_SCHEMA, timeout: 300000, parts: [Object.assign({file_data: plain ? {file_uri: L.url} : {file_uri: L.url, mime_type: "video/*"}}, fps && !plain ? {video_metadata: {fps}} : {}), {text: ask}]})));
+      // a lecture's content is in what's said: one frame every 5 seconds cuts most of the video work. plain: just the link, the way Google's own
+      // YouTube example sends it (no file type, no frame rate). Notes from a long video get plenty of room, and more if they still come back cut off.
+      // (no outer retry: each try is a full pass over the video, and Gemini already retries a cut-off answer with more room)
+      // the most Gemini can write in one answer: enough for the notes of any video up to an hour; running out even so means the video is too long
+      const vid = (fps, plain) => aiCall(Object.assign({}, opts, {maxTokens: 65536, schema: NOTE_SCHEMA, timeout: 300000, parts: [Object.assign({file_data: plain ? {file_uri: L.url} : {file_uri: L.url, mime_type: "video/*"}}, fps && !plain ? {video_metadata: {fps}} : {}), {text: ask}]})).catch(e => {
+        if (e && e.code === "long") throw Object.assign(aiErr("link-too_long", failMsg("too_long", L)), {link: true, st: "too_long"});
+        throw e;
+      });
       // how much Gemini read: a video is thousands of tokens, so a few hundred means the video never reached it
-      const sawVideo = x => { const u = x && x.usage, n = u && Number(u.promptTokenCount); return !(Number.isFinite(n) && n < 1500); };
+      const tok = x => { const n = x && x.usage && Number(x.usage.promptTokenCount); return Number.isFinite(n) ? n : null; };
+      const sawVideo = x => { const n = tok(x); return n == null || n >= 1500; };
+      const look = x => { const d = x && x.data && typeof x.data === "object" ? x.data : {}; return {st: String(d.status || "").toLowerCase(), len: notesLen(d)}; };
+      let tA = Date.now();
+      const log = (how, x) => { const i = look(x), n = tok(x); diag.push(`${how}: ${(x && x.model) || "?"}, read ${n == null ? "?" : n.toLocaleString()} tokens, answer ${x && x.truncated ? "cut off" : "complete"}, status ${i.st || "none"}, ${i.len} characters of notes, ${Math.round((Date.now() - tA) / 1000)}s`); tA = Date.now(); };
       // Google's servers failing on the video (every model) usually means this video, not real overload: one plain try, then say so
       const choke = e => Object.assign(aiErr("link-choke", `Google's servers couldn't process this video${e && e.gmsg ? ` (Google said: ${String(e.gmsg).replace(/\s+/g, " ").replace(/\.$/, "").slice(0, 160)})` : ""}. This happens with some YouTube videos; trying again later sometimes works.`), {link: true, st: "choke"});
       let plainDone = false;
-      try { r = await vid(0.2); }
+      try { r = await vid(0.2); log("First look", r); }
       catch (e) {
         if (e && e.code === "cancelled") throw e;
-        if (e && e.code === "busy") { plainDone = true; if (onStatus) onStatus("Having another look at the video…"); try { r = await vid(0, true); } catch (e2) { if (e2 && e2.code === "cancelled") throw e2; throw e2 && e2.code === "busy" ? choke(e2) : e2; } }
-        else if (e && e.code === "http" && /fps|video_?metadata|videoMetadata|Unknown name/i.test(String(e.message || ""))) r = await vid(0);
+        if (e && e.code === "busy") {
+          diag.push(`First look: Google server error${e.gmsg ? " (" + String(e.gmsg).slice(0, 120) + ")" : ""}, ${Math.round((Date.now() - tA) / 1000)}s`); tA = Date.now();
+          plainDone = true; if (onStatus) onStatus("Having another look at the video…");
+          try { r = await vid(0, true); log("Plain link", r); } catch (e2) { if (e2 && e2.code === "cancelled") throw e2; throw e2 && e2.code === "busy" ? choke(e2) : e2; }
+        }
+        else if (e && e.code === "http" && /fps|video_?metadata|videoMetadata|Unknown name/i.test(String(e.message || ""))) { r = await vid(0); log("Usual frame rate", r); }
         else throw e;
       }
-      // came back empty or unwatchable: one more look at Gemini's usual frame rate before giving up
-      const d0 = r && r.data && typeof r.data === "object" ? r.data : {}, s0 = String(d0.status || "").toLowerCase();
-      const b0 = [d0.overview].concat((d0.sections || []).flatMap(x => (x && x.points) || [])).join(" ").replace(/\s+/g, " ").trim().length;
-      if (!plainDone && (!sawVideo(r) || (/^(empty|unreachable)$/.test(s0) && b0 < 200)) && !(signal && signal.aborted)) {
-        if (onStatus) onStatus("Having another look at the video…");
-        try { r = await vid(0, true); } catch (e) { if (e && e.code === "cancelled") throw e; }
+      // the video never reached Gemini: one plain try. Watched it but the notes were cut off: once more with more room.
+      // (watched it and found nothing: no second pass, it would only find nothing again)
+      if (!(signal && signal.aborted)) {
+        if (!sawVideo(r) && !plainDone) { if (onStatus) onStatus("Having another look at the video…"); try { r = await vid(0, true); log("Plain link", r); } catch (e) { if (e && e.code === "cancelled") throw e; diag.push("Plain link: " + ((e && e.message) || "failed").slice(0, 120)); } }
+        else if (r && r.truncated && look(r).len < 400) throw Object.assign(aiErr("link-too_long", failMsg("too_long", L)), {link: true, st: "too_long"});
       }
       if (!sawVideo(r)) throw Object.assign(aiErr("link-novideo", "Gemini didn't get the video itself, only its link, so it had nothing to watch. YouTube may be blocking Gemini for this video, or your key's free daily allowance for YouTube videos may be used up. Try again later."), {link: true, st: "novideo"});
     }
@@ -82150,7 +82172,7 @@ const LINKCARDS = (() => {
         else if ((e && e.code === "http") || /private|unavailable|not (?:be )?found|invalid.*(?:video|url|uri|argument)|file_?uri|unsupported|cannot (?:access|fetch)|permission/i.test(m)) msg = failMsg("unreachable", L);
       }
       const offerPaste = !pasted && !/^(?:nokey|key|credit|offline|no-consent|cancelled|limit|busy)$/.test((e && e.code) || "");
-      say(msg + (offerPaste ? (e && e.link ? " Paste the text instead, and the AI can work from that." : "") : ""), offerPaste ? PASTE : "");
+      say(msg + (offerPaste ? (e && e.link ? " Paste the text instead, and the AI can work from that." : "") : ""), (offerPaste ? PASTE : "") + (e && e.diag && e.diag.length ? `<details class="cl-diag"><summary>Details</summary><ul>${e.diag.map(x => `<li>${esc(x)}</li>`).join("")}</ul></details>` : ""));
       aiJobFailed(); aiShowStatus(st);
       if (o.keepKey && sheetKept(o.keepKey)) toast(`${aiWho("AI")} couldn't finish that. Open Create with AI again to see why and try again.`, null, {label: "Open", fn: () => sheetResume(o.keepKey)}, {error: true});
     }
@@ -82165,6 +82187,9 @@ const LINKCARDS = (() => {
 .cl-in{display:grid;gap:6px;margin-top:8px}
 .cl-in input{width:100%;min-width:0}
 .cl-hint{margin:0;overflow-wrap:anywhere}
+.cl-diag{margin-top:6px;font-size:.82rem;color:var(--muted)}
+.cl-diag summary{cursor:pointer;font-weight:600}
+.cl-diag ul{margin:4px 0 0;padding-left:18px}
 .cl-hint.cl-bad{color:var(--danger,#c0392b)}
 #aiStatus .btn.small{margin:6px 6px 0 0}
 `;
