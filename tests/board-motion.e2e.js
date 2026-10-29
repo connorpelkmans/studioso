@@ -83,8 +83,21 @@ const seed = tasks => { localStorage.setItem("studioso:welcomed", "1"); localSto
     const pdoing = await q.evaluate(() => [...document.querySelectorAll('.col[data-status="doing"] .card[data-id]:not(.ghost)')].map(c => c.dataset.id));
     ok(pdoing.includes("t1"), "phone: the card was dropped into In Progress: " + pdoing.join(","));
     ok(Math.abs(end - mid.full) <= 2, "phone: the board ends lined up on In Progress (" + end + " vs " + mid.full + ")");
-    ok(between >= 5 && jump < (mid.full - mid.at) * 0.6, "phone: it glides there from half way instead of snapping (" + between + " in-between frames, biggest step " + jump + "px of " + (mid.full - mid.at) + "): " + xs.slice(0, 14).join(" "));
+    ok(between >= 3 && jump < (mid.full - mid.at) * 0.6, "phone: it glides there from half way instead of snapping (" + between + " in-between frames, biggest step " + jump + "px of " + (mid.full - mid.at) + "): " + xs.slice(0, 14).join(" "));
     ok(await q.evaluate(() => !document.querySelector(".board.panning, .board.dragging") && getComputedStyle(document.querySelector(".board")).scrollSnapType.startsWith("x")), "phone: swipe snapping is back on afterwards");
+    // holding a dragged card at the right edge glides the board one whole column over (not a jump, not a creep)
+    await q.waitForTimeout(800);
+    await q.evaluate(() => { const b = document.querySelector(".board"); b.scrollLeft = 0; }); await q.waitForTimeout(300);
+    const pc = await q.locator('.board .card[data-id="t2"]').boundingBox();
+    await q.mouse.move(pc.x + 40, pc.y + 14); await q.mouse.down();
+    for (let i = 1; i <= 6; i++) { await q.mouse.move(pc.x + 40 + i * 8, pc.y + 14 + i * 3); await q.waitForTimeout(30); }
+    await q.evaluate(() => { window.__pe = []; const b = document.querySelector(".board"), t0 = performance.now(), look = () => { window.__pe.push(Math.round(b.scrollLeft)); if (performance.now() - t0 < 900) requestAnimationFrame(look); }; requestAnimationFrame(look); });
+    await q.mouse.move(398, pc.y + 60); await q.waitForTimeout(950);
+    const pe = await q.evaluate(() => window.__pe), cols = await q.evaluate(() => { const b = document.querySelector(".board"); return [...b.querySelectorAll(".col")].map(c => Math.round(b.scrollLeft + c.getBoundingClientRect().left - b.getBoundingClientRect().left - 18)); });
+    const peEnd = pe[pe.length - 1], mids = new Set(pe.filter(x => x > 2 && x < peEnd - 2)).size;
+    ok(peEnd > 100 && cols.some(c => Math.abs(c - peEnd) <= 3), "phone: holding a card at the edge brings the next column fully into place: " + peEnd + " (columns at " + cols.join(", ") + ")");
+    ok(mids >= 4, "phone: and it glides there (" + mids + " in-between frames): " + pe.filter((x, i) => i % 3 === 0).join(" "));
+    await q.mouse.up(); await q.waitForTimeout(700);
     ok(!perrs.length, "phone: no page errors " + perrs.join(" | "));
     await pctx.close();
     console.log("\nboard-motion.e2e: " + checks + " checks " + (process.exitCode ? "FAILED" : "passed"));

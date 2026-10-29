@@ -406,7 +406,16 @@ function tick(){
     const under = document.elementFromPoint(drag.x, drag.y);
     const b = (under && under.closest(".board")) || drag.board;
     drag.hs = false;
-    if (b && b.scrollWidth > b.clientWidth) { const br = b.getBoundingClientRect(); if (drag.x < br.left + 40) { b.scrollLeft -= 10; drag.hs = true; } else if (drag.x > br.right - 40) { b.scrollLeft += 10; drag.hs = true; } }
+    if (b && b.scrollWidth > b.clientWidth) {
+      const br = b.getBoundingClientRect(), dir = drag.x < br.left + 40 ? -1 : drag.x > br.right - 40 ? 1 : 0;
+      // a phone's columns (a swipe pager): hold at the edge and it glides one column over, then the next if still held
+      if (dir && getComputedStyle(b).display === "flex") {
+        drag.hs = true; const now = performance.now();
+        if (drag.edgeDir !== dir) { drag.edgeDir = dir; drag.edgeAt = now; drag.edgeN = 0; }
+        else if (now - drag.edgeAt > (drag.edgeN ? 700 : 260)) { if (boardStep(b, dir)) drag.edgeN++; drag.edgeAt = now; }
+      } else if (dir) { b.scrollLeft += dir * 10; drag.hs = true; }
+      else drag.edgeDir = 0;
+    }
     if (drag.y < 110) window.scrollBy(0, -9); else if (drag.y > window.innerHeight - 120) window.scrollBy(0, 9);
     placeAt(drag.x, drag.y);
   } else {

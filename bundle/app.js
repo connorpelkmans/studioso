@@ -12060,42 +12060,37 @@ function restoreBoards(prev){
   const boards = $$(".board");
   const f = ui.boardFocus; ui.boardFocus = null;
   const glide = !!f || !!ui.boardSettle; ui.boardSettle = false;
-  // snapping stays off while the board is put back where it was, so it can glide from there instead of jumping
-  boards.forEach((b, i) => { if (glide || (panRun && panRun.idx === i)) b.classList.add("panning"); if (prev[i] != null) b.scrollLeft = prev[i]; });
+  boards.forEach((b, i) => { if (glide) b.classList.add("panning"); if (prev[i] != null) b.scrollLeft = prev[i]; });
   const col = f && $$(".board .col").find(c => c.dataset.status === f.status && (f.course == null || c.dataset.course === f.course));
-  boards.forEach((b, i) => {
-    if (panRun && panRun.idx === i && !(col && col.closest(".board") === b)) return;
-    if (b.scrollWidth <= b.clientWidth + 2) { b.classList.remove("panning"); return; }
-    const pad = parseFloat(getComputedStyle(b).scrollPaddingLeft) || parseFloat(getComputedStyle(b).paddingLeft) || 0, bl = b.getBoundingClientRect().left;
-    const at = c => b.scrollLeft + c.getBoundingClientRect().left - bl - pad;
-    let to;
-    if (col && col.closest(".board") === b) to = at(col);
-    else if (glide) { const cs = [...b.querySelectorAll(".col")]; if (!cs.length) { b.classList.remove("panning"); return; } to = cs.map(at).reduce((m, x) => Math.abs(x - b.scrollLeft) < Math.abs(m - b.scrollLeft) ? x : m); }
-    else return;
-    boardPan(b, Math.max(0, Math.min(b.scrollWidth - b.clientWidth, to)), i);
+  boards.forEach(b => {
+    if (glide) setTimeout(() => b.classList.remove("panning"), 650);   // snapping back on once it has glided into place
+    if (!glide || b.scrollWidth <= b.clientWidth + 2) return;
+    // after a drop: over to the card's column, or the nearest one
+    const to = col && col.closest(".board") === b ? boardColX(b, col) : boardNear(b, b.scrollLeft);
+    if (to != null) boardGo(b, to);
   });
 }
-// Swiping columns on a phone: after a drop the board glides over to the card's column instead of jumping there.
-// Snapping is paused while it moves (it ends on a column, so nothing shifts after); a touch stops it.
-let panRun = null;
-function boardPan(b, to, idx){
-  const from = b.scrollLeft, dist = to - from;
-  const still = (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) || Math.abs(dist) < 2;
-  if (still) { if (!(panRun && panRun.idx === idx)) { b.scrollLeft = to; b.classList.remove("panning"); } return; }
-  if (panRun) panRun.stop();
-  const ms = Math.round(Math.min(480, 260 + Math.abs(dist) * 0.5)), t0 = performance.now(), ease = x => 1 - Math.pow(1 - x, 3);
-  let raf = 0, done = false;
-  const cur = () => b.isConnected ? b : ($$(".board")[idx] || b);
-  const stop = () => { if (done) return; done = true; cancelAnimationFrame(raf); const el = cur(); el.classList.remove("panning"); document.removeEventListener("pointerdown", stop, true); if (panRun === run) panRun = null; };
-  const step = now => {
-    const el = cur(); el.classList.add("panning");
-    const k = Math.min(1, (now - t0) / ms); el.scrollLeft = from + dist * ease(k);
-    if (k < 1) raf = requestAnimationFrame(step); else stop();
-  };
-  const run = {stop, to, idx};
-  panRun = run; b.classList.add("panning");
-  document.addEventListener("pointerdown", stop, true);
-  raf = requestAnimationFrame(step);
+// A phone's Task Board is a row of columns you swipe between (each one snaps into place). Moving it for you (after a drop,
+// or holding a card at its edge) uses the browser's own smooth scroll to a column, which keeps the snapping happy;
+// stepping it a few pixels at a time made iOS jump a whole column at once.
+function boardColX(b, col){
+  const pad = parseFloat(getComputedStyle(b).scrollPaddingLeft) || parseFloat(getComputedStyle(b).paddingLeft) || 0;
+  return Math.max(0, Math.min(b.scrollWidth - b.clientWidth, b.scrollLeft + col.getBoundingClientRect().left - b.getBoundingClientRect().left - pad));
+}
+function boardNear(b, x){ const cs = [...b.querySelectorAll(":scope > .col, :scope .col")].filter(c => c.closest(".board") === b && c.getClientRects().length); if (!cs.length) return null; return cs.map(c => boardColX(b, c)).reduce((m, v) => Math.abs(v - x) < Math.abs(m - x) ? v : m); }
+function boardGo(b, to){
+  if (Math.abs(b.scrollLeft - to) < 2) return;
+  const still = (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) || document.documentElement.dataset.motion === "static";
+  try { b.scrollTo({left: to, behavior: still ? "auto" : "smooth"}); } catch (e) { b.scrollLeft = to; }
+}
+// One column over (dir -1 or 1), for holding a dragged card at the board's edge
+function boardStep(b, dir){
+  const cs = [...b.querySelectorAll(".col")].filter(c => c.closest(".board") === b && c.getClientRects().length).map(c => boardColX(b, c)).filter((v, i, a) => a.indexOf(v) === i).sort((x, y) => x - y);
+  if (!cs.length) return false;
+  const now = b._goTo != null && Math.abs(b.scrollLeft - b._goTo) > 2 ? b._goTo : b.scrollLeft;
+  let i = 0; cs.forEach((v, k) => { if (Math.abs(v - now) < Math.abs(cs[i] - now)) i = k; });
+  const j = Math.max(0, Math.min(cs.length - 1, i + dir)); if (j === i) return false;
+  b._goTo = cs[j]; boardGo(b, cs[j]); return true;
 }
 function flashToday(){
   const l = $(".tl-bg .today-line"), d = $(".tl-d.is-today");
@@ -17181,7 +17176,16 @@ function tick(){
     const under = document.elementFromPoint(drag.x, drag.y);
     const b = (under && under.closest(".board")) || drag.board;
     drag.hs = false;
-    if (b && b.scrollWidth > b.clientWidth) { const br = b.getBoundingClientRect(); if (drag.x < br.left + 40) { b.scrollLeft -= 10; drag.hs = true; } else if (drag.x > br.right - 40) { b.scrollLeft += 10; drag.hs = true; } }
+    if (b && b.scrollWidth > b.clientWidth) {
+      const br = b.getBoundingClientRect(), dir = drag.x < br.left + 40 ? -1 : drag.x > br.right - 40 ? 1 : 0;
+      // a phone's columns (a swipe pager): hold at the edge and it glides one column over, then the next if still held
+      if (dir && getComputedStyle(b).display === "flex") {
+        drag.hs = true; const now = performance.now();
+        if (drag.edgeDir !== dir) { drag.edgeDir = dir; drag.edgeAt = now; drag.edgeN = 0; }
+        else if (now - drag.edgeAt > (drag.edgeN ? 700 : 260)) { if (boardStep(b, dir)) drag.edgeN++; drag.edgeAt = now; }
+      } else if (dir) { b.scrollLeft += dir * 10; drag.hs = true; }
+      else drag.edgeDir = 0;
+    }
     if (drag.y < 110) window.scrollBy(0, -9); else if (drag.y > window.innerHeight - 120) window.scrollBy(0, 9);
     placeAt(drag.x, drag.y);
   } else {
