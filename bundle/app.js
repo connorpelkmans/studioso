@@ -8438,7 +8438,10 @@ function remainingOf(t){
 // What Today's Plan sets aside: the middle of the range, and toward the long end within 3 days of the due date
 function planLeft(t, dl){
   const R = remainingOf(t);
-  if (!(R > 0) || MILESTONE(t.type) || t.xs || bdHasKids(t) || !(dl <= 3)) return R;
+  if (!(R > 0) || MILESTONE(t.type) || t.xs || t.prepFor || bdHasKids(t) || !(dl <= 3)) return R;
+  // only when the range comes from your own finished tasks (a typical spread is a guess, not a reason to plan long)
+  const A = accOf(), sp = A && A.spreadFor ? A.spreadFor(t) : null;
+  if (!sp || !(sp.n > 0)) return R;
   const L = leftInfo(t);
   return R + Math.max(0, L.hi - L.h) * 0.5;
 }
@@ -8832,7 +8835,7 @@ function computeFocus(){
     else if (x.fixed) r.push([55, `${remoteOf(t).v === "no" ? "Taken in person" : "Not confirmed as take-home"}, so it is a fixed event, not a task to do now${x.p > 0 ? ` (${Math.round(x.p * 100)}% prepared)` : ""}`]);
     else if (MILESTONE(t.type)) r.push([55, progress(t).plan ? `${Math.round(x.p * 100)}% prepared, following your study plan` : `${Math.round(x.p * 100)}% prepared, about ${fmtHM(x.R)} of study left`]);
     else if (x.R > 0 && t.xs) r.push([40, `About ${fmtHM(x.R)} of study left`]);
-    else if (x.R > 0) { const L = leftInfo(t), rng = leftRange(t); r.push([40, `${/^about/.test(rng) ? "About " + rng.slice(6) : rng} of work left${x.dl <= 3 && L.hi - L.h >= 0.25 ? ", planned for the longer end since it's due soon" : ""}`]); if (L.how === "over") r.push([62, "Taking longer than planned"]); }
+    else if (x.R > 0) { const L = leftInfo(t), rng = leftRange(t); r.push([40, `${/^about/.test(rng) ? "About " + rng.slice(6) : rng} of work left${x.R > L.h + 0.05 ? ", planned for the longer end since it's due soon" : ""}`]); if (L.how === "over") r.push([62, "Taking longer than planned"]); }
     if (accOf() && x.R > 0 && isNum(t.hours) && !MILESTONE(t.type) && !t.xs) { const ex = accOf().explain(t); if (ex) r.push([39, ex + " " + tr("acc.planAllows", "Today's Plan allows for it.")]); }
     if (x.nudged) r.push([36, tr("acc.startSooner", "You often finish close to the deadline, so starting a little early helps")]);
     if (x.unblocks && !t.dueFor) r.push([80, `Needed before ${x.unblocks.title}`]);
