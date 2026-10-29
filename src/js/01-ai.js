@@ -601,7 +601,7 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
           aiMemSet(x => { x.good = m; if (x.cool) delete x.cool[m]; if (light) { x.slow = x.slow || {}; if (took > 25000) x.slow[m] = Date.now() + 30 * 60000; else delete x.slow[m]; } });
           const sources = search ? (((cand.groundingMetadata || {}).groundingChunks) || []).map(c => c && c.web ? {url: String(c.web.uri || ""), title: String(c.web.title || "")} : null).filter(Boolean) : undefined;
           const fetched = urlContext ? (((cand.urlContextMetadata || cand.url_context_metadata || {}).urlMetadata || (cand.urlContextMetadata || cand.url_context_metadata || {}).url_metadata) || []).map(u => { const st = String(u.urlRetrievalStatus || u.url_retrieval_status || ""); return {url: String(u.retrievedUrl || u.retrieved_url || ""), ok: /SUCCESS/.test(st), status: st.replace(/^URL_RETRIEVAL_STATUS_/, "").toLowerCase()}; }) : undefined;
-          return {ok: true, r: {data, model: m, provider: "gemini", truncated: cand.finishReason === "MAX_TOKENS", sources, fetched}};
+          return {ok: true, r: {data, model: m, provider: "gemini", truncated: cand.finishReason === "MAX_TOKENS", sources, fetched, usage: j.usageMetadata || null}};
         }
         // Out of room with nothing usable: thinking or a stuck, repeating answer can do this even on small jobs, so retry before giving up
         if (cand.finishReason === "MAX_TOKENS") {
