@@ -606,7 +606,9 @@ function endDrag(ok){
   // the ghost stays where it was let go until the board redraws, then the card glides from there (see bfLand)
   bfLand = {id: (d.el && d.el.dataset && d.el.dataset.id) || d.id, ghost: d.ghost, before: bfRects(), at: performance.now()};
   { const g = d.ghost; setTimeout(() => { if (g.isConnected) g.remove(); if (bfLand && bfLand.ghost === g) bfLand = null; }, 1500); }
-  if (d.board) d.board.classList.remove("dragging");
+  // a phone's column pager glides to a column after the redraw rather than snapping now (see restoreBoards)
+  ui.boardSettle = true;
+  if (d.board) { d.board.classList.add("panning"); d.board.classList.remove("dragging"); }
   $$(".col.over").forEach(c => c.classList.remove("over"));
   if (d.el && d.el.dataset && d.el.dataset.gt) {
     const colEl = ok && d.ph && d.ph.parentNode ? d.ph.closest(".col") : null;

@@ -12036,15 +12036,44 @@ document.addEventListener("touchcancel", () => { nbPinch = null; });
 // Keep each board strip where it was across redraws; after a drop
 function restoreBoards(prev){
   const boards = $$(".board");
-  boards.forEach((b, i) => { if (prev[i] != null) b.scrollLeft = prev[i]; });
   const f = ui.boardFocus; ui.boardFocus = null;
-  if (!f) return;
-  const col = $$(".board .col").find(c => c.dataset.status === f.status && (f.course == null || c.dataset.course === f.course));
-  if (!col) return;
-  const b = col.closest(".board");
-  if (b.scrollWidth <= b.clientWidth + 2) return;
-  const pad = parseFloat(getComputedStyle(b).scrollPaddingLeft) || parseFloat(getComputedStyle(b).paddingLeft) || 0;
-  b.scrollLeft += col.getBoundingClientRect().left - b.getBoundingClientRect().left - pad;
+  const glide = !!f || !!ui.boardSettle; ui.boardSettle = false;
+  // snapping stays off while the board is put back where it was, so it can glide from there instead of jumping
+  boards.forEach((b, i) => { if (glide || (panRun && panRun.idx === i)) b.classList.add("panning"); if (prev[i] != null) b.scrollLeft = prev[i]; });
+  const col = f && $$(".board .col").find(c => c.dataset.status === f.status && (f.course == null || c.dataset.course === f.course));
+  boards.forEach((b, i) => {
+    if (panRun && panRun.idx === i && !(col && col.closest(".board") === b)) return;
+    if (b.scrollWidth <= b.clientWidth + 2) { b.classList.remove("panning"); return; }
+    const pad = parseFloat(getComputedStyle(b).scrollPaddingLeft) || parseFloat(getComputedStyle(b).paddingLeft) || 0, bl = b.getBoundingClientRect().left;
+    const at = c => b.scrollLeft + c.getBoundingClientRect().left - bl - pad;
+    let to;
+    if (col && col.closest(".board") === b) to = at(col);
+    else if (glide) { const cs = [...b.querySelectorAll(".col")]; if (!cs.length) { b.classList.remove("panning"); return; } to = cs.map(at).reduce((m, x) => Math.abs(x - b.scrollLeft) < Math.abs(m - b.scrollLeft) ? x : m); }
+    else return;
+    boardPan(b, Math.max(0, Math.min(b.scrollWidth - b.clientWidth, to)), i);
+  });
+}
+// Swiping columns on a phone: after a drop the board glides over to the card's column instead of jumping there.
+// Snapping is paused while it moves (it ends on a column, so nothing shifts after); a touch stops it.
+let panRun = null;
+function boardPan(b, to, idx){
+  const from = b.scrollLeft, dist = to - from;
+  const still = (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) || Math.abs(dist) < 2;
+  if (still) { if (!(panRun && panRun.idx === idx)) { b.scrollLeft = to; b.classList.remove("panning"); } return; }
+  if (panRun) panRun.stop();
+  const ms = Math.round(Math.min(480, 260 + Math.abs(dist) * 0.5)), t0 = performance.now(), ease = x => 1 - Math.pow(1 - x, 3);
+  let raf = 0, done = false;
+  const cur = () => b.isConnected ? b : ($$(".board")[idx] || b);
+  const stop = () => { if (done) return; done = true; cancelAnimationFrame(raf); const el = cur(); el.classList.remove("panning"); document.removeEventListener("pointerdown", stop, true); if (panRun === run) panRun = null; };
+  const step = now => {
+    const el = cur(); el.classList.add("panning");
+    const k = Math.min(1, (now - t0) / ms); el.scrollLeft = from + dist * ease(k);
+    if (k < 1) raf = requestAnimationFrame(step); else stop();
+  };
+  const run = {stop, to, idx};
+  panRun = run; b.classList.add("panning");
+  document.addEventListener("pointerdown", stop, true);
+  raf = requestAnimationFrame(step);
 }
 function flashToday(){
   const l = $(".tl-bg .today-line"), d = $(".tl-d.is-today");
@@ -17314,7 +17343,9 @@ function endDrag(ok){
   // the ghost stays where it was let go until the board redraws, then the card glides from there (see bfLand)
   bfLand = {id: (d.el && d.el.dataset && d.el.dataset.id) || d.id, ghost: d.ghost, before: bfRects(), at: performance.now()};
   { const g = d.ghost; setTimeout(() => { if (g.isConnected) g.remove(); if (bfLand && bfLand.ghost === g) bfLand = null; }, 1500); }
-  if (d.board) d.board.classList.remove("dragging");
+  // a phone's column pager glides to a column after the redraw rather than snapping now (see restoreBoards)
+  ui.boardSettle = true;
+  if (d.board) { d.board.classList.add("panning"); d.board.classList.remove("dragging"); }
   $$(".col.over").forEach(c => c.classList.remove("over"));
   if (d.el && d.el.dataset && d.el.dataset.gt) {
     const colEl = ok && d.ph && d.ph.parentNode ? d.ph.closest(".col") : null;

@@ -57,6 +57,36 @@ const seed = tasks => { localStorage.setItem("studioso:welcomed", "1"); localSto
     ok(doing.includes("t2") && doing.length === 3, "it lands in Doing: " + doing.join(","));
     ok(!errs.length, "no page errors " + errs.join(" | "));
     await ctx.close();
+
+    // Phone: the columns are a swipe pager. Dropping while the board is half way between two columns glides it over to the
+    // card's column instead of snapping there.
+    const pctx = await browser.newContext(Object.assign({viewport: {width: 402, height: 874}, isMobile: true, hasTouch: true, timezoneId: "America/New_York", locale: "en-US", serviceWorkers: "block"}, rec ? {recordVideo: {dir: rec + "/phone", size: {width: 402, height: 874}}} : {}));
+    const q = await pctx.newPage(), perrs = []; q.on("pageerror", e => perrs.push(e.message));
+    await q.clock.install({time: new Date("2026-10-06T15:00:00-04:00")});
+    await q.addInitScript(seed, TASKS);
+    await q.goto("http://127.0.0.1:" + server.address().port + "/index.html");
+    await q.waitForFunction(() => window.__sbAvail && document.readyState === "complete", null, {timeout: 20000});
+    await q.evaluate(() => window.__sbAvail.view({tab: "board", bview: "board"}));
+    await q.waitForSelector('.col[data-status="doing"] .card'); await q.waitForTimeout(600);
+    await q.evaluate(() => document.querySelector(".board").scrollIntoView({block: "start"})); await q.waitForTimeout(300);
+    const pb = await q.locator('.board .card[data-id="t1"]').boundingBox();
+    await q.mouse.move(pb.x + 40, pb.y + 14); await q.mouse.down();
+    for (let i = 1; i <= 6; i++) { await q.mouse.move(pb.x + 40 + i * 8, pb.y + 14 + i * 4); await q.waitForTimeout(30); }
+    // carry it over: the board is part way to In Progress when the finger lifts
+    const mid = await q.evaluate(() => { const b = document.querySelector(".board"), d = document.querySelector('.col[data-status="doing"]'); const full = b.scrollLeft + d.getBoundingClientRect().left - b.getBoundingClientRect().left - 18; b.scrollLeft = Math.round(full * 0.62); return {at: b.scrollLeft, full: Math.round(full)}; });
+    await q.waitForTimeout(rec ? 500 : 120);
+    await q.mouse.move(330, pb.y + 40); await q.waitForTimeout(rec ? 400 : 120);
+    await q.evaluate(() => { window.__pan = []; const t0 = performance.now(), look = () => { const b = document.querySelector(".board"); window.__pan.push([Math.round(performance.now() - t0), Math.round(b.scrollLeft)]); if (performance.now() - t0 < 900) requestAnimationFrame(look); }; requestAnimationFrame(look); });
+    await q.mouse.up(); await q.waitForTimeout(1100);
+    const pan = await q.evaluate(() => window.__pan), xs = pan.map(x => x[1]), end = xs[xs.length - 1];
+    const between = new Set(xs.filter(x => x > mid.at + 3 && x < end - 3)).size, jump = Math.max(...xs.slice(1).map((x, i) => Math.abs(x - xs[i])));
+    const pdoing = await q.evaluate(() => [...document.querySelectorAll('.col[data-status="doing"] .card[data-id]:not(.ghost)')].map(c => c.dataset.id));
+    ok(pdoing.includes("t1"), "phone: the card was dropped into In Progress: " + pdoing.join(","));
+    ok(Math.abs(end - mid.full) <= 2, "phone: the board ends lined up on In Progress (" + end + " vs " + mid.full + ")");
+    ok(between >= 5 && jump < (mid.full - mid.at) * 0.6, "phone: it glides there from half way instead of snapping (" + between + " in-between frames, biggest step " + jump + "px of " + (mid.full - mid.at) + "): " + xs.slice(0, 14).join(" "));
+    ok(await q.evaluate(() => !document.querySelector(".board.panning, .board.dragging") && getComputedStyle(document.querySelector(".board")).scrollSnapType.startsWith("x")), "phone: swipe snapping is back on afterwards");
+    ok(!perrs.length, "phone: no page errors " + perrs.join(" | "));
+    await pctx.close();
     console.log("\nboard-motion.e2e: " + checks + " checks " + (process.exitCode ? "FAILED" : "passed"));
   } finally { await browser.close(); server.close(); }
 })().catch(e => { console.error(e); process.exit(1); });
