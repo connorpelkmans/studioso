@@ -81,71 +81,100 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(sv.c && sv.c.pass === 55 && sv.g.scale && sv.g.scale[0][1] === 93, "saving stores the pass mark on the course and the edited scale for all courses (the default): " + JSON.stringify([sv.c && sv.c.pass, sv.g.scale && sv.g.scale[0]]));
       await ctx.close(); }
 
-    // the school lookup
+    // the school and program lookup lives in Grade Options (top of the Grades page), not in a course's Grade Settings
     const LMS = {brightspace: {host: "learn.testu.ca", mode: "api", name: ""}}, MANUAL = {ai: {auto: false}};
     const SCALE8 = [["A+", 90], ["A", 85], ["A-", 80], ["B+", 76], ["B", 72], ["C", 60], ["D", 50], ["F", 0]].map(([letter, min]) => ({letter, min}));
     const FOUND = (o) => Object.assign({found: true, school: "Test University", scale: SCALE8, pass: 55, note: ""}, o || {});
+    const openOpts = async page => { await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "gp-opts"; document.body.appendChild(b); b.click(); b.remove(); }); await page.waitForSelector("#gsSchool"); };
+    const chips = page => page.$$eval("#goPrev .go-chip", cs => cs.map(c => c.textContent.trim()));
+    const saved = page => page.evaluate(() => { const d = JSON.parse(localStorage.getItem("coursework:v2")); return {g: (d.settings || {}).grades || {}, c: d.courses}; });
+    { const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL)});
+      await openSettings(page);
+      ok(await page.locator("#dlg #gsSchool").count() === 0 && await page.locator("#dlg #gsProgram").count() === 0, "a course's Grade Settings has no school or program lookup");
+      ok(await page.locator('#dlg .gr-scale-look [data-act="gp-opts"]').count() === 1, "it points to Grade Options instead");
+      await page.click('#dlg .gr-scale-look [data-act="gp-opts"]'); await page.waitForSelector("#dlg[open] #gsSchool");
+      ok(/Grade Options/.test(await page.textContent("#dlg[open] .sheet")) && /Grade Scale for All Courses/.test(await page.textContent("#dlg[open] .sheet")), "which opens Grade Options at the school scale section");
+      ok(page.errs.length === 0, "no page errors " + page.errs.join(";")); await ctx.close(); }
     {
       const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: FOUND()});
-      await openSettings(page);
-      ok(/learn\.testu\.ca/.test(await page.textContent("#gsSchool")) && await page.locator("#gsFind").count() === 1, "the connected learning site is recognised");
+      await openOpts(page);
+      ok(/learn\.testu\.ca/.test(await page.textContent("#gsSchool")) && await page.locator("#gsFind").count() === 1 && await page.locator("#gsProgram").count() === 1, "Grade Options recognises the connected learning site, with a program box");
+      ok(/standard .* scale/.test(await page.textContent(".go-scale-h")), "it says which scale is in use now");
       ok(ctx.calls === 0, "nothing is asked until the button is pressed, and nothing runs in the background");
       await page.click("#gsFind"); await page.waitForFunction(() => /hasn't been checked online/.test(document.querySelector("#gsSchool").textContent));
-      ok(JSON.stringify(await rows(page)) === JSON.stringify(SCALE8.map(x => [x.letter, String(x.min)])), "the scale boxes are filled in");
-      ok(await page.inputValue('input[name="pass"]') === "55", "the pass mark is filled in too");
-      ok(await page.locator('input[name="all"]').isChecked(), "Use This Scale for All My Courses is ticked");
+      ok(JSON.stringify(await chips(page)) === JSON.stringify(SCALE8.map(x => x.letter + " " + x.min)) && /Pass mark 55%/.test(await page.textContent("#goPrev")), "what was found is shown to check, with its pass mark");
       const body = ctx.bodies[0], txt = JSON.stringify(body);
       ok(!body.tools, "no web search is requested");
       ok(/learn\.testu\.ca/.test(txt) && !/Biology|BIO1/.test(txt), "only the site address is sent, nothing about the student's courses");
-      await page.click('[data-submit]'); await page.waitForFunction(() => { try { return ((JSON.parse(localStorage.getItem("coursework:v2")).settings || {}).grades || {}).pass === 55; } catch (e) { return false; } }, null, {timeout: 5000}).catch(() => {});
-      const gr = await page.evaluate(() => { const d = JSON.parse(localStorage.getItem("coursework:v2")); return {pass: ((d.settings || {}).grades || {}).pass, scale: ((d.settings || {}).grades || {}).scale}; }); ok(gr.pass === 55 && gr.scale && gr.scale.length === 8, "saving keeps what was found, for all courses: " + JSON.stringify(gr));
+      ok(!((await saved(page)).g.scale), "nothing is saved until Use for All My Courses");
+      await page.click("#goUse"); await page.waitForTimeout(400);
+      const sv = await saved(page); ok(sv.g.pass === 55 && sv.g.scale && sv.g.scale.length === 8 && sv.g.school && sv.g.school.name === "Test University", "Use for All My Courses saves the scale and pass mark for all courses: " + JSON.stringify([sv.g.pass, sv.g.scale && sv.g.scale.length]));
+      ok(/Now using Test University's scale/.test(await page.textContent("#dlg[open] .go-scale-h")), "Grade Options now says it's using that scale");
+      ok(page.errs.length === 0, "no page errors " + page.errs.join(";")); await ctx.close(); }
+    {
+      // a course with its own scale follows the looked-up one, and Undo puts it back
+      const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: FOUND()});
+      await page.evaluate(() => { const d = JSON.parse(localStorage.getItem("coursework:v2")); d.courses[0].grading = {scale: [["P", 50], ["F", 0]]}; localStorage.setItem("coursework:v2", JSON.stringify(d)); }); await page.reload(); await page.waitForFunction(() => window.__sbGrades);
+      await openOpts(page); await page.click("#gsFind"); await page.waitForSelector("#goUse"); await page.click("#goUse"); await page.waitForTimeout(400);
+      ok(!(await saved(page)).c[0].grading.scale, "a course with its own scale now follows the school's");
+      await page.click("#toastUndo"); await page.waitForTimeout(400);
+      ok(JSON.stringify((await saved(page)).c[0].grading.scale) === JSON.stringify([["P", 50], ["F", 0]]), "Undo gives it back its own scale");
       await ctx.close(); }
     for (const [what, reply] of [["found: false", {found: false, scale: []}], ["too few letters", FOUND({scale: SCALE8.slice(0, 2)})]]) {
       const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply});
-      await openSettings(page); const before = JSON.stringify(await rows(page)); await page.click("#gsFind"); await page.waitForFunction(() => /Upload a screenshot or paste/.test(document.querySelector("#gsMsg").textContent));
-      ok(JSON.stringify(await rows(page)) === before && await page.evaluate(() => !document.querySelector("#gsPasteBox").hidden), `${what}: nothing is filled in, and the screenshot / paste box opens`); await ctx.close(); }
+      await openOpts(page); await page.click("#gsFind"); await page.waitForFunction(() => /Upload a screenshot/.test(document.querySelector("#gsMsg").textContent));
+      ok(await page.locator("#goUse").count() === 0 && !(await page.isDisabled("#gsFind")), `${what}: nothing to use, it points to uploading in a course, and the button works again`); await ctx.close(); }
     {
-      const {ctx, page} = await mk({settings: Object.assign({}, LMS)}); await openSettings(page); await page.click("#gsFind");
-      ok(/needs AI/.test(await msg(page)) && ctx.calls === 0, "without AI it says so and offers upload / paste"); await ctx.close(); }
+      const {ctx, page} = await mk({settings: Object.assign({}, LMS)}); await openOpts(page); await page.click("#gsFind");
+      ok(/needs AI/.test(await msg(page)) && ctx.calls === 0, "without AI it says so"); await ctx.close(); }
     {
       const {ctx, page} = await mk({ai: true, settings: MANUAL, reply: FOUND()});
-      await openSettings(page); await page.click("#gsFind"); ok(/Type your school's name/.test(await msg(page)) && ctx.calls === 0, "asks for the school's name when no site is connected");
+      await openOpts(page); await page.click("#gsFind"); ok(/Type your school's name/.test(await msg(page)) && ctx.calls === 0, "asks for the school's name when no site is connected");
       await page.fill("#gsSchoolName", "Test University"); await page.click("#gsFind"); await page.waitForFunction(() => /best knowledge/.test(document.querySelector("#gsSchool").textContent));
-      ok(/Test University/.test(JSON.stringify(ctx.bodies[0])), "the typed name is what is asked about"); ok((await rows(page)).length === 8, "and the boxes fill in"); await ctx.close(); }
+      ok(/Test University/.test(JSON.stringify(ctx.bodies[0])), "the typed name is what is asked about"); ok((await chips(page)).length === 8, "and the scale is shown"); await ctx.close(); }
     {
       const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: FOUND({scope: "program", program: "Nursing"})});
-      await openSettings(page); ok(await page.locator("#gsProgram").count() === 1, "there is a program box");
-      await page.fill("#gsProgram", "Nursing"); await page.click("#gsFind"); await page.waitForFunction(() => /the Nursing scale at Test University/.test(document.querySelector("#gsSchool").textContent));
+      await openOpts(page); await page.fill("#gsProgram", "Nursing");
+      ok(/Find My Program's Scale/.test(await page.textContent("#gsFind")), "with a program typed, the button says it finds the program's scale");
+      await page.click("#gsFind"); await page.waitForFunction(() => /the Nursing scale at Test University/.test(document.querySelector("#gsSchool").textContent));
       ok(/program: Nursing/.test(JSON.stringify(ctx.bodies[0])), "the program is sent with the school");
       ok(await page.inputValue("#gsProgram") === "Nursing", "the program box keeps what was typed");
-      ok((await rows(page)).length === 8, "and the program's scale fills in"); await ctx.close(); }
+      ok(!(await page.isDisabled("#gsFind")) && /Look Up This Program's Scale/.test(await page.textContent("#gsFind")), "the Look Up button stays usable after a lookup (it used to grey out)");
+      await page.click("#goUse"); await page.waitForTimeout(400);
+      const sv = await saved(page); ok(sv.g.program === "Nursing" && sv.g.school.scope === "program", "the program is remembered with the scale");
+      ok(/Now using the Nursing scale at Test University/.test(await page.textContent("#dlg[open] .go-scale-h")) && await page.inputValue("#gsProgram") === "Nursing", "and shown when Grade Options opens again");
+      await ctx.close(); }
     {
-      // looked up first, program typed after: a button (and Enter) looks again for that program
+      // looked up first, program typed after: the button (and Enter) looks again for that program
       const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: FOUND({scope: "school"})});
-      await openSettings(page); await page.click("#gsFind"); await page.waitForFunction(() => /general scale/.test(document.querySelector("#gsSchool").textContent));
-      ok(await page.locator("#gsProgGo").count() === 1 && await page.isDisabled("#gsProgGo"), "after a lookup, the program box has a Look Up button, off while it's empty");
+      await openOpts(page); await page.click("#gsFind"); await page.waitForFunction(() => /general scale/.test(document.querySelector("#gsSchool").textContent));
+      ok(!(await page.isDisabled("#gsFind")) && /Search Again/.test(await page.textContent("#gsFind")), "after a lookup with no program, the button can search again");
       await page.fill("#gsProgram", "nursing");
-      ok(!(await page.isDisabled("#gsProgGo")), "typing a program turns it on");
+      ok(/Look Up This Program's Scale/.test(await page.textContent("#gsFind")), "typing a program makes it Look Up This Program's Scale");
       ctx.reply = FOUND({scope: "program", program: "Nursing"});
-      await page.click("#gsProgGo"); await page.waitForFunction(() => /the Nursing scale at Test University/.test(document.querySelector("#gsSchool").textContent));
+      await page.click("#gsFind"); await page.waitForFunction(() => /the Nursing scale at Test University/.test(document.querySelector("#gsSchool").textContent));
       ok(ctx.calls === 2 && /program: nursing/.test(JSON.stringify(ctx.bodies[1])), "it asks again, for that program");
-      ok(await page.isDisabled("#gsProgGo"), "and turns off again for the program it just looked up");
-      await page.fill("#gsProgram", "Practical Nursing"); await page.press("#gsProgram", "Enter");
-      await page.waitForFunction(() => document.querySelectorAll("#dlg[open]").length && true); await page.waitForTimeout(500);
-      ok(ctx.calls === 3 && /Practical Nursing/.test(JSON.stringify(ctx.bodies[2])) && await page.locator("#dlg[open] #gsRows").count() === 1, "Enter in the program box looks it up too, without saving or closing the sheet");
+      await page.fill("#gsProgram", "Practical Nursing"); await page.press("#gsProgram", "Enter"); await page.waitForTimeout(500);
+      ok(ctx.calls === 3 && /Practical Nursing/.test(JSON.stringify(ctx.bodies[2])) && await page.locator("#dlg[open] #gsSchool").count() === 1, "Enter in the program box looks it up too, without closing the sheet");
       await ctx.close(); }
     {
       const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: FOUND({scope: "school"})});
-      await openSettings(page); await page.fill("#gsProgram", "Geology"); await page.click("#gsFind");
+      await openOpts(page); await page.fill("#gsProgram", "Geology"); await page.click("#gsFind");
       await page.waitForFunction(() => /general scale \(no separate Geology scale found\)/.test(document.querySelector("#gsSchool").textContent));
-      ok((await rows(page)).length === 8, "falls back to the school's scale"); await ctx.close(); }
+      ok((await chips(page)).length === 8, "falls back to the school's scale"); await ctx.close(); }
     {
       const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL, {area: {id: "health", text: "Nursing"}}), reply: FOUND()});
-      await openSettings(page); ok(await page.inputValue("#gsProgram") === "Nursing", "prefilled from the area of study"); await ctx.close(); }
+      await openOpts(page); ok(await page.inputValue("#gsProgram") === "Nursing", "prefilled from the area of study"); await ctx.close(); }
     {
       const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: FOUND(), limitSearch: true});
-      ctx.limitAll = true; await openSettings(page); await page.click("#gsFind"); await page.waitForFunction(() => /Google said/.test(document.querySelector("#gsMsg").textContent));
+      ctx.limitAll = true; await openOpts(page); await page.click("#gsFind"); await page.waitForFunction(() => /Google said/.test(document.querySelector("#gsMsg").textContent));
       ok(/Quota exceeded/.test(await msg(page)), "the rate-limit message includes what Google said"); await ctx.close(); }
+    for (const W of [1280, 390]) {
+      const {ctx, page} = await mk({ai: true, w: W, settings: Object.assign({}, LMS, MANUAL), reply: FOUND({scope: "program", program: "Nursing"})});
+      await openOpts(page); await page.fill("#gsProgram", "Nursing"); await page.click("#gsFind"); await page.waitForSelector("#goUse");
+      ok(await page.evaluate(() => { const b = document.querySelector("#dlg[open] .sheet-body"); return b.scrollWidth <= b.clientWidth + 1; }), "no sideways scroll in Grade Options at " + W + "px");
+      if (process.env.SHOT) { await page.evaluate(() => document.querySelector(".go-scale").scrollIntoView({block: "center"})); await page.waitForTimeout(200); await page.locator("#dlg[open] .sheet").screenshot({path: process.env.SHOT + "/opts-scale-" + W + ".png"}); }
+      await ctx.close(); }
     { const {ctx, page} = await mk({});
       await openSettings(page);
       ok(JSON.stringify(await page.$$eval("#gsPreset option", o => o.map(x => x.value).filter(Boolean))) === JSON.stringify(["us", "ca", "uk"]), "standard scales to choose from: US, Canada and UK");

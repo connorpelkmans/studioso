@@ -1024,7 +1024,7 @@
   function gradeOptsSheet(){
     const s = gset();
     openSheet(`<div class="sheet">${head("Grade Options")}<div class="sheet-body"><div class="menu-list">
-        <div class="cap-row"><label for="gPassIn" style="flex:1;font-weight:600">Default Pass Mark<span class="sub">For courses where you haven't set one. Check each course outline.</span></label><input type="number" id="gPassIn" min="0" max="100" step="0.5" value="${esc(r1(s.pass))}"> %</div>${gpaOpt()}
+        <div class="cap-row"><label for="gPassIn" style="flex:1;font-weight:600">Default Pass Mark<span class="sub">For courses where you haven't set one. Check each course outline.</span></label><input type="number" id="gPassIn" min="0" max="100" step="0.5" value="${esc(r1(s.pass))}"> %</div>${gpaOpt()}${schoolOpt()}
         <label class="mi-check gs-opt"><input type="checkbox" id="gAskIn" ${s.prompt ? "checked" : ""}><span>Ask for My Mark After I Finish Graded Work<span class="sub">A small note a few seconds later. Easy to skip.</span></span></label>
         <label class="mi-check gs-opt"><input type="checkbox" id="gRwIn" ${s.rescue ? "checked" : ""}><span>Offer Help When My Week Looks Too Full<span class="sub">A Rough Week banner on the Board</span></span></label>
         <label class="mi-check gs-opt"><input type="checkbox" id="gClsIn" ${s.cls ? "checked" : ""}><span>${esc(tr("gb.opt", "Compare My Marks to the Class"))}<span class="sub">${esc(tr("gb.opt.s", "For school-synced courses that share class averages"))}</span></span></label>
@@ -1033,8 +1033,84 @@
     wireGradeOpts();
   }
   hook("act", act => { if (act !== "gp-opts") return false; gradeOptsSheet(); return true; });
+  /* School and program grade scale, in Grade Options: the AI looks it up, the student checks it, and one button makes it every course's scale */
+  const scaleChips = sc => `<span class="go-chips">${sc.map(x => `<span class="go-chip"><b>${esc(x[0])}</b> ${esc(r1(Number(x[1])))}</span>`).join("")}</span>`;
+  function schoolNow(){
+    const gs = gsave(), sc = gs.school;
+    if (sc && sc.name && okScale(gs.scale)) return sc.scope === "program" && sc.program ? tr("gr.school.nowProg", "Now using the {program} scale at {school}.", {program: sc.program, school: sc.name}) : tr("gr.school.nowSchool", "Now using {school}'s scale.", {school: sc.name});
+    return okScale(gs.scale) ? tr("gr.school.nowOwn", "Now using your own scale.") : tr("gr.school.nowStd", "Now using the standard {name} scale.", {name: (SCALES[scaleRegion()] || {}).name || ""});
+  }
+  const schoolOpt = () => `<div class="go-scale"><div class="go-scale-h"><b>${esc(tr("gr.school.title", "Grade Scale for All Courses"))}</b><span class="sub">${esc(schoolNow())} ${esc(tr("gr.school.sub", "A course can still have its own scale in its Grade Settings."))}</span></div>
+      <div class="gr-school" id="gsSchool"></div><div class="go-prev" id="goPrev" hidden></div><p class="status-msg" id="gsMsg" aria-live="polite" role="status"></p></div>`;
+  function wireSchool(){
+    const block = $("#gsSchool"), prevBox = $("#goPrev"), msg = $("#gsMsg");
+    if (!block || !prevBox || block.dataset.wired) return;
+    block.dataset.wired = "1";
+    const say = t => { if (msg) msg.textContent = t; };
+    const hosts = schoolHosts();
+    let found = null, busy = false;
+    let prog = String(gsave().program || (window.SBAREA && SBAREA.get() ? SBAREA.get().text : "") || "").trim().slice(0, 80);
+    const goLbl = () => prog ? (found ? tr("gr.school.progGo", "Look Up This Program's Scale") : tr("gr.school.findProg", "Find My Program's Scale")) : (found ? tr("gr.school.again", "Search Again") : tr("gr.school.find", "Find My School's Scale"));
+    // what was found: the scale to check, then one button makes it every course's scale
+    const showFound = () => {
+      if (!found) { prevBox.hidden = true; prevBox.innerHTML = ""; return; }
+      prevBox.hidden = false;
+      prevBox.innerHTML = `${scaleChips(found.scale)}${found.pass != null ? `<span class="mini">${esc(tr("gr.school.passIs", "Pass mark {p}%", {p: r1(found.pass)}))}</span>` : ""}<div class="gr-scale-acts"><button type="button" class="btn small primary" id="goUse">${esc(tr("gr.school.useAll", "Use for All My Courses"))}</button></div>`;
+      $("#goUse").addEventListener("click", useFound);
+    };
+    function useFound(){
+      const f = found; if (!f) return;
+      const isDef = JSON.stringify(f.scale) === JSON.stringify(G_SCALE);
+      saveG(Object.assign({scale: isDef ? null : f.scale, school: {name: f.school, url: f.url, host: f.host, at: Date.now(), official: !!f.official, program: f.program || "", scope: f.scope || "school"}, program: prog || "", suggest: null}, f.pass != null ? {pass: f.pass} : {}));
+      // courses that had their own scale follow this one now (Undo puts them back)
+      const chs = coursesArr().filter(c => c.grading && c.grading.scale).map(c => { const o = clone(c); o.grading = Object.assign({}, o.grading, {scale: null}); return {kind: "course", id: c.id, after: o}; });
+      const what = f.scope === "program" && f.program ? tr("gr.school.usedProg", "The {program} scale is now used for all your courses", {program: f.program}) : tr("gr.school.used", "{school}'s scale is now used for all your courses", {school: f.school || tr("gr.school.yours", "your school")});
+      if (chs.length) applyChanges(chs, what); else toast(what);
+      found = null; scheduleRender(); gradeOptsSheet();
+    }
+    const paint = () => {
+      const gs = gsave(), sg = gs.suggest, ask = !(sg && !found);
+      let top = "";
+      if (found) top = `<p class="mini" style="margin:0">${found.official
+        ? esc(tr("gr.school.official", "Found {school}'s grade scale{pass} on the school's own website. Check it matches your course outline.", {school: found.school || tr("gr.school.yours", "your school"), pass: found.pass != null ? " " + tr("gr.school.andPass", "and {p}% pass mark", {p: r1(found.pass)}) : ""}))
+        : found.recalled ? esc(found.scope === "program"
+          ? tr("gr.school.recalledProg2", "This is the AI's best knowledge of the {program} scale at {school}. It hasn't been checked online, so compare it with your course outline first.", {program: found.program, school: found.school || tr("gr.school.yours", "your school")})
+          : tr("gr.school.recalled2", "This is the AI's best knowledge of {school}'s general scale{prog}. It hasn't been checked online, so compare it with your course outline first.", {school: found.school || tr("gr.school.yours", "your school"), prog: prog ? tr("gr.school.noProg", " (no separate {program} scale found)", {program: prog}) : ""}))
+        : esc(tr("gr.school.unsure2", "Found a scale for {school} on {host}, which isn't the school's own website. Check it carefully first.", {school: found.school || tr("gr.school.yours", "your school"), host: found.host}))} ${safeUrl(found.url) ? `<a href="${esc(safeUrl(found.url))}" target="_blank" rel="noopener noreferrer">${esc(found.host)}</a>` : ""}</p>`;
+      else if (sg) top = `<p class="mini" style="margin:0">${esc(tr("gr.school.sug", "Studyboard found a grade scale for {school} on {host}. Is this your school?", {school: sg.school || tr("gr.school.yours", "your school"), host: sg.host}))}</p><div class="gr-scale-acts"><button type="button" class="btn small primary" id="gsSugYes">${esc(tr("gr.school.use", "Use It"))}</button><button type="button" class="btn small" id="gsSugNo">${esc(tr("gr.school.no", "Not My School"))}</button></div>`;
+      else if (hosts.length) top = `<p class="mini" style="margin:0">${esc(tr("gr.school.know2", "Studyboard can ask the AI for the grade scale and pass mark at your school ({host}), or at your program if it has its own. The AI answers from memory, so check the result against your course outline.", {host: hosts[0].host}))}</p>`;
+      else top = `<label class="f"><span class="lh">${esc(tr("gr.school.name", "Your school"))} <span class="hint">${esc(tr("gr.school.nameHint", "The AI fills in its grade scale and pass mark from what it knows"))}</span></span><input type="text" id="gsSchoolName" maxlength="80" autocomplete="off" value="${esc((gs.school && gs.school.name) || "")}" placeholder="${esc(tr("gr.school.ph", "e.g. University of Alberta"))}" data-noenter></label>`;
+      block.innerHTML = top + (ask ? `<label class="f"><span class="lh">${esc(tr("gr.school.prog", "Your program"))} <span class="hint">${esc(tr("gr.school.progHint", "optional. Some programs have their own scale, and the school's is the fallback"))}</span></span><input type="text" id="gsProgram" maxlength="80" autocomplete="off" value="${esc(prog)}" placeholder="${esc(tr("gr.school.progPh", "e.g. Nursing"))}" data-noenter></label><div class="gr-scale-acts"><button type="button" class="btn small${found ? "" : " primary"}" id="gsFind"${busy ? " disabled" : ""}>${esc(goLbl())}</button></div>` : "");
+      const fb = $("#gsFind"); if (fb) fb.addEventListener("click", find);
+      const pin = $("#gsProgram");
+      if (pin) {
+        pin.addEventListener("input", () => { prog = pin.value.trim(); const b = $("#gsFind"); if (b) b.textContent = goLbl(); });
+        pin.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); if (!busy) find(); } });
+      }
+      const nm = $("#gsSchoolName"); if (nm) nm.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); if (!busy) find(); } });
+      const y = $("#gsSugYes"), n = $("#gsSugNo");
+      if (y) y.addEventListener("click", () => { found = Object.assign({}, sg, {official: false}); saveG({suggest: null}); paint(); showFound(); say(tr("gr.school.sugUsed2", "Check it, then choose Use for All My Courses.")); });
+      if (n) n.addEventListener("click", () => { saveG({suggest: null, schoolNo: true}); paint(); });
+    };
+    async function find(){
+      const nm = $("#gsSchoolName"), name = nm ? nm.value.trim() : (found && found.school) || (gsave().school && gsave().school.name) || "";
+      if (!hosts.length && !name) { say(tr("gr.school.needName", "Type your school's name first.")); if (nm) nm.focus(); return; }
+      if (!aiReady()) { say(tr("gr.school.needAi2", "Looking this up needs AI. Set up AI in Settings (Gemini is free), or upload a screenshot of the scale in a course's Grade Settings.")); return; }
+      busy = true; { const fb = $("#gsFind"); if (fb) fb.disabled = true; }
+      say(prog ? tr("gr.school.searchingProg", "Asking the AI about the {program} grade scale at your school…", {program: prog}) : tr("gr.school.searching", "Asking the AI about your school's grade scale…"));
+      try {
+        const h = hosts[0] || {host: "", name: ""}, f = vetSchool(await findSchool({host: h.host, name: name || h.name, program: prog}));
+        busy = false;
+        if (f) { found = f; say(""); paint(); showFound(); return; }
+        say(tr("gr.school.none2", "The AI isn't sure of that grade scale. Upload a screenshot of it, or paste it, in a course's Grade Settings."));
+      } catch (e) { busy = false; say((e && e.message) || tr("gr.school.fail2", "The lookup didn't work. Upload a screenshot of the scale, or paste it, in a course's Grade Settings.")); }
+      const fb2 = $("#gsFind"); if (fb2) fb2.disabled = false;
+    }
+    paint();
+  }
   function wireGradeOpts(){
     const pi = $("#gPassIn"); if (!pi) return;
+    wireSchool();
     pi.addEventListener("change", e => { const v = clampP(Number(e.target.value) || 0); saveG({pass: v, passSrc: "user"}); scheduleRender(); toast(`Default pass mark set to ${fmtP(v)}`); });
     $("#gAskIn").addEventListener("change", e => { saveG({prompt: e.target.checked}); toast(e.target.checked ? "Studyboard will ask for marks" : "Studyboard won't ask for marks"); });
     $("#gRwIn").addEventListener("change", e => { saveG({rescue: e.target.checked}); scheduleRender(); });
@@ -1145,7 +1221,7 @@
   const scaleRow = (l, v) => `<div class="gr-scale-row"><label><span class="sr">${esc(tr("gr.sc.letter", "Letter"))}</span><input type="text" name="sl" maxlength="4" value="${esc(l)}" placeholder="A" autocomplete="off" autocapitalize="characters" spellcheck="false" data-noenter></label><label><span class="sr">${esc(tr("gr.sc.pct", "Lowest percent"))}</span><input type="number" name="sp" min="0" max="100" step="0.5" inputmode="decimal" value="${v == null ? "" : esc(r1(v))}" placeholder="90" data-noenter></label><button type="button" class="icon-btn gr-scale-del" aria-label="${esc(tr("gr.sc.remove", "Remove this letter"))}" title="${esc(tr("gr.sc.remove", "Remove this letter"))}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
   function courseGradeSheet(id){
     const c = courseOf(id); if (!c) return;
-    const g = gradingOf(c); dlg.__schoolFound = null;
+    const g = gradingOf(c);
     openSheet(`<form class="sheet">${head("Grade Settings")}
       <div class="sheet-body">
         <p style="margin:0"><b>${esc(c.name)}</b>${c.code ? ` <span class="mini">${esc(c.code)}</span>` : ""}</p>
@@ -1159,7 +1235,7 @@
         ${rulesFields(c)}
         <div class="gr-scale">
           <span class="lh">${esc(tr("gr.sc.title", "Letter Scale"))} <span class="hint">${esc(tr("gr.sc.hint", "each letter and the lowest percent that earns it"))}</span></span>
-          <div class="gr-school" id="gsSchool"></div>
+          <p class="mini gr-scale-look" style="margin:0">${esc(tr("gr.sc.lookOpt", "To look up your school's or your program's scale, use Grade Options at the top of the Grades page."))} <button type="button" class="link-btn" data-act="gp-opts">${esc(tr("gr.sc.lookBtn", "Open Grade Options"))}</button></p>
           <div class="gr-import">
             <p class="mini" style="margin:0">${esc(tr("gr.sc.import", "Have your school's scale? Upload or paste a screenshot, or paste the text, and the boxes below fill in. Check them before you save."))}</p>
             <div class="gr-scale-acts"><label class="btn small gr-file">${esc(tr("gr.sc.upload", "Upload Screenshot"))}<input type="file" id="gsFile" accept="image/*,application/pdf" hidden></label><button type="button" class="btn small" id="gsPasteBtn" aria-expanded="false" aria-controls="gsPasteBox">${esc(tr("gr.sc.paste", "Paste a Scale"))}</button></div>
@@ -1192,8 +1268,6 @@
       const isDef = JSON.stringify(scale) === JSON.stringify(G_SCALE);
       const all = !!fd.get("all");
       if (all) saveG({scale: isDef ? null : scale});
-      const fnd = dlg.__schoolFound;
-      if (all && fnd && fnd.pass != null && Number(pass) === fnd.pass) saveG({pass: fnd.pass, school: {name: fnd.school, url: fnd.url, host: fnd.host, at: Date.now(), official: !!fnd.official, program: fnd.program || "", scope: fnd.scope || "school"}, program: dlg.__program || ""});
       const n = clone(state.courses[id]), was = (state.courses[id].grading || {});
       const mine = r1(pass) !== r1(g.pass) || was.passSrc === "user";
       if (fd.get("passAll")) {
@@ -1255,55 +1329,10 @@
   // The scale boxes
   function wireScale(){
     const rows = $("#gsRows"), msg = $("#gsMsg"), say = t => { if (msg) msg.textContent = t; };
-    let dirty = false, found = null;
+    let dirty = false;
     const fill = sc => { rows.innerHTML = sc.map(x => scaleRow(x[0], Number(x[1]))).join(""); };
-    const showPaste = () => { const b = $("#gsPasteBox"), pb = $("#gsPasteBtn"); if (b && b.hidden) { b.hidden = false; pb.setAttribute("aria-expanded", "true"); } };
-    const apply = f => { dlg.__schoolFound = f; fill(f.scale); { const al = dlg.querySelector('input[name="all"]'); if (al) al.checked = true; } const pi = dlg.querySelector('input[name="pass"]'); if (f.pass != null && pi) pi.value = String(r1(f.pass)); found = f; };
-    const block = $("#gsSchool");
-    let prog = String(gsave().program || (window.SBAREA && SBAREA.get() ? SBAREA.get().text : "") || "").trim().slice(0, 80);
-    dlg.__program = prog;
-    block.addEventListener("input", e => { if (e.target.id === "gsProgram") { prog = e.target.value.trim(); dlg.__program = prog; const pg = $("#gsProgGo"); if (pg && found) pg.disabled = !prog || prog.toLowerCase() === String(found.program || "").toLowerCase(); } });
-    const hosts = schoolHosts();
-    const paint = () => {
-      const gs = gsave(), sg = gs.suggest, sc = gs.school;
-      if (found) block.innerHTML = `<p class="mini" role="status" style="margin:0">${found.official
-        ? esc(tr("gr.school.official", "Found {school}'s grade scale{pass} on the school's own website. Check it matches your course outline.", {school: found.school || tr("gr.school.yours", "your school"), pass: found.pass != null ? " " + tr("gr.school.andPass", "and {p}% pass mark", {p: r1(found.pass)}) : ""}))
-        : found.recalled ? esc(found.scope === "program"
-          ? tr("gr.school.recalledProg", "This is the AI's best knowledge of the {program} scale at {school}. It hasn't been checked online, so compare it with your course outline before you save.", {program: found.program, school: found.school || tr("gr.school.yours", "your school")})
-          : tr("gr.school.recalled", "This is the AI's best knowledge of {school}'s general scale{prog}. It hasn't been checked online, so compare it with your course outline before you save.", {school: found.school || tr("gr.school.yours", "your school"), prog: prog ? tr("gr.school.noProg", " (no separate {program} scale found)", {program: prog}) : ""}))
-        : esc(tr("gr.school.unsure", "Found a scale for {school} on {host}, which isn't the school's own website. Check it carefully before you save.", {school: found.school || tr("gr.school.yours", "your school"), host: found.host}))} ${safeUrl(found.url) ? `<a href="${esc(safeUrl(found.url))}" target="_blank" rel="noopener noreferrer">${esc(found.host)}</a>` : ""}</p>`;
-      else if (sg) block.innerHTML = `<p class="mini" style="margin:0">${esc(tr("gr.school.sug", "Studyboard found a grade scale for {school} on {host}. Is this your school?", {school: sg.school || tr("gr.school.yours", "your school"), host: sg.host}))}</p><div class="gr-scale-acts"><button type="button" class="btn small primary" id="gsSugYes">${esc(tr("gr.school.use", "Use It"))}</button><button type="button" class="btn small" id="gsSugNo">${esc(tr("gr.school.no", "Not My School"))}</button></div>`;
-      else if (sc) block.innerHTML = `<p class="mini" style="margin:0">${esc(tr("gr.school.from", "Filled in from {school}'s own website.", {school: sc.name || tr("gr.school.yours", "your school")}))} ${safeUrl(sc.url) ? `<a href="${esc(safeUrl(sc.url))}" target="_blank" rel="noopener noreferrer">${esc(sc.host || hostOf(sc.url))}</a> ` : ""}<button type="button" class="link-btn" id="gsFind">${esc(tr("gr.school.again", "Search Again"))}</button></p>`;
-      else if (hosts.length) block.innerHTML = `<p class="mini" style="margin:0">${esc(tr("gr.school.know", "Studyboard can ask the AI for the grade scale and pass mark at your school ({host}). The AI answers from memory, so check the result against your course outline.", {host: hosts[0].host}))}</p><div class="gr-scale-acts"><button type="button" class="btn small primary" id="gsFind">${esc(tr("gr.school.find", "Find My School's Scale"))}</button></div>`;
-      else block.innerHTML = `<label class="f"><span class="lh">${esc(tr("gr.school.name", "Your school"))} <span class="hint">${esc(tr("gr.school.nameHint", "The AI fills in its grade scale and pass mark from what it knows"))}</span></span><input type="text" id="gsSchoolName" maxlength="80" autocomplete="off" placeholder="${esc(tr("gr.school.ph", "e.g. University of Alberta"))}" data-noenter></label><div class="gr-scale-acts"><button type="button" class="btn small primary" id="gsFind">${esc(tr("gr.school.find", "Find My School's Scale"))}</button></div>`;
-      if (!sg || found) block.insertAdjacentHTML("beforeend", `<label class="f"><span class="lh">${esc(tr("gr.school.prog", "Your program"))} <span class="hint">${esc(tr("gr.school.progHint", "optional. Some programs have their own scale, and the school's is the fallback"))}</span></span><input type="text" id="gsProgram" maxlength="80" autocomplete="off" value="${esc(prog)}" placeholder="${esc(tr("gr.school.progPh", "e.g. Nursing"))}" data-noenter></label>${found ? `<div class="gr-scale-acts"><button type="button" class="btn small" id="gsProgGo" ${prog && prog.toLowerCase() !== String(found.program || "").toLowerCase() ? "" : "disabled"}>${esc(tr("gr.school.progGo", "Look Up This Program's Scale"))}</button></div>` : ""}`);
-      // a program typed after a lookup: look again, for that program
-      const pg = $("#gsProgGo"), pin = $("#gsProgram");
-      if (pg) pg.addEventListener("click", find);
-      if (pin) pin.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); if (pg && !pg.disabled) find(); else if (!found) { const fb0 = $("#gsFind"); if (fb0) fb0.click(); } } });
-      const fb = $("#gsFind"); if (fb) fb.addEventListener("click", find);
-      const y = $("#gsSugYes"), n = $("#gsSugNo");
-      if (y) y.addEventListener("click", () => { const f = Object.assign({official: false}, sg, {official: false}); apply(f); const all = dlg.querySelector('input[name="all"]'); if (all) all.checked = true; saveG({suggest: null}); say(tr("gr.school.sugUsed", "Filled in. Check it, then save.")); paint(); });
-      if (n) n.addEventListener("click", () => { saveG({suggest: null, schoolNo: true}); paint(); });
-    };
-    async function find(){
-      const nm = $("#gsSchoolName"), name = nm ? nm.value.trim() : (found && found.school) || "";
-      if (!hosts.length && !name) { say(tr("gr.school.needName", "Type your school's name first.")); if (nm) nm.focus(); return; }
-      if (!aiReady()) { say(tr("gr.school.needAi", "Looking this up needs AI. Set up AI in Settings (Gemini is free), or upload a screenshot or paste the scale below.")); showPaste(); return; }
-      const fb = $("#gsFind"); if (fb) fb.disabled = true;
-      { const pg = $("#gsProgGo"); if (pg) pg.disabled = true; }
-      say(prog ? tr("gr.school.searchingProg", "Asking the AI about the {program} grade scale at your school…", {program: prog}) : tr("gr.school.searching", "Asking the AI about your school's grade scale…"));
-      try {
-        const h = hosts[0] || {host: "", name: ""}, f = vetSchool(await findSchool({host: h.host, name: name || h.name, program: prog}));
-        if (f) { apply(f); say(""); paint(); return; }
-        say(tr("gr.school.none", "The AI isn't sure of your school's grade scale. Upload a screenshot or paste the scale below, and Studyboard will read it.")); showPaste();
-      } catch (e) { say((e && e.message) || tr("gr.school.fail", "The lookup didn't work. Upload a screenshot or paste the scale below.")); showPaste(); }
-      const fb2 = $("#gsFind"); if (fb2) fb2.disabled = false;
-    }
-    paint();
     rows.addEventListener("input", () => { dirty = true; });
     const run = async src => {
-      found = null; dlg.__schoolFound = null; { const b = $("#gsSchool"); if (b && !gsave().suggest && !gsave().school) b.innerHTML = ""; }
       say(tr("gr.sc.reading", "Reading the scale…"));
       [$("#gsFile"), $("#gsPasteGo")].forEach(b => { if (b) b.disabled = true; });
       try {
@@ -1314,7 +1343,7 @@
     };
     $("#gsPreset").addEventListener("change", e => {
       const P = SCALES[e.target.value]; if (!P) return;
-      dirty = true; found = null; dlg.__schoolFound = null; fill(P.scale);
+      dirty = true; fill(P.scale);
       const pi = dlg.querySelector('input[name="pass"]'); if (pi) pi.value = String(passOf(P.scale));
       say(tr("gr.sc.presetDone", "Filled in the {name} scale, with a {p}% pass mark. Change any box to match your course outline.", {name: P.name, p: passOf(P.scale)}));
     });

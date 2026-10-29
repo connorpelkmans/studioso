@@ -3710,6 +3710,15 @@ nav.tabs [data-tab="courses"]{position:relative}
 .nm-card{position:absolute;top:10px;right:10px;z-index:3;display:grid;place-items:center;min-width:22px;height:22px;padding:0 6px;box-sizing:border-box;border-radius:11px;background:var(--late);color:#fff;font:800 .72rem/1 var(--display);box-shadow:0 1px 3px rgba(0,0,0,.25);pointer-events:none}
 .gr-newmark{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--late);margin-right:6px;vertical-align:middle;box-shadow:0 0 0 2px var(--surface)}
 .gp-zero{display:block;margin-top:4px;color:var(--late,#c0392b);font-weight:600}
+/* Grade Options: the school and program scale lookup */
+.go-scale{display:grid;gap:8px;padding:10px 0}
+.go-scale-h{display:grid;gap:2px}
+.go-scale-h .sub{font-size:.85rem;color:var(--muted)}
+.go-scale .status-msg:empty{display:none}
+.go-prev{display:grid;gap:8px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--soft)}
+.go-prev[hidden]{display:none}
+.go-chips{display:flex;flex-wrap:wrap;gap:6px}
+.go-chip{padding:3px 9px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:.85rem;font-variant-numeric:tabular-nums}
 /* ===== module: 92-estimates.css ===== */
 /* Estimate Times */
 .est-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
