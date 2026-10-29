@@ -657,10 +657,10 @@ hook("render", () => { queueMicrotask(() => raMore()); requestAnimationFrame(() 
 // (a phone folds any new header's buttons into More, once per frame; a computer only the group-assignment ones)
 let raT = 0;
 new MutationObserver(() => {
-  if (raT) return;
-  const any = RA_MQ.matches ? document.querySelector(".g2-band > .row-actions:not([data-ra])") : document.querySelector(".g2-band > .row-actions:not([data-ra]) > .gx-assign");
-  if (!any) return;
-  raT = requestAnimationFrame(() => { raT = 0; raMore(!RA_MQ.matches); });
+  // the group-assignment button folds away at once, as before
+  if (document.querySelector(".g2-band > .row-actions:not([data-ra]) > .gx-assign")) raMore(true);
+  if (raT || !RA_MQ.matches || !document.querySelector(".g2-band > .row-actions:not([data-ra])")) return;
+  raT = requestAnimationFrame(() => { raT = 0; raMore(); });
 }).observe(document.documentElement, {childList: true, subtree: true});
 RA_MQ.addEventListener("change", () => { try { render(); } catch (e) {} });
 document.addEventListener("click", e => {
