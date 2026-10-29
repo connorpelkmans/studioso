@@ -47,7 +47,7 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [{id: "c1", name: "Contex
       await focus.click(); for (let i = 0; i < 40 && !ctx.last; i++) await page.waitForTimeout(100);
       const b = JSON.parse(ctx.last), txt = b.contents[0].parts.map(p => p.text || "").join(""), sys = b.systemInstruction.parts[0].text;
       ok(/COURSE BSNC 1020[\s\S]*LOOKS WRONG/.test(txt), "Where Should I Focus? sees the warning on the course");
-      ok(/If a course is marked LOOKS WRONG[^.]*say that first/.test(sys) && /fully marked course can no longer change/.test(sys), "and is told to raise it first, and that a finished course can't change");
+      ok(/If a course is marked LOOKS WRONG[^.]*say that first/.test(sys) && /grade says final can no longer change/.test(sys) && /not final may still get more marks/.test(sys), "and is told to raise it first, and that a finished course can't change");
     } else ok(false, "Where Should I Focus? button is on the Grades page");
     ok(!errs.length, "no page errors: " + errs.join(" | "));
     console.log("\ngrades-zero.e2e: " + n + " checks passed");
