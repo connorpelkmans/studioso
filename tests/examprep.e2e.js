@@ -173,7 +173,7 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       await ctx.clock.setSystemTime(new Date(2026, 9, 8, 10, 0, 0)); await page.reload(); await page.waitForTimeout(1500);
       await goBoard(page);
       await page.waitForFunction(() => /slipped/.test((document.querySelector("#planExtra .pp-today") || {textContent: ""}).textContent), null, {timeout: 5000}).catch(() => {});
-      ok(/Exam Prep/.test(await txt(page, "#planExtra .pt-bar")), "the tab bar names Exam Prep: " + (await txt(page, "#planExtra .pt-bar")).replace(/\n/g, " "));
+      ok(/Exam Prep/.test(await txt(page, ".plan-foot")), "the links under the plan name Exam Prep: " + (await txt(page, ".plan-foot")).replace(/\n/g, " "));
       await openPrep(page, "slipped");
       ok(await vis(page, ".pp-today"), "a gentle banner on Today when sessions were missed");
       ok(/slipped/.test(await txt(page, ".pp-today")), "it says sessions slipped: " + (await txt(page, ".pp-today")).replace(/\n/g, " ").slice(0, 100));
