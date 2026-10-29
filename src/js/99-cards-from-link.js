@@ -239,6 +239,8 @@ const LINKCARDS = (() => {
         if ((e && (e.code === "big" || e.code === "long")) || /token|too long|exceed|duration|maximum/i.test(m)) msg = failMsg("too_long", L);
         else if ((e && e.code === "http") || /private|unavailable|not (?:be )?found|invalid.*(?:video|url|uri|argument)|file_?uri|unsupported|cannot (?:access|fetch)|permission/i.test(m)) msg = failMsg("unreachable", L);
       }
+      // Gemini can't open most YouTube videos from the last few weeks (a known problem on Google's side, the Gemini app too): say so, and how to get the transcript
+      if (L.kind === "youtube" && !pasted && e && e.link && /^(?:empty|unreachable|novideo|choke)$/.test(e.st || String(e.code || "").replace(/^link-/, ""))) msg += " If the video is new (from the last few weeks), that's likely why: Gemini usually can't watch YouTube videos until they're about a month old. Older videos work. For a new one, copy its transcript (on YouTube: open the description, choose Show transcript, then select and copy it) and paste it here.";
       const offerPaste = !pasted && !/^(?:nokey|key|credit|offline|no-consent|cancelled|limit|busy)$/.test((e && e.code) || "");
       say(msg + (offerPaste ? (e && e.link ? " Paste the text instead, and the AI can work from that." : "") : ""), (offerPaste ? PASTE : "") + (e && e.diag && e.diag.length ? `<details class="cl-diag"><summary>Details</summary><ul>${e.diag.map(x => `<li>${esc(x)}</li>`).join("")}</ul></details>` : ""));
       aiJobFailed(); aiShowStatus(st);

@@ -108,6 +108,7 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
         const t = await p2.textContent("#aiStatus");
         ok(bodies.length === 1, "a video Gemini watched and found empty isn't watched a second time (" + bodies.length + " looks)");
         ok(/said: The video is a phone review with no teaching/.test(t), "the AI's reason is in the message: " + t);
+        ok(/usually can't watch YouTube videos until they're about a month old/.test(t) && /Show transcript/.test(t), "and it explains that new videos often can't be watched, and how to copy the transcript");
         ok(/read 41,000 tokens, answer complete, status empty, 0 characters of notes/.test(await p2.evaluate(() => (document.querySelector("#aiStatus .cl-diag") || {}).textContent || "")), "and Details shows what came back: " + await p2.evaluate(() => (document.querySelector("#aiStatus .cl-diag") || {}).textContent || ""));
       } else if (/plain/.test(mode)) {
         await p2.waitForFunction(() => /Review Before Saving/.test((document.querySelector("#dlg[open]") || {}).textContent || ""), null, {timeout: 15000}).catch(() => {});
