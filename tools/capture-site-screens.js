@@ -1,13 +1,15 @@
-// node tools/capture-site-screens.js [outDir] [--companions | --overlays | --themes]
+// node tools/capture-site-screens.js [outDir] [--companions | --overlays | --themes] [--scale 2]
+// --scale: pixel density of the pictures (2 makes them sharp on high-density screens)
 const http = require("http"), fs = require("fs"), path = require("path"), os = require("os");
 const {chromium, executablePath} = require("../tests/pw");
-const root = path.join(__dirname, ".."), OUT = process.argv.slice(2).find(a => !a.startsWith("--")) || fs.mkdtempSync(path.join(os.tmpdir(), "sbshots-"));
+const root = path.join(__dirname, ".."), OUT = process.argv.slice(2).find((a, i, l) => !a.startsWith("--") && l[i - 1] !== "--scale") || fs.mkdtempSync(path.join(os.tmpdir(), "sbshots-"));
 fs.mkdirSync(OUT, {recursive: true});
 const MIME = {".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".png": "image/png", ".css": "text/css", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".webp": "image/webp", ".webmanifest": "application/manifest+json"};
 const server = http.createServer((q, r) => { let p = decodeURIComponent(new URL(q.url, "http://x").pathname); if (p === "/") p = "/index.html"; const f = path.join(root, p);
   if (!f.startsWith(root) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { r.writeHead(404); r.end(); return; }
   if (p === "/index.html" && /[?&]pro=off\b/.test(q.url)) { r.writeHead(200, {"content-type": "text/html"}); r.end(require("../scripts/csp").apply(require("../scripts/app-files").source().replace("const PRO_ENFORCED = true;", "const PRO_ENFORCED = false;"))); return; }
   r.writeHead(200, {"content-type": MIME[path.extname(f)] || "application/octet-stream"}); fs.createReadStream(f).pipe(r); });
+const SCALE = Number((process.argv.find((x, i, l) => l[i - 1] === "--scale") || 1));
 const NOW = new Date(2026, 9, 8, 10, 0, 0);
 const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const plus = k => { const d = new Date(NOW); d.setDate(d.getDate() + k); return iso(d); };
@@ -57,7 +59,7 @@ const dismiss = async page => {
   }
 };
 async function capture(browser, scheme, compId) {
-  const ctx = await browser.newContext({viewport: {width: 1280, height: 800}, colorScheme: scheme, deviceScaleFactor: 1, serviceWorkers: "block"});
+  const ctx = await browser.newContext({viewport: {width: 1280, height: 800}, colorScheme: scheme, deviceScaleFactor: SCALE, serviceWorkers: "block"});
   await ctx.clock.setFixedTime(NOW);
   await ctx.addInitScript(([seed, scheme]) => { try { if (!localStorage.getItem("coursework:v2")) {
     localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("studioso:theme", scheme); localStorage.setItem("studyboard:tips", "off");
@@ -96,7 +98,7 @@ var THEMES = ["japan", "italy", "sakura", "forest", "galaxy", "sunset", "ocean",
 // Theme pictures and the hero
 const WINDOW = {width: 1200, height: 750}, SHRINK = 1000 / 1200;
 async function openSeeded(browser, scheme, seed, viewport) {
-  const ctx = await browser.newContext({viewport, colorScheme: scheme, deviceScaleFactor: SHRINK, serviceWorkers: "block"});
+  const ctx = await browser.newContext({viewport, colorScheme: scheme, deviceScaleFactor: SHRINK * SCALE, serviceWorkers: "block"});
   await ctx.clock.setFixedTime(NOW);
   await ctx.addInitScript(([seed, scheme]) => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("studioso:theme", scheme); } } catch (e) {} }, [seed, scheme]);
   const page = await ctx.newPage(); await page.goto("http://localhost:" + server.address().port + "/?pro=off"); await page.waitForSelector("#view", {state: "attached"}); await page.waitForTimeout(3000);

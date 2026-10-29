@@ -24,7 +24,7 @@ See PRO-PLANS-GUIDE.md in the main folder for the full owner steps.
 
 ## Screenshots of the real app
 
-The home page shows real screens from the app (`assets/screens/`, light and dark, plus one image per theme). To refresh them after the app changes, run `node tools/capture-site-screens.js <folder>` (Playwright and Chromium; it runs the app on a fixed date with made-up student data, with AI shown as switched on and no request made), then save the PNGs as WebP into `assets/screens/` (for example with Pillow, `Image.save(name + ".webp", quality=80)`; theme images at 640x400, the others at 1120x700).
+The home page shows real screens from the app (`assets/screens/`, light and dark, plus one image per theme). To refresh them after the app changes, run `node tools/capture-site-screens.js <folder> --scale 2` (Playwright and Chromium; it runs the app on a fixed date with made-up student data, with AI shown as switched on and no request made), then save the PNGs as WebP into `assets/screens/` (for example with Pillow, `Image.save(name + ".webp", quality=90, method=6)`; theme images at 1600x1000, the others at 2240x1400, so they stay sharp on high-density screens).
 
 ## Live theme tiles and companions (home page)
 
@@ -34,5 +34,5 @@ and publish the new files. `assets/scenes.js` and `assets/companions.js` are the
 screen, stop when it is off screen or the tab is hidden, and respect "reduce motion" (no movement, but companions still say a line now and then).
 
 The tiles and the hero use real-interface pictures: `assets/screens/ui-<theme>-<light|dark>.webp` (the app's interface on a transparent background, with the scene and the companion taken out) and
-`assets/screens/hero-*.webp`, plus `assets/tile-geo.js`, which says where the scene and the companion sit. Make them again with `node tools/capture-site-screens.js --overlays <folder>`, convert the PNGs
+`assets/screens/hero-*.webp`, plus `assets/tile-geo.js`, which says where the scene and the companion sit. Make them again with `node tools/capture-site-screens.js --overlays <folder> --scale 2`, convert the PNGs
 to WebP, and copy the numbers from `geometry.json` into `tile-geo.js`. Only the companion on the first screen (the hero) speaks; the others just move.
