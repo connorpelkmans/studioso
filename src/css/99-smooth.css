@@ -13,8 +13,14 @@ html:not([data-motion="static"]) .sm-view{animation:sm-view .24s var(--sm-ease) 
 /* Sheets and pop-ups */
 html:not([data-motion="static"]) dialog[open]:not(.tour):not(.sx-dlg){animation:sm-sheet-pop .24s var(--sm-ease) backwards}
 html:not([data-motion="static"]) dialog[open]::backdrop{animation:sm-back .22s ease-out backwards}
+/* Phones: a sheet slides up from the bottom edge like the system's own sheets (whole height, iOS curve), the dim behind fading in */
+@keyframes sm-sheet-slide{from{transform:translateY(100%)}to{transform:none}}
 @media (max-width:639px){
-  html:not([data-motion="static"]) dialog[open]:not(.tour):not(.sx-dlg){animation-name:sm-sheet-up;animation-duration:.28s}
+  html:not([data-motion="static"]) dialog[open]:not(.tour):not(.sm-x){animation:sm-sheet-slide .42s cubic-bezier(.32,.72,0,1) backwards}
+  html:not([data-motion="static"]) dialog[open]::backdrop{animation:sm-back .32s ease-out backwards}
+}
+@media (max-width:639px) and (prefers-reduced-motion:reduce){
+  html:not([data-motion="static"]) dialog[open]:not(.tour):not(.sm-x){animation:sm-back .2s ease-out backwards}
 }
 /* Menus and dropdowns */
 html:not([data-motion="static"]) .sb-dd,html:not([data-motion="static"]) .cs-menu{animation:sm-pop .16s var(--sm-ease) backwards;transform-origin:top center}
