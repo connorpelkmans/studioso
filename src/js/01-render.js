@@ -233,7 +233,62 @@ function dlgClose(){
   if (!(dlgGuard && dlgGuard())) { dlg.close(); return; }
   askBox({title: "Discard Changes?", text: "Your changes to this task aren't saved yet.", yes: "Discard", no: "Keep Editing", danger: true}).then(ok => { if (ok && dlg.open) { dlgGuard = null; dlg.close(); } });
 }
+/* Sheets that keep their place. A sheet with work in it (typed input, or an AI job still running) is set aside, not thrown
+   away, when you tap outside it, press Escape or tap ✕, or when another sheet opens over it. Opening it again from the same
+   button brings it back as it was; only Cancel (or finishing) clears it. A job that finishes while set aside says so in a toast. */
+const KEPT = new Map(); let KEEP = null, keepAway = false;
+const keepShown = () => !!KEEP && dlg.open && dlg.contains(KEEP.node);
+// Call right after openSheet: key names the entry point; dirty() says whether there's anything worth keeping; drop() runs when it's cleared (abort a job here)
+function sheetKeep(key, o){
+  o = o || {}; const node = dlg.querySelector(".sheet"); if (!node) return;
+  const old = KEPT.get(key); if (old && old.node !== node) { KEPT.delete(key); try { old.drop && old.drop(); } catch (e) {} }
+  KEEP = {key, node, dirty: o.dirty || (() => true), drop: o.drop || null, busy: o.busy || (() => false), name: o.name || ""};
+}
+// Brings a set-aside sheet back; false when there's none
+function sheetResume(key){
+  const k = KEPT.get(key); if (!k) return false;
+  KEPT.delete(key);
+  if (k.ready) { const f = k.ready; k.ready = null; f(); return true; }
+  dlgGuard = null;
+  const tt = $("#toast"), inSheet = !!tt && tt.parentNode === dlg;
+  if (inSheet) document.body.appendChild(tt);
+  dlg.innerHTML = ""; dlg.appendChild(k.node);
+  if (inSheet) dlg.appendChild(tt);
+  KEEP = k;
+  if (!dlg.open) dlg.showModal();
+  return true;
+}
+// Clears a sheet for good (Cancel, or once its work is saved)
+function sheetDrop(key){
+  const k = KEPT.get(key) || (KEEP && KEEP.key === key ? KEEP : null); if (!k) return;
+  KEPT.delete(key); if (KEEP === k) KEEP = null;
+  try { k.drop && k.drop(); } catch (e) {}
+}
+// A job is done: show fn's sheet now if its sheet is open, or hold it with a toast when it was set aside. False when it was cleared.
+function sheetReady(key, fn, msg){
+  if (KEEP && KEEP.key === key && keepShown()) { KEEP = null; fn(); return true; }
+  const k = KEPT.get(key); if (!k) return false;
+  k.ready = fn;
+  toast(msg || "It's ready", null, {label: "Open", fn: () => { if (dlg.open) dlg.close(); setTimeout(() => sheetResume(key), 30); }});
+  return true;
+}
+// Is a job for this key still running while its sheet is set aside
+const sheetKept = key => KEPT.has(key);
+function keepPark(){
+  const k = KEEP; KEEP = null; if (!k) return;
+  let keep = false; try { keep = !!k.dirty() || !!k.busy(); } catch (e) {}
+  if (keep) { if (k.node.parentNode) k.node.remove(); KEPT.set(k.key, k); if (k.busy()) toast(`${k.name || "That"} is still working. Open it again to pick up where you left off.`); }
+  else { try { k.drop && k.drop(); } catch (e) {} }
+}
+dlg.addEventListener("close", () => {
+  if (!KEEP) { keepAway = false; return; }
+  if (keepAway && dlg.contains(KEEP.node)) keepPark();
+  else { const k = KEEP; KEEP = null; if (!KEPT.has(k.key)) { try { k.drop && k.drop(); } catch (e) {} } }
+  keepAway = false;
+});
 function openSheet(html, onSubmit){
+  // another sheet opening over one with work in it sets that one aside
+  if (keepShown()) keepPark(); else KEEP = null;
   dlgGuard = null;
   const tt = $("#toast"), inSheet = !!tt && tt.parentNode === dlg;
   if (inSheet) document.body.appendChild(tt);
@@ -262,9 +317,9 @@ function openSheet(html, onSubmit){
 }
 // A backdrop tap closes a sheet only when it both started and ended on the backdrop (not a text selection dragged out)
 const backdropClose = (d, close) => { let down = false; d.addEventListener("pointerdown", e => { down = e.target === d; }); d.addEventListener("click", e => { const was = down; down = false; if (e.target === d && was) close(); }); };
-backdropClose(dlg, () => dlgClose()); backdropClose($("#pomoDlg"), () => $("#pomoDlg").close());
+backdropClose(dlg, () => { keepAway = true; dlgClose(); setTimeout(() => { if (dlg.open) keepAway = false; }, 0); }); backdropClose($("#pomoDlg"), () => $("#pomoDlg").close());
 dlg.addEventListener("keydown", e => { if (e.key === "Escape" && !e.defaultPrevented && dlgGuard && dlgGuard()) { e.preventDefault(); dlgClose(); } });
-dlg.addEventListener("cancel", e => { if (dlgGuard && dlgGuard()) { e.preventDefault(); dlgClose(); } });
+dlg.addEventListener("cancel", e => { if (dlgGuard && dlgGuard()) { e.preventDefault(); dlgClose(); return; } keepAway = true; });
 dlg.addEventListener("close", () => { dlgGuard = null; });
 const FAB_IC = {
   course: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M9 8h6"/>',

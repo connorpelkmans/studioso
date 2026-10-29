@@ -452,6 +452,7 @@ function dayInfoFn(ex, from, to){
     const isToday = date === today, o = {load: per[date] || 0, crunch: !!crunchDay[date]};
     if (act) { const f = availFreeDay(date, isToday ? nowMin : null, ext); o.cap = Math.floor(f.total * 0.85); o.windows = f.windows.map(w => ({s: w.s, e: w.e})); if (f.none) o.blocked = true; }
     else { o.cap = Math.floor(dh * 60 * busyFactor((bd.m && bd.m[date]) || 0)); if (isToday) o.cap = Math.min(o.cap, Math.floor((1320 - nowMin) * 0.6)); }
+    if (dayIsOff(date)) { o.cap = 0; o.blocked = true; }
     return o;
   };
 }
@@ -544,6 +545,7 @@ function applyPlan(ex0, P, topics, due, time, out, opts){
   if (ne.start && ne.start > ne.due) ne.start = ne.due;
   changes.push({kind: "task", id: ex.id, after: normTask(ne)});
   const n = out.sessions.length;
+  if (opts.dry) return {changes, n};
   applyChanges(changes, opts.label || (opts.replan ? `Re-planned ${n} prep session${n === 1 ? "" : "s"} for ${ex.title}` : `Added ${n} prep session${n === 1 ? "" : "s"} for ${ex.title}`));
   return n;
 }
@@ -781,6 +783,14 @@ function catchUp(id){
   applyPlan(ex, Object.assign({}, P, {style: P.style, ai: false}), topics, ex.due, ex.time, out, {replan: true, label: `Caught up: ${out.sessions.length} session${out.sessions.length === 1 ? "" : "s"} spread over the days left${kept ? ` (${kept} done kept)` : ""}`});
   if (dlg.open && S && S.step === "view") { S.step = "view"; draw(); }
 }
+// The same re-spread as Catch Up, worked out without applying it (Autopilot puts it in its own batch)
+function replanChanges(id){
+  const ex = state.tasks[id]; if (!ex || !ex.due) return null;
+  const P = prepOf(ex), topics = P.topics; if (!topics.length) return null;
+  const out = EXAMPREP.plan(inputFor(ex, P, topics, ex.due));
+  if (out.err || !out.sessions.length) return {out, changes: []};
+  return {out, changes: applyPlan(ex, Object.assign({}, P, {ai: false}), topics, ex.due, ex.time, out, {replan: true, dry: true}).changes};
+}
 function wrapUp(id){
   const ex = state.tasks[id]; if (!ex) return;
   const open = sessionsOf(id).filter(t => t.status !== "done"), changes = open.map(t => ({kind: "task", id: t.id, after: null}));
@@ -817,6 +827,7 @@ function todayItems(){
     }
     if (ex.status === "done") return;
     if (days < 0) { if (!(ex.prep && ex.prep.archived)) out.push({id: ex.id, kind: "passed", text: `${nm} has passed. How did it go?`, btn: "Wrap Up", act: "prep-wrap"}); return; }
+    if ((sm.moved || sm.missed) && window.SBAUTOPILOT && SBAUTOPILOT.handles()) return;
     if (sm.moved) out.push({id: ex.id, kind: "moved", text: `${nm} moved to ${fmtDate(ex.due)}. Re-spread your prep sessions to match?`, btn: "Re-plan", act: "prep-catch"});
     else if (sm.missed) out.push({id: ex.id, kind: "behind", text: `${sm.missed} prep session${sm.missed === 1 ? "" : "s"} for ${nm} slipped. Spread ${sm.missed === 1 ? "it" : "them"} over the days that are left?`, btn: "Catch Up", act: "prep-catch"});
   });
@@ -886,6 +897,6 @@ hook("changed", changes => {
     });
   } catch (e) { console.warn("prep changed", e); }
 });
-window.SBPREP = {open, todayHtml, formHtml, rowBtn, rowLine, courseHtml, courseExams, matBtn, pct: pctOf, summary: summaryOf, offer, offered, ideaValid, runIdea, catchUp, sessions: sessionsOf, EXAMPREP, _state: () => S, _plan: id => { const ex = state.tasks[id], P = prepOf(ex); return EXAMPREP.plan(inputFor(ex, P, P.topics, ex.due)); }};
+window.SBPREP = {open, todayHtml, formHtml, rowBtn, rowLine, courseHtml, courseExams, matBtn, pct: pctOf, summary: summaryOf, offer, offered, ideaValid, runIdea, catchUp, replanChanges, sessions: sessionsOf, EXAMPREP, _state: () => S, _plan: id => { const ex = state.tasks[id], P = prepOf(ex); return EXAMPREP.plan(inputFor(ex, P, P.topics, ex.due)); }};
 })();
 

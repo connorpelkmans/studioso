@@ -119,7 +119,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await page.fill("dialog[open] #gmIn", "62%"); await page.click("dialog[open] [data-submit]");
       await page.waitForSelector("dialog[open] .ewr", {timeout: 4000});
       const cmp = await page.locator("dialog[open] .ewr-cmp").innerText();
-      ok(/How ready you felt\s*80%/.test(cmp) && /What your results said\s*\d\d%/.test(cmp) && /Your mark\s*62%/.test(cmp), "wrapper: felt, measured and the mark side by side: " + cmp.replace(/\s+/g, " "));
+      ok(/How ready you felt\s*80%/.test(cmp) && /Your practice scores\s*\d\d%/.test(cmp) && /Your mark\s*62%/.test(cmp), "wrapper: felt, measured and the mark side by side: " + cmp.replace(/\s+/g, " "));
       ok(/You felt more ready \(80%\) than your mark shows \(62%\)/.test(await page.locator("dialog[open] .ewr-read").innerText()), "wrapper: says what the comparison means");
       await page.locator('dialog[open] input[name="m"][value="reread"]').check({force: true});
       ok(/Rereading and rewatching feel productive/.test(await page.locator("#ewrTip").innerText()), "wrapper: a tip on how they studied");

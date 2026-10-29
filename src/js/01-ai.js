@@ -17,7 +17,7 @@ const AI_TASKS = {
   ask: ["reason", "high"], tutor: ["reason", "medium"], cards: ["reason", "medium"], quiz: ["reason", "medium"], cases: ["reason", "medium"],
   syllabus: ["reason", "medium"], examplan: ["reason", "medium"], plan: ["reason", "medium"], practice: ["reason", "medium"], rubric: ["reason", "medium"],
   transcribe: ["lite", "low"],
-  topics: ["mid", "medium"], explain: ["mid", "medium"], summary: ["mid", "medium"], photo: ["mid", "medium"], capture: ["mid", "low"], tune: ["mid", "low"], estimate: ["mid", "low"], breakdown: ["mid", "high"],
+  topics: ["mid", "medium"], explain: ["mid", "medium"], summary: ["mid", "medium"], chat: ["mid", "low"], linknotes: ["mid", "low"], "cards-light": ["mid", "low"], "quiz-light": ["mid", "low"], "cases-light": ["mid", "low"], photo: ["mid", "medium"], capture: ["mid", "low"], tune: ["mid", "low"], estimate: ["mid", "low"], breakdown: ["mid", "high"],
   school: ["mid", "low"], quickadd: ["lite", "low"], grade: ["lite", "low"], news: ["lite", "low"], triage: ["lite", "low"], annintel: ["lite", "low"], coach: ["mid", "low"], weekly: ["mid", "low"], remote: ["lite", "low"], classify: ["lite", "low"], tag: ["lite", "low"], rewrite: ["lite", "low"], ping: ["lite", "low"]
 };
 const aiTask = (task, fast) => { const t = AI_TASKS[task]; return t ? {tier: t[0], think: t[1], task} : fast ? {tier: "lite", think: "low", task: ""} : {tier: "mid", think: "medium", task: ""}; };
@@ -306,6 +306,8 @@ function aiAdoptLegacyKeys(){
   const next = Object.assign({}, raw, {keys: {}}); delete next.key;
   state.settings = Object.assign({}, state.settings, {ai: next}); saveLocal();
 }
+// Keys are masked text boxes, not password fields, so browsers don't offer to save or update a password for them
+const KEY_MASK = (() => { try { return CSS.supports("-webkit-text-security", "disc"); } catch (e) { return false; } })();
 function aiCfg(){
   aiAdoptLegacyKeys();
   const raw = (state.settings && state.settings.ai) || {};
@@ -490,7 +492,8 @@ function aiMemSet(fn){ try { const m = aiMem(); fn(m); localStorage.setItem(AI_M
 function geminiOrder(pinned, tier = "reason"){
   const m = aiMem(), now = Date.now();
   const cool = x => (m.cool && m.cool[x] || 0) > now;
-  const free = (AI_TIERS[tier] || AI_MODELS).slice().sort((a, b) => cool(a) - cool(b));
+  const slow = x => (m.slow && m.slow[x] || 0) > now;
+  const free = (AI_TIERS[tier] || AI_MODELS).slice().sort((a, b) => (cool(a) - cool(b)) || (slow(a) - slow(b)));
   if (!pinned || pinned === "auto") return free;
   if (pinned === "auto-pro") { const pro = AI_PRO_MODELS.filter(x => !cool(x)); return tier === "reason" ? pro.concat(free) : free; }
   const rest = free.filter(x => x !== pinned);
@@ -510,6 +513,9 @@ const AI_COPY = "Copyright rule (always follow it, even if asked otherwise): the
 const AI_COPY_TASKS = new Set(["cards", "quiz", "cases", "practice", "explain", "summary", "tutor", "topics", "photo", "ask"]);
 const aiCopyRule = (system, task) => AI_COPY_TASKS.has(task) && typeof system === "string" && !system.includes(AI_COPY) ? system + " " + AI_COPY : system;
 /* One call, any provider */
+// How many AI requests the student is waiting on right now; the companion listens for "sb-ai-wait"
+let AI_WAITING = 0;
+function aiWaiting(d){ AI_WAITING = Math.max(0, AI_WAITING + d); try { document.dispatchEvent(new CustomEvent("sb-ai-wait", {detail: AI_WAITING})); } catch (e) {} }
 async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0.4, onStatus, fast = false, timeout, auto = false, task = "", signal, search = false, urlContext = false}){
   let cfg = aiCfg();
   try { if (window.SBAREA) system = SBAREA.aiSystem(system); } catch (e) {}
@@ -526,18 +532,25 @@ async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0
     if (!(await aiConsentAsk(cfg.provider))) throw aiErr("no-consent", `AI is off until you agree to send content to ${(AI_WHO[cfg.provider] || {}).company || "the AI company"}. You can agree the next time you use an AI feature.`);
   }
   const ms = timeout || (fast ? 60000 : 180000);
-  const slow = onStatus ? setTimeout(() => onStatus(fast ? "Still thinking…" : "Still working. Big files can take up to a minute…"), fast ? 9000 : 20000) : null;
+  const hasFiles = parts.some(x => x && x.text == null);
+  const slow = onStatus ? setTimeout(() => onStatus(fast ? "Still thinking…" : hasFiles ? "Still working. Big files can take up to a minute…" : "Still thinking…"), fast ? 9000 : 20000) : null;
+  // a request the student is waiting on (not background work): the companion shows it's thinking
+  if (!auto) aiWaiting(1);
   try {
     if (cfg.provider === "trial") return await trialCall({system, parts, schema, maxTokens, temperature, ms, task, signal});
     if (cfg.provider === "anthropic") return await claudeCall(cfg, {system, parts, schema, maxTokens, ms, signal, search, urlContext});
     if (cfg.provider === "openai") return await openaiCall(cfg, {system, parts, schema, maxTokens, ms, signal, search, urlContext});
     return await geminiCall(cfg, {system, parts, schema, maxTokens, temperature, fast, ms, task, signal, search, urlContext});
-  } finally { clearTimeout(slow); }
+  } finally { clearTimeout(slow); if (!auto) aiWaiting(-1); }
 }
 // urlContext (opt-in): the model may open the web pages named in the request (Gemini url_context, Claude web fetch, ChatGPT web search).
 // Like search, it answers in plain text (JSON is parsed from it), and r.fetched lists the pages it tried: [{url, ok, status}]
 async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, fast, ms, task, signal, search, urlContext}){
   const T = aiTask(task, fast), models = geminiOrder(cfg.model, T.tier);
+  // A short text request that hasn't answered in 25 seconds is stuck (an overloaded free model), so the next model gets a turn instead of waiting minutes
+  const light = !search && !urlContext && parts.every(p => p && p.text != null) && parts.reduce((n, p) => n + String(p.text).length, 0) + String(system || "").length < 40000 && maxTokens <= 16000;
+  const msEach = light ? Math.min(ms, (window.__SB_TEST && window.__SB_AI_STALL) || 25000) : ms;
+  let t0 = 0;
   let thinking = true, lastErr = null, roomy = false;
   const bodyFor = () => {
     // a retry after running out of room: twice the room, and less of it spent thinking
@@ -554,10 +567,11 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
     const m = models[i];
     let res;
     try {
-      res = await fetchT(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, {method: "POST", headers: {"Content-Type": "application/json", "x-goog-api-key": cfg.key}, body: bodyFor()}, ms, signal);
+      t0 = Date.now();
+      res = await fetchT(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, {method: "POST", headers: {"Content-Type": "application/json", "x-goog-api-key": cfg.key}, body: bodyFor()}, i === models.length - 1 ? ms : msEach, signal);
     } catch(e) {
       if (signal && signal.aborted) throw aiErr("cancelled", "Canceled.");
-      if (e && e.name === "AbortError") { aiMemSet(x => { x.cool = x.cool || {}; x.cool[m] = Date.now() + 5 * 60000; }); lastErr = aiErr("slow", "The AI took too long to answer. Try again, or use fewer files."); continue; }
+      if (e && e.name === "AbortError") { aiMemSet(x => { x.cool = x.cool || {}; x.cool[m] = Date.now() + 5 * 60000; x.slow = x.slow || {}; x.slow[m] = Date.now() + 30 * 60000; }); lastErr = aiErr("slow", "The AI took too long to answer. Try again, or use fewer files."); continue; }
       throw offlineErr("Google's AI service");
     }
     if (res.ok) {
@@ -567,7 +581,9 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
       const text = ((cand.content && cand.content.parts) || []).filter(p => !p.thought).map(p => p.text || "").join("");
       const data = aiParseJson(text);
       if (data) {
-        aiMemSet(x => { x.good = m; if (x.cool) delete x.cool[m]; });
+        // how long a light answer took: models that answer slowly go to the back of the line for a while
+        const took = Date.now() - t0;
+        aiMemSet(x => { x.good = m; if (x.cool) delete x.cool[m]; if (light) { x.slow = x.slow || {}; if (took > 25000) x.slow[m] = Date.now() + 30 * 60000; else delete x.slow[m]; } });
         const sources = search ? (((cand.groundingMetadata || {}).groundingChunks) || []).map(c => c && c.web ? {url: String(c.web.uri || ""), title: String(c.web.title || "")} : null).filter(Boolean) : undefined;
         const fetched = urlContext ? (((cand.urlContextMetadata || cand.url_context_metadata || {}).urlMetadata || (cand.urlContextMetadata || cand.url_context_metadata || {}).url_metadata) || []).map(u => { const st = String(u.urlRetrievalStatus || u.url_retrieval_status || ""); return {url: String(u.retrievedUrl || u.retrieved_url || ""), ok: /SUCCESS/.test(st), status: st.replace(/^URL_RETRIEVAL_STATUS_/, "").toLowerCase()}; }) : undefined;
         return {data, model: m, provider: "gemini", truncated: cand.finishReason === "MAX_TOKENS", sources, fetched};
@@ -1022,11 +1038,11 @@ async function aiMakeStudySet(opts, onStatus){
   const copy = aiCopyIndex(sources.map(s => (s.part && typeof s.part.text === "string" ? s.part.text : "") || s.copyText || "").filter(Boolean));
   const nCards = cardCount === "auto" ? 0 : Number(cardCount) || 0, nQuiz = Number(quizCount) || 10;
   const jobs = [];
-  if (cards) jobs.push(aiRetry(() => aiCall({task: "cards", signal, maxTokens: 24000, onStatus, schema: CARD_SCHEMA, parts: parts.concat({text: `${ctx}\n\nMake ${nCards ? "exactly " + nCards + " flashcards (a few more is fine if the material truly needs them)" : "as many flashcards as the material supports well: roughly one per key idea, usually 15 to 40, at most 60"} from the material above. Spread them across all of its topics in proportion to how much it says about each.`}),
+  if (cards) jobs.push(aiRetry(() => aiCall({task: opts.light ? "cards-light" : "cards", signal, maxTokens: 24000, onStatus, schema: CARD_SCHEMA, parts: parts.concat({text: `${ctx}\n\nMake ${nCards ? "exactly " + nCards + " flashcards (a few more is fine if the material truly needs them)" : "as many flashcards as the material supports well: roughly one per key idea, usually 15 to 40, at most 60"} from the material above. Spread them across all of its topics in proportion to how much it says about each.`}),
     system: "You write excellent flashcards for students. Each card tests exactly one idea. Fronts are short (a term, a question of at most 20 words, or a sentence with ____ for a cloze). Backs are accurate and concise (1 to 2 sentences). Favor high-yield, exam-relevant content: definitions, mechanisms, comparisons, steps, normal values, and key priorities where relevant. Every card must be answerable from the material alone. No two cards may ask the same thing, and skip trivia such as the lecture title, agenda, instructor names and logistics. " + AI_GROUND + " " + AI_RULES})));
-  if (quiz) jobs.push(aiRetry(() => aiCall({task: "quiz", signal, maxTokens: 32000, onStatus, schema: QUIZ_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite exactly ${quizCount} practice questions from the material above, spread across all of its topics. Every question must be answerable from the material, and its rationale must say where.`}),
+  if (quiz) jobs.push(aiRetry(() => aiCall({task: opts.light ? "quiz-light" : "quiz", signal, maxTokens: 32000, onStatus, schema: QUIZ_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite exactly ${quizCount} practice questions from the material above, spread across all of its topics. Every question must be answerable from the material, and its rationale must say where.`}),
     system: AI_QUIZ_SYSTEM + " " + AI_GROUND})));
-  if (cases) jobs.push(aiRetry(() => aiCall({task: "cases", signal, maxTokens: 24000, onStatus, schema: CASE_SCHEMA, parts: parts.concat({text: `${ctx}\n${aiCaseStyleText(caseStyle, courseName)}\n\nWrite ${caseCount || 1} case stud${Number(caseCount) === 1 ? "y" : "ies"} from the material above.`}), system: CASE_SYSTEM})));
+  if (cases) jobs.push(aiRetry(() => aiCall({task: opts.light ? "cases-light" : "cases", signal, maxTokens: 24000, onStatus, schema: CASE_SCHEMA, parts: parts.concat({text: `${ctx}\n${aiCaseStyleText(caseStyle, courseName)}\n\nWrite ${caseCount || 1} case stud${Number(caseCount) === 1 ? "y" : "ies"} from the material above.`}), system: CASE_SYSTEM})));
   const settled = await Promise.allSettled(jobs);
   const failed = settled.filter(x => x.status === "rejected");
   if (failed.length === settled.length) throw failed[0].reason;
@@ -1044,9 +1060,12 @@ async function aiMakeStudySet(opts, onStatus){
 
 function aiStudySheet(deckId, mode){
   if (inPreview()) { toast("AI features work in the Studyboard app and on your website, not in this preview"); return; }
+  const keyK = "ai-create:" + (deckId || "");
+  // one AI creation per deck (or none) at a time: an open one, still working or with your material in it, comes back as you left it
+  if (sheetResume(keyK)) return;
   if (!aiCfg().key) { aiSetupSheet(true); return; }
   const deck = deckId ? state.decks[deckId] : null;
-  const job = {sources: [], busy: false};
+  const job = {sources: [], busy: false, key: keyK};
   const courseId = deck ? deck.courseId : (ui.filter !== "all" ? ui.filter : "");
   const storedFiles = Object.values(state.files).filter(readableFile);
   openSheet(`<form class="sheet ai-sheet">${head(mode === "quiz" ? "Make a Quiz with AI" : mode === "cards" ? (deck ? `Flashcards with AI: ${deck.name}` : "Make Flashcards with AI") : deck ? `Create with AI: ${deck.name}` : "Create Flashcards and Quizzes with AI")}
@@ -1078,6 +1097,9 @@ function aiStudySheet(deckId, mode){
     </div>
     <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="aiGo">${AI_ICON} Create</button></div>
   </form>`);
+  const sheetEl = dlg.querySelector(".ai-sheet"), inS = q => sheetEl.querySelector(q);
+  sheetKeep(keyK, {name: aiWho("AI"), busy: () => job.busy, drop: () => { job.dropped = true; if (job.ac) try { job.ac.abort(); } catch (e) {} },
+    dirty: () => job.busy || job.sources.length > 0 || !!(inS("#aiPaste") && inS("#aiPaste").value.trim()) || !!(inS("#aiLink") && inS("#aiLink").value.trim()) || !!(inS("#aiStyle") && inS("#aiStyle").value.trim() && !(deck && inS("#aiStyle").value.trim() === String(deck.aiStyle || "").trim()))});
   if (mode === "cards" || mode === "quiz") {
     const row = id => $(id) && $(id).closest(".ai-make");
     if (mode === "cards") { [row("#aiQuiz"), row("#aiCase")].forEach(r => { if (r) r.hidden = true; }); $("#aiQuiz").checked = false; $("#aiCase").checked = false; }
@@ -1135,23 +1157,32 @@ function aiStudySheet(deckId, mode){
     const val = n => (dlg.querySelector(`input[name=${n}]:checked`) || {}).value;
     const custom = $("#aiStyle").value.trim(), picks = $$(".ai-styles .chip.on", dlg).map(b => Number(b.dataset.style));
     const {style, name: styleName} = aiComposeStyle(custom, picks), cId = deck ? deck.courseId : ($("#aiCourse") ? $("#aiCourse").value : "");
-    if (viaLink) { SBLINKCARDS.run({deck, courseId: cId, mode, job, files: job.sources.slice(), pasted, style, styleName, custom, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10"}); return; }
+    if (viaLink) { SBLINKCARDS.run({deck, courseId: cId, mode, job, keepKey: keyK, files: job.sources.slice(), pasted, style, styleName, custom, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10"}); return; }
     job.busy = true; const go = $("#aiGo"); go.disabled = true; go.classList.add("busy");
     const ac = typeof AbortController === "function" ? new AbortController() : null;
-    if (ac) dlg.addEventListener("close", () => ac.abort(), {once: true});
+    job.ac = ac;
     status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(aiModelName(aiCfg().provider, aiCfg().model))} is reading your material and writing ${[wantCards && "flashcards", wantQuiz && "a quiz", wantCase && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")}. This usually takes 20 to 60 seconds…`;
     try {
       const r = await aiMakeStudySet({sources, style, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10", courseName: courseOf(cId) ? courseOf(cId).name : "", signal: ac && ac.signal}, m => { status.textContent = m; });
       if (ac && ac.signal.aborted) return;
       if (!r.cards.length && !r.questions.length && !r.cases.length) throw aiErr("empty", "The AI couldn't make anything from that material. Try adding more content, or a PDF version.");
       aiRememberStyle(custom);
-      aiReviewSheet(r, {deck, courseId: cId, style, styleName, sources: sources.map(s => s.name), origins: sources.map(s => s.origin).filter(Boolean), mode});
+      job.busy = false;
+      const ctx = {deck, courseId: cId, style, styleName, sources: sources.map(s => s.name), origins: sources.map(s => s.origin).filter(Boolean), mode, keepKey: keyK};
+      sheetReady(keyK, () => aiReviewSheet(r, ctx), aiReadyMsg(r));
     } catch(e) {
       if (e && e.code === "cancelled") return;
       console.warn(e); status.textContent = e.code ? e.message : "Something went wrong. Try again.";
       job.busy = false; go.disabled = false; go.classList.remove("busy");
+      if (sheetKept(keyK)) toast(`${aiWho("AI")} couldn't finish that. Open Create with AI again to see why and try again.`, null, {label: "Open", fn: () => sheetResume(keyK)}, {error: true});
     }
   });
+}
+// What a finished set is called in the toast when its sheet was set aside
+function aiReadyMsg(r){
+  const n = (r.cards || []).length, q = (r.questions || []).length, c = (r.cases || []).length;
+  const bits = [n && `${n} flashcard${n === 1 ? "" : "s"}`, q && `${q} quiz question${q === 1 ? "" : "s"}`, c && `${c} case stud${c === 1 ? "y" : "ies"}`].filter(Boolean);
+  return `Your ${bits.join(" and ") || "study set"} ${bits.length === 1 && /^1 /.test(bits[0]) ? "is" : "are"} ready to review`;
 }
 function aiReviewSheet(r, ctx){
   const cards = r.cards.slice(), qs = r.questions.slice(), cs = (r.cases || []).slice();
@@ -1174,7 +1205,7 @@ function aiReviewSheet(r, ctx){
           ${q.rationale ? `<details><summary>Rationale</summary><p>${esc(q.rationale)}</p></details>` : ""}</li>`).join("")}</ol>` : ""}
       ${cs.length ? `<h3 class="fsec">Case Studies<span class="n" id="arCsN">${cs.length}</span></h3><ul class="ar-cases" id="arCases">${cs.map((c, i) => `<li><div class="ar-q-head"><b>${esc(c.title)}</b><span class="mini">${c.questions.length} questions</span><span class="spacer"></span><button type="button" class="x-btn" data-rmcs="${i}" aria-label="Remove case">${CLOSE}</button></div><p class="mini" style="margin:4px 0 0">${esc(c.scenario)}</p></li>`).join("")}</ul>` : ""}
     </div>
-    <div class="sheet-foot"><button type="button" class="btn" id="arBack">Start Over</button><span class="spacer"></span><button type="button" class="btn primary" id="arSave">Save</button></div>
+    <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn" id="arBack">Start Over</button><span class="spacer"></span><button type="button" class="btn primary" id="arSave">Save</button></div>
   </form>`);
   const rmC = new Set(), rmQ = new Set(), rmCs = new Set();
   const csl = $("#arCases"); if (csl) csl.addEventListener("click", e => { const b = e.target.closest("[data-rmcs]"); if (b) { rmCs.add(Number(b.dataset.rmcs)); b.closest("li").remove(); $("#arCsN").textContent = cs.length - rmCs.size; } });
@@ -1189,7 +1220,10 @@ function aiReviewSheet(r, ctx){
     if ($("#arCardN")) $("#arCardN").textContent = cards.length - rmC.size; if ($("#arQN")) $("#arQN").textContent = qs.length - rmQ.size;
     dc.closest("p").remove();
   });
-  $("#arBack").addEventListener("click", () => ctx.fromCards ? quizSheet(ctx.fromCards) : aiStudySheet(ctx.deck ? ctx.deck.id : null, ctx.mode));
+  // set aside like the sheet it came from: a tap outside keeps these drafts, Cancel or Save clears them
+  const rvKey = ctx.keepKey || "ai-create:" + (ctx.deck ? ctx.deck.id : "");
+  sheetKeep(rvKey, {name: "Review", dirty: () => true});
+  $("#arBack").addEventListener("click", () => { sheetDrop(rvKey); if (ctx.fromCards) quizSheet(ctx.fromCards); else aiStudySheet(ctx.deck ? ctx.deck.id : null, ctx.mode); });
   $("#arSave").addEventListener("click", () => {
     const keepC = cards.filter((c, i) => !rmC.has(i) && c.front.trim() && c.back.trim()), keepQ = qs.filter((q, i) => !rmQ.has(i)), keepCs = cs.filter((c, i) => !rmCs.has(i));
     if (!keepC.length && !keepQ.length && !keepCs.length) { toast("Nothing left to save"); return; }
@@ -1205,7 +1239,7 @@ function aiReviewSheet(r, ctx){
     if (ctx.style) d.aiStyle = ctx.style;
     if (window.SBLINKED && ctx.origins && ctx.origins.length) SBLINKED.stamp(d, ctx.origins.map(o => SBLINKED.origin(o.k, o.id)), d.cards.slice(d.cards.length - keepC.length));
     d.updated = Date.now();
-    dlg.close(); ui.tab = "flashcards"; ui.fc = null;
+    sheetDrop(rvKey); dlg.close(); ui.tab = "flashcards"; ui.fc = null;
     if (!keepC.length) { ui.deckId = null; rvSet("quizzes"); } else { ui.deckId = d.id; rvSet("cards"); }
     (ctx.withSave ? (x, l) => applyChanges([{kind: "deck", id: x.id, after: x}].concat(ctx.withSave(x) || []), l) : saveDeck)(d, `Saved ${keepC.length ? keepC.length + " card" + (keepC.length === 1 ? "" : "s") : ""}${keepC.length && keepQ.length ? " and " : ""}${keepQ.length ? "a " + keepQ.length + "-question quiz" : ""}${(keepC.length || keepQ.length) && keepCs.length ? " and " : ""}${keepCs.length ? keepCs.length + " case stud" + (keepCs.length === 1 ? "y" : "ies") : ""} to ${d.name}`);
     if (ctx.fromCards && keepQ.length && !keepC.length) { startAiQuiz(d.id, qzId); return; }
@@ -1443,7 +1477,7 @@ function aiSetupSheet(fromFeature, opts){
   opts = opts || {};
   const c = aiCfg(), hasKey = !!(c.keys.gemini || c.keys.anthropic || c.keys.openai);
   const keyRow = (p) => { const P = AI_PROVIDERS[p]; return `<div class="ai-key" data-p="${p}">
-      <label class="f"><span class="lh">${esc(P.keyLabel)}${p === "gemini" ? ` ${REQ}` : ""} <span class="hint">${esc(P.keyHint)}</span></span><span class="key-row"><input type="password" data-key="${p}" value="${esc(c.keys[p])}" placeholder="Paste your key" autocomplete="off" spellcheck="false" data-noenter><button type="button" class="btn small" data-show="${p}">Show</button><button type="button" class="btn small" data-test="${p}">Test</button></span></label>
+      <label class="f"><span class="lh">${esc(P.keyLabel)}${p === "gemini" ? ` ${REQ}` : ""} <span class="hint">${esc(P.keyHint)}</span></span><span class="key-row"><input type="${KEY_MASK ? "text" : "password"}" class="${KEY_MASK ? "key-mask" : ""}" name="sb-ai-key-${p}" data-key="${p}" value="${esc(c.keys[p])}" placeholder="Paste your key" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" data-noenter><button type="button" class="btn small" data-show="${p}">Show</button><button type="button" class="btn small" data-test="${p}">Test</button></span></label>
       <p class="mini ai-test-msg" data-msg="${p}" aria-live="polite" style="margin:0"></p></div>`; };
   const modelOpts = live => { const keys = live ? {} : Object.assign({}, c.keys); if (live) $$("[data-key]", dlg).forEach(i => { keys[i.dataset.key] = i.value.trim(); });
     return Object.entries(AI_PROVIDERS).filter(([p]) => keys[p]).map(([p, P]) => `<optgroup label="${esc(P.label)}">${P.models.map(([m, l]) => `<option value="${p}|${esc(m)}" ${p === c.provider && m === c.model ? "selected" : ""}>${esc(l)}</option>`).join("")}</optgroup>`).join("") || `<option value="">Add a key first</option>`; };
@@ -1498,7 +1532,7 @@ function aiSetupSheet(fromFeature, opts){
   autoWarn();
   const refreshModels = () => { const sel = $("#aiDefault"), v = sel.value; sel.innerHTML = modelOpts(true); if ([...sel.options].some(o => o.value === v)) sel.value = v; };
   $$("[data-key]", dlg).forEach(i => i.addEventListener("change", refreshModels));
-  $$("[data-show]", dlg).forEach(b => b.addEventListener("click", () => { const i = dlg.querySelector(`[data-key="${b.dataset.show}"]`); i.type = i.type === "password" ? "text" : "password"; b.textContent = i.type === "password" ? "Show" : "Hide"; }));
+  $$("[data-show]", dlg).forEach(b => b.addEventListener("click", () => { const i = dlg.querySelector(`[data-key="${b.dataset.show}"]`), hid = KEY_MASK ? i.classList.toggle("key-mask") : (i.type = i.type === "password" ? "text" : "password") === "password"; b.textContent = hid ? "Show" : "Hide"; }));
   const testKey = async (p, key) => {
     const sel = $("#aiDefault").value.split("|");
     const model = sel[0] === p ? sel[1] : (p === "gemini" ? "auto" : AI_PROVIDERS[p].models[0][0]);
@@ -1677,3 +1711,64 @@ if (KEYHO_LINK && KEY_RELAY) {
 // Exported backup files never include your AI keys
 function exportArrays(){ const a = clone(toArrays()); if (a.settings && a.settings.ai) delete a.settings.ai; if (a.settings) dropFeeds(a.settings); return a; }
 
+// The planner's own facts for AI answers: every mark, course standings and Today's Plan in the app's own order, so questions like
+// "my best assignment mark" or "what's after today's plan" are lookups, not guesses
+// Which parts of the planner a question needs, so only those are sent. prev is the question before it, so a follow-up
+// ("and the lowest?") keeps its topic. Course names and codes count as asking about that course's work.
+const AI_NEED_RX = {
+  grades: /\b(grades?|marks?|marked|scores?|scored|gpa|percent(age)?|averages?|best|worst|highest|lowest|top|pass(ing|ed)?|fail(ing|ed)?|goals?|targets?|how am i doing|how i'm doing|standing|letter grade|results?|feedback)\b|%/i,
+  plan: /\b(next|today|tonight|right now|plan|planned|should i|after (that|this|i finish|everything)|priorit(y|ies|i[sz]e)|first|focus|work on|start on|study time|free time|time left|how much time|busy|behind|catch up|rough week|crunch|on track|workload|my week|weekend|overwhelmed|stressed)\b/i,
+  tasks: /\b(due|deadlines?|to-?dos?|homework|overdue|late|submit(ted)?|this week|next week|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|left|remaining|coming up|upcoming|finished|done|completed)\b/i,
+  work: /\b(assignments?|tasks?|essays?|papers?|projects?|labs?|readings?|reflections?|portfolio|discussions?|posts?|exams?|quiz(zes)?|midterms?|finals?|tests?)\b/i,
+  schedule: /\b(class(es)?|lectures?|seminars?|clinicals?|placements?|tutorials?|when is|where is|what time|rooms?|office hours|instructors?|professors?|profs?|teach(es|er)?|calendar|schedule)\b/i,
+  cards: /\b(flash ?cards?|decks?|cards?|review|quiz me|memori[sz]e|spaced)\b/i,
+  notes: /\b(notes?|wrote|jotted|sticky|boards?)\b/i,
+  files: /\b(files?|pdfs?|slides?|syllabus|documents?|chapters?|uploads?)\b/i
+};
+const AI_SMALLTALK = /^\s*(hi|hey|hello|yo|sup|thanks|thank you|thx|ty|ok(ay)?|cool|nice|lol|haha|good (morning|afternoon|evening|night)|how are you|how's it going|what's up|bye|goodnight)\b[\s!.?]*$/i;
+function aiNeeds(q, prev){
+  const o = {grades: false, plan: false, tasks: false, work: false, schedule: false, cards: false, notes: false, files: false, course: [], small: false};
+  q = String(q || ""); prev = String(prev || "");
+  if (AI_SMALLTALK.test(q)) { o.small = true; return o; }
+  // the question's own topics; a follow-up with none of its own ("and the lowest?") takes the previous question's
+  const topics = t => Object.keys(AI_NEED_RX).filter(k => AI_NEED_RX[k].test(t));
+  let own = topics(q);
+  const follow = !!prev && !own.length && (/^\s*(and|also|what about|how about|which|why|so|ok|then|same)\b/i.test(q) || /\b(it|that|those|them|these|this one|that one)\b/i.test(q) || q.trim().split(/\s+/).length <= 2);
+  const s = follow ? q + "\n" + prev : q;
+  if (follow) own = topics(s);
+  Object.keys(AI_NEED_RX).forEach(k => { o[k] = own.includes(k); });
+  const low = s.toLowerCase();
+  o.course = coursesArr().filter(c => [c.code, c.name].some(x => { x = String(x || "").toLowerCase().trim(); return x.length >= 3 && (low.includes(x) || low.replace(/\s+/g, "").includes(x.replace(/\s+/g, ""))); })).map(c => c.id);
+  // a question about a course with nothing else named: its work and grades
+  if (o.course.length && !Object.keys(AI_NEED_RX).some(k => o[k])) { o.tasks = true; o.grades = true; }
+  // what to do next depends on what's due
+  // naming a kind of work ("assignment", "exam") asks about tasks, unless it's a question about their marks
+  if (o.work && !o.grades) o.tasks = true;
+  if (o.plan) o.tasks = true;
+  return o;
+}
+const aiNeedsAny = n => !!n && !n.small && (n.grades || n.plan || n.tasks || n.schedule || n.cards || n.notes || n.files || n.course.length > 0);
+function aiPlannerFacts(need){
+  need = need || {grades: true, plan: true};
+  const L = [];
+  if (need.grades) try {
+    const G = window.SBGRADES;
+    const lines = G ? G.lines() : []; if (lines.length) L.push("COURSE GRADES:\n" + lines.map(x => "- " + x).join("\n"));
+    const it = G && G.items ? G.items() : [];
+    if (it.length) {
+      const row = x => `- ${x.title} (${[x.course, x.type, x.weight != null ? "worth " + x.weight + "% of the course" : "", x.due ? "due " + x.due : ""].filter(Boolean).join(", ")}): ${x.mark}${/%$/.test(x.mark) ? "" : " = " + x.pct + "%"}${x.letter ? " (" + x.letter + ")" : ""}`;
+      L.push(`MARKED WORK (every item with a mark, ${it.length} in all, highest first):\n` + it.slice().sort((a, b) => b.pct - a.pct).slice(0, 80).map(row).join("\n"));
+    } else if (lines.length) L.push("MARKED WORK: no marks have been entered for individual items yet.");
+    const w = G && G.waiting ? G.waiting() : [];
+    if (w.length) L.push("FINISHED, STILL WAITING FOR A MARK: " + w.slice(0, 20).map(x => `${x.title}${x.course ? " (" + x.course + ")" : ""}`).join("; "));
+  } catch (e) {}
+  if (need.plan) try {
+    const F = computeFocus(), n = nextUp(F), cl = t => { const c = courseOf(t.courseId); return c ? courseLabel(c) : ""; };
+    const row = (x, i) => `${i + 1}. ${x.t.title} (${[cl(x.t), x.t.type, x.t.due ? "due " + x.t.due + (x.t.time ? " " + x.t.time : "") : "", x.R > 0 ? "about " + fmtHM(x.R) + " of work left" : ""].filter(Boolean).join(", ")})${x.alloc > 0 ? " [ON TODAY'S PLAN: " + fmtHM(x.alloc) + " today]" : " [after today's plan]"}${x.reasons && x.reasons[0] ? ": " + x.reasons[0] : ""}`;
+    const list = F.ranked.filter(x => !x.fixed && !x.dead && x.t.status !== "done");
+    if (list.length || n) L.push(`TODAY'S PLAN, in Studyboard's own priority order (the order the student sees under Do This Next and Then; use exactly this order for "what next" or "what after today's plan" questions, don't re-sort by due date):\n${n ? "Do this next: " + (n.label || n.x.t.title) + "\n" : ""}${list.slice(0, 20).map(row).join("\n")}\nStudy time left today: ${fmtHM(Math.max(0, F.th))}.`);
+    const later = (F.later || []).slice(0, 10).map(x => `${x.t.title}${x.t.start ? " (starts " + x.t.start + ")" : ""}`);
+    if (later.length) L.push("COMING UP LATER (not started yet): " + later.join("; "));
+  } catch (e) {}
+  return L.join("\n\n");
+}

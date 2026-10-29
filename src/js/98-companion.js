@@ -1042,7 +1042,7 @@
   }
   const ownLines = kind => cur && Array.isArray(cur.lines[kind]) && cur.lines[kind].length ? cur.lines[kind] : GENERIC[kind] || GENERIC.tap;
   const bubbleOpen = () => !!(front && front.querySelector(".cp-bubble.on"));
-  function hideBubble(){ clearTimeout(bubbleT); bubbleIdea = null; bubbleAsk = false; if (front) { const b = front.querySelector(".cp-bubble"); if (b) b.classList.remove("on", "has-idea", "asking"); } guardSoon("bubble", 300); }
+  function hideBubble(){ clearTimeout(bubbleT); bubbleIdea = null; bubbleAsk = false; if (front) { const b = front.querySelector(".cp-bubble"); if (b) b.classList.remove("on", "has-idea", "asking", "cp-think"); } guardSoon("bubble", 300); }
   let bRects = null, bRectsAt = 0;
   const bubbleRects = () => { const n = performance.now(); if (!bRects || n - bRectsAt > 700) { try { bRects = contentRects(); } catch (e) { bRects = []; } bRectsAt = n; } return bRects; };
   // Where the bubble goes
@@ -1116,7 +1116,7 @@
     if (!opts.again && !SPEECH.ok(text)) return;
     SPEECH.note(text, opts.cat || pickedCat[SPEECH.norm(text)]);
     const b = front.querySelector(".cp-bubble");
-    b.classList.remove("on", "has-idea", "asking", "long", "cheer");
+    b.classList.remove("on", "has-idea", "asking", "long", "cheer", "cp-think");
     if (opts && opts.long) b.classList.add("long");
     if (opts.cheer || /^(WOO|YES|YAY|Woohoo|Yay|Hooray)\b/.test(text)) b.classList.add("cheer");
     b.innerHTML = `<span class="cp-b-t"></span>`;
@@ -1134,6 +1134,28 @@
     bubbleT = setTimeout(hideBubble, opts.ms || (btns.length ? 9000 : Math.max(2600, 1400 + text.length * 55)));
     act.mouth("open"); later(() => { if (act && mood !== "doze" && mood !== "nap") act.mouth(mood === "study" ? "neutral" : "smile"); later(() => { if (act && mood === "idle") act.mouth("neutral"); }, 1400); }, 420);
   }
+  /* Thinking: three dots in a bubble while the student waits on the AI (after any "On it!" line has had its moment) */
+  let thinkT = 0, thinkWant = false;
+  function aiThinking(on){
+    clearTimeout(thinkT); thinkWant = on;
+    const b = front && front.querySelector(".cp-bubble");
+    if (!on) { if (b && b.classList.contains("cp-think")) { b.classList.remove("on", "cp-think"); guardSoon("bubble", 300); } return; }
+    const show = () => {
+      if (!thinkWant) return;
+      const bb = front && front.querySelector(".cp-bubble");
+      if (!bb || !cur || !box || box.hidden || document.hidden) { thinkT = setTimeout(show, 800); return; }
+      if (bb.classList.contains("cp-think") && bb.classList.contains("on")) return;
+      // something else is being said or asked: wait for it
+      if (bb.classList.contains("on") || bubbleIdea || bubbleAsk) { thinkT = setTimeout(show, 500); return; }
+      clearTimeout(bubbleT);
+      bb.classList.remove("has-idea", "asking", "long", "cheer");
+      bb.innerHTML = `<span class="cp-dots" role="status" aria-label="${esc(nameOf(cur))} is thinking"><i></i><i></i><i></i></span>`;
+      bb.classList.add("cp-think"); placeBubble(bb); void bb.offsetWidth; bb.classList.add("on");
+    };
+    // a quick answer doesn't need it
+    thinkT = setTimeout(show, 900);
+  }
+  document.addEventListener("sb-ai-wait", e => aiThinking(Number(e.detail) > 0));
   /* Ask About This */
   let lastFile = null;
   document.addEventListener("click", e => {

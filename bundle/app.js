@@ -1519,7 +1519,7 @@ hook("act", (act, el, id) => {
 hook("menu", () => { try { const n = inPreview() ? 0 : syncConflicts().length; return n ? `<button data-act="sb-issues" data-group="account"><span>Sync Issues<span class="sub">${n} ${n === 1 ? "item was" : "items were"} edited on two devices. Choose what to keep.</span></span></button>` : ""; } catch(e) { return ""; } });
 
 // Test handle (only when a test page sets window.__SB_TEST)
-if (window.__SB_TEST) setTimeout(() => { window.__sbSync = {get state(){ return state; }, SY, useClient: c => { sb = c; }, claimDevice, wipeDeviceData, devKeys: {LS2, OUTBOX, OWNER}, mapOf, getItem, applyChanges, clone, saveSettings, outboxGet, idle: () => queue.size === 0 && !flushing, get cloud(){ return cloud; }, toastText: () => $("#toastMsg").textContent, trashVisible, trashRestore, trashForever, trashList, backupBefore, saveDeviceBackup, backupSnap, refresh: () => cloud.refresh && cloud.refresh(), ui, render, scheduleRender, menuSheet, dlg, setKeys: k => aiKeysSetLocal(k), aiReviewSheet: (r, c) => aiReviewSheet(r, c), sbDownload: (p, c) => sbDownload(p, c), FCACHE, wipeDeviceData2: () => wipeDeviceData(), get keys(){ return aiLocalKeys; }}; }, 0);
+if (window.__SB_TEST) setTimeout(() => { window.__sbSync = {get state(){ return state; }, SY, useClient: c => { sb = c; }, claimDevice, wipeDeviceData, devKeys: {LS2, OUTBOX, OWNER}, mapOf, getItem, applyChanges, clone, saveSettings, outboxGet, idle: () => queue.size === 0 && !flushing, get cloud(){ return cloud; }, toastText: () => $("#toastMsg").textContent, trashVisible, trashRestore, trashForever, trashList, backupBefore, saveDeviceBackup, backupSnap, refresh: () => cloud.refresh && cloud.refresh(), ui, render, scheduleRender, menuSheet, dlg, setKeys: k => aiKeysSetLocal(k), aiReviewSheet: (r, c) => aiReviewSheet(r, c), aiCall: o => aiCall(o), sbDownload: (p, c) => sbDownload(p, c), FCACHE, wipeDeviceData2: () => wipeDeviceData(), get keys(){ return aiLocalKeys; }}; }, 0);
 
 /* ===== module: 01-accounts.js: the app's core, accounts, using the app without one, and lean sync ===== */
 const SB_DEFAULT = {"url": "https://pivcmrqcjseycjkbocmc.supabase.co", "key": "sb_publishable_hoKTO5FRblXqHs6MvO686Q_81c5_gvd"};
@@ -2642,7 +2642,7 @@ const AI_TASKS = {
   ask: ["reason", "high"], tutor: ["reason", "medium"], cards: ["reason", "medium"], quiz: ["reason", "medium"], cases: ["reason", "medium"],
   syllabus: ["reason", "medium"], examplan: ["reason", "medium"], plan: ["reason", "medium"], practice: ["reason", "medium"], rubric: ["reason", "medium"],
   transcribe: ["lite", "low"],
-  topics: ["mid", "medium"], explain: ["mid", "medium"], summary: ["mid", "medium"], photo: ["mid", "medium"], capture: ["mid", "low"], tune: ["mid", "low"], estimate: ["mid", "low"], breakdown: ["mid", "high"],
+  topics: ["mid", "medium"], explain: ["mid", "medium"], summary: ["mid", "medium"], chat: ["mid", "low"], linknotes: ["mid", "low"], "cards-light": ["mid", "low"], "quiz-light": ["mid", "low"], "cases-light": ["mid", "low"], photo: ["mid", "medium"], capture: ["mid", "low"], tune: ["mid", "low"], estimate: ["mid", "low"], breakdown: ["mid", "high"],
   school: ["mid", "low"], quickadd: ["lite", "low"], grade: ["lite", "low"], news: ["lite", "low"], triage: ["lite", "low"], annintel: ["lite", "low"], coach: ["mid", "low"], weekly: ["mid", "low"], remote: ["lite", "low"], classify: ["lite", "low"], tag: ["lite", "low"], rewrite: ["lite", "low"], ping: ["lite", "low"]
 };
 const aiTask = (task, fast) => { const t = AI_TASKS[task]; return t ? {tier: t[0], think: t[1], task} : fast ? {tier: "lite", think: "low", task: ""} : {tier: "mid", think: "medium", task: ""}; };
@@ -2931,6 +2931,8 @@ function aiAdoptLegacyKeys(){
   const next = Object.assign({}, raw, {keys: {}}); delete next.key;
   state.settings = Object.assign({}, state.settings, {ai: next}); saveLocal();
 }
+// Keys are masked text boxes, not password fields, so browsers don't offer to save or update a password for them
+const KEY_MASK = (() => { try { return CSS.supports("-webkit-text-security", "disc"); } catch (e) { return false; } })();
 function aiCfg(){
   aiAdoptLegacyKeys();
   const raw = (state.settings && state.settings.ai) || {};
@@ -3115,7 +3117,8 @@ function aiMemSet(fn){ try { const m = aiMem(); fn(m); localStorage.setItem(AI_M
 function geminiOrder(pinned, tier = "reason"){
   const m = aiMem(), now = Date.now();
   const cool = x => (m.cool && m.cool[x] || 0) > now;
-  const free = (AI_TIERS[tier] || AI_MODELS).slice().sort((a, b) => cool(a) - cool(b));
+  const slow = x => (m.slow && m.slow[x] || 0) > now;
+  const free = (AI_TIERS[tier] || AI_MODELS).slice().sort((a, b) => (cool(a) - cool(b)) || (slow(a) - slow(b)));
   if (!pinned || pinned === "auto") return free;
   if (pinned === "auto-pro") { const pro = AI_PRO_MODELS.filter(x => !cool(x)); return tier === "reason" ? pro.concat(free) : free; }
   const rest = free.filter(x => x !== pinned);
@@ -3135,6 +3138,9 @@ const AI_COPY = "Copyright rule (always follow it, even if asked otherwise): the
 const AI_COPY_TASKS = new Set(["cards", "quiz", "cases", "practice", "explain", "summary", "tutor", "topics", "photo", "ask"]);
 const aiCopyRule = (system, task) => AI_COPY_TASKS.has(task) && typeof system === "string" && !system.includes(AI_COPY) ? system + " " + AI_COPY : system;
 /* One call, any provider */
+// How many AI requests the student is waiting on right now; the companion listens for "sb-ai-wait"
+let AI_WAITING = 0;
+function aiWaiting(d){ AI_WAITING = Math.max(0, AI_WAITING + d); try { document.dispatchEvent(new CustomEvent("sb-ai-wait", {detail: AI_WAITING})); } catch (e) {} }
 async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0.4, onStatus, fast = false, timeout, auto = false, task = "", signal, search = false, urlContext = false}){
   let cfg = aiCfg();
   try { if (window.SBAREA) system = SBAREA.aiSystem(system); } catch (e) {}
@@ -3151,18 +3157,25 @@ async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0
     if (!(await aiConsentAsk(cfg.provider))) throw aiErr("no-consent", `AI is off until you agree to send content to ${(AI_WHO[cfg.provider] || {}).company || "the AI company"}. You can agree the next time you use an AI feature.`);
   }
   const ms = timeout || (fast ? 60000 : 180000);
-  const slow = onStatus ? setTimeout(() => onStatus(fast ? "Still thinking…" : "Still working. Big files can take up to a minute…"), fast ? 9000 : 20000) : null;
+  const hasFiles = parts.some(x => x && x.text == null);
+  const slow = onStatus ? setTimeout(() => onStatus(fast ? "Still thinking…" : hasFiles ? "Still working. Big files can take up to a minute…" : "Still thinking…"), fast ? 9000 : 20000) : null;
+  // a request the student is waiting on (not background work): the companion shows it's thinking
+  if (!auto) aiWaiting(1);
   try {
     if (cfg.provider === "trial") return await trialCall({system, parts, schema, maxTokens, temperature, ms, task, signal});
     if (cfg.provider === "anthropic") return await claudeCall(cfg, {system, parts, schema, maxTokens, ms, signal, search, urlContext});
     if (cfg.provider === "openai") return await openaiCall(cfg, {system, parts, schema, maxTokens, ms, signal, search, urlContext});
     return await geminiCall(cfg, {system, parts, schema, maxTokens, temperature, fast, ms, task, signal, search, urlContext});
-  } finally { clearTimeout(slow); }
+  } finally { clearTimeout(slow); if (!auto) aiWaiting(-1); }
 }
 // urlContext (opt-in): the model may open the web pages named in the request (Gemini url_context, Claude web fetch, ChatGPT web search).
 // Like search, it answers in plain text (JSON is parsed from it), and r.fetched lists the pages it tried: [{url, ok, status}]
 async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, fast, ms, task, signal, search, urlContext}){
   const T = aiTask(task, fast), models = geminiOrder(cfg.model, T.tier);
+  // A short text request that hasn't answered in 25 seconds is stuck (an overloaded free model), so the next model gets a turn instead of waiting minutes
+  const light = !search && !urlContext && parts.every(p => p && p.text != null) && parts.reduce((n, p) => n + String(p.text).length, 0) + String(system || "").length < 40000 && maxTokens <= 16000;
+  const msEach = light ? Math.min(ms, (window.__SB_TEST && window.__SB_AI_STALL) || 25000) : ms;
+  let t0 = 0;
   let thinking = true, lastErr = null, roomy = false;
   const bodyFor = () => {
     // a retry after running out of room: twice the room, and less of it spent thinking
@@ -3179,10 +3192,11 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
     const m = models[i];
     let res;
     try {
-      res = await fetchT(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, {method: "POST", headers: {"Content-Type": "application/json", "x-goog-api-key": cfg.key}, body: bodyFor()}, ms, signal);
+      t0 = Date.now();
+      res = await fetchT(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, {method: "POST", headers: {"Content-Type": "application/json", "x-goog-api-key": cfg.key}, body: bodyFor()}, i === models.length - 1 ? ms : msEach, signal);
     } catch(e) {
       if (signal && signal.aborted) throw aiErr("cancelled", "Canceled.");
-      if (e && e.name === "AbortError") { aiMemSet(x => { x.cool = x.cool || {}; x.cool[m] = Date.now() + 5 * 60000; }); lastErr = aiErr("slow", "The AI took too long to answer. Try again, or use fewer files."); continue; }
+      if (e && e.name === "AbortError") { aiMemSet(x => { x.cool = x.cool || {}; x.cool[m] = Date.now() + 5 * 60000; x.slow = x.slow || {}; x.slow[m] = Date.now() + 30 * 60000; }); lastErr = aiErr("slow", "The AI took too long to answer. Try again, or use fewer files."); continue; }
       throw offlineErr("Google's AI service");
     }
     if (res.ok) {
@@ -3192,7 +3206,9 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
       const text = ((cand.content && cand.content.parts) || []).filter(p => !p.thought).map(p => p.text || "").join("");
       const data = aiParseJson(text);
       if (data) {
-        aiMemSet(x => { x.good = m; if (x.cool) delete x.cool[m]; });
+        // how long a light answer took: models that answer slowly go to the back of the line for a while
+        const took = Date.now() - t0;
+        aiMemSet(x => { x.good = m; if (x.cool) delete x.cool[m]; if (light) { x.slow = x.slow || {}; if (took > 25000) x.slow[m] = Date.now() + 30 * 60000; else delete x.slow[m]; } });
         const sources = search ? (((cand.groundingMetadata || {}).groundingChunks) || []).map(c => c && c.web ? {url: String(c.web.uri || ""), title: String(c.web.title || "")} : null).filter(Boolean) : undefined;
         const fetched = urlContext ? (((cand.urlContextMetadata || cand.url_context_metadata || {}).urlMetadata || (cand.urlContextMetadata || cand.url_context_metadata || {}).url_metadata) || []).map(u => { const st = String(u.urlRetrievalStatus || u.url_retrieval_status || ""); return {url: String(u.retrievedUrl || u.retrieved_url || ""), ok: /SUCCESS/.test(st), status: st.replace(/^URL_RETRIEVAL_STATUS_/, "").toLowerCase()}; }) : undefined;
         return {data, model: m, provider: "gemini", truncated: cand.finishReason === "MAX_TOKENS", sources, fetched};
@@ -3647,11 +3663,11 @@ async function aiMakeStudySet(opts, onStatus){
   const copy = aiCopyIndex(sources.map(s => (s.part && typeof s.part.text === "string" ? s.part.text : "") || s.copyText || "").filter(Boolean));
   const nCards = cardCount === "auto" ? 0 : Number(cardCount) || 0, nQuiz = Number(quizCount) || 10;
   const jobs = [];
-  if (cards) jobs.push(aiRetry(() => aiCall({task: "cards", signal, maxTokens: 24000, onStatus, schema: CARD_SCHEMA, parts: parts.concat({text: `${ctx}\n\nMake ${nCards ? "exactly " + nCards + " flashcards (a few more is fine if the material truly needs them)" : "as many flashcards as the material supports well: roughly one per key idea, usually 15 to 40, at most 60"} from the material above. Spread them across all of its topics in proportion to how much it says about each.`}),
+  if (cards) jobs.push(aiRetry(() => aiCall({task: opts.light ? "cards-light" : "cards", signal, maxTokens: 24000, onStatus, schema: CARD_SCHEMA, parts: parts.concat({text: `${ctx}\n\nMake ${nCards ? "exactly " + nCards + " flashcards (a few more is fine if the material truly needs them)" : "as many flashcards as the material supports well: roughly one per key idea, usually 15 to 40, at most 60"} from the material above. Spread them across all of its topics in proportion to how much it says about each.`}),
     system: "You write excellent flashcards for students. Each card tests exactly one idea. Fronts are short (a term, a question of at most 20 words, or a sentence with ____ for a cloze). Backs are accurate and concise (1 to 2 sentences). Favor high-yield, exam-relevant content: definitions, mechanisms, comparisons, steps, normal values, and key priorities where relevant. Every card must be answerable from the material alone. No two cards may ask the same thing, and skip trivia such as the lecture title, agenda, instructor names and logistics. " + AI_GROUND + " " + AI_RULES})));
-  if (quiz) jobs.push(aiRetry(() => aiCall({task: "quiz", signal, maxTokens: 32000, onStatus, schema: QUIZ_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite exactly ${quizCount} practice questions from the material above, spread across all of its topics. Every question must be answerable from the material, and its rationale must say where.`}),
+  if (quiz) jobs.push(aiRetry(() => aiCall({task: opts.light ? "quiz-light" : "quiz", signal, maxTokens: 32000, onStatus, schema: QUIZ_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite exactly ${quizCount} practice questions from the material above, spread across all of its topics. Every question must be answerable from the material, and its rationale must say where.`}),
     system: AI_QUIZ_SYSTEM + " " + AI_GROUND})));
-  if (cases) jobs.push(aiRetry(() => aiCall({task: "cases", signal, maxTokens: 24000, onStatus, schema: CASE_SCHEMA, parts: parts.concat({text: `${ctx}\n${aiCaseStyleText(caseStyle, courseName)}\n\nWrite ${caseCount || 1} case stud${Number(caseCount) === 1 ? "y" : "ies"} from the material above.`}), system: CASE_SYSTEM})));
+  if (cases) jobs.push(aiRetry(() => aiCall({task: opts.light ? "cases-light" : "cases", signal, maxTokens: 24000, onStatus, schema: CASE_SCHEMA, parts: parts.concat({text: `${ctx}\n${aiCaseStyleText(caseStyle, courseName)}\n\nWrite ${caseCount || 1} case stud${Number(caseCount) === 1 ? "y" : "ies"} from the material above.`}), system: CASE_SYSTEM})));
   const settled = await Promise.allSettled(jobs);
   const failed = settled.filter(x => x.status === "rejected");
   if (failed.length === settled.length) throw failed[0].reason;
@@ -3669,9 +3685,12 @@ async function aiMakeStudySet(opts, onStatus){
 
 function aiStudySheet(deckId, mode){
   if (inPreview()) { toast("AI features work in the Studyboard app and on your website, not in this preview"); return; }
+  const keyK = "ai-create:" + (deckId || "");
+  // one AI creation per deck (or none) at a time: an open one, still working or with your material in it, comes back as you left it
+  if (sheetResume(keyK)) return;
   if (!aiCfg().key) { aiSetupSheet(true); return; }
   const deck = deckId ? state.decks[deckId] : null;
-  const job = {sources: [], busy: false};
+  const job = {sources: [], busy: false, key: keyK};
   const courseId = deck ? deck.courseId : (ui.filter !== "all" ? ui.filter : "");
   const storedFiles = Object.values(state.files).filter(readableFile);
   openSheet(`<form class="sheet ai-sheet">${head(mode === "quiz" ? "Make a Quiz with AI" : mode === "cards" ? (deck ? `Flashcards with AI: ${deck.name}` : "Make Flashcards with AI") : deck ? `Create with AI: ${deck.name}` : "Create Flashcards and Quizzes with AI")}
@@ -3703,6 +3722,9 @@ function aiStudySheet(deckId, mode){
     </div>
     <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="aiGo">${AI_ICON} Create</button></div>
   </form>`);
+  const sheetEl = dlg.querySelector(".ai-sheet"), inS = q => sheetEl.querySelector(q);
+  sheetKeep(keyK, {name: aiWho("AI"), busy: () => job.busy, drop: () => { job.dropped = true; if (job.ac) try { job.ac.abort(); } catch (e) {} },
+    dirty: () => job.busy || job.sources.length > 0 || !!(inS("#aiPaste") && inS("#aiPaste").value.trim()) || !!(inS("#aiLink") && inS("#aiLink").value.trim()) || !!(inS("#aiStyle") && inS("#aiStyle").value.trim() && !(deck && inS("#aiStyle").value.trim() === String(deck.aiStyle || "").trim()))});
   if (mode === "cards" || mode === "quiz") {
     const row = id => $(id) && $(id).closest(".ai-make");
     if (mode === "cards") { [row("#aiQuiz"), row("#aiCase")].forEach(r => { if (r) r.hidden = true; }); $("#aiQuiz").checked = false; $("#aiCase").checked = false; }
@@ -3760,23 +3782,32 @@ function aiStudySheet(deckId, mode){
     const val = n => (dlg.querySelector(`input[name=${n}]:checked`) || {}).value;
     const custom = $("#aiStyle").value.trim(), picks = $$(".ai-styles .chip.on", dlg).map(b => Number(b.dataset.style));
     const {style, name: styleName} = aiComposeStyle(custom, picks), cId = deck ? deck.courseId : ($("#aiCourse") ? $("#aiCourse").value : "");
-    if (viaLink) { SBLINKCARDS.run({deck, courseId: cId, mode, job, files: job.sources.slice(), pasted, style, styleName, custom, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10"}); return; }
+    if (viaLink) { SBLINKCARDS.run({deck, courseId: cId, mode, job, keepKey: keyK, files: job.sources.slice(), pasted, style, styleName, custom, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10"}); return; }
     job.busy = true; const go = $("#aiGo"); go.disabled = true; go.classList.add("busy");
     const ac = typeof AbortController === "function" ? new AbortController() : null;
-    if (ac) dlg.addEventListener("close", () => ac.abort(), {once: true});
+    job.ac = ac;
     status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(aiModelName(aiCfg().provider, aiCfg().model))} is reading your material and writing ${[wantCards && "flashcards", wantQuiz && "a quiz", wantCase && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")}. This usually takes 20 to 60 seconds…`;
     try {
       const r = await aiMakeStudySet({sources, style, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10", courseName: courseOf(cId) ? courseOf(cId).name : "", signal: ac && ac.signal}, m => { status.textContent = m; });
       if (ac && ac.signal.aborted) return;
       if (!r.cards.length && !r.questions.length && !r.cases.length) throw aiErr("empty", "The AI couldn't make anything from that material. Try adding more content, or a PDF version.");
       aiRememberStyle(custom);
-      aiReviewSheet(r, {deck, courseId: cId, style, styleName, sources: sources.map(s => s.name), origins: sources.map(s => s.origin).filter(Boolean), mode});
+      job.busy = false;
+      const ctx = {deck, courseId: cId, style, styleName, sources: sources.map(s => s.name), origins: sources.map(s => s.origin).filter(Boolean), mode, keepKey: keyK};
+      sheetReady(keyK, () => aiReviewSheet(r, ctx), aiReadyMsg(r));
     } catch(e) {
       if (e && e.code === "cancelled") return;
       console.warn(e); status.textContent = e.code ? e.message : "Something went wrong. Try again.";
       job.busy = false; go.disabled = false; go.classList.remove("busy");
+      if (sheetKept(keyK)) toast(`${aiWho("AI")} couldn't finish that. Open Create with AI again to see why and try again.`, null, {label: "Open", fn: () => sheetResume(keyK)}, {error: true});
     }
   });
+}
+// What a finished set is called in the toast when its sheet was set aside
+function aiReadyMsg(r){
+  const n = (r.cards || []).length, q = (r.questions || []).length, c = (r.cases || []).length;
+  const bits = [n && `${n} flashcard${n === 1 ? "" : "s"}`, q && `${q} quiz question${q === 1 ? "" : "s"}`, c && `${c} case stud${c === 1 ? "y" : "ies"}`].filter(Boolean);
+  return `Your ${bits.join(" and ") || "study set"} ${bits.length === 1 && /^1 /.test(bits[0]) ? "is" : "are"} ready to review`;
 }
 function aiReviewSheet(r, ctx){
   const cards = r.cards.slice(), qs = r.questions.slice(), cs = (r.cases || []).slice();
@@ -3799,7 +3830,7 @@ function aiReviewSheet(r, ctx){
           ${q.rationale ? `<details><summary>Rationale</summary><p>${esc(q.rationale)}</p></details>` : ""}</li>`).join("")}</ol>` : ""}
       ${cs.length ? `<h3 class="fsec">Case Studies<span class="n" id="arCsN">${cs.length}</span></h3><ul class="ar-cases" id="arCases">${cs.map((c, i) => `<li><div class="ar-q-head"><b>${esc(c.title)}</b><span class="mini">${c.questions.length} questions</span><span class="spacer"></span><button type="button" class="x-btn" data-rmcs="${i}" aria-label="Remove case">${CLOSE}</button></div><p class="mini" style="margin:4px 0 0">${esc(c.scenario)}</p></li>`).join("")}</ul>` : ""}
     </div>
-    <div class="sheet-foot"><button type="button" class="btn" id="arBack">Start Over</button><span class="spacer"></span><button type="button" class="btn primary" id="arSave">Save</button></div>
+    <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn" id="arBack">Start Over</button><span class="spacer"></span><button type="button" class="btn primary" id="arSave">Save</button></div>
   </form>`);
   const rmC = new Set(), rmQ = new Set(), rmCs = new Set();
   const csl = $("#arCases"); if (csl) csl.addEventListener("click", e => { const b = e.target.closest("[data-rmcs]"); if (b) { rmCs.add(Number(b.dataset.rmcs)); b.closest("li").remove(); $("#arCsN").textContent = cs.length - rmCs.size; } });
@@ -3814,7 +3845,10 @@ function aiReviewSheet(r, ctx){
     if ($("#arCardN")) $("#arCardN").textContent = cards.length - rmC.size; if ($("#arQN")) $("#arQN").textContent = qs.length - rmQ.size;
     dc.closest("p").remove();
   });
-  $("#arBack").addEventListener("click", () => ctx.fromCards ? quizSheet(ctx.fromCards) : aiStudySheet(ctx.deck ? ctx.deck.id : null, ctx.mode));
+  // set aside like the sheet it came from: a tap outside keeps these drafts, Cancel or Save clears them
+  const rvKey = ctx.keepKey || "ai-create:" + (ctx.deck ? ctx.deck.id : "");
+  sheetKeep(rvKey, {name: "Review", dirty: () => true});
+  $("#arBack").addEventListener("click", () => { sheetDrop(rvKey); if (ctx.fromCards) quizSheet(ctx.fromCards); else aiStudySheet(ctx.deck ? ctx.deck.id : null, ctx.mode); });
   $("#arSave").addEventListener("click", () => {
     const keepC = cards.filter((c, i) => !rmC.has(i) && c.front.trim() && c.back.trim()), keepQ = qs.filter((q, i) => !rmQ.has(i)), keepCs = cs.filter((c, i) => !rmCs.has(i));
     if (!keepC.length && !keepQ.length && !keepCs.length) { toast("Nothing left to save"); return; }
@@ -3830,7 +3864,7 @@ function aiReviewSheet(r, ctx){
     if (ctx.style) d.aiStyle = ctx.style;
     if (window.SBLINKED && ctx.origins && ctx.origins.length) SBLINKED.stamp(d, ctx.origins.map(o => SBLINKED.origin(o.k, o.id)), d.cards.slice(d.cards.length - keepC.length));
     d.updated = Date.now();
-    dlg.close(); ui.tab = "flashcards"; ui.fc = null;
+    sheetDrop(rvKey); dlg.close(); ui.tab = "flashcards"; ui.fc = null;
     if (!keepC.length) { ui.deckId = null; rvSet("quizzes"); } else { ui.deckId = d.id; rvSet("cards"); }
     (ctx.withSave ? (x, l) => applyChanges([{kind: "deck", id: x.id, after: x}].concat(ctx.withSave(x) || []), l) : saveDeck)(d, `Saved ${keepC.length ? keepC.length + " card" + (keepC.length === 1 ? "" : "s") : ""}${keepC.length && keepQ.length ? " and " : ""}${keepQ.length ? "a " + keepQ.length + "-question quiz" : ""}${(keepC.length || keepQ.length) && keepCs.length ? " and " : ""}${keepCs.length ? keepCs.length + " case stud" + (keepCs.length === 1 ? "y" : "ies") : ""} to ${d.name}`);
     if (ctx.fromCards && keepQ.length && !keepC.length) { startAiQuiz(d.id, qzId); return; }
@@ -4068,7 +4102,7 @@ function aiSetupSheet(fromFeature, opts){
   opts = opts || {};
   const c = aiCfg(), hasKey = !!(c.keys.gemini || c.keys.anthropic || c.keys.openai);
   const keyRow = (p) => { const P = AI_PROVIDERS[p]; return `<div class="ai-key" data-p="${p}">
-      <label class="f"><span class="lh">${esc(P.keyLabel)}${p === "gemini" ? ` ${REQ}` : ""} <span class="hint">${esc(P.keyHint)}</span></span><span class="key-row"><input type="password" data-key="${p}" value="${esc(c.keys[p])}" placeholder="Paste your key" autocomplete="off" spellcheck="false" data-noenter><button type="button" class="btn small" data-show="${p}">Show</button><button type="button" class="btn small" data-test="${p}">Test</button></span></label>
+      <label class="f"><span class="lh">${esc(P.keyLabel)}${p === "gemini" ? ` ${REQ}` : ""} <span class="hint">${esc(P.keyHint)}</span></span><span class="key-row"><input type="${KEY_MASK ? "text" : "password"}" class="${KEY_MASK ? "key-mask" : ""}" name="sb-ai-key-${p}" data-key="${p}" value="${esc(c.keys[p])}" placeholder="Paste your key" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" data-noenter><button type="button" class="btn small" data-show="${p}">Show</button><button type="button" class="btn small" data-test="${p}">Test</button></span></label>
       <p class="mini ai-test-msg" data-msg="${p}" aria-live="polite" style="margin:0"></p></div>`; };
   const modelOpts = live => { const keys = live ? {} : Object.assign({}, c.keys); if (live) $$("[data-key]", dlg).forEach(i => { keys[i.dataset.key] = i.value.trim(); });
     return Object.entries(AI_PROVIDERS).filter(([p]) => keys[p]).map(([p, P]) => `<optgroup label="${esc(P.label)}">${P.models.map(([m, l]) => `<option value="${p}|${esc(m)}" ${p === c.provider && m === c.model ? "selected" : ""}>${esc(l)}</option>`).join("")}</optgroup>`).join("") || `<option value="">Add a key first</option>`; };
@@ -4123,7 +4157,7 @@ function aiSetupSheet(fromFeature, opts){
   autoWarn();
   const refreshModels = () => { const sel = $("#aiDefault"), v = sel.value; sel.innerHTML = modelOpts(true); if ([...sel.options].some(o => o.value === v)) sel.value = v; };
   $$("[data-key]", dlg).forEach(i => i.addEventListener("change", refreshModels));
-  $$("[data-show]", dlg).forEach(b => b.addEventListener("click", () => { const i = dlg.querySelector(`[data-key="${b.dataset.show}"]`); i.type = i.type === "password" ? "text" : "password"; b.textContent = i.type === "password" ? "Show" : "Hide"; }));
+  $$("[data-show]", dlg).forEach(b => b.addEventListener("click", () => { const i = dlg.querySelector(`[data-key="${b.dataset.show}"]`), hid = KEY_MASK ? i.classList.toggle("key-mask") : (i.type = i.type === "password" ? "text" : "password") === "password"; b.textContent = hid ? "Show" : "Hide"; }));
   const testKey = async (p, key) => {
     const sel = $("#aiDefault").value.split("|");
     const model = sel[0] === p ? sel[1] : (p === "gemini" ? "auto" : AI_PROVIDERS[p].models[0][0]);
@@ -4302,6 +4336,67 @@ if (KEYHO_LINK && KEY_RELAY) {
 // Exported backup files never include your AI keys
 function exportArrays(){ const a = clone(toArrays()); if (a.settings && a.settings.ai) delete a.settings.ai; if (a.settings) dropFeeds(a.settings); return a; }
 
+// The planner's own facts for AI answers: every mark, course standings and Today's Plan in the app's own order, so questions like
+// "my best assignment mark" or "what's after today's plan" are lookups, not guesses
+// Which parts of the planner a question needs, so only those are sent. prev is the question before it, so a follow-up
+// ("and the lowest?") keeps its topic. Course names and codes count as asking about that course's work.
+const AI_NEED_RX = {
+  grades: /\b(grades?|marks?|marked|scores?|scored|gpa|percent(age)?|averages?|best|worst|highest|lowest|top|pass(ing|ed)?|fail(ing|ed)?|goals?|targets?|how am i doing|how i'm doing|standing|letter grade|results?|feedback)\b|%/i,
+  plan: /\b(next|today|tonight|right now|plan|planned|should i|after (that|this|i finish|everything)|priorit(y|ies|i[sz]e)|first|focus|work on|start on|study time|free time|time left|how much time|busy|behind|catch up|rough week|crunch|on track|workload|my week|weekend|overwhelmed|stressed)\b/i,
+  tasks: /\b(due|deadlines?|to-?dos?|homework|overdue|late|submit(ted)?|this week|next week|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|left|remaining|coming up|upcoming|finished|done|completed)\b/i,
+  work: /\b(assignments?|tasks?|essays?|papers?|projects?|labs?|readings?|reflections?|portfolio|discussions?|posts?|exams?|quiz(zes)?|midterms?|finals?|tests?)\b/i,
+  schedule: /\b(class(es)?|lectures?|seminars?|clinicals?|placements?|tutorials?|when is|where is|what time|rooms?|office hours|instructors?|professors?|profs?|teach(es|er)?|calendar|schedule)\b/i,
+  cards: /\b(flash ?cards?|decks?|cards?|review|quiz me|memori[sz]e|spaced)\b/i,
+  notes: /\b(notes?|wrote|jotted|sticky|boards?)\b/i,
+  files: /\b(files?|pdfs?|slides?|syllabus|documents?|chapters?|uploads?)\b/i
+};
+const AI_SMALLTALK = /^\s*(hi|hey|hello|yo|sup|thanks|thank you|thx|ty|ok(ay)?|cool|nice|lol|haha|good (morning|afternoon|evening|night)|how are you|how's it going|what's up|bye|goodnight)\b[\s!.?]*$/i;
+function aiNeeds(q, prev){
+  const o = {grades: false, plan: false, tasks: false, work: false, schedule: false, cards: false, notes: false, files: false, course: [], small: false};
+  q = String(q || ""); prev = String(prev || "");
+  if (AI_SMALLTALK.test(q)) { o.small = true; return o; }
+  // the question's own topics; a follow-up with none of its own ("and the lowest?") takes the previous question's
+  const topics = t => Object.keys(AI_NEED_RX).filter(k => AI_NEED_RX[k].test(t));
+  let own = topics(q);
+  const follow = !!prev && !own.length && (/^\s*(and|also|what about|how about|which|why|so|ok|then|same)\b/i.test(q) || /\b(it|that|those|them|these|this one|that one)\b/i.test(q) || q.trim().split(/\s+/).length <= 2);
+  const s = follow ? q + "\n" + prev : q;
+  if (follow) own = topics(s);
+  Object.keys(AI_NEED_RX).forEach(k => { o[k] = own.includes(k); });
+  const low = s.toLowerCase();
+  o.course = coursesArr().filter(c => [c.code, c.name].some(x => { x = String(x || "").toLowerCase().trim(); return x.length >= 3 && (low.includes(x) || low.replace(/\s+/g, "").includes(x.replace(/\s+/g, ""))); })).map(c => c.id);
+  // a question about a course with nothing else named: its work and grades
+  if (o.course.length && !Object.keys(AI_NEED_RX).some(k => o[k])) { o.tasks = true; o.grades = true; }
+  // what to do next depends on what's due
+  // naming a kind of work ("assignment", "exam") asks about tasks, unless it's a question about their marks
+  if (o.work && !o.grades) o.tasks = true;
+  if (o.plan) o.tasks = true;
+  return o;
+}
+const aiNeedsAny = n => !!n && !n.small && (n.grades || n.plan || n.tasks || n.schedule || n.cards || n.notes || n.files || n.course.length > 0);
+function aiPlannerFacts(need){
+  need = need || {grades: true, plan: true};
+  const L = [];
+  if (need.grades) try {
+    const G = window.SBGRADES;
+    const lines = G ? G.lines() : []; if (lines.length) L.push("COURSE GRADES:\n" + lines.map(x => "- " + x).join("\n"));
+    const it = G && G.items ? G.items() : [];
+    if (it.length) {
+      const row = x => `- ${x.title} (${[x.course, x.type, x.weight != null ? "worth " + x.weight + "% of the course" : "", x.due ? "due " + x.due : ""].filter(Boolean).join(", ")}): ${x.mark}${/%$/.test(x.mark) ? "" : " = " + x.pct + "%"}${x.letter ? " (" + x.letter + ")" : ""}`;
+      L.push(`MARKED WORK (every item with a mark, ${it.length} in all, highest first):\n` + it.slice().sort((a, b) => b.pct - a.pct).slice(0, 80).map(row).join("\n"));
+    } else if (lines.length) L.push("MARKED WORK: no marks have been entered for individual items yet.");
+    const w = G && G.waiting ? G.waiting() : [];
+    if (w.length) L.push("FINISHED, STILL WAITING FOR A MARK: " + w.slice(0, 20).map(x => `${x.title}${x.course ? " (" + x.course + ")" : ""}`).join("; "));
+  } catch (e) {}
+  if (need.plan) try {
+    const F = computeFocus(), n = nextUp(F), cl = t => { const c = courseOf(t.courseId); return c ? courseLabel(c) : ""; };
+    const row = (x, i) => `${i + 1}. ${x.t.title} (${[cl(x.t), x.t.type, x.t.due ? "due " + x.t.due + (x.t.time ? " " + x.t.time : "") : "", x.R > 0 ? "about " + fmtHM(x.R) + " of work left" : ""].filter(Boolean).join(", ")})${x.alloc > 0 ? " [ON TODAY'S PLAN: " + fmtHM(x.alloc) + " today]" : " [after today's plan]"}${x.reasons && x.reasons[0] ? ": " + x.reasons[0] : ""}`;
+    const list = F.ranked.filter(x => !x.fixed && !x.dead && x.t.status !== "done");
+    if (list.length || n) L.push(`TODAY'S PLAN, in Studyboard's own priority order (the order the student sees under Do This Next and Then; use exactly this order for "what next" or "what after today's plan" questions, don't re-sort by due date):\n${n ? "Do this next: " + (n.label || n.x.t.title) + "\n" : ""}${list.slice(0, 20).map(row).join("\n")}\nStudy time left today: ${fmtHM(Math.max(0, F.th))}.`);
+    const later = (F.later || []).slice(0, 10).map(x => `${x.t.title}${x.t.start ? " (starts " + x.t.start + ")" : ""}`);
+    if (later.length) L.push("COMING UP LATER (not started yet): " + later.join("; "));
+  } catch (e) {}
+  return L.join("\n\n");
+}
 /* ===== module: 01-quick-add.js: the app's core, quick add: type a sentence ===== */
 /* Quick add: type a sentence */
 // Reads a sentence with the same rules as Quick Capture (75-capture.js)
@@ -8359,6 +8454,8 @@ const PRIO_M = {low:0.8, med:1, high:1.25, urgent:1.6};
 const LATE_M = {none:1.2, penalty:1, free:0.85, unknown:1};
 const LATE_LABEL = {unknown:"Not sure", none:"Not accepted", penalty:"Accepted with a penalty", free:"Accepted, no penalty"};
 const dailyHours = () => Math.max(0, Number(state.settings.dailyHours ?? 3));
+// A day off (Take Today Off, or a day picked in the Calendar): no study time is planned that day. Synced in settings.daysOff.
+const dayIsOff = d => !!(d && state.settings && state.settings.daysOff && state.settings.daysOff[d]);
 function todayHours(){
   try { const o = JSON.parse(localStorage.getItem("coursework:today") || "null"); if (o && o.d === todayISO() && isNum(o.h)) return Number(o.h); } catch(e) {}
   return dailyHours();
@@ -8634,7 +8731,7 @@ function computeFocus(){
   const sd = studyDay(now), leftH = (sd.night ? sd.end - sd.start : sd.left) / 60;
   const th0 = Math.max(0, Math.min(thSet - doneToday, leftH));
   let av = null; try { av = availToday(now); } catch(e) {}
-  const th = av && av.active ? Math.min(th0, av.res.total / 60) : th0;
+  const th = dayIsOff(today) ? 0 : av && av.active ? Math.min(th0, av.res.total / 60) : th0;
   PTS_W = pointsWeights();
   const open = tasksArr().filter(t => t.status !== "done" && t.due).concat(groupPlanTasks(), examStudyTasks(today));
   prereqDue(open, today, dh);
@@ -8643,7 +8740,7 @@ function computeFocus(){
   const B = busyDays(today, addDays(today, horizon));
   const day = [th], cum = [0];
   let AD = null; if (av && av.active) { try { AD = availDays(addDays(today, 1), addDays(today, horizon)); } catch(e) {} }
-  for (let i = 1; i <= horizon; i++) { const d = addDays(today, i); day.push(Math.min(dh * (accOf() ? accOf().wkScale(d) : 1) * busyFactor(B.m[d] || 0), AD && AD[d] != null ? AD[d] : Infinity)); }
+  for (let i = 1; i <= horizon; i++) { const d = addDays(today, i); day.push(dayIsOff(d) ? 0 : Math.min(dh * (accOf() ? accOf().wkScale(d) : 1) * busyFactor(B.m[d] || 0), AD && AD[d] != null ? AD[d] : Infinity)); }
   for (let i = 1; i <= horizon; i++) cum.push(cum[i - 1] + day[i - 1]);
   const stamp = nowStamp(), nowMs = now.getTime(), nowMin = now.getHours() * 60 + now.getMinutes();
   // Free hours from now until a time later today, from today's free windows when there are some
@@ -8810,7 +8907,7 @@ function computeFocus(){
   {
     const flatToday = ranked.reduce((s, x) => s + (x.enough ? 0 : x.needFlat), 0), extra = needToday - Math.max(flatToday, th);
     const dayLeft = Math.max(0, 24 - now.getHours() - now.getMinutes() / 60 - 0.5), add = Math.min(Math.ceil(extra * 2) / 2, Math.max(1, Math.ceil(thSet)), Math.floor(Math.max(0, Math.min(10, dayLeft + doneToday) - thSet) * 2) / 2);
-    if (extra >= 0.5 && add >= 0.5) {
+    if (extra >= 0.5 && add >= 0.5 && !dayIsOff(today)) {
       const low = []; for (let i = 1; i <= 7 && low.length < 3; i++) { if (day[i] < dh * 0.6) { const d = addDays(today, i); low.push({d, what: (B.what[d] || [])[0] || ""}); } }
       if (low.length) busyAhead = {add, to: thSet + add, days: low, all: add + 0.01 >= Math.ceil(extra * 2) / 2};
     }
@@ -8881,8 +8978,10 @@ function planGapWhy(F){
   const gap = q(F.thSet) - q(planned);
   if (gap < 0.25) return why;
   let rest = gap;
-  if (F.doneToday >= 0.25) { const d = Math.min(rest, q(F.doneToday)); why.push(tr("plan.gap.done", "{time} of focus is already done today, so it comes off the {set} you set.", {time: fmtHM(d), set: fmtHM(F.thSet)})); rest -= d; }
-  if (F.lateCap && rest >= 0.25) { const end = F.sd ? fmtTime(AVAIL.toT(F.sd.end % 1440)) : "1:00 AM"; why.push(F.sd && F.sd.past && !F.sd.night ? tr("plan.gap.over", "Your study day ended at {end}, so today's plan is done.", {end}) : tr("plan.gap.late", "It's late, so today's plan stops at {end}, your end of day.", {end})); rest = 0; }
+  // each reason also gets a short chip (shown) next to its full sentence (tooltip and screen readers)
+  why.chips = [];
+  if (F.doneToday >= 0.25) { const d = Math.min(rest, q(F.doneToday)); why.push(tr("plan.gap.done", "{time} of focus is already done today, so it comes off the {set} you set.", {time: fmtHM(d), set: fmtHM(F.thSet)})); why.chips.push({k: "done", t: tr("plan.chip.done", "{time} done of {set}", {time: fmtHM(d), set: fmtHM(F.thSet)})}); rest -= d; }
+  if (F.lateCap && rest >= 0.25) { const end = F.sd ? fmtTime(AVAIL.toT(F.sd.end % 1440)) : "1:00 AM", over = F.sd && F.sd.past && !F.sd.night; why.push(over ? tr("plan.gap.over", "Your study day ended at {end}, so today's plan is done.", {end}) : tr("plan.gap.late", "It's late, so today's plan stops at {end}, your end of day.", {end})); why.chips.push({k: "end", t: over ? tr("plan.chip.over", "Day ended {end}", {end}) : tr("plan.chip.late", "Ends {end}", {end})}); rest = 0; }
   if (F.avail && F.avail.active && F.avail.note) rest = 0;
   return why;
 }
@@ -9075,7 +9174,8 @@ function focusHtml(){
   const workable = ranked.filter(x => !x.fixed);
   const todayList = workable.filter(x => x.alloc > 0);
   ui.focusOpen = true;
-  let hero = null; if (ui.focusOpen) { try { hero = nextUp(F); } catch (e) { hero = null; } }
+  const offToday = dayIsOff(todayISO());
+  let hero = null; if (ui.focusOpen && !offToday) { try { hero = nextUp(F); } catch (e) { hero = null; } }
   const heroId = hero ? hero.x.t.id : "";
   const pastFixed = Object.values(F.info).filter(x => x.fixed && inView(x) && x.t.status !== "done" && x.dl < 0).sort((a, b) => b.dl - a.dl);
   const lateRows = workable.filter(x => x.dl < 0 || x.past), soonRows = workable.filter(x => !(x.alloc > 0));
@@ -9083,7 +9183,7 @@ function focusHtml(){
   const week = weekAhead(F, inView), pickDay = /^d:/.test(ui.planTile || "") ? week.find(w => w.iso === ui.planTile.slice(2)) : null;
   if ((ui.planTile === "late" && !overdue) || (/^d:/.test(ui.planTile || "") && !pickDay) || (ui.planTile && ui.planTile !== "late" && !/^d:/.test(ui.planTile))) ui.planTile = "";
   const pick = ui.planTile || "";
-  const base = pick === "late" ? lateRows : pickDay ? pickDay.rows : todayList.length ? todayList : workable, rowsAll = pick ? base : base.filter(x => x.t.id !== heroId);
+  const base = pick === "late" ? lateRows : pickDay ? pickDay.rows : offToday ? [] : todayList.length ? todayList : workable, rowsAll = pick ? base : base.filter(x => x.t.id !== heroId);
   const cap = pick || (todayList.length && ui.planAllToday) ? rowsAll.length : todayList.length ? 5 : 3;
   const show = rowsAll.slice(0, cap), hiddenToday = !pick && todayList.length ? rowsAll.slice(show.length) : [];
   const sum = [];
@@ -9098,7 +9198,7 @@ function focusHtml(){
   const nBlk = F.blocked.filter(inView).length, nLater = F.later.filter(inView).length;
   const more = ranked.length > show.length + (heroId ? 1 : 0) || nBlk || nLater;
   const listLabel = pick === "late" ? "Overdue" : pickDay ? (pickDay.i === 0 ? "Due Today" : "Due " + esc(fmtDate(pickDay.iso))) : heroId ? (show.some(x => x.alloc > 0) ? "Also Today" : "Then") : "";
-  let spare = ""; if (ui.focusOpen && !heroId && !show.length && !pick) { try { spare = nextUpSpare(F, inView); } catch (e) { spare = ""; } }
+  let spare = ""; if (ui.focusOpen && !offToday && !heroId && !show.length && !pick) { try { spare = nextUpSpare(F, inView); } catch (e) { spare = ""; } }
   const skipped = !heroId && ui.skipNext && ui.skipNext.day === todayISO() && ui.skipNext.ids.length ? `<p class="nu-skipped mini">You skipped every suggestion for now. <button class="link-btn" data-act="nu-back">Go Back</button></p>` : "";
   const foot = (k, label, open) => `<button class="pf-link" data-act="plan-sec" data-id="${k}" aria-expanded="${open}" aria-controls="plan-${k}">${label}<svg class="pf-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>`;
   const moreOpen = !!ui.planMore, howOpen = !!ui.planHow;
@@ -9115,13 +9215,13 @@ function focusHtml(){
   const planTile = `<div class="pt-stat pt-hours" role="group" aria-label="Study time today"><div class="pt-adj"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button><b${hoursTitle ? ` title="${esc(hoursTitle)}"` : ""}>${fmtHM(F.thSet) || "0m"}</b><button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></div><span>Planned Today</span>${freeMin != null ? `<span class="pt-free">${esc(fmtHM(freeMin / 60) || "0m")} free left</span>` : ""}</div>`;
   const ptStats = todayList.length || overdue || queued ? `<div class="pt-stats">${planTile}${ribbonHtml(week, pick, {n: overdue, title: ((lateRows[0] || pastFixed[0]) || {t: {}}).t.title || ""})}</div>` : "";
   return `<section class="focus plan" aria-label="Today's Plan">
-    <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? `<p class="plan-gap">${F.gapWhy.map(esc).join(" ")}</p>` : ""}</div>
+    <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? `<p class="plan-gap">${(F.gapWhy.chips || []).length === F.gapWhy.length ? F.gapWhy.chips.map((c, i) => `<span class="pg-chip pg-${c.k}" title="${esc(F.gapWhy[i])}"><span class="pg-ic" aria-hidden="true">${c.k === "done" ? "✓" : "◐"}</span>${esc(c.t)}<span class="pt-sr">. ${esc(F.gapWhy[i])}</span></span>`).join("") : F.gapWhy.map(esc).join(" ")}</p>` : ""}</div>
       ${(hoursBar => { PLAN_HOURS = hoursBar; return `<div class="fh-ctl${ptStats ? " fh-chip has-stats" : ""}${autoChipHtml() ? "" : " fh-only-hours"}">${hoursBar}${autoChipHtml()}</div>`; })(`<div class="hours-ctl" role="group" aria-label="Study time available today"><span class="mini">Time Today</span><span class="hc-row"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button><b${hoursTitle ? ` title="${esc(hoursTitle)}"` : ""}>${fmtHM(F.thSet) || "0m"}</b><button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></span></div>`)}</div>
-    ${ui.focusOpen ? `${window.SBPRO ? SBPRO.todayHtml() : ""}${dayTimelineHtml(F, todayList, heroId)}${nextUpHtml(F, hero)}${skipped}${spare}${planNotesHtml(F, inView, warn)}${pastHtml}${availStripHtml(F)}
-      ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
+    ${ui.focusOpen ? `${window.SBAUTOPILOT ? SBAUTOPILOT.lineHtml() : ""}${window.SBPRO ? SBPRO.todayHtml() : ""}${dayTimelineHtml(F, todayList, heroId)}${nextUpHtml(F, hero)}${skipped}${spare}${planNotesHtml(F, inView, warn)}${pastHtml}${availStripHtml(F)}
+      ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick || offToday ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
       ${fixedHtml}
       ${extraHtml}
-      <div class="plan-foot">${more ? foot("more", `Full Ranking${nBlk ? `, Waiting (${nBlk})` : ""}${nLater ? `, Coming Up (${nLater})` : ""}`, moreOpen) : ""}${foot("how", "How This Is Ranked", howOpen)}</div>
+      <div class="plan-foot">${more ? foot("more", `Full Ranking${nBlk ? `, Waiting (${nBlk})` : ""}${nLater ? `, Coming Up (${nLater})` : ""}`, moreOpen) : ""}${foot("how", "How This Is Ranked", howOpen)}${window.SBAUTOPILOT ? SBAUTOPILOT.offBtn() : ""}</div>
       ${more ? `<div class="plan-more" id="plan-more" role="region" aria-label="Full Ranking"${moreOpen ? "" : " hidden"}>
         <p class="plan-cap">Everything open, in ranked order. The number on the right is each task's focus score.</p>
         <ol class="plan-list">${ranked.map((x, i) => planRow(x, i, true)).join("")}</ol>
@@ -9209,7 +9309,7 @@ function viewBars(){
         ${rows}
       </div></div>
     <div class="tl-legend">${TYPES.filter(k => ts.some(t => t.type === k)).map(k => `<span><i class="tl-ic key">${typeIcon(k)}</i>${esc(k)}</span>`).join("")}<span><i class="dep-key"></i>Depends On</span><span><i class="tl-ic key late">${typeIcon("Other")}</i>Past Due</span></div>
-    <p class="hint-line tip-everyday">Drag an icon to move its due date. Finished tasks are hidden.${noDue ? ` ${noDue} without a due date ${noDue === 1 ? "isn't" : "aren't"} shown.` : ""}</p>`;
+    <p class="hint-line tip-everyday">Drag to change a due date${noDue ? ` · ${noDue} undated not shown` : ""}</p>`;
 }
 function viewCalendar(){
   const today = todayISO();
@@ -9282,7 +9382,7 @@ function viewCourses(){
   const nArch = allCourses().filter(c => c.archived).length, all = tasksArr().filter(t => !t.prepFor && !t.xs), dues = all.map(t => t.due).filter(Boolean).sort();
   const ending = all.length >= 5 && all.filter(t => t.status === "done").length / all.length >= 0.6 && (!dues.length || dayDiff(todayISO(), dues[dues.length - 1]) <= 7);
   return `<div class="view-head"><h2>Your Courses</h2>${proBtns("courses")}${!ending && nArch ? `<button class="btn small" data-act="archive-open">Archive (${nArch})</button>` : ""}${trashBtn("course")}</div><div class="course-list" data-sortable="courses">${cards}</div>
-    <!--term-->${ending ? `<div class="term-bar"><span>${ARCHIVE_SM}Term over? Put its courses and tasks away, and bring anything back later.</span><button class="btn small" data-act="new-term">Start a New Term</button><button class="btn small" data-act="archive-open">Open Archive${nArch ? ` (${nArch})` : ""}</button></div>` : ""}`;
+    <!--term-->${ending ? `<div class="term-bar"><span>${ARCHIVE_SM}Term over?</span><button class="btn small" data-act="new-term">Start a New Term</button><button class="btn small" data-act="archive-open">Open Archive${nArch ? ` (${nArch})` : ""}</button></div>` : ""}`;
 }
 // The line under a course's name
 function courseNextHtml(open, today){
@@ -10202,7 +10302,8 @@ function availExtMap(from, to){
 }
 function availFreeDay(date, nowMin, extMap){
   const a = availState(), ext = (extMap || availExtMap(date, date))[date] || [];
-  return AVAIL.freeWindows(date, {blocks: a.blocks, cfg: a.cfg, ext, nowMin});
+  const r = AVAIL.freeWindows(date, {blocks: a.blocks, cfg: a.cfg, ext, nowMin});
+  return dayIsOff(date) ? Object.assign(r, {windows: [], total: 0, largest: 0, none: true}) : r;
 }
 let AV_DAYS = {k: "", v: null};
 // Free hours per future date, cached until something changes
@@ -11863,7 +11964,62 @@ function dlgClose(){
   if (!(dlgGuard && dlgGuard())) { dlg.close(); return; }
   askBox({title: "Discard Changes?", text: "Your changes to this task aren't saved yet.", yes: "Discard", no: "Keep Editing", danger: true}).then(ok => { if (ok && dlg.open) { dlgGuard = null; dlg.close(); } });
 }
+/* Sheets that keep their place. A sheet with work in it (typed input, or an AI job still running) is set aside, not thrown
+   away, when you tap outside it, press Escape or tap ✕, or when another sheet opens over it. Opening it again from the same
+   button brings it back as it was; only Cancel (or finishing) clears it. A job that finishes while set aside says so in a toast. */
+const KEPT = new Map(); let KEEP = null, keepAway = false;
+const keepShown = () => !!KEEP && dlg.open && dlg.contains(KEEP.node);
+// Call right after openSheet: key names the entry point; dirty() says whether there's anything worth keeping; drop() runs when it's cleared (abort a job here)
+function sheetKeep(key, o){
+  o = o || {}; const node = dlg.querySelector(".sheet"); if (!node) return;
+  const old = KEPT.get(key); if (old && old.node !== node) { KEPT.delete(key); try { old.drop && old.drop(); } catch (e) {} }
+  KEEP = {key, node, dirty: o.dirty || (() => true), drop: o.drop || null, busy: o.busy || (() => false), name: o.name || ""};
+}
+// Brings a set-aside sheet back; false when there's none
+function sheetResume(key){
+  const k = KEPT.get(key); if (!k) return false;
+  KEPT.delete(key);
+  if (k.ready) { const f = k.ready; k.ready = null; f(); return true; }
+  dlgGuard = null;
+  const tt = $("#toast"), inSheet = !!tt && tt.parentNode === dlg;
+  if (inSheet) document.body.appendChild(tt);
+  dlg.innerHTML = ""; dlg.appendChild(k.node);
+  if (inSheet) dlg.appendChild(tt);
+  KEEP = k;
+  if (!dlg.open) dlg.showModal();
+  return true;
+}
+// Clears a sheet for good (Cancel, or once its work is saved)
+function sheetDrop(key){
+  const k = KEPT.get(key) || (KEEP && KEEP.key === key ? KEEP : null); if (!k) return;
+  KEPT.delete(key); if (KEEP === k) KEEP = null;
+  try { k.drop && k.drop(); } catch (e) {}
+}
+// A job is done: show fn's sheet now if its sheet is open, or hold it with a toast when it was set aside. False when it was cleared.
+function sheetReady(key, fn, msg){
+  if (KEEP && KEEP.key === key && keepShown()) { KEEP = null; fn(); return true; }
+  const k = KEPT.get(key); if (!k) return false;
+  k.ready = fn;
+  toast(msg || "It's ready", null, {label: "Open", fn: () => { if (dlg.open) dlg.close(); setTimeout(() => sheetResume(key), 30); }});
+  return true;
+}
+// Is a job for this key still running while its sheet is set aside
+const sheetKept = key => KEPT.has(key);
+function keepPark(){
+  const k = KEEP; KEEP = null; if (!k) return;
+  let keep = false; try { keep = !!k.dirty() || !!k.busy(); } catch (e) {}
+  if (keep) { if (k.node.parentNode) k.node.remove(); KEPT.set(k.key, k); if (k.busy()) toast(`${k.name || "That"} is still working. Open it again to pick up where you left off.`); }
+  else { try { k.drop && k.drop(); } catch (e) {} }
+}
+dlg.addEventListener("close", () => {
+  if (!KEEP) { keepAway = false; return; }
+  if (keepAway && dlg.contains(KEEP.node)) keepPark();
+  else { const k = KEEP; KEEP = null; if (!KEPT.has(k.key)) { try { k.drop && k.drop(); } catch (e) {} } }
+  keepAway = false;
+});
 function openSheet(html, onSubmit){
+  // another sheet opening over one with work in it sets that one aside
+  if (keepShown()) keepPark(); else KEEP = null;
   dlgGuard = null;
   const tt = $("#toast"), inSheet = !!tt && tt.parentNode === dlg;
   if (inSheet) document.body.appendChild(tt);
@@ -11892,9 +12048,9 @@ function openSheet(html, onSubmit){
 }
 // A backdrop tap closes a sheet only when it both started and ended on the backdrop (not a text selection dragged out)
 const backdropClose = (d, close) => { let down = false; d.addEventListener("pointerdown", e => { down = e.target === d; }); d.addEventListener("click", e => { const was = down; down = false; if (e.target === d && was) close(); }); };
-backdropClose(dlg, () => dlgClose()); backdropClose($("#pomoDlg"), () => $("#pomoDlg").close());
+backdropClose(dlg, () => { keepAway = true; dlgClose(); setTimeout(() => { if (dlg.open) keepAway = false; }, 0); }); backdropClose($("#pomoDlg"), () => $("#pomoDlg").close());
 dlg.addEventListener("keydown", e => { if (e.key === "Escape" && !e.defaultPrevented && dlgGuard && dlgGuard()) { e.preventDefault(); dlgClose(); } });
-dlg.addEventListener("cancel", e => { if (dlgGuard && dlgGuard()) { e.preventDefault(); dlgClose(); } });
+dlg.addEventListener("cancel", e => { if (dlgGuard && dlgGuard()) { e.preventDefault(); dlgClose(); return; } keepAway = true; });
 dlg.addEventListener("close", () => { dlgGuard = null; });
 const FAB_IC = {
   course: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M9 8h6"/>',
@@ -14114,7 +14270,7 @@ function viewNoteBoard(){
         <div class="nb-target trash" data-drop-note="trash" role="button" tabindex="0" data-act="trash-open" data-kind="note" title="Trash" aria-label="Trash${trashVisible().filter(e => e.kind === "note").length ? ", " + trashVisible().filter(e => e.kind === "note").length + " recently deleted" : ""}. Click to see recently deleted notes, or drag a note here to delete it.">${TRASH}<span>Trash</span></div>
       </div>
     </div>${envelopeHtml()}</div>
-    <p class="hint-line tip-everyday nb-hint"><span class="nbh-l">Drag notes to move them. Drop a note on a board tab, the folder (archive) or the trash. Drag stickers onto notes. Tap a note to edit.</span><span class="nbh-s">Drag a note to move it. Tap one to edit.</span></p>`;
+    <p class="hint-line tip-everyday nb-hint"><span class="nbh-l">Drag to move · drop on a tab, the archive or the trash · tap to edit</span><span class="nbh-s">Drag a note to move it. Tap one to edit.</span></p>`;
 }
 /*NOTESPOT-START*/
 // The first spot in view, row by row, where a w by h note overlaps none of the others
@@ -14690,7 +14846,8 @@ function viewQuizzes(){
   return `<div class="view-head" data-qz-list><h2>Your Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}<button class="btn small sm-btn" data-act="grp-page" aria-label="Share With a Group" title="Share quizzes with a study group: everyone takes them in their own app and sees the best scores">${QZ_GROUP_IC}<span class="sm-lbl">Share With a Group</span></button>${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${chipsHtml()}${q ? `<div class="search-note">Showing quizzes that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${list.length ? `<div class="qz-grid">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length ? "" : emptyArt()}<strong>${all.length ? "No Quizzes Match" : "No Quizzes Yet"}</strong>${all.length ? "Try another course or search." : (inPreview() ? "Make a quiz from one of your flashcard decks." : "Upload your slides, notes or readings and " + esc(aiWho("AI")) + " writes a practice quiz. Or make one from a flashcard deck, or write your own.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px">${inPreview() || all.length ? "" : `<button class="btn primary ai-btn" data-act="qz-ai">${AI_ICON} From Slides or Notes</button>`}<button class="btn${inPreview() ? " primary" : ""}" data-act="qz-from-deck">From a Deck</button><button class="btn" data-act="qz-write">Write Your Own</button></div></div>`}
-    <p class="hint-line tip-everyday">Make a quiz straight from your slides or notes with Add Quiz, or from a deck with Make a Quiz.</p>`;
+    <section class="grp-strip"><div class="grp-strip-txt">${QZ_GROUP_IC}<span><b>Study Together</b><span class="mini">Share quizzes with a study group: everyone takes them in their own app and sees the best scores.</span></span></div>
+      <div class="grp-strip-btns"><button class="btn small" data-act="grp-page">Study Groups</button></div></section>`;
 }
 /* Review hero: what's ready, about how long, and one Start button */
 // Decks with cards to review or learn, in the chosen course
@@ -14770,8 +14927,7 @@ function viewFlashcards(){
   return reviewSwitchHtml() + `<div class="view-head" data-fc-list><h2>Your Decks</h2>
       ${window.SBSHARE ? SBSHARE.libBtn() : ""}<button class="btn small sm-btn" data-act="grp-share-menu" aria-label="Share or Import" title="Share or Import">${QZ_GROUP_IC}<span class="sm-lbl">Share or Import</span></button>${archBtn()}${trashBtn("deck") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="deck" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${reviewHeroHtml()}${chipsHtml()}${ui.q.trim() ? `<div class="search-note">Showing decks that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
-    ${ds.length ? `<div class="deck-grid">${tiles}</div>` : `<div class="empty${decksArr().length ? "" : " sb-es"}" style="margin-top:14px">${decksArr().length ? "" : emptyArt()}<strong>${deckListArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Add cards or paste a list, then study them." + (inPreview() ? "" : " Or upload slides and let " + esc(aiWho("AI")) + " make them.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inPreview() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}
-    <p class="hint-line tip-everyday">Studyboard learns how fast you forget each card and brings it back just before you would.</p>`;
+    ${ds.length ? `<div class="deck-grid">${tiles}</div>` : `<div class="empty${decksArr().length ? "" : " sb-es"}" style="margin-top:14px">${decksArr().length ? "" : emptyArt()}<strong>${deckListArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Add cards or paste a list, then study them." + (inPreview() ? "" : " Or upload slides and let " + esc(aiWho("AI")) + " make them.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inPreview() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}`;
 }
 /* Your own order for decks and quizzes: drag a tile (on touch, press and hold, or drag its grip), or press Alt + Left or Right Arrow */
 const RV_TILE = ".deck-grid > .deck-fc[data-rv], .qz-grid > .qz-card[data-rv]", RV_HOW = "Drag to reorder, or press Alt + Left or Right Arrow";
@@ -16451,7 +16607,7 @@ document.addEventListener("click", e => {
   if (act.startsWith("fc-") && fcAction(act, el)) return;
   if (act.startsWith("pomo-") && pomoAction(act, el)) return;
   switch (act) {
-    case "close": { const dd = el.closest("dialog") || dlg; if (dd === dlg) dlgClose(); else dd.close(); break; }
+    case "close": { const dd = el.closest("dialog") || dlg; if (dd === dlg) { keepAway = !!el.closest(".sheet-head"); dlgClose(); if (dlg.open) keepAway = false; } else dd.close(); break; }
     case "menu": menuSheet(); break;
     case "search": toggleSearch(true); break;
     case "search-close": toggleSearch(false); break;
@@ -20755,23 +20911,32 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
   }
   /* The snapshot the model reads with every question */
   function snapshotText(D){
-    const L = [], tz = D.tz ? ` (${D.tz})` : "";
+    // D.need (from aiNeeds): only the parts this question needs; none given means all
+    const L = [], tz = D.tz ? ` (${D.tz})` : "", N = D.need || null, want = k => !N || !!N[k];
     L.push(`NOW: ${D.now.toLocaleDateString("en-US", {weekday: "long", month: "long", day: "numeric", year: "numeric"})} (${D.today}), ${hhmm(D.now)}${tz}. "Days away" below counts from this date; 0 means today.`);
+    if (want("tasks") || want("schedule") || want("plan")) {
     const ex = examsOf(D, ["exam", "quiz"]), up = ex.filter(x => !x.passed && !x.done), pastE = ex.filter(x => x.passed || x.done);
     const ue = up.filter(x => x.k === "exam"), uq = up.filter(x => x.k === "quiz");
     L.push(ue.length ? `NEXT EXAM: ${examLine(D, ue[0], true, true)}` : "NEXT EXAM: none. There are no upcoming exams in the planner.");
     L.push("UPCOMING EXAMS (soonest first):" + (ue.length ? "\n" + ue.slice(0, 15).map((x, i) => `${i + 1}. ${examLine(D, x, true, true)}`).join("\n") : " none"));
     L.push("UPCOMING QUIZZES (soonest first):" + (uq.length ? "\n" + uq.slice(0, 12).map((x, i) => `${i + 1}. ${examLine(D, x, true, true)}`).join("\n") : " none"));
     if (pastE.length) L.push("PAST OR TAKEN EXAMS AND QUIZZES (most recent first):\n" + pastE.slice(-6).reverse().map(x => `- ${examLine(D, x, false, true)}${x.done ? " [marked taken]" : ""}`).join("\n"));
+    }
+    if (want("tasks") || want("plan")) {
     const today = dueBetween(D, D.today, D.today).filter(t => !examKind(t)), soon = dueBetween(D, addDays(D.today, 1), addDays(D.today, 21)).filter(t => !examKind(t));
     L.push("DUE TODAY (not exams):" + (today.length ? "\n" + today.slice(0, 20).map(t => "- " + taskLine(D, t)).join("\n") : " nothing"));
     L.push("DEADLINES IN THE NEXT 21 DAYS (not exams, soonest first):" + (soon.length ? "\n" + soon.slice(0, 40).map(t => "- " + taskLine(D, t)).join("\n") + (soon.length > 40 ? `\n(${soon.length - 40} more later)` : "") : " nothing"));
     const od = overdueOf(D); if (od.length) L.push("OVERDUE (not done, past due):\n" + od.slice(0, 15).map(t => "- " + taskLine(D, t)).join("\n"));
+    }
+    if (want("schedule") || want("plan")) {
     const days = [0, 1, 2, 3, 4, 5, 6].map(i => { const d = addDays(D.today, i), occ = D.occ(d, d).sort((a, b) => String(a.start || "").localeCompare(String(b.start || ""))); return occ.length ? `${i === 0 ? "Today" : longDate(d)}: ` + occ.slice(0, 8).map(o => `${o.start ? fmtTime(o.start) + (o.end ? "-" + fmtTime(o.end) : "") + " " : "all day "}${o.title}${o.label ? " " + o.label : ""}${o.where ? " @" + o.where : ""}`).join("; ") : ""; }).filter(Boolean);
     L.push("CLASSES AND EVENTS, NEXT 7 DAYS:" + (days.length ? "\n" + days.join("\n") : " none scheduled"));
-    const gl = D.courses.map(c => gradeLine(D, c)).filter(Boolean);
-    L.push("GRADES:" + (gl.length ? "\n" + gl.map(x => "- " + x).join("\n") : " no marks entered"));
+    }
+    if (want("grades")) { const gl = D.courses.map(c => gradeLine(D, c)).filter(Boolean);
+    L.push("GRADES:" + (gl.length ? "\n" + gl.map(x => "- " + x).join("\n") : " no marks entered")); }
     L.push("COURSES: " + (D.courses.map(c => courseLabel(c) + (c.name && c.name !== courseLabel(c) ? " (" + c.name + ")" : "") + (c.instructor ? ", " + c.instructor : "")).join("; ") || "none"));
+    // every mark and Today's Plan in the app's own order (shared with the companion)
+    if (!D.noFacts && (want("grades") || want("plan"))) { try { const pf = typeof aiPlannerFacts === "function" ? aiPlannerFacts({grades: want("grades"), plan: want("plan")}) : ""; if (pf) L.push(pf); } catch (e) {} }
     return L.join("\n");
   }
   function askData(){
@@ -20790,7 +20955,7 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
   const ASK_SYSTEM = `You answer questions for a student inside their own planner app, using ONLY the PLANNER SNAPSHOT and the numbered SOURCES in the message. Nothing else is known about them.
 Rules:
 - The snapshot is exact and already dated: "days away" and "today" are computed for you from NOW. Never recompute dates, and never call a past item upcoming. "Next exam" means the first entry of UPCOMING EXAMS (or the NEXT EXAM line). Quizzes are not exams unless asked. Study sessions are not exams.
-- A question about the planner (exams, deadlines, classes, grades, what to do today) is answered from the snapshot. A question about course content, notes, flashcards or files is answered from the numbered sources. Cite those like [2] after every claim taken from them, and give a file's page or slide only if its source line shows one.
+- A question about the planner (exams, deadlines, classes, grades, what to do today) is answered from the snapshot. MARKED WORK in the snapshot lists every mark entered (compare its percentages for best or lowest marks), and TODAY'S PLAN is the app's own priority order (follow it exactly for what to do next or after today's plan; don't re-sort by due date). A question about course content, notes, flashcards or files is answered from the numbered sources. Cite those like [2] after every claim taken from them, and give a file's page or slide only if its source line shows one.
 - Be direct and concise: lead with the answer (a date, a name, a number), then at most one useful detail. Use a short list only when several items are asked for. No filler, no restating the question, no advice nobody asked for.
 - Say dates the way a person would ("Friday, October 9, in 6 days"). Say times with am or pm.
 - If the snapshot and sources don't contain the answer, set found to false and say in one sentence what is missing. Never invent dates, grades, page numbers or facts, and never answer course-content questions from general knowledge.
@@ -20877,7 +21042,9 @@ Return JSON only.`;
     const plan = answerPlan(); if (!plan) return;
     const prior = A.det, n = Math.min(SENT, A.rows.length), c = A.course && A.course !== "_none" ? courseOf(A.course) : null;
     A.answer = {state: "loading"}; draw();
-    let snap = ""; try { snap = snapshotText(askData()); } catch(e) { console.warn(e); }
+    // only the planner parts this question (and the one before it) needs
+    const prevQ = (() => { const i = turnIx(A); return i > 0 && S.thread[i - 1] ? S.thread[i - 1].q : ""; })();
+    let snap = ""; try { snap = snapshotText(Object.assign(askData(), {need: aiNeeds(A.q, prevQ)})); } catch(e) { console.warn(e); }
     const scope = c ? `COURSE: ${courseLabel(c)}${c.name && c.name !== courseLabel(c) ? " (" + c.name + ")" : ""}. The student is asking about this course; the numbered sources come only from its material.\n\n` : "";
     const args = {task: "ask", schema: ANSWER_SCHEMA, maxTokens: 8000, temperature: 0.1, timeout: 90000, system: ASK_SYSTEM,
       parts: [{text: `PLANNER SNAPSHOT\n${snap}\n\n${scope}NUMBERED SOURCES (search results from the student's notes, files, cards, lectures and tasks)\n${srcText(A.rows) || "none found for this question"}\n\n${histText(A)}${prior ? `ALREADY WORKED OUT (correct): ${prior.text}\n\n` : ""}QUESTION: ${A.q}`}]};
@@ -26643,7 +26810,7 @@ hook("boot", boot);
         ${preview ? "Study groups and share links work on the Studyboard website and in the desktop app, where you sign in to your Studyboard account." : "Sharing needs a free Studyboard account. Sign in to make or join study groups and share decks."}
         ${preview ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="${local ? "sb-connect" : "sb-signin"}">${local && !SB_HOSTED ? "Set Up Sync" : "Sign In"}</button></div>`}</div>
       <section class="grp-file"><h3 class="fsec">Share Without an Account</h3>
-        <p>No account? Share a deck as a file: open it, tap <b>Share</b>, then <b>Share as File</b>. Others use <b>Import a Deck File</b>.</p>
+        <p>Open a deck, then <b>Share › Share as File</b>.</p>
         <div class="row-actions"><button class="btn" data-act="grp-import">Import a Deck File</button><button class="btn" data-act="grp-to-decks">Go to Flashcards</button></div></section>`;
   }
   function errBox(msg, setup){
@@ -31382,6 +31549,12 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if ((list || []).length < 2 || u.length !== 1 || gset().passSrc === "user" || r1(gset().pass) === r1(u[0])) return;
     saveG({pass: r1(u[0]), passSrc: "school"}); scheduleRender();
   };
+  // Every piece of work with a mark, for the AI: the same marks the Grade Tracker uses
+  window.SBGRADES.items = () => allTasks().filter(t => markPct(t) != null && !t.prepFor).map(t => {
+    const c = courseOf(t.courseId), pct = markPct(t);
+    return {id: t.id, title: t.title, type: t.type, course: c ? courseLabel(c) : "", due: t.due || "", weight: hasWeight(t) ? Number(t.weight) : null, pct: r1(pct), mark: fmtMark(t.mark), letter: c ? letterOf(pct, gradingOf(c).scale) : ""};
+  });
+  window.SBGRADES.waiting = () => tasksArr().filter(t => t.status === "done" && hasWeight(t) && markPct(t) == null && !t.prepFor).map(t => ({title: t.title, course: courseOf(t.courseId) ? courseLabel(courseOf(t.courseId)) : "", weight: Number(t.weight)}));
   window.SBGRADES.goalHtml = c => { try { const gr = courseGrade(c); return gr.ts.length ? goalField(c, gr) : ""; } catch (e) { return ""; } };
   window.SBGRADES.now = c => { try { const gr = courseGrade(c); if (!gr.ts.length) return null; return {pct: gr.current, letter: gr.current != null ? letterOf(gr.current, gr.g.scale) : "", marked: gr.wMarked, fmt: fmtP, line: gradeLine(gr), risk: gr.risk, done: gr.done}; } catch (e) { return null; } };
   // The Grades tab of one course
@@ -31547,7 +31720,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       return `<li><button type="button" class="gp-term" data-act="gp-term" data-id="${esc(t.id)}"><span class="gp-term-n"><b>${esc(t.name)}</b><span class="mini">${t.manual ? "Earlier record" : `${(t.courses || []).length} course${(t.courses || []).length === 1 ? "" : "s"}`}${p.credits ? ` · ${fmtCr(p.credits)} credits` : ""}${est ? " · some grades were projected" : ""}</span></span>${show && p.gpa != null ? `<span class="gp-term-g"><b>${fmtG(p.gpa)}</b><span class="mini">GPA</span></span>` : ""}</button></li>`; }).join("");
     return `<section class="gp-hist" aria-labelledby="gpHistH"><div class="gp-sec-h"><h3 class="fsec" id="gpHistH">Past Terms</h3><span class="spacer"></span><button type="button" class="btn small" data-act="gp-term-save">Save This Term</button><button type="button" class="btn small" data-act="gp-term-add">Add an Earlier Record</button></div>
       ${T.length ? `<ul class="gp-terms">${rows}</ul>${show && S.pastGpa != null ? `<p class="mini" style="margin:8px 0 0">Cumulative GPA across past terms: <b>${fmtG(S.pastGpa)}</b>${S.cum != null && S.n ? `. With this term's projected grades: <b>${fmtG(S.cum)}</b>` : ""}.</p>` : ""}`
-        : `<p class="mini" style="margin:0">Keep each term's final grades here to see your cumulative GPA. Starting a new term saves them for you. Have grades from before Studyboard? Add them as an earlier record.</p>`}</section>`;
+        : `<p class="mini" style="margin:0">Save each term to track your cumulative GPA.</p>`}</section>`;
   }
   function creditsSheet(){
     const cs = coursesArr(); if (!cs.length) return;
@@ -31697,8 +31870,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const stat = (n, k, bad) => `<div class="gr-stat gp-tile${bad ? " gr-bad" : ""}"><span class="gr-v">${n}</span><span class="gr-k">${k}</span></div>`;
     const hero = `<div class="gp-hero-band">
         <span class="g2-ring gp-cap" aria-hidden="true">${GP_CAP}</span>
-        <div class="gp-hero-t"><span class="g2-kick">${S.weighted ? "Credit-Weighted Average" : "Average Across Courses"}</span>${avg != null ? `<span class="gp-avg">${fmtP(avg)}</span><span class="gp-hero-sub">${withMarks.length} course${withMarks.length === 1 ? "" : "s"} with marks · ${atRisk ? `${atRisk} need${atRisk === 1 ? "s" : ""} attention` : "all on track"}</span>` : `<span class="gp-avg gr-none">No Marks Yet</span><span class="gp-hero-sub">Marks you enter show up here</span>`}</div>
-        <div class="gp-sum">${stat(atRisk, "Need attention", atRisk)}${stat(waiting.length, "Waiting for a mark")}${stat(Math.max(0, toCome), "Marks still to come")}</div></div>`;
+        <div class="gp-hero-t"><span class="g2-kick">${S.weighted ? "Credit-Weighted Average" : "Average Across Courses"}</span>${avg != null ? `<span class="gp-avg">${fmtP(avg)}</span><span class="gp-hero-sub">${withMarks.length} course${withMarks.length === 1 ? "" : "s"} with marks · ${atRisk ? `${atRisk} need${atRisk === 1 ? "s" : ""} attention` : "all on track"}</span>` : `<span class="gp-avg gr-none">No Marks Yet</span>`}</div>
+        ${atRisk || waiting.length || toCome > 0 ? `<div class="gp-sum">${stat(atRisk, "Need attention", atRisk)}${stat(waiting.length, "Waiting for a mark")}${stat(Math.max(0, toCome), "Marks still to come")}</div>` : ""}</div>`;
     const tn = topNeed(all);
     const detailOf = gr => {
       const c = gr.c, g = gr.g;
@@ -35101,7 +35274,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     const imp = `<button class="btn small" data-act="import-syllabus">Import a Syllabus</button></div>`;
     if (!coursesArr().length) return html.replace(imp, m => m.replace("</div>", ` <button class="btn small" data-act="lms-open">Connect a School Site</button></div>`));
     if (on.length) return html.replace("<h2>Your Courses</h2>", m => m + `<button class="btn small" data-act="${on.length === 1 ? on[0].P.k + "-open" : "lms-open"}">${esc(on.length === 1 ? on[0].P.name : "School Sites")}</button>`);
-    return html.replace(`<!--term-->`, m => `<div class="term-bar lms-bar"><span><b>Connect Canvas, Brightspace or Blackboard</b> to bring in your courses, due dates and grades.</span><button class="btn small" data-act="lms-open">Connect</button></div>` + m);
+    return html.replace(`<!--term-->`, m => `<div class="term-bar lms-bar"><span title="Brings in your courses, due dates and grades"><b>Connect Canvas, Brightspace or Blackboard</b></span><button class="btn small" data-act="lms-open">Connect</button></div>` + m);
   };
   const origCard = card;
   card = function(t){
@@ -43195,7 +43368,7 @@ var TP_DATA = [];
   const ORDER = {
     account: ["sb-signout", "sb-signin", "sb-connect", "sb-issues", "plan-open"],
     appearance: ["theme-set", "shop", "anim-mode", "text-size", "lang-set", "a11y-contrast", "anim-toggle", "daily-quote", "scene-moment", "comp-set"],
-    study: ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "g-grades", "bd-new-course", "wkr-open", "fgs-open", "ai-setup", "sx-settings"],
+    study: ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "ap-mode", "ap-pro", "g-grades", "bd-new-course", "wkr-open", "fgs-open", "ai-setup", "sx-settings"],
     capture: ["cap-try"],
     school: ["sem-open", "lms-open", "cal-export", "cal-sync", "import-syllabus", "grp-page"],
     app: ["tz-shift", "rm-open", "sbw-open", "pwa-install", "install", "desk-version", "ob-replay", "tour-open", "bug-open"],
@@ -43204,7 +43377,7 @@ var TP_DATA = [];
   // Sub-tabs inside a category with many rows
   const SUBS = {
     appearance: [["Look", ["theme-set", "shop", "scene-moment", "daily-quote", "comp-set"]], ["Accessibility", ["text-size", "a11y-contrast", "anim-mode", "anim-toggle"]]],
-    study: [["Study Plan", ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "g-grades", "bd-new-course", "wkr-open", "fgs-open"]], ["AI and Search", ["ai-setup", "sx-settings"]]],
+    study: [["Study Plan", ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "ap-mode", "ap-pro", "g-grades", "bd-new-course", "wkr-open", "fgs-open"]], ["AI and Search", ["ai-setup", "sx-settings"]]],
     school: [["School Sites", ["sem-open", "lms-open", "import-syllabus"]], ["Calendar", ["cal-export", "cal-sync"]], ["Groups", ["grp-page"]]],
     app: [["Reminders", ["rm-open", "sbw-open", "tz-shift"]], ["Install", ["pwa-install", "install", "desk-version"]], ["Help", ["ob-replay", "tour-open", "bug-open"]]],
     data: [["Backups", ["fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "restore"]], ["Import and Export", ["import", "ia-open", "export-data"]], ["Cleanup", ["new-term", "archive-open", "trash-open", "clear-all"]]]
@@ -43213,7 +43386,7 @@ var TP_DATA = [];
   // Extra words people might search for, per row
   const SYN = {"theme-set": "dark light mode night", shop: "theme colors stickers pins cards", "anim-toggle": "motion confetti", "comp-set": "companion pet stay still fixed corner move", "anim-mode": "animation motion static still saver", "text-size": "font bigger larger smaller accessibility dynamic type zoom", "lang-set": "language idioma espanol spanish translate locale", "a11y-contrast": "contrast accessibility readable calm background dim blur", "tz-shift": "timezone travel daylight saving dst clock",
     "sb-connect": "sync cloud online login", "sb-signin": "sync login", "sb-issues": "conflict merge two devices edited resolve", "sb-signout": "log out logout", "plan-open": "pro upgrade subscription devices storage",
-    "area-open": "major program field subject discipline degree", "bd-new-course": "milestones rubric breakdown", dailyIn: "study time plan", capIn: "weekly limit", "ai-setup": "gemini key chatbot", "sx-settings": "find ctrl k", "g-grades": "marks gpa", "wkr-open": "weekly review sunday summary recap week slipped", "fgs-open": "streak study days rest days habit gentle forgiving",
+    "area-open": "major program field subject discipline degree", "bd-new-course": "milestones rubric breakdown", dailyIn: "study time plan", "ap-mode": "autopilot catch up missed sessions reschedule overnight day off", "ap-pro": "autopilot catch up missed sessions reschedule overnight day off", capIn: "weekly limit", "ai-setup": "gemini key chatbot", "sx-settings": "find ctrl k", "g-grades": "marks gpa", "wkr-open": "weekly review sunday summary recap week slipped", "fgs-open": "streak study days rest days habit gentle forgiving",
     "lms-open": "d2l lms school sites", "cal-export": "calendar ics google outlook apple", "import-syllabus": "pdf course", "sem-open": "semester first run start setup onboarding import syllabus week plan", "grp-page": "classmates share",
     "rm-open": "alerts push notify", "sbw-open": "widget tray startup desktop", "ob-replay": "tour help welcome start", "tour-open": "tour help guide orientation walkthrough tutorial", "bug-open": "bug report feedback problem issue idea support contact", "pwa-install": "home screen app",
     "fsb-choose": "google drive onedrive folder backup", folder: "google drive onedrive folder backup", "backup-now": "save backup copy device", "restore": "undo backup", "export": "download backup zip files", "export-json": "download backup data only json", "import": "upload backup", "ia-open": "anki apkg colpkg quizlet todoist notion csv another app switch", "export-full": "files zip",
@@ -56685,7 +56858,7 @@ var COMP_EXTRA = [];
   }
   const ownLines = kind => cur && Array.isArray(cur.lines[kind]) && cur.lines[kind].length ? cur.lines[kind] : GENERIC[kind] || GENERIC.tap;
   const bubbleOpen = () => !!(front && front.querySelector(".cp-bubble.on"));
-  function hideBubble(){ clearTimeout(bubbleT); bubbleIdea = null; bubbleAsk = false; if (front) { const b = front.querySelector(".cp-bubble"); if (b) b.classList.remove("on", "has-idea", "asking"); } guardSoon("bubble", 300); }
+  function hideBubble(){ clearTimeout(bubbleT); bubbleIdea = null; bubbleAsk = false; if (front) { const b = front.querySelector(".cp-bubble"); if (b) b.classList.remove("on", "has-idea", "asking", "cp-think"); } guardSoon("bubble", 300); }
   let bRects = null, bRectsAt = 0;
   const bubbleRects = () => { const n = performance.now(); if (!bRects || n - bRectsAt > 700) { try { bRects = contentRects(); } catch (e) { bRects = []; } bRectsAt = n; } return bRects; };
   // Where the bubble goes
@@ -56759,7 +56932,7 @@ var COMP_EXTRA = [];
     if (!opts.again && !SPEECH.ok(text)) return;
     SPEECH.note(text, opts.cat || pickedCat[SPEECH.norm(text)]);
     const b = front.querySelector(".cp-bubble");
-    b.classList.remove("on", "has-idea", "asking", "long", "cheer");
+    b.classList.remove("on", "has-idea", "asking", "long", "cheer", "cp-think");
     if (opts && opts.long) b.classList.add("long");
     if (opts.cheer || /^(WOO|YES|YAY|Woohoo|Yay|Hooray)\b/.test(text)) b.classList.add("cheer");
     b.innerHTML = `<span class="cp-b-t"></span>`;
@@ -56777,6 +56950,28 @@ var COMP_EXTRA = [];
     bubbleT = setTimeout(hideBubble, opts.ms || (btns.length ? 9000 : Math.max(2600, 1400 + text.length * 55)));
     act.mouth("open"); later(() => { if (act && mood !== "doze" && mood !== "nap") act.mouth(mood === "study" ? "neutral" : "smile"); later(() => { if (act && mood === "idle") act.mouth("neutral"); }, 1400); }, 420);
   }
+  /* Thinking: three dots in a bubble while the student waits on the AI (after any "On it!" line has had its moment) */
+  let thinkT = 0, thinkWant = false;
+  function aiThinking(on){
+    clearTimeout(thinkT); thinkWant = on;
+    const b = front && front.querySelector(".cp-bubble");
+    if (!on) { if (b && b.classList.contains("cp-think")) { b.classList.remove("on", "cp-think"); guardSoon("bubble", 300); } return; }
+    const show = () => {
+      if (!thinkWant) return;
+      const bb = front && front.querySelector(".cp-bubble");
+      if (!bb || !cur || !box || box.hidden || document.hidden) { thinkT = setTimeout(show, 800); return; }
+      if (bb.classList.contains("cp-think") && bb.classList.contains("on")) return;
+      // something else is being said or asked: wait for it
+      if (bb.classList.contains("on") || bubbleIdea || bubbleAsk) { thinkT = setTimeout(show, 500); return; }
+      clearTimeout(bubbleT);
+      bb.classList.remove("has-idea", "asking", "long", "cheer");
+      bb.innerHTML = `<span class="cp-dots" role="status" aria-label="${esc(nameOf(cur))} is thinking"><i></i><i></i><i></i></span>`;
+      bb.classList.add("cp-think"); placeBubble(bb); void bb.offsetWidth; bb.classList.add("on");
+    };
+    // a quick answer doesn't need it
+    thinkT = setTimeout(show, 900);
+  }
+  document.addEventListener("sb-ai-wait", e => aiThinking(Number(e.detail) > 0));
   /* Ask About This */
   let lastFile = null;
   document.addEventListener("click", e => {
@@ -58495,32 +58690,36 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   const aiOk = () => { try { return !inPreview() && aiReady(); } catch (e) { return false; } };
 
   /* What the companion may look at, for one question */
-  async function context(q){
-    const ws = words(q), today = todayISO(), src = [], L = [];
-    L.push(`Today is ${today}, ${new Date().toLocaleDateString(undefined, {weekday: "long"})}. The student plans ${dailyHours()} hours of study a day.`);
+  // Only the parts of the planner this question needs (aiNeeds); attachments may need courses and boards for their actions
+  async function context(q, prev, hasAtt){
+    const ws = words(q), today = todayISO(), src = [], L = [], N = aiNeeds(q, prev);
+    L.push(`Today is ${today}, ${new Date().toLocaleDateString(undefined, {weekday: "long"})}.${N.plan ? ` The student plans ${dailyHours()} hours of study a day.` : ""}`);
+    if (N.small && !hasAtt) return {text: L.join("\n\n"), src, need: N};
     const al = window.SBAREA ? SBAREA.aiLine() : ""; if (al) L.push(al);
-    const cs = coursesArr();
-    if (cs.length) {
+    const any = aiNeedsAny(N) || hasAtt, cs = coursesArr(), mine = c => !N.course.length || N.course.includes(c.id);
+    if (cs.length && any) {
       L.push("COURSES:\n" + cs.map(c => {
+        if (!N.schedule) return `- ${courseLabel(c)}: ${c.name}`;
         let ms = ""; try { ms = courseMeetings(c).map(m => `${m.kind} ${meetWhen(m)} ${m.start}-${m.end}${m.where ? " " + m.where : ""}`).join("; "); } catch (e) {}
         return `- ${courseLabel(c)}: ${c.name}${c.instructor ? ", " + c.instructor : ""}${ms ? ", meets " + ms : c.schedule ? ", " + c.schedule : ""}${c.office ? ", office hours " + c.office : ""}`;
       }).join("\n")); src.push("Courses");
     }
-    { const nb = noteBoards(); L.push("NOTE BOARDS: My Notes (the main board)" + (nb.length ? "; " + nb.map(b => b.name + (b.courseId && courseOf(b.courseId) ? " (" + courseLabel(courseOf(b.courseId)) + ")" : "")).join("; ") : "")); }
-    const open = tasksArr().filter(t => t.status !== "done").sort(sortTasks);
-    const tl = t => { const c = courseOf(t.courseId); return `- ${t.title} (${c ? courseLabel(c) + ", " : ""}${t.type}${t.due ? ", due " + t.due + (t.time ? " " + t.time : "") : ", no due date"}${hasWeight(t) ? ", worth " + t.weight + "%" : ""}${t.status === "doing" ? ", in progress" : ""}${isNum(t.hours) ? ", ~" + t.hours + "h" : ""}${t.pct ? ", " + t.pct + "% done" : ""}${t.notes ? ", note: " + clip(t.notes, 80) : ""})`; };
-    if (open.length) { L.push(`OPEN TASKS (${open.length}, soonest first):\n` + open.slice(0, 40).map(tl).join("\n")); src.push("Tasks"); }
-    const recent = tasksArr().filter(t => t.status === "done").sort((a, b) => (doneTime(b) || 0) - (doneTime(a) || 0)).slice(0, 8);
-    if (recent.length) L.push("RECENTLY FINISHED: " + recent.map(t => t.title).join("; "));
-    try {
-      const F = computeFocus(), n = nextUp(F);
-      const top = F.ranked.filter(x => !x.fixed && x.alloc > 0).slice(0, 5).map(x => `${x.t.title} (${fmtHM(x.alloc)})`);
-      if (top.length || n) { L.push(`TODAY'S PLAN: ${n ? "do this next: " + (n.label || n.x.t.title) + ". " : ""}${top.length ? "Planned today: " + top.join("; ") + "." : ""} ${F.th ? fmtHM(F.th) + " of study time left today." : ""}`); src.push("Today's Plan"); }
-    } catch (e) {}
-    try { const g = window.SBGRADES ? SBGRADES.lines() : []; if (g.length) { L.push("GRADES:\n" + g.map(x => "- " + x).join("\n")); src.push("Grades"); } } catch (e) {}
+    if (N.grades || N.plan) { const pf = aiPlannerFacts({grades: N.grades, plan: N.plan}); if (pf) { L.push(pf); if (N.grades) src.push("Grades"); if (N.plan) src.push("Today's Plan"); } }
+    if (hasAtt || N.notes) { const nb = noteBoards(); L.push("NOTE BOARDS: My Notes (the main board)" + (nb.length ? "; " + nb.map(b => b.name + (b.courseId && courseOf(b.courseId) ? " (" + courseLabel(courseOf(b.courseId)) + ")" : "")).join("; ") : "")); }
+    if (N.tasks || hasAtt) {
+      const open = tasksArr().filter(t => t.status !== "done" && (!t.courseId || mine(courseOf(t.courseId) || {}))).sort(sortTasks);
+      const tl = t => { const c = courseOf(t.courseId); return `- ${t.title} (${c ? courseLabel(c) + ", " : ""}${t.type}${t.due ? ", due " + t.due + (t.time ? " " + t.time : "") : ", no due date"}${hasWeight(t) ? ", worth " + t.weight + "%" : ""}${t.status === "doing" ? ", in progress" : ""}${isNum(t.hours) ? ", ~" + t.hours + "h" : ""}${t.pct ? ", " + t.pct + "% done" : ""}${t.notes ? ", note: " + clip(t.notes, 80) : ""})`; };
+      if (open.length) { L.push(`OPEN TASKS${N.course.length ? " FOR " + N.course.map(id => courseLabel(courseOf(id))).join(", ") : ""} (${open.length}, soonest first):\n` + open.slice(0, 80).map(tl).join("\n")); src.push("Tasks"); }
+      const recent = tasksArr().filter(t => t.status === "done" && (!t.courseId || mine(courseOf(t.courseId) || {}))).sort((a, b) => (doneTime(b) || 0) - (doneTime(a) || 0)).slice(0, 8);
+      if (recent.length) L.push("RECENTLY FINISHED: " + recent.map(t => t.title).join("; "));
+    }
+    if (N.schedule) {
+      try { const occ = schOccurrences(today, addDays(today, 6)).filter(o => !o.skipped && o.type !== "avail").sort((a, b) => (a.date + (a.start || "")).localeCompare(b.date + (b.start || ""))).slice(0, 30);
+        if (occ.length) { L.push("CLASSES AND EVENTS, NEXT 7 DAYS:\n" + occ.map(o => `- ${o.date}${o.start ? " " + o.start + (o.end ? "-" + o.end : "") : ""}: ${o.title}${o.label ? " (" + o.label + ")" : ""}${o.where ? ", " + o.where : ""}`).join("\n")); src.push("Schedule"); } } catch (e) {}
+    }
     const decks = deckListArr();
     if (decks.length) {
-      L.push("FLASHCARD DECKS:\n" + decks.slice(0, 20).map(d => { const c = courseOf(d.courseId), st = deckStats(d); return `- ${d.name}${c ? " (" + courseLabel(c) + ")" : ""}: ${st.total} cards, ${st.due} due for review`; }).join("\n"));
+      if (N.cards) L.push("FLASHCARD DECKS:\n" + decks.slice(0, 20).map(d => { const c = courseOf(d.courseId), st = deckStats(d); return `- ${d.name}${c ? " (" + courseLabel(c) + ")" : ""}: ${st.total} cards, ${st.due} due for review`; }).join("\n"));
       decks.map(d => ({d, s: hits(d.name + " " + d.cards.map(c => c.front).join(" "), ws)})).filter(x => ws.length && x.s > 0).sort((a, b) => b.s - a.s).slice(0, 2).forEach(({d}) => {
         const pick = d.cards.map(c => ({c, s: hits(c.front + " " + c.back, ws)})).sort((a, b) => b.s - a.s).slice(0, 12).map(x => x.c);
         L.push(`CARDS FROM "${d.name}":\n` + pick.map(c => `- ${clip(c.front, 100)} → ${clip(c.back, 160)}`).join("\n")); src.push("Flashcards: " + clip(d.name, 30));
@@ -58533,15 +58732,16 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
         .sort((a, b) => b.s - a.s || (b.n.updated || b.n.created || 0) - (a.n.updated || a.n.created || 0)).slice(0, 6);
       if (picked.length) { L.push("STICKY NOTES:\n" + picked.map(({n}) => `- ${clip(n.text, 450)}${n.board ? " [board: " + nbName(noteBoardOf(n)) + "]" : ""}`).join("\n")); src.push("Notes"); }
     }
+    // the student's own material that matches the question (always: it's how content questions get answered)
     let R = null; try { R = window.SBSEARCH ? await SBSEARCH.retrieve(q, {max: 8, chars: 1100}) : null; } catch (e) {}
     if (R && R.text) { L.push("SEARCH RESULTS (passages from the student's files, notes, flashcards and tasks that match the question):\n" + R.text); R.src.forEach(x => src.push(x)); }
     const files = Object.values(state.files).filter(f => f.kind === "file");
     if (files.length) {
-      L.push("FILES: " + files.slice(0, 40).map(f => { const c = courseOf(f.courseId); return f.name + (c ? " (" + courseLabel(c) + ")" : ""); }).join("; "));
+      if (N.files || hasAtt) L.push("FILES: " + files.slice(0, 40).map(f => { const c = courseOf(f.courseId); return f.name + (c ? " (" + courseLabel(c) + ")" : ""); }).join("; "));
       const want = ws.length && !(R && R.rows.some(x => x.doc.type === "chunk")) ? files.map(f => ({f, s: hits(f.name + " " + ((courseOf(f.courseId) || {}).name || "") + " " + (f.desc || ""), ws)})).filter(x => x.s > 0 && readableFile(x.f)).sort((a, b) => b.s - a.s).slice(0, 2) : [];
       for (const {f} of want) { try { const t = window.SBFILETEXT ? await SBFILETEXT(f.id, 5000) : ""; if (t) { L.push(`TEXT FROM FILE "${f.name}":\n${t}`); src.push("File: " + clip(f.name, 30)); } } catch (e) {} }
     }
-    return {text: L.join("\n\n").slice(0, 22000), src};
+    return {text: L.join("\n\n").slice(0, 45000), src, need: N};
   }
   const SCHEMA = {type: "OBJECT", properties: {
     answer: {type: "STRING", description: "The reply, in the companion's friendly voice. Plain text; short paragraphs or '- ' bullets, **bold** sparingly."},
@@ -58598,12 +58798,12 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     let m = {q, at: Date.now()};
     if (att.length) { m.files = att.map(x => clip(x.name, 50)); T.srcs[m.at] = att; idbPut(String(m.at), att.map(x => ({name: x.name, kind: x.kind, size: x.size, part: x.part}))); }
     try {
-      const me = info() || {}, ctx = await context(q);
+      const me = info() || {}, prevQ = (c.msgs.filter(x => x.a).slice(-1)[0] || {}).q || "", ctx = await context(q, prevQ, att.length > 0);
       T.status = "Thinking…"; draw();
       const hist = c.msgs.filter(x => x.a).slice(-6).map(x => `Student: ${x.q}\n${me.name || "Companion"}: ${clip(x.a.answer, 500)}`).join("\n\n");
-      const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. ${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}Speak warmly and briefly, like a supportive study buddy. No emojis. Answer from the student's own data below whenever the question is about their work, courses, deadlines, grades, notes, flashcards or files. If the data doesn't contain what they ask about, say so plainly and don't invent facts, dates or marks. For general study or subject questions, answer with your own knowledge, clearly and correctly. Keep it short: a few sentences or a short list. For questions about their work, suggest a concrete next step when it helps. When the student is just chatting (\"how are you?\", hello, thanks, how their day is going, a joke, how they feel), answer like a friend would and in character: say how you are and what you've been up to as yourself, show interest in them, maybe ask a light question back. Don't steer small talk to tasks, deadlines or studying, and don't add a next step, unless they bring up school or sound stressed about it, and then be kind first.
+      const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. ${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}Speak warmly and briefly, like a supportive study buddy. No emojis. Answer from the student's own data below whenever the question is about their work, courses, deadlines, grades, notes, flashcards or files. Only the parts of the planner this question needs are sent, and each part that is sent is complete: MARKED WORK lists every mark entered (each assignment, quiz and exam, with its percentage), OPEN TASKS lists every open task, and TODAY'S PLAN is Studyboard's own priority order. Read the answer straight from it: for "best" or "lowest" marks compare the percentages in MARKED WORK, and for "what next" or "after today's plan" follow TODAY'S PLAN's order exactly (the items marked [after today's plan], in that order), never your own ranking. Give exact titles, numbers and dates from the data. If the part you'd need isn't included (for example a follow-up on something new), say what you'd need to look at instead of guessing, and never invent facts, dates or marks. For general study or subject questions, answer with your own knowledge, clearly and correctly. Keep it short: a few sentences or a short list. For questions about their work, suggest a concrete next step when it helps. When the student is just chatting (\"how are you?\", hello, thanks, how their day is going, a joke, how they feel), answer like a friend would and in character: say how you are and what you've been up to as yourself, show interest in them, maybe ask a light question back. Don't steer small talk to tasks, deadlines or studying, and don't add a next step, unless they bring up school or sound stressed about it, and then be kind first.
 You can also DO things in Studyboard, but only when the student asks or what they attached clearly calls for it, and only by offering actions they tap to confirm (never say it is already done). Actions: flashcards, quiz or case_study (made from the attached files, or from the material you put in "text"; set "deck" to add to an existing deck; they are saved straight to the student's decks); note (a clean typed note from a photo, slides or anything else, optionally onto a named note board and course); tasks (due dates you find in what they attached or told you); edit_tasks (move a due date, change an estimate, priority or status of existing open tasks, using their titles exactly); quick_add (open Quick Add with a sentence to turn into tasks); syllabus (read an attached syllabus into a course and its deadlines); breakdown (split a big task into milestones; "target" is the task title); estimate (estimate times for tasks with none); exam_plan (build an exam prep plan; "target" is the exam title); ask_materials (open Ask Your Course Materials for a course); summarize_file ("target" is a file name from FILES); save_file (store the attached files in the course's Files). Things you can simply answer in chat, do that instead of an action: explaining a task or topic, summarizing what was attached or their notes, a weekly review, quizzing them one question at a time, checking an answer they wrote, listing exam topics, rewriting or tidying text. Photos of whiteboards, slides or handwriting: read them fully and offer a note. Slides, PDFs or readings: offer flashcards, and a quiz if they want to practise. Say in your answer what you are offering, in a sentence or two. If they attached something and gave no instructions, say what you see and offer the most useful one or two actions.`;
-      const r = await aiCall({task: "tutor", maxTokens: att.length ? 12000 : 3000, schema: SCHEMA, system, onStatus: s => { T.status = s; drawStatus(); },
+      const r = await aiCall({task: att.length ? "tutor" : "chat", maxTokens: att.length ? 12000 : 3000, schema: SCHEMA, system, onStatus: s => { T.status = s; drawStatus(); },
         parts: att.map(x => x.part).concat([{text: `THE STUDENT'S PLANNER (only what's relevant):\n${ctx.text}\n\n${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}${att.length ? "THE STUDENT ATTACHED: " + att.map(x => x.name + " (" + x.kind + ")").join(", ") + "\n\n" : ""}STUDENT'S QUESTION: ${q}`}])});
       const d = r.data || {};
       m.a = {answer: clip2(d.answer, 2400), sources: (d.sources || []).map(x => clip(x, 40)).filter(Boolean).slice(0, 6), followUps: (d.followUps || []).map(x => clip(x, 90)).filter(Boolean).slice(0, 3), actions: cleanActions(d.actions, att.length > 0 || !!T.srcs[m.at])};
@@ -63747,7 +63947,14 @@ function inputNow(){
   let cap = null; try { if (availActive()) cap = Object.assign({}, availDays(today, addDays(today, 21 * 7))); } catch (e) { cap = null; }
   const A = typeof SBACC !== "undefined" ? SBACC : null;
   const cs = A ? A.capScale() : 1, wk = [0, 1, 2, 3, 4, 5, 6].map(i => A ? A.wkScale(addDays(today, i)) : 1).map((v, i) => ({d: parse(addDays(today, i)).getDay(), v})).sort((p, q) => p.d - q.d).map(x => x.v);
+  cap = offCaps(today, cap);
   return {today, tasks, busy, cap, dailyHours: dailyHours() || 3, capScale: cs, wkScale: wk.some(v => v !== 1) ? wk : null, maxWeeks: 20, minWeeks: 6};
+}
+// Days off have no study time
+function offCaps(today, cap){
+  const off = Object.keys((state.settings && state.settings.daysOff) || {}).filter(d => d >= today);
+  if (!off.length) return cap;
+  const out = Object.assign({}, cap || {}); off.forEach(d => { out[d] = 0; }); return out;
 }
 // Before Today's Plan is ready: the tasks as they are
 function inputLegacy(){
@@ -63763,7 +63970,7 @@ function inputLegacy(){
   BUSY_CACHE = keep;
   const A = typeof SBACC !== "undefined" ? SBACC : null;
   const cs = A ? A.capScale() : 1, wk = [0, 1, 2, 3, 4, 5, 6].map(i => A ? A.wkScale(addDays(today, i)) : 1).map((v, i) => ({d: parse(addDays(today, i)).getDay(), v})).sort((p, q) => p.d - q.d).map(x => x.v);
-  return {today, tasks, busy, dailyHours: dailyHours() || 3, capScale: cs, wkScale: wk.some(v => v !== 1) ? wk : null, maxWeeks: 20, minWeeks: 6};
+  return {today, tasks, busy, cap: offCaps(today, null), dailyHours: dailyHours() || 3, capScale: cs, wkScale: wk.some(v => v !== 1) ? wk : null, maxWeeks: 20, minWeeks: 6};
 }
 function modelNow(){
   const k = [state.updated || 0, todayISO(), new Date().getHours(), dailyHours(), tasksArr().length, AUTO_ON ? 1 : 0, typeof SBACC !== "undefined" && SBACC ? SBACC.sig() : ""].join("|");
@@ -63976,11 +64183,11 @@ function showSheet(){
   } else if (!W.past && W.levelIdx >= 2) box = `<div class="cr-box"><h3>Pulling Work Forward</h3><p class="mini" style="margin:0">Nothing here can move earlier in a way that helps. Exams and quizzes stay put, and blocked or nearly finished work isn't suggested. Starting the biggest item now still spreads the load.</p></div>`;
   const days7 = W.days.map(d => m.days.find(y => y.date === d)).filter(Boolean), dMax = Math.max(1, ...days7.map(x => Math.max(x.demand, x.capacity)));
   const strip = isDay ? "" : `<div class="cr3-days" role="group" aria-label="Days of this week">${days7.map(x => `<button type="button" class="cr3-day lv${x.levelIdx}${x.past ? " is-past" : ""}" data-act="cr-day" data-id="${x.date}" ${x.past ? "disabled" : ""} aria-label="${esc(`${dayWord(x.date)}: ${fmtHM(x.demand) || "nothing"} of work, ${LV_WORD[x.levelIdx]}`)}"><span class="cr3-bar"><i style="height:${Math.round(Math.min(1, x.demand / dMax) * 100)}%"></i><em style="bottom:${Math.round(Math.min(1, x.capacity / dMax) * 100)}%"></em></span><b>${esc(parse(x.date).toLocaleDateString(undefined, {weekday: "short"}))}</b><span>${x.demand >= 0.25 ? esc(fmtHM(x.demand)) : "–"}</span>${x.due.length ? `<span class="cr3-due">${x.due.length} due</span>` : ""}</button>`).join("")}</div>`;
-  const dayEx = isDay ? `<p class="mini" style="margin:0">${D.capacity < (D.cap0 != null ? D.cap0 : dailyHours()) - 0.05 ? `Classes or events leave about ${fmtHM(D.capacity)} of study time. ` : ""}Load ${fmtHM(D.demand)} against ${fmtHM(D.capacity)} of study time. <button type="button" class="link-btn" data-act="cr-week" data-id="${ws}">See the Whole Week</button></p>` : `<p class="mini" style="margin:0">About ${fmtHM(W.demand)} of work and deadline pressure against ${fmtHM(W.capacity)} of study time. The busiest day is ${W.peakDay ? esc(dayWord(W.peakDay)) : "none"} at ${ratioText(W.peak)}.</p>`;
+  const dayEx = isDay ? `<p class="mini" style="margin:0">${dayIsOff(D.date) ? "" : D.capacity < (D.cap0 != null ? D.cap0 : dailyHours()) - 0.05 ? `Classes or events leave about ${fmtHM(D.capacity)} of study time. ` : ""}Load ${fmtHM(D.demand)} against ${fmtHM(D.capacity)} of study time. <button type="button" class="link-btn" data-act="cr-week" data-id="${ws}">See the Whole Week</button></p>` : `<p class="mini" style="margin:0">About ${fmtHM(W.demand)} of work and deadline pressure against ${fmtHM(W.capacity)} of study time. The busiest day is ${W.peakDay ? esc(dayWord(W.peakDay)) : "none"} at ${ratioText(W.peak)}.</p>`;
   const LV_COL = ["#4C9BE8", "#3FA866", "#D9A21B", "#E8833A", "#D3352A"], dem = isDay ? D.demand : W.demand, cap = isDay ? D.capacity : W.capacity;
   const html = `<form class="sheet cr-sheet cr3">${bandHead(title, crIcon(lvIdx), LV_COL[lvIdx] || "#4C9BE8", `${LV_WORD[lvIdx]} · ${esc(reasons)}`)}<div class="sheet-body">
     <div class="cr3-sum"><div><b>${fmtHM(dem) || "0h"}</b><span>of work</span></div><div><b>${fmtHM(cap) || "0h"}</b><span>of study time</span></div><div><b class="${dem > cap + 0.25 ? "over" : ""}">${cap > 0 ? (dem / cap).toFixed(1) + "×" : "–"}</b><span>${dem > cap + 0.25 ? fmtHM(dem - cap) + " over" : "fits"}</span></div></div>
-    ${dayEx}${strip}${box}
+    ${dayEx}${isDay && window.SBAUTOPILOT ? SBAUTOPILOT.dayRow(D.date) : ""}${strip}${box}
     <h3 class="cr3-h">${isDay ? "On This Day" : "What's Driving This Week"}</h3>
     ${order.length ? `<ul class="cr-items">${order.map(x => itemHtml(x, ws, byId[x.id], today)).join("")}</ul>` : `<p class="mini" style="margin:0">Nothing due or building up here.</p>`}
     ${m.noEstimate ? `<p class="cr-note">Tasks without a time estimate use typical hours for their type.</p>` : ""}
@@ -65547,6 +65754,7 @@ function dayInfoFn(ex, from, to){
     const isToday = date === today, o = {load: per[date] || 0, crunch: !!crunchDay[date]};
     if (act) { const f = availFreeDay(date, isToday ? nowMin : null, ext); o.cap = Math.floor(f.total * 0.85); o.windows = f.windows.map(w => ({s: w.s, e: w.e})); if (f.none) o.blocked = true; }
     else { o.cap = Math.floor(dh * 60 * busyFactor((bd.m && bd.m[date]) || 0)); if (isToday) o.cap = Math.min(o.cap, Math.floor((1320 - nowMin) * 0.6)); }
+    if (dayIsOff(date)) { o.cap = 0; o.blocked = true; }
     return o;
   };
 }
@@ -65639,6 +65847,7 @@ function applyPlan(ex0, P, topics, due, time, out, opts){
   if (ne.start && ne.start > ne.due) ne.start = ne.due;
   changes.push({kind: "task", id: ex.id, after: normTask(ne)});
   const n = out.sessions.length;
+  if (opts.dry) return {changes, n};
   applyChanges(changes, opts.label || (opts.replan ? `Re-planned ${n} prep session${n === 1 ? "" : "s"} for ${ex.title}` : `Added ${n} prep session${n === 1 ? "" : "s"} for ${ex.title}`));
   return n;
 }
@@ -65876,6 +66085,14 @@ function catchUp(id){
   applyPlan(ex, Object.assign({}, P, {style: P.style, ai: false}), topics, ex.due, ex.time, out, {replan: true, label: `Caught up: ${out.sessions.length} session${out.sessions.length === 1 ? "" : "s"} spread over the days left${kept ? ` (${kept} done kept)` : ""}`});
   if (dlg.open && S && S.step === "view") { S.step = "view"; draw(); }
 }
+// The same re-spread as Catch Up, worked out without applying it (Autopilot puts it in its own batch)
+function replanChanges(id){
+  const ex = state.tasks[id]; if (!ex || !ex.due) return null;
+  const P = prepOf(ex), topics = P.topics; if (!topics.length) return null;
+  const out = EXAMPREP.plan(inputFor(ex, P, topics, ex.due));
+  if (out.err || !out.sessions.length) return {out, changes: []};
+  return {out, changes: applyPlan(ex, Object.assign({}, P, {ai: false}), topics, ex.due, ex.time, out, {replan: true, dry: true}).changes};
+}
 function wrapUp(id){
   const ex = state.tasks[id]; if (!ex) return;
   const open = sessionsOf(id).filter(t => t.status !== "done"), changes = open.map(t => ({kind: "task", id: t.id, after: null}));
@@ -65912,6 +66129,7 @@ function todayItems(){
     }
     if (ex.status === "done") return;
     if (days < 0) { if (!(ex.prep && ex.prep.archived)) out.push({id: ex.id, kind: "passed", text: `${nm} has passed. How did it go?`, btn: "Wrap Up", act: "prep-wrap"}); return; }
+    if ((sm.moved || sm.missed) && window.SBAUTOPILOT && SBAUTOPILOT.handles()) return;
     if (sm.moved) out.push({id: ex.id, kind: "moved", text: `${nm} moved to ${fmtDate(ex.due)}. Re-spread your prep sessions to match?`, btn: "Re-plan", act: "prep-catch"});
     else if (sm.missed) out.push({id: ex.id, kind: "behind", text: `${sm.missed} prep session${sm.missed === 1 ? "" : "s"} for ${nm} slipped. Spread ${sm.missed === 1 ? "it" : "them"} over the days that are left?`, btn: "Catch Up", act: "prep-catch"});
   });
@@ -65981,7 +66199,7 @@ hook("changed", changes => {
     });
   } catch (e) { console.warn("prep changed", e); }
 });
-window.SBPREP = {open, todayHtml, formHtml, rowBtn, rowLine, courseHtml, courseExams, matBtn, pct: pctOf, summary: summaryOf, offer, offered, ideaValid, runIdea, catchUp, sessions: sessionsOf, EXAMPREP, _state: () => S, _plan: id => { const ex = state.tasks[id], P = prepOf(ex); return EXAMPREP.plan(inputFor(ex, P, P.topics, ex.due)); }};
+window.SBPREP = {open, todayHtml, formHtml, rowBtn, rowLine, courseHtml, courseExams, matBtn, pct: pctOf, summary: summaryOf, offer, offered, ideaValid, runIdea, catchUp, replanChanges, sessions: sessionsOf, EXAMPREP, _state: () => S, _plan: id => { const ex = state.tasks[id], P = prepOf(ex); return EXAMPREP.plan(inputFor(ex, P, P.topics, ex.due)); }};
 })();
 
 /* ===== module: 97-exammode.js ===== */
@@ -66325,7 +66543,7 @@ function tipOf(picked){
 
 const bar = (label, v, cls) => `<div class="ewr-row ${cls}"><span class="ewr-l">${esc(label)}</span><span class="ewr-bar" role="img" aria-label="${esc(label)}: ${v == null ? "not measured" : v + " percent"}"><i style="width:${v == null ? 0 : Math.max(0, Math.min(100, v))}%"></i></span><b>${v == null ? "–" : v + "%"}</b></div>`;
 function compareHtml(felt, measured, mark){
-  return `<div class="ewr-cmp">${bar("How ready you felt", felt, "felt")}${bar("What your results said", measured, "meas")}${bar("Your mark", mark, "mark")}</div>`;
+  return `<div class="ewr-cmp">${bar("How ready you felt", felt, "felt")}${bar("Your practice scores", measured, "meas")}${bar("Your mark", mark, "mark")}</div>`;
 }
 
 function open(id, back){
@@ -66371,13 +66589,13 @@ function lastWrap(ex){
 const pctTxt = v => v == null ? "not measured" : v + "%";
 function lastHtml(prev){
   const w = prev.wrap, ms = (w.methods || []).map(k => (METHODS.find(x => x[0] === k) || [])[1]).filter(Boolean);
-  return `<div class="ewr-last" role="note"><b>Last time: ${esc(prev.title)}</b><span>You felt ${esc(pctTxt(w.felt))} ready, your results said ${esc(pctTxt(w.measured))}, and you got ${esc(pctTxt(w.mark))}.</span>${ms.length ? `<span>You studied by: ${esc(ms.join(", ").toLowerCase())}.</span>` : ""}${w.next ? `<span>You said next time you'd: <i>${esc(w.next)}</i></span>` : ""}</div>`;
+  return `<div class="ewr-last" role="note"><b>Last time: ${esc(prev.title)}</b><span>You felt ${esc(pctTxt(w.felt))} ready, your practice scores said ${esc(pctTxt(w.measured))}, and you got ${esc(pctTxt(w.mark))}.</span>${ms.length ? `<span>You studied by: ${esc(ms.join(", ").toLowerCase())}.</span>` : ""}${w.next ? `<span>You said next time you'd: <i>${esc(w.next)}</i></span>` : ""}</div>`;
 }
 // In an exam's view: before it, what you wrote last time; after it, your reflection (or a way to add one)
 function viewHtml(t){
   if (!isExam(t)) return "";
   if (t.status !== "done") { const prev = lastWrap(t); return prev ? lastHtml(prev) : ""; }
-  if (t.wrap) return `<div class="ewr-last ewr-mine" role="note"><b>Your reflection</b><span>You felt ${esc(pctTxt(t.wrap.felt))} ready, your results said ${esc(pctTxt(t.wrap.measured))}, and you got ${esc(pctTxt(t.wrap.mark))}.</span>${t.wrap.next ? `<span>Next time: <i>${esc(t.wrap.next)}</i></span>` : ""}<button type="button" class="link-btn" data-act="ewr-open" data-id="${esc(t.id)}">Edit</button></div>`;
+  if (t.wrap) return `<div class="ewr-last ewr-mine" role="note"><b>Your reflection</b><span>You felt ${esc(pctTxt(t.wrap.felt))} ready, your practice scores said ${esc(pctTxt(t.wrap.measured))}, and you got ${esc(pctTxt(t.wrap.mark))}.</span>${t.wrap.next ? `<span>Next time: <i>${esc(t.wrap.next)}</i></span>` : ""}<button type="button" class="link-btn" data-act="ewr-open" data-id="${esc(t.id)}">Edit</button></div>`;
   return markOf(t) != null ? `<button type="button" class="btn small ewr-btn" data-act="ewr-open" data-id="${esc(t.id)}">Reflect on This ${esc(t.type)}</button>` : "";
 }
 /* Which flashcards count toward this exam's readiness: Automatic (Studyboard matches the exam's topics, from its notes, the
@@ -67567,7 +67785,7 @@ function ctxFor(excludeIds, from, to){
     let AD = null; if (availActive()) AD = availDays(from, to);
     const dh = dailyHours();
     for (let d = from, i = 0; d <= to && i < 400; d = addDays(d, 1), i++) {
-      const a = dh > 0 ? dh * busyFactor(B.m[d] || 0) : Infinity, b = AD && AD[d] != null ? AD[d] : Infinity, v = Math.min(a, b);
+      const a = dh > 0 ? dh * busyFactor(B.m[d] || 0) : Infinity, b = AD && AD[d] != null ? AD[d] : Infinity, v = dayIsOff(d) ? 0 : Math.min(a, b);
       if (isFinite(v)) free[d] = v;
     }
   } catch (e) { console.warn("breakdown free", e); }
@@ -69347,7 +69565,8 @@ function streakNow(){
   const k = [state.updated || 0, today, Object.keys(state.tasks || {}).length, (focusDaysNow()[today] || 0)].join("|");
   if (GMEMO.k === k && GMEMO.v) return GMEMO.v;
   const from = RS.add(today, -400), active = RS.activityDays({tasks: allTasks(), focusDays: focusDaysNow(), log: g.log, timeDays: sbtimeDays(from, today), from, to: today});
-  const res = RS.streak({today, active, cfg: g, best: g.best});
+  // A day off (Take Today Off) counts as a rest day
+  const res = RS.streak({today, active, cfg: Object.assign({}, g, {rests: Object.assign({}, state.settings && state.settings.daysOff, g.rests)}), best: g.best});
   GMEMO = {k, v: res};
   return res;
 }
@@ -70653,33 +70872,36 @@ window.SBSEM = {
     // days off that ended more than two weeks ago stay saved (they still set the cycle) but leave the list
     const recent = () => off.filter(o => (o.to || o.from) >= addDays(today, -14));
     const offRows = () => recent().length ? recent().map(o => `<li class="sd-off"><span><b>${esc(o.name || "Day off")}</b><span class="mini">${esc(range(o))}</span></span><button type="button" class="btn small" data-sd-rm="${esc(o.id)}" aria-label="Remove ${esc(o.name || "day off")}">Remove</button></li>`).join("")
-      : `<li class="mini sd-none">None yet. Classes don't show on days off, and Today's Plan treats them as free days.</li>`;
+      : "";
     const isSchoolToday = () => !off.some(o => today >= o.from && today <= (o.to || o.from)) && !S().off(cfg(), today) && ![0, 6].includes(parse(today).getDay());
     // Public holidays in your country: the ones every school takes are days off; the rest are asked on the Schedule
     const cn = S().countryName(), hy = S().holidays(cfg(), today, addDays(today, 364));
     let pub = now.pub; const ans = Object.assign({}, now.ans);
     const sure = [...new Set(hy.filter(h => h.sure).map(h => h.name))], common = hy.filter(h => !h.sure);
-    const pubHtml = cn ? `<fieldset class="sd-fs"><legend>Public Holidays</legend>
-          <label class="mi-check"><input type="checkbox" id="sdPub"${pub ? " checked" : ""}> <span>Days off at every school in ${esc(cn)}: ${esc(sure.join(", "))}</span></label>
-          ${common.length ? `<details class="sd-more"><summary>Other Holidays (${common.length})<span class="mini">Most schools take these. Your Schedule asks about each one before it comes up.</span></summary>
+    const pubHtml = cn ? `<section class="sd-sec"><h3 class="fsec">Holidays</h3>
+          <label class="mi-check"><input type="checkbox" id="sdPub"${pub ? " checked" : ""}> <span><b>Take Public Holidays Off</b><span class="sub sd-sub">Every school in ${esc(cn)} closes: ${esc(sure.join(", "))}</span></span></label>
+          ${common.length ? `<details class="sd-more"><summary><span>Other Holidays (${common.length})</span><span class="mini">Most schools close. Your Schedule asks before each one.</span></summary>
             <ul class="sd-list">${common.map(h => `<li class="sd-off"><span><b>${esc(h.name)}</b><span class="mini">${esc(dayName(h.date, {weekday: "short", month: "short", day: "numeric", year: h.date.slice(0, 4) === today.slice(0, 4) ? undefined : "numeric"}))}</span></span><select data-hol="${esc(h.key)}" aria-label="${esc(h.name)}"><option value="">Ask Me</option><option value="off"${ans[h.key] === "off" ? " selected" : ""}>Day Off</option><option value="on"${ans[h.key] === "on" ? " selected" : ""}>Classes</option></select></li>`).join("")}</ul></details>` : ""}
-        </fieldset>` : "";
+        </section>` : "";
     const refText = () => { const r = refDay(); return r === today ? "Today is" : `${parse(r).toLocaleDateString(undefined, {weekday: "long"})} (${dayName(r, {month: "short", day: "numeric"})}) is`; };
     openSheet(`<form class="sheet sd-sheet">${head("School Days")}
       <div class="sheet-body">
-        <fieldset class="sd-fs"><legend>Days Off</legend>
+        <section class="sd-sec"><h3 class="fsec">Days Off</h3>
+          <p class="mini sd-why">Breaks, reading week and snow days. Classes don't show, and Today's Plan treats them as free days.</p>
           <ul class="sd-list" id="sdList">${offRows()}</ul>
-          <div class="sd-add">
+          <div class="row-actions sd-btns" id="sdBtns"><button type="button" class="btn small" id="sdAddOpen">Add Days Off</button><button type="button" class="btn small" id="sdToday"${isSchoolToday() ? "" : " hidden"}>No School Today</button></div>
+          <div class="sd-add" id="sdAddF" hidden>
             <label class="f"><span class="lh">Name</span><input type="text" id="sdName" maxlength="60" placeholder="Reading Week, Spring Break, Snow Day" data-noenter></label>
             <div class="two"><label class="f"><span class="lh">From</span><input type="date" id="sdFrom" value="${esc(today)}"></label><label class="f"><span class="lh">To <span class="hint">optional</span></span><input type="date" id="sdTo"></label></div>
-            <div class="row-actions"><button type="button" class="btn small" id="sdAdd">Add Day Off</button><button type="button" class="btn small" id="sdToday"${isSchoolToday() ? "" : " hidden"}>No School Today</button></div>
+            <div class="row-actions"><button type="button" class="btn small primary" id="sdAdd">Add</button><button type="button" class="btn small" id="sdAddX">Cancel</button></div>
           </div>
-        </fieldset>
+        </section>
         ${pubHtml}
-        <fieldset class="sd-fs"><legend>Class Schedule</legend>
+        <section class="sd-sec"><h3 class="fsec">Class Schedule</h3>
+          <p class="mini sd-why">Do your classes follow the day of the week, or a rotation like Day 1 to 6 or A/B days?</p>
           ${seg("sdMode", [["week", "Same every week"], ["cycle", "Rotates by school day"]], draft.on ? "cycle" : "week")}
           <div class="sd-cycle" id="sdCycle"${draft.on ? "" : " hidden"}>
-            <p class="mini" style="margin:0">For schedules like Day 1 to 6 or A/B days. The cycle moves one step each school day and pauses on weekends and days off.</p>
+            <p class="mini" style="margin:0">The cycle moves one step each school day and pauses on weekends and days off.</p>
             <div class="two">
               <label class="f"><span class="lh">Days in the cycle</span><select id="sdN">${[2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => `<option value="${v}"${v === draft.n ? " selected" : ""}>${v}</option>`).join("")}</select></label>
               <label class="f"><span class="lh">Called</span><select id="sdNames"><option value="num"${draft.names === "num" ? " selected" : ""}>Day 1, Day 2…</option><option value="abc"${draft.names === "abc" ? " selected" : ""}>A Day, B Day…</option></select></label>
@@ -70688,7 +70910,7 @@ window.SBSEM = {
             <div class="f"><span class="lh">School days</span><div class="meet-days" role="group" aria-label="School days" id="sdDays">${WD.map(d => `<button type="button" data-day="${d}" aria-pressed="${draft.days.includes(d)}">${DAY_SHORT[d]}</button>`).join("")}</div></div>
             <p class="mini" style="margin:0">Then in each course, pick which cycle days a class meets under Class Times.</p>
           </div>
-        </fieldset>
+        </section>
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Save</button></div>
     </form>`, fd => {
@@ -70714,13 +70936,16 @@ window.SBSEM = {
       if (db) { const d = Number(db.dataset.day), i = draft.days.indexOf(d); if (i >= 0) draft.days.splice(i, 1); else draft.days.push(d); db.setAttribute("aria-pressed", String(i < 0)); $f("#sdRefL").textContent = refText(); return; }
       const rm = e.target.closest("[data-sd-rm]");
       if (rm) { off = off.filter(o => o.id !== rm.dataset.sdRm); drawOff(); return; }
+      const showAdd = on => { $f("#sdAddF").hidden = !on; $f("#sdBtns").hidden = on; if (on) $f("#sdName").focus(); };
+      if (e.target.closest("#sdAddOpen")) { showAdd(true); return; }
+      if (e.target.closest("#sdAddX")) { showAdd(false); return; }
       if (e.target.closest("#sdAdd")) {
         const from = $f("#sdFrom").value, to = $f("#sdTo").value, name = $f("#sdName").value.trim();
         if (!isDate(from)) { toast("Pick the first day off"); return; }
         if (to && to < from) { toast("The last day off can't be before the first"); return; }
         off.push({id: uid(), name: name || "Day off", from, to: to && to !== from ? to : from});
         off.sort((a, b) => a.from < b.from ? -1 : 1);
-        $f("#sdName").value = ""; $f("#sdTo").value = ""; drawOff(); return;
+        $f("#sdName").value = ""; $f("#sdTo").value = ""; showAdd(false); drawOff(); return;
       }
       if (e.target.closest("#sdToday")) { off.push({id: uid(), name: "No school", from: today, to: today}); off.sort((a, b) => a.from < b.from ? -1 : 1); drawOff(); }
     });
@@ -81256,10 +81481,15 @@ const LINKCARDS = (() => {
   async function readLink(L, pasted, signal, onStatus){
     const prov = aiCfg().provider, trial = prov === "trial";
     const ask = `Make the study notes from ${pasted ? "the text above" : L.kind === "youtube" ? "this YouTube video" : "the web page at " + L.url}.`;
-    const opts = {task: "summary", signal, maxTokens: trial ? 1400 : 8000, temperature: 0.2, onStatus, system: SYS(trial)};
+    const opts = {task: "linknotes", signal, maxTokens: trial ? 1400 : 8000, temperature: 0.2, onStatus, system: SYS(trial)};
     let r;
     if (pasted) r = await aiRetry(() => aiCall(Object.assign({}, opts, {schema: NOTE_SCHEMA, parts: [{text: `Source: ${L.url}\nThe student pasted its ${L.kind === "youtube" ? "transcript" : "text"}:\n\n${pasted.slice(0, trial ? 9000 : 150000)}\n\n${ask}`}]})));
-    else if (L.kind === "youtube") r = await aiRetry(() => aiCall(Object.assign({}, opts, {schema: NOTE_SCHEMA, timeout: 300000, parts: [{file_data: {file_uri: L.url, mime_type: "video/*"}}, {text: ask}]})));
+    else if (L.kind === "youtube") {
+      // a lecture's content is in what's said: one frame every 5 seconds (not every second) cuts most of the video work; if Gemini won't take that, the usual way
+      const vid = fps => aiRetry(() => aiCall(Object.assign({}, opts, {schema: NOTE_SCHEMA, timeout: 300000, parts: [Object.assign({file_data: {file_uri: L.url, mime_type: "video/*"}}, fps ? {video_metadata: {fps}} : {}), {text: ask}]})));
+      try { r = await vid(0.2); }
+      catch (e) { if (!(e && e.code === "http" && /fps|video_?metadata|videoMetadata|Unknown name/i.test(String(e.message || "")))) throw e; r = await vid(0); }
+    }
     else r = await aiRetry(() => aiCall(Object.assign({}, opts, {urlContext: true, timeout: 180000, parts: [{text: `${ask}\n\n${L.url}\n\nAnswer with JSON only, in this shape: ${SHAPE}`}]})));
     const d = r && r.data && typeof r.data === "object" ? r.data : {};
     let st = String(d.status || "").toLowerCase();
@@ -81285,28 +81515,34 @@ const LINKCARDS = (() => {
     if (!pasted && L.kind === "youtube" && prov !== "gemini") { say(`YouTube links need a Gemini key: only Google's Gemini can watch YouTube videos, and you're using ${prov === "anthropic" ? "Claude" : "ChatGPT"}. Add a free Gemini key in Settings, AI Features, or paste the video's transcript (on YouTube, open the description and choose Show Transcript).`, PASTE); return; }
     const job = o.job; job.busy = true; go.disabled = true; go.classList.add("busy");
     const ac = typeof AbortController === "function" ? new AbortController() : null;
-    if (ac) dlg.addEventListener("close", () => ac.abort(), {once: true});
+    job.ac = ac;
     const who = esc(aiModelName(aiCfg().provider, aiCfg().model));
-    const spin = m => { st.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${m}`; };
-    spin(pasted ? `${who} is reading the text you pasted and writing study notes…` : L.kind === "youtube" ? `${who} is watching the video and writing study notes. Longer videos take a minute or two…` : `${who} is reading the page and writing study notes…`);
+    // which step it's on and how long it's been, so a long video never looks stuck
+    const t0 = Date.now(); let step = "";
+    const clock = () => { const s = Math.floor((Date.now() - t0) / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+    const spin = (m, n) => { step = n || step; st.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${step ? `<b>${step}</b> ` : ""}${m} <span class="mini cl-clock">${clock()}</span>`; };
+    const tick = setInterval(() => { const c = st.querySelector(".cl-clock"); if (!job.busy) clearInterval(tick); else if (c) c.textContent = clock(); }, 1000);
+    spin(pasted ? `${who} is reading the text you pasted and writing study notes…` : L.kind === "youtube" ? `${who} is watching the video and writing study notes. An hour-long lecture can take a few minutes…` : `${who} is reading the page and writing study notes…`, "Step 1 of 2:");
     const done = () => { job.busy = false; go.disabled = false; go.classList.remove("busy"); };
     try {
-      const d = await readLink(L, pasted, ac && ac.signal, m => { st.textContent = m; });
+      const d = await readLink(L, pasted, ac && ac.signal, m => spin(esc(m)));
       if (ac && ac.signal.aborted) return;
       const title = String(d.title || "").replace(/\s+/g, " ").trim().slice(0, 140) || L.host;
       const src = {kind: L.kind, url: L.url, title, host: L.host};
       const notes = LINKCARDS.noteText(Object.assign({}, d, {title}), src, "");
-      spin(`${who} is writing ${[o.cards && "flashcards", o.quiz && "a quiz", o.cases && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")} from the notes…`);
+      spin(`${who} is writing ${[o.cards && "flashcards", o.quiz && "a quiz", o.cases && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")} from the notes…`, "Step 2 of 2:");
       const trial = aiCfg().provider === "trial";
       const sources = [{name: title, kind: "Text", size: notes.length, part: {text: `Study notes on “${title}” (${L.kind === "youtube" ? "a YouTube video" : "a web page"}):\n\n${notes}`}}]
         .concat(pasted && !trial ? [{name: "Pasted text", kind: "Text", size: pasted.length, part: {text: "The source's own text (for checking facts; write in your own words):\n\n" + pasted.slice(0, 150000)}}] : [])
         .concat((o.files || []).filter(s => s && s.part));
-      const r = await aiMakeStudySet({sources, style: o.style, difficulty: o.difficulty, cards: o.cards, quiz: o.quiz, cases: o.cases, caseCount: o.caseCount, caseStyle: o.caseStyle, cardCount: o.cardCount, quizCount: o.quizCount, courseName: courseOf(o.courseId) ? courseOf(o.courseId).name : "", signal: ac && ac.signal}, m => { st.textContent = m; });
+      const r = await aiMakeStudySet({light: true, sources, style: o.style, difficulty: o.difficulty, cards: o.cards, quiz: o.quiz, cases: o.cases, caseCount: o.caseCount, caseStyle: o.caseStyle, cardCount: o.cardCount, quizCount: o.quizCount, courseName: courseOf(o.courseId) ? courseOf(o.courseId).name : "", signal: ac && ac.signal}, m => spin(esc(m)));
       if (ac && ac.signal.aborted) return;
       if (!r.cards.length && !r.questions.length && !r.cases.length) throw aiErr("empty", "The AI couldn't make anything from that source. Try another link, or paste the text instead.");
       if (!r.title) r.title = title;
       try { aiRememberStyle(o.custom); } catch (e) {}
-      aiReviewSheet(r, {deck: o.deck, courseId: o.courseId, style: o.style, styleName: o.styleName, sources: [title], mode: o.mode, withSave: deck => {
+      job.busy = false;
+      const show = ctx => o.keepKey ? sheetReady(o.keepKey, () => aiReviewSheet(r, ctx), aiReadyMsg(r)) : aiReviewSheet(r, ctx);
+      show({deck: o.deck, courseId: o.courseId, style: o.style, styleName: o.styleName, sources: [title], mode: o.mode, keepKey: o.keepKey, withSave: deck => {
         const cid = deck.courseId || o.courseId || "";
         const b = cid && noteBoards().find(x => x.courseId === cid), board = b ? b.id : "";
         const on = notesArr().filter(n => !n.archived && (n.board || "") === board), z = notesArr().reduce((m, n) => Math.max(m, n.z || 0), 0) + 1;
@@ -81326,6 +81562,7 @@ const LINKCARDS = (() => {
       }
       const offerPaste = !pasted && !/^(?:nokey|key|credit|offline|no-consent|cancelled|limit|busy)$/.test((e && e.code) || "");
       say(msg + (offerPaste ? (e && e.link ? " Paste the text instead, and the AI can work from that." : "") : ""), offerPaste ? PASTE : "");
+      if (o.keepKey && sheetKept(o.keepKey)) toast(`${aiWho("AI")} couldn't finish that. Open Create with AI again to see why and try again.`, null, {label: "Open", fn: () => sheetResume(o.keepKey)}, {error: true});
     }
   }
 
@@ -81342,6 +81579,366 @@ const LINKCARDS = (() => {
 #aiStatus .btn.small{margin:6px 6px 0 0}
 `;
   document.head.appendChild(css);
+})();
+/* ===== module: 99-autopilot.js ===== */
+/* Autopilot (Pro): once a day, on the first open of the day, the fixes the free planner offers one tap at a time are made for you,
+   then Today's Plan says so once ("Autopilot moved 3 things last night. See What Changed · Undo"):
+   - missed Exam Prep sessions are re-spread over the days left (the same plan as Catch Up), and prep is re-planned when an exam moved
+   - a passed step of a broken-down assignment goes to the next free day before the assignment is due
+   - an overdue Study task of your own goes to your next free day
+   Only things the app or you scheduled softly move. A real due date (assignments, exams, quizzes), anything from school sync or a
+   calendar feed, classes and events never move. What can't fit before its deadline stays where it is and is named instead.
+   Day Off (free): a day with no study time. Today's Plan plans nothing that day and the Gentle Streak counts it as a rest day.
+   With Autopilot on, what was planned that day moves to other free days right away.
+   Settings > Study: Autopilot On (default), Ask Me First (the same line, as a proposal), Off. Runs are marked in synced settings
+   (settings.autopilot.run = {day, id}) before anything moves, and wait for the account's settings to arrive, so a second device
+   that opens the same day sees the mark and doesn't run again. Undo uses the exact earlier copies, kept on the device that ran it. */
+var SBAUTOPILOT = null;
+/*AUTOPILOT-START*/
+// The pure part: no DOM and no app state (tests/autopilot.test.js extracts this block)
+const AUTOPILOT = (() => {
+  const dn = s => { const [y, m, d] = String(s).split("-").map(Number); return Math.round(Date.UTC(y, m - 1, d) / 864e5); };
+  const fromDn = n => new Date(n * 864e5).toISOString().slice(0, 10);
+  const add = (s, n) => fromDn(dn(s) + n);
+  const diff = (a, b) => dn(b) - dn(a);
+  const isDate = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && fromDn(dn(s)) === s;
+  const HORIZON = 14, NEED = 2;
+  const open = t => !!t && t.status !== "done";
+  const isMs = t => t.type === "Exam" || t.type === "Quiz";
+  // From school sync, a calendar feed or a group: its dates belong to someone else
+  const synced = t => !!(t.bs || t.cv || t.bb || t.synced || t.icsUid || t.src || t.gt);
+  const hrs = t => Number(t.hours) > 0 ? Math.min(12, Number(t.hours)) : 1;
+  // What may move: prep sessions (by re-planning that exam's prep), steps of a broken-down assignment, your own Study tasks
+  const kindOf = t => !open(t) || !isDate(t.due) || synced(t) ? "" : t.prepFor ? (t.type === "Study" ? "prep" : "") : t.breakdownOf ? "step" : t.type === "Study" ? "study" : "";
+  const q = s => "“" + String(s || "Untitled").slice(0, 60) + "”";
+  const byDue = (a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0) || (parseInt(a.step, 10) || 0) - (parseInt(b.step, 10) || 0) || String(a.id).localeCompare(String(b.id));
+  const forward = (lo, hi) => { const r = []; for (let d = lo, i = 0; d <= hi && i < 120; d = add(d, 1), i++) r.push(d); return r; };
+  // Nearest days to `c` first (the day before, the day after, two before...), within lo..hi
+  const around = (c, lo, hi) => { const r = []; for (let k = 1; k <= 60; k++) [add(c, -k), add(c, k)].forEach(d => { if (d >= lo && d <= hi) r.push(d); }); return r; };
+  const whyPrep = (why, from, today, off) => why === "moved" ? "The exam date changed, so prep was re-planned"
+    : why === "missed" ? (from < today ? "Missed, moved to a free day before the exam" : "Shifted to make room for the missed sessions")
+    : off[from] ? "Your day off" : "Shifted around your day off";
+
+  // inp: {today, tasks, off: {date: 1}, cap: {date: free study hours}, dh (hours on a day missing from cap), horizon,
+  //   only (a date: just what is planned that day, for Take a Day Off),
+  //   replanExam(exam, why) -> {ok, changes: [{kind:"task", id, after}], notes: [text]} | {ok:false, warn}: the app's own Catch Up plan}
+  // out: {changes (one batch), moves: [{id, title, from, to, kind, why}], short: [{id, title, kind, text}], exams: [{id, why, missed}]}
+  function plan(inp){
+    inp = inp || {};
+    const today = inp.today, off = inp.off || {}, cap = inp.cap || {}, dh = inp.dh != null ? Math.max(0, Number(inp.dh) || 0) : 3;
+    const horizon = inp.horizon || HORIZON, only = isDate(inp.only) ? inp.only : "";
+    const out = {changes: [], moves: [], short: [], exams: []};
+    if (!isDate(today)) return out;
+    const T = {}; (inp.tasks || []).forEach(t => { if (t && t.id) T[t.id] = t; });
+    const orig = Object.values(T);
+    const isOff = d => !!off[d];
+    const touched = d => only ? d === only : d < today || isOff(d);
+
+    // 1. Exam prep: re-spread (as Catch Up does) when a session slipped, the exam moved, or a session sits on a day off
+    orig.filter(ex => isMs(ex) && open(ex) && isDate(ex.due) && ex.due > today).sort(byDue).forEach(ex => {
+      const ss = orig.filter(t => t.prepFor === ex.id && kindOf(t) === "prep");
+      if (!ss.length) return;
+      const missed = ss.filter(s => s.due < today), offS = ss.filter(s => s.due >= today && isOff(s.due));
+      const moved = !only && !!(ex.prep && isDate(ex.prep.examDue) && ex.prep.examDue !== ex.due);
+      if (only ? !ss.some(s => s.due === only) : !missed.length && !offS.length && !moved) return;
+      const why = moved ? "moved" : missed.length && !only ? "missed" : "dayoff";
+      const r = inp.replanExam ? inp.replanExam(ex, why) : null;
+      const skip = text => out.short.push({id: ex.id, title: ex.title, kind: "prep", text});
+      if (!r || !r.ok) { skip(((r && r.warn) || "There's no room left before the exam.") + " Its prep sessions stay where they are."); return; }
+      const ch = (r.changes || []).filter(c => c && c.id);
+      const bad = ch.some(c => c.after && c.after.prepFor === ex.id && c.after.status !== "done" && (!isDate(c.after.due) || c.after.due < today || c.after.due >= ex.due || isOff(c.after.due)));
+      if (!ch.length || bad) { skip("There's no free time left before the exam. Its prep sessions stay where they are."); return; }
+      const adds = [], gone = [];
+      ch.forEach(c => {
+        const b = T[c.id], a = c.after;
+        out.changes.push(c);
+        if (c.id !== ex.id) {
+          if (b && a && b.due !== a.due) out.moves.push({id: c.id, title: a.title, from: b.due, to: a.due, kind: "prep", why: whyPrep(why, b.due, today, off)});
+          else if (!b && a) adds.push(a); else if (b && !a) gone.push(b);
+        }
+        if (a) T[c.id] = a; else delete T[c.id];
+      });
+      // A session the new plan replaced with another one (same topic first) reads as one move
+      gone.sort(byDue).forEach(b => {
+        const i = adds.findIndex(a => a.topicId && a.topicId === b.topicId), a = adds.splice(i >= 0 ? i : 0, adds.length ? 1 : 0)[0];
+        if (a && a.due === b.due) return;
+        out.moves.push(a ? {id: a.id, title: a.title, from: b.due, to: a.due, kind: "prep", why: whyPrep(why, b.due, today, off)} : {id: b.id, title: b.title, from: b.due, to: "", kind: "prep", why: "Not needed in the re-spread plan"});
+      });
+      adds.forEach(a => out.moves.push({id: a.id, title: a.title, from: "", to: a.due, kind: "prep", why: "Added to fit the days before the exam"}));
+      out.exams.push({id: ex.id, why, missed: missed.length});
+      (r.notes || []).forEach(text => out.short.push({id: ex.id, title: ex.title, kind: "note", text}));
+    });
+
+    // Room left on each day: free study hours less the soft work already on it
+    const used = {};
+    const use = (t, sign) => { if (kindOf(t) && t.due >= today) used[t.due] = (used[t.due] || 0) + sign * hrs(t); };
+    Object.values(T).forEach(t => use(t, 1));
+    const capOf = d => isOff(d) ? 0 : cap[d] != null ? Math.max(0, Number(cap[d]) || 0) : dh;
+    const room = d => capOf(d) - (used[d] || 0);
+    const fits = (d, h) => d >= today && !isOff(d) && room(d) >= Math.max(0.25, Math.min(h, NEED)) - 1e-9;
+    // The first day it fits, or else the lightest day with at least half an hour free
+    const pick = (cands, h) => cands.find(d => fits(d, h)) || cands.filter(d => d >= today && !isOff(d) && room(d) >= 0.5 - 1e-9).sort((a, b) => room(b) - room(a) || (a < b ? -1 : 1))[0];
+    const place = (t, d, kind, why) => {
+      const a = Object.assign({}, t, {due: d});
+      if (kind === "step" || (a.start && a.start > d)) a.start = d;
+      if (a.slot) a.slot = "";
+      use(t, -1); use(a, 1); T[t.id] = a;
+      out.changes.push({kind: "task", id: t.id, after: a});
+      out.moves.push({id: t.id, title: t.title, from: t.due, to: d, kind, why});
+    };
+
+    // 2. Steps of a broken-down assignment: in order, between the step before and the next one, and before the due date
+    const groups = {};
+    Object.values(T).filter(t => kindOf(t) === "step").forEach(k => { (groups[k.breakdownOf] = groups[k.breakdownOf] || []).push(k); });
+    Object.keys(groups).sort().forEach(pid => {
+      const list = groups[pid].sort(byDue), p = T[pid];
+      const tg = list.filter(k => touched(k.due));
+      if (!tg.length || !p || !open(p) || !isDate(p.due)) return;
+      if (p.due < today) { out.short.push({id: p.id, title: p.title, kind: "step", text: `${q(p.title)} was due before today, so its ${tg.length === 1 ? "step stays" : tg.length + " steps stay"} where ${tg.length === 1 ? "it is" : "they are"}.`}); return; }
+      const lastOk = p.due > today ? add(p.due, -1) : p.due;
+      tg.forEach(k0 => {
+        const i = list.findIndex(x => x.id === k0.id), k = T[k0.id];
+        const prev = i > 0 ? T[list[i - 1].id].due : today, lo = prev > today ? prev : today;
+        const next = list.slice(i + 1).map(x => T[x.id]).find(x => !touched(x.due));
+        const hi = next && next.due < lastOk ? next.due : lastOk;
+        const d = pick(k.due >= today ? around(k.due, lo, hi) : forward(lo, hi), hrs(k));
+        if (!d) { out.short.push({id: k.id, title: k.title, kind: "step", text: `There's no free time left before ${q(p.title)} is due, so this step stays where it is. A shorter version, or more study time, would help.`}); return; }
+        place(k, d, "step", k.due < today ? `Missed step, moved to free time before ${q(p.title)} is due` : "Your day off");
+        list[i] = T[k.id];
+      });
+    });
+
+    // 3. Your own Study tasks: the next free day
+    Object.values(T).filter(t => kindOf(t) === "study" && touched(t.due)).sort(byDue).forEach(t => {
+      const cands = t.due >= today ? around(t.due, today, add(t.due, horizon)) : forward(today, add(today, horizon - 1));
+      const d = pick(cands, hrs(t));
+      if (!d) { out.short.push({id: t.id, title: t.title, kind: "study", text: `There's no free time in the next ${horizon} days, so it stays where it is.`}); return; }
+      place(t, d, "study", t.due < today ? "Missed, moved to your next free time" : "Your day off");
+    });
+    return out;
+  }
+  return {plan, kindOf, synced, add, diff, isDate, HORIZON};
+})();
+/*AUTOPILOT-END*/
+
+(() => {
+  const AP = AUTOPILOT;
+  const LS_UNDO = "studyboard:autopilot:undo";
+  const locked = () => !!(window.SBPRO && SBPRO.locked());
+  const cfg = () => { const v = state.settings && state.settings.autopilot; return v && typeof v === "object" && !Array.isArray(v) ? v : {}; };
+  const mode = () => ({on: 1, ask: 1, off: 1})[cfg().mode] ? cfg().mode : "on";
+  const setCfg = patch => { state.settings = Object.assign({}, state.settings, {autopilot: Object.assign({}, cfg(), patch)}); saveSettings(); };
+  const offMap = () => { const v = state.settings && state.settings.daysOff; return v && typeof v === "object" && !Array.isArray(v) ? v : {}; };
+  const runRec = () => { const r = cfg().run; return r && typeof r === "object" && AP.isDate(r.day) ? r : null; };
+  const lsGet = () => { try { const v = JSON.parse(localStorage.getItem(LS_UNDO) || "null"); return v && typeof v === "object" ? v : null; } catch (e) { return null; } };
+  const lsSet = v => { try { if (v) localStorage.setItem(LS_UNDO, JSON.stringify(v)); else localStorage.removeItem(LS_UNDO); } catch (e) {} };
+  const things = n => `${n} thing${n === 1 ? "" : "s"}`;
+  // Autopilot is doing the Catch Up work itself, so the Today cards for it stay out of the way
+  const handles = () => !locked() && mode() === "on";
+
+  // Free study hours per day, as Today's Plan counts them (availability, or daily hours less long class days); none on a day off
+  function capMap(from, to){
+    const out = {}, dh = dailyHours(); let AD = null, B = {m: {}};
+    try { if (availActive()) AD = availDays(from, to); } catch (e) {}
+    const keep = BUSY_CACHE; try { B = busyDays(from, to); } catch (e) {} finally { BUSY_CACHE = keep; }
+    for (let d = from, i = 0; d <= to && i < 60; d = addDays(d, 1), i++) out[d] = dayIsOff(d) ? 0 : Math.min(dh * busyFactor(B.m[d] || 0), AD && AD[d] != null ? AD[d] : Infinity);
+    return out;
+  }
+  function compute(only){
+    const today = todayISO(), off = {};
+    Object.keys(offMap()).forEach(d => { if (d >= today && offMap()[d]) off[d] = 1; });
+    return AP.plan({today, tasks: tasksArr(), off, cap: capMap(today, addDays(today, AP.HORIZON + 21)), dh: dailyHours(), only,
+      replanExam: ex => {
+        const r = window.SBPREP && SBPREP.replanChanges ? SBPREP.replanChanges(ex.id) : null;
+        if (!r) return {ok: false};
+        const o = r.out || {};
+        if (o.err || !r.changes.length) return {ok: false, warn: (o.warnings && o.warnings[0]) || ""};
+        // Honest about a squeeze: the planner's own crash-plan and dropped-topic words
+        return {ok: true, changes: r.changes, notes: (o.warnings || []).filter(w => /^Not enough time|crash plan/.test(w))};
+      }});
+  }
+  // The fields that say whether an item was changed since Autopilot moved it
+  const sig = t => t ? JSON.stringify(["due", "start", "status", "slot", "hours", "title", "prepFor", "breakdownOf", "type"].map(k => t[k] == null ? "" : t[k])) : "null";
+  function apply(res){
+    const before = [], seen = new Set();
+    res.changes.forEach(c => { if (seen.has(c.id)) return; seen.add(c.id); before.push({kind: "task", id: c.id, after: clone(state.tasks[c.id] || null)}); });
+    applyChanges(res.changes, "");
+    const post = {}; before.forEach(b => { post[b.id] = sig(state.tasks[b.id]); });
+    return {before, post};
+  }
+  const slim = m => ({id: m.id, title: String(m.title || "Untitled").slice(0, 90), from: m.from || "", to: m.to || "", why: String(m.why || "").slice(0, 120)});
+  const slimS = s => ({title: String(s.title || "Untitled").slice(0, 90), text: String(s.text || "").slice(0, 200)});
+  function record(kind, res, extra){
+    const r = Object.assign({day: todayISO(), id: uid(), kind, n: res.moves.length, moves: res.moves.slice(0, 60).map(slim), short: res.short.slice(0, 12).map(slimS), seen: false, at: Date.now()}, extra || {});
+    setCfg({run: r});
+    return r;
+  }
+  function moveNow(res){
+    const r = record("done", res);
+    if (res.changes.length) { const u = apply(res); lsSet({id: r.id, before: u.before, post: u.post}); } else lsSet(null);
+    scheduleRender();
+    return r;
+  }
+
+  /* The daily run */
+  let BOOT = Date.now(), BUSY = false;
+  function tick(){
+    if (BUSY) return;
+    try {
+      if (locked() || mode() === "off") return;
+      const today = todayISO(), r = runRec();
+      // Done for today (a proposal still waiting is applied once you switch to On)
+      if (r && r.day === today && !(r.kind === "ask" && !r.seen && mode() === "on")) return;
+      // Wait for the account's settings first, so a device that ran earlier today is seen
+      const signedIn = typeof sbUser !== "undefined" && !!sbUser;
+      // (and past the first seconds, when Pro can still be a remembered hint rather than the checked plan)
+      if (signedIn && (Date.now() - BOOT < 12000 || (!(typeof cloud !== "undefined" && cloud.on) && Date.now() - BOOT < 45000))) return;
+      BUSY = true;
+      const res = compute("");
+      if (mode() === "ask") { record("ask", res); scheduleRender(); }
+      else moveNow(res);
+    } catch (e) { console.warn("autopilot", e); } finally { BUSY = false; }
+  }
+  function applyProposal(){
+    const res = compute("");
+    if (!res.changes.length) { record("done", res, {seen: true}); lsSet(null); scheduleRender(); toast(res.short.length ? "Nothing can move right now without missing a deadline." : "Nothing needs moving now."); return; }
+    const r = moveNow(res);
+    if (dlg.open && dlg.querySelector(".ap-sheet")) dlg.close();
+    toast(`Autopilot moved ${things(r.n)}.`, undo);
+  }
+  function undo(){
+    const u = lsGet(), r = runRec();
+    if (!u || !r || u.id !== r.id || r.undone) { toast("Undo isn't available on this device. Each change is listed in See What Changed."); return; }
+    const back = [], kept = [];
+    (u.before || []).forEach(b => { if (sig(state.tasks[b.id] || null) === u.post[b.id]) back.push(b); else kept.push(b.id); });
+    if (back.length) applyChanges(back, null);
+    lsSet(null);
+    setCfg({run: Object.assign({}, r, {undone: true, seen: true})});
+    if (dlg.open && dlg.querySelector(".ap-sheet")) dlg.close();
+    scheduleRender();
+    toast(kept.length ? `Undone, except ${things(kept.length)} you changed since.` : "Undone. Everything is back where it was.");
+  }
+
+  /* Today's Plan: one quiet line */
+  function lineHtml(){
+    try {
+      const today = todayISO(), parts = [];
+      if (dayIsOff(today)) parts.push(`<div class="ap-line ap-offday" role="status"><span class="ap-t"><b>Today is a day off.</b> Nothing is planned today.</span> <span class="ap-a"><button type="button" class="link-btn" data-act="ap-dayoff" data-id="${esc(today)}">Undo Day Off</button></span></div>`);
+      const r = runRec();
+      if (!locked() && r && r.day === today && !r.seen && !r.undone && (r.n || (r.short || []).length) && (r.kind === "ask" ? mode() === "ask" : true)) {
+        const k = (r.short || []).length, sep = ` <span aria-hidden="true">·</span> `;
+        let t, a;
+        if (r.kind === "ask" && r.n) { t = `Autopilot can move ${things(r.n)} to fit your plan.`; a = `<button type="button" class="link-btn" data-act="ap-open">See What Changes</button>${sep}<button type="button" class="link-btn" data-act="ap-apply">Apply</button>${sep}<button type="button" class="link-btn" data-act="ap-dismiss">Not Now</button>`; }
+        else if (r.n) { t = `Autopilot moved ${things(r.n)} ${new Date(r.at || 0).getHours() < 12 ? "last night" : "today"}.`; a = `<button type="button" class="link-btn" data-act="ap-open">See What Changed</button>${lsGet() && lsGet().id === r.id ? `${sep}<button type="button" class="link-btn" data-act="ap-undo">Undo</button>` : ""}`; }
+        else { t = `Autopilot couldn't find time for ${things(k)} before ${k === 1 ? "its deadline" : "their deadlines"}.`; a = `<button type="button" class="link-btn" data-act="ap-open">See Why</button>`; }
+        parts.push(`<div class="ap-line" role="status" data-kind="${esc(r.kind)}"><span class="ap-t">${esc(t)}</span> <span class="ap-a">${a}${r.kind === "ask" && r.n ? "" : `<button type="button" class="icon-btn sm" data-act="ap-dismiss" aria-label="Dismiss">${CLOSE}</button>`}</span></div>`);
+      }
+      return parts.join("");
+    } catch (e) { console.warn("autopilot line", e); return ""; }
+  }
+  const offBtn = () => { const d = todayISO(), on = dayIsOff(d); return `<button type="button" class="pf-link ap-off-btn" data-act="ap-dayoff" data-id="${esc(d)}" aria-pressed="${on}">${on ? "Undo Day Off" : "Take Today Off"}</button>`; };
+  // In the Calendar's day sheet (Crunch Forecast)
+  function dayRow(date){
+    if (!date || date < todayISO()) return "";
+    const on = dayIsOff(date);
+    return `<div class="ap-dayrow"><span class="mini">${on ? "A day off: no study time is planned, and it counts as a rest day." : "A day off plans no study time and counts as a rest day."}</span><button type="button" class="btn small" data-act="ap-dayoff" data-id="${esc(date)}" aria-pressed="${on}">${on ? "Undo Day Off" : "Take This Day Off"}</button></div>`;
+  }
+
+  /* See What Changed */
+  const MODES = [["on", "On"], ["ask", "Ask Me First"], ["off", "Off"]];
+  const modeSeg = () => `<div class="segb" role="group" aria-label="Autopilot">${MODES.map(([k, l]) => `<button type="button" data-act="ap-mode" data-id="${k}" aria-pressed="${mode() === k}">${l}</button>`).join("")}</div>`;
+  function openChanges(){
+    if (locked()) { proSheet(); return; }
+    const r = runRec(), today = todayISO(), cur = r && r.day === today ? r : null, ask = !!(cur && cur.kind === "ask" && !cur.seen);
+    const when = d => d ? fmtDate(d) : "";
+    const moves = cur ? cur.moves || [] : [], short = cur ? cur.short || [] : [];
+    const canUndo = !!(cur && cur.kind === "done" && !cur.undone && lsGet() && lsGet().id === cur.id);
+    const lead = !cur ? "Nothing has run yet today. Autopilot runs once a day, the first time you open Studyboard." : cur.undone ? "Today's changes were undone." : ask ? "Nothing has moved yet. Apply to make these changes." : moves.length ? "Each change, and why. Real due dates, school sync and classes never move." : "Nothing needed moving today.";
+    const rows = moves.map(m => `<li><b>${esc(m.title)}</b><span class="mini">${m.from && m.to ? `${esc(when(m.from))} → ${esc(when(m.to))}` : m.to ? `New on ${esc(when(m.to))}` : `Removed from ${esc(when(m.from))}`}</span><span class="mini">${esc(m.why)}</span></li>`).join("");
+    const shorts = short.map(s => `<li><b>${esc(s.title)}</b><span class="mini">${esc(s.text)}</span></li>`).join("");
+    openSheet(`<div class="sheet ap-sheet">${head(ask ? "What Would Change" : "What Changed")}<div class="sheet-body">
+      <p class="mini" style="margin:0 0 10px">${esc(lead)}</p>
+      ${rows && !(cur && cur.undone) ? `<ul class="ap-list">${rows}</ul>` : ""}
+      ${shorts ? `<h3 class="fsec">Couldn't Fit</h3><ul class="ap-list">${shorts}</ul>` : ""}
+      <div class="ap-mode"><span><b>Autopilot</b><span class="mini">On moves things for you. Ask Me First shows them here first.</span></span>${modeSeg()}</div>
+    </div><div class="sheet-foot"><button type="button" class="btn" data-act="close">Close</button><span class="spacer"></span>${canUndo && moves.length ? `<button type="button" class="btn" data-act="ap-undo">Undo All</button>` : ""}${ask && moves.length ? `<button type="button" class="btn" data-act="ap-dismiss">Not Now</button><button type="button" class="btn primary" data-act="ap-apply">Apply</button>` : ""}</div></div>`);
+    if (cur && cur.kind === "done" && !cur.seen) setCfg({run: Object.assign({}, cur, {seen: true})});
+  }
+  const proSheet = () => { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Autopilot is part of Studyboard Pro: missed study sessions and steps move to your next free time overnight, and Today's Plan tells you once."); };
+
+  /* Day Off */
+  function toggleOff(date){
+    const today = todayISO();
+    if (!AP.isDate(date) || date < today) return;
+    const cur = {}; Object.keys(offMap()).forEach(d => { if (d >= AP.add(today, -60) && offMap()[d]) cur[d] = 1; });
+    const on = !cur[date];
+    if (on) cur[date] = 1; else delete cur[date];
+    state.settings = Object.assign({}, state.settings, {daysOff: cur}); saveSettings(); scheduleRender();
+    try { offSaid(date, on); } finally { redrawDay(date); }
+  }
+  function offSaid(date, on){
+    const today = todayISO(), label = date === today ? "Today" : fmtDate(date);
+    if (!on) { toast(`${label} is a study day again.`); return; }
+    const res = compute(date), n = res.moves.length;
+    const here = res.moves.filter(m => m.from === date).length + res.short.length;
+    if (!n && !res.short.length) { toast(`${label} is a day off. Nothing is planned that day.`); return; }
+    if (!locked() && mode() === "on" && n) {
+      const k = res.short.length;
+      applyChanges(res.changes, `${label} is a day off. Moved ${things(n)} to other days.${k ? ` ${k === 1 ? `“${res.short[0].title}” couldn't move` : `${k} things couldn't move`} without missing a deadline.` : ""}`);
+      return;
+    }
+    if (locked()) { toast(`${label} is a day off. ${things(here)} ${here === 1 ? "is" : "are"} still planned that day.`, null, {label: "Move Them", fn: proSheet}); return; }
+    if (mode() === "ask" && n) { toast(`${label} is a day off. ${things(here)} ${here === 1 ? "is" : "are"} planned that day.`, null, {label: "Move Them", fn: () => { const r2 = compute(date); if (r2.changes.length) applyChanges(r2.changes, `Moved ${things(r2.moves.length)} to other days.`); redrawDay(date); }}); return; }
+    toast(`${label} is a day off. ${things(here)} ${here === 1 ? "is" : "are"} still planned that day.`);
+  }
+  // The day sheet reads Today's Plan's numbers, which refresh on the next render: redraw it then
+  let REDRAW = "";
+  function redrawDay(date){ REDRAW = date; scheduleRender(); }
+  hook("render", () => { if (!REDRAW) return; const d = REDRAW; REDRAW = ""; redrawNow(d); });
+  function redrawNow(date){
+    try {
+      if (!dlg.open || !dlg.querySelector(".cr-sheet")) return;
+      const b = document.createElement("button"); b.type = "button"; b.hidden = true; b.dataset.act = "cr-day"; b.dataset.id = date;
+      document.body.appendChild(b); b.click(); b.remove();
+    } catch (e) {}
+  }
+
+  /* Settings > Study */
+  hook("menu", () => {
+    if (locked()) return `<button type="button" data-act="ap-pro" data-group="study"><span>Autopilot ${PRO_BADGE}<span class="sub">Moves missed study sessions and steps into your next free time overnight, then tells you once.</span></span></button>`;
+    return `<div class="cap-row sb-wide ap-set" data-group="study"><span style="flex:1;font-weight:600;min-width:12rem">Autopilot<span class="sub">Once a day, moves missed prep sessions, milestones and Study tasks into your next free time before their deadlines, then tells you once on Today's Plan. Real due dates never move.</span></span>${modeSeg()}</div>`;
+  });
+  hook("act", (act, el, id) => {
+    if (!act || act.slice(0, 3) !== "ap-") return false;
+    switch (act) {
+      case "ap-open": openChanges(); return true;
+      case "ap-pro": proSheet(); return true;
+      case "ap-undo": undo(); return true;
+      case "ap-apply": if (locked()) { proSheet(); return true; } applyProposal(); return true;
+      case "ap-dismiss": { const r = runRec(); if (r) setCfg({run: Object.assign({}, r, {seen: true})}); if (dlg.open && dlg.querySelector(".ap-sheet")) dlg.close(); scheduleRender(); return true; }
+      case "ap-dayoff": toggleOff((el && el.dataset.id) || id || todayISO()); return true;
+      case "ap-mode": {
+        if (locked()) { proSheet(); return true; }
+        const m = (el && el.dataset.id) || id; if (!({on: 1, ask: 1, off: 1})[m]) return true;
+        setCfg({mode: m});
+        if (m === "on") setTimeout(tick, 0);
+        document.querySelectorAll('[data-act="ap-mode"]').forEach(b => b.setAttribute("aria-pressed", String(b.dataset.id === m)));
+        scheduleRender();
+        toast(m === "on" ? "Autopilot is on. It runs once a day, the first time you open Studyboard." : m === "ask" ? "Autopilot will ask before moving anything." : "Autopilot is off. Catch Up cards are back on Today's Plan.");
+        return true;
+      }
+    }
+    return false;
+  });
+  hook("boot", () => {
+    BOOT = Date.now();
+    setTimeout(tick, 3000); setTimeout(tick, 13000);
+    setInterval(tick, 60000);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) setTimeout(tick, 1500); });
+  });
+  if (window.SBPRO) SBPRO.addFeature({id: "autopilot", name: "Autopilot", where: "On Today's Plan: missed sessions and steps move overnight. Settings, Study.", act: "ap-open", icon: '<path d="M3 12h4l3-8 4 16 3-8h4"/>'});
+  SBAUTOPILOT = {handles, lineHtml, offBtn, dayRow, open: openChanges, run: tick, compute, toggleOff, core: AP};
+  window.SBAUTOPILOT = SBAUTOPILOT;
 })();
 /* ===== module: 100-phone.js ===== */
 /* Phone follow-ups */

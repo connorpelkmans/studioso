@@ -1695,6 +1695,10 @@ button.pr-why:hover{background:var(--soft);color:var(--ink)}
 .plan-row .alloc,.plan-row .score{margin:0;min-width:42px;text-align:right;padding:0;background:none;border-radius:0;color:var(--ink);font-weight:600;font-size:.85rem;font-variant-numeric:tabular-nums}
 .plan-row .alloc.idle{color:var(--muted);font-weight:500}
 .plan-gap{margin:4px 0 0;font-size:.85rem;line-height:1.4;color:var(--muted);max-width:60ch}
+.plan-gap:has(.pg-chip){display:flex;flex-wrap:wrap;gap:6px;max-width:none;margin:6px 0 0}
+.pg-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 8px;border-radius:999px;background:var(--soft,rgba(127,127,127,.12));border:1px solid var(--line);color:var(--ink);font:700 .78rem/1.3 var(--display);cursor:default}
+.pg-chip .pg-ic{color:var(--muted);font-size:.8rem}
+.pg-chip.pg-done .pg-ic{color:var(--ok,#2EA36A)}
 .plan-rows{margin:6px 0 0}
 .plan-row .score{color:var(--muted)}
 .plan-row .focus-go{width:30px;height:30px;border:1px solid transparent;background:transparent}
@@ -2265,6 +2269,7 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
   html.board-max .env{bottom:calc(12px + env(safe-area-inset-bottom,0px))}
 }
 @media (min-width:640px){.pg-right>.wb-pick,.pg-right>.wb-optbtn{display:none}}
+.key-row input.key-mask{-webkit-text-security:disc}
 /* ===== module: 05-account.css ===== */
 /* Studyboard account sheets */
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}
@@ -4328,6 +4333,14 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 /* Companions as still pictures in long lists (every theme's companions) */
 .cp-still-box{display:block;width:64px;height:64px;flex:none}
 .cp-still{display:block;max-width:none;pointer-events:none;-webkit-user-drag:none}
+/* Thinking: three dots taking turns, while the student waits on the AI */
+.cp-bubble.cp-think{padding:9px 14px}
+.cp-dots{display:inline-flex;gap:5px;align-items:center;height:14px}
+.cp-dots i{width:8px;height:8px;border-radius:50%;background:var(--ink);opacity:.3;animation:cpDot 1.2s infinite ease-in-out}
+.cp-dots i:nth-child(2){animation-delay:.18s}
+.cp-dots i:nth-child(3){animation-delay:.36s}
+@keyframes cpDot{0%,70%,100%{opacity:.3;transform:translateY(0)}35%{opacity:.9;transform:translateY(-4px)}}
+@media (prefers-reduced-motion:reduce){.cp-dots i{animation:cpDotFade 1.6s infinite}@keyframes cpDotFade{0%,100%{opacity:.35}50%{opacity:1}}}
 /* ===== module: 98-photo.css ===== */
 /* ===== Your Photo themes ===== */
 /* The photo sits behind the page (left of the desktop sidebar) as one fixed */
@@ -4937,6 +4950,13 @@ button.snd-head:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
 /* ===== module: 96-school.css ===== */
 /* School Days: days off and a rotating class cycle */
 .sd-fs{display:grid;gap:10px}
+.sd-sheet .sheet-body{gap:0}
+.sd-sec{display:grid;gap:10px;padding:16px 0;border-top:1px solid var(--line)}
+.sd-sec:first-child{padding-top:0;border-top:0}
+.sd-sec .fsec{margin:0}
+.sd-why{margin:-4px 0 0}
+.sd-list:empty,.sd-add[hidden],.sd-btns[hidden]{display:none}
+.sd-add{padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--soft)}
 .sd-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .sd-off{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
 .sd-off > span{flex:1;min-width:0;display:grid;gap:1px}
@@ -4957,10 +4977,14 @@ button.snd-head:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
 .hol-ask{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 12px;padding:10px 12px 10px 14px;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;background:var(--surface);font-size:.92rem}
 .hol-ask > span:first-child{flex:1 1 260px;min-width:0}
 .hol-acts{display:flex;gap:6px;flex-wrap:wrap}
-.sd-more summary{cursor:pointer;font-weight:600;display:grid;gap:2px}
+.sd-more summary{cursor:pointer;font-weight:600;display:grid;gap:2px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;list-style:none}
+.sd-more summary::-webkit-details-marker{display:none}
+.sd-more summary > span:first-child::after{content:" ▾";color:var(--muted)}
+.sd-more[open] summary > span:first-child::after{content:" ▴"}
 .sd-more summary .mini{font-weight:400}
 .sd-more .sd-list{margin-top:8px}
 .sd-more select{flex:none;max-width:42%}
+.sd-sub{display:block;font-size:.84rem;color:var(--muted);margin-top:2px}
 /* ===== module: 92-accuracy.css ===== */
 .acc-chip{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom,0px));z-index:49;width:min(620px,calc(100vw - 24px));box-sizing:border-box;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:8px 8px 8px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);box-shadow:0 8px 24px rgba(8,20,50,.22)}
 .acc-chip[hidden]{display:none}
@@ -5394,6 +5418,20 @@ html:not([data-motion="static"]) :is(.segb button,.chip,.ui-chip,.cf-pick,[role=
   #view .pg-tabs > button:hover{color:var(--ink)!important;background:color-mix(in srgb,var(--ink) 7%,transparent)!important}
   #view .pg-tabs > button[aria-selected="true"]{background:var(--ink)!important;color:var(--surface)!important;box-shadow:none!important}
 }
+/* Autopilot (99-autopilot.js): the one line on Today's Plan, What Changed, and Day Off */
+.ap-line{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;margin:8px 0;padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:.9rem}
+.ap-line .ap-t{flex:1 1 220px;min-width:0}
+.ap-line .ap-a{display:inline-flex;align-items:center;gap:4px 8px;flex-wrap:wrap}
+.ap-line .ap-a > span{color:var(--muted)}
+.ap-list{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:8px}
+.ap-list li{display:grid;gap:2px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;overflow-wrap:anywhere;min-width:0}
+.ap-mode{display:flex;align-items:center;justify-content:space-between;gap:8px 12px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.ap-mode > span{display:grid;gap:2px;flex:1 1 180px;min-width:0}
+.ap-set .segb{flex-wrap:wrap}
+.ap-dayrow{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;margin:8px 0 0}
+.ap-dayrow .mini{flex:1 1 180px;min-width:0}
+.plan-foot .ap-off-btn{margin-left:auto}
+.ap-line .icon-btn.sm{width:28px;height:28px;min-height:0;border:0;background:transparent;box-shadow:none}
 /* ===== module: 100-phone.css ===== */
 /* Phone and tablet bar (the desktop side menu is untouched) */
 @media (max-width:979px){
