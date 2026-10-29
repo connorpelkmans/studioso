@@ -23,7 +23,7 @@
       so the page can take the timer out of its own header. Missing on Android and when the plugin isn't in the build.
 
    Needs these Capacitor plugins installed (README-IOS.md section 2, README-ANDROID.md section 2): @capacitor/app, @capacitor/browser, @capacitor/push-notifications,
-   capacitor-secure-storage-plugin, @revenuecat/purchases-capacitor (section 6), @capacitor/screen-orientation (section 8), plus the two local plugins in ios-wrapper/native (StudyboardCaptureToken, StudyboardSharedQueue) for section 5. */
+   capacitor-secure-storage-plugin, @revenuecat/purchases-capacitor (section 6), @capacitor/screen-orientation (section 8), @capacitor/keyboard (section 9), plus the two local plugins in ios-wrapper/native (StudyboardCaptureToken, StudyboardSharedQueue) for section 5. */
 (function () {
   "use strict";
   var C = window.Capacitor;
@@ -333,5 +333,18 @@
     };
     var watch = function () { orient(); new MutationObserver(orient).observe(document.documentElement, { attributes: true, attributeFilter: ["class"] }); };
     if (document.documentElement) watch(); else document.addEventListener("DOMContentLoaded", watch);
+  }
+
+  /* 9. The keyboard (@capacitor/keyboard, "resize": "native" in capacitor.config.json): the app shrinks to the space above
+        it instead of iOS sliding the whole page up to reveal the text box (which pushed the header off screen and jumped
+        back). The page is told when it opens so the tab bar steps aside, and the arrows-and-Done bar above it is hidden. */
+  var KB = P.Keyboard;
+  if (KB) {
+    var root = function () { return document.documentElement; };
+    var kbMark = function () { var r = root(); if (r) r.classList.add("kb-native"); };
+    kbMark(); document.addEventListener("DOMContentLoaded", kbMark);
+    try { KB.setAccessoryBarVisible({ isVisible: false }); } catch (e) {}
+    var kbOn = function (on) { var r = root(); if (!r) return; r.classList.toggle("kb-open", on); r.style.setProperty("--kb-h", "0px"); r.style.removeProperty("--vv-h"); };
+    try { KB.addListener("keyboardWillShow", function () { kbOn(true); }); KB.addListener("keyboardWillHide", function () { kbOn(false); }); } catch (e) {}
   }
 })();

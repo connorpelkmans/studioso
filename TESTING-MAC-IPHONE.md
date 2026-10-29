@@ -62,7 +62,7 @@ This builds the iPhone copy of the app into `ios-wrapper/ios-www/` and adds the 
 cd ios-wrapper
 npm init -y
 npm i @capacitor/core @capacitor/ios @capacitor/app @capacitor/browser @capacitor/push-notifications \
-      @capacitor/share @capacitor/filesystem @capacitor/screen-orientation capacitor-secure-storage-plugin @revenuecat/purchases-capacitor
+      @capacitor/share @capacitor/filesystem @capacitor/screen-orientation @capacitor/keyboard capacitor-secure-storage-plugin @revenuecat/purchases-capacitor
 npm i -D @capacitor/cli
 npx cap add ios
 cd ..

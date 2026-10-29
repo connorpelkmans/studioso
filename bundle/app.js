@@ -14813,6 +14813,8 @@ function archiveSheet(){
 /* Keyboard open: every bottom sheet sits above the keyboard and never taller than what is visible */
 function dlgKbFit(){
   const vv = window.visualViewport; if (!vv || !matchMedia("(max-width:639px)").matches) return;
+  // in the iPhone app the keyboard plugin shrinks the app itself and says when the keyboard is up (native-bridge.js)
+  if (document.documentElement.classList.contains("kb-native")) return;
   const d = document.documentElement, kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop));
   d.style.setProperty("--kb-h", kb + "px"); d.style.setProperty("--vv-h", Math.round(vv.height) + "px");
   d.classList.toggle("kb-open", kb > 80);
@@ -59470,7 +59472,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const wc = (SBCOMP.wearColor && SBCOMP.wearColor()) || "#E5604D", worn = SBCOMP.wornNames ? SBCOMP.wornNames() : [];
     const meta = [worn.length ? "Wearing " + worn.join(" and ") : "", area ? "Studying " + area : ""].filter(Boolean).join(" · ");
     const head = me ? `<div class="cpt-head cpt3" style="--c:var(--accent-band,var(--accent))" data-wear="${esc(wc)}"><div class="cpt3-band"><div class="cpt3-acts"><button type="button" class="btn cpt-dress" data-act="comp-change">Change</button></div></div>
-        <div class="cpt3-mini" aria-hidden="true">${AI_ICON}<b>${esc(me.name)}</b></div>
+        <div class="cpt3-mini sm-skip" aria-hidden="true">${AI_ICON}<b>${esc(me.name)}</b></div>
         <div class="cpt3-ring">${SBCOMP.tab.faceHtml(104)}</div>
         <div class="cpt-id"><h2>${esc(me.name)}</h2>${me.bio ? `<p class="cpt-bio">${esc(me.bio)}</p>` : ""}${meta ? `<span class="mini">${esc(meta)}</span>` : ""}</div>`
       : `<div class="cpt-head"><div class="cpt-id"><h2>Companion</h2><p class="mini">Your companion is turned off. Turn it on to chat and to see it beside the Add Task button.</p></div><div class="cpt-hbtn"><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="on"> On</label></div>`;

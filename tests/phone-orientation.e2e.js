@@ -1,6 +1,7 @@
 // node tests/phone-orientation.e2e.js: in the iPhone app the screen stays upright, so the "turn your phone upright" screen
 // never shows; only full-screen notes or the whiteboard unlock it to turn sideways, and leaving full screen locks it again.
-// Runs ios-wrapper/native-bridge.js with a stand-in for @capacitor/screen-orientation.
+// Also the keyboard: the app fits itself above it. Runs ios-wrapper/native-bridge.js with stand-ins for
+// @capacitor/screen-orientation and @capacitor/keyboard.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -16,7 +17,8 @@ async function open(b, idiom){
     window.__so = [];
     window.StudyboardDevice = Object.freeze({idiom});
     window.Capacitor = {isNativePlatform: () => true, getPlatform: () => "ios", Plugins: {ScreenOrientation: {
-      lock: o => { window.__so.push("lock:" + o.orientation); return Promise.resolve(); }, unlock: () => { window.__so.push("unlock"); return Promise.resolve(); }}}};
+      lock: o => { window.__so.push("lock:" + o.orientation); return Promise.resolve(); }, unlock: () => { window.__so.push("unlock"); return Promise.resolve(); }},
+      Keyboard: {setAccessoryBarVisible: o => { window.__kbBar = o.isVisible; return Promise.resolve(); }, addListener: (ev, fn) => { (window.__kbL = window.__kbL || {})[ev] = fn; return Promise.resolve({remove(){}}); }}}};
   }, [seed, idiom]);
   await ctx.addInitScript(BRIDGE);
   const page = await ctx.newPage(); const errs = []; page.on("pageerror", e => errs.push(e.message));
@@ -38,6 +40,12 @@ async function open(b, idiom){
       ok((await so()).slice(-1)[0] === "lock:portrait", "leaving full screen locks it upright again: " + await so());
       await page.evaluate(() => { document.documentElement.classList.add("x-other"); }); await page.waitForTimeout(100);
       ok((await so()).length === 3, "other page changes don't touch the lock: " + await so());
+      // the keyboard: the app shrinks above it (keyboard plugin), and the page hears when it opens
+      ok(await page.evaluate(() => document.documentElement.classList.contains("kb-native") && window.__kbBar === false), "keyboard: the app fits itself above the keyboard and hides the arrows-and-Done bar");
+      await page.evaluate(() => { window.__sbSync.ui.tab = "tasks"; window.__sbSync.render(); window.__kbL.keyboardWillShow({keyboardHeight: 336}); visualViewport.dispatchEvent(new Event("resize")); }); await page.waitForTimeout(150);
+      ok(await page.evaluate(() => document.documentElement.classList.contains("kb-open") && getComputedStyle(document.querySelector("nav.tabs")).visibility === "hidden"), "keyboard up: the tab bar steps aside (and a viewport resize doesn't undo it)");
+      await page.evaluate(() => window.__kbL.keyboardWillHide()); await page.waitForTimeout(150);
+      ok(await page.evaluate(() => !document.documentElement.classList.contains("kb-open") && getComputedStyle(document.querySelector("nav.tabs")).visibility !== "hidden"), "keyboard down: the tab bar is back");
       ok(!errs.length, "no page errors " + errs.join(" | "));
       await ctx.close(); }
     { const {ctx, page} = await open(b, "pad");

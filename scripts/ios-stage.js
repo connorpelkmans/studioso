@@ -35,8 +35,8 @@ if (fs.existsSync(plistFile)) {
 
 // Plugins the page relies on that an older setup may not have installed yet
 {
-  const need = ["@capacitor/screen-orientation"].filter(m => fs.existsSync(path.join(wrap, "node_modules")) && !fs.existsSync(path.join(wrap, "node_modules", m)));
-  if (need.length) console.log("ios-stage: missing " + need.join(", ") + " (keeps the phone upright outside full-screen boards). Install it, then run this again:\n  cd ios-wrapper && npm i " + need.join(" ") + " && cd ..");
+  const need = ["@capacitor/screen-orientation", "@capacitor/keyboard"].filter(m => fs.existsSync(path.join(wrap, "node_modules")) && !fs.existsSync(path.join(wrap, "node_modules", m)));
+  if (need.length) console.log("ios-stage: missing " + need.join(", ") + " (keeps the phone upright outside full-screen boards, and fits the app above the keyboard). Install it, then run this again:\n  cd ios-wrapper && npm i " + need.join(" ") + " && cd ..");
 }
 
 const cli = path.join(wrap, "node_modules", "@capacitor", "cli");

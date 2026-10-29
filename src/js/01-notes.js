@@ -1064,6 +1064,8 @@ function archiveSheet(){
 /* Keyboard open: every bottom sheet sits above the keyboard and never taller than what is visible */
 function dlgKbFit(){
   const vv = window.visualViewport; if (!vv || !matchMedia("(max-width:639px)").matches) return;
+  // in the iPhone app the keyboard plugin shrinks the app itself and says when the keyboard is up (native-bridge.js)
+  if (document.documentElement.classList.contains("kb-native")) return;
   const d = document.documentElement, kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop));
   d.style.setProperty("--kb-h", kb + "px"); d.style.setProperty("--vv-h", Math.round(vv.height) + "px");
   d.classList.toggle("kb-open", kb > 80);

@@ -28,8 +28,10 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await page.evaluate(() => { window.__kb(false); document.getElementById("dlg").close(); }); await page.waitForTimeout(200);
     ok(await vis("nav.tabs"), "and come back when it closes");
 
-    // the companion chat
-    await page.evaluate(() => { window.__sbSync.ui.tab = "companion"; window.__sbSync.render(); }); await page.waitForSelector("#cptIn"); await page.waitForTimeout(900);
+    // the companion chat: opening its tab never flashes the small title-bar face (the page's fade-in used to show it briefly)
+    await page.evaluate(() => { window.__miniSeen = 0; const t0 = performance.now(), look = () => { const f = document.querySelector(".cpt3-mini > :first-child"); if (f && !document.documentElement.classList.contains("cpt-typing")) window.__miniSeen = Math.max(window.__miniSeen, Number(getComputedStyle(f).opacity)); if (performance.now() - t0 < 900) requestAnimationFrame(look); }; requestAnimationFrame(look); });
+    await page.tap('nav.tabs [data-tab="companion"]'); await page.waitForSelector("#cptIn"); await page.waitForTimeout(900);
+    ok(await page.evaluate(() => window.__miniSeen) === 0, "opening the Companion tab, the small title-bar face stays hidden (" + await page.evaluate(() => window.__miniSeen) + ")");
     const card = () => page.evaluate(() => { const h = document.querySelector(".cpt-head.cpt3"), f = document.querySelector(".cpt-face-slot").getBoundingClientRect(), log = document.getElementById("cptLog");
       const sp = [...document.querySelectorAll("[data-px]")].map(e => e.getBoundingClientRect()).find(r => r.width > 30);
       const fr = document.querySelector(".cp-front"); return {h: Math.round(h.getBoundingClientRect().height), mini: getComputedStyle(document.querySelector(".cpt3-mini b")).opacity, sprite: fr ? getComputedStyle(fr).opacity : "1", log: Math.round(log.getBoundingClientRect().height), tabs: getComputedStyle(document.querySelector(".cpt3-tabs")).opacity, off: sp ? Math.round(Math.hypot(sp.left + sp.width / 2 - (f.left + f.width / 2), sp.top + sp.height / 2 - (f.top + f.height / 2))) : null}; });
