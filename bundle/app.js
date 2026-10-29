@@ -82744,27 +82744,100 @@ const AUTOPILOT = (() => {
   const ls = window.localStorage;
   const rawSet = Storage.prototype.setItem, rawRm = Storage.prototype.removeItem, rawGet = Storage.prototype.getItem;
 
-  /* Swipe between days on the Schedule (phone layout) */
+  /* Swipe between days on the Schedule (phone layout): the day follows your finger with the next one sliding in beside it,
+     like a calendar app's day view; let go past a third of the way (or flick) and it settles on that day, else springs back */
   (() => {
-    let t0 = null;
     const phoneSch = () => !!(window.matchMedia && matchMedia("(max-width:700px)").matches);
+    const still = () => document.documentElement.dataset.motion === "static" || !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+    const EASE = "cubic-bezier(.2,.8,.2,1)";
+    let S = null, eatClick = 0;
+    // The day `dir` away: in this week it's already drawn (hidden); across the week it's drawn off to the side
+    function side(dir){
+      const grid = S.grid, pills = [...document.querySelectorAll(".sch-pills button")];
+      const cur = Math.max(0, pills.findIndex(b => b.getAttribute("aria-pressed") === "true")), n = cur + dir;
+      const heads = [...grid.querySelectorAll(":scope > .sch-head")], cols = [...grid.querySelectorAll(":scope > .sch-col")];
+      if (n >= 0 && n < pills.length && heads[n] && cols[n]) return {head: heads[n], col: cols[n], own: false, commit: () => { ui.schDay = n; }};
+      const wk = addDays(ui.schWeek || mondayOf(todayISO()), dir * 7), keep = [ui.schWeek, ui.schDay, schNoticeHtml];
+      ui.schWeek = wk; ui.schDay = dir > 0 ? 0 : -1;
+      let html = ""; try { html = viewSchedule(); } catch (e) {}
+      ui.schWeek = keep[0]; ui.schDay = keep[1]; schNoticeHtml = keep[2];
+      const tmp = document.createElement("div"); tmp.innerHTML = html;
+      const h = tmp.querySelector(".sch-grid > .sch-head.sel"), c = tmp.querySelector(".sch-grid > .sch-col.sel");
+      if (!h || !c) return null;
+      grid.append(h, c);
+      return {head: h, col: c, own: true, commit: () => { ui.schWeek = wk; ui.schDay = dir > 0 ? 0 : -1; }};
+    }
+    function peek(dir){
+      if (S.dir === dir && S.nb) return S.nb;
+      unpeek();
+      S.dir = dir; S.nb = side(dir);
+      if (S.nb) { S.nb.head.classList.add("sch-peek"); S.nb.col.classList.add("sch-peek"); }
+      return S.nb;
+    }
+    function unpeek(){
+      const nb = S && S.nb; if (!nb) return;
+      [nb.head, nb.col].forEach(el => { el.classList.remove("sch-peek"); el.style.transform = el.style.transition = ""; if (nb.own) el.remove(); });
+      S.nb = null; S.dir = 0;
+    }
+    function place(dx, ms){
+      const tr = ms ? `transform ${ms}ms ${EASE}` : "";
+      [S.head, S.col].forEach(el => { el.style.transition = tr; el.style.transform = `translateX(${dx}px)`; });
+      if (S.nb) [S.nb.head, S.nb.col].forEach(el => { el.style.transition = tr; el.style.transform = `translateX(${dx + S.dir * S.w}px)`; });
+    }
+    function cleanup(){
+      if (!S) return;
+      unpeek(); [S.head, S.col].forEach(el => { el.style.transform = el.style.transition = ""; });
+      S.grid.classList.remove("sch-swiping"); if (S.lock === "x") renderBlocked = false; S = null;
+    }
     document.addEventListener("touchstart", e => {
-      t0 = null;
-      if (e.touches.length !== 1 || !phoneSch() || document.body.classList.contains("sch-dragging")) return;
+      if (S && S.settling) return;
+      S = null;
+      if (e.touches.length !== 1 || !phoneSch() || ui.tab !== "schedule" || document.body.classList.contains("sch-dragging") || dlg.open) return;
       if (!e.target.closest || !e.target.closest(".sch-wrap, .sch-pills")) return;
-      const t = e.touches[0]; t0 = {x: t.clientX, y: t.clientY, at: Date.now()};
+      const grid = document.querySelector(".sch-wrap .sch-grid"), head = grid && grid.querySelector(":scope > .sch-head.sel"), col = grid && grid.querySelector(":scope > .sch-col.sel");
+      if (!head || !col) return;
+      const t = e.touches[0];
+      S = {x: t.clientX, y: t.clientY, at: performance.now(), grid, head, col, w: col.getBoundingClientRect().width, lock: "", dx: 0, v: 0, lt: performance.now(), lx: t.clientX, dir: 0, nb: null};
     }, {passive: true});
-    document.addEventListener("touchend", e => {
-      const s = t0; t0 = null;
-      if (!s || ui.tab !== "schedule" || document.body.classList.contains("sch-dragging") || dlg.open) return;
-      const t = e.changedTouches[0], dx = t.clientX - s.x, dy = t.clientY - s.y;
-      if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.6 || Date.now() - s.at > 800) return;
-      const pills = [...document.querySelectorAll(".sch-pills button")]; if (!pills.length) return;
-      const cur = Math.max(0, pills.findIndex(b => b.getAttribute("aria-pressed") === "true")), dir = dx < 0 ? 1 : -1, n = cur + dir;
-      if (n >= 0 && n < pills.length) ui.schDay = n;
-      else { ui.schWeek = addDays(ui.schWeek || mondayOf(todayISO()), dir * 7); ui.schDay = dir > 0 ? 0 : -1; }
-      render();
-    }, {passive: true});
+    document.addEventListener("touchmove", e => {
+      if (!S || S.settling || e.touches.length !== 1) return;
+      if (document.body.classList.contains("sch-dragging")) { cleanup(); return; }
+      const t = e.touches[0], dx = t.clientX - S.x, dy = t.clientY - S.y;
+      if (!S.lock) {
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        S.lock = Math.abs(dx) > Math.abs(dy) * 1.2 ? "x" : "y";
+        if (S.lock === "y") return;
+        S.grid.classList.add("sch-swiping");
+        renderBlocked = true;   // no redraw may swap the day out from under the finger; one runs once it settles
+      }
+      if (S.lock !== "x") return;
+      e.preventDefault();
+      const now = performance.now(); if (now > S.lt) { S.v = (t.clientX - S.lx) / (now - S.lt); } S.lt = now; S.lx = t.clientX;
+      S.dx = dx;
+      if (dx) peek(dx < 0 ? 1 : -1);
+      place(S.nb ? dx : dx * 0.3, 0);
+    }, {passive: false});
+    const end = () => {
+      if (!S || S.settling) return;
+      if (S.lock !== "x") { S = null; return; }
+      eatClick = Date.now();
+      if (performance.now() - S.lt > 90) S.v = 0;   // the finger stopped before lifting: not a flick
+      const dir = S.dir, go = S.nb && (Math.abs(S.dx) > S.w * 0.33 || (Math.abs(S.v) > 0.45 && Math.sign(S.v) === -dir));
+      const ms = still() ? 0 : Math.round(Math.max(160, Math.min(320, (go ? S.w - Math.abs(S.dx) : Math.abs(S.dx)) / Math.max(0.6, Math.abs(S.v)))));
+      S.settling = true;
+      const finish = () => {
+        if (!S) return;
+        if (go) { const commit = S.nb.commit; cleanup(); commit(); render(); }
+        else cleanup();
+      };
+      if (!ms) { finish(); return; }
+      place(go ? -dir * S.w : 0, ms);
+      setTimeout(finish, ms + 20);
+    };
+    document.addEventListener("touchend", end, {passive: true});
+    document.addEventListener("touchcancel", () => { if (S && !S.settling) { if (S.lock === "x") { S.dx = 0; end(); } else S = null; } }, {passive: true});
+    // a swipe isn't a tap on whatever it started on
+    document.addEventListener("click", e => { if (Date.now() - eatClick < 400 && e.target.closest && e.target.closest(".sch-wrap")) { e.preventDefault(); e.stopPropagation(); } }, true);
   })();
 
   /* Dismissals and light/dark follow you between devices */
