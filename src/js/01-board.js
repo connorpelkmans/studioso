@@ -591,7 +591,8 @@ function computeFocus(){
   Object.values(info).forEach(x => {
     const t = x.t, r = [];
     const luD = x.lateUntil ? x.lateUntil.slice(0, 10) : "", luT = x.lateUntil ? x.lateUntil.slice(11) : "";
-    const penTxt = `Late work loses ${hasLatePen(t) ? "" : "about "}${Math.round(latePenOf(t) * 100)}% a day${hasLatePen(t) ? "" : " (a typical penalty; set the real one in the task)"}${x.W ? `, about ${pct(x.W * latePenOf(t))}% of your grade` : ""}`;
+    const pd = Math.round(latePenOf(t) * 100), typ = hasLatePen(t) ? "" : ` (at a typical ${pd}% a day)`;
+    const penTxt = hasLatePen(t) ? `Loses ${pd}% a day${x.W ? `, about ${pct(x.W * latePenOf(t))}% of your grade` : ""}` : x.W ? `Each day late costs about ${pct(x.W * latePenOf(t))}% of your grade${typ}` : `Late work loses about ${pd}% a day`;
     if (x.dead) r.push([100, `Past due, and late work isn't accepted. It isn't in today's plan: talk to your instructor if you still want to hand it in`]);
     else if (x.past && x.dl === 0 && t.time) r.push([100, `Was due at ${fmtTime(t.time)} today${x.late === "free" ? ", and late work is accepted" : ""}`]);
     else if (x.past) r.push([100, luD ? `Overdue. Late submissions close ${fmtDate(luD)}${luT && luT !== "23:59" ? " at " + fmtTime(luT) : ""}` : `Overdue by ${-x.dl} day${x.dl === -1 ? "" : "s"}`]);
@@ -730,14 +731,15 @@ function dayTimelineHtml(F, todayList, heroId){
 hook("render", () => { document.querySelectorAll(".dtl-rail").forEach(r => { const t = r.querySelector("[data-anchor]"); if (t) r.scrollLeft = Math.max(0, t.offsetLeft - r.offsetLeft - 8); }); });
 function planRow(x, i, showScore, noRank){
   const t = x.t, c = courseOf(t.courseId);
-  const rs = x.reasons || [], li = planLead(rs), lead = rs[li] || "", rest = rs.filter((r, k) => k !== li);
+  // a short reason shows on the row; a long one would be cut off, so the row says "Why" and the reasons open below
+  const rs = x.reasons || [], li = planLead(rs), lead0 = rs[li] || "", short = lead0.length <= 30, lead = short ? lead0 : rs.length ? "Why" : "", rest = short ? rs.filter((r, k) => k !== li) : rs;
   const key = (showScore ? (noRank ? "w" : "r") : "t") + "-" + t.id, open = !!(ui.planWhy && ui.planWhy[key]);
   const side = showScore ? `<span class="score" title="Focus score" aria-label="Focus score ${Math.round(x.score)}">${Math.round(x.score)}</span>`
     : x.alloc > 0 ? `<span class="alloc" title="Time Today's Plan suggests for this today">${fmtHM(x.alloc)}<small class="alloc-l"> today</small></span>` : `<span class="alloc idle">Later</span>`;
   return `<li class="plan-row${open ? " why-open" : ""}" style="--c:${esc(colorOf(t.courseId))}">
     ${t.gt || t.xs ? `<span class="check gt-dot" aria-hidden="true"></span>` : `<button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>`}
     <button class="plan-main" ${gtOpenAttrs(t)} title="${esc(rs.join("\n"))}"><span class="task-title">${esc(t.title)}</span>${t.gt ? `<span class="pr-chip gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? `<span class="pr-chip">${esc(courseLabel(c))}</span>` : ""}</button>${c ? `<span class="pr-chip pr-chip-out">${esc(courseLabel(c))}</span>` : ""}
-    ${lead ? rest.length ? `<button class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}" data-act="plan-why" data-id="${esc(key)}" aria-expanded="${open}" aria-controls="pw-${esc(key)}" title="${esc(lead)}. Show all ${rs.length} reasons"><span class="pr-lead">${esc(lead)}</span><span class="pr-n" aria-hidden="true">+${rest.length} more</span></button>` : `<span class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}"><span class="pr-lead">${esc(lead)}</span></span>` : `<span class="pr-why"></span>`}
+    ${lead ? rest.length ? `<button class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}" data-act="plan-why" data-id="${esc(key)}" aria-expanded="${open}" aria-controls="pw-${esc(key)}" title="${short ? esc(lead) + ". " : ""}Show all ${rs.length} reasons"><span class="pr-lead">${esc(lead)}</span>${short ? `<span class="pr-n" aria-hidden="true">+${rest.length} more</span>` : `<svg class="pf-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`}</button>` : `<span class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}"><span class="pr-lead">${esc(lead)}</span></span>` : `<span class="pr-why"></span>`}
     <span class="plan-side">${lmsGoBtn(t)}${window.SBPREP ? SBPREP.matBtn(t) : ""}${side}${showScore || !canDoNow(t) ? "" : `<button class="focus-go" data-act="pomo-task" ${focusAttrs(t)} aria-label="Start a focus session on ${esc(t.title)}" title="Start a focus session">${TOMATO}</button>`}${showScore || t.gt ? "" : `<button class="focus-go lt-go" data-act="log-time" data-id="${esc(planTaskId(t))}" aria-label="Log time on ${esc(t.title)}" title="Log time you worked on this">${CLOCK_IC}</button>`}</span>
     ${(sl => !showScore && ((sl && sl.length) || x.moved > 0.05) ? `<span class="pr-slot">${sl && sl.length ? `<b>${esc(availSlotText(sl))}</b>` : ""}${x.moved > 0.05 ? `${sl && sl.length ? " " : ""}<span class="mini">${esc(fmtHM(x.moved))} moved to a lighter day</span>` : ""}</span>` : "")(FOCUS && FOCUS.slotsBy ? FOCUS.slotsBy[t.id] : null)}
     ${rest.length ? `<ul class="pr-more" id="pw-${esc(key)}"${open ? "" : " hidden"}>${rest.map(r => `<li>${esc(r)}</li>`).join("")}</ul>` : ""}
@@ -795,14 +797,16 @@ const pnIcon = k => ({warn: "!", late: "!", busy: "\u2191", ready: "%", wrap: "\
 function planNotes(F, inView, crunchMain){
   const rows = [], today = todayISO();
   // Short of time comes first: it changes what to do today
-  if (crunchMain) rows.push({k: "warn", main: crunchMain});
   const b = F.busyAhead;
-  if (b && (() => { try { return localStorage.getItem(BUSY_LS) !== today; } catch (e) { return true; } })()) {
+  const busy = b && (() => { try { return localStorage.getItem(BUSY_LS) !== today; } catch (e) { return true; } })() ? (() => {
     const name = d => dayDiff(today, d.d) === 1 ? "Tomorrow" : parse(d.d).toLocaleDateString(undefined, {weekday: "long"});
     const days = b.days.map(d => name(d) + (d.what ? ` (${d.what})` : "")), list = days.length > 1 ? days.slice(0, -1).join(", ") + " and " + days[days.length - 1] : days[0];
-    rows.push({k: "busy", main: `<b>Busy days ahead.</b> ${esc(list)} ${days.length > 1 ? "leave" : "leaves"} little study time, so more of your work needs doing today. Adding <b>${fmtHM(b.add)}</b> today ${b.all ? "keeps you on track" : "helps you keep up"}.`,
-      acts: `<button class="btn small primary" data-act="today-set" data-id="${b.to}">Make Today ${fmtHM(b.to)}</button><button class="btn small" data-act="busy-hide">Not Today</button>`});
-  }
+    return {list: esc(list), many: days.length > 1, acts: `<button class="btn small primary" data-act="today-set" data-id="${b.to}">Make Today ${fmtHM(b.to)}</button><button class="btn small" data-act="busy-hide">Not Today</button>`};
+  })() : null;
+  // Short of time and busy days ahead both ask for more time today: one row, one button
+  if (crunchMain && busy) rows.push({k: "warn", main: `${crunchMain} ${busy.list} ${busy.many ? "leave" : "leaves"} little study time too, so adding <b>${fmtHM(b.add)}</b> today helps most.`, acts: busy.acts, cls: "pn-busy"});
+  else if (crunchMain) rows.push({k: "warn", main: crunchMain});
+  else if (busy) rows.push({k: "busy", main: `<b>Busy days ahead.</b> ${busy.list} ${busy.many ? "leave" : "leaves"} little study time, so more of your work needs doing today. Adding <b>${fmtHM(b.add)}</b> today ${b.all ? "keeps you on track" : "helps you keep up"}.`, acts: busy.acts});
   // How ready you feel against your results, for the nearest exam with a clear gap (hidden for the day with Got It)
   const gh = lsObj(GAPHIDE_LS);
   const gap = Object.values(F.info).filter(x => MILESTONE(x.t.type) && !x.t.prepFor && x.t.status !== "done" && inView(x) && x.dl >= 0 && x.dl <= 14 && gh[x.t.id] !== today)

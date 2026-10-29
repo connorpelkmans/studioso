@@ -53,7 +53,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       const p = await page.plan();
       ok(row(p, "a").dead && row(p, "a").alloc === 0, "due time passed: no late work, so no time today");
       ok(row(p, "a2").past && !row(p, "a2").dead && row(p, "a2").tier, "due time passed: late work accepted, so it is due now");
-      ok(row(p, "a2").reasons.some(r => /Was due at 9/.test(r)) && row(p, "a2").reasons.some(r => /loses 20% a day/.test(r)), "due time passed: says when it was due and the penalty you set");
+      ok(row(p, "a2").reasons.some(r => /Was due at 9/.test(r)) && row(p, "a2").reasons.some(r => /oses 20% a day/.test(r)), "due time passed: says when it was due and the penalty you set");
       ok(row(p, "c").reasons.some(r => /more time than is left before 1/.test(r)), "due at 1 PM: only the hour before it counts");
       ok(p.next.id !== "a", "due time passed: never Do This Next");
       agree(p, "due time"); await done(ctx, page);

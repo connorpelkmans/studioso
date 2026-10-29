@@ -164,3 +164,9 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
 @media (max-width:600px){.pn-acts{flex-basis:100%;margin-left:34px}}
 .xr-decks{display:grid;gap:4px;margin:2px 0 0 26px;max-height:40vh;overflow:auto}
 .xr-decks.auto{opacity:.55}
+/* Today's Plan: Free Time, Calendar, Exam Prep and the rest sit closed in the links under the plan */
+.plan-foot .pt-tab{flex:none;justify-content:flex-start;font:600 .84rem var(--body);min-height:auto;padding:6px 0;border-radius:0;background:none;color:var(--muted)}
+.plan-foot .pt-tab .pe-dot{background:color-mix(in srgb,var(--muted) 16%,transparent);color:var(--muted);margin-left:2px}
+.plan-tabs{margin:0}
+.plan-tabs .pt-panel:not([hidden]){margin-top:10px}
+.pr-why[aria-expanded="true"] .pf-chev{transform:rotate(180deg)}

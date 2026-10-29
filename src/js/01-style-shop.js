@@ -1141,7 +1141,8 @@ const STYLE_ACTS = {
   "kit-follow": el => { saveStyle({[el.dataset.kind + "Auto"]: true}); render(); styleShop(); },
   "env-toggle": () => { ui.envOpen = ui.envOpen === false; try { localStorage.setItem("studyboard:env", ui.envOpen ? "1" : "0"); } catch(e) {} render(); }
 };
-try { const v = localStorage.getItem("studyboard:env"); if (v) ui.envOpen = v === "1"; else if (window.matchMedia && window.matchMedia("(max-width:700px)").matches) ui.envOpen = false; } catch(e) {}
+// The sticker envelope starts closed; once you open it, it stays the way you left it
+try { const v = localStorage.getItem("studyboard:env"); ui.envOpen = v ? v === "1" : false; } catch(e) { ui.envOpen = false; }
 document.addEventListener("change", e => {
   const c = e.target.classList; if (!c || !(c.contains("note-shape") || c.contains("note-pin"))) return;
   const n = state.notes[e.target.dataset.id]; if (!n) return;

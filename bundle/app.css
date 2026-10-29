@@ -3326,6 +3326,13 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;overflow:au
 /* Last week's champion: a small golden badge */
 .grp-badges .grp-badge.champ{background:color-mix(in srgb,#F5B82E 34%,var(--surface));color:#6B4A00;font-size:.64rem;line-height:1.5;padding:0 7px;letter-spacing:.01em}
 .grp-crown{display:inline-block;vertical-align:-2px;margin-left:5px;flex:none}
+/* Share or Import: one header button opens these three */
+.sm-list{display:grid;gap:8px}
+.sm-opt{display:grid;gap:2px;text-align:left;min-height:44px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;cursor:pointer}
+.sm-opt:hover,.sm-opt:focus-visible{border-color:var(--accent)}
+.sm-btn{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.sm-btn svg{width:16px;height:16px;flex:none}
+@media (max-width:639px){.sm-btn .sm-lbl{display:none}.sm-btn{padding-inline:12px!important}}
 /* ===== module: 90-grades.css ===== */
 /* Grade Tracker and Rough Week Rescue */
 .gr-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:12px}
@@ -3616,6 +3623,15 @@ h2.sec .pill{align-self:center}
 .gr-preset{display:inline-flex;align-items:center;gap:6px;font-size:.85rem;font-weight:600}
 .gr-preset select{min-height:40px;width:auto}
 .gr-goal-ask .link-btn{min-height:40px;padding:0 8px}
+/* Target Grade on a course page */
+.gr-target{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin:12px 0 0}
+.c2-card2 .gr-target{margin:0 0 10px}
+.gr-target-l{font-weight:600}
+.gr-target-in{display:inline-flex;align-items:center;gap:4px}
+.gr-target-in input{width:5.5em;min-height:40px}
+.gr-target-in input[aria-invalid="true"]{border-color:var(--danger,#c0392b)}
+.gr-target-n{flex-basis:100%;max-width:36em}
+.gr-target-n.short{color:var(--text)}
 /* GPA, credits, past terms and Ask AI on the Grades page */
 .gp-gpa{display:flex;flex-wrap:wrap;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--accent) 5%,var(--surface))}
 .gp-g{display:grid;gap:1px;flex:1 1 150px;min-width:0;padding:8px 12px;border-radius:12px;background:var(--surface);border:1px solid var(--line)}
@@ -4922,6 +4938,33 @@ button.snd-head:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
 .sem-sheet .sheet-foot .btn,.sem-sheet .sheet-foot .link-btn{min-height:44px}
 @media (prefers-reduced-motion:reduce){.sem-sheet *,.sem-card-b *{transition:none!important;animation:none!important}}
 
+/* ===== module: 96-school.css ===== */
+/* School Days: days off and a rotating class cycle */
+.sd-fs{display:grid;gap:10px}
+.sd-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.sd-off{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.sd-off > span{flex:1;min-width:0;display:grid;gap:1px}
+.sd-none{padding:2px 0}
+.sd-add{display:grid;gap:8px;padding-top:4px}
+.sd-cycle{display:grid;gap:10px;margin-top:8px}
+.sd-cycle[hidden],.cyc-inline[hidden]{display:none}
+.cyc-q{justify-self:start;margin-top:6px;padding:6px 0;font-size:.84rem}
+.cyc-inline{display:grid;gap:8px;margin-top:8px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--soft)}
+.meet-cyc button{min-width:40px}
+/* What today is at school, under the date and on the Schedule's day headers */
+.nd-sd{display:block;font-size:.72rem;font-weight:600;opacity:.85;margin-top:1px}
+#todayLabel .nd-sd{display:inline;font-size:inherit;margin:0}
+.sch-sd{display:block;font-style:normal;font-size:.7rem;font-weight:700;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.sch-sd.off{color:var(--accent)}
+.sch-col.is-off{background:repeating-linear-gradient(135deg,transparent 0 10px,color-mix(in srgb,var(--line) 45%,transparent) 10px 11px)}
+/* A common holiday coming up: one line on the Schedule */
+.hol-ask{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 12px;padding:10px 12px 10px 14px;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;background:var(--surface);font-size:.92rem}
+.hol-ask > span:first-child{flex:1 1 260px;min-width:0}
+.hol-acts{display:flex;gap:6px;flex-wrap:wrap}
+.sd-more summary{cursor:pointer;font-weight:600;display:grid;gap:2px}
+.sd-more summary .mini{font-weight:400}
+.sd-more .sd-list{margin-top:8px}
+.sd-more select{flex:none;max-width:42%}
 /* ===== module: 92-accuracy.css ===== */
 .acc-chip{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom,0px));z-index:49;width:min(620px,calc(100vw - 24px));box-sizing:border-box;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:8px 8px 8px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);box-shadow:0 8px 24px rgba(8,20,50,.22)}
 .acc-chip[hidden]{display:none}
@@ -7248,6 +7291,12 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
 @media (max-width:600px){.pn-acts{flex-basis:100%;margin-left:34px}}
 .xr-decks{display:grid;gap:4px;margin:2px 0 0 26px;max-height:40vh;overflow:auto}
 .xr-decks.auto{opacity:.55}
+/* Today's Plan: Free Time, Calendar, Exam Prep and the rest sit closed in the links under the plan */
+.plan-foot .pt-tab{flex:none;justify-content:flex-start;font:600 .84rem var(--body);min-height:auto;padding:6px 0;border-radius:0;background:none;color:var(--muted)}
+.plan-foot .pt-tab .pe-dot{background:color-mix(in srgb,var(--muted) 16%,transparent);color:var(--muted);margin-left:2px}
+.plan-tabs{margin:0}
+.plan-tabs .pt-panel:not([hidden]){margin-top:10px}
+.pr-why[aria-expanded="true"] .pf-chev{transform:rotate(180deg)}
 /* ===== module: 103-phone-design.css ===== */
 /* Done bar and the compact time prompt */
 @keyframes sbPop{0%{transform:scale(1)}50%{transform:scale(1.15)}100%{transform:scale(1)}}
@@ -7454,4 +7503,8 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
   .acc-chip[data-kind="left"] .acc-left{grid-template-columns:1fr 1fr}
   .acc-chip[data-kind="left"] .acc-say{flex:1 1 100%}
   .acc-chip[data-kind="left"] .acc-say input{width:100%}
+}
+/* Phones: Enough for Today is a quiet text link under the two main buttons, not a third big button */
+@media (max-width:639px){
+  .next-up .nu-acts > [data-act="nu-enough"]{flex:0 0 100%;min-height:36px;margin:-2px 0 -4px;padding:4px 0!important;border:0!important;background:none!important;box-shadow:none!important;color:var(--muted);font-weight:600;text-decoration:underline;text-underline-offset:3px}
 }

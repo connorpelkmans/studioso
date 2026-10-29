@@ -674,7 +674,7 @@ function drawView(){
   const topicRows = P.topics.map(t => { const b = r.byTopic[t.id] || {cov: 0, pct: 0}, ls = liveLinks(t.links);
     return `<li class="pp-cov"><div class="pp-cov-top"><b>${esc(t.name)}</b><span class="mini">${esc((CONF3.find(c => c[0] === t.conf) || [0, "OK"])[1])}${t.done ? ", studied" : ""}</span><span class="spacer"></span><span class="mini">${b.cov}% covered${b.mastery != null ? `, cards ${b.mastery}%` : ""}${b.quiz != null ? `, quiz ${b.quiz}%` : ""}</span></div>
       <div class="pp-bar" role="img" aria-label="${esc(t.name)}: ${b.cov}% of its sessions done"><i style="width:${b.cov}%"></i></div>
-      <div class="mini pp-links">${ls.length ? ls.map(l => esc(linkIcon(l.k) + ": " + l.title)).join(" · ") : "No linked material. "}${ls.length ? "" : `<button type="button" class="link-btn" data-pp="gen">Make Flashcards from Your Notes</button>`}</div></li>`; }).join("");
+      <div class="mini pp-links">${ls.length ? ls.map(l => esc(linkIcon(l.k) + ": " + l.title)).join(" · ") : "No linked material. "}${ls.length ? "" : `<button type="button" class="link-btn" data-pp="gen">Make Flashcards from Your Notes</button>`}${window.SBTEACH ? SBTEACH.btn(ex, t) : ""}</div></li>`; }).join("");
   const agenda = Object.keys(byDate).sort().map(d => `<li class="pp-day${d === today ? " is-today" : ""}${d < today ? " is-past" : ""}" ${d === today ? 'aria-current="date"' : ""}><div class="ep-day-head"><b>${esc(fmtDate(d))}</b>${d === today ? `<span class="pp-badge">Today</span>` : ""}<span class="mini">${fmtHM(byDate[d].reduce((a, x) => a + minOf(x), 0) / 60)}</span></div>
       <ul>${byDate[d].map(s => `<li class="pp-sess${s.status === "done" ? " is-done" : ""}${s.status !== "done" && d < today ? " is-missed" : ""}">
         <div class="pp-sess-top"><button type="button" class="check pp-check" data-act="prep-done" data-id="${esc(s.id)}" aria-label="${s.status === "done" ? "Mark not done" : "Mark done"}: ${esc(s.title)}">${CHECK}</button>
@@ -688,7 +688,7 @@ function drawView(){
     ${sm.missed && !past ? `<p class="pp-note"><b>${sm.missed} session${sm.missed === 1 ? "" : "s"} slipped.</b> No problem: spread them over the days that are left. <button type="button" class="link-btn" data-pp="catch">Catch Up</button></p>` : ""}
     ${past ? `<p class="pp-note"><b>${esc(ex.title)} was on ${esc(fmtDate(ex.due))}.</b> How did it go? <button type="button" class="link-btn" data-pp="wrap">Add My Mark and Wrap Up</button></p>` : ""}
     <h3 class="fsec">Day by Day</h3><ol class="pp-agenda">${agenda}</ol>
-    <h3 class="fsec">Topics</h3><ul class="pp-covs">${topicRows}</ul>`;
+    <h3 class="fsec">Topics</h3>${window.SBEXAMSHEET ? SBEXAMSHEET.btn(ex) : ""}<ul class="pp-covs">${topicRows}</ul>`;
   foot.innerHTML = `<button type="button" class="btn" data-act="close">Close</button><span class="spacer"></span><button type="button" class="btn" data-pp="edit">Edit Topics</button>${sm.missed && !past ? `<button type="button" class="btn" data-pp="catch">Catch Up</button>` : ""}<button type="button" class="btn primary" data-pp="replan">Re-plan</button>`;
   const t = $("#ppTitle"); if (t) t.textContent = "Prep Plan";
 }
@@ -829,7 +829,7 @@ function todayHtml(){
 }
 /* the exam's own detail sheet and row */
 function formHtml(t){
-  if (!t || !MILESTONE(t.type)) return "";
+  if (!t || !MILESTONE(t.type)) return t && window.SBTEACH ? SBTEACH.taskHtml(t) : "";
   const sm = summaryOf(t), today = todayISO(), over = t.due && t.due < today;
   if (!sm) return t.status === "done" || over ? "" : `<div class="pp-form"><div><b>Exam prep</b><span class="mini"> Spread review sessions across the days before, with your decks and notes.</span></div><button type="button" class="btn small primary" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button></div>`;
   return `<div class="pp-form"><div><b>Prep plan</b><span class="mini"> ${esc(sm.line)}${sm.missed ? ` · ${sm.missed} slipped` : ""}${sm.moved ? " · date changed" : ""}</span><div class="pp-bar" role="img" aria-label="${sm.pct == null ? sm.done + " of " + sm.total + " sessions done" : "Readiness " + sm.pct + " percent"}"><i style="width:${sm.pct == null ? Math.round(sm.done / sm.total * 100) : sm.pct}%"></i></div></div><button type="button" class="btn small primary" data-act="exam-plan" data-id="${esc(t.id)}">Open Prep Plan</button></div>`;

@@ -22,7 +22,9 @@ ok(pick([T("ex", "Exam", "2026-10-20")]) === null, "a past exam doesn't count");
   ok(m && m.exam.id === "ex" && m.days === 2, "an exam in 2 days turns it on");
 }
 ok(pick([T("ex", "Exam", "2026-10-24")]).days === 3, "3 days out is still in the window");
-ok(pick([T("q", "Quiz", "2026-10-22")]).exam.id === "q", "quizzes count");
+ok(pick([T("q", "Quiz", "2026-10-22", {weight: 10})]).exam.id === "q", "quizzes worth 10% or more count");
+ok(pick([T("q", "Quiz", "2026-10-22", {weight: 5})]) === null && pick([T("q", "Quiz", "2026-10-22")]) === null, "smaller quizzes don't take over the plan");
+ok(pick([T("q", "Quiz", "2026-10-22", {weight: 5, w: 12})]).exam.id === "q", "the share of the grade from points counts too");
 ok(pick([T("m", "Other", "2026-10-22", {title: "Midterm 2"})]).exam.id === "m", "a task titled Midterm counts");
 ok(pick([T("s", "Study", "2026-10-22", {title: "Midterm review", prepFor: "x"})]) === null, "a study session never counts as the exam");
 ok(pick([T("ex", "Exam", "2026-10-23")], {enabled: false}) === null, "the setting turns it off");
@@ -35,7 +37,7 @@ ok(pick([T("ex", "Exam", TODAY)]) !== null, "an exam today with no time stays on
 
 // Several exams
 {
-  const tasks = [T("e2", "Exam", "2026-10-24", {time: "09:00"}), T("e1", "Exam", "2026-10-23", {time: "13:00"}), T("q1", "Quiz", "2026-10-23", {time: "08:00"})];
+  const tasks = [T("e2", "Exam", "2026-10-24", {time: "09:00"}), T("e1", "Exam", "2026-10-23", {time: "13:00"}), T("q1", "Quiz", "2026-10-23", {time: "08:00", weight: 15})];
   const m = pick(tasks);
   ok(m.exam.id === "q1" && m.others.map(t => t.id).join() === "e1,e2", "soonest first, others listed: " + m.exam.id + " / " + m.others.map(t => t.id));
   const m2 = pick(tasks, {off: {q1: true}});

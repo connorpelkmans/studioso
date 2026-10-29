@@ -405,7 +405,7 @@ function askSheet(courseId){
   });
   const courseInfo = () => {
     if (!c) return "";
-    const ms = courseMeetings(c).map(m => `${m.kind} ${daysLabel(m.days)} ${m.start}-${m.end}${m.where ? " " + m.where : ""}`).join("; ");
+    const ms = courseMeetings(c).map(m => `${m.kind} ${meetWhen(m)} ${m.start}-${m.end}${m.where ? " " + m.where : ""}`).join("; ");
     const ts = tasksArr().filter(t => t.courseId === c.id && t.status !== "done").sort(sortTasks).slice(0, 30).map(t => `${t.title} (${t.type}${t.due ? ", due " + t.due : ""}${hasWeight(t) ? ", " + t.weight + "%" : ""})`).join("; ");
     return `Course: ${c.name}${c.code ? " (" + c.code + ")" : ""}. Instructor: ${c.instructor || "?"}. Meets: ${ms || c.schedule || "?"}. Office hours: ${c.office || "?"}.\nOpen tasks: ${ts || "none"}.\nToday is ${todayISO()}.`;
   };

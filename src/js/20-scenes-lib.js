@@ -1767,7 +1767,7 @@ SCENES.neon = function (W, H, dk, rnd) {
   add(far, 'a', sk, dk ? '#1E1A44' : '#BDB8E0');
   var fac = dk ? ['#221C46', '#2A2050', '#1C1A3C'] : ['#9E9ACB', '#B3A5CE', '#8F95C4'], fk = ['b', 'c', 'd'];
   var shopGlow = '', pend = '', pglow = '', shelf = '', wins = '', lit = '', shop = '', shopLit = '', trim = '', halo = '', aw = '', door = '';
-  var tubesB = [], tubesM = [];
+  var tubesB = [], tubesM = [], shopWin = [];
   // facade and shop detail: frames and ledges, sills, curtains, plants, rooftop gear, shop goods, awnings, doors
   var frames = '', sills = '', curt = '', plants = '', roof = '', shade = '', itemA = '', itemB = '', mull = '', glass = '', awA = '', awB = '', awW = '', dglass = '', shopRefl = '', swH = ph ? 18 : 26;
   var bw0 = ph ? [0.56, 0.5] : [0.24, 0.2, 0.22, 0.18, 0.2];
@@ -1816,7 +1816,7 @@ SCENES.neon = function (W, H, dk, rnd) {
       for (var q5 = 1; q5 < 6; q5++) { var v5 = q5 / 6; st.push([bx1 + (bx0 - bx1) * v5, aB + Math.sin(v5 * Math.PI) * 5]); } st.push([bx0, aB]);
       if (q4 % 2) awW += poly(st); else if (sc === 'A') awA += poly(st); else awB += poly(st); }
     trim += rect(sx0 - 6, aT - 3, sw + 12, 3);
-    shopRefl += ell(sx0 + sw / 2, gy + swH + 34, sw * 0.32, 22);
+    shopWin.push([sx0, sy0, sw, ww]);
     xs += bw; bi++;
   }
   var t1 = [], t2 = [], ty = gy - shopH - (ph ? 112 : 128);
@@ -1831,7 +1831,6 @@ SCENES.neon = function (W, H, dk, rnd) {
   add(far, 'n', shade, dk ? 'rgba(0,0,0,0.2)' : 'rgba(50,40,110,0.1)');
   add(far, 'g', shopLit + door, dk ? '#3E2C5E' : '#F4E3E4');
   add(refl, 'a', shopGlow + pglow, dk ? 'rgba(255,180,120,0.32)' : 'rgba(255,200,150,0.38)');
-  add(refl, 'j', shopRefl, dk ? 'rgba(255,180,120,0.28)' : 'rgba(255,215,170,0.45)');
   add(near, 'c', shelf, dk ? '#2A1E3E' : '#B79A9E');
   add(near, 'i', itemA, dk ? '#6A5AB0' : '#8E86D8'); add(near, 'j', itemB, dk ? '#B8664E' : '#F0A27A');
   add(near, 'k', mull, dk ? '#130F2C' : '#7C76AE'); add(near, 'l', glass, dk ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.4)');
@@ -1850,13 +1849,22 @@ SCENES.neon = function (W, H, dk, rnd) {
   stk(refl, 't', dM, dk ? 'rgba(255,70,190,0.75)' : 'rgba(224,64,158,0.42)', 16);
   stk(mid, 's', dB, BL, 5); stk(mid, 't', dM, MG, 5);
   stk(near, 's', dBn, dk ? '#DCE4FF' : '#8FA6FF', 1.8); stk(near, 't', dMn, dk ? '#FFE0F2' : '#FF9CD2', 1.8);
-  var mir = function (p) { return [p[0], gy + (gy - p[1]) * 0.55 + 10]; };
-  var rB = pathOf(tubesB, mir), rM = pathOf(tubesM, mir);
-  var sB = '', sM = '';
-  tubesB.forEach(function (p) { if (p.length > 40) return; var c = p[Math.floor(p.length / 2)], m = mir(c); sB += ell(m[0], m[1] + 20, 14, 42); });
-  tubesM.forEach(function (p) { if (p.length > 40) return; var c = p[Math.floor(p.length / 2)], m = mir(c); sM += ell(m[0], m[1] + 20, 14, 42); });
-  add(refl, 'd', sB, dk ? 'rgba(80,120,255,0.5)' : 'rgba(63,99,238,0.3)');
-  add(refl, 'e', sM, dk ? 'rgba(255,70,190,0.45)' : 'rgba(224,64,158,0.28)');
+  // the wet street mirrors what stands above it: flipped about the curb, squashed by the low viewing angle,
+  // softened, with a little ripple. The animation draws it live (rippling); the still picture gets a fixed copy.
+  var RA = gy + swH + 5, RK = ph ? 0.6 : 0.62;
+  var NR = {A: RA, k: RK, gy: gy, shops: shopWin, lamps: lampXs, lampT: lampT};
+  if (ANIM) ANIM.nrefl = NR;
+  else {
+    var mirW = function (p) { var y = RA + (gy - p[1]) * RK; return [p[0] + Math.sin(y * 0.33) * 1.6, y]; };
+    var bandOf = function (list, w) { return list.map(function (pl) { var m = pl.map(mirW).filter(function (q) { return q[1] > RA && q[1] < H + 30; }); return m.length > 1 ? b2_band(m, w) : ''; }).join(''); };
+    mid.A = E(); mid.B = E(); mid.C = E();
+    add(mid, 'a', bandOf(tubesB, 7), dk ? 'rgba(80,120,255,0.34)' : 'rgba(63,99,238,0.16)'); add(mid, 'b', bandOf(tubesM, 7), dk ? 'rgba(255,60,180,0.42)' : 'rgba(224,64,158,0.2)');
+    add(mid, 'c', bandOf(tubesB, 2.2), dk ? 'rgba(200,215,255,0.45)' : 'rgba(150,170,255,0.3)'); add(mid, 'd', bandOf(tubesM, 2.2), dk ? 'rgba(255,150,215,0.45)' : 'rgba(240,110,180,0.28)');
+    var sw2 = ''; shopWin.forEach(function (q) { var y0 = RA + (gy - (q[1] + q[3])) * RK, y1 = RA + (gy - q[1]) * RK; sw2 += b2_polyA([[q[0] + 3, y0], [q[0] + q[2] - 3, y0], [q[0] + q[2] - 3, Math.min(y1, H + 20)], [q[0] + 3, Math.min(y1, H + 20)]]); });
+    add(mid, 'e', sw2, dk ? 'rgba(255,190,130,0.1)' : 'rgba(255,230,200,0.22)');
+    var lr2 = ''; lampXs.forEach(function (lx) { var y = RA + (gy - lampT + 6) * RK; lr2 += b2_ellA(lx, y, 7, 6) + b2_polyA([[lx - 1.6, RA + 2], [lx + 1.6, RA + 2], [lx + 1.6, y], [lx - 1.6, y]]); });
+    add(mid, 'f', lr2, dk ? 'rgba(255,214,150,0.4)' : 'rgba(90,80,140,0.22)');
+  }
   add(refl, 'f', ell(W * 0.5, gy + 20, W * 0.6, 24), dk ? 'rgba(160,110,230,0.35)' : 'rgba(255,255,255,0.45)');
   // sidewalk with paving joints and a curb, then lantern street lamps standing on it
   var walk = rect(-10, gy, W + 20, swH), curb = rect(-10, gy + swH, W + 20, 5) + rect(-10, gy, W + 20, 1.5), lamp = '', lampGlow = '', lampLit = '', lampRefl = '';
@@ -1867,7 +1875,7 @@ SCENES.neon = function (W, H, dk, rnd) {
     lampLit += poly([[lx - 9, T0 - 12], [lx + 9, T0 - 12], [lx + 6.5, T0 + 2], [lx - 6.5, T0 + 2]]);
     lampGlow += circ(lx, T0 - 6, 40); lampRefl += ell(lx, gy + swH + 60, 9, 52) + ell(lx, gy + swH + 30, 30, 10); });
   add(near, 'a', walk, dk ? '#2C2652' : '#C9C3E4'); add(near, 'e', curb, dk ? '#19153A' : '#8F8ABE'); near.A = E(); near.B = E(); add(near, 'A', lamp, dk ? '#0C0A22' : '#4A4680'); // lamps after the awnings (slots A, B draw after p) so the posts pass in front
-  add(refl, 'b', lampGlow, dk ? 'rgba(255,214,150,0.45)' : 'rgba(255,236,200,0.8)'); add(refl, 'i', lampRefl, dk ? 'rgba(255,214,150,0.4)' : 'rgba(255,240,210,0.7)');
+  add(refl, 'b', lampGlow, dk ? 'rgba(255,214,150,0.45)' : 'rgba(255,236,200,0.8)'); add(refl, 'i', lampRefl, dk ? 'rgba(255,214,150,0.22)' : 'rgba(255,240,210,0.4)');
   add(near, 'B', lampLit, dk ? '#FFE6B0' : '#FFF4DA');
   var sh = '', pud = ''; spread(0, gy + swH + 14, W, H - gy - swH - 18, 110, 24, rnd, 1).forEach(function (c) { if (c.q < 0.55) sh += seg(c.x, c.y, c.x + 14 + c.r * 50, c.y); else if (c.q > 0.93) pud += b2_ellA(c.x, c.y, 30 + c.r * 50, 4 + c.r * 4); });
   add(mid, 'c', pud, dk ? 'rgba(150,130,255,0.14)' : 'rgba(255,255,255,0.2)');
@@ -14971,6 +14979,29 @@ ENGINES.neon = function (A, v, dk) {
       fg.lineWidth = 3; fg.strokeStyle = '#FFFFFF'; if (s.B.length) { lines(fg, s.B); fg.stroke(); } if (s.M.length) { lines(fg, s.M); fg.stroke(); } s.flare = fo;
     });
   }
+  // the wet street: a mirrored, squashed, softened copy of the signs, the tube line, the shop windows and the lamps,
+  // drawn in thin horizontal slices that sway a little, fading the further it is from the curb
+  var R = A.nrefl, rcv = null;
+  function buildRefl(d) { if (!R) return; var Wd = Math.ceil(W * d), Hd = Math.ceil(H * d), src = document.createElement('canvas'); src.width = Wd; src.height = Hd;
+    var g = src.getContext('2d'); g.setTransform(d, 0, 0, -R.k * d, 0, (R.A + R.gy * R.k) * d); g.lineCap = 'round'; g.lineJoin = 'round';
+    R.shops.forEach(function (q) { var gr = g.createLinearGradient(0, q[1], 0, q[1] + q[3]); gr.addColorStop(0, dk ? 'rgba(255,200,140,0.05)' : 'rgba(255,236,214,0.12)'); gr.addColorStop(0.6, dk ? 'rgba(255,180,120,0.2)' : 'rgba(255,230,204,0.3)'); gr.addColorStop(1, dk ? 'rgba(255,170,110,0.34)' : 'rgba(255,226,196,0.45)'); g.fillStyle = gr; g.fillRect(q[0] + 3, q[1], q[2] - 6, q[3]);
+      var pd = [0.2, 0.5, 0.8]; pd.forEach(function (f) { var px = q[0] + q[2] * f, gg = g.createRadialGradient(px, q[1] + 28, 0, px, q[1] + 28, 16); gg.addColorStop(0, dk ? 'rgba(255,220,160,0.55)' : 'rgba(255,230,190,0.5)'); gg.addColorStop(1, 'rgba(255,220,160,0)'); g.fillStyle = gg; g.fillRect(px - 16, q[1] + 12, 32, 32); });
+      g.fillStyle = dk ? 'rgba(20,14,40,0.55)' : 'rgba(150,140,190,0.4)'; g.fillRect(q[0] + q[2] / 2 - 1.5, q[1] + q[3] * 0.22, 3, q[3] * 0.78); g.fillRect(q[0], q[1] + q[3] * 0.22, q[2], 2.4); });
+    R.lamps.forEach(function (lx) { g.fillStyle = dk ? 'rgba(255,220,160,0.95)' : 'rgba(255,236,200,0.9)'; g.beginPath(); g.moveTo(lx - 9, R.lampT - 12); g.lineTo(lx + 9, R.lampT - 12); g.lineTo(lx + 6.5, R.lampT + 2); g.lineTo(lx - 6.5, R.lampT + 2); g.fill();
+      g.fillStyle = dk ? 'rgba(12,10,34,0.9)' : 'rgba(74,70,128,0.6)'; g.fillRect(lx - 2.6, R.lampT + 4, 5.2, R.gy - R.lampT - 4); });
+    function tubes(list, col, core) { lines(g, list); g.strokeStyle = rgba(col, dk ? 0.35 : 0.22); g.lineWidth = 14; g.stroke(); g.strokeStyle = col; g.lineWidth = 5; g.stroke(); g.strokeStyle = core; g.lineWidth = 1.8; g.stroke(); }
+    var tl1 = [], tl2 = []; for (var x = -20; x <= W + 20; x += 12) { tl1.push([x, T.ty + Math.sin(x / 140) * 8]); tl2.push([x, T.ty + 12 + Math.sin(x / 140 + 0.6) * 8]); }
+    tubes([tl1], BL, coreB); tubes([tl2], MG, coreM);
+    signs.forEach(function (sg) { if (sg.B.length) tubes(sg.B, BL, coreB); if (sg.M.length) tubes(sg.M, MG, coreM); });
+    rcv = document.createElement('canvas'); rcv.width = Wd; rcv.height = Hd; var h = rcv.getContext('2d');
+    if (typeof h.filter === 'string') h.filter = 'blur(' + (1.6 * d) + 'px)'; h.drawImage(src, 0, 0); h.filter = 'none';
+    // fade with distance from the curb
+    h.globalCompositeOperation = 'destination-in'; var fd = h.createLinearGradient(0, R.A * d, 0, Hd); fd.addColorStop(0, 'rgba(0,0,0,1)'); fd.addColorStop(0.55, 'rgba(0,0,0,0.6)'); fd.addColorStop(1, 'rgba(0,0,0,0.18)'); h.fillStyle = fd; h.fillRect(0, 0, Wd, Hd); }
+  function drawRefl(c, t, f) { if (!rcv) return; var d = dpr, st = 3, A0 = Math.ceil(R.A);
+    c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = dk ? 'lighter' : 'source-over'; c.globalAlpha = dk ? 0.8 : 0.55;
+    for (var y = A0; y < H; y += st) { var u = (y - A0) / Math.max(1, H - A0), dx = (Math.sin(y * 0.21 - t * 1.7 * f.s) * 1.4 + Math.sin(y * 0.057 + t * 0.6 * f.s) * 1.2) * (0.5 + u * 1.6) * f.a;
+      c.drawImage(rcv, 0, Math.round(y * d), rcv.width, Math.round(st * d), Math.round(dx * d), Math.round(y * d), rcv.width, Math.round(st * d)); }
+    c.restore(); }
   function blit(c, o, a) { if (a <= 0.004) return; c.globalAlpha = Math.min(1, a); c.drawImage(o.c, o.x, o.y, o.w, o.h); }
   function ty(x, t, off, ph, f) { return T.ty + off + Math.sin(x / 140 + ph - t * 0.42 * f.s) * 8 * f.a + Math.sin(x / 53 + ph * 2 + t * 0.7 * f.s) * 1.6 * f.a; }
   function glow(c, cols, t, f, off, ph) {
@@ -15001,7 +15032,8 @@ ENGINES.neon = function (A, v, dk) {
       });
     },
     draw: function (ca, cb, t, f) {
-      var m = ca.getTransform(); if (Math.abs(m.a - dpr) > 1e-3) build(m.a);
+      var m = ca.getTransform(); if (Math.abs(m.a - dpr) > 1e-3) { build(m.a); buildRefl(m.a); }
+      drawRefl(ca, t, f);
       ca.globalAlpha = 1; ca.lineCap = 'butt'; ca.lineJoin = 'round'; glow(ca, gB, t, f, 0, 0); glow(ca, gM, t, f, 12, 0.6);
       ca.lineJoin = 'bevel';
       core(ca, t, f, 0, 0, BL, coreB); core(ca, t, f, 12, 0.6, MG, coreM);

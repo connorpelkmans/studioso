@@ -479,7 +479,7 @@
         </div>
         <aside class="sbk-side" aria-label="Milestones">${milestoneList(page)}</aside>
       </div>
-      <p class="hint-line">Drag stickers to move them. Tap one to turn, resize or put it back (or pinch on a phone). Add captions, washi tape and frames from Decorate.</p>
+      <p class="hint-line tip-everyday">Drag stickers to move them. Tap one to turn, resize or put it back (or pinch on a phone). Add captions, washi tape and frames from Decorate.</p>
     </div>`;
   }
   VIEWS.scrapbook = viewBook;
