@@ -5,8 +5,6 @@
   const O2 = OW(2.2);
   const f1 = v => Math.round(v * 10) / 10;
   const ring = (cx, cy, n, r, fn) => Array.from({length: n}, (_, i) => { const a = i / n * Math.PI * 2; return fn(f1(cx + Math.cos(a) * r), f1(cy + Math.sin(a) * r), a * 180 / Math.PI, i); }).join("");
-  // a broad bead collar along an arc under the chin
-  const collar = (cx, cy, rx, ry, n, r) => Array.from({length: n}, (_, i) => { const a = Math.PI * (0.15 + 0.7 * i / (n - 1)), x = f1(cx + Math.cos(a) * rx), y = f1(cy + Math.sin(a) * ry); return `<circle cx="${x}" cy="${y}" r="${r}" fill="${i % 2 ? "#2E5FA8" : "#F2C24A"}" ${OW(1.2)}/>`; }).join("");
 
   COMP_DATA.push({
     theme: "egypt",
@@ -52,33 +50,35 @@
         id: "egypt-jamal", name: "Jamal", kind: "Camel Calf", pose: "stand", wearColor: "#C8503A",
         bio: "A long-lashed camel calf with stamina for the longest study sessions.",
         idle: ["earTwitch", "tailSwish", "headTilt"], cheer: "hop",
-        neck: [60, 74],
+        neck: [44, 64],
         parts: {
-          tail: {svg: `${LINE("M90 82Q100 86 101 96", "#D8A46C", 2.6)}<path d="M101 94Q106 100 101 106Q96 101 101 94Z" fill="#8A5A36" ${OW(1.8)}/>`, pivot: [90, 82]},
-          feet: `<path d="M40 90V108M80 90V108" stroke="#C48C58" stroke-width="7" stroke-linecap="round"/>
-            <path d="M48 92Q47 102 48 107M72 92Q73 102 72 107" fill="none" stroke="#2B2233" stroke-width="11" stroke-linecap="round"/><path d="M48 92Q47 102 48 107M72 92Q73 102 72 107" fill="none" stroke="#E6BC86" stroke-width="7" stroke-linecap="round"/>
-            <ellipse cx="48" cy="109" rx="6.4" ry="3.6" fill="#7A5236" ${OW(2.2)}/><ellipse cx="72" cy="109" rx="6.4" ry="3.6" fill="#7A5236" ${OW(2.2)}/>
-            <ellipse cx="40" cy="108.6" rx="5" ry="3" fill="#6A4630" ${OW(2)}/><ellipse cx="80" cy="108.6" rx="5" ry="3" fill="#6A4630" ${OW(2)}/>`,
-          body: `${RG("egypt-jamal-b", [[0, "#F6D6A4"], [0.7, "#E6B57C"], [1, "#CC9460"]], 0.4, 0.3, 0.8)}
-            <path d="M66 70C68 52 88 50 92 70Z" fill="url(#egypt-jamal-b)" ${O}/>
-            <path d="M60 66C82 66 95 74 95 86C95 97 83 100 60 100C37 100 25 97 25 86C25 74 38 66 60 66Z" fill="url(#egypt-jamal-b)" ${O}/>
-            <path d="M64 64C72 60 86 60 92 68L94 82Q78 86 62 80Z" fill="#C8503A" ${OW(2.2)}/><path d="M64 70Q78 74 93 72M63 76Q78 80 94 77" fill="none" stroke="#F2C24A" stroke-width="2" stroke-linecap="round"/>
-            <path d="M66 81L65 87M72 82.6L71.4 88.6M78 83L78 89M84 82.6L84.6 88.6M90 81.4L91.4 87" stroke="#2E5FA8" stroke-width="2.4" stroke-linecap="round"/>
-            <path d="M34 78Q40 72 50 71" fill="none" stroke="#FFF2D8" stroke-width="2.6" stroke-linecap="round" opacity=".8"/>`,
-          earL: {svg: `<ellipse cx="35" cy="40" rx="5" ry="8" transform="rotate(-40 35 40)" fill="#E2AE76" ${O}/><ellipse cx="35.6" cy="40.6" rx="2.2" ry="4.6" transform="rotate(-40 35.6 40.6)" fill="#B87A52"/>`, pivot: [40, 44]},
-          earR: {svg: `<ellipse cx="85" cy="40" rx="5" ry="8" transform="rotate(40 85 40)" fill="#E2AE76" ${O}/><ellipse cx="84.4" cy="40.6" rx="2.2" ry="4.6" transform="rotate(40 84.4 40.6)" fill="#B87A52"/>`, pivot: [80, 44]},
-          head: `${RG("egypt-jamal-h", [[0, "#FBE2B8"], [0.7, "#EDC28C"], [1, "#D8A46C"]], 0.42, 0.3, 0.8)}
-            <path d="M60 28C76 28 84 38 84 50C84 58 81 64 78 68C76 74 70 78 60 78C50 78 44 74 42 68C39 64 36 58 36 50C36 38 44 28 60 28Z" fill="url(#egypt-jamal-h)" ${O}/>
-            <ellipse cx="60" cy="68" rx="15" ry="9.6" fill="#F8DDB4" ${OW(2.2)}/>
-            <path d="M48 31C49 22 56 24 58 28C60 21 68 22 68 29C73 27 76 32 72 35Q60 30 48 35C44 33 45 29 48 31Z" fill="#B8804E" ${OW(2)}/>
-            <path d="M41 42Q44 37 50 35" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" opacity=".8"/>
-            <path d="M44.6 44.6L43 41.6M47.6 43.6L47 40.4M50.8 43.4L51.2 40.2M75.4 44.6L77 41.6M72.4 43.6L73 40.4M69.2 43.4L68.8 40.2" stroke="#2B2233" stroke-width="1.6" stroke-linecap="round"/>`,
-          face: `<path d="M54 66Q55 64 57 65M66 66Q65 64 63 65" fill="none" stroke="#7A5236" stroke-width="1.8" stroke-linecap="round"/>`
+          tail: {svg: `${LINE("M97 70Q104 75 103.5 86", "#D8A46C", 2.6)}<path d="M103.5 83.5Q108.5 90 104 96.5Q98.5 90.5 103.5 83.5Z" fill="#9A6A42" ${OW(2.2)}/>`, pivot: [98, 71]},
+          feet: `${[[81, "#D6A26C"], [93, "#D6A26C"], [40, "#E8BE88"], [54, "#E8BE88"]].map(([x, c]) => `<path d="M${x - 4.6} 84V103.5Q${x - 4.6} 106.5 ${x} 106.5Q${x + 4.6} 106.5 ${x + 4.6} 103.5V84Z" fill="${c}" ${O}/><path d="M${x - 6.4} 108.6Q${x - 6.4} 104.6 ${x} 104.6Q${x + 6.4} 104.6 ${x + 6.4} 108.6Q${x + 6.4} 110.6 ${x} 110.6Q${x - 6.4} 110.6 ${x - 6.4} 108.6Z" fill="#7A5236" ${OW(2.4)}/><path d="M${x} 106.4V109.6" stroke="#2B2233" stroke-width="1.6" stroke-linecap="round"/>`).join("")}`,
+          body: `${RG("egypt-jamal-b", [[0, "#F8DCAE"], [0.65, "#E9BC84"], [1, "#D29C66"]], 0.4, 0.3, 0.8)}
+            <defs><clipPath id="egypt-jamal-c"><path d="M34 58C33 66 31 74 31 83C31 90 35 94 42 94H88C96 94 101 89 101 81C101 72 98 66 93 62C90 52 85 46 79 46C72 46 67 52 64 60C62 64 58 66 55 64C54 62 54 60 54 57Z"/></clipPath></defs>
+            <path d="M34 58C33 66 31 74 31 83C31 90 35 94 42 94H88C96 94 101 89 101 81C101 72 98 66 93 62C90 52 85 46 79 46C72 46 67 52 64 60C62 64 58 66 55 64C54 62 54 60 54 57Z" fill="url(#egypt-jamal-b)"/>
+            <g clip-path="url(#egypt-jamal-c)">
+              <path d="M57 69Q80 55 104 69V83Q80 95 57 83Z" fill="#C8503A" stroke="#2B2233" stroke-width="2.4" stroke-linejoin="round"/>
+              <path d="M58 74.5Q80 62 103 74.5" fill="none" stroke="#F2C24A" stroke-width="2.4"/><path d="M58 79Q80 89.5 103 79" fill="none" stroke="#F2C24A" stroke-width="2.4"/>
+              ${[66, 73, 80, 87, 94].map(x => `<path d="M${x} 73.4l2.6 3.1l-2.6 3.1l-2.6 -3.1Z" fill="#2E5FA8"/>`).join("")}
+            </g>
+            <path d="M34 58C33 66 31 74 31 83C31 90 35 94 42 94H88C96 94 101 89 101 81C101 72 98 66 93 62C90 52 85 46 79 46C72 46 67 52 64 60C62 64 58 66 55 64" fill="none" ${O}/>
+            ${[64, 72, 80, 88, 96].map(x => { const t = (x - 57) / 47, y = f1(83 + 24 * t * (1 - t) - 0.6); return `<path d="M${x} ${y}V${f1(y + 3)}" stroke="#2B2233" stroke-width="1.4"/><path d="M${x} ${f1(y + 2.4)}Q${x + 2.6} ${f1(y + 5.6)} ${x} ${f1(y + 7.4)}Q${x - 2.6} ${f1(y + 5.6)} ${x} ${f1(y + 2.4)}Z" fill="#F2C24A" ${OW(1.4)}/>`; }).join("")}
+            <path d="M70.5 55Q73 49.5 78.5 48.6" fill="none" stroke="#FFF4DE" stroke-width="2.6" stroke-linecap="round"/>`,
+          earL: {svg: `<path d="M30 29Q19 18.5 14.5 22.5Q12.5 30 27 35.5Z" fill="#E2AE76" ${O}/><path d="M26.5 30.6Q20 25 17.4 25.6Q17 29.6 24.6 33Z" fill="#B87A52"/>`, pivot: [27, 32]},
+          earR: {svg: `<path d="M58 29Q69 18.5 73.5 22.5Q75.5 30 61 35.5Z" fill="#E2AE76" ${O}/><path d="M61.5 30.6Q68 25 70.6 25.6Q71 29.6 63.4 33Z" fill="#B87A52"/>`, pivot: [61, 32]},
+          head: `${RG("egypt-jamal-h", [[0, "#FCE6C0"], [0.7, "#EEC48E"], [1, "#DAA66E"]], 0.42, 0.3, 0.8)}
+            <path d="M44 18C58 18 65 27 65 39C65 45 63.5 49 61.5 52C64.5 56 64.5 62 60.5 65C57 67.5 51 68.5 44 68.5C37 68.5 31 67.5 27.5 65C23.5 62 23.5 56 26.5 52C24.5 49 23 45 23 39C23 27 30 18 44 18Z" fill="url(#egypt-jamal-h)" ${O}/>
+            <path d="M44 51.5C53 51.5 59.5 54.5 59.5 59.5C59.5 64.5 53 67 44 67C35 67 28.5 64.5 28.5 59.5C28.5 54.5 35 51.5 44 51.5Z" fill="#F9E2C0"/>
+            <path d="M34 24C32.5 16.5 39.5 13.5 43 17.5C45.5 11.5 53.5 13 53.5 18.5C58.5 17 60.5 23 56.5 25.5Q44 20.5 31.5 25.5C29.5 24 30.5 21.5 34 24Z" fill="#B8804E" ${OW(2.2)}/>
+            <path d="M28 37Q29.5 31 34.5 28" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+            <path d="M31.8 38.2Q30.4 37.4 29.2 35.8M33.4 36.6Q32.6 35.2 32.4 33.6M56.2 38.2Q57.6 37.4 58.8 35.8M54.6 36.6Q55.4 35.2 55.6 33.6" fill="none" stroke="#2B2233" stroke-width="1.6" stroke-linecap="round"/>`,
+          face: `<ellipse cx="39.4" cy="56.2" rx="1.3" ry="2.3" transform="rotate(-38 39.4 56.2)" fill="#8A5A36"/><ellipse cx="48.6" cy="56.2" rx="1.3" ry="2.3" transform="rotate(38 48.6 56.2)" fill="#8A5A36"/>`
         },
-        eyes: {lx: 49, rx: 71, y: 50, r: 4.8, style: "round", color: "#2A1C14"},
-        mouth: {x: 60, y: 71, w: 3, color: "#2A1C14"},
-        cheeks: {lx: 42, rx: 78, y: 58, w: 3.8, h: 2.2, color: "#FF9A8A"},
-        anchors: {top: [60, 30, 0.9], neck: [60, 77, 1], chest: [52, 88, 0.6], back: [80, 70, 0.8], hands: [60, 92, 0.8]},
+        eyes: {lx: 36, rx: 52, y: 41, r: 4.6, style: "round", color: "#2A1C14"},
+        mouth: {x: 44, y: 61.5, w: 2.8, color: "#2A1C14"},
+        cheeks: {lx: 29.6, rx: 58.4, y: 48.5, w: 3.6, h: 2.2, color: "#FF9A8A"},
+        anchors: {top: [44, 21, 0.85], neck: [44, 69, 0.85], chest: [40, 84, 0.55], back: [80, 54, 0.8], hands: [46, 88, 0.75]},
         lines: {
           tap: ["Long legs, long lashes, long study sessions!", "Slow and steady crosses any desert.", "I store snacks in my hump. Kidding! Mostly.", "One step, then another. That's the caravan way.", "The oasis is just past this chapter!", "Hehe, you're doing so well! Keep plodding!", "I never get thirsty for knowledge. Never!", "Every dune looks smaller once you're on top."],
           pet: ["Hehe! My lashes are fluttering!", "Aww, scratch right behind the ear, please!"],
@@ -97,29 +97,33 @@
         idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "bounce",
         neck: [60, 76],
         parts: {
-          tail: {svg: `${LINE("M84 102Q100 100 102 86Q103 76 96 72", "#CFC4B2", 5)}<path d="M101 82l-4 -.4M100 77l-4 .6" stroke="#5E5248" stroke-width="2" stroke-linecap="round"/><circle cx="96" cy="72" r="3.2" fill="#3E342E" ${OW(1.6)}/>`, pivot: [84, 100]},
-          feet: `<ellipse cx="49" cy="108" rx="7.6" ry="4.6" fill="#F2ECE2" ${O}/><ellipse cx="71" cy="108" rx="7.6" ry="4.6" fill="#F2ECE2" ${O}/><path d="M47 106.6v2.4M51 106.6v2.4M69 106.6v2.4M73 106.6v2.4" stroke="#B8AC9C" stroke-width="1.2" stroke-linecap="round"/>`,
-          body: `${LG("egypt-miu-b", [[0, "#F0EBE2"], [1, "#CABFAE"]])}
-            <path d="M60 66C78 66 86 82 86 96C86 106 76 110.5 60 110.5C44 110.5 34 106 34 96C34 82 42 66 60 66Z" fill="url(#egypt-miu-b)" ${O}/>
-            <path d="M60 76C68 76 72 88 70 104H50C48 88 52 76 60 76Z" fill="#FAF7F2"/>
-            ${[[40, 84, 3, 2.2], [44, 94, 3.4, 2.4], [38, 100, 2.4, 1.8], [80, 84, 3, 2.2], [76, 94, 3.4, 2.4], [82, 100, 2.4, 1.8], [46, 76, 2.2, 1.6], [74, 76, 2.2, 1.6]].map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#6E6052"/>`).join("")}
-            <path d="M42 76Q60 90 78 76" fill="none" stroke="#2E5FA8" stroke-width="5" stroke-linecap="round"/>${collar(60, 72, 19, 13, 9, 2.3)}
-            <path d="M58 86L60 90L62 86Z" fill="#F2C24A" ${OW(1.2)}/>`,
-          earL: {svg: `<path d="M36 46L31 16L55 34Z" fill="#DCD3C4" ${O}/><path d="M38 40L35.4 22L49 33Z" fill="#F8C0C8"/>`, pivot: [44, 40]},
-          earR: {svg: `<path d="M84 46L89 16L65 34Z" fill="#DCD3C4" ${O}/><path d="M82 40L84.6 22L71 33Z" fill="#F8C0C8"/>`, pivot: [76, 40]},
-          head: `${RG("egypt-miu-h", [[0, "#FBF8F3"], [0.7, "#E8E1D5"], [1, "#CFC5B4"]], 0.42, 0.32, 0.8)}
+          tail: {svg: `${LINE("M78 106Q97 108.5 101 95Q103.5 84.5 97 79Q94.5 77 91.5 77.6", "#D3D6DC", 5.4)}
+            <path d="M84 107Q97 108.5 101 95Q103.5 84.5 97 79" fill="none" stroke="#5E626E" stroke-width="5.4" stroke-dasharray="2.4 5"/>
+            <path d="M96.4 78.6Q94.5 77 91.5 77.6" fill="none" stroke="#4A4E58" stroke-width="5.4" stroke-linecap="round"/>`, pivot: [82, 104]},
+          feet: `<ellipse cx="45" cy="108" rx="8" ry="4.6" fill="#F7F8FA" ${O}/><ellipse cx="75" cy="108" rx="8" ry="4.6" fill="#F7F8FA" ${O}/>`,
+          body: `${LG("egypt-miu-b", [[0, "#F3F4F6"], [1, "#BCC0C8"]])}
+            <path d="M60 70C76 70 85 83 87 95C88.5 105.5 82 110.5 72 110.5H48C38 110.5 31.5 105.5 33 95C35 83 44 70 60 70Z" fill="url(#egypt-miu-b)" ${O}/>
+            <path d="M60 78C68 78 73.4 88 73.4 98C73.4 104 67.4 107.4 60 107.4C52.6 107.4 46.6 104 46.6 98C46.6 88 52 78 60 78Z" fill="#FFFFFF"/>
+            ${[[43, 83.6, 2.2, 1.7, -20], [38.4, 91.4, 2.6, 2, 10], [39.6, 101.4, 2.4, 1.9, 15]].map(([x, y, rx, ry, r]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" transform="rotate(${r} ${x} ${y})" fill="#5E626E"/><ellipse cx="${f1(120 - x)}" cy="${y}" rx="${rx}" ry="${ry}" transform="rotate(${-r} ${f1(120 - x)} ${y})" fill="#5E626E"/>`).join("")}
+            <path d="M36.6 99Q38.6 89 46.4 89.6M83.4 99Q81.4 89 73.6 89.6" fill="none" stroke="#9AA0AA" stroke-width="2" stroke-linecap="round"/>
+            <path d="M38 73Q60 101 82 73L79.5 71Q60 91 40.5 71Z" fill="#2E5FA8" ${OW(2.2)}/>
+            <path d="M39.6 75.4Q60 97.4 80.4 75.4" fill="none" stroke="#F2C24A" stroke-width="2.4" stroke-linecap="round"/>
+            <path d="M60 86.4Q64.2 90.6 60 95.4Q55.8 90.6 60 86.4Z" fill="#F2C24A" ${OW(1.8)}/>`,
+          armL: {svg: `<g transform="rotate(30 34.6 91)"><ellipse cx="34.6" cy="91" rx="5" ry="7.2" fill="#E6E8EC"/><path d="M30.1 94.2A5 7.2 0 0 0 39.1 94.2Q34.6 92.6 30.1 94.2Z" fill="#FFFFFF"/><ellipse cx="34.6" cy="91" rx="5" ry="7.2" fill="none" ${O}/></g>`, pivot: [41.6, 84]},
+          armR: {svg: `<g transform="rotate(-30 85.4 91)"><ellipse cx="85.4" cy="91" rx="5" ry="7.2" fill="#E6E8EC"/><path d="M80.9 94.2A5 7.2 0 0 0 89.9 94.2Q85.4 92.6 80.9 94.2Z" fill="#FFFFFF"/><ellipse cx="85.4" cy="91" rx="5" ry="7.2" fill="none" ${O}/></g>`, pivot: [78.4, 84]},
+          earL: {svg: `<path d="M35 47Q30 28 31.5 18Q33.5 14.5 37 16.5Q47 24 56 34Z" fill="#D9DBE0" ${O}/><path d="M38.4 41Q35.4 29 36.4 21.6Q43.6 27.4 49.6 34Z" fill="#F7BDC8"/>`, pivot: [44, 40]},
+          earR: {svg: `<path d="M85 47Q90 28 88.5 18Q86.5 14.5 83 16.5Q73 24 64 34Z" fill="#D9DBE0" ${O}/><path d="M81.6 41Q84.6 29 83.6 21.6Q76.4 27.4 70.4 34Z" fill="#F7BDC8"/>`, pivot: [76, 40]},
+          head: `${RG("egypt-miu-h", [[0, "#FFFFFF"], [0.68, "#EBECEF"], [1, "#C6CAD1"]], 0.42, 0.32, 0.8)}
             <path d="M60 30C80 30 90 42 90 56C90 70 78 79 60 79C42 79 30 70 30 56C30 42 40 30 60 30Z" fill="url(#egypt-miu-h)" ${O}/>
-            <path d="M52 42L54 34L57 40L60 33L63 40L66 34L68 42" fill="none" stroke="#6E6052" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M31 54Q36 54 40 56M31 60Q36 59 40 60M89 54Q84 54 80 56M89 60Q84 59 80 60" fill="none" stroke="#7E7064" stroke-width="1.8" stroke-linecap="round"/>
-            <path d="M42 46Q46 44 49 45M78 46Q74 44 71 45" fill="none" stroke="#7E7064" stroke-width="1.6" stroke-linecap="round"/>
-            <ellipse cx="60" cy="66" rx="9" ry="6" fill="#FFFFFF" opacity=".75"/>
-            <path d="M37 44Q40 37 47 34" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" opacity=".85"/>`,
-          face: `<path d="M57 61.6H63L60 64.6Z" fill="#F29AAA" ${OW(1.2)}/><path d="M48 66H38M48 68.6L39 71M72 66H82M72 68.6L81 71" stroke="#8A7E72" stroke-width="1" stroke-linecap="round" opacity=".8"/>`
+            <path d="M51 45.4L53.6 38L60 43.6L66.4 38L69 45.4M57 33.4L57.8 37.6M63 33.4L62.2 37.6" fill="none" stroke="#5E626E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M60 62.4C56 61.2 50.4 62.4 50.4 66.6C50.4 70.4 55 71.4 60 69.6C65 71.4 69.6 70.4 69.6 66.6C69.6 62.4 64 61.2 60 62.4Z" fill="#FFFFFF"/>
+            <path d="M37 44Q40 37 47 34" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>`,
+          face: `<path d="M57 61.4H63Q63 62.4 60 64.6Q57 62.4 57 61.4Z" fill="#F29AAA" ${OW(1.4)}/><path d="M50 66.4L40.5 65M50.4 68.6L41.5 70.6M70 66.4L79.5 65M69.6 68.6L78.5 70.6" stroke="#9A9FA9" stroke-width="1.2" stroke-linecap="round"/>`
         },
-        eyes: {lx: 48.5, rx: 71.5, y: 54, r: 5.4, style: "round", color: "#2E6A2E"},
-        mouth: {x: 60, y: 67, w: 3, color: "#3A2E28", style: "cat"},
-        cheeks: {lx: 41, rx: 79, y: 62, w: 3.8, h: 2.2, color: "#FFA6B4"},
-        anchors: {top: [60, 30, 0.95], neck: [60, 76, 1], chest: [70, 92, 0.6], back: [84, 84, 0.8], hands: [60, 100, 0.84]},
+        eyes: {lx: 48.5, rx: 71.5, y: 54, r: 5.4, style: "round", color: "#2F7A36"},
+        mouth: {x: 60, y: 67, w: 3, color: "#3A3440", style: "cat"},
+        cheeks: {lx: 41, rx: 79, y: 62.6, w: 3.8, h: 2.2, color: "#FFA6B4"},
+        anchors: {top: [60, 30, 0.95], neck: [60, 78, 1], chest: [70, 92, 0.6], back: [84, 84, 0.8], hands: [60, 100, 0.84]},
         lines: {
           tap: ["Mrrp! Hello, honored student!", "My ancestors napped in palaces. I nap on notes.", "Curious about everything? Me too!", "Spots, whiskers and big ideas. That's us!", "A proper cat studies with great dignity.", "Purr... you're doing beautifully.", "Is that a new chapter? Let me sit on it.", "Golden collar, golden effort!"],
           pet: ["Purrrr... how gentle. Thank you!", "Mrrp! A royal scratch, how kind!"],

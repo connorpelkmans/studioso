@@ -52,6 +52,13 @@ function applyChanges(changes, label, extra, opts){
   const progressed = label !== null && typeof isProgress === "function" && changes.some(c => c.kind === "task" && c.after && isProgress(getItem("task", c.id), c.after));
   let binned = [];
   if (label !== null) { try { binned = trashCapture(changes, label); } catch(e) { console.warn("Recently Deleted", e); } }
+  // An exam or quiz marked done keeps how ready you were right then (how ready you felt, and what your results said), so the
+  // reflection after the mark compares the mark with the readiness before the exam, on every device
+  if (label !== null && typeof examReadiness === "function") changes.forEach(c => {
+    const a = c.kind === "task" && c.after, b = a && getItem("task", c.id);
+    if (!a || !MILESTONE(a.type) || a.prepFor || a.status !== "done" || (b && b.status === "done") || a.readySnap) return;
+    try { const xr = examReadiness(Object.assign({}, a, {status: "todo"})); c.after = Object.assign({}, a, {readySnap: {felt: xr ? xr.self : null, measured: xr ? xr.measured : null, at: Date.now()}}); } catch (e) { console.warn("readiness snapshot", e); }
+  });
   changes.forEach(c => setItem(c.kind, c.id, c.after === null ? null : c.after, label !== null));
   state.updated = Date.now();
   saveLocal();

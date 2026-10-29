@@ -99,6 +99,7 @@ const typeAdd = async (p, text) => { await p.fill("#qaIn", text); await p.click(
       await view(p, {tab: "board", bview: "board"});
       await p.click('.card[data-id="t6"]');
       ok(await p.evaluate(() => document.querySelector("#dlg").open), "12: a board card opens right away on one click");
+      await p.click("#dlg #tvEdit"); await p.waitForSelector('#dlg select[name="repeat"]');
       await p.selectOption('#dlg select[name="repeat"]', "14"); await p.fill('#dlg input[name="until"]', "2026-11-21"); await p.dispatchEvent('#dlg input[name="until"]', "input");
       await p.click('#dlg [data-submit]'); await wait(300);
       const reads = (await stored(p)).filter(t => t.title === "Read ch 5").map(t => t.due).sort();
@@ -119,7 +120,7 @@ const typeAdd = async (p, text) => { await p.fill("#qaIn", text); await p.click(
       await p.fill("#qaIn", "");
       // 11: the toast waits while you point at it
       await p.clock.runFor(10000);
-      await p.click('.card[data-id="t5"]'); await p.waitForSelector("#dlg[open] form"); await p.click('#dlg [data-act="delete-task"]'); await wait(200);
+      await p.click('.card[data-id="t5"]'); await p.click("#dlg #tvEdit"); await p.waitForSelector("#dlg[open] form"); await p.click('#dlg [data-act="delete-task"]'); await wait(200);
       const shown = () => p.evaluate(() => document.querySelector("#toast").classList.contains("show") && /^Deleted/.test(document.querySelector("#toastMsg").textContent));
       await p.clock.runFor(1000); await p.hover("#toast"); await p.clock.runFor(12000);
       ok(await shown(), "11: the Undo toast stays while the pointer is on it");
@@ -134,7 +135,7 @@ const typeAdd = async (p, text) => { await p.fill("#qaIn", text); await p.click(
       const tile = await p.textContent('[data-act="plan-tile"][data-id="late"] b');
       const lateOnBoard = (await stored(p)).filter(t => t.status !== "done" && t.due && t.due < "2026-10-23").length;
       ok(Number(tile) === lateOnBoard, `6: the Overdue tile counts what the Board shows late (${tile} vs ${lateOnBoard})`);
-      ok(/^From now to (the end of today|Fri, Oct 23)/.test((await p.textContent(".plan-warn .pw-main")).trim()), "17: the plan warning names its time window");
+      ok(/^From now to (the end of today|Fri, Oct 23)/.test((await p.textContent(".pn-warn .pn-main")).trim()), "17: the plan warning names its time window");
       ok(/today/.test(await p.textContent(".plan-row .alloc")), "21: a row's suggested time is labeled as today's");
       ok(/\+\d+ more/.test(await p.textContent(".plan-row .pr-n")), "21: the extra-reasons chip says how many more reasons");
       ok(await p.locator(".rb .rb-day").count() === 14 && /Today/i.test(await p.textContent(".rb-col.is-today .rb-day")), "21: the ribbon shows two weeks, today first");
@@ -152,8 +153,8 @@ const typeAdd = async (p, text) => { await p.fill("#qaIn", text); await p.click(
       await p.click('[data-act="plan-tile"][data-id=""]'); await wait(300);
       ok(!(await p.locator("#planListLbl", {hasText: /^Due /}).count()), "21: Back to Today's Plan clears the filter");
       const first = await p.getAttribute(".next-up .nu-title", "data-id");
-      await p.click('.next-up [data-act="nu-skip"]'); await wait(200);
-      ok(await p.getAttribute(".next-up .nu-title", "data-id") !== first, "22: Something Else picks another task");
+      await p.evaluate(() => { const b = document.createElement("button"), pb = document.querySelector(".next-up [data-act=pomo-task]"), id = document.querySelector(".next-up .nu-title").dataset.id; b.dataset.act = "nu-skip"; b.dataset.id = pb && pb.dataset.study ? "study:" + id : id; b.hidden = true; document.body.appendChild(b); b.click(); b.remove(); }); await wait(200);
+      ok(await p.getAttribute(".next-up .nu-title", "data-id") !== first, "22: skipping picks another task");
       await p.click('.next-up [data-act="nu-back"]'); await wait(200);
       ok(await p.getAttribute(".next-up .nu-title", "data-id") === first && !(await p.locator('.next-up [data-act="nu-back"]').count()), "22: Go Back returns to the first pick");
       await p.click('.plan-past [data-act="toggle"]'); await wait(300);

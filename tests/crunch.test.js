@@ -223,4 +223,16 @@ const day = (m, d) => m.days.find(x => x.date === d);
   const busy = build(tasks, {capScale: 0.8, busy: {"2026-10-13": 7}});
   ok(day(busy, "2026-10-13").capacity < day(busy, "2026-10-13").cap0, "classes still come out of the scaled capacity");
 }
+{ // eveCap: an in-person exam's study is light the night before; the rest moves to earlier days
+  const plain = build([T("ex", "Exam", "2026-10-10", {rem: 8})]), light = build([T("ex", "Exam", "2026-10-10", {rem: 8, eveCap: 0.5})]);
+  const hrs = (m, d) => { const D = day(m, d); return D && D.items.ex ? D.items.ex.hours : 0; };
+  ok(hrs(plain, "2026-10-09") > 0.5 && hrs(light, "2026-10-09") <= 0.5 + 1e-9, "eveCap: the day before carries at most the cap");
+  const tot = m => m.days.reduce((s, D) => s + (D.items.ex ? D.items.ex.hours : 0), 0);
+  ok(Math.abs(tot(plain) - tot(light)) < 1e-6, "eveCap: the total stays the same");
+  ok(hrs(light, "2026-10-07") > hrs(plain, "2026-10-07"), "eveCap: earlier days take the rest");
+  // cap: your availability can only lower a day's capacity
+  const free = build([T("p", "Paper", "2026-10-12", {rem: 6})], {cap: {"2026-10-07": 1, "2026-10-08": 9}});
+  ok(day(free, "2026-10-07").capacity === 1 && day(free, "2026-10-08").capacity === 3 && day(free, "2026-10-09").capacity === 3, "cap: lowers a day to its free time, never raises it");
+  ok(day(build([T("p", "Paper", "2026-10-12", {rem: 6})], {cap: {"2026-10-07": 0}}), "2026-10-07").capacity === 0.25, "cap: a day with no free time keeps a small floor");
+}
 console.log(`crunch tests ok (${n} checks)`);

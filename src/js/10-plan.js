@@ -285,7 +285,7 @@ window.__sbPlanObj = () => PLAN;
       let r = null;
       try { const {data, error} = await sb.rpc("studyboard_redeem_code", {p_code: code}); r = error ? {error: /could not find|does not exist/i.test(error.message || "") ? "missing" : "network"} : data; } catch (err) { r = {error: "network"}; }
       go.disabled = false;
-      const ERR = {invalid: "That code doesn't work. Check it and try again.", expired: "That code has expired.", used_up: "That code has already been used.", already: "You've already used this code.",
+      const ERR = {invalid: "That code doesn't work. Check it and try again.", expired: "That code has expired.", used_up: "That code has already been used.", already: "You've already used this code.", own_code: "That's one of your own friend codes. Send it to a friend instead!",
         slow_down: "Too many tries. Wait a while, then try again.", sign_in: "Sign in first, then redeem your code.", missing: "Codes aren't set up on this Studyboard server yet.", network: "Couldn't check the code. Check your connection and try again."};
       if (!r || !r.ok) { msg.textContent = ERR[r && r.error] || ERR.invalid; inp.select(); return; }
       dlg.close();
@@ -665,6 +665,7 @@ window.__sbPlanObj = () => PLAN;
       <div class="sheet-body">
         ${reason ? `<p class="plan-reason" role="status">${IC.info}<span>${esc(reason)}</span></p>` : ""}
         <div class="plan-hero${pro ? " is-pro" : ""}"><span class="plan-orb" aria-hidden="true">${IC.spark}</span><div><b>${esc(st.title)}</b>${st.sub ? `<p class="mini">${esc(st.sub)}</p>` : ""}</div></div>
+        ${window.SBEARLY ? SBEARLY.sheetHtml() : ""}
         ${pro ? `<div class="plan-actions"><button type="button" class="btn primary" data-act="plan-manage">Manage Plan</button><button type="button" class="btn" data-act="plan-devices">Your Devices</button></div>${usageHtml}` : ""}
         ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get a Week of Pro</b><span class="mini">Every Pro theme and feature for 7 days. No card needed, and everything you make stays when the week ends.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
         ${paywall() ? `<p class="plan-state mini" role="status"><b>Plan:</b> ${esc(planLabel())}</p>` : ""}

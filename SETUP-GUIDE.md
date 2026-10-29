@@ -344,7 +344,7 @@ The code works once, for 10 minutes. Your keys are locked (encrypted) with it be
 - **Claude** or **ChatGPT**: add an API key from [Anthropic](https://console.anthropic.com/settings/keys) or [OpenAI](https://platform.openai.com/api-keys) under "Use a Paid Model Instead". These are billed per use to your account with that company, separately from any Claude or ChatGPT subscription. Big PDFs cost the most.
 
 **Automatic AI.** In Settings → AI Features, "Improve Today's Plan and study sessions automatically" lets the AI work in the background without you pressing anything. It:
-- picks **Do This Next** and the alternatives behind "Something Else", with a reason and a first step
+- picks **Do This Next**, with a reason and a first step
 - estimates hours for tasks you didn't estimate, using how long your past tasks took
 - estimates the work left on started tasks from your focus time and progress
 - judges how ready you are for each exam from your study sessions, flashcards and quizzes
@@ -359,7 +359,7 @@ It only runs when something changed and a few times a day, and anything it chang
 **What AI does in Studyboard**
 - **Quick add** (top of the Board): type a sentence like "bio quiz fri 2pm worth 5%" and check the task before it's added. Without AI it still reads dates, times, hours, grade weights and course names on your device.
 - **Time estimates**: the Estimate button next to Hours Needed. Studyboard learns from your focus sessions how long your tasks really take; AI adds a range, a reason and steps you can add to the checklist.
-- **Do This Next**: the top of Today's Plan picks one task for right now, with a reason and a focus button. "Something Else" shows the next pick. This runs on your device and doesn't need AI.
+- **Do This Next**: the top of Today's Plan picks one task for right now, with a reason and a focus button. This runs on your device and doesn't need AI.
 
 **How Today's Plan decides** (all on your device, no AI needed)
 - **Deadlines come first:** the closer the exact due time, the higher the task. Due tomorrow counts about five times as much as due in a week, and dozens of times more than due in a month. Anything due in the next week always stays above work due 10 or more days after it, unless that later task is big enough to need most of your study time before its deadline (then it climbs early so it gets started in time, and the plan says why).
@@ -448,7 +448,7 @@ Settings > Quick Capture explains each way in that works on your device (the sha
 Open **Style** in the sidebar (or Settings → Style Shop on a phone).
 - **Themes:** 60 themes, each with a light and a dark version that follow your Appearance setting (System, Light or Dark).
   - Free plain colors: Classic, Plain Paper, Slate, Sand, Blush, Lavender, Sky, Sage, Peach, Butter, Teal, Mocha, Plum and Indigo.
-  - Pro seasons: Winter, Spring, Summer and Autumn Leaves.
+  - Pro seasons: Winter, Spring, Summer and Fall.
   - Pro new scenes: Balloon Festival, Koi Pond, Rainy Window, Alpine Lake, Desert Dunes, Jellyfish Drift, Bamboo Grove, Lavender Fields and City Rooftops.
   - Pro scenes: Ocean Waves, Sakura, Evergreen, Galaxy, Northern Lights, Lemonade, Christmas Lights, Cozy Café, Sunset Beach, Mint Chip, Colorful Bokeh, Neon Dusk, Candy Land and Synthwave.
   - Pro cozy and hobby themes: Cozy Cats, Music Room, Reading Nook, Knitting Nook, Art Studio, Bake Shop, Garden Plot, Game Night and Photo Walk.
@@ -462,7 +462,7 @@ Open **Style** in the sidebar (or Settings → Style Shop on a phone).
   | Winter | Frost and Flurries | Ice Crystal, Fair Isle Tape | Frosted Pane |
   | Spring | Meadow Friends | Tulip Pin, Gingham Washi | Tulip Border |
   | Summer | Sandy Toes | Beach Ball, Cabana Stripe | Shoreline |
-  | Autumn Leaves | Harvest Glow | Amber Maple, Wooden Peg | Golden Hour |
+  | Fall | Harvest Glow | Amber Maple, Wooden Peg | Golden Hour |
   | Ocean Life | Making Waves | Glass Float, Wave Washi | Tide Line |
   | Sakura | Hanami Day | Petal Washi, Kanzashi Pin | Hanami Washi |
   | Evergreen | Quiet Woods | Firefly Glow, Pine Washi | Misty Ridge |
@@ -518,7 +518,7 @@ Open **Style** in the sidebar (or Settings → Style Shop on a phone).
   - **Winter:** Snow blows across the valley in soft gusts and the chimney smoke bends with the wind. Scene moment: The snowman tips his top hat to you and waves.
   - **Spring:** Butterflies flutter over the tulips and land on the flowers while the windmill turns. Scene moment: All the butterflies lift off together, twirl in a ring dance and settle on new flowers.
   - **Summer:** The surf washes in and out, boats cruise along the shore and little crabs scuttle on the sand but never into the sea. Scene moment: A sea turtle nest hatches and three baby turtles scurry down the beach into the sea.
-  - **Autumn Leaves:** Maple and oak leaves tumble down and gusts sweep them sideways. Scene moment: A little whirlwind of leaves spins up from the path and dances away.
+  - **Fall:** Maple and oak leaves tumble down and gusts sweep them sideways. Scene moment: A little whirlwind of leaves spins up from the path and dances away.
   - **Ocean Waves:** Swells roll in, sailboats bob, fish leap out of the water, gulls circle and at night the lighthouse beam turns. Scene moment: A whale surfaces and blows a sparkly spout with a tiny rainbow, then waves its tail as it dives.
   - **Sakura:** The blossom branch sways and petals drift down onto the lake. Scene moment: A little white-eye bird lands on the branch and the buds around it pop open.
   - **Evergreen:** Mist drifts through the pines, birds glide by day and fireflies wander at night. Scene moment: A ring of red-capped mushrooms pops up one by one with a soft glow.
@@ -953,6 +953,24 @@ update public.app_flags set value = 'false', updated_at = now() where key = 'bb_
 
 The website, desktop and phone apps pick it up within about 3 hours (or when they next open); the School Sync extension (version 1.0.4 or later) picks it up the next time the student opens the Studyboard website. Set it back to `'true'` to turn them on again.
 
+**Marks that aren't on the Grades page.** Some marks are released without showing on the platform's Grades page. Studyboard looks for them in these places, only for items the Grades page has no mark for. A mark on the Grades page always wins. The task shows where its mark came from ("read from the quiz's Submissions page"), and switches to the Grades mark once it's posted there.
+
+| Switch (`app_flags` key) | Platform | Where the mark is read |
+|---|---|---|
+| `marks_quiz_page` | Brightspace | The quiz's Submissions page: "Overall Grade", or the best attempt |
+| `marks_attempt_score` | Blackboard | A graded attempt's score, when the gradebook cell is empty |
+| `marks_assignment_feedback` | Brightspace | The score in the assignment's published feedback |
+| `marks_assignments_page` | Brightspace | The Score column on the Assignments page (only a score out of the assignment's total) |
+| `marks_discussion_page` | Brightspace | The discussion topic's page (only a labelled score out of the topic's total) |
+
+Canvas needs none of these: it gives each submission's score directly. To stop one source for everyone (for example if a school's pages read a wrong number), switch it off the same way:
+
+```sql
+update public.app_flags set value = 'false', updated_at = now() where key = 'marks_assignments_page';
+```
+
+The apps stop reading it within about 3 hours. The extension stops from version 1.0.5, the next time the student opens the Studyboard website. Adding a new source is described above `MARK_SOURCES` in `src/js/95-lms.js`.
+
 Studyboard can bring in everything from your school's learning platform on its own: **Brightspace** (D2L, the learning site many schools use), **Canvas** or **Blackboard Learn**. Assignments, quizzes, discussions and exams go on your Board and Timeline with their due dates, instructor calendar events go on your Schedule, and your grades go into the Grade Tracker. Open **Settings > Brightspace, Canvas and Blackboard**, or the **School Sites** button on the Courses page, and pick your platform. Using more than one? Connect each; they stay separate and nothing is added twice.
 
 Studyboard only ever **reads** from these sites. It never submits, posts or changes anything there.
@@ -1162,13 +1180,13 @@ Only work you finish counts. Tasks that arrive already done (from your school si
 **Getting Started**
 - **Hello, New Term:** your page opens.
 - **First Course Added:** add a course for this term.
-- **First Task Done:** finish your first task this term.
+- **First Study Day:** study on any day this term (finish a task, focus, tick a step or review flashcards).
 - **First Week Planned:** have 5 tasks with due dates in one week.
 
-**Tasks**
-- **10, 25, 50 and 100 Tasks Done:** finish that many tasks this term (bronze, silver, gold and rainbow ribbons).
+**Study Habits**
+- **10, 25, 40 and 60 Study Days:** study on that many different days this term (bronze, silver, gold and rainbow ribbons). Stickers follow effort and consistency, never how many tasks you tick off.
 - **Clean Sweep Week:** finish every task due in one week by its due date (at least 3 tasks).
-- **Early Bird:** finish 5 tasks at least 2 days before they're due.
+- **Early Bird:** start studying for an exam or quiz 5 or more days before it, and study for it on 3 different days.
 - **Study Plan Made:** make a Study Plan for an exam or quiz.
 - **Study Plan Complete:** finish every session in a Study Plan (3 or more) before the exam.
 - **Exam Day Done:** mark an exam or quiz as done.
@@ -1182,7 +1200,7 @@ Only work you finish counts. Tasks that arrive already done (from your school si
 - **Level Up:** beat your last mark in the same course.
 - **All Marks In:** have every graded item in a course marked (3 or more).
 
-**Streaks** (make progress on a task each day)
+**Streaks** (study days in a row: finish a task, focus, tick a step or review flashcards; rest days don't break it)
 - **3, 7, 14, 30 and 60-Day Streaks.**
 
 **Focus**

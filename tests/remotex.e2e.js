@@ -91,7 +91,7 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       ok(await p.locator(".next-up").count() === 1, tag + " Do This Next card shows");
       const nu = (await txt(p, ".next-up .nu-title"))[0];
       ok(!/^(Midterm 2|Final Exam)( |$)/.test(nu), tag + " card title: " + nu);
-      const rowsFocus = await p.evaluate(() => Array.from(document.querySelectorAll(".plan-row")).filter(r => /Midterm 2|Final Exam/.test(r.textContent) && r.querySelector(".focus-go")).length);
+      const rowsFocus = await p.evaluate(() => Array.from(document.querySelectorAll(".plan-row")).filter(r => /Midterm 2|Final Exam/.test(r.textContent) && !/^\s*Study for /.test((r.querySelector(".task-title") || {}).textContent || "") && r.querySelector(".focus-go")).length);
       ok(rowsFocus === 0, tag + " no focus button on exam rows");
       const fixed = await txt(p, ".plan-fixed li");
       ok(fixed.length === 2 && /Midterm 2/.test(fixed[0]) && /In person/.test(fixed[0]) && /Final Exam/.test(fixed[1]) && /Not sure/.test(fixed[1]), tag + " On the Calendar lists both exams: " + fixed.join(" | "));
@@ -106,7 +106,7 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       const qm = await p.locator(".rx-q").count();
       ok(qm === 1, tag + " one '?' hint on the unsure exam, none on the others (" + qm + ")");
       await p.evaluate(() => window.__sbAvail.view({tab: "board", bview: "plan"})); await p.waitForTimeout(200);
-      await p.evaluate(() => { const t = document.querySelector('.pt-tab[data-k="cal"]'); if (t) t.click(); }); await p.click('.plan-fixed [data-id="m1"]'); await p.waitForSelector("dialog[open] #rxFs");
+      await p.evaluate(() => { const t = document.querySelector('.pt-tab[data-k="cal"]'); if (t) t.click(); }); await p.click('.plan-fixed [data-id="m1"]'); await p.click("dialog[open] #tvEdit"); await p.waitForSelector("dialog[open] #rxFs");
       ok(await p.locator("dialog[open] #rxFs legend").textContent() === "Where is this taken?", tag + " edit sheet asks where it is taken");
       const note = await p.locator("dialog[open] #rxNote").textContent();
       ok(/In person/.test(note) && /Detected by:\s*Auto/.test(note) && /in class/i.test(note), tag + " evidence line: " + note);
@@ -138,14 +138,14 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       const nu = (await txt(p, ".next-up"))[0] || "";
       ok(/Quiz 3/.test(nu) && /Take-home/.test(nu), tag + " card names it and says Take-home: " + nu.slice(0, 80));
       await p.screenshot({path: path.join(OUT, `03-quiz-next-${tag}.png`)});
-      for (let i = 0; i < 4; i++) { if (await p.locator('[data-act="nu-skip"]').count()) { await p.click('[data-act="nu-skip"]'); await p.waitForTimeout(150); } }
+      for (let i = 0; i < 4; i++) { if (await p.locator(".next-up .nu-title").count()) { await p.evaluate(() => { const b = document.createElement("button"), pb = document.querySelector(".next-up [data-act=pomo-task]"), id = document.querySelector(".next-up .nu-title").dataset.id; b.dataset.act = "nu-skip"; b.dataset.id = pb && pb.dataset.study ? "study:" + id : id; b.hidden = true; document.body.appendChild(b); b.click(); b.remove(); }); await p.waitForTimeout(150); } }
       const n2 = (await txt(p, ".next-up .nu-title"))[0] || "";
       ok(!/Midterm 2/.test(n2), tag + " alternatives never offer the in-person midterm: " + n2);
       await p.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "pomo-task"; b.dataset.id = "m1"; b.hidden = true; document.body.appendChild(b); b.click(); });
       await p.waitForTimeout(200);
       ok(!(await p.evaluate(() => window.__sbAvail.pomo().running)) && /taken in person/.test(await p.textContent("#toastMsg")), tag + " a focus session can't be started on it");
       await p.evaluate(() => window.__sbAvail.view({tab: "board", bview: "plan"}));
-      await p.evaluate(() => { const t = document.querySelector('.pt-tab[data-k="cal"]'); if (t) t.click(); }); await p.click('.plan-fixed [data-id="m1"]'); await p.waitForSelector("dialog[open] #rxFs");
+      await p.evaluate(() => { const t = document.querySelector('.pt-tab[data-k="cal"]'); if (t) t.click(); }); await p.click('.plan-fixed [data-id="m1"]'); await p.click("dialog[open] #tvEdit"); await p.waitForSelector("dialog[open] #rxFs");
       await p.locator('dialog[open] input[name=remote][value="yes"]').check({force: true});
       ok(/You/.test(await p.locator("dialog[open] #rxNote").textContent()), tag + " note says you set it");
       await p.click("dialog[open] [data-submit]"); await p.waitForTimeout(500);
@@ -162,12 +162,12 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       const {ctx, p} = await open(browser, W, "unknown");
       await showToday(p); await p.waitForTimeout(700);
       let pl = await plan(p);
-      ok(pl.next && (pl.next.id === "a1" || (pl.next.id === "m2" && pl.next.study)), tag + " an unsure exam due tomorrow is not suggested as itself (" + (pl.next && pl.next.id) + ")");
+      ok(pl.next && (pl.next.id === "a1" || ((pl.next.id === "m2" || pl.next.id === "study:m2") && pl.next.study)), tag + " an unsure exam due tomorrow is not suggested as itself (" + (pl.next && pl.next.id) + ")");
       if (pl.next.study) ok(/Study for Final Exam/.test(await p.textContent(".next-up")) && await p.locator('.next-up .check').count() === 0, tag + " it says Study for Final Exam, with no check box to tick the exam off");
       await p.evaluate(() => { const t = document.querySelector('.pt-tab[data-k="sugg"]'); if (t) t.click(); });
       await p.click('[data-act="rmt-set"][data-v="no"]'); await p.waitForTimeout(400);
       ok((await eff(p, "m2")).v === "no", tag + " In person answer");
-      pl = await plan(p); ok(pl.next.id === "a1" || (pl.next.id === "m2" && pl.next.study), tag + " still not suggested as itself after saying In person");
+      pl = await plan(p); ok(pl.next.id === "a1" || ((pl.next.id === "m2" || pl.next.id === "study:m2") && pl.next.study), tag + " still not suggested as itself after saying In person");
       await ctx.close();
     }
     // 4. With AI: accepted, rejected, low confidence, no text

@@ -44,6 +44,7 @@ function render(){
 function renderNow(){
   if (renderBlocked) { renderQueued = false; setTimeout(scheduleRender, 120); return; }
   try { AUTO_ON = autoState().on; } catch(e) { AUTO_ON = false; }
+  if (window.__SB_TEST && window.__sbForceAuto) AUTO_ON = true;
   try { const want = (s => skinOk(s) && SKINS.some(x => x.id === s) ? s : "classic")(styleCfg().skin); if ((document.documentElement.dataset.skin || "classic") !== want) applySkin(); } catch(e) {}
   computeFocus(); remoteStoreSoon();
   { const nd = new Date(); $("#navDate").textContent = nd.toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"}); }
@@ -270,6 +271,7 @@ const FAB_IC = {
   mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
   link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
   note: '<path d="M4 4h16v10l-6 6H4z"/><path d="M14 20v-6h6"/>',
+  write: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4M14 20h6"/>',
   deck: '<rect x="3" y="7" width="14" height="13" rx="2"/><path d="M7 4h12a2 2 0 0 1 2 2v11"/>',
   group: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0M16 5.5a3 3 0 0 1 0 5.8M18 20a5.5 5.5 0 0 0-3-5"/>',
   project: '<rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v3M16 3v3M8 14h3"/>',
@@ -299,6 +301,111 @@ function gcalLink(t){
   } else dates = d + "/" + addDays(t.due, 1).replace(/-/g, "");
   const details = [t.type, "Priority: " + PRIO[t.priority], t.notes].filter(Boolean).join("\n");
   return "https://calendar.google.com/calendar/render?action=TEMPLATE&text=" + encodeURIComponent(text) + "&dates=" + dates + "&details=" + encodeURIComponent(details);
+}
+
+// Clicking a task shows it first; Edit opens the full form. The progress bar can be dragged right here.
+let tvRedraw = null;
+hook("changed", changes => { if (tvRedraw && dlg.open && dlg.querySelector(".tv") && !dlg.querySelector(".tv-bar.drag")) tvRedraw(changes); });
+function taskView(t0){
+  const id = t0.id, PSTEP = 5;
+  const ic = d => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const I = {cal: ic('<rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/>'), start: ic('<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>'), clock: ic('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+    pin: ic('<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>'), book: ic('<path d="M4 19V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M8 7h7"/>'),
+    person: ic('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c1-3.5 3.5-5 6.5-5s5.5 1.5 6.5 5M16 4.5a3.5 3.5 0 0 1 0 7M18 15c2 .6 3.2 2.2 3.8 5"/>'), link: ic('<path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/>'),
+    note: ic('<path d="M5 3h10l4 4v14H5z"/><path d="M9 11h6M9 15h6"/>'), lock: ic('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>'), rep: ic('<path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/>')};
+  const draw = () => {
+    const t = state.tasks[id]; if (!t) { if (dlg.open) dlg.close(); return; }
+    const c = courseOf(t.courseId), cfg = cfgOf(t.type), ms = MILESTONE(t.type), done = t.status === "done", today = todayISO();
+    const items = t.checklist || [], p = progress(t), fromCl = !ms && items.length > 0, drag = !fromCl && !p.ms;
+    const val = drag ? Math.max(0, Math.min(100, Math.round(Number(t.pct) || 0))) : Math.round(p.frac * 100);
+    const rows = [];
+    if (t.due) {
+      const n = dayDiff(today, t.due);
+      rows.push([I.cal, esc(parse(t.due).toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"})) + (t.time && cfg.time ? ", " + esc(fmtTime(t.time)) : ""),
+        esc(cfg.due) + (done ? "" : n === 0 ? " · Today" : n === 1 ? " · Tomorrow" : n > 1 ? ` · In ${n} days` : ` · ${-n} day${n === -1 ? "" : "s"} late`)]);
+    } else rows.push([I.cal, "No due date", ""]);
+    const st = !cfg.single && (t.start || startOf(t));
+    if (st && st !== t.due) rows.push([I.start, esc(fmtDate(st)), esc(cfg.start || "Start Date")]);
+    // once work has started, what's left (a range, from your pace, check-ins and how tasks like this usually go)
+    const leftTxt = !done && !ms && (Number(t.focusMin) > 0 || progress(t).frac > 0) && remainingOf(t) > 0 ? ` · ${esc(leftRange(t))} left` : "";
+    if (cfg.hours && isNum(t.hours) && !ms) rows.push([I.clock, esc(fmtH(Number(t.hours))), esc(cfg.hours) + (t.focusMin ? ` · ${esc(fmtMins(t.focusMin))} focused so far` : "") + leftTxt]);
+    else if (t.focusMin) rows.push([I.clock, esc(fmtMins(t.focusMin)) + " focused", `${t.pomos || 0} focus session${t.pomos === 1 ? "" : "s"}` + leftTxt]);
+    if (cfg.reading && t.reading) rows.push([I.book, esc(t.reading), esc(cfg.reading)]);
+    if (cfg.location && t.location) rows.push([I.pin, esc(t.location), esc(cfg.location)]);
+    if (cfg.team && t.team) rows.push([I.person, esc(t.team), esc(cfg.team)]);
+    const url = cfg.link && t.link ? safeUrl(t.link) : "";
+    if (url) rows.push([I.link, `<button type="button" class="link-btn" data-act="lms-go" data-url="${esc(url)}">Open in ${esc(lmsSite(t) || "browser")}</button>`, esc(cfg.link)]);
+    const bl = blockers(t); if (bl.length && !done) rows.push([I.lock, esc(bl.map(x => x.title).join(", ")), "Finish first"]);
+    if (t.seriesId) rows.push([I.rep, "Repeats", "Part of a repeating series"]);
+    if (t.notes && t.notes.trim()) rows.push([I.note, `<span class="occv-notes">${esc(t.notes.trim())}</span>`, esc(cfg.notes)]);
+    const late = !done && t.due && t.due < today;
+    const tags = [`<span class="occv-tag">${esc(t.type || "Task")}</span>`, `<span class="occv-tag${done ? " ok" : ""}">${esc(statusLabels(t.type)[t.status] || t.status)}</span>`,
+      t.priority && t.priority !== "med" ? `<span class="occv-tag${t.priority === "urgent" || t.priority === "high" ? " warn" : ""}">${esc((ms ? "Importance: " : "") + PRIO[t.priority])}</span>` : "", late ? `<span class="occv-tag warn">Late</span>` : ""].join("");
+    const band = c ? `<span class="occv-ic" aria-hidden="true">${courseRingHtml(c)}</span><b>${esc(courseLabel(c))}</b>` : `<span class="occv-ic" aria-hidden="true">${typeIcon(t.type)}</span><b>${esc(t.type || "Task")}</b>`;
+    const hint = !drag ? (p.ms ? `Progress comes from its milestones: ${p.done} of ${p.total} done.` : `Progress comes from the checklist: ${items.filter(i => i.done).length} of ${items.length} done.`)
+      : "";
+    // Exams: readiness measured from your results comes first; the slider is how ready you feel, and a big gap between them is pointed out
+    const xr = ms && !done ? examReadiness(t) : null, feelLbl = ms ? "How Ready You Feel" : cfg.prog || "Progress";
+    const ready = !xr ? "" : xr.measured != null ? `<div class="tv-prog ro tv-ready"><div class="tv-prog-h"><b>Readiness From Your Results</b><span>${xr.measured}%</span></div>
+      <div class="tv-bar" role="progressbar" aria-label="Readiness from your results" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${xr.measured}" style="--v:${xr.measured}%"><i class="tv-fill"></i></div>
+      <p class="mini tv-hint">From ${esc(readinessSource(xr))}.${xr.from === "both" ? " With a little more studying it will rely on these alone." : ""}${xr.parts.plan == null ? ` <button type="button" class="link-btn" data-act="xr-decks" data-id="${esc(t.id)}">Choose Which Flashcards and Quizzes Count</button>` : ""}</p>
+      ${xr.gap ? `<p class="tv-gap ${xr.gap > 0 ? "over" : "under"}" role="note">${esc(readinessGapText(xr))}</p>` : ""}</div>`
+      : `<p class="mini tv-hint tv-noready">Until you study this course's flashcards or take a practice quiz, readiness goes by how ready you feel. Your results will show here as you go.${decksArr().length ? ` <button type="button" class="link-btn" data-act="xr-decks" data-id="${esc(t.id)}">Choose Which Flashcards and Quizzes Count</button>` : ""}</p>`;
+    const prog = ready + (window.SBWRAP ? SBWRAP.viewHtml(t) : "") + `<div class="tv-prog${drag ? "" : " ro"}"><div class="tv-prog-h"><b>${esc(feelLbl)}</b><span id="tvPct">${val}%</span></div>
+      <div class="tv-bar" id="tvBar" ${drag ? `title="${ms ? "Drag to say how ready you feel" : "Drag to update your progress"}" role="slider" tabindex="0" aria-label="${esc(cfg.prog || "Progress")}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${val}" aria-valuetext="${val}%"` : `role="progressbar" aria-label="${esc(cfg.prog || "Progress")}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${val}"`} style="--v:${val}%"><i class="tv-fill"></i>${drag ? `<span class="tv-knob" aria-hidden="true"></span>` : ""}</div>
+      ${hint ? `<p class="mini tv-hint">${esc(hint)}</p>` : ""}</div>`;
+    const cl = items.length ? `<div class="tv-cl"><h3>${esc(cfg.checklist || "Checklist")} <span class="mini">${items.filter(i => i.done).length}/${items.length}</span></h3><ul>${items.map((i, k) => `<li class="${i.done ? "done" : ""}"><label><input type="checkbox" data-tv-cl="${k}" ${i.done ? "checked" : ""}><span>${esc(i.text)}</span></label></li>`).join("")}</ul></div>` : "";
+    const prepBtn = ms && t.due > today && !done ? (ps => `<button type="button" class="btn" data-act="exam-plan" data-id="${esc(id)}">${ps.length ? `Prep Plan (${ps.filter(x => x.status === "done").length}/${ps.length})` : "Plan My Prep"}</button>`)(planSessions(id)) : "";
+    const keep = document.activeElement && document.activeElement.id === "tvBar" && dlg.contains(document.activeElement), sc = dlg.querySelector(".occv-body"), top = sc ? sc.scrollTop : 0;
+    openSheet(`<div class="sheet occv tv" style="--c:${esc(colorOf(t.courseId))}">
+      <div class="occv-band">${band}<button type="button" class="icon-btn occv-x" data-act="close" aria-label="Close">${CLOSE}</button></div>
+      <div class="sheet-body occv-body">
+        <h2 class="occv-title">${esc(t.title)}</h2>
+        <div class="occv-tags">${tags}</div>
+        <ul class="occv-rows">${rows.map(([i, a, b]) => `<li><span class="occv-ri">${i}</span><div><b>${a}</b>${b ? `<span>${b}</span>` : ""}</div></li>`).join("")}</ul>
+        ${cl}
+        ${prog}
+      </div>
+      <div class="sheet-foot">${!done && canDoNow(t) ? `<button type="button" class="btn focus-btn" data-act="pomo-task" data-id="${esc(id)}">${TOMATO}Focus</button>` : ""}${prepBtn}<span class="spacer"></span><button type="button" class="btn" id="tvDone">${done ? "Mark Not Done" : "Mark Done"}</button><button type="button" class="btn primary" id="tvEdit">Edit</button></div>
+    </div>`);
+    const sc2 = dlg.querySelector(".occv-body"); if (sc2) sc2.scrollTop = top;
+    $("#tvEdit").addEventListener("click", () => { const x = state.tasks[id]; if (x) taskForm(x); });
+    $("#tvDone").addEventListener("click", () => { dlg.close(); toggleTask(id); });
+    dlg.querySelectorAll("[data-tv-cl]").forEach(cb => cb.addEventListener("change", () => {
+      const x = state.tasks[id]; if (!x) return; const n = clone(x), k = Number(cb.dataset.tvCl); if (!n.checklist[k]) return;
+      n.checklist[k].done = cb.checked; applyChanges([{kind: "task", id, after: n}], cb.checked ? "Step done" : "Step not done");
+    }));
+    if (drag) wire($("#tvBar"), val, keep);
+  };
+  tvRedraw = changes => { if (changes.some(c => c.kind === "task" && c.id === id)) draw(); };
+  // Pointer drag (mouse, touch, pen) plus arrow keys; the change saves when you let go
+  const wire = (bar, start, refocus) => {
+    let v = start, timer = 0, dragging = false;
+    const show = x => { v = x; bar.style.setProperty("--v", x + "%"); bar.setAttribute("aria-valuenow", x); bar.setAttribute("aria-valuetext", x + "%"); $("#tvPct").textContent = x + "%"; };
+    const at = e => { const r = bar.getBoundingClientRect(); return Math.max(0, Math.min(100, Math.round((e.clientX - r.left) / Math.max(1, r.width) * 100 / PSTEP) * PSTEP)); };
+    bar.addEventListener("pointerdown", e => { if (e.button > 0) return; e.preventDefault(); dragging = true; bar.classList.add("drag"); try { bar.setPointerCapture(e.pointerId); } catch (err) {} bar.focus({preventScroll: true}); show(at(e)); });
+    bar.addEventListener("pointermove", e => { if (dragging) show(at(e)); });
+    const end = () => { if (!dragging) return; dragging = false; bar.classList.remove("drag"); commit(v); };
+    bar.addEventListener("pointerup", end); bar.addEventListener("pointercancel", end); bar.addEventListener("lostpointercapture", end);
+    bar.addEventListener("keydown", e => {
+      const d = {ArrowRight: PSTEP, ArrowUp: PSTEP, ArrowLeft: -PSTEP, ArrowDown: -PSTEP, PageUp: 10, PageDown: -10}[e.key];
+      let x = d != null ? v + d : e.key === "Home" ? 0 : e.key === "End" ? 100 : null; if (x == null) return;
+      e.preventDefault(); show(Math.max(0, Math.min(100, x))); clearTimeout(timer); timer = setTimeout(() => commit(v), 600);
+    });
+    if (refocus) bar.focus({preventScroll: true});
+  };
+  const commit = v => {
+    const x = state.tasks[id]; if (!x || !dlg.open || v === Math.round(Number(x.pct) || 0)) return;
+    const n = clone(x); n.pct = v;
+    let finished = false;
+    if (!MILESTONE(x.type)) {
+      const s = v >= 100 ? "done" : v > 0 ? "doing" : "todo";
+      if (s !== x.status) { n.status = s; n.order = nextOrder(s); n.doneAt = s === "done" ? Date.now() : null; finished = s === "done"; }
+    }
+    if (finished) celebrate("check");
+    applyChanges([{kind: "task", id, after: n}], finished ? `Completed ${x.title}` : `${x.title}: ${v}%`, undefined, finished ? {done: true} : undefined);
+  };
+  draw();
 }
 
 function taskForm(t, preset = {}){
@@ -356,6 +463,7 @@ function taskForm(t, preset = {}){
               <label class="f"><span class="lh">Grade Weight <span class="hint">% of course grade</span></span><input type="number" name="weight" min="0" max="100" step="0.5" inputmode="decimal" value="${hasWeight(t) ? esc(t.weight) : ""}"></label>
               <label class="f">Late Work<select name="late">${Object.entries(LATE_LABEL).map(([k, l]) => `<option value="${k}" ${k === t.late ? "selected" : ""}>${l}</option>`).join("")}</select></label>
             </div>
+            <label class="f" id="latePenWrap"${t.late === "penalty" ? "" : " hidden"}><span class="lh">Late Penalty <span class="hint">% off for each day late</span></span><input type="number" name="latePen" min="0" max="100" step="1" inputmode="decimal" value="${hasLatePen(t) ? esc(t.latePen) : ""}" placeholder="10"></label>
             <div><span class="lbl" style="font-size:.88rem;font-weight:600">Difficulty</span>${seg("difficulty", [["easy","Easy"],["med","Medium"],["hard","Hard"]], t.difficulty)}</div>
             <p class="plan-hint" id="planHint" aria-live="polite"></p>
           </fieldset>
@@ -396,6 +504,7 @@ function taskForm(t, preset = {}){
       pct: Number(fd.get("pct") || 0), dependsOn: deps.slice(),
       weight: isNum(fd.get("weight")) && Number(fd.get("weight")) > 0 ? Math.min(100, Number(fd.get("weight"))) : null,
       difficulty: fd.get("difficulty") || "med", late: fd.get("late") || "unknown",
+      latePen: fd.get("late") === "penalty" && isNum(fd.get("latePen")) && Number(fd.get("latePen")) > 0 ? Math.min(100, Number(fd.get("latePen"))) : null,
       location: cfg.location ? txt("location") : "", team: cfg.team ? txt("team") : "", reading: cfg.reading ? txt("reading") : "", link
     };
     if (MILESTONE(type)) {
@@ -468,7 +577,8 @@ function taskForm(t, preset = {}){
   const pctIn = dlg.querySelector("input[name=pct]");
   const pctHint = () => {
     const v = Number(pctIn.value);
-    $("#pctHint").textContent = MILESTONE(curType()) ? (v >= 90 ? "Ready" : v >= 60 ? "Mostly ready, a few topics to review" : v >= 30 ? "Getting there" : "Just starting to study") : "";
+    const xr = MILESTONE(curType()) && state.tasks[t.id] ? examReadiness(state.tasks[t.id]) : null;
+    $("#pctHint").textContent = MILESTONE(curType()) ? (v >= 90 ? "Ready" : v >= 60 ? "Mostly ready, a few topics to review" : v >= 30 ? "Getting there" : "Just starting to study") + (xr && xr.measured != null ? `. Your results say about ${xr.measured}%, and those count first.` : "") : "";
   };
   const setStatus = v => { const r = dlg.querySelector(`input[name=status][value="${v}"]`); if (r && !r.checked) r.checked = true; };
   pctIn.addEventListener("input", () => {
@@ -535,6 +645,7 @@ function taskForm(t, preset = {}){
   };
   dlg.querySelectorAll("input[name=remote]").forEach(r => r.addEventListener("change", drawRx));
   drawRx();
+  { const ls = dlg.querySelector("select[name=late]"), pw = $("#latePenWrap"); if (ls && pw) ls.addEventListener("change", () => { pw.hidden = ls.value !== "penalty"; }); }
   const planHint = () => {
     const f = new FormData(dlg.querySelector("form"));
     const probe = normTask(Object.assign(clone(t), {type: f.get("type"), hours: f.get("hours") === "" ? null : Number(f.get("hours")), pct: Number(f.get("pct") || 0),
@@ -544,8 +655,9 @@ function taskForm(t, preset = {}){
     const ms = MILESTONE(probe.type);
     const x = FOCUS && FOCUS.info[t.id];
     const rankTxt = x ? (() => { const i = FOCUS.ranked.indexOf(x); return i >= 0 ? ` Currently #${i + 1} in Today's Plan${x.alloc > 0 ? `, with ${fmtHM(x.alloc)} suggested today` : ""}.` : ""; })() : "";
-    $("#planHint").innerHTML = (ms ? `Estimated <b>${fmtHM(R)}</b> of studying left, based on difficulty, grade weight and preparedness.`
-      : `Estimated <b>${fmtHM(R)}</b> of work left${isNum(probe.hours) && probe.hours > 0 ? "" : " (a typical amount for this type; add Hours Needed for a better plan)"}.`) + rankTxt;
+    const inPerson = ms && !canDoNow(probe) && !planSessions(t.id).length, lead = inPerson ? examLead(probe) : null;
+    $("#planHint").innerHTML = (ms ? `Estimated <b>${fmtHM(R)}</b> of studying left, based on difficulty, grade weight and preparedness.${lead ? ` Today's Plan starts study time for it ${lead.days} days before${lead.risk ? ", sooner because of your standing in the course" : ""}${lead.p < 0.75 ? `${lead.risk ? " and" : ", sooner"} because ${esc(readyWords(lead.from, lead.p))}` : ""}.` : ""}`
+      : `Estimated <b>${esc(leftRange(probe))}</b> of work left${isNum(probe.hours) && probe.hours > 0 ? "" : " (a typical amount for this type; add Hours Needed for a better plan)"}.`) + rankTxt;
   };
   tForm.addEventListener("input", planHint); tForm.addEventListener("change", planHint);
   tForm.addEventListener("input", advSummary); tForm.addEventListener("change", advSummary);
@@ -630,7 +742,7 @@ function repeatDates(due, every, until){
 function repeatCopies(base, every, until){
   const off = dayDiff(base.start || base.due, base.due);
   return repeatDates(base.due, every, until).map((d, i) => {
-    const keep = {}; ["title", "courseId", "type", "time", "priority", "notes", "hours", "weight", "difficulty", "late", "location", "team", "reading", "link", "seriesId"].forEach(k => { if (base[k] !== undefined) keep[k] = clone(base[k]); });
+    const keep = {}; ["title", "courseId", "type", "time", "priority", "notes", "hours", "weight", "difficulty", "late", "latePen", "location", "team", "reading", "link", "seriesId"].forEach(k => { if (base[k] !== undefined) keep[k] = clone(base[k]); });
     const x = newTask(Object.assign(keep, {due: d, start: addDays(d, -off), status: "todo", checklist: (base.checklist || []).map(i => ({id: uid(), text: i.text, done: false}))}));
     x.order += i + 1;
     return {kind: "task", id: x.id, after: x};
@@ -782,8 +894,10 @@ function menuSheet(){
       <button data-act="trash-open"><span>Recently Deleted<span class="sub">${trashVisible().length ? `${trashVisible().length} item${trashVisible().length === 1 ? "" : "s"} you can still restore. Kept for ${TB.KEEP_DAYS} days.` : `Anything you delete waits here for ${TB.KEEP_DAYS} days`}</span></span></button>
       <button data-act="export-data"><span>Export My Data<span class="sub">Tasks, notes, grades and flashcards as a ZIP of spreadsheet files and one JSON file</span></span></button>
       <button data-act="cal-export"><span>Add Deadlines to Your Calendar<span class="sub">Download a calendar file with reminders</span></span></button>
-      ${Object.values(state.files).some(f => f.kind === "file") ? `<button data-act="export-full"><span>Export Backup with Files<span class="sub">One file with your data and every uploaded file. Use it to move to another version of Studyboard.</span></span></button>` : ""}
-      <button data-act="export"><span>Export a Backup File<span class="sub">Download a file you can keep anywhere, like Google Drive or a USB drive</span></span></button>
+      ${(() => { const n = Object.values(state.files).filter(f => f.kind === "file" && (f.revs || []).some(r => r && r.assetId)).length; return n
+        ? `<button data-act="export"><span>Export a Backup File<span class="sub">One ZIP with your data and your ${n} uploaded file${n === 1 ? "" : "s"}. Keep it anywhere, like Google Drive or a USB drive.</span></span></button>
+      <button data-act="export-json"><span>Export Data Only<span class="sub">A smaller file without your uploaded files</span></span></button>`
+        : `<button data-act="export"><span>Export a Backup File<span class="sub">Download a file you can keep anywhere, like Google Drive or a USB drive</span></span></button>`; })()}
       <button data-act="backup-now"><span>Save a Copy on This Device<span class="sub">Kept in this browser, which also saves a copy each day. It won't survive clearing the browser.</span></span></button>
       <button data-act="restore"><span>Restore a Backup</span></button>
       <button data-act="import"><span>Import from a Backup File</span></button>

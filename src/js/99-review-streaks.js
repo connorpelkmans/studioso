@@ -715,6 +715,15 @@ hook("act", (a, el) => {
 hook("boot", () => { try { if (gentleOn()) celebrateSoon(6000); } catch (e) {} });
 
 window.SBREVIEW = {open: openReview, period: periodNow, stats: () => { const p = periodNow() || RS.periodFor(todayISO(), nowHour(), true); return reviewStats(p); }, cardHtml: reviewCardHtml, RS};
-window.SBSTREAK = {on: gentleOn, line: () => streakLineText(streakNow()), state: streakNow, open: openStreak, newUser, enable: turnOn, disable: turnOff, celebrate: tryCelebrate, RS};
+// Every study day from one date to another (a task finished, focus or logged time, a checklist step, flashcards), never just opening the app
+let SDMEMO = {k: "", v: []};
+function studyDays(from, to){
+  to = to || todayISO();
+  const k = [from, to, state.updated || 0, (focusDaysNow()[to] || 0)].join("|");
+  if (SDMEMO.k === k) return SDMEMO.v;
+  const g = gcfg(), v = Object.keys(RS.activityDays({tasks: allTasks(), focusDays: focusDaysNow(), log: g.log, timeDays: sbtimeDays(from, to), from, to})).sort();
+  SDMEMO = {k, v}; return v;
+}
+window.SBSTREAK = {studyDays, on: gentleOn, line: () => streakLineText(streakNow()), state: streakNow, open: openStreak, newUser, enable: turnOn, disable: turnOff, celebrate: tryCelebrate, RS};
 })();
 

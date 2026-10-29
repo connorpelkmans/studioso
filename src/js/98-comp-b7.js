@@ -3,6 +3,8 @@
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
+  // A webbed frog foot with three round toes, centred on 0,0 with the toes pointing down
+  const WEB = "M0 -4.5C-4.5 -4.5 -10.5 0.5 -10.5 4C-10.5 6.8 -7.6 7.4 -6 5.6C-5 8.4 -1.6 9 0 6.8C1.6 9 5 8.4 6 5.6C7.6 7.4 10.5 6.8 10.5 4C10.5 0.5 4.5 -4.5 0 -4.5Z";
 
   /* Diwali */
   COMP_DATA.push({
@@ -289,25 +291,41 @@
         idle: ["bounce", "finWiggle", "sway"], cheer: "hop",
         neck: [60, 76],
         parts: {
-          feet: `${LG("koi-frog-p", [[0, "#5FB07A"], [1, "#3E8A5F"]])}
-            <path d="M60 99.5C83 99.5 101 102.5 101 107.5C101 112 83 114 60 114C37 114 19 112 19 107.5C19 104 30 101.3 44 100.2L54 106.5Z" fill="url(#koi-frog-p)" ${O}/>
-            <path d="M68 102.5Q84 103 94 106" fill="none" stroke="#8FD0A2" stroke-width="2.4" stroke-linecap="round"/>
-            <ellipse cx="38" cy="104" rx="10" ry="5" fill="#86C96A" ${O}/><ellipse cx="82" cy="104" rx="10" ry="5" fill="#86C96A" ${O}/>`,
-          body: `${LG("koi-frog-b", [[0, "#A8DD86"], [1, "#72B85E"]])}
-            <path d="M60 70C77 70 85 83 85 94C85 103 76 106.5 60 106.5C44 106.5 35 103 35 94C35 83 43 70 60 70Z" fill="url(#koi-frog-b)" ${O}/>
-            <ellipse cx="60" cy="95" rx="15" ry="10" fill="#EEF7C9"/>`,
-          armL: {svg: `<path d="M44 84C40 91 40 98 43 103.5C47 104.5 50 103 50 100C49 95 49 90 50 86Z" fill="#8FCD6E" ${O}/>`, pivot: [47, 85]},
-          armR: {svg: `<path d="M76 84C80 91 80 98 77 103.5C73 104.5 70 103 70 100C71 95 71 90 70 86Z" fill="#8FCD6E" ${O}/>`, pivot: [73, 85]},
-          head: `${LG("koi-frog-h", [[0, "#B6E592"], [1, "#7CC063"]])}
-            <g ${O}><circle cx="45" cy="46" r="11"/><circle cx="75" cy="46" r="11"/><ellipse cx="60" cy="61" rx="31" ry="18"/></g>
-            <g fill="url(#koi-frog-h)"><circle cx="45" cy="46" r="11"/><circle cx="75" cy="46" r="11"/><ellipse cx="60" cy="61" rx="31" ry="18"/></g>
-            <path d="M37.5 41Q40 36.5 45 35.5" fill="none" stroke="#E6F7C8" stroke-width="2.8" stroke-linecap="round"/>
-            <path d="M52 49.5Q60 47.5 68 49.5" fill="none" stroke="#6AAE56" stroke-width="2" stroke-linecap="round" opacity=".7"/>`
+          back: `${LG("koi-frog-p", [[0, "#8EE0AE"], [0.6, "#53B783"], [1, "#3A9468"]])}${LG("koi-frog-l", [[0, "#FFE3EE"], [0.6, "#FFA6C6"], [1, "#F27BA6"]])}
+            <path d="M50 104L39.7 114.4A50 13 0 1 1 53 115.4Z" fill="url(#koi-frog-p)" ${O}/>
+            <path d="M60 102.5L18 104M60 102.5L20.5 98.5M60 102.5L102 104M60 102.5L99.5 98.5" stroke="#7FD4A2" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M64 113.2Q76 113 85.5 111" fill="none" stroke="#B6EECB" stroke-width="2.4" stroke-linecap="round"/>
+            <path d="M12 99C7 92 8 84 14.5 77C21 84 22 92 17 99Z" fill="url(#koi-frog-l)" ${O2}/>
+            <path d="M12 99C6.5 98 4 93.5 4.5 89C9.5 89.5 12.5 93.5 14 98Z" fill="#FFB8D2" ${O2}/>
+            <path d="M17 99C22.5 98 25 93.5 24.5 89C19.5 89.5 16.5 93.5 15 98Z" fill="#FFB8D2" ${O2}/>
+            <path d="M11.7 88Q11.9 84 13.5 81.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>`,
+          feet: `${LG("koi-frog-t", [[0, "#9FE07E"], [1, "#5DB45E"]])}
+            <ellipse cx="36" cy="96.5" rx="12" ry="9.5" transform="rotate(-25 36 96.5)" fill="url(#koi-frog-t)" ${O}/>
+            <ellipse cx="84" cy="96.5" rx="12" ry="9.5" transform="rotate(25 84 96.5)" fill="url(#koi-frog-t)" ${O}/>
+            <path transform="translate(28.5 103.5) rotate(48)" d="${WEB}" fill="#7CCB6A" ${O2}/>
+            <path transform="translate(91.5 103.5) rotate(-48)" d="${WEB}" fill="#7CCB6A" ${O2}/>`,
+          body: `${LG("koi-frog-b", [[0, "#A9E688"], [1, "#62BA62"]])}
+            <path d="M60 66C78 66 86.5 80 86.5 92C86.5 102 76.5 107.5 60 107.5C43.5 107.5 33.5 102 33.5 92C33.5 80 42 66 60 66Z" fill="url(#koi-frog-b)" ${O}/>
+            <ellipse cx="60" cy="94" rx="15.5" ry="11.5" fill="#FFF7DC" stroke="#D5EBA6" stroke-width="1.8"/>`,
+          armL: {svg: `<g transform="rotate(30 36 84)"><ellipse cx="36" cy="84" rx="4.8" ry="7" fill="#86D06C"/><path d="M31.7 87.2A4.8 7 0 0 0 40.3 87.2Q36 85.6 31.7 87.2Z" fill="#C4EEA8"/><ellipse cx="36" cy="84" rx="4.8" ry="7" fill="none" ${O}/></g>`, pivot: [43, 77]},
+          armR: {svg: `<g transform="rotate(-30 84 84)"><ellipse cx="84" cy="84" rx="4.8" ry="7" fill="#86D06C"/><path d="M79.7 87.2A4.8 7 0 0 0 88.3 87.2Q84 85.6 79.7 87.2Z" fill="#C4EEA8"/><ellipse cx="84" cy="84" rx="4.8" ry="7" fill="none" ${O}/></g>`, pivot: [77, 77]},
+          head: `${LG("koi-frog-h", [[0, "#B9EE92"], [0.6, "#8FD772"], [1, "#6CC064"]])}
+            <g stroke="${INK}" stroke-width="6" stroke-linejoin="round"><circle cx="40" cy="44" r="12.5"/><circle cx="80" cy="44" r="12.5"/><ellipse cx="60" cy="60" rx="35" ry="19"/></g>
+            <g fill="url(#koi-frog-h)"><circle cx="40" cy="44" r="12.5"/><circle cx="80" cy="44" r="12.5"/><ellipse cx="60" cy="60" rx="35" ry="19"/></g>
+            <circle cx="56" cy="55.5" r="1.2" fill="#3F8A4E"/><circle cx="64" cy="55.5" r="1.2" fill="#3F8A4E"/>
+            <path d="M29.5 63Q28.5 56 32 51.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>`,
+          face: `<circle cx="40" cy="44.5" r="8.4" fill="#FFFBEA" ${OW(2)}/><circle cx="80" cy="44.5" r="8.4" fill="#FFFBEA" ${OW(2)}/>`
         },
-        eyes: {lx: 45, rx: 75, y: 47, r: 5.4, style: "dot"},
-        mouth: {x: 60, y: 64, w: 4},
-        cheeks: {lx: 38, rx: 82, y: 63, w: 5, h: 3, color: "#FF9FB0"},
-        anchors: {top: [60, 45, 0.9], neck: [60, 78, 1.1], chest: [70, 92, 0.72], back: [86, 88, 0.9], hands: [60, 94, 0.9]},
+        eyes: {lx: 40, rx: 80, y: 44.8, r: 5.4, style: "sparkle", color: "#1E2B22"},
+        mouths: {
+          neutral: `<path d="M49 62Q60 68.5 71 62" fill="none" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/>`,
+          smile: `<path d="M47 61Q60 71.5 73 61" fill="none" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/><path d="M45.5 59.5L48 62M74.5 59.5L72 62" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>`,
+          open: `<path d="M48 61.5Q60 63.5 72 61.5Q68 74 60 74Q52 74 48 61.5Z" fill="${INK}" ${OW(2)}/><ellipse cx="60" cy="70.4" rx="5.2" ry="2.6" fill="#FF8FA8"/>`,
+          sleepy: `<path d="M54 63.5Q60 66.5 66 63.5" fill="none" stroke="${INK}" stroke-width="2.4" stroke-linecap="round"/>`
+        },
+        mouth: {x: 60, y: 63, w: 3.4},
+        cheeks: {lx: 35, rx: 85, y: 62, w: 5, h: 3, color: "#FF8DB0"},
+        anchors: {top: [60, 37, 0.78], neck: [60, 81.5, 1.05], chest: [60, 92, 0.6], back: [88, 84, 0.9], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Ribbit! So happy to see you!", "You're doing amazing today!", "Look at you, hopping along!", "Big hops of cheer for you!", "You've got this, friend!", "You make my lily pad bounce!", "Best company on the pond!"],
           pet: ["Ribbit! That's so nice!", "Hehe! I'm all hoppy now!"],

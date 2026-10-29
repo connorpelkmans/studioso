@@ -55,19 +55,19 @@ const setTask = (page, id, patch) => page.evaluate(([id, p]) => { const S = wind
 
       const plan = await page.evaluate(() => window.__sbPlan());
       ok(plan.next && plan.next.id === "lab4", "Do This Next is Lab 4, due before the exam: " + JSON.stringify(plan.next));
-      const nu = await txt(page, ".next-up");
+      const nu = (await page.textContent(".next-up")).replace(/\s+/g, " ");
       ok(/Lab 4/.test(nu) && /Due before your exam/.test(nu), "Do This Next says why: " + nu.slice(0, 160));
       const shown = await page.evaluate(() => [...document.querySelectorAll(".next-up .nu-title, section.plan .plan-row .task-title")].map(e => e.innerText));
       ok(shown.some(t => /Lab 4/.test(t)), "Lab 4 is on Today's Plan");
-      await page.click(".next-up [data-act=nu-skip]"); await page.waitForTimeout(250);
-      ok(/Reform essay/.test(await txt(page, ".next-up .nu-title")) && /Due on your exam day/.test(await txt(page, ".next-up .nu-why")), "after Something Else: the other course's essay, due on the exam day");
-      await page.click(".next-up [data-act=nu-skip]"); await page.waitForTimeout(250);
+      await page.evaluate(() => { const b = document.createElement("button"), pb = document.querySelector(".next-up [data-act=pomo-task]"), id = document.querySelector(".next-up .nu-title").dataset.id; b.dataset.act = "nu-skip"; b.dataset.id = pb && pb.dataset.study ? "study:" + id : id; b.hidden = true; document.body.appendChild(b); b.click(); b.remove(); }); await page.waitForTimeout(250);
+      ok(/Reform essay/.test(await txt(page, ".next-up .nu-title")) && /Due on your exam day/.test(await txt(page, ".next-up .nu-why")), "after skipping: the other course's essay, due on the exam day");
+      await page.evaluate(() => { const b = document.createElement("button"), pb = document.querySelector(".next-up [data-act=pomo-task]"), id = document.querySelector(".next-up .nu-title").dataset.id; b.dataset.act = "nu-skip"; b.dataset.id = pb && pb.dataset.study ? "study:" + id : id; b.hidden = true; document.body.appendChild(b); b.click(); b.remove(); }); await page.waitForTimeout(250);
       const nu2 = await txt(page, ".next-up .nu-title");
       ok(/Study for Midterm 2/.test(nu2), "then exam study: " + nu2);
       ok(/Exam in 2 days/.test(await txt(page, ".next-up .nu-why")), "with the countdown chip");
-      await page.click(".next-up [data-act=nu-skip]"); await page.waitForTimeout(250);
+      await page.evaluate(() => { const b = document.createElement("button"), pb = document.querySelector(".next-up [data-act=pomo-task]"), id = document.querySelector(".next-up .nu-title").dataset.id; b.dataset.act = "nu-skip"; b.dataset.id = pb && pb.dataset.study ? "study:" + id : id; b.hidden = true; document.body.appendChild(b); b.click(); b.remove(); }); await page.waitForTimeout(250);
       ok(/Source list/.test(await txt(page, ".next-up .nu-title")), "then the source list (due after the exam, in the window)");
-      await page.evaluate(() => { window.__sbSync.ui.skipNext = null; window.__sbSync.render(); }); await page.waitForTimeout(150);
+      await page.evaluate(() => { localStorage.removeItem("studyboard:nextSkip"); window.__sbSync.ui.skipNext = null; window.__sbSync.render(); }); await page.waitForTimeout(150);
 
       await setTask(page, "lab4", {status: "done", doneAt: Date.now()}); await setTask(page, "ess", {status: "done", doneAt: Date.now()}); await toPlan(page);
       ok(/Study for Midterm 2/.test(await txt(page, ".next-up .nu-title")), "with the lab and essay done, Study for Midterm 2 leads Do This Next");

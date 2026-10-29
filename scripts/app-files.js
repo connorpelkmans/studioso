@@ -91,6 +91,7 @@ function problems(html = readRoot("index.html")){
     if (!fs.existsSync(f) || fs.readFileSync(f, "utf8") !== built(name, readRoot, m)) out.push("bundle/" + name + " is out of date with src/. Run: node scripts/csp.js");
   }
   for (const n of refs(html)) if (!plan(m)[n]) out.push("index.html names bundle/" + n + ", which src/app.json doesn't make");
+  try { if (require("./csp").stale(html)) out.push("index.html's CSP script fingerprints are stale. Run: node scripts/app-files.js"); } catch (e) { out.push("csp: " + e.message); }
   for (const [n, parts] of Object.entries(m.lazy || {})) if (n === "scenes.js" && !parts.some(p => /\bvar SCN20_LIB = \(function/.test(readRoot("src/js/" + p))))
     out.push("src/js/" + parts[0] + " must define var SCN20_LIB (it's loaded on its own; the app reaches it through SCN20 in 20-scenes-load.js). A regenerated library starting with const SCN20 = needs that one line changed back");
   if (!out.length && stamp(html) !== html) out.push("index.html's ?v= hashes are stale. Run: node scripts/csp.js");
@@ -108,7 +109,8 @@ if (require.main === module) {
   }
   else if (a.includes("--bundle")) { const o = a[a.indexOf("--bundle") + 1]; fs.writeFileSync(path.resolve(o), source()); console.log("app-files: wrote " + o); }
   else {
-    const changed = build(), html = fs.readFileSync(file, "utf8"), next = stamp(html);
+    // stamp the ?v= hashes, then refresh the page's CSP script fingerprints (the start-up script names bundle files, so it changes with them)
+    const changed = build(), html = fs.readFileSync(file, "utf8"), next = require("./csp").apply(stamp(html));
     if (next !== html) fs.writeFileSync(file, next);
     console.log("app-files: " + (changed.length ? "built " + changed.join(", ") : "bundle/ already current") + (next !== html ? "; updated index.html" : ""));
   }

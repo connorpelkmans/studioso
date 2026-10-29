@@ -141,6 +141,22 @@ function cleanFile(r) {
         ${x.lv.length ? `<ul class="lms-lv">${x.lv.map(v => `<li class="${g && g.lv && g.lv === v.t ? "got" : ""}"><span class="lms-lv-t">${esc(v.t || "Level")}${v.pts != null ? ` <span class="mini">${esc(v.pts)}</span>` : ""}</span>${v.d ? `<span class="mini">${esc(v.d)}</span>` : ""}</li>`).join("")}</ul>` : ""}</li>`; }).join("")}</ol></details>`;
   }
   const FNAME = {bs: "Brightspace", cv: "Canvas", bb: "Blackboard"};
+  /* Where marks come from. "grades" is the platform's Grades page; the rest are places a mark can be when Grades doesn't show it (yet).
+     A read (lms.js) returns these as c.marks rows {kind, id, num, den, from, how}; addMarks() turns them into grades.
+     Order is priority: a mark from a higher source replaces one from a lower source. Each has a remote switch in app_flags (supabase-app-flags.sql).
+     To add a source: read it in the platform's harvest in lms.js (push to marks with a new `from`, guarded by markOn("<id>")),
+     add the id to MARK_KEYS in lms.js (and the lists in lms-mobile.src.js and extension/src/relay.js), then add a row here. */
+  const MARK_SOURCES = [
+    {id: "grades", label: "Grades"},
+    {id: "quizPage", flag: "marks_quiz_page", label: "the quiz's Submissions page"},
+    {id: "attemptScore", flag: "marks_attempt_score", label: "your graded attempt"},
+    {id: "assignmentFeedback", flag: "marks_assignment_feedback", label: "the assignment's feedback"},
+    {id: "assignmentsPage", flag: "marks_assignments_page", label: "the Assignments page"},
+    {id: "discussionPage", flag: "marks_discussion_page", label: "the discussion topic's page"}];
+  const markRank = from => { const i = MARK_SOURCES.findIndex(x => x.id === (from || "grades")); return i < 0 ? MARK_SOURCES.length : i; };
+  const markLabel = from => (MARK_SOURCES.find(x => x.id === (from || "grades")) || {label: "your school site"}).label;
+  // The switches the reads are given: a source switched off in app_flags isn't read at all
+  const markSwitches = () => Object.fromEntries(MARK_SOURCES.filter(x => x.flag).map(x => [x.id, appFlag(x.flag)]));
   function subLine(t, f, L){
     if (t.status === "done") return "";
     const nm = FNAME[f], lr = (LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard"}[f]] || {lastRead: () => null}).lastRead();
@@ -152,6 +168,12 @@ function cleanFile(r) {
     if (L.sub === "yes") return `<p class="mini lms-sub">${esc(nm)} says it's submitted (read ${esc(when)}).</p>`;
     if (L.sub === "no") return `<p class="mini lms-sub">${esc(nm)} said nothing was handed in yet when it was read ${esc(when)}.</p>`;
     return `<p class="mini lms-sub">${esc(nm)} didn't say whether it's submitted when it was read ${esc(when)}${L.sub === undefined ? " (read with an older Studyboard)" : ""}. It may be tied to a calendar entry rather than the assignment itself.</p>${lr && (lr.items || []).length ? `<p style="margin:4px 0 0"><button type="button" class="btn small" data-act="lms-link" data-id="${esc(t.id)}">Link to a ${esc(nm)} Item</button></p>` : ""}`;
+  }
+  // A calendar entry the last read of its course didn't have anymore (moved, deleted, or never this course's): offer to remove it, done or not
+  function staleLine(t, f, L){
+    const lr = (LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard"}[f]] || {lastRead: () => null}).lastRead();
+    if (!lr || L.item !== false || !L.key || !(lr.ous || []).includes(L.ou) || !Array.isArray(lr.keys) || lr.keys.includes(L.key) || !(L.seen && L.seen.api && L.seen.api < lr.at) || t.mark) return "";
+    return `<p class="mini lms-sub lms-stale">This came from a ${esc(FNAME[f])} calendar entry that isn't there anymore (read ${esc(fmtWhen(lr.at))}). If it isn't real, remove it.</p><p style="margin:4px 0 0"><button type="button" class="btn small" data-act="lms-stale-del" data-id="${esc(t.id)}">Remove</button></p>`;
   }
   function linkSheet(id){
     const t = state.tasks[id], f = t && FIELDS.find(k => t[k] && t[k].key); if (!f) return;
@@ -190,12 +212,17 @@ function cleanFile(r) {
     const mine = lr && (lr.items || []).find(x => x.k === L.key);
     if (mine && mine.a) rows.push(["As read", mine.a]);
     if (lr && lr.notes && lr.notes[L.ou]) rows.push(["The read, this course", lr.notes[L.ou]]);
+    const tops = lr && lr.topics && lr.topics[L.ou];
+    if (tops && tops.length && (/discussion|forum|post|reply|respond/i.test(t.title || "") || t.type === "Discussion")) rows.push(["Discussion topics, same course", tops.map(x => `${x.t}${x.d ? " (" + x.d + ")" : ""}: ${x.p === "yes" ? "you posted" : x.p === "group" ? "your group posted" : x.p === "no" ? "no post of yours" : "posts not readable"}`).join("; ")]);
+    if (t.mark && t.mark.src === f) rows.push(["Mark from", markLabel(t.mark.from)]);
     return `<dl class="lms-diag mini">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`;
   }
   window.SBLMS_TASK = t => {
     const f = t && FIELDS.find(k => t[k] && t[k].key), L = f && t[f]; if (!L) return "";
     const fb = L.fb && (fbHas(L.fb) || L.fb.sc != null) ? L.fb : null, pills = stPills(L.st, t.status === "done"), sl = subLine(t, f, L);
-    return `<section class="lms-task" aria-label="From your school site">${sl}${pills}${fb ? `<details class="lms-fbw"${fbHas(fb) ? " open" : ""}><summary><b>Feedback</b></summary>${fbHtml(fb)}</details>` : ""}${rubHtml(L.rub, L.fb, false)}${srcHtml(f, L)}</section>`;
+    const stale = staleLine(t, f, L);
+    const mk = t.mark && t.mark.src === f && t.mark.from && t.mark.from !== "grades" ? `<p class="mini lms-sub lms-markfrom">Mark ${esc(t.mark.got)} / ${esc(t.mark.outOf)} read from ${esc(markLabel(t.mark.from))}. It isn't on ${esc(FNAME[f])}'s Grades page yet, so it may still change.</p>` : "";
+    return `<section class="lms-task" aria-label="From your school site">${stale}${sl}${mk}${pills}${fb ? `<details class="lms-fbw"${fbHas(fb) ? " open" : ""}><summary><b>Feedback</b></summary>${fbHtml(fb)}</details>` : ""}${rubHtml(L.rub, L.fb, false)}${srcHtml(f, L)}</section>`;
   };
   const QUALIFIERS = ["practice", "review", "mock", "sample", "prep", "preparation", "session", "tutorial", "orientation", "info", "information",
     "retake", "rewrite", "makeup", "make", "deferred", "supplemental", "supplementary", "solutions", "answers", "results", "feedback", "draft", "outline", "proposal", "peer"];
@@ -212,7 +239,7 @@ function cleanFile(r) {
   };
   const sameOk = (a, b) => window.SB_SAMEOK(a, b);
   const KINDQ = t => MILESTONE(t.type) || /\b(quiz|quizzes|test|exam|midterm|final)\b/i.test(t.title);
-  const DUPE_WORDS = s => new Set(String(s || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(w => w.length > 2 && !/^\d+$/.test(w) && !["requires", "the", "and", "for", "with"].includes(w)));
+  const DUPE_WORDS = s => new Set(String(s || "").replace(/\b[A-Za-z]{2,5}[\s_-]?\d{3,4}[A-Za-z]?\b/g, " ").toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(w => w.length > 2 && !/^\d+$/.test(w) && !["requires", "the", "and", "for", "with"].includes(w)));
   const lmsKeyOf = t => FIELDS.map(f => t[f] && t[f].key ? f : "").find(Boolean) || "";
   function examDupes(){
     const said = (state.settings && state.settings.sameItem) || {};
@@ -225,6 +252,7 @@ function cleanFile(r) {
       if (!lmsKeyOf(a)) return;
       ex.forEach(b => {
         if (b.id === a.id || (a.status === "done" && b.status === "done") || Math.abs(dayDiff(a.due, b.due)) > 1 || !sameOk(a.title, b.title)) return;
+        if ((a.courseId || b.courseId) && a.courseId !== b.courseId) return;
         if (lmsKeyOf(b) === lmsKeyOf(a) && isReal(a) && isReal(b)) return;
         const A = DUPE_WORDS(a.title), B = DUPE_WORDS(b.title); let n = 0; A.forEach(w => { if (B.has(w)) n++; });
         if (n < 2) return;
@@ -291,6 +319,8 @@ function cleanFile(r) {
     if (keep.weight == null && other.weight != null) keep.weight = other.weight;
     if (!keep.prep && other.prep) keep.prep = other.prep;
     FIELDS.forEach(f => { if (other[f] && other[f].key && LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard"}[f]]) LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard"}[f]].drop(other[f].key, "merge"); });
+    const kf = lmsKeyOf(keep);
+    if (kf) { const took = FIELDS.filter(f => other[f] && other[f].key && f === kf).map(f => other[f].key); if (took.length) keep[kf] = Object.assign({}, keep[kf], {merged: [...new Set((keep[kf].merged || []).concat(took))].slice(-8)}); }
     applyChanges([{kind: "task", id: keep.id, after: normTask(keep)}, {kind: "task", id: other.id, after: null}], `Merged ${other.title} into ${keep.title}`);
   }
   let dupeAsking = false;
@@ -346,6 +376,7 @@ function cleanFile(r) {
       return true;
     }
     if (act === "lms-link") { if (dlg.open) dlg.close(); setTimeout(() => linkSheet(el.dataset.id), 50); return true; }
+    if (act === "lms-stale-del") { const t = state.tasks[el.dataset.id]; if (dlg.open) dlg.close(); if (t) applyChanges([{kind: "task", id: t.id, after: null}], `Removed ${t.title}`); return true; }
     if (act === "lms-link-pick") { const Lm = LMS[el.dataset.p]; if (Lm && Lm.linkTask) Lm.linkTask(el.dataset.id, el.dataset.k); return true; }
     if (act === "lms-fb-edit") { const t = state.tasks[el.dataset.id]; if (dlg.open) dlg.close(); if (t) taskForm(t); return true; }
     return false;
@@ -353,11 +384,28 @@ function cleanFile(r) {
 
   function makeLms(P){
   const F = P.k, A = P.k;
+  // c.marks into out.grades: fills a Grades row that has no mark yet, or adds one; never replaces a mark Grades has
+  function addMarks(out, c, items){
+    const on = markSwitches();
+    (Array.isArray(c.marks) ? c.marks : []).slice().sort((x, y) => markRank(x && x.from) - markRank(y && y.from)).forEach(m => {
+      if (!m || on[m.from] === false || !isNum(m.num) || !isNum(m.den) || !(Number(m.den) > 0)) return;
+      const it = items(m); if (!it) return;
+      const got = Number(m.num), outOf = Number(m.den), shown = `${got} / ${outOf}`;
+      const row = it.gid && out.grades.find(g => g.ou === c.ou && g.gid === it.gid);
+      if (row && row.got != null) return;
+      if (row) { Object.assign(row, {got, outOf, shown: row.shown || shown, from: m.from, how: m.how || "", pid: it.pid}); return; }
+      if (out.grades.some(g => g.ou === c.ou && g.pid === it.pid && g.got != null)) return;
+      // the same item already marked by the Grades page (read by its name there): that mark, with its weight, stands
+      const named = out.grades.find(g => g.ou === c.ou && !g.from && g.got != null && titleKey(g.name) === titleKey(cleanTitle(it.name).title));
+      if (named) { if (!named.pid) named.pid = it.pid; return; }
+      out.grades.push({ou: c.ou, gid: it.gid || it.pid, pid: it.pid, name: cleanTitle(it.name).title, got, outOf, weight: null, shown, at: null, fb: null, from: m.from, how: m.how || ""});
+    });
+  }
 
   const LS = "studyboard:" + P.id;
   const bsDesk = () => !!lmsBridge();
   const DEF = {host: "", feed: "", mode: "", auto: true, markDone: true, grades: true, news: true, aiNews: true, addGraded: true, pastDays: 14,
-    map: {}, courses: {}, log: [], newsItems: [], finals: {}, suggest: [], scanned: [], last: 0, lastSrc: "", name: "", gone: [], dropped: [], merges: {}, apiOnly: [], mergedDrops: []};
+    map: {}, courses: {}, log: [], newsItems: [], finals: {}, suggest: [], scanned: [], last: 0, lastSrc: "", name: "", gone: [], dropped: [], merges: {}, apiOnly: [], mergedDrops: [], wrongCourse: {}, goneCourses: {}};
   const BULK_LS = LS + ":bulk", NEWS_KEEP = 20, NEWS_SNIP = 280;
   let bulkMem = null;
   const bulk = () => { if (!bulkMem) { try { bulkMem = JSON.parse(localStorage.getItem(BULK_LS) || "null"); } catch(e) {} bulkMem = Object.assign({log: [], scanned: [], texts: {}}, bulkMem || {}); } return bulkMem; };
@@ -396,9 +444,13 @@ function cleanFile(r) {
   const codeOf = s => { const m = String(s || "").match(CODE_RX); return m ? `${m[1]} ${m[2]}` : ""; };
   const notThisCourse = h => {
     const code = {}; (h.courses || []).forEach(c => { const k = codeOf(c.name) || codeOf(c.code); if (k) code[c.ou] = k.toUpperCase(); });
+    // A calendar entry with no course of its own (a personal one, or a program-wide one) comes back in every course's calendar:
+    // it belongs to none of them, so it isn't filed under whichever course was being read
+    const seenIn = {}; (h.courses || []).forEach(c => (c.events || []).forEach(e => { if (e && !e.ou && e.id) (seenIn[e.id] = seenIn[e.id] || new Set()).add(String(c.ou)); }));
     return (c, e) => {
       if (e.ou && String(e.ou) !== String(c.ou)) return true;
       const named = (String(e.title || "").match(new RegExp(CODE_RX.source, "gi")) || []).map(x => codeOf(x.toUpperCase()).toUpperCase()).filter(Boolean);
+      if (!e.ou && e.id && seenIn[e.id] && seenIn[e.id].size > 1) return !(code[c.ou] && named.includes(code[c.ou]));
       return named.length > 0 && !named.includes(code[c.ou]) && named.some(k => Object.keys(code).some(o => o !== String(c.ou) && code[o] === k));
     };
   };
@@ -432,12 +484,12 @@ function cleanFile(r) {
     return g;
   };
   const absUrl = (origin, u) => { if (!u) return ""; if (/^https?:\/\//i.test(u)) return u; return origin ? origin + (u.startsWith("/") ? "" : "/") + u : ""; };
-  const courseName = (name, code) => { let n = String(name || "").trim(); if (code) n = n.replace(new RegExp(`^\\s*${code.replace(" ", "[\\s_-]?")}\\s*[-–:]?\\s*`, "i"), ""); return n.trim() || String(name || code || `${P.name} Course`); };
+  const courseName = (name, code) => { let n = String(name || "").trim(); if (code) n = n.replace(new RegExp(`^\\s*${code.replace(" ", "[\\s_-]?")}(?:-[A-Z]?\\d{1,3}[A-Z]?)?\\s*[-–:]?\\s*`, "i"), ""); return n.trim() || String(name || code || `${P.name} Course`); };
 
   /* Reading the platform data into one shape */
   const makeAdd = (out, filesFirst) => {
     const byKey = {};
-    const merge = (p, r) => { ["due", "time", "start", "url", "notes", "gid", "outOf", "lateUntil", "rx", "location", "st", "fb", "rub"].forEach(f => { if (!p[f] && r[f]) p[f] = r[f]; }); if (r.done) p.done = true; if (r.sub === "yes" || (r.sub && !p.sub)) p.sub = r.sub; if (r.files && r.files.length && !(filesFirst && (p.files || []).length)) p.files = r.files; return p; };
+    const merge = (p, r) => { ["due", "time", "start", "url", "notes", "gid", "outOf", "lateUntil", "rx", "location", "st", "fb", "rub", "doneAt"].forEach(f => { if (!p[f] && r[f]) p[f] = r[f]; }); if (r.done) p.done = true; if (r.sub === "yes" || (r.sub && !p.sub)) p.sub = r.sub; if (r.files && r.files.length && !(filesFirst && (p.files || []).length)) p.files = r.files; return p; };
     const add = r => {
       const k = r.ou + "|" + titleKey(r.title), list = byKey[k] || (byKey[k] = []);
       const same = list.find(p => (r.pid && p.pid === r.pid) || (p.due === r.due && (!p.time || !r.time || p.time === r.time)));
@@ -450,6 +502,21 @@ function cleanFile(r) {
     return add;
   };
   const recKey = r => r.key || r.ou + "|" + titleKey(r.title);
+  /* How well a course entry ("Module 6 Discussion post") fits a discussion topic ("Professionalism" in the forum "Module 6"):
+     the module/week numbers must agree (a different number never fits), then shared words other than "discussion", "post", "group"... */
+  const TOPIC_GEN = new Set(["discussion", "discussions", "post", "posts", "posting", "group", "groups", "module", "modules", "week", "weeks", "unit", "chapter", "lesson", "topic", "topics", "forum", "activity", "part", "and", "the", "for", "with", "initial", "reply", "replies", "response", "responses", "due", "board", "assignment", "your", "from", "about"]);
+  const topicUnits = s => { const o = {}; for (const m of String(s || "").toLowerCase().matchAll(/\b(module|mod|week|wk|unit|chapter|ch|lesson|session)\.?\s*#?\s*(\d{1,2})\b/g)) { const k = ({mod: "module", wk: "week", ch: "chapter"})[m[1]] || m[1]; (o[k] = o[k] || new Set()).add(m[2]); } return o; };
+  const topicWords = s => new Set(String(s || "").toLowerCase().replace(/\b[a-z]{2,5}\s?-?\d{3,4}\b/g, " ").replace(/[^a-z ]/g, " ").split(/\s+/).filter(w => w.length > 2 && !TOPIC_GEN.has(w)));
+  const topicFit = (r, d) => {
+    const ru = topicUnits(r.title), du = topicUnits([d.name, d.forum, String(d.text || "").slice(0, 300)].join(" "));
+    let hit = 0;
+    for (const k of Object.keys(ru)) { if (!du[k]) continue; if ([...ru[k]].some(v => du[k].has(v))) hit++; else return 0; }
+    if (r.due && d.due) { const dd = (localDT(d.due) || {}).date; if (dd && Math.abs(dayDiff(dd, r.due)) > 1) return 0; }
+    const rw = topicWords(cleanTitle(r.title).title), dw = topicWords([d.name, d.forum].join(" ")); let shared = 0; rw.forEach(w => { if (dw.has(w)) shared++; });
+    return Object.keys(ru).length ? (hit ? 10 * hit + shared : 0) : shared >= 2 ? shared : 0;
+  };
+  // a discussion counts as posted by your post, or in a group topic by your group's
+  const postedOf = d => !!d && (d.posted === true || d.groupPosted === true);
   function foldCopies(out){
     const real = out.recs.filter(r => r.pid), said = cfg().merges || {};
     const gone = new Set(); out.ask = [];
@@ -495,13 +562,14 @@ function cleanFile(r) {
     const subNotes = (h.courses || []).map(c => typeof c.subNote === "string" ? c.subNote.slice(0, 160) : "").filter(Boolean);
     out.diag = `Read ${(h.courses || []).length} of ${(h.all || []).length} courses (${(h.courses || []).map(c => c.code || c.name).slice(0, 20).join(", ")}).${subNotes.length ? " Assignments: " + subNotes.join(" | ") + "." : ""} Grade rows per course: ${(h.courses || []).map(c => c.gradeN == null ? "?" : c.gradeN).join(", ") || "none"}.${(h.errors || []).length ? " Problems: " + h.errors.slice(0, 4).join("; ") : ""}`;
     const add = makeAdd(out, false);
-    out.notes = {}; (h.courses || []).forEach(c => { const n = [c.subNote, c.quizNote].filter(x => typeof x === "string" && x).join("; "); if (n) out.notes[c.ou] = n.slice(0, 300); });
-    const undated = [], linked = [], openOnly = [];
+    out.dx = {}; (h.courses || []).forEach(c => { if (c.dx && typeof c.dx === "object") out.dx[c.ou] = Object.assign({code: c.code || "", name: String(c.name || "").slice(0, 80)}, c.dx); });
+    out.notes = {}; (h.courses || []).forEach(c => { const n = [c.subNote, c.quizNote, c.topicNote, c.markNote].filter(x => typeof x === "string" && x).join("; "); if (n) out.notes[c.ou] = n.slice(0, 300); });
+    const undated = [], linked = [], openOnly = [], undatedD = [], examCal = [];
     const addFolder = (ou, f, due) => {
       const st = localDT(f.start);
       add({ou, asRead: [f.due && "due " + f.due, f.start && "opens " + f.start, f.end && "closes " + f.end, f.sub === true ? "submitted" : f.sub === false ? "not submitted" : "submitted: unknown"].filter(Boolean).join("; "), pid: "f" + f.id, title: cleanTitle(f.name).title, type: typeFor(f.name), due: due.date, time: due.time, start: st && st.date < due.date && st.date >= addDays(due.date, -45) ? st.date : "",
         notes: f.text || "", url: absUrl(origin, `/d2l/lms/dropbox/user/folder_submit_files.d2l?db=${f.id}&ou=${ou}`), gid: f.gid || "", outOf: f.outOf, done: f.sub === true, sub: f.sub === true ? "yes" : f.sub === false ? "no" : "", sure: true, lateUntil: f.due ? lateWin(f.due, f.end) : "",
-        rx: {k: "dropbox", sb: f.sbt, ul: f.start, ll: f.end}, st: f.st || null, fb: f.fb || null, rub: f.rub || null,
+        rx: {k: "dropbox", sb: f.sbt, ul: f.start, ll: f.end}, st: f.st || null, fb: f.fb || null, rub: f.rub || null, doneAt: (f.st && f.st.subAt) || "",
         files: (f.files || []).map(x => ({ou, folder: f.id, id: x.id, name: x.name, size: x.size}))});
     };
     const addQuiz = (ou, q, at) => {
@@ -510,7 +578,7 @@ function cleanFile(r) {
       const due = at || localDT(!staleDue && q.due || (sameDay ? q.start : q.end || q.start)); if (!due) return;
       const opens = localDT(q.start);
       const notes = [q.text, q.limit ? `Time limit: ${q.limit} minutes.` : "", opens && opens.date !== due.date ? `Opens ${fmtDate(opens.date)}${opens.time ? " at " + fmtTime(opens.time) : ""}.` : ""].filter(Boolean).join("\n");
-      add({ou, asRead: [q.due && "due " + q.due, q.start && "opens " + q.start, q.end && "closes " + q.end, q.done === true ? "sat" : q.done === false ? "not sat" : "sat: unknown", q.why].filter(Boolean).join("; "), pid: "q" + q.id, title: cleanTitle(q.name).title, type: typeFor(q.name, "quiz"), due: due.date, time: due.time, start: "", notes, url: absUrl(origin, `/d2l/lms/quizzing/user/quiz_summary.d2l?qi=${q.id}&ou=${ou}`), gid: q.gid || "", done: q.done === true, sub: q.done === true ? "yes" : q.done === false ? "no" : "", sure: true, lateUntil: q.due && !staleDue ? lateWin(q.due, q.end) : "", rx: {k: "quiz", tl: q.limit, ul: q.start, ll: q.end}, st: q.st || null});
+      add({ou, asRead: [q.due && "due " + q.due, q.start && "opens " + q.start, q.end && "closes " + q.end, q.done === true ? "sat" : q.done === false ? "not sat" : "sat: unknown", q.why].filter(Boolean).join("; "), pid: "q" + q.id, title: cleanTitle(q.name).title, type: typeFor(q.name, "quiz"), due: due.date, time: due.time, start: "", notes, url: absUrl(origin, `/d2l/lms/quizzing/user/quiz_summary.d2l?qi=${q.id}&ou=${ou}`), gid: q.gid || "", done: q.done === true, sub: q.done === true ? "yes" : q.done === false ? "no" : "", sure: true, lateUntil: q.due && !staleDue ? lateWin(q.due, q.end) : "", rx: {k: "quiz", tl: q.limit, ul: q.start, ll: q.end}, st: q.st || null, doneAt: q.at || ""});
     };
     const notOurs = notThisCourse(h);
     (h.courses || []).forEach(c => {
@@ -520,15 +588,24 @@ function cleanFile(r) {
         if (!localDT(f.due)) { undated.push({ou: c.ou, f}); return; }
         addFolder(c.ou, f, localDT(f.due));
       });
+      const qCal = {}, qIds = new Set((c.quizzes || []).map(q => String(q.id)));
+      (c.events || []).forEach(e => { if (!e || !localDT(e.start) || notOurs(c, e)) return;
+        if (e.assoc && !/dropbox|assignment|discussion|topic/i.test(e.kind || "")) examCal.push({ou: c.ou, title: cleanTitle(e.title).title, s: localDT(e.start), allDay: !!e.allDay});
+        if (e.assoc && e.eid && (/quiz/i.test(e.kind || "") || (!/dropbox|assignment|discussion|topic/i.test(e.kind || "") && qIds.has(String(e.eid))))) qCal[e.eid] = e; });
       (c.quizzes || []).forEach(q => {
-        if (!q.end && (!q.due || (q.start && Date.parse(q.due) <= Date.parse(q.start) + 60000))) { openOnly.push({ou: c.ou, q}); return; }
+        if (!q.end && (!q.due || (q.start && Date.parse(q.due) <= Date.parse(q.start) + 60000))) {
+          // its calendar entry, tied to the quiz itself, gives its day (an exam is often only "available on" a date, with the day on the calendar)
+          const ev = qCal[q.id], s = ev && localDT(ev.start);
+          if (s && (!q.start || s.date >= localDT(q.start).date)) { q.why = "dated by its calendar entry"; addQuiz(c.ou, q, ev.allDay ? {date: s.date, time: ""} : s); return; }
+          openOnly.push({ou: c.ou, q}); return; }
         addQuiz(c.ou, q);
       });
       (c.discussions || []).forEach(d => {
-        const due = localDT(d.due); if (!due) return;
+        const due = localDT(d.due); if (!due) { undatedD.push({ou: c.ou, d}); return; }
         const st = localDT(d.start);
         add({ou: c.ou, pid: "d" + d.id, title: cleanTitle(d.name).title, type: typeFor(d.name), due: due.date, time: due.time, start: st && st.date < due.date && st.date >= addDays(due.date, -45) ? st.date : "",
-          notes: d.text || "", url: absUrl(origin, `/d2l/le/${c.ou}/discussions/topics/${d.id}/View`), gid: d.gid || "", outOf: d.outOf, done: d.posted === true, sub: d.posted === true ? "yes" : d.posted === false ? "no" : "", st: d.st || null});
+          notes: d.text || "", url: absUrl(origin, `/d2l/le/${c.ou}/discussions/topics/${d.id}/View`), gid: d.gid || "", outOf: d.outOf, done: postedOf(d), doneAt: d.at || "", sub: postedOf(d) ? "yes" : d.posted === false ? "no" : "", st: d.groupPosted ? Object.assign({}, d.st || {}, {missing: false}) : d.st || null,
+          asRead: d.groupPosted ? "your group posted (no post of your own)" : ""});
       });
       (c.events || []).forEach(e => {
         if (notOurs(c, e)) return;
@@ -549,6 +626,9 @@ function cleanFile(r) {
       const wOf = g => weighted && isNum(g.wden) && Number(g.wden) > 0 ? Number(g.wden) : !weighted && pts > 0 && isNum(g.den) && Number(g.den) > 0 ? Math.round(Number(g.den) / pts * 10000) / 100 : null;
       num.forEach(g => out.grades.push({ou: c.ou, gid: g.gid, name: g.name, got: isNum(g.num) ? Number(g.num) : null, outOf: isNum(g.den) && Number(g.den) > 0 ? Number(g.den) : null,
         weight: wOf(g), shown: g.shown || "", at: g.at || null, fb: g.fb || null}));
+      // Marks not on the Grades page (quiz Submissions pages, assignment feedback, the Assignments page, discussion pages)
+      addMarks(out, c, m => { const list = {quiz: c.quizzes, folder: c.folders, topic: c.discussions}[m.kind], pre = {quiz: "q", folder: "f", topic: "d"}[m.kind];
+        const x = (list || []).find(y => y && String(y.id) === String(m.id)); return x ? {pid: pre + x.id, gid: x.gid || "", name: x.name} : null; });
       if (c.final && (c.final.shown || isNum(c.final.num))) out.finals[c.ou] = {shown: c.final.shown || "", pct: isNum(c.final.num) && isNum(c.final.den) && Number(c.final.den) > 0 ? Math.round(Number(c.final.num) / Number(c.final.den) * 1000) / 10 : null, at: Date.now()};
       (c.news || []).forEach(n => out.news.push({ou: c.ou, id: n.id, title: n.title, text: String(n.text || "").slice(0, 900), long: String(n.text || "").length > 900, date: n.date, url: absUrl(origin, `/d2l/le/news/${c.ou}/${n.id}/view`)}));
     });
@@ -563,10 +643,10 @@ function cleanFile(r) {
       if (own && own.pid && own.pid[0] === "f" && own.due && due.date > own.due) { own.st = Object.assign({}, own.st || {}, {ext: true, was: own.due}); own.due = due.date; own.time = due.time; if (x.done) { own.done = true; own.sub = "yes"; } return; }
       const fo = x.act === 3 ? folderOf[x.ou + "|" + ((String(x.url || "").match(/[?&]db=(\d+)/) || [])[1] || x.id)] : null;
       const subd = !!x.done || !!(fo && fo.sub === true);
-      add({ou: x.ou, title: ct.title, type: typeFor(ct.title, actType(x.act)), due: due.date, time: due.time, start: "", notes: "", url: absUrl(origin, x.url), done: subd,
+      add({ou: x.ou, title: ct.title, type: typeFor(ct.title, actType(x.act)), due: due.date, time: due.time, start: "", notes: "", url: absUrl(origin, x.url), done: subd, tid: x.act === 6 ? String(x.id) : "",
         sub: subd ? "yes" : fo && fo.sub === false ? "no" : "", st: fo && fo.st || null, fb: fo && fo.fb || null, rub: fo && fo.rub || null, rx: x.act === 4 ? {k: "quiz"} : x.act === 3 ? {k: "dropbox"} : undefined});
     });
-    (h.completions || []).forEach(x => { const d = localDT(x.due || x.end), r = add.find(x.ou, cleanTitle(x.name).title, d && d.date); if (r && x.done) { r.done = true; r.sub = "yes"; } });
+    (h.completions || []).forEach(x => { const d = localDT(x.due || x.end), r = add.find(x.ou, cleanTitle(x.name).title, d && d.date); if (r && x.done) { r.done = true; r.sub = "yes"; if (!r.doneAt && typeof x.done === "string") r.doneAt = x.done; } });
     const best = (title, ou, pool) => {
       const exy = x => /\b(quiz|quizzes|test|exam|midterm|final)\b/i.test(String(x || ""));
       const cands = pool.filter(u => u.ou === ou && !u.used && window.SB_SAMEOK(title, u.f.name) && exy(cleanTitle(title).title) === exy(u.f.name)).map(u => ({u, n: likeN(cleanTitle(title).title, u.f.name)})).filter(x => x.n >= 2).sort((a, b) => b.n - a.n);
@@ -577,12 +657,43 @@ function cleanFile(r) {
       const u = best(r.title, r.ou, undated); if (!u) return;
       const f = u.f; u.used = true;
       r.pid = "f" + f.id;
-      if (f.sub === true) { r.done = true; r.sub = "yes"; } else if (f.sub === false && !r.done) r.sub = "no";
+      if (f.sub === true) { r.done = true; r.sub = "yes"; if (f.st && f.st.subAt && !r.doneAt) r.doneAt = f.st.subAt; } else if (f.sub === false && !r.done) r.sub = "no";
       r.url = absUrl(origin, `/d2l/lms/dropbox/user/folder_submit_files.d2l?db=${f.id}&ou=${r.ou}`);
       ["gid", "outOf", "st", "fb", "rub"].forEach(k => { if (!r[k] && f[k]) r[k] = f[k]; });
       if (!r.notes && f.text) r.notes = f.text;
       if ((f.files || []).length && !(r.files || []).length) r.files = f.files.map(x => ({ou: r.ou, folder: f.id, id: x.id, name: x.name, size: x.size}));
       r.rx = Object.assign({k: "dropbox", sb: f.sbt}, r.rx || {});
+    });
+    // A discussion with no date of its own: its calendar or content entry in the same course takes its posted status
+    undatedD.forEach(({ou, d}) => {
+      const k = titleKey(cleanTitle(d.name).title);
+      const cands = out.recs.filter(r => r.ou === ou && !r.pid && (titleKey(r.title) === k || (window.SB_SAMEOK(r.title, d.name) && likeN(cleanTitle(r.title).title, d.name) >= 2)));
+      const r = cands.length === 1 ? cands[0] : cands.find(x => titleKey(x.title) === k);
+      if (!r) return;
+      r.pid = "d" + d.id; r.gid = r.gid || d.gid || ""; if (d.outOf && !r.outOf) r.outOf = d.outOf;
+      if (postedOf(d)) { r.done = true; r.sub = "yes"; if (d.at && !r.doneAt) r.doneAt = d.at; } else if (d.posted === false && !r.done) r.sub = "no";
+      r.url = absUrl(origin, `/d2l/le/${ou}/discussions/topics/${d.id}/View`);
+    });
+    // A content or calendar entry for a discussion ("Module 6 Discussion post") takes the topic's posted status: by the topic in its link,
+    // else by a close name in the same course within a day (a different module number never counts)
+    out.topics = {};
+    (h.courses || []).forEach(c => {
+      const ds = (c.discussions || []).filter(Boolean); if (!ds.length) return;
+      out.topics[c.ou] = ds.slice(0, 40).map(d => ({t: String(d.name || "").slice(0, 120), d: d.due ? (localDT(d.due) || {}).date || "" : "", p: d.posted === true ? "yes" : d.groupPosted ? "group" : d.posted === false ? "no" : ""}));
+      out.recs.forEach(r => {
+        if (r.ou !== c.ou || (r.pid && r.pid[0] !== "i")) return;
+        // the content list's entry for a discussion topic carries the topic's own id (activity type 6), else the topic is in its link
+        const tid = r.tid || ((String(r.url || "").match(/\/discussions\/topics\/(\d+)|[?&](?:topicId|tid)=(\d+)/i) || []).slice(1).find(Boolean));
+        let d = tid && ds.find(x => String(x.id) === tid);
+        if (!d) {
+          const sc = ds.map(x => ({x, n: topicFit(r, x)})).filter(z => z.n > 0).sort((a, b) => b.n - a.n);
+          if (sc.length && !(sc[1] && sc[1].n === sc[0].n)) d = sc[0].x;
+        }
+        if (!d || r.pid === "d" + d.id) return;
+        r.asRead = [r.asRead, `the discussion topic ${d.name}: ${d.posted === true ? "you posted" : d.groupPosted ? "your group posted" : d.posted === false ? "no post of yours" : "posts not readable"}`].filter(Boolean).join("; ");
+        if (postedOf(d)) { r.done = true; r.sub = "yes"; if (d.at && !r.doneAt) r.doneAt = d.at; } else if (d.posted === false && !r.done) r.sub = "no";
+        if (!r.gid && d.gid) r.gid = d.gid; if (!r.outOf && d.outOf) r.outOf = d.outOf;
+      });
     });
     linked.forEach(({ou, e}) => {
       const u = undated.find(z => z.ou === ou && !z.used && (e.eid ? z.f.id === e.eid : titleKey(cleanTitle(e.title).title) === titleKey(cleanTitle(z.f.name).title)));
@@ -601,20 +712,43 @@ function cleanFile(r) {
       const fromTasks = Object.values(state.tasks || {}).filter(t => t && t[F] && t[F].key && t[F].key !== own && !inRead.has(t[F].key) && t[F].item !== true && t.status !== "done" && t.due && EXAMY.test(t.title)
           && (t[F].ou === ou || (cid && cid !== "skip" && cid !== "new" && t.courseId === cid)))
         .map(t => ({r: {title: t.title, due: t.due, time: t.time || "", location: t.location || "", key: t[F].key}, k: t[F].key}));
-      const cands = fromRead.concat(fromTasks).filter(x => !opens || x.r.due >= opens.date)
+      const fromCal = examCal.filter(x => x.ou === ou && EXAMY.test(x.title)).map(x => ({r: {title: x.title, due: x.s.date, time: x.allDay ? "" : x.s.time || "", location: "", key: ou + "|" + titleKey(x.title) + "|cal", cal: true}, k: ""}));
+      const cands = fromRead.concat(fromTasks, fromCal).filter(x => !opens || x.r.due >= opens.date)
         .filter(x => window.SB_SAMEOK(x.r.title, q.name))
         .map(x => ({r: x.r, n: likeN(x.r.title, q.name), extra: (x.r.location ? 2 : 0) + (x.r.time ? 1 : 0)})).filter(x => x.n >= 2)
         .sort((a, b) => b.n - a.n || b.extra - a.extra || String(a.r.due).localeCompare(String(b.r.due)));
       const tie = cands[1] && cands[1].n === cands[0].n && cands[1].extra === cands[0].extra && cands[1].r.due === cands[0].r.due;
-      const r = cands.length && !tie ? cands[0].r : null;
+      // two entries that fit equally but agree on the day still give the day (only which one is its copy is unclear)
+      const sameDay = tie && cands.filter(x => x.n === cands[0].n && x.extra === cands[0].extra).every(x => x.r.due === cands[0].r.due && (x.r.time || "") === (cands[0].r.time || ""));
+      const r = cands.length && (!tie || sameDay) ? cands[0].r : null;
       q.why = r ? "dated by " + r.title : cands.length ? "no date: " + cands.slice(0, 3).map(x => x.r.title).join(" and ") + " fit equally" : "no calendar exam like it in this course on or after it opens";
       if (!r) { addQuiz(ou, q); return; }
       addQuiz(ou, q, {date: r.due, time: r.time || ""});
       const qr = out.recs.find(x => x.pid === "q" + q.id); if (!qr) return;
       if (!qr.location && r.location) qr.location = r.location;
+      if (r.cal || tie) return;
       const pair = recKey(r) + ">" + recKey(qr), said = (cfg().merges || {})[pair];
       if (!said) out.ask.push({pair, ou, copy: r.title, real: qr.title, due: qr.due, done: !!qr.done});
     });
+    out.grades.forEach(g => { if (g.pid) { const r = out.recs.find(x => x.pid === g.pid); if (r) g.key = recKey(r); } });
+    // A grade's item: its due day and when you handed it in, so a task made from the grade isn't dated by the day of the read
+    (h.courses || []).forEach(c => {
+      const items = [].concat((c.quizzes || []).map(x => ({gid: x.gid, pid: "q" + x.id, when: x.at, day: x.due || x.end})),
+        (c.folders || []).map(x => ({gid: x.gid, pid: "f" + x.id, when: x.st && x.st.subAt, day: x.due || x.end})),
+        (c.discussions || []).map(x => ({gid: x.gid, pid: "d" + x.id, when: x.at, day: x.due})));
+      out.grades.filter(g => g.ou === c.ou).forEach(g => {
+        const r = out.recs.find(x => x.ou === c.ou && ((g.pid && x.pid === g.pid) || (g.gid && x.gid === g.gid)));
+        const it = items.find(x => (g.pid && x.pid === g.pid) || (g.gid && x.gid && x.gid === g.gid));
+        g.when = (r && r.doneAt) || (it && it.when) || ""; if (it) g.kind = it.pid[0];
+        const day = r && r.due ? {date: r.due, time: r.time || ""} : it && it.day ? localDT(it.day) : null;
+        if (day) { g.due = day.date; g.time = day.time || ""; }
+      });
+    });
+    // what the course's calendar gave, for the sync report
+    const notOursCal = notThisCourse(h);
+    (h.courses || []).forEach(c => { const ev = (c.events || []).filter(Boolean), nowMs = Date.now(), d = out.dx[c.ou] = out.dx[c.ou] || {code: c.code || "", name: String(c.name || "").slice(0, 80)};
+      d.cal = {read: ev.length, ahead: ev.filter(e => Date.parse(e.end || e.start || "") >= nowMs).length, tied: ev.filter(e => e.assoc).length, other: ev.filter(e => notOursCal(c, e)).length,
+        kept: out.evs.filter(e => e.ou === c.ou).length}; });
     return out;
   }
 
@@ -667,21 +801,66 @@ function cleanFile(r) {
   }
 
   /* Matching the platform courses to yours */
-  function autoMatch(bc){
-    const cs = coursesArr(), code = bc.code || codeOf(bc.name);
-    if (code) { const k = codeKey(code); const c = cs.find(c => c.code && codeKey(c.code) === k) || cs.find(c => codeKey(c.name).includes(k) || (c.code && codeKey(c.code).includes(k))); if (c) return c.id; }
-    const nm = courseName(bc.name, code).toLowerCase();
-    const c = cs.find(c => c.name && nm.length > 4 && (c.name.toLowerCase() === nm || sim(c.name, nm) >= 0.75));
-    return c ? c.id : "";
+  function autoMatch(bc, not){
+    const code = bc.code || codeOf(bc.name);
+    // your active courses first; an archived one before ever making a second copy of a course you already have
+    for (const cs0 of [coursesArr(), allCourses().filter(c => c.archived)]) {
+      const cs = not ? cs0.filter(c => c.id !== not) : cs0;
+      if (code) { const k = codeKey(code); const c = cs.find(c => c.code && codeKey(c.code) === k) || cs.find(c => codeKey(c.name).includes(k) || (c.code && codeKey(c.code).includes(k))); if (c) return c.id; }
+      const nm = courseName(bc.name, code).toLowerCase();
+      const c = cs.find(c => c.name && nm.length > 4 && (c.name.toLowerCase() === nm || sim(c.name, nm) >= 0.75));
+      if (c) return c.id;
+    }
+    return "";
+  }
+  // What makes two school courses the same course: the course code, else the name
+  const sameKey = bc => { const code = cleanCourseCode(bc.code, bc.name) || codeOf(bc.code) || codeOf(bc.name); return code ? "c:" + codeKey(code) : "n:" + courseName(bc.name, "").toLowerCase().replace(/[^a-z0-9]/g, ""); };
+  // A course you deleted stays deleted: syncing never brings it back. Restoring it from Recently Deleted picks it up again
+  const inTrash = id => trashList().some(e => (e.items || []).some(i => i && i.kind === "course" && i.id === id));
+  const linkedOus = id => { const c = cfg(), co = state.courses[id], ous = new Set();
+    Object.entries(c.map || {}).forEach(([ou, v]) => { if (v === id) ous.add(ou); });
+    if (co && co[F] && co[F].ou) ous.add(co[F].ou);
+    Object.keys(c.courses || {}).forEach(ou => { if (F + "c_" + hid(ou) === id) ous.add(ou); });
+    return [...ous]; };
+  // Courses merged (from -> to): the school courses that went to the copy now go to the course that stays
+  function repoint(to){
+    const c = cfg(), map = Object.assign({}, c.map); let n = 0;
+    Object.keys(c.courses || {}).concat(Object.keys(map)).forEach(ou => { const v = map[ou] || (to[F + "c_" + hid(ou)] ? F + "c_" + hid(ou) : ""); if (v && to[v] && map[ou] !== to[v]) { map[ou] = to[v]; n++; } });
+    if (n) save({map});
+  }
+  function courseDeleted(id){
+    const ous = linkedOus(id); if (!ous.length) return;
+    const c = cfg(), map = Object.assign({}, c.map), gone = Object.assign({}, c.goneCourses);
+    // a copy deleted while you still have the course (same code or name): the school course goes to the one you kept
+    ous.forEach(ou => { const bc = (c.courses || {})[ou], keep = bc && autoMatch(bc, id); if (keep) { map[ou] = keep; delete gone[ou]; } else { map[ou] = "skip"; gone[ou] = id; } });
+    save({map, goneCourses: gone});
   }
   function mapping(data, over){
-    const c = cfg(), out = {};
+    const c = cfg(), out = {}, gone = Object.assign({}, c.goneCourses || {});
+    let fix = null; const note = (ou, m) => { fix = fix || {map: Object.assign({}, c.map), goneCourses: gone}; if (m == null) delete fix.map[ou]; else fix.map[ou] = m; };
     data.courses.forEach(bc => {
-      let m = (over && over[bc.ou]) || c.map[bc.ou];
+      const ou = bc.ou, was = gone[ou];
+      let m = (over && over[ou]) || c.map[ou];
+      if (was && !(over && over[ou])) {
+        if (state.courses[was]) { m = was; delete gone[ou]; note(ou, was); }          // restored from Recently Deleted
+        else if (!m || m === "skip" || m === was) { const keep = autoMatch(bc, was);  // still deleted, unless you still have the course (a copy was deleted)
+          if (keep) { m = keep; delete gone[ou]; note(ou, keep); } else m = "skip"; }
+        else { delete gone[ou]; fix = fix || {map: Object.assign({}, c.map), goneCourses: gone}; } // you picked another course for it since
+      }
+      // the course it went to was deleted (Recently Deleted holds it): keep it off rather than make a new one
+      const dflt = F + "c_" + hid(ou);
+      if (!(over && over[ou]) && m !== "skip" && ((m && m !== "new" && !state.courses[m] && inTrash(m)) || (!m && !state.courses[dflt] && inTrash(dflt)))) {
+        const was2 = m && m !== "new" ? m : dflt, keep = autoMatch(bc, was2);
+        if (keep) { m = keep; note(ou, keep); } else { gone[ou] = was2; m = "skip"; note(ou, "skip"); }
+      }
       if (m && m !== "new" && m !== "skip" && !state.courses[m]) m = "";
       if (!m) m = autoMatch(bc) || (state.courses[F + "c_" + hid(bc.ou)] ? F + "c_" + hid(bc.ou) : "new");
+      // the same course listed twice by the school site (two sections, or an old and a new shell): one Studyboard course
+      if (m === "new" && !(over && over[ou])) { const k = sameKey(bc), first = k.length > 3 && data.courses.find(x => x !== bc && x.ou !== ou && sameKey(x) === k && out[x.ou] && out[x.ou] !== "skip");
+        if (first) m = out[first.ou] === "new" ? F + "c_" + hid(first.ou) : out[first.ou]; }
       out[bc.ou] = m;
     });
+    if (fix) save(fix);
     return out;
   }
 
@@ -698,6 +877,7 @@ function cleanFile(r) {
     const courseFor = ou => {
       const m = map[ou]; if (!m || m === "skip") return null;
       if (m !== "new") {
+        if (!cur("course", m)) { const src = data.courses.find(x => x.ou !== ou && F + "c_" + hid(x.ou) === m && map[x.ou] === "new"); if (src) return courseFor(src.ou); }
         const ex = cur("course", m), home = data.origin && P.courseHome(data.origin, ou);
         if (ex && home && !(ex[F] && ex[F].home) && !(ex.links || []).some(l => l && l.url === home)) {
           const nc = clone(ex); nc.links = (nc.links || []).concat([{label: P.name, url: home}]).slice(0, 12); nc[F] = Object.assign({}, nc[F] || {}, {ou, home: 1}); put("course", nc);
@@ -713,6 +893,13 @@ function cleanFile(r) {
       put("course", nc); rep.courses.push(nc.name); return id;
     };
     const tasks = allTasks(), dropped = new Set(c.dropped || []), apiOnly = new Set(c.apiOnly || []);
+    // When you handed something in, by the school site (never later than now); the time of this read only when the site doesn't say
+    // A task made from a grade: the item's due day, else when you handed it in, else when the mark was released; never just the day of the read
+    const gradeDay = g => { if (g.due) return {date: g.due, time: g.time || ""}; const w = localDT(g.when || g.at || ""); return w ? {date: w.date, time: ""} : {date: "", time: ""}; };
+    const whenDone = (x, day, time) => { const v = Date.parse(x || ""); if (v > 0 && v <= Date.now() + 6e4) return v;
+      const d = day && isDate(day) ? new Date(day + "T" + (time || "12:00")).getTime() : 0; return d > 0 && d < Date.now() ? d : Date.now(); };
+    // its done time was set by a read, not by you: the read's own time, the day it was made or ticked off
+    const autoDone = t => { const L = t[F] || {}, d = Number(t.doneAt) || 0; return !!d && (L.doneWhen ? Math.abs(d - L.doneWhen) < 6e4 : Math.abs(d - (Number(L.madeAt) || Number(t.created) || 0)) < 15 * 6e4 || (L.seen && Object.values(L.seen).some(v => Math.abs(d - Number(v)) < 15 * 6e4))); };
     const baseKey = t => titleKey(cleanTitle(t).title);
     const claimedT = new Set(), kTitle = k => String(k).split("|")[1] || "", twinKey = k => String(k).split("|").length > 2;
     const findTask = (r, cid, id, key) => {
@@ -735,9 +922,60 @@ function cleanFile(r) {
       yes.forEach(([left, right]) => { if (!keys.has(right) || left === right) return; const r = data.recs.find(x => recKey(x) === right); r.aka = [...new Set((r.aka || []).concat(left))].slice(0, 5); away.add(left); });
       if (away.size) { away.forEach(k => seen.add(k)); data = Object.assign({}, data, {recs: data.recs.filter(r => !away.has(recKey(r)) || (r.aka || []).length)}); }
     }
+    /* Wrong course? A task the read now places in another course is put to you (Move / Keep Here) instead of being copied there */
+    rep.wrong = [];
+    const wrongSaid = c.wrongCourse || {}, held = new Set(), mergedAway = new Set(c.mergedDrops || []);
+    const cidOf = ou => { const m = map[ou]; return !m || m === "skip" ? null : m === "new" ? F + "c_" + hid(ou) : m; };
+    const recByKey = {}; data.recs.forEach(r => { recByKey[recKey(r)] = r; });
+    const keeperOf = (key, cid, r) => {
+      const pool = tasks.filter(t => t.courseId === cid && !t.breakdownOf && !t.prepFor);
+      const took = pool.find(t => FIELDS.some(f => t[f] && (t[f].merged || []).includes(key))); if (took) return took;
+      if (!r || !r.due) return null;
+      const A = DUPE_WORDS(r.title), ex = /\b(quiz|quizzes|test|exam|midterm|final)\b/i.test(r.title);
+      const near = pool.filter(t => t.due && Math.abs(dayDiff(t.due, r.due)) <= 1 && sameOk(t.title, r.title) && KINDQ(t) === ex && [...DUPE_WORDS(t.title)].some(w => A.has(w)));
+      return near.length === 1 ? near[0] : null;
+    };
+    {
+      const readKeys = new Set(); data.recs.forEach(r => { readKeys.add(recKey(r)); (r.aka || []).forEach(k => readKeys.add(k)); });
+      const syncedOus = new Set(data.synced || []), up = x => codeOf(String(x || "").toUpperCase()).toUpperCase();
+      const codeAt = {}; data.courses.forEach(bc => { const k = up(bc.code) || up(bc.name); if (k) codeAt[k] = codeAt[k] && codeAt[k] !== bc.ou ? "many" : bc.ou; });
+      const named = s => [...new Set((String(s || "").match(new RegExp(CODE_RX.source, "gi")) || []).map(up).filter(Boolean))];
+      tasks.forEach(t => {
+        const L = t[F]; if (!L || !L.key || !t.courseId || !state.courses[t.courseId] || t.breakdownOf || t.prepFor || L.gradeOnly) return;
+        if (L.last && L.last.courseId && L.last.courseId !== t.courseId) return;
+        let to = null, r0 = null, why = "";
+        if (data.src === "api" && syncedOus.has(L.ou) && !readKeys.has(L.key)) {
+          const tk = titleKey(t.title), kk = kTitle(L.key);
+          const hits = data.recs.filter(r => r.ou !== L.ou && titleKey(r.title) && (titleKey(r.title) === tk || titleKey(r.title) === kk) && cidOf(r.ou) && cidOf(r.ou) !== t.courseId && (!t.due || !r.due || Math.abs(dayDiff(t.due, r.due)) <= 1));
+          const tos = [...new Set(hits.map(r => cidOf(r.ou)))];
+          if (tos.length === 1) { to = tos[0]; r0 = hits.length === 1 ? hits[0] : null; why = "read"; }
+        }
+        if (!to) {
+          const own = state.courses[t.courseId], ownBc = data.courses.filter(bc => cidOf(bc.ou) === t.courseId);
+          const mine = new Set([up(own.code), up(own.name)].concat(ownBc.map(bc => up(bc.code) || up(bc.name))).filter(Boolean));
+          const nm = named(t.title);
+          if (nm.length === 1 && !mine.has(nm[0]) && codeAt[nm[0]] && codeAt[nm[0]] !== "many") { const x = cidOf(codeAt[nm[0]]); if (x && x !== t.courseId) { to = x; why = "code"; } }
+        }
+        if (!to) return;
+        const pair = t.id + ">" + to;
+        if (wrongSaid[pair] === "keep") return;
+        seen.add(L.key);
+        if (r0) held.add(recKey(r0));
+        rep.wrong.push({pair, id: t.id, title: t.title, from: t.courseId, to, toOu: r0 ? r0.ou : "", key: r0 ? recKey(r0) : "", why});
+      });
+      // An item merged into a task in another course (before merges stayed within a course): offer to bring it back to its own course
+      if (data.src === "api") data.recs.forEach(r => {
+        const key = recKey(r), cid = cidOf(r.ou);
+        if (!r.pid || !cid || !mergedAway.has(key) || !dropped.has(key) || tasks.some(t => t[F] && t[F].key === key) || keeperOf(key, cid, r)) return;
+        const pair = "back>" + key;
+        if (wrongSaid[pair] === "keep") return;
+        rep.wrong.push({pair, back: true, title: r.title, to: cid, toOu: r.ou, key, why: "merged"});
+      });
+    }
     data.recs.forEach(r => {
       const key = r.key || r.ou + "|" + titleKey(r.title), id = F + "_" + hid(key);
       seen.add(key); (r.aka || []).forEach(k => seen.add(k));
+      if (held.has(key) && !cur("task", id) && !tasks.some(t => t[F] && t[F].key === key)) return;
       if (dropped.has(key) && !cur("task", id)) return;
       if (data.src !== "api" && apiOnly.has(key) && !cur("task", id) && !tasks.some(t => t[F] && t[F].key === key)) return;
       if (r.due < from && !r.done && !state.tasks[id] && !tasks.some(t => t[F] && t[F].key === key)) return;
@@ -752,13 +990,16 @@ function cleanFile(r) {
         if (r.due < from && !(r.done && r.gid)) return;
         const done = !!(r.done && o.markDone);
         const t = normTask({id, created: Date.now(), title: val.title, courseId: cid, type: val.type, due: val.due, time: val.time, start: val.start, notes: val.notes, link: val.link, location: val.location,
-          status: done ? "done" : "todo", doneAt: done ? Date.now() : null, pct: done ? 100 : 0, order: nextOrder(done ? "done" : "todo"),
+          status: done ? "done" : "todo", doneAt: done ? whenDone(r.doneAt, r.due, r.time) : null, pct: done ? 100 : 0, order: nextOrder(done ? "done" : "todo"),
           [F]: Object.assign({key, ou: r.ou, gid: r.gid || "", last: val, seen: {[data.src]: Date.now()}, doneSeen: !!r.done, ss: done ? "done" : "todo", files: r.files || [], made: data.via || data.src || "", madeAt: Date.now()}, data.src === "api" ? {item: !!r.pid} : {}, r.lateUntil ? {lateUntil: r.lateUntil} : {}, r.rx ? {rx: r.rx} : {},
             r.st ? {st: r.st} : {}, r.fb ? {fb: r.fb} : {}, r.rub ? {rub: r.rub} : {}, data.src === "api" ? {sub: r.sub || ""} : {})});
         if (r.outOf && !t[F].outOf) t[F].outOf = r.outOf;
         put("task", t); rep.added.push(t); return;
       }
-      const t = clone(prev), last = (prev[F] && prev[F].last) || null;
+      const t = clone(prev);
+      let last = (prev[F] && prev[F].last) || null;
+      // made from a grade by an earlier read that had no day for it, so it took the day of that read: that day is Studyboard's, not yours
+      if (last && prev[F].fromGrade && last.due === undefined && prev.due === iso(new Date(Number(prev.created) || 0))) last = Object.assign({}, last, {due: prev.due, time: prev.time || ""});
       const apiFresh = data.src !== "api" && prev[F] && prev[F].seen && prev[F].seen.api && Date.now() - prev[F].seen.api < 3 * 864e5;
       if (!apiFresh) TRACK.forEach(f => {
         const nv = val[f], have = t[f] == null ? "" : t[f];
@@ -771,7 +1012,9 @@ function cleanFile(r) {
       });
       if (t.start && t.due && t.start > t.due) t.start = "";
       const wasDone = prev[F] && prev[F].doneSeen, sMine = statusMine(prev);
-      if (r.done && o.markDone && !wasDone && t.status !== "done" && !sMine) { t.status = "done"; t.doneAt = Date.now(); t.pct = 100; t.order = nextOrder("done"); rep.done.push(t); }
+      if (r.done && o.markDone && !wasDone && t.status !== "done" && !sMine) { t.status = "done"; t.doneAt = whenDone(r.doneAt, r.due, r.time); t.pct = 100; t.order = nextOrder("done"); rep.done.push(t); }
+      // ticked off by an earlier read before it knew when you handed it in (it took the time of that read): now the school site's time
+      else if (r.done && (r.doneAt || (r.due && r.due < todayISO())) && t.status === "done" && !sMine && prev[F] && prev[F].ss === "done" && autoDone(prev) && Math.abs(whenDone(r.doneAt, r.due, r.time) - Number(prev.doneAt)) > 6e4) t.doneAt = whenDone(r.doneAt, r.due, r.time);
       const seenMap = Object.assign({}, (prev[F] && prev[F].seen) || {}, {[data.src]: Date.now()});
       t[F] = Object.assign({}, prev[F] || {}, {key: keep ? prev[F].key : key, ou: keep ? prev[F].ou : r.ou, gid: r.gid || (prev[F] && prev[F].gid) || "", last: apiFresh ? last : Object.assign({}, last || {}, val), seen: seenMap, doneSeen: !!(wasDone || r.done)}, sMine ? {sm: true} : {ss: t.status});
       delete t[F].gradeOnly;
@@ -841,19 +1084,29 @@ function cleanFile(r) {
       const cid = courseFor(g.ou); if (!cid) return;
       const key = g.ou + "|" + titleKey(g.name);
       const pool = allTasks().map(t => cur("task", t.id) || t).concat(ch.filter(x => x.kind === "task" && !state.tasks[x.id]).map(x => x.after));
-      let t = pool.find(t => t.courseId === cid && t[F] && t[F].gid && t[F].gid === g.gid) || pool.find(t => t.courseId === cid && !t.breakdownOf && titleKey(t.title) === titleKey(g.name)) || null;
+      const gk = g.key || "";
+      let t = (gk && pool.find(t => t[F] && t[F].key === gk)) || (gk && mergedAway.has(gk) && (x => x && (cur("task", x.id) || x))(keeperOf(gk, cid, recByKey[gk]))) || pool.find(t => t.courseId === cid && t[F] && t[F].gid && t[F].gid === g.gid) || pool.find(t => t.courseId === cid && !t.breakdownOf && titleKey(t.title) === titleKey(g.name)) || null;
       if (!t) {
-        if (!o.addGraded || g.got == null || !g.outOf || dropped.has(key)) return;
+        if (!o.addGraded || g.got == null || !g.outOf || dropped.has(key) || (gk && (held.has(gk) || dropped.has(gk)))) return;
         const id = F + "_" + hid(key);
         if (cur("task", id)) t = cur("task", id);
         else {
-          const at = g.at ? localDT(g.at) : null;
-          t = normTask({id, created: Date.now(), title: g.name, courseId: cid, type: (x => x === "Assignment" && !WORKISH.test(g.name) ? "Other" : x)(typeFor(g.name)), due: at ? at.date : todayISO(), status: "done", doneAt: g.at ? Date.parse(g.at) : Date.now(), pct: 100, order: nextOrder("done"),
-            [F]: {key, ou: g.ou, gid: g.gid, last: {title: g.name, courseId: cid}, seen: {[data.src]: Date.now()}, doneSeen: true, ss: "done", fromGrade: true}});
+          const gd = gradeDay(g), doneAt = whenDone(g.when || g.at, gd.date, gd.time);
+          t = normTask({id, created: Date.now(), title: g.name, courseId: cid, type: g.kind === "q" ? typeFor(g.name, "quiz") : (x => x === "Assignment" && !WORKISH.test(g.name) ? "Other" : x)(typeFor(g.name)), due: gd.date, time: gd.time, status: "done", doneAt, pct: 100, order: nextOrder("done"),
+            [F]: {key, ou: g.ou, gid: g.gid, last: {title: g.name, courseId: cid, due: gd.date}, seen: {[data.src]: Date.now()}, doneSeen: true, ss: "done", fromGrade: true, doneWhen: doneAt}});
         }
       }
       const n = clone(t); let changed = false;
-      if (g.got != null && g.outOf && (!n.mark || n.mark.src === F) && !(n.mark && n.mark.got === g.got && n.mark.outOf === g.outOf)) { n.mark = {got: g.got, outOf: g.outOf, src: F}; changed = true; if (!t.mark || t.mark.got !== g.got) rep.graded.push({t: n, g}); }
+      // a task made from a grade before the read knew the item's day: dated by the day it was read; now by the school site (unless you changed it)
+      if (n[F] && n[F].fromGrade && n.status === "done") {
+        const L = n[F], gd = gradeDay(g), auto = L.last && L.last.due !== undefined ? n.due === L.last.due : n.due === iso(new Date(Number(n.created) || 0));
+        if (auto && gd.date && gd.date !== n.due) { n.due = gd.date; n.time = gd.time; n[F] = Object.assign({}, L, {last: Object.assign({}, L.last || {}, {due: gd.date})}); changed = true; }
+        const wd = whenDone(g.when || g.at, n.due, n.time);
+        if ((g.when || g.at || (n.due && n.due < todayISO())) && autoDone(n) && Math.abs(wd - Number(n.doneAt)) > 6e4) { n.doneAt = wd; n[F] = Object.assign({}, n[F], {doneWhen: n.doneAt}); changed = true; }
+      }
+      const from = g.from || "grades";
+      if (g.got != null && g.outOf && (!n.mark || n.mark.src === F) && !(n.mark && n.mark.got === g.got && n.mark.outOf === g.outOf && (n.mark.from || "grades") === from)) {
+        n.mark = Object.assign({got: g.got, outOf: g.outOf, src: F}, from !== "grades" ? {from} : {}); changed = true; if (!t.mark || t.mark.got !== g.got) { rep.graded.push({t: n, g}); if (c.last) n.markNew = Date.now(); } }
       const lastW = n[F] && n[F].last ? n[F].last.weight : undefined;
       if (g.weight != null && (n.weight == null || n.weight === "" || (lastW !== undefined && Number(n.weight) === Number(lastW))) && Number(n.weight) !== g.weight) { n.weight = g.weight; changed = true; }
       if (n[F]) { n[F] = Object.assign({}, n[F], {gid: n[F].gid || g.gid, last: Object.assign({}, n[F].last || {}, {weight: g.weight})}); }
@@ -881,7 +1134,7 @@ function cleanFile(r) {
         b.syl[P.id + "|" + bc.ou] = {text: syl, url: bc.sylUrl || "", at: Date.now()}; saveBulk();
         meta.syl = {n: syl.length, url: bc.sylUrl || ""};
         const sig = hid(syl);
-        if (meta.sylSig !== sig) {
+        if (meta.sylSig !== sig || !Array.isArray(meta.sylWts)) {
           meta.sylSig = sig;
           let r = null; try { r = SY.parse(syl, todayISO()); } catch(e) { r = null; }
           const sc = r && r.course;
@@ -892,13 +1145,32 @@ function cleanFile(r) {
             if (!nc.schedule && sc.schedule && !(nc.meetings || []).length) nc.schedule = sc.schedule;
             if (!(nc.meetings || []).length) { const ms = parseMeetings(sc.schedule, "Lecture", nc.room || sc.room).concat(parseMeetings(sc.office, "Office Hours")); if (ms.length) { nc.meetings = ms; rep.meet = (rep.meet || 0) + 1; } }
           }
-          ((r && r.items) || []).forEach(it => {
-            if (!(it.weight > 0)) return;
-            const pool = allTasks().map(t => cur("task", t.id) || t).concat(ch.filter(x => x.kind === "task" && !state.tasks[x.id]).map(x => x.after));
-            const t = pool.find(t => t.courseId === cid && (t.weight == null || t.weight === "") && titleKey(t.title) === titleKey(it.title));
-            if (t) { const n = clone(t); n.weight = it.weight; put("task", normTask(n)); rep.sylW = (rep.sylW || 0) + 1; }
-          });
+          meta.sylWts = ((r && r.items) || []).filter(it => it.weight > 0 && it.title).slice(0, 60).map(it => ({t: String(it.title).slice(0, 160), w: Number(it.weight)}));
+          // the breakdown's one midterm and one final ("Midterm Exam 30%", "Final Exam 40%") when no dated item carries them
+          const bt = (r && r.byType) || {}, one = w => w && w.pct > 0 && w.pct <= 100 && (w.count == null || w.count <= 1) && w.each == null ? Number(w.pct) : null;
+          if (one(bt.Exam) != null && !meta.sylWts.some(x => /midterm|mid-term/i.test(x.t))) meta.sylWts.push({t: "Midterm Exam", w: one(bt.Exam), kind: "mid"});
+          if (one(bt.Final) != null && !meta.sylWts.some(x => /final/i.test(x.t))) meta.sylWts.push({t: "Final Exam", w: one(bt.Final), kind: "final"});
         }
+        // The syllabus's weights, every sync, for tasks with none yet (each task once, so a weight you clear stays cleared).
+        // "Midterm Exam" in the syllabus is the "Midterm Exam- Requires Respondus LockDown Browser" quiz.
+        const doneW = new Set(meta.sylDone || []);
+        (meta.sylWts || []).forEach(it => {
+          const pool = allTasks().map(t => cur("task", t.id) || t).concat(ch.filter(x => x.kind === "task" && x.after && !state.tasks[x.id]).map(x => x.after))
+            .filter(t => t && t.courseId === cid && (t.weight == null || t.weight === "") && !t.prepFor && !t.breakdownOf && !doneW.has(t.id));
+          // a breakdown line, not a named item: the course's only exam of that kind
+          if (it.kind) { const ex = pool.filter(t => t.type === "Exam" && (it.kind === "final" ? /\bfinal\b/i.test(t.title) : !/\bfinal\b/i.test(t.title)) && !/practice|mock|review/i.test(t.title));
+            const all = allTasks().filter(t => t.courseId === cid && t.type === "Exam" && (it.kind === "final" ? /\bfinal\b/i.test(t.title) : !/\bfinal\b/i.test(t.title)) && !/practice|mock|review/i.test(t.title) && !(t[F] && t[F].item === false));
+            if (ex.length === 1 && all.length === 1) { const n = clone(ex[0]); n.weight = it.w; if (n[F]) n[F] = Object.assign({}, n[F], {last: Object.assign({}, n[F].last || {}, {weight: it.w})}); put("task", normTask(n)); doneW.add(n.id); rep.sylW = (rep.sylW || 0) + 1; }
+            return; }
+          const k = titleKey(it.t), ex = EXAMY.test(it.t);
+          const exact = pool.filter(t => titleKey(t.title) === k);
+          let hit = exact.concat(k.length < 4 ? [] : pool.filter(t => { if (exact.includes(t)) return false; const tk = titleKey(cleanTitle(t.title).title); return window.SB_SAMEOK(t.title, it.t) && EXAMY.test(t.title) === ex && (tk.startsWith(k) || k.startsWith(tk) || likeN(it.t, t.title) >= 2); }));
+          // several fit (the exam, and its calendar copy): the school site's own item, the one with a mark, then the exact name
+          [t => t[F] && t[F].item === true, t => !!t.mark, t => exact.includes(t)].forEach(f => { if (hit.length > 1 && hit.filter(f).length >= 1) hit = hit.filter(f); });
+          if (hit.length !== 1) return;
+          const n = clone(hit[0]); n.weight = it.w; if (n[F]) n[F] = Object.assign({}, n[F], {last: Object.assign({}, n[F].last || {}, {weight: it.w})}); put("task", normTask(n)); doneW.add(n.id); rep.sylW = (rep.sylW || 0) + 1;
+        });
+        if (doneW.size) meta.sylDone = [...doneW].slice(-300);
       }
       nc[F] = meta;
       if (JSON.stringify(nc) !== was) put("course", nc);
@@ -966,7 +1238,7 @@ function cleanFile(r) {
       if (how === "api") {
         const skip = Object.entries(c.map).filter(([, v]) => v === "skip").map(([k]) => k);
         if (P.id === "blackboard") await loadFlags();
-        const h = await lmsBridge().sync(P.id, c.host, {pastDays: Math.max(60, Number(c.pastDays) || 0), grades: c.grades, news: c.news, skip, internal: appFlag("bb_internal")});
+        const h = await lmsBridge().sync(P.id, c.host, {pastDays: Math.max(60, Number(c.pastDays) || 0), grades: c.grades, news: c.news, skip, internal: appFlag("bb_internal"), marks: markSwitches()});
         if (!h) return {error: "none", text: "The desktop app didn't answer. Try again."};
         if (h.needLogin) return {needLogin: true};
         if (!h.ok) return {error: h.error, text: errText(h.error)};
@@ -999,6 +1271,7 @@ function cleanFile(r) {
     const newsItems = data.src === "api" && c.news ? c.newsItems.filter(n => !data.synced.includes(n.ou)).concat(data.news.filter(n => p.map[n.ou] !== "skip")).sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 40) : c.newsItems;
     const finals = Object.assign({}, c.finals, data.finals);
     const inv = p.changes.length ? applyChanges(p.changes, "") : null;
+    try { if (window.SBLMS_DEDUPE) setTimeout(() => SBLMS_DEDUPE(false), 0); } catch (e) {}
     const lines = logLines(p.rep);
     if (had.size || c.last) fresh.slice(0, 8).forEach(n => lines.push({k: "news", ou: n.ou, text: `New announcement${courses[n.ou] && courses[n.ou].code ? " in " + courses[n.ou].code : ""}: ${n.title}`}));
     const at = Date.now();
@@ -1008,7 +1281,8 @@ function cleanFile(r) {
     if ((how === "api" || how === "grab") && p.readSub) {
       const b = bulk();
       b.lastRead = {at, subs: p.readSub, ous: (data.synced || []).slice(0, 60),
-        items: data.recs.filter(r => r.pid).slice(0, 500).map(r => ({k: recKey(r), ou: r.ou, t: String(r.title).slice(0, 160), d: r.due || "", s: r.done ? "yes" : r.sub || "", a: r.asRead || ""})), und: (data.und || []).slice(0, 80), notes: data.notes || {}};
+        items: data.recs.filter(r => r.pid || r.asRead).slice(0, 500).map(r => ({k: recKey(r), ou: r.ou, t: String(r.title).slice(0, 160), d: r.due || "", s: r.done ? "yes" : r.sub || "", a: r.asRead || ""})), und: (data.und || []).slice(0, 80), notes: data.notes || {}, topics: data.topics || {},
+        keys: [...new Set(data.recs.flatMap(r => [recKey(r)].concat(r.aka || [])))].slice(0, 1500), dx: data.dx || null, via: data.via || how, errors: (lastRead && lastRead.errors || []).slice(0, 12)};
       saveBulk();
     }
     save({map: newMap, courses, newsItems, finals, log, last: at, lastSrc: how, name: data.name || c.name, gone: [...new Set(c.gone.filter(id => state.tasks[id]).concat(goneIds))].slice(0, 30)});
@@ -1023,6 +1297,7 @@ function cleanFile(r) {
     scheduleRender();
     const loud = !quiet || !!(opt && opt.askLoud);
     if (data.ask && data.ask.length) askMerges(data.ask, !loud);
+    if (p.rep.wrong && p.rep.wrong.length) askWrong(p.rep.wrong, !loud);
     setTimeout(() => { if (window.SBLMS_DUPES) window.SBLMS_DUPES(!loud); }, 600);
     return p.rep;
   }
@@ -1064,6 +1339,52 @@ function cleanFile(r) {
     dlg.querySelectorAll("[data-mg]").forEach(b => b.addEventListener("click", () => {
       const i = Number(b.dataset.mg); pick[i] = b.dataset.v;
       dlg.querySelectorAll(`[data-mg="${i}"]`).forEach(x => x.setAttribute("aria-pressed", String(x.dataset.v === pick[i])));
+    }));
+  }
+  /* Wrong course */
+  let askingWrong = false;
+  function askWrong(list0, quiet){
+    const said = cfg().wrongCourse || {};
+    const list = list0.filter(w => !said[w.pair] && state.courses[w.to] && (w.back || (state.tasks[w.id] && state.tasks[w.id].courseId === w.from)));
+    if (!list.length || askingWrong) return;
+    if (quiet) { toast(`${P.name}: ${list.length === 1 ? "a task looks" : list.length + " tasks look"} like ${list.length === 1 ? "it's" : "they're"} in the wrong course`, null, {label: "Review", fn: () => askWrong(list, false)}); return; }
+    if (dlg.open) { dlg.addEventListener("close", () => setTimeout(() => askWrong(list, false), 400), {once: true}); return; }
+    askingWrong = true;
+    const pick = list.map(() => "move");
+    const why = w => w.back ? `It was merged into a task in another course, so it isn't in ${esc(cname(w.to))} now.` : w.why === "code" ? `Its name says ${esc(cname(w.to))}.` : `${esc(P.name)} now lists it in ${esc(cname(w.to))}, not in ${esc(cname(w.from))}.`;
+    const row = (w, i) => `<li class="mg-row"><div class="mg-main"><b>${esc(w.title)}</b><span class="mini">${w.back ? "Belongs in " + esc(cname(w.to)) : "In " + esc(cname(w.from)) + " · belongs in " + esc(cname(w.to))}</span><span class="mini">${why(w)}</span></div>
+      <span class="seg mg-seg" role="group" aria-label="Move to ${esc(cname(w.to))}?"><button type="button" class="btn small" data-wc="${i}" data-v="move" aria-pressed="true">${w.back ? "Bring Back" : "Move"}</button><button type="button" class="btn small" data-wc="${i}" data-v="keep" aria-pressed="false">${w.back ? "Leave Out" : "Keep Here"}</button></span></li>`;
+    openSheet(`<form class="sheet">${head("Wrong Course?")}
+      <div class="sheet-body"><p style="margin:0">${list.length === 1 ? "This task looks like it's" : "These tasks look like they're"} in the wrong course. Move ${list.length === 1 ? "it" : "them"} so ${list.length === 1 ? "it gets its" : "they get their"} grade and feedback from the right ${esc(P.name)} course. Your notes and progress stay with the task.</p>
+        <ul class="mg-list">${list.map(row).join("")}</ul></div>
+      <div class="sheet-foot"><button type="button" class="btn" data-act="close">Ask Me Later</button><span class="spacer"></span><button type="button" class="btn primary" data-submit>Save</button></div></form>`, () => {
+      const m = Object.assign({}, cfg().wrongCourse || {}), ch = [], back = [], twins = [];
+      list.forEach((w, i) => {
+        m[w.pair] = pick[i];
+        if (pick[i] !== "move") return;
+        if (w.back) { back.push(w.key); return; }
+        const t = state.tasks[w.id]; if (!t || !state.courses[w.to]) return;
+        const twin = w.key && Object.values(state.tasks).find(o => o && o.id !== t.id && o[F] && o[F].key === w.key && o.courseId === w.to);
+        if (twin) { twins.push([twin.id, t.id]); return; }
+        const n = clone(t); n.courseId = w.to;
+        n[F] = Object.assign({}, n[F], {last: Object.assign({}, n[F].last || {}, {courseId: w.to})});
+        if (w.key && !Object.values(state.tasks).some(o => o && o.id !== t.id && o[F] && o[F].key === w.key)) { n[F].key = w.key; n[F].ou = w.toOu; delete n[F].gone; }
+        ch.push({kind: "task", id: n.id, after: normTask(n)});
+      });
+      const keys = Object.keys(m); if (keys.length > 300) keys.slice(0, keys.length - 300).forEach(k => delete m[k]);
+      const c = cfg();
+      save(Object.assign({wrongCourse: m}, back.length ? {dropped: (c.dropped || []).filter(k => !back.includes(k)), mergedDrops: (c.mergedDrops || []).filter(k => !back.includes(k))} : {}));
+      dlg.close();
+      if (ch.length) applyChanges(ch, ch.length === 1 ? `Moved ${state.tasks[ch[0].id].title} to ${cname(ch[0].after.courseId)}` : `Moved ${ch.length} tasks to their courses`);
+      twins.forEach(([keepId, otherId]) => { if (state.tasks[keepId] && state.tasks[otherId]) mergeTasks(state.tasks[keepId], state.tasks[otherId]); });
+      if (lastRead) { const d = P.fromApi(lastRead); applyPlan(d, plan(d), cfg().lastSrc === "grab" ? "grab" : "api", true); }
+      else if (!ch.length) toast(back.length ? "It comes back with the next sync" : "Kept where they are");
+      return false;
+    });
+    dlg.addEventListener("close", () => { askingWrong = false; }, {once: true});
+    dlg.querySelectorAll("[data-wc]").forEach(b => b.addEventListener("click", () => {
+      const i = Number(b.dataset.wc); pick[i] = b.dataset.v;
+      dlg.querySelectorAll(`[data-wc="${i}"]`).forEach(x => x.setAttribute("aria-pressed", String(x.dataset.v === pick[i])));
     }));
   }
   function syncNow(opts){
@@ -1163,7 +1484,9 @@ function cleanFile(r) {
     const how = c.mode === "api" ? (bsDesk() ? (lmsOnPhone() ? "Signed in on this phone" : "Signed in on this computer") : c.lastSrc === "grab" ? `Read from ${P.name} in this browser` : "Synced from your computer's Studyboard app") : "Using your calendar link";
     if (running || reading) return `${how}. Syncing now…`;
     const when = c.last ? `Last synced ${ago(c.last)}` : "Not synced yet";
-    return `${how}. ${when}.${L.needLogin && bsDesk() && c.mode === "api" ? " Sign in again to keep syncing grades and announcements." : ""}${L.err ? " " + L.err : ""}`;
+    const ev = !bsDesk() && c.lastSrc === "grab" && window.SBEXT && SBEXT.on() ? SBEXT.version() : "", older = v => { const a = String(v).split(".").map(Number), b = [1, 0, 11]; for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== b[i]) return (a[i] || 0) < b[i]; } return false; };
+    const extOld = ev && older(ev) ? ` Your School Sync extension is version ${ev}: update it to 1.0.11 or later to bring in marks that aren't on ${P.name}'s Grades page (like quiz marks on a quiz's Submissions page).` : "";
+    return `${how}. ${when}.${extOld}${L.needLogin && bsDesk() && c.mode === "api" ? " Sign in again to keep syncing grades and announcements." : ""}${L.err ? " " + L.err : ""}`;
   }
   function shortStatus(){
     const c = cfg(), L = local();
@@ -1171,6 +1494,44 @@ function cleanFile(r) {
     if (L.needLogin && bsDesk() && c.mode === "api") return "Sign in again";
     if (extGone(c)) return "not syncing";
     return c.last ? `synced ${ago(c.last)}` : "not synced yet";
+  }
+  /* Sync report: what the last read saw, step by step, to send when something isn't detected */
+  function syncReport(){
+    const c = cfg(), lr = bulk().lastRead || {}, dx = lr.dx || {}, L = [];
+    if (!lr.at) return `Studyboard sync report: ${P.name}\nNo read from ${P.name} in this browser yet. Press Sync Now, wait until it says it's done, then copy the report again.\nExtension ${window.SBEXT && SBEXT.on() ? SBEXT.version() || "on, version unknown" : "not seen in this browser"}.`;
+    const w = d => d ? new Date(d).toLocaleString() : "never";
+    L.push(`Studyboard sync report: ${P.name}`, `Made ${new Date().toLocaleString()}. Last read ${w(lr.at)} by ${lr.via || c.lastSrc || "?"}. Extension ${window.SBEXT && SBEXT.on() ? SBEXT.version() || "on, version unknown" : "not seen in this browser"}. Website build ${window.SB_BUILD ? window.SB_BUILD : (document.querySelector('script[src*="bundle/app.js"]') || {src: ""}).src.split("v=")[1] || "?"}.`);
+    const xs = window.SBEXT && SBEXT.school ? SBEXT.school(P.id) : null;
+    if (xs) L.push(`Extension's own reads: ${xs.state || "?"}; last good read ${w(xs.at)}; last try ${w(xs.tried)}${xs.error ? "; error: " + xs.error : ""}.`);
+    if (xs && xs.at && lr.at && xs.at < lr.at - 6e4 && xs.tried > xs.at) L.push("The extension's newest reads failed, so this website still has its older read.");
+    if ((lr.errors || []).length) L.push("Read problems: " + lr.errors.join("; "));
+    const ous = Object.keys(dx);
+    if (!ous.length) L.push("", "This read has no step-by-step details. It was made by an older extension or app (the details come from School Sync 1.0.8 or later), or no read has happened since updating.");
+    ous.forEach(ou => {
+      const d = dx[ou], cid = (c.map || {})[ou], course = courseOf(cid);
+      L.push("", `== ${d.code || d.name || ou} (Brightspace ${ou}) -> ${course ? courseLabel(course) : "not imported"}`);
+      if (lr.notes && lr.notes[ou]) L.push("Summary: " + lr.notes[ou]);
+      L.push(`You: id ${d.me && d.me.id}, name ${d.me && d.me.name}. Quiz list gave ${d.quizApi} quizzes; Quizzes page: ${d.quizPage}${d.quizToc != null ? `; from course content ${d.quizToc}, from calendar ${d.quizCal}` : ""}.`);
+      if (d.grades) { L.push(`Grades: list ${d.grades.list}; Grades page ${d.grades.page}; ${d.grades.rows} rows used.`); (d.grades.sample || []).forEach(x => L.push("  Grade " + x)); }
+      if (d.cal) { const evs = eventsArr().filter(e => e[F] && (e[F].ou === ou || (cid && e.courseId === cid))), td = todayISO();
+        L.push(`Calendar: read ${d.cal.read} entries (${d.cal.ahead} upcoming, ${d.cal.tied} tied to an item, ${d.cal.other} set aside as another course's); ${d.cal.kept} became events. Studyboard has ${evs.length} events from it (${evs.filter(e => e.date >= td).length} upcoming). Course setting: ${cid === "skip" ? "Don't Import" : cid ? "linked" : "automatic"}${(c.goneCourses || {})[ou] ? " (kept off because its course was deleted)" : ""}.`); }
+      if ((d.calExams || []).length) L.push("Exam calendar entries: " + d.calExams.join("; "));
+      if ((d.calTied || []).length) L.push("Calendar entries tied to an item: " + d.calTied.join("; "));
+      (d.folders || []).forEach(f => L.push(`  Assignment "${f.n}" [${f.id}]: handed in ${f.sub}; grade item ${f.gradeItem || "none"}${f.inGrades ? " (marked in Grades)" : ""}; out of ${f.outOf == null ? "not given" : f.outOf}; feedback with submission: ${f.fb}${f.fbApi ? "; feedback link: " + f.fbApi : ""}${f.row ? `; Assignments page row: "${f.row}"` : ""}${f.scoreCell ? `; Score cell "${f.scoreCell}"` : ""}${(f.links || []).length ? "; links " + f.links.join(" ") : ""}${f.fbPage ? "; feedback page: " + f.fbPage : ""}; mark read: ${f.mark || "none"}`));
+      (d.quizzes || []).forEach(q => L.push(`  Quiz "${q.n}" [${q.id}] from ${q.from}; sat ${q.sat}; grade item ${q.gradeItem || "none"}${q.inGrades ? " (marked in Grades)" : ""}; Submissions page: ${q.subm}${q.subm && q.subm.startsWith("ok") ? `, Overall Grade line ${q.overall ? "yes" : "no"}, ${q.attempts} attempt rows, fractions: ${q.fractions || "none"}` : ""}; mark read: ${q.mark || "none"}`));
+      (d.topics || []).forEach(t => L.push(`  Topic "${t.n}"${t.forum ? ` (forum "${t.forum}")` : ""} [${t.id}] due ${t.due || "none"}${t.grp ? ", group" : ""}${t.graded ? ", graded" : ""}: posts ${t.posts}${t.posts === "read" ? ` (${t.n0}; ids ${(t.ids || []).join(", ") || "none"})` : ""}; topic page: ${t.page || "not read"}; result: ${t.result}`));
+      const ts = Object.values(state.tasks || {}).filter(t => t && t[F] && (t[F].ou === ou || (cid && t.courseId === cid))).sort((a, b) => String(b.due).localeCompare(String(a.due))).slice(0, 40);
+      if (ts.length) L.push("  Studyboard tasks:");
+      ts.forEach(t => { const it = (lr.items || []).find(x => x.k === t[F].key);
+        L.push(`   - "${t.title}" ${t.type}, due ${t.due || "none"}, ${t.status}${t.mark ? `, mark ${t.mark.got}/${t.mark.outOf}${t.mark.from ? " from " + t.mark.from : ""}` : ""}; ${t[F].item === true ? "the item itself" : t[F].item === false ? "a calendar entry" : "source unknown"}; key ${t[F].key}; ${(lr.keys || []).includes(t[F].key) ? "in the last read" : "not in the last read"}${it && it.a ? "; as read: " + it.a : ""}`); });
+    });
+    return L.join("\n");
+  }
+  function reportSheet(){
+    const text = syncReport();
+    openSheet(`<div class="sheet">${head("Sync Report")}<div class="sheet-body"><p style="margin:0">What the last read from ${esc(P.name)} saw, step by step. Send it to Studyboard support (or paste it in a chat) when something isn't detected. It has your course and work names and your own marks, nothing else.</p>
+      <textarea id="bsReport" readonly rows="14" style="width:100%;font:12px/1.4 ui-monospace,monospace" aria-label="Sync report">${esc(text)}</textarea></div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button><button type="button" class="btn primary" data-act="${A}-report-copy">Copy</button></div></div>`);
   }
   const diagHtmlBox = () => { const L = local(); return L.diag ? `<details class="bs-diag"><summary class="mini">Sync details</summary><p class="mini" style="margin:6px 0 0;overflow-wrap:anywhere">${esc(L.diag)}</p></details>` : ""; };
   function bsSheet(focus){
@@ -1187,7 +1548,7 @@ function cleanFile(r) {
         <div class="bs-status${needLogin || gone0 ? " warn" : ""}"><span class="bs-ico">${ICON}</span><div><b>${needLogin ? "Sign In Again" : gone0 ? "Not Syncing" : "Connected"}${c.name ? `<span class="mini"> as ${esc(c.name)}</span>` : ""}</b><span class="mini">${esc(statusLine())}</span>${diagHtmlBox()}</div></div>
         <div class="bs-acts">
           ${gone0 ? `<p class="mini" style="margin:0">${SBEXT.on() ? `Open the extension from Chrome's toolbar and connect ${P.name} again to keep syncing.` : chromeDesktop() ? `Add the extension back to keep syncing. What it already brought in stays in Studyboard.` : `Open Studyboard in desktop Chrome with the extension to keep syncing. What it already brought in stays in Studyboard.`}</p>` : ""}
-          ${onPhoneApi && !c.feed && c.lastSrc !== "grab" ? `<p class="mini" style="margin:0">Your computer's Studyboard app syncs ${P.name}, and changes show up here. To sync from this device too, add your calendar link below. It works like a password, so it stays on this device only.${chromeDesktop() && !(window.SBEXT && SBEXT.has(P.id)) ? ` For grades and announcements here too, add the Studyboard School Sync extension to Chrome.` : ""}</p>` : `<button class="btn primary" data-act="${A}-sync">Sync Now</button>`}
+          ${onPhoneApi && !c.feed && c.lastSrc !== "grab" ? `<p class="mini" style="margin:0">Your computer's Studyboard app syncs ${P.name}, and changes show up here. To sync from this device too, add your calendar link below. It works like a password, so it stays on this device only.${chromeDesktop() && !(window.SBEXT && SBEXT.has(P.id)) ? ` For grades and announcements here too, add the Studyboard School Sync extension to Chrome.` : ""}</p>` : `<button class="btn primary" data-act="${A}-sync">Sync Now</button>`}<button class="btn" data-act="${A}-report">Copy Sync Report</button>
           ${grabOk() && chromeDesktop() && !(window.SBEXT && (SBEXT.has(P.id) || gone0 && SBEXT.on())) ? `<a class="btn${gone0 ? " primary" : ""}" href="${esc(EXT_CHROME_URL)}" target="_blank" rel="noopener noreferrer">${gone0 ? "Get the Extension" : "Get Grades and Announcements"}</a>` : ""}
           ${needLogin ? `<button class="btn" data-act="${A}-login">Sign In to ${P.name}</button>` : ""}
           <button class="btn" data-act="${A}-open-site">Open ${P.name}</button>
@@ -1223,8 +1584,11 @@ function cleanFile(r) {
       <div class="sheet-foot"><button type="button" class="btn danger" data-act="${A}-disconnect">Disconnect</button><button type="button" class="btn" data-act="${A}-fresh">Start Fresh</button><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
     dlg.querySelectorAll("[data-bs-opt]").forEach(i => i.addEventListener("change", () => { save({[i.dataset.bsOpt]: i.checked}); if (i.dataset.bsOpt === "aiNews" && i.checked && !aiReady()) toast("Set up AI in Settings first, then this will work"); }));
     dlg.querySelectorAll("[data-bs-map]").forEach(s => s.addEventListener("change", () => {
-      const m = Object.assign({}, cfg().map); m[s.dataset.bsMap] = s.value === "new" ? "" : s.value; if (!m[s.dataset.bsMap]) delete m[s.dataset.bsMap];
-      save({map: m}); toast(s.value === "skip" ? "That course won't be imported. What's already here stays." : "Saved. It applies from the next sync.", null, {label: "Sync Now", fn: () => syncNow()});
+      const g = Object.assign({}, cfg().goneCourses), wasGone = !!g[s.dataset.bsMap] || cfg().map[s.dataset.bsMap] === "skip"; delete g[s.dataset.bsMap];
+      // a course you'd deleted and now want again: say so, so Recently Deleted doesn't keep it off
+      const m = Object.assign({}, cfg().map); m[s.dataset.bsMap] = s.value === "new" ? (wasGone ? "new" : "") : s.value; if (!m[s.dataset.bsMap]) delete m[s.dataset.bsMap];
+      const ou = s.dataset.bsMap, dr = cfg().dropped || [], back = wasGone && s.value !== "skip" ? dr.filter(k => String(k).split("|")[0] === ou) : [];
+      save(Object.assign({map: m, goneCourses: g}, back.length ? {dropped: dr.filter(k => !back.includes(k))} : {})); toast(s.value === "skip" ? "That course won't be imported. What's already here stays." : "Saved. It applies from the next sync.", null, {label: "Sync Now", fn: () => syncNow()});
     }));
     $("#bsPast").addEventListener("change", e => save({pastDays: Number(e.target.value) || 0}));
     const t = focus === "suggest" ? $("#bsSuggest") : focus === "log" ? $("#bsLog") : null;
@@ -1425,7 +1789,8 @@ function cleanFile(r) {
   }
   function freshPlan(){
     const tasks = allTasks().filter(t => t[F] && t[F].key && !t[F].gradeOnly), go = [], keep = [];
-    tasks.forEach(t => { const why = changedBy(t); (why ? keep : go).push({t, why}); });
+    // a task with a mark keeps it: the school site may have hidden the item since (a closed exam), so a re-read can't bring the mark back
+    tasks.forEach(t => { const why = changedBy(t) || (t.mark && t.mark.got != null && t.mark.got !== "" ? "it has a mark (" + t.mark.got + "/" + t.mark.outOf + "), which the school site may not show again" : ""); (why ? keep : go).push({t, why}); });
     const evs = eventsArr().filter(e => e[F] && e[F].key), evGo = evs.filter(e => { const last = e[F].last || {}; return !["title", "date", "start", "end", "where", "notes"].some(f => last[f] !== undefined && String(e[f] == null ? "" : e[f]) !== String(last[f] == null ? "" : last[f])); });
     return {go, keep, evGo, evKeep: evs.length - evGo.length};
   }
@@ -1455,7 +1820,7 @@ function cleanFile(r) {
     const ch = p.go.map(x => ({kind: "task", id: x.t.id, after: null})).concat(p.evGo.map(e => ({kind: "event", id: e.id, after: null})));
     const inv = ch.length ? applyChanges(ch, "") : null;
     const back = ok.undrop ? before.dropped : before.mergedDrops;
-    save({feed: "", dropped: before.dropped.filter(k => !back.includes(k)), gone: [], merges: {}, mergedDrops: [], apiOnly: [...new Set((c.apiOnly || []).concat(back))].slice(-400)});
+    save({feed: "", dropped: before.dropped.filter(k => !back.includes(k)), gone: [], merges: {}, mergedDrops: [], wrongCourse: {}, apiOnly: [...new Set((c.apiOnly || []).concat(back))].slice(-400)});
     if (state.settings && state.settings.sameItem && Object.keys(state.settings.sameItem).length) { state.settings = Object.assign({}, state.settings, {sameItem: {}}); saveSettings(); }
     const undo = () => { if (inv && inv.length) applyChanges(inv, null); save({feed: before.feed, dropped: before.dropped, gone: before.gone, apiOnly: c.apiOnly || [], merges: before.merges, mergedDrops: before.mergedDrops}); state.settings = Object.assign({}, state.settings, {sameItem: before.sameItem}); saveSettings(); toast("Undone"); };
     const n = p.go.length + p.evGo.length, noRead = !(bsDesk() && c.mode === "api") && !(EXT.on && EXT.schools.some(x => x.id === P.id));
@@ -1468,7 +1833,7 @@ function cleanFile(r) {
   function readAgain(wait){
     const c = cfg();
     if (bsDesk() && c.mode === "api") { syncNow({force: true}); return; }
-    if (EXT.on && EXT.schools.some(x => x.id === P.id)) { try { localStorage.removeItem("studyboard:ext:" + P.id); } catch(e) {} extPost({type: "get"}); extPost({type: "sync"}); return; }
+    if (EXT.on && EXT.schools.some(x => x.id === P.id)) { try { localStorage.removeItem(extKey(P.id)); } catch(e) {} extPost({type: "get"}); extPost({type: "sync"}); return; }
     if (c.feed) { syncNow({force: true}); return; }
     setTimeout(() => toast(extNudge("to bring everything back"), null, extBtn()), wait || 0);
   }
@@ -1556,7 +1921,7 @@ function cleanFile(r) {
       add({ou, pid: x.id ? String(x.kind || "") + x.id : "", title: cleanTitle(x.name).title, type: typeFor(x.name, x.kind === "quiz" ? "quiz" : ""), due: due.date, time: due.time,
         start: x.kind !== "quiz" && st && st.date < due.date && st.date >= addDays(due.date, -45) ? st.date : "",
         notes: x.text || "", url: absUrl(origin, x.url), gid: x.gid || "", outOf: x.outOf, done: x.done === true, sub: x.done === true ? "yes" : x.done === false ? "no" : "", sure: true, lateUntil: x.due ? lateWin(x.due, x.end) : "",
-        rx: x.rx ? Object.assign({ul: x.start, ll: x.end}, x.rx) : undefined, st: x.st || null, fb: x.fb || null, rub: x.rub || null,
+        rx: x.rx ? Object.assign({ul: x.start, ll: x.end}, x.rx) : undefined, st: x.st || null, fb: x.fb || null, rub: x.rub || null, doneAt: (x.st && x.st.subAt) || x.at || "",
         files: (x.files || []).map(f => ({ou, folder: x.id, id: f.id, name: f.name, size: f.size || 0})),
         asRead: [x.due && "due " + x.due, x.start && "opens " + x.start, x.end && "closes " + x.end, said(x), why].filter(Boolean).join("; ")});
     };
@@ -1579,6 +1944,7 @@ function cleanFile(r) {
           endDate: e.allDay && en && en.date > s.date ? addDays(en.date, -1) : "", where: e.where || "", notes: e.text || "", url: absUrl(origin, e.url)});
       });
       (c.grades || []).forEach(g => { if (!g.name) return; out.grades.push({ou: c.ou, gid: g.gid, name: g.name, got: isNum(g.num) ? Number(g.num) : null, outOf: isNum(g.den) && Number(g.den) > 0 ? Number(g.den) : null, weight: isNum(g.weight) && Number(g.weight) > 0 ? Number(g.weight) : null, shown: g.shown || "", at: g.at || null, fb: g.fb || null}); });
+      addMarks(out, c, m => { const x = (c.items || []).find(y => y && String(y.id) === String(m.id)); return x ? {pid: String(x.kind || "") + x.id, gid: x.gid || String(x.id), name: x.name} : null; });
       if (c.final && (c.final.shown || isNum(c.final.pct))) out.finals[c.ou] = {shown: c.final.shown || "", pct: isNum(c.final.pct) ? Number(c.final.pct) : null, at: Date.now()};
       (c.news || []).forEach(n => out.news.push({ou: c.ou, id: n.id, title: n.title, text: String(n.text || "").slice(0, 900), long: String(n.text || "").length > 900, date: n.date, url: absUrl(origin, n.url)}));
     });
@@ -1618,6 +1984,16 @@ function cleanFile(r) {
       const pair = recKey(r) + ">" + recKey(qr);
       if (!(cfg().merges || {})[pair]) out.ask.push({pair, ou, copy: r.title, real: qr.title, due: qr.due, done: !!qr.done});
     });
+    // A grade's item: its due day and when you handed it in, so a task made from the grade isn't dated by the day the mark was posted
+    (h.courses || []).forEach(c => out.grades.filter(g => g.ou === c.ou).forEach(g => {
+      const x = (c.items || []).find(y => y && ((g.gid && (y.gid === g.gid || String(y.id) === g.gid)) || (g.pid && String(y.kind || "") + y.id === g.pid)));
+      const r = x && out.recs.find(z => z.pid === String(x.kind || "") + x.id);
+      g.when = (r && r.doneAt) || (x && ((x.st && x.st.subAt) || x.at)) || "";
+      if (x && x.kind === "quiz") g.kind = "q";
+      const day = r && r.due ? {date: r.due, time: r.time || ""} : x && (x.due || x.end) ? localDT(x.due || x.end) : null;
+      if (day) { g.due = day.date; g.time = day.time || ""; }
+      if (r && !g.key) g.key = recKey(r);
+    }));
     out.und = undated.slice(0, 80).map(u => ({ou: u.ou, t: u.x.name, s: u.x.done === true ? "yes" : u.x.done === false ? "no" : "", m: (out.recs.find(r => r.pid === String(u.x.kind || "") + u.x.id) || {}).title || ""}));
     return out;
   }
@@ -1680,6 +2056,8 @@ function cleanFile(r) {
       case "fresh": if (dlg.open) dlg.close(); setTimeout(() => startFresh().catch(e => console.error(e)), 50); return true;
       case "syl": { const got = (bulk().syl || {})[el.dataset.k]; if (!got) return true; if (dlg.open) dlg.close(); importSheet(el.dataset.id, new File([got.text], `${P.name} syllabus.txt`, {type: "text/plain"})); return true; }
       case "sync": dlg.close(); syncNow(); return true;
+      case "report": reportSheet(); return true;
+      case "report-copy": { const el2 = $("#bsReport"), t = el2 ? el2.value : syncReport(); (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast("Sync report copied")).catch(() => { if (el2) { el2.focus(); el2.select(); } toast("Select the text and copy it"); }); return true; }
       case "login": doLogin().catch(e => { console.error(e); toast("Sign-in didn't work. Try again."); }); return true;
       case "feed-connect": { const v = $("#bsFeedIn") && $("#bsFeedIn").value; feedConnect(v).catch(e => { console.error(e); toast(errText(e)); }); return true; }
       case "feed-save": { const v = ($("#bsFeedIn") && $("#bsFeedIn").value.trim()) || ""; if (!v) { save({feed: ""}); toast(cfg().mode === "feed" ? "Add a calendar link, or disconnect instead" : "Calendar link removed"); if (cfg().mode !== "feed") bsSheet(); return true; } feedConnect(v, true); return true; }
@@ -1717,7 +2095,7 @@ function cleanFile(r) {
 
   return {P, cfg, save, connected, consented, askConsent, statusLine, shortStatus, bsSheet, connectSheet, syncNow, canSync: () => !!howNow(), autoTick, isRunning: () => !!running, courseCard, staffHtml, local,
     fromApi: P.fromApi, fromFeed, plan, applyPlan, cleanTitle, titleKey, codeOf, mapping, reviewSheet, scanNews, doLogin, feedConnect, importGrab, setLocal,
-    lastRead: () => bulk().lastRead || null, linkTask, startFresh, freshPlan, drop: (key, why) => { const c = cfg(); if (!(c.dropped || []).includes(key)) save({dropped: (c.dropped || []).concat(key).slice(-400)}); if (why === "merge" && !(c.mergedDrops || []).includes(key)) save({mergedDrops: (cfg().mergedDrops || []).concat(key).slice(-200)}); }};
+    lastRead: () => bulk().lastRead || null, linkTask, courseDeleted, repoint, startFresh, freshPlan, drop: (key, why) => { const c = cfg(); if (!(c.dropped || []).includes(key)) save({dropped: (c.dropped || []).concat(key).slice(-400)}); if (why === "merge" && !(c.mergedDrops || []).includes(key)) save({mergedDrops: (cfg().mergedDrops || []).concat(key).slice(-200)}); }};
   }
 
   /* The three platforms */
@@ -1787,6 +2165,52 @@ function cleanFile(r) {
   ];
   PROVIDERS.forEach(P => { LMS[P.id] = makeLms(P); });
   const ALL = () => PROVIDERS.map(P => LMS[P.id]);
+  /* Duplicate courses: a copy a school sync made of a course you already have is folded into the one you had first.
+     Its tasks, events, files, notes and decks move across, blank details are filled in from it, and each school site's
+     course list points at the one that stays. Two courses you made yourself are never merged */
+  const synced = c => FIELDS.some(f => c && c[f] && typeof c[f] === "object");
+  const dupKey = c => { const code = cleanCourseCode(c.code, c.name); return code ? "c:" + codeKey(code) : synced(c) ? "n:" + String(c.name || "").toLowerCase().replace(/[^a-z0-9]/g, "") : ""; };
+  const blank = v => v == null || v === "" || (Array.isArray(v) && !v.length);
+  function dupePlan(){
+    const groups = {};
+    allCourses().forEach(c => { const k = dupKey(c); if (k.length > 3) (groups[k] = groups[k] || []).push(c); });
+    const out = [];
+    Object.values(groups).forEach(g => {
+      if (g.length < 2 || !g.some(synced)) return;
+      // the one that stays: one you made yourself, else an active one, else the oldest
+      const rank = c => (synced(c) ? 2 : 0) + (c.archived ? 1 : 0);
+      const keep = g.slice().sort((a, b) => rank(a) - rank(b) || (Number(a.created) || 0) - (Number(b.created) || 0) || String(a.id).localeCompare(String(b.id)))[0];
+      g.filter(c => c !== keep && synced(c)).forEach(c => out.push({keep, dup: c}));
+    });
+    return out;
+  }
+  function mergeDupes(quiet){
+    const pairs = dupePlan(); if (!pairs.length) return 0;
+    const ch = [], kept = {}, to = {};
+    pairs.forEach(({keep, dup}) => {
+      to[dup.id] = keep.id;
+      const k = kept[keep.id] || (kept[keep.id] = clone(keep));
+      Object.keys(dup).forEach(f => { if (["id", "created", "name", "color", "order", "archived", "updated"].includes(f)) return; if (blank(k[f]) && !blank(dup[f])) k[f] = clone(dup[f]); });
+      const urls = new Set((k.links || []).map(l => l && l.url)); k.links = (k.links || []).concat((dup.links || []).filter(l => l && l.url && !urls.has(l.url))).slice(0, 12);
+      ch.push({kind: "course", id: dup.id, after: null});
+    });
+    Object.values(kept).forEach(k => { k.updated = Date.now(); ch.push({kind: "course", id: k.id, after: k}); });
+    const move = (kind, list) => list.forEach(x => { if (!x || !to[x.courseId]) return; const n = clone(x); n.courseId = to[x.courseId];
+      FIELDS.forEach(f => { if (n[f] && n[f].last && to[n[f].last.courseId]) n[f].last.courseId = to[n[f].last.courseId]; }); ch.push({kind, id: x.id, after: n}); });
+    move("task", Object.values(state.tasks || {})); move("event", Object.values(state.events || {})); move("file", Object.values(state.files || {})); move("note", Object.values(state.notes || {})); move("deck", Object.values(state.decks || {}));
+    if (ui.filter && to[ui.filter]) ui.filter = to[ui.filter];
+    if (ui.courseId && to[ui.courseId]) ui.courseId = to[ui.courseId];
+    const names = [...new Set(pairs.map(x => courseLabel(x.keep)))];
+    applyChanges(ch, quiet ? "" : `Merged a duplicate of ${names.join(", ")}`);
+    // each school site's course list points at the course that stays
+    ALL().forEach(L => { try { L.repoint(to); } catch (e) {} });
+    return pairs.length;
+  }
+  window.SBLMS_DEDUPE = mergeDupes;
+  // and once after the app opens, for copies made before this (or on another device)
+  setTimeout(() => { try { if (typeof state !== "undefined" && state && state.courses) mergeDupes(false); } catch (e) { console.warn("dedupe", e); } }, 2500);
+  // You deleted a course: every school site linked to it stops bringing it back
+  window.SBLMS_COURSE_GONE = id => ALL().forEach(L => { try { L.courseDeleted(id); } catch (e) {} });
 
   /* Desktop: staying signed in, and a quick way back in */
   const relogNeeded = () => ALL().filter(L => !!lmsBridge() && L.cfg().mode === "api" && L.connected() && L.local().needLogin);
@@ -1854,7 +2278,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
       if (!r.ok) return;
       const v = {}; (await r.json() || []).forEach(x => { if (x && typeof x.key === "string") v[x.key] = !(x.value === false || x.value === "false"); });
       FLAGS = {at: Date.now(), v}; try { localStorage.setItem(FLAGS_KEY, JSON.stringify(FLAGS)); } catch (e) {}
-      if (EXT.on) extPost({type: "flags", bbInternal: appFlag("bb_internal")});
+      if (EXT.on) extPost({type: "flags", bbInternal: appFlag("bb_internal"), marks: markSwitches()});
     } catch (e) {}
   }
   window.SBFLAGS = {get: appFlag, load: () => { FLAGS.at = 0; return loadFlags(); }};
@@ -1914,10 +2338,10 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     window.addEventListener("message", ev => {
       if (ev.source !== window || ev.origin !== location.origin || !ev.data || typeof ev.data !== "object" || ev.data.source !== "studyboard-ext") return;
       const d = ev.data;
-      if (d.type === "ready") { EXT.on = true; EXT.version = String(d.version || "").slice(0, 20); extPost({type: "flags", bbInternal: appFlag("bb_internal")}); extPost({type: "get"}); if (!inPreview()) loadFlags(); }
+      if (d.type === "ready") { EXT.on = true; EXT.version = String(d.version || "").slice(0, 20); extPost({type: "flags", bbInternal: appFlag("bb_internal"), marks: markSwitches()}); extPost({type: "get"}); if (!inPreview()) loadFlags(); }
       else if (d.type === "data") {
         EXT.on = true; EXT.version = String(d.version || EXT.version).slice(0, 20);
-        EXT.schools = (Array.isArray(d.schools) ? d.schools : []).slice(0, 6).filter(x => x && typeof x.id === "string").map(x => ({id: x.id, origin: String(x.origin || "").slice(0, 200), state: String(x.state || "").slice(0, 20), at: Number(x.at) || 0}));
+        EXT.schools = (Array.isArray(d.schools) ? d.schools : []).slice(0, 6).filter(x => x && typeof x.id === "string").map(x => ({id: x.id, origin: String(x.origin || "").slice(0, 200), state: String(x.state || "").slice(0, 20), at: Number(x.at) || 0, tried: Number(x.tried) || 0, error: String(x.error || "").replace(/[<>]/g, "").slice(0, 160)}));
         (Array.isArray(d.list) ? d.list : []).slice(0, 3).forEach(x => { extChain = extChain.then(() => extImport(x)).catch(err => console.warn("extension import", err)); });
       }
     });
@@ -1928,6 +2352,8 @@ body:has(#dlg[open]) #lmsRelog{display:none}
   window.addEventListener("sb:signing-out", () => { if (EXT.on) extPost({type: "signout"}); });
   window.SBEXT = {
     on: () => EXT.on,
+    version: () => EXT.version || "",
+    school: id => EXT.schools.find(x => x.id === id) || null,
     checked: () => EXT.checked || EXT.on,
     has: id => EXT.schools.some(x => x.id === id),
     html: name => {
@@ -1983,7 +2409,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     const imp = `<button class="btn small" data-act="import-syllabus">Import a Syllabus</button></div>`;
     if (!coursesArr().length) return html.replace(imp, m => m.replace("</div>", ` <button class="btn small" data-act="lms-open">Connect a School Site</button></div>`));
     if (on.length) return html.replace("<h2>Your Courses</h2>", m => m + `<button class="btn small" data-act="${on.length === 1 ? on[0].P.k + "-open" : "lms-open"}">${esc(on.length === 1 ? on[0].P.name : "School Sites")}</button>`);
-    return html.replace(`<div class="term-bar">`, m => `<div class="term-bar lms-bar"><span><b>Connect Canvas, Brightspace or Blackboard</b> to bring in your courses, due dates and grades.</span><button class="btn small" data-act="lms-open">Connect</button></div>` + m);
+    return html.replace(`<!--term-->`, m => `<div class="term-bar lms-bar"><span><b>Connect Canvas, Brightspace or Blackboard</b> to bring in your courses, due dates and grades.</span><button class="btn small" data-act="lms-open">Connect</button></div>` + m);
   };
   const origCard = card;
   card = function(t){

@@ -158,7 +158,7 @@
   let blurN = 0;
   function layerHtml(Ly, pad, v, k){
     let inner = "";
-    "abcdefgh".split("").forEach(key => { if (Ly[key].d) inner += `<path d="${Ly[key].d}" fill="${Ly[key].c}"/>`; });
+    "abcdefghijklmnopABCDEFGHIJKLMNOP".split("").forEach(key => { if (Ly[key] && Ly[key].d) inner += `<path d="${Ly[key].d}" fill="${Ly[key].c}"/>`; });
     ["s", "t"].forEach(key => { if (Ly[key].d) inner += `<path d="${Ly[key].d}" fill="none" stroke="${Ly[key].c}" stroke-width="${Ly[key].w}" stroke-linecap="round" stroke-linejoin="round"/>`; });
     if (!inner) return "";
     const box = pad ? `left:${-40 * k}px;top:${-40 * k}px;width:${v.pw * k}px;height:${v.phh * k}px` : `left:0;top:0;width:${v.bw * k}px;height:${v.bh * k}px`;
@@ -309,7 +309,7 @@
     const F = FOCUS; if (!F || !hasMoment()) return;
     const done = changes.filter(c => c.kind === "task" && c.after && c.after.status === "done" && F.info[c.id]);
     if (!done.length) return;
-    const planned = F.ranked.filter(x => x.alloc > 0).map(x => x.t.id);
+    const planned = F.ranked.filter(x => x.alloc > 0 && !x.t.xs).map(x => x.t.id);
     if (!planned.length || !done.some(c => planned.includes(c.id))) return;
     if (planned.every(id => state.tasks[id] && state.tasks[id].status === "done")) later(2600);
   });
@@ -369,7 +369,7 @@
     let defs = sky.defs + band.defs, body = sky.rects + band.rects;
     ["far", "refl", "mid", "near"].forEach(n => {
       const Ly = v[n]; let inner = "";
-      "abcdefgh".split("").forEach(key => { if (Ly[key].d) inner += `<path d="${Ly[key].d}" fill="${Ly[key].c}"/>`; });
+      "abcdefghijklmnopABCDEFGHIJKLMNOP".split("").forEach(key => { if (Ly[key] && Ly[key].d) inner += `<path d="${Ly[key].d}" fill="${Ly[key].c}"/>`; });
       ["s", "t"].forEach(key => { if (Ly[key].d) inner += `<path d="${Ly[key].d}" fill="none" stroke="${Ly[key].c}" stroke-width="${Ly[key].w}" stroke-linecap="round" stroke-linejoin="round"/>`; });
       if (!inner) return;
       if (Ly.blur) { defs += `<filter id="f${n}" filterUnits="userSpaceOnUse" x="-60" y="-60" width="${TH_W + 120}" height="${TH_H + 120}"><feGaussianBlur stdDeviation="${Ly.blur / 2}"/></filter>`; body += `<g filter="url(#f${n})">${inner}</g>`; }

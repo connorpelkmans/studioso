@@ -133,7 +133,7 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       ok(await noHScroll(page) && await dlgScroll(page), "agenda fits the width");
       await page.screenshot({path: path.join(OUT, `agenda-${tag}.png`)});
       await page.keyboard.press("Escape"); await page.waitForTimeout(200);
-      await act(page, "edit-task", "ex1"); await page.waitForTimeout(300);
+      await act(page, "edit-task", "ex1", {edit: "1"}); await page.waitForTimeout(300);
       ok(/0 of \d+ sessions done/.test(await txt(page, ".pp-form")), "the exam detail shows the progress summary: " + (await txt(page, ".pp-form")).replace(/\n/g, " "));
       ok(/Prep Plan \(0\/\d+\)/.test(await txt(page, ".sheet-foot")), "and a Prep Plan button");
       await page.keyboard.press("Escape"); await page.waitForTimeout(200);
@@ -173,7 +173,7 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       await ctx.clock.setSystemTime(new Date(2026, 9, 8, 10, 0, 0)); await page.reload(); await page.waitForTimeout(1500);
       await goBoard(page);
       await page.waitForFunction(() => /slipped/.test((document.querySelector("#planExtra .pp-today") || {textContent: ""}).textContent), null, {timeout: 5000}).catch(() => {});
-      ok(/Exam Prep/.test(await txt(page, "#planExtra .pt-bar")), "the tab bar names Exam Prep: " + (await txt(page, "#planExtra .pt-bar")).replace(/\n/g, " "));
+      ok(/Exam Prep/.test(await txt(page, ".plan-foot")), "the links under the plan name Exam Prep: " + (await txt(page, ".plan-foot")).replace(/\n/g, " "));
       await openPrep(page, "slipped");
       ok(await vis(page, ".pp-today"), "a gentle banner on Today when sessions were missed");
       ok(/slipped/.test(await txt(page, ".pp-today")), "it says sessions slipped: " + (await txt(page, ".pp-today")).replace(/\n/g, " ").slice(0, 100));
@@ -190,7 +190,7 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       await page.click("body"); await act(page, "prep-catch", "ex1"); await page.waitForTimeout(500);
       ok((await sessions(page)).filter(t => t.status !== "done" && t.due < plus(4)).length === 0, "caught up again");
       // the exam moves
-      await act(page, "edit-task", "ex1"); await page.waitForTimeout(300);
+      await act(page, "edit-task", "ex1", {edit: "1"}); await page.waitForTimeout(300);
       await page.fill("input[name=due]", plus(16)); await page.click("[data-submit]"); await page.waitForTimeout(1200);
       ok(await vis(page, "#toast.show") && /Re-plan your prep/.test(await txt(page, "#toastMsg")), "moving the exam offers a re-plan: " + (await txt(page, "#toastMsg")));
       ok(/moved to/.test(await txt(page, ".pp-today") || ""), "and Today says so");

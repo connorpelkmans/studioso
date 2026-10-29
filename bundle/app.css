@@ -172,6 +172,8 @@ body.wide .wrap{max-width:1180px}
 .ann-list li:not(.unread) b{font-weight:600;color:var(--muted)}
 .ann-list .mini{display:block}
 .ann-list details summary{cursor:pointer;color:var(--accent);font-size:.8rem;margin-top:4px}
+.ann-list details .ann-less,.ann-list details[open] .ann-pre{display:none}
+.ann-list details[open] .ann-less{display:inline}
 .ann-list .ann-txt{margin:4px 0 0;font-size:.88rem;white-space:pre-line;overflow-wrap:anywhere}
 .ann-list .bs-btns{margin-top:6px}
 .ann-tabs{flex:none;display:flex;gap:6px;overflow-x:auto;padding:2px 2px 8px;margin:0 -2px;scrollbar-width:thin;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;overscroll-behavior-x:contain}
@@ -216,6 +218,8 @@ li.task>.lms-go{align-self:center;margin-right:12px}
 .card-foot .late{color:var(--late);font-weight:600}
 .placeholder{border:2px dashed var(--accent);border-radius:12px;background:color-mix(in srgb,var(--accent) 8%,transparent)}
 .ghost{position:fixed;z-index:50;pointer-events:none;margin:0;transform:rotate(2deg) scale(1.03);box-shadow:0 14px 30px rgba(0,0,0,.28);cursor:grabbing;will-change:transform}
+/* a dragged copy is tilted from the first frame: the card's own entrance animation must not run on it */
+.ghost,.sort-ghost,.kb-ghost{animation:none!important;transition:none!important}
 .prio{font-size:.72rem;font-weight:700;border-radius:6px;padding:1px 7px;white-space:nowrap}
 .prio.low{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
 .prio.med{background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent)}
@@ -2235,6 +2239,8 @@ body.sch-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 .nb-main .nb-target.hot{transform:scale(1.35)}
 .nb-main .nb-target.trash.hot{background:color-mix(in srgb,var(--late) 18%,var(--surface))!important;border-color:var(--late)!important}
 .nb-main .nb-target:not(.trash).hot{background:color-mix(in srgb,var(--accent) 18%,var(--surface))!important;border-color:var(--accent)!important}
+/* Archive glows blue while a note is held over it (Trash stays red) */
+.nb-target[data-drop-note="archive"].hot,.nb-main .nb-target[data-drop-note="archive"].hot{border-color:#3b82f6!important;background:color-mix(in srgb,#3b82f6 18%,var(--surface))!important;color:#3b82f6;box-shadow:0 0 0 3px color-mix(in srgb,#3b82f6 28%,transparent),0 0 18px 4px color-mix(in srgb,#3b82f6 55%,transparent)}
 .wb-max{top:8px;right:8px;color:#22262D;background:rgba(255,255,255,.9);border-color:rgba(0,0,0,.1);box-shadow:0 2px 8px rgba(20,30,45,.16)}
 .wb-dk .wb-max{background:rgba(38,45,54,.95);border-color:rgba(255,255,255,.1);color:#E6EAEE}
 .wb-stage .wb-zoom{left:8px;right:auto}
@@ -2553,6 +2559,7 @@ dialog:has(.sheet.ob){width:min(640px,calc(100% - 24px))}
 .ob-opt{font:700 .66rem/1 var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:5px 8px}
 .ob-lead{margin:-6px auto 2px;max-width:46ch;text-align:center;color:var(--muted);font-size:.98rem;line-height:1.5;text-wrap:balance}
 .ob-note{margin:0;text-align:center;line-height:1.5}
+.ob-crash{margin:-4px 2px 0;text-align:center;color:var(--muted);line-height:1.45}
 .ob-note .link-btn{font-size:inherit;padding:0}
 .ob-logo{display:flex;justify-content:center;padding:10px 0 2px}
 .ob-logo .logo{height:48px;width:auto;display:block}
@@ -2572,7 +2579,40 @@ dialog:has(.sheet.ob){width:min(640px,calc(100% - 24px))}
 .ob-clist .x-btn{width:28px;height:28px;border-radius:50%}
 .ob-empty{margin:0;text-align:center}
 .ob-cadd{display:grid;gap:12px;padding:14px;border:1px solid var(--line);border-radius:16px;background:color-mix(in srgb,var(--soft) 55%,var(--surface))}
-.ob-cfields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:10px}
+.ob-cfields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr) auto;gap:10px;align-items:end}
+.ob-cfields>.btn{min-height:44px}
+/* Courses and deadlines: where the work comes from */
+.ob-src{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
+.ob-src.main{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));background:color-mix(in srgb,var(--accent) 6%,var(--surface))}
+.ob-src.over{outline:2px dashed var(--accent);outline-offset:2px}
+.ob-src .btn{min-height:44px;flex:none}
+.ob-cn{color:var(--muted);margin-left:2px}
+.ob-tally{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0;font-size:.92rem;color:var(--muted)}
+.ob-tally b{color:var(--ink)}
+.ob-tally .link-btn{font-weight:700;padding:0;min-height:32px}
+.ob-queue{margin:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ob-queue .link-btn{padding:0;font-size:inherit}
+.ob-or{display:flex;align-items:center;gap:10px;margin:2px 0 0;font-size:.74rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.ob-or::before,.ob-or::after{content:"";flex:1;height:1px;background:var(--line)}
+.ob-more-src{margin:0;color:var(--muted);font-size:.9rem}
+.ob-more-src .link-btn{padding:0;font-size:inherit;font-weight:700;min-height:32px}
+/* Done: Mochi, Later rows, the coming week, the tour link */
+.ob-mochi{width:84px;height:84px;margin:2px auto 0;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 14%,var(--surface))}
+.ob-mochi svg.cp-svg{position:static;inset:auto;transform:none;width:68px;height:68px;overflow:visible}
+.ob-sum li .ob-st{flex:1}
+.ob-sum li.later{color:var(--ink)}
+.ob-lt{border:1.5px dashed color-mix(in srgb,#B7791F 60%,var(--line));color:#9A6400}
+.ob-lt svg{width:13px;height:13px}
+.ob-later{flex:none;font:700 .68rem var(--display);letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:999px;background:color-mix(in srgb,#F5B301 22%,var(--surface));color:#8A5A00}
+:root[data-theme="dark"] .ob-later,:root[data-theme="dark"] .ob-lt{color:#F2C766}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .ob-later,:root:not([data-theme="light"]) .ob-lt{color:#F2C766}}
+.ob-week{padding:12px 14px;border-radius:16px;background:var(--soft);text-align:left}
+.ob-h4{margin:0 0 6px;font:700 .74rem var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.ob-week ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.ob-week li{display:flex;gap:8px;align-items:baseline;border-left:3px solid var(--c);padding-left:9px;font-size:.92rem}
+.ob-week li span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ob-week li em{font-style:normal;color:var(--muted);font-size:.84rem;flex:none}
+.ob-tourlink{font-weight:700;min-height:44px;padding:0 10px}
 .ob-crow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .ob-crow .btn{margin-left:auto;min-height:44px}
 .ob-sw{gap:6px}
@@ -2666,7 +2706,10 @@ canvas.ob-fx{position:fixed;inset:0;z-index:5}
   .ob-hero{width:56px;height:56px;border-radius:18px}
   .ob-hero svg{width:28px;height:28px}
   .ob-themes{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .ob-cfields{grid-template-columns:1fr}
+  .ob-cfields{grid-template-columns:minmax(0,1fr) minmax(0,1.4fr)}
+  .ob-cfields>.btn{grid-column:1/-1}
+  .ob-src{flex-wrap:wrap}
+  .ob-src .btn{flex:1 1 100%}
   .ob-crow .btn{margin-left:0;flex:1}
   .ob-alt{flex-wrap:wrap}
   .ob-alt .btn{flex:1 1 100%}
@@ -2680,7 +2723,8 @@ canvas.ob-fx{position:fixed;inset:0;z-index:5}
   .qa-bar.ob-glow{animation:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 35%,transparent)}
 }
 @media (max-width:600px){
-  .ob[data-step="done"] .ob-foot{flex-direction:column-reverse;align-items:stretch;gap:8px}
+  .ob[data-step="done"] .ob-foot{flex-direction:column-reverse;align-items:stretch;gap:4px}
+  .ob[data-step="done"] .ob-tourlink{align-self:center}
   .ob[data-step="done"] .ob-foot .spacer{display:none}
   dialog#dlg .sheet.ob[data-step="done"] .ob-foot > .btn{flex:0 0 auto}
   .ob-foot .btn{white-space:nowrap}
@@ -3278,6 +3322,13 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;overflow:au
 /* Last week's champion: a small golden badge */
 .grp-badges .grp-badge.champ{background:color-mix(in srgb,#F5B82E 34%,var(--surface));color:#6B4A00;font-size:.64rem;line-height:1.5;padding:0 7px;letter-spacing:.01em}
 .grp-crown{display:inline-block;vertical-align:-2px;margin-left:5px;flex:none}
+/* Share or Import: one header button opens these three */
+.sm-list{display:grid;gap:8px}
+.sm-opt{display:grid;gap:2px;text-align:left;min-height:44px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;cursor:pointer}
+.sm-opt:hover,.sm-opt:focus-visible{border-color:var(--accent)}
+.sm-btn{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.sm-btn svg{width:16px;height:16px;flex:none}
+@media (max-width:639px){.sm-btn .sm-lbl{display:none}.sm-btn{padding-inline:12px!important}}
 /* ===== module: 90-grades.css ===== */
 /* Grade Tracker and Rough Week Rescue */
 .gr-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:12px}
@@ -3308,6 +3359,8 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;overflow:au
 .pill.lms-bad{background:color-mix(in srgb,#dc2626 20%,transparent);color:inherit}
 .pill.lms-ext{background:color-mix(in srgb,#2563eb 18%,transparent);color:inherit}
 .pill.lms-fbpill{font-size:.72em;vertical-align:middle}
+.pill.gr-nw-pill{font-size:.72em;vertical-align:middle;background:var(--surface-2,rgba(127,127,127,.12));color:var(--muted,inherit);border:1px dashed var(--line,rgba(127,127,127,.4))}
+.gr-nw .gr-mk b{opacity:.75}
 .lms-task summary,.lms-rub summary,.lms-syl summary{cursor:pointer;min-height:32px;display:flex;align-items:center;gap:6px}
 .lms-h{margin:10px 0 4px;font-size:.92em}
 .lms-mark{margin:4px 0}
@@ -3428,9 +3481,9 @@ html :is(.tl-controls.f-title,.pview-tabs + .tl-controls:has(> .segb)) > h2{flex
 .gr-legend .k.sec{background:var(--accent)}
 .gr-legend .k.pos{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--accent) 45%,transparent) 0 3px,color-mix(in srgb,var(--accent) 18%,transparent) 3px 6px)}
 .gr-bar+.gr-legend{margin-top:16px}
-.gr-need{margin:0;padding:0;list-style:none;display:grid;gap:6px}
-.gr-need li{font-size:.93rem;padding-left:14px;position:relative}
-.gr-need li::before{content:"";position:absolute;left:2px;top:.55em;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.gr-need,.gb-lines{margin:0;padding:0;list-style:none;display:grid;gap:6px}
+.gr-need li,.gb-lines li{font-size:.93rem;padding-left:14px;position:relative}
+.gr-need li::before,.gb-lines li::before{content:"";position:absolute;left:2px;top:.55em;width:6px;height:6px;border-radius:50%;background:var(--accent)}
 .gr-kind{display:block;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--mark) 22%,var(--surface));border:1px solid color-mix(in srgb,var(--mark) 50%,var(--line))}
 .gr-list summary{cursor:pointer;font-weight:600;font-size:.9rem;padding:6px 0;min-height:32px}
 .gr-list ul{list-style:none;margin:4px 0 0;padding:0}
@@ -3575,6 +3628,71 @@ h2.sec .pill{align-self:center}
 .gr-target-in input[aria-invalid="true"]{border-color:var(--danger,#c0392b)}
 .gr-target-n{flex-basis:100%;max-width:36em}
 .gr-target-n.short{color:var(--text)}
+/* GPA, credits, past terms and Ask AI on the Grades page */
+.gp-gpa{display:flex;flex-wrap:wrap;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--accent) 5%,var(--surface))}
+.gp-g{display:grid;gap:1px;flex:1 1 150px;min-width:0;padding:8px 12px;border-radius:12px;background:var(--surface);border:1px solid var(--line)}
+.gp-g .gr-v{font-size:1.35rem}
+.gp-gpa-foot{display:flex;align-items:center;gap:10px;flex:1 1 100%;flex-wrap:wrap}
+.gp-gpa-foot .spacer{flex:1}
+.gp-hist,.gp-ai{display:grid;gap:8px;margin-top:16px;padding:12px 14px;background:var(--ph-surf,color-mix(in srgb,var(--surface) 90%,transparent));border:1px solid var(--line);border-radius:16px}
+.gp-hist .fsec,.gp-ai .fsec{margin:0}
+.gp-sec-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.gp-sec-h .spacer{flex:1}
+.gp-terms{list-style:none;margin:0;padding:0}
+.gp-terms li{border-bottom:1px solid var(--line)}
+.gp-terms li:last-child{border-bottom:0}
+.gp-term{display:flex;align-items:center;gap:12px;width:100%;padding:8px 2px;border:0;background:none;color:var(--ink);text-align:left;font:inherit;cursor:pointer}
+.gp-term-n{display:grid;gap:1px;flex:1;min-width:0}
+.gp-term-g{display:grid;justify-items:end}
+.gp-term-g b{font:800 1.2rem var(--display)}
+.gp-ai-acts{display:flex;gap:8px;flex-wrap:wrap}
+.gp-ai-out:empty{display:none}
+.gp-ai-k{margin:0;font:700 .85rem var(--display);color:var(--muted)}
+.gp-ai-list{margin:4px 0 0;padding-left:20px;display:grid;gap:6px;line-height:1.45}
+.gp-cr-list{display:grid;gap:6px}
+.gp-cr-row{display:flex;align-items:center;gap:10px;padding:6px 10px;border:1px solid var(--line);border-left:4px solid var(--c);border-radius:10px}
+.gp-cr-n{flex:1;min-width:0}
+.gp-cr-row input{width:6rem}
+.gp-tc-head,.gp-tc-row{display:grid;grid-template-columns:minmax(0,1fr) 4.5rem 5rem auto;gap:8px;align-items:center}
+.gp-tc-head{font-size:.75rem;font-weight:700;color:var(--muted)}
+.gp-tc-list{display:grid;gap:6px}
+.gp-tc-n{display:grid;min-width:0}
+.gp-tc-row input{width:100%}
+/* Grading rules in Grade Settings */
+.gr-rules{display:grid;gap:8px;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.gr-rules legend{font-weight:700;padding:0 4px}
+.gr-drops{display:grid;gap:6px}
+.gr-drops:empty{display:none}
+.gr-drop-row{display:grid;grid-template-columns:auto 4.2rem minmax(0,1fr) auto;align-items:center;gap:8px}
+.gr-drop-row label{min-width:0}
+.gr-drop-row input,.gr-drop-row select{width:100%;min-width:0}
+@media (max-width:420px){.gr-drop-row{grid-template-columns:auto 4rem auto}.gr-drop-row label:has(select){grid-column:1 / 3;grid-row:2}}
+.gr-bonus{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.gr-dropped{margin-left:6px;background:var(--soft);color:var(--muted);text-decoration:none}
+@media (max-width:600px){.gr-bonus{grid-template-columns:1fr}.gp-tc-head{display:none}.gp-tc-row{grid-template-columns:minmax(0,1fr) 4rem 4.5rem;row-gap:4px}.gp-tc-row .mi-check{grid-column:1 / -1}}
+/* Where Your Grade Comes From, class comparison, graded work coming up */
+.gb-types{list-style:none;margin:0 0 4px;padding:0;display:grid;gap:8px}
+.gb-types li{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(60px,1fr) auto;align-items:center;gap:12px}
+.gb-name{display:grid;gap:1px;min-width:0}
+.gb-name b{font-size:.93rem}
+.gb-bar{position:relative;height:10px;border-radius:99px;background:color-mix(in srgb,var(--accent) 14%,var(--surface))}
+.gb-bar > i{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:var(--accent)}
+.gb-bar > i.gb-pass{left:auto;top:-3px;bottom:-3px;width:2px;margin-left:-1px;border-radius:2px;background:var(--ink);opacity:.7}
+.gb-v{display:flex;align-items:baseline;gap:5px;min-width:4.6rem;justify-content:flex-end;font-variant-numeric:tabular-nums}
+.gr-vs{margin-left:6px;background:var(--soft);color:var(--ink);font-variant-numeric:tabular-nums}
+.gr-vs.up{background:color-mix(in srgb,var(--leaf) 16%,transparent)}
+.gr-vs.down{background:color-mix(in srgb,var(--late) 14%,transparent)}
+.gb-soon li .gs-name{display:grid;gap:2px}
+@media (max-width:420px){.gb-types li{grid-template-columns:minmax(0,1fr) auto}.gb-bar{grid-column:1/-1;grid-row:2}}
+
+/* New marks from a sync */
+nav.tabs [data-tab="courses"]{position:relative}
+/* the Courses tab count uses the same .fc-navdue badge as Review */
+.gp-main > .nm-ringpip{grid-area:ring;justify-self:end;align-self:center;transform:translate(3px,-15px);z-index:2;min-width:17px;height:17px;box-sizing:border-box;border-radius:999px;background:linear-gradient(180deg,color-mix(in srgb,var(--late) 82%,#fff),var(--late));color:#fff;font:700 .62rem/17px var(--display);font-variant-numeric:tabular-nums;text-align:center;padding:0 5px;pointer-events:none;box-shadow:0 0 0 2.5px var(--surface),0 2px 5px rgba(0,0,0,.25)}
+.nm-pip{display:inline-grid;place-items:center;min-width:18px;height:18px;margin-left:6px;padding:0 5px;box-sizing:border-box;border-radius:9px;background:var(--late);color:#fff;font:700 .66rem/1 var(--display);vertical-align:middle}
+.course-card,.gp-main{position:relative}
+.nm-card{position:absolute;top:10px;right:10px;z-index:3;display:grid;place-items:center;min-width:22px;height:22px;padding:0 6px;box-sizing:border-box;border-radius:11px;background:var(--late);color:#fff;font:800 .72rem/1 var(--display);box-shadow:0 1px 3px rgba(0,0,0,.25);pointer-events:none}
+.gr-newmark{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--late);margin-right:6px;vertical-align:middle;box-shadow:0 0 0 2px var(--surface)}
 /* ===== module: 92-estimates.css ===== */
 /* Estimate Times */
 .est-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
@@ -4207,6 +4325,9 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-tq-a:empty{display:none}
 
 
+/* Companions as still pictures in long lists (every theme's companions) */
+.cp-still-box{display:block;width:64px;height:64px;flex:none}
+.cp-still{display:block;max-width:none;pointer-events:none;-webkit-user-drag:none}
 /* ===== module: 98-photo.css ===== */
 /* ===== Your Photo themes ===== */
 /* The photo sits behind the page (left of the desktop sidebar) as one fixed */
@@ -4831,6 +4952,14 @@ button.snd-head:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
 body:has(.toast.show) .acc-chip{bottom:calc(168px + var(--toast-h,48px) + env(safe-area-inset-bottom,0px))}
 @media (min-width:980px){.acc-chip{bottom:24px}body:has(.toast.show) .acc-chip{bottom:calc(42px + var(--toast-h,44px))}}
 @media (prefers-reduced-motion:reduce){.acc-chip{transition:none}}
+/* The check-in: how much is left? */
+.acc-sub{display:block;font-weight:400;font-size:.82rem;color:var(--muted);white-space:normal}
+.acc-left{display:grid;grid-template-columns:repeat(4,auto);gap:6px}
+.acc-left .acc-opt{display:grid;justify-items:start;gap:1px;text-align:left;line-height:1.2}
+.acc-left .acc-opt.link{grid-column:1/-1;justify-self:start;display:inline-flex;align-items:center;gap:6px;min-height:36px}
+.acc-tm{font-size:.76rem;font-weight:600;color:var(--muted)}
+.acc-say input{width:min(17rem,60vw)}
+.acc-note{font-weight:500}
 /* ===== module: 97-notecards.css ===== */
 /* Notes to Flashcards */
 .nc-sheet [hidden]{display:none!important}
@@ -5233,7 +5362,7 @@ html:not([data-motion="static"]) :is(.segb button,.chip,.ui-chip,.cf-pick,[role=
 
 /* Desktop page tabs (Today's Plan / Task Board, Courses / Grades ...): one compact pill, a dark selected tab */
 @media (min-width:640px){
-  #view .pg-tabs{box-sizing:border-box!important;width:max-content!important;max-width:100%!important;align-self:flex-start;padding:5px!important;gap:4px!important;margin:12px 0 16px!important;background:color-mix(in srgb,var(--surface) 92%,transparent)!important;border:1px solid color-mix(in srgb,var(--ink) 8%,transparent)!important;border-radius:999px!important;box-shadow:0 4px 16px rgba(20,40,80,.16)!important}
+  #view .pg-tabs{box-sizing:border-box!important;width:max-content!important;max-width:100%!important;align-self:flex-start;padding:5px!important;gap:4px!important;margin:12px 0 16px!important;background:color-mix(in srgb,var(--surface) 92%,transparent)!important;border:1px solid color-mix(in srgb,var(--ink) 8%,transparent)!important;border-radius:999px!important;box-shadow:0 0 14px rgba(20,40,80,.14)!important}
   #view .pg-tabs > button{flex:none!important;min-height:0!important;padding:9px 22px!important;margin:0!important;border:0!important;border-radius:999px!important;color:color-mix(in srgb,var(--ink) 68%,var(--surface))!important;font-size:1rem!important;font-weight:700!important;transition:background-color .24s var(--sm-ease),color .2s ease}
   #view .pg-tabs > button:hover{color:var(--ink)!important;background:color-mix(in srgb,var(--ink) 7%,transparent)!important}
   #view .pg-tabs > button[aria-selected="true"]{background:var(--ink)!important;color:var(--surface)!important;box-shadow:none!important}
@@ -5267,7 +5396,7 @@ html:not([data-motion="static"]) :is(.segb button,.chip,.ui-chip,.cf-pick,[role=
   .env:not(.closed) .env-body{overflow:hidden auto}
   .nb-wrap:has(.env:not(.closed)) .nb-main{padding-bottom:min(380px,48dvh)}
   .env{transition:opacity .15s}
-  body.stk-dragging .env{opacity:0}
+  body.stk-dragging .env{opacity:0;pointer-events:none}
 }
 /* Crunch Forecast on a phone */
 @media (max-width:600px){
@@ -5286,7 +5415,7 @@ html:not([data-motion="static"]) :is(.segb button,.chip,.ui-chip,.cf-pick,[role=
 .bn-more:hover{color:var(--ink);border-style:solid}
 .bn-more svg{width:14px;height:14px;transition:transform .15s}
 .bn-more{margin:0 0 10px;border-style:solid;color:var(--ink)}
-.bn-n{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--late,#D93B3B);color:#fff;font:800 .74rem/1 var(--display);box-shadow:0 0 0 2px var(--surface)}
+.bn-n{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--late,#D93B3B);color:#fff;font:800 .74rem/1 var(--display);box-shadow:0 0 0 2px var(--surface);text-shadow:none}
 .bn-more[aria-expanded="true"] svg{transform:rotate(180deg)}
 /* Heavy week and Rough week folded into one card */
 .rw-banner.rw-crunch{border-left:6px solid var(--cr3,#F29A4A)}
@@ -5762,6 +5891,7 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .cp-oth-d{border:1px solid var(--line);border-radius:14px;padding:0 12px;background:var(--surface)}
 .cp-oth-d > summary{cursor:pointer;min-height:46px;display:flex;align-items:center;font:700 .95rem var(--display)}
 .cp-oth-d[open]{display:grid;gap:10px;padding-bottom:12px}
+.cp-oth-g{content-visibility:auto;contain-intrinsic-size:auto 260px}
 .cp-oth-g h4{margin:6px 0;font:700 .88rem var(--display);display:flex;align-items:center;gap:6px}
 .cp-oth-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
 .cp-oth{display:grid;justify-items:center;gap:4px;padding:8px 4px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:inherit;font:600 .78rem var(--display);cursor:pointer}
@@ -5836,6 +5966,23 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 /* short classes */
 @container (max-height:44px){.sch-b span:nth-of-type(2),.sch-b span:nth-of-type(3){display:none}}
 @container (max-height:24px){.sch-b span{display:none}}
+/* short cards with a course band (an hour or less): a slimmer band, then the title and time on one line */
+@container (max-height:72px){
+  .sch-b > .sch-band{padding:2px 8px}
+  .sch-b > .sch-band .cc-ic{width:14px;height:14px}
+  .sch-b:has(> .sch-band) > .sch-bd{display:flex;align-items:baseline;gap:6px;min-width:0;padding:3px 8px}
+  .sch-b > .sch-bd > span{flex:none;font-size:.7rem}
+  .sch-b > .sch-bd > .sch-t{flex:0 1 auto;min-width:0;font-size:.76rem}
+  .sch-b > .sch-bd > span:nth-of-type(3){display:none}
+}
+/* too narrow for both: the title only (the time is on the grid) */
+@container (max-height:72px) and (max-width:240px){.sch-b > .sch-bd > span:nth-of-type(2){display:none}}
+/* half an hour or less: no band, the title in the card's course colour */
+@container (max-height:44px){
+  .sch-b > .sch-band{display:none}
+  .sch-b:has(> .sch-band) > .sch-bd{display:flex;align-items:center;height:100%;padding:0 8px 0 11px;box-shadow:inset 4px 0 0 var(--c)}
+  .sch-b > .sch-bd > .sch-t{display:block}
+}
 .sch-chip{border-radius:8px!important;border-left-width:4px!important;padding:4px 7px!important;background:color-mix(in srgb,var(--c) 12%,var(--surface))!important;font-weight:700!important}
 .sch-nav .btn,.view-head .sch-nav .btn{border-radius:999px}
 .sch-now{height:2px!important}
@@ -6028,6 +6175,8 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
 .pw-ic{display:grid;place-items:center;width:22px;height:22px;flex:none;border-radius:50%;background:var(--late);color:#fff;font:900 .8rem/1 var(--display)}
 .pw-main{flex:1 1 300px;min-width:0}
 .pw-tip{margin-left:auto;color:var(--muted);font-size:.8rem}
+.pw-acts{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+
 .plan-tabs{margin:16px 0 6px}
 .pt-bar{display:flex;flex-wrap:wrap;gap:4px;padding:4px;border:1px solid var(--line);border-radius:22px;background:color-mix(in srgb,var(--soft) 60%,var(--surface));width:max-content;max-width:100%}
 .pt-bar::-webkit-scrollbar{display:none}
@@ -6249,9 +6398,13 @@ html .fhead .fcrumb{background:none!important;padding-inline:0!important;text-sh
 .gt-dot{display:inline-block;border-style:dashed!important;opacity:.7;pointer-events:none}
 .gt-chip{background:color-mix(in srgb,#C9702B 18%,var(--surface))!important;color:color-mix(in srgb,#C9702B 70%,var(--ink))!important}
 .sort-ghost{position:fixed!important;z-index:200;pointer-events:none;margin:0!important;transform:rotate(1.5deg) scale(1.02);box-shadow:0 18px 40px rgba(0,0,0,.35);opacity:.95;transition:none!important}
+/* The lifted copy has no frosted backdrop: Safari paints it square-cornered for a moment before the rounded clip catches up */
+.sort-ghost,.sort-ghost *{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+.sort-ghost.grp-card{background:var(--surface)!important;border-radius:18px!important;overflow:hidden;will-change:transform}
 .sort-hole{opacity:.25;outline:2px dashed var(--line);outline-offset:4px;border-radius:18px}
 body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important;-webkit-user-select:none!important}
-[data-sortable] > [data-sort-id]{-webkit-touch-callout:none}
+/* A long press reorders: the browser's own long-press preview, text selection and drag of a link or picture must not start first */
+[data-sortable] > [data-sort-id],[data-sortable] > [data-sort-id] *{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-user-drag:none}
 .ci-ai-btn{display:grid;place-items:center;align-content:center;gap:2px;aspect-ratio:1;border:2px dashed var(--line);border-radius:50%;background:none;color:var(--accent);font:800 .62rem var(--display);cursor:pointer;position:relative;padding:0}
 .ci-ai-btn svg{width:26px;height:26px}
 .ci-ai-btn .cp-ai-face.ai-ic{width:32px;height:32px;min-width:32px;margin:0;vertical-align:0;justify-self:center;display:grid;place-items:center}
@@ -6385,7 +6538,7 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   .wkr-acts .btn{min-height:44px;padding:6px 14px;font-size:.86rem;flex:0 0 auto}
   .wkr-acts .btn:not(.primary):last-child{border-color:transparent;background:none;box-shadow:none;color:var(--muted);text-decoration:underline;padding-inline:6px}
   /* Sheets: the main action easy to reach */
-  dialog#dlg > .sheet{border-radius:22px 22px 0 0}
+  dialog#dlg > .sheet{border-radius:inherit}
   dialog#dlg .sheet-foot{flex-wrap:wrap;gap:8px}
   dialog#dlg .sheet-foot > .btn.primary:last-child,dialog#dlg .sheet-foot > [data-submit].primary{flex:1 1 140px}
   /* nothing on the left: Cancel takes the left edge and the main button fills the rest */
@@ -6543,11 +6696,12 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   #view > .bview-row:has(> .pg-tabs) > .board-ctl{position:absolute;right:0;bottom:6px;margin:0;display:flex;align-items:center;gap:8px}
 }
 /* Review's due count grows leftwards, clear of the companion's seat next to it */
-@media (max-width:639px){nav.tabs .in [data-tab="flashcards"] .fc-navdue{left:auto;right:calc(50% - 14px);margin-left:0;top:2px;z-index:2;min-width:14px;height:14px;font:700 .54rem/14px var(--display);padding:0 3px;box-shadow:0 0 0 1.5px var(--surface),0 1px 3px rgba(0,0,0,.2)}}
+@media (max-width:639px){nav.tabs .in [data-tab="flashcards"] .fc-navdue,nav.tabs .in [data-tab="courses"] .fc-navdue{left:auto;right:calc(50% - 14px);margin-left:0;top:2px;z-index:2;min-width:14px;height:14px;font:700 .54rem/14px var(--display);padding:0 3px;box-shadow:0 0 0 1.5px var(--surface),0 1px 3px rgba(0,0,0,.2)}}
 /* Wide sheets are bottom sheets on phones too, full width like the rest */
 @media (max-width:639px){dialog:is(:has(.sheet.shop),:has(.sheet.mt-sheet),:has(.plan-sheet),:has(.sheet.ob),:has(.ph-sheet)){width:100%}}
 /* Courses: the school site button on the left, Insights and the bin on the right */
 @media (max-width:639px){#view .view-head > h2 + .btn[data-act$="-open"]{margin-right:auto}}
+@media (max-width:639px){:is(#view > .view-head,#view > section > .view-head).ph-btns .btn.small[data-act$="-open"]:first-of-type,:is(#view > .view-head,#view > section > .view-head).ph-btns > h2 + .btn.small[data-act$="-open"]{margin-right:auto!important}}
 
 /* One rhythm on every tab: tab bar, 12px, the page's buttons, 14px, the content */
 @media (max-width:639px){
@@ -6705,18 +6859,18 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
 
 /* Phones: the cards and panels over a theme's artwork let more of it show through (a photo theme's own Glass slider still wins) */
 @media (max-width:639px){
-  html{--ph-gls:86%}
+  html{--ph-gls:91%}
 }
 
-/* Phones: every softly see-through surface lets more of the artwork behind it show (about five sixths solid) */
+/* Phones: every softly see-through surface lets a little of the artwork behind it show */
 @media (max-width:639px){
-  .col{background:color-mix(in srgb,var(--ph-surf,var(--surface)) 86%,transparent)}
-  .arch-term{background:color-mix(in srgb,var(--surface) 86%,transparent)}
-  html.sc-on .grp-file{background:color-mix(in srgb,var(--surface) 86%,transparent)}
-  .cpt-form{background:color-mix(in srgb,var(--paper,var(--bg)) 80%,transparent)}
-  .room-float small{background:color-mix(in srgb,var(--surface) 86%,transparent)}
-  .nb-zoom,.nb-target,.board-max-btn{background:color-mix(in srgb,var(--surface) 88%,transparent)}
-  .nb-main .nb-target{background:color-mix(in srgb,var(--surface) 88%,transparent)!important}
+  .col{background:color-mix(in srgb,var(--ph-surf,var(--surface)) 91%,transparent)}
+  .arch-term{background:color-mix(in srgb,var(--surface) 91%,transparent)}
+  html.sc-on .grp-file{background:color-mix(in srgb,var(--surface) 91%,transparent)}
+  .cpt-form{background:color-mix(in srgb,var(--paper,var(--bg)) 86%,transparent)}
+  .room-float small{background:color-mix(in srgb,var(--surface) 91%,transparent)}
+  .nb-zoom,.nb-target,.board-max-btn{background:color-mix(in srgb,var(--surface) 92%,transparent)}
+  .nb-main .nb-target{background:color-mix(in srgb,var(--surface) 92%,transparent)!important}
 }
 
 
@@ -6739,10 +6893,10 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
 
 /* Notes and whiteboard floating buttons: more see-through */
 @media (max-width:639px){
-  .nb-zoom,.board-max-btn,.nb-main .nb-target:not(.hot),.nb-target:not(.hot){background:color-mix(in srgb,var(--surface) 68%,transparent)!important}
-  .wb-max{background:rgba(255,255,255,.68)!important}
-  .wb-dk .wb-max{background:rgba(38,45,54,.7)!important}
-  .wb-stage .wb-zoom{background:color-mix(in srgb,var(--surface) 68%,transparent)!important}
+  .nb-zoom,.board-max-btn,.nb-main .nb-target:not(.hot),.nb-target:not(.hot){background:color-mix(in srgb,var(--surface) 76%,transparent)!important}
+  .wb-max{background:rgba(255,255,255,.76)!important}
+  .wb-dk .wb-max{background:rgba(38,45,54,.78)!important}
+  .wb-stage .wb-zoom{background:color-mix(in srgb,var(--surface) 76%,transparent)!important}
 }
 
 /* Do This Next band: "Do This Next, Pip's pick" stays on one line beside the time */
@@ -6823,11 +6977,122 @@ html[data-plan-top="week"] .plan .fh-ctl.has-stats .hours-ctl{display:none}
 @media (min-width:900px){.dtl-rail{--k:1.9px}}
 .dtl-c{width:clamp(104px,calc(var(--m,60) * var(--k)),460px)}
 .dtl-c.fr{width:clamp(74px,calc(var(--m,60) * var(--k)),240px)}
+/* A card beside free time borrows some of it, so a short task keeps more of its title */
+.dtl-c:not(.fr):is(.fr + .dtl-c,:has(+ .dtl-c.fr)){width:clamp(156px,calc(var(--m,60) * var(--k)),460px)}
 /* Desktop: the ribbon always runs the full width, each card taking its share of the time */
 @media (min-width:900px){
   .dtl-rail{overflow-x:auto}
   .dtl-c,.dtl-c.fr{flex:var(--m,60) 1 0;width:auto;max-width:none;min-width:104px}
   .dtl-c.fr{min-width:74px}
+  .dtl-c:not(.fr):is(.fr + .dtl-c,:has(+ .dtl-c.fr)){min-width:156px}
+}
+/* Past your end of day: one card across the whole row, its words side by side */
+.dtl-over .dtl-rail{overflow:visible}
+.dtl-over .dtl-c.dtl-end,.dtl-over .dtl-c.fr.dtl-end{flex:1 1 100%;width:auto;min-width:0;max-width:none;display:flex;flex-wrap:wrap;align-items:baseline;justify-content:center;gap:4px 10px;padding:12px 16px;text-align:center;font:600 .82rem/1.35 var(--display)}
+.dtl-over .dtl-c.dtl-end b{font:700 .86rem/1.35 var(--display)}
+/* A card's words always stay inside it, however narrow it is: the column can't grow past the card, a long title wraps
+   (two lines, then …), and a time too long for the card ends in … */
+.dtl-c{grid-template-columns:minmax(0,1fr);overflow:hidden;box-sizing:border-box}
+.dtl-c > *{min-width:0;max-width:100%}
+.dtl-c .dtl-t,.dtl-c .dtl-s,.dtl-c .dtl-m{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dtl-c .dtl-n{overflow-wrap:anywhere;word-break:break-word}
+.dtl-c.fr > *{overflow:hidden;text-overflow:ellipsis}
+/* the time wraps after its dash rather than being cut, so a narrow card still shows when it ends */
+.dtl-c .dtl-t{white-space:normal;text-overflow:clip;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+/* Time Today sits in the row with Today's Plan / Task Board */
+.bview-row > .bv-hours{flex:none;margin-left:auto;display:flex;align-items:center}
+.bv-hours .hours-ctl{display:flex;align-items:center;gap:0;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:2px 3px 2px 12px;min-height:40px;box-sizing:border-box}
+.bv-hours .hours-ctl .mini{margin-right:4px;font-size:.78rem;color:var(--muted);white-space:nowrap}
+.bv-hours .hours-ctl b{min-width:34px;text-align:center;font-size:.92rem}
+.bv-hours .hours-ctl .icon-btn.sm{width:30px;height:30px;border-radius:50%;border:0;background:transparent;color:var(--ink);box-shadow:none}
+.bv-hours .hours-ctl .icon-btn.sm:hover{background:var(--soft)}
+.hours-ctl .hc-row{display:flex;align-items:center}
+html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
+@media (min-width:640px){
+  #view > .bview-row:has(> .pg-tabs) > .bv-hours{position:absolute;right:0;top:50%;transform:translateY(-50%);margin:0;z-index:2}
+}
+/* Phones keep Time Today in the plan box; wider screens have it in the tab row (and not in the box) */
+@media (max-width:639px){#view > .bview-row > .bv-hours{display:none}}
+@media (min-width:640px){
+  html:not([data-plan-top="week"]) .plan .fh-ctl > .hours-ctl{display:none}
+  html:not([data-plan-top="week"]) .plan .fh-ctl.fh-only-hours{display:none}
+  /* when nothing in the header shows, the first timeline card sits as far from the box's top as from its side */
+  html:not([data-plan-top="week"]) .plan .focus-head:has(> .fh-ctl.fh-only-hours):has(.pt-stats):not(:has(.plan-gap)) + .dtl{margin-top:-2px}
+}
+/* Phones: Time Today sits close to the top of the plan box */
+@media (max-width:639px){
+  html:not([data-plan-top="week"]) .plan.focus{padding-top:6px!important}
+  html:not([data-plan-top="week"]) .plan .focus-head:has(> .fh-ctl.fh-only-hours){min-height:0!important;margin-top:0!important;padding-top:0!important;align-items:center!important;row-gap:0!important}
+  html:not([data-plan-top="week"]) .plan .focus-head:has(> .fh-ctl.fh-only-hours) > .fh-txt{min-height:0!important;margin:0!important}
+  html:not([data-plan-top="week"]) .plan .fh-ctl.fh-only-hours{margin:0!important;padding-top:0!important}
+}
+
+/* Grades: same gap under the Courses / Grades / Files switch as the Courses page */
+#view > .gp > .gp-hero:first-child{margin-top:0}
+
+/* Header buttons in the colour band stay clickable all the way down: the title block below overlaps them */
+.g2-band .row-actions,.g2-band .row-actions > *{position:relative;z-index:4}
+
+/* Crunch: the Next 6 Weeks / Whole Term switch sits beside the view tabs; the content starts the same distance below the tabs as Due Dates */
+@media (min-width:760px){
+  #view > .pview-tabs + .cr{position:relative}
+  #view > .pview-tabs + .cr > .cr-head{position:absolute;right:0;top:-59px;margin:0!important;padding:0;min-height:0}
+  #view > .pview-tabs + .cr > .cr-head > .cr2-range{margin:0!important}
+  #view > .pview-tabs + .cr > .cr2-top{margin-top:2px}
+}
+
+/* Write Your Own Quiz */
+.qm-sheet{width:min(680px,100%)}
+.qm-list{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:12px}
+.qm-q{border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:12px 14px;display:grid;gap:8px;min-width:0}
+.qm-top{display:flex;align-items:center;gap:10px;flex-wrap:nowrap;min-width:0}
+.qm-top > b{flex:0 0 auto;white-space:nowrap}
+.qm-top > .spacer{flex:1 1 0}
+.qm-top > .x-btn{margin-left:auto}
+.qm-top > b{font:800 .95rem/1.2 var(--display)}
+.qm-top .qm-type{width:auto;flex:0 1 auto;min-width:0;max-width:100%;padding-block:6px}
+@media (max-width:600px){.qm-sheet .two{grid-template-columns:1fr}}
+.qm-q textarea,.qm-q input[type=text]{width:100%;box-sizing:border-box;min-width:0}
+.qm-q textarea{resize:vertical}
+.qm-hint{margin:0}
+.qm-opts{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.qm-opt{display:flex;align-items:center;gap:8px;min-width:0}
+.qm-opt > input[type=radio],.qm-opt > input[type=checkbox]{width:20px;height:20px;flex:0 0 auto;margin:0;accent-color:var(--accent,#2563eb)}
+.qm-opt > input[type=text]{flex:1 1 auto}
+.qm-opt .qm-n{flex:0 0 22px;text-align:right;color:var(--muted)}
+.qm-opt .qm-tf{font-weight:600}
+.qm-opt .x-btn,.qm-top .x-btn{flex:0 0 auto}
+.qm-q .link-btn{justify-self:start}
+.qm-why{margin:0}
+.qm-add{display:flex;justify-content:center;margin-top:12px}
+
+/* Log Time and time worked by day */
+.lt-sheet{width:min(520px,100%)}
+.lt-task{margin:0 0 4px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;overflow-wrap:anywhere}
+.lt-f{border:0;padding:0;margin:0;display:grid;gap:8px;min-width:0}
+.lt-f > legend{font-weight:700;margin-bottom:6px;padding:0}
+.lt-chips{display:flex;flex-wrap:wrap;gap:6px}
+.lt-chip[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.lt-past{margin-top:6px}
+.lt-past .fsec{display:flex;align-items:center;gap:8px;margin:4px 0 6px}
+.tw-days{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:2px;min-width:0}
+.tw-days > li{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;padding:5px 0;border-bottom:1px solid var(--line);min-width:0}
+.tw-days > li:last-child{border-bottom:0}
+.tw-d{min-width:96px;font-weight:600}
+.tw-m{min-width:52px}
+.tw-how{flex:1 1 120px;min-width:0}
+.tw-x{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;padding:2px 8px;font:600 .75rem/1.3 inherit;cursor:pointer}
+.tw-x:hover{color:var(--ink)}
+.tw-more{margin:4px 0 0}
+.acc-log .tw-days{flex:1 1 100%;width:100%}
+.plan-side .lt-go svg{width:17px;height:17px}
+.focus-go.lt-go{color:var(--muted)}
+.focus-go.lt-go:hover,.plan-row .focus-go.lt-go:hover,.plan-row .focus-go.lt-go:focus-visible{color:var(--ink);border-color:var(--line);background:var(--surface)}
+
+/* Task Board on wider screens: All Courses sits just left of Group By, on the tab line */
+@media (min-width:640px){
+  #view > .bview-row > .board-ctl .cf-pick{margin-right:6px}
+  #view > .bview-row:has(> .pg-tabs) + .bview .bpane-board > .board-sec{margin-top:0}
 }
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
@@ -6899,12 +7164,14 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
 :root[data-theme="dark"]{--late-ink:var(--late)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--late-ink:var(--late)}}
 .pill.hi,.g2-pill.late,.tl-dl em,.nu-chip.late,.pt-due.late,.pt-prio.high,.pt-prio.urgent,.nb-target.trash.hot{color:var(--late-ink)}
-/* Dark mode: dark text on the light red badges, and readable Due Today pills and today's date */
-:root[data-theme="dark"] .bn-n,:root[data-theme="dark"] .pw-ic{color:#1A0705}
+/* Dark mode: white numbers on a deeper red notice badge, dark text on the light red icons, and readable Due Today pills and today's date */
+:root[data-theme="dark"] .pw-ic{color:#1A0705}
+:root[data-theme="dark"] .bn-n{color:#fff;background:#C8322B}
 :root[data-theme="dark"] .g2-pill.due{color:#FFD58A}
 :root[data-theme="dark"] .day.is-today .num{background:color-mix(in srgb,var(--mark) 72%,#000);color:#fff}
 @media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]) .bn-n,:root:not([data-theme="light"]) .pw-ic{color:#1A0705}
+  :root:not([data-theme="light"]) .pw-ic{color:#1A0705}
+  :root:not([data-theme="light"]) .bn-n{color:#fff;background:#C8322B}
   :root:not([data-theme="light"]) .g2-pill.due{color:#FFD58A}
   :root:not([data-theme="light"]) .day.is-today .num{background:color-mix(in srgb,var(--mark) 72%,#000);color:#fff}
 }
@@ -6921,6 +7188,84 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
 }
 @media (max-width:600px){html:not(.board-max) .nb-scroll{height:calc(100dvh - 386px)}}
 @media (min-width:601px) and (max-width:700px){html:not(.board-max) .nb-scroll{height:calc(100dvh - 356px)!important}}
+/* Task preview: tap a task to see it, drag its progress bar, Edit for the full form */
+.occv-tag.ok{background:color-mix(in srgb,#2E9D5B 14%,var(--surface));color:#1F7A44;border-color:color-mix(in srgb,#2E9D5B 30%,transparent)}
+.tv-prog{margin:6px 4px 4px;padding:12px 0 2px;border-top:1px solid var(--line)}
+.tv-gap{margin:4px 4px 6px;padding:8px 10px;border-radius:10px;font-size:.84rem;line-height:1.4;background:color-mix(in srgb,var(--late) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--late) 30%,transparent)}
+.tv-gap.under{background:color-mix(in srgb,var(--accent) 9%,var(--surface));border-color:color-mix(in srgb,var(--accent) 30%,transparent)}
+.tv-ready + .tv-prog{border-top:0;padding-top:4px}
+.tv-noready{margin:8px 4px 0}
+.exm-gap{margin:6px 0 0;font-size:.82rem;line-height:1.4;color:var(--ink)}
+.tv-prog-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:8px}
+.tv-prog-h b{font:600 .8rem/1.2 var(--display);color:var(--muted)}
+.tv-prog-h span{font:700 .8rem/1 var(--display);color:var(--muted);font-variant-numeric:tabular-nums}
+.tv-bar{position:relative;height:6px;border-radius:999px;background:color-mix(in srgb,var(--c) 10%,var(--line));touch-action:none;outline:none;margin:0 7px 6px}
+.tv-bar[role=slider]{cursor:pointer}
+.tv-bar::before{content:"";position:absolute;inset:-14px -7px}
+.tv-fill{position:absolute;left:0;top:0;bottom:0;width:var(--v);border-radius:inherit;background:color-mix(in srgb,var(--c) 70%,var(--surface));transition:width .12s ease}
+.tv-knob{position:absolute;top:50%;left:var(--v);width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:var(--surface);border:2px solid color-mix(in srgb,var(--c) 75%,var(--surface));box-shadow:0 1px 2px rgba(0,0,0,.18);transition:left .12s ease,transform .12s ease}
+.tv-bar.drag .tv-fill,.tv-bar.drag .tv-knob{transition:none}
+.tv-bar.drag .tv-knob,.tv-bar[role=slider]:hover .tv-knob{transform:scale(1.2)}
+.tv-bar:focus-visible .tv-knob{outline:3px solid color-mix(in srgb,var(--c) 40%,transparent);outline-offset:2px}
+.tv-hint{margin:2px 0 0!important}
+.tv-cl h3{margin:12px 0 6px;font:700 .95rem/1.2 var(--display);color:var(--ink)}
+.tv-cl ul{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.tv-cl label{display:flex;align-items:flex-start;gap:10px;padding:6px 4px;cursor:pointer}
+.tv-cl input{margin-top:3px;accent-color:var(--c)}
+.tv-cl li.done span{text-decoration:line-through;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.tv-fill,.tv-knob{transition:none}}
+/* Sheets with a coloured header: nothing light is painted under the header's rounded corners,
+   so no pale sliver can show at the edge. The light background starts below the curve. */
+dialog:has(> .sheet > :is(.occv-band,.g2-sheet-head):first-child){background:transparent}
+dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:inherit;background:linear-gradient(transparent 40px,var(--surface) 40px)}
+/* Exam wrapper: the reflection after an exam, and "last time" in the next exam's view */
+.ewr-cmp{display:grid;gap:8px;margin:12px 0 4px;padding:12px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--c,var(--accent)) 4%,var(--surface))}
+.ewr-row{display:grid;grid-template-columns:minmax(0,11rem) 1fr 3rem;align-items:center;gap:10px;font-size:.86rem}
+.ewr-l{color:var(--muted)}
+.ewr-row b{text-align:right;font-variant-numeric:tabular-nums}
+.ewr-bar{position:relative;height:8px;border-radius:999px;background:color-mix(in srgb,var(--ink) 8%,transparent);overflow:hidden}
+.ewr-bar i{position:absolute;inset:0 auto 0 0;border-radius:inherit;background:color-mix(in srgb,var(--ink) 35%,transparent)}
+.ewr-row.meas .ewr-bar i{background:var(--accent)}
+.ewr-row.mark .ewr-bar i{background:#2F9E5F}
+.ewr-read{margin:8px 0 0;font-size:.88rem;line-height:1.45}
+.ewr-fs{margin:14px 0 0;border:0;padding:0}
+.ewr-fs legend{font-weight:600;margin-bottom:6px}
+.ewr-fs legend .hint{font-weight:400}
+.ewr-chips{display:flex;flex-wrap:wrap;gap:6px}
+.ewr-chip{position:relative;display:inline-flex}
+.ewr-chip input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.ewr-chip span{display:inline-block;padding:7px 12px;border:1px solid var(--line);border-radius:999px;font-size:.84rem;background:var(--surface);line-height:1.25}
+.ewr-chip input:checked + span{background:color-mix(in srgb,var(--accent) 14%,var(--surface));border-color:var(--accent);font-weight:600}
+.ewr-chip input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
+.ewr-tip{margin:8px 0 0;font-size:.84rem;line-height:1.4;color:var(--muted)}
+.ewr-tip:empty{display:none}
+.ewr-last{display:flex;flex-direction:column;gap:3px;margin:10px 4px 2px;padding:10px 12px;border-radius:12px;font-size:.84rem;line-height:1.4;background:color-mix(in srgb,var(--accent) 7%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 25%,transparent)}
+.ewr-last .link-btn{align-self:flex-start;padding:0}
+.ewr-btn{margin:10px 4px 2px}
+@media (max-width:600px){.ewr-row{grid-template-columns:minmax(0,8rem) 1fr 2.6rem}}
+/* Heads Up: Today's Plan's notices in one block, a row each */
+.plan-notes{margin:12px 0 0;padding:6px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.pn-h{margin:6px 0 2px;font:700 .72rem/1 var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.plan-notes ul{list-style:none;margin:0;padding:0}
+.pn{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:10px 0;border-top:1px solid var(--line);font-size:.9rem;line-height:1.45}
+.pn:first-child{border-top:0}
+.pn-ic{display:grid;place-items:center;width:22px;height:22px;flex:none;border-radius:50%;font:800 .74rem/1 var(--display);color:#fff;background:var(--accent)}
+.pn-warn .pn-ic,.pn-late .pn-ic{background:var(--late)}
+.pn-wrap .pn-ic{background:#2F9E5F}
+.pn-main{flex:1 1 280px;min-width:0}
+.pn-main .link-btn{font:inherit;font-weight:600;padding:0}
+.pn-acts{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+:root[data-theme="dark"] .pn-ic{color:#10151F}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .pn-ic{color:#10151F}}
+@media (max-width:600px){.pn-acts{flex-basis:100%;margin-left:34px}}
+.xr-decks{display:grid;gap:4px;margin:2px 0 0 26px;max-height:40vh;overflow:auto}
+.xr-decks.auto{opacity:.55}
+/* Today's Plan: Free Time, Calendar, Exam Prep and the rest sit closed in the links under the plan */
+.plan-foot .pt-tab{flex:none;justify-content:flex-start;font:600 .84rem var(--body);min-height:auto;padding:6px 0;border-radius:0;background:none;color:var(--muted)}
+.plan-foot .pt-tab .pe-dot{background:color-mix(in srgb,var(--muted) 16%,transparent);color:var(--muted);margin-left:2px}
+.plan-tabs{margin:0}
+.plan-tabs .pt-panel:not([hidden]){margin-top:10px}
+.pr-why[aria-expanded="true"] .pf-chev{transform:rotate(180deg)}
 /* ===== module: 103-phone-design.css ===== */
 /* Done bar and the compact time prompt */
 @keyframes sbPop{0%{transform:scale(1)}50%{transform:scale(1.15)}100%{transform:scale(1)}}
@@ -7105,6 +7450,7 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
 .sb-welc li svg{width:18px;height:18px}
 .sb-welc .sb-welc-go{width:100%;min-height:52px;border-radius:14px;font-size:1.05rem}
 .sb-welc .sb-welc-alt{display:block;margin:6px auto 0;min-height:44px;padding:0 12px;font-weight:700;font-size:.95rem}
+.sb-welc .sb-welc-crash{margin:8px 0 0;font-size:.8rem;line-height:1.45;color:var(--muted)}
 @media (max-width:639px){#view .c2-card .c2-files{gap:3px}}
 /* Phones: the header reaches up behind the clock and battery, so that strip is always the header's colour and the logo sits just below the clock */
 @media (max-width:639px){
@@ -7120,4 +7466,14 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
   #view .c2-card .c2-foot > .c2-grade{margin-left:auto!important;flex:none;gap:5px;overflow:visible}
   #view .c2-card .c2-grade :is(.c2-gl,.mini){display:none}
   #view .c2-card .c2-grade .c2-letter{min-width:22px;height:20px;font-size:.72rem}
+}
+@media (max-width:639px){
+  .acc-chip[data-kind="left"] .acc-q,.acc-chip[data-kind="learned"] .acc-q{display:block;white-space:normal}
+  .acc-chip[data-kind="left"] .acc-left{grid-template-columns:1fr 1fr}
+  .acc-chip[data-kind="left"] .acc-say{flex:1 1 100%}
+  .acc-chip[data-kind="left"] .acc-say input{width:100%}
+}
+/* Phones: Enough for Today is a quiet text link under the two main buttons, not a third big button */
+@media (max-width:639px){
+  .next-up .nu-acts > [data-act="nu-enough"]{flex:0 0 100%;min-height:36px;margin:-2px 0 -4px;padding:4px 0!important;border:0!important;background:none!important;box-shadow:none!important;color:var(--muted);font-weight:600;text-decoration:underline;text-underline-offset:3px}
 }

@@ -50,7 +50,7 @@ function SEED(){
     page.ctx = ctx; return page;
   };
   const S = "window.__sbSync";
-  const openTask = async (page, id) => { await page.evaluate(([s, id]) => { const T = eval(s); if (T.dlg.open) T.dlg.close(); const b = document.createElement("button"); b.dataset.act = "edit-task"; b.dataset.id = id; b.hidden = true; document.body.appendChild(b); b.click(); b.remove(); }, [S, id]); await page.waitForSelector("#dlg[open] form.sheet"); };
+  const openTask = async (page, id) => { await page.evaluate(([s, id]) => { const T = eval(s); if (T.dlg.open) T.dlg.close(); const b = document.createElement("button"); b.dataset.act = "edit-task"; b.dataset.edit = "1"; b.dataset.id = id; b.hidden = true; document.body.appendChild(b); b.click(); b.remove(); }, [S, id]); await page.waitForSelector("#dlg[open] form.sheet"); };
   const chips = page => page.evaluate(() => [...document.querySelectorAll("#dlg .lk-row .lk-chip:not(.lk-more)")].map(b => ({k: (b.className.match(/(?:^|\s)k-(\w+)/) || [])[1], id: b.dataset.id, name: b.querySelector(".lk-n").textContent, sr: b.querySelector(".sr").textContent, shown: !!b.offsetParent})));
   const goDeck = async (page, id) => { await page.evaluate(([s, id]) => { const T = eval(s); if (T.dlg.open) T.dlg.close(); T.ui.tab = "flashcards"; T.ui.fc = null; T.ui.deckId = id; T.render(); }, [S, id]); await page.waitForSelector(`[data-fc-deck="${id}"]`); };
   const deckChips = page => page.evaluate(() => [...document.querySelectorAll("#view .lk-row .lk-chip:not(.lk-more)")].map(b => ({k: (b.className.match(/(?:^|\s)k-(\w+)/) || [])[1], id: b.dataset.id, name: b.querySelector(".lk-n").textContent, sr: b.querySelector(".sr").textContent})));

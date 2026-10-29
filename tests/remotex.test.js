@@ -131,14 +131,16 @@ t("autoCleanNext drops anything the 'ok' gate refuses (ineligible exams), keeps 
   const out = cleanNext([{ref: "t1", why: "x"}, {ref: "t2", why: "y"}, {ref: "t4", why: "z"}, {ref: "t3", why: "w"}, {ref: "t3", why: "again"}, {ref: "t9", why: "invented"}], back, ok);
   assert.deepStrictEqual(out.map(x => x.id), ["quiz1", "hw"]);
 });
-// nextUp itself, with its helpers stubbed
+// nextUp itself, with its helpers stubbed (the Do This Next code is several small functions and constants)
+const lineOf = name => { const m = new RegExp("^const " + name + " = .*$", "m").exec(src); assert(m, name); return m[0]; };
+const NU_SRC = () => ["NU_TIER", "nuBand", "nuOff", "NU_STICK", "nuSig", "nuSubmit"].map(lineOf).concat(["nuSkips", "nuStick", "nuScore", "nuAiPick", "nextUp", "nextUpStudy"].map(fnText)).join("\n");
 const mkNext = eff => {
   const ctx = {
     todayISO: () => "2026-10-05", ui: {}, inFilter: () => true, pad: x => String(x).padStart(2, "0"), pomoCfg: () => ({focus: 25}), schOccurrences: () => [], tasksArr: () => [],
     nufbLoad: () => ({}), nufbWeights: () => ({}), nufbMult: () => 1, diffOf: () => "med", deadlineGuard: () => {}, autoPlanOn: () => false, AUTO: {}, fmtTime: x => x,
-    canDoNow: t => R.canDoNow(t, {v: eff[t.id] || ""}), accOf: () => null, Date, Number, Math
+    enoughToday: () => false, planTaskId: t => t.id, state: {tasks: {}}, canDoNow: t => R.canDoNow(t, {v: eff[t.id] || ""}), accOf: () => null, Date, Number, Math
   };
-  vm.createContext(ctx); vm.runInContext(fnText("nextUp") + "\n" + fnText("nextUpStudy"), ctx); return F => ctx.nextUp(F);
+  vm.createContext(ctx); vm.runInContext(NU_SRC(), ctx); return F => ctx.nextUp(F);
 };
 const X = (id, type, score, o) => Object.assign({t: {id, type, title: id, checklist: [], history: []}, score, alloc: 1, R: 1, dl: 1, reasons: [`Due tomorrow`], behind: 0, rho: 0.3, own: 0.2}, o || {});
 t("nextUp: an in-person midterm with the top score is never Do This Next", () => {
@@ -161,8 +163,8 @@ t("nextUp: a Study prep task for the exam is still suggested", () => {
 // Studying for an in-person exam (never the exam itself) when nothing is due before it
 const mkStudy = () => {
   const ctx = {todayISO: () => "2026-10-05", ui: {}, inFilter: () => true, pad: x => String(x).padStart(2, "0"), pomoCfg: () => ({focus: 25}), schOccurrences: () => [], tasksArr: () => [], nufbLoad: () => ({}), nufbWeights: () => ({}), nufbMult: () => 1, diffOf: () => "med", deadlineGuard: () => {},
-    autoPlanOn: () => false, AUTO: {}, fmtTime: x => x, canDoNow: t => R.canDoNow(t, {v: ""}), accOf: () => null, planSessions: () => [], dueDate: t => t.due, Date, Number, Math};
-  vm.createContext(ctx); vm.runInContext(fnText("nextUp") + "\n" + fnText("nextUpStudy"), ctx); return F => ctx.nextUp(F);
+    autoPlanOn: () => false, AUTO: {}, fmtTime: x => x, enoughToday: () => false, planTaskId: t => t.id, state: {tasks: {}}, canDoNow: t => R.canDoNow(t, {v: ""}), accOf: () => null, planSessions: () => [], dueDate: t => t.due, Date, Number, Math};
+  vm.createContext(ctx); vm.runInContext(NU_SRC(), ctx); return F => ctx.nextUp(F);
 };
 const EX = (id, dl) => ({t: {id, type: "Exam", title: "Midterm", due: "2026-10-0" + (5 + dl), history: []}, fixed: true, dl});
 t("nextUp: an in-person exam in 2 days, with only later work, suggests studying for it", () => {
@@ -182,8 +184,8 @@ t("nextUp: the alternatives (left) never count an ineligible exam", () => {
 });
 t("nextUp: the AI's stored pick can't bring back an exam that has become ineligible", () => {
   const ctx = {todayISO: () => "2026-10-05", ui: {}, inFilter: () => true, pad: x => String(x).padStart(2, "0"), pomoCfg: () => ({focus: 25}), schOccurrences: () => [], tasksArr: () => [], nufbLoad: () => ({}), nufbWeights: () => ({}), nufbMult: () => 1, diffOf: () => "med", deadlineGuard: () => {},
-    autoPlanOn: () => true, AUTO: {next: {day: "2026-10-05", at: Date.now(), list: [{id: "m", why: "x"}]}}, fmtTime: x => x, canDoNow: t => R.canDoNow(t, {v: ""}), accOf: () => null, Date, Number, Math};
-  vm.createContext(ctx); vm.runInContext(fnText("nextUp") + "\n" + fnText("nextUpStudy"), ctx);
+    autoPlanOn: () => true, AUTO: {next: {day: "2026-10-05", at: Date.now(), list: [{id: "m", why: "x"}]}}, fmtTime: x => x, enoughToday: () => false, planTaskId: t => t.id, state: {tasks: {}}, canDoNow: t => R.canDoNow(t, {v: ""}), accOf: () => null, Date, Number, Math};
+  vm.createContext(ctx); vm.runInContext(NU_SRC(), ctx);
   const r = ctx.nextUp({ranked: [X("m", "Exam", 99), X("hw", "Assignment", 40)]}); assert.strictEqual(r.x.t.id, "hw"); assert.strictEqual(r.ai, false);
 });
 
@@ -192,7 +194,7 @@ const has = (re, m) => t(m, () => assert(re.test(src), "missing: " + re));
 has(/const pool = F\.ranked\.filter\(x => inFilter\(x\.t\) && canDoNow\(x\.t\)/, "nextUp pool uses canDoNow");
 has(/t\.status !== "done" && canDoNow\(t\) && !blockers\(t\)\.length; \}, \(id, why, step\)/, "autoPlan's autoCleanNext validation uses canDoNow");
 has(/FIXED EVENT \(taken in person or not confirmed as take-home: never choose it for next\)/, "autoPlan tells the model which exams are fixed events");
-has(/const R = fx \? 0 : remainingOf\(t\)/, "computeFocus gives ineligible exams no study time");
+has(/const R = fx \? 0 : planLeft\(t, /, "computeFocus gives ineligible exams no study time");
 has(/showScore \|\| !canDoNow\(t\) \? "" : `<button class="focus-go"/, "Today's Plan rows hide the focus button for ineligible exams");
 has(/const workable = ranked\.filter\(x => !x\.fixed\)/, "Today's Plan lists only workable items");
 has(/\(canDoNow\(t\) \|\| t\.id === pomo\.taskId\)/, "focus timer picker hides ineligible exams");

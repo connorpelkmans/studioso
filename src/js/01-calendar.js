@@ -858,6 +858,9 @@ function todaysQuote(){
 }
 const streakOf = () => { const s = Object.assign({cur: 0, best: 0, last: ""}, (state.settings && state.settings.streak) || {}); if (s.last && s.last < addDays(todayISO(), -1)) s.cur = 0; return s; };
 // The streak the student actually sees: the gentle one when it is on
+// The streak that rewards (stickers, Term Goals, companion props) follow: study days in a row (a task finished, focus or logged time,
+// a checklist step, flashcards; rest days don't break it), whichever streak is shown. Falls back to the task streak before it loads.
+const rewardStreak = () => { try { if (window.SBSTREAK && SBSTREAK.state) { const r = SBSTREAK.state(); return {cur: Number(r.run) || 0, best: Number(r.best) || 0}; } } catch (e) {} const s = streakOf(); return {cur: s.cur, best: s.best}; };
 const shownStreak = () => { if (window.SBSTREAK && SBSTREAK.on()) { const r = SBSTREAK.state(); return {cur: r.run, best: r.best}; } const s = streakOf(); return {cur: s.cur, best: s.best}; };
 function streakLine(){
   if (window.SBSTREAK && SBSTREAK.on()) return SBSTREAK.line();
