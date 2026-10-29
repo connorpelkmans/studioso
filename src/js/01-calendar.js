@@ -8,9 +8,11 @@ const wkDiff = (a, b) => Math.round((parse(mondayOf(a)) - parse(mondayOf(b))) / 
 // Every class meeting and event that lands between from and to (inclusive)
 function schOccurrences(from, to){
   const out = [], lo = addDays(from, -7), hi = addDays(to, 7), inRange = d => d >= from && d <= to;
+  const sc = schoolCfg(), SS = window.SBSCHOOL;
   coursesArr().forEach(c => courseMeetings(c).forEach(m => {
     for (let d = lo; d <= hi; d = addDays(d, 1)) {
-      if (!m.days.includes(parse(d).getDay())) continue;
+      // no class on a day off; a rotating class time meets on its cycle days
+      if (SS ? !SS.meets(sc, m, d) : !(m.days || []).includes(parse(d).getDay())) continue;
       const key = `${d}|${m.start}|${m.kind}`, mv = (c.meetMoves || {})[key];
       const o = {type: "meet", id: c.id, key, c, m, orig: d, date: d, start: m.start, end: m.end, moved: false, skipped: false, color: c.color, title: courseLabel(c), label: m.kind, where: m.where || "", cls: "k-" + m.kind.replace(/\s/g, "").toLowerCase()};
       if (mv) { if (mv.skip) o.skipped = true; else Object.assign(o, {date: mv.date || d, start: mv.start || m.start, end: mv.end || m.end, moved: true}); }
@@ -938,6 +940,19 @@ function parseMeetings(text, kind, where){
   return out;
 }
 const daysLabel = ds => WEEK_ORDER.filter(d => ds.includes(d)).map(d => DAY_SHORT[d]).join("");
+/* School days: days off and a rotating class cycle (the rules are SBSCHOOL, in the calendar core) */
+const schoolCfg = () => (state.settings && state.settings.school) || null;
+const cycOn = () => { const c = schoolCfg(); return !!(c && c.cycle && window.SBSCHOOL && SBSCHOOL.norm(c).cycle); };
+// "Day 1, 4" or "A Days" for a rotating class time
+const cycLabel = ks => { const c = schoolCfg(), abc = !!(c && c.cycle && c.cycle.names === "abc"), v = ks.slice().sort((a, b) => a - b); return abc ? v.map(k => String.fromCharCode(64 + k)).join(", ") + (v.length === 1 ? " Days" : " Days") : (v.length === 1 ? "Day " : "Days ") + v.join(", "); };
+// When a class time meets, in words: its weekdays, or its cycle days
+const meetWhen = m => m && Array.isArray(m.cyc) && m.cyc.length ? cycLabel(m.cyc) : daysLabel((m && m.days) || []);
+// What today is at school: "Day 3", "B Day", or the name of a day off
+function schoolDayText(d){
+  const c = schoolCfg(), S = window.SBSCHOOL; if (!c || !S) return "";
+  const off = S.off(c, d); if (off) return off.name || "Day off";
+  const k = S.dayOf(c, d); return k ? S.label(c, k) : "";
+}
 // Courses saved before class times existed still have a "Meets" line; read the times from it
 const courseMeetings = c => Array.isArray(c.meetings) ? c.meetings : parseMeetings(c.schedule, "Lecture", c.room).concat(parseMeetings(c.office, "Office Hours"));
 // The class times on a course's colour band, always in one format
@@ -952,15 +967,17 @@ function meetTimeText(a, b){
   return sm && em && sm[2].toUpperCase() === em[2].toUpperCase() ? `${sm[1]}–${e}` : `${s}–${e}`;
 }
 function courseTimesText(c){
-  let ms = []; try { ms = courseMeetings(c).filter(m => m && m.kind !== "Office Hours" && Array.isArray(m.days) && m.days.length && m.start && m.end); } catch (e) { ms = []; }
+  let ms = []; try { ms = courseMeetings(c).filter(m => m && m.kind !== "Office Hours" && ((Array.isArray(m.days) && m.days.length) || (Array.isArray(m.cyc) && m.cyc.length)) && m.start && m.end); } catch (e) { ms = []; }
   if (!ms.length) return String(c.schedule || "").trim();
   const main = ms.find(m => m.kind === "Lecture") || ms[0];
+  if (main.cyc && main.cyc.length) { const same = ms.filter(m => m !== main && m.cyc && m.cyc.length && m.start === main.start && m.end === main.end), ks = [...new Set(main.cyc.concat(...same.map(m => m.cyc)))], extra = [...new Set(ms.filter(m => m !== main && !same.includes(m) && m.kind !== main.kind).map(m => m.kind))];
+    return `${cycLabel(ks)} · ${meetTimeText(main.start, main.end)}${extra.length ? " + " + extra.join(", ") : ""}`; }
   const extra = [...new Set(ms.filter(m => m !== main && m.kind !== main.kind).map(m => m.kind))];
   const same = ms.filter(m => m.kind === main.kind && m !== main && m.start === main.start && m.end === main.end);
   const days = [...new Set(main.days.concat(...same.map(m => m.days)))];
   return `${meetDaysText(days)} · ${meetTimeText(main.start, main.end)}${extra.length ? " + " + extra.join(", ") : ""}`;
 }
-const meetingsSummary = ms => ms.filter(m => m.kind !== "Office Hours").map(m => `${daysLabel(m.days)} ${fmtTime(m.start)}–${fmtTime(m.end)}`).join("; ");
+const meetingsSummary = ms => ms.filter(m => m.kind !== "Office Hours").map(m => `${meetWhen(m)} ${fmtTime(m.start)}–${fmtTime(m.end)}`).join("; ");
 let schNoticeHtml = "";
 function viewSchedule(){
   const today = todayISO(), mon = ui.schWeek || mondayOf(today);
@@ -970,7 +987,7 @@ function viewSchedule(){
     <span class="sch-range">${esc(fmtShort(mon))} – ${esc(fmtShort(addDays(mon, 6)))}</span>
     <button class="icon-btn" data-act="sch-next" aria-label="Next week"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
     <button class="btn small" data-act="sch-today" ${mon === mondayOf(today) && ui.schDay == null ? 'disabled aria-pressed="true" title="You are viewing this week"' : 'aria-pressed="false"'}>This Week</button>
-    <button class="btn small" data-act="avail-open" title="Add or edit work, shifts, travel and protected time so Today's Plan only uses free time">Availability</button>${proBtns("schedule")}
+    <button class="btn small" data-act="avail-open" title="Add or edit work, shifts, travel and protected time so Today's Plan only uses free time">Availability</button><button class="btn small" data-act="school-open" title="Holidays, reading week and snow days, and a rotating schedule (Day 1 to 6, A/B days)">School Days</button>${proBtns("schedule")}
 </div></div>`;
   const withEvents = new Set(eventsArr().map(e => e.courseId).filter(Boolean));
   const missing = cs.filter(c => !courseMeetings(c).length && !withEvents.has(c.id));
@@ -1013,12 +1030,14 @@ function viewSchedule(){
     const dueList = weekTasks.filter(t => t.due === d.iso && !onGrid(t)).sort(sortTasks);
     const now = new Date(), nowM = now.getHours() * 60 + now.getMinutes();
     const nowLine = d.iso === today && nowM >= h0 * 60 && nowM <= h1 * 60 ? `<i class="sch-now" style="top:${top(nowM)}px"></i>` : "";
-    return {d, dueList, allDay, html: `<div class="sch-col ${d.iso === today ? "is-today" : ""} ${d.i === sel ? "sel" : ""}" data-date="${d.iso}" style="height:${H}px">${blocks}${nowLine}</div>`};
+    const offD = window.SBSCHOOL && schoolCfg() ? SBSCHOOL.off(schoolCfg(), d.iso) : null;
+    return {d, dueList, allDay, html: `<div class="sch-col ${d.iso === today ? "is-today" : ""} ${d.i === sel ? "sel" : ""}${offD ? " is-off" : ""}" data-date="${d.iso}" style="height:${H}px">${blocks}${nowLine}</div>`};
   });
   const heads = cols.map(({d, dueList, allDay}) => {
     const chips = allDay.map(o => `<button class="sch-chip sch-allday${o.type === "avail" ? " k-av k-av-" + o.avail.kind : ""}" style="--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}" title="${esc(o.title)}">${esc(o.title)}</button>`)
       .concat(dueList.map(t => `<button class="sch-chip" style="--c:${esc(colorOf(t.courseId))}" data-act="edit-task" data-id="${esc(t.id)}" title="${esc(t.title)}">${esc(t.title)}${t.time ? ` <span>${esc(fmtTime(t.time))}</span>` : ""}</button>`));
-    return `<div class="sch-head ${d.iso === today ? "is-today" : ""} ${d.i === sel ? "sel" : ""}"><div class="sch-dn"><span>${esc(parse(d.iso).toLocaleDateString(undefined, {weekday: "short"}))}</span><b>${parse(d.iso).getDate()}</b></div>
+    const sd = schoolDayText(d.iso), offD = sd && window.SBSCHOOL && SBSCHOOL.off(schoolCfg(), d.iso);
+    return `<div class="sch-head ${d.iso === today ? "is-today" : ""} ${d.i === sel ? "sel" : ""}"><div class="sch-dn"><span>${esc(parse(d.iso).toLocaleDateString(undefined, {weekday: "short"}))}</span><b>${parse(d.iso).getDate()}</b>${sd ? `<em class="sch-sd${offD ? " off" : ""}" title="${esc(sd)}">${esc(sd)}</em>` : ""}</div>
     <div class="sch-due">${chips.slice(0, 3).join("")}${chips.length > 3 ? `<span class="mini">+${chips.length - 3} more</span>` : ""}</div></div>`;
   }).join("");
   let gutter = ""; for (let h = h0; h < h1; h++) { const d = new Date(); d.setHours(h, 0, 0, 0); gutter += `<span style="top:${(h - h0) * PPH}px">${esc(d.toLocaleTimeString(undefined, {hour: "numeric"}))}</span>`; }

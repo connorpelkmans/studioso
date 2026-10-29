@@ -229,6 +229,7 @@
     add("Settings", "Backups, study hours, AI and more", act("menu"), "preferences options");
     add("Search Settings", "Search inside files and search by meaning", () => settingsSheet(), "index");
     add("Start a New Term", "Put last term's courses, tasks and flashcards in the Archive", act("new-term"), "semester");
+    add("School Days", "Holidays, reading week and snow days, and a rotating schedule (Day 1 to 6, A/B days)", act("school-open"), "holiday break vacation snow day no school reading week thanksgiving day off cycle rotation rotating day 1 a/b a b days timetable");
     add("Archive", "Finished tasks and past terms", act("archive-open"), "old");
     add("Calendar Sync", "Add your deadlines and classes to Apple, Google or Outlook Calendar", act("cal-export"), "export ics calendar subscribe feed");
     add("Save a Copy on This Device", "Kept in this browser, which also saves a copy each day", act("backup-now"), "save backup");
@@ -273,12 +274,12 @@
       semAdd(d, t.title, `${t.title}. ${t.type}${c ? " for " + c.name : ""}${t.due ? ", due " + t.due : ""}. ${text}`);
     });
     allCourses().forEach(c => {
-      let meets = ""; try { meets = courseMeetings(c).map(m => `${m.kind} ${daysLabel(m.days)} ${fmtTime(m.start)}-${fmtTime(m.end)}${m.where ? " " + m.where : ""}`).join("; "); } catch(e) {}
+      let meets = ""; try { meets = courseMeetings(c).map(m => `${m.kind} ${meetWhen(m)} ${fmtTime(m.start)}-${fmtTime(m.end)}${m.where ? " " + m.where : ""}`).join("; "); } catch(e) {}
       put({g: "courses", type: "course", id: c.id, cid: c.id, boost: c.archived ? 0.6 : 1.05, arch: !!c.archived}, c.name || c.code || "Course", [c.code, c.instructor, c.room, meets].filter(Boolean).join(" · "), `${c.term || ""} ${typeof c.meetings === "string" ? c.meetings : ""}`);
       try {
         courseMeetings(c).forEach((m, i) => {
           if (c.archived) return;
-          put({g: "schedule", type: "class", id: c.id + "#" + i, cid: c.id, kind: m.kind, boost: 0.9}, `${courseLabel(c)} ${m.kind}`, `${daysLabel(m.days)} ${fmtTime(m.start)}–${fmtTime(m.end)}${m.where ? " · " + m.where : ""}`, c.name);
+          put({g: "schedule", type: "class", id: c.id + "#" + i, cid: c.id, kind: m.kind, boost: 0.9}, `${courseLabel(c)} ${m.kind}`, `${meetWhen(m)} ${fmtTime(m.start)}–${fmtTime(m.end)}${m.where ? " · " + m.where : ""}`, c.name);
         });
       } catch(e) {}
     });
