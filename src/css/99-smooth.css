@@ -54,3 +54,7 @@ html:not([data-motion="static"]) :is(.segb button,.chip,.ui-chip,.cf-pick,[role=
   #view .pg-tabs > button:hover{color:var(--ink)!important;background:color-mix(in srgb,var(--ink) 7%,transparent)!important}
   #view .pg-tabs > button[aria-selected="true"]{background:var(--ink)!important;color:var(--surface)!important;box-shadow:none!important}
 }
+/* The main button on a coloured page band (a deck's or a course's header): the primary-button glow layer painted it solid white
+   under white text in dark mode. It's a white pill with dark text in every mode, so it stays the one that stands out. */
+html #view :is(.g2-head .g2-band .btn.primary, .c2-head .g2-band .btn.primary){color:color-mix(in srgb,var(--c,var(--accent)) 52%,#000)!important;border-color:#fff}
+html #view :is(.g2-head .g2-band .btn.primary, .c2-head .g2-band .btn.primary)::before{background:#fff;opacity:1}
