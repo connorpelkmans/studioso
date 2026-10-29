@@ -130,7 +130,8 @@
   #view > .view-head.ph-sch{margin:0 0 10px}
   .ph-sch .sch-nav{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;width:100%}
   .ph-sch .sch-range{flex:1;min-width:0;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .ph-more{position:relative;flex:none;margin-left:4px}
+  /* its own layer above the schedule: while the fade-in animation runs, the menu would otherwise sit under the events */
+  .ph-more{position:relative;z-index:30;flex:none;margin-left:4px}
   .ph-more > summary{list-style:none;display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 12px;cursor:pointer}
   .ph-more > summary::-webkit-details-marker{display:none}
   .ph-more > summary svg{width:14px;height:14px;transition:transform .15s}
