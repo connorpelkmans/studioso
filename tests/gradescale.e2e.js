@@ -20,8 +20,13 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       if (ai) { localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); } } } catch (e) {} }, [SEED(settings), !!ai]);
     ctx.calls = 0; ctx.bodies = []; ctx.reply = reply; ctx.grounding = grounding; ctx.limitSearch = limitSearch;
     await ctx.route(/generativelanguage\.googleapis\.com/, route => { ctx.calls++; try { ctx.bodies.push(route.request().postDataJSON()); } catch (e) {}
-      if (ctx.limitAll || (ctx.limitSearch && ctx.bodies[ctx.bodies.length - 1] && ctx.bodies[ctx.bodies.length - 1].tools)) { route.fulfill({status: 429, contentType: "application/json", body: JSON.stringify({error: {message: "Quota exceeded for grounding"}})}); return; }
-      const cand = {content: {parts: [{text: JSON.stringify(ctx.reply || {scale: []})}]}, finishReason: "STOP"}; if (ctx.grounding) cand.groundingMetadata = {groundingChunks: ctx.grounding};
+      const b = ctx.bodies[ctx.bodies.length - 1] || {}, tools = JSON.stringify(b.tools || []), sys = JSON.stringify(b.systemInstruction || "");
+      if (ctx.limitAll || (ctx.limitSearch && /google_search/.test(tools))) { route.fulfill({status: 429, contentType: "application/json", body: JSON.stringify({error: {message: "Quota exceeded for grounding"}})}); return; }
+      // the step that names the school's pages, and the step that reads them
+      const pagesStep = /Give the web addresses/.test(sys), readStep = /url_context/.test(tools);
+      const reply = pagesStep ? (ctx.pagesReply || {urls: []}) : readStep && ctx.readReply ? ctx.readReply : ctx.reply || {scale: []};
+      const cand = {content: {parts: [{text: JSON.stringify(reply)}]}, finishReason: "STOP"}; if (ctx.grounding && /google_search/.test(tools)) cand.groundingMetadata = {groundingChunks: ctx.grounding};
+      if (readStep) cand.urlContextMetadata = {urlMetadata: (ctx.readOk || []).map(u => ({retrievedUrl: u, urlRetrievalStatus: "URL_RETRIEVAL_STATUS_SUCCESS"}))};
       route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({candidates: [cand]})}); });
     const page = await ctx.newPage(); page.errs = []; page.on("pageerror", e => page.errs.push(e.message));
     await page.goto(base); await page.waitForSelector("#view", {state: "attached"}); await page.waitForFunction(() => window.__sbGrades);
@@ -104,7 +109,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await page.click("#gsFind"); await page.waitForFunction(() => /hasn't been checked online/.test(document.querySelector("#gsSchool").textContent));
       ok(JSON.stringify(await chips(page)) === JSON.stringify(SCALE8.map(x => x.letter + " " + x.min)) && await page.inputValue("#goPass") === "55", "what was found is shown to check, with its pass mark");
       const body = ctx.bodies[0], txt = JSON.stringify(body);
-      ok(body.tools && !ctx.bodies[1].tools && ctx.calls === 2, "it searches the web first, and answers from memory when the search finds no page");
+      ok(/google_search/.test(JSON.stringify(body.tools)) && ctx.calls === 3 && !ctx.bodies[2].tools, "it searches the web first, then asks for the school's pages, and answers from memory when neither finds a page");
       ok(/learn\.testu\.ca/.test(txt) && !/Biology|BIO1/.test(txt), "only the site address is sent, nothing about the student's courses");
       ok(!((await saved(page)).g.scale), "nothing is saved until Use for All My Courses");
       await page.click("#goUse"); await page.waitForTimeout(400);
@@ -153,9 +158,9 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(/Look Up This Program's Scale/.test(await page.textContent("#gsFind")), "typing a program makes it Look Up This Program's Scale");
       ctx.reply = FOUND({scope: "program", program: "Nursing"});
       await page.click("#gsFind"); await page.waitForFunction(() => /the Nursing scale at Test University/.test(document.querySelector("#gsSchool").textContent));
-      ok(ctx.calls === 4 && /program: nursing/.test(JSON.stringify(ctx.bodies[3])), "it asks again, for that program");
+      ok(ctx.calls === 6 && /program: nursing/.test(JSON.stringify(ctx.bodies[5])), "it asks again, for that program");
       await page.fill("#gsProgram", "Practical Nursing"); await page.press("#gsProgram", "Enter"); await page.waitForTimeout(500);
-      ok(ctx.calls === 6 && /Practical Nursing/.test(JSON.stringify(ctx.bodies[5])) && await page.locator("#dlg[open] #gsSchool").count() === 1, "Enter in the program box looks it up too, without closing the sheet");
+      ok(ctx.calls === 9 && /Practical Nursing/.test(JSON.stringify(ctx.bodies[8])) && await page.locator("#dlg[open] #gsSchool").count() === 1, "Enter in the program box looks it up too, without closing the sheet");
       await ctx.close(); }
     {
       const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: FOUND({scope: "school"})});
@@ -175,10 +180,43 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: NURS, grounding: [{web: {uri: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc", title: "testu.ca"}}]});
       await openOpts(page); await page.fill("#gsProgram", "Nursing"); await page.click("#gsFind"); await page.waitForSelector("#goUse");
       const t = await page.textContent("#gsSchool");
-      ok(ctx.calls === 1 && ctx.bodies[0].tools && /Found Test University's Nursing grade scale and 65% pass mark on the school's own website/.test(t), "found on the school's own site with one web search: " + t);
+      ok(ctx.calls === 1 && /google_search/.test(JSON.stringify(ctx.bodies[0].tools)) && /Found Test University's Nursing grade scale and 65% pass mark on the school's own website/.test(t), "found on the school's own site with one web search: " + t);
       ok(await page.locator('#gsSchool a[href="https://www.testu.ca/nursing/progression"]').count() === 1, "the page it came from is linked");
       ok(/minimum final percent a student needs to pass a course/.test(ctx.bodies[0].systemInstruction.parts[0].text) && /nursing/i.test(ctx.bodies[0].systemInstruction.parts[0].text), "the AI is told a program's pass mark can be higher than the lowest letter");
       ok(await page.inputValue("#goPass") === "65" && /higher than the lowest passing letter \(P, 50%\)/.test(await page.textContent("#goPassNote")), "the pass mark is shown in a box, with why it's above the lowest passing letter");
+      await ctx.close(); }
+    {
+      // web search out of quota: it answers from memory and says why it couldn't check online
+      const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: FOUND({scope: "program", program: "Nursing"}), limitSearch: true});
+      await openOpts(page); await page.fill("#gsProgram", "Nursing"); await page.click("#gsFind"); await page.waitForSelector("#goUse");
+      ok(/hasn't been checked online/.test(await page.textContent("#gsSchool")) && /no web search left/.test(await page.textContent("#gsSchool")), "when web search has no quota, it says that's why it wasn't checked online");
+      await ctx.close(); }
+    {
+      // no page found: said too
+      const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: FOUND()});
+      await openOpts(page); await page.click("#gsFind"); await page.waitForSelector("#goUse");
+      ok(/didn't find a page that states it/.test(await page.textContent("#gsSchool")), "when the search finds no page, it says so");
+      await ctx.close(); }
+    {
+      // a free Gemini key has no web search on current models: it reads the school's own pages instead, and stops trying search for a day
+      const NURS = FOUND({scope: "program", program: "Nursing", pass: 65, url: "https://www.testu.ca/programs/nursing", scale: [["A+", 90], ["A", 85], ["B", 73], ["C", 60], ["P", 50], ["F", 0]].map(([letter, min]) => ({letter, min}))});
+      const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: FOUND({scope: "program", program: "Nursing", pass: 60}), limitSearch: true});
+      ctx.pagesReply = {school: "Test University", site: "https://www.testu.ca", urls: ["https://www.testu.ca/programs/nursing", "https://gradescales.example.com/testu", "http://www.testu.ca/insecure"]};
+      ctx.readReply = NURS; ctx.readOk = ["https://www.testu.ca/programs/nursing"];
+      await openOpts(page); await page.fill("#gsProgram", "Nursing"); await page.click("#gsFind"); await page.waitForSelector("#goUse");
+      const read = ctx.bodies.find(b => /url_context/.test(JSON.stringify(b.tools || [])));
+      ok(read && /https:\/\/www\.testu\.ca\/programs\/nursing/.test(JSON.stringify(read)) && !/gradescales\.example\.com|insecure/.test(JSON.stringify(read)), "it reads only the school's own pages (https, same site)");
+      ok(/Found Test University's Nursing grade scale and 65% pass mark on the school's own website/.test(await page.textContent("#gsSchool")) && await page.inputValue("#goPass") === "65", "and finds the program's 65% pass mark there: " + await page.textContent("#gsSchool"));
+      ok(await page.locator('#gsSchool a[href="https://www.testu.ca/programs/nursing"]').count() === 1, "linking the page");
+      const before = ctx.calls; await page.click("#gsFind"); await page.waitForTimeout(800);
+      ok(!ctx.bodies.slice(before).some(b => /google_search/.test(JSON.stringify(b.tools || []))), "after Google turns search down, the next lookup goes straight to reading the pages");
+      await ctx.close(); }
+    {
+      // the pages couldn't be read: it doesn't trust an answer that names no page it read
+      const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: FOUND(), limitSearch: true});
+      ctx.pagesReply = {urls: ["https://www.testu.ca/grading"]}; ctx.readReply = FOUND({url: "https://www.testu.ca/grading"}); ctx.readOk = [];
+      await openOpts(page); await page.click("#gsFind"); await page.waitForSelector("#goUse");
+      ok(/hasn't been checked online/.test(await page.textContent("#gsSchool")), "when the pages couldn't be read, it falls back to memory and says it's unchecked");
       await ctx.close(); }
     {
       // a page that isn't the school's own: said plainly

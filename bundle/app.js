@@ -32236,7 +32236,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
         ? esc(tr("gr.school.official", "Found {school}'s {what}{pass} on the school's own website. Check it matches your course outline.", {school: found.school || tr("gr.school.yours", "your school"), what: found.scope === "program" && found.program ? tr("gr.school.progScale", "{program} grade scale", {program: found.program}) : tr("gr.school.scaleW", "grade scale"), pass: found.pass != null ? " " + tr("gr.school.andPass", "and {p}% pass mark", {p: r1(found.pass)}) : ""}))
         : found.recalled ? esc(found.scope === "program"
           ? tr("gr.school.recalledProg2", "This is the AI's best knowledge of the {program} scale at {school}. It hasn't been checked online, so compare it with your course outline first.", {program: found.program, school: found.school || tr("gr.school.yours", "your school")})
-          : tr("gr.school.recalled2", "This is the AI's best knowledge of {school}'s general scale{prog}. It hasn't been checked online, so compare it with your course outline first.", {school: found.school || tr("gr.school.yours", "your school"), prog: prog ? tr("gr.school.noProg", " (no separate {program} scale found)", {program: prog}) : ""}))
+          : tr("gr.school.recalled2", "This is the AI's best knowledge of {school}'s general scale{prog}. It hasn't been checked online, so compare it with your course outline first.", {school: found.school || tr("gr.school.yours", "your school"), prog: prog ? tr("gr.school.noProg", " (no separate {program} scale found)", {program: prog}) : ""})) + " " + esc({limit: tr("gr.school.whyLimit", "The web search couldn't run: your AI key has no web search left right now (free Gemini keys often don't include it)."), nopage: tr("gr.school.whyNone", "The web search didn't find a page that states it."), error: tr("gr.school.whyErr", "The web search didn't work this time."), trial: tr("gr.school.whyTrial", "The free trial can't search the web; your own AI key can.")}[found.why] || "")
         : hosts.length ? esc(tr("gr.school.unsure2", "Found a scale for {school} on {host}, which isn't the school's own website. Check it carefully first.", {school: found.school || tr("gr.school.yours", "your school"), host: found.host}))
         : esc(tr("gr.school.web", "Found on {host}. Make sure that's {school}'s own website, and check it against your course outline.", {school: found.school || tr("gr.school.yours", "your school"), host: found.host}))} ${safeUrl(found.url) ? `<a href="${esc(safeUrl(found.url))}" target="_blank" rel="noopener noreferrer">${esc(found.host)}</a>` : ""}</p>`;
       else if (sg) top = `<p class="mini" style="margin:0">${esc(tr("gr.school.sug", "Studyboard found a grade scale for {school} on {host}. Is this your school?", {school: sg.school || tr("gr.school.yours", "your school"), host: sg.host}))}</p><div class="gr-scale-acts"><button type="button" class="btn small primary" id="gsSugYes">${esc(tr("gr.school.use", "Use It"))}</button><button type="button" class="btn small" id="gsSugNo">${esc(tr("gr.school.no", "Not My School"))}</button></div>`;
@@ -32366,34 +32366,70 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   const regDomain = h => { const p = String(h || "").toLowerCase().replace(/^www\./, "").split(".").filter(Boolean); if (p.length < 2) return p.join("."); return (p.length >= 3 && /^(ac|edu|co|gov|org|net)$/.test(p[p.length - 2]) && p[p.length - 1].length === 2 ? p.slice(-3) : p.slice(-2)).join("."); };
   const SCHOOL_JSON = "Reply with JSON only: {\"found\": true or false, \"school\": \"the school's name\", \"scope\": \"program\" or \"school\", \"program\": \"the program the numbers are for, or empty\", \"scale\": [{\"letter\": \"A+\", \"min\": 90}], \"pass\": the minimum percent needed to pass a course (a number or null), \"url\": \"the page the numbers come from, or empty\", \"note\": \"one short sentence\"}.";
   const SCHOOL_PASS = "The pass mark is the minimum final percent a student needs to pass a course. A program can need more than the lowest passing letter (many nursing and health programs need 65% or more in every course even though the school's scale passes lower), so give the program's own minimum when it has one, and never just copy the lowest passing letter's percent when the program's rule is different.";
-  // Looks it up on the web first (the school's own pages); a free trial or a key without web search answers from what the AI knows
+  // Looks it up on the school's own pages, in up to three ways:
+  // 1. a web search (Claude, ChatGPT, and Gemini keys with search quota; free Gemini keys don't get search on current models),
+  // 2. reading the school's own pages directly: the AI names the pages it knows, then reads them (works on free Gemini keys),
+  // 3. what the AI remembers, said plainly as unchecked. The free trial can't read the web, so it goes straight to 3.
+  const SEARCH_OFF = "schoolNoSearch";
   async function findSchool({host, name, program}){
     const text = `Learning site address: ${host || "(not given)"}.${name ? ` The student calls their school: ${name}.` : ""}${program ? ` The student's program: ${program}.` : ""}`;
-    const ask = web => aiCall({task: "school", auto: false, maxTokens: web ? 4000 : 3000, temperature: 0, parts: [{text}], search: web,
-      system: (web
-        ? "Search the web for the grading rules of the school that uses the learning site address given (or is named). Prefer the school's own website: its grading policy, academic calendar, or the program's handbook or progression policy. If a program is given, look for that program's own letter scale and minimum passing grade, and set scope to \"program\" when the numbers you give are the program's own; otherwise give the school's general undergraduate scale and set scope to \"school\". Only give numbers a page you found actually states, and put that page's address in url. If you can't find them stated, answer found false. "
+    const WEB_RULES = "If a program is given, look for that program's own letter scale and minimum passing grade, and set scope to \"program\" when the numbers you give are the program's own; otherwise give the school's general undergraduate scale and set scope to \"school\". Only give numbers a page actually states, and put that page's address in url. If the pages don't state them, answer found false. ";
+    const ask = (mode, urls) => aiCall({task: "school", auto: false, maxTokens: mode === "memory" ? 3000 : 4000, temperature: 0, search: mode === "search", urlContext: mode === "pages",
+      parts: [{text: mode === "pages" ? `${text}\n\nRead these pages:\n${urls.join("\n")}` : text}],
+      system: (mode === "search"
+        ? "Search the web for the grading rules of the school that uses the learning site address given (or is named). Prefer the school's own website: its grading policy, academic calendar, or the program's page, handbook or progression policy. " + WEB_RULES
+        : mode === "pages"
+        ? "Read the pages given, from the school's own website, and find its grading rules. " + WEB_RULES
         : "You know the grading rules of colleges and universities. Work out which school uses the learning site address given (or is named). Some schools give a program (a faculty, school, college or degree such as nursing, engineering or an MBA) its own letter scale or pass mark. If a program is given and you are confident that program has its own scale or pass mark, give that one and set scope to \"program\". Otherwise give the school's general undergraduate letter scale (each letter with the lowest percent that earns it) and minimum passing mark, and set scope to \"school\". Only answer if you are confident the numbers are right for that school (and program). If you are not sure, answer found false. Never guess and never use another school's scale. Leave url empty. ")
         + SCHOOL_PASS + " " + SCHOOL_JSON});
-    const cfg = aiCfg();
-    if (cfg.provider !== "trial") {
-      try { const v = vetSchool(await ask(true), {host, web: true}); if (v) return v; }
-      catch (e) { if (e && e.code === "cancelled") throw e; }
+    const cfg = aiCfg(), gem = cfg.provider === "gemini";
+    let why = cfg.provider === "trial" ? "trial" : "";
+    if (!why) {
+      // 1. web search, unless this Gemini key turned it down recently
+      const off = gem && (aiMem()[SEARCH_OFF] || 0) > Date.now();
+      if (!off) {
+        try { const v = vetSchool(await ask("search"), {host, via: "search"}); if (v) return v; why = "nopage"; }
+        catch (e) {
+          if (e && e.code === "cancelled") throw e;
+          why = e && e.code === "limit" ? "limit" : "error";
+          if (gem && why === "limit") aiMemSet(m => { m[SEARCH_OFF] = Date.now() + 24 * 3600000; });
+        }
+      }
+      // 2. the school's own pages, read directly
+      try {
+        const urls = await schoolPages(text, host);
+        if (urls.length) { const v = vetSchool(await ask("pages", urls), {host, via: "pages"}); if (v) return v; }
+        why = why || "nopage";
+      } catch (e) { if (e && e.code === "cancelled") throw e; why = why || "error"; }
     }
+    // 3. memory
     let r;
-    try { r = await ask(false); }
-    catch (e) { if (e && (e.code === "bad" || e.code === "long")) r = await ask(false); else throw e; }
-    return vetSchool(r, {host});
+    try { r = await ask("memory"); }
+    catch (e) { if (e && (e.code === "bad" || e.code === "long")) r = await ask("memory"); else throw e; }
+    const v = vetSchool(r, {host}); if (v) v.why = why;
+    return v;
   }
-  function vetSchool(r, {host = "", web = false} = {}){
+  // The pages on the school's own site that likely state its grading rules (the program's page first), as the AI knows them
+  async function schoolPages(text, host){
+    const r = await aiCall({task: "school", auto: false, maxTokens: 1500, temperature: 0, parts: [{text}],
+      system: "Give the web addresses of up to 4 pages on the school's own website that state the grading rules for the student: the program's own page, handbook or progression policy first if a program is given (they often state the minimum passing grade), then the school's grading policy or academic calendar page with the letter grade scale. Only give addresses you are confident exist. Reply with JSON only: {\"school\": \"the school's name\", \"site\": \"the school's main web address\", \"urls\": [\"https://...\"]}."});
+    const d = (r && r.data) || {}, dom = host ? regDomain(host) : regDomain(hostOf(safeUrl(String(d.site || ""))));
+    const urls = (Array.isArray(d.urls) ? d.urls : []).map(u => safeUrl(String(u || "").trim())).filter(u => /^https:\/\//i.test(u));
+    // only the school's own site (when it's known), at most 4
+    return [...new Set(dom ? urls.filter(u => regDomain(hostOf(u)) === dom) : urls)].slice(0, 4);
+  }
+  function vetSchool(r, {host = "", via = ""} = {}){
     const d = (r && r.data) || {};
     if (d.found !== true) return null;
     const scale = cleanScale(d.scale, null); if (!scale || scale.length < 3) return null;
     const pass = d.pass != null && d.pass !== "" && Number.isFinite(Number(d.pass)) && Number(d.pass) > 0 && Number(d.pass) <= 100 ? Number(d.pass) : null;
     const prog = d.scope === "program" ? String(d.program || "").trim().slice(0, 80) : "";
     const base = {school: String(d.school || "").trim().slice(0, 80), scale, pass, scope: prog ? "program" : "school", program: prog, note: String(d.note || "").trim().slice(0, 200)};
-    if (!web) return Object.assign(base, {url: "", host: "", official: false, recalled: true});
-    // from the web: the page it names must be one the search actually found (Gemini's sources name the site in the title)
-    const srcs = (r.sources || []).map(x => ({url: safeUrl(x.url), host: /grounding-api-redirect|vertexaisearch/.test(x.url) ? String(x.title || "").toLowerCase().replace(/^www\./, "") : hostOf(x.url)})).filter(x => x.host);
+    if (!via) return Object.assign(base, {url: "", host: "", official: false, recalled: true});
+    // from the web: the page it names must be one the search found or the AI actually read (Gemini's search sources name the site in the title)
+    const srcs = via === "pages"
+      ? (r.fetched || []).filter(u => u.ok).map(u => ({url: safeUrl(u.url), host: hostOf(u.url)})).filter(x => x.host)
+      : (r.sources || []).map(x => ({url: safeUrl(x.url), host: /grounding-api-redirect|vertexaisearch/.test(x.url) ? String(x.title || "").toLowerCase().replace(/^www\./, "") : hostOf(x.url)})).filter(x => x.host);
     if (!srcs.length) return null;
     const said = safeUrl(String(d.url || "")), saidHost = hostOf(said);
     const src = srcs.find(x => saidHost && regDomain(x.host) === regDomain(saidHost)) || srcs[0];
