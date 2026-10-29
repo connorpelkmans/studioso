@@ -448,7 +448,7 @@ function deckSheet(d){
       <label class="f">Course<select name="courseId">${courseSelectHtml(d.courseId)}</select></label>
       <label class="f"><span class="lh">Card Style <span class="hint">how cards look while you study</span></span><select name="cardStyle"><option value="">${esc((CARD_STYLES.find(x => x.id === deckDefaultStyle(d)) || CARD_STYLES[0]).name)} (default)</option>${cardStyleGroups().map(([label, list]) => `<optgroup label="${esc(label)}">${list.map(x => `<option value="${x.id}" ${d.cardStyle === x.id ? "selected" : ""} ${owns("card", x.id) ? "" : "disabled"}>${esc(x.name)}${x.tier === "pro" ? " ✦" : ""}</option>`).join("")}</optgroup>`).join("")}</select></label>
     </div>
-    <div class="sheet-foot">${isNew ? "" : `<button type="button" class="btn danger" id="dkDel">Delete Deck</button>`}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>${isNew ? "Create Deck" : "Save Deck"}</button></div>
+    <div class="sheet-foot">${isNew ? "" : `<button type="button" class="btn danger" id="dkDel">Delete Deck</button>${window.SBVH ? SBVH.deckBtn(d) : ""}`}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>${isNew ? "Create Deck" : "Save Deck"}</button></div>
   </form>`, fd => {
     const name = String(fd.get("name") || "").trim(); if (!name) return false;
     const cs = String(fd.get("cardStyle") || "");

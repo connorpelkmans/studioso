@@ -15,7 +15,7 @@ const AI_TIERS = {
 };
 const AI_TASKS = {
   ask: ["reason", "high"], tutor: ["reason", "medium"], cards: ["reason", "medium"], quiz: ["reason", "medium"], cases: ["reason", "medium"],
-  syllabus: ["reason", "medium"], examplan: ["reason", "medium"], plan: ["reason", "medium"], practice: ["reason", "medium"],
+  syllabus: ["reason", "medium"], examplan: ["reason", "medium"], plan: ["reason", "medium"], practice: ["reason", "medium"], rubric: ["reason", "medium"],
   transcribe: ["lite", "low"],
   topics: ["mid", "medium"], explain: ["mid", "medium"], summary: ["mid", "medium"], photo: ["mid", "medium"], capture: ["mid", "low"], tune: ["mid", "low"], estimate: ["mid", "low"], breakdown: ["mid", "high"],
   school: ["mid", "low"], quickadd: ["lite", "low"], grade: ["lite", "low"], news: ["lite", "low"], triage: ["lite", "low"], annintel: ["lite", "low"], coach: ["mid", "low"], weekly: ["mid", "low"], remote: ["lite", "low"], classify: ["lite", "low"], tag: ["lite", "low"], rewrite: ["lite", "low"], ping: ["lite", "low"]

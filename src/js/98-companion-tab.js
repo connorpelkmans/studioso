@@ -72,7 +72,7 @@
     const cs = coursesArr();
     if (cs.length) {
       L.push("COURSES:\n" + cs.map(c => {
-        let ms = ""; try { ms = courseMeetings(c).map(m => `${m.kind} ${daysLabel(m.days)} ${m.start}-${m.end}${m.where ? " " + m.where : ""}`).join("; "); } catch (e) {}
+        let ms = ""; try { ms = courseMeetings(c).map(m => `${m.kind} ${meetWhen(m)} ${m.start}-${m.end}${m.where ? " " + m.where : ""}`).join("; "); } catch (e) {}
         return `- ${courseLabel(c)}: ${c.name}${c.instructor ? ", " + c.instructor : ""}${ms ? ", meets " + ms : c.schedule ? ", " + c.schedule : ""}${c.office ? ", office hours " + c.office : ""}`;
       }).join("\n")); src.push("Courses");
     }
