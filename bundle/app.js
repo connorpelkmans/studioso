@@ -4331,6 +4331,31 @@ if (KEYHO_LINK && KEY_RELAY) {
 // Exported backup files never include your AI keys
 function exportArrays(){ const a = clone(toArrays()); if (a.settings && a.settings.ai) delete a.settings.ai; if (a.settings) dropFeeds(a.settings); return a; }
 
+// The planner's own facts for AI answers: every mark, course standings and Today's Plan in the app's own order, so questions like
+// "my best assignment mark" or "what's after today's plan" are lookups, not guesses
+function aiPlannerFacts(){
+  const L = [];
+  try {
+    const G = window.SBGRADES;
+    const lines = G ? G.lines() : []; if (lines.length) L.push("COURSE GRADES:\n" + lines.map(x => "- " + x).join("\n"));
+    const it = G && G.items ? G.items() : [];
+    if (it.length) {
+      const row = x => `- ${x.title} (${[x.course, x.type, x.weight != null ? "worth " + x.weight + "% of the course" : "", x.due ? "due " + x.due : ""].filter(Boolean).join(", ")}): ${x.mark}${/%$/.test(x.mark) ? "" : " = " + x.pct + "%"}${x.letter ? " (" + x.letter + ")" : ""}`;
+      L.push(`MARKED WORK (every item with a mark, ${it.length} in all, highest first):\n` + it.slice().sort((a, b) => b.pct - a.pct).slice(0, 80).map(row).join("\n"));
+    } else if (lines.length) L.push("MARKED WORK: no marks have been entered for individual items yet.");
+    const w = G && G.waiting ? G.waiting() : [];
+    if (w.length) L.push("FINISHED, STILL WAITING FOR A MARK: " + w.slice(0, 20).map(x => `${x.title}${x.course ? " (" + x.course + ")" : ""}`).join("; "));
+  } catch (e) {}
+  try {
+    const F = computeFocus(), n = nextUp(F), cl = t => { const c = courseOf(t.courseId); return c ? courseLabel(c) : ""; };
+    const row = (x, i) => `${i + 1}. ${x.t.title} (${[cl(x.t), x.t.type, x.t.due ? "due " + x.t.due + (x.t.time ? " " + x.t.time : "") : "", x.R > 0 ? "about " + fmtHM(x.R) + " of work left" : ""].filter(Boolean).join(", ")})${x.alloc > 0 ? " [ON TODAY'S PLAN: " + fmtHM(x.alloc) + " today]" : " [after today's plan]"}${x.reasons && x.reasons[0] ? ": " + x.reasons[0] : ""}`;
+    const list = F.ranked.filter(x => !x.fixed && !x.dead && x.t.status !== "done");
+    if (list.length || n) L.push(`TODAY'S PLAN, in Studyboard's own priority order (the order the student sees under Do This Next and Then; use exactly this order for "what next" or "what after today's plan" questions, don't re-sort by due date):\n${n ? "Do this next: " + (n.label || n.x.t.title) + "\n" : ""}${list.slice(0, 20).map(row).join("\n")}\nStudy time left today: ${fmtHM(Math.max(0, F.th))}.`);
+    const later = (F.later || []).slice(0, 10).map(x => `${x.t.title}${x.t.start ? " (starts " + x.t.start + ")" : ""}`);
+    if (later.length) L.push("COMING UP LATER (not started yet): " + later.join("; "));
+  } catch (e) {}
+  return L.join("\n\n");
+}
 /* ===== module: 01-quick-add.js: the app's core, quick add: type a sentence ===== */
 /* Quick add: type a sentence */
 // Reads a sentence with the same rules as Quick Capture (75-capture.js)
@@ -20858,6 +20883,8 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     const gl = D.courses.map(c => gradeLine(D, c)).filter(Boolean);
     L.push("GRADES:" + (gl.length ? "\n" + gl.map(x => "- " + x).join("\n") : " no marks entered"));
     L.push("COURSES: " + (D.courses.map(c => courseLabel(c) + (c.name && c.name !== courseLabel(c) ? " (" + c.name + ")" : "") + (c.instructor ? ", " + c.instructor : "")).join("; ") || "none"));
+    // every mark and Today's Plan in the app's own order (shared with the companion)
+    if (!D.noFacts) { try { const pf = typeof aiPlannerFacts === "function" ? aiPlannerFacts() : ""; if (pf) L.push(pf); } catch (e) {} }
     return L.join("\n");
   }
   function askData(){
@@ -20876,7 +20903,7 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
   const ASK_SYSTEM = `You answer questions for a student inside their own planner app, using ONLY the PLANNER SNAPSHOT and the numbered SOURCES in the message. Nothing else is known about them.
 Rules:
 - The snapshot is exact and already dated: "days away" and "today" are computed for you from NOW. Never recompute dates, and never call a past item upcoming. "Next exam" means the first entry of UPCOMING EXAMS (or the NEXT EXAM line). Quizzes are not exams unless asked. Study sessions are not exams.
-- A question about the planner (exams, deadlines, classes, grades, what to do today) is answered from the snapshot. A question about course content, notes, flashcards or files is answered from the numbered sources. Cite those like [2] after every claim taken from them, and give a file's page or slide only if its source line shows one.
+- A question about the planner (exams, deadlines, classes, grades, what to do today) is answered from the snapshot. MARKED WORK in the snapshot lists every mark entered (compare its percentages for best or lowest marks), and TODAY'S PLAN is the app's own priority order (follow it exactly for what to do next or after today's plan; don't re-sort by due date). A question about course content, notes, flashcards or files is answered from the numbered sources. Cite those like [2] after every claim taken from them, and give a file's page or slide only if its source line shows one.
 - Be direct and concise: lead with the answer (a date, a name, a number), then at most one useful detail. Use a short list only when several items are asked for. No filler, no restating the question, no advice nobody asked for.
 - Say dates the way a person would ("Friday, October 9, in 6 days"). Say times with am or pm.
 - If the snapshot and sources don't contain the answer, set found to false and say in one sentence what is missing. Never invent dates, grades, page numbers or facts, and never answer course-content questions from general knowledge.
@@ -31468,6 +31495,12 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if ((list || []).length < 2 || u.length !== 1 || gset().passSrc === "user" || r1(gset().pass) === r1(u[0])) return;
     saveG({pass: r1(u[0]), passSrc: "school"}); scheduleRender();
   };
+  // Every piece of work with a mark, for the AI: the same marks the Grade Tracker uses
+  window.SBGRADES.items = () => allTasks().filter(t => markPct(t) != null && !t.prepFor).map(t => {
+    const c = courseOf(t.courseId), pct = markPct(t);
+    return {id: t.id, title: t.title, type: t.type, course: c ? courseLabel(c) : "", due: t.due || "", weight: hasWeight(t) ? Number(t.weight) : null, pct: r1(pct), mark: fmtMark(t.mark), letter: c ? letterOf(pct, gradingOf(c).scale) : ""};
+  });
+  window.SBGRADES.waiting = () => tasksArr().filter(t => t.status === "done" && hasWeight(t) && markPct(t) == null && !t.prepFor).map(t => ({title: t.title, course: courseOf(t.courseId) ? courseLabel(courseOf(t.courseId)) : "", weight: Number(t.weight)}));
   window.SBGRADES.goalHtml = c => { try { const gr = courseGrade(c); return gr.ts.length ? goalField(c, gr) : ""; } catch (e) { return ""; } };
   window.SBGRADES.now = c => { try { const gr = courseGrade(c); if (!gr.ts.length) return null; return {pct: gr.current, letter: gr.current != null ? letterOf(gr.current, gr.g.scale) : "", marked: gr.wMarked, fmt: fmtP, line: gradeLine(gr), risk: gr.risk, done: gr.done}; } catch (e) { return null; } };
   // The Grades tab of one course
@@ -58592,18 +58625,13 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
         return `- ${courseLabel(c)}: ${c.name}${c.instructor ? ", " + c.instructor : ""}${ms ? ", meets " + ms : c.schedule ? ", " + c.schedule : ""}${c.office ? ", office hours " + c.office : ""}`;
       }).join("\n")); src.push("Courses");
     }
+    { const pf = aiPlannerFacts(); if (pf) { L.push(pf); src.push("Grades", "Today's Plan"); } }
     { const nb = noteBoards(); L.push("NOTE BOARDS: My Notes (the main board)" + (nb.length ? "; " + nb.map(b => b.name + (b.courseId && courseOf(b.courseId) ? " (" + courseLabel(courseOf(b.courseId)) + ")" : "")).join("; ") : "")); }
     const open = tasksArr().filter(t => t.status !== "done").sort(sortTasks);
     const tl = t => { const c = courseOf(t.courseId); return `- ${t.title} (${c ? courseLabel(c) + ", " : ""}${t.type}${t.due ? ", due " + t.due + (t.time ? " " + t.time : "") : ", no due date"}${hasWeight(t) ? ", worth " + t.weight + "%" : ""}${t.status === "doing" ? ", in progress" : ""}${isNum(t.hours) ? ", ~" + t.hours + "h" : ""}${t.pct ? ", " + t.pct + "% done" : ""}${t.notes ? ", note: " + clip(t.notes, 80) : ""})`; };
-    if (open.length) { L.push(`OPEN TASKS (${open.length}, soonest first):\n` + open.slice(0, 40).map(tl).join("\n")); src.push("Tasks"); }
+    if (open.length) { L.push(`OPEN TASKS (${open.length}, soonest first):\n` + open.slice(0, 80).map(tl).join("\n")); src.push("Tasks"); }
     const recent = tasksArr().filter(t => t.status === "done").sort((a, b) => (doneTime(b) || 0) - (doneTime(a) || 0)).slice(0, 8);
     if (recent.length) L.push("RECENTLY FINISHED: " + recent.map(t => t.title).join("; "));
-    try {
-      const F = computeFocus(), n = nextUp(F);
-      const top = F.ranked.filter(x => !x.fixed && x.alloc > 0).slice(0, 5).map(x => `${x.t.title} (${fmtHM(x.alloc)})`);
-      if (top.length || n) { L.push(`TODAY'S PLAN: ${n ? "do this next: " + (n.label || n.x.t.title) + ". " : ""}${top.length ? "Planned today: " + top.join("; ") + "." : ""} ${F.th ? fmtHM(F.th) + " of study time left today." : ""}`); src.push("Today's Plan"); }
-    } catch (e) {}
-    try { const g = window.SBGRADES ? SBGRADES.lines() : []; if (g.length) { L.push("GRADES:\n" + g.map(x => "- " + x).join("\n")); src.push("Grades"); } } catch (e) {}
     const decks = deckListArr();
     if (decks.length) {
       L.push("FLASHCARD DECKS:\n" + decks.slice(0, 20).map(d => { const c = courseOf(d.courseId), st = deckStats(d); return `- ${d.name}${c ? " (" + courseLabel(c) + ")" : ""}: ${st.total} cards, ${st.due} due for review`; }).join("\n"));
@@ -58627,7 +58655,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const want = ws.length && !(R && R.rows.some(x => x.doc.type === "chunk")) ? files.map(f => ({f, s: hits(f.name + " " + ((courseOf(f.courseId) || {}).name || "") + " " + (f.desc || ""), ws)})).filter(x => x.s > 0 && readableFile(x.f)).sort((a, b) => b.s - a.s).slice(0, 2) : [];
       for (const {f} of want) { try { const t = window.SBFILETEXT ? await SBFILETEXT(f.id, 5000) : ""; if (t) { L.push(`TEXT FROM FILE "${f.name}":\n${t}`); src.push("File: " + clip(f.name, 30)); } } catch (e) {} }
     }
-    return {text: L.join("\n\n").slice(0, 22000), src};
+    return {text: L.join("\n\n").slice(0, 45000), src};
   }
   const SCHEMA = {type: "OBJECT", properties: {
     answer: {type: "STRING", description: "The reply, in the companion's friendly voice. Plain text; short paragraphs or '- ' bullets, **bold** sparingly."},
@@ -58687,7 +58715,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const me = info() || {}, ctx = await context(q);
       T.status = "Thinking…"; draw();
       const hist = c.msgs.filter(x => x.a).slice(-6).map(x => `Student: ${x.q}\n${me.name || "Companion"}: ${clip(x.a.answer, 500)}`).join("\n\n");
-      const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. ${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}Speak warmly and briefly, like a supportive study buddy. No emojis. Answer from the student's own data below whenever the question is about their work, courses, deadlines, grades, notes, flashcards or files. If the data doesn't contain what they ask about, say so plainly and don't invent facts, dates or marks. For general study or subject questions, answer with your own knowledge, clearly and correctly. Keep it short: a few sentences or a short list. For questions about their work, suggest a concrete next step when it helps. When the student is just chatting (\"how are you?\", hello, thanks, how their day is going, a joke, how they feel), answer like a friend would and in character: say how you are and what you've been up to as yourself, show interest in them, maybe ask a light question back. Don't steer small talk to tasks, deadlines or studying, and don't add a next step, unless they bring up school or sound stressed about it, and then be kind first.
+      const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. ${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}Speak warmly and briefly, like a supportive study buddy. No emojis. Answer from the student's own data below whenever the question is about their work, courses, deadlines, grades, notes, flashcards or files. The planner data below is complete for their courses, tasks, marks and plan: MARKED WORK lists every mark entered (each assignment, quiz and exam, with its percentage), and TODAY'S PLAN is Studyboard's own priority order. Read the answer straight from it: for "best" or "lowest" marks compare the percentages in MARKED WORK, and for "what next" or "after today's plan" follow TODAY'S PLAN's order exactly (the items marked [after today's plan], in that order), never your own ranking. Give exact titles, numbers and dates from the data. Only if the data truly doesn't contain something, say so plainly and don't invent facts, dates or marks. For general study or subject questions, answer with your own knowledge, clearly and correctly. Keep it short: a few sentences or a short list. For questions about their work, suggest a concrete next step when it helps. When the student is just chatting (\"how are you?\", hello, thanks, how their day is going, a joke, how they feel), answer like a friend would and in character: say how you are and what you've been up to as yourself, show interest in them, maybe ask a light question back. Don't steer small talk to tasks, deadlines or studying, and don't add a next step, unless they bring up school or sound stressed about it, and then be kind first.
 You can also DO things in Studyboard, but only when the student asks or what they attached clearly calls for it, and only by offering actions they tap to confirm (never say it is already done). Actions: flashcards, quiz or case_study (made from the attached files, or from the material you put in "text"; set "deck" to add to an existing deck; they are saved straight to the student's decks); note (a clean typed note from a photo, slides or anything else, optionally onto a named note board and course); tasks (due dates you find in what they attached or told you); edit_tasks (move a due date, change an estimate, priority or status of existing open tasks, using their titles exactly); quick_add (open Quick Add with a sentence to turn into tasks); syllabus (read an attached syllabus into a course and its deadlines); breakdown (split a big task into milestones; "target" is the task title); estimate (estimate times for tasks with none); exam_plan (build an exam prep plan; "target" is the exam title); ask_materials (open Ask Your Course Materials for a course); summarize_file ("target" is a file name from FILES); save_file (store the attached files in the course's Files). Things you can simply answer in chat, do that instead of an action: explaining a task or topic, summarizing what was attached or their notes, a weekly review, quizzing them one question at a time, checking an answer they wrote, listing exam topics, rewriting or tidying text. Photos of whiteboards, slides or handwriting: read them fully and offer a note. Slides, PDFs or readings: offer flashcards, and a quiz if they want to practise. Say in your answer what you are offering, in a sentence or two. If they attached something and gave no instructions, say what you see and offer the most useful one or two actions.`;
       const r = await aiCall({task: att.length ? "tutor" : "chat", maxTokens: att.length ? 12000 : 3000, schema: SCHEMA, system, onStatus: s => { T.status = s; drawStatus(); },
         parts: att.map(x => x.part).concat([{text: `THE STUDENT'S PLANNER (only what's relevant):\n${ctx.text}\n\n${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}${att.length ? "THE STUDENT ATTACHED: " + att.map(x => x.name + " (" + x.kind + ")").join(", ") + "\n\n" : ""}STUDENT'S QUESTION: ${q}`}])});

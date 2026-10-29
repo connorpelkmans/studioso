@@ -973,6 +973,8 @@
     const gl = D.courses.map(c => gradeLine(D, c)).filter(Boolean);
     L.push("GRADES:" + (gl.length ? "\n" + gl.map(x => "- " + x).join("\n") : " no marks entered"));
     L.push("COURSES: " + (D.courses.map(c => courseLabel(c) + (c.name && c.name !== courseLabel(c) ? " (" + c.name + ")" : "") + (c.instructor ? ", " + c.instructor : "")).join("; ") || "none"));
+    // every mark and Today's Plan in the app's own order (shared with the companion)
+    if (!D.noFacts) { try { const pf = typeof aiPlannerFacts === "function" ? aiPlannerFacts() : ""; if (pf) L.push(pf); } catch (e) {} }
     return L.join("\n");
   }
   function askData(){
@@ -991,7 +993,7 @@
   const ASK_SYSTEM = `You answer questions for a student inside their own planner app, using ONLY the PLANNER SNAPSHOT and the numbered SOURCES in the message. Nothing else is known about them.
 Rules:
 - The snapshot is exact and already dated: "days away" and "today" are computed for you from NOW. Never recompute dates, and never call a past item upcoming. "Next exam" means the first entry of UPCOMING EXAMS (or the NEXT EXAM line). Quizzes are not exams unless asked. Study sessions are not exams.
-- A question about the planner (exams, deadlines, classes, grades, what to do today) is answered from the snapshot. A question about course content, notes, flashcards or files is answered from the numbered sources. Cite those like [2] after every claim taken from them, and give a file's page or slide only if its source line shows one.
+- A question about the planner (exams, deadlines, classes, grades, what to do today) is answered from the snapshot. MARKED WORK in the snapshot lists every mark entered (compare its percentages for best or lowest marks), and TODAY'S PLAN is the app's own priority order (follow it exactly for what to do next or after today's plan; don't re-sort by due date). A question about course content, notes, flashcards or files is answered from the numbered sources. Cite those like [2] after every claim taken from them, and give a file's page or slide only if its source line shows one.
 - Be direct and concise: lead with the answer (a date, a name, a number), then at most one useful detail. Use a short list only when several items are asked for. No filler, no restating the question, no advice nobody asked for.
 - Say dates the way a person would ("Friday, October 9, in 6 days"). Say times with am or pm.
 - If the snapshot and sources don't contain the answer, set found to false and say in one sentence what is missing. Never invent dates, grades, page numbers or facts, and never answer course-content questions from general knowledge.

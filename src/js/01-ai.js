@@ -1706,3 +1706,28 @@ if (KEYHO_LINK && KEY_RELAY) {
 // Exported backup files never include your AI keys
 function exportArrays(){ const a = clone(toArrays()); if (a.settings && a.settings.ai) delete a.settings.ai; if (a.settings) dropFeeds(a.settings); return a; }
 
+// The planner's own facts for AI answers: every mark, course standings and Today's Plan in the app's own order, so questions like
+// "my best assignment mark" or "what's after today's plan" are lookups, not guesses
+function aiPlannerFacts(){
+  const L = [];
+  try {
+    const G = window.SBGRADES;
+    const lines = G ? G.lines() : []; if (lines.length) L.push("COURSE GRADES:\n" + lines.map(x => "- " + x).join("\n"));
+    const it = G && G.items ? G.items() : [];
+    if (it.length) {
+      const row = x => `- ${x.title} (${[x.course, x.type, x.weight != null ? "worth " + x.weight + "% of the course" : "", x.due ? "due " + x.due : ""].filter(Boolean).join(", ")}): ${x.mark}${/%$/.test(x.mark) ? "" : " = " + x.pct + "%"}${x.letter ? " (" + x.letter + ")" : ""}`;
+      L.push(`MARKED WORK (every item with a mark, ${it.length} in all, highest first):\n` + it.slice().sort((a, b) => b.pct - a.pct).slice(0, 80).map(row).join("\n"));
+    } else if (lines.length) L.push("MARKED WORK: no marks have been entered for individual items yet.");
+    const w = G && G.waiting ? G.waiting() : [];
+    if (w.length) L.push("FINISHED, STILL WAITING FOR A MARK: " + w.slice(0, 20).map(x => `${x.title}${x.course ? " (" + x.course + ")" : ""}`).join("; "));
+  } catch (e) {}
+  try {
+    const F = computeFocus(), n = nextUp(F), cl = t => { const c = courseOf(t.courseId); return c ? courseLabel(c) : ""; };
+    const row = (x, i) => `${i + 1}. ${x.t.title} (${[cl(x.t), x.t.type, x.t.due ? "due " + x.t.due + (x.t.time ? " " + x.t.time : "") : "", x.R > 0 ? "about " + fmtHM(x.R) + " of work left" : ""].filter(Boolean).join(", ")})${x.alloc > 0 ? " [ON TODAY'S PLAN: " + fmtHM(x.alloc) + " today]" : " [after today's plan]"}${x.reasons && x.reasons[0] ? ": " + x.reasons[0] : ""}`;
+    const list = F.ranked.filter(x => !x.fixed && !x.dead && x.t.status !== "done");
+    if (list.length || n) L.push(`TODAY'S PLAN, in Studyboard's own priority order (the order the student sees under Do This Next and Then; use exactly this order for "what next" or "what after today's plan" questions, don't re-sort by due date):\n${n ? "Do this next: " + (n.label || n.x.t.title) + "\n" : ""}${list.slice(0, 20).map(row).join("\n")}\nStudy time left today: ${fmtHM(Math.max(0, F.th))}.`);
+    const later = (F.later || []).slice(0, 10).map(x => `${x.t.title}${x.t.start ? " (starts " + x.t.start + ")" : ""}`);
+    if (later.length) L.push("COMING UP LATER (not started yet): " + later.join("; "));
+  } catch (e) {}
+  return L.join("\n\n");
+}
