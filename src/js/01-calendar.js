@@ -941,7 +941,9 @@ function parseMeetings(text, kind, where){
 }
 const daysLabel = ds => WEEK_ORDER.filter(d => ds.includes(d)).map(d => DAY_SHORT[d]).join("");
 /* School days: days off and a rotating class cycle (the rules are SBSCHOOL, in the calendar core) */
-const schoolCfg = () => (state.settings && state.settings.school) || null;
+// Public holidays follow your home time zone (where your school is)
+const schoolZone = () => { try { const h = window.SBTZ && SBTZ.schoolZone(); return h || Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) { return ""; } };
+const schoolCfg = () => { if (window.SBSCHOOL) SBSCHOOL.zone(schoolZone()); return (state.settings && state.settings.school) || null; };
 const cycOn = () => { const c = schoolCfg(); return !!(c && c.cycle && window.SBSCHOOL && SBSCHOOL.norm(c).cycle); };
 // "Day 1, 4" or "A Days" for a rotating class time
 const cycLabel = ks => { const c = schoolCfg(), abc = !!(c && c.cycle && c.cycle.names === "abc"), v = ks.slice().sort((a, b) => a - b); return abc ? v.map(k => String.fromCharCode(64 + k)).join(", ") + (v.length === 1 ? " Days" : " Days") : (v.length === 1 ? "Day " : "Days ") + v.join(", "); };
@@ -949,7 +951,7 @@ const cycLabel = ks => { const c = schoolCfg(), abc = !!(c && c.cycle && c.cycle
 const meetWhen = m => m && Array.isArray(m.cyc) && m.cyc.length ? cycLabel(m.cyc) : daysLabel((m && m.days) || []);
 // What today is at school: "Day 3", "B Day", or the name of a day off
 function schoolDayText(d){
-  const c = schoolCfg(), S = window.SBSCHOOL; if (!c || !S) return "";
+  const c = schoolCfg(), S = window.SBSCHOOL; if (!S) return "";
   const off = S.off(c, d); if (off) return off.name || "Day off";
   const k = S.dayOf(c, d); return k ? S.label(c, k) : "";
 }
@@ -995,6 +997,15 @@ function viewSchedule(){
   const setup = hasAny ? "" : `<div class="sch-setup" role="region" aria-label="Set up your schedule"><p style="margin:0"><strong>Add Your Class Times</strong><span class="mini">Your week fills in from each course's class times: lectures, labs, discussions and office hours. You can also add your own events, or import your Apple, Google or Outlook calendar. Deadlines already show below.</span></p>
     ${cs.length ? `<div class="sch-missing">${cs.map(c => `<button class="chip" style="--c:${esc(c.color)}" data-act="edit-course" data-id="${esc(c.id)}"><span class="dot"></span>${esc(courseLabel(c))}: Add Class Times</button>`).join("")}</div>` : `<div class="sch-missing"><button class="btn small primary" data-act="new-course">Add a Course</button></div>`}
     <div class="sch-missing"><button class="btn small" data-act="sch-add">+ Add an Event</button><button class="btn small" data-act="avail-add">+ Add Shift or Work</button><button class="btn small" data-act="sch-ics">Import a Calendar File</button></div></div>`;
+  // A common public holiday coming up (most schools are off, not all): ask once, on the Schedule, in one line
+  const holAsk = (() => {
+    const S = window.SBSCHOOL, sc = schoolCfg(); if (!S || !cs.some(c => courseMeetings(c).length)) return "";
+    const lo = mon < today ? today : mon, hi = addDays(mon, mon === mondayOf(today) ? 13 : 6); if (hi < lo) return "";
+    const h = S.holidays(sc, lo, hi).find(x => !x.sure && !x.ans && ![0, 6].includes(parse(x.date).getDay()) && !(S.norm(sc).off.some(o => x.date >= o.from && x.date <= o.to)));
+    if (!h) return "";
+    const when = dayDiff(today, h.date) === 0 ? "Today" : dayDiff(today, h.date) === 1 ? "Tomorrow" : parse(h.date).toLocaleDateString(undefined, {weekday: "long", month: "short", day: "numeric"});
+    return `<div class="hol-ask" role="region" aria-label="Holiday"><span>${esc(when)} is <b>${esc(h.name)}</b>. Do you have classes?</span><span class="hol-acts"><button class="btn small primary" data-act="hol-ans" data-id="${esc(h.key)}" data-v="off">Day Off</button><button class="btn small" data-act="hol-ans" data-id="${esc(h.key)}" data-v="on">Classes as Usual</button></span></div>`;
+  })();
   const occ = schOccurrences(mon, addDays(mon, 6));
   const hasWeekend = occ.some(o => { const w = parse(o.date).getDay(); return w === 0 || w === 6; }) || tasksArr().some(t => t.status !== "done" && t.due && t.due >= addDays(mon, 5) && t.due <= addDays(mon, 6));
   const days = []; for (let i = 0; i < (hasWeekend ? 7 : 5); i++) { const iso = addDays(mon, i); days.push({i, iso, wd: parse(iso).getDay()}); }
@@ -1046,7 +1057,7 @@ function viewSchedule(){
   const avKinds = AV_ORDER.filter(k => occ.some(o => o.type === "avail" && o.avail.kind === k));
   schNoticeHtml = `<p style="margin:0">${fmtHM(classMin / 60) || "0m"} of class this week${availMinSum >= 15 ? `, ${fmtHM(availMinSum / 60)} of work and shifts` : ""}${nEv ? `, ${nEv} event${nEv === 1 ? "" : "s"}` : ""}${weekTasks.length ? `, ${weekTasks.length} deadline${weekTasks.length === 1 ? "" : "s"}` : ""}. Tap a class to change just this week, or drag it to a new time.</p>${missing.length ? `<div class="sch-ntc"><b>No class times yet</b><span class="mini">Add them so these courses show on your Schedule.</span><div class="sch-missing">${missing.map(c => `<button class="chip" style="--c:${esc(c.color)}" data-act="edit-course" data-id="${esc(c.id)}"><span class="dot"></span>${esc(courseLabel(c))}: Add Class Times</button>`).join("")}</div></div>` : ""}`;
   const ntcBtn = `<button class="btn small sch-ntc-btn" data-act="sch-notices" title="This week's summary${missing.length ? " and courses missing class times" : ""}">Notices${missing.length ? `<span class="sch-ntc-n">${missing.length}</span>` : ""}</button>`;
-  return nav.replace(/<\/div><\/div>$/, ntcBtn + "</div></div>") + setup + `
+  return nav.replace(/<\/div><\/div>$/, ntcBtn + "</div></div>") + setup + holAsk + `
     <div class="sch-pills" role="group" aria-label="Day">${pills}</div>
     <div class="sch-wrap" style="--n:${days.length}">
       <div class="sch-grid" data-h0="${h0}" data-h1="${h1}" data-pph="${PPH}">

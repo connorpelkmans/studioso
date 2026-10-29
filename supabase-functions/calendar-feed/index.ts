@@ -13,10 +13,40 @@ const SBSCHOOL = (() => {
   const msD = ms => { const d = new Date(ms); return d.getUTCFullYear() + "-" + p2(d.getUTCMonth() + 1) + "-" + p2(d.getUTCDate()); };
   const addD = (s, n) => msD(dMs(s) + n * 864e5);
   const dow = s => new Date(dMs(s)).getUTCDay();
-  const NO = {off: [], cycle: null};
-  let lastIn = null, lastOut = NO;
+  const NO = {off: [], cycle: null, pub: true, ans: {}, cc: ""};
+  /* Public holidays, by country (from the home time zone). sure: every school there is off, so it's a day off
+     automatically; otherwise almost every school is, and the app asks once (ans[key] = "off" or "on"). */
+  let ZONE = "";
+  const US_TZ = /^(America\/(New_York|Chicago|Denver|Los_Angeles|Phoenix|Anchorage|Detroit|Boise|Juneau|Sitka|Nome|Adak|Yakutat|Metlakatla|Menominee|Indiana\/.+|Kentucky\/.+|North_Dakota\/.+)|Pacific\/Honolulu)$/;
+  const CA_TZ = /^America\/(Toronto|Montreal|Vancouver|Edmonton|Winnipeg|Halifax|St_Johns|Regina|Moncton|Glace_Bay|Goose_Bay|Whitehorse|Yellowknife|Iqaluit|Swift_Current|Rankin_Inlet|Cambridge_Bay|Dawson|Dawson_Creek|Fort_Nelson|Creston|Atikokan|Blanc-Sablon|Nipigon|Thunder_Bay|Rainy_River|Resolute|Inuvik|Pangnirtung)$/;
+  const country = tz => US_TZ.test(tz) ? "US" : CA_TZ.test(tz) ? "CA" : /^Europe\/(London|Belfast)$/.test(tz) ? "GB" : tz === "Europe/Dublin" ? "IE" : /^Australia\//.test(tz) ? "AU" : /^Pacific\/(Auckland|Chatham)$/.test(tz) ? "NZ" : "";
+  const COUNTRY = {US: "the United States", CA: "Canada", GB: "the UK", IE: "Ireland", AU: "Australia", NZ: "New Zealand"};
+  const ymd = (y, m, d) => y + "-" + p2(m) + "-" + p2(d);
+  // the n-th weekday wd (0 = Sunday) of month m; n = -1 for the last one
+  const nth = (y, m, wd, n) => { if (n > 0) { const f = ymd(y, m, 1); return addD(f, (wd - dow(f) + 7) % 7 + (n - 1) * 7); } const l = addD(m === 12 ? ymd(y + 1, 1, 1) : ymd(y, m + 1, 1), -1); return addD(l, -((dow(l) - wd + 7) % 7)); };
+  const easter = y => { const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451), mo = Math.floor((h + l - 7 * m + 114) / 31), da = (h + l - 7 * m + 114) % 31 + 1; return ymd(y, mo, da); };
+  function holidayList(cc, y){
+    const H = (id, name, date, sure) => ({key: cc + ":" + id, name, date, sure: !!sure});
+    const ny = H("ny", "New Year's Day", ymd(y, 1, 1), 1), xmas = H("xmas", "Christmas Day", ymd(y, 12, 25), 1), gf = H("gf", "Good Friday", addD(easter(y), -2)), em = H("em", "Easter Monday", addD(easter(y), 1));
+    if (cc === "US") return [ny, H("jul4", "Independence Day", ymd(y, 7, 4), 1), H("thanks", "Thanksgiving Day", nth(y, 11, 4, 4), 1), xmas,
+      H("mlk", "Martin Luther King Jr. Day", nth(y, 1, 1, 3)), H("pres", "Presidents' Day", nth(y, 2, 1, 3)), H("mem", "Memorial Day", nth(y, 5, 1, -1)), H("jun19", "Juneteenth", ymd(y, 6, 19)),
+      H("labor", "Labor Day", nth(y, 9, 1, 1)), H("indig", "Columbus Day / Indigenous Peoples' Day", nth(y, 10, 1, 2)), H("vet", "Veterans Day", ymd(y, 11, 11)), H("thanks2", "Day after Thanksgiving", addD(nth(y, 11, 4, 4), 1))];
+    if (cc === "CA") return [ny, H("canada", "Canada Day", ymd(y, 7, 1), 1), H("labour", "Labour Day", nth(y, 9, 1, 1), 1), xmas,
+      H("family", "Family Day", nth(y, 2, 1, 3)), gf, em, H("victoria", "Victoria Day", addD(ymd(y, 5, 24), -((dow(ymd(y, 5, 24)) + 6) % 7))), H("truth", "National Day for Truth and Reconciliation", ymd(y, 9, 30)),
+      H("thanks", "Thanksgiving", nth(y, 10, 1, 2)), H("remembrance", "Remembrance Day", ymd(y, 11, 11)), H("boxing", "Boxing Day", ymd(y, 12, 26))];
+    if (cc === "GB") return [ny, xmas, H("boxing", "Boxing Day", ymd(y, 12, 26), 1), gf, em, H("may", "Early May Bank Holiday", nth(y, 5, 1, 1)), H("spring", "Spring Bank Holiday", nth(y, 5, 1, -1)), H("aug", "Summer Bank Holiday", nth(y, 8, 1, -1))];
+    if (cc === "IE") return [ny, xmas, H("stephen", "St Stephen's Day", ymd(y, 12, 26), 1), H("brigid", "St Brigid's Day", dow(ymd(y, 2, 1)) === 5 ? ymd(y, 2, 1) : nth(y, 2, 1, 1)), H("patrick", "St Patrick's Day", ymd(y, 3, 17)), gf, em,
+      H("may", "May Bank Holiday", nth(y, 5, 1, 1)), H("june", "June Bank Holiday", nth(y, 6, 1, 1)), H("aug", "August Bank Holiday", nth(y, 8, 1, 1)), H("oct", "October Bank Holiday", nth(y, 10, 1, -1))];
+    if (cc === "AU") return [ny, H("aus", "Australia Day", ymd(y, 1, 26), 1), H("anzac", "Anzac Day", ymd(y, 4, 25), 1), xmas, H("boxing", "Boxing Day", ymd(y, 12, 26), 1), gf, em];
+    if (cc === "NZ") return [ny, H("ny2", "Day after New Year's Day", ymd(y, 1, 2), 1), H("waitangi", "Waitangi Day", ymd(y, 2, 6), 1), H("anzac", "Anzac Day", ymd(y, 4, 25), 1), xmas, H("boxing", "Boxing Day", ymd(y, 12, 26), 1),
+      gf, em, H("king", "King's Birthday", nth(y, 6, 1, 1)), H("labour", "Labour Day", nth(y, 10, 1, 4))];
+    return [];
+  }
+  const HOL = {};
+  const holOn = (cc, d) => { const k = cc + d.slice(0, 4); if (!HOL[k]) { HOL[k] = {}; holidayList(cc, +d.slice(0, 4)).forEach(h => { HOL[k][h.date] = h; }); } return HOL[k][d] || null; };
+  let lastIn = null, lastOut = NO, lastZone = "";
   function norm(s){
-    if (s === lastIn) return lastOut;
+    if (s === lastIn && lastZone === ZONE) return lastOut;
     const o = s && typeof s === "object" ? s : {};
     const off = (Array.isArray(o.off) ? o.off : []).filter(x => x && isDate(x.from)).slice(0, 300)
       .map(x => ({id: String(x.id || x.from).slice(0, 40), name: String(x.name || "").slice(0, 60), from: x.from, to: isDate(x.to) && x.to >= x.from && dMs(x.to) - dMs(x.from) < 200 * 864e5 ? x.to : x.from}))
@@ -24,10 +54,23 @@ const SBSCHOOL = (() => {
     const c = o.cycle && typeof o.cycle === "object" ? o.cycle : null, n = c ? Math.round(Number(c.n)) : 0;
     const days = c && Array.isArray(c.days) ? [...new Set(c.days.map(Number))].filter(d => d >= 0 && d <= 6).sort() : [];
     const cycle = c && n >= 2 && n <= 10 && isDate(c.ref) ? {n, ref: c.ref, k: Math.min(n, Math.max(1, Math.round(Number(c.k)) || 1)), days: days.length ? days : [1, 2, 3, 4, 5], names: c.names === "abc" ? "abc" : "num"} : null;
-    lastIn = s; lastOut = {off, cycle};
+    const ans = {}; if (o.ans && typeof o.ans === "object") Object.keys(o.ans).slice(0, 100).forEach(k => { if (o.ans[k] === "off" || o.ans[k] === "on") ans[String(k).slice(0, 40)] = o.ans[k]; });
+    lastIn = s; lastZone = ZONE; lastOut = {off, cycle, pub: o.pub !== false, ans, cc: country(ZONE)};
     return lastOut;
   }
-  const offOn = (S, d) => { for (const x of S.off) { if (x.from > d) break; if (d <= x.to) return x; } return null; };
+  // A day off: one you added, a public holiday every school takes, or a common one you said you have off
+  const offOn = (S, d) => {
+    for (const x of S.off) { if (x.from > d) break; if (d <= x.to) return x; }
+    if (!S.pub || !S.cc || !isDate(d)) return null;
+    const h = holOn(S.cc, d);
+    return h && (h.sure || S.ans[h.key] === "off") ? {id: h.key, name: h.name, from: d, to: d, pub: true, sure: h.sure} : null;
+  };
+  // Public holidays between two dates, with your answers: [{key, name, date, sure, ans}]
+  function holidays(s, from, to){
+    const S = norm(s), out = []; if (!S.cc || !isDate(from) || !isDate(to)) return out;
+    for (let y = +from.slice(0, 4); y <= +to.slice(0, 4); y++) holidayList(S.cc, y).forEach(h => { if (h.date >= from && h.date <= to) out.push(Object.assign({}, h, {ans: S.ans[h.key] || ""})); });
+    return out.sort((a, b) => a.date < b.date ? -1 : 1);
+  }
   const isSchool = (S, d) => !!S.cycle && S.cycle.days.includes(dow(d)) && !offOn(S, d);
   // The first school day on or after d
   const nextSchool = (S, d) => { for (let i = 0, x = d; i < 400; i++, x = addD(x, 1)) if (isSchool(S, x)) return x; return d; };
@@ -50,7 +93,7 @@ const SBSCHOOL = (() => {
     if (m && Array.isArray(m.cyc) && m.cyc.length) return S.cycle ? m.cyc.includes(dayOf(s, d)) : false;
     return !!m && Array.isArray(m.days) && m.days.includes(dow(d));
   }
-  return {norm, off: (s, d) => offOn(norm(s), d), dayOf, label, meets, isSchool: (s, d) => isSchool(norm(s), d), nextSchool: (s, d) => nextSchool(norm(s), d), isDate, addD, dow};
+  return {zone: tz => { if (tz === undefined) return ZONE; ZONE = typeof tz === "string" ? tz : ""; return ZONE; }, country: () => country(ZONE), countryName: () => COUNTRY[country(ZONE)] || "", holidays, holidayList, easter, norm, off: (s, d) => offOn(norm(s), d), dayOf, label, meets, isSchool: (s, d) => isSchool(norm(s), d), nextSchool: (s, d) => nextSchool(norm(s), d), isDate, addD, dow};
 })();
 const SBICS = (() => {
   const DAY = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
@@ -236,7 +279,12 @@ const SBICS = (() => {
   }
 
   /* build */
+  // Public holidays follow the feed's home zone while it's built
   function build(data, rawOpts, now, feed){
+    const prev = SBSCHOOL.zone(); SBSCHOOL.zone(normOptions(rawOpts).tz);
+    try { return buildIn(data, rawOpts, now, feed); } finally { SBSCHOOL.zone(prev); }
+  }
+  function buildIn(data, rawOpts, now, feed){
     const o = normOptions(rawOpts), tz = o.tz;
     now = typeof now === "number" ? now : Date.now();
     const today = todayIn(tz, now), stamp = utcStamp(now), hide = new Set(o.hideCourses), NONE = "_none";
@@ -325,7 +373,7 @@ const SBICS = (() => {
             add("RRULE", "FREQ=WEEKLY;WKST=MO;BYDAY=" + m.days.map(d => DAY[d]).join(",") + ";UNTIL=" + untilUtc(until));
             moves.filter(x => x.v.skip).forEach(x => add("EXDATE" + tzp, local(x.d, m.start)));
             // no class on days off
-            SBSCHOOL.norm(settings.school).off.forEach(o => { for (let d = o.from; d <= o.to; d = addD(d, 1)) if (isInst(d) && !moves.some(x => x.d === d)) add("EXDATE" + tzp, local(d, m.start)); });
+            for (let d = first; d <= until; d = addD(d, 1)) if (isInst(d) && SBSCHOOL.off(settings.school, d) && !moves.some(x => x.d === d)) add("EXDATE" + tzp, local(d, m.start));
             addText("LOCATION", where); addText("DESCRIPTION", desc);
             add("CATEGORIES", esc(m.kind)); add("TRANSP", "OPAQUE"); evAlarm(title, true);
           });

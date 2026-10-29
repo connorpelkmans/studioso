@@ -17,3 +17,11 @@
 .sch-sd{display:block;font-style:normal;font-size:.7rem;font-weight:700;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .sch-sd.off{color:var(--accent)}
 .sch-col.is-off{background:repeating-linear-gradient(135deg,transparent 0 10px,color-mix(in srgb,var(--line) 45%,transparent) 10px 11px)}
+/* A common holiday coming up: one line on the Schedule */
+.hol-ask{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 12px;padding:10px 12px 10px 14px;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;background:var(--surface);font-size:.92rem}
+.hol-ask > span:first-child{flex:1 1 260px;min-width:0}
+.hol-acts{display:flex;gap:6px;flex-wrap:wrap}
+.sd-more summary{cursor:pointer;font-weight:600;display:grid;gap:2px}
+.sd-more summary .mini{font-weight:400}
+.sd-more .sd-list{margin-top:8px}
+.sd-more select{flex:none;max-width:42%}

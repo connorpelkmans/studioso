@@ -4953,6 +4953,14 @@ button.snd-head:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
 .sch-sd{display:block;font-style:normal;font-size:.7rem;font-weight:700;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .sch-sd.off{color:var(--accent)}
 .sch-col.is-off{background:repeating-linear-gradient(135deg,transparent 0 10px,color-mix(in srgb,var(--line) 45%,transparent) 10px 11px)}
+/* A common holiday coming up: one line on the Schedule */
+.hol-ask{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 12px;padding:10px 12px 10px 14px;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;background:var(--surface);font-size:.92rem}
+.hol-ask > span:first-child{flex:1 1 260px;min-width:0}
+.hol-acts{display:flex;gap:6px;flex-wrap:wrap}
+.sd-more summary{cursor:pointer;font-weight:600;display:grid;gap:2px}
+.sd-more summary .mini{font-weight:400}
+.sd-more .sd-list{margin-top:8px}
+.sd-more select{flex:none;max-width:42%}
 /* ===== module: 92-accuracy.css ===== */
 .acc-chip{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom,0px));z-index:49;width:min(620px,calc(100vw - 24px));box-sizing:border-box;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:8px 8px 8px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);box-shadow:0 8px 24px rgba(8,20,50,.22)}
 .acc-chip[hidden]{display:none}

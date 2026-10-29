@@ -23,7 +23,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   const browser = await chromium.launch({executablePath});
   const open = async (seed, o) => {
     o = o || {};
-    const ctx = await browser.newContext({viewport: o.vp || {width: 1280, height: 900}});
+    const ctx = await browser.newContext(Object.assign({viewport: o.vp || {width: 1280, height: 900}}, o.tz ? {timezoneId: o.tz} : {}));
     await ctx.addInitScript(([seed, th]) => { window.__SB_TEST = true; try { if (!sessionStorage.getItem("seeded")) { sessionStorage.setItem("seeded", "1"); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("studyboard:tour", "1");
       localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1");
       const d = new Date(th[1] + "T08:00:00"), t = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); localStorage.setItem("coursework:today", JSON.stringify({d: t, h: th[0]})); } } catch (e) {} },
@@ -120,6 +120,35 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(r.c && r.c.name === "Chemistry 11" && JSON.stringify(r.c.meetings[0].cyc) === "[1]", "the course saves with its Day 1 class");
       ok(r.s && r.s.cycle && r.s.cycle.n === 4 && r.s.cycle.k === 3 && r.s.cycle.ref === "2026-10-05", "and the cycle is saved for the school: " + JSON.stringify(r.s));
       await done(ctx, page);
+    }
+    { // 6. Public holidays (a US school): Thanksgiving is off automatically; a common one is asked once, on the Schedule
+      const us = [{id: "c1", name: "Biology 11", code: "BIO 11", color: "#3B6FE0", meetings: [W([1, 3, 4, 5], "09:00", "10:00")]}];
+      let o = await open({courses: us, settings: {capacity: 15, dailyHours: 3}, tasks: []}, {day: "2026-11-23", tz: "America/New_York"});
+      await toSchedule(o.page, "2026-11-23");
+      const heads = await o.page.$$eval(".sch-head .sch-sd", els => els.map(e => e.textContent));
+      ok(heads.includes("Thanksgiving Day"), "Thanksgiving is a day off with nothing set up: " + heads.join());
+      const cols = await occ(o.page, "2026-11-26", "2026-11-26");
+      ok(!/BIO/.test(cols[0]), "and has no class");
+      const ask = await o.page.locator(".hol-ask").innerText();
+      ok(/Friday, Nov 27 is Day after Thanksgiving\. Do you have classes\?/.test(ask.replace(/\s+/g, " ")), "the Schedule asks about the day after, in one line: " + ask.replace(/\s+/g, " "));
+      ok(await o.page.locator(".hol-ask").count() === 1, "one question at a time");
+      await shot(o.page, "s6-ask", "#view");
+      await o.page.click('.hol-ask [data-act="hol-ans"][data-v="off"]'); await o.page.waitForTimeout(300);
+      ok(JSON.stringify(await o.page.evaluate(() => window.__sbSync.state.settings.school.ans)) === '{"US:thanks2":"off"}', "the answer is saved for every year");
+      ok(!/BIO/.test((await occ(o.page, "2026-11-27", "2026-11-27"))[0]) && await o.page.locator(".hol-ask").count() === 0, "Friday is off now, and the question is gone");
+      await shot(o.page, "s6-after", "#view");
+      await o.page.click('[data-act="school-open"]'); await o.page.waitForSelector("dialog[open] .sd-sheet");
+      const pubT = await o.page.locator("dialog[open] .sd-sheet").innerText();
+      ok(/Days off at every school in the United States: Thanksgiving Day, Christmas Day, New Year's Day, Independence Day/.test(pubT.replace(/\s+/g, " ")), "School Days lists the automatic ones: " + (pubT.match(/Days off at every[^\n]*/) || [""])[0]);
+      await o.page.click("dialog[open] .sd-more summary");
+      ok(await o.page.inputValue('dialog[open] select[data-hol="US:thanks2"]') === "off" && await o.page.inputValue('dialog[open] select[data-hol="US:mlk"]') === "", "and the others, with your answers");
+      await shot(o.page, "s6-sheet", "dialog[open] .sheet");
+      await done(o.ctx, o.page);
+      // Outside the countries with a list, nothing is automatic and nothing is asked
+      o = await open({courses: us, settings: {capacity: 15, dailyHours: 3}, tasks: []}, {day: "2026-11-23", tz: "Europe/Paris"});
+      await toSchedule(o.page, "2026-11-23");
+      ok(await o.page.locator(".hol-ask").count() === 0 && /BIO/.test((await occ(o.page, "2026-11-26", "2026-11-26"))[0]), "elsewhere, Thursday Nov 26 is a normal day");
+      await done(o.ctx, o.page);
     }
   } finally { await browser.close(); server.close(); }
   console.log(`\n${n} checks passed`);
