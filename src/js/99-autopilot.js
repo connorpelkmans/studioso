@@ -205,10 +205,12 @@ const AUTOPILOT = (() => {
     try {
       if (locked() || mode() === "off") return;
       const today = todayISO(), r = runRec();
-      if (r && r.day === today) return;
+      // Done for today (a proposal still waiting is applied once you switch to On)
+      if (r && r.day === today && !(r.kind === "ask" && !r.seen && mode() === "on")) return;
       // Wait for the account's settings first, so a device that ran earlier today is seen
       const signedIn = typeof sbUser !== "undefined" && !!sbUser;
-      if (signedIn && !(typeof cloud !== "undefined" && cloud.on) && Date.now() - BOOT < 45000) return;
+      // (and past the first seconds, when Pro can still be a remembered hint rather than the checked plan)
+      if (signedIn && (Date.now() - BOOT < 12000 || (!(typeof cloud !== "undefined" && cloud.on) && Date.now() - BOOT < 45000))) return;
       BUSY = true;
       const res = compute("");
       if (mode() === "ask") { record("ask", res); scheduleRender(); }
@@ -217,7 +219,7 @@ const AUTOPILOT = (() => {
   }
   function applyProposal(){
     const res = compute("");
-    if (!res.changes.length) { record("done", res, {seen: true}); lsSet(null); scheduleRender(); toast(res.short.length ? "Nothing can move right now. See What Changed says why." : "Nothing needs moving now."); return; }
+    if (!res.changes.length) { record("done", res, {seen: true}); lsSet(null); scheduleRender(); toast(res.short.length ? "Nothing can move right now without missing a deadline." : "Nothing needs moving now."); return; }
     const r = moveNow(res);
     if (dlg.open && dlg.querySelector(".ap-sheet")) dlg.close();
     toast(`Autopilot moved ${things(r.n)}.`, undo);
@@ -337,6 +339,7 @@ const AUTOPILOT = (() => {
         if (locked()) { proSheet(); return true; }
         const m = (el && el.dataset.id) || id; if (!({on: 1, ask: 1, off: 1})[m]) return true;
         setCfg({mode: m});
+        if (m === "on") setTimeout(tick, 0);
         document.querySelectorAll('[data-act="ap-mode"]').forEach(b => b.setAttribute("aria-pressed", String(b.dataset.id === m)));
         scheduleRender();
         toast(m === "on" ? "Autopilot is on. It runs once a day, the first time you open Studyboard." : m === "ask" ? "Autopilot will ask before moving anything." : "Autopilot is off. Catch Up cards are back on Today's Plan.");
@@ -347,7 +350,7 @@ const AUTOPILOT = (() => {
   });
   hook("boot", () => {
     BOOT = Date.now();
-    setTimeout(tick, 3000);
+    setTimeout(tick, 3000); setTimeout(tick, 13000);
     setInterval(tick, 60000);
     document.addEventListener("visibilitychange", () => { if (!document.hidden) setTimeout(tick, 1500); });
   });
