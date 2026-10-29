@@ -654,7 +654,9 @@ function hcValue(F, title){
   const set = F.thSet || 0, done = F.doneToday || 0, txt = fmtHM(set) || "0m";
   if (done < 0.25 || set <= 0) return `<b${title ? ` title="${esc(title)}"` : ""}>${txt}</b>`;
   const f = Math.min(1, done / set), C = 2 * Math.PI * 15.5, lbl = `${fmtHM(Math.min(done, set))} done of ${txt}`;
-  return `<b class="hc-ring${f >= 1 ? " full" : ""}" title="${esc(lbl)}"><svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15.5"/><circle class="hc-arc" cx="18" cy="18" r="15.5" stroke-dasharray="${(C * f).toFixed(1)} ${C.toFixed(1)}"/></svg><span>${txt}</span><span class="pt-sr">, ${esc(lbl)}</span></b>`;
+  // inside the ring, half hours read 3½h so the value stays on one line
+  const h = Math.floor(set + 1e-6), m = Math.round((set - h) * 60), short = m === 0 ? `${h}h` : m === 30 ? (h ? `${h}½h` : "30m") : txt;
+  return `<b class="hc-ring${f >= 1 ? " full" : ""}${short.length > 3 || /m$/.test(short) ? " long" : ""}" title="${esc(lbl)}"><svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15.5"/><circle class="hc-arc" cx="18" cy="18" r="15.5" stroke-dasharray="${(C * f).toFixed(1)} ${C.toFixed(1)}"/></svg><span aria-hidden="true">${short}</span><span class="pt-sr">${txt}, ${esc(lbl)}</span></b>`;
 }
 function planGapWhy(F){
   const q = h => Math.round(h * 4) / 4, planned = F.ranked.reduce((t, x) => t + (x.alloc || 0), 0), why = [];
