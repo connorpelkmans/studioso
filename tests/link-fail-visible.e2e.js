@@ -71,6 +71,37 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
     const said = await page.evaluate(() => window.__cpSaid);
     ok(!said.some(t => /All done|Ta-da|Finished|Done and done/.test(t)) && said.some(t => /didn't work|got stuck/.test(t)), "the companion says it didn't work, not that it's finished: " + JSON.stringify(said));
     ok(!errs.length, "no page errors " + errs.join(" | "));
+    await ctx.close();
+    // The video never reached Gemini (a few hundred tokens read, an "empty" answer in no time): one plain retry
+    for (const mode of ["plain-works", "never"]) {
+      const c2 = await browser.newContext({viewport: {width: 1381, height: 961}, serviceWorkers: "block"}); const bodies = [];
+      await c2.route(/generativelanguage\.googleapis\.com/, async route => {
+        const body = route.request().postData() || ""; if (/file_uri/.test(body)) bodies.push(JSON.parse(body));
+        const vid = /file_uri/.test(body), plain = vid && !/mime_type/.test(body);
+        const seen = vid && mode === "plain-works" && plain;
+        const usage = {usageMetadata: {promptTokenCount: seen ? 42000 : 600}};
+        const res = gem(vid ? JSON.stringify(seen ? VIDEO_NOTES : {status: "empty"}) : /small, cute study companion/.test(body) ? JSON.stringify({line: "hi"}) : JSON.stringify(CARDS));
+        if (vid) res.body = JSON.stringify(Object.assign(JSON.parse(res.body), usage));
+        try { route.fulfill(res); } catch (e) {}
+      });
+      await c2.addInitScript(seed => { window.__SB_TEST = true; try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done");
+        localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); } } catch (e) {} }, SEED);
+      const p2 = await c2.newPage(); const e2 = []; p2.on("pageerror", e => e2.push(e.message));
+      await p2.goto(base); await p2.waitForFunction(() => window.__sbSync && window.SBLINKCARDS);
+      await p2.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "fc-ai"; document.body.appendChild(b); b.click(); b.remove(); }); await p2.waitForSelector("#aiGo");
+      if (!(await p2.evaluate(() => document.getElementById("aiLinkD").open))) await p2.click("#aiLinkD summary");
+      await p2.fill("#aiLink", "https://www.youtube.com/watch?v=ESABTN4VtrA"); await p2.click("#aiGo");
+      if (mode === "plain-works") {
+        await p2.waitForFunction(() => /Review Before Saving/.test((document.querySelector("#dlg[open]") || {}).textContent || ""), null, {timeout: 15000}).catch(() => {});
+        ok(/Review Before Saving/.test(await p2.evaluate(() => (document.querySelector("#dlg[open]") || {}).textContent || "")), "when the video didn't reach Gemini, one plain retry gets it, and the cards come through");
+        ok(bodies.length === 2 && bodies[0].contents[0].parts[0].file_data.mime_type && !bodies[1].contents[0].parts[0].file_data.mime_type && !bodies[1].contents[0].parts[0].video_metadata, "the retry sends just the link (no file type, no frame rate)");
+      } else {
+        await p2.waitForFunction(() => /didn't get the video itself/.test((document.getElementById("aiStatus") || {}).textContent || ""), null, {timeout: 15000}).catch(() => {});
+        ok(/didn't get the video itself/.test(await p2.textContent("#aiStatus")) && bodies.length === 2, "when it never arrives, the message says Gemini didn't get the video: " + await p2.textContent("#aiStatus"));
+      }
+      ok(!e2.length, mode + ": no page errors " + e2.join(" | "));
+      await c2.close();
+    }
     console.log("\nlink-fail-visible.e2e: " + n + " checks passed");
   } finally { await browser.close(); server.close(); }
 })().catch(e => { console.error(e); process.exit(1); });
