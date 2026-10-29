@@ -3353,9 +3353,15 @@ function claudeBlocks(parts){
     throw aiErr("type", "Claude can't read HEIC photos. Save the photo as JPG or PNG, or switch to Gemini.");
   });
 }
+const CLAUDE_NO_FORCED = /^claude-(opus-5-5|sonnet-5-5|fable-5-1|mythos-5-1)/;
 async function claudeCall(cfg, {system, parts, schema, maxTokens, ms, signal, search, urlContext}){
   const body = {model: cfg.model, max_tokens: Math.min(maxTokens, 16000), system, messages: [{role: "user", content: claudeBlocks(parts)}]};
-  if (schema && !search && !urlContext) { body.tools = [{name: "answer", description: "Give your answer in this exact structure.", input_schema: toJsonSchema(schema)}]; body.tool_choice = {type: "tool", name: "answer"}; }
+  if (schema && !search && !urlContext) {
+    body.tools = [{name: "answer", description: "Give your answer in this exact structure.", input_schema: toJsonSchema(schema)}];
+    // Newer models refuse a forced tool call (400), so they're asked to use it instead
+    if (CLAUDE_NO_FORCED.test(String(cfg.model || ""))) { body.tool_choice = {type: "auto"}; body.system = `${system || ""}\n\nGive your whole answer by calling the answer tool once, with nothing else.`.trim(); }
+    else body.tool_choice = {type: "tool", name: "answer"};
+  }
   if (search) body.tools = [{type: "web_search_20250305", name: "web_search", max_uses: 4}];
   if (urlContext) body.tools = (body.tools || []).concat({type: "web_fetch_20250910", name: "web_fetch", max_uses: 3, max_content_tokens: 60000});
   const hdr = {"content-type": "application/json", "x-api-key": cfg.key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true"};
