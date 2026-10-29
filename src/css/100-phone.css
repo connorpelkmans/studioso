@@ -1084,7 +1084,8 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   .view-head:has(> .trash-btn) > .pro-tab-btn{padding-inline:11px;min-width:2.6rem;justify-content:center}
   .view-head:has(> .trash-btn){gap:8px}
 }
-/* Course page on phones: a thinner color band, Edit Course and More close to its bottom edge (the ring moves up with it) */
+/* Course, study group, deck and quiz pages on phones: a thinner color band, its buttons close to its bottom edge (the ring moves up with it) */
 @media (max-width:719px){
-  .c2-head .g2-band{padding-bottom:12px}
+  /* only once the buttons are folded into one row (with More): wrapped buttons would meet the ring */
+  :is(.c2-head,.deck-head) .g2-band:has(> .row-actions[data-ra]){padding-bottom:12px}
 }
