@@ -70655,33 +70655,36 @@ window.SBSEM = {
     // days off that ended more than two weeks ago stay saved (they still set the cycle) but leave the list
     const recent = () => off.filter(o => (o.to || o.from) >= addDays(today, -14));
     const offRows = () => recent().length ? recent().map(o => `<li class="sd-off"><span><b>${esc(o.name || "Day off")}</b><span class="mini">${esc(range(o))}</span></span><button type="button" class="btn small" data-sd-rm="${esc(o.id)}" aria-label="Remove ${esc(o.name || "day off")}">Remove</button></li>`).join("")
-      : `<li class="mini sd-none">None yet. Classes don't show on days off, and Today's Plan treats them as free days.</li>`;
+      : "";
     const isSchoolToday = () => !off.some(o => today >= o.from && today <= (o.to || o.from)) && !S().off(cfg(), today) && ![0, 6].includes(parse(today).getDay());
     // Public holidays in your country: the ones every school takes are days off; the rest are asked on the Schedule
     const cn = S().countryName(), hy = S().holidays(cfg(), today, addDays(today, 364));
     let pub = now.pub; const ans = Object.assign({}, now.ans);
     const sure = [...new Set(hy.filter(h => h.sure).map(h => h.name))], common = hy.filter(h => !h.sure);
-    const pubHtml = cn ? `<fieldset class="sd-fs"><legend>Public Holidays</legend>
-          <label class="mi-check"><input type="checkbox" id="sdPub"${pub ? " checked" : ""}> <span>Days off at every school in ${esc(cn)}: ${esc(sure.join(", "))}</span></label>
-          ${common.length ? `<details class="sd-more"><summary>Other Holidays (${common.length})<span class="mini">Most schools take these. Your Schedule asks about each one before it comes up.</span></summary>
+    const pubHtml = cn ? `<section class="sd-sec"><h3 class="fsec">Holidays</h3>
+          <label class="mi-check"><input type="checkbox" id="sdPub"${pub ? " checked" : ""}> <span><b>Take Public Holidays Off</b><span class="sub sd-sub">Every school in ${esc(cn)} closes: ${esc(sure.join(", "))}</span></span></label>
+          ${common.length ? `<details class="sd-more"><summary><span>Other Holidays (${common.length})</span><span class="mini">Most schools close. Your Schedule asks before each one.</span></summary>
             <ul class="sd-list">${common.map(h => `<li class="sd-off"><span><b>${esc(h.name)}</b><span class="mini">${esc(dayName(h.date, {weekday: "short", month: "short", day: "numeric", year: h.date.slice(0, 4) === today.slice(0, 4) ? undefined : "numeric"}))}</span></span><select data-hol="${esc(h.key)}" aria-label="${esc(h.name)}"><option value="">Ask Me</option><option value="off"${ans[h.key] === "off" ? " selected" : ""}>Day Off</option><option value="on"${ans[h.key] === "on" ? " selected" : ""}>Classes</option></select></li>`).join("")}</ul></details>` : ""}
-        </fieldset>` : "";
+        </section>` : "";
     const refText = () => { const r = refDay(); return r === today ? "Today is" : `${parse(r).toLocaleDateString(undefined, {weekday: "long"})} (${dayName(r, {month: "short", day: "numeric"})}) is`; };
     openSheet(`<form class="sheet sd-sheet">${head("School Days")}
       <div class="sheet-body">
-        <fieldset class="sd-fs"><legend>Days Off</legend>
+        <section class="sd-sec"><h3 class="fsec">Days Off</h3>
+          <p class="mini sd-why">Breaks, reading week and snow days. Classes don't show, and Today's Plan treats them as free days.</p>
           <ul class="sd-list" id="sdList">${offRows()}</ul>
-          <div class="sd-add">
+          <div class="row-actions sd-btns" id="sdBtns"><button type="button" class="btn small" id="sdAddOpen">Add Days Off</button><button type="button" class="btn small" id="sdToday"${isSchoolToday() ? "" : " hidden"}>No School Today</button></div>
+          <div class="sd-add" id="sdAddF" hidden>
             <label class="f"><span class="lh">Name</span><input type="text" id="sdName" maxlength="60" placeholder="Reading Week, Spring Break, Snow Day" data-noenter></label>
             <div class="two"><label class="f"><span class="lh">From</span><input type="date" id="sdFrom" value="${esc(today)}"></label><label class="f"><span class="lh">To <span class="hint">optional</span></span><input type="date" id="sdTo"></label></div>
-            <div class="row-actions"><button type="button" class="btn small" id="sdAdd">Add Day Off</button><button type="button" class="btn small" id="sdToday"${isSchoolToday() ? "" : " hidden"}>No School Today</button></div>
+            <div class="row-actions"><button type="button" class="btn small primary" id="sdAdd">Add</button><button type="button" class="btn small" id="sdAddX">Cancel</button></div>
           </div>
-        </fieldset>
+        </section>
         ${pubHtml}
-        <fieldset class="sd-fs"><legend>Class Schedule</legend>
+        <section class="sd-sec"><h3 class="fsec">Class Schedule</h3>
+          <p class="mini sd-why">Do your classes follow the day of the week, or a rotation like Day 1 to 6 or A/B days?</p>
           ${seg("sdMode", [["week", "Same every week"], ["cycle", "Rotates by school day"]], draft.on ? "cycle" : "week")}
           <div class="sd-cycle" id="sdCycle"${draft.on ? "" : " hidden"}>
-            <p class="mini" style="margin:0">For schedules like Day 1 to 6 or A/B days. The cycle moves one step each school day and pauses on weekends and days off.</p>
+            <p class="mini" style="margin:0">The cycle moves one step each school day and pauses on weekends and days off.</p>
             <div class="two">
               <label class="f"><span class="lh">Days in the cycle</span><select id="sdN">${[2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => `<option value="${v}"${v === draft.n ? " selected" : ""}>${v}</option>`).join("")}</select></label>
               <label class="f"><span class="lh">Called</span><select id="sdNames"><option value="num"${draft.names === "num" ? " selected" : ""}>Day 1, Day 2…</option><option value="abc"${draft.names === "abc" ? " selected" : ""}>A Day, B Day…</option></select></label>
@@ -70690,7 +70693,7 @@ window.SBSEM = {
             <div class="f"><span class="lh">School days</span><div class="meet-days" role="group" aria-label="School days" id="sdDays">${WD.map(d => `<button type="button" data-day="${d}" aria-pressed="${draft.days.includes(d)}">${DAY_SHORT[d]}</button>`).join("")}</div></div>
             <p class="mini" style="margin:0">Then in each course, pick which cycle days a class meets under Class Times.</p>
           </div>
-        </fieldset>
+        </section>
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Save</button></div>
     </form>`, fd => {
@@ -70716,13 +70719,16 @@ window.SBSEM = {
       if (db) { const d = Number(db.dataset.day), i = draft.days.indexOf(d); if (i >= 0) draft.days.splice(i, 1); else draft.days.push(d); db.setAttribute("aria-pressed", String(i < 0)); $f("#sdRefL").textContent = refText(); return; }
       const rm = e.target.closest("[data-sd-rm]");
       if (rm) { off = off.filter(o => o.id !== rm.dataset.sdRm); drawOff(); return; }
+      const showAdd = on => { $f("#sdAddF").hidden = !on; $f("#sdBtns").hidden = on; if (on) $f("#sdName").focus(); };
+      if (e.target.closest("#sdAddOpen")) { showAdd(true); return; }
+      if (e.target.closest("#sdAddX")) { showAdd(false); return; }
       if (e.target.closest("#sdAdd")) {
         const from = $f("#sdFrom").value, to = $f("#sdTo").value, name = $f("#sdName").value.trim();
         if (!isDate(from)) { toast("Pick the first day off"); return; }
         if (to && to < from) { toast("The last day off can't be before the first"); return; }
         off.push({id: uid(), name: name || "Day off", from, to: to && to !== from ? to : from});
         off.sort((a, b) => a.from < b.from ? -1 : 1);
-        $f("#sdName").value = ""; $f("#sdTo").value = ""; drawOff(); return;
+        $f("#sdName").value = ""; $f("#sdTo").value = ""; showAdd(false); drawOff(); return;
       }
       if (e.target.closest("#sdToday")) { off.push({id: uid(), name: "No school", from: today, to: today}); off.sort((a, b) => a.from < b.from ? -1 : 1); drawOff(); }
     });
