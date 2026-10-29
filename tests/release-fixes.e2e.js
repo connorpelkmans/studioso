@@ -67,7 +67,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(await row.count() === 1 && /How did Quiz 1 go\? You got 62%/.test(await row.innerText()), "Heads Up offers a reflection for a mark that came in without the mark sheet");
       await row.locator('[data-act="ewr-open"]').click(); await page.waitForSelector("dialog[open] .ewr");
       const cmp = await page.locator("dialog[open] .ewr-cmp").innerText();
-      ok(/How ready you felt\s*75%/.test(cmp) && /What your results said\s*48%/.test(cmp) && /Your mark\s*62%/.test(cmp), "the reflection uses the readiness saved with the exam: " + cmp.replace(/\s+/g, " "));
+      ok(/How ready you felt\s*75%/.test(cmp) && /Your practice scores\s*48%/.test(cmp) && /Your mark\s*62%/.test(cmp), "the reflection uses the readiness saved with the exam: " + cmp.replace(/\s+/g, " "));
       await shot(page, "r3-reflect", "dialog[open] .sheet");
       await page.click("#ewrSkip"); await page.waitForTimeout(200);
       ok(await page.locator(".plan-notes .pn-wrap").count() === 0, "Skip removes it from Heads Up");

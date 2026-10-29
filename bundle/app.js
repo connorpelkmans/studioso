@@ -66325,7 +66325,7 @@ function tipOf(picked){
 
 const bar = (label, v, cls) => `<div class="ewr-row ${cls}"><span class="ewr-l">${esc(label)}</span><span class="ewr-bar" role="img" aria-label="${esc(label)}: ${v == null ? "not measured" : v + " percent"}"><i style="width:${v == null ? 0 : Math.max(0, Math.min(100, v))}%"></i></span><b>${v == null ? "–" : v + "%"}</b></div>`;
 function compareHtml(felt, measured, mark){
-  return `<div class="ewr-cmp">${bar("How ready you felt", felt, "felt")}${bar("What your results said", measured, "meas")}${bar("Your mark", mark, "mark")}</div>`;
+  return `<div class="ewr-cmp">${bar("How ready you felt", felt, "felt")}${bar("Your practice scores", measured, "meas")}${bar("Your mark", mark, "mark")}</div>`;
 }
 
 function open(id, back){
@@ -66371,13 +66371,13 @@ function lastWrap(ex){
 const pctTxt = v => v == null ? "not measured" : v + "%";
 function lastHtml(prev){
   const w = prev.wrap, ms = (w.methods || []).map(k => (METHODS.find(x => x[0] === k) || [])[1]).filter(Boolean);
-  return `<div class="ewr-last" role="note"><b>Last time: ${esc(prev.title)}</b><span>You felt ${esc(pctTxt(w.felt))} ready, your results said ${esc(pctTxt(w.measured))}, and you got ${esc(pctTxt(w.mark))}.</span>${ms.length ? `<span>You studied by: ${esc(ms.join(", ").toLowerCase())}.</span>` : ""}${w.next ? `<span>You said next time you'd: <i>${esc(w.next)}</i></span>` : ""}</div>`;
+  return `<div class="ewr-last" role="note"><b>Last time: ${esc(prev.title)}</b><span>You felt ${esc(pctTxt(w.felt))} ready, your practice scores said ${esc(pctTxt(w.measured))}, and you got ${esc(pctTxt(w.mark))}.</span>${ms.length ? `<span>You studied by: ${esc(ms.join(", ").toLowerCase())}.</span>` : ""}${w.next ? `<span>You said next time you'd: <i>${esc(w.next)}</i></span>` : ""}</div>`;
 }
 // In an exam's view: before it, what you wrote last time; after it, your reflection (or a way to add one)
 function viewHtml(t){
   if (!isExam(t)) return "";
   if (t.status !== "done") { const prev = lastWrap(t); return prev ? lastHtml(prev) : ""; }
-  if (t.wrap) return `<div class="ewr-last ewr-mine" role="note"><b>Your reflection</b><span>You felt ${esc(pctTxt(t.wrap.felt))} ready, your results said ${esc(pctTxt(t.wrap.measured))}, and you got ${esc(pctTxt(t.wrap.mark))}.</span>${t.wrap.next ? `<span>Next time: <i>${esc(t.wrap.next)}</i></span>` : ""}<button type="button" class="link-btn" data-act="ewr-open" data-id="${esc(t.id)}">Edit</button></div>`;
+  if (t.wrap) return `<div class="ewr-last ewr-mine" role="note"><b>Your reflection</b><span>You felt ${esc(pctTxt(t.wrap.felt))} ready, your practice scores said ${esc(pctTxt(t.wrap.measured))}, and you got ${esc(pctTxt(t.wrap.mark))}.</span>${t.wrap.next ? `<span>Next time: <i>${esc(t.wrap.next)}</i></span>` : ""}<button type="button" class="link-btn" data-act="ewr-open" data-id="${esc(t.id)}">Edit</button></div>`;
   return markOf(t) != null ? `<button type="button" class="btn small ewr-btn" data-act="ewr-open" data-id="${esc(t.id)}">Reflect on This ${esc(t.type)}</button>` : "";
 }
 /* Which flashcards count toward this exam's readiness: Automatic (Studyboard matches the exam's topics, from its notes, the
