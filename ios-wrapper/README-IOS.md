@@ -4,7 +4,7 @@ This folder holds everything needed to wrap the Studyboard web build in a native
 
 | File here | Use |
 | --- | --- |
-| `capacitor.config.json` | Capacitor settings: app id `com.studioso.app`, bundled web files (no remote `server.url`), navigation allow-list, no cleartext, no native HTTP/cookie plugins. |
+| `capacitor.config.json` | Capacitor settings: app id `com.studioso.app`, bundled web files (no remote `server.url`), navigation allow-list, no cleartext, no native HTTP/cookie plugins. `ios.contentInset` is `"never"`: the page draws behind the status bar and home bar itself (`viewport-fit=cover` and `env(safe-area-inset-*)`). With `"always"` the web view added its own gap that could be pulled into view under the Dynamic Island, and fixed things like the bottom bar and the companion were misplaced. |
 | `native-bridge.js` | Small native glue loaded before the page (shared with Android): Keychain session storage, `StudyboardSecrets` for AI keys, safe external links, deep links, native push registration, RevenueCat purchases, and `StudyboardNative.device` (`"ipad"` / `"iphone"` / `"android"`: the pen tools are iPad only). |
 | `native/` | **Quick capture (UNTESTED Swift sources):** App Intents for Siri/Shortcuts, Share Extension, Capacitor plugins `StudyboardCaptureToken` and `StudyboardSharedQueue`. See `native/capture.md` and `../VOICE-CAPTURE-NATIVE.md`. `native/FocusActivity/`: the Focus timer in the Dynamic Island (section 3c). |
 | `Info.plist.additions.plist` | Keys to merge into `ios/App/App/Info.plist` (encryption flag, usage strings, push background mode, URL scheme). |
