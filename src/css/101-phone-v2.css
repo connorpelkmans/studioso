@@ -436,6 +436,11 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
 /* Keyboard open: sheets rest on top of the keyboard and stay fully on screen (header never slides under the status bar) */
 @media (max-width:639px){
   html.kb-open dialog#dlg{margin-bottom:var(--kb-h,0);max-height:calc(var(--vv-h,100dvh) - env(safe-area-inset-top,0px) - 16px)}
+  /* bars pinned to the bottom of the screen would float over what you're typing, so they step aside */
+  html.kb-open nav.tabs,html.kb-open .fab,html.kb-open .room-pill,html.kb-open .acc-chip,html.kb-open .tz-note,html.kb-open .gr-prompt{visibility:hidden!important;pointer-events:none!important}
+  html.kb-open .toast{bottom:calc(var(--kb-h,0px) + 12px)}
+  html.kb-open body::after{display:none}
+}
 }
 
 /* Edit sheets: the task's name is already in the Title box, so the band's second line (it ran down over the form) is not shown */
@@ -651,4 +656,27 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
 @media (min-width:640px){
   #view > .bview-row > .board-ctl .cf-pick{margin-right:6px}
   #view > .bview-row:has(> .pg-tabs) + .bview .bpane-board > .board-sec{margin-top:0}
+}
+
+/* Companion chat on a phone: while you type, the profile card folds down to a slim colour band and the companion so the conversation gets the
+   room, and unfolds when you're done (html.cpt-typing, set in 101-phone-v2.js). The circle keeps its size so the live
+   companion stays seated in it. */
+@media (max-width:639px){
+  html.ph-lock #view .cpt-head.cpt3{transition:padding .32s cubic-bezier(.3,.7,.2,1),gap .32s cubic-bezier(.3,.7,.2,1)}
+  html.ph-lock #view .cpt3-band{max-height:120px;transition:max-height .32s cubic-bezier(.3,.7,.2,1),padding .32s cubic-bezier(.3,.7,.2,1),opacity .2s ease}
+  html.ph-lock #view .cpt3-ring{transition:margin .32s cubic-bezier(.3,.7,.2,1)}
+  html.ph-lock #view .cpt3 .cpt-bio,html.ph-lock #view .cpt3 .cpt-id .mini{max-height:6em;overflow:hidden;transition:max-height .32s cubic-bezier(.3,.7,.2,1),opacity .2s ease}
+  html.ph-lock #view .cpt3-tabs{max-height:60px;overflow:hidden;transition:max-height .32s cubic-bezier(.3,.7,.2,1),margin .32s cubic-bezier(.3,.7,.2,1),opacity .2s ease}
+  html.ph-lock #view .cpt-priv{max-height:4em;overflow:hidden;transition:max-height .32s cubic-bezier(.3,.7,.2,1),opacity .2s ease}
+  html.ph-lock.cpt-typing #view .cpt-head.cpt3{gap:0;padding-bottom:8px!important}
+  html.ph-lock #view .cpt3-acts{transition:opacity .2s ease}
+  html.ph-lock.cpt-typing #view .cpt3-band{max-height:44px;padding-block:0!important;overflow:hidden}
+  html.ph-lock.cpt-typing #view .cpt3-acts{opacity:0;pointer-events:none}
+  html.ph-lock.cpt-typing #view .cpt3-ring{margin-top:-30px!important}
+  html.ph-lock.cpt-typing #view .cpt3 .cpt-id h2{margin-top:4px}
+  html.ph-lock.cpt-typing #view .cpt3 .cpt-bio,html.ph-lock.cpt-typing #view .cpt3 .cpt-id .mini,html.ph-lock.cpt-typing #view .cpt-priv{max-height:0;opacity:0}
+  html.ph-lock.cpt-typing #view .cpt3-tabs{max-height:0;margin-top:0;opacity:0;pointer-events:none}
+}
+@media (max-width:639px) and (prefers-reduced-motion:reduce){
+  html.ph-lock #view :is(.cpt-head.cpt3,.cpt3-band,.cpt3-acts,.cpt3-ring,.cpt-bio,.mini,.cpt3-tabs,.cpt-priv){transition:none!important}
 }

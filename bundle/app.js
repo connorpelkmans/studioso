@@ -83018,10 +83018,29 @@ const AUTOPILOT = (() => {
     const vv = window.visualViewport, vh = vv ? vv.height : innerHeight, nav = document.querySelector("nav.tabs");
     const nr = nav && getComputedStyle(nav).display !== "none" ? nav.getBoundingClientRect() : null, navTop = nr && nr.height ? nr.top : innerHeight;
     const bottom = Math.min(navTop - 12, vh - 8), top = view.getBoundingClientRect().top;
+    const log = document.getElementById("cptLog"), pin = !!log && log.scrollHeight - log.scrollTop - log.clientHeight < 60;
     view.style.height = Math.max(200, Math.floor(bottom - top)) + "px";
+    if (pin) log.scrollTop = log.scrollHeight;
   }
   if (window.visualViewport) { visualViewport.addEventListener("resize", fitChat); visualViewport.addEventListener("scroll", () => { if (root().classList.contains("ph-lock") && scrollY) scrollTo(0, 0); }); }
   const root = () => document.documentElement;
+  // Typing in the companion chat: the profile card folds away (CSS, html.cpt-typing) and comes back when you're done.
+  // The live companion is drawn on its own layer, so it is walked along with its circle while the card moves, and the
+  // newest message stays in view as the chat grows and shrinks.
+  let typeT = 0, typeRaf = 0;
+  function follow(pin){
+    cancelAnimationFrame(typeRaf); const t0 = performance.now(), log = document.getElementById("cptLog");
+    const step = () => { dispatchEvent(new Event("scroll")); if (pin && log) log.scrollTop = log.scrollHeight; if (performance.now() - t0 < 420) typeRaf = requestAnimationFrame(step); };
+    typeRaf = requestAnimationFrame(step);
+  }
+  function typing(on){
+    const r = root(); if (r.classList.contains("cpt-typing") === on) return;
+    const log = document.getElementById("cptLog"), pin = !!log && log.scrollHeight - log.scrollTop - log.clientHeight < 60;
+    r.classList.toggle("cpt-typing", on); follow(pin);
+  }
+  document.addEventListener("focusin", e => { if (e.target && e.target.id === "cptIn" && root().classList.contains("ph-lock")) { clearTimeout(typeT); typing(true); } });
+  document.addEventListener("focusout", e => { if (!e.target || e.target.id !== "cptIn") return; clearTimeout(typeT); typeT = setTimeout(() => { const a = document.activeElement; if (!(a && a.id === "cptIn")) typing(false); }, 180); });
+  hook("render", () => { const a = document.activeElement; if (!(a && a.id === "cptIn" && root().classList.contains("ph-lock"))) root().classList.remove("cpt-typing"); });
   // An Options menu closes after a choice, or a tap anywhere else
   document.addEventListener("click", e => {
     document.querySelectorAll("details.ph-more[open]").forEach(d => { if (!d.contains(e.target) || e.target.closest(".ph-menu .btn")) d.open = false; });
