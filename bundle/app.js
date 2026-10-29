@@ -17043,7 +17043,7 @@ function startDrag(){
     g.style.width = r.width + "px"; g.style.left = r.left + "px"; g.style.top = r.top + "px";
     drag.gl = r.left; drag.gt = r.top;
     document.body.appendChild(g); drag.ghost = g;
-    const ph = document.createElement("div"); ph.className = "placeholder"; ph.style.height = r.height + "px";
+    const ph = document.createElement("div"); ph.className = "placeholder sm-skip"; ph.style.height = r.height + "px";
     el.after(ph); el.style.display = "none"; drag.ph = ph;
     drag.board = el.closest(".board"); if (drag.board) drag.board.classList.add("dragging");
   } else {
@@ -17224,6 +17224,40 @@ function confetti(){
   };
   loop60(step);
 }
+/* Task Board motion: when cards change places they slide there instead of jumping (measure, move, then animate from the
+   old spot). While dragging, the other cards make room smoothly; on drop, the card glides from your finger into its slot. */
+const BF_MS = 260, BF_EASE = "cubic-bezier(.2,.8,.2,1)";
+const bfStill = () => (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) || (window.SBMotion && SBMotion.noParticles && SBMotion.noParticles());
+const bfCards = () => [...document.querySelectorAll(".board .card[data-id]:not(.ghost)")];
+function bfRects(){ const m = new Map(); if (bfStill()) return m; bfCards().forEach(c => { const r = c.getBoundingClientRect(); if (r.width) m.set(c.dataset.id, r); }); return m; }
+function bfPlay(before, skip){
+  if (!before.size) return;
+  bfCards().forEach(c => {
+    const a = before.get(c.dataset.id); if (!a || c.dataset.id === skip || !c.animate) return;
+    c.getAnimations().forEach(x => { if (x.id === "bf") x.cancel(); });
+    const b = c.getBoundingClientRect(); if (!b.width) return;
+    const dx = a.left - b.left, dy = a.top - b.top; if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+    c.animate([{transform: `translate(${dx}px,${dy}px)`}, {transform: "none"}], {duration: BF_MS, easing: BF_EASE}).id = "bf";
+  });
+}
+let bfLand = null;
+hook("render", () => {
+  const L = bfLand; if (!L) return; bfLand = null;
+  queueMicrotask(() => bfLanded(L));   // once the redraw has finished settling the page (scroll, focus), before it paints
+});
+function bfLanded(L){
+  const g = L.ghost, gr = g.isConnected ? g.getBoundingClientRect() : null;
+  bfPlay(L.before, L.id);
+  const el = bfCards().find(c => c.dataset.id === L.id);
+  g.remove();
+  if (!el || !gr || !el.animate || bfStill() || performance.now() - L.at > 1500) return;
+  const f = el.getBoundingClientRect(); if (!f.width) return;
+  const dx = gr.left + gr.width / 2 - (f.left + f.width / 2), dy = gr.top + gr.height / 2 - (f.top + f.height / 2);
+  el.style.zIndex = 5; el.style.position = el.style.position || "relative";
+  const a = el.animate([{transform: `translate(${dx}px,${dy}px) rotate(2deg) scale(1.03)`, boxShadow: "0 14px 30px rgba(0,0,0,.28)"}, {transform: "none", boxShadow: getComputedStyle(el).boxShadow}],
+    {duration: Math.round(Math.min(420, 220 + Math.hypot(dx, dy) * 0.35)), easing: "cubic-bezier(.22,.9,.25,1)"});
+  a.id = "bf"; a.onfinish = a.oncancel = () => { el.style.zIndex = ""; if (el.style.position === "relative") el.style.position = ""; };
+}
 function placeAt(x, y){
   const under = document.elementFromPoint(x, y);
   const col = under && under.closest(".col");
@@ -17236,8 +17270,11 @@ function placeAt(x, y){
   const cards = [...col.querySelectorAll(".card")].filter(c => c !== drag.el && shown(c));
   let before = null;
   for (const c of cards) { const r = c.getBoundingClientRect(); if (y < r.top + r.height / 2) { before = c; break; } }
-  if (before) { if (drag.ph.nextElementSibling !== before) before.parentNode.insertBefore(drag.ph, before); }
-  else if (list.lastElementChild !== drag.ph) list.appendChild(drag.ph);
+  const moves = before ? drag.ph.nextElementSibling !== before : list.lastElementChild !== drag.ph; if (!moves) return;
+  const was = bfRects(), fresh = !drag.ph.parentNode;
+  if (before) before.parentNode.insertBefore(drag.ph, before); else list.appendChild(drag.ph);
+  bfPlay(was);
+  if (!fresh && drag.ph.animate && was.size) drag.ph.animate([{opacity: 0, transform: "scaleY(.6)"}, {opacity: 1, transform: "none"}], {duration: 180, easing: BF_EASE});
 }
 function endDrag(ok){
   cancelAnimationFrame(drag.raf);
@@ -17274,7 +17311,9 @@ function endDrag(ok){
     toast(label, redo, shiftOffer(t.id));
     return;
   }
-  d.ghost.remove();
+  // the ghost stays where it was let go until the board redraws, then the card glides from there (see bfLand)
+  bfLand = {id: (d.el && d.el.dataset && d.el.dataset.id) || d.id, ghost: d.ghost, before: bfRects(), at: performance.now()};
+  { const g = d.ghost; setTimeout(() => { if (g.isConnected) g.remove(); if (bfLand && bfLand.ghost === g) bfLand = null; }, 1500); }
   if (d.board) d.board.classList.remove("dragging");
   $$(".col.over").forEach(c => c.classList.remove("over"));
   if (d.el && d.el.dataset && d.el.dataset.gt) {
