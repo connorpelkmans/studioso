@@ -510,7 +510,7 @@ const AI_COPY = "Copyright rule (always follow it, even if asked otherwise): the
 const AI_COPY_TASKS = new Set(["cards", "quiz", "cases", "practice", "explain", "summary", "tutor", "topics", "photo", "ask"]);
 const aiCopyRule = (system, task) => AI_COPY_TASKS.has(task) && typeof system === "string" && !system.includes(AI_COPY) ? system + " " + AI_COPY : system;
 /* One call, any provider */
-async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0.4, onStatus, fast = false, timeout, auto = false, task = "", signal, search = false}){
+async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0.4, onStatus, fast = false, timeout, auto = false, task = "", signal, search = false, urlContext = false}){
   let cfg = aiCfg();
   try { if (window.SBAREA) system = SBAREA.aiSystem(system); } catch (e) {}
   system = aiCopyRule(system, task);
@@ -518,7 +518,7 @@ async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0
   if (inPreview()) throw aiErr("preview", "AI features work in the Studyboard app and on your website, not in this preview.");
   if (!cfg.key) throw aiErr("nokey", "Set up AI in Settings first.");
   if (cfg.provider === "trial") {
-    const why = parts.some(x => x.text == null) ? "files" : search ? "search" : aiTrialLeft().today === 0 ? "today" : "";
+    const why = parts.some(x => x.text == null) ? "files" : search || urlContext ? "search" : aiTrialLeft().today === 0 ? "today" : "";
     if (why) { aiTrialPrompt(why); throw aiErr("trial-" + why, AI_TRIAL_WORDS[why].err); }
   }
   if (!aiConsented(cfg.provider)) {
@@ -529,21 +529,25 @@ async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0
   const slow = onStatus ? setTimeout(() => onStatus(fast ? "Still thinking…" : "Still working. Big files can take up to a minute…"), fast ? 9000 : 20000) : null;
   try {
     if (cfg.provider === "trial") return await trialCall({system, parts, schema, maxTokens, temperature, ms, task, signal});
-    if (cfg.provider === "anthropic") return await claudeCall(cfg, {system, parts, schema, maxTokens, ms, signal, search});
-    if (cfg.provider === "openai") return await openaiCall(cfg, {system, parts, schema, maxTokens, ms, signal, search});
-    return await geminiCall(cfg, {system, parts, schema, maxTokens, temperature, fast, ms, task, signal, search});
+    if (cfg.provider === "anthropic") return await claudeCall(cfg, {system, parts, schema, maxTokens, ms, signal, search, urlContext});
+    if (cfg.provider === "openai") return await openaiCall(cfg, {system, parts, schema, maxTokens, ms, signal, search, urlContext});
+    return await geminiCall(cfg, {system, parts, schema, maxTokens, temperature, fast, ms, task, signal, search, urlContext});
   } finally { clearTimeout(slow); }
 }
-async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, fast, ms, task, signal, search}){
+// urlContext (opt-in): the model may open the web pages named in the request (Gemini url_context, Claude web fetch, ChatGPT web search).
+// Like search, it answers in plain text (JSON is parsed from it), and r.fetched lists the pages it tried: [{url, ok, status}]
+async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, fast, ms, task, signal, search, urlContext}){
   const T = aiTask(task, fast), models = geminiOrder(cfg.model, T.tier);
   let thinking = true, lastErr = null, roomy = false;
   const bodyFor = () => {
     // a retry after running out of room: twice the room, and less of it spent thinking
     const gc = {temperature, maxOutputTokens: roomy ? Math.min(32768, maxTokens * 2) : maxTokens};
-    if (!search) { gc.responseMimeType = "application/json"; if (schema) gc.responseSchema = schema; }
+    if (!search && !urlContext) { gc.responseMimeType = "application/json"; if (schema) gc.responseSchema = schema; }
+    if (parts.some(p => p && p.file_data)) gc.mediaResolution = "MEDIA_RESOLUTION_LOW";
     if (thinking) gc.thinkingConfig = {thinkingLevel: roomy ? "low" : T.think};
     const body = {contents: [{role: "user", parts}], systemInstruction: {parts: [{text: system}]}, generationConfig: gc};
     if (search) body.tools = [{google_search: {}}];
+    if (urlContext) body.tools = (body.tools || []).concat({url_context: {}});
     return JSON.stringify(body);
   };
   for (let i = 0; i < models.length; i++) {
@@ -565,7 +569,8 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
       if (data) {
         aiMemSet(x => { x.good = m; if (x.cool) delete x.cool[m]; });
         const sources = search ? (((cand.groundingMetadata || {}).groundingChunks) || []).map(c => c && c.web ? {url: String(c.web.uri || ""), title: String(c.web.title || "")} : null).filter(Boolean) : undefined;
-        return {data, model: m, provider: "gemini", truncated: cand.finishReason === "MAX_TOKENS", sources};
+        const fetched = urlContext ? (((cand.urlContextMetadata || cand.url_context_metadata || {}).urlMetadata || (cand.urlContextMetadata || cand.url_context_metadata || {}).url_metadata) || []).map(u => { const st = String(u.urlRetrievalStatus || u.url_retrieval_status || ""); return {url: String(u.retrievedUrl || u.retrieved_url || ""), ok: /SUCCESS/.test(st), status: st.replace(/^URL_RETRIEVAL_STATUS_/, "").toLowerCase()}; }) : undefined;
+        return {data, model: m, provider: "gemini", truncated: cand.finishReason === "MAX_TOKENS", sources, fetched};
       }
       // Out of room with nothing usable: thinking or a stuck, repeating answer can do this even on small jobs, so retry before giving up
       if (cand.finishReason === "MAX_TOKENS") {
@@ -581,7 +586,7 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
     if (res.status === 401 || res.status === 403 || (res.status === 400 && /api[ _-]?key/i.test(msg))) throw aiErr("key", "Google didn't accept your Gemini key. Check it in Settings, then AI Features.");
     if (res.status === 413 || /too large|payload size|exceeds.*(size|limit)/i.test(msg)) throw aiErr("big", "Those files are too big to send at once. Try fewer or smaller files (PDF works best).");
     if (res.status === 404 || (res.status === 400 && /model/i.test(msg) && !/token|size|large/i.test(msg))) { lastErr = lastErr || aiErr("model", `The model ${m} isn't available on your key.`); continue; }
-    if (res.status === 429) { if (!search) aiMemSet(x => { x.cool = x.cool || {}; x.cool[m] = Date.now() + (/day|daily|per ?day/i.test(msg) ? 6 * 3600000 : 70000); }); lastErr = aiErr("limit", "You've used up the free AI requests for now. Wait a minute and try again (if it's the daily limit, it resets tomorrow)." + (msg ? ` Google said (${m}${search ? ", web search" : ""}): ${String(msg).replace(/\s+/g, " ").slice(0, 200)}` : "")); continue; }
+    if (res.status === 429) { if (!search && !urlContext) aiMemSet(x => { x.cool = x.cool || {}; x.cool[m] = Date.now() + (/day|daily|per ?day/i.test(msg) ? 6 * 3600000 : 70000); }); lastErr = aiErr("limit", "You've used up the free AI requests for now. Wait a minute and try again (if it's the daily limit, it resets tomorrow)." + (msg ? ` Google said (${m}${search ? ", web search" : ""}): ${String(msg).replace(/\s+/g, " ").slice(0, 200)}` : "")); continue; }
     if (res.status >= 500) { aiMemSet(x => { x.cool = x.cool || {}; x.cool[m] = Date.now() + 3 * 60000; }); lastErr = aiErr("busy", "Google's AI is very busy right now. Try again in a minute."); continue; }
     throw aiErr("http", msg ? "The AI couldn't do that: " + msg.slice(0, 180) : "The AI couldn't do that right now (error " + res.status + ").");
   }
@@ -723,13 +728,22 @@ function claudeBlocks(parts){
     throw aiErr("type", "Claude can't read HEIC photos. Save the photo as JPG or PNG, or switch to Gemini.");
   });
 }
-async function claudeCall(cfg, {system, parts, schema, maxTokens, ms, signal, search}){
+const CLAUDE_NO_FORCED = /^claude-(opus-5-5|sonnet-5-5|fable-5-1|mythos-5-1)/;
+async function claudeCall(cfg, {system, parts, schema, maxTokens, ms, signal, search, urlContext}){
   const body = {model: cfg.model, max_tokens: Math.min(maxTokens, 16000), system, messages: [{role: "user", content: claudeBlocks(parts)}]};
-  if (schema && !search) { body.tools = [{name: "answer", description: "Give your answer in this exact structure.", input_schema: toJsonSchema(schema)}]; body.tool_choice = {type: "tool", name: "answer"}; }
+  if (schema && !search && !urlContext) {
+    body.tools = [{name: "answer", description: "Give your answer in this exact structure.", input_schema: toJsonSchema(schema)}];
+    // Newer models refuse a forced tool call (400), so they're asked to use it instead
+    if (CLAUDE_NO_FORCED.test(String(cfg.model || ""))) { body.tool_choice = {type: "auto"}; body.system = `${system || ""}\n\nGive your whole answer by calling the answer tool once, with nothing else.`.trim(); }
+    else body.tool_choice = {type: "tool", name: "answer"};
+  }
   if (search) body.tools = [{type: "web_search_20250305", name: "web_search", max_uses: 4}];
+  if (urlContext) body.tools = (body.tools || []).concat({type: "web_fetch_20250910", name: "web_fetch", max_uses: 3, max_content_tokens: 60000});
+  const hdr = {"content-type": "application/json", "x-api-key": cfg.key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true"};
+  if (urlContext) hdr["anthropic-beta"] = "web-fetch-2025-09-10";
   for (let attempt = 0; attempt < 2; attempt++) {
     let res;
-    try { res = await fetchT("https://api.anthropic.com/v1/messages", {method: "POST", headers: {"content-type": "application/json", "x-api-key": cfg.key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true"}, body: JSON.stringify(body)}, ms, signal); }
+    try { res = await fetchT("https://api.anthropic.com/v1/messages", {method: "POST", headers: hdr, body: JSON.stringify(body)}, ms, signal); }
     catch(e) { if (signal && signal.aborted) throw aiErr("cancelled", "Canceled."); if (e && e.name === "AbortError") throw aiErr("slow", "Claude took too long to answer. Try again, or use fewer files."); throw offlineErr("Anthropic"); }
     if (res.ok) {
       const j = await res.json().catch(() => ({}));
@@ -738,7 +752,8 @@ async function claudeCall(cfg, {system, parts, schema, maxTokens, ms, signal, se
       const data = tool ? tool.input : aiParseJson(blocks.filter(b => b.type === "text").map(b => b.text).join(""));
       if (data && typeof data === "object") {
         const sources = search ? blocks.flatMap(b => b.type === "web_search_tool_result" && Array.isArray(b.content) ? b.content.filter(x => x && x.url).map(x => ({url: String(x.url), title: String(x.title || "")})) : []) : undefined;
-        return {data, model: cfg.model, provider: "anthropic", truncated: j.stop_reason === "max_tokens", sources};
+        const fetched = urlContext ? blocks.filter(b => b.type === "web_fetch_tool_result").map(b => { const c = b.content || {}, err = c.type === "web_fetch_tool_error" || c.error_code; return {url: String(c.url || ""), ok: !err, status: err ? String(c.error_code || "error") : "success"}; }) : undefined;
+        return {data, model: cfg.model, provider: "anthropic", truncated: j.stop_reason === "max_tokens", sources, fetched};
       }
       if (j.stop_reason === "max_tokens") throw aiErr("long", "That was too much to make in one go. Ask for fewer cards or questions, or use fewer files.");
       throw aiErr("bad", "Claude's answer came back garbled. Try again.");
@@ -764,10 +779,10 @@ function openaiContent(parts){
     throw aiErr("type", "ChatGPT can't read HEIC photos. Save the photo as JPG or PNG, or switch to Gemini.");
   });
 }
-async function openaiCall(cfg, {system, parts, schema, maxTokens, ms, signal, search}){
+async function openaiCall(cfg, {system, parts, schema, maxTokens, ms, signal, search, urlContext}){
   const body = {model: cfg.model, instructions: system, input: [{role: "user", content: openaiContent(parts)}], max_output_tokens: Math.max(1024, maxTokens), store: false};
-  if (schema && !search) body.text = {format: {type: "json_schema", name: "answer", schema: toJsonSchema(schema), strict: false}};
-  if (search) body.tools = [{type: "web_search"}];
+  if (schema && !search && !urlContext) body.text = {format: {type: "json_schema", name: "answer", schema: toJsonSchema(schema), strict: false}};
+  if (search || urlContext) body.tools = [{type: "web_search"}];
   for (let attempt = 0; attempt < 2; attempt++) {
     let res;
     try { res = await fetchT("https://api.openai.com/v1/responses", {method: "POST", headers: {"Content-Type": "application/json", "Authorization": "Bearer " + cfg.key}, body: JSON.stringify(body)}, ms, signal); }
@@ -1043,6 +1058,7 @@ function aiStudySheet(deckId, mode){
       </div>
       <ul class="ai-srcs" id="aiSrcs"></ul>
       <details id="aiPasteD"><summary>Or Paste Notes or Text</summary><textarea id="aiPaste" style="min-height:110px;margin-top:8px" placeholder="Paste lecture notes, a study guide or a chapter summary…" data-noenter></textarea></details>
+      ${window.SBLINKCARDS && mode !== "quiz" ? SBLINKCARDS.html() : ""}
       <fieldset><legend>Make</legend>
         <div class="ai-make"><label class="mi-check"><input type="checkbox" id="aiCards" checked> Flashcards</label>${seg("aiCardN", [["auto", "Auto"], ["10", "10"], ["20", "20"], ["30", "30"], ["50", "50"]], "auto")}</div>
         <div class="ai-make"><label class="mi-check"><input type="checkbox" id="aiQuiz" checked> Practice quiz</label>${seg("aiQuizN", [["5", "5"], ["10", "10"], ["20", "20"], ["30", "30"]], "10")}</div>
@@ -1110,15 +1126,16 @@ function aiStudySheet(deckId, mode){
   $("#aiGo").addEventListener("click", async () => {
     if (job.busy) return;
     const pasted = $("#aiPaste").value.trim();
-    const sources = job.sources.slice();
+    const sources = job.sources.slice(), viaLink = !!(window.SBLINKCARDS && mode !== "quiz" && SBLINKCARDS.claims(dlg));
     if (pasted) sources.push({name: "Pasted notes", kind: "Text", size: pasted.length, part: {text: "Pasted notes:\n\n" + pasted}});
-    if (!sources.length) { status.textContent = "Add at least one file, or paste some notes."; return; }
+    if (!sources.length && !viaLink) { status.textContent = "Add at least one file, or paste some notes."; return; }
     if (sources.reduce((s, x) => s + aiSourceBytes(x), 0) > AI_LIMIT_BYTES) { status.textContent = "That's more than can be sent at once. Remove some files, or split big PDFs."; return; }
     const wantCards = $("#aiCards").checked, wantQuiz = $("#aiQuiz").checked, wantCase = $("#aiCase").checked;
     if (!wantCards && !wantQuiz && !wantCase) { status.textContent = "Pick flashcards, a quiz, case studies, or a mix."; return; }
     const val = n => (dlg.querySelector(`input[name=${n}]:checked`) || {}).value;
     const custom = $("#aiStyle").value.trim(), picks = $$(".ai-styles .chip.on", dlg).map(b => Number(b.dataset.style));
     const {style, name: styleName} = aiComposeStyle(custom, picks), cId = deck ? deck.courseId : ($("#aiCourse") ? $("#aiCourse").value : "");
+    if (viaLink) { SBLINKCARDS.run({deck, courseId: cId, mode, job, files: job.sources.slice(), pasted, style, styleName, custom, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10"}); return; }
     job.busy = true; const go = $("#aiGo"); go.disabled = true; go.classList.add("busy");
     const ac = typeof AbortController === "function" ? new AbortController() : null;
     if (ac) dlg.addEventListener("close", () => ac.abort(), {once: true});
@@ -1190,7 +1207,7 @@ function aiReviewSheet(r, ctx){
     d.updated = Date.now();
     dlg.close(); ui.tab = "flashcards"; ui.fc = null;
     if (!keepC.length) { ui.deckId = null; rvSet("quizzes"); } else { ui.deckId = d.id; rvSet("cards"); }
-    saveDeck(d, `Saved ${keepC.length ? keepC.length + " card" + (keepC.length === 1 ? "" : "s") : ""}${keepC.length && keepQ.length ? " and " : ""}${keepQ.length ? "a " + keepQ.length + "-question quiz" : ""}${(keepC.length || keepQ.length) && keepCs.length ? " and " : ""}${keepCs.length ? keepCs.length + " case stud" + (keepCs.length === 1 ? "y" : "ies") : ""} to ${d.name}`);
+    (ctx.withSave ? (x, l) => applyChanges([{kind: "deck", id: x.id, after: x}].concat(ctx.withSave(x) || []), l) : saveDeck)(d, `Saved ${keepC.length ? keepC.length + " card" + (keepC.length === 1 ? "" : "s") : ""}${keepC.length && keepQ.length ? " and " : ""}${keepQ.length ? "a " + keepQ.length + "-question quiz" : ""}${(keepC.length || keepQ.length) && keepCs.length ? " and " : ""}${keepCs.length ? keepCs.length + " case stud" + (keepCs.length === 1 ? "y" : "ies") : ""} to ${d.name}`);
     if (ctx.fromCards && keepQ.length && !keepC.length) { startAiQuiz(d.id, qzId); return; }
     window.scrollTo(0, 0);
   });
