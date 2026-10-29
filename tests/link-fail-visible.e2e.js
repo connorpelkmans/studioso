@@ -73,13 +73,19 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
     ok(!errs.length, "no page errors " + errs.join(" | "));
     await ctx.close();
     // The video never reached Gemini (a few hundred tokens read, an "empty" answer in no time): one plain retry
-    for (const mode of ["plain-works", "never", "choke-then-plain", "choke-always"]) {
+    for (const mode of ["plain-works", "never", "choke-then-plain", "choke-always", "cutoff", "seen-empty"]) {
       const c2 = await browser.newContext({viewport: {width: 1381, height: 961}, serviceWorkers: "block"}); const bodies = [];
       await c2.route(/generativelanguage\.googleapis\.com/, async route => {
         const body = route.request().postData() || ""; if (/file_uri/.test(body)) bodies.push(JSON.parse(body));
         const vid = /file_uri/.test(body), plain = vid && !/mime_type/.test(body);
         const choke = vid && (mode === "choke-always" || (mode === "choke-then-plain" && !plain));
         if (choke) { try { route.fulfill({status: 500, contentType: "application/json", body: JSON.stringify({error: {code: 500, message: "An internal error has occurred. Please retry or report in https://developers.generativeai.google/guide/troubleshooting", status: "INTERNAL"}})}); } catch (e) {} return; }
+        if (vid && mode === "cutoff") {
+          const res = {status: 200, contentType: "application/json", body: JSON.stringify({candidates: [{content: {parts: [{text: '{"status": "ok", "title": "iPhone Duo Review", "overview": "The rev'}]}, finishReason: "MAX_TOKENS"}]})};
+          res.body = JSON.stringify(Object.assign(JSON.parse(res.body), {usageMetadata: {promptTokenCount: 41000}}));
+          try { route.fulfill(res); } catch (e) {} return;
+        }
+        if (vid && mode === "seen-empty") { const res = gem(JSON.stringify({status: "empty", reason: "The video is a phone review with no teaching."})); res.body = JSON.stringify(Object.assign(JSON.parse(res.body), {usageMetadata: {promptTokenCount: 41000}})); try { route.fulfill(res); } catch (e) {} return; }
         const seen = vid && /plain/.test(mode) && plain;
         const usage = {usageMetadata: {promptTokenCount: seen ? 42000 : 600}};
         const res = gem(vid ? JSON.stringify(seen ? VIDEO_NOTES : {status: "empty"}) : /small, cute study companion/.test(body) ? JSON.stringify({line: "hi"}) : JSON.stringify(CARDS));
@@ -93,7 +99,17 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
       await p2.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "fc-ai"; document.body.appendChild(b); b.click(); b.remove(); }); await p2.waitForSelector("#aiGo");
       if (!(await p2.evaluate(() => document.getElementById("aiLinkD").open))) await p2.click("#aiLinkD summary");
       await p2.fill("#aiLink", "https://www.youtube.com/watch?v=ESABTN4VtrA"); await p2.click("#aiGo");
-      if (/plain/.test(mode)) {
+      if (mode === "cutoff") {
+        await p2.waitForFunction(() => /too long/.test((document.getElementById("aiStatus") || {}).textContent || ""), null, {timeout: 15000}).catch(() => {});
+        ok(/That video is too long to cover in one go/.test(await p2.textContent("#aiStatus")), "notes that run out of room even at the maximum say the video is too long: " + await p2.textContent("#aiStatus"));
+        ok(bodies.length === 1 && bodies[0].generationConfig.maxOutputTokens === 65536, "the video gets the most room Gemini allows (65536 tokens) from the start, and isn't watched again: " + bodies.map(b => b.generationConfig.maxOutputTokens));
+      } else if (mode === "seen-empty") {
+        await p2.waitForFunction(() => /anything to study/.test((document.getElementById("aiStatus") || {}).textContent || ""), null, {timeout: 15000}).catch(() => {});
+        const t = await p2.textContent("#aiStatus");
+        ok(bodies.length === 1, "a video Gemini watched and found empty isn't watched a second time (" + bodies.length + " looks)");
+        ok(/said: The video is a phone review with no teaching/.test(t), "the AI's reason is in the message: " + t);
+        ok(/read 41,000 tokens, answer complete, status empty, 0 characters of notes/.test(await p2.evaluate(() => (document.querySelector("#aiStatus .cl-diag") || {}).textContent || "")), "and Details shows what came back: " + await p2.evaluate(() => (document.querySelector("#aiStatus .cl-diag") || {}).textContent || ""));
+      } else if (/plain/.test(mode)) {
         await p2.waitForFunction(() => /Review Before Saving/.test((document.querySelector("#dlg[open]") || {}).textContent || ""), null, {timeout: 15000}).catch(() => {});
         ok(/Review Before Saving/.test(await p2.evaluate(() => (document.querySelector("#dlg[open]") || {}).textContent || "")), "when the video didn't reach Gemini, one plain retry gets it, and the cards come through");
         const last = bodies[bodies.length - 1].contents[0].parts[0];

@@ -549,6 +549,7 @@ async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0
 }
 // urlContext (opt-in): the model may open the web pages named in the request (Gemini url_context, Claude web fetch, ChatGPT web search).
 // Like search, it answers in plain text (JSON is parsed from it), and r.fetched lists the pages it tried: [{url, ok, status}]
+const GEM_MAX_OUT = 65536;
 async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, fast, ms, task, signal, search, urlContext}){
   const T = aiTask(task, fast), models = geminiOrder(cfg.model, T.tier);
   // A short text request that hasn't answered in 25 seconds is stuck (an overloaded free model), so the next model gets a turn instead of waiting minutes
@@ -568,7 +569,8 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
     for (let tries = 0; tries < 4; tries++) {
       const bodyFor = () => {
         // a retry after running out of room: twice the room, and less of it spent thinking
-        const gc = {temperature, maxOutputTokens: roomy ? Math.min(32768, maxTokens * 2) : maxTokens};
+        // Gemini's Flash models write at most 65,536 tokens in one answer
+        const gc = {temperature, maxOutputTokens: roomy ? Math.min(GEM_MAX_OUT, Math.max(maxTokens, maxTokens * 2)) : Math.min(GEM_MAX_OUT, maxTokens)};
         if (!search && !urlContext) { gc.responseMimeType = "application/json"; if (schema) gc.responseSchema = schema; }
         if (parts.some(p => p && p.file_data)) gc.mediaResolution = "MEDIA_RESOLUTION_LOW";
         if (thinking) gc.thinkingConfig = {thinkingLevel: roomy ? "low" : T.think};
@@ -605,8 +607,9 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
         }
         // Out of room with nothing usable: thinking or a stuck, repeating answer can do this even on small jobs, so retry before giving up
         if (cand.finishReason === "MAX_TOKENS") {
-          if (!roomy) { roomy = true; continue; }
-          return {err: aiErr("long", task === "photo" ? "Couldn't finish reading that. Try again, or use fewer photos at once." : "That was too much to make in one go. Ask for fewer cards or questions, or use fewer files.")};
+          if (!roomy && maxTokens < GEM_MAX_OUT) { roomy = true; continue; }
+          // a video or file that ran out of room twice won't do better on another model, and each try costs a full pass over it
+          return {err: aiErr("long", task === "photo" ? "Couldn't finish reading that. Try again, or use fewer photos at once." : "That was too much to make in one go. Ask for fewer cards or questions, or use fewer files."), fatal: media};
         }
         return {err: aiErr("bad", "The AI's answer came back garbled. Try again.")};
       }
