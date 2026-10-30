@@ -43,14 +43,14 @@ async function open(b, idiom){
       // the keyboard: the app shrinks above it (keyboard plugin), and the page hears when it opens
       ok(await page.evaluate(() => document.documentElement.classList.contains("kb-native") && window.__kbBar === false), "keyboard: the app fits itself above the keyboard and hides the arrows-and-Done bar");
       await page.evaluate(() => { window.__sbSync.ui.tab = "tasks"; window.__sbSync.render(); window.__kbL.keyboardWillShow({keyboardHeight: 336}); visualViewport.dispatchEvent(new Event("resize")); }); await page.waitForTimeout(150);
-      ok(await page.evaluate(() => document.documentElement.classList.contains("kb-open") && getComputedStyle(document.querySelector("nav.tabs")).visibility === "hidden"), "keyboard up: the tab bar steps aside (and a viewport resize doesn't undo it)");
+      ok(await page.evaluate(() => document.documentElement.classList.contains("kb-open") && getComputedStyle(document.querySelector("nav.tabs")).visibility !== "hidden"), "keyboard up: the tab bar stays where it is (the keyboard simply covers it), so it never has to come back");
       // a blip (iOS reporting close-then-open at once, as focus moves between boxes): the tab bar never blinks
       const blip = await page.evaluate(() => new Promise(res => { let hidden = 0, anim = 0; const nav = document.querySelector("nav.tabs"), t0 = performance.now();
         window.__kbL.keyboardWillHide(); setTimeout(() => window.__kbL.keyboardWillShow({keyboardHeight: 336}), 20);
         const look = () => { const r = document.documentElement; if (!r.classList.contains("kb-open")) hidden++; if (nav.getAnimations().length) anim++; if (performance.now() - t0 < 300) requestAnimationFrame(look); else res({hidden, anim}); }; requestAnimationFrame(look); }));
       ok(blip.hidden === 0 && blip.anim === 0, "a keyboard blip (closed and reopened at once) changes nothing on screen: " + JSON.stringify(blip));
       await page.evaluate(() => window.__kbL.keyboardWillHide()); await page.waitForTimeout(80);
-      ok(await page.evaluate(() => getComputedStyle(document.querySelector("nav.tabs")).visibility === "hidden"), "keyboard closing: the tab bar waits for the app to grow back instead of showing at the old bottom edge");
+      ok(await page.evaluate(() => getComputedStyle(document.querySelector("nav.tabs")).visibility !== "hidden" && !document.querySelector("nav.tabs").getAnimations().length), "keyboard closing: the tab bar is just there, with no wait and no fade-in");
       await page.waitForTimeout(500);
       ok(await page.evaluate(() => !document.documentElement.classList.contains("kb-open") && getComputedStyle(document.querySelector("nav.tabs")).visibility !== "hidden"), "keyboard down: the tab bar is back");
       await page.waitForTimeout(400);

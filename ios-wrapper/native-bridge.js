@@ -379,13 +379,8 @@
       // iOS also reports the keyboard closing when the app comes back to the front, with no keyboard having been open:
       // that's ignored, so the tab bar is never hidden for it
       if (!isOpen && !r.classList.contains("kb-open")) return;
-      hideT = setTimeout(function () {
-        isOpen = false; r.classList.remove("kb-open");
-        // closing: the bars come back once the app has grown back into place, then fade in there (kb-back)
-        r.classList.add("kb-closing"); clearTimeout(closeT);
-        closeT = setTimeout(function () { r.classList.remove("kb-closing"); r.classList.add("kb-back"); clearTimeout(backT); backT = setTimeout(function () { r.classList.remove("kb-back"); }, 300); }, 380);
-        apply();
-      }, 60);
+      // the keyboard slides over the app (resize "none"), so the tab bar never had to move: it's simply there when it closes
+      hideT = setTimeout(function () { isOpen = false; r.classList.remove("kb-open"); apply(); }, 60);
     };
     addEventListener("resize", apply);
     // coming back to the app: no keyboard is up any more, and the bars are simply there (no waiting, no fade)

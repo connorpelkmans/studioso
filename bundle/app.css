@@ -7037,7 +7037,7 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
   html.kb-native dialog#dlg{transition:margin-bottom .3s cubic-bezier(.32,.72,0,1)}
   html.kb-native .note.editing.n-sheet{transition:bottom .3s cubic-bezier(.32,.72,0,1),max-height .3s cubic-bezier(.32,.72,0,1)}
   /* bars pinned to the bottom of the screen would float over what you're typing, so they step aside */
-  html.kb-open nav.tabs,html.kb-open .fab,html.kb-open .room-pill,html.kb-open .acc-chip,html.kb-open .tz-note,html.kb-open .gr-prompt{visibility:hidden!important;pointer-events:none!important}
+  html.kb-open:not(.kb-native) nav.tabs,html.kb-open:not(.kb-native) .fab,html.kb-open .room-pill,html.kb-open .acc-chip,html.kb-open .tz-note,html.kb-open .gr-prompt{visibility:hidden!important;pointer-events:none!important}
   html.kb-open .toast{bottom:calc(var(--kb-h,0px) + 12px)}
   /* the keyboard closing (iPhone app): the bars stay away until the app has grown back into place, then fade in there */
   html.kb-closing:not(.kb-open) :is(nav.tabs,.fab){visibility:hidden!important}
