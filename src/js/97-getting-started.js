@@ -39,8 +39,6 @@
       done: () => { if (get().focus) return true; try { return SBSTATS.totalFocusMinutes() > 0; } catch (e) { return false; } }, go: () => { if (dlg.open) dlg.close(); openPomo(); }},
     {id: "note", t: "Make a note", s: "Pin a quick thought to your board, or press and hold anywhere on it.",
       done: () => notesArr().length > 0, go: () => goTab("notes")},
-    {id: "deck", t: "Make a flashcard deck", s: "Write a few cards, or let AI make them from your notes.",
-      done: () => decksArr().length > 0, go: () => goTab("flashcards")},
     // Only where automatic backups work (not every browser can save to a folder)
     {id: "backups", t: "Set up backups", s: "Save a copy to Google Drive or OneDrive every hour.", here: () => !!(window.SBOB && SBOB.backupsHere && SBOB.backupsHere()),
       done: () => !!(window.SBOB && SBOB.backupOn && SBOB.backupOn()), go: () => fire("act", "ob-backup", document.body, "")},
