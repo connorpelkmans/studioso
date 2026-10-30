@@ -87,7 +87,7 @@ private struct LockCard: View {
         HStack(spacing: 14) {
             Tomato(s: s, size: 34)
             VStack(alignment: .leading, spacing: 2) {
-                Text(s.pausedLeft > 0 ? "\(s.label), paused" : s.label).font(.headline).foregroundStyle(ink).lineLimit(1)
+                Text(s.pausedLeft > 0 ? "\(s.label) (Paused)" : s.label).font(.headline).foregroundStyle(ink).lineLimit(1)
                 if !s.task.isEmpty { Text(s.task).font(.subheadline).foregroundStyle(muted).lineLimit(1) }
             }
             .layoutPriority(1)
