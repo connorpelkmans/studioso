@@ -18,12 +18,15 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
         // The page says its background colour (native-bridge.js, "sbBg"), so the app's own frame behind it matches the theme:
         // no dark strip shows while the app grows back after the keyboard closes
         bridge?.webView?.configuration.userContentController.add(self, name: "sbBg")
+        // While the keyboard closes the app grows back before the page has drawn its new bottom part; with the web view see-
+        // through, that strip shows this view's colour (the theme's, below) instead of a block of the default navy
+        bridge?.webView?.isOpaque = false
     }
 
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.name == "sbBg", let hex = message.body as? String, let colour = MainViewController.colour(hex) else { return }
         view.backgroundColor = colour
-        bridge?.webView?.backgroundColor = colour
+        bridge?.webView?.backgroundColor = .clear
         bridge?.webView?.scrollView.backgroundColor = colour
     }
 

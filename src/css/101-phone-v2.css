@@ -213,8 +213,7 @@
   html.ph-lock #view .cpt-pane > .cpt-log{flex:1 1 auto;min-height:0!important;max-height:none!important;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
   html.ph-lock #view .cpt-form{position:static!important}
   @media (max-height:700px){html.ph-lock #view .cpt-priv{display:none}}
-  /* a short screen (or large text): the starter questions in one row that scrolls sideways, so the box never cuts them off */
-  @media (max-height:760px){html.ph-lock #view .cpt-empty .cpt-chips{flex-wrap:nowrap!important;justify-content:flex-start!important;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;width:100%;max-width:100%;min-width:0;justify-self:stretch;box-sizing:border-box}html.ph-lock #view .cpt-empty .cpt-chips .chip{flex:none;white-space:nowrap}}
+  /* the starter questions always stack (the chat scrolls if there's no room) */
   /* Notes / Groups */
   #view > .pview-tabs.ph-solo .ph-solo-t{flex:1;display:flex;align-items:center;justify-content:center;min-height:42px;color:var(--ink);font:800 1.3rem var(--display);letter-spacing:-.01em}
   #view > .pview-tabs.ph-solo{justify-content:center}
@@ -673,7 +672,7 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
   html.ph-lock #view .cpt3-mini > :first-child{width:34px;height:34px;flex:none;border-radius:50%;background:color-mix(in srgb,var(--c) 14%,#fff);box-shadow:0 0 0 2px rgba(255,255,255,.85);display:grid;place-items:center;overflow:hidden;opacity:0;transition:none;will-change:transform}
   html.ph-lock #view .cpt3-mini .cp-ai-face svg{width:30px;height:30px}
   html.ph-lock #view .cpt3-ring .cpt-face-slot{position:relative}
-  html.ph-lock #view .cpt3-fly{position:absolute;inset:9%;display:grid;place-items:center;pointer-events:none}
+  html.ph-lock #view .cpt3-fly{position:absolute;inset:-1%;transition:opacity .16s ease;display:grid;place-items:center;pointer-events:none}
   html.ph-lock #view .cpt3-fly svg{width:100%;height:100%}
   html.ph-lock #view .cpt3-fly svg.ai-ic-orig{display:none}
   /* the chat below the card resizes on the same curve as the card and the keyboard, so it all moves as one */
@@ -683,7 +682,8 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
   html.ph-lock #view :is(.cpt3-acts,.cpt3 .cpt-id,.cpt3-tabs){transition:opacity .26s ease .07s,transform .42s cubic-bezier(.32,.72,0,1) .02s}
   html.ph-lock #view .cpt3-ring{transition:opacity .22s ease .12s}
   html.ph-lock #view .cpt-priv{max-height:4em;overflow:hidden;transition:max-height .44s cubic-bezier(.32,.72,0,1),opacity .25s ease}
-  html.ph-lock :is(.cp-layer,.cp-front){transition:opacity .26s ease .1s}
+  html.ph-lock :is(.cp-layer,.cp-front){transition:none}
+  html.ph-lock.cpt-morph :is(.cp-layer,.cp-front){opacity:0;transition:opacity .06s linear}
   /* while typing */
   html.ph-lock.cpt-typing #view .cpt-head.cpt3{height:54px}
   html.ph-lock.cpt-typing #view .cpt3-mini > :first-child{opacity:1;transition:none}

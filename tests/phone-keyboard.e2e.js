@@ -61,6 +61,20 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     ok(mid.ringMoving && mid.fly, "and the circle, carrying the face, is on its way back down from the title bar");
     await page.waitForTimeout(700);
     ok(await page.evaluate(() => !document.querySelector(".cpt3-fly")), "the face copy is gone once it lands");
+    // unfolding again, watched frame by frame: the copy matches the live companion's size, and the two are never both fully shown
+    await page.focus("#cptIn"); await page.evaluate(() => window.__kb(true)); await page.waitForTimeout(700);
+    const w = await page.evaluate(() => new Promise(res => { const out = {both: 0, sizes: []}; document.getElementById("cptIn").blur(); window.__kb(false); const t0 = performance.now(), look = () => {
+      const c = document.querySelector(".cpt3-fly"), f = document.querySelector(".cp-front"), sp = document.querySelector(".cp-front .cp");
+      const co = c ? +getComputedStyle(c).opacity : 0, fo = f ? +getComputedStyle(f).opacity : 0;
+      if (co > 0.6 && fo > 0.6) out.both++;
+      if (c && sp && performance.now() - t0 > 380) { const a = c.getBoundingClientRect(), b = sp.getBoundingClientRect(); out.sizes.push(Math.round(a.width - b.width) + "/" + Math.round((a.top + a.height / 2) - (b.top + b.height / 2))); }
+      if (performance.now() - t0 < 1100) requestAnimationFrame(look); else res(out); }; requestAnimationFrame(look); }));
+    ok(w.both <= 2, "the live companion and the face copy are never both fully shown (" + w.both + " frames)");
+    ok(w.sizes.length && w.sizes.every(d => d.split("/").every(v => Math.abs(+v) <= 8)), "just before they swap, the copy is the live companion's size and in its spot (size/offset): " + w.sizes.join(","));
+    // a short screen: the starter questions stay stacked, not a sideways row
+    await page.evaluate(() => { window.__sbSync.ui.cpt.id = null; window.__sbSync.render(); }); await page.setViewportSize({width: 402, height: 640}); await page.waitForTimeout(400);
+    ok(await page.evaluate(() => { const c = document.querySelector(".cpt-empty .cpt-chips"); return !c || getComputedStyle(c).flexWrap !== "nowrap"; }), "on a short screen the suggestions still stack");
+    await page.setViewportSize({width: 402, height: 874}); await page.waitForTimeout(300);
     ok(await page.evaluate(() => getComputedStyle(document.getElementById("view")).transitionProperty.includes("height")), "the chat area resizes on the same curve as the card");
     ok(!errs.length, "no page errors " + errs.join(" | "));
     await ctx.close();

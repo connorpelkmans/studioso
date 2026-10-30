@@ -83458,11 +83458,15 @@ const AUTOPILOT = (() => {
         if (slot && face.firstElementChild) { copy = document.createElement("span"); copy.className = "cpt3-fly"; copy.innerHTML = face.innerHTML; slot.appendChild(copy); }
         ring.style.opacity = "1"; ring.style.transition = "none";
         const a = ring.animate([{transform: `translate(${Math.round(from.left + from.width / 2 - (to.left + to.width / 2))}px,${Math.round(from.top + from.height / 2 - (to.top + to.height / 2))}px) scale(${k.toFixed(3)})`}, {transform: "none"}], {duration: MORPH, easing: EASE});
-        const done = () => { if (copy) copy.remove(); ring.style.opacity = ""; ring.style.transition = ""; };
+        // the copy stays until the live companion (the same size, in the same spot) has faded in over it, then fades away:
+        // never two companions, never one of a different size
+        // the copy and the live companion (the same size, in the same spot) swap in a single frame once it has landed: never two
+        const done = () => { ring.style.opacity = ""; ring.style.transition = ""; };
         a.finished.then(done, done);
+        head._copy = copy;
       }
     }
-    head._t = setTimeout(() => { head.style.height = ""; r.classList.remove("cpt-morph"); follow(false); }, MORPH + 20);
+    head._t = setTimeout(() => { head.style.height = ""; r.classList.remove("cpt-morph"); if (head._copy) { head._copy.remove(); head._copy = null; } follow(false); }, MORPH + 20);
     follow(pin);
   }
   document.addEventListener("focusin", e => { if (e.target && e.target.id === "cptIn" && isPhone()) { clearTimeout(typeT); typing(true); } });
