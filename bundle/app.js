@@ -15968,8 +15968,6 @@ const notifySupported = () => "Notification" in window && !inFrame;
 let AC = null, alarmOsc = [], alarmGain = null, flashT = null;
 function audio(){
   try {
-    // play like a timer app: on iPhone, web sound is otherwise muted by the ring/silent switch
-    try { if (navigator.audioSession && navigator.audioSession.type !== "playback") navigator.audioSession.type = "playback"; } catch(e) {}
     if (AC && AC.state === "closed") AC = null;
     if (!AC) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; AC = new C(); }
     // "suspended", or "interrupted" after iOS had the app in the background or took the sound for a call
@@ -16005,7 +16003,6 @@ function audioIdle(ms){
   clearTimeout(audioIdleT);
   audioIdleT = setTimeout(() => {
     try { if (AC && AC.state === "running") AC.suspend().catch(() => {}); } catch(e) {}
-    try { if (navigator.audioSession) navigator.audioSession.type = "auto"; } catch(e) {}
   }, Math.max(0, ms));
 }
 function stopAlarm(){

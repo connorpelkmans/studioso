@@ -99,12 +99,16 @@ private struct Controls: View {
     let s: StudyboardFocusAttributes.ContentState
     let fill: Color
     let second: Color
+    var done = false
     var body: some View {
         let paused = s.pausedLeft > 0
         HStack(spacing: 18) {
             Round(action: "reset", icon: "arrow.counterclockwise", size: 36, bg: second, label: "Reset")
-            Toggle(isOn: !paused, intent: StudyboardFocusPlayPause()) { Text(paused ? "Resume" : "Pause") }
-                .toggleStyle(PlayPauseStyle(bg: fill))
+            // a finished session has nothing to pause: Skip starts the next one
+            if !done {
+                Toggle(isOn: !paused, intent: StudyboardFocusPlayPause()) { Text(paused ? "Resume" : "Pause") }
+                    .toggleStyle(PlayPauseStyle(bg: fill))
+            }
             Round(action: "skip", icon: "forward.end.fill", size: 36, bg: second, label: "Skip").opacity((s.plan ?? []).isEmpty ? 0.4 : 1)
                 .disabled((s.plan ?? []).isEmpty)
         }
@@ -138,6 +142,7 @@ private struct Round: View {
 private struct LockCard: View {
     let s: StudyboardFocusAttributes.ContentState
     let accent: String
+    let done: Bool
     var body: some View {
         let navy = Color(hex: "#071433")
         let ink = Color(hex: "#E7EEFA")
@@ -147,7 +152,7 @@ private struct LockCard: View {
         HStack(spacing: 14) {
             Tomato(s: s, size: 34)
             VStack(alignment: .leading, spacing: 2) {
-                Text(s.pausedLeft > 0 ? "\(s.label) (Paused)" : s.label).font(.headline).foregroundStyle(ink).lineLimit(1)
+                Text(done ? "\(s.label) Complete" : s.pausedLeft > 0 ? "\(s.label) (Paused)" : s.label).font(.headline).foregroundStyle(ink).lineLimit(1)
                 if !s.task.isEmpty { Text(s.task).font(.subheadline).foregroundStyle(muted).lineLimit(1) }
             }
             .layoutPriority(1)
@@ -155,7 +160,7 @@ private struct LockCard: View {
             TimeLeft(s: s).font(.system(size: 34, weight: .bold, design: .rounded)).foregroundStyle(time)
                 .multilineTextAlignment(.trailing).frame(minWidth: 96, alignment: .trailing)
         }
-        Controls(s: s, fill: time, second: Color.white.opacity(0.16))
+        Controls(s: s, fill: time, second: Color.white.opacity(0.16), done: done)
         }
         .padding(16)
         .activityBackgroundTint(navy.opacity(0.62))
@@ -166,7 +171,7 @@ private struct LockCard: View {
 struct StudyboardFocusLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: StudyboardFocusAttributes.self) { context in
-            LockCard(s: context.state, accent: context.attributes.accent)
+            LockCard(s: context.state, accent: context.attributes.accent, done: context.isStale)
         } dynamicIsland: { context in
             let s = context.state
             return DynamicIsland {
@@ -182,7 +187,7 @@ struct StudyboardFocusLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(spacing: 10) {
                         Bar(s: s, color: modeColor(s))
-                        Controls(s: s, fill: modeColor(s), second: Color.white.opacity(0.2))
+                        Controls(s: s, fill: modeColor(s), second: Color.white.opacity(0.2), done: context.isStale)
                     }
                     .padding(.horizontal, 8)
                 }

@@ -105,7 +105,7 @@ public class StudyboardFocusActivityPlugin: CAPPlugin, CAPBridgedPlugin, Notific
         let state = StudyboardFocusAttributes.ContentState(mode: mode, label: Self.clip(call.getString("label"), 24), task: Self.clip(call.getString("task"), 80),
                                                            startedAt: startedAt, endsAt: endsAt, pausedLeft: pausedLeft, total: total,
                                                            plan: Self.plan(call.getArray("plan")))
-        let content = ActivityContent(state: state, staleDate: running ? endsAt.addingTimeInterval(60) : nil)
+        let content = ActivityContent(state: state, staleDate: running ? endsAt : nil)
         Task {
             if let current = Activity<StudyboardFocusAttributes>.activities.first {
                 await current.update(content)

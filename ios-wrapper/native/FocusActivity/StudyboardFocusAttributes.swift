@@ -69,7 +69,7 @@ public struct StudyboardFocusControl: LiveActivityIntent {
         default:
             return
         }
-        if action != "reset" { await act.update(ActivityContent(state: s, staleDate: s.pausedLeft > 0 ? nil : s.endsAt.addingTimeInterval(60))) }
+        if action != "reset" { await act.update(ActivityContent(state: s, staleDate: s.pausedLeft > 0 ? nil : s.endsAt)) }
         StudyboardFocusAlarm.sync(mode: s.mode, endsAt: action == "reset" || s.pausedLeft > 0 ? nil : s.endsAt)
         let d = UserDefaults.standard
         var q = d.array(forKey: Self.queueKey) as? [[String: Any]] ?? []
