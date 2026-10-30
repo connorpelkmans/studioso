@@ -68,8 +68,11 @@ if (fs.existsSync(plistFile)) {
     for (const src of srcs) {
       const name = path.basename(src), esc = name.replace(/[.]/g, "\\.");
       if (!new RegExp("path = \"?" + esc + "\"?;").test(txt) || inProj.some(p => path.basename(p) === name)) continue;
-      const dst = path.join(proj, name === "StudyboardWidgets.swift" ? "StudyboardWidgets" : "App", name);
-      fs.mkdirSync(path.dirname(dst), {recursive: true}); fs.copyFileSync(src, dst); done.push(path.relative(wrap, dst) + " (was missing)");
+      // put back where Xcode may look for it: the App folder, and the widget's own folder for the widget file
+      for (const dir of name === "StudyboardWidgets.swift" ? ["App", "StudyboardWidgets"] : ["App"]) {
+        const dst = path.join(proj, dir, name);
+        fs.mkdirSync(path.dirname(dst), {recursive: true}); fs.copyFileSync(src, dst); done.push(path.relative(wrap, dst) + " (was missing)");
+      }
     }
     if (done.length) console.log("ios-stage: updated in the Xcode project: " + done.join(", "));
   }
