@@ -22450,7 +22450,7 @@ document.head.appendChild(AREA_CSS);
   const bkOnText = () => { const B = cbk(); return B && B.on() ? `${B.name(B.provider())} › Studyboard › Backups` : FSB.status === "on" ? FSB.where : ""; };
   // First run asks only the essentials; the rest is offered later from a card on the Board
   // Mochi's welcome comes before it, so the first run has no welcome step of its own
-  const FIRST = ["area", "courses", "hours", "done"], MORE = ["theme", "reminders", "ai", "app", "pro", "done"], BACKUP = ["backups", "done"];
+  const FIRST = ["area", "courses", "hours", "done"], MORE = ["theme", "reminders", "ai", "app", "pro", "done"], BACKUP = ["backups", "done"], THEME = ["theme", "done"];
   const ALL_STEPS = [
     {id: "welcome", title: "Welcome"},
     {id: "area", title: "Your Studies"},
@@ -22466,7 +22466,7 @@ document.head.appendChild(AREA_CSS);
   ];
   let STEPS = ALL_STEPS, mode = "first";
   // "more" (the day-2 extras) and "backup" (asked on its own a few days in) are optional add-ons to the first run
-  const extra = () => mode === "more" || mode === "backup";
+  const extra = () => mode === "more" || mode === "backup" || mode === "theme";
   // The later "A Few More Things" card
   const MKEY = "sb:onboarded:more";
   const moreGet = () => { try { return JSON.parse(localStorage.getItem(MKEY) || "{}") || {}; } catch (e) { return {}; } };
@@ -22729,6 +22729,10 @@ document.head.appendChild(AREA_CSS);
     const gift = P && P.welcomeWeek ? P.welcomeWeek() : null;
     if (gift) P.welcomeSaid();
     const has = id => STEPS.some(x => x.id === id);
+    if (mode === "theme") return `${hero(IC.party, "done")}
+      <h2 class="ob-h" id="obH" tabindex="-1">Looking Good</h2>
+      <p class="ob-lead">You can change it any time in Settings, or find more in the Style Shop.</p>
+      <ul class="ob-sum">${row(true, `Theme: ${esc(skin.name)}`)}</ul>`;
     if (mode === "backup") return `${hero(IC.party, "done")}
       <h2 class="ob-h" id="obH" tabindex="-1">${bkOnText() ? "Your Work Is Backed Up" : "Maybe Later"}</h2>
       <p class="ob-lead">${bkOnText() ? "Studyboard saves a copy every hour while it's open." : "Automatic backups are in Settings whenever you want them."}</p>
@@ -22980,6 +22984,7 @@ document.head.appendChild(AREA_CSS);
     added = []; remindersOk = false; remindersMsg = ""; deviceTab = null; queue = []; cMsg = "";
     moveCanvasesBack();
     if (!completed) { toast(mode === "backup" ? "No problem. Backups are in Settings whenever you want them." : mode === "more" ? "No problem. These are all in Settings too." : "No problem. Replay the welcome setup any time from Settings."); render(); return; }
+    if (mode === "theme" && window.SBGS) SBGS.mark("theme");
     if (extra()) { render(); return; }
     ui.tab = "board"; ui.courseId = null; render(); window.scrollTo(0, 0);
     if (firstTask) setTimeout(() => {
@@ -23027,8 +23032,8 @@ document.head.appendChild(AREA_CSS);
   function stop(){ clearInterval(poll); poll = 0; }
   // kind: "first" (the essentials), "more" (the optional extras) or "all" (a replay from Settings)
   function start(kind){
-    mode = kind === "more" || kind === "all" || kind === "backup" ? kind : "first";
-    const ids = mode === "first" ? FIRST : mode === "more" ? MORE : mode === "backup" ? BACKUP : null;
+    mode = ["more", "all", "backup", "theme"].includes(kind) ? kind : "first";
+    const ids = {first: FIRST, more: MORE, backup: BACKUP, theme: THEME}[mode] || null;
     STEPS = ALL_STEPS.filter(x => (!ids || ids.includes(x.id)) && (x.id !== "backups" || backupsHere()) && (x.id !== "pro" || proHere())); cheered = false; finishing = false; step = 0; dir = 1; added = []; remindersOk = false; remindersMsg = ""; deviceTab = null; newColor = null; away = null; since = Date.now(); skipped = false; queue = []; cMsg = ""; show(0); }
 
   hook("boot", () => {
@@ -23049,9 +23054,10 @@ document.head.appendChild(AREA_CSS);
   hook("act", act => {
     if (act === "ob-more-hide") { moreSet({hide: Date.now()}); render(); toast("Okay. You'll find all of these in Settings."); return true; }
     if (act === "ob-backup-hide") { bkSet({hide: Date.now()}); render(); toast("Okay. Automatic backups are in Settings whenever you want them."); return true; }
-    if (act !== "ob-replay" && act !== "ob-more" && act !== "ob-backup") return false;
+    const kind = {"ob-replay": "all", "ob-more": "more", "ob-backup": "backup", "ob-theme": "theme"}[act];
+    if (!kind) return false;
     if (dlg.open) dlg.close();
-    setTimeout(() => start(act === "ob-more" ? "more" : act === "ob-backup" ? "backup" : "all"), 40);
+    setTimeout(() => start(kind), 40);
     return true;
   });
 
@@ -23061,8 +23067,10 @@ document.head.appendChild(AREA_CSS);
 
   /* Backups are asked about on their own, 3 days after the welcome setup, once there's work worth keeping */
   const bkDue = () => { const m = moreGet(), b = bkGet(); return !!m.at && !b.hide && !b.done && Date.now() - m.at > 3 * 864e5 && isDone() && backupsHere() && !bkOnText()
-    && allTasks().length + coursesArr().length >= 3 && !(window.SBSEM && SBSEM.cardDue && SBSEM.cardDue()); };
+    && allTasks().length + coursesArr().length >= 3 && !(window.SBSEM && SBSEM.cardDue && SBSEM.cardDue()) && !(window.SBGS && SBGS.showing()); };
   window.SBOB.backupDue = bkDue;
+  window.SBOB.backupsHere = backupsHere;
+  window.SBOB.backupOn = () => !!bkOnText();
   hook("render", tab => {
     if (tab !== "board" || inPreview() || window.SBOB.pending() || !bkDue()) return;
     const v = $("#view"); if (!v || v.querySelector(".sem-card-b")) return;
@@ -71971,7 +71979,7 @@ window.SBSEM = {
   window.SBSCHOOLUI = {open};
 })();
 /* ===== module: 97-getting-started.js ===== */
-/* Getting Started: a short checklist on the Board for a student's first weeks.
+/* Getting Started: a short checklist (the app tour is offered at the end of the welcome setup, so it isn't on here) on the Board for a student's first weeks.
    Each item ticks itself off from what the student has really done, so there is nothing to mark by hand. */
 (() => {
   const KEY = "sb:gs";
@@ -71989,33 +71997,47 @@ window.SBSEM = {
     if (bar) { bar.scrollIntoView({block: "center"}); bar.classList.add("ob-glow"); setTimeout(() => bar.classList.remove("ob-glow"), 2600); }
   };
 
+  const SITES = Object.values(LMS_NAMES);
+  const fromSchool = () => get().route === "lms" || allTasks().some(t => lmsSite(t)) || coursesArr().some(c => (c.links || []).some(l => l && SITES.includes(l.label)));
+  const ROUTE = {"lms-open": "lms", "import-syllabus": "syllabus", "new-course": "manual"};
+
   const ITEMS = [
     // Three ways in, quickest first: the school site brings in every course at once
     {id: "courses", t: "Add your courses", s: "Connect your school site, import a syllabus or type them in.",
-      done: () => coursesArr().length > 0, go: () => fabMenu("Add Your Courses", [
+      done: () => coursesArr().length > 0, go: () => { fabMenu("Add Your Courses", [
         ["lms-open", "Connect Your School Site", "Canvas, Brightspace or Blackboard. Brings in your courses, due dates and grades", "school"],
         ["import-syllabus", "Import a Syllabus", "Upload a PDF to add the course and its deadlines", "syllabus"],
-        ["new-course", "Add It Myself", "Name, code, color and class times", "course"]])},
+        ["new-course", "Add It Myself", "Name, code, color and class times", "course"]]);
+        // Remember which way they chose; the app then opens it as usual
+        const fl = dlg.querySelector(".fm-list");
+        if (fl) fl.addEventListener("click", e => { const b = e.target.closest("[data-act]"); if (b && ROUTE[b.dataset.act]) set({route: ROUTE[b.dataset.act]}); }, true); }},
     {id: "deadline", t: "Add a deadline", s: "Type it like a sentence: \"bio quiz fri 2pm\".",
+      // A school site brings deadlines in by itself, so this is only for courses from a syllabus or typed in
+      here: () => !fromSchool() && (["syllabus", "manual"].includes(get().route) || coursesArr().length > 0),
       done: () => allTasks().some(t => t.due), go: quickAdd},
-    {id: "focus", t: "Finish a focus session", s: "Start the timer on any task. Even 10 minutes counts.",
-      done: () => { try { return SBSTATS.totalFocusMinutes() > 0; } catch (e) { return false; } }, go: () => { if (dlg.open) dlg.close(); openPomo(); }},
+    {id: "focus", t: "Start a focus session", s: "Start the timer on any task. Even 10 minutes helps.",
+      done: () => { if (get().focus) return true; try { return SBSTATS.totalFocusMinutes() > 0; } catch (e) { return false; } }, go: () => { if (dlg.open) dlg.close(); openPomo(); }},
+    {id: "note", t: "Make a note", s: "Pin a quick thought to your board, or press and hold anywhere on it.",
+      done: () => notesArr().length > 0, go: () => goTab("notes")},
     {id: "deck", t: "Make a flashcard deck", s: "Write a few cards, or let AI make them from your notes.",
       done: () => decksArr().length > 0, go: () => goTab("flashcards")},
-    {id: "tour", t: "Take the 1-minute tour", s: "See where everything lives.",
-      done: () => !!(window.SBTOUR && SBTOUR.taken()), go: () => { if (dlg.open) dlg.close(); setTimeout(() => SBTOUR.start(), 60); }}
+    // Only where automatic backups work (not every browser can save to a folder)
+    {id: "backups", t: "Set up backups", s: "Save a copy to Google Drive or OneDrive every hour.", here: () => !!(window.SBOB && SBOB.backupsHere && SBOB.backupsHere()),
+      done: () => !!(window.SBOB && SBOB.backupOn && SBOB.backupOn()), go: () => fire("act", "ob-backup", document.body, "")},
+    {id: "theme", t: "Select a theme", s: "Make Studyboard yours, light or dark.",
+      done: () => !!get().theme, go: () => fire("act", "ob-theme", document.body, "")}
   ];
+  const list = () => ITEMS.filter(it => { try { return !it.here || it.here(); } catch (e) { return false; } });
   const doneOf = it => { try { return !!it.done(); } catch (e) { return false; } };
 
   // Shown for the first 30 days after the welcome setup, until it's finished or hidden.
-  // It gives way to the semester and backups cards so only one card sits on the Board at a time.
+  // It gives way to the semester card; the backups and A Few More Things cards wait for it, so only one card sits on the Board at a time.
   function showing(){
     if (inPreview() || (window.SBOB && SBOB.pending())) return false;
     const at = window.SBOB && SBOB.setupAt ? SBOB.setupAt() : 0;
     if (!at || Date.now() - at > DAYS * 864e5) return false;
     const m = get(); if (m.hide || m.fin) return false;
     if (window.SBSEM && SBSEM.cardDue && SBSEM.cardDue()) return false;
-    if (window.SBOB.backupDue && SBOB.backupDue()) return false;
     return true;
   }
 
@@ -72024,12 +72046,12 @@ window.SBSEM = {
   const CLOSE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 
   function cardHtml(){
-    const st = ITEMS.map(doneOf), n = st.filter(Boolean).length, all = n === ITEMS.length, open = get().open !== false;
-    const pct = Math.round(n / ITEMS.length * 100);
+    const L = list(), st = L.map(doneOf), n = st.filter(Boolean).length, all = n === L.length, open = get().open !== false;
+    const pct = Math.round(n / L.length * 100);
     if (all) return `<section class="gs-card gs-all" aria-labelledby="gsT"><div class="gs-head"><span class="gs-party" aria-hidden="true">🎉</span><div class="gs-ht"><b id="gsT">You're All Set Up</b><span class="mini">You've tried the main parts of Studyboard. Nice work.</span></div>
       <button type="button" class="btn small primary" data-act="gs-fin">Done</button></div></section>`;
     const next = st.indexOf(false);
-    const rows = ITEMS.map((it, k) => `<li class="gs-row${st[k] ? " ok" : ""}${k === next ? " next" : ""}">
+    const rows = L.map((it, k) => `<li class="gs-row${st[k] ? " ok" : ""}${k === next ? " next" : ""}">
       <button type="button" class="gs-btn" data-act="gs-go" data-id="${it.id}"${st[k] ? ' aria-disabled="true"' : ""}>
         <span class="gs-ck" aria-hidden="true">${st[k] ? CHECK : ""}</span>
         <span class="gs-tx"><b>${esc(it.t)}</b>${k === next ? `<span class="mini">${esc(it.s)}</span>` : ""}</span>
@@ -72038,8 +72060,8 @@ window.SBSEM = {
     return `<section class="gs-card${open ? "" : " shut"}" aria-labelledby="gsT">
       <div class="gs-head">
         <button type="button" class="gs-toggle" data-act="gs-toggle" aria-expanded="${open}" aria-controls="gsList">
-          <span class="gs-ring" style="--p:${pct}" aria-hidden="true"><span>${n}/${ITEMS.length}</span></span>
-          <span class="gs-ht"><b id="gsT">Getting Started</b><span class="mini">${n} of ${ITEMS.length} done${open ? "" : ` · Next: ${esc(ITEMS[next].t.toLowerCase())}`}</span></span>
+          <span class="gs-ring" style="--p:${pct}" aria-hidden="true"><span>${n}/${L.length}</span></span>
+          <span class="gs-ht"><b id="gsT">Getting Started</b><span class="mini">${n} of ${L.length} done${open ? "" : ` · Next: ${esc(L[next].t.toLowerCase())}`}</span></span>
         </button>
         <button type="button" class="icon-btn gs-x" data-act="gs-hide" aria-label="Hide Getting Started">${CLOSE}</button>
       </div>
@@ -72060,14 +72082,17 @@ window.SBSEM = {
     if (act === "gs-fin") { set({fin: Date.now()}); render(); return true; }
     if (act === "gs-toggle") { set({open: get().open === false}); render(); return true; }
     if (act === "gs-go") {
-      const id = el && el.dataset ? el.dataset.id : "", it = ITEMS.find(x => x.id === id);
+      const id = el && el.dataset ? el.dataset.id : "", it = list().find(x => x.id === id);
       if (it && !doneOf(it)) it.go();
       return true;
     }
     return false;
   });
 
-  window.SBGS = {showing, items: () => ITEMS.map(it => ({id: it.id, done: doneOf(it)}))};
+  // Starting the timer counts, even if the session isn't finished
+  hook("focus", e => { if (e && e.type === "start" && e.mode === "focus" && !get().focus) set({focus: Date.now()}); });
+
+  window.SBGS = {showing, mark: id => set({[id]: Date.now()}), items: () => list().map(it => ({id: it.id, done: doneOf(it)}))};
 })();
 /* ===== module: 99-pro.js ===== */
 /* Studyboard Pro extras (1.14) */

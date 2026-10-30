@@ -582,13 +582,13 @@ New people get a short guided tour (a spotlight and a card for each of the 8 mai
 
 ## Getting Started Checklist and Later Questions
 
-After the welcome setup, the Board shows a small **Getting Started** card with 5 things to try: add your courses, add a deadline, finish a focus session, make a flashcard deck, and take the 1-minute tour. Each one ticks itself off when the student really does it, and tapping an item takes them straight there. Add Your Courses offers three ways in, in this order: Connect Your School Site, Import a Syllabus, and Add It Myself. The card can be folded up or hidden with its X, it shows a short "You're All Set Up" note when everything is done, and it goes away on its own 30 days after the welcome setup. It's remembered per device.
+After the welcome setup, the Board shows a small **Getting Started** card with these things to try: add your courses, add a deadline, start a focus session, make a note, make a flashcard deck, set up backups and select a theme. The 1-minute app tour isn't on it, because the last page of the welcome setup already offers it. Each one ticks itself off when the student really does it, and tapping an item takes them straight there. Add Your Courses offers three ways in, in this order: Connect Your School Site, Import a Syllabus, and Add It Myself. **Add a deadline** only appears for courses from a syllabus or typed in, since a school site brings deadlines in by itself. **Set up backups** only appears where automatic backups work (not every browser can save to a folder). Select a theme opens the theme picker on its own. The card can be folded up or hidden with its X, it shows a short "You're All Set Up" note when everything is done, and it goes away on its own 30 days after the welcome setup. It's remembered per device.
 
 Only one of these cards shows on the Board at a time:
 
 1. **Set Up Your Semester** (only for an empty planner)
-2. **Keep Your Work Safe:** automatic backups are asked about on their own, 3 days after the welcome setup, once there are at least 3 courses and tasks between them, and only where backups work and aren't on yet. Not Now hides it for good; backups stay in Settings.
-3. **Getting Started**
+2. **Getting Started**
+3. **Keep Your Work Safe:** if backups still aren't on once the checklist is finished or hidden, they're asked about on their own, from 3 days after the welcome setup, once there are at least 3 courses and tasks between them. Not Now hides it for good; backups stay in Settings.
 4. **A Few More Things:** reminders, the app, AI and a theme, from the day after the welcome setup, once the checklist is finished or hidden.
 
 ## Bug Reports and Feedback

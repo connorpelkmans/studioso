@@ -18,7 +18,7 @@
   const bkOnText = () => { const B = cbk(); return B && B.on() ? `${B.name(B.provider())} › Studyboard › Backups` : FSB.status === "on" ? FSB.where : ""; };
   // First run asks only the essentials; the rest is offered later from a card on the Board
   // Mochi's welcome comes before it, so the first run has no welcome step of its own
-  const FIRST = ["area", "courses", "hours", "done"], MORE = ["theme", "reminders", "ai", "app", "pro", "done"], BACKUP = ["backups", "done"];
+  const FIRST = ["area", "courses", "hours", "done"], MORE = ["theme", "reminders", "ai", "app", "pro", "done"], BACKUP = ["backups", "done"], THEME = ["theme", "done"];
   const ALL_STEPS = [
     {id: "welcome", title: "Welcome"},
     {id: "area", title: "Your Studies"},
@@ -34,7 +34,7 @@
   ];
   let STEPS = ALL_STEPS, mode = "first";
   // "more" (the day-2 extras) and "backup" (asked on its own a few days in) are optional add-ons to the first run
-  const extra = () => mode === "more" || mode === "backup";
+  const extra = () => mode === "more" || mode === "backup" || mode === "theme";
   // The later "A Few More Things" card
   const MKEY = "sb:onboarded:more";
   const moreGet = () => { try { return JSON.parse(localStorage.getItem(MKEY) || "{}") || {}; } catch (e) { return {}; } };
@@ -297,6 +297,10 @@
     const gift = P && P.welcomeWeek ? P.welcomeWeek() : null;
     if (gift) P.welcomeSaid();
     const has = id => STEPS.some(x => x.id === id);
+    if (mode === "theme") return `${hero(IC.party, "done")}
+      <h2 class="ob-h" id="obH" tabindex="-1">Looking Good</h2>
+      <p class="ob-lead">You can change it any time in Settings, or find more in the Style Shop.</p>
+      <ul class="ob-sum">${row(true, `Theme: ${esc(skin.name)}`)}</ul>`;
     if (mode === "backup") return `${hero(IC.party, "done")}
       <h2 class="ob-h" id="obH" tabindex="-1">${bkOnText() ? "Your Work Is Backed Up" : "Maybe Later"}</h2>
       <p class="ob-lead">${bkOnText() ? "Studyboard saves a copy every hour while it's open." : "Automatic backups are in Settings whenever you want them."}</p>
@@ -548,6 +552,7 @@
     added = []; remindersOk = false; remindersMsg = ""; deviceTab = null; queue = []; cMsg = "";
     moveCanvasesBack();
     if (!completed) { toast(mode === "backup" ? "No problem. Backups are in Settings whenever you want them." : mode === "more" ? "No problem. These are all in Settings too." : "No problem. Replay the welcome setup any time from Settings."); render(); return; }
+    if (mode === "theme" && window.SBGS) SBGS.mark("theme");
     if (extra()) { render(); return; }
     ui.tab = "board"; ui.courseId = null; render(); window.scrollTo(0, 0);
     if (firstTask) setTimeout(() => {
@@ -595,8 +600,8 @@
   function stop(){ clearInterval(poll); poll = 0; }
   // kind: "first" (the essentials), "more" (the optional extras) or "all" (a replay from Settings)
   function start(kind){
-    mode = kind === "more" || kind === "all" || kind === "backup" ? kind : "first";
-    const ids = mode === "first" ? FIRST : mode === "more" ? MORE : mode === "backup" ? BACKUP : null;
+    mode = ["more", "all", "backup", "theme"].includes(kind) ? kind : "first";
+    const ids = {first: FIRST, more: MORE, backup: BACKUP, theme: THEME}[mode] || null;
     STEPS = ALL_STEPS.filter(x => (!ids || ids.includes(x.id)) && (x.id !== "backups" || backupsHere()) && (x.id !== "pro" || proHere())); cheered = false; finishing = false; step = 0; dir = 1; added = []; remindersOk = false; remindersMsg = ""; deviceTab = null; newColor = null; away = null; since = Date.now(); skipped = false; queue = []; cMsg = ""; show(0); }
 
   hook("boot", () => {
@@ -617,9 +622,10 @@
   hook("act", act => {
     if (act === "ob-more-hide") { moreSet({hide: Date.now()}); render(); toast("Okay. You'll find all of these in Settings."); return true; }
     if (act === "ob-backup-hide") { bkSet({hide: Date.now()}); render(); toast("Okay. Automatic backups are in Settings whenever you want them."); return true; }
-    if (act !== "ob-replay" && act !== "ob-more" && act !== "ob-backup") return false;
+    const kind = {"ob-replay": "all", "ob-more": "more", "ob-backup": "backup", "ob-theme": "theme"}[act];
+    if (!kind) return false;
     if (dlg.open) dlg.close();
-    setTimeout(() => start(act === "ob-more" ? "more" : act === "ob-backup" ? "backup" : "all"), 40);
+    setTimeout(() => start(kind), 40);
     return true;
   });
 
@@ -629,8 +635,10 @@
 
   /* Backups are asked about on their own, 3 days after the welcome setup, once there's work worth keeping */
   const bkDue = () => { const m = moreGet(), b = bkGet(); return !!m.at && !b.hide && !b.done && Date.now() - m.at > 3 * 864e5 && isDone() && backupsHere() && !bkOnText()
-    && allTasks().length + coursesArr().length >= 3 && !(window.SBSEM && SBSEM.cardDue && SBSEM.cardDue()); };
+    && allTasks().length + coursesArr().length >= 3 && !(window.SBSEM && SBSEM.cardDue && SBSEM.cardDue()) && !(window.SBGS && SBGS.showing()); };
   window.SBOB.backupDue = bkDue;
+  window.SBOB.backupsHere = backupsHere;
+  window.SBOB.backupOn = () => !!bkOnText();
   hook("render", tab => {
     if (tab !== "board" || inPreview() || window.SBOB.pending() || !bkDue()) return;
     const v = $("#view"); if (!v || v.querySelector(".sem-card-b")) return;
