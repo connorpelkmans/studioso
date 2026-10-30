@@ -89,6 +89,15 @@ await test("token: trial 2 days, grant, lifetime", async () => {
   assert.equal(t.tier, "pro"); assert.equal(t.exp, S + 86400);
   t = await (await ent.handle(tokenReq(), tokenDeps({ plan: "lifetime" }).deps)).json();
   assert.equal(t.tier, "lifetime");
+  // a lite grant is Pro's features with the free plan's amounts: the "trial" tier, never "pro" or "lifetime"
+  t = await (await ent.handle(tokenReq(), tokenDeps({ plan: "free", grant_lite: true, grant_until: new Date(NOW + 30 * 86400e3).toISOString() }).deps)).json();
+  assert.equal(t.tier, "trial"); assert.equal(t.exp, S + 2 * 86400);
+  t = await (await ent.handle(tokenReq(), tokenDeps({ plan: "free", grant_lite: true, grant_lifetime: true }).deps)).json();
+  assert.equal(t.tier, "trial");
+  t = await (await ent.handle(tokenReq(), tokenDeps({ plan: "free", grant_lite: true, grant_until: new Date(NOW - 86400e3).toISOString() }).deps)).json();
+  assert.equal(t.tier, "free");
+  t = await (await ent.handle(tokenReq(), tokenDeps({ plan: "pro", pro_until: new Date(NOW + 9 * 86400e3).toISOString(), grant_lite: true, grant_until: new Date(NOW + 30 * 86400e3).toISOString() }).deps)).json();
+  assert.equal(t.tier, "pro");
 });
 await test("token: promo codes give the trial tier (free limits), and a month code's token never outlives the month", async () => {
   let t = await (await ent.handle(tokenReq(), tokenDeps({ plan: "free", promo_lifetime: true }).deps)).json();
