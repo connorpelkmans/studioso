@@ -79,7 +79,7 @@ document.addEventListener("click", e => {
     case "theme-toggle": setTheme(isDark() ? "light" : "dark"); break;
     case "theme-set": setTheme(id); $$('[data-act="theme-set"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); break;
     case "desk-choose": dlg.close(); deskChooseFolder(); break;
-    case "storage-protect": storageProtect(true).then(r => { toast(r === "granted" ? "Done. This browser will keep your Studyboard data until you remove it." : r === "unsupported" ? "This browser can't promise to keep website data. Sign in or export a backup so you always have a copy." : "Your browser said not yet. Install Studyboard as an app (or add it to your Home Screen), then try again. Meanwhile, sign in or export a backup."); scheduleRender(); }); break;
+    case "storage-protect": storageProtect(true).then(r => { if (r === "app") { toast("Studyboard keeps your data on this device as an app. Nothing else to do."); scheduleRender(); return; } toast(r === "granted" ? "Done. This browser will keep your Studyboard data until you remove it." : r === "unsupported" ? "This browser can't promise to keep website data. Sign in or export a backup so you always have a copy." : "Your browser said not yet. Install Studyboard as an app (or add it to your Home Screen), then try again. Meanwhile, sign in or export a backup."); scheduleRender(); }); break;
     case "pwa-install": if (installEvt) { dlg.close(); installEvt.prompt(); installEvt.userChoice.then(() => { installEvt = null; }); } break;
     case "fsb-resume": dlg.close(); resumeFolderBackup(); break;
     case "fsb-stop": dlg.close(); stopFolderBackup(); break;
