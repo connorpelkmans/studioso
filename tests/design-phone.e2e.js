@@ -166,7 +166,7 @@ const noOverflow = async (p, tag) => ok(await p.evaluate(() => document.document
     {
       const {ctx, p} = await open(browser, {w: 1280, empty: true});
       await tab(p, "courses");
-      ok(await p.evaluate(() => { const a = document.querySelector("#view .es-art"); return !!a && a.getBoundingClientRect().height === 0; }), "10 (1280): empty pages look as before on a computer");
+      ok(await p.evaluate(() => { const a = document.querySelector("#view .es-art"); return !!a && a.getBoundingClientRect().height === 140; }), "10 (1280): empty pages show the same drawing on a computer as on a phone");
       await ctx.close();
     }
   } catch (e) { console.error(e); process.exitCode = 1; }

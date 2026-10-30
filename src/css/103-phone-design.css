@@ -124,7 +124,8 @@
 .es-folder{fill:#F7DE8E}.es-folder-b{fill:#FBEBB8}
 .es-sy{fill:#FBE38B}.es-sp{fill:#F9C1CF}.es-sb{fill:#BFDDF8}.es-sline{fill:#000;opacity:.12}
 .es-pin{fill:var(--late)}.es-pinhi{fill:#fff;opacity:.7}.es-tape{fill:#fff;opacity:.55}
-@media (max-width:639px){
+/* Empty screens: Mochi and a friendly title, on phones and computers alike */
+@media all{
   #view .sb-es:not(.nb-empty){display:block;margin-top:8px;padding:4px 8px 0;border:0;background:none;box-shadow:none;text-align:center;color:var(--muted)}
   #view .sb-es .es-art{display:block;width:200px;height:140px;margin:4px auto 10px}
   #view .sb-es:not(.nb-empty) > strong,#view .sb-es .tb-setup-t > strong{display:block;margin:0 0 6px;font:800 1.35rem/1.2 var(--display);color:var(--ink)}
