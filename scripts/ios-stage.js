@@ -79,6 +79,23 @@ if (fs.existsSync(plistFile)) {
   } catch (e) {}
 }
 
+// The Dynamic Island widget's Info.plist: if the Xcode project uses one that isn't on disk (it goes missing when the
+// files Xcode generated for the widget are deleted), it's recreated with what a widget needs
+{
+  const pbx = path.join(wrap, "ios", "App", "App.xcodeproj", "project.pbxproj");
+  try {
+    const txt = fs.existsSync(pbx) ? fs.readFileSync(pbx, "utf8") : "";
+    const want = [...new Set([...txt.matchAll(/INFOPLIST_FILE = "?([^";]*StudyboardWidgets[^";]*Info\.plist)"?;/g)].map(m => m[1]))];
+    for (const rel of want) {
+      const f = path.join(wrap, "ios", "App", rel);
+      if (fs.existsSync(f)) continue;
+      fs.mkdirSync(path.dirname(f), {recursive: true});
+      fs.writeFileSync(f, `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n<dict>\n\t<key>NSExtension</key>\n\t<dict>\n\t\t<key>NSExtensionPointIdentifier</key>\n\t\t<string>com.apple.widgetkit-extension</string>\n\t</dict>\n</dict>\n</plist>\n`);
+      console.log("ios-stage: recreated the widget's " + path.join("ios", "App", rel));
+    }
+  } catch (e) {}
+}
+
 const cli = path.join(wrap, "node_modules", "@capacitor", "cli");
 if (fs.existsSync(path.join(wrap, "ios")) && fs.existsSync(cli)) {
   execFileSync(process.platform === "win32" ? "npx.cmd" : "npx", ["cap", "sync", "ios"], {cwd: wrap, stdio: "inherit"});
