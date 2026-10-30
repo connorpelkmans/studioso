@@ -27,6 +27,6 @@
     "StudyboardSharedQueue": {},
     "PushNotifications": { "presentationOptions": ["badge", "sound", "alert"] },
     "SplashScreen": { "launchAutoHide": true, "launchShowDuration": 0 },
-    "Keyboard": { "resize": "native", "resizeOnFullScreen": true }
+    "Keyboard": { "resize": "none", "resizeOnFullScreen": false }
   }
 }

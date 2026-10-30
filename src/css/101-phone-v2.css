@@ -435,6 +435,9 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
 /* Keyboard open: sheets rest on top of the keyboard and stay fully on screen (header never slides under the status bar) */
 @media (max-width:639px){
   html.kb-open dialog#dlg{margin-bottom:var(--kb-h,0);max-height:calc(var(--vv-h,100dvh) - env(safe-area-inset-top,0px) - 16px)}
+  /* the iPhone app's keyboard slides over the app: sheets and the note editor rise with it, on the keyboard's own curve */
+  html.kb-native dialog#dlg{transition:margin-bottom .3s cubic-bezier(.32,.72,0,1)}
+  html.kb-native .note.editing.n-sheet{transition:bottom .3s cubic-bezier(.32,.72,0,1),max-height .3s cubic-bezier(.32,.72,0,1)}
   /* bars pinned to the bottom of the screen would float over what you're typing, so they step aside */
   html.kb-open nav.tabs,html.kb-open .fab,html.kb-open .room-pill,html.kb-open .acc-chip,html.kb-open .tz-note,html.kb-open .gr-prompt{visibility:hidden!important;pointer-events:none!important}
   html.kb-open .toast{bottom:calc(var(--kb-h,0px) + 12px)}

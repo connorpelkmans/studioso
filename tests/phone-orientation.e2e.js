@@ -58,14 +58,20 @@ async function open(b, idiom){
       // the moment between the keyboard being announced and the app's frame shrinking: a note being typed in already sits above it
       await page.evaluate(() => { window.__sbSync.ui.tab = "notes"; window.__sbSync.render(); }); await page.waitForTimeout(300);
       await page.evaluate(() => { const n = document.querySelector('.note[data-note="n1"]'); n.dispatchEvent(new MouseEvent("click", {bubbles: true})); }); await page.waitForSelector("#noteText"); await page.waitForTimeout(600);
-      await page.focus("#noteText"); await page.evaluate(() => window.__kbL.keyboardWillShow({keyboardHeight: 336})); await page.waitForTimeout(120);
+      await page.focus("#noteText"); await page.evaluate(() => window.__kbL.keyboardWillShow({keyboardHeight: 336})); await page.waitForTimeout(420);
       const gap = await page.evaluate(() => { const r = document.querySelector(".note.editing").getBoundingClientRect(); return {bottom: Math.round(r.bottom), top: Math.round(r.top), ih: innerHeight}; });
-      ok(gap.bottom <= gap.ih - 336 + 1 && gap.top >= 0, "keyboard announced, app not shrunk yet: the note editor is already above the keyboard, not behind it: " + JSON.stringify(gap));
-      await page.setViewportSize({width: 402, height: 538}); await page.waitForTimeout(200);
-      const after = await page.evaluate(() => { const r = document.querySelector(".note.editing").getBoundingClientRect(); return {bottom: Math.round(r.bottom), ih: innerHeight}; });
-      ok(Math.abs(after.bottom - gap.bottom) <= 2, "and when the app shrinks it stays exactly where it was: " + JSON.stringify(after));
-      await page.evaluate(() => { document.getElementById("noteText").blur(); window.__kbL.keyboardWillHide(); }); await page.setViewportSize({width: 402, height: 874});
-      await page.waitForTimeout(700);
+      ok(gap.bottom <= gap.ih - 336 + 1 && gap.top >= 0, "keyboard announced: the note editor rises to sit above it: " + JSON.stringify(gap));
+      await page.evaluate(() => { document.getElementById("noteText").blur(); window.__kbL.keyboardWillHide(); }); await page.waitForTimeout(600);
+      await page.evaluate(() => { window.__sbSync.ui.tab = "notes"; window.__sbSync.render(); }); await page.waitForTimeout(200);
+      await page.evaluate(() => { const n = document.querySelector('.note[data-note="n1"]'); if (n && !document.getElementById("noteText")) n.dispatchEvent(new MouseEvent("click", {bubbles: true})); }); await page.waitForSelector("#noteText"); await page.waitForTimeout(500);
+      // the keyboard sliding over a full-size app (resize "none"): the editor still rises above it, and iOS's own scroll to
+      // reveal the box is undone
+      await page.evaluate(() => { document.getElementById("noteText").focus(); window.__kbL.keyboardWillShow({keyboardHeight: 336}); }); await page.waitForTimeout(450);
+      const over = await page.evaluate(() => { const r = document.querySelector(".note.editing").getBoundingClientRect(); return {bottom: Math.round(r.bottom), ih: innerHeight}; });
+      ok(over.ih === 874 && Math.abs(over.bottom - (874 - 336)) <= 2, "app kept full size, keyboard over it: the note editor rests on the keyboard: " + JSON.stringify(over));
+      const y = await page.evaluate(async () => { document.getElementById("noteText").blur(); document.getElementById("noteText").focus(); window.scrollTo(0, 200); await new Promise(r => setTimeout(r, 60)); return scrollY; });
+      ok(y === 0, "iOS's scroll to reveal the box (as the keyboard arrives) is undone (" + y + ")");
+      await page.evaluate(() => { document.getElementById("noteText").blur(); window.__kbL.keyboardWillHide(); }); await page.waitForTimeout(600);
       // the Focus sheet says why the timer isn't in the Dynamic Island (this build has no island plugin)
       await page.evaluate(() => document.querySelector('[data-act="pomo-open"]').click()); await page.waitForTimeout(300);
       const note = await page.evaluate(() => { const p = document.querySelector("#pomoDlg .pomo-island"); return p && !p.hidden ? p.textContent : ""; });

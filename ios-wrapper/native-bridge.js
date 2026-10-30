@@ -343,9 +343,11 @@
     if (document.documentElement) watch(); else document.addEventListener("DOMContentLoaded", watch);
   }
 
-  /* 9. The keyboard (@capacitor/keyboard, "resize": "native" in capacitor.config.json): the app shrinks to the space above
-        it instead of iOS sliding the whole page up to reveal the text box (which pushed the header off screen and jumped
-        back). The page is told when it opens so the tab bar steps aside, and the arrows-and-Done bar above it is hidden. */
+  /* 9. The keyboard (@capacitor/keyboard, "resize": "none" in capacitor.config.json): the app keeps its full size and the
+        keyboard slides over it. Shrinking the app instead meant iOS stopped drawing what was behind the keyboard and had to
+        redraw the bottom of the screen every time it closed. The page is told the keyboard's height (--kb-h, --vv-h,
+        window.sbVisibleH) as it starts to open, so the text box, sheets and chat move above it; the tab bar steps aside;
+        and iOS isn't allowed to slide the page up to reveal the text box (the page has already put it in view). */
   var KB = P.Keyboard;
   if (KB) {
     var root = function () { return document.documentElement; };
@@ -385,8 +387,14 @@
     addEventListener("resize", apply);
     var w0 = innerWidth; addEventListener("resize", function () { if (innerWidth !== w0) { w0 = innerWidth; fullH = 0; } });
     apply();
+    // iOS scrolls the page to reveal the focused box when the keyboard comes up; the page has already moved it into view, so
+    // that scroll is undone (only the one iOS makes as the keyboard arrives, never your own scrolling)
+    var keepY = null, keepT = 0;
+    var holdScroll = function () { keepY = window.scrollY; clearTimeout(keepT); keepT = setTimeout(function () { keepY = null; }, 700); };
+    addEventListener("scroll", function () { if (keepY !== null && Math.abs(window.scrollY - keepY) > 1) window.scrollTo(0, keepY); }, {passive: true});
+    document.addEventListener("focusin", function (e) { var t = e.target; if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) holdScroll(); }, true);
     try {
-      KB.addListener("keyboardWillShow", function (info) { kbOn(true, info && info.keyboardHeight); });
+      KB.addListener("keyboardWillShow", function (info) { holdScroll(); kbOn(true, info && info.keyboardHeight); });
       KB.addListener("keyboardWillHide", function () { kbOn(false); });
     } catch (e) {}
   }
