@@ -104,7 +104,7 @@ const noOverflow = async (p, tag) => ok(await p.evaluate(() => document.document
       /* 10 drawn empty states */
       {
         const {ctx, p} = await open(browser, {dark, empty: true});
-        const art = () => p.evaluate(() => { const a = document.querySelector("#view .sb-es .es-art"); if (!a) return null; const r = a.getBoundingClientRect(), es = a.closest(".sb-es"), prim = es.querySelectorAll(".btn.primary"); return {w: Math.round(r.width), h: Math.round(r.height), title: (es.querySelector("strong") || {}).textContent, primary: prim.length, fill: getComputedStyle(a.querySelector(".es-card")).fill}; });
+        const art = () => p.evaluate(() => { const a = document.querySelector("#view .sb-es .es-art"); if (!a) return null; const r = a.getBoundingClientRect(), es = a.closest(".sb-es"), prim = es.querySelectorAll(".btn.primary"); return {w: Math.round(r.width), h: Math.round(r.height), title: (es.querySelector("strong") || {}).textContent, primary: prim.length, fill: getComputedStyle(a.querySelector(".es-face")).fill}; });
         const pages = [["groups", null, "Study Better Together"], ["notes", null, "Your Board Is Empty"], ["flashcards", null, "No Decks Yet"], ["courses", null, "No Courses Yet"], ["courses", "Files", "No Files Here Yet"], ["board", "Task Board", "Let's Set Up Your Term"]];
         for (const [t, sub, title] of pages) {
           await tab(p, t);
