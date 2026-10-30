@@ -20,6 +20,11 @@
   <array>
     <string>$(AppIdentifierPrefix)com.studioso.app.shared</string>
   </array>
+  <!-- Sign in with Apple (Signing & Capabilities > + Capability > Sign in with Apple adds this) -->
+  <key>com.apple.developer.applesignin</key>
+  <array>
+    <string>Default</string>
+  </array>
   <!-- In-app purchase needs the capability switched on in Xcode but no entitlement key -->
 </dict>
 </plist>

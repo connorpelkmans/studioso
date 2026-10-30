@@ -12,6 +12,9 @@
   <!-- Supabase, the AI provider the person chose, their school's sign-in page, fonts and links -->
   <key>com.apple.security.network.client</key>
   <true/>
+  <!-- Sign in with Google or Apple returns to a one-time page on 127.0.0.1 (main.js auth:port) -->
+  <key>com.apple.security.network.server</key>
+  <true/>
   <!-- "Choose Folder" for the Studyboard data folder -->
   <key>com.apple.security.files.user-selected.read-write</key>
   <true/>

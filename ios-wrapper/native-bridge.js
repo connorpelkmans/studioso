@@ -102,6 +102,8 @@
     P.App.addListener("appUrlOpen", function (ev) {
       try {
         var u = new URL(ev.url), q = new URLSearchParams();
+        // the end of Sign in with Google / Apple in the browser tab (section 11)
+        if (u.protocol === "studyboard:" && u.hostname === "auth-callback") { if (authBack) authBack(String(ev.url)); return; }
         if (u.protocol === "studyboard:" && (u.hostname === "add" || u.hostname === "capture")) {
           var tries = 0, raw = String(ev.url);
           (function route() {
@@ -343,6 +345,40 @@
       }
     });
   }
+
+  /* 11. Sign in with Apple and Google. StudyboardNative.signIn: apple() is Apple's own sheet on iPhone ({idToken, nonce, name},
+         null if cancelled, {error}); open(url) shows a provider's sign-in page in Apple's secure sign-in window (iPhone) or a
+         browser tab (Android) and resolves with the studyboard://auth-callback address it returns to, or null.
+         Google refuses sign-in inside an app's own web view, so it always goes through one of these. */
+  var SI = P.StudyboardSignIn;
+  try { if (!SI && C.isPluginAvailable && C.isPluginAvailable("StudyboardSignIn") && C.registerPlugin) SI = C.registerPlugin("StudyboardSignIn"); } catch (e) {}
+  var authBack = null;
+  var isIOS = !(C.getPlatform && C.getPlatform() === "android");
+  window.StudyboardNative = Object.assign(window.StudyboardNative || {}, {
+    signIn: {
+      redirect: "studyboard://auth-callback",
+      apple: isIOS && SI && typeof SI.apple === "function" ? function () {
+        return Promise.resolve().then(function () { return SI.apple(); }).then(function (r) {
+          if (r && r.error) return {error: String(r.error)};
+          return r && r.idToken ? {idToken: String(r.idToken), nonce: String(r.nonce || ""), name: String(r.name || "").slice(0, 80)} : null;
+        }, function (e) { return {error: (e && e.message) || "Sign in with Apple isn't available."}; });
+      } : null,
+      open: function (url) {
+        if (!/^https:\/\//.test(String(url || ""))) return Promise.resolve(null);
+        if (isIOS && SI && typeof SI.web === "function") {
+          return Promise.resolve().then(function () { return SI.web({url: String(url)}); }).then(function (r) { return r && r.url ? String(r.url) : null; }, function () { return null; });
+        }
+        if (!P.Browser) return Promise.resolve(null);
+        return new Promise(function (resolve) {
+          var done = false, sub = null;
+          var finish = function (v) { if (done) return; done = true; authBack = null; try { if (sub && sub.remove) sub.remove(); } catch (e) {} resolve(v); };
+          authBack = function (back) { try { P.Browser.close(); } catch (e) {} finish(back); };
+          try { Promise.resolve(P.Browser.addListener("browserFinished", function () { setTimeout(function () { finish(null); }, 1200); })).then(function (h) { sub = h; }); } catch (e) {}
+          P.Browser.open({url: String(url)}).catch(function () { finish(null); });
+        });
+      }
+    }
+  });
 
   /* 8. Phones stay upright; only full-screen notes and the whiteboard turn sideways (@capacitor/screen-orientation).
         Locked, the page never needs its "turn your phone upright" screen. iPads turn freely. */

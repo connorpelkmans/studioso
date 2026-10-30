@@ -656,6 +656,51 @@ ipcMain.on("shot:done", (e, r) => {
   } catch (err) { shotNote("Couldn't use that part of the screen."); }
 });
 // The Try it button on the settings page
+// ---------- Sign in with Google or Apple ----------
+// The provider's page opens in the computer's own browser (Google refuses sign-in inside apps' own windows) and returns to a
+// one-time page served here on 127.0.0.1, which hands the result back to the app. Only one at a time; it closes after
+// five minutes, or as soon as it's used. The fixed ports are the ones listed as allowed return addresses in Supabase.
+const OAUTH_PORTS = [43821, 43822, 43823];
+let oauthSrv = null, oauthDone = null, oauthPort = 0;
+function oauthStop(result) {
+  const d = oauthDone; oauthDone = null;
+  if (oauthSrv) { try { oauthSrv.close(); } catch (e) {} oauthSrv = null; }
+  if (d) d(result || null);
+}
+ipcMain.handle("auth:port", async e => {
+  if (!fromMain(e)) return 0;
+  oauthStop(null);
+  const http = require("http");
+  const page = (body, script) => `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Studyboard</title><body style="font:16px -apple-system,system-ui,sans-serif;display:grid;place-items:center;min-height:90vh;margin:0;color:#0F1F3D;background:#F7F9FC"><p>${body}</p>${script || ""}</body>`;
+  for (const port of OAUTH_PORTS) {
+    const srv = http.createServer((req, res) => {
+      const u = new URL(req.url, "http://127.0.0.1");
+      res.setHeader("cache-control", "no-store");
+      if (u.pathname === "/auth") {
+        // the result may be after a # (which browsers never send to a server), so this page passes the whole address on
+        res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+        res.end(page("Signing you in…", '<script>location.replace("/done?u=" + encodeURIComponent(location.href))</script>'));
+      } else if (u.pathname === "/done") {
+        const back = String(u.searchParams.get("u") || "");
+        const ok = /^http:\/\/127\.0\.0\.1:\d+\/auth[?#]/.test(back) && !/[?#&]error=/.test(back);
+        res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+        res.end(page(ok ? "You're signed in. You can close this tab and go back to Studyboard." : "Sign-in didn't finish. You can close this tab and try again in Studyboard."));
+        showMain(); oauthStop(back);
+      } else { res.writeHead(404); res.end(); }
+    });
+    const up = await new Promise(r => { srv.once("error", () => r(false)); srv.listen(port, "127.0.0.1", () => r(true)); });
+    if (up) { oauthSrv = srv; oauthPort = port; setTimeout(() => { if (oauthSrv === srv) oauthStop(null); }, 5 * 60000); return port; }
+  }
+  return 0;
+});
+// Opens the provider's sign-in page; resolves with the address it came back to, or null (closed, timed out)
+ipcMain.handle("auth:open", (e, url) => {
+  if (!fromMain(e) || !oauthSrv) return null;
+  const u = safeExternal(url);
+  if (!u || !u.startsWith("https://")) return null;
+  return new Promise(resolve => { oauthDone = resolve; shell.openExternal(u).catch(() => oauthStop(null)); });
+});
+
 ipcMain.handle("shot:now", e => { if (!fromMain(e)) return false; setTimeout(() => startShot(), 250); return true; });
 
 // Folder access for the page

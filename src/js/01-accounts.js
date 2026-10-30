@@ -778,6 +778,69 @@ function sbSetupSheet(){
   });
   });
 }
+// Sign in with Apple or Google (Supabase's providers). On the web the page goes to the provider and comes back signed in; in the
+// iPhone and Android apps and the desktop app the provider's page opens outside the app (Google refuses sign-in inside an app's
+// own web view) and hands the result back, and on iPhone Apple's own sheet is used for Apple.
+const SB_APPLE_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M16.37 12.6c-.02-2.2 1.8-3.26 1.88-3.31-1.03-1.5-2.62-1.7-3.18-1.73-1.35-.14-2.64.8-3.33.8-.69 0-1.74-.78-2.87-.76-1.47.02-2.83.86-3.59 2.18-1.53 2.66-.39 6.6 1.1 8.76.73 1.05 1.6 2.24 2.73 2.2 1.1-.04 1.51-.71 2.84-.71 1.32 0 1.7.71 2.86.69 1.18-.02 1.930-1.07 2.65-2.13.84-1.22 1.18-2.4 1.2-2.46-.03-.01-2.3-.88-2.33-3.5zM14.2 6.13c.6-.73 1.01-1.75.9-2.76-.87.04-1.92.58-2.55 1.31-.56.65-1.05 1.69-.92 2.68.97.08 1.96-.49 2.57-1.23z"/></svg>';
+const SB_GOOGLE_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.46a5.52 5.52 0 0 1-2.4 3.62v3h3.88c2.27-2.09 3.56-5.17 3.56-8.81z"/><path fill="#34A853" d="M12 24c3.24 0 5.96-1.07 7.94-2.92l-3.88-3c-1.07.72-2.45 1.15-4.06 1.15-3.12 0-5.770-2.11-6.71-4.95H1.28v3.1A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.29 14.28A7.2 7.2 0 0 1 4.91 12c0-.79.14-1.56.38-2.28v-3.1H1.28A12 12 0 0 0 0 12c0 1.94.46 3.77 1.28 5.38z"/><path fill="#EA4335" d="M12 4.77c1.76 0 3.34.61 4.59 1.8l3.44-3.44C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.28 6.62l4.01 3.1C6.23 6.880 8.88 4.77 12 4.77z"/></svg>';
+const sbOAuthHtml = () => `<div class="sb-oauth"><button type="button" class="sb-oa sb-oa-apple" data-oauth="apple">${SB_APPLE_SVG}<span>Continue with Apple</span></button><button type="button" class="sb-oa sb-oa-google" data-oauth="google">${SB_GOOGLE_SVG}<span>Continue with Google</span></button></div><div class="sb-or" role="separator"><span>or use your email</span></div>`;
+// The code or tokens a provider sent back to a return address, made into a session
+async function sbOAuthFinish(addr){
+  const u = new URL(addr), p = new URLSearchParams((u.hash || "").replace(/^#/, "")), q = u.searchParams;
+  const err = p.get("error_description") || q.get("error_description") || p.get("error") || q.get("error");
+  if (err) throw new Error(err.replace(/\+/g, " "));
+  const code = q.get("code") || p.get("code");
+  if (code) { const {error} = await sb.auth.exchangeCodeForSession(code); if (error) throw error; return true; }
+  const at = p.get("access_token"), rt = p.get("refresh_token");
+  if (at && rt) { const {error} = await sb.auth.setSession({access_token: at, refresh_token: rt}); if (error) throw error; return true; }
+  throw new Error("The sign-in didn't come back complete. Try again.");
+}
+// true once signed in; false if cancelled or still on its way (the web leaves the page)
+async function sbOAuth(provider, say, back){
+  if (provider !== "apple" && provider !== "google") return false;
+  const N = window.StudyboardNative && window.StudyboardNative.signIn, name = provider === "apple" ? "Apple" : "Google";
+  const opts = provider === "google" ? {queryParams: {prompt: "select_account"}} : {scopes: "name email"};
+  // iPhone: Apple's own sheet
+  if (provider === "apple" && N && N.apple) {
+    const r = await N.apple();
+    if (!r) return false;
+    if (r.error) throw new Error(r.error);
+    say("Signing in…");
+    const {error} = await sb.auth.signInWithIdToken({provider: "apple", token: r.idToken, nonce: r.nonce});
+    if (error) throw error;
+    if (r.name) sb.auth.updateUser({data: {full_name: r.name, first_name: r.name.split(" ")[0]}}).catch(() => {});
+    return true;
+  }
+  // the app (iPhone, Android): the provider's page outside the app, back through studyboard://auth-callback
+  if (N && N.open) {
+    const {data, error} = await sb.auth.signInWithOAuth({provider, options: Object.assign({redirectTo: N.redirect, skipBrowserRedirect: true}, opts)});
+    if (error) throw error;
+    say(`Finish signing in with ${name}…`);
+    const addr = await N.open(data.url);
+    if (!addr) { say(""); return false; }
+    say("Signing in…");
+    return sbOAuthFinish(addr);
+  }
+  // the desktop app: the computer's browser, back through a one-time page on this computer
+  if (DESK && typeof DESK.oauthPort === "function") {
+    const port = await DESK.oauthPort();
+    if (!port) throw new Error("Couldn't start sign-in on this computer. Restart Studyboard and try again.");
+    const {data, error} = await sb.auth.signInWithOAuth({provider, options: Object.assign({redirectTo: `http://127.0.0.1:${port}/auth`, skipBrowserRedirect: true}, opts)});
+    if (error) throw error;
+    say(`Finish signing in with ${name} in your browser…`);
+    const addr = await DESK.oauthOpen(data.url);
+    if (!addr) { say("Sign-in was closed before it finished."); return false; }
+    say("Signing in…");
+    return sbOAuthFinish(addr);
+  }
+  // the web: off to the provider, and back here signed in
+  if (!/^https?:$/.test(location.protocol)) throw new Error(`Sign in with ${name} isn't available here. Use your email instead.`);
+  sbLinkAsked();
+  const {error} = await sb.auth.signInWithOAuth({provider, options: Object.assign({redirectTo: back}, opts)});
+  if (error) throw error;
+  say(`Opening ${name}…`);
+  return false;
+}
 // Sign in, create an account, confirm your email with a code, and reset a forgotten password
 const SB_RESEND = {}, SB_RESEND_MS = 30000;
 function sbSignInSheet(mode, email, note){
@@ -791,8 +854,8 @@ function sbSignInSheet(mode, email, note){
   const pwIn = (lbl, ac) => `<label class="f"><span class="lh">${lbl} ${REQ}</span><input type="password" name="password" required minlength="8" autocomplete="${ac}" ${email && mode !== "reset" ? "autofocus" : ""}></label>`;
   const body = {
     hello: sbWelcomeHtml(),
-    signin: `${first ? `<p style="margin:0">Sign in to keep your tasks, notes and files safe online and in sync on all your devices.</p>` : ""}${emailIn()}${pwIn("Password", "current-password")}`,
-    signup: `<p style="margin:0">Free, and it keeps your planner in sync on your phone, laptop and the web.</p><label class="f"><span class="lh">Name <span class="hint">Optional. Your study companion uses it to say hi</span></span><input type="text" name="name" maxlength="40" autocomplete="given-name"></label>${window.SBUNAME ? SBUNAME.bdayField(true) + `<div class="u13" id="u13" hidden><p class="mini" style="margin:0"><b>Under 13?</b> A parent or guardian makes the account with their own email and confirms it. Publishing and sharing with a link stay off until you're 13.</p><label class="mi-check"><input type="checkbox" name="parentok" id="u13ok"> I'm the parent or guardian, and I agree to the Terms and Privacy Policy for my child</label></div>` : ""}${emailIn()}${sbPwHtml("Password", "new-password", {autofocus: !!email})}`,
+    signin: `${first ? `<p style="margin:0">Sign in to keep your tasks, notes and files safe online and in sync on all your devices.</p>` : ""}${sbOAuthHtml()}${emailIn()}${pwIn("Password", "current-password")}`,
+    signup: `<p style="margin:0">Free, and it keeps your planner in sync on your phone, laptop and the web.</p>${sbOAuthHtml()}<label class="f"><span class="lh">Name <span class="hint">Optional. Your study companion uses it to say hi</span></span><input type="text" name="name" maxlength="40" autocomplete="given-name"></label>${window.SBUNAME ? SBUNAME.bdayField(true) + `<div class="u13" id="u13" hidden><p class="mini" style="margin:0"><b>Under 13?</b> A parent or guardian makes the account with their own email and confirms it. Publishing and sharing with a link stay off until you're 13.</p><label class="mi-check"><input type="checkbox" name="parentok" id="u13ok"> I'm the parent or guardian, and I agree to the Terms and Privacy Policy for my child</label></div>` : ""}${emailIn()}${sbPwHtml("Password", "new-password", {autofocus: !!email})}`,
     confirm: `<p style="margin:0">If <b>${esc(email)}</b> can be used for a new account, we sent a code to it. Type it here to finish, or open the link in the email.</p><p class="mini" style="margin:0">Confirm your email to start using your account. Already have one? Use Back to Sign In.</p>${codeIn}`,
     forgot: `<p style="margin:0">Enter your email and, if an account uses it, we'll send you a code to set a new password.</p>${emailIn()}`,
     reset: `<p style="margin:0">If an account uses <b>${esc(email)}</b>, we sent it a code. Enter the code with your new password.</p>${codeIn}${sbPwHtml("New Password", "new-password")}`
@@ -884,6 +947,13 @@ function sbSignInSheet(mode, email, note){
     return false;
   });
   dlg.querySelectorAll("[data-sbm]").forEach(b => b.addEventListener("click", () => sbSignInSheet(b.dataset.sbm)));
+  dlg.querySelectorAll("[data-oauth]").forEach(b => b.addEventListener("click", async () => {
+    if (busy) return; busy = true;
+    dlg.querySelectorAll("[data-oauth]").forEach(x => { x.disabled = true; });
+    try { if (await sbOAuth(b.dataset.oauth, say, back)) done("Signed in"); }
+    catch (e) { say(sbWords(e)); }
+    finally { busy = false; dlg.querySelectorAll("[data-oauth]").forEach(x => { x.disabled = false; }); }
+  }));
   sbPwWire(dlg);
   if (mode === "signup" && window.SBUNAME && dlg.querySelector(".sb-acct .bday")) {
     const form = dlg.querySelector("form.sb-acct"), em = form && form.querySelector("input[name=email]"), lab = em && em.closest("label") && em.closest("label").querySelector(".lh");

@@ -2316,6 +2316,19 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 /* On phones there's no room beside the logo for words: the sync status is a dot (102-qol.css) */
 
 
+
+/* Continue with Apple / Google: the same size and weight, in each one's own colours (Apple black, white in dark mode; Google white) */
+.sb-oauth{display:grid;gap:10px}
+.sb-oa{display:flex;align-items:center;justify-content:center;gap:10px;min-height:46px;padding:0 16px;border-radius:12px;font:600 1rem/1 var(--display,system-ui);cursor:pointer;border:1px solid transparent;width:100%}
+.sb-oa svg{flex:none}
+.sb-oa:disabled{opacity:.6;cursor:default}
+.sb-oa-apple{background:#000;color:#fff}
+.sb-oa-google{background:#fff;color:#1F1F1F;border-color:#747775}
+:root[data-theme="dark"] .sb-oa-apple{background:#fff;color:#000}
+:root[data-theme="dark"] .sb-oa-google{background:#131314;color:#E3E3E3;border-color:#8E918F}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .sb-oa-apple{background:#fff;color:#000}:root:not([data-theme="light"]) .sb-oa-google{background:#131314;color:#E3E3E3;border-color:#8E918F}}
+.sb-or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.85rem}
+.sb-or::before,.sb-or::after{content:"";flex:1;height:1px;background:var(--line)}
 /* ===== module: 10-plan.css ===== */
 /* Studyboard Pro sheet, Your Devices, and the Settings row */
 dialog:has(.plan-sheet){width:min(600px,calc(100% - 24px))}

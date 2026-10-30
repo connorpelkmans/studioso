@@ -2,6 +2,8 @@
 import UIKit
 import WebKit
 import Capacitor
+import AuthenticationServices
+import CryptoKit
 
 class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
     private var offsetWatch: NSKeyValueObservation?
@@ -9,7 +11,7 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
 
     override func capacitorDidLoad() {
         // Studyboard's own plugins, each only if its file is in the project (so this file builds whatever you've added)
-        for name in ["StudyboardFocusActivityPlugin", "StudyboardCaptureTokenPlugin", "StudyboardSharedQueuePlugin", "StudyboardLmsPlugin"] {
+        for name in ["StudyboardFocusActivityPlugin", "StudyboardCaptureTokenPlugin", "StudyboardSharedQueuePlugin", "StudyboardLmsPlugin", "StudyboardSignInPlugin"] {
             // (ios:stage also lists them for Capacitor, which then connects them itself; never twice)
             if let type = NSClassFromString(name) as? CAPPlugin.Type, let plugin = (type as NSObject.Type).init() as? CAPPlugin,
                bridge?.plugin(withName: (plugin as? CAPBridgedPlugin)?.jsName ?? "") == nil {
@@ -50,4 +52,76 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
         guard h.count == 6, let v = UInt32(h, radix: 16) else { return nil }
         return UIColor(red: CGFloat((v >> 16) & 0xFF) / 255, green: CGFloat((v >> 8) & 0xFF) / 255, blue: CGFloat(v & 0xFF) / 255, alpha: 1)
     }
+}
+
+// Sign in with Apple (Apple's own sheet, with Face ID) and Sign in with Google (Apple's secure sign-in window; Google refuses
+// sign-in inside an app's own web view). The page turns what comes back into a Supabase session (01-accounts.js sbOAuth).
+@objc(StudyboardSignInPlugin)
+public class StudyboardSignInPlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorizationControllerDelegate,
+                                     ASAuthorizationControllerPresentationContextProviding, ASWebAuthenticationPresentationContextProviding {
+    public let identifier = "StudyboardSignInPlugin"
+    public let jsName = "StudyboardSignIn"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "apple", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "web", returnType: CAPPluginReturnPromise)
+    ]
+    private var appleCall: CAPPluginCall?
+    private var rawNonce = ""
+    private var webSession: ASWebAuthenticationSession?
+
+    // {idToken, nonce, name} once signed in; {} if cancelled; {error} if it failed
+    @objc func apple(_ call: CAPPluginCall) {
+        let raw = Self.randomNonce()
+        let req = ASAuthorizationAppleIDProvider().createRequest()
+        req.requestedScopes = [.fullName, .email]
+        req.nonce = Self.sha256(raw)   // Apple signs the hash; Supabase checks it against the raw value
+        DispatchQueue.main.async {
+            self.appleCall?.resolve([:])
+            self.appleCall = call; self.rawNonce = raw
+            let c = ASAuthorizationController(authorizationRequests: [req])
+            c.delegate = self; c.presentationContextProvider = self
+            c.performRequests()
+        }
+    }
+    public func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
+        guard let call = appleCall else { return }
+        appleCall = nil
+        guard let cred = authorization.credential as? ASAuthorizationAppleIDCredential, let data = cred.identityToken,
+              let token = String(data: data, encoding: .utf8) else { return call.resolve(["error": "Apple didn't send a sign-in token."]) }
+        // the name only comes the first time someone signs in to the app
+        let name = [cred.fullName?.givenName, cred.fullName?.familyName].compactMap { $0 }.joined(separator: " ")
+        call.resolve(["idToken": token, "nonce": rawNonce, "name": name])
+    }
+    public func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        guard let call = appleCall else { return }
+        appleCall = nil
+        if let e = error as? ASAuthorizationError, e.code == .canceled { return call.resolve([:]) }
+        call.resolve(["error": error.localizedDescription])
+    }
+
+    // Opens the provider's https sign-in page; resolves {url} with the studyboard:// address it returns to, or {} if closed
+    @objc func web(_ call: CAPPluginCall) {
+        guard let s = call.getString("url"), let url = URL(string: s), url.scheme == "https" else { return call.reject("invalid") }
+        DispatchQueue.main.async {
+            self.webSession?.cancel()
+            let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "studyboard") { [weak self] back, _ in
+                self?.webSession = nil
+                call.resolve(back.map { ["url": $0.absoluteString] } ?? [:])
+            }
+            session.presentationContextProvider = self
+            self.webSession = session
+            if !session.start() { self.webSession = nil; call.resolve([:]) }
+        }
+    }
+
+    public func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor { anchor() }
+    public func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor { anchor() }
+    private func anchor() -> ASPresentationAnchor { bridge?.viewController?.view.window ?? UIWindow() }
+
+    private static func randomNonce() -> String {
+        var bytes = [UInt8](repeating: 0, count: 32)
+        _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        return bytes.map { String(format: "%02x", $0) }.joined()
+    }
+    private static func sha256(_ s: String) -> String { SHA256.hash(data: Data(s.utf8)).map { String(format: "%02x", $0) }.joined() }
 }
