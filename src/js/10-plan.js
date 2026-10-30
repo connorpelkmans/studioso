@@ -704,16 +704,17 @@ window.__sbPlanObj = () => PLAN;
   const GOOGLE_RENEW = "Payment will be charged to your Google Play account at confirmation of purchase. The subscription renews automatically unless it is cancelled before the end of the current period. You can manage and cancel your subscriptions in Google Play, Payments and subscriptions, Subscriptions.";
   const WEB_RENEW_NOTRIAL = "Your card is charged today and again at the start of each period until you cancel. Cancel any time from Manage Plan; you keep Pro until the end of the period you paid for.";
   const WEB_RENEW = "Your card is charged when the free trial ends unless you cancel before then, and again at the start of each period until you cancel. Cancel any time from Manage Plan; you keep Pro until the end of the period you paid for.";
-  // The semester plan: 4 months on the website; in the App Store and Google Play (which have no 4-month length) a 3-month
-  // plan, shown only once its price is set in studyboard_config prices.storeSemester (see PRO-PLANS-GUIDE.md)
+  // The semester plan is 4 months. On the website it renews; in the App Store and Google Play (which have no 4-month
+  // renewing length) it's paid once and doesn't renew, and shows only once its price is set in studyboard_config
+  // prices.storeSemester (see PRO-PLANS-GUIDE.md)
   const semPrice = () => route() === "store" ? cfg.prices.storeSemester : cfg.prices.semester;
-  const semMonths = () => route() === "store" ? (+cfg.prices.storeSemesterMonths === 6 ? 6 : 3) : 4;
+  const semOnce = () => route() === "store";
   const semesterOn = () => typeof semPrice() === "string" && !!semPrice();
   const cardTrialOk = () => { const e = ent(); return +cfg.prices.checkoutTrialDays > 0 && !(e && (e.trial_until || e.source === "stripe" || e.external_id)); };
   const trialDaysShown = () => route() === "store" ? +(cfg.prices.storeTrialDays != null ? cfg.prices.storeTrialDays : cfg.prices.trialDays) || 0 : cardTrialOk() ? +cfg.prices.checkoutTrialDays : 0;
   function renewalText(pr, trial){
     const store = route() === "store", t = trialDaysShown();
-    const head = `Studyboard Pro is an auto-renewing subscription: ${pr.monthly} per month${semesterOn() ? `, ${semPrice()} every ${semMonths()} months` : ""} or ${pr.yearly} per year${t ? `, after a ${t}-day free trial` : ""}.`;
+    const head = `Studyboard Pro is an auto-renewing subscription: ${pr.monthly} per month${semesterOn() && !semOnce() ? `, ${semPrice()} every 4 months` : ""} or ${pr.yearly} per year${t ? `, after a ${t}-day free trial` : ""}.${semesterOn() && semOnce() ? ` Semester: ${semPrice()} for 4 months of Pro, paid once. It doesn't renew and has no free trial.` : ""}`;
     // in the iPhone app for a United States account: the checkout is on the website, said before they tap
     const outside = !store && nativeStore() ? "You'll check out securely on the Studyboard website, and Pro turns on here by itself. " : "";
     return `<p class="plan-fine mini plan-legal" id="planLegal">${esc(outside + head)} ${esc(store ? (onAndroid() ? GOOGLE_RENEW : APPLE_RENEW) : t ? WEB_RENEW : WEB_RENEW_NOTRIAL)} <button type="button" class="link-btn" data-act="legal-terms">Terms of Use</button> · <button type="button" class="link-btn" data-act="legal-privacy">Privacy Policy</button></p>`;
@@ -726,7 +727,7 @@ window.__sbPlanObj = () => PLAN;
     const trial = trialDaysShown() ? `${trialDaysShown()}-Day Free Trial` : "";
     return `<div class="plan-prices${sm ? " three" : ""}">
         <button type="button" class="plan-price" data-act="plan-buy" data-id="monthly"><span class="pp-name">Monthly</span><span class="pp-amt">${esc(pr.monthly)}<small> / month</small></span>${trial ? `<span class="pp-sub">${esc(trial)}</span>` : ""}</button>
-        ${sm ? `<button type="button" class="plan-price" data-act="plan-buy" data-id="semester"><span class="pp-name">Semester</span><span class="pp-amt">${esc(semPrice())}<small> / ${semMonths()} months</small></span><span class="pp-sub">${esc([trial, "About " + per(sm, semMonths(), semPrice())].filter(Boolean).join(" · "))}</span></button>` : ""}
+        ${sm ? `<button type="button" class="plan-price" data-act="plan-buy" data-id="semester"><span class="pp-name">Semester</span><span class="pp-amt">${esc(semPrice())}<small> / 4 months</small></span><span class="pp-sub">${esc((semOnce() ? ["Paid once, doesn't renew"] : [trial, "About " + per(sm, 4, semPrice())]).filter(Boolean).join(" · "))}</span></button>` : ""}
         <button type="button" class="plan-price best" data-act="plan-buy" data-id="yearly">${save ? `<span class="pp-flag">Save ${save}%</span>` : ""}<span class="pp-name">Yearly</span><span class="pp-amt">${esc(pr.yearly)}<small> / year</small></span><span class="pp-sub">${esc([trial, y && "Just " + per(y, 12, pr.yearly)].filter(Boolean).join(" · "))}</span></button>
       </div>
       <p class="plan-fine mini">${trial ? `Try Pro free for ${trialDaysShown()} days. Cancel any time before it ends and you won't be charged.` : "Cancel any time. You keep Pro until the end of the time you paid for."}${cfg.app_trial && sbUser && !(ent() && ent().trial_until) ? ` <button type="button" class="link-btn" data-act="plan-trial">Try It Without a Card</button>` : ""}${sbUser ? ` <button type="button" class="link-btn" data-act="plan-devices">Your Devices</button>` : ""}</p>

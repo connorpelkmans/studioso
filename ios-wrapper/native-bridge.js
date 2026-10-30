@@ -313,14 +313,21 @@
     return Promise.resolve(rcReady).then(function () { return userId ? RC.logIn({ appUserID: userId }) : null; });
   }
   var isCancel = function (e) { return !!(e && (e.userCancelled || /cancel/i.test(String(e.message || "")))); };
-  var active = function (info) { return !!(info && info.customerInfo ? info.customerInfo.entitlements.active[RC_ENTITLEMENT] : info && info.entitlements && info.entitlements.active[RC_ENTITLEMENT]); };
+  // RevenueCat keeps a one-time semester purchase "active" for good; it gives Pro for 4 months from the purchase
+  var SEM_MS = 123 * 86400e3;
+  var active = function (info) {
+    var ent = info && info.customerInfo ? info.customerInfo.entitlements.active[RC_ENTITLEMENT] : info && info.entitlements && info.entitlements.active[RC_ENTITLEMENT];
+    if (ent && !ent.expirationDate && /semester/i.test(String(ent.productIdentifier || ""))) return Date.now() - Date.parse(ent.latestPurchaseDate || 0) < SEM_MS;
+    return !!ent;
+  };
   // "claim" = tell the page we are handling it (preventDefault)
   if (purchasesAvailable) window.addEventListener("studyboard:plan-checkout", function (ev) {
     ev.preventDefault();
     var d = ev.detail || {};
     rcSetup(d.userId).then(function () { return RC.getOfferings(); }).then(function (o) {
-      // semester: the store's 3-month package (or 6-month); the App Store and Google Play have no 4-month length
-      var cur = o && o.current, pkg = cur && (d.period === "yearly" ? cur.annual : d.period === "semester" ? cur.threeMonth || cur.sixMonth : cur.monthly);
+      // semester: a 4-month purchase that doesn't renew, the offering's custom package "semester" (the stores have no
+      // 4-month renewing length)
+      var cur = o && o.current, pkg = cur && (d.period === "yearly" ? cur.annual : d.period === "semester" ? (cur.availablePackages || []).filter(function (p) { return p && p.identifier === "semester"; })[0] : cur.monthly);
       if (!pkg) throw new Error("That plan isn't available right now.");
       return RC.purchasePackage({ aPackage: pkg });
     }).then(function () { result("checkout", "success"); },

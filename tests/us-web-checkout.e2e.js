@@ -64,12 +64,12 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     ok(opened.length === 1 && /^https:\/\/studyboardapp\.com\/website\/account\?plan=monthly&src=app$/.test(opened[0]), "Monthly opens the website's checkout: " + opened.join());
     await ctx.close();
 
-    // 3. the store's semester plan (3 months; the App Store has no 4-month length), once its price is set
+    // 3. the store's semester plan (4 months, paid once: the App Store has no 4-month renewing length), once its price is set
     const ctx3 = await browser.newContext({viewport: {width: 430, height: 900}});
     await ctx3.route(/supabase\.co/, r => r.abort());
     await ctx3.addInitScript(() => {
       try { localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("studyboard:paywall-test", "1");
-        localStorage.setItem("studyboard:plancfg", JSON.stringify({rows: {prices: {storeSemester: "$9.99"}}, at: Date.now()})); } catch (e) {}
+        localStorage.setItem("studyboard:plancfg", JSON.stringify({rows: {prices: {storeSemester: "$12.99"}}, at: Date.now()})); } catch (e) {}
       window.StudyboardNative = {platform: "ios", purchasesAvailable: true, externalPurchase: false, storefront: "CAN"};
     });
     const p3 = await ctx3.newPage(); p3.on("pageerror", e => errs.push(e.message));
@@ -77,7 +77,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await p3.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
     await p3.evaluate(() => window.__sbPlanObj().openSheet()); await p3.waitForSelector("dialog[open] .plan-sheet", {timeout: 5000});
     const sem = await p3.evaluate(() => { const b = document.querySelector('dialog[open] [data-act="plan-buy"][data-id="semester"]'); return {btn: b ? b.textContent : "", legal: (document.getElementById("planLegal") || {}).textContent || ""}; });
-    ok(/\$9\.99\s*\/ 3 months/.test(sem.btn) && /\$9\.99 every 3 months/.test(sem.legal) && /Apple ID/.test(sem.legal), "with storeSemester set, the App Store sheet sells a 3-month semester plan: " + sem.btn);
+    ok(/\$12\.99\s*\/ 4 months/.test(sem.btn) && /doesn't renew/.test(sem.btn) && !/Free Trial/.test(sem.btn) && /Semester: \$12\.99 for 4 months of Pro, paid once/.test(sem.legal) && !/every 4 months/.test(sem.legal) && /Apple ID/.test(sem.legal), "with storeSemester set, the App Store sheet sells a 4-month semester plan, paid once: " + sem.btn);
     await ctx3.close();
 
     // 4. the bridge buys the store's 3-month package for the semester plan
@@ -90,7 +90,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       window.Capacitor = {isNativePlatform: () => true, getPlatform: () => "ios", isPluginAvailable: () => false, Plugins: {
         StudyboardStore: {storefront: () => Promise.resolve({country: "CAN"})},
         Purchases: {configure: () => Promise.resolve(), logIn: () => Promise.resolve(),
-          getOfferings: () => Promise.resolve({current: {monthly: pk("$rc_monthly"), threeMonth: pk("$rc_three_month"), annual: pk("$rc_annual")}}),
+          getOfferings: () => Promise.resolve({current: {monthly: pk("$rc_monthly"), annual: pk("$rc_annual"), availablePackages: [pk("$rc_monthly"), pk("semester"), pk("$rc_annual")]}}),
           purchasePackage: o => { window.__bought.push(o.aPackage.identifier); return Promise.resolve({}); }}}};
     });
     await p4.addScriptTag({content: fs.readFileSync(path.join(root, "ios-wrapper/native-bridge.js"), "utf8").replace(/appl_REPLACE_WITH_REVENUECAT_PUBLIC_KEY/, "appl_TESTKEY12345")});
@@ -102,7 +102,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       }
       return window.__bought;
     });
-    ok(bought.join() === "$rc_three_month,$rc_annual,$rc_monthly", "bridge: semester buys the 3-month package, yearly the annual one: " + bought.join());
+    ok(bought.join() === "semester,$rc_annual,$rc_monthly", "bridge: semester buys the offering's \"semester\" package, yearly the annual one: " + bought.join());
     await ctx4.close();
 
     ok(!errs.length, "no page errors: " + errs.join(" | "));

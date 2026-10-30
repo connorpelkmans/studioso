@@ -289,15 +289,24 @@ await test("revenuecat: a paid purchase counts with its length; a store trial or
   await wh.handle(rcReq({ ...base, id: "rcp2", type: "RENEWAL", period_type: "NORMAL", price: 3.99, expiration_at_ms: NOW + 30 * 86400e3 }), deps);
   assert.equal(applied[0].term, "monthly");
   ({ deps, applied } = whDeps());
-  // the store's semester plan is 3 months, as short as 89 days (Feb 28 to May 28)
-  await wh.handle(rcReq({ ...base, id: "rcp5", type: "INITIAL_PURCHASE", period_type: "NORMAL", price: 9.99, expiration_at_ms: NOW + 89 * 86400e3 }), deps);
-  assert.equal(applied[0].term, "semester");
-  ({ deps, applied } = whDeps());
   await wh.handle(rcReq({ ...base, id: "rcp3", type: "INITIAL_PURCHASE", period_type: "TRIAL", price: 0, expiration_at_ms: NOW + 7 * 86400e3 }), deps);
   assert.equal(applied[0].paid, undefined);
   ({ deps, applied } = whDeps());
   await wh.handle(rcReq({ ...base, id: "rcp4", type: "UNCANCELLATION", expiration_at_ms: NOW + 30 * 86400e3 }), deps);
   assert.equal(applied[0].paid, undefined);
+});
+await test("revenuecat: the store semester plan (paid once) gives Pro for 4 months, never for good", async () => {
+  const base = { app_user_id: UID, store: "APP_STORE", event_timestamp_ms: NOW, environment: "PRODUCTION", purchased_at_ms: Date.UTC(2026, 8, 1) };
+  let { deps, applied } = whDeps();
+  await wh.handle(rcReq({ ...base, id: "rcs1", type: "NON_RENEWING_PURCHASE", product_id: "studyboard_pro_semester", price: 12.99 }), deps);
+  assert.equal(applied[0].state, "active"); assert.equal(applied[0].will_renew, false); assert.equal(applied[0].paid, true); assert.equal(applied[0].term, "semester");
+  assert.equal(applied[0].pro_until, new Date(Date.UTC(2027, 0, 1) + 3 * 86400e3).toISOString(), "Sep 1 + 4 months (+3 days grace)");
+  ({ deps, applied } = whDeps({ env: { RC_SEMESTER_PRODUCTS: "sb_term" } }));
+  await wh.handle(rcReq({ ...base, id: "rcs2", type: "NON_RENEWING_PURCHASE", product_id: "sb_term", price: 12.99 }), deps);
+  assert.equal(applied[0].term, "semester", "a product named in RC_SEMESTER_PRODUCTS");
+  ({ deps, applied } = whDeps());
+  await wh.handle(rcReq({ ...base, id: "rcs3", type: "NON_RENEWING_PURCHASE", product_id: "studyboard_pro_semester", price: 0 }), deps);
+  assert.equal(applied[0].state, "active"); assert.equal(applied[0].paid, undefined, "a $0 purchase isn't a payment");
 });
 await test("revenuecat: authorization is checked (constant time), sandbox ignored, events mapped", async () => {
   const ev = { id: "rc1", type: "INITIAL_PURCHASE", app_user_id: UID, store: "APP_STORE", expiration_at_ms: NOW + 86400e3, event_timestamp_ms: NOW, environment: "PRODUCTION", period_type: "TRIAL" };

@@ -81,7 +81,7 @@ export function priceAllowed(d: Deps, ids: string[]): boolean {
   return ids.some(id => allow.has(id));
 }
 // How long a plan is: its price id first (STRIPE_PRICE_*), then the length of the period paid for
-export const termFromDays = (days: number): Term | undefined => !(days > 0) ? undefined : days >= 300 ? "yearly" : days >= 75 ? "semester" : "monthly";
+export const termFromDays = (days: number): Term | undefined => !(days > 0) ? undefined : days >= 300 ? "yearly" : days >= 90 ? "semester" : "monthly";
 export function termOf(d: Deps, priceIds: string[], days: number): Term | undefined {
   const named: [string, Term][] = [["STRIPE_PRICE_YEARLY", "yearly"], ["STRIPE_PRICE_SEMESTER", "semester"], ["STRIPE_PRICE_MONTHLY", "monthly"]];
   for (const [k, t] of named) { const v = d.env(k).trim(); if (v && priceIds.includes(v)) return t; }
@@ -229,6 +229,14 @@ function rcUser(e: any): string | undefined {
   return validUid(ids.find(id => UUID.test(id)));
 }
 
+// Store products sold as the one-time semester plan: RC_SEMESTER_PRODUCTS (comma separated), else any id containing "semester"
+export function isSemesterProduct(d: Deps, id: unknown): boolean {
+  const p = String(id || "").trim(); if (!p) return false;
+  const list = (d.env("RC_SEMESTER_PRODUCTS") || "").split(",").map(s => s.trim()).filter(Boolean);
+  return list.length ? list.includes(p) : /semester/i.test(p);
+}
+export const plusMonths = (ms: number, n: number): number => { const t = new Date(ms); t.setUTCMonth(t.getUTCMonth() + n); return t.getTime(); };
+
 async function handleRevenueCat(req: Request, d: Deps, raw: string): Promise<Response> {
   const want = d.env("REVENUECAT_WEBHOOK_AUTH");
   const got = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
@@ -277,10 +285,18 @@ async function handleRevenueCat(req: Request, d: Deps, raw: string): Promise<Res
       if (!exp) return json({ ignored: "no expiry on event" });
       return done({ ...base, event_id: e.id, state: "active", uid_hint: uid, pro_until: iso(exp + GRACE_MS), will_renew: true, external_id: ext,
         fresh: e.type === "INITIAL_PURCHASE", ...(e.period_type === "TRIAL" ? { trial_until: iso(exp) } : {}) });
-    case "NON_RENEWING_PURCHASE":
+    case "NON_RENEWING_PURCHASE": {
+      // The store semester plan: paid once, Pro for 4 months from the purchase (the event has no expiry for it)
+      if (isSemesterProduct(d, e.product_id)) {
+        const bought = Number(e.purchased_at_ms) || Number(e.event_timestamp_ms) || d.now();
+        const paid = !(typeof e.price === "number" && e.price <= 0) && !(typeof e.price_in_purchased_currency === "number" && e.price_in_purchased_currency <= 0);
+        return done({ ...base, event_id: e.id, state: "active", uid_hint: uid, pro_until: iso(plusMonths(bought, 4) + GRACE_MS), will_renew: false,
+          external_id: ext, fresh: true, ...(paid ? { paid: true, term: "semester" as const } : {}) });
+      }
       return done(exp
         ? { ...base, event_id: e.id, state: "active", uid_hint: uid, pro_until: iso(exp), will_renew: false, external_id: ext, fresh: true }
         : { ...base, event_id: e.id, state: "lifetime", uid_hint: uid, external_id: ext, fresh: true });
+    }
     case "CANCELLATION":
       return done({ ...base, event_id: e.id, uid_hint: uid, state: e.cancel_reason === "CUSTOMER_SUPPORT" ? "revoke" : "renew_off" });
     case "EXPIRATION":
