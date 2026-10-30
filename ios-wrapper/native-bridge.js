@@ -300,7 +300,9 @@
   });
 
   /* 7. Focus timer in the Dynamic Island (iOS Live Activity) */
+  // found by name too, in case it was registered after the plugin list was handed to the page
   var FA = P.StudyboardFocusActivity;
+  try { if (!FA && C.isPluginAvailable && C.isPluginAvailable("StudyboardFocusActivity") && C.registerPlugin) FA = C.registerPlugin("StudyboardFocusActivity"); } catch (e) {}
   // Why the island isn't showing, for the Focus sheet: "setup" (the plugin and widget aren't in this build), "off" (Live
   // Activities are turned off for Studyboard in Settings), or "ok"
   if (!(C.getPlatform && C.getPlatform() === "android")) window.StudyboardNative = Object.assign(window.StudyboardNative || {}, {
