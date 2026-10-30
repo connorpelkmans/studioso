@@ -2,24 +2,58 @@
 import Foundation
 import Capacitor
 import ActivityKit
+import UserNotifications
 
 @objc(StudyboardFocusActivityPlugin)
-public class StudyboardFocusActivityPlugin: CAPPlugin, CAPBridgedPlugin {
+public class StudyboardFocusActivityPlugin: CAPPlugin, CAPBridgedPlugin, NotificationHandlerProtocol {
     public let identifier = "StudyboardFocusActivityPlugin"
     public let jsName = "StudyboardFocusActivity"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "available", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "show", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "end", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "take", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "take", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "hasSound", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "alarm", returnType: CAPPluginReturnPromise)
     ]
     private var watch: NSObjectProtocol?
 
     override public func load() {
+        // the session-end alarm also rings with the app open (iOS keeps an open app's notifications quiet otherwise)
+        if bridge?.notificationRouter.localNotificationHandler == nil { bridge?.notificationRouter.localNotificationHandler = self }
         // a button on the Lock Screen was pressed while the app is running: tell the page
         watch = NotificationCenter.default.addObserver(forName: Notification.Name("sbFocusAction"), object: nil, queue: .main) { [weak self] _ in
             self?.notifyListeners("action", data: [:])
         }
+    }
+
+    public func willPresent(notification: UNNotification) -> UNNotificationPresentationOptions {
+        // in the app the page shows its own "session complete" sheet, so only the sound
+        notification.request.identifier == StudyboardFocusAlarm.id ? [.sound, .list] : []
+    }
+    public func didReceive(response: UNNotificationResponse) {}
+
+    private static func soundName(_ s: String?) -> String? {
+        guard let s = s, s.range(of: "^sb-[a-z0-9-]{1,40}\\.wav$", options: .regularExpression) != nil else { return nil }
+        return s
+    }
+    @objc func hasSound(_ call: CAPPluginCall) {
+        guard let n = Self.soundName(call.getString("name")), let dir = StudyboardFocusAlarm.soundsDir() else { return call.resolve(["value": false]) }
+        call.resolve(["value": FileManager.default.fileExists(atPath: dir.appendingPathComponent(n).path)])
+    }
+    // Ask once to ring at the end of a session, and save the alarm sound (a short .wav the page makes) for it to use
+    @objc func alarm(_ call: CAPPluginCall) {
+        if let n = Self.soundName(call.getString("name")), let dir = StudyboardFocusAlarm.soundsDir() {
+            let f = dir.appendingPathComponent(n)
+            if let b64 = call.getString("wav"), let data = Data(base64Encoded: b64), data.count < 3_000_000, !FileManager.default.fileExists(atPath: f.path) {
+                try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                // older sounds go, so they don't pile up as the sound or volume changes
+                for old in (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? [] where old.hasPrefix("sb-") { try? FileManager.default.removeItem(at: dir.appendingPathComponent(old)) }
+                try? data.write(to: f)
+            }
+            if FileManager.default.fileExists(atPath: f.path) { UserDefaults.standard.set(n, forKey: StudyboardFocusAlarm.soundKey) }
+        }
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { ok, _ in call.resolve(["allowed": ok]) }
     }
 
     // The Lock Screen button presses not yet applied in the app (oldest first), cleared as they're handed over
@@ -47,9 +81,12 @@ public class StudyboardFocusActivityPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func show(_ call: CAPPluginCall) {
-        guard #available(iOS 16.2, *), ActivityAuthorizationInfo().areActivitiesEnabled else { return call.resolve(["shown": false]) }
         let mode = call.getString("mode") ?? "focus"
         guard Self.modes.contains(mode) else { return call.reject("invalid") }
+        // the alarm, whether or not Live Activities are on
+        let alarmMs = (call.getBool("running") ?? false) ? (call.getDouble("endsAt") ?? 0) : 0
+        StudyboardFocusAlarm.sync(mode: mode, endsAt: alarmMs > 0 ? Date(timeIntervalSince1970: alarmMs / 1000) : nil)
+        guard #available(iOS 16.2, *), ActivityAuthorizationInfo().areActivitiesEnabled else { return call.resolve(["shown": false]) }
         let running = call.getBool("running") ?? false
         let total = max(60, min(6 * 3600, call.getInt("total") ?? 1500))
         let now = Date()
@@ -85,6 +122,7 @@ public class StudyboardFocusActivityPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func end(_ call: CAPPluginCall) {
+        StudyboardFocusAlarm.sync(mode: "focus", endsAt: nil)
         guard #available(iOS 16.2, *) else { return call.resolve() }
         Task {
             for a in Activity<StudyboardFocusAttributes>.activities { await a.end(nil, dismissalPolicy: .immediate) }

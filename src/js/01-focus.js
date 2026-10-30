@@ -71,6 +71,7 @@ function pomoStart(){
   const cfg = pomoCfg();
   if (cfg.notify && notifySupported() && Notification.permission === "default") { try { Notification.requestPermission().then(() => renderPomo()); } catch(e) {} }
   pomoToday();
+  nativeAlarm();
   pomo.endAt = Date.now() + pomoLeft(); pomo.left = 0; pomo.running = true;
   pomoSave(); pomoSchedule(); pomoUI(true);
   try {
@@ -136,7 +137,7 @@ function pomoAlarm(done, next, auto, missed){
   const title = done === "focus" ? "Focus session complete" : "Break's over";
   const body = done === "focus" ? `Nice work. ${auto ? "Your" : "Time for a"} ${next === "long" ? `${cfg.long}-minute long break` : `${cfg.short}-minute break`}${auto ? " has started" : ""}.` : `${auto ? "Your next focus session has started." : "Ready for the next focus session?"}`;
   if (!missed) {
-    playAlarm(cfg.sound, Number(cfg.volume), 5);
+    if (!ISLAND.ring) playAlarm(cfg.sound, Number(cfg.volume), 5);   // in the iPhone app, iOS rings it (see nativeAlarm)
     if (navigator.vibrate) { try { navigator.vibrate([400, 180, 400, 180, 700]); } catch(e) {} }
     if (cfg.notify && notifySupported() && Notification.permission === "granted") {
       try { const n = new Notification(title, {body, icon: FAVICON, tag: "studioso-pomo", renotify: true, requireInteraction: true}); n.onclick = () => { try { window.focus(); } catch(e) {} n.close(); stopAlarm(); }; } catch(e) {}
@@ -190,7 +191,7 @@ function renderPomoBits(){
   try { islandSync(); } catch (e) {}
 }
 // iPhone app: while the timer runs, it shows in the Dynamic Island and on the Lock Screen
-const ISLAND = {sig: "", on: false};
+const ISLAND = {sig: "", on: false, ring: false};
 function islandSync(){
   if (ISLAND.hold) return;
   const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
@@ -239,6 +240,32 @@ function pomoTakeLock(){
     } finally { ISLAND.hold = false; }
     pomoUI(true);
   }, () => {});
+}
+// iPhone app: the alarm at the end of a session is rung by iOS (so it sounds with the app closed or the phone locked), with
+// the sound and volume you picked, made here once as a short recording and saved in the app
+function wavB64(name, vol){
+  const SR = 22050, s = SOUNDS[name] || SOUNDS.chime, C = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  if (!C) return Promise.resolve("");
+  const ac = new C(1, SR * 10, SR), keep = alarmOsc; alarmOsc = [];
+  let t = 0.05; for (let r = 0; r < 3; r++) t += s.play(ac, ac.destination, t, Math.max(0.05, Math.min(1, vol))) + 0.6;
+  alarmOsc = keep;
+  return ac.startRendering().then(buf => {
+    const d = buf.getChannelData(0), n = Math.min(d.length, Math.ceil(t * SR)), out = new DataView(new ArrayBuffer(44 + n * 2));
+    const w = (o, str) => { for (let i = 0; i < str.length; i++) out.setUint8(o + i, str.charCodeAt(i)); };
+    w(0, "RIFF"); out.setUint32(4, 36 + n * 2, true); w(8, "WAVE"); w(12, "fmt "); out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, 1, true);
+    out.setUint32(24, SR, true); out.setUint32(28, SR * 2, true); out.setUint16(32, 2, true); out.setUint16(34, 16, true); w(36, "data"); out.setUint32(40, n * 2, true);
+    for (let i = 0; i < n; i++) out.setInt16(44 + i * 2, Math.max(-1, Math.min(1, d[i])) * 32767, true);
+    const bytes = new Uint8Array(out.buffer); let bin = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(bin);
+  });
+}
+function nativeAlarm(){
+  const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
+  if (!FA || typeof FA.alarm !== "function") return;
+  const cfg = pomoCfg(), snd = SOUNDS[cfg.sound] ? cfg.sound : "chime", name = `sb-${snd}-${Math.round(Math.max(0.05, Math.min(1, Number(cfg.volume) || 0.8)) * 100)}.wav`;
+  FA.hasSound(name).then(has => has ? FA.alarm({name}) : wavB64(snd, Number(cfg.volume) || 0.8).then(wav => FA.alarm({name, wav}), () => FA.alarm({name})))
+    .then(ok => { ISLAND.ring = !!ok; }, () => {});
 }
 function islandOn(on){ ISLAND.on = on; document.documentElement.classList.toggle("sb-island", on); }
 function openPomo(taskId){
@@ -335,6 +362,7 @@ function pomoDue(then){
 setInterval(() => { if (pomo.running) { if (Date.now() >= pomo.endAt) pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoFinish(); }); else pomoUI(false); } }, 500);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { clearInterval(flashT); flashT = null; setTitle(); pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoFinish(); }); } });
 function pomoBoot(){
+  if (pomo.running) nativeAlarm();
   const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
   if (FA && typeof FA.onAction === "function") FA.onAction(() => pomoDue(() => {}));
   pomoDue(() => {

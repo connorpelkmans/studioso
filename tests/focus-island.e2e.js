@@ -18,7 +18,8 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await ctx.addInitScript(withIsland => {
       try { localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); } catch (e) {}
       if (withIsland) { window.__fa = []; window.StudyboardNative = {focusActivity: {show: st => { window.__fa.push(["show", st]); return Promise.resolve(true); }, end: () => { window.__fa.push(["end"]); return Promise.resolve(); },
-        take: () => { const q = window.__lockQ || []; window.__lockQ = []; return Promise.resolve(q); }, onAction: fn => { window.__lockFire = fn; }}}; }
+        take: () => { const q = window.__lockQ || []; window.__lockQ = []; return Promise.resolve(q); }, onAction: fn => { window.__lockFire = fn; },
+        hasSound: () => Promise.resolve(false), alarm: o => { window.__alarm = o; return Promise.resolve(true); }}}; }
     }, withIsland);
     const page = await ctx.newPage(); page.on("pageerror", e => errs.push(e.message));
     await page.goto(base); await page.waitForSelector("#pomoBtn", {state: "attached"}); await page.waitForTimeout(1500);
@@ -34,6 +35,9 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     let fa = await page.evaluate(() => window.__fa);
     const st = fa.length && fa[fa.length - 1][1];
     ok(fa.length === 1 && fa[0][0] === "show" && st.running === true && st.mode === "focus" && st.label === "Focus" && st.total === 1500 && Math.abs(st.endsAt - Date.now() - 1500000) < 5000, "starting sends one show() with the end time and the session length");
+    await page.waitForTimeout(800);
+    const al = await page.evaluate(() => { const o = window.__alarm; if (!o || !o.wav) return null; const b = atob(o.wav); return {name: o.name, riff: b.slice(0, 4), wave: b.slice(8, 12), bytes: b.length, loud: (() => { let m = 0; for (let i = 44; i < b.length; i += 2) { const v = (b.charCodeAt(i) | (b.charCodeAt(i + 1) << 8)) << 16 >> 16; m = Math.max(m, Math.abs(v)); } return m; })()}; });
+    ok(al && al.name === "sb-chime-80.wav" && al.riff === "RIFF" && al.wave === "WAVE" && al.bytes > 100000 && al.bytes < 3000000 && al.loud > 3000, "starting hands iOS the picked alarm sound as a recording to ring at the end: " + JSON.stringify(al));
     ok(await page.evaluate(() => document.documentElement.classList.contains("sb-island")) && await page.locator("#pomoBtnTime").isVisible(), "while it's in the island the header still shows the time (iOS hides the island inside the app)");
     await page.waitForTimeout(2200);
     ok((await page.evaluate(() => window.__fa.length)) === 1, "nothing is sent while it just counts down (the system draws the countdown)");
