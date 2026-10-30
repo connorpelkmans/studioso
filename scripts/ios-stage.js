@@ -67,6 +67,18 @@ if (fs.existsSync(plistFile)) {
   }
 }
 
+// So the same command works from inside ios-wrapper too (where Xcode is opened from), it gets a matching shortcut there
+{
+  const pj = path.join(wrap, "package.json");
+  try {
+    if (fs.existsSync(pj)) {
+      const j = JSON.parse(fs.readFileSync(pj, "utf8"));
+      j.scripts = j.scripts || {};
+      if (j.scripts["ios:stage"] !== "cd .. && npm run ios:stage") { j.scripts["ios:stage"] = "cd .. && npm run ios:stage"; fs.writeFileSync(pj, JSON.stringify(j, null, 2) + "\n"); console.log("ios-stage: npm run ios:stage now also works from inside ios-wrapper"); }
+    }
+  } catch (e) {}
+}
+
 const cli = path.join(wrap, "node_modules", "@capacitor", "cli");
 if (fs.existsSync(path.join(wrap, "ios")) && fs.existsSync(cli)) {
   execFileSync(process.platform === "win32" ? "npx.cmd" : "npx", ["cap", "sync", "ios"], {cwd: wrap, stdio: "inherit"});
