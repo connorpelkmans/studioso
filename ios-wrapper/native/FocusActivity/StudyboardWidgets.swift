@@ -119,7 +119,9 @@ private struct Controls: View {
 private struct PlayPauseStyle: ToggleStyle {
     let bg: Color
     func makeBody(configuration: Configuration) -> some View {
+        // swapped at once, not cross-faded (iOS fades changes on a Live Activity unless told otherwise)
         Image(systemName: configuration.isOn ? "pause.fill" : "play.fill").font(.system(size: 18, weight: .bold)).foregroundStyle(.white)
+            .contentTransition(.identity).transition(.identity).animation(nil, value: configuration.isOn)
             .frame(width: 44, height: 44).background(Circle().fill(bg))
             .contentShape(Circle())
             .accessibilityLabel(configuration.isOn ? "Pause" : "Resume")
@@ -176,7 +178,7 @@ struct StudyboardFocusLiveActivity: Widget {
             let s = context.state
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label { Text(s.label).foregroundStyle(.white).lineLimit(1).fixedSize() } icon: { Tomato(s: s) }
+                    Label { Text(s.label).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.6) } icon: { Tomato(s: s) }
                         .font(.headline).padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
