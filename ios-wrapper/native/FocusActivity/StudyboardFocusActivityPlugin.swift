@@ -186,7 +186,15 @@ enum StudyboardAlarms {
         let m = AlarmManager.shared, d = UserDefaults.standard
         if let s = d.string(forKey: key), let old = UUID(uuidString: s) { try? m.cancel(id: old); d.removeObject(forKey: key) }
         guard let endsAt = endsAt, endsAt.timeIntervalSinceNow > 1, m.authorizationState == .authorized else { return }
-        let alert = AlarmPresentation.Alert(title: mode == "focus" ? "Focus Session Complete" : "Break's Over", secondaryButton: nil, secondaryButtonBehavior: nil)
+        let title: LocalizedStringResource = mode == "focus" ? "Focus Session Complete" : "Break's Over"
+        // iOS 26.1 brought the system's own Stop button; 26.0 needs it spelled out
+        let alert: AlarmPresentation.Alert
+        if #available(iOS 26.1, *) {
+            alert = AlarmPresentation.Alert(title: title, secondaryButton: nil, secondaryButtonBehavior: nil)
+        } else {
+            alert = AlarmPresentation.Alert(title: title, stopButton: AlarmButton(text: "Stop", textColor: .white, systemImageName: "stop.fill"),
+                                            secondaryButton: nil, secondaryButtonBehavior: nil)
+        }
         let attributes = AlarmAttributes<StudyboardAlarmData>(presentation: AlarmPresentation(alert: alert), metadata: StudyboardAlarmData(),
                                                               tintColor: Color(red: 0.89, green: 0.32, blue: 0.23))
         // the alarm sound you picked (saved by the app in Library/Sounds), else the system's
