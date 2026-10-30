@@ -32,8 +32,9 @@ const jwt = () => b64({alg: "HS256", typ: "JWT"}) + "." + b64({sub: USER.id, aud
       return r.abort();
     });
   };
-  const open = async (init, seen) => {
-    const ctx = await browser.newContext({viewport: {width: 430, height: 900}});
+  const MAC_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15";
+  const open = async (init, seen, ua) => {
+    const ctx = await browser.newContext({viewport: {width: 430, height: 900}, userAgent: ua || MAC_UA});
     await fakeSupabase(ctx, seen);
     if (init) await ctx.addInitScript(init);
     const page = await ctx.newPage(); page.on("pageerror", e => errs.push(e.message));
@@ -95,6 +96,11 @@ const jwt = () => b64({alg: "HS256", typ: "JWT"}) + "." + b64({sub: USER.id, aud
     ok(posted.some(p => /"provider":"apple"/.test(p) && /"id_token":"apple.id.token"/.test(p) && /"nonce":"raw-nonce"/.test(p)), "with Apple's token and the unhashed nonce sent to Supabase");
     await ctx.close();
 
+    // not an Apple device: Google only
+    seen = [];
+    ({ctx, page} = await open(null, seen, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"));
+    ok(await page.evaluate(() => [...document.querySelectorAll("dialog[open] [data-oauth]")].map(b => b.dataset.oauth).join()) === "google", "on Windows (or Android, Linux) only Continue with Google is offered");
+    await ctx.close();
     ok(!errs.length, "no page errors: " + errs.join(" | "));
     console.log(`oauth-signin.e2e: ${n} checks passed`);
   } finally { await browser.close(); server.close(); }

@@ -81,52 +81,51 @@ private struct Pill: ViewModifier {
     }
 }
 
-// How far through: moves on its own while running, still while paused
+// What to show for the time: worked out from whether it's running as far as the Play/Pause switch knows. iOS flips the switch
+// the instant it's tapped and draws the card again, so the time and the bar stop (or start) at that moment; the app makes it
+// real a moment later in the background, with the same result.
+private struct Clock {
+    let running: Bool, left: Int, start: Date, end: Date, total: Int
+    init(_ s: StudyboardFocusAttributes.ContentState, running: Bool) {
+        let now = Date()
+        total = max(1, s.total)
+        left = s.pausedLeft > 0 ? s.pausedLeft : max(0, Int(s.endsAt.timeIntervalSince(now).rounded(.up)))
+        self.running = running
+        if running && s.pausedLeft > 0 {          // just resumed here: counting on from now
+            end = now.addingTimeInterval(Double(s.pausedLeft)); start = end.addingTimeInterval(-Double(total))
+        } else if running {
+            end = s.endsAt; start = s.startedAt
+        } else {                                   // paused (or just paused here): still
+            end = now; start = now
+        }
+    }
+}
+private struct ClockTime: View {
+    let c: Clock
+    var body: some View {
+        if c.running { Text(timerInterval: c.start...c.end, countsDown: true).monospacedDigit() }
+        else { Text(clock(c.left)).monospacedDigit() }
+    }
+}
+
+// A thicker progress bar with round ends (the system bar, so it still moves on its own)
+private struct Pill: ViewModifier {
+    func body(content: Content) -> some View {
+        content.progressViewStyle(.linear).scaleEffect(x: 1, y: 2.2, anchor: .center).frame(height: 9).clipShape(Capsule())
+    }
+}
 private struct Bar: View {
-    let s: StudyboardFocusAttributes.ContentState
+    let c: Clock
     let color: Color
     var body: some View {
-        if s.pausedLeft > 0 {
-            ProgressView(value: Double(s.total - s.pausedLeft), total: Double(s.total)).tint(color).modifier(Pill())
+        if c.running {
+            ProgressView(timerInterval: c.start...c.end, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }.tint(color).modifier(Pill())
         } else {
-            ProgressView(timerInterval: s.startedAt...s.endsAt, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }.tint(color).modifier(Pill())
+            ProgressView(value: Double(c.total - c.left), total: Double(c.total)).tint(color).modifier(Pill())
         }
     }
 }
 
-// Reset, Pause or Play, and Skip: round buttons centred under the timer
-private struct Controls: View {
-    let s: StudyboardFocusAttributes.ContentState
-    let fill: Color
-    let second: Color
-    var done = false
-    var body: some View {
-        let paused = s.pausedLeft > 0
-        HStack(spacing: 18) {
-            Round(action: "reset", icon: "arrow.counterclockwise", size: 36, bg: second, label: "Reset")
-            // a finished session has nothing to pause: Skip starts the next one
-            if !done {
-                Toggle(isOn: !paused, intent: StudyboardFocusPlayPause()) { Text(paused ? "Resume" : "Pause") }
-                    .toggleStyle(PlayPauseStyle(bg: fill))
-            }
-            Round(action: "skip", icon: "forward.end.fill", size: 36, bg: second, label: "Skip").opacity((s.plan ?? []).isEmpty ? 0.4 : 1)
-                .disabled((s.plan ?? []).isEmpty)
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-// draws the switch as the round Play / Pause button, from the switch's own state (which iOS flips at once)
-private struct PlayPauseStyle: ToggleStyle {
-    let bg: Color
-    func makeBody(configuration: Configuration) -> some View {
-        // swapped at once, not cross-faded (iOS fades changes on a Live Activity unless told otherwise)
-        Image(systemName: configuration.isOn ? "pause.fill" : "play.fill").font(.system(size: 18, weight: .bold)).foregroundStyle(.white)
-            .contentTransition(.identity).transition(.identity).animation(nil, value: configuration.isOn)
-            .frame(width: 44, height: 44).background(Circle().fill(bg))
-            .contentShape(Circle())
-            .accessibilityLabel(configuration.isOn ? "Pause" : "Resume")
-    }
-}
 private struct Round: View {
     let action: String, icon: String, size: CGFloat, bg: Color, label: String
     var body: some View {
@@ -139,6 +138,94 @@ private struct Round: View {
     }
 }
 
+// The look of the card and the expanded island
+private struct Look {
+    let ink: Color, muted: Color, time: Color, second: Color
+    let island: Bool
+}
+
+// The whole card, drawn from one running/paused state, with the round Play/Pause button in the middle of the bottom row
+private struct Face: View {
+    let s: StudyboardFocusAttributes.ContentState
+    let c: Clock
+    let look: Look
+    let done: Bool
+    let showPlay: Bool
+    var body: some View {
+        VStack(spacing: look.island ? 10 : 12) {
+            HStack(spacing: look.island ? 10 : 14) {
+                Tomato(s: s, size: look.island ? 22 : 34)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.headline).foregroundStyle(look.ink).lineLimit(1).minimumScaleFactor(0.6)
+                    if !look.island && !s.task.isEmpty { Text(s.task).font(.subheadline).foregroundStyle(look.muted).lineLimit(1) }
+                }
+                .layoutPriority(1)
+                Spacer(minLength: 8)
+                ClockTime(c: c)
+                    .font(look.island ? .system(.title2, design: .rounded).weight(.bold) : .system(size: 34, weight: .bold, design: .rounded))
+                    .foregroundStyle(look.time)
+                    .multilineTextAlignment(.trailing).frame(minWidth: look.island ? 70 : 96, alignment: .trailing)
+            }
+            if look.island { Bar(c: c, color: look.time) }
+            HStack(spacing: 18) {
+                Color.clear.frame(width: 36, height: 36)
+                if showPlay {
+                    // swapped at once, not cross-faded (iOS fades changes on a Live Activity unless told otherwise)
+                    Image(systemName: c.running ? "pause.fill" : "play.fill").font(.system(size: 18, weight: .bold)).foregroundStyle(.white)
+                        .contentTransition(.identity).transition(.identity).animation(nil, value: c.running)
+                        .frame(width: 44, height: 44).background(Circle().fill(look.time))
+                } else {
+                    Color.clear.frame(width: 44, height: 44)
+                }
+                Color.clear.frame(width: 36, height: 36)
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+    private var title: String {
+        if done { return "\(s.label) Complete" }
+        return look.island && s.mode != "focus" ? "Break" : s.label
+    }
+}
+
+// Only the round button in the middle of the bottom row takes the tap (the rest of the card opens the app as usual)
+private struct PlayHit: Shape {
+    func path(in r: CGRect) -> Path { Path(ellipseIn: CGRect(x: r.midX - 22, y: r.maxY - 44, width: 44, height: 44)) }
+}
+private struct FaceStyle: ToggleStyle {
+    let s: StudyboardFocusAttributes.ContentState
+    let look: Look
+    func makeBody(configuration: Configuration) -> some View {
+        Face(s: s, c: Clock(s, running: configuration.isOn), look: look, done: false, showPlay: true)
+            .contentShape(PlayHit())
+            .accessibilityLabel(configuration.isOn ? "Pause" : "Resume")
+    }
+}
+
+// The card with its buttons: Play/Pause is the switch (the whole face, so it all changes at once), Reset and Skip sit over it
+private struct Panel: View {
+    let s: StudyboardFocusAttributes.ContentState
+    let look: Look
+    let done: Bool
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            if done {
+                Face(s: s, c: Clock(s, running: false), look: look, done: true, showPlay: false)
+            } else {
+                Toggle(isOn: s.pausedLeft == 0, intent: StudyboardFocusPlayPause()) { Text("Pause") }
+                    .toggleStyle(FaceStyle(s: s, look: look))
+            }
+            HStack(spacing: 18) {
+                Round(action: "reset", icon: "arrow.counterclockwise", size: 36, bg: look.second, label: "Reset")
+                Color.clear.frame(width: 44, height: 44).allowsHitTesting(false)
+                Round(action: "skip", icon: "forward.end.fill", size: 36, bg: look.second, label: "Skip").opacity((s.plan ?? []).isEmpty ? 0.4 : 1)
+                    .disabled((s.plan ?? []).isEmpty)
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+}
+
 // The Lock Screen card: Studyboard's deep blue in light and dark mode alike, as a see-through tint on the Lock Screen's
 // glass (the wallpaper shows through, blurred)
 private struct LockCard: View {
@@ -148,25 +235,11 @@ private struct LockCard: View {
     var body: some View {
         let navy = Color(hex: "#071433")
         let ink = Color(hex: "#E7EEFA")
-        let muted = Color(hex: "#A9BADC")
-        let time = s.mode == "focus" ? Color(hex: "#FF6B55") : Color(hex: "#3CC794")
-        VStack(spacing: 12) {
-        HStack(spacing: 14) {
-            Tomato(s: s, size: 34)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(done ? "\(s.label) Complete" : s.label).font(.headline).foregroundStyle(ink).lineLimit(1)
-                if !s.task.isEmpty { Text(s.task).font(.subheadline).foregroundStyle(muted).lineLimit(1) }
-            }
-            .layoutPriority(1)
-            Spacer(minLength: 8)
-            TimeLeft(s: s).font(.system(size: 34, weight: .bold, design: .rounded)).foregroundStyle(time)
-                .multilineTextAlignment(.trailing).frame(minWidth: 96, alignment: .trailing)
-        }
-        Controls(s: s, fill: time, second: Color.white.opacity(0.16), done: done)
-        }
-        .padding(16)
-        .activityBackgroundTint(navy.opacity(0.62))
-        .activitySystemActionForegroundColor(ink)
+        Panel(s: s, look: Look(ink: ink, muted: Color(hex: "#A9BADC"), time: s.mode == "focus" ? Color(hex: "#FF6B55") : Color(hex: "#3CC794"),
+                               second: Color.white.opacity(0.16), island: false), done: done)
+            .padding(16)
+            .activityBackgroundTint(navy.opacity(0.62))
+            .activitySystemActionForegroundColor(ink)
     }
 }
 
@@ -177,21 +250,11 @@ struct StudyboardFocusLiveActivity: Widget {
         } dynamicIsland: { context in
             let s = context.state
             return DynamicIsland {
-                DynamicIslandExpandedRegion(.leading) {
-                    Label { Text(s.mode == "focus" ? s.label : "Break").foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.6) } icon: { Tomato(s: s) }
-                        .font(.headline).padding(.leading, 4)
-                }
-                DynamicIslandExpandedRegion(.trailing) {
-                    // a counting-down time takes all the room it's given, so it's pushed to the right edge itself
-                    TimeLeft(s: s).font(.system(.title2, design: .rounded).weight(.bold)).foregroundStyle(modeColor(s))
-                        .multilineTextAlignment(.trailing).frame(maxWidth: .infinity, alignment: .trailing).padding(.trailing, 10)
-                }
+                // all in one region, so the time can change together with the Play/Pause switch (see Clock)
                 DynamicIslandExpandedRegion(.bottom) {
-                    VStack(spacing: 10) {
-                        Bar(s: s, color: modeColor(s))
-                        Controls(s: s, fill: modeColor(s), second: Color.white.opacity(0.2), done: context.isStale)
-                    }
-                    .padding(.horizontal, 8)
+                    Panel(s: s, look: Look(ink: .white, muted: .white.opacity(0.7), time: modeColor(s), second: Color.white.opacity(0.2), island: true),
+                          done: context.isStale)
+                        .padding(.horizontal, 8).padding(.bottom, 4)
                 }
             } compactLeading: {
                 Tomato(s: s)
