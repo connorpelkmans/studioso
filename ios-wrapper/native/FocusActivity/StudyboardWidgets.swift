@@ -73,34 +73,50 @@ private struct Tomato: View {
     }
 }
 
+// The Lock Screen card, in Studyboard's own light and dark colours (set here, so text never lands on a matching background)
+private struct LockCard: View {
+    let s: StudyboardFocusAttributes.ContentState
+    let accent: String
+    @Environment(\.colorScheme) private var scheme
+    var body: some View {
+        let dark = scheme == .dark
+        let ink = dark ? Color(hex: "#E7EEFA") : Color(hex: "#0F1F3D")
+        let muted = dark ? Color(hex: "#93A3C2") : Color(hex: "#56657F")
+        let bg = dark ? Color(hex: "#111E38") : Color(hex: "#F7F9FC")
+        let time = s.mode == "focus" ? Color(hex: dark ? "#FF6B55" : "#D9432C") : Color(hex: dark ? "#3CC794" : "#17865F")
+        HStack(spacing: 14) {
+            Tomato(s: s, size: 34)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(s.pausedLeft > 0 ? "\(s.label), paused" : s.label).font(.headline).foregroundStyle(ink).lineLimit(1)
+                if !s.task.isEmpty { Text(s.task).font(.subheadline).foregroundStyle(muted).lineLimit(1) }
+            }
+            .layoutPriority(1)
+            Spacer(minLength: 8)
+            TimeLeft(s: s).font(.system(size: 34, weight: .bold, design: .rounded)).foregroundStyle(time)
+                .multilineTextAlignment(.trailing).frame(minWidth: 96, alignment: .trailing)
+        }
+        .padding(16)
+        .activityBackgroundTint(bg)
+        .activitySystemActionForegroundColor(ink)
+    }
+}
+
 struct StudyboardFocusLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: StudyboardFocusAttributes.self) { context in
-            let s = context.state
-            HStack(spacing: 14) {
-                Tomato(s: s, size: 34)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(s.pausedLeft > 0 ? "\(s.label), paused" : s.label).font(.headline)
-                    if !s.task.isEmpty { Text(s.task).font(.subheadline).foregroundStyle(.secondary).lineLimit(1) }
-                }
-                Spacer(minLength: 8)
-                TimeLeft(s: s).font(.system(size: 34, weight: .bold, design: .rounded)).foregroundStyle(modeColor(s))
-            }
-            .padding(16)
-            .activityBackgroundTint(Color(.systemBackground).opacity(0.9))
-            .activitySystemActionForegroundColor(Color(hex: context.attributes.accent))
+            LockCard(s: context.state, accent: context.attributes.accent)
         } dynamicIsland: { context in
             let s = context.state
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label { Text(s.label) } icon: { Tomato(s: s) }.font(.headline)
+                    Label { Text(s.label).foregroundStyle(.white) } icon: { Tomato(s: s) }.font(.headline)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     TimeLeft(s: s).font(.system(.title2, design: .rounded).weight(.bold)).foregroundStyle(modeColor(s))
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(alignment: .leading, spacing: 6) {
-                        if !s.task.isEmpty { Text(s.task).font(.subheadline).lineLimit(1) }
+                        if !s.task.isEmpty { Text(s.task).font(.subheadline).foregroundStyle(.white.opacity(0.85)).lineLimit(1) }
                         if s.pausedLeft > 0 {
                             ProgressView(value: Double(s.total - s.pausedLeft), total: Double(s.total)).tint(modeColor(s))
                             Text("Paused").font(.caption).foregroundStyle(.secondary)
