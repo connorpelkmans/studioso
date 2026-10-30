@@ -8418,7 +8418,7 @@ $("#toastExtra").addEventListener("click", () => { const f = toastExtraFn; toast
   t.addEventListener("focusout", () => setTimeout(() => { if (!t.contains(document.activeElement) && !t.matches(":hover")) go(); }, 0)); }
 // Empty pages: two notebook cards and Mochi's sprout, drawn in the theme's colours
 // Empty-screen art: Mochi in front of a drawing that fits the screen.
-// kind: "board", "courses", "quizzes", "files" or "notes"; anything else gets the stack of pages (Flashcards, Groups).
+// kind: "board", "courses", "quizzes", "files", "notes" or "groups"; anything else gets the stack of pages (Flashcards).
 function emptyArt(kind){
   const star = (x, y, r, c) => { const a = +(r * .18).toFixed(2), b = +(r * .82).toFixed(2); return `<path class="${c}" d="M${x} ${y - r}q${a} ${b} ${r} ${r}q-${b} ${a}-${r} ${r}q-${a}-${b}-${r}-${r}q${b}-${a} ${r}-${r}z"/>`; };
   const stars = () => star(172, 32, 7, "es-star") + star(26, 30, 5, "es-star2");
@@ -8442,6 +8442,9 @@ function emptyArt(kind){
       <g transform="rotate(6 140 50)"><rect class="es-sb" x="112" y="22" width="56" height="56" rx="4"/><rect class="es-sline" x="120" y="38" width="38" height="4" rx="2"/><rect class="es-sline" x="120" y="48" width="26" height="4" rx="2"/></g>
       <g transform="rotate(-2 100 40)"><rect class="es-sp" x="74" y="12" width="52" height="52" rx="4"/><rect class="es-sline" x="82" y="28" width="34" height="4" rx="2"/><rect class="es-sline" x="82" y="38" width="24" height="4" rx="2"/></g>
       <circle class="es-pin" cx="100" cy="16" r="5"/><circle class="es-pinhi" cx="98.5" cy="14.5" r="1.6"/><g transform="rotate(-30 58 26)"><rect class="es-tape" x="46" y="21" width="24" height="9" rx="1.5"/></g>${star(178, 100, 6, "es-star")}`,
+    groups: () => `<rect class="es-card" x="22" y="18" width="92" height="50" rx="16"/><path class="es-card" d="M40 66l-6 14l18-12"/><rect class="es-cardfill" x="36" y="62" width="20" height="5"/>${[50, 68, 86].map(x => `<circle class="es-dot" cx="${x}" cy="43" r="5"/>`).join("")}
+      <rect class="es-hl" x="96" y="44" width="84" height="44" rx="15"/><path class="es-hl" d="M160 86l6 12l-18-12z"/><rect class="es-band" x="108" y="58" width="52" height="5" rx="2.5"/><rect class="es-band" x="108" y="70" width="36" height="5" rx="2.5"/>
+      ${star(170, 28, 7, "es-star")}${star(26, 100, 5, "es-star2")}`,
     pages: () => `<g transform="rotate(-8 73 78)"><rect class="es-card" x="34" y="30" width="78" height="96" rx="10"/><rect class="es-hl2" x="44" y="46" width="40" height="7" rx="3.5"/><rect class="es-line" x="44" y="62" width="58" height="5" rx="2.5"/><rect class="es-line" x="44" y="74" width="46" height="5" rx="2.5"/><rect class="es-line" x="44" y="86" width="52" height="5" rx="2.5"/></g>
     <g transform="rotate(7 127 70)"><rect class="es-card" x="88" y="22" width="78" height="96" rx="10"/><rect class="es-hl" x="98" y="38" width="44" height="7" rx="3.5"/><rect class="es-line" x="98" y="54" width="58" height="5" rx="2.5"/><rect class="es-line" x="98" y="66" width="50" height="5" rx="2.5"/><rect class="es-line" x="98" y="78" width="54" height="5" rx="2.5"/></g>${stars()}`
   };
@@ -27441,7 +27444,7 @@ hook("boot", boot);
   function offlineView(){
     const local = !sbConfig(), preview = inPreview();
     return `<div class="view-head"><h2>Groups</h2></div>
-      <div class="empty grp-offline sb-es">${emptyArt()}<strong>${preview ? "Sharing Isn't Available Here" : "Study Better Together"}</strong>
+      <div class="empty grp-offline sb-es">${emptyArt("groups")}<strong>${preview ? "Sharing Isn't Available Here" : "Study Better Together"}</strong>
         ${preview ? "Study groups and share links work on the Studyboard website and in the desktop app, where you sign in to your Studyboard account." : "Sharing needs a free Studyboard account. Sign in to make or join study groups and share decks."}
         ${preview ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="${local ? "sb-connect" : "sb-signin"}">${local && !SB_HOSTED ? "Set Up Sync" : "Sign In"}</button></div>`}</div>
       <section class="grp-file"><h3 class="fsec">Share Without an Account</h3>
@@ -27473,7 +27476,7 @@ hook("boot", boot);
       ${S.err ? errBox(S.err, S.setup) : ""}
       ${gs == null ? (S.err ? "" : `<p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Loading your groups…</p>`)
         : gs.length ? `<div class="grp-grid" data-sortable="groups">${cards}</div>`
-        : `<div class="empty sb-es">${emptyArt()}<strong>No Groups Yet</strong>Start a study group or a group project, then send the invite code. Have a code? Enter it to join.<div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="grp-new">New Group</button><button class="btn" data-act="grp-code">Enter a Code</button></div></div>`}
+        : `<div class="empty sb-es">${emptyArt("groups")}<strong>No Groups Yet</strong>Start a study group or a group project, then send the invite code. Have a code? Enter it to join.<div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="grp-new">New Group</button><button class="btn" data-act="grp-code">Enter a Code</button></div></div>`}
       ${(S.binned || []).length ? `<section class="grp-shares grp-binned"><h3 class="fsec">Recently Deleted Groups<span class="n">${S.binned.length}</span></h3>
         <p class="hint-line">Kept for 30 days with everything in them. Restoring brings a group back for all its members.</p>
         <ul class="grp-list">${S.binned.map(b => `<li class="grp-item"><div class="grp-item-main"><b>${esc(b.name)}</b><span class="mini">Deleted ${esc(fmtShort(String(b.deleted_at).slice(0, 10)))} · gone for good after ${esc(fmtShort(String(b.purge_at).slice(0, 10)))}</span></div>
