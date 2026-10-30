@@ -69,6 +69,16 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       if (co > 0.6 && fo > 0.6) out.both++;
       if (c && sp && performance.now() - t0 > 380) { const a = c.getBoundingClientRect(), b = sp.getBoundingClientRect(); out.sizes.push(Math.round(a.width - b.width) + "/" + Math.round((a.top + a.height / 2) - (b.top + b.height / 2))); }
       if (performance.now() - t0 < 1100) requestAnimationFrame(look); else res(out); }; requestAnimationFrame(look); }));
+    // the copy is the live companion as it is (same eyes and pose), hovering in step with it
+    await page.focus("#cptIn"); await page.evaluate(() => window.__kb(true)); await page.waitForTimeout(700);
+    const same = await page.evaluate(() => new Promise(res => { document.getElementById("cptIn").blur(); window.__kb(false); setTimeout(() => {
+      const c = document.querySelector(".cpt3-fly .cp-copy"), l = document.querySelector(".cp-front .cp"); if (!c || !l) { res(null); return; }
+      const sv = e => e.querySelector("svg"), a1 = l.querySelector(".cp-breathe").getAnimations()[0], a2 = c.querySelector(".cp-breathe").getAnimations()[0];
+      res({eyes: sv(c).getAttribute("data-e") === sv(l).getAttribute("data-e"), pose: c.className.replace(" cp-copy", "") === l.className, phase: a1 && a2 ? Math.round(Math.abs(a1.currentTime - a2.currentTime)) : -1});
+    }, 200); }));
+    ok(same && same.eyes && same.pose, "the circle carries the live companion as it is (same eyes and pose): " + JSON.stringify(same));
+    ok(same && same.phase >= 0 && same.phase < 60, "and it hovers in step with it, so the swap doesn't restart the hover (" + (same && same.phase) + " ms apart)");
+    await page.waitForTimeout(700);
     ok(w.both <= 2, "the live companion and the face copy are never both fully shown (" + w.both + " frames)");
     ok(w.sizes.length && w.sizes.every(d => d.split("/").every(v => Math.abs(+v) <= 8)), "just before they swap, the copy is the live companion's size and in its spot (size/offset): " + w.sizes.join(","));
     // a short screen: the starter questions stay stacked, not a sideways row

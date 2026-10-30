@@ -83429,6 +83429,8 @@ const AUTOPILOT = (() => {
   // The card's motion: the iOS sheet curve, about as long as the keyboard takes. The small face in the title bar flies
   // from the big circle on the way in and back to it on the way out, so it reads as one companion moving, not a swap.
   const MORPH = 440, EASE = "cubic-bezier(.32,.72,0,1)";
+  // opening back out is gentler and a little longer (a soft ease in and out), so nothing snaps into place
+  const UNFOLD = 520, UNFOLD_EASE = "cubic-bezier(.45,0,.2,1)";
   function fly(head, toRing){
     const face = head.querySelector(".cpt3-mini > :first-child"), ring = head.querySelector(".cpt3-ring");
     if (!face || !ring || !face.animate) return;
@@ -83451,6 +83453,7 @@ const AUTOPILOT = (() => {
     } else {
       // the reverse of folding: the card opens back out while the small face grows back down into the big circle
       const face = head.querySelector(".cpt3-mini > :first-child"), from = face ? face.getBoundingClientRect() : null;
+      r.classList.add("cpt-unfold");
       head.style.height = head.offsetHeight + "px"; r.classList.remove("cpt-typing");
       const full = head.scrollHeight; void head.offsetHeight; head.style.height = full + "px";
       const ring = head.querySelector(".cpt3-ring"), slot = ring && ring.querySelector(".cpt-face-slot");
@@ -83458,9 +83461,22 @@ const AUTOPILOT = (() => {
         const to = ring.getBoundingClientRect(), k = (from.width / 0.86) / to.width;
         // the circle carries a copy of the face on the way (the live companion fades back in once it has landed)
         let copy = null;
-        if (slot && face.firstElementChild) { copy = document.createElement("span"); copy.className = "cpt3-fly"; copy.innerHTML = face.innerHTML; slot.appendChild(copy); }
+        // the circle carries a copy of the live companion as it is right now (its eyes, outfit and pose), hovering in step with
+        // it, so when they swap nothing changes: no eyes popping open, no hover starting from still
+        const live = document.querySelector(".cp-front .cp");
+        if (slot && (live || face.firstElementChild)) {
+          copy = document.createElement("span"); copy.className = "cpt3-fly";
+          if (live) {
+            const c = live.cloneNode(true); c.removeAttribute("style"); c.classList.add("cp-copy"); c.querySelectorAll(".cp-hit, .cp-fx, .cp-shadow").forEach(e => e.remove());
+            copy.appendChild(c); slot.appendChild(copy);
+            const lb = live.querySelector(".cp-breathe"), cb = c.querySelector(".cp-breathe");
+            const la = lb && lb.getAnimations()[0], ca = cb && cb.getAnimations()[0];
+            if (la && ca) try { ca.currentTime = la.currentTime; } catch (e) {}
+            head._sync = () => { const a1 = lb && lb.getAnimations()[0], a2 = cb && cb.getAnimations()[0]; if (a1 && a2) try { a1.currentTime = a2.currentTime; } catch (e) {} };
+          } else { copy.innerHTML = face.innerHTML; slot.appendChild(copy); }
+        }
         ring.style.opacity = "1"; ring.style.transition = "none";
-        const a = ring.animate([{transform: `translate(${Math.round(from.left + from.width / 2 - (to.left + to.width / 2))}px,${Math.round(from.top + from.height / 2 - (to.top + to.height / 2))}px) scale(${k.toFixed(3)})`}, {transform: "none"}], {duration: MORPH, easing: EASE});
+        const a = ring.animate([{transform: `translate(${Math.round(from.left + from.width / 2 - (to.left + to.width / 2))}px,${Math.round(from.top + from.height / 2 - (to.top + to.height / 2))}px) scale(${k.toFixed(3)})`}, {transform: "none"}], {duration: UNFOLD, easing: UNFOLD_EASE});
         // the copy stays until the live companion (the same size, in the same spot) has faded in over it, then fades away:
         // never two companions, never one of a different size
         // the copy and the live companion (the same size, in the same spot) swap in a single frame once it has landed: never two
@@ -83469,7 +83485,8 @@ const AUTOPILOT = (() => {
         head._copy = copy;
       }
     }
-    head._t = setTimeout(() => { head.style.height = ""; r.classList.remove("cpt-morph"); if (head._copy) { head._copy.remove(); head._copy = null; } follow(false); }, MORPH + 20);
+    const ms = on ? MORPH : UNFOLD;
+    head._t = setTimeout(() => { head.style.height = ""; if (head._sync) { head._sync(); head._sync = null; } r.classList.remove("cpt-morph", "cpt-unfold"); if (head._copy) { head._copy.remove(); head._copy = null; } follow(false); }, ms + 20);
     follow(pin);
   }
   document.addEventListener("focusin", e => { if (e.target && e.target.id === "cptIn" && isPhone()) { clearTimeout(typeT); typing(true); } });
