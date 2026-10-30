@@ -48,6 +48,25 @@ if (fs.existsSync(plistFile)) {
   }
 }
 
+// Swift files dragged into Xcode with "Copy items if needed" are copies, so later fixes to ios-wrapper/native/ would never
+// reach the app. Any of them found in the Xcode project are refreshed here (files you haven't added are left out).
+{
+  const proj = path.join(wrap, "ios", "App");
+  if (fs.existsSync(proj)) {
+    const srcs = [], walk = (d, out, skip) => { for (const f of fs.readdirSync(d, {withFileTypes: true})) { const p = path.join(d, f.name); if (f.isDirectory()) { if (!skip || !/^(Pods|build|DerivedData|node_modules|public)$/.test(f.name)) walk(p, out, skip); } else if (f.name.endsWith(".swift")) out.push(p); } };
+    walk(path.join(wrap, "native"), srcs, false);
+    const inProj = []; walk(proj, inProj, true);
+    const done = [];
+    for (const src of srcs) {
+      const name = path.basename(src), text = fs.readFileSync(src, "utf8");
+      for (const dst of inProj.filter(p => path.basename(p) === name)) {
+        if (fs.readFileSync(dst, "utf8") !== text) { fs.writeFileSync(dst, text); done.push(path.relative(wrap, dst)); }
+      }
+    }
+    if (done.length) console.log("ios-stage: updated in the Xcode project: " + done.join(", "));
+  }
+}
+
 const cli = path.join(wrap, "node_modules", "@capacitor", "cli");
 if (fs.existsSync(path.join(wrap, "ios")) && fs.existsSync(cli)) {
   execFileSync(process.platform === "win32" ? "npx.cmd" : "npx", ["cap", "sync", "ios"], {cwd: wrap, stdio: "inherit"});

@@ -91,9 +91,9 @@ sent to any server. Files: `native/FocusActivity/`.
    phones running an older one).
 2. **Shared model:** drag in `native/FocusActivity/StudyboardFocusAttributes.swift`, ticking **both** App and StudyboardWidgets.
 3. **Plugin:** drag in `native/FocusActivity/StudyboardFocusActivityPlugin.swift` (target App) and `native/MainViewController.swift`
-   (target App) if it isn't there yet; in `Main.storyboard` the Bridge View Controller's Class must be **MainViewController**. In
-   `MainViewController.swift`, delete the `registerPluginInstance` lines for plugins whose files you haven't added (CaptureToken,
-   SharedQueue, Lms); keep `StudyboardFocusActivityPlugin()`.
+   (target App) if it isn't there yet; in `Main.storyboard` the Bridge View Controller's Class must be **MainViewController**.
+   It registers only the plugins whose files you've added, so there's nothing to delete. `npm run ios:stage` keeps the copies of
+   these Swift files in the Xcode project up to date with `ios-wrapper/native/`.
 4. **Info.plist:** `NSSupportsLiveActivities = YES`, added by `npm run ios:stage`.
 5. **Bridge:** `native-bridge.js` section 7 exposes `StudyboardNative.focusActivity`, which index.html uses by itself (`islandSync()`).
    Without the plugin (an older build, Android) the page keeps the timer in its header as before.

@@ -4,23 +4,36 @@ import WebKit
 import Capacitor
 
 class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
+    private var offsetWatch: NSKeyValueObservation?
+    private var insetWatch: NSKeyValueObservation?
+
     override func capacitorDidLoad() {
-        bridge?.registerPluginInstance(StudyboardCaptureTokenPlugin())
-        bridge?.registerPluginInstance(StudyboardSharedQueuePlugin())
-        bridge?.registerPluginInstance(StudyboardLmsPlugin())
-        bridge?.registerPluginInstance(StudyboardFocusActivityPlugin())
+        // Studyboard's own plugins, each only if its file is in the project (so this file builds whatever you've added)
+        for name in ["StudyboardFocusActivityPlugin", "StudyboardCaptureTokenPlugin", "StudyboardSharedQueuePlugin", "StudyboardLmsPlugin"] {
+            if let type = NSClassFromString(name) as? CAPPlugin.Type, let plugin = (type as NSObject.Type).init() as? CAPPlugin {
+                bridge?.registerPluginInstance(plugin)
+            }
+        }
+        guard let webView = bridge?.webView else { return }
+        let scroll = webView.scrollView
         // The page can't be pulled past its top or bottom (it handles the notch and home bar itself, contentInset "never")
-        bridge?.webView?.scrollView.bounces = false
-        bridge?.webView?.scrollView.contentInsetAdjustmentBehavior = .never
+        scroll.bounces = false
+        scroll.contentInsetAdjustmentBehavior = .never
+        // iOS moves the page to reveal a text box as the keyboard comes up. For a box in a pinned sheet (the note editor) it
+        // pulled the whole page down past its top edge, leaving a gap above the header. The page has already placed the box
+        // above the keyboard, so its top edge is held at the top of the screen, always.
+        offsetWatch = scroll.observe(\.contentOffset, options: [.new]) { sv, _ in
+            if sv.contentOffset.y < 0 { sv.contentOffset = CGPoint(x: sv.contentOffset.x, y: 0) }
+        }
+        insetWatch = scroll.observe(\.contentInset, options: [.new]) { sv, _ in
+            if sv.contentInset.top != 0 { sv.contentInset.top = 0 }
+        }
         let idiom = UIDevice.current.userInterfaceIdiom == .pad ? "pad" : "phone"
         let js = "window.StudyboardDevice = Object.freeze({idiom: \"\(idiom)\"});"
-        bridge?.webView?.configuration.userContentController.addUserScript(WKUserScript(source: js, injectionTime: .atDocumentStart, forMainFrameOnly: true))
-        // The page says its background colour (native-bridge.js, "sbBg"), so the app's own frame behind it matches the theme:
-        // no dark strip shows while the app grows back after the keyboard closes
-        bridge?.webView?.configuration.userContentController.add(self, name: "sbBg")
-        // While the keyboard closes the app grows back before the page has drawn its new bottom part; with the web view see-
-        // through, that strip shows this view's colour (the theme's, below) instead of a block of the default navy
-        bridge?.webView?.isOpaque = false
+        webView.configuration.userContentController.addUserScript(WKUserScript(source: js, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        // The page says its background colour (native-bridge.js, "sbBg"), so what shows past the page's edges matches the theme
+        webView.configuration.userContentController.add(self, name: "sbBg")
+        webView.isOpaque = false
     }
 
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
