@@ -475,7 +475,7 @@ var SBWB = null;
     STAGE = document.createElement("div"); STAGE.className = "wb-stage sm-skip";
     STAGE.innerHTML = `<div class="wb-frame" tabindex="0" role="application" aria-roledescription="whiteboard" aria-label="Whiteboard. Draw with the mouse, a finger or a pen. Tools are next to the board.">
         <div class="wb-world wb-back"><div class="wb-tplbox"></div><div class="wb-imgs"></div></div>
-        <canvas class="wb-cv wb-hl"></canvas><canvas class="wb-cv wb-ink"></canvas>
+        <canvas class="wb-cv wb-ink"></canvas><canvas class="wb-cv wb-hl"></canvas>
         <div class="wb-world wb-front"><div class="wb-texts"></div></div>
         <canvas class="wb-cv wb-live"></canvas>
         <div class="wb-selbar" hidden></div>
@@ -1327,7 +1327,7 @@ var SBWB = null;
     const s = Math.min(o.max ? o.max / side : 2, 4096 / side, o.scale || 99);
     const W = Math.max(1, Math.round(w * s)), H = Math.max(1, Math.round(h * s));
     const mk = () => { const c = document.createElement("canvas"); c.width = W; c.height = H; const x = c.getContext("2d"); x.setTransform(s, 0, 0, s, -bb[0] * s, -bb[1] * s); x.lineCap = "round"; x.lineJoin = "round"; return [c, x]; };
-    const [main, cm] = mk(), [hl, chh] = mk(), [pen, cp] = mk();
+    const [main, cm] = mk(), [hl, chh] = mk(), [pen, cp] = mk(), [txt, ct] = mk();
     const dk = !!o.dark;
     cm.fillStyle = dk ? "#1C232C" : "#FDFEFE"; cm.fillRect(bb[0], bb[1], w, h);
     tplPaint(cm, tpl, bb, n.wb && n.wb.pa, dk);
@@ -1335,11 +1335,13 @@ var SBWB = null;
     const DK0 = DK; DK = dk;
     try {
     ink.forEach(st => strokePaint(st.t === "hl" ? chh : cp, st, colOf(st, !dk)));
-    its.forEach(it => { if (it.k !== "t") return; cp.fillStyle = penHex(it.c, !dk); cp.font = `${it.f}px ${famOf(it.ff)}`; cp.textBaseline = "top"; String(it.s).split("\n").forEach((l, i) => cp.fillText(l, it.x, it.y + i * it.f * 1.3 + it.f * 0.15)); });
+    its.forEach(it => { if (it.k !== "t") return; ct.fillStyle = penHex(it.c, !dk); ct.font = `${it.f}px ${famOf(it.ff)}`; ct.textBaseline = "top"; String(it.s).split("\n").forEach((l, i) => ct.fillText(l, it.x, it.y + i * it.f * 1.3 + it.f * 0.15)); });
     } finally { DK = DK0; }
     cm.setTransform(1, 0, 0, 1, 0, 0);
-    cm.save(); cm.globalAlpha = dk ? 0.42 : 0.5; cm.globalCompositeOperation = dk ? "screen" : "multiply"; cm.drawImage(hl, 0, 0); cm.restore();
+    // Highlighter goes over the ink, as on screen; typed text stays on top of both
     cm.drawImage(pen, 0, 0);
+    cm.save(); cm.globalAlpha = dk ? 0.42 : 0.5; cm.globalCompositeOperation = dk ? "screen" : "multiply"; cm.drawImage(hl, 0, 0); cm.restore();
+    cm.drawImage(txt, 0, 0);
     return main;
   }
   const fileName = n => boardName(n).replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 60) || "Whiteboard";

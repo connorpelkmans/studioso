@@ -77356,7 +77356,7 @@ var SBINK = null;
     const path = (s, w) => { const pts = ptsOf(s); return pts.length ? `<path d="${dOf(pts)}" stroke="${esc(colorOf(s))}" stroke-width="${f(w)}"/>` : ""; };
     const hl = list.filter(s => s.t === "hl").map(s => path(s, s.w / 10)).join("");
     const pen = list.filter(s => s.t !== "hl").map(s => { const pts = ptsOf(s), avg = pts.reduce((a, p) => a + p[2], 0) / (pts.length || 1); return path(s, Math.max(0.8, s.w / 10 * wf(avg))); }).join("");
-    const svg = `<svg class="ink-svg" viewBox="${f(x0 * VW)} ${f(y0 * VH)} ${f((x1 - x0) * VW)} ${f((y1 - y0) * VH)}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Drawing" focusable="false"><g fill="none" stroke-linecap="round" stroke-linejoin="round">${hl ? `<g class="ink-svg-hl">${hl}</g>` : ""}${pen}</g></svg>`;
+    const svg = `<svg class="ink-svg" viewBox="${f(x0 * VW)} ${f(y0 * VH)} ${f((x1 - x0) * VW)} ${f((y1 - y0) * VH)}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Drawing" focusable="false"><g fill="none" stroke-linecap="round" stroke-linejoin="round">${pen}${hl ? `<g class="ink-svg-hl">${hl}</g>` : ""}</g></svg>`;
     if (SVGC.size > 200) SVGC.clear();
     SVGC.set(key, svg);
     return svg;
@@ -77419,11 +77419,11 @@ var SBINK = null;
     return CUR;
   }
 
-  /* A surface: three canvases over one page (highlighter, ink, the live stroke) */
+  /* A surface: three canvases over one page (ink, the highlighter over it, the live stroke) */
   function surface(host, p){
-    if (!host.firstChild) host.innerHTML = `<canvas class="ink-cv ink-hlc"></canvas><canvas class="ink-cv ink-pen"></canvas><canvas class="ink-cv ink-live"></canvas>`;
+    if (!host.firstChild) host.innerHTML = `<canvas class="ink-cv ink-pen"></canvas><canvas class="ink-cv ink-hlc"></canvas><canvas class="ink-cv ink-live"></canvas>`;
     let S = host.__ink;
-    if (!S) { const cv = [...host.querySelectorAll("canvas")]; S = host.__ink = {host, p, cv, ctx: cv.map(c => c.getContext("2d")), W: 0, H: 0, dpr: 1, sig: ""}; bind(S); }
+    if (!S) { const cv = [".ink-hlc", ".ink-pen", ".ink-live"].map(q => host.querySelector(q)); S = host.__ink = {host, p, cv, ctx: cv.map(c => c.getContext("2d")), W: 0, H: 0, dpr: 1, sig: ""}; bind(S); }
     S.p = p;
     return S;
   }
@@ -77675,8 +77675,8 @@ var SBINK = null;
     const W = 1200, H = Math.round(W * AR), cv = document.createElement("canvas"); cv.width = W; cv.height = H;
     const g = cv.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, W, H);
     const S = {W, H, ctx: [g, g]};
-    g.save(); g.globalAlpha = 0.45; g.globalCompositeOperation = "multiply"; list.filter(s => s.t === "hl").forEach(s => paintStroke(S, s)); g.restore();
     list.filter(s => s.t !== "hl").forEach(s => paintStroke(S, s));
+    g.save(); g.globalAlpha = 0.45; g.globalCompositeOperation = "multiply"; list.filter(s => s.t === "hl").forEach(s => paintStroke(S, s)); g.restore();
     return new Promise(res => cv.toBlob(b => res(b), "image/png"));
   }
   async function typed(){
@@ -78238,7 +78238,7 @@ var SBWB = null;
     STAGE = document.createElement("div"); STAGE.className = "wb-stage sm-skip";
     STAGE.innerHTML = `<div class="wb-frame" tabindex="0" role="application" aria-roledescription="whiteboard" aria-label="Whiteboard. Draw with the mouse, a finger or a pen. Tools are next to the board.">
         <div class="wb-world wb-back"><div class="wb-tplbox"></div><div class="wb-imgs"></div></div>
-        <canvas class="wb-cv wb-hl"></canvas><canvas class="wb-cv wb-ink"></canvas>
+        <canvas class="wb-cv wb-ink"></canvas><canvas class="wb-cv wb-hl"></canvas>
         <div class="wb-world wb-front"><div class="wb-texts"></div></div>
         <canvas class="wb-cv wb-live"></canvas>
         <div class="wb-selbar" hidden></div>
@@ -79090,7 +79090,7 @@ var SBWB = null;
     const s = Math.min(o.max ? o.max / side : 2, 4096 / side, o.scale || 99);
     const W = Math.max(1, Math.round(w * s)), H = Math.max(1, Math.round(h * s));
     const mk = () => { const c = document.createElement("canvas"); c.width = W; c.height = H; const x = c.getContext("2d"); x.setTransform(s, 0, 0, s, -bb[0] * s, -bb[1] * s); x.lineCap = "round"; x.lineJoin = "round"; return [c, x]; };
-    const [main, cm] = mk(), [hl, chh] = mk(), [pen, cp] = mk();
+    const [main, cm] = mk(), [hl, chh] = mk(), [pen, cp] = mk(), [txt, ct] = mk();
     const dk = !!o.dark;
     cm.fillStyle = dk ? "#1C232C" : "#FDFEFE"; cm.fillRect(bb[0], bb[1], w, h);
     tplPaint(cm, tpl, bb, n.wb && n.wb.pa, dk);
@@ -79098,11 +79098,13 @@ var SBWB = null;
     const DK0 = DK; DK = dk;
     try {
     ink.forEach(st => strokePaint(st.t === "hl" ? chh : cp, st, colOf(st, !dk)));
-    its.forEach(it => { if (it.k !== "t") return; cp.fillStyle = penHex(it.c, !dk); cp.font = `${it.f}px ${famOf(it.ff)}`; cp.textBaseline = "top"; String(it.s).split("\n").forEach((l, i) => cp.fillText(l, it.x, it.y + i * it.f * 1.3 + it.f * 0.15)); });
+    its.forEach(it => { if (it.k !== "t") return; ct.fillStyle = penHex(it.c, !dk); ct.font = `${it.f}px ${famOf(it.ff)}`; ct.textBaseline = "top"; String(it.s).split("\n").forEach((l, i) => ct.fillText(l, it.x, it.y + i * it.f * 1.3 + it.f * 0.15)); });
     } finally { DK = DK0; }
     cm.setTransform(1, 0, 0, 1, 0, 0);
-    cm.save(); cm.globalAlpha = dk ? 0.42 : 0.5; cm.globalCompositeOperation = dk ? "screen" : "multiply"; cm.drawImage(hl, 0, 0); cm.restore();
+    // Highlighter goes over the ink, as on screen; typed text stays on top of both
     cm.drawImage(pen, 0, 0);
+    cm.save(); cm.globalAlpha = dk ? 0.42 : 0.5; cm.globalCompositeOperation = dk ? "screen" : "multiply"; cm.drawImage(hl, 0, 0); cm.restore();
+    cm.drawImage(txt, 0, 0);
     return main;
   }
   const fileName = n => boardName(n).replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 60) || "Whiteboard";
