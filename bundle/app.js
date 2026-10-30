@@ -17697,7 +17697,10 @@ window.__sbPlanObj = () => PLAN;
 
   const SITE_URL = "https://studyboardapp.com/website";
 
-  const EXTERNAL_PURCHASE_ALLOWED = false;
+  // Buying Pro on the website from inside a store app: only where the store allows it. The iPhone app sets
+  // StudyboardNative.externalPurchase for United States App Store accounts (native-bridge.js section 6); everywhere else
+  // the app uses in-app purchase.
+  const EXTERNAL_PURCHASE_ALLOWED = () => { try { const N = window.StudyboardNative; return !!N && N.externalPurchase === true && !onAndroid(); } catch (e) { return false; } };
 
 
   /* Config: one place for limits and prices */
@@ -18093,7 +18096,12 @@ window.__sbPlanObj = () => PLAN;
         || (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.studyboardStore) || (DESK && (DESK.mas || DESK.store === "mas")));
     } catch (e) { return false; }
   };
-  const route = () => nativeStore() && !EXTERNAL_PURCHASE_ALLOWED ? "store" : "web";
+  const route = () => nativeStore() && !EXTERNAL_PURCHASE_ALLOWED() ? "store" : "web";
+  // in-app purchase can still be restored in the app wherever it's set up (someone who bought through Apple and then moved
+  // their Apple account to the United States keeps it)
+  const nativeRestore = () => { try { const N = window.StudyboardNative; return nativeStore() && !!N && N.purchasesAvailable === true; } catch (e) { return false; } };
+  // the App Store country became known or changed: the Pro sheet shows the right way to buy
+  window.addEventListener("studyboard:storefront", () => { try { if (dlg.open && dlg.querySelector(".plan-sheet")) proSheet(P.reason); } catch (e) {} });
   const nativeBuyOff = () => { try { const N = window.StudyboardNative; return route() === "store" && !!N && N.purchasesAvailable === false; } catch (e) { return false; } };
   const onAndroid = () => { try { const N = window.StudyboardNative, C = window.Capacitor; return (N && N.platform === "android") || (C && typeof C.getPlatform === "function" && C.getPlatform() === "android"); } catch (e) { return false; } };
   const siteBase = () => {
@@ -18239,12 +18247,12 @@ window.__sbPlanObj = () => PLAN;
     if (!sbUser) { toast("Sign in to the account you bought Pro with, then restore."); if (sb && typeof sbSignInSheet === "function") sbSignInSheet(); return false; }
     P.restoring = true; restoreBtns(true);
     try {
-      if (route() === "store") {
+      if (route() === "store" || nativeRestore()) {
         const wait = waitResult("restore", 60000);
         if (!nativeFire("plan-restore", sbUser.id)) { if (waiter) { clearTimeout(waiter.t); waiter = null; } toast("Restoring purchases isn't available in this build yet."); return false; }
         toast("Restoring your purchases…");
         const r = await wait;
-        if (r.status === "error") { toast(r.message || "Couldn't restore purchases. Check your connection and try again."); return false; }
+        if (r.status === "error" && route() === "store") { toast(r.message || "Couldn't restore purchases. Check your connection and try again."); return false; }
         if (r.status === "cancelled") { toast("Restore canceled."); return false; }
         if (r.status === "success") {
           const ok = await refreshUntilPaid(5);
@@ -18332,7 +18340,9 @@ window.__sbPlanObj = () => PLAN;
   function renewalText(pr, trial){
     const store = route() === "store", t = trialDaysShown();
     const head = `Studyboard Pro is an auto-renewing subscription: ${pr.monthly} per month${semesterOn() ? `, ${pr.semester} every 4 months` : ""} or ${pr.yearly} per year${t ? `, after a ${t}-day free trial` : ""}.`;
-    return `<p class="plan-fine mini plan-legal" id="planLegal">${esc(head)} ${esc(store ? (onAndroid() ? GOOGLE_RENEW : APPLE_RENEW) : t ? WEB_RENEW : WEB_RENEW_NOTRIAL)} <button type="button" class="link-btn" data-act="legal-terms">Terms of Use</button> · <button type="button" class="link-btn" data-act="legal-privacy">Privacy Policy</button></p>`;
+    // in the iPhone app for a United States account: the checkout is on the website, said before they tap
+    const outside = !store && nativeStore() ? "You'll check out securely on the Studyboard website, and Pro turns on here by itself. " : "";
+    return `<p class="plan-fine mini plan-legal" id="planLegal">${esc(outside + head)} ${esc(store ? (onAndroid() ? GOOGLE_RENEW : APPLE_RENEW) : t ? WEB_RENEW : WEB_RENEW_NOTRIAL)} <button type="button" class="link-btn" data-act="legal-terms">Terms of Use</button> · <button type="button" class="link-btn" data-act="legal-privacy">Privacy Policy</button></p>`;
   }
   function priceButtons(){
     if (nativeBuyOff()) return `<p class="plan-fine mini">Buying Pro in the app isn't available in this build yet.</p>`;

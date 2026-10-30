@@ -4,6 +4,7 @@ import WebKit
 import Capacitor
 import AuthenticationServices
 import CryptoKit
+import StoreKit
 
 class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
     private var offsetWatch: NSKeyValueObservation?
@@ -11,7 +12,7 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
 
     override func capacitorDidLoad() {
         // Studyboard's own plugins, each only if its file is in the project (so this file builds whatever you've added)
-        for name in ["StudyboardFocusActivityPlugin", "StudyboardCaptureTokenPlugin", "StudyboardSharedQueuePlugin", "StudyboardLmsPlugin", "StudyboardSignInPlugin"] {
+        for name in ["StudyboardFocusActivityPlugin", "StudyboardCaptureTokenPlugin", "StudyboardSharedQueuePlugin", "StudyboardLmsPlugin", "StudyboardSignInPlugin", "StudyboardStorePlugin"] {
             // (ios:stage also lists them for Capacitor, which then connects them itself; never twice)
             if let type = NSClassFromString(name) as? CAPPlugin.Type, let plugin = (type as NSObject.Type).init() as? CAPPlugin,
                bridge?.plugin(withName: (plugin as? CAPBridgedPlugin)?.jsName ?? "") == nil {
@@ -124,4 +125,25 @@ public class StudyboardSignInPlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorizatio
         return bytes.map { String(format: "%02x", $0) }.joined()
     }
     private static func sha256(_ s: String) -> String { SHA256.hash(data: Data(s.utf8)).map { String(format: "%02x", $0) }.joined() }
+}
+
+// The App Store country of the person's Apple account (Apple's three-letter code, such as "USA"). In the United States the
+// App Store lets the app send people to buy Pro on the website; everywhere else Pro is bought with in-app purchase.
+@objc(StudyboardStorePlugin)
+public class StudyboardStorePlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "StudyboardStorePlugin"
+    public let jsName = "StudyboardStore"
+    public let pluginMethods: [CAPPluginMethod] = [CAPPluginMethod(name: "storefront", returnType: CAPPluginReturnPromise)]
+
+    // {country: "USA"}, or {} when the App Store can't say (no account signed in, offline at first launch)
+    @objc func storefront(_ call: CAPPluginCall) {
+        if #available(iOS 15.0, *) {
+            Task {
+                if let code = await Storefront.current?.countryCode { return call.resolve(["country": code]) }
+                call.resolve(SKPaymentQueue.default().storefront.map { ["country": $0.countryCode] } ?? [:])
+            }
+        } else {
+            call.resolve(SKPaymentQueue.default().storefront.map { ["country": $0.countryCode] } ?? [:])
+        }
+    }
 }

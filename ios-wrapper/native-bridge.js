@@ -72,12 +72,14 @@
   };
 
   /* 2. Links */
+  // payment pages stay closed in the store apps, except for United States App Store accounts (section 6, extBuy)
+  var extBuy = false;
   var BLOCKED = /(^|\.)(stripe\.com|paypal\.com|paypal\.me|paddle\.com|lemonsqueezy\.com|gumroad\.com|ko-fi\.com|buymeacoffee\.com|patreon\.com)$/i;
   function safeLink(raw) {
     try {
       var u = new URL(String(raw), window.location.href);
       if (u.protocol === "mailto:") return u.href;
-      if (u.protocol !== "https:" || u.username || u.password || BLOCKED.test(u.hostname)) return null;
+      if (u.protocol !== "https:" || u.username || u.password || (BLOCKED.test(u.hostname) && !extBuy)) return null;
       return u.href;
     } catch (e) { return null; }
   }
@@ -263,6 +265,33 @@
   var RC = P.Purchases, rcReady = null;
   var purchasesAvailable = !!RC && RC_KEY_RE[platform].test(RC_KEY);
   native.purchasesAvailable = purchasesAvailable;
+  // The App Store country of the person's Apple account. United States accounts may be sent to buy Pro on the website
+  // (App Store Review Guidelines 3.1.1(a) and 3.1.3, United States storefront), so for them StudyboardNative.externalPurchase
+  // is true and the Pro sheet uses the website's checkout; everywhere else it's in-app purchase through RevenueCat. Android
+  // always uses Google Play billing. Remembered between launches, so the sheet is right from the start; the page hears
+  // "studyboard:storefront" when it changes.
+  var SF_KEY = "studyboard:storefront";
+  native.storefront = null; native.externalPurchase = false;
+  function setStorefront(code) {
+    code = /^[A-Z]{3}$/.test(String(code || "")) ? String(code) : "";
+    if (!code || code === native.storefront) return;
+    native.storefront = code;
+    extBuy = !isAndroid && code === "USA";
+    native.externalPurchase = extBuy;
+    try { localStorage.setItem(SF_KEY, code); } catch (e) {}
+    try { window.dispatchEvent(new CustomEvent("studyboard:storefront", { detail: { country: code, externalPurchase: extBuy } })); } catch (e) {}
+  }
+  if (!isAndroid) {
+    try { setStorefront(localStorage.getItem(SF_KEY)); } catch (e) {}
+    var SP = P.StudyboardStore;
+    try { if (!SP && C.isPluginAvailable && C.isPluginAvailable("StudyboardStore") && C.registerPlugin) SP = C.registerPlugin("StudyboardStore"); } catch (e) {}
+    var askStorefront = function () {
+      if (!SP || typeof SP.storefront !== "function") return;
+      Promise.resolve().then(function () { return SP.storefront(); }).then(function (r) { if (r && r.country) setStorefront(r.country); }, function () {});
+    };
+    askStorefront();
+    if (P.App) P.App.addListener("appStateChange", function (st) { if (st && st.isActive) askStorefront(); });
+  }
   var MANAGE_URL = isAndroid ? "https://play.google.com/store/account/subscriptions?package=com.studioso.app" : "https://apps.apple.com/account/subscriptions";
   function result(action, status, message) {
     try { window.dispatchEvent(new CustomEvent("studyboard:purchase-result", { detail: { action: action, status: status, message: message || "" } })); } catch (e) {}

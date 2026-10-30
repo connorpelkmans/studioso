@@ -121,7 +121,7 @@ if (fs.existsSync(path.join(wrap, "ios")) && fs.existsSync(cli)) {
   try {
     const cfg = path.join(wrap, "ios", "App", "App", "capacitor.config.json"), pbx = path.join(wrap, "ios", "App", "App.xcodeproj", "project.pbxproj");
     const txt = fs.existsSync(pbx) ? fs.readFileSync(pbx, "utf8") : "";
-    const ours = [["StudyboardFocusActivityPlugin.swift", "StudyboardFocusActivityPlugin"], ["StudyboardLms.swift", "StudyboardLmsPlugin"], ["StudyboardPlugins.swift", "StudyboardCaptureTokenPlugin"], ["StudyboardPlugins.swift", "StudyboardSharedQueuePlugin"], ["MainViewController.swift", "StudyboardSignInPlugin"]]
+    const ours = [["StudyboardFocusActivityPlugin.swift", "StudyboardFocusActivityPlugin"], ["StudyboardLms.swift", "StudyboardLmsPlugin"], ["StudyboardPlugins.swift", "StudyboardCaptureTokenPlugin"], ["StudyboardPlugins.swift", "StudyboardSharedQueuePlugin"], ["MainViewController.swift", "StudyboardSignInPlugin"], ["MainViewController.swift", "StudyboardStorePlugin"]]
       .filter(([f]) => txt.includes(f)).map(([, c]) => c);
     if (ours.length && fs.existsSync(cfg)) {
       const j = JSON.parse(fs.readFileSync(cfg, "utf8")); const list = Array.isArray(j.packageClassList) ? j.packageClassList : [];
