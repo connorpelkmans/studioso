@@ -81,27 +81,44 @@ private struct Pill: ViewModifier {
     }
 }
 
-// Pause or Play, and Skip
+// How far through: moves on its own while running, still while paused
+private struct Bar: View {
+    let s: StudyboardFocusAttributes.ContentState
+    let color: Color
+    var body: some View {
+        if s.pausedLeft > 0 {
+            ProgressView(value: Double(s.total - s.pausedLeft), total: Double(s.total)).tint(color).modifier(Pill())
+        } else {
+            ProgressView(timerInterval: s.startedAt...s.endsAt, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }.tint(color).modifier(Pill())
+        }
+    }
+}
+
+// Reset, Pause or Play, and Skip: round buttons centred under the timer
 private struct Controls: View {
     let s: StudyboardFocusAttributes.ContentState
     let fill: Color
     let second: Color
     var body: some View {
-        HStack(spacing: 10) {
-            Button(intent: StudyboardFocusControl(action: s.pausedLeft > 0 ? "play" : "pause")) {
-                Label(s.pausedLeft > 0 ? "Resume" : "Pause", systemImage: s.pausedLeft > 0 ? "play.fill" : "pause.fill")
-                    .font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity)
-            }
-            .tint(fill)
-            Button(intent: StudyboardFocusControl(action: "skip")) {
-                Label("Skip", systemImage: "forward.end.fill").font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity)
-            }
-            .tint(second)
-            .disabled((s.plan ?? []).isEmpty)
+        let paused = s.pausedLeft > 0
+        HStack(spacing: 18) {
+            Round(action: "reset", icon: "arrow.counterclockwise", size: 36, bg: second, label: "Reset")
+            Round(action: paused ? "play" : "pause", icon: paused ? "play.fill" : "pause.fill", size: 44, bg: fill, label: paused ? "Resume" : "Pause")
+            Round(action: "skip", icon: "forward.end.fill", size: 36, bg: second, label: "Skip").opacity((s.plan ?? []).isEmpty ? 0.4 : 1)
+                .disabled((s.plan ?? []).isEmpty)
         }
-        .buttonStyle(.borderedProminent)
-        .buttonBorderShape(.capsule)
-        .foregroundStyle(.white)
+        .frame(maxWidth: .infinity)
+    }
+}
+private struct Round: View {
+    let action: String, icon: String, size: CGFloat, bg: Color, label: String
+    var body: some View {
+        Button(intent: StudyboardFocusControl(action: action)) {
+            Image(systemName: icon).font(.system(size: size * 0.4, weight: .bold)).foregroundStyle(.white)
+                .frame(width: size, height: size).background(Circle().fill(bg))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 }
 
@@ -144,7 +161,8 @@ struct StudyboardFocusLiveActivity: Widget {
             let s = context.state
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label { Text(s.label).foregroundStyle(.white) } icon: { Tomato(s: s) }.font(.headline)
+                    Label { Text(s.pausedLeft > 0 ? "\(s.label) (Paused)" : s.label).foregroundStyle(.white).lineLimit(1) } icon: { Tomato(s: s) }
+                        .font(.headline).padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     // a counting-down time takes all the room it's given, so it's pushed to the right edge itself
@@ -152,17 +170,11 @@ struct StudyboardFocusLiveActivity: Widget {
                         .multilineTextAlignment(.trailing).frame(maxWidth: .infinity, alignment: .trailing).padding(.trailing, 4)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        if !s.task.isEmpty { Text(s.task).font(.subheadline).foregroundStyle(.white.opacity(0.85)).lineLimit(1) }
-                        if s.pausedLeft > 0 {
-                            ProgressView(value: Double(s.total - s.pausedLeft), total: Double(s.total)).tint(modeColor(s)).modifier(Pill())
-                            Text("Paused").font(.caption).foregroundStyle(.secondary)
-                        } else {
-                            ProgressView(timerInterval: s.startedAt...s.endsAt, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }.tint(modeColor(s)).modifier(Pill())
-                        }
-                        Controls(s: s, fill: modeColor(s), second: Color.white.opacity(0.22))
+                    VStack(spacing: 10) {
+                        Bar(s: s, color: modeColor(s))
+                        Controls(s: s, fill: modeColor(s), second: Color.white.opacity(0.2))
                     }
-                    .padding(.horizontal, 8).padding(.top, 2)
+                    .padding(.horizontal, 8)
                 }
             } compactLeading: {
                 Tomato(s: s)

@@ -326,11 +326,11 @@
           }).then(function (r) { return !!(r && r.shown); }, function () { return false; });
         },
         end: function () { return Promise.resolve().then(function () { return FA.end(); }).then(function () {}, function () {}); },
-        // Pause, Play and Skip pressed on the Lock Screen: [{a: "pause"|"play"|"skip", t: ms}], oldest first, each handed over once
+        // Pause, Play and Skip pressed on the Lock Screen: [{a: "pause"|"play"|"skip"|"reset", t: ms}], oldest first, each handed over once
         take: function () {
           if (typeof FA.take !== "function") return Promise.resolve([]);
           return Promise.resolve().then(function () { return FA.take(); }).then(function (r) {
-            return (r && Array.isArray(r.actions) ? r.actions : []).filter(function (x) { return x && ["pause", "play", "skip"].indexOf(x.a) >= 0 && Number(x.t) > 0; })
+            return (r && Array.isArray(r.actions) ? r.actions : []).filter(function (x) { return x && ["pause", "play", "skip", "reset"].indexOf(x.a) >= 0 && Number(x.t) > 0; })
               .map(function (x) { return {a: x.a, t: Number(x.t)}; });
           }, function () { return []; });
         },

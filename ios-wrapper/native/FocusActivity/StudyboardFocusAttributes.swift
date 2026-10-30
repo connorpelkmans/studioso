@@ -58,10 +58,12 @@ public struct StudyboardFocusControl: LiveActivityIntent {
             s.mode = next.mode; s.label = next.label; s.total = max(60, next.total)
             s.startedAt = now; s.endsAt = now.addingTimeInterval(Double(s.total)); s.pausedLeft = 0
             s.plan = plan
+        case "reset":
+            await act.end(nil, dismissalPolicy: .immediate)
         default:
             return .result()
         }
-        await act.update(ActivityContent(state: s, staleDate: s.pausedLeft > 0 ? nil : s.endsAt.addingTimeInterval(60)))
+        if action != "reset" { await act.update(ActivityContent(state: s, staleDate: s.pausedLeft > 0 ? nil : s.endsAt.addingTimeInterval(60))) }
         let d = UserDefaults.standard
         var q = d.array(forKey: Self.queueKey) as? [[String: Any]] ?? []
         q.append(["a": action, "t": now.timeIntervalSince1970 * 1000])

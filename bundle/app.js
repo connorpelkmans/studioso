@@ -16157,7 +16157,7 @@ function pomoPlan(n){
   }
   return out;
 }
-// The Lock Screen's Pause, Play and Skip, applied at the moment each was pressed (the card has already changed; this
+// The Lock Screen's Reset, Pause, Play and Skip, applied at the moment each was pressed (the card has already changed; this
 // brings the app's own timer to the same place). Skip there starts the next step straight away.
 function pomoTakeLock(){
   const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
@@ -16170,6 +16170,7 @@ function pomoTakeLock(){
         if (pomo.running && pomo.endAt <= t) return; // the timer had already run out by then
         if (a === "pause" && pomo.running) { pomo.left = Math.max(1000, pomo.endAt - t); pomo.pausedAt = t; pomo.running = false; clearTimeout(pomoTimer); fire("focus", {type: "pause", mode: pomo.mode}); }
         else if (a === "play" && !pomo.running && pomo.left > 0) { pomo.endAt = t + pomo.left; pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId}); }
+        else if (a === "reset" && (pomo.running || pomo.left > 0)) { if (pomo.running) { pomo.left = Math.max(1000, pomo.endAt - t); pomo.running = false; } pomoReset(); }
         else if (a === "skip" && (pomo.running || pomo.left > 0)) { pomoSkip(); pomo.endAt = t + modeMs(pomo.mode); pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId}); }
       });
       pomoSave(); pomoSchedule();
