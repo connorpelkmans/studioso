@@ -9,4 +9,4 @@ await page.evaluate(()=>document.querySelectorAll("dialog[open]").forEach(d=>d.c
 const act=a=>page.evaluate(a=>{const x=document.createElement("button");x.dataset.act=a;document.body.appendChild(x);x.click();x.remove();},a);
 await act("pomo-start");await page.waitForTimeout(100);await page.waitForTimeout(800);ok(await page.evaluate(()=>window.__ac&&window.__ac.state)==="suspended","starting a timer switches the sound on with the tap, then off again");
 await act("pomo-open");await page.waitForTimeout(400);await act("pomo-test");await page.waitForTimeout(300);ok(await page.evaluate(()=>window.__ac.state)==="running","the test sound plays");await page.waitForTimeout(3500);ok(await page.evaluate(()=>window.__ac.state)==="suspended","and the sound system is off again once it has played");console.log("focus-audio-idle.e2e: "+n+" checks passed");
-}finally{}await b.close();server.close();})().catch(e=>{console.error(e);process.exit(1);});
+await b.close();server.close();}finally{}})().catch(e=>{console.error(e);process.exit(1);});
