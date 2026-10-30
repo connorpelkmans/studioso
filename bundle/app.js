@@ -14317,13 +14317,16 @@ function noteToastUp(again){
 }
 { const t = document.getElementById("toast"); if (t) new MutationObserver(() => noteToastUp(false)).observe(t, {attributes: true, attributeFilter: ["class"]}); }
 function noteKbFit(){
-  const el = $(".note.n-sheet"), vv = window.visualViewport; if (!el || !vv) return;
+  const el = $(".note.n-sheet") || document.body, vv = window.visualViewport; if (!vv) return;
   // the iPhone app: the bridge says how much of the app the keyboard covers while the app's frame catches up
   const nat = document.documentElement.classList.contains("kb-native") && typeof window.sbVisibleH === "function";
   const vis = nat ? window.sbVisibleH() : vv.height, kb = nat ? innerHeight - vis : Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop));
-  el.style.setProperty("--kb", Math.max(0, Math.round(kb)) + "px");
-  el.style.setProperty("--vvh", Math.round(vis) + "px");   // what's visible: the sheet is never taller, so it never runs off the top
-  requestAnimationFrame(() => { if (el.isConnected) noteSheetKeep(el); });
+  // set on the page, not the editor: an editor redrawn while typing is in the right place from its first frame (on the editor
+  // itself, a fresh one started at 0, behind the keyboard, and slid back up)
+  const R = document.documentElement;
+  R.style.setProperty("--kb", Math.max(0, Math.round(kb)) + "px");
+  R.style.setProperty("--vvh", Math.round(vis) + "px");   // what's visible: the sheet is never taller, so it never runs off the top
+  requestAnimationFrame(() => { if (el.isConnected && el.classList.contains("n-sheet")) noteSheetKeep(el); });
 }
 if (window.visualViewport) { visualViewport.addEventListener("resize", noteKbFit); visualViewport.addEventListener("scroll", noteKbFit); }
 addEventListener("sb-kb-cover", noteKbFit);

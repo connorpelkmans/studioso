@@ -404,8 +404,11 @@
     addEventListener("scroll", function () { if (keepY !== null && Math.abs(window.scrollY - keepY) > 1) window.scrollTo(0, keepY); }, {passive: true});
     document.addEventListener("focusin", function (e) { var t = e.target; if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) holdScroll(); }, true);
     try {
-      KB.addListener("keyboardWillShow", function (info) { holdScroll(); kbOn(true, info && info.keyboardHeight); });
-      KB.addListener("keyboardWillHide", function () { kbOn(false); });
+      // while typing the app itself can't scroll, so iOS has nothing to slide (the boxes have been moved into view already, and
+      // lists inside sheets still scroll); it's always switched back on when the keyboard goes or the app comes back
+      KB.addListener("keyboardWillShow", function (info) { holdScroll(); kbOn(true, info && info.keyboardHeight); try { KB.setScroll({ isDisabled: true }); } catch (e) {} });
+      KB.addListener("keyboardWillHide", function () { kbOn(false); try { KB.setScroll({ isDisabled: false }); } catch (e) {} });
+      document.addEventListener("visibilitychange", function () { if (!document.hidden) try { KB.setScroll({ isDisabled: false }); } catch (e) {} });
     } catch (e) {}
   }
 
@@ -419,8 +422,12 @@
     var send = function () {
       t = 0;
       var b = document.body, h = document.documentElement; if (!b) return;
+      // the colour at the top of the screen: the header bar, else the theme scene's sky, else the page (a scene theme's page
+      // colour is a plain light one that the scene covers, which showed as a light blue strip)
       var c = hex(getComputedStyle(b).backgroundColor) || hex(getComputedStyle(h).backgroundColor);
-      var art = document.getElementById("sceneArt"); if (art) c = hex(getComputedStyle(art).backgroundColor) || c;
+      var art = document.getElementById("sceneArt");
+      if (art) { var sky = getComputedStyle(art), g = /rgba?\([^)]*\)/.exec(sky.backgroundImage || ""); c = hex(sky.backgroundColor) || (g ? hex(g[0]) : "") || c; }
+      var top = document.querySelector("header.top"); if (top) c = hex(getComputedStyle(top).backgroundColor) || c;
       if (c && c !== last) { last = c; try { post.postMessage(c); } catch (e) {} }
     };
     var soon = function () { if (!t) t = setTimeout(send, 120); };

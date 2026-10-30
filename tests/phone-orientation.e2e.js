@@ -72,6 +72,9 @@ async function open(b, idiom){
       await page.evaluate(() => { document.getElementById("noteText").focus(); window.__kbL.keyboardWillShow({keyboardHeight: 336}); }); await page.waitForTimeout(450);
       const over = await page.evaluate(() => { const r = document.querySelector(".note.editing").getBoundingClientRect(); return {bottom: Math.round(r.bottom), ih: innerHeight}; });
       ok(over.ih === 874 && Math.abs(over.bottom - (874 - 336)) <= 2, "app kept full size, keyboard over it: the note editor rests on the keyboard: " + JSON.stringify(over));
+      // a redraw while typing (saving the note, a sync) rebuilds the editor: it appears in place, never behind the keyboard
+      const rd = await page.evaluate(() => new Promise(res => { const out = []; window.__sbSync.render(); const t0 = performance.now(), look = () => { const e = document.querySelector(".note.editing"); out.push(e ? Math.round(e.getBoundingClientRect().bottom) : -1); if (performance.now() - t0 < 400) requestAnimationFrame(look); else res(out); }; requestAnimationFrame(look); }));
+      ok(rd.every(b => Math.abs(b - (874 - 336)) <= 2), "a redraw while typing leaves the note editor exactly where it is: " + [...new Set(rd)].join(","));
       const y = await page.evaluate(async () => { document.getElementById("noteText").blur(); document.getElementById("noteText").focus(); window.scrollTo(0, 200); await new Promise(r => setTimeout(r, 60)); return scrollY; });
       ok(y === 0, "iOS's scroll to reveal the box (as the keyboard arrives) is undone (" + y + ")");
       await page.evaluate(() => { document.getElementById("noteText").blur(); window.__kbL.keyboardWillHide(); }); await page.waitForTimeout(600);
