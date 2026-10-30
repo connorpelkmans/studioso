@@ -48,7 +48,7 @@
     capture: ["cap-try"],
     school: ["sem-open", "lms-open", "cal-export", "cal-sync", "import-syllabus", "grp-page"],
     app: ["tz-shift", "rm-open", "sbw-open", "pwa-install", "install", "desk-version", "ob-replay", "tour-open", "bug-open"],
-    data: ["fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "restore", "import", "ia-open", "new-term", "archive-open", "trash-open", "export-data", "clear-all"]
+    data: ["cbk-go", "cbk-now", "cbk-stop", "fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "restore", "import", "ia-open", "new-term", "archive-open", "trash-open", "export-data", "clear-all"]
   };
   // Sub-tabs inside a category with many rows
   const SUBS = {
@@ -56,7 +56,7 @@
     study: [["Study Plan", ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "ap-mode", "ap-pro", "g-grades", "bd-new-course", "wkr-open", "fgs-open"]], ["AI and Search", ["ai-setup", "sx-settings"]]],
     school: [["School Sites", ["sem-open", "lms-open", "import-syllabus"]], ["Calendar", ["cal-export", "cal-sync"]], ["Groups", ["grp-page"]]],
     app: [["Reminders", ["rm-open", "sbw-open", "tz-shift"]], ["Install", ["pwa-install", "install", "desk-version"]], ["Help", ["ob-replay", "tour-open", "bug-open"]]],
-    data: [["Backups", ["fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "restore"]], ["Import and Export", ["import", "ia-open", "export-data"]], ["Cleanup", ["new-term", "archive-open", "trash-open", "clear-all"]]]
+    data: [["Backups", ["cbk-go", "cbk-now", "cbk-stop", "fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "restore"]], ["Import and Export", ["import", "ia-open", "export-data"]], ["Cleanup", ["new-term", "archive-open", "trash-open", "clear-all"]]]
   };
   const SUB_MIN = 5;
   // Extra words people might search for, per row
@@ -136,7 +136,11 @@
       sec.className = "us-pane"; sec.dataset.us = c.k; sec.id = "usPane-" + c.k;
       sec.setAttribute("role", "tabpanel"); sec.setAttribute("aria-labelledby", "usTab-" + c.k);
       sec.innerHTML = `<div class="us-title"><span class="us-ic">${ICONS[c.k]}</span><div><h3>${esc(c.t)}</h3><p class="mini">${esc(c.lead)}</p></div></div>`;
-      const sorted = buckets[c.k].sort((a, b) => a.n - b.n || a.i - b.i);
+      const all = buckets[c.k].sort((a, b) => a.n - b.n || a.i - b.i);
+      // Rows marked data-us-top (the storage meter) sit above the section's tabs, so they're always in view
+      const top = all.filter(({r}) => r.dataset.usTop);
+      if (top.length) { const ml = document.createElement("div"); ml.className = "menu-list us-top"; top.forEach(({r}) => ml.appendChild(r)); sec.appendChild(ml); }
+      const sorted = all.filter(({r}) => !r.dataset.usTop);
       sorted.forEach(({r}) => { if (r.dataset.act === "clear-all" || r.querySelector('[data-act="clear-all"]')) r.classList.add("us-danger"); });
       const spec = SUBS[c.k];
       if (spec && sorted.length >= SUB_MIN) {

@@ -686,6 +686,15 @@ window.__sbPlanObj = () => PLAN;
     const hot = max !== Infinity && used / max >= 0.9;
     return `<div class="plan-meter${hot ? " hot" : ""}"><div class="pm-top"><span>${esc(label)}</span><span class="mini">${esc(fmtMB(used))} of ${esc(fmtMB(max))}</span></div><div class="pm-bar" role="progressbar" aria-label="${esc(label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}"><i style="width:${pct.toFixed(1)}%"></i></div></div>`;
   }
+  // Settings, Data and Backups: how much of the account's space on the server is used, against the Free or Pro limits
+  function storageRow(){
+    if (typeof sbUser === "undefined" || !sbUser || inPreview()) return "";
+    const u = usage(), L = lim(), proLims = !paywall() || limitsPro();
+    const tier = !paywall() ? "Early access: you have the Pro amounts" : limitsPro() ? "Pro plan" : "Free plan";
+    const full = Math.max(u.fileMB / L.fileMB, u.dataMB / L.dataMB) >= 0.9;
+    const more = proLims ? "" : `<button type="button" class="btn small${full ? " primary" : ""}" data-act="plan-open" data-reason="Pro gives you more space on the server">Get More Space</button>`;
+    return `<div class="cap-row us-storage" data-group="data" data-us-top="1" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">Server Storage<span class="sub">${esc(tier)}. Space your account uses on Studyboard's server.</span></span>${more}<div class="plan-usage" style="flex-basis:100%">${meter("Uploaded Files", u.fileMB, L.fileMB)}${meter("Synced Data", u.dataMB, L.dataMB)}</div></div>`;
+  }
   function statusLine(){
     const e = ent();
     if (!paywall()) return {title: "Everything Is Unlocked Right Now", sub: "Studyboard is in early access, so every theme and feature is yours to use. Pro will add the extras below later."};
@@ -854,7 +863,7 @@ window.__sbPlanObj = () => PLAN;
 
   PLAN = {
     tier: () => isPro() ? "pro" : "free",
-    isPro, paywall, settled,
+    isPro, paywall, settled, storageRow,
     limits: () => Object.assign({}, lim()),
     freeLimits: () => Object.assign({}, lims("free")),
     proLimits: () => Object.assign({}, lims("pro")),

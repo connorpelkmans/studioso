@@ -4175,6 +4175,7 @@ html.tpcss-loading [class*="cs-tp-"] .face *{visibility:hidden}
 @media (prefers-reduced-motion:reduce){.us-cat,.us-search,.us-pane .menu-list > button{transition:none}}
 
 
+.us-pane .menu-list.us-top{margin-bottom:12px}
 /* ===== module: 98-companion.css ===== */
 /* Study Companions */
 .cp-layer{position:fixed;inset:0;z-index:-1;pointer-events:none}
