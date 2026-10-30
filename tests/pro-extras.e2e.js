@@ -180,11 +180,21 @@ function SEED(){
     ok(await p3.locator(".plan-sheet").count() === 1 && await p3.locator(".pro-ins-body").count() === 0, "free: tapping it opens the Pro sheet, not Insights");
     await p3.keyboard.press("Escape"); await p3.waitForTimeout(200);
     await act(p3, "pomo-open"); await p3.waitForTimeout(400);
-    ok(await p3.locator('#pomoDlg .pr-chip:is([data-id="classic"],[data-id="deep"],[data-id="cram"]) .pro-badge').count() === 0 && await p3.locator('#pomoDlg .pr-chip.pr-new .pro-badge').count() === 1, "free: Classic, Deep Work and Exam Cram are free; only your own routines are marked PRO");
+    const nOwn = await p3.evaluate(() => ((JSON.parse(localStorage.getItem("coursework:v2")).settings || {}).routines || []).length);
+    ok(await p3.locator('#pomoDlg .pr-chip:is([data-id="classic"],[data-id="deep"],[data-id="cram"]) .pro-badge').count() === 0 && await p3.locator('#pomoDlg .pr-chip.pr-new .pro-badge').count() === (nOwn ? 1 : 0), "free: Classic, Deep Work and Exam Cram are free, and so is one routine of your own");
     await p3.click('#pomoDlg .pr-chip[data-id="deep"]'); await p3.waitForTimeout(400);
     ok(await p3.locator("#dlg[open] .plan-sheet").count() === 0 && await p3.locator('#pomoDlg .pr-chip.on[data-id="deep"]').count() === 1, "free: Deep Work just switches the timer to it");
+    if (!nOwn) {
+      await p3.click('#pomoDlg .pr-chip.pr-new'); await p3.waitForTimeout(400);
+      ok(await p3.locator('#dlg[open] input[name="name"]').count() === 1, "free: the first routine of your own can be made without Pro");
+      await p3.fill('#dlg input[name="name"]', "Free One"); await p3.click('#dlg [data-submit]'); await p3.waitForTimeout(400);
+      if (!(await p3.locator("#pomoDlg").evaluate(d => d.open))) { await act(p3, "pomo-open"); await p3.waitForTimeout(400); }
+      ok(await p3.locator('#pomoDlg .pr-chip.on .pro-badge').count() === 0 && await p3.locator('#pomoDlg .pr-chip.pr-new .pro-badge').count() === 1, "free: it's saved and in use, and New now carries the PRO badge");
+    }
     await p3.click('#pomoDlg .pr-chip.pr-new'); await p3.waitForTimeout(400);
-    ok(await p3.locator("#dlg[open] .plan-sheet").count() === 1, "free: New (your own routine) opens the Pro sheet");
+    ok(await p3.locator('#dlg[open] input[name="name"]').count() === 0 && await p3.locator('#dlg[open] [data-act="pro-rt-more"]').count() === 1, "free: a second routine of your own isn't offered, Get More With Pro is");
+    await p3.click('#dlg [data-act="pro-rt-more"]'); await p3.waitForTimeout(400);
+    ok(await p3.locator("#dlg[open] .plan-sheet").count() === 1, "free: Get More With Pro opens the Pro sheet");
     await p3.keyboard.press("Escape"); await p3.waitForTimeout(200);
     const pd = p3.locator("#pomoDlg"); if (await pd.evaluate(d => d.open)) await pd.evaluate(d => d.close());
     await p3.click('nav.tabs [data-tab="flashcards"]').catch(() => {}); await p3.waitForTimeout(300);

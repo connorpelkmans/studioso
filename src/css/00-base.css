@@ -2075,7 +2075,8 @@ dialog:has(.sheet.shop){width:min(960px,calc(100% - 24px))}
 .shop-tile p{margin:0}
 .shop-tile>.btn{justify-self:start}
 .shop-name{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.pro-badge{font:800 .62rem var(--display);letter-spacing:.08em;background:linear-gradient(135deg,#FFB443,#FF5C8A);color:#fff;border-radius:6px;padding:2px 6px}
+.pro-badge{font:800 .62rem var(--display);letter-spacing:.08em;background:linear-gradient(135deg,#FFB443,#FF5C8A);color:#fff!important;border-radius:6px;padding:2px 6px}
+/* The badge always keeps white text, even inside chips whose small text is grey */
 .free-badge{font:700 .62rem var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--leaf);border:1px solid color-mix(in srgb,var(--leaf) 50%,transparent);border-radius:6px;padding:1px 5px}
 .shop-mode{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .skin-pair{display:grid;grid-template-columns:1fr 1fr;gap:6px}
