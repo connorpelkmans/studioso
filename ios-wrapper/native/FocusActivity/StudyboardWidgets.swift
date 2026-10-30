@@ -80,8 +80,7 @@ private struct Tomato: View {
 // real a moment later in the background, with the same result.
 private struct Clock {
     let running: Bool, left: Int, start: Date, end: Date, total: Int
-    init(_ s: StudyboardFocusAttributes.ContentState, running: Bool) {
-        let now = Date()
+    init(_ s: StudyboardFocusAttributes.ContentState, running: Bool, at now: Date = Date()) {
         total = max(1, s.total)
         left = s.pausedLeft > 0 ? s.pausedLeft : max(0, Int(s.endsAt.timeIntervalSince(now).rounded(.up)))
         self.running = running
@@ -145,7 +144,9 @@ private struct Face: View {
     let look: Look
     let done: Bool
     let showPlay: Bool
+    var playing: Bool? = nil     // the button's state (the switch's), when it differs from the time's
     var body: some View {
+        let on = playing ?? c.running
         VStack(spacing: look.island ? 10 : 12) {
             HStack(spacing: look.island ? 10 : 14) {
                 Tomato(s: s, size: look.island ? 22 : 34)
@@ -165,8 +166,8 @@ private struct Face: View {
                 Color.clear.frame(width: 36, height: 36)
                 if showPlay {
                     // swapped at once, not cross-faded (iOS fades changes on a Live Activity unless told otherwise)
-                    Image(systemName: c.running ? "pause.fill" : "play.fill").font(.system(size: 18, weight: .bold)).foregroundStyle(.white)
-                        .contentTransition(.identity).transition(.identity).animation(nil, value: c.running)
+                    Image(systemName: on ? "pause.fill" : "play.fill").font(.system(size: 18, weight: .bold)).foregroundStyle(.white)
+                        .contentTransition(.identity).transition(.identity).animation(nil, value: on)
                         .frame(width: 44, height: 44).background(Circle().fill(look.time))
                 } else {
                     Color.clear.frame(width: 44, height: 44)
@@ -189,8 +190,17 @@ private struct PlayHit: Shape {
 private struct FaceStyle: ToggleStyle {
     let s: StudyboardFocusAttributes.ContentState
     let look: Look
+    // The time for the switch's state. Just tapped (the switch differs from the card): with the App Group the time stops or
+    // starts at the tap, which the app then uses too; without it the time stays as the card says until the app has acted,
+    // so it never jumps.
+    private func clock(_ on: Bool) -> Clock {
+        let cardRunning = s.pausedLeft == 0
+        if on == cardRunning { return Clock(s, running: on) }
+        if StudyboardTap.available { return Clock(s, running: on, at: StudyboardTap.note(s, running: on)) }
+        return Clock(s, running: cardRunning)
+    }
     func makeBody(configuration: Configuration) -> some View {
-        Face(s: s, c: Clock(s, running: configuration.isOn), look: look, done: false, showPlay: true)
+        Face(s: s, c: clock(configuration.isOn), look: look, done: false, showPlay: true, playing: configuration.isOn)
             .contentShape(PlayHit())
             .accessibilityLabel(configuration.isOn ? "Pause" : "Resume")
     }

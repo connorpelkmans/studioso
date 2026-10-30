@@ -381,7 +381,7 @@
           if (typeof FA.take !== "function") return Promise.resolve([]);
           return Promise.resolve().then(function () { return FA.take(); }).then(function (r) {
             return (r && Array.isArray(r.actions) ? r.actions : []).filter(function (x) { return x && ["pause", "play", "skip", "reset"].indexOf(x.a) >= 0 && Number(x.t) > 0; })
-              .map(function (x) { return {a: x.a, t: Number(x.t)}; });
+              .map(function (x) { var o = {a: x.a, t: Number(x.t)}; if (Number(x.left) >= 0) o.left = Number(x.left); if (Number(x.end) > 0) o.end = Number(x.end); return o; });
           }, function () { return []; });
         },
         // The session-end alarm iOS rings itself: hasSound(name) says whether that sound file is saved already; alarm({name, wav})

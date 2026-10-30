@@ -57,6 +57,18 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     fa = await page.evaluate(() => window.__fa);
     ok(p.running && p.mode === "short" && Math.abs(p.endAt - Date.now() - 290000) < 5000 && fa[fa.length - 1][1].mode === "short", "Pause then Skip there: the app is on a running short break, started when Skip was pressed");
     ok(fa.slice(2).every(x => x[0] === "show"), "catching up never ends the card on the way");
+    // the card's exact result is copied, so the app and the card show the same time
+    await page.evaluate(() => { window.__lockQ = [{a: "pause", t: Date.now() - 3000, left: 271}]; window.__lockFire(); });
+    await page.waitForTimeout(300);
+    p = await page.evaluate(() => JSON.parse(localStorage.getItem("studioso:pomo")));
+    fa = await page.evaluate(() => window.__fa);
+    ok(!p.running && p.left === 271000 && fa[fa.length - 1][1].left === 271, "a Lock Screen pause takes the card's exact time left (271 s), and sends the same back");
+    const endMs = Date.now() + 271000 - 1500;
+    await page.evaluate(e => { window.__lockQ = [{a: "play", t: Date.now() - 1500, end: e}]; window.__lockFire(); }, endMs);
+    await page.waitForTimeout(300);
+    p = await page.evaluate(() => JSON.parse(localStorage.getItem("studioso:pomo")));
+    fa = await page.evaluate(() => window.__fa);
+    ok(p.running && p.endAt === endMs && fa[fa.length - 1][1].endsAt === endMs, "a Lock Screen play takes the card's exact end time");
     await page.evaluate(() => { window.__lockQ = [{a: "reset", t: Date.now() - 5000}]; window.__lockFire(); });
     await page.waitForTimeout(300);
     p = await page.evaluate(() => JSON.parse(localStorage.getItem("studioso:pomo")));

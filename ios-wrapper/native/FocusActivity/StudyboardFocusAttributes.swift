@@ -44,28 +44,12 @@ public struct StudyboardFocusControl: LiveActivityIntent {
         return .result()
     }
 
-    // When the button was really tapped. iOS freezes the card at the tap, but runs this only once it has started Studyboard in
-    // the background, which can take a few seconds; timing the pause from then made the time jump back and forth. If
-    // Studyboard was started for this tap (a moment ago), the start is the tap; otherwise it was already running and now is.
-    static func tapTime() -> Date {
-        let now = Date()
-        var info = kinfo_proc(), size = MemoryLayout<kinfo_proc>.stride
-        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()]
-        guard sysctl(&mib, 4, &info, &size, nil, 0) == 0 else { return now }
-        let tv = info.kp_proc.p_un.__p_starttime
-        let started = Date(timeIntervalSince1970: Double(tv.tv_sec) + Double(tv.tv_usec) / 1_000_000)
-        let ago = now.timeIntervalSince(started)
-        // only for the first tap after a start: a later tap finds the app already running
-        guard ago >= 0 && ago < 12 && !startUsed else { return now }
-        startUsed = true
-        return started
-    }
-    nonisolated(unsafe) private static var startUsed = false
-
     static func apply(_ action: String) async {
-        let now = tapTime()
         guard let act = Activity<StudyboardFocusAttributes>.activities.first else { return }
         var s = act.content.state
+        // the moment the card froze or started the time, noted by the card itself, so the pause lands on exactly what was
+        // shown; without the shared App Group the card waits for this instead, and now is right
+        let now = StudyboardTap.taken(s, action: action) ?? Date()
         switch action {
         case "pause":
             guard s.pausedLeft == 0, s.endsAt > now else { return }
@@ -91,7 +75,8 @@ public struct StudyboardFocusControl: LiveActivityIntent {
         StudyboardFocusAlarm.sync(mode: s.mode, endsAt: action == "reset" || s.pausedLeft > 0 ? nil : s.endsAt)
         let d = UserDefaults.standard
         var q = d.array(forKey: Self.queueKey) as? [[String: Any]] ?? []
-        q.append(["a": action, "t": now.timeIntervalSince1970 * 1000])
+        // with the exact result, so the app's own timer matches the card to the millisecond
+        q.append(["a": action, "t": now.timeIntervalSince1970 * 1000, "left": s.pausedLeft, "end": s.endsAt.timeIntervalSince1970 * 1000])
         d.set(Array(q.suffix(20)), forKey: Self.queueKey)
         await MainActor.run { NotificationCenter.default.post(name: Self.changed, object: nil) }
     }
@@ -154,5 +139,36 @@ public enum StudyboardFocusAlarm {
 
     public static func soundsDir() -> URL? {
         FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first?.appendingPathComponent("Sounds", isDirectory: true)
+    }
+}
+
+// The moment Play/Pause was tapped, shared between the card (widget) and the app through the App Group
+// group.com.studyboardapp.studyboard. iOS shows the switch's new state at the tap but runs the app a moment later; the card
+// notes when it froze or started the time, and the app uses that same moment. Without the App Group (not set up in
+// Xcode for both targets) nothing is shared and the card doesn't move the time until the app has.
+@available(iOS 16.1, *)
+public enum StudyboardTap {
+    static let group = "group.com.studyboardapp.studyboard"
+    static var shared: UserDefaults? {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group) != nil ? UserDefaults(suiteName: group) : nil
+    }
+    public static var available: Bool { shared != nil }
+    static func key(_ s: StudyboardFocusAttributes.ContentState, _ action: String) -> String {
+        "\(Int(s.endsAt.timeIntervalSince1970 * 1000))|\(s.pausedLeft)|\(s.mode)|\(action)"
+    }
+    // the card: the switch was just flipped from this state; the moment it was (the first time it's drawn that way)
+    public static func note(_ s: StudyboardFocusAttributes.ContentState, running: Bool) -> Date {
+        guard let d = shared else { return Date() }
+        let k = key(s, running ? "play" : "pause")
+        if d.string(forKey: "sbTapKey") == k, let t = d.object(forKey: "sbTapAt") as? Date { return t }
+        let now = Date()
+        d.set(now, forKey: "sbTapAt"); d.set(k, forKey: "sbTapKey")
+        return now
+    }
+    // the app: when the card noted this tap on this state, if it did (and recently)
+    public static func taken(_ s: StudyboardFocusAttributes.ContentState, action: String) -> Date? {
+        guard let d = shared, d.string(forKey: "sbTapKey") == key(s, action), let t = d.object(forKey: "sbTapAt") as? Date,
+              Date().timeIntervalSince(t) < 120, t <= Date() else { return nil }
+        return t
     }
 }
