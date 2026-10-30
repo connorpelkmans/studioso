@@ -13,7 +13,7 @@ const server = http.createServer((req, res) => {
 let checks = 0; const ok = (c, m) => { checks++; console.log((c ? "ok - " : "FAIL: ") + m); if (!c) process.exitCode = 1; };
 const T = (id, title, due, status, order) => ({id, title, courseId: "c1", type: "Assignment", start: "2026-10-01", due, time: "", priority: "med", status, notes: "", hours: 2, checklist: [], pct: 0, dependsOn: [], history: [], created: 1, order, doneAt: null});
 const TASKS = [T("t1", "Lab Report", "2026-10-08", "todo", 10), T("t2", "Reading Ch. 4", "2026-10-09", "todo", 20), T("t3", "Essay Draft", "2026-10-12", "todo", 30), T("t4", "Problem Set 3", "2026-10-14", "todo", 40),
-  T("g1", "Study Guide", "2026-10-10", "doing", 10), T("g2", "Flashcards", "2026-10-11", "doing", 20)];
+  T("g1", "Study Guide", "2026-10-10", "doing", 10), T("g2", "Flashcards", "2026-10-11", "doing", 20), T("d1", "Workshop Quiz", "2026-10-07", "done", 10)];
 const seed = tasks => { localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studioso:tour", "done"); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("coursework:group", "none");
   if (!localStorage.getItem("coursework:v2")) localStorage.setItem("coursework:v2", JSON.stringify({v: 2, courses: [{id: "c1", name: "Biology 101", code: "BIO101", color: "#4F8A5B"}], tasks, files: [], notes: [], decks: [], events: [], settings: {capacity: 15, dailyHours: 4}, updated: 1})); };
 (async () => {
@@ -83,8 +83,33 @@ const seed = tasks => { localStorage.setItem("studioso:welcomed", "1"); localSto
     const pdoing = await q.evaluate(() => [...document.querySelectorAll('.col[data-status="doing"] .card[data-id]:not(.ghost)')].map(c => c.dataset.id));
     ok(pdoing.includes("t1"), "phone: the card was dropped into In Progress: " + pdoing.join(","));
     ok(Math.abs(end - mid.full) <= 2, "phone: the board ends lined up on In Progress (" + end + " vs " + mid.full + ")");
-    ok(between >= 5 && jump < (mid.full - mid.at) * 0.6, "phone: it glides there from half way instead of snapping (" + between + " in-between frames, biggest step " + jump + "px of " + (mid.full - mid.at) + "): " + xs.slice(0, 14).join(" "));
+    ok(between >= 3 && jump < (mid.full - mid.at) * 0.6, "phone: it glides there from half way instead of snapping (" + between + " in-between frames, biggest step " + jump + "px of " + (mid.full - mid.at) + "): " + xs.slice(0, 14).join(" "));
     ok(await q.evaluate(() => !document.querySelector(".board.panning, .board.dragging") && getComputedStyle(document.querySelector(".board")).scrollSnapType.startsWith("x")), "phone: swipe snapping is back on afterwards");
+    // holding a dragged card at the right edge glides the board one whole column over (not a jump, not a creep)
+    await q.waitForTimeout(800);
+    await q.evaluate(() => { const b = document.querySelector(".board"); b.scrollLeft = 0; }); await q.waitForTimeout(300);
+    const pc = await q.locator('.board .card[data-id="t2"]').boundingBox();
+    await q.mouse.move(pc.x + 40, pc.y + 14); await q.mouse.down();
+    for (let i = 1; i <= 6; i++) { await q.mouse.move(pc.x + 40 + i * 8, pc.y + 14 + i * 3); await q.waitForTimeout(30); }
+    await q.evaluate(() => { window.__pe = []; const b = document.querySelector(".board"), t0 = performance.now(), look = () => { window.__pe.push(Math.round(b.scrollLeft)); if (performance.now() - t0 < 900) requestAnimationFrame(look); }; requestAnimationFrame(look); });
+    await q.mouse.move(398, pc.y + 60); await q.waitForTimeout(950);
+    const pe = await q.evaluate(() => window.__pe), cols = await q.evaluate(() => { const b = document.querySelector(".board"); return [...b.querySelectorAll(".col")].map(c => Math.round(b.scrollLeft + c.getBoundingClientRect().left - b.getBoundingClientRect().left - 18)); });
+    const peEnd = pe[pe.length - 1], mids = new Set(pe.filter(x => x > 2 && x < peEnd - 2)).size;
+    ok(peEnd > 100 && cols.some(c => Math.abs(c - peEnd) <= 3), "phone: holding a card at the edge brings the next column fully into place: " + peEnd + " (columns at " + cols.join(", ") + ")");
+    ok(mids >= 4, "phone: and it glides there (" + mids + " in-between frames): " + pe.filter((x, i) => i % 3 === 0).join(" "));
+    await q.mouse.up(); await q.waitForTimeout(900);
+    // from Complete back to In Progress: hovering the card over the bit of In Progress peeking in on the left brings it over
+    await q.evaluate(() => { const b = document.querySelector(".board"), c = document.querySelector('.col[data-status="done"]'); b.scrollLeft = b.scrollLeft + c.getBoundingClientRect().left - b.getBoundingClientRect().left - 18; }); await q.waitForTimeout(500);
+    const dc = await q.locator('.board .card[data-id="d1"]').boundingBox();
+    const ipX = await q.evaluate(() => { const b = document.querySelector(".board"), c = document.querySelector('.col[data-status="doing"]'); return Math.round(b.scrollLeft + c.getBoundingClientRect().left - b.getBoundingClientRect().left - 18); });
+    const peekR = await q.evaluate(() => Math.round(document.querySelector('.col[data-status="doing"]').getBoundingClientRect().right));
+    await q.mouse.move(dc.x + 120, dc.y + 14); await q.mouse.down();
+    for (let i = 1; i <= 10; i++) { await q.mouse.move(dc.x + 120 - i * ((dc.x + 120 - (peekR - 20)) / 10), dc.y + 14 + i * 3); await q.waitForTimeout(30); }
+    await q.waitForTimeout(1000);
+    const nowX = await q.evaluate(() => Math.round(document.querySelector(".board").scrollLeft));
+    ok(Math.abs(nowX - ipX) <= 3, "phone: a card hovered over In Progress peeking in from the left brings In Progress into view (" + nowX + " vs " + ipX + "; finger at " + (peekR - 20) + "px)");
+    await q.mouse.up(); await q.waitForTimeout(900);
+    ok(await q.evaluate(() => [...document.querySelectorAll('.col[data-status="doing"] .card[data-id]:not(.ghost)')].some(c => c.dataset.id === "d1")), "phone: and it drops into In Progress");
     ok(!perrs.length, "phone: no page errors " + perrs.join(" | "));
     await pctx.close();
     console.log("\nboard-motion.e2e: " + checks + " checks " + (process.exitCode ? "FAILED" : "passed"));

@@ -14,11 +14,16 @@
   <!-- Quick capture (UNTESTED template; see native/ and VOICE-CAPTURE-NATIVE.md) -->
   <key>com.apple.security.application-groups</key>
   <array>
-    <string>group.com.studioso.app</string>
+    <string>group.com.studyboardapp.studyboard</string>
   </array>
   <key>keychain-access-groups</key>
   <array>
-    <string>$(AppIdentifierPrefix)com.studioso.app.shared</string>
+    <string>$(AppIdentifierPrefix)com.studyboardapp.studyboard.shared</string>
+  </array>
+  <!-- Sign in with Apple (Signing & Capabilities > + Capability > Sign in with Apple adds this) -->
+  <key>com.apple.developer.applesignin</key>
+  <array>
+    <string>Default</string>
   </array>
   <!-- In-app purchase needs the capability switched on in Xcode but no entitlement key -->
 </dict>

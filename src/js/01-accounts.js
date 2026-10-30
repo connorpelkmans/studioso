@@ -778,6 +778,79 @@ function sbSetupSheet(){
   });
   });
 }
+// Sign in with Apple or Google (Supabase's providers). On the web the page goes to the provider and comes back signed in; in the
+// iPhone and Android apps and the desktop app the provider's page opens outside the app (Google refuses sign-in inside an app's
+// own web view) and hands the result back, and on iPhone Apple's own sheet is used for Apple.
+// Apple's logo as Apple's own Sign in with Apple script draws it (appleid.auth.js), and Google's "G" from Google's sign-in
+// branding kit (signin-assets.zip); the buttons follow each one's guidelines (Apple: its logo, the system font, black or white;
+// Google: its logo, Roboto Medium, its light and dark colours, pill shape)
+const SB_APPLE_SVG = '<svg class="sb-oa-a" viewBox="20 15.6 16 19.8" width="16" height="20" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="nonzero" d="M28.2226562,20.3846154 C29.0546875,20.3846154 30.0976562,19.8048315 30.71875,19.0317864 C31.28125,18.3312142 31.6914062,17.352829 31.6914062,16.3744437 C31.6914062,16.2415766 31.6796875,16.1087095 31.65625,16 C30.7304687,16.0362365 29.6171875,16.640178 28.9492187,17.4494596 C28.421875,18.06548 27.9414062,19.0317864 27.9414062,20.0222505 C27.9414062,20.1671964 27.9648438,20.3121424 27.9765625,20.3604577 C28.0351562,20.3725366 28.1289062,20.3846154 28.2226562,20.3846154 Z M25.2929688,35 C26.4296875,35 26.9335938,34.214876 28.3515625,34.214876 C29.7929688,34.214876 30.109375,34.9758423 31.375,34.9758423 C32.6171875,34.9758423 33.4492188,33.792117 34.234375,32.6325493 C35.1132812,31.3038779 35.4765625,29.9993643 35.5,29.9389701 C35.4179688,29.9148125 33.0390625,28.9122695 33.0390625,26.0979021 C33.0390625,23.6579784 34.9140625,22.5588048 35.0195312,22.474253 C33.7773438,20.6382708 31.890625,20.5899555 31.375,20.5899555 C29.9804688,20.5899555 28.84375,21.4596313 28.1289062,21.4596313 C27.3554688,21.4596313 26.3359375,20.6382708 25.1289062,20.6382708 C22.8320312,20.6382708 20.5,22.5950413 20.5,26.2911634 C20.5,28.5861411 21.3671875,31.013986 22.4335938,32.5842339 C23.3476562,33.9129053 24.1445312,35 25.2929688,35 Z"/></svg>';
+const SB_GOOGLE_SVG = '<svg class="sb-oa-g" width="20" height="20" viewBox="10 10 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><mask id="mask0_sbg" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="10" y="10" width="20" height="20"><path d="M29.3987 18.1814H19.9849V22.0445H25.3598C25.1286 23.294 24.4294 24.3596 23.3676 25.0712C22.4746 25.6716 21.3266 26.0211 19.9849 26.0211C17.3864 26.0211 15.1823 24.2666 14.3947 21.9004C14.1952 21.2989 14.0853 20.6599 14.0853 19.9983C14.0853 19.3367 14.1952 18.6966 14.3947 18.0962C15.1823 15.7311 17.3864 13.9755 19.9849 13.9755C21.4524 13.9755 22.767 14.4816 23.8039 15.4713L26.6653 12.6057C24.936 10.9908 22.6786 10 19.9849 10C16.0832 10 12.705 12.2414 11.0618 15.5076C10.383 16.8592 10 18.3834 10 19.9994C10 21.6155 10.383 23.1396 11.0618 24.4913C12.705 27.7597 16.0832 30 19.9849 30C22.6797 30 24.9485 29.1137 26.6018 27.5861C28.4887 25.8452 29.5732 23.2702 29.5732 20.2275C29.5732 19.5182 29.5131 18.835 29.3987 18.1825V18.1814Z" fill="#E94FFF"/></mask><g mask="url(#mask0_sbg)"><g filter="url(#filter0_f_sbg)"><g clip-path="url(#paint0_angular_sbg_clip_path)"><g transform="matrix(0.00804129 -0.00805186 0.00804128 0.00805186 19.6819 19.7927)"><foreignObject x="-2105.64" y="-2105.64" width="4211.29" height="4211.29"><div xmlns="http://www.w3.org/1999/xhtml" style="background:conic-gradient(from 90deg,rgba(255, 70, 65, 1) 0deg,rgba(255, 70, 65, 1) 4.14555deg,rgba(49, 134, 255, 1) 39.154deg,rgba(49, 134, 255, 1) 72.0044deg,rgba(0, 165, 183, 1) 96.7463deg,rgba(14, 188, 95, 1) 120.897deg,rgba(14, 188, 95, 1) 154.722deg,rgba(108, 196, 0, 1) 179.136deg,rgba(255, 204, 0, 1) 203.588deg,rgba(255, 211, 20, 1) 226.915deg,rgba(255, 204, 0, 1) 251.688deg,rgba(255, 106, 43, 1) 273.129deg,rgba(253, 70, 65, 1) 289.305deg,rgba(255, 70, 65, 1) 359.593deg,rgba(255, 70, 65, 1) 360deg);height:100%;width:100%;opacity:1"></div></foreignObject></g></g><path d="M7.25922 19.7927C7.25922 12.6759 13.0209 6.90668 20.1283 6.90668C27.2357 6.90668 32.9973 12.6759 32.9973 19.7927C32.9973 26.9094 27.2357 32.6786 20.1283 32.6786C13.0209 32.6786 7.25921 26.9094 7.25922 19.7927Z"/></g><g filter="url(#filter1_f_sbg)"><ellipse cx="20.0496" cy="20.2413" rx="5.39634" ry="2.83537" transform="rotate(24.4473 20.0496 20.2413)" fill="#3186FF"/></g><g filter="url(#filter2_f_sbg)"><ellipse cx="33.3538" cy="18.2155" rx="7.43918" ry="3.09357" fill="#3186FF"/></g><g filter="url(#filter3_f_sbg)"><ellipse cx="25.2744" cy="16.2195" rx="7.40854" ry="2.37805" fill="#FF4641"/></g><g filter="url(#filter4_f_sbg)"><ellipse cx="29.5427" cy="12.9268" rx="7.40854" ry="2.37805" fill="#FF5B8B"/></g><g filter="url(#filter5_f_sbg)"><ellipse cx="24.4817" cy="19.878" rx="8.5061" ry="3.10976" fill="#3186FF"/></g><g filter="url(#filter6_f_sbg)"><ellipse cx="25.1842" cy="14.0197" rx="4.53882" ry="2.37805" transform="rotate(-28.6599 25.1842 14.0197)" fill="#FF4641"/></g></g><defs><filter id="filter0_f_sbg" x="5.25922" y="4.90668" width="29.7381" height="29.772" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter><clipPath id="paint0_angular_sbg_clip_path"><path d="M7.25922 19.7927C7.25922 12.6759 13.0209 6.90668 20.1283 6.90668C27.2357 6.90668 32.9973 12.6759 32.9973 19.7927C32.9973 26.9094 27.2357 32.6786 20.1283 32.6786C13.0209 32.6786 7.25921 26.9094 7.25922 19.7927Z"/></clipPath><filter id="filter1_f_sbg" x="12.9977" y="14.828" width="14.1038" height="10.8265" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter><filter id="filter2_f_sbg" x="23.9146" y="13.1219" width="18.8784" height="10.1871" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter><filter id="filter3_f_sbg" x="15.8659" y="11.8415" width="18.8171" height="8.7561" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter><filter id="filter4_f_sbg" x="20.1341" y="8.54878" width="18.8171" height="8.7561" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter><filter id="filter5_f_sbg" x="13.9756" y="14.7683" width="21.0122" height="10.2195" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter><filter id="filter6_f_sbg" x="19.0404" y="9.00419" width="12.2878" height="10.0309" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter></defs></svg>';
+// Apple's option on Apple devices only (the iPhone and iPad app, the Mac app, and a browser on a Mac, iPhone or iPad, which
+// includes iPads that call themselves a Mac); Google everywhere
+const sbAppleOk = () => {
+  try { if (window.Capacitor && typeof Capacitor.getPlatform === "function" && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) return Capacitor.getPlatform() === "ios"; } catch (e) {}
+  if (DESK) return DESK.platform === "darwin";
+  return /iPhone|iPad|iPod|Macintosh|Mac OS X/.test(navigator.userAgent || "");
+};
+const sbOAuthHtml = () => `<div class="sb-oauth">${sbAppleOk() ? `<button type="button" class="sb-oa sb-oa-apple" data-oauth="apple">${SB_APPLE_SVG}<span>Continue with Apple</span></button>` : ""}<button type="button" class="sb-oa sb-oa-google" data-oauth="google">${SB_GOOGLE_SVG}<span>Continue with Google</span></button></div><div class="sb-or" role="separator"><span>or use your email</span></div>`;
+// The code or tokens a provider sent back to a return address, made into a session
+async function sbOAuthFinish(addr){
+  const u = new URL(addr), p = new URLSearchParams((u.hash || "").replace(/^#/, "")), q = u.searchParams;
+  const err = p.get("error_description") || q.get("error_description") || p.get("error") || q.get("error");
+  if (err) throw new Error(err.replace(/\+/g, " "));
+  const code = q.get("code") || p.get("code");
+  if (code) { const {error} = await sb.auth.exchangeCodeForSession(code); if (error) throw error; return true; }
+  const at = p.get("access_token"), rt = p.get("refresh_token");
+  if (at && rt) { const {error} = await sb.auth.setSession({access_token: at, refresh_token: rt}); if (error) throw error; return true; }
+  throw new Error("The sign-in didn't come back complete. Try again.");
+}
+// true once signed in; false if cancelled or still on its way (the web leaves the page)
+async function sbOAuth(provider, say, back){
+  if (provider !== "apple" && provider !== "google") return false;
+  const N = window.StudyboardNative && window.StudyboardNative.signIn, name = provider === "apple" ? "Apple" : "Google";
+  const opts = provider === "google" ? {queryParams: {prompt: "select_account"}} : {scopes: "name email"};
+  // iPhone: Apple's own sheet
+  if (provider === "apple" && N && N.apple) {
+    const r = await N.apple();
+    if (!r) return false;
+    if (r.error) throw new Error(r.error);
+    say("Signing in…");
+    const {error} = await sb.auth.signInWithIdToken({provider: "apple", token: r.idToken, nonce: r.nonce});
+    if (error) throw error;
+    if (r.name) sb.auth.updateUser({data: {full_name: r.name, first_name: r.name.split(" ")[0]}}).catch(() => {});
+    return true;
+  }
+  // the app (iPhone, Android): the provider's page outside the app, back through studyboard://auth-callback
+  if (N && N.open) {
+    const {data, error} = await sb.auth.signInWithOAuth({provider, options: Object.assign({redirectTo: N.redirect, skipBrowserRedirect: true}, opts)});
+    if (error) throw error;
+    say(`Finish signing in with ${name}…`);
+    const addr = await N.open(data.url);
+    if (!addr) { say(""); return false; }
+    say("Signing in…");
+    return sbOAuthFinish(addr);
+  }
+  // the desktop app: the computer's browser, back through a one-time page on this computer
+  if (DESK && typeof DESK.oauthPort === "function") {
+    const port = await DESK.oauthPort();
+    if (!port) throw new Error("Couldn't start sign-in on this computer. Restart Studyboard and try again.");
+    const {data, error} = await sb.auth.signInWithOAuth({provider, options: Object.assign({redirectTo: `http://127.0.0.1:${port}/auth`, skipBrowserRedirect: true}, opts)});
+    if (error) throw error;
+    say(`Finish signing in with ${name} in your browser…`);
+    const addr = await DESK.oauthOpen(data.url);
+    if (!addr) { say("Sign-in was closed before it finished."); return false; }
+    say("Signing in…");
+    return sbOAuthFinish(addr);
+  }
+  // the web: off to the provider, and back here signed in
+  if (!/^https?:$/.test(location.protocol)) throw new Error(`Sign in with ${name} isn't available here. Use your email instead.`);
+  sbLinkAsked();
+  const {error} = await sb.auth.signInWithOAuth({provider, options: Object.assign({redirectTo: back}, opts)});
+  if (error) throw error;
+  say(`Opening ${name}…`);
+  return false;
+}
 // Sign in, create an account, confirm your email with a code, and reset a forgotten password
 const SB_RESEND = {}, SB_RESEND_MS = 30000;
 function sbSignInSheet(mode, email, note){
@@ -791,8 +864,8 @@ function sbSignInSheet(mode, email, note){
   const pwIn = (lbl, ac) => `<label class="f"><span class="lh">${lbl} ${REQ}</span><input type="password" name="password" required minlength="8" autocomplete="${ac}" ${email && mode !== "reset" ? "autofocus" : ""}></label>`;
   const body = {
     hello: sbWelcomeHtml(),
-    signin: `${first ? `<p style="margin:0">Sign in to keep your tasks, notes and files safe online and in sync on all your devices.</p>` : ""}${emailIn()}${pwIn("Password", "current-password")}`,
-    signup: `<p style="margin:0">Free, and it keeps your planner in sync on your phone, laptop and the web.</p><label class="f"><span class="lh">Name <span class="hint">Optional. Your study companion uses it to say hi</span></span><input type="text" name="name" maxlength="40" autocomplete="given-name"></label>${window.SBUNAME ? SBUNAME.bdayField(true) + `<div class="u13" id="u13" hidden><p class="mini" style="margin:0"><b>Under 13?</b> A parent or guardian makes the account with their own email and confirms it. Publishing and sharing with a link stay off until you're 13.</p><label class="mi-check"><input type="checkbox" name="parentok" id="u13ok"> I'm the parent or guardian, and I agree to the Terms and Privacy Policy for my child</label></div>` : ""}${emailIn()}${sbPwHtml("Password", "new-password", {autofocus: !!email})}`,
+    signin: `${first ? `<p style="margin:0">Sign in to keep your tasks, notes and files safe online and in sync on all your devices.</p>` : ""}${sbOAuthHtml()}${emailIn()}${pwIn("Password", "current-password")}`,
+    signup: `<p style="margin:0">Free, and it keeps your planner in sync on your phone, laptop and the web.</p>${sbOAuthHtml()}<label class="f"><span class="lh">Name <span class="hint">Optional. Your study companion uses it to say hi</span></span><input type="text" name="name" maxlength="40" autocomplete="given-name"></label>${window.SBUNAME ? SBUNAME.bdayField(true) + `<div class="u13" id="u13" hidden><p class="mini" style="margin:0"><b>Under 13?</b> A parent or guardian makes the account with their own email and confirms it. Publishing and sharing with a link stay off until you're 13.</p><label class="mi-check"><input type="checkbox" name="parentok" id="u13ok"> I'm the parent or guardian, and I agree to the Terms and Privacy Policy for my child</label></div>` : ""}${emailIn()}${sbPwHtml("Password", "new-password", {autofocus: !!email})}`,
     confirm: `<p style="margin:0">If <b>${esc(email)}</b> can be used for a new account, we sent a code to it. Type it here to finish, or open the link in the email.</p><p class="mini" style="margin:0">Confirm your email to start using your account. Already have one? Use Back to Sign In.</p>${codeIn}`,
     forgot: `<p style="margin:0">Enter your email and, if an account uses it, we'll send you a code to set a new password.</p>${emailIn()}`,
     reset: `<p style="margin:0">If an account uses <b>${esc(email)}</b>, we sent it a code. Enter the code with your new password.</p>${codeIn}${sbPwHtml("New Password", "new-password")}`
@@ -884,6 +957,13 @@ function sbSignInSheet(mode, email, note){
     return false;
   });
   dlg.querySelectorAll("[data-sbm]").forEach(b => b.addEventListener("click", () => sbSignInSheet(b.dataset.sbm)));
+  dlg.querySelectorAll("[data-oauth]").forEach(b => b.addEventListener("click", async () => {
+    if (busy) return; busy = true;
+    dlg.querySelectorAll("[data-oauth]").forEach(x => { x.disabled = true; });
+    try { if (await sbOAuth(b.dataset.oauth, say, back)) done("Signed in"); }
+    catch (e) { say(sbWords(e)); }
+    finally { busy = false; dlg.querySelectorAll("[data-oauth]").forEach(x => { x.disabled = false; }); }
+  }));
   sbPwWire(dlg);
   if (mode === "signup" && window.SBUNAME && dlg.querySelector(".sb-acct .bday")) {
     const form = dlg.querySelector("form.sb-acct"), em = form && form.querySelector("input[name=email]"), lab = em && em.closest("label") && em.closest("label").querySelector(".lh");

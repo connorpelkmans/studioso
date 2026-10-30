@@ -1,6 +1,7 @@
 (function(){
 "use strict";
 /* Every on-device database this page opens closes itself when another tab */
+try { if (window.SBLaunch) SBLaunch.to(32); } catch (e) {}   // the launch screen (index.html): the app's code is running
 try {
   const idbOpen = IDBFactory.prototype.open;
   IDBFactory.prototype.open = function(){
@@ -2311,6 +2312,79 @@ function sbSetupSheet(){
   });
   });
 }
+// Sign in with Apple or Google (Supabase's providers). On the web the page goes to the provider and comes back signed in; in the
+// iPhone and Android apps and the desktop app the provider's page opens outside the app (Google refuses sign-in inside an app's
+// own web view) and hands the result back, and on iPhone Apple's own sheet is used for Apple.
+// Apple's logo as Apple's own Sign in with Apple script draws it (appleid.auth.js), and Google's "G" from Google's sign-in
+// branding kit (signin-assets.zip); the buttons follow each one's guidelines (Apple: its logo, the system font, black or white;
+// Google: its logo, Roboto Medium, its light and dark colours, pill shape)
+const SB_APPLE_SVG = '<svg class="sb-oa-a" viewBox="20 15.6 16 19.8" width="16" height="20" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="nonzero" d="M28.2226562,20.3846154 C29.0546875,20.3846154 30.0976562,19.8048315 30.71875,19.0317864 C31.28125,18.3312142 31.6914062,17.352829 31.6914062,16.3744437 C31.6914062,16.2415766 31.6796875,16.1087095 31.65625,16 C30.7304687,16.0362365 29.6171875,16.640178 28.9492187,17.4494596 C28.421875,18.06548 27.9414062,19.0317864 27.9414062,20.0222505 C27.9414062,20.1671964 27.9648438,20.3121424 27.9765625,20.3604577 C28.0351562,20.3725366 28.1289062,20.3846154 28.2226562,20.3846154 Z M25.2929688,35 C26.4296875,35 26.9335938,34.214876 28.3515625,34.214876 C29.7929688,34.214876 30.109375,34.9758423 31.375,34.9758423 C32.6171875,34.9758423 33.4492188,33.792117 34.234375,32.6325493 C35.1132812,31.3038779 35.4765625,29.9993643 35.5,29.9389701 C35.4179688,29.9148125 33.0390625,28.9122695 33.0390625,26.0979021 C33.0390625,23.6579784 34.9140625,22.5588048 35.0195312,22.474253 C33.7773438,20.6382708 31.890625,20.5899555 31.375,20.5899555 C29.9804688,20.5899555 28.84375,21.4596313 28.1289062,21.4596313 C27.3554688,21.4596313 26.3359375,20.6382708 25.1289062,20.6382708 C22.8320312,20.6382708 20.5,22.5950413 20.5,26.2911634 C20.5,28.5861411 21.3671875,31.013986 22.4335938,32.5842339 C23.3476562,33.9129053 24.1445312,35 25.2929688,35 Z"/></svg>';
+const SB_GOOGLE_SVG = '<svg class="sb-oa-g" width="20" height="20" viewBox="10 10 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><mask id="mask0_sbg" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="10" y="10" width="20" height="20"><path d="M29.3987 18.1814H19.9849V22.0445H25.3598C25.1286 23.294 24.4294 24.3596 23.3676 25.0712C22.4746 25.6716 21.3266 26.0211 19.9849 26.0211C17.3864 26.0211 15.1823 24.2666 14.3947 21.9004C14.1952 21.2989 14.0853 20.6599 14.0853 19.9983C14.0853 19.3367 14.1952 18.6966 14.3947 18.0962C15.1823 15.7311 17.3864 13.9755 19.9849 13.9755C21.4524 13.9755 22.767 14.4816 23.8039 15.4713L26.6653 12.6057C24.936 10.9908 22.6786 10 19.9849 10C16.0832 10 12.705 12.2414 11.0618 15.5076C10.383 16.8592 10 18.3834 10 19.9994C10 21.6155 10.383 23.1396 11.0618 24.4913C12.705 27.7597 16.0832 30 19.9849 30C22.6797 30 24.9485 29.1137 26.6018 27.5861C28.4887 25.8452 29.5732 23.2702 29.5732 20.2275C29.5732 19.5182 29.5131 18.835 29.3987 18.1825V18.1814Z" fill="#E94FFF"/></mask><g mask="url(#mask0_sbg)"><g filter="url(#filter0_f_sbg)"><g clip-path="url(#paint0_angular_sbg_clip_path)"><g transform="matrix(0.00804129 -0.00805186 0.00804128 0.00805186 19.6819 19.7927)"><foreignObject x="-2105.64" y="-2105.64" width="4211.29" height="4211.29"><div xmlns="http://www.w3.org/1999/xhtml" style="background:conic-gradient(from 90deg,rgba(255, 70, 65, 1) 0deg,rgba(255, 70, 65, 1) 4.14555deg,rgba(49, 134, 255, 1) 39.154deg,rgba(49, 134, 255, 1) 72.0044deg,rgba(0, 165, 183, 1) 96.7463deg,rgba(14, 188, 95, 1) 120.897deg,rgba(14, 188, 95, 1) 154.722deg,rgba(108, 196, 0, 1) 179.136deg,rgba(255, 204, 0, 1) 203.588deg,rgba(255, 211, 20, 1) 226.915deg,rgba(255, 204, 0, 1) 251.688deg,rgba(255, 106, 43, 1) 273.129deg,rgba(253, 70, 65, 1) 289.305deg,rgba(255, 70, 65, 1) 359.593deg,rgba(255, 70, 65, 1) 360deg);height:100%;width:100%;opacity:1"></div></foreignObject></g></g><path d="M7.25922 19.7927C7.25922 12.6759 13.0209 6.90668 20.1283 6.90668C27.2357 6.90668 32.9973 12.6759 32.9973 19.7927C32.9973 26.9094 27.2357 32.6786 20.1283 32.6786C13.0209 32.6786 7.25921 26.9094 7.25922 19.7927Z"/></g><g filter="url(#filter1_f_sbg)"><ellipse cx="20.0496" cy="20.2413" rx="5.39634" ry="2.83537" transform="rotate(24.4473 20.0496 20.2413)" fill="#3186FF"/></g><g filter="url(#filter2_f_sbg)"><ellipse cx="33.3538" cy="18.2155" rx="7.43918" ry="3.09357" fill="#3186FF"/></g><g filter="url(#filter3_f_sbg)"><ellipse cx="25.2744" cy="16.2195" rx="7.40854" ry="2.37805" fill="#FF4641"/></g><g filter="url(#filter4_f_sbg)"><ellipse cx="29.5427" cy="12.9268" rx="7.40854" ry="2.37805" fill="#FF5B8B"/></g><g filter="url(#filter5_f_sbg)"><ellipse cx="24.4817" cy="19.878" rx="8.5061" ry="3.10976" fill="#3186FF"/></g><g filter="url(#filter6_f_sbg)"><ellipse cx="25.1842" cy="14.0197" rx="4.53882" ry="2.37805" transform="rotate(-28.6599 25.1842 14.0197)" fill="#FF4641"/></g></g><defs><filter id="filter0_f_sbg" x="5.25922" y="4.90668" width="29.7381" height="29.772" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter><clipPath id="paint0_angular_sbg_clip_path"><path d="M7.25922 19.7927C7.25922 12.6759 13.0209 6.90668 20.1283 6.90668C27.2357 6.90668 32.9973 12.6759 32.9973 19.7927C32.9973 26.9094 27.2357 32.6786 20.1283 32.6786C13.0209 32.6786 7.25921 26.9094 7.25922 19.7927Z"/></clipPath><filter id="filter1_f_sbg" x="12.9977" y="14.828" width="14.1038" height="10.8265" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter><filter id="filter2_f_sbg" x="23.9146" y="13.1219" width="18.8784" height="10.1871" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter><filter id="filter3_f_sbg" x="15.8659" y="11.8415" width="18.8171" height="8.7561" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter><filter id="filter4_f_sbg" x="20.1341" y="8.54878" width="18.8171" height="8.7561" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter><filter id="filter5_f_sbg" x="13.9756" y="14.7683" width="21.0122" height="10.2195" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter><filter id="filter6_f_sbg" x="19.0404" y="9.00419" width="12.2878" height="10.0309" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter></defs></svg>';
+// Apple's option on Apple devices only (the iPhone and iPad app, the Mac app, and a browser on a Mac, iPhone or iPad, which
+// includes iPads that call themselves a Mac); Google everywhere
+const sbAppleOk = () => {
+  try { if (window.Capacitor && typeof Capacitor.getPlatform === "function" && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) return Capacitor.getPlatform() === "ios"; } catch (e) {}
+  if (DESK) return DESK.platform === "darwin";
+  return /iPhone|iPad|iPod|Macintosh|Mac OS X/.test(navigator.userAgent || "");
+};
+const sbOAuthHtml = () => `<div class="sb-oauth">${sbAppleOk() ? `<button type="button" class="sb-oa sb-oa-apple" data-oauth="apple">${SB_APPLE_SVG}<span>Continue with Apple</span></button>` : ""}<button type="button" class="sb-oa sb-oa-google" data-oauth="google">${SB_GOOGLE_SVG}<span>Continue with Google</span></button></div><div class="sb-or" role="separator"><span>or use your email</span></div>`;
+// The code or tokens a provider sent back to a return address, made into a session
+async function sbOAuthFinish(addr){
+  const u = new URL(addr), p = new URLSearchParams((u.hash || "").replace(/^#/, "")), q = u.searchParams;
+  const err = p.get("error_description") || q.get("error_description") || p.get("error") || q.get("error");
+  if (err) throw new Error(err.replace(/\+/g, " "));
+  const code = q.get("code") || p.get("code");
+  if (code) { const {error} = await sb.auth.exchangeCodeForSession(code); if (error) throw error; return true; }
+  const at = p.get("access_token"), rt = p.get("refresh_token");
+  if (at && rt) { const {error} = await sb.auth.setSession({access_token: at, refresh_token: rt}); if (error) throw error; return true; }
+  throw new Error("The sign-in didn't come back complete. Try again.");
+}
+// true once signed in; false if cancelled or still on its way (the web leaves the page)
+async function sbOAuth(provider, say, back){
+  if (provider !== "apple" && provider !== "google") return false;
+  const N = window.StudyboardNative && window.StudyboardNative.signIn, name = provider === "apple" ? "Apple" : "Google";
+  const opts = provider === "google" ? {queryParams: {prompt: "select_account"}} : {scopes: "name email"};
+  // iPhone: Apple's own sheet
+  if (provider === "apple" && N && N.apple) {
+    const r = await N.apple();
+    if (!r) return false;
+    if (r.error) throw new Error(r.error);
+    say("Signing in…");
+    const {error} = await sb.auth.signInWithIdToken({provider: "apple", token: r.idToken, nonce: r.nonce});
+    if (error) throw error;
+    if (r.name) sb.auth.updateUser({data: {full_name: r.name, first_name: r.name.split(" ")[0]}}).catch(() => {});
+    return true;
+  }
+  // the app (iPhone, Android): the provider's page outside the app, back through studyboard://auth-callback
+  if (N && N.open) {
+    const {data, error} = await sb.auth.signInWithOAuth({provider, options: Object.assign({redirectTo: N.redirect, skipBrowserRedirect: true}, opts)});
+    if (error) throw error;
+    say(`Finish signing in with ${name}…`);
+    const addr = await N.open(data.url);
+    if (!addr) { say(""); return false; }
+    say("Signing in…");
+    return sbOAuthFinish(addr);
+  }
+  // the desktop app: the computer's browser, back through a one-time page on this computer
+  if (DESK && typeof DESK.oauthPort === "function") {
+    const port = await DESK.oauthPort();
+    if (!port) throw new Error("Couldn't start sign-in on this computer. Restart Studyboard and try again.");
+    const {data, error} = await sb.auth.signInWithOAuth({provider, options: Object.assign({redirectTo: `http://127.0.0.1:${port}/auth`, skipBrowserRedirect: true}, opts)});
+    if (error) throw error;
+    say(`Finish signing in with ${name} in your browser…`);
+    const addr = await DESK.oauthOpen(data.url);
+    if (!addr) { say("Sign-in was closed before it finished."); return false; }
+    say("Signing in…");
+    return sbOAuthFinish(addr);
+  }
+  // the web: off to the provider, and back here signed in
+  if (!/^https?:$/.test(location.protocol)) throw new Error(`Sign in with ${name} isn't available here. Use your email instead.`);
+  sbLinkAsked();
+  const {error} = await sb.auth.signInWithOAuth({provider, options: Object.assign({redirectTo: back}, opts)});
+  if (error) throw error;
+  say(`Opening ${name}…`);
+  return false;
+}
 // Sign in, create an account, confirm your email with a code, and reset a forgotten password
 const SB_RESEND = {}, SB_RESEND_MS = 30000;
 function sbSignInSheet(mode, email, note){
@@ -2324,8 +2398,8 @@ function sbSignInSheet(mode, email, note){
   const pwIn = (lbl, ac) => `<label class="f"><span class="lh">${lbl} ${REQ}</span><input type="password" name="password" required minlength="8" autocomplete="${ac}" ${email && mode !== "reset" ? "autofocus" : ""}></label>`;
   const body = {
     hello: sbWelcomeHtml(),
-    signin: `${first ? `<p style="margin:0">Sign in to keep your tasks, notes and files safe online and in sync on all your devices.</p>` : ""}${emailIn()}${pwIn("Password", "current-password")}`,
-    signup: `<p style="margin:0">Free, and it keeps your planner in sync on your phone, laptop and the web.</p><label class="f"><span class="lh">Name <span class="hint">Optional. Your study companion uses it to say hi</span></span><input type="text" name="name" maxlength="40" autocomplete="given-name"></label>${window.SBUNAME ? SBUNAME.bdayField(true) + `<div class="u13" id="u13" hidden><p class="mini" style="margin:0"><b>Under 13?</b> A parent or guardian makes the account with their own email and confirms it. Publishing and sharing with a link stay off until you're 13.</p><label class="mi-check"><input type="checkbox" name="parentok" id="u13ok"> I'm the parent or guardian, and I agree to the Terms and Privacy Policy for my child</label></div>` : ""}${emailIn()}${sbPwHtml("Password", "new-password", {autofocus: !!email})}`,
+    signin: `${first ? `<p style="margin:0">Sign in to keep your tasks, notes and files safe online and in sync on all your devices.</p>` : ""}${sbOAuthHtml()}${emailIn()}${pwIn("Password", "current-password")}`,
+    signup: `<p style="margin:0">Free, and it keeps your planner in sync on your phone, laptop and the web.</p>${sbOAuthHtml()}<label class="f"><span class="lh">Name <span class="hint">Optional. Your study companion uses it to say hi</span></span><input type="text" name="name" maxlength="40" autocomplete="given-name"></label>${window.SBUNAME ? SBUNAME.bdayField(true) + `<div class="u13" id="u13" hidden><p class="mini" style="margin:0"><b>Under 13?</b> A parent or guardian makes the account with their own email and confirms it. Publishing and sharing with a link stay off until you're 13.</p><label class="mi-check"><input type="checkbox" name="parentok" id="u13ok"> I'm the parent or guardian, and I agree to the Terms and Privacy Policy for my child</label></div>` : ""}${emailIn()}${sbPwHtml("Password", "new-password", {autofocus: !!email})}`,
     confirm: `<p style="margin:0">If <b>${esc(email)}</b> can be used for a new account, we sent a code to it. Type it here to finish, or open the link in the email.</p><p class="mini" style="margin:0">Confirm your email to start using your account. Already have one? Use Back to Sign In.</p>${codeIn}`,
     forgot: `<p style="margin:0">Enter your email and, if an account uses it, we'll send you a code to set a new password.</p>${emailIn()}`,
     reset: `<p style="margin:0">If an account uses <b>${esc(email)}</b>, we sent it a code. Enter the code with your new password.</p>${codeIn}${sbPwHtml("New Password", "new-password")}`
@@ -2417,6 +2491,13 @@ function sbSignInSheet(mode, email, note){
     return false;
   });
   dlg.querySelectorAll("[data-sbm]").forEach(b => b.addEventListener("click", () => sbSignInSheet(b.dataset.sbm)));
+  dlg.querySelectorAll("[data-oauth]").forEach(b => b.addEventListener("click", async () => {
+    if (busy) return; busy = true;
+    dlg.querySelectorAll("[data-oauth]").forEach(x => { x.disabled = true; });
+    try { if (await sbOAuth(b.dataset.oauth, say, back)) done("Signed in"); }
+    catch (e) { say(sbWords(e)); }
+    finally { busy = false; dlg.querySelectorAll("[data-oauth]").forEach(x => { x.disabled = false; }); }
+  }));
   sbPwWire(dlg);
   if (mode === "signup" && window.SBUNAME && dlg.querySelector(".sb-acct .bday")) {
     const form = dlg.querySelector("form.sb-acct"), em = form && form.querySelector("input[name=email]"), lab = em && em.closest("label") && em.closest("label").querySelector(".lh");
@@ -7842,7 +7923,19 @@ const STYLE_ACTS = {
   "motion-toggle": el => { saveStyle({motion: !!el.checked}); artSig = ""; renderSkinArt(); },
   "anim-toggle": el => { saveStyle({[el.dataset.key]: !!el.checked}); artSig = ""; renderSkinArt(); },
   "kit-follow": el => { saveStyle({[el.dataset.kind + "Auto"]: true}); render(); styleShop(); },
-  "env-toggle": () => { ui.envOpen = ui.envOpen === false; try { localStorage.setItem("studyboard:env", ui.envOpen ? "1" : "0"); } catch(e) {} render(); }
+  // On a phone the sticker drawer rises and fades in when it opens, and sinks away before it closes
+  "env-toggle": () => {
+    const opening = ui.envOpen === false, env = document.querySelector(".env");
+    const r = document.documentElement, glide = env && env.animate && matchMedia("(max-width:639px)").matches && r.dataset.motion !== "static" && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const ease = "cubic-bezier(.32,.72,0,1)";
+    const flip = () => {
+      ui.envOpen = opening; try { localStorage.setItem("studyboard:env", ui.envOpen ? "1" : "0"); } catch(e) {} render();
+      const e = glide && opening && document.querySelector(".env:not(.closed)");
+      if (e) e.animate([{translate: "0 48px", opacity: 0}, {translate: "0 0", opacity: 1}], {duration: 360, easing: ease});
+    };
+    if (glide && !opening) { env.animate([{translate: "0 0", opacity: 1}, {translate: "0 48px", opacity: 0}], {duration: 220, easing: "cubic-bezier(.4,0,1,1)", fill: "forwards"}).finished.then(flip, flip); return; }
+    flip();
+  }
 };
 // The sticker envelope starts closed; once you open it, it stays the way you left it
 try { const v = localStorage.getItem("studyboard:env"); ui.envOpen = v ? v === "1" : false; } catch(e) { ui.envOpen = false; }
@@ -12048,42 +12141,37 @@ function restoreBoards(prev){
   const boards = $$(".board");
   const f = ui.boardFocus; ui.boardFocus = null;
   const glide = !!f || !!ui.boardSettle; ui.boardSettle = false;
-  // snapping stays off while the board is put back where it was, so it can glide from there instead of jumping
-  boards.forEach((b, i) => { if (glide || (panRun && panRun.idx === i)) b.classList.add("panning"); if (prev[i] != null) b.scrollLeft = prev[i]; });
+  boards.forEach((b, i) => { if (glide) b.classList.add("panning"); if (prev[i] != null) b.scrollLeft = prev[i]; });
   const col = f && $$(".board .col").find(c => c.dataset.status === f.status && (f.course == null || c.dataset.course === f.course));
-  boards.forEach((b, i) => {
-    if (panRun && panRun.idx === i && !(col && col.closest(".board") === b)) return;
-    if (b.scrollWidth <= b.clientWidth + 2) { b.classList.remove("panning"); return; }
-    const pad = parseFloat(getComputedStyle(b).scrollPaddingLeft) || parseFloat(getComputedStyle(b).paddingLeft) || 0, bl = b.getBoundingClientRect().left;
-    const at = c => b.scrollLeft + c.getBoundingClientRect().left - bl - pad;
-    let to;
-    if (col && col.closest(".board") === b) to = at(col);
-    else if (glide) { const cs = [...b.querySelectorAll(".col")]; if (!cs.length) { b.classList.remove("panning"); return; } to = cs.map(at).reduce((m, x) => Math.abs(x - b.scrollLeft) < Math.abs(m - b.scrollLeft) ? x : m); }
-    else return;
-    boardPan(b, Math.max(0, Math.min(b.scrollWidth - b.clientWidth, to)), i);
+  boards.forEach(b => {
+    if (glide) setTimeout(() => b.classList.remove("panning"), 650);   // snapping back on once it has glided into place
+    if (!glide || b.scrollWidth <= b.clientWidth + 2) return;
+    // after a drop: over to the card's column, or the nearest one
+    const to = col && col.closest(".board") === b ? boardColX(b, col) : boardNear(b, b.scrollLeft);
+    if (to != null) boardGo(b, to);
   });
 }
-// Swiping columns on a phone: after a drop the board glides over to the card's column instead of jumping there.
-// Snapping is paused while it moves (it ends on a column, so nothing shifts after); a touch stops it.
-let panRun = null;
-function boardPan(b, to, idx){
-  const from = b.scrollLeft, dist = to - from;
-  const still = (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) || Math.abs(dist) < 2;
-  if (still) { if (!(panRun && panRun.idx === idx)) { b.scrollLeft = to; b.classList.remove("panning"); } return; }
-  if (panRun) panRun.stop();
-  const ms = Math.round(Math.min(480, 260 + Math.abs(dist) * 0.5)), t0 = performance.now(), ease = x => 1 - Math.pow(1 - x, 3);
-  let raf = 0, done = false;
-  const cur = () => b.isConnected ? b : ($$(".board")[idx] || b);
-  const stop = () => { if (done) return; done = true; cancelAnimationFrame(raf); const el = cur(); el.classList.remove("panning"); document.removeEventListener("pointerdown", stop, true); if (panRun === run) panRun = null; };
-  const step = now => {
-    const el = cur(); el.classList.add("panning");
-    const k = Math.min(1, (now - t0) / ms); el.scrollLeft = from + dist * ease(k);
-    if (k < 1) raf = requestAnimationFrame(step); else stop();
-  };
-  const run = {stop, to, idx};
-  panRun = run; b.classList.add("panning");
-  document.addEventListener("pointerdown", stop, true);
-  raf = requestAnimationFrame(step);
+// A phone's Task Board is a row of columns you swipe between (each one snaps into place). Moving it for you (after a drop,
+// or holding a card at its edge) uses the browser's own smooth scroll to a column, which keeps the snapping happy;
+// stepping it a few pixels at a time made iOS jump a whole column at once.
+function boardColX(b, col){
+  const pad = parseFloat(getComputedStyle(b).scrollPaddingLeft) || parseFloat(getComputedStyle(b).paddingLeft) || 0;
+  return Math.max(0, Math.min(b.scrollWidth - b.clientWidth, b.scrollLeft + col.getBoundingClientRect().left - b.getBoundingClientRect().left - pad));
+}
+function boardNear(b, x){ const cs = [...b.querySelectorAll(":scope > .col, :scope .col")].filter(c => c.closest(".board") === b && c.getClientRects().length); if (!cs.length) return null; return cs.map(c => boardColX(b, c)).reduce((m, v) => Math.abs(v - x) < Math.abs(m - x) ? v : m); }
+function boardGo(b, to){
+  if (Math.abs(b.scrollLeft - to) < 2) return;
+  const still = (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) || document.documentElement.dataset.motion === "static";
+  try { b.scrollTo({left: to, behavior: still ? "auto" : "smooth"}); } catch (e) { b.scrollLeft = to; }
+}
+// One column over (dir -1 or 1), for holding a dragged card at the board's edge
+function boardStep(b, dir){
+  const cs = [...b.querySelectorAll(".col")].filter(c => c.closest(".board") === b && c.getClientRects().length).map(c => boardColX(b, c)).filter((v, i, a) => a.indexOf(v) === i).sort((x, y) => x - y);
+  if (!cs.length) return false;
+  const now = b._goTo != null && Math.abs(b.scrollLeft - b._goTo) > 2 ? b._goTo : b.scrollLeft;
+  let i = 0; cs.forEach((v, k) => { if (Math.abs(v - now) < Math.abs(cs[i] - now)) i = k; });
+  const j = Math.max(0, Math.min(cs.length - 1, i + dir)); if (j === i) return false;
+  b._goTo = cs[j]; boardGo(b, cs[j]); return true;
 }
 function flashToday(){
   const l = $(".tl-bg .today-line"), d = $(".tl-d.is-today");
@@ -14256,15 +14344,17 @@ function noteClipCheck(){
 }
 // The note being edited: a sheet over the page on a phone, and scrolled fully into view on a bigger screen
 const notePhone = () => !!(window.matchMedia && matchMedia("(max-width:700px)").matches);
-let noteShown = null;
+let noteShown = null, noteSheetId = null;
 function noteSheetUp(){
   const el = $(".note.editing"), sheet = !!el && notePhone();
   if (!el) noteMoreOpen = null;
   let bg = $(".n-sheet-bg");
   if (sheet && !bg) { bg = document.createElement("div"); bg.className = "n-sheet-bg"; bg.setAttribute("aria-hidden", "true"); if (bg.showPopover) bg.setAttribute("popover", "manual"); document.body.appendChild(bg); }
   if (bg) { bg.classList.toggle("on", sheet); if (bg.showPopover) try { if (sheet && !bg.matches(":popover-open")) bg.showPopover(); else if (!sheet && bg.matches(":popover-open")) bg.hidePopover(); } catch (e) {} }
-  if (!sheet) return;
+  if (!sheet) { noteSheetId = null; noteSheetAway(); return; }
   el.classList.add("n-sheet");
+  // slides up once when a note opens, not again on every redraw while it's being edited
+  if (noteSheetId !== el.dataset.note) { noteSheetId = el.dataset.note; el.classList.add("n-enter"); if (bg) { bg.classList.remove("n-enter"); void bg.offsetWidth; bg.classList.add("n-enter"); } setTimeout(() => { el.classList.remove("n-enter"); if (bg) bg.classList.remove("n-enter"); }, 500); }
   if (el.showPopover && !el.matches(":popover-open")) {
     const t = $("#noteText"), had = t && document.activeElement === t;
     el.setAttribute("popover", "manual");
@@ -14272,7 +14362,28 @@ function noteSheetUp(){
     if (had && document.activeElement !== t) try { t.focus({preventScroll: true}); } catch (e) {}
     noteToastUp(true);
   }
-  noteKbFit();
+  noteKbFit(); noteSheetKeep(el);
+}
+// Closing a note on a phone: the editor slides back down like the other sheets, instead of vanishing (a still copy does the
+// sliding; the note itself is already saved and closed)
+let noteSheetLast = null;
+function noteSheetKeep(el){ try { const r = el.getBoundingClientRect(); if (r.height > 40) noteSheetLast = {el, r}; } catch (e) {} }
+function noteSheetAway(){
+  const L = noteSheetLast; noteSheetLast = null;
+  if (!L || L.el.isConnected || !document.body.showPopover) return;
+  const still = document.documentElement.dataset.motion === "static" || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  if (still || L.r.top >= innerHeight) return;
+  const host = document.createElement("div"); host.className = "n-ghost sm-skip"; host.setAttribute("aria-hidden", "true"); host.inert = true; host.setAttribute("popover", "manual");
+  host.innerHTML = `<div class="n-ghost-dim"></div>`;
+  const c = L.el.cloneNode(true); c.removeAttribute("popover"); c.querySelectorAll("[id]").forEach(e => e.removeAttribute("id")); c.classList.remove("n-enter");
+  const t = L.el.querySelector(".note-text"), t2 = c.querySelector(".note-text"); if (t && t2) t2.value = t.value;
+  [["inset", `${L.r.top}px auto auto ${L.r.left}px`], ["width", L.r.width + "px"], ["height", L.r.height + "px"], ["max-height", "none"], ["animation", "none"]].forEach(([k, v]) => c.style.setProperty(k, v, "important"));
+  host.appendChild(c); document.body.appendChild(host);
+  try { host.showPopover(); } catch (e) {}
+  const opts = {duration: 260, easing: "cubic-bezier(.4,0,1,1)", fill: "forwards"};
+  const a = c.animate([{translate: "0 0"}, {translate: `0 ${Math.max(L.r.height, innerHeight - L.r.top) + 20}px`}], opts);
+  host.firstChild.animate([{opacity: 1}, {opacity: 0}], opts);
+  const done = () => host.remove(); a.finished.then(done, done); setTimeout(done, 700);
 }
 // A toast shows above the sheet
 function noteToastUp(again){
@@ -14286,10 +14397,19 @@ function noteToastUp(again){
 }
 { const t = document.getElementById("toast"); if (t) new MutationObserver(() => noteToastUp(false)).observe(t, {attributes: true, attributeFilter: ["class"]}); }
 function noteKbFit(){
-  const el = $(".note.n-sheet"), vv = window.visualViewport; if (!el || !vv) return;
-  el.style.setProperty("--kb", Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)) + "px");
+  const el = $(".note.n-sheet") || document.body, vv = window.visualViewport; if (!vv) return;
+  // the iPhone app: the bridge says how much of the app the keyboard covers while the app's frame catches up
+  const nat = document.documentElement.classList.contains("kb-native") && typeof window.sbVisibleH === "function";
+  const vis = nat ? window.sbVisibleH() : vv.height, kb = nat ? innerHeight - vis : Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop));
+  // set on the page, not the editor: an editor redrawn while typing is in the right place from its first frame (on the editor
+  // itself, a fresh one started at 0, behind the keyboard, and slid back up)
+  const R = document.documentElement;
+  R.style.setProperty("--kb", Math.max(0, Math.round(kb)) + "px");
+  R.style.setProperty("--vvh", Math.round(vis) + "px");   // what's visible: the sheet is never taller, so it never runs off the top
+  requestAnimationFrame(() => { if (el.isConnected && el.classList.contains("n-sheet")) noteSheetKeep(el); });
 }
 if (window.visualViewport) { visualViewport.addEventListener("resize", noteKbFit); visualViewport.addEventListener("scroll", noteKbFit); }
+addEventListener("sb-kb-cover", noteKbFit);
 function noteScrollIn(){
   const el = $(".note.editing"), sc = $("#nbScroll");
   if (!el || !sc) { noteShown = null; return; }
@@ -14476,7 +14596,9 @@ function newNoteAt(x, y){
     courseId: (() => { const b = noteBoards().find(x => x.id === noteBoardId()); return b && b.courseId || ""; })(), board: noteBoardId(), created: Date.now()});
   noteEditing = n.id;
   applyChanges([{kind:"note", id: n.id, after: n}], "");
-  setTimeout(() => { const t = $("#noteText"); if (t) t.focus(); }, 60);
+  // straight away, inside the tap, so a phone raises the keyboard together with the sheet
+  { const t = $("#noteText"); if (t) try { t.focus({preventScroll: true}); } catch (e) {} }
+  setTimeout(() => { const t = $("#noteText"); if (t && document.activeElement !== t) t.focus({preventScroll: true}); }, 60);
 }
 function saveNoteText(){
   const t = $("#noteText"); const id = noteEditing;
@@ -14813,9 +14935,17 @@ function archiveSheet(){
 /* Keyboard open: every bottom sheet sits above the keyboard and never taller than what is visible */
 function dlgKbFit(){
   const vv = window.visualViewport; if (!vv || !matchMedia("(max-width:639px)").matches) return;
+  // in the iPhone app the keyboard plugin shrinks the app itself and says when the keyboard is up (native-bridge.js)
+  if (document.documentElement.classList.contains("kb-native")) return;
+  // kb: how far the keyboard's top is above the bottom of the page's frame (where sheets are pinned). Whether the keyboard
+  // is up at all is the visible area's height alone: iOS also slides the page up to reveal a text box, which made kb small
+  // and hid the fact the keyboard was up
   const d = document.documentElement, kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop));
   d.style.setProperty("--kb-h", kb + "px"); d.style.setProperty("--vv-h", Math.round(vv.height) + "px");
-  d.classList.toggle("kb-open", kb > 80);
+  // (a short dip, such as Safari's toolbars sliding, isn't the keyboard: it has to be clearly taller than them)
+  const up = innerHeight - vv.height > 150;
+  clearTimeout(dlgKbFit.t);
+  if (up) d.classList.add("kb-open"); else if (d.classList.contains("kb-open")) dlgKbFit.t = setTimeout(() => { if (innerHeight - visualViewport.height <= 150) d.classList.remove("kb-open"); }, 60);
 }
 if (window.visualViewport) { visualViewport.addEventListener("resize", dlgKbFit); visualViewport.addEventListener("scroll", dlgKbFit); }
 /* ===== module: 01-flashcards.js: the app's core, flashcards: decks, spaced repetition, quizzes ===== */
@@ -15918,8 +16048,10 @@ const notifySupported = () => "Notification" in window && !inFrame;
 let AC = null, alarmOsc = [], alarmGain = null, flashT = null;
 function audio(){
   try {
+    if (AC && AC.state === "closed") AC = null;
     if (!AC) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; AC = new C(); }
-    if (AC.state === "suspended") AC.resume();
+    // "suspended", or "interrupted" after iOS had the app in the background or took the sound for a call
+    if (AC.state !== "running") AC.resume().catch(() => {});
   } catch(e) { AC = null; }
   return AC;
 }
@@ -15937,28 +16069,41 @@ const SOUNDS = {
 };
 function playAlarm(name, vol, repeats){
   stopAlarm();
+  if (name === "none") return true;   // "No Sound": the on-screen alert and notification only
   const ac = audio(); if (!ac) return false;
   alarmGain = ac.createGain(); alarmGain.gain.value = 1; alarmGain.connect(ac.destination);
   let t = ac.currentTime + 0.05; const s = SOUNDS[name] || SOUNDS.chime;
   for (let r = 0; r < repeats; r++) t += s.play(ac, alarmGain, t, Math.max(0.05, Math.min(1, vol))) + 0.6;
+  audioIdle((t - ac.currentTime) * 1000 + 300);
   return true;
+}
+// The sound system is switched off once a sound has played: left running, iOS counts the app as playing audio (a speaker
+// in the Dynamic Island, squeezing the timer out of it). Switching it back on later needs no tap.
+let audioIdleT = 0;
+function audioIdle(ms){
+  clearTimeout(audioIdleT);
+  audioIdleT = setTimeout(() => {
+    try { if (AC && AC.state === "running") AC.suspend().catch(() => {}); } catch(e) {}
+  }, Math.max(0, ms));
 }
 function stopAlarm(){
   alarmOsc.forEach(o => { try { o.stop(); } catch(e) {} }); alarmOsc = [];
   if (alarmGain) { try { alarmGain.disconnect(); } catch(e) {} alarmGain = null; }
+  audioIdle(150);
   clearInterval(flashT); flashT = null; setTitle();
 }
 
 /* Timer */
 function pomoSchedule(){
   clearTimeout(pomoTimer);
-  if (pomo.running) pomoTimer = setTimeout(pomoFinish, Math.max(0, pomo.endAt - Date.now()) + 30);
+  if (pomo.running) pomoTimer = setTimeout(() => pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoFinish(); }), Math.max(0, pomo.endAt - Date.now()) + 30);
 }
 function pomoStart(){
-  audio();
+  audio(); audioIdle(400);   // switched on with the tap, so the alarm can play later, then off again
   const cfg = pomoCfg();
   if (cfg.notify && notifySupported() && Notification.permission === "default") { try { Notification.requestPermission().then(() => renderPomo()); } catch(e) {} }
   pomoToday();
+  nativeAlarm();
   pomo.endAt = Date.now() + pomoLeft(); pomo.left = 0; pomo.running = true;
   pomoSave(); pomoSchedule(); pomoUI(true);
   try {
@@ -16024,7 +16169,7 @@ function pomoAlarm(done, next, auto, missed){
   const title = done === "focus" ? "Focus session complete" : "Break's over";
   const body = done === "focus" ? `Nice work. ${auto ? "Your" : "Time for a"} ${next === "long" ? `${cfg.long}-minute long break` : `${cfg.short}-minute break`}${auto ? " has started" : ""}.` : `${auto ? "Your next focus session has started." : "Ready for the next focus session?"}`;
   if (!missed) {
-    playAlarm(cfg.sound, Number(cfg.volume), 5);
+    if (!ISLAND.ring) playAlarm(cfg.sound, Number(cfg.volume), 5);   // in the iPhone app, iOS rings it (see nativeAlarm)
     if (navigator.vibrate) { try { navigator.vibrate([400, 180, 400, 180, 700]); } catch(e) {} }
     if (cfg.notify && notifySupported() && Notification.permission === "granted") {
       try { const n = new Notification(title, {body, icon: FAVICON, tag: "studioso-pomo", renotify: true, requireInteraction: true}); n.onclick = () => { try { window.focus(); } catch(e) {} n.close(); stopAlarm(); }; } catch(e) {}
@@ -16078,8 +16223,9 @@ function renderPomoBits(){
   try { islandSync(); } catch (e) {}
 }
 // iPhone app: while the timer runs, it shows in the Dynamic Island and on the Lock Screen
-const ISLAND = {sig: "", on: false};
+const ISLAND = {sig: "", on: false, ring: false};
 function islandSync(){
+  if (ISLAND.hold) return;
   const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
   if (!FA) return;
   const active = pomo.running || pomo.left > 0;
@@ -16087,11 +16233,74 @@ function islandSync(){
   const t = pomo.taskId && state.tasks[pomo.taskId];
   let accent = ""; try { accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim(); } catch (e) {}
   const st = {mode: pomo.mode, label: MODE_LABEL[pomo.mode], task: t ? t.title : "", running: pomo.running, endsAt: pomo.running ? pomo.endAt : 0,
-    left: pomo.running ? 0 : Math.round(pomoLeft() / 1000), total: Math.round(modeMs(pomo.mode) / 1000), accent: /^#[0-9a-f]{6}$/i.test(accent) ? accent : ""};
+    left: pomo.running ? 0 : Math.round(pomoLeft() / 1000), total: Math.round(modeMs(pomo.mode) / 1000), accent: /^#[0-9a-f]{6}$/i.test(accent) ? accent : "",
+    plan: pomoPlan(6)};
   const sig = JSON.stringify(st);
   if (sig === ISLAND.sig) return;
   ISLAND.sig = sig;
   FA.show(st).then(ok => { if (ISLAND.sig === sig) islandOn(!!ok); }, () => islandOn(false));
+}
+// What Skip moves through next, the same steps as the Skip button in the app (a skipped session doesn't count toward a long break)
+function pomoPlan(n){
+  const cfg = pomoCfg(), every = Number(cfg.every) || 4, out = [];
+  let m = pomo.mode, c = pomo.cycle;
+  for (let i = 0; i < n; i++) {
+    const next = m === "focus" ? ((c + 1) % every === 0 ? "long" : "short") : "focus";
+    if (m === "long") c = 0;
+    out.push({mode: next, label: MODE_LABEL[next], total: Math.max(1, Number(cfg[next]) || POMO_DEF[next]) * 60});
+    m = next;
+  }
+  return out;
+}
+// The Lock Screen's Reset, Pause, Play and Skip, applied at the moment each was pressed (the card has already changed; this
+// brings the app's own timer to the same place). Skip there starts the next step straight away.
+function pomoTakeLock(){
+  const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
+  if (!FA || typeof FA.take !== "function") return Promise.resolve();
+  return FA.take().then(list => {
+    if (!list.length) return;
+    ISLAND.hold = true;
+    try {
+      list.forEach(({a, t}) => {
+        if (pomo.running && pomo.endAt <= t) return; // the timer had already run out by then
+        if (a === "pause" && pomo.running) { pomo.left = Math.max(1000, pomo.endAt - t); pomo.pausedAt = t; pomo.running = false; clearTimeout(pomoTimer); fire("focus", {type: "pause", mode: pomo.mode}); }
+        else if (a === "play" && !pomo.running && pomo.left > 0) { pomo.endAt = t + pomo.left; pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId}); }
+        else if (a === "reset" && (pomo.running || pomo.left > 0)) { if (pomo.running) { pomo.left = Math.max(1000, pomo.endAt - t); pomo.running = false; } pomoReset(); }
+        else if (a === "skip" && (pomo.running || pomo.left > 0)) { pomoSkip(); pomo.endAt = t + modeMs(pomo.mode); pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId}); }
+      });
+      pomoSave(); pomoSchedule();
+    } finally { ISLAND.hold = false; }
+    pomoUI(true);
+  }, () => {});
+}
+// iPhone app: the alarm at the end of a session is rung by iOS (so it sounds with the app closed or the phone locked), with
+// the sound and volume you picked, made here once as a short recording and saved in the app
+function wavB64(name, vol){
+  const SR = 22050, s = SOUNDS[name] || SOUNDS.chime, C = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  if (!C) return Promise.resolve("");
+  const ac = new C(1, SR * 10, SR), keep = alarmOsc; alarmOsc = [];
+  let t = 0.05; for (let r = 0; r < 3; r++) t += s.play(ac, ac.destination, t, Math.max(0.05, Math.min(1, vol))) + 0.6;
+  alarmOsc = keep;
+  return ac.startRendering().then(buf => {
+    const d = buf.getChannelData(0), n = Math.min(d.length, Math.ceil(t * SR)), out = new DataView(new ArrayBuffer(44 + n * 2));
+    const w = (o, str) => { for (let i = 0; i < str.length; i++) out.setUint8(o + i, str.charCodeAt(i)); };
+    w(0, "RIFF"); out.setUint32(4, 36 + n * 2, true); w(8, "WAVE"); w(12, "fmt "); out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, 1, true);
+    out.setUint32(24, SR, true); out.setUint32(28, SR * 2, true); out.setUint16(32, 2, true); out.setUint16(34, 16, true); w(36, "data"); out.setUint32(40, n * 2, true);
+    for (let i = 0; i < n; i++) out.setInt16(44 + i * 2, Math.max(-1, Math.min(1, d[i])) * 32767, true);
+    const bytes = new Uint8Array(out.buffer); let bin = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(bin);
+  });
+}
+function nativeAlarm(){
+  const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
+  if (!FA || typeof FA.alarm !== "function") return;
+  const cfg0 = pomoCfg();
+  // No Sound: iOS shows the notification quietly and sets no alarm
+  if (cfg0.sound === "none") { FA.alarm({name: "none"}).then(ok => { ISLAND.ring = !!ok; }, () => {}); return; }
+  const cfg = cfg0, snd = SOUNDS[cfg.sound] ? cfg.sound : "chime", name = `sb-${snd}-${Math.round(Math.max(0.05, Math.min(1, Number(cfg.volume) || 0.8)) * 100)}.wav`;
+  FA.hasSound(name).then(has => has ? FA.alarm({name}) : wavB64(snd, Number(cfg.volume) || 0.8).then(wav => FA.alarm({name, wav}), () => FA.alarm({name})))
+    .then(ok => { ISLAND.ring = !!ok; }, () => {});
 }
 function islandOn(on){ ISLAND.on = on; document.documentElement.classList.toggle("sb-island", on); }
 function openPomo(taskId){
@@ -16106,6 +16315,15 @@ function pomoTodayHtml(){
   const today = todayISO(), st = typeof SBSTATS !== "undefined" ? SBSTATS : null;
   const n = st ? st.focusSessions(today, today) : pomo.sessions, min = st ? st.focusMinutes(today, today) : pomo.minutes;
   return `Today: <b>${n}</b> focus session${n === 1 ? "" : "s"}, <b>${fmtMins(min)}</b> focused.${window.SBPRO && SBPRO.pomoHtml && SBPRO.isPro() ? ` <button type="button" class="link-btn" data-act="pro-fh-open">Focus History</button>` : ""}`;
+}
+// iPhone app: say why the timer isn't in the Dynamic Island when it isn't
+function pomoIslandNote(){
+  const N = window.StudyboardNative; if (!N || typeof N.islandStatus !== "function") return;
+  N.islandStatus().then(st => {
+    const p = $("#pomoDlg .pomo-island"); if (!p) return;
+    const msg = st === "off" ? "The Dynamic Island timer is off. Turn on Live Activities in Settings > Studyboard." : st === "setup" ? "The Dynamic Island timer isn't in this build of the app yet." : "";
+    p.textContent = msg; p.hidden = !msg;
+  }, () => {});
 }
 hook("stats-focus", () => { const p = $("#pomoDlg .pomo-today"); if (p) p.innerHTML = pomoTodayHtml(); });
 function renderPomo(){
@@ -16132,7 +16350,7 @@ function renderPomo(){
       </div>
       ${window.SBPRO && SBPRO.pomoHtml ? SBPRO.pomoHtml() : ""}${window.SBEXAM ? SBEXAM.pomoHtml() : ""}
       <label class="f">Working On<select id="pomoTask"><option value="">No particular task</option>${openTasks.slice(0, 40).map(t => { const c = courseOf(t.courseId); return `<option value="${esc(t.id)}" ${t.id === pomo.taskId ? "selected" : ""}>${esc(t.title)}${c ? " · " + esc(courseLabel(c)) : ""}</option>`; }).join("")}</select></label>
-      <p class="pomo-today">${pomoTodayHtml()}</p>
+      <p class="pomo-today">${pomoTodayHtml()}</p><p class="mini pomo-island" hidden></p>
       <details class="adv" ${ui.pomoSet ? "open" : ""} id="pomoSetD"><summary>Timer Settings</summary>
         <div class="adv-body">
           <div class="three">
@@ -16144,7 +16362,7 @@ function renderPomo(){
           <label class="mi-check"><input type="checkbox" id="psAutoBreak" ${cfg.autoBreak ? "checked" : ""}> Start breaks automatically</label>
           <label class="mi-check"><input type="checkbox" id="psAutoFocus" ${cfg.autoFocus ? "checked" : ""}> Start the next focus session automatically</label>
           <div class="two">
-            <label class="f">Alarm Sound<select id="psSound">${Object.entries(SOUNDS).map(([k, v]) => `<option value="${k}" ${k === cfg.sound ? "selected" : ""}>${v.label}</option>`).join("")}</select></label>
+            <label class="f">Alarm Sound<select id="psSound">${Object.entries(SOUNDS).map(([k, v]) => `<option value="${k}" ${k === cfg.sound ? "selected" : ""}>${v.label}</option>`).join("")}<option value="none" ${cfg.sound === "none" ? "selected" : ""}>No Sound</option></select></label>
             <label class="f">Volume<input type="range" id="psVol" min="0.1" max="1" step="0.1" value="${esc(cfg.volume)}"></label>
           </div>
           <button type="button" class="btn small" data-act="pomo-test">Play Test Sound</button>
@@ -16154,6 +16372,7 @@ function renderPomo(){
       </details>
       <details class="adv pomo-how"><summary>How the Pomodoro Method Works</summary><div class="pomo-how-b">${POMO_HOW}</div></details>
     </div></div>`;
+  pomoIslandNote();
   $("#pomoTask").addEventListener("change", e => { pomo.taskId = e.target.value; pomoSave(); });
   $("#pomoSetD").addEventListener("toggle", e => { ui.pomoSet = e.target.open; });
   const num = (id, lo, hi, def) => { const v = Math.round(Number($(id).value)); return isFinite(v) && v >= lo && v <= hi ? v : def; };
@@ -16167,11 +16386,24 @@ function renderPomo(){
   $$("#pomoSetD input, #pomoSetD select", d).forEach(el => el.addEventListener("change", saveCfg));
   if (keep) { const k = d.querySelector(keep); if (k) k.focus(); }
 }
-setInterval(() => { if (pomo.running) { if (Date.now() >= pomo.endAt) pomoFinish(); else pomoUI(false); } }, 500);
-document.addEventListener("visibilitychange", () => { if (!document.hidden) { clearInterval(flashT); flashT = null; setTitle(); if (pomo.running && Date.now() >= pomo.endAt) pomoFinish(); } });
+// The timer's end is only acted on after any Lock Screen presses are in (a pause there may mean it hasn't ended)
+let pomoTaking = null;
+function pomoDue(then){
+  if (pomoTaking) return;
+  const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
+  if (!FA || typeof FA.take !== "function") { then(); return; }
+  pomoTaking = pomoTakeLock().then(() => { pomoTaking = null; then(); }, () => { pomoTaking = null; then(); });
+}
+setInterval(() => { if (pomo.running) { if (Date.now() >= pomo.endAt) pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoFinish(); }); else pomoUI(false); } }, 500);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { clearInterval(flashT); flashT = null; setTitle(); pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoFinish(); }); } });
 function pomoBoot(){
-  if (pomo.running && Date.now() >= pomo.endAt) { if (Date.now() - pomo.endAt < 3 * 3600000) pomoFinish(true); else { pomo.running = false; pomo.left = 0; pomoSave(); } }
-  pomoSchedule(); pomoUI(true);
+  if (pomo.running) nativeAlarm();
+  const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
+  if (FA && typeof FA.onAction === "function") FA.onAction(() => pomoDue(() => {}));
+  pomoDue(() => {
+    if (pomo.running && Date.now() >= pomo.endAt) { if (Date.now() - pomo.endAt < 3 * 3600000) pomoFinish(true); else { pomo.running = false; pomo.left = 0; pomoSave(); } }
+    pomoSchedule(); pomoUI(true);
+  });
 }
 function pomoAction(act, el){
   switch (act) {
@@ -16181,7 +16413,7 @@ function pomoAction(act, el){
     case "pomo-reset": pomoReset(); return true;
     case "pomo-skip": pomoSkip(); return true;
     case "pomo-mode": pomoPickMode(el.dataset.id); return true;
-    case "pomo-test": { const cfg = pomoCfg(); if (!playAlarm($("#psSound") ? $("#psSound").value : cfg.sound, $("#psVol") ? Number($("#psVol").value) : cfg.volume, 1)) toast("Sound isn't available in this browser"); return true; }
+    case "pomo-test": { const cfg = pomoCfg(); if (($("#psSound") ? $("#psSound").value : cfg.sound) === "none") { toast("The alarm is set to No Sound"); return true; } if (!playAlarm($("#psSound") ? $("#psSound").value : cfg.sound, $("#psVol") ? Number($("#psVol").value) : cfg.volume, 1)) toast("Sound isn't available in this browser"); return true; }
     case "pomo-task": { const tk = state.tasks[el.dataset.id]; if (tk && !canDoNow(tk) && !el.dataset.study) { toast(`“${tk.title}” is taken in person, so it can't be started as a focus session. Start one of its study sessions instead.`); return true; } } if (ui.nextShown && ui.nextShown === el.dataset.id) { nufbAdd("accept", state.tasks[el.dataset.id]); ui.nextShown = null; } if (dlg.open) dlg.close(); const prevTask = pomo.taskId; openPomo(el.dataset.id);
       // A new session starts at the length asked for (or the default for a different task), never from an older paused one
       { let m = Math.round(Number(el.dataset.mins)); if (!(m >= 5 && m <= 180) && !el.dataset.study && el.dataset.id) m = focusMinsFor(el.dataset.id); const ok = m >= 5 && m <= 180; if (!pomo.running) { if (ok) { pomo.mode = "focus"; pomo.left = 0; pomo.preset = m; pomoSave(); renderPomo(); } else if (prevTask !== el.dataset.id && pomo.mode === "focus") { pomo.left = 0; pomo.preset = 0; pomoSave(); renderPomo(); } } }
@@ -16757,6 +16989,32 @@ function toggleTask(id, el){
   if (n.status === "done") { celebrate("check"); popDone(el); if (ui.nextShown === id) { nufbAdd("accept", t); ui.nextShown = null; } }
   applyChanges([{kind:"task", id, after:n}], n.status === "done" ? `Completed ${t.title}` : `Moved ${t.title} back to To Do`, undefined, n.status === "done" ? {done: true} : undefined);
 }
+// Switching tabs cross-fades the old page into the new one. A still copy of the old page fades out where it was while the new
+// page fades in; everything else (header, tab bar, companion, theme scene) stays live and in its usual layer the whole time.
+// 99-smooth.js skips its own page fade while this runs.
+const TAB_MS = 240;
+function tabSwap(changed, go){
+  const r = document.documentElement, still = r.dataset.motion === "static" || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  const v = document.getElementById("view");
+  if (!changed || still || !v || dlg.open || !v.animate) { go(); return; }
+  let ghost = null;
+  try {
+    const b = v.getBoundingClientRect(), cs = getComputedStyle(v);
+    ghost = v.cloneNode(true);
+    ghost.removeAttribute("id"); ghost.querySelectorAll("[id]").forEach(e => e.removeAttribute("id"));
+    ghost.querySelectorAll("input, textarea, select, button, a").forEach(e => e.setAttribute("tabindex", "-1"));
+    ghost.className = (v.className || "") + " tab-ghost sm-skip"; ghost.setAttribute("aria-hidden", "true"); ghost.inert = true;
+    Object.assign(ghost.style, {position: "fixed", left: b.left + "px", top: b.top + "px", width: b.width + "px", height: Math.min(b.height, innerHeight - b.top + 40) + "px", margin: "0", padding: cs.padding, overflow: "hidden", pointerEvents: "none", zIndex: "1"});
+    v.parentNode.insertBefore(ghost, v.nextSibling);
+  } catch (e) { ghost = null; }
+  r.classList.add("vt-tab");
+  go();
+  const ease = "cubic-bezier(.2,.8,.2,1)";
+  v.animate([{opacity: 0}, {opacity: 1}], {duration: TAB_MS, easing: ease});
+  const end = () => { if (ghost) ghost.remove(); r.classList.remove("vt-tab"); };
+  if (ghost) ghost.animate([{opacity: 1}, {opacity: 0}], {duration: TAB_MS * 0.8, easing: ease, fill: "forwards"}).finished.then(end, end);
+  else setTimeout(end, TAB_MS);
+}
 document.addEventListener("click", e => {
   if (suppressClick) { suppressClick = false; e.preventDefault(); e.stopPropagation(); return; }
   const tab = e.target.closest("[data-tab]");
@@ -16767,8 +17025,8 @@ document.addEventListener("click", e => {
     if (want === "courses" && (ui.tab === "files" || ui.tab === "emails")) want = ui.tab;
     if (want === "timeline" && ui.tab !== "timeline") ui.tlJump = true;
     if (want === ui.tab && ui.tab === "courses") ui.courseId = null;
-    ui.tab = want; if (ui.tab !== "courses") ui.courseId = null;
-    render(); window.scrollTo(0, 0); return;
+    const go = () => { ui.tab = want; if (ui.tab !== "courses") ui.courseId = null; render(); window.scrollTo(0, 0); };
+    tabSwap(want !== ui.tab && e.isTrusted, go); return;   // the app's own tab clicks switch at once, in step with what it does next
   }
   if (ui.tab === "notes" && !e.target.closest("dialog")) {
     const nEl = e.target.closest(".note");
@@ -17144,7 +17402,23 @@ function tick(){
     const under = document.elementFromPoint(drag.x, drag.y);
     const b = (under && under.closest(".board")) || drag.board;
     drag.hs = false;
-    if (b && b.scrollWidth > b.clientWidth) { const br = b.getBoundingClientRect(); if (drag.x < br.left + 40) { b.scrollLeft -= 10; drag.hs = true; } else if (drag.x > br.right - 40) { b.scrollLeft += 10; drag.hs = true; } }
+    if (b && b.scrollWidth > b.clientWidth) {
+      const br = b.getBoundingClientRect(), paged = getComputedStyle(b).display === "flex";
+      let dir = drag.x < br.left + (paged ? 56 : 40) ? -1 : drag.x > br.right - (paged ? 56 : 40) ? 1 : 0;
+      // a phone's columns (a swipe pager): hovering the card over the column peeking in beside the one in view (or holding
+      // it at the edge) glides the board over to that column, then on to the next if still held at the edge
+      if (paged) {
+        const cu = under && under.closest(".col"), cx = cu && cu.closest(".board") === b ? boardColX(b, cu) : null;
+        const at = b._goTo != null && Math.abs(b.scrollLeft - b._goTo) > 2 ? b._goTo : b.scrollLeft;
+        if (cx != null && Math.abs(cx - at) > 30) dir = cx > at ? 1 : -1;
+      }
+      if (dir && paged) {
+        drag.hs = true; const now = performance.now();
+        if (drag.edgeDir !== dir) { drag.edgeDir = dir; drag.edgeAt = now; drag.edgeN = 0; }
+        else if (now - drag.edgeAt > (drag.edgeN ? 700 : 260)) { if (boardStep(b, dir)) drag.edgeN++; drag.edgeAt = now; }
+      } else if (dir) { b.scrollLeft += dir * 10; drag.hs = true; }
+      else drag.edgeDir = 0;
+    }
     if (drag.y < 110) window.scrollBy(0, -9); else if (drag.y > window.innerHeight - 120) window.scrollBy(0, 9);
     placeAt(drag.x, drag.y);
   } else {
@@ -17423,7 +17697,10 @@ window.__sbPlanObj = () => PLAN;
 
   const SITE_URL = "https://studyboardapp.com/website";
 
-  const EXTERNAL_PURCHASE_ALLOWED = false;
+  // Buying Pro on the website from inside a store app: only where the store allows it. The iPhone app sets
+  // StudyboardNative.externalPurchase for United States App Store accounts (native-bridge.js section 6); everywhere else
+  // the app uses in-app purchase.
+  const EXTERNAL_PURCHASE_ALLOWED = () => { try { const N = window.StudyboardNative; return !!N && N.externalPurchase === true && !onAndroid(); } catch (e) { return false; } };
 
 
   /* Config: one place for limits and prices */
@@ -17819,7 +18096,12 @@ window.__sbPlanObj = () => PLAN;
         || (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.studyboardStore) || (DESK && (DESK.mas || DESK.store === "mas")));
     } catch (e) { return false; }
   };
-  const route = () => nativeStore() && !EXTERNAL_PURCHASE_ALLOWED ? "store" : "web";
+  const route = () => nativeStore() && !EXTERNAL_PURCHASE_ALLOWED() ? "store" : "web";
+  // in-app purchase can still be restored in the app wherever it's set up (someone who bought through Apple and then moved
+  // their Apple account to the United States keeps it)
+  const nativeRestore = () => { try { const N = window.StudyboardNative; return nativeStore() && !!N && N.purchasesAvailable === true; } catch (e) { return false; } };
+  // the App Store country became known or changed: the Pro sheet shows the right way to buy
+  window.addEventListener("studyboard:storefront", () => { try { if (dlg.open && dlg.querySelector(".plan-sheet")) proSheet(P.reason); } catch (e) {} });
   const nativeBuyOff = () => { try { const N = window.StudyboardNative; return route() === "store" && !!N && N.purchasesAvailable === false; } catch (e) { return false; } };
   const onAndroid = () => { try { const N = window.StudyboardNative, C = window.Capacitor; return (N && N.platform === "android") || (C && typeof C.getPlatform === "function" && C.getPlatform() === "android"); } catch (e) { return false; } };
   const siteBase = () => {
@@ -17890,6 +18172,61 @@ window.__sbPlanObj = () => PLAN;
     } else if (r.status === "cancelled") toast("Purchase canceled. You weren't charged.");
     else if (r.status === "error") toast(r.message || "The purchase didn't go through. You weren't charged. Please try again.");
   }
+  /* EU: the website as a second way to buy, next to in-app purchase (Apple's External Purchases or Offers terms, in force
+     from October 1, 2026). Offered only when all of these hold: the iPhone app, an EU App Store account, Apple says this
+     device and account are eligible (the entitlement, iOS 26.2+, purchases allowed), and a signed-in adult (Apple: no
+     out-of-app offers for under-13s, and a parental gate for 13 to 17; we offer it to known adults only). In-app purchase
+     stays first and at least as prominent; Apple's disclosure sheet comes before leaving; the website opens in the person's
+     browser; Apple's reporting tokens go to the server, which reports the sales to Apple (supabase-functions/apple-external).
+     Japan follows once iOS 27.2 brings Apple's own disclosure sheet there. */
+  const EU_STORES = new Set(["AUT", "BEL", "BGR", "HRV", "CYP", "CZE", "DNK", "EST", "FIN", "FRA", "DEU", "GRC", "HUN", "IRL", "ITA", "LVA", "LTU", "LUX", "MLT", "NLD", "POL", "PRT", "ROU", "SVK", "SVN", "ESP", "SWE"]);
+  const LINK = {ok: false, asked: "", sent: ""};
+  const linkApi = () => { try { const N = window.StudyboardNative; return N && N.linkOut && EU_STORES.has(String(N.storefront || "")) ? N.linkOut : null; } catch (e) { return null; } };
+  const adultKnown = () => {
+    try {
+      const b = String((sbUser && sbUser.user_metadata && sbUser.user_metadata.birth_date) || ""), m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(b);
+      if (!m) return false;
+      const t = new Date(), age = t.getFullYear() - +m[1] - ((t.getMonth() + 1 < +m[2] || (t.getMonth() + 1 === +m[2] && t.getDate() < +m[3])) ? 1 : 0);
+      return age >= 18 && age < 120;
+    } catch (e) { return false; }
+  };
+  const webAltOk = () => route() === "store" && !!linkApi() && LINK.ok && !!sbUser && !sbUser.is_anonymous && adultKnown() && siteReady() && !nativeBuyOff();
+  const webAltHtml = () => webAltOk() ? `<div class="plan-alt"><button type="button" class="link-btn" data-act="plan-buy-web">Or subscribe on the Studyboard website</button><p class="plan-fine mini">You'll leave the app to buy there. Prices and terms on the website may differ.</p></div>` : "";
+  // Apple's tokens to the server, tied to this account (Apple asks for this when the app opens and before each possible purchase)
+  async function sendLinkTokens(tap){
+    const L = linkApi(); if (!L || !sb || !sbUser || sbUser.is_anonymous) return false;
+    const tokens = await L.tokens();
+    if (!tokens.length) return false;
+    try {
+      const N = window.StudyboardNative, {error} = await sb.functions.invoke("apple-external/tokens", {body: {tokens, tap: !!tap, storefront: String(N.storefront || "")}});
+      if (!error) LINK.sent = sbUser.id;
+      return !error;
+    } catch (e) { return false; }
+  }
+  // Learn whether it may be offered, once per App Store country and account; send the tokens when it may
+  async function linkCheck(){
+    const L = linkApi(), key = L ? String(window.StudyboardNative.storefront) + "|" + (sbUser ? sbUser.id : "") : "";
+    if (!L) { LINK.ok = false; return; }
+    if (key === LINK.asked) return;
+    LINK.asked = key;
+    LINK.ok = await L.eligible();
+    if (LINK.ok && sbUser && LINK.sent !== sbUser.id) sendLinkTokens(false);
+    if (dlg.open && dlg.querySelector(".plan-sheet")) proSheet(P.reason);
+  }
+  window.addEventListener("studyboard:storefront", () => { linkCheck(); });
+  setTimeout(linkCheck, 2500);
+  async function buyWebEU(){
+    const L = linkApi(); if (!L || !webAltOk() || P.buying) return;
+    P.buying = true;
+    try {
+      const r = await L.notice();
+      if (r !== "continued") { if (r === "unavailable") toast("Buying on the website isn't available right now. You can subscribe in the app."); return; }
+      if (!(await sendLinkTokens(true))) { toast("Couldn't connect to Studyboard. Check your connection and try again."); return; }
+      if (!(await L.open(siteUrl("/account", {})))) { toast("Couldn't open your browser. Try again."); return; }
+      toast("Finish on the Studyboard website, then come back here. Pro turns on by itself.");
+      watchPurchase();
+    } finally { P.buying = false; }
+  }
   async function directCheckout(period){
     if (!sb || !sbUser || sbUser.is_anonymous) return null;
     try {
@@ -17904,7 +18241,7 @@ window.__sbPlanObj = () => PLAN;
   function buy(period){
     period = ["monthly", "semester", "yearly"].includes(period) ? period : "monthly";
     if (!paid()) { track("buy", P.reason); write(K_ATTR, {r: P.reason || "", t: Date.now(), uid: curUid()}); }
-    if (period === "semester" && route() === "store") period = "monthly";
+    if (period === "semester" && !semesterOn()) period = "monthly";
     const userId = sbUser ? sbUser.id : null;
     if (route() === "store") {
       if (nativeBuyOff()) { toast("Buying Pro in the app isn't available in this build yet."); return false; }
@@ -17965,12 +18302,12 @@ window.__sbPlanObj = () => PLAN;
     if (!sbUser) { toast("Sign in to the account you bought Pro with, then restore."); if (sb && typeof sbSignInSheet === "function") sbSignInSheet(); return false; }
     P.restoring = true; restoreBtns(true);
     try {
-      if (route() === "store") {
+      if (route() === "store" || nativeRestore()) {
         const wait = waitResult("restore", 60000);
         if (!nativeFire("plan-restore", sbUser.id)) { if (waiter) { clearTimeout(waiter.t); waiter = null; } toast("Restoring purchases isn't available in this build yet."); return false; }
         toast("Restoring your purchases…");
         const r = await wait;
-        if (r.status === "error") { toast(r.message || "Couldn't restore purchases. Check your connection and try again."); return false; }
+        if (r.status === "error" && route() === "store") { toast(r.message || "Couldn't restore purchases. Check your connection and try again."); return false; }
         if (r.status === "cancelled") { toast("Restore canceled."); return false; }
         if (r.status === "success") {
           const ok = await refreshUntilPaid(5);
@@ -18052,29 +18389,37 @@ window.__sbPlanObj = () => PLAN;
   const GOOGLE_RENEW = "Payment will be charged to your Google Play account at confirmation of purchase. The subscription renews automatically unless it is cancelled before the end of the current period. You can manage and cancel your subscriptions in Google Play, Payments and subscriptions, Subscriptions.";
   const WEB_RENEW_NOTRIAL = "Your card is charged today and again at the start of each period until you cancel. Cancel any time from Manage Plan; you keep Pro until the end of the period you paid for.";
   const WEB_RENEW = "Your card is charged when the free trial ends unless you cancel before then, and again at the start of each period until you cancel. Cancel any time from Manage Plan; you keep Pro until the end of the period you paid for.";
-  const semesterOn = () => route() !== "store" && !!cfg.prices.semester;
+  // The semester plan is 4 months. On the website it renews; in the App Store and Google Play (which have no 4-month
+  // renewing length) it's paid once and doesn't renew, and shows only once its price is set in studyboard_config
+  // prices.storeSemester (see PRO-PLANS-GUIDE.md)
+  const semPrice = () => route() === "store" ? cfg.prices.storeSemester : cfg.prices.semester;
+  const semOnce = () => route() === "store";
+  const semesterOn = () => typeof semPrice() === "string" && !!semPrice();
   const cardTrialOk = () => { const e = ent(); return +cfg.prices.checkoutTrialDays > 0 && !(e && (e.trial_until || e.source === "stripe" || e.external_id)); };
   const trialDaysShown = () => route() === "store" ? +(cfg.prices.storeTrialDays != null ? cfg.prices.storeTrialDays : cfg.prices.trialDays) || 0 : cardTrialOk() ? +cfg.prices.checkoutTrialDays : 0;
   function renewalText(pr, trial){
     const store = route() === "store", t = trialDaysShown();
-    const head = `Studyboard Pro is an auto-renewing subscription: ${pr.monthly} per month${semesterOn() ? `, ${pr.semester} every 4 months` : ""} or ${pr.yearly} per year${t ? `, after a ${t}-day free trial` : ""}.`;
-    return `<p class="plan-fine mini plan-legal" id="planLegal">${esc(head)} ${esc(store ? (onAndroid() ? GOOGLE_RENEW : APPLE_RENEW) : t ? WEB_RENEW : WEB_RENEW_NOTRIAL)} <button type="button" class="link-btn" data-act="legal-terms">Terms of Use</button> · <button type="button" class="link-btn" data-act="legal-privacy">Privacy Policy</button></p>`;
+    const head = `Studyboard Pro is an auto-renewing subscription: ${pr.monthly} per month${semesterOn() && !semOnce() ? `, ${semPrice()} every 4 months` : ""} or ${pr.yearly} per year${t ? `, after a ${t}-day free trial` : ""}.${semesterOn() && semOnce() ? ` Semester: ${semPrice()} for 4 months of Pro, paid once. It doesn't renew and has no free trial.` : ""}`;
+    // in the iPhone app for a United States account: the checkout is on the website, said before they tap
+    const outside = !store && nativeStore() ? "You'll check out securely on the Studyboard website, and Pro turns on here by itself. " : "";
+    return `<p class="plan-fine mini plan-legal" id="planLegal">${esc(outside + head)} ${esc(store ? (onAndroid() ? GOOGLE_RENEW : APPLE_RENEW) : t ? WEB_RENEW : WEB_RENEW_NOTRIAL)} <button type="button" class="link-btn" data-act="legal-terms">Terms of Use</button> · <button type="button" class="link-btn" data-act="legal-privacy">Privacy Policy</button></p>`;
   }
   function priceButtons(){
     if (nativeBuyOff()) return `<p class="plan-fine mini">Buying Pro in the app isn't available in this build yet.</p>`;
-    const pr = cfg.prices, m = price(pr.monthly), y = price(pr.yearly), sm = semesterOn() ? price(pr.semester) : null;
+    const pr = cfg.prices, m = price(pr.monthly), y = price(pr.yearly), sm = semesterOn() ? price(semPrice()) : null;
     const save = m && y && y < m * 12 ? Math.round((1 - y / (m * 12)) * 100) : 0;
     const per = (amt, months, s) => amt ? `${String(s).replace(/[\d.,]+/, (amt / months).toFixed(2))} a month` : "";
     const trial = trialDaysShown() ? `${trialDaysShown()}-Day Free Trial` : "";
     return `<div class="plan-prices${sm ? " three" : ""}">
         <button type="button" class="plan-price" data-act="plan-buy" data-id="monthly"><span class="pp-name">Monthly</span><span class="pp-amt">${esc(pr.monthly)}<small> / month</small></span>${trial ? `<span class="pp-sub">${esc(trial)}</span>` : ""}</button>
-        ${sm ? `<button type="button" class="plan-price" data-act="plan-buy" data-id="semester"><span class="pp-name">Semester</span><span class="pp-amt">${esc(pr.semester)}<small> / 4 months</small></span><span class="pp-sub">${esc([trial, "About " + per(sm, 4, pr.semester)].filter(Boolean).join(" · "))}</span></button>` : ""}
+        ${sm ? `<button type="button" class="plan-price" data-act="plan-buy" data-id="semester"><span class="pp-name">Semester</span><span class="pp-amt">${esc(semPrice())}<small> / 4 months</small></span><span class="pp-sub">${esc((semOnce() ? ["Paid once, doesn't renew"] : [trial, "About " + per(sm, 4, semPrice())]).filter(Boolean).join(" · "))}</span></button>` : ""}
         <button type="button" class="plan-price best" data-act="plan-buy" data-id="yearly">${save ? `<span class="pp-flag">Save ${save}%</span>` : ""}<span class="pp-name">Yearly</span><span class="pp-amt">${esc(pr.yearly)}<small> / year</small></span><span class="pp-sub">${esc([trial, y && "Just " + per(y, 12, pr.yearly)].filter(Boolean).join(" · "))}</span></button>
       </div>
       <p class="plan-fine mini">${trial ? `Try Pro free for ${trialDaysShown()} days. Cancel any time before it ends and you won't be charged.` : "Cancel any time. You keep Pro until the end of the time you paid for."}${cfg.app_trial && sbUser && !(ent() && ent().trial_until) ? ` <button type="button" class="link-btn" data-act="plan-trial">Try It Without a Card</button>` : ""}${sbUser ? ` <button type="button" class="link-btn" data-act="plan-devices">Your Devices</button>` : ""}</p>
       ${renewalText(pr, trial)}`;
   }
   function proSheet(reason){
+    linkCheck();   // EU: whether the website may be offered (learned once per account and country; the sheet redraws if it changes)
     if (!(dlg.open && dlg.querySelector(".plan-sheet")) && !paid()) track("shown", reason);
     P.reason = reason || "";
     const st = statusLine(), pro = paywall() && paid(), u = usage(), L = lim();
@@ -18091,7 +18436,7 @@ window.__sbPlanObj = () => PLAN;
         ${pro ? `<div class="plan-actions"><button type="button" class="btn primary" data-act="plan-manage">Manage Plan</button><button type="button" class="btn" data-act="plan-devices">Your Devices</button></div>${usageHtml}` : ""}
         ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get a Week of Pro</b><span class="mini">Every Pro theme and feature for 7 days. No card needed, and everything you make stays when the week ends.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
         ${paywall() ? `<p class="plan-state mini" role="status"><b>Plan:</b> ${esc(planLabel())}</p>` : ""}
-        ${paywall() && !pro ? priceButtons() : ""}
+        ${paywall() && !pro ? priceButtons() + webAltHtml() : ""}
         <div class="plan-compare" role="table" aria-label="Free and Pro">
           <div class="pc-row pc-head" role="row"><span role="columnheader"></span><span role="columnheader">Free</span><span role="columnheader" class="pc-pro">${PRO_BADGE}</span></div>
           ${rows.map(([k, f, p]) => `<div class="pc-row" role="row"><span role="rowheader">${esc(k)}</span><span role="cell">${esc(f)}</span><span role="cell" class="pc-pro">${esc(p)}</span></div>`).join("")}
@@ -18168,6 +18513,7 @@ window.__sbPlanObj = () => PLAN;
     switch (act) {
       case "plan-open": proSheet(id === "devices" ? `The free plan syncs on up to ${lims("free").devices} devices` : el.dataset.reason || ""); return true;
       case "plan-buy": buy(id); return true;
+      case "plan-buy-web": buyWebEU(); return true;
       case "plan-refresh": refreshNow(); return true;
       case "plan-restore": restore(); return true;
       case "plan-code": if (dlg.open) dlg.close(); setTimeout(redeemSheet, 60); return true;
@@ -18428,12 +18774,21 @@ const SCN20 = (() => {
   const nextFrame = () => { const gap = gapNow(), wait = last ? gap - (performance.now() - last) + 1 : 0; if (gap > 45 && wait > 4) { rafT = setTimeout(() => { rafT = 0; if (raf === -1) raf = requestAnimationFrame(tick); }, wait); return -1; } return requestAnimationFrame(tick); };
   const broken = new Set();
 
+  // The screen's full height for this width: the keyboard shrinking the app (or a toolbar showing) never redraws or squashes
+  // the scene; the keyboard just covers its lower part
+  let fullW = 0, fullH = 0;
+  function screenH(){
+    if (innerWidth !== fullW) { fullW = innerWidth; fullH = innerHeight; }
+    else if (!document.documentElement.classList.contains("kb-open")) fullH = Math.max(fullH, innerHeight);
+    document.documentElement.style.setProperty("--sb-full-h", fullH + "px");
+    return fullH;
+  }
   function geometry(){
-    const nav = document.querySelector("nav.tabs"), r = nav && nav.getBoundingClientRect();
-    const side = r && r.left < 4 && r.height > innerHeight * 0.6 ? Math.round(r.right) : 0;
+    const nav = document.querySelector("nav.tabs"), r = nav && nav.getBoundingClientRect(), IH = screenH();
+    const side = r && r.left < 4 && r.height > IH * 0.6 ? Math.round(r.right) : 0;
     const floating = r && r.left >= 4 && r.right <= innerWidth - 4;
-    const foot = r && !side && !floating && r.top > innerHeight * 0.6 ? Math.max(0, Math.round(innerHeight - r.top - 4)) : 0;
-    const W = Math.max(1, innerWidth - side), H = Math.max(1, innerHeight - foot), desk = W / H >= 0.9;
+    const foot = r && !side && !floating && r.top > IH * 0.6 ? Math.max(0, Math.round(innerHeight - r.top - 4)) : 0;
+    const W = Math.max(1, innerWidth - side), H = Math.max(1, IH - foot), desk = W / H >= 0.9;
     const k = Math.max(0.8, Math.min(3, desk ? Math.min(W / 1200, H / 800) : Math.min(W / 390, H / 760)));
     return {side, foot, W, H, desk, k, bw: Math.round(W / k), bh: Math.round(H / k)};
   }
@@ -57131,6 +57486,8 @@ var COMP_EXTRA = [];
       for (let i = 1; i < 4; i++) later(() => spawnFx("sparkle", 1), dur * i / 4);
     }
     fitFrames(frames, to, px);
+    // on its way it flies above everything; it settles under the page's bars (cp-under) only once seated in its circle
+    if (front) front.classList.remove("cp-under");
     const me = travelAnim = box.animate(frames, {duration: dur, easing});
     box.dataset.travel = style;
     motionWatch(dur);
@@ -57139,6 +57496,7 @@ var COMP_EXTRA = [];
     me.onfinish = me.oncancel = () => {
       if (travelAnim !== me) return;
       travelAnim = null; delete box.dataset.travel; clamp("anim-end");
+      if (front) front.classList.toggle("cp-under", spotKind === "slot");
       const b = front && front.querySelector(".cp-bubble.on"); if (b) placeBubble(b);
       if (act && mood === "idle" && !still()) { act.mouth("smile"); later(() => act && mood === "idle" && act.mouth("neutral"), 900); const r = box.getBoundingClientRect(); glanceAt(r.left + (dir > 0 ? -220 : r.width + 220), r.top + r.height * 0.4, 900); }
     };
@@ -57175,7 +57533,7 @@ var COMP_EXTRA = [];
     if (box.parentNode !== front) front.appendChild(box);
     box.classList.toggle("cp-h-fab", s.kind === "home");
     const sig = [s.left, s.top, s.px].join(",");
-    front.classList.toggle("cp-under", s.kind === "slot");
+    front.classList.toggle("cp-under", s.kind === "slot" && !travelAnim);
     anchorFront(s.kind === "slot");
     if (still1) {
       box.style.cssText = `left:${s.left}px;top:${s.top}px;width:${s.px}px;height:${s.px}px`;
@@ -57628,14 +57986,16 @@ var COMP_EXTRA = [];
     if (act) act.stopAll();
     const keepMood = cur && cur.id === c.id ? mood : null;
     let keepAt = null;
-    if (box && box.dataset.x && homeSig) { const o = +box.dataset.px || sizePx(c), dc = travelAnim || glideAnim ? drawnCentre() : {x: +box.dataset.x + o / 2, y: +box.dataset.y + o / 2}; keepAt = {x: dc.x, y: dc.y}; }
+    if (box && box.dataset.x && homeSig) { const o = +box.dataset.px || sizePx(c), dc = travelAnim || glideAnim ? drawnCentre() : {x: +box.dataset.x + o / 2, y: +box.dataset.y + o / 2}; keepAt = {x: dc.x, y: dc.y, px: +box.dataset.px || 0, spot: box.dataset.spot || ""}; }
     cur = c; curSig = sig; homeSig = "";
     compChanged();
     if (box) { stopTravel(); if (glideAnim) try { glideAnim.cancel(); } catch (e) {} box.remove(); }
     layer.insertAdjacentHTML("beforeend", `<div class="cp cp-${c.pose}" data-id="${esc(c.id)}"><span class="cp-shadow"></span><div class="cp-move"><div class="cp-breathe">${rigSvg(c, {wear: wearOf(c)})}</div></div><div class="cp-fx"></div><div class="cp-hit" tabindex="0" role="button" aria-label="${esc(nameOf(c))}, your study companion. Press to say hi. Press and hold, or right-click, to choose a companion."></div></div>`);
     box = layer.querySelector(".cp"); vext = null;
-    { const px0 = sizePx(c); box.style.cssText = `left:0px;top:0px;width:${px0}px;height:${px0}px`; front.appendChild(box);
-      if (keepAt) { const l = Math.round(keepAt.x - px0 / 2), t = Math.round(keepAt.y - px0 / 2); box.style.left = l + "px"; box.style.top = t + "px"; box.dataset.x = l; box.dataset.y = t; box.dataset.px = px0; homeSig = [l, t, px0].join(","); } }
+    // rebuilt where it sat (a seat in the tab bar, its page's circle): it keeps that size, so it never sits there oversized
+    // while a sheet or the keyboard holds off the next placement
+    { const px0 = keepAt && keepAt.px && (keepAt.spot === "dock" || keepAt.spot === "slot" || keepAt.spot === "pin") ? keepAt.px : sizePx(c); box.style.cssText = `left:0px;top:0px;width:${px0}px;height:${px0}px`; front.appendChild(box);
+      if (keepAt) { const l = Math.round(keepAt.x - px0 / 2), t = Math.round(keepAt.y - px0 / 2); box.style.left = l + "px"; box.style.top = t + "px"; box.dataset.x = l; box.dataset.y = t; box.dataset.px = px0; if (keepAt.spot) box.dataset.spot = keepAt.spot; homeSig = [l, t, px0].join(","); } }
     act = actor(c, box, {spawn: spawnFx, watch: motionWatch});
     applyVars();
     place();
@@ -59470,7 +59830,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const wc = (SBCOMP.wearColor && SBCOMP.wearColor()) || "#E5604D", worn = SBCOMP.wornNames ? SBCOMP.wornNames() : [];
     const meta = [worn.length ? "Wearing " + worn.join(" and ") : "", area ? "Studying " + area : ""].filter(Boolean).join(" · ");
     const head = me ? `<div class="cpt-head cpt3" style="--c:var(--accent-band,var(--accent))" data-wear="${esc(wc)}"><div class="cpt3-band"><div class="cpt3-acts"><button type="button" class="btn cpt-dress" data-act="comp-change">Change</button></div></div>
-        <div class="cpt3-mini" aria-hidden="true">${AI_ICON}<b>${esc(me.name)}</b></div>
+        <div class="cpt3-mini sm-skip" aria-hidden="true">${AI_ICON}<b>${esc(me.name)}</b></div>
         <div class="cpt3-ring">${SBCOMP.tab.faceHtml(104)}</div>
         <div class="cpt-id"><h2>${esc(me.name)}</h2>${me.bio ? `<p class="cpt-bio">${esc(me.bio)}</p>` : ""}${meta ? `<span class="mini">${esc(meta)}</span>` : ""}</div>`
       : `<div class="cpt-head"><div class="cpt-id"><h2>Companion</h2><p class="mini">Your companion is turned off. Turn it on to chat and to see it beside the Add Task button.</p></div><div class="cpt-hbtn"><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="on"> On</label></div>`;
@@ -65469,7 +65829,7 @@ function chipHtml(c){
       const grp = [...by.entries()].map(([k, ts]) => `<optgroup label="${esc(k ? courseLabel(courseOf(k)) : tr("acc.noCourse", "No course"))}">${ts.map(t => `<option value="${esc(t.id)}">${esc(short(t.title, 60))}${t.due ? " · " + esc(fmtShort(t.due)) : ""}</option>`).join("")}</optgroup>`).join("");
       return `<span class="acc-q">${esc(tr("acc.which", "Which task was that for?"))} <span class="mini">${esc(fmtMins(c.min))}</span></span><span class="acc-opts"><select id="accOther" class="acc-sel" aria-label="${esc(tr("acc.pick", "Pick a task"))}"><option value="">${esc(tr("acc.pick", "Pick a task"))}…</option>${grp}</select><button type="button" class="acc-opt" data-act="acc-other-back">${esc(tr("acc.back", "Back"))}</button></span><button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
     }
-    const opts = c.opts.map(t => `<button type="button" class="acc-opt" data-act="acc-which" data-id="${esc(t.id)}">${esc(short(t.title, 26))}</button>`).join("")
+    const opts = c.opts.map(t => `<button type="button" class="acc-opt" data-act="acc-which" data-id="${esc(t.id)}" title="${esc(t.title)}"><i class="acc-dot" style="--c:${esc(colorOf(t.courseId))}" aria-hidden="true"></i><span class="acc-t">${esc(short(t.title, 60))}</span></button>`).join("")
       + (tasksArr().some(t => t.status !== "done" && !c.opts.some(o => o.id === t.id)) ? `<button type="button" class="acc-opt acc-other" data-act="acc-other">${esc(tr("acc.other", "Other…"))}</button>` : "");
     return `<span class="acc-q">${esc(tr("acc.which", "Which task was that for?"))} <span class="mini">${esc(fmtMins(c.min))}</span></span><span class="acc-opts">${opts}</span><button type="button" class="acc-x" data-act="acc-dismiss" aria-label="${esc(tr("acc.dismiss", "Dismiss"))}">${X_ICON}</button>`;
   }
@@ -65812,7 +66172,7 @@ hook("focus", e => {
   if (e && e.type === "end" && e.mode === "focus" && !e.taskId && e.minutes && !e.missed) pending({min: e.minutes, at: Date.now(), why: "end"});
 });
 const api = {ACC, time: SBTIME, ratioInfo, ratioFor, spreadFor, memo, capScale, wkScale, startNudge, peak, extraBins, underBoost, explain, logTime, early, askState, maybeAskTook, maybeAskLeft, leftDue, chip: () => chip, on, howHtml, logHtml, formHint, sig: () => (on() ? 1 : 0) + "|" + capScale(), global: () => memo().g};
-window.__sbAcc = Object.assign({state: () => state}, api);
+window.__sbAcc = Object.assign({state: () => state, showChip: (c, ms) => chipShow(c, ms)}, api);
 return api;
 })();
 var SBTIME = SBACC.time;
@@ -70508,7 +70868,7 @@ window.SBSTREAK = {studyDays, on: gentleOn, line: () => streakLineText(streakNow
 <p>If you send a report, it includes what you wrote, an optional screenshot you attach, an optional email address for a reply, and basic technical details (app version, browser and device type, screen size, your plan and recent error messages, cleaned of your titles, email addresses and web addresses), and a random number made on your device so its reports can be limited and grouped. If you are signed in, the report is linked to your account. It contains none of your tasks or notes unless you type them. When you report an AI response, the form also fills in that response, which you can shorten or remove before sending. Only the app's owner can read reports.</p>
 
 <h3>Payments</h3>
-<p>Pro is sold through Stripe (website and desktop) or through the App Store and Google Play (iPhone, iPad and Android apps). Stripe and the app stores handle your card and billing details; we never see or store them. We receive only your plan status: whether you have Pro, when it ends and where you bought it. If you pay with Stripe we also keep a Stripe customer id so we can open your billing page. Purchases in the iPhone, iPad and Android apps are checked through RevenueCat (RevenueCat, Inc.), which receives your account id (a random number, not your email), the store's purchase record and your device's platform so it can confirm the subscription with Apple or Google and tell us your plan status.</p>
+<p>Pro is sold through Stripe (website and desktop) or through the App Store and Google Play (iPhone, iPad and Android apps). Stripe and the app stores handle your card and billing details; we never see or store them. We receive only your plan status: whether you have Pro, when it ends and where you bought it. If you pay with Stripe we also keep a Stripe customer id so we can open your billing page. Purchases in the iPhone, iPad and Android apps are checked through RevenueCat (RevenueCat, Inc.), which receives your account id (a random number, not your email), the store's purchase record and your device's platform so it can confirm the subscription with Apple or Google and tell us your plan status. In the European Union, if you subscribe on our website after choosing that option in the iPhone or iPad app, the law under which Apple allows that option requires us to report the sale to Apple: we send Apple the identifier Apple gave the app for that option, the price, tax and currency, the subscription dates and your country. We do not send Apple your name, email address or account id.</p>
 
 <h3>Email delivery</h3>
 <p>Emails we send you (confirming your address, resetting your password, signing in) are sent through our email delivery provider, Supabase, which handles your email address and the message so it can be delivered. We send no marketing email.</p>
@@ -77680,8 +78040,23 @@ var SBWB = null;
     cam.z = clamp(z, ZMIN, ZMAX); cam.x = sx - wx * cam.z; cam.y = sy - wy * cam.z;
     clampCam(); dirty(); camSave();
   }
-  const STEPS = [0.05, 0.08, 0.12, 0.2, 0.25, 0.33, 0.5, 0.67, 0.8, 1, 1.25, 1.5, 2, 3, 4];
-  const zoomStep = d => { const z = cam.z; zoomAt(d > 0 ? (STEPS.find(s => s > z + 0.001) || ZMAX) : ([...STEPS].reverse().find(s => s < z - 0.001) || zMin())); };
+  // The − and + buttons move along an even ladder (10% steps to 100%, then 25%, then 50%), and glide to the new zoom
+  const STEPS = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 4];
+  let zoomRaf = 0, zoomTarget = 0;
+  function zoomGlide(z){
+    cancelAnimationFrame(zoomRaf);
+    const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) { zoomAt(z); return; }
+    zoomTarget = z;
+    const z0 = cam.z, t0 = performance.now(), ms = 200, ease = k => 1 - Math.pow(1 - k, 3);
+    const step = now => { const k = Math.min(1, (now - t0) / ms); zoomAt(z0 * Math.pow(z / z0, ease(k))); if (k < 1) zoomRaf = requestAnimationFrame(step); else zoomTarget = 0; };
+    zoomRaf = requestAnimationFrame(step);
+  }
+  const zoomStep = d => {
+    const z = zoomTarget || cam.z, lo = zMin();
+    const next = d > 0 ? (STEPS.find(s => s > z + 0.004) || ZMAX) : ([...STEPS].reverse().find(s => s < z - 0.004) || lo);
+    zoomGlide(Math.max(next, d < 0 ? Math.min(lo, z) : next));
+  };
   function contentBB(){
     let bb = null;
     strokes().forEach(s => { bb = bbJoin(bb, geo(s).bb); });
@@ -77722,31 +78097,54 @@ var SBWB = null;
     if (window.ResizeObserver) new ResizeObserver(() => resize()).observe(frame);
     if (document.fonts && document.fonts.load) Promise.all(FONTS.map(f => document.fonts.load(`40px ${f[2]}`))).then(() => { MEAS.clear(); itemsDraw(true); dirty(); }).catch(() => {});
   }
+  // The drawing surfaces only ever grow: a smaller board draws into the top-left of them (the frame clips the rest), so a
+  // size change never throws away and rebuilds three screen-sized canvases (rebuilding them over and over could run a phone
+  // out of memory and make iOS restart the app)
+  let cvW = 0, cvHt = 0, cvR = 0;
   function resize(){
     if (!frame || !frame.isConnected) return;
+    // typing on a touch screen: the keyboard shrinks the app, but the board keeps its size and view (no refit, no jump);
+    // the text box is lifted clear of the keyboard instead (keepTaVisible)
+    if (TOUCH() && (ED || kbUp()) && fw > 0) return;
     const w = frame.clientWidth, h = frame.clientHeight, r = Math.min(2, window.devicePixelRatio || 1);
     if (w === fw && h === fh && r === dpr) return;
     fw = w; fh = h; dpr = r;
-    [cvH, cvI, cvL].forEach(c => { c.width = Math.max(1, Math.round(w * r)); c.height = Math.max(1, Math.round(h * r)); c.style.width = w + "px"; c.style.height = h + "px"; });
+    const grow = cvH.width === 0 || r !== cvR || w > cvW || h > cvHt || w < cvW * 0.6;
+    if (grow) {
+      cvW = w < cvW * 0.6 || r !== cvR ? w : Math.max(cvW, w); cvHt = r !== cvR ? h : Math.max(cvHt, h); cvR = r;
+      [cvH, cvI, cvL].forEach(c => { c.width = Math.max(1, Math.round(cvW * r)); c.height = Math.max(1, Math.round(cvHt * r)); c.style.width = cvW + "px"; c.style.height = cvHt + "px"; });
+    }
     clampCam();
     if (raf) { cancelAnimationFrame(raf); raf = 0; }
     all = true; paint();
   }
+  // The board's height comes from the screen's full height for this width (not whatever the height is this instant, which
+  // twitches with the keyboard and toolbars), and only changes when that, the board's top or the tab bar really change
+  let scrFull = 0, scrW = 0;
   function sizeHost(host){
     if (boardMaxOn()) { host.style.height = ""; return; }
-    const top = host.getBoundingClientRect().top + window.scrollY, nav = document.querySelector("nav.tabs");
-    const navH = phone() && nav ? nav.getBoundingClientRect().height : 0;
-    host.style.height = Math.max(phone() ? 420 : 460, Math.round(window.innerHeight - Math.min(top, window.innerHeight * 0.45) - navH - (phone() ? 18 : 16))) + "px";
+    if (innerWidth !== scrW) { scrW = innerWidth; scrFull = 0; }
+    if (!document.documentElement.classList.contains("kb-open")) scrFull = Math.max(scrFull, innerHeight);
+    const IH = scrFull || innerHeight;
+    // where the board starts is measured once per board and screen width: the header shrinking as the page scrolls would
+    // otherwise move it, resize it, change the scroll, and so on, back and forth
+    const key = innerWidth + "|" + (ui.wbCur || "");
+    if (host._topKey !== key) { host._topKey = key; host._top = host.getBoundingClientRect().top + window.scrollY; }
+    const top = host._top, nav = document.querySelector("nav.tabs");
+    const navH = phone() && nav ? Math.round(nav.getBoundingClientRect().height) : 0;
+    const want = Math.max(phone() ? 420 : 460, Math.round(IH - Math.min(top, IH * 0.45) - navH - (phone() ? 18 : 16)));
+    const now = parseFloat(host.style.height) || 0;
+    if (Math.abs(want - now) > 2) host.style.height = want + "px";
   }
 
   /* Painting */
   let raf = 0, all = true;
   function dirty(onlyLive){ if (!onlyLive) all = true; if (!raf) raf = requestAnimationFrame(paint); }
-  const viewBB = () => [-cam.x / cam.z, -cam.y / cam.z, (fw - cam.x) / cam.z, (fh - cam.y) / cam.z];
-  const worldTf = c => c.setTransform(cam.z * dpr, 0, 0, cam.z * dpr, cam.x * dpr, cam.y * dpr);
+  const viewBB = () => [-cam.x / cam.z, -(cam.y - LV) / cam.z, (fw - cam.x) / cam.z, (fh - cam.y + LV) / cam.z];
+  const worldTf = c => c.setTransform(cam.z * dpr, 0, 0, cam.z * dpr, cam.x * dpr, (cam.y - LV) * dpr);
   function paint(){
     raf = 0; if (!STAGE || !STAGE.isConnected || !B) return;
-    const tf = `translate(${cam.x}px,${cam.y}px) scale(${cam.z})`; back.style.transform = tf; front.style.transform = tf; STAGE.style.setProperty("--wb-inv", String(1 / cam.z));
+    const tf = `translate(${cam.x}px,${cam.y - LV}px) scale(${cam.z})`; back.style.transform = tf; front.style.transform = tf; STAGE.style.setProperty("--wb-inv", String(1 / cam.z));
     if (all) { all = false; paintInk(); }
     paintLive(); selbarPlace();
     if (zoomEl) { zoomEl.textContent = Math.round(cam.z * 100) + "%"; const t = PHONE() ? "Fit to screen" : "Zoom to 100%"; if (zoomEl.getAttribute("aria-label") !== t) { zoomEl.setAttribute("aria-label", t); zoomEl.title = PHONE() ? "Fit to Screen" : ""; } }
@@ -77821,12 +78219,68 @@ var SBWB = null;
     fire("wb-items", {host: STAGE.querySelector(".wb-imgs"), list: list.filter(it => it.k === "i"), xf, editing});
   }
   let ED = null;
+  // Typing low on a touch screen: the keyboard would cover the text box, and iOS would slide the whole page up to reach it.
+  // Instead the board's layers rise just enough to show the box above the keyboard (the page and toolbars stay put) and
+  // settle back when the keyboard goes. Taps are mapped through the lift (see local()).
+  // The lift is drawn by moving the board's view (LV glides to LIFT), not by sliding its layers with a CSS animation: the
+  // world layer is 4800 by 3200 (more when zoomed), and iOS draws the whole of an animated layer into memory, enough to
+  // make it restart the app
+  let LIFT = 0, LV = 0, liftRaf = 0;
+  const TOUCH = () => !!(window.matchMedia && matchMedia("(pointer:coarse)").matches);
+  function setLift(px){
+    px = Math.max(0, Math.round(px)); if (px === LIFT) return; LIFT = px; if (frame) frame.style.setProperty("--lift", px + "px");   // (where it is headed, for tests)
+    cancelAnimationFrame(liftRaf); liftRaf = 0;
+    const from = LV, t0 = performance.now(), D = 340;
+    if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) { LV = px; dirty(); return; }
+    const step = now => {
+      const k = Math.min(1, (now - t0) / D), e = 1 - Math.pow(1 - k, 3);
+      LV = Math.round(from + (LIFT - from) * e); dirty();
+      liftRaf = k < 1 ? requestAnimationFrame(step) : 0;
+    };
+    liftRaf = requestAnimationFrame(step);
+  }
+  const kbUp = () => document.documentElement.classList.contains("kb-open");
+  // The keyboard's height, learned each time it opens (a fair guess before the first time), so the board can rise to meet it
+  // as it comes up rather than after
+  let kbGuess = 0, scrH = 0;
+  function kbLearn(){
+    if (innerWidth !== (kbLearn.w || 0)) { kbLearn.w = innerWidth; scrH = 0; }
+    const vv = window.visualViewport, vis = vv ? vv.height : innerHeight;
+    if (!kbUp()) scrH = Math.max(scrH, innerHeight, vis);
+    else if (scrH) { const k = scrH - vis; if (k > 150 && k < scrH * 0.7) kbGuess = k; }
+  }
+  function keepTaVisible(predict){
+    if (!ED || !frame || !TOUCH()) return;
+    if (ED.sy != null && Math.abs(scrollY - ED.sy) > 1) window.scrollTo(0, ED.sy);
+    kbLearn();
+    const vv = window.visualViewport, f = frame.getBoundingClientRect(), r = ED.ta.getBoundingClientRect();
+    // where the box would be with no lift (the lift may be mid-glide, so read its current value)
+    const now = LV, top0 = r.top + now, bot0 = r.bottom + now;
+    const visBottom = typeof window.sbVisibleH === "function" ? window.sbVisibleH() : vv ? vv.offsetTop + vv.height : innerHeight;
+    const coming = predict && !kbUp() ? (kbGuess || Math.round((scrH || innerHeight) * 0.42)) : 0;
+    const bottom = Math.min(f.bottom, visBottom - coming) - 14;
+    const want = Math.max(0, Math.min(bot0 - bottom, top0 - f.top - 10));
+    if (want > LIFT + 1 || (want < LIFT - 1 && bot0 - LIFT < bottom - 40)) setLift(want);
+  }
+  let settleT = 0;
+  function liftCheck(){
+    kbLearn(); if (ED) keepTaVisible(); else if (LIFT && !kbUp()) setLift(0);
+    // keyboard gone: one size check, in case the screen really changed size while the board held still
+    if (!ED && !kbUp()) { clearTimeout(settleT); settleT = setTimeout(() => { const h = document.getElementById("wbHost"); if (h && STAGE && h.contains(STAGE) && !ED && !kbUp()) { sizeHost(h); resize(); } }, 350); }
+  }
+  if (window.visualViewport) { visualViewport.addEventListener("resize", liftCheck); visualViewport.addEventListener("scroll", liftCheck); }
+  addEventListener("resize", liftCheck); addEventListener("sb-kb-cover", liftCheck);
+  addEventListener("scroll", () => { if (ED && TOUCH() && ED.sy != null && Math.abs(scrollY - ED.sy) > 1) window.scrollTo(0, ED.sy); }, {passive: true});
+  new MutationObserver(liftCheck).observe(document.documentElement, {attributes: true, attributeFilter: ["class"]});
   function editText(it, isNew, selectAll){
     endText();
-    const ta = document.createElement("textarea"); ta.className = "wb-ta"; ta.setAttribute("aria-label", "Text on the whiteboard"); ta.rows = 1;
+    const ta = document.createElement("textarea"); ta.className = "wb-ta"; ta.id = "wbTa";   // an id lets a page redraw (the keyboard resizing the app) put the cursor back here
+    ta.setAttribute("aria-label", "Text on the whiteboard"); ta.rows = 1;
     ta.value = it.s || ""; Object.assign(ta.style, {left: it.x + "px", top: it.y + "px", fontSize: it.f + "px", color: penHex(it.c), fontFamily: famOf(it.ff)});
-    front.appendChild(ta); ED = {it, ta, isNew}; itemsDraw(); fitTa(); trayDraw();
-    ta.addEventListener("input", fitTa);
+    front.appendChild(ta); ED = {it, ta, isNew, sy: scrollY}; itemsDraw(); fitTa(); trayDraw();
+    keepTaVisible(true);   // rise now, together with the keyboard, so iOS has nothing to scroll into view
+    ta.addEventListener("input", () => { fitTa(); keepTaVisible(); });
+    [120, 450, 800].forEach(ms => setTimeout(() => { if (ED && ED.ta === ta) keepTaVisible(); }, ms));
     ta.addEventListener("pointerdown", e => e.stopPropagation());
     ta.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Escape" || (e.key === "Enter" && (e.ctrlKey || e.metaKey))) { e.preventDefault(); endText(); frame.focus({preventScroll: true}); } });
     ta.addEventListener("blur", () => setTimeout(() => { if (ED && ED.ta === ta && document.activeElement !== ta) endText(); }, 0));
@@ -77841,6 +78295,7 @@ var SBWB = null;
     else if (s !== it.s || !getI(it.id)) set("i", it.id, Object.assign({}, it, {s, at: Date.now()}));
     opEnd(); itemsDraw(true); trayDraw();
     if (s.trim() && T.tool === "text" && getI(it.id)) select(new Set(["i" + it.id]));
+    setTimeout(liftCheck, 350);   // typing somewhere else next keeps the lift; otherwise it settles once the keyboard goes
   }
   const hitItem = (p, kind) => { const r = 6 / cam.z, l = items(); for (let i = l.length - 1; i >= 0; i--) { const it = l[i]; if (kind && it.k !== kind) continue; const b = itemBB(it); if (p[0] >= b[0] - r && p[0] <= b[2] + r && p[1] >= b[1] - r && p[1] <= b[3] + r) return it; } return null; };
   function hitStroke(p){ const l = strokes(); for (let i = l.length - 1; i >= 0; i--) { const s = l[i], g = geo(s), r = Math.max(s.w / 20, 8 / cam.z); if (p[0] < g.bb[0] - r || p[0] > g.bb[2] + r || p[1] < g.bb[1] - r || p[1] > g.bb[3] + r) continue; if (nearLine(g.pts, p, r)) return s; } return null; }
@@ -77912,7 +78367,7 @@ var SBWB = null;
   function selbarPlace(){
     if (!selbar || selbar.hidden || !SEL) return;
     const b = selBox(); if (!b) { selbar.hidden = true; return; }
-    const w = selbar.offsetWidth, h = selbar.offsetHeight, sx = (b[0] + b[2]) / 2 * cam.z + cam.x, top = b[1] * cam.z + cam.y - h - 12, bot = b[3] * cam.z + cam.y + 14;
+    const w = selbar.offsetWidth, h = selbar.offsetHeight, sx = (b[0] + b[2]) / 2 * cam.z + cam.x, top = b[1] * cam.z + cam.y - LV - h - 12, bot = b[3] * cam.z + cam.y - LV + 14;
     selbar.style.left = clamp(sx - w / 2, 6, Math.max(6, fw - w - 6)) + "px";
     selbar.style.top = (top > 6 ? top : Math.min(bot, fh - h - 6)) + "px";
     selbar.classList.toggle("dragging", !!SEL.drag);
@@ -77921,7 +78376,7 @@ var SBWB = null;
   /* Pointer: draw, erase, shapes, text, select; two fingers */
   let D = null, GEST = null, HOV = null, penSeen = false, spaceDown = false;
   const PTR = new Map();
-  const local = e => { const r = frame.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  const local = e => { const r = frame.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top + LV]; };
   const toW = s => [(s[0] - cam.x) / cam.z, (s[1] - cam.y) / cam.z];
   function cancelDraw(){ if (!D) return; clearTimeout(D.snapT); clearTimeout(D.grabT); if (D.kind === "erase") opEnd(); if (D.kind === "move" || D.kind === "scale") { SEL.k = 1; SEL.dx = SEL.dy = 0; SEL.drag = false; itemsDraw(); } D = null; dirty(); }
   function touchPts(){ return [...PTR.values()].filter(p => p.type === "touch"); }
@@ -78367,7 +78822,7 @@ var SBWB = null;
   try { new MutationObserver(themeCheck).observe(document.documentElement, {attributes: true, attributeFilter: ["data-theme", "class"]}); } catch (e) {}
   try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", themeCheck); } catch (e) {}
   document.addEventListener("visibilitychange", () => { if (document.hidden) { endText(); flush(); } });
-  window.addEventListener("resize", () => { const h = document.getElementById("wbHost"); if (h && STAGE && h.contains(STAGE)) { if (ED && phone()) return; sizeHost(h); resize(); } });
+  window.addEventListener("resize", () => { const h = document.getElementById("wbHost"); if (h && STAGE && h.contains(STAGE)) { if ((ED || kbUp()) && TOUCH()) return; sizeHost(h); resize(); } });
 
   /* The page */
   function picker(list, cur){
@@ -82677,27 +83132,127 @@ const AUTOPILOT = (() => {
   const ls = window.localStorage;
   const rawSet = Storage.prototype.setItem, rawRm = Storage.prototype.removeItem, rawGet = Storage.prototype.getItem;
 
-  /* Swipe between days on the Schedule (phone layout) */
+  /* Swipe between days on the Schedule (phone layout): the day follows your finger with the next one sliding in beside it,
+     like a calendar app's day view. While swiping, a clipped window over the day's cell holds still copies of the two days
+     side by side and only that strip moves; the real schedule underneath isn't touched until the swipe settles, so nothing
+     in it can jump. Past a third of the way (or a flick) it settles on that day, else it springs back. */
   (() => {
-    let t0 = null;
     const phoneSch = () => !!(window.matchMedia && matchMedia("(max-width:700px)").matches);
+    const still = () => document.documentElement.dataset.motion === "static" || !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+    const EASE = "cubic-bezier(.2,.8,.2,1)";
+    let S = null, eatClick = 0;
+    const strip = el => { const c = el.cloneNode(true); c.removeAttribute("id"); c.querySelectorAll("[id]").forEach(e => e.removeAttribute("id")); c.classList.remove("sel"); return c; };
+    // one day as a page: its header over its column, as drawn
+    function page(head, col, shift){
+      const p = document.createElement("div"); p.className = "sch-page";
+      const h = strip(head), c = strip(col);
+      h.style.height = S.hh + "px"; c.style.height = S.ch + "px";
+      if (shift) c.querySelectorAll(".sch-b, .sch-now").forEach(e => { e.style.top = (parseFloat(e.style.top) || 0) + shift + "px"; });
+      p.append(h, c); return p;
+    }
+    // The day `dir` away: in this week it's already drawn (hidden); across the week it's drawn off to the side
+    function side(dir){
+      const grid = S.grid, pills = [...document.querySelectorAll(".sch-pills button")];
+      const cur = Math.max(0, pills.findIndex(b => b.getAttribute("aria-pressed") === "true")), n = cur + dir;
+      const heads = [...grid.querySelectorAll(":scope > .sch-head")], cols = [...grid.querySelectorAll(":scope > .sch-col")];
+      if (n >= 0 && n < pills.length && heads[n] && cols[n]) return {pg: page(heads[n], cols[n], 0), commit: () => { ui.schDay = n; }};
+      const wk = addDays(ui.schWeek || mondayOf(todayISO()), dir * 7), keep = [ui.schWeek, ui.schDay, schNoticeHtml];
+      ui.schWeek = wk; ui.schDay = dir > 0 ? 0 : -1;
+      let html = ""; try { html = viewSchedule(); } catch (e) {}
+      ui.schWeek = keep[0]; ui.schDay = keep[1]; schNoticeHtml = keep[2];
+      const tmp = document.createElement("div"); tmp.innerHTML = html;
+      const h = tmp.querySelector(".sch-grid > .sch-head.sel"), c = tmp.querySelector(".sch-grid > .sch-col.sel"), g2 = tmp.querySelector(".sch-grid");
+      if (!h || !c) return null;
+      // that week may start its hours elsewhere: line its events up with the hours shown here
+      const pph = Number(grid.dataset.pph) || 56, shift = ((Number(g2 && g2.dataset.h0) || 0) - (Number(grid.dataset.h0) || 0)) * pph;
+      return {pg: page(h, c, shift), commit: () => { ui.schWeek = wk; ui.schDay = dir > 0 ? 0 : -1; }};
+    }
+    function peek(dir){
+      if (S.dir === dir && S.nb) return S.nb;
+      if (S.nb) S.nb.pg.remove();
+      S.dir = dir; S.nb = side(dir);
+      if (S.nb) { S.nb.pg.style.left = dir * S.w + "px"; S.win.appendChild(S.nb.pg); }
+      return S.nb;
+    }
+    function open(){
+      // the window over the day's cell, with the current day copied into it; the real day hides underneath
+      const wrap = S.grid.closest(".sch-wrap"), wr = wrap.getBoundingClientRect(), hr = S.head.getBoundingClientRect(), cr = S.col.getBoundingClientRect();
+      S.hh = hr.height; S.ch = cr.height;
+      const win = document.createElement("div"); win.className = "sch-swipe sm-skip"; win.setAttribute("aria-hidden", "true");
+      Object.assign(win.style, {left: (hr.left - wr.left - wrap.clientLeft) + "px", top: (hr.top - wr.top - wrap.clientTop + wrap.scrollTop) + "px", width: S.w + "px", height: (cr.bottom - hr.top) + "px"});
+      S.track = win; S.win = win;
+      S.cur = page(S.head, S.col, 0); S.cur.style.left = "0px"; win.appendChild(S.cur);
+      if (getComputedStyle(wrap).position === "static") wrap.style.position = "relative";
+      wrap.appendChild(win);
+      S.grid.classList.add("sch-swiping");
+    }
+    function place(dx, ms){
+      const tr = ms ? `transform ${ms}ms ${EASE}` : "";
+      [S.cur, S.nb && S.nb.pg].forEach(p => { if (p) { p.style.transition = tr; p.style.transform = `translate3d(${dx}px,0,0)`; } });
+    }
+    function cleanup(){
+      if (!S) return;
+      if (S.win) S.win.remove();
+      if (S.grid) S.grid.classList.remove("sch-swiping");
+      if (S.lock === "x") renderBlocked = false;
+      S = null;
+    }
     document.addEventListener("touchstart", e => {
-      t0 = null;
-      if (e.touches.length !== 1 || !phoneSch() || document.body.classList.contains("sch-dragging")) return;
+      if (S && S.settling) return;
+      S = null;
+      if (e.touches.length !== 1 || !phoneSch() || ui.tab !== "schedule" || document.body.classList.contains("sch-dragging") || dlg.open) return;
       if (!e.target.closest || !e.target.closest(".sch-wrap, .sch-pills")) return;
-      const t = e.touches[0]; t0 = {x: t.clientX, y: t.clientY, at: Date.now()};
+      const grid = document.querySelector(".sch-wrap .sch-grid"), head = grid && grid.querySelector(":scope > .sch-head.sel"), col = grid && grid.querySelector(":scope > .sch-col.sel");
+      if (!head || !col) return;
+      const t = e.touches[0];
+      S = {x: t.clientX, y: t.clientY, grid, head, col, w: col.getBoundingClientRect().width, lock: "", dx: 0, v: 0, lt: performance.now(), lx: t.clientX, dir: 0, nb: null};
     }, {passive: true});
-    document.addEventListener("touchend", e => {
-      const s = t0; t0 = null;
-      if (!s || ui.tab !== "schedule" || document.body.classList.contains("sch-dragging") || dlg.open) return;
-      const t = e.changedTouches[0], dx = t.clientX - s.x, dy = t.clientY - s.y;
-      if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.6 || Date.now() - s.at > 800) return;
-      const pills = [...document.querySelectorAll(".sch-pills button")]; if (!pills.length) return;
-      const cur = Math.max(0, pills.findIndex(b => b.getAttribute("aria-pressed") === "true")), dir = dx < 0 ? 1 : -1, n = cur + dir;
-      if (n >= 0 && n < pills.length) ui.schDay = n;
-      else { ui.schWeek = addDays(ui.schWeek || mondayOf(todayISO()), dir * 7); ui.schDay = dir > 0 ? 0 : -1; }
-      render();
-    }, {passive: true});
+    document.addEventListener("touchmove", e => {
+      if (!S || S.settling || e.touches.length !== 1) return;
+      if (document.body.classList.contains("sch-dragging")) { cleanup(); return; }
+      const t = e.touches[0], dx = t.clientX - S.x, dy = t.clientY - S.y;
+      if (!S.lock) {
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        S.lock = Math.abs(dx) > Math.abs(dy) * 1.2 ? "x" : "y";
+        if (S.lock === "y") return;
+        renderBlocked = true;   // no redraw while the finger is down; one runs once it settles
+        open();
+      }
+      if (S.lock !== "x") return;
+      e.preventDefault();
+      const now = performance.now(); if (now > S.lt) S.v = (t.clientX - S.lx) / (now - S.lt); S.lt = now; S.lx = t.clientX;
+      S.dx = dx;
+      if (dx) peek(dx < 0 ? 1 : -1);
+      place(S.nb ? dx : dx * 0.3, 0);
+    }, {passive: false});
+    const end = () => {
+      if (!S || S.settling) return;
+      if (S.lock !== "x") { S = null; return; }
+      eatClick = Date.now();
+      if (performance.now() - S.lt > 90) S.v = 0;   // the finger stopped before lifting: not a flick
+      const dir = S.dir, go = S.nb && (Math.abs(S.dx) > S.w * 0.33 || (Math.abs(S.v) > 0.45 && Math.sign(S.v) === -dir));
+      const ms = still() ? 0 : Math.round(Math.max(170, Math.min(320, (go ? S.w - Math.abs(S.dx) : Math.abs(S.dx)) / Math.max(0.6, Math.abs(S.v)))));
+      S.settling = true;
+      const finish = () => {
+        if (!S) return;
+        if (go) {
+          // the new day is drawn underneath first, then the window lifts off: no frame without a day in it
+          const commit = S.nb.commit, win = S.win, h0 = S.hh;
+          S.win = null; cleanup(); commit(); render();
+          if (win) { requestAnimationFrame(() => win.remove()); }
+          // the new day's header can be taller or shorter (more due items): the hours below ease into place instead of jumping
+          const g = document.querySelector(".sch-wrap .sch-grid"), nh = g && g.querySelector(":scope > .sch-head.sel"), d = nh ? Math.round(nh.getBoundingClientRect().height - h0) : 0;
+          if (d && !still() && g.animate) g.querySelectorAll(":scope > .sch-gutter, :scope > .sch-col.sel").forEach(el => el.animate([{transform: `translateY(${-d}px)`}, {transform: "none"}], {duration: 220, easing: EASE}));
+        } else cleanup();
+      };
+      if (!ms) { finish(); return; }
+      place(go ? -dir * S.w : 0, ms);
+      setTimeout(finish, ms + 20);
+    };
+    document.addEventListener("touchend", end, {passive: true});
+    document.addEventListener("touchcancel", () => { if (S && !S.settling) { if (S.lock === "x") { S.dx = 0; end(); } else S = null; } }, {passive: true});
+    // a swipe isn't a tap on whatever it started on
+    document.addEventListener("click", e => { if (Date.now() - eatClick < 400 && e.target.closest && e.target.closest(".sch-wrap")) { e.preventDefault(); e.stopPropagation(); } }, true);
   })();
 
   /* Dismissals and light/dark follow you between devices */
@@ -83112,13 +83667,14 @@ const AUTOPILOT = (() => {
     root.classList.toggle("ph-lock", on);
     if (!on) { if (view && view.style.height) view.style.height = ""; return; }
     if (scrollY) scrollTo(0, 0);
-    const vv = window.visualViewport, vh = vv ? vv.height : innerHeight, nav = document.querySelector("nav.tabs");
+    const vv = window.visualViewport, vh = typeof window.sbVisibleH === "function" ? window.sbVisibleH() : vv ? vv.height : innerHeight, nav = document.querySelector("nav.tabs");
     const nr = nav && getComputedStyle(nav).display !== "none" ? nav.getBoundingClientRect() : null, navTop = nr && nr.height ? nr.top : innerHeight;
     const bottom = Math.min(navTop - 12, vh - 8), top = view.getBoundingClientRect().top;
     const log = document.getElementById("cptLog"), pin = !!log && root.classList.contains("cpt-typing") && log.scrollHeight - log.scrollTop - log.clientHeight < 60;
     view.style.height = Math.max(200, Math.floor(bottom - top)) + "px";
     if (pin) log.scrollTop = log.scrollHeight;
   }
+  addEventListener("sb-kb-cover", fitChat);
   if (window.visualViewport) { visualViewport.addEventListener("resize", fitChat); visualViewport.addEventListener("scroll", () => { if (root().classList.contains("ph-lock") && scrollY) scrollTo(0, 0); }); }
   const root = () => document.documentElement;
   // Typing in the companion chat: the profile card folds away (CSS, html.cpt-typing) and comes back when you're done.
@@ -83133,6 +83689,8 @@ const AUTOPILOT = (() => {
   // The card's motion: the iOS sheet curve, about as long as the keyboard takes. The small face in the title bar flies
   // from the big circle on the way in and back to it on the way out, so it reads as one companion moving, not a swap.
   const MORPH = 440, EASE = "cubic-bezier(.32,.72,0,1)";
+  // opening back out is gentler and a little longer (a soft ease in and out), so nothing snaps into place
+  const UNFOLD = 520, UNFOLD_EASE = "cubic-bezier(.45,0,.2,1)";
   function fly(head, toRing){
     const face = head.querySelector(".cpt3-mini > :first-child"), ring = head.querySelector(".cpt3-ring");
     if (!face || !ring || !face.animate) return;
@@ -83153,16 +83711,50 @@ const AUTOPILOT = (() => {
       if (face && face.animate) { const f = face.getBoundingClientRect(); if (f.width) face.animate([{transform: `translate(${Math.round(ringBefore.left + ringBefore.width / 2 - (f.left + f.width / 2))}px,${Math.round(ringBefore.top + ringBefore.height / 2 - (f.top + f.height / 2))}px) scale(${(ringBefore.width * 0.86 / f.width).toFixed(3)})`}, {transform: "none"}], {duration: MORPH, easing: EASE}); }
       if (ring) ring.style.opacity = "";
     } else {
+      // the reverse of folding: the card opens back out while the small face grows back down into the big circle
+      const face = head.querySelector(".cpt3-mini > :first-child"), from = face ? face.getBoundingClientRect() : null;
+      r.classList.add("cpt-unfold");
       head.style.height = head.offsetHeight + "px"; r.classList.remove("cpt-typing");
       const full = head.scrollHeight; void head.offsetHeight; head.style.height = full + "px";
-      fly(head, true);
+      const ring = head.querySelector(".cpt3-ring"), slot = ring && ring.querySelector(".cpt-face-slot");
+      if (ring && ring.animate && from && from.width) {
+        const to = ring.getBoundingClientRect(), k = (from.width / 0.86) / to.width;
+        // the circle carries a copy of the face on the way (the live companion fades back in once it has landed)
+        let copy = null;
+        // the circle carries a copy of the live companion as it is right now (its eyes, outfit and pose), hovering in step with
+        // it, so when they swap nothing changes: no eyes popping open, no hover starting from still
+        const live = document.querySelector(".cp-front .cp");
+        if (slot && (live || face.firstElementChild)) {
+          copy = document.createElement("span"); copy.className = "cpt3-fly";
+          if (live) {
+            const c = live.cloneNode(true); c.removeAttribute("style"); c.classList.add("cp-copy"); c.querySelectorAll(".cp-hit, .cp-fx, .cp-shadow").forEach(e => e.remove());
+            copy.appendChild(c); slot.appendChild(copy);
+            const lb = live.querySelector(".cp-breathe"), cb = c.querySelector(".cp-breathe");
+            const la = lb && lb.getAnimations()[0], ca = cb && cb.getAnimations()[0];
+            if (la && ca) try { ca.currentTime = la.currentTime; } catch (e) {}
+            head._sync = () => { const a1 = lb && lb.getAnimations()[0], a2 = cb && cb.getAnimations()[0]; if (a1 && a2) try { a1.currentTime = a2.currentTime; } catch (e) {} };
+          } else { copy.innerHTML = face.innerHTML; slot.appendChild(copy); }
+        }
+        ring.style.opacity = "1"; ring.style.transition = "none";
+        const a = ring.animate([{transform: `translate(${Math.round(from.left + from.width / 2 - (to.left + to.width / 2))}px,${Math.round(from.top + from.height / 2 - (to.top + to.height / 2))}px) scale(${k.toFixed(3)})`}, {transform: "none"}], {duration: UNFOLD, easing: UNFOLD_EASE});
+        // the copy stays until the live companion (the same size, in the same spot) has faded in over it, then fades away:
+        // never two companions, never one of a different size
+        // the copy and the live companion (the same size, in the same spot) swap in a single frame once it has landed: never two
+        const done = () => { ring.style.opacity = ""; ring.style.transition = ""; };
+        a.finished.then(done, done);
+        head._copy = copy;
+      }
     }
-    head._t = setTimeout(() => { head.style.height = ""; r.classList.remove("cpt-morph"); follow(false); }, MORPH + 20);
+    const ms = on ? MORPH : UNFOLD;
+    head._t = setTimeout(() => { head.style.height = ""; if (head._sync) { head._sync(); head._sync = null; } r.classList.remove("cpt-morph", "cpt-unfold"); if (head._copy) { head._copy.remove(); head._copy = null; } follow(false); }, ms + 20);
     follow(pin);
   }
   document.addEventListener("focusin", e => { if (e.target && e.target.id === "cptIn" && isPhone()) { clearTimeout(typeT); typing(true); } });
+  // the card opens back up together with the keyboard sliding away, not a beat after it
+  { let wasKb = false; new MutationObserver(() => { const kb = root().classList.contains("kb-open"); if (wasKb && !kb && root().classList.contains("cpt-typing")) { clearTimeout(typeT); typing(false); } wasKb = kb; }).observe(document.documentElement, {attributes: true, attributeFilter: ["class"]}); }
   document.addEventListener("focusout", e => { if (!e.target || e.target.id !== "cptIn") return; clearTimeout(typeT); typeT = setTimeout(() => { const a = document.activeElement; if (!(a && a.id === "cptIn")) typing(false); }, 180); });
-  hook("render", () => { const a = document.activeElement; if (!(a && a.id === "cptIn")) root().classList.remove("cpt-typing"); else if (isPhone()) root().classList.add("cpt-typing"); });
+  // a page redraw while folded (often from the keyboard closing) opens the card with the same animation, never in one jump
+  hook("render", () => { const a = document.activeElement; if (!(a && a.id === "cptIn")) { if (root().classList.contains("cpt-typing")) { clearTimeout(typeT); typing(false); } } else if (isPhone()) root().classList.add("cpt-typing"); });
   // An Options menu closes after a choice, or a tap anywhere else
   document.addEventListener("click", e => {
     document.querySelectorAll("details.ph-more[open]").forEach(d => { if (!d.contains(e.target) || e.target.closest(".ph-menu .btn")) d.open = false; });
@@ -84080,13 +84672,17 @@ let hereT = 0;
 hook("render", () => { if (!hereT) hereT = setTimeout(() => { hereT = 0; hereSave(); }, 1000); });
 addEventListener("pagehide", hereSave);
 document.addEventListener("visibilitychange", () => { if (document.hidden) hereSave(); });
+try { if (window.SBLaunch) SBLaunch.to(64); } catch (e) {}
 render();
+try { if (window.SBLaunch) SBLaunch.to(88); } catch (e) {}
 if (hereScroll) setTimeout(() => { try { window.scrollTo(0, hereScroll); } catch(e) {} }, 350);
 initCloud();
 setTimeout(() => dailyQuote(false), 1600);
 fire("boot");
 bootDone = true;
-} catch (e) { bootNote(e); console.error("start", e); bootStuck(); }
+// the launch screen finishes once the first page has painted and the app's fonts are in (never more than a moment)
+try { if (window.SBLaunch) { SBLaunch.to(94); let fin = false; const go = () => { if (!fin) { fin = true; SBLaunch.done(); } }; requestAnimationFrame(() => requestAnimationFrame(() => { if (document.fonts && document.fonts.ready) document.fonts.ready.then(go, go); setTimeout(go, 700); })); } } catch (e) {}
+} catch (e) { bootNote(e); console.error("start", e); try { if (window.SBLaunch) SBLaunch.hide(); } catch (e2) {} bootStuck(); }
 })();
 setInterval(() => { try { trashEnforce(); } catch(e) {} }, 36e5);
 setInterval(() => { const d = todayISO(); if (d !== ui._day) { ui._day = d; scheduleRender(); setTimeout(() => dailyQuote(false), 1000); } }, 60000);
@@ -84096,7 +84692,7 @@ ui._day = todayISO();
 /* Smooth reveals: tabs, sheets, menus and opened sections ease in (opacity and movement only, so they stay fast) */
 (function(){
   const root = document.documentElement;
-  const on = () => root.dataset.motion !== "static" && styleCfg().motion !== false;
+  const on = () => root.dataset.motion !== "static" && styleCfg().motion !== false && !(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
   let lastKey = null, userAt = 0;
   const play = (el, cls) => { if (!el || !on()) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); setTimeout(() => el.classList.remove(cls), 420); };
 
@@ -84120,6 +84716,44 @@ ui._day = todayISO();
     quiet(this); requestAnimationFrame(() => quiet(this));
     return r;
   };
+  // Phones: a sheet slides back down when it closes. The sheet itself closes at once (nothing in the app waits on it);
+  // a still copy of how it looked slides down and fades over the page, then goes.
+  const close0 = HTMLDialogElement.prototype.close;
+  const reduced = () => !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  function sheetGhost(d){
+    try {
+      if (!d.open || !phoneW() || !on() || reduced() || !d.matches(":modal") || d.classList.contains("tour") || !document.body.showPopover) return null;
+      const r = d.getBoundingClientRect(); if (r.height < 40 || r.top >= innerHeight) return null;
+      const dim = getComputedStyle(d, "::backdrop").backgroundColor;
+      const host = document.createElement("div"); host.className = "sm-ghost sm-skip"; host.setAttribute("aria-hidden", "true"); host.inert = true; host.setAttribute("popover", "manual");
+      const c = d.cloneNode(true);
+      // what was typed isn't copied with the elements, so carry it over
+      const src = d.querySelectorAll("input,textarea,select"), dst = c.querySelectorAll("input,textarea,select");
+      src.forEach((el, i) => { const t = dst[i]; if (!t) return; if (el.type === "checkbox" || el.type === "radio") t.checked = el.checked; else try { t.value = el.value; } catch (e) {} });
+      // a closed dialog shown by hand, so nothing looking for an open sheet ever finds it; it wears the sheet's own box
+      c.removeAttribute("open"); c.classList.add("sm-ghost-sheet");
+      const cs = getComputedStyle(d), box = {};
+      ["display", "flexDirection", "background", "backgroundColor", "color", "border", "borderRadius", "padding", "boxShadow", "overflow", "fontFamily", "fontSize", "boxSizing"].forEach(k => { box[k] = cs[k]; });
+      Object.assign(c.style, box, {position: "fixed", left: r.left + "px", top: r.top + "px", right: "auto", bottom: "auto", width: r.width + "px", height: r.height + "px", margin: "0", maxHeight: "none", maxWidth: "none", transform: "none", animation: "none"});
+      const sc = d.querySelector(".sheet-body, .sheet"), sc2 = sc && c.querySelector(sc.classList.contains("sheet-body") ? ".sheet-body" : ".sheet"), st = sc ? sc.scrollTop : 0;
+      host.innerHTML = `<div class="sm-ghost-dim" style="background:${dim && dim !== "rgba(0, 0, 0, 0)" ? dim : "rgba(10,14,22,.45)"}"></div>`;
+      host.appendChild(c);
+      return () => {
+        document.body.appendChild(host); try { host.showPopover(); } catch (e) {}
+        if (sc2) sc2.scrollTop = st;   // where it was scrolled to
+        const ease = {duration: 260, easing: "cubic-bezier(.4,0,1,1)", fill: "forwards"};
+        const a = c.animate([{transform: "translateY(0)"}, {transform: "translateY(" + Math.max(r.height, innerHeight - r.top) + "px)"}], ease);
+        host.firstChild.animate([{opacity: 1}, {opacity: 0}], ease);
+        const done = () => host.remove(); a.finished.then(done, done); setTimeout(done, 600);
+      };
+    } catch (e) { return null; }
+  }
+  HTMLDialogElement.prototype.close = function(){
+    const ghost = sheetGhost(this);
+    const r = close0.apply(this, arguments);
+    if (ghost) ghost();
+    return r;
+  };
   // The main sheets carry their own showModal (99-release.js), so wrap those too
   document.querySelectorAll("dialog").forEach(d => {
     if (!Object.prototype.hasOwnProperty.call(d, "showModal")) return;
@@ -84131,7 +84765,7 @@ ui._day = todayISO();
   hook("render", tab => {
     const key = tab + "|" + (typeof ui !== "undefined" && ui.courseId || "");
     const changed = lastKey !== null && key !== lastKey; lastKey = key;
-    if (changed) play(document.getElementById("view"), "sm-view");
+    if (changed && !root.classList.contains("vt-tab")) play(document.getElementById("view"), "sm-view");
   });
 
   // Tab bar: the tapped tab shows as selected at once, so the highlight fades in with the tap instead of after the page is drawn
@@ -84166,7 +84800,7 @@ ui._day = todayISO();
         }
       } else if (m.type === "childList" && t !== view() && t.id !== "view") {
         // a small piece of the page filled in (an opened section, a menu list); whole-page redraws land on #view and are skipped
-        for (const a of m.addedNodes) if (a.nodeType === 1 && !a.classList.contains("sm-in") && n < 6 && !a.closest(".sm-skip, .g2-band, .detail-head, .view-head, .cf-row, .qa-bar, nav, header") && !a.matches(".ra-more, .ph-more, .ph-menu") && !/^(SCRIPT|STYLE|CANVAS)$/.test(a.tagName)) { if (t.closest("#dlg") && t === document.getElementById("dlg")) continue; play(a, "sm-in"); n++; }
+        for (const a of m.addedNodes) if (a.nodeType === 1 && !a.classList.contains("sm-in") && n < 6 && !a.closest(".sm-skip, .g2-band, .detail-head, .view-head, .cf-row, .qa-bar, nav, header") && !a.matches(".ra-more, .ph-more, .ph-menu") && !/^(SCRIPT|STYLE|CANVAS)$/.test(a.tagName)) { if (t.tagName === "DIALOG") continue; play(a, "sm-in"); n++; }   // a sheet redrawn whole (a button pressed in it) stays still
       }
     }
   });

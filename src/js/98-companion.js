@@ -868,6 +868,8 @@
       for (let i = 1; i < 4; i++) later(() => spawnFx("sparkle", 1), dur * i / 4);
     }
     fitFrames(frames, to, px);
+    // on its way it flies above everything; it settles under the page's bars (cp-under) only once seated in its circle
+    if (front) front.classList.remove("cp-under");
     const me = travelAnim = box.animate(frames, {duration: dur, easing});
     box.dataset.travel = style;
     motionWatch(dur);
@@ -876,6 +878,7 @@
     me.onfinish = me.oncancel = () => {
       if (travelAnim !== me) return;
       travelAnim = null; delete box.dataset.travel; clamp("anim-end");
+      if (front) front.classList.toggle("cp-under", spotKind === "slot");
       const b = front && front.querySelector(".cp-bubble.on"); if (b) placeBubble(b);
       if (act && mood === "idle" && !still()) { act.mouth("smile"); later(() => act && mood === "idle" && act.mouth("neutral"), 900); const r = box.getBoundingClientRect(); glanceAt(r.left + (dir > 0 ? -220 : r.width + 220), r.top + r.height * 0.4, 900); }
     };
@@ -912,7 +915,7 @@
     if (box.parentNode !== front) front.appendChild(box);
     box.classList.toggle("cp-h-fab", s.kind === "home");
     const sig = [s.left, s.top, s.px].join(",");
-    front.classList.toggle("cp-under", s.kind === "slot");
+    front.classList.toggle("cp-under", s.kind === "slot" && !travelAnim);
     anchorFront(s.kind === "slot");
     if (still1) {
       box.style.cssText = `left:${s.left}px;top:${s.top}px;width:${s.px}px;height:${s.px}px`;
@@ -1365,14 +1368,16 @@
     if (act) act.stopAll();
     const keepMood = cur && cur.id === c.id ? mood : null;
     let keepAt = null;
-    if (box && box.dataset.x && homeSig) { const o = +box.dataset.px || sizePx(c), dc = travelAnim || glideAnim ? drawnCentre() : {x: +box.dataset.x + o / 2, y: +box.dataset.y + o / 2}; keepAt = {x: dc.x, y: dc.y}; }
+    if (box && box.dataset.x && homeSig) { const o = +box.dataset.px || sizePx(c), dc = travelAnim || glideAnim ? drawnCentre() : {x: +box.dataset.x + o / 2, y: +box.dataset.y + o / 2}; keepAt = {x: dc.x, y: dc.y, px: +box.dataset.px || 0, spot: box.dataset.spot || ""}; }
     cur = c; curSig = sig; homeSig = "";
     compChanged();
     if (box) { stopTravel(); if (glideAnim) try { glideAnim.cancel(); } catch (e) {} box.remove(); }
     layer.insertAdjacentHTML("beforeend", `<div class="cp cp-${c.pose}" data-id="${esc(c.id)}"><span class="cp-shadow"></span><div class="cp-move"><div class="cp-breathe">${rigSvg(c, {wear: wearOf(c)})}</div></div><div class="cp-fx"></div><div class="cp-hit" tabindex="0" role="button" aria-label="${esc(nameOf(c))}, your study companion. Press to say hi. Press and hold, or right-click, to choose a companion."></div></div>`);
     box = layer.querySelector(".cp"); vext = null;
-    { const px0 = sizePx(c); box.style.cssText = `left:0px;top:0px;width:${px0}px;height:${px0}px`; front.appendChild(box);
-      if (keepAt) { const l = Math.round(keepAt.x - px0 / 2), t = Math.round(keepAt.y - px0 / 2); box.style.left = l + "px"; box.style.top = t + "px"; box.dataset.x = l; box.dataset.y = t; box.dataset.px = px0; homeSig = [l, t, px0].join(","); } }
+    // rebuilt where it sat (a seat in the tab bar, its page's circle): it keeps that size, so it never sits there oversized
+    // while a sheet or the keyboard holds off the next placement
+    { const px0 = keepAt && keepAt.px && (keepAt.spot === "dock" || keepAt.spot === "slot" || keepAt.spot === "pin") ? keepAt.px : sizePx(c); box.style.cssText = `left:0px;top:0px;width:${px0}px;height:${px0}px`; front.appendChild(box);
+      if (keepAt) { const l = Math.round(keepAt.x - px0 / 2), t = Math.round(keepAt.y - px0 / 2); box.style.left = l + "px"; box.style.top = t + "px"; box.dataset.x = l; box.dataset.y = t; box.dataset.px = px0; if (keepAt.spot) box.dataset.spot = keepAt.spot; homeSig = [l, t, px0].join(","); } }
     act = actor(c, box, {spawn: spawnFx, watch: motionWatch});
     applyVars();
     place();

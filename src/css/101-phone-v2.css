@@ -213,8 +213,7 @@
   html.ph-lock #view .cpt-pane > .cpt-log{flex:1 1 auto;min-height:0!important;max-height:none!important;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
   html.ph-lock #view .cpt-form{position:static!important}
   @media (max-height:700px){html.ph-lock #view .cpt-priv{display:none}}
-  /* a short screen (or large text): the starter questions in one row that scrolls sideways, so the box never cuts them off */
-  @media (max-height:760px){html.ph-lock #view .cpt-empty .cpt-chips{flex-wrap:nowrap!important;justify-content:flex-start!important;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;width:100%;max-width:100%;min-width:0;justify-self:stretch;box-sizing:border-box}html.ph-lock #view .cpt-empty .cpt-chips .chip{flex:none;white-space:nowrap}}
+  /* the starter questions always stack (the chat scrolls if there's no room) */
   /* Notes / Groups */
   #view > .pview-tabs.ph-solo .ph-solo-t{flex:1;display:flex;align-items:center;justify-content:center;min-height:42px;color:var(--ink);font:800 1.3rem var(--display);letter-spacing:-.01em}
   #view > .pview-tabs.ph-solo{justify-content:center}
@@ -436,10 +435,15 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
 /* Keyboard open: sheets rest on top of the keyboard and stay fully on screen (header never slides under the status bar) */
 @media (max-width:639px){
   html.kb-open dialog#dlg{margin-bottom:var(--kb-h,0);max-height:calc(var(--vv-h,100dvh) - env(safe-area-inset-top,0px) - 16px)}
+  /* the iPhone app's keyboard slides over the app: sheets and the note editor rise with it, on the keyboard's own curve */
+  html.kb-native dialog#dlg{transition:margin-bottom .3s cubic-bezier(.32,.72,0,1)}
+  html.kb-native .note.editing.n-sheet{transition:bottom .3s cubic-bezier(.32,.72,0,1),max-height .3s cubic-bezier(.32,.72,0,1)}
   /* bars pinned to the bottom of the screen would float over what you're typing, so they step aside */
-  html.kb-open nav.tabs,html.kb-open .fab,html.kb-open .room-pill,html.kb-open .acc-chip,html.kb-open .tz-note,html.kb-open .gr-prompt{visibility:hidden!important;pointer-events:none!important}
+  html.kb-open:not(.kb-native) nav.tabs,html.kb-open:not(.kb-native) .fab,html.kb-open .room-pill,html.kb-open .acc-chip,html.kb-open .tz-note,html.kb-open .gr-prompt{visibility:hidden!important;pointer-events:none!important}
   html.kb-open .toast{bottom:calc(var(--kb-h,0px) + 12px)}
-  html.kb-open body::after{display:none}
+  /* the keyboard closing (iPhone app): the bars stay away until the app has grown back into place, then fade in there */
+  html.kb-closing:not(.kb-open) :is(nav.tabs,.fab){visibility:hidden!important}
+  html.kb-back:not(.kb-open):not(.kb-closing) :is(nav.tabs,.fab){animation:sm-back .22s ease-out}
 }
 }
 
@@ -660,7 +664,7 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
 
 /* Companion chat on a phone: while you type, the profile card slides up into its colour band, which becomes a title bar
    with a small face and the name, and slides back down when you're done. 101-phone-v2.js sets html.cpt-typing, animates
-   the height and flies the small face from and to the big circle (html.cpt-morph while it moves). The live companion
+   the height and flies the small face up from the big circle (html.cpt-morph while it moves). The live companion
    steps out for the move and comes back to its circle after. */
 .cpt3-mini{display:none}
 @media (max-width:639px){
@@ -670,12 +674,28 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
   html.ph-lock #view .cpt3-mini{display:flex;position:absolute;left:0;right:0;top:0;height:54px;align-items:center;gap:10px;padding:0 16px;color:#fff;pointer-events:none;z-index:2}
   html.ph-lock #view .cpt3-mini > :first-child{width:34px;height:34px;flex:none;border-radius:50%;background:color-mix(in srgb,var(--c) 14%,#fff);box-shadow:0 0 0 2px rgba(255,255,255,.85);display:grid;place-items:center;overflow:hidden;opacity:0;transition:none;will-change:transform}
   html.ph-lock #view .cpt3-mini .cp-ai-face svg{width:30px;height:30px}
+  html.ph-lock #view .cpt3-ring .cpt-face-slot{position:relative}
+  html.ph-lock #view .cpt3-fly{position:absolute;inset:-1%;transition:opacity .16s ease;display:grid;place-items:center;pointer-events:none}
+  html.ph-lock #view .cpt3-fly svg{width:100%;height:100%}
+  html.ph-lock #view .cpt3-fly svg.ai-ic-orig{display:none}
+  /* the copy of the live companion inside the circle: drawn and hovering just like the live one */
+  html.ph-lock #view .cpt3-fly .cp-copy{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  html.ph-lock #view .cpt3-fly .cp-copy .cp-breathe{animation:cpBreathe 3.6s ease-in-out infinite}
+  html.ph-lock #view .cpt3-fly .cp-copy.cp-float .cp-breathe{animation:cpFloat 3.4s ease-in-out infinite}
+  html.ph-lock #view .cpt3-fly .cp-copy.cp-doze .cp-breathe{animation-duration:5.2s}
+  html.ph-lock #view .cpt3-fly .cp-copy svg{width:100%;height:100%;overflow:visible}
+  /* opening back out: the card, the chat below it and the circle all on one soft curve */
+  html.ph-lock.cpt-unfold #view .cpt-head.cpt3{transition:height .52s cubic-bezier(.45,0,.2,1)}
+  html.ph-lock.cpt-unfold #view{transition:height .52s cubic-bezier(.45,0,.2,1)}
+  /* the chat below the card resizes on the same curve as the card and the keyboard, so it all moves as one */
+  html.ph-lock #view{transition:height .44s cubic-bezier(.32,.72,0,1)}
   html.ph-lock #view .cpt3-mini b{font:800 1.12rem var(--display);letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,.18);opacity:0;transform:translateY(6px);transition:opacity .12s ease,transform .12s ease}
   /* coming back: the card's words fade in once it has mostly opened */
   html.ph-lock #view :is(.cpt3-acts,.cpt3 .cpt-id,.cpt3-tabs){transition:opacity .26s ease .07s,transform .42s cubic-bezier(.32,.72,0,1) .02s}
   html.ph-lock #view .cpt3-ring{transition:opacity .22s ease .12s}
   html.ph-lock #view .cpt-priv{max-height:4em;overflow:hidden;transition:max-height .44s cubic-bezier(.32,.72,0,1),opacity .25s ease}
-  html.ph-lock :is(.cp-layer,.cp-front){transition:opacity .12s ease .42s}
+  html.ph-lock :is(.cp-layer,.cp-front){transition:none}
+  html.ph-lock.cpt-morph :is(.cp-layer,.cp-front){opacity:0;transition:opacity .06s linear}
   /* while typing */
   html.ph-lock.cpt-typing #view .cpt-head.cpt3{height:54px}
   html.ph-lock.cpt-typing #view .cpt3-mini > :first-child{opacity:1;transition:none}
@@ -685,8 +705,9 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
   html.ph-lock.cpt-typing #view .cpt-priv{max-height:0;opacity:0}
   html.ph-lock.cpt-typing :is(.cp-layer,.cp-front){opacity:0;transition:opacity .06s linear}
   /* on the way back, the small face stays up until it lands in the circle */
-  html.ph-lock.cpt-morph:not(.cpt-typing) #view .cpt3-mini > :first-child{opacity:1;transition:none}
-  html.ph-lock.cpt-morph:not(.cpt-typing) #view .cpt3-ring{opacity:1}
+  /* coming back: the small face fades out at once and the live companion fades in riding its circle as the card opens
+     (101-phone-v2.js keeps it seated each frame); no copy flies back, which showed as a dark disc in some themes */
+  html.ph-lock.cpt-morph:not(.cpt-typing) #view .cpt3-mini > :first-child{opacity:0;transition:opacity .12s ease}
 }
 @media (max-width:639px) and (prefers-reduced-motion:reduce){
   html.ph-lock #view :is(.cpt-head.cpt3,.cpt3-mini > *,.cpt3-acts,.cpt3-ring,.cpt-id,.cpt3-tabs,.cpt-priv),html.ph-lock :is(.cp-layer,.cp-front){transition:none!important}

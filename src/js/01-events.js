@@ -10,6 +10,32 @@ function toggleTask(id, el){
   if (n.status === "done") { celebrate("check"); popDone(el); if (ui.nextShown === id) { nufbAdd("accept", t); ui.nextShown = null; } }
   applyChanges([{kind:"task", id, after:n}], n.status === "done" ? `Completed ${t.title}` : `Moved ${t.title} back to To Do`, undefined, n.status === "done" ? {done: true} : undefined);
 }
+// Switching tabs cross-fades the old page into the new one. A still copy of the old page fades out where it was while the new
+// page fades in; everything else (header, tab bar, companion, theme scene) stays live and in its usual layer the whole time.
+// 99-smooth.js skips its own page fade while this runs.
+const TAB_MS = 240;
+function tabSwap(changed, go){
+  const r = document.documentElement, still = r.dataset.motion === "static" || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  const v = document.getElementById("view");
+  if (!changed || still || !v || dlg.open || !v.animate) { go(); return; }
+  let ghost = null;
+  try {
+    const b = v.getBoundingClientRect(), cs = getComputedStyle(v);
+    ghost = v.cloneNode(true);
+    ghost.removeAttribute("id"); ghost.querySelectorAll("[id]").forEach(e => e.removeAttribute("id"));
+    ghost.querySelectorAll("input, textarea, select, button, a").forEach(e => e.setAttribute("tabindex", "-1"));
+    ghost.className = (v.className || "") + " tab-ghost sm-skip"; ghost.setAttribute("aria-hidden", "true"); ghost.inert = true;
+    Object.assign(ghost.style, {position: "fixed", left: b.left + "px", top: b.top + "px", width: b.width + "px", height: Math.min(b.height, innerHeight - b.top + 40) + "px", margin: "0", padding: cs.padding, overflow: "hidden", pointerEvents: "none", zIndex: "1"});
+    v.parentNode.insertBefore(ghost, v.nextSibling);
+  } catch (e) { ghost = null; }
+  r.classList.add("vt-tab");
+  go();
+  const ease = "cubic-bezier(.2,.8,.2,1)";
+  v.animate([{opacity: 0}, {opacity: 1}], {duration: TAB_MS, easing: ease});
+  const end = () => { if (ghost) ghost.remove(); r.classList.remove("vt-tab"); };
+  if (ghost) ghost.animate([{opacity: 1}, {opacity: 0}], {duration: TAB_MS * 0.8, easing: ease, fill: "forwards"}).finished.then(end, end);
+  else setTimeout(end, TAB_MS);
+}
 document.addEventListener("click", e => {
   if (suppressClick) { suppressClick = false; e.preventDefault(); e.stopPropagation(); return; }
   const tab = e.target.closest("[data-tab]");
@@ -20,8 +46,8 @@ document.addEventListener("click", e => {
     if (want === "courses" && (ui.tab === "files" || ui.tab === "emails")) want = ui.tab;
     if (want === "timeline" && ui.tab !== "timeline") ui.tlJump = true;
     if (want === ui.tab && ui.tab === "courses") ui.courseId = null;
-    ui.tab = want; if (ui.tab !== "courses") ui.courseId = null;
-    render(); window.scrollTo(0, 0); return;
+    const go = () => { ui.tab = want; if (ui.tab !== "courses") ui.courseId = null; render(); window.scrollTo(0, 0); };
+    tabSwap(want !== ui.tab && e.isTrusted, go); return;   // the app's own tab clicks switch at once, in step with what it does next
   }
   if (ui.tab === "notes" && !e.target.closest("dialog")) {
     const nEl = e.target.closest(".note");
@@ -397,7 +423,23 @@ function tick(){
     const under = document.elementFromPoint(drag.x, drag.y);
     const b = (under && under.closest(".board")) || drag.board;
     drag.hs = false;
-    if (b && b.scrollWidth > b.clientWidth) { const br = b.getBoundingClientRect(); if (drag.x < br.left + 40) { b.scrollLeft -= 10; drag.hs = true; } else if (drag.x > br.right - 40) { b.scrollLeft += 10; drag.hs = true; } }
+    if (b && b.scrollWidth > b.clientWidth) {
+      const br = b.getBoundingClientRect(), paged = getComputedStyle(b).display === "flex";
+      let dir = drag.x < br.left + (paged ? 56 : 40) ? -1 : drag.x > br.right - (paged ? 56 : 40) ? 1 : 0;
+      // a phone's columns (a swipe pager): hovering the card over the column peeking in beside the one in view (or holding
+      // it at the edge) glides the board over to that column, then on to the next if still held at the edge
+      if (paged) {
+        const cu = under && under.closest(".col"), cx = cu && cu.closest(".board") === b ? boardColX(b, cu) : null;
+        const at = b._goTo != null && Math.abs(b.scrollLeft - b._goTo) > 2 ? b._goTo : b.scrollLeft;
+        if (cx != null && Math.abs(cx - at) > 30) dir = cx > at ? 1 : -1;
+      }
+      if (dir && paged) {
+        drag.hs = true; const now = performance.now();
+        if (drag.edgeDir !== dir) { drag.edgeDir = dir; drag.edgeAt = now; drag.edgeN = 0; }
+        else if (now - drag.edgeAt > (drag.edgeN ? 700 : 260)) { if (boardStep(b, dir)) drag.edgeN++; drag.edgeAt = now; }
+      } else if (dir) { b.scrollLeft += dir * 10; drag.hs = true; }
+      else drag.edgeDir = 0;
+    }
     if (drag.y < 110) window.scrollBy(0, -9); else if (drag.y > window.innerHeight - 120) window.scrollBy(0, 9);
     placeAt(drag.x, drag.y);
   } else {

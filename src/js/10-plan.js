@@ -12,7 +12,10 @@ window.__sbPlanObj = () => PLAN;
 
   const SITE_URL = "https://studyboardapp.com/website";
 
-  const EXTERNAL_PURCHASE_ALLOWED = false;
+  // Buying Pro on the website from inside a store app: only where the store allows it. The iPhone app sets
+  // StudyboardNative.externalPurchase for United States App Store accounts (native-bridge.js section 6); everywhere else
+  // the app uses in-app purchase.
+  const EXTERNAL_PURCHASE_ALLOWED = () => { try { const N = window.StudyboardNative; return !!N && N.externalPurchase === true && !onAndroid(); } catch (e) { return false; } };
 
 
   /* Config: one place for limits and prices */
@@ -408,7 +411,12 @@ window.__sbPlanObj = () => PLAN;
         || (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.studyboardStore) || (DESK && (DESK.mas || DESK.store === "mas")));
     } catch (e) { return false; }
   };
-  const route = () => nativeStore() && !EXTERNAL_PURCHASE_ALLOWED ? "store" : "web";
+  const route = () => nativeStore() && !EXTERNAL_PURCHASE_ALLOWED() ? "store" : "web";
+  // in-app purchase can still be restored in the app wherever it's set up (someone who bought through Apple and then moved
+  // their Apple account to the United States keeps it)
+  const nativeRestore = () => { try { const N = window.StudyboardNative; return nativeStore() && !!N && N.purchasesAvailable === true; } catch (e) { return false; } };
+  // the App Store country became known or changed: the Pro sheet shows the right way to buy
+  window.addEventListener("studyboard:storefront", () => { try { if (dlg.open && dlg.querySelector(".plan-sheet")) proSheet(P.reason); } catch (e) {} });
   const nativeBuyOff = () => { try { const N = window.StudyboardNative; return route() === "store" && !!N && N.purchasesAvailable === false; } catch (e) { return false; } };
   const onAndroid = () => { try { const N = window.StudyboardNative, C = window.Capacitor; return (N && N.platform === "android") || (C && typeof C.getPlatform === "function" && C.getPlatform() === "android"); } catch (e) { return false; } };
   const siteBase = () => {
@@ -479,6 +487,61 @@ window.__sbPlanObj = () => PLAN;
     } else if (r.status === "cancelled") toast("Purchase canceled. You weren't charged.");
     else if (r.status === "error") toast(r.message || "The purchase didn't go through. You weren't charged. Please try again.");
   }
+  /* EU: the website as a second way to buy, next to in-app purchase (Apple's External Purchases or Offers terms, in force
+     from October 1, 2026). Offered only when all of these hold: the iPhone app, an EU App Store account, Apple says this
+     device and account are eligible (the entitlement, iOS 26.2+, purchases allowed), and a signed-in adult (Apple: no
+     out-of-app offers for under-13s, and a parental gate for 13 to 17; we offer it to known adults only). In-app purchase
+     stays first and at least as prominent; Apple's disclosure sheet comes before leaving; the website opens in the person's
+     browser; Apple's reporting tokens go to the server, which reports the sales to Apple (supabase-functions/apple-external).
+     Japan follows once iOS 27.2 brings Apple's own disclosure sheet there. */
+  const EU_STORES = new Set(["AUT", "BEL", "BGR", "HRV", "CYP", "CZE", "DNK", "EST", "FIN", "FRA", "DEU", "GRC", "HUN", "IRL", "ITA", "LVA", "LTU", "LUX", "MLT", "NLD", "POL", "PRT", "ROU", "SVK", "SVN", "ESP", "SWE"]);
+  const LINK = {ok: false, asked: "", sent: ""};
+  const linkApi = () => { try { const N = window.StudyboardNative; return N && N.linkOut && EU_STORES.has(String(N.storefront || "")) ? N.linkOut : null; } catch (e) { return null; } };
+  const adultKnown = () => {
+    try {
+      const b = String((sbUser && sbUser.user_metadata && sbUser.user_metadata.birth_date) || ""), m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(b);
+      if (!m) return false;
+      const t = new Date(), age = t.getFullYear() - +m[1] - ((t.getMonth() + 1 < +m[2] || (t.getMonth() + 1 === +m[2] && t.getDate() < +m[3])) ? 1 : 0);
+      return age >= 18 && age < 120;
+    } catch (e) { return false; }
+  };
+  const webAltOk = () => route() === "store" && !!linkApi() && LINK.ok && !!sbUser && !sbUser.is_anonymous && adultKnown() && siteReady() && !nativeBuyOff();
+  const webAltHtml = () => webAltOk() ? `<div class="plan-alt"><button type="button" class="link-btn" data-act="plan-buy-web">Or subscribe on the Studyboard website</button><p class="plan-fine mini">You'll leave the app to buy there. Prices and terms on the website may differ.</p></div>` : "";
+  // Apple's tokens to the server, tied to this account (Apple asks for this when the app opens and before each possible purchase)
+  async function sendLinkTokens(tap){
+    const L = linkApi(); if (!L || !sb || !sbUser || sbUser.is_anonymous) return false;
+    const tokens = await L.tokens();
+    if (!tokens.length) return false;
+    try {
+      const N = window.StudyboardNative, {error} = await sb.functions.invoke("apple-external/tokens", {body: {tokens, tap: !!tap, storefront: String(N.storefront || "")}});
+      if (!error) LINK.sent = sbUser.id;
+      return !error;
+    } catch (e) { return false; }
+  }
+  // Learn whether it may be offered, once per App Store country and account; send the tokens when it may
+  async function linkCheck(){
+    const L = linkApi(), key = L ? String(window.StudyboardNative.storefront) + "|" + (sbUser ? sbUser.id : "") : "";
+    if (!L) { LINK.ok = false; return; }
+    if (key === LINK.asked) return;
+    LINK.asked = key;
+    LINK.ok = await L.eligible();
+    if (LINK.ok && sbUser && LINK.sent !== sbUser.id) sendLinkTokens(false);
+    if (dlg.open && dlg.querySelector(".plan-sheet")) proSheet(P.reason);
+  }
+  window.addEventListener("studyboard:storefront", () => { linkCheck(); });
+  setTimeout(linkCheck, 2500);
+  async function buyWebEU(){
+    const L = linkApi(); if (!L || !webAltOk() || P.buying) return;
+    P.buying = true;
+    try {
+      const r = await L.notice();
+      if (r !== "continued") { if (r === "unavailable") toast("Buying on the website isn't available right now. You can subscribe in the app."); return; }
+      if (!(await sendLinkTokens(true))) { toast("Couldn't connect to Studyboard. Check your connection and try again."); return; }
+      if (!(await L.open(siteUrl("/account", {})))) { toast("Couldn't open your browser. Try again."); return; }
+      toast("Finish on the Studyboard website, then come back here. Pro turns on by itself.");
+      watchPurchase();
+    } finally { P.buying = false; }
+  }
   async function directCheckout(period){
     if (!sb || !sbUser || sbUser.is_anonymous) return null;
     try {
@@ -493,7 +556,7 @@ window.__sbPlanObj = () => PLAN;
   function buy(period){
     period = ["monthly", "semester", "yearly"].includes(period) ? period : "monthly";
     if (!paid()) { track("buy", P.reason); write(K_ATTR, {r: P.reason || "", t: Date.now(), uid: curUid()}); }
-    if (period === "semester" && route() === "store") period = "monthly";
+    if (period === "semester" && !semesterOn()) period = "monthly";
     const userId = sbUser ? sbUser.id : null;
     if (route() === "store") {
       if (nativeBuyOff()) { toast("Buying Pro in the app isn't available in this build yet."); return false; }
@@ -554,12 +617,12 @@ window.__sbPlanObj = () => PLAN;
     if (!sbUser) { toast("Sign in to the account you bought Pro with, then restore."); if (sb && typeof sbSignInSheet === "function") sbSignInSheet(); return false; }
     P.restoring = true; restoreBtns(true);
     try {
-      if (route() === "store") {
+      if (route() === "store" || nativeRestore()) {
         const wait = waitResult("restore", 60000);
         if (!nativeFire("plan-restore", sbUser.id)) { if (waiter) { clearTimeout(waiter.t); waiter = null; } toast("Restoring purchases isn't available in this build yet."); return false; }
         toast("Restoring your purchases…");
         const r = await wait;
-        if (r.status === "error") { toast(r.message || "Couldn't restore purchases. Check your connection and try again."); return false; }
+        if (r.status === "error" && route() === "store") { toast(r.message || "Couldn't restore purchases. Check your connection and try again."); return false; }
         if (r.status === "cancelled") { toast("Restore canceled."); return false; }
         if (r.status === "success") {
           const ok = await refreshUntilPaid(5);
@@ -641,29 +704,37 @@ window.__sbPlanObj = () => PLAN;
   const GOOGLE_RENEW = "Payment will be charged to your Google Play account at confirmation of purchase. The subscription renews automatically unless it is cancelled before the end of the current period. You can manage and cancel your subscriptions in Google Play, Payments and subscriptions, Subscriptions.";
   const WEB_RENEW_NOTRIAL = "Your card is charged today and again at the start of each period until you cancel. Cancel any time from Manage Plan; you keep Pro until the end of the period you paid for.";
   const WEB_RENEW = "Your card is charged when the free trial ends unless you cancel before then, and again at the start of each period until you cancel. Cancel any time from Manage Plan; you keep Pro until the end of the period you paid for.";
-  const semesterOn = () => route() !== "store" && !!cfg.prices.semester;
+  // The semester plan is 4 months. On the website it renews; in the App Store and Google Play (which have no 4-month
+  // renewing length) it's paid once and doesn't renew, and shows only once its price is set in studyboard_config
+  // prices.storeSemester (see PRO-PLANS-GUIDE.md)
+  const semPrice = () => route() === "store" ? cfg.prices.storeSemester : cfg.prices.semester;
+  const semOnce = () => route() === "store";
+  const semesterOn = () => typeof semPrice() === "string" && !!semPrice();
   const cardTrialOk = () => { const e = ent(); return +cfg.prices.checkoutTrialDays > 0 && !(e && (e.trial_until || e.source === "stripe" || e.external_id)); };
   const trialDaysShown = () => route() === "store" ? +(cfg.prices.storeTrialDays != null ? cfg.prices.storeTrialDays : cfg.prices.trialDays) || 0 : cardTrialOk() ? +cfg.prices.checkoutTrialDays : 0;
   function renewalText(pr, trial){
     const store = route() === "store", t = trialDaysShown();
-    const head = `Studyboard Pro is an auto-renewing subscription: ${pr.monthly} per month${semesterOn() ? `, ${pr.semester} every 4 months` : ""} or ${pr.yearly} per year${t ? `, after a ${t}-day free trial` : ""}.`;
-    return `<p class="plan-fine mini plan-legal" id="planLegal">${esc(head)} ${esc(store ? (onAndroid() ? GOOGLE_RENEW : APPLE_RENEW) : t ? WEB_RENEW : WEB_RENEW_NOTRIAL)} <button type="button" class="link-btn" data-act="legal-terms">Terms of Use</button> · <button type="button" class="link-btn" data-act="legal-privacy">Privacy Policy</button></p>`;
+    const head = `Studyboard Pro is an auto-renewing subscription: ${pr.monthly} per month${semesterOn() && !semOnce() ? `, ${semPrice()} every 4 months` : ""} or ${pr.yearly} per year${t ? `, after a ${t}-day free trial` : ""}.${semesterOn() && semOnce() ? ` Semester: ${semPrice()} for 4 months of Pro, paid once. It doesn't renew and has no free trial.` : ""}`;
+    // in the iPhone app for a United States account: the checkout is on the website, said before they tap
+    const outside = !store && nativeStore() ? "You'll check out securely on the Studyboard website, and Pro turns on here by itself. " : "";
+    return `<p class="plan-fine mini plan-legal" id="planLegal">${esc(outside + head)} ${esc(store ? (onAndroid() ? GOOGLE_RENEW : APPLE_RENEW) : t ? WEB_RENEW : WEB_RENEW_NOTRIAL)} <button type="button" class="link-btn" data-act="legal-terms">Terms of Use</button> · <button type="button" class="link-btn" data-act="legal-privacy">Privacy Policy</button></p>`;
   }
   function priceButtons(){
     if (nativeBuyOff()) return `<p class="plan-fine mini">Buying Pro in the app isn't available in this build yet.</p>`;
-    const pr = cfg.prices, m = price(pr.monthly), y = price(pr.yearly), sm = semesterOn() ? price(pr.semester) : null;
+    const pr = cfg.prices, m = price(pr.monthly), y = price(pr.yearly), sm = semesterOn() ? price(semPrice()) : null;
     const save = m && y && y < m * 12 ? Math.round((1 - y / (m * 12)) * 100) : 0;
     const per = (amt, months, s) => amt ? `${String(s).replace(/[\d.,]+/, (amt / months).toFixed(2))} a month` : "";
     const trial = trialDaysShown() ? `${trialDaysShown()}-Day Free Trial` : "";
     return `<div class="plan-prices${sm ? " three" : ""}">
         <button type="button" class="plan-price" data-act="plan-buy" data-id="monthly"><span class="pp-name">Monthly</span><span class="pp-amt">${esc(pr.monthly)}<small> / month</small></span>${trial ? `<span class="pp-sub">${esc(trial)}</span>` : ""}</button>
-        ${sm ? `<button type="button" class="plan-price" data-act="plan-buy" data-id="semester"><span class="pp-name">Semester</span><span class="pp-amt">${esc(pr.semester)}<small> / 4 months</small></span><span class="pp-sub">${esc([trial, "About " + per(sm, 4, pr.semester)].filter(Boolean).join(" · "))}</span></button>` : ""}
+        ${sm ? `<button type="button" class="plan-price" data-act="plan-buy" data-id="semester"><span class="pp-name">Semester</span><span class="pp-amt">${esc(semPrice())}<small> / 4 months</small></span><span class="pp-sub">${esc((semOnce() ? ["Paid once, doesn't renew"] : [trial, "About " + per(sm, 4, semPrice())]).filter(Boolean).join(" · "))}</span></button>` : ""}
         <button type="button" class="plan-price best" data-act="plan-buy" data-id="yearly">${save ? `<span class="pp-flag">Save ${save}%</span>` : ""}<span class="pp-name">Yearly</span><span class="pp-amt">${esc(pr.yearly)}<small> / year</small></span><span class="pp-sub">${esc([trial, y && "Just " + per(y, 12, pr.yearly)].filter(Boolean).join(" · "))}</span></button>
       </div>
       <p class="plan-fine mini">${trial ? `Try Pro free for ${trialDaysShown()} days. Cancel any time before it ends and you won't be charged.` : "Cancel any time. You keep Pro until the end of the time you paid for."}${cfg.app_trial && sbUser && !(ent() && ent().trial_until) ? ` <button type="button" class="link-btn" data-act="plan-trial">Try It Without a Card</button>` : ""}${sbUser ? ` <button type="button" class="link-btn" data-act="plan-devices">Your Devices</button>` : ""}</p>
       ${renewalText(pr, trial)}`;
   }
   function proSheet(reason){
+    linkCheck();   // EU: whether the website may be offered (learned once per account and country; the sheet redraws if it changes)
     if (!(dlg.open && dlg.querySelector(".plan-sheet")) && !paid()) track("shown", reason);
     P.reason = reason || "";
     const st = statusLine(), pro = paywall() && paid(), u = usage(), L = lim();
@@ -680,7 +751,7 @@ window.__sbPlanObj = () => PLAN;
         ${pro ? `<div class="plan-actions"><button type="button" class="btn primary" data-act="plan-manage">Manage Plan</button><button type="button" class="btn" data-act="plan-devices">Your Devices</button></div>${usageHtml}` : ""}
         ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get a Week of Pro</b><span class="mini">Every Pro theme and feature for 7 days. No card needed, and everything you make stays when the week ends.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
         ${paywall() ? `<p class="plan-state mini" role="status"><b>Plan:</b> ${esc(planLabel())}</p>` : ""}
-        ${paywall() && !pro ? priceButtons() : ""}
+        ${paywall() && !pro ? priceButtons() + webAltHtml() : ""}
         <div class="plan-compare" role="table" aria-label="Free and Pro">
           <div class="pc-row pc-head" role="row"><span role="columnheader"></span><span role="columnheader">Free</span><span role="columnheader" class="pc-pro">${PRO_BADGE}</span></div>
           ${rows.map(([k, f, p]) => `<div class="pc-row" role="row"><span role="rowheader">${esc(k)}</span><span role="cell">${esc(f)}</span><span role="cell" class="pc-pro">${esc(p)}</span></div>`).join("")}
@@ -757,6 +828,7 @@ window.__sbPlanObj = () => PLAN;
     switch (act) {
       case "plan-open": proSheet(id === "devices" ? `The free plan syncs on up to ${lims("free").devices} devices` : el.dataset.reason || ""); return true;
       case "plan-buy": buy(id); return true;
+      case "plan-buy-web": buyWebEU(); return true;
       case "plan-refresh": refreshNow(); return true;
       case "plan-restore": restore(); return true;
       case "plan-code": if (dlg.open) dlg.close(); setTimeout(redeemSheet, 60); return true;

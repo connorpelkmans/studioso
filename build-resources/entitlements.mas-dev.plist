@@ -11,6 +11,9 @@
   </array>
   <key>com.apple.security.network.client</key>
   <true/>
+  <!-- Sign in with Google or Apple returns to a one-time page on 127.0.0.1 (main.js auth:port) -->
+  <key>com.apple.security.network.server</key>
+  <true/>
   <key>com.apple.security.files.user-selected.read-write</key>
   <true/>
   <key>com.apple.security.files.bookmarks.app-scope</key>

@@ -43,7 +43,7 @@ if (rc) edit("ios-wrapper/native-bridge.js", s => s.replace(/ios: "appl_[^"]*"/,
 // 5. Universal links file, served by the website at /.well-known/apple-app-site-association
 {
   const tpl = JSON.parse(fs.readFileSync(path.join(root, "ios-wrapper/apple-app-site-association.template.json"), "utf8"));
-  tpl.applinks.details.forEach(d => { d.appIDs = [team + ".com.studioso.app"]; });
+  tpl.applinks.details.forEach(d => { d.appIDs = [team + ".com.studyboardapp.studyboard"]; });
   const dir = path.join(root, ".well-known"), f = path.join(dir, "apple-app-site-association");
   fs.mkdirSync(dir, {recursive: true});
   const out = JSON.stringify(tpl, null, 2) + "\n";

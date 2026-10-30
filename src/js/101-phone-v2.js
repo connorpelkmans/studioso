@@ -231,13 +231,14 @@
     root.classList.toggle("ph-lock", on);
     if (!on) { if (view && view.style.height) view.style.height = ""; return; }
     if (scrollY) scrollTo(0, 0);
-    const vv = window.visualViewport, vh = vv ? vv.height : innerHeight, nav = document.querySelector("nav.tabs");
+    const vv = window.visualViewport, vh = typeof window.sbVisibleH === "function" ? window.sbVisibleH() : vv ? vv.height : innerHeight, nav = document.querySelector("nav.tabs");
     const nr = nav && getComputedStyle(nav).display !== "none" ? nav.getBoundingClientRect() : null, navTop = nr && nr.height ? nr.top : innerHeight;
     const bottom = Math.min(navTop - 12, vh - 8), top = view.getBoundingClientRect().top;
     const log = document.getElementById("cptLog"), pin = !!log && root.classList.contains("cpt-typing") && log.scrollHeight - log.scrollTop - log.clientHeight < 60;
     view.style.height = Math.max(200, Math.floor(bottom - top)) + "px";
     if (pin) log.scrollTop = log.scrollHeight;
   }
+  addEventListener("sb-kb-cover", fitChat);
   if (window.visualViewport) { visualViewport.addEventListener("resize", fitChat); visualViewport.addEventListener("scroll", () => { if (root().classList.contains("ph-lock") && scrollY) scrollTo(0, 0); }); }
   const root = () => document.documentElement;
   // Typing in the companion chat: the profile card folds away (CSS, html.cpt-typing) and comes back when you're done.
@@ -252,6 +253,8 @@
   // The card's motion: the iOS sheet curve, about as long as the keyboard takes. The small face in the title bar flies
   // from the big circle on the way in and back to it on the way out, so it reads as one companion moving, not a swap.
   const MORPH = 440, EASE = "cubic-bezier(.32,.72,0,1)";
+  // opening back out is gentler and a little longer (a soft ease in and out), so nothing snaps into place
+  const UNFOLD = 520, UNFOLD_EASE = "cubic-bezier(.45,0,.2,1)";
   function fly(head, toRing){
     const face = head.querySelector(".cpt3-mini > :first-child"), ring = head.querySelector(".cpt3-ring");
     if (!face || !ring || !face.animate) return;
@@ -272,16 +275,50 @@
       if (face && face.animate) { const f = face.getBoundingClientRect(); if (f.width) face.animate([{transform: `translate(${Math.round(ringBefore.left + ringBefore.width / 2 - (f.left + f.width / 2))}px,${Math.round(ringBefore.top + ringBefore.height / 2 - (f.top + f.height / 2))}px) scale(${(ringBefore.width * 0.86 / f.width).toFixed(3)})`}, {transform: "none"}], {duration: MORPH, easing: EASE}); }
       if (ring) ring.style.opacity = "";
     } else {
+      // the reverse of folding: the card opens back out while the small face grows back down into the big circle
+      const face = head.querySelector(".cpt3-mini > :first-child"), from = face ? face.getBoundingClientRect() : null;
+      r.classList.add("cpt-unfold");
       head.style.height = head.offsetHeight + "px"; r.classList.remove("cpt-typing");
       const full = head.scrollHeight; void head.offsetHeight; head.style.height = full + "px";
-      fly(head, true);
+      const ring = head.querySelector(".cpt3-ring"), slot = ring && ring.querySelector(".cpt-face-slot");
+      if (ring && ring.animate && from && from.width) {
+        const to = ring.getBoundingClientRect(), k = (from.width / 0.86) / to.width;
+        // the circle carries a copy of the face on the way (the live companion fades back in once it has landed)
+        let copy = null;
+        // the circle carries a copy of the live companion as it is right now (its eyes, outfit and pose), hovering in step with
+        // it, so when they swap nothing changes: no eyes popping open, no hover starting from still
+        const live = document.querySelector(".cp-front .cp");
+        if (slot && (live || face.firstElementChild)) {
+          copy = document.createElement("span"); copy.className = "cpt3-fly";
+          if (live) {
+            const c = live.cloneNode(true); c.removeAttribute("style"); c.classList.add("cp-copy"); c.querySelectorAll(".cp-hit, .cp-fx, .cp-shadow").forEach(e => e.remove());
+            copy.appendChild(c); slot.appendChild(copy);
+            const lb = live.querySelector(".cp-breathe"), cb = c.querySelector(".cp-breathe");
+            const la = lb && lb.getAnimations()[0], ca = cb && cb.getAnimations()[0];
+            if (la && ca) try { ca.currentTime = la.currentTime; } catch (e) {}
+            head._sync = () => { const a1 = lb && lb.getAnimations()[0], a2 = cb && cb.getAnimations()[0]; if (a1 && a2) try { a1.currentTime = a2.currentTime; } catch (e) {} };
+          } else { copy.innerHTML = face.innerHTML; slot.appendChild(copy); }
+        }
+        ring.style.opacity = "1"; ring.style.transition = "none";
+        const a = ring.animate([{transform: `translate(${Math.round(from.left + from.width / 2 - (to.left + to.width / 2))}px,${Math.round(from.top + from.height / 2 - (to.top + to.height / 2))}px) scale(${k.toFixed(3)})`}, {transform: "none"}], {duration: UNFOLD, easing: UNFOLD_EASE});
+        // the copy stays until the live companion (the same size, in the same spot) has faded in over it, then fades away:
+        // never two companions, never one of a different size
+        // the copy and the live companion (the same size, in the same spot) swap in a single frame once it has landed: never two
+        const done = () => { ring.style.opacity = ""; ring.style.transition = ""; };
+        a.finished.then(done, done);
+        head._copy = copy;
+      }
     }
-    head._t = setTimeout(() => { head.style.height = ""; r.classList.remove("cpt-morph"); follow(false); }, MORPH + 20);
+    const ms = on ? MORPH : UNFOLD;
+    head._t = setTimeout(() => { head.style.height = ""; if (head._sync) { head._sync(); head._sync = null; } r.classList.remove("cpt-morph", "cpt-unfold"); if (head._copy) { head._copy.remove(); head._copy = null; } follow(false); }, ms + 20);
     follow(pin);
   }
   document.addEventListener("focusin", e => { if (e.target && e.target.id === "cptIn" && isPhone()) { clearTimeout(typeT); typing(true); } });
+  // the card opens back up together with the keyboard sliding away, not a beat after it
+  { let wasKb = false; new MutationObserver(() => { const kb = root().classList.contains("kb-open"); if (wasKb && !kb && root().classList.contains("cpt-typing")) { clearTimeout(typeT); typing(false); } wasKb = kb; }).observe(document.documentElement, {attributes: true, attributeFilter: ["class"]}); }
   document.addEventListener("focusout", e => { if (!e.target || e.target.id !== "cptIn") return; clearTimeout(typeT); typeT = setTimeout(() => { const a = document.activeElement; if (!(a && a.id === "cptIn")) typing(false); }, 180); });
-  hook("render", () => { const a = document.activeElement; if (!(a && a.id === "cptIn")) root().classList.remove("cpt-typing"); else if (isPhone()) root().classList.add("cpt-typing"); });
+  // a page redraw while folded (often from the keyboard closing) opens the card with the same animation, never in one jump
+  hook("render", () => { const a = document.activeElement; if (!(a && a.id === "cptIn")) { if (root().classList.contains("cpt-typing")) { clearTimeout(typeT); typing(false); } } else if (isPhone()) root().classList.add("cpt-typing"); });
   // An Options menu closes after a choice, or a tap anywhere else
   document.addEventListener("click", e => {
     document.querySelectorAll("details.ph-more[open]").forEach(d => { if (!d.contains(e.target) || e.target.closest(".ph-menu .btn")) d.open = false; });

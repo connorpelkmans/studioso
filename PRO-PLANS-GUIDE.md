@@ -151,9 +151,48 @@ update public.studyboard_config set value = to_jsonb('https://studyboardapp.com/
 **10. App Store and Google Play (later, RevenueCat).** Apple and Google require their own payment system for subscriptions sold inside a store app, so store builds use **RevenueCat** (the app sends `plan-checkout`, **Restore Purchase** sends `plan-restore`), and the **same** `billing-webhook` records it.
 - Make a RevenueCat account, add your iOS and Android apps, create the same two products in App Store Connect and Google Play Console (with the 7-day trial) and add them to one entitlement called `pro`.
 - In the app wrapper, log in to RevenueCat with the person's Supabase user id, so the **App User ID** is that id. (Purchases under any other id, such as `$RCAnonymousID...`, give nothing.)
+- **Semester plan in the stores (optional).** The App Store and Google Play have no 4-month renewing length, so in the store app the semester plan is **4 months of Pro, paid once** (it doesn't renew and has no free trial; the website keeps its renewing 4-month plan). Until you set it up, the store app shows only Monthly and Yearly.
+  1. App Store Connect: **Monetization > In-App Purchases > +**, type **Non-Renewing Subscription**, Product ID `studyboard_pro_semester` (keep "semester" in the id, or list the ids in the secret `RC_SEMESTER_PRODUCTS`), your price (e.g. $12.99), a display name such as "Studyboard Pro: One Semester" and a description that says "4 months of Pro, doesn't renew". Google Play: a one-time product with the same id.
+  2. RevenueCat: add the product to the `pro` entitlement, and in the current offering add a **Custom** package with identifier exactly `semester` holding it.
+  3. Show it in the app (**SQL Editor**), with your price: `update public.studyboard_config set value = value || '{"storeSemester": "$12.99"}' where key = 'prices';` Remove `storeSemester` to hide it again.
+  The server gives Pro for 4 months (plus 3 days' grace) from the purchase date; a store refund switches it off. Someone on it buys again for the next semester (the app offers it once Pro has ended).
 - RevenueCat **Integrations > Webhooks**: URL `https://YOUR-PROJECT.supabase.co/functions/v1/billing-webhook/revenuecat`, **Authorization header value** = the `REVENUECAT_WEBHOOK_AUTH` secret. **Send Test Event** should say delivered. Sandbox purchases are ignored unless you set `RC_ALLOW_SANDBOX=1`.
 - A store refund (RevenueCat's `CANCELLATION` with reason `CUSTOMER_SUPPORT`) switches Pro off at once. A subscription from one store never cancels one from another (for example, a Stripe cancel can't end an App Store subscription), and none of them ever touches a gift from you.
-- Apple only allows the website for people who already pay there (`EXTERNAL_PURCHASE_ALLOWED` stays `false` in store builds unless your storefront entitlements allow external purchase links).
+- **United States App Store accounts buy on the website.** The iPhone app reads the App Store country of the person's Apple account when it opens (`StudyboardStorePlugin` in `MainViewController.swift`). For a **United States** account it sets `StudyboardNative.externalPurchase`. The Pro sheet then sends Buy to the website checkout (Stripe), says so above the prices, shows the website's renewal terms, and the bridge lets the Stripe page open. This is what App Store Review Guidelines 3.1.1(a) and 3.1.3 allow on the United States storefront. Every other country uses in-app purchase through RevenueCat, and payment pages stay closed. Android always uses Google Play billing.
+  - "United States" means the App Store country of the Apple account, not where the person is. If the App Store can't say, the app uses in-app purchase.
+  - **Restore Purchases** checks Apple too in the United States, so an Apple subscription bought elsewhere still comes back. Then it checks the website purchase.
+  - Keep the in-app products available in every country in App Store Connect, including the United States. That way someone who moves their Apple account keeps a working purchase path.
+  - **App Review notes:** "In-app purchase is offered on every App Store storefront except the United States. On the United States storefront the app links to our website checkout, as allowed by Guidelines 3.1.1(a) and 3.1.3. To review the in-app purchase, use a Sandbox account set to a storefront outside the United States." In App Store Connect → Users and Access → Sandbox, give the Sandbox tester a non-US region.
+  - Check the current wording of Guidelines 3.1.1(a) and 3.1.3 before each submission. The United States rule comes from the Epic v. Apple court order, and Apple may change the terms, for example by adding a fee on linked purchases.
+- **European Union: the website as a second way to buy (optional).** Under Apple's EU terms in force from October 1, 2026 (DPLA Attachment 14), the iPhone app can offer the website next to in-app purchase. Apple charges a 15% store services commission on website sales made within 7 days of the tap (10% in the Small Business Program, and on subscriptions after their first year). The app shows it only when all of these hold:
+  - the App Store account is in an EU country;
+  - Apple says the app is eligible: the entitlement is granted, the iPhone runs iOS 26.2 or later, and purchases aren't restricted;
+  - the person is signed in, with a birthday on their account showing they're 18 or older.
+
+  Apple bars these offers for under-13s and needs a parental gate for ages 13 to 17, so the app offers them to known adults only. In-app purchase stays first and more prominent. Tapping **Or subscribe on the Studyboard website** shows Apple's disclosure sheet, then opens the website in the person's browser. Until every step below is done, nobody sees it.
+  1. **Apply to Apple** for the **StoreKit External Purchases or Offers Entitlement** for the EU, from Apple's page "Payment options on the App Store in the EU". Accept the updated DPLA when Apple asks.
+  2. When Apple grants it, add it to the App ID in **Certificates, Identifiers & Profiles**. Then in Xcode, add it to `ios/App/App/App.entitlements`: key `com.apple.developer.storekit.custom-purchase-link.allowed-regions`, an array of the lowercase EU codes `at be bg hr cy cz dk ee fi fr de gr hu ie it lv lt lu mt nl pl pt ro sk si es se`. Don't add the key before Apple grants it; the build won't sign.
+  3. **Database:** run `supabase-apple-external.sql` in the SQL Editor, then run `supabase-lean.sql` again. That makes account deletion keep these reports without the account.
+  4. **Function:** deploy `supabase-functions/apple-external` with **Verify JWT OFF**. It checks the sign-in itself, and the report job uses its own secret. Then deploy `billing-webhook` again; it now queues EU website sales.
+  5. **Secrets:**
+     - `APPLE_IAP_KEY_ID`, `APPLE_IAP_ISSUER_ID` and `APPLE_IAP_PRIVATE_KEY` (the whole text of the In-App Purchase key's `.p8` file, from App Store Connect → Users and Access → Integrations → In-App Purchase)
+     - `APPLE_BUNDLE_ID` = `com.studyboardapp.studyboard`
+     - `APPLE_REPORT_SECRET`: a long random string
+     - `APPLE_REPORT_SANDBOX=1` while testing, removed for launch
+  6. **Daily report job.** Apple wants each month's reports within 15 days of the month's end; this sends them daily. In the SQL Editor, with the `pg_cron` and `pg_net` extensions on, run the following, filling in your report secret:
+     ```sql
+     select cron.schedule('studyboard-apple-reports', '17 5 * * *', $$select net.http_post(
+       url := 'https://pivcmrqcjseycjkbocmc.supabase.co/functions/v1/apple-external/report',
+       headers := jsonb_build_object('x-report-secret', 'YOUR APPLE_REPORT_SECRET', 'content-type', 'application/json'),
+       body := '{}'::jsonb)$$);
+     ```
+  7. **Test** with a Sandbox tester in an EU country (sandbox tokens last an hour).
+     - Subscribe through the website option.
+     - Check that `studyboard_apple_line_items` gets a row, and that the job marks it `sent_at` the next day (or call the report URL yourself with the secret).
+     - Check that unused tokens get `report_status = NO_LINE_ITEM` after they expire.
+  8. **App Review notes:** add "In the EU, alongside In-App Purchase, the app offers our website under the StoreKit External Purchases or Offers entitlement, shown only to signed-in adults. Payments on the website are processed by Stripe (PCI DSS Level 1), which provides customer support for payments."
+  - **Refunds:** a website refund isn't reported to Apple as a refund line yet. Apple's API has one (`RefundLineItem`), and reporting refunds lowers the commission owed; add it if refunds become common.
+- **Japan:** the same option is allowed in Japan under DPLA Attachment 12 (15% commission, or 10% in the Small Business Program, on sales within 7 days of the tap). On iOS before 27.2, though, Apple requires a disclosure screen the app draws itself from Apple's design files; Apple's own sheet for Japan comes with iOS 27.2. It's held back until iOS 27.2 is released. Then it's the same entitlement with region `jp`, Apple's own sheet, and the `LINK_OUT` token type.
 
 ### Launch Day
 

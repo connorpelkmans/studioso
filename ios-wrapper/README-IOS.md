@@ -4,7 +4,7 @@ This folder holds everything needed to wrap the Studyboard web build in a native
 
 | File here | Use |
 | --- | --- |
-| `capacitor.config.json` | Capacitor settings: app id `com.studioso.app`, bundled web files (no remote `server.url`), navigation allow-list, no cleartext, no native HTTP/cookie plugins. `ios.contentInset` is `"never"`: the page draws behind the status bar and home bar itself (`viewport-fit=cover` and `env(safe-area-inset-*)`). With `"always"` the web view added its own gap that could be pulled into view under the Dynamic Island, and fixed things like the bottom bar and the companion were misplaced. |
+| `capacitor.config.json` | Capacitor settings: app id `com.studyboardapp.studyboard`, bundled web files (no remote `server.url`), navigation allow-list, no cleartext, no native HTTP/cookie plugins. `ios.contentInset` is `"never"`: the page draws behind the status bar and home bar itself (`viewport-fit=cover` and `env(safe-area-inset-*)`). With `"always"` the web view added its own gap that could be pulled into view under the Dynamic Island, and fixed things like the bottom bar and the companion were misplaced. |
 | `native-bridge.js` | Small native glue loaded before the page (shared with Android): Keychain session storage, `StudyboardSecrets` for AI keys, safe external links, deep links, native push registration, RevenueCat purchases, and `StudyboardNative.device` (`"ipad"` / `"iphone"` / `"android"`: the pen tools are iPad only). |
 | `native/` | **Quick capture (UNTESTED Swift sources):** App Intents for Siri/Shortcuts, Share Extension, Capacitor plugins `StudyboardCaptureToken` and `StudyboardSharedQueue`. See `native/capture.md` and `../VOICE-CAPTURE-NATIVE.md`. `native/FocusActivity/`: the Focus timer in the Dynamic Island (section 3c). |
 | `Info.plist.additions.plist` | Keys `npm run ios:stage` merges into `ios/App/App/Info.plist` (encryption flag, usage strings, push background mode, URL scheme). |
@@ -33,7 +33,7 @@ cp ios-wrapper/native-bridge.js ios-www/native-bridge.js
 cd ios-wrapper
 npm init -y
 npm i @capacitor/core @capacitor/ios @capacitor/app @capacitor/browser @capacitor/push-notifications \
-      @capacitor/share @capacitor/filesystem @capacitor/screen-orientation capacitor-secure-storage-plugin @revenuecat/purchases-capacitor
+      @capacitor/share @capacitor/filesystem @capacitor/screen-orientation @capacitor/keyboard capacitor-secure-storage-plugin @revenuecat/purchases-capacitor
 npm i -D @capacitor/cli
 cp -R ../ios-www ./ios-www
 ```
@@ -60,7 +60,7 @@ npx cap open ios
 
 In Xcode (App target):
 
-1. **Signing & Capabilities**: pick your team; bundle id `com.studioso.app`; add **Push Notifications**, **In-App Purchase**, and **Associated Domains** (`applinks:YOUR-DOMAIN.example`). Do not add capabilities you do not use. Compare with `App.entitlements.template.plist`.
+1. **Signing & Capabilities**: pick your team; bundle id `com.studyboardapp.studyboard`; add **Push Notifications**, **In-App Purchase**, and **Associated Domains** (`applinks:YOUR-DOMAIN.example`). Do not add capabilities you do not use. Compare with `App.entitlements.template.plist`.
 2. **Info.plist**: `npm run ios:stage` merges `Info.plist.additions.plist` in for you (keys already there are kept; the camera reason is required, or iOS closes the app when it opens the camera). The result must contain `ITSAppUsesNonExemptEncryption = NO` and **no** `NSAppTransportSecurity` block (App Transport Security stays fully on: every address the app talks to is https).
 3. **Privacy manifest**: drag `build-resources/ios/PrivacyInfo.xcprivacy` into the App group, tick the App target. Then **Product > Archive > Distribute > App Store Connect > Generate Privacy Report** and compare it with the App Privacy answers in `APP-STORE-CHECKLIST.md` section 6; Xcode merges the plugins' own manifests into it.
 4. App icon: 1024 x 1024 PNG without transparency or rounded corners (`icon-1024.png` in the repo is the source). Launch screen: the Capacitor storyboard is fine.
@@ -91,9 +91,9 @@ sent to any server. Files: `native/FocusActivity/`.
    phones running an older one).
 2. **Shared model:** drag in `native/FocusActivity/StudyboardFocusAttributes.swift`, ticking **both** App and StudyboardWidgets.
 3. **Plugin:** drag in `native/FocusActivity/StudyboardFocusActivityPlugin.swift` (target App) and `native/MainViewController.swift`
-   (target App) if it isn't there yet; in `Main.storyboard` the Bridge View Controller's Class must be **MainViewController**. In
-   `MainViewController.swift`, delete the `registerPluginInstance` lines for plugins whose files you haven't added (CaptureToken,
-   SharedQueue, Lms); keep `StudyboardFocusActivityPlugin()`.
+   (target App) if it isn't there yet; in `Main.storyboard` the Bridge View Controller's Class must be **MainViewController**.
+   It registers only the plugins whose files you've added, so there's nothing to delete. `npm run ios:stage` keeps the copies of
+   these Swift files in the Xcode project up to date with `ios-wrapper/native/`.
 4. **Info.plist:** `NSSupportsLiveActivities = YES`, added by `npm run ios:stage`.
 5. **Bridge:** `native-bridge.js` section 7 exposes `StudyboardNative.focusActivity`, which index.html uses by itself (`islandSync()`).
    Without the plugin (an older build, Android) the page keeps the timer in its header as before.
@@ -140,7 +140,7 @@ Web Push does not exist inside WKWebView, so the app uses native push through `@
        NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
    }
    ```
-3. Apple Developer > Keys: create an **APNs Auth Key** (.p8). Note the Key ID and your Team ID. Give the .p8, Key ID, Team ID and bundle id `com.studioso.app` to the server as secrets (never ship them in the app). Debug builds get sandbox tokens (`api.sandbox.push.apple.com`), TestFlight/App Store builds production tokens (`api.push.apple.com`).
+3. Apple Developer > Keys: create an **APNs Auth Key** (.p8). Note the Key ID and your Team ID. Give the .p8, Key ID, Team ID and bundle id `com.studyboardapp.studyboard` to the server as secrets (never ship them in the app). Debug builds get sandbox tokens (`api.sandbox.push.apple.com`), TestFlight/App Store builds production tokens (`api.push.apple.com`).
 4. The page calls `window.StudyboardNative.enablePush()` from the reminders switch; it resolves `{platform: "ios", kind: "apns", token}` (hex device token) or `null`. `StudyboardNative.pushAvailable` tells the page whether to offer it. Call `enablePush({prompt: false})` on every start to pick up a changed token. The server sends through APNs directly (or through FCM only if you add the Firebase iOS SDK, which this setup does not).
 5. A tap on a notification whose data carries `taskId` / `rid` opens `?sbtask=&sbrid=` (the same parameters as the web push click).
 

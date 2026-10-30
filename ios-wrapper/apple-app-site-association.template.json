@@ -2,7 +2,7 @@
   "applinks": {
     "details": [
       {
-        "appIDs": ["TEAMID.com.studioso.app"],
+        "appIDs": ["TEAMID.com.studyboardapp.studyboard"],
         "components": [
           { "/": "/", "?": { "deck": "*" }, "comment": "shared deck links" },
           { "/": "/", "?": { "group": "*" }, "comment": "study group invites" },

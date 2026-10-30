@@ -14,9 +14,9 @@ What you need: a Mac with **Xcode** (Mac App Store), **Node.js 22**, the **Trans
    D-U-N-S number). When it's active, open developer.apple.com > Account > **Membership details** and copy your **Team ID**
    (10 letters and digits).
 2. **App ID**: developer.apple.com > Certificates, IDs & Profiles > **Identifiers** > + > App IDs > App. Bundle ID
-   `com.studioso.app` (Explicit). Tick **Push Notifications**, **In-App Purchase**, **Associated Domains**, **App Groups**.
+   `com.studyboardapp.studyboard` (Explicit). Tick **Push Notifications**, **In-App Purchase**, **Associated Domains**, **App Groups**.
    Platforms: iOS and macOS (one App ID, so one purchase covers both).
-3. **App Group**: Identifiers > + > App Groups > `group.com.studioso.app`. Then open the App ID again, App Groups > Configure,
+3. **App Group**: Identifiers > + > App Groups > `group.com.studyboardapp.studyboard`. Then open the App ID again, App Groups > Configure,
    and tick it.
 4. **Certificates** (easiest: Xcode > Settings > Accounts > your team > Manage Certificates > +):
    * **Apple Distribution** (iPhone and Mac App Store).
@@ -37,7 +37,7 @@ What you need: a Mac with **Xcode** (Mac App Store), **Node.js 22**, the **Trans
    * **Subscriptions** (Pro): create a subscription group "Studyboard Pro" with a monthly and a yearly subscription.
 8. **RevenueCat** (sells Pro through Apple): app.revenuecat.com > new project > add the App Store app (bundle id
    `com.studioso.app`, App Store Connect API key). Add the two products, an entitlement named **`pro`**, and an offering with
-   **monthly** and **annual** packages. Copy the **public Apple SDK key** (starts with `appl_`). Set its webhook to your
+   **monthly** and **annual** packages (and optionally a custom **semester** package for the one-time 4-month plan, see `PRO-PLANS-GUIDE.md` step 10). Copy the **public Apple SDK key** (starts with `appl_`). Set its webhook to your
    Supabase function (see `PRO-PLANS-GUIDE.md`) so Pro turns on in the account.
 
 ## Part 2. Put your details into the project (one command)
@@ -80,7 +80,7 @@ npm run dist:mas           # makes dist/mas-universal/Studyboard-<version>-mas.p
 cd ios-wrapper
 npm init -y
 npm i @capacitor/core @capacitor/ios @capacitor/app @capacitor/browser @capacitor/push-notifications \
-      @capacitor/share @capacitor/filesystem @capacitor/screen-orientation capacitor-secure-storage-plugin @revenuecat/purchases-capacitor
+      @capacitor/share @capacitor/filesystem @capacitor/screen-orientation @capacitor/keyboard capacitor-secure-storage-plugin @revenuecat/purchases-capacitor
 npm i -D @capacitor/cli
 npx cap add ios
 cd ..
@@ -94,9 +94,9 @@ cd ios-wrapper && npx cap open ios
 
 In Xcode, once (target **App**):
 
-1. **Signing & Capabilities**: Team = yours, Bundle Identifier `com.studioso.app`, "Automatically manage signing" on. Add with
+1. **Signing & Capabilities**: Team = yours, Bundle Identifier `com.studyboardapp.studyboard`, "Automatically manage signing" on. Add with
    **+ Capability**: Push Notifications, In-App Purchase, Associated Domains (`applinks:studyboardapp.com`), App Groups
-   (`group.com.studioso.app`), Background Modes > Remote notifications. Compare with
+   (`group.com.studyboardapp.studyboard`), Background Modes > Remote notifications. Compare with
    `ios-wrapper/App.entitlements.template.plist`.
 2. **Info.plist**: nothing to do. `npm run ios:stage` adds every key from `ios-wrapper/Info.plist.additions.plist`
    (camera, photos and microphone reasons, URL scheme, encryption flag) and keeps any already there. Without the camera

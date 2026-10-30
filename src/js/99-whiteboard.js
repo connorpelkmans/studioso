@@ -434,8 +434,23 @@ var SBWB = null;
     cam.z = clamp(z, ZMIN, ZMAX); cam.x = sx - wx * cam.z; cam.y = sy - wy * cam.z;
     clampCam(); dirty(); camSave();
   }
-  const STEPS = [0.05, 0.08, 0.12, 0.2, 0.25, 0.33, 0.5, 0.67, 0.8, 1, 1.25, 1.5, 2, 3, 4];
-  const zoomStep = d => { const z = cam.z; zoomAt(d > 0 ? (STEPS.find(s => s > z + 0.001) || ZMAX) : ([...STEPS].reverse().find(s => s < z - 0.001) || zMin())); };
+  // The − and + buttons move along an even ladder (10% steps to 100%, then 25%, then 50%), and glide to the new zoom
+  const STEPS = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 4];
+  let zoomRaf = 0, zoomTarget = 0;
+  function zoomGlide(z){
+    cancelAnimationFrame(zoomRaf);
+    const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) { zoomAt(z); return; }
+    zoomTarget = z;
+    const z0 = cam.z, t0 = performance.now(), ms = 200, ease = k => 1 - Math.pow(1 - k, 3);
+    const step = now => { const k = Math.min(1, (now - t0) / ms); zoomAt(z0 * Math.pow(z / z0, ease(k))); if (k < 1) zoomRaf = requestAnimationFrame(step); else zoomTarget = 0; };
+    zoomRaf = requestAnimationFrame(step);
+  }
+  const zoomStep = d => {
+    const z = zoomTarget || cam.z, lo = zMin();
+    const next = d > 0 ? (STEPS.find(s => s > z + 0.004) || ZMAX) : ([...STEPS].reverse().find(s => s < z - 0.004) || lo);
+    zoomGlide(Math.max(next, d < 0 ? Math.min(lo, z) : next));
+  };
   function contentBB(){
     let bb = null;
     strokes().forEach(s => { bb = bbJoin(bb, geo(s).bb); });
@@ -476,31 +491,54 @@ var SBWB = null;
     if (window.ResizeObserver) new ResizeObserver(() => resize()).observe(frame);
     if (document.fonts && document.fonts.load) Promise.all(FONTS.map(f => document.fonts.load(`40px ${f[2]}`))).then(() => { MEAS.clear(); itemsDraw(true); dirty(); }).catch(() => {});
   }
+  // The drawing surfaces only ever grow: a smaller board draws into the top-left of them (the frame clips the rest), so a
+  // size change never throws away and rebuilds three screen-sized canvases (rebuilding them over and over could run a phone
+  // out of memory and make iOS restart the app)
+  let cvW = 0, cvHt = 0, cvR = 0;
   function resize(){
     if (!frame || !frame.isConnected) return;
+    // typing on a touch screen: the keyboard shrinks the app, but the board keeps its size and view (no refit, no jump);
+    // the text box is lifted clear of the keyboard instead (keepTaVisible)
+    if (TOUCH() && (ED || kbUp()) && fw > 0) return;
     const w = frame.clientWidth, h = frame.clientHeight, r = Math.min(2, window.devicePixelRatio || 1);
     if (w === fw && h === fh && r === dpr) return;
     fw = w; fh = h; dpr = r;
-    [cvH, cvI, cvL].forEach(c => { c.width = Math.max(1, Math.round(w * r)); c.height = Math.max(1, Math.round(h * r)); c.style.width = w + "px"; c.style.height = h + "px"; });
+    const grow = cvH.width === 0 || r !== cvR || w > cvW || h > cvHt || w < cvW * 0.6;
+    if (grow) {
+      cvW = w < cvW * 0.6 || r !== cvR ? w : Math.max(cvW, w); cvHt = r !== cvR ? h : Math.max(cvHt, h); cvR = r;
+      [cvH, cvI, cvL].forEach(c => { c.width = Math.max(1, Math.round(cvW * r)); c.height = Math.max(1, Math.round(cvHt * r)); c.style.width = cvW + "px"; c.style.height = cvHt + "px"; });
+    }
     clampCam();
     if (raf) { cancelAnimationFrame(raf); raf = 0; }
     all = true; paint();
   }
+  // The board's height comes from the screen's full height for this width (not whatever the height is this instant, which
+  // twitches with the keyboard and toolbars), and only changes when that, the board's top or the tab bar really change
+  let scrFull = 0, scrW = 0;
   function sizeHost(host){
     if (boardMaxOn()) { host.style.height = ""; return; }
-    const top = host.getBoundingClientRect().top + window.scrollY, nav = document.querySelector("nav.tabs");
-    const navH = phone() && nav ? nav.getBoundingClientRect().height : 0;
-    host.style.height = Math.max(phone() ? 420 : 460, Math.round(window.innerHeight - Math.min(top, window.innerHeight * 0.45) - navH - (phone() ? 18 : 16))) + "px";
+    if (innerWidth !== scrW) { scrW = innerWidth; scrFull = 0; }
+    if (!document.documentElement.classList.contains("kb-open")) scrFull = Math.max(scrFull, innerHeight);
+    const IH = scrFull || innerHeight;
+    // where the board starts is measured once per board and screen width: the header shrinking as the page scrolls would
+    // otherwise move it, resize it, change the scroll, and so on, back and forth
+    const key = innerWidth + "|" + (ui.wbCur || "");
+    if (host._topKey !== key) { host._topKey = key; host._top = host.getBoundingClientRect().top + window.scrollY; }
+    const top = host._top, nav = document.querySelector("nav.tabs");
+    const navH = phone() && nav ? Math.round(nav.getBoundingClientRect().height) : 0;
+    const want = Math.max(phone() ? 420 : 460, Math.round(IH - Math.min(top, IH * 0.45) - navH - (phone() ? 18 : 16)));
+    const now = parseFloat(host.style.height) || 0;
+    if (Math.abs(want - now) > 2) host.style.height = want + "px";
   }
 
   /* Painting */
   let raf = 0, all = true;
   function dirty(onlyLive){ if (!onlyLive) all = true; if (!raf) raf = requestAnimationFrame(paint); }
-  const viewBB = () => [-cam.x / cam.z, -cam.y / cam.z, (fw - cam.x) / cam.z, (fh - cam.y) / cam.z];
-  const worldTf = c => c.setTransform(cam.z * dpr, 0, 0, cam.z * dpr, cam.x * dpr, cam.y * dpr);
+  const viewBB = () => [-cam.x / cam.z, -(cam.y - LV) / cam.z, (fw - cam.x) / cam.z, (fh - cam.y + LV) / cam.z];
+  const worldTf = c => c.setTransform(cam.z * dpr, 0, 0, cam.z * dpr, cam.x * dpr, (cam.y - LV) * dpr);
   function paint(){
     raf = 0; if (!STAGE || !STAGE.isConnected || !B) return;
-    const tf = `translate(${cam.x}px,${cam.y}px) scale(${cam.z})`; back.style.transform = tf; front.style.transform = tf; STAGE.style.setProperty("--wb-inv", String(1 / cam.z));
+    const tf = `translate(${cam.x}px,${cam.y - LV}px) scale(${cam.z})`; back.style.transform = tf; front.style.transform = tf; STAGE.style.setProperty("--wb-inv", String(1 / cam.z));
     if (all) { all = false; paintInk(); }
     paintLive(); selbarPlace();
     if (zoomEl) { zoomEl.textContent = Math.round(cam.z * 100) + "%"; const t = PHONE() ? "Fit to screen" : "Zoom to 100%"; if (zoomEl.getAttribute("aria-label") !== t) { zoomEl.setAttribute("aria-label", t); zoomEl.title = PHONE() ? "Fit to Screen" : ""; } }
@@ -575,12 +613,68 @@ var SBWB = null;
     fire("wb-items", {host: STAGE.querySelector(".wb-imgs"), list: list.filter(it => it.k === "i"), xf, editing});
   }
   let ED = null;
+  // Typing low on a touch screen: the keyboard would cover the text box, and iOS would slide the whole page up to reach it.
+  // Instead the board's layers rise just enough to show the box above the keyboard (the page and toolbars stay put) and
+  // settle back when the keyboard goes. Taps are mapped through the lift (see local()).
+  // The lift is drawn by moving the board's view (LV glides to LIFT), not by sliding its layers with a CSS animation: the
+  // world layer is 4800 by 3200 (more when zoomed), and iOS draws the whole of an animated layer into memory, enough to
+  // make it restart the app
+  let LIFT = 0, LV = 0, liftRaf = 0;
+  const TOUCH = () => !!(window.matchMedia && matchMedia("(pointer:coarse)").matches);
+  function setLift(px){
+    px = Math.max(0, Math.round(px)); if (px === LIFT) return; LIFT = px; if (frame) frame.style.setProperty("--lift", px + "px");   // (where it is headed, for tests)
+    cancelAnimationFrame(liftRaf); liftRaf = 0;
+    const from = LV, t0 = performance.now(), D = 340;
+    if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) { LV = px; dirty(); return; }
+    const step = now => {
+      const k = Math.min(1, (now - t0) / D), e = 1 - Math.pow(1 - k, 3);
+      LV = Math.round(from + (LIFT - from) * e); dirty();
+      liftRaf = k < 1 ? requestAnimationFrame(step) : 0;
+    };
+    liftRaf = requestAnimationFrame(step);
+  }
+  const kbUp = () => document.documentElement.classList.contains("kb-open");
+  // The keyboard's height, learned each time it opens (a fair guess before the first time), so the board can rise to meet it
+  // as it comes up rather than after
+  let kbGuess = 0, scrH = 0;
+  function kbLearn(){
+    if (innerWidth !== (kbLearn.w || 0)) { kbLearn.w = innerWidth; scrH = 0; }
+    const vv = window.visualViewport, vis = vv ? vv.height : innerHeight;
+    if (!kbUp()) scrH = Math.max(scrH, innerHeight, vis);
+    else if (scrH) { const k = scrH - vis; if (k > 150 && k < scrH * 0.7) kbGuess = k; }
+  }
+  function keepTaVisible(predict){
+    if (!ED || !frame || !TOUCH()) return;
+    if (ED.sy != null && Math.abs(scrollY - ED.sy) > 1) window.scrollTo(0, ED.sy);
+    kbLearn();
+    const vv = window.visualViewport, f = frame.getBoundingClientRect(), r = ED.ta.getBoundingClientRect();
+    // where the box would be with no lift (the lift may be mid-glide, so read its current value)
+    const now = LV, top0 = r.top + now, bot0 = r.bottom + now;
+    const visBottom = typeof window.sbVisibleH === "function" ? window.sbVisibleH() : vv ? vv.offsetTop + vv.height : innerHeight;
+    const coming = predict && !kbUp() ? (kbGuess || Math.round((scrH || innerHeight) * 0.42)) : 0;
+    const bottom = Math.min(f.bottom, visBottom - coming) - 14;
+    const want = Math.max(0, Math.min(bot0 - bottom, top0 - f.top - 10));
+    if (want > LIFT + 1 || (want < LIFT - 1 && bot0 - LIFT < bottom - 40)) setLift(want);
+  }
+  let settleT = 0;
+  function liftCheck(){
+    kbLearn(); if (ED) keepTaVisible(); else if (LIFT && !kbUp()) setLift(0);
+    // keyboard gone: one size check, in case the screen really changed size while the board held still
+    if (!ED && !kbUp()) { clearTimeout(settleT); settleT = setTimeout(() => { const h = document.getElementById("wbHost"); if (h && STAGE && h.contains(STAGE) && !ED && !kbUp()) { sizeHost(h); resize(); } }, 350); }
+  }
+  if (window.visualViewport) { visualViewport.addEventListener("resize", liftCheck); visualViewport.addEventListener("scroll", liftCheck); }
+  addEventListener("resize", liftCheck); addEventListener("sb-kb-cover", liftCheck);
+  addEventListener("scroll", () => { if (ED && TOUCH() && ED.sy != null && Math.abs(scrollY - ED.sy) > 1) window.scrollTo(0, ED.sy); }, {passive: true});
+  new MutationObserver(liftCheck).observe(document.documentElement, {attributes: true, attributeFilter: ["class"]});
   function editText(it, isNew, selectAll){
     endText();
-    const ta = document.createElement("textarea"); ta.className = "wb-ta"; ta.setAttribute("aria-label", "Text on the whiteboard"); ta.rows = 1;
+    const ta = document.createElement("textarea"); ta.className = "wb-ta"; ta.id = "wbTa";   // an id lets a page redraw (the keyboard resizing the app) put the cursor back here
+    ta.setAttribute("aria-label", "Text on the whiteboard"); ta.rows = 1;
     ta.value = it.s || ""; Object.assign(ta.style, {left: it.x + "px", top: it.y + "px", fontSize: it.f + "px", color: penHex(it.c), fontFamily: famOf(it.ff)});
-    front.appendChild(ta); ED = {it, ta, isNew}; itemsDraw(); fitTa(); trayDraw();
-    ta.addEventListener("input", fitTa);
+    front.appendChild(ta); ED = {it, ta, isNew, sy: scrollY}; itemsDraw(); fitTa(); trayDraw();
+    keepTaVisible(true);   // rise now, together with the keyboard, so iOS has nothing to scroll into view
+    ta.addEventListener("input", () => { fitTa(); keepTaVisible(); });
+    [120, 450, 800].forEach(ms => setTimeout(() => { if (ED && ED.ta === ta) keepTaVisible(); }, ms));
     ta.addEventListener("pointerdown", e => e.stopPropagation());
     ta.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Escape" || (e.key === "Enter" && (e.ctrlKey || e.metaKey))) { e.preventDefault(); endText(); frame.focus({preventScroll: true}); } });
     ta.addEventListener("blur", () => setTimeout(() => { if (ED && ED.ta === ta && document.activeElement !== ta) endText(); }, 0));
@@ -595,6 +689,7 @@ var SBWB = null;
     else if (s !== it.s || !getI(it.id)) set("i", it.id, Object.assign({}, it, {s, at: Date.now()}));
     opEnd(); itemsDraw(true); trayDraw();
     if (s.trim() && T.tool === "text" && getI(it.id)) select(new Set(["i" + it.id]));
+    setTimeout(liftCheck, 350);   // typing somewhere else next keeps the lift; otherwise it settles once the keyboard goes
   }
   const hitItem = (p, kind) => { const r = 6 / cam.z, l = items(); for (let i = l.length - 1; i >= 0; i--) { const it = l[i]; if (kind && it.k !== kind) continue; const b = itemBB(it); if (p[0] >= b[0] - r && p[0] <= b[2] + r && p[1] >= b[1] - r && p[1] <= b[3] + r) return it; } return null; };
   function hitStroke(p){ const l = strokes(); for (let i = l.length - 1; i >= 0; i--) { const s = l[i], g = geo(s), r = Math.max(s.w / 20, 8 / cam.z); if (p[0] < g.bb[0] - r || p[0] > g.bb[2] + r || p[1] < g.bb[1] - r || p[1] > g.bb[3] + r) continue; if (nearLine(g.pts, p, r)) return s; } return null; }
@@ -666,7 +761,7 @@ var SBWB = null;
   function selbarPlace(){
     if (!selbar || selbar.hidden || !SEL) return;
     const b = selBox(); if (!b) { selbar.hidden = true; return; }
-    const w = selbar.offsetWidth, h = selbar.offsetHeight, sx = (b[0] + b[2]) / 2 * cam.z + cam.x, top = b[1] * cam.z + cam.y - h - 12, bot = b[3] * cam.z + cam.y + 14;
+    const w = selbar.offsetWidth, h = selbar.offsetHeight, sx = (b[0] + b[2]) / 2 * cam.z + cam.x, top = b[1] * cam.z + cam.y - LV - h - 12, bot = b[3] * cam.z + cam.y - LV + 14;
     selbar.style.left = clamp(sx - w / 2, 6, Math.max(6, fw - w - 6)) + "px";
     selbar.style.top = (top > 6 ? top : Math.min(bot, fh - h - 6)) + "px";
     selbar.classList.toggle("dragging", !!SEL.drag);
@@ -675,7 +770,7 @@ var SBWB = null;
   /* Pointer: draw, erase, shapes, text, select; two fingers */
   let D = null, GEST = null, HOV = null, penSeen = false, spaceDown = false;
   const PTR = new Map();
-  const local = e => { const r = frame.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  const local = e => { const r = frame.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top + LV]; };
   const toW = s => [(s[0] - cam.x) / cam.z, (s[1] - cam.y) / cam.z];
   function cancelDraw(){ if (!D) return; clearTimeout(D.snapT); clearTimeout(D.grabT); if (D.kind === "erase") opEnd(); if (D.kind === "move" || D.kind === "scale") { SEL.k = 1; SEL.dx = SEL.dy = 0; SEL.drag = false; itemsDraw(); } D = null; dirty(); }
   function touchPts(){ return [...PTR.values()].filter(p => p.type === "touch"); }
@@ -1121,7 +1216,7 @@ var SBWB = null;
   try { new MutationObserver(themeCheck).observe(document.documentElement, {attributes: true, attributeFilter: ["data-theme", "class"]}); } catch (e) {}
   try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", themeCheck); } catch (e) {}
   document.addEventListener("visibilitychange", () => { if (document.hidden) { endText(); flush(); } });
-  window.addEventListener("resize", () => { const h = document.getElementById("wbHost"); if (h && STAGE && h.contains(STAGE)) { if (ED && phone()) return; sizeHost(h); resize(); } });
+  window.addEventListener("resize", () => { const h = document.getElementById("wbHost"); if (h && STAGE && h.contains(STAGE)) { if ((ED || kbUp()) && TOUCH()) return; sizeHost(h); resize(); } });
 
   /* The page */
   function picker(list, cur){

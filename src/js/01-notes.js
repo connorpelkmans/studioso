@@ -507,15 +507,17 @@ function noteClipCheck(){
 }
 // The note being edited: a sheet over the page on a phone, and scrolled fully into view on a bigger screen
 const notePhone = () => !!(window.matchMedia && matchMedia("(max-width:700px)").matches);
-let noteShown = null;
+let noteShown = null, noteSheetId = null;
 function noteSheetUp(){
   const el = $(".note.editing"), sheet = !!el && notePhone();
   if (!el) noteMoreOpen = null;
   let bg = $(".n-sheet-bg");
   if (sheet && !bg) { bg = document.createElement("div"); bg.className = "n-sheet-bg"; bg.setAttribute("aria-hidden", "true"); if (bg.showPopover) bg.setAttribute("popover", "manual"); document.body.appendChild(bg); }
   if (bg) { bg.classList.toggle("on", sheet); if (bg.showPopover) try { if (sheet && !bg.matches(":popover-open")) bg.showPopover(); else if (!sheet && bg.matches(":popover-open")) bg.hidePopover(); } catch (e) {} }
-  if (!sheet) return;
+  if (!sheet) { noteSheetId = null; noteSheetAway(); return; }
   el.classList.add("n-sheet");
+  // slides up once when a note opens, not again on every redraw while it's being edited
+  if (noteSheetId !== el.dataset.note) { noteSheetId = el.dataset.note; el.classList.add("n-enter"); if (bg) { bg.classList.remove("n-enter"); void bg.offsetWidth; bg.classList.add("n-enter"); } setTimeout(() => { el.classList.remove("n-enter"); if (bg) bg.classList.remove("n-enter"); }, 500); }
   if (el.showPopover && !el.matches(":popover-open")) {
     const t = $("#noteText"), had = t && document.activeElement === t;
     el.setAttribute("popover", "manual");
@@ -523,7 +525,28 @@ function noteSheetUp(){
     if (had && document.activeElement !== t) try { t.focus({preventScroll: true}); } catch (e) {}
     noteToastUp(true);
   }
-  noteKbFit();
+  noteKbFit(); noteSheetKeep(el);
+}
+// Closing a note on a phone: the editor slides back down like the other sheets, instead of vanishing (a still copy does the
+// sliding; the note itself is already saved and closed)
+let noteSheetLast = null;
+function noteSheetKeep(el){ try { const r = el.getBoundingClientRect(); if (r.height > 40) noteSheetLast = {el, r}; } catch (e) {} }
+function noteSheetAway(){
+  const L = noteSheetLast; noteSheetLast = null;
+  if (!L || L.el.isConnected || !document.body.showPopover) return;
+  const still = document.documentElement.dataset.motion === "static" || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  if (still || L.r.top >= innerHeight) return;
+  const host = document.createElement("div"); host.className = "n-ghost sm-skip"; host.setAttribute("aria-hidden", "true"); host.inert = true; host.setAttribute("popover", "manual");
+  host.innerHTML = `<div class="n-ghost-dim"></div>`;
+  const c = L.el.cloneNode(true); c.removeAttribute("popover"); c.querySelectorAll("[id]").forEach(e => e.removeAttribute("id")); c.classList.remove("n-enter");
+  const t = L.el.querySelector(".note-text"), t2 = c.querySelector(".note-text"); if (t && t2) t2.value = t.value;
+  [["inset", `${L.r.top}px auto auto ${L.r.left}px`], ["width", L.r.width + "px"], ["height", L.r.height + "px"], ["max-height", "none"], ["animation", "none"]].forEach(([k, v]) => c.style.setProperty(k, v, "important"));
+  host.appendChild(c); document.body.appendChild(host);
+  try { host.showPopover(); } catch (e) {}
+  const opts = {duration: 260, easing: "cubic-bezier(.4,0,1,1)", fill: "forwards"};
+  const a = c.animate([{translate: "0 0"}, {translate: `0 ${Math.max(L.r.height, innerHeight - L.r.top) + 20}px`}], opts);
+  host.firstChild.animate([{opacity: 1}, {opacity: 0}], opts);
+  const done = () => host.remove(); a.finished.then(done, done); setTimeout(done, 700);
 }
 // A toast shows above the sheet
 function noteToastUp(again){
@@ -537,10 +560,19 @@ function noteToastUp(again){
 }
 { const t = document.getElementById("toast"); if (t) new MutationObserver(() => noteToastUp(false)).observe(t, {attributes: true, attributeFilter: ["class"]}); }
 function noteKbFit(){
-  const el = $(".note.n-sheet"), vv = window.visualViewport; if (!el || !vv) return;
-  el.style.setProperty("--kb", Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)) + "px");
+  const el = $(".note.n-sheet") || document.body, vv = window.visualViewport; if (!vv) return;
+  // the iPhone app: the bridge says how much of the app the keyboard covers while the app's frame catches up
+  const nat = document.documentElement.classList.contains("kb-native") && typeof window.sbVisibleH === "function";
+  const vis = nat ? window.sbVisibleH() : vv.height, kb = nat ? innerHeight - vis : Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop));
+  // set on the page, not the editor: an editor redrawn while typing is in the right place from its first frame (on the editor
+  // itself, a fresh one started at 0, behind the keyboard, and slid back up)
+  const R = document.documentElement;
+  R.style.setProperty("--kb", Math.max(0, Math.round(kb)) + "px");
+  R.style.setProperty("--vvh", Math.round(vis) + "px");   // what's visible: the sheet is never taller, so it never runs off the top
+  requestAnimationFrame(() => { if (el.isConnected && el.classList.contains("n-sheet")) noteSheetKeep(el); });
 }
 if (window.visualViewport) { visualViewport.addEventListener("resize", noteKbFit); visualViewport.addEventListener("scroll", noteKbFit); }
+addEventListener("sb-kb-cover", noteKbFit);
 function noteScrollIn(){
   const el = $(".note.editing"), sc = $("#nbScroll");
   if (!el || !sc) { noteShown = null; return; }
@@ -727,7 +759,9 @@ function newNoteAt(x, y){
     courseId: (() => { const b = noteBoards().find(x => x.id === noteBoardId()); return b && b.courseId || ""; })(), board: noteBoardId(), created: Date.now()});
   noteEditing = n.id;
   applyChanges([{kind:"note", id: n.id, after: n}], "");
-  setTimeout(() => { const t = $("#noteText"); if (t) t.focus(); }, 60);
+  // straight away, inside the tap, so a phone raises the keyboard together with the sheet
+  { const t = $("#noteText"); if (t) try { t.focus({preventScroll: true}); } catch (e) {} }
+  setTimeout(() => { const t = $("#noteText"); if (t && document.activeElement !== t) t.focus({preventScroll: true}); }, 60);
 }
 function saveNoteText(){
   const t = $("#noteText"); const id = noteEditing;
@@ -1064,8 +1098,16 @@ function archiveSheet(){
 /* Keyboard open: every bottom sheet sits above the keyboard and never taller than what is visible */
 function dlgKbFit(){
   const vv = window.visualViewport; if (!vv || !matchMedia("(max-width:639px)").matches) return;
+  // in the iPhone app the keyboard plugin shrinks the app itself and says when the keyboard is up (native-bridge.js)
+  if (document.documentElement.classList.contains("kb-native")) return;
+  // kb: how far the keyboard's top is above the bottom of the page's frame (where sheets are pinned). Whether the keyboard
+  // is up at all is the visible area's height alone: iOS also slides the page up to reveal a text box, which made kb small
+  // and hid the fact the keyboard was up
   const d = document.documentElement, kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop));
   d.style.setProperty("--kb-h", kb + "px"); d.style.setProperty("--vv-h", Math.round(vv.height) + "px");
-  d.classList.toggle("kb-open", kb > 80);
+  // (a short dip, such as Safari's toolbars sliding, isn't the keyboard: it has to be clearly taller than them)
+  const up = innerHeight - vv.height > 150;
+  clearTimeout(dlgKbFit.t);
+  if (up) d.classList.add("kb-open"); else if (d.classList.contains("kb-open")) dlgKbFit.t = setTimeout(() => { if (innerHeight - visualViewport.height <= 150) d.classList.remove("kb-open"); }, 60);
 }
 if (window.visualViewport) { visualViewport.addEventListener("resize", dlgKbFit); visualViewport.addEventListener("scroll", dlgKbFit); }

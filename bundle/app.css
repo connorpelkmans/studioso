@@ -763,7 +763,6 @@ header.top{background:color-mix(in srgb,var(--paper) 86%,transparent);-webkit-ba
 .pomo-btn.m-short,.pomo-btn.m-long{color:var(--leaf)}
 .pomo-btn.run{background:color-mix(in srgb,currentColor 12%,var(--surface));border-color:color-mix(in srgb,currentColor 45%,var(--line))}
 .pomo-btn svg{width:20px;height:20px;flex:none}
-html.sb-island #pomoBtnTime{display:none!important}html.sb-island .head-actions > .pomo-btn{width:40px;min-width:40px;padding:0;border-radius:50%;justify-content:center}
 /* Navigation: floating dock on phones */
 nav.tabs{left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));padding:6px;border:0;border-radius:20px;background:var(--spine);box-shadow:0 10px 30px rgba(8,20,50,.35)}
 nav.tabs .in{grid-template-columns:none!important;grid-auto-flow:column;grid-auto-columns:1fr;max-width:760px;gap:1px}
@@ -1273,6 +1272,13 @@ canvas.confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:n
   .sch-pills button[aria-pressed="true"] b{color:var(--sel-ink)}
   .sch-grid{grid-template-columns:48px minmax(0,1fr)}
   .sch-head:not(.sel),.sch-col:not(.sel){display:none}
+  /* swiping between days (100-phone.js): a clipped window over the day's cell holds still copies of the two days, and only
+     they slide; the real day underneath is hidden until the swipe settles */
+  .sch-swipe{position:absolute;z-index:4;overflow:hidden;pointer-events:none;background:transparent}
+  .sch-page{position:absolute;top:0;width:100%;will-change:transform;backface-visibility:hidden}
+  .sch-page > .sch-head{display:grid!important;box-sizing:border-box}
+  .sch-page > .sch-col{display:block!important}
+  .sch-grid.sch-swiping > :is(.sch-head,.sch-col).sel{visibility:hidden}
   .sch-b{font-size:.8rem}
 }
 /* class time editor */
@@ -1854,7 +1860,7 @@ body{background-image:var(--bgimg,linear-gradient(var(--grid) 1px,transparent 1p
 .motion-tog{display:inline-flex;align-items:center;gap:6px;margin-left:auto;font-size:.9rem;cursor:pointer}
 .sp-art{position:absolute;inset:0 0 0 18px;z-index:0;overflow:hidden;pointer-events:none}
 .skin-prev .sp-main{position:relative;z-index:1}
-body::after{content:"";position:fixed;left:0;right:0;bottom:0;height:var(--scene-h,0px);background:var(--scene,none) center bottom/100% 100% no-repeat;pointer-events:none;z-index:-1}
+body::after{content:"";position:fixed;left:0;right:0;top:calc(var(--sb-full-h,100lvh) - var(--scene-h,0px));height:var(--scene-h,0px);background:var(--scene,none) center bottom/100% 100% no-repeat;pointer-events:none;z-index:-1}
 nav.tabs{background:var(--spine-bg,var(--spine))}
 body.desk::before{background:var(--spine-bg,var(--spine))}
 /* A wide window */
@@ -1918,9 +1924,11 @@ body.desk::before{background:var(--spine-bg,var(--spine))}
 /* the note editor: wider in place, a bottom sheet on a phone */
 @media (min-width:701px){.note.editing{width:280px!important}}
 .note-moredd .note-row2{margin-top:6px}
-.note.editing.n-sheet{position:fixed;z-index:9000!important;inset:auto 0 var(--kb,0px) 0!important;width:auto!important;height:auto;max-height:calc(100dvh - var(--kb,0px) - max(72px,12dvh));margin:0;border:0;overflow:hidden auto;overscroll-behavior:contain;transform:none!important;border-radius:20px 20px 0 0;padding:30px 16px 0;text-align:left;font-size:1rem;color:#2A2418;background:var(--nc);filter:none;box-shadow:0 -12px 40px rgba(20,15,5,.35)}
+.note.editing.n-sheet{position:fixed;z-index:9000!important;inset:auto 0 var(--kb,0px) 0!important;width:auto!important;height:auto;max-height:min(calc(100dvh - var(--kb,0px) - max(72px,12dvh)),calc(var(--vvh,100dvh) - 24px - env(safe-area-inset-top,0px)));margin:0;border:0;overflow:hidden auto;overscroll-behavior:contain;transform:none!important;border-radius:20px 20px 0 0;padding:30px 16px 0;text-align:left;font-size:1rem;color:#2A2418;background:var(--nc);filter:none;box-shadow:0 -12px 40px rgba(20,15,5,.35)}
 .note.editing.n-sheet::after{display:none}
 .n-sheet-bg{display:none}
+.n-ghost{position:fixed;inset:0;width:auto;height:auto;margin:0;padding:0;border:0;background:none;overflow:hidden;pointer-events:none}
+.n-ghost-dim{position:absolute;inset:0;background:rgba(20,16,10,.45)}
 #toast[popover]{top:auto;right:auto;margin:0;border:0;width:auto;height:auto;overflow:visible}
 .nb-board:has(.n-sheet:not(:popover-open)){isolation:auto;z-index:auto}
 .n-sheet-bg.on{display:block;position:fixed;inset:0;width:auto;height:auto;margin:0;padding:0;border:0;background:rgba(20,16,10,.45);z-index:8990}
@@ -1930,6 +1938,10 @@ body.desk::before{background:var(--spine-bg,var(--spine))}
 .note.n-sheet .btn.small{min-height:44px;padding-left:12px;padding-right:12px}
 .note.n-sheet .note-btns{position:sticky;bottom:0;z-index:3;margin:4px -16px 0;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:var(--nc);border-top:1px solid rgba(42,36,24,.14)}
 .note.n-sheet .note-btns .nb{width:44px;height:44px}
+/* typing with the keyboard up: a compact sheet resting on the keyboard, just the text and the Done bar, with the board still
+   showing above it (it grows with the text but never reaches the top); the options come back when the keyboard closes */
+html:is(.kb-open,.kb-native) .note.n-sheet:has(.note-text:focus) .note-tools > :not(.note-btns){display:none}
+html:is(.kb-open,.kb-native) .note.n-sheet:has(.note-text:focus){max-height:min(calc(100dvh - var(--kb,0px) - max(96px,18dvh)),calc(var(--vvh,100dvh) - 96px))}
 @media (pointer:coarse){
   .nc{position:relative;width:34px;height:34px}
   .nc::before{content:"";position:absolute;inset:-3px;border-radius:50%}
@@ -2304,6 +2316,28 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 /* On phones there's no room beside the logo for words: the sync status is a dot (102-qol.css) */
 
 
+
+/* Continue with Apple / Google, to each one's guidelines: the same height, width and text size (Apple asks for no less prominence than any
+   other sign-in), pill shaped. Apple: its logo, the system font, black, or white on a dark background. Google: its "G",
+   Roboto Medium, white with a #747775 border, or #131314 with #8E918F in dark mode. */
+@font-face{font-family:"SB Roboto";font-weight:500;font-display:swap;src:url(../vendor/fonts/roboto-latin-500-normal.woff2) format("woff2")}
+.sb-oauth{display:grid;gap:12px}
+.sb-oa{display:flex;align-items:center;justify-content:center;gap:10px;height:44px;padding:0 12px;border-radius:22px;cursor:pointer;border:1px solid transparent;width:100%;box-sizing:border-box;-webkit-font-smoothing:antialiased}
+.sb-oa svg{flex:none;display:block}
+.sb-oa:disabled{opacity:.6;cursor:default}
+.sb-oa-apple{background:#000;color:#fff;font:500 14px/20px -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;letter-spacing:-.022em}
+.sb-oa-apple .sb-oa-a{width:15px;height:18px;margin-top:-3px}
+.sb-oa-google{background:#fff;color:#1F1F1F;border-color:#747775;font:500 14px/20px "SB Roboto",Roboto,Arial,sans-serif;letter-spacing:.25px}
+.sb-oa-google .sb-oa-g{width:20px;height:20px}
+:root[data-theme="dark"] .sb-oa-apple{background:#fff;color:#000}
+:root[data-theme="dark"] .sb-oa-google{background:#131314;color:#E3E3E3;border-color:#8E918F}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .sb-oa-apple{background:#fff;color:#000}:root:not([data-theme="light"]) .sb-oa-google{background:#131314;color:#E3E3E3;border-color:#8E918F}}
+.sb-or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.85rem}
+.sb-or::before,.sb-or::after{content:"";flex:1;height:1px;background:var(--line)}
+
+/* EU: the website as the second way to buy, quieter than the in-app prices above it (Apple asks that it not look preferred) */
+.plan-alt{display:grid;justify-items:center;gap:4px;margin-top:10px;text-align:center}
+.plan-alt .link-btn{font-size:.92rem}
 /* ===== module: 10-plan.css ===== */
 /* Studyboard Pro sheet, Your Devices, and the Settings row */
 dialog:has(.plan-sheet){width:min(600px,calc(100% - 24px))}
@@ -5040,6 +5074,13 @@ body:has(.toast.show) .acc-chip{bottom:calc(168px + var(--toast-h,48px) + env(sa
 .acc-say input{width:min(17rem,60vw)}
 .acc-note{font-weight:500}
 .acc-sel{min-height:44px;max-width:min(26rem,70vw);padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit}
+/* "Which task was that for?": the time as a small pill beside the question, each task a row with its course colour */
+.acc-chip[data-kind="which"] .acc-q{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.acc-chip[data-kind="which"] .acc-q .mini{font:700 .74rem/1 var(--font,inherit);padding:4px 8px;border-radius:999px;background:color-mix(in srgb,var(--ink) 9%,transparent);color:var(--muted);white-space:nowrap}
+.acc-chip[data-kind="which"] .acc-opt{display:inline-flex;align-items:center;gap:8px;max-width:100%}
+.acc-dot{flex:none;width:9px;height:9px;border-radius:50%;background:var(--c,#8A94A6)}
+.acc-chip[data-kind="which"] .acc-opt .acc-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acc-chip[data-kind="which"] :is(.acc-other,[data-act="acc-other-back"]){background:none;border-color:transparent;color:var(--accent,#2C55D6);font-weight:700}
 /* ===== module: 97-notecards.css ===== */
 /* Notes to Flashcards */
 .nc-sheet [hidden]{display:none!important}
@@ -5403,15 +5444,29 @@ nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-sy
 @keyframes sm-pop{from{opacity:0;transform:translateY(-6px) scale(.97)}to{opacity:1;transform:none}}
 html:not([data-motion="static"]) .sm-in{animation:sm-in .22s var(--sm-ease) backwards}
 html:not([data-motion="static"]) .sm-view{animation:sm-view .24s var(--sm-ease) backwards}
+/* Switching tabs (01-events.js tabSwap): the old page's still copy fades out under the header and tab bar */
+.tab-ghost{animation:none!important}
+.tab-ghost *{animation:none!important;transition:none!important}
+/* A closing sheet's stand-in (99-smooth.js sheetGhost): above the page, never interactive, no entrance animation */
+.sm-ghost{position:fixed;inset:0;width:auto;height:auto;margin:0;padding:0;border:0;background:none;overflow:hidden;pointer-events:none}
+.sm-ghost-dim{position:absolute;inset:0}
+html .sm-ghost .sm-ghost-sheet{animation:none!important}
 /* Sheets and pop-ups */
 html:not([data-motion="static"]) dialog[open]:not(.tour):not(.sx-dlg){animation:sm-sheet-pop .24s var(--sm-ease) backwards}
 html:not([data-motion="static"]) dialog[open]::backdrop{animation:sm-back .22s ease-out backwards}
 /* Phones: a sheet slides up from the bottom edge like the system's own sheets (whole height, iOS curve), the dim behind fading in */
 @keyframes sm-sheet-slide{from{transform:translateY(100%)}to{transform:none}}
+@keyframes sm-sheet-slide-t{from{translate:0 100%}to{translate:0 0}}
 @media (max-width:639px){
   html:not([data-motion="static"]) dialog[open]:not(.tour):not(.sm-x){animation:sm-sheet-slide .42s cubic-bezier(.32,.72,0,1) backwards}
   html:not([data-motion="static"]) dialog[open]::backdrop{animation:sm-back .32s ease-out backwards}
 }
+/* the phone note editor (a sheet of its own, not a dialog) slides up the same way when a note opens */
+@media (max-width:700px){
+  html:not([data-motion="static"]) .note.n-sheet.n-enter{animation:sm-sheet-slide-t .42s cubic-bezier(.32,.72,0,1) backwards}
+  html:not([data-motion="static"]) .n-sheet-bg.on.n-enter{animation:sm-back .32s ease-out backwards}
+}
+@media (max-width:700px) and (prefers-reduced-motion:reduce){html:not([data-motion="static"]) .note.n-sheet.n-enter{animation:sm-back .2s ease-out backwards}}
 @media (max-width:639px) and (prefers-reduced-motion:reduce){
   html:not([data-motion="static"]) dialog[open]:not(.tour):not(.sm-x){animation:sm-back .2s ease-out backwards}
 }
@@ -6777,8 +6832,7 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   html.ph-lock #view .cpt-pane > .cpt-log{flex:1 1 auto;min-height:0!important;max-height:none!important;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
   html.ph-lock #view .cpt-form{position:static!important}
   @media (max-height:700px){html.ph-lock #view .cpt-priv{display:none}}
-  /* a short screen (or large text): the starter questions in one row that scrolls sideways, so the box never cuts them off */
-  @media (max-height:760px){html.ph-lock #view .cpt-empty .cpt-chips{flex-wrap:nowrap!important;justify-content:flex-start!important;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;width:100%;max-width:100%;min-width:0;justify-self:stretch;box-sizing:border-box}html.ph-lock #view .cpt-empty .cpt-chips .chip{flex:none;white-space:nowrap}}
+  /* the starter questions always stack (the chat scrolls if there's no room) */
   /* Notes / Groups */
   #view > .pview-tabs.ph-solo .ph-solo-t{flex:1;display:flex;align-items:center;justify-content:center;min-height:42px;color:var(--ink);font:800 1.3rem var(--display);letter-spacing:-.01em}
   #view > .pview-tabs.ph-solo{justify-content:center}
@@ -7000,10 +7054,15 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
 /* Keyboard open: sheets rest on top of the keyboard and stay fully on screen (header never slides under the status bar) */
 @media (max-width:639px){
   html.kb-open dialog#dlg{margin-bottom:var(--kb-h,0);max-height:calc(var(--vv-h,100dvh) - env(safe-area-inset-top,0px) - 16px)}
+  /* the iPhone app's keyboard slides over the app: sheets and the note editor rise with it, on the keyboard's own curve */
+  html.kb-native dialog#dlg{transition:margin-bottom .3s cubic-bezier(.32,.72,0,1)}
+  html.kb-native .note.editing.n-sheet{transition:bottom .3s cubic-bezier(.32,.72,0,1),max-height .3s cubic-bezier(.32,.72,0,1)}
   /* bars pinned to the bottom of the screen would float over what you're typing, so they step aside */
-  html.kb-open nav.tabs,html.kb-open .fab,html.kb-open .room-pill,html.kb-open .acc-chip,html.kb-open .tz-note,html.kb-open .gr-prompt{visibility:hidden!important;pointer-events:none!important}
+  html.kb-open:not(.kb-native) nav.tabs,html.kb-open:not(.kb-native) .fab,html.kb-open .room-pill,html.kb-open .acc-chip,html.kb-open .tz-note,html.kb-open .gr-prompt{visibility:hidden!important;pointer-events:none!important}
   html.kb-open .toast{bottom:calc(var(--kb-h,0px) + 12px)}
-  html.kb-open body::after{display:none}
+  /* the keyboard closing (iPhone app): the bars stay away until the app has grown back into place, then fade in there */
+  html.kb-closing:not(.kb-open) :is(nav.tabs,.fab){visibility:hidden!important}
+  html.kb-back:not(.kb-open):not(.kb-closing) :is(nav.tabs,.fab){animation:sm-back .22s ease-out}
 }
 }
 
@@ -7224,7 +7283,7 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
 
 /* Companion chat on a phone: while you type, the profile card slides up into its colour band, which becomes a title bar
    with a small face and the name, and slides back down when you're done. 101-phone-v2.js sets html.cpt-typing, animates
-   the height and flies the small face from and to the big circle (html.cpt-morph while it moves). The live companion
+   the height and flies the small face up from the big circle (html.cpt-morph while it moves). The live companion
    steps out for the move and comes back to its circle after. */
 .cpt3-mini{display:none}
 @media (max-width:639px){
@@ -7234,12 +7293,28 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
   html.ph-lock #view .cpt3-mini{display:flex;position:absolute;left:0;right:0;top:0;height:54px;align-items:center;gap:10px;padding:0 16px;color:#fff;pointer-events:none;z-index:2}
   html.ph-lock #view .cpt3-mini > :first-child{width:34px;height:34px;flex:none;border-radius:50%;background:color-mix(in srgb,var(--c) 14%,#fff);box-shadow:0 0 0 2px rgba(255,255,255,.85);display:grid;place-items:center;overflow:hidden;opacity:0;transition:none;will-change:transform}
   html.ph-lock #view .cpt3-mini .cp-ai-face svg{width:30px;height:30px}
+  html.ph-lock #view .cpt3-ring .cpt-face-slot{position:relative}
+  html.ph-lock #view .cpt3-fly{position:absolute;inset:-1%;transition:opacity .16s ease;display:grid;place-items:center;pointer-events:none}
+  html.ph-lock #view .cpt3-fly svg{width:100%;height:100%}
+  html.ph-lock #view .cpt3-fly svg.ai-ic-orig{display:none}
+  /* the copy of the live companion inside the circle: drawn and hovering just like the live one */
+  html.ph-lock #view .cpt3-fly .cp-copy{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  html.ph-lock #view .cpt3-fly .cp-copy .cp-breathe{animation:cpBreathe 3.6s ease-in-out infinite}
+  html.ph-lock #view .cpt3-fly .cp-copy.cp-float .cp-breathe{animation:cpFloat 3.4s ease-in-out infinite}
+  html.ph-lock #view .cpt3-fly .cp-copy.cp-doze .cp-breathe{animation-duration:5.2s}
+  html.ph-lock #view .cpt3-fly .cp-copy svg{width:100%;height:100%;overflow:visible}
+  /* opening back out: the card, the chat below it and the circle all on one soft curve */
+  html.ph-lock.cpt-unfold #view .cpt-head.cpt3{transition:height .52s cubic-bezier(.45,0,.2,1)}
+  html.ph-lock.cpt-unfold #view{transition:height .52s cubic-bezier(.45,0,.2,1)}
+  /* the chat below the card resizes on the same curve as the card and the keyboard, so it all moves as one */
+  html.ph-lock #view{transition:height .44s cubic-bezier(.32,.72,0,1)}
   html.ph-lock #view .cpt3-mini b{font:800 1.12rem var(--display);letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,.18);opacity:0;transform:translateY(6px);transition:opacity .12s ease,transform .12s ease}
   /* coming back: the card's words fade in once it has mostly opened */
   html.ph-lock #view :is(.cpt3-acts,.cpt3 .cpt-id,.cpt3-tabs){transition:opacity .26s ease .07s,transform .42s cubic-bezier(.32,.72,0,1) .02s}
   html.ph-lock #view .cpt3-ring{transition:opacity .22s ease .12s}
   html.ph-lock #view .cpt-priv{max-height:4em;overflow:hidden;transition:max-height .44s cubic-bezier(.32,.72,0,1),opacity .25s ease}
-  html.ph-lock :is(.cp-layer,.cp-front){transition:opacity .12s ease .42s}
+  html.ph-lock :is(.cp-layer,.cp-front){transition:none}
+  html.ph-lock.cpt-morph :is(.cp-layer,.cp-front){opacity:0;transition:opacity .06s linear}
   /* while typing */
   html.ph-lock.cpt-typing #view .cpt-head.cpt3{height:54px}
   html.ph-lock.cpt-typing #view .cpt3-mini > :first-child{opacity:1;transition:none}
@@ -7249,8 +7324,9 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
   html.ph-lock.cpt-typing #view .cpt-priv{max-height:0;opacity:0}
   html.ph-lock.cpt-typing :is(.cp-layer,.cp-front){opacity:0;transition:opacity .06s linear}
   /* on the way back, the small face stays up until it lands in the circle */
-  html.ph-lock.cpt-morph:not(.cpt-typing) #view .cpt3-mini > :first-child{opacity:1;transition:none}
-  html.ph-lock.cpt-morph:not(.cpt-typing) #view .cpt3-ring{opacity:1}
+  /* coming back: the small face fades out at once and the live companion fades in riding its circle as the card opens
+     (101-phone-v2.js keeps it seated each frame); no copy flies back, which showed as a dark disc in some themes */
+  html.ph-lock.cpt-morph:not(.cpt-typing) #view .cpt3-mini > :first-child{opacity:0;transition:opacity .12s ease}
 }
 @media (max-width:639px) and (prefers-reduced-motion:reduce){
   html.ph-lock #view :is(.cpt-head.cpt3,.cpt3-mini > *,.cpt3-acts,.cpt3-ring,.cpt-id,.cpt3-tabs,.cpt-priv),html.ph-lock :is(.cp-layer,.cp-front){transition:none!important}
@@ -7465,6 +7541,13 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
   .acc-chip .acc-x{order:2;min-width:44px;min-height:44px;margin:-10px -2px -10px auto}
   .acc-chip .acc-opts{order:3;flex:1 1 100%;padding-right:10px}
   .acc-chip[data-kind="took"] .acc-opts{flex-wrap:nowrap;gap:6px}
+  /* phones: the task choices are a tidy list, one full-width row each */
+  .acc-chip[data-kind="which"]{padding:12px 6px 12px 16px}
+  .acc-chip[data-kind="which"] .acc-q{white-space:normal}
+  .acc-chip[data-kind="which"] .acc-opts{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;padding:4px 10px 0 0;min-width:0;width:100%;box-sizing:border-box}
+  .acc-chip[data-kind="which"] .acc-opt{width:100%;min-width:0;box-sizing:border-box;overflow:hidden;min-height:46px;padding:8px 14px;border-radius:14px;justify-content:flex-start;text-align:left;font-weight:600}
+  .acc-chip[data-kind="which"] :is(.acc-other,[data-act="acc-other-back"]){min-height:44px;justify-content:center}
+  .acc-chip[data-kind="which"] .acc-sel{width:100%;max-width:none}
   .acc-chip[data-kind="took"] .acc-opt{flex:1 1 auto;min-height:44px;padding:4px 10px;border-radius:999px;font-weight:700;white-space:nowrap}
   .acc-chip[data-kind="took"] .acc-opt.link{flex:none;padding:4px 6px}
   .acc-chip[data-kind="took"] .acc-l{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}

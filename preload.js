@@ -13,6 +13,10 @@ contextBridge.exposeInMainWorld("studiosoDesktop", {
   // true in the Mac App Store build
   mas: store === "mas",
   platform: process.platform,
+  // Sign in with Google or Apple in the computer's browser: oauthPort() starts the one-time return page (its port, or 0);
+  // oauthOpen(url) opens the provider and resolves with the address it returned to, or null
+  oauthPort: () => ipcRenderer.invoke("auth:port"),
+  oauthOpen: url => ipcRenderer.invoke("auth:open", typeof url === "string" ? url.slice(0, 4096) : ""),
   dataDir: () => ipcRenderer.invoke("dir:get"),
   // {path, chosen, inContainer, lost}
   dataDirInfo: () => ipcRenderer.invoke("dir:info"),

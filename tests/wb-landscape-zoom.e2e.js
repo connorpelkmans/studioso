@@ -54,6 +54,19 @@ async function run(browser, base, opts, side){
     ok(!side.errs.length, "no page errors " + side.errs.join(" | "));
     const up = await run(browser, base, {viewport: {width: 402, height: 874}, isMobile: true, hasTouch: true});
     ok(up.z1 > up.z0 * 1.5, "phone upright: pinching still zooms (" + up.z0 + "% -> " + up.z1 + "%)");
+    // − and + step evenly: 10% at a time below 100%, 25% above
+    { const ctx = await browser.newContext({viewport: {width: 1280, height: 860}});
+      await ctx.addInitScript(seed => { window.__SB_TEST = true;
+        try { localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("studyboard:notesView", "wb"); localStorage.setItem("studyboard:wbCur", "w2");
+          if (!localStorage.getItem("coursework:v2")) localStorage.setItem("coursework:v2", JSON.stringify(Object.assign({}, seed, {notes: [{id: "w2", text: "Blank", wb: {v: 1, tpl: "blank", pa: 1.6}, courseId: "", board: "", created: 1, updated: 1}]}))); } catch (e) {} }, SEED);
+      const page = await ctx.newPage();
+      await page.goto(base); await page.waitForSelector("#view", {state: "attached"}); await page.waitForTimeout(1200);
+      await page.evaluate(() => { document.querySelectorAll("dialog[open]").forEach(d => d.close()); window.__sbSync.ui.tab = "notes"; window.__sbSync.render(); });
+      await page.waitForSelector(".wb-stage .wb-zoom"); await page.click('.wb-zoom [data-wb="zoom-reset"]'); await page.waitForTimeout(300);
+      const seq = [];
+      for (const b of ["zoom-in", "zoom-in", "zoom-in", "zoom-out", "zoom-out", "zoom-out", "zoom-out", "zoom-out"]) { await page.click(`.wb-zoom [data-wb="${b}"]`); await page.waitForTimeout(280); seq.push(parseInt(await page.locator(".wbz-pct").textContent(), 10)); }
+      ok(JSON.stringify(seq) === JSON.stringify([125, 150, 175, 150, 125, 100, 90, 80]), "zoom buttons step evenly: " + seq.join(", "));
+      await ctx.close(); }
     console.log("\nwb-landscape-zoom.e2e: " + n + " checks passed");
   } finally { await browser.close(); server.close(); }
 })().catch(e => { console.error(e); process.exit(1); });

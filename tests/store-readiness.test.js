@@ -81,11 +81,15 @@ const site = read("website/index.html");
 ok(/auto-renewing subscription/.test(site) && /href="terms(\.html)?"/.test(site) && /href="privacy(\.html)?"/.test(site), "website pricing has the renewal disclosure and links");
 for (const f of ["website/index.html", "website/privacy.html", "website/terms.html", "website/account/index.html", "website/success.html", "website/cancel.html"]) ok(/href="(\.\.\/)?privacy(\.html)?"/.test(read(f)) && /href="(\.\.\/)?terms(\.html)?"/.test(read(f)), f + " footer links to privacy and terms");
 
-/* 3. no social login */
+/* 3. social sign-in: Google is only ever offered alongside Sign in with Apple on Apple devices (App Store Review Guideline 4.8),
+   and nothing else (no Facebook or other providers, no provider SDKs loaded) */
 const authFiles = [["index.html", require("../scripts/app-files").source()]].concat(["website/account/account.js", "website/account/index.html", "SETUP-GUIDE.md", "lms.js", "sw.js"].map(f => [f, read(f)]));
 for (const [f, s] of authFiles) {
-  ok(!/signInWithOAuth|signInWithIdToken|signInWithSSO|linkIdentity|provider:\s*["'](google|facebook|apple|github|azure|twitter|discord)/i.test(s), f + ": no OAuth/social sign-in call");
-  ok(!/Continue with (Google|Facebook|Apple)|Sign in with (Google|Facebook)|accounts\.google\.com\/gsi|appleid\.auth|connect\.facebook\.net/i.test(s), f + ": no social login button or SDK");
+  ok(!/provider:\s*["'](facebook|github|azure|twitter|discord)/i.test(s) && !/Continue with Facebook|Sign in with Facebook|accounts\.google\.com\/gsi|connect\.facebook\.net/i.test(s), f + ": no other social sign-in");
+  if (/Continue with Google/.test(s)) {
+    ok(/Continue with Apple/.test(s) && /signInWithIdToken\(\{provider: "apple"/.test(s), f + ": Continue with Google comes with Continue with Apple (native on iPhone)");
+    ok(/const sbAppleOk = \(\) => \{[^}]*getPlatform\(\) === "ios"/.test(s), f + ": the iPhone and iPad app always offers Apple");
+  }
 }
 
 /* 4. email templates */

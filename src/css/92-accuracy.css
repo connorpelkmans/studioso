@@ -25,3 +25,10 @@ body:has(.toast.show) .acc-chip{bottom:calc(168px + var(--toast-h,48px) + env(sa
 .acc-say input{width:min(17rem,60vw)}
 .acc-note{font-weight:500}
 .acc-sel{min-height:44px;max-width:min(26rem,70vw);padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit}
+/* "Which task was that for?": the time as a small pill beside the question, each task a row with its course colour */
+.acc-chip[data-kind="which"] .acc-q{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.acc-chip[data-kind="which"] .acc-q .mini{font:700 .74rem/1 var(--font,inherit);padding:4px 8px;border-radius:999px;background:color-mix(in srgb,var(--ink) 9%,transparent);color:var(--muted);white-space:nowrap}
+.acc-chip[data-kind="which"] .acc-opt{display:inline-flex;align-items:center;gap:8px;max-width:100%}
+.acc-dot{flex:none;width:9px;height:9px;border-radius:50%;background:var(--c,#8A94A6)}
+.acc-chip[data-kind="which"] .acc-opt .acc-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acc-chip[data-kind="which"] :is(.acc-other,[data-act="acc-other-back"]){background:none;border-color:transparent;color:var(--accent,#2C55D6);font-weight:700}

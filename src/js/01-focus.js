@@ -30,8 +30,10 @@ const notifySupported = () => "Notification" in window && !inFrame;
 let AC = null, alarmOsc = [], alarmGain = null, flashT = null;
 function audio(){
   try {
+    if (AC && AC.state === "closed") AC = null;
     if (!AC) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; AC = new C(); }
-    if (AC.state === "suspended") AC.resume();
+    // "suspended", or "interrupted" after iOS had the app in the background or took the sound for a call
+    if (AC.state !== "running") AC.resume().catch(() => {});
   } catch(e) { AC = null; }
   return AC;
 }
@@ -49,28 +51,41 @@ const SOUNDS = {
 };
 function playAlarm(name, vol, repeats){
   stopAlarm();
+  if (name === "none") return true;   // "No Sound": the on-screen alert and notification only
   const ac = audio(); if (!ac) return false;
   alarmGain = ac.createGain(); alarmGain.gain.value = 1; alarmGain.connect(ac.destination);
   let t = ac.currentTime + 0.05; const s = SOUNDS[name] || SOUNDS.chime;
   for (let r = 0; r < repeats; r++) t += s.play(ac, alarmGain, t, Math.max(0.05, Math.min(1, vol))) + 0.6;
+  audioIdle((t - ac.currentTime) * 1000 + 300);
   return true;
+}
+// The sound system is switched off once a sound has played: left running, iOS counts the app as playing audio (a speaker
+// in the Dynamic Island, squeezing the timer out of it). Switching it back on later needs no tap.
+let audioIdleT = 0;
+function audioIdle(ms){
+  clearTimeout(audioIdleT);
+  audioIdleT = setTimeout(() => {
+    try { if (AC && AC.state === "running") AC.suspend().catch(() => {}); } catch(e) {}
+  }, Math.max(0, ms));
 }
 function stopAlarm(){
   alarmOsc.forEach(o => { try { o.stop(); } catch(e) {} }); alarmOsc = [];
   if (alarmGain) { try { alarmGain.disconnect(); } catch(e) {} alarmGain = null; }
+  audioIdle(150);
   clearInterval(flashT); flashT = null; setTitle();
 }
 
 /* Timer */
 function pomoSchedule(){
   clearTimeout(pomoTimer);
-  if (pomo.running) pomoTimer = setTimeout(pomoFinish, Math.max(0, pomo.endAt - Date.now()) + 30);
+  if (pomo.running) pomoTimer = setTimeout(() => pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoFinish(); }), Math.max(0, pomo.endAt - Date.now()) + 30);
 }
 function pomoStart(){
-  audio();
+  audio(); audioIdle(400);   // switched on with the tap, so the alarm can play later, then off again
   const cfg = pomoCfg();
   if (cfg.notify && notifySupported() && Notification.permission === "default") { try { Notification.requestPermission().then(() => renderPomo()); } catch(e) {} }
   pomoToday();
+  nativeAlarm();
   pomo.endAt = Date.now() + pomoLeft(); pomo.left = 0; pomo.running = true;
   pomoSave(); pomoSchedule(); pomoUI(true);
   try {
@@ -136,7 +151,7 @@ function pomoAlarm(done, next, auto, missed){
   const title = done === "focus" ? "Focus session complete" : "Break's over";
   const body = done === "focus" ? `Nice work. ${auto ? "Your" : "Time for a"} ${next === "long" ? `${cfg.long}-minute long break` : `${cfg.short}-minute break`}${auto ? " has started" : ""}.` : `${auto ? "Your next focus session has started." : "Ready for the next focus session?"}`;
   if (!missed) {
-    playAlarm(cfg.sound, Number(cfg.volume), 5);
+    if (!ISLAND.ring) playAlarm(cfg.sound, Number(cfg.volume), 5);   // in the iPhone app, iOS rings it (see nativeAlarm)
     if (navigator.vibrate) { try { navigator.vibrate([400, 180, 400, 180, 700]); } catch(e) {} }
     if (cfg.notify && notifySupported() && Notification.permission === "granted") {
       try { const n = new Notification(title, {body, icon: FAVICON, tag: "studioso-pomo", renotify: true, requireInteraction: true}); n.onclick = () => { try { window.focus(); } catch(e) {} n.close(); stopAlarm(); }; } catch(e) {}
@@ -190,8 +205,9 @@ function renderPomoBits(){
   try { islandSync(); } catch (e) {}
 }
 // iPhone app: while the timer runs, it shows in the Dynamic Island and on the Lock Screen
-const ISLAND = {sig: "", on: false};
+const ISLAND = {sig: "", on: false, ring: false};
 function islandSync(){
+  if (ISLAND.hold) return;
   const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
   if (!FA) return;
   const active = pomo.running || pomo.left > 0;
@@ -199,11 +215,74 @@ function islandSync(){
   const t = pomo.taskId && state.tasks[pomo.taskId];
   let accent = ""; try { accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim(); } catch (e) {}
   const st = {mode: pomo.mode, label: MODE_LABEL[pomo.mode], task: t ? t.title : "", running: pomo.running, endsAt: pomo.running ? pomo.endAt : 0,
-    left: pomo.running ? 0 : Math.round(pomoLeft() / 1000), total: Math.round(modeMs(pomo.mode) / 1000), accent: /^#[0-9a-f]{6}$/i.test(accent) ? accent : ""};
+    left: pomo.running ? 0 : Math.round(pomoLeft() / 1000), total: Math.round(modeMs(pomo.mode) / 1000), accent: /^#[0-9a-f]{6}$/i.test(accent) ? accent : "",
+    plan: pomoPlan(6)};
   const sig = JSON.stringify(st);
   if (sig === ISLAND.sig) return;
   ISLAND.sig = sig;
   FA.show(st).then(ok => { if (ISLAND.sig === sig) islandOn(!!ok); }, () => islandOn(false));
+}
+// What Skip moves through next, the same steps as the Skip button in the app (a skipped session doesn't count toward a long break)
+function pomoPlan(n){
+  const cfg = pomoCfg(), every = Number(cfg.every) || 4, out = [];
+  let m = pomo.mode, c = pomo.cycle;
+  for (let i = 0; i < n; i++) {
+    const next = m === "focus" ? ((c + 1) % every === 0 ? "long" : "short") : "focus";
+    if (m === "long") c = 0;
+    out.push({mode: next, label: MODE_LABEL[next], total: Math.max(1, Number(cfg[next]) || POMO_DEF[next]) * 60});
+    m = next;
+  }
+  return out;
+}
+// The Lock Screen's Reset, Pause, Play and Skip, applied at the moment each was pressed (the card has already changed; this
+// brings the app's own timer to the same place). Skip there starts the next step straight away.
+function pomoTakeLock(){
+  const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
+  if (!FA || typeof FA.take !== "function") return Promise.resolve();
+  return FA.take().then(list => {
+    if (!list.length) return;
+    ISLAND.hold = true;
+    try {
+      list.forEach(({a, t}) => {
+        if (pomo.running && pomo.endAt <= t) return; // the timer had already run out by then
+        if (a === "pause" && pomo.running) { pomo.left = Math.max(1000, pomo.endAt - t); pomo.pausedAt = t; pomo.running = false; clearTimeout(pomoTimer); fire("focus", {type: "pause", mode: pomo.mode}); }
+        else if (a === "play" && !pomo.running && pomo.left > 0) { pomo.endAt = t + pomo.left; pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId}); }
+        else if (a === "reset" && (pomo.running || pomo.left > 0)) { if (pomo.running) { pomo.left = Math.max(1000, pomo.endAt - t); pomo.running = false; } pomoReset(); }
+        else if (a === "skip" && (pomo.running || pomo.left > 0)) { pomoSkip(); pomo.endAt = t + modeMs(pomo.mode); pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId}); }
+      });
+      pomoSave(); pomoSchedule();
+    } finally { ISLAND.hold = false; }
+    pomoUI(true);
+  }, () => {});
+}
+// iPhone app: the alarm at the end of a session is rung by iOS (so it sounds with the app closed or the phone locked), with
+// the sound and volume you picked, made here once as a short recording and saved in the app
+function wavB64(name, vol){
+  const SR = 22050, s = SOUNDS[name] || SOUNDS.chime, C = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  if (!C) return Promise.resolve("");
+  const ac = new C(1, SR * 10, SR), keep = alarmOsc; alarmOsc = [];
+  let t = 0.05; for (let r = 0; r < 3; r++) t += s.play(ac, ac.destination, t, Math.max(0.05, Math.min(1, vol))) + 0.6;
+  alarmOsc = keep;
+  return ac.startRendering().then(buf => {
+    const d = buf.getChannelData(0), n = Math.min(d.length, Math.ceil(t * SR)), out = new DataView(new ArrayBuffer(44 + n * 2));
+    const w = (o, str) => { for (let i = 0; i < str.length; i++) out.setUint8(o + i, str.charCodeAt(i)); };
+    w(0, "RIFF"); out.setUint32(4, 36 + n * 2, true); w(8, "WAVE"); w(12, "fmt "); out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, 1, true);
+    out.setUint32(24, SR, true); out.setUint32(28, SR * 2, true); out.setUint16(32, 2, true); out.setUint16(34, 16, true); w(36, "data"); out.setUint32(40, n * 2, true);
+    for (let i = 0; i < n; i++) out.setInt16(44 + i * 2, Math.max(-1, Math.min(1, d[i])) * 32767, true);
+    const bytes = new Uint8Array(out.buffer); let bin = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(bin);
+  });
+}
+function nativeAlarm(){
+  const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
+  if (!FA || typeof FA.alarm !== "function") return;
+  const cfg0 = pomoCfg();
+  // No Sound: iOS shows the notification quietly and sets no alarm
+  if (cfg0.sound === "none") { FA.alarm({name: "none"}).then(ok => { ISLAND.ring = !!ok; }, () => {}); return; }
+  const cfg = cfg0, snd = SOUNDS[cfg.sound] ? cfg.sound : "chime", name = `sb-${snd}-${Math.round(Math.max(0.05, Math.min(1, Number(cfg.volume) || 0.8)) * 100)}.wav`;
+  FA.hasSound(name).then(has => has ? FA.alarm({name}) : wavB64(snd, Number(cfg.volume) || 0.8).then(wav => FA.alarm({name, wav}), () => FA.alarm({name})))
+    .then(ok => { ISLAND.ring = !!ok; }, () => {});
 }
 function islandOn(on){ ISLAND.on = on; document.documentElement.classList.toggle("sb-island", on); }
 function openPomo(taskId){
@@ -218,6 +297,15 @@ function pomoTodayHtml(){
   const today = todayISO(), st = typeof SBSTATS !== "undefined" ? SBSTATS : null;
   const n = st ? st.focusSessions(today, today) : pomo.sessions, min = st ? st.focusMinutes(today, today) : pomo.minutes;
   return `Today: <b>${n}</b> focus session${n === 1 ? "" : "s"}, <b>${fmtMins(min)}</b> focused.${window.SBPRO && SBPRO.pomoHtml && SBPRO.isPro() ? ` <button type="button" class="link-btn" data-act="pro-fh-open">Focus History</button>` : ""}`;
+}
+// iPhone app: say why the timer isn't in the Dynamic Island when it isn't
+function pomoIslandNote(){
+  const N = window.StudyboardNative; if (!N || typeof N.islandStatus !== "function") return;
+  N.islandStatus().then(st => {
+    const p = $("#pomoDlg .pomo-island"); if (!p) return;
+    const msg = st === "off" ? "The Dynamic Island timer is off. Turn on Live Activities in Settings > Studyboard." : st === "setup" ? "The Dynamic Island timer isn't in this build of the app yet." : "";
+    p.textContent = msg; p.hidden = !msg;
+  }, () => {});
 }
 hook("stats-focus", () => { const p = $("#pomoDlg .pomo-today"); if (p) p.innerHTML = pomoTodayHtml(); });
 function renderPomo(){
@@ -244,7 +332,7 @@ function renderPomo(){
       </div>
       ${window.SBPRO && SBPRO.pomoHtml ? SBPRO.pomoHtml() : ""}${window.SBEXAM ? SBEXAM.pomoHtml() : ""}
       <label class="f">Working On<select id="pomoTask"><option value="">No particular task</option>${openTasks.slice(0, 40).map(t => { const c = courseOf(t.courseId); return `<option value="${esc(t.id)}" ${t.id === pomo.taskId ? "selected" : ""}>${esc(t.title)}${c ? " · " + esc(courseLabel(c)) : ""}</option>`; }).join("")}</select></label>
-      <p class="pomo-today">${pomoTodayHtml()}</p>
+      <p class="pomo-today">${pomoTodayHtml()}</p><p class="mini pomo-island" hidden></p>
       <details class="adv" ${ui.pomoSet ? "open" : ""} id="pomoSetD"><summary>Timer Settings</summary>
         <div class="adv-body">
           <div class="three">
@@ -256,7 +344,7 @@ function renderPomo(){
           <label class="mi-check"><input type="checkbox" id="psAutoBreak" ${cfg.autoBreak ? "checked" : ""}> Start breaks automatically</label>
           <label class="mi-check"><input type="checkbox" id="psAutoFocus" ${cfg.autoFocus ? "checked" : ""}> Start the next focus session automatically</label>
           <div class="two">
-            <label class="f">Alarm Sound<select id="psSound">${Object.entries(SOUNDS).map(([k, v]) => `<option value="${k}" ${k === cfg.sound ? "selected" : ""}>${v.label}</option>`).join("")}</select></label>
+            <label class="f">Alarm Sound<select id="psSound">${Object.entries(SOUNDS).map(([k, v]) => `<option value="${k}" ${k === cfg.sound ? "selected" : ""}>${v.label}</option>`).join("")}<option value="none" ${cfg.sound === "none" ? "selected" : ""}>No Sound</option></select></label>
             <label class="f">Volume<input type="range" id="psVol" min="0.1" max="1" step="0.1" value="${esc(cfg.volume)}"></label>
           </div>
           <button type="button" class="btn small" data-act="pomo-test">Play Test Sound</button>
@@ -266,6 +354,7 @@ function renderPomo(){
       </details>
       <details class="adv pomo-how"><summary>How the Pomodoro Method Works</summary><div class="pomo-how-b">${POMO_HOW}</div></details>
     </div></div>`;
+  pomoIslandNote();
   $("#pomoTask").addEventListener("change", e => { pomo.taskId = e.target.value; pomoSave(); });
   $("#pomoSetD").addEventListener("toggle", e => { ui.pomoSet = e.target.open; });
   const num = (id, lo, hi, def) => { const v = Math.round(Number($(id).value)); return isFinite(v) && v >= lo && v <= hi ? v : def; };
@@ -279,11 +368,24 @@ function renderPomo(){
   $$("#pomoSetD input, #pomoSetD select", d).forEach(el => el.addEventListener("change", saveCfg));
   if (keep) { const k = d.querySelector(keep); if (k) k.focus(); }
 }
-setInterval(() => { if (pomo.running) { if (Date.now() >= pomo.endAt) pomoFinish(); else pomoUI(false); } }, 500);
-document.addEventListener("visibilitychange", () => { if (!document.hidden) { clearInterval(flashT); flashT = null; setTitle(); if (pomo.running && Date.now() >= pomo.endAt) pomoFinish(); } });
+// The timer's end is only acted on after any Lock Screen presses are in (a pause there may mean it hasn't ended)
+let pomoTaking = null;
+function pomoDue(then){
+  if (pomoTaking) return;
+  const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
+  if (!FA || typeof FA.take !== "function") { then(); return; }
+  pomoTaking = pomoTakeLock().then(() => { pomoTaking = null; then(); }, () => { pomoTaking = null; then(); });
+}
+setInterval(() => { if (pomo.running) { if (Date.now() >= pomo.endAt) pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoFinish(); }); else pomoUI(false); } }, 500);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { clearInterval(flashT); flashT = null; setTitle(); pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoFinish(); }); } });
 function pomoBoot(){
-  if (pomo.running && Date.now() >= pomo.endAt) { if (Date.now() - pomo.endAt < 3 * 3600000) pomoFinish(true); else { pomo.running = false; pomo.left = 0; pomoSave(); } }
-  pomoSchedule(); pomoUI(true);
+  if (pomo.running) nativeAlarm();
+  const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
+  if (FA && typeof FA.onAction === "function") FA.onAction(() => pomoDue(() => {}));
+  pomoDue(() => {
+    if (pomo.running && Date.now() >= pomo.endAt) { if (Date.now() - pomo.endAt < 3 * 3600000) pomoFinish(true); else { pomo.running = false; pomo.left = 0; pomoSave(); } }
+    pomoSchedule(); pomoUI(true);
+  });
 }
 function pomoAction(act, el){
   switch (act) {
@@ -293,7 +395,7 @@ function pomoAction(act, el){
     case "pomo-reset": pomoReset(); return true;
     case "pomo-skip": pomoSkip(); return true;
     case "pomo-mode": pomoPickMode(el.dataset.id); return true;
-    case "pomo-test": { const cfg = pomoCfg(); if (!playAlarm($("#psSound") ? $("#psSound").value : cfg.sound, $("#psVol") ? Number($("#psVol").value) : cfg.volume, 1)) toast("Sound isn't available in this browser"); return true; }
+    case "pomo-test": { const cfg = pomoCfg(); if (($("#psSound") ? $("#psSound").value : cfg.sound) === "none") { toast("The alarm is set to No Sound"); return true; } if (!playAlarm($("#psSound") ? $("#psSound").value : cfg.sound, $("#psVol") ? Number($("#psVol").value) : cfg.volume, 1)) toast("Sound isn't available in this browser"); return true; }
     case "pomo-task": { const tk = state.tasks[el.dataset.id]; if (tk && !canDoNow(tk) && !el.dataset.study) { toast(`“${tk.title}” is taken in person, so it can't be started as a focus session. Start one of its study sessions instead.`); return true; } } if (ui.nextShown && ui.nextShown === el.dataset.id) { nufbAdd("accept", state.tasks[el.dataset.id]); ui.nextShown = null; } if (dlg.open) dlg.close(); const prevTask = pomo.taskId; openPomo(el.dataset.id);
       // A new session starts at the length asked for (or the default for a different task), never from an older paused one
       { let m = Math.round(Number(el.dataset.mins)); if (!(m >= 5 && m <= 180) && !el.dataset.study && el.dataset.id) m = focusMinsFor(el.dataset.id); const ok = m >= 5 && m <= 180; if (!pomo.running) { if (ok) { pomo.mode = "focus"; pomo.left = 0; pomo.preset = m; pomoSave(); renderPomo(); } else if (prevTask !== el.dataset.id && pomo.mode === "focus") { pomo.left = 0; pomo.preset = 0; pomoSave(); renderPomo(); } } }

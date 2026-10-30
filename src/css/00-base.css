@@ -763,7 +763,6 @@ header.top{background:color-mix(in srgb,var(--paper) 86%,transparent);-webkit-ba
 .pomo-btn.m-short,.pomo-btn.m-long{color:var(--leaf)}
 .pomo-btn.run{background:color-mix(in srgb,currentColor 12%,var(--surface));border-color:color-mix(in srgb,currentColor 45%,var(--line))}
 .pomo-btn svg{width:20px;height:20px;flex:none}
-html.sb-island #pomoBtnTime{display:none!important}html.sb-island .head-actions > .pomo-btn{width:40px;min-width:40px;padding:0;border-radius:50%;justify-content:center}
 /* Navigation: floating dock on phones */
 nav.tabs{left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));padding:6px;border:0;border-radius:20px;background:var(--spine);box-shadow:0 10px 30px rgba(8,20,50,.35)}
 nav.tabs .in{grid-template-columns:none!important;grid-auto-flow:column;grid-auto-columns:1fr;max-width:760px;gap:1px}
@@ -1273,6 +1272,13 @@ canvas.confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:n
   .sch-pills button[aria-pressed="true"] b{color:var(--sel-ink)}
   .sch-grid{grid-template-columns:48px minmax(0,1fr)}
   .sch-head:not(.sel),.sch-col:not(.sel){display:none}
+  /* swiping between days (100-phone.js): a clipped window over the day's cell holds still copies of the two days, and only
+     they slide; the real day underneath is hidden until the swipe settles */
+  .sch-swipe{position:absolute;z-index:4;overflow:hidden;pointer-events:none;background:transparent}
+  .sch-page{position:absolute;top:0;width:100%;will-change:transform;backface-visibility:hidden}
+  .sch-page > .sch-head{display:grid!important;box-sizing:border-box}
+  .sch-page > .sch-col{display:block!important}
+  .sch-grid.sch-swiping > :is(.sch-head,.sch-col).sel{visibility:hidden}
   .sch-b{font-size:.8rem}
 }
 /* class time editor */
@@ -1854,7 +1860,7 @@ body{background-image:var(--bgimg,linear-gradient(var(--grid) 1px,transparent 1p
 .motion-tog{display:inline-flex;align-items:center;gap:6px;margin-left:auto;font-size:.9rem;cursor:pointer}
 .sp-art{position:absolute;inset:0 0 0 18px;z-index:0;overflow:hidden;pointer-events:none}
 .skin-prev .sp-main{position:relative;z-index:1}
-body::after{content:"";position:fixed;left:0;right:0;bottom:0;height:var(--scene-h,0px);background:var(--scene,none) center bottom/100% 100% no-repeat;pointer-events:none;z-index:-1}
+body::after{content:"";position:fixed;left:0;right:0;top:calc(var(--sb-full-h,100lvh) - var(--scene-h,0px));height:var(--scene-h,0px);background:var(--scene,none) center bottom/100% 100% no-repeat;pointer-events:none;z-index:-1}
 nav.tabs{background:var(--spine-bg,var(--spine))}
 body.desk::before{background:var(--spine-bg,var(--spine))}
 /* A wide window */
@@ -1918,9 +1924,11 @@ body.desk::before{background:var(--spine-bg,var(--spine))}
 /* the note editor: wider in place, a bottom sheet on a phone */
 @media (min-width:701px){.note.editing{width:280px!important}}
 .note-moredd .note-row2{margin-top:6px}
-.note.editing.n-sheet{position:fixed;z-index:9000!important;inset:auto 0 var(--kb,0px) 0!important;width:auto!important;height:auto;max-height:calc(100dvh - var(--kb,0px) - max(72px,12dvh));margin:0;border:0;overflow:hidden auto;overscroll-behavior:contain;transform:none!important;border-radius:20px 20px 0 0;padding:30px 16px 0;text-align:left;font-size:1rem;color:#2A2418;background:var(--nc);filter:none;box-shadow:0 -12px 40px rgba(20,15,5,.35)}
+.note.editing.n-sheet{position:fixed;z-index:9000!important;inset:auto 0 var(--kb,0px) 0!important;width:auto!important;height:auto;max-height:min(calc(100dvh - var(--kb,0px) - max(72px,12dvh)),calc(var(--vvh,100dvh) - 24px - env(safe-area-inset-top,0px)));margin:0;border:0;overflow:hidden auto;overscroll-behavior:contain;transform:none!important;border-radius:20px 20px 0 0;padding:30px 16px 0;text-align:left;font-size:1rem;color:#2A2418;background:var(--nc);filter:none;box-shadow:0 -12px 40px rgba(20,15,5,.35)}
 .note.editing.n-sheet::after{display:none}
 .n-sheet-bg{display:none}
+.n-ghost{position:fixed;inset:0;width:auto;height:auto;margin:0;padding:0;border:0;background:none;overflow:hidden;pointer-events:none}
+.n-ghost-dim{position:absolute;inset:0;background:rgba(20,16,10,.45)}
 #toast[popover]{top:auto;right:auto;margin:0;border:0;width:auto;height:auto;overflow:visible}
 .nb-board:has(.n-sheet:not(:popover-open)){isolation:auto;z-index:auto}
 .n-sheet-bg.on{display:block;position:fixed;inset:0;width:auto;height:auto;margin:0;padding:0;border:0;background:rgba(20,16,10,.45);z-index:8990}
@@ -1930,6 +1938,10 @@ body.desk::before{background:var(--spine-bg,var(--spine))}
 .note.n-sheet .btn.small{min-height:44px;padding-left:12px;padding-right:12px}
 .note.n-sheet .note-btns{position:sticky;bottom:0;z-index:3;margin:4px -16px 0;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:var(--nc);border-top:1px solid rgba(42,36,24,.14)}
 .note.n-sheet .note-btns .nb{width:44px;height:44px}
+/* typing with the keyboard up: a compact sheet resting on the keyboard, just the text and the Done bar, with the board still
+   showing above it (it grows with the text but never reaches the top); the options come back when the keyboard closes */
+html:is(.kb-open,.kb-native) .note.n-sheet:has(.note-text:focus) .note-tools > :not(.note-btns){display:none}
+html:is(.kb-open,.kb-native) .note.n-sheet:has(.note-text:focus){max-height:min(calc(100dvh - var(--kb,0px) - max(96px,18dvh)),calc(var(--vvh,100dvh) - 96px))}
 @media (pointer:coarse){
   .nc{position:relative;width:34px;height:34px}
   .nc::before{content:"";position:absolute;inset:-3px;border-radius:50%}

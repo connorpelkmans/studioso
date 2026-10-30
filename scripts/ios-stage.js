@@ -33,15 +33,120 @@ if (fs.existsSync(plistFile)) {
   else console.log("ios-stage: Info.plist already has the camera, photo and other keys it needs");
 }
 
-// Plugins the page relies on that an older setup may not have installed yet
+// Plugins the page relies on that an older setup may not have installed yet: installed here, so the app gets them with
+// the next sync (keyboard: the app fits above the keyboard instead of iOS sliding the page; screen orientation: upright
+// except full-screen boards)
 {
-  const need = ["@capacitor/screen-orientation"].filter(m => fs.existsSync(path.join(wrap, "node_modules")) && !fs.existsSync(path.join(wrap, "node_modules", m)));
-  if (need.length) console.log("ios-stage: missing " + need.join(", ") + " (keeps the phone upright outside full-screen boards). Install it, then run this again:\n  cd ios-wrapper && npm i " + need.join(" ") + " && cd ..");
+  const need = ["@capacitor/keyboard", "@capacitor/screen-orientation"].filter(m => fs.existsSync(path.join(wrap, "node_modules")) && !fs.existsSync(path.join(wrap, "node_modules", m)));
+  if (need.length) {
+    console.log("ios-stage: installing " + need.join(", ") + " in ios-wrapper");
+    // the plugins' major version has to match the project's Capacitor, or npm refuses
+    let major = ""; try { major = String(JSON.parse(fs.readFileSync(path.join(wrap, "node_modules", "@capacitor", "core", "package.json"), "utf8")).version || "").split(".")[0]; } catch (e) {}
+    const pkgs = need.map(m => /^\d+$/.test(major) ? `${m}@^${major}` : m);
+    try { execFileSync(process.platform === "win32" ? "npm.cmd" : "npm", ["install", ...pkgs], {cwd: wrap, stdio: "inherit"}); }
+    catch (e) { console.log("ios-stage: couldn't install them. Run this, then npm run ios:stage again:\n  cd ios-wrapper && npm i " + pkgs.join(" ") + " && cd .."); }
+  }
+}
+
+// Swift files dragged into Xcode with "Copy items if needed" are copies, so later fixes to ios-wrapper/native/ would never
+// reach the app. Any of them found in the Xcode project are refreshed here (files you haven't added are left out).
+{
+  const proj = path.join(wrap, "ios", "App");
+  if (fs.existsSync(proj)) {
+    const srcs = [], walk = (d, out, skip) => { for (const f of fs.readdirSync(d, {withFileTypes: true})) { const p = path.join(d, f.name); if (f.isDirectory()) { if (!skip || !/^(Pods|build|DerivedData|node_modules|public)$/.test(f.name)) walk(p, out, skip); } else if (f.name.endsWith(".swift")) out.push(p); } };
+    walk(path.join(wrap, "native"), srcs, false);
+    const inProj = []; walk(proj, inProj, true);
+    const done = [];
+    for (const src of srcs) {
+      const name = path.basename(src), text = fs.readFileSync(src, "utf8");
+      for (const dst of inProj.filter(p => path.basename(p) === name)) {
+        if (fs.readFileSync(dst, "utf8") !== text) { fs.writeFileSync(dst, text); done.push(path.relative(wrap, dst)); }
+      }
+    }
+    // and any of them the Xcode project lists but that's missing from disk is put back where Xcode looks for it
+    const pbx = path.join(proj, "App.xcodeproj", "project.pbxproj"), txt = fs.existsSync(pbx) ? fs.readFileSync(pbx, "utf8") : "";
+    for (const src of srcs) {
+      const name = path.basename(src), esc = name.replace(/[.]/g, "\\.");
+      if (!new RegExp("path = \"?" + esc + "\"?;").test(txt)) continue;
+      // the widget file belongs in the widget's own folder even when a copy sits elsewhere (Xcode shows it red otherwise)
+      const wdir = path.join(proj, "StudyboardWidgets");
+      if (name === "StudyboardWidgets.swift" && fs.existsSync(wdir) && !fs.existsSync(path.join(wdir, name))) {
+        fs.copyFileSync(src, path.join(wdir, name)); done.push(path.relative(wrap, path.join(wdir, name)) + " (was missing)"); continue;
+      }
+      if (inProj.some(p => path.basename(p) === name)) continue;
+      // put back where Xcode may look for it: the App folder, and the widget's own folder for the widget file
+      for (const dir of name === "StudyboardWidgets.swift" ? ["App", "StudyboardWidgets"] : ["App"]) {
+        const dst = path.join(proj, dir, name);
+        fs.mkdirSync(path.dirname(dst), {recursive: true}); fs.copyFileSync(src, dst); done.push(path.relative(wrap, dst) + " (was missing)");
+      }
+    }
+    if (done.length) console.log("ios-stage: updated in the Xcode project: " + done.join(", "));
+  }
+}
+
+// So the same command works from inside ios-wrapper too (where Xcode is opened from), it gets a matching shortcut there
+{
+  const pj = path.join(wrap, "package.json");
+  try {
+    if (fs.existsSync(pj)) {
+      const j = JSON.parse(fs.readFileSync(pj, "utf8"));
+      j.scripts = j.scripts || {};
+      if (j.scripts["ios:stage"] !== "cd .. && npm run ios:stage") { j.scripts["ios:stage"] = "cd .. && npm run ios:stage"; fs.writeFileSync(pj, JSON.stringify(j, null, 2) + "\n"); console.log("ios-stage: npm run ios:stage now also works from inside ios-wrapper"); }
+    }
+  } catch (e) {}
+}
+
+// The Dynamic Island widget's Info.plist: if the Xcode project uses one that isn't on disk (it goes missing when the
+// files Xcode generated for the widget are deleted), it's recreated with what a widget needs
+{
+  const pbx = path.join(wrap, "ios", "App", "App.xcodeproj", "project.pbxproj");
+  try {
+    const txt = fs.existsSync(pbx) ? fs.readFileSync(pbx, "utf8") : "";
+    const want = [...new Set([...txt.matchAll(/INFOPLIST_FILE = "?([^";]*StudyboardWidgets[^";]*Info\.plist)"?;/g)].map(m => m[1]))];
+    for (const rel of want) {
+      const f = path.join(wrap, "ios", "App", rel);
+      if (fs.existsSync(f)) continue;
+      fs.mkdirSync(path.dirname(f), {recursive: true});
+      fs.writeFileSync(f, `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n<dict>\n\t<key>NSExtension</key>\n\t<dict>\n\t\t<key>NSExtensionPointIdentifier</key>\n\t\t<string>com.apple.widgetkit-extension</string>\n\t</dict>\n</dict>\n</plist>\n`);
+      console.log("ios-stage: recreated the widget's " + path.join("ios", "App", rel));
+    }
+  } catch (e) {}
+}
+
+// The App target's entitlements file (Sign in with Apple, push): if Xcode is set to use one that isn't on disk (it can go missing
+// when files Xcode made are cleaned up), it's recreated with what the app uses. Xcode's automatic signing adds the matching
+// capabilities to the App ID.
+{
+  const pbx = path.join(wrap, "ios", "App", "App.xcodeproj", "project.pbxproj");
+  try {
+    const txt = fs.existsSync(pbx) ? fs.readFileSync(pbx, "utf8") : "";
+    const want = [...new Set([...txt.matchAll(/CODE_SIGN_ENTITLEMENTS = "?([^";]*App[^";]*\.entitlements)"?;/g)].map(m => m[1]))].filter(r => !/Widget|Share/i.test(r));
+    for (const rel of want) {
+      const f = path.join(wrap, "ios", "App", rel);
+      if (fs.existsSync(f)) continue;
+      fs.mkdirSync(path.dirname(f), {recursive: true});
+      fs.writeFileSync(f, `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n<dict>\n\t<key>aps-environment</key>\n\t<string>development</string>\n\t<key>com.apple.developer.applesignin</key>\n\t<array>\n\t\t<string>Default</string>\n\t</array>\n</dict>\n</plist>\n`);
+      console.log("ios-stage: recreated " + path.join("ios", "App", rel) + " (Sign in with Apple and push)");
+    }
+  } catch (e) {}
 }
 
 const cli = path.join(wrap, "node_modules", "@capacitor", "cli");
 if (fs.existsSync(path.join(wrap, "ios")) && fs.existsSync(cli)) {
   execFileSync(process.platform === "win32" ? "npx.cmd" : "npx", ["cap", "sync", "ios"], {cwd: wrap, stdio: "inherit"});
+  // Studyboard's own plugins are connected the same way Capacitor connects its plugins (its plugin list), for each one whose
+  // file is in the Xcode project, so they work without depending on the storyboard's class setting
+  try {
+    const cfg = path.join(wrap, "ios", "App", "App", "capacitor.config.json"), pbx = path.join(wrap, "ios", "App", "App.xcodeproj", "project.pbxproj");
+    const txt = fs.existsSync(pbx) ? fs.readFileSync(pbx, "utf8") : "";
+    const ours = [["StudyboardFocusActivityPlugin.swift", "StudyboardFocusActivityPlugin"], ["StudyboardLms.swift", "StudyboardLmsPlugin"], ["StudyboardPlugins.swift", "StudyboardCaptureTokenPlugin"], ["StudyboardPlugins.swift", "StudyboardSharedQueuePlugin"], ["MainViewController.swift", "StudyboardSignInPlugin"], ["MainViewController.swift", "StudyboardStorePlugin"]]
+      .filter(([f]) => txt.includes(f)).map(([, c]) => c);
+    if (ours.length && fs.existsSync(cfg)) {
+      const j = JSON.parse(fs.readFileSync(cfg, "utf8")); const list = Array.isArray(j.packageClassList) ? j.packageClassList : [];
+      const add = ours.filter(c => !list.includes(c));
+      if (add.length) { j.packageClassList = list.concat(add); fs.writeFileSync(cfg, JSON.stringify(j, null, "\t") + "\n"); console.log("ios-stage: connected " + add.join(", ")); }
+    }
+  } catch (e) { console.log("ios-stage: couldn't add Studyboard's plugins to the plugin list: " + e.message); }
   console.log("ios-stage: synced into the Xcode project. Open it with: cd ios-wrapper && npx cap open ios");
 } else console.log("ios-stage: no Xcode project yet (ios-wrapper/ios/) or Capacitor not installed there: see TESTING-MAC-IPHONE.md, iPhone step 2.");
 

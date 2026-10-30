@@ -28,8 +28,10 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await page.evaluate(() => { window.__kb(false); document.getElementById("dlg").close(); }); await page.waitForTimeout(200);
     ok(await vis("nav.tabs"), "and come back when it closes");
 
-    // the companion chat
-    await page.evaluate(() => { window.__sbSync.ui.tab = "companion"; window.__sbSync.render(); }); await page.waitForSelector("#cptIn"); await page.waitForTimeout(900);
+    // the companion chat: opening its tab never flashes the small title-bar face (the page's fade-in used to show it briefly)
+    await page.evaluate(() => { window.__miniSeen = 0; const t0 = performance.now(), look = () => { const f = document.querySelector(".cpt3-mini > :first-child"); if (f && !document.documentElement.classList.contains("cpt-typing")) window.__miniSeen = Math.max(window.__miniSeen, Number(getComputedStyle(f).opacity)); if (performance.now() - t0 < 900) requestAnimationFrame(look); }; requestAnimationFrame(look); });
+    await page.tap('nav.tabs [data-tab="companion"]'); await page.waitForSelector("#cptIn"); await page.waitForTimeout(900);
+    ok(await page.evaluate(() => window.__miniSeen) === 0, "opening the Companion tab, the small title-bar face stays hidden (" + await page.evaluate(() => window.__miniSeen) + ")");
     const card = () => page.evaluate(() => { const h = document.querySelector(".cpt-head.cpt3"), f = document.querySelector(".cpt-face-slot").getBoundingClientRect(), log = document.getElementById("cptLog");
       const sp = [...document.querySelectorAll("[data-px]")].map(e => e.getBoundingClientRect()).find(r => r.width > 30);
       const fr = document.querySelector(".cp-front"); return {h: Math.round(h.getBoundingClientRect().height), mini: getComputedStyle(document.querySelector(".cpt3-mini b")).opacity, sprite: fr ? getComputedStyle(fr).opacity : "1", log: Math.round(log.getBoundingClientRect().height), tabs: getComputedStyle(document.querySelector(".cpt3-tabs")).opacity, off: sp ? Math.round(Math.hypot(sp.left + sp.width / 2 - (f.left + f.width / 2), sp.top + sp.height / 2 - (f.top + f.height / 2))) : null}; });
@@ -51,6 +53,39 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     const after = await card();
     ok(!(await page.evaluate(() => document.documentElement.classList.contains("cpt-typing"))) && Math.abs(after.h - before.h) <= 2, "done typing, the card unfolds again (" + after.h + "px)");
     ok(after.off !== null && after.off <= 8 && after.sprite === "1" && after.mini === "0", "with the companion back in its circle (" + after.off + "px off)");
+    // a page redraw right as the keyboard closes still opens the card smoothly, with the circle growing back down into place
+    await page.focus("#cptIn"); await page.evaluate(() => window.__kb(true)); await page.waitForTimeout(700);
+    const mid = await page.evaluate(() => new Promise(res => { document.getElementById("cptIn").blur(); window.__kb(false); window.__sbSync.render();
+      setTimeout(() => { const h = document.querySelector(".cpt-head.cpt3"), ring = document.querySelector(".cpt3-ring"); res({h: Math.round(h.getBoundingClientRect().height), ringMoving: ring.getAnimations().length > 0, fly: !!document.querySelector(".cpt3-fly")}); }, 150); }));
+    ok(mid.h > 70 && mid.h < before.h - 20, "after a redraw the card is still opening, not popped open (" + mid.h + "px of " + before.h + ")");
+    ok(mid.ringMoving && mid.fly, "and the circle, carrying the face, is on its way back down from the title bar");
+    await page.waitForTimeout(700);
+    ok(await page.evaluate(() => !document.querySelector(".cpt3-fly")), "the face copy is gone once it lands");
+    // unfolding again, watched frame by frame: the copy matches the live companion's size, and the two are never both fully shown
+    await page.focus("#cptIn"); await page.evaluate(() => window.__kb(true)); await page.waitForTimeout(700);
+    const w = await page.evaluate(() => new Promise(res => { const out = {both: 0, sizes: []}; document.getElementById("cptIn").blur(); window.__kb(false); const t0 = performance.now(), look = () => {
+      const c = document.querySelector(".cpt3-fly"), f = document.querySelector(".cp-front"), sp = document.querySelector(".cp-front .cp");
+      const co = c ? +getComputedStyle(c).opacity : 0, fo = f ? +getComputedStyle(f).opacity : 0;
+      if (co > 0.6 && fo > 0.6) out.both++;
+      if (c && sp && performance.now() - t0 > 380) { const a = c.getBoundingClientRect(), b = sp.getBoundingClientRect(); out.sizes.push(Math.round(a.width - b.width) + "/" + Math.round((a.top + a.height / 2) - (b.top + b.height / 2))); }
+      if (performance.now() - t0 < 1100) requestAnimationFrame(look); else res(out); }; requestAnimationFrame(look); }));
+    // the copy is the live companion as it is (same eyes and pose), hovering in step with it
+    await page.focus("#cptIn"); await page.evaluate(() => window.__kb(true)); await page.waitForTimeout(700);
+    const same = await page.evaluate(() => new Promise(res => { document.getElementById("cptIn").blur(); window.__kb(false); setTimeout(() => {
+      const c = document.querySelector(".cpt3-fly .cp-copy"), l = document.querySelector(".cp-front .cp"); if (!c || !l) { res(null); return; }
+      const sv = e => e.querySelector("svg"), a1 = l.querySelector(".cp-breathe").getAnimations()[0], a2 = c.querySelector(".cp-breathe").getAnimations()[0];
+      res({eyes: sv(c).getAttribute("data-e") === sv(l).getAttribute("data-e"), pose: c.className.replace(" cp-copy", "") === l.className, phase: a1 && a2 ? Math.round(Math.abs(a1.currentTime - a2.currentTime)) : -1});
+    }, 200); }));
+    ok(same && same.eyes && same.pose, "the circle carries the live companion as it is (same eyes and pose): " + JSON.stringify(same));
+    ok(same && same.phase >= 0 && same.phase < 60, "and it hovers in step with it, so the swap doesn't restart the hover (" + (same && same.phase) + " ms apart)");
+    await page.waitForTimeout(700);
+    ok(w.both <= 2, "the live companion and the face copy are never both fully shown (" + w.both + " frames)");
+    ok(w.sizes.length && w.sizes.every(d => d.split("/").every(v => Math.abs(+v) <= 8)), "just before they swap, the copy is the live companion's size and in its spot (size/offset): " + w.sizes.join(","));
+    // a short screen: the starter questions stay stacked, not a sideways row
+    await page.evaluate(() => { window.__sbSync.ui.cpt.id = null; window.__sbSync.render(); }); await page.setViewportSize({width: 402, height: 640}); await page.waitForTimeout(400);
+    ok(await page.evaluate(() => { const c = document.querySelector(".cpt-empty .cpt-chips"); return !c || getComputedStyle(c).flexWrap !== "nowrap"; }), "on a short screen the suggestions still stack");
+    await page.setViewportSize({width: 402, height: 874}); await page.waitForTimeout(300);
+    ok(await page.evaluate(() => getComputedStyle(document.getElementById("view")).transitionProperty.includes("height")), "the chat area resizes on the same curve as the card");
     ok(!errs.length, "no page errors " + errs.join(" | "));
     await ctx.close();
     console.log("\nphone-keyboard.e2e: " + n + " checks passed");

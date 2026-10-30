@@ -1,6 +1,7 @@
 {
-  "appId": "com.studioso.app",
+  "appId": "com.studyboardapp.studyboard",
   "appName": "Studyboard",
+  "loggingBehavior": "none",
   "webDir": "ios-www",
   "server": {
     "iosScheme": "capacitor",
@@ -26,6 +27,7 @@
     "StudyboardCaptureToken": {},
     "StudyboardSharedQueue": {},
     "PushNotifications": { "presentationOptions": ["badge", "sound", "alert"] },
-    "SplashScreen": { "launchAutoHide": true, "launchShowDuration": 0 }
+    "SplashScreen": { "launchAutoHide": true, "launchShowDuration": 0 },
+    "Keyboard": { "resize": "none", "resizeOnFullScreen": false }
   }
 }

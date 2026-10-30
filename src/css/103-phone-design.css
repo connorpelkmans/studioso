@@ -25,6 +25,13 @@
   .acc-chip .acc-x{order:2;min-width:44px;min-height:44px;margin:-10px -2px -10px auto}
   .acc-chip .acc-opts{order:3;flex:1 1 100%;padding-right:10px}
   .acc-chip[data-kind="took"] .acc-opts{flex-wrap:nowrap;gap:6px}
+  /* phones: the task choices are a tidy list, one full-width row each */
+  .acc-chip[data-kind="which"]{padding:12px 6px 12px 16px}
+  .acc-chip[data-kind="which"] .acc-q{white-space:normal}
+  .acc-chip[data-kind="which"] .acc-opts{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;padding:4px 10px 0 0;min-width:0;width:100%;box-sizing:border-box}
+  .acc-chip[data-kind="which"] .acc-opt{width:100%;min-width:0;box-sizing:border-box;overflow:hidden;min-height:46px;padding:8px 14px;border-radius:14px;justify-content:flex-start;text-align:left;font-weight:600}
+  .acc-chip[data-kind="which"] :is(.acc-other,[data-act="acc-other-back"]){min-height:44px;justify-content:center}
+  .acc-chip[data-kind="which"] .acc-sel{width:100%;max-width:none}
   .acc-chip[data-kind="took"] .acc-opt{flex:1 1 auto;min-height:44px;padding:4px 10px;border-radius:999px;font-weight:700;white-space:nowrap}
   .acc-chip[data-kind="took"] .acc-opt.link{flex:none;padding:4px 6px}
   .acc-chip[data-kind="took"] .acc-l{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
