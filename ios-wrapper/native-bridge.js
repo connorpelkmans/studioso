@@ -358,10 +358,13 @@
     // --kb-h (and the visible height as --vv-h, window.sbVisibleH), so sheets and the chat sit above the keyboard from the
     // first frame instead of slipping behind it for a moment
     var kbH = 0, fullH = 0, isOpen = false, closeT = 0;
-    var cover = function () { return isOpen && kbH ? Math.max(0, Math.round(innerHeight - (fullH - kbH))) : 0; };
+    // fullH: the app's full height. Read whenever no keyboard is up (this file runs so early the page can still report 0),
+    // and the keyboard can never be taken to cover more than its own height
+    var full = function () { if (!isOpen && innerHeight > 0) fullH = Math.max(fullH, innerHeight); return fullH > 0 ? fullH : innerHeight; };
+    var cover = function () { return isOpen && kbH ? Math.max(0, Math.min(kbH, Math.round(innerHeight - (full() - kbH)))) : 0; };
     var apply = function () {
       var r = root(); if (!r) return;
-      if (!isOpen) fullH = Math.max(fullH, innerHeight);
+      full();
       var c = cover();
       r.style.setProperty("--kb-h", c + "px"); r.style.setProperty("--vv-h", (innerHeight - c) + "px");
       try { window.dispatchEvent(new Event("sb-kb-cover")); } catch (e) {}
@@ -374,7 +377,7 @@
       if (on) {
         // iOS often reports the keyboard closing and opening again at once (focus moving between boxes, a sheet closing):
         // a close that is followed straight away by an open never touches the page, so the bars don't blink
-        isOpen = true; kbH = h || kbH; clearTimeout(closeT); clearTimeout(backT); r.classList.remove("kb-closing", "kb-back"); r.classList.add("kb-open"); apply(); return;
+        full(); isOpen = true; kbH = h || kbH; clearTimeout(closeT); clearTimeout(backT); r.classList.remove("kb-closing", "kb-back"); r.classList.add("kb-open"); apply(); return;
       }
       // iOS also reports the keyboard closing when the app comes back to the front, with no keyboard having been open:
       // that's ignored, so the tab bar is never hidden for it
@@ -382,7 +385,7 @@
       // the keyboard slides over the app (resize "none"), so the tab bar never had to move: it's simply there when it closes
       hideT = setTimeout(function () { isOpen = false; r.classList.remove("kb-open"); apply(); }, 60);
     };
-    addEventListener("resize", apply);
+    addEventListener("resize", apply); document.addEventListener("DOMContentLoaded", apply); addEventListener("load", apply);
     // coming back to the app: no keyboard is up any more, and the bars are simply there (no waiting, no fade)
     document.addEventListener("visibilitychange", function () {
       if (document.hidden) return;
@@ -394,21 +397,29 @@
     apply();
     // iOS scrolls the page to reveal the focused box when the keyboard comes up; the page has already moved it into view, so
     // that scroll is undone (only the one iOS makes as the keyboard arrives, never your own scrolling)
-    var keepY = null, keepT = 0;
+    var keepY = null, keepT = 0, realOpen = false;
     var holdScroll = function () { keepY = window.scrollY; clearTimeout(keepT); keepT = setTimeout(function () { keepY = null; }, 700); };
     addEventListener("scroll", function () { if (keepY !== null && Math.abs(window.scrollY - keepY) > 1) window.scrollTo(0, keepY); }, {passive: true});
     document.addEventListener("focusin", function (e) { var t = e.target; if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) holdScroll(); }, true);
     try {
       // while typing the app itself can't scroll, so iOS has nothing to slide (the boxes have been moved into view already, and
       // lists inside sheets still scroll); it's always switched back on when the keyboard goes or the app comes back
-      KB.addListener("keyboardWillShow", function (info) { holdScroll(); kbOn(true, info && info.keyboardHeight); try { KB.setScroll({ isDisabled: true }); } catch (e) {} });
-      KB.addListener("keyboardWillHide", function () { kbOn(false); try { KB.setScroll({ isDisabled: false }); } catch (e) {} });
+      KB.addListener("keyboardWillShow", function (info) { realOpen = true; clearTimeout(expectT); holdScroll(); kbOn(true, info && info.keyboardHeight); try { KB.setScroll({ isDisabled: true }); } catch (e) {} });
+      KB.addListener("keyboardWillHide", function () { realOpen = false; kbOn(false); try { KB.setScroll({ isDisabled: false }); } catch (e) {} });
       document.addEventListener("visibilitychange", function () { if (!document.hidden) try { KB.setScroll({ isDisabled: false }); } catch (e) {} });
       // the lock goes on the moment a text box is tapped, before the keyboard starts to rise (iOS begins its slide as the
       // keyboard appears, which can be before the app hears about it); tapping away with no box focused switches it off
       var isBox = function (t) { return !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable) && !/^(checkbox|radio|button|submit|range|color|file)$/i.test(t.type || ""); };
       var unlockT = 0;
-      document.addEventListener("focusin", function (e) { if (isBox(e.target)) { clearTimeout(unlockT); try { KB.setScroll({ isDisabled: true }); } catch (x) {} } }, true);
+      // a box tapped while no keyboard is up: the keyboard is about to come, and its height is known from last time, so the
+      // page makes room for it straight away (the editor heads to its final spot in one move); if no keyboard comes (a
+      // hardware keyboard), that's undone
+      var expectT = 0;
+      document.addEventListener("focusin", function (e) {
+        if (!isBox(e.target)) return;
+        clearTimeout(unlockT); try { KB.setScroll({ isDisabled: true }); } catch (x) {}
+        if (!isOpen && kbH > 0) { kbOn(true, kbH); clearTimeout(expectT); expectT = setTimeout(function () { if (!realOpen) kbOn(false); }, 900); }
+      }, true);
       document.addEventListener("focusout", function () { clearTimeout(unlockT); unlockT = setTimeout(function () { if (!isBox(document.activeElement) && !isOpen) try { KB.setScroll({ isDisabled: false }); } catch (x) {} }, 120); }, true);
     } catch (e) {}
   }
